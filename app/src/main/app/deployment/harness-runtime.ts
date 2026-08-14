@@ -81,10 +81,26 @@
 // Bootstrap 은 `AuthSecretReader` 전체가 아니라 `() => secretReader.read(CORP_LLM_AUTH.id)` 라는
 // **AuthId 를 닫은 closure** 만 넘긴다.
 
+import type { AuthId, AuthRuntime } from '../../contracts/auth'
 import type { RuntimeConfigAugmenters } from '../../features/harnesses/runtime-config'
 
+// Bootstrap 이 주입하는 능력. **시그니처를 바꾸지 않는다** — 바꾸면 배포가 범용 `bootstrap.ts`
+// 까지 고쳐야 한다.
+//
+// ⚠️ **두 능력을 한 augmenter 에 함께 주지 마라.** config API 방식은 `auth.bind(...)` 만,
+// direct credential 방식은 `secretFor(...)` 가 돌려준 **AuthId 가 닫힌 closure** 만 받는다.
+// 그 경계가 OAuth access token(=API 접근 권한)과 응답의 실제 LLM token 을 가른다.
+export interface HarnessRuntimeDeploymentDeps {
+  auth: AuthRuntime
+  // AuthId 를 닫아 `() => string | null` 로 좁힌 raw 조회. **전체 `AuthSecretReader` 가 아니다.**
+  secretFor: (authId: AuthId) => () => string | null
+}
+
 // 기본 배포는 동적 보강이 없다 — 모든 key 가 기존 settings 만으로 동작한다.
-export function createRuntimeConfigAugmenters(): RuntimeConfigAugmenters {
+export function createRuntimeConfigAugmenters(
+  deps: HarnessRuntimeDeploymentDeps
+): RuntimeConfigAugmenters {
+  void deps
   return {}
 }
 

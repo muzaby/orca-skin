@@ -51,28 +51,65 @@ describe('env 우선순위 (AC15)', () => {
     expect(prepared.env?.INHERITED).toBe('from-process')
   })
 
-  it('app env 는 settings env 를 덮는다', () => {
+  // r3 정정 — r2 는 이 단언이 반대로 고정돼 있어 결함을 회귀로 잡는 대신 승인하고 있었다.
+  // `orca.json` app env 는 **전역 폴백**이고 settings 는 **그 ModelProvider 전용 설정**이다.
+  // 폴백이 전용을 이기면 게이트웨이를 바꿔도 URL·모델 변수가 따라오지 않는다.
+  it('settings env 가 app env 를 덮는다 — 전용 설정이 전역 폴백을 이긴다', () => {
     const prepared = prepareHarnessConfig({
       config: config({ settings: settings({ SHARED: 'settings' }), runtimeEnv: { X: '1' } }),
       appEnv: { SHARED: 'app' },
       baseEnv: BASE
     })
 
-    expect(prepared.env?.SHARED).toBe('app')
+    expect(prepared.env?.SHARED).toBe('settings')
   })
 
-  it('충돌하는 settings env 키는 in-memory copy 에서 제거된다 — SDK 우선순위와 무관하게 결과가 하나다', () => {
+  it('네 층의 상대 순서가 계약과 같다 — runtime > settings > app > process', () => {
+    const prepared = prepareHarnessConfig({
+      config: config({
+        settings: settings({ A: 'settings', B: 'settings', C: 'settings' }),
+        runtimeEnv: { A: 'runtime' }
+      }),
+      appEnv: { A: 'app', B: 'app', D: 'app' },
+      baseEnv: () => ({ A: 'process', B: 'process', C: 'process', D: 'process', E: 'process' })
+    })
+
+    expect(prepared.env).toMatchObject({
+      A: 'runtime', // 4층 전부 충돌 → runtime
+      B: 'settings', // settings·app·process → settings
+      C: 'settings', // settings·process → settings
+      D: 'app', // app·process → app
+      E: 'process' // process 만 → 상속 유지
+    })
+  })
+
+  // r3 정정 — r2 는 `runtimeEnv` 와 충돌하는 키만 지웠다. 그러면 settings·app 양쪽에 있는 키가
+  // **두 채널에 동시에** 남아 최종 값이 SDK 내부 우선순위에 달린다.
+  it('options.env 를 만드는 턴에는 settings 의 env 블록을 통째로 비운다', () => {
     const source = settings({ TOKEN: 'from-settings', KEEP: 'yes' }, { model: 'm' })
     const prepared = prepareHarnessConfig({
       config: config({ settings: source, runtimeEnv: { TOKEN: 'from-runtime' } }),
       baseEnv: BASE
     })
 
-    const adjustedEnv = (prepared.providerSettings?.settings as { env: Record<string, string> }).env
-    expect(adjustedEnv).toEqual({ KEEP: 'yes' })
+    // 두 채널에 같은 키가 동시에 남지 않는다 → SDK 우선순위와 무관하게 결과가 하나다.
+    expect(prepared.providerSettings?.settings).not.toHaveProperty('env')
     // 비-env 항목은 그대로 `options.settings` 채널로 간다.
     expect(prepared.providerSettings?.settings).toMatchObject({ model: 'm' })
+    // 비운 값은 사라지지 않고 우선순위대로 options.env 로 hoist 된다.
     expect(prepared.env?.TOKEN).toBe('from-runtime')
+    expect(prepared.env?.KEEP).toBe('yes')
+  })
+
+  it('options.env 를 만들지 않는 턴에는 settings 채널을 건드리지 않는다 — 정적 배포 무회귀', () => {
+    const source = settings({ A: '1' })
+    const prepared = prepareHarnessConfig({
+      config: config({ settings: source }),
+      baseEnv: BASE
+    })
+
+    expect(prepared.env).toBeUndefined()
+    expect(prepared.providerSettings?.settings).toBe(source.settings)
   })
 
   it('디스크 원본을 수정하지 않는다 — 제거는 사본에서만 일어난다', () => {
@@ -85,8 +122,8 @@ describe('env 우선순위 (AC15)', () => {
     expect(source.settings).toEqual({ env: { TOKEN: 'from-settings' } })
   })
 
-  it('충돌이 없으면 같은 settings 참조를 유지한다 — 참조 비교 빠른 경로가 계속 성립한다', () => {
-    const source = settings({ KEEP: 'yes' })
+  it('env 블록이 없으면 같은 settings 참조를 유지한다 — 참조 비교 빠른 경로가 계속 성립한다', () => {
+    const source = settings(undefined, { model: 'm' })
     const prepared = prepareHarnessConfig({
       config: config({ settings: source, runtimeEnv: { OTHER: '1' } }),
       baseEnv: BASE
@@ -116,6 +153,8 @@ describe('env 우선순위 (AC15)', () => {
     expect(prepared.env?.OK).toBe('yes')
     expect(prepared.env?.NUM).toBeUndefined()
     expect(prepared.env?.OBJ).toBeUndefined()
+    // 비-문자열이라 hoist 되지 못한 값이 settings 채널에 남아 이중 적용되지도 않는다.
+    expect(prepared.providerSettings?.settings).not.toHaveProperty('env')
   })
 })
 
@@ -146,6 +185,19 @@ describe('secret 격리 (AC16)', () => {
 })
 
 describe('env fingerprint (AC19)', () => {
+  // r3 — 값이 secret 원문을 담고 있으면 `SessionRuntime` 이 채널 수명 내내 그 사본을 들고 있게
+  // 된다. 로그·DB 에 안 남겨도 표면은 표면이다.
+  it('원문이 아니라 비가역 digest 다 — 토큰이 값 안에 남지 않는다', () => {
+    const fingerprint = harnessEnvFingerprint({
+      ANTHROPIC_AUTH_TOKEN: 'sk-super-secret-value',
+      ANTHROPIC_BASE_URL: 'https://llm.example.corp'
+    })
+
+    expect(fingerprint).not.toContain('sk-super-secret-value')
+    expect(fingerprint).not.toContain('llm.example.corp')
+    expect(fingerprint).not.toContain('ANTHROPIC_AUTH_TOKEN')
+  })
+
   it('같은 입력은 같은 값 — 키 순서가 달라도 같다', () => {
     expect(harnessEnvFingerprint({ Y: '1', X: '2' })).toBe(
       harnessEnvFingerprint({ X: '2', Y: '1' })

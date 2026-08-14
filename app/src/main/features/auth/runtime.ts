@@ -143,7 +143,9 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     ...(deps.logger ? { logger: deps.logger } : {}),
     // 401/403 강등은 실행 credential 을 못 쓰게 만든 것이다 — 도구 회수와 cache 무효화가
     // 걸려 있으므로 그 자리에서 즉시 낸다.
-    onUnauthorized: (authId) => emitSnapshot(authId, 'unauthorized')
+    onUnauthorized: (authId) => emitSnapshot(authId, 'unauthorized'),
+    // 요청 경로에서 처음 관측된 시계 만료. store 가 1회를 보장하므로 여기서 중복 판정하지 않는다.
+    onExpired: (authId) => emitSnapshot(authId, 'expired')
   } satisfies AuthenticatedRequesterDeps)
 
   const emitSnapshot = (authId: AuthId, cause: AuthSnapshotChangeCause): void => {

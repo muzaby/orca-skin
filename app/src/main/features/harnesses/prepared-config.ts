@@ -15,15 +15,22 @@
 //   > 상속된 process env
 // ```
 //
-// ── SDK 우선순위 실측과 이 모듈의 선택 ───────────────────────────────────────
+// settings env 가 app env 를 이기는 것이 계약의 핵심이다 — `orca.json` 의 app env 는 **전역
+// 폴백**이고 ModelProvider settings 는 **그 ModelProvider 전용 설정**이다. 폴백이 전용을 이기면
+// 게이트웨이를 바꿔도 URL·모델 변수가 따라오지 않는다.
+//
+// ── SDK 우선순위와 이 모듈의 선택 ────────────────────────────────────────────
 // `@anthropic-ai/claude-agent-sdk` 는 `options.settings` 를 **JSON 문자열**로 받고
 // `options.env` 를 subprocess env 로 넘긴다. 두 채널의 env 충돌 시 어느 쪽이 이기는지는
 // SDK/CLI 내부 구현에 달려 있고 버전에 따라 바뀔 수 있다.
 //
 // 그래서 **어느 쪽이 이기든 같은 결과가 나오도록** 조립한다(제안서 결정표 2행, fail-safe):
-// settings 의 env 중 `runtimeEnv` 와 충돌하는 키를 **in-memory copy 에서 제거**하고, 최종
-// `options.env` 를 `inherited → app → settings env → runtimeEnv` 순으로 만든다. 충돌 키가
-// settings 채널에 남아 있지 않으므로 SDK 가 어느 쪽을 우선하든 결과가 하나다.
+// `options.env` 를 만드는 턴에는 settings 의 **env 블록을 통째로** in-memory 사본에서 제거하고
+// 그 값들을 위 순서로 `options.env` 에 hoist 한다. 두 채널에 같은 키가 동시에 남지 않으므로
+// SDK 우선순위와 무관하게 결과가 하나다.
+//
+// `options.env` 를 만들지 않는 턴(정적 배포 + app env 없음)에는 settings 채널을 **건드리지
+// 않는다** — 그 경로의 동작은 0188 이전과 글자까지 같다.
 //
 // **디스크 `settings.json` 은 수정하지 않는다** — 제거는 이 함수가 만든 사본에서만 일어난다.
 //
@@ -61,20 +68,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-// settings blob 의 `env` 블록에서 동적 키와 충돌하는 것만 걷어낸 **사본**을 만든다.
-// 충돌이 없으면 원본 참조를 그대로 돌려준다 — 같은 참조여야 `providerSettingsChangedSinceSpawn`
-// 의 빠른 경로(참조 비교 1회)가 계속 성립한다.
-function withoutConflictingEnv(
-  settings: HarnessNativeSettings,
-  runtimeEnv: Readonly<Record<string, string>>
-): HarnessNativeSettings {
-  const env = settings['env']
-  if (!isRecord(env)) return settings
-  const conflicting = Object.keys(env).filter((key) => key in runtimeEnv)
-  if (conflicting.length === 0) return settings
-  const nextEnv: Record<string, unknown> = { ...env }
-  for (const key of conflicting) delete nextEnv[key]
-  return { ...settings, env: nextEnv }
+// settings blob 에서 `env` 블록을 통째로 걷어낸 **사본**을 만든다.
+//
+// **왜 충돌 키만이 아니라 전부인가 (r3 정정)**: r2 는 `runtimeEnv` 와 충돌하는 키만 지웠다.
+// 그러면 settings 에도 app env 에도 있는 키가 **두 채널에 동시에** 남아 최종 값이 SDK 내부
+// 우선순위에 달린다 — "어느 채널이 우선해도 같은 결과" 라는 이 모듈의 계약이 깨진다.
+// options.env 를 만드는 턴에는 settings 의 env 를 전부 그리로 hoist 하고 이 채널에서는 비운다.
+//
+// env 블록이 없으면 원본 참조를 그대로 돌려준다 — 같은 참조여야
+// `providerSettingsChangedSinceSpawn` 의 빠른 경로(참조 비교 1회)가 계속 성립한다.
+function withoutEnvBlock(settings: HarnessNativeSettings): HarnessNativeSettings {
+  if (!isRecord(settings['env'])) return settings
+  const next = { ...settings }
+  delete next['env']
+  return next
 }
 
 // settings blob 의 env 블록에서 **문자열 값만** 뽑는다. Harness native settings 는 임의
@@ -106,22 +113,24 @@ export function prepareHarnessConfig(input: PrepareHarnessConfigInput): Prepared
   const hasAppEnv = Object.keys(appEnv).length > 0
 
   const settings = config.settings
-  const adjusted =
-    settings && hasRuntimeEnv
-      ? { ...settings, settings: withoutConflictingEnv(settings.settings, runtimeEnv) }
-      : settings
-
   // 동적 값이 없고 앱 env 도 없으면 **옵션 자체를 생략**한다 — SDK 기본 env(process.env 상속)
-  // 동작을 그대로 유지한다(구 `mergeEnvLayers` 의 의미).
-  const env: Record<string, string> | undefined =
-    hasRuntimeEnv || hasAppEnv
-      ? {
-          ...input.baseEnv(),
-          ...stringEnvOf(adjusted?.settings),
-          ...appEnv,
-          ...runtimeEnv
-        }
-      : undefined
+  // 동작과 settings 채널을 그대로 둔다(구 `mergeEnvLayers` 의 의미, 정적 배포의 상시 경로).
+  const buildsEnv = hasRuntimeEnv || hasAppEnv
+  const adjusted =
+    settings && buildsEnv ? { ...settings, settings: withoutEnvBlock(settings.settings) } : settings
+
+  // ── 우선순위 (r3 정정) ────────────────────────────────────────────────────
+  // 계약은 `runtimeEnv > settings env > app env > process env` 다. r2 는 app 을 settings 뒤에
+  // 얹어 **app env 가 ModelProvider 의 URL·모델 변수를 덮었다** — 전역 폴백이 그 ModelProvider
+  // 전용 설정을 이기는 것은 뒤집힌 관계다. 나중 spread 가 이기므로 순서가 곧 우선순위다.
+  const env: Record<string, string> | undefined = buildsEnv
+    ? {
+        ...input.baseEnv(),
+        ...appEnv,
+        ...stringEnvOf(settings?.settings),
+        ...runtimeEnv
+      }
+    : undefined
 
   return {
     ...(adjusted ? { providerSettings: adjusted } : {}),

@@ -23,6 +23,9 @@ function fakeSecretStore(): SecretStorePort {
   }
 }
 
+// 만료가 붙은 grant 를 만들기 위한 고정 시각.
+const TOKEN_EXPIRES_AT = 50_000
+
 const WIKI: AuthDefinition = {
   id: 'wiki',
   label: 'Wiki',
@@ -58,6 +61,35 @@ function build(probeOk: () => boolean): {
   const changes: AuthChange[] = []
   created.runtime.subscribe((change) => changes.push(change))
   return { runtime: created.runtime, secretReader: created.secretReader, changes }
+}
+
+// 만료 있는 token grant 를 심어 둔 runtime. `login` 은 `secret` grant 를 만들므로 만료
+// 시나리오는 persistence 에 token grant 를 직접 seed 해 복원 경로로 만든다.
+function buildWithClock(clock: () => number): {
+  runtime: ReturnType<typeof createAuthRuntime>['runtime']
+  changes: AuthChange[]
+} {
+  const secrets = fakeSecretStore()
+  const vault = createVault(secrets)
+  vault.set('wiki:pat', 'value', { kind: 'pat', createdAt: 0, expiresAt: TOKEN_EXPIRES_AT })
+  const created = createAuthRuntime({
+    definitions: [WIKI],
+    persistence: createMemoryGrantPersistence({
+      wiki: {
+        kind: 'token',
+        vaultKey: 'wiki:pat',
+        authKind: 'pat',
+        createdAt: 0,
+        expiresAt: TOKEN_EXPIRES_AT
+      }
+    }),
+    vault,
+    fetchImpl: (async () => new Response('', { status: 200 })) as unknown as typeof fetch,
+    clock
+  })
+  const changes: AuthChange[] = []
+  created.runtime.subscribe((change) => changes.push(change))
+  return { runtime: created.runtime, changes }
 }
 
 describe('AuthChange 분류 (AC6)', () => {
@@ -128,6 +160,67 @@ describe('AuthChange 분류 (AC6)', () => {
     runtime.revoke('wiki')
 
     expect(changes.filter((c) => c.kind === 'snapshot')).toHaveLength(0)
+  })
+})
+
+// r3 — 시계 만료는 **관측 지점 어디서든 한 번만** 정착해야 하고, 그때 `credentialChanged` 와
+// `credentialRevision` 이 **같은 사실을 말해야** 한다. r2 는 `markExpired` 의 조기 반환에 기대
+// revision 을 올리지 않아, 소비자가 이벤트는 받고 revision 으로는 아무 변화도 못 봤다.
+describe('시계 기반 만료의 1회 정착 (r3)', () => {
+  it('만료가 verified 를 걷어낸다 — 게이트가 열린 채로 남지 않는다', async () => {
+    let now = 1_000
+    const { runtime } = buildWithClock(() => now)
+    // 복원 grant 를 probe 로 확인해 실제로 verified 상태를 만든다(게이트가 열리는 조건).
+    await runtime.resume('wiki')
+    expect(runtime.bind('wiki').snapshot().verified).toBe(true)
+    const before = runtime.bind('wiki').snapshot().credentialRevision
+
+    now = TOKEN_EXPIRES_AT + 1
+    const after = runtime.bind('wiki').snapshot()
+
+    expect(after.status).toBe('expired')
+    expect(after.verified).toBe(false)
+    // 이벤트와 revision 이 같은 사실을 말한다.
+    expect(after.credentialRevision).toBeGreaterThan(before)
+  })
+
+  it('여러 번 읽어도 한 번만 정착한다 — revision 이 계속 오르지 않는다', () => {
+    let now = 1_000
+    const { runtime, changes } = buildWithClock(() => now)
+    now = TOKEN_EXPIRES_AT + 1
+
+    const first = runtime.bind('wiki').snapshot().credentialRevision
+    runtime.bind('wiki').snapshot()
+    runtime.bind('wiki').snapshot()
+
+    expect(runtime.bind('wiki').snapshot().credentialRevision).toBe(first)
+    expect(changes.filter((c) => c.kind === 'snapshot' && c.cause === 'expired')).toHaveLength(1)
+  })
+
+  it('만료 change 는 credentialChanged:true 다 — 도구 회수와 cache 무효화가 걸린다', () => {
+    let now = 1_000
+    const { runtime, changes } = buildWithClock(() => now)
+    changes.length = 0
+    now = TOKEN_EXPIRES_AT + 1
+
+    runtime.bind('wiki').snapshot()
+
+    const expired = changes.filter((c) => c.kind === 'snapshot' && c.cause === 'expired')
+    expect(expired).toHaveLength(1)
+    expect(expired[0]).toMatchObject({ credentialChanged: true })
+  })
+
+  it('요청 경로에서도 정착한다 — 거부만 하고 상태를 남기지 않던 자리', async () => {
+    let now = 1_000
+    const { runtime, changes } = buildWithClock(() => now)
+    changes.length = 0
+    now = TOKEN_EXPIRES_AT + 1
+
+    // 정책이 요청을 거부한다. 그 거부가 곧 상태 전이여야 downstream 이 따라온다.
+    await expect(runtime.bind('wiki').request({ path: '/rest' })).rejects.toThrow()
+
+    expect(changes.filter((c) => c.kind === 'snapshot' && c.cause === 'expired')).toHaveLength(1)
+    expect(runtime.bind('wiki').snapshot().verified).toBe(false)
   })
 })
 

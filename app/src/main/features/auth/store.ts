@@ -66,6 +66,11 @@ export class AuthStore {
   // **같은 상태를 다시 관측했다고 올리지 않는다** — commit·revoke·만료 전이·401/403 강등만
   // 올린다. 그 판정은 각 mutator 안에 있다.
   private readonly revisions = new Map<string, number>()
+  // 시간 만료를 이미 정착시킨 authId. **idempotency 를 여기서 잡는다** (r3) — 구현은
+  // `markExpired` 의 조기 반환에 기대고 있었는데, 그 반환이 `credentialRevision` 증가까지
+  // 함께 건너뛰어 "credentialChanged:true 인데 revision 은 그대로" 인 상태를 만들었다.
+  // grant 가 교체·해제·복원되면 비운다.
+  private readonly expirySettled = new Set<string>()
   private readonly persistence: GrantPersistencePort
   private readonly vault: Vault
   private readonly clock: () => number
@@ -88,6 +93,7 @@ export class AuthStore {
     this.verified.clear()
     // 복원은 부팅 1회이고 구독자가 붙기 전이다 — 세대도 함께 초기화한다.
     this.revisions.clear()
+    this.expirySettled.clear()
     for (const [authId, grant] of Object.entries(this.persistence.load())) {
       if (!known.has(authId)) {
         this.onOrphan?.(authId)
@@ -124,6 +130,7 @@ export class AuthStore {
   put(authId: AuthId, grant: Grant): void {
     this.grants.set(authId, grant)
     this.verified.add(authId)
+    this.expirySettled.delete(authId)
     // credential commit — 실행 구성이 실제로 달라졌다.
     this.bumpRevision(authId)
     this.flush()
@@ -138,6 +145,7 @@ export class AuthStore {
     if (grant.kind === 'token' && grant.refreshKey) this.vault.delete(grant.refreshKey)
     this.grants.delete(authId)
     this.verified.delete(authId)
+    this.expirySettled.delete(authId)
     this.bumpRevision(authId)
     this.flush()
     return grant
@@ -169,6 +177,9 @@ export class AuthStore {
     // 401 을 두 번 본 것만으로 Harness cache 가 두 번 무효화된다.
     if (grant.expiresAt !== undefined && grant.expiresAt <= now) return
     this.grants.set(authId, { ...grant, expiresAt: now })
+    // 401/403 로 만료를 못 박았다 — 이후 시계 기반 관측이 같은 전이를 두 번 세지 않도록
+    // 정착 표시를 함께 남긴다.
+    this.expirySettled.add(authId)
     this.bumpRevision(authId)
     this.flush()
   }
@@ -217,10 +228,15 @@ export class AuthStore {
     const grant = this.grants.get(authId)
     if (!grant) return false
     if (grant.expiresAt === undefined || grant.expiresAt > this.clock()) return false
-    const before = this.credentialRevision(authId)
-    const wasVerified = this.verified.has(authId)
-    this.markExpired(authId)
-    return this.credentialRevision(authId) !== before || wasVerified
+    // **첫 관측에서만** 전이한다. r2 는 이 판정을 `markExpired` 의 조기 반환에 맡겼는데, 그
+    // 반환이 revision 증가까지 함께 건너뛰어 `credentialChanged:true` 를 받은 소비자가
+    // revision 으로는 아무 변화도 보지 못했다 — revision 이 존재하는 이유가 바로 그 판정이다.
+    if (this.expirySettled.has(authId)) return false
+    this.expirySettled.add(authId)
+    this.verified.delete(authId)
+    this.bumpRevision(authId)
+    this.flush()
+    return true
   }
 
   authKind(authId: AuthId): AuthMethodKind | null {

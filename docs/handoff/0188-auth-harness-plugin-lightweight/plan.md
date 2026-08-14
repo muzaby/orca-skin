@@ -62,6 +62,11 @@
 | D-038 | fingerprint 는 **최종 env 만** 접는다(`runtimeEnvFingerprint`). settings 축은 `providerSettingsChangedSinceSpawn` 이 **0125 의 보수적 null 의미론과 함께** 계속 소유한다. 원문·secret·fingerprint 를 로그/DB 에 남기지 않는다. boundary·Model·Runtime Tool revision 판정도 별도 유지 | r1 처럼 둘을 합치면 ① settings 변화가 두 입력에 동시에 나타나 판정이 겹치고 ② **`settings: {...}` → `undefined`(loader 일시 실패)를 변화로 읽어 settings 없이 respawn** 한다 — 0125 는 그 경우를 no-op 으로 못 박았다 | r2 리뷰 + `runtime-boundary.ts` 실측 | ACTIVE | D-021 대체 |
 | D-039 | Usage 후보 key 의 정본이 `Provider.llm` 선언 → **settings 디렉터리 열거**로 바뀐다. **이것은 이동이 아니라 의미 변경**이며 `supports()` 가 유일한 게이트가 된다 | D-006 이 `Provider.llm` 을 지워 구 배열이 존재하지 않는다(호환 경로 없음). `supports()` 는 fetch 이전에 평가되고 `supports:false` 를 실패로 세지 않으므로, 후보를 넓혀도 효과 집합은 `후보 ∩ supports` 로 배포가 계속 통제한다 | r2 리뷰 + `features/usage/jobs.ts:79-81` 실측 | ACTIVE | — |
 | D-040 | Claude Harness 가 로드하는 package renderer는 **둘 다** `features/extensions/harness-plugins/` 에 둔다 (`claude.ts`=orca package · `claude-user-skills.ts`=사용자 skills 래퍼) | 같은 축의 산출물이 두 디렉터리로 갈리면 다음 renderer 가 어디로 갈지 규칙이 없다 | r2 리뷰 | ACTIVE | — |
+| D-041 | env 우선순위는 `runtimeEnv > settings env > app env > process env` 다. 구현은 `baseEnv → appEnv → settings env → runtimeEnv` 순으로 얹는다(나중이 이긴다) | `orca.json` 의 app env 는 **전역 폴백**, ModelProvider settings 는 **그 ModelProvider 전용 설정**이다. 폴백이 전용을 이기면 게이트웨이를 바꿔도 URL·모델 변수가 따라오지 않는다. r2 구현은 app 을 settings 뒤에 얹어 이 관계를 뒤집었다 | r3 리뷰 §2 + `prepared-config.ts` 실측 | ACTIVE | D-018 을 정정(우선순위 계약 자체는 불변, 구현 순서만) |
+| D-042 | `options.env` 를 만드는 턴에는 settings 의 **`env` 블록을 통째로** in-memory 사본에서 걷어낸다(충돌 키만이 아니라) | 충돌 키만 지우면 settings·app env 양쪽에 있는 키가 두 채널에 동시에 남아 최종 값이 SDK 내부 우선순위에 달린다 — "어느 채널이 우선해도 결과가 하나" 계약이 깨진다. `options.env` 를 만들지 않는 턴에는 settings 를 건드리지 않아 정적 배포 경로는 0188 이전과 동일 | r3 리뷰 §2 | ACTIVE | — |
+| D-043 | `runtimeEnvFingerprint` 는 canonical form 자체가 아니라 **프로세스 수명 랜덤 키의 HMAC-SHA256 digest** 다 | 비교에만 쓰이는데도 spawn 기록부(`SessionRuntime`)가 세션 수명 내내 들고 있다 — canonical form 이면 secret 평문의 장기 보존처가 하나 늘고 heap dump·크래시 리포트로 샌다. 키가 프로세스마다 새로 뽑히므로 값이 밖으로 나가도 되돌릴 수 없고, 같은 프로세스 안에서는 비교가 정확하다 | r3 리뷰 §4 (Security) | ACTIVE | D-020 의 "로그·DB 에 남기지 않는다" 를 메모리 표면까지 확장 |
+| D-044 | 배포 factory 4종은 **Bootstrap 이 조립한 능력을 인자로 받는다** — `createPluginBindings(deps)`·`createRuntimeConfigAugmenters(deps)`·`createConnectionSources(deps)`·`createUsageFetcher(deps)`. 카탈로그 row 조립은 `app/deployment/connections.ts` 가 소유하고 `gateRows()`·`pluginRows()` 를 조각으로 노출한다 | 인자 없는 factory 는 배포가 선언을 채울 때 범용 `bootstrap.ts` 를 열게 만든다 — "배포가 고치는 파일은 `app/deployment/` 묶음뿐"(D-035) 이 성립하지 않는다. 특히 `ConnectionViewSource` 의 `harness`·`usage` category 는 만들 자리가 아예 없어, 그 두 인증을 선언한 배포는 **카탈로그 행이 없어 로그인이 불가능**했다 | r3 리뷰 §1 | ACTIVE | D-035 를 구체화 |
+| D-045 | 기본 배포가 비어 있어 실행되지 않는 경로는 **비어 있지 않은 가상 배포 fixture** 로 태운다 (`app/deployment/deployment-wiring.test.ts`) | 기본 선언이 `[]` 인 동안 CI green 은 "배포 경로가 옳다" 를 전혀 뜻하지 않는다 — r2 는 그 상태로 D-044 의 두 결함을 통과시켰다. Bootstrap 이 넘기는 의존성 형태를 재현해 Plugin·Harness·Usage·카탈로그를 끝까지 확인한다 | r3 리뷰 필수 수정 5 | ACTIVE | — |
 | D-022 | Model 선택 UI 는 현재처럼 settings.json 에서 파생한다. runtime API 가 돌려주는 모델 환경변수는 **실행 구성에만** 반영하고 카탈로그 Model 목록에 반영하지 않는다 | 카탈로그 반영은 별도 제품 결정 | 제안서 §Harness + ModelProvider | ACTIVE | — |
 | D-023 | Confluence 는 `features/plugins/confluence/` 의 독립 Plugin 이다. Runtime Tool 서버는 **한 번만** 만들고 Bootstrap 이 인증 상태에 따라 같은 인스턴스를 add/remove 한다. `verified`-only snapshot 과 UI step 은 sync 하지 않는다 | 매 sync 마다 재생성하면 handler identity 가 달라져 registry revision 이 오르고 persistent runtime 이 respawn 한다 | 제안서 §Plugin과 Usage | ACTIVE | — |
 | D-024 | GUI `ProviderInfo.tools` 는 cached descriptor 의 **완전 도구 이름을 유지**한다. Auth 가 invalid 여도 빈 배열로 바꾸지 않고 `status` 로 비활성을 나타낸다. 실제 Harness 노출만 Runtime Tool Registry 에서 회수 | active registry 목록으로 DTO tools 를 만들면 현재 UX 가 깨진다 | 제안서 §Plugin과 Usage | ACTIVE | — |
@@ -195,6 +200,7 @@
 | AC22 | B/C | `ProviderInfo` 의 `id·label·kind·origin·auth·status·activeAuthKind·principal·expiresAt·tools` 전 필드와 `ProviderPlatformState.step` 이 새 mapper 결과에서 유지되고, row 순서·개수가 보존되며 `authId` 가 중복되지 않는다. renderer 에 새 kind 가 없다 | 단위 테스트: 대표 view source 배열 → 기존 DTO 와 필드별 동등성 단언 + `kind` 값 집합이 `{gate,llm,service}` 부분집합 + authId 유일성 | `orca:provider:list` / `orca:provider:state` |
 | AC23 | B/C | 부팅에서 connection handler·Auth listener·cached Plugin tool server 초기 sync 가 비동기 resume 전에 완료되고, gate Auth 를 순차 resume 한 뒤 나머지 Auth 만 1회 병렬 resume 하며, 전체 상태 방송 횟수가 즉시 강등 `K` 건 포함 최대 `1 + K` 다 | 순서 관측 가능한 테스트 하네스: 각 단계가 공유 로그 배열에 이름을 push → 순서 단언. 방송 스파이 호출 수 = `1 + K`(K=0,1,2 케이스) | 앱 시작 → 로그인 화면 |
 | AC24 | C | 새 DB migration 이 없고 기존 세션의 `provider_key` 를 계속 해석하며, 신규 production dependency 가 없다. 아키텍처·용어집·폐쇄망 가이드·IPC 문서가 실제 코드와 일치한다 | `check-migrations-appendonly.mjs` + `package.json` dependencies diff 0 + `check-doc-inventory.mjs --check` 통과 + 문서의 `features/providers` 서술 잔재 0건 | 릴리스 빌드 |
+| AC25 | C | (r3 신설) 비어 있지 않은 가상 배포 4종(gate·harness·plugin·usage)이 `app/deployment/` 의 factory 인자만으로 조립되고, Plugin 도구 등록/회수 · augmenter 두 방식 · `UsageFetcher` · 카탈로그 4행이 모두 성립한다. 배포는 `bootstrap.ts` 를 열지 않는다 | `deployment-wiring.test.ts`: factory 는 주입 인자(`AuthRuntime`·`RuntimeToolSink`·AuthId 를 닫은 secret closure)만 쓰고, 카탈로그 row 의 `id`·`kind`·`tools.length` 를 순서까지 단언 | 폐쇄망 배포 빌드 |
 
 ### AC 검증 주의사항
 
@@ -558,7 +564,7 @@ RuntimeConfigAugmenter(runtimeEnv)     ─┴→ HarnessRuntimeConfig → Prepar
 - `app/src/main/features/auth/**`, `features/gate/**`, `features/harnesses/**`, `features/plugins/confluence/**`, `features/extensions/harness-plugins/claude.ts`
 - `app/src/main/features/sessions/{respawn-policy,session-runtime}.ts`, `features/usage/**`(배선), `features/chat/title-generation.ts`
 - `app/src/main/app/{bootstrap,context,connection-views,chat-turn-continuation}.ts`, `app/chat-turn/**`, `app/handlers/{providers,misc,engine}.ts`, `app/settings-reactions.ts`
-- `app/src/main/app/deployment/{auth-definitions,gate-auth,harness-runtime,plugins,usage-fetcher}.ts` (신규)
+- `app/src/main/app/deployment/{auth-definitions,gate-auth,harness-runtime,plugins,connections,usage-fetcher}.ts` (신규) + `deployment-wiring.test.ts`(가상 배포 통합, r3)
 - 삭제: `app/src/main/features/providers/**`
 - `docs/arch/backend/providers.md`, `docs/GLOSSARY.md`, `docs/guides/closed-network-extensions.md`, `docs/IPC_CONTRACT.md`, `app/src/main/AGENTS.md`, `docs/generated/inventory.md`, `docs/handoff/INDEX.md`
 
@@ -641,11 +647,12 @@ node scripts/check-migrations-appendonly.mjs
 |---|---|
 | 변경 파일 | Phase A 95파일(이동 51 · 전환 44) · Phase B 83파일 · Phase C 문서 12파일 |
 | 실행 명령 | `npm run typecheck` · `npm run lint` · `./node_modules/.bin/vitest run` · `node --test "scripts/*.test.mjs"` · `node scripts/check-doc-inventory.mjs --check` · `node scripts/check-migrations-appendonly.mjs` |
-| 게이트 결과 | **전부 green** — typecheck 3/3 · lint 0 error(1 warning = 기존 `useTranscriptVirtualizer` react-compiler) · vitest **200 파일 / 1,841 테스트 전부 통과**(baseline 198/1,788 → 파일 +2, 테스트 **+53**) · script test 49/49 · doc-inventory(생성물·prose·링크) ok · migrations append-only ok |
+| 게이트 결과 | **전부 green** — typecheck 3/3 · lint 0 error(1 warning = 기존 `useTranscriptVirtualizer` react-compiler) · vitest **201 파일 / 1,854 테스트 전부 통과**(baseline 198/1,788 → 파일 +3, 테스트 **+66**) · script test 49/49 · doc-inventory(생성물·prose·링크) ok · migrations append-only ok |
 | 테스트 보존 감사 (r2) | 삭제 4파일의 단언을 전수 대조했다. **대체됨**: `service-tools`(4) · `plugin-tools`(3/5) · `turn-setup`(4/5) → 현 `plugins.test.ts`·`prepared-config.test.ts`. **대체 대상 아님**: `llm-env`(5) — `Provider.llm` 조인 규칙 자체가 계약에서 사라졌다. **누락 3건은 r2 에서 신설**(D2). 남은 삭제/skip 0 |
 | ABI 환경 | 이 세션은 egress 가 열려 있어 `npm ci` 가 성공했고 **DB suite 를 포함해 전부 green** 이다 — `app/AGENTS.md` 가 경고하는 baseline red 5파일이 이번에는 없다 |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | Phase A `2bebd67` · Phase B `2b274ef` · Phase C (이 커밋) |
+| r3 반영 | 리뷰 5건을 전부 코드에서 재확인한 뒤 고쳤다 — 배포 factory 인자화(D6) · `connections.ts` 신설(D7) · env 우선순위 정정(D8) · 만료 정착 경로·세대(D9) · fingerprint digest 화(D10). 신설 `deployment-wiring.test.ts` 6건 + 기존 fingerprint/expiry 테스트 개정 |
+| 대상 커밋 | Phase A `2bebd67` · Phase B `2b274ef` · Phase C `110a1a9` · r2 `d197f0d` · r3 (이 커밋) |
 
 ### 전수 재측정 (plan §8 요구)
 
@@ -688,6 +695,7 @@ node scripts/check-migrations-appendonly.mjs
 | AC22 | ✅ | `connection-views.test.ts` 8건 — 전 필드 동등성 · compat kind 매핑 · row 순서/개수 · authId 유일성 |
 | AC23 | ✅ | `auth-resume.test.ts` 12건 — 게이트 우선 · 나머지 병렬 · `1 + K`(K=0,2) · 중복 batch 방지 |
 | AC24 | ✅ | migration 0 · dependency 0 · doc-inventory 3종 통과 · `arch/backend/auth.md` 재작성 + GLOSSARY·가이드·IPC·AGENTS 갱신 |
+| AC25 | ✅ | `deployment-wiring.test.ts` 6건 — 주입 인자만으로 조립 · 도구 등록/회수 · augmenter 2방식 · `UsageFetcher` · 카탈로그 4행(`id`·`kind`·`tools.length` 순서 단언) |
 
 **사람 실기 잔여**: 폐쇄망 실배포에서 gate 로그인 · Plugin 인증 · 실제 Harness turn · Usage
 refresh. 기본 빌드는 선언이 비어 있어 이 경로가 프로덕션에서 돌지 않으므로, 위 AC 는 전부
@@ -704,3 +712,8 @@ refresh. 기본 빌드는 선언이 비어 있어 이 경로가 프로덕션에�
 | D3 | **Usage 후보 집합 변경이 표 한 줄로만 기록됐다.** 파일 이동이 아니라 의미 변경인데 Decision 도 코드 주석도 그 사실을 말하지 않았다 | r2 리뷰 §2 | ✅ **해결** — D-039 신설 + `bootstrap.ts` 에 구/현 집합과 `supports()` 게이트 근거를 명시 | 해결 |
 | D4 | **`claude-user-skills-plugin.ts` 가 이동에서 빠졌다.** 같은 Claude Harness package renderer 인데 `features/extensions/` 에 남았다 | r2 리뷰 §4 | ✅ **해결** — `harness-plugins/claude-user-skills.ts` 로 이동(D-040) | 해결 |
 | D5 | **plan-only 커밋(`f76e960`)에 `Status: implemented` 를 달았다.** 그 시점 상태는 plan/READY 였다 | r2 리뷰 §11 | ⚠️ **fix-forward** — 푸시된 이력이라 rewrite 하지 않는다. 이후 커밋의 trailer 는 실제 상태와 맞고, plan 커밋은 `Status` 를 생략하는 것이 맞다는 규칙을 여기 남긴다 | 기록 |
+| D6 | **배포 확장점이 실제로 배선되지 않았다.** `createPluginBindings()`·`createRuntimeConfigAugmenters()`·`createUsageFetcher()` 가 인자를 받지 않아, 가이드대로 구현하면 배포가 범용 `bootstrap.ts` 를 고쳐야 했다 | r3 리뷰 §1 | ✅ **해결** — 세 factory 에 deps 인터페이스를 두고 `bootstrap.ts` 가 `auth`·`registry`·`secretFor` 를 주입(D-044) | 해결 |
+| D7 | **`harness`·`usage` 카탈로그 row 를 만들 자리가 없었다.** `ConnectionViewSource` 는 네 category 를 지원하는데 조립이 `bootstrap.ts` 안의 gate·plugin 두 줄뿐이라, 그 두 인증을 선언한 배포는 연결 탭에 행이 없어 **로그인 자체가 불가능**했다 | r3 리뷰 §1 | ✅ **해결** — `app/deployment/connections.ts` 신설(`createConnectionSources` + `gateRows`/`pluginRows` 조각). 가이드 레시피 B 에 row 추가 단계를 명시 | 해결 |
+| D8 | **env 우선순위가 거꾸로 구현됐다.** 계약은 `runtimeEnv > settings env > app env > process env` 인데 구현은 app 을 settings 뒤에 얹어 전역 폴백이 ModelProvider 전용 설정을 덮었다. 게다가 테스트가 그 뒤집힌 순서를 고정하고 있었다 | r3 리뷰 §2 | ✅ **해결** — spread 순서를 `baseEnv → appEnv → settings env → runtimeEnv` 로 정정하고(D-041) settings 의 `env` 블록을 통째로 hoist 하도록 바꿨다(D-042). 테스트 단언도 계약 쪽으로 뒤집었다 | 해결 |
+| D9 | **시간 기반 만료가 request·resume 에서 정착하지 않았고, 정착해도 세대가 안 올랐다.** D-037 이 "관측 지점에서 한 번" 을 말했지만 실제로는 `snapshot()` 만 걸려 있었고, 1회성을 `markExpired()` 의 조기 반환에 기대 `credentialRevision` 증가까지 함께 건너뛰었다 — `credentialChanged:true` 인데 세대는 그대로인 change 가 나가 Harness cache 가 무시한다 | r3 리뷰 §3 | ✅ **해결** — 정착 집합(`expirySettled`)으로 1회성을 분리해 revision 은 항상 올리고, `authenticated-request.ts`·`login.ts:resume()` 에도 `settleExpiry()` 를 걸었다. 집합은 `put`·`revoke`·`restore` 에서 비운다 | 해결 |
+| D10 | **fingerprint 가 env 평문을 장기 보존했다.** 비교값인데 `SessionRuntime` 이 세션 수명 내내 canonical form 을 들고 있어 secret 노출면이 하나 늘었다 | r3 리뷰 §4 (Security) | ✅ **해결** — 프로세스 수명 랜덤 키의 HMAC-SHA256 digest 로 바꿨다(D-043). 프로세스 내 비교 정확성은 그대로 | 해결 |
