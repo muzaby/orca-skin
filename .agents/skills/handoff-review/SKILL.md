@@ -184,7 +184,11 @@ references / scripts
 
 새 이슈는 기존 P에 없는 새로운 causal class이거나 새 지침의 대표 evidence일 때만 corpus에 추가한다. 동일 causal class의 재발은 장문 사례를 계속 쌓지 않는다.
 
-**round별 review 보고서는 기본 영구 산출물이 아니다.** 영구 결과는 지침 변경과 `regression-coverage.md`의 현재 baseline/변경 요약에 압축한다. 사용자가 감사 기록·원문 보존을 명시적으로 요구한 경우에만 `roundN-review.md` 같은 별도 문서를 만들며, 그 문서는 실행 정본이 아니다.
+**round별 review 보고서는 기본 영구 산출물이 아니다.** 영구 결과는 지침 변경과 `regression-coverage.md`의 현재 baseline/변경 요약에 압축한다. 별도 `roundN-review.md`는 **사용자가 감사·원문 보존을 요구했거나, review가 압축으로 잃는 rationale이 있다고 판단해 보존 사유를 문서 첫머리에 적을 때만** 만든다. 그 문서는 실행 정본이 아니다.
+
+round 문서는 **동시에 1개만 유지한다.** 다음 라운드가 새로 만들면 이전 것을 교체하고, 지침으로 승격된 내용은 SKILL/`regression-coverage.md`에만 남긴다. 라운드마다 파일이 늘어나면 corpus에서 몰아낸 사례 누적을 이 디렉토리에서 재현하는 것이다.
+
+**보존 사유는 실제 출처를 적는다.** 사용자가 요구하지 않았는데 "사용자 요청" 으로 적으면 그 자체가 자기 정당화 기록이다.
 
 사례 추가 여부와 별개로, **지침 자체의 변경/유지 판단이 review의 주 산출물**이어야 한다. 지침 리팩터링 과정에서 발생한 운영지식 삭제는 design-failure P를 억지로 늘리지 말고 Operational Instruction Delta 기록으로 남길 수 있다.
 
