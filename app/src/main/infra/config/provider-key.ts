@@ -1,6 +1,6 @@
 // provider key 어휘 — `${adapter}-${provider}` 합성 키 (handoff 0010 규약 유지). 세션의
 // provider_key 영속·secret-store 키(`provider:${providerKey}`)·renderer ModelMenu 가 공유하는
-// 식별자다. agent 목록 조회/모델 해석은 handoff 0014 에서 settings/provider-settings.ts 로 이전.
+// 식별자다. agent 목록 조회/모델 해석은 handoff 0014 에서 features/harnesses/settings.ts 로 이전.
 
 // provider 디렉토리 이름 = providerKey(`${adapter}-${provider}`)의 구성 요소. 영숫자·_·- 만 허용.
 // MCP 서버 키도 동일 제약(deploy/deployer.ts 가 재사용).

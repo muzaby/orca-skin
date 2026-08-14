@@ -1,7 +1,7 @@
 // Optional 원격 사용량 포트 (0186) — **타입만 있는 파일이다.**
 //
 // ── 왜 여기에, 왜 이 모양인가 ─────────────────────────────────────────────────
-// `features/usage` 는 `features/providers` 를 직접 import 할 수 없다(수직 슬라이스 교차 금지).
+// `features/usage` 는 `features/auth` 를 직접 import 할 수 없다(수직 슬라이스 교차 금지).
 // 그래서 소비 측인 여기가 **필요한 메서드만 담은 구조적 포트**를 선언하고, 컴포지션 루트가
 // `ProviderApi.request` 로 만든 concrete 를 주입한다(`src/main/AGENTS.md` §해소책 1+3,
 // 절차는 `docs/guides/closed-network-extensions.md` §5-b).

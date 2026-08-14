@@ -1,5 +1,5 @@
 import type { AttachmentView } from '../../shared/ipc'
-import type { ResolvedProviderSettings } from '../adapters/provider-config'
+import type { ResolvedHarnessSettings } from '../adapters/harness-config'
 import type { LineageRelation } from '../infra/db/types'
 import type { GovernedLiveTurn, RuntimeTitleAdapter } from './ports'
 
@@ -8,7 +8,7 @@ export interface TurnContext<W = unknown> {
   owner: W
   live: GovernedLiveTurn | null
   titleAdapter: RuntimeTitleAdapter
-  titleSettings?: ResolvedProviderSettings
+  titleSettings?: ResolvedHarnessSettings
   titleEnv?: Record<string, string>
   titleModel?: string
   providerKey: string | null

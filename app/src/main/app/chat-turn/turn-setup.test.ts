@@ -7,7 +7,7 @@
 // 테스트가 즉시 죽는다). `orca-config`(appEnv)도 파일을 읽으므로 모킹한다.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Provider } from '../../contracts/provider'
+import type { Provider } from '../../contracts/auth'
 
 const appEnvMock = vi.hoisted(() => vi.fn<() => Record<string, string>>(() => ({})))
 vi.mock('../../infra/config/orca-config', () => ({ appEnv: appEnvMock }))

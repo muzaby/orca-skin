@@ -7,14 +7,14 @@
 import type { WebContents } from 'electron'
 import type { TurnContext } from '../../contracts/turn'
 import type { TurnExtensions } from '../../adapters/turn'
-import type { ResolvedProviderSettings } from '../../adapters/provider-config'
+import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
 import type { RuntimeSessionAdapter } from '../../contracts/ports'
 import { decideRespawn } from '../../features/sessions/respawn-policy'
 import { SessionRuntime } from '../../features/sessions/session-runtime'
 import {
   crossesProviderBoundary,
   providerSettingsChangedSinceSpawn
-} from '../../features/providers/provider-settings'
+} from '../../features/harnesses/runtime-boundary'
 import type { SessionChainLease } from '../../features/sessions/session-chain-lease'
 import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
 
@@ -41,7 +41,7 @@ export async function acquireTurnRuntime(
     sessionId: string | null
     resolved: {
       providerKey: string | null
-      providerSettings?: ResolvedProviderSettings
+      providerSettings?: ResolvedHarnessSettings
       model?: string
     }
     sessionProviderKey: string | null | undefined

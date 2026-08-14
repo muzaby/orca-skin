@@ -30,7 +30,7 @@ import { readJsonFile } from '../../infra/config/json-file'
 import { orcaConfigDir } from '../../infra/config/paths'
 import { PROVIDER_NAME_RE } from '../../infra/config/provider-key'
 import { ORCA_PLUGIN_NAME } from '../../adapters/claude-plugin'
-import { renderClaudePluginPackage } from './claude-plugin-package'
+import { renderClaudeHarnessPlugin } from './harness-plugins/claude'
 import { renderClaudeUserSkillsPlugin } from './claude-user-skills-plugin'
 
 interface DeployOptions {
@@ -190,7 +190,7 @@ export async function deploy(
     actions.push('render empty mcp → plugins/orca/.mcp.json')
   }
 
-  await renderClaudePluginPackage({
+  await renderClaudeHarnessPlugin({
     engine,
     root,
     skillRoots: opts.skillRoots ?? [

@@ -1229,7 +1229,7 @@ export interface DeleteMcpServerRequest {
 //
 // **이 경계를 넘는 secret 은 없다.** grant 는 상태·만료·표시용 principal 만 싣고, 값은 main 의
 // vault(safeStorage)에만 존재한다. main 구현 계약(`Provider`·`AuthSpec`·`Grant`)의 정본은
-// `app/src/main/contracts/provider.ts`.
+// `app/src/main/contracts/auth.ts`.
 
 // 관계. **프로토콜이 아니다** — gate=신원 있는 로그인, llm=모델 게이트웨이, service=사내 REST.
 export type ProviderKind = 'gate' | 'llm' | 'service'

@@ -3,7 +3,7 @@
 // listen 과 flush 는 같은 루프에서 갈리지만 조립 규칙이 정반대다. 그 차이가 리터럴로 흩어져
 // 있어 회귀가 두 번 났다(0149 첨부 누수 · 0166 D7 위임 절반). 여기 두 함수로 고정한다.
 
-import type { ResolvedProviderSettings } from '../../adapters/provider-config'
+import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
 import type { SteerFlushBatch, TurnRequest } from '../../adapters/turn'
 import { pickFrameDelegates } from '../../features/sessions/session-runtime'
 
@@ -11,7 +11,7 @@ import { pickFrameDelegates } from '../../features/sessions/session-runtime'
 // 타입 결합을 만들지 않는다.
 export interface ContinuationSettings {
   extensions: TurnRequest['extensions']
-  providerSettings?: ResolvedProviderSettings | undefined
+  providerSettings?: ResolvedHarnessSettings | undefined
   model?: string | undefined
 }
 

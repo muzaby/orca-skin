@@ -120,7 +120,7 @@ export class BrowserSessionStore {
   // REST 를 부르는 경로가 여기다 — 인증 확인(probe)도 이 경로로 나간다.
   //
   // 리다이렉트는 **따라가지 않는다.** 홉마다 대상 정책을 다시 봐야 하므로 추종은 호출자
-  // (`features/providers/auth/api.ts`)의 몫이다 — `sendOnce` 계약 그대로다.
+  // (`features/auth/api.ts`)의 몫이다 — `sendOnce` 계약 그대로다.
   //
   // 상한은 응답을 다 받은 뒤에 잰다. `net.request` 가 본문을 모아서 주므로 스트리밍 중단 지점이
   // 없다 — credential 주입 경로(`createSender`)의 스트리밍 상한과 다른 점이고, 첨부 다운로드는

@@ -11,11 +11,11 @@ import {
 import { readUserClaudeSettings } from '../../adapters/claude-settings'
 import { deploy } from '../../features/extensions/deployer'
 import {
-  addProviderSettings,
-  deleteProviderSettings,
-  readProviderSettings,
-  updateProviderSettings
-} from '../../features/providers/engine-write'
+  addHarnessSettings,
+  deleteHarnessSettings,
+  readHarnessSettings,
+  updateHarnessSettings
+} from '../../features/harnesses/settings-write'
 import type { RouterContext } from '../context'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import { getLogger } from '../../infra/log'
@@ -41,7 +41,7 @@ export function registerEngineHandlers(ctx: RouterContext): void {
     CreateEngineSchema,
     'reject',
     async (req): Promise<EngineWriteResult> => {
-      const result = addProviderSettings(req.engine, req.provider, req.settingsJson)
+      const result = addHarnessSettings(req.engine, req.provider, req.settingsJson)
       await refreshProviderSettings(ctx)
       return result
     }
@@ -52,19 +52,19 @@ export function registerEngineHandlers(ctx: RouterContext): void {
     UpdateEngineSchema,
     'reject',
     async (req): Promise<EngineWriteResult> => {
-      const result = updateProviderSettings(req.key, req.settingsJson)
+      const result = updateHarnessSettings(req.key, req.settingsJson)
       await refreshProviderSettings(ctx)
       return result
     }
   )
 
   handle(CHANNELS.engineDelete, DeleteEngineSchema, 'reject', async (req): Promise<void> => {
-    deleteProviderSettings(req.key)
+    deleteHarnessSettings(req.key)
     await refreshProviderSettings(ctx)
   })
 
   handle(CHANNELS.engineRead, ReadEngineSchema, 'reject', (req): EngineReadResult => {
-    return readProviderSettings(req.key)
+    return readHarnessSettings(req.key)
   })
 
   // 사용자 전역 ~/.claude/settings.json 원문 — 모달 자동완성용 (무입력 read, 부재=exists:false).

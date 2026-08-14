@@ -4,15 +4,15 @@
 // → SDK `createSdkMcpServer` 다. 여기서는 그 첫 구간(등록/회수)이 grant 상태를 따라가는지 본다.
 //
 // **app 레이어에 있는 이유**: 실제 `RuntimeToolRegistry`(features/extensions)와 등록자
-// (features/providers)를 함께 물어야 의미가 있는 테스트인데, feature 끼리는 교차 import 가
+// (app/plugin-tools.ts)를 함께 물어야 의미가 있는 테스트인데, feature 끼리는 교차 import 가
 // 금지돼 있다. 둘을 합치는 것은 컴포지션 루트의 책임이므로 검증도 여기 산다.
 
 import { describe, expect, it, vi } from 'vitest'
 import type { RuntimeToolServer } from '../adapters/runtime-tools'
-import type { Provider, ProviderApi } from '../contracts/provider'
+import type { Provider, ProviderApi } from '../contracts/auth'
 import type { ProviderGrantStatus } from '../../shared/ipc'
 import { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
-import { ServiceToolRegistrar } from '../features/providers/service'
+import { ServiceToolRegistrar } from './plugin-tools'
 
 const api = {
   request: vi.fn(),

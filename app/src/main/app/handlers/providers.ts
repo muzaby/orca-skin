@@ -17,7 +17,7 @@ import {
   type ProviderStepInfo
 } from '../../../shared/protocol'
 import { handle, handlePlain } from '../../infra/ipc/handle'
-import type { ProviderPlatform } from '../../features/providers/platform'
+import type { ProviderPlatform } from '../provider-platform'
 
 export function registerProviderHandlers(platform: ProviderPlatform): void {
   handlePlain<ProviderInfo[]>(CHANNELS.providerList, () => platform.list())

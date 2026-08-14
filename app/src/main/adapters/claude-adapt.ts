@@ -19,7 +19,7 @@ import { join } from 'node:path'
 import { adaptSkillNameForClaude } from './claude-plugin'
 import { getLogger } from '../infra/log/registry'
 import type { SkillInfo } from '../../shared/ipc'
-import type { ProviderSettings } from './provider-config'
+import type { HarnessNativeSettings } from './harness-config'
 import {
   resolveHookDecisions,
   type NormalizedHookContext,
@@ -79,7 +79,7 @@ export function adaptSkills(skills: SkillInfo[]): object {
 // **env↛argv 분리 폐기(handoff 0028)**: provider settings.json 은 `~/.claude/settings.json` 과
 // 동일 취급이라 env(auth key 포함)를 settings 안에 그대로 실어 argv 로 넘긴다 — 앱 환경구성이
 // 사용자 전역 env 를 덮어쓰는 메커니즘. argv 평문 노출(same-user process list)은 수용된 트레이드오프.
-export function adaptSettings(settings?: ProviderSettings): object {
+export function adaptSettings(settings?: HarnessNativeSettings): object {
   return settings && Object.keys(settings).length > 0 ? { settings: JSON.stringify(settings) } : {}
 }
 

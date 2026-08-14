@@ -1,6 +1,6 @@
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { ClaudePermissionMode } from '../../../shared/permission-mode'
-import type { ResolvedProviderSettings } from '../../adapters/provider-config'
+import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
 import type { TurnRequest } from '../../adapters/turn'
 import type { LiveTurn, ProviderMessageBatch } from '../../adapters/types'
 import type { ManagedRuntime, RuntimeSessionAdapter } from '../../contracts/ports'
@@ -166,9 +166,9 @@ export class SessionRuntime implements ManagedRuntime {
   // 옛 체인" 이 되어 확정 fence 가 항상 어긋나고 배치가 `submitting` 에 갇힌다(0166 D7/D8).
   private delegate: FrameDelegate = {}
   // 0125: 채널 spawn 시 어댑터에 주입된 providerSettings 의 불투명 기록 — 내용 해석·비교는
-  // 호출자(chat-turn + features/providers 판정) 소관이고 여기선 기록/해제만 한다(0016 중립).
+  // 호출자(chat-turn + features/harnesses 판정) 소관이고 여기선 기록/해제만 한다(0016 중립).
   // spawn 성공 시 갱신, teardown/채널 사망 시 해제 — channelAlive 인 동안만 유효.
-  private spawnedSettings: ResolvedProviderSettings | undefined
+  private spawnedSettings: ResolvedHarnessSettings | undefined
   // 0128: 채널 spawn 시 어댑터에 넘긴 model — 같은 provider 라도 모델이 스폰 시점과 달라지면
   // (예: sonnet→haiku) chat-turn 이 respawn 을 판정한다. 라이브 setModel(/model)은 이미 스폰된
   // 서브프로세스의 실제 생성 모델을 바꾸지 못하므로(실측), 모델 변경도 콜드 spawn 이 필요하다.
@@ -204,7 +204,7 @@ export class SessionRuntime implements ManagedRuntime {
 
   // 0125: 살아있는 채널이 스폰될 때 주입된 providerSettings — chat-turn 이 이번 턴 해석본과
   // 내용 비교(providerSettingsChangedSinceSpawn)해 respawn 을 판정한다.
-  get spawnedProviderSettings(): ResolvedProviderSettings | undefined {
+  get spawnedProviderSettings(): ResolvedHarnessSettings | undefined {
     return this.spawnedSettings
   }
 

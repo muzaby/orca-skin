@@ -3,20 +3,19 @@
 
 import type { WebContents } from 'electron'
 import { appEnv } from '../../infra/config/orca-config'
+import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
+import { expandEnvRecord, mergeEnvLayers } from '../../features/harnesses/env'
 import {
   defaultModelFamily,
-  defaultProvider,
-  expandEnvRecord,
-  mergeEnvLayers,
   modelNameForFamily,
-  resolveTitleModel,
-  type ResolvedProviderSettings
-} from '../../features/providers/provider-settings'
+  resolveTitleModel
+} from '../../features/harnesses/models'
+import { defaultProvider } from '../../features/harnesses/settings-entries'
 import { getLogger } from '../../infra/log'
 import { sendChatEvent } from '../../infra/ipc/send'
 import type { RuntimeSessionAdapter } from '../../contracts/ports'
 import type { TurnEventSink } from '../../features/chat/turn-sinks'
-import { llmEnvFor } from '../../features/providers/llm'
+import { llmEnvFor } from '../llm-env'
 import type { RouterContext } from '../context'
 
 // renderer forward sink — sendChatEvent 래핑. 코디네이터가 버스를 타지 않는 forward-only 이벤트
@@ -26,7 +25,7 @@ export const chatForward: TurnEventSink<WebContents> = {
 }
 
 export interface ResolvedTurnProvider {
-  providerSettings?: ResolvedProviderSettings
+  providerSettings?: ResolvedHarnessSettings
   providerKey: string | null
   model?: string
   titleModel?: string
@@ -34,7 +33,7 @@ export interface ResolvedTurnProvider {
 
 // 턴 단위 provider/model 해석 (handoff 0010 → 0014) — payload providerKey 가 어댑터와
 // 일치하면 적용, 불일치/무효면 세션의 마지막 provider_key → 기본 provider(anthropic 우선) 폴백.
-// 원천은 sources/settings/<adapter>/ 트리(ProviderSettingsService)이며, settings 해석(blob)은
+// 원천은 sources/settings/<adapter>/ 트리(HarnessSettingsService)이며, settings 해석(blob)은
 // dist 캐시에서 가져온다. 비밀(secret-store 토큰·${VAR})은 해석기 내부에서만 평문화된다.
 export async function resolveTurnProvider(
   ctx: RouterContext,

@@ -15,7 +15,7 @@ import { join } from 'node:path'
 import type { EngineUserSettingsResult } from '../../shared/ipc'
 import { isRecord } from '../../shared/obj'
 import { getLogger } from '../infra/log/registry'
-import type { ProviderSettingsLoader } from './provider-config'
+import type { HarnessSettingsLoader } from './harness-config'
 
 // CLI 가 repo-커밋 파일의 escalating 모드에 적용하는 trust 필터와 동등한 목록
 // (sdk.d.ts resolveSettings remarks). flat 폴백 경로에서 수동 적용한다.
@@ -81,7 +81,7 @@ export function classifyClaudeEnv(settings: SettingsObject): ClaudeProviderKind 
   return 'anthropic'
 }
 
-export const loadClaudeProviderSettings: ProviderSettingsLoader = async ({
+export const loadClaudeProviderSettings: HarnessSettingsLoader = async ({
   sourcesSettingsFile
 }) => {
   // ~/.claude/settings.json 동일 취급 — env 포함 전체를 verbatim 으로 돌려준다(${VAR} 무변환).

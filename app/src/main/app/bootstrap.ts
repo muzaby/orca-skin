@@ -24,7 +24,7 @@ import {
   orcaConfigDir,
   sourcesSkillsDir
 } from '../infra/config/paths'
-import { orcaPluginRoot } from '../features/extensions/claude-plugin-package'
+import { builtInHarnessPluginRoot } from '../features/extensions/harness-plugins/claude'
 import { userClaudePluginRoot } from '../features/extensions/claude-user-skills-plugin'
 import { loadOrcaConfig } from '../infra/config/orca-config'
 import { SecretStore } from '../infra/config/secret-store'
@@ -32,7 +32,7 @@ import { deploy } from '../features/extensions/deployer'
 import { ExtensionDeploymentService } from '../features/extensions/extension-deployment-service'
 import { toClaudeConfig } from '../features/extensions/mcp/convert'
 import { scaffoldProviderSettings } from '../features/extensions/scaffold'
-import { ProviderSettingsService } from '../features/providers/provider-settings'
+import { HarnessSettingsService } from '../features/harnesses/settings'
 import { netFetch } from '../infra/net/net-fetch'
 import { loadClaudeProviderSettings, readUserClaudeSettings } from '../adapters/claude-settings'
 import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/scan'
@@ -42,7 +42,7 @@ import { getLogger, setLogDebug } from '../infra/log'
 import { UsageTracker } from '../features/usage/tracker'
 import { registerUsageJobs } from '../features/usage/jobs'
 import type { UsageFetcher } from '../features/usage/fetcher'
-import { llmProviderKey } from '../features/providers/llm'
+import { llmProviderKey } from './llm-env'
 import { DbRunRecorder, Scheduler } from '../features/scheduler'
 import { ExtensionBuilder } from '../features/extensions/builder'
 import { PermissionModeController } from '../features/approvals/permission-mode-controller'
@@ -60,24 +60,21 @@ import { registerBootHandlers } from './handlers/boot'
 import { registerUpdateHandlers } from './handlers/update'
 import { registerLogHandlers } from './handlers/log'
 import { registerProviderHandlers } from './handlers/providers'
-import { ProviderPlatform } from '../features/providers/platform'
-import { ProviderRegistry } from '../features/providers/auth/registry'
-import { ProviderStore } from '../features/providers/auth/store'
-import {
-  createGrantPersistence,
-  createOAuthStatePersistence
-} from '../features/providers/auth/store-file'
-import { OAuthStateStore } from '../features/providers/auth/oauth'
-import { OAuthRunner } from '../features/providers/auth/oauth-runner'
-import { LoginService } from '../features/providers/auth/login'
-import { declaredProviders } from '../features/providers/declarations'
+import { ProviderPlatform } from './provider-platform'
+import { ProviderRegistry } from '../features/auth/registry'
+import { ProviderStore } from '../features/auth/store'
+import { createGrantPersistence, createOAuthStatePersistence } from '../features/auth/store-file'
+import { OAuthStateStore } from '../features/auth/oauth'
+import { OAuthRunner } from '../features/auth/oauth-runner'
+import { LoginService } from '../features/auth/login'
+import { declaredProviders } from './deployment'
 import { errorMessage } from '../infra/errors'
 import { createVault } from '../infra/vault'
 import { BrowserSessionStore } from '../infra/browser-session'
-import { SessionRunner } from '../features/providers/auth/specs/browser-session'
-import { registerDeclaredSessions } from '../features/providers/auth/session-policies'
-import { ProviderApiImpl } from '../features/providers/auth/api'
-import { ServiceToolRegistrar } from '../features/providers/service'
+import { SessionRunner } from '../features/auth/browser-session/runner'
+import { registerDeclaredSessions } from '../features/auth/session-policies'
+import { ProviderApiImpl } from '../features/auth/api'
+import { ServiceToolRegistrar } from './plugin-tools'
 import { createNoopUpdater, loadElectronAutoUpdater, UpdateController } from './updater'
 import { registerChatHandlers } from './chat-turn'
 import { registerSettingsReactions } from './settings-reactions'
@@ -467,7 +464,7 @@ export class Bootstrap {
       // Orca plugin + 사용자 ~/.claude/skills 래퍼 plugin(0117) — 존재 검증은 adaptPlugins 몫.
       // 경로는 각 플러그인 레이아웃을 소유한 feature 렌더러의 헬퍼에서 파생한다(이중 정의 방지).
       () => [
-        orcaPluginRoot(orcaConfigDir(), 'claude'),
+        builtInHarnessPluginRoot(orcaConfigDir(), 'claude'),
         userClaudePluginRoot(orcaConfigDir(), 'claude')
       ],
       runtimeTools
@@ -504,7 +501,7 @@ export class Bootstrap {
         for (const name of result.pruned) seedLog.debug('extensions.skill.pruned', { name })
       }
     )
-    const providerSettings = new ProviderSettingsService({ claude: loadClaudeProviderSettings })
+    const providerSettings = new HarnessSettingsService({ claude: loadClaudeProviderSettings })
     // 0157: 구 SSO 의 setProviderEnv sink 를 제거했다. 획득 토큰을 provider settings.json 의
     // env 블록에 **평문으로 병합 기록**하던 경로였다(보고서 위험 #5). 이제 credential 은
     // binding·vault 가 소유하고, LLM 백엔드로 나가는 값은 사용자가 직접 적은 것만 남는다.

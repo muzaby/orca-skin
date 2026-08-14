@@ -1,5 +1,5 @@
 // Claude plugin 스킬 이름 어댑팅 — 어댑터가 소비하는 순수 조각(claude-adapt 의 skills 굽기). 배포
-// 패키지 렌더(renderClaudePluginPackage·renderClaudeUserSkillsPlugin)는 features/extensions 소관이지만,
+// 패키지 렌더(renderClaudeHarnessPlugin·renderClaudeUserSkillsPlugin)는 features/extensions 소관이지만,
 // 플러그인 이름(= 네임스페이스 prefix)의 SSOT 는 어댑터 포트에 둔다 — 렌더와 skills 필터가 공유한다.
 
 import type { SkillInfo } from '../../shared/ipc'

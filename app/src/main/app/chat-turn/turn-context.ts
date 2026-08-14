@@ -8,7 +8,7 @@ import type { AttachmentView } from '../../../shared/ipc'
 import { continuityTitle, type ContinuityLang } from '../../../shared/continuity-lang'
 import type { TurnContext } from '../../contracts/turn'
 import type { RuntimeTitleAdapter } from '../../contracts/ports'
-import type { ResolvedProviderSettings } from '../../adapters/provider-config'
+import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
 import type { SessionControl } from '../../features/sessions/session-chain-lease'
 
 // 턴-로컬 상태의 단일 초기값 — 신규 턴과 자동 연속 턴이 공유한다. TurnContext 에 턴-로컬
@@ -66,7 +66,7 @@ interface BuildTurnContextInput<W> {
   titleEnv: Record<string, string> | undefined
   resolved: {
     providerKey: string | null
-    providerSettings?: ResolvedProviderSettings | undefined
+    providerSettings?: ResolvedHarnessSettings | undefined
     titleModel?: string | undefined
   }
   payload: {

@@ -8,7 +8,7 @@
 // 불변식: 여기 담기는 mcp 는 **미확장**(${VAR} 플레이스홀더 보유). 비밀 확장/복호화는 어댑터의
 // 어댑트 시점에만 일어나며 이 구조체에는 절대 평문이 들어오지 않는다.
 
-import type { ResolvedProviderSettings } from './provider-config'
+import type { ResolvedHarnessSettings } from './harness-config'
 import type { OrcaMcpConfig } from './mcp-config'
 import type { RuntimeToolSnapshot } from './runtime-tools'
 import type {
@@ -136,10 +136,10 @@ export interface TurnRequest {
   // subprocess env (orca.json 앱 전역 env 병합 결과). 확장 묶음이 아니라 자식
   // 프로세스 env 주입이라 TurnRequest 직속 — router 호출처(ipc/chat/send.ts)에서 조립한다.
   env?: Record<string, string>
-  // main(ProviderSettingsService)이 해석 완료한 provider settings blob (handoff 0014).
+  // main(HarnessSettingsService)이 해석 완료한 provider settings blob (handoff 0014).
   // 어댑터-네이티브 스키마 그대로이며 어댑터는 자기 query 옵션에 꽂기만 한다
   // (claude = options.settings flag + SDK 기본 settingSources 상속 — adaptSettings).
-  providerSettings?: ResolvedProviderSettings
+  providerSettings?: ResolvedHarnessSettings
   // 해석 완료된 백엔드 모델 이름. family/provider key 어휘는 config 계층에서 소비한다.
   model?: string
   // 백엔드 중립 권한 승인 콜백 — ask_question·plan_review·tool_approval 세 종류를 단일

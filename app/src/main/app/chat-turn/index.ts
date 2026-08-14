@@ -6,7 +6,7 @@
 // `turn-context.ts`·`turn-request.ts`·`continuation.ts`, 승인 `approval.ts`, 실행 `post-turn.ts`,
 // 순서 `send.ts`. 이 파일은 그 앞의 IPC 등록과 턴-공통 헬퍼만 남긴다.
 //
-// **배럴이자 진입점이다** — 기존 `import { registerChatHandlers } from './chat-turn'` 이 그대로
+// **배럴이자 진입점이다** — 기존 `import { registerChatHandlers } from '../chat-turn'` 이 그대로
 // 해석되도록 디렉토리 index 로 둔다(무회귀 분해, `src/main/AGENTS.md §작업 규칙`).
 
 import type { WebContents } from 'electron'
