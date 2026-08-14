@@ -52,11 +52,28 @@
   실패가 된다.
 - **런타임 동적 로딩 금지.** main 에서 임의 코드 실행 = 전권. 런타임 확장은 MCP 로, 인증
   provider·내장 도구는 빌드 타임으로.
-- **배포가 고치는 파일은 `declarations/` 묶음뿐이다.**
+- **배포가 고치는 파일은 한 묶음뿐이다.** (0188 이후 그 자리는 `app/deployment/`)
+
+## 후속 (0188) — 관계 축은 남고, 소비 슬롯은 계약에서 나갔다
+
+ADR 의 핵심 판단(**축의 교차를 피한다**, 참조가 없으면 무결성 검증도 없다)은 그대로다. 다만
+0188 이 그 판단을 한 걸음 더 밀었다: `kind`·`llm`·`tools` 는 결국 **소비자의 분류를 인증 계약에
+박아 둔 것**이었고, 소비 기능이 늘 때마다 계약이 자랐다. 그리고 `llm.envKey` 는 credential 한
+값만 표현해 "OAuth 로 config API 를 불러 URL·모델·실행 token 을 한꺼번에 받는" 요구를 담지 못했다.
+
+| ADR-004 시점 | 0188 이후 |
+|---|---|
+| `Provider{id,label,kind,origin,auth[],tools?,llm?}` | `AuthDefinition{id,label,origin,methods[],probe?}` — 소비 슬롯 없음 |
+| `kind` 가 도메인 축 | gate membership 은 `app/deployment/gate-auth.ts` 의 **객체 참조 목록**. `ProviderKind` 는 renderer wire compat 로만 남는다 |
+| `ProviderApi{request,materialize,token}` | `BoundAuth{authId,snapshot,request}` + trusted-main `AuthSecretReader{read}` |
+| 배포가 고치는 파일 = `declarations/` 묶음 | 배포가 고치는 파일 = `app/deployment/` 묶음 (Auth 정의·gate membership·Harness augmenter·Plugin·Usage fetcher) |
+
+**뒤집지 않은 것**: 인라인 `AuthMethod`(구 `AuthSpec`) · 게이트 선언 0이면 prod 통과 · 미인증은
+`null`/드롭 · 런타임 동적 로딩 금지 · 하나의 계약 파일.
 
 ## 관련
 
-현재 구조(등록·소비·게이트 진리표): [`arch/backend/providers.md`](../arch/backend/providers.md) ·
+현재 구조(등록·소비·게이트 진리표): [`arch/backend/auth.md`](../arch/backend/auth.md) ·
 배포 절차: [`guides/closed-network-extensions.md`](../guides/closed-network-extensions.md) ·
 노출 경계: [`arch/backend/security.md`](../arch/backend/security.md) §1.4-b ·
 전송 스택 규칙: [ADR-003](003-electron-network-stack.md)

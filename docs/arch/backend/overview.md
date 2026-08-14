@@ -65,23 +65,31 @@ Electron App
 │   │   ├── builtin-resources.ts # 번들 스킬 리소스 해석 (0078)
 │   │   ├── updater.ts          # UpdateController — electron-updater 자동 업데이트 (0084~0086)
 │   │   ├── updater-feed.ts     # 업데이트 피드 해석 — object storage(S3/MinIO)·GHE host (0133)
-│   │   ├── chat-turn-continuation.ts # 자동 연속 턴 배선 (settings 재판정 포함, 0126)
-│   │   └── handlers/           # 도메인 IPC 13종 — boot · cost · engine · files · log · mcp · misc · project ·
-│   │                           #   providers(0181) · session · settings · skills · update (0179 에서 misc 분해)
+│   │   ├── chat-turn-continuation.ts # 자동 연속 턴 배선 (실행 구성 전체 재resolve, 0126/0188)
+│   │   ├── auth-resume.ts      # 부팅 복원 순서 — gate 우선 → 나머지 병렬 → push 1회 (0188)
+│   │   ├── connection-views.ts # Auth descriptor/snapshot → 기존 GUI DTO (0188 compat mapper)
+│   │   ├── deployment/         # 배포별 concrete (build-time) — auth-definitions · gate-auth ·
+│   │   │                       #   harness-runtime · plugins · usage-fetcher (0188)
+│   │   └── handlers/           # 도메인 IPC — boot · cost · engine · files · log · mcp · misc · project ·
+│   │                           #   providers(연결/Auth) · session · settings · skills · update
 │   ├── features/               # 수직 슬라이스 (교차 import 금지)
 │   │   ├── chat/               # 턴 오케스트레이션 — turn-coordinator · pending-message-queue · settle · timers · title
 │   │   ├── sessions/           # 런타임 거버넌스 — supervisor · session-runtime · runtime-pool · eviction/cap-policy · active-turn-tracker
 │   │   ├── approvals/          # ApprovalCoordinator(도구 승인 broker) · permission-mode-controller
 │   │   ├── usage/              # UsageTracker — turn_usage 집계(일/주/월 SUM) + provider별 한도(0080~0082)
 │   │   ├── history/            # HistoryWriter — NormalizedEvent → DB parts 영속
-│   │   ├── providers/          # ① provider/engine 설정·모델 해석(0014) ② **인증 provider 플랫폼**(0181) —
-│   │   │                       #   auth/(registry·store·login·oauth·api·policy·present·specs) · gate/ ·
-│   │   │                       #   llm/(디렉토리 열거 조인) · service/(도구 등록 + confluence) · declarations/(배포가 채운다)
+│   │   ├── auth/               # 인증 lifecycle (0181 → 0188 독립) — runtime · registry · store ·
+│   │   │                       #   login · oauth · authenticated-request · secret-access · policy ·
+│   │   │                       #   present · session-policies · specs/ · browser-session/
+│   │   ├── gate/               # Auth 상태를 앱 접근 조건으로 소비하는 정책 (0188)
+│   │   ├── harnesses/          # settings 열거·해석(0014) · Model 해석 · 실행 구성(runtime-config) ·
+│   │   │                       #   spawn 입력 조립(prepared-config) · respawn 경계 · claude/model-parser
+│   │   ├── plugins/            # 제품 기능 단위 — confluence/ (0188 이설)
 │   │   ├── extensions/         # ExtensionBuilder(지침·MCP·skill 조립) + deployer · mcp/ · skills/(scan·seed)
 │   │   ├── orchestration/      # Conversation Continuity(fork/handoff) 순수 로직 (handoff 0051 §A.4)
 │   │   └── scheduler/          # 주기 실행 엔진 (croner, 0091) — register/protect/nextRun/stopAll + schedule_runs 기록
 │   ├── adapters/               # SessionAdapter 포트 & 구현 (구체 provider 리터럴 격리)
-│   │   ├── types.ts·turn.ts·provider-config.ts·mcp-config.ts·hooks.ts·descriptor.ts  # 포트
+│   │   ├── types.ts·turn.ts·harness-config.ts·mcp-config.ts·hooks.ts·descriptor.ts  # 포트
 │   │   ├── claude.ts           # ClaudeAdapter — SDK query() (장수명 채널 pushTurn)
 │   │   ├── claude-map.ts       # SDKMessage → NormalizedEvent 정규화 (순수)
 │   │   ├── claude-adapt.ts     # TurnExtensions → query() 옵션 순수 변환
@@ -94,7 +102,8 @@ Electron App
 │   │   ├── bus-events.ts       # OrcaBusEvents — turn.event 단일 이벤트 맵
 │   │   ├── ports.ts            # ManagedRuntime · RuntimeSessionAdapter 등 구조적 포트
 │   │   ├── session-state.ts    # SessionRuntimeState 머신 (cold/live/busy/interrupting/error/closed)
-│   │   └── provider.ts         # **Provider·AuthSpec·Grant·ProviderApi** (0181) — 폐쇄망 확장점의 유일한 계약
+│   │   └── auth.ts             # **AuthDefinition·AuthMethod·Grant·BoundAuth·AuthSecretReader** (0188)
+│   │                           #   — 인증만 표현한다(소비 슬롯 없음)
 │   └── infra/                  # 얇은 인프라 (feature/어댑터 비의존)
 │       ├── ipc/                # handle(safeParse+실패정책) · send(push 헬퍼·wire-log) · dto
 │       ├── bus/                # TypedBus
@@ -191,7 +200,7 @@ Electron App
 | provider별 사용량 한도 | Phase 4 | ✅ 완료 (0079~0082) | `provider_limits`(`0012`) + `cost:usage`/`cost:setProviderLimit` |
 | CI/CD 릴리스 파이프라인 (v0.1.0) | Phase 4 | ✅ 완료 (0087~0089) | `.github/workflows/{ci,release}.yml` — Windows unsigned NSIS + GitHub Releases draft. 배포 빌드는 로그인 게이트 스킵(0089). 정본 `docs/guides/release-operations.md` |
 | 중앙 로깅 (LogManager · JSONL · redaction) | Phase 4 | ✅ 완료 (0123/0124, prod opt-in 토글 0144) | `infra/log/` — 외부 로깅 라이브러리 미도입. 정본 [observability.md](./observability.md) |
-| **Provider 플랫폼** (앱 로그인 + LLM 자격증명 + 서비스 연결) | Phase 4 | ✅ **0181 재작성 완료** | `contracts/provider.ts` 하나가 계약이고 `features/providers/{auth,gate,llm,service,declarations}` 가 구현이다. 인증 5종(api-key·password·pat·**oauth code→token**·browser-session) · IPC `provider` 6채널 · 카탈로그 연결 탭. 실값(ADFS·토큰 교환 endpoint·서비스 인벤토리)은 배포 선언에서 채운다 |
+| **인증 + 소비 경계** (앱 로그인 + Harness 실행 구성 + Plugin) | Phase 4 | ✅ **0181 재작성 → 0188 경계 분리** | `contracts/auth.ts` 가 **인증만** 표현하고 `features/{auth,gate,harnesses,plugins}` 가 구현이다. 인증 5종(api-key·password·pat·**oauth code→token**·browser-session) · IPC `provider` 6채널(compat) · 카탈로그 연결 탭. 실값과 배선은 `app/deployment/` 에서 채운다. 구조 정본 [`auth.md`](./auth.md) |
 | **원격 전송 스택 단일화** (Node 전역 `fetch` 금지 → Chromium 스택) | Phase 4 | ✅ 완료 (0173/0174) | 전역 `fetch(` 호출은 `infra/net/net-fetch.ts` 에만 허용(`no-node-fetch.test.ts` 가 0건으로 고정), 소비자는 `typeof fetch` 포트 주입. Chromium 스택을 무는 파일은 **3개**(`net-fetch`·`net-request`·`browser-session`). [security.md](./security.md) §1.8 |
 | `options.permissionMode` (도구 권한) | Phase 4 | ❌ 미구현 | PRD OQ9 |
 | `options.hooks` 완전 구현 (도구 감사 외부 핸들러) | Phase 4 | ❌ 미구현 | 현재 인프로세스 OrcaHookSet 은 구현됨 |

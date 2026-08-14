@@ -385,7 +385,9 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 
 앱 로그인(게이트)·LLM 자격증명·사내 서비스 연결을 **같은 lifecycle** 로 처리하는 채널. 셋의 차이는 `ProviderInfo.kind`(`gate`·`llm`·`service`) 뿐이고 별도 인증 인터페이스가 없다. **prod 에서는** 등록된 `kind:'gate'` provider 가 0개(기본 배포)면 게이트가 **자동 통과**되고, **DEV 빌드는 선언이 0개여도 게이트를 세운다**(컴포지션 루트가 `import.meta.env.DEV` 를 `evaluateGate.alwaysRequired` 로 주입 — 로그인 화면 도달성. 탈출구는 `Settings.authBypass` 우회 토글 하나). **핸들러는 `Bootstrap.start()` 최상단, DB 초기화보다 앞에서 등록**된다 — 창이 start() 완료 전에 열리므로(0109) renderer 게이트의 첫 invoke 가 부팅 완료를 기다리지 않는다. 게이트 판정에는 DB 가 필요 없다(grant 는 파일+vault).
 
-계약 정본은 `app/src/main/contracts/provider.ts`(`Provider`·`AuthSpec`·`Grant`·`ProviderApi`), 배포 선언은 `features/providers/declarations/`(빌드타임 — 런타임 동적 등록 없음), 배포 가이드는 [guides/closed-network-extensions.md](guides/closed-network-extensions.md).
+계약 정본은 `app/src/main/contracts/auth.ts`(`AuthDefinition`·`AuthMethod`·`Grant`·`BoundAuth`), 배포 선언·배선은 `app/src/main/app/deployment/`(빌드타임 — 런타임 동적 등록 없음), 배포 가이드는 [guides/closed-network-extensions.md](guides/closed-network-extensions.md).
+
+> **채널·DTO 이름은 compatibility 계약이다** (0188). 내부 소유자는 `AuthRuntime`·`Gate`·`app/connection-views.ts` 로 바뀌었지만 `orca:provider:*` 6채널과 `ProviderInfo`·`ProviderPlatformState`·`ProviderKind` 는 별도 UI migration 전까지 그대로다. `ProviderInfo.kind` 는 view category 를 접은 값이다 — `gate→gate`·`harness→llm`·`plugin→service`·`usage→service`.
 
 > **응답 DTO 에 raw secret 이 없다.** `ProviderInfo` 는 상태·만료·표시용 `principal` 만 싣고, 값은 main 의 vault(safeStorage)에만 있다. 앱 로그인은 **UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있다.
 

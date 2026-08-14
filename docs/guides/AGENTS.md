@@ -10,8 +10,8 @@
 나열하면 문서를 추가할 때마다 두 곳을 고쳐야 하고, 곧 갈라진다.
 
 각 절차서는 **자신이 인용하는 정본**을 상단에 밝힌다. 예: 폐쇄망 확장 가이드의 구조·설계 근거는
-[`../arch/backend/providers.md`](../arch/backend/providers.md), 계약의 형상은
-`app/src/main/contracts/provider.ts` 가 진실이다.
+[`../arch/backend/auth.md`](../arch/backend/auth.md), 계약의 형상은
+`app/src/main/contracts/auth.ts` 가 진실이다.
 
 ## 이 디렉토리에 들어가는 것 / 안 들어가는 것
 

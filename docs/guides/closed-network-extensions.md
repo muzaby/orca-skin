@@ -4,7 +4,7 @@
 도구**를 붙이는 방법의 정본. 대상 독자는 **Orca 내부 구조를 모르는 외부 에이전트/사내 개발자**다 —
 각 절은 순서대로 실행 가능한 단계로 쓴다.
 
-> **구조·설계 근거는 [`arch/backend/providers.md`](../arch/backend/providers.md) 가 정본이다.**
+> **구조·설계 근거는 [`arch/backend/auth.md`](../arch/backend/auth.md) 가 정본이다.**
 > 이 문서는 *무엇을 어떤 순서로 하는가* 만 다룬다(구조 서술 = `arch/`, 실행 절차 = `guides/`).
 > 계약의 형상은 `app/src/main/contracts/provider.ts` 가 진실 — 예제와 어긋나면 코드가 이긴다.
 >
@@ -31,9 +31,9 @@
 
 | 하려는 일 | 레시피 | 축 | 재빌드 | 요청 주체 |
 |---|---|---|---|---|
-| 앱을 열 때 사내 로그인을 **강제**한다 (ADFS/WIA) | **[A — §2](#2-레시피-a--로그인-게이트-추가-kindgate)** | `Provider{kind:'gate'}` | 필요 | — |
-| 사내 **모델 게이트웨이**에 자격증명을 붙인다 | **[B — §3](#3-레시피-b--llm-provider-추가-kindllm)** | `Provider{kind:'llm'}` | 필요 | Orca(발급) → claude CLI(사용) |
-| 인증이 필요한 **내장 도구**를 모델에 노출한다 (Confluence 등) | **[C — §4](#4-레시피-c--사내-서비스-provider--내장-도구-kindservice)** | `Provider{kind:'service'}` + `tools` | 필요 | **Orca** (`ProviderApi.request`) |
+| 앱을 열 때 사내 로그인을 **강제**한다 (ADFS/WIA) | **[A — §2](#2-레시피-a--로그인-게이트-추가-kindgate)** | `AuthDefinition` + `gate-auth.ts` membership | 필요 | — |
+| 사내 **모델 게이트웨이**에 자격증명을 붙인다 | **[B — §3](#3-레시피-b--llm-provider-추가-kindllm)** | `AuthDefinition` + `harness-runtime.ts` augmenter | 필요 | Orca(발급) → Harness(사용) |
+| 인증이 필요한 **내장 도구**를 모델에 노출한다 (Confluence 등) | **[C — §4](#4-레시피-c--사내-서비스-provider--내장-도구-kindservice)** | `AuthDefinition` + `plugins.ts` binding | 필요 | **Orca** (`BoundAuth.request`) |
 | 그 외 모든 서비스 연동 | **[D — §5](#5-레시피-d--mcp-서버-추가-재빌드-없음)** | MCP 서버 | **불필요** | claude CLI |
 
 **"재빌드 없이 서비스를 추가하고 싶다" → 레시피 D(MCP) 를 쓴다.** 인증이 필요한 MCP 서버는
@@ -41,54 +41,68 @@
 vault 가 유지, §5).
 
 > **런타임 임의 코드 로딩은 금지한다** — Electron main 에서 임의 코드 실행은 filesystem·cookie·vault
-> 전권을 주는 것과 같고 타입 검증도 성립하지 않는다. 이 정책은 0181 에서도 유지된다.
+> 전권을 주는 것과 같고 타입 검증도 성립하지 않는다. 이 정책은 0188 에서도 유지된다.
 > A·B·C 는 전부 **빌드타임 선언**이고, UI 에 "추가" 버튼이 없는 이유가 이것이다.
 
 ---
 
 ## 1. 공통 사전 지식 (레시피 A·B·C 공통)
 
-### 1.1 고치는 파일은 `declarations/` 셋뿐이다
+### 1.1 고치는 파일은 `app/deployment/` 묶음뿐이다
 
 ```
-app/src/main/features/providers/declarations/
-├── index.ts     ← 세 배열을 합친다 (보통 손대지 않는다)
-├── sso.ts       ← 게이트 1개 또는 null   (기본값: null)     → 레시피 A
-├── llm.ts       ← LLM provider 배열      (기본값: [])       → 레시피 B
-└── service.ts   ← 사내 서비스 배열       (기본값: [])       → 레시피 C
+app/src/main/app/deployment/
+├── auth-definitions.ts  ← 인증 대상 전부 (기본값: [])        → 레시피 A·B·C 공통 1단계
+├── gate-auth.ts         ← 그중 앱 로그인 게이트 membership   → 레시피 A
+├── harness-runtime.ts   ← Harness 실행 구성 augmenter        → 레시피 B
+├── plugins.ts           ← Plugin 도구 조립·가시성            → 레시피 C
+└── usage-fetcher.ts     ← 원격 사용량 concrete               → 레시피 E
 ```
 
-기본 배포는 셋 다 비어 있다. 그래서 OSS/prod 기본 빌드는 **로그인 화면 없이 열리고** 도구·자격증명
+기본 배포는 전부 비어 있다. 그래서 OSS/prod 기본 빌드는 **로그인 화면 없이 열리고** 도구·자격증명
 주입도 일어나지 않는다. (**dev 빌드는 다르다 — §6 을 반드시 읽는다.**)
 
-### 1.2 ⚠️ `features/providers/` 에는 세입자가 둘이다
+### 1.2 인증 선언과 "무엇에 쓰는가" 는 다른 파일이다 (0188)
 
-가장 흔한 오배치다. 같은 디렉토리에 **서로 무관한 두 가지**가 산다:
+`AuthDefinition` 에는 **`kind`·`tools`·`llm`·`usage`·`envKey` 가 없다.** 인증 대상을 한 번 선언하고,
+그것을 무엇에 쓸지는 옆 파일이 정한다.
 
-| 세입자 | 파일 | 무엇인가 |
+| 무엇을 정하나 | 어디에 | 어떻게 |
 |---|---|---|
-| LLM 설정·모델 해석 (구, 0017~) | `provider-registry.ts` · `claude-model-parser.ts` · `provider-settings.ts` · `engine-write.ts` | `sources/settings/<adapter>/<provider>/` 트리 열거 |
-| **인증 provider 플랫폼 (0181)** | `auth/` · `gate/` · `llm/` · `service/` · `declarations/` · `platform.ts` | **이 가이드가 다루는 대상** |
+| 인증 대상 자체 (id·origin·방식·probe) | `auth-definitions.ts` | `AuthDefinition` 상수 + `AUTH_DEFINITIONS` 배열 |
+| 앱 로그인 강제 | `gate-auth.ts` | 위 상수를 **객체 참조**로 `GATE_AUTH_DEFINITIONS` 에 담는다 |
+| Harness 실행 구성 | `harness-runtime.ts` | 선택된 key 에 `RuntimeConfigAugmenter` 를 붙인다 |
+| 모델에 노출할 도구 | `plugins.ts` | Plugin 모듈로 tool server 를 만들고 binding 을 돌려준다 |
+| 원격 사용량 | `usage-fetcher.ts` | `UsageFetcher` 구현을 돌려준다 |
 
-이 문서에서 "provider 를 추가한다" 는 **후자**를 뜻한다. 전자에 파일을 더하면 인증 경로에 닿지
-않는다. 두 세입자는 이름만 같고 서로 import 하지 않는다.
+**AuthId 문자열을 각 파일에 다시 적지 않는다** — `auth-definitions.ts` 가 export 한 상수의 `.id` 를
+재사용한다. 어긋나면 도구는 모델에 보이는데 인증 대상을 못 찾는다.
 
-### 1.3 등록 시 검사는 넷뿐이다
+⚠️ **`features/harnesses/` 와 혼동하지 않는다.** 그쪽은 `sources/settings/<harness>/<modelProvider>/`
+트리를 열거·해석하는 슬라이스이고 **인증 선언이 아니다**. 이 가이드에서 "인증 대상을 추가한다" 는
+`app/deployment/auth-definitions.ts` 를 뜻한다.
+
+### 1.3 등록 시 검사는 셋뿐이다
 
 | 검사 | 규칙 | 어기면 |
 |---|---|---|
-| **중복 `id`** | provider id 는 유일해야 한다 | 뒤에 온 선언만 거부(앞의 것은 살아 있다) |
+| **중복 `id`** | AuthId 는 유일해야 한다 | 뒤에 온 선언만 거부(앞의 것은 살아 있다) |
 | **`id` 형태** | 케밥 소문자(`a-z0-9-`) | 그 선언만 거부 |
 | **`origin` 형태** | scheme+host(+port). **경로·쿼리·후행 슬래시 금지** | 그 선언만 거부 |
-| **게이트의 `probe`** | `kind:'gate'` 는 `probe` 선언 필수 | 그 선언만 거부 |
 
 거부는 **그 선언 하나만** 떨어뜨린다(구 구조의 패키지 단위 all-or-nothing 아님). 사유는
-`providers.declaration.rejected` 로그로 남는다 — 선언했는데 화면에 안 보이면 여기부터 본다.
+`auth.declaration.rejected` 로그로 남는다 — 선언했는데 화면에 안 보이면 여기부터 본다.
 
-### 1.4 `Provider.id` 는 한 번 정하면 바꾸지 않는다
+**게이트의 `probe` 검사는 등록이 아니라 소비 측에 있다** (0188) — Auth 코어는 자신이 gate 에
+쓰이는지 모른다. `GATE_AUTH_DEFINITIONS` 의 원소 타입이 compile time 에 `probe` 를 강제하고,
+부팅 composition 이 runtime 에서도 확인해 **확인할 수 없는 gate 가 있으면 게이트를 닫아 둔다**
+(`auth.gate.blocked` 로그).
 
-vault 네임스페이스(`provider:<id>:<authKind>`)이자 `${BINDING:<id>}` 참조 대상이고, 내장 도구
-서버 이름(`<id>-tools` → 모델이 보는 `mcp__<id>-tools__<tool>`)의 뿌리다. 바꾸면 저장된
+### 1.4 `AuthId` 는 한 번 정하면 바꾸지 않는다
+
+vault 네임스페이스(`provider:<id>:<authKind>` — **prefix 는 호환성 때문에 유지된다**)이자
+`${BINDING:<id>}` 참조 대상이고, 내장 도구 서버 이름(`<id>-tools` → 모델이 보는
+`mcp__<id>-tools__<tool>`)의 뿌리다. 바꾸면 저장된
 자격증명을 읽지 못하고 사용자가 적은 MCP 설정과 도구 이름이 함께 깨진다.
 
 케밥 소문자는 **권고가 아니라 검사다**(§1.3). 범위 밖 문자를 쓰면 등록·로그인·vault 저장은 전부
@@ -105,19 +119,22 @@ probe: { path: '/rest/api/user/current' }   // origin 기준 상대 경로. 2xx 
 
 **선언하면 통과해야만 연결이 성립한다** — 로그인 직후에도, 부팅 복원에서도, 방식과 무관하게.
 미선언이면 값이 입력된 것만으로 "연결됨" 이 되고, 서버가 그 PAT 를 이미 회수했는지는 실제 도구
-호출이 401 을 받을 때에야 드러난다. `kind:'gate'` 는 필수다(§1.3).
+호출이 401 을 받을 때에야 드러난다. gate 로 쓸 Auth 는 필수다(§1.3).
 
 | 항목 | 규칙 |
 |---|---|
 | 판정 | **2xx** 이고 리다이렉트 체인의 **최종 URL 이 `Provider.origin` 으로 복귀**할 것 |
 | 왜 최종 origin 까지 보나 | 미인증 SSO 는 IdP 로그인 폼을 **200** 으로 준다. status 만 보면 인증됨으로 오독한다(0174 실기) |
-| 언제 도나 | ① grant 커밋 직후 ② 부팅 복원 ③ 게이트 통과 직후(게이트 외 provider 훑기) |
+| 언제 도나 | ① grant 커밋 직후 ② 부팅 복원(gate 순차) ③ 게이트 통과 직후(나머지 Auth 1회 병렬) |
 | 실패하면 | 로그인 중이면 되돌리고(입력형은 같은 폼에 사유 표시), 부팅이면 `expired` 로 강등 — grant 는 남겨 재인증 지점을 보여 준다 |
-| 진단 | `providers.probe.result{ok,status,returned}` · `providers.probe.failed{reason}` |
+| 진단 | `auth.probe.result{ok,status,returned}` · `auth.probe.failed{reason}` |
 
-> ⚠️ **한계 둘.** ① 인증 실패를 `200` + 로그인 HTML 로 주면서 리다이렉트도 하지 않는 배포는
-> 통과한다(상태코드와 origin 만 본다). ② 재인증이 probe 에서 떨어지면 이전 자격증명은 복구되지
-> 않는다 — vault 키가 같아 이미 덮였다.
+> ⚠️ **한계 하나.** 인증 실패를 `200` + 로그인 HTML 로 주면서 리다이렉트도 하지 않는 배포는
+> 통과한다(상태코드와 최종 origin 만 본다).
+>
+> ✅ **0188 에서 닫힌 것**: 재인증이 probe 에서 떨어지면 **이전 자격증명이 복구된다**. vault 값·
+> grant·`verified`·`credentialRevision` 을 쓰기 전에 떠 두고 실패 시 되돌린다 — 실패한 재인증
+> 한 번이 멀쩡히 살아 있던 연결을 끊지 않는다.
 
 ### 1.5 `present` — 자격증명을 요청에 싣는 방법
 
@@ -163,15 +180,15 @@ service : { sessionGroup: 'corp', allowedOrigins: ['https://wiki…'] }
 
 ### 1.7 SP 를 부르는 네 순간, 그리고 다른 레이어에서 쓰는 법
 
-앱이 사내 SP 를 부르는 순간은 넷이고, **전송은 이미 한 벌**이다 — `ProviderApiImpl.transport()`
+앱이 사내 SP 를 부르는 순간은 넷이고, **전송은 이미 한 벌**이다 — `AuthenticatedRequester.transport()`
 가 세션 grant 를 만나면 `BrowserSessionStore.send()` 로 위임한다.
 
 | SP 호출 | 시점 | 통로 | 경로 표기 | 게이트 |
 |---|---|---|---|---|
 | whoami — 누구인가 | 로그인 중 | `sessions.send()` | origin 상대 | `allowedOrigins` |
 | exchange — 토큰 승격 | 로그인 중 | `sessions.send()` | origin 상대 | `allowedOrigins` |
-| **probe — 인증됐나** | **grant 커밋 직후 · 부팅 복원** | `ProviderApi.request()` | origin 상대 | `checkOutboundRequest` 전부 |
-| 그 외 API (도구·사용량…) | 로그인 후 | `ProviderApi.request()` | origin 상대 | `checkOutboundRequest` 전부 |
+| **probe — 인증됐나** | **grant 커밋 직후 · 부팅 복원** | 인증된 요청 | origin 상대 | `checkOutboundRequest` 전부 |
+| 그 외 API (도구·사용량…) | 로그인 후 | `BoundAuth.request()` | origin 상대 | `checkOutboundRequest` 전부 |
 
 > **probe 는 grant 를 커밋한 *뒤* 돈다.** `checkOutboundRequest` 가 `grantStatus !== 'valid'` 를
 > 거부하므로 커밋 전에는 요청 자체가 나가지 않는다. 순서를 뒤집으면(커밋 → 확인 → 실패 시
@@ -195,7 +212,7 @@ service : { sessionGroup: 'corp', allowedOrigins: ['https://wiki…'] }
 
 | 소비자 위치 | 방법 | 선례 |
 |---|---|---|
-| `features/providers` 안 | 직접 받는다 | `ConfluenceContext { request, signal?, logger }` |
+| `features/plugins/*` 안 | 직접 받는다 | `ConfluenceContext { request, signal?, logger }` |
 | **다른 feature 슬라이스** | 소비 측이 **필요한 메서드만 담은 구조적 포트**를 선언하고 컴포지션 루트가 어댑터를 주입 (`src/main/AGENTS.md` §해소책 1+3) — 절차·예제는 **§5-b** | `features/usage/fetcher.ts` 의 `UsageFetcher` (0186) — 타입만 있는 파일이고, 주입은 `app/bootstrap.ts` 가 한다 |
 | **renderer** | 전용 도메인 IPC 채널을 만든다 — 범용 프록시 채널은 **없고, 없는 것이 맞다** | `app/handlers/*` |
 
@@ -206,7 +223,7 @@ service : { sessionGroup: 'corp', allowedOrigins: ['https://wiki…'] }
 request: (req, signal) => api.request('confluence', req, signal)
 ```
 
-**요청 하나에 걸리는 규칙** — 어기면 요청 자체가 나가지 않는다: 절대 URL·프로토콜 상대 금지 ·
+**요청 하나에 걸리는 규칙** — 어기면 요청 자체가 나가지 않는다(`BoundAuth.request`): 절대 URL·프로토콜 상대 금지 ·
 예약 헤더(`authorization`·`cookie`·`proxy-authorization`) 금지 · grant 가 `valid` 가 아니면 차단 ·
 컨텍스트 경로는 호출자가 prefix(`normalizeBasePath()` 재사용) · `query` 는 `path` 와 분리 ·
 바이트가 필요하면 `responseType:'binary'` + `maxBytes` · redirect 는 홉마다 재검사 ·
@@ -214,7 +231,7 @@ request: (req, signal) => api.request('confluence', req, signal)
 
 ---
 
-## 2. 레시피 A — 로그인 게이트 추가 (`kind:'gate'`)
+## 2. 레시피 A — 로그인 게이트 추가 (구 `kind:'gate'`)
 
 사내 IdP 에 로그인해야 앱이 열리게 한다. 인증 방식은 `browser-session` — Electron 창으로 IdP 에
 로그인하고 그 partition(cookie jar)을 이후 요청에 재사용한다.
@@ -223,24 +240,24 @@ request: (req, signal) => api.request('confluence', req, signal)
 
 | # | 하는 일 | 고치는 파일 / 확인 지점 |
 |---|---|---|
-| 1 | `GATE_PROVIDERS` 빈 배열에 선언을 하나 넣는다 (게이트가 여럿이면 그만큼) | `app/src/main/features/providers/declarations/sso.ts` |
+| 1 | `AuthDefinition` 상수를 선언하고 `AUTH_DEFINITIONS` 에 넣는다 | `app/src/main/app/deployment/auth-definitions.ts` |
 | 2 | **`origin` 을 정한다** — `exchange.path` 가 붙는 기준이고 등록 검사의 대상이다. 로그인 시작 IdP 가 아니라 **probe·토큰 교환이 사는 호스트**로 잡는다(아래 주의) | 같은 파일 |
-| 3 | `probe.path` 를 정하고 `config` 4필드를 채운다 (`sessionGroup`·`loginUrl`·`doneUrlPrefix`·`allowedOrigins`) | 같은 파일. **선언 파일 헤더 주석에 같은 예제가 들어 있다** — 거기서 시작하는 편이 빠르다. `probe` 를 빠뜨리면 등록 검사가 거부한다(`missing_probe`) |
-| 4 | 토큰까지 필요하면 `config.exchange` 를 더한다 | §2-b |
-| 5 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/providers` | 형상·회귀 |
-| 6 | `npm run dev` 로 로그인 왕복을 실기한다 | **§6** (dev 게이트 동작이 prod 와 다르다) |
+| 3 | `probe.path` 를 정하고 `config` 4필드를 채운다 (`sessionGroup`·`loginUrl`·`doneUrlPrefix`·`allowedOrigins`) | 같은 파일. **파일 헤더 주석에 같은 레시피가 들어 있다** — 거기서 시작하는 편이 빠르다 |
+| 4 | **그 상수를 `GATE_AUTH_DEFINITIONS` 에 객체 참조로 담는다** — 이 단계를 빼면 인증 대상일 뿐 게이트가 아니다 | `app/src/main/app/deployment/gate-auth.ts`. 타입이 `GateAuthDefinition` 이라 `probe` 를 빠뜨리면 **컴파일이 안 된다** |
+| 5 | 토큰까지 필요하면 `config.exchange` 를 더한다 | §2-b |
+| 6 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/auth src/main/features/gate` | 형상·회귀 |
+| 7 | `npm run dev` 로 로그인 왕복을 실기한다 | **§6** (dev 게이트 동작이 prod 와 다르다) |
 
 ### 선언 예제
 
 ```ts
-export const GATE_PROVIDERS: Provider[] = [
-  {
+// app/deployment/auth-definitions.ts
+export const CORP_SSO_AUTH = {
   id: 'corp-sso',
   label: '사내 로그인',
-  kind: 'gate',
   origin: 'https://portal.example.corp',      // ← 2단계. 경로·후행 슬래시 금지
-  probe: { path: '/api/me' },                 // ← 게이트는 필수. 로그인 직후와 부팅이 같이 쓴다
-  auth: [
+  probe: { path: '/api/me' },                 // ← gate 는 필수. 로그인 직후와 부팅이 같이 쓴다
+  methods: [
     {
       kind: 'browser-session',
       label: '통합 인증(WIA)',
@@ -252,12 +269,20 @@ export const GATE_PROVIDERS: Provider[] = [
       }
     }
   ]
-  }
-]
+} satisfies GateAuthDefinition
+
+export const AUTH_DEFINITIONS: readonly AuthDefinition[] = [CORP_SSO_AUTH]
+```
+
+```ts
+// app/deployment/gate-auth.ts — 4단계. **문자열이 아니라 객체 참조**다.
+import { CORP_SSO_AUTH } from './auth-definitions'
+
+export const GATE_AUTH_DEFINITIONS: readonly GateAuthDefinition[] = [CORP_SSO_AUTH]
 ```
 
 > ⚠️ **`origin` 은 로그인 시작 주소(IdP)가 아니다.** `loginUrl` 은 절대 URL 이라 어디를 가리켜도
-> 되지만, **`probe.path`·`exchange.path`·`whoami.path` 는 `Provider.origin` 기준 상대 경로로
+> 되지만, **`probe.path`·`exchange.path`·`whoami.path` 는 `AuthDefinition.origin` 기준 상대 경로로
 > 해석된다.** 토큰 교환이 portal 에 있는데 `origin` 을 ADFS 로 두면 그 요청들이 엉뚱한 호스트로
 > 나간다. probe 판정도 "체인이 `origin` 으로 복귀했는가" 이므로 `origin` 이 어긋나면 인증이
 > 영영 성립하지 않는다.
@@ -266,10 +291,10 @@ export const GATE_PROVIDERS: Provider[] = [
 
 | 필드 | 의미 | 흔한 실수 |
 |---|---|---|
-| `sessionGroup` | cookie jar 이름. **같은 값을 쓰는 provider 들이 jar 를 공유**한다 | 서비스마다 다르게 주면 SSO 재사용이 안 된다 |
+| `sessionGroup` | cookie jar 이름. **같은 값을 쓰는 Auth 들이 jar 를 공유**한다 | 서비스마다 다르게 주면 SSO 재사용이 안 된다 |
 | `loginUrl` | 창이 처음 여는 주소 | — |
-| `doneUrlPrefix` | 이 접두사에 도달하면 로그인 완료로 **간주**한다 | 이것만으로 성공을 선언하지 않는다 — 확정은 `Provider.probe` 다 |
-| `probe.path`(선언 최상위) | 완료를 **실제 요청으로** 재확인하는 endpoint. **origin 상대** | 로그인 폼이 200 으로 뜨는 배포에서 오판을 막는 지점. 게이트는 없으면 등록 거부 |
+| `doneUrlPrefix` | 이 접두사에 도달하면 로그인 완료로 **간주**한다 | 이것만으로 성공을 선언하지 않는다 — 확정은 `AuthDefinition.probe` 다 |
+| `probe.path`(선언 최상위) | 완료를 **실제 요청으로** 재확인하는 endpoint. **origin 상대** | 로그인 폼이 200 으로 뜨는 배포에서 오판을 막는 지점. gate membership 에 담으려면 필수(컴파일 강제) |
 | `allowedOrigins` | 창이 오갈 수 있는 origin **전수**. 서브도메인 자동 허용 없음 | 하나 빠지면 로그인 중간에 차단된다 — 로그가 막힌 origin 을 지목한다 |
 | `whoami` (0182) | `{ path, valuePath }` — 로그인한 계정을 읽어 **사이드바 하단에 표시**한다. 생략하면 조회 요청이 아예 나가지 않고 폴백 라벨(`developer`)이 뜬다 | **`path` 는 origin 기준 상대 경로다** — 위 세 URL 이 절대 URL 이라 여기도 절대 URL 로 적기 쉽다(아래 주의) |
 
@@ -281,7 +306,7 @@ probe 와 **같은 endpoint** 를 적어도 된다 — 요청은 두 번 나가�
 
 > ⚠️ **경로 표기는 `loginUrl`·`doneUrlPrefix` 만 절대 URL 이고 나머지(`probe.path`·`whoami.path`·
 > `exchange.path`)는 전부 origin 상대다.** 앞의 둘은 창이 여는 주소라 IdP 를 가리켜야 하고,
-> 나머지는 `ProviderApi.request` 가 그대로 쓰는데 그쪽은 절대 경로를 `absolute_path` 로 거부한다.
+> 나머지는 `BoundAuth.request` 가 그대로 쓰는데 그쪽은 절대 경로를 `absolute_path` 로 거부한다.
 
 **신원 조회 실패는 로그인 실패가 아니다.** principal 은 표시용이라, 못 읽었다고 인증을 되돌리면
 "이름을 못 읽어서 로그인이 안 되는" 상태가 된다. 실패하면 grant 는 그대로 커밋되고 화면만 폴백
@@ -317,47 +342,44 @@ config: {
 
 ---
 
-## 3. 레시피 B — LLM provider 추가 (`kind:'llm'`)
+## 3. 레시피 B — Harness 실행 구성 추가 (구 `kind:'llm'`)
 
-사내 모델 게이트웨이의 자격증명을 subprocess 환경변수로 주입한다.
+사내 모델 게이트웨이의 URL·모델 식별자·실행 token 을 subprocess 환경변수로 주입한다.
+
+**0188 에서 달라진 것**: 구 `llm: { adapter, provider, envKey }` 는 credential **한 값**만 표현했다.
+이제 배포가 붙이는 것은 선택된 key 의 **`RuntimeConfigAugmenter`** 이고, 그 결과는 환경변수
+**overlay 전체**다 — token 뿐 아니라 URL·모델 변수·flag 를 함께 담는다.
 
 ### 단계
 
 | # | 하는 일 | 고치는 파일 / 확인 지점 |
 |---|---|---|
-| 1 | 대상 게이트웨이의 provider 디렉토리가 있는지 확인한다 — `~/.config/orca/sources/settings/<adapter>/<provider>/` | **디렉토리가 열거 SSOT 다.** 없으면 선언해도 조인되지 않는다 |
-| 2 | `LLM_PROVIDERS` 에 항목을 추가한다 | `declarations/llm.ts` |
-| 3 | `llm: { adapter, provider, envKey }` 를 채운다 — 앞 둘은 1단계 디렉토리와의 **조인 좌표**, `envKey` 는 자격증명을 실을 환경변수 이름 | 같은 파일 |
-| 4 | 인증 방식을 고른다 — 입력 수집형(§3-a) · OAuth(§3-b) · 또는 **둘 다 배열에 선언** | 같은 파일 |
-| 5 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/providers` | 형상·조인 회귀 |
-| 6 | 실기: 연결 탭에서 인증 → 새 채팅 전송 → 게이트웨이 로그에 요청이 도달하는지 | 사람 실기 |
+| 1 | 대상 게이트웨이의 디렉토리가 있는지 확인한다 — `~/.config/orca/sources/settings/<harness>/<modelProvider>/` | **디렉토리가 열거 SSOT 다.** 없으면 augmenter 를 붙여도 선택되지 않는다 |
+| 2 | 인증 대상을 선언한다 (`AuthDefinition` — `envKey` 는 적지 않는다) | `app/deployment/auth-definitions.ts` |
+| 3 | 인증 방식을 고른다 — 입력 수집형(§3-a) · OAuth(§3-b) · 또는 **둘 다 `methods` 배열에** | 같은 파일 |
+| 4 | 1단계 key 에 augmenter 를 붙인다. **config API 방식과 direct credential 방식은 서로 다른 factory 다**(§3-c) | `app/deployment/harness-runtime.ts` |
+| 5 | 그 Auth 가 바뀌면 무효화할 key 를 `AUTH_INVALIDATED_HARNESS_KEYS` 에 적는다 | 같은 파일. 안 적으면 재인증 뒤에도 옛 token 이 warm cache 로 남는다 |
+| 6 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/harnesses src/main/features/auth` | 형상·cache·fence 회귀 |
+| 7 | 실기: 연결 탭에서 인증 → 새 채팅 전송 → 게이트웨이 로그에 요청이 도달하는지 | 사람 실기 |
 
-```ts
-{
-  id: 'corp-gateway',
-  label: '사내 모델 게이트웨이',
-  kind: 'llm',
-  origin: 'https://llm.example.corp',
-  llm: { adapter: 'claude', provider: 'corp', envKey: 'ANTHROPIC_AUTH_TOKEN' },
-  auth: [ /* §3-a · §3-b */ ]
-}
-```
+**주입 규칙 4가지** (어기면 진단이 어려워진다):
 
-**주입 규칙 3가지** (어기면 진단이 어려워진다):
-
-- 주입은 **`Options.env` 한 레이어에서만** 일어난다. `settings.json` 은 여전히 verbatim 이고
-  Orca 가 그 파일에 토큰을 쓰지 않는다(0028 결정 유지,
-  [`arch/backend/security.md §1.4-b`](../arch/backend/security.md)).
-- **미인증이면 그 키를 넣지 않는다**(빈 문자열 치환 금지). 인증된 것처럼 보이는 요청이 나가면
+- secret 은 **`options.env` 에만** 실린다. `settings.json` 은 여전히 verbatim 이고 Orca 가 그
+  파일에 토큰을 쓰지 않는다(0028 결정 유지,
+  [`arch/backend/security.md`](../arch/backend/security.md)).
+- **미인증이면 실패시킨다** — 빈 문자열로 치환하지 않는다. 인증된 것처럼 보이는 요청이 나가면
   서버가 401 대신 이상한 오류를 준다.
-- 같은 키를 `orca.json` 전역 env 와 provider 가 모두 선언하면 **인증된 값이 이긴다**.
+- 우선순위는 `augmenter env > settings env > app env > process env` 다. 충돌하는 settings env 키는
+  in-memory 사본에서 제거되므로 SDK 가 어느 채널을 우선하든 결과가 하나다.
+- 필수 값이 하나라도 없거나 빈 문자열이면 **부분 env 를 cache 하지 말고 resolve 를 실패시킨다**.
+  반쯤 채워진 환경으로 spawn 하면 증상이 원인에서 멀어진다.
 
 ### 3-a. API key · ID/비밀번호 · PAT — 코어 구현
 
 배포가 채우는 것은 **라벨과 `present` 뿐**이다. 입력 폼·vault 봉인·재인증은 코어가 한다.
 
 ```ts
-import { apiKeySpec, passwordSpec, patSpec } from '../auth/specs/credential'
+import { apiKeySpec, passwordSpec, patSpec } from '../../features/auth/specs/credential'
 
 apiKeySpec({
   label: 'API 키',
@@ -424,58 +446,137 @@ manual 분기와 같은 규칙). 반대로 한 번이라도 부르면 콜백이 
 - `code_challenge` = S256(`verifier`), `plain` 은 지원하지 않는다.
 - `state` 를 **실었을 때** 불일치·누락 콜백은 **거부**하고 pending 을 소비한다(재사용 불가).
 - pending 은 **파일에 보관**돼 앱이 재시작돼도 콜백 대조가 성립한다(TTL 10분).
-- provider 당 진행 중 인가는 1건이다.
+- Auth 당 진행 중 인가는 1건이다.
+
+### 3-c. augmenter 두 방식 — 한 factory 가 둘 다 받지 않는다
+
+```text
+config API 방식      BoundAuth.request → OAuth/session 으로 API 접근 → 응답의 실제 LLM token·URL·Model
+direct credential    닫힌 readSecret() → 사용자가 입력한 API key/token 을 runtimeEnv 에 직접 배치
+```
+
+**config API augmenter 에는 `AuthSecretReader` 를 전달하지 않는다.** OAuth access token(=API 접근
+권한)과 응답의 실제 LLM token 은 다른 값이고, 한 factory 가 둘 다 손에 쥐면 그 경계가 흐려진다.
+
+```ts
+// app/deployment/harness-runtime.ts — config API 방식
+export const CLAUDE_CORP_KEY = providerKeyOf('claude', 'corp')
+
+export function createRuntimeConfigAugmenters(deps: {
+  corpAuth: BoundAuth
+}): RuntimeConfigAugmenters {
+  return {
+    [CLAUDE_CORP_KEY]: {
+      async resolve(_input, signal) {
+        if (deps.corpAuth.snapshot().status !== 'valid') {
+          throw new Error('corp model provider authentication required')
+        }
+        const response = await deps.corpAuth.request({ path: '/api/llm/config' }, signal)
+        if (!response.ok) throw new Error(`llm config request failed: ${response.status}`)
+        const config = parseCorpLlmConfig(response.body)   // 매핑은 이 배포 모듈이 소유한다
+        return {
+          runtimeEnv: {
+            ANTHROPIC_AUTH_TOKEN: config.llmToken,
+            ANTHROPIC_BASE_URL: config.url,
+            ANTHROPIC_DEFAULT_OPUS_MODEL: config.models.opus,
+            ANTHROPIC_DEFAULT_SONNET_MODEL: config.models.sonnet,
+            ANTHROPIC_DEFAULT_HAIKU_MODEL: config.models.haiku
+          },
+          validUntil: config.expiresAt
+        }
+      }
+    }
+  }
+}
+```
+
+direct credential 방식은 Bootstrap 이 넘긴 **AuthId 를 닫은 closure** 하나만 받는다:
+
+```ts
+export function createDirectCredentialAugmenter(readSecret: () => string | null) {
+  return {
+    async resolve() {
+      const token = readSecret()
+      if (token === null) throw new Error('model provider credential is not available')
+      return { runtimeEnv: { ANTHROPIC_AUTH_TOKEN: token } }
+    }
+  }
+}
+```
+
+**성능 계약** — augmenter 를 붙였다고 매 턴 원격을 부르지 않는다. `HarnessRuntimeConfigService` 가
+key 별 현재 세대 하나를 cache 하고, 같은 key·generation·sourceRevision 의 동시 요청은 single-flight
+로 합친다. 무효화는 **`credentialChanged:true` Auth change · 명시 refresh · settings 변경 · 응답
+만료** 에서만 일어난다. 자세한 규칙은 [`arch/backend/auth.md`](../arch/backend/auth.md) §6.3.
 
 ---
 
-## 4. 레시피 C — 사내 서비스 provider + 내장 도구 (`kind:'service'`)
+## 4. 레시피 C — Plugin + 내장 도구 (구 `kind:'service'`)
 
-인증된 연결이 LLM 에 런타임 도구를 노출한다. grant 가 `valid` 일 때만 등록되고, 해제·만료·401
+인증된 연결이 LLM 에 런타임 도구를 노출한다. Auth 가 `valid` 일 때만 등록되고, 해제·만료·401
 강등 시 도구가 스냅샷에서 사라진다.
 
 ### 단계
 
 | # | 하는 일 | 고치는 파일 / 확인 지점 |
 |---|---|---|
-| 1 | `SERVICE_PROVIDERS` 에 항목을 추가한다 | `declarations/service.ts` |
-| 2 | `origin` 에 **컨텍스트 경로를 넣지 않는다**(등록 검사에 걸린다). 컨텍스트 경로는 도구 쪽 `apiBasePath` 로 넘긴다 | 같은 파일 |
+| 1 | 인증 대상을 선언한다 | `app/deployment/auth-definitions.ts` |
+| 2 | `origin` 에 **컨텍스트 경로를 넣지 않는다**(등록 검사에 걸린다). 컨텍스트 경로는 Plugin 옵션 `apiBasePath` 로 넘긴다 | 같은 파일 |
 | 3 | 인증 방식을 선언한다(대개 `patSpec` 1종 — 길이 1이면 GUI 선택 단계가 생략된다) | 같은 파일 |
 | 4 | **`probe` 를 선언한다** (§1.4-b). 없으면 값 입력만으로 "연결됨" 이 되고 회수된 PAT 를 못 걸러낸다 | 같은 파일 |
-| 5 | `tools: (ctx) => RuntimeToolServer` 를 채운다. **id·label·origin 은 `ctx` 에서 나온다 — 다시 적지 않는다** | 같은 파일 |
-| 6 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/providers` | |
+| 5 | `createPluginBindings()` 에서 tool server 를 **한 번** 만들고 binding 을 돌려준다 | `app/deployment/plugins.ts` |
+| 6 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/plugins src/main/app/deployment` | |
 | 7 | 실기: 연결 탭에서 인증 → 상세 패널의 **식별자·노출 도구**가 선언과 같은지 → **새 채팅**에서 도구가 보이는지(등록은 다음 spawn 부터 반영된다) | 사람 실기 |
 
 ```ts
-import { patSpec } from '../auth/specs/credential'
-import { confluenceTools } from '../service/confluence/tools'
-
-{
+// app/deployment/auth-definitions.ts
+export const CONFLUENCE_AUTH = {
   id: 'confluence',
   label: 'Confluence',
-  kind: 'service',
   origin: 'https://wiki.example.corp',   // 컨텍스트 경로는 여기 넣지 않는다
   probe: { path: '/confluence/rest/api/user/current' },
-  auth: [
+  methods: [
     patSpec({
       label: '개인 액세스 토큰(PAT)',
       fieldLabel: '개인 액세스 토큰',
       present: { location: 'header', name: 'Authorization', scheme: 'bearer' }
     })
-  ],
-  // 컨텍스트 경로는 요청 path 앞에 붙는다. id·label·baseUrl 은 ctx 에서 나온다.
-  tools: (ctx) => confluenceTools(ctx, { apiBasePath: '/confluence' })
+  ]
+} satisfies AuthDefinition
+```
+
+```ts
+// app/deployment/plugins.ts — 서버는 **부팅에서 1회** 만들고 sync 는 add/remove 만 한다.
+export function createPluginBindings(deps: {
+  auth: AuthRuntime
+  registry: RuntimeToolSink
+}): PluginBinding[] {
+  const confluenceAuth = deps.auth.bind(CONFLUENCE_AUTH.id)
+  const server = confluenceTools(
+    {
+      authId: confluenceAuth.authId,
+      label: CONFLUENCE_AUTH.label,
+      origin: CONFLUENCE_AUTH.origin,
+      request: (req, signal) => confluenceAuth.request(req, signal)
+    },
+    { apiBasePath: '/confluence' }
+  )
+  return [createPluginBinding({ auth: confluenceAuth, server, registry: deps.registry })]
 }
 ```
 
-> ⚠️ **`tools(ctx)` 는 provider 당 한 번만 호출된다(코어가 캐시한다).** 조립 결과에 요청 시점
-> 상태를 굽지 마라 — 자격증명은 `ctx.request` 가 호출 시점에 붙인다.
+> ⚠️ **tool server 를 sync 마다 다시 만들지 마라.** `RuntimeToolRegistry` 의 동등성 검사는 handler
+> identity 까지 본다 — 매번 새로 만들면 형상이 같아도 revision 이 올라 다음 턴이 런타임을
+> 재spawn 한다. 조립 결과에 요청 시점 상태를 굽지도 마라(자격증명은 `request` 가 호출 시점에 붙인다).
 >
-> ⚠️ **id 를 손으로 다시 적지 마라.** 구 레시피는 같은 문자열을 네 곳(선언 `id` · 런타임 `id` ·
-> `api.request` 1인자 · 서버 팩토리)에 쓰게 했고, 하나라도 어긋나면 **도구는 모델에 보이는데
-> 호출할 때마다 `요청이 거부됐습니다 (unknown_provider: …)` 로 죽었다.** 컴파일러도 등록 검사도
-> 잡지 못한다 — 그래서 적을 자리를 없앴다.
+> ⚠️ **AuthId 를 손으로 다시 적지 마라.** 구 레시피는 같은 문자열을 네 곳에 쓰게 했고, 하나라도
+> 어긋나면 **도구는 모델에 보이는데 호출할 때마다 죽었다.** 컴파일러도 등록 검사도 잡지 못한다 —
+> 그래서 `CONFLUENCE_AUTH.id` 를 재사용한다.
+>
+> ⚠️ **GUI 도구 목록은 Auth 가 invalid 여도 비지 않는다.** cached descriptor 에서 이름을 만들고
+> `status` 로 비활성을 안내한다 — active registry 로 목록을 만들면 미인증에서 도구가 사라진다.
 
-### `ProviderApi.request` 가 강제하는 것 (어기면 요청 자체가 나가지 않는다)
+### `BoundAuth.request` 가 강제하는 것 (어기면 요청 자체가 나가지 않는다)
 
 - **절대 URL·프로토콜 상대 경로 금지** — `path` 는 origin 기준 상대 경로다.
 - **예약 헤더 금지** — `authorization` · `cookie` · `proxy-authorization` 을 덮어쓸 수 없다.
@@ -492,8 +593,8 @@ import { confluenceTools } from '../service/confluence/tools'
 
 | # | 하는 일 |
 |---|---|
-| 1 | 토큰을 줄 provider 를 먼저 준비한다(레시피 B 또는 C — `${BINDING:}` 은 **선언된 provider 의 id** 를 참조한다) |
-| 2 | 그 provider 를 연결 탭에서 인증한다 |
+| 1 | 토큰을 줄 Auth 를 먼저 준비한다(레시피 B 또는 C — `${BINDING:}` 은 **선언된 AuthId** 를 참조한다) |
+| 2 | 그 Auth 를 연결 탭에서 인증한다 |
 | 3 | `mcp.json` 에 서버를 추가하고 헤더/env 에 `${BINDING:<id>}` 를 쓴다 |
 | 4 | 새 채팅에서 서버가 붙었는지 확인한다 |
 
@@ -502,7 +603,7 @@ import { confluenceTools } from '../service/confluence/tools'
   "headers": { "Authorization": "Bearer ${BINDING:confluence}" } } } }
 ```
 
-- 해당 provider 가 **미인증이면 참조가 미해결로 남고 그 서버는 배포에서 통째로 빠진다**
+- 해당 Auth 가 **미인증이면 참조가 미해결로 남고 그 서버는 배포에서 통째로 빠진다**
   (fail-closed). 빈 문자열로 채우지 않는다.
 - **세션 grant(쿠키)는 값이 아니므로 `null` 이다** — SSO 는 MCP 로 반출되지 않는다(0178 결정).
   MCP 에는 PAT·ID/비밀번호·토큰을 쓴다.
@@ -512,8 +613,8 @@ import { confluenceTools } from '../service/confluence/tools'
 
 > **PAT 인증 MCP 를 붙이는 길은 셋이고, 성격이 다르다.** ⓐ **내장 도구**(레시피 C) — `present`
 > 선언이 적용되고 값이 디스크에 안 나가며 401 강등·재인증 UI 가 붙는다 ⓑ **이 레시피(`${BINDING:}`)**
-> — provider 와 PAT 를 공유하지만 `token()` 이 raw 값만 주므로 헤더 형식은 손으로 적는다
-> ⓒ **MCP 자체 인증**(카탈로그 모달에 값 입력) — 재빌드가 없지만 provider 와 무관하다.
+> — Auth 와 PAT 를 공유하지만 `AuthSecretReader.read()` 가 raw 값만 주므로 헤더 형식은 손으로 적는다
+> ⓒ **MCP 자체 인증**(카탈로그 모달에 값 입력) — 재빌드가 없지만 Auth 와 무관하다.
 > 같은 PAT 를 도구와 MCP 가 함께 쓸 것이면 ⓐ 를 먼저 검토한다.
 
 ---
@@ -522,19 +623,19 @@ import { confluenceTools } from '../service/confluence/tools'
 
 사내 SP 를 **앱이 알아서 주기적으로** 부르게 한다(사용량 조회·목록 동기화·헬스체크 등).
 
-> **선언에 슬롯이 없다 (0183 r2).** 예전에는 사용량 전용 슬롯이 있었으나(정적 모듈 폴더 →
-> 잠시 선언 필드) 둘 다 제거됐다. **SP API 는 어느 feature 에서든 `ProviderApi.request`
+> **선언에 슬롯이 없다 (0183 r2 · 0188 유지).** 예전에는 사용량 전용 슬롯이 있었으나(정적 모듈
+> 폴더 → 잠시 선언 필드) 둘 다 제거됐다. **SP API 는 어느 feature 에서든 `BoundAuth.request`
 > 로 부를 수 있으므로 전용 슬롯이 필요 없다.** 주기 호출은 *선언*이 아니라 **코드**로 쓴다 —
-> 아래 단계가 그 절차다. `declarations/` 는 **무엇을 부를 수 있는가**(provider·origin·인증)만
-> 말하고, **언제·무엇을 부르는가**는 코어가 갖는다.
+> 아래 단계가 그 절차다. `auth-definitions.ts` 는 **무엇을 부를 수 있는가**(대상·origin·인증)만
+> 말하고, **언제·무엇을 부르는가**는 소비 feature 와 컴포지션 루트가 갖는다.
 
 ### 단계
 
 | # | 하는 일 | 고치는 파일 |
 |---|---|---|
-| 1 | 부를 대상 provider 를 선언한다(레시피 B 또는 C) | `declarations/{llm,service}.ts` |
+| 1 | 부를 대상 Auth 를 선언한다(레시피 B 또는 C) | `app/deployment/auth-definitions.ts` |
 | 2 | 할 일을 함수로 쓴다 — 그 기능을 **쓰는 feature 안에** 둔다 | `features/<슬라이스>/…` |
-| 3 | 그 함수가 SP 를 부를 통로를 **좁힌 포트로 받는다**(`providerId` 는 클로저로 굳힌다) | 같은 파일 |
+| 3 | 그 함수가 SP 를 부를 통로를 **좁힌 포트로 받는다**(`BoundAuth` 하나 — AuthId 를 다시 적을 자리가 없다) | 같은 파일 |
 | 4 | **컴포지션 루트가** 잡을 등록하고 concrete 를 주입한다 | `app/src/main/app/bootstrap.ts` |
 | 5 | 주기를 정한다 — 코어 고정형(`schedule`) 또는 설정 노출형(`Settings.scheduler`) | `bootstrap.ts` / `src/shared/protocol.ts` |
 
@@ -595,7 +696,7 @@ scheduler.schedule('corp-quota-sync', { enabled: true, cron: '*/5 * * * *' })
 
 ### 다른 feature 슬라이스에서 부를 때
 
-`features/*` 는 `features/providers` 를 **직접 import 할 수 없다**(수직 슬라이스 교차 금지).
+`features/*` 는 `features/auth` 를 **직접 import 할 수 없다**(수직 슬라이스 교차 금지).
 그래서 소비 측은 **필요한 메서드만 담은 구조적 포트**를 선언하고, 컴포지션 루트가 concrete 를
 주입한다(`app/src/main/AGENTS.md` §해소책 1+3).
 
@@ -657,8 +758,8 @@ const usageFetcher: UsageFetcher = {
   또 더해져 **같은 턴이 두 번 계상**된다. 미지정이면 코어가 기준선을 쓰지 않고 **한도만** 원격에서
   가져가므로, 확신이 없으면 비워 두는 쪽이 옳다.
 - **`providerKey` 와 `Provider.id` 는 다른 축이다.** 사용량은 `${adapter}-${provider}` 합성 키를
-  쓰고 `ProviderApi` 는 선언 id 를 쓴다. 조인은 기존 `llmProviderKey()`/`findLlmProvider()`
-  (`features/providers/llm/`)를 쓰고 새로 만들지 않는다.
+  쓰고 Auth 는 `AuthId` 를 쓴다. 두 좌표를 잇는 곳은 `app/deployment/harness-runtime.ts` 의
+  augmenter 배선 하나뿐이다 — AuthId → key 조인 registry 를 새로 만들지 않는다.
 
 ---
 
@@ -669,24 +770,24 @@ const usageFetcher: UsageFetcher = {
 
 ### 6.1 dev 는 prod 와 다르게 판정한다
 
-| 빌드 | `kind:'gate'` 선언 0개 | 선언 N개 |
+| 빌드 | gate membership 0개 | membership N개 |
 |---|---|---|
 | **prod** | **통과** — OSS/기본 배포가 로그인 화면에 갇히지 않게 하는 안전장치 | 전부 `valid` 여야 통과 |
 | **DEV** (`npm run dev`) | **차단** — 로그인 화면을 항상 볼 수 있어야 한다 | 전부 `valid` 여야 통과 |
 
-전체 진리표는 [`arch/backend/providers.md §7`](../arch/backend/providers.md) 이 정본이다. 절차상
+전체 진리표는 [`arch/backend/auth.md §7`](../arch/backend/auth.md) 이 정본이다. 절차상
 알아야 할 것은 하나 — **`npm run dev` 는 선언이 비어 있어도 로그인 화면에서 시작한다.** 그 빌드의
 **탈출구는 우회 토글 하나뿐**이다(로그인할 상대가 없으므로 화면이 그 사실을 안내한다).
 
 주입 지점: `app/src/main/app/bootstrap.ts` 가 `alwaysRequired: import.meta.env.DEV` 를 넣는다.
-판정 모듈(`features/providers/gate/index.ts`)은 빌드 모드를 직접 읽지 않는다 — 순수하게 남겨
+판정 모듈(`features/gate/index.ts`)은 빌드 모드를 직접 읽지 않는다 — 순수하게 남겨
 테스트가 빌드 모드에 묶이지 않게 하기 위함이다.
 
 ### 6.2 우회 토글
 
 | 항목 | 값 |
 |---|---|
-| 위치 | 디버그 패널 → **"로그인" 그룹** (`features/providers/components/ProviderDebugSection.tsx`) |
+| 위치 | 디버그 패널 → **"로그인" 그룹** (`renderer/features/providers/components/ProviderDebugSection.tsx`) |
 | 마운트 | **게이트 화면(`GateFrame`)과 메인 셸(`OverlayLayer`) 양쪽** |
 | 저장 | `Settings.authBypass` (main 이 SSOT, renderer 는 `store/bypassStore.ts` 미러) |
 | 반영 | **즉시** — `settings:set` 핸들러가 이 키의 변경을 보면 provider 상태를 push 한다 |
@@ -717,10 +818,10 @@ const usageFetcher: UsageFetcher = {
 
 | 대상 | 파일 |
 |---|---|
-| 판정 규칙 (순수) | `app/src/main/features/providers/gate/index.ts` |
+| 판정 규칙 (순수) | `app/src/main/features/gate/index.ts` |
 | 판정 입력 주입 (`bypass`·`alwaysRequired`) | `app/src/main/app/bootstrap.ts` |
-| **세션 group 부팅 등록** (0182) | `app/src/main/features/providers/auth/session-policies.ts` |
-| **신원 조회** (probe 뒤 whoami) | `app/src/main/features/providers/auth/specs/browser-session.ts` |
+| **세션 group 부팅 등록** (0182) | `app/src/main/features/auth/session-policies.ts` |
+| **신원 조회** (probe 뒤 whoami) | `app/src/main/features/auth/browser-session/runner.ts` |
 | 상태 push 배선 | `app/src/main/app/handlers/settings.ts` |
 | 게이트 셸 (타이틀바·디버그 패널 마운트) | `app/src/renderer/src/app/GateFrame.tsx` |
 | 로그인 랜딩 (Orca 제목·이미지·입력 카드·버튼) | `app/src/renderer/src/features/providers/components/GateLogin.tsx` |
@@ -760,12 +861,12 @@ const usageFetcher: UsageFetcher = {
 |---|---|---|
 | 1 | `npm run typecheck` | exit 0 — 선언이 `Provider` 형상을 만족 |
 | 2 | `npm run lint` | error 0 (boundaries 위반 0) |
-| 3 | `./node_modules/.bin/vitest run src/main/features/providers src/main/app/handlers` | green |
+| 3 | `./node_modules/.bin/vitest run src/main/features/auth src/main/features/gate src/main/features/harnesses src/main/features/plugins src/main/app` | green |
 
-관련 회귀 테스트(게이트·인증을 고쳤다면 함께 본다): `features/providers/gate/gate.test.ts` ·
+관련 회귀 테스트(게이트·인증을 고쳤다면 함께 본다): `features/gate/gate.test.ts` ·
 `auth/registry.test.ts` · `auth/login.test.ts` · `auth/oauth.test.ts` · `auth/policy.test.ts` ·
 `auth/specs/browser-session.test.ts` · `llm/llm.test.ts` · `app/handlers/settings.test.ts` ·
-`app/handlers/providers.test.ts` · renderer `features/providers/store/bypassStore.test.ts`.
+`app/handlers/providers.test.ts` · renderer `features/auth/store/bypassStore.test.ts`.
 
 ### 8.2 배포 (사람 실기)
 

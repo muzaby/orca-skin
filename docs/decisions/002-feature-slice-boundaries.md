@@ -48,7 +48,7 @@ shared     → shared 내부만
 - **`src/main` 최상위는 `{app, contracts, adapters, features, infra}` + `index.ts`·`env.d.ts` 뿐.**
   어디에도 안 맞는 새 디렉토리는 boundaries "no element" error 가 난다.
 - **구체 엔진명 리터럴**(`'claude'` 등)은 `adapters`·`features/extensions`·
-  `features/providers/declarations/`·컴포지션 루트 안에만. 코어·오케스트레이션은 백엔드 중립.
+  `app/deployment/`·컴포지션 루트 안에만. 코어·오케스트레이션은 백엔드 중립.
 - **누구도 `app` 을 의존하지 않는다.**
 
 ## 관련

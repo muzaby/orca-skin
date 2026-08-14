@@ -49,7 +49,7 @@ new BrowserWindow({
 |---|---|---|
 | **Vault** | `infra/vault.ts` (safeStorage 위 네임스페이스 뷰) | 값. 키 형식은 **`provider:<providerId>:<authKind>`** 고정 |
 | **Browser session** | `infra/browser-session.ts` (Electron `Session`, partition `persist:auth.<group>`) | cookie jar. 값이 아니라 **세션**이라 반출되지 않는다 |
-| **Grant** | `features/providers/auth/store.ts` + `store-file.ts`(electron-store) | vault 키·방식·만료. **비밀 없음** |
+| **Grant** | `features/auth/store.ts` + `store-file.ts`(electron-store) | vault 키·방식·만료. **비밀 없음** |
 
 **복호화 실패와 부재를 구분한다.** safeStorage 는 쓰기가 fail-closed(throw), 읽기는 null 강등이라
 비대칭이다. 그 강등은 유지하되(키체인 잠김 하나로 앱이 죽지 않도록) grant 상태를 `unknown` 으로
@@ -126,7 +126,7 @@ font-src 'self' https://fonts.gstatic.com
 
 ### 1.7 로그인 게이트 · 배포/업데이트 신뢰 (0072 / 0086 / 0087~0089)
 
-- **앱 로그인 게이트**: `app/RootGate` 가 부팅 위에 게이트를 한 층 얹는다 — 부팅 실패 → 부팅 미완료 → **게이트 미판정/미통과** → 메인 UI 순. 판정은 `features/providers/gate/index.ts` 의 **순수 진리표**이고 상태는 `orca:provider:state` 로 온다.
+- **앱 로그인 게이트**: `app/RootGate` 가 부팅 위에 게이트를 한 층 얹는다 — 부팅 실패 → 부팅 미완료 → **게이트 미판정/미통과** → 메인 UI 순. 판정은 `features/gate/index.ts` 의 **순수 진리표**이고 상태는 `orca:provider:state` 로 온다.
   - **prod 는 선언이 0개면 통과**(`required:false`) — OSS/기본 배포가 로그인 화면에 갇히지 않게 하는 안전장치이며 `gate.test.ts` 가 회귀로 고정한다.
   - **DEV 는 선언이 0개여도 게이트를 세운다**(`alwaysRequired`, 0089/0130 동작 복원) — 폐쇄망 실값 없이도 로그인 화면을 보고 고칠 수 있어야 하기 때문이다. 그 빌드의 유일한 탈출구가 우회 토글이라, 디버그 패널이 로그인 화면에도 마운트된다.
   - **판정 전에는 통과시키지 않는다**(`gate=null` → 부팅 화면 유지). main 이 잠깐 응답하지 못하는 사이 로그인 강제 빌드가 무인증으로 열리면 안 된다(fail-closed).
