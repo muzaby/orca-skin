@@ -602,9 +602,92 @@ node scripts/check-migrations-appendonly.mjs
 
 ## [구현자 기입] 설계 리뷰
 
+- **동의 / 그대로 진행**: 책임 경계(§9 Delta 전 행) · Decision Ledger 37건 · AC 24건. 제안서가
+  값을 명시한 자리(용어·디렉터리·우선순위·cache 정책·금지 목록)는 재해석 없이 그대로 구현했다.
+- **이견 / 현실성 문제**: 없음. 단 아래 §[구현자 기입] 놓친 잠재 문제의 5건은 설계가 예상하지
+  못한 자리였고, 전부 **구현 세부 보완**으로 선조치했다(제품 의도·AC·ACTIVE Decision 불변).
+- **ACTIVE Decision 과 충돌하는 설계 발견**: 없음.
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | **Phase A 가 lint 를 통과할 수 없다.** plan §11 은 Phase A 이후 `features/providers/` 에 `platform.ts`·`llm/`·`service/index.ts`·`declarations/` 를 남긴다고 했는데, `auth`·`gate` 가 다른 슬라이스로 나간 순간 그것들이 **feature 교차 import** 가 되어 `boundaries/dependencies` error 다. | ✅ 네 모듈을 Phase A 에서 **컴포지션 루트(`app/`)로 당겼다** — Phase B 가 어차피 지울 자리이고, app 은 전부 import 할 수 있다. 결과적으로 `features/providers/` 가 Phase A 에서 이미 사라져 D-034("두 디렉터리를 동시에 장기 운영하지 않는다")를 더 강하게 만족한다. | `app/eslint.config.mjs` boundaries 규칙 · Phase A 커밋 `2bebd67` |
+| 2 | **AC4·AC23 이 electron 을 무는 파일 안에 갇힌다.** gate fail-closed 와 resume 순서를 `bootstrap.ts` 의 private 메서드로 두면 사람 실기로만 확인된다(vitest 가 electron 을 못 문다). | ✅ 두 정책을 순수 모듈로 뽑았다 — `features/gate/selectGateMembers()` · `app/auth-resume.ts`. bootstrap 은 호출과 진단 로그만 갖는다. 각각 `gate.test.ts`(+9건)·`auth-resume.test.ts`(12건)가 순서·방송 횟수를 단언한다. | plan §11 "테스트 가능성" 의 순수 seam 요구 |
+| 3 | **`fingerprintOf` 가 feature 교차를 만든다.** 조립부(`features/harnesses`)와 spawn 기록부(`features/sessions`)가 같은 함수를 써야 하는데 feature 끼리는 import 금지다. | ✅ `harnessConfigFingerprint` 를 **adapters 레이어**(`adapters/harness-config.ts`)로 올렸다. 값 자체가 "adapter 입력의 형상" 이라 포트가 제 자리이고, 두 feature 가 하향 방향으로 같은 SSOT 를 쓴다. | `src/main/AGENTS.md §레이어 DAG` |
+| 4 | **재인증 실패가 이전 자격증명을 파괴하고 있었다.** D-009/AC7 은 "실패해도 보존" 인데, 0181 구현은 값형에서 probe **전에** vault 를 덮어쓴 뒤 실패 시 `revoke()` 로 지웠다 — 그 사실이 코드 주석에 이미 적혀 있었다("이전 자격증명은 … 복구되지 않는다"). 설계가 이것을 "이미 되는 것" 으로 전제했다. | ✅ `AuthStore.captureForRollback()/rollback()` + `login.ts` 의 vault 값 복구를 신설해 **실제로** 보존하게 했다. `credentialRevision` 도 함께 되돌려 실패한 재인증이 Harness cache 를 비우지 않는다. `runtime.test.ts` 가 세 축(값·revision·status)을 단언한다. | 구 `login.ts:331` 주석 실측 |
+| 5 | **시간 기반 만료가 상태를 정착시키지 않는다.** `status()` 는 순수 조회라 `expiresAt` 경과를 매번 다시 계산할 뿐이어서, `verified` 가 남고 `credentialRevision` 도 그대로였다 — gate 가 열린 채로, Harness cache 가 죽은 토큰을 warm hit 로 돌려주는 창이 생긴다. | ✅ `AuthStore.settleExpiry()` 를 두고 `AuthRuntime.snapshot()` 이 그 전이를 **처음 관측한 지점에서 한 번** 확정하게 했다(D-037 의 "polling 추가 금지" 유지). | `store.ts` `status()` 실측 |
+
+> 위 5건 모두 구현 세부·명백한 엣지 누락이라 선조치했다. 제품 의도·신규 의존성·ACTIVE
+> Decision·AC 를 바꾼 것은 없다.
+
+### 설계 대비 명시적 차이 2건 (보고)
+
+- **Phase A 의 범위가 넓어졌다.** plan §11 은 harness-config 타입 renaming 만 Phase A 로 잡았지만,
+  실제로는 이동한 모듈의 **심볼 renaming 전부**(`HarnessSettingsService`·`HarnessModelProviderEntry`·
+  `settings-write` 의 Engine 어휘·`renderClaudeHarnessPlugin`)를 Phase A 에서 함께 했다. 같은
+  기계적 변환이라 Phase B 의 계약 변경 diff 와 섞이지 않게 하는 편이 읽기 쉬웠다.
+- **`options.settings.env` vs `options.env` 우선순위 실측은 하지 않았다.** SDK 내부 동작이라
+  버전에 따라 바뀔 수 있어, plan §11 이 지정한 **fail-safe 분기**(제안서 결정표 2행)를 택했다 —
+  충돌 키를 settings 사본에서 제거하므로 **어느 쪽이 이기든 결과가 하나**다. 근거는
+  `prepared-config.ts` 헤더 주석과 `prepared-config.test.ts` 의 "충돌 키 제거" 케이스에 있다.
+
 ## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | Phase A 95파일(이동 51 · 전환 44) · Phase B 83파일 · Phase C 문서 12파일 |
+| 실행 명령 | `npm run typecheck` · `npm run lint` · `./node_modules/.bin/vitest run` · `node --test "scripts/*.test.mjs"` · `node scripts/check-doc-inventory.mjs --check` · `node scripts/check-migrations-appendonly.mjs` |
+| 게이트 결과 | **전부 green** — typecheck 3/3 · lint 0 error(1 warning = 기존 `useTranscriptVirtualizer` react-compiler) · vitest **200 파일 / 1,832 테스트 전부 통과**(baseline 198/1,788 → 파일 +2, 테스트 **+44**) · script test 49/49 · doc-inventory(생성물·prose·링크) ok · migrations append-only ok |
+| ABI 환경 | 이 세션은 egress 가 열려 있어 `npm ci` 가 성공했고 **DB suite 를 포함해 전부 green** 이다 — `app/AGENTS.md` 가 경고하는 baseline red 5파일이 이번에는 없다 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | Phase A `2bebd67` · Phase B `2b274ef` · Phase C (이 커밋) |
+
+### 전수 재측정 (plan §8 요구)
+
+| 대상 | 값 | 비고 |
+|---|---|---|
+| 이동 전 `features/providers` 파일 | 41 (구현 27 + 테스트 14) | plan §8 값과 일치 |
+| Phase A 이후 `features/providers` | **0** — 디렉터리 부재 | AC1 |
+| 신규 main 슬라이스 | `auth`·`gate`·`harnesses`·`plugins` (9 → 12) | `docs/generated/inventory.md` 재생성 |
+| contracts 모듈 | 5 (이름만 `provider` → `auth`) | 동상 |
+| `materialize` 잔존 | 0 | `rg materialize src/` |
+| `AUTH_DEFINITIONS`·`GATE_AUTH_DEFINITIONS` 기본값 | `[]` (D-012) | 가짜 사내 URL 미도입 |
+| 신규 production dependency | 0 | `package.json` diff 없음 |
+| 새 DB migration | 0 | append-only 가드 통과 |
+
+### AC 대조
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1 | ✅ | `features/providers/` 부재. 코드·current-state 문서에 잔존 참조 0(renderer feature `providers` 는 별개 이름) |
+| AC2 | ✅ | `contracts/auth.ts` 에 `kind`·`llm`·`tools`·`usage`·`envKey` 없음 |
+| AC3 | ✅ | lint boundaries 통과. `features/auth` → gate/harnesses/plugins import 0 |
+| AC4 | ✅ | `gate.test.ts` — `selectGateMembers` 3건 + `createGate` 5건(valid만/blocked fail-closed/bypass 포함) |
+| AC5 | ✅ | `BoundAuth` 멤버 3종뿐. `secretReader` 는 `bootstrap.ts` 와 MCP closure 에만. `RouterContext` 에 부재 |
+| AC6 | ✅ | `runtime.test.ts` 6건 — step/snapshot 분류·`cause`·`credentialChanged`·revision 단조·재관측 불변 |
+| AC7 | ✅ | `runtime.test.ts` 2건 — 실패 reauth 의 vault 값·status·revision 보존 / 성공 시 교체 |
+| AC8 | ✅ | `authenticated-request.test.ts`·`policy.test.ts` 이동·개명 후 동일 단언 유지(binary·maxBytes·finalUrl·redirect fence·401 강등) |
+| AC9 | ✅ | `HarnessModelProviderDefinition` 0건. `settings.test.ts` 가 디렉터리 열거 파생을 계속 단언 |
+| AC10 | ✅ | `runtime-config.test.ts` 다중 키 overlay + `harness-runtime.ts` 문서 예제 형상 |
+| AC11 | ✅ | `runtime-config.test.ts` — augmenter 미등록 시 settings 해석 1회뿐 · warm cache 재호출 0 |
+| AC12 | ✅ | `runtime-config.test.ts` — `sourceRevision` 변화 → augmenter 재호출 |
+| AC13 | ✅ | `runtime-config.test.ts` — deferred fence(옛 값 미반환·cache 미commit) + bounded retry 소진 시 `StaleHarnessConfigError` |
+| AC14 | ✅ | `runtime-config.test.ts` — single-flight 1회 · caller abort 격리 · invalidation 만 공유 signal abort |
+| AC15 | ✅ | `prepared-config.test.ts` 8건 — 4층 우선순위 · 충돌 키 제거 · 원본 불변 · 참조 유지 · 비문자열 배제 |
+| AC16 | ✅ | `prepared-config.test.ts` — token 이 settings 직렬화에 부재 · `sourceRevision` 미혼입 |
+| AC17 | ✅ | `resolveTurnProvider` 가 `prepared` 한 벌을 만들고 `send.ts` 가 chat·title 에 같은 객체를 전달 |
+| AC18 | ✅ | `continuation.test.ts` "listen·flush 의 spawn 입력 대칭" + `chat-turn-continuation.test.ts` |
+| AC19 | ✅ | `respawn-policy.test.ts`(기존 4입력 + `runtimeConfigChanged`) · `prepared-config.test.ts` fingerprint 3건 · `chat-turn-continuation.test.ts` 3건 |
+| AC20 | ✅ | `deployment/plugins.test.ts` — 상태별 add/remove · 반복 sync revision 불변 |
+| AC21 | ✅ | `deployment/plugins.test.ts` — invalid 에서도 `toolNames()` 유지, registry 는 회수 |
+| AC22 | ✅ | `connection-views.test.ts` 8건 — 전 필드 동등성 · compat kind 매핑 · row 순서/개수 · authId 유일성 |
+| AC23 | ✅ | `auth-resume.test.ts` 12건 — 게이트 우선 · 나머지 병렬 · `1 + K`(K=0,2) · 중복 batch 방지 |
+| AC24 | ✅ | migration 0 · dependency 0 · doc-inventory 3종 통과 · `arch/backend/auth.md` 재작성 + GLOSSARY·가이드·IPC·AGENTS 갱신 |
+
+**사람 실기 잔여**: 폐쇄망 실배포에서 gate 로그인 · Plugin 인증 · 실제 Harness turn · Usage
+refresh. 기본 빌드는 선언이 비어 있어 이 경로가 프로덕션에서 돌지 않으므로, 위 AC 는 전부
+단위 테스트로 닫았다.
 
 ---
 

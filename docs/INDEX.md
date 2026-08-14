@@ -13,7 +13,7 @@
 | 세션 런타임 · 동시성 · IPC 핸들러 구조 | [`arch/backend/runtime-ipc.md`](arch/backend/runtime-ipc.md) |
 | chat turn · 어댑터 호출 · SDK→NormalizedEvent 정규화 | [`arch/backend/adapters.md`](arch/backend/adapters.md) |
 | 턴 이벤트 정규화 계층 (NormalizedEvent · 권한 브리지) | [`arch/backend/provider-runtime.md`](arch/backend/provider-runtime.md) |
-| **인증 provider** (로그인 게이트 · LLM 자격증명 · 사내 서비스) | [`arch/backend/providers.md`](arch/backend/providers.md) |
+| **인증 provider** (로그인 게이트 · LLM 자격증명 · 사내 서비스) | [`arch/backend/auth.md`](arch/backend/auth.md) |
 | Electron 보안 경계 · 자격증명 · 원격 전송 스택 | [`arch/backend/security.md`](arch/backend/security.md) |
 | DB · 영속성 · FTS5 | [`arch/backend/persistence.md`](arch/backend/persistence.md) |
 | 확장 배포 (MCP · SKILL.md · AGENTS.md 표준) | [`arch/backend/standardization.md`](arch/backend/standardization.md) |

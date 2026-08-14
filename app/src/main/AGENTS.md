@@ -2,9 +2,9 @@
 
 Electron **main 프로세스**(SDK 호출·IPC·DB·보안이 모이는 곳)의 모듈 구조 규칙. renderer 4-layer 처럼 **하향 의존만 허용**하고, 추가로 **feature 수직 슬라이스끼리 교차 import 를 금지**한다 — `eslint-plugin-boundaries` + `import/no-cycle` 로 빌드 시 강제(`app/eslint.config.mjs` 의 `src/main/**`·`src/shared/**` 블록). 위반은 `npm run lint` error. (구조 재편 정본: handoff 0062 — 아키텍처 스펙 "feature 수직 슬라이스 + adapters 한정 ports&adapters + 얇은 infra + app composition root".)
 
-> 정본 우선: 채널 계약은 [`../../../docs/IPC_CONTRACT.md`](../../../docs/IPC_CONTRACT.md), 범용 정규화 계층은 [`../../../docs/arch/backend/provider-runtime.md`](../../../docs/arch/backend/provider-runtime.md), **인증 provider 플랫폼(등록·소비·게이트)은 [`../../../docs/arch/backend/providers.md`](../../../docs/arch/backend/providers.md)**. 본 문서는 _레이어·슬라이스 방향_ 규칙만 담는다.
+> 정본 우선: 채널 계약은 [`../../../docs/IPC_CONTRACT.md`](../../../docs/IPC_CONTRACT.md), 범용 정규화 계층은 [`../../../docs/arch/backend/provider-runtime.md`](../../../docs/arch/backend/provider-runtime.md), **인증·게이트·Harness 실행 구성·Plugin 은 [`../../../docs/arch/backend/auth.md`](../../../docs/arch/backend/auth.md)**. 본 문서는 _레이어·슬라이스 방향_ 규칙만 담는다.
 >
-> ⚠️ **`provider-runtime.md` 와 `providers.md` 는 다른 문서다** — 전자는 *턴 이벤트 정규화 계층*(NormalizedEvent·PermissionBridge), 후자는 *인증 대상 플랫폼*(`Provider`·`AuthSpec`·`Grant`). 이름이 닮았으니 인용 전에 확인한다.
+> ⚠️ **`provider-runtime.md` 와 `auth.md` 는 다른 문서다** — 전자는 *턴 이벤트 정규화 계층*(NormalizedEvent·PermissionBridge), 후자는 *인증과 그 소비 경계*(`AuthDefinition`·`AuthMethod`·`Grant`·`BoundAuth`). 이름이 닮았으니 인용 전에 확인한다.
 
 ## 레이어 DAG (하향 의존만)
 
@@ -25,10 +25,10 @@ shared     →  shared                                   (순수 타입/상수/z
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | **shared**              | `src/shared/` (`ipc.ts`·`protocol.ts`·`permission-mode.ts`·`update-restart.ts`·`obj.ts`·`path-basename.ts`·`usage/`·`time/`)                                                   | 순수 타입·상수·zod 스키마 + 순수 유틸(사용량 한도 파생 `usage/limits.ts`·업데이트 재시작 게이트 `update-restart.ts`). 런타임 의존 0.                                                                                                                                                          | shared                                                 |
 | **infra**               | `src/main/infra/` (`bus`·`db`·`config`·`net`·`log`·`ipc`·`errors`·`vars`·`settings-store`·`settings-migration`·`cron`)                                                                     | DB 싱글턴(마이그레이션)·TypedBus·orca.json/secret·IPC 프리미티브(`ipc/handle`·`ipc/send`·`ipc/dto`)·에러 정규화·croner 래퍼(`cron.ts`)·중앙 로깅(`log/` — LogManager·JSONL file-transport·redact·suppress, 0123/0124)·**원격 전송 스택**(`net/` — `net-fetch`·`net-request`·`net-response`·`transport`(0181)) · **provider 인프라**(0181 복원 — `vault.ts`(safeStorage 네임스페이스) · `browser-session.ts`(+`-policy` 순수부) · `loopback-callback.ts`). feature/어댑터 비의존.                                                                                                                                              | infra · shared                                         |
-| **adapters**            | `src/main/adapters/`                                                                                                                                                           | `SessionAdapter` 포트(`types`·`turn`·`provider-config`·`mcp-config`·`hooks`·`risky-tools`·`descriptor`) + 구현(`claude.ts`·`mock.ts` — flat 파일, 엔진별 하위 폴더 아님) + 어댑터 오케스트레이션 + `claude-settings.ts`(`~/.claude/settings.json` 읽기, 0090).                                | adapters · adapter-impl · infra · shared               |
-| **contracts**           | `src/main/contracts/` (`turn`·`bus-events`·`ports`·`session-state`·**`provider`**)                                                            | 여러 feature 가 공유하는 **턴/버스/런타임 타입 계약**. `TurnContext`·`OrcaBusEvents`·`RuntimeLiveTurn` 등. 구현 최소. **`provider.ts`(0181)** 가 0180 이 지운 인증 진입점 3종(`auth-method`·`internal-api`·`connector`)을 하나로 대체한다 — `Provider`·`AuthSpec`·`Grant`·`ProviderApi`. 형태 강제는 선언 배열의 `satisfies` 로 컴파일 타임에 한다. | contracts · adapters · infra · shared                  |
-| **features**            | `src/main/features/<slice>/` (`chat`·`sessions`·`approvals`·`usage`·`history`·`providers`·`extensions`·`orchestration`·`scheduler`) | 수직 슬라이스 — 턴 오케스트레이션·세션 런타임 거버넌스·승인·사용량·영속·**providers**(① 설정·모델 해석 ② **인증 provider 플랫폼**(0181) — `auth/`(registry·store·login·oauth·api·policy·present·**session-policies**(0182 — 선언 → 세션 group 부팅 등록)·specs) · `gate/` · `llm/` · `service/`(+confluence) · `declarations/`(배포가 채우는 유일한 파일 묶음))·확장(MCP·skill·deploy·번들 시딩)·대화 연속성(fork/handoff)·주기 실행(croner, 0091). 0180 이 `auth-platform`·`connectors` 를 지웠고(11→9) 0181 은 **새 슬라이스를 만들지 않고** `providers` 안에 세웠다. | **같은 slice** · contracts · adapters · infra · shared |
-| **app (컴포지션 루트)** | `src/main/app/` (`bootstrap`·**`chat-turn/`**(아래 §chat-turn 분해)·`chat-turn-continuation`·`context`·`boot-report`·`builtin-resources`·`updater`·`updater-feed`·`handlers/`(도메인별 IPC 핸들러 — 목록은 디렉토리가 진실)) + `src/main/index.ts` | 부팅 배선(`Bootstrap`)·턴 셋업(`registerChatHandlers`)·자동 연속 턴(0126)·도메인 핸들러 등록·`RouterContext` 조립·window/shutdown·자동 업데이트(0084~0086·0133)·**provider 플랫폼 조립 + 핸들러 조기 등록**(0181 — DB 보다 앞. 창이 `start()` 완료 전에 열리고 renderer 가 게이트 판정을 위해 `orca:provider:state` 를 즉시 invoke 한다)·부팅 진단(0077)·번들 리소스 해석(0078). 구체 엔진명 리터럴 허용(1회성 배선). | 전부                                                   |
+| **adapters**            | `src/main/adapters/`                                                                                                                                                           | `SessionAdapter` 포트(`types`·`turn`·`harness-config`·`mcp-config`·`hooks`·`risky-tools`·`descriptor`) + 구현(`claude.ts`·`mock.ts` — flat 파일, 엔진별 하위 폴더 아님) + 어댑터 오케스트레이션 + `claude-settings.ts`(`~/.claude/settings.json` 읽기, 0090).                                | adapters · adapter-impl · infra · shared               |
+| **contracts**           | `src/main/contracts/` (`turn`·`bus-events`·`ports`·`session-state`·**`auth`**)                                                            | 여러 feature 가 공유하는 **턴/버스/런타임 타입 계약**. `TurnContext`·`OrcaBusEvents`·`RuntimeLiveTurn` 등. 구현 최소. **`auth.ts`(0181 → 0188)** 는 **인증만** 표현한다 — `AuthDefinition`·`AuthMethod`·`Grant`·`BoundAuth`·`AuthSecretReader`. 소비 슬롯(`kind`·`llm`·`tools`·`usage`)은 없다. 형태 강제는 배포 배열의 `satisfies` 로 컴파일 타임에 한다. | contracts · adapters · infra · shared                  |
+| **features**            | `src/main/features/<slice>/` (목록은 디렉토리가 진실 — 개수는 [생성물](../../../docs/generated/inventory.md)) | 수직 슬라이스. **0188 이 `providers` 한 슬라이스를 책임별로 갈랐다**: `auth/`(인증 lifecycle — registry·store·login·oauth·authenticated-request·secret-access·policy·present·session-policies·specs·browser-session) · `gate/`(Auth 상태를 앱 접근 조건으로 소비하는 정책) · `harnesses/`(settings 열거·해석·Model·실행 구성·respawn 경계) · `plugins/<name>/`(제품 기능 단위 — Confluence). 그 밖에 `chat`·`sessions`·`approvals`·`usage`·`history`·`extensions`·`orchestration`·`scheduler`. | **같은 slice** · contracts · adapters · infra · shared |
+| **app (컴포지션 루트)** | `src/main/app/` (`bootstrap`·**`chat-turn/`**(아래 §chat-turn 분해)·`chat-turn-continuation`·`auth-resume`·`connection-views`·**`deployment/`**(배포별 concrete — build-time TypeScript, 런타임 동적 로딩 아님)·`context`·`boot-report`·`builtin-resources`·`updater`·`updater-feed`·`handlers/`(도메인별 IPC 핸들러 — 목록은 디렉토리가 진실)) + `src/main/index.ts` | 부팅 배선(`Bootstrap`)·턴 셋업(`registerChatHandlers`)·자동 연속 턴(0126)·도메인 핸들러 등록·`RouterContext` 조립·window/shutdown·자동 업데이트(0084~0086·0133)·**인증 스택 조립 + 핸들러 조기 등록**(0181/0188 — DB 보다 앞. 창이 `start()` 완료 전에 열리고 renderer 가 게이트 판정을 위해 `orca:provider:state` 를 즉시 invoke 한다. Harness settings·runtime config·UsageTracker 는 DB 뒤)·부팅 진단(0077)·번들 리소스 해석(0078). 구체 엔진명 리터럴 허용(1회성 배선). | 전부                                                   |
 
 > `boundaries/elements` 분류 순서는 specific→catch-all(`adapter-impl` 이 `adapters` 보다 먼저). `src/main` 최상위는 `{app, contracts, adapters, features, infra}` + `index.ts`·`env.d.ts` 만 — 새 디렉토리는 이 중 하나에 속하게 둔다(어디에도 안 맞으면 boundaries "no element" error). 현재 `adapters/` 는 flat 파일 구조라 `adapter-impl`(folder capture) 요소에 매칭되는 대상이 없다 — 엔진별 하위 폴더가 생기면 다시 활성화되는 예비 규칙.
 > `features/orchestration/` = Conversation Continuity(0051 §A.4) 첫 서비스(fork/handoff) — **순수 로직만**(handoff 자동 메시지 템플릿 `buildHandoffMessage` · 도착 물질화 `materializeContinuityArrival`). 실행 배선(어댑터 `forkSession` 호출·send/persist 훅)은 컴포지션 루트(`app/chat-turn`·`app/handlers/session`)와 `features/history` 가 소유한다.
@@ -53,7 +53,7 @@ shared     →  shared                                   (순수 타입/상수/z
 | `approval.ts` | 배선 | `requestApproval` 클로저 |
 | `post-turn.ts` | 실행 | `coordinator.run` + 자동 연속 턴 루프(listen/flush/break) |
 | `busy-reserve.ts` | 상태 | busy 세션 send → held 예약 |
-| `turn-setup.ts`·`deps.ts` | 조각·타입 | provider 해석·env 조립·소유권 발신 / 의존 묶음 2층 |
+| `turn-setup.ts`·`deps.ts` | 조각·타입 | Harness+ModelProvider·Model 해석 · 실행 구성 1회 resolve → `PreparedHarnessConfig` / 의존 묶음 2층 |
 
 **작업 규칙 3가지** (깨지면 회귀가 조용히 난다 — 각 파일 헤더에 근거가 있다):
 
@@ -101,12 +101,12 @@ main 프로세스는 **Node 전역 `fetch` 를 쓰지 않는다.** Node(undici) 
   `electron` 을 import 하므로 **테스트가 직접 import 하면 즉시 죽는다**(P29 — `vitest.config.ts`
   에 electron alias 없음). 판정·변환은 순수 모듈(`net-response.ts`)로 떼고 여기서는 배선만 한다.
 - 소비자는 `typeof fetch` 포트로 **주입받는다**(`createSender(fetchImpl)` ·
-  `ProviderApiImpl.fetchImpl`). **기본값을 두지 않는다** —
+  `AuthenticatedRequester.fetchImpl`). **기본값을 두지 않는다** —
   기본값은 곧 조용한 Node 스택 복귀다.
 - 브라우저 세션(cookie jar)이 필요한 요청은 `BrowserSessionStore.send` 를 쓴다 —
   `sendOnce(..., {session, credentials:'include'})` 라 세션 쿠키·통합 인증이 실린다(0178).
   feature 는 이것을 **직접 import 하지 않고** `BrowserSessionPort` 로 주입받는다(0181) — 그래야
-  `SessionRunner`·`ProviderApiImpl` 이 vitest 대상으로 남는다.
+  `SessionRunner`·`AuthenticatedRequester` 가 vitest 대상으로 남는다.
 - 위반은 `infra/net/no-node-fetch.test.ts` 가 **테스트로 잡는다**.
 - **`redirect:'manual'` 은 Electron 에서 의미가 다르다 (0174).** 웹 fetch 는 3xx 를 돌려주지만
   Electron 은 **요청을 취소한다**(`followRedirect()` 를 동기 호출해야만 이어진다). 3xx 를 직접
@@ -122,6 +122,6 @@ main 프로세스는 **Node 전역 `fetch` 를 쓰지 않는다.** Node(undici) 
 ## 작업 규칙
 
 - **상위/교차를 참조하고 싶으면 의존을 뒤집어라.** 콜백/구조적 포트/주입으로 방향을 하향·슬라이스-내부로 유지한다(위 3가지 해소책).
-- **구체 provider/engine 리터럴**(`'claude'` 등)은 `adapters`·`features/extensions`(배포 레지스트리)·`features/providers/declarations/`(배포 선언)·컴포지션 루트(`app/bootstrap.ts`·`index.ts`) 안에만. 코어·오케스트레이션은 백엔드 중립(handoff 0016).
+- **구체 Harness/ModelProvider 리터럴**(`'claude'` 등)은 `adapters`·`features/extensions`(배포 레지스트리)·`app/deployment/`(배포 선언·배선)·컴포지션 루트(`app/bootstrap.ts`·`index.ts`) 안에만. 코어·오케스트레이션은 백엔드 중립(handoff 0016).
 - **네이밍**: 컴포지션 루트=`Bootstrap`, 영속=`HistoryWriter`(features/history), 사용량=`UsageTracker`(features/usage), 승인 broker=`ApprovalBroker`(features/approvals), 턴 상태=`TurnContext`(contracts). `SessionAdapter`·`NormalizedEvent`·`adapters/` 이름은 유지(사용자 확정).
 - 모듈이 4책임 이상으로 비대해지면 slice 내부에서 응집 단위로 분해한다. 외부 import 가 많으면 배럴 re-export 로 무회귀 분해.

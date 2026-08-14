@@ -44,8 +44,9 @@
 - **`oneshot`** 또는 `pushTurn` 미구현(mock): 턴-스코프(매 턴 fresh spawn, terminal 에서 핸들 close) — 0067 이전 동작 보존.
 - **프레임 밖 이벤트**(CLI 가 자기 큐 잔존분을 자동 픽업해 시작한 턴): `unframed` 버퍼 + `onUnframedEvent` 콜백으로 노출 → 자동 연속 프레임 오픈(배선은 `app/chat-turn/post-turn.ts`).
 - **채널 사망 시**(서브프로세스 종료·스트림 에러): 다음 `send` 는 spawn+resume 콜드 패스. 이월 잔여(미소비 flushed 재주입 + held)는 `takeForRespawn` 이 프렐류드 배치로 앞세운다.
-- **provider 경계 respawn(0118)**: env/providerSettings 는 spawn-바운드(`pushTurn` 미전달)이므로, 유휴 세션 send 에서 providerKey 가 바뀌면(`crossesProviderBoundary`, `features/providers`) 호출자(`app/chat-turn/runtime-entry.ts`)가 `teardownChannel()` 로 채널을 내려 그 턴을 spawn+resume 콜드 패스로 보낸다 — 위 이월 경로가 그대로 동작.
-- **settings 변경 respawn(0125)**: 같은 provider 라도 `settings.json` 이 제자리 수정(토큰 로테이션·base URL 교체)되면 spawn 시점 주입본(`SessionRuntime.spawnedProviderSettings` 기록)과 이번 턴 해석본의 내용 비교(`providerSettingsChangedSinceSpawn`, `features/providers`)로 동일하게 respawn 한다 — 미변경 상시 경로는 resolve 캐시 동일 참조 fast-path.
+- **provider 경계 respawn(0118)**: env/providerSettings 는 spawn-바운드(`pushTurn` 미전달)이므로, 유휴 세션 send 에서 providerKey 가 바뀌면(`crossesProviderBoundary`, `features/harnesses`) 호출자(`app/chat-turn/runtime-entry.ts`)가 `teardownChannel()` 로 채널을 내려 그 턴을 spawn+resume 콜드 패스로 보낸다 — 위 이월 경로가 그대로 동작.
+- **settings 변경 respawn(0125)**: 같은 provider 라도 `settings.json` 이 제자리 수정(토큰 로테이션·base URL 교체)되면 spawn 시점 주입본(`SessionRuntime.spawnedProviderSettings` 기록)과 이번 턴 해석본의 내용 비교(`providerSettingsChangedSinceSpawn`, `features/harnesses`)로 동일하게 respawn 한다 — 미변경 상시 경로는 resolve 캐시 동일 참조 fast-path.
+- **실행 구성 변경 respawn(0188)**: settings 가 같아도 `options.env` 의 토큰·URL·모델 환경변수가 바뀌면 위 두 판정에 걸리지 않는다. spawn 당시 adapter 입력(native settings + 최종 env)의 canonical 비교값(`harnessConfigFingerprint`)을 `SessionRuntime.spawnedRuntimeConfigFingerprint` 에 기록해 다섯 번째 입력으로 함께 본다.
 - **연속 턴 settings 재판정(0126)**: 자동 연속 턴(0067 AC7) 루프도 반복마다 원 턴 providerKey 고정으로 settings 를 재해석해 0125 판정을 재실행한다(변경 시 teardown → 신선한 blob 으로 respawn). provider/model 은 원 턴 계승 불변("선택은 다음 사용자 send 부터", 0119). busy send 의 provider 경계는 main 백스톱(`reserveOnBusySession` 의 `crossesProviderBoundary` 거부)이 렌더러 0119 가드를 이중화한다.
 
 ### 1.4 세션별 pending message queue (`features/chat/pending-message-queue.ts`)
