@@ -1,1 +1,1 @@
-../../handoff-review/references/failure-patterns.md
+../../handoff-review/references/failure-patterns.corpus.md

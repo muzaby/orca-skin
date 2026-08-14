@@ -32,7 +32,8 @@
 
 - 반복 실패·decision drift·소통 실패의 원인을 분류한다.
 - 사례 누적보다 `handoff-plan` / `handoff-verify` **지침 자체**의 통합·교체·강화를 우선한다.
-- 지침 변경 시 세 가지를 독립 검증한다: **Operational Instruction Delta → Historical Failure Regression → Cross-document Consistency**.
+- normative semantics가 바뀌는 지침 변경은 **Tier 1: Operational Instruction Delta → Historical Failure Regression → Cross-document Consistency**를 수행한다.
+- 실행 의미가 불변인 단순 referential/mechanical correction은 **Tier 2: affected Operational Delta + Cross-document Consistency**로 줄일 수 있다. **애매하면 Tier 1**이다.
 
 **중요**: plan/verify는 정상 작업 중 failure corpus를 읽으며 즉석에서 자기 규칙을 만들거나 종료 때 corpus를 직접 갱신하지 않는다. 사례의 일반화·skill 변경·corpus 유지 판단은 review 책임이다.
 
@@ -68,7 +69,10 @@
 오타·주석·한두 줄 같은 trivial 변경과 **handoff 인프라 자체의 메타 수정**은 `Handoff: none`으로 직접 커밋할 수 있다. handoff skill을 고치기 위해 다시 handoff plan을 만드는 자기 참조를 피하기 위한 규칙이다.
 
 - **애매하면 handoff를 생성한다.** 카브아웃을 설계 회피구로 사용하지 않는다.
-- `Handoff: none`은 **검증 면제**가 아니다. handoff SKILL/template/AGENTS/reference를 바꾸는 메타 수정이면 `handoff-review`의 3축 회귀 검증을 반드시 수행한다.
+- `Handoff: none`은 **검증 면제**가 아니다.
+- handoff SKILL/template/AGENTS/reference의 실행 의미·책임·gate·policy를 바꾸면 `handoff-review` **Tier 1**을 수행한다.
+- 실행 의미가 불변인 typo/path/link 정정은 `handoff-review` **Tier 2**로 줄일 수 있다. Historical Failure Regression을 생략하는 이유를 기록하고 affected Operational Delta + Cross-document Consistency는 남긴다.
+- **Tier가 애매하면 Tier 1**이다.
 
 ### handoff-review 트리거
 
@@ -117,7 +121,7 @@ docs/handoff/
 ├── handoff-plan/
 │   ├── SKILL.md
 │   ├── plan.template.md
-│   └── references/failure-patterns.md   # review entrypoint로 향하는 호환 symlink
+│   └── references/failure-patterns.md   # historical corpus로 향하는 호환 symlink
 ├── handoff-verify/
 │   ├── SKILL.md
 │   ├── verify.template.md
@@ -127,10 +131,12 @@ docs/handoff/
     ├── SKILL.md
     └── references/
         ├── failure-patterns.md           # 현재 review 진입점
-        ├── failure-patterns.corpus.md    # historical evidence 본문
-        ├── regression-coverage.md
-        └── round2-review.md
+        ├── failure-patterns.corpus.md    # historical evidence 본문, 현재 규칙 SSOT 아님
+        ├── regression-coverage.md        # 현재 regression baseline/변경 요약
+        └── round2-review.md              # 사용자가 원문 보존을 명시 요청한 감사 산출물
 ```
+
+review 라운드마다 `roundN-review.md`를 자동 생성하지 않는다. 영구 결과는 지침과 `regression-coverage.md`에 압축하고, 별도 round 문서는 사용자가 감사/원문 보존을 명시적으로 요구할 때만 만든다.
 
 ---
 
@@ -180,7 +186,7 @@ plan/DRAFT
 
 #### 구현 게이트의 정본
 
-**게이트 명령은 수정 subtree의 가장 구체적인 `AGENTS.md`가 정본이다.** 이 파일이나 template이 모든 환경에 하나의 명령을 하드코딩하지 않는다.
+**게이트 명령은 수정 subtree의 가장 구체적인 `AGENTS.md`가 에이전트 작업 루프의 정본이다.** 이 파일이나 template이 모든 환경에 하나의 명령을 하드코딩하지 않는다. `.github/workflows/ci.yml`은 별도의 **PR/CI 통합 게이트 정본**이다.
 
 `app/**`를 수정한다면 `app/AGENTS.md`의 **better-sqlite3 ABI · 제약 환경 게이트 가이드**를 먼저 읽는다. 현재 기본 원칙은:
 
@@ -203,13 +209,14 @@ plan/DRAFT
 
 ### 4. 메타 리뷰 — handoff-review
 
-지침 변경은 다음 세 축을 **모두** 통과해야 한다.
+먼저 변경 의미로 tier를 고른다. **애매하면 Tier 1**이다.
 
-1. **Operational Instruction Delta** — 변경 전 실행 지침을 전수 추출하고 `KEEP / MOVE / REPLACE / DELETE`로 승계. 설명 없이 사라진 gate/command/책임/reference는 regression.
-2. **Historical Failure Regression** — failure corpus의 현재 모든 P heading을 전수 대조. 변경 전 COVERED가 PARTIAL/GAP으로 떨어지면 실패.
-3. **Cross-document Consistency** — root AGENTS ↔ handoff AGENTS ↔ 세 SKILL ↔ templates ↔ references/scripts ↔ 하위 AGENTS의 owner/명령/경로 충돌을 확인.
+- **Tier 1 — normative semantics 변경**: Operational Instruction Delta + Historical Failure Regression + Cross-document Consistency를 모두 수행한다.
+- **Tier 2 — 실행 의미 불변의 referential/mechanical correction**: affected Operational Delta + Cross-document Consistency를 수행하고 Historical Failure Regression 생략 근거를 남긴다.
 
-P1~P37 같은 사례 coverage가 만점이어도 Operational Delta나 Cross-document 검사가 실패하면 review는 완료가 아니다.
+reference MOVE/REPLACE는 파일 존재만 보지 않는다. old path inbound reference `N`과 소비자가 기대하는 semantic target `M`을 전수 정리하고, 새 target에서 heading/anchor·named rule·contract·example 같은 의미가 **M/M 유지됨을 구체 evidence로 증명**한다.
+
+P1~P37 같은 historical coverage가 만점이어도 Operational Delta나 Cross-document 검사가 실패하면 review는 완료가 아니다.
 
 ---
 

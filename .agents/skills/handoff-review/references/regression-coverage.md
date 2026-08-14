@@ -1,17 +1,25 @@
-# Handoff skill regression coverage baseline — round 2
+# Handoff skill regression coverage baseline — round 3
 
-> 2026-08-14 PR #333의 2라운드 회귀 대조 기록.
+> 2026-08-14 PR #333의 3라운드 회귀 대조 기록.
 > 이 파일은 실행 지침이 아니다. 실행 정본은 `handoff-plan/SKILL.md`, `handoff-verify/SKILL.md`, `handoff-review/SKILL.md`, `docs/handoff/AGENTS.md`다.
 
-## 회귀 판정은 세 축이다
+## 회귀 판정은 tier + 세 축이다
 
-1. **Operational Instruction Delta** — 변경 전 SKILL/template/AGENTS/reference/script가 제공하던 실행 책임을 `KEEP / MOVE / REPLACE / DELETE`로 승계한다.
-2. **Historical Failure Regression** — `failure-patterns.corpus.md`의 현재 모든 `## P<number>`를 `COVERED / PARTIAL / GAP / OBSOLETE`로 대조한다.
-3. **Cross-document Consistency** — root AGENTS ↔ handoff AGENTS ↔ 세 SKILL ↔ templates ↔ references/scripts ↔ 하위 AGENTS 간 명령·owner·경로 충돌을 검사한다.
+- **Tier 1 — Full regression**: trigger/owner/command/gate/template contract/failure semantics/canonical ownership 등 normative semantics가 바뀌면 A+B+C 전부 수행한다.
+- **Tier 2 — Referential/mechanical correction**: 실행 의미·owner·gate·policy가 불변인 typo/path/link 정정은 affected A + C만 수행하고 B 생략 근거를 남긴다.
+- **애매하면 Tier 1**이다.
 
-**P coverage 만점은 전체 회귀 없음의 증거가 아니다.** 1라운드는 P1~P37만 대조해 운영지침 삭제(F3~F5)를 잡지 못했다.
+세 축:
+
+1. **Operational Instruction Delta** — 변경 전 SKILL/template/AGENTS/reference/script가 제공하던 실행 책임을 `KEEP / MOVE / REPLACE / DELETE`로 승계한다. reference MOVE/REPLACE는 inbound reference와 소비자가 기대한 semantic target 보존까지 본다.
+2. **Historical Failure Regression** — Tier 1에서 `failure-patterns.corpus.md`의 현재 모든 `## P<number>`를 `COVERED / PARTIAL / GAP / OBSOLETE`로 대조한다.
+3. **Cross-document Consistency** — root AGENTS ↔ handoff AGENTS ↔ 세 SKILL ↔ templates ↔ references/scripts ↔ 하위 AGENTS ↔ 관련 CI/자동화 정본 간 명령·owner·scope·경로 충돌을 검사한다.
+
+**P coverage 만점은 전체 회귀 없음의 증거가 아니다.** 1라운드는 P1~P37만 대조해 운영지침 삭제(F3~F5)를 잡지 못했고, 2라운드는 reference 존재성은 확인했지만 inbound semantic integrity(N1)를 놓쳤다.
 
 ## Historical Failure Regression — P1~P37
+
+이번 라운드는 `handoff-review`의 normative semantics를 변경하므로 **Tier 1**로 수행했다. plan/verify의 방어 지침을 삭제·약화하지 않았고 기존 P1~P37의 causal defense mapping은 유지된다.
 
 | Pattern | causal lesson | 방어 지침 | 판정 |
 |---|---|---|---|
@@ -53,48 +61,72 @@
 | P36 | 외부 구현 포트 문서 drift | 문서 예제 shape + semantics | COVERED |
 | P37 | semantic 목표를 structural proxy로 검증 | 적대 사례 + 실제 관측 주체 | COVERED |
 
-**결과: COVERED 37 / PARTIAL 0 / GAP 0 / OBSOLETE 0.**
+**Historical 결과: COVERED 37 / PARTIAL 0 / GAP 0 / OBSOLETE 0.**
 
-## Operational Instruction Delta — 2라운드 리뷰 F1~F6
+## Operational Instruction Delta — 2라운드 F1~F6
 
 | ID | 1라운드에서 드러난 회귀 | 승계/보완 | 판정 |
 |---|---|---|---|
-| F1 | root `AGENTS.md`가 실패를 plan corpus에 직접 추가하라고 지시 | root를 새 3-skill 소유권으로 갱신, plan/verify 직접 corpus 갱신 금지, meta `Handoff:none`도 review 3축 검증 강제 | COVERED |
-| F2 | `failure-patterns.md` 헤더가 자신을 실행 지침/축적 지점으로 선언 | 현재 경로를 **정책 entrypoint**로 교체, 원 역사 본문은 `failure-patterns.corpus.md`로 보존하고 archival/non-normative 명시 | COVERED |
-| F3 | plan/verify template의 generic `npm test`가 app ABI 안전 규칙과 충돌 | plan/verify template과 verify SKILL이 target subtree `AGENTS.md`를 gate SSOT로 사용. app은 lint+typecheck 기본, non-DB direct vitest, DB 필요 시만 npm test | COVERED |
-| F4 | 검증 책임표·AGENTS 위생·INDEX 정합성 운영 체크 소실 | verify SKILL/template에 사람-vs-agent 표, AGENTS hygiene/parent-child, INDEX, trailer/reference checks 복구 | COVERED |
-| F5 | handoff AGENTS에서 구현 gate와 “애매하면 handoff” tie-breaker 소실 | tie-breaker 복구. 구현 명령은 중복 하드코딩 대신 **target subtree AGENTS SSOT**로 명시. `Handoff:none`은 review 검증 면제가 아님 | COVERED |
-| F6 | `handoff-verify/references/0157-case.md` 고아 | verify SKILL/template의 역방향 탐색에서 대표 evidence로 직접 링크 | COVERED |
+| F1 | root `AGENTS.md`가 실패를 plan corpus에 직접 추가하라고 지시 | root를 새 3-skill 소유권으로 갱신, plan/verify 직접 corpus 갱신 금지 | CLOSED |
+| F2 | `failure-patterns.md` 헤더가 자신을 실행 지침/축적 지점으로 선언 | review entrypoint를 정책 페이지로 분리하고 historical corpus를 별도 보존 | CLOSED — round3에서 corpus 자체의 옛 명령 노출도 제거 |
+| F3 | plan/verify template generic `npm test`가 app ABI 안전 규칙과 충돌 | target subtree AGENTS를 agent-loop gate SSOT로 사용 | CLOSED |
+| F4 | 검증 책임표·AGENTS 위생·INDEX 정합성 운영 체크 소실 | verify에 사람-vs-agent, AGENTS hygiene, INDEX, trailer/reference checks 복구 | CLOSED |
+| F5 | handoff AGENTS에서 구현 gate와 tie-breaker 소실 | `애매하면 handoff` 복구, target subtree AGENTS SSOT | CLOSED |
+| F6 | `handoff-verify/references/0157-case.md` 고아 | verify 역방향 탐색에서 대표 evidence로 직접 링크 | CLOSED |
 
-### F5 원문 주장 중 정정
+## Round 3 — N1~N4 및 유지정책
 
-root 규칙 6은 “느슨한 쪽 우선”이 아니라 **더 구체적인 디렉토리 `AGENTS.md` 우선**이다. 따라서 2라운드 보완은 root/handoff에 app 명령을 복제하는 대신 target subtree AGENTS를 명령 SSOT로 삼는다.
+| ID | 판정/원인 | 보완 | 결과 |
+|---|---|---|---|
+| N1 | **A. Instruction gap** — 기존 reference 검사는 소비자 존재/outbound 연결은 봤지만 inbound consumer가 기대한 의미 보존을 요구하지 않았다 | 6-A/6-C를 semantic integrity로 정밀화. 호환 symlink를 historical corpus로 돌리고 corpus 헤더에서 옛 실행 명령 제거 + current SSOT 부인 | CLOSED |
+| N2 | 3축 무조건 강제가 trivial referential fix까지 full historical 재검증하게 함 | Tier 1(full A+B+C) / Tier 2(affected A+C)로 분리, **애매하면 Tier 1** | CLOSED |
+| N3 | byte/줄 수 자체는 결함 아님. 실제 위험은 checklist-only normative rule | 완료 조건이 본문 규칙에 매핑되고 checklist만의 새 규칙이 없는지 확인하도록 변경 | WATCH — 현재 divergence 0 |
+| N4 | agent-local gate와 PR/CI gate의 scope가 주석에서 모호 | `.github/workflows/ci.yml`을 **PR/CI 통합 게이트 정본**으로 명시, agent loop는 subtree AGENTS 정본 | CLOSED |
+| R1 | round별 문서 자동 누적 시 R4를 다른 파일에서 재현할 위험 | round report 기본 미생성. 영구 결과는 지침 + 이 파일에 압축. 사용자 명시 요청 때만 별도 감사 문서 생성 | CLOSED |
 
-**Operational 결과: 6/6 CLOSED.**
+### N1 reference semantic-integrity evidence
 
-## Cross-document Consistency
+호환 경로: `.agents/skills/handoff-plan/references/failure-patterns.md` → `../../handoff-review/references/failure-patterns.corpus.md`.
+
+외부 검토에서 식별된 legacy inbound 인용은 8곳이다. 대표 실물 대조:
+
+- `0173/plan.md` — `failure-patterns.md:541-552`, **P29** 기대.
+- `0158/verify.md` — **P12** 기대.
+- `0159/plan.md` — **P19** 기대.
+- `0177/verify.md` — **P30·P31** 기대.
+- `0165/verify.md` — 당시 신규 패턴(현재 **P23**) 축적 맥락.
+- `0186/plan.md`, `0186/verify.md` — **P36** 기대. 과거 문서의 “SSOT” 표현은 historical 기록이며 current SSOT가 아님을 corpus 헤더가 무력화한다.
+- `0185/plan.md` — 호환 경로 자체를 절차 reference로 열거.
+
+Distinct named P semantic targets는 `P12`, `P19`, `P23`, `P29`, `P30`, `P31`, `P36` **7/7**이며 historical corpus에 해당 `## P<number>` 본문을 유지한다. `0173`의 line-scoped citation이 있으므로 corpus 헤더 교체는 **기존 헤더와 같은 줄 수를 유지**해 P 본문의 line offset을 보존한다.
+
+**중요**: 링크가 resolve하거나 파일이 존재한다는 사실만으로 PASS하지 않는다. heading/line contract를 요구한 소비자는 실제 heading/line 의미가 새 target에서 유지되는지를 증명해야 한다.
+
+## Cross-document Consistency — round 3
 
 | 대조 | 결과 |
 |---|---|
-| root AGENTS ↔ docs/handoff AGENTS | review 소유권, meta carveout, corpus 정책 일치 |
-| docs/handoff AGENTS ↔ plan/verify/review SKILL | current-task plan/verify vs meta review 책임 일치 |
-| plan/verify template ↔ `app/AGENTS.md` | generic `npm test` 기본값 제거, 하위 가이드 우선 |
-| verify SKILL/template ↔ 0157 case/script | reference 소비 경로 복구 |
-| corpus entrypoint ↔ historical corpus | 현재 정책과 과거 evidence 분리 |
-| commit protocol ↔ 이번 round2 commit | 새 커밋은 `Agent: claude` 사용 예정 |
+| root AGENTS ↔ docs/handoff AGENTS ↔ review SKILL | Tier 1/2와 `애매하면 Tier 1`, `Handoff:none ≠ 검증 면제` 일치 |
+| review SKILL ↔ completion checklist | 모든 완료 항목이 본문 §2~§7에 매핑, checklist-only normative rule 0 |
+| plan compatibility symlink ↔ historical corpus | 과거 P/라인 소비자는 corpus에 직접 착지, historical header는 current SSOT 아님을 명시 |
+| review entrypoint ↔ corpus | entrypoint=current policy routing, corpus=historical evidence 역할 분리 |
+| reference inbound expectations ↔ corpus | named P semantic target 7/7 유지; legacy 8곳 소비 목적 보존 |
+| app AGENTS ↔ ci.yml ↔ handoff guidance | agent-local/closed-network gate와 PR/CI integration gate scope 분리 |
+| round2-review.md ↔ review 기록 정책 | 사용자 명시 요청으로 만든 감사 산출물이며 실행 정본 아님 |
 
 **Cross-document result: PASS.**
 
 ## 부수 확인 / 한계
 
-- `app/scripts/check-doc-inventory.mjs`가 `.agents`를 `PROSE_EXCLUDED`로 제외하므로 그 CI green은 skill 내부 정합성 증거로 사용하지 않는다.
-- 1라운드 커밋 `c96a1cb`의 `Agent: chatgpt`는 당시 규약 위반이다. **공개 이력을 force-rewrite하지 않고 역사적 위반으로 기록**하며 2라운드 이후 커밋부터 허용값을 사용한다.
+- `app/scripts/check-doc-inventory.mjs`가 `.agents`를 `PROSE_EXCLUDED`로 제외하고 historical handoff 링크도 일부 skip하므로 그 CI green은 skill/reference semantic integrity의 증거로 사용하지 않는다.
+- 1라운드 커밋 `c96a1cb`의 `Agent: chatgpt`는 당시 규약 위반이다. 공개 이력을 force-rewrite하지 않고 역사적 위반으로 유지한다.
 - 진행 중 legacy handoff는 형식 때문에 일괄 변환하지 않는다. 새 Part I/II + Ledger 구조는 신규 handoff부터 적용하고, 기존 plan을 실질적으로 재설계할 때만 승격한다.
+- historical handoff의 “Pxx가 SSOT” 같은 문장은 당시 기록이라 개작하지 않는다. corpus 헤더에서 현재 정본이 SKILL임을 명시한다.
 
-## 2라운드 결론
+## Round 3 결론
 
-1라운드의 `37/37 COVERED`는 **Historical Failure Regression만의 결과**로 재해석한다. 2라운드부터 handoff 지침 변경 완료 조건은 다음 세 항목을 모두 만족해야 한다.
-
-- Operational Instruction Delta: regression 0
-- Historical Failure Regression: regression 0
-- Cross-document Consistency: conflict/orphan 0
+- Regression tier: **Tier 1** — review의 normative semantics 변경.
+- Operational Instruction Delta: **regression 0**.
+- Historical Failure Regression: **37 COVERED / 0 PARTIAL / 0 GAP / 0 OBSOLETE**.
+- Reference semantic integrity: legacy inbound **8곳**, named P targets **7/7 유지**.
+- Cross-document Consistency: **PASS**.

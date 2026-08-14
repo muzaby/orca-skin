@@ -1,8 +1,10 @@
-# 상시 게이트 — 저장소 게이트 정본(cd app && npm run lint && npm run typecheck && npm test)을
+# 상시 게이트 — PR/CI 통합 게이트 정본(cd app && npm run lint && npm run typecheck && npm test)을
 # 배포 타깃과 같은 windows 러너에서 실행한다 (better-sqlite3 Windows prebuild +
-# ensure-sqlite-abi.mjs 의 win32 분기 실기). docs 위주 커밋이 많아 paths 필터를 둔다.
-# 트리거는 main push 자동 실행 + 모든 PR(paths 필터) + 수동 버튼. PR 게이트는 로컬 게이트에
-# 더해 배포 타깃 windows 에서 재확인한다(0088 "PR CI 없음" 결정을 0113 에서 supersede).
+# ensure-sqlite-abi.mjs 의 win32 분기 실기). 에이전트 로컬/폐쇄망 작업 루프의 gate 정본은
+# 수정 subtree의 AGENTS.md이며, app은 app/AGENTS.md의 ABI·egress 규칙을 따른다.
+# docs 위주 커밋이 많아 paths 필터를 둔다. 트리거는 main push 자동 실행 + 모든 PR(paths 필터) +
+# 수동 버튼. PR 게이트는 로컬 게이트에 더해 배포 타깃 windows 에서 재확인한다
+# (0088 "PR CI 없음" 결정을 0113 에서 supersede).
 name: CI
 
 on:
