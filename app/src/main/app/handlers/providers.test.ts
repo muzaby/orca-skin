@@ -1,9 +1,9 @@
-// provider 핸들러 등록 전수 대조 (0181). 채널을 늘리는 작업의 유일한 실패 모드는 **하나가
+// 연결(Auth) 핸들러 등록 전수 대조 (0181 → 0188). 채널을 늘리는 작업의 유일한 실패 모드는 **하나가
 // 조용히 빠지는 것**이다 — 미등록 채널은 renderer invoke 가 영영 pending 이 된다(0179 선례).
 
 import { describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../../shared/ipc'
-import type { ProviderPlatform } from '../provider-platform'
+import type { ConnectionHandlerDeps } from './providers'
 
 const registered = vi.hoisted(() => [] as string[])
 
@@ -15,7 +15,7 @@ vi.mock('electron', () => ({
   }
 }))
 
-const { registerProviderHandlers } = await import('./providers')
+const { registerConnectionHandlers } = await import('./providers')
 
 const EXPECTED = [
   CHANNELS.providerList,
@@ -26,12 +26,13 @@ const EXPECTED = [
   CHANNELS.providerRevoke
 ]
 
-describe('registerProviderHandlers', () => {
+describe('registerConnectionHandlers', () => {
   it('provider 채널 6종을 빠짐없이 등록한다', () => {
-    registerProviderHandlers({} as ProviderPlatform)
+    registerConnectionHandlers({} as unknown as ConnectionHandlerDeps)
     expect([...registered].sort()).toEqual([...EXPECTED].sort())
   })
 
+  // 0188 — 내부 소유자는 바뀌었지만 **채널 이름은 compat 계약이라 그대로다**(D-030).
   it('등록 집합이 CHANNELS 의 provider 도메인 전수와 일치한다', () => {
     const declared = Object.entries(CHANNELS)
       .filter(([, value]) => value.startsWith('orca:provider:'))

@@ -948,6 +948,7 @@ describe('SessionRuntime spawn settings 기록(0125)', () => {
   const settingsOf = (token: string): NonNullable<TurnRequest['providerSettings']> => ({
     providerKey: 'claude-gateway',
     provider: 'gateway',
+    sourceRevision: 'rev',
     settings: { env: { ANTHROPIC_AUTH_TOKEN: token } }
   })
 
@@ -1253,6 +1254,7 @@ describe('SessionRuntime runtime tool revision (0158)', () => {
         providerBoundaryChanged: false,
         modelChanged: false,
         providerSettingsChanged: false,
+        runtimeConfigChanged: false,
         spawnedRuntimeToolsRevision: runtime.spawnedRuntimeToolsRevision,
         runtimeToolsRevision: continuationRequest.extensions.runtimeTools?.revision
       })

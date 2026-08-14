@@ -10,7 +10,7 @@
 //   - `manual`   — 코드 붙여넣기. 리다이렉트를 아예 못 쓰는 환경의 최후 수단.
 
 import type { ProviderFailureReason } from '../../../shared/ipc'
-import type { AuthCtx, OAuthStart, PkcePair, Provider } from '../../contracts/auth'
+import type { AuthCtx, OAuthStart, PkcePair, AuthDefinition } from '../../contracts/auth'
 import { errorMessage } from '../../infra/errors'
 import {
   awaitLoopbackCallback,
@@ -56,7 +56,7 @@ export class OAuthRunner implements OAuthAuthenticator {
     this.listen = deps.listen ?? awaitLoopbackCallback
   }
 
-  async begin(provider: Provider, spec: OAuthSpec): Promise<AuthResult> {
+  async begin(provider: AuthDefinition, spec: OAuthSpec): Promise<AuthResult> {
     // PKCE·state 는 **authorize 를 부르기 전에** 발급하고 영속한다 — authorize 안에서
     // ctx 를 부르는 시점과 콜백 도착 시점 사이에 앱이 죽어도 대조가 성립해야 한다(AC4).
     let pkce: PkcePair | null = null
@@ -67,7 +67,7 @@ export class OAuthRunner implements OAuthAuthenticator {
     let stateSent = false
 
     const ctx: AuthCtx = {
-      providerId: provider.id,
+      authId: provider.id,
       pkce: () => (pkce ??= createPkce()),
       state: () => {
         stateSent = true
@@ -92,7 +92,7 @@ export class OAuthRunner implements OAuthAuthenticator {
     pkce ??= createPkce()
     state ??= createState()
     const pending = this.deps.states.issue({
-      providerId: provider.id,
+      authId: provider.id,
       state,
       stateSent,
       verifier: pkce.verifier,
@@ -110,9 +110,9 @@ export class OAuthRunner implements OAuthAuthenticator {
   }
 
   // manual 분기의 2회차 — 사용자가 붙여 넣은 code 로 교환한다. state 는 브라우저에서 돌아오지
-  // 않으므로 providerId 로 pending 을 찾는다.
-  async complete(provider: Provider, spec: OAuthSpec, code: string): Promise<AuthResult> {
-    const pending = this.deps.states.consume({ providerId: provider.id })
+  // 않으므로 authId 로 pending 을 찾는다.
+  async complete(provider: AuthDefinition, spec: OAuthSpec, code: string): Promise<AuthResult> {
+    const pending = this.deps.states.consume({ authId: provider.id })
     if (!pending) {
       return failure('cancelled', '진행 중인 인증이 없거나 시간이 지났습니다')
     }
@@ -120,7 +120,7 @@ export class OAuthRunner implements OAuthAuthenticator {
   }
 
   private async runLoopback(
-    provider: Provider,
+    provider: AuthDefinition,
     start: OAuthStart,
     port: number,
     pending: PendingAuthorization
@@ -145,7 +145,7 @@ export class OAuthRunner implements OAuthAuthenticator {
   }
 
   private async runWindow(
-    provider: Provider,
+    provider: AuthDefinition,
     start: OAuthStart,
     isDone: (url: string) => boolean,
     pending: PendingAuthorization
@@ -160,14 +160,14 @@ export class OAuthRunner implements OAuthAuthenticator {
 
   // 콜백 URL → code. **state 대조가 여기 한 곳**이라 분기를 늘려도 검사가 늘지 않는다.
   private async absorbCallback(
-    provider: Provider,
+    provider: AuthDefinition,
     start: OAuthStart,
     url: string,
     pending: PendingAuthorization
   ): Promise<AuthResult> {
     const parsed = parseCallbackUrl(url)
     if (parsed.kind === 'error') {
-      this.deps.states.consume({ state: pending.state, providerId: provider.id })
+      this.deps.states.consume({ state: pending.state, authId: provider.id })
       return failure('cancelled', parsed.description ?? parsed.error)
     }
     if (parsed.kind === 'unrelated') {
@@ -182,24 +182,24 @@ export class OAuthRunner implements OAuthAuthenticator {
       // 보냈으면 돌아와야 한다. 없거나 다르면 **거부**한다 — 다른 곳에서 시작된 인가를 이 앱의
       // 세션으로 접붙이려는 시도(CSRF)이기 때문이다. pending 은 남겨 두지 않는다.
       if (parsed.state === null || !statesMatch(pending.state, parsed.state)) {
-        this.deps.states.consume({ state: pending.state, providerId: provider.id })
-        this.deps.logger?.('providers.oauth.state.mismatch', { providerId: provider.id })
+        this.deps.states.consume({ state: pending.state, authId: provider.id })
+        this.deps.logger?.('providers.oauth.state.mismatch', { authId: provider.id })
         return failure('state_mismatch', '인증 응답의 state 가 일치하지 않습니다')
       }
     } else if (parsed.state !== null) {
       // 보낸 적 없는 값이 돌아왔다. 대조할 기준이 없으므로 판정에 쓰지 않고 기록만 한다 —
       // 선언이 state 를 실어야 하는데 빠뜨렸을 가능성을 운영자가 볼 수 있게.
-      this.deps.logger?.('providers.oauth.state.unsolicited', { providerId: provider.id })
+      this.deps.logger?.('providers.oauth.state.unsolicited', { authId: provider.id })
     }
     // 발급한 레코드를 정확히 지운다. 대조를 통과했다면 `parsed.state` 와 같은 값이고, 대조를
     // 건너뛴 경로에서는 이것만이 우리가 아는 키다.
-    const consumed = this.deps.states.consume({ state: pending.state, providerId: provider.id })
+    const consumed = this.deps.states.consume({ state: pending.state, authId: provider.id })
     if (!consumed) return failure('state_mismatch', '인증 요청을 찾을 수 없습니다')
     return this.exchangeStart(provider, start, parsed.code, consumed)
   }
 
   private async exchangeStart(
-    provider: Provider,
+    provider: AuthDefinition,
     start: OAuthStart,
     code: string,
     pending: PendingAuthorization
@@ -208,7 +208,7 @@ export class OAuthRunner implements OAuthAuthenticator {
       const token = await start.exchange(code, pending.verifier)
       return { kind: 'token', token }
     } catch (error) {
-      this.deps.logger?.('providers.oauth.exchange.failed', { providerId: provider.id })
+      this.deps.logger?.('providers.oauth.exchange.failed', { authId: provider.id })
       return failure('exchange_failed', errorMessage(error))
     }
   }
@@ -216,7 +216,7 @@ export class OAuthRunner implements OAuthAuthenticator {
   // manual 2회차는 `OAuthStart` 를 다시 얻어야 `exchange` 를 부를 수 있다. authorize 를 다시
   // 부르되 **그때 발급되는 pkce·state 는 버리고**(issue 하지 않는다) 보관해 둔 verifier 를 쓴다.
   private async exchange(
-    provider: Provider,
+    provider: AuthDefinition,
     spec: OAuthSpec,
     code: string,
     pending: PendingAuthorization
@@ -224,7 +224,7 @@ export class OAuthRunner implements OAuthAuthenticator {
     let start: OAuthStart
     try {
       start = await spec.authorize({
-        providerId: provider.id,
+        authId: provider.id,
         // 보관된 값을 그대로 돌려준다 — 교환 요청의 verifier 가 인가 요청의 challenge 와
         // 짝이어야 하기 때문이다. challenge 는 verifier 에서 다시 파생하므로 두 번 불러도
         // 같은 값이 나온다(빈 문자열 같은 가짜 값을 흘리지 않는다).

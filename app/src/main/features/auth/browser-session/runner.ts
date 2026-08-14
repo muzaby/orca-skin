@@ -9,7 +9,7 @@
 
 import type { ProviderFailureReason } from '../../../../shared/ipc'
 import type {
-  Provider,
+  AuthDefinition,
   SessionLookup,
   SessionTokenExchange,
   TokenValue
@@ -35,12 +35,12 @@ function failure(reason: ProviderFailureReason, message: string): AuthResult {
 }
 
 // **판정은 여기 없다.** 이 클래스는 창을 열고 세션·토큰·신원을 만들어 줄 뿐이고, 그것이
-// 실제로 인증됐는지는 `LoginService` 가 `Provider.probe` 로 확인한다(방식 무관 단일 판정).
+// 실제로 인증됐는지는 `LoginService` 가 `AuthDefinition.probe` 로 확인한다(방식 무관 단일 판정).
 // 부팅 복원도 같은 경로라 여기에 `verify` 짝을 두지 않는다 — 두 벌이면 규칙이 갈린다.
 export class SessionRunner implements SessionAuthenticator {
   constructor(private readonly deps: SessionRunnerDeps) {}
 
-  async login(provider: Provider, spec: BrowserSessionSpec): Promise<AuthResult> {
+  async login(provider: AuthDefinition, spec: BrowserSessionSpec): Promise<AuthResult> {
     const { config } = spec
     // 같은 group 을 여러 provider 가 선언하면 allowlist 가 합집합으로 넓어진다 — 의도적으로
     // cookie jar 를 공유하는 경우다.
@@ -61,7 +61,7 @@ export class SessionRunner implements SessionAuthenticator {
     }
 
     // **doneUrlPrefix 도달만으로 성공이 확정되지 않는다** — 로그인 폼이 같은 접두사로 렌더되는
-    // 배포가 있다(0157 D1 의 목적). 그 확인은 `LoginService` 가 grant 커밋 뒤 `Provider.probe`
+    // 배포가 있다(0157 D1 의 목적). 그 확인은 `LoginService` 가 grant 커밋 뒤 `AuthDefinition.probe`
     // 로 한 번에 한다. 여기서는 창이 닫힌 뒤의 조립만 이어간다.
     if (!config.exchange) {
       // 세션에서 끝나는 배포 — 신원은 여기서만 물을 수 있다(교환 응답이 없으므로).
@@ -80,7 +80,7 @@ export class SessionRunner implements SessionAuthenticator {
   // 실패는 전부 `undefined` 로 접는다 — 이 값이 없다고 로그인을 되돌리면 "이름을 못 읽어서
   // 로그인이 안 되는" 상태가 된다. 사유는 로그가 남기고, 화면은 폴백 라벨을 쓴다.
   private async whoami(
-    provider: Provider,
+    provider: AuthDefinition,
     handleId: string,
     lookup: SessionLookup | undefined
   ): Promise<string | undefined> {
@@ -102,7 +102,7 @@ export class SessionRunner implements SessionAuthenticator {
   // 다르므로(whoami 는 로그 한 줄, exchange 는 사용자에게 보이는 사유) 그 결정은 호출부에
   // 남기고 요청은 한 벌만 둔다.
   private async getJson(
-    provider: Provider,
+    provider: AuthDefinition,
     handleId: string,
     path: string
   ): Promise<{ ok: true; payload: unknown } | { ok: false; failure: JsonReadFailure }> {
@@ -130,9 +130,9 @@ export class SessionRunner implements SessionAuthenticator {
   // 실패 사유를 남기고 `undefined` 를 돌려준다. **값은 로그에 싣지 않는다** — principal 은
   // 계정 식별자(대개 email)라 개인정보다. 대신 `valuePath` 를 찍어 오타를 지목한다
   // (exchange 의 `no-token` 로그와 같은 형태).
-  private whoamiFailed(provider: Provider, lookup: SessionLookup, reason: string): undefined {
+  private whoamiFailed(provider: AuthDefinition, lookup: SessionLookup, reason: string): undefined {
     this.deps.logger?.('providers.session.whoami.failed', {
-      providerId: provider.id,
+      authId: provider.id,
       valuePath: lookup.valuePath,
       reason
     })
@@ -141,7 +141,7 @@ export class SessionRunner implements SessionAuthenticator {
 
   // ② 세션 → 토큰. **origin 밖으로 나가지 않는다** — `path` 는 provider.origin 기준 상대 경로다.
   private async exchange(
-    provider: Provider,
+    provider: AuthDefinition,
     handleId: string,
     exchange: SessionTokenExchange,
     whoamiLookup?: SessionLookup
@@ -153,7 +153,7 @@ export class SessionRunner implements SessionAuthenticator {
     if (typeof value !== 'string' || value.length === 0) {
       // 경로를 로그에 남긴다 — 실값 미정(OQ2) 상태에서 배포가 고칠 지점을 지목한다.
       this.deps.logger?.('providers.session.exchange.no-token', {
-        providerId: provider.id,
+        authId: provider.id,
         valuePath: exchange.valuePath
       })
       return failure('exchange_failed', '토큰 응답에서 값을 찾지 못했습니다')

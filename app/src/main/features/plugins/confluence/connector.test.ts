@@ -4,7 +4,7 @@
 import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, expect, it, afterEach } from 'vitest'
-import type { ProviderRequest, ProviderResponse } from '../../../contracts/auth'
+import type { AuthenticatedRequest, AuthenticatedResponse } from '../../../contracts/auth'
 import {
   createConfluenceRuntime,
   type ConfluenceContext,
@@ -22,15 +22,15 @@ afterEach(async () => {
 })
 
 interface Route {
-  match: (req: ProviderRequest) => boolean
-  respond: (req: ProviderRequest) => Partial<ProviderResponse> & {
+  match: (req: AuthenticatedRequest) => boolean
+  respond: (req: AuthenticatedRequest) => Partial<AuthenticatedResponse> & {
     status: number
   }
 }
 
-function context(routes: Route[]): { ctx: ConfluenceContext; seen: ProviderRequest[] } {
-  const seen: ProviderRequest[] = []
-  const request = async (req: ProviderRequest): Promise<ProviderResponse> => {
+function context(routes: Route[]): { ctx: ConfluenceContext; seen: AuthenticatedRequest[] } {
+  const seen: AuthenticatedRequest[] = []
+  const request = async (req: AuthenticatedRequest): Promise<AuthenticatedResponse> => {
     seen.push(req)
     const route = routes.find((r) => r.match(req))
     if (!route) return { ok: false, status: 404, finalUrl: '', headers: {}, body: '{}' }

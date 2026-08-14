@@ -92,12 +92,12 @@ const PENDING_KEY = 'pending'
 function parsePending(raw: unknown): PendingAuthorization | null {
   if (!isRecord(raw)) return null
   const record = raw
-  if (typeof record.providerId !== 'string') return null
+  if (typeof record.authId !== 'string') return null
   if (typeof record.state !== 'string') return null
   if (typeof record.verifier !== 'string') return null
   if (typeof record.createdAt !== 'number') return null
   return {
-    providerId: record.providerId,
+    authId: record.authId,
     state: record.state,
     verifier: record.verifier,
     createdAt: record.createdAt,

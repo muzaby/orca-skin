@@ -17,7 +17,20 @@ import type {
   RuntimeToolResult,
   RuntimeToolServer
 } from '../../../adapters/runtime-tools'
-import type { ProviderToolContext } from '../../../contracts/auth'
+import { authToolServerId } from '../../../adapters/runtime-tool-policy'
+import type { AuthenticatedRequest, AuthenticatedResponse } from '../../../contracts/auth'
+
+// Plugin 이 자기 도구를 만들 때 필요한 것 전부 (0188). 구 `ProviderToolContext` 는 **Auth
+// 계약 안**에 있었다 — 인증 코어가 "런타임 도구 서버" 라는 소비자 개념을 알아야 성립하는
+// 구조였다. 이제 Plugin 이 자기 형상을 소유하고, 컴포지션 루트가 `BoundAuth` 에서 채운다.
+export interface ConfluencePluginContext {
+  // vault 네임스페이스이자 `${BINDING:<id>}` 참조 대상인 Auth 식별자. 도구 서버 이름의 원천.
+  authId: string
+  label: string
+  origin: string
+  // 인증된 요청. **raw credential 을 받지 않는다** — 헤더 주입은 Auth 안에서 끝난다.
+  request(req: AuthenticatedRequest, signal?: AbortSignal): Promise<AuthenticatedResponse>
+}
 import {
   CONFLUENCE_OPERATIONS,
   createConfluenceRuntime,
@@ -58,8 +71,8 @@ function toToolResult(raw: unknown, render: (data: unknown) => string): RuntimeT
 // (descriptor + connection 별 factory)이었지만, 연결이 provider 하나에 1건이라 두 단계로 나눌
 // 이유가 사라졌다. `readOnlyHint` 를 런타임에 뒤집을 표면이 없다는 성질은 그대로다.
 //
-// **id·label·origin 을 인자로 받지 않는다.** 선언이 그것들을 다시 적게 두면 `Provider.id` 와
-// 어긋날 수 있고, 그러면 도구는 모델에 보이는데 호출은 `unknown_provider` 로 죽는다. 전부
+// **id·label·origin 을 인자로 받지 않는다.** 배포가 그것들을 다시 적게 두면 `AuthId` 와
+// 어긋날 수 있고, 그러면 도구는 모델에 보이는데 호출은 인증 대상을 못 찾아 죽는다. 전부
 // `ctx` 에서 파생한다 — 배포가 채우는 것은 컨텍스트 경로(`apiBasePath`) 같은 실값뿐이다.
 export interface ConfluenceToolOptions {
   // 컨텍스트 경로(`/confluence`). `origin` 에 붙이면 등록 검사가 그 선언을 거부하므로 여기다.
@@ -68,15 +81,17 @@ export interface ConfluenceToolOptions {
   downloadConcurrency?: number
 }
 
-// 선언이 부르는 표면. `Provider.tools` 에 그대로 꽂힌다.
+// 컴포지션 루트가 부르는 표면 (`app/deployment/plugins.ts`). **한 번만** 부르고 결과를
+// 재사용한다 — 매번 새로 만들면 handler identity 가 달라져 RuntimeToolRegistry revision 이
+// 오르고 persistent runtime 이 불필요하게 respawn 한다(0188 D-023).
 export function confluenceTools(
-  ctx: ProviderToolContext,
+  ctx: ConfluencePluginContext,
   opts: ConfluenceToolOptions = {}
 ): RuntimeToolServer {
   return createConfluenceToolServer(
     ctx,
     createConfluenceRuntime({
-      id: ctx.providerId,
+      id: ctx.authId,
       label: ctx.label,
       baseUrl: ctx.origin,
       ...opts
@@ -86,12 +101,14 @@ export function confluenceTools(
 
 // 런타임을 주입받는 하위 표면 — 도구 계층(descriptor·handler)만 검증할 때 쓴다.
 export function createConfluenceToolServer(
-  ctx: ProviderToolContext,
+  ctx: ConfluencePluginContext,
   runtime: ConfluenceRuntime
 ): RuntimeToolServer {
-  const providerId = ctx.providerId
+  const providerId = ctx.authId
   const connectorLabel = ctx.label
-  const serverId = ctx.serverId
+  // 서버 이름 규칙의 SSOT 는 `adapters/runtime-tool-policy.ts` 하나다 — Plugin 마다 조립하면
+  // 서로 다른 문자열을 고를 수 있다.
+  const serverId = authToolServerId(ctx.authId)
   const request: ConfluenceContext = {
     request: (req, signal) => ctx.request(req, signal),
     logger: () => undefined

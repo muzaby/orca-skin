@@ -15,7 +15,7 @@ import {
   defaultProvider,
   listAdapters,
   listProviders,
-  type ProviderEntry
+  type HarnessModelProviderEntry
 } from './settings-entries'
 
 let root: string
@@ -85,9 +85,9 @@ describe('listProviders / listAdapters', () => {
   it('defaultProvider 는 anthropic 우선, 없으면 이름순 첫 항목', () => {
     mkdirSync(join(settingsDir(), 'vertex'), { recursive: true })
     mkdirSync(join(settingsDir(), 'bedrock'), { recursive: true })
-    expect(defaultProvider(listProviders('claude', root))?.provider).toBe('bedrock')
+    expect(defaultProvider(listProviders('claude', root))?.modelProviderId).toBe('bedrock')
     mkdirSync(join(settingsDir(), 'anthropic'), { recursive: true })
-    expect(defaultProvider(listProviders('claude', root))?.provider).toBe('anthropic')
+    expect(defaultProvider(listProviders('claude', root))?.modelProviderId).toBe('anthropic')
   })
 })
 
@@ -145,11 +145,11 @@ describe('model helpers (alias 기준)', () => {
 
 describe('toAgentEnvironments', () => {
   it('ParsedModel 을 그대로 통과시키고 비밀 계열 필드를 노출하지 않는다', () => {
-    const entries: ProviderEntry[] = [
+    const entries: HarnessModelProviderEntry[] = [
       {
         key: 'claude-bedrock',
-        adapter: 'claude',
-        provider: 'bedrock',
+        harnessId: 'claude',
+        modelProviderId: 'bedrock',
         models: [
           {
             alias: 'sonnet',
@@ -160,9 +160,10 @@ describe('toAgentEnvironments', () => {
           }
         ]
       },
-      { key: 'opencode-local', adapter: 'opencode', provider: 'local', models: [] }
+      { key: 'opencode-local', harnessId: 'opencode', modelProviderId: 'local', models: [] }
     ]
     const envs = toAgentEnvironments(entries, ['claude'])
+    // wire DTO 는 **compat 필드명을 유지한다** (0188 D-030) — 도메인 어휘는 이 경계에서 변환된다.
     expect(envs[0]).toEqual({
       key: 'claude-bedrock',
       adapter: 'claude',
@@ -206,17 +207,17 @@ describe('env 유틸', () => {
 })
 
 describe('HarnessSettingsService', () => {
-  function seedSource(provider: string, settings: string): string {
-    const file = join(root, 'sources', 'settings', 'claude', provider, 'settings.json')
+  function seedSource(modelProviderId: string, settings: string): string {
+    const file = join(root, 'sources', 'settings', 'claude', modelProviderId, 'settings.json')
     writeFile(file, settings)
     return file
   }
 
-  function entryOf(provider: string): ProviderEntry {
+  function entryOf(modelProviderId: string): HarnessModelProviderEntry {
     return {
-      key: `claude-${provider}`,
-      adapter: 'claude',
-      provider,
+      key: `claude-${modelProviderId}`,
+      harnessId: 'claude',
+      modelProviderId,
       models: []
     }
   }
@@ -230,8 +231,9 @@ describe('HarnessSettingsService', () => {
     })
     const svc = new HarnessSettingsService({ claude: loader }, root)
     const blob = await svc.resolve(entryOf('anthropic'))
-    expect(blob).toEqual({
+    expect(blob).toMatchObject({
       providerKey: 'claude-anthropic',
+      // wire 필드명은 유지된다 — `ResolvedHarnessSettings.provider` 는 adapter 가 읽는다.
       provider: 'anthropic',
       settings: { env: { A: '1' }, model: 'm' }
     })
@@ -266,8 +268,8 @@ describe('HarnessSettingsService', () => {
     expect(
       await svc.resolve({
         key: 'opencode-local',
-        adapter: 'opencode',
-        provider: 'local',
+        harnessId: 'opencode',
+        modelProviderId: 'local',
         models: []
       })
     ).toBeUndefined()
@@ -277,14 +279,14 @@ describe('HarnessSettingsService', () => {
   it('list 캐시 — 동일 어댑터 재호출은 디스크를 다시 읽지 않고 invalidateAll 후 재열거한다', () => {
     seedSource('anthropic', '{}')
     const svc = new HarnessSettingsService({}, root)
-    expect(svc.list('claude').map((e) => e.provider)).toEqual(['anthropic'])
+    expect(svc.list('claude').map((e) => e.modelProviderId)).toEqual(['anthropic'])
 
     // 디스크에 provider 추가 — 캐시 히트라 list 결과는 그대로.
     seedSource('bedrock', '{}')
-    expect(svc.list('claude').map((e) => e.provider)).toEqual(['anthropic'])
+    expect(svc.list('claude').map((e) => e.modelProviderId)).toEqual(['anthropic'])
 
     // 무효화 후 재열거.
     svc.invalidateAll()
-    expect(svc.list('claude').map((e) => e.provider)).toEqual(['anthropic', 'bedrock'])
+    expect(svc.list('claude').map((e) => e.modelProviderId)).toEqual(['anthropic', 'bedrock'])
   })
 })

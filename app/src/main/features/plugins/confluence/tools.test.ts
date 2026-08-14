@@ -5,9 +5,12 @@
 // 뒤집힌다(0158 verify r1 D5).
 
 import { describe, expect, it } from 'vitest'
-import type { ProviderToolContext } from '../../../contracts/auth'
+import {
+  CONFLUENCE_TOOL_NAMES,
+  createConfluenceToolServer,
+  type ConfluencePluginContext
+} from './tools'
 import { authToolServerId } from '../../../adapters/runtime-tool-policy'
-import { CONFLUENCE_TOOL_NAMES, createConfluenceToolServer } from './tools'
 import { CONFLUENCE_OPERATIONS, type ConfluenceResult, type ConfluenceRuntime } from './connector'
 
 // invoke 만 대체하는 최소 런타임 — 도구 계층이 런타임을 어떻게 부르는지에만 관심이 있다.
@@ -21,11 +24,10 @@ function server(
     invoke: async (_ctx, request) => invoke(request.operation, request.params),
     stop: async () => undefined
   }
-  const ctx: ProviderToolContext = {
-    providerId,
+  const ctx: ConfluencePluginContext = {
+    authId: providerId,
     label,
     origin: 'https://wiki.example.corp',
-    serverId: authToolServerId(providerId),
     request: async () => ({
       ok: true,
       status: 200,

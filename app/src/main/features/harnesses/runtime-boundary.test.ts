@@ -29,7 +29,8 @@ describe('providerSettingsChangedSinceSpawn(0125)', () => {
   const resolved = (settings: Record<string, unknown>): ResolvedHarnessSettings => ({
     providerKey: 'claude-gateway',
     provider: 'gateway',
-    settings
+    settings,
+    sourceRevision: 'rev'
   })
 
   it('settings 내용이 바뀌면(토큰 로테이션) 변경이다', () => {

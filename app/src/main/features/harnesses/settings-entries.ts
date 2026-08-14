@@ -10,11 +10,14 @@ import { getLogger } from '../../infra/log/registry'
 import { providerKeyOf, PROVIDER_NAME_RE } from '../../infra/config/provider-key'
 import { parseClaudeModels, type ParsedModel } from './claude/model-parser'
 
-// 열거된 provider 1건 (디렉토리 = SSOT, 모델은 settings.json 파싱 결과).
-export interface ProviderEntry {
-  key: string // `${adapter}-${provider}`
-  adapter: string
-  provider: string
+// 열거된 Harness + ModelProvider 1건 (디렉토리 = SSOT, 모델은 settings.json 파싱 결과).
+//
+// **별도 definition 배열이 아니다** (0188 D-013) — 이 타입은 디렉터리 열거 결과의 형상일 뿐이고,
+// 선택 가능한 목록의 SSOT 는 계속 파일시스템이다.
+export interface HarnessModelProviderEntry {
+  key: string // `${harnessId}-${modelProviderId}`
+  harnessId: string
+  modelProviderId: string
   models: ParsedModel[]
 }
 
@@ -63,7 +66,10 @@ export function listAdapters(root: string = orcaConfigDir()): string[] {
 
 // sources/settings/<adapter>/ 의 provider 디렉토리 열거 (이름순 정렬 — 결정적 기본 선택).
 // 각 provider 의 settings.json 을 파싱해 모델 목록을 채운다.
-export function listProviders(adapter: string, root: string = orcaConfigDir()): ProviderEntry[] {
+export function listProviders(
+  adapter: string,
+  root: string = orcaConfigDir()
+): HarnessModelProviderEntry[] {
   const settingsDir = join(root, 'sources', 'settings', adapter)
   let entries: Dirent[]
   try {
@@ -77,13 +83,15 @@ export function listProviders(adapter: string, root: string = orcaConfigDir()): 
     .sort()
     .map((provider) => ({
       key: providerKeyOf(adapter, provider),
-      adapter,
-      provider,
+      harnessId: adapter,
+      modelProviderId: provider,
       models: modelsForProvider(join(settingsDir, provider, 'settings.json'))
     }))
 }
 
-// 기본 provider 선택 — 'anthropic' 우선, 없으면 이름순 첫 항목 (스캐폴드 기본값과 정합).
-export function defaultProvider(entries: ProviderEntry[]): ProviderEntry | undefined {
-  return entries.find((e) => e.provider === 'anthropic') ?? entries[0]
+// 기본 ModelProvider 선택 — 'anthropic' 우선, 없으면 이름순 첫 항목 (스캐폴드 기본값과 정합).
+export function defaultProvider(
+  entries: HarnessModelProviderEntry[]
+): HarnessModelProviderEntry | undefined {
+  return entries.find((e) => e.modelProviderId === 'anthropic') ?? entries[0]
 }

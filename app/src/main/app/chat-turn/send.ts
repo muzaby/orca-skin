@@ -129,7 +129,6 @@ export async function handleChatSend(
       continuityMeta,
       continuityLang,
       resolved,
-      turnEnv,
       sessionMeta,
       boundProjectId,
       effectiveText
@@ -142,7 +141,8 @@ export async function handleChatSend(
       owner: event.sender,
       control: lease.control,
       titleAdapter: activeAdapter,
-      titleEnv: turnEnv,
+      // 제목 생성과 chat 은 **같은 prepared snapshot** 을 쓴다 (0188 D-019).
+      titleEnv: resolved.prepared.env,
       resolved,
       payload: {
         sessionId: payload.sessionId,
@@ -284,8 +284,10 @@ export async function handleChatSend(
         cwd: turn.cwd,
         signal: controller.signal,
         extensions,
-        ...(turnEnv ? { env: turnEnv } : {}),
-        ...(resolved.providerSettings ? { providerSettings: resolved.providerSettings } : {}),
+        ...(resolved.prepared.env ? { env: { ...resolved.prepared.env } } : {}),
+        ...(resolved.prepared.providerSettings
+          ? { providerSettings: resolved.prepared.providerSettings }
+          : {}),
         ...(resolved.model !== undefined ? { model: resolved.model } : {}),
         requestApproval,
         ...(payload.permissionMode ? { permissionMode: payload.permissionMode } : {}),

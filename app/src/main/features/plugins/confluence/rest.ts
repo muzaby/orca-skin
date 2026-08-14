@@ -7,7 +7,7 @@
 //   - CQL 은 문자열 질의라 사용자 입력을 그대로 이으면 질의가 깨지거나 의도와 달라진다.
 // 전부 문자열 조립이므로 실서버 없이 단위 테스트로 고정할 수 있다.
 
-import type { ProviderRequest } from '../../../contracts/auth'
+import type { AuthenticatedRequest } from '../../../contracts/auth'
 
 // Confluence DC 의 REST 진입점. Cloud(`/wiki/rest/api`)는 이번 범위가 아니다.
 const REST_PREFIX = '/rest/api'
@@ -74,7 +74,7 @@ export function clampStart(start: number | undefined): number {
   return Math.max(Math.trunc(start), 0)
 }
 
-type RequestFields = Omit<ProviderRequest, 'target'>
+type RequestFields = Omit<AuthenticatedRequest, 'target'>
 
 // 자격증명 검증용 — 가장 가벼운 인증 필요 엔드포인트.
 export function currentUserRequest(endpoint: ConfluenceEndpoint): RequestFields {

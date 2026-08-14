@@ -4,7 +4,7 @@
 // 주입하기 전에 여기 전부를 통과시킨다 — 판정 지점을 한 곳에 모으는 이유는 "provider 를 늘려도
 // 검사 지점이 늘지 않게" 하기 위함이다.
 //
-// 구 버전에서 없어진 것: `checkBindingUsable`(binding↔connector 참조 대조). `providerId → Grant`
+// 구 버전에서 없어진 것: `checkBindingUsable`(binding↔connector 참조 대조). `authId → Grant`
 // 단일 맵이라 **참조가 어긋날 방법 자체가 없다** — 검사가 아니라 구조로 해결됐다.
 
 // origin 판정은 브라우저 세션 경로와 **같은 구현**을 쓴다 — 두 벌이면 규칙이 갈린다

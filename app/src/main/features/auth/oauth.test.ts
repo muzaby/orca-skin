@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
-import type { OAuthStart, Provider } from '../../contracts/auth'
+import type { OAuthStart, AuthDefinition } from '../../contracts/auth'
 import { LoopbackCancelledError } from '../../infra/loopback-callback'
 import type { OAuthSpec } from './login'
 import {
@@ -17,12 +17,11 @@ import {
 } from './oauth'
 import { OAuthRunner } from './oauth-runner'
 
-const PROVIDER: Provider = {
+const PROVIDER: AuthDefinition = {
   id: 'gw',
   label: '게이트웨이',
-  kind: 'llm',
   origin: 'https://gw.example.corp',
-  auth: []
+  methods: []
 }
 
 // 배포 선언이 하는 일을 그대로 흉내낸다 — ctx 에서 pkce·state 를 받아 URL 에 싣고,
@@ -260,41 +259,41 @@ describe('state 파일 보관 (AC4)', () => {
 
     // ① 인가 발급 — 여기서 앱이 죽는다고 가정한다.
     const issuing = new OAuthStateStore(persistence())
-    const issued = issuing.issue({ providerId: 'gw', state: 'st-1', verifier: 'vf-1' })
+    const issued = issuing.issue({ authId: 'gw', state: 'st-1', verifier: 'vf-1' })
     expect(issued.state).toBe('st-1')
     expect(Object.keys(backing)).toEqual(['st-1'])
 
     // ② 앱 재시작 — 완전히 새 인스턴스가 같은 파일을 읽는다.
     const restarted = new OAuthStateStore(persistence())
-    const consumed = restarted.consume({ state: 'st-1', providerId: 'gw' })
-    expect(consumed).toMatchObject({ providerId: 'gw', verifier: 'vf-1' })
+    const consumed = restarted.consume({ state: 'st-1', authId: 'gw' })
+    expect(consumed).toMatchObject({ authId: 'gw', verifier: 'vf-1' })
     // 1회용이라 두 번째 소비는 실패한다(재생 공격 차단).
-    expect(restarted.consume({ state: 'st-1', providerId: 'gw' })).toBeNull()
+    expect(restarted.consume({ state: 'st-1', authId: 'gw' })).toBeNull()
     expect(backing).toEqual({})
   })
 
   it('provider 당 진행 중 인가는 1건이다', () => {
     const store = new OAuthStateStore(createMemoryOAuthStatePersistence())
-    store.issue({ providerId: 'gw', state: 'a', verifier: 'v1' })
-    store.issue({ providerId: 'gw', state: 'b', verifier: 'v2' })
+    store.issue({ authId: 'gw', state: 'a', verifier: 'v1' })
+    store.issue({ authId: 'gw', state: 'b', verifier: 'v2' })
     // 새로 시작하면 이전 것이 사라진다 — 조용한 누적이 없다.
-    expect(store.consume({ state: 'a', providerId: 'gw' })).toBeNull()
-    expect(store.consume({ state: 'b', providerId: 'gw' })).toMatchObject({ verifier: 'v2' })
+    expect(store.consume({ state: 'a', authId: 'gw' })).toBeNull()
+    expect(store.consume({ state: 'b', authId: 'gw' })).toMatchObject({ verifier: 'v2' })
   })
 
   it('다른 provider 의 state 로는 소비되지 않는다', () => {
     const store = new OAuthStateStore(createMemoryOAuthStatePersistence())
-    store.issue({ providerId: 'gw', state: 'a', verifier: 'v1' })
-    expect(store.consume({ state: 'a', providerId: 'other' })).toBeNull()
-    expect(store.consume({ state: 'a', providerId: 'gw' })).not.toBeNull()
+    store.issue({ authId: 'gw', state: 'a', verifier: 'v1' })
+    expect(store.consume({ state: 'a', authId: 'other' })).toBeNull()
+    expect(store.consume({ state: 'a', authId: 'gw' })).not.toBeNull()
   })
 
   it('TTL 이 지난 pending 은 정리된다', () => {
     let now = 1_000
     const store = new OAuthStateStore(createMemoryOAuthStatePersistence(), () => now)
-    store.issue({ providerId: 'gw', state: 'a', verifier: 'v1' })
+    store.issue({ authId: 'gw', state: 'a', verifier: 'v1' })
     now += AUTHORIZATION_TTL_MS + 1
-    expect(store.consume({ state: 'a', providerId: 'gw' })).toBeNull()
+    expect(store.consume({ state: 'a', authId: 'gw' })).toBeNull()
     expect(store.pendingFor('gw')).toBeNull()
   })
 })

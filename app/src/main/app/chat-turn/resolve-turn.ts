@@ -12,7 +12,7 @@ import { buildHandoffMessage } from '../../features/orchestration/handoff'
 import { recoverSessionHistory } from '../../features/chat/recovery'
 import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
 import { checkContinuitySource } from './admission'
-import { buildTurnEnv, resolveTurnProvider, type ResolvedTurnProvider } from './turn-setup'
+import { resolveTurnProvider, type ResolvedTurnProvider } from './turn-setup'
 import type { SendChatPayload } from './admission'
 import type { RouterContext } from '../context'
 import type { ContinuitySourceMeta } from './turn-context'
@@ -22,7 +22,6 @@ interface ResolvedTurn {
   continuityMeta: ContinuitySourceMeta | undefined
   continuityLang: ContinuityLang
   resolved: ResolvedTurnProvider
-  turnEnv: Record<string, string> | undefined
   sessionMeta:
     { cwd: string | null; project_id: string | null; provider_key?: string | null } | undefined
   boundProjectId: string | null
@@ -76,10 +75,9 @@ export async function resolveTurn(
       continuitySource,
       continuityMeta,
       continuityLang,
+      // env·settings·fingerprint 는 **한 벌로** 온다 (0188) — 별도 조립 지점을 두면 chat 과
+      // title generation 이 서로 다른 스냅샷을 쓰게 된다.
       resolved,
-      // orca.json 앱 전역 env(${VAR} 확장) + 선택된 LLM provider 의 자격증명을 SDK subprocess
-      // env 로 병합한다(0181). provider 해석이 끝난 뒤여야 어느 자격증명인지 알 수 있다.
-      turnEnv: buildTurnEnv(ctx, resolved.providerKey),
       sessionMeta,
       boundProjectId: payload.sessionId
         ? (sessionMeta?.project_id ?? null)

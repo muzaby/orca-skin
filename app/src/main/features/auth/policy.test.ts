@@ -1,13 +1,13 @@
-// AC7 — `ProviderApi.request` 가 미선언 origin · 절대 URL · 예약 헤더 덮어쓰기를 거부한다.
+// AC7 — 인증된 요청이 미선언 origin · 절대 URL · 예약 헤더 덮어쓰기를 거부한다.
 // 0180 이 지운 `features/auth-platform/policy.test.ts`(128줄)의 이식이며, 순수 판정 단위와
-// **실제 요청 경로**(`ProviderApiImpl`) 양쪽에서 확인한다 — 판정 함수만 통과하고 호출부가
+// **실제 요청 경로**(`AuthenticatedRequester`) 양쪽에서 확인한다 — 판정 함수만 통과하고 호출부가
 // 부르지 않으면 아무것도 막지 못한다.
 
 import { describe, expect, it, vi } from 'vitest'
-import type { Provider } from '../../contracts/auth'
+import type { AuthDefinition } from '../../contracts/auth'
 import { createVault } from '../../infra/vault'
 import type { SecretStorePort } from '../../infra/config/secret-store-port'
-import { ProviderApiImpl, ProviderPolicyError } from './api'
+import { AuthenticatedRequester, AuthPolicyError } from './authenticated-request'
 import {
   checkHeaders,
   checkOutboundRequest,
@@ -15,8 +15,9 @@ import {
   checkRequestPath,
   isAllowedOrigin
 } from './policy'
-import { ProviderRegistry } from './registry'
-import { createMemoryGrantPersistence, ProviderStore } from './store'
+import { AuthRegistry } from './registry'
+import { createAuthSecretReader } from './secret-access'
+import { createMemoryGrantPersistence, AuthStore } from './store'
 
 describe('정책 순수 판정', () => {
   it('절대 URL·프로토콜 상대 경로를 거부한다', () => {
@@ -108,12 +109,11 @@ function fakeSecretStore(): SecretStorePort {
   }
 }
 
-const WIKI: Provider = {
+const WIKI: AuthDefinition = {
   id: 'wiki',
   label: 'Wiki',
-  kind: 'service',
   origin: 'https://wiki.example.corp',
-  auth: [
+  methods: [
     {
       kind: 'pat',
       label: 'PAT',
@@ -125,13 +125,13 @@ const WIKI: Provider = {
 }
 
 function harness(options: { authenticated?: boolean; respond?: typeof fetch } = {}): {
-  api: ProviderApiImpl
+  api: AuthenticatedRequester
   fetchImpl: ReturnType<typeof vi.fn>
-  store: ProviderStore
+  store: AuthStore
 } {
   const vault = createVault(fakeSecretStore())
-  const store = new ProviderStore({ persistence: createMemoryGrantPersistence(), vault })
-  const registry = new ProviderRegistry([WIKI])
+  const store = new AuthStore({ persistence: createMemoryGrantPersistence(), vault })
+  const registry = new AuthRegistry([WIKI])
   store.restore(['wiki'])
   if (options.authenticated !== false) {
     vault.set('wiki:pat', 'pat-value', { kind: 'pat', createdAt: 0 })
@@ -141,7 +141,7 @@ function harness(options: { authenticated?: boolean; respond?: typeof fetch } = 
     options.respond ??
       (async () => new Response('{}', { status: 200, headers: { 'content-type': 'text/plain' } }))
   )
-  const api = new ProviderApiImpl({
+  const api = new AuthenticatedRequester({
     registry,
     store,
     fetchImpl: fetchImpl as unknown as typeof fetch
@@ -154,7 +154,7 @@ describe('ProviderApi.request 강제 (AC7)', () => {
     const { api, fetchImpl } = harness()
     await expect(
       api.request('wiki', { path: 'https://evil.example/steal' })
-    ).rejects.toBeInstanceOf(ProviderPolicyError)
+    ).rejects.toBeInstanceOf(AuthPolicyError)
     // 요청 자체가 나가지 않는다 — 판정이 전송보다 앞이다.
     expect(fetchImpl).not.toHaveBeenCalled()
   })
@@ -163,14 +163,14 @@ describe('ProviderApi.request 강제 (AC7)', () => {
     const { api, fetchImpl } = harness()
     await expect(
       api.request('wiki', { path: '/rest', headers: { Authorization: 'Bearer stolen' } })
-    ).rejects.toMatchObject({ name: 'ProviderPolicyError' })
+    ).rejects.toMatchObject({ name: 'AuthPolicyError' })
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
   it('미인증이면 요청을 내지 않는다', async () => {
     const { api, fetchImpl } = harness({ authenticated: false })
     await expect(api.request('wiki', { path: '/rest' })).rejects.toMatchObject({
-      name: 'ProviderPolicyError'
+      name: 'AuthPolicyError'
     })
     expect(fetchImpl).not.toHaveBeenCalled()
   })
@@ -198,7 +198,7 @@ describe('ProviderApi.request 강제 (AC7)', () => {
         })) as unknown as typeof fetch
     })
     await expect(api.request('wiki', { path: '/rest' })).rejects.toMatchObject({
-      name: 'ProviderPolicyError'
+      name: 'AuthPolicyError'
     })
   })
 
@@ -215,21 +215,23 @@ describe('ProviderApi.request 강제 (AC7)', () => {
   })
 })
 
-describe('materialize · token', () => {
+// 0188 — `materialize()` 는 제거됐다. 그 두 책임은 각각 다음으로 옮겨 **같은 행동을 계속**
+// 검증한다:
+//   header presentation → 실제 outbound 요청 헤더(위 request 테스트가 이미 단언한다)
+//   raw 조회            → trusted-main `AuthSecretReader`
+describe('AuthSecretReader (구 ProviderApi.token)', () => {
   it('미인증이면 null 이다 (빈 문자열 치환 금지)', () => {
-    const { api } = harness({ authenticated: false })
-    expect(api.materialize('wiki')).toBeNull()
-    expect(api.token('wiki')).toBeNull()
+    const { store } = harness({ authenticated: false })
+    expect(createAuthSecretReader(store).read('wiki')).toBeNull()
   })
 
-  it('선언되지 않은 provider 도 null 이다', () => {
-    const { api } = harness()
-    expect(api.materialize('nope')).toBeNull()
+  it('선언되지 않은 Auth 도 null 이다', () => {
+    const { store } = harness()
+    expect(createAuthSecretReader(store).read('nope')).toBeNull()
   })
 
-  it('header presentation 은 헤더로 물질화된다', () => {
-    const { api } = harness()
-    expect(api.materialize('wiki')).toEqual({ headers: { Authorization: 'Bearer pat-value' } })
-    expect(api.token('wiki')).toBe('pat-value')
+  it('인증된 값형은 raw 값을 준다 — MCP `${BINDING:<id>}` 와 direct-credential augmenter 전용', () => {
+    const { store } = harness()
+    expect(createAuthSecretReader(store).read('wiki')).toBe('pat-value')
   })
 })

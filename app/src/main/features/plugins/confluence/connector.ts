@@ -10,7 +10,7 @@
 // `storage-to-markdown.ts` 는 문자열만 다루며, `download-store.ts` 는 파일만 쓴다. 여기는 그
 // 셋을 순서대로 부르는 오케스트레이션이다.
 
-import type { ProviderRequest, ProviderResponse } from '../../../contracts/auth'
+import type { AuthenticatedRequest, AuthenticatedResponse } from '../../../contracts/auth'
 import { DownloadStore, pageDir, type SavedAsset } from './download-store'
 import { mapWithLimit, partitionSettled } from './limit'
 import {
@@ -32,7 +32,10 @@ import { storageToMarkdown, UNKNOWN_USER_LABEL, USER_TOKEN_PATTERN } from './sto
 // `ProviderApi` 를 그대로 받지 않고 좁힌 포트를 받는다 — 이 모듈에 필요한 것은 인증된 요청
 // 하나뿐이고, 넓게 받으면 `materialize`·`token` 같은 값 표면까지 딸려온다.
 export interface ConfluenceContext {
-  readonly request: (req: ProviderRequest, signal?: AbortSignal) => Promise<ProviderResponse>
+  readonly request: (
+    req: AuthenticatedRequest,
+    signal?: AbortSignal
+  ) => Promise<AuthenticatedResponse>
   readonly signal?: AbortSignal
   readonly logger: (message: string, meta?: Record<string, unknown>) => void
 }

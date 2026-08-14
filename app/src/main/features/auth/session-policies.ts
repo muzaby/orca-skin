@@ -23,7 +23,7 @@
 //
 // 레이어: features/auth → contracts·infra·shared (하향만).
 
-import type { Provider } from '../../contracts/auth'
+import type { AuthDefinition } from '../../contracts/auth'
 import { errorMessage } from '../../infra/errors'
 import type { SessionGroupPolicy } from '../../infra/browser-session-policy'
 
@@ -39,13 +39,13 @@ export interface SessionPolicySink {
 
 // 선언 배열에서 browser-session 정책만 뽑는다. **순수 함수** — 부작용도 electron 의존도 없다.
 //
-// 같은 `sessionGroup` 을 여러 provider 가 선언하면 여기서 미리 합치지 않고 **정책을 그대로
+// 같은 `sessionGroup` 을 여러 Auth 가 선언하면 여기서 미리 합치지 않고 **정책을 그대로
 // 여러 개 돌려준다** — 합집합 규칙은 `BrowserSessionStore.register()` 가 이미 갖고 있고,
 // 두 곳에 두면 규칙이 갈린다(로그인 경로는 계속 store 의 합집합을 쓴다).
-export function sessionPolicies(providers: readonly Provider[]): SessionGroupPolicy[] {
+export function sessionPolicies(definitions: readonly AuthDefinition[]): SessionGroupPolicy[] {
   const out: SessionGroupPolicy[] = []
-  for (const provider of providers) {
-    for (const spec of provider.auth) {
+  for (const definition of definitions) {
+    for (const spec of definition.methods) {
       if (spec.kind !== 'browser-session') continue
       out.push({
         sessionGroup: spec.config.sessionGroup,
@@ -64,7 +64,7 @@ export function sessionPolicies(providers: readonly Provider[]): SessionGroupPol
 // 나머지 group 은 계속 등록한다(0181 의 persistence 폴백과 같은 태도).
 export function registerDeclaredSessions(
   sink: SessionPolicySink,
-  providers: readonly Provider[],
+  providers: readonly AuthDefinition[],
   logger?: (event: string, data: Record<string, unknown>) => void
 ): void {
   for (const policy of sessionPolicies(providers)) {

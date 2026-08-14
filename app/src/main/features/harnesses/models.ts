@@ -46,18 +46,20 @@ export function resolveTitleModel(models: ParsedModel[]): string | undefined {
   return modelNameForFamily(models, hasHaiku ? 'haiku' : null)
 }
 
-// ProviderEntry(settings-entries.ts)를 orca:agent:list 페이로드로 변환. 순환을 피해 구조적
-// 입력만 받는다(ProviderEntry 미import). ParsedModel 을 필드 변환 없이 그대로 통과시킨다.
+// HarnessModelProviderEntry(settings-entries.ts)를 orca:agent:list 페이로드로 변환. 순환을 피해 구조적
+// 입력만 받는다(HarnessModelProviderEntry 미import). ParsedModel 을 필드 변환 없이 그대로 통과시킨다.
 export function toAgentEnvironments(
-  entries: { key: string; adapter: string; provider: string; models: ParsedModel[] }[],
-  supportedAdapters: Iterable<string>
+  entries: { key: string; harnessId: string; modelProviderId: string; models: ParsedModel[] }[],
+  supportedHarnesses: Iterable<string>
 ): AgentEnvironment[] {
-  const supported = new Set(supportedAdapters)
+  const supported = new Set(supportedHarnesses)
+  // **wire 필드명은 유지한다** (0188 D-030) — `AgentEnvironment.adapter`/`.provider` 는 renderer
+  // 가 읽는 compat 계약이다. 도메인 어휘(harnessId·modelProviderId)는 이 경계에서 변환한다.
   return entries.map((entry) => ({
     key: entry.key,
-    adapter: entry.adapter,
-    provider: entry.provider,
-    supported: supported.has(entry.adapter),
+    adapter: entry.harnessId,
+    provider: entry.modelProviderId,
+    supported: supported.has(entry.harnessId),
     models: entry.models.map((model): AgentModelView => ({
       alias: model.alias,
       model: model.model,

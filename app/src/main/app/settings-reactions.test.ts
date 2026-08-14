@@ -7,7 +7,6 @@
 // 플랫폼과 사용량 tracker 를 알 이유가 없다. 지키는 동작은 그대로다.
 
 import { describe, expect, it, vi } from 'vitest'
-import type { ProviderPlatformState } from '../../shared/ipc'
 import { registerSettingsReactions, type SettingsPatchSource } from './settings-reactions'
 
 // `SettingsStore.patch` 대신 changedKeys 를 직접 흘려 넣는 최소 소스.
@@ -23,53 +22,38 @@ function fakeSettings(): SettingsPatchSource & { emit(keys: readonly string[]): 
   }
 }
 
-const state = (): ProviderPlatformState =>
-  ({
-    gate: { required: true, passed: true, bypassed: true },
-    providers: [],
-    step: null
-  }) as unknown as ProviderPlatformState
-
-describe('게이트 우회 반영 (0181)', () => {
-  it('authBypass 가 바뀌면 provider 상태를 push 한다', () => {
+describe('게이트 우회 반영 (0181 → 0188)', () => {
+  it('authBypass 가 바뀌면 연결 상태를 다시 push 한다', () => {
     const settings = fakeSettings()
-    const broadcastProviderState = vi.fn()
+    const pushConnectionState = vi.fn()
     registerSettingsReactions(settings, {
-      providers: { state },
-      broadcastProviderState,
+      pushConnectionState,
       cost: { recordAndBroadcast: vi.fn() }
     })
 
     settings.emit(['authBypass'])
 
-    expect(broadcastProviderState).toHaveBeenCalledTimes(1)
-    expect(broadcastProviderState.mock.calls[0]?.[0]).toMatchObject({ gate: { bypassed: true } })
+    expect(pushConnectionState).toHaveBeenCalledTimes(1)
   })
 
   it('무관한 키만 바뀌면 push 하지 않는다', () => {
     const settings = fakeSettings()
-    const broadcastProviderState = vi.fn()
+    const pushConnectionState = vi.fn()
     registerSettingsReactions(settings, {
-      providers: { state },
-      broadcastProviderState,
+      pushConnectionState,
       cost: { recordAndBroadcast: vi.fn() }
     })
 
     settings.emit(['theme'])
 
-    expect(broadcastProviderState).not.toHaveBeenCalled()
+    expect(pushConnectionState).not.toHaveBeenCalled()
   })
 
-  it('provider 플랫폼이 없으면 조용히 넘어간다 (테스트 하네스 경로)', () => {
+  it('push 포트가 없으면 조용히 넘어간다 (테스트 하네스 경로)', () => {
     const settings = fakeSettings()
-    const broadcastProviderState = vi.fn()
-    registerSettingsReactions(settings, {
-      broadcastProviderState,
-      cost: { recordAndBroadcast: vi.fn() }
-    })
+    registerSettingsReactions(settings, { cost: { recordAndBroadcast: vi.fn() } })
 
     expect(() => settings.emit(['authBypass'])).not.toThrow()
-    expect(broadcastProviderState).not.toHaveBeenCalled()
   })
 })
 
@@ -80,7 +64,6 @@ describe('전역 월 한도 반영 (0186)', () => {
     const settings = fakeSettings()
     const recordAndBroadcast = vi.fn()
     registerSettingsReactions(settings, {
-      broadcastProviderState: vi.fn(),
       cost: { recordAndBroadcast }
     })
 
@@ -93,7 +76,6 @@ describe('전역 월 한도 반영 (0186)', () => {
     const settings = fakeSettings()
     const recordAndBroadcast = vi.fn()
     registerSettingsReactions(settings, {
-      broadcastProviderState: vi.fn(),
       cost: { recordAndBroadcast }
     })
 

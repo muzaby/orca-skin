@@ -11,9 +11,11 @@ import type { MockAdapter } from '../adapters/mock'
 import type { UsageTracker } from '../features/usage/tracker'
 import type { ExtensionBuilder } from '../features/extensions/builder'
 import type { HarnessSettingsService } from '../features/harnesses/settings'
+import type { HarnessRuntimeConfigService } from '../features/harnesses/runtime-config'
 import type { Scheduler } from '../features/scheduler'
 import type { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
-import type { ProviderPlatform } from './provider-platform'
+import type { AuthRuntime } from '../contracts/auth'
+import type { Gate } from '../features/gate'
 import type { UpdateController } from './updater'
 
 export interface RouterContext {
@@ -23,8 +25,8 @@ export interface RouterContext {
   registry: AdapterRegistry
   cost: UsageTracker
   extensions: ExtensionBuilder
-  // provider settings 해석 서비스 (handoff 0014) — 열거(sources/settings 트리) + 해석 캐시.
-  providerSettings: HarnessSettingsService
+  // Harness settings 해석 서비스 (0014 → 0188) — 열거(sources/settings 트리) + 해석 캐시.
+  harnessSettings: HarnessSettingsService
   // 부팅 1회 스캔 캐시 — 턴 실행 시점에 최신 값을 읽도록 getter 로 노출.
   getSkills(): SkillInfo[]
   refreshSkills(): Promise<SkillInfo[]>
@@ -46,8 +48,15 @@ export interface RouterContext {
   // 포트와 어댑터 배선(`adapters/claude-runtime-tools.ts`)은 그대로다 — 0181 의
   // `Provider.tools` 가 이 자리를 다시 채운다.
   runtimeTools: RuntimeToolRegistry
-  // 0181 — 인증된 provider 의 소비 표면. LLM env 주입·MCP 토큰 소스·service 도구가 함께 쓴다.
-  // **optional 이다**: 부팅 초기에 조립되지만 테스트 하네스가 이 필드 없이 ctx 를 만드는 경로가
-  // 있어, 없으면 "인증 없음" 으로 동작한다(조용한 성공이 아니라 조용한 미인증 — fail-closed).
-  providers?: ProviderPlatform
+  // ── 0188 — 인증·게이트·Harness 실행 구성 ─────────────────────────────────────
+  //
+  // **`secretReader` 는 여기 없다.** raw credential 은 컴포지션 루트에 머물고 MCP·Harness
+  // augmenter 에만 AuthId 를 닫은 closure 로 간다(D-010).
+  //
+  // 셋 다 **optional 이다**: 부팅 초기에 조립되지만 테스트 하네스가 이 필드 없이 ctx 를 만드는
+  // 경로가 있어, 없으면 "인증 없음/게이트 없음/동적 구성 없음" 으로 동작한다(조용한 성공이
+  // 아니라 조용한 미인증 — fail-closed).
+  auth?: AuthRuntime
+  gate?: Gate
+  harnessRuntime?: HarnessRuntimeConfigService
 }

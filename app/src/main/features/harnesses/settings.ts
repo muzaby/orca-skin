@@ -19,7 +19,7 @@ import { stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { orcaConfigDir } from '../../infra/config/paths'
 import { getLogger } from '../../infra/log/registry'
-import { listAdapters, listProviders, type ProviderEntry } from './settings-entries'
+import { listAdapters, listProviders, type HarnessModelProviderEntry } from './settings-entries'
 import type {
   HarnessNativeSettings,
   ResolvedHarnessSettings,
@@ -37,7 +37,7 @@ export class HarnessSettingsService {
   // 어댑터별 provider 열거 캐시 — list() 는 매 chat:send 마다 도므로 디스크 readdir+readFile+parse
   // 를 반복하지 않는다. provider 트리를 바꾸는 앱 경로(engine add/update/delete·deploy)가
   // invalidateAll() 로 비우므로 resolve() 의 mtime 캐시와 동일 수명 정책을 따른다.
-  private readonly listCache = new Map<string, ProviderEntry[]>()
+  private readonly listCache = new Map<string, HarnessModelProviderEntry[]>()
   // 어댑터 디렉토리 열거 캐시 — listCache 와 동일 수명(invalidateAll 에서 함께 해제).
   private adaptersCache: string[] | null = null
 
@@ -51,7 +51,7 @@ export class HarnessSettingsService {
     return this.adaptersCache
   }
 
-  list(adapter: string): ProviderEntry[] {
+  list(adapter: string): HarnessModelProviderEntry[] {
     const hit = this.listCache.get(adapter)
     if (hit) return hit
     const entries = listProviders(adapter, this.root)
@@ -68,16 +68,16 @@ export class HarnessSettingsService {
 
   // entry 의 settings 를 해석해 blob 으로 반환. 로더 미등록 어댑터(미래 opencode 전 단계)는
   // undefined — caller 는 settings 없이 진행한다. 해석 실패도 동일(경고 후).
-  async resolve(entry: ProviderEntry): Promise<ResolvedHarnessSettings | undefined> {
-    const loader = this.loaders[entry.adapter]
+  async resolve(entry: HarnessModelProviderEntry): Promise<ResolvedHarnessSettings | undefined> {
+    const loader = this.loaders[entry.harnessId]
     if (!loader) return undefined
 
     const sourcesSettingsFile = join(
       this.root,
       'sources',
       'settings',
-      entry.adapter,
-      entry.provider,
+      entry.harnessId,
+      entry.modelProviderId,
       'settings.json'
     )
     // mtime 스테일 체크 — sources 파일 기준. 파일이 없으면 mtime 0
@@ -88,15 +88,21 @@ export class HarnessSettingsService {
     if (hit && hit.srcPath === srcPath && hit.mtimeMs === mtimeMs) {
       return {
         providerKey: entry.key,
-        provider: entry.provider,
-        settings: hit.settings
+        provider: entry.modelProviderId,
+        settings: hit.settings,
+        sourceRevision: revisionOf(srcPath, mtimeMs)
       }
     }
 
     try {
       const { settings } = await loader({ sourcesSettingsFile })
       this.cache.set(entry.key, { settings, mtimeMs, srcPath })
-      return { providerKey: entry.key, provider: entry.provider, settings }
+      return {
+        providerKey: entry.key,
+        provider: entry.modelProviderId,
+        settings,
+        sourceRevision: revisionOf(srcPath, mtimeMs)
+      }
     } catch (err) {
       getLogger()
         .child('providers')
@@ -107,6 +113,13 @@ export class HarnessSettingsService {
       return undefined
     }
   }
+}
+
+// 해석 원천의 opaque revision (0188). **경로와 mtime 둘 다** 넣는다 — 경로만 보면 파일이 바뀐
+// 것을 놓치고, mtime 만 보면 다른 entry 의 같은 mtime 과 충돌한다. 내용 해시를 쓰지 않는 이유는
+// 기존 캐시 정책(mtime stat 1회)의 hot-path 비용을 늘리지 않기 위함이다.
+function revisionOf(srcPath: string, mtimeMs: number): string {
+  return `${srcPath}@${mtimeMs}`
 }
 
 // 매 chat:send 경유(resolveTurnProvider) — resolve() 가 이미 async 라 stat 도 비동기로(0110).

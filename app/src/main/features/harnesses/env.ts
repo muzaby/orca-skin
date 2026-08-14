@@ -21,7 +21,9 @@ export function expandEnvRecord(
   return { env: out, missing: [...missing] }
 }
 
-function processEnvRecord(): Record<string, string> {
+// subprocess env 의 **완전한 baseline**. SDK `options.env` 는 subprocess env 를 대체하므로
+// overlay 만 넘기면 상속이 끊긴다 — 그래서 스냅샷을 떠 그 위에 얹는다.
+export function processEnvRecord(): Record<string, string> {
   const out: Record<string, string> = {}
   for (const [key, value] of Object.entries(process.env)) {
     if (value !== undefined) out[key] = value

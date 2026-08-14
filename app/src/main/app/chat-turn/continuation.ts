@@ -3,15 +3,17 @@
 // listen 과 flush 는 같은 루프에서 갈리지만 조립 규칙이 정반대다. 그 차이가 리터럴로 흩어져
 // 있어 회귀가 두 번 났다(0149 첨부 누수 · 0166 D7 위임 절반). 여기 두 함수로 고정한다.
 
-import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
 import type { SteerFlushBatch, TurnRequest } from '../../adapters/turn'
+import type { PreparedHarnessConfig } from '../../features/harnesses/prepared-config'
 import { pickFrameDelegates } from '../../features/sessions/session-runtime'
 
 // `prepareAutomaticContinuation` 결과 중 요청 조립이 쓰는 부분만. 구조적으로 받아 모듈 간
 // 타입 결합을 만들지 않는다.
 export interface ContinuationSettings {
   extensions: TurnRequest['extensions']
-  providerSettings?: ResolvedHarnessSettings | undefined
+  // **settings 와 env 를 한 객체로 받는다** (0188) — 따로 받으면 한쪽만 싣는 비대칭이 다시
+  // 생긴다(구 listen 이 env 를 생략했다).
+  prepared: PreparedHarnessConfig
   model?: string | undefined
 }
 
@@ -36,7 +38,7 @@ export function buildListenRequest(input: {
     extensions: continuation.extensions,
     signal: input.signal,
     ...(continuation.model !== undefined ? { model: continuation.model } : {}),
-    ...(continuation.providerSettings ? { providerSettings: continuation.providerSettings } : {}),
+    ...preparedFields(continuation.prepared),
     ...pickFrameDelegates(input.base)
   }
 }
@@ -63,8 +65,9 @@ export function buildFlushRequest(input: {
     attachmentTexts: batch.attachmentTexts ?? [],
     attachmentImages: batch.attachmentImages ?? [],
     extensions: continuation.extensions,
-    // 0126: respawn 대비 신선한 settings 로 교체 — 해석 실패(undefined)면 원본 유지(보수적).
-    ...(continuation.providerSettings ? { providerSettings: continuation.providerSettings } : {}),
+    // 0126/0188: respawn 대비 **신선한 settings + env** 로 교체 — 해석 실패(undefined)면
+    // 원본 유지(보수적).
+    ...preparedFields(continuation.prepared),
     ...(continuation.model !== undefined ? { model: continuation.model } : {})
   }
   delete request.forkFrom
@@ -72,4 +75,15 @@ export function buildFlushRequest(input: {
   if (preludes.length > 0) request.preludes = preludes
   else delete request.preludes
   return request
+}
+
+// listen 과 flush 가 **같은 두 필드**를 같은 값으로 싣게 하는 단일 지점. 목록을 손으로 나열하면
+// 한쪽만 갱신되는 회귀가 다시 난다(0149·0166 D7 과 같은 종류).
+function preparedFields(
+  prepared: PreparedHarnessConfig
+): Pick<TurnRequest, 'providerSettings' | 'env'> {
+  return {
+    ...(prepared.providerSettings ? { providerSettings: prepared.providerSettings } : {}),
+    ...(prepared.env ? { env: { ...prepared.env } } : {})
+  }
 }
