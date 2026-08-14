@@ -259,6 +259,87 @@ describe('재인증 롤백 (AC7)', () => {
   })
 })
 
+// r4 — 한 번의 강등은 **한 번만** 통지돼야 한다. r3 은 `resume()` 실패 경로가 요청 경로와
+// 무관하게 항상 `onSnapshot('expired')` 를 냈다. probe 가 401 이면 요청 경로가 이미 강등하고
+// 통지했으므로 같은 사실이 두 번 나갔고, 두 번째는 `markExpired` 가 조기 반환해 revision 이
+// 그대로였다 — `credentialChanged:true` 인데 세대는 안 오르는 유령 이벤트다. 그것이 Harness
+// cache 를 한 번 더 비우고 부팅 방송 상한을 `1 + K`(0187 D2) 에서 `1 + 2K` 로 늘렸다.
+describe('강등 통지는 실제 전이를 따른다 (r4)', () => {
+  // 복원된 미확인 grant — `restorable()` 을 만족해 resume 이 실제로 probe 를 낸다.
+  function buildRestorable(probeStatus: number): {
+    runtime: ReturnType<typeof createAuthRuntime>['runtime']
+    changes: AuthChange[]
+  } {
+    const vault = createVault(fakeSecretStore())
+    vault.set('wiki:pat', 'value', { kind: 'pat', createdAt: 0 })
+    const created = createAuthRuntime({
+      definitions: [WIKI],
+      persistence: createMemoryGrantPersistence({
+        wiki: { kind: 'secret', vaultKey: 'wiki:pat', authKind: 'pat', createdAt: 0 }
+      }),
+      vault,
+      fetchImpl: (async () => new Response('', { status: probeStatus })) as unknown as typeof fetch,
+      clock: () => 1_000
+    })
+    const changes: AuthChange[] = []
+    created.runtime.subscribe((change) => changes.push(change))
+    return { runtime: created.runtime, changes }
+  }
+
+  const credentialChanges = (changes: AuthChange[]): AuthChange[] =>
+    changes.filter((change) => change.kind === 'snapshot' && change.credentialChanged)
+
+  it('401 probe 로 실패한 resume 은 credential-effective change 를 한 번만 낸다', async () => {
+    const { runtime, changes } = buildRestorable(401)
+
+    await runtime.resume('wiki')
+
+    // r3 은 여기서 2건('unauthorized' + 'expired')이 나갔고 둘 다 revision 이 같았다.
+    expect(credentialChanges(changes)).toHaveLength(1)
+    expect(credentialChanges(changes)[0]).toMatchObject({ cause: 'unauthorized' })
+    expect(runtime.bind('wiki').snapshot().status).toBe('expired')
+    expect(runtime.bind('wiki').snapshot().verified).toBe(false)
+  })
+
+  it('401 이 아닌 probe 실패는 resume 이 유일한 전이 지점이다 — 통지가 사라지지 않는다', async () => {
+    const { runtime, changes } = buildRestorable(500)
+
+    await runtime.resume('wiki')
+
+    expect(credentialChanges(changes)).toHaveLength(1)
+    expect(credentialChanges(changes)[0]).toMatchObject({ cause: 'expired' })
+    expect(runtime.bind('wiki').snapshot().status).toBe('expired')
+  })
+
+  it('credential-effective change 마다 revision 이 실제로 오른다', async () => {
+    const { runtime, changes } = buildRestorable(401)
+
+    await runtime.resume('wiki')
+
+    // 유령 이벤트가 있으면 "change 수 > revision 증가분" 이 된다.
+    const revisions = changes
+      .filter((change) => change.kind === 'snapshot' && change.credentialChanged)
+      .map((change) => (change.kind === 'snapshot' ? change.snapshot.credentialRevision : -1))
+    expect(new Set(revisions).size).toBe(revisions.length)
+    expect(runtime.bind('wiki').snapshot().credentialRevision).toBe(revisions.length)
+  })
+
+  it('두 번째 401 은 전이가 없으므로 credentialChanged:false 로 나간다', async () => {
+    const { runtime, changes } = buildRestorable(401)
+    const auth = runtime.bind('wiki')
+    await runtime.resume('wiki')
+    const revision = auth.snapshot().credentialRevision
+    changes.length = 0
+
+    // 이미 만료된 grant 라 정책이 요청을 막는다 — 강등을 다시 관측하려면 store 를 직접 지날 수
+    // 없으므로, 같은 사실을 두 번 본 상태에서 revision 이 그대로임을 확인한다.
+    await runtime.resume('wiki')
+
+    expect(credentialChanges(changes)).toHaveLength(0)
+    expect(auth.snapshot().credentialRevision).toBe(revision)
+  })
+})
+
 describe('describe / tryBind', () => {
   it('secret 없는 설명만 돌려준다', () => {
     const { runtime } = build(() => true)

@@ -177,22 +177,25 @@ export class LoginService {
     if (exposeStep) this.emit({ kind: 'resuming', providerId: definition.id })
 
     const ok = await this.probeOk(definition)
-    if (ok) {
-      this.deps.store.markVerified(definition.id)
-    } else {
-      // 강등은 credential-effective 다 — `markExpired` 가 실제 전이를 만들었을 때만 통지가
-      // 실행 구성까지 흔든다(store 가 그 판정을 갖는다).
-      this.deps.store.markExpired(definition.id)
-    }
+    // **전이를 만든 호출만 통지한다** (r4). probe 가 401/403 을 받은 경우 요청 경로가 이미
+    // 강등하고 `onUnauthorized` 로 통지했다 — 여기서 다시 내면 같은 사실이 두 번 나가고,
+    // 두 번째는 revision 이 그대로라 `credentialChanged:true` 와 어긋난다. 그 유령 이벤트가
+    // 부팅 방송 상한을 `1 + K`(0187 D2)에서 `1 + 2K` 로 늘리고 Harness cache 를 한 번 더 비웠다.
+    //
+    // 401 이 아닌 실패(비-2xx·origin 미복귀·전송 오류)에서는 요청 경로가 강등하지 않으므로
+    // 여기가 유일한 전이 지점이고, `markExpired` 가 true 를 돌려준다.
+    const demoted = ok ? false : this.deps.store.markExpired(definition.id)
+    if (ok) this.deps.store.markVerified(definition.id)
 
     if (exposeStep) {
       this.clearResumingStep(definition.id)
       this.deps.onStep?.(this.step)
     }
-    // 실패 강등은 credential-effective 다(도구 회수·cache 무효화가 걸린다) — 항상 즉시 낸다.
-    // 성공은 `verified` 만 바뀐 것이라 batch 가 마지막에 한 번 모아 낼 수 있다.
-    if (!ok) this.deps.onSnapshot?.(definition.id, 'expired')
-    else if (options?.emitVerifiedChange ?? true) {
+    // 실패 강등은 credential-effective 다(도구 회수·cache 무효화가 걸린다) — 전이가 있었으면
+    // 즉시 낸다. 성공은 `verified` 만 바뀐 것이라 batch 가 마지막에 한 번 모아 낼 수 있다.
+    if (!ok) {
+      if (demoted) this.deps.onSnapshot?.(definition.id, 'expired')
+    } else if (options?.emitVerifiedChange ?? true) {
       this.deps.onSnapshot?.(definition.id, 'verified')
     }
   }

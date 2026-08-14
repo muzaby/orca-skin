@@ -143,18 +143,28 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     ...(deps.logger ? { logger: deps.logger } : {}),
     // 401/403 강등은 실행 credential 을 못 쓰게 만든 것이다 — 도구 회수와 cache 무효화가
     // 걸려 있으므로 그 자리에서 즉시 낸다.
-    onUnauthorized: (authId) => emitSnapshot(authId, 'unauthorized'),
+    // 강등이 **실제 전이였을 때만** credential-effective 다 (r4) — 동시 401 두 건 중 두 번째는
+    // 아무것도 바꾸지 않는다. 화면은 그래도 갱신해야 하므로 통지 자체는 낸다.
+    onUnauthorized: (authId, credentialChanged) =>
+      emitSnapshot(authId, 'unauthorized', credentialChanged),
     // 요청 경로에서 처음 관측된 시계 만료. store 가 1회를 보장하므로 여기서 중복 판정하지 않는다.
     onExpired: (authId) => emitSnapshot(authId, 'expired')
   } satisfies AuthenticatedRequesterDeps)
 
-  const emitSnapshot = (authId: AuthId, cause: AuthSnapshotChangeCause): void => {
+  // `credentialChanged` 를 넘기지 않으면 `cause` 가 정한다. 넘기는 쪽은 **cause 로는 알 수 없는
+  // 사실**(그 관측이 실제 전이를 만들었는가)을 아는 호출부뿐이다 — 강등을 두 번 관측해도
+  // 실행 credential 은 한 번만 바뀐다.
+  const emitSnapshot = (
+    authId: AuthId,
+    cause: AuthSnapshotChangeCause,
+    credentialChanged?: boolean
+  ): void => {
     publish({
       kind: 'snapshot',
       authId,
       cause,
       snapshot: rawSnapshot(authId),
-      credentialChanged: isCredentialEffective(cause)
+      credentialChanged: credentialChanged ?? isCredentialEffective(cause)
     })
   }
 
