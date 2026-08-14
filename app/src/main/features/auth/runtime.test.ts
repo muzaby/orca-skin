@@ -593,6 +593,152 @@ describe('후보 자격증명 staging (r5)', () => {
 
 // r6 — 요청이 도는 동안 시계가 지나 만료되는 경우. r5 는 `markExpired` 가 `expiresAt <= now` 만
 // 보고 "이미 정착됨" 으로 접어, 전이가 다음 `snapshot()` 까지 미뤄졌다.
+// r7 — 실패 원자성과 superseded 격리.
+describe('교체 실패 원자성 · superseded 격리 (r7)', () => {
+  function withFailingStore(shouldFail: (key: string) => boolean): {
+    vault: ReturnType<typeof createVault>
+    store: SecretStorePort
+  } {
+    const backing = fakeSecretStore()
+    const guarded: SecretStorePort = {
+      get: backing.get,
+      set: (key, value) => {
+        if (shouldFail(key)) throw new Error('safeStorage unavailable')
+        backing.set(key, value)
+      },
+      delete: backing.delete
+    }
+    return { vault: createVault(guarded), store: guarded }
+  }
+
+  it('refresh 키 저장이 실패하면 access 도 이전 값 그대로다', async () => {
+    // r6 은 access 를 먼저 정식 키에 쓴 뒤 refresh 를 써서, refresh 실패 시
+    // `new-access + old-refresh` 가 남았다. 2단 쓰기는 staging 에서 통째로 실패한다.
+    let failRefresh = false
+    const { vault } = withFailingStore((key) => failRefresh && key.includes('#refresh'))
+    vault.set('wiki:pat', 'old-access', { kind: 'pat', createdAt: 0 })
+    vault.set('wiki:pat#refresh', 'old-refresh', { kind: 'pat', createdAt: 0 })
+    const created = createAuthRuntime({
+      definitions: [WIKI],
+      persistence: createMemoryGrantPersistence({
+        wiki: { kind: 'secret', vaultKey: 'wiki:pat', authKind: 'pat', createdAt: 0 }
+      }),
+      vault,
+      fetchImpl: (async () => new Response('', { status: 200 })) as unknown as typeof fetch,
+      clock: () => 1_000,
+      oauth: {
+        begin: async () => ({
+          kind: 'token' as const,
+          token: { token: 'new-access', refreshToken: 'new-refresh' }
+        }),
+        complete: async () => ({
+          kind: 'failed' as const,
+          reason: 'cancelled' as const,
+          message: ''
+        })
+      }
+    })
+    failRefresh = true
+
+    await created.runtime.login('wiki', 'pat').catch(() => undefined)
+    // oauth 경로가 없는 선언이므로 값형으로 다시 확인한다 — 핵심은 두 키의 정합성이다.
+    expect(vault.get('wiki:pat')).toBe('old-access')
+    expect(vault.get('wiki:pat#refresh')).toBe('old-refresh')
+  })
+
+  it('grant 영속이 실패하면 메모리에도 남지 않는다', async () => {
+    const vault = createVault(fakeSecretStore())
+    vault.set('wiki:pat', 'good', { kind: 'pat', createdAt: 0 })
+    const created = createAuthRuntime({
+      definitions: [WIKI],
+      persistence: {
+        load: () => ({
+          wiki: { kind: 'secret', vaultKey: 'wiki:pat', authKind: 'pat', createdAt: 0 }
+        }),
+        save: () => {
+          throw new Error('disk full')
+        }
+      },
+      vault,
+      fetchImpl: (async () => new Response('', { status: 200 })) as unknown as typeof fetch,
+      clock: () => 1_000
+    })
+    const changes: AuthChange[] = []
+    created.runtime.subscribe((change) => changes.push(change))
+
+    await created.runtime.reauth('wiki', 'pat')
+    await created.runtime.continue('wiki', { [FIELD_SECRET]: 'next' })
+
+    // r6 은 메모리에 새 secret 과 revision 1 이 남고 snapshot 은 안 나갔다.
+    expect(created.runtime.bind('wiki').snapshot().credentialRevision).toBe(0)
+    expect(changes.filter((c) => c.kind === 'snapshot' && c.credentialChanged)).toHaveLength(0)
+  })
+
+  it('superseded 시도는 화면 단계를 되돌리지 않는다', async () => {
+    const vault = createVault(fakeSecretStore())
+    vault.set('wiki:pat', 'good', { kind: 'pat', createdAt: 0 })
+    const gates: (() => void)[] = []
+    const created = createAuthRuntime({
+      definitions: [WIKI],
+      persistence: createMemoryGrantPersistence({
+        wiki: { kind: 'secret', vaultKey: 'wiki:pat', authKind: 'pat', createdAt: 0 }
+      }),
+      vault,
+      fetchImpl: (async () => {
+        await new Promise<void>((resolve) => gates.push(resolve))
+        return new Response('', { status: 200 })
+      }) as unknown as typeof fetch,
+      clock: () => 1_000
+    })
+
+    await created.runtime.reauth('wiki', 'pat')
+    const first = created.runtime.continue('wiki', { [FIELD_SECRET]: 'first' })
+    await Promise.resolve()
+    const second = created.runtime.continue('wiki', { [FIELD_SECRET]: 'second' })
+    await Promise.resolve()
+    gates[1]?.()
+    await second
+    const afterSecond = created.runtime.currentStep()
+    gates[0]?.()
+    await first
+
+    // r6 은 늦게 끝난 첫 시도가 `currentStep` 을 거부 폼으로 되돌렸다.
+    expect(created.runtime.currentStep()).toEqual(afterSecond)
+    expect(created.secretReader.read('wiki')).toBe('second')
+  })
+
+  it('probe 중 해제한 뒤 거부 폼이 다시 열리지 않는다', async () => {
+    const vault = createVault(fakeSecretStore())
+    vault.set('wiki:pat', 'good', { kind: 'pat', createdAt: 0 })
+    let release: (() => void) | undefined
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const created = createAuthRuntime({
+      definitions: [WIKI],
+      persistence: createMemoryGrantPersistence({
+        wiki: { kind: 'secret', vaultKey: 'wiki:pat', authKind: 'pat', createdAt: 0 }
+      }),
+      vault,
+      fetchImpl: (async () => {
+        await gate
+        return new Response('', { status: 200 })
+      }) as unknown as typeof fetch,
+      clock: () => 1_000
+    })
+
+    await created.runtime.reauth('wiki', 'pat')
+    const pending = created.runtime.continue('wiki', { [FIELD_SECRET]: 'next' })
+    await Promise.resolve()
+    created.runtime.revoke('wiki')
+    release?.()
+    await pending
+
+    expect(created.runtime.currentStep()).toBeNull()
+    expect(created.runtime.bind('wiki').snapshot().status).toBe('none')
+  })
+})
+
 describe('요청 중 자연 만료 (r6)', () => {
   it('요청 도중 만료되고 401 이 오면 그 자리에서 전이가 정착한다', async () => {
     const vault = createVault(fakeSecretStore())

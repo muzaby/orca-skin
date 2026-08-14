@@ -79,6 +79,14 @@ export class AuthStore {
   // 복원된 grant 는 **`verified` 가 아니다** — 기록이 살아 있다는 것과 지금 인증돼 있다는 것은
   // 다르다. 게이트를 열려면 이번 실행에서 로그인을 한 번 거쳐야 한다.
   restore(declaredIds: readonly AuthId[]): void {
+    // **중단된 promote 를 먼저 마무리한다** (r7). 확인까지 끝난 값이 staged 로 남아 있다면
+    // 그것이 사용자가 마지막으로 성공시킨 자격증명이다 — 부팅에서 정식 키로 옮긴다.
+    // staging 단계에서 죽었다면 promote 대상이 없으므로 아무 일도 일어나지 않는다.
+    try {
+      this.vault.promoteStaged()
+    } catch {
+      // 옮기지 못해도 부팅은 계속한다 — 정식 키의 이전 값이 그대로 남아 있다.
+    }
     const known = new Set(declaredIds)
     this.grants.clear()
     this.verified.clear()
@@ -118,13 +126,17 @@ export class AuthStore {
   }
 
   // 방금 인증에 성공한 결과가 들어온다 — 그러므로 이 grant 는 이번 실행에서 확인된 것이다.
+  // **영속이 먼저, 메모리 publish 가 나중이다** (r7). 반대로 하면 `persistence.save` 가 실패했을 때
+  // 메모리에는 새 secret 과 올라간 revision 이 남는데 디스크에는 없고, 호출부는 예외를 받아
+  // snapshot 도 발행하지 않는다 — 재시작하면 사라질 상태를 화면과 Harness cache 가 믿게 된다.
   put(authId: AuthId, grant: Grant): void {
+    const next = { ...Object.fromEntries(this.grants), [authId]: grant }
+    this.persistence.save(next)
     this.grants.set(authId, grant)
     this.verified.add(authId)
     this.expirySettled.delete(authId)
     // credential commit — 실행 구성이 실제로 달라졌다.
     this.bumpRevision(authId)
-    this.flush()
   }
 
   // 해제 — grant 와 vault 잔여물을 함께 지운다. secret/token 이 아닌 session grant 는
