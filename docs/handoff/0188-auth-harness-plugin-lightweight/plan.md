@@ -673,7 +673,9 @@ node scripts/check-migrations-appendonly.mjs
 | r10 반영 | **PR #336 REQUEST CHANGES 4건 + 독립 진단 2건.** 리뷰 주장을 먼저 코드에서 전수 대조했다 — P1 2건·P2 2건 중 **3건 전면 확인, 1건은 하위 항목 하나가 반론**(`settings-write` 의 사용자 문구는 제안서 §비범위 "문구 변경" 이라 유지도 계약 위반이 아니다. 위험이 0 이라 사용자 결정으로 수용해 바꿨다). 리뷰가 짚지 않은 **D37·D38 을 독립 진단으로 추가** 발견했다 — 둘 다 `main` 대비 실제 회귀이고 D38 은 퍼포먼스 회귀(불필요 respawn)다. 신설 회귀 **+23**, 전부 mutation 으로 가드 의존성을 확인했다. 미충족으로 남는 것: 리뷰 조건 4번의 `verify.md`/PASS(사용자 결정으로 다음 턴) |
 | r9 반영 | 재리뷰 P1 2건을 **실측 재현한 뒤** 고쳤다 — 저장소 장애를 빈 저장소로 오인한 sweep(D29, **r8 회귀**) · 영속 실패를 무시한 해제(D30) · 갈라져 있던 포트 계약(D31) · 리베이스 후 문서 ancestry(D32). 신설 회귀 **+6**, 전부 mutation 으로 가드 의존성을 확인했다 |
 | r8 반영 | PR #338 재리뷰 3건을 **전부 실측 재현한 뒤** 고쳤다 — 교체 원자성(D22/D25/D26: 포인터 교체 + 내구 저장 보고 + staging 제거) · fence 전면화(D23/D27: probe·실행기·resume·401 강등 4지점) · 테스트 공백(D28: 경로 진입 단언 + mutation 확인). 신설 회귀 **+11**, 실패 지점마다 "옛 값 전체 / 새 값 전체" 중 하나만 관측되는지 단언한다 |
-| 대상 커밋 | Phase A `2bebd67` · Phase B `2b274ef` · Phase C `110a1a9` · r2 `d197f0d` · r3 `511ad32` · r4 `ed33531` · r5 `05aeab6` · r6 `ceaf7ba` · r7 `64f0c47` · r8 `2f4e804` · r9 `92120de` |
+| 대상 커밋 | Phase A `2bebd67` · Phase B `2b274ef` · Phase C `110a1a9` · r2 `d197f0d` · r3 `511ad32` · r4 `ed33531` · r5 `05aeab6` · r6 `ceaf7ba` · r7 `64f0c47` · r8 `2f4e804` · r9 `92120de` · r10 `c01d017` |
+| 게이트 결과 (r10 실측) | `npm run lint` **0 error**(1 warning = 기존 `useTranscriptVirtualizer` react-compiler) · `npm run typecheck` **3/3** · `vitest run` **197파일 / 1,866테스트 통과**. **5파일 / 44테스트 실패는 baseline 이다** — `better-sqlite3` 가 Electron ABI(140)로 빌드돼 있어 Node(127) vitest 가 로드하지 못한다(`chat-turn.continuity` · `extensions/builder` · `orchestration/fork` · `db/migrate` · `db/queries`). **변경분을 stash 하고 같은 5파일을 돌려 44 failed / 1 passed 로 동일함을 확인**했다 — 이번 변경과 무관하다. `npm test` 는 Node ABI 재빌드를 유발하고 그 뒤 dev/build 용 Electron ABI 재빌드가 필요하므로 의도적으로 돌리지 않았다(`app/AGENTS.md` 제약 환경 게이트). doc-inventory · migrations append-only 모두 exit 0. 세션 시작 시 `cheerio`/`turndown` 3종이 `node_modules` 에서 빠져 있어 typecheck 가 실패했는데, 선언된 의존성이라 `npm install` 로 복구했고 `package.json`·`package-lock.json` 은 바뀌지 않았다 |
+| r10 mutation 확인 | 신설 회귀 전부에 대해 수정을 되돌리면 실패하는지 확인했다 — `wellFormed` 가드 제거 → 5 fail · `vault.delete` try/catch 제거 → 1 fail · cookie fence `await` 제거 → 1 fail · `titleSettings` 전달 제거 → 1 fail · `runtimeEnvChangedSinceSpawn` 의 `resolved == null` 가드 제거 → 1 fail · `prepareUnresolvedHarnessConfig` 의 두 인자 제거 → 2 fail |
 | 리베이스 해시 매핑 (r9) | 브랜치가 리베이스되면서 r4–r7 의 해시가 바뀌었다. 이전 기록이 가리키던 값 → 현재 ancestry: `5d11041`→`ed33531`(r4) · `40fcf11`→`05aeab6`(r5) · `8b0e4af`→`ceaf7ba`(r6) · `2e9a4be`→`64f0c47`(r7). 커밋 **내용**은 같고 부모만 달라졌다 — 옛 해시는 이 저장소에서 더 이상 조회되지 않으므로 본 표는 현재 값을 쓴다 |
 
 ### 전수 재측정 (plan §8 요구)
@@ -722,6 +724,12 @@ node scripts/check-migrations-appendonly.mjs
 **사람 실기 잔여**: 폐쇄망 실배포에서 gate 로그인 · Plugin 인증 · 실제 Harness turn · Usage
 refresh. 기본 빌드는 선언이 비어 있어 이 경로가 프로덕션에서 돌지 않으므로, 위 AC 는 전부
 단위 테스트로 닫았다.
+
+**r10 이후에도 열려 있는 것**: PR #336 리뷰의 승인 전 재검증 조건 4번 중 **`verify.md`/PASS
+산출물**. 조건의 앞부분(Engine 잔재·AC 개수 정리)은 D36·D32 로 닫았으나, 정식
+`handoff-verify` 수행과 `verify.md` 작성은 **사용자 결정으로 다음 턴에 남긴다**. 따라서 INDEX
+상태는 `impl/IMPL_DONE (r10)` 이고 trailer 는 `Verified-By: pending` 이다 — 닫힌 것으로
+보고하지 않는다.
 
 ---
 
