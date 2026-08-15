@@ -1,13 +1,13 @@
 ---
 name: handoff-review
-description: handoff-plan 및 handoff-verify의 지침 자체를 리뷰하고 개선할 때 쓴다. 반복 라운드, 여러 턴의 결정 drift, 동일 실수 재발, 사용자의 명시적 handoff 프로세스 리뷰 요청, 또는 handoff SKILL/template/AGENTS 자체를 바꾸는 메타 수정에서 실패 원인을 분류하고 기존 운영지침 승계·historical failure regression·cross-document consistency를 검증한다.
+description: handoff-plan·handoff-impl·handoff-verify의 지침 **자체**를 리뷰하고 개선할 때 쓴다. 특정 작업의 설계나 구현을 검사하는 스킬이 아니다. 반복 라운드(impl 라운드 3 초과), 여러 턴의 결정 drift, 동일 실수 재발, 사용자의 명시적 handoff 프로세스 리뷰 요청, 또는 handoff SKILL/template/AGENTS를 바꾸거나 새 handoff 스킬을 만드는 메타 수정이면 로드한다. 실패 원인을 A~F로 분류하고 기존 운영지침 승계·historical failure regression·cross-document consistency를 검증한다.
 ---
 
 # handoff-review — handoff 시스템의 지침을 개선하는 메타 리뷰
 
 ## 목적
 
-이 스킬은 특정 plan이나 verify를 한 번 더 검사하는 세 번째 체크리스트가 아니다. handoff 과정에서 반복된 실패·결정 drift·소통 실패의 원인을 찾아 `handoff-plan` / `handoff-verify`의 **지침 자체**를 개선한다.
+이 스킬은 특정 plan·구현·verify를 한 번 더 검사하는 네 번째 체크리스트가 아니다. handoff 과정에서 반복된 실패·결정 drift·소통 실패의 원인을 찾아 `handoff-plan` / `handoff-impl` / `handoff-verify`의 **지침 자체**를 개선한다.
 
 정본 관계:
 
@@ -34,7 +34,7 @@ description: handoff-plan 및 handoff-verify의 지침 자체를 리뷰하고 �
 
 ## 1. 증거 수집
 
-관련 plan/verify의 모든 라운드, 구현자 코멘트·diff·테스트, 여러 턴의 사용자 결정, 현재/변경 전 plan·verify SKILL과 template, root 및 `docs/handoff/AGENTS.md`, 관련 하위 `AGENTS.md`, references/scripts를 읽는다. 최신 턴이나 변경 후 파일만 보고 이전 계약을 재구성하지 않는다.
+관련 plan/verify의 모든 라운드, `[구현자 기입]`과 diff·테스트, 여러 턴의 사용자 결정, 현재/변경 전 plan·impl·verify SKILL과 template, root 및 `docs/handoff/AGENTS.md`, 관련 하위 `AGENTS.md`, references/scripts를 읽는다. 최신 턴이나 변경 후 파일만 보고 이전 계약을 재구성하지 않는다.
 
 **지침 리팩터링에서는 변경 전 파일도 1급 증거다.** `git diff <before>..<after>`로 삭제·이동·대체된 문장을 먼저 추출한다.
 
@@ -99,7 +99,7 @@ impl과 verify가 같은 축(강제 지점 전수·부분 실패·production 경
 - command / gate / failure semantics
 - required template field / lifecycle / Decision·AC policy
 - corpus·reference의 canonical ownership 또는 소비자가 따라야 할 의미
-- 그 밖에 plan/verify/review의 normative behavior를 바꾸는 변경
+- 그 밖에 plan/impl/verify/review의 normative behavior를 바꾸는 변경
 
 ### Tier 2 — Referential / mechanical correction
 
@@ -163,7 +163,7 @@ root AGENTS.md
   ↕
 docs/handoff/AGENTS.md
   ↕
-handoff-plan / handoff-verify / handoff-review SKILL.md
+handoff-plan / handoff-impl / handoff-verify / handoff-review SKILL.md
   ↕
 plan.template.md / verify.template.md
   ↕
@@ -185,7 +185,7 @@ references / scripts
 
 ## 7. failure corpus / review 기록 정책
 
-`references/failure-patterns.md`는 현재 정책을 설명하는 **진입점**이고, historical 사례 본문은 그 문서가 가리키는 corpus에 둔다. plan/verify는 이를 직접 갱신하지 않는다.
+`references/failure-patterns.md`는 현재 정책을 설명하는 **진입점**이고, historical 사례 본문은 그 문서가 가리키는 corpus에 둔다. plan/impl/verify는 이를 직접 갱신하지 않는다.
 
 새 이슈는 기존 P에 없는 새로운 causal class이거나 새 지침의 대표 evidence일 때만 corpus에 추가한다. 동일 causal class의 재발은 장문 사례를 계속 쌓지 않는다.
 
@@ -213,7 +213,7 @@ round 문서는 **동시에 1개만 유지한다.** 다음 라운드가 새로 �
 - [ ] 사용자 결정 변경을 실패 패턴으로 오염시키지 않았다.
 - [ ] 사례 누적이 아니라 SKILL/template/AGENTS 지침의 변경/유지 판단을 했다.
 - [ ] 새 규칙보다 기존 규칙 통합·교체를 먼저 검토했다.
-- [ ] plan/verify의 현재 작업 비판 책임을 review로 빼앗지 않았다.
+- [ ] plan/impl/verify의 현재 작업 비판 책임을 review로 빼앗지 않았다.
 - [ ] 변경을 Tier 1/2로 분류했고 애매하면 Tier 1을 적용했다.
 - [ ] 선택한 tier가 요구하는 Operational Delta / Historical Regression / Cross-document 검사를 수행했다.
 - [ ] DELETE에는 제거 근거가 있고, 설명 없이 사라진 gate/command/reference가 0개다.
@@ -224,7 +224,7 @@ round 문서는 **동시에 1개만 유지한다.** 다음 라운드가 새로 �
 - [ ] AGENTS 변경 시 위생·부모/자식 규칙 충돌·필요한 CLAUDE stub을 확인했다.
 - [ ] INDEX/commit trailer 등 협업 운영 규칙이 의도치 않게 삭제되지 않았다.
 - [ ] completion item은 본문의 실행 규칙에 매핑되고, 체크리스트에만 존재하는 새 normative 요구가 없다.
-- [ ] 정상 plan/verify는 failure corpus를 매번 읽거나 직접 갱신하지 않는다.
+- [ ] 정상 plan/impl/verify는 failure corpus를 매번 읽거나 직접 갱신하지 않는다.
 
 ## 종료 보고
 

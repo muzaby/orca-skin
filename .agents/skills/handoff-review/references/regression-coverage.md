@@ -461,3 +461,21 @@ corpus 의 현재 `## P<number>` 를 전수(상한 하드코딩 없이) 대조 �
 - Cross-document Consistency: **PASS**.
 - corpus 추가: **없음** — 이번은 새 실패가 아니라 P38 의 owner 를 만든 것이다.
 - 한계: ① 원자성 같은 설계 축은 impl 되먹임 + plan 수용이 **짝으로만** 닫힌다 ② skill 을 읽지 못하는 구현 주체에게는 `docs/handoff/AGENTS.md §2` 최소 계약까지만 전달된다 — 그래서 게이트 정본을 옮기지 않았다.
+
+## Round 7 보완 — 네 스킬 전수 재검토 (같은 세션)
+
+신설 직후 네 SKILL 을 새 눈으로 다시 읽어 **owner 신설이 남긴 잔재**를 닫았다.
+
+| 발견 | 판정 | 조치 |
+|---|---|---|
+| **trigger 충돌** — `handoff-plan` 이 "구현·리팩토링·버그수정 요청의 설계 진입점", `handoff-impl` 이 "구현·재구현 요청" 이라 **둘 다 '구현 요청' 에 걸렸다.** 실제 판별자는 *READY plan 의 존재* 인데 어느 description 도 그것을 말하지 않았다 | **A. Instruction gap** — 새 owner 를 만들면서 기존 owner 의 trigger 경계를 갱신하지 않았다 | plan: "아직 READY 인 plan 이 없으면 여기가 진입점"(+ 있으면 impl 로 넘김) · impl: "이미 READY 인 plan 을 코드로 옮기는"(+ 없으면 plan 이 먼저) · verify: "보드가 `impl/IMPL_DONE` 이고 다음 주체가 검증자면" + "외부 리뷰가 도착했어도 그것은 verify 가 아니다" |
+| `handoff-review` description·본문 8곳이 **plan/verify 2스킬 시대 표현** | 사실 낡음 | 전수 갱신(`plan/impl/verify`). corpus 헤더 2줄도 같은 줄에서 치환해 **P 본문 line offset 을 보존**했다(`0173` 의 `:541-552` → P29 재확인, 실측) |
+| verify `검증 순서` 블록 6번이 §6 의 신설 절(강제 지점 표 대조)을 반영하지 않음 | referential | `6. AC 1:1 검증 + plan §10 강제 지점 표 대조` |
+| impl §5-3 이 §3 과 같은 검사를 다시 서술 | 중복 | §5-3 을 "§3 을 다시 돌린다" 로 바꿔 체크리스트가 두 벌이 되지 않게 함 |
+
+**Tier 판정**: description 은 **trigger semantics** 이므로 **Tier 1**. 나머지는 referential.
+
+- **6-A**: DELETE 0. description 은 전부 기존 문장을 유지한 채 판별 조건만 **추가**했다. 순서 블록·§5-3 은 본문 규칙 불변(가리키는 곳만 정확해짐).
+- **6-B**: P1~P38 전수 **38 COVERED / 0 PARTIAL / 0 GAP**. trigger 를 좁힌 것이 아니라 **갈라 놓은 것**이라 어떤 P 의 방어도 발동 조건을 잃지 않는다. corpus line offset 보존 실측.
+- **6-C**: 네 description 이 서로 배타적인 전제를 말한다 — plan(READY 없음) → impl(READY 있음) → verify(IMPL_DONE·검증자 차례) → review(지침 자체 변경·라운드 3 초과). `docs/handoff/AGENTS.md` 의 상태 머신과 같은 축이다. **충돌 0.**
+- 게이트: doc-inventory exit 0.
