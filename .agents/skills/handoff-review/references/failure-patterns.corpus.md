@@ -5,9 +5,9 @@
 지키게 되므로, *왜* 그 규칙이 있는지 보이도록 문장을 남긴다.
 
 **현재 의미**: 이 파일은 historical evidence이며 현재 실행 지침의 SSOT가 아니다.
-과거 handoff가 특정 P를 “SSOT”로 지칭해도 당시 구조 기록이며 현재 정본은 plan/verify/review SKILL이다.
+과거 handoff가 특정 P를 “SSOT”로 지칭해도 당시 구조 기록이며 현재 정본은 plan/impl/verify/review SKILL이다.
 
-**갱신 정책**: 정상 plan/verify는 이 파일을 작업 지침으로 읽거나 직접 갱신하지 않는다.
+**갱신 정책**: 정상 plan/impl/verify는 이 파일을 작업 지침으로 읽거나 직접 갱신하지 않는다.
 사례 일반화·추가 여부와 regression 사용은 `handoff-review/SKILL.md`가 결정한다.
 **과거 명령문은 현재 효력이 없다.** 아래 P 본문과 관찰은 실패 증거로만 보존한다.
 

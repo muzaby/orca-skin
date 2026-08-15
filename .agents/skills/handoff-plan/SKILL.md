@@ -1,6 +1,6 @@
 ---
 name: handoff-plan
-description: docs/handoff/ 의 plan.md를 새로 작성하거나 갱신할 때 쓴다. 구현·리팩토링·버그수정·기능 추가 요청의 설계 진입점이며, 여러 턴의 사용자 결정을 보존한 Product/UX Contract를 먼저 확정하고 그 뒤에 코드베이스 조사·아키텍처·구현·검증 설계를 작성한다.
+description: docs/handoff/ 의 plan.md를 새로 작성하거나 갱신할 때 쓴다. 구현·리팩토링·버그수정·기능 추가 요청이 들어왔는데 **아직 READY인 plan이 없으면 여기가 진입점**이다 — 구현 요청이라도 설계를 건너뛰지 않는다(이미 READY plan이 있는 구현 턴은 handoff-impl). verify/FAIL이나 사용자 결정 변경으로 기존 plan을 갱신할 때도 쓴다. 여러 턴의 사용자 결정을 Decision Ledger로 보존하고 Product/UX Contract를 먼저 확정한 뒤 코드베이스 조사·아키텍처·구현·검증 설계를 작성한다.
 ---
 
 # handoff-plan — 현재 작업의 설계 정본 만들기

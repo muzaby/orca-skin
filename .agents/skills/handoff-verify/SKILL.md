@@ -1,6 +1,6 @@
 ---
 name: handoff-verify
-description: docs/handoff/ 의 verify.md를 작성할 때 쓴다. 구현 완료 후 현재 구현을 독립 검증하며, plan의 Product/UX Contract·Decision Ledger·Acceptance Criteria와 실제 end-to-end 동작을 대조하고 기준 밖 결함도 역방향으로 찾는다. 실패를 일반화해 스킬 자체를 고치는 일은 handoff-review에 위임한다.
+description: docs/handoff/ 의 verify.md를 작성할 때 쓴다. **구현이 끝나 보드가 `impl/IMPL_DONE`이고 다음 주체가 검증자면** 로드한다 — 외부 PR 리뷰가 도착했어도 그것은 verify가 아니다. 현재 구현을 처음 보는 남의 PR처럼 독립 검증하며, plan의 Product/UX Contract·Decision Ledger·강제 지점 표·Acceptance Criteria와 실제 end-to-end 동작을 대조하고 기준 밖 결함도 역방향으로 찾는다. 구현자의 보고는 증거로 받지 않는다. 실패를 일반화해 스킬 자체를 고치는 일은 handoff-review에 위임한다.
 ---
 
 # handoff-verify — 현재 구현을 독립 검증하기
@@ -38,7 +38,7 @@ description: docs/handoff/ 의 verify.md를 작성할 때 쓴다. 구현 완료 
 3. 역방향 탐색 — 미배선/죽은 코드/비대칭/소비자 누락
 4. 구현자가 plan/AC를 바꿨는지 확인
 5. Product/UX ↔ end-to-end 경로 검증
-6. AC 1:1 검증
+6. AC 1:1 검증 + plan §10 강제 지점 표 대조
 7. gate/환경 분리/사람 실기 경계
 8. repository operation checks(AGENTS/INDEX/trailer)
 9. PASS/FAIL + 파생 이슈 + review signal 기록
