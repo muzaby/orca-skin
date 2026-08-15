@@ -6,6 +6,7 @@ import { appEnv } from '../../infra/config/orca-config'
 import { expandEnvRecord, processEnvRecord } from '../../features/harnesses/env'
 import {
   prepareHarnessConfig,
+  prepareUnresolvedHarnessConfig,
   type PreparedHarnessConfig
 } from '../../features/harnesses/prepared-config'
 import {
@@ -63,7 +64,7 @@ export async function resolveTurnProvider(
   }
   if (req.sessionId && !selected) selected = byKey(meta?.provider_key)
   if (!selected) selected = defaultProvider(entries)
-  if (!selected) return { providerKey: null, prepared: emptyPrepared() }
+  if (!selected) return { providerKey: null, prepared: unresolvedPrepared(ctx) }
 
   // ── 실행 구성 해석은 **턴당 1회** (0188 D-019) ────────────────────────────────
   // settings 해석과 동적 보강(있으면)을 한 번에 끝내고, 그 결과로 spawn 입력을 조립한다.
@@ -99,13 +100,11 @@ export async function resolveTurnProvider(
   }
 }
 
-// settings 도 동적 구성도 없는 턴의 빈 spawn 입력. `runtimeEnvFingerprint` 가 상수라
-// respawn 판정이 흔들리지 않는다.
-function emptyPrepared(): PreparedHarnessConfig {
-  return prepareHarnessConfig({
-    config: { key: '', harnessId: '', modelProviderId: '', runtimeEnv: {} },
-    baseEnv: processEnvRecord
-  })
+// Harness+ModelProvider entry 를 **못 고른** 턴의 spawn 입력. 규칙은
+// `prepareUnresolvedHarnessConfig` 가 갖는다(r10) — 이 파일은 electron 을 물어 테스트가 닿지
+// 않으므로 조립 규칙을 여기 두지 않는다.
+function unresolvedPrepared(ctx: RouterContext): PreparedHarnessConfig {
+  return prepareUnresolvedHarnessConfig({ appEnv: turnAppEnv(ctx), baseEnv: processEnvRecord })
 }
 
 // orca.json 앱 전역 env 의 `${VAR}` 확장. **미해결 키는 드롭**된다(빈 문자열 치환 금지 —

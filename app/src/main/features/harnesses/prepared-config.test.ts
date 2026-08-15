@@ -6,7 +6,11 @@
 
 import { describe, expect, it } from 'vitest'
 import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
-import { prepareHarnessConfig, harnessEnvFingerprint } from './prepared-config'
+import {
+  prepareHarnessConfig,
+  prepareUnresolvedHarnessConfig,
+  harnessEnvFingerprint
+} from './prepared-config'
 import type { HarnessRuntimeConfig } from './runtime-config'
 
 function settings(
@@ -267,5 +271,39 @@ describe('env fingerprint (AC19)', () => {
       })
 
     expect(build().runtimeEnvFingerprint).toBe(build().runtimeEnvFingerprint)
+  })
+})
+
+// ── r10: 해석 실패 턴은 "비었다" 가 아니라 "모른다" ────────────────────────────
+//
+// entry 를 못 고른 턴(`sources` 트리가 없는 어댑터 · 디렉터리 일시 부재)에서 r9 는 ① app env 를
+// 통째로 떨어뜨리고 ② `harnessEnvFingerprint(undefined)` 라는 **정의된 값**을 냈다.
+// `SessionRuntime` 은 spawn 마다 fingerprint 를 기록하므로 그 값이 곧 "env 가 바뀌었다" 로 읽혀
+// 살아 있는 채널을 내렸다 — 0125 가 settings 축에서 못 박은 "해석 실패는 경계가 아니다" 가
+// env 축에만 빠져 있었다.
+describe('해석 실패 턴 (prepareUnresolvedHarnessConfig, r10)', () => {
+  // **production 진입점을 그대로 부른다** — `turn-setup.ts` 의 `unresolvedPrepared` 가 이 함수를
+  // 호출하는 한 줄이므로, 여기 단언이 곧 그 경로의 계약이다(D-055).
+  const unresolved = (): ReturnType<typeof prepareHarnessConfig> =>
+    prepareUnresolvedHarnessConfig({ appEnv: { APP_ONLY: 'kept' }, baseEnv: BASE })
+
+  it('app env 는 그대로 실린다 — 0188 이전 subprocess env 와 같다', () => {
+    const prepared = unresolved()
+    expect(prepared.env?.APP_ONLY).toBe('kept')
+    expect(prepared.env?.INHERITED).toBe('from-process')
+  })
+
+  it('fingerprint 를 내지 않는다 — respawn 판정에 "모른다" 를 넘긴다', () => {
+    expect(unresolved().runtimeEnvFingerprint).toBeUndefined()
+  })
+
+  // 기본값이 바뀌면 정상 턴이 조용히 판정을 잃는다 — 그쪽이 훨씬 위험하다.
+  it('기본값은 여전히 "해석했다" 다 — 정상 턴은 값을 낸다', () => {
+    const prepared = prepareHarnessConfig({
+      config: config({ runtimeEnv: { TOKEN: 't' } }),
+      baseEnv: BASE
+    })
+
+    expect(prepared.runtimeEnvFingerprint).toBe(harnessEnvFingerprint(prepared.env))
   })
 })

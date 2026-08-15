@@ -92,7 +92,11 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     vault: deps.vault,
     ...(deps.clock ? { clock: deps.clock } : {}),
     ...(deps.onOrphan ? { onOrphan: deps.onOrphan } : {}),
-    ...(deps.onSweepSkipped ? { onSweepSkipped: deps.onSweepSkipped } : {})
+    ...(deps.onSweepSkipped ? { onSweepSkipped: deps.onSweepSkipped } : {}),
+    // 해제가 내구적으로 성립한 뒤의 vault 정리 실패는 위생 통지다 (r10) — 이미 있는 logger 로
+    // 흘린다. 별도 포트를 컴포지션 루트까지 뚫으면 배선만 늘고 소비자는 로그 하나다.
+    onVaultCleanupFailed: (authId, error) =>
+      deps.logger?.('auth.revoke.vault-cleanup-failed', { authId, reason: String(error) })
   })
   store.restore(registry.list().map((definition) => definition.id))
 

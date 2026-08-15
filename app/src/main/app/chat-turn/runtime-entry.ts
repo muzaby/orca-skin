@@ -13,7 +13,8 @@ import { decideRespawn } from '../../features/sessions/respawn-policy'
 import { SessionRuntime } from '../../features/sessions/session-runtime'
 import {
   crossesProviderBoundary,
-  providerSettingsChangedSinceSpawn
+  providerSettingsChangedSinceSpawn,
+  runtimeEnvChangedSinceSpawn
 } from '../../features/harnesses/runtime-boundary'
 import type { SessionChainLease } from '../../features/sessions/session-chain-lease'
 import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
@@ -83,9 +84,10 @@ export async function acquireTurnRuntime(
         runtime.spawnedProviderSettings,
         input.resolved.prepared.providerSettings
       ),
-      runtimeEnvChanged:
-        runtime.spawnedRuntimeEnvFingerprint !== undefined &&
-        runtime.spawnedRuntimeEnvFingerprint !== input.resolved.prepared.runtimeEnvFingerprint,
+      runtimeEnvChanged: runtimeEnvChangedSinceSpawn(
+        runtime.spawnedRuntimeEnvFingerprint,
+        input.resolved.prepared.runtimeEnvFingerprint
+      ),
       spawnedRuntimeToolsRevision: runtime.spawnedRuntimeToolsRevision,
       runtimeToolsRevision: extensions.runtimeTools?.revision
     })

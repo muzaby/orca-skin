@@ -72,6 +72,9 @@ export interface AuthStoreDeps {
   onOrphan?: (authId: AuthId) => void
   // grant 저장소를 끝까지 읽지 못해 vault 고아 sweep 을 건너뛴 경우의 진단(r9).
   onSweepSkipped?: () => void
+  // 해제가 내구적으로 성립한 뒤 vault 정리만 실패한 경우의 진단(r10). 해제 자체는 되돌리지
+  // 않으므로 오류가 아니라 위생 통지다.
+  onVaultCleanupFailed?: (authId: AuthId, error: unknown) => void
 }
 
 export class AuthStore {
@@ -106,6 +109,7 @@ export class AuthStore {
   private readonly clock: () => number
   private readonly onOrphan?: (authId: AuthId) => void
   private readonly onSweepSkipped?: () => void
+  private readonly onVaultCleanupFailed?: (authId: AuthId, error: unknown) => void
 
   constructor(deps: AuthStoreDeps) {
     this.persistence = deps.persistence
@@ -113,6 +117,7 @@ export class AuthStore {
     this.clock = deps.clock ?? Date.now
     this.onOrphan = deps.onOrphan
     this.onSweepSkipped = deps.onSweepSkipped
+    this.onVaultCleanupFailed = deps.onVaultCleanupFailed
   }
 
   // 부팅 복원. **선언에 없는 id 는 조용히 무시하고 로그만 남긴다** — 삭제하지 않는다.
@@ -217,19 +222,48 @@ export class AuthStore {
   // ⓑ session grant 는 vault 에 값이 없어 **아무것도 사라지지 않은 채** 화면만 '해제됨' 이 된다 —
   // 재시작하면 grant 가 복원되고 cookie 가 살아 있어 probe 가 통과, **사용자가 끊은 연결이
   // 되살아난다.** 추가/교체와 달리 해제는 degrade 로 접을 수 없다.
+  // ── 내구 저장 이후는 되돌아가지 않는다 (r10) ───────────────────────────────
+  //
+  // r9 는 `persist` 성공 뒤 `vault.delete()` 를 **가드 없이** 부르고 그 다음에야 메모리를
+  // 바꿨다. `Vault.delete` 는 secret store 쓰기 3회 + index 재작성이라 던질 수 있고, 던지면
+  // 디스크는 이미 해제됐는데 **이 프로세스의 grant 는 살아 있다** — 화면과 Plugin 도구는
+  // 연결된 상태로 남고, 사용자는 "해제 실패" 를 본 뒤 재시작하면 해제돼 있다. `persist` 실패를
+  // 성공으로 오인하던 r8 의 문제와 방향만 반대인 같은 split-brain 이다.
+  //
+  // 그래서 경계를 **내구 저장 하나**로 못 박는다. 저장 전이면 아무것도 바뀌지 않고, 저장
+  // 후이면 vault 정리 성공 여부와 무관하게 해제가 확정된다. 남은 vault 자리는 아무 grant 도
+  // 가리키지 않으므로 다음 부팅의 고아 sweep 이 치운다(그 sweep 이 다시 신뢰 가능해진 것이
+  // r10 의 `authoritative` 수정이다).
   revoke(authId: AuthId): RevokeOutcome {
     const grant = this.grants.get(authId)
     if (!grant) return { kind: 'absent' }
     const next = Object.fromEntries([...this.grants].filter(([id]) => id !== authId))
-    // 저장이 성립하지 않으면 **아무것도 건드리지 않고** 실패로 돌린다.
+    // 저장이 성립하지 않으면 **아무것도 건드리지 않고** 실패로 돌린다(r9 fail-closed 유지).
     if (!this.persist(next)) return { kind: 'failed' }
-    if (grant.kind === 'secret' || grant.kind === 'token') this.vault.delete(grant.vaultKey)
-    if (grant.kind === 'token' && grant.refreshKey) this.vault.delete(grant.refreshKey)
+    // 여기부터는 best-effort 다 — 실패해도 해제를 되돌리지 않는다.
+    this.deleteVaultKeys(authId, grant)
     this.grants.delete(authId)
     this.verified.delete(authId)
     this.expirySettled.delete(authId)
     this.bumpRevision(authId)
     return { kind: 'revoked', grant }
+  }
+
+  private deleteVaultKeys(authId: AuthId, grant: Grant): void {
+    if (grant.kind === 'session') return
+    const keys =
+      grant.kind === 'token' && grant.refreshKey
+        ? [grant.vaultKey, grant.refreshKey]
+        : [grant.vaultKey]
+    for (const key of keys) {
+      try {
+        this.vault.delete(key)
+      } catch (error) {
+        // 고아로 남는다. 지워지지 않은 값이 살아 있어도 그것을 가리키는 grant 가 없으므로
+        // 인증에 쓰이지 않는다 — 위생 문제이지 접근 문제가 아니다.
+        this.onVaultCleanupFailed?.(authId, error)
+      }
+    }
   }
 
   // 만료된 토큰을 `expired` 로 강등한다(401 관측 또는 `expiresAt` 경과). grant 자체는 남긴다 —

@@ -141,7 +141,9 @@ export async function handleChatSend(
       owner: event.sender,
       control: lease.control,
       titleAdapter: activeAdapter,
-      // 제목 생성과 chat 은 **같은 prepared snapshot** 을 쓴다 (0188 D-019).
+      // 제목 생성과 chat 은 **같은 prepared snapshot** 을 쓴다 (0188 D-019). settings 와 env 를
+      // **함께** 넘긴다 — r10 이전에는 env 만 넘어가 `options.settings` 가 통째로 빠졌다.
+      titleSettings: resolved.prepared.providerSettings,
       titleEnv: resolved.prepared.env,
       resolved,
       payload: {

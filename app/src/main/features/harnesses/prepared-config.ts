@@ -61,7 +61,12 @@ export interface PreparedHarnessConfig {
   env?: Readonly<Record<string, string>>
   // **최종 env 만** 정규화해 만든 메모리 전용 비교값이다 (r2 축소 — settings 차원은
   // `providerSettingsChangedSinceSpawn` 이 0125 의 보수적 null 의미론과 함께 계속 소유한다).
-  runtimeEnvFingerprint: string
+  //
+  // `undefined` = **판정 불가** (r10). "env 가 비었다" 와 다르다 — 이번 턴이 실행 구성을
+  // 해석하지 못했다는 뜻이고, 그 상태를 값으로 접으면 0125 가 settings 축에서 막은 것과 같은
+  // 회귀가 env 축에서 난다: 해석에 실패한 턴마다 fingerprint 가 달라져 **살아 있는 채널을
+  // 내리고 respawn** 한다. 판정 불가는 no-op 이어야 한다.
+  runtimeEnvFingerprint: string | undefined
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -103,6 +108,12 @@ export interface PrepareHarnessConfigInput {
   // 완전한 baseline 을 만드는 함수(기본은 `process.env` 스냅샷). SDK `options.env` 는
   // subprocess env 를 **대체**하므로 overlay 만 넘기면 상속이 끊긴다.
   baseEnv: () => Record<string, string>
+  // 이번 턴이 Harness+ModelProvider entry 를 실제로 골랐는가 (r10, 기본 `true`).
+  //
+  // `false` 면 env 는 조립하되 **fingerprint 를 내지 않는다** — respawn 판정에 "모른다" 를
+  // 넘겨 보수적 no-op 이 되게 한다(0125 null 의미론과 같은 축). 값을 내면 해석 실패 턴마다
+  // 채널이 내려간다.
+  configResolved?: boolean
 }
 
 export function prepareHarnessConfig(input: PrepareHarnessConfigInput): PreparedHarnessConfig {
@@ -135,8 +146,35 @@ export function prepareHarnessConfig(input: PrepareHarnessConfigInput): Prepared
   return {
     ...(adjusted ? { providerSettings: adjusted } : {}),
     ...(env ? { env } : {}),
-    runtimeEnvFingerprint: harnessEnvFingerprint(env)
+    runtimeEnvFingerprint: input.configResolved === false ? undefined : harnessEnvFingerprint(env)
   }
+}
+
+// Harness+ModelProvider entry 를 **못 고른** 턴의 spawn 입력 (r10).
+//
+// 조립 규칙을 호출부(`app/chat-turn/turn-setup.ts`)에 인라인으로 두지 않는 이유: 그 파일은
+// electron 을 물어 vitest 가 import 하지 못한다. 규칙이 거기 있으면 이 경로는 **테스트가 닿지
+// 않는 자리**가 되고, 실제로 r9 가 그렇게 두 가지를 놓쳤다 —
+//
+//   ① app env 유실. 0188 이전에는 `buildTurnEnv()` 가 entry 선택과 무관하게 불려 orca.json 의
+//      `env` 가 항상 실렸다. 여기서 빠뜨리면 settings 트리가 없는 어댑터(DEV mock)나 sources
+//      디렉터리가 잠깐 안 보이는 턴에서 subprocess 환경이 조용히 달라진다.
+//   ② fingerprint 를 값으로 냄. `harnessEnvFingerprint(undefined)` 도 정의된 문자열이고
+//      `SessionRuntime` 은 spawn 마다 그것을 기록하므로, 해석 실패 턴이 곧 "env 가 바뀌었다" 로
+//      읽혀 **살아 있는 채널을 내리고 respawn** 했다. 0125 가 settings 축에서 "해석 실패는
+//      경계가 아니다" 로 못 박은 것과 같은 자리다.
+//
+// 호출부에 남는 것은 인자 두 개를 넘기는 한 줄뿐이고, 그 형상은 타입이 잡는다.
+export function prepareUnresolvedHarnessConfig(input: {
+  appEnv?: Record<string, string>
+  baseEnv: () => Record<string, string>
+}): PreparedHarnessConfig {
+  return prepareHarnessConfig({
+    config: { key: '', harnessId: '', modelProviderId: '', runtimeEnv: {} },
+    ...(input.appEnv ? { appEnv: input.appEnv } : {}),
+    baseEnv: input.baseEnv,
+    configResolved: false
+  })
 }
 
 // fingerprint 의 SSOT 는 `adapters/harness-config.ts` 하나다 — spawn 기록부

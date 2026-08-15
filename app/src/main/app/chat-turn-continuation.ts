@@ -17,7 +17,8 @@ import type { TurnExtensions } from '../adapters/turn'
 import type { ResolvedHarnessSettings } from '../adapters/harness-config'
 import {
   crossesProviderBoundary,
-  providerSettingsChangedSinceSpawn
+  providerSettingsChangedSinceSpawn,
+  runtimeEnvChangedSinceSpawn
 } from '../features/harnesses/runtime-boundary'
 import type { PreparedHarnessConfig } from '../features/harnesses/prepared-config'
 import { decideRespawn } from '../features/sessions/respawn-policy'
@@ -76,10 +77,12 @@ export async function prepareAutomaticContinuation(input: {
         input.runtime.spawnedProviderSettings,
         resolved.prepared.providerSettings
       ),
-      // spawn 기록이 없으면(콜드 스타트) 판정하지 않는다 — 보수적 no-op(0118 null 의미론).
-      runtimeEnvChanged:
-        input.runtime.spawnedRuntimeEnvFingerprint !== undefined &&
-        input.runtime.spawnedRuntimeEnvFingerprint !== resolved.prepared.runtimeEnvFingerprint,
+      // 어느 한쪽이 없으면(콜드 스타트 · 이번 턴 해석 실패) 판정하지 않는다 — 보수적 no-op
+      // (0118/0125 null 의미론). 규칙은 `runtimeEnvChangedSinceSpawn` 하나가 갖는다.
+      runtimeEnvChanged: runtimeEnvChangedSinceSpawn(
+        input.runtime.spawnedRuntimeEnvFingerprint,
+        resolved.prepared.runtimeEnvFingerprint
+      ),
       spawnedRuntimeToolsRevision: input.runtime.spawnedRuntimeToolsRevision,
       runtimeToolsRevision: extensions.runtimeTools?.revision
     })

@@ -30,7 +30,9 @@ export interface HarnessSettingsWriteResult {
 }
 
 function requireClaudeHarness(engine: string): asserts engine is typeof SUPPORTED_HARNESS {
-  if (engine !== SUPPORTED_HARNESS) throw new Error('claude engine 만 수정할 수 있습니다')
+  // 메시지 어휘는 Harness 다 (r10). 반환 객체의 `engine` **key** 는 wire 호환이라 그대로다 —
+  // 바꾸는 것은 사람이 읽는 문장뿐이고 채널·DTO·DB 는 손대지 않는다(D-005).
+  if (engine !== SUPPORTED_HARNESS) throw new Error('claude Harness 만 수정할 수 있습니다')
 }
 
 function normalizeProvider(provider: string): string {
@@ -67,7 +69,7 @@ function parseHarnessSettingsKey(key: string): {
 } {
   const parsed = parseProviderKey(key, [SUPPORTED_HARNESS])
   if (!parsed || parsed.adapter !== SUPPORTED_HARNESS || !parsed.provider) {
-    throw new Error('유효하지 않은 engine key 입니다')
+    throw new Error('유효하지 않은 Harness key 입니다')
   }
   return { engine: SUPPORTED_HARNESS, provider: normalizeProvider(parsed.provider) }
 }

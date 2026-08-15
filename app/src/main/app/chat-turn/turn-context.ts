@@ -63,10 +63,20 @@ interface BuildTurnContextInput<W> {
   owner: W
   control: SessionControl
   titleAdapter: RuntimeTitleAdapter
+  // ── 제목 생성이 받는 spawn 입력은 **두 채널 다** 다 (0188 D-019 · r10 정정) ─────────
+  //
+  // 0188 이 `ResolvedTurnProvider` 를 `{providerKey, prepared, …}` 로 바꾸면서 이 인터페이스에
+  // 남아 있던 `resolved.providerSettings?` 가 **어디서도 채워지지 않는 죽은 필드**가 됐다 —
+  // optional + 구조적 타이핑이라 typecheck 가 잡지 못했고, `titleSettings` 는 조용히 항상
+  // `undefined` 였다(0188 이전에는 채워졌다). 그래서 제목 생성이 `options.settings` 없이 돌았고,
+  // app env 도 settings env 도 없는 정적 배포에서는 **settings·env 둘 다** 없이 돌았다.
+  //
+  // 그 필드를 지우고 `titleEnv` 와 **같은 층위의 명시 입력**으로 올린다. 둘은 한 `prepared`
+  // 객체에서 나와야 하며(chat 과 같은 스냅샷), 한쪽만 넘기면 여기서 형상이 어긋난다.
+  titleSettings: ResolvedHarnessSettings | undefined
   titleEnv: Record<string, string> | undefined
   resolved: {
     providerKey: string | null
-    providerSettings?: ResolvedHarnessSettings | undefined
     titleModel?: string | undefined
   }
   payload: {
@@ -102,7 +112,7 @@ export function buildTurnContext<W>(input: BuildTurnContextInput<W>): TurnContex
     controller: input.controller,
     owner: input.owner,
     titleAdapter: input.titleAdapter,
-    ...(resolved.providerSettings ? { titleSettings: resolved.providerSettings } : {}),
+    ...(input.titleSettings ? { titleSettings: input.titleSettings } : {}),
     ...(input.titleEnv ? { titleEnv: input.titleEnv } : {}),
     ...(resolved.titleModel ? { titleModel: resolved.titleModel } : {}),
     providerKey: resolved.providerKey,
