@@ -104,7 +104,7 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 
 ## 4. 구현 보고와 structural proxy를 증거로 쓰지 않는다
 
-- `Criteria-Met: N/N`은 증거가 아니다.
+- `Criteria-Met: N/N`은 증거가 아니다. **구현자가 보고한 강제 지점 전수 `N/M`도 같다** — 구현자가 닫고 검증자가 **다시 센다**(§6). 보고를 대조의 출발점으로 쓰되 결론으로 쓰지 않는다.
 - 파일:라인은 “구현됨”이지 “검증됨”이 아니다.
 - 함수 호출 지점 1개, `Promise.all`, 특정 시그니처가 semantic 목표를 실제 보장하는지 적대 사례를 본다.
 - `N회`는 실제 관측 주체에서 횟수를 단언한다.

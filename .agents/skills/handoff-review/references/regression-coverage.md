@@ -361,3 +361,103 @@ reference MOVE/REPLACE 없음. inbound `N=0`, semantic target `M=0`. 호환 경�
 - 지침으로 해결할 수 없는 한계 2건:
   1. **순서 질의는 사용자의 답에 의존한다.** 사용자가 계속 "리뷰 먼저" 를 고르면 라운드는 계속 올라간다 — 정당한 사용자 결정이며 규칙이 막을 대상이 아니다. 지침이 보장하는 것은 *선택지가 보이게 하는 것* 까지다.
   2. **"불변식을 얼마나 높이 올릴 것인가" 는 판단이고 기계 검사가 없다.** 너무 낮으면 부분 수정이 남고, 너무 높으면 이번 지적과 무관한 리팩터링으로 번진다. 지침은 판정 기준 하나(문장이 지점 이름을 담고 있으면 덜 올라간 것)와 보고 의무(전수 개수 · 남긴 곳 명시)까지만 준다 — 그 뒤는 verify 가 다시 센다.
+
+---
+
+# Round 7 — 구현 턴에 주인을 준다 (`handoff-impl` 신설)
+
+Round 6 이 진단한 공백을 스킬로 채운다. 사용자 요청으로 수행했다.
+
+## 발견 — 사이클은 넷인데 스킬은 셋이었다
+
+`plan → impl → verify` 중 **구현 턴만 스킬이 없었고**, normative 지침이 `docs/handoff/AGENTS.md §2 구현` 의 불릿 5개로만 존재했다. Round 6 이 찾은 세 가지 요구(불변식 전수 적용 · Product/UX 파생 진단 · plan 되먹임)는 전부 구현 턴의 책임인데 그것을 담을 자리가 없어 AGENTS.md 절이 계속 두꺼워지고 있었다.
+
+- 분류: **A. Instruction gap** — owner 부재. Round 6 이 AGENTS.md 에 규칙을 넣은 것은 임시 조치였고, 이번에 정본을 제자리로 옮긴다.
+
+## 변경
+
+| 대상 | 변경 | 성격 |
+|---|---|---|
+| `.agents/skills/handoff-impl/SKILL.md` | **신규.** 0 기준선 · 1 plan 을 계약으로 · 2 강제 지점 전수 · 3 구현 중 진단 · 4 Product/UX 파생 검토 · 5 재구현 턴 불변식 · 6 되먹임 3분기 · 7 게이트 · 8 보고 + Review Signals | 신규 owner |
+| `handoff-plan/plan.template.md` | `[구현자 기입]` 확장 — 강제 지점 전수 표 · Product/UX 파생 검토 표 · 대응 3분기 · 설계 대비 차이 · 관측한 게이트 산출 · Review Signals. **기존 3섹션 전부 KEEP** | template 필수 필드 |
+| `docs/handoff/AGENTS.md` | 정본 표·책임 분리·디렉토리 트리를 **네 skill** 로. `§2 구현` 을 포인터 + 최소 계약으로 재구성 | MOVE + 요약 |
+| root `AGENTS.md` | "단계별 스킬 = 절차의 정본" 에 impl 추가, `docs/handoff/AGENTS.md` 의 역할 서술을 현재 사실로 정정 | 사실 정정 |
+| `handoff-review/SKILL.md` | 정본 관계·§5 책임 경계·실행 조건에 impl 추가. **impl↔verify 는 중복이 아니라 "닫고 다시 센다"** 를 명시 | 신규 owner 반영 |
+| `handoff-verify/SKILL.md §4` | 구현자의 강제 지점 `N/M` 보고도 **자기보고** — 대조의 출발점이지 결론이 아니다 | 기존 원칙 확장 |
+
+## Tier 판정
+
+**Tier 1** — 신규 owner 생성 + normative 지침 MOVE + template 필수 필드. 애매하지 않다.
+
+## 6-A Operational Instruction Delta — `docs/handoff/AGENTS.md §2` 전수
+
+| 기존 항목 | 판정 | 근거 |
+|---|---|---|
+| Part I=제품 계약 / Part II=기술 가이드 | **KEEP** | 최소 계약 불릿으로 문자 그대로 남음 |
+| ACTIVE Decision·AC 임의 변경 금지 | **KEEP** | 동일 |
+| 구현 세부·명백한 누락은 선조치 후보고 | **KEEP** | 동일. skill §6 이 3분기로 정밀화 |
+| 제품 의도·의존성·Decision·AC 는 보고만 | **KEEP** | 동일 |
+| `Criteria-Met` 은 자기보고 | **KEEP** | 동일. verify §4 가 `N/M` 까지 확장 |
+| `#### 외부 피드백을 반영하는 재구현 턴`(Round 6 신설) | **MOVE → skill §5** | 3단계 절차·"Decision 으로 적는 것은 적용을 보장하지 않는다"·0188 blockquote 가 **문장 단위로 승계**됨. AGENTS.md 에는 요지 1불릿 + skill 포인터를 남겨 skill 미가용 환경에서도 요구가 사라지지 않는다 |
+| `#### 구현 게이트의 정본` | **KEEP (이동 금지)** | 게이트 명령·ABI·`ci.yml` scope 는 Codex 가 네이티브로 읽어야 한다. skill §7 은 **참조만** 하고 명령을 복제하지 않는다 |
+
+**DELETE 0.** 설명 없이 사라진 gate·command·reference **0건**.
+
+## 6-A MOVE 의 inbound semantic integrity
+
+- old target `docs/handoff/AGENTS.md` 의 "구현 턴 지침" 을 기대한 inbound reference: **N=1** (root `AGENTS.md:59`).
+- 그 소비자가 기대한 distinct semantic target: **M=2** — ① 구현 턴 절차의 소재지 ② 게이트 정본의 소재지.
+- 새 상태에서 **M/M 유지**: ① root 문장이 `handoff-impl/` 을 직접 가리키도록 갱신했고 ② 게이트 정본은 `docs/handoff/AGENTS.md` 에 그대로 남아 root 문장이 "게이트 정본" 을 명시한다. **링크 resolve 만으로 PASS 하지 않고 두 의미의 착지점을 각각 확인했다.**
+- 신규 inbound: `docs/handoff/AGENTS.md` 정본 표·§2·디렉토리 트리 3곳, `plan.template.md` 머리말 1곳, `handoff-review/SKILL.md` 2곳 — 전부 실재 경로.
+
+## 6-B Historical Failure Regression
+
+corpus 의 현재 `## P<number>` 를 전수(상한 하드코딩 없이) 대조 — **P1~P38, 38개**.
+
+- **38 COVERED / 0 PARTIAL / 0 GAP / 0 OBSOLETE.** 이번 변경은 어떤 방어 문장도 삭제·약화하지 않는다(위 Delta 참조).
+- **P38 이 이 스킬의 직접 근거다.** Round 6 에서 P38 의 방어는 `docs/handoff/AGENTS.md` 한 곳이었는데, 이제 skill §2·§5 가 절차로 갖고 template 이 보고를 강제한다 — **방어 지점이 1 → 3.**
+- 강화 3건: **P15**(강제 지점 enforcement) — 열거(plan) → 전수 적용(impl) → 전수 확인(verify) 삼단이 완성됐다. **P26**(producer/consumer 파생 오류) — impl §4 가 *구현 시점*의 소비자 확인을 추가했다(기존엔 plan 설계 시점과 verify 검증 시점뿐). **P13**(lifecycle 미전개) — impl §3 이 다중 저장소 질문을 구현 시점에 다시 던진다.
+
+## 6-C Cross-document Consistency
+
+| 대조 | 결과 |
+|---|---|
+| root AGENTS ↔ `docs/handoff/AGENTS.md` | 네 skill 정본 서술 일치. root 가 "게이트 정본 + 최소 계약" 으로 정정됨 |
+| `docs/handoff/AGENTS.md` ↔ `handoff-impl/SKILL.md` | 최소 계약 8불릿이 skill 절 번호를 인용. 명령·정책 충돌 0 |
+| impl SKILL ↔ verify SKILL | **owner 중복 아님** — impl 이 닫고 verify 가 다시 센다. verify §4 가 impl 보고를 자기보고로 명시 |
+| impl SKILL ↔ plan SKILL | plan 이 §10 에 지점을 *열거*하고 impl 이 *전수 적용*한다. plan 의 다중 저장소 규칙(Round 6)과 impl §3 도 설계/구현 시점 분업 |
+| impl SKILL ↔ `plan.template.md` | 산출 surface 가 template 한 곳. **별도 impl template 을 만들지 않았다** — 문서 2개로 갈리면 검증자가 두 벌을 읽는다 |
+| impl SKILL §7 ↔ `app/AGENTS.md` ↔ `ci.yml` | 게이트 명령을 복제하지 않고 subtree AGENTS 를 정본으로 참조. PR/CI scope 분리 유지 |
+| review SKILL ↔ 완료 조건 | checklist-only normative rule 0 (본문 §5 에 impl 책임이 실재) |
+
+**Cross-document result: PASS.**
+
+## 회고 대조 — "이 스킬이 있었다면" (평가 루프 대체)
+
+0188 의 실제 라운드를 새 SKILL 절에 대입했다. 사용자 합의로 subagent 평가 루프 대신 수행한다.
+
+| 0188 파생 이슈 | 걸렸을 절 | 판정 |
+|---|---|---|
+| D9(r3) 만료가 `snapshot()` 에만 · D11(r4) `markExpired` 가 `void` | **§2** — plan §10 이 `commit·revoke·expiry·401/403` **4지점을 이미 열거**했다 | r3 에서 4/4 로 함께 닫혔을 것 |
+| D16(r5)·D24(r7)·D28(r8)·D33(r10) 테스트가 경로 미진입 | **§3 마지막 불릿** — "가드를 지우면 실패하는지 한 번 확인" | 각 라운드에서 자체 검출 |
+| D19(r6) vault 다단계 쓰기 · D22(r7) promote↔저장 창 | **§3 첫 불릿**(저장소 몇 곳) + **§6** (plan §13 에 분해 없음 → 되먹임) | 검출은 되나 **설계 수정이 필요** — Round 6 의 plan 다중 저장소 규칙과 짝이어야 완결 |
+| D18(r6) 커밋 경쟁 · D29(r9) sweep 회귀 | **§5-3** — "이번 수정이 만든 새 표면" | 둘 다 직전 라운드 수정이 만든 것이라 정확히 걸린다 |
+| D23(r7) superseded 가 UI 를 덮어씀 | **§4** — "늦게 도착한 응답이 화면을 되돌리지 않는가" | 검출 |
+| D39(verify r1) 해제 실패가 화면에 안 뜸 | **§4 첫 불릿** — 만든 문구에 소비자가 있는가 | 검출 |
+| D34(r10) durable commit 후 vault 예외 | §3(부분 실패 잔여) | 검출은 되나 원자성 축의 마지막 표면이라 §5-2 전수가 선행돼야 한다 |
+
+**닫히지 않는 잔여**: 원자성 축은 impl 만으로 완결되지 않는다 — 구현자가 `§6` 으로 올려도 **설계가 그 분해를 받아야** 닫힌다. 그래서 Round 6 의 plan 규칙과 Round 7 의 impl 규칙은 **짝으로만 작동한다**. 이 사실을 한계로 기록한다.
+
+## 게이트
+
+`cd app && node scripts/check-doc-inventory.mjs --check` — generated ok · prose ok · links ok(broken 0). `.agents` 는 prose 스캔 제외이므로 skill 문서의 semantic integrity 증거로 쓰지 않는다(Round 3 이후 동일 한계).
+
+## Round 7 결론
+
+- Regression tier: **Tier 1**.
+- Operational Instruction Delta: **regression 0** (KEEP 5 · MOVE 1 · KEEP-in-place 1 · DELETE 0).
+- MOVE inbound semantic integrity: **N=1 · M=2 · 2/2 유지**.
+- Historical Failure Regression: **38 COVERED / 0 PARTIAL / 0 GAP / 0 OBSOLETE**. P38 방어 지점 1 → 3.
+- Cross-document Consistency: **PASS**.
+- corpus 추가: **없음** — 이번은 새 실패가 아니라 P38 의 owner 를 만든 것이다.
+- 한계: ① 원자성 같은 설계 축은 impl 되먹임 + plan 수용이 **짝으로만** 닫힌다 ② skill 을 읽지 못하는 구현 주체에게는 `docs/handoff/AGENTS.md §2` 최소 계약까지만 전달된다 — 그래서 게이트 정본을 옮기지 않았다.

@@ -12,8 +12,9 @@ description: handoff-plan 및 handoff-verify의 지침 자체를 리뷰하고 �
 정본 관계:
 
 - `handoff-plan/SKILL.md` — 현재 설계 에이전트가 따라야 할 규칙.
+- `handoff-impl/SKILL.md` — 현재 구현 에이전트가 따라야 할 규칙.
 - `handoff-verify/SKILL.md` — 현재 검증 에이전트가 따라야 할 규칙.
-- `docs/handoff/AGENTS.md` — 협업·상태 머신·구현 턴 운영 규칙.
+- `docs/handoff/AGENTS.md` — 협업·상태 머신·게이트 정본과 skill 미가용 환경의 구현 턴 최소 계약.
 - [`references/failure-patterns.md`](references/failure-patterns.md) — historical regression corpus의 **진입점**. 실행 지침의 정본이 아니다.
 - 이 스킬 — 실패 증거를 일반화해 지침을 수정하고, 지침 변경 자체가 기존 운영 계약과 과거 실패 방어선을 깨지 않았는지 검증한다.
 
@@ -22,7 +23,7 @@ description: handoff-plan 및 handoff-verify의 지침 자체를 리뷰하고 �
 ## 실행 조건
 
 - 사용자가 handoff 스킬/지침 개선을 명시적으로 요청한다.
-- handoff `SKILL.md`, template, `docs/handoff/AGENTS.md`, root `AGENTS.md`의 handoff 규칙을 바꾸는 메타 수정이다.
+- handoff `SKILL.md`(plan·impl·verify·review 넷 중 하나), template, `docs/handoff/AGENTS.md`, root `AGENTS.md`의 handoff 규칙을 바꾸는 메타 수정이다. **skill을 새로 만들거나 정본을 다른 문서로 옮기는 것도 여기 해당한다.**
 - 하나의 handoff에서 같거나 유사한 실패가 반복된다.
 - 여러 handoff에서 동일 설계/검증 실수가 재발한다.
 - 긴 대화의 확정 결정이 plan에서 소실·변형되는 decision drift가 관찰된다.
@@ -78,9 +79,13 @@ B 유형은 같은 문장을 더 추가하지 않는다. 체크가 아니라 evi
 
 `handoff-plan`에는 현재 요구 비판, Decision Ledger, Product/UX Contract, 코드 조사·Technical Design(AS-IS/TO-BE), 검증 가능한 AC, READY 정합성 검사를 남긴다.
 
+`handoff-impl`에는 plan을 계약으로 수행하기, 강제 지점 전수 적용, 구현 중에만 보이는 결함과 Product/UX 파생 문제 진단, 지적을 불변식으로 올려 전수 적용하기, plan 되먹임 3분기 판정을 남긴다.
+
 `handoff-verify`에는 현재 구현 비판, 역방향 탐색, Product/UX ↔ end-to-end 검증, 구현자가 AC를 바꿔 자기 증명했는지 확인, 기계 검증/사람 실기 경계를 남긴다.
 
-`handoff-review`가 실패 원인 분류, 반복 실수 일반화, SKILL/template/AGENTS 자체 수정, failure corpus 유지 정책과 **지침 변경 회귀 검증**을 맡는다. plan/verify가 매 작업마다 failure corpus를 갱신하거나 자기 SKILL을 수정하지 않는다.
+`handoff-review`가 실패 원인 분류, 반복 실수 일반화, SKILL/template/AGENTS 자체 수정, failure corpus 유지 정책과 **지침 변경 회귀 검증**을 맡는다. plan/impl/verify가 매 작업마다 failure corpus를 갱신하거나 자기 SKILL을 수정하지 않는다.
+
+impl과 verify가 같은 축(강제 지점 전수·부분 실패·production 경로)을 본다는 사실은 중복이 아니다 — **구현자가 닫고 검증자가 다시 센다.** 한쪽이 다른 쪽을 면제하면 그 축은 아무도 보지 않게 된다.
 
 # 6. 지침 변경 회귀 검증 — 변경 의미에 비례한다
 
