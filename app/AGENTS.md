@@ -122,6 +122,7 @@ Tailwind 시맨틱 토큰 · 그룹 스코프 격리(`group/<이름>`) · 단일
 | `npm test` | `pretest` | **Node** |
 
 - **`npm run lint`·`npm run typecheck`·`npm run format` 은 pre/post 훅이 없고 네이티브 바이너리를 로드하지도 않는다 → 완전 ABI-중립.** 아무리 자주 돌려도 ABI 를 뒤집지 않고 rebuild 도 유발하지 않는다. **코드 수정 루프의 기본 게이트는 이 둘(lint + typecheck)로 삼는다.**
+  - 다만 **`lint` 는 `--fix` 라 파일을 쓴다**(`format` 도 마찬가지). ABI 는 안 건드리지만 **작업 트리는 바꾼다** — autofix 는 물론 줄바꿈 정규화까지 포함이다. 남의 변경을 검증하는 턴이라면 실행 후 트리 변화를 확인하고 자기 실행분을 커밋에 섞지 않는다. `typecheck` 만 완전 읽기 전용이다.
 - **ABI 마찰의 실체**: `npm test` 가 ABI 를 **Node** 로 뒤집는다. 그 직후 `npm run dev`/`build` 를 하면 다시 **Electron** 재빌드가 필요한데, egress 차단 환경에선 이 재빌드가 403 으로 막혀 **빌드가 실패**한다. 즉 lint/typecheck/format 이 아니라 **`npm test` → build 순서**가 원인이다.
 - **DB 를 실제로 실행하지 않는 로직 테스트는 ABI 를 안 뒤집고** 돌린다: `pretest` 를 우회해 `./node_modules/.bin/vitest run <suite>`(비-DB 스위트는 네이티브 미로드) 또는 `node --test scripts/*.test.mjs` 를 직접 호출한다. `npm test` 는 **DB 동작을 실제로 봐야 할 때만** 의도적으로 쓴다.
 - **`npm install` 후 `npm run dev` 가 Node-ABI 에 고착되던 버그(수정됨)**: npm 의 prebuild-install 이 바이너리를 Node-ABI 로 되돌려도 orca 마커는 `{target:electron}` 이라, 예전 fast-path 가 마커만 보고(binary-blind) 재빌드를 건너뛰었다. 이제 `ensure-sqlite-abi.mjs` 의 electron 판정이 **실제 로드 프로브**(plain Node 에서 로드되면 Node-ABI → 재빌드)를 겸해, 네트워크만 열려 있으면 `dev`/`build` 가 자동으로 Electron 재빌드로 자가 치유한다. (핸드오프 0104.)
