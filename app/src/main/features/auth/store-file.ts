@@ -3,91 +3,25 @@
 // **여기에는 비밀이 없다.** 값은 vault(safeStorage 암호문)에만 있고 이 파일에 남는 것은 vault
 // 키·방식·만료 같은 메타뿐이다 — 이미 renderer 로 나가는 DTO 와 같은 급의 정보다.
 //
-// 형상 검사(`parseGrantRecords`)는 순수 함수라 단위 테스트 대상이고, electron-store 를 무는
-// 팩토리만 테스트에서 제외된다. `Grant` 가 contracts 타입이라 이 어댑터는 infra 가 아니라
+// 형상 검사와 권위 판정은 `store-parse.ts` 가 갖는다(r10 분리) — 이 파일은 electron-store 를
+// 물기 때문에 단위 테스트가 import 할 수 없고, 그래서 순수 규칙이 여기 있으면 테스트가 그것을
+// 재구현하거나 결과를 주입하게 된다. `Grant` 가 contracts 타입이라 이 어댑터는 infra 가 아니라
 // feature 에 산다(infra → contracts 는 DAG 역방향).
 
 import Store from 'electron-store'
-import { isRecord } from '../../../shared/obj'
-import type { ProviderAuthKind } from '../../../shared/ipc'
 import type { Grant } from '../../contracts/auth'
 import type { GrantPersistencePort, PersistenceLoad } from './store'
 import type { OAuthStatePersistencePort, PendingAuthorization } from './oauth'
+import {
+  isAuthoritative,
+  parseGrantRecords,
+  parsePendingRecords,
+  type ParsedRecordMap
+} from './store-parse'
 
 // 한 번 정하면 유지한다 — 사용자 디스크에 남고 다음 버전이 읽는다.
 const STORE_NAME = 'orca-provider-grants'
 const RECORDS_KEY = 'grants'
-
-const AUTH_KINDS: readonly ProviderAuthKind[] = [
-  'api-key',
-  'password',
-  'pat',
-  'oauth',
-  'browser-session'
-]
-
-function isAuthKind(value: unknown): value is ProviderAuthKind {
-  return typeof value === 'string' && (AUTH_KINDS as readonly string[]).includes(value)
-}
-
-function parseGrant(raw: unknown): Grant | null {
-  if (!isRecord(raw)) return null
-  const record = raw
-  if (!isAuthKind(record.authKind)) return null
-  if (typeof record.createdAt !== 'number') return null
-  const base = {
-    authKind: record.authKind,
-    createdAt: record.createdAt,
-    ...(typeof record.principalId === 'string' ? { principalId: record.principalId } : {})
-  }
-  switch (record.kind) {
-    case 'secret':
-      if (typeof record.vaultKey !== 'string') return null
-      return { kind: 'secret', vaultKey: record.vaultKey, ...base }
-    case 'token':
-      if (typeof record.vaultKey !== 'string') return null
-      return {
-        kind: 'token',
-        vaultKey: record.vaultKey,
-        ...(typeof record.expiresAt === 'number' ? { expiresAt: record.expiresAt } : {}),
-        ...(typeof record.refreshKey === 'string' ? { refreshKey: record.refreshKey } : {}),
-        ...base
-      }
-    case 'session':
-      if (typeof record.sessionGroup !== 'string') return null
-      return { kind: 'session', sessionGroup: record.sessionGroup, ...base }
-    default:
-      return null
-  }
-}
-
-// 형상이 깨진 레코드는 **그 하나만** 버린다. 파일 전체를 버리면 provider 하나의 손상이 나머지
-// 로그인까지 날린다.
-//
-// **버린 개수를 함께 돌려준다** (r9). 버린 레코드의 `vaultKey` 는 읽을 수 없으므로, 하나라도
-// 버렸으면 "영속된 grant 전체를 안다" 가 거짓이다 — 그 상태로 vault sweep 을 돌리면 멀쩡한
-// secret 을 고아로 오인해 지운다.
-function parseRecordMap<T>(
-  raw: unknown,
-  parseOne: (value: unknown) => T | null
-): { records: Record<string, T>; dropped: number } {
-  if (!isRecord(raw)) return { records: {}, dropped: 0 }
-  const records: Record<string, T> = {}
-  let dropped = 0
-  for (const [key, value] of Object.entries(raw)) {
-    const parsed = parseOne(value)
-    if (parsed) records[key] = parsed
-    else dropped += 1
-  }
-  return { records, dropped }
-}
-
-export function parseGrantRecords(raw: unknown): {
-  records: Record<string, Grant>
-  dropped: number
-} {
-  return parseRecordMap(raw, parseGrant)
-}
 
 // ── OAuth 인가 pending (0181 AC4) ─────────────────────────────────────────────
 //
@@ -97,29 +31,6 @@ export function parseGrantRecords(raw: unknown): {
 // 분 단위, grant 는 재로그인까지).
 const OAUTH_STORE_NAME = 'orca-provider-oauth'
 const PENDING_KEY = 'pending'
-
-function parsePending(raw: unknown): PendingAuthorization | null {
-  if (!isRecord(raw)) return null
-  const record = raw
-  if (typeof record.authId !== 'string') return null
-  if (typeof record.state !== 'string') return null
-  if (typeof record.verifier !== 'string') return null
-  if (typeof record.createdAt !== 'number') return null
-  return {
-    authId: record.authId,
-    state: record.state,
-    verifier: record.verifier,
-    createdAt: record.createdAt,
-    ...(typeof record.redirectUri === 'string' ? { redirectUri: record.redirectUri } : {})
-  }
-}
-
-export function parsePendingRecords(raw: unknown): {
-  records: Record<string, PendingAuthorization>
-  dropped: number
-} {
-  return parseRecordMap(raw, parsePending)
-}
 
 // ── 파일 어댑터 ───────────────────────────────────────────────────────────────
 //
@@ -134,7 +45,7 @@ export function parsePendingRecords(raw: unknown): {
 function createRecordPersistence<T>(options: {
   name: string
   key: string
-  parse: (raw: unknown) => { records: Record<string, T>; dropped: number }
+  parse: (raw: unknown) => ParsedRecordMap<T>
   // 파일을 못 열면 메모리로 내려앉는다 — 이 프로세스 안에서는 동작하고, 재시작을 못 넘긴다.
   onUnavailable: (error: unknown) => void
 }): { load(): PersistenceLoad<T>; save(records: Record<string, T>): boolean } {
@@ -168,9 +79,10 @@ function createRecordPersistence<T>(options: {
       // 파일을 못 열었다 — 이 프로세스가 아는 것은 메모리 사본뿐이다.
       if (!opened) return { records: { ...memory }, authoritative: false }
       try {
-        const { records, dropped } = options.parse(opened.get(options.key))
-        // 레코드 하나라도 버렸으면 그 vaultKey 를 모른다 → 전체를 안다고 말할 수 없다.
-        return { records, authoritative: dropped === 0 }
+        const parsed = options.parse(opened.get(options.key))
+        // 레코드 하나라도 버렸거나 top-level 이 맵이 아니면 무엇이 있었는지 모른다 → 전체를
+        // 안다고 말할 수 없다(r10 — 규칙은 `isAuthoritative` 하나가 갖는다).
+        return { records: parsed.records, authoritative: isAuthoritative(parsed) }
       } catch (error) {
         // 파일 자체가 JSON 이 아니면 electron-store 가 던진다. 그래도 앱은 떠야 한다.
         options.onUnavailable(error)

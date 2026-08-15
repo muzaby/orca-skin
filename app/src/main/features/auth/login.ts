@@ -132,6 +132,16 @@ export class LoginService {
   // 재인증이 커밋되지 못한다 — 그 강등이야말로 재인증을 하는 이유다. 세대는 "이 로그인이
   // 아직 사용자가 원하는 그 로그인인가" 만 묻는다.
   private readonly attempts = new Map<string, number>()
+  // ── cookie cleanup fence (r10) ──────────────────────────────────────────────
+  //
+  // attempt 세대(위)는 **커밋** 축만 막는다. 쿠키 삭제는 그 축 밖에 있다 — 해제가 시작한
+  // `BrowserSessionPort.clear` 는 비동기이고, 그것이 도는 사이 끝난 재로그인의 **새 쿠키를**
+  // 지운다(같은 `sessionGroup`·같은 origin 이므로 scope 를 좁혀도 걸린다). 세대로 "늦은 결과를
+  // 무시" 할 수 없는 종류다 — 무시할 결과가 아니라 이미 실행 중인 부작용이기 때문이다.
+  //
+  // key 가 `authId` 가 아니라 `sessionGroup` 인 이유: jar 를 공유하는 것이 그 단위다. 다른
+  // Auth 가 같은 그룹으로 로그인해도 같은 삭제에 걸린다.
+  private readonly sessionCleanups = new Map<string, Promise<void>>()
   private readonly clock: () => number
 
   constructor(private readonly deps: LoginDeps) {
@@ -232,24 +242,35 @@ export class LoginService {
 
   // session grant 를 해제하면 cookie jar 도 비운다 — grant 만 지우면 서버 쪽 로그인은 살아 있다.
   // best-effort 다: 실패해도 해제 자체는 이미 내구적으로 성립했으므로 되돌리지 않는다.
+  //
+  // **삭제를 기다리지는 않되 추적은 한다** (r10). 해제 IPC 를 네트워크 왕복만큼 붙들 이유는
+  // 없지만, 그 사이 시작된 재로그인이 삭제와 겹치면 새 쿠키가 지워진다. 그래서 promise 를
+  // sessionGroup 별로 남겨 두고 `runSession` 이 창을 열기 전에 그것을 소진한다.
   private clearSessionCookies(authId: AuthId, grant: Grant): void {
     if (grant.kind !== 'session') return
     const sessions = this.deps.sessions
     if (!sessions) return
     const definition = this.deps.registry.get(authId)
     if (!definition) return
+    const onFailed = (error: unknown): void =>
+      this.deps.logger?.('auth.revoke.cookie-clear-failed', {
+        authId,
+        reason: errorMessage(error)
+      })
     try {
       const handleId = sessions.acquire(grant.sessionGroup)
-      void sessions
+      const cleanup = sessions
         .clear(handleId, { scope: 'origin', origin: definition.origin })
-        .catch((error: unknown) =>
-          this.deps.logger?.('auth.revoke.cookie-clear-failed', {
-            authId,
-            reason: errorMessage(error)
-          })
-        )
+        .catch(onFailed)
+        .finally(() => {
+          // 자기 자신일 때만 지운다 — 뒤이어 등록된 삭제를 덮어쓰지 않는다.
+          if (this.sessionCleanups.get(grant.sessionGroup) === cleanup) {
+            this.sessionCleanups.delete(grant.sessionGroup)
+          }
+        })
+      this.sessionCleanups.set(grant.sessionGroup, cleanup)
     } catch (error) {
-      this.deps.logger?.('auth.revoke.cookie-clear-failed', { authId, reason: errorMessage(error) })
+      onFailed(error)
     }
   }
 
@@ -611,7 +632,21 @@ export class LoginService {
     if (!authenticator) {
       return this.fail(definition.id, 'unsupported', '브라우저 세션 실행기가 배선되지 않았습니다')
     }
+    // **해제가 시작한 쿠키 삭제가 끝난 뒤에 창을 연다** (r10). 아래 `clearSessionCookies` 는
+    // fire-and-forget 이고 `BrowserSessionPort.clear` 는 실제로 비동기다 — 해제 직후 곧바로
+    // 재인증하면 그 삭제가 **새로 받은 쿠키를 뒤늦게 지운다**(같은 origin·같은 jar). 세대 비교로
+    // "늦은 것을 무시" 하는 방식은 여기서 통하지 않는다: 이미 시작된 삭제 자체를 되돌릴 수 없다.
+    // 그래서 무시가 아니라 **순서를 보장**한다.
+    await this.settleSessionCleanup(spec.config.sessionGroup)
     return this.absorb(definition, attempt, spec.kind, await authenticator.login(definition, spec))
+  }
+
+  // 진행 중인 쿠키 삭제를 기다린다. 실패한 삭제도 "끝났다" 로 친다 — 정리 실패가 재인증을
+  // 막으면 사용자가 빠져나갈 길이 없다.
+  private async settleSessionCleanup(sessionGroup: string): Promise<void> {
+    const pending = this.sessionCleanups.get(sessionGroup)
+    if (!pending) return
+    await pending
   }
 
   // 실행기 결과 → grant. vault 쓰기가 여기 한 곳에 모인다.

@@ -24,3 +24,21 @@ export function providerSettingsChangedSinceSpawn(
   if (spawned.settings === resolved.settings) return false
   return JSON.stringify(spawned.settings) !== JSON.stringify(resolved.settings)
 }
+
+// 0188 r10: env 축의 같은 판정 — spawn 당시 최종 `options.env` 와 이번 턴의 그것이 다른가.
+//
+// **양쪽 다 0125 의 보수적 null 의미론을 따른다.** 어느 한쪽이 `undefined` 면 판정하지 않는다:
+//   · spawn 기록 없음 = 콜드 스타트, 비교 대상이 없다.
+//   · 이번 턴 `undefined` = **해석 실패**(entry 를 못 골랐다). "env 가 비었다" 가 아니다 —
+//     그것을 변화로 읽으면 sources 디렉터리가 잠깐 안 보이는 턴마다 살아 있는 채널이 내려간다.
+//     `providerSettingsChangedSinceSpawn` 이 settings 축에서 막은 것과 같은 회귀다.
+//
+// **두 호출부(`runtime-entry.ts`·`chat-turn-continuation.ts`)가 같은 함수를 쓴다** — 판정이
+// 리터럴로 흩어져 있으면 한쪽만 고쳐지는 회귀가 난다(0149·0166 D7 과 같은 종류).
+export function runtimeEnvChangedSinceSpawn(
+  spawned: string | undefined,
+  resolved: string | undefined
+): boolean {
+  if (spawned == null || resolved == null) return false
+  return spawned !== resolved
+}

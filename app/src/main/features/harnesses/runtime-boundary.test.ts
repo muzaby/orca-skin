@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { crossesProviderBoundary, providerSettingsChangedSinceSpawn } from './runtime-boundary'
+import {
+  crossesProviderBoundary,
+  providerSettingsChangedSinceSpawn,
+  runtimeEnvChangedSinceSpawn
+} from './runtime-boundary'
 import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
 
 // 0118 — chat:send 시점의 provider 경계 판정. true 일 때만 chat-turn 이 살아있는 채널을
@@ -55,5 +59,25 @@ describe('providerSettingsChangedSinceSpawn(0125)', () => {
     expect(providerSettingsChangedSinceSpawn(undefined, some)).toBe(false)
     expect(providerSettingsChangedSinceSpawn(some, undefined)).toBe(false)
     expect(providerSettingsChangedSinceSpawn(undefined, undefined)).toBe(false)
+  })
+})
+
+// 0188 r10 — env 축의 같은 판정. settings 축(위)과 **겹치지 않는 축**이며 null 의미론만 공유한다.
+describe('runtimeEnvChangedSinceSpawn(0188 r10)', () => {
+  it('spawn 당시와 최종 env 가 다르면 변경이다 — 토큰·URL·모델 변수 회전', () => {
+    expect(runtimeEnvChangedSinceSpawn('fp-old', 'fp-new')).toBe(true)
+  })
+
+  it('같으면 변경 아님 — 정상 steady state 의 persistent runtime 재사용', () => {
+    expect(runtimeEnvChangedSinceSpawn('fp', 'fp')).toBe(false)
+  })
+
+  // 여기가 r10 회귀의 본체다. `undefined` 는 "env 가 비었다" 가 아니라 **판정 불가**다 —
+  // 이번 턴이 Harness+ModelProvider entry 를 못 골랐다는 뜻이고, 그것을 변화로 읽으면
+  // sources 디렉터리가 잠깐 안 보이는 턴마다 살아 있는 채널이 내려간다.
+  it('spawn 기록/이번 턴 어느 한쪽 부재는 보수적 no-op — 해석 실패는 경계가 아니다', () => {
+    expect(runtimeEnvChangedSinceSpawn(undefined, 'fp')).toBe(false)
+    expect(runtimeEnvChangedSinceSpawn('fp', undefined)).toBe(false)
+    expect(runtimeEnvChangedSinceSpawn(undefined, undefined)).toBe(false)
   })
 })

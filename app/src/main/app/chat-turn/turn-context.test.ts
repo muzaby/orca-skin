@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { buildTurnContext, makeContinuationTurn, resolveTurnCwd } from './turn-context'
 import type { SessionControl } from '../../features/sessions/session-chain-lease'
 import type { RuntimeTitleAdapter } from '../../contracts/ports'
+import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
 
 const control: SessionControl = {
   taskIds: new Map(),
@@ -17,12 +18,22 @@ const control: SessionControl = {
 
 const titleAdapter = { id: 'claude', complete: async () => '' } as unknown as RuntimeTitleAdapter
 
+// 이 턴의 spawn 입력 한 벌. `send.ts` 는 `prepared.providerSettings` 와 `prepared.env` 를
+// **함께** 넘긴다 — 여기서도 둘을 갈라 두지 않는다.
+const preparedSettings: ResolvedHarnessSettings = {
+  providerKey: 'claude-anthropic',
+  provider: 'anthropic',
+  settings: { model: 'sonnet' },
+  sourceRevision: '/sources/settings/claude/anthropic/settings.json@7'
+}
+
 function base(): Parameters<typeof buildTurnContext<string>>[0] {
   return {
     controller: new AbortController(),
     owner: 'window-1',
     control,
     titleAdapter,
+    titleSettings: preparedSettings,
     titleEnv: { FOO: 'bar' },
     resolved: { providerKey: 'claude-anthropic', titleModel: 'haiku' },
     payload: { sessionId: null, cwd: null, attachmentViews: [] },
@@ -48,6 +59,33 @@ describe('buildTurnContext', () => {
     expect(turn.queueKey).toBe('q-1')
     expect(turn.pendingUserText).toBe('안녕')
     expect(turn.firstUserText).toBe('안녕')
+  })
+
+  // ── r10 회귀 ─────────────────────────────────────────────────────────────
+  //
+  // 0188 이 `ResolvedTurnProvider` 에서 `providerSettings` 를 떼어내면서, 이 조립부에 남아 있던
+  // `resolved.providerSettings?` 가 아무도 채우지 않는 죽은 optional 이 됐다 — 구조적 타이핑이라
+  // typecheck 가 잡지 못했고 `titleSettings` 는 **항상 undefined** 였다. 제목 생성이
+  // `options.settings` 없이 돌았다는 뜻이고, app env·settings env 가 없는 정적 배포에서는
+  // env 까지 없이 돌았다. 두 채널이 **함께** 실리는지 단언한다(D-019).
+  it('제목 생성은 이 턴의 settings 와 env 를 함께 받는다', () => {
+    const turn = buildTurnContext<string>(base())
+
+    expect(turn.titleSettings).toBe(preparedSettings)
+    expect(turn.titleEnv).toEqual({ FOO: 'bar' })
+    expect(turn.titleModel).toBe('haiku')
+  })
+
+  // 해석이 없는 턴에서 한쪽만 남으면 다시 비대칭이다 — 둘 다 비어야 한다.
+  it('spawn 입력이 없는 턴은 두 채널 모두 비운다', () => {
+    const turn = buildTurnContext<string>({
+      ...base(),
+      titleSettings: undefined,
+      titleEnv: undefined
+    })
+
+    expect(turn.titleSettings).toBeUndefined()
+    expect(turn.titleEnv).toBeUndefined()
   })
 
   it('fork 는 lineage·마커 제목·자동제목 억제·출발 세션 cwd 계승을 함께 채운다', () => {

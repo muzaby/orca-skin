@@ -1,0 +1,98 @@
+import { describe, expect, it } from 'vitest'
+import {
+  isAuthoritative,
+  parseGrantRecords,
+  parsePendingRecords,
+  type ParsedRecordMap
+} from './store-parse'
+
+// 이 파일이 존재하는 이유 (r10):
+//
+// r9 는 `authoritative` 를 다루는 단언을 전부 `runtime.test.ts` 에서
+// `load: () => ({ records, authoritative: true })` 로 **주입**했다. 그래서 판정을 만드는 파서는
+// 한 번도 실행되지 않았고, top-level 형상 오류(`grants: []` 등)가 "정상적인 빈 저장소" 로
+// 통과하는 것을 아무도 잡지 못했다 — D-055/D-059 가 말한 "테스트가 production 경로에 진입하지
+// 않는다" 의 네 번째 재발이다. 여기서는 production export 를 직접 부른다.
+
+const validSecretGrant = {
+  kind: 'secret',
+  vaultKey: 'provider:corp:pat@1',
+  authKind: 'pat',
+  createdAt: 1
+}
+
+describe('parseGrantRecords — top-level 형상', () => {
+  // 신규 설치: 키가 아직 쓰인 적이 없다. **이것만이** 정상적인 빈 저장소다.
+  it('키 부재(undefined)는 권위 있는 빈 저장소다', () => {
+    const parsed = parseGrantRecords(undefined)
+    expect(parsed.records).toEqual({})
+    expect(parsed.wellFormed).toBe(true)
+    expect(isAuthoritative(parsed)).toBe(true)
+  })
+
+  it('빈 객체는 권위 있는 빈 저장소다', () => {
+    const parsed = parseGrantRecords({})
+    expect(parsed.records).toEqual({})
+    expect(isAuthoritative(parsed)).toBe(true)
+  })
+
+  // 여기가 회귀의 본체다. 이 네 값이 `undefined` 와 같은 결론을 내면 부팅 sweep 이 멀쩡한
+  // vault 를 통째로 비운다.
+  it.each([
+    ['배열', [] as unknown],
+    ['null', null as unknown],
+    ['문자열', 'grants' as unknown],
+    ['숫자', 3 as unknown]
+  ])('맵이 아닌 top-level(%s)은 권위가 없다', (_label, raw) => {
+    const parsed = parseGrantRecords(raw)
+    expect(parsed.wellFormed).toBe(false)
+    expect(isAuthoritative(parsed)).toBe(false)
+    // 읽어낸 것이 없다는 사실 자체는 같다 — 다른 것은 "그것을 사실로 믿어도 되는가" 뿐이다.
+    expect(parsed.records).toEqual({})
+  })
+})
+
+describe('parseGrantRecords — 레코드 단위', () => {
+  it('정상 레코드는 그대로 살아남는다', () => {
+    const parsed = parseGrantRecords({ corp: validSecretGrant })
+    expect(parsed.records.corp).toMatchObject({ kind: 'secret', vaultKey: 'provider:corp:pat@1' })
+    expect(parsed.dropped).toBe(0)
+    expect(isAuthoritative(parsed)).toBe(true)
+  })
+
+  // 부분 파싱: 살아남은 것은 쓰되, 버린 레코드의 vaultKey 를 모르므로 권위는 잃는다(r9).
+  it('레코드 하나를 버리면 나머지는 살리되 권위를 잃는다', () => {
+    const parsed = parseGrantRecords({ corp: validSecretGrant, broken: { kind: 'secret' } })
+    expect(Object.keys(parsed.records)).toEqual(['corp'])
+    expect(parsed.dropped).toBe(1)
+    expect(parsed.wellFormed).toBe(true)
+    expect(isAuthoritative(parsed)).toBe(false)
+  })
+})
+
+describe('parsePendingRecords', () => {
+  // grant 와 **같은 함수**를 쓴다 — 한쪽만 고쳐지는 것을 막는 것이 공유의 목적이다.
+  it('맵이 아닌 top-level 은 권위가 없다', () => {
+    expect(isAuthoritative(parsePendingRecords([]))).toBe(false)
+    expect(isAuthoritative(parsePendingRecords(undefined))).toBe(true)
+  })
+
+  it('정상 pending 을 해석한다', () => {
+    const parsed = parsePendingRecords({
+      corp: { authId: 'corp', state: 's', verifier: 'v', createdAt: 1 }
+    })
+    expect(parsed.records.corp).toMatchObject({ authId: 'corp', state: 's' })
+    expect(isAuthoritative(parsed)).toBe(true)
+  })
+})
+
+describe('isAuthoritative', () => {
+  // 두 축이 **각각** 권위를 무너뜨린다. 하나만 보면 다른 하나가 뚫린다(r9 는 dropped 만 봤다).
+  it.each([
+    ['둘 다 정상', { records: {}, dropped: 0, wellFormed: true }, true],
+    ['레코드를 버렸다', { records: {}, dropped: 1, wellFormed: true }, false],
+    ['top-level 이 깨졌다', { records: {}, dropped: 0, wellFormed: false }, false]
+  ])('%s → %s', (_label, parsed, expected) => {
+    expect(isAuthoritative(parsed as ParsedRecordMap<unknown>)).toBe(expected)
+  })
+})

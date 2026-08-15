@@ -10,6 +10,8 @@ import { createVault } from '../../infra/vault'
 import type { SecretStorePort } from '../../infra/config/secret-store-port'
 import { createMemoryGrantPersistence, type GrantPersistencePort } from './store'
 import { createAuthRuntime } from './runtime'
+import { SessionRunner } from './browser-session/runner'
+import type { BrowserSessionPort } from './specs/browser-session'
 import { patSpec, FIELD_SECRET } from './specs/credential'
 
 const BEARER = { location: 'header', name: 'Authorization', scheme: 'bearer' } as const
@@ -1192,6 +1194,61 @@ describe('영속 장애에서의 보존과 해제 (r9)', () => {
     expect(cleared).toEqual([{ scope: 'origin', origin: 'https://portal.example.corp' }])
   })
 
+  // ── r10: 쿠키 삭제와 다음 로그인의 순서 ─────────────────────────────────────
+  //
+  // 해제는 `BrowserSessionPort.clear` 를 fire-and-forget 으로 띄운다(해제 IPC 를 네트워크 왕복만큼
+  // 붙들지 않기 위해). 그 삭제가 도는 사이 사용자가 곧바로 재인증하면, **방금 받은 쿠키를**
+  // 뒤늦은 삭제가 지운다 — 같은 `sessionGroup`·같은 origin 이라 scope 를 좁혀도 걸린다.
+  // attempt 세대(D-050)는 커밋 축만 막으므로 이 축에는 닿지 않는다.
+  it('해제가 시작한 쿠키 삭제가 끝난 뒤에 재로그인 창이 열린다', async () => {
+    const order: string[] = []
+    let releaseClear: (() => void) | undefined
+    // **실제 `SessionRunner` 를 태운다** — 로컬 스텁 authenticator 를 넣으면 이 테스트가 잠그는
+    // 사실이 "내 스텁이 순서를 지킨다" 로 좁아진다(D-055·D-059).
+    const sessions: BrowserSessionPort = {
+      register: () => undefined,
+      acquire: () => 'handle',
+      openLoginWindow: async () => {
+        order.push('login-window')
+        return { finalUrl: 'https://portal.example.corp/' }
+      },
+      send: async () => ({ status: 200, headers: {}, body: '' }),
+      clear: () =>
+        new Promise<void>((resolve) => {
+          order.push('clear-start')
+          releaseClear = () => {
+            order.push('clear-end')
+            resolve()
+          }
+        })
+    }
+    const created = createAuthRuntime({
+      definitions: [SESSION_AUTH],
+      persistence: createMemoryGrantPersistence({
+        portal: { kind: 'session', sessionGroup: 'corp', authKind: 'browser-session', createdAt: 0 }
+      }),
+      vault: createVault(fakeSecretStore()),
+      fetchImpl: (async () => new Response('', { status: 200 })) as unknown as typeof fetch,
+      clock: () => 1_000,
+      sessions,
+      session: new SessionRunner({ sessions })
+    })
+
+    created.runtime.revoke('portal')
+    expect(order).toEqual(['clear-start'])
+
+    // 삭제가 끝나기 전에 재인증을 시작한다.
+    const login = created.runtime.login('portal', 'browser-session').catch(() => undefined)
+    // 대기열을 충분히 흘려도 창은 아직 열리지 않아야 한다.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(order).toEqual(['clear-start'])
+
+    releaseClear?.()
+    await login
+    // 경로 진입 단언 — 창이 실제로 열렸고, 삭제 **뒤**였다.
+    expect(order).toEqual(['clear-start', 'clear-end', 'login-window'])
+  })
+
   it('degraded 재인증 뒤 해제해도 재시작이 옛 자격증명을 되살리지 않는다', async () => {
     // degrade-open(교체)과 fail-closed(해제)가 한 줄기에서 만나는 자리다.
     const raw = new Map<string, string>()
@@ -1246,6 +1303,59 @@ describe('영속 장애에서의 보존과 해제 (r9)', () => {
     })
     expect(rebooted.runtime.bind('wiki').snapshot().status).toBe('none')
     expect(rebooted.secretReader.read('wiki')).toBeNull()
+  })
+
+  // ── r10: 내구 저장 이후는 되돌아가지 않는다 ────────────────────────────────
+  //
+  // r9 는 `persist` 성공 뒤 `vault.delete()` 를 가드 없이 불렀다. 그것이 던지면 디스크는 이미
+  // 해제됐는데 이 프로세스의 grant 는 살아 있다 — 화면과 Plugin 도구는 연결된 채로 남고,
+  // 사용자는 "해제 실패" 를 본 뒤 재시작하면 해제돼 있다. `save():false` 를 성공으로 오인하던
+  // r8 문제와 **방향만 반대인** 같은 split-brain 이다.
+  it('vault 정리가 실패해도 내구 저장된 해제는 확정된다', () => {
+    const raw = new Map<string, string>()
+    const backing = {
+      get: (k: string) => raw.get(k),
+      set: (k: string, v: string) => void raw.set(k, v),
+      // 키체인이 잠기거나 index 쓰기가 거부되는 상황.
+      delete: () => {
+        throw new Error('keychain locked')
+      }
+    }
+    const vault = createVault(backing)
+    vault.set('wiki:pat', 'live', { kind: 'pat', createdAt: 0 })
+    const persisted: Record<string, Grant> = {
+      wiki: { kind: 'secret', vaultKey: 'wiki:pat', authKind: 'pat', createdAt: 0 }
+    }
+    const created = createAuthRuntime({
+      definitions: [WIKI],
+      persistence: {
+        load: () => ({ records: { ...persisted }, authoritative: true }),
+        save: (next) => {
+          for (const key of Object.keys(persisted)) delete persisted[key]
+          Object.assign(persisted, next)
+          return true
+        }
+      },
+      vault,
+      fetchImpl: (async () => new Response('', { status: 200 })) as unknown as typeof fetch,
+      clock: () => 1_000
+    })
+    const changes: AuthChange[] = []
+    created.runtime.subscribe((change) => changes.push(change))
+    const before = created.runtime.bind('wiki').snapshot().credentialRevision
+
+    // 던지지 않는다 — 해제는 이미 내구적으로 성립했다.
+    expect(() => created.runtime.revoke('wiki')).not.toThrow()
+
+    // 메모리·revision·통지가 전부 디스크와 같은 결론에 도달한다.
+    const after = created.runtime.bind('wiki').snapshot()
+    expect(after.status).toBe('none')
+    expect(after.credentialRevision).toBeGreaterThan(before)
+    expect(changes.filter((c) => c.kind === 'snapshot' && c.cause === 'revoked')).toHaveLength(1)
+    expect(persisted.wiki).toBeUndefined()
+
+    // 지우지 못한 값은 고아로 남지만 그것을 가리키는 grant 가 없으므로 인증에 쓰이지 않는다.
+    expect(created.secretReader.read('wiki')).toBeNull()
   })
 })
 
