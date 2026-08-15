@@ -5,12 +5,13 @@
 | 목적 | 정본 |
 |---|---|
 | `plan.md` 설계 | [`.agents/skills/handoff-plan/`](../../.agents/skills/handoff-plan/) — `SKILL.md` + `plan.template.md` |
+| **구현 턴 수행** | [`.agents/skills/handoff-impl/`](../../.agents/skills/handoff-impl/) — `SKILL.md`. 산출 surface는 `plan.template.md`의 `[구현자 기입]` |
 | `verify.md` 검증 | [`.agents/skills/handoff-verify/`](../../.agents/skills/handoff-verify/) — `SKILL.md` + `verify.template.md` |
 | handoff 지침 자체 개선 | [`.agents/skills/handoff-review/`](../../.agents/skills/handoff-review/) — `SKILL.md` + regression references |
 
-`.claude/skills` 심링크를 통해 skill을 인식한다. plan/verify/review를 수행할 때는 해당 skill을 먼저 로드한다.
+`.claude/skills` 심링크를 통해 skill을 인식한다. plan/impl/verify/review를 수행할 때는 해당 skill을 먼저 로드한다. **skill을 읽을 수 없는 환경이라면 본 문서의 §단계별 절차가 최소 계약이다** — 게이트 정본은 이 문서가 계속 소유한다(§구현 게이트의 정본).
 
-## 세 skill의 책임 분리
+## 네 skill의 책임 분리
 
 ### handoff-plan — 현재 설계
 
@@ -19,6 +20,15 @@
 - 뒷부분 Technical Design은 **AS-IS → TO-BE → Delta**로 현재와 목표 구조를 같은 축에서 대조한다.
 - 코드 조사·아키텍처·데이터/제어 흐름·모듈·테스트를 구체화한다.
 - 현재 요구를 비판적으로 검토한다.
+
+### handoff-impl — 현재 구현 수행
+
+- plan의 Decision·AC·Technical Design을 **계약으로** 수행한다.
+- plan `§10 강제 지점` 표의 지점을 **지점 수만큼** 닫고 개수를 보고한다.
+- 구현 중에만 보이는 것을 진단한다 — 다중 저장소 쓰기, 부분 실패 잔여, 새로 만든 표면.
+- **Product/UX 파생 문제**를 사용자 자리에서 되짚는다(만든 문구에 소비자가 있는가, 실패가 화면에서 무엇으로 보이는가).
+- 재구현 라운드에서는 지적을 **불변식으로 올려 전수 적용**한다.
+- 발견을 `[구현자 기입]`으로 **plan에 되먹인다**. 처리 권한은 세 갈래(선조치 / 수정 제안 / 보고만)로 갈린다.
 
 ### handoff-verify — 현재 구현 검증
 
@@ -35,7 +45,7 @@
 - normative semantics가 바뀌는 지침 변경은 **Tier 1: Operational Instruction Delta → Historical Failure Regression → Cross-document Consistency**를 수행한다.
 - 실행 의미가 불변인 단순 referential/mechanical correction은 **Tier 2: affected Operational Delta + Cross-document Consistency**로 줄일 수 있다. **애매하면 Tier 1**이다.
 
-**중요**: plan/verify는 정상 작업 중 failure corpus를 읽으며 즉석에서 자기 규칙을 만들거나 종료 때 corpus를 직접 갱신하지 않는다. 사례의 일반화·skill 변경·corpus 유지 판단은 review 책임이다.
+**중요**: plan/impl/verify는 정상 작업 중 failure corpus를 읽으며 즉석에서 자기 규칙을 만들거나 종료 때 corpus를 직접 갱신하지 않는다. 사례의 일반화·skill 변경·corpus 유지 판단은 review 책임이다.
 
 ---
 
@@ -120,8 +130,10 @@ docs/handoff/
 .agents/skills/
 ├── handoff-plan/
 │   ├── SKILL.md
-│   ├── plan.template.md
+│   ├── plan.template.md                 # `[구현자 기입]` = handoff-impl의 산출 surface
 │   └── references/failure-patterns.md   # historical corpus로 향하는 호환 symlink
+├── handoff-impl/
+│   └── SKILL.md                         # 별도 template 없음 — plan.template.md를 채운다
 ├── handoff-verify/
 │   ├── SKILL.md
 │   ├── verify.template.md
@@ -188,27 +200,19 @@ PR 리뷰·사용자가 붙여넣은 검토 결과·다른 에이전트의 지�
 
 설계자는 현재 요구를 비판적으로 검토하지만 failure corpus를 읽어 자기 skill을 즉석에서 보완하지 않는다.
 
-### 2. 구현
+### 2. 구현 — handoff-impl
+
+절차 정본은 [`.agents/skills/handoff-impl/SKILL.md`](../../.agents/skills/handoff-impl/) 다. 아래는 **skill을 읽지 못하는 환경에서도 지켜야 할 최소 계약**이며, 각 항목의 근거·판정 방법은 skill이 갖는다.
 
 - Part I을 제품 계약, Part II를 기술 구현 가이드로 읽는다.
 - ACTIVE Decision과 AC를 임의로 변경하지 않는다.
 - 구현 세부·명백한 누락/버그는 선조치 후보고 가능.
 - 제품 의도·신규 의존성·Decision·AC 변경은 보고만 하고 결정권자에게 올린다.
 - 구현 보고의 `Criteria-Met`은 자기보고일 뿐 verify 증거가 아니다.
-
-#### 외부 피드백을 반영하는 재구현 턴 — 지적을 재현하는 데서 멈추지 않는다
-
-PR 리뷰·사용자 지적으로 도는 재구현 라운드는 **지적을 재현하고 그 자리를 고치는 것으로 끝나지 않는다.** 리뷰는 자기가 본 표면만 말하고, 결함의 실체는 대개 **여러 지점에서 성립해야 하는 불변식**이다. 지목된 한 지점만 닫으면 같은 불변식의 다음 지점이 다음 라운드에 그대로 올라온다.
-
-지적 하나를 닫을 때 세 가지를 함께 한다.
-
-1. **불변식을 한 문장으로 뽑는다.** "여기서 `await` 뒤에 세대를 확인해야 한다" 가 아니라 "**결과 해석보다 세대 확인이 먼저다**" 까지 올린다. 문장이 지점 이름을 담고 있으면 아직 덜 올라간 것이다.
-2. **그 불변식이 성립해야 하는 지점을 전수로 찾아 함께 닫는다.** 같은 mutator 의 다른 호출부, 같은 축의 형제 연산(추가↔교체↔해제), 같은 `await` 를 가진 다른 경로를 센다. 전수를 셌다는 사실과 개수를 보고에 적는다. **일부만 닫았다면 어디를 남겼는지 적는다** — 조용히 남기면 다음 라운드가 그것을 발견한다.
-3. **이번 수정이 새로 만든 표면을 스스로 검사한다.** 새 저장소·새 순서·새 정리 작업·새 조기 반환은 전부 새 실패 지점이다. 고치면서 만든 것은 리뷰가 아직 본 적이 없다.
-
-`plan.md` 의 ACTIVE Decision 으로 규칙을 적어 두는 것은 **적용을 보장하지 않는다.** 규칙을 세웠으면 그 라운드 안에서 기존 코드에 전수 적용까지 해야 한다.
-
-> 0188 이 라운드 10까지 간 이유가 이것이다. 자격증명 교체의 **원자성** 하나가 r5→r6→r7→r8→r10 다섯 라운드에 걸쳐 다른 표면으로 계속 올라왔고(후보 커밋 → 커밋 경쟁 → vault 다단계 쓰기 → promote↔저장 창 → 해제 후 vault 예외), **만료 정착**은 r3→r4→r5→r6→r8, **테스트가 production 경로에 진입하지 않는 문제**는 r5→r7→r8→r10 이었다. 매 라운드 보고는 "지적 N건을 전부 실측 재현한 뒤 고쳤다" 였고 그것은 사실이었다 — 성실하게 수행했는데도 다음 라운드가 왔다. 게다가 r8 의 수정(부팅 sweep)이 r9 의 데이터 손실 위험을 새로 만들었고, r8 이 D-059 로 "회귀 테스트는 경로 진입을 단언한다" 를 **Decision 으로 올린 뒤에도** r10 에서 같은 형태가 또 나왔다(`authoritative` 단언 11건이 전부 결과 주입).
+- **plan `§10 강제 지점` 표에 지점이 여럿이면 그 개수만큼 닫고 개수를 보고한다.** 한 지점만 닫아도 대표 경로 AC는 통과하므로 게이트 green은 전수를 뜻하지 않는다. 일부만 닫았으면 남긴 곳을 적는다. (skill §2)
+- **외부 피드백 재구현 라운드는 지적을 재현하는 데서 멈추지 않는다** — 불변식을 한 문장으로 올리고, 성립해야 할 지점을 전수로 닫고, 이번 수정이 만든 새 표면을 스스로 검사한다. Decision으로 규칙을 적는 것은 적용을 보장하지 않는다. (skill §5)
+- **Product/UX 파생 검토를 한다** — 만든 사용자 대면 문구·상태에 소비자가 있는가, 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가. 범위 밖이면 고치지 않더라도 파생 이슈로 적는다. (skill §4)
+- 발견은 `[구현자 기입]`으로 plan에 되먹인다. 처리 권한은 **선조치 / plan 수정 제안 / 보고만** 세 갈래다. (skill §6)
 
 #### 구현 게이트의 정본
 

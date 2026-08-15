@@ -56,7 +56,7 @@
 - **착수 전 항상 [`docs/handoff/INDEX.md`](docs/handoff/INDEX.md) 를 먼저 읽는다** — "지금 누구 차례인가" 의 단일 진실원(디스패치 보드).
 - 흐름: Claude `plan.md`(READY) → Codex 구현 + 게이트 통과(`impl/IMPL_DONE`) → Claude `verify.md`(PASS/FAIL). FAIL 이면 verify 의 "미충족" 체크리스트로 Codex 재구현.
 - 규칙·상태 머신·템플릿 정본은 [`docs/handoff/AGENTS.md`](docs/handoff/AGENTS.md).
-- **작성/리뷰 스킬 = 절차의 정본**: `plan.md`는 [`.agents/skills/handoff-plan/`](.agents/skills/handoff-plan/), `verify.md`는 [`.agents/skills/handoff-verify/`](.agents/skills/handoff-verify/), handoff 지침 자체의 개선은 [`.agents/skills/handoff-review/`](.agents/skills/handoff-review/)를 쓴다 (`.claude/skills` 는 `.agents/skills` 를 가리키는 심링크). `plan`/`verify`는 정상 작업 중 과거 실패 사례를 읽어 즉석에서 자기 규칙을 만들거나 corpus를 직접 갱신하지 않는다. **역사적 실패 사례는 `handoff-review/references/failure-patterns.md` 진입점을 통해 review가 지침 변경 후 회귀 검증에만 사용**하며, 사례 추가/일반화 여부도 review가 결정한다. `docs/handoff/AGENTS.md` 는 협업 규칙·상태 머신·구현 턴 지침을 갖는다.
+- **단계별 스킬 = 절차의 정본**: `plan.md`는 [`.agents/skills/handoff-plan/`](.agents/skills/handoff-plan/), **구현 턴은 [`.agents/skills/handoff-impl/`](.agents/skills/handoff-impl/)**, `verify.md`는 [`.agents/skills/handoff-verify/`](.agents/skills/handoff-verify/), handoff 지침 자체의 개선은 [`.agents/skills/handoff-review/`](.agents/skills/handoff-review/)를 쓴다 (`.claude/skills` 는 `.agents/skills` 를 가리키는 심링크). `plan`/`impl`/`verify`는 정상 작업 중 과거 실패 사례를 읽어 즉석에서 자기 규칙을 만들거나 corpus를 직접 갱신하지 않는다. **역사적 실패 사례는 `handoff-review/references/failure-patterns.md` 진입점을 통해 review가 지침 변경 후 회귀 검증에만 사용**하며, 사례 추가/일반화 여부도 review가 결정한다. `docs/handoff/AGENTS.md` 는 협업 규칙·상태 머신·**게이트 정본**과 skill 을 읽지 못하는 환경을 위한 **구현 턴 최소 계약**을 갖는다.
 
 ## 커밋 프로토콜 (Commit Protocol)
 
