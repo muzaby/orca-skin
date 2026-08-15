@@ -85,6 +85,14 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 
 > 코드 존재는 “구현됨”이지 “검증됨”이 아니다. `Criteria-Met` 자기보고를 증거로 쓰지 않는다.
 
+### plan §10 강제 지점 표 — AC와 별개로 걷는다
+
+| 계약/필드 | plan이 적은 강제 지점 | 코드에서 확인한 지점 | 결과 |
+|---|---|---|---|
+| … | `commit·revoke·expiry·401` (4) | … (N/4) | ✅ / ❌ 부분 구현 |
+
+- 표에 없는데 같은 불변식이 필요한 지점: 없음 / …
+
 ## 6. 외부 포트 / 문서 계약 (해당 시)
 
 | 계약 | shape 검증 | semantics 검증 | 결과 |
