@@ -29,56 +29,73 @@
 | AC 의 원천을 무엇으로 밝혔는가 | `plan.md §2`: "**제안서의 `수용 기준`·`검증 지침` 절이 이 handoff 의 AC 원천이다 — 별도 제품 결정 없이 그대로 승계한다**" |
 
 따라서 `proposal.md` 대조는 외부 기준을 들이대는 것이 아니라 **0188 이 스스로 선언한 계약을
-그대로 채점하는 것**이다. 그리고 그 선언("그대로 승계") 때문에 아래 F4 가 성립한다 — 승계되지
-않은 요구가 있다면 그것은 취향 차이가 아니라 **선언 위반**이다.
+그대로 채점하는 것**이다.
+
+### 채점은 3층이다 (r2 개정 — 초안의 결함)
+
+**제안서 하나만으로 채점하면 안 된다.** 0188 은 10라운드를 돌며 **ACTIVE Decision 63건**을 쌓았고,
+그중 일부는 제안서를 정당하게 구체화·대체한다 — 출처가 **제안서 / 외부 리뷰 / 사용자**로 갈린다.
+게다가 어떤 "이탈" 은 **0188 이전부터 그랬던 것**이라 0188 이 만든 변화가 아니다.
+
+| 층 | 질문 | 근거 | 실패 의미 |
+|---|---|---|---|
+| 1 | code 가 `proposal.md` 와 다른가 | 제안서 원문 | 여기서 같으면 통과 |
+| 2 | 다르면, **ACTIVE Decision 이 승인했는가 — 출처는 누구인가** | `0188/plan.md §3` (D-001~D-063) | 승인됐으면 이탈이 아니다 |
+| 3 | 그래도 다르면, **0188 이 만든 변화인가** | `git show ad10f6c:<path>` | 원래 그랬으면 0188 의 회귀가 아니다 |
+
+`plan.md` 는 제안서 요구를 **AC 표와 Decision Ledger 두 곳**에 나눠 담았다. **이 감사의 초안은 AC
+표만 봤고, 그 때문에 2건을 오판하고 3건을 부정확하게 적었다** — 전문은 아래 [정정 이력](#정정-이력)
+에 남긴다. 아래 축 1 은 3층으로 다시 채점한 결과다.
 
 ---
 
 ## 축 1 — 제안 충실도
 
-**판정: 구조는 충실. 실질 이탈 3건(F1~F3) + 승계 누락 6건(F4).**
+**판정: 충실. 3층 채점 후 실질 이탈 3건(F1~F3) + 검증 공백 1건(F4).**
 
-제안 §수용기준 **구조 12건 중 11충족 / 1부분**, **보안·호환성 9건 중 7충족 / 1이탈 / 1미검증**,
-**§구현자가 만들면 안 되는 것 22행 전부 미위반**. 가장 위험한 축 — 이름만 바꾼 통합 facade ·
-`HarnessModelProviderDefinition[]` · PluginHost/ConnectorRegistry · operation/endpoint registry ·
-JSON path 범용 mapper · 새 DB migration — 은 **하나도 만들어지지 않았다**(전수 grep).
+제안 §금지표 **22행 전부 미위반** — 이름만 바꾼 통합 facade · `HarnessModelProviderDefinition[]` ·
+PluginHost/ConnectorRegistry · operation/endpoint registry · JSON path 범용 mapper · 새 DB migration 이
+**하나도 만들어지지 않았다**(전수 grep). 구조 재배치는 제안대로 이뤄졌다.
 
-| # | 문제 | 원인 | 방안 |
+> 아래 각 항목의 **층** 열은 [3층 채점](#채점은-3층이다-r2-개정--초안의-결함) 중 어디서 갈렸는지다.
+> 2층·3층에서 해소된 것은 이탈이 아니다.
+
+| # | 층 | 문제 | 원인 | 방안 |
+|---|---|---|---|---|
+| F1 | 1·2 통과 실패 | **spawn 입력 조립**이 `features/harnesses/prepared-config.ts` 에 있고 호출은 `app/chat-turn/turn-setup.ts:84` 다. 제안은 adapter-local 을 지정했고 **0188 자신의 `plan.md:452`("`adapters/` spawn preparation … `PreparedHarnessConfig` 생성")도 그렇게 적었다**. 이를 승인한 Decision 은 없다 | `turn-setup.ts` 가 electron 을 물어 vitest 가 import 하지 못한다 → 테스트 가능성을 위한 의도적 이탈(근거는 `prepared-config.ts:153`) | adapter 에 얇은 조립 진입점을 두고 순수부는 현 위치 유지, 또는 이탈을 Decision 으로 승격. **범위 주의**: fingerprint **SSOT 는 계약대로 adapter-local 이 맞다**(`plan.md:415` 요구 → `adapters/harness-config.ts:68`). 이탈은 조립 위치 하나뿐이다 |
+| F2 | 1·2 통과 실패 | 배포 factory 가 `BoundAuth` 가 아니라 `AuthRuntime` **전체**를 받는다 — `app/deployment/harness-runtime.ts:97`(`HarnessConfigApiDeps`), 주입 `app/bootstrap.ts:441`. 같은 패턴이 `deployment/usage-fetcher.ts:40`·`deployment/plugins.ts:67` | 제안은 4곳에서 좁힌다(`proposal.md:523`·`:750`·`:1135`·`:1378`). **D-048**(출처 `r5 리뷰 §1 P1`)이 `HarnessConfigApiDeps{auth}` 를 정의했지만 **타입을 지정하지 않았다**. 결정적으로, 형제 축인 **D-051**(출처 `r6 리뷰 §1`)은 제안서 원문을 다시 꺼내 direct-credential 쪽을 "닫힌 closure map" 으로 **좁혔다** — 같은 라운드가 한쪽만 제안서로 되돌리고 다른 쪽은 두었다 | 세 deps 타입을 `BoundAuth`(또는 필요한 `request` 만)로 좁힌다. **단순 누락이 아니라 비대칭**이다. secret 표면은 넓어지지 않았다(`AuthSecretReader` 미전달); 넓어진 것은 배포가 `login`/`revoke`/`resume`/`subscribe` 를 쥔다는 점이다 |
+| F3 | 2층에서 **악화** | SDK `options.settings.env` vs `options.env` 의 **characterization test 가 없다**(전 테스트 트리 grep 0건) | **AC15① 미이행이 아니라 ACTIVE Decision 미이행이다.** `D-017`(출처 제안서)이 "구현 전에 … characterization test 로 고정한 뒤 제안서의 결정표를 적용한다" 를 명시하고 **`상태=ACTIVE` · `대체 관계=—`** 다. `D-042`(env 블록 통째 hoist)가 접근을 바꿨으나 **D-017 을 SUPERSEDED 로 은퇴시키지 않았다** | 테스트 1건 추가 + **Ledger 정합성 정리**(D-042 가 D-017 을 대체했어야 한다). 지금은 SDK 가 `options.env` 를 무시하는 방향으로 바뀌어도 잡을 테스트가 없다 |
+
+### F4 — 제안 요구는 Decision 으로 승계됐으나, 그중 일부에 **검증 수단(AC)이 없다**
+
+`plan.md §2` 는 "제안서의 `수용 기준`·`검증 지침` 절이 이 handoff 의 AC 원천이다 — 별도 제품 결정
+없이 그대로 승계한다" 라고 선언했다. 제안 수용기준 **36불릿**(구조 11 · 동작·성능 17 ·
+보안·호환성 8)을 AC 25건에 1:1 매핑한 뒤, **AC 에 없는 것은 다시 Decision Ledger 와 baseline 으로
+내려보냈다**.
+
+| AC 에 없는 요구 | 2층 — 승인 Decision (출처) | 3층 — baseline | 코드 상태 |
 |---|---|---|---|
-| F1 | spawn 입력 조립이 adapter 밖에 있다. 제안은 adapter-local 을 지정했으나 실제 조립은 `app/src/main/features/harnesses/prepared-config.ts`, 호출은 `app/src/main/app/chat-turn/turn-setup.ts:84`. `adapters/claude.ts` 는 여전히 `settings`·`env` 두 채널을 무비판 전달한다 | `turn-setup.ts` 가 electron 을 물어 vitest 가 import 하지 못한다 → **테스트 가능성을 위한 의도적 이탈**. 근거가 코드에 있다(`prepared-config.ts:153`) | adapter 에 얇은 조립 진입점을 두고 순수부는 현 위치 유지. 또는 이탈을 명시 결정으로 승격해 제안과의 차이를 문서에 남긴다. **부작용**: adapter 를 우회해 spawn 입력을 만드는 경로가 하나 더 생겨, 향후 다른 Harness adapter 가 자기 조립 규칙을 넣을 자리가 없다 |
-| F2 | 배포 factory 가 `BoundAuth` 가 아니라 `AuthRuntime` **전체**를 받는다 — `app/src/main/app/deployment/harness-runtime.ts:97`(`HarnessConfigApiDeps`), 주입은 `app/src/main/app/bootstrap.ts:441`. 같은 패턴이 `deployment/usage-fetcher.ts:40`·`deployment/plugins.ts:67` | 제안은 이 좁힘을 **4곳**에서 말한다 — `proposal.md:523`(`corpAuth: BoundAuth`) · `:750`(`createCorpUsageFetcher(auth: BoundAuth)`) · `:1135`("`BoundAuth`만 각 factory 에 재사용") · `:1378`(수용기준 "config API augmenter에는 `BoundAuth`만 전달"). 그런데 **plan 의 어느 AC 도 이것을 옮기지 않았다** — AC5 는 `AuthSecretReader` 부재만 단언한다(F4 참조) | 세 deps 타입을 `BoundAuth`(또는 필요한 `request` 만)로 좁힌다. **secret 표면은 넓어지지 않았다**(`AuthSecretReader` 는 전달되지 않는다). 넓어진 것은 배포가 `login`/`revoke`/`resume`/`subscribe` 를 쥔다는 점이다 |
-| F3 | SDK `options.settings.env` vs `options.env` 의 **characterization test 가 없다**(전 테스트 트리 grep 0건) | 제안과 plan AC15 ① 이 "실제 우선순위를 먼저 고정한 뒤 결정표를 적용" 을 요구했으나, 구현은 "settings 의 env 블록을 통째로 hoist" 라는 제3의 fail-safe 를 택했다(`prepared-config.ts:76`). 결과는 안전하지만 SDK 동작이 코드로 고정되지 않았다 | SDK 실동작을 고정하는 테스트 1건 추가. 지금은 SDK 가 `options.env` 를 무시하는 방향으로 바뀌어도 잡을 테스트가 없다 |
+| config API augmenter 에는 `BoundAuth` 만 (`:1378`) | **없음** (D-048 은 타입 미지정) | — | **미준수 → F2** |
+| `AgentEnvironment` 도 compat boundary 에만 (`:1344`) | **D-030** (제안서) — 이름까지 그대로 담았다 | `toAgentEnvironments` 는 0188 **이전에도** `features/providers/model-resolve.ts:51` 에 있었다 | **충족** (r2 정정) |
+| OAuth/session token 과 config API LLM token 별도 취급 (보안 §3) | **D-048** (r5 리뷰) — 두 deps 타입 분리 | — | 구조적 충족. 기본 배포가 비어 런타임 실증 불가 |
+| Usage 정본·mirror·cron·수동 refresh·DB cache 유지 (`:1373`) | **D-026** (제안서) — 이유 칸이 이 문장을 그대로 적었다 | — | 충족 — `features/usage/` diff 가 주석 1줄 |
+| Harness/Plugin/Usage 상호 직접 import 금지 (구조 §7) | 저장소 규칙 — `plan.md §8` 이 `app/src/main/AGENTS.md §레이어 DAG` + eslint boundaries 로 기록 | — | 충족 |
+| Usage·Confluence response mapping 위치 (구조 §10) | **D-026 · D-023** (제안서) | — | 충족 |
 
-### F4 — 제안 수용기준 → plan AC 번역에서 6건이 누락됐고, 그중 2건이 실제 이탈이 됐다
+**결론**: AC 에 없던 6건 중 **5건은 Decision 또는 저장소 규칙이 승계했고, 실제 이탈은 1건(F2)뿐**이다.
+남는 사실은 *승계 실패* 가 아니라 **검증 공백** 이다 — Decision 은 "무엇을 지킬지" 를 적지만
+누가 그것을 확인하는지는 정하지 않는다. D-030·D-026 은 지켜졌으나 그것은 **AC 가 확인한 결과가
+아니라 코드가 우연히 안 바뀐 결과**다.
 
-`plan.md §2` 는 "제안서의 `수용 기준`·`검증 지침` 절이 이 handoff 의 AC 원천이다 — **별도 제품
-결정 없이 그대로 승계한다**" 라고 선언했다. 제안 수용기준 **36불릿**(구조 11 · 동작·성능 17 ·
-보안·호환성 8)을 AC 25건에 1:1 로 대조한 결과:
-
-| 승계되지 않은 요구 | 제안 위치 | 코드 상태 |
-|---|---|---|
-| config API augmenter 에는 `BoundAuth` 만 전달 | 보안 §2 (`:1378`) | **미준수 → F2** |
-| shared DTO 중 `AgentEnvironment` 도 compat boundary 에만 | 구조 §11 (`:1344`) | **미준수** — `features/harnesses/models.ts:51` 이 feature 안에서 생성 |
-| OAuth/session access token 과 config API 응답의 LLM token 을 별도 값으로 검증·취급 | 보안 §3 | 구조적 충족(두 deps 타입 분리 + `mergeAugmenters` 충돌 시 throw). 기본 배포가 비어 **런타임 실증 불가** |
-| Usage 의 Main 정본 · renderer mirror · cron · 수동 refresh · DB cache 의미 유지 | 동작·성능 §17 (`:1373`) | 충족 — `features/usage/` diff 가 **주석 1줄**이라 건드려지지 않았다 |
-| Harness/Plugin/Usage feature 끼리 직접 import 금지 | 구조 §7 | 충족 — AC3 은 `auth` 기점만 단언하지만 **eslint boundaries** 가 기계적으로 강제한다 |
-| Usage·Confluence response mapping 이 각 feature/deployment 모듈에 잔존 | 구조 §10 | 충족 — `deployment/usage-fetcher.ts`·`features/plugins/confluence/**` |
-
-**패턴**: 승계되지 않은 6건 중 **2건이 실제 이탈**이 됐고, 나머지 4건은 AC 가 아니라 *다른
-메커니즘*(eslint 경계 · 파일 무변경 · 타입 분리)이 우연히 막았다. 즉 **AC 로 옮겨지지 않은 요구는
-지켜질 보장이 없었고, 실제로 3분의 1이 새어 나갔다.** 0188 의 `verify.md` 가 AC 25/25 를 채운 것은
-사실이지만, 그 25건이 제안의 36불릿을 전부 덮지 않았기 때문에 AC 만점이 제안 충족을 뜻하지 않는다.
-
-> 방법: 36불릿을 AC1~AC25 에 수동 1:1 매핑하고, 후보는 AC 표 전수 grep 으로 교차 확인했다.
+> 방법: 36불릿 → AC1~25 수동 1:1 매핑 → AC 미대응분을 D-001~D-063 전수 대조 → 남은 것을
+> `git show ad10f6c:` baseline 대조. 초안은 첫 단계에서 멈춰 2건을 오판했다([정정 이력](#정정-이력)).
 
 ### 부수 (낮음)
 
-| 항목 | 실측 |
-|---|---|
-| `ResolvedHarnessSettings` 필드명 | 제안의 `key` 가 아니라 `providerKey`+`provider`(`adapters/harness-config.ts:17`). wire/DB 호환 문자열 유지 목적 |
-| `AgentEnvironment` 생성 위치 | compat boundary 밖 — `features/harnesses/models.ts:51`. 제안 §구조 의 "compat boundary 에만" 문구와 어긋난다 |
-| RouterContext | 제안은 `providerSettings` 를 `harnessRuntime` 으로 **교체**한다고 썼으나 실제는 rename 후 존치 + 신규 2필드(`app/context.ts`) |
-| `PreparedHarnessConfig.runtimeConfigFingerprint` | env 전용 `runtimeEnvFingerprint`(optional)로 축소. **plan D-038/AC19 가 승인한 개정**이며 근거가 정당하다(settings 축의 0125 null 의미론을 뒤집지 않기 위함, `adapters/harness-config.ts:41`) |
+| 항목 | 층 | 실측 |
+|---|---|---|
+| RouterContext | 1 | 제안은 `providerSettings` 를 `harnessRuntime` 으로 **교체**한다고 썼으나 실제는 rename 후 존치 + 신규 2필드(`app/context.ts`). 열거·CRUD invalidate 소비자가 남아 불가피해 보이나 "실행 구성 입구는 하나" 라는 의도는 절반만 달성 |
+| `PreparedHarnessConfig.runtimeConfigFingerprint` | 2 (해소) | env 전용 `runtimeEnvFingerprint`(optional)로 축소 — **D-021 → D-038 로 SUPERSEDED 된 정식 개정**이다. 근거도 정당하다(settings 축의 0125 null 의미론을 뒤집지 않기 위함, `adapters/harness-config.ts:41`) |
 
 ---
 
@@ -102,17 +119,19 @@ JSON path 범용 mapper · 새 DB migration — 은 **하나도 만들어지지 
 
 | # | 문제 | 원인 | 방안 |
 |---|---|---|---|
-| P1 | env fingerprint 를 spawn 마다 **2회** 계산한다 | `features/harnesses/prepared-config.ts:149` 가 계산한 값을 `features/sessions/session-runtime.ts:355` 가 버리고 `harnessEnvFingerprint(req.env)` 로 재계산한다. `TurnRequest` 에 fingerprint 를 나를 필드가 없어 **재사용이 구조적으로 불가능**하다 — 0188 plan §14 의 "같은 prepared 입력을 재사용할 때는 계산값도 재사용한다" 미이행 | `TurnRequest` 에 fingerprint 필드를 추가하고 `SessionRuntime` 은 받은 값을 기록한다. **두 값은 항상 일치하므로 상시 respawn 은 없다** — `req.env` 는 `prepared.env` 의 얕은 복사이고 canonicalize 가 키를 정렬한다 |
-| P2 | `providerSettingsChangedSinceSpawn` 의 참조 비교 fast path 가 깨져 매 턴 `JSON.stringify` 2회로 간다 | `prepared-config.ts:131` 의 `withoutEnvBlock` 이 settings 에 `env` 블록이 **있으면** 매 턴 새 객체를 만든다. 그래서 `features/harnesses/runtime-boundary.ts:24` 의 `spawned.settings === resolved.settings` 가 항상 빠져나간다. 0125 가 그 파일에 못 박은 "상시 경로는 참조 비교 1회" 가 사라졌다 | 조립 결과를 캐시해 같은 입력이면 같은 참조를 돌려준다. **조건**: settings env 블록 + (orca.json env 또는 augmenter) — 폐쇄망 표준 형상에서만 발생한다 |
+| P1 | env fingerprint 를 spawn 마다 **2회** 계산한다 | `features/harnesses/prepared-config.ts:149` 가 계산한 값을 `features/sessions/session-runtime.ts:355` 가 버리고 `harnessEnvFingerprint(req.env)` 로 재계산한다. `TurnRequest` 에 fingerprint 를 나를 필드가 없어 **재사용이 구조적으로 불가능**하다 — 0188 plan §14 의 "같은 prepared 입력을 재사용할 때는 계산값도 재사용한다" 미이행. **2회 계산을 승인한 Decision 은 없다**(D-038·D-043 은 범위와 표현만 정한다) | `TurnRequest` 에 fingerprint 필드를 추가하고 `SessionRuntime` 은 받은 값을 기록한다. **두 값은 항상 일치하므로 상시 respawn 은 없다** — `req.env` 는 `prepared.env` 의 얕은 복사이고 canonicalize 가 키를 정렬한다 |
+| P2 | `providerSettingsChangedSinceSpawn` 의 참조 비교 fast path 가 깨져 매 턴 `JSON.stringify` 2회로 간다 | **`D-042`(env 블록을 통째로 걷어낸다)의 미기록 부작용이다** — 결정 자체는 정당했고(두 채널에 같은 키가 남는 것을 막는다) 부작용만 아무도 적지 않았다. `prepared-config.ts:131` 의 `withoutEnvBlock` 이 settings 에 `env` 블록이 **있으면** 매 턴 새 객체를 만든다. 그래서 `features/harnesses/runtime-boundary.ts:24` 의 `spawned.settings === resolved.settings` 가 항상 빠져나간다. 0125 가 그 파일에 못 박은 "상시 경로는 참조 비교 1회" 가 사라졌다 | 조립 결과를 캐시해 같은 입력이면 같은 참조를 돌려준다. **조건**: settings env 블록 + (orca.json env 또는 augmenter) — 폐쇄망 표준 형상에서만 발생한다 |
 
 ### 대가형 — 되돌리면 0188 이 고친 결함이 되살아난다
 
-| # | 신규 비용 | 맞바꾼 것 |
+각 비용을 **승인한 ACTIVE Decision** 을 함께 적는다 — 드리프트가 아니라 결정이다.
+
+| # (승인 결정) | 신규 비용 | 맞바꾼 것 |
 |---|---|---|
-| P3 | continuation 마다 `process.env` 전량 복사 + 4계층 병합 + canonical 직렬화 + HMAC (`app/chat-turn-continuation.ts:61` → `chat-turn/turn-setup.ts:84`). 0188 이전 continuation 은 `env` 필드 자체가 없었다 | continuation 의 env 신선도 — 옛 토큰으로 연속 턴이 도는 문제 |
-| P4 | 부팅 vault sweep 상시 비용: 고아 0건이어도 index 읽기 +1 · 복호화 +1 (`features/auth/store.ts:165`). 고아 N건이면 읽기 +4N / 쓰기 +3N | 세대 키 고아 정리. `authoritative:false` 면 조기 return 하므로 손상 상황에서는 비용도 0이다 |
-| P5 | 재인증 1회당 vault 연산 1벌 → 2벌 (신규 키 set + 옛 키 `discardKeys`, `features/auth/login.ts:510`). hot path 아님 | 자격증명 교체 원자성 — 이전 구현은 고정 키를 덮어써 실패 시 옛 값이 파괴됐다 |
-| P6 | 동적 배포에서 토큰 회전(`validUntil − 30s`)마다 fingerprint 변화 → 채널 respawn. **기본/정적 배포에서는 발생하지 않는다**(augmenter 가 `{}` 를 반환) | 죽은 토큰으로 살아 있는 채널이 계속 도는 문제 |
+| P3 (**D-020**) | continuation 마다 `process.env` 전량 복사 + 4계층 병합 + canonical 직렬화 + HMAC (`app/chat-turn-continuation.ts:61` → `chat-turn/turn-setup.ts:84`). 0188 이전 continuation 은 `env` 필드 자체가 없었다 | continuation 의 env 신선도 — 옛 토큰으로 연속 턴이 도는 문제 |
+| P4 (**D-060**) | 부팅 vault sweep 상시 비용: 고아 0건이어도 index 읽기 +1 · 복호화 +1 (`features/auth/store.ts:165`). 고아 N건이면 읽기 +4N / 쓰기 +3N | 세대 키 고아 정리. `authoritative:false` 면 조기 return 하므로 손상 상황에서는 비용도 0이다 |
+| P5 (**D-056**) | 재인증 1회당 vault 연산 1벌 → 2벌 (신규 키 set + 옛 키 `discardKeys`, `features/auth/login.ts:510`). hot path 아님 | 자격증명 교체 원자성 — 이전 구현은 고정 키를 덮어써 실패 시 옛 값이 파괴됐다 |
+| P6 (**D-038**) | 동적 배포에서 토큰 회전(`validUntil − 30s`)마다 fingerprint 변화 → 채널 respawn. **기본/정적 배포에서는 발생하지 않는다**(augmenter 가 `{}` 를 반환) | 죽은 토큰으로 살아 있는 채널이 계속 도는 문제 |
 
 ### 개선 여지 (0188 회귀는 아님)
 
@@ -125,7 +144,9 @@ JSON path 범용 mapper · 새 DB migration — 은 **하나도 만들어지지 
 
 ## 축 3 — UI/UX
 
-**판정: 불변식 대부분 유지. 회귀 3건 — 중 1 · 낮음 1 · 정보성 1.**
+**판정: 불변식 대부분 유지. 회귀 1건(U1) + 미기록 1건(U2) + Decision 강제 지점 부분 적용 1건(U3).**
+
+> 초안은 U2 를 "비범위 침범 3건", U3 를 "정보성" 으로 적었다. 2층 채점에서 **U2 는 2건이 승인된 변경**으로, **U3 는 오히려 Decision 미충족**으로 바뀌었다.
 
 ### 유지 (실측)
 
@@ -144,8 +165,8 @@ JSON path 범용 mapper · 새 DB migration — 은 **하나도 만들어지지 
 | # | 문제 | 원인 | 방안 (D-004: 이번엔 기록만) |
 |---|---|---|---|
 | U1 (중) | 해제 영속 실패가 화면에서 **"아무 일도 안 일어남"** 으로 보인다. main 이 만든 한국어 메시지가 어디에도 표시되지 않는다 | `features/auth/login.ts:228` 이 사용자용 메시지를 담아 throw → `app/handlers/providers.ts:67` 이 `'reject'` 로 거절 → 그런데 `renderer/.../hooks/useProviders.ts:91-96` 의 `revoke` 에 try/catch 가 없고 `.../ExtensionsCatalogView.tsx:142` 가 `void providers.revoke(...)` 로 rejection 을 버린다 = **unhandled rejection** | 오류 표면 추가. 단 제안 §비범위 "UI 문구 변경" 에 걸려 **사용자 결정 사항**이다. **핵심 계약은 지켜진다** — 상태가 바뀌지 않아 행이 '연결됨' 으로 남으므로 false success 는 없다. ⚠️ **0188 `verify.md` 의 D39 와 동일 항목이며 새 발견이 아니다** |
-| U2 (낮음) | 사용자 대면 한국어 문구 **3건** 변경 — 제안 §비범위("버튼/문구 변경") 침범 | `features/auth/login.ts:375` `'등록되지 않은 provider 입니다'` → `'등록되지 않은 Auth 입니다'` · `features/harnesses/settings-write.ts` `'claude engine 만 …'` → `'claude Harness 만 …'` · `'유효하지 않은 engine key …'` → `'유효하지 않은 Harness key …'` | 0188 `plan.md` r10 기록은 **settings-write 2건만** 인정했고 `login.ts` 1건은 어디에도 기록이 없다 → 기록 보정. 도달 조건이 미등록 id 호출이라 정상 UI 에서 실질 도달은 어렵다 |
-| U3 (정보성) | 0188 이 신설한 "늦게 온 응답 폐기" 시퀀스 가드가 소비처 2곳 중 1곳에만 있다 | `renderer/.../hooks/useProviders.ts:57` 에는 있고 `renderer/.../hooks/useProviderGate.ts:48` 에는 없다 — 불변식 전수 적용 누락 | main 의 `supersededStep()`(`features/auth/login.ts:176`)이 현재값을 그대로 돌려주므로 **실제 덮어쓰기는 없다**(실측). 남는 것은 계약 비대칭뿐 |
+| U2 (낮음) | 사용자 대면 한국어 문구 변경 — 초안은 3건을 "제안 §비범위 침범" 으로 적었으나 **2건은 승인된 변경이다** | `features/harnesses/settings-write.ts` 2건(`'claude engine 만 …'`→`'claude Harness 만 …'` · `'유효하지 않은 engine key …'`→`'… Harness key …'`)은 **PR #336 외부 리뷰 P2 지적 → 사용자 결정으로 수용**했다(`0188/plan.md` r10 반영 행 · 파생이슈 D36). 남는 것은 `features/auth/login.ts:375` **1건**(`'등록되지 않은 provider 입니다'`→`'… Auth 입니다'`) | 이 1건도 위반 단정이 아니다 — **D-004**(신규 코드에서 Auth 어휘) 와 제안 §비범위("기존 renderer 표시 문구는 바꾸지 않는다") 사이의 **회색지대**이고, 실제 문제는 **어디에도 기록되지 않았다**는 점이다. 도달 조건이 미등록 id 호출이라 정상 UI 에서 실질 도달은 어렵다 |
+| U3 (**D-054 부분 적용**) | 0188 이 신설한 "늦게 온 응답 폐기" 가드가 소비처 2곳 중 1곳에만 있다 | **정보성이 아니라 ACTIVE Decision 의 강제 지점 미충족이다.** `D-054`(출처 r6~r7 리뷰)가 "**Renderer 도 자기보다 뒤에 시작된 요청이 있으면 invoke 응답을 버린다**" 를 명시했는데 `renderer/.../hooks/useProviders.ts:57` 만 닫혔고 `renderer/.../hooks/useProviderGate.ts:48` 은 열려 있다 | 가드를 게이트 훅에도 적용한다. **현재 실피해는 없다** — main 의 `supersededStep()`(`features/auth/login.ts:176`)이 현재값을 그대로 돌려주므로 덮어쓰기가 일어나지 않는다(실측). 남는 것은 계약이 한 지점만 닫혔다는 사실이다 |
 
 ### 정보성 관측 2건
 
@@ -171,6 +192,8 @@ JSON path 범용 mapper · 새 DB migration — 은 **하나도 만들어지지 
 | 개념 수 | 감소 | 제거 10(`Provider.kind`·`.llm`·`.tools`·`ProviderPlatform`·`ServiceToolRegistrar`·`registry.byKind`·`captureForRollback`/`rollback`·`sweepPlugins`·`missing_probe` 검사·`declarations/` 3분할) vs 신설 20+ | **미달** |
 | 간접층 | "추상화는 같은 중복이 실제로 반복될 때만 추출한다" (제안 §구현자가 만들면 안 되는 것 말미) | **기본 배포 구현체 0개**인 추상: `RuntimeConfigAugmenter(s)` · `PluginBinding` 계열 · `UsageFetcher` 배포 factory · `ConnectionViewSource` 의 `harness`/`usage` category · `HarnessConfigApiDeps`/`HarnessDirectCredentialDeps`. `app/deployment/` 529줄 중 실행코드 130줄. `features/harnesses/runtime-config.ts` 266줄은 augmenter 0개라 generation·single-flight·stale-retry 가 **기본 빌드에서 도달 불가** | **미달** |
 
+> **이 구조는 드리프트가 아니라 결정이다** — `D-044`(배포 factory 4종을 인자화, 출처 r3 리뷰) · `D-045`(가상 배포 fixture, r3) · `D-048`(두 주입 방식 타입 분리, r5) · `D-051`(닫힌 closure map, r6) 이 각각 승인했다. 볼륨 판정(D-002)은 유지하되, **누가 결정했는가**를 함께 읽어야 공정하다: 배포 확장점은 외부 리뷰가 "배포가 `bootstrap.ts` 를 열게 만든다" 는 실제 결함을 지적해 만들어졌다.
+>
 > "구현체 0개" 는 **기본 배포 기준**이다. `app/deployment/deployment-wiring.test.ts` 가 가상 배포로
 > 그 경로들을 실제로 태우므로(AC25) "테스트조차 없다" 는 뜻이 아니다.
 
@@ -198,7 +221,7 @@ JSON path 범용 mapper · 새 DB migration — 은 **하나도 만들어지지 
 
 | 축 | 판정 | 즉시 볼 것 |
 |---|---|---|
-| 제안 충실도 | **충실** (이탈 3건 + 승계 누락 6건) | **F4** — 제안 36불릿 중 6건이 AC 로 승계되지 않았고 그중 2건이 실제 이탈이 됐다. **AC 25/25 만점이 제안 충족을 뜻하지 않는다** |
+| 제안 충실도 | **충실** (이탈 3건 + 검증 공백) | **F3** — `D-017` 이 ACTIVE 인데 미이행이고 `D-042` 가 은퇴시키지도 않았다(Ledger 정합성). F4 는 승계 실패가 아니라 **검증 공백**으로 축소됐다 |
 | 성능 | **0187 보존, 신규 비용 6건** | P1 · P2 — 오작동 없이 CPU 만 먹고 각각 한 파일에서 닫힌다 |
 | UI/UX | **부분 회귀 3건** | U1 — 기본 빌드에서 사용자가 실제로 만날 수 있는 유일한 회귀. 단 0188 D39 의 재확인 |
 | 경량화 | **미달** | 간접층 — 배포 확장점 529줄과 `runtime-config.ts` 266줄이 기본 빌드에서 도달 불가 |
@@ -210,10 +233,43 @@ JSON path 범용 mapper · 새 DB migration — 은 **하나도 만들어지지 
 | D39 (해제 실패 UX, 제품 결정 대기) | U1 | **동일 항목의 재확인.** 새 발견이 아니다 |
 | D40 (루트 미추적 `package-lock.json`) | — | 이번 감사 범위 밖(작업 트리 위생) |
 
-**다음 단계**: F1~F4 · P1~P2 · U2~U3 의 시정 여부를 결정한다. 시정한다면 별도 핸드오프(0190)로
+**다음 단계**: F1~F3 · P1~P2 · U2~U3 의 시정 여부를 결정한다. **F3(D-017 은퇴 누락)과 U3(D-054 부분 적용)은 Decision Ledger 정합성 문제라 코드 수정 없이도 정리할 수 있다.** 시정한다면 별도 핸드오프(0190)로
 설계한다 — 이 감사는 코드를 바꾸지 않았다.
 
-**절차에 남길 것 (F4 의 일반화)**: 이 handoff 는 외부 제안서를 `plan.md` 의 AC 로 옮기는 단계를
-거쳤고 거기서 6건이 샜다. `handoff-plan` 이 "외부 입력 정본이 있으면 그 수용기준을 AC 에 **전수
-매핑하고 누락을 명시**한다" 를 요구하지 않는 것이 원인이다. 지침 자체의 개선이므로
+**절차에 남길 것 — 이 감사 자신의 실패에서**: 초안은 축 1 을 `code ↔ proposal.md` **1층**으로만
+채점해 **2건을 오판**했다(`AgentEnvironment` · `ResolvedHarnessSettings` 명명 — 둘 다 0188 이전부터
+그랬거나 Decision 이 승계한 것이었다). 원인은 지침에 없다는 것이다: **`handoff-verify` 는 "AC 와
+production path 를 대조하라" 고만 하고, 외부 입력 정본이 있는 handoff 에서 ① ACTIVE Decision Ledger
+와 ② 변경 전 baseline 을 함께 보라고 요구하지 않는다.** 지침 자체의 개선이므로
 [`handoff-review`](../../../.agents/skills/handoff-review/SKILL.md) 대상이며, 이 감사는 그 신호만 남긴다.
+
+---
+
+## 정정 이력
+
+초안(커밋 `9a2980a`·`57f75bd`)은 축 1 을 제안서 1층으로만 채점했다. 사용자가 "구현 과정에서
+변수명·모듈명이 사용자 제안으로 바뀌었을 수 있다" 고 지적해 3층으로 다시 채점했다. **이미 push 된
+문서이므로 조용히 덮지 않고 초안 주장을 함께 남긴다.**
+
+### 철회 2건 — 오판
+
+| 초안 주장 | 실측 | 놓친 층 |
+|---|---|---|
+| `AgentEnvironment` 가 compat boundary 밖(feature)에서 생성 → **미준수** | **철회.** `toAgentEnvironments` 는 0188 **이전에도** `features/providers/model-resolve.ts:51` 에 있었다 — 같은 줄번호, 순수 이동(→ `features/harnesses/models.ts:51`). `D-030`(제안서) 이 요구를 이름까지 승계했고 `models.ts:56` 이 **"0188 D-030"** 을 인용하며 wire 필드명을 유지한다 | 2·3층 |
+| `ResolvedHarnessSettings` 필드가 제안의 `key` 가 아니라 `providerKey`+`provider` → **제안과 다름** | **철회.** 0188 이전 `ResolvedProviderSettings` 가 이미 `providerKey`·`provider`·`settings` 였다(`ad10f6c:app/src/main/adapters/provider-config.ts:11-14`). `D-005`(호환성 식별자 유지) + Phase A 기계적 rename 범위 | 2·3층 |
+
+### 정정 3건
+
+| 초안 | 개정 |
+|---|---|
+| F1 "조립이 adapter 를 떠났다" (과대) | fingerprint **SSOT 는 계약대로 adapter-local 이 맞다**. 이탈은 **조립 위치 하나**. 대신 제안서만이 아니라 **`0188/plan.md:452` 에도 어긋난다**는 사실을 추가 |
+| F4 "제안 6건이 AC 로 승계되지 않았다" | **틀렸다.** 6건 중 5건은 Decision(D-030·D-026·D-023·D-048) 또는 저장소 규칙이 승계했다. 실제 이탈은 **1건(F2)**. 남는 사실은 승계 실패가 아니라 **검증 공백** |
+| U2 "문구 3건이 비범위 침범" | `settings-write` 2건은 **외부 리뷰 지적 → 사용자 결정으로 수용**(D36). 남는 것은 `login.ts:375` 1건이고 그것도 **회색지대 + 미기록** |
+
+### 강화 3건 — 3층 채점이 오히려 무겁게 만든 것
+
+| 초안 | 개정 |
+|---|---|
+| F3 "AC15① 미이행" | **ACTIVE Decision `D-017` 미이행** — `상태=ACTIVE`·`대체 관계=—` 인데 `D-042` 가 접근을 바꾸고도 은퇴시키지 않았다. **Ledger 정합성 결함** |
+| F2 "AC 번역 누락" | **비대칭**이다 — `D-051` 이 형제 축(direct credential)에서는 제안서 원문을 다시 꺼내 좁혔는데 config API 쪽은 두었다 |
+| U3 "정보성" | **`D-054` 강제 지점 2곳 중 1곳만 닫힘** — Decision 이 renderer 가드를 명시적으로 요구한다 |
