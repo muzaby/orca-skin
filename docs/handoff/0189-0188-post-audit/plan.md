@@ -117,6 +117,7 @@ verify 는 **자기 검증**이었다 — 설계·구현·검증이 모두 Claud
 | AC12 | 축 1·3 의 모든 판정이 **3층**을 거치고 각 항목이 **어느 층에서 갈렸는지** 밝힌다(D-008) | 항목별 `층` 열 존재 | 독자의 재현 |
 | AC13 | 철회·정정 항목이 **`정정 이력` 절**에 초안 주장과 함께 남는다(D-009) | 절 존재 + 철회 2·정정 3·강화 3 대조 | 감사의 신뢰 |
 | AC14 | Decision 을 인용한 곳은 **ID 와 출처**(제안서/외부리뷰/사용자)를 함께 적는다 | 인용 전수 | 독자의 판단 |
+| AC15 | §9 가 ①레이어·슬라이스 지도 ②축↔표면 매핑 ③제어 흐름 4개 ④배포 확장점 인벤토리 ⑤감사 파이프라인 **5개를 모두** 갖고, **발견 ID 전수(F1~F4·P1~P6·U1~U3)가 ② 또는 ③ 에 최소 1회 좌표를 갖는다** | 하위절 5개 존재 + 발견 ID 13건 grep | 독자가 "어디를 고치나" 를 §9 만 보고 답한다 |
 
 ### AC 검증 주의사항
 
@@ -145,6 +146,8 @@ verify 는 **자기 검증**이었다 — 설계·구현·검증이 모두 Claud
 - 신설 추상의 **기본 배포 구현체 수** 전수(`app/deployment/*` 반환값 확인).
 - feature 교차 import 전수(`from '...'` 기준, before/after 양쪽).
 - 사용자 대면 한국어 문자열 diff 전수.
+- **제어 흐름 4개**(부팅·턴·자격증명·카탈로그)를 코드에서 재구성 — `bootstrap.ts` 조립 순서 · `chat-turn/send.ts` 12단계 주석 · `login.settleGrant` · `connectionState` (§9.3).
+- `app/deployment/` 6파일의 **export 와 기본 반환값** 전수 (§9.4).
 
 ### 수치 / 전칭 표현 검산
 
@@ -155,28 +158,148 @@ verify 는 **자기 검증**이었다 — 설계·구현·검증이 모두 Claud
 
 ## 9. Architecture / Data & Control Flow — AS-IS → TO-BE
 
-### AS-IS
+이 절은 **판정의 좌표계**다. 네 축의 발견(F·P·U)마다 "구조의 어느 지점에서 갈렸는가" 를 §9.2 의
+매핑표나 §9.3 의 화살표가 가리킨다. 수치는 이번 세션 실측이다.
 
-0188 의 결과는 `plan.md`(779줄)·`verify.md`(257줄)·`proposal.md`(1,452줄)에 흩어져 있고, 셋 중
-어느 것도 **제안서 원문 ↔ 현재 코드** 를 대조하지 않았다. 성능·경량화는 판정 축 자체가 없었다.
+### 9.1 AS-IS — 감사 대상 구조 (0188 이 만든 것)
 
-### TO-BE
+```
+app/src/main/
+├── app/                      컴포지션 루트 (전부 import 가능)
+│   ├── bootstrap.ts   816줄  조립 + 순서 (DB 이전 / 이후 2구간)
+│   ├── deployment/    6파일  ★ 배포가 고치는 유일한 묶음 (§9.4)
+│   ├── chat-turn/    14파일  턴 파이프라인 12단계
+│   ├── connection-views.ts   카탈로그 DTO 조립 (compat 경계)
+│   ├── auth-resume.ts        부팅 resume 순서 = 제품 정책
+│   └── handlers/             IPC 등록
+├── features/                 수직 슬라이스 12개 — 교차 import 금지
+│   ├── auth/      16파일     인증 lifecycle
+│   ├── gate/       1파일     Auth snapshot → 앱 접근 조건
+│   ├── harnesses/  9파일     settings 열거·해석·Model·실행 구성·respawn 경계
+│   └── plugins/    8파일     Confluence
+├── contracts/auth.ts  export 30   인증 계약 — 소비 슬롯 0 (AC2)
+├── adapters/harness-config.ts     fingerprint SSOT + settings 포트
+└── infra/vault.ts                 세대 키(`versionedVaultKey`)
+```
 
-`audit.md` 한 장이 네 축의 판정과 근거를 갖는다. 구조는 축 4개 × (판정 1줄 + 표).
+의존 방향: `app → 전부` · `features → 같은 slice · contracts · adapters · infra · shared` ·
+**feature 교차 import 금지**(eslint boundaries 강제, `app/src/main/AGENTS.md §레이어 DAG`).
 
-### Delta
+0188 의 핵심 이동: `features/providers/` 1슬라이스 → 위 4슬라이스 + `app/deployment/` +
+`app/{connection-views,auth-resume}.ts`.
 
-| 항목 | AS-IS | TO-BE |
+### 9.2 축 ↔ 구조 표면 매핑
+
+| 축 | 검사 표면 | 정본 파일 | 발견 |
+|---|---|---|---|
+| 1 충실도 | contracts 경계 · 배포 확장점 · 금지표 22행 | `contracts/auth.ts` · `app/deployment/*` | F1 · F2 · F3 · F4 |
+| 2 성능 | 턴 hot path · 부팅 · 자격증명 교체 | `app/chat-turn/turn-setup.ts` → `features/harnesses/prepared-config.ts` → `features/sessions/session-runtime.ts` · `app/auth-resume.ts` · `features/auth/{store,login}.ts` | P1~P6 |
+| 3 UI/UX | DTO 조립 · IPC 모드 · renderer 훅 | `app/connection-views.ts` · `app/handlers/providers.ts` · `renderer/src/features/{skills,providers}/hooks/*` | U1 · U2 · U3 |
+| 4 경량화 | 슬라이스 부피 · 확장점 구현체 수 · 개념 수 | `features/{auth,gate,harnesses,plugins}` · `app/deployment/` | 볼륨 · 간접층 |
+
+### 9.3 제어 흐름 4개 — 발견을 화살표에 못박는다
+
+**(a) 부팅** — `index.ts → Bootstrap.start()`
+
+```
+[DB 이전]
+  SecretStore · RuntimeToolRegistry
+  createAuthRuntime(AUTH_DEFINITIONS, persistence, vault, netFetch)
+      └ store.restore() → authoritative 일 때만 vault sweep       ◄ P4 (D-060)
+  mcp.attachTokenSource(authId => secretReader.read(authId))       ◄ AC5 좁은 closure
+  createGate(selectGateMembers(...))                               ◄ AC4 fail-closed
+  createPluginBindings(deps) → plugin.sync()   (resume 보다 먼저)
+  createConnectionSources({auth, gateMembers, plugins})            ◄ 축4 확장점
+  auth.subscribe(change => …)              D-008 단일 소비 지점
+      └ pushConnectionState() 가 credentialChanged 가드보다 **앞**  ◄ 개선 여지
+  registerConnectionHandlers(...)          renderer 첫 invoke 대상
+  createAuthResume(...).run()  gate 순차 → 나머지 Promise.all → push 1회  ◄ 0187 보존
+[DB 이후]
+  db-init → HarnessSettingsService → HarnessRuntimeConfigService → UsageTracker
+```
+
+**(b) 턴** — `chat:send` 12단계 중 성능 관련 구간
+
+```
+send.ts ①진입게이트 ②첨부 ③lease ④⑤continuity+resolve-turn
+   └→ turn-setup.resolveTurnProvider
+        harnessRuntime.resolve(key)      warm cache + settings mtime stat 1
+        prepareHarnessConfig({config, appEnv, baseEnv: processEnvRecord})
+             withoutEnvBlock(settings)   env 블록 있으면 새 객체   ◄ P2 (D-042 부작용)
+             env = base → app → settings → runtimeEnv             (D-041)
+             harnessEnvFingerprint(env)                            ◄ P1 1회차
+   ⑥turn-context     titleSettings **required** → title/chat 동일 snapshot (AC17)
+   ⑦runtime-entry.decideRespawn(boundary·model·settings·runtimeEnv·toolsRevision) ◄ P6
+   ⑪TurnRequest 조립 → SessionRuntime.spawn
+             harnessEnvFingerprint(req.env)   재사용할 필드가 없다  ◄ P1 2회차
+   ⑫post-turn 루프 → prepareAutomaticContinuation → 전체 재resolve  ◄ P3 (D-020)
+```
+
+**(c) 자격증명 교체**
+
+```
+login.settleGrant
+   probeOk(candidate)              확인 전 커밋 없음            (D-047)
+   세대 확인 (모든 await 뒤)                                    (D-050·D-058)
+   vault.set(versionedVaultKey)    새 키                        ◄ P5 ①
+   store.put(): boolean            내구 저장이 곧 커밋           (D-056·D-057)
+   discardKeys(previous)           옛 키 삭제                   ◄ P5 ②
+revoke: persist 먼저 → 실패면 throw → handlers/providers 'reject'
+      → renderer `void providers.revoke(...)` 가 rejection 폐기  ◄ U1
+```
+
+**(d) 카탈로그**
+
+```
+createConnectionSources → ConnectionViewSource[] {gate|harness|plugin|usage}
+   → connectionState(auth, gate, sources)
+        auth.describe()   메모리
+        auth.snapshot()   settleExpiry 부수효과                  ◄ 정보성 관측
+   → ProviderPlatformState → orca:provider:state → renderer
+renderer   useProviders(requestSeq 가드 ✓) / useProviderGate(가드 ✗)  ◄ U3 (D-054)
+```
+
+### 9.4 배포 확장점 인벤토리 — 축 4 간접층의 근거 표면
+
+| 파일 | export | 기본값 | 기본 배포 구현체 |
+|---|---|---|---|
+| `auth-definitions.ts` | `AUTH_DEFINITIONS` | `[]` | 0 |
+| `gate-auth.ts` | `GATE_AUTH_DEFINITIONS` · `remainingAuthDefinitions` | `[]` | 0 |
+| `harness-runtime.ts` | `HarnessConfigApiDeps` · `HarnessDirectCredentialDeps` · `DIRECT_CREDENTIAL_AUTH_IDS` · `createConfigApiAugmenters` · `createDirectCredentialAugmenters` · `createRuntimeConfigAugmenters` · `mergeAugmenters` · `AUTH_INVALIDATED_HARNESS_KEYS` | `{}` · `[]` | 0 (`mergeAugmenters` 만 실행) |
+| `plugins.ts` | `PluginBinding` · `CreatePluginBindingDeps` · `createPluginBinding` · `PluginDeploymentDeps` · `createPluginBindings` | `[]` | 0 |
+| `connections.ts` | `createConnectionSources` · `gateRows` · `pluginRows` | gate+plugin 만 | `harness`·`usage` 0 |
+| `usage-fetcher.ts` | `UsageDeploymentDeps` · `createUsageFetcher` | `undefined` | 0 |
+
+이 표 하나가 **F2**(deps 타입 좁힘) · **축 4**(구현체 0개 6종) · **AC25**(`deployment-wiring.test.ts` 가
+가상 배포로 태우는 경로)가 전부 **같은 표면**을 가리킨다는 사실을 보인다. 확장점 자체는
+`D-044`·`D-045`·`D-048`·`D-051` 이 승인한 구조다 — 드리프트가 아니다.
+
+### 9.5 TO-BE — 이 핸드오프가 바꾸는 것
+
+**코드 아키텍처는 바꾸지 않는다(D-001).** 바뀌는 것은 감사 산출물의 정보 구조다.
+
+```
+증거 3종                      3층 채점 (D-008)              산출
+──────────────────────────────────────────────────────────────────
+현재 워킹트리 코드      ─┐    1층  code ↔ proposal.md    ─┐
+`git show ad10f6c:`     ─┼──→ 2층  ACTIVE Decision+출처  ─┼──→ 축별 판정 4 → audit.md
+0188 plan §3 Ledger     ─┘    3층  pre-change baseline   ─┘         + 정정 이력
+```
+
+### AS-IS → TO-BE Delta
+
+| 항목 | AS-IS (0189 초안) | TO-BE |
 |---|---|---|
-| 제안 충실도 판정 | 없음 | 수용기준 36불릿 ↔ AC 25건 전수 매핑 + 금지표 22행 대조 |
-| 성능 판정 | 없음 | 0187 보존 4건 + 신규 비용 6건(낭비형/대가형) |
-| UI/UX 판정 | verify 가 "화면·클릭·IPC 불변" 만 | 불변식 7개 대조 + 회귀 3건 |
-| 경량화 판정 | 없음 | 6개 축 수치 + 반대 논거 |
+| 채점 층 | 1층 — `proposal.md` 만 | **3층** — Decision(출처)·baseline 포함 |
+| 구조 좌표 | 없음 | §9.1~9.4 — 발견마다 구조 위 위치 |
+| 성능 서술 | 파일:줄 나열 | 제어 흐름 위 화살표에 P1~P6 고정 |
+| 확장점 근거 | 산문에 흩어짐 | 6파일 × export × 구현체 수 표 |
+| 제안 충실도 판정 | 없음(0188 시점) | 수용기준 36불릿 ↔ AC 25건 매핑 + 금지표 22행 |
 
 ### 핵심 책임 분리
 
-- `plan.md`(본 문서) = 무엇을 어떤 기준으로 남길지.
-- `audit.md` = 관측과 판정.
+- `plan.md`(본 문서) = **좌표계와 기준** — 무엇을 어떤 층으로 채점하고 어디에 남길지.
+- `audit.md` = **관측과 판정** — 그 좌표 위의 발견을 `파일:줄` 로 고정.
 - 시정 설계 = 0190 (이번 범위 밖).
 
 ## 10. 계약 / 타입 / 강제 지점
@@ -187,6 +310,8 @@ verify 는 **자기 검증**이었다 — 설계·구현·검증이 모두 Claud
 | 실측/연역 구분 | 각 항목 표기 | 작성자 | 작성 시 | 연역을 실측으로 읽으면 없는 회귀를 고치게 된다 |
 | `app/**` 무변경 | git | 커밋 | 커밋 시 | D-001 위반 |
 | 0188 Decision/AC 무변경 | `0188/plan.md` | 커밋 | 커밋 시 | 감사가 대상을 바꾸면 감사가 아니다 |
+| **3층 채점 적용** | §9.5 파이프라인 | 작성자 | **축별 판정 시** | 1층에서 멈추면 정당한 Decision·기존 상태를 이탈로 오판한다 — 초안이 실제로 2건 오판했다 |
+| **발견의 구조 좌표** | §9.2 매핑표 · §9.3 흐름 | 작성자 | 발견 신설 시 | 좌표 없는 발견은 독자가 "어디를 고쳐야 하는가" 를 알 수 없다 |
 | 수치의 커밋 범위 명시 | `audit.md` 머리 | 작성자 | 작성 시 | `docs/generated/inventory.md` 와 혼동되어 두 정본이 갈린다 |
 
 ## 11. 구현 설계
@@ -207,6 +332,9 @@ verify 는 **자기 검증**이었다 — 설계·구현·검증이 모두 Claud
 
 `audit.md`(producer) → 유지보수자·후속 0190 설계(consumer). 소비자는 판정과 `파일:줄` 만 쓰며
 보고서가 코드를 바꾸지 않으므로 런타임 소비자는 없다.
+
+**§9.2 매핑표가 `audit.md` 축 절의 목차를 결정한다** — 축 순서·검사 표면·발견 ID 가 두 문서에서
+같아야 독자가 좌표를 따라갈 수 있다. 축을 늘리거나 발견 ID 를 바꾸면 §9.2 를 먼저 고친다.
 
 ### 부팅/등록/초기화 변경 시 기존 소비처
 

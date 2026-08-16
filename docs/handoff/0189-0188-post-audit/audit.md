@@ -51,6 +51,8 @@
 
 ## 축 1 — 제안 충실도
 
+> 구조 좌표: [`plan.md §9.2`](plan.md#92-축--구조-표면-매핑) · 배포 확장점 인벤토리는 `plan.md §9.4`.
+
 **판정: 충실. 3층 채점 후 실질 이탈 3건(F1~F3) + 검증 공백 1건(F4).**
 
 제안 §금지표 **22행 전부 미위반** — 이름만 바꾼 통합 facade · `HarnessModelProviderDefinition[]` ·
@@ -101,6 +103,8 @@ PluginHost/ConnectorRegistry · operation/endpoint registry · JSON path 범용 
 
 ## 축 2 — 성능
 
+> 구조 좌표: [`plan.md §9.3`](plan.md#93-제어-흐름-4개--발견을-화살표에-못박는다) — P1~P6 이 부팅·턴·자격증명 흐름의 어느 단계인지 화살표로 고정돼 있다.
+
 **판정: 0187 이 만든 개선 4건은 전부 보존. 0188 이 새로 얹은 비용 6건 — 낭비형 2 / 대가형 4.**
 
 정적·기본 배포에서는 **턴당 파일 I/O 증가 0**이고 vault 접근은 오히려 **−1**이다(구 `llmEnvFor`
@@ -144,6 +148,8 @@ PluginHost/ConnectorRegistry · operation/endpoint registry · JSON path 범용 
 
 ## 축 3 — UI/UX
 
+> 구조 좌표: [`plan.md §9.3`](plan.md#93-제어-흐름-4개--발견을-화살표에-못박는다) (c)해제·(d)카탈로그 흐름.
+
 **판정: 불변식 대부분 유지. 회귀 1건(U1) + 미기록 1건(U2) + Decision 강제 지점 부분 적용 1건(U3).**
 
 > 초안은 U2 를 "비범위 침범 3건", U3 를 "정보성" 으로 적었다. 2층 채점에서 **U2 는 2건이 승인된 변경**으로, **U3 는 오히려 Decision 미충족**으로 바뀌었다.
@@ -179,6 +185,8 @@ PluginHost/ConnectorRegistry · operation/endpoint registry · JSON path 범용 
 ---
 
 ## 축 4 — 경량화
+
+> 구조 좌표: [`plan.md §9.1`](plan.md#91-as-is--감사-대상-구조-0188-이-만든-것) 슬라이스 지도 + `§9.4` 확장점 인벤토리.
 
 **판정: 미달.** 결합 축은 달성했으나 볼륨·개념·간접층 축은 전부 반대 방향이다.
 (판정 기준에 볼륨을 포함하는 것은 이번 턴 사용자 결정 — [`plan.md`](plan.md) D-002.)
