@@ -17,11 +17,26 @@
 [`docs/generated/inventory.md`](../../generated/inventory.md) 이며 이 문서는 그것을 대체하지 않는다
 (root [`AGENTS.md`](../../../AGENTS.md) 원칙 4).
 
+### 채점 기준의 타당성 — `proposal.md` 가 맞는가
+
+맞다. 0188 자신이 그렇게 선언했다(전수 실측).
+
+| 확인 | 결과 |
+|---|---|
+| `proposal.md` 의 출처 | 0188 `plan.md` 와 **같은 커밋**(`ad10f6c`, plan/READY)에 함께 들어왔다. 사후 첨부가 아니다 |
+| `plan.md` 가 그것을 언급하는가 | **68회**. 메타 표에 `입력 정본 \| proposal.md (사용자 첨부 제안서, 저장소에 보존)` 로 1급 선언 |
+| 구현 정본으로 잠갔는가 | `plan.md` **D-001**: "제안서(`proposal.md`)가 이번 작업의 구현 정본이다. 다른 초안·피드백 문서의 예시를 조합하지 않는다" (ACTIVE) |
+| AC 의 원천을 무엇으로 밝혔는가 | `plan.md §2`: "**제안서의 `수용 기준`·`검증 지침` 절이 이 handoff 의 AC 원천이다 — 별도 제품 결정 없이 그대로 승계한다**" |
+
+따라서 `proposal.md` 대조는 외부 기준을 들이대는 것이 아니라 **0188 이 스스로 선언한 계약을
+그대로 채점하는 것**이다. 그리고 그 선언("그대로 승계") 때문에 아래 F4 가 성립한다 — 승계되지
+않은 요구가 있다면 그것은 취향 차이가 아니라 **선언 위반**이다.
+
 ---
 
 ## 축 1 — 제안 충실도
 
-**판정: 충실. 실질 이탈 3건.**
+**판정: 구조는 충실. 실질 이탈 3건(F1~F3) + 승계 누락 6건(F4).**
 
 제안 §수용기준 **구조 12건 중 11충족 / 1부분**, **보안·호환성 9건 중 7충족 / 1이탈 / 1미검증**,
 **§구현자가 만들면 안 되는 것 22행 전부 미위반**. 가장 위험한 축 — 이름만 바꾼 통합 facade ·
@@ -31,8 +46,30 @@ JSON path 범용 mapper · 새 DB migration — 은 **하나도 만들어지지 
 | # | 문제 | 원인 | 방안 |
 |---|---|---|---|
 | F1 | spawn 입력 조립이 adapter 밖에 있다. 제안은 adapter-local 을 지정했으나 실제 조립은 `app/src/main/features/harnesses/prepared-config.ts`, 호출은 `app/src/main/app/chat-turn/turn-setup.ts:84`. `adapters/claude.ts` 는 여전히 `settings`·`env` 두 채널을 무비판 전달한다 | `turn-setup.ts` 가 electron 을 물어 vitest 가 import 하지 못한다 → **테스트 가능성을 위한 의도적 이탈**. 근거가 코드에 있다(`prepared-config.ts:153`) | adapter 에 얇은 조립 진입점을 두고 순수부는 현 위치 유지. 또는 이탈을 명시 결정으로 승격해 제안과의 차이를 문서에 남긴다. **부작용**: adapter 를 우회해 spawn 입력을 만드는 경로가 하나 더 생겨, 향후 다른 Harness adapter 가 자기 조립 규칙을 넣을 자리가 없다 |
-| F2 | 배포 factory 가 `BoundAuth` 가 아니라 `AuthRuntime` **전체**를 받는다 — `app/src/main/app/deployment/harness-runtime.ts:97`(`HarnessConfigApiDeps`), 주입은 `app/src/main/app/bootstrap.ts:441`. 같은 패턴이 `deployment/usage-fetcher.ts:40`·`deployment/plugins.ts:67` | 제안 §보안·호환성 의 "config API augmenter 에는 `BoundAuth` 만 전달" 이 **plan 의 AC 로 번역되지 않았다** — AC5 는 `AuthSecretReader` 부재만 단언한다. 번역 누락이 그대로 구현 이탈이 됐다 | 세 deps 타입을 `BoundAuth`(또는 필요한 `request` 만)로 좁힌다. **secret 표면은 넓어지지 않았다**(`AuthSecretReader` 는 전달되지 않는다). 넓어진 것은 배포가 `login`/`revoke`/`resume`/`subscribe` 를 쥔다는 점이다 |
+| F2 | 배포 factory 가 `BoundAuth` 가 아니라 `AuthRuntime` **전체**를 받는다 — `app/src/main/app/deployment/harness-runtime.ts:97`(`HarnessConfigApiDeps`), 주입은 `app/src/main/app/bootstrap.ts:441`. 같은 패턴이 `deployment/usage-fetcher.ts:40`·`deployment/plugins.ts:67` | 제안은 이 좁힘을 **4곳**에서 말한다 — `proposal.md:523`(`corpAuth: BoundAuth`) · `:750`(`createCorpUsageFetcher(auth: BoundAuth)`) · `:1135`("`BoundAuth`만 각 factory 에 재사용") · `:1378`(수용기준 "config API augmenter에는 `BoundAuth`만 전달"). 그런데 **plan 의 어느 AC 도 이것을 옮기지 않았다** — AC5 는 `AuthSecretReader` 부재만 단언한다(F4 참조) | 세 deps 타입을 `BoundAuth`(또는 필요한 `request` 만)로 좁힌다. **secret 표면은 넓어지지 않았다**(`AuthSecretReader` 는 전달되지 않는다). 넓어진 것은 배포가 `login`/`revoke`/`resume`/`subscribe` 를 쥔다는 점이다 |
 | F3 | SDK `options.settings.env` vs `options.env` 의 **characterization test 가 없다**(전 테스트 트리 grep 0건) | 제안과 plan AC15 ① 이 "실제 우선순위를 먼저 고정한 뒤 결정표를 적용" 을 요구했으나, 구현은 "settings 의 env 블록을 통째로 hoist" 라는 제3의 fail-safe 를 택했다(`prepared-config.ts:76`). 결과는 안전하지만 SDK 동작이 코드로 고정되지 않았다 | SDK 실동작을 고정하는 테스트 1건 추가. 지금은 SDK 가 `options.env` 를 무시하는 방향으로 바뀌어도 잡을 테스트가 없다 |
+
+### F4 — 제안 수용기준 → plan AC 번역에서 6건이 누락됐고, 그중 2건이 실제 이탈이 됐다
+
+`plan.md §2` 는 "제안서의 `수용 기준`·`검증 지침` 절이 이 handoff 의 AC 원천이다 — **별도 제품
+결정 없이 그대로 승계한다**" 라고 선언했다. 제안 수용기준 **36불릿**(구조 11 · 동작·성능 17 ·
+보안·호환성 8)을 AC 25건에 1:1 로 대조한 결과:
+
+| 승계되지 않은 요구 | 제안 위치 | 코드 상태 |
+|---|---|---|
+| config API augmenter 에는 `BoundAuth` 만 전달 | 보안 §2 (`:1378`) | **미준수 → F2** |
+| shared DTO 중 `AgentEnvironment` 도 compat boundary 에만 | 구조 §11 (`:1344`) | **미준수** — `features/harnesses/models.ts:51` 이 feature 안에서 생성 |
+| OAuth/session access token 과 config API 응답의 LLM token 을 별도 값으로 검증·취급 | 보안 §3 | 구조적 충족(두 deps 타입 분리 + `mergeAugmenters` 충돌 시 throw). 기본 배포가 비어 **런타임 실증 불가** |
+| Usage 의 Main 정본 · renderer mirror · cron · 수동 refresh · DB cache 의미 유지 | 동작·성능 §17 (`:1373`) | 충족 — `features/usage/` diff 가 **주석 1줄**이라 건드려지지 않았다 |
+| Harness/Plugin/Usage feature 끼리 직접 import 금지 | 구조 §7 | 충족 — AC3 은 `auth` 기점만 단언하지만 **eslint boundaries** 가 기계적으로 강제한다 |
+| Usage·Confluence response mapping 이 각 feature/deployment 모듈에 잔존 | 구조 §10 | 충족 — `deployment/usage-fetcher.ts`·`features/plugins/confluence/**` |
+
+**패턴**: 승계되지 않은 6건 중 **2건이 실제 이탈**이 됐고, 나머지 4건은 AC 가 아니라 *다른
+메커니즘*(eslint 경계 · 파일 무변경 · 타입 분리)이 우연히 막았다. 즉 **AC 로 옮겨지지 않은 요구는
+지켜질 보장이 없었고, 실제로 3분의 1이 새어 나갔다.** 0188 의 `verify.md` 가 AC 25/25 를 채운 것은
+사실이지만, 그 25건이 제안의 36불릿을 전부 덮지 않았기 때문에 AC 만점이 제안 충족을 뜻하지 않는다.
+
+> 방법: 36불릿을 AC1~AC25 에 수동 1:1 매핑하고, 후보는 AC 표 전수 grep 으로 교차 확인했다.
 
 ### 부수 (낮음)
 
@@ -161,7 +198,7 @@ JSON path 범용 mapper · 새 DB migration — 은 **하나도 만들어지지 
 
 | 축 | 판정 | 즉시 볼 것 |
 |---|---|---|
-| 제안 충실도 | **충실** (이탈 3건) | F2 — 제안 → plan AC 번역 누락이 그대로 구현 이탈이 된 사례 |
+| 제안 충실도 | **충실** (이탈 3건 + 승계 누락 6건) | **F4** — 제안 36불릿 중 6건이 AC 로 승계되지 않았고 그중 2건이 실제 이탈이 됐다. **AC 25/25 만점이 제안 충족을 뜻하지 않는다** |
 | 성능 | **0187 보존, 신규 비용 6건** | P1 · P2 — 오작동 없이 CPU 만 먹고 각각 한 파일에서 닫힌다 |
 | UI/UX | **부분 회귀 3건** | U1 — 기본 빌드에서 사용자가 실제로 만날 수 있는 유일한 회귀. 단 0188 D39 의 재확인 |
 | 경량화 | **미달** | 간접층 — 배포 확장점 529줄과 `runtime-config.ts` 266줄이 기본 빌드에서 도달 불가 |
@@ -173,5 +210,10 @@ JSON path 범용 mapper · 새 DB migration — 은 **하나도 만들어지지 
 | D39 (해제 실패 UX, 제품 결정 대기) | U1 | **동일 항목의 재확인.** 새 발견이 아니다 |
 | D40 (루트 미추적 `package-lock.json`) | — | 이번 감사 범위 밖(작업 트리 위생) |
 
-**다음 단계**: F1~F3 · P1~P2 · U2~U3 의 시정 여부를 결정한다. 시정한다면 별도 핸드오프(0190)로
+**다음 단계**: F1~F4 · P1~P2 · U2~U3 의 시정 여부를 결정한다. 시정한다면 별도 핸드오프(0190)로
 설계한다 — 이 감사는 코드를 바꾸지 않았다.
+
+**절차에 남길 것 (F4 의 일반화)**: 이 handoff 는 외부 제안서를 `plan.md` 의 AC 로 옮기는 단계를
+거쳤고 거기서 6건이 샜다. `handoff-plan` 이 "외부 입력 정본이 있으면 그 수용기준을 AC 에 **전수
+매핑하고 누락을 명시**한다" 를 요구하지 않는 것이 원인이다. 지침 자체의 개선이므로
+[`handoff-review`](../../../.agents/skills/handoff-review/SKILL.md) 대상이며, 이 감사는 그 신호만 남긴다.
