@@ -17,6 +17,24 @@
 [`docs/generated/inventory.md`](../../generated/inventory.md) 이며 이 문서는 그것을 대체하지 않는다
 (root [`AGENTS.md`](../../../AGENTS.md) 원칙 4).
 
+### 근거의 두 종류 — 실측과 연역 (D-006)
+
+이 환경은 `app/node_modules` 가 없어 **앱을 띄우거나 테스트를 돌린 관측이 하나도 없다.** 그래서
+근거를 두 종류로 갈라 적는다. 연역을 실측으로 읽으면 없는 회귀를 고치게 된다.
+
+- **실측** — 코드의 위치·존재/부재·diff·줄 수처럼 파일에서 직접 센 것. `sed -n`·`rg`·`wc -l`·
+  `git show ad10f6c:` 로 그대로 재현된다.
+- **연역** — 실측한 코드로부터 **런타임에 무엇이 일어나는가**를 추론한 것. 재현하려면 앱을 띄워야
+  한다. 아래가 이 문서의 **연역 항목 전부이고, 표에 없는 발견은 전부 실측이다.**
+
+| 발견 | 실측한 것 | **연역한 것** | 조건 |
+|---|---|---|---|
+| P1 | `prepared-config.ts:149` 와 `session-runtime.ts:355` 두 곳이 각각 `harnessEnvFingerprint` 를 부른다 · `TurnRequest` 에 나를 필드가 없다 | 한 번의 spawn 에서 **두 계산이 모두 실행된다** | 없음 |
+| P2 | `withoutEnvBlock` 이 env 블록이 있으면 새 객체를 만든다(`prepared-config.ts:131`) · `runtime-boundary.ts:24` 가 `===` 로 비교한다 | 매 턴 fast path 를 빠져나가 **`JSON.stringify` 2회 경로로 간다** | **폐쇄망 형상 한정** (settings env 블록 + orca.json env 또는 augmenter) |
+| P3~P6 | 각 연산이 코드에 존재하고 어느 경로에서 불리는지 | **증가한 비용의 크기** — continuation 마다 env 전량 복사 1벌 · 부팅 index 읽기+복호화 각 +1 · 재인증당 vault 연산 1벌→2벌 · 토큰 회전마다 respawn | P6 은 **동적 배포 한정** (기본/정적 배포는 augmenter 가 `{}`) |
+| U1 | `login.ts:228` throw · `handlers/providers.ts:67` `'reject'` · `useProviders.ts:91-96` catch 부재 · `ExtensionsCatalogView.tsx:142` `void` | 그 결과 **사용자 화면에 아무것도 나타나지 않는다**(unhandled rejection) | 없음 |
+| U3 | 가드가 `useProviders.ts:57` 에만 있고 `useProviderGate.ts:48` 에 없다 | `supersededStep()` 이 현재값을 돌려주므로 **지금은 실피해가 없다** | 없음 |
+
 ### 채점 기준의 타당성 — `proposal.md` 가 맞는가
 
 맞다. 0188 자신이 그렇게 선언했다(전수 실측).
@@ -33,14 +51,15 @@
 
 ### 채점은 3층이다 (r2 개정 — 초안의 결함)
 
-**제안서 하나만으로 채점하면 안 된다.** 0188 은 10라운드를 돌며 **ACTIVE Decision 63건**을 쌓았고,
+**제안서 하나만으로 채점하면 안 된다.** 0188 은 10라운드를 돌며 **Decision 62건**(ID 는 D-001~D-063
+이고 **D-053 은 결번** · **ACTIVE 61 · SUPERSEDED 1**(D-021 → D-038))을 쌓았고,
 그중 일부는 제안서를 정당하게 구체화·대체한다 — 출처가 **제안서 / 외부 리뷰 / 사용자**로 갈린다.
 게다가 어떤 "이탈" 은 **0188 이전부터 그랬던 것**이라 0188 이 만든 변화가 아니다.
 
 | 층 | 질문 | 근거 | 실패 의미 |
 |---|---|---|---|
 | 1 | code 가 `proposal.md` 와 다른가 | 제안서 원문 | 여기서 같으면 통과 |
-| 2 | 다르면, **ACTIVE Decision 이 승인했는가 — 출처는 누구인가** | `0188/plan.md §3` (D-001~D-063) | 승인됐으면 이탈이 아니다 |
+| 2 | 다르면, **ACTIVE Decision 이 승인했는가 — 출처는 누구인가** | `0188/plan.md §3` (ID 범위 D-001~D-063, 실 62행) | 승인됐으면 이탈이 아니다 |
 | 3 | 그래도 다르면, **0188 이 만든 변화인가** | `git show ad10f6c:<path>` | 원래 그랬으면 0188 의 회귀가 아니다 |
 
 `plan.md` 는 제안서 요구를 **AC 표와 Decision Ledger 두 곳**에 나눠 담았다. **이 감사의 초안은 AC
@@ -55,7 +74,8 @@
 
 **판정: 충실. 3층 채점 후 실질 이탈 3건(F1~F3) + 검증 공백 1건(F4).**
 
-제안 §금지표 **22행 전부 미위반** — 이름만 바꾼 통합 facade · `HarnessModelProviderDefinition[]` ·
+제안 §금지표 **20행 전부 미위반**(`proposal.md:1300` 표의 **데이터 행 20**. 헤더·구분선을 포함한
+마크다운 줄 수는 22 다) — 이름만 바꾼 통합 facade · `HarnessModelProviderDefinition[]` ·
 PluginHost/ConnectorRegistry · operation/endpoint registry · JSON path 범용 mapper · 새 DB migration 이
 **하나도 만들어지지 않았다**(전수 grep). 구조 재배치는 제안대로 이뤄졌다.
 
@@ -91,6 +111,8 @@ PluginHost/ConnectorRegistry · operation/endpoint registry · JSON path 범용 
 
 > 방법: 36불릿 → AC1~25 수동 1:1 매핑 → AC 미대응분을 D-001~D-063 전수 대조 → 남은 것을
 > `git show ad10f6c:` baseline 대조. 초안은 첫 단계에서 멈춰 2건을 오판했다([정정 이력](#정정-이력)).
+> **매핑 자체는 [부록 A](#부록-a--제안-수용기준-36불릿--0188-ac-전수-매핑) 에 36행 전부 싣는다** —
+> 방법만 적으면 독자가 재현할 수 없다(verify r1 D5①).
 
 ### 부수 (낮음)
 
@@ -168,11 +190,14 @@ PluginHost/ConnectorRegistry · operation/endpoint registry · JSON path 범용 
 
 ### 회귀
 
-| # | 문제 | 원인 | 방안 (D-004: 이번엔 기록만) |
-|---|---|---|---|
-| U1 (중) | 해제 영속 실패가 화면에서 **"아무 일도 안 일어남"** 으로 보인다. main 이 만든 한국어 메시지가 어디에도 표시되지 않는다 | `features/auth/login.ts:228` 이 사용자용 메시지를 담아 throw → `app/handlers/providers.ts:67` 이 `'reject'` 로 거절 → 그런데 `renderer/.../hooks/useProviders.ts:91-96` 의 `revoke` 에 try/catch 가 없고 `.../ExtensionsCatalogView.tsx:142` 가 `void providers.revoke(...)` 로 rejection 을 버린다 = **unhandled rejection** | 오류 표면 추가. 단 제안 §비범위 "UI 문구 변경" 에 걸려 **사용자 결정 사항**이다. **핵심 계약은 지켜진다** — 상태가 바뀌지 않아 행이 '연결됨' 으로 남으므로 false success 는 없다. ⚠️ **0188 `verify.md` 의 D39 와 동일 항목이며 새 발견이 아니다** |
-| U2 (낮음) | 사용자 대면 한국어 문구 변경 — 초안은 3건을 "제안 §비범위 침범" 으로 적었으나 **2건은 승인된 변경이다** | `features/harnesses/settings-write.ts` 2건(`'claude engine 만 …'`→`'claude Harness 만 …'` · `'유효하지 않은 engine key …'`→`'… Harness key …'`)은 **PR #336 외부 리뷰 P2 지적 → 사용자 결정으로 수용**했다(`0188/plan.md` r10 반영 행 · 파생이슈 D36). 남는 것은 `features/auth/login.ts:375` **1건**(`'등록되지 않은 provider 입니다'`→`'… Auth 입니다'`) | 이 1건도 위반 단정이 아니다 — **D-004**(신규 코드에서 Auth 어휘) 와 제안 §비범위("기존 renderer 표시 문구는 바꾸지 않는다") 사이의 **회색지대**이고, 실제 문제는 **어디에도 기록되지 않았다**는 점이다. 도달 조건이 미등록 id 호출이라 정상 UI 에서 실질 도달은 어렵다 |
-| U3 (**D-054 부분 적용**) | 0188 이 신설한 "늦게 온 응답 폐기" 가드가 소비처 2곳 중 1곳에만 있다 | **정보성이 아니라 ACTIVE Decision 의 강제 지점 미충족이다.** `D-054`(출처 r6~r7 리뷰)가 "**Renderer 도 자기보다 뒤에 시작된 요청이 있으면 invoke 응답을 버린다**" 를 명시했는데 `renderer/.../hooks/useProviders.ts:57` 만 닫혔고 `renderer/.../hooks/useProviderGate.ts:48` 은 열려 있다 | 가드를 게이트 훅에도 적용한다. **현재 실피해는 없다** — main 의 `supersededStep()`(`features/auth/login.ts:176`)이 현재값을 그대로 돌려주므로 덮어쓰기가 일어나지 않는다(실측). 남는 것은 계약이 한 지점만 닫혔다는 사실이다 |
+> 아래 **층** 열은 축 1 과 같은 [3층 채점](#채점은-3층이다-r2-개정--초안의-결함)이다 — 각 항목이
+> 어느 층에서 갈렸는지를 적는다. 산문에만 있던 층 판단을 열로 올렸다(verify r1 D3).
+
+| # | 층 | 문제 | 원인 | 방안 (D-004: 이번엔 기록만) |
+|---|---|---|---|---|
+| U1 (중) | **3층 신규 · 2층 부분 승인** | 해제 영속 실패가 화면에서 **"아무 일도 안 일어남"** 으로 보인다. main 이 만든 한국어 메시지가 어디에도 표시되지 않는다 | `features/auth/login.ts:228` 이 사용자용 메시지를 담아 throw → `app/handlers/providers.ts:67` 이 `'reject'` 로 거절 → 그런데 `renderer/.../hooks/useProviders.ts:91-96` 의 `revoke` 에 try/catch 가 없고 `.../ExtensionsCatalogView.tsx:142` 가 `void providers.revoke(...)` 로 rejection 을 버린다 = **unhandled rejection**(연역). **3층 baseline**: `ad10f6c:.../features/providers/auth/login.ts:114` 의 `revoke()` 는 실패를 삼키고 상태를 바꿔 행을 '연결 안 됨' 으로 떨어뜨렸다 — 즉 **이 실패 경로 자체가 0188 이 만든 것**이다. **2층**: main 이 던지는 것은 `D-061`(해제 fail-closed, 출처 `r8 재리뷰 §2 + 실측 재현`)이 승인했다. **어느 층도 승인하지 않은 것은 그 메시지의 소비처가 없다는 사실 하나**다 | 오류 표면 추가. 단 제안 §비범위 "UI 문구 변경" 에 걸려 **사용자 결정 사항**이다. **핵심 계약은 지켜진다** — 상태가 바뀌지 않아 행이 '연결됨' 으로 남으므로 false success 는 없다(pre-0188 은 저장이 실패해도 행이 떨어졌다). ⚠️ **0188 `verify.md` 의 D39 와 동일 항목이며 새 발견이 아니다** |
+| U2 (낮음) | **2층에서 2건 해소 · 1층 잔여 1건** | 사용자 대면 한국어 문구 변경 — 초안은 3건을 "제안 §비범위 침범" 으로 적었으나 **2건은 승인된 변경이다** | `features/harnesses/settings-write.ts` 2건(`'claude engine 만 …'`→`'claude Harness 만 …'` · `'유효하지 않은 engine key …'`→`'… Harness key …'`)은 **PR #336 외부 리뷰 P2 지적 → 사용자 결정으로 수용**했다(`0188/plan.md` r10 반영 행 · 파생이슈 D36) = **2층 해소**. 남는 것은 `features/auth/login.ts:375` **1건**(`'등록되지 않은 provider 입니다'`→`'… Auth 입니다'`)이고 이것만 1층에 남는다 | 이 1건도 위반 단정이 아니다 — **D-004**(신규 코드에서 Auth 어휘) 와 제안 §비범위("기존 renderer 표시 문구는 바꾸지 않는다") 사이의 **회색지대**이고, 실제 문제는 **어디에도 기록되지 않았다**는 점이다. 도달 조건이 미등록 id 호출이라 정상 UI 에서 실질 도달은 어렵다 |
+| U3 (**D-054 부분 적용**) | **2층에서 악화** | 0188 이 신설한 "늦게 온 응답 폐기" 가드가 소비처 2곳 중 1곳에만 있다 | **정보성이 아니라 ACTIVE Decision 의 강제 지점 미충족이다** — 1층(제안서)에는 이 요구가 없어 초안은 정보성으로 봤는데, 2층에서 `D-054`(출처 r6~r7 리뷰)가 "**Renderer 도 자기보다 뒤에 시작된 요청이 있으면 invoke 응답을 버린다**" 를 명시한 것이 드러났다. `renderer/.../hooks/useProviders.ts:57` 만 닫혔고 `renderer/.../hooks/useProviderGate.ts:48` 은 열려 있다 | 가드를 게이트 훅에도 적용한다. **현재 실피해는 없다**(연역) — main 의 `supersededStep()`(`features/auth/login.ts:176`)이 현재값을 그대로 돌려주므로 덮어쓰기가 일어나지 않는다. 남는 것은 계약이 한 지점만 닫혔다는 사실이다 |
 
 ### 정보성 관측 2건
 
@@ -281,3 +306,82 @@ production path 를 대조하라" 고만 하고, 외부 입력 정본이 있는 
 | F3 "AC15① 미이행" | **ACTIVE Decision `D-017` 미이행** — `상태=ACTIVE`·`대체 관계=—` 인데 `D-042` 가 접근을 바꾸고도 은퇴시키지 않았다. **Ledger 정합성 결함** |
 | F2 "AC 번역 누락" | **비대칭**이다 — `D-051` 이 형제 축(direct credential)에서는 제안서 원문을 다시 꺼내 좁혔는데 config API 쪽은 두었다 |
 | U3 "정보성" | **`D-054` 강제 지점 2곳 중 1곳만 닫힘** — Decision 이 renderer 가드를 명시적으로 요구한다 |
+
+### 수치 정정 2건 — verify r1 이 잡았다 (r2)
+
+검증자가 이 문서의 수치 51종을 독립 재측정해 **2건의 과다**를 찾았다. **둘 다 판정을 바꾸지
+않는다** — 20행 전부 미위반이고 Decision 대조 결과도 같다. D-009 대로 초안 값을 함께 남긴다.
+(위 철회 2 · 정정 3 · 강화 3 표는 r2 개정의 기록이므로 건드리지 않았다.)
+
+| 초안 | 실제 (구현자 재측정) | 어떻게 세었나 |
+|---|---|---|
+| "ACTIVE Decision **63건**" | **총 62건** — ID 최대치는 D-063 이지만 **D-053 이 결번**이다. 상태는 **ACTIVE 61 · SUPERSEDED 1**(D-021 → D-038) | `grep -oE '^\| D-[0-9]{3}' 0188/plan.md \| sort -u \| wc -l` = 62 · 결번 스캔 · 상태 열 tally |
+| "제안 §금지표 **22행**" | **데이터 20행**. 22 는 헤더 + `\|---\|` 구분선을 포함한 마크다운 줄 수다 | `proposal.md:1300` 표를 육안 + 행 카운트로 대조 |
+
+---
+
+## 부록 A — 제안 §수용기준 36불릿 ↔ 0188 AC 전수 매핑
+
+AC11 이 요구한 매핑이다. 본문 [F4](#f4--제안-요구는-decision-으로-승계됐으나-그중-일부에-검증-수단ac이-없다)
+는 이 표에서 **AC 없음** 으로 떨어진 것만 다시 2·3층으로 내려보낸 결과다. 방법만 적고 매핑을 싣지
+않으면 독자가 재현할 수 없다는 지적(verify r1 D5①)에 따라 36행 전부를 싣는다.
+
+- 출처: `0188/proposal.md §수용 기준` — **구조 11 · 동작·성능 17 · 보안·호환성 8 = 36**(불릿 카운트 실측).
+- 대상: `0188/plan.md §7` 의 **AC1~AC25**(고유 ID 25 실측).
+- 역방향(AC → 불릿)은 AC11 의 요구가 아니다. 짝이 없는 AC 가 있으며(예: AC25 — plan 이 "r3 신설"
+  로 표기) 그 원천은 제안 §검증 지침과 외부 리뷰다.
+
+### 구조 (11)
+
+| # | 제안 수용기준 불릿 | 대응 AC | 상태 |
+|---|---|---|---|
+| 구1 | `features/providers/` 가 존재하지 않는다 | AC1 | 매핑됨 |
+| 구2 | Auth 계약에 `kind`·`llm`·`tools`·`usage`·`envKey` 가 없다 | AC2 | 매핑됨 |
+| 구3 | Gate 는 `features/auth/` 밖이고 Auth 는 Gate 를 import 하지 않는다 | AC3 | 매핑됨 |
+| 구4 | Auth 구현이 Harness/Plugin/Usage 를 import 하지 않는다 | AC3 | 매핑됨 |
+| 구5 | `BoundAuth` 에 raw credential 조회가 없고 `AuthSecretReader` 는 trusted-main composition 에만 | AC5 | 매핑됨 |
+| 구6 | Auth event 가 step/snapshot 을 구분하고 `credentialChanged`·`credentialRevision` 을 싣는다 | AC6 | 매핑됨 |
+| 구7 | Harness/Plugin/Usage 끼리 직접 import 하지 않고 구조적 포트 + Bootstrap 주입 | **없음** | 저장소 규칙(eslint boundaries)이 승계 — **충족** |
+| 구8 | ModelProvider 목록이 settings entry 에서만 나오고 별도 definition 배열이 없다 | AC9 | 매핑됨 |
+| 구9 | `llm.ts` 대체 모듈이 전체 `runtimeEnv` overlay 를 반환할 수 있다 | AC10 | 매핑됨 |
+| 구10 | Usage·Confluence response mapping 이 각 feature/deployment 모듈에 남는다 | **없음** | **D-026·D-023**(제안서) 승계 — 충족 |
+| 구11 | shared `ProviderKind`·`ProviderInfo`·`ProviderPlatformState`·**`AgentEnvironment`** 가 compat boundary 에만 | AC22 (앞 3종) | **`AgentEnvironment` 축은 AC 없음** → **D-030**(제안서) 승계 — 충족 |
+
+### 동작·성능 (17)
+
+| # | 제안 수용기준 불릿 | 대응 AC | 상태 |
+|---|---|---|---|
+| 동1 | gate·카탈로그 인증 UI flow·상태 push·표시 결과가 변경 전과 같다 | AC22 | 매핑됨 (축 3 실측) |
+| 동2 | handler·listener·cached tool server 초기 sync 가 resume 전 · gate 순차 후 나머지 병렬 | AC23 | 매핑됨 |
+| 동3 | remaining resume 성공 snapshot 을 full-state push 1회로 합치고 상한 `1+K` | AC23 | 매핑됨 |
+| 동4 | Harness·ModelProvider·Model 선택과 settings 주입 결과가 변경 전과 같다 | AC9 · AC15 | 매핑됨 |
+| 동5 | 정적 구성에서 추가 network 호출이 없다 | AC11 | 매핑됨 |
+| 동6 | warm cache 가 settings mtime stat 외 network·vault·file 접근을 만들지 않는다 | AC11 | 매핑됨 |
+| 동7 | settings 외부 편집의 mtime 변화가 cache miss 로 이어진다 | AC12 | 매핑됨 |
+| 동8 | UI step·`verified`-only change 가 Harness generation·tool registry revision 을 안 바꾼다 | AC6 · AC20 | 매핑됨 |
+| 동9 | 완료된 옛 in-flight resolve 가 cache commit·현재 caller 반환에서 차단된다 | AC13 | 매핑됨 |
+| 동10 | 한 caller 의 취소가 다른 caller 를 취소하지 않고 invalidation 만 abort 한다 | AC14 | 매핑됨 |
+| 동11 | Auth·settings 가 안 바뀌면 persistent runtime 을 재사용한다 | AC19 | 매핑됨 |
+| 동12 | token·URL·모델 환경변수가 바뀌면 stale subprocess 를 재사용하지 않는다 | AC19 | 매핑됨 |
+| 동13 | 같은 turn 의 title generation 과 chat Harness 가 같은 snapshot 을 쓴다 | AC17 | 매핑됨 |
+| 동14 | 자동 continuation 이 매번 전체 재resolve·공유하고 fingerprint 변화 시 respawn | AC18 | 매핑됨 |
+| 동15 | Plugin 도구가 valid 에서만 등록·회수되고 반복 sync 가 revision 을 안 올린다 | AC20 | 매핑됨 |
+| 동16 | 카탈로그가 invalid 에서도 cached descriptor 도구명을 계속 표시한다 | AC21 | 매핑됨 |
+| 동17 | Usage 의 Main 정본·renderer mirror·cron·수동 refresh·DB cache 의미가 유지된다 | **없음** | **D-026**(제안서) 승계 — 충족 |
+
+### 보안·호환성 (8)
+
+| # | 제안 수용기준 불릿 | 대응 AC | 상태 |
+|---|---|---|---|
+| 보1 | secret/cookie/LLM token 이 renderer·DB·settings·로그에 새로 노출되지 않는다 | AC16 · AC5 | 매핑됨 |
+| 보2 | config API augmenter 에는 `BoundAuth` 만, direct-credential 에만 닫은 `readSecret()` closure | **없음** | **D-048 이 deps 는 갈랐으나 타입을 안 정했다 → 미준수 = [F2](#축-1--제안-충실도)** |
+| 보3 | OAuth/session access token 과 config API 응답의 LLM token 을 별도 값으로 취급 | **없음** | **D-048**(r5 리뷰) 승계 — 구조적 충족(기본 배포가 비어 런타임 실증 불가) |
+| 보4 | 기존 `ProviderInfo` 전 필드와 `ProviderPlatformState.step` 이 유지된다 | AC22 | 매핑됨 |
+| 보5 | `AuthenticatedRequest`/`Response` 의 binary·`maxBytes`·`finalUrl`·redirect Grant 감지·401/403 보존 | AC8 | 매핑됨 |
+| 보6 | Chromium network stack·session partition·request policy 테스트가 그대로 통과한다 | AC8 | 매핑됨 |
+| 보7 | DB migration 변경이 없고 기존 session 의 `provider_key` 를 계속 해석한다 | AC24 | 매핑됨 |
+| 보8 | 신규 production dependency 가 없다 | AC24 | 매핑됨 |
+
+**집계**: 매핑됨 **30** · AC 없음 **5**(구7·구10·동17·보2·보3) · 부분(축 하나만 AC 밖) **1**(구11의
+`AgentEnvironment`) = **36**. AC 밖으로 떨어진 **6건**이 본문 F4 표의 6행이고, 그중 **미준수는
+보2(F2) 하나**다.
