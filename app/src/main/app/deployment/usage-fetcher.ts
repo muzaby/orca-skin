@@ -14,31 +14,13 @@
 // 응답 생성 시각이면 `false` 로 둔다 — 그러지 않으면 원격이 이미 센 턴의 로컬 행이
 // `created_at > asOf` 가 되어 같은 턴이 두 번 더해진다.
 //
-// ── 채우는 예 ────────────────────────────────────────────────────────────────
-//
-// ```ts
-// import { CLAUDE_CORP_KEY } from './harness-runtime'
-//
-// export function createCorpUsageFetcher(auth: BoundAuth): UsageFetcher {
-//   return {
-//     supports: (key) => key === CLAUDE_CORP_KEY,
-//     async fetchUsage(key, signal) {
-//       const response = await auth.request({ path: '/api/usage' }, signal)
-//       if (!response.ok) throw new Error(`usage request failed: ${response.status}`)
-//       return mapCorpUsageSnapshot(key, response.body)
-//     }
-//   }
-// }
-// ```
-//
-// Auth 는 `/api/usage` 와 `UsageSnapshot` 을 모른다. Harness 모듈도 Usage endpoint 를 모른다.
-// Scheduler 는 기존처럼 `UsageFetcher` 를 호출할 뿐이다.
+// 채우는 예제는 `docs/guides/closed-network-extensions.md` §5-b 다.
 
-import type { AuthRuntime } from '../../contracts/auth'
+import type { AuthBinder } from '../../contracts/auth'
 import type { UsageFetcher } from '../../features/usage/fetcher'
 
 export interface UsageDeploymentDeps {
-  auth: AuthRuntime
+  auth: AuthBinder
 }
 
 // **`undefined` 는 오류가 아니라 정상 구성이다** — 원격 사용량 endpoint 가 없는 배포에서는

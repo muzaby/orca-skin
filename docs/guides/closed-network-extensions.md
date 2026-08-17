@@ -66,15 +66,22 @@ app/src/main/app/deployment/
 기본 배포는 전부 비어 있다. 그래서 OSS/prod 기본 빌드는 **로그인 화면 없이 열리고** 도구·자격증명
 주입도 일어나지 않는다. (**dev 빌드는 다르다 — §6 을 반드시 읽는다.**)
 
+> **레시피 정본은 이 문서다** (0190). `app/deployment/*.ts` 주석은 *틀리면 조용히 실패하는*
+> 불변식만 남기고 여기를 가리킨다 — 같은 예제를 두 곳에 두었더니 실제로 세 군데가 갈렸다.
+
 **factory 는 Bootstrap 이 넘긴 인자만으로 조립한다.** 네 factory 의 시그니처는 이렇다:
 
 | 파일 | factory | 받는 것 |
 |---|---|---|
-| `plugins.ts` | `createPluginBindings(deps)` | `auth: AuthRuntime` · `registry: RuntimeToolSink` · `logger?` |
-| `harness-runtime.ts` | `createConfigApiAugmenters(deps)` | `auth: AuthRuntime` **만** |
+| `plugins.ts` | `createPluginBindings(deps)` | `auth: AuthBinder` · `registry: RuntimeToolSink` · `logger?` |
+| `harness-runtime.ts` | `createConfigApiAugmenters(deps)` | `auth: AuthBinder` **만** |
 | `harness-runtime.ts` | `createDirectCredentialAugmenters(deps)` | `secrets: Record<AuthId, () => string \| null>` **만** (선언한 id 만) |
 | `connections.ts` | `createConnectionSources(deps)` | `auth` · `gateMembers` · `plugins` |
-| `usage-fetcher.ts` | `createUsageFetcher(deps)` | `auth: AuthRuntime` |
+| `usage-fetcher.ts` | `createUsageFetcher(deps)` | `auth: AuthBinder` |
+
+`AuthBinder` 는 `Pick<AuthRuntime,'bind'>` 다 (0190) — 배포는 자기 AuthId 를 골라
+`BoundAuth.request` 를 쓸 뿐이고 `login`·`revoke`·`resume`·`subscribe` 에는 **도달하지 못한다**
+(컴파일 강제). 인증 lifecycle 은 IPC 핸들러와 부팅 복원이 소유한다.
 
 **`bootstrap.ts` 는 열지 않는다.** 필요한 능력이 인자에 없으면 그것부터 이 표에 추가한다 —
 부팅 파일을 배포마다 고치기 시작하면 이 디렉토리를 둔 이유가 없어진다.
@@ -487,7 +494,7 @@ direct credential    닫힌 readSecret() → 사용자가 입력한 API key/toke
 
 **이 경계는 타입이 강제한다.** OAuth access token(=API 접근 권한)과 응답의 실제 LLM token 은 다른
 값이고, 한 factory 가 둘 다 손에 쥐면 그 경계가 흐려진다. 그래서 deps 가 둘로 갈라져 있다 —
-`HarnessConfigApiDeps` 는 `auth` 만, `HarnessDirectCredentialDeps` 는 `secretFor` 만 갖는다.
+`HarnessConfigApiDeps` 는 `auth` 만, `HarnessDirectCredentialDeps` 는 `secrets` 만 갖는다.
 config API factory 에서 `deps.secrets` 를 부르면 **컴파일이 실패한다**.
 
 direct credential 방식을 쓰려면 `DIRECT_CREDENTIAL_AUTH_IDS` 에 그 AuthId 를 **먼저 선언한다** —
@@ -586,7 +593,7 @@ export const CONFLUENCE_AUTH = {
 ```ts
 // app/deployment/plugins.ts — 서버는 **부팅에서 1회** 만들고 sync 는 add/remove 만 한다.
 export function createPluginBindings(deps: {
-  auth: AuthRuntime
+  auth: AuthBinder
   registry: RuntimeToolSink
 }): PluginBinding[] {
   const confluenceAuth = deps.auth.bind(CONFLUENCE_AUTH.id)

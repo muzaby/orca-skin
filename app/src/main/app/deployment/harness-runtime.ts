@@ -18,70 +18,20 @@
 // 갈라 두는 이유는 **OAuth access token 을 config 응답의 LLM token 으로 오인할 여지를 타입과
 // 배선에서 제거**하기 위함이다. config API augmenter 에는 `AuthSecretReader` 를 넘기지 않는다.
 //
-// ── 채우는 예 (config API 방식) ──────────────────────────────────────────────
+// ── 채우는 법 ────────────────────────────────────────────────────────────────
+// 두 방식의 완전한 구현 예제는 `docs/guides/closed-network-extensions.md` §3-c 다 (0190 —
+// 소스와 가이드에 같은 레시피를 두면 갈린다. 실제로 갈렸다). 여기 남기는 것은 예제를 읽기
+// 전에 알아야 하는 계약뿐이다:
 //
-// ```ts
-// export const CLAUDE_CORP_KEY = providerKeyOf('claude', 'corp')
-//
-// export function createRuntimeConfigAugmenters(deps: {
-//   corpAuth: BoundAuth
-// }): RuntimeConfigAugmenters {
-//   return {
-//     [CLAUDE_CORP_KEY]: {
-//       async resolve(_input, signal) {
-//         if (deps.corpAuth.snapshot().status !== 'valid') {
-//           throw new Error('corp model provider authentication required')
-//         }
-//         // 여기 실리는 OAuth/session 은 **config API 접근 권한**이다 — LLM token 이 아니다.
-//         const response = await deps.corpAuth.request({ path: '/api/llm/config' }, signal)
-//         if (!response.ok) throw new Error(`llm config request failed: ${response.status}`)
-//         // parse 와 매핑은 이 배포 모듈이 소유한다. AuthRuntime 은 body 형상을 모른다.
-//         const config = parseCorpLlmConfig(response.body)
-//         return {
-//           runtimeEnv: {
-//             ANTHROPIC_AUTH_TOKEN: config.llmToken,
-//             ANTHROPIC_BASE_URL: config.url,
-//             ANTHROPIC_DEFAULT_OPUS_MODEL: config.models.opus,
-//             ANTHROPIC_DEFAULT_SONNET_MODEL: config.models.sonnet,
-//             ANTHROPIC_DEFAULT_HAIKU_MODEL: config.models.haiku
-//           },
-//           validUntil: config.expiresAt
-//         }
-//       }
-//     }
-//   }
-// }
-// ```
-//
-// `parseCorpLlmConfig` 는 token·URL·배포가 요구하는 모델 식별자를 **모두** 검증한다. 필수 값이
-// 없거나 빈 문자열이면 **부분 env 를 cache 하거나 기존 값과 섞지 말고 resolve 를 실패시킨다** —
-// 반쯤 채워진 환경으로 spawn 하면 증상이 원인에서 멀어진다.
-//
-// ── 채우는 예 (direct credential 방식) ───────────────────────────────────────
-//
-// ```ts
-// export function createDirectCredentialAugmenter(
-//   readSecret: () => string | null,
-//   expiresAt?: () => number | undefined
-// ): RuntimeConfigAugmenter {
-//   return {
-//     async resolve() {
-//       const token = readSecret()
-//       // 미인증은 빈 문자열이 아니라 실패다 — 조용한 미인증 진행 금지.
-//       if (token === null) throw new Error('model provider credential is not available')
-//       return {
-//         runtimeEnv: { ANTHROPIC_AUTH_TOKEN: token },
-//         ...(expiresAt?.() !== undefined ? { validUntil: expiresAt()! } : {})
-//       }
-//     }
-//   }
-// }
-// ```
-//
-// Bootstrap 은 `AuthSecretReader` 전체가 아니라 `() => secretReader.read(CORP_LLM_AUTH.id)` 라는
-// **AuthId 를 닫은 closure** 만 넘긴다.
+//   · config API augmenter 에는 `AuthSecretReader` 를 넘기지 않는다. 응답을 해석해 얻은 LLM
+//     token 과 그 API 를 부르기 위한 OAuth access token 은 **다른 값**이다.
+//   · 응답 매핑(`parse…`)은 배포 모듈이 소유한다 — Auth 는 body 형상을 모른다. 필수 값이
+//     없으면 **부분 env 를 cache 하거나 기존 값과 섞지 말고 resolve 를 실패시킨다.** 반쯤
+//     채워진 환경으로 spawn 하면 증상이 원인에서 멀어진다.
+//   · direct credential 은 미인증을 빈 문자열이 아니라 **실패**로 낸다 — 조용한 미인증 진행 금지.
+//   · Bootstrap 은 `AuthSecretReader` 전체가 아니라 **AuthId 를 닫은 closure** 만 넘긴다.
 
-import type { AuthId, AuthRuntime } from '../../contracts/auth'
+import type { AuthBinder, AuthId } from '../../contracts/auth'
 import type { RuntimeConfigAugmenters } from '../../features/harnesses/runtime-config'
 
 // ── 두 능력은 **타입으로** 갈라져 있다 (r5 D-048) ─────────────────────────────
@@ -95,7 +45,7 @@ import type { RuntimeConfigAugmenters } from '../../features/harnesses/runtime-c
 
 // config API 방식 — `BoundAuth.request` 로 사내 설정 API 를 부른다. raw secret 은 못 읽는다.
 export interface HarnessConfigApiDeps {
-  auth: AuthRuntime
+  auth: AuthBinder
 }
 
 // direct credential 방식 — 사용자가 입력한 API key 를 runtimeEnv 에 직접 놓는다. API 요청 능력이

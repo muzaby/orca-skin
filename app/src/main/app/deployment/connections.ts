@@ -16,12 +16,12 @@
 //   만 재사용하고 row 를 feature 수만큼 복제하지 않는다(Bootstrap 이 중복을 진단으로 잡는다).
 // - 이 배열을 AuthId 기반 feature join registry 로 쓰지 않는다 — 표시용 view source 다.
 
-import type { AuthRuntime, BoundAuth } from '../../contracts/auth'
+import type { AuthBinder, BoundAuth } from '../../contracts/auth'
 import type { ConnectionViewSource } from '../connection-views'
 import type { PluginBinding } from './plugins'
 
 export interface ConnectionDeploymentDeps {
-  auth: AuthRuntime
+  auth: AuthBinder
   // 부팅 composition 이 fail-closed 검사를 마친 gate 멤버.
   gateMembers: readonly BoundAuth[]
   // 부팅에서 1회 만든 Plugin binding. `toolNames()` 는 cached descriptor 에서 나온다.
@@ -29,26 +29,15 @@ export interface ConnectionDeploymentDeps {
 }
 
 // 기본 배포는 gate 와 plugin row 만 만든다(둘 다 선언이 비어 있어 실제로는 0행).
-//
-// 폐쇄망 배포는 여기에 harness·usage row 를 더한다:
-//
-// ```ts
-// const corpLlm = deps.auth.bind(CORP_LLM_AUTH.id)
-// const corpUsage = deps.auth.bind(CORP_USAGE_AUTH.id)
-// return [
-//   ...gateRows(deps.gateMembers),
-//   { category: 'harness', auth: corpLlm, harnessModelProviderKey: CLAUDE_CORP_KEY },
-//   ...pluginRows(deps.plugins),
-//   { category: 'usage', auth: corpUsage }
-// ]
-// ```
+// 폐쇄망 배포가 harness·usage row 를 끼워 넣는 예제는
+// `docs/guides/closed-network-extensions.md` §3·§5-b 다.
 export function createConnectionSources(
   deps: ConnectionDeploymentDeps
 ): readonly ConnectionViewSource[] {
   return [...gateRows(deps.gateMembers), ...pluginRows(deps.plugins)]
 }
 
-// 배포가 순서를 바꿔 조립할 수 있도록 조각으로 노출한다 — 위 예제가 그것을 쓴다.
+// 배포가 순서를 바꿔 조립할 수 있도록 조각으로 노출한다 — 가이드 §3 예제가 그것을 쓴다.
 export function gateRows(members: readonly BoundAuth[]): ConnectionViewSource[] {
   return members.map((auth) => ({ category: 'gate', auth }))
 }
