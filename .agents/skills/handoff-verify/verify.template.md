@@ -2,6 +2,8 @@
 
 > `docs/handoff/<NNNN-slug>/verify.md`로 복사해 작성한다.
 > 검증 절차는 [`SKILL.md`](SKILL.md), 협업/상태 머신은 [`docs/handoff/AGENTS.md`](../../../docs/handoff/AGENTS.md).
+> **문장은 [`§산출물 문장 규칙`](../../../docs/handoff/AGENTS.md)을 따른다** — 판정 먼저, 주장 한 줄에 관측 하나,
+> 표 한 칸 3줄. 이전 라운드 판정은 보존하되 재서술하지 않는다.
 
 ## 메타
 
@@ -84,6 +86,9 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 |---|---|---|---|---|
 | AC1 | … | ✅ / ⚠️ / ❌ | 테스트/명령/실기 | … |
 
+- **합계 재측정**: `✅ N · ⚠️ M · ❌ K = 총 T`(분모를 직접 세어 적는다) · 자기보고 값 … · 일치/불일치
+- **합계 사본 대조**: 본문 T ↔ 커밋 trailer `Criteria-Met` ↔ INDEX 비고 — 일치 / 갈림(…)
+
 > 코드 존재는 “구현됨”이지 “검증됨”이 아니다. `Criteria-Met` 자기보고를 증거로 쓰지 않는다.
 
 ### plan §10 강제 지점 표 — AC와 별개로 걷는다
@@ -162,11 +167,13 @@ $ ./node_modules/.bin/vitest run <relevant-suite>
 ### INDEX 보드 정합성
 
 - 상태 / 다음 주체 / 대상 커밋 일치: …
+- 비고 5줄 이내(상세는 원본 문서 링크): …
 - PASS 시 archive 이동: 해당 없음 / 완료 …
 
 ### Commit / reference 정합성
 
 - trailer가 root `AGENTS.md` / `docs/git-template.md` 허용값을 따름: …
+- 인용된 커밋 해시 실재(`git show <hash> --oneline`): …
 - 이동/삭제한 reference·script의 살아 있는 소비처 또는 archive 근거: …
 
 ## 12. 구현자 코멘트 / 선조치 경계
