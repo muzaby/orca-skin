@@ -35,6 +35,7 @@ import type {
   BoundAuth,
   GateAuthDefinition
 } from '../../contracts/auth'
+import { ifPresent } from '../../../shared/obj'
 
 export interface GateMember {
   authId: string
@@ -64,7 +65,10 @@ export interface GateInput {
 }
 
 export function evaluateGate(input: GateInput): ProviderGateState {
-  const required = input.alwaysRequired === true || input.members.length > 0
+  // `blocked` 는 required 를 함의한다 — 확인할 수 없는 선언이 있는데 게이트를 열지 않는
+  // 것이 fail-closed 의 뜻이다. 호출부가 두 플래그로 나눠 넘기던 것을 여기서 파생한다(0190).
+  const required =
+    input.alwaysRequired === true || input.blocked === true || input.members.length > 0
   if (!required) return { required: false, passed: true, bypassed: false }
   if (input.bypass) return { required: true, passed: true, bypassed: true }
   // 선언이 0개인 DEV 에서는 통과할 방법이 bypass 뿐이다 — `every` 는 빈 배열에 true 를 주므로
@@ -119,8 +123,10 @@ export function createGate(deps: CreateGateDeps): Gate {
       return evaluateGate({
         members,
         bypass: deps.bypass(),
-        ...(deps.alwaysRequired || (deps.blockedMembers ?? 0) > 0 ? { alwaysRequired: true } : {}),
-        ...((deps.blockedMembers ?? 0) > 0 ? { blocked: true } : {})
+        // `blocked` 가 required 를 함의하는 것은 `evaluateGate` 가 안다 — 여기서 두 플래그에
+        // 같은 조건을 겹쳐 넣지 않는다(0190).
+        ...ifPresent('alwaysRequired', deps.alwaysRequired ? true : undefined),
+        ...ifPresent('blocked', (deps.blockedMembers ?? 0) > 0 ? true : undefined)
       })
     }
   }

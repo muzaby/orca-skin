@@ -85,8 +85,12 @@
 ### 상태와 전이
 
 변경 없음. `AuthSnapshot.status`(`valid|invalid|expired|...`)·`AuthStep`·`GateState` 의 전이표는
-0188 그대로다. **단 `AuthSnapshot` 에서 `credentialRevision` 필드가 사라진다**(S2) — 프로덕션
-독자가 0이고 wire 에 실리지 않으므로 관측 가능한 전이는 불변이다.
+0188 그대로다.
+
+> **[구현 턴 정정]** 초안은 여기서 "`AuthSnapshot` 에서 `credentialRevision` 필드가 사라진다"
+> 고 적었다(S2). **보류했다** — 프로덕션 독자 0 은 사실이지만 `runtime.test.ts` 의 27개 참조가
+> 그 필드로 실제 불변식(세대 증가·401 강등)을 관측한다. 근거는 `[구현자 기입] 설계 대비 명시적
+> 차이`. 결과적으로 `AuthSnapshot` 은 **필드를 포함해 완전히 불변**이다.
 
 ### 파생 UX / 엣지케이스
 
@@ -416,14 +420,129 @@ node scripts/check-doc-inventory.mjs --check
 
 ## [구현자 기입] 설계 리뷰
 
+설계대로 수행 가능했다. 다만 **AC1 의 설계가 한 축을 뭉개고 있었다** — §9 TO-BE 는
+`TurnRequest.envFingerprint` 에 "조립부가 계산한 값" 을 실으라고만 적었는데, 조립부에는 값이
+둘이다: `runtimeEnvFingerprint`(판정 가능한가 — 해석 실패 턴에 `undefined`)와 실제 env 의
+fingerprint. 전자를 그대로 실으면 **해석 실패 턴에 뜬 채널이 이후 어떤 env 변화에도 respawn
+하지 않는다**(비교의 한쪽이 영구히 null 이 된다). 그래서 `PreparedHarnessConfig` 에
+`envFingerprint`(항상 정의)를 따로 두고 두 필드가 한 계산을 공유하게 했다 — 선조치 후 보고
+(§6 첫째 갈래). 회귀 테스트 2건이 그 구분을 고정한다.
+
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+각 행은 **이번 턴에 재현한 관측값**을 함께 적는다.
+
+| 계약 | 지점 | 결과 | 재현 명령 / 관측 |
+|---|---|---|---|
+| fingerprint spawn 당 1회 | ① 조립 ② spawn 기록 ③ `send.ts` ④ `continuation.ts` | **4/4** | `rg 'harnessEnvFingerprint' src/main` → 프로덕션 **호출 2**(`harness-config.ts:257` 계산 · `session-runtime.ts:357` 폴백) + 정의 1 + 주석 2. `send.ts:290`·`continuation.ts:91` 이 `envFingerprint` 를 싣는다 |
+| 같은 입력 = 같은 참조 | ① 조립 memoize ② 술어 | **2/2** | `harness-config.test.ts` "같은 입력이면 같은 참조를 돌려준다" 4건 — `Object.is` 단언 통과 |
+| 배포는 lifecycle 도달 불가 | ① `HarnessConfigApiDeps` ② `PluginDeploymentDeps` ③ `UsageDeploymentDeps` ④ `ConnectionDeploymentDeps` ⑤ 부정 테스트 | **5/5** | `rg 'auth: AuthBinder' src/main/app/deployment/*.ts` → 4건. `grep -c ts-expect-error deployment-wiring.test.ts` → **6** |
+| `adapters` 는 `features` 를 import 하지 않는다 | `adapters/**` 전 파일 | **통과** | `rg -l "from '../features/" src/main/adapters` → **0건** · `npm run lint` boundaries **0 error** |
+| Grant → vault 키는 한 함수 | ① sweep ② `deleteVaultKeys` ③ `discardKeys` kept ④ `discardKeys` names | **4/4** | `rg 'vaultKeysOf' src/main` → 정의 1 + 호출 4. `store-vault-keys.test.ts` 5건(3 kind + refresh + undefined) |
+| 레시피 정본은 가이드 | ①~⑤ 배포 5파일 ⑥ 가이드 대응 절 | **6/6** | 배포 소스의 ` ```ts ` 블록 **0건**. 가이드 §2·§3-c·§4·§5-b 에 대응 레시피 존재(`grep -n 'CORP_SSO_AUTH\|CONFLUENCE_AUTH\|createUsageFetcher'`) |
+| wire 불변 | ① `shared/ipc.ts` ② renderer ③ 동치 단언 | **3/3** | `git diff --name-only 9fe21e8..HEAD -- app/src/shared/ipc.ts app/src/renderer app/src/shared/i18n` → **0 파일**. `connection-views.test.ts` 8건 통과 |
+
+**문서 사본 3곳**(§10 다중 저장소 쓰기): `0190/verify.md`(다음 턴) · `docs/handoff/INDEX.md`(갱신함) ·
+`0188/plan.md` Ledger(D-017 → SUPERSEDED, D-042 에 대체 관계 기입 — 두 행 모두 확인).
 
 ## [구현자 기입] Product/UX 파생 검토
 
+사용자 관측 변화 **0** 을 목표로 했고 그대로다 — wire·renderer·i18n diff 가 0 파일이다.
+새로 만든 사용자 대면 문자열이 없고(전부 내부 타입·주석·테스트), 새 실패 경로도 없다.
+`AuthSnapshot` 은 필드를 유지했다(아래 보류 참조).
+
+**파생 이슈 (이번 범위 밖, 기록만)**: 0189 U1(해제 실패가 화면에서 "아무 일도 안 일어남")은
+D-002 로 보류했다. 이번 턴에도 그 경로는 그대로다 — `login.ts` 가 사용자용 한국어 메시지를
+담아 throw 하는데 `useProviders.revoke` 에 catch 가 없어 소비처가 없다. 제품 결정 대기.
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응
+
+1. **memoize 가 격리를 지운다.** `withEnvBlockHoisted` 가 캐시된 사본을 돌려주므로, 호출자가
+   반환 `providerSettings` 를 변형하면 다음 턴으로 샌다. 현재 소비자는 읽기만 하지만(실측:
+   `turn-setup` → `TurnRequest` → 어댑터) 계약을 주석으로 못 박고 "디스크 원본 불변" 회귀
+   테스트를 함께 뒀다.
+2. **`evaluateGate` 의 required 파생을 옮기면 진리표가 바뀔 수 있었다.** 옮기기 전
+   `required = alwaysRequired || members>0` 이고 호출부가 `alwaysRequired` 에 `blocked>0` 을
+   섞어 넣고 있었다. 파생 후 `required = alwaysRequired || blocked || members>0` 이고 호출부는
+   각각만 넘긴다 — **합성 결과가 동일**함을 확인했고 gate 테스트 전건 통과.
+3. **`LoginService.reauth` 제거가 테스트 2건을 깼다.** 그 둘은 `login.reauth` 를 직접 불렀다.
+   `begin` 으로 돌리고 "`AuthRuntime.reauth` 가 여기로 라우팅된다" 를 주석으로 남겼다.
+   재인증 **계약**의 커버리지는 `runtime.test.ts` 의 `runtime.reauth` 5건이 그대로 갖는다(실측).
+
+### 설계 대비 명시적 차이
+
+| plan | 실제 | 이유 |
+|---|---|---|
+| AC1 — `TurnRequest.envFingerprint` 에 조립 값을 싣는다 | `PreparedHarnessConfig` 에 `envFingerprint` **신규 필드**를 두고 그것을 싣는다 | 위 설계 리뷰 — 판정 축과 기록 축이 다르다 |
+| R6 — 메모리 persistence 2벌을 테스트 헬퍼로 내린다 | **하지 않았다.** 잘못된 주석만 정정 | `store-file.ts` 가 `store.ts`·`oauth.ts` 를 모두 import 해 공통 제네릭을 거기 두면 `import/no-cycle` 위반이다. 새 모듈을 만들어 8줄 클로저를 접는 것은 0188 제안서 §"추상화는 같은 중복이 실제로 반복될 때만" 에 어긋난다. 프로덕션 소비자 0 이라는 **사실**이 주석과 달랐던 것이 실제 문제라 그것을 고쳤다 |
+| AC8 — `credentialRevision`·`PluginBinding.server`·`harnessModelProviderKey` 제거 | **보류** | 아래 |
+
+**AC8 3건을 보류한 근거** (전부 "프로덕션 독자 0" 은 사실로 확인):
+- `AuthSnapshot.credentialRevision` — 테스트 참조 **27건**(`runtime.test.ts`)이 이 필드로 실제
+  불변식(세대 증가·401 강등)을 관측한다. 제거하면 살아 있는 메커니즘의 유일한 관측 창이
+  사라진다. 줄 하나를 줄이려고 커버리지를 버리는 교환이다.
+- `PluginBinding.server`·`ConnectionViewSource.harnessModelProviderKey` — 둘 다 **선언된 배포
+  확장점**의 일부다(가이드·arch 가 문서화). D-005 와 같은 이유로 지우지 않는다.
+
+**이월 (AC9 일부)**: S1(`AuthStore` 의 authId 축 컬렉션 4개 통합) · S5(`markExpired`↔`settleExpiry`
+공통 tail) · S6·S7(`login.ts` secret grant 조립 2벌 · `absorb` 108줄). 전부 실재하는 발견이고
+`auth/store.ts`·`login.ts` 한 파일 안에서 닫힌다. 이번에 넣지 않은 이유는 **범위가 아니라 위험
+배분**이다 — 이 두 파일은 0188 이 10라운드를 돌며 원자성·만료 정착을 고친 자리고, 같은 커밋에
+구조 변경을 얹으면 회귀 원인이 갈리지 않는다. 별도 라운드 후보로 남긴다.
 
 ## [구현자 기입] 구현 보고
 
+**대상 커밋**: `0283dc4`(1군 효율 + A3) · `6b63b49`(2군 재사용) · `ddebfcf`(4군 altitude) ·
+`55cdbfe`(3군 단순화). 설계 커밋 `9fe21e8` 은 구현과 분리했다.
+
+**변경 파일**: main 27 + 문서 4(`docs/guides/closed-network-extensions.md` ·
+`docs/arch/backend/auth.md` · `0188/plan.md` · `docs/handoff/INDEX.md`).
+신규 3 — `app/chat-turn/respawn-inputs.ts` · `features/auth/store-vault-keys.test.ts` ·
+`adapters/harness-config.test.ts`(이설). 삭제 1 — `features/harnesses/prepared-config.ts`.
+
+**게이트 — 관측한 산출** (exit code 가 아니라 값):
+
+| 명령 | 관측 |
+|---|---|
+| `npm run typecheck` | **exit 0**, error 0 (node·web·test 3분할 전부) |
+| `npm run lint` | **0 error · 1 warning**. 그 1건은 `renderer/.../useTranscriptVirtualizer.ts:22` 의 `react-hooks/incompatible-library` 로 **이번 변경과 무관한 기존 경고**(베이스라인에서도 동일) |
+| `./node_modules/.bin/vitest run src/main src/shared` | **157 파일 중 152 통과 · 1,563 케이스 중 1,521 통과** |
+| `node scripts/check-doc-inventory.mjs --check` | counts ok(9 items·76 channels) · prose ok · **links ok** |
+
+**red 5 파일 / 42 케이스 = 알려진 환경 베이스라인, 변경 무관.** 서명:
+`Module did not self-register: .../better_sqlite3.node` · `Electron failed to install correctly`.
+목록이 `app/AGENTS.md` 의 실측 5파일과 **정확히 일치**한다 —
+`infra/db/{queries,migrate}.test.ts` · `features/extensions/builder` · `features/orchestration/fork` ·
+`app/chat-turn.continuity`. 원인은 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci`(egress 정책)로
+electron 바이너리·네이티브 바인딩이 없는 것이며, 착수 전 베이스라인에서도 같은 5파일이 red 였다.
+**Electron 부팅·실제 로그인 흐름 실기는 이 환경에서 불가 → 사람/CI 몫.**
+
+**Criteria-Met: 13/17 · 부분 2 · 미충족 1.**
+
+| AC | 판정 | 근거 |
+|---|---|---|
+| AC1~AC7 · AC11~AC17 | ✅ **13건** | 위 강제 지점 표의 재현 관측값 |
+| AC8 | ⚠️ **부분** | `mergeEnvLayers`(rg 0건) · `prepared-config` 재export(파일 삭제) 제거 완료. `credentialRevision`·`PluginBinding.server`·`harnessModelProviderKey` **3건 보류**(근거는 위) |
+| AC9 | ⚠️ **부분** | S3·S4·S9·S12 적용, S1·S5·S6·S7 이월 |
+| AC10 | ❌ **미충족** | `AuthStore` 4 컬렉션 통합(S1) 이월 |
+
+> **자기보고 정정**: 커밋 `55cdbfe` 의 trailer 는 처음 `16/17` 로 적혔다. 부분 충족 2건을
+> 충족으로 세었기 때문이고, 검증자가 재측정하면 어긋난다(0187 r1·0189 r1 과 같은 형태).
+> trailer 를 `13/17` 로 정정했고 **이 표가 정본**이다.
+
 ## [구현자 기입] Review Signals — 사실만
+
+- 현재 라운드: **1**.
+- 이번에 닫은 축이 이전 라운드와 같은가: 0189 감사의 F1·F2·F3·P1·P2 를 닫았다. F1 은
+  **감사와 코드 주석이 든 근거가 사실과 달랐다** — `prepared-config.ts:153` 이 "테스트 가능성"
+  을 들었으나 `adapters/harness-config.ts` 의 런타임 import 는 `node:crypto` 하나뿐이라 이미
+  vitest 로 열린다. 실제 blocker 는 `adapters → features` DAG 간선이었다. 감사가 그 문장을
+  코드에서 재검증하지 않고 승계했다.
+- 막았어야 할 plan 지침이 있었는가: `handoff-plan` §조사 게이트가 "선행 자료의 주장을 코드와
+  다시 대조한다" 를 이미 갖는다. 0189 는 그것을 축 1(제안 충실도)에는 적용했으나 **자기가 인용한
+  코드 주석에는 적용하지 않았다** — 주석은 "코드" 로 세어 검증을 건너뛰기 쉽다.
+- 반복해서 부딪히는 환경 한계: better-sqlite3 / electron 바이너리 부재로 DB·electron 로드
+  스위트 5파일이 상시 red. 이번에는 `npm ci` 가 성공해 나머지 152 파일을 실제로 돌릴 수 있었다
+  (0189 는 `node_modules` 자체가 없어 관측이 0이었다).
 
 ## [검증자 기입] 파생 이슈

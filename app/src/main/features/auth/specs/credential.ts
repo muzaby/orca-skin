@@ -30,10 +30,11 @@ function composeSingle(input: Record<string, string>): ComposeResult {
   return value.length === 0 ? { error: '값을 입력해 주세요' } : { value }
 }
 
-// API key — 서비스가 발급한 단일 opaque 값. 계정이 아니라 **애플리케이션**에 묶인다.
-export function apiKeySpec(opts: SingleValueOptions): AuthMethod {
+// 단일 값 방식의 공통 형상. **`kind` 만 다르다** — 두 벌로 적으면 필드·compose 를 고칠 때
+// 한쪽만 바뀐다(0190).
+function singleValueSpec(kind: 'api-key' | 'pat', opts: SingleValueOptions): AuthMethod {
   return {
-    kind: 'api-key',
+    kind,
     label: opts.label,
     fields: singleValueFields(opts.fieldLabel),
     present: opts.present,
@@ -41,16 +42,15 @@ export function apiKeySpec(opts: SingleValueOptions): AuthMethod {
   }
 }
 
+// API key — 서비스가 발급한 단일 opaque 값. 계정이 아니라 **애플리케이션**에 묶인다.
+export function apiKeySpec(opts: SingleValueOptions): AuthMethod {
+  return singleValueSpec('api-key', opts)
+}
+
 // PAT — 값의 모양은 API key 와 같아도 **발급 주체·회수 절차·만료 정책이 다르다**. 표시와 감사가
-// 그 구분을 쓰므로 뭉개지 않는다.
+// 그 구분을 쓰므로 뭉개지 않는다 — 구분은 `kind` 가 나른다.
 export function patSpec(opts: SingleValueOptions): AuthMethod {
-  return {
-    kind: 'pat',
-    label: opts.label,
-    fields: singleValueFields(opts.fieldLabel),
-    present: opts.present,
-    compose: composeSingle
-  }
+  return singleValueSpec('pat', opts)
 }
 
 // ID + 비밀번호. 값이 둘이고 서버가 받는 형식이 `base64(user:pass)` 라 단일 필드로 뭉갤 수 없다 —

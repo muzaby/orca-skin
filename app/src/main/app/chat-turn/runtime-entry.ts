@@ -11,11 +11,7 @@ import type { PreparedHarnessConfig } from '../../adapters/harness-config'
 import type { RuntimeSessionAdapter } from '../../contracts/ports'
 import { decideRespawn } from '../../features/sessions/respawn-policy'
 import { SessionRuntime } from '../../features/sessions/session-runtime'
-import {
-  crossesProviderBoundary,
-  providerSettingsChangedSinceSpawn,
-  runtimeEnvChangedSinceSpawn
-} from '../../features/harnesses/runtime-boundary'
+import { respawnInputs } from './respawn-inputs'
 import type { SessionChainLease } from '../../features/sessions/session-chain-lease'
 import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
 
@@ -73,24 +69,16 @@ export async function acquireTurnRuntime(
   // 내리면 channelAlive=false 가 되어 프렐류드의 takeForRespawn 이월이 자연 동작한다.
   if (
     input.sessionId &&
-    decideRespawn({
-      channelAlive: runtime.channelAlive,
-      providerBoundaryChanged: crossesProviderBoundary(
-        input.sessionProviderKey,
-        input.resolved.providerKey
-      ),
-      modelChanged: input.resolved.model !== runtime.spawnedModel,
-      providerSettingsChanged: providerSettingsChangedSinceSpawn(
-        runtime.spawnedProviderSettings,
-        input.resolved.prepared.providerSettings
-      ),
-      runtimeEnvChanged: runtimeEnvChangedSinceSpawn(
-        runtime.spawnedRuntimeEnvFingerprint,
-        input.resolved.prepared.runtimeEnvFingerprint
-      ),
-      spawnedRuntimeToolsRevision: runtime.spawnedRuntimeToolsRevision,
-      runtimeToolsRevision: extensions.runtimeTools?.revision
-    })
+    decideRespawn(
+      respawnInputs({
+        runtime,
+        prepared: input.resolved.prepared,
+        previousProviderKey: input.sessionProviderKey,
+        nextProviderKey: input.resolved.providerKey,
+        model: input.resolved.model,
+        runtimeToolsRevision: extensions.runtimeTools?.revision
+      })
+    )
   ) {
     runtime.teardownChannel()
   }

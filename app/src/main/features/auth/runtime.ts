@@ -221,7 +221,10 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     login: (authId, method?: AuthMethodKind, input?: Record<string, string>) =>
       login.begin(authId, method, input),
     continue: (authId, input) => login.continue(authId, input),
-    reauth: (authId, method?: AuthMethodKind) => login.reauth(authId, method),
+    // 재인증은 `begin` 과 **같은 경로**다 — 차이는 기존 grant 를 남겨둔 채 시작한다는
+    // 것뿐이고 그것이 `begin` 의 기본 동작이다. 의도 구분은 이 계약 표면과 IPC 채널이
+    // 표현하므로 `LoginService` 에 같은 호출을 한 번 더 두지 않는다(0190).
+    reauth: (authId, method?: AuthMethodKind) => login.begin(authId, method),
     revoke: (authId) => login.revoke(authId)
   }
 

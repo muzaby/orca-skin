@@ -15,11 +15,7 @@
 
 import type { TurnExtensions } from '../adapters/turn'
 import type { ResolvedHarnessSettings } from '../adapters/harness-config'
-import {
-  crossesProviderBoundary,
-  providerSettingsChangedSinceSpawn,
-  runtimeEnvChangedSinceSpawn
-} from '../features/harnesses/runtime-boundary'
+import { respawnInputs } from './chat-turn/respawn-inputs'
 import type { PreparedHarnessConfig } from '../adapters/harness-config'
 import { decideRespawn } from '../features/sessions/respawn-policy'
 
@@ -69,22 +65,15 @@ export async function prepareAutomaticContinuation(input: {
     extensions,
     prepared: resolved.prepared,
     ...(model !== undefined ? { model } : {}),
-    shouldRespawn: decideRespawn({
-      channelAlive: input.runtime.channelAlive,
-      providerBoundaryChanged: crossesProviderBoundary(input.providerKey, resolved.providerKey),
-      modelChanged: model !== input.runtime.spawnedModel,
-      providerSettingsChanged: providerSettingsChangedSinceSpawn(
-        input.runtime.spawnedProviderSettings,
-        resolved.prepared.providerSettings
-      ),
-      // 어느 한쪽이 없으면(콜드 스타트 · 이번 턴 해석 실패) 판정하지 않는다 — 보수적 no-op
-      // (0118/0125 null 의미론). 규칙은 `runtimeEnvChangedSinceSpawn` 하나가 갖는다.
-      runtimeEnvChanged: runtimeEnvChangedSinceSpawn(
-        input.runtime.spawnedRuntimeEnvFingerprint,
-        resolved.prepared.runtimeEnvFingerprint
-      ),
-      spawnedRuntimeToolsRevision: input.runtime.spawnedRuntimeToolsRevision,
-      runtimeToolsRevision: extensions.runtimeTools?.revision
-    })
+    shouldRespawn: decideRespawn(
+      respawnInputs({
+        runtime: input.runtime,
+        prepared: resolved.prepared,
+        previousProviderKey: input.providerKey,
+        nextProviderKey: resolved.providerKey,
+        model,
+        runtimeToolsRevision: extensions.runtimeTools?.revision
+      })
+    )
   }
 }

@@ -196,13 +196,6 @@ export class LoginService {
     return this.run(authId, authKind, input)
   }
 
-  // 재인증도 같은 경로다 — 차이는 **기존 grant 를 남겨둔 채** 시작한다는 것뿐이고, 그것이
-  // `begin` 의 기본 동작이므로 별도 분기가 필요 없다. 표면을 나누는 이유는 IPC 계약(카탈로그의
-  // [재인증] 버튼)이 의도를 명시하기 위함이다.
-  async reauth(authId: AuthId, authKind?: AuthMethodKind): Promise<AuthStep> {
-    return this.run(authId, authKind)
-  }
-
   async continue(authId: AuthId, input: Record<string, string>): Promise<AuthStep> {
     const pending = this.pending.get(authId)
     if (!pending) {
