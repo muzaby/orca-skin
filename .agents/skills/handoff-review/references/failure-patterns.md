@@ -3,6 +3,7 @@
 이 파일은 **실행 지침집이 아니다.** 현재 handoff 실행 규칙의 정본은 다음이다.
 
 - 설계: `../../handoff-plan/SKILL.md`
+- 구현: `../../handoff-impl/SKILL.md`
 - 검증: `../../handoff-verify/SKILL.md`
 - 지침 자체 개선: `../SKILL.md`
 - 협업/상태 머신: `../../../../docs/handoff/AGENTS.md`
@@ -13,7 +14,7 @@
 
 ## 사용 규칙
 
-- 정상 `handoff-plan` / `handoff-verify`는 이 corpus를 매번 읽거나 직접 갱신하지 않는다.
+- 정상 `handoff-plan` / `handoff-impl` / `handoff-verify`는 이 corpus를 매번 읽거나 직접 갱신하지 않는다.
 - `handoff-review`가 normative SKILL/template/AGENTS 지침을 변경하는 Tier 1에서는 **Historical Failure Regression** 단계에서 현재 모든 `## P<number>`를 전수 대조한다.
 - 실행 의미가 불변인 Tier 2 referential/mechanical correction은 Historical 전수를 생략할 수 있지만 affected Operational Delta + Cross-document Consistency와 생략 근거는 남긴다.
 - 새 실패가 나왔다고 사례부터 추가하지 않는다. 먼저 instruction gap / execution failure / communication mismatch / user decision change / evidence limitation / implementation defect를 분류하고, **지침 자체를 바꿔야 하는지** 판단한다.
