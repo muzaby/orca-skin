@@ -130,7 +130,9 @@
 | AC5 | `ProviderInfo.auth` 의 값이 변경 전과 **필드 단위로 동치**다(깊은 복사 제거 후에도) | `connection-views.test.ts` 의 기존 동치 단언 유지 + 호출자가 반환값을 변형해도 `describe()` 원본이 오염되지 않음을 확인 | `orca:provider:list`/`:state` invoke · `pushConnectionState()` |
 | AC6 | Grant → vault 키 도출이 **한 함수**에서 나온다 | `vaultKeysOf` 를 export 하고 sweep·delete 4지점이 그것을 호출한다(`rg` 전수 = 4/4). 3 kind(`secret`·`token`·`session`) 각각의 키 집합 단위 테스트 | `store.restore()` 부팅 sweep · `store.revoke()` · `login.discardKeys()` |
 | AC7 | 재사용 치환(R1·R3·R5·R7) 후 **동작이 동치**다 | 해당 모듈의 기존 테스트 green + `ifPresent`/`isRecord` 치환 지점의 `undefined` 케이스 단언 | auth·harnesses 전 경로 |
-| AC8 | 프로덕션 호출자가 0인 심볼이 남지 않는다 — `mergeEnvLayers`·`AuthSnapshot.credentialRevision`·`PluginBinding.server`·`harnessModelProviderKey`·`prepared-config` 재export | 각 심볼에 대해 `rg` 결과 0건(테스트 포함). 제거 후 typecheck green | — (제거 대상) |
+| AC8a | **프로덕션 호출자 0 이고 아무도 선언하지 않은** 심볼은 제거한다 — `mergeEnvLayers` · `prepared-config` 재export | 각 심볼 `rg` 0건(테스트 포함). 제거 후 typecheck green | — (제거 대상) |
+| AC8b | **문서화된 배포 확장점은 호출자 0 이어도 남긴다** — `PluginBinding.server` · `ConnectionViewSource.harnessModelProviderKey` | 두 심볼이 그대로 있고 가이드·arch 의 서술과 일치한다 | 폐쇄망 배포자가 채우는 자리 |
+| AC8c | **테스트가 실불변식을 관측하는 유일한 창은 남긴다** — `AuthSnapshot.credentialRevision` | 필드 유지 + `runtime.test.ts` 의 세대 증가·401 강등 단언 green | 실행 credential 세대 |
 | AC9 | 단순화(S1·S3·S5·S6·S7·S9·S12) 후 **관측 동작 불변** | 해당 모듈 기존 테스트 전부 green, 신규 단언 없이 통과 | auth store·login·gate·respawn |
 | AC10 | `AuthStore` 의 authId 축 상태가 **한 자료구조**에 산다 | `grants`·`verified`·`revisions`·`expirySettled` 4 컬렉션이 1개로 합쳐지고 mutator 별 쓰기 횟수가 준다. 만료·해제·복원 기존 테스트 green | 부팅 restore · 재인증 · 만료 정착 |
 | AC11 | 배포 확장점 factory 4종이 **인증 lifecycle 메서드에 도달할 수 없다** | `HarnessConfigApiDeps`·`PluginDeploymentDeps`·`UsageDeploymentDeps`·`ConnectionDeploymentDeps` 의 `auth` 가 `AuthBinder` 타입이고, factory 안에서 `deps.auth.login(...)` 이 **컴파일 실패**한다(부정 타입 테스트) | `app/bootstrap.ts` 주입 지점 |
@@ -148,6 +150,12 @@
 - **AC3 은 `Object.is` 참조 동일까지 본다.** "값이 같다" 로는 fast path 복원을 증명하지 못한다.
 - **AC8 의 `rg = 0` 은 테스트·주석·문자열 참조를 포함해 센다.** 주석에만 남은 이름은 제거 대상이
   아니라 주석 정정 대상이다.
+- **AC8 은 r1 검증(D2) 이후 세 갈래로 갈랐다.** 초안은 성격이 다른 다섯 심볼을 "호출자 0" 이라는
+  한 축으로 묶었고, 그 결과 **ACTIVE Decision D-005 와 정면으로 모순**됐다 — D-005 는 문서화된
+  배포 확장점을 지우지 않는다고 못 박는데 AC8 은 그중 둘의 제거를 요구했다. 구현자가 Decision 을
+  우선해 보류한 것이 옳고(Decision > AC), 틀린 쪽은 AC 다. 판별 축은 "호출자가 있는가" 가 아니라
+  **"누가 이 심볼을 약속했는가"** 다 — 아무도 없으면 제거(AC8a), 배포 문서가 약속했으면 유지
+  (AC8b), 테스트가 실불변식의 관측 창으로 쓰면 유지(AC8c).
 - **AC11 은 부정 테스트다** — `@ts-expect-error` 로 `deps.auth.login` 접근이 실패함을 고정한다.
   타입이 좁아졌다는 구조적 사실만으로는 능력이 실제로 닫혔는지 보장하지 못한다.
 - **AC14 의 "```ts 블록 0건" 은 structural proxy 다.** 의미 목표는 "배포자가 읽을 레시피가 한 곳"
@@ -493,7 +501,7 @@ D-002 로 보류했다. 이번 턴에도 그 경로는 그대로다 — `login.t
 ## [구현자 기입] 구현 보고
 
 **대상 커밋**: `0283dc4`(1군 효율 + A3) · `6b63b49`(2군 재사용) · `ddebfcf`(4군 altitude) ·
-`55cdbfe`(3군 단순화). 설계 커밋 `9fe21e8` 은 구현과 분리했다.
+`8bbd595`(3군 단순화). 설계 커밋 `9fe21e8` 은 구현과 분리했다.
 
 **변경 파일**: main 27 + 문서 4(`docs/guides/closed-network-extensions.md` ·
 `docs/arch/backend/auth.md` · `0188/plan.md` · `docs/handoff/INDEX.md`).
@@ -517,18 +525,19 @@ D-002 로 보류했다. 이번 턴에도 그 경로는 그대로다 — `login.t
 electron 바이너리·네이티브 바인딩이 없는 것이며, 착수 전 베이스라인에서도 같은 5파일이 red 였다.
 **Electron 부팅·실제 로그인 흐름 실기는 이 환경에서 불가 → 사람/CI 몫.**
 
-**Criteria-Met: 13/17 · 부분 2 · 미충족 1.**
+**Criteria-Met: 14/17 · 부분 2 · 미충족 1.**
 
 | AC | 판정 | 근거 |
 |---|---|---|
-| AC1~AC7 · AC11~AC17 | ✅ **13건** | 위 강제 지점 표의 재현 관측값 |
+| AC1~AC7 · AC11~AC17 | ✅ **14건** | 위 강제 지점 표의 재현 관측값 |
 | AC8 | ⚠️ **부분** | `mergeEnvLayers`(rg 0건) · `prepared-config` 재export(파일 삭제) 제거 완료. `credentialRevision`·`PluginBinding.server`·`harnessModelProviderKey` **3건 보류**(근거는 위) |
 | AC9 | ⚠️ **부분** | S3·S4·S9·S12 적용, S1·S5·S6·S7 이월 |
 | AC10 | ❌ **미충족** | `AuthStore` 4 컬렉션 통합(S1) 이월 |
 
-> **자기보고 정정**: 커밋 `55cdbfe` 의 trailer 는 처음 `16/17` 로 적혔다. 부분 충족 2건을
-> 충족으로 세었기 때문이고, 검증자가 재측정하면 어긋난다(0187 r1·0189 r1 과 같은 형태).
-> trailer 를 `13/17` 로 정정했고 **이 표가 정본**이다.
+> **자기보고 정정 2회**: 커밋 `8bbd595` 의 trailer 는 처음 `16/17` 로 적혔다 — 부분 충족 2건을
+> 충족으로 세었다. 그것을 `13/17` 로 고쳤는데 이번엔 **과소**였다(같은 표가 ✅ 로 열거한 것은
+> 14건이고 `17 − 부분 2 − 미충족 1 = 14` 다). r1 검증이 D4 로 잡았고 여기서 `14/17` 로 고친다.
+> 두 번 다 **행이 아니라 합계**가 틀렸다 — 개별 행의 관측값은 검증자 재측정과 전부 일치했다.
 
 ## [구현자 기입] Review Signals — 사실만
 
@@ -545,27 +554,166 @@ electron 바이너리·네이티브 바인딩이 없는 것이며, 착수 전 �
   스위트 5파일이 상시 red. 이번에는 `npm ci` 가 성공해 나머지 152 파일을 실제로 돌릴 수 있었다
   (0189 는 `node_modules` 자체가 없어 관측이 0이었다).
 
+## [구현자 기입] 라운드 2 — 이월분 구현
+
+**사용자 결정 D1 = ⓑ (이번 라운드에 구현).** r1 검증이 사용자에게 올린 두 갈래 중, 사용자가
+`/handoff-impl 190` 으로 구현 턴을 지시했다. AC9·AC10 을 후속 handoff 로 이관하지 않는다.
+
+### 먼저 그물부터 — `store.test.ts` 신규
+
+**`AuthStore` 를 직접 겨누는 테스트가 하나도 없었다**(전수 확인: `ls features/auth/*test*` → 9개,
+그중 store 대상은 `store-parse`·`store-vault-keys` 뿐이고 둘 다 순수 함수다). 커버리지는
+`runtime.test.ts`(1,442줄)·`login.test.ts` 를 통한 **간접**뿐이었다.
+
+이 파일에서 가장 위험한 리팩토링을 그물이 간접인 채로 하는 것은 순서가 틀렸다. 그래서 통합
+**전에** characterization 12건을 붙였다 — 그리고 **리팩토링 전 코드에 대해 12/12 green 을 먼저
+관측**했다. 이것이 이 파일의 값어치다: 통합 후에도 같은 12건이 green 이면 동작이 보존된 것이고,
+통합 전 green 을 관측하지 않았다면 그 문장이 성립하지 않는다.
+
+### 강제 지점 전수 (r2)
+
+| 계약 | 지점 | 결과 | 재현 명령 / 관측 |
+|---|---|---|---|
+| authId 축 상태는 한 자료구조 | ① `restore` ② `entry` ③ `markVerified` ④ `put` ⑤ `revoke` ⑥ `markExpired` ⑦ `settleExpiry` | **7/7** | `rg 'this\.(grants\|verified\|revisions\|expirySettled)' store.ts` → **0건**. 통합 전 같은 명령 → **18건**(`git show HEAD~2:…` 로 재확인) |
+| 해제 후에도 세대가 남는다 | ① `revoke` 구현 ② 회귀 테스트 | **2/2** | `store.ts` revoke 가 `entry.grant = undefined` 후 `entry.revision += 1`(항목 유지). 테스트 `해제 후에도 credentialRevision 이 되돌아가지 않는다` |
+| 만료 정착 꼬리는 한 곳 | ① `markExpired` ② `settleExpiry` | **2/2** | 둘 다 `this.settleExpired(entry)` 호출. `rg 'settleExpired' store.ts` → 정의 1 + 호출 2 |
+| secret grant 조립은 한 곳 | ① `runCredential` ② `absorb.secret` | **2/2** | `rg 'secretCandidate' login.ts` → 정의 1 + 호출 2. `rg "kind: 'secret'" login.ts` → **1건**(헬퍼 안) |
+
+### 실측 — 과장하지 않는다
+
+| 축 | 통합 전 | 통합 후 |
+|---|---|---|
+| authId 축 자료구조 | **4** | **1** |
+| 상태 쓰기 지점 | **18** | **17** |
+| `restore` 쓰기 | 5 | **2** |
+| `markExpired` 직접 쓰기 | 4 | **2** (+ 공통 꼬리) |
+| `settleExpiry` 직접 쓰기 | 3 | **0** (전부 공통 꼬리에 위임) |
+| `put` / `revoke` 쓰기 | 4 / 4 | 4 / 4 (**변화 없음**) |
+| `absorb` 줄 수 | **108** | **59** |
+
+> **AC10 의 두 절 중 하나는 부분이다.** "한 자료구조에 산다" 는 완전히 충족했다(4 → 1). 그러나
+> "**mutator 별 쓰기 횟수가 준다**" 는 5개 중 **3개만**(restore·markExpired·settleExpiry) 줄었고
+> `put`·`revoke` 는 4 그대로다 — 그 둘은 원래 네 축을 다 건드리는 전이라 필드 수만큼 쓴다.
+> 총계도 18 → 17 로 거의 안 줄었다. **줄어든 것은 쓰기 횟수가 아니라 쓰기가 흩어진 자리의 수**다.
+> AC 문구가 원인을 대리 지표로 적었고, 실제 목표(동기화를 강제하는 것이 없다)는 달성했다.
+> 대리 지표 쪽은 부분이므로 ✅ 로 세지 않고 이렇게 적는다.
+
+### 놓친 잠재 문제 + 대응
+
+1. **해제를 `entries.delete()` 로 옮기면 세대가 0 으로 되돌아간다.** 네 자료구조를 한 항목으로
+   접을 때 가장 자연스러운 코드가 바로 그것이고, 그러면 `AuthChange` 소비자가 해제 전 세대 1 과
+   재로그인 후 세대 1 을 **같은 세대로 읽는다** — 죽은 토큰으로 만든 실행 구성이 warm hit 로
+   계속 돌아오고 Plugin 도구는 회수된 채로 남는다. 항목은 남기고 `grant` 만 비우는 것으로 막았고,
+   회귀 테스트와 `revoke` 안 주석이 그것을 고정한다. 영속에는 `records()` 가 grant 없는 항목을
+   빼므로 디스크에 빈 자리가 생기지 않는다.
+2. **`entry()` 가 읽기 경로에 새면 없는 authId 가 항목을 만든다.** 그래서 `entry()` 는 **쓰기
+   전용**으로 두고 읽기는 전부 `this.entries.get()` 이다. `credentialRevision`·`isVerified`·
+   `get`·`status`·`authKind`·`secret`·`isCurrent*` 전부 `get()` 을 쓴다(실측).
+3. **`markExpired` 의 `unverified` 의미가 바뀔 뻔했다.** 원래는 `Set.delete()` 의 반환값(있었나)
+   이었다. `entry.verified` 를 읽고 나서 `false` 로 내리는 순서로 옮겼고, 두 표현이 같은 값을
+   내는지 `이미 정착된 grant 의 markExpired 도 verified 는 푼다` 로 고정했다.
+4. **`absorb` 의 세대 확인 순서는 손대지 않았다.** token 갈래를 떼면서 `isCurrentAttempt` 검사를
+   실행기 반환 뒤·결과 해석 앞에 그대로 뒀다(0188 r8 이 고친 자리). `settleGrant` 안의 두 번째
+   확인도 그대로다.
+
+### Product/UX 파생 검토 (r2)
+
+사용자 관측 변화 **0**. `git diff` 대상은 `features/auth/{store,login}.ts` + 신규 테스트뿐이고
+wire·renderer·i18n **0 파일**이다. 새 사용자 대면 문자열 없음, 새 실패 경로 없음 — 이번 변경은
+전부 같은 전이를 다른 자료구조로 적는 일이다.
+
+**여전히 열린 파생 이슈**: 0189 U1(해제 실패가 화면에서 "아무 일도 안 일어남")은 D-002 로 보류
+중이고 이번 턴에도 그대로다. `login.ts` 가 한국어 메시지를 담아 throw 하는데 `useProviders.revoke`
+에 catch 가 없어 소비처가 없다. 제품 결정 대기.
+
+### 게이트 — 관측한 산출 (r2)
+
+| 명령 | 관측 |
+|---|---|
+| `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` | exit 0 (이 컨테이너는 fresh clone) |
+| `npm run typecheck` | node·web·test **3분할 전부 error 0** |
+| `npm run lint` | **0 error · 1 warning** — `useTranscriptVirtualizer.ts:22`. renderer 파일이고 이번 diff 는 renderer **0 파일** → 기존 베이스라인 |
+| `./node_modules/.bin/vitest run src/main src/shared` | **158 파일 중 153 통과 · 1,575 케이스 중 1,533 통과** |
+| `node scripts/check-doc-inventory.mjs --check` | counts ok(9 items · 76 channels) · prose ok · links ok |
+
+- **착수 전 베이스라인을 먼저 관측했다**: `157 파일 중 152 통과 · 1,563 중 1,521`. 차이는
+  **정확히 +1 파일 / +12 케이스**이고 그것은 이번에 추가한 `store.test.ts` 다.
+- **red 5 파일 / 42 케이스는 그대로**이며 집합으로 증명했다 — `app/AGENTS.md` 의 실측 5파일만
+  지정해 재실행하니 `Test Files 5 failed (5)` · `Tests 42 failed | 1 passed (43)` 로 전체 실행의
+  실패 수와 **정확히 일치**. 서명 `Module did not self-register: better_sqlite3.node`.
+- **lint 가 트리를 바꿨는가**: 실행 후 `git status --porcelain` 이 자기 변경 3파일만 — autofix 산출 0.
+
+### 대상 커밋 (r2)
+
+`f61c30c`(S1 + S5 + 안전망 — `store.ts`·`store.test.ts`) · `017daee`(S6 + S7 — `login.ts`).
+
+### Criteria — r2 재채점
+
+> **분모가 17 에서 19 로 바뀌었다.** AC8 을 D2 근거로 셋(AC8a·AC8b·AC8c)으로 갈랐기 때문이다.
+> r1 의 `14/17` 과 아래 숫자를 직접 빼서 비교하면 안 된다.
+
+**Criteria-Met: 18/19 · 부분 1 · 미충족 0.**
+
+| AC | 판정 | 개수 | 근거 |
+|---|---|---|---|
+| AC1~AC7 | ✅ | 7 | r1 그대로. 이번 diff 가 그 표면을 건드리지 않았다(변경 2파일 전부 `features/auth/`) |
+| AC8a | ✅ | 1 | `rg mergeEnvLayers src` **0건** · `prepared-config` 파일 삭제됨 |
+| AC8b | ✅ | 1 | `PluginBinding.server`·`harnessModelProviderKey` 유지 — D-005 |
+| AC8c | ✅ | 1 | `AuthSnapshot.credentialRevision` 유지 + `runtime.test.ts` green |
+| AC9 | ✅ | 1 | 열거 7건 **전부**: S3·S9·S12(r1) + S1·S5·S6·S7(r2) |
+| AC10 | ⚠️ **부분** | 1 | 4 컬렉션 → 1 **충족**. "mutator 별 쓰기 횟수" 절은 5개 중 3개만 감소 — 위 실측 표 |
+| AC11~AC17 | ✅ | 7 | r1 그대로 |
+
+**합계 검산**: ✅ `7+1+1+1+1+7 = 18` · ⚠️ `1` · ❌ `0` → `18+1+0 = 19` = 전체 AC 수. ✓
+
+### 설계 대비 명시적 차이 (r2)
+
+| plan | 실제 | 이유 |
+|---|---|---|
+| AC8 을 한 줄로 | **AC8a·AC8b·AC8c 로 분할** | r1 검증 D2 가 plan 결함으로 판정. **설계자 권한 행사이고 구현자 자의가 아니다** — 근거는 `[검증자 기입] D2`, 판별 축을 "호출자 수" 에서 "누가 약속했는가" 로 바꿨다 |
+| `store.test.ts` 는 plan 에 없었다 | **신규 12건** | AC9 의 "신규 단언 없이 기존 테스트 green" 을 깨지 않는다 — 기존 단언은 하나도 고치지 않았고 이 파일은 **기존 동작을 고정하는 추가분**이다. 통합 전 green 을 먼저 관측했다 |
+| `absorb` 의 session 갈래도 분해 검토 | **그대로 뒀다** | 10줄이고 키가 하나뿐이라 뗄 이유가 없다. plan 이 지정한 대로 |
+
+### Review Signals — 사실만 (r2)
+
+- 현재 라운드: **2**. review 트리거(3 초과) 미도달.
+- 이번에 닫은 축이 이전 라운드와 같은가: **아니다.** r1 은 효율·재사용·altitude 였고 r2 는
+  r1 이 이월한 단순화 4건이다. 같은 불변식이 다시 올라온 것이 아니라 **범위가 이어진 것**이다.
+- 자기보고 합계 불일치가 0187 r1·0189 r1·0190 r1 **네 번째 라운드까지 연속**이었다(과대·과대·과소).
+  이번에는 표에 **개수 열**을 두고 마지막에 합계 검산 줄을 따로 적었다. 처음 초안은 `16/17` 로
+  적혀 있었는데, 그 검산 줄을 쓰는 과정에서 **AC8 을 셋으로 가르면 분모가 17 이 아니라 19** 라는
+  것이 드러나 `18/19` 로 고쳤다 — 행마다 관측값을 붙이는 것만으로는 이 오류가 안 잡힌다.
+  `handoff-impl §8` 은 각 행의 관측값을 요구하지만 **합계 검산 항목은 없다**(verify §7 에만 있다).
+  AC 를 갈라 분모가 달라지는 경우는 어느 쪽 지침에도 없다.
+- 반복되는 환경 한계: better-sqlite3 / electron 바이너리 부재로 DB 로드 5스위트 상시 red.
+  이번에도 착수 전·후 베이스라인이 같은 집합임을 재실행으로 확인했다.
+
 ## [검증자 기입] 파생 이슈
 
 **verify r1 = FAIL** (2026-08-17). 판정 원문은 [`verify.md`](verify.md).
 독립 채점 **✅ 14 · ⚠️ 2 · ❌ 1** · 강제 지점 **25/25 전부 닫힘** · 기준 밖 중대 결함 **0**.
 FAIL 사유는 결함이 아니라 **범위 미완** 하나다.
 
-- [ ] **D1 — AC10 미충족 (+ AC9 4/7 이월). 사람 결정 필요.**
+> **r2 처리 결과** — D1 **사용자 결정 ⓑ** 로 닫음(구현). D2·D3·D4 **닫음**(각 항목 아래 표기).
+> 처리 내역은 `[구현자 기입] 라운드 2`.
+
+- [x] **D1 — AC10 미충족 (+ AC9 4/7 이월). 사람 결정 필요.** → **ⓑ 이번 라운드에 구현**(사용자가
+      `/handoff-impl 190` 으로 지시). AC9 는 열거 7건 전부 적용, AC10 은 자료구조 통합 충족 ·
+      쓰기 횟수 절 부분(실측 표).
       `store.ts` 실측 — `grants`(:97) · `verified`(:103) · `revisions`(:117) ·
       `expirySettled`(:121) 4 컬렉션 그대로. 이월 근거(0188 이 10라운드로 원자성·만료를 고친
       자리라 같은 커밋에 구조 변경을 얹으면 회귀 원인이 갈리지 않는다)는 **합리적이고 코드
       근거도 맞다**. 그러나 범위 축소는 결정권자 몫이다. ⓐ 이월 수용 → AC9·AC10 을 후속
       handoff 로 이관하고 0190 종료 / ⓑ 이번에 S1·S5~S7 구현. **해결안으로 위장하지 않는다.**
-- [ ] **D2 — AC8 이 ACTIVE Decision D-005 와 모순이었다 (plan 결함).**
+- [x] **D2 — AC8 이 ACTIVE Decision D-005 와 모순이었다 (plan 결함).** → **r2 에서 AC8a·AC8b·AC8c 로 분할**(§7). 판별 축을 "호출자 수" 에서 "누가 약속했는가" 로 바꿨다.
       AC8 은 `PluginBinding.server`·`harnessModelProviderKey` 제거를 요구하는데 D-005 는
       "문서화된 배포 확장점은 지우지 않는다" 를 못 박는다. 구현자가 Decision 을 우선한 것은
       **옳다**(Decision > AC). `credentialRevision` 은 성격이 또 달라 — 확장점이 아니라 테스트
       27건의 유일한 관측 창이다. AC8 이 성격이 다른 셋을 한 줄에 묶었다 → 세 갈래로 재작성하거나
       D-005 적용 범위를 AC8 에 명시한다.
-- [ ] **D3 — `plan.md:496`·`:529` 의 `55cdbfe` 는 존재하지 않는 커밋.** 실제 `8bbd595`
+- [x] **D3 — `plan.md:496`·`:529` 의 `55cdbfe` 는 존재하지 않는 커밋.** → **r2 에서 `8bbd595` 로 정정**(두 지점 모두). 실제 `8bbd595`
       (`git cat-file -t 55cdbfe` → `Not a valid object name`). INDEX 는 옳고 plan 만 낡았다.
       구현 보고의 "대상 커밋" 은 다음 라운드가 기준선을 잡는 좌표라 죽은 참조를 남기지 않는다.
-- [ ] **D4 — 자기보고 산술: `13/17` → `14/17`.** 같은 표가 열거한 ✅ 는 14건이다
+- [x] **D4 — 자기보고 산술: `13/17` → `14/17`.** → **r2 에서 정정**. r2 자기보고는 개수 열 + 합계 검산 줄을 따로 두었고, 그 검산에서 분모가 17→19 로 바뀐 것을 잡았다. 같은 표가 열거한 ✅ 는 14건이다
       (17 − 부분 2 − 미충족 1). 과소 보고라 무해하나, 내역 합과 총계를 맞추지 않은 형태는
       0187 r1·0189 r1(둘 다 과대)과 같은 축이다.
