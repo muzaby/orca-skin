@@ -330,6 +330,18 @@ export interface BoundAuth {
   request(request: AuthenticatedRequest, signal?: AbortSignal): Promise<AuthenticatedResponse>
 }
 
+// 자기 Auth 를 고르기만 하는 소비자의 표면 (0190).
+//
+// 위 원칙("소비는 `AuthRuntime` 전체가 아니라 좁은 포트")을 **타입으로** 세운다. 0188 의 배포
+// factory 4종은 `AuthRuntime` 전체를 받아 `login`·`continue`·`reauth`·`revoke`·`resume`·
+// `subscribe` 까지 쥐고 있었다 — 실제로 필요한 것은 `bind` 하나다. 제안서는 `BoundAuth` 만
+// 넘기라고 했지만 배포는 자기 AuthId 로 **직접 bind** 해야 하므로(레시피가 그렇게 쓴다) 그
+// 형태로는 성립하지 않는다. 능력 하나를 이름 붙여 좁히는 것이 두 요구를 모두 만족한다.
+//
+// **인증 lifecycle 을 도는 것은 배포의 일이 아니다** — 그것은 IPC 핸들러(`app/handlers/
+// providers.ts`)와 부팅 복원(`app/auth-resume.ts`)이 소유한다.
+export type AuthBinder = Pick<AuthRuntime, 'bind'>
+
 export interface AuthRuntime {
   bind(authId: AuthId): BoundAuth
   tryBind(authId: AuthId): BoundAuth | null

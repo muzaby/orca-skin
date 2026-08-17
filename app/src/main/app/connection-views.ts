@@ -21,6 +21,11 @@ import type { AuthRuntime, BoundAuth } from '../contracts/auth'
 import type { Gate } from '../features/gate'
 import type { HarnessModelProviderKey } from '../features/harnesses/runtime-config'
 
+// 이 모듈은 **읽기만** 한다 — 선언 설명과 현재 단계. `AuthRuntime` 전체를 받으면 view 조립이
+// 인증을 시작하거나 해제할 수 있게 된다(0190).
+type AuthDescriber = Pick<AuthRuntime, 'describe'>
+type AuthStepReader = Pick<AuthRuntime, 'describe' | 'currentStep'>
+
 export type ConnectionViewSource =
   | { category: 'gate'; auth: BoundAuth }
   | {
@@ -51,7 +56,7 @@ function toolsOf(source: ConnectionViewSource): string[] {
   return source.category === 'plugin' ? [...source.toolNames()] : []
 }
 
-export function connectionInfo(auth: AuthRuntime, source: ConnectionViewSource): ProviderInfo {
+export function connectionInfo(auth: AuthDescriber, source: ConnectionViewSource): ProviderInfo {
   const descriptor = auth.describe(source.auth.authId)
   const snapshot = source.auth.snapshot()
   return {
@@ -73,14 +78,14 @@ export function connectionInfo(auth: AuthRuntime, source: ConnectionViewSource):
 }
 
 export function connectionList(
-  auth: AuthRuntime,
+  auth: AuthDescriber,
   sources: readonly ConnectionViewSource[]
 ): ProviderInfo[] {
   return sources.map((source) => connectionInfo(auth, source))
 }
 
 export function connectionState(
-  auth: AuthRuntime,
+  auth: AuthStepReader,
   gate: Gate,
   sources: readonly ConnectionViewSource[]
 ): ProviderPlatformState {

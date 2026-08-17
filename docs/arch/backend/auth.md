@@ -91,8 +91,11 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 
 **배포 factory 는 인자를 받고, 그 인자는 필요한 능력만 담는다.** `createPluginBindings(deps)`·
 `createConfigApiAugmenters(deps)`·`createDirectCredentialAugmenters(deps)`·`createUsageFetcher(deps)`·
-`createConnectionSources(deps)` 는 `bootstrap.ts` 가 조립한 능력(`AuthRuntime`·`RuntimeToolSink`·
-AuthId 를 닫은 secret closure·gate 멤버·plugin 바인딩)을 받아 쓴다. **Harness 의 두 방식은 deps 가
+`createConnectionSources(deps)` 는 `bootstrap.ts` 가 조립한 능력(`AuthBinder`·`RuntimeToolSink`·
+AuthId 를 닫은 secret closure·gate 멤버·plugin 바인딩)을 받아 쓴다. **`AuthBinder` 는
+`Pick<AuthRuntime,'bind'>` 다** — 배포는 자기 AuthId 를 골라 `BoundAuth.request` 를 쓸 뿐,
+`login`·`continue`·`reauth`·`revoke`·`resume`·`subscribe` 에는 도달하지 못한다(컴파일 강제).
+인증 lifecycle 은 IPC 핸들러와 부팅 복원이 소유한다. **Harness 의 두 방식은 deps 가
 갈라져 있다** — config API 는 `auth` 만, direct credential 은 **배포가 `DIRECT_CREDENTIAL_AUTH_IDS`
 에 선언한 id 로 미리 닫힌 closure map**(`secrets`)만 받아, 한 factory 가 API 접근 권한과 raw secret
 을 동시에 쥘 수 없고 선언하지 않은 Auth 의 secret 에는 도달할 수도 없다. 두 방식이 같은 Harness
