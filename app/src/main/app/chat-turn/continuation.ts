@@ -3,8 +3,9 @@
 // listen 과 flush 는 같은 루프에서 갈리지만 조립 규칙이 정반대다. 그 차이가 리터럴로 흩어져
 // 있어 회귀가 두 번 났다(0149 첨부 누수 · 0166 D7 위임 절반). 여기 두 함수로 고정한다.
 
+import { ifPresent } from '../../../shared/obj'
 import type { SteerFlushBatch, TurnRequest } from '../../adapters/turn'
-import type { PreparedHarnessConfig } from '../../features/harnesses/prepared-config'
+import type { PreparedHarnessConfig } from '../../adapters/harness-config'
 import { pickFrameDelegates } from '../../features/sessions/session-runtime'
 
 // `prepareAutomaticContinuation` 결과 중 요청 조립이 쓰는 부분만. 구조적으로 받아 모듈 간
@@ -81,9 +82,12 @@ export function buildFlushRequest(input: {
 // 한쪽만 갱신되는 회귀가 다시 난다(0149·0166 D7 과 같은 종류).
 function preparedFields(
   prepared: PreparedHarnessConfig
-): Pick<TurnRequest, 'providerSettings' | 'env'> {
+): Pick<TurnRequest, 'providerSettings' | 'env' | 'envFingerprint'> {
   return {
-    ...(prepared.providerSettings ? { providerSettings: prepared.providerSettings } : {}),
-    ...(prepared.env ? { env: { ...prepared.env } } : {})
+    ...ifPresent('providerSettings', prepared.providerSettings),
+    ...(prepared.env ? { env: { ...prepared.env } } : {}),
+    // 조립부가 계산한 값을 spawn 기록부로 나른다 — `env` 는 얕은 복사지만 fingerprint 는
+    // 키를 정렬해 접으므로 두 값이 항상 일치한다(0190).
+    envFingerprint: prepared.envFingerprint
   }
 }

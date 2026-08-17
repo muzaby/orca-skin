@@ -15,7 +15,8 @@ const continuation = {
   prepared: {
     providerSettings: { blob: 'fresh' } as never,
     env: { ANTHROPIC_AUTH_TOKEN: 'fresh-token' },
-    runtimeEnvFingerprint: 'fp-fresh'
+    runtimeEnvFingerprint: 'fp-fresh',
+    envFingerprint: 'fp-fresh'
   }
 }
 
@@ -130,5 +131,29 @@ describe('listen·flush 의 spawn 입력 대칭 (0188)', () => {
     expect(flush.env).toEqual(continuation.prepared.env)
     expect(listen.providerSettings).toBe(continuation.prepared.providerSettings)
     expect(flush.providerSettings).toBe(continuation.prepared.providerSettings)
+  })
+})
+
+// 조립부가 계산한 fingerprint 를 spawn 기록부까지 나르는 두 지점 중 하나 (0190 AC1).
+// listen·flush 가 **함께** 실어야 한다 — 한쪽만 실으면 그 경로만 spawn 마다 재계산으로 돌아간다.
+describe('envFingerprint 승계 (0190)', () => {
+  it('listen 과 flush 가 같은 값을 싣는다', () => {
+    const listen = buildListenRequest({
+      base: baseRequest(),
+      sessionId: 's1',
+      signal: new AbortController().signal,
+      continuation
+    })
+    const flush = buildFlushRequest({
+      base: baseRequest(),
+      sessionId: 's1',
+      signal: new AbortController().signal,
+      batch: { uuid: 'u1', text: 'next' } as SteerFlushBatch,
+      preludes: [],
+      continuation
+    })
+
+    expect(listen.envFingerprint).toBe('fp-fresh')
+    expect(flush.envFingerprint).toBe('fp-fresh')
   })
 })

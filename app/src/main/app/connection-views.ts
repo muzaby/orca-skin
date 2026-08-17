@@ -59,7 +59,11 @@ export function connectionInfo(auth: AuthRuntime, source: ConnectionViewSource):
     label: descriptor.label,
     kind: WIRE_KIND[source.category],
     origin: descriptor.origin,
-    auth: descriptor.methods.map((method) => ({ ...method, fields: [...method.fields] })),
+    // `describe()` 가 이미 method·field 를 새로 할당해 돌려준다(`features/auth/runtime.ts`
+    // `methodDescriptor`). 여기서 다시 깊은 복사하면 `providerList`/`providerState` invoke 와
+    // **모든 `pushConnectionState()` 방송**마다 같은 사본을 두 벌 만든다 — 배열만 복사해
+    // `readonly` 를 벗긴다(0190).
+    auth: [...descriptor.methods],
     status: snapshot.status,
     activeAuthKind: snapshot.activeMethod ?? null,
     principal: snapshot.principalId ?? null,

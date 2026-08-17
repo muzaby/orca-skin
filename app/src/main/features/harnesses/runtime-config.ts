@@ -23,31 +23,22 @@
 //
 // 레이어: features/harnesses → contracts·adapters·infra·shared. fs·network 는 주입받는다.
 
-import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
+import type {
+  HarnessModelProviderKey,
+  HarnessRuntimeConfig,
+  ResolvedHarnessSettings
+} from '../../adapters/harness-config'
 
-// `${HarnessId}-${ModelProviderId}` 합성 키. 문자열 join 은 `infra/config/provider-key.ts` 의
-// `providerKeyOf` 하나가 갖는다 — 여기서 다시 잇지 않는다.
-export type HarnessModelProviderKey = string
+// `HarnessModelProviderKey`·`HarnessRuntimeConfig` 는 **adapter 입력의 형상**이라 계약 자리
+// (`adapters/harness-config.ts`)가 정본이다(0190). 이 슬라이스는 그것을 해석해 채울 뿐이고,
+// 기존 소비자를 위해 여기서 다시 export 한다.
+export type { HarnessModelProviderKey, HarnessRuntimeConfig }
 
 // settings 디렉터리가 확정한 좌표. **새 definition 배열이 아니다** — 열거 결과의 부분집합이다.
 export interface HarnessModelProviderEntry {
   key: HarnessModelProviderKey
   harnessId: string
   modelProviderId: string
-}
-
-// 해석된 Harness 실행 구성 한 장.
-export interface HarnessRuntimeConfig {
-  key: HarnessModelProviderKey
-  harnessId: string
-  modelProviderId: string
-  // Harness native 설정. Claude 에서는 `options.settings` 로 전달한다.
-  settings?: ResolvedHarnessSettings
-  // 동적 subprocess overlay. credential 뿐 아니라 URL·모델 변수·flag 를 포함한다.
-  // app/process/settings env 와의 최종 병합은 Harness 별 spawn preparation 이 수행한다.
-  runtimeEnv: Readonly<Record<string, string>>
-  // 동적 token/config 의 사용 기한. 없으면 명시 무효화 전까지 cache 할 수 있다.
-  validUntil?: number
 }
 
 // 배포가 구현하는 유일한 확장점. **endpoint·JSON path·모델 매핑을 DSL 로 만들지 않는다** —

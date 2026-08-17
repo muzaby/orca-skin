@@ -1414,3 +1414,29 @@ describe('describe / tryBind', () => {
     expect(runtime.tryBind('nope')).toBeNull()
   })
 })
+
+// `app/connection-views.ts` 가 이 보장 위에 서 있다 — view 조립이 descriptor 를 다시 깊은
+// 복사하지 않는 이유가 여기다(0190). 이 계약이 깨지면 renderer 로 나가는 DTO 가 registry 내부
+// 객체를 공유하게 되므로, view 쪽이 아니라 **여기서** 잠근다.
+describe('describe() 는 호출마다 새 객체를 돌려준다 (0190)', () => {
+  it('두 호출의 method·field 가 서로 다른 인스턴스다', () => {
+    const { runtime } = build(() => true)
+
+    const first = runtime.describe('wiki')
+    const second = runtime.describe('wiki')
+
+    expect(first).not.toBe(second)
+    expect(first.methods[0]).not.toBe(second.methods[0])
+    expect(first.methods[0]!.fields[0]).not.toBe(second.methods[0]!.fields[0])
+    expect(first).toEqual(second)
+  })
+
+  it('돌려준 descriptor 를 변형해도 다음 호출이 오염되지 않는다', () => {
+    const { runtime } = build(() => true)
+
+    const mutated = runtime.describe('wiki')
+    mutated.methods[0]!.fields[0]!.label = '오염됨'
+
+    expect(runtime.describe('wiki').methods[0]!.fields[0]!.label).toBe('개인 액세스 토큰')
+  })
+})

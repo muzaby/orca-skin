@@ -27,7 +27,7 @@ import { RuntimeToolRegistry } from '../../features/extensions/runtime-tool-regi
 import type { RuntimeToolServer } from '../../adapters/runtime-tools'
 import { authToolServerId } from '../../adapters/runtime-tool-policy'
 import { createHarnessRuntimeConfigService } from '../../features/harnesses/runtime-config'
-import { prepareHarnessConfig } from '../../features/harnesses/prepared-config'
+import { prepareHarnessConfig } from '../../adapters/harness-config'
 import type { UsageFetcher } from '../../features/usage/fetcher'
 import { connectionState } from '../connection-views'
 import type { ConnectionViewSource } from '../connection-views'

@@ -20,7 +20,7 @@ import {
   providerSettingsChangedSinceSpawn,
   runtimeEnvChangedSinceSpawn
 } from '../features/harnesses/runtime-boundary'
-import type { PreparedHarnessConfig } from '../features/harnesses/prepared-config'
+import type { PreparedHarnessConfig } from '../adapters/harness-config'
 import { decideRespawn } from '../features/sessions/respawn-policy'
 
 export interface AutomaticContinuationRuntime {

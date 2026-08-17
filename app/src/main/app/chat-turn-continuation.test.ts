@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { TurnExtensions } from '../adapters/turn'
-import type { PreparedHarnessConfig } from '../features/harnesses/prepared-config'
+import type { PreparedHarnessConfig } from '../adapters/harness-config'
 import {
   prepareAutomaticContinuation,
   type AutomaticContinuationRuntime
@@ -9,7 +9,7 @@ import {
 // continuation 마다 새로 조립되는 spawn 입력 한 벌. fingerprint 가 spawn 기록과 같으면
 // respawn 판정에 영향을 주지 않는다.
 function preparedConfig(fingerprint = 'fp-1'): PreparedHarnessConfig {
-  return { runtimeEnvFingerprint: fingerprint }
+  return { runtimeEnvFingerprint: fingerprint, envFingerprint: fingerprint }
 }
 
 function extensions(revision: number): TurnExtensions {

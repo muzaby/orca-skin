@@ -5,13 +5,13 @@
 // 쓰이는 fingerprint 로 접히는지를 본다.
 
 import { describe, expect, it } from 'vitest'
-import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
 import {
+  harnessEnvFingerprint,
   prepareHarnessConfig,
   prepareUnresolvedHarnessConfig,
-  harnessEnvFingerprint
-} from './prepared-config'
-import type { HarnessRuntimeConfig } from './runtime-config'
+  type HarnessRuntimeConfig,
+  type ResolvedHarnessSettings
+} from './harness-config'
 
 function settings(
   env?: Record<string, unknown>,
@@ -305,5 +305,149 @@ describe('해석 실패 턴 (prepareUnresolvedHarnessConfig, r10)', () => {
     })
 
     expect(prepared.runtimeEnvFingerprint).toBe(harnessEnvFingerprint(prepared.env))
+  })
+})
+
+// ── 0190 정리 ────────────────────────────────────────────────────────────────
+
+describe('fingerprint 는 한 번만 계산된다 (0190 AC1·AC2)', () => {
+  // `SessionRuntime` 이 spawn 마다 다시 접지 않도록 조립부가 값을 함께 낸다. 두 필드는 값이
+  // 같지만 축이 다르다 — 아래 두 테스트가 그 차이를 고정한다.
+  it('해석한 턴에서는 두 필드가 같은 값이다', () => {
+    const prepared = prepareHarnessConfig({
+      config: config({ runtimeEnv: { TOKEN: 't' } }),
+      baseEnv: BASE
+    })
+
+    expect(prepared.envFingerprint).toBe(harnessEnvFingerprint(prepared.env))
+    expect(prepared.runtimeEnvFingerprint).toBe(prepared.envFingerprint)
+  })
+
+  // 여기서 `envFingerprint` 까지 undefined 로 만들면, 해석 실패 턴에 뜬 채널이 이후 **어떤 env
+  // 변화에도 respawn 하지 않는다** — 비교의 양쪽 중 하나가 영구히 null 이 되기 때문이다.
+  it('해석 못한 턴에서도 spawn 기록용 값은 실재한다', () => {
+    const prepared = prepareUnresolvedHarnessConfig({
+      appEnv: { APP_ONLY: 'kept' },
+      baseEnv: BASE
+    })
+
+    expect(prepared.runtimeEnvFingerprint).toBeUndefined()
+    expect(prepared.envFingerprint).toBe(harnessEnvFingerprint(prepared.env))
+  })
+
+  // `send.ts`/`continuation.ts` 는 `env` 를 얕은 복사해 싣는다. canonicalize 가 키를 정렬하므로
+  // 복사본의 fingerprint 는 원본과 같아야 한다 — 다르면 매 턴 상시 respawn 이 된다.
+  it('env 얕은 복사본의 fingerprint 가 원본과 같다', () => {
+    const prepared = prepareHarnessConfig({
+      config: config({ runtimeEnv: { B: '2', A: '1' } }),
+      baseEnv: BASE
+    })
+
+    expect(harnessEnvFingerprint({ ...prepared.env })).toBe(prepared.envFingerprint)
+  })
+})
+
+describe('같은 입력이면 같은 참조를 돌려준다 (0190 AC3·AC4)', () => {
+  // `providerSettingsChangedSinceSpawn` 의 상시 경로는 참조 비교 1회다(0125). env 블록이 있는
+  // 배포에서 조립이 매 턴 새 객체를 만들면 그 경로가 항상 빗나가 턴마다 stringify 2회로 간다.
+  it('env 블록이 있어도 두 번째 조립이 같은 providerSettings 참조를 준다', () => {
+    const source = settings({ TOKEN: 'from-settings' }, { model: 'sonnet' })
+    const input = {
+      config: config({ settings: source, runtimeEnv: { TOKEN: 'runtime' } }),
+      baseEnv: BASE
+    }
+
+    const first = prepareHarnessConfig(input)
+    const second = prepareHarnessConfig(input)
+
+    expect(first.providerSettings).toBeDefined()
+    expect(Object.is(first.providerSettings, second.providerSettings)).toBe(true)
+    expect(Object.is(first.providerSettings!.settings, second.providerSettings!.settings)).toBe(
+      true
+    )
+  })
+
+  it('env 블록을 걷어낸 뒤에도 나머지 settings 는 보존된다', () => {
+    const source = settings({ TOKEN: 'from-settings' }, { model: 'sonnet' })
+    const prepared = prepareHarnessConfig({
+      config: config({ settings: source, runtimeEnv: { TOKEN: 'runtime' } }),
+      baseEnv: BASE
+    })
+
+    expect(prepared.providerSettings!.settings['model']).toBe('sonnet')
+    expect(prepared.providerSettings!.settings['env']).toBeUndefined()
+    // 디스크 사본은 건드리지 않는다.
+    expect(source.settings['env']).toEqual({ TOKEN: 'from-settings' })
+  })
+
+  it('원본 blob 이 다르면 다른 참조를 준다 — 실제로 바뀐 턴은 계속 감지된다', () => {
+    const runtimeEnv = { TOKEN: 'runtime' }
+    const first = prepareHarnessConfig({
+      config: config({ settings: settings({ TOKEN: 'a' }), runtimeEnv }),
+      baseEnv: BASE
+    })
+    const second = prepareHarnessConfig({
+      config: config({ settings: settings({ TOKEN: 'b' }), runtimeEnv }),
+      baseEnv: BASE
+    })
+
+    expect(Object.is(first.providerSettings, second.providerSettings)).toBe(false)
+  })
+
+  // env 블록이 없으면 사본을 만들 이유가 없다 — 원본 참조가 그대로 나가야 한다.
+  it('env 블록이 없으면 원본 ResolvedHarnessSettings 를 그대로 돌려준다', () => {
+    const source = settings(undefined, { model: 'sonnet' })
+    const prepared = prepareHarnessConfig({
+      config: config({ settings: source, runtimeEnv: { TOKEN: 'runtime' } }),
+      baseEnv: BASE
+    })
+
+    expect(Object.is(prepared.providerSettings, source)).toBe(true)
+  })
+})
+
+// SDK 가 `options.settings` 와 `options.env` 중 어느 쪽을 우선하는지는 내부 구현이고 버전에
+// 따라 바뀔 수 있다. 이 모듈의 계약은 **어느 쪽이 이기든 결과가 하나** 라는 것이고, 그것이
+// 성립하는 이유는 같은 키가 두 채널에 동시에 남지 않기 때문이다. 0188 D-017 이 요구한 고정이다.
+describe('두 채널 결정표 — characterization (0190 AC13)', () => {
+  it('options.env 를 만드는 턴에는 settings 채널에 env 가 남지 않는다', () => {
+    const prepared = prepareHarnessConfig({
+      config: config({
+        settings: settings({ SHARED: 'from-settings', ONLY_SETTINGS: 's' }),
+        runtimeEnv: { SHARED: 'from-runtime' }
+      }),
+      baseEnv: BASE
+    })
+
+    expect(prepared.providerSettings!.settings['env']).toBeUndefined()
+    expect(prepared.env?.SHARED).toBe('from-runtime')
+    // hoist 는 충돌 키만이 아니라 블록 전체다 — 안 그러면 비충돌 키가 두 채널에 남는다.
+    expect(prepared.env?.ONLY_SETTINGS).toBe('s')
+  })
+
+  it('options.env 를 만들지 않는 턴에는 settings 채널을 건드리지 않는다', () => {
+    const source = settings({ TOKEN: 'from-settings' })
+    const prepared = prepareHarnessConfig({
+      config: config({ settings: source, runtimeEnv: {} }),
+      baseEnv: BASE
+    })
+
+    expect(prepared.env).toBeUndefined()
+    expect(Object.is(prepared.providerSettings, source)).toBe(true)
+    expect(prepared.providerSettings!.settings['env']).toEqual({ TOKEN: 'from-settings' })
+  })
+
+  it('settings env 의 비문자열 값은 subprocess env 로 넘기지 않는다', () => {
+    const prepared = prepareHarnessConfig({
+      config: config({
+        settings: settings({ STR: 'ok', NUM: 42, OBJ: { nested: true } }),
+        runtimeEnv: { TOKEN: 't' }
+      }),
+      baseEnv: BASE
+    })
+
+    expect(prepared.env?.STR).toBe('ok')
+    expect(prepared.env?.NUM).toBeUndefined()
+    expect(prepared.env?.OBJ).toBeUndefined()
   })
 })

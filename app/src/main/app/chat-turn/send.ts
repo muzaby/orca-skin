@@ -14,6 +14,7 @@
 //     보는 가변 상태라, 값으로 캡처하면 연속 턴에서 콜백이 옛 턴을 본다.
 
 import type { IpcMainInvokeEvent, WebContents } from 'electron'
+import { ifPresent } from '../../../shared/obj'
 import type { AttachmentView } from '../../../shared/ipc'
 import type { SteerFlushBatch, TurnRequest } from '../../adapters/turn'
 import type { TurnContext } from '../../contracts/turn'
@@ -287,9 +288,10 @@ export async function handleChatSend(
         signal: controller.signal,
         extensions,
         ...(resolved.prepared.env ? { env: { ...resolved.prepared.env } } : {}),
-        ...(resolved.prepared.providerSettings
-          ? { providerSettings: resolved.prepared.providerSettings }
-          : {}),
+        // 조립부가 계산한 값을 spawn 기록부로 나른다(0190) — `env` 는 얕은 복사지만
+        // fingerprint 는 키를 정렬해 접으므로 두 값이 항상 일치한다.
+        envFingerprint: resolved.prepared.envFingerprint,
+        ...ifPresent('providerSettings', resolved.prepared.providerSettings),
         ...(resolved.model !== undefined ? { model: resolved.model } : {}),
         requestApproval,
         ...(payload.permissionMode ? { permissionMode: payload.permissionMode } : {}),
