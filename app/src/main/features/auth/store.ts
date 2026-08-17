@@ -93,16 +93,25 @@ export interface AuthStoreDeps {
   onVaultCleanupFailed?: (authId: AuthId, error: unknown) => void
 }
 
-export class AuthStore {
-  private readonly grants = new Map<string, Grant>()
-  // **이번 실행에서 실제 인증을 거친 provider.** 프로세스 수명 한정 — 영속하지 않는다.
+// authId 하나가 이번 실행에서 갖는 상태 **전부** (0190 — 네 자료구조를 접었다).
+//
+// 0188 은 이것을 `Map<grant>` + `Set<verified>` + `Map<revision>` + `Set<expirySettled>` 네
+// 벌로 들고, mutator 다섯이 **직접 쓰기 18곳**으로 손수 동기화했다. 같은 authId 를 두고 네 곳을
+// 매번 같이 고쳐야 하는데 그것을 강제하는 것이 아무것도 없어, 한 곳을 빠뜨리면 조용히 어긋났다 —
+// r3(만료 정착이 revision 을 건너뜀)·r6(정착 기준이 두 벌)이 정확히 그 형태였다.
+//
+// 이제 축이 하나다. 전이는 이 객체 하나를 고치는 일이고, 빠뜨릴 두 번째 자리가 없다.
+interface AuthEntry {
+  // 없을 수 있다 — 해제된 authId 는 **항목은 남기고 grant 만 잃는다**(아래 `revoke`).
+  grant?: Grant
+  // **이번 실행에서 실제 인증을 거쳤는가.** 프로세스 수명 한정 — 영속하지 않는다.
   //
   // grant 는 *기록*이고 인증이 아니다. 특히 `kind:'session'` grant 는 vault 도 `expiresAt` 도
   // 없어(교환 없는 ADFS 경로) 기록만으로 영원히 `status:'valid'` 다. 게이트가 그 status 만 보던
   // 동안 한 번 로그인에 성공한 authId 는 영구히 통과했다 — 쿠키가 죽어도 마찬가지라
   // 사실상 `authBypass` 를 켠 것과 같았다(사용자 보고). 그래서 통과 근거를 *기록* 이 아니라
   // **이번 실행의 인증**으로 옮긴다. 디스크에 남기는 순간 그 영구 bypass 가 그대로 돌아온다.
-  private readonly verified = new Set<string>()
+  verified: boolean
   // **실행 credential 이 실제로 바뀐 횟수** (0188). 메모리 단조 — 프로세스 수명 한정이라
   // 영속하지 않는다.
   //
@@ -114,12 +123,18 @@ export class AuthStore {
   //
   // **같은 상태를 다시 관측했다고 올리지 않는다** — commit·revoke·만료 전이·401/403 강등만
   // 올린다. 그 판정은 각 mutator 안에 있다.
-  private readonly revisions = new Map<string, number>()
-  // 시간 만료를 이미 정착시킨 authId. **idempotency 를 여기서 잡는다** (r3) — 구현은
+  revision: number
+  // 시간 만료를 이미 정착시켰는가. **idempotency 를 여기서 잡는다** (r3) — 구현은
   // `markExpired` 의 조기 반환에 기대고 있었는데, 그 반환이 `credentialRevision` 증가까지
   // 함께 건너뛰어 "credentialChanged:true 인데 revision 은 그대로" 인 상태를 만들었다.
-  // grant 가 교체·해제·복원되면 비운다.
-  private readonly expirySettled = new Set<string>()
+  // grant 가 교체·해제·복원되면 내린다.
+  expirySettled: boolean
+}
+
+export class AuthStore {
+  // **authId 축의 단일 자료구조** (0190 AC10). 여기 없는 authId 는 이번 실행에서 아무 일도
+  // 일어나지 않은 것이다.
+  private readonly entries = new Map<string, AuthEntry>()
   private readonly persistence: GrantPersistencePort
   private readonly vault: Vault
   private readonly clock: () => number
@@ -142,11 +157,9 @@ export class AuthStore {
   // 다르다. 게이트를 열려면 이번 실행에서 로그인을 한 번 거쳐야 한다.
   restore(declaredIds: readonly AuthId[]): void {
     const known = new Set(declaredIds)
-    this.grants.clear()
-    this.verified.clear()
-    // 복원은 부팅 1회이고 구독자가 붙기 전이다 — 세대도 함께 초기화한다.
-    this.revisions.clear()
-    this.expirySettled.clear()
+    // 복원은 부팅 1회이고 구독자가 붙기 전이다 — 네 축이 한 항목에 살므로 한 번에 비운다.
+    // (세대도 함께 초기화된다. 이전 실행의 세대를 물려주면 소비자가 없던 변화를 본다.)
+    this.entries.clear()
     const loaded = this.persistence.load()
     const persisted = Object.entries(loaded.records)
     for (const [authId, grant] of persisted) {
@@ -154,7 +167,7 @@ export class AuthStore {
         this.onOrphan?.(authId)
         continue
       }
-      this.grants.set(authId, grant)
+      this.entry(authId).grant = grant
     }
     // **아무 grant 도 가리키지 않는 vault 자리를 치운다** (r8).
     //
@@ -185,27 +198,45 @@ export class AuthStore {
     }
   }
 
-  // 실행 credential 세대. 한 번도 바뀐 적 없으면 0.
-  credentialRevision(authId: AuthId): number {
-    return this.revisions.get(authId) ?? 0
+  // 쓰기 경로 전용 — 항목이 없으면 만든다. 읽기는 `this.entries.get()` 을 그대로 쓴다
+  // (없는 authId 를 조회했다고 항목이 생기면 안 된다).
+  private entry(authId: AuthId): AuthEntry {
+    const existing = this.entries.get(authId)
+    if (existing) return existing
+    const created: AuthEntry = { verified: false, revision: 0, expirySettled: false }
+    this.entries.set(authId, created)
+    return created
   }
 
-  private bumpRevision(authId: AuthId): void {
-    this.revisions.set(authId, this.credentialRevision(authId) + 1)
+  // 영속에 실을 grant 맵. **grant 를 잃은 항목(해제된 authId)은 빠진다** — 세대를 남기려고
+  // 항목을 유지하는 것이 디스크에 빈 자리를 만들면 안 된다.
+  private records(): Record<string, Grant> {
+    const records: Record<string, Grant> = {}
+    for (const [authId, entry] of this.entries) {
+      if (entry.grant) records[authId] = entry.grant
+    }
+    return records
+  }
+
+  // 실행 credential 세대. 한 번도 바뀐 적 없으면 0.
+  credentialRevision(authId: AuthId): number {
+    return this.entries.get(authId)?.revision ?? 0
   }
 
   // 이번 실행에서 인증이 확인됐는가. grant 가 없으면 당연히 거짓이다.
   isVerified(authId: AuthId): boolean {
-    return this.verified.has(authId) && this.grants.has(authId)
+    const entry = this.entries.get(authId)
+    return entry !== undefined && entry.verified && entry.grant !== undefined
   }
 
   // 확인 성립. `put`(방금 로그인) 외의 유일한 진입점은 자동 로그인(`LoginService.resume`)이다.
   markVerified(authId: AuthId): void {
-    if (this.grants.has(authId)) this.verified.add(authId)
+    const entry = this.entries.get(authId)
+    if (entry?.grant) entry.verified = true
   }
 
   get(authId: AuthId): Grant | undefined {
-    return this.grants.get(authId)
+    return this.entries.get(authId)?.grant
   }
 
   // 방금 인증에 성공한 결과가 들어온다 — 그러므로 이 grant 는 이번 실행에서 확인된 것이다.
@@ -215,13 +246,15 @@ export class AuthStore {
   //
   // 내구 저장이었는지를 돌려준다 (r8) — 호출부가 옛 vault 키를 지워도 되는지 판단한다.
   put(authId: AuthId, grant: Grant): boolean {
-    const next = { ...Object.fromEntries(this.grants), [authId]: grant }
-    const durable = this.persist(next)
-    this.grants.set(authId, grant)
-    this.verified.add(authId)
-    this.expirySettled.delete(authId)
+    const durable = this.persist({ ...this.records(), [authId]: grant })
+    const entry = this.entry(authId)
+    entry.grant = grant
+    entry.verified = true
+    // 새 자격증명은 아직 만료를 정착시킨 적이 없다. 안 내리면 이 값이 나중에 자연 만료돼도
+    // 이미 정착됐다고 판단해 전이를 건너뛴다 — 만료인데 화면은 연결됨으로 남는다.
+    entry.expirySettled = false
     // credential commit — 실행 구성이 실제로 달라졌다.
-    this.bumpRevision(authId)
+    entry.revision += 1
     return durable
   }
 
@@ -248,17 +281,29 @@ export class AuthStore {
   // 가리키지 않으므로 다음 부팅의 고아 sweep 이 치운다(그 sweep 이 다시 신뢰 가능해진 것이
   // r10 의 `authoritative` 수정이다).
   revoke(authId: AuthId): RevokeOutcome {
-    const grant = this.grants.get(authId)
-    if (!grant) return { kind: 'absent' }
-    const next = Object.fromEntries([...this.grants].filter(([id]) => id !== authId))
+    const entry = this.entries.get(authId)
+    const grant = entry?.grant
+    if (!entry || !grant) return { kind: 'absent' }
+    const next = this.records()
+    delete next[authId]
     // 저장이 성립하지 않으면 **아무것도 건드리지 않고** 실패로 돌린다(r9 fail-closed 유지).
     if (!this.persist(next)) return { kind: 'failed' }
     // 여기부터는 best-effort 다 — 실패해도 해제를 되돌리지 않는다.
     this.deleteVaultKeys(authId, grant)
-    this.grants.delete(authId)
-    this.verified.delete(authId)
-    this.expirySettled.delete(authId)
-    this.bumpRevision(authId)
+    // ── 항목은 남기고 grant 만 지운다 (0190) ──────────────────────────────────
+    //
+    // 네 자료구조를 한 항목으로 접으면서 해제를 `entries.delete(authId)` 로 옮기고 싶어지는데,
+    // 그러면 **세대가 0 으로 되돌아간다.** revision 은 프로세스 수명 동안 단조여야 한다 —
+    // `AuthChange` 소비자는 "그때 값과 지금 값이 같은가" 를 이 숫자로만 판정하므로, 해제 전 1 과
+    // 재로그인 후 1 을 **같은 세대로 읽는다.** 죽은 토큰으로 만든 실행 구성이 warm hit 로 계속
+    // 돌아오고, Plugin 도구는 회수된 채로 남는다.
+    //
+    // 그래서 grant 만 비우고 항목은 남긴다. 영속에는 `records()` 가 grant 없는 항목을 빼므로
+    // 디스크에 빈 자리가 생기지 않는다.
+    entry.grant = undefined
+    entry.verified = false
+    entry.expirySettled = false
+    entry.revision += 1
     return { kind: 'revoked', grant }
   }
 
@@ -277,7 +322,7 @@ export class AuthStore {
   // 만료된 토큰을 `expired` 로 강등한다(401 관측 또는 `expiresAt` 경과). grant 자체는 남긴다 —
   // 사용자가 어느 provider 를 다시 인증해야 하는지 화면에서 봐야 한다.
   status(authId: AuthId): AuthStatus {
-    const grant = this.grants.get(authId)
+    const grant = this.entries.get(authId)?.grant
     if (!grant) return 'none'
     const expired = grant.expiresAt !== undefined && grant.expiresAt <= this.clock()
     if (grant.kind === 'session') return expired ? 'expired' : 'valid'
@@ -311,20 +356,22 @@ export class AuthStore {
     authId: AuthId,
     observedRevision?: number
   ): { credentialChanged: boolean; snapshotChanged: boolean } {
-    const grant = this.grants.get(authId)
-    if (!grant) return { credentialChanged: false, snapshotChanged: false }
-    if (observedRevision !== undefined && this.credentialRevision(authId) !== observedRevision) {
+    const entry = this.entries.get(authId)
+    const grant = entry?.grant
+    if (!entry || !grant) return { credentialChanged: false, snapshotChanged: false }
+    if (observedRevision !== undefined && entry.revision !== observedRevision) {
       return { credentialChanged: false, snapshotChanged: false }
     }
     // 확인은 무조건 취소한다 — 401 을 봤는데 "확인됨" 을 남겨 두면 게이트가 열린 채로 남는다.
     // (아래 조기 반환보다 앞이어야 한다: 이미 만료 표기된 grant 도 확인은 풀려야 한다.)
-    const unverified = this.verified.delete(authId)
+    const unverified = entry.verified
+    entry.verified = false
     // **중복 판정의 기준은 정착 집합이지 `expiresAt` 비교가 아니다** (r6). r5 는 `expiresAt <= now`
     // 만 보고 "이미 정착됨" 으로 접었는데, 그러면 **요청이 도는 동안 시계가 지나 만료된** 경우가
     // 통째로 빠진다 — 요청 시작 때는 valid 라 `settleExpiry` 가 지나갔고, 401 이 왔을 때는
     // `expiresAt <= now` 라 여기서도 접혀서, 전이가 다음 `snapshot()` 까지 미뤄졌다.
     // 두 정착 지점(`settleExpiry`·여기)이 같은 집합 하나를 기준으로 삼아야 1회성이 성립한다.
-    if (this.expirySettled.has(authId)) {
+    if (entry.expirySettled) {
       if (unverified) this.flush()
       return { credentialChanged: false, snapshotChanged: unverified }
     }
@@ -332,12 +379,22 @@ export class AuthStore {
     // 아직 만료 시각이 없거나 미래면 지금으로 못 박는다. 이미 시계상 지났으면 그 값을 유지한다 —
     // 만료 시점을 뒤로 미루면 표시가 거짓말이 된다.
     if (grant.expiresAt === undefined || grant.expiresAt > now) {
-      this.grants.set(authId, { ...grant, expiresAt: now })
+      entry.grant = { ...grant, expiresAt: now }
     }
-    this.expirySettled.add(authId)
-    this.bumpRevision(authId)
-    this.flush()
+    this.settleExpired(entry)
     return { credentialChanged: true, snapshotChanged: true }
+  }
+
+  // 만료 정착의 **공통 꼬리** (0190 S5). 같은 전이를 두 입구가 낸다 — `markExpired`(401 관측)와
+  // `settleExpiry`(시계 경과). 꼬리를 두 벌로 적으면 한쪽만 고쳐지고, 그때 무엇이 어긋나는지는
+  // 0188 이 두 라운드로 배웠다: r3 은 정착이 revision 증가를 건너뛰어 `credentialChanged:true`
+  // 를 받은 소비자가 세대로는 아무 변화도 못 봤고, r6 은 정착 판정 기준 자체가 두 벌이라
+  // 요청이 도는 사이 만료된 경우가 양쪽에서 접혀 전이가 통째로 사라졌다.
+  private settleExpired(entry: AuthEntry): void {
+    entry.expirySettled = true
+    entry.verified = false
+    entry.revision += 1
+    this.flush()
   }
 
   // ── 재인증은 되돌리지 않는다 — 애초에 나가지 않는다 (0188 D-009 → r5 D-047) ──
@@ -370,22 +427,20 @@ export class AuthStore {
   // 돌려주는 값은 **이번 호출에서 실제로 전이가 일어났는가** 다. 호출자(runtime)가 그때만
   // credential-effective change 를 emit 한다.
   settleExpiry(authId: AuthId): boolean {
-    const grant = this.grants.get(authId)
-    if (!grant) return false
+    const entry = this.entries.get(authId)
+    const grant = entry?.grant
+    if (!entry || !grant) return false
     if (grant.expiresAt === undefined || grant.expiresAt > this.clock()) return false
     // **첫 관측에서만** 전이한다. r2 는 이 판정을 `markExpired` 의 조기 반환에 맡겼는데, 그
     // 반환이 revision 증가까지 함께 건너뛰어 `credentialChanged:true` 를 받은 소비자가
     // revision 으로는 아무 변화도 보지 못했다 — revision 이 존재하는 이유가 바로 그 판정이다.
-    if (this.expirySettled.has(authId)) return false
-    this.expirySettled.add(authId)
-    this.verified.delete(authId)
-    this.bumpRevision(authId)
-    this.flush()
+    if (entry.expirySettled) return false
+    this.settleExpired(entry)
     return true
   }
 
   authKind(authId: AuthId): AuthMethodKind | null {
-    return this.grants.get(authId)?.authKind ?? null
+    return this.entries.get(authId)?.grant?.authKind ?? null
   }
 
   // ── 체인 도중의 grant 변경 판정 (0187 r2) ────────────────────────────────────
@@ -403,14 +458,14 @@ export class AuthStore {
   // 세션용 — identity 만 본다. 변경 전에도 세션 경로는 홉마다 `expiresAt` 을 보지 않았으므로
   // (`store.get()` 후 곧바로 cookie jar 전송) 여기서 만료를 더하면 없던 정책이 새로 생긴다.
   isCurrentGrant(authId: AuthId, expected: Grant): boolean {
-    return this.grants.get(authId) === expected
+    return this.entries.get(authId)?.grant === expected
   }
 
   // 값형용 — identity + 만료. 변경 전 `secret()` 이 홉마다 만료를 다시 봤다.
   // **vault 존재·복호화 가능성은 보지 않는다** — 그쪽은 요청당 1회 snapshot 과 맞바꾼 부분이라
   // 이름을 `usable` 이 아니라 `currentUnexpired` 로 둔다.
   isCurrentUnexpiredGrant(authId: AuthId, expected: Grant): boolean {
-    const current = this.grants.get(authId)
+    const current = this.entries.get(authId)?.grant
     if (current !== expected) return false
     return current.expiresAt === undefined || current.expiresAt > this.clock()
   }
@@ -421,7 +476,7 @@ export class AuthStore {
   // 다시 읽고 복호화하므로(캐시 없음) 두 번 물으면 턴마다 그 값을 두 번 낸다 —
   // `status()` 의 값형 판정은 곧 `read.state === 'found' && !expired` 라, 한 번 읽어 둘 다 답한다.
   secret(authId: AuthId): string | null {
-    const grant = this.grants.get(authId)
+    const grant = this.entries.get(authId)?.grant
     if (!grant || grant.kind === 'session') return null
     if (grant.expiresAt !== undefined && grant.expiresAt <= this.clock()) return null
     const read = this.vault.read(grant.vaultKey)
@@ -429,7 +484,7 @@ export class AuthStore {
   }
 
   private flush(): void {
-    this.persist(Object.fromEntries(this.grants))
+    this.persist(this.records())
   }
 
   // 포트의 실패 신호를 **하나로 정규화한다** (r9). 구현이 던지든 `false` 를 주든 호출부가 보는
