@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { HarnessSettingsService } from './settings'
-import { expandEnvRecord, mergeEnvLayers } from './env'
+import { expandEnvRecord } from './env'
 import {
   defaultModelFamily,
   modelNameForFamily,
@@ -192,17 +192,6 @@ describe('env 유틸', () => {
     )
     expect(env).toEqual({ A: 'v', C: 'plain' })
     expect(missing).toEqual(['MISSING'])
-  })
-
-  it('mergeEnvLayers 는 overlay 가 비면 base 그대로, 있으면 완전한 베이스 위에 병합한다', () => {
-    expect(mergeEnvLayers(undefined, {})).toBeUndefined()
-    const base = { PATH: '/bin' }
-    expect(mergeEnvLayers(base, {})).toBe(base)
-    expect(mergeEnvLayers(base, { A: '1' })).toEqual({ PATH: '/bin', A: '1' })
-    // base 부재 + overlay 존재 → process.env 스냅샷 위에 병합 (SDK env 전체 대체 의미론).
-    const merged = mergeEnvLayers(undefined, { ORCA_TEST_KEY: 'x' })!
-    expect(merged.ORCA_TEST_KEY).toBe('x')
-    expect(Object.keys(merged).length).toBeGreaterThan(1)
   })
 })
 

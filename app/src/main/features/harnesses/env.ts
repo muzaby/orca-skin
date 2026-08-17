@@ -30,13 +30,3 @@ export function processEnvRecord(): Record<string, string> {
   }
   return out
 }
-
-// SDK Options.env 는 subprocess env 전체를 대체하므로, overlay 가 있으면 완전한 베이스
-// (base 또는 process.env 스냅샷) 위에 병합한다. overlay 없으면 base 그대로 (undefined 포함).
-export function mergeEnvLayers(
-  base: Record<string, string> | undefined,
-  overlay: Record<string, string>
-): Record<string, string> | undefined {
-  if (Object.keys(overlay).length === 0) return base
-  return { ...(base ?? processEnvRecord()), ...overlay }
-}

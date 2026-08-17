@@ -44,6 +44,7 @@ import { createAuthSecretReader } from './secret-access'
 import type { Vault } from '../../infra/vault'
 import type { BrowserSessionPort } from './specs/browser-session'
 import { registerDeclaredSessions } from './session-policies'
+import { errorMessage } from '../../infra/errors'
 
 // **실행 credential 이 바뀐 원인만 true 다.** `verified` 는 "기록이 살아 있음을 확인했다" 는
 // 뜻이지 값이 달라졌다는 뜻이 아니다 — 이것을 true 로 두면 부팅 probe 한 번에 모든 Harness
@@ -96,7 +97,7 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     // 해제가 내구적으로 성립한 뒤의 vault 정리 실패는 위생 통지다 (r10) — 이미 있는 logger 로
     // 흘린다. 별도 포트를 컴포지션 루트까지 뚫으면 배선만 늘고 소비자는 로그 하나다.
     onVaultCleanupFailed: (authId, error) =>
-      deps.logger?.('auth.revoke.vault-cleanup-failed', { authId, reason: String(error) })
+      deps.logger?.('auth.revoke.vault-cleanup-failed', { authId, reason: errorMessage(error) })
   })
   store.restore(registry.list().map((definition) => definition.id))
 

@@ -33,7 +33,8 @@ import {
 import type { CandidateCredential } from './authenticated-request'
 import { isAllowedOrigin } from './policy'
 import type { AuthRegistry } from './registry'
-import type { AuthStore } from './store'
+import { vaultKeysOf, type AuthStore } from './store'
+import { ifPresent } from '../../../shared/obj'
 
 // 방식 실행기가 돌려주는 원자재. grant 로 접는 것은 이 파일의 몫이다 — 실행기는 vault 를 모른다.
 export type AuthResult =
@@ -412,7 +413,7 @@ export class LoginService {
     try {
       const res = await this.deps.request(
         definition.id,
-        { path: probe.path, ...(probe.method !== undefined ? { method: probe.method } : {}) },
+        { path: probe.path, ...ifPresent('method', probe.method) },
         AbortSignal.timeout(PROBE_TIMEOUT_MS),
         candidate
       )
@@ -520,17 +521,8 @@ export class LoginService {
   // grant 가 가리키는 vault 키를 지운다. `keep` 이 같은 키를 가리키면 건너뛴다 — 세대가 같은
   // 경우(레거시 고정 키에서 같은 키로 다시 쓴 경우)에 방금 쓴 값을 지우지 않기 위함이다.
   private discardKeys(grant: Grant | undefined, keep?: Grant): void {
-    if (!grant || grant.kind === 'session') return
-    const kept = new Set<string>()
-    if (keep && keep.kind !== 'session') {
-      kept.add(keep.vaultKey)
-      if (keep.kind === 'token' && keep.refreshKey) kept.add(keep.refreshKey)
-    }
-    const names = [
-      grant.vaultKey,
-      ...(grant.kind === 'token' && grant.refreshKey ? [grant.refreshKey] : [])
-    ]
-    for (const name of names) {
+    const kept = new Set(vaultKeysOf(keep))
+    for (const name of vaultKeysOf(grant)) {
       if (kept.has(name)) continue
       try {
         this.deps.vault.delete(name)
@@ -581,7 +573,7 @@ export class LoginService {
           vaultKey,
           authKind: spec.kind,
           createdAt,
-          ...(composed.principalId !== undefined ? { principalId: composed.principalId } : {})
+          ...ifPresent('principalId', composed.principalId)
         },
         secret: composed.value
       },
@@ -695,7 +687,7 @@ export class LoginService {
                 vaultKey,
                 authKind,
                 createdAt,
-                ...(result.principalId !== undefined ? { principalId: result.principalId } : {})
+                ...ifPresent('principalId', result.principalId)
               },
               secret: result.value
             },
@@ -722,9 +714,9 @@ export class LoginService {
                 vaultKey,
                 authKind,
                 createdAt,
-                ...(token.expiresAt !== undefined ? { expiresAt: token.expiresAt } : {}),
-                ...(refreshKey !== undefined ? { refreshKey } : {}),
-                ...(token.principalId !== undefined ? { principalId: token.principalId } : {})
+                ...ifPresent('expiresAt', token.expiresAt),
+                ...ifPresent('refreshKey', refreshKey),
+                ...ifPresent('principalId', token.principalId)
               },
               secret: token.token
             },
@@ -735,7 +727,7 @@ export class LoginService {
               this.deps.vault.set(vaultKey, token.token, {
                 kind: authKind,
                 createdAt,
-                ...(token.expiresAt !== undefined ? { expiresAt: token.expiresAt } : {})
+                ...ifPresent('expiresAt', token.expiresAt)
               })
               if (refreshKey !== undefined && token.refreshToken !== undefined) {
                 this.deps.vault.set(refreshKey, token.refreshToken, { kind: authKind, createdAt })
@@ -755,7 +747,7 @@ export class LoginService {
               sessionGroup: result.sessionGroup,
               authKind,
               createdAt: this.clock(),
-              ...(result.principalId !== undefined ? { principalId: result.principalId } : {})
+              ...ifPresent('principalId', result.principalId)
             }
           })
         )
