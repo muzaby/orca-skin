@@ -136,6 +136,10 @@ export interface TurnRequest {
   // subprocess env (orca.json 앱 전역 env 병합 결과). 확장 묶음이 아니라 자식
   // 프로세스 env 주입이라 TurnRequest 직속 — router 호출처(ipc/chat/send.ts)에서 조립한다.
   env?: Record<string, string>
+  // 위 `env` 의 fingerprint — 조립부가 이미 계산한 값을 spawn 기록부로 나른다(0190). 없으면
+  // `SessionRuntime` 이 직접 계산한다(주입 경로 밖에서 만든 요청). **main 내부 어댑터 포트
+  // 필드다** — IPC·DB·wire 를 타지 않는다.
+  envFingerprint?: string
   // main(HarnessSettingsService)이 해석 완료한 provider settings blob (handoff 0014).
   // 어댑터-네이티브 스키마 그대로이며 어댑터는 자기 query 옵션에 꽂기만 한다
   // (claude = options.settings flag + SDK 기본 settingSources 상속 — adaptSettings).

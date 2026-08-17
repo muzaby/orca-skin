@@ -8,7 +8,7 @@ import {
   prepareHarnessConfig,
   prepareUnresolvedHarnessConfig,
   type PreparedHarnessConfig
-} from '../../features/harnesses/prepared-config'
+} from '../../adapters/harness-config'
 import {
   defaultModelFamily,
   modelNameForFamily,

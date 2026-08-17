@@ -352,7 +352,9 @@ export class SessionRuntime implements ManagedRuntime {
     const channelToken = ++this.nextChannelToken
     this.channelTokenValue = channelToken
     this.spawnedSettings = req.providerSettings
-    this.spawnedFingerprint = harnessEnvFingerprint(req.env)
+    // 조립부가 이미 계산한 값을 그대로 쓴다 — 같은 env 를 두 번 접지 않는다(0190).
+    // 부재 시에만 계산한다(주입 경로 밖에서 만든 요청).
+    this.spawnedFingerprint = req.envFingerprint ?? harnessEnvFingerprint(req.env)
     this.spawnedModelValue = req.model
     this.spawnedRuntimeToolsRevisionValue = req.extensions.runtimeTools?.revision
     if (spawned.pushTurn && this.closePolicy === 'persistent') {
