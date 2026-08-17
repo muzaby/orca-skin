@@ -3,6 +3,8 @@
 > `docs/handoff/<NNNN-slug>/plan.md`로 복사해 작성한다.
 > 절차 정본은 [`SKILL.md`](SKILL.md), 협업/상태 머신은 [`docs/handoff/AGENTS.md`](../../../docs/handoff/AGENTS.md).
 > **문서 순서가 계약이다: Part I Product & UX Contract → Part II Technical Design.**
+> **문장은 [`§산출물 문장 규칙`](../../../docs/handoff/AGENTS.md)을 따른다** — 판정 먼저, 주장 한 줄에 관측 하나,
+> 표 한 칸 3줄, 문단 3문장. 빈 칸을 서술로 메우지 않는다. 해당 없으면 "해당 없음".
 
 ## 메타
 
@@ -44,6 +46,7 @@
 - 이번 턴에서 새로 추가된 결정: …
 - 변경된 결정: D-… → D-… (사용자 변경 근거)
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: …
+- **`ACTIVE 결정 ↔ AC` 대조**(본문 완성 후 채운다): 충돌 0 / `D-00N`("…") ↔ `ACn`("…") → 판정
 
 ## 4. 요구 비판적 검토
 
@@ -306,7 +309,8 @@ producer → contract/normalize → state/store → consumer/UI/tool
 - [ ] producer/consumer 양쪽 의미를 확인했다.
 - [ ] 상한·총량·one-way door를 필요한 곳에서 계산했다.
 - [ ] **게이트 명령이 대상 subtree의 현재 `AGENTS.md`와 충돌하지 않는다.**
-- [ ] 본문 완성 후 Decision Ledger와 기존 결정을 전체 교차검증했다.
+- [ ] 본문 완성 후 Decision Ledger와 기존 결정을 전체 교차검증했고, `ACTIVE 결정 ↔ AC` 대조 결과를 §3 갱신 메모에 적었다.
+- [ ] 산출물 문장 규칙을 지켰다 — 판정 먼저, 주장 한 줄에 관측 하나, 표 한 칸 3줄, 같은 사실을 Part I/II에 중복하지 않음.
 
 ---
 
@@ -366,8 +370,9 @@ producer → contract/normalize → state/store → consumer/UI/tool
 | **관측한 게이트 산출**(exit code 아님) | 테스트 N파일 / M케이스 · error·warning 수 · 환경 기인 실패 분리 근거 |
 | 강제 지점 전수 | N/M |
 | **AC 자기보고**(`Criteria-Met`) | N/M — 각 AC 옆에 **이번 턴에 재현한 관측값**을 적는다. 표식을 다시 찾지 못한 AC는 ✅로 세지 않는다 |
+| **합계 검산** | `✅ N · ⚠️ M · ❌ K = 총 T` — 분모를 다시 세고 **이 줄을 쓴 뒤** 커밋 trailer를 적는다. 분모가 바뀌었으면(AC 분할·추가) 그 사실을 적고 이전 라운드 합계와 직접 비교하지 않는다 |
 | 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 대상 커밋 | `<hash>` — 적기 전에 `git show <hash> --oneline`으로 실재를 확인한다(다음 라운드의 기준선 좌표) |
 
 ## [구현자 기입] Review Signals — 사실만
 
