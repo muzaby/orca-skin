@@ -83,26 +83,25 @@ export class HarnessSettingsService {
     )
     // mtime 스테일 체크 — sources 파일 기준. 파일이 없으면 mtime 0
     // (빈 settings 캐시도 유효 — 파일 등장 시 mtime 변화로 재해석).
-    const srcPath = sourcesSettingsFile
-    const mtimeMs = await statMtime(srcPath)
+    const mtimeMs = await statMtime(sourcesSettingsFile)
     const hit = this.cache.get(entry.key)
-    if (hit && hit.srcPath === srcPath && hit.mtimeMs === mtimeMs) {
+    if (hit && hit.srcPath === sourcesSettingsFile && hit.mtimeMs === mtimeMs) {
       return {
         providerKey: entry.key,
         provider: entry.modelProviderId,
         settings: hit.settings,
-        sourceRevision: revisionOf(srcPath, mtimeMs)
+        sourceRevision: revisionOf(sourcesSettingsFile, mtimeMs)
       }
     }
 
     try {
       const { settings } = await loader({ sourcesSettingsFile })
-      this.cache.set(entry.key, { settings, mtimeMs, srcPath })
+      this.cache.set(entry.key, { settings, mtimeMs, srcPath: sourcesSettingsFile })
       return {
         providerKey: entry.key,
         provider: entry.modelProviderId,
         settings,
-        sourceRevision: revisionOf(srcPath, mtimeMs)
+        sourceRevision: revisionOf(sourcesSettingsFile, mtimeMs)
       }
     } catch (err) {
       getLogger()

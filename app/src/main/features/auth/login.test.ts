@@ -222,6 +222,8 @@ describe('LoginService — 복수 AuthMethod (AC5)', () => {
   })
 })
 
+// `AuthRuntime.reauth` 는 `LoginService.begin` 으로 곧장 라우팅된다 (0190) — 재인증은 기존
+// grant 를 남겨둔 채 시작하는 것이고 그것이 `begin` 의 기본 동작이라 별도 메서드가 없다.
 describe('LoginService — 재인증 (AC6)', () => {
   let h: Harness
   beforeEach(async () => {
@@ -231,7 +233,7 @@ describe('LoginService — 재인증 (AC6)', () => {
 
   it('재인증 실패는 기존 grant 를 보존한다', async () => {
     // 시작만 하고 값을 안 낸다 — 기존 grant 는 살아 있어야 한다.
-    expect(await h.login.reauth('gw', 'api-key')).toMatchObject({ kind: 'input-required' })
+    expect(await h.login.begin('gw', 'api-key')).toMatchObject({ kind: 'input-required' })
     expect(h.store.status('gw')).toBe('valid')
     expect(h.secretOf('gw')).toBe('old-key')
 
@@ -242,7 +244,7 @@ describe('LoginService — 재인증 (AC6)', () => {
   })
 
   it('재인증 성공에서만 교체된다', async () => {
-    await h.login.reauth('gw', 'api-key')
+    await h.login.begin('gw', 'api-key')
     expect(await h.login.continue('gw', { [FIELD_SECRET]: 'new-key' })).toEqual({
       kind: 'done',
       providerId: 'gw'

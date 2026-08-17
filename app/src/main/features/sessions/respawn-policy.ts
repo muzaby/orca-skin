@@ -1,4 +1,4 @@
-interface RespawnDecisionInput {
+export interface RespawnDecisionInput {
   channelAlive: boolean
   providerBoundaryChanged: boolean
   modelChanged: boolean
