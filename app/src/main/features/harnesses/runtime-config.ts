@@ -28,6 +28,7 @@ import type {
   HarnessRuntimeConfig,
   ResolvedHarnessSettings
 } from '../../adapters/harness-config'
+import { ifPresent } from '../../../shared/obj'
 
 // `HarnessModelProviderKey`·`HarnessRuntimeConfig` 는 **adapter 입력의 형상**이라 계약 자리
 // (`adapters/harness-config.ts`)가 정본이다(0190). 이 슬라이스는 그것을 해석해 채울 뿐이고,
@@ -149,7 +150,7 @@ export function createHarnessRuntimeConfigService(
     return {
       ...base,
       runtimeEnv: augmented.runtimeEnv,
-      ...(augmented.validUntil !== undefined ? { validUntil: augmented.validUntil } : {})
+      ...ifPresent('validUntil', augmented.validUntil)
     }
   }
 
@@ -232,7 +233,7 @@ export function createHarnessRuntimeConfigService(
         }
         deps.logger?.('harness.runtime-config.invalidated', {
           key: target,
-          ...(reason !== undefined ? { reason } : {})
+          ...ifPresent('reason', reason)
         })
       }
     }

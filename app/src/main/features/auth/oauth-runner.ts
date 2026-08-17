@@ -27,6 +27,7 @@ import {
   type OAuthStateStore,
   type PendingAuthorization
 } from './oauth'
+import { ifPresent } from '../../../shared/obj'
 
 // 앱 내부 창 포트 — 단계 3 의 `infra/browser-session.ts` 가 구현을 준다. 미주입이면
 // `window` 분기는 `unsupported` 로 실패한다(조용히 다른 분기로 대체하지 않는다).
@@ -96,7 +97,7 @@ export class OAuthRunner implements OAuthAuthenticator {
       state,
       stateSent,
       verifier: pkce.verifier,
-      ...(redirectUri !== undefined ? { redirectUri } : {})
+      ...ifPresent('redirectUri', redirectUri)
     })
 
     switch (start.redirect.kind) {

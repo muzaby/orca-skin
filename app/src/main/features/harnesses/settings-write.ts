@@ -9,6 +9,7 @@
 // 이름에만 적용한다.
 
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { isRecord } from '../../../shared/obj'
 import { join } from 'node:path'
 import { providerKeyOf, parseProviderKey, PROVIDER_NAME_RE } from '../../infra/config/provider-key'
 import { orcaConfigDir } from '../../infra/config/paths'
@@ -57,10 +58,9 @@ function settingsPath(provider: string, root: string): string {
 
 function readSettingsObject(settingsJson: string): Record<string, unknown> {
   const parsed: unknown = JSON.parse(settingsJson)
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new Error('settings.json 최상위는 객체여야 합니다')
-  }
-  return parsed as Record<string, unknown>
+  // `isRecord` 가 `!Array.isArray` 까지 본다 — 손으로 적으면 그 항이 빠지기 쉬워 SSOT 로 둔다.
+  if (!isRecord(parsed)) throw new Error('settings.json 최상위는 객체여야 합니다')
+  return parsed
 }
 
 function parseHarnessSettingsKey(key: string): {

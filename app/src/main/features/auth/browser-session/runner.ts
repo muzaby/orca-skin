@@ -23,6 +23,7 @@ import {
   pickPrincipal,
   type BrowserSessionPort
 } from '../specs/browser-session'
+import { ifPresent } from '../../../../shared/obj'
 
 export interface SessionRunnerDeps {
   sessions: BrowserSessionPort
@@ -69,7 +70,7 @@ export class SessionRunner implements SessionAuthenticator {
       return {
         kind: 'session',
         sessionGroup: config.sessionGroup,
-        ...(principalId !== undefined ? { principalId } : {})
+        ...ifPresent('principalId', principalId)
       }
     }
     return this.exchange(provider, handleId, config.exchange, config.whoami)
@@ -167,8 +168,8 @@ export class SessionRunner implements SessionAuthenticator {
       (await this.whoami(provider, handleId, whoamiLookup))
     const token: TokenValue = {
       token: value,
-      ...(expiresAt !== undefined ? { expiresAt } : {}),
-      ...(principalId !== undefined ? { principalId } : {})
+      ...ifPresent('expiresAt', expiresAt),
+      ...ifPresent('principalId', principalId)
     }
     return { kind: 'token', token }
   }

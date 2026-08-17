@@ -9,6 +9,20 @@
 import type { AuthId, AuthMethodKind, AuthStatus, Grant } from '../../contracts/auth'
 import type { Vault } from '../../infra/vault'
 
+// 한 Grant 가 가리키는 vault 키 전부 (0190).
+//
+// **이 규칙은 한 곳에만 있어야 한다.** 0188 은 같은 도출을 네 곳에 손으로 적었다 — 부팅 고아
+// sweep(참조 집합)·해제(삭제 목록)·자격증명 교체의 `kept`·그 `names`. sweep 은 "이 키들은
+// 살아 있다" 를, 삭제 쪽은 "이 키들을 지운다" 를 말하므로 **둘이 어긋나면 살아 있는 grant 가
+// 가리키는 키를 부팅이 지운다** — 그리고 vault 값은 복구되지 않는다.
+//
+// `session` grant 는 vault 를 쓰지 않는다(cookie jar 가 값을 갖는다) → 빈 배열.
+export function vaultKeysOf(grant: Grant | undefined): readonly string[] {
+  if (!grant || grant.kind === 'session') return []
+  if (grant.kind === 'token' && grant.refreshKey) return [grant.vaultKey, grant.refreshKey]
+  return [grant.vaultKey]
+}
+
 // 부팅에서 읽어 온 것과 **그것이 전부인지**를 함께 돌려준다 (r9).
 export interface PersistenceLoad<T> {
   records: Record<string, T>
@@ -41,7 +55,9 @@ export interface GrantPersistencePort {
   save(records: Record<string, Grant>): boolean
 }
 
-// 메모리 전용 폴백 — 테스트와 "영속 없이도 앱은 뜬다" 경로가 함께 쓴다.
+// 메모리 전용 구현 — **현재 소비자는 테스트뿐이다**(0190 전수 확인). "영속 없이도 앱은 뜬다"
+// 경로는 이것이 아니라 `store-file.ts` 의 자체 폴백이 맡는다(파일을 못 열면 그 안에서 메모리로
+// 내려앉는다). 여기 두는 것은 production `AuthStore` 를 실제 경로 그대로 세우기 위해서다.
 export function createMemoryGrantPersistence(
   seed: Record<string, Grant> = {}
 ): GrantPersistencePort {
@@ -158,10 +174,7 @@ export class AuthStore {
       return
     }
     const referenced = new Set<string>()
-    for (const [, grant] of persisted) {
-      if (grant.kind === 'secret' || grant.kind === 'token') referenced.add(grant.vaultKey)
-      if (grant.kind === 'token' && grant.refreshKey) referenced.add(grant.refreshKey)
-    }
+    for (const [, grant] of persisted) for (const key of vaultKeysOf(grant)) referenced.add(key)
     for (const name of this.vault.names()) {
       if (referenced.has(name)) continue
       try {
@@ -250,12 +263,7 @@ export class AuthStore {
   }
 
   private deleteVaultKeys(authId: AuthId, grant: Grant): void {
-    if (grant.kind === 'session') return
-    const keys =
-      grant.kind === 'token' && grant.refreshKey
-        ? [grant.vaultKey, grant.refreshKey]
-        : [grant.vaultKey]
-    for (const key of keys) {
+    for (const key of vaultKeysOf(grant)) {
       try {
         this.vault.delete(key)
       } catch (error) {

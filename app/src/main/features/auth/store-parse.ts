@@ -10,19 +10,15 @@
 
 import { isRecord } from '../../../shared/obj'
 import type { ProviderAuthKind } from '../../../shared/ipc'
+import { ProviderAuthKindSchema } from '../../../shared/protocol'
 import type { Grant } from '../../contracts/auth'
 import type { PendingAuthorization } from './oauth'
 
-const AUTH_KINDS: readonly ProviderAuthKind[] = [
-  'api-key',
-  'password',
-  'pat',
-  'oauth',
-  'browser-session'
-]
-
+// 방식 목록의 정본은 wire 스키마다 (0190). 0188 은 같은 5개를 여기 다시 적었는데, 그 목록은
+// `AuthMethodKind = ProviderAuthKind` 로 계약에 묶여 있어 **두 사본이 반드시 함께 움직여야**
+// 한다 — 한쪽만 늘면 새 방식으로 저장된 grant 를 재시작 후 못 읽는다(조용히 미인증이 된다).
 function isAuthKind(value: unknown): value is ProviderAuthKind {
-  return typeof value === 'string' && (AUTH_KINDS as readonly string[]).includes(value)
+  return ProviderAuthKindSchema.safeParse(value).success
 }
 
 function parseGrant(raw: unknown): Grant | null {

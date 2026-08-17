@@ -30,6 +30,7 @@ import { checkOutboundRequest, checkRedirect } from './policy'
 import type { AuthRegistry } from './registry'
 import type { AuthStore } from './store'
 import type { BrowserSessionPort } from './specs/browser-session'
+import { ifPresent } from '../../../shared/obj'
 
 // redirect 추종 상한. 홉마다 정책을 다시 보므로 무한 루프는 안 나지만, 루프 자체는 막는다.
 const MAX_REDIRECTS = 5
@@ -135,7 +136,7 @@ export class AuthenticatedRequester {
       url,
       method: req.method ?? 'GET',
       headers: { ...req.headers },
-      ...(req.body !== undefined ? { body: req.body } : {})
+      ...ifPresent('body', req.body)
     }
     // 자격증명(복호화·presentation 해석)은 **요청당 한 번** 푼다 — 홉마다 다시 풀면 홉 수만큼
     // vault 파일 읽기·복호화가 붙는다.
@@ -180,7 +181,7 @@ export class AuthenticatedRequester {
       finalUrl,
       headers: result.headers,
       body: result.body,
-      ...(result.bodyBytes !== undefined ? { bodyBytes: result.bodyBytes } : {})
+      ...ifPresent('bodyBytes', result.bodyBytes)
     }
   }
 
@@ -199,8 +200,8 @@ export class AuthenticatedRequester {
   ): Promise<{ result: SendResult; finalUrl: string }> {
     const allowed = this.redirectOrigins(definition, carrier)
     const options: SendOptions = {
-      ...(req.responseType !== undefined ? { responseType: req.responseType } : {}),
-      ...(req.maxBytes !== undefined ? { maxBytes: req.maxBytes } : {})
+      ...ifPresent('responseType', req.responseType),
+      ...ifPresent('maxBytes', req.maxBytes)
     }
     let current = prepared
     for (let hop = 0; ; hop++) {

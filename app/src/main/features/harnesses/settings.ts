@@ -25,6 +25,7 @@ import type {
   ResolvedHarnessSettings,
   HarnessSettingsLoader
 } from '../../adapters/harness-config'
+import { errorMessage } from '../../infra/errors'
 
 interface CacheEntry {
   settings: HarnessNativeSettings
@@ -108,7 +109,7 @@ export class HarnessSettingsService {
         .child('providers')
         .warn('providers.settings.resolve-failed', {
           providerKey: entry.key,
-          message: String(err)
+          message: errorMessage(err)
         })
       return undefined
     }
