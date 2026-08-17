@@ -41,7 +41,7 @@
 ### handoff-review — handoff 시스템 개선
 
 - 반복 실패·decision drift·소통 실패의 원인을 분류한다.
-- 사례 누적보다 `handoff-plan` / `handoff-verify` **지침 자체**의 통합·교체·강화를 우선한다.
+- 사례 누적보다 `handoff-plan` / `handoff-impl` / `handoff-verify` **지침 자체**의 통합·교체·강화를 우선한다.
 - normative semantics가 바뀌는 지침 변경은 **Tier 1: Operational Instruction Delta → Historical Failure Regression → Cross-document Consistency**를 수행한다.
 - 실행 의미가 불변인 단순 referential/mechanical correction은 **Tier 2: affected Operational Delta + Cross-document Consistency**로 줄일 수 있다. **애매하면 Tier 1**이다.
 
@@ -208,7 +208,7 @@ PR 리뷰·사용자가 붙여넣은 검토 결과·다른 에이전트의 지�
 - ACTIVE Decision과 AC를 임의로 변경하지 않는다.
 - 구현 세부·명백한 누락/버그는 선조치 후보고 가능.
 - 제품 의도·신규 의존성·Decision·AC 변경은 보고만 하고 결정권자에게 올린다.
-- 구현 보고의 `Criteria-Met`은 자기보고일 뿐 verify 증거가 아니다.
+- 구현 보고의 `Criteria-Met`은 자기보고일 뿐 verify 증거가 아니다. **그러므로 "닫았다/충족"으로 적는 모든 행(AC·강제 지점·계약이 요구한 표기)에 이번 턴에 재현한 관측값을 함께 적는다** — 산출물에서 표식을 다시 찾지 못하면 ✅로 세지 않는다. (skill §8)
 - **plan `§10 강제 지점` 표에 지점이 여럿이면 그 개수만큼 닫고 개수를 보고한다.** 한 지점만 닫아도 대표 경로 AC는 통과하므로 게이트 green은 전수를 뜻하지 않는다. 일부만 닫았으면 남긴 곳을 적는다. (skill §2)
 - **외부 피드백 재구현 라운드는 지적을 재현하는 데서 멈추지 않는다** — 불변식을 한 문장으로 올리고, 성립해야 할 지점을 전수로 닫고, 이번 수정이 만든 새 표면을 스스로 검사한다. Decision으로 규칙을 적는 것은 적용을 보장하지 않는다. (skill §5)
 - **Product/UX 파생 검토를 한다** — 만든 사용자 대면 문구·상태에 소비자가 있는가, 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가. 범위 밖이면 고치지 않더라도 파생 이슈로 적는다. (skill §4)
