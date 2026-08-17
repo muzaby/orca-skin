@@ -197,6 +197,12 @@ round 문서는 **동시에 1개만 유지한다.** 다음 라운드가 새로 �
 
 사례 추가 여부와 별개로, **지침 자체의 변경/유지 판단이 review의 주 산출물**이어야 한다. 지침 리팩터링 과정에서 발생한 운영지식 삭제는 design-failure P를 억지로 늘리지 말고 Operational Instruction Delta 기록으로 남길 수 있다.
 
+**review가 쓰는 지침 문장과 기록도 [`docs/handoff/AGENTS.md §산출물 문장 규칙`](../../../docs/handoff/AGENTS.md)을 따른다.** 지침이 스스로 어기는 규칙은 지켜지지 않는다.
+
+- 새로 쓰는 규칙은 **한 문장 규칙 + 한 줄 사례**다. 교훈조 서사로 규칙을 대신하지 않는다.
+- `regression-coverage.md`의 라운드 기록은 `발견 → 사례 → 조치`를 표나 3문장 이내로 적는다.
+- 압축 대상은 서술이다. tier 판정·세 축 결과·inbound `N`/semantic `M/M` evidence·P 전수 판정은 줄이지 않는다.
+
 ## 8. Decision drift 리뷰
 
 `사용자 결정 시점 → 당시 plan/Decision Ledger → 후속 turn → 최종 Product/UX Contract → Technical Design/AC` 순으로 추적한다.
@@ -225,6 +231,7 @@ round 문서는 **동시에 1개만 유지한다.** 다음 라운드가 새로 �
 - [ ] INDEX/commit trailer 등 협업 운영 규칙이 의도치 않게 삭제되지 않았다.
 - [ ] completion item은 본문의 실행 규칙에 매핑되고, 체크리스트에만 존재하는 새 normative 요구가 없다.
 - [ ] 정상 plan/impl/verify는 failure corpus를 매번 읽거나 직접 갱신하지 않는다.
+- [ ] 새로 쓴 지침 문장이 §산출물 문장 규칙을 지킨다 — 규칙 한 문장 + 사례 한 줄, 서술 압축이 증거를 지우지 않음.
 
 ## 종료 보고
 
