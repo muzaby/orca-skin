@@ -664,3 +664,115 @@ prose ok · **links ok(broken 0)** · EXIT=0. `git diff --check` 출력 0.
 - 지침으로 해결할 수 없는 한계 3건: ① `app/node_modules` 부재(5회 반복) — 환경 ②자기 검증 겹수 —
   독립 감사자를 지침이 만들 수 없다 ③ **문서 앵커·두 산문 사본의 정합을 보는 게이트가 없다** — 이번엔
   지침(강제 지점 등록)으로 우회했으나 기계 강제는 스크립트 작업이며 별도 handoff 감이다.
+
+---
+
+# Round 9 — 산출물 문장 규칙과 합계 축 (0190)
+
+2026-08-17. 사용자의 0190 review 요청 + 추가 요구("장황·AI native 문체 금지, 간결하게, 문제점은 사례와 함께").
+
+## 발견
+
+| ID | 발견 | 사례(관측) | 분류 |
+|---|---|---|---|
+| G1 | 산출물 문장 규칙이 없다. 길이·중복 상한이 커밋 본문에만 있었다 | 0190 보드 행 = 표 한 칸 **13,190자**(archive 최대 33,510자) · `plan.md` 59KB · `verify.md` 47KB. root `AGENTS.md`는 커밋 본문에만 "2~3줄" 상한을 갖는다 | **A** (+ 사용자 명시 요구) |
+| G2 | 자기보고 **합계** 검산이 구현자 지침에 없다. 행 축은 P39 remedy 로 닫혔다 | 0190 r1 `16/17`→`13/17`→본문 `14/17`(verify D4). 같은 라운드의 강제 지점 25행은 재측정과 전부 일치. 0187 r1·0189 r1 도 합계 축 | **A** (coverage gap — P39 의 다른 발동 지점) |
+| G3 | 합계가 사본마다 갈린다. trailer 는 고칠 수 없다 | 본문 `14/17` ↔ trailer `ddebfcf`·`8bbd595`·`c8fe300` `13/17` — 지금도 어긋난 상태 | **A** |
+| G4 | READY self-review 체크박스에 관측 요구가 없다 | 0190 전 항목 `[x]` 아래에서 plan 결함 3건(AC8↔D-005 정면 모순 · AC1 두 축 혼동 · AC14 사실 오류) | **A** (P39 causal class 의 plan 표면) |
+| G5 | 구현 보고의 대상 커밋 해시가 죽어 있었다 | 0190 D3 — `plan.md:496`·`:529` 의 `55cdbfe`, 실제 `8bbd595`. verify 가 잡았다 | **B** (plan §7.5 가 이미 요구) |
+| G6 | DB/electron 바이너리 부재로 5스위트 상시 red, 4라운드 연속 | 0190 r1·r2 모두 실패 집합이 `app/AGENTS.md` 실측 목록과 집합 일치 — 분리 보고 규칙대로 처리됨 | **E** (지침으로 해결 불가) |
+
+0190 의 나머지는 정상 작동이다. r1 FAIL 은 결함이 아니라 범위 미완이었고, 두 갈래를 사용자에게 올렸다(D1) — C 아님.
+
+## 보완 — 추가보다 교체·확장
+
+| 대상 | 변경 | 성격 |
+|---|---|---|
+| `docs/handoff/AGENTS.md` §산출물 문장 규칙(신설) | 판정 먼저 · 주장 한 줄에 관측 하나 · 표 한 칸 3줄/문단 3문장/INDEX 비고 5줄 · 금지 문체 · **간결함은 증거를 줄이는 근거가 아니다** | root 커밋 프로토콜(본문 2~3줄)을 나머지 산출물로 **확장** |
+| root `AGENTS.md` 커밋 프로토콜 | 같은 원칙이 handoff 산출물 전체에 걸린다 + 정본 링크 | 링크만(복제 아님) |
+| `docs/handoff/AGENTS.md` §2 최소 계약 · §INDEX 운영 | 합계 검산 + trailer 기입 순서 · 비고 5줄 | KEEP + 추가 |
+| impl `SKILL.md` §8 | 합계 검산 4단계 · 문장 규칙 링크 · 커밋 해시 실재 확인 | KEEP + 추가 |
+| plan `SKILL.md` §7 · READY | 정합성 1 에 **AC** 축 추가 · 교차검증 결과를 관측으로 · §문서 문장 규칙(조건절 원문 인용 포함) | REPLACE + 추가 |
+| verify `SKILL.md` §4 · §9 · §문서 문장 규칙 | 합계/분모 재측정 + 사본 대조 · 비고 5줄 · 커밋 해시 실재 · 이전 라운드 판정 보존하되 재서술 금지 | KEEP + 추가 |
+| review `SKILL.md` §7 · 완료 조건 | review 산출도 같은 규칙 — 규칙 한 문장 + 사례 한 줄 | KEEP + 추가 |
+| 두 template | 상단 문장 규칙 · Ledger `ACTIVE↔AC` 대조 줄 · `합계 검산` 행 · 합계 재측정/사본 대조 · 비고·해시 항목 | 산출 surface 강제 |
+| corpus | **P40 신설** — 합계 축 + 사본 갈림 | 새 발동 지점 |
+
+G5 는 같은 문장을 반복하지 않고 **검증 명령**(`git show <hash> --oneline`)으로 바꿔 evidence 형태로 남겼다. G6 은 지침 변경 없음.
+
+## Tier 판정
+
+**Tier 1.** 새 normative 문장 규칙 · 보고 절차(합계·trailer 순서) · required template field 추가 → 6-A+6-B+6-C 전부 수행.
+
+## 6-A Operational Instruction Delta
+
+압축한 산문 5곳과 규칙 변경을 전수 대조했다. **DELETE 0.**
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| impl §책임 2문단(설계자↔구현자 수사) | KEEP | normative 문장 없음. 세 질문(저장 순서·화면·조기 반환)과 "다음 라운드가 같은 자리를 연다" 유지 |
+| impl §5.3 꼬리절 | KEEP | "리뷰는 새 표면을 본 적이 없다" 유지. 수사만 축소 |
+| impl §5 blockquote(0188) | KEEP | 원자성 5라운드·만료 정착 5·테스트 경로 4·표면 5목록·"성실히 수행해도" 전부 유지 |
+| impl §8 blockquote(0187·0189) | REPLACE | 두 수치 유지 + 0190 추가. **0189 r2 positive control(`재현 명령` 열 → 15/15·23/23)을 압축 중 잃었다가 복구**했다 |
+| handoff AGENTS §외부 리뷰 blockquote(0188) | REPLACE | 10라운드·r5 신설·라벨 준수·`Verified-By: pending`·거짓 PASS 0·r10 이후 결함 0건·"닫히지 않는 핸드오프" 유지. "라운드 6~10" 범위와 보드 인용문만 축소(normative 아님) |
+| plan §7 항목 1 | REPLACE | 구 문장 유지 + AC 축 추가. 막던 실패(Decision↔본문 충돌)를 계속 막고 범위가 넓어짐 |
+| 게이트 명령 정본(subtree AGENTS · ci.yml scope) | KEEP | 무변경. generic `npm test` 강제 없음 |
+| INDEX lifecycle · commit trailer · archive 이동 | KEEP | 무변경. 비고 상한만 추가되고 상한은 **이번 턴에 갱신하는 행**에 한정 |
+| corpus 소유권 · plan 호환 symlink | KEEP | 무변경. P40 은 **말미에 append** 하여 P1~P39 line offset 보존(0173 의 `:541-552` 인용 유지) |
+| 사람 실기 경계 · 역방향 탐색 · 강제 지점 삼단 | KEEP | 무변경 |
+
+**reference MOVE/REPLACE 0건** — 이번 라운드는 파일을 옮기거나 대체하지 않았다. inbound `N`/semantic `M/M` 재증명 불필요(corpus append 는 기존 heading 을 건드리지 않음, `^## P` **40개** 실측).
+
+## 6-B Historical Failure Regression
+
+corpus 의 `## P<number>` 전수 추출(상한 하드코딩 없음) — **P1~P40, 40개**. **40 COVERED / 0 PARTIAL / 0 GAP / 0 OBSOLETE.**
+
+브레비티 규칙이 증거 요구를 약화할 수 있는 P 를 먼저 점검했다.
+
+| 위험 P | causal lesson | 왜 약화되지 않는가 |
+|---|---|---|
+| P3·P4 | 숫자 재측정 · 전수 grep + N | 문장 규칙 5 가 관측값·전수 개수·재현 명령을 명시적 비압축 대상으로 못 박는다 |
+| P2·P23·P33 | AC 측정 가능성 | AC 는 비압축 대상. plan §5 의 AC 게이트 무변경 |
+| P13·P25 | lifecycle·순서 관측 | template 절 무변경. 규칙 3 은 "표로 가르거나 절을 나눈다" — 삭제가 아니다 |
+| P18·P22 | 사람 실기 하치장 | verify 문장 규칙이 "못 본 것의 명시"를 비압축 대상으로 둔다 |
+| P19·P36 | 앵커·외부 포트 문서 | 규칙 2 가 인용에 관측을 요구한다(강화) |
+| P24 | 구현자가 AC 재작성 | **강화** — 분모 변경 기록 의무가 AC 분할에 흔적을 남긴다. verify §0 기준선 무변경 |
+| P27·P32·P35 | 상한·구조 목표·총량 | 계산 결과는 관측이므로 비압축 대상 |
+| P34 | "제거"를 "이동"으로 | **강화** — plan 문장 규칙에 "사용자 문장의 이유·조건절은 요약하지 않고 원문 인용" 추가 |
+| P37·P39 | structural proxy · 자기보고 관측 | **강화** — P39 의 관측 요구가 plan READY 체크리스트(세 번째 표면)와 합계 축으로 확장 |
+
+**P40 신설 근거**: P39 는 *행*에 관측이 없는 경우, P40 은 *행이 전부 맞는데* 합계·분모·사본이 갈리는 경우다. 발동 지점(표 아래 검산 줄, trailer 기입 시점)과 검사 방법(개수 세기, 사본 대조)이 다르고 0187·0189·0190 세 handoff 재발이라 대표 evidence 조건도 만족한다.
+
+## 6-C Cross-document Consistency
+
+| 대조 | 결과 |
+|---|---|
+| root `AGENTS.md` ↔ `docs/handoff/AGENTS.md` ↔ 네 SKILL | 문장 규칙의 정본은 handoff AGENTS 1곳. root·SKILL·template 은 링크 + 단계별 강조만. **복제 0** |
+| handoff AGENTS 첫 문단("작성은 각 skill 정본") ↔ 신설 §산출물 문장 규칙 | 첫 문단에 "공통 문장 규칙은 본 문서" 를 명시해 owner 충돌 해소 |
+| §산출물 문장 규칙 3 ↔ `INDEX.md:50`("아래 세 행의 긴 비고는 이력을 보존한다") ↔ §신규 템플릿 적용 경계 | 상한을 **이번 턴에 새로 쓰거나 갱신하는 문장**으로 한정. 기존 행 일괄 재작성 금지와 일치 |
+| impl §8(합계 검산) ↔ verify §4(합계 재측정) | 면제 관계 아님 — 구현자가 검산하고 검증자가 다시 센다 |
+| verify §9(비고 5줄·해시 실재) ↔ `verify.template.md` §11 | 같은 두 항목이 양쪽에 있고 문구 충돌 0 |
+| plan §7·READY ↔ `plan.template.md` §3 갱신 메모·READY | 대조 결과를 적을 surface 가 template 에 실제로 있다(checklist-only rule 0) |
+| review 완료 조건 ↔ 본문 §7 | 새 완료 항목이 §7 의 실행 규칙에 매핑된다 |
+| template 게이트 ↔ `app/AGENTS.md` ↔ `.github/workflows/ci.yml` | 게이트 명령 무변경. scope 분리 유지 |
+| `Handoff: none` 카브아웃 | 무관 — 검증 면제를 만들지 않는다. 이 라운드 자체가 Tier 1 을 수행했다 |
+
+**Cross-document result: PASS.**
+
+## review 기록 정책
+
+별도 `roundN-review.md` 를 만들지 않았다 — 사용자가 원문 보존을 요구하지 않았고 압축으로 잃는 rationale 도 없다. 기존 `round2-review.md` 1개 유지(동시 1개 규칙).
+
+## 게이트
+
+`cd app && node scripts/check-doc-inventory.mjs --check` — generated doc ok(9 items · 76 channels) · prose ok · **links ok(broken 0)** · EXIT=0. `git diff --check` 출력 0. 새 링크 11개 전부 실물 대조(`docs/handoff/AGENTS.md` 착지). `.agents` 는 prose 스캔 제외이므로 이 green 을 semantic integrity 증거로 쓰지 않는다.
+
+## Round 9 결론
+
+- Regression tier: **Tier 1**.
+- Operational Instruction Delta: **regression 0** — KEEP 7 · REPLACE 3 · **DELETE 0**. 압축 중 1건(0189 r2 positive control)을 잃었다가 같은 라운드에서 복구.
+- Reference semantic integrity: MOVE/REPLACE **0건**. corpus append 로 P1~P39 line offset 보존.
+- Historical Failure Regression: **40 COVERED / 0 PARTIAL / 0 GAP / 0 OBSOLETE**. 강화 4건(P24·P34·P37·P39).
+- Cross-document Consistency: **PASS**.
+- corpus 추가: **P40 1건**.
+- 지침으로 해결할 수 없는 한계: ① DB/electron 바이너리 부재(0190 4라운드 연속) — 환경 ② 문장 길이·사본 정합을 기계로 재는 게이트가 없다 — 이 라운드는 지침으로만 닫았고, 스크립트 강제는 별도 handoff 감이다 ③ 자기 검증 겹수(설계·구현·검증·review 전부 Claude).
