@@ -479,3 +479,188 @@ corpus 의 현재 `## P<number>` 를 전수(상한 하드코딩 없이) 대조 �
 - **6-B**: P1~P38 전수 **38 COVERED / 0 PARTIAL / 0 GAP**. trigger 를 좁힌 것이 아니라 **갈라 놓은 것**이라 어떤 P 의 방어도 발동 조건을 잃지 않는다. corpus line offset 보존 실측.
 - **6-C**: 네 description 이 서로 배타적인 전제를 말한다 — plan(READY 없음) → impl(READY 있음) → verify(IMPL_DONE·검증자 차례) → review(지침 자체 변경·라운드 3 초과). `docs/handoff/AGENTS.md` 의 상태 머신과 같은 축이다. **충돌 0.**
 - 게이트: doc-inventory exit 0.
+
+---
+
+# Round 8 — 자기보고에 관측값이 없었다 (0189)
+
+사용자 요청(`/handoff-review 핸드오프189`)으로 수행했다. 0189 는 라운드 2 로 `verify/PASS` 했으므로
+라운드 초과 트리거는 아니다 — 증거는 **0189 의 r1 FAIL 과 그것이 0187 r1 과 같은 형태였다는 사실**이다.
+
+## 발견 1 (주 원인) — "닫았다"는 자기보고를 산출물에서 재현하지 않았다
+
+| handoff | 자기보고 | 검증자 재측정 |
+|---|---|---|
+| 0187 r1 | `Criteria-Met: 16/16` | 13 ✅ / 2 ⚠️ / 1 ❌ |
+| 0189 r1 | `Criteria-Met: 15/15` · 강제 지점 `7/7` | AC 13/15 · 강제 지점 5/7 충족 · 2 부분 |
+
+0189 의 두 미충족(AC3 "연역" 표기 · AC12 축 3 `층` 열)은 **지침 부재가 아니었다.** 두 AC 다 `grep`
+하나로 판정 가능한 문언이었고, 구현자 자신이 Review Signals 에 "지침 부재가 아니라 자기 대조에서
+그 문언을 다시 읽지 않은 것" 이라고 적었다. 게이트(`check-doc-inventory`)는 초록이었다 — 그 게이트는
+링크·인벤토리 수치만 보고 계약이 요구한 표기의 존재는 보지 않는다.
+
+- 분류: **A. Instruction gap (coverage gap).** "exit code 가 아니라 **관측한 산출**을 적는다" 는 원칙은
+  이미 있었지만 **발동면이 게이트 실행 하나**였다(impl §7 · verify §8). 강제 지점 전수표와 AC 자기보고는
+  기억·의도로 채워도 지침을 어기지 않는다. B 가 아니다 — 정상 수행의 결과가 곧 근거 없는 ✅ 였다.
+- **remedy 의 효과가 이미 실측됐다.** 0189 r2 는 스스로 전수표에 `재현 명령` 열을 만들고 모든 행을
+  실행해 관측값을 적었다. 그 라운드의 자기보고는 검증자 재측정과 **일치**했다(15/15 · 23/23).
+  round 8 은 그 장치를 지침으로 올린 것이지 새 규칙을 발명한 것이 아니다.
+
+## 발견 2 — 다중 저장소 규칙의 발동 조건이 코드 전용으로 읽혔다
+
+0189 r1 D1: 감사 결론이 `audit.md` 와 `INDEX.md` 보드 **두 곳**에 사는데 r2 개정이 앞의 것만 고쳐
+보드에 **철회된 판정**이 현재형으로 남았다. 독자 흐름의 첫 칸이 보드라 독자는 철회본을 먼저 읽는다.
+
+구현자 기록: *"§3 의 첫 질문은 코드에만 해당한다고 읽었는데, 문서 산출물에도 그대로 성립한다는 것이
+이번 FAIL 로 드러났다."*
+
+- 분류: **A. Instruction gap.** plan §6·impl §3·plan.template §13 의 예시가 전부 런타임 저장소
+  (파일+키체인 · DB+외부 API)라, 문서 산출물에서는 규칙이 발동하지 않는다. 규칙을 정상 수행해도 막지 못한다.
+
+## 발견 3 — 설계와 산출이 한 커밋이면 verify §0 이 무력화된다
+
+0189 r1 은 `9a2980a` 가 `plan.md` 와 `audit.md` 를 함께 만들어 기준선 잠금이 diff 로 작동하지 않았다
+(verify r1·r2 가 둘 다 그 사실을 적었다). r2 는 라운드가 갈려 정상 작동했다.
+
+- 분류: **A. Instruction gap.** 어느 문서도 "plan/READY 커밋과 구현 산출 커밋을 분리하라" 를 요구하지
+  않았고, verify §0 에는 **기준선이 없을 때 무엇을 적을지**가 없었다. 자기 증명 방지 장치가 조용히
+  꺼진다는 것이 이 공백의 비용이다.
+
+## 발견 4 — Round 7 MOVE 의 inbound 하나가 stale (지난 review 의 회귀)
+
+corpus `P38` 말미가 **"구현 턴 자신의 방어"** 로 `docs/handoff/AGENTS.md §외부 피드백을 반영하는
+재구현 턴` 을 가리키는데, 그 heading 은 Round 7 이 `handoff-impl/SKILL.md §5` 로 MOVE 했다.
+Round 7 의 6-A 는 inbound 를 **N=1(root AGENTS.md)** 로 셌으나 **실제 N=2** 였다 — corpus 자신이
+소비자였다. 같은 축으로 `handoff-review/references/failure-patterns.md`(진입점)와
+`docs/handoff/AGENTS.md §handoff-review` 의 owner 목록에 **impl 이 빠진 2-skill 시대 표현**이 남아 있었다.
+
+- 분류: **A(지난 라운드의 6-A 누락).** corpus 는 historical evidence 지만 이 문장은 *현재 방어의 소재지*를
+  가리키는 포인터라 낡으면 독자를 없는 절로 보낸다.
+
+## 발견 5~7 — 지침으로 닫지 않는 것
+
+| 발견 | 분류 | 처리 |
+|---|---|---|
+| `app/node_modules` 부재로 lint/typecheck/vitest 실행 불가 — 0188 verify · 0189 impl r1 · verify r1 · impl r2 · verify r2 로 **5회** | **E. 환경 한계** | 지침 변경 없음. `app/AGENTS.md §제약 환경 게이트` 가 이미 분리 근거를 요구하고 0189 는 `app/**` 무변경이라 판정 영향 0 |
+| 자기 검증 5중(0188 구현 · 0189 설계 · 구현 r1·r2 · 검증 r1·r2 전부 Claude Code) | **E. 한계** | 지침으로 못 닫는다. verify 가 메타 표에 사실로 적는 현재 관행 유지 |
+| **문서 내 앵커 유효성을 어느 게이트도 보지 않는다**(`check-doc-inventory` 는 상대 *파일* 링크만) | **E. capability limitation** | 규칙 추가 안 함 — 0189 verify 가 지침 없이도 11/11 을 대조했고 실패가 발생하지 않았다. plan §4(앵커 grep)가 설계 축을 이미 덮는다. 게이트화는 스크립트 작업이며 이번 범위 밖 |
+
+**D(사용자 변심) 0건** — 0189 는 D-001~D-009 가 전부 ACTIVE 로 유지됐고 AC 도 무변경이다. 실패 패턴으로
+오염시킬 사용자 결정 변경이 없다.
+
+## 보완 — 추가보다 교체·정밀화
+
+| 대상 | 변경 | 성격 |
+|---|---|---|
+| `handoff-impl/SKILL.md §8` | **주 조치.** "닫았다고 적는 **모든 행**에 이번 턴에 재현한 관측값을 적는다 — §7 이 게이트 산출에 요구하는 것과 같은 규칙이고 적용면이 보고 전체(강제 지점 각 행 · `Criteria-Met` 각 AC · 계약이 요구한 표기)". 표식을 못 찾으면 ✅ 로 세지 않는다. 0187·0189 실측을 근거로 병기 | **REPLACE — 기존 원칙의 적용면 확장**(§7 문장은 그대로 둔다) |
+| `plan.template.md` `[구현자 기입]` | 강제 지점 전수표에 **`재현 명령 / 관측` 열** 신설(0189 r2 가 만든 장치) · 구현 보고표에 **AC 자기보고 행** 신설 | template 필수 필드 |
+| `docs/handoff/AGENTS.md §2` 최소 계약 | 기존 "`Criteria-Met` 은 자기보고" 불릿에 같은 요구를 이어 붙임 — skill 미가용 환경에도 전달된다 | REPLACE(불릿 수 불변) |
+| `handoff-impl/SKILL.md §3` · `handoff-plan/SKILL.md` 구현 가능성 방어선 · `plan.template.md §13` | 다중 저장소 질문의 **발동 조건을 산출물 문서까지** 넓힘 — 판정·상태의 사본이 산출 문서와 `INDEX.md` 보드에 살면 두 곳 쓰기이고, plan 은 §10 강제 지점에 **사본 전부**를 적는다 | REPLACE(발동 조건 정밀화) |
+| `handoff-plan/SKILL.md` 마무리 | "`plan/READY` 커밋은 구현 산출과 같은 커밋에 담지 않는다 — 설계자와 구현자가 같은 에이전트여도" + 이유(verify §0 이 diff 로만 작동) | 신규 1문장 |
+| `handoff-verify/SKILL.md §0` · `verify.template.md §0` | 기준선이 diff 로 성립하지 않으면 **"확인했다" 대신 "확인할 수 없었다"** 를 적고 채점 기준 원문을 인용해 고정한다. template 에 판정 항목 1개 | REPLACE(기존 기준선 규칙의 미정의 구간을 채움) + template 필드 |
+| `failure-patterns.corpus.md` P38 말미 | 현재 방어 소재지를 `handoff-impl/SKILL.md §5` 로 정정(MOVE 이력 병기) | 사실 정정 |
+| `handoff-review/references/failure-patterns.md` · `docs/handoff/AGENTS.md §handoff-review` | owner 목록에 **impl** 추가(2-skill 잔재) | 사실 정정 |
+| corpus | **P39 신설** — 새 causal class(주체=구현자 · 시점=보고 작성 · 증상=근거 없는 ✅)이자 §8 신설 규칙의 대표 evidence. **말미 append 로 P1~P38 line offset 보존** | corpus 추가 1건 |
+
+**추가하지 않은 것**: 앵커 게이트 규칙(발견 7) · "자기 검증 금지" 류 규칙(E) · 0189 verify 가 남긴
+비차단 파생 이슈 3건(D-A·D-B·D-C — 그 handoff 의 문서 위생이지 지침 결함이 아니다).
+
+## Tier 판정
+
+**Tier 1** — template 필수 필드 2건 추가 · 보고 evidence semantics 변경 · 커밋 분리라는 새 운영 규칙 ·
+canonical owner 목록 정정. 애매하지 않다.
+
+## 6-A Operational Instruction Delta
+
+| 대상 | 기존 책임 | 판정 | 근거 |
+|---|---|---|---|
+| impl §7 게이트 evidence 규칙 | 게이트 산출을 exit code 대신 관측으로 | **KEEP** | 문장 무변경. §8 이 같은 규칙을 다른 적용면에 두고 §7 을 인용만 한다 |
+| impl §8 보고 항목(변경 파일·실행 명령·게이트 산출·`N/M`·대상 커밋) | 보고 필수 항목 | **KEEP + 추가** | 기존 문단 그대로, 뒤에 evidence 요구를 덧붙임 |
+| impl §3 첫 불릿(다중 저장소) | 코드 저장소 분해 요구 | **REPLACE** | 구 문장 전부 유지 + 문서 사본 축 추가. 구 규칙이 막던 실패(파일+키체인)는 그대로 막는다 |
+| plan 구현 가능성 방어선의 다중 저장소 규칙 | 쓰기 지점 나열 → 지점별 관측 상태 → 허용 불가 조합 제거 | **REPLACE** | 동일. 문서 축은 §10 강제 지점 등록 의무로 이어진다 |
+| plan.template §13 다중 저장소 항목 | 필수 프롬프트 | **KEEP + 추가** | "해당 없으면 해당 없음" 유지 |
+| plan.template 강제 지점 전수표 | 4열(계약/지점/닫은 지점/남긴 곳) | **KEEP + 열 1 추가** | 기존 4열 전부 유지 |
+| plan.template 구현 보고표 | 6행 | **KEEP + 행 1 추가** | 기존 행 전부 유지 |
+| `docs/handoff/AGENTS.md §2` 최소 계약 8불릿 | 구현 턴 최소 계약 | **KEEP(1불릿 REPLACE)** | 불릿 수·순서 불변, `Criteria-Met` 불릿만 요구를 이어 붙임. **`#### 구현 게이트의 정본` 무변경** |
+| verify §0 4불릿 | 기준선 잠금 | **KEEP + 1 추가** | 기존 4불릿 문자 그대로 |
+| verify.template §0 항목 | 5항목 | **KEEP + 1 추가** | 기존 항목 전부 유지 |
+| plan SKILL 마무리(INDEX 갱신·커밋 형식) | 마무리 절차 | **KEEP + 추가** | 커밋 trailer 정본(`docs/git-template.md`)을 옮기거나 복제하지 않았다 |
+| corpus P38 본문 | historical evidence | **KEEP(말미 포인터만 REPLACE)** | P38 의 causal lesson·표·규칙 3개 무변경 |
+| review entry point 사용 규칙 5불릿 | corpus 사용 정책 | **KEEP(1불릿 REPLACE)** | 금지 주체에 impl 을 더한 것뿐 |
+
+**DELETE 0. 설명 없이 사라진 gate·command·reference 0건.** 게이트 명령은 한 줄도 바뀌지 않았다
+(`app/AGENTS.md` 정본 · `.github/workflows/ci.yml` PR/CI scope 분리 유지).
+
+### reference semantic integrity
+
+- reference MOVE/REPLACE **없음**. 이번 라운드가 만진 reference 는 corpus 본문(append + 말미 1문장)과
+  entry point 뿐이고 **경로 이동 0**.
+- 호환 경로 `handoff-plan/references/failure-patterns.md` → corpus symlink **유지**. 그 경로로 읽은
+  `## P<number>` = **39**(상한 하드코딩 없이 grep 전수).
+- line-scoped inbound 재실측: `0173/plan.md` 의 `failure-patterns.md:541-552` → **여전히 P29 본문에 착지**
+  (`sed -n '541,552p'` 로 확인). P39 를 **말미에 append** 했으므로 P1~P38 의 offset 이 이동하지 않는다.
+- Round 7 이 놓친 inbound 를 이번에 닫았다: `docs/handoff/AGENTS.md §외부 피드백을 반영하는 재구현 턴`
+  을 기대한 inbound **N=2**(root `AGENTS.md` · corpus P38), 기대한 semantic target **M=2**
+  (① 재구현 턴 절차의 소재지 ② 게이트 정본의 소재지) → 현재 ① `handoff-impl/SKILL.md §5`
+  ② `docs/handoff/AGENTS.md #### 구현 게이트의 정본` 으로 **2/2 유지**(문장 실물 확인).
+
+## 6-B Historical Failure Regression
+
+corpus 의 현재 `## P<number>` 를 전수 추출(상한 하드코딩 없음) — **P1~P39, 39개**.
+
+- **39 COVERED / 0 PARTIAL / 0 GAP / 0 OBSOLETE.** 이번 변경은 어떤 P 의 방어 문장도 삭제·약화하지
+  않는다(6-A 참조 — REPLACE 4건 전부 구 문장을 유지한 채 발동 조건을 넓혔다).
+- 강화 5건:
+  - **P37**(semantic 목표를 structural proxy 로 검증) — 지금까지 plan(AC 작성)·verify(채점)에만 방어가
+    있었다. impl §8 이 **자기보고 자체**에 관측 요구를 걸어 세 번째 지점이 생겼다.
+  - **P24**(구현자가 AC 재작성) — plan 커밋 분리 + verify §0 fallback 으로 기준선 잠금이 **실제로
+    성립하는 조건**을 갖췄다. 지금까지는 잠금이 조용히 꺼져도 아무도 몰랐다.
+  - **P15**(강제 지점 enforcement) — 열거(plan) → 전수 적용(impl) → 전수 확인(verify) 삼단에
+    **각 지점의 재현 관측**이 붙었다.
+  - **P13**(lifecycle 미전개) — 다중 저장소 질문이 문서 산출물까지 발동한다.
+  - **P3**(숫자 stale/승계) — "이번 턴에 재현한 관측값" 요구가 보고 축에도 걸린다.
+- **P39 신설.** 기존 P 로 덮이지 않는다 — P37 은 *AC 를 그렇게 쓴 설계자*, P39 는 *충족을 그렇게 보고한
+  구현자*이고 발동 시점도 다르다. 0187·0189 두 handoff 재발이라 대표 evidence 조건도 만족한다.
+
+## 6-C Cross-document Consistency
+
+| 대조 | 결과 |
+|---|---|
+| root `AGENTS.md` ↔ `docs/handoff/AGENTS.md` ↔ 네 SKILL | 네 owner 서술 일치. root 의 단계별 스킬 문장 무변경(이번 변경이 owner 를 옮기지 않았다) |
+| impl SKILL §8 ↔ `docs/handoff/AGENTS.md §2` 최소 계약 | 같은 요구를 같은 강도로 말한다. skill 미가용 환경도 evidence 요구를 받는다. **충돌 0** |
+| impl §8 ↔ verify §4 | **면제 관계 아님** — impl 이 관측값을 붙여도 verify 는 여전히 다시 센다(`Criteria-Met`·`N/M` 을 증거로 받지 않는 §4 문장 무변경). 한쪽이 다른 쪽을 대체하지 않는다 |
+| plan(§10 사본 전부 등록) ↔ impl(§3 진단·전수) ↔ verify(§6 표 대조) | 문서 사본 축에서도 열거 → 적용 → 재확인 삼단이 유지된다 |
+| plan 마무리(커밋 분리) ↔ verify §0(기준선 없을 때) ↔ `docs/handoff/AGENTS.md` 라이프사이클 | 같은 축을 서로 보완한다 — 전자가 기준선을 만들고 후자가 없을 때의 정직한 표기를 정한다. 상태 머신(`plan/READY → impl/…`)과 충돌 없음 |
+| template 명령 ↔ `app/AGENTS.md` ↔ `.github/workflows/ci.yml` | 게이트 명령 **무변경**. generic `npm test` 강제 없음, agent-loop/PR-CI scope 분리 유지 |
+| review SKILL 완료 조건 ↔ 본문 | 이번 라운드가 완료 조건에 새 normative 요구를 넣지 않았다 — checklist-only rule **0** |
+| review entry point ↔ corpus ↔ `docs/handoff/AGENTS.md` | 세 곳 모두 "정상 plan/impl/verify 는 corpus 를 읽거나 갱신하지 않는다" 로 일치(이번에 entry point·AGENTS 의 impl 누락을 정정) |
+| `Handoff: none` 카브아웃 | 무관 — 이번 변경은 검증 면제를 만들지 않는다 |
+
+**Cross-document result: PASS.**
+
+## review 기록 정책
+
+별도 `roundN-review.md` 를 **만들지 않았다.** 사용자는 검토를 요청했고 원문 보존을 요구하지 않았으며,
+압축으로 잃는 rationale 도 없다 — 영구 결과는 위 지침 변경과 이 절이 갖는다. 기존 `round2-review.md`
+1개 유지(동시 1개 규칙 준수).
+
+## 게이트
+
+`cd app && node scripts/check-doc-inventory.mjs --check` — generated doc ok (9 items, 76 channels) ·
+prose ok · **links ok(broken 0)** · EXIT=0. `git diff --check` 출력 0.
+`.agents` 는 prose 스캔에서 제외되므로 이 green 을 skill 문서 semantic integrity 의 증거로 쓰지 않는다
+(Round 3 이후 동일 한계). semantic 판정은 위 6-A/6-B/6-C 의 실측이 근거다.
+
+## Round 8 결론
+
+- Regression tier: **Tier 1**.
+- Operational Instruction Delta: **regression 0** — 대조 13행: 순수 KEEP 1 · KEEP+추가 7 · REPLACE 2 ·
+  KEEP(내부 1항목만 REPLACE) 3 · **DELETE 0**.
+- Reference semantic integrity: MOVE/REPLACE 0. 지난 라운드 누락분 **N=2 · M=2 · 2/2 복구**.
+  호환 경로 `## P<number>` **39개** · `0173` line-scoped 인용 P29 착지 실측.
+- Historical Failure Regression: **39 COVERED / 0 PARTIAL / 0 GAP / 0 OBSOLETE**. 강화 5건.
+- Cross-document Consistency: **PASS**.
+- corpus 추가: **P39 1건**.
+- 지침으로 해결할 수 없는 한계 3건: ① `app/node_modules` 부재(5회 반복) — 환경 ②자기 검증 겹수 —
+  독립 감사자를 지침이 만들 수 없다 ③ **문서 앵커·두 산문 사본의 정합을 보는 게이트가 없다** — 이번엔
+  지침(강제 지점 등록)으로 우회했으나 기계 강제는 스크립트 작업이며 별도 handoff 감이다.
