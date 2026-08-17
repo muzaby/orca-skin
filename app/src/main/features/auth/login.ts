@@ -511,6 +511,38 @@ export class LoginService {
     return { kind: 'settled', step: this.emit({ kind: 'done', providerId: definition.id }) }
   }
 
+  // secret grant 조립 — **한 곳** (0190 S6).
+  //
+  // 값형 로그인(`runCredential`)과 실행기의 `secret` 결과(`absorb`)가 같은 것을 만든다: 같은
+  // 세대 키 도출, 같은 grant 모양, 같은 vault 쓰기. 0188 은 이것을 두 벌로 적었고, 세대 키(r8)를
+  // 도입할 때 두 사본을 각각 고쳐야 했다 — 한쪽만 고쳤으면 OAuth 경로만 고정 키를 계속 덮어써
+  // "vault 는 새 값, 영속된 grant 는 옛 값" 창이 그 경로에만 남았을 것이다.
+  //
+  // candidate 와 vault 쓰기를 **함께** 돌려준다. 둘이 같은 `vaultKey`·`createdAt` 을 봐야 하는데
+  // 따로 만들면 호출부가 그 짝을 손으로 맞춰야 한다.
+  private secretCandidate(
+    authId: AuthId,
+    authKind: AuthMethodKind,
+    value: string,
+    principalId?: string
+  ): { candidate: CandidateCredential; writeVault: () => void } {
+    const vaultKey = this.newVaultKey(authId, authKind)
+    const createdAt = this.clock()
+    return {
+      candidate: {
+        grant: {
+          kind: 'secret',
+          vaultKey,
+          authKind,
+          createdAt,
+          ...ifPresent('principalId', principalId)
+        },
+        secret: value
+      },
+      writeVault: () => this.deps.vault.set(vaultKey, value, { kind: authKind, createdAt })
+    }
+  }
+
   // grant 가 가리키는 vault 키를 지운다. `keep` 이 같은 키를 가리키면 건너뛴다 — 세대가 같은
   // 경우(레거시 고정 키에서 같은 키로 다시 쓴 경우)에 방금 쓴 값을 지우지 않기 위함이다.
   private discardKeys(grant: Grant | undefined, keep?: Grant): void {
@@ -555,23 +587,13 @@ export class LoginService {
       })
     }
 
-    const vaultKey = this.newVaultKey(definition.id, spec.kind)
-    const createdAt = this.clock()
-    const settled = await this.settleGrant(
-      definition,
-      attempt,
-      {
-        grant: {
-          kind: 'secret',
-          vaultKey,
-          authKind: spec.kind,
-          createdAt,
-          ...ifPresent('principalId', composed.principalId)
-        },
-        secret: composed.value
-      },
-      () => this.deps.vault.set(vaultKey, composed.value, { kind: spec.kind, createdAt })
+    const { candidate, writeVault } = this.secretCandidate(
+      definition.id,
+      spec.kind,
+      composed.value,
+      composed.principalId
     )
+    const settled = await this.settleGrant(definition, attempt, candidate, writeVault)
     if (settled.kind === 'settled') return settled.step
     // superseded — 이 시도는 더 이상 사용자가 원하는 것이 아니다. pending·step·이벤트 **전부
     // 건드리지 않고** 현재 단계를 그대로 돌려준다(r7). 거부 폼을 열면 이미 성공한 새 로그인의
@@ -667,68 +689,19 @@ export class LoginService {
       case 'failed':
         return this.fail(definition.id, result.reason, result.message)
       case 'secret': {
-        const vaultKey = this.newVaultKey(definition.id, authKind)
-        const createdAt = this.clock()
+        const { candidate, writeVault } = this.secretCandidate(
+          definition.id,
+          authKind,
+          result.value,
+          result.principalId
+        )
         return this.settled(
           definition,
-          await this.settleGrant(
-            definition,
-            attempt,
-            {
-              grant: {
-                kind: 'secret',
-                vaultKey,
-                authKind,
-                createdAt,
-                ...ifPresent('principalId', result.principalId)
-              },
-              secret: result.value
-            },
-            () => this.deps.vault.set(vaultKey, result.value, { kind: authKind, createdAt })
-          )
+          await this.settleGrant(definition, attempt, candidate, writeVault)
         )
       }
-      case 'token': {
-        const vaultKey = this.newVaultKey(definition.id, authKind)
-        const createdAt = this.clock()
-        const { token } = result
-        const refreshKey =
-          token.refreshToken !== undefined
-            ? versionedVaultKey(providerRefreshKey(definition.id, authKind), this.newVersion())
-            : undefined
-        return this.settled(
-          definition,
-          await this.settleGrant(
-            definition,
-            attempt,
-            {
-              grant: {
-                kind: 'token',
-                vaultKey,
-                authKind,
-                createdAt,
-                ...ifPresent('expiresAt', token.expiresAt),
-                ...ifPresent('refreshKey', refreshKey),
-                ...ifPresent('principalId', token.principalId)
-              },
-              secret: token.token
-            },
-            () => {
-              // access·refresh 를 **둘 다 새 키에** 쓴다. 어느 쪽이 실패해도 아직 grant 가
-              // 가리키지 않는 자리이므로 옛 access/refresh 쌍은 통째로 그대로 살아 있다 —
-              // r6 의 `new-access + old-refresh` 혼합 상태가 만들어질 자리가 없다.
-              this.deps.vault.set(vaultKey, token.token, {
-                kind: authKind,
-                createdAt,
-                ...ifPresent('expiresAt', token.expiresAt)
-              })
-              if (refreshKey !== undefined && token.refreshToken !== undefined) {
-                this.deps.vault.set(refreshKey, token.refreshToken, { kind: authKind, createdAt })
-              }
-            }
-          )
-        )
-      }
+      case 'token':
+        return this.absorbToken(definition, attempt, authKind, result.token)
       case 'session': {
         // 세션 grant 는 vault 에 값을 쓰지 않는다 — cookie jar 가 값을 나른다. 확인이 끝나기
         // 전에는 store 에도 넣지 않으므로 이전 세션 grant 는 그대로 살아 있다.
@@ -746,6 +719,54 @@ export class LoginService {
         )
       }
     }
+  }
+
+  // token grant 조립 (0190 S7 — `absorb` 에서 분리).
+  //
+  // 네 갈래 중 이것만 **키가 둘**이다(access + refresh). 그 분기가 `absorb` 안에 있던 동안
+  // switch 한 case 가 60줄이었고 중첩이 네 겹이었다 — 아래 "둘 다 새 키에" 규칙이 그 바닥에
+  // 묻혀 있었다.
+  private async absorbToken(
+    definition: AuthDefinition,
+    attempt: number,
+    authKind: AuthMethodKind,
+    token: TokenValue
+  ): Promise<AuthStep> {
+    const vaultKey = this.newVaultKey(definition.id, authKind)
+    const createdAt = this.clock()
+    const refreshKey =
+      token.refreshToken !== undefined
+        ? versionedVaultKey(providerRefreshKey(definition.id, authKind), this.newVersion())
+        : undefined
+    const candidate: CandidateCredential = {
+      grant: {
+        kind: 'token',
+        vaultKey,
+        authKind,
+        createdAt,
+        ...ifPresent('expiresAt', token.expiresAt),
+        ...ifPresent('refreshKey', refreshKey),
+        ...ifPresent('principalId', token.principalId)
+      },
+      secret: token.token
+    }
+    // access·refresh 를 **둘 다 새 키에** 쓴다. 어느 쪽이 실패해도 아직 grant 가 가리키지 않는
+    // 자리이므로 옛 access/refresh 쌍은 통째로 그대로 살아 있다 — r6 의 `new-access +
+    // old-refresh` 혼합 상태가 만들어질 자리가 없다.
+    const writeVault = (): void => {
+      this.deps.vault.set(vaultKey, token.token, {
+        kind: authKind,
+        createdAt,
+        ...ifPresent('expiresAt', token.expiresAt)
+      })
+      if (refreshKey !== undefined && token.refreshToken !== undefined) {
+        this.deps.vault.set(refreshKey, token.refreshToken, { kind: authKind, createdAt })
+      }
+    }
+    return this.settled(
+      definition,
+      await this.settleGrant(definition, attempt, candidate, writeVault)
+    )
   }
 
   // 입력 폼이 없는 흐름(OAuth·브라우저 세션)의 확인 실패는 `failed` 다 — 되돌려 보낼 폼이 없고,
