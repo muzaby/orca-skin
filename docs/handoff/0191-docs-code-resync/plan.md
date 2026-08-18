@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-18 |
 | 매핑 | — (문서 전용) |
-| 상태 | READY |
+| 상태 | READY → IMPL_DONE (r1) |
 
 # Part I — Product & UX Contract
 
@@ -359,19 +359,67 @@ done
 
 ## [구현자 기입] 설계 리뷰
 
+- 동의 / 그대로 진행: §7 AC 12건 전부. 강제 지점(§10)의 "경로 실재" 를 스윕 하나로 닫는 설계가 실제로 맞았다 — 파일별로 닫았다면 18개 파일을 따로 세야 했다.
+- 이견 / 현실성 문제: 없음.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|
+| 인용 `src/**` 경로 실재 | 범위 내 문서 + AGENTS 3종 전부 (스윕이 한 번에 셈) | 20/20 | §19 스윕 → `부재 0건` (시작 20건) | AC1 |
+| 수치 본문 미기재 | `check-doc-inventory.mjs` prose | 1/1 | `node scripts/check-doc-inventory.mjs --check` → `prose ok` | AC12 |
+| 상대 링크 해석 | 동 links | 1/1 | 동 → `links ok` | AC12 |
+| guides 절차 실행 | §8.1 명령 3개 | 3/3 | `npm run typecheck`(exit 0) · `npm run lint`(0 errors, 1 warning — 기존 `react-hooks/incompatible-library`) · scoped `vitest run`(41파일 중 40 통과 · 506 케이스 전부 통과) | AC7 |
+| §8.1 인용 테스트 실재 | 새로 쓴 표 8행 | 20/20 | 인용 테스트 20개를 `ls` 로 전수 확인 → 부재 0 | AC7 |
+| renderer 보조 명령 | §8.1 각주 1건 | 1/1 | `vitest run src/renderer/src/features/providers` → 2파일 · 13케이스 통과 | AC7 |
+
+- §10에 없는데 같은 불변식이 필요했던 지점: **있었다.** "인용 *심볼* 이 실재하는가" 는 경로 스윕이 못 잡는다 — `InteractionBroker`(→`ApprovalBroker`)·`RevertManager`(코드에 없음)·`permission-bridge.ts` 의 `RISKY_TOOLS`(→`adapters/risky-tools.ts`)가 그 축에서 나왔다. 심볼 grep 을 별도로 돌려 닫았다 → 되먹임 대상.
 
 ## [구현자 기입] Product/UX 파생 검토
 
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ✅ | guides §8 은 폐쇄망 배포자, arch 상태표는 에이전트 세션 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | ✅ 3행 모두 | §5 의 3행이 각각 F1·F2·A 축에 대응 |
+| 실패가 화면에서 "아무 일도 안 일어남" 으로 보이지 않는가 | ✅ | §8.1 에 환경 기인 실패 서명을 명시해 "빨간데 왜인지 모름" 을 없앴다 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | 문서 작업 |
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | `provider-runtime.md §5` 가 `RevertManager` 를 "✅ seam 구현" 이라 했으나 **코드에 없다** | ✅ 선조치 — §5 ③ 와 §12 요약표를 "❌ 구현 없음(목표 계약)" 으로 정정 | `rg RevertManager app/src` = 주석 1건 |
+| 2 | `InteractionBroker` 가 `ApprovalBroker` 로 개명됐는데 문서 6곳이 옛 이름 | ✅ 선조치 — 전량 치환 | `features/approvals/broker.ts:34` |
+| 3 | `rendering.md §1.7`·`ux-domains.md §1.6` 은 제목이 "구현 대기" 인데 **본문 ③ 가 구현됐다고 적고 있었다**(자기모순) | ✅ 선조치 — 제목을 본문에 맞춤 | `StructuredOutputCard.tsx`·`ApprovalCard.tsx` |
+| 4 | `ARCHITECTURE.md` 파일 맵에 `system-prompt.md`·`observability.md` 2행 누락 | ✅ 선조치 — 2행 추가 | 디렉토리 대조 |
+| 5 | `app/AGENTS.md:135` "실측 5파일" 이 낡았을 것으로 예상했으나 **재측정 결과 정확** | ⚠️ 보고만 — 고치지 않음 | 전체 `vitest run`: 204파일 중 5 실패, 목록이 기재와 동일 |
+| 6 | 루트 `AGENTS.md` 가 UI 라벨 정본을 `src/shared/i18n/ko.ts` 로 적는다(실제 `renderer/src/shared/i18n/`) | ⚠️ 보고만 — D-007 로 범위 밖 | 루트 `AGENTS.md` §언어 |
+| 7 | PRD §11 OQ9 가 열려 있으나 `permissionMode` 는 구현됨 | ⚠️ 보고만 — D-006, 사용자 결정 필요 | `orca:permission:setMode` |
+
+### 설계 대비 명시적 차이
+
+- plan 이 지정한 것과 다르게 구현한 것과 그 이유: **D4 는 변경 없음.** plan §11 이 `app/AGENTS.md:135` 재측정 후 갱신을 예상했으나, 실측이 기재와 일치해 고치지 않았다(위 #5).
 
 ## [구현자 기입] 구현 보고
 
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 22개 (docs 20 + `app/AGENTS.md` + `app/src/main/AGENTS.md`). **코드 변경 0** |
+| 실행 명령 | `node scripts/check-doc-inventory.mjs --check` · `npm run typecheck` · `npm run lint` · `vitest run`(전체·scoped·renderer) · 경로/심볼 스윕 |
+| **관측한 게이트 산출** | 인벤토리 3항목 ok · typecheck exit 0 · lint **0 errors / 1 warning**(기존 `react-hooks/incompatible-library`, 문서와 무관) · 전체 vitest **204파일 중 199 통과 · 1,939케이스 중 1,897 통과**, 실패 5파일은 전부 better-sqlite3 네이티브 바인딩(egress 제약, `app/AGENTS.md` 기재와 동일 목록) |
+| 강제 지점 전수 | 6/6 (위 표) |
+| **AC 자기보고** | 12/12 — AC1 스윕 `부재 0건`(시작 20) · AC2 잔여 `❌` 6행이 전부 코드로 확인된 미구현 · AC3 부재 11→0, `^## ` 절 **20개 불변** · AC4 검색 0건 · AC5 `deployment/`·`respawn-inputs` 기재, 스크립트 목록을 개수 대신 열거로 · AC6 `system-prompt.md §2` 43줄 → ADR 링크 7줄 · AC7 명령 3개 실행 + 인용 테스트 20개 실재 · AC8 §8.2 1~3번이 `app/deployment/` 기준 · AC9 헤더에 `workspace-guard.ts` 명시 + `disallowedTools` 4곳 미채택 표기 · AC10 `pull_request` 반영 · AC11 2행 추가 · AC12 exit 0 |
+| **합계 검산** | `✅ 12 · ⚠️ 0 · ❌ 0 = 총 12` — 분모는 §7 의 AC1~AC12, 분할·추가 없음 |
+| 블로커 / 역질문 | PRD §11 OQ9 해소 여부 (D-006 — 사용자 결정) |
+| 대상 커밋 | `d102df9` |
+
 ## [구현자 기입] Review Signals — 사실만
 
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음(라운드 1).
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **부분적으로.** §10 이 "경로 실재" 는 강제 지점으로 세웠지만 "심볼 실재" 는 세우지 않았다 — 위 강제 지점 표의 마지막 줄이 그 공백에서 나왔다.
+- 반복해서 부딪히는 환경 한계: better-sqlite3/electron egress 제약. 이번엔 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 로 우회했고, 그 결과를 guides §8.1 의 예외 문구로 문서화했다.
+- 현재 라운드 수: 1
 ---
 
 ## [검증자 기입] 파생 이슈
