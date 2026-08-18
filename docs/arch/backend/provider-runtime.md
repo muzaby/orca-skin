@@ -271,7 +271,7 @@ interface CancellationCapability {
 
 **① 설명.** `error` 이벤트는 분류돼야 재시도/표시 정책을 결정할 수 있다. 8 category + retryable 플래그.
 
-**③ 현재 코드 갭.** 현행은 `detectError()`(`src/main/adapters/claude.ts`) 휴리스틱(401/OAuth/expired 정규식 → `auth.expired`)과 `ErrorCode` enum(`sdk.*`/`auth.expired`/`protocol.parse`/`internal`; 구 `cli.*` 코드는 PR #47 에서 제거)뿐 — 정규 분류기/`retryable` 없음.
+**③ 현재 코드 갭.** ✅ **해소** — `ErrorClassifier` 포트와 `makeClassifiedError`(`src/main/infra/errors.ts`)가 8 category + `retryable` 을 정규화한다. category 별 기본값은 `DEFAULT_RETRYABLE` 이고 호출처가 개별 override 할 수 있다. claude 구현체는 `claudeErrorClassifier`(`src/main/adapters/error-classifier.ts`)이며 `src/main/adapters/claude.ts` 가 턴·스트림 두 경로에서 호출한다. 구 휴리스틱/enum 에서 이 포트로의 매핑은 §12 표에 있다.
 
 **④ 인터페이스 (정본).**
 
@@ -343,7 +343,7 @@ interface AppMeasuredTelemetry { latencyMs?: number; toolDurationMs?: number; st
 
 **① 설명.** provider 별 auth 주입 지점이 다르므로 단일 "키 저장소"가 아니라 **주입 전략**으로 모델링한다. 비밀값은 OS keychain/secret store 에 두고 메모리 노출 최소화.
 
-**③ 현재 코드 갭.** 현행은 (a) Claude SDK 가 `~/.claude` 자격증명 자동 사용(security.md §1.3) + (b) MCP 인증 비밀만 safeStorage(security.md §1.4) — provider-중립 주입 전략 추상 없음. security.md §1.4 의 safeStorage 모델을 "주입 전략" 으로 재서술하면 그대로 AuthStore 의 한 갈래가 된다.
+**③ 현재 코드 갭.** ✅ **부분 해소** — 주입 전략 추상이 코드에 있다. `AuthStore`(`src/main/features/auth/store.ts`)가 grant 수명(커밋·해제·vault 키)을 소유하고, raw 비밀은 `AuthSecretReader` 포트(`src/main/contracts/auth.ts`)를 지나는 두 자리로만 흐른다 — MCP `${BINDING:<id>}` resolver 와 harness direct-credential augmenter(`src/main/features/auth/secret-access.ts`). 일반 소비는 `BoundAuth.request()` 뿐이다. **잔여 갭**: claude 자체 자격증명은 여전히 SDK 가 `~/.claude` 에서 자동으로 읽는다(security.md §1.3) — 이 축은 아직 전략 밖이다.
 
 **④ 인터페이스 (정본).**
 
@@ -506,7 +506,7 @@ interface DirectBackendCapabilities {
 
 **② 예시.** "이 세션은 `~/proj` 와 그 하위만 접근" → WorkspaceManager 가 allowed dirs 게이트. Electron `sandbox:true`([security.md](./security.md) §1)와 결합해 파일 mutation 범위를 워크스페이스로 제한.
 
-**③ 현재 코드 갭.** cwd 는 `AppSession.cwd`(§7) + `init` 이벤트(§2)로만 흐르고, allowed-dirs/file-context 정규 추상 없음. Electron `sandbox:true`(security.md §1)는 *프로세스 수준* 격리일 뿐 워크스페이스 범위 추상이 아니다.
+**③ 현재 코드 갭.** ✅ **부분 해소** — allowed-dirs 게이트가 실제로 강제된다. `src/main/adapters/workspace-guard.ts` 의 `resolveGuardRoots`(세션 cwd + `readOnlyExceptionRoots()`)와 `guardToolAccess` 를 `makeWorkspaceGuardHook` 이 SDK hook 으로 싸고, `src/main/adapters/claude.ts` 가 그 hook 을 주입한다. **잔여 갭**: 이 가드는 claude 어댑터 층에 있고 provider-중립 `WorkspaceManager` 추상은 아직 없다. file-context 도 미도입 — cwd 는 `AppSession.cwd`(§7) + `init` 이벤트(§2)로 흐른다. Electron `sandbox:true`(security.md §1)는 *프로세스 수준* 격리일 뿐 워크스페이스 범위 추상이 아니다.
 
 **④ 인터페이스 (정본).**
 
