@@ -113,7 +113,7 @@
 #### 어댑터 외부 저장과의 관계
 
 - 어댑터별 외부 저장 (claude-code 의 `~/.claude/projects/<cwd>/<sessionId>.jsonl` 등) 은 **단방향 동기화 소스** 로만 취급.
-- **Orca 로컬 DB 가 진실의 기준** — IPC 이벤트 흐름 (`InflightTurn` 상태 머신, runtime-ipc.md §1.1) 을 통해 DB 에 실시간 persist. 외부 jsonl 직접 읽기 없음.
+- **Orca 로컬 DB 가 진실의 기준** — IPC 이벤트 흐름 (`TurnCoordinator` — `features/chat/turn-coordinator.ts`, runtime-ipc.md §1.1) 을 통해 DB 에 실시간 persist. 외부 jsonl 직접 읽기 없음.
 
 #### 백업 전략
 

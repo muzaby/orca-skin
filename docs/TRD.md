@@ -102,7 +102,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | 자동 업데이트 | `electron-updater` | ^6 | **확정 (0084~0086)** | `app/updater.ts` UpdateController — autoDownload=false·사용자 게이트. [arch/backend/runtime-ipc.md](arch/backend/runtime-ipc.md) §3.1 |
 | 로컬 DB (Phase 3+) | better-sqlite3 (Phase 3 MVP raw) / Drizzle 후보 (Phase 4 재검토) | — | **채택 (Phase 3+)** | 메시지·세션 메타 SSOT. 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스로 격하. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql`. **Phase 3 MVP: raw better-sqlite3 + prepared statements (쿼리 6 개 내외, ORM 가치 작음). Drizzle 은 Phase 4 멀티 세션·artifact·권한·통계 도입 시 재검토 (2026-05-20).** 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
 | 자격증명 | Electron `safeStorage` (OS keychain) | — | **부분 구현** | MCP 인증 비밀 = secret-store(`orca-secrets`) 구현 완료. 어댑터별 base URL/API key 저장은 Future. [arch/backend/security.md](arch/backend/security.md) §1.4 |
-| Python 런타임 | ~~uv + python-build-standalone~~ | — | **제거됨 (0050 PR-B)** | 구 `<userData>/runtime` 격리 Python 환경·runtime IPC 채널은 main 에서 삭제. uv 사용 규약 정책 append(`prompts/policies/python-runtime.md`)만 잔존 |
+| Python 런타임 | ~~uv + python-build-standalone~~ | — | **제거됨 (0050 PR-B)** | 구 `<userData>/runtime` 격리 Python 환경·runtime IPC 채널은 main 에서 삭제. uv 규약 정책 append 도 정적 정책 체인과 함께 제거 |
 | 패키징 | electron-builder | ^26 | **확정 (0087~0089)** | Windows **unsigned NSIS** + GitHub Releases **draft**(수동 Publish 게이트). 잔여 = 코드 서명/공증(macOS 포함). 정본 `docs/guides/release-operations.md` |
 | 테스트 (단위) | Vitest | latest | 확정 | 어댑터·reducer·IPC zod·scheduler·usage·updater 등 (+`node --test` 스크립트 스위트 4종) |
 | 테스트 (E2E) | Playwright | latest | **미도입** | TRD 채택 목록에 있었으나 devDependency 미설치 — 도입 시 사용자 승인 + 설치. §11 참조 |
@@ -218,8 +218,8 @@ Discriminated union. 어댑터가 CLI/SDK의 다양한 형식을 이 하나의 �
 | type | data 형태 | 발화자 | Renderer 처리 |
 |---|---|---|---|
 | `init` | `{ sessionId: string; model?: string; cwd: string; }` | 어댑터 (첫 응답) | sessionId 저장, UI 업데이트 |
-| `assistant_delta` | `{ text: string; }` | LLM 스트리밍 | `pendingDelta` 누적, debounce 렌더 |
-| `assistant_message` | `{ text: string; }` | LLM 턴 종료 | `pendingDelta` → 최종 메시지로 교체 |
+| `assistant_delta` | `{ text: string; }` | LLM 스트리밍 | chatStore `live.text` 누적, rAF 배치 렌더 |
+| `assistant_message` | `{ text: string; }` | LLM 턴 종료 | `live.text` → 최종 메시지로 교체 |
 | `tool_use` | `{ toolUseId: string; name: string; input: unknown; }` | LLM 도구 호출 | ToolCallCard 생성 |
 | `tool_result` | `{ toolUseId: string; output: string \| unknown; isError: boolean; durationMs?: number; }` | CLI/LLM | 해당 ToolCallCard 업데이트 |
 | `result` | `{ usage?: { inputTokens: number; outputTokens: number; }; }` | 어댑터 | 턴 완료, `inflight = false` |
@@ -296,7 +296,7 @@ interface ChatState {
 **리듀서 액션**:
 - `SEND_USER_MESSAGE(text)` → message 추가, `inflight = true`
 - `RECV_EVENT(ev: ChatEvent)` → ev 타입별로 상태 업데이트
-- `NEW_CHAT` → `sessionId = null`, messages 초기화, `pendingDelta` 초기화
+- `NEW_CHAT` → `sessionId = null`, messages 초기화, `live` 슬라이스 초기화
 - `CANCEL_CHAT` → `inflight = false`, 에러 표시
 
 ### 6.6 Error 코드 표
@@ -360,7 +360,7 @@ interface OrcaConfig {
 | `authToken` | secret-store(`provider:${providerKey}`, 앱 UI) 또는 settings.json `env.ANTHROPIC_API_KEY`(`${VAR}` 권장) |
 | `baseUrl` | settings.json `env.ANTHROPIC_BASE_URL` |
 | `env` | settings.json `env` 블록 |
-| `models` | `sources/settings/<adapter>/<provider>/settings.json` 의 `env` 모델 키에서 파싱 (`claude-model-parser`) |
+| `models` | `sources/settings/<adapter>/<provider>/settings.json` 의 `env` 모델 키에서 파싱 (`claude/model-parser.ts`) |
 
 **provider settings 트리 (SSOT = sources/)**: provider 별 설정은 어댑터-네이티브 스키마 파일로 사용자가 직접 편집한다. claude 의 settings.json 스키마는 순정 Claude Code settings.json 그대로다 — Orca 전용 키 발명 없음.
 
@@ -369,7 +369,7 @@ interface OrcaConfig {
 └── <provider>/settings.json   # 어댑터-네이티브 스키마 (claude = Claude settings.json)
 ```
 
-- **열거 SSOT 는 디렉토리 목록**(`readdir`). 모델 목록은 파생 캐시 파일 없이 각 provider 의 `settings.json` 을 열거 시점에 `claude-model-parser` 로 파싱해 얻는다(settings 부재/손상 시 기본 alias 목록으로 관용 열거).
+- **열거 SSOT 는 디렉토리 목록**(`readdir`). 모델 목록은 파생 캐시 파일 없이 각 provider 의 `settings.json` 을 열거 시점에 `claude/model-parser.ts` 로 파싱해 얻는다(settings 부재/손상 시 기본 alias 목록으로 관용 열거).
 - **모델 파싱 규약**(`features/harnesses/claude/model-parser.ts`, 순수 함수): `env.ANTHROPIC_DEFAULT_{SONNET,OPUS,HAIKU}_MODEL` 키가 있으면 그 alias 만 노출(=`isCustom`), 전무하면 sonnet/opus/haiku 3개를 `model:null` 로 노출. `[1m]` 접미사는 분리해 `oneMillionContext` 로 보존. default 는 명시 모델(`env.ANTHROPIC_MODEL`>`model`)·alias 폴백(sonnet→haiku→opus)을 노출 목록 안에서 평가해 **정확히 1개** 부여한다. `model:null` 항목은 SDK 가 bare alias 를 해석한다(모델명 추측 금지).
 - provider key 는 `${adapter}-${provider}`(0010 규약 유지, 디렉토리 이름 = provider, `[A-Za-z0-9_-]` 제한). 중복은 디렉토리 구조상 불가능하다.
 - 최초 부팅 시 `anthropic/settings.json`(`{"env":{}}`)을 스캐폴드한다(`features/extensions/scaffold.ts`, 멱등 — 기존 파일 불가침).
@@ -596,12 +596,12 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - ~~(anchor) electron-updater + GitHub Releases~~ — **구현 완료 (0084~0089, §9.2)**. 잔여 = 코드 서명/공증/staged rollout.
 - ~~(anchor) Auto-update 채널~~ — stable 단일 채널로 출발 (beta 채널 분리는 Future).
 - **(anchor) 하드웨어 어댑터 (BoardAdapter)** — USB/카메라 제어. `adapters/` 에 board 어댑터를 두는 자리를 예약(파일 미생성), 네이티브 모듈 (`orca-board.node`, libusb) Phase 2~3.
-- **(anchor) opencode 어댑터** — Phase 1 에서는 미구현. §7.2 의 사양 (서버 라이프사이클, SDK 호출, SSE 매핑) 그대로 살아있으나 코드는 인터페이스 후크만 남아있다. claude 단독 운영이 안정화되면 도입. **단, MCP 설정 변환기 `toOpencodeConfig` 는 MCP&Skill 통합 레이어에서 *순수 함수 + 단위 테스트만* 선구현됨** (어댑터·라이프사이클·백엔드 선택은 여전히 미구현, `Backend`=`'claude'` 유지). `toClaudeConfig` 와 **동형 대칭 변환기**(동일 시그니처, `Record<string, <Backend>Mcp>` 반환).
+- **(anchor) opencode 어댑터** — Phase 1 에서는 미구현. §7.2 의 사양 (서버 라이프사이클, SDK 호출, SSE 매핑) 그대로 살아있으나 코드는 인터페이스 후크만 남아있다. claude 단독 운영이 안정화되면 도입. **단, MCP 설정 변환기의 claude 축(`toClaudeConfig`)만 순수 함수로 구현돼 있고 opencode 변환기는 아직 없다** (어댑터·라이프사이클·백엔드 선택은 여전히 미구현, `Backend`=`'claude'` 유지). `toClaudeConfig` 와 **동형 대칭 변환기**(동일 시그니처, `Record<string, <Backend>Mcp>` 반환).
 - **(anchor) OpenAI Compatible 백엔드** — `SessionAdapter` 인터페이스 재활용 가능. 3번째 어댑터 구현체 추가.
 - **(anchor) Agent SDK 고급 기능** — `permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer` (in-process custom tools) / 외부 `mcpServers` / `forkSession` / `startup()` (사전 워밍) / `AsyncIterable<SDKUserMessage>` 스트리밍 입력. 채택 표는 [arch/backend/adapters.md](arch/backend/adapters.md) §1.7 의 ⏳ 행 참조. Phase 4+ — 도구 권한 정책(OQ9) 결정 후 진행.
 - **(anchor) 어댑터 도구명 정규화 (OQ10)** — claude vs opencode 의 `tool_use.name` / `tool_use.input` 차이 해소 정책. PRD §11 OQ10 결정 후 어댑터별 매핑 표 확정.
 - **(anchor) ChatEvent sessionId 확장** — Phase 4 멀티 세션 진입 시 모든 변형(`assistant_delta` / `assistant_message` / `tool_use` / `tool_result` / `result` / `error`)에 `sessionId` 필드 추가. main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 그대로 활용 (별도 메시지큐 미도입). 상세 anchor 는 [arch/frontend/state.md](arch/frontend/state.md) §2.
-- **(구현됨) MCP & Skill 통합 레이어** — 정규 소스 = `~/.config/orca/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`, 평문 비밀 0). 비밀은 secret-store(safeStorage, env-var 이름 키잉), enabled/description 은 settings. `${VAR}` resolver = safeStorage→process.env(미해결 시 서버 드롭). **양 백엔드 대칭 변환기**(`toClaudeConfig`/`toOpencodeConfig`, 순수). **확장 정규 레이어**: `~/.config/orca` 디렉토리 자체를 Claude 로컬 플러그인으로 머티리얼라이즈(`.claude-plugin/plugin.json` + 정규 소스 `skills/`·`agents/`·`commands/`) → query() 에 `plugins:[{local, path: ~/.config/orca}]`+`skills:'all'`. Skill 은 양 백엔드 공통(opencode `.claude/skills` 네이티브), Hook/full-plugin 은 백엔드 종속이라 정규화 제외. 레거시 `orca-mcp` 1회 마이그레이션. **(재정의 — 0024 코드 정렬됨 / disallowedTools 보류)** skill 로드는 plugin 컨테이너 폐기 후 `settingSources` 경로로, mcp 는 `dist/<engine>/.mcp.json` 거울로 정렬되고 agents·commands·hooks·plugin 은 engine-specific 으로 연기된다(standardization.md §5.1, adapters.md §3.1). 상세 [arch/backend/security.md](arch/backend/security.md) §1.4.
+- **(구현됨) MCP & Skill 통합 레이어** — 정규 소스 = `~/.config/orca/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`, 평문 비밀 0). 비밀은 secret-store(safeStorage, env-var 이름 키잉), enabled/description 은 settings. `${VAR}` resolver = safeStorage→process.env(미해결 시 서버 드롭). **변환기**(`toClaudeConfig`, 순수 — opencode 대칭 짝은 미구현). **확장 정규 레이어**: `~/.config/orca` 디렉토리 자체를 Claude 로컬 플러그인으로 머티리얼라이즈(`.claude-plugin/plugin.json` + 정규 소스 `skills/`·`agents/`·`commands/`) → query() 에 `plugins:[{local, path: ~/.config/orca}]`+`skills:'all'`. Skill 은 양 백엔드 공통(opencode `.claude/skills` 네이티브), Hook/full-plugin 은 백엔드 종속이라 정규화 제외. 레거시 `orca-mcp` 1회 마이그레이션. **(재정의 — 0024 코드 정렬됨 / disallowedTools 보류)** skill 로드는 plugin 컨테이너 폐기 후 `settingSources` 경로로, mcp 는 `dist/<engine>/.mcp.json` 거울로 정렬되고 agents·commands·hooks·plugin 은 engine-specific 으로 연기된다(standardization.md §5.1, adapters.md §3.1). 상세 [arch/backend/security.md](arch/backend/security.md) §1.4.
 - **(anchor) Captures / Projects 확장** — PRD §9 Future Scope. 별도 IPC 도메인 + 모듈 추가.
 - ~~(anchor) 멀티 세션 / 과거 대화 목록~~ — **구현 완료** (세션별 SessionRuntime + 사이드바 세션 목록 + FTS 검색 — runtime-ipc.md §1). 동시 스트리밍 *UX*(배지·탭)만 잔여.
 - ~~(anchor) 재시작 재개~~ — **구현 완료** (`lastSessionId` 부트 복원 — BootRedirector).
@@ -622,7 +622,7 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - **Reducer**: `chatReducer` 액션별 상태 전이 정확성 (parts/ask/permission 계열 스위트)
 - **IPC 검증**: zod 스키마 (SendChatMessage, Settings, InstallStatus 등 — `protocol.*.test.ts`)
 - **런타임/기능 슬라이스**: scheduler(cron 검증·겹침 방지)·usage(집계/한도 파생)·updater(재시작 게이트)·boot-report 등 — 각 슬라이스 동거 `*.test.ts`
-- **(구현됨) MCP 변환 파이프라인**: `expandEnv`(${VAR} 정의/미정의 드롭·다중 변수·빈 소스) + `toClaudeConfig`(구조 항등·sse 보존)/`toOpencodeConfig`(stdio→local·http/sse→remote)·dropped 전파·빈 소스 — `features/extensions/mcp/{expand,convert}.test.ts`. electron 비의존 순수 함수.
+- **(구현됨) MCP 변환 파이프라인**: `expandEnv`(${VAR} 정의/미정의 드롭·다중 변수·빈 소스) + `toClaudeConfig`(구조 항등·sse 보존)·dropped 전파·빈 소스 — opencode 변환기(stdio→local·http/sse→remote)는 미구현 — `features/extensions/mcp/{expand,convert}.test.ts`. electron 비의존 순수 함수.
 - **스크립트 스위트** (`node --test "scripts/*.test.mjs"`, `npm test` 가 자동 실행): ensure-sqlite-abi · check-migrations-appendonly · validate-dist · validate-release-version.
 
 ### 통합 테스트

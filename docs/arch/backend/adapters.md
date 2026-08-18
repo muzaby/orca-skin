@@ -64,7 +64,7 @@ async function* sendMessage(sessionId, text, cwd, caps, resolvedMcp, signal) {
 }
 ```
 
-`adaptMcp` 는 활성 서버가 없으면 옵션 자체를 빈 객체로 반환(생략). `allowedTools` 는 `mcp__<name>__*` 와일드카드로 서버 전체 도구 자동 허용 — `canUseTool` 미도입(Phase 4 anchor) 환경에서 도구 호출 차단 방지. **신 설계(0024 구현됨 / disallowedTools 보류)**: `adaptSettings` 는 `settingSources` 옵션을 주입하지 않아 SDK 기본 소스(user/project/local)가 활성화되며(격리 해제 — handoff 0014/0015 폐기), Orca 가 막아야 할 도구는 `disallowedTools` 로 차단한다(해석은 `adapters/claude-settings.ts` 의 `loadClaudeProviderSettings` — SDK `resolveSettings` + `filterEscalatingDefaultMode` + env `${VAR}` 확장·secret 주입, 캐시는 `features/harnesses/settings.ts` 의 `HarnessSettingsService`). `claude-adapt.ts` 는 0024에서 `settingSources`·`plugins` 주입 제거까지 정렬됐다. `disallowedTools` 는 D1 사용자 결정 전이라 보류.
+`adaptRuntimeTools`(`adapters/claude-runtime-tools.ts`)는 활성 서버가 없으면 옵션 자체를 빈 객체로 반환(생략). `allowedTools` 는 `mcp__<name>__*` 와일드카드로 서버 전체 도구 자동 허용 — `canUseTool` 미도입(Phase 4 anchor) 환경에서 도구 호출 차단 방지. **신 설계(0024 구현됨 / disallowedTools 보류)**: `adaptSettings` 는 `settingSources` 옵션을 주입하지 않아 SDK 기본 소스(user/project/local)가 활성화되며(격리 해제 — handoff 0014/0015 폐기), Orca 가 막아야 할 도구는 `disallowedTools` 로 차단한다(해석은 `adapters/claude-settings.ts` 의 `loadClaudeProviderSettings` — SDK `resolveSettings` + `filterEscalatingDefaultMode` + env `${VAR}` 확장·secret 주입, 캐시는 `features/harnesses/settings.ts` 의 `HarnessSettingsService`). `claude-adapt.ts` 는 0024에서 `settingSources`·`plugins` 주입 제거까지 정렬됐다. `disallowedTools` 는 D1 사용자 결정 전이라 보류.
 
 ### 1.4 ExtensionBuilder (백엔드 중립 확장 조립)
 
@@ -217,7 +217,7 @@ opencode 등 다중 어댑터 환경 대비:
 
 | 자산 | 정규 소스 (Tier A, 중립) | claude 어댑트 | opencode 어댑트 | 정규화도 |
 |---|---|---|---|---|
-| **MCP** | `mcp.json` (`OrcaMcpConfig`) | `toClaudeConfig` → `options.mcpServers` + `allowedTools`; 디스크 거울 `dist/<engine>/.mcp.json`(${VAR} 보존) | `toOpencodeConfig` → `opencode.json` `mcp` | ✅ 구현됨 |
+| **MCP** | `mcp.json` (`OrcaMcpConfig`) | `toClaudeConfig` → `options.mcpServers` + `allowedTools`; 디스크 거울 `dist/<engine>/.mcp.json`(${VAR} 보존) | (opencode 변환기 미구현 — `opencode.json` `mcp` 는 목표 형식) | ✅ claude 축 구현됨 |
 | **Skill** | `skills/<n>/SKILL.md` | `dist/<engine>/.claude/skills/` 배포 → `settingSources` 경로로 발견(`skills:'all'`) | 네이티브 글로빙 경로로 심링크/복사 | ✅ 변환 불필요(양 백엔드 공통) |
 | **systemPrompt** | 중립 문자열(프로젝트 지침) | `preset:'claude_code' + append` | opencode system prompt 옵션 | ⏳ |
 | **Hook(런타임)** | **런타임 전용** — 배포 자산 아님 | `options.hooks` in-process 콜백(claude-side `NormalizedHookSet`, §3.2.5) | 네이티브 플러그인 모듈 | ❌ 정규화 안 함(§3.2) |

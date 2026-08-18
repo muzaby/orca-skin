@@ -18,7 +18,7 @@
 | Tweaks (theme/density/sidebar/한도) | `shared/hooks/useTweaks` + electron-store | ✅ `orca:settings:get` / `set` | theme, density, sidebarCollapsed, **sidebarWidth** (180–480, default 248 — Phase 3+), **spendingLimitUsd**(0079) |
 | 백엔드 설치 상태 | `features/backend/store/backendStore`(Zustand, 0013) | — | list, active, installerOpen |
 | 세션/프로젝트 목록 | `features/{sessions,projects}/store/*Store`(Zustand, 0013) | — | list, loading |
-| 사용량 미러 | `shared/stores/usageStore`(Zustand, 0186) | — | Main 이 완성한 `UsageLimitsView` 의 사본 — `global` + `providers[key]` + scope 별 `globalUpdatedAt`/`providerUpdatedAt[key]`. **주/월을 여기서 파생하지 않는다**(계산은 main 소유). 갱신은 `orca:cost:usageEvent` delta push 뿐이고, `boundary` scope 가 오면 provider 사본을 통째로 버린다(기간이 넘어가 전부 어제 기준이므로). `features/chat`(도넛)·`features/settings`(사용량 탭) 둘이 읽으므로 어느 feature 에도 둘 수 없다 — renderer boundaries 가 feature 교차를 막는다 |
+| 사용량 미러 | `shared/stores/usageStore`(Zustand, 0186) | — | Main 이 완성한 `UsageLimitsView` 의 사본 — `global` + `providers[key]` + `providerUpdatedAt[key]` (전역 쪽 타임스탬프는 두지 않는다 — 전역 화면에 "마지막 업데이트" 표시가 없다). **주/월을 여기서 파생하지 않는다**(계산은 main 소유). 갱신은 `orca:cost:usageEvent` delta push 뿐이고, `boundary` scope 가 오면 provider 사본을 통째로 버린다(기간이 넘어가 전부 어제 기준이므로). `features/chat`(도넛)·`features/settings`(사용량 탭) 둘이 읽으므로 어느 feature 에도 둘 수 없다 — renderer boundaries 가 feature 교차를 막는다 |
 | 업데이트 상태 | `features/update/store/updateStore`(Zustand, 0085/0086) | — | state(UpdateState), dialogOpen, actionError, dummyMode(dev) |
 | 설정 모달 상태 | `features/settings/store/settingsModalStore`(Zustand, 0079~0081) | — | open, tab(`'general' \| 'usage' \| 'provider:<key>'` — 도넛 `>` → provider 탭 라우팅) |
 | Skills 카탈로그 | `shared/hooks/useSkills` useState 캐시 | — | SkillInfo[] (부팅 1회 스캔) |
@@ -67,7 +67,7 @@ interface SessionEntry {
 
 Context + useReducer 도 외피 (`sessions: Record<sessionId, ChatState>`) 변경만으로 *동작* 은 한다. 도입 명분은 **선택적 리렌더**:
 
-- Phase 4 동시 스트리밍 시, 비활성 세션의 `pendingDelta` 가 16ms 간격으로 갱신된다. 단일 Context 모델은 모든 consumer 를 리렌더 → 활성 세션 UI 의 입력 응답성 저하.
+- Phase 4 동시 스트리밍 시, 비활성 세션의 델타 누적(구 `pendingDelta`)이 16ms 간격으로 갱신된다. 단일 Context 모델은 모든 consumer 를 리렌더 → 활성 세션 UI 의 입력 응답성 저하.
 - Zustand 의 `useChatStore((s) => s.sessions[activeId].messages)` selector 만으로 해결. Context split / `useContextSelector` 서드파티 패치 의존을 피한다.
 
 #### 4.4.2 store 외부 접근 활용
@@ -78,7 +78,7 @@ Context + useReducer 도 외피 (`sessions: Record<sessionId, ChatState>`) 변�
 
 | 슬라이스 | 위치 | 필드 |
 |---|---|---|
-| **세션별** | `sessions[sessionId]: SessionState` | `messages` / `pendingDelta` / `pendingInputTokens` / `error` |
+| **세션별** | `sessions[key]: SessionEntry` | `session`(`ChatState`) / `live` / `subagentMeta` / `pendingSteer` |
 | **전역** | root state | `activeSessionId` / `inflight` (Phase 4 에서는 세션별로 분리 검토) / `turnStartedAt` / `Tweaks` / `Backend` / `Skills` |
 
 세션 삭제: `delete state.sessions[id]` + 해당 세션의 진행 중 `AbortController.abort()` 호출.
@@ -102,7 +102,7 @@ Context + useReducer 도 외피 (`sessions: Record<sessionId, ChatState>`) 변�
 - ✅ **(0008 완료)** 구 `useChat.ts` 의 useReducer/Context 패턴 → `useChatSession(selector)`/`chatActions` 로 교체 (`UseChat` 객체·`useChatContext` 폐기, `ChatProvider` 는 부트스트랩 effect 전용).
 - ✅ **(0008 완료)** IPC onEvent 핸들러 → 코얼레서 → store `receive(ev)` 외부 dispatch.
 - ✅ **(0013 완료)** Backend/Sessions/Projects/Cost Context → feature 별 Zustand store 흡수(Provider 는 bootstrap-only). 잔여: `shared/hooks/useTweaks` · `useSkills` · `useAgents` (소규모 — 후속 검토).
-- `app/AppLayout.tsx` 의 props drilling (현 `newChatSlot` / `sessionsSlot` / `footerSlot` 슬롯) 은 store 직접 구독으로 단순화 가능 — 단, `shared/ui/` 의 presentational 규칙 (layers.md §1.1) 은 유지.
+- `app/AppLayout.tsx` 의 props drilling (현 `pinnedSlot` / `sessionsSlot` / `footerSlot` — `app/hooks/useSidebarSlots.ts`) 은 store 직접 구독으로 단순화 가능 — 단, `shared/ui/` 의 presentational 규칙 (layers.md §1.1) 은 유지.
 
 #### 4.4.6 도입 PR 에서 결정할 사항 (Open Questions)
 
@@ -131,11 +131,11 @@ useEffect(density): ──► document.documentElement.style.fontSize = DENSITY_
 
 ## 2. 멀티세션 UI 동작 (Phase 4 anchor)
 
-> **현재 상태 (0011+0013)**: **멀티세션 외피 완료.** main 은 `TurnRegistry`(sessionId 키 — 서로 다른 세션의 동시 턴 허용), renderer 는 `sessions: Record` store. 비활성 세션 턴이 백그라운드 누적된다. 남은 것은 *UX*(사이드바 배지·세션 탭·스크롤 위치 기억 등 §2.1 일부)뿐.
+> **현재 상태 (0011+0013)**: **멀티세션 외피 완료.** main 은 `SessionRuntimeRegistry`(`features/sessions/session-registry.ts`, sessionId 키 — 서로 다른 세션의 동시 턴 허용), renderer 는 `sessions: Record` store. 비활성 세션 턴이 백그라운드 누적된다. 남은 것은 *UX*(사이드바 배지·세션 탭·스크롤 위치 기억 등 §2.1 일부)뿐.
 
 ### 2.1 Phase 4 확장점
 
-`docs/architecture.md` 가 다루던 Phase 4 anchor 를 이 절에 흡수:
+`docs/ARCHITECTURE.md` 가 다루던 Phase 4 anchor 를 이 절에 흡수:
 
 | 변경 | 위치 | 영향 범위 |
 |---|---|---|

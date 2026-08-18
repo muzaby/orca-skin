@@ -975,7 +975,7 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 | **재시작하면** 세션 provider 호출이 죽는다 (`등록되지 않은 session group`) | 부팅 등록이 빠졌다 — 0182 이전 동작 | `bootstrap.createProviderPlatform` 의 `registerDeclaredSessions` (§1.6) |
 | 도구가 **모델에 안 보인다** | grant 가 `valid` 가 아니거나 아직 재spawn 전이다 | 연결 탭 상태 → **새 채팅**에서 재확인 |
 | MCP 서버가 **통째로 빠진다** | `${BINDING:}` 미해결(fail-closed) | 해당 provider 인증 상태 · 세션 grant 는 `null` 이다 |
-| LLM 요청이 **인증 없이** 나간다 | `envKey` 오타 또는 `llm.{adapter,provider}` 조인 실패 | `sources/settings/<adapter>/<provider>/` 디렉토리 존재 여부 |
+| LLM 요청이 **인증 없이** 나간다 | `sources/settings/<adapter>/<provider>/settings.json` 의 env 키 오타 또는 `llm.{adapter,provider}` 조인 실패 | `sources/settings/<adapter>/<provider>/` 디렉토리 존재 여부 |
 | 업데이트 후 **저장된 로그인이 사라졌다** | `AuthId` 를 바꿨다 | vault 네임스페이스가 `AuthId` 로 갈린다 (§1.4) |
 | 주기 잡이 **영영 발화하지 않는다** | ⓐ cron 식 오타 ⓑ `enabled:false` ⓒ `register` 보다 `schedule` 을 먼저 불렀다 | ⓐⓒ는 **등록 시점에 throw** 한다(`assertValidCron` · `Scheduler job is not registered`) — 부팅 로그를 본다 (§5-b) |
 | 주기 잡이 **겹쳐서 도는 것 같다** | 앞 발화가 아직 안 끝났다 | 겹친 발화는 실행되지 않고 `schedule_runs` 에 **`skipped`** 로 남는다 (§5-b) |

@@ -22,10 +22,10 @@
 
 | 이름 | 쉬운 설명 | 정본 |
 |---|---|---|
-| **Backend** | LLM 실행 백엔드 식별자. 지금은 `'claude-code'` 하나, 나중에 `'opencode'` 등. ("LLM Provider" 라 부르지 않음.) | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
+| **Backend** | LLM 실행 백엔드 식별자. 지금은 `'claude'` 하나, 나중에 `'opencode'` 등. ("LLM Provider" 라 부르지 않음.) | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 | **SessionAdapter** | 모든 백엔드가 따르는 공통 인터페이스 (`isInstalled`/`install`/`sendMessage`). LLM 직접 호출이 아니라 외부 CLI/SDK 래퍼. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 | **AdapterRegistry** | 등록된 어댑터들의 설치 상태를 추적하고 활성 백엔드를 고른다. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
-| **ClaudeCodeAdapter** | claude-code SDK 의 `query()` 를 직접 부르고, 그 메시지를 ChatEvent 로 정규화하는 구현체. | [adapters.md §1](./adapters.md) |
+| **claude 어댑터** | claude-code SDK 의 `query()` 를 직접 부르고, 그 메시지를 `NormalizedEvent` 로 정규화하는 구현체(`adapters/claude.ts`). | [adapters.md §1](./adapters.md) |
 | **ExtensionBuilder / TurnExtensions** | DB·MCP·Skills 를 모아 백엔드 중립적인 "확장 묶음"(mcpConfig·systemPromptAppend·skills·hooks)을 만든다. (구 CapabilityBuilder/OrcaCapabilities — handoff 0062 개명.) | [adapters.md §1](./adapters.md) |
 | **NormalizedHookSet** | before-tool·after-tool·on-prompt 같은 *시점별 콜백* 모음. 어댑터별 hook 을 정규화(`adapters/hooks.ts`). | [adapters.md §3](./adapters.md) |
 
@@ -37,7 +37,7 @@
 | **FTS5** | 메시지 전문검색용 가상 테이블(`messages_fts`). SearchModal 이 이걸 쿼리한다. | [persistence.md §1](./persistence.md) |
 | **Migrations** | 스키마를 버전 단위로 올리는 SQL 파일들. 부팅 시 자동 적용. | [persistence.md §1](./persistence.md) |
 | **SettingsStore** | electron-store 래퍼. 테마·사이드바·마지막 세션·창 위치 등 가벼운 설정 저장. | [GLOSSARY §1 (Tweaks)](../../GLOSSARY.md#1-도메인-용어) |
-| **InflightTurn** | "새 대화" 첫 턴에서 사용자 입력 → init 도착 → DB insert 순서를 지켜 중복 저장을 막는 작은 상태기계. | [runtime-ipc.md §1](./runtime-ipc.md) |
+| **TurnCoordinator** | 한 세션의 턴 파이프라인 구동체 — 이벤트 순서를 지켜 DB 적재/중복 저장 방지를 담당한다(`features/chat/turn-coordinator.ts`). 구 "단일 inflight" 모델(`InflightTurn`)은 폐기됐다. | [runtime-ipc.md §1](./runtime-ipc.md) |
 
 ## 4. MCP · Skills (확장 기능)
 
@@ -52,9 +52,7 @@
 
 | 이름 | 쉬운 설명 | 정본 |
 |---|---|---|
-| **PythonRuntime** | 앱이 따로 제공하는 *격리된* Python 환경(venv). agent 가 Python 도구를 써도 시스템이 더럽혀지지 않게 함. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
-| **uv** | Astral 의 Python 패키지·인터프리터 관리자. 바이너리만 동봉, 인터프리터는 첫 실행 시 받는다. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
-| **buildPyEnv** | Python 환경변수의 *단일 소스*. 초기화와 agent 실행이 같은 env 를 공유. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
+| **Python Runtime / uv / buildPyEnv** | **제거됨** — uv 기반 격리 Python 환경과 runtime IPC 채널은 main 에서 삭제됐다. 어휘를 재사용하지 않는다. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 
 ## 6. 범용 정규화 계층
 
@@ -79,16 +77,16 @@
 
 ## 7. 표준 계층 (배포 — 무엇을 배포·주입하나)
 
-> 정본은 [standardization.md](./standardization.md). §6 런타임 계층(세션 *중*)의 짝으로, 세션 *시작 전* 무엇을 깔지를 다룬다. `sources`/`dist`·`ExtensionDeployer` 는 구현돼 있고 `StandardConformance`·AGENTS.md 채택은 목표 계약이다.
+> 정본은 [standardization.md](./standardization.md). §6 런타임 계층(세션 *중*)의 짝으로, 세션 *시작 전* 무엇을 깔지를 다룬다. `sources`/`dist` 분리와 배포기(`deployer.ts` 의 `deploy()`)는 구현돼 있고, `StandardConformance`·AGENTS.md 채택은 목표 계약이다.
 
 | 이름 | 쉬운 설명 | 정본 |
 |---|---|---|
 | **표준 우선(standards-first)** | 엔진이 아니라 업계 표준(AGENTS.md·MCP·SKILL.md)을 1차 추상화 단위로. 새 엔진 = "그 표준을 구현하나?" 라는 한 질문. | [standardization.md §1·§2](./standardization.md) |
 | **표준/런타임 2계층** | 배포 시점(세션 전, 무엇을 깔까) vs 실행 시점(세션 중, 이벤트·권한). 단방향: 배포 산출물 → 런타임 입력. | [standardization.md §3](./standardization.md) |
 | **sources / dist** | 사람이 편집하는 단일 원천(sources) → 엔진별 생성물(dist, 편집 금지). | [standardization.md §5.1](./standardization.md) |
-| **ExtensionDeployer** | sources 를 엔진 규약으로 렌더 → 검증 → 백업 후 기록(dryRun 지원). | [standardization.md §5.2](./standardization.md) |
+| **ExtensionDeployer** | sources 를 엔진 규약으로 렌더 → 검증 → 백업 후 기록(dryRun 지원). 모듈을 가리키는 설계 이름 — 코드 진입점은 `deployer.ts` 의 `deploy()`. | [standardization.md §5.2](./standardization.md) |
 | **StandardConformance** | 엔진을 "표준을 얼마나 구현하나"로 기술(instructions/tool/skill/hook + mcpSpecVersion). | [standardization.md §5.3](./standardization.md) |
-| **AGENTS.md** | instructions 표준(AAIF). Orca instructions SSOT 채택 방향(현 systemPromptAppend+정적 정책 append `prompts/` 와 통합). | [standardization.md §5.4](./standardization.md) |
+| **AGENTS.md** | instructions 표준(AAIF). Orca instructions SSOT 채택 방향(현 systemPromptAppend 헤더와 통합 — 정적 정책 append 체인은 제거됨). | [standardization.md §5.4](./standardization.md) |
 | **Engine 구체클래스** | 범용 어댑터를 미리 안 만들고 ClaudeEngine/OpenCodeEngine 구체 클래스로 시작, 3번째 엔진에서 공통 추출(rule of three). | [standardization.md §4](./standardization.md) |
 
 > 사용하지 않는 어휘(Provider/Conversation/Thread 등)는 [GLOSSARY §3](../../GLOSSARY.md#3-사용하지-않는-용어-혼동-방지).

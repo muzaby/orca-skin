@@ -50,7 +50,7 @@
 |---|---|---|---|
 | Frame / Titlebar / Sidebar (collapsed/expanded) | Phase 1 | ✅ 완료 | mockup 시각 재현 |
 | ChatTile 메시지 리스트 + 스트리밍 표시 | Phase 2 | ✅ 완료 | 16ms throttle. 메시지 컴포넌트는 `features/chat/components/transcript/` |
-| Composer 3-chip + Skill picker | Phase 2++ | ✅ 완료 | Popover + `insertSkillFromMenu` |
+| Composer 3-chip + Skill picker | Phase 2++ | ✅ 완료 | Popover + `openSkillPicker`(`composer/ComposerInputController.tsx`) |
 | Composer `/skill` 인라인 자동완성 | Phase 2++ | ✅ 완료 | `SkillAutocomplete` + `useSkillAutocomplete` |
 | Composer `@file` 자동완성 | Phase 2++ | ✅ 완료 | `FileAutocomplete` + `useFileAutocomplete` |
 | Markdown 렌더링 (react-markdown + GFM) | Phase 2 | ✅ 완료 | `shared/ui/markdown/Markdown.tsx` (features/chat 에는 StreamingMarkdown 만 잔류) |
