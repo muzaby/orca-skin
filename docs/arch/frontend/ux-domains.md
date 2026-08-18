@@ -26,7 +26,7 @@
 
 - 멀티라인 textarea + 자동 높이 조절
 - 3-chip 행: 첨부 / 현재 프레임 / Skill 선택 (`Popover` 기반 picker)
-- `/skillname` 토큰을 **활성 스킬일 때만** 파란 chip 으로 mirror overlay 강조 (`HighlightedTextarea.tsx`, `knownSkillNames: ReadonlySet<string>`)
+- `/skillname` 토큰을 **활성 스킬일 때만** 파란 chip 으로 mirror overlay 강조 (`composer/ComposerDecorationLayer.tsx` + `composer/composerDecoration.ts`, `knownSkillNames: ReadonlySet<string>`)
 - `@filepath` 자동완성: 디렉토리 단계별 진입, quoted/plain 자동 감지, 공백 시 자동 wrapping
 - 전송 후 입력창 비우기, 포커스 유지
 
@@ -92,7 +92,7 @@
 | `projects` (`features/projects/components/ProjectsScreen.tsx`) | 02 프로젝트                             | 프로젝트            | ✅ '프로젝트'                 | **✅ Phase 3 활성**       | 카드 그리드 + 생성 다이얼로그. ProjectDetail 은 `pages/ProjectLandingPage.tsx` 단일 파일.                                                                                    |
 | `routines` (placeholder, 라우트 미정의)                        | 자동화                                  | —                   | ❌ (Future Scope, nav 미노출) | **⏳ Future Scope**       | 라우트는 미정의 — `router.tsx` catch-all 이 `/new` 로 흡수. 후속 PR 에서 `pages/RoutinesPage.tsx` + 라우트 등록 시 nav 복귀 가능.                                            |
 | `engine` (`features/engine/components/AgentEnvironmentView.tsx`, 구 EngineView) | 03 엔진 & 모델                          | 설정 · 엔진 & 모델  | ✅ '엔진 & 모델'              | **✅ Phase 4 CRUD 활성 (0021·0090)** | nav 항목으로 노출. 라우트 `/agent`. provider CRUD(`EngineFormModal` — 단일 화면 모달 + `~/.claude/settings.json` 불러오기, 0090) + `EngineCard`/`EngineModelList`.            |
-| `skills` (`features/skills/components/customize/SkillsCustomizeView.tsx`, 구 SkillsMcpView) | 04 Skills / MCP                         | 플러그인 모달 | ✅ '플러그인'             | **✅ Phase 3++ MCP 활성** | nav 4번째 항목이 공용 Modal로 연다. **MCP 섹션 실 연동** (`orca:mcp:*` + `AddMcpServerModal` 추가/편집/토글/삭제, 전역 적용) + customize rail/list/detail 재구성.                        |
+| `skills` (`features/skills/components/customize/ExtensionsCatalogView.tsx`, 구 SkillsMcpView·SkillsCustomizeView) | 04 Skills / MCP                         | 플러그인 모달 | ✅ '플러그인'             | **✅ Phase 3++ MCP 활성** | nav 4번째 항목이 공용 Modal로 연다. **MCP 섹션 실 연동** (`orca:mcp:*` + `AddMcpServerModal` 추가/편집/토글/삭제, 전역 적용) + customize rail/list/detail 재구성.                        |
 | (Debug Panel) `features/debug/components/DebugPanel.tsx`       | (플로팅 패널 — `#app-frame-debug` 슬롯, dev 전용) | —                   | —                             | **✅ Phase 2+ 영속**      | theme / density / sidebarCollapsed / sidebarWidth 등 Tweaks 컨트롤 흡수(구 shared/ui/TweaksPanel 부재) — electron-store 동기화. 더미 업데이트·wire log·SSO bypass 토글 포함. |
 | (SearchModal) `app/SearchModal.tsx`                            | (모달 — `#app-frame-modal` 슬롯)        | —                   | —                             | **✅ Phase 3++ 활성**     | FTS5 대화 검색. Header 검색 버튼 → `searchOpen` lift → OverlayLayer conditional mount.                                                                                       |
 
@@ -119,7 +119,7 @@
 
 ### 3.2 스트리밍 응답 수신
 
-`useChat()` 의 패턴 (`features/chat/hooks/useChat.ts` — `shared/api/ipc.ts` 의 `chatApi.onEvent` 경유):
+수신 배선은 `features/chat/store/chatStore.ts` 가 갖는다 — 스토어 초기화가 `chatApi.onEvent(ingestChatEvent)`(`chatStore.ts:1243`, `shared/api/ipc.ts` 래퍼 경유)를 구독한다:
 
 ```typescript
 import { chatApi } from "../../../shared/api/ipc";

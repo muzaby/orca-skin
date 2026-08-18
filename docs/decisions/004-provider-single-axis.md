@@ -1,5 +1,9 @@
 # ADR-004 — 인증은 `Provider` 단일 축. 프로토콜이 아니라 *관계* 로 가른다
 
+> **승계 (0188)**: 아래 본문은 **0181 결정 시점의 기록**이다. `contracts/provider.ts` 와 `Provider` 타입은 그 뒤
+> `contracts/auth.ts` 의 `AuthDefinition` 으로 승계됐고 소비 슬롯(`kind`·`llm`·`tools`·`usage`)은 선언에서 빠졌다
+> — 현재 구조는 [`../arch/backend/auth.md`](../arch/backend/auth.md) 가 갖는다. 단일 축이라는 **결정 자체는 유효하다**.
+
 ## 문제
 
 앱 로그인(사내 SSO 게이트) · LLM 자격증명 · 사내 REST 서비스 연결은 서로 다른 것처럼 보인다.

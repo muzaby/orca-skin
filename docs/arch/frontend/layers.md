@@ -66,7 +66,8 @@ src/renderer/
     │   ├── update/                  # UpdateProvider, updateStore(dummyMode 포함), UpdateDialog, UpdateDebugSection — 인앱 업데이트 UX (0085/0086)
     │   ├── providers/               # 연결(provider) — GateLogin(로그인 랜딩), useProviderGate, ProviderDetail,
     │   │                            #   principal.ts(신원 선택 규칙, 순수), bypassStore(DEV 우회 토글)
-    │   ├── skills/                  # useSkillsMcp, SkillsCustomizeView + customize/ (rail·list·detail·모달들), AddMcpServerModal
+    │   ├── skills/                  # ExtensionsCatalogModal/View + customize/ (rail·list·detail·모달들),
+    │   │                            #   useCustomizeSkills·useMcpServers·useProviders, extensionsModalStore, AddMcpServerModal
     │   ├── engine/                  # AgentEnvironmentView(구 EngineView), EngineFormModal(단일 화면, 0090), EngineCard, EngineModelList
     │   ├── camera/                  # CameraView
     │   ├── captures/                # CapturesView
@@ -91,58 +92,7 @@ src/renderer/
         └── app.css                  # @import tailwindcss + @layer base + @utility kbd
 ```
 
-> **부재 확인 (`frame/` · `screens/` · `state/` · `components/`)**: 위 세 디렉토리는 코드에 존재하지 않는다. PR #29 가 이들을 4-layer 로 완전 해체했다. 과거 매핑은 §1-2 이행 이력 참조.
-
-### 1-2. 이행 이력 (PR #29 적용 완료, 2026-05-27)
-
-> 본 절은 **이행 이력** 으로만 보존. 현재 상태는 §1-1 가 SSOT. PR #29 가 `frame/` · `screens/` · `state/` 를 모두 해체해 아래 매핑대로 분산했다.
-
-**`frame/` 해체 귀속 매핑:**
-
-| 구 위치 | 현 위치 |
-|---|---|
-| `frame/Header.tsx` | `app/Header.tsx` |
-| `frame/Sidebar.tsx` (레이아웃) | `app/Sidebar.tsx` |
-| `frame/ModalLayer.tsx` + `frame/DebugLayer.tsx` | `app/OverlayLayer.tsx` (통합 3슬롯) |
-| `frame/header/WinControls.tsx` | `app/WinControls.tsx` |
-| `frame/Frame.tsx` / FrameGrid | `app/AppLayout.tsx` 인라인 흡수 |
-| `frame/ChatTile.tsx` | `features/chat/components/ChatTile.tsx` |
-| `frame/composer/` (전체) | `features/chat/components/composer/` |
-| `frame/sidebar/SessionRow.tsx` | `features/sessions/components/SessionRow.tsx` |
-| `frame/modal/InstallerDialog.tsx` · `AuthExpiredModal.tsx` | `features/backend/components/` |
-| `frame/debug/TweaksPanel.tsx` | `shared/ui/TweaksPanel.tsx` (이후 dev 전용 `features/debug/components/DebugPanel.tsx` 로 흡수 — 현재 TweaksPanel 파일 부재) |
-| `frame/debug/useTweaks.ts` | `shared/hooks/useTweaks.ts` |
-| `frame/theme.ts` | `shared/config/theme.ts` |
-
-**`screens/` 해체 귀속 매핑:**
-
-| 구 위치 | 현 위치 |
-|---|---|
-| `screens/registry.ts` | `shared/navigation/screens.ts` + `shared/types/screen.ts` |
-| `screens/CameraScreen.tsx` | `features/camera/components/` |
-| `screens/ProjectsScreen.tsx` | `features/projects/components/` |
-| `screens/ProjectDetailScreen.tsx` | (해체) `pages/ProjectLandingPage.tsx` + `features/projects/components/ProjectLandingHeader.tsx` + `ProjectInstructionsSidebar.tsx` |
-| `screens/EngineScreen.tsx` | `features/engine/components/` |
-| `screens/SkillsMcpScreen.tsx` | `features/skills/components/` |
-| `screens/CapturesScreen.tsx` | `features/captures/components/` |
-| `screens/chat/` (transcript 부속) | `features/chat/components/transcript/` |
-| `screens/chat/markdown/` | `features/chat/components/markdown/` |
-| `screens/projects/CreateProjectModal.tsx` · `EditInstructionsModal.tsx` | `features/projects/components/` |
-
-**`state/` 해체 귀속 매핑:**
-
-| 구 위치 | 현 위치 |
-|---|---|
-| `state/chatReducer.ts` | `features/chat/reducer/chatReducer.ts` |
-| `state/useChat.ts` | `features/chat/hooks/useChat.ts` |
-| `state/useSkillAutocomplete.ts` · `useFileAutocomplete.ts` | `features/chat/hooks/` |
-| `state/useSessions.ts` | `features/sessions/hooks/` |
-| `state/useProjects.ts` | `features/projects/hooks/` |
-| `state/useProjectSessions.ts` | `features/sessions/hooks/` |
-| `state/useBackend.ts` | `features/backend/hooks/` |
-| `state/useSkills.ts` | `shared/hooks/useSkills.ts` |
-
-**`window.orca.*` 직접 호출 → 래퍼 경유**: PR #29 에서 `shared/api/ipc.ts` 타입드 래퍼 도입. `features/` 내부에서 `window.orca.*` 직접 호출 0건 확인.
+> **부재 확인 (`frame/` · `screens/` · `state/` · `components/`)**: 위 네 디렉토리는 코드에 존재하지 않는다. 4-layer 로 완전 해체됐다(PR #29). 해체 전후 귀속 매핑은 `git log`(PR #29, 2026-05-27)가 갖는다 — 이력은 architecture 가 아니다(`docs/AGENTS.md` 규칙 4).
 
 ### 1.1 디렉토리 책임 규칙
 
@@ -208,7 +158,7 @@ app/AppLayout.tsx
 
 | 항목 | 적용 후 상태 |
 |---|---|
-| `frame/` 디렉토리 | ✅ 부재 — `app/` / `features/` / `shared/` 로 완전 분산 (§1-2 매핑) |
+| `frame/` 디렉토리 | ✅ 부재 — `app/` / `features/` / `shared/` 로 완전 분산 |
 | ChatTile 위치 | ✅ `features/chat/components/ChatTile.tsx` |
 | Composer 위치 | ✅ `features/chat/components/composer/` |
 | 오버레이 | ✅ `app/OverlayLayer.tsx` 통합 (overlay/modal/debug 3슬롯, z 부호 반전 토글) |

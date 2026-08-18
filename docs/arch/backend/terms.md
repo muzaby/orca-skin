@@ -27,7 +27,7 @@
 | **AdapterRegistry** | 등록된 어댑터들의 설치 상태를 추적하고 활성 백엔드를 고른다. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 | **ClaudeCodeAdapter** | claude-code SDK 의 `query()` 를 직접 부르고, 그 메시지를 ChatEvent 로 정규화하는 구현체. | [adapters.md §1](./adapters.md) |
 | **ExtensionBuilder / TurnExtensions** | DB·MCP·Skills 를 모아 백엔드 중립적인 "확장 묶음"(mcpConfig·systemPromptAppend·skills·hooks)을 만든다. (구 CapabilityBuilder/OrcaCapabilities — handoff 0062 개명.) | [adapters.md §1](./adapters.md) |
-| **OrcaHookSet** | before-tool·after-tool·on-prompt 같은 *시점별 콜백* 모음. 어댑터별 hook 을 정규화. | [adapters.md §3](./adapters.md) |
+| **NormalizedHookSet** | before-tool·after-tool·on-prompt 같은 *시점별 콜백* 모음. 어댑터별 hook 을 정규화(`adapters/hooks.ts`). | [adapters.md §3](./adapters.md) |
 
 ## 3. 영속성 (데이터를 저장하는 곳)
 

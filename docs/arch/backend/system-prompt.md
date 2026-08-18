@@ -103,7 +103,7 @@ Decision rationale: [ADR-002 feature slice boundaries](../../decisions/002-featu
 
 | 가이드 전제 | Orca 현실 |
 |---|---|
-| 3장 "대화마다 고유 cwd" | 현재 cwd = `app.getPath('home')` **고정**(`ipc/router.ts`). per-session cwd 는 Future Scope. `excludeDynamicSections:false` 결정은 유효하나 근거는 "동적섹션 유지" 자체이지 per-session cwd 가 아님 |
+| 3장 "대화마다 고유 cwd" | 현재 cwd 는 **프로젝트 단위**다 — `Bootstrap.getCwd(projectId)`(`app/bootstrap.ts`·`app/context.ts`)가 프로젝트 미소속이면 `projects/default`, 소속이면 `projects/<이름>-<프로젝트ID8>` 을 준다. **대화(세션)마다 고유 cwd 는 아니다** — Future Scope. `excludeDynamicSections:false` 결정은 유효하나 근거는 "동적섹션 유지" 자체이지 per-session cwd 가 아님 |
 | 6장 VOLATILE = 날짜·**메모리 스냅샷** → 첫 user 메시지 | Orca 에 **메모리 기능 없음**. 날짜는 preset 동적섹션이 이미 주입. 현재 격리할 volatile preamble 자체가 없음 → 미구현(기능 도입 시 재검토) |
 | 5.3 `src/agent/systemPrompt/` 경로 | Orca 엔 미존재. main feature 슬라이스에 맞춰 `features/extensions/system-header.ts`(빌더 동일 slice)로 매핑 |
 
@@ -127,7 +127,7 @@ Decision rationale: [ADR-002 feature slice boundaries](../../decisions/002-featu
 | | 내용 |
 |---|---|
 | 가이드 처방 | `settings:{ env: appEnv }` — 앱 env 를 settings 에 단일 주입 |
-| Orca 확정 | provider env→`options.settings`(JSON 문자열, `adaptSettings`) / 시스템(턴) env→`options.env`(`adaptEnv`)로 **분리**. `splitProviderSettings` + branded 타입(`ArgvSafeSettings`/`SubprocessEnv`)이 컴파일타임 강제. handoff 0015/0018/0028 |
+| Orca 확정 | provider env→`options.settings`(JSON 문자열, `adaptSettings`) / 시스템(턴) env→`options.env`(`adaptEnv`)로 **분리**. 분리 지점은 `adapters/claude-adapt.ts` 의 `adaptSettings`/`adaptEnv` 두 함수다. (0015/0018 의 `splitProviderSettings`·branded 타입 컴파일타임 강제는 **0028 이 제거**했다 — [security.md §1.7](./security.md) 이력.) handoff 0015/0018/0028 |
 | 분석 | Orca 분리 모델이 더 정밀(어떤 env 가 어느 레이어로 가는지 타입으로 고정). 가이드의 단일 주입은 이 구분을 잃음 |
 | 권고 | **현행 유지**(분리) |
 

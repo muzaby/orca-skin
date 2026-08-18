@@ -59,7 +59,7 @@
 | AuthExpiredModal | Phase 2 | ✅ 완료 | `features/backend/components/AuthExpiredModal.tsx` — `error / auth.expired` 이벤트 트리거 |
 | InstallerDialog | Phase 2 | ✅ 완료 | `features/backend/components/InstallerDialog.tsx` — claude-code 는 SDK 자동 처리로 즉시 done |
 | Tweaks (theme/density/sidebar) + electron-store 영속화 | Phase 2+ | ✅ 완료 | `shared/hooks/useTweaks` — 컨트롤 UI 는 dev 전용 `features/debug/components/DebugPanel.tsx` (구 shared/ui/TweaksPanel 부재). 테마는 white/dark 2종 |
-| 세션 재개 (lastSessionId 부팅 복원) | Phase 2+ | ✅ 완료 | `RESTORE_SESSION` 액션 |
+| 세션 재개 (lastSessionId 부팅 복원) | Phase 2+ | ✅ 완료 | 부팅 스텝 `landing-target`(`app/boot/steps.ts`)이 `settings.lastSessionId` 로 랜딩 경로를 정한다 |
 | DOM Architecture 마커 체계 (`app-frame-*` + `data-*`) | Phase 3+ | ✅ 완료 | dom-architecture.md — 단일 PR 일괄 적용 (`45e129f`) |
 | Custom titlebar (`frame: false` + 윈도우 컨트롤 IPC) | Phase 3+ | ✅ 완료 | rendering.md §1.5 — 플랫폼 분기 + IPC 3채널 |
 | Grid z-stack (overlay/modal/debug 3슬롯) | Phase 3+ | ✅ 완료 | dom-architecture.md.5 — z 부호 반전 토글 (정정 `acf1295`) |
@@ -73,7 +73,7 @@
 | **Header 액션 5-버튼 툴바** | Phase 3++ | ✅ 완료 | menu (popover · 종료 menuitem → windowApi.close) · panelL (사이드바 접기 토글) · search (대화 검색 모달) · arrowL/arrowR (navigate ∓1, 항상 enabled). HeaderProps `onOpenSearch` prop 만 노출. |
 | **FTS5 대화 검색 모달** | Phase 3++ | ✅ 완료 | `0003_messages_fts.sql` 마이그레이션 (가상 테이블 + 3 트리거 + 백필). `orca:search:messages` IPC (IPC_CONTRACT §2.9). `app/SearchModal.tsx` (150ms debounce + request id supersede + `<mark>` split-parse XSS 방어). `toFtsMatch` 가 모든 토큰에 prefix wildcard `*` 부착. |
 | **활성 효과 URL 동기화** | Phase 3++ | ✅ 완료 | `useSessionHandlers` 의 `currentSessionId` 를 `matchPath('/chat/:sessionId', pathname)` 로 도출 — `ChatContext.state.sessionId` 의존 제거 (캐시/IPC 용도로만 잔존). Sidebar nav '새 대화' isActive 도 `p === '/new'` 로 좁힘. |
-| **MCP 서버 지원 + nav Skills & MCP 항목** | Phase 3++ | ✅ 완료 | nav 4번째 항목 'Skills & MCP'(`/skills`) 신설. `SkillsCustomizeView`(구 SkillsMcpView) MCP 섹션 실 연동 (`orca:mcp:*` + `AddMcpServerModal` stdio/http). `McpStore`(파일-백드 mcp.json, 인증값 `safeStorage` 암호화). 활성 서버를 `query().options.mcpServers`+`allowedTools`(`mcp__<name>__*`) 에 전역 주입. | (0159 r3: 플러그인 모달로 전환)
+| **MCP 서버 지원 + nav Skills & MCP 항목** | Phase 3++ | ✅ 완료 | nav 4번째 항목 'Skills & MCP'(`/skills`) 신설. `ExtensionsCatalogView`(구 SkillsMcpView·SkillsCustomizeView) MCP 섹션 실 연동 (`orca:mcp:*` + `AddMcpServerModal` stdio/http). `McpStore`(파일-백드 mcp.json, 인증값 `safeStorage` 암호화). 활성 서버를 `query().options.mcpServers`+`allowedTools`(`mcp__<name>__*`) 에 전역 주입. | (0159 r3: 플러그인 모달로 전환)
 | Projects 화면 | Phase 1 | 🚧 mockup 만 | Future Scope |
 | 엔진 & 모델 화면 (`/agent`) | Phase 4 | ✅ CRUD 활성 (0021·0090) | `AgentEnvironmentView` + provider CRUD(`EngineFormModal` 단일 화면 + `~/.claude/settings.json` 불러오기, 0090) |
 | SkillsMcp 화면 — Skills 좌측·권한 토글 | Phase 1 | 🚧 mockup 만 (MCP 섹션은 Phase 3++ 실 연동) | Phase 4+ (`canUseTool`/`permissionMode`) |

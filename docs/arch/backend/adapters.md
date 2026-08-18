@@ -64,7 +64,7 @@ async function* sendMessage(sessionId, text, cwd, caps, resolvedMcp, signal) {
 }
 ```
 
-`adaptMcp` 는 활성 서버가 없으면 옵션 자체를 빈 객체로 반환(생략). `allowedTools` 는 `mcp__<name>__*` 와일드카드로 서버 전체 도구 자동 허용 — `canUseTool` 미도입(Phase 4 anchor) 환경에서 도구 호출 차단 방지. **신 설계(0024 구현됨 / disallowedTools 보류)**: `adaptSettings` 는 `settingSources` 옵션을 주입하지 않아 SDK 기본 소스(user/project/local)가 활성화되며(격리 해제 — handoff 0014/0015 폐기), Orca 가 막아야 할 도구는 `disallowedTools` 로 차단한다(해석은 `adapters/claude-settings.ts` 의 `loadClaudeProviderSettings` — SDK `resolveSettings` + `filterEscalatingDefaultMode` + env `${VAR}` 확장·secret 주입, 캐시는 `settings/provider-settings.ts`). `claude-adapt.ts` 는 0024에서 `settingSources`·`plugins` 주입 제거까지 정렬됐다. `disallowedTools` 는 D1 사용자 결정 전이라 보류.
+`adaptMcp` 는 활성 서버가 없으면 옵션 자체를 빈 객체로 반환(생략). `allowedTools` 는 `mcp__<name>__*` 와일드카드로 서버 전체 도구 자동 허용 — `canUseTool` 미도입(Phase 4 anchor) 환경에서 도구 호출 차단 방지. **신 설계(0024 구현됨 / disallowedTools 보류)**: `adaptSettings` 는 `settingSources` 옵션을 주입하지 않아 SDK 기본 소스(user/project/local)가 활성화되며(격리 해제 — handoff 0014/0015 폐기), Orca 가 막아야 할 도구는 `disallowedTools` 로 차단한다(해석은 `adapters/claude-settings.ts` 의 `loadClaudeProviderSettings` — SDK `resolveSettings` + `filterEscalatingDefaultMode` + env `${VAR}` 확장·secret 주입, 캐시는 `features/harnesses/settings.ts` 의 `HarnessSettingsService`). `claude-adapt.ts` 는 0024에서 `settingSources`·`plugins` 주입 제거까지 정렬됐다. `disallowedTools` 는 D1 사용자 결정 전이라 보류.
 
 ### 1.4 ExtensionBuilder (백엔드 중립 확장 조립)
 
@@ -78,7 +78,7 @@ interface TurnExtensions {
   mcpConfig: OrcaMcpConfig          // 확장 전 정규 소스 (${VAR} 미확장)
   systemPromptAppend?: string       // 프로젝트 지침 (DB)
   skills: SkillInfo[]               // 가시화 메타 (어댑트는 항상-on)
-  hooks: OrcaHookSet                // before-tool / after-tool / prompt-submit 핸들러 집합
+  hooks: NormalizedHookSet                // before-tool / after-tool / prompt-submit 핸들러 집합
 }
 ```
 
@@ -220,7 +220,7 @@ opencode 등 다중 어댑터 환경 대비:
 | **MCP** | `mcp.json` (`OrcaMcpConfig`) | `toClaudeConfig` → `options.mcpServers` + `allowedTools`; 디스크 거울 `dist/<engine>/.mcp.json`(${VAR} 보존) | `toOpencodeConfig` → `opencode.json` `mcp` | ✅ 구현됨 |
 | **Skill** | `skills/<n>/SKILL.md` | `dist/<engine>/.claude/skills/` 배포 → `settingSources` 경로로 발견(`skills:'all'`) | 네이티브 글로빙 경로로 심링크/복사 | ✅ 변환 불필요(양 백엔드 공통) |
 | **systemPrompt** | 중립 문자열(프로젝트 지침) | `preset:'claude_code' + append` | opencode system prompt 옵션 | ⏳ |
-| **Hook(런타임)** | **런타임 전용** — 배포 자산 아님 | `options.hooks` in-process 콜백(claude-side `OrcaHookSet`, §3.2.5) | 네이티브 플러그인 모듈 | ❌ 정규화 안 함(§3.2) |
+| **Hook(런타임)** | **런타임 전용** — 배포 자산 아님 | `options.hooks` in-process 콜백(claude-side `NormalizedHookSet`, §3.2.5) | 네이티브 플러그인 모듈 | ❌ 정규화 안 함(§3.2) |
 
 → "어댑터를 Orca 범용 데이터 계층으로"라는 질문의 답은 이 표다: **어댑터는 표의 *세로 한 칸*(자기 백엔드 열)만 안다. 가로(자산 종류)와 정규 소스(Tier A)는 어댑터 밖이 소유한다.**
 
@@ -232,17 +232,17 @@ opencode 등 다중 어댑터 환경 대비:
 
 > **결론 (2026-06-05 정정 — [standardization.md §2](./standardization.md) 채택)**: Hook 은 **cross-tool 표준이 부재**하고 엔진별 실행 모델이 근본적으로 다르므로(shell exit code / in-process throw / config matcher) **정규화하지 않고 엔진별로 분리**한다. 배포 계층에서 사용자 작성 hook 의 **파일 배포는 추후 claude plugin 지원으로 연기**한다(engine-specific — §3.1, standardization.md §2). 런타임 hook(`options.hooks` in-process, §3.2.5)은 그와 별개로 어댑터 구현 디테일로 유지된다.
 >
-> 아래 §3.2.1~3.2.4 의 기술 분석은 **이 결론의 근거로 보존**한다 — 분석이 입증하는 것은 정확히 "교차-엔진 정규화는 out-of-process 브릿지 비용·표현력 손실·이벤트 택소노미 갭으로 손익이 맞지 않는다"는 점이다. (이전 라운드는 같은 분석에서 "정규화 가능 표면이 크다"는 *반대 결론*을 냈으나, 표준화 설계 채택으로 입장을 정정한다.) 단, **claude-side in-process `OrcaHookSet`** 은 교차-tool 표준이 아니라 *claude 어댑터 구현 디테일*로서 코드에 존재하며 유지된다(§3.2.5).
+> 아래 §3.2.1~3.2.4 의 기술 분석은 **이 결론의 근거로 보존**한다 — 분석이 입증하는 것은 정확히 "교차-엔진 정규화는 out-of-process 브릿지 비용·표현력 손실·이벤트 택소노미 갭으로 손익이 맞지 않는다"는 점이다. (이전 라운드는 같은 분석에서 "정규화 가능 표면이 크다"는 *반대 결론*을 냈으나, 표준화 설계 채택으로 입장을 정정한다.) 단, **claude-side in-process `NormalizedHookSet`** 은 교차-tool 표준이 아니라 *claude 어댑터 구현 디테일*로서 코드에 존재하며 유지된다(§3.2.5).
 
 #### 3.2.1 왜 hook 이 "어려운" 자산인가 (MCP 와의 차이)
 
 MCP/skill 은 **정적 선언 데이터**다 — 디스크 파일을 다른 형식의 디스크 파일/옵션으로 변환하면 끝. Hook 은 **실행 시점 콜백 + 양방향 제어 흐름**이다 — 이벤트가 발생하고(런타임), 로직이 결정을 *되돌려*(allow/block/inject) 에이전트 진행을 바꾼다. 정적 변환만으로는 안 되고 *실행 주체*가 어딘가 있어야 한다. 그 실행 주체의 위치가 백엔드마다 다른 게 난점의 핵심이다 (§3.2.4).
 
-#### 3.2.2 중립 이벤트 어휘 — `OrcaHookEvent`
+#### 3.2.2 중립 이벤트 어휘 — `NormalizedHookEvent`
 
 claude SDK 이벤트(`docs/spec/claude/agent-sdk/hooks.md`)를 Orca 중립 어휘로 매핑한다. **교집합을 코어로, 백엔드 전용은 메타데이터로 표시**한다.
 
-| `OrcaHookEvent` | claude 이벤트 | opencode 대응(추정) | 코어/전용 |
+| `NormalizedHookEvent` | claude 이벤트 | opencode 대응(추정) | 코어/전용 |
 |---|---|---|---|
 | `before-tool` | `PreToolUse` | tool.execute.before | 코어(양쪽) |
 | `after-tool` | `PostToolUse` | tool.execute.after | 코어 |
@@ -254,13 +254,13 @@ claude SDK 이벤트(`docs/spec/claude/agent-sdk/hooks.md`)를 Orca 중립 어�
 | `before-compact` | `PreCompact` | (없을 수 있음) | claude 전용 |
 | (없음) | `WorktreeCreate` 등 claude TS 전용 다수 | — | claude 전용 |
 
-**한계 명시**: claude 의 hook 이벤트 목록(`hooks.md` 표)은 opencode 보다 훨씬 풍부하다(`PostToolBatch`, `Worktree*`, `TeammateIdle` 등). → `OrcaHookEvent` 의 각 항목에 **`supportedBackends` 메타**를 달고, 미지원 백엔드에서는 UI 에서 해당 hook 을 비활성/경고한다. 정규화는 *교집합* 에서 무손실, *전용 영역* 은 §3.2.5 이스케이프 해치로.
+**한계 명시**: claude 의 hook 이벤트 목록(`hooks.md` 표)은 opencode 보다 훨씬 풍부하다(`PostToolBatch`, `Worktree*`, `TeammateIdle` 등). → `NormalizedHookEvent` 의 각 항목에 **`supportedBackends` 메타**를 달고, 미지원 백엔드에서는 UI 에서 해당 hook 을 비활성/경고한다. 정규화는 *교집합* 에서 무손실, *전용 영역* 은 §3.2.5 이스케이프 해치로.
 
 #### 3.2.3 중립 입출력 형식
 
 ```ts
-interface OrcaHookContext {        // 핸들러가 받는 것 (claude HookInput 의 중립화)
-  event: OrcaHookEvent
+interface NormalizedHookContext {        // 핸들러가 받는 것 (claude HookInput 의 중립화)
+  event: NormalizedHookEvent
   sessionId: string
   cwd: string
   toolName?: string                // before/after-tool
@@ -271,7 +271,7 @@ interface OrcaHookContext {        // 핸들러가 받는 것 (claude HookInput 
   raw: unknown                     // 백엔드 원본 payload 패스스루 (필드명/구조 미스매치 흡수, §3.2.5)
 }
 
-interface OrcaHookDecision {       // 핸들러가 돌려주는 것 (claude HookOutput 의 중립화)
+interface NormalizedHookDecision {       // 핸들러가 돌려주는 것 (claude HookOutput 의 중립화)
   decision?: 'allow' | 'deny' | 'ask'  // ↔ permissionDecision (claude 'defer' 는 제외 — §3.2.5)
   reason?: string                  // ↔ permissionDecisionReason / stopReason
   injectContext?: string           // ↔ additionalContext / systemMessage (대화에 컨텍스트 주입)
@@ -280,7 +280,7 @@ interface OrcaHookDecision {       // 핸들러가 돌려주는 것 (claude Hook
   continue?: boolean               // ↔ continue
 }
 
-type OrcaHookHandler = (ctx: OrcaHookContext) => Promise<OrcaHookDecision> | OrcaHookDecision
+type NormalizedHookHandler = (ctx: NormalizedHookContext) => Promise<NormalizedHookDecision> | NormalizedHookDecision
 ```
 
 여러 핸들러가 같은 이벤트에 등록되면 **충돌 해소 규칙을 정규 규칙으로 명문화**한다(claude 의 우선순위와 일치): `deny > ask > allow`. (claude 고유의 `defer` 는 §3.2.5 escape-hatch.)
@@ -288,10 +288,10 @@ type OrcaHookHandler = (ctx: OrcaHookContext) => Promise<OrcaHookDecision> | Orc
 claude 의 `HookCallback`/`HookOutput`(`hooks.md` 예제 참조)과 **거의 1:1 매핑**된다. `.env` 보호 예제(`hooks.md`)를 중립 핸들러로 쓰면:
 
 ```ts
-const protectEnv: OrcaHookHandler = (ctx) =>
+const protectEnv: NormalizedHookHandler = (ctx) =>
   (ctx.toolName?.match(/Write|Edit/) && String((ctx.toolInput as any)?.file_path).endsWith('.env'))
-    ? { action: 'block', reason: 'Cannot modify .env files' }
-    : { action: 'allow' }
+    ? { decision: 'deny', reason: 'Cannot modify .env files' }
+    : { decision: 'allow' }
 ```
 
 **한계 명시**: ① claude 의 `hookSpecificOutput`(불투명·이벤트별 확장 필드)과 `defer`(쿼리 종료 후 재개) 결정은 중립 형식으로 완전 흡수 불가 → §3.2.5 이스케이프 해치. ② 백엔드 payload 필드명/구조 미스매치(`tool_input`(snake) vs opencode 필드)는 코어가 공통 필드만 약속하고 원본은 `raw` 로 패스스루 — 어댑터가 `raw` 를 채운다.
@@ -300,27 +300,36 @@ const protectEnv: OrcaHookHandler = (ctx) =>
 
 여기가 "정규화 가능 / 불가능"이 갈리는 지점이다.
 
-- **claude (인프로세스)**: SDK 가 `query().options.hooks` 로 **인프로세스 TS 콜백**을 받는다. → Orca 가 hook 로직을 `OrcaHookHandler`(인프로세스 함수)로 소유하고, claude 어댑터는 이를 claude `HookCallback` 으로 **얇게 래핑**해 넘기면 된다. **claude 단독 운영에서는 거의 완전 정규화** — 어휘·입출력·로직 전부 Orca 소유, 어댑터는 시그니처 어댑팅만.
+- **claude (인프로세스)**: SDK 가 `query().options.hooks` 로 **인프로세스 TS 콜백**을 받는다. → Orca 가 hook 로직을 `NormalizedHookHandler`(인프로세스 함수)로 소유하고, claude 어댑터는 이를 claude `HookCallback` 으로 **얇게 래핑**해 넘기면 된다. **claude 단독 운영에서는 거의 완전 정규화** — 어휘·입출력·로직 전부 Orca 소유, 어댑터는 시그니처 어댑팅만.
 
 - **opencode (out-of-process `serve`)**: opencode 는 HTTP 서버로 동작하고 hook 을 **별도 TS 플러그인 코드 모듈**로 로드한다. Orca 메인 프로세스의 인프로세스 콜백을 직접 호출할 수 없다. 두 가지 길:
-  - **(A) 코드생성 브릿지**: opencode config 에 *thin 플러그인 모듈*을 생성해 두고, 그 모듈이 발생 이벤트를 Orca 메인으로(local HTTP/IPC) 되돌려 `OrcaHookHandler` 를 실행 → 결정을 회신. 임의 TS 로직을 그대로 살릴 수 있으나, **`before-tool` 같은 동기 게이팅은 왕복(round-trip) 레이턴시**가 붙는다(도구 실행을 막아 세우고 메인의 응답을 기다림). 후처리/로깅 계열(`after-tool`, `on-*`)은 비동기라 비용이 작다.
+  - **(A) 코드생성 브릿지**: opencode config 에 *thin 플러그인 모듈*을 생성해 두고, 그 모듈이 발생 이벤트를 Orca 메인으로(local HTTP/IPC) 되돌려 `NormalizedHookHandler` 를 실행 → 결정을 회신. 임의 TS 로직을 그대로 살릴 수 있으나, **`before-tool` 같은 동기 게이팅은 왕복(round-trip) 레이턴시**가 붙는다(도구 실행을 막아 세우고 메인의 응답을 기다림). 후처리/로깅 계열(`after-tool`, `on-*`)은 비동기라 비용이 작다.
   - **(B) 선언형 변환**: 단순·선언형 hook(예: "이 도구는 차단", "이 프롬프트에 이 텍스트 주입")만 opencode 네이티브 형식으로 정적 변환. **임의 TS 로직은 표현 불가** → 표현력 손실.
 
 → **정규화 불가 영역이 이만큼으로 좁혀진다**: ① opencode 의 out-of-process 브릿지 비용(레이턴시) + ② (B 경로 선택 시) 표현력 한계 + ③ §3.2.2 의 백엔드 전용 이벤트. **이벤트 어휘·결정 형식·핸들러 로직 자체는 정규화된다.**
 
-#### 3.2.5 코드 현실: claude-side in-process `OrcaHookSet` (교차-tool 표준 아님)
+#### 3.2.5 코드 현실: claude-side in-process `NormalizedHookSet` (교차-tool 표준 아님)
 
-> **코드 진실**: `OrcaHookSet` 은 이미 구현·테스트된 코드다 — `adapters/hooks.ts`(`OrcaHookSet`/`OrcaHookEvent`, 구 capabilities/hooks.ts), `adapters/claude-adapt.ts`(`adaptHooks()` + `ORCA_TO_CLAUDE_EVENT`), `claude-adapt.test.ts`, `features/extensions/builder.ts`(구 capabilities/builder.ts — 현재 `hooks: { normalized: {} }` — 빈 핸들러). 이는 **claude 어댑터가 SDK `query().options.hooks` 로 넘기는 in-process 콜백**의 형태이며, **교차-엔진(claude+opencode) 정규화 표준이 아니다**. §3.2 정정에 따라 `normalized` 는 *앱이 주입하는 claude 전용 in-process hook* 의 컨테이너로 재해석하고, `backendSpecific` 슬롯이 엔진별 분리(§2 채택)의 코드 표현이다. opencode 의 hook 은 `backendSpecific.opencode`(네이티브 플러그인 모듈 경로)로 분리되며 `normalized` 로 합치지 않는다.
+> **코드 진실**: 위 §3.2.2~3.2.4 가 설계한 중립 모델은 **`Normalized*` 이름으로 코드가 됐다** — `adapters/hooks.ts`
+> (`NormalizedHookEvent` 9종 · `NormalizedHookContext` · `NormalizedHookDecision` · `NormalizedHookHandler` ·
+> `NormalizedHookSet` · `resolveHookDecisions`), `adapters/claude-adapt.ts`(`adaptHooks()` + `NORMALIZED_TO_CLAUDE_EVENT`),
+> `claude-adapt.test.ts`(`describe('adaptHooks')`), `adapters/turn.ts` 의 `TurnExtensions.hooks: NormalizedHookSet`,
+> `features/extensions/builder.ts:73`(현재 `hooks: { normalized: {} }` — 빈 핸들러). 이는 **claude 어댑터가 SDK
+> `query().options.hooks` 로 넘기는 in-process 콜백**의 형태이며, **교차-엔진(claude+opencode) 정규화 표준이 아니다**.
+> §3.2 정정에 따라 `normalized` 는 *앱이 주입하는 claude 전용 in-process hook* 의 컨테이너로 재해석하고,
+> `backendSpecific` 슬롯이 엔진별 분리(§2 채택)의 코드 표현이다. opencode 의 hook 은 `backendSpecific.opencode`
+> (네이티브 플러그인 모듈 경로)로 분리되며 `normalized` 로 합치지 않는다.
 
 ```ts
-interface OrcaHookSet {
+// 정본은 `adapters/hooks.ts`
+interface NormalizedHookSet {
   // 양 백엔드가 어댑트하는 중립 코어 (§3.2.2 교집합 이벤트만)
-  normalized: Partial<Record<OrcaHookEvent, OrcaHookHandler[]>>
+  normalized: Partial<Record<NormalizedHookEvent, NormalizedHookHandler[]>>
 
   // 환원 불가 영역을 위한 탈출구 — 정규화하지 않고 그대로 전달
   backendSpecific?: {
-    'claude-code'?: unknown   // 예: 선언형 hooks.json 조각, hookSpecificOutput 사용 콜백
-    'opencode'?: unknown      // 예: opencode 네이티브 플러그인 모듈 경로
+    claude?: unknown     // 예: 선언형 hooks.json 조각, hookSpecificOutput 사용 콜백
+    opencode?: unknown   // 예: opencode 네이티브 플러그인 모듈 경로
   }
 }
 ```

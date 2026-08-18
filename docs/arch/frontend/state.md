@@ -99,7 +99,7 @@ Context + useReducer 도 외피 (`sessions: Record<sessionId, ChatState>`) 변�
 #### 4.4.5 전환 시 영향 범위
 
 - ✅ **(0008 완료)** `features/chat/store/chatStore.ts` 도입 — 단, reducer 를 폐기하지 않고 **순수 `chatReducer` 를 store 액션이 래핑**한다(테스트 자산·불변식 보존). Phase 4 에 `sessionId` 인자 추가.
-- ✅ **(0008 완료)** `useChat.ts` 의 useReducer/Context 패턴 → `useChatSession(selector)`/`chatActions` 로 교체 (`UseChat` 객체·`useChatContext` 폐기, `ChatProvider` 는 부트스트랩 effect 전용).
+- ✅ **(0008 완료)** 구 `useChat.ts` 의 useReducer/Context 패턴 → `useChatSession(selector)`/`chatActions` 로 교체 (`UseChat` 객체·`useChatContext` 폐기, `ChatProvider` 는 부트스트랩 effect 전용).
 - ✅ **(0008 완료)** IPC onEvent 핸들러 → 코얼레서 → store `receive(ev)` 외부 dispatch.
 - ✅ **(0013 완료)** Backend/Sessions/Projects/Cost Context → feature 별 Zustand store 흡수(Provider 는 bootstrap-only). 잔여: `shared/hooks/useTweaks` · `useSkills` · `useAgents` (소규모 — 후속 검토).
 - `app/AppLayout.tsx` 의 props drilling (현 `newChatSlot` / `sessionsSlot` / `footerSlot` 슬롯) 은 store 직접 구독으로 단순화 가능 — 단, `shared/ui/` 의 presentational 규칙 (layers.md §1.1) 은 유지.
