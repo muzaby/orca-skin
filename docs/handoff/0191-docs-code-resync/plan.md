@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-18 |
 | 매핑 | — (문서 전용) |
-| 상태 | READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → **verify/FAIL (r4)** |
+| 상태 | … → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) → **verify/FAIL (r5)** |
 
 # Part I — Product & UX Contract
 
@@ -1099,3 +1099,16 @@ F2 와 같은 뿌리다 — `stream-json` 이 실제 CLI 플래그라 `외부` �
 - **G1·G3·G5·G6 은 한 불변식이다** — "인용 심볼은 부분 문자열이 아니라 **단어 경계로** 실재해야 한다". §19 한 글자(`-F`→`-wF`)로 분모가 220 → 275 로 열리고, 늘어난 55사이트를 전건 분류·시제 판정하면 네 건이 같이 닫힌다.
 - **선행 `handoff-review` Round 10 의 지침은 이번 라운드에 발화했다**(적대 검사가 죽은 `\b` 술어를 잡았다). 다시 review 를 돈다면 대상은 *장치의 눈*이 아니라 **불변식의 전수 전개**다 — 외부 지적(F1~F3)은 전수를 돌렸고 자기 계측이 낸 F4 는 1사이트에서 멈췄다.
 - 수정 불요 관찰 4건(버킷표 `SDK*Message` 괄호 주석 · `DiscardSession`/`StopSubagent` 페이로드명 · `adapters.md §1.3` 절 제목 · 비범위 버킷 라벨)은 verify r4 §13 파생 관찰.
+
+### 라운드 5 파생 이슈 (verify r5)
+
+> 판정 근거·재현 명령은 [`verify.md`](verify.md) §3·§5·§12. **세 건 모두 AC 밖이고 게이트가 green 인 채로 남았다.**
+
+| # | 이슈 | 출처 | 대응 방향 | 상태 |
+|---|---|---|---|---|
+| I1 | `plan.md` 메타 상태줄이 `verify/FAIL (r4)` 그대로 — INDEX 는 `IMPL_DONE (r5)`. 같은 상태의 두 사본이 어긋난다. 구현자 치환이 assert 없이 조용히 실패했고 보고는 "함께 갱신했다" 로 적는다 | verify r5 §12 | 상태줄 정정 + 사본 갱신에 실패 검출을 붙인다 | **r6 대상** |
+| I2 | 심볼 실재 테스트의 `$CORPUS` 가 `app/src` 전체라 **`*.test.ts` 줄이 프로덕션 실재로 계산된다**. 테스트 파일 제외 재측정 = **270 → 283사이트**, 차집합 **13**(분류된 적 없음). 내부 드리프트 — `TRD.md:378`·`adapters.md:67` 의 `filterEscalatingDefaultMode` 는 프로덕션에 주석 1줄뿐이고 그 주석이 "동등하게 **수동 적용**" 이라 적는다(`claude-settings.ts:9`) | verify r5 §3·§12 | 불변식: "심볼 실재는 **프로덕션 코드**에서 센다". `$CORPUS` 에서 `*.test.*` 제외 → 13사이트 전건 분류·시제 판정 → `filterEscalatingDefaultMode` 2사이트 기제 귀속 정정. **§19 "넓히지 않은 축" 에 등재** | **r6 대상** |
+| J1 | `provider-runtime.md:25` 이 `ChatEvent`(`src/shared/ipc.ts`) 를 "구" 표기 없이 인용 — `grep -cw ChatEvent app/src/shared/ipc.ts` = **0**. 같은 파일 §12 형제 행 `:403` 은 `구 …` 를 달았다 | verify r5 §6 | `:25` 행에 `구` 표기를 붙이거나 경로를 뺀다 | **r6 대상** |
+
+- **위치 축(심볼↔경로)은 이번에 게이트로 세우지 않는다** — 첫 매치 짝짓기로는 오탐이 지배한다(raw 32 중 표본 4/4 오탐). 세우려면 같은 백틱 쌍을 짝짓는 추출이 먼저다.
+- 수정 불요 관찰 3건(G1 전수 집합이 더 넓다 · INDEX 비고 773자 · 엄격화 B 오탐 지배)은 verify r5 §12 파생 관찰.
