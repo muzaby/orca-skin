@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-18 |
 | 매핑 | — (문서 전용) |
-| 상태 | READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → **IMPL_DONE (r3)** |
+| 상태 | READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → **verify/FAIL (r3)** |
 
 # Part I — Product & UX Contract
 
@@ -738,10 +738,11 @@ r2 지적 5건 밖에서 **20사이트**를 더 닫았다. 전부 "현재형인�
 
 ## [검증자 기입] 파생 이슈
 
-> r1 검증: [`verify.md`](verify.md) 부록 (FAIL — AC 8✅/4⚠️ · 강제 지점 3/6 재현).
-> r2 검증: [`verify.md`](verify.md) (**FAIL** — AC **12/12** · 강제 지점 **7/8** · 기준 밖 결함 4건).
+> r1 검증: [`verify.md`](verify.md) 부록 r1 (FAIL — AC 8✅/4⚠️ · 강제 지점 3/6 재현).
+> r2 검증: [`verify.md`](verify.md) 부록 r2 (FAIL — AC **12/12** · 강제 지점 **7/8** · 기준 밖 결함 4건).
+> r3 검증: [`verify.md`](verify.md) (**FAIL** — AC **12/12** · 강제 지점 재현 · 기준 밖 결함 3건).
 >
-> **D1~D6 은 r2 verify 가 6건 전부 닫힘을 재측정으로 확인했다.** 이번 라운드 미충족은 아래 E1~E5 다.
+> **D1~D6 은 r2 verify 가, E1~E5 는 r3 verify 가 전건 닫힘을 재측정으로 확인했다.** 이번 라운드 미충족은 아래 F1~F3 다.
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
@@ -758,11 +759,24 @@ r2 지적 5건 밖에서 **20사이트**를 더 닫았다. 전부 "현재형인�
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| E1 | `standardization.md:7` 배너가 `StandardConformance`·`migrate-sources`·`ExtensionDeployer` 를 "코드에 반영됐다" 로 단언 — 코드 0건이고 같은 문서 `:146`·`terms.md:82` 가 "구현체 없음/목표 계약" 이라 적는다 | verify r2 §13 | 배너를 `:146` 과 정합하게. `ExtensionDeployer` 는 실체(`deployer.ts` 의 `deploy()`)를 가리키게 | **r3 처리** |
-| E2 | `provider-runtime.md:29` 가 "Tier A `OrcaCapabilities`" 를 현재형으로 씀 — 링크 대상 `adapters.md:71` 이 "구 … 현재 이름은 `TurnExtensions`" | verify r2 §13 | `TurnExtensions`/`ExtensionBuilder` 로 치환 | **r3 처리** |
-| E3 | `ux-domains.md:81` "현 `PlanApprovalCard` 패턴 재사용" — 같은 문서 `:79` 가 `ApprovalCard.tsx` 일반화를 적는다 | verify r2 §13 | 현재 컴포넌트명으로 정정 | **r3 처리** |
-| E4 | `persistence.md:116` 이 `InflightTurn` 상태 머신을 현재형으로 인용 — 코드 0건(현 `turn-coordinator.ts` `TurnCoordinator`), `runtime-ipc.md:10` 은 폐기를 명시. `terms.md:40` 의 `**InflightTurn**` 항목 동반 | verify r2 §13 | 현재 이름으로 정정하거나 폐기 표기. `**bold**` 심볼은 §19 스윕 밖이라 함께 잡는다 | **r3 처리** |
-| E5 | 자기보고 수치 5종이 재측정과 갈림 — base C `19`→15 · B 축 `13`→15 · C 축 `7`→6 · 경로 총계 `20`→21 · "드러난 결함" `21`→22(본 문서 + INDEX 비고) | verify r2 §7 | 시작 상태·증분 서술을 실측으로 정정. HEAD 상태 수치는 전부 일치하므로 대상 아님 | **r3 처리** |
+| E1 | `standardization.md:7` 배너가 `StandardConformance`·`migrate-sources`·`ExtensionDeployer` 를 "코드에 반영됐다" 로 단언 — 코드 0건이고 같은 문서 `:146`·`terms.md:82` 가 "구현체 없음/목표 계약" 이라 적는다 | verify r2 §13 | 배너를 `:146` 과 정합하게. `ExtensionDeployer` 는 실체(`deployer.ts` 의 `deploy()`)를 가리키게 | **r3 검증 통과** |
+| E2 | `provider-runtime.md:29` 가 "Tier A `OrcaCapabilities`" 를 현재형으로 씀 — 링크 대상 `adapters.md:71` 이 "구 … 현재 이름은 `TurnExtensions`" | verify r2 §13 | `TurnExtensions`/`ExtensionBuilder` 로 치환 | **r3 검증 통과** |
+| E3 | `ux-domains.md:81` "현 `PlanApprovalCard` 패턴 재사용" — 같은 문서 `:79` 가 `ApprovalCard.tsx` 일반화를 적는다 | verify r2 §13 | 현재 컴포넌트명으로 정정 | **r3 검증 통과** |
+| E4 | `persistence.md:116` 이 `InflightTurn` 상태 머신을 현재형으로 인용 — 코드 0건(현 `turn-coordinator.ts` `TurnCoordinator`), `runtime-ipc.md:10` 은 폐기를 명시. `terms.md:40` 의 `**InflightTurn**` 항목 동반 | verify r2 §13 | 현재 이름으로 정정하거나 폐기 표기. `**bold**` 심볼은 §19 스윕 밖이라 함께 잡는다 | **r3 검증 통과** |
+| E5 | 자기보고 수치 5종이 재측정과 갈림 — base C `19`→15 · B 축 `13`→15 · C 축 `7`→6 · 경로 총계 `20`→21 · "드러난 결함" `21`→22(본 문서 + INDEX 비고) | verify r2 §7 | 시작 상태·증분 서술을 실측으로 정정. HEAD 상태 수치는 전부 일치하므로 대상 아님 | **r3 검증 통과** |
 
 - **불변식을 사이트 단위로 다시 세운다** — "한 심볼이 어느 버킷인가"(47)가 아니라 "이 사이트의 단언이 현재형인가"(67). E1~E3 은 전부 두 축이 갈린 자리다.
 - §19 심볼 블록을 `**bold**`·소문자-하이픈 식별자까지 넓히지 않는다면 **넓히지 않은 이유를 §19 에 적는다**(§10 이 r2 에 쓴 "계측 정의가 곧 불변식의 정의" 문장의 귀결).
+
+### 라운드 3 파생 이슈 (verify r3)
+
+> 판정 근거·재현 명령은 [`verify.md`](verify.md) §3·§5·§7·§13. **세 건 모두 §19 게이트가 green 인 채로 남았다** — 정정만 하면 다음 라운드가 또 열린다.
+
+| # | 이슈 | 출처 | 대응 방향 | 상태 |
+|---|---|---|---|---|
+| F1 | `state.md:105` 가 없는 파일 `app/hooks/useSidebarSlots.ts` 인용 — 실파일은 `…/app/hooks/useSidebarSlots.tsx`(`.tsx`), `layers.md:42` 는 `.tsx` 로 적는다. **r3 이 `newChatSlot`→`pinnedSlot` 정정하며 새로 쓴 줄이다** | verify r3 §13 | 확장자 정정 + §19 B 축 실재 테스트를 **suffix 매칭**으로(현재 `grep -qF` substring 이라 `.ts` 가 `.tsx` 안에 포함돼 통과) | **r4 대상** |
+| F2 | `provider-runtime.md:274` 가 "현행은 `detectError()` … 정규 분류기/`retryable` 없음" 이라 단언 — `detectError` 0건, `ErrorCode` 는 주석에만, 코드에는 `claudeErrorClassifier`(`adapters/error-classifier.ts`) + `retryable`(`infra/errors.ts:57`). 같은 문서 `:409`·`backend/overview.md:214` 와 모순 | verify r3 §13 | 문장을 현재 코드로 정정 + 추출에 **호출식**(`` `fn(` ``, 범위 내 16사이트) 추가 + 버킷 판정을 **사이트의 시제**로(이 사이트는 산출에 있었으나 `역사` 로 분류돼 통과) | **r4 대상** |
+| F3 | `standardization.md:117`·`TRD.md:387` 이 `disallowedTools` 차단을 **보류 단서 없이** 현재형으로 씀 — 코드 0건(AC9 의 그 관측). 형제 `adapters.md:67`·`security.md:91` 은 단서를 단다 | verify r3 §13 | 두 사이트에 `보류/미채택` 단서를 달아 형제와 대칭으로. **채택 여부 자체는 D1 사용자 결정** | **r4 대상** |
+
+- **다음 재구현 전에 [`handoff-review`](../../../.agents/skills/handoff-review/SKILL.md) 를 수행한다** — `docs/handoff/AGENTS.md` 의 *라운드 3 초과* 트리거가 다음 라운드부터 성립하고, *같은/유사 실패 반복* 은 네 라운드째다(계측이 좁은 자리가 매번 다른 층에서 열렸다).
+- 수정 불요 관찰 5건(버킷 목록 1토큰 누락 · raw 215 vs dedup 211 · §10 6행 vs 표 8행 · INDEX 비고 증가 · 비범위 버킷 라벨)은 verify r3 §13 파생 관찰.
