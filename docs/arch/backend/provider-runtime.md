@@ -14,13 +14,13 @@
 >
 > **출처 신뢰 원칙**: 각 사실 옆에 출처 태그를 표기한다 — `[검증-타입]`(SDK 타입 시그니처로 확정, spec 문서 근거) / `[검증-런타임]`(현재 코드 구동/소비로 확인) / `[미확인-런타임]`(타입은 있으나 동작·형식 미검증) / `[N/A-claude]`(Claude SDK 에 대응 개념 없음 — OpenCode 전용) / `[미확인-opencode]`(OpenCode SDK 미설치로 미정). **교정(2026-06)**: Claude Agent SDK 는 `node_modules` 미설치라도 리포에 버전관리된 spec 문서(`docs/spec/claude/agent-sdk/typescript.md`)로 타입이 확정된다 — 따라서 Claude 축의 옛 `[미확인]` 은 spec 문서로 대조해 `[검증-타입]`/`[미확인-런타임]`/`[N/A-claude]` 로 분해했다(claude-probe.ts 정정 완료). **OpenCode SDK 만 여전히 미설치**라 그쪽 항목은 `[미확인-opencode]` 로 §13 절차를 거쳐 확정한다.
 >
-> **rename 범위 밖**: 실제 코드 심볼(`ChatEvent`·`SessionAdapter`·`makeCanUseTool` 등)은 이번 라운드에서 변경하지 않는다. 본 절의 *목표 타입명*(`NormalizedEvent` 등)과 현행 코드명의 대응은 §12 매핑표로만 둔다.
+> **rename 범위 밖**: 실제 코드 심볼(`SessionAdapter`·`makeCanUseTool` 등)은 이번 라운드에서 변경하지 않는다. 구 `ChatEvent` 는 예외로, 와이어 전환과 함께 이미 제거됐다(§2 ③·PR #47). 본 절의 *목표 타입명*(`NormalizedEvent` 등)과 현행 코드명의 대응은 §12 매핑표로만 둔다.
 
 ## 1. 왜 — 현재 결합의 3가지 괴리
 
 Phase 3++ 구현은 claude-code SDK 에 강하게 결합돼 있어, 범용(OpenCode + Claude) 런타임 모델과 어긋난다. 핵심 명제: **이 앱은 "툴 이름 매핑" 앱이 아니라, 서로 다른 SDK 런타임을 공통 이벤트·세션·권한·직접 호출 모델로 정규화하는 앱이다.**
 
-| 괴리 | 현재 코드 | 목표 |
+| 괴리 | 정규화 전 코드 | 목표 |
 |---|---|---|
 | 이벤트가 provider-specific | `ChatEvent`(`src/shared/ipc.ts`, 9종) 가 Claude SDK 메시지 모양. `sessionId`/`provider`/`toolRunId` 정규화 축 없음 | `NormalizedEvent` (§2) + `permission.requested` 1급 이벤트 |
 | 일반 권한 승인 UX 부재 | `makeCanUseTool`(`src/main/adapters/claude.ts`) 가 `AskUserQuestion`/`ExitPlanMode` 만 surface, **그 외 모든 tool 을 무조건 allow** | PermissionBridge + ApprovalResolution 2분기 (§3) |
@@ -32,7 +32,7 @@ Phase 3++ 구현은 claude-code SDK 에 강하게 결합돼 있어, 범용(OpenC
 
 **① 설명.** OpenCode 는 `event.subscribe()` SSE 스트림(`event.type` + `event.properties`)을 `[검증]`, Claude 는 `query()`/`ClaudeSDKClient` 메시지 async iterator + `canUseTool` 콜백을 사용한다 `[검증]`. 이 둘을 단일 이벤트 union 으로 정규화한다. 모든 이벤트는 `sessionId` 를 갖고(멀티세션 라우팅), 권한 요청은 1급 이벤트다.
 
-**② 예시.** "Bash 한 줄 실행" 한 턴이 현재는 `tool_use` → `tool_result` 두 `ChatEvent` 로 흐른다. 정규화 후엔 `sessionId`/`provider`/`toolRunId` 를 가진 `tool.call.started` → `tool.call.completed` 가 되어, 같은 `toolRunId` 로 start/complete 를 매칭하고 어느 provider/세션에서 왔는지 식별한다.
+**② 예시.** "Bash 한 줄 실행" 한 턴이 정규화 전에는 `tool_use` → `tool_result` 두 `ChatEvent` 로 흘렀다. 정규화 후엔 `sessionId`/`provider`/`toolRunId` 를 가진 `tool.call.started` → `tool.call.completed` 가 되어, 같은 `toolRunId` 로 start/complete 를 매칭하고 어느 provider/세션에서 왔는지 식별한다.
 
 **③ 현재 코드 갭.** 스테이지 B1/B1′ (`f61658f`·`3973112`) 로 와이어가 `NormalizedEvent`(`session.updated`·`message.delta/completed`·`tool.call.started/completed`·`telemetry`·`error`)로 전면 전환되고 매핑이 `adapters/claude-map.ts` 의 `claudeToNormalized` 로 이관됨(구 `ChatEvent` 타입 완전 제거, PR #47). `sessionId`/`toolRunId` 정규화 축 확보. **잔여 갭**: `provider` 축은 claude 고정값(`ProviderId` 에 opencode seam만).
 
@@ -394,19 +394,19 @@ type ModelProviderConfig =
   | { runtime: 'claude-code'; model?: string; fallbackModel?: string; auth: ClaudeAuthMode }
 ```
 
-## 12. 현행명 → 목표명 매핑표 (rename 범위 밖 — 문서로만)
+## 12. 정규화 전 이름 → 목표명 매핑표 (rename 범위 밖 — 문서로만)
 
 > 실제 코드 심볼은 이번 라운드에서 변경하지 않는다(사용자 확정). 이름 정렬은 *구조가 실제로 바뀌는 구현 PR* 로 미룬다.
 
-| 현행 코드 심볼 | 위치 | 목표명 | 비고 |
+| 정규화 전 심볼 | 위치 | 목표명 | 비고 |
 |---|---|---|---|
-| `ChatEvent` | `src/shared/ipc.ts` | `NormalizedEvent` | sessionId/provider/toolRunId 필드 추가 시 함께 rename |
-| `tool_use` / `tool_result` | 〃 | `tool.call.started` / `tool.call.completed` | toolUseId→toolRunId |
-| `ask_question` / `plan_review` | 〃 | `permission.requested(origin:'agent')` | 합성 |
+| `ChatEvent` | 구 `src/shared/ipc.ts` | `NormalizedEvent` | ✅ 전환 완료 — 구 중간표현은 PR #47 에서 제거됐고 `claude-map.ts` 가 SDK 메시지를 직접 정규화한다(§2 ③) |
+| `tool_use` / `tool_result` | `src/shared/ipc.ts` | `tool.call.started` / `tool.call.completed` | toolUseId→toolRunId |
+| `ask_question` / `plan_review` | 〃 (`:175`·`:176`) | `permission.requested(origin:'agent')` | 합성 |
 | `AskResult` / `PlanDecision` | 〃 | `ApprovalResolution` 특수형 | ✅ 와이어는 단일 `permissionRespond`(`{approvalId, resolution}`)로 2분기 일반화 완료(스테이지 C). `AskResult`/`PlanDecision` 은 어댑터/router 내부 도메인 표현으로 잔존 |
 | `ApprovalBroker` | `src/main/features/approvals/broker.ts` | `PermissionBridge` + `PendingApprovalStateMachine` | ✅ ask/plan 2브로커 → 단일 `ApprovalBroker<ApprovalResolution>`(전체 tool) 통합 완료(스테이지 C) |
 | `makeCanUseTool` | `src/main/adapters/claude.ts` | (PermissionBridge 어댑트) | ✅ 위험 도구 게이트(`RISKY_TOOLS`) 활성 — 단일 `requestApproval(action)` 콜백 소비(스테이지 C) |
-| `detectError` | 〃 | `ErrorClassifier.classify` | 8분류 |
+| `detectError` | 구 `src/main/adapters/claude.ts` | `ErrorClassifier.classify` | ✅ 전환 완료 — `claudeErrorClassifier`(`adapters/error-classifier.ts`)로 대체(§6) |
 | `permissionMode`(2종) | `src/shared/ipc.ts` | `NormalizedPermissionMode`(6종) | + 런타임 전환 |
 | `usage`(result) | adapters.md §1.5 | `ProviderReportedTelemetry`(구현됨 §8) | + AppMeasured(latency 만, 나머지 후속) |
 
