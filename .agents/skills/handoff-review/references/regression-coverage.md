@@ -942,3 +942,69 @@ r5 가 `ChatEvent` 부분 문자열을 그 검사로 잡았다. 그런데도 두
 - electron 바이너리 부재(r1~r5 동일 서명) — 환경.
 - 자기 검증 겹수(설계·구현·검증·review 전부 Claude Code).
 
+---
+
+# Round 12 — 0191 (라운드 6, 축이 처음 갈렸다)
+
+## 발견 — 재현했는데 반증할 수 없는 것을 재현했다
+
+r6 은 여섯 라운드 만에 **계측 축이 닫힌** 라운드다. 코퍼스 엄격화 차집합 0 · 적대 검사 배터리가
+검증자 재현에서도 작동 · 정정 4건 전부 코드 대조 통과. FAIL 사유는 계측이 아니라 **보고의 증거**였다.
+
+| # | 실패 | 있던 지침 | 왜 못 막았나 | 분류 |
+|---|---|---|---|---|
+| L1 | `미분류 0` 을 `버킷 합 = 총계` 로 증명 — 실제 차집합 2사이트 | impl §8(모든 "닫았다" 행에 관측값) | 합계는 **관측값이 맞다**. 다만 총계에 맞춰 배분한 값이라 **반증할 수 없다** | **A** |
+| M1 | 실재 판정이 줄머리만 봐 후행 주석을 코드로 셈(차집합 4, 문서 결함 0) | impl §3(판정 지점마다 심기) · verify §8(엄격화 재측정) | 지점 5의 probe 가 **쉬운 형태**(줄머리 주석)를 썼다. 어려운 형태는 verify 엄격화가 잡았다 | **지침 변경 없음** |
+
+**M1 에 규칙을 더하지 않는다.** impl 이 심고 verify 가 엄격화해 차집합을 보는 분업이 설계대로
+작동한 사례다 — "더 어려운 형태를 심어라" 는 상한이 없고, verify 의 backstop 을 impl 에 복제한다.
+
+## 조치 — 추가 0 · REPLACE 1
+
+| 위치 | 조치 |
+|---|---|
+| `handoff-impl §8` | **REPLACE** — "관측값을 적는다" 에 **완결성 주장의 관측값은 차집합**을 정밀화. `전건`·`미분류 0`·`잔여 0` 은 총계·합계로 증명되지 않는다 + 0191 r5·r6 사례 1줄 |
+| `plan.template.md` 강제 지점 헤더 · `docs/handoff/AGENTS.md §2` | 같은 문장 1줄씩 |
+
+**corpus 추가 0** — 새 causal class 가 아니라 **P39 의 remedy 가 한 층 얕았던 것**이다(P39 = 재현하지
+않고 적음 → 보강 = 반증 불가능한 것을 재현함). P 총수 41 유지. **P40 과 방향이 다르다** — P40 은 합계가
+틀린 경우, 여기는 합계가 맞는데 무의미한 경우다.
+
+## Tier 판정
+
+**Tier 1** — normative evidence 요건 변경.
+
+## 6-A Operational Instruction Delta
+
+- **regression 0** — REPLACE 1 · 추가 2줄 · **DELETE 0** · MOVE 0.
+- 구 문장 semantic target **9/9 KEEP**(닫았다 모든 행 · 강제 지점 각 행 · `Criteria-Met` 각 AC · 계약 표기 ·
+  상태 사본 · 산출물 표식 · ✅ 미계수 · §3 선행 통과 · 판정 지점마다 심기).
+- 게이트·명령·reference 무변경 — `app/AGENTS.md`·`.github/` diff 0.
+
+## 6-B Historical Failure Regression
+
+- **41 P 전수** · 변경 전 COVERED → 변경 후 **PARTIAL/GAP 0**. 이번 변경은 evidence 요건 **추가**뿐이라
+  방어 약화 경로가 없다.
+- corpus 가 이름 붙여 가리키는 앵커 전수 실재 확인 — impl §2~§8 · verify §2~§9 · template 강제지점 표 ·
+  `AGENTS.md §2` 전부 resolve.
+- 보강 1건: **P39**(자기보고 재현 → 반증 가능한 재현).
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 새 규칙이 normative 3사이트(impl §8 · template 헤더 · AGENTS §2)에 같은 문장으로 있다.
+- owner 분리 유지 — impl 이 **차집합으로 증명**하고 verify 가 **다시 센다**(verify §4). verify §7 의
+  `내역 합 = 총계` 는 P40 의 합계 축이고 이번 규칙은 membership 축이라 충돌하지 않는다.
+- root `AGENTS.md` 는 evidence 계약을 재서술하지 않는다(`관측값|차집합|미분류` **0건**) → 갱신 불요.
+- AGENTS 위생: 추가 1절에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md` 없음.
+
+## review 기록 정책
+
+`round12-review.md` 를 만들지 않았다 — 압축으로 잃는 rationale 이 없고 사용자 보존 요구도 없었다.
+
+## 지침으로 해결할 수 없는 한계
+
+- **0191 의 계측이 `plan §19` 안의 인라인 셸이다** — 여섯 라운드째 손으로 재패치됐다. 지점별 self-test 를
+  붙인 스크립트 파일로 뽑는 것이 근본책이고 **별도 handoff 감**이다(round 11 에서 같은 기록).
+- electron 바이너리 부재 — r1~r6 동일 서명. 환경.
+- 자기 검증 겹수(설계·구현·검증·review 전부 Claude Code).
+
