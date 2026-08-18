@@ -776,3 +776,90 @@ corpus 의 `## P<number>` 전수 추출(상한 하드코딩 없음) — **P1~P40
 - Cross-document Consistency: **PASS**.
 - corpus 추가: **P40 1건**.
 - 지침으로 해결할 수 없는 한계: ① DB/electron 바이너리 부재(0190 4라운드 연속) — 환경 ② 문장 길이·사본 정합을 기계로 재는 게이트가 없다 — 이 라운드는 지침으로만 닫았고, 스크립트 강제는 별도 handoff 감이다 ③ 자기 검증 겹수(설계·구현·검증·review 전부 Claude).
+
+---
+
+# Round 10 — 0191 (라운드 4연속 동일 축)
+
+## 발견 (주 원인) — 전수를 도구가 정의하면 `N/N` 은 언제나 성립한다
+
+0191 은 "문서 인용이 실재한다" 를 grep 스윕으로 판정했고 매 라운드 전수 주장이 **사실이었다**(`20/20`
+→ `47/47` → `211/211 · 미분류 0`). 그런데도 네 라운드가 같은 불변식에서 열렸다 — 지점 목록을 사람이
+아니라 **도구가 만들었고, 도구가 못 보는 지점은 목록에 오르지 않는다.**
+
+| 라운드 | 좁았던 층 |
+|---|---|
+| r1 | 추출 정규식 |
+| r2 | 분류 단위(심볼 vs 사이트) |
+| r3 | 실재 테스트(주석 줄) |
+| r3 verify | 매칭 의미(substring) · 판정 축(버킷 vs 시제) · 토큰 형태(호출식) |
+
+**분류 A(instruction gap).** `handoff-impl §3` 에 적대 검사가 이미 있었으나 *"내가 새로 만든 **테스트**"*
+로 스코프돼 스윕에 닿지 않았다. `§8` 은 `grep 관측값` 을 증거로 명시 허용해 **눈먼 장치의 `0건` 이 그대로
+증거가 됐다.** 규칙이 있었고 정상 수행했는데 실패를 막지 못했다.
+
+부수 관측: r3 은 plan §10 에 "계측은 세 층이 각각 좁아질 수 있다" 를 **직접 써 넣은 라운드인데** 같은
+라운드가 네 번째 층에서 좁았다. 층 열거는 해법이 아니다 — 새 규칙을 더하지 않고 적대 검사의 **스코프를
+넓히는** 쪽으로 닫았다.
+
+## 보완 — 추가보다 교체·확장
+
+| 위치 | 조치 |
+|---|---|
+| `handoff-impl §3` | **REPLACE** — 적대 검사를 테스트 → 테스트·스윕·게이트 전반으로. "알려진 결함을 심어 실패하는지 확인". 구 문구(production 경로 진입·동명 재구현·가드 제거)는 승계 |
+| `handoff-impl §8` | 정밀화 1문장 — 표식을 만든 장치를 이번 턴에 만들거나 고쳤으면 §3 적대 검사가 관측값의 전제 |
+| `handoff-verify §8` | 불릿 1개 — 구현자가 이번 라운드에 만든 게이트는 검증 대상. **판정 기준을 한 단계 엄격하게 바꿔 재측정하고 차집합을 본다** |
+| `handoff-plan` structural proxy | 불릿 1개 — **게이트의 완료 조건도 proxy 대상**. "전건 분류·미분류 0" 은 *분류했는가* 를 세지 *단언이 참인가* 를 세지 않는다 |
+| `plan.template.md` 강제 지점 표 헤더 | 2줄 — 관측을 만든 장치의 적대 검사 결과를 함께 적는다(P39 remedy 가 쓰던 것과 같은 강제 surface) |
+| `docs/handoff/AGENTS.md §2` | 최소 계약 1불릿 |
+
+## Tier 판정
+
+**Tier 1** — normative behavior(evidence 요건·owner 책임) 변경.
+
+## 6-A Operational Instruction Delta
+
+- **regression 0** — REPLACE 2 · KEEP 나머지 · **DELETE 0** · MOVE 0.
+- REPLACE 승계 기계 확인: 구 문장의 semantic target **8/8 KEEP**(production 경로 진입 · 동명 로컬 재구현 ·
+  의심이 닫힌다 · 닫았다 행 관측값 · §7 동일 규칙 · 강제 지점 각 행 · 산출물 표식 · ✅ 미계수).
+- 일반화 초안이 "주장하는 production 경로에 실제로 진입" 을 지웠던 것을 **같은 라운드에서 6-A 가 검출해
+  복구**했다.
+
+## 6-B Historical Failure Regression
+
+- **41 P 전수** · 변경 전 COVERED → 변경 후 **PARTIAL/GAP 0**.
+- P38/P39/P40/P37 이 지목한 방어 지점 실재 확인 **8/8**(verify §2 · impl §5 · impl §8 · template 재현 명령
+  열 · impl §8 합계 검산 · verify §4 · plan self-review · AGENTS §2).
+- 강화 3건: **P37**(proxy 소비자에 게이트 완료 조건 추가) · **P38**(규칙 3 "고치면서 만든 것" 이 장치까지
+  확장) · **P39**(관측값의 전제 명시).
+- 인접하나 별개로 판정: **P30**(음성 게이트 술어가 너무 **뭉툭**해 정당한 잔존을 히트) ↔ P41(술어가 너무
+  **느슨**해 결함을 못 봄) — 방향이 반대다. **P4**(대표 샘플 vs 전수 grep)는 *조사* 축이고 P41 은 *장치* 축.
+- corpus 추가: **P41 1건**(새 causal class).
+
+## 6-C Cross-document Consistency
+
+- **PASS.** owner 분리 유지 — impl 이 자기 장치를 검사하고 verify 가 엄격화 재측정으로 다시 센다(review
+  §5 "구현자가 닫고 검증자가 다시 센다" 와 정합).
+- 모순 0 — impl §8(관측을 증거로) ↔ verify §4(구현자 관측을 증거로 받지 않음)는 층이 다르고, 이번 추가는
+  impl 쪽 요건을 **강화**해 충돌을 늘리지 않는다.
+- 게이트 명령 정본(`app/AGENTS.md`) 관련 문장 무변경 — 이번 라운드는 명령을 건드리지 않았다.
+- root `AGENTS.md` 는 skill 을 절차 정본으로 가리키기만 하고 impl 계약을 재서술하지 않는다 → 갱신 불요.
+- AGENTS 위생: 추가 1불릿에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md` 없음 → stub·루트 표 불요.
+
+## review 기록 정책
+
+`round10-review.md` 를 만들지 않았다 — 압축으로 잃는 rationale 이 없고 사용자 보존 요구도 없었다.
+기존 `round2-review.md` 1개 유지(교체 대상 아님).
+
+## Round 10 결론
+
+- Regression tier: **Tier 1**.
+- Operational Instruction Delta: **regression 0** — REPLACE 2 · DELETE 0 · MOVE 0. 자기 검출·복구 1건.
+- Reference semantic integrity: MOVE/REPLACE **0건**. corpus append 로 P1~P40 line offset 보존.
+- Historical Failure Regression: **41 COVERED / 0 PARTIAL / 0 GAP / 0 OBSOLETE**. 강화 3건(P37·P38·P39).
+- Cross-document Consistency: **PASS**.
+- corpus 추가: **P41 1건**.
+- 지침으로 해결할 수 없는 한계: ① 게이트 자체의 눈을 기계로 재는 장치가 없다 — 이번에도 지침으로 닫았고,
+  적대 검사를 CI 로 강제하려면 별도 handoff 가 필요하다 ② electron 바이너리 부재(0191 3라운드 연속) — 환경
+  ③ 자기 검증 겹수(설계·구현·검증·review 전부 Claude) — 0191 은 여기에 **같은 세션이 구현과 계측을 함께
+  만든** 형태가 겹쳤다.
