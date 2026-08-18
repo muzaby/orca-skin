@@ -22,7 +22,7 @@ Phase 3++ 구현은 claude-code SDK 에 강하게 결합돼 있어, 범용(OpenC
 
 | 괴리 | 정규화 전 코드 | 목표 |
 |---|---|---|
-| 이벤트가 provider-specific | `ChatEvent`(`src/shared/ipc.ts`, 9종) 가 Claude SDK 메시지 모양. `sessionId`/`provider`/`toolRunId` 정규화 축 없음 | `NormalizedEvent` (§2) + `permission.requested` 1급 이벤트 |
+| 이벤트가 provider-specific | 구 `ChatEvent`(구 `src/shared/ipc.ts`, 9종) 가 Claude SDK 메시지 모양이었다. `sessionId`/`provider`/`toolRunId` 정규화 축 없음 | `NormalizedEvent` (§2) + `permission.requested` 1급 이벤트 |
 | 일반 권한 승인 UX 부재 | `makeCanUseTool`(`src/main/adapters/claude.ts`) 가 `AskUserQuestion`/`ExitPlanMode` 만 surface, **그 외 모든 tool 을 무조건 allow** | PermissionBridge + ApprovalResolution 2분기 (§3) |
 | capability/revert/app-command/telemetry/audit/error 계층 부재 | 없음 | §4 ~ §11 |
 
