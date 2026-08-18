@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-18 |
 | 매핑 | — (문서 전용) |
-| 상태 | READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) |
+| 상태 | READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) |
 
 # Part I — Product & UX Contract
 
@@ -586,15 +586,31 @@ B/C 의 원자료는 `layers.md §1-2` 가 34건을 차지했다 — 결정 1 �
 
 ## [검증자 기입] 파생 이슈
 
-> r1 검증: [`verify.md`](verify.md) (FAIL — AC 8✅/4⚠️ · 강제 지점 3/6 재현).
+> r1 검증: [`verify.md`](verify.md) 부록 (FAIL — AC 8✅/4⚠️ · 강제 지점 3/6 재현).
+> r2 검증: [`verify.md`](verify.md) (**FAIL** — AC **12/12** · 강제 지점 **7/8** · 기준 밖 결함 4건).
 >
-> **D1~D6 전부 r2 에서 처리했다** — 처리 내역과 관측값은 `[구현자 기입] 라운드 2`. 상태 칸은 구현자 자기보고이고 판정은 r2 verify 가 한다.
+> **D1~D6 은 r2 verify 가 6건 전부 닫힘을 재측정으로 확인했다.** 이번 라운드 미충족은 아래 E1~E5 다.
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| D1 | `provider-runtime.md:188` 이 현재형으로 `claude-code.ts` + "매 턴 one-off `query()`" 를 적어 같은 문서 line 202(streaming input·라이브 핸들)와 모순 | verify r1 §13 | 파일명을 `adapters/claude.ts` 로, 상태 문구를 line 202 와 정합하게 | **r2 처리** |
-| D2 | `ux-domains.md:95` 가 부재 파일 `features/skills/components/customize/SkillsCustomizeView.tsx` 인용. 심볼은 `layers.md:69`·`frontend/overview.md:76` 에도 | verify r1 §13 | 실제 컴포넌트명으로 3곳 치환 | **r2 처리** |
-| D3 | `IPC_CONTRACT.md:445` 가 0062 에서 제거된 `prompts/plan-feedback.ts` 인용 (실제 `adapters/plan-feedback.ts`) | verify r1 §13 | 경로 정정 | **r2 처리** |
-| D4 | `system-prompt.md:106` 이 현재 cwd 소유자로 부재 경로 `ipc/router.ts` 인용 | verify r1 §13 | 현재 소유 파일로 정정 | **r2 처리** |
-| D5 | `adapters.md §3.2.5` 가 "코드 진실 … 이미 구현·테스트된 코드다" 로 `OrcaHookSet`·`OrcaHookEvent`·`OrcaHookHandler`·`ORCA_TO_CLAUDE_EVENT` 단언 — `grep -rn OrcaHookSet app/src` = 0 | verify r1 §13 | 현재 이름(`NormalizedHookSet`·`adaptHooks`)으로 치환. `provider-runtime.md:29`·`terms.md:30` 동반 | **r2 처리** |
-| D6 | 자기보고 개수 3축 불일치 — AC2 잔여 `❌`(plan 5·impl 6·실측 **7**) · §8 내역 합 18≠20 · provider-runtime 몫 실측 **13**(기재 11) | verify r1 §7 | 세 숫자를 실측으로 고치고 §19 스윕을 상대 경로까지 확장, 심볼 축을 §10 강제 지점 표에 정식 등재 | **r2 처리** |
+| D1 | `provider-runtime.md:188` 이 현재형으로 `claude-code.ts` + "매 턴 one-off `query()`" 를 적어 같은 문서 line 202(streaming input·라이브 핸들)와 모순 | verify r1 §13 | 파일명을 `adapters/claude.ts` 로, 상태 문구를 line 202 와 정합하게 | **r2 검증 통과** |
+| D2 | `ux-domains.md:95` 가 부재 파일 `features/skills/components/customize/SkillsCustomizeView.tsx` 인용. 심볼은 `layers.md:69`·`frontend/overview.md:76` 에도 | verify r1 §13 | 실제 컴포넌트명으로 3곳 치환 | **r2 검증 통과** |
+| D3 | `IPC_CONTRACT.md:445` 가 0062 에서 제거된 `prompts/plan-feedback.ts` 인용 (실제 `adapters/plan-feedback.ts`) | verify r1 §13 | 경로 정정 | **r2 검증 통과** |
+| D4 | `system-prompt.md:106` 이 현재 cwd 소유자로 부재 경로 `ipc/router.ts` 인용 | verify r1 §13 | 현재 소유 파일로 정정 | **r2 검증 통과** |
+| D5 | `adapters.md §3.2.5` 가 "코드 진실 … 이미 구현·테스트된 코드다" 로 `OrcaHookSet`·`OrcaHookEvent`·`OrcaHookHandler`·`ORCA_TO_CLAUDE_EVENT` 단언 — `grep -rn OrcaHookSet app/src` = 0 | verify r1 §13 | 현재 이름(`NormalizedHookSet`·`adaptHooks`)으로 치환. `provider-runtime.md:29`·`terms.md:30` 동반 | **r2 검증 통과** |
+| D6 | 자기보고 개수 3축 불일치 — AC2 잔여 `❌`(plan 5·impl 6·실측 **7**) · §8 내역 합 18≠20 · provider-runtime 몫 실측 **13**(기재 11) | verify r1 §7 | 세 숫자를 실측으로 고치고 §19 스윕을 상대 경로까지 확장, 심볼 축을 §10 강제 지점 표에 정식 등재 | **r2 검증 통과** |
+
+### 라운드 2 파생 이슈 (verify r2)
+
+> 판정 근거·재현 명령은 [`verify.md`](verify.md) §5·§7·§13.
+
+| # | 이슈 | 출처 | 대응 방향 | 상태 |
+|---|---|---|---|---|
+| E1 | `standardization.md:7` 배너가 `StandardConformance`·`migrate-sources`·`ExtensionDeployer` 를 "코드에 반영됐다" 로 단언 — 코드 0건이고 같은 문서 `:146`·`terms.md:82` 가 "구현체 없음/목표 계약" 이라 적는다 | verify r2 §13 | 배너를 `:146` 과 정합하게. `ExtensionDeployer` 는 실체(`deployer.ts` 의 `deploy()`)를 가리키게 | OPEN |
+| E2 | `provider-runtime.md:29` 가 "Tier A `OrcaCapabilities`" 를 현재형으로 씀 — 링크 대상 `adapters.md:71` 이 "구 … 현재 이름은 `TurnExtensions`" | verify r2 §13 | `TurnExtensions`/`ExtensionBuilder` 로 치환 | OPEN |
+| E3 | `ux-domains.md:81` "현 `PlanApprovalCard` 패턴 재사용" — 같은 문서 `:79` 가 `ApprovalCard.tsx` 일반화를 적는다 | verify r2 §13 | 현재 컴포넌트명으로 정정 | OPEN |
+| E4 | `persistence.md:116` 이 `InflightTurn` 상태 머신을 현재형으로 인용 — 코드 0건(현 `turn-coordinator.ts` `TurnCoordinator`), `runtime-ipc.md:10` 은 폐기를 명시. `terms.md:40` 의 `**InflightTurn**` 항목 동반 | verify r2 §13 | 현재 이름으로 정정하거나 폐기 표기. `**bold**` 심볼은 §19 스윕 밖이라 함께 잡는다 | OPEN |
+| E5 | 자기보고 수치 5종이 재측정과 갈림 — base C `19`→15 · B 축 `13`→15 · C 축 `7`→6 · 경로 총계 `20`→21 · "드러난 결함" `21`→22(본 문서 + INDEX 비고) | verify r2 §7 | 시작 상태·증분 서술을 실측으로 정정. HEAD 상태 수치는 전부 일치하므로 대상 아님 | OPEN |
+
+- **불변식을 사이트 단위로 다시 세운다** — "한 심볼이 어느 버킷인가"(47)가 아니라 "이 사이트의 단언이 현재형인가"(67). E1~E3 은 전부 두 축이 갈린 자리다.
+- §19 심볼 블록을 `**bold**`·소문자-하이픈 식별자까지 넓히지 않는다면 **넓히지 않은 이유를 §19 에 적는다**(§10 이 r2 에 쓴 "계측 정의가 곧 불변식의 정의" 문장의 귀결).
