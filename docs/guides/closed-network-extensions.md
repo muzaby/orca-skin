@@ -911,23 +911,50 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 
 | # | 명령 | 통과 기준 |
 |---|---|---|
-| 1 | `npm run typecheck` | exit 0 — 선언이 `Provider` 형상을 만족 |
+| 1 | `npm run typecheck` | exit 0 — 선언이 `AuthDefinition`(게이트면 `GateAuthDefinition`) 형상을 만족 |
 | 2 | `npm run lint` | error 0 (boundaries 위반 0) |
-| 3 | `./node_modules/.bin/vitest run src/main/features/auth src/main/features/gate src/main/features/harnesses src/main/features/plugins src/main/app` | green |
+| 3 | `./node_modules/.bin/vitest run src/main/features/auth src/main/features/gate src/main/features/harnesses src/main/features/plugins src/main/app` | green — 단 아래 예외 |
 
-관련 회귀 테스트(게이트·인증을 고쳤다면 함께 본다): `features/gate/gate.test.ts` ·
-`auth/registry.test.ts` · `auth/login.test.ts` · `auth/oauth.test.ts` · `auth/policy.test.ts` ·
-`auth/specs/browser-session.test.ts` · `llm/llm.test.ts` · `app/handlers/settings.test.ts` ·
-`app/handlers/providers.test.ts` · renderer `features/auth/store/bypassStore.test.ts`.
+> **1번이 배포자가 가장 많이 걸리는 곳이다.** `probe` 없는 정의를 `GATE_AUTH_DEFINITIONS` 에 담으면
+> 여기서 막힌다(§1.3·§2). 런타임까지 가지 않는다.
+>
+> **3번의 예외 — 환경 기인 실패를 자기 실수로 오인하지 마라.** `src/main/app/chat-turn.continuity.test.ts`
+> 는 DB(better-sqlite3 네이티브 바인딩)와 electron 을 실제로 로드한다. egress 가 막혀 electron 바이너리·
+> 네이티브 rebuild 가 안 된 환경에서는 이 **한 파일만** 빨갛고 나머지는 전부 통과한다
+> (실측 2026-08-18: 41파일 중 40 통과 · 506 케이스 전부 통과, 실패 1건은 `Electron failed to install
+> correctly`). 판정 서명과 대응은 [`app/AGENTS.md` §제약 환경 게이트 가이드](../../app/AGENTS.md).
+> **그 밖의 빨간 파일은 당신의 선언 문제다.**
+
+3번 명령이 도는 범위는 **디렉토리 전체**라 아래 목록을 따로 실행할 필요는 없다. 무엇이 왜
+빨간지 읽을 때 쓰는 지도다 (`app/src/main/` 기준, renderer 만 별도 표기):
+
+| 무엇을 고쳤나 | 함께 읽는 테스트 |
+|---|---|
+| 선언 자체 (`auth-definitions.ts`) | `features/auth/registry.test.ts`(중복 id·bare origin) · `app/deployment/deployment-wiring.test.ts`(부팅→소비까지 끝까지) |
+| 게이트 (`gate-auth.ts`) | `features/gate/gate.test.ts`(진리표·fail-closed) · `app/handlers/providers.test.ts` |
+| 로그인 방식·probe | `features/auth/login.test.ts` · `oauth.test.ts` · `policy.test.ts` · `runtime.test.ts` · `browser-session/runner.test.ts` |
+| grant 저장·만료·vault 키 | `features/auth/store.test.ts` · `store-parse.test.ts` · `store-vault-keys.test.ts` |
+| 인증된 요청 (`BoundAuth.request`) | `features/auth/authenticated-request.test.ts` · `session-policies.test.ts` |
+| Harness 실행 구성 (`harness-runtime.ts`) | `features/harnesses/settings.test.ts` · `runtime-config.test.ts` · `runtime-boundary.test.ts` |
+| Plugin (`plugins.ts`) | `app/deployment/plugins.test.ts` · `features/plugins/confluence/*.test.ts` |
+| 게이트 화면·우회 토글 | renderer `features/providers/store/bypassStore.test.ts` · `features/providers/lib/principal.test.ts` |
+
+> renderer 테스트는 3번 명령의 경로에 없다. 함께 보려면
+> `./node_modules/.bin/vitest run src/renderer/src/features/providers` 를 따로 돈다.
 
 ### 8.2 배포 (사람 실기)
 
-1. `declarations/{sso,llm,service}.ts` 를 채웠고 `id` 는 **한 번 정하고 유지**한다(§1.4).
-2. `origin` 에 경로·후행 슬래시가 없는지 확인한다(있으면 그 선언이 거부된다).
-3. `allowedOrigins` 에 로그인 왕복이 지나는 origin 을 **전부** 넣는다.
-4. `npm run build:win` 으로 배포본을 만든다(릴리스 절차는 [`release-operations.md`](./release-operations.md)).
-5. 실기: 로그인 화면 → 사내 로그인 → 메인 UI 진입 → 연결 탭에서 상태·재인증·해제 확인.
-6. 로그(`~/.config/orca/logs/`)에서 `providers.*` 이벤트로 거부·실패 사유를 확인한다.
+1. `app/deployment/auth-definitions.ts` 에 인증 대상을 채웠고 `id` 는 **한 번 정하고 유지**한다(§1.4).
+2. 그 Auth 를 **무엇에 쓸지**를 옆 파일에 배선했다 — 게이트면 `gate-auth.ts`, Harness 실행 구성이면
+   `harness-runtime.ts`, Plugin 도구면 `plugins.ts`, 원격 사용량이면 `usage-fetcher.ts`.
+   **`auth-definitions.ts` 만 채우면 아무 일도 일어나지 않는다**(선언에 소비 슬롯이 없다, §1.2).
+3. Harness·Usage 인증이라면 `connections.ts` 에 카탈로그 행을 끼웠는지 확인한다 — 행이 없으면
+   로그인 자체가 불가능하다(§1.1).
+4. `origin` 에 경로·후행 슬래시가 없는지 확인한다(있으면 그 선언이 거부된다).
+5. `allowedOrigins` 에 로그인 왕복이 지나는 origin 을 **전부** 넣는다.
+6. `npm run build:win` 으로 배포본을 만든다(릴리스 절차는 [`release-operations.md`](./release-operations.md)).
+7. 실기: 로그인 화면 → 사내 로그인 → 메인 UI 진입 → 연결 탭에서 상태·재인증·해제 확인.
+8. 로그(`~/.config/orca/logs/`)에서 `providers.*` 이벤트로 거부·실패 사유를 확인한다.
 
 ---
 

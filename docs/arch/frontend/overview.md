@@ -35,7 +35,9 @@
 | 스타일링 | Tailwind CSS v4 (`@tailwindcss/vite`) + CSS-first `@theme` 토큰 | ^4.1.16 | `tailwind.config.js` 없음. Tailwind 유틸 + `app-frame-*` 마커 클래스 (dom-architecture.md) **공존**. |
 | 마크다운 렌더링 | react-markdown + remark-gfm | ^9.1.0 / ^4.0.1 | GFM 테이블·체크박스 지원 |
 | 코드 하이라이팅 | shiki (async 싱글톤 로드) | ^1.29.2 | 11언어 + 3테마, MutationObserver 로 data-theme 추적 |
-| 가상 스크롤 | **미사용** (TanStack Virtual 등 채택 안 됨) | — | 임계값·도입 시점 모두 TBD |
+| 가상 스크롤 | `@tanstack/react-virtual` | ^3.14.6 | transcript 가상화 (0102). `features/chat/hooks/useTranscriptVirtualizer.ts` |
+| i18n | i18next + react-i18next | ^26.x / ^17.x | 0096/0097. 리소스는 `shared/i18n/` |
+| 차트 | recharts | ^3.9.2 | 설정 사용량 차트 (0112) |
 | 폰트 | Google Fonts CDN (Source Serif 4 / Inter / JetBrains Mono) | — | `index.html` link, CSP 허용 |
 | 플랫폼 통합 | Electron `frame: false` + custom titlebar | — | macOS `titleBarStyle: 'hidden'` + traffic light overlay, Windows/Linux 는 WinControls 가 직접 그림 (dom-architecture.md / rendering.md §1.5) |
 
@@ -65,7 +67,7 @@
 | Tile structure (`pane-host > pane-row > tile`) | Phase 3+ | ✅ 마크업만 | dom-architecture.md.2 — 우측 분할 콘텐츠는 후속 |
 | Zustand 전환 | Phase 4 | ✅ 완료 (0008 chat 선행 + 0013 전면) | state.md §1 — feature별 store + chat `sessions` Record 외피. Context 4종 흡수(Provider 는 bootstrap-only) |
 | **App Shell 정규화** (`frame/` 해체 + AppLayout.tsx 직접 조립) | PR #29 | ✅ 완료 | layers.md §1.A — `ChatTile.tsx` → `features/chat/`. `ModalLayer+DebugLayer` → `OverlayLayer` 통합 3슬롯. Sidebar `React.memo` 적용. |
-| **`features/<domain>/` 도입** (`screens/` + `state/` 흡수) | PR #29 | ✅ 완료 | PR #29 당시 8개 → 현재 **13개 도메인** (chat / sessions / projects / backend / engine / skills / camera / captures + cost / settings / update / login / debug — layers.md §1-1). 6-슬롯 구조 (components/hooks/reducer/providers/types/index). |
+| **`features/<domain>/` 도입** (`screens/` + `state/` 흡수) | PR #29 | ✅ 완료 | 도메인 목록은 `renderer/src/features/` 디렉토리가 진실이고 개수는 [생성물](../../generated/inventory.md) 이다 — chat · sessions · projects · backend · engine · skills · camera · captures · cost · settings · update · providers · debug (layers.md §1-1). 6-슬롯 구조 (components/hooks/reducer/providers/types/index). |
 | **`shared/` 도입** (`shared/api/ipc.ts` + `shared/ui/` + `shared/hooks/` + `shared/config/` + `shared/navigation/` + `shared/theme/` + `shared/types/`) | PR #29 | ✅ 완료 | `window.orca.*` 래퍼 (chatApi/backendApi/installApi/settingsApi/skillApi/fileApi/sessionApi/projectApi/windowApi) 경유. `features/` 내 직접 호출 0건. ESLint boundaries v6 로 layer 방향 강제. |
 | **Sidebar brand 교체 + nav 4-항목화** | Phase 3++ → 0083 | ✅ 완료 | `app-frame-sidebar-brand` = 🐋 + "Orca" 로고 (이전 newChatSlot 폐기, `NewChatButton.tsx` 삭제). nav = 새 대화 (`/new`) · 프로젝트 (`/projects`) · 엔진 & 모델 (`/agent`) · Skills & MCP (`/skills`) — 자동화(`/routines`)는 0083 에서 nav 제외(Future Scope, 라우트 미정의). | (0159 r3: 플러그인 모달로 전환)
 | **Header 액션 5-버튼 툴바** | Phase 3++ | ✅ 완료 | menu (popover · 종료 menuitem → windowApi.close) · panelL (사이드바 접기 토글) · search (대화 검색 모달) · arrowL/arrowR (navigate ∓1, 항상 enabled). HeaderProps `onOpenSearch` prop 만 노출. |
@@ -75,15 +77,15 @@
 | Projects 화면 | Phase 1 | 🚧 mockup 만 | Future Scope |
 | 엔진 & 모델 화면 (`/agent`) | Phase 4 | ✅ CRUD 활성 (0021·0090) | `AgentEnvironmentView` + provider CRUD(`EngineFormModal` 단일 화면 + `~/.claude/settings.json` 불러오기, 0090) |
 | SkillsMcp 화면 — Skills 좌측·권한 토글 | Phase 1 | 🚧 mockup 만 (MCP 섹션은 Phase 3++ 실 연동) | Phase 4+ (`canUseTool`/`permissionMode`) |
-| 메시지 가상 스크롤 | TBD | ❌ 미구현 | 임계값·라이브러리 미정 |
+| 메시지 가상 스크롤 | Phase 4 | ✅ 완료 (0102) | `features/chat/hooks/useTranscriptVirtualizer.ts` — `@tanstack/react-virtual` 기반 transcript 가상화 |
 | 멀티세션 UI | Phase 4 | ❌ 미구현 | §5 확장점 anchor |
 | 키보드 단축키 (Cmd/Ctrl+N 등) | Future | ❌ 미구현 | OQ 추가 후보 |
 | 네트워크 단절 배너 | Future | ❌ 미구현 | — |
 | ARIA / 스크린리더 audit | Future | 🚧 부분 적용 | 체계적 audit TBD |
-| i18n (`src/shared/i18n/ko.ts`) | Future | ❌ 미구현 | 현재는 mockup 인라인 한국어 |
-| **ToolRendererRegistry (semantic kind)** | 스테이지 C1 | ✅ 부분 구현 (PR #47) | rendering.md §1.6 — RenderableKind taxonomy + registry. 정본 ../backend/provider-runtime.md |
-| **ApprovalCard 일반화 + PermissionModeController 연동** | 스테이지 C2 | ✅ 부분 구현 (PR #47) | ux-domains.md §1.6 — plan 전용 → 모든 agent tool. 정본 ../backend/provider-runtime.md §3 |
-| **StructuredOutput / Streaming lifecycle** | Future | 📐 설계 확정 / 구현 대기 | rendering.md §1.7·rendering.md §1.8 |
+| i18n | Phase 4 | ✅ 완료 (0096/0097) | `shared/i18n/` — i18next + react-i18next 리소스 번들. 언어 전환은 사이드바 사용자 버튼 플라이아웃 |
+| **ToolRendererRegistry (semantic kind)** | 스테이지 C1 | ✅ 구현 | `features/chat/components/transcript/registry.ts` — RenderableKind taxonomy + registry, 미지 도구는 `generic` fallback. rendering.md §1.6 |
+| **승인 UI (plan · tool · ask) + PermissionModeController 연동** | 스테이지 C2 | ✅ 승인 3종 구현 · 단일 카드 일반화 미착수 | `ApprovalCard`(plan) + `ToolApprovalBody`·`AskUserQuestionCard`(additive). ux-domains.md §1.6 |
+| **StructuredOutput / Streaming lifecycle** | Phase 4 / Future | ✅ StructuredOutputCard·reasoning 라이브 스트리밍 구현 · 📐 lifecycle 정규화(dedup/재연결/절단) 미착수 | rendering.md §1.7·§1.8 |
 | **부팅 오케스트레이션 (BootScreen)** | Phase 4 | ✅ 완료 (0077) | `app/boot/` — bootStore + steps + `orca:boot:report` 진단 |
 | **사용량 한도 UI (도넛 팝오버·설정 탭·provider별 한도)** | Phase 4 | ✅ 완료 (0079~0082) | `UsagePanel`(rendering.md §1.9) + `features/settings/`(Usage/ProviderUsage 탭) + `features/cost/` provider 요약. 파생 SSOT `shared/usage/limits.ts` |
 | **인앱 업데이트 UX** | Phase 4 | ✅ 완료 (0085/0086) | `features/update/` — 헤더 조건부 업데이트 버튼+파란 뱃지, `UpdateDialog`(사용자 게이트), dev 더미 토글(DebugPanel) |

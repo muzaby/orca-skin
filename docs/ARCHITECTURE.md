@@ -14,7 +14,7 @@
 
 | 파일 | 내용 |
 |---|---|
-| [overview.md](./arch/backend/overview.md) | 범위·기술 스택·**프로세스 구조(main 수직 슬라이스 · contracts · infra)**·부트 시퀀스·구현 상태·참고 |
+| [overview.md](./arch/backend/overview.md) | 범위·기술 스택·**프로세스 구조(app · features · adapters · contracts · infra 5레이어)**·부트 시퀀스·구현 상태·참고 |
 | [adapters.md](./arch/backend/adapters.md) | SessionAdapter·ClaudeAdapter 호출·ExtensionBuilder·SDKMessage→NormalizedEvent 정규화·인증 만료·SDK 채택 범위·확장 / 파일·리소스(Skills·Artifacts·로그) / **자산 변환 매트릭스 + Hook 정규화 모델**(구 ADAPTER_DESIGN_REVIEW 흡수) |
 | [provider-runtime.md](./arch/backend/provider-runtime.md) | **범용 정규화 계층(정본 SSOT)** — NormalizedEvent·권한 정규화(PermissionBridge·ApprovalResolution·AppCommandPolicy·PermissionModeController)·SessionCapability·RevertManager·ErrorClassifier·AppMessagePart·Telemetry·AuthStore·AuditLog·ModelProviderConfig·매핑표·SDK 확정 절차 |
 | [standardization.md](./arch/backend/standardization.md) | **배포 계층 표준화(정본 SSOT — provider-runtime.md 와 *짝*)** — standards-first 원칙·표준 택소노미(AGENTS.md·MCP·SKILL.md·hook)·표준/런타임 2계층·Engine 구체클래스(rule of three)·sources/dist+ExtensionDeployer·StandardConformance·AGENTS.md 채택 |
@@ -22,6 +22,8 @@
 | [auth.md](./arch/backend/auth.md) | **인증과 그 소비 경계 정본** — 책임 지도(Auth·Gate·Harness·Plugin·Usage)·`AuthDefinition`(소비 슬롯 없음)·`AuthMethod` 5분기(OAuth code→token 포함)·`Grant`·`AuthChange` 분류표·게이트 진리표와 이중 강제·Harness 실행 구성(augmenter·세대 fence·두 주입 채널·fingerprint)·Plugin/HarnessPlugin 구분·부팅 순서·뒤집으면 안 되는 결정 |
 | [security.md](./arch/backend/security.md) | webPreferences·자격증명 모델(safeStorage)·MCP&Skill 통합 레이어·CSP·**§1.8 원격 전송 스택 단일화(Node `fetch` 금지 → Electron `net.fetch`, 0173/0174)**·**§1.9 `infra/net/` 인벤토리** |
 | [runtime-ipc.md](./arch/backend/runtime-ipc.md) | 동시성 모델·IPC 핸들러 구조·시스템 통합 |
+| [system-prompt.md](./arch/backend/system-prompt.md) | 시스템 프롬프트 조립 — preset + 구조화 헤더(`# Orca`/`# User`/`# Project`)·변동성 계층 |
+| [observability.md](./arch/backend/observability.md) | 로깅 — 중앙 LogManager·JSONL 로테이션·redact·suppress |
 | [terms.md](./arch/backend/terms.md) | **사람용 용어 해설** — 백엔드 요소 이름을 쉬운 한국어로(정의는 GLOSSARY/arch 정본 링크). AI 정본 아님 |
 
 ### Frontend (`arch/frontend/`)
@@ -33,7 +35,7 @@
 | [dom-architecture.md](./arch/frontend/dom-architecture.md) | `app-frame-*` 마커 체계·`data-*` 속성·z-stack·custom titlebar |
 | [state.md](./arch/frontend/state.md) | 상태 관리·Zustand 전환 결정·멀티세션 anchor |
 | [rendering.md](./arch/frontend/rendering.md) | 렌더링 전략·**ToolRendererRegistry**·StructuredOutput·Streaming lifecycle·UsagePanel(사용량 도넛/한도) |
-| [ux-domains.md](./arch/frontend/ux-domains.md) | UX 패턴·**ApprovalCard 일반화**·도메인 카탈로그·IPC 호출 |
+| [ux-domains.md](./arch/frontend/ux-domains.md) | UX 패턴·**승인 UI(plan·tool·ask)**·도메인 카탈로그·IPC 호출 |
 | [terms.md](./arch/frontend/terms.md) | **사람용 용어 해설** — 프론트엔드 요소 이름을 쉬운 한국어로(정의는 GLOSSARY/arch 정본 링크). AI 정본 아님 |
 
 ### 그 외

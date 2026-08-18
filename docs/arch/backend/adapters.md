@@ -85,7 +85,7 @@ interface TurnExtensions {
 `build(sessionId, projectId)` 동작:
 - resume 경로 (`sessionId !== null`): 세션 바인딩으로 프로젝트 지침 조회
 - 새 채팅 경로 (`sessionId === null`): `projectId` 로 직접 조회
-- `systemPromptAppend` = 프로젝트 지침(DB, 있으면). **정적 정책 append 체인(구 `app/src/main/prompts/`)은 handoff 0062 에서 제거**(빈 레지스트리 데드코드) — 관리 구조 논의는 [system-prompt.md](./system-prompt.md) 참조(historical)
+- `systemPromptAppend` = 구조화 시스템 프롬프트 헤더 (프로젝트 지침은 `# Project` 섹션 안). 정본 [system-prompt.md](./system-prompt.md) §2A
 - 매 턴 DB 1회 조회 — 캐시 없음 (지침 편집이 다음 메시지부터 즉시 반영)
 
 ### 1.5 SDKMessage → ChatEvent 정규화
@@ -103,7 +103,7 @@ interface TurnExtensions {
 | `SDKPermissionDeniedMessage` (Phase 4) | (현재 무시 — 권한 정책 도입 시 매핑) |
 | 어댑터 catch → Error | `{ type: 'error', data: { code: 'sdk.*' \| 'auth.expired' \| ..., message, recoverable } }` |
 
-> **정규화 계층 (설계 확정 / 구현 대기)**: 위 `ChatEvent` 는 claude-code 결합 형태다. provider 중립 `NormalizedEvent`(+ `permission.requested` 1급 이벤트) 로의 승격 설계와 현행 9종 전수 매핑표는 **provider-runtime.md §2** 참조.
+> **정규화 계층**: 위 표는 claude-code 결합 형태의 구 `ChatEvent` 어휘다. 와이어(`orca:chat:event`)는 provider 중립 `NormalizedEvent`(`permission.requested` 포함)로 전환됐고 매핑은 `adapters/claude-map.ts` 가 갖는다 — 전수 매핑표는 **provider-runtime.md §2** 참조.
 
 ### 1.6 인증 만료 감지
 

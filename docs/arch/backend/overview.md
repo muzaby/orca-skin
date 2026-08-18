@@ -53,13 +53,14 @@ main 은 **feature 수직 슬라이스 + adapters 한정 ports&adapters + 얇은
 
 ```
 Electron App
-├── Main Process (src/main/) — 5-슬라이스 (하향 의존만, handoff 0062)
+├── Main Process (src/main/) — 5-레이어 app·features·adapters·contracts·infra (하향 의존만, handoff 0062)
 │   ├── index.ts                # 부트 진입 — Bootstrap.start() → BrowserWindow → will-quit(shutdown→closeDb)
 │   ├── app/                    # 컴포지션 루트 (전 레이어 의존 허용 — 유일)
 │   │   ├── bootstrap.ts        # 의존성 생성 + 부팅 시퀀스 + 버스 구독 순서 SSOT + 핸들러 등록 위임
-│   │   ├── chat-turn/          # 턴 셋업 14모듈 (0179 분해) — index(배럴·IPC 등록) · send(순서) ·
-│   │   │                       #   admission/turn-context/continuation(순수 판정·조립) · resolve-turn ·
-│   │   │                       #   runtime-entry · enqueue · turn-request · approval · post-turn · busy-reserve
+│   │   ├── chat-turn/          # 턴 셋업 (0179 분해, 목록은 디렉토리가 진실) — index(배럴·IPC 등록) ·
+│   │   │                       #   send(순서) · admission/turn-context/continuation(순수 판정·조립) ·
+│   │   │                       #   resolve-turn · runtime-entry · respawn-inputs(최초/연속 턴 공용 respawn 입력) ·
+│   │   │                       #   enqueue · turn-request · approval · post-turn · busy-reserve · turn-setup · deps
 │   │   ├── context.ts          # RouterContext (핸들러 공유 의존성)
 │   │   ├── boot-report.ts      # 부팅 진단 계측 (0077) — 각 부팅 단계 step 래핑 · orca:boot:report
 │   │   ├── builtin-resources.ts # 번들 스킬 리소스 해석 (0078)
@@ -83,13 +84,16 @@ Electron App
 │   │   │                       #   present · session-policies · specs/ · browser-session/
 │   │   ├── gate/               # Auth 상태를 앱 접근 조건으로 소비하는 정책 (0188)
 │   │   ├── harnesses/          # settings 열거·해석(0014) · Model 해석 · 실행 구성(runtime-config) ·
-│   │   │                       #   spawn 입력 조립(prepared-config) · respawn 경계 · claude/model-parser
+│   │   │                       #   respawn 경계 · claude/model-parser
+│   │   │                       #   (spawn 입력 조립은 adapters/harness-config.ts 소관)
 │   │   ├── plugins/            # 제품 기능 단위 — confluence/ (0188 이설)
-│   │   ├── extensions/         # ExtensionBuilder(지침·MCP·skill 조립) + deployer · mcp/ · skills/(scan·seed)
+│   │   ├── extensions/         # ExtensionBuilder(지침·MCP·skill 조립) + deployer · mcp/ · skills/(scan·seed) ·
+│   │   │                       #   harness-plugins/(하네스에 얹는 번들 플러그인) · runtime-tool-registry · system-header
 │   │   ├── orchestration/      # Conversation Continuity(fork/handoff) 순수 로직 (handoff 0051 §A.4)
 │   │   └── scheduler/          # 주기 실행 엔진 (croner, 0091) — register/protect/nextRun/stopAll + schedule_runs 기록
 │   ├── adapters/               # SessionAdapter 포트 & 구현 (구체 provider 리터럴 격리)
-│   │   ├── types.ts·turn.ts·harness-config.ts·mcp-config.ts·hooks.ts·descriptor.ts  # 포트
+│   │   ├── types.ts·turn.ts·mcp-config.ts·hooks.ts·descriptor.ts  # 포트
+│   │   ├── harness-config.ts   # 실행 구성 계약 + spawn 입력 조립(PreparedHarnessConfig·env fingerprint)
 │   │   ├── claude.ts           # ClaudeAdapter — SDK query() (장수명 채널 pushTurn)
 │   │   ├── claude-map.ts       # SDKMessage → NormalizedEvent 정규화 (순수)
 │   │   ├── claude-adapt.ts     # TurnExtensions → query() 옵션 순수 변환
@@ -97,7 +101,7 @@ Electron App
 │   │   ├── streaming-input.ts  # 턴-스코프 AsyncIterable 입력
 │   │   ├── error-classifier.ts # claude 에러 분류
 │   │   └── mock.ts             # MockAdapter (DEV 디버그 하네스)
-│   ├── contracts/              # 여러 feature 공유 타입 계약 5모듈 (구현 최소)
+│   ├── contracts/              # 여러 feature 가 공유하는 타입 계약 (구현 최소, 모듈 수는 생성물 inventory)
 │   │   ├── turn.ts             # TurnContext
 │   │   ├── bus-events.ts       # OrcaBusEvents — turn.event 단일 이벤트 맵
 │   │   ├── ports.ts            # ManagedRuntime · RuntimeSessionAdapter 등 구조적 포트
@@ -134,7 +138,7 @@ Electron App
 1. app.whenReady() → registerAppProtocol()  # app:// 커스텀 스킴 핸들러
 2. bootstrap = new Bootstrap()              # SettingsStore / McpStore / AdapterRegistry field-init
 3. bootstrap.start()                        # 각 단계 = bootReport.step* 래핑
-   a. db-init (critical)                    # initDb — better-sqlite3 초기화 + 마이그레이션(0001~0013) + 재시작 잔재 정착
+   a. db-init (critical)                    # initDb — better-sqlite3 초기화 + 마이그레이션(infra/db/migrations/) + 재시작 잔재 정착
    b. cost-recompute (critical)             # new UsageTracker(db, …) → 부팅 1회 일/주/월 합산 + 비용 요약 push 배선
    c. new Scheduler(DbRunRecorder)          # 'usage-recompute' job 등록(action = cost.recordAndBroadcast 주입)
       → scheduler.applySettings(settings.scheduler)  # croner 스케줄 시작 (0091, 실패 시 비활성 시작)
@@ -176,7 +180,7 @@ Electron App
 | 영역 | Phase | 상태 | 비고 |
 |---|---|---|---|
 | BrowserWindow + 보안 옵션 명시 | Phase 1 | ✅ 완료 | `main/index.ts` |
-| 컴포지션 루트(Bootstrap) + 5-슬라이스 재편 | Phase 3++ | ✅ 완료 | `app/bootstrap.ts` + `app/handlers/` + `features/*` (handoff 0062, 채널 카탈로그는 IPC_CONTRACT §2) |
+| 컴포지션 루트(Bootstrap) + 5-레이어 재편 | Phase 3++ | ✅ 완료 | `app/bootstrap.ts` + `app/handlers/` + `features/*` (handoff 0062, 채널 카탈로그는 IPC_CONTRACT §2) |
 | 모든 invoke 의 zod 검증 | Phase 2 | ✅ 완료 | `infra/ipc/handle.ts` 헬퍼 + `shared/protocol.ts` |
 | SessionAdapter 인터페이스 | Phase 2 | ✅ 완료 | `adapters/types.ts` |
 | ClaudeAdapter (SDK `query()` · 장수명 채널 pushTurn) | Phase 3 | ✅ 완료 | `adapters/claude.ts` (구 claude-code.ts). CLI spawn 폐기 (2026-05-18) |
@@ -198,16 +202,16 @@ Electron App
 | 자동 업데이트 (electron-updater) | Phase 4 | ✅ 완료 (0084~0086) | `app/updater.ts` UpdateController + `handlers/update.ts`(update 6채널) + `shared/update-restart.ts` 재시작 게이트. runtime-ipc.md §3.1 |
 | 스케줄러 (주기 실행) | Phase 4 | ✅ 완료 (0091) | `features/scheduler/` (croner) — 첫 소비처 = 주기 사용량 recompute. `schedule_runs` 실행 이력(`0013`) |
 | provider별 사용량 한도 | Phase 4 | ✅ 완료 (0079~0082) | `provider_limits`(`0012`) + `cost:usage`/`cost:setProviderLimit` |
-| CI/CD 릴리스 파이프라인 (v0.1.0) | Phase 4 | ✅ 완료 (0087~0089) | `.github/workflows/{ci,release}.yml` — Windows unsigned NSIS + GitHub Releases draft. 배포 빌드는 로그인 게이트 스킵(0089). 정본 `docs/guides/release-operations.md` |
+| CI/CD 릴리스 파이프라인 (v0.1.0) | Phase 4 | ✅ 완료 (0087~0089) | `.github/workflows/{ci,release}.yml` — Windows unsigned NSIS + GitHub Releases **즉시 게시**(`v*` 태그 push 시. 수동 dispatch 는 항상 dry-run). 배포 빌드는 로그인 게이트 스킵(0089). 정본 [`../../guides/release-operations.md`](../../guides/release-operations.md) |
 | 중앙 로깅 (LogManager · JSONL · redaction) | Phase 4 | ✅ 완료 (0123/0124, prod opt-in 토글 0144) | `infra/log/` — 외부 로깅 라이브러리 미도입. 정본 [observability.md](./observability.md) |
 | **인증 + 소비 경계** (앱 로그인 + Harness 실행 구성 + Plugin) | Phase 4 | ✅ **0181 재작성 → 0188 경계 분리** | `contracts/auth.ts` 가 **인증만** 표현하고 `features/{auth,gate,harnesses,plugins}` 가 구현이다. 인증 5종(api-key·password·pat·**oauth code→token**·browser-session) · IPC `provider` 6채널(compat) · 카탈로그 연결 탭. 실값과 배선은 `app/deployment/` 에서 채운다. 구조 정본 [`auth.md`](./auth.md) |
 | **원격 전송 스택 단일화** (Node 전역 `fetch` 금지 → Chromium 스택) | Phase 4 | ✅ 완료 (0173/0174) | 전역 `fetch(` 호출은 `infra/net/net-fetch.ts` 에만 허용(`no-node-fetch.test.ts` 가 0건으로 고정), 소비자는 `typeof fetch` 포트 주입. Chromium 스택을 무는 파일은 **3개**(`net-fetch`·`net-request`·`browser-session`). [security.md](./security.md) §1.8 |
-| `options.permissionMode` (도구 권한) | Phase 4 | ❌ 미구현 | PRD OQ9 |
+| `options.permissionMode` (도구 권한) | Phase 4 | ✅ 완료 | `shared/permission-mode.ts`(`NormalizedPermissionMode` ↔ SDK 모드 변환) + `features/approvals/permission-mode-controller.ts`(세션 SSOT) + `orca:permission:setMode`. 진행 중 턴은 어댑터가 살아있는 `Query` 핸들에 즉시 위임한다. **MVP 기본값 정책은 PRD OQ9 로 계속 열려 있다** |
 | `options.hooks` 완전 구현 (도구 감사 외부 핸들러) | Phase 4 | ❌ 미구현 | 현재 인프로세스 OrcaHookSet 은 구현됨 |
 | 멀티세션 + 장수명 세션 채널 | Phase 4 | ✅ main 런타임 완료 (handoff 0011·0051·0067) | 세션별 SessionRuntime + 동시 턴 + 장수명 채널(프레임)·idle 풀 LRU. runtime-ipc.md §1. renderer 외피는 ../frontend/state.md §2 |
 | Zustand persist 전략 (renderer store ↔ 로컬 DB / electron-store) | Phase 4 | ❌ 미정 OQ | ../frontend/state.md §1.4.6 |
-| i18n (`src/shared/i18n/ko.ts`) | Future | ❌ 미구현 | 현재 인라인 한국어 |
-| **Provider Runtime Model (정규화 계층)** | Future | 📐 설계 확정 / 구현 대기 | §12 — NormalizedEvent · PermissionBridge · AppCommandPolicy · SessionCapability · RevertManager · ErrorClassifier · Telemetry · AuthStore · AuditLog. SDK 타입 확정(provider-runtime.md §13) 후 착수 |
+| i18n | Phase 4 | ✅ 완료 (0096/0097) | `renderer/src/shared/i18n/` — i18next + react-i18next. UI 라벨은 리소스 번들, 기술 용어·터미널 출력은 영어 |
+| **Provider Runtime Model (정규화 계층)** | Phase 4 | ✅ 와이어 전환 완료 · 일부 seam 미활성 | `NormalizedEvent`(`shared/ipc.ts`, variant 수는 [생성물](../../generated/inventory.md)) 이 `orca:chat:event` 의 유일한 페이로드이고 매핑은 `adapters/claude-map.ts` 다. PermissionBridge·PermissionModeController·ErrorClassifier·Telemetry 활성. **미활성 seam**: `RevertManager`(claude 는 전 cap false) · `provider` 축 claude 고정(opencode 미구현). 절별 상태는 [provider-runtime.md](./provider-runtime.md) |
 
 > 이 표는 코드 변경 시 함께 갱신한다.
 

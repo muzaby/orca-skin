@@ -1,6 +1,6 @@
 # Claude Code CLI 실행 스펙 (`spec/claude/` 라우터 + Orca 채택 표기)
 
-> **역할 변경 (2026-06-04, docs 재구성)**: 본 문서는 1차적으로 **`docs/spec/claude/` 원문 미러로 가는 라우터**다 — 원문은 아래 "1차 원본" 링크가 SSOT. CLI/SDK 권한 매핑·정규화 같은 **Orca 합성 설계**는 [`arch/backend/provider-runtime.md`](./arch/backend/provider-runtime.md)(권한 정규화)·[`arch/backend/adapters.md`](./arch/backend/adapters.md)(SDK 채택)로 이관됐다. 본 문서의 **§ 번호(§3·§4·§5·§7·§13)는 하위 호환을 위해 보존**한다(PRD/TRD·`app/src/main/skills/scan.ts §5.3` 가 인용). 새 인용은 위 arch 문서를 우선한다.
+> **역할 변경 (2026-06-04, docs 재구성)**: 본 문서는 1차적으로 **`docs/spec/claude/` 원문 미러로 가는 라우터**다 — 원문은 아래 "1차 원본" 링크가 SSOT. CLI/SDK 권한 매핑·정규화 같은 **Orca 합성 설계**는 [`arch/backend/provider-runtime.md`](./arch/backend/provider-runtime.md)(권한 정규화)·[`arch/backend/adapters.md`](./arch/backend/adapters.md)(SDK 채택)로 이관됐다. 본 문서의 **§ 번호(§3·§4·§5·§7·§13)는 하위 호환을 위해 보존**한다(PRD/TRD·`app/src/main/features/extensions/skills/scan.ts §5.3` 가 인용). 새 인용은 위 arch 문서를 우선한다.
 
 > **본 문서의 위치**
 > 이 문서는 Claude Code 공식 한국어 문서의 **해설 미러** 이다. 원문은 본 저장소의 `docs/spec/claude/` 에 *원문 그대로* 보관되며, 본 문서는 그 원문을 *Orca 관점* 으로 정리하고 채택 표기를 덧붙인다. PRD/TRD/architecture 가 Claude Code CLI 의 동작·플래그·이벤트를 인용할 때 본 문서가 단일 출처(SSOT) 역할을 한다.

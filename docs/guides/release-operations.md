@@ -9,7 +9,7 @@ Orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 핸드오�
 | 배포 채널 | GitHub Releases (`muzaby/orca-skin`, public) — `v*` 태그 push 시 **즉시 게시** |
 | 산출물 | `orca-<ver>-setup.exe` (NSIS installer) + `latest.yml` + `.blockmap` |
 | 릴리스 CI | [`.github/workflows/release.yml`](../../.github/workflows/release.yml) — `v*` 태그 push 트리거, `windows-latest` |
-| 상시 게이트 | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) — main push (`app/**` 변경 시) + 수동 실행(`workflow_dispatch`) |
+| 상시 게이트 | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) — main push + **모든 PR**(둘 다 `app/**`·`.github/workflows/**` 변경 시) + 수동 실행(`workflow_dispatch`) |
 | 버전 진실원 | `app/package.json` `version` (렌더러 `__APP_VERSION__` · main `app.getVersion()` 모두 파생) |
 | 서명 | **없음** (사내용) — 무결성은 HTTPS + `latest.yml` sha512 로 보장 (아래 §unsigned) |
 | 업데이트 클라이언트 | electron-updater (0085 배선: `autoDownload=false` · idle-gated 설치 · published release 만 감지) |

@@ -180,9 +180,8 @@ capability 플래그는 그것을 읽고 분기하는 코드가 생길 때 추�
 
 instructions 는 **AGENTS.md**(AAIF/Linux Foundation 거버넌스)를 SSOT 로 채택한다. `[검증: AAIF 표준]` / 엔진 네이티브 지원 여부는 `[미확인]`(StandardConformance.instructions.agentsMd 로 기술).
 
-> **현행 instructions 모델과의 통합 경로 (코드 변경 0)**: 현재 instructions 는 (a) **프로젝트 지침**(DB) → `systemPromptAppend`([adapters.md §1.4](./adapters.md) ExtensionBuilder) + (b) **정적 정책 append**(`app/src/main/prompts/policies/*.md`, 앱이 항상 주입하는 Python 격리 규칙 등 — 구 `PY_AGENT_RULES`, handoff 0030 으로 `prompts/` 구조 이주. 정본 [system-prompt.md](./system-prompt.md))로 합성된다. AGENTS.md 채택 시:
+> **현행 instructions 모델과의 통합 경로 (코드 변경 0)**: 현재 instructions 는 **구조화 시스템 프롬프트 헤더** 하나로 합성된다 — 프로젝트 지침(DB)이 `# Project` 섹션에 포맷화되어 `systemPromptAppend` 로 실린다([adapters.md §1.4](./adapters.md) ExtensionBuilder, 정본 [system-prompt.md](./system-prompt.md) §2A). 별도의 정적 정책 append 체인은 두지 않는다(같은 문서 §2). AGENTS.md 채택 시:
 > - `sources/instructions/AGENTS.md` 가 사람이 편집하는 SSOT 가 되고, ExtensionDeployer 가 엔진 instruction 파일로 렌더(또는 엔진이 AGENTS.md 직접 읽기).
-> - 정적 정책 append(`prompts/policies/*.md`)는 *앱이 주입하는 런타임 append* 로 **유지**(사용자 편집 대상이 아니므로 sources 에 두지 않음).
 > - 프로젝트 지침(DB)과 AGENTS.md 의 병합 정책(`mergePolicy`)은 구현 PR 에서 확정 `[미확인]`.
 
 ## 6. 런타임 계층 (cross-ref only)

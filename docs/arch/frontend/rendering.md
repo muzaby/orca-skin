@@ -51,9 +51,9 @@
 - drag 영역: `[-webkit-app-region:drag]` inline 클래스 대신 `style={{ WebkitAppRegion: 'drag' }}` (dom-architecture.md.3 의 2-layer 패턴).
 - **header-left 내용물 (Phase 3++)**: 액션 5-버튼 툴바 — `menu` (시스템 메뉴 popover · 자식 `종료` → `windowApi.close()`) · `panelL` (사이드바 접기 토글 · `setTweak('sidebarCollapsed', !current)`) · `search` (대화 검색 모달 열기 — `SearchModal`) · `arrowL` / `arrowR` (`navigate(-1)` / `navigate(1)` 항상 enabled, 추적 없음). 모든 버튼은 `data-behavior="no-drag"` 영역 안. 기존 brand + breadcrumb 표시는 제거 (브랜드는 Sidebar 의 `app-frame-sidebar-brand` 로 이동).
 
-### 1.6 ToolRendererRegistry (설계 확정 / 구현 대기)
+### 1.6 ToolRendererRegistry
 
-> **상태**: 📐 설계 확정 · 구현 대기. 정본 타입(`NormalizedEvent`/`AppMessagePart`)은 [../backend/provider-runtime.md](../backend/provider-runtime.md) 가 소유 — 본 절은 *렌더링 계약*만 정의(참조).
+> **상태**: ✅ 구현. `features/chat/components/transcript/registry.ts` 가 `RenderableKind` taxonomy 와 `ToolRendererRegistry`(`match` → `Body`)를 갖고, 미지 도구는 `generic` 으로 떨어진다. 정본 타입(`NormalizedEvent`/`AppMessagePart`)은 [../backend/provider-runtime.md](../backend/provider-runtime.md) 가 소유 — 본 절은 *렌더링 계약*만 정의(참조).
 
 **① 설명.** 렌더러는 **이벤트 타입이 아니라 의미(semantic kind)** 로 카드를 선택한다. 같은 `tool.call.completed` 라도 결과 형태에 따라 다른 카드로 분기한다. 예: ../backend/provider-runtime.md §7 의 `file` part 가 `readType:'raw'` 면 `FilePreviewCard`, `'patch'` 면 `DiffCard`.
 
@@ -91,7 +91,7 @@ interface ToolRendererRegistry { register(r: ToolRenderer): void; resolve(input:
 | `ErrorCard`(`error`) | error 파트 | ✅ `ErrorCard`(트랜스크립트 인라인) + `state.error` 배너(라이브 턴) |
 | `UsagePanel`(`telemetry`) | usage·한도 | ✅ `UsagePanel`(구 TelemetryPanel — 컨텍스트 프로그레스바 + 주간/월간 한도 바, 0079~0082) — Composer usage 도넛 트리거 Popover, §1.9 |
 
-### 1.7 StructuredOutput 렌더링 (설계 확정 / 구현 대기)
+### 1.7 StructuredOutput · reasoning 렌더링 (부분 구현)
 
 **① 설명.** OpenCode `session.prompt({ format: { type:'json_schema', schema, retryCount? } })` 와 실패 시 `result.data.info.error`(`StructuredOutputError`)를 UI 상태로 정규화 `[검증]`. Claude 측 형식은 `[미확인]`(../backend/provider-runtime.md §13) — 동일 상태로 흡수 가능한지 구현 전 확인.
 
@@ -108,7 +108,7 @@ type StructuredOutputState =
 
 `StructuredOutputCard` 는 `valid`=트리/접기 뷰, `invalid`=raw + 검증오류, `retrying`=진행 표시.
 
-### 1.8 Streaming lifecycle & backpressure (설계 확정 / 구현 대기)
+### 1.8 Streaming lifecycle & backpressure (정규화 미착수)
 
 **① 설명.** OpenCode SSE 와 Claude async iterator 를 단일 lifecycle 로 정규화: `open → streaming → (reconnect)* → closed`. partial 재조립 / 중복 dedup(eventId) / 순서 보장(monotonic seq) / 긴 tool 출력 버퍼링·절단.
 
