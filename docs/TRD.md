@@ -53,7 +53,7 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F12 | **사용량 한도** | `features/usage`(main) + UsagePanel·설정 탭(renderer) | 월간 `spendingLimitUsd` + provider별 한도(`provider_limits`). **Main 이 `UsageLimitsView` 정본을 만들고**(`usage-compose` + `shared/usage/limits.ts`) renderer 는 `shared/stores/usageStore` 로 mirror 만 한다. 도넛 팝오버 = 컨텍스트바+주간/월간 한도 바. 원격 사용량 조회는 `UsageFetcher` 포트를 주입한 배포에서만 도는 선택 기능 | 0079~0082, 0186 |
 | F13 | **주기 실행 (스케줄러)** | `features/scheduler/`(croner + interval) | job 등록·겹침 방지·`schedule_runs` 이력. 스펙 2종 — cron(벽시계 정렬) / `intervalMs`(schedule 시각 anchor, 0156). 소비처 = 주기 사용량 recompute(`scheduler.usageRecompute`, cron·설정 노출형) · 자동 업데이트 확인(`scheduler.updateCheck`, interval) · **코어 고정형 사용량 잡 2종**(`usage-boundary` 자정 cron 항상 · `usage-fetch` fetcher 주입 시에만, 0186). **기간 경계 불변식은 `usage-boundary` 가 소유한다** — `scheduler.usageRecompute`(기본 off)는 사용자가 임의 주기로 켜는 호환용이라 경계를 보장하지 않고, 둘 다 켜져 시각이 겹쳐도 각자 전역을 재계산할 뿐이라 값이 어긋나지 않는다(중복 계산일 뿐) | 0091, 0156, 0186 |
 | F14 | **번들 스킬 시딩** | `features/extensions/skills/seed.ts` + `builtin-resources.ts` | 부팅 1회 번들 스킬 → `sources/skills` 시딩, manifest/marker 버전 게이트로 사용자 수정 보호 | 0078 |
-| F15 | **CI/CD 릴리스** | `.github/workflows/{ci,release}.yml` + `scripts/validate-*` | main push 게이트 + `v*` 태그 → unsigned NSIS → GitHub Releases draft(수동 Publish). §9 참조 | 0087~0089 |
+| F15 | **CI/CD 릴리스** | `.github/workflows/{ci,release}.yml` + `scripts/validate-*` | main push 게이트 + `v*` 태그 → unsigned NSIS → GitHub Releases 즉시 게시(수동 dispatch 는 dry-run). §9 참조 | 0087~0089 |
 
 **비고**: 모듈 경로·정확한 IPC 채널·컴포넌트 트리는 [ARCHITECTURE.md](./ARCHITECTURE.md) / [IPC_CONTRACT.md](./IPC_CONTRACT.md) 참조. 위 표는 *기능 정의* 에만 집중.
 
@@ -66,7 +66,7 @@ PRD §6.2 의 N1~N6 을 구현 가능한 형태로 변환한다.
 | ID | 요구사항 | 명세 |
 |---|---|---|
 | N1 | **플랫폼** | Windows x64 1차 지원. macOS (arm64 + x64), Linux (x64) 는 후순위. Electron 다중 빌드 (`electron-builder.yml`) |
-| N2 | **i18n** | 한국어 라벨 (`src/shared/i18n/ko.ts`). 기술 용어/터미널 출력은 영어 그대로. |
+| N2 | **i18n** | i18next 기반 리소스 번들 (`app/src/renderer/src/shared/i18n/`). UI 라벨은 한국어, 기술 용어/터미널 출력은 영어 그대로. |
 | N3 | **접근성** | 키보드 단축키: 새 대화 (Ctrl+N), **전송 (Enter), 줄바꿈 (Shift+Enter)**, Tweaks 패널 (Shift+T 등, [arch/frontend/ux-domains.md](arch/frontend/ux-domains.md) §1.1 참조). 다크모드는 Tweaks 경유 (CSS 변수 override). ARIA label은 주요 UI 요소에. (전송 키 결정: 2026-05-13 — chat 류 앱 관례를 따라 Ctrl+Enter 대신 Enter 단일 키로 변경) |
 | N4 | **데이터 위치** | 세션 본체: CLI 저장소 (Claude Code: `~/.claude/projects/<cwd>/<id>.jsonl`, opencode: `~/.local/share/opencode/` 등). 앱: 메모리에 `sessionId` 변수 1개만 보유. Phase 2+ `electron-store` (선택값·마지막 세션 ID 등) |
 | N5 | **응답 지연 가이드** | 첫 토큰까지 지연, 시작 시간 SLA = OQ6. 목표치가 정해지면 본 섹션 갱신. |
@@ -149,7 +149,7 @@ Phase 2 범위 밖 (예약 — 도입 시점에 재등록):
 | `orca:credentials:set` / `:hasKey` | **Phase 3+** | safeStorage 자격증명 ([arch/backend/security.md](arch/backend/security.md) §1.4) |
 | `orca:skills:reload` | **Future** | 핫리로드 도입 시 |
 
-> **Phase 3+ 이후 추가 도메인** (본 표는 Phase 2 미러라 누락 — SSOT 는 IPC_CONTRACT §2): `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `engine` 5 · `agent` 1 · `update` 6 · `cost` 4 · `boot` 2 · `concurrency` 1 · `permission` 2 · `notify` 1 · `debug` 2(dev) · ~~`runtime` 3~~ (구 Python uv 런타임 채널 — renderer 소비처 부재로 제거, handoff 0012 · IPC_CONTRACT §2.11). 현행 전수는 IPC_CONTRACT §2 (**총 65**).
+> **Phase 3+ 이후 추가 도메인** (본 표는 Phase 2 미러라 누락): 채널·도메인 전수와 개수의 SSOT 는 [IPC_CONTRACT.md](./IPC_CONTRACT.md) §2 와 [생성물 인벤토리](generated/inventory.md) 다. 구 `runtime` 채널(Python uv 런타임)은 renderer 소비처 부재로 제거됐다(handoff 0012 · IPC_CONTRACT §2.11).
 
 ### 5.3 `window.orca` API (Preload 화이트리스트)
 
@@ -251,7 +251,7 @@ interface SessionAdapter {
 }
 ```
 
-내부 구현 패턴 (SDKMessage→ChatEvent 정규화, AbortSignal 전파, 인증 만료 감지, 인스톨러 스트리밍) 의 SSOT 는 [arch/backend/adapters.md](arch/backend/adapters.md). 현재 코드는 이미 `sendMessage(req: TurnRequest)` 객체 시그니처를 채택했다([arch/backend/adapters.md](arch/backend/adapters.md) §1.3). provider 중립 capability/권한/revert 정규화(SessionCapability·PermissionBridge·RevertManager 등)의 설계는 [arch/backend/provider-runtime.md](arch/backend/provider-runtime.md) (설계 확정 / 구현 대기).
+내부 구현 패턴 (SDKMessage→`NormalizedEvent` 정규화, AbortSignal 전파, 인증 만료 감지, 인스톨러 스트리밍) 의 SSOT 는 [arch/backend/adapters.md](arch/backend/adapters.md). 현재 코드는 이미 `sendMessage(req: TurnRequest)` 객체 시그니처를 채택했다([arch/backend/adapters.md](arch/backend/adapters.md) §1.3). provider 중립 정규화 계층은 [arch/backend/provider-runtime.md](arch/backend/provider-runtime.md) 가 소유한다 — 이름마다 구현 여부가 다르므로 절별 판정을 그쪽에서 읽는다.
 
 ### 6.4 SessionInfo
 
@@ -595,7 +595,7 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - **(anchor) 시스템 트레이** — UI/Main 진입점 미지정. Phase 2+ 검토.
 - ~~(anchor) electron-updater + GitHub Releases~~ — **구현 완료 (0084~0089, §9.2)**. 잔여 = 코드 서명/공증/staged rollout.
 - ~~(anchor) Auto-update 채널~~ — stable 단일 채널로 출발 (beta 채널 분리는 Future).
-- **(anchor) 하드웨어 어댑터 (BoardAdapter)** — USB/카메라 제어. `src/main/adapters/board.ts` 예약, 네이티브 모듈 (`orca-board.node`, libusb) Phase 2~3.
+- **(anchor) 하드웨어 어댑터 (BoardAdapter)** — USB/카메라 제어. `adapters/` 에 board 어댑터를 두는 자리를 예약(파일 미생성), 네이티브 모듈 (`orca-board.node`, libusb) Phase 2~3.
 - **(anchor) opencode 어댑터** — Phase 1 에서는 미구현. §7.2 의 사양 (서버 라이프사이클, SDK 호출, SSE 매핑) 그대로 살아있으나 코드는 인터페이스 후크만 남아있다. claude 단독 운영이 안정화되면 도입. **단, MCP 설정 변환기 `toOpencodeConfig` 는 MCP&Skill 통합 레이어에서 *순수 함수 + 단위 테스트만* 선구현됨** (어댑터·라이프사이클·백엔드 선택은 여전히 미구현, `Backend`=`'claude'` 유지). `toClaudeConfig` 와 **동형 대칭 변환기**(동일 시그니처, `Record<string, <Backend>Mcp>` 반환).
 - **(anchor) OpenAI Compatible 백엔드** — `SessionAdapter` 인터페이스 재활용 가능. 3번째 어댑터 구현체 추가.
 - **(anchor) Agent SDK 고급 기능** — `permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer` (in-process custom tools) / 외부 `mcpServers` / `forkSession` / `startup()` (사전 워밍) / `AsyncIterable<SDKUserMessage>` 스트리밍 입력. 채택 표는 [arch/backend/adapters.md](arch/backend/adapters.md) §1.7 의 ⏳ 행 참조. Phase 4+ — 도구 권한 정책(OQ9) 결정 후 진행.

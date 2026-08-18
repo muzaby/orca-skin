@@ -26,7 +26,9 @@ src/renderer/
     │   ├── SidebarUserButton.tsx    # 사이드바 하단 사용자 버튼 (언어 플라이아웃 포함)
     │   ├── OverlayLayer.tsx         # `#app-frame-overlay` + `#app-frame-modal` + `#app-frame-debug` 3슬롯 통합 — SearchModal·ConfirmDialogHost·UpdateDialog(0085)·(dev) DebugPanel+UpdateDebugSection 호스트
     │   ├── SearchModal.tsx          # FTS5 전문 검색 모달
-    │   ├── RootGate.tsx             # 로그인 게이트 판정 — dev 만 LoginFrame, 배포 빌드는 스킵(0089)
+    │   ├── RootGate.tsx             # 게이트 판정 — 부팅 실패(BootFailureFrame) → 미완료(BootScreen) → 미통과(GateFrame) → 메인.
+    │   │                            #   판정 전(gate=null)에는 통과시키지 않는다(fail-closed). prod 는 게이트 선언 0개면 즉시 통과,
+    │   │                            #   DEV 는 선언 0개여도 게이트를 세운다(탈출구 = 디버그 패널 우회 토글)
     │   ├── GateFrame.tsx            # 로그인 게이트 셸 (0181 — 구 LoginFrame. features/providers GateLogin 호스트)
     │   ├── BootFailureFrame.tsx     # 부팅 실패 화면 (0180 — 구 LoginFrame 의 나머지 절반)
     │   ├── boot/                    # BootScreen + bootStore + steps (부팅 오케스트레이션, 0077)
@@ -45,11 +47,11 @@ src/renderer/
     │   ├── ProjectsPage.tsx         # ProjectsView 단순 배치
     │   ├── ProjectLandingPage.tsx   # 프로젝트 채팅 랜딩 (ChatTile + ProjectSessionsPanel + ProjectInstructionsSidebar). 랜딩 라이프사이클은 셸의 useChatRouteSync 가 담당
     │   ├── AgentPage.tsx            # `/agent` — 엔진&모델 설정 (features/engine AgentEnvironmentView 배치, 구 EnginePage)
-    │   ├── SkillsPage.tsx
     │   ├── CapturesPage.tsx
     │   └── useSessionActions.ts     # 페이지 공용 세션 액션 (rename/삭제 확인 다이얼로그 배선, 0083)
     │
-    ├── features/                    ✅ 도메인 모듈 (13) — 자기 레이어 내부만 의존. cross-feature import 금지.
+    ├── features/                    ✅ 도메인 모듈 — 자기 레이어 내부만 의존. cross-feature import 금지.
+    │                                #   (목록은 디렉토리가 진실, 개수는 ../../generated/inventory.md)
     │   ├── backend/                 # BackendProvider, useBackend, BackendStatus, InstallerDialog, AuthExpiredModal
     │   ├── chat/                    # ChatProvider, chat store(Zustand)+chatReducer, useSkillAutocomplete, useFileAutocomplete,
     │   │                            #   ChatTile, ChatTitleBar(프로젝트/제목+인라인 rename, 0083), Composer, ChatView, PlanTile,
@@ -62,7 +64,8 @@ src/renderer/
     │   ├── cost/                    # CostProvider, cost store (일/주/월·provider별 사용량 미러, refreshCost) — 0079~0082
     │   ├── settings/                # SettingsModal + 탭(General/Usage/ProviderUsage) + settingsModalStore (0079~0082)
     │   ├── update/                  # UpdateProvider, updateStore(dummyMode 포함), UpdateDialog, UpdateDebugSection — 인앱 업데이트 UX (0085/0086)
-    │   ├── login/                   # (dev 게이트) LoginView, sso.ts(항상-실패 스텁), store — 배포 빌드 미포함 (0089)
+    │   ├── providers/               # 연결(provider) — GateLogin(로그인 랜딩), useProviderGate, ProviderDetail,
+    │   │                            #   principal.ts(신원 선택 규칙, 순수), bypassStore(DEV 우회 토글)
     │   ├── skills/                  # useSkillsMcp, SkillsCustomizeView + customize/ (rail·list·detail·모달들), AddMcpServerModal
     │   ├── engine/                  # AgentEnvironmentView(구 EngineView), EngineFormModal(단일 화면, 0090), EngineCard, EngineModelList
     │   ├── camera/                  # CameraView
@@ -71,11 +74,13 @@ src/renderer/
     │
     ├── shared/                      ✅ 범용 — 도메인 로직 0. 모든 레이어 의존 가능.
     │   ├── navigation/              # routes.ts (path 패턴 + 라벨 + breadcrumb 카탈로그 — AppLayout matchPath 소스)
+    │   ├── i18n/                    # i18next 초기화 + 리소스 번들 + datetime 로캘 포맷 (0096/0097)
     │   ├── theme/                   # TweakProvider, useTweakContext
     │   ├── hooks/                   # useTweaks (theme/density), useSkills (orca:skills:list), useAgents (engine/provider 목록), useDragResize (1D 드래그→숫자 일반 메커니즘)
     │   ├── stores/                  # agentStore (engine/provider 공유 store — 카드·Composer/ModelMenu 싱크)
     │   ├── api/ipc.ts               # `window.orca.*` 타입드 래퍼 — chatApi/backendApi/installApi/settingsApi/skillApi/fileApi/sessionApi/projectApi/windowApi/costApi/updateApi/debugApi(dev 전용)
     │   ├── config/theme.ts          # ThemeId / DensityId 타입 + DENSITY_FONT
+    │   ├── logging.ts               # renderer 로그를 orca:log:emit 으로 중계 (0123/0124)
     │   └── ui/                      # Icon, Avatar, Status, Popover, CopyIconButton, FloatingPanel(+ PanelSection/Toggle/Radio/Select/Slider atom),
     │                                #   Modal(공용 모달 셸, 0093 일반화), ConfirmDialogHost+confirmDialogStore(삭제 확인, 0083), RenameInput(0083),
     │                                #   Meter·UsageCircle·usageTone(사용량 시각화, 0079/0080), AutoGrowTextarea, ReadingColumn, OrcaLogo, Button, Toggle,

@@ -68,9 +68,9 @@
 - collapsed 상태: handle 의 `data-state="hidden"` + `pointer-events-none`. 폭은 `w-14` (56px) 고정. `useDragResize` 의 `disabled: collapsed` 옵션으로 mousedown 무반응.
 - 명명: aside 내부는 `resize-handle`, tile 사이는 `separator` 로 구분 (dom-architecture.md.4).
 
-### 1.6 ApprovalCard 일반화 (설계 확정 / 구현 대기)
+### 1.6 ApprovalCard 일반화
 
-> **상태**: 📐 설계 확정 · 구현 대기. 정본 타입(`permission.requested`/`ApprovalResolution`/`NormalizedPermissionMode`)은 [../backend/provider-runtime.md](../backend/provider-runtime.md) §3 가 소유.
+> **상태**: ✅ 승인 3종 구현 · 📐 단일 카드 일반화는 미착수. 권한 요청은 `plan_review`·`tool_approval`·`ask_question` 세 종류 모두 UI 에 도달한다 — plan 은 Composer 입력을 대체하는 `ApprovalCard`, tool·ask 는 입력 위 additive 인 `ToolApprovalBody`/`AskUserQuestionCard` 다(`features/chat/components/ApprovalCard.tsx`·`Composer.tsx`). **아래가 설계한 "하나의 일반 카드 + `origin`/`risk`/`provider` 배지" 형태는 아직 아니다.** 정본 타입(`permission.requested`/`ApprovalResolution`/`NormalizedPermissionMode`)은 [../backend/provider-runtime.md](../backend/provider-runtime.md) §3 가 소유.
 
 **① 설명.** 현재 plan 전용인 승인 UI 를 **모든 agent tool `permission.requested`** 를 받는 일반 ApprovalCard 로 확장한다. 카드는 `origin`(agent/app) · `risk` · `provider` 배지를 표시하고, 사용자 결정을 `ApprovalResolution` 2분기로 회신한다.
 

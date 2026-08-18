@@ -47,8 +47,8 @@ shared     → shared 내부만                               (순수 타입/상
 
 | 경로                          | 책임                                                                                          |
 | ----------------------------- | --------------------------------------------------------------------------------------------- |
-| `src/main/app/`               | 컴포지션 루트 — `bootstrap.ts`(부팅 배선·버스 구독 순서) · `chat-turn/`(턴 셋업 — 한 클로저였던 `handleChatSend` 를 단계별 모듈로 분해. 진입점 `index.ts`(배럴) · 순서 `send.ts` · 순수 판정 `admission.ts` · 순수 조립 `turn-context.ts`·`continuation.ts` · `resolve-turn`·`runtime-entry`·`enqueue`·`turn-request`·`approval`·`post-turn`·`busy-reserve`·`turn-setup`·`deps`) + `chat-turn-continuation.ts`(자동 연속 턴) · `handlers/*`(도메인별 IPC 핸들러 — 목록·개수는 디렉토리가 진실) · `context.ts`(RouterContext) · `boot-report.ts`(부팅 진단, 0077) · `updater.ts`+`updater-feed.ts`(자동 업데이트 + object storage/GHE 피드, 0084~0086·0133) · `builtin-resources.ts`(번들 스킬 리소스 해석, 0078) |
-| `src/main/adapters/`          | claude 어댑터 — `claude.ts`(query) · `claude-map.ts`(SDK→`NormalizedEvent`) · `claude-adapt.ts`(outbound) + 포트(`types`·`turn`·`harness-config`…). mock 은 dev, opencode 는 future |
+| `src/main/app/`               | 컴포지션 루트 — `bootstrap.ts`(부팅 배선·버스 구독 순서) · `chat-turn/`(턴 셋업 — 한 클로저였던 `handleChatSend` 를 단계별 모듈로 분해. 진입점 `index.ts`(배럴) · 순서 `send.ts` · 순수 판정 `admission.ts` · 순수 조립 `turn-context.ts`·`continuation.ts` · `resolve-turn`·`runtime-entry`·`respawn-inputs`·`enqueue`·`turn-request`·`approval`·`post-turn`·`busy-reserve`·`turn-setup`·`deps`) + `chat-turn-continuation.ts`(자동 연속 턴) · **`deployment/`**(배포별 concrete — `auth-definitions`·`gate-auth`·`harness-runtime`·`plugins`·`connections`·`usage-fetcher`. build-time TypeScript, 런타임 동적 로딩 아님) · `auth-resume.ts`(부팅 복원 순서) · `connection-views.ts`(Auth → GUI DTO) · `settings-reactions.ts`(설정 변경 반응) · `handlers/*`(도메인별 IPC 핸들러 — 목록·개수는 디렉토리가 진실) · `context.ts`(RouterContext) · `boot-report.ts`(부팅 진단, 0077) · `updater.ts`+`updater-feed.ts`(자동 업데이트 + object storage/GHE 피드, 0084~0086·0133) · `builtin-resources.ts`(번들 스킬 리소스 해석, 0078) |
+| `src/main/adapters/`          | claude 어댑터 — `claude.ts`(query) · `claude-map.ts`(SDK→`NormalizedEvent`) · `claude-adapt.ts`(outbound) + 포트(`types`·`turn`·`descriptor`…) + **`harness-config.ts`**(실행 구성 계약 + spawn 입력 조립 `PreparedHarnessConfig`). mock 은 dev, opencode 는 future |
 | `src/main/features/`          | 수직 슬라이스 — `approvals` · `chat`(턴 오케스트레이션) · `extensions`(MCP·skill·deploy·seed) · `history`(persist) · `orchestration`(대화 연속성 fork/handoff, 순수 로직) · **`auth`**(인증 lifecycle) · **`gate`**(앱 접근 정책) · **`harnesses`**(settings·Model·실행 구성) · **`plugins`**(제품 기능 단위, 0188) · `scheduler`(croner 주기 실행, 0091) · `sessions`(런타임 거버넌스) · `usage` |
 | `src/main/contracts/`         | 공유 타입 계약 — `turn`(`TurnContext`) · `bus-events` · `ports` · `session-state` · **`auth`**(0188 — `AuthDefinition`·`AuthMethod`·`Grant`·`BoundAuth`·`AuthSecretReader`. 소비 슬롯 없음) |
 | `src/main/infra/`             | 얇은 인프라 — `db`(better-sqlite3+WAL+마이그레이션) · `bus`(TypedBus) · `config`(orca.json·secret) · `ipc`(handle/send/dto) · `net`(**`net-fetch`/`net-request`/`net-response`/`transport` = 유일한 원격 전송 스택**. 0180 에서 `infra/auth/` → `infra/net/` 이설) · `vault`·`browser-session`(+`-policy`)·`loopback-callback`(0181 — provider 자격증명·cookie jar·OAuth 콜백) · `log`(중앙 LogManager·JSONL·redact, 0123/0124) · `settings-store`(+`settings-migration`) · `cron`(croner 래퍼) · `errors` · `vars` |
@@ -106,7 +106,7 @@ Tailwind 시맨틱 토큰 · 그룹 스코프 격리(`group/<이름>`) · 단일
 | `npm run build:{win,mac,linux}` | electron-builder 플랫폼 배포 산출                                                        |
 | `npm run typecheck`       | `tsc --noEmit` 3분할 — `typecheck:node`(tsconfig.node) + `typecheck:web`(tsconfig.web) + `typecheck:test`(tsconfig.test — main 테스트 타입) |
 | `npm run lint` / `format` | ESLint (boundaries 포함, `./src` + `./scripts`) / Prettier                                     |
-| `npm test`                | `pretest` 에서 better-sqlite3 Node ABI 보장 후 `vitest run` + `node --test "scripts/*.test.mjs"`(스크립트 4종 단위 테스트). `test:watch` = watch |
+| `npm test`                | `pretest` 에서 better-sqlite3 Node ABI 보장 후 `vitest run` + `node --test "scripts/*.test.mjs"`(각 스크립트의 단위 테스트 — 개수는 `scripts/` 가 진실). `test:watch` = watch |
 | `npm run release:{patch,minor,major}` | `npm version <bump>` — package.json+lock bump·커밋·`v*` 태그 원샷 (release.yml 트리거, 0088) |
 
 ### better-sqlite3 ABI · 제약 환경 게이트 가이드 (에이전트 필독)
@@ -141,11 +141,13 @@ Tailwind 시맨틱 토큰 · 그룹 스코프 격리(`group/<이름>`) · 단일
   - ABI 를 Node↔Electron 앞뒤로 뒤집으며 green 을 쫓지 마라 — 차단 환경에선 Electron ABI 자체가 불가하므로 테스트를 Node ABI 로 맞추면 이번엔 `dev`/`build` 가 깨지는 순환에 빠진다. 차단 환경에서 electron 로딩·빌드 검증은 **여기서 불가능**함을 받아들인다.
   - DB 로드 스위트의 bindings 실패를 자기 변경의 회귀로 보고하지 마라(코드 무관).
 
-`scripts/` 에는 ABI 보장 외 릴리스 위생 스크립트 3종이 있다 (각각 `*.test.mjs` 동반, `npm test` 가 자동 실행):
+`scripts/` 에는 ABI 보장(`ensure-sqlite-abi.mjs`) 외 위생 스크립트가 있다 (각각 `*.test.mjs` 동반, `npm test` 가 자동 실행):
 
 - `check-migrations-appendonly.mjs` — 머지된 마이그레이션 파일 수정 금지(아래 DB 정책)를 **기계 강제** (CI·release 게이트).
+- `check-doc-inventory.mjs` — 문서가 코드 수치를 재서술하지 않는지 + 상대 링크가 해석되는지 **기계 강제**. `docs/generated/inventory.md` 를 재생성하고 `--check` 로 커밋본과 대조한다. 순수 Node 라 ABI 무관.
 - `validate-release-version.mjs` — `v*` 태그 ↔ `package.json` 버전 일치 검증 (release.yml fail-fast).
 - `validate-dist.mjs` — 릴리스 산출물(installer/latest.yml/blockmap) sha512 재계산 검증.
+- `analyze-composer-input-trace.mjs` — Composer 입력 트레이스 분석 (0145 진단 도구).
 
 ## CI / 릴리스 (0087~0089)
 

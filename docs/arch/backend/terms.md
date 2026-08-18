@@ -56,9 +56,9 @@
 | **uv** | Astral 의 Python 패키지·인터프리터 관리자. 바이너리만 동봉, 인터프리터는 첫 실행 시 받는다. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 | **buildPyEnv** | Python 환경변수의 *단일 소스*. 초기화와 agent 실행이 같은 env 를 공유. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 
-## 6. 범용 정규화 계층 (📐 설계 확정 · 구현 대기)
+## 6. 범용 정규화 계층
 
-> **주의**: 이 절의 이름들은 OpenCode + Claude 를 함께 지원하기 위한 *설계상 타입* 이다. **아직 코드로 구현되지 않았다.** 정본 타입 정의는 [provider-runtime.md](./provider-runtime.md) 가 소유한다.
+> **주의**: 이 절의 이름들은 OpenCode + Claude 를 함께 지원하기 위한 타입 어휘다. **이름마다 구현 여부가 다르다** — `NormalizedEvent`·`PermissionBridge`·`PermissionModeController`·`ErrorClassifier`·`Telemetry` 는 구현돼 있고, `RevertManager`·`DirectBackendAPI`·`WorkspaceManager`·`ConfigManager` 는 목표 계약이다. 절별 판정과 정본 타입 정의는 [provider-runtime.md](./provider-runtime.md) 가 소유한다.
 
 | 이름 | 쉬운 설명 | 정본 |
 |---|---|---|
@@ -79,7 +79,7 @@
 
 ## 7. 표준 계층 (배포 — 무엇을 배포·주입하나)
 
-> 📐 설계 확정·구현 대기. 정본은 [standardization.md](./standardization.md). §6 런타임 계층(세션 *중*)의 짝으로, 세션 *시작 전* 무엇을 깔지를 다룬다.
+> 정본은 [standardization.md](./standardization.md). §6 런타임 계층(세션 *중*)의 짝으로, 세션 *시작 전* 무엇을 깔지를 다룬다. `sources`/`dist`·`ExtensionDeployer` 는 구현돼 있고 `StandardConformance`·AGENTS.md 채택은 목표 계약이다.
 
 | 이름 | 쉬운 설명 | 정본 |
 |---|---|---|

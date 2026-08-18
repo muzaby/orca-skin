@@ -22,10 +22,9 @@
 | `excludeDynamicSections` 생략(=false) | 미사용 → cwd/플랫폼/메모리 경로 동적섹션을 시스템 프롬프트에 유지 | grep 0건 |
 | 출력 스타일 미사용 | 정책은 전부 `append` 로 주입 | — |
 
-> 즉 **주입 메커니즘은 변경 대상이 아니다** (preset+append 그대로). 변한 것은 *append 의 내용*뿐이다:
-> handoff 0030 이 정책 텍스트 관리 구조(§2, 아래)를 도입했고, **handoff 0062 가 그 `prompts/` 정적
-> 정책 체인을 데드코드로 제거**했으며(빈 레지스트리), **handoff 0073 이 그 자리에 구조화 헤더(§2A)를
-> 도입**했다. 현재 append = `구조화 헤더`(프로젝트 지침은 `# Project` 섹션 안에 포맷화되어 편입).
+> 즉 **주입 메커니즘은 변경 대상이 아니다** (preset+append 그대로). append 의 내용은
+> `구조화 헤더` 하나이고 프로젝트 지침은 `# Project` 섹션 안에 포맷화되어 편입된다 (§2A).
+> 정적 정책 체인을 두지 않는 이유는 §2.
 
 ## 2A. 구조화 시스템 프롬프트 헤더 (`features/extensions/system-header.ts`, handoff 0073)
 
@@ -75,48 +74,12 @@ Project instructions:
   이미 주입 → 헤더는 preset 이 주지 못하는 Orca framing(GUI/markdown 표면)만 얹는다.
 - 근거 코드: `features/extensions/system-header.ts`(+`.test.ts`)·`builder.ts`(조립)·`app/bootstrap.ts`(version/settings 주입).
 
-## 2. 정책 문자열 관리 구조 (`app/src/main/prompts/`, handoff 0030) — **폐기(0062)**
+## 2. 정적 정책 append — 미채택
 
-> **HISTORICAL.** 아래 `prompts/` 정적 정책 체인은 handoff 0062 에서 빈 레지스트리 데드코드로
-> **제거됐다**. 현행 append 조립은 §2A 헤더다. 본 절은 이력 보존용.
+현행 append 조립은 §2A 헤더 하나다. `app/src/main/prompts/` 의 정적 정책 체인(레지스트리 + `policies/*.md` + `buildAppend`)은 소비자가 생기지 않아 빈 레지스트리로 남았고 제거됐다.
 
-가이드 5장(정책 문자열 관리)을 Orca main 레이어에 맞춰 도입했다. **관리는 여러 조각, 주입은 한 덩어리**.
+Decision rationale: [ADR-002 feature slice boundaries](../../decisions/002-feature-slice-boundaries.md).
 
-### 2.1 디렉토리 (L1 domain)
-
-```
-app/src/main/prompts/
-  policies/
-    python-runtime.md     # (A) STABLE 정적 산문 — 구 PY_AGENT_RULES 본문 이주
-    blocks/               # (B) 조건부 블록 본문 — 메커니즘만(현재 비어 있음)
-  platformHints.json      # (C) 키-값 룩업 스캐폴드(현재 엔트리 0) + platformHints.ts 접근자
-  registry.ts             # PolicyBlock 메타 — id·file·tier·when(조건). 텍스트 아님
-  loader.ts               # `.md?raw` 적재 + registry 정합 검증(누락/잉여 throw) + trim
-  buildAppend.ts          # tier/when 필터 → '\n\n' join → 단일 문자열
-  index.ts                # 배럴
-```
-
-- `prompts/` 는 `src/main/*` catch-all 로 **L1 domain 자동 분류**(eslint elements 변경 불필요).
-  shared 외 의존 0 → 경계 위반 0. 빌더(L1)→prompts(L1) 동일레이어 import 는 무순환.
-- `.md` 번들링은 마이그레이션의 `.sql?raw` 패턴 동형(`db/migrate.ts`). vitest 에서도 동작.
-
-### 2.2 보관 방식 매핑 (성격별)
-
-| 부류 | 보관 | Orca 현황 |
-|---|---|---|
-| (A) 긴 정적 산문 | `policies/*.md` | `python-runtime.md` 1개(=구 `PY_AGENT_RULES`) |
-| (B) 조건부 블록 | 본문 `.md` + 조건 `registry.ts` | **현재 없음** — `tier:'conditional'`+`when` 메커니즘만 |
-| (C) 키-값 룩업 | `platformHints.json` | **현재 엔트리 0** — 구조·접근자 스캐폴드 |
-
-### 2.3 핵심 규칙
-
-- **`buildAppend` 는 반드시 단일 문자열 반환** (4블록 버그 회피). conditional 인자는 합성 레지스트리
-  단위 테스트용 seam.
-- **조립 순서 = `POLICY_REGISTRY` 배열 순서.** stable 을 앞에 둬 변동성 계층(§3)을 강제.
-- **신규 정책 추가 절차**: (1) `policies/*.md` 생성 (2) `registry.ts` 등재 (3) `loader.ts` import.
-  셋이 어긋나면 `loadPolicies()` 가 throw — 드리프트 차단.
-- **무캐시 불변**: `buildAppend` 의 STABLE 부분만 startup 1회 조립(`ipc/router.ts`). **DB 프로젝트
-  지침은 빌더가 매 턴 조회**하므로 지침 편집이 같은 세션 다음 메시지부터 즉시 반영된다.
 
 ## 3. 변동성 계층 (캐시 레이아웃) — Orca 매핑
 

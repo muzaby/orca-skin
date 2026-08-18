@@ -9,6 +9,7 @@
 |---|---|
 | **무엇을** 만드는지 (제품 정의) | [`PRD.md`](PRD.md) |
 | **어떤 기술로** 만드는지 (기능·스택·API 사양) | [`TRD.md`](TRD.md) |
+| **아키텍처 문서 전체 지도** (backend/frontend 파일 맵) | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | 부트 시퀀스 · main 프로세스 구조 | [`arch/backend/overview.md`](arch/backend/overview.md) |
 | 세션 런타임 · 동시성 · IPC 핸들러 구조 | [`arch/backend/runtime-ipc.md`](arch/backend/runtime-ipc.md) |
 | chat turn · 어댑터 호출 · SDK→NormalizedEvent 정규화 | [`arch/backend/adapters.md`](arch/backend/adapters.md) |
@@ -19,6 +20,7 @@
 | 확장 배포 (MCP · SKILL.md · AGENTS.md 표준) | [`arch/backend/standardization.md`](arch/backend/standardization.md) |
 | 시스템 프롬프트 · 정책 append | [`arch/backend/system-prompt.md`](arch/backend/system-prompt.md) |
 | 로깅 | [`arch/backend/observability.md`](arch/backend/observability.md) |
+| renderer 범위 · 스택 · 구현 상태 | [`arch/frontend/overview.md`](arch/frontend/overview.md) |
 | renderer 4-layer · 디렉토리 책임 | [`arch/frontend/layers.md`](arch/frontend/layers.md) |
 | renderer 상태 관리 (Zustand · 멀티세션) | [`arch/frontend/state.md`](arch/frontend/state.md) |
 | 렌더링 (ToolRendererRegistry · 스트리밍 · UsagePanel) | [`arch/frontend/rendering.md`](arch/frontend/rendering.md) |

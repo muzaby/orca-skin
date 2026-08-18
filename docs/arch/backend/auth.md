@@ -67,6 +67,7 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 | 경로 | 책임 |
 |---|---|
 | `contracts/auth.ts` | 타입 계약 — `AuthDefinition`·`AuthMethod`·`AuthProbe`·`Grant`·`AuthenticatedRequest/Response`·`AuthSnapshot`·`AuthChange`·`BoundAuth`·`AuthRuntime`·`AuthSecretReader` |
+| `adapters/harness-config.ts` | 실행 구성 계약 + spawn 입력 조립 — `options.settings` / `options.env` 두 채널과 env fingerprint(`PreparedHarnessConfig`). feature 가 아니라 어댑터 포트다 |
 | `features/auth/runtime.ts` | `createAuthRuntime()` — registry·store·요청·로그인을 묶고 `{ runtime, secretReader }` 반환 |
 | `features/auth/registry.ts` | 빌드타임 선언 검사 (중복 id · bare origin). **gate probe 검사는 여기 없다** |
 | `features/auth/store.ts` | `authId → Grant` 단일 맵 + `verified` + `credentialRevision` + 만료 정착 집합 |
@@ -79,7 +80,6 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 | `features/harnesses/settings-entries.ts` | `sources/settings/<harness>/<modelProvider>/` 열거 |
 | `features/harnesses/settings.ts` | native settings 해석 + mtime cache + `sourceRevision` |
 | `features/harnesses/runtime-config.ts` | 동적 실행 구성 — augmenter · 세대 cache · fence · single-flight · expiry |
-| `features/harnesses/prepared-config.ts` | `options.settings` / `options.env` 두 채널 조립 + fingerprint |
 | `features/harnesses/runtime-boundary.ts` | respawn 경계 판정(순수) |
 | `features/plugins/confluence/` | Confluence REST · Markdown 변환 · 첨부 · Runtime Tool |
 | `app/deployment/` | 배포별 concrete — `auth-definitions`·`gate-auth`·`harness-runtime`·`plugins`·`connections`·`usage-fetcher` |

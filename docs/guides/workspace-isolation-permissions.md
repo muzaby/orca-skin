@@ -4,6 +4,13 @@
 > 방식: **PreToolUse 훅 중심**, `settings.json` 미사용 — SDK `options` 코드로만 구성
 > 언어: TypeScript
 > 전제: sandbox/docker/wsl/appcontainer **없이** 작업 폴더 밖 r/w 를 막는다. OS 샌드박스 대체가 아니라 "작업 폴더 밖 실수·오작동 방지" 수준이다(§8 한계).
+>
+> **Orca 에서는 이미 구현돼 있다 — 정본은 `app/src/main/adapters/workspace-guard.ts`(handoff 0074·0075)다.**
+> `resolveGuardRoots`(write 허용 = cwd + `additionalDirectories` + write 예외) · `guardToolAccess`(순수 판정) ·
+> `makeWorkspaceGuardHook`(`options.hooks` 조각) 셋으로 나뉘어 있고 판정부는 순수 함수라 단위 테스트가 붙어
+> 있다(`workspace-guard.test.ts`). **아래 코드 블록은 그 구현을 새로 쓰라는 뜻이 아니라 설계 근거를 읽기 위한
+> 참조다** — 실제 동작이 궁금하면 코드가 진실이고, 둘이 어긋나면 코드가 이긴다.
+> `additionalDirectories` 는 훅과 **같은 배열**을 넘겨야 한다(드리프트 방지, §5).
 
 ---
 
@@ -27,7 +34,7 @@
 | 경로 격리 실판정 (밖=차단) | **PreToolUse 훅** — 모드 독립, 항상 최우선 |
 | permission mode | 앱이 필요대로 선택 (**default 권장**; `acceptEdits`·`plan` 도 안전). `dontAsk` **아님** |
 | 툴 표면 축소 (선택) | `allowedTools` |
-| 위험 명령 이중 차단 (선택) | `disallowedTools` (deny 규칙) |
+| 위험 명령 이중 차단 (**Orca 미채택**, §6) | `disallowedTools` (deny 규칙) |
 
 격리는 훅이 지고, permissionMode 는 대화·자동진행 UX 를 위해 자유롭게 고른다. 이것이 요구사항 1·2 를 동시에 만족시키는 유일한 배치다.
 
@@ -77,7 +84,7 @@ const options = {
     "AskUserQuestion", "ExitPlanMode",
   ],
 
-  // (선택) 위험 명령 이중 차단. deny 규칙은 bypassPermissions 에서도 유효 (§6).
+  // 위험 명령 이중 차단. deny 규칙은 bypassPermissions 에서도 유효. **Orca 미채택** (§6).
   disallowedTools: [
     "Bash(sudo *)",
     "Bash(rm -rf /*)",
@@ -141,6 +148,8 @@ for await (const message of query({ prompt: userPrompt, options })) {
 - 그 외(`TodoWrite`·`AskUserQuestion`·`ExitPlanMode` 등) → 파일 접근 아님 → **pass-through**
 
 ### 3.4 구현
+
+> Orca 의 실제 구현은 `app/src/main/adapters/workspace-guard.ts` 다. 아래는 같은 판정을 한 파일로 펼친 참조 형태다.
 
 ```typescript
 // workspace-guard.ts
@@ -316,7 +325,12 @@ const options = {
 
 ---
 
-## 6. `disallowedTools` 로 보강 (deny 규칙, 선택)
+## 6. `disallowedTools` 로 보강 (deny 규칙 — **Orca 미채택**)
+
+> **현재 Orca 는 `disallowedTools` 를 SDK 에 넘기지 않는다** (`rg disallowedTools app/src` = 0건).
+> 아래는 도입할 경우의 형태이지 지금 켜져 있는 설정이 아니다 — 켜려면 `adapters/claude.ts` 의
+> `query()` 옵션 조립(`allowedTools` 옆)에 필드를 더하는 코드 변경이 필요하다. 현재 위험 도구 게이트는
+> `RISKY_TOOLS` 화이트리스트(`adapters/risky-tools.ts`)를 통한 **승인 카드**가 담당한다.
 
 훅이 놓치는 명령류를 deny 규칙으로 못박는다. deny 규칙은 훅보다 뒤(2단계)지만 **훅이 pass-through 해도 deny 규칙이 있으면 차단**된다 — 이중 안전망. `bypassPermissions` 에서도 유효.
 
@@ -360,7 +374,7 @@ disallowedTools: [
 | **PreToolUse 훅** | 경로 격리 실판정 (모든 툴·모든 모드 최우선). 밖=deny, 안=pass-through | `makeWorkspaceGuardHook` |
 | **permissionMode** | 대화·자동진행 UX 다이얼. `default` 권장, `dontAsk` **아님** | `permissionMode: "default"` |
 | `allowedTools` | (선택) 허용 툴 표면 축소 | Read/Write/Edit/Bash/AskUserQuestion/… |
-| `disallowedTools` | (선택) 위험 명령 이중 차단 | `Bash(sudo *)` 등 |
+| `disallowedTools` | 위험 명령 이중 차단 — **Orca 미채택**(§6) | `Bash(sudo *)` 등 |
 | `additionalDirectories` | 추후 확장 (지금 `[]`) | 훅과 동일 배열 공유 |
 
 **핵심 원칙 재확인:**
