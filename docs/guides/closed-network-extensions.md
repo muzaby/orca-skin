@@ -839,7 +839,7 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 
 | 항목 | 값 |
 |---|---|
-| 위치 | 디버그 패널 → **"로그인" 그룹** (`renderer/features/providers/components/ProviderDebugSection.tsx`) |
+| 위치 | 디버그 패널 → **"로그인" 그룹** (`renderer/src/features/providers/components/ProviderDebugSection.tsx`) |
 | 마운트 | **게이트 화면(`GateFrame`)과 메인 셸(`OverlayLayer`) 양쪽** |
 | 저장 | `Settings.authBypass` (main 이 SSOT, renderer 는 `store/bypassStore.ts` 미러) |
 | 반영 | **즉시** — `settings:set` 핸들러가 이 키의 변경을 보면 provider 상태를 push 한다 |
@@ -912,7 +912,7 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 | # | 명령 | 통과 기준 |
 |---|---|---|
 | 1 | `npm run typecheck` | exit 0 — 선언이 `AuthDefinition`(게이트면 `GateAuthDefinition`) 형상을 만족 |
-| 2 | `npm run lint` | error 0 (boundaries 위반 0) |
+| 2 | `npm run lint` | error 0 (boundaries 위반 0). ⚠️ **작업 트리를 고친다** — 이 스크립트는 `eslint --cache --fix` 라 자동 수정 가능한 위반을 조용히 파일에 쓴다. 실행 후 `git status` 로 자기 변경분과 도구 변경분을 가른다 |
 | 3 | `./node_modules/.bin/vitest run src/main/features/auth src/main/features/gate src/main/features/harnesses src/main/features/plugins src/main/app` | green — 단 아래 예외 |
 
 > **1번이 배포자가 가장 많이 걸리는 곳이다.** `probe` 없는 정의를 `GATE_AUTH_DEFINITIONS` 에 담으면

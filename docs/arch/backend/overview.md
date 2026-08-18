@@ -207,7 +207,7 @@ Electron App
 | **인증 + 소비 경계** (앱 로그인 + Harness 실행 구성 + Plugin) | Phase 4 | ✅ **0181 재작성 → 0188 경계 분리** | `contracts/auth.ts` 가 **인증만** 표현하고 `features/{auth,gate,harnesses,plugins}` 가 구현이다. 인증 5종(api-key·password·pat·**oauth code→token**·browser-session) · IPC `provider` 6채널(compat) · 카탈로그 연결 탭. 실값과 배선은 `app/deployment/` 에서 채운다. 구조 정본 [`auth.md`](./auth.md) |
 | **원격 전송 스택 단일화** (Node 전역 `fetch` 금지 → Chromium 스택) | Phase 4 | ✅ 완료 (0173/0174) | 전역 `fetch(` 호출은 `infra/net/net-fetch.ts` 에만 허용(`no-node-fetch.test.ts` 가 0건으로 고정), 소비자는 `typeof fetch` 포트 주입. Chromium 스택을 무는 파일은 **3개**(`net-fetch`·`net-request`·`browser-session`). [security.md](./security.md) §1.8 |
 | `options.permissionMode` (도구 권한) | Phase 4 | ✅ 완료 | `shared/permission-mode.ts`(`NormalizedPermissionMode` ↔ SDK 모드 변환) + `features/approvals/permission-mode-controller.ts`(세션 SSOT) + `orca:permission:setMode`. 진행 중 턴은 어댑터가 살아있는 `Query` 핸들에 즉시 위임한다. **MVP 기본값 정책은 PRD OQ9 로 계속 열려 있다** |
-| `options.hooks` 완전 구현 (도구 감사 외부 핸들러) | Phase 4 | ❌ 미구현 | 현재 인프로세스 OrcaHookSet 은 구현됨 |
+| `options.hooks` 완전 구현 (도구 감사 외부 핸들러) | Phase 4 | ❌ 미구현 | 현재 인프로세스 `NormalizedHookSet`(`adapters/hooks.ts`) 은 구현됨 |
 | 멀티세션 + 장수명 세션 채널 | Phase 4 | ✅ main 런타임 완료 (handoff 0011·0051·0067) | 세션별 SessionRuntime + 동시 턴 + 장수명 채널(프레임)·idle 풀 LRU. runtime-ipc.md §1. renderer 외피는 ../frontend/state.md §2 |
 | Zustand persist 전략 (renderer store ↔ 로컬 DB / electron-store) | Phase 4 | ❌ 미정 OQ | ../frontend/state.md §1.4.6 |
 | i18n | Phase 4 | ✅ 완료 (0096/0097) | `renderer/src/shared/i18n/` — i18next + react-i18next. UI 라벨은 리소스 번들, 기술 용어·터미널 출력은 영어 |

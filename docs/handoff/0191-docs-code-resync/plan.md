@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-18 |
 | 매핑 | — (문서 전용) |
-| 상태 | READY → IMPL_DONE (r1) → verify/FAIL (r1) |
+| 상태 | READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) |
 
 # Part I — Product & UX Contract
 
@@ -114,8 +114,9 @@
 
 - 기존 테스트 재사용: 없음 — 문서 전용이라 코드 테스트를 인수 수단으로 쓰지 않는다. 대신 AC7 이 **가이드가 지시하는 명령 자체**를 실행 대상으로 삼는다.
 - 사람 실기 항목: §8.2(배포 실기 — 사내 로그인 왕복)는 이 환경에서 실행 불가. 경로·파일명 대조로 갈음하고 그 사실을 구현 보고에 적는다.
-- 총량/0건 기준: AC1 의 스윕은 **파일 확장자가 붙은 경로**만 센다. 역사적 인용을 남겨야 하면 확장자를 떼고 산문으로 적어 대상에서 제외하되, 그 경우 어디를 그렇게 했는지 구현 보고에 나열한다(회피가 아니라 선택임을 남긴다).
-- AC2 의 "남는 `❌`": OpencodeAdapter · Artifacts 디렉토리 · Zustand persist · 전역 단축키 · 네트워크 단절 배너 — 각각 코드 구현체 0건으로 참임을 §8 에서 확인했다.
+- 총량/0건 기준: AC1 의 스윕은 **파일 확장자가 붙은 경로**만 센다 — r2 에서 계측을 3형태(절대형·상대형·맨 파일명)로 넓혔다(§19). 역사·설계어휘·외부·future 인용은 삭제하지 않고 **§19 예외 목록에 사유와 함께 등재**하고 그 목록을 구현 보고에 나열한다(회피가 아니라 선택임을 남긴다).
+- **[r2 정정 — 출처: verify r1 §7 재측정]** 아래 AC2 주의사항의 잔여 `❌` 는 r1 plan 이 **5종**으로 적었으나 실측은 **7행**이다. 설계자가 세지 못한 2행은 `options.hooks` 완전 구현(`backend/overview.md:210`)·멀티세션 UI(`frontend/overview.md:81`).
+- AC2 의 "남는 `❌`" **7행**: `backend/overview.md` 190(OpencodeAdapter)·201(Artifacts 디렉토리)·210(`options.hooks` 외부 핸들러)·212(Zustand persist — `❌ 미정 OQ`) + `frontend/overview.md` 81(멀티세션 UI)·82(전역 단축키)·83(네트워크 단절 배너) — 각각 코드 구현체 0건으로 참임을 §8 에서 확인했다. 측정면은 `arch/*/overview.md` 구현 상태표다(`persistence.md:18` 의 `❌ 미구현 (Future)` 는 상태표 밖이라 세지 않는다).
 
 ---
 
@@ -139,7 +140,7 @@
 | 대상 | 검색/방법 | N | 의미 |
 |---|---|---:|---|
 | 문서가 인용한 부재 `src/**` 파일 경로 | §19 스윕 (docs 전수 − handoff/archive/etc/spec, + AGENTS 3종) | **20** | AC1 의 분모 |
-| ↳ `provider-runtime.md` 몫 | 같은 스윕 | 11 | D-002 범위 |
+| ↳ `provider-runtime.md` 몫 | 같은 스윕 | **13** | D-002 범위. **[r2 정정 — 출처: verify r1 §7]** r1 은 11 로 적었다. base 스윕 원본 재집계 = 줄 26·98·143·202×3·217×2·254·274·407·408·525 |
 | `📐 구현 대기` 표기 (범위 내) | `grep -rn "구현 대기" docs --include=*.md \| grep -v handoff/archive/etc/spec` | 9 | 이 중 4건이 코드로 반증됨 |
 | `❌ 미구현` 상태행 (arch/ 내) | 같은 방식 | 12 | 이 중 4건이 코드로 반증, 5건 유지, 3건 비상태행 |
 | `closed-network-extensions.md §8.1` 회귀 테스트 목록 | 각 파일 `ls` | 10 중 **4 부재** | AC7 의 분모 |
@@ -149,7 +150,7 @@
 ### 수치 / 전칭 표현 검산
 
 - 재측정 수치: `app/scripts/*.mjs` 비-test **6개** · `*.test.mjs` **6개** (`app/AGENTS.md` 는 각각 "3종"·"4종"). `app/src/main/infra/db/migrations/` 최종 `0016_turn_model_context_window.sql`(`overview.md` 부트 시퀀스는 "0001~0013").
-- 내역 합 = 총계: 경로 부재 20 = provider-runtime 11 + IPC_CONTRACT 2 + TRD 2 + backend/overview 1 + frontend/overview 1 + claude-code-spec 1 + (frontend/overview·backend/overview 의 `i18n/ko.ts` 중복 제외) → 스윕 원본 출력 20줄과 일치.
+- 내역 합 = 총계: 경로 부재 20 = provider-runtime **13** + IPC_CONTRACT 2 + TRD 2 + backend/overview 1 + frontend/overview 1 + claude-code-spec 1 = **20** → 스윕 원본 출력 20줄과 일치. **[r2 정정 — 출처: verify r1 §7]** r1 이 적은 내역은 합이 18 이었다(분자 11 을 물려받아 2 가 빈다).
 - "유일한/항상/절대" 반례 검색: `app/AGENTS.md` 의 "전역 `fetch(` 를 부를 수 있는 파일은 `infra/net/net-fetch.ts` 하나뿐" — `infra/net/no-node-fetch.test.ts` 가 강제하므로 유지(반례 조사 불필요, 테스트가 잠금).
 - 문서 앵커 존재 확인: `decisions/002-feature-slice-boundaries.md` 실재(AC6 의 링크 대상).
 
@@ -212,12 +213,14 @@ docs/INDEX.md → arch/*.md → app/src/main/features/auth/…  ✓
 |---|---|---|---|---|
 | 수치를 본문에 쓰지 않는다 | `docs/generated/inventory.md` | `check-doc-inventory.mjs` prose 검사 | CI(`ci.yml`) · 로컬 `--check` | 사본이 갈린다 |
 | 상대 마크다운 링크가 해석된다 | 파일 시스템 | `check-doc-inventory.mjs` links 검사 | 동일 | 문서 이동 시 파손 |
-| **인용한 `src/**` 경로가 실재한다** | 파일 시스템 | **강제 지점 없음 → §19 스윕을 이번에 도입** | 구현·검증 턴 | 조용한 오안내 (이번 드리프트 20건의 원인) |
+| **인용한 코드 경로가 실재한다** | 파일 시스템 | **§19 경로 스윕 3형태**(절대형·상대형·맨 파일명) | 구현·검증 턴 | 조용한 오안내. r1 은 절대형만 계측해 상대형·맨 파일명에서 D1~D4 가 살아남았다 |
+| **인용한 코드 심볼이 실재한다** | `app/src` | **§19 심볼 스윕 — 전건 4버킷 분류** | 구현·검증 턴 | 문서가 "이미 구현된 코드다" 로 없는 심볼을 단언한다(D5). **[r2 등재 — 출처: verify r1 §5]** |
 | `guides/` 절차의 명령이 실행된다 | 실제 실행 | 사람/에이전트 | 구현 턴(AC7) | 배포자가 막힌다 |
 | `arch/` 는 현재 상태만 서술 | `docs/AGENTS.md` 규칙 4 | 사람 | 편집 시 | changelog 화 |
 
 - 같은 규칙이 여러 레이어에 있다면 SSOT: 수치는 `generated/inventory.md` 단 하나. 본문은 링크만 한다.
-- **강제 지점이 여럿인 항목**: "경로 실재" 는 범위 내 **문서 15개 + AGENTS 3개**에 동시에 걸린다. §19 스윕이 그 전부를 한 번에 센다 — 파일별로 따로 닫지 않는다.
+- **강제 지점이 여럿인 항목**: "경로 실재" 는 범위 내 문서 전부 + AGENTS 3종에 동시에 걸린다. §19 스윕이 그 전부를 한 번에 센다 — 파일별로 따로 닫지 않는다. **계측 정의가 곧 불변식의 정의가 되므로 정의를 좁게 잡으면 게이트 green 이 전수를 뜻하지 않는다**(r1 의 실패 지점).
+- **두 축의 게이트 형태가 다르다.** 경로 축은 **0-출력 게이트**(예외는 목록에 명시 등재), 심볼 축은 **전건 분류 게이트**(모든 산출을 `설계어휘`·`외부 SDK/env`·`역사`·`future` 4버킷 중 하나로 넣고 **미분류 0** 을 보고). 심볼은 설계 어휘·외부 타입이 정상적으로 다수라 0-출력이 성립하지 않는다.
 
 ## 11. 구현 설계
 
@@ -316,19 +319,70 @@ docs/INDEX.md → arch/*.md → app/src/main/features/auth/…  ✓
 ## 19. 게이트
 
 - 적용할 하위 가이드: `docs/AGENTS.md` 작성 규칙 · `docs/guides/AGENTS.md` · `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드`.
-- ABI/네트워크 제약: 이 세션은 egress 가 열려 `npm ci` 가 Electron ABI 로 성공했다. 그 상태에서는 **DB 를 인스턴스화하는 스위트가 bindings 오류로 실패**한다 — 그것이 D4 의 재측정 대상이다.
+- ABI/네트워크 제약: 이 세션은 egress 가 열려 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 가 성공한다. 그 상태에서는 **electron 바이너리를 실제로 로드하는 스위트가 실패**한다 — 변경 관련 실패와 분리해 보고한다.
 - 기본 정적 게이트: `cd app && node scripts/check-doc-inventory.mjs --check` (순수 Node, ABI 무관).
-- 경로 회귀 게이트:
+- **경로 회귀 게이트 (r2 확장 — 3형태).** r1 은 `src/…` 절대형만 셌고 그 정규식 밖에서 D1~D4 가 살아남았다. 해석은 **접미사 매칭**이다 — 문서가 `app/deployment/plugins.ts` 처럼 subtree 상대형으로 인용하는 것이 정상이기 때문이다.
 
 ```bash
-for f in $(find docs -name '*.md' | grep -v '^docs/handoff/\|^docs/archive/\|^docs/etc/\|^docs/spec/') \
-         app/AGENTS.md app/src/main/AGENTS.md app/src/renderer/AGENTS.md; do
+# 대상: docs 전수(handoff·archive·etc·spec 제외) + AGENTS 3종
+SCOPE="$(find docs -name '*.md' | grep -v '^docs/handoff/\|^docs/archive/\|^docs/etc/\|^docs/spec/') \
+        app/AGENTS.md app/src/main/AGENTS.md app/src/renderer/AGENTS.md"
+find app/src -name '*.ts' -o -name '*.tsx' | sed 's|^|/|' | sort > /tmp/_real.txt   # 접미사 해석 대상
+find app/src -name '*.ts' -o -name '*.tsx' | xargs -n1 basename | sort -u > /tmp/_base.txt
+basename -a app/*.ts >> /tmp/_base.txt                                              # app/vitest.config.ts 등
+
+# A. 절대형 — r1 게이트 그대로
+for f in $SCOPE; do
   grep -oEn '(app/)?src/(main|renderer|shared|preload)/[A-Za-z0-9_./@-]*\.(ts|tsx|md|css|html)' "$f" |
-  while IFS=: read -r ln p; do q=${p#app/}; [ -e "app/$q" ] || echo "$f:$ln  $p"; done
+  while IFS=: read -r ln p; do q=${p#app/}; [ -e "app/$q" ] || echo "A $f:$ln  $p"; done
+done
+
+# B. 슬래시 포함 상대형 (백틱 인용) — 접미사로 해석
+for f in $SCOPE; do
+  grep -oEn '`[^`]*`' "$f" | sed 's/`//g' |
+  grep -E ':[A-Za-z0-9_./@{}-]+/[A-Za-z0-9_.@{}-]+\.(ts|tsx)$' |
+  while IFS=: read -r ln p; do
+    grep -qF "/${p#app/src/}" /tmp/_real.txt || echo "B $f:$ln  $p"
+  done
+done
+
+# C. 맨 파일명 (백틱 인용)
+for f in $SCOPE; do
+  grep -oEn '`[A-Za-z0-9_.@-]+\.(ts|tsx)`' "$f" | sed 's/`//g' |
+  while IFS=: read -r ln p; do
+    case "$p" in */*|.*) continue;; esac
+    grep -qxF "$p" /tmp/_base.txt || echo "C $f:$ln  $p"
+  done
 done
 ```
 
-  현재 **20줄** → 완료 조건 **0줄**.
+  **완료 조건: A+B+C 산출이 아래 예외 목록과 정확히 일치**(그 밖 0줄). 예외는 삭제가 아니라 등재다 — 회피가 아니라 선택임을 남긴다.
+
+| 축 | 위치 | 인용 | 사유 |
+|---|---|---|---|
+| B | `docs/GLOSSARY.md:79` | `capabilities/revert-manager.ts` | 역사 — 같은 줄이 "구 … 정리됐고" 로 표기 |
+| B | `docs/arch/frontend/layers.md:110`·`:154` | `pages/XxxPage.tsx` | 설계어휘 — 새 파일 배치 규칙의 자리표시자 |
+| B | `docs/arch/frontend/ux-domains.md:93` | `pages/RoutinesPage.tsx` | future — "후속 PR 에서 … 추가 시" |
+| B | `docs/arch/backend/security.md:137` | `contracts/sso.ts`·`contracts/usage-source.ts` | 역사 — "0157 이 지운 두 경로 (되살리지 말 것)" |
+| B | `docs/arch/backend/provider-runtime.md:419` | `packages/sdk/js/src/gen/types.gen.ts` | 외부 — OpenCode SDK 저장소 경로 |
+| B | `docs/guides/closed-network-extensions.md:13` | `contracts/auth-method.ts`·`contracts/connector.ts` | 역사 — "더 이상 존재하지 않는다 — 인용하지 마라" |
+| B | `docs/decisions/004-provider-single-axis.md:3`·`:28` | `contracts/provider.ts` | 역사 — ADR 결정 시점 기록(`:28`)과 그것을 가리키는 상단 승계 노트(`:3`). 현재 계약은 `contracts/auth.ts` |
+| C | `docs/arch/frontend/rendering.md:138` | `TelemetryPanel.tsx` | 역사 — "0079 에서 … 대체" |
+| C | `docs/arch/frontend/state.md:102` | `useChat.ts` | 역사 — "구 useChat.ts … 폐기" |
+| C | `docs/arch/frontend/overview.md:72` | `NewChatButton.tsx` | 역사 — "삭제" 명시 |
+| C | `docs/arch/backend/provider-runtime.md:77`·`:423`·`:426`·`:445`·`:455` | `types.gen.ts` | 외부 — OpenCode SDK |
+| C | `docs/arch/backend/standardization.md:146` | `conformance.ts` | 설계어휘 — 같은 줄이 "코드에 존재하지 않는다" 로 명시 |
+
+- **심볼 회귀 게이트 (r2 신설).** 백틱 CamelCase/CONST 심볼 중 `app/src` 부재분을 **전건 4버킷 분류**한다. 0-출력이 목표가 아니다 — 설계 어휘·외부 SDK 타입이 정상적으로 다수다.
+
+```bash
+for f in $SCOPE; do
+  grep -oEn '`[A-Z][A-Za-z0-9]*[a-z][A-Za-z0-9]*`|`[A-Z][A-Z0-9_]{4,}`' "$f" | sed 's/`//g' |
+  while IFS=: read -r ln s; do grep -rqF "$s" app/src || echo "$s|$f:$ln"; done
+done
+```
+
+  **완료 조건: 산출 전건이 `설계어휘`·`외부 SDK/env`·`역사`·`future` 중 하나로 분류되고 미분류 0.** 4버킷 어디에도 안 들어가면서 현재형으로 단언된 심볼이 결함이다(D5 가 그 축이었다).
 - 가이드 절차 게이트(AC7): `cd app && npm run typecheck` · `npm run lint` · `./node_modules/.bin/vitest run src/main/features/auth src/main/features/gate src/main/features/harnesses src/main/features/plugins src/main/app`.
 - 사람 실기: `closed-network-extensions.md §8.2` 의 사내 로그인 왕복 — 이 환경에서 불가. 경로·파일명 대조로 갈음하고 분리 보고한다.
 
@@ -420,17 +474,127 @@ done
 - 그것을 막았어야 할 plan 지침·AC 가 있었는가: **부분적으로.** §10 이 "경로 실재" 는 강제 지점으로 세웠지만 "심볼 실재" 는 세우지 않았다 — 위 강제 지점 표의 마지막 줄이 그 공백에서 나왔다.
 - 반복해서 부딪히는 환경 한계: better-sqlite3/electron egress 제약. 이번엔 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 로 우회했고, 그 결과를 guides §8.1 의 예외 문구로 문서화했다.
 - 현재 라운드 수: 1
+## [구현자 기입] 라운드 2 — D1~D6 + 불변식 전수
+
+**불변식을 한 문장으로 올렸다**: *문서가 현재형으로 인용하는 코드 경로·심볼은 실재한다. 실재하지 않는 인용은 역사·설계어휘·외부·future 중 하나로 명시 표기된다.* r1 의 실패는 지적 6건이 아니라 **계측 정의가 불변식보다 좁았다**는 것이다 — §19 스윕이 `src/…` 절대형만 세서 상대형(D2·D3·D4)·맨 파일명(D1)·심볼(D5)이 통째로 계측 밖이었다.
+
+### 사용자 결정 (이번 턴)
+
+| # | 결정 | 반영 |
+|---|---|---|
+| 1 | `layers.md §1-2 이행 이력` **삭제 + git 링크** | 51줄 제거(`layers.md:96~146`), `:94` 가 `git log`(PR #29)로 안내. `docs/AGENTS.md` 규칙 4 정합 |
+| 2 | 확장 스윕은 **plan §19 유지**(체크인 스크립트·CI 게이트 없음) | 코드 변경 0 · AC5 스크립트 목록 불변 |
+| 3 | `decisions/004` 는 **상단 승계 노트**, 본문 경로 유지 | `004-provider-single-axis.md:3~5` |
+
+### 계측 확장이 드러낸 것 — 지적 6건 밖 결함
+
+| 축 | r1 계측 | r2 계측 | 새로 나온 결함 |
+|---|---|---|---|
+| A 절대형 | 20 → 0 | 0 유지 | — |
+| B 상대형 | **미계측** | 57 → 예외 11줄 | **13건** (D2·D3·D4 포함) |
+| C 맨 파일명 | **미계측** | 19 → 예외 9줄 | **7건** (D1 포함) |
+| 심볼 | **미계측**(r1 이 3심볼만 임의 확인) | 89사이트 → 67사이트 전건 분류 | D5 계열 18인용 + **5심볼** |
+
+B/C 의 원자료는 `layers.md §1-2` 가 34건을 차지했다 — 결정 1 이 그것을 원인째 지웠다.
+
+**결함 총량 검산**: 경로 **20**(B 13 + C 7) + 심볼 **5** + D5 계열 = 이번 라운드에 고친 인용. 이 중 검증자가 지적한 것은 D1(C) · D2·D3·D4(B) · D5 뿐이고, 나머지 **21건은 계측을 넓혀야 보였다**.
+
+### 강제 지점 전수 (r2 · §10 대조)
+
+| 계약 | §10 지점 | 닫은 지점 | 재현 명령 / 관측 |
+|---|---|---|---|
+| 인용 경로 실재 (A) | 스윕이 한 번에 | **0/0 잔여** | §19 A 블록 → `A ` 접두 산출 **0줄** |
+| 인용 경로 실재 (B) | 〃 | **13/13** | §19 B 블록 → 11줄, 전부 예외표 등재 |
+| 인용 경로 실재 (C) | 〃 | **7/7** | §19 C 블록 → 9줄, 전부 예외표 등재 |
+| **인용 심볼 실재** (r2 등재) | 전건 4버킷 | **47/47 분류 · 미분류 0** | §19 심볼 블록 → 67사이트/47심볼. 설계어휘 25 · 외부 SDK·env 9 · 역사 13 |
+| 수치 본문 미기재 | inventory prose | 1/1 | `cd app && node scripts/check-doc-inventory.mjs --check` → `prose ok` |
+| 상대 링크 해석 | inventory links | 1/1 | 동 → `links ok: every relative markdown link resolves` |
+| guides 절차 실행 | §8.1 명령 3개 | 3/3 | typecheck exit 0 · lint **0 errors / 1 warning** · scoped vitest **41파일 중 40 · 506 케이스 전부 통과** |
+| §8.1 인용 테스트 실재 | 표 8행 | **21/21** | `§8.1` 백틱 `*.test.ts` 21개 전수 `find` → `MISSING` 0줄 |
+
+- **A+B+C 산출 = 예외표 20줄과 정확히 일치**(12행이 20사이트를 덮는다). 그 밖 0줄.
+- 남긴 곳: 없음. 예외 등재분은 삭제가 아니라 사유와 함께 §19 표에 남겼다.
+
+### 심볼 축 4버킷 분류 (미분류 0)
+
+| 버킷 | N | 예 |
+|---|---:|---|
+| 설계어휘·목표계약 | 25 | `BackendAdapter`·`StandardConformance`·`DirectBackendAPI`·`TerminalCard`·`AppShell`(금지 예시) |
+| 외부 SDK / env | 9 | `ClaudeSDKClient`·`SDKPermissionDeniedMessage`·`TeammateIdle`·`CLAUDE_CODE_*`·`NODE_ENV` |
+| 역사(구·폐기·제거) | 13 | `OrcaCapabilities`·`CapabilityBuilder`·`PlanApprovalCard`·`ArgvSafeSettings`·`UseChat` |
+
+이번 라운드에 **현재형 단언이었다가 결함으로 판정된 심볼 5개**를 고쳤다 — `RESTORE_SESSION`(→ 부팅 스텝 `landing-target`) · `MOCK_HATCH_BG`(→ `DISABLED_HATCH_CLASS`) · `CachedSession`(→ `sessions` Record 흡수) · `SetSessionPinnedRequest`/`SetProjectPinnedRequest`(→ `*Schema`, `shared/protocol.ts:220`·`:240`).
+
+### D1~D6 처리
+
+| # | 처리 | 관측 |
+|---|---|---|
+| D1 | ✅ `provider-runtime.md:188` ③ 를 line 202 와 정합하게 재작성 | 실제 코드 `claude.ts:346 prompt: input.stream`(턴) · `:270 prompt: req.prompt`(1-shot complete). `^## ` **20개 불변** |
+| D2 | ✅ `ExtensionsCatalogView` 로 3곳 치환 | `ux-domains.md:95`·`layers.md:69`·`overview.md:76`. 실체 `features/skills/index.ts` barrel · `AppLayout.tsx:14` 마운트 |
+| D3 | ✅ `adapters/plan-feedback.ts` | `IPC_CONTRACT.md:445`. 같은 문서 `:481` 의 `app/chat-turn.ts`(0190 디렉토리화)도 함께 |
+| D4 | ✅ 경로만이 아니라 **서술이 낡았다** | cwd 는 `home` 고정이 아니라 `Bootstrap.getCwd(projectId)` 의 프로젝트 단위(`bootstrap.ts:123`·`context.ts:37`) |
+| D5 | ✅ `OrcaHook*` → `Normalized*` 전수 | `grep -rn "OrcaHook\|ORCA_TO_CLAUDE_EVENT"` 범위 내 **0건**. 코드 1:1 대조(`hooks.ts` 9이벤트·필드 동일) |
+| D6 | ✅ 세 숫자 정정 + provenance | §7 잔여 `❌` 5→**7** · §8 provider-runtime 몫 11→**13** · §8 내역 합 18→**20**. 각 정정에 `[r2 정정 — 출처: verify r1 §7]` 표기 |
+
+### 선조치 (구현 세부·명백한 오기)
+
+| # | 내용 | 근거 |
+|---|---|---|
+| 1 | `adapters.md:291` `protectEnv` 예제가 `{action:'block'}` 반환 — 같은 절의 결정 형식은 `{decision:'deny'}` | 문서 내 자기모순. 코드(`hooks.ts:38 NormalizedHookDecision`) 형식으로 정정 |
+| 2 | `security.md:114` SSO 인증 창 예외가 0180 에 사라진 `features/sso/auth-window.ts` 를 현재형 인용 | `infra/browser-session.ts:111 openLoginWindow` + `partitionFor` 로 재작성 |
+| 3 | `system-prompt.md:130` 이 0028 이 제거한 `splitProviderSettings`·branded 타입을 "컴파일타임 강제" 로 단언 | `security.md:180` 이력 문단이 제거를 명시. `adaptSettings`/`adaptEnv` 로 정정 |
+| 4 | `app/src/main/AGENTS.md:29` app 열거에 `settings-reactions.ts` 누락(`app/AGENTS.md` 에는 있음) | 형제 문서 비대칭 — 추가 |
+| 5 | guides §8.1 2번 `npm run lint` = `eslint --cache --fix` 가 배포자 트리를 조용히 고침 | `app/package.json:10`. 통과 기준 칸에 부작용 한 줄 명시 |
+
+### 보고만 (권한 밖)
+
+| # | 내용 | 왜 |
+|---|---|---|
+| 1 | **AC6 의 ADR 링크가 근거를 담지 못한다** — `system-prompt.md:81` 이 `ADR-002` 를 rationale 로 링크하나 그 ADR 본문에 `prompts/` 정적 정책 체인 제거가 없다(`grep -n "prompts/" decisions/002-*.md` = 0) | 링크 대상 교체는 D-003("ADR 링크만 남긴다") 의 실현 방식을 바꾸는 판단이라 설계자·사용자 몫 |
+| 2 | 루트 `AGENTS.md` 의 `src/shared/i18n/ko.ts` ↔ 이번에 고친 `TRD.md N2` 가 갈렸다 | D-007 이 범위 밖으로 뒀다 |
+| 3 | `app/src/shared/ipc.ts:394` 주석이 개명 전 `InteractionBroker` 사용 | 코드 변경 0 이 이번 비범위 |
+| 4 | `persistence.md:18` 의 `❌ 미구현 (Future)` 는 AC2 측정면(`arch/*/overview.md` 상태표) 밖이다 | 참인 미구현이라 고칠 것이 없다. 측정면 정의를 §7 에 명시했다 |
+| 5 | PRD §11 OQ9 | D-006 — 사용자 결정 대기 |
+
+### 설계 대비 명시적 차이
+
+- **plan §11 이 예상하지 않은 파일 7개를 고쳤다** — `security.md`·`state.md`·`dom-architecture.md`·`terms.md`·`GLOSSARY.md`·`standardization.md`·`decisions/004`. 이유: 계측을 넓히자 같은 불변식이 이 파일들에서 성립하지 않았다. §11 표는 r1 계측(절대형)이 찾은 파일만 담고 있었다.
+- **`layers.md` 는 정정이 아니라 삭제였다**(결정 1). §11 은 "C6 트리 정정" 만 예상했다.
+
+### 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 21개 (docs 18 + `app/src/main/AGENTS.md` + handoff 2 — `plan.md`·`INDEX.md`). **코드 변경 0** (`git status --short` 재확인) |
+| 실행 명령 | §19 스윕 A/B/C + 심볼 · `node scripts/check-doc-inventory.mjs --check` · `npm run typecheck` · `npm run lint` · scoped `vitest run` |
+| **관측한 게이트 산출** | 인벤토리 **3항목 ok**(`generated doc ok (9 items, 76 channels)`·`prose ok`·`links ok`) · typecheck exit 0 · lint **0 errors / 1 warning**(기존 `react-hooks/incompatible-library`, `useTranscriptVirtualizer.ts:22`) · scoped vitest **41파일 중 40 통과 · 506 케이스 전부 통과** |
+| 환경 기인 실패 분리 | 실패 1파일 = `src/main/app/chat-turn.continuity.test.ts`, 서명 `Electron failed to install correctly`(`ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci`). 변경과 무관하며 guides §8.1 예외 문구가 서술하는 그 실패다 |
+| 강제 지점 전수 | **8/8** (위 표) |
+| **AC 자기보고** | AC1 ✅ A=0·B/C 는 예외표와 정확히 일치 · AC2 ✅ 긍정 8행 파일 실재 재확인, 잔여 `❌` **7행** · AC3 ✅ `^## ` **20** 불변 + D1 정정 · AC4 ✅ 4패턴 검색 **0건** · AC5 ✅ 비-test 스크립트 **6** = 열거 6 · AC6 ✅ `system-prompt.md:77` 이 "미채택" 3줄 + `:81` ADR 링크 · AC7 ✅ 명령 3개 실행 + 인용 테스트 **21/21** 실재 · AC8 ✅ §8.2 1번 = `app/deployment/auth-definitions.ts` = §1.1 트리 1행 · AC9 ✅ `workspace-guard.ts` 인용(`:8`·`:141`) + `grep -r disallowedTools app/src` **0** · AC10 ✅ `release-operations.md:12` "main push + 모든 PR" = `ci.yml:11~19` · AC11 ✅ `docs/INDEX.md` 2행 · AC12 ✅ 3항목 ok |
+| **합계 검산** | `✅ 12 · ⚠️ 0 · ❌ 0 = 총 12` — 분모는 §7 의 AC1~AC12. **r1 과 분모 동일**(분할·추가 없음). r1 자기보고도 12/12 였으나 검증 재측정은 8✅/4⚠️ 였다 — 이번 12는 그 4건(AC1·AC2·AC3·AC7)을 계측 확장으로 다시 닫은 값이다 |
+| 블로커 / 역질문 | AC6 의 ADR 링크 근거(위 보고만 #1) · PRD §11 OQ9(D-006) |
+| 대상 커밋 | (아래 커밋 해시) |
+
+### Review Signals — 사실만 (r2)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **그렇다.** r1 과 r2 가 같은 불변식("인용이 실재한다")을 닫았고, 갈린 것은 **계측 정의의 넓이**다. r1 은 정규식이 곧 정의가 됐다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **AC1 이 있었지만 검증 수단을 스윕 출력으로 못박아** semantic 목표("독자가 부재 파일로 안내받지 않는다")보다 좁아졌다. verify r1 §4 가 같은 진단을 냈다.
+- 반복해서 부딪히는 환경 한계: electron 바이너리(1파일) — r1 과 동일 서명. 검증 세션에 `node_modules` 가 없던 r1 verify 의 한계는 이번 구현 세션에서는 없었다(`npm ci` 성공).
+- 현재 라운드 수: **2**
+
 ---
 
 ## [검증자 기입] 파생 이슈
 
 > r1 검증: [`verify.md`](verify.md) (FAIL — AC 8✅/4⚠️ · 강제 지점 3/6 재현).
+>
+> **D1~D6 전부 r2 에서 처리했다** — 처리 내역과 관측값은 `[구현자 기입] 라운드 2`. 상태 칸은 구현자 자기보고이고 판정은 r2 verify 가 한다.
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| D1 | `provider-runtime.md:188` 이 현재형으로 `claude-code.ts` + "매 턴 one-off `query()`" 를 적어 같은 문서 line 202(streaming input·라이브 핸들)와 모순 | verify r1 §13 | 파일명을 `adapters/claude.ts` 로, 상태 문구를 line 202 와 정합하게 | OPEN |
-| D2 | `ux-domains.md:95` 가 부재 파일 `features/skills/components/customize/SkillsCustomizeView.tsx` 인용. 심볼은 `layers.md:69`·`frontend/overview.md:76` 에도 | verify r1 §13 | 실제 컴포넌트명으로 3곳 치환 | OPEN |
-| D3 | `IPC_CONTRACT.md:445` 가 0062 에서 제거된 `prompts/plan-feedback.ts` 인용 (실제 `adapters/plan-feedback.ts`) | verify r1 §13 | 경로 정정 | OPEN |
-| D4 | `system-prompt.md:106` 이 현재 cwd 소유자로 부재 경로 `ipc/router.ts` 인용 | verify r1 §13 | 현재 소유 파일로 정정 | OPEN |
-| D5 | `adapters.md §3.2.5` 가 "코드 진실 … 이미 구현·테스트된 코드다" 로 `OrcaHookSet`·`OrcaHookEvent`·`OrcaHookHandler`·`ORCA_TO_CLAUDE_EVENT` 단언 — `grep -rn OrcaHookSet app/src` = 0 | verify r1 §13 | 현재 이름(`NormalizedHookSet`·`adaptHooks`)으로 치환. `provider-runtime.md:29`·`terms.md:30` 동반 | OPEN |
-| D6 | 자기보고 개수 3축 불일치 — AC2 잔여 `❌`(plan 5·impl 6·실측 **7**) · §8 내역 합 18≠20 · provider-runtime 몫 실측 **13**(기재 11) | verify r1 §7 | 세 숫자를 실측으로 고치고 §19 스윕을 상대 경로까지 확장, 심볼 축을 §10 강제 지점 표에 정식 등재 | OPEN |
+| D1 | `provider-runtime.md:188` 이 현재형으로 `claude-code.ts` + "매 턴 one-off `query()`" 를 적어 같은 문서 line 202(streaming input·라이브 핸들)와 모순 | verify r1 §13 | 파일명을 `adapters/claude.ts` 로, 상태 문구를 line 202 와 정합하게 | **r2 처리** |
+| D2 | `ux-domains.md:95` 가 부재 파일 `features/skills/components/customize/SkillsCustomizeView.tsx` 인용. 심볼은 `layers.md:69`·`frontend/overview.md:76` 에도 | verify r1 §13 | 실제 컴포넌트명으로 3곳 치환 | **r2 처리** |
+| D3 | `IPC_CONTRACT.md:445` 가 0062 에서 제거된 `prompts/plan-feedback.ts` 인용 (실제 `adapters/plan-feedback.ts`) | verify r1 §13 | 경로 정정 | **r2 처리** |
+| D4 | `system-prompt.md:106` 이 현재 cwd 소유자로 부재 경로 `ipc/router.ts` 인용 | verify r1 §13 | 현재 소유 파일로 정정 | **r2 처리** |
+| D5 | `adapters.md §3.2.5` 가 "코드 진실 … 이미 구현·테스트된 코드다" 로 `OrcaHookSet`·`OrcaHookEvent`·`OrcaHookHandler`·`ORCA_TO_CLAUDE_EVENT` 단언 — `grep -rn OrcaHookSet app/src` = 0 | verify r1 §13 | 현재 이름(`NormalizedHookSet`·`adaptHooks`)으로 치환. `provider-runtime.md:29`·`terms.md:30` 동반 | **r2 처리** |
+| D6 | 자기보고 개수 3축 불일치 — AC2 잔여 `❌`(plan 5·impl 6·실측 **7**) · §8 내역 합 18≠20 · provider-runtime 몫 실측 **13**(기재 11) | verify r1 §7 | 세 숫자를 실측으로 고치고 §19 스윕을 상대 경로까지 확장, 심볼 축을 §10 강제 지점 표에 정식 등재 | **r2 처리** |

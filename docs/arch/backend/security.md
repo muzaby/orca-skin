@@ -111,7 +111,7 @@ new BrowserWindow({
 - 마크다운 렌더링: react-markdown 기본값 (raw HTML 비활성). 이미지는 data-uri 만 허용.
 - 외부 링크: `shell.openExternal` 경유, 절대 `webContents` 에서 직접 열지 않음.
 - `will-navigate` / `setWindowOpenHandler` 에서 외부 URL 모두 거부.
-- **의도적 예외 — SSO 인증 창(0130)**: `features/sso/auth-window.ts` 의 `openAuthWindow` 는 SSO 모듈(컴파일 타임 회사 코드)이 지정한 URL 을 **전용 격리 창**에 로드한다. 앱 본창 정책은 불변이며, 이 창은 (a) `session.fromPartition('sso')` 로 앱 세션과 쿠키 격리, (b) preload 없음 + `contextIsolation`/`sandbox` 강제, (c) `isDone(url)` 매칭 또는 타임아웃 시 즉시 destroy 로 경계를 좁힌다.
+- **의도적 예외 — 통제된 로그인 창**: `infra/browser-session.ts` 의 `openLoginWindow` 는 배포 선언(`app/deployment/`, 컴파일 타임)이 지정한 URL 을 **전용 격리 창**에 로드한다. 앱 본창 정책은 불변이며, 이 창은 (a) `session.fromPartition(partitionFor(sessionGroup))`(`persist:auth.<group>`) 으로 앱 세션과 쿠키 격리, (b) preload 없음 + `contextIsolation`/`sandbox` 강제 + `nodeIntegration:false`, (c) `isDone(url)` 매칭 또는 타임아웃 시 즉시 destroy 로 경계를 좁힌다. 쿠키를 호출자에게 돌려주지 않고 handle 과 최종 URL·probe 판정만 준다.
 - DevTools 자동 오픈: dev 빌드 (`process.env.NODE_ENV !== 'production'`) 한정.
 
 ### 1.6 CSP

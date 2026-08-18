@@ -116,7 +116,7 @@ class OpenCodeEngine {
 >
 > **격리 해제**: `query()` 호출에서 `settingSources` 옵션을 **생략**해 SDK 기본값(user+project+local 전부)으로 사용자 전역 `~/.claude` skill·설정을 상속한다. 그로 끌려오는 사용자 allow 규칙은 `disallowedTools` 옵션으로 확정 차단한다(SDK 권한 평가: hooks→deny/disallowed→ask→allow→canUseTool — disallowed 가 allow·canUseTool 보다 상위). **이는 handoff 0014/0015 가 채택한 `settingSources: []` 격리모드 결정을 폐기(supersede)한다** — 0014/0015 문서는 historical 기록으로 보존하고 supersession 만 본 절·TRD §6.8·PHASES 에 기재.
 >
-> **구현 상태 (0058 구현됨)**: 코드가 Claude plugin 레이아웃으로 정렬됐다. `deploy/deployer.ts` 는 `plugins/orca` 패키지를 렌더하고, `claude-adapt.ts` 는 `options.plugins` 와 `orca:<skill>` 필터를 주입한다. `options.mcpServers` 경로는 레거시로 남아 있으나 기본 query 경로에서는 호출하지 않는다.
+> **구현 상태 (0058 구현됨)**: 코드가 Claude plugin 레이아웃으로 정렬됐다. `features/extensions/deployer.ts` 는 `plugins/orca` 패키지를 렌더하고, `claude-adapt.ts` 는 `options.plugins` 와 `orca:<skill>` 필터를 주입한다. `options.mcpServers` 경로는 레거시로 남아 있으나 기본 query 경로에서는 호출하지 않는다.
 
 ### 5.2 ExtensionDeployer
 
