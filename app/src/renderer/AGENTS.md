@@ -51,7 +51,7 @@ shared/       → shared 내부만                  (범용 atom. 도메인 로�
 1. 한 파일에 **React 컴포넌트 5개 이상**이 모이고 그중 일부가 다른 레이어/슬롯에 속할 수 있다.
 2. **400줄 초과**.
 
-단일 컴포넌트의 응집 구현(`HighlightedTextarea`·`chatReducer` 등)은 예외다. 분해할 때 새 파일은
+단일 컴포넌트의 응집 구현(`ComposerDecorationLayer`·`chatReducer` 등)은 예외다. 분해할 때 새 파일은
 **해당 레이어·feature 디렉토리**(`features/<X>/components|hooks/` · `shared/ui/`)에 둬 4-layer
 경계를 보존한다.
 

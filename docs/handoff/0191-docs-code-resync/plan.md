@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-18 |
 | 매핑 | — (문서 전용) |
-| 상태 | … → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) → **verify/FAIL (r5)** |
+| 상태 | … → IMPL_DONE (r5) → verify/FAIL (r5) → **IMPL_DONE (r6)** |
 
 # Part I — Product & UX Contract
 
@@ -380,7 +380,7 @@ done
 - **심볼 회귀 게이트 (r3 재작성).** r2 판은 두 곳이 불변식보다 좁았다 — 추출이 **백틱 CamelCase/CONST 만** 봤고, 실재 테스트 `grep -rqF "$s" app/src` 가 **주석 줄을 실재로 셌다**(`ExtensionDeployer` 가 그렇게 통과 → E1). 0-출력이 목표가 아니다 — 설계 어휘·외부 SDK 타입이 정상적으로 다수다.
 
 ```bash
-CORPUS="app/src app/scripts app/package.json .github/workflows"
+CORPUS="app/src app/scripts app/package.json app/eslint.config.mjs app/electron.vite.config.ts .github/workflows"
 for f in $SCOPE; do
   { grep -oEn '`[A-Za-z_][A-Za-z0-9_]*`' "$f" | sed 's/`//g'          # S1 백틱 CamelCase/CONST + S2 lowerCamelCase
     grep -oEn '`[a-z][a-z0-9]*(-[a-z0-9]+)+`' "$f" | sed 's/`//g'      # S4 백틱 소문자-하이픈
@@ -388,10 +388,11 @@ for f in $SCOPE; do
     grep -oEn '`[A-Za-z_][A-Za-z0-9_]*\(' "$f" | sed 's/`//g;s/(//'    # S5 백틱 호출식 (r4 신설)
   } | while IFS=: read -r ln s; do
     case "$s" in *[A-Z]*|*-*) ;; *) continue;; esac                    # 식별자형만
-    # [r5 개정 — 출처: verify r4 §13 G1] 구 판은 -F 라 substring 이었다.
-    # `ChatEvent` 가 `ingestChatEvent` 에 걸려 11사이트가 분모에서 빠졌다 — F1 이 경로 축에서
-    # 닫은 그 결함이 심볼 축에 남아 있었다. -w 로 단어 경계를 건다.
-    hits=$(grep -rnwF "$s" $CORPUS 2>/dev/null)
+    # [r5 개정] 구 판은 -F 라 substring 이었다 — `ChatEvent` 가 `ingestChatEvent` 에 걸렸다. -w 로 경계를 건다.
+    # [r6 개정 — 출처: verify r5 I2 + r6 적대 검사] 실재는 **프로덕션 코드**에서만 센다.
+    #   `*.test.*` — 유일한 호출자가 테스트면 미배선이다(handoff-verify §2).
+    #   `*.md`     — `app/src/**/AGENTS.md` 는 SCOPE 이면서 CORPUS 안에 있어 자기 인용을 자기가 증명했다.
+    hits=$(grep -rnwF "$s" $CORPUS 2>/dev/null | grep -v -e '\.test\.' -e '\.md:')
     if [ -z "$hits" ]; then echo "ABSENT|$s|$f:$ln"
     elif ! printf '%s\n' "$hits" | sed 's/^[^:]*:[0-9]*://' | grep -qvE '^[[:space:]]*(//|\*|/\*|#)'; then
       echo "COMMENT_ONLY|$s|$f:$ln"                                    # 주석에만 있다 = 실재 아님
@@ -404,19 +405,19 @@ done | sort -u    # 고유 (종류,심볼,사이트) — dedup 후가 보고 수
 
   **[r4 추가 — 출처: verify r3 O2] dedup 규칙.** 한 줄이 같은 심볼을 두 번 인용하면 raw 산출에 두 줄이 나온다. 보고 수치는 `sort -u` 뒤의 **고유 `(종류,심볼,사이트)`** 다 — r3 의 `211` 도 raw `215` 의 dedup 값이었고, 규칙이 안 적혀 있어 재현자가 raw 를 본다.
 
-  **r5 분류 결과 (270사이트 / 154심볼 · 미분류 0)** — 버킷별 심볼 목록. 다음 라운드는 이 집합을 diff 해 새 심볼만 판정하면 된다.
+  **r6 분류 결과 (292사이트 / 166심볼 · 미분류 0)** — 버킷별 심볼 목록. 다음 라운드는 이 집합을 diff 해 새 심볼만 판정하면 된다.
 
-  **r4(220) → r5(270) delta**: 단어 경계 전환이 **+52사이트 / +25심볼**을 드러냈다(전부 긴 이름 안에 들어가 통과하던 것들 — `ChatEvent`↔`ingestChatEvent` · `AuthSpec`↔`AuthSpecEntry` · `Screen`/`Tile`/`Slot` 류 개념어). r5 정정으로 −2. 시제 판정 대상은 **98 → 117**.
+  **r5(270) → r6(292) delta**: 코퍼스 경계 정정이 **+22사이트 / +13심볼**을 드러냈다 — `*.test.*` 제외 15건(`filterEscalatingDefaultMode` 2건이 실제 드리프트) · `*.md` 제외 15건(`app/src/**/AGENTS.md` 자기 증명) · 설정 파일 추가로 −1(`adapter-impl`). `useChatContext` 1심볼은 r6 정정으로 빠졌다.
 
-  **r5 신규 25심볼의 버킷** — `역사`: `AuthSpec` `ChatEvent` `Connector` `Pane` `RuntimeStatus` · `문서어휘`: `Artifact` `Captures` `Credential` `Delta` `Main` `Migrations` `Principal` `Reducer` `Refs` `Renderer` `Router` `Screen` `Slot` `Telemetry` `Tile` `Transcript` · `설계어휘`: `Binding` `DiscardSession` `StopSubagent`(→ r5 가 `*Schema` 로 정정) · `외부`: `HookOutput`.
+  **r6 신규 13심볼의 버킷** — `외부`: `ANTHROPIC_API_KEY` `HTTPS_PROXY` `Location` `followRedirect` `outputFormat` · `설계어휘`: `AppCommandPolicy` `PermissionBridge` `SEND_USER_MESSAGE` · `역사`: `ProviderApi` `SEND` `authToken` · `문서어휘`: `ModelProvider` `P0` · **정정 대상이었던 것**: `filterEscalatingDefaultMode`(기제 귀속 거짓 → 2사이트 정정).
 
 | 버킷 | 사이트 | 심볼 |
 |---|---:|---|
-| 설계어휘·목표계약 | 65 | `AppContainer` `AppShell` `BackendAdapter` `Binding` `DiscardSessionSchema` `StopSubagentSchema` `CapabilityProbe` `ClaudeEngine` `ConfigManager` `DiffCard` `DirectBackendAPI` `DirectBackendCapabilities` `ExclusivePlugin` `ExtensionDeployer` `FilePreviewCard` `ModelProviderConfig` `OpenCodeEngine` `PendingApprovalStateMachine` `ProviderPlatformV2` `ProviderSettingsLoader` `Redaction` `RevertManager` `SEND_USER_MESSAGE` `SessionCapability` `StandardConformance` `StructuredOutputState` `TerminalCard` `WorkspaceManager` `detectError` `getCredentialKeys` `mcpSpecVersion` `mergePolicy` `migrate-sources` `selectFileRenderer` `supportedBackends` `useContextSelector` `useOverlay` `vendorExtensions` |
-| 외부 SDK·env·플랫폼 | 76 | `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` `CLAUDE_CODE_*`(3) `ClaudeSDKClient` `HOME` `HookOutput` `MODULE_NOT_FOUND` `McpServerConfig` `NODE_ENV` `SDK*Message`(6) `SDKUserMessageReplay` `SmartScreen` `StructuredOutputError` `TeammateIdle` `WorktreeCreate` `allowDowngrade` `apiKeyHelper` `aria-disabled` `atomFamily` `baseURL` `continueConversation` `data-platform` `disallowedTools` `excludeDynamicSections` `feat-pretty-ui` `node-pty` `optionalDependencies` `postSessionByIdPermissionsByPermissionId` `resolveSettings` `skill-creator` `stream-json` `utilityProcess` `will-navigate` |
-| 역사(구·폐기·제거) | 89 | `ArgvSafeSettings` `AuthSpec` `AuthView` `ChatEvent` `Connector` `CachedSession` `CameraPane` `CapabilityBuilder` `ChatPane` `ConnectionRegistry` `ConnectorRuntime` `CredentialPresentation` `ErrorCode` `InflightTurn` `LOAD_SESSION_FROM_CACHE` `ORCA_SUBAGENT_BACKGROUND` `OrcaCapabilities` `PlanApprovalCard` `PluginHost` `ProviderSummariesRequest` `ProviderUsageEntry` `PythonRuntime` `SubprocessEnv` `TransactionStore` `UseChat` `Pane` `RuntimeStatus` `acceptedMethods` `askRespond` `buildAppend` `envKey` `lastTurnLatencyMs` `orca-mcp` `parentBindingId` `pendingDelta` `pendingInputTokens` `pendingReasoning` `planRespond` `sessionCache` `setProviderEnv` `splitProviderSettings` `useChatContext` `validateCrossReferences` |
+| 설계어휘·목표계약 | 70 | `AppCommandPolicy` `AppContainer` `AppShell` `BackendAdapter` `PermissionBridge` `Binding` `DiscardSessionSchema` `StopSubagentSchema` `CapabilityProbe` `ClaudeEngine` `ConfigManager` `DiffCard` `DirectBackendAPI` `DirectBackendCapabilities` `ExclusivePlugin` `ExtensionDeployer` `FilePreviewCard` `ModelProviderConfig` `OpenCodeEngine` `PendingApprovalStateMachine` `ProviderPlatformV2` `ProviderSettingsLoader` `Redaction` `RevertManager` `SEND_USER_MESSAGE` `SessionCapability` `StandardConformance` `StructuredOutputState` `TerminalCard` `WorkspaceManager` `detectError` `getCredentialKeys` `mcpSpecVersion` `mergePolicy` `migrate-sources` `selectFileRenderer` `supportedBackends` `useContextSelector` `useOverlay` `vendorExtensions` |
+| 외부 SDK·env·플랫폼 | 84 | `ANTHROPIC_API_KEY` `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` `HTTPS_PROXY` `Location` `CLAUDE_CODE_*`(3) `ClaudeSDKClient` `HOME` `HookOutput` `MODULE_NOT_FOUND` `McpServerConfig` `NODE_ENV` `SDK*Message`(6) `SDKUserMessageReplay` `SmartScreen` `StructuredOutputError` `TeammateIdle` `WorktreeCreate` `allowDowngrade` `apiKeyHelper` `aria-disabled` `atomFamily` `baseURL` `continueConversation` `data-platform` `disallowedTools` `excludeDynamicSections` `feat-pretty-ui` `node-pty` `optionalDependencies` `postSessionByIdPermissionsByPermissionId` `resolveSettings` `skill-creator` `stream-json` `followRedirect` `outputFormat` `utilityProcess` `will-navigate` |
+| 역사(구·폐기·제거) | 95 | `ArgvSafeSettings` `AuthSpec` `AuthView` `ChatEvent` `Connector` `CachedSession` `CameraPane` `CapabilityBuilder` `ChatPane` `ConnectionRegistry` `ConnectorRuntime` `CredentialPresentation` `ErrorCode` `InflightTurn` `LOAD_SESSION_FROM_CACHE` `ORCA_SUBAGENT_BACKGROUND` `OrcaCapabilities` `PlanApprovalCard` `PluginHost` `ProviderSummariesRequest` `ProviderUsageEntry` `PythonRuntime` `SubprocessEnv` `TransactionStore` `UseChat` `Pane` `RuntimeStatus` `acceptedMethods` `askRespond` `buildAppend` `envKey` `lastTurnLatencyMs` `ProviderApi` `SEND` `authToken` `orca-mcp` `parentBindingId` `pendingDelta` `pendingInputTokens` `pendingReasoning` `planRespond` `sessionCache` `setProviderEnv` `splitProviderSettings` `useChatContext` `validateCrossReferences` |
 | future(후속·미도입) | 10 | `AgentTaskCard` `ContextInjectionCard` `EngineSettings` `SearchCard` `SessionGraphCard` `noReply` `pendingApprovals` `toOpencodeConfig` |
-| 문서어휘(개념어·약어) | 26 | `Artifact` `CSP` `Captures` `Credential` `Delta` `Frontend` `Main` `Migrations` `OQ9` `OQ10` `P1` `Preload` `Principal` `Reducer` `Refs` `Renderer` `Router` `Screen` `Slot` `TBD` `Telemetry` `Tile` `Titlebar` `Transcript` |
+| 문서어휘(개념어·약어) | 29 | `Artifact` `CSP` `Captures` `ModelProvider` `P0` `Credential` `Delta` `Frontend` `Main` `Migrations` `OQ9` `OQ10` `P1` `Preload` `Principal` `Reducer` `Refs` `Renderer` `Router` `Screen` `Slot` `TBD` `Telemetry` `Tile` `Titlebar` `Transcript` |
 | **비범위 — 보고만** | 4 | `ClaudeCodeAdapter` `OpencodeAdapter` `borderStrong` `rustSoft` — 전부 `docs/PRD.md` 사이트. §6 이 PRD 를 비범위로 뒀다(D-006) |
 
 - **시제 회귀 게이트 (r4 신설 — 출처: verify r3 §13 ⓒ).** 버킷은 *심볼이 무엇인가*를 묻고 불변식은 *이 사이트의 단언이 참인가*를 묻는다. 두 축이 갈리는 자리가 F2(`역사` 버킷인데 문장은 "현행")·F3(`외부` 버킷인데 문장은 현재형 차단)이었다. 심볼 산출 중 **현재형 단정어를 동반한 사이트만** 추려 그 부분집합을 전건 육안 판정한다.
@@ -435,6 +436,18 @@ done < <심볼 산출>
   **이력·부정 표지로 사전 필터링하지 않는다.** r4 가 `구|폐기|미채택|없음|보류…` 로 98 → 27 로 줄이는 필터를 시험했는데, **F2·F3 원문이 둘 다 자동 통과**했다(F2 는 "없음", F3 는 "폐기"를 같은 줄에 갖는다). 알려진 결함을 못 보는 필터의 축소는 전수가 아니다.
 
   **r4 판정 결과 (98사이트 · 거짓 단언 0)** — F1~F4 정정 후. 통과 사유는 네 갈래다: 역사 표기 동반(`구 X` · `폐기`) · 외부 SDK/CLI 표면 서술 · 설계어휘 절(`① 설명` · 선택지 비교표) · 부정문 안의 등장. 다음 라운드는 이 집합을 diff 해 새 사이트만 판정한다.
+
+- **[r6 추가] 적대 검사는 장치의 판정 지점마다 건다** (`handoff-impl §3`). 이 스윕의 판정 지점은 6개이고, r6 이 각 지점에 결함을 하나씩 심어 확인했다. **지점 2가 이번에 결함을 냈다** — 지적받지 않은 지점이다.
+
+| 판정 지점 | 심은 결함 | 결과 |
+|---|---|---|
+| 1. 대상 집합 / CORPUS-테스트 | 테스트 파일에만 있는 심볼(`makeFinalizeHarness`) | 잡는다(r6 정정 후) |
+| 2. 대상 집합 / CORPUS-문서 | `app/src/**/AGENTS.md` 안에서만 인용되는 심볼 | **못 잡았다 → r6 정정**(`.md:` 제외) |
+| 3. 추출 / 호출식 | `` `zzNoSuchProbeFn(` `` | 잡는다 |
+| 4. 비교 / 단어 경계 | 긴 이름의 부분 문자열(`ErrorCod`) | 잡는다 |
+| 5. 실재 판정 / 주석 | 주석에만 있는 심볼(`ErrorCode`) | 잡는다 |
+| 6. 분류 단위 / 사이트 | 같은 심볼 2사이트 | 2행 산출 — 사이트 단위 확인 |
+| (추출 / 맨 CamelCase) | `ZzBareCamelProbe` | **못 잡는다 — 아래 표에 기록된 한계** |
 
 - **[r5 추가 — 출처: verify r4 §13 G4] 넓힌 축 하나 · 남긴 한계 둘.** 계측의 구조적 한계는 발견 즉시 적는다 — 적지 않으면 "넓히지 않기로 판단한 것" 과 "보이지 않은 것" 이 구분되지 않는다.
 
@@ -1099,6 +1112,137 @@ F2 와 같은 뿌리다 — `stream-json` 이 실제 CLI 플래그라 `외부` �
 - **G1·G3·G5·G6 은 한 불변식이다** — "인용 심볼은 부분 문자열이 아니라 **단어 경계로** 실재해야 한다". §19 한 글자(`-F`→`-wF`)로 분모가 220 → 275 로 열리고, 늘어난 55사이트를 전건 분류·시제 판정하면 네 건이 같이 닫힌다.
 - **선행 `handoff-review` Round 10 의 지침은 이번 라운드에 발화했다**(적대 검사가 죽은 `\b` 술어를 잡았다). 다시 review 를 돈다면 대상은 *장치의 눈*이 아니라 **불변식의 전수 전개**다 — 외부 지적(F1~F3)은 전수를 돌렸고 자기 계측이 낸 F4 는 1사이트에서 멈췄다.
 - 수정 불요 관찰 4건(버킷표 `SDK*Message` 괄호 주석 · `DiscardSession`/`StopSubagent` 페이로드명 · `adapters.md §1.3` 절 제목 · 비범위 버킷 라벨)은 verify r4 §13 파생 관찰.
+
+## [구현자 기입] 라운드 6 — I2·J1 + 코퍼스 경계
+
+> r5 verify 판정: 강제 지점 **7/8**. 심볼 실재 테스트의 *비교 방식*은 r5 가 고쳤고 *대상 범위*가 남아 있었다.
+> 선행 `handoff-review` Round 11(`404a32f`)이 적대 검사를 **판정 지점 전수**로 넓혔다 — 이번 라운드가 그 규칙 아래 도는 첫 라운드다.
+
+### 설계 리뷰
+
+- AC·Decision Ledger 무변경. 분모 12 그대로. **코드 diff 0**(§12 위 문장 "실제 코드 심볼 변경 금지" 준수).
+- **I1 은 이번 라운드가 아니라 r5 verify 턴에서 이미 닫혔다** — 검증자가 파생 이슈를 이관하면서 메타 상태줄을 함께 고쳤다. 구현 턴이 닫은 것이 아니므로 아래 전수표에서 별도 표기한다.
+
+### 강제 지점 전수 (r6 · §10 대조)
+
+| §10 계약 | 재현 명령 / 관측 | 결과 |
+|---|---|---|
+| 수치 본문 미기재 | `check-doc-inventory.mjs --check` → `prose ok` | ✅ |
+| 상대 링크 해석 | 동 명령 → `links ok` | ✅ |
+| 인용 경로 실재 (A·B·C) | §19 스윕 → **0 / 11 / 9 = 20줄**, 예외표 12행과 1:1 | ✅ |
+| 〃 매칭 의미 | 경계 매칭 유지, 차집합 0 | ✅ |
+| 인용 심볼 실재 (S1~S5) | §19 스윕 → **292사이트 / 166심볼 · 미분류 0**. 버킷 합 `70+84+95+10+29+4 = 292` | ✅ |
+| 〃 **대상 범위** | `$CORPUS` 에서 `*.test.*` + `*.md` 제외, lint/build 설정 추가 → **+22사이트 / +13심볼** | ✅ **r6 에서 닫음** |
+| 시제 판정 | 시제 스윕 → **129사이트 전건 판정 · 거짓 단언 0**(신규 7건 이번 턴 판정) | ✅ |
+| guides 절차 명령 실행 | 4종 실행, 산출은 아래 | ✅ |
+| `arch/` 는 현재 상태만 서술 | r6 신규 handoff-번호 델타형 0건 | ✅ |
+
+**8/8. 남긴 곳 없음.** r5 의 7/8 에서 열렸던 대상 범위 축이 닫혔다.
+
+### 적대 검사 — 판정 지점 6개 전수 (review Round 11 신설 규칙)
+
+r5 까지는 **그 라운드가 고친 지점에만** 결함을 심었다. 이번엔 장치의 판정 지점을 세어 지점마다 심었다.
+
+| 판정 지점 | 심은 결함 | 결과 |
+|---|---|---|
+| 1. 대상 집합 / 테스트 파일 | 테스트에만 있는 `makeFinalizeHarness` | 잡는다(정정 후) |
+| 2. 대상 집합 / 코퍼스 안의 문서 | `app/src/renderer/AGENTS.md` 안에서만 인용되는 심볼 | **못 잡았다 → 정정** |
+| 3. 추출 / 호출식 | `` `zzNoSuchProbeFn(` `` | 잡는다 |
+| 4. 비교 / 단어 경계 | 부분 문자열 `ErrorCod` | 잡는다 |
+| 5. 실재 판정 / 주석 | 주석에만 있는 `ErrorCode` | 잡는다 |
+| 6. 분류 단위 / 사이트 | 같은 심볼 2사이트 | **2행** 산출 |
+| (추출 / 맨 CamelCase) | `ZzBareCamelProbe` | 못 잡는다 — §19 에 기록된 한계(후보 996개) |
+
+**지점 2가 지적받지 않은 자리에서 결함을 냈다.** `app/src/**/AGENTS.md` 는 SCOPE 이면서 `$CORPUS`(`app/src`) 안에 있어 **자기 인용을 자기가 증명**하고 있었다. 심은 뒤 되돌렸고 `grep -c '적대 검사'` = **0** · `git status` 에 probe 파일 없음.
+
+### I2·J1 처리 + 전수
+
+| # | 불변식 | 전수 결과 |
+|---|---|---|
+| I2 | 심볼의 실재는 **프로덕션 코드**에서 센다 — 테스트도 문서도 코드가 아니다 | `*.test.*` 제외 **15사이트** · `*.md` 제외 **15사이트** 전건 분류. 실제 드리프트 1종 2사이트 정정 |
+| J1 | 인용 심볼이 0건이면 **경로에도 "구" 표기가 붙는다** | `:25` 정정. `` `Sym`(`path`) `` 짝짓기가 확실한 인용 전수 재실행 → **산출 0줄** |
+
+- **I2 의 실제 드리프트**: `TRD.md:378`·`adapters.md:67` 이 escalating `defaultMode` 무력화를 SDK `filterEscalatingDefaultMode` 로 귀속했다. 코드는 그 함수를 부르지 않고 `adapters/claude-settings.ts` 의 `ESCALATING_MODES`(비주석 2건)로 **동등 필터를 직접 적용**한다(`:46`~`:50`). 동작은 참, 기제 귀속이 거짓이었다 — 두 사이트 모두 실제 기제로 정정.
+- **J1 형제 축**: §1 괴리표 3행 전부 확인 — `makeCanUseTool`(2건)·`AskResult`(2건)는 실재하고 `ChatEvent` 행만 0건이었다.
+
+### 계측이 새로 드러낸 것 — I/J 밖 2건
+
+| # | 결함 | 관측 | 처리 |
+|---|---|---|---|
+| **K1** | `app/src/renderer/AGENTS.md:54` 가 `HighlightedTextarea` 를 응집 구현의 **현행 예시**로 든다 | 코드 **0건 · 파일 없음**. 같은 줄의 `chatReducer` 는 실재 | **선조치** — 실재하는 `ComposerDecorationLayer` 로 교체 |
+| **K2** | `$CORPUS` 가 `app/` 루트 설정 파일을 안 훑어 `adapter-impl` 이 거짓 ABSENT | 실제로는 `app/eslint.config.mjs:122` 에 실재 | **선조치** — `eslint.config.mjs`·`electron.vite.config.ts` 를 CORPUS 에 추가 |
+
+K2 는 I2 와 **같은 판정 지점의 반대 방향**이다 — 코퍼스가 넓어 거짓 통과(I2)도 나고 좁아 거짓 적발(K2)도 난다.
+
+### Product/UX 파생 검토
+
+- **소비자**: `app/src/renderer/AGENTS.md` 는 renderer 작업 세션이 읽는 지침이다. K1 은 없는 컴포넌트를 "이렇게 하라"는 예시로 들고 있었다 — 읽는 사람이 찾다 못 찾는다.
+- **두 곳 쓰기**: 라운드 판정이 `plan.md` 메타·`INDEX.md` 두 곳에 산다. r5 가 여기서 갈렸으므로(I1) 이번엔 **갱신 후 두 사본을 다시 읽어** 값을 확인했다(아래 구현 보고).
+- **범위 밖 파생 이슈**: `terms.md:64` 에 `PermissionBridge` 의 코드 진입점을 적었다(GLOSSARY 의 `ExtensionDeployer` 관례와 대칭). 같은 관례가 필요한 다른 설계 이름(`AppCommandPolicy` 등)은 이번 범위 밖 — 파생 이슈로 남긴다.
+
+### 선조치 (구현 세부·명백한 오기)
+
+1. **K1** — `HighlightedTextarea` → `ComposerDecorationLayer`.
+2. **K2** — CORPUS 에 lint/build 설정 파일 추가.
+3. `terms.md:64` — `PermissionBridge` 의 코드 진입점 명시. 설계 이름이 코드 0건이라 시제 축에 걸렸고, GLOSSARY 가 `ExtensionDeployer` 에 쓰는 관례를 그대로 적용했다.
+
+### 보고만 (권한 밖)
+
+1. **I1 을 구현 턴이 닫지 않았다** — r5 verify 턴이 이미 고쳤다. 검증자가 자기 지적을 고친 셈이라 provenance 를 남긴다.
+2. `disallowedTools` 채택(D1) · AC6 ADR 링크(D-003) · PRD(D-006) · 루트 AGENTS(D-007) — 이전 라운드와 동일.
+3. AC13 미신설 — r4 사용자 결정 유지.
+
+### 설계 대비 명시적 차이
+
+1. **적대 검사가 지적 대상(I2) 밖에서 결함을 냈다** — 지점 2(코퍼스 안의 문서). 계획은 I2 만 닫는 것이었고 실제로는 같은 판정 지점의 두 번째 구멍을 함께 닫았다.
+2. **K1·K2 는 계획에 없던 파일**(`app/src/renderer/AGENTS.md` · CORPUS 정의)을 건드렸다. 계측을 넓히면 같은 불변식이 그 파일에도 걸린다.
+3. **최종 수치가 283/163 이 아니라 292/166 이다** — 계획 수치는 `.md` 제외 전 값이다.
+
+### 구현 보고 (r6)
+
+**변경 파일 6** — `provider-runtime.md`(J1) · `TRD.md`·`adapters.md`(I2 기제 귀속) · `terms.md`(선조치 3) · `app/src/renderer/AGENTS.md`(K1) · `plan.md`(§19 + 본 절). **코드 diff 0.**
+
+| 명령 | 관측한 산출 |
+|---|---|
+| `node scripts/check-doc-inventory.mjs --check` | `generated doc ok (9 items, 76 channels)` · `prose ok` · `links ok` |
+| `npm run typecheck` | `error TS` **0줄** |
+| `npm run lint` | `✖ 1 problem (0 errors, 1 warning)` — `useTranscriptVirtualizer.ts:22` |
+| `vitest run …/{auth,gate,harnesses,plugins} …/app` | `Test Files 1 failed \| 40 passed (41)` · `Tests 506 passed (506)` |
+
+- **환경 기인 실패 분리**: `chat-turn.continuity.test.ts`, `Error: Electron failed to install correctly`. r1~r6 동일 서명, guides §8.1 예외. 코드 diff 0 이므로 변경 무관.
+- **게이트가 트리를 바꿨는가**: 아니다 — 실행 후 `git status --short` 가 내 편집 6파일만 낸다.
+
+**AC 재측정 — 12행 전부 이번 턴 관측.**
+
+| # | 관측 | 결과 |
+|---|---|---|
+| AC1 | 경로 스윕 `0 / 11 / 9 = 20줄`, 예외표 12행과 1:1 | ✅ |
+| AC2 | `❌` backend **4** + frontend **3** = 7행 | ✅ |
+| AC3 | `^## ` **20** 불변 | ✅ |
+| AC4 | 6패턴 각 **0파일** | ✅ |
+| AC5 | 비-test `.mjs` **6** | ✅ |
+| AC6 | `system-prompt.md:77` = `## 2. 정적 정책 append — 미채택` · ADR-002 링크 1 | ✅ |
+| AC7 | 인용 `*.test.ts` **21 고유 · 부재 0** · 명령 4종 실행 | ✅ |
+| AC8 | `auth-definitions.ts` 인용 8건 | ✅ |
+| AC9 | `grep -rn disallowedTools app/src` = **0** | ✅ |
+| AC10 | `release-operations.md:12` 에 `workflow_dispatch` | ✅ |
+| AC11 | `docs/INDEX.md` 두 행 | ✅ |
+| AC12 | 인벤토리 3항목 ok | ✅ |
+
+**검산: `✅ 12 · ⚠️ 0 · ❌ 0 = 총 12`.** 분모는 §7 의 AC1~AC12, 분할·추가 없음.
+
+**강제 지점: 8/8.** **대상 커밋**: 해시 기입 턴에서 채운다.
+
+### Review Signals — 사실만 (r6)
+
+- **이전 라운드와 동일 축인가: 같은 지점이다.** r5 가 심볼 실재 테스트의 *비교 방식*을, r6 이 같은 테스트의 *대상 범위*를 닫았다. 한 `grep` 호출의 두 인자가 두 라운드로 갈렸다.
+- **이번엔 지적 밖 결함을 스스로 냈다.** review Round 11 이 넣은 "판정 지점마다 심는다" 가 지점 2(코퍼스 안의 문서)에서 발화했다 — verify 가 지적하지 않은 자리다. r4·r5 의 적대 검사는 고친 지점만 겨눠 둘 다 통과했었다.
+- **막았어야 할 지침**: `handoff-verify §2`("유일한 호출자가 테스트면 미배선")가 심볼 축에 적용되지 않은 것이 I2 였고, r6 이 그것을 계측에 반영했다.
+- 반복되는 환경 한계: electron 바이너리 1파일 — r1~r6 동일 서명.
+- 자기 검증 겹수: 설계·구현·검증 전부 Claude Code.
+- 현재 라운드 수: **6**. review 는 r6 직전(Round 11)에 수행됐다.
+
+---
 
 ### 라운드 5 파생 이슈 (verify r5)
 
