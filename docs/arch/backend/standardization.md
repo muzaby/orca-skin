@@ -4,7 +4,7 @@
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [provider-runtime.md](./provider-runtime.md) (런타임 정규화 — *짝 문서*), [adapters.md](./adapters.md) (자산 변환 매트릭스), [security.md](./security.md) (비밀·MCP credential), [terms.md](./terms.md) (사람용 용어)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
-> **상태**: 🛠 *§5.1 배포 계층 구현 완료 (스테이지 A, PR #47) · 잔여 표준(agents/commands 변환·hook full-plugin) 설계 대기*. `sources/dist` 분리 + `ExtensionDeployer` + `StandardConformance` + `migrate-sources` 가 코드에 반영됐다(§5.1·§5.2·§5.3 의 "구현됨 (스테이지 A)" 주석 참조). 신규 배포 타입(`ExtensionDeployer`·`StandardConformance`)은 본 문서가 **정본(SSOT)** 이고, 런타임 타입(`PermissionBridge`·`RevertManager`·`NormalizedEvent`)은 [provider-runtime.md](./provider-runtime.md) 가 정본 — 본 문서는 *참조만* 한다(중복 정의 금지).
+> **상태**: 🛠 *§5.1 배포 계층 구현 완료 (스테이지 A, PR #47) · 잔여 표준(agents/commands 변환·hook full-plugin) 설계 대기*. 코드에 반영된 것은 **`sources/dist` 분리와 배포기**뿐이다 — 배포기의 실체는 [`features/extensions/deployer.ts`](../../../app/src/main/features/extensions/deployer.ts) 의 `deploy()`/`DeployResult` 이고 `ExtensionDeployer` 는 그 모듈을 가리키는 **설계 이름**(코드에는 헤더 주석으로만 있다). `StandardConformance` 와 `migrate-sources` 는 **아직 구현체가 없다**(§5.3 · `:146` 주석과 같은 판정). 신규 배포 타입(`ExtensionDeployer`·`StandardConformance`)은 본 문서가 **정본(SSOT)** 이고, 런타임 타입(`PermissionBridge`·`RevertManager`·`NormalizedEvent`)은 [provider-runtime.md](./provider-runtime.md) 가 정본 — 본 문서는 *참조만* 한다(중복 정의 금지).
 >
 > **출처 신뢰 원칙**: 각 사실 옆에 `[검증]`(SDK 1차 출처/현재 코드 확인) / `[미확인]`(구현 전 실제 SDK 타입 확정 필요)을 표기한다. **두 SDK 미설치**라 다수 항목이 `[미확인]`.
 >
@@ -97,7 +97,7 @@ class OpenCodeEngine {
 │   ├── mcp/                 # 벤더 중립 MCP 서버 정의 (${VAR} placeholder)
 │   └── settings/            # provider 별 settings (어댑터-네이티브 스키마, TRD §6.8)
 │       └── <adapter>/       #   디렉토리 이름 = provider (열거 SSOT)
-│           └── <provider>/settings.json  # 모델은 settings.json 파싱(claude-model-parser, 파생 캐시 없음)
+│           └── <provider>/settings.json  # 모델은 settings.json 파싱(claude/model-parser.ts, 파생 캐시 없음)
 └── dist/<engine>/           # ExtensionDeployer 산출 = 런타임 plugin 패키지 (편집 금지)
     └── plugins/orca/
         ├── .claude-plugin/plugin.json  # name=orca, description/version 고정
@@ -145,7 +145,7 @@ function deploy(engine: EngineId, opts: DeployOptions): DeployResult {
 
 > **구현 상태 (0024 구현됨)**: [`features/extensions/deployer.ts`](../../../app/src/main/features/extensions/deployer.ts) 는 신 레이아웃으로 정렬됐다 — skill→`.claude/skills`, mcp→`.mcp.json` 배포, manifest·agents·commands·hooks·settings dist 복사 제거. `deployer.test.ts` 가 같은 레이아웃을 검증한다. (⚠️ 이전 판이 인용하던 `conformance.ts` 는 **코드에 존재하지 않는다** — `StandardConformance` 는 아직 설계 단계이고 구현체가 없다. 아래 §StandardConformance 를 구현 완료로 읽지 말 것.) `disallowedTools` 는 D1 사용자 확정 전이라 코드 주입 보류. 최초 부팅 스캐폴드 [`features/extensions/scaffold.ts`](../../../app/src/main/features/extensions/scaffold.ts) 는 provider settings 만 시드한다 — skill/agents/commands/hooks 의 번들 first-party 콘텐츠는 없다(전부 사용자 제공). **claude-only — `engine` 파라미터·settings 로더 주입(`ProviderSettingsLoader`)이 OpenCode seam.**
 
-> **현행 선례 재사용**: "render sources → engine config" 는 이미 MCP 축에서 구현돼 있다 — `mcp/convert.ts` 의 순수 함수 `toClaudeConfig`/`toOpencodeConfig`(동형 시그니처), `mcp/resolver.ts` 의 `${VAR}` resolver(safeStorage → process.env 2단계), `mcp/expand.ts` 의 `expandEnv`([security.md §1.4](./security.md), [adapters.md §3.1](./adapters.md)). ExtensionDeployer 의 mcp 축은 이 함수들을 *호출*하면 되고 새로 발명하지 않는다.
+> **현행 선례 재사용**: "render sources → engine config" 는 이미 MCP 축에서 구현돼 있다 — `mcp/convert.ts` 의 순수 함수 `toClaudeConfig`(opencode 짝은 미구현), `mcp/resolver.ts` 의 `${VAR}` resolver(safeStorage → process.env 2단계), `mcp/expand.ts` 의 `expandEnv`([security.md §1.4](./security.md), [adapters.md §3.1](./adapters.md)). ExtensionDeployer 의 mcp 축은 이 함수들을 *호출*하면 되고 새로 발명하지 않는다.
 
 ### 5.3 StandardConformance
 

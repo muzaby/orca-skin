@@ -36,13 +36,13 @@
 | `error` | 프레임/스트림 에러(취소·timeout 이 아닌). |
 | `closed` | 채널 해체(teardown/close). |
 
-`abortCause` = `user_cancelled · stall · retry · null` — 취소(`interrupt`)와 stall 타임아웃을 구분한다.
+`AbortCause` = `user_cancelled · stall · retry · null`(`SessionRuntime.markAborted`) — 취소(`interrupt`)와 stall 타임아웃을 구분한다.
 
 ### 1.3 장수명 세션 채널 (close 정책)
 
 - **`persistent`** + 어댑터 `pushTurn` 구현(claude): 한 번의 spawn(SDK `query`/서브프로세스)이 세션 수명 동안 살아남는다. **단일 채널 pump**가 provider 원본 메시지 단위 `ProviderMessageBatch`를 소비하며 **프레임(1 프레임 = 1 턴)** 으로 절단한다. 배치 전 이벤트를 같은 목적지에 넣은 뒤 terminal 전이를 적용하므로 한 원본 메시지의 `[telemetry,error]`가 서로 다른 턴으로 갈라지지 않는다. terminal에서는 프레임만 닫고 채널은 유지하며 후속 턴은 `pushTurn`으로 잇는다.
 - **`oneshot`** 또는 `pushTurn` 미구현(mock): 턴-스코프(매 턴 fresh spawn, terminal 에서 핸들 close) — 0067 이전 동작 보존.
-- **프레임 밖 이벤트**(CLI 가 자기 큐 잔존분을 자동 픽업해 시작한 턴): `unframed` 버퍼 + `onUnframedEvent` 콜백으로 노출 → 자동 연속 프레임 오픈(배선은 `app/chat-turn/post-turn.ts`).
+- **프레임 밖 이벤트**(CLI 가 자기 큐 잔존분을 자동 픽업해 시작한 턴): `SessionRuntime` 의 `unframed` 버퍼 + `hasUnframedBacklog` 로 노출 → 자동 연속 프레임 오픈(배선은 `app/chat-turn/post-turn.ts`).
 - **채널 사망 시**(서브프로세스 종료·스트림 에러): 다음 `send` 는 spawn+resume 콜드 패스. 이월 잔여(미소비 flushed 재주입 + held)는 `takeForRespawn` 이 프렐류드 배치로 앞세운다.
 - **provider 경계 respawn(0118)**: env/providerSettings 는 spawn-바운드(`pushTurn` 미전달)이므로, 유휴 세션 send 에서 providerKey 가 바뀌면(`crossesProviderBoundary`, `features/harnesses`) 호출자(`app/chat-turn/runtime-entry.ts`)가 `teardownChannel()` 로 채널을 내려 그 턴을 spawn+resume 콜드 패스로 보낸다 — 위 이월 경로가 그대로 동작.
 - **settings 변경 respawn(0125)**: 같은 provider 라도 `settings.json` 이 제자리 수정(토큰 로테이션·base URL 교체)되면 spawn 시점 주입본(`SessionRuntime.spawnedProviderSettings` 기록)과 이번 턴 해석본의 내용 비교(`providerSettingsChangedSinceSpawn`, `features/harnesses`)로 동일하게 respawn 한다 — 미변경 상시 경로는 resolve 캐시 동일 참조 fast-path.
@@ -53,14 +53,14 @@
 
 모든 프롬프트는 커밋 전 이 큐를 지난다(0067). 세션 상태가 주입 경로를 가른다:
 
-- **세션 idle(사용자 턴)**: `chat:send` 가 enqueue 직후 아이템 단위 배치를 떠서(`flushItem`) 턴 프롬프트로 주입(스폰 초기 메시지 또는 `pushTurn`).
+- **세션 idle(사용자 턴)**: `chat:send` 가 enqueue 직후 아이템 단위 배치를 예약해(`reserveItem`) 턴 프롬프트로 주입(스폰 초기 메시지 또는 `pushTurn`).
 - **어시스턴트 턴(busy)**: `chat:send` 는 **예약(held)만** 한다(구 `chat:steer` 흡수). 항목 수명:
 
 | 상태 | 의미 | 취소 |
 |---|---|---|
 | **held** | enqueue 직후. stdin 미주입. | ✅ 100% 가능(`chat:steerCancel`·중단 시 `cancelAllHeld`) |
-| **flushed** | 게이트 훅(`PostToolBatch`, `flushHeld` 병합 단일 배치) 또는 턴 프롬프트(`flushItem`/`takeForRespawn`, 아이템 단위)로 stdin 주입됨. | ✖ 불가 |
-| **consumed** | 소비 확정(`markConsumed`). 배치 성격에 따라 신호 2종(0069) ↓ | — |
+| **flushed** | 게이트 훅(`PostToolBatch`, `reserveHeld` 병합 단일 배치) 또는 턴 프롬프트(`reserveItem`/`takeForRespawn`, 아이템 단위)로 stdin 주입됨. | ✖ 불가 |
+| **consumed** | 소비 확정(`confirm` → `drainConfirmed`). 배치 성격에 따라 신호 2종(0069) ↓ | — |
 
 - **consumed 신호(0069)**: ① **턴-시작 배치**(프롬프트·프렐류드) = 프레임의 **첫 모델 출력**(coordinator `MODEL_OUTPUT_EVENTS` 앵커 — 응답 시작이 곧 소비 증거, echo 불요) ② **steer 배치**(mid-turn 게이트 flush) = CLI **user echo**(uuid 매칭 — 응답 진행은 소비 증거가 못 되므로 echo 가 유일 정밀 신호).
 - **커밋(user row 영속 · preview · renderer 승격)** = **echo 관측 단일 경로**(`message.committed`) — `chat:send` 시점 선영속은 **없다**. renderer 는 `message.queued/committed/cancelled` 로 큐를 간접 관찰한다.
@@ -126,7 +126,7 @@ usage(집계) → history(영속) → title(제목) → relay(renderer 중계)
 ### 3.1 자동 업데이트 (✅ 구현 완료 — 0084~0086)
 
 - **electron-updater 채택** (`app/updater.ts` 의 `UpdateController`). 피드 = GitHub Releases(`latest.yml`/blockmap, 릴리스 파이프라인은 `docs/guides/release-operations.md`).
-- 정책: **`autoDownload=false`** — 다운로드·설치 모두 사용자 명시 액션으로만 진입(다운로드 → `quitAndInstall`). 앱 시작 시 1회 자동 체크(`checkForUpdatesOnStartup`), 상태/진행은 `update` 도메인 6채널로 브로드캐스트(`UpdateState.status = idle|checking|available|downloading|ready|installing|error`, IPC_CONTRACT §2 참조).
+- 정책: **`autoDownload=false`** — 다운로드·설치 모두 사용자 명시 액션으로만 진입(다운로드 → `quitAndInstall`). 앱 시작 시 1회 자동 체크(`UpdateController.checkForUpdates`, `app/updater.ts`), 상태/진행은 `update` 도메인 6채널로 브로드캐스트(`UpdateState.status = idle|checking|available|downloading|ready|installing|error`, IPC_CONTRACT §2 참조).
 - **재시작 게이트**: `shared/update-restart.ts` 가 진행 중 턴/세션 상태로 설치 가능 여부를 재계산(0086 에서 브로드캐스트 중복·게이트 재계산 정리). 설치 진입 시 `prepareForUpdateInstall` 이 idle 런타임을 close.
 - dev 검증용 더미 업데이트 토글이 디버그 패널에 있다(0086 — 헤더 파란 뱃지 포함, prod 미노출).
 - 빌드 채널(stable/beta) 분리·코드 서명은 미정(현재 unsigned NSIS — security.md §1.7).

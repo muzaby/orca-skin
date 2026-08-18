@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-18 |
 | 매핑 | — (문서 전용) |
-| 상태 | READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) |
+| 상태 | READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → **IMPL_DONE (r3)** |
 
 # Part I — Product & UX Contract
 
@@ -214,13 +214,14 @@ docs/INDEX.md → arch/*.md → app/src/main/features/auth/…  ✓
 | 수치를 본문에 쓰지 않는다 | `docs/generated/inventory.md` | `check-doc-inventory.mjs` prose 검사 | CI(`ci.yml`) · 로컬 `--check` | 사본이 갈린다 |
 | 상대 마크다운 링크가 해석된다 | 파일 시스템 | `check-doc-inventory.mjs` links 검사 | 동일 | 문서 이동 시 파손 |
 | **인용한 코드 경로가 실재한다** | 파일 시스템 | **§19 경로 스윕 3형태**(절대형·상대형·맨 파일명) | 구현·검증 턴 | 조용한 오안내. r1 은 절대형만 계측해 상대형·맨 파일명에서 D1~D4 가 살아남았다 |
-| **인용한 코드 심볼이 실재한다** | `app/src` | **§19 심볼 스윕 — 전건 4버킷 분류** | 구현·검증 턴 | 문서가 "이미 구현된 코드다" 로 없는 심볼을 단언한다(D5). **[r2 등재 — 출처: verify r1 §5]** |
+| **인용한 코드 심볼이 실재한다** | `app/src`·`app/scripts`·`app/package.json`·`.github/workflows` 의 **비주석 코드 줄** | **§19 심볼 스윕 — 추출 4축 · 사이트 단위 전건 분류** | 구현·검증 턴 | 문서가 "이미 구현된 코드다" 로 없는 심볼을 단언한다(D5). **[r3 개정 — 출처: verify r2 §5·§13]** 분모는 심볼이 아니라 **사이트**다. 실재 테스트가 주석 줄을 세면 `ExtensionDeployer` 처럼 주석에만 있는 이름이 통과한다(E1) |
 | `guides/` 절차의 명령이 실행된다 | 실제 실행 | 사람/에이전트 | 구현 턴(AC7) | 배포자가 막힌다 |
 | `arch/` 는 현재 상태만 서술 | `docs/AGENTS.md` 규칙 4 | 사람 | 편집 시 | changelog 화 |
 
 - 같은 규칙이 여러 레이어에 있다면 SSOT: 수치는 `generated/inventory.md` 단 하나. 본문은 링크만 한다.
 - **강제 지점이 여럿인 항목**: "경로 실재" 는 범위 내 문서 전부 + AGENTS 3종에 동시에 걸린다. §19 스윕이 그 전부를 한 번에 센다 — 파일별로 따로 닫지 않는다. **계측 정의가 곧 불변식의 정의가 되므로 정의를 좁게 잡으면 게이트 green 이 전수를 뜻하지 않는다**(r1 의 실패 지점).
-- **두 축의 게이트 형태가 다르다.** 경로 축은 **0-출력 게이트**(예외는 목록에 명시 등재), 심볼 축은 **전건 분류 게이트**(모든 산출을 `설계어휘`·`외부 SDK/env`·`역사`·`future` 4버킷 중 하나로 넣고 **미분류 0** 을 보고). 심볼은 설계 어휘·외부 타입이 정상적으로 다수라 0-출력이 성립하지 않는다.
+- **두 축의 게이트 형태가 다르다.** 경로 축은 **0-출력 게이트**(예외는 목록에 명시 등재), 심볼 축은 **전건 분류 게이트**(모든 산출을 `설계어휘`·`외부`·`역사`·`future`·`문서어휘` 중 하나로 넣고 **미분류 0** 을 보고). 심볼은 설계 어휘·외부 타입이 정상적으로 다수라 0-출력이 성립하지 않는다.
+- **계측은 세 층이 각각 좁아질 수 있다** — *추출*(어떤 토큰을 뽑는가) · *실재 테스트*(무엇을 "있다" 로 세는가) · *분류 단위*(심볼인가 사이트인가). r1 은 추출에서, r2 는 분류 단위에서, r3 은 실재 테스트에서 좁았다. 셋을 따로 적지 않으면 한 층을 고쳐도 다음 라운드가 다른 층에서 열린다.
 
 ## 11. 구현 설계
 
@@ -373,16 +374,46 @@ done
 | C | `docs/arch/backend/provider-runtime.md:77`·`:423`·`:426`·`:445`·`:455` | `types.gen.ts` | 외부 — OpenCode SDK |
 | C | `docs/arch/backend/standardization.md:146` | `conformance.ts` | 설계어휘 — 같은 줄이 "코드에 존재하지 않는다" 로 명시 |
 
-- **심볼 회귀 게이트 (r2 신설).** 백틱 CamelCase/CONST 심볼 중 `app/src` 부재분을 **전건 4버킷 분류**한다. 0-출력이 목표가 아니다 — 설계 어휘·외부 SDK 타입이 정상적으로 다수다.
+- **심볼 회귀 게이트 (r3 재작성).** r2 판은 두 곳이 불변식보다 좁았다 — 추출이 **백틱 CamelCase/CONST 만** 봤고, 실재 테스트 `grep -rqF "$s" app/src` 가 **주석 줄을 실재로 셌다**(`ExtensionDeployer` 가 그렇게 통과 → E1). 0-출력이 목표가 아니다 — 설계 어휘·외부 SDK 타입이 정상적으로 다수다.
 
 ```bash
+CORPUS="app/src app/scripts app/package.json .github/workflows"
 for f in $SCOPE; do
-  grep -oEn '`[A-Z][A-Za-z0-9]*[a-z][A-Za-z0-9]*`|`[A-Z][A-Z0-9_]{4,}`' "$f" | sed 's/`//g' |
-  while IFS=: read -r ln s; do grep -rqF "$s" app/src || echo "$s|$f:$ln"; done
+  { grep -oEn '`[A-Za-z_][A-Za-z0-9_]*`' "$f" | sed 's/`//g'          # S1 백틱 CamelCase/CONST + S2 lowerCamelCase
+    grep -oEn '`[a-z][a-z0-9]*(-[a-z0-9]+)+`' "$f" | sed 's/`//g'      # S4 백틱 소문자-하이픈
+    grep -oEn '\*\*[A-Za-z_][A-Za-z0-9_]*\*\*' "$f" | sed 's/\*\*//g'  # S3 **bold**
+  } | while IFS=: read -r ln s; do
+    case "$s" in *[A-Z]*|*-*) ;; *) continue;; esac                    # 식별자형만
+    hits=$(grep -rnF "$s" $CORPUS 2>/dev/null)
+    if [ -z "$hits" ]; then echo "ABSENT|$s|$f:$ln"
+    elif ! printf '%s\n' "$hits" | sed 's/^[^:]*:[0-9]*://' | grep -qvE '^[[:space:]]*(//|\*|/\*|#)'; then
+      echo "COMMENT_ONLY|$s|$f:$ln"                                    # 주석에만 있다 = 실재 아님
+    fi
+  done
 done
 ```
 
-  **완료 조건: 산출 전건이 `설계어휘`·`외부 SDK/env`·`역사`·`future` 중 하나로 분류되고 미분류 0.** 4버킷 어디에도 안 들어가면서 현재형으로 단언된 심볼이 결함이다(D5 가 그 축이었다).
+  **완료 조건: 산출 전건이 `설계어휘`·`외부`·`역사`·`future`·`문서어휘` 중 하나로 분류되고 미분류 0.** 분모는 **심볼이 아니라 사이트**다 — 한 심볼이 사이트마다 다른 시제를 가질 수 있고, 그 갈림이 E1~E3 의 자리였다.
+
+  **r3 분류 결과 (211사이트 / 124심볼 · 미분류 0)** — 버킷별 심볼 목록. 다음 라운드는 이 집합을 diff 해 새 심볼만 판정하면 된다.
+
+| 버킷 | 사이트 | 심볼 |
+|---|---:|---|
+| 설계어휘·목표계약 | 58 | `AppContainer` `AppShell` `BackendAdapter` `CapabilityProbe` `ClaudeEngine` `ConfigManager` `DiffCard` `DirectBackendAPI` `DirectBackendCapabilities` `ExclusivePlugin` `ExtensionDeployer` `FilePreviewCard` `ModelProviderConfig` `OpenCodeEngine` `PendingApprovalStateMachine` `ProviderPlatformV2` `ProviderSettingsLoader` `Redaction` `RevertManager` `SessionCapability` `StandardConformance` `StructuredOutputState` `TerminalCard` `WorkspaceManager` `detectError` `mcpSpecVersion` `mergePolicy` `migrate-sources` `supportedBackends` `useContextSelector` `vendorExtensions` |
+| 외부 SDK·env·플랫폼 | 71 | `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` `CLAUDE_CODE_*`(3) `ClaudeSDKClient` `HOME` `MODULE_NOT_FOUND` `McpServerConfig` `NODE_ENV` `SDK*Message`(6) `SmartScreen` `StructuredOutputError` `TeammateIdle` `WorktreeCreate` `allowDowngrade` `apiKeyHelper` `aria-disabled` `baseURL` `continueConversation` `data-platform` `disallowedTools` `excludeDynamicSections` `feat-pretty-ui` `node-pty` `optionalDependencies` `resolveSettings` `skill-creator` `stream-json` `utilityProcess` `will-navigate` |
+| 역사(구·폐기·제거) | 59 | `ArgvSafeSettings` `AuthView` `CachedSession` `CameraPane` `CapabilityBuilder` `ChatPane` `ConnectionRegistry` `ConnectorRuntime` `CredentialPresentation` `ErrorCode` `InflightTurn` `LOAD_SESSION_FROM_CACHE` `ORCA_SUBAGENT_BACKGROUND` `OrcaCapabilities` `PlanApprovalCard` `PluginHost` `ProviderSummariesRequest` `ProviderUsageEntry` `PythonRuntime` `SubprocessEnv` `TransactionStore` `UseChat` `acceptedMethods` `askRespond` `buildAppend` `envKey` `lastTurnLatencyMs` `orca-mcp` `parentBindingId` `pendingDelta` `pendingInputTokens` `pendingReasoning` `planRespond` `sessionCache` `setProviderEnv` `splitProviderSettings` `useChatContext` `validateCrossReferences` |
+| future(후속·미도입) | 9 | `AgentTaskCard` `ContextInjectionCard` `EngineSettings` `SearchCard` `SessionGraphCard` `noReply` `pendingApprovals` |
+| 문서어휘(개념어·약어) | 10 | `CSP` `Frontend` `OQ9` `OQ10` `P1` `Preload` `TBD` `Titlebar` |
+| **비범위 — 보고만** | 4 | `ClaudeCodeAdapter` `OpencodeAdapter` `borderStrong` `rustSoft` — 전부 `docs/PRD.md` 사이트. §6 이 PRD 를 비범위로 뒀다(D-006) |
+
+- **넓히지 않은 축과 이유** (verify r2 §13 요구). 계측 정의가 곧 불변식의 정의이므로 넓히지 **않은** 것도 적는다.
+
+| 축 | 판정 | 이유 |
+|---|---|---|
+| **위치 축**(주장한 레이어에 있는가) | 게이트로 두지 않는다 | `state.md:134` 는 "**main 은** `TurnRegistry`" 라 썼는데 그 이름은 **renderer** `chatStore.ts` 에만 있었다 — 저장소 전체 grep 은 통과한다. 정규식화하면 오탐이 지배하므로, **레이어를 명시하는 사이트만 육안 확인**한다(이번 라운드 대상 3건, 전부 정정) |
+| **경로 축의 비-ts 확장자**(`.md`·`.sql`·`.json`) | 1회 스윕 후 상시 게이트에서 제외 | 산출 160여 줄이 **doc↔doc 링크 위주**라 `check-doc-inventory.mjs` 의 `links ok` 와 신호가 중복된다. 실제 수확은 2건뿐이고 이번에 고쳤다 — `prompts/policies/python-runtime.md`(GLOSSARY·TRD, 디렉토리 자체가 없다) · `docs/architecture.md`(대소문자, 실제 `ARCHITECTURE.md`) |
+| **산문 서술의 사실성**(이름은 맞고 설명이 틀린 경우) | 계측 불가 | grep 이 판정할 수 없다. `rendering.md:144` 의 원장 서술이 이 유형이었고 육안으로 잡았다 |
+
 - 가이드 절차 게이트(AC7): `cd app && npm run typecheck` · `npm run lint` · `./node_modules/.bin/vitest run src/main/features/auth src/main/features/gate src/main/features/harnesses src/main/features/plugins src/main/app`.
 - 사람 실기: `closed-network-extensions.md §8.2` 의 사내 로그인 왕복 — 이 환경에서 불가. 경로·파일명 대조로 갈음하고 분리 보고한다.
 
@@ -491,21 +522,23 @@ done
 | 축 | r1 계측 | r2 계측 | 새로 나온 결함 |
 |---|---|---|---|
 | A 절대형 | 20 → 0 | 0 유지 | — |
-| B 상대형 | **미계측** | 57 → 예외 11줄 | **13건** (D2·D3·D4 포함) |
-| C 맨 파일명 | **미계측** | 19 → 예외 9줄 | **7건** (D1 포함) |
+| B 상대형 | **미계측** | 57 → 예외 11줄 | **15건** (D2·D3·D4 포함) |
+| C 맨 파일명 | **미계측** | **15** → 예외 9줄 | **6건** (D1 포함) |
 | 심볼 | **미계측**(r1 이 3심볼만 임의 확인) | 89사이트 → 67사이트 전건 분류 | D5 계열 18인용 + **5심볼** |
 
 B/C 의 원자료는 `layers.md §1-2` 가 34건을 차지했다 — 결정 1 이 그것을 원인째 지웠다.
 
-**결함 총량 검산**: 경로 **20**(B 13 + C 7) + 심볼 **5** + D5 계열 = 이번 라운드에 고친 인용. 이 중 검증자가 지적한 것은 D1(C) · D2·D3·D4(B) · D5 뿐이고, 나머지 **21건은 계측을 넓혀야 보였다**.
+**결함 총량 검산**: 경로 **21**(B 15 + C 6) + 심볼 **5** + D5 계열 = 이번 라운드에 고친 인용. 이 중 검증자가 지적한 것은 D1(C) · D2·D3·D4(B) · D5 뿐이고, 나머지 **22건은 계측을 넓혀야 보였다**.
+
+> **[r3 정정 — 출처: verify r2 §7 재측정]** 위 표와 검산의 *시작 상태·증분* 5종이 실측과 갈렸다(E5): base C `19`→**15** · B 축 `13`→**15** · C 축 `7`→**6** · 경로 총계 `20`→**21** · 드러난 결함 `21`→**22**. HEAD 상태 수치(A 0 · B 11 · C 9 · 예외표 12행/20사이트)는 전부 일치했으므로 대상이 아니다. 재측정 명령: `git archive 32723bf | tar -x -C <tmp>` 트리에 §19 B/C 블록을 돌리고 HEAD 산출과 `comm -23` 으로 집합차를 뜬다.
 
 ### 강제 지점 전수 (r2 · §10 대조)
 
 | 계약 | §10 지점 | 닫은 지점 | 재현 명령 / 관측 |
 |---|---|---|---|
 | 인용 경로 실재 (A) | 스윕이 한 번에 | **0/0 잔여** | §19 A 블록 → `A ` 접두 산출 **0줄** |
-| 인용 경로 실재 (B) | 〃 | **13/13** | §19 B 블록 → 11줄, 전부 예외표 등재 |
-| 인용 경로 실재 (C) | 〃 | **7/7** | §19 C 블록 → 9줄, 전부 예외표 등재 |
+| 인용 경로 실재 (B) | 〃 | **15/15** | §19 B 블록 → 11줄, 전부 예외표 등재 |
+| 인용 경로 실재 (C) | 〃 | **6/6** | §19 C 블록 → 9줄, 전부 예외표 등재 |
 | **인용 심볼 실재** (r2 등재) | 전건 4버킷 | **47/47 분류 · 미분류 0** | §19 심볼 블록 → 67사이트/47심볼. 설계어휘 25 · 외부 SDK·env 9 · 역사 13 |
 | 수치 본문 미기재 | inventory prose | 1/1 | `cd app && node scripts/check-doc-inventory.mjs --check` → `prose ok` |
 | 상대 링크 해석 | inventory links | 1/1 | 동 → `links ok: every relative markdown link resolves` |
@@ -582,6 +615,125 @@ B/C 의 원자료는 `layers.md §1-2` 가 34건을 차지했다 — 결정 1 �
 - 반복해서 부딪히는 환경 한계: electron 바이너리(1파일) — r1 과 동일 서명. 검증 세션에 `node_modules` 가 없던 r1 verify 의 한계는 이번 구현 세션에서는 없었다(`npm ci` 성공).
 - 현재 라운드 수: **2**
 
+
+## [구현자 기입] 라운드 3 — E1~E5 + 계측 세 층 정리
+
+**불변식을 한 문장으로 올렸다**: *문서가 현재형으로 단언하는 **각 인용 사이트**는, 그 대상이 코드에 **비주석 줄로 정의된 심볼**로 실재할 때만 참이다.*
+
+r2 의 실패는 E1~E4 네 건이 아니라 **계측이 세 층 중 두 층에서 좁았다**는 것이다. 세 층을 갈라 적는다 — 한 층만 고치면 다음 라운드가 다른 층에서 열린다.
+
+| 층 | r1 | r2 | r3 (이번) |
+|---|---|---|---|
+| **추출** (어떤 토큰을 뽑는가) | `src/…` 절대형만 | 경로 3형태 + 백틱 CamelCase/CONST | **+ lowerCamelCase · `**bold**` · 소문자-하이픈** |
+| **실재 테스트** (무엇을 "있다" 로 세는가) | `[ -e ]` | `grep -rqF … app/src` — **주석 줄도 실재로 셈** | **비주석 줄만** + 코퍼스 `app/scripts`·`package.json`·`workflows` 추가 |
+| **분류 단위** | — | **심볼**(47) | **사이트**(211) |
+
+세 번째 층이 이번에 새로 드러난 자리다. `ExtensionDeployer` 는 `deployer.ts` **헤더 주석**에만 있고 export 는 `deploy()`/`DeployResult` 뿐인데 r2 게이트가 이를 "실재" 로 통과시켰다 — **E1 이 그 구멍으로 살아남았다.**
+
+### 강제 지점 전수 (r3 · §10 대조)
+
+| 계약 | §10 지점 | 닫은 지점 | 재현 명령 / 관측 |
+|---|---|---|---|
+| 인용 경로 실재 (A 절대형) | 스윕이 한 번에 | **0/0 잔여** | §19 A 블록 → `A ` 접두 산출 **0줄** |
+| 인용 경로 실재 (B 상대형) | 〃 | **11/11** | §19 B 블록 → **11줄**, 전부 §19 예외표 등재 |
+| 인용 경로 실재 (C 맨 파일명) | 〃 | **9/9** | §19 C 블록 → **9줄**, 전부 예외표 등재 |
+| **인용 심볼 실재** (r3 개정) | 추출 4축 · **사이트 단위** 전건 분류 | **211/211 사이트 · 미분류 0** | 새 §19 심볼 블록 → 211사이트/124심볼. 버킷 사이트 합 `58+71+59+9+10+4 = 211` |
+| 수치 본문 미기재 | inventory prose | 1/1 | `cd app && node scripts/check-doc-inventory.mjs --check` → `prose ok: no inventory counts restated in current-state docs` |
+| 상대 링크 해석 | 동 links | 1/1 | 동 → `links ok: every relative markdown link resolves` |
+| guides 절차 실행 | §8.1 명령 3개 | 3/3 | typecheck 하위 3개 전부 실행 **error 0줄** · lint `✖ 1 problem (0 errors, 1 warning)` · scoped vitest `Test Files 1 failed | 40 passed (41)` · `Tests 506 passed (506)` |
+| §8.1 인용 테스트 실재 | 표 8행 | **21/21 · 부재 0** | `grep -oE '\`[A-Za-z0-9_./-]+\.test\.ts\`' docs/guides/closed-network-extensions.md \| sed 's/\`//g' \| sort -u` → 21줄, 각 basename `find app/src` 히트. **세는 규칙 = 백틱 인용의 고유 문자열**(verify r2 의 22 는 같은 파일을 경로·파일명 두 형태로 센 값 — 부재 0 은 동일) |
+
+- **남긴 곳: 4사이트.** `docs/PRD.md` 의 `ClaudeCodeAdapter`·`OpencodeAdapter`(설계 스케치) · `borderStrong`·`rustSoft`(실제 토큰명은 `border-strong`·`rust-soft`). **plan §6 이 PRD 를 비범위로 뒀다**(D-006) — 고치지 않고 아래 "보고만" 으로 올린다.
+
+### E1~E5 처리
+
+| # | 처리 | 관측 |
+|---|---|---|
+| E1 | ✅ `standardization.md:7` 배너 재작성 | `StandardConformance`·`migrate-sources` 를 "코드 반영" 에서 제외(둘 다 코드 0건), `ExtensionDeployer` 는 실체 `deploy()`/`DeployResult` 를 가리키는 **설계 이름**으로 명시. 동반 `terms.md:80`·`:87` · `GLOSSARY.md:73` |
+| E2 | ✅ `provider-runtime.md:29` | `OrcaCapabilities` → `TurnExtensions`(구 이름 병기). 링크 대상 `adapters.md:71` 과 정합 |
+| E3 | ✅ `ux-domains.md:81` | "현 `PlanApprovalCard`" → `ApprovalCard.tsx`(구 이름에서 일반화). `:79` 와 정합 |
+| E4 | ✅ `persistence.md:116` + `terms.md:40` | `InflightTurn` → `TurnCoordinator`(`features/chat/turn-coordinator.ts`). 용어표 행을 교체하고 폐기를 명시 — `**bold**` 축을 §19 에 넣어 잡았다 |
+| E5 | ✅ 수치 5종 + 재측정 명령 | base C `19`→**15** · B축 `13`→**15** · C축 `7`→**6** · 경로 총계 `20`→**21** · 드러난 결함 `21`→**22**. `[구현자 기입] 라운드 2` 와 INDEX 비고 두 곳. **재측정 명령을 함께 적었다** — 숫자만 고치면 다음 라운드가 다시 못 세운다 |
+
+### 계측 세 층 확장이 드러낸 것 — E 밖 결함
+
+r2 지적 5건 밖에서 **20사이트**를 더 닫았다. 전부 "현재형인데 코드에 없다" 는 같은 불변식이다.
+
+| 축 | 자리 | 고친 내용 |
+|---|---|---|
+| lowerCamelCase | `provider-runtime.md:188`·`:202` | `createTurnInputStream` → **`createSessionInputStream`**(`streaming-input.ts:51`, `claude.ts:327` 호출). **r1 기준선부터 있었고 r2 가 `:188` 을 다시 쓰면서 사이트를 하나 더했다** |
+| 〃 | `provider-runtime.md:188` | `requestRegistry`(코드 0건) → `SessionRuntimeRegistry`(`features/sessions/session-registry.ts`) |
+| 〃 | `rendering.md:141`·`:144` · `provider-runtime.md:326` | `insertUsageEvent`/`getLatestUsage`/`usage_events`(0005) → `recordTurnUsage` → `DbQueries.insertTurnUsage`/`getLatestTurnUsage` · `turn_usage`(0006) |
+| 〃 | `rendering.md:125` | `maxBytesPerToolRun` 을 **미구현 설계**(`StreamBufferPolicy`)로 표기 — 코드에 버퍼 상한이 없다 |
+| 〃 | `runtime-ipc.md:39`·`:45`·`:56`·`:62`·`:63`·`:129` | `flushItem`→`reserveItem` · `flushHeld`→`reserveHeld` · `markConsumed`→`confirm`/`drainConfirmed` · `abortCause`→`AbortCause` · `onUnframedEvent`→`hasUnframedBacklog` · `checkForUpdatesOnStartup`→`UpdateController.checkForUpdates` |
+| 〃 | `state.md:21`·`:81`·`:105` | `globalUpdatedAt` 제거(코드가 "전역 타임스탬프는 두지 않는다" 고 명시) · `SessionState`→`SessionEntry` 실제 필드 · `newChatSlot`→`pinnedSlot` |
+| 〃 | 그 밖 | `adaptMcp`→`adaptRuntimeTools` · `insertSkillFromMenu`→`openSkillPicker` · `handleSessionLoad`→`app/handlers/session.ts` · `lastTurnLatencyMs` 삭제 · `buildQueryOptions` 서술 정정 |
+| 주석 전용 실재 | `toOpencodeConfig` **9사이트** | `git log -S toOpencodeConfig -- app/src` = **빈 출력** — 존재한 적이 없다. `adapters.md:220` 의 `✅ 구현됨` · `standardization.md:148` 의 "이미 구현돼 있다" · `security.md:95` 의 "순수 함수 + 단위 테스트만 존재" 가 전부 거짓이었다 |
+| 〃 | `state.md:134` | `TurnRegistry` 는 **renderer** `chatStore.ts` 주석에만 있는데 문서는 "**main 은**" 이라 썼다 → `SessionRuntimeRegistry`. **존재 ≠ 주장한 위치에 존재** |
+| `**bold**` | `terms.md:55`~`:57` | `PythonRuntime`·`uv`·`buildPyEnv` 3행이 현재형 정의였다 — `GLOSSARY.md:49` 는 같은 것을 **"제거됨(0050 PR-B) · 어휘를 재사용하지 않는다"** 로 적는다. 1행으로 접었다 |
+| 소문자-하이픈 | `IPC_CONTRACT.md:69` · `TRD.md:363`·`:372` · `standardization.md:100` | `claude-model-parser` → 실경로 `claude/model-parser.ts` |
+| 경로 축 비-ts 1회 스윕 | `GLOSSARY.md:49` · `TRD.md:105` | `prompts/policies/python-runtime.md` "잔존" 삭제 — `app/src/main/prompts` **디렉토리가 없다**(`system-prompt.md:79` 가 제거를 명시) |
+| 〃 | `state.md:138` | `docs/architecture.md` → `docs/ARCHITECTURE.md`(대소문자) |
+| 육안 | `terms.md:25`·`:28` | `Backend` 값이 `'claude-code'` 로 적혀 있었다 — 실제 `export type Backend = 'claude'`(`shared/ipc.ts:255`). `ClaudeCodeAdapter` 행은 실체 `adapters/claude.ts` 로 |
+
+### Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ✅ | 이번 변경은 전부 에이전트/배포자가 읽는 서술 — 새 UI 문구 0 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | ✅ | §5 3행 중 2행(§8.1 회귀 테스트 · arch 상태표)에 대응. 새 행 불요 |
+| 실패가 "아무 일도 안 일어남" 으로 보이지 않는가 | ✅ | 부재 인용의 조용한 실패가 이번 작업의 대상 자체다. §19 게이트가 관측점 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | 문서 작업 (코드 변경 0) |
+
+### 선조치 (구현 세부·명백한 오기)
+
+| # | 내용 | 근거 |
+|---|---|---|
+| 1 | `terms.md:25` `Backend` 값 `'claude-code'` → `'claude'` | `shared/ipc.ts:255 export type Backend = 'claude'` |
+| 2 | `terms.md:28` `ClaudeCodeAdapter` 행 → `claude 어댑터`(`adapters/claude.ts`), 산출은 `NormalizedEvent` | `GLOSSARY.md:15` 가 "구 `ChatEvent` 는 제거됨" 을 명시 |
+| 3 | `terms.md:89` AGENTS.md 행의 `prompts/` 통합 서술 삭제 | 디렉토리 부재 — `system-prompt.md:79` |
+| 4 | `state.md:70` 의 `pendingDelta` 를 "구" 표기로 | 같은 문서 `:47` 이 제거를 명시 |
+
+### 보고만 (권한 밖)
+
+| # | 내용 | 왜 |
+|---|---|---|
+| 1 | **`docs/PRD.md:236`·`:241` 의 디자인 토큰 이름이 코드와 다르다** — `borderStrong`/`rustSoft` 인데 실제 Tailwind 토큰은 `border-strong`/`rust-soft`(`shared/ui/Button.tsx`·`Markdown.tsx`) | plan §6 이 `docs/PRD.md` 를 **비범위**로 뒀다(D-006). 이번 턴에 고쳤다가 되돌렸다 — PRD diff 0 유지 |
+| 2 | `docs/PRD.md:159` 가 `ClaudeCodeAdapter`/`OpencodeAdapter` 를 아키텍처 스케치로 인용 | 동일 — 비범위 |
+| 3 | AC6 의 `ADR-002` 링크가 `prompts/` 제거 근거를 담지 않는다 | r2 보고만 #1 그대로 — 링크 대상 교체는 D-003 실현 방식 변경이라 사용자 결정 |
+| 4 | 루트 `AGENTS.md` 의 `src/shared/i18n/ko.ts` ↔ `TRD.md N2` 갈림 | D-007 범위 밖 |
+| 5 | `app/src/shared/ipc.ts:394` 주석의 `InteractionBroker` | 코드 변경 0 이 이번 비범위 |
+| 6 | PRD §11 OQ9 | D-006 — 사용자 결정 대기 |
+
+### 설계 대비 명시적 차이
+
+- **plan §11 이 열거하지 않은 파일 6개를 고쳤다** — `runtime-ipc.md`·`state.md`·`terms.md`·`GLOSSARY.md`·`persistence.md`·`adapters.md`. 이유: 계측 세 층을 넓히자 같은 불변식이 이 파일들에서 성립하지 않았다. §11 표는 r1 계측이 찾은 파일만 담고 있다.
+- **`docs/PRD.md` 를 고쳤다가 되돌렸다.** §19 스윕 SCOPE 는 docs 전수라 PRD 사이트를 관측하지만, §6 의 *수정 범위* 는 PRD 를 제외한다. **관측 범위와 수정 범위가 다르다** — 이번에 §19 버킷 표에 `비범위 — 보고만` 행을 두어 둘을 구분했다.
+
+### 구현 보고 (r3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | **17** = docs 콘텐츠 **15** + handoff 2(`plan.md`·`INDEX.md`). `PRD.md` 는 고쳤다가 되돌려 **diff 0**. **코드 변경 0** · `AGENTS.md` 변경 0 (`git status --short` 재확인) |
+| 실행 명령 | §19 경로 A/B/C + 새 심볼 블록 · `node scripts/check-doc-inventory.mjs --check` · `npm run typecheck` · `npm run lint` · scoped `vitest run` |
+| **관측한 게이트 산출** | 인벤토리 **3항목 ok**(`generated doc ok (9 items, 76 channels)` · `prose ok` · `links ok`, exit 0) · typecheck 하위 3개 전부 실행 **error 0줄** · lint `✖ 1 problem (0 errors, 1 warning)`(기존 `react-hooks/incompatible-library` @ `useTranscriptVirtualizer.ts:22`) · scoped vitest `Test Files 1 failed | 40 passed (41)` · `Tests 506 passed (506)` |
+| 환경 기인 실패 분리 | 실패 1파일 = `src/main/app/chat-turn.continuity.test.ts`, 서명 `Error: Electron failed to install correctly` @ `node_modules/electron/index.js:17`. **guides §8.1 3번 각주가 적은 예외와 글자 그대로 같다** — r2 검증 세션과 동일 산출 |
+| 게이트가 트리를 바꿨는가 | 아니다. `npm run lint` = `eslint --cache --fix` 지만 실행 후 `git status --short` 에 docs 외 변경 0 |
+| 강제 지점 전수 | **8/8** (위 표) · 남긴 곳 4사이트(PRD, 비범위) |
+| **AC 자기보고** | AC1 ✅ A **0줄** · B **11** · C **9** = §19 예외표 12행/20사이트와 일치 · AC2 ✅ `grep -n ❌ docs/arch/*/overview.md` = **7행**(backend 4 · frontend 3) · AC3 ✅ `grep -c '^## '` = **20** 불변 · AC4 ✅ 6패턴 각 **0**파일 · AC5 ✅ 비-test `.mjs` **6** = 열거 6 · AC6 ✅ `system-prompt.md:77` "정적 정책 append — 미채택" + `:81` ADR-002 링크 · AC7 ✅ 명령 3개 실행(위 산출) + 인용 테스트 **21/21 부재 0** · AC8 ✅ §8.2 1번 = `auth-definitions.ts` = §1.1 트리 `:58` · AC9 ✅ `grep -rc disallowedTools app/src` 히트 **0**파일 + 미채택 표기 4곳 · AC10 ✅ `release-operations.md:12` "main push + 모든 PR + `workflow_dispatch`" = `ci.yml:11~22` · AC11 ✅ `docs/INDEX.md` 2행 · AC12 ✅ 3항목 ok |
+| **합계 검산** | `✅ 12 · ⚠️ 0 · ❌ 0 = 총 12` — 분모는 §7 의 AC1~AC12. **r2 와 분모 동일**(분할·추가 없음) |
+| 블로커 / 역질문 | AC6 의 ADR 링크 근거(보고만 #3) · PRD 토큰명(보고만 #1) · PRD §11 OQ9(D-006) |
+| 대상 커밋 | (아래 커밋 해시) |
+
+### Review Signals — 사실만 (r3)
+
+- **이번에 닫은 불변식이 이전 라운드와 같은 축인가: 그렇다. 세 라운드 연속이다.** r1 = 추출 정규식, r2 = 분류 단위, r3 = 실재 테스트 + 추출 3형태. 매 라운드 "지적을 전부 재현하고 고쳤다" 가 사실이었고, 매번 **계측의 다른 층**이 남아 있었다.
+- **그것을 막았어야 할 plan 지침이 있었는가: 있었다.** §10 이 r2 에 "계측 정의가 곧 불변식의 정의가 되므로 정의를 좁게 잡으면 게이트 green 이 전수를 뜻하지 않는다" 를 명문화했다. **그 문장을 쓴 라운드가 실재 테스트에서 다시 좁았다** — 규칙을 적는 것이 적용을 보장하지 않는다는 관측이 두 번째다. 이번에 §10 에 **"계측은 세 층이 각각 좁아질 수 있다"** 를 층 이름과 함께 적었다.
+- **r2 가 자기 수정으로 만든 표면을 스스로 검사하지 않았다**: `provider-runtime.md:188` 은 r2 가 D1 을 고치며 다시 쓴 줄인데, 그 줄이 인용한 `createTurnInputStream`·`requestRegistry` 둘 다 코드에 없었다. 수정 직후의 코드를 본 사람은 구현자뿐이다(SKILL §5.3).
+- **관측 범위 ≠ 수정 범위**가 이번에 처음 문제가 됐다 — §19 SCOPE 는 PRD 를 포함하고 §6 은 제외한다. 버킷 표에 `비범위` 행을 만들어 갈랐다.
+- 반복해서 부딪히는 환경 한계: electron 바이너리 1파일 — r1·r2 와 동일 서명. `node_modules` 는 이번 세션에 있었다.
+- 현재 라운드 수: **3**. `docs/handoff/AGENTS.md` 의 review 트리거 중 *같은/유사 실패 반복* 은 세 라운드째 성립하고, *라운드 3 초과* 는 다음 재구현부터다. 이번 라운드는 **사용자가 review 없이 진행을 선택**했다.
+
 ---
 
 ## [검증자 기입] 파생 이슈
@@ -606,11 +758,11 @@ B/C 의 원자료는 `layers.md §1-2` 가 34건을 차지했다 — 결정 1 �
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| E1 | `standardization.md:7` 배너가 `StandardConformance`·`migrate-sources`·`ExtensionDeployer` 를 "코드에 반영됐다" 로 단언 — 코드 0건이고 같은 문서 `:146`·`terms.md:82` 가 "구현체 없음/목표 계약" 이라 적는다 | verify r2 §13 | 배너를 `:146` 과 정합하게. `ExtensionDeployer` 는 실체(`deployer.ts` 의 `deploy()`)를 가리키게 | OPEN |
-| E2 | `provider-runtime.md:29` 가 "Tier A `OrcaCapabilities`" 를 현재형으로 씀 — 링크 대상 `adapters.md:71` 이 "구 … 현재 이름은 `TurnExtensions`" | verify r2 §13 | `TurnExtensions`/`ExtensionBuilder` 로 치환 | OPEN |
-| E3 | `ux-domains.md:81` "현 `PlanApprovalCard` 패턴 재사용" — 같은 문서 `:79` 가 `ApprovalCard.tsx` 일반화를 적는다 | verify r2 §13 | 현재 컴포넌트명으로 정정 | OPEN |
-| E4 | `persistence.md:116` 이 `InflightTurn` 상태 머신을 현재형으로 인용 — 코드 0건(현 `turn-coordinator.ts` `TurnCoordinator`), `runtime-ipc.md:10` 은 폐기를 명시. `terms.md:40` 의 `**InflightTurn**` 항목 동반 | verify r2 §13 | 현재 이름으로 정정하거나 폐기 표기. `**bold**` 심볼은 §19 스윕 밖이라 함께 잡는다 | OPEN |
-| E5 | 자기보고 수치 5종이 재측정과 갈림 — base C `19`→15 · B 축 `13`→15 · C 축 `7`→6 · 경로 총계 `20`→21 · "드러난 결함" `21`→22(본 문서 + INDEX 비고) | verify r2 §7 | 시작 상태·증분 서술을 실측으로 정정. HEAD 상태 수치는 전부 일치하므로 대상 아님 | OPEN |
+| E1 | `standardization.md:7` 배너가 `StandardConformance`·`migrate-sources`·`ExtensionDeployer` 를 "코드에 반영됐다" 로 단언 — 코드 0건이고 같은 문서 `:146`·`terms.md:82` 가 "구현체 없음/목표 계약" 이라 적는다 | verify r2 §13 | 배너를 `:146` 과 정합하게. `ExtensionDeployer` 는 실체(`deployer.ts` 의 `deploy()`)를 가리키게 | **r3 처리** |
+| E2 | `provider-runtime.md:29` 가 "Tier A `OrcaCapabilities`" 를 현재형으로 씀 — 링크 대상 `adapters.md:71` 이 "구 … 현재 이름은 `TurnExtensions`" | verify r2 §13 | `TurnExtensions`/`ExtensionBuilder` 로 치환 | **r3 처리** |
+| E3 | `ux-domains.md:81` "현 `PlanApprovalCard` 패턴 재사용" — 같은 문서 `:79` 가 `ApprovalCard.tsx` 일반화를 적는다 | verify r2 §13 | 현재 컴포넌트명으로 정정 | **r3 처리** |
+| E4 | `persistence.md:116` 이 `InflightTurn` 상태 머신을 현재형으로 인용 — 코드 0건(현 `turn-coordinator.ts` `TurnCoordinator`), `runtime-ipc.md:10` 은 폐기를 명시. `terms.md:40` 의 `**InflightTurn**` 항목 동반 | verify r2 §13 | 현재 이름으로 정정하거나 폐기 표기. `**bold**` 심볼은 §19 스윕 밖이라 함께 잡는다 | **r3 처리** |
+| E5 | 자기보고 수치 5종이 재측정과 갈림 — base C `19`→15 · B 축 `13`→15 · C 축 `7`→6 · 경로 총계 `20`→21 · "드러난 결함" `21`→22(본 문서 + INDEX 비고) | verify r2 §7 | 시작 상태·증분 서술을 실측으로 정정. HEAD 상태 수치는 전부 일치하므로 대상 아님 | **r3 처리** |
 
 - **불변식을 사이트 단위로 다시 세운다** — "한 심볼이 어느 버킷인가"(47)가 아니라 "이 사이트의 단언이 현재형인가"(67). E1~E3 은 전부 두 축이 갈린 자리다.
 - §19 심볼 블록을 `**bold**`·소문자-하이픈 식별자까지 넓히지 않는다면 **넓히지 않은 이유를 §19 에 적는다**(§10 이 r2 에 쓴 "계측 정의가 곧 불변식의 정의" 문장의 귀결).
