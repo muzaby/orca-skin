@@ -61,7 +61,7 @@
 | 이름 | 쉬운 설명 | 정본 |
 |---|---|---|
 | **NormalizedEvent** | 서로 다른 SDK 의 이벤트를 *하나의 공통 이벤트* 로 통일한 것. 모든 이벤트가 sessionId·provider 를 갖는다. | [provider-runtime.md §2](./provider-runtime.md) |
-| **PermissionBridge** | 에이전트가 도구를 쓰려 할 때의 *승인 요청* 을 한 경로로 모아 처리하는 다리. | [provider-runtime.md §3](./provider-runtime.md) |
+| **PermissionBridge** | 에이전트가 도구를 쓰려 할 때의 *승인 요청* 을 한 경로로 모아 처리하는 다리. 모듈을 가리키는 설계 이름 — 코드 진입점은 `features/approvals/permission-bridge.ts` 의 `agentPermissionRequest()`/`classifyAppCommand()` 다. | [provider-runtime.md §3](./provider-runtime.md) |
 | **ApprovalResolution** | 승인 결과. 허용(allow, 입력 수정 가능) / 거부(deny, 중단 가능) **2갈래**. | [provider-runtime.md §3](./provider-runtime.md) |
 | **AppCommandPolicy** | 앱이 *직접* 부르는 명령의 정책. read-only / 권한우회 / 상태변경 **3갈래**. | [provider-runtime.md §3](./provider-runtime.md) |
 | **PermissionModeController** | 세션 도중 신뢰 수준을 올리는 스위치(예: 계획만 보기 → 자동 편집 허용). | [provider-runtime.md §3](./provider-runtime.md) |
