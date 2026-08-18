@@ -1,8 +1,281 @@
 # Verify — 0191-docs-code-resync
 
-> 라운드 1·2 판정 원문은 이 문서 하단 부록([r2](#부록--라운드-2-검증-fail-원문-보존) · [r1](#부록--라운드-1-검증-fail-원문-보존))에 보존한다. 본문은 재서술하지 않고 링크한다.
+> 라운드 1·2·3 판정 원문은 이 문서 하단 부록([r3](#부록--라운드-3-검증-fail-원문-보존) · [r2](#부록--라운드-2-검증-fail-원문-보존) · [r1](#부록--라운드-1-검증-fail-원문-보존))에 보존한다. 본문은 재서술하지 않고 링크한다.
 
 ## 메타
+
+| 항목 | 값 |
+|---|---|
+| slug | `0191-docs-code-resync` |
+| 검증자 | Claude Code |
+| 일자 | 2026-08-18 |
+| 대상 커밋/range | `53538c2..3bf0f1e` (구현 `7f5638c` · 해시 기입 `3bf0f1e`) |
+| 구현 전 plan 기준 | `53538c2` (r3 verify 커밋). 선행 review `3ba56cb` 은 `plan.md` 무변경 |
+| 라운드 | 4 |
+| 상태 | **FAIL** |
+| 자기 검증 여부 | 설계·구현·검증·review 모두 Claude Code — 자기 검증이다 |
+
+## 0. 기준선 / plan 변경 확인
+
+**기준선이 diff 로 성립한다.** `53538c2`(r3 verify) → `3ba56cb`(review Round 10, plan 무변경) → `7f5638c`(r4 구현) → `3bf0f1e`(해시 기입).
+
+- 구현 커밋이 `plan.md` 를 변경했는가: **그렇다** — 메타 상태 1줄 · §10 계측층 항목 · §19 B 축 실재 테스트 · S5 추출 · `sort -u` · 버킷표 · 시제 게이트 신설 · r4 절 · F1~F3 상태.
+- **그 변경이 승인된 범위인가: 그렇다.** `git diff 53538c2..HEAD -- plan.md` 의 hunk 헤더는 `8`·`221`·`338`·`382`·`390`·`736`·`774` 뿐이다. §19 세 축은 verify r3 §13 "처리 방향 제안" 의 ⓐⓑⓒ 원문이고 각 정정에 `[r4 개정 — 출처: verify r3 …]` provenance 가 붙어 있다.
+- **AC 변경: 없음** — §7 AC 표(96~112행)·§3 Decision Ledger(31~48행)에 hunk 가 없다. 분모는 12 그대로다.
+- Product/UX Contract(§1~§5) 변경: 없음.
+- **AC13 미신설은 사용자 결정이다** — 구현자가 시제 축의 AC 승격을 물었고 사용자가 "§19 게이트로만" 을 골랐다(plan r4 «설계 리뷰»). 채점 분모를 늘리지 않는다.
+- 채점에 사용할 원 기준: `53538c2` 의 §3 Decision Ledger · §7 AC1~AC12 · §10 강제 지점 표.
+
+**계측을 고친 주체가 구현자다.** 세 축(B 경계 매칭 · S5 호출식 · 시제 필터)은 이번 라운드에 구현자가 만들었다. `handoff-verify §8` 에 따라 **재현이 아니라 엄격화 재측정**으로 판정한다 — 결과는 §3 이고, 이번 FAIL 이 그 자리다.
+
+## 1. Product & UX / ACTIVE Decision 요약
+
+| Decision | 기대 결과 | 실제 production path |
+|---|---|---|
+| D-001 범위 = `docs/` 전수 + app 하위 AGENTS | 두 축 모두 | r4 는 docs 5 + handoff 2. `AGENTS.md` 변경 0(`git show --stat 7f5638c`) |
+| D-002 provider-runtime 은 경로·상태 문구만 | 절 구조 불변 | `^## ` **20개** — `1c9b260`(READY)부터 HEAD 까지 불변 |
+| D-003 폐기 절 삭제 + ADR 링크 | 본문 소멸 | `system-prompt.md:77` = `## 2. 정적 정책 append — 미채택` · `:81` ADR-002 링크(대상 파일 실재) |
+| D-004 guides 포함 | 3파일 | r4 는 guides 변경 0 — F1~F4 가 전부 `docs/arch`·`TRD`·`claude-code-spec` |
+| D-005 "보고 따라할 수 있도록" | 명령이 실제로 돈다 | **검증자가 4종 전부 재실행**(§9). 산출이 구현 보고와 글자 그대로 같다 |
+| D-006 OQ9 미결 | PRD 비범위 | `PRD.md` r4 diff **0** |
+| D-007 루트 AGENTS 비범위 | 미변경 | 루트 `AGENTS.md` r4 diff **0** |
+
+### end-to-end 흐름
+
+```text
+에이전트/배포자
+  → docs/INDEX.md 라우팅
+  → arch/*.md · guides/*.md · claude-code-spec.md
+  → 인용 경로(A·B·C 3형태) · 인용 심볼(S1~S5) · 사이트의 시제
+  → 실재/참이면 코드 도달 / 부재·거짓이면 조용한 오안내
+```
+
+**경로 축은 이번 라운드에 닫혔다.** 심볼 축은 게이트가 green 인데 **실재 테스트가 아직 substring** 이라 분모 자체가 좁다 — F1 이 경로 축에서 고친 바로 그 결함이 심볼 축에 남아 있고, 그 자리에서 거짓 단언 5건이 나온다(§3·§13).
+
+## 2. 구현 결과 비판적 검토 — AC 전에
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 실환경 실패 방식 | 조용하다 | 부재 인용은 예외를 던지지 않는다. 이 handoff 의 전제이고 불변 |
+| false success 가능성 | **있다** | 심볼 실재 테스트 `grep -rnF` 가 substring — `ChatEvent` 가 `ingestChatEvent` 로 "실재" 판정된다(§3) |
+| 〃 | **있다** | 시제 술어가 줄 단위라 **표 헤더에서 시제를 상속하는 행**을 못 본다(`:403`·`:409`) |
+| Product/UX 의 A 가 아닌 B 를 구현했는가 | 아니오 | F1~F3 정정은 지시된 세 자리 그대로다. 세 문장 모두 코드 대조로 참(§6) |
+| 증상만 제거하고 상태가 남았는가 | **부분적으로 그렇다** | F4 를 `claude-code-spec.md:103` 한 곳만 고쳤다 — 같은 파일 6사이트가 같은 거짓 단언을 유지하고, 그중 `:57` 은 고친 `:103` 과 **정면으로 모순**된다(§13 G2) |
+| 이번 수정이 만든 새 표면 | **있다** | `:103` 이 도입한 `⛔` 는 같은 문서 각주 표기 범례(`✅`/`❌`/`⏳`) 밖이다. docs 전체에서 이 1곳뿐 |
+| 출력/요청 worst-case 상한 | 해당 없음 | 코드 변경 0 |
+
+## 3. 역방향 탐색
+
+`handoff-verify §8` 이 요구하는 **엄격화 재측정**을 세 축에 걸었다. 두 축은 차집합이 비었고 한 축은 비지 않았다.
+
+| 축 | 구현자 판정 기준 | 한 단계 엄격한 기준 | 재측정 | 차집합 |
+|---|---|---|---|---|
+| 경로 B | 접미사 경계 `(^\|/)p$` | + 백틱 인용의 `:행번호` 접미사형까지 추출 | 3사이트 추가 추출, 전부 실재 | **0** |
+| 경로 C | 맨 파일명 `grep -qxF` | 〃 | 〃 | **0** |
+| **심볼 실재** | `grep -rnF "$s"` = **substring** | `grep -rnwF "$s"` = **단어 경계** | 220 → **275사이트** | **+55** |
+| ↳ 그중 시제 판정 대상 | 98 | 같은 술어를 strict 산출에 적용 | 98 → **118** | **+20** |
+
+재현 명령(검증자 실행):
+
+```bash
+# plan §19 심볼 블록을 그대로 쓰되 실재 테스트 한 줄만 바꿔 두 벌을 만든다.
+#   느슨(구현자 판정): hits=$(grep -rnF  "$s" $CORPUS 2>/dev/null)   → 220줄
+#   엄격(검증자 판정): hits=$(grep -rnwF "$s" $CORPUS 2>/dev/null)   → 275줄
+comm -13 <(sort /tmp/sym_F.txt) <(sort /tmp/sym_W.txt)   # 차집합 55줄
+```
+
+**차집합 55줄 중 결함 8건, 나머지는 개념어다.** `Screen`·`Tile`·`Slot`·`Delta`·`Pane`·`Router`·`Transcript` 등은 GLOSSARY/terms 의 개념어라 코드에 단독 심볼로 없는 것이 정상이다. 결함은 아래 두 무리다.
+
+- **`ChatEvent` 11사이트** — 코드 실재 0. `grep -rnw ChatEvent app/src` 히트 3개가 전부 주석이고, 그중 `shared/protocol.ts:51` 이 "구 `ChatEventSchema` 는 `ChatEvent` 폐기와 함께 제거" 라 적는다. substring 이 `ingestChatEvent`(`chatStore.ts:562`)를 실재로 셌다. 11 중 **5사이트가 현재형 거짓 단언**(§13 G1), 나머지 6은 "구 …" 표기라 정상.
+- **`AuthSpec` 5 · `pendingToolApproval` 2** — 각각 `AuthMethod`·`pendingToolApprovals` 로 개명/복수화됐고 substring 이 신 이름 안의 부분 문자열을 실재로 셌다(§13 G5·G6).
+
+**표 헤더 시제 상속을 아무 축도 보지 않는다.** `provider-runtime.md:403`(`ChatEvent`)·`:409`(`detectError`)는 열 제목이 "**현행 코드 심볼**" 인 표의 행이다. 행 자체에는 `현행|현재|한다|이다|✅` 가 없어 시제 산출에 들어가지 않고, `:409` 는 심볼 산출에 **있었는데** `설계어휘·목표계약` 버킷에 들어가 통과했다 — 그 사이트에서는 설계어휘가 아니라 "현행" 단언이다.
+
+**추출 축의 미기록 공백**: 맨 CamelCase 산문은 백틱도 `**bold**` 도 아니라 S1~S5 전부의 밖이다. `ClaudeCodeAdapter`(코드 0건)가 `claude-code-spec.md` **4사이트**에서 그 형태로 현재형 단언된다. §19 의 "넓히지 않은 축과 이유" 표에 이 축이 없다 — 넓히지 않기로 한 것이 아니라 보이지 않았다.
+
+## 4. 기존 테스트 / semantic 검증 확인
+
+- 코드 변경 0 이므로 코드 테스트는 인수 수단이 아니다(plan §11 «테스트 가능성»). 관측 수단은 grep 스윕과 guides 명령의 실제 실행이다.
+- **적대 검사 3건은 유효했다.** 구현자가 `\b` 술어가 이 로케일에서 발화하지 않는 것을 발견해 산출을 47 → 98 로 늘린 것은 실제 성과다 — 검증자가 같은 술어로 돌려 **98 을 정확히 재현**했다.
+- 다만 적대 검사는 **자기가 정의한 기준 안에서만** 결함을 심었다. 세 장치 모두 "이 장치가 보는 형태" 의 결함을 심었고, 장치가 애초에 보지 않는 형태(substring 실재·표 헤더 시제·맨 CamelCase)는 심어지지 않았다.
+
+## 5. 요구사항 충족 매트릭스
+
+| # | 검증자 재측정 | 판정 |
+|---|---|---|
+| AC1 | 경로 스윕 `A 0 / B 11 / C 9 = 20줄`, §19 예외표 12행과 1:1, 그 밖 0줄 | ✅ |
+| AC2 | `grep -c ❌` → backend **4**(`:190`·`:201`·`:210`·`:212`) · frontend **3**(`:81`~`:83`) = **7행**, plan 열거와 동일 | ✅ |
+| AC3 | `^## ` **20** (READY `1c9b260` ↔ HEAD 동일) · ③ 3곳의 새 인용 심볼·경로 전부 비주석 실재(§6) | ✅ |
+| AC4 | 6패턴 각 **0파일**(`prepared-config`·`features/login/`·`SkillsPage`·`declarations/{sso,llm,service}`) | ✅ |
+| AC5 | 비-test `.mjs` **6** = `app/AGENTS.md:144~150` 열거 6(헤더 `ensure-sqlite-abi` + 불릿 5) | ✅ |
+| AC6 | `system-prompt.md:77` = `## 2. 정적 정책 append — 미채택` · `:81` ADR-002 링크, 대상 파일 실재 | ✅ |
+| AC7 | §8.1 인용 `*.test.ts` **21종 · 부재 0**(추출 22 중 1은 `*.test.ts` 와일드카드 조각) · 명령 4종 실행(§9) | ✅ |
+| AC8 | `closed-network-extensions.md:115` `app/deployment/auth-definitions.ts` = §1.1 트리 `:58` | ✅ |
+| AC9 | `grep -rn disallowedTools app/src` = **0** · 가이드 미채택/보류 표기 유지 | ✅ |
+| AC10 | `release-operations.md:12` ↔ `ci.yml:11~22` — `push[main]` · **`pull_request`** · `workflow_dispatch` · paths 동일 | ✅ |
+| AC11 | `docs/INDEX.md:12`(`ARCHITECTURE.md`) · `:23`(`arch/frontend/overview.md`) | ✅ |
+| AC12 | `generated doc ok (9 items, 76 channels)` · `prose ok` · `links ok` · exit 0 | ✅ |
+
+**검산: ✅ 12 · ⚠️ 0 · ❌ 0 = 총 12.** 분모는 §7 의 AC1~AC12, 분할·추가 없음. 구현자 자기보고(12/12)와 일치하고 **본문·커밋 trailer 2개·INDEX 비고 세 사본이 모두 `12/12`** 다.
+
+### plan §10 강제 지점 표 — AC와 별개로 걷는다
+
+| §10 계약 | 검증자 재측정 | 판정 |
+|---|---|---|
+| 수치를 본문에 쓰지 않는다 | `prose ok: no inventory counts restated in current-state docs` | ✅ |
+| 상대 링크가 해석된다 | `links ok: every relative markdown link resolves` | ✅ |
+| 인용 경로 실재 (A·B·C) | `0 / 11 / 9 = 20`, 예외표 1:1 | ✅ |
+| 〃 **매칭 의미**(r4 신설) | `grep -qF` → `grep -qE "(^\|/)…$"` 확인. 엄격화(행번호 접미사)에도 차집합 **0** | ✅ **F1 닫힘** |
+| 인용 심볼 실재 (S1~S5) | 220사이트/131심볼 **정확 재현**. 그러나 실재 테스트가 substring — 엄격화 차집합 **+55** | ⚠️ **전수 아님** |
+| 〃 **판정 축(시제)**(r4 신설) | 98사이트 **정확 재현**. 부모 집합이 좁고, 술어가 줄 단위라 표 헤더 시제를 못 본다 | ⚠️ **전수 아님** |
+| guides 절차 명령 실행 | 4종 전부 재실행, 산출 일치(§9) | ✅ |
+| `arch/` 는 현재 상태만 서술 | r4 가 `docs/arch/` 에 더한 줄의 `0014`·`0015` 히트는 **변경 안 한 같은 줄의 기존 문구**(줄 중간 삽입이라 `+` 로 보인다). 신규 델타형 0 | ✅ |
+
+**강제 지점 6/8.** 구현자 보고는 8/8 이고 여덟 행 모두 *재현* 되지만, r4 가 신설한 두 축은 §3 의 엄격화에서 차집합이 비지 않는다 — 재현은 검증이 아니다(`handoff-verify §8`).
+
+**표에 없는데 같은 불변식이 필요한 지점: 있다.** `claude-code-spec.md` 의 "Orca 채택/미사용" 박스가 그 자리다(§13 G2) — 이 표는 심볼·경로·시제를 말하고, "채택 박스의 서술이 현재 실행 방식과 같은가" 는 어느 행도 묻지 않는다.
+
+## 6. 외부 포트 / 문서 계약
+
+**F1~F3 정정 세 건은 코드와 대조해 전부 정확하다.** 이번 라운드가 새로 쓴 산문이라 전건 확인했다.
+
+| 정정 | 검증자 관측 | 판정 |
+|---|---|---|
+| F1 `state.md:105` `.ts`→`.tsx` | 실파일 `app/src/renderer/src/app/hooks/useSidebarSlots.tsx` 1개, `.ts` 는 0개. `layers.md:42` 와 동일 표기 | ✅ |
+| F2-a `:274` ErrorClassifier | `infra/errors.ts:20` `ErrorClassifier` · `:32` `DEFAULT_RETRYABLE` · `:49` `makeClassifiedError` · `:57` `retryable ?? DEFAULT_RETRYABLE[category]`. 8 category | ✅ |
+| 〃 두 경로 호출 | `adapters/claude.ts:214`(턴 `classifyError`) · `:455`(스트림) 가 `claudeErrorClassifier`(`error-classifier.ts:24`) 호출 | ✅ |
+| F2-b `:346` AuthStore | `features/auth/store.ts:134` `class AuthStore` · `contracts/auth.ts:379` `AuthSecretReader` · 소비 2자리 `bootstrap.ts:325`(MCP `${BINDING}`)·`:447`(direct-credential) | ✅ |
+| F2-c `:509` workspace-guard | `adapters/workspace-guard.ts:35`·`:53`·`:75`·`:116` 4 export 실재, `claude.ts:46` import + `:391` hook 주입 | ✅ |
+| F3 `standardization.md:117` | 가리킨 `§5.2`(`:121`)의 구현 상태 `:146` 이 "disallowedTools 는 D1 사용자 확정 전이라 코드 주입 보류" — 형제와 대칭 | ✅ |
+| F3 `TRD.md:387` | 가리킨 `§6.8`(`:344`)의 `:378` 이 "(0024 구현됨 / disallowedTools 보류)" | ✅ |
+
+**단, F2 의 `§12 표` 포인터는 라벨과 어긋난다.** `:274` 가 "구 휴리스틱/enum 에서 이 포트로의 매핑은 §12 표에 있다" 로 보내는데, §12 의 열 제목은 "**현행 코드 심볼**" 이고 그 열의 `detectError`·`ChatEvent` 는 코드 0건이다(§13 G3).
+
+## 7. 숫자 / 음성 기준 / 상한 재측정
+
+| 구현자 보고 | 검증자 재측정 | 판정 |
+|---|---|---|
+| 경로 `0 / 11 / 9 = 20` | 동일. 20 = 예외표 12행이 덮는 줄 수와 1:1 | 일치 |
+| 심볼 `220사이트 / 131심볼` | 동일(`wc -l` 220 · `cut -f2 \| sort -u` 131) | 일치 |
+| 버킷 합 `63+75+58+10+10+4 = 220` | 산술 일치. future 버킷 **10사이트** 독립 재측정 일치, 비범위 버킷 4사이트 전부 `docs/PRD.md` | 일치 |
+| 버킷 심볼 목록 | 표의 고유 백틱 토큰 125 − 약칭 2 − 경로 1 = 122, `+3`(`CLAUDE_CODE_*`) `+6`(`SDK*Message`) = **131** | 일치 |
+| 시제 `98사이트` | 동일(같은 술어·같은 입력) | 일치 |
+| r3→r4 delta `211 − 2 + 11 = 220` | 산술 일치 | 일치 |
+| `disallowedTools` 전수 25사이트 | 코드 주입 0건 재확인. 정정 2곳 + 비결함 23 분류가 관측과 맞는다 | 일치 |
+| AC7 인용 `21개 고유 문자열` | 추출 22 중 1은 와일드카드 조각 → 실질 21, 부재 0 | 일치 |
+
+**자기보고 합계 축은 이번 라운드도 갈리지 않았다.** `12/12`·`8/8`·`220`·`98` 이 본문·trailer 2개·INDEX 비고에서 같은 값이다(0187 r1·0189 r1·0190 r1 이 어긋났던 축).
+
+- 0건 게이트가 정당한 이력을 지우는가: 아니다. 경로 예외 12행은 전부 "구/폐기/외부/설계어휘" 사유가 같은 줄에 있다.
+- 총량 임계가 제거 대상과 허용 대상을 섞는가: **섞는다** — `비범위 — 보고만` 버킷이 *결함 여부* 와 *수정 범위* 두 축을 한 라벨에 담는다(r3 O5 의 재관찰, 수정 불요).
+
+## 8. 테스트 가능한 핸들 탐색 후 남은 사람 실기
+
+- 이번 라운드에서 사람에게 넘긴 순수 로직: **없다.** F1~F4 판정은 전부 grep/파일시스템으로 기계 확인했고 검증자가 재측정했다.
+- 남는 사람 실기는 `closed-network-extensions.md §8.2` 의 사내 로그인 왕복 하나다(plan §19 명시, r1~r4 불변).
+- **시제 판정은 육안이지만 사람 실기가 아니다** — 검증자가 118사이트를 직접 읽어 판정했고 그 결과가 §13 이다.
+
+## 9. 게이트 재실행
+
+`app/AGENTS.md` 의 ABI 가이드를 따랐다. `npm test` 는 쓰지 않았다(DB 동작 검증 불요). **exit code 가 아니라 산출을 적는다.**
+
+| 명령 | 검증자가 관측한 산출 |
+|---|---|
+| `node scripts/check-doc-inventory.mjs --check` | `generated doc ok (9 items, 76 channels)` · `prose ok` · `links ok` · exit 0 |
+| `npm run typecheck` | 하위 3개(`:node`·`:web`·`:test`) 전부 실행, **error 0줄** |
+| `npm run lint` | `✖ 1 problem (0 errors, 1 warning)` — `react-hooks/incompatible-library` @ `useTranscriptVirtualizer.ts:22` |
+| `./node_modules/.bin/vitest run src/main/features/{auth,gate,harnesses,plugins} src/main/app` | `Test Files 1 failed \| 40 passed (41)` · `Tests 506 passed (506)` |
+
+- **환경 기인 실패 분리**: 실패 1파일 = `src/main/app/chat-turn.continuity.test.ts`, 서명 `Error: Electron failed to install correctly` @ `node_modules/electron/index.js:17`. r1~r4 동일 서명이고 코드 diff 0 이라 **이번 변경과 무관**.
+- **게이트가 작업 트리를 바꿨는가: 아니다.** 네 명령 전후 `git status --short --untracked-files=all` 이 빈 출력이다. `npm run lint` 는 `--fix` 가 붙지만 수정 대상이 없었다.
+- **검증자 명령이 남긴 잔여물**: 없다. 스윕 산출은 전부 `/tmp` 에 썼고 저장소에 미추적 파일이 생기지 않았다.
+
+## 10. 검증 책임 분리 — 사람 vs 에이전트
+
+- 에이전트가 확인한 것: 경로·심볼 실재, 시제 판정 118사이트, AC 12건, 강제 지점 8행, 게이트 4종, INDEX/trailer/해시 정합.
+- 사람이 결정할 것: **G2 의 처리 범위** — `claude-code-spec.md` 를 어디까지 현재화할지(6사이트 전부인지, `⛔` 방식인지, 문서 자체를 spec 미러 라우터로 축소할지)는 제품 문서 정책이다. §13 은 관측만 남긴다.
+- 사람이 결정할 것: `disallowedTools` 채택 여부(D1) — r2~r4 동일, 미변경.
+
+## 11. Repository operation checks
+
+### AGENTS.md 위생 / 정합성
+
+- 이번 라운드 `AGENTS.md` 변경 **0** — `git show --stat 7f5638c` 에 `AGENTS.md` 없음. 위생 검사 대상 없음.
+
+### INDEX 보드 정합성
+
+- 상태 `impl / IMPL_DONE (r4) / Claude(검증) / 7f5638c / 4` — plan 메타·구현 보고와 일치.
+- 비고 **627자**(r3 815자에서 감소). r3 O4 가 지적한 증가 추세가 꺾였다.
+- PASS archive 이동: 해당 없음(FAIL).
+
+### Commit / reference 정합성
+
+- trailer: `Agent: claude` · `Handoff: docs/handoff/0191-docs-code-resync/` · `Status: implemented` · `Criteria-Met: 12/12` · `Verified-By: pending` — root `AGENTS.md` 허용값 안이고 두 커밋이 같다.
+- 인용 해시 실재: `7f5638c` ✅ · `3ba56cb`(review Round 10) ✅ · `f9258f4`(r3) ✅. 죽은 좌표 없음.
+- reference: r4 는 파일 이동/삭제 0.
+
+## 12. 구현자 코멘트 / 선조치 경계
+
+| 구현자 처리 | 검증자 판정 |
+|---|---|
+| F4 `claude-code-spec.md:103` 을 **선조치** | **경계는 맞고 범위가 부족하다.** 문장 정정이라 선조치가 맞다. 그러나 같은 파일 6사이트를 남겨 문서가 자기모순에 빠졌다(§13 G2) |
+| `sort -u` 명시(O2) · `SDKUserMessageReplay` 명시(O1) | 타당. 재현자가 raw 를 보던 문제가 닫혔고 목록 누락도 닫혔다 |
+| AC13 미신설을 **보고만** | 타당 — 사용자 결정이다. 다만 구현자 자신이 적은 "다음 라운드가 §19 를 안 돌리면 이 축은 사라진다" 가 그대로 남는다 |
+| ADR 링크 교체·PRD·루트 AGENTS 를 **보고만** | 타당 — D-003·D-006·D-007 범위 밖. diff 0 으로 확인 |
+| `adapters.md:55` 를 파생 이슈로 남김 | 타당. 검증자도 같은 판정 — 코드 샘플 주석이고 `:67` 이 같은 절에서 해소한다 |
+
+**선조치 권한을 넘긴 것은 없다.** 제품 결정(D1 채택 여부·AC 승격·ADR 링크)은 전부 보고에 머물렀다.
+
+## 13. [FAIL 시] 파생 이슈
+
+- [ ] **G1** — **`ChatEvent` 5사이트가 없는 코드 심볼을 현재형으로 단언한다.** 실측: `grep -rnw ChatEvent app/src app/scripts` 히트 3개 전부 주석이고 `shared/protocol.ts:51` 이 "구 `ChatEventSchema` 는 `ChatEvent` 폐기와 함께 제거 — 와이어가 `NormalizedEvent` 로 전환됨" 이라 적는다. `grep -cw ChatEvent app/src/shared/ipc.ts` = **0**(문서가 인용하는 바로 그 위치). 거짓 사이트 — `provider-runtime.md:17`("실제 코드 심볼(`ChatEvent`…)은 변경하지 않는다") · `:25`(표 열 제목 "**현재 코드**") · `:35`("**현재는** … 두 `ChatEvent` 로 흐른다") · `:403`(§12 열 제목 "**현행 코드 심볼**", 위치 `src/shared/ipc.ts`) · `claude-code-spec.md:167`. 같은 문서 `:37`·`:61` 은 "구 `ChatEvent` 타입 완전 제거, PR #47" 이라 적어 **자기모순**이다(E1·F2 와 같은 형태). 게이트가 못 본 이유: §19 심볼 실재 테스트 `grep -rnF` 가 **substring** 이라 `ingestChatEvent`(`chatStore.ts:562`)를 실재로 세고 11사이트 전부가 분모에서 빠졌다 — **F1 이 경로 축에서 닫은 그 결함이 심볼 축에 그대로 있다.**
+- [ ] **G2** — **F4 의 불변식이 1/7 사이트에만 적용됐다.** r4 는 `claude-code-spec.md:103` 을 `⛔ Orca 비적용`(SDK `query()` 인프로세스, `stream-json` 0건)으로 고쳤다. 같은 파일에서 같은 단언이 살아 있는 곳 — `:28`(표 "CLI(`claude -p`) … `child_process.spawn` 으로 매 턴 새 프로세스 / **✅ Phase 1 채택**") · `:57`(**✅ Orca v1 채택** — "ClaudeCodeAdapter 가 매 턴 `claude -p … --output-format stream-json …` 형식으로 `child_process.spawn` **한다**") · `:167` · `:302` · `:366`(**❌ Orca v1 미사용** — "ClaudeCodeAdapter 는 `-p <text>` 로만 전달**한다**") · `:399`("CLI `claude -p` + `child_process.spawn` 은 **폐기 예정**" — 이미 0건). 코드 실측: `claude.ts:12` 가 `@anthropic-ai/claude-agent-sdk` 를 import 하고 `:270`·`:345` 가 `query()` 를 부른다 · `grep -rn stream-json app/src` = **0** · `grep -rnw ClaudeCodeAdapter app/src` = **0**. **`:57` 은 고친 `:103` 과 정면 모순이다** — r4 이전에는 문서가 일관되게 틀렸고, r4 이후에는 §3 만 맞고 §0·§1 이 반대로 말한다.
+- [ ] **G3** — **`provider-runtime.md §12` 의 "현행 코드 심볼" 열에 부재 심볼 2/11.** `ChatEvent` **0건** · `detectError` **0건**(나머지 9는 비주석 실재 3~62건). r4 의 F2 정정이 `:274` 에서 "구 휴리스틱/enum 에서 이 포트로의 매핑은 §12 표에 있다" 로 이 표를 가리키는데, 표는 자기 왼쪽 열을 *현행* 이라 부른다 — 포인터와 라벨이 서로 반대다. `detectError` 는 심볼 산출에 **있었고**(`ABSENT|detectError|:409`) `설계어휘·목표계약` 버킷에 들어가 통과했다 — 그 사이트에서는 설계어휘가 아니라 현행 단언이다.
+- [ ] **G4** — **계측 두 축의 구조적 한계가 §19 에 기록되지 않았다.** ⓐ 심볼 실재 테스트가 substring(G1 의 원인, 엄격화 차집합 **+55사이트**) ⓑ 시제 술어가 **줄 단위**라 표 헤더에서 시제를 상속하는 행을 못 본다(`:403`·`:409`·`:25` 실증 — strict 산출에 있어도 시제 산출에는 없다) ⓒ 추출이 백틱·`**bold**` 만 봐서 **맨 CamelCase 산문**을 못 본다(`ClaudeCodeAdapter` 4사이트). §19 의 "넓히지 않은 축과 이유" 표에 ⓐⓑⓒ 가 없다 — 넓히지 않기로 판단한 것이 아니라 보이지 않았다.
+- [ ] **G5** *(경미)* — `GLOSSARY.md:46` 이 "`AuthSpec` 이 소유한다" 로 현재형. 현재 이름은 `AuthMethod`(`contracts/auth.ts:152` 주석 "구 이름은 `AuthSpec` 이었다(0181)"). 같은 파일 `:33` 은 "**AuthMethod** (구 `AuthSpec`)" 로 올바르다 — **같은 문서 안의 비대칭**이다(F3 와 같은 형태). substring 이 `AuthSpecEntry` 류를 실재로 세어 통과.
+- [ ] **G6** *(경미)* — `ux-domains.md:79`·`IPC_CONTRACT.md:442` 가 `pendingToolApproval`(단수)를 인용한다. 실제 필드는 **`pendingToolApprovals`**(복수, `ApprovalCard.tsx:46` 주석이 "큐(pendingToolApprovals)로 모델링" 이라 적는다). 단수형은 코드 0건이고 substring 이 복수형 안에서 통과시켰다.
+- [ ] **G7** *(경미)* — r4 가 도입한 `⛔` 가 `claude-code-spec.md` 자기 범례 밖이다. 문서 상단 "각주 표기 범례" 는 `✅ Orca v1 채택` · `❌ Orca v1 미사용` · `⏳ Open Question` 3종이고, `⛔` 는 docs 전체에서 `:103` 한 곳뿐이다(`grep -rn ⛔ docs`). 범례에 등재하거나 기존 마커로 표현한다.
+
+### 처리 방향 제안 (구현 턴 몫)
+
+- **G1·G3·G5·G6 은 한 문장의 불변식이다** — "인용 심볼은 부분 문자열이 아니라 **단어 경계로** 실재해야 한다". F1 이 경로 축에 쓴 문장과 같다. §19 심볼 스윕의 `grep -rnF` 를 `grep -rnwF` 로 바꾸고, 늘어난 55사이트를 전건 분류·시제 판정한다.
+- **G2 는 사이트 정정이 아니라 문서 단위 판정이다.** `claude-code-spec.md` 의 채택 박스 전수(✅/❌ 각 박스)를 현재 실행 방식과 대조한다. 어디까지 현재화할지는 §10 대로 사람 결정이다.
+- **G4 는 §19 문서화다.** ⓐⓑⓒ 를 "넓힌 축" 이나 "넓히지 않은 축과 이유" 중 하나에 등재한다. 등재하지 않으면 다음 라운드가 같은 자리에서 다시 열린다.
+- **G7 은 한 줄이다** — 범례에 `⛔` 를 추가하거나 `❌ Orca v1 미사용` 으로 통일한다.
+
+### 파생 관찰 (수정 불요)
+
+- **O1** 버킷표의 `SDK*Message`(6, `SDKUserMessageReplay` 포함) 괄호 주석 — 총계 131 은 맞지만 산술상 `(6)` 은 `SDKUserMessageReplay` 를 **뺀** 나머지 6종이다(그 토큰은 목록에 따로 있다). "포함" 을 빼면 정확해진다.
+- **O2** `IPC_CONTRACT.md:45`·`:46` 의 `DiscardSession`·`StopSubagent` 는 코드 타입 0건이다(채널 상수 `chatDiscardSession`·`chatStopSubagent` 만 있다). 문서 규약(페이로드 이름)인지 드리프트인지 판정이 필요하나, **분류 대상에 들어온 적이 없다**는 사실이 G4-ⓐ 의 또 다른 증거다.
+- **O3** `adapters.md §1.3` 의 절 제목이 `ClaudeCodeAdapter 호출 패턴` — 코드 0건 심볼이 절 제목이다. F3 정정이 이 절을 정본으로 가리킨다(포인터 자체는 유효, 내용이 disallowedTools 를 다룬다).
+- **O4** r3 O5 재확인 — `비범위 — 보고만` 버킷이 *결함 여부* 와 *수정 범위* 두 축을 한 라벨에 담는다. `docs/PRD.md` 사이트는 실제로 7개이고 그중 3개는 `외부` 버킷에 있다(정상 분류).
+
+## 14. Review Signals — 사실만
+
+- **이전 라운드와 동일 증상: 그렇다. 다섯 라운드째 같은 문장이다** — "계측 정의가 불변식보다 좁다". r1 추출 · r2 분류 단위 · r3 실재 테스트(주석) · r4 verify 가 **실재 테스트의 매칭 의미(심볼 축)** · **술어의 적용 단위(줄 vs 표)** · **추출의 토큰 형태(맨 CamelCase)**.
+- **선행 review 의 규칙은 발화했다.** review Round 10(`3ba56cb`)이 넣은 "고친 장치가 결함을 볼 수 있음을 먼저 보여라" 는 r4 에서 실제로 작동해 죽은 `\b` 술어를 잡았다(47→98). **이번에 실패한 것은 다른 조항이다** — `handoff-impl §5` 의 "지적을 불변식으로 올려 전수 적용" 이 F1(경로 축에서는 수행)에서 심볼 축으로 전이되지 않았고, F4(자기가 발견한 결함)에서는 전수 자체가 없었다.
+- **자기가 발견한 결함일수록 전수가 약하다: 새 관측.** 외부 지적(F1~F3)은 전수를 돌렸고(F3 는 25사이트), 자기 계측이 낸 F4 는 1사이트에서 멈췄다.
+- 사용자 결정 변경 근거: 없음. Ledger 무변경. AC13 미신설은 사용자가 고른 것이다.
+- 자기보고 합계 축: **이번에도 갈림 없음** — 세 사본 일치(r3 과 동일).
+- 반복되는 검증 환경 한계: electron 바이너리 1파일 — r1~r4 동일 서명.
+- 현재 라운드 수: **4**. review 는 r4 직전에 수행됐다(Round 10). `docs/handoff/AGENTS.md` 의 *라운드 3 초과* 트리거는 다음 재구현에도 형식상 성립하지만, **Round 10 의 지침은 이번에 발화했으므로** 다시 돌린다면 대상은 "장치의 눈" 이 아니라 **"불변식의 전수 전개"** 다.
+
+## 15. 결론
+
+**FAIL (라운드 4).** AC 12건은 전부 재측정으로 충족되고 분모·합계가 세 사본에서 일치한다. F1~F3 정정 세 건은 코드 대조로 **전부 참**이고(§6), 게이트 4종 산출도 네 번째 세션에서 그대로 나온다. 경로 축은 엄격화에도 차집합 0 이라 이번 라운드에 닫혔다고 판정한다.
+
+FAIL 사유는 AC 밖 4건이다. **G1** — 심볼 실재 테스트가 substring 이라 `ChatEvent` 11사이트가 분모에서 빠졌고 그중 5곳이 현재형 거짓 단언이다. `F1 이 경로 축에서 고친 결함이 심볼 축에 그대로 있다`. **G2** — F4 를 한 사이트만 고쳐 `claude-code-spec.md:57` 이 고친 `:103` 과 정면으로 모순된다. **G3** — §12 표의 "현행 코드 심볼" 열에 부재 심볼 2건, 그리고 F2 정정이 그 표를 정본으로 가리킨다. **G4** — 이 세 자리를 만든 계측 한계가 §19 에 기록되지 않았다.
+
+다음 주체는 **Claude(재구현)** 다. G1 은 §19 심볼 스윕의 한 글자(`-F` → `-wF`)로 분모가 열리고, 늘어난 55사이트를 전건 판정하면 G3·G5·G6 이 같이 닫힌다. G2 의 범위는 사람 결정이다(§10).
+
+---
+
+## 부록 — 라운드 3 검증 (FAIL, 원문 보존)
+
+> 아래는 `53538c2` 시점의 r3 verify 원문이다. 판정·관측을 보존하기 위해 그대로 두고, 제목 수준만 한 단계 낮췄다. 재서술하지 않는다.
+
+
+### 메타
 
 | 항목 | 값 |
 |---|---|
@@ -15,7 +288,7 @@
 | 상태 | **FAIL** |
 | 자기 검증 여부 | 설계·구현·검증 모두 Claude Code — 자기 검증이다 |
 
-## 0. 기준선 / plan 변경 확인
+### 0. 기준선 / plan 변경 확인
 
 **기준선이 diff 로 성립한다.** `cda6cad`(r2 verify) → `f9258f4`(r3 구현) → `bacecca`(해시 기입)로 갈렸다.
 
@@ -27,7 +300,7 @@
 
 **게이트 정의가 구현자 손으로 바뀌었다는 사실은 §5·§7 에서 별도로 취급한다.** 계측을 넓히라고 지시한 것은 verify r2 지만, **넓힌 정의가 불변식을 덮는지**는 검증자가 다시 판정한다 — 이번 FAIL 두 건이 그 자리다(§13 F1·F2).
 
-## 1. Product & UX / ACTIVE Decision 요약
+### 1. Product & UX / ACTIVE Decision 요약
 
 | Decision | 기대 결과 | 실제 production path |
 |---|---|---|
@@ -51,7 +324,7 @@
 
 경로 칸과 심볼 칸 모두 **게이트는 green 이다**. 이번 FAIL 은 그 아래 층이다 — 게이트의 *존재 테스트가 substring* 이고 *버킷이 사이트의 시제가 아니라 심볼의 정체*를 답한다(§3·§13).
 
-## 2. 구현 결과 비판적 검토 — AC 전에
+### 2. 구현 결과 비판적 검토 — AC 전에
 
 | 질문 | 판정 | 근거 |
 |---|---|---|
@@ -62,7 +335,7 @@
 | 로그/경고만 없애고 원인 상태를 남겼나 | 아니다 | 심볼 치환이 실제 코드 심볼을 가리킨다(19종 전부 비주석 실재 확인) |
 | 구현자가 만든 새 표면을 스스로 검사했나 | **아니다** | r3 이 새로 쓴 `state.md:105` 가 없는 파일을 가리킨다(F1). r3 Review Signals 가 r2 에 대해 지목한 바로 그 패턴이다 |
 
-## 3. 역방향 탐색
+### 3. 역방향 탐색
 
 `scan-surface.sh` 대신 이번 변경의 성격(코드 0 · 문서 전용)에 맞춰 **계측 자체를 역방향으로 공격**했다. 세 축에서 게이트 밖 표면이 나왔다.
 
@@ -76,13 +349,13 @@
 - 변경 export 의 프로덕션 참조 0건 / 테스트 전용 심볼 / 형제 파일 정책 비대칭: **해당 없음**(코드 변경 0).
 - 형제 문서 비대칭은 **있었다** — `adapters.md:67`·`security.md:91` 은 `disallowedTools 보류` 단서를 달고 `standardization.md:117`·`TRD.md:387` 은 달지 않는다(F3).
 
-## 4. 기존 테스트 / semantic 검증 확인
+### 4. 기존 테스트 / semantic 검증 확인
 
 - 이 handoff 는 코드 테스트를 인수 수단으로 쓰지 않는다(plan §7 주의사항). 인수 수단은 **grep 스윕 + 가이드 명령의 실제 실행**이다.
 - 구현자 보고를 증거로 쓰지 않았다 — AC1~AC12 · 강제 지점 · 수치 6종 · 심볼 스윕 전량을 이번 턴에 재측정했다(§5·§7·§9).
 - structural proxy 경계: "심볼이 코드에 있다"(구조)와 "이 문장의 단언이 참이다"(의미)를 갈라 판정했다. F2·F3 은 **구조는 통과하고 의미가 거짓**인 자리다.
 
-## 5. 요구사항 충족 매트릭스
+### 5. 요구사항 충족 매트릭스
 
 | # | 제품/동작 기준 | 결과 | 검증 증거 | production path |
 |---|---|---|---|---|
@@ -121,7 +394,7 @@
 
 - **표에 없는데 같은 불변식이 필요한 지점: 있다.** 호출식 인용(`` `fn(` ``) **16사이트**가 추출 밖이고(F2 의 `detectError()`), 외부 SDK 옵션명을 Orca 동작으로 쓰는 사이트가 버킷 판정을 우회한다(F3).
 
-## 6. 외부 포트 / 문서 계약
+### 6. 외부 포트 / 문서 계약
 
 | 계약 | shape 검증 | semantics 검증 | 결과 |
 |---|---|---|---|
@@ -130,7 +403,7 @@
 | 에러 정규화 계약 | `ErrorClassifier` 포트 + `retryable` 이 `infra/errors.ts:21`·`:57` 에 실재 | **`provider-runtime.md:274` 가 "정규 분류기/`retryable` 없음" 이라 적는다** | ❌ **F2** |
 | SDK 도구 차단 계약 | `disallowedTools` 는 실제 SDK 옵션 | **코드가 넘기지 않는데 `standardization.md:117`·`TRD.md:387` 이 "차단한다"** | ❌ **F3** |
 
-## 7. 숫자 / 음성 기준 / 상한 재측정
+### 7. 숫자 / 음성 기준 / 상한 재측정
 
 **HEAD 상태 수치와 r3 이 정정한 시작 상태 수치가 모두 재현된다.**
 
@@ -155,7 +428,7 @@
 - **0건 게이트가 정당한 이력을 지웠는가**: 아니다. 20사이트 전부 사유와 함께 등재됐다.
 - 총량/상한: 해당 없음(코드 변경 0).
 
-## 8. 테스트 가능한 핸들 탐색 후 남은 사람 실기
+### 8. 테스트 가능한 핸들 탐색 후 남은 사람 실기
 
 | 항목 | 기계 검증한 범위 | 남은 사람 실기 | 실행 방법 |
 |---|---|---|---|
@@ -166,7 +439,7 @@
 
 "UI/electron 이라서" 로 넘긴 순수 로직 없음.
 
-## 9. 게이트 재실행
+### 9. 게이트 재실행
 
 `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드` 를 따랐다. `npm test` 는 쓰지 않았다 — DB 동작 검증이 필요 없는 문서 작업이고, 쓰면 ABI 를 Node 로 뒤집는다.
 
@@ -182,7 +455,7 @@
 - **게이트가 작업 트리를 바꿨는가**: 아니다. `npm run lint` 는 `eslint --cache --fix` 지만 실행 직후 `git status --short --untracked-files=all` **빈 출력**.
 - **검증 중 명령이 남긴 잔여물**: 없음(추적 대상 기준). 스윕 원자료·`git archive` 추출본은 전부 세션 스크래치 디렉토리.
 
-## 10. 검증 책임 분리 — 사람 vs 에이전트
+### 10. 검증 책임 분리 — 사람 vs 에이전트
 
 | 항목 | 결과 |
 |---|---|
@@ -195,7 +468,7 @@
 | PRD §11 OQ9 · PRD 토큰명 | **사람 결정** — D-006 유지 |
 | §8.2 사내 로그인 왕복 | **사람 실기** |
 
-## 11. Repository operation checks
+### 11. Repository operation checks
 
 ### AGENTS.md 위생 / 정합성
 
@@ -216,7 +489,7 @@
 - 구현자가 새로 인용한 코드 좌표 표본 재확인: `shared/ipc.ts:255 export type Backend = 'claude'` ✓ · `features/chat/turn-coordinator.ts` ✓ · `features/sessions/session-registry.ts` ✓ · `adapters/streaming-input.ts` 의 `createSessionInputStream` ✓ · `ApprovalCard.tsx` ✓ · `deployer.ts` 의 `deploy()`/`DeployResult` ✓ — **표본 6/6 실재**. 치환 심볼 19종 전부 비주석 히트.
 - 이동/삭제한 reference·script: 없음.
 
-## 12. 구현자 코멘트 / 선조치 경계
+### 12. 구현자 코멘트 / 선조치 경계
 
 | 구현자 코멘트 | 검증자 판단 | 반영 |
 |---|---|---|
@@ -232,7 +505,7 @@
 
 무단 제품·AC 변경 없음. plan 본문 수정은 전부 verify r2 가 지시한 범위 안이다(§0).
 
-## 13. [FAIL 시] 파생 이슈
+### 13. [FAIL 시] 파생 이슈
 
 - [ ] **F1** — `docs/arch/frontend/state.md:105` 가 없는 파일 `app/hooks/useSidebarSlots.ts` 를 인용한다. 실파일은 `app/src/renderer/src/app/hooks/useSidebarSlots.tsx`(**`.tsx`**)이고 같은 문서군 `layers.md:42` 는 `.tsx` 로 적는다. **이 줄은 r3 이 `newChatSlot`→`pinnedSlot` 정정하며 새로 쓴 줄이다.** 게이트가 못 본 이유: §19 B 축 실재 테스트 `grep -qF "/${p#app/src/}"` 가 **substring** 매칭이라 `.ts` 가 `.tsx` 안에 포함돼 통과한다 — 엄격 suffix 로 재측정하면 미스 **12**(느슨 11)이고 차집합이 정확히 이 1건이다.
 - [ ] **F2** — `docs/arch/backend/provider-runtime.md:274` 가 거짓 "현재 코드 갭" 을 단언한다: "현행은 `detectError()`(`src/main/adapters/claude.ts`) 휴리스틱 … `ErrorCode` enum … 뿐 — **정규 분류기/`retryable` 없음**". 실측 — `detectError` **0건**(`app/src`·`app/scripts`) · `ErrorCode` 는 `shared/ipc.ts:315` **주석**에만("구 ErrorCode") · `claude.ts:22`·`:213`·`:455` 가 `claudeErrorClassifier`(`adapters/error-classifier.ts`) 를 쓰고 · `infra/errors.ts:21`·`:28`·`:57` 에 `ErrorClassifier` 포트 + `retryable` + `DEFAULT_RETRYABLE` 이 있다. 같은 문서 `:409` 는 `detectError` → `ErrorClassifier.classify`(8분류) 매핑이고 `backend/overview.md:214` 는 `ErrorClassifier` **활성** — **E1 과 같은 자기모순**이다. 게이트가 통과시킨 이유: 이 사이트는 산출에 **있었고**(`ErrorCode` @ `:274`, COMMENT_ONLY) `역사` 버킷에 들어갔다 — 버킷은 *심볼이 무엇인가*를, 불변식은 *이 사이트의 단언이 참인가*를 묻는다. 같은 줄의 `detectError()` 는 호출식이라 추출 밖이다(범위 내 16사이트).
@@ -253,7 +526,7 @@
 - **O4** INDEX 비고가 라운드마다 자란다(r2 650자 → r3 959자). 이번 커밋에서 줄인다.
 - **O5** `비범위 — 보고만` 버킷 설명이 "전부 `docs/PRD.md` 사이트" 인데, PRD 사이트 2개(`node-pty` `:124`·`feat-pretty-ui` `:270`)는 `외부` 버킷에 있다. 결함이 아니므로 정상 분류다 — 버킷 라벨이 *결함 여부* 와 *수정 범위* 두 축을 섞는다.
 
-## 14. Review Signals — 사실만
+### 14. Review Signals — 사실만
 
 - **이전 라운드와 동일 증상: 그렇다. 네 라운드째 같은 문장이다** — "계측 정의가 불변식보다 좁다". r1 = 추출 정규식, r2 = 분류 단위, r3 = 실재 테스트(주석 줄), r3 검증 = **실재 테스트의 매칭 의미(substring)** + **분류 판단의 축** + **추출의 토큰 형태(호출식)**.
 - **관련 plan 지침의 존재 여부: 있었다.** §10 이 r3 에 "계측은 세 층이 각각 좁아질 수 있다 — 추출·실재 테스트·분류 단위" 를 명문화했다. **그 문장을 쓴 라운드가 네 번째 층(매칭 의미)과 분류 판단에서 다시 좁았다.** 규칙을 적는 것이 적용을 보장하지 않는다는 관측이 세 번째다.
@@ -263,7 +536,7 @@
 - 반복되는 검증 환경 한계: electron 바이너리 1파일 — r1·r2·r3 동일 서명. `node_modules` 는 이번 세션에 있었다.
 - 현재 라운드 수: **3**. `docs/handoff/AGENTS.md` 의 *라운드 3 초과* 트리거가 다음 재구현부터 성립한다.
 
-## 15. 결론
+### 15. 결론
 
 **FAIL (라운드 3).** AC 12건은 전부 재측정으로 충족되고, r2 가 남긴 E1~E5 는 5건 모두 코드 대조로 닫혔다. 게이트 4종도 검증자가 직접 돌려 guides §8.1 이 약속한 산출(41파일 중 40 · 506 케이스 · 예외 1건)이 세 번째 세션에서 그대로 나왔다. 자기보고 수치는 이번에 세 사본이 일치하고 E5 정정값도 독립 재현된다.
 
