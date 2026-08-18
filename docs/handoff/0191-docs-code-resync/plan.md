@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-18 |
 | 매핑 | — (문서 전용) |
-| 상태 | READY → IMPL_DONE (r1) |
+| 상태 | READY → IMPL_DONE (r1) → verify/FAIL (r1) |
 
 # Part I — Product & UX Contract
 
@@ -424,5 +424,13 @@ done
 
 ## [검증자 기입] 파생 이슈
 
+> r1 검증: [`verify.md`](verify.md) (FAIL — AC 8✅/4⚠️ · 강제 지점 3/6 재현).
+
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
+| D1 | `provider-runtime.md:188` 이 현재형으로 `claude-code.ts` + "매 턴 one-off `query()`" 를 적어 같은 문서 line 202(streaming input·라이브 핸들)와 모순 | verify r1 §13 | 파일명을 `adapters/claude.ts` 로, 상태 문구를 line 202 와 정합하게 | OPEN |
+| D2 | `ux-domains.md:95` 가 부재 파일 `features/skills/components/customize/SkillsCustomizeView.tsx` 인용. 심볼은 `layers.md:69`·`frontend/overview.md:76` 에도 | verify r1 §13 | 실제 컴포넌트명으로 3곳 치환 | OPEN |
+| D3 | `IPC_CONTRACT.md:445` 가 0062 에서 제거된 `prompts/plan-feedback.ts` 인용 (실제 `adapters/plan-feedback.ts`) | verify r1 §13 | 경로 정정 | OPEN |
+| D4 | `system-prompt.md:106` 이 현재 cwd 소유자로 부재 경로 `ipc/router.ts` 인용 | verify r1 §13 | 현재 소유 파일로 정정 | OPEN |
+| D5 | `adapters.md §3.2.5` 가 "코드 진실 … 이미 구현·테스트된 코드다" 로 `OrcaHookSet`·`OrcaHookEvent`·`OrcaHookHandler`·`ORCA_TO_CLAUDE_EVENT` 단언 — `grep -rn OrcaHookSet app/src` = 0 | verify r1 §13 | 현재 이름(`NormalizedHookSet`·`adaptHooks`)으로 치환. `provider-runtime.md:29`·`terms.md:30` 동반 | OPEN |
+| D6 | 자기보고 개수 3축 불일치 — AC2 잔여 `❌`(plan 5·impl 6·실측 **7**) · §8 내역 합 18≠20 · provider-runtime 몫 실측 **13**(기재 11) | verify r1 §7 | 세 숫자를 실측으로 고치고 §19 스윕을 상대 경로까지 확장, 심볼 축을 §10 강제 지점 표에 정식 등재 | OPEN |
