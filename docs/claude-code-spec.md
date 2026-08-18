@@ -100,7 +100,7 @@ claude -p "Extract main function names from auth.py" \
   --json-schema '{"type":"object","properties":{"functions":{"type":"array","items":{"type":"string"}}},"required":["functions"]}'
 ```
 
-✅ **Orca v1 채택** — `stream-json` 만 사용한다. ClaudeCodeAdapter 는 stdout 을 NDJSON 으로 라인 단위 파싱하여 `ChatEvent` 로 정규화한다 (`TRD.md §6.2`, `arch/backend/adapters.md §1.5`). `text`/`json` 단발 모드는 첫 토큰 지연이 길어 챗 UX 와 맞지 않는다.
+⛔ **Orca 비적용** — 본 절은 CLI 서브프로세스 실행에만 해당한다. Orca 는 CLI 를 띄우지 않고 SDK `query()` 를 인프로세스로 호출하므로 `--output-format` 을 넘기지 않는다(`rg stream-json app/src` = 0건). 스트리밍은 `query()` 의 async iterator 로 받고 정규화는 [`arch/backend/adapters.md`](./arch/backend/adapters.md)·[`arch/backend/provider-runtime.md`](./arch/backend/provider-runtime.md) 가 정본이다. 단발 모드를 쓰지 않는 이유(첫 토큰 지연)는 그대로 유효하다.
 
 ❌ `--json-schema` 미사용 — Phase 1 은 자유 텍스트 챗 응답이 목표.
 

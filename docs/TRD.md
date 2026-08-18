@@ -384,7 +384,7 @@ interface OrcaConfig {
 
 > **argv 노출 트레이드오프 (handoff 0028 — 0015/0018 폐기)**: `options.settings` 는 argv 로 push 되므로 env(평문 auth key 포함)가 same-user process list 에 노출된다. 이는 "앱 환경구성으로 `~/.claude/settings.json` 을 덮어쓴다"는 요구를 위해 수용한다(Claude Code `--settings` 와 동일 특성). 0015/0018 의 env↛argv 분리(`splitProviderSettings`·branded 타입 `ArgvSafeSettings`/`SubprocessEnv`·음성 타입 테스트)와 Orca 고유 `${VAR}` 확장·secret-store 토큰 주입은 제거했다(security.md §1.4). 0015/0018 문서는 historical 보존.
 
-> **격리 해제 — handoff 0014/0015 격리모드 폐기(supersede)**: 0014/0015 가 도입한 `settingSources: []` 격리모드는 폐기한다. `settingSources` 옵션을 **생략(전 소스 로드)**하는 0005 의 원래 입장으로 되돌리되, 그로 끌려오는 사용자 allow 규칙은 `disallowedTools` 로 차단한다(deny/disallowed > allow > canUseTool). 목적은 사용자가 `~/.claude` 에 전역 설치한 skill·설정을 Orca 세션이 상속하게 하는 것이다. OAuth 자격증명(`~/.claude/.credentials.json`/keychain)은 settings 와 무관하게 동작한다. handoff 0014/0015 문서 자체는 historical 기록으로 보존하고 supersession 만 본 절·standardization §5.1·PHASES 에 기재한다.
+> **격리 해제 — handoff 0014/0015 격리모드 폐기(supersede)**: 0014/0015 가 도입한 `settingSources: []` 격리모드는 폐기한다. `settingSources` 옵션을 **생략(전 소스 로드)**하는 0005 의 원래 입장으로 되돌리되, 그로 끌려오는 사용자 allow 규칙은 `disallowedTools` 로 차단한다(deny/disallowed > allow > canUseTool). **`disallowedTools` 는 D1 사용자 결정 전이라 코드 주입 보류** — 목표 계약이고 현재 코드는 이 옵션을 넘기지 않는다(§6.8 런타임 주입·standardization.md §5.1). 목적은 사용자가 `~/.claude` 에 전역 설치한 skill·설정을 Orca 세션이 상속하게 하는 것이다. OAuth 자격증명(`~/.claude/.credentials.json`/keychain)은 settings 와 무관하게 동작한다. handoff 0014/0015 문서 자체는 historical 기록으로 보존하고 supersession 만 본 절·standardization §5.1·PHASES 에 기재한다.
 
 **provider env 레시피** (`~/.claude/settings.json` 과 동일 — 사용자가 네이티브 env 값을 직접 작성. Orca 는 `${VAR}` 확장 안 함):
 

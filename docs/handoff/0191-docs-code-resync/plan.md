@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-18 |
 | 매핑 | — (문서 전용) |
-| 상태 | READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → **verify/FAIL (r3)** |
+| 상태 | READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → **IMPL_DONE (r4)** |
 
 # Part I — Product & UX Contract
 
@@ -221,7 +221,8 @@ docs/INDEX.md → arch/*.md → app/src/main/features/auth/…  ✓
 - 같은 규칙이 여러 레이어에 있다면 SSOT: 수치는 `generated/inventory.md` 단 하나. 본문은 링크만 한다.
 - **강제 지점이 여럿인 항목**: "경로 실재" 는 범위 내 문서 전부 + AGENTS 3종에 동시에 걸린다. §19 스윕이 그 전부를 한 번에 센다 — 파일별로 따로 닫지 않는다. **계측 정의가 곧 불변식의 정의가 되므로 정의를 좁게 잡으면 게이트 green 이 전수를 뜻하지 않는다**(r1 의 실패 지점).
 - **두 축의 게이트 형태가 다르다.** 경로 축은 **0-출력 게이트**(예외는 목록에 명시 등재), 심볼 축은 **전건 분류 게이트**(모든 산출을 `설계어휘`·`외부`·`역사`·`future`·`문서어휘` 중 하나로 넣고 **미분류 0** 을 보고). 심볼은 설계 어휘·외부 타입이 정상적으로 다수라 0-출력이 성립하지 않는다.
-- **계측은 세 층이 각각 좁아질 수 있다** — *추출*(어떤 토큰을 뽑는가) · *실재 테스트*(무엇을 "있다" 로 세는가) · *분류 단위*(심볼인가 사이트인가). r1 은 추출에서, r2 는 분류 단위에서, r3 은 실재 테스트에서 좁았다. 셋을 따로 적지 않으면 한 층을 고쳐도 다음 라운드가 다른 층에서 열린다.
+- **계측은 여러 층이 각각 좁아질 수 있다** — *추출*(어떤 토큰을 뽑는가) · *실재 테스트*(무엇을 "있다" 로 세는가) · *분류 단위*(심볼인가 사이트인가) · *매칭 의미*(substring 인가 경계인가) · *판정 축*(심볼의 정체인가 사이트의 시제인가). r1 추출 · r2 분류 단위 · r3 실재 테스트 · r3 verify 가 매칭 의미·판정 축·토큰 형태.
+- **[r4 개정 — 출처: verify r3 §14 · handoff-review Round 10]** **층을 나열하는 것으로는 닫히지 않는다.** 위 목록을 처음 쓴 라운드(r3)가 바로 그 라운드에서 네 번째 층에 빠졌다. 목록은 열려 있다고 보고, 대신 **고친 장치마다 알려진 결함을 심어 실패하는지 먼저 확인**한다(`handoff-impl §3`). r4 는 이 검사로 자기 시제 술어의 절반이 죽어 있는 것을 발견했다 — 산출 47 → 98.
 
 ## 11. 구현 설계
 
@@ -338,12 +339,14 @@ for f in $SCOPE; do
   while IFS=: read -r ln p; do q=${p#app/}; [ -e "app/$q" ] || echo "A $f:$ln  $p"; done
 done
 
-# B. 슬래시 포함 상대형 (백틱 인용) — 접미사로 해석
+# B. 슬래시 포함 상대형 (백틱 인용) — 접미사를 **파일 경계로** 해석
+#    [r4 개정 — 출처: verify r3 §13 ⓐ] 구 판은 `grep -qF` = substring 이라
+#    `.ts` 인용이 실파일 `.tsx` 안에 포함돼 통과했다(F1). 경계 앵커를 건다.
 for f in $SCOPE; do
   grep -oEn '`[^`]*`' "$f" | sed 's/`//g' |
   grep -E ':[A-Za-z0-9_./@{}-]+/[A-Za-z0-9_.@{}-]+\.(ts|tsx)$' |
   while IFS=: read -r ln p; do
-    grep -qF "/${p#app/src/}" /tmp/_real.txt || echo "B $f:$ln  $p"
+    grep -qE "(^|/)${p#app/src/}\$" /tmp/_real.txt || echo "B $f:$ln  $p"
   done
 done
 
@@ -382,6 +385,7 @@ for f in $SCOPE; do
   { grep -oEn '`[A-Za-z_][A-Za-z0-9_]*`' "$f" | sed 's/`//g'          # S1 백틱 CamelCase/CONST + S2 lowerCamelCase
     grep -oEn '`[a-z][a-z0-9]*(-[a-z0-9]+)+`' "$f" | sed 's/`//g'      # S4 백틱 소문자-하이픈
     grep -oEn '\*\*[A-Za-z_][A-Za-z0-9_]*\*\*' "$f" | sed 's/\*\*//g'  # S3 **bold**
+    grep -oEn '`[A-Za-z_][A-Za-z0-9_]*\(' "$f" | sed 's/`//g;s/(//'    # S5 백틱 호출식 (r4 신설)
   } | while IFS=: read -r ln s; do
     case "$s" in *[A-Z]*|*-*) ;; *) continue;; esac                    # 식별자형만
     hits=$(grep -rnF "$s" $CORPUS 2>/dev/null)
@@ -390,21 +394,42 @@ for f in $SCOPE; do
       echo "COMMENT_ONLY|$s|$f:$ln"                                    # 주석에만 있다 = 실재 아님
     fi
   done
-done
+done | sort -u    # 고유 (종류,심볼,사이트) — dedup 후가 보고 수치다
 ```
 
   **완료 조건: 산출 전건이 `설계어휘`·`외부`·`역사`·`future`·`문서어휘` 중 하나로 분류되고 미분류 0.** 분모는 **심볼이 아니라 사이트**다 — 한 심볼이 사이트마다 다른 시제를 가질 수 있고, 그 갈림이 E1~E3 의 자리였다.
 
-  **r3 분류 결과 (211사이트 / 124심볼 · 미분류 0)** — 버킷별 심볼 목록. 다음 라운드는 이 집합을 diff 해 새 심볼만 판정하면 된다.
+  **[r4 추가 — 출처: verify r3 O2] dedup 규칙.** 한 줄이 같은 심볼을 두 번 인용하면 raw 산출에 두 줄이 나온다. 보고 수치는 `sort -u` 뒤의 **고유 `(종류,심볼,사이트)`** 다 — r3 의 `211` 도 raw `215` 의 dedup 값이었고, 규칙이 안 적혀 있어 재현자가 raw 를 본다.
+
+  **r4 분류 결과 (220사이트 / 131심볼 · 미분류 0)** — 버킷별 심볼 목록. 다음 라운드는 이 집합을 diff 해 새 심볼만 판정하면 된다.
+
+  **r3(211) → r4(220) delta**: 제거 2(`ErrorCode`@`provider-runtime.md:274` — F2 정정 · `stream-json`@`claude-code-spec.md:103` — F4 정정), 추가 11(S5 호출식 축 신설 7심볼 + 기존 심볼의 새 사이트 4). `211 − 2 + 11 = 220`.
 
 | 버킷 | 사이트 | 심볼 |
 |---|---:|---|
-| 설계어휘·목표계약 | 58 | `AppContainer` `AppShell` `BackendAdapter` `CapabilityProbe` `ClaudeEngine` `ConfigManager` `DiffCard` `DirectBackendAPI` `DirectBackendCapabilities` `ExclusivePlugin` `ExtensionDeployer` `FilePreviewCard` `ModelProviderConfig` `OpenCodeEngine` `PendingApprovalStateMachine` `ProviderPlatformV2` `ProviderSettingsLoader` `Redaction` `RevertManager` `SessionCapability` `StandardConformance` `StructuredOutputState` `TerminalCard` `WorkspaceManager` `detectError` `mcpSpecVersion` `mergePolicy` `migrate-sources` `supportedBackends` `useContextSelector` `vendorExtensions` |
-| 외부 SDK·env·플랫폼 | 71 | `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` `CLAUDE_CODE_*`(3) `ClaudeSDKClient` `HOME` `MODULE_NOT_FOUND` `McpServerConfig` `NODE_ENV` `SDK*Message`(6) `SmartScreen` `StructuredOutputError` `TeammateIdle` `WorktreeCreate` `allowDowngrade` `apiKeyHelper` `aria-disabled` `baseURL` `continueConversation` `data-platform` `disallowedTools` `excludeDynamicSections` `feat-pretty-ui` `node-pty` `optionalDependencies` `resolveSettings` `skill-creator` `stream-json` `utilityProcess` `will-navigate` |
-| 역사(구·폐기·제거) | 59 | `ArgvSafeSettings` `AuthView` `CachedSession` `CameraPane` `CapabilityBuilder` `ChatPane` `ConnectionRegistry` `ConnectorRuntime` `CredentialPresentation` `ErrorCode` `InflightTurn` `LOAD_SESSION_FROM_CACHE` `ORCA_SUBAGENT_BACKGROUND` `OrcaCapabilities` `PlanApprovalCard` `PluginHost` `ProviderSummariesRequest` `ProviderUsageEntry` `PythonRuntime` `SubprocessEnv` `TransactionStore` `UseChat` `acceptedMethods` `askRespond` `buildAppend` `envKey` `lastTurnLatencyMs` `orca-mcp` `parentBindingId` `pendingDelta` `pendingInputTokens` `pendingReasoning` `planRespond` `sessionCache` `setProviderEnv` `splitProviderSettings` `useChatContext` `validateCrossReferences` |
-| future(후속·미도입) | 9 | `AgentTaskCard` `ContextInjectionCard` `EngineSettings` `SearchCard` `SessionGraphCard` `noReply` `pendingApprovals` |
+| 설계어휘·목표계약 | 63 | `AppContainer` `AppShell` `BackendAdapter` `CapabilityProbe` `ClaudeEngine` `ConfigManager` `DiffCard` `DirectBackendAPI` `DirectBackendCapabilities` `ExclusivePlugin` `ExtensionDeployer` `FilePreviewCard` `ModelProviderConfig` `OpenCodeEngine` `PendingApprovalStateMachine` `ProviderPlatformV2` `ProviderSettingsLoader` `Redaction` `RevertManager` `SEND_USER_MESSAGE` `SessionCapability` `StandardConformance` `StructuredOutputState` `TerminalCard` `WorkspaceManager` `detectError` `getCredentialKeys` `mcpSpecVersion` `mergePolicy` `migrate-sources` `selectFileRenderer` `supportedBackends` `useContextSelector` `useOverlay` `vendorExtensions` |
+| 외부 SDK·env·플랫폼 | 75 | `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` `CLAUDE_CODE_*`(3) `ClaudeSDKClient` `HOME` `MODULE_NOT_FOUND` `McpServerConfig` `NODE_ENV` `SDK*Message`(6, `SDKUserMessageReplay` 포함) `SmartScreen` `StructuredOutputError` `TeammateIdle` `WorktreeCreate` `allowDowngrade` `apiKeyHelper` `aria-disabled` `atomFamily` `baseURL` `continueConversation` `data-platform` `disallowedTools` `excludeDynamicSections` `feat-pretty-ui` `node-pty` `optionalDependencies` `postSessionByIdPermissionsByPermissionId` `resolveSettings` `skill-creator` `stream-json` `utilityProcess` `will-navigate` |
+| 역사(구·폐기·제거) | 58 | `ArgvSafeSettings` `AuthView` `CachedSession` `CameraPane` `CapabilityBuilder` `ChatPane` `ConnectionRegistry` `ConnectorRuntime` `CredentialPresentation` `ErrorCode` `InflightTurn` `LOAD_SESSION_FROM_CACHE` `ORCA_SUBAGENT_BACKGROUND` `OrcaCapabilities` `PlanApprovalCard` `PluginHost` `ProviderSummariesRequest` `ProviderUsageEntry` `PythonRuntime` `SubprocessEnv` `TransactionStore` `UseChat` `acceptedMethods` `askRespond` `buildAppend` `envKey` `lastTurnLatencyMs` `orca-mcp` `parentBindingId` `pendingDelta` `pendingInputTokens` `pendingReasoning` `planRespond` `sessionCache` `setProviderEnv` `splitProviderSettings` `useChatContext` `validateCrossReferences` |
+| future(후속·미도입) | 10 | `AgentTaskCard` `ContextInjectionCard` `EngineSettings` `SearchCard` `SessionGraphCard` `noReply` `pendingApprovals` `toOpencodeConfig` |
 | 문서어휘(개념어·약어) | 10 | `CSP` `Frontend` `OQ9` `OQ10` `P1` `Preload` `TBD` `Titlebar` |
 | **비범위 — 보고만** | 4 | `ClaudeCodeAdapter` `OpencodeAdapter` `borderStrong` `rustSoft` — 전부 `docs/PRD.md` 사이트. §6 이 PRD 를 비범위로 뒀다(D-006) |
+
+- **시제 회귀 게이트 (r4 신설 — 출처: verify r3 §13 ⓒ).** 버킷은 *심볼이 무엇인가*를 묻고 불변식은 *이 사이트의 단언이 참인가*를 묻는다. 두 축이 갈리는 자리가 F2(`역사` 버킷인데 문장은 "현행")·F3(`외부` 버킷인데 문장은 현재형 차단)이었다. 심볼 산출 중 **현재형 단정어를 동반한 사이트만** 추려 그 부분집합을 전건 육안 판정한다.
+
+```bash
+while IFS='|' read -r kind sym site; do
+  f=${site%:*}; ln=${site##*:}
+  sed -n "${ln}p" "$f" | grep -qE '현행|현재|한다|이다|✅' && echo "$kind|$sym|$site"
+done < <심볼 산출>
+```
+
+  **완료 조건: 산출 전건 판정, 거짓 단언 0.** 참/거짓은 정규식이 못 가린다 — 이 축의 산출은 *육안 판정 대상 목록*이지 결함 목록이 아니다.
+
+  **`\b` 를 쓰지 않는다.** `한다\b`·`이다\b` 는 이 로케일에서 **한 번도 발화하지 않는다**(한글 뒤에 word boundary 가 서지 않는다). r4 초안이 그 형태였고 적대 검사에서 술어 절반이 죽어 있는 것이 드러났다 — 산출이 47 에서 98 로 두 배가 됐다.
+
+  **이력·부정 표지로 사전 필터링하지 않는다.** r4 가 `구|폐기|미채택|없음|보류…` 로 98 → 27 로 줄이는 필터를 시험했는데, **F2·F3 원문이 둘 다 자동 통과**했다(F2 는 "없음", F3 는 "폐기"를 같은 줄에 갖는다). 알려진 결함을 못 보는 필터의 축소는 전수가 아니다.
+
+  **r4 판정 결과 (98사이트 · 거짓 단언 0)** — F1~F4 정정 후. 통과 사유는 네 갈래다: 역사 표기 동반(`구 X` · `폐기`) · 외부 SDK/CLI 표면 서술 · 설계어휘 절(`① 설명` · 선택지 비교표) · 부정문 안의 등장. 다음 라운드는 이 집합을 diff 해 새 사이트만 판정한다.
 
 - **넓히지 않은 축과 이유** (verify r2 §13 요구). 계측 정의가 곧 불변식의 정의이므로 넓히지 **않은** 것도 적는다.
 
@@ -736,6 +761,144 @@ r2 지적 5건 밖에서 **20사이트**를 더 닫았다. 전부 "현재형인�
 
 ---
 
+## [구현자 기입] 라운드 4 — F1~F3 + 계측 세 축
+
+> 선행: `handoff-review` Round 10 (`3ba56cb`) — *라운드 3 초과* 트리거. 결론은 "층을 더 나열하지 말고 **고친 장치가 결함을 볼 수 있음을 먼저 보여라**". 이번 라운드는 그 규칙 아래 돈 첫 라운드다.
+
+### 설계 리뷰
+
+- Part I·AC·Decision Ledger 무변경. **AC13 을 만들지 않았다** — 시제 축을 AC 로 승격할지 물었고 사용자가 **§19 게이트로만** 을 골랐다. 분모는 12 그대로다.
+- §10 의 "계측은 세 층" 문장을 고쳤다. 그 문장을 쓴 라운드(r3)가 같은 라운드에서 네 번째 층에 빠졌으므로 **층 열거는 해법이 아니라는 관측**이 본문에 있어야 한다(출처: verify r3 §14 · review Round 10).
+- verify r3 §13 의 ⓐⓑⓒ 를 그대로 §19 에 반영했다. `handoff-verify` 가 지시한 범위 안이다.
+
+### 강제 지점 전수 (r4 · §10 대조)
+
+**§10 계약 6행 · 전부 이번 턴 재현.** 각 행에 실행한 명령과 관측을 함께 적는다.
+
+| §10 계약 | 닫은 지점 | 재현 명령 / 관측 | 결과 |
+|---|---|---|---|
+| 수치를 본문에 쓰지 않는다 | 범위 내 문서 전체 | `node scripts/check-doc-inventory.mjs --check` → `prose ok: no inventory counts restated in current-state docs` | ✅ |
+| 상대 링크가 해석된다 | 〃 | 동 명령 → `links ok: every relative markdown link resolves` | ✅ |
+| 인용 경로 실재 (A·B·C) | 범위 내 문서 + AGENTS 3종 | §19 스윕 → **0 / 11 / 9 = 20줄**, 예외표 12행과 1:1, 그 밖 0줄 | ✅ |
+| 〃 **매칭 의미** | B 축 실재 테스트 | `grep -qF` → `grep -qE "(^\|/)…$"`. 교체 전 11 / 교체 후 12, 차집합 = F1 1건 | ✅ **F1 닫음** |
+| 인용 심볼 실재 (S1~S5) | 〃 | §19 스윕 → **220사이트 / 131심볼 · 미분류 0**. 버킷 합 `63+75+58+10+10+4 = 220` | ✅ |
+| 〃 **판정 축(시제)** | 심볼 산출의 부분집합 | 시제 스윕 → **98사이트 전건 판정 · 거짓 단언 0** | ✅ **F2·F3·F4 닫음** |
+| guides 절차 명령 실행 | §8.1 명령 + 게이트 | 4종 전부 실행, 산출은 아래 «구현 보고» | ✅ |
+| `arch/` 는 현재 상태만 서술 | r4 가 `docs/arch/**` 에 더한 줄 | `git diff -U0 docs/arch/ \| grep '^+'` → 신규 handoff-번호 델타형 **0건**(`0015` 히트는 변경 안 한 같은 줄의 기존 문구) | ✅ |
+
+- **표에 없는데 같은 불변식이 필요한 지점: 있었다.** 시제 축이 `provider-runtime.md` 의 `③ 현재 코드 갭` 절 **3곳**을 냈고(F2 는 그중 1곳), `claude-code-spec.md:103` 1곳을 더 냈다(F4 — 아래).
+- **남긴 곳: 없다.** §10 6행 + r4 신설 2축 = 8/8.
+
+### 검사 장치 적대 검사 (handoff-impl §3 · §8)
+
+이번 턴에 고친 장치 3개에 알려진 결함을 심고 잡히는지 확인했다. 심은 뒤 되돌렸고 `git status --short --untracked-files=all` 에 `docs/GLOSSARY.md` 없음.
+
+| 장치 | 심은 결함 | 관측 | 판정 |
+|---|---|---|---|
+| ⓐ B 축 경계 매칭 | `` `app/hooks/useSidebarSlots.ts` `` 1줄 | B 11 → **12**, diff = `B docs/GLOSSARY.md:100` | 잡는다 |
+| ⓑ S5 호출식 추출 | `` `nonExistentProbeFn(` `` 1줄 | 심볼 220 → **222**, `ABSENT\|nonExistentProbeFn` 출현 | 잡는다 |
+| ⓒ 시제 필터 | "현행은 `NonExistentProbeSymbol` 하나뿐이다" 1줄 | 시제 98 → **100**, 심은 2건 모두 출현 | 잡는다 |
+
+**이 검사가 자기 술어의 절반이 죽어 있는 것을 잡았다.** 초안의 `한다\b`·`이다\b` 는 이 로케일에서 한 번도 발화하지 않는다 — 한글 뒤에 word boundary 가 서지 않는다. `\b` 를 뺀 뒤 산출이 **47 → 98** 로 늘었다. 47 로 보고했다면 절반이 안 보인 채 "전건 판정" 이 됐다.
+
+**사전 필터도 검사했고 버렸다.** 98 → 27 로 줄이려고 이력·부정 표지(`구|폐기|미채택|없음|보류…`) 필터를 시험했는데 **F2·F3 원문이 둘 다 자동 통과**했다(F2 는 같은 줄에 "없음", F3 는 "폐기"를 갖는다). 알려진 결함을 못 보는 필터로 줄인 목록은 전수가 아니므로 **98건을 전부 육안 판정**했다.
+
+### F1~F3 처리 + 불변식 전수
+
+| # | 불변식 (지점 이름을 뺀 문장) | 전수 결과 |
+|---|---|---|
+| F1 | 인용 경로는 **부분 문자열이 아니라 파일 경계로** 실재해야 한다 | `state.md:105` `.ts`→`.tsx` 1곳. 경계 매칭으로 재측정한 12건 중 나머지 11건은 전부 §19 예외표 등재 |
+| F2 | `③ 현재 코드 갭` 이 서술하는 **부재는 지금 코드의 부재**여야 한다 | `provider-runtime.md` **3곳** — `:274`(ErrorClassifier) · `:346`(AuthStore) · `:509`(WorkspaceManager). 사용자가 "3곳 다" 선택 |
+| F3 | 코드가 넘기지 않는 옵션을 **보류 단서 없이 현재형으로** 쓰지 않는다 | `disallowedTools` **25사이트 전수** — 단서 없던 2곳(`standardization.md:117`·`TRD.md:387`) 정정. 나머지 23 은 비결함(사유는 아래) |
+
+- **F3 비결함 23사이트의 사유 3갈래**: ⓐ 이미 단서 있음(`adapters.md:67`·`:126`·`:178` · `security.md:91`·`:102` · `TRD.md:378`·`:604` · `standardization.md:146` · 가이드 `:37`·`:328`·`:330`·`:377`) ⓑ 외부 SDK 스펙 서술(`claude-code-spec.md` 5곳) ⓒ 코드블록·파이프라인 다이어그램 내부(가이드 `:46`·`:88`·`:338`·`:348`) + `PRD.md:277`(D-006 비범위).
+- **F2 정정은 `③` 관례를 따랐다** — 같은 문서 `:217`(`✅ 해소`)·`:297`·`:322`(`✅ 구현 완료`). `:346`·`:509` 는 잔여가 실제로 있어 **`✅ 부분 해소` + `잔여 갭`** 으로 적었다(`:37`·`:98`·`:143` 의 기존 형태).
+- **D-002 지켰다** — `^## ` **20개**, READY 커밋부터 HEAD 까지 불변. ④ 인터페이스 블록 무변경.
+
+### 계측이 새로 드러낸 것 — F 밖 결함 1건
+
+| # | 결함 | 관측 | 처리 |
+|---|---|---|---|
+| **F4** | `claude-code-spec.md:103` 이 "`stream-json` 만 사용한다. ClaudeCodeAdapter 는 stdout 을 NDJSON 으로 파싱하여 `ChatEvent` 로 정규화한다" 를 현재형으로 단언 | 셋 다 비주석 **0건** — `ClaudeCodeAdapter`·`ChatEvent`·`stream-json`. Orca 는 CLI 를 띄우지 않고 SDK `query()` 를 인프로세스로 부른다 | **선조치** — `⛔ Orca 비적용` 로 바꾸고 정본을 `adapters.md`·`provider-runtime.md` 로 링크. 단발 모드 미채택 사유는 유효하므로 보존 |
+
+F2 와 같은 뿌리다 — `stream-json` 이 실제 CLI 플래그라 `외부` 버킷으로 빠졌고, 버킷은 문장의 시제를 묻지 않는다.
+
+### Product/UX 파생 검토
+
+- **소비자 있는 문구인가**: 이번 변경은 전부 문서 문장이고 소비자는 *문서를 읽는 에이전트/배포자*다. F2 의 세 절은 `provider-runtime.md:11` 배너가 "절별 판정은 각 절의 ③ 이 갖는다" 로 이미 가리키고 있어 소비 경로가 있다.
+- **실패가 조용한가**: 그렇다 — 부재 인용은 예외를 던지지 않고 독자가 자기 체크아웃을 의심한다. 이것이 이 handoff 의 전제이고 바뀌지 않았다.
+- **두 곳 쓰기**: 이번 라운드 판정이 `plan.md`(본 절)와 `INDEX.md` 보드 두 곳에 산다. 보드를 먼저 읽으므로 **커밋 하나에서 함께** 갱신했고 수치 사본은 아래 검산 줄 기준으로 맞췄다.
+- 범위 밖이라 안 고친 것: `adapters.md:55` 코드 샘플 주석의 `disallowedTools 게이팅`. 바로 아래 `:67` 이 보류를 달아 같은 절 안에서 해소되지만, **샘플 자체는 단서가 없다** — 파생 이슈로 남긴다.
+
+### 선조치 (구현 세부·명백한 오기)
+
+1. **F4** — 위 표. 계측이 낸 결함이고 문장 정정이라 선조치.
+2. §19 심볼 블록 끝에 `| sort -u` 를 명시했다(O2). r3 도 dedup 값을 보고했는데 규칙이 안 적혀 재현자가 raw 를 본다.
+3. §19 버킷표에 `SDKUserMessageReplay` 를 명시했다(O1) — `SDK*Message`(6) 약칭이 못 덮어 다음 라운드에 오탐으로 뜬다.
+
+### 보고만 (권한 밖)
+
+1. **AC13 미신설** — 시제 축을 제품 계약으로 올릴지는 사용자가 "§19 게이트로만" 을 선택했다. 게이트는 구현 턴이 관리하므로 다음 라운드가 §19 를 안 돌리면 이 축은 사라진다. **AC 로 올릴지는 여전히 열린 선택지다.**
+2. `disallowedTools` **채택 여부** — D1 미결. 이번 라운드는 문구만 대칭으로 맞췄고 코드는 안 건드렸다.
+3. AC6 의 ADR 링크 대상 교체 — D-003 실현 방식 변경이라 사람 결정(r2·r3 과 동일).
+4. `docs/PRD.md` 토큰명·어댑터명 — D-006 비범위. PRD diff **0**.
+5. 루트 `AGENTS.md` — D-007 비범위. diff **0**.
+
+### 설계 대비 명시적 차이
+
+1. **시제 축 산출이 계획의 48 이 아니라 98 이다.** 계획 수치는 `\b` 가 든 술어로 잰 값이고 그 술어는 발화하지 않는다. 적대 검사로 발견해 술어를 고쳤다 — 계획보다 두 배를 판정했다.
+2. **F 밖 결함 1건(F4)을 함께 고쳤다.** 계획에 없던 파일(`claude-code-spec.md`)이다. 계측을 넓히면 같은 불변식이 그 파일에도 걸린다.
+3. **`disallowedTools` 전수 분모가 11 이 아니라 25 다.** 계획의 11 은 백틱 인용만 센 값이고, 전수 확인은 백틱 없는 인용까지 포함했다.
+
+### 구현 보고 (r4)
+
+**변경 파일 6** — `docs/arch/frontend/state.md`(F1) · `docs/arch/backend/provider-runtime.md`(F2 ×3) · `docs/arch/backend/standardization.md`(F3) · `docs/TRD.md`(F3) · `docs/claude-code-spec.md`(F4) · `docs/handoff/0191-docs-code-resync/plan.md`(§19 + 본 절).
+
+**게이트 — exit code 가 아니라 관측한 산출.** `app/AGENTS.md` 의 ABI 가이드를 따랐고 `npm test` 는 쓰지 않았다(DB 동작 검증 불요). `node_modules` 가 이 세션에 없어 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 를 먼저 돌렸다.
+
+| 명령 | 관측한 산출 |
+|---|---|
+| `node scripts/check-doc-inventory.mjs --check` | `generated doc ok (9 items, 76 channels)` · `prose ok` · `links ok` · exit 0 |
+| `npm run typecheck` | 하위 3개(`:node`·`:web`·`:test`) 전부 실행, **error 0줄** |
+| `npm run lint` | `✖ 1 problem (0 errors, 1 warning)` — `react-hooks/incompatible-library` @ `useTranscriptVirtualizer.ts:22` |
+| `./node_modules/.bin/vitest run src/main/features/{auth,gate,harnesses,plugins} src/main/app` | `Test Files 1 failed \| 40 passed (41)` · `Tests 506 passed (506)` |
+
+- **환경 기인 실패 분리**: 실패 1파일 = `src/main/app/chat-turn.continuity.test.ts`, 서명 `Error: Electron failed to install correctly` @ `node_modules/electron/index.js:17`. guides §8.1 이 예외로 명시한 건이고 r1·r2·r3 과 같은 서명이다. **이번 변경과 무관**(코드 diff 0).
+- **게이트가 작업 트리를 바꿨는가**: 아니다. `npm run lint` 는 `--fix` 지만 실행 뒤 `git status --short --untracked-files=all` 이 내 편집 5파일만 낸다.
+
+**AC 재측정 — 12행 전부 이번 턴 관측.**
+
+| # | 관측 | 결과 |
+|---|---|---|
+| AC1 | 경로 스윕 `0 / 11 / 9 = 20줄`, 예외표 12행과 1:1 | ✅ |
+| AC2 | `grep -c ❌` → backend 4 · frontend 3 = **7행**, 열거와 동일 | ✅ |
+| AC3 | `^## ` **20** 불변 · ③ 3곳 정정 후 새 인용 경로 7종·심볼 11종 전부 비주석 실재 | ✅ |
+| AC4 | 6패턴 각 **0파일** | ✅ |
+| AC5 | 비-test `.mjs` **6** = `app/AGENTS.md:144~150` 열거 6 | ✅ |
+| AC6 | `system-prompt.md:77` = `## 2. 정적 정책 append — 미채택` · ADR-002 링크 1건 | ✅ |
+| AC7 | 인용 `*.test.ts` **21개 고유 문자열 · 부재 0**(경로형·파일명형 모두 해석) · 명령 4종 실행 | ✅ |
+| AC8 | `closed-network-extensions.md:115` `app/deployment/auth-definitions.ts` = §1.1 트리 `:58` | ✅ |
+| AC9 | `grep -rn disallowedTools app/src` = **0** · 가이드 미채택 표기 4곳 유지 | ✅ |
+| AC10 | `release-operations.md:12` = `ci.yml:11~22`(main push + 모든 PR + `workflow_dispatch`, paths 동일) | ✅ |
+| AC11 | `docs/INDEX.md` 두 행 존재 | ✅ |
+| AC12 | 인벤토리 3항목 ok · exit 0 | ✅ |
+
+**검산: `✅ 12 · ⚠️ 0 · ❌ 0 = 총 12`.** 분모는 §7 의 AC1~AC12 — 분할·추가 없음(AC13 미신설, 사용자 결정). r3 과 같은 분모라 직접 비교 가능하다.
+
+**강제 지점: 8/8** (§10 6행 + r4 신설 2축). 남긴 곳 없음.
+
+**대상 커밋**: 아래 커밋 해시 기입 턴에서 채운다.
+
+### Review Signals — 사실만 (r4)
+
+- **이전 라운드와 동일 축인가: 부분적으로 그렇다.** F1~F3 은 r3 verify 가 낸 "계측 정의가 불변식보다 좁다" 의 같은 문장이다. 다만 **이번 라운드는 그 좁음을 스스로 발견했다** — `\b` 죽은 술어와 사전 필터 눈멂 둘 다 적대 검사가 냈고, 검증자가 아니라 구현자가 먼저 봤다.
+- **막았어야 할 지침이 있었는가: 있었고 이번엔 걸렸다.** `handoff-impl §3`(review Round 10 이 테스트 → 장치 전반으로 넓힌 조항)이 정확히 이 자리에서 발화했다. r3 까지는 이 조항이 테스트로만 스코프돼 스윕에 닿지 않았다.
+- **반복되는 환경 한계**: electron 바이너리 1파일 — r1~r4 동일 서명. 이번 세션은 `node_modules` 가 없어 `npm ci` 를 먼저 돌렸다(r3 세션과 다른 점).
+- **자기 검증 겹수**: 설계·구현·검증·review 전부 Claude Code. 변하지 않았다.
+- 현재 라운드 수: **4**.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 > r1 검증: [`verify.md`](verify.md) 부록 r1 (FAIL — AC 8✅/4⚠️ · 강제 지점 3/6 재현).
@@ -774,9 +937,9 @@ r2 지적 5건 밖에서 **20사이트**를 더 닫았다. 전부 "현재형인�
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| F1 | `state.md:105` 가 없는 파일 `app/hooks/useSidebarSlots.ts` 인용 — 실파일은 `…/app/hooks/useSidebarSlots.tsx`(`.tsx`), `layers.md:42` 는 `.tsx` 로 적는다. **r3 이 `newChatSlot`→`pinnedSlot` 정정하며 새로 쓴 줄이다** | verify r3 §13 | 확장자 정정 + §19 B 축 실재 테스트를 **suffix 매칭**으로(현재 `grep -qF` substring 이라 `.ts` 가 `.tsx` 안에 포함돼 통과) | **r4 대상** |
-| F2 | `provider-runtime.md:274` 가 "현행은 `detectError()` … 정규 분류기/`retryable` 없음" 이라 단언 — `detectError` 0건, `ErrorCode` 는 주석에만, 코드에는 `claudeErrorClassifier`(`adapters/error-classifier.ts`) + `retryable`(`infra/errors.ts:57`). 같은 문서 `:409`·`backend/overview.md:214` 와 모순 | verify r3 §13 | 문장을 현재 코드로 정정 + 추출에 **호출식**(`` `fn(` ``, 범위 내 16사이트) 추가 + 버킷 판정을 **사이트의 시제**로(이 사이트는 산출에 있었으나 `역사` 로 분류돼 통과) | **r4 대상** |
-| F3 | `standardization.md:117`·`TRD.md:387` 이 `disallowedTools` 차단을 **보류 단서 없이** 현재형으로 씀 — 코드 0건(AC9 의 그 관측). 형제 `adapters.md:67`·`security.md:91` 은 단서를 단다 | verify r3 §13 | 두 사이트에 `보류/미채택` 단서를 달아 형제와 대칭으로. **채택 여부 자체는 D1 사용자 결정** | **r4 대상** |
+| F1 | `state.md:105` 가 없는 파일 `app/hooks/useSidebarSlots.ts` 인용 — 실파일은 `…/app/hooks/useSidebarSlots.tsx`(`.tsx`), `layers.md:42` 는 `.tsx` 로 적는다. **r3 이 `newChatSlot`→`pinnedSlot` 정정하며 새로 쓴 줄이다** | verify r3 §13 | 확장자 정정 + §19 B 축 실재 테스트를 **suffix 매칭**으로(현재 `grep -qF` substring 이라 `.ts` 가 `.tsx` 안에 포함돼 통과) | **r4 닫음** |
+| F2 | `provider-runtime.md:274` 가 "현행은 `detectError()` … 정규 분류기/`retryable` 없음" 이라 단언 — `detectError` 0건, `ErrorCode` 는 주석에만, 코드에는 `claudeErrorClassifier`(`adapters/error-classifier.ts`) + `retryable`(`infra/errors.ts:57`). 같은 문서 `:409`·`backend/overview.md:214` 와 모순 | verify r3 §13 | 문장을 현재 코드로 정정 + 추출에 **호출식**(`` `fn(` ``, 범위 내 16사이트) 추가 + 버킷 판정을 **사이트의 시제**로(이 사이트는 산출에 있었으나 `역사` 로 분류돼 통과) | **r4 닫음** |
+| F3 | `standardization.md:117`·`TRD.md:387` 이 `disallowedTools` 차단을 **보류 단서 없이** 현재형으로 씀 — 코드 0건(AC9 의 그 관측). 형제 `adapters.md:67`·`security.md:91` 은 단서를 단다 | verify r3 §13 | 두 사이트에 `보류/미채택` 단서를 달아 형제와 대칭으로. **채택 여부 자체는 D1 사용자 결정** | **r4 닫음** |
 
 - **다음 재구현 전에 [`handoff-review`](../../../.agents/skills/handoff-review/SKILL.md) 를 수행한다** — `docs/handoff/AGENTS.md` 의 *라운드 3 초과* 트리거가 다음 라운드부터 성립하고, *같은/유사 실패 반복* 은 네 라운드째다(계측이 좁은 자리가 매번 다른 층에서 열렸다).
 - 수정 불요 관찰 5건(버킷 목록 1토큰 누락 · raw 215 vs dedup 211 · §10 6행 vs 표 8행 · INDEX 비고 증가 · 비범위 버킷 라벨)은 verify r3 §13 파생 관찰.
