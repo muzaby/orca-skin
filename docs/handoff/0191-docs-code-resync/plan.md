@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-18 |
 | 매핑 | — (문서 전용) |
-| 상태 | READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → **IMPL_DONE (r4)** |
+| 상태 | READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → **verify/FAIL (r4)** |
 
 # Part I — Product & UX Contract
 
@@ -903,9 +903,10 @@ F2 와 같은 뿌리다 — `stream-json` 이 실제 CLI 플래그라 `외부` �
 
 > r1 검증: [`verify.md`](verify.md) 부록 r1 (FAIL — AC 8✅/4⚠️ · 강제 지점 3/6 재현).
 > r2 검증: [`verify.md`](verify.md) 부록 r2 (FAIL — AC **12/12** · 강제 지점 **7/8** · 기준 밖 결함 4건).
-> r3 검증: [`verify.md`](verify.md) (**FAIL** — AC **12/12** · 강제 지점 재현 · 기준 밖 결함 3건).
+> r3 검증: [`verify.md`](verify.md) 부록 r3 (FAIL — AC **12/12** · 강제 지점 재현 · 기준 밖 결함 3건).
+> r4 검증: [`verify.md`](verify.md) (**FAIL** — AC **12/12** · 강제 지점 **6/8** · 기준 밖 결함 4건 + 경미 3건).
 >
-> **D1~D6 은 r2 verify 가, E1~E5 는 r3 verify 가 전건 닫힘을 재측정으로 확인했다.** 이번 라운드 미충족은 아래 F1~F3 다.
+> **D1~D6 은 r2 verify 가, E1~E5 는 r3 verify 가, F1~F3 은 r4 verify 가 전건 닫힘을 재측정으로 확인했다.** 이번 라운드 미충족은 아래 G1~G7 이다.
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
@@ -943,3 +944,21 @@ F2 와 같은 뿌리다 — `stream-json` 이 실제 CLI 플래그라 `외부` �
 
 - **다음 재구현 전에 [`handoff-review`](../../../.agents/skills/handoff-review/SKILL.md) 를 수행한다** — `docs/handoff/AGENTS.md` 의 *라운드 3 초과* 트리거가 다음 라운드부터 성립하고, *같은/유사 실패 반복* 은 네 라운드째다(계측이 좁은 자리가 매번 다른 층에서 열렸다).
 - 수정 불요 관찰 5건(버킷 목록 1토큰 누락 · raw 215 vs dedup 211 · §10 6행 vs 표 8행 · INDEX 비고 증가 · 비범위 버킷 라벨)은 verify r3 §13 파생 관찰.
+
+### 라운드 4 파생 이슈 (verify r4)
+
+> 판정 근거·재현 명령은 [`verify.md`](verify.md) §3·§5·§6·§13. **F1~F3 은 닫혔고 정정 문장 세 건은 코드 대조로 전부 참이다.** G1~G4 는 그 정정을 만든 계측이 아직 좁아서 남은 자리다.
+
+| # | 이슈 | 출처 | 대응 방향 | 상태 |
+|---|---|---|---|---|
+| G1 | `ChatEvent` **5사이트**가 없는 심볼을 현재형으로 단언 — `provider-runtime.md:17`·`:25`·`:35`·`:403` · `claude-code-spec.md:167`. 코드 실재 0(비주석 0, `shared/protocol.ts:51` 이 "폐기" 명시). 같은 문서 `:37`·`:61` 과 자기모순 | verify r4 §13 | 5사이트 정정 + **§19 심볼 실재 테스트를 단어 경계로**(`grep -rnF` → `grep -rnwF`). F1 이 경로 축에 세운 문장을 심볼 축으로 올린다 | **r5 대상** |
+| G2 | F4 불변식이 **1/7 사이트**에만 적용 — `claude-code-spec.md:28`·`:57`·`:167`·`:302`·`:366`·`:399` 가 CLI spawn 을 현재형으로 유지. `:57` 은 r4 가 고친 `:103` 과 정면 모순 | verify r4 §13 | 채택 박스 전수를 현재 실행 방식과 대조. **어디까지 현재화할지는 사람 결정**(verify §10) | **r5 대상** |
+| G3 | `provider-runtime.md §12` "현행 코드 심볼" 열에 부재 2/11(`ChatEvent`·`detectError`). r4 의 F2 정정이 이 표를 정본으로 가리킨다 | verify r4 §13 | 열 라벨을 실제 의미로 바꾸거나 부재 행에 구/폐기 표기. `:274` 포인터 문장과 정합 | **r5 대상** |
+| G4 | 계측 3한계가 §19 에 미기록 — ⓐ 실재 테스트 substring(차집합 +55사이트) ⓑ 시제 술어가 줄 단위라 표 헤더 시제 상속을 못 봄 ⓒ 추출이 맨 CamelCase 산문을 못 봄 | verify r4 §13 | ⓐⓑⓒ 를 "넓힌 축" 또는 "넓히지 않은 축과 이유" 에 등재 | **r5 대상** |
+| G5 | `GLOSSARY.md:46` 이 "`AuthSpec` 이 소유한다" 로 현재형 — 현 이름 `AuthMethod`. 같은 파일 `:33` 은 "(구 `AuthSpec`)" 로 올바름 | verify r4 §13 | 현재 이름으로 정정. G1 의 경계 매칭이 열리면 함께 잡힌다 | **r5 대상** |
+| G6 | `ux-domains.md:79`·`IPC_CONTRACT.md:442` 가 `pendingToolApproval`(단수) 인용 — 실제 `pendingToolApprovals`(복수) | verify r4 §13 | 복수형으로 정정 | **r5 대상** |
+| G7 | r4 가 도입한 `⛔` 가 `claude-code-spec.md` 자기 범례(✅/❌/⏳) 밖. docs 전체 1곳 | verify r4 §13 | 범례 등재 또는 `❌ Orca v1 미사용` 으로 통일 | **r5 대상** |
+
+- **G1·G3·G5·G6 은 한 불변식이다** — "인용 심볼은 부분 문자열이 아니라 **단어 경계로** 실재해야 한다". §19 한 글자(`-F`→`-wF`)로 분모가 220 → 275 로 열리고, 늘어난 55사이트를 전건 분류·시제 판정하면 네 건이 같이 닫힌다.
+- **선행 `handoff-review` Round 10 의 지침은 이번 라운드에 발화했다**(적대 검사가 죽은 `\b` 술어를 잡았다). 다시 review 를 돈다면 대상은 *장치의 눈*이 아니라 **불변식의 전수 전개**다 — 외부 지적(F1~F3)은 전수를 돌렸고 자기 계측이 낸 F4 는 1사이트에서 멈췄다.
+- 수정 불요 관찰 4건(버킷표 `SDK*Message` 괄호 주석 · `DiscardSession`/`StopSubagent` 페이로드명 · `adapters.md §1.3` 절 제목 · 비범위 버킷 라벨)은 verify r4 §13 파생 관찰.
