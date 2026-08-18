@@ -573,7 +573,7 @@ B/C 의 원자료는 `layers.md §1-2` 가 34건을 차지했다 — 결정 1 �
 | **AC 자기보고** | AC1 ✅ A=0·B/C 는 예외표와 정확히 일치 · AC2 ✅ 긍정 8행 파일 실재 재확인, 잔여 `❌` **7행** · AC3 ✅ `^## ` **20** 불변 + D1 정정 · AC4 ✅ 4패턴 검색 **0건** · AC5 ✅ 비-test 스크립트 **6** = 열거 6 · AC6 ✅ `system-prompt.md:77` 이 "미채택" 3줄 + `:81` ADR 링크 · AC7 ✅ 명령 3개 실행 + 인용 테스트 **21/21** 실재 · AC8 ✅ §8.2 1번 = `app/deployment/auth-definitions.ts` = §1.1 트리 1행 · AC9 ✅ `workspace-guard.ts` 인용(`:8`·`:141`) + `grep -r disallowedTools app/src` **0** · AC10 ✅ `release-operations.md:12` "main push + 모든 PR" = `ci.yml:11~19` · AC11 ✅ `docs/INDEX.md` 2행 · AC12 ✅ 3항목 ok |
 | **합계 검산** | `✅ 12 · ⚠️ 0 · ❌ 0 = 총 12` — 분모는 §7 의 AC1~AC12. **r1 과 분모 동일**(분할·추가 없음). r1 자기보고도 12/12 였으나 검증 재측정은 8✅/4⚠️ 였다 — 이번 12는 그 4건(AC1·AC2·AC3·AC7)을 계측 확장으로 다시 닫은 값이다 |
 | 블로커 / 역질문 | AC6 의 ADR 링크 근거(위 보고만 #1) · PRD §11 OQ9(D-006) |
-| 대상 커밋 | (아래 커밋 해시) |
+| 대상 커밋 | `7d8b2df` |
 
 ### Review Signals — 사실만 (r2)
 
