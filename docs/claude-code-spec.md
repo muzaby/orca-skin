@@ -16,6 +16,7 @@
 >   - ✅ **Orca v1 채택** — Phase 1 MVP 가 사용 (사용 방식·근거)
 >   - ❌ **Orca v1 미사용** — MVP 범위 밖 (이유)
 >   - ⏳ **Open Question** — Phase 1 정책 미정 (PRD §11 / TRD §7.1 와 미러링)
+>   - ⛔ **대체됨** — 당시 채택했으나 이후 절에서 다른 방식으로 교체됨. 어느 절이 대체했는지 함께 적는다
 
 ---
 
@@ -25,9 +26,9 @@ Claude Code 는 [Agent SDK](https://code.claude.com/docs/ko/agent-sdk/overview)�
 
 | 진입 경로 | 호출 방식 | Orca 사용 여부 |
 |---|---|---|
-| **CLI** (`claude -p`) | `child_process.spawn` 으로 매 턴 새 프로세스 | ✅ Phase 1 채택 (TRD §7.1) |
+| **CLI** (`claude -p`) | `child_process.spawn` 으로 매 턴 새 프로세스 | ⛔ 대체됨 — Phase 1 채택 후 §13 에서 SDK `query()` 로 교체 |
 | **Python SDK** (`claude-agent-sdk`) | Python 프로세스 임베드 | ❌ 미사용 (§10) |
-| **TypeScript SDK** (`@anthropic-ai/claude-agent-sdk`) | Node 프로세스 임베드 | ❌ 미사용 — 향후 검토 anchor (§10) |
+| **TypeScript SDK** (`@anthropic-ai/claude-agent-sdk`) | 인프로세스 `query()` 호출 | ✅ **현행 진입점** (§13) — 구 표기 "미사용" 은 Phase 3 마이그레이션 전 기준 (§10) |
 
 > CLI 는 이전에 "헤드리스 모드" 로 불렸다. `-p` 플래그 및 모든 CLI 옵션은 동일하게 작동한다.
 
@@ -54,7 +55,7 @@ claude -p "What does the auth module do?"
 
 `-p` 와 함께 쓰는 모든 플래그의 정식 분류는 `docs/spec/claude/cli-reference.md` 가 SSOT. 본 문서는 *Orca 관점에서 의미가 있는 플래그* 만 다룬다 (§14 카탈로그 참조).
 
-✅ **Orca v1 채택** — ClaudeCodeAdapter 가 매 턴 `claude -p "<text>" --output-format stream-json --verbose --include-partial-messages [--resume <id>]` 형식으로 `child_process.spawn` 한다 (`TRD.md §7.1`, `arch/backend/adapters.md §1`). 입력은 `-p` 인자로 전달하고, `cwd` 는 spawn 옵션에 둔다.
+⛔ **대체됨 (§13)** — Phase 1 은 구 ClaudeCodeAdapter 가 매 턴 `claude -p "<text>" --output-format stream-json --verbose --include-partial-messages [--resume <id>]` 형식으로 `child_process.spawn` 했다. Phase 3 부터는 CLI 를 띄우지 않고 SDK `query()` 를 인프로세스로 부른다 — 현행 어댑터는 `src/main/adapters/claude.ts` 다.
 
 ---
 
@@ -100,7 +101,7 @@ claude -p "Extract main function names from auth.py" \
   --json-schema '{"type":"object","properties":{"functions":{"type":"array","items":{"type":"string"}}},"required":["functions"]}'
 ```
 
-⛔ **Orca 비적용** — 본 절은 CLI 서브프로세스 실행에만 해당한다. Orca 는 CLI 를 띄우지 않고 SDK `query()` 를 인프로세스로 호출하므로 `--output-format` 을 넘기지 않는다(`rg stream-json app/src` = 0건). 스트리밍은 `query()` 의 async iterator 로 받고 정규화는 [`arch/backend/adapters.md`](./arch/backend/adapters.md)·[`arch/backend/provider-runtime.md`](./arch/backend/provider-runtime.md) 가 정본이다. 단발 모드를 쓰지 않는 이유(첫 토큰 지연)는 그대로 유효하다.
+⛔ **대체됨 (§13)** — 본 절은 CLI 서브프로세스 실행에만 해당한다. Orca 는 CLI 를 띄우지 않고 SDK `query()` 를 인프로세스로 호출하므로 `--output-format` 을 넘기지 않는다(`rg stream-json app/src` = 0건). 스트리밍은 `query()` 의 async iterator 로 받고 정규화는 [`arch/backend/adapters.md`](./arch/backend/adapters.md)·[`arch/backend/provider-runtime.md`](./arch/backend/provider-runtime.md) 가 정본이다. 단발 모드를 쓰지 않는 이유(첫 토큰 지연)는 그대로 유효하다.
 
 ❌ `--json-schema` 미사용 — Phase 1 은 자유 텍스트 챗 응답이 목표.
 
@@ -164,9 +165,9 @@ API 요청이 재시도 가능한 오류로 실패하면 Claude Code 가 재시�
 | `uuid` | 문자열 | 고유 이벤트 식별자 |
 | `session_id` | 문자열 | 소속 세션 |
 
-✅ **Orca v1 채택** — 위 네 이벤트 모두 ClaudeCodeAdapter 의 1차 파싱 대상이다. 다음과 같이 `ChatEvent` 로 정규화한다 (`TRD.md §6.2` 참조).
+⛔ **대체됨 (§13)** — Phase 1 은 위 네 이벤트를 구 ClaudeCodeAdapter 가 1차 파싱해 구 `ChatEvent` 로 정규화했다. 현행은 SDK 메시지를 `adapters/claude-map.ts` 의 `claudeToNormalized` 가 `NormalizedEvent` 로 **직접** 정규화한다 — 아래 대응은 그 매핑의 전신으로 읽는다([provider-runtime.md §2](./arch/backend/provider-runtime.md)).
 
-| Claude Code 이벤트 | 정규화 후 `ChatEvent.type` | 비고 |
+| Claude Code 이벤트 | 정규화 후 구 `ChatEvent.type` | 비고 |
 |---|---|---|
 | `system/init` | `init` | `session_id` 를 캡처하여 Renderer 로 전달 (§7) |
 | `stream_event` (`text_delta`) | `assistant_delta` | UI 가 누적 표시 |
@@ -296,10 +297,10 @@ claude -p "Continue that review" --resume "$session_id"
 
 세션 컨텍스트는 Claude Code 가 `~/.claude/projects/<cwd>/<session-id>.jsonl` 에 보관한다.
 
-✅ **Orca v1 채택** — `--resume <sessionId>` 를 사용한다. 동작:
+✅ **Orca v1 채택** — 세션 이어가기를 사용한다. 아래 CLI 형태는 Phase 1 기준이고, 현행은 같은 의미의 SDK `options.resume` 이다(§13). 동작:
 
 1. 첫 턴: `claude -p "<text>" --output-format stream-json` (resume 없음)
-2. ClaudeCodeAdapter 가 첫 `system/init` 이벤트에서 `session_id` 추출 → `ChatEvent { type: 'init', sessionId }` 로 Renderer 에 전달
+2. 어댑터가 첫 `system/init` 이벤트에서 `session_id` 추출 → 세션 초기화 이벤트로 Renderer 에 전달 (현행 와이어는 `NormalizedEvent` 의 `session.updated`)
 3. Renderer 는 `sessionId` 변수 1개만 메모리에 보유
 4. 2턴부터: `claude -p "<text>" --output-format stream-json --resume <sessionId>`
 
@@ -363,7 +364,7 @@ cat build-error.txt | claude -p 'concisely explain the root cause' > output.txt
 
 > 공식: Claude Code v2.1.128 부터 파이프된 stdin 은 10MB 로 제한된다. 초과 시 0 이 아닌 상태로 종료. 더 큰 입력은 파일에 쓰고 프롬프트에서 경로를 참조한다.
 
-❌ **Orca v1 미사용** — 챗 UI 가 입력 채널이므로 stdin 파이프는 쓰지 않는다. ClaudeCodeAdapter 는 `-p <text>` 로만 사용자 입력을 전달한다.
+❌ **Orca v1 미사용** — 챗 UI 가 입력 채널이므로 stdin 파이프는 쓰지 않는다. 현행 어댑터는 SDK `query()` 의 `prompt` 로 사용자 입력을 전달한다(§13).
 
 ---
 
@@ -386,7 +387,7 @@ claude -p "Extract function names" \
 
 CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/python) 및 [TypeScript](https://code.claude.com/docs/ko/agent-sdk/typescript) 패키지가 있다. 콜백 기반 도구 승인, 메시지 객체 직접 조작, 실시간 응답 스트리밍에 대한 프로그래밍 제어가 필요할 때 사용한다.
 
-✅ **Orca v1 채택** (Phase 3 마이그레이션, 2026-05-18) — TypeScript SDK `@anthropic-ai/claude-agent-sdk` 의 `query()` 함수를 진입점으로 사용. CLI spawn (§1, §3) 의 기능은 SDK `Options` 와 1:1 대응 (예: `--resume <id>` ↔ `options.resume`, `--include-partial-messages` ↔ `options.includePartialMessages`, `--output-format stream-json` 은 SDK 의 SDKMessage union 으로 대체됨). SDK API 시그니처·`Options` 필드 명세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) 원문 미러가 단일 출처. SDKMessage → ChatEvent 매핑·내부 구현 패턴·MVP 채택 범위는 [`arch/backend/adapters.md` §1](./arch/backend/adapters.md) 참조.
+✅ **Orca v1 채택** (Phase 3 마이그레이션, 2026-05-18) — TypeScript SDK `@anthropic-ai/claude-agent-sdk` 의 `query()` 함수를 진입점으로 사용. CLI spawn (§1, §3) 의 기능은 SDK `Options` 와 1:1 대응 (예: `--resume <id>` ↔ `options.resume`, `--include-partial-messages` ↔ `options.includePartialMessages`, `--output-format stream-json` 은 SDK 의 SDKMessage union 으로 대체됨). SDK API 시그니처·`Options` 필드 명세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) 원문 미러가 단일 출처. SDKMessage → `NormalizedEvent` 매핑·내부 구현 패턴·MVP 채택 범위는 [`arch/backend/adapters.md` §1](./arch/backend/adapters.md) 참조.
 
 Phase 3 가 사용하는 기능은 *최소* — `query()` + `options.includePartialMessages` + `options.resume` + `options.cwd`. 고급 기능 (`permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer` / custom tools / external `mcpServers` / `forkSession` / `startup()` / `AsyncIterable<SDKUserMessage>` 스트리밍 입력) 은 ⏳ Phase 4+ anchor.
 
@@ -396,7 +397,7 @@ Phase 3 가 사용하는 기능은 *최소* — `query()` + `options.includePart
 
 | 영역 | Orca v1 결정 |
 |---|---|
-| 진입 경로 | **SDK `query()`** — `@anthropic-ai/claude-agent-sdk` (Phase 3 채택, 2026-05-18). CLI `claude -p` + `child_process.spawn` 은 폐기 예정 |
+| 진입 경로 | **SDK `query()`** — `@anthropic-ai/claude-agent-sdk` (Phase 3 채택, 2026-05-18). CLI `claude -p` + `child_process.spawn` 은 폐기됨(코드 0건) |
 | 출력 포맷 | SDKMessage union (`SDKSystemMessage` / `SDKAssistantMessage` / `SDKPartialAssistantMessage` / `SDKResultMessage`) — CLI 의 `--output-format stream-json` 대체 |
 | 토큰 스트리밍 | `options.includePartialMessages: true` — CLI 의 `--verbose --include-partial-messages` 대체 |
 | 세션 재개 | `options.resume: sessionId` — CLI 의 `--resume <sessionId>` 와 1:1 대응. 2턴 이상에서 |
@@ -445,8 +446,8 @@ Phase 3 가 사용하는 기능은 *최소* — `query()` + `options.includePart
 | `docs/spec/claude/agent-sdk/typescript.md` | `query()` / `Options` / SDKMessage 명세 단일 출처 (§10 의 사실) |
 | 원격: `code.claude.com/docs/ko/headless`, `.../ko/cli-reference`, `.../ko/agent-sdk/typescript` | 위 미러들의 외부 원본 (참고용) |
 | `docs/spec/AGENTS.md` | 원문 미러 디렉토리의 정책 (편집 금지·수동 동기화) |
-| `docs/TRD.md` §7.1 | ClaudeCodeAdapter 외부 계약 (spec 의 적용 결과) |
-| `docs/arch/backend/adapters.md` §1 | ClaudeCodeAdapter 내부 구현 + SDK 채택 범위 표 + SDKMessage→ChatEvent 매핑 |
+| `docs/TRD.md` §7.1 | claude 어댑터 외부 계약 (spec 의 적용 결과) |
+| `docs/arch/backend/adapters.md` §1 | claude 어댑터 내부 구현 + SDK 채택 범위 표 + SDKMessage→`NormalizedEvent` 매핑 |
 | `docs/etc/llm-chat-desktop-strategy.md` §6 | one-shot + `--resume` 채택의 전략적 근거 (Phase 3 의 `options.resume` 도 동일 메커니즘) |
 | `docs/PRD.md` §7, §11 | 백엔드 선택 결정 및 OQ |
 
