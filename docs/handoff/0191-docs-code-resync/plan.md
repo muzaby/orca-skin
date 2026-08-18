@@ -723,7 +723,7 @@ r2 지적 5건 밖에서 **20사이트**를 더 닫았다. 전부 "현재형인�
 | **AC 자기보고** | AC1 ✅ A **0줄** · B **11** · C **9** = §19 예외표 12행/20사이트와 일치 · AC2 ✅ `grep -n ❌ docs/arch/*/overview.md` = **7행**(backend 4 · frontend 3) · AC3 ✅ `grep -c '^## '` = **20** 불변 · AC4 ✅ 6패턴 각 **0**파일 · AC5 ✅ 비-test `.mjs` **6** = 열거 6 · AC6 ✅ `system-prompt.md:77` "정적 정책 append — 미채택" + `:81` ADR-002 링크 · AC7 ✅ 명령 3개 실행(위 산출) + 인용 테스트 **21/21 부재 0** · AC8 ✅ §8.2 1번 = `auth-definitions.ts` = §1.1 트리 `:58` · AC9 ✅ `grep -rc disallowedTools app/src` 히트 **0**파일 + 미채택 표기 4곳 · AC10 ✅ `release-operations.md:12` "main push + 모든 PR + `workflow_dispatch`" = `ci.yml:11~22` · AC11 ✅ `docs/INDEX.md` 2행 · AC12 ✅ 3항목 ok |
 | **합계 검산** | `✅ 12 · ⚠️ 0 · ❌ 0 = 총 12` — 분모는 §7 의 AC1~AC12. **r2 와 분모 동일**(분할·추가 없음) |
 | 블로커 / 역질문 | AC6 의 ADR 링크 근거(보고만 #3) · PRD 토큰명(보고만 #1) · PRD §11 OQ9(D-006) |
-| 대상 커밋 | (아래 커밋 해시) |
+| 대상 커밋 | `f9258f4` |
 
 ### Review Signals — 사실만 (r3)
 
