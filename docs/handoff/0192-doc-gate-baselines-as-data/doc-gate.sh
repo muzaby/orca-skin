@@ -4,6 +4,7 @@
 #   doc-gate.sh sweep {symbols|paths|tense}   정의 — 산출을 표준출력으로 낸다
 #   doc-gate.sh check                         대조 — baseline 과 양방향 차집합, exit 1 이면 어긋남
 #   doc-gate.sh regen                         승계 — 기존 판정 보존, 신규는 미분류 표식
+#   doc-gate.sh limits                        계측 한계의 크기 — 산문이 수치를 갖지 않게 한다 (exit 0 고정)
 #
 # baseline 계약 (전부 TAB 구분, 빈 칸 금지):
 #   baselines/symbol-buckets.tsv    심볼 \t 버킷      버킷 ∈ 설계어휘|외부|역사|future|문서어휘
@@ -24,6 +25,8 @@ OUT_OF_SCOPE_DOCS=(docs/PRD.md)
 EXTRA_SCOPE=(app/AGENTS.md app/src/main/AGENTS.md app/src/renderer/AGENTS.md)
 BUCKETS=(설계어휘 외부 역사 future 문서어휘)
 VERDICTS=(참 정정됨)
+# 시제 술어는 sweep_tense 와 limits 가 공유한다 — 복사하면 두 정의가 갈린다.
+TENSE_PREDICATE='현행|현재|한다|이다|✅'
 UNCLASSIFIED='UNCLASSIFIED'
 UNJUDGED='UNJUDGED'
 
@@ -52,9 +55,8 @@ is_out_of_scope_site() {  # $1 = file:line
 
 # ---- 심볼 축 -------------------------------------------------------------
 # pass 1 추출 4축 → (심볼, 사이트).  pass 2 고유 심볼마다 실재 판정 1회.  pass 3 join.
-sweep_symbols() {
-  local pairs verdict
-  pairs=$(mktemp); verdict=$(mktemp)
+# 추출은 limits 의 `bare-camelcase` 차집합도 쓰므로 함수로 둔다 — 복사하면 두 정의가 갈린다.
+extract_pairs() {
   for f in $(scope_files); do
     { grep -oEn '`[A-Za-z_][A-Za-z0-9_]*`' "$f" | sed 's/`//g'
       grep -oEn '`[a-z][a-z0-9]*(-[a-z0-9]+)+`' "$f" | sed 's/`//g'
@@ -63,7 +65,13 @@ sweep_symbols() {
     } | while IFS=: read -r ln s; do
       case "$s" in *[A-Z]*|*-*) printf '%s\t%s:%s\n' "$s" "$f" "$ln";; esac
     done
-  done | sort -u > "$pairs"
+  done | sort -u
+}
+
+sweep_symbols() {
+  local pairs verdict
+  pairs=$(mktemp); verdict=$(mktemp)
+  extract_pairs > "$pairs"
   cut -f1 "$pairs" | sort -u | while read -r s; do
     # [D5] `-wF` 는 `-` 를 비단어 문자로 보므로 `resize-handle` 이 `app-frame-resize-handle`
     # 안에서 매칭됐다(0191 r5 의 `-F`→`-wF` 와 같은 형태). 하이픈을 식별자 문자로 세는 경계로 올린다.
@@ -74,7 +82,10 @@ sweep_symbols() {
     # `://` (URL) 은 주석이 아니므로 앞 문자가 `:` 가 아닐 때만 자른다.
     code=$(printf '%s\n' "$hits" | sed 's/^[^:]*:[0-9]*://' \
            | grep -vE '^[[:space:]]*(//|\*|/\*|#)' \
-           | sed 's@\([^:]\)//.*@\1@' | grep -E "$bnd")
+           | sed 's@\([^:]\)//.*@\1@')
+    # STRIP_HASH 는 limits 전용 변형이다 — check/sweep 의 판정은 바꾸지 않는다.
+    [ -n "${STRIP_HASH:-}" ] && code=$(printf '%s\n' "$code" | sed 's@\([^:]\)#.*@\1@')
+    code=$(printf '%s\n' "$code" | grep -E "$bnd")
     [ -z "$code" ] && printf '%s\tCOMMENT_ONLY\n' "$s"
   done | sort -u > "$verdict"
   join -t"$(printf '\t')" -1 1 -2 1 "$verdict" "$pairs" \
@@ -117,7 +128,7 @@ sweep_tense() {
   { [ -n "${SYMBOL_CACHE:-}" ] && cat "$SYMBOL_CACHE" || sweep_symbols; } \
   | while IFS=$'\t' read -r kind sym site; do
     f=${site%:*}; ln=${site##*:}
-    sed -n "${ln}p" "$f" 2>/dev/null | grep -qE '현행|현재|한다|이다|✅' \
+    sed -n "${ln}p" "$f" 2>/dev/null | grep -qE "$TENSE_PREDICATE" \
       && printf '%s\t%s\t%s\n' "$kind" "$sym" "$site"
   done
 }
@@ -243,6 +254,64 @@ do_regen() {
   echo "regen 완료 — 신규 항목은 $UNCLASSIFIED/$UNJUDGED 다. check 가 통과하지 않는다."
 }
 
+# ---- 계측 한계의 크기 ----------------------------------------------------
+# 이 서브커맨드가 한계 수치의 정본이다 — plan.md §19 는 값을 적지 않고 라벨을 가리킨다.
+# 손으로 적은 수치는 재현되지 않는다(0192 verify r2 E1: 등록부 136 ↔ 실측 137).
+# 한계 크기의 변동은 결함이 아니라 코퍼스 이동이므로 게이트로 두지 않는다 — exit 0 고정.
+emit_limit() { printf '  %-22s %s\n' "$1" "$2"; }
+
+do_limits() {
+  preflight
+  local sym hash camel extracted diffset paths real sites judged n top esc q
+  sym=$(mktemp); hash=$(mktemp); camel=$(mktemp); extracted=$(mktemp)
+  diffset=$(mktemp); paths=$(mktemp); real=$(mktemp)
+  ( unset SYMBOL_CACHE; sweep_symbols ) | sort -u > "$sym"
+  echo "doc-gate limits"
+
+  # 시제 술어의 적용 단위 — 술어가 없어 판정 대상 밖인 고유 사이트.
+  sites=$(cut -f3 "$sym" | sort -u | wc -l)
+  judged=$(cut -f3 "$sym" | sort -u | while IFS= read -r site; do
+             f=${site%:*}; ln=${site##*:}
+             sed -n "${ln}p" "$f" 2>/dev/null | grep -qE "$TENSE_PREDICATE" && echo x
+           done | wc -l)
+  emit_limit tense-out-of-judgment "$(( sites - judged ))  (고유 사이트 $sites · 술어 있는 사이트 $judged)"
+
+  # 추출 / 맨 CamelCase 산문 — 추출 4축이 이미 잡는 심볼을 뺀 차집합이다.
+  extract_pairs | cut -f1 | sort -u > "$extracted"
+  for f in $(scope_files); do sed 's/`[^`]*`//g; s/\*\*[^*]*\*\*//g' "$f"; done \
+    | grep -oE '(^|[^A-Za-z0-9_/`-])[A-Z][a-z0-9]+([A-Z][A-Za-z0-9]*)+' \
+    | grep -oE '[A-Z][a-z0-9]+([A-Z][A-Za-z0-9]*)+' | sort > "$camel"
+  sort -u "$camel" | comm -23 - "$extracted" > "$diffset"
+  n=$(wc -l < "$diffset")
+  top=$(grep -xFf "$diffset" "$camel" 2>/dev/null | sort | uniq -c | sort -rn | head -3 \
+        | awk '{printf "%s %s · ", $2, $1}' | sed 's/ · $//')
+  emit_limit bare-camelcase "$n  (상위 ${top:-없음})"
+
+  # 경로 축 / 비-ts 확장자 — 접미사 해석으로도 실재하지 않는 인용.
+  find docs app -name node_modules -prune -o \
+       \( -name '*.md' -o -name '*.sql' -o -name '*.json' \) -print 2>/dev/null \
+    | sed 's|^|/|' | sort > "$real"
+  for f in $(scope_files); do
+    grep -oEn '`[A-Za-z0-9_./@{}-]+\.(md|sql|json)`' "$f" | sed 's/`//g' |
+    while IFS=: read -r ln p; do
+      q=${p#app/}; q=${q#./}
+      esc=$(printf '%s' "$q" | sed 's/[][\\.^$*+?(){}|]/\\&/g')
+      grep -qE "(^|/)${esc}\$" "$real" || printf '%s:%s\t%s\n' "$f" "$ln" "$p"
+    done
+  done | sort -u > "$paths"
+  emit_limit non-ts-paths "$(wc -l < "$paths")"
+
+  # 실재 판정 / 후행 `#` 주석 — 넓혔을 때 새로 부재/주석이 되는 사이트의 차집합.
+  ( unset SYMBOL_CACHE; STRIP_HASH=1 sweep_symbols ) | sort -u > "$hash"
+  emit_limit trailing-hash-harvest "$(comm -13 "$sym" "$hash" | wc -l)"
+
+  emit_limit layer-axis "계측불가  (주장한 레이어에 있는가 — 정규식화하면 오탐이 지배한다)"
+  emit_limit prose-veracity "계측불가  (이름은 맞고 설명이 틀린 경우 — grep 이 판정할 수 없다)"
+
+  rm -f "$sym" "$hash" "$camel" "$extracted" "$diffset" "$paths" "$real"
+  return 0
+}
+
 case "${1:-}" in
   sweep)
     preflight
@@ -252,5 +321,6 @@ case "${1:-}" in
     esac;;
   check) do_check;;
   regen) do_regen;;
+  limits) do_limits;;
   *) sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \?//'; exit 2;;
 esac
