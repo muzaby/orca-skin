@@ -10,7 +10,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-19 |
 | 매핑 | 0191 승계 (verify r6 FAIL — L1 · M1 · O1) |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → **verify/PASS (r1)** |
 
 # Part I — Product & UX Contract
 
@@ -499,11 +499,25 @@ doc-gate.sh sweep {symbols|paths|tense}   ← 정의의 정본 (실행 가능)
 
 ## [검증자 기입] 파생 이슈
 
-| # | 이슈 | 출처 | 대응 방향 | 상태 |
+> r1 판정 = **PASS**. 원문은 [`verify.md`](verify.md).
+
+### 승계 6건 — 전부 닫혔다
+
+| # | 이슈 | 닫은 AC | 검증자 재측정 |
+|---|---|---|---|
+| L1 | `filterEscalatingDefaultMode` 미분류 | AC5 | `symbol-buckets.tsv:129` = `filterEscalatingDefaultMode\t외부` |
+| M1 | 후행 주석을 코드로 셈 | AC6 | `Query` 4사이트 산출 · 역차집합 0 |
+| O1 | `INDEX.md` 0191 행 비고 상한 초과 | AC11 | 3문장 / 245자 |
+| N1 | 버킷표 역차집합 3심볼 | AC3 | 3심볼 각각 baseline 0행 · 스윕 0행 |
+| N2 | 버킷별 사이트 수 불일치 | AC4 | 산문 내역 0건 — 정본은 `check` 산출 |
+| N3 | 시제 baseline 부재 | AC9 | `tense-sites.tsv` 133행 · 미판정 0 |
+
+### 신규 5건 — PASS 를 막지 않는다
+
+| # | 이슈 | 관측 | 대응 | 상태 |
 |---|---|---|---|---|
-| L1 | `filterEscalatingDefaultMode` 2사이트가 버킷 배정 없이 `미분류 0` 으로 보고됨 | 0191 verify r6 §12 | AC5 — `외부` 버킷 행으로 baseline 에 등재 | open (승계) |
-| M1 | 실재 판정이 줄머리만 봐 `code // Sym` 후행 주석을 코드로 셈 | 0191 verify r6 §12 | AC6 — D-004 로 넓힌다 | open (승계) |
-| O1 | `INDEX.md` 0191 행 비고가 5줄 상한 초과 (r5 → r6 로 늘었다) | 0191 verify r6 §12 파생 관찰 | AC11 | open (승계) |
-| N1 | 버킷표 역차집합 3심볼(`DiscardSessionSchema`·`StopSubagentSchema`·`useChatContext`)이 산출에 없는데 표에 남음 | 0192 plan §8 (이번 세션 신규) | AC3 | open |
-| N2 | 버킷별 사이트 수 3행이 재계산과 불일치 — 합계만 총계와 같다 | 0192 plan §8 (이번 세션 신규) | AC4 — 수치를 산문에서 없앤다 | open |
-| N3 | 시제 baseline 이 `98` 로 낡았고 "diff 하라" 는 집합이 문서에 없다 | 0192 plan §8 (이번 세션 신규) | AC9 — `tense-sites.tsv` 신설 | open |
+| D1 | 보드의 커밋 좌표가 저장소 전역에서 죽어 있다 | `docs/handoff/**` 인용 해시 **429 중 411** 이 `git cat-file -e` 실패. 이력 재작성(53커밋 · root `ee9cb9e`) 결과지 0192 의 오기가 아니다 | `대상 커밋` 열 정책 = **사용자 결정**. 0191 r6 의 현재 해시는 `5436419` | open |
+| D2 | `check` 1회당 `/tmp/tmp.*.m` 1개 잔류 | `doc-gate.sh:150` 이 쓰고 `:162` 의 `rm -f` 가 안 지운다 | `rm -f` 목록에 `"$stale.m"` 추가 (1줄) | open |
+| D3 | 게이트 포인터 4건이 전부 "기본 세션 비독서" 구역 | 루트 `AGENTS.md:33` 이 `docs/handoff/<NNNN-slug>/` 를 제외. **D-008 이 두 행을 옮기면 보드 포인터 0** | 도구 위치·진입점 = **사용자 결정**. 결정 전까지 archive 이동 보류 | open |
+| D4 | AC9 의 `프로덕션 도달 경로` 칸이 조건을 뒤집어 적음 | 실제 정의는 ABSENT/COMMENT_ONLY 사이트만 본다(0191 §19 승계) | 구현은 정확 — **plan 문장만 정정** | open |
+| D5 | 한계 #4(`-wF` 하이픈)의 수확이 안 세어짐 | 엄격 경계 차집합 **1** — `resize-handle`(`ux-domains.md:69`)이 `app-frame-resize-handle`(`Sidebar.tsx:170`)로 통과 중 | 정의 확장은 §6 비범위. **수치를 한계 기록에 붙인다** | open |
