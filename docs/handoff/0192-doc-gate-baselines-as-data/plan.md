@@ -10,7 +10,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-19 |
 | 매핑 | 0191 승계 (verify r6 FAIL — L1 · M1 · O1) |
-| 상태 | DRAFT → READY |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) |
 
 # Part I — Product & UX Contract
 
@@ -396,15 +396,104 @@ doc-gate.sh sweep {symbols|paths|tense}   ← 정의의 정본 (실행 가능)
 
 ## [구현자 기입] 설계 리뷰
 
+- **동의 / 그대로 진행**: Part I·Part II 를 그대로 수행했다. Decision 11건 중 재해석한 것 없음.
+- **이견**: 없음.
+- **ACTIVE Decision 과 충돌하는 설계 발견**: 없음. D-101(코드 미변경)은 `app/**` diff 0으로 지켜졌다 — 적대 검사에서 `app/src/renderer/AGENTS.md` 에 프로브를 심었으나 `git checkout` 으로 복원했고 `git status` 가 빈 출력이다.
+
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+**§10 계약 6행 · 판정 지점 12개 — 전부 닫았다(12/12).** 아래 관측은 **최종 스크립트**로 재실행한 것이다(중간에 §11 두 건을 선조치해 장치가 바뀌었으므로 배터리를 다시 돌렸다).
+
+| §10 계약 | 닫은 지점 | 재현 명령 / 관측 |
+|---|---|---|
+| `symbol-buckets.tsv` 열·버킷값 | 형식 + 허용값 | 버킷 `없는버킷` 주입 → `허용 밖 버킷: ZzBadBucket` · exit 1 |
+| `path-exceptions.tsv` 열·축값 | 형식 | `awk NF!=4` 검사, clean 트리 `형식오류: 0` |
+| `tense-sites.tsv` 열·판정값 | 형식 + 허용값 | `UNJUDGED` 주입 → `미판정 표식: … ZzStaleTense` · exit 1 |
+| 미분류 표식은 통과할 수 없다 | `check` | `regen` 이 신규 `ZzRegenProbe` 를 `UNCLASSIFIED` 로 적고 `check` 가 `형식오류: 1` 로 거부 |
+| 비범위 = 사이트 경로 | 스윕 | `docs/PRD.md` 에 프로브 → PRD 사이트 **9 → 10**, 범위 내 287 불변, `미분류 0` 유지 |
+| SCOPE/CORPUS 실재 선행 검사 | preflight | `mv app/eslint.config.mjs` → `CORPUS 경로 없음` · **exit 2**; baseline 삭제 → `baseline 없음` · exit 2 |
+
+| # | 판정 지점 | 심은 결함 | 관측 |
+|---|---|---|---|
+| 1 | 추출 / 백틱 식별자 | `` `ZzBacktickProbe` `` | `ABSENT ZzBacktickProbe GLOSSARY.md:98` |
+| 2 | 추출 / 백틱 하이픈 | `` `zz-hyphen-probe` `` | `ABSENT zz-hyphen-probe` 1행 |
+| 3 | 추출 / `**bold**` | `**ZzBoldProbe**` | `ABSENT ZzBoldProbe` 1행 |
+| 4 | 추출 / 호출식 | `` `zzCallProbe(` `` | `ABSENT zzCallProbe` 1행 |
+| 5 | 대상 집합 / `*.test.*` 제외 | `makeFinalizeHarness` (테스트 전용 실존 심볼) | `ABSENT` 1행 |
+| 6 | 대상 집합 / `*.md` 제외 | `ZzMdOnlyProbe` → `app/src/renderer/AGENTS.md` | `ABSENT … AGENTS.md:67` — 자기 인용이 자기를 증명하지 못한다 |
+| 7 | 실재 / 줄머리 주석 | `AdmissionController` (히트 1건 전부 줄머리 주석) | `COMMENT_ONLY` 1행 |
+| 8 | 실재 / **후행 주석** | `PermissionResultDeny` (좁은 판정=코드, 넓은 판정=주석) | `COMMENT_ONLY` 1행 — D-004 가 새로 붙인 눈 |
+| 9 | 매칭 / 단어 경계 | `` `ErrorCod` `` (`ErrorCode` 의 부분 문자열) | `ABSENT` 1행 — substring 이면 통과했을 것 |
+| 10 | 분류 단위 / 사이트 | 같은 심볼 2줄 인용 | **2행** 산출 |
+| 11 | 비범위 파생 / 사이트 경로 | `ZzPrdOnlyProbe` → `docs/PRD.md` | `ABSENT … PRD.md:300`, 비범위 10 · 미분류 0 |
+| 12 | preflight | CORPUS 경로 제거 · baseline 제거 | 둘 다 **exit 2** (빈 산출로 "통과" 하지 않는다) |
+
+- **baseline 쪽 눈(AC1)** — 3축 각 1행 삭제: `미분류(사이트) 4`(`Query` 4사이트 전부 이름과 위치로) · `미등재 1`(`C rendering.md:138 TelemetryPanel.tsx`) · `미판정 1`(`ABSENT Artifact GLOSSARY.md:26`) · exit 1. 복원 후 exit 0.
+- **역방향(잔류)**: 3축에 가짜 행 주입 → `잔류(심볼) 3` · 경로 `잔류 1` · 시제 `잔류 1` · exit 1.
+- **§10 에 없는데 같은 불변식이 필요했던 지점**: 없음. pass 3 의 join 키는 독립적으로 눈이 멀 수 있으나 결함을 심으면 스크립트가 깨져 지점으로 세지 않았다 — 지점 12(빈 산출 금지)가 그 실패를 exit≠0 으로 받는다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 산출에 소비자가 있는가 | **있다** — 소비자는 다음 세션 에이전트이고 `check` 산출이 유일한 표면이다 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 4행 전부 대응 — 신규 인용/신규 구현/신규 분류/무변경 | — |
+| 실패가 "아무 일도 안 일어남" 으로 보이지 않는가 | **초안이 그랬다** | **선조치** — §5 는 `심볼 사이트` 를 약속했는데 초안은 심볼 이름만 냈다. 사이트를 붙였다(위 AC1 관측) |
+| 차집합 두 축의 단위가 다른 것이 오독되지 않는가 | 오독 가능했다 | **선조치** — `미분류(사이트)` · `잔류(심볼)` 로 라벨에 단위를 넣었다. 잔류는 산출에 없어 사이트가 없다 |
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 후행 주석 제거를 `sed 's://.*$::'` 로 하면 `https://` 를 잘라 URL 안 심볼을 주석으로 오인한다 | ✅ **선조치** — `s@\([^:]\)//.*@\1@` 로 `://` 를 보호했다 | 산출 동치 확인: 순진한 판정본과 `diff` **0줄**(296사이트) |
+| 2 | `check` 가 심볼 스윕을 두 번 돌았다(`check_symbols` + `sweep_tense`) | ✅ **선조치** — `SYMBOL_CACHE` 로 1회 계산해 공유 | 실행 시간 **25초대 → 13.3초** (`time doc-gate.sh check`) |
+| 3 | 후행 `#` 주석(yml·mjs)은 여전히 코드로 센다 — D-004 는 `//` 만 넓혔다 | ⚠️ **보고 · 넓히지 않음** | 차집합을 실측했다: 후행 `#` 로만 존재하는 심볼 **0건**(후보 922 전수). 수확 0 인데 문자열·앵커의 `#` 를 자를 위험이 있다 |
+| 4 | `grep -wF` 에서 `-` 는 비단어 문자라 `orca-mcp` 가 `x-orca-mcp` 안에서도 매칭된다 | ⚠️ **보고 · 0191 정의 승계** | 정의를 바꾸면 승계 동치가 깨진다. 넓히지 않은 축으로 등재 |
+
+### 설계 대비 명시적 차이
+
+1. **`미분류` 의 단위가 사이트다** — plan §7 AC2 는 "심볼이 없다" 로 썼고 구현은 사이트 단위로 센다(`미분류(사이트)`). 분모를 사이트로 두는 §12 producer 규칙과 맞추고 위치를 함께 주기 위해서다. 판정 자체는 동일하다(둘 다 0 ↔ 0).
+2. **`baselines/` 는 심볼 → 버킷 1:1 이다** — 비범위는 행이 없다(사이트 경로로 파생, D-005). 그래서 baseline 행 수(161)와 산출 심볼 수(167)가 다르다.
 
 ## [구현자 기입] 구현 보고
 
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규 4 — `doc-gate.sh` · `baselines/{symbol-buckets,path-exceptions,tense-sites}.tsv`. 수정 2 — `0191/plan.md`(§19 포인터) · `INDEX.md` |
+| 실행 명령 | `doc-gate.sh check` · `doc-gate.sh regen` · `cd app && node scripts/check-doc-inventory.mjs --check` |
+| **관측한 게이트 산출** | `check`: 심볼 296사이트/167심볼 · 경로 20줄 · 시제 133사이트 · **차집합 9종 전부 0** · exit 0 · 13.3초. 인벤토리: `generated doc ok (9 items, 76 channels)` · `prose ok` · `links ok` |
+| 실행하지 않은 게이트 | `npm run lint`·`typecheck`·`vitest` — `app/node_modules` 부재(§19)이고 `app/**` diff 0. 환경 제약이지 실패가 아니다 |
+| `regen` 검증 | 멱등(3파일 전부 `diff` 0줄) · 신규는 `UNCLASSIFIED` 로 적고 `check` 가 거부 |
+| 강제 지점 전수 | **12/12** (계약 6행 + 판정 지점 12, 최종 스크립트로 재실행) |
+| 대상 커밋 | (아래 해시 기입 커밋에서 채운다) |
+
+### AC 자기보고
+
+| # | 결과 | 이번 턴에 재현한 관측값 |
+|---|---|---|
+| AC1 | ✅ | 3축 1행 삭제 → `미분류(사이트) 4`·`미등재 1`·`미판정 1`·exit 1; 복원 후 exit 0 |
+| AC2 | ✅ | `미분류(사이트): 0` — `comm -23 <필수> <baseline>` 차집합 출력이지 합계가 아니다 |
+| AC3 | ✅ | `잔류(심볼): 0`. `DiscardSessionSchema`·`StopSubagentSchema`·`useChatContext` 각각 baseline **0행** |
+| AC4 | ✅ | 0192 `plan.md` + `INDEX.md` 에 버킷 6행 수치 나열 **0건**(정규식 grep) |
+| AC5 | ✅ | `symbol-buckets.tsv:129` = `filterEscalatingDefaultMode\t외부` |
+| AC6 | ✅ | `Query` 4사이트가 산출에 있다(`overview.md:209`·`provider-runtime.md:184`·`:188`·`:202`) · 좁은 판정 대비 역차집합 **0** |
+| AC7 | ✅ | PRD 사이트 **9** 전부 비범위 · PRD 전용 6심볼 baseline **0행** · 프로브로 9→10, 범위 내 287 불변 |
+| AC8 | ✅ | 경로 축 `미등재 0`·`잔류 0` (산출 20줄) |
+| AC9 | ✅ | 시제 축 `미판정 0`·`잔류 0`. 133사이트를 **96개 고유 줄**로 묶어 전건 육안 판정 — 거짓 단언 **0** |
+| AC10 | ✅ | 판정 지점 **12/12** 가 심은 결함을 잡는다(위 표) |
+| AC11 | ✅ | `INDEX.md` 0192 행 5문장 · 0191 행 4문장 · 0191 `다음 주체` = `—` |
+| AC12 | ✅ | `git diff -U0 0191/plan.md` → hunk **`@@ -322,0 +323,5 @@` 하나**, 5 insertions / 0 deletions — 수치 줄 hunk 0 |
+| AC13 | ✅ | `check-doc-inventory.mjs --check` 3항목 ok |
+
+**합계 검산**: `✅ 13 · ⚠️ 0 · ❌ 0 = 총 13`. 분모 13 — plan §7 의 AC 행을 다시 세었고 분할·추가 없다.
+
 ## [구현자 기입] Review Signals — 사실만
+
+- **이전 라운드와 같은 축인가**: 0191 의 축(계측 정의가 불변식보다 좁다)과 **다르다**. 이번에 닫은 것은 *기록 매체* 이고, 계측 정의는 0191 r6 것을 승계해 한 축(후행 주석)만 넓혔다.
+- **막았어야 할 지침이 있었는가**: 있었고 이번엔 걸렸다 — `handoff-impl §8`("완결성 주장의 관측값은 차집합")이 AC2·AC3 의 형태를 정했다. 0191 두 라운드는 같은 문장이 없던 시점에 합계로 보고했다.
+- **설계가 못 본 것**: plan §5 가 약속한 `심볼 사이트` 출력이 §11 구현 설계에 없어 초안이 심볼만 냈다. Part I 을 계약으로 읽어 선조치했다.
+- **반복되는 환경 한계**: `app/node_modules` 부재 — 0191 r1~r6 의 electron 바이너리 실패와 같은 계열이고, 이번엔 `app/**` diff 0 이라 게이트 자체가 비적용이다.
+- **현재 라운드 수**: **1**.
 
 ---
 
