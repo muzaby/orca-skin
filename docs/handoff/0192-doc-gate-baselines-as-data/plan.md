@@ -10,7 +10,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-19 |
 | 매핑 | 0191 승계 (verify r6 FAIL — L1 · M1 · O1) |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/PASS (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → **IMPL_DONE (r3)** |
+| 상태 | DRAFT → READY → … → verify/FAIL (r2) → IMPL_DONE (r3) → **verify/PASS (r3)** |
 
 # Part I — Product & UX Contract
 
@@ -727,6 +727,17 @@ doc-gate.sh sweep {symbols|paths|tense}   ← 정의의 정본 (실행 가능)
 | **E1** | 등록부가 시제 판정 대상 밖 사이트를 **136** 으로 적는다 | 재측정 **137** — r2 가 더한 `resize-handle` 만큼 어긋났고 갱신되지 않았다 | 수치를 걷어내고 `limits` 를 정본으로 세웠다 | **closed (r3)** — `limits` 산출 `tense-out-of-judgment 137 (고유 사이트 233 · 술어 있는 사이트 96)` · 등록부 수치 0개 |
 | **E2** | `INDEX.md` 가 "넓힌 축 2 · **남긴 축 5**" 로 적는다 | 실제 데이터 행 **넓힌 2 · 남긴 6** | 축 수를 보드에서 뺐다. 축 목록은 `limits` 가 인쇄한다 | **closed (r3)** — 문면은 verify 커밋 `cd9810b` 이 이미 지웠다(`grep -c '남긴 축' INDEX.md` = 0). r3 비고도 축 수를 갖지 않는다 |
 | **E3** | `plan.md` 메타 상태줄이 `verify/PASS (r1)` — 보드는 `impl/IMPL_DONE (r2)` | 같은 상태의 두 사본이 갈렸다. **0191 I1 과 같은 자리** | 사본 **2곳**(메타 상태줄 · 파생 이슈 머리)을 갱신 | **closed (r3)** — 아래 라운드 3 §사본 전수 의 재읽기 출력 |
+
+### r3 — E1·E2·E3 닫힘, 신규 3건은 PASS 를 막지 않는다 (verify r3)
+
+| # | 이슈 | 검증자 재측정 | 상태 |
+|---|---|---|---|
+| E1 | 등록부 수치가 재현되지 않는다 | 등록부 `넓히지 않은 축` 표의 살아있는 수치 **0** — 잔여 숫자 전건이 구조 상수·좌표·교차참조 | **closed (r3)** |
+| E2 | 보드가 축 수를 적는다 | 보드 비고의 파생 수치 **0** · `grep -c '남긴 축' INDEX.md` = 0 | **closed (r3)** |
+| E3 | 상태 사본이 갈렸다 | 사본 3곳(plan 메타 · 파생 이슈 머리 · 보드) 일치 — 사본 하나는 제거 | **closed (r3)** |
+| **F1** | `bare-camelcase` 가 펜스 코드블록 안 토큰을 센다 | 142 중 **88 이 펜스 안에서만** 나온다. 행 제목은 "맨 CamelCase **산문**" | open — **행의 말**을 고친다(정의는 0191 승계와 일치) |
+| **F2** | `non-ts-paths` 가 상대경로 인용을 미해결로 센다 | 70 중 **24 가 인용 파일 기준으로 실재** · 실제 미해결 **46** | open — 게이트 밖이라 판정 영향 0 |
+| **F3** | `limits` 를 "exit 0 고정" 으로 적는다 | 비범위 문서 제거 → **exit 2**(preflight) | open — 한 단어. 동작은 옳다 |
 
 ### 신규 5건 (r1) — PASS 를 막지 않았다
 
