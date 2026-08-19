@@ -320,6 +320,11 @@ docs/INDEX.md → arch/*.md → app/src/main/features/auth/…  ✓
 
 ## 19. 게이트
 
+> **[0192 승계]** 이 절의 **스윕 정의·버킷 분류·예외 목록·시제 기록은 [`0192`](../0192-doc-gate-baselines-as-data/plan.md) 가 승계했다.**
+> 판정의 현재 정본은 `0192-doc-gate-baselines-as-data/baselines/*.tsv` 이고 실행은 `doc-gate.sh check` 다.
+> 아래 표와 수치는 **r6 시점의 기록으로 보존**한다(0192 D-007) — 고치지 않는다. r6 이후 확인된 어긋남(미분류 1심볼 · 잔류 3심볼 · 버킷별 사이트 수)은 0192 가 데이터로 닫았다.
+
+
 - 적용할 하위 가이드: `docs/AGENTS.md` 작성 규칙 · `docs/guides/AGENTS.md` · `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드`.
 - ABI/네트워크 제약: 이 세션은 egress 가 열려 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 가 성공한다. 그 상태에서는 **electron 바이너리를 실제로 로드하는 스위트가 실패**한다 — 변경 관련 실패와 분리해 보고한다.
 - 기본 정적 게이트: `cd app && node scripts/check-doc-inventory.mjs --check` (순수 Node, ABI 무관).
