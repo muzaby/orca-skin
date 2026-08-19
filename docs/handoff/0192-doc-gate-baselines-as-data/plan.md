@@ -659,7 +659,7 @@ doc-gate.sh sweep {symbols|paths|tense}   ← 정의의 정본 (실행 가능)
 | 실행하지 않은 게이트 | `npm run lint`·`typecheck`·`vitest` — `app/**` diff **0파일**(D-003·D-101). `app/node_modules` 부재는 회피가 아니라 **대상 부재**다 |
 | 강제 지점 전수 | 게이트 **12/12** · 계약 **6/6** · `limits` **6/6** |
 | 적대 검사 잔여 | `git status --short --untracked-files=all` — 프로브 복원 후 변경 파일은 이번 턴 산출물뿐 |
-| 대상 커밋 | (해시 기입 커밋에서 채운다) |
+| 대상 커밋 | `ee31ba6` — `git show ee31ba6 --oneline` 확인 |
 
 ### AC 자기보고 (r3 재측정) — 총수 13 불변
 
