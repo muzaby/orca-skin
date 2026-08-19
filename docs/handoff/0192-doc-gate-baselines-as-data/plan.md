@@ -465,7 +465,7 @@ doc-gate.sh sweep {symbols|paths|tense}   ← 정의의 정본 (실행 가능)
 | 실행하지 않은 게이트 | `npm run lint`·`typecheck`·`vitest` — `app/node_modules` 부재(§19)이고 `app/**` diff 0. 환경 제약이지 실패가 아니다 |
 | `regen` 검증 | 멱등(3파일 전부 `diff` 0줄) · 신규는 `UNCLASSIFIED` 로 적고 `check` 가 거부 |
 | 강제 지점 전수 | **12/12** (계약 6행 + 판정 지점 12, 최종 스크립트로 재실행) |
-| 대상 커밋 | (아래 해시 기입 커밋에서 채운다) |
+| 대상 커밋 | `3d9cf9e` — `git show 3d9cf9e --oneline` 확인 |
 
 ### AC 자기보고
 
