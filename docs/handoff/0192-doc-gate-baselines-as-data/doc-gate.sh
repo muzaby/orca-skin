@@ -65,13 +65,16 @@ sweep_symbols() {
     done
   done | sort -u > "$pairs"
   cut -f1 "$pairs" | sort -u | while read -r s; do
-    hits=$(grep -rnwF "$s" "${CORPUS_PATHS[@]}" 2>/dev/null | grep -v -e '\.test\.' -e '\.md:')
+    # [D5] `-wF` 는 `-` 를 비단어 문자로 보므로 `resize-handle` 이 `app-frame-resize-handle`
+    # 안에서 매칭됐다(0191 r5 의 `-F`→`-wF` 와 같은 형태). 하이픈을 식별자 문자로 세는 경계로 올린다.
+    bnd="(^|[^A-Za-z0-9_-])$s([^A-Za-z0-9_-]|\$)"
+    hits=$(grep -rnE "$bnd" "${CORPUS_PATHS[@]}" 2>/dev/null | grep -v -e '\.test\.' -e '\.md:')
     if [ -z "$hits" ]; then printf '%s\tABSENT\n' "$s"; continue; fi
     # 실재는 코드 줄에서만 센다. 줄머리 주석을 버리고, 남은 줄에서 후행 `//` 주석을 지운다.
     # `://` (URL) 은 주석이 아니므로 앞 문자가 `:` 가 아닐 때만 자른다.
     code=$(printf '%s\n' "$hits" | sed 's/^[^:]*:[0-9]*://' \
            | grep -vE '^[[:space:]]*(//|\*|/\*|#)' \
-           | sed 's@\([^:]\)//.*@\1@' | grep -wF "$s")
+           | sed 's@\([^:]\)//.*@\1@' | grep -E "$bnd")
     [ -z "$code" ] && printf '%s\tCOMMENT_ONLY\n' "$s"
   done | sort -u > "$verdict"
   join -t"$(printf '\t')" -1 1 -2 1 "$verdict" "$pairs" \
@@ -159,7 +162,7 @@ check_symbols() {
        <(awk -F'\t' '{print $2"\t"$1"\t"$3}' "$inscope" | sort -k1,1) \
     | awk -F'\t' '{c[$2]++} END {for (b in c) printf "      %s %d\n", b, c[b]}' | sort
   printf '      비범위 %d\n' "$(( $(wc -l < "$out") - $(wc -l < "$inscope") ))"
-  rm -f "$out" "$inscope" "$required" "$have" "$miss" "$stale" "$bad"
+  rm -f "$out" "$inscope" "$required" "$have" "$miss" "$stale" "$stale.m" "$bad"
 }
 
 check_paths() {
