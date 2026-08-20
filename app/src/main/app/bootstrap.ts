@@ -395,7 +395,8 @@ export class Bootstrap {
       auth,
       gateDefinitions: GATE_AUTH_DEFINITIONS,
       remainingDefinitions: remainingAuthDefinitions(AUTH_DEFINITIONS, GATE_AUTH_DEFINITIONS),
-      pushConnectionState
+      pushConnectionState,
+      logger: (event, data) => getLogger().child('auth').info(event, data)
     })
     auth.subscribe((change) => {
       if (change.kind === 'snapshot') authResume.onGateChange(change.authId)
