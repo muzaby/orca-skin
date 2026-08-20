@@ -635,6 +635,159 @@ describe('LoginService — refresh (0194)', () => {
   })
 })
 
+// ── 0194 r2 · 회전하지 않는 서버의 refresh token 승계 (D-014) ────────────────
+//
+// RFC 6749 §6 은 새 refresh token 발급을 **선택**으로 둔다. r1 은 응답에 없으면 "refresh token
+// 없음" 으로 커밋해 옛 값을 금고에서 지웠고, 그래서 조용한 회복이 첫 성공 이후 사라졌다.
+describe('LoginService — refresh 미회전 승계 (0194 D-014)', () => {
+  it('응답에 refresh token 이 없으면 옛 값을 새 세대 키로 옮긴다', async () => {
+    const calls: string[] = []
+    const h = harness(
+      [oauthWithRefresh(calls, () => Promise.resolve({ token: 'new-access' }))],
+      probeApi(true)
+    )
+    const seeded = seedExpiredToken(h)
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('refreshed')
+
+    const grant = h.store.get('wiki')
+    // 값은 보존되고 자리는 새것이다 — 옛 키를 계속 가리키면 실패 경로가 그 자리를 지운다.
+    expect(h.refreshOf('wiki')).toBe('old-refresh-value')
+    expect(grant?.kind === 'token' && grant.refreshKey).not.toBe(seeded.refreshKey)
+    expect(grant?.kind === 'token' && grant.refreshKey).toBeDefined()
+    // 옛 세대는 access·refresh 둘 다 정리됐다.
+    expect(h.secrets.raw.has(seeded.accessKey)).toBe(false)
+    expect(seeded.refreshKey !== null && h.secrets.raw.has(seeded.refreshKey)).toBe(false)
+  })
+
+  it('승계한 뒤에도 다시 갱신할 수 있다 — 회복이 1회용이 아니다', async () => {
+    const calls: string[] = []
+    const h = harness(
+      [oauthWithRefresh(calls, () => Promise.resolve({ token: 'new-access' }))],
+      probeApi(true)
+    )
+    seedExpiredToken(h)
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('refreshed')
+    // 2회차. r1 은 여기서 `unsupported` 였다 — 로그인 창밖에 길이 없던 자리다.
+    await expect(h.login.refresh('wiki')).resolves.toBe('refreshed')
+    // 두 번 다 **보관하던 같은 값**이 선언으로 나갔다.
+    expect(calls).toEqual(['old-refresh-value', 'old-refresh-value'])
+  })
+
+  it('승계할 때 옛 만료도 함께 옮긴다 — 값만 옮기면 만료를 잃는다', async () => {
+    const h = harness(
+      [oauthWithRefresh([], () => Promise.resolve({ token: 'new-access' }))],
+      probeApi(true)
+    )
+    seedExpiredToken(h, { refreshExpiresAt: 9_999 })
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('refreshed')
+
+    const grant = h.store.get('wiki')
+    expect(grant?.kind === 'token' && grant.refreshExpiresAt).toBe(9_999)
+  })
+
+  it('응답이 만료만 새로 주면 그 값이 이긴다 — 회전 없이 만료만 늘리는 서버', async () => {
+    const h = harness(
+      [
+        oauthWithRefresh([], () =>
+          Promise.resolve({ token: 'new-access', refreshExpiresAt: 50_000 })
+        )
+      ],
+      probeApi(true)
+    )
+    seedExpiredToken(h, { refreshExpiresAt: 9_999 })
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('refreshed')
+
+    const grant = h.store.get('wiki')
+    expect(h.refreshOf('wiki')).toBe('old-refresh-value')
+    expect(grant?.kind === 'token' && grant.refreshExpiresAt).toBe(50_000)
+  })
+
+  it('회전 응답은 새 값으로 갈아끼우고 만료를 물려받지 않는다', async () => {
+    const h = harness(
+      [
+        oauthWithRefresh([], () =>
+          Promise.resolve({ token: 'new-access', refreshToken: 'new-refresh' })
+        )
+      ],
+      probeApi(true)
+    )
+    seedExpiredToken(h, { refreshExpiresAt: 9_999 })
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('refreshed')
+
+    const grant = h.store.get('wiki')
+    expect(h.refreshOf('wiki')).toBe('new-refresh')
+    // 새 refresh token 의 만료는 **모르는 것**이지 옛 값이 아니다.
+    expect(grant?.kind === 'token' && grant.refreshExpiresAt).toBeUndefined()
+  })
+
+  it('회전 응답이 만료를 주면 그대로 보관한다', async () => {
+    const h = harness(
+      [
+        oauthWithRefresh([], () =>
+          Promise.resolve({ token: 'a', refreshToken: 'r2', refreshExpiresAt: 77_000 })
+        )
+      ],
+      probeApi(true)
+    )
+    seedExpiredToken(h)
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('refreshed')
+
+    const grant = h.store.get('wiki')
+    expect(grant?.kind === 'token' && grant.refreshExpiresAt).toBe(77_000)
+  })
+
+  it('probe 가 거부하면 옛 access 와 옛 refresh 가 **둘 다** 그대로 산다', async () => {
+    const h = harness(
+      [oauthWithRefresh([], () => Promise.resolve({ token: 'new-access' }))],
+      probeApi(false)
+    )
+    const seeded = seedExpiredToken(h)
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('failed')
+
+    const grant = h.store.get('wiki')
+    expect(grant?.kind === 'token' && grant.vaultKey).toBe(seeded.accessKey)
+    expect(grant?.kind === 'token' && grant.refreshKey).toBe(seeded.refreshKey)
+    expect(h.secretOf('wiki')).toBe('old-access-value')
+    expect(h.refreshOf('wiki')).toBe('old-refresh-value')
+    // 거부 뒤에도 다음 시도가 가능하다.
+    expect(h.store.refreshSecret('wiki')).toBe('old-refresh-value')
+  })
+
+  it('금고 쓰기가 실패해도 옛 refresh 가 산다 — 되돌리기가 살아 있는 자리를 지우지 않는다', async () => {
+    // **이 케이스가 승계 방식을 고른 이유다.** probe 는 통과하고 새 자리에 쓰는 단계에서 죽는
+    // 경로다(safeStorage 불가·디스크). `settleGrant` 의 되돌리기는 "새 자격증명이 이름 붙인
+    // 자리는 전부 버려도 된다" 를 전제하므로, 옛 refresh 키를 새 자격증명이 같이 가리켰다면
+    // 여기서 **살아 있는 grant 의 refresh 자리**가 함께 지워진다.
+    const h = harness(
+      [oauthWithRefresh([], () => Promise.resolve({ token: 'new-access' }))],
+      probeApi(true)
+    )
+    const seeded = seedExpiredToken(h)
+    const inner = h.secrets.set
+    h.secrets.set = (name: string, plain: string): void => {
+      if (plain === 'new-access') throw new Error('safeStorage down')
+      inner(name, plain)
+    }
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('failed')
+
+    h.secrets.set = inner
+    const grant = h.store.get('wiki')
+    expect(grant?.kind === 'token' && grant.refreshKey).toBe(seeded.refreshKey)
+    expect(h.refreshOf('wiki')).toBe('old-refresh-value')
+    expect(h.secretOf('wiki')).toBe('old-access-value')
+    // 다음 시도가 여전히 가능하다 — 회복 능력을 잃지 않았다.
+    expect(h.store.refreshSecret('wiki')).toBe('old-refresh-value')
+  })
+})
+
 describe('AuthStore — 상태 판정', () => {
   it('만료된 토큰은 expired 로 강등되고 값이 나가지 않는다', () => {
     const secrets = fakeSecretStore()
