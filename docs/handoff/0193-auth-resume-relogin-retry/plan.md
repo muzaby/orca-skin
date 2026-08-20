@@ -432,6 +432,18 @@ plan §10 밖이지만 같은 성질의 지점 2곳도 함께 닫았다: 순차 
 
 검산: ✅ 11 · ⚠️ 0 · ❌ 0 = **총 11** (plan §7 의 AC 총수 11, 분모 변경 없음).
 
-## [검증자 기입] 파생 이슈
+## [검증자 기입] 파생 이슈 (r1 — FAIL, 2026-08-20)
 
-- (검증 턴에서 채운다)
+판정 원문과 관측은 [`verify.md`](verify.md). 여기에는 다음 라운드가 닫을 항목만 둔다.
+
+- [ ] **D1 — `attempted` 판정 지점에 눈이 없다.** `attempted = true` 를 `demoted()` 확인 앞으로 옮기는 결함(verify §4 V6)이 32케이스를 전부 통과한다. AC8 의 `1 + K` 관측이 `methods: []` 경로에만 걸려 있어, 배포의 정상 형상(`browser-session` 이 `methods[0]` + probe 성공)에서 방송 횟수가 잠기지 않는다. `auth-resume.test.ts:569` 뒤 `expect(broadcast).toHaveBeenCalledTimes(1)` 한 줄이면 닫힌다(현재 코드 통과·V6 검출 실측). **함께 "적대 검증 9/9 전부 검출" 보고를 차집합 기준으로 다시 적는다.**
+- [ ] **D2 — AC4 의 4결말 중 `unsupported` 가 단언되지 않는다.** `it.each` 배열에 `'unsupported'` 를 넣는다 — `stepOf` 의 `default` 분기가 그대로 받는다. 분기 자체는 V4 로 잠긴 것을 확인했다.
+- [ ] **D3 — INDEX 0193 행 비고가 7문장 / 560자다.** `docs/handoff/AGENTS.md §산출물 문장 규칙 3` 의 5줄 상한을 넘는다(0192 선례 `77229ac`). 게이트 실측·I1/I2 상세는 이 문서가 갖는다.
+- [ ] **D4 — I1 의 근거 예시가 코드와 어긋난다.** `SessionRunner.login` 은 `acquire` 직전에 `register` 를 부르므로(`runner.ts:48-52`) "미등록 group raw throw" 는 그 경로에서 도달 불가다. `auth-resume.ts:114-118` 주석과 `auth-resume.test.ts:607-608` 주석에서 그 예시를 뺀다 — **방어 catch 자체는 타당하므로 유지**한다.
+- [ ] **D5 — plan 정정 2건.** §14 시간 상한을 "Auth 당 창 타임아웃 최대 1회(≈5분) 또는 정상 종료 ×3 + probe 15초 ×3" 으로(I2 수용, 타임아웃 3연속은 불가) · 위 강제 지점 표의 `auth-resume.ts:133` → `:122`.
+
+### 사용자 결정이 필요한 관찰 (파생 이슈 아님)
+
+- **O1** — 재로그인의 `emit` 이 전역 `AuthStep` 을 사용자 조작 없이 덮는다. 소비자가 `providerId` 로 걸러 낯선 폼이 뜨지는 않지만, 다른 provider 의 진행 중 입력 폼이 사라질 수 있다.
+- **O2** — D-006 의 근거 문장("전역 입력 폼이 뜬다")은 소비자 필터를 감안하면 과장이다. **결정 자체는 유지**하고 근거만 기록한다.
+- **O3** — `reloginDemoted` 는 `gateOpen` 을 다시 보지 않는다. probe batch 와 재로그인 사이에 게이트가 닫히면 게이트 화면 뒤에서 로그인 창이 열린다.
