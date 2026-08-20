@@ -34,6 +34,7 @@
 - **테스트가 프로덕션 계약을 잠그는가**: ✅ — 신규 8케이스가 실물 `LoginService`·`AuthStore`·`createVault` 를 세워 `login.refresh('wiki')` 를 부른다. 같은 형상의 로컬 재구현 0건.
 - **부분 실패 잔여**: 승계는 되돌리기와 어긋나지 않는다. 금고 실패 지점을 **두 번째 쓰기(승계된 refresh)로 옮겨도** 옛 쌍이 그대로 살아남는다(§6 MV5).
 - **기준 밖 결함 1건 — 신규.** 갱신 커밋이 옛 grant 의 `principalId` 를 승계하지 않는다 → **D7**. 실측: `principalId:'kim@corp'` 를 심고 회전 응답으로 `refresh()` → `AFTER REFRESH principalId = undefined`. 소비자는 `runtime.ts:141` → `connection-views.ts:74` → `ProviderDetail.tsx:93`.
+- **D7 의 음의 경계 — 사이드바 신원은 영향받지 않는다.** 사이드바는 `selectGatePrincipal(state.providers)` 로 **게이트 provider 의** principal 만 읽고(`useProviderPrincipal.ts:20` → `lib/principal.ts` 의 `if (provider.kind !== 'gate') continue`), 게이트 Auth 는 D-001 로 refresh 대상이 아니다. 화면에서 사라지는 것은 설정의 연결 상세(`ProviderDetail.tsx:93`) 하나다.
 
 ## 4. 구현 보고 재측정 — 보고를 증거로 쓰지 않는다
 
@@ -77,6 +78,7 @@
 
 - **plan 기재 합계 15**(2+1+2+1+1+2+1+2+1+2) **∖ 실제 닫힌 16 = 0** · 닫힌 16 ∖ plan 15 = **1**(`connectionState` invoke — r1 I4, D4 대기). 구현 보고 `16/16` 과 일치한다.
 - 표에 없는데 같은 불변식이 필요한 지점 — **1건 신규**: 갱신 커밋이 **옛 grant 의 필드를 승계하는 범위**. 표는 `refreshToken`·`refreshExpiresAt` 두 필드만 지점으로 갖고 `principalId` 는 어느 행에도 없다 → D7.
+- **다만 그 범위는 "전수" 가 될 수 없다 — 필드별 규칙이다.** `expiresAt` 을 함께 승계하면 해롭다: `markExpired` 가 강등 시점에 `expiresAt` 을 **`now` 로 못 박으므로**(`store.ts:381-382`), 그 지난 값을 새 access token 에 물리면 **갱신 직후 곧바로 만료 상태로 태어난다**. 필드별 판정은 `expiresAt` = 승계 금지(응답 전용, 생략 = 새 토큰의 만료를 모른다) · `refreshToken`·`refreshExpiresAt` = 승계(D-014 가 닫음) · `principalId` = 승계(계정 신원이라 갱신으로 바뀌지 않는다). **그래서 D7 이 더할 필드는 `principalId` 하나다.**
 
 ## 6. 더 좁힌 기준 — 내가 심은 변이 5건
 
@@ -149,6 +151,7 @@
 - **repository operation mismatch 0** — INDEX·trailer·해시·doc-inventory·합계 사본 전건 정합.
 - **남은 사람 확인**: D4 의 AC18·§16·§10 정정 승인 · 스피너 시각 품질(r1 §8 그대로).
 - **다음 단계**: D4 를 사람/설계자가 정정한 뒤 구현자가 D3·D5·D7 을 닫는다. D8·D9 는 같은 라운드에 함께 처리할 수 있다.
+- **D7 을 닫는 방법은 `principalId` 한 필드다** — §5 의 필드별 판정 참조. `Grant` 필드 전수 승계로 올리지 않는다(`expiresAt` 이 갱신 직후 만료를 만든다).
 
 ---
 
