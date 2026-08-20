@@ -549,7 +549,7 @@ plan 의 Decision·Technical Design 은 코드로 그대로 옮겨졌다. **AC 2
 | 테스트 | **+37 케이스** (1,960 → 1,997) — auth-resume +15(33→48) · login +11(27→38) · rootFrame +7(신설) · store-parse +2 · connection-views +1 · providers handler +1 |
 | **AC 자기보고** | 아래 표 |
 | 블로커 / 역질문 | **D-012 는 사용자 확인 없이 ACTIVE 대로 구현했다**(refresh 에 `methods[0]` 게이트 미적용). 되돌리려면 `auth-resume.ts` 의 `refreshOnce` 앞 한 줄이다 |
-| 대상 커밋 | (아래 커밋 해시로 갱신) |
+| 대상 커밋 | `ee11eab` — `git show ee11eab --oneline` 으로 실재 확인 |
 
 ### AC 자기보고 — 이번 턴에 재현한 관측
 
