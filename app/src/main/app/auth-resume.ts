@@ -112,10 +112,10 @@ export function createAuthResume(deps: ResumeAuthDeps): AuthResumeHandle {
       attempted = true
       deps.logger?.('auth.resume.relogin.start', { authId: definition.id, attempt })
       // **로그인은 던질 수 있다.** `resume` 과 달리 `login` 에는 "부팅 경로라 던지지 않는다" 는
-      // 계약이 없다 — 예를 들어 `BrowserSessionPort.acquire` 는 미등록 group 에 raw throw 하고
-      // `SessionRunner.login` 은 그것을 try 밖에서 부른다. 여기는 `void run()` 으로 불리는
-      // fire-and-forget 경로라, 흘려보내면 unhandled rejection 이 되고 **남은 후보의 재로그인과
-      // 마지막 방송이 통째로 건너뛰어진다**. 그래서 사용자가 그만둔 것과 같은 취급으로 접는다.
+      // 계약이 없고, 그 아래에는 주입 포트를 try 밖에서 부르는 자리가 있다 — `oauth-runner.ts`
+      // 의 `states.issue`·`listen` 이 그렇다. 여기는 `void run()` 으로 불리는 fire-and-forget
+      // 경로라, 흘려보내면 unhandled rejection 이 되고 **남은 후보의 재로그인과 마지막 방송이
+      // 통째로 건너뛰어진다**. 그래서 사용자가 그만둔 것과 같은 취급으로 접는다.
       let step: AuthStep
       try {
         // 방식을 넘기지 않는 것이 곧 `methods[0]` 다 (위 `autoReloginable` 주석).

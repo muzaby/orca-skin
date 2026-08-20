@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-20 |
 | 매핑 | — |
-| 상태 | READY → IMPL_DONE (r1) |
+| 상태 | READY → IMPL_DONE (r1) → verify FAIL (r1) → IMPL_DONE (r2) |
 
 # Part I — Product & UX Contract
 
@@ -287,7 +287,7 @@ LoginService(로그인 성공) → store.put(verified=true, revision+1)
 ## 14. 성능 / 상한 / 최적화
 
 - 새 요청 수의 `원천 상한 × 배치 상한`: 나머지 Auth **N** × 재시도 **3** = 최대 `3N` 로그인 시도, 각 로그인은 내부 probe 1회 → probe 총 상한 `N × 4`.
-- 시간 상한: 로그인 창 타임아웃 `DEFAULT_TIMEOUT_MS = 300_000`(`infra/browser-session.ts:36`) 이므로 Auth 1건당 최악 `3 × 5분 = 15분`, 순차이므로 전체 최악 `N × 15분`. **부팅은 막히지 않는다**(`bootstrap.ts:403` `void`) — 지연되는 것은 §11 의 마지막 추가 push 뿐이고, 성공한 probe 들의 상태는 재시도 **전** push(`1 + K`)로 이미 화면에 도달해 있다.
+- 시간 상한 (r2 정정 — 구 서술 `3 × 5분`): **창 타임아웃은 3회 연속 날 수 없다** — `SessionRunner` 가 그것을 `cancelled` 로 접어(`runner.ts:54-61`) D-004 로 그 자리에서 중단하므로 타임아웃은 그 Auth 의 **마지막** 시도다. 그래서 Auth 1건당 최악은 `정상 종료 2회 + 타임아웃 1회(5분) + probe 15초 ×3`(`login.ts:64`)이고, 정상 종료 시도의 소요는 상수가 아니라 사용자 조작 시간이다. 사용자 개입 없이 완주하는 SSO 라면 `3 × (리다이렉트 왕복 + 15초)` 수준이다. **부팅은 막히지 않는다**(`bootstrap.ts:403` `void`) — 지연되는 것은 §11 의 마지막 추가 push 뿐이고, 성공한 probe 들의 상태는 재시도 **전** push(`1 + K`)로 이미 화면에 도달해 있다.
 - 캐시/호출 축소로 잃는 부수 효과: 없음 — 이 작업은 호출을 늘리는 쪽이다.
 
 ## 15. 외부 구현 포트 / 문서 계약
@@ -342,7 +342,7 @@ plan 의 Decision·AC·Technical Design 은 코드로 그대로 옮겨졌다. §
 
 | # | 발견 | 처리 | 근거 |
 |---|---|---|---|
-| I1 | **`auth.login()` 은 던질 수 있다.** `resume` 에는 "부팅 경로라 던지지 않는다" 계약이 있지만(`features/auth/login.ts:285`) `login` 에는 없다 — `BrowserSessionPort.acquire` 는 미등록 group 에 raw throw 하고(`infra/browser-session.ts:96-98`) `SessionRunner.login` 은 그것을 **try 밖에서** 부른다(`features/auth/browser-session/runner.ts:52`) | **선조치** — `auth-resume.ts:120-131` 에서 catch 해 `cancelled` 와 같은 취급으로 중단하고 `auth.resume.relogin.threw` 로 남긴다 | 부팅은 `void authResume.run()`(`app/bootstrap.ts:404`)이라 방치하면 unhandled rejection 이 되고 **남은 후보의 재로그인과 마지막 방송이 통째로 사라진다** |
+| I1 | **`auth.login()` 은 던질 수 있다.** `resume` 에는 "부팅 경로라 던지지 않는다" 계약이 있지만(`features/auth/login.ts:285`) `login` 에는 없다 — 그 아래에 **주입 포트를 try 밖에서 부르는 자리**가 있다(`features/auth/oauth-runner.ts:95` `states.issue` · `:130` `listen`). *(r2 정정: 구 서술의 `SessionRunner.login` → `sessions.acquire` 예시는 도달 불가 — `runner.ts:48-51` 이 `acquire` 직전에 `register` 를 부른다.)* | **선조치** — `auth-resume.ts:120-131` 에서 catch 해 `cancelled` 와 같은 취급으로 중단하고 `auth.resume.relogin.threw` 로 남긴다 | 부팅은 `void authResume.run()`(`app/bootstrap.ts:404`)이라 방치하면 unhandled rejection 이 되고 **남은 후보의 재로그인과 마지막 방송이 통째로 사라진다** |
 | I2 | **plan §14 의 worst case 가 과대했다.** "Auth 1건당 3 × 5분" 은 창 타임아웃이 3회 연속 일어나는 것을 전제하는데, 창 타임아웃은 `SessionRunner` 에서 `cancelled` 로 접히므로(`runner.ts:59-62`) **1회에서 중단된다**(D-004) | **plan 수정 제안** — §14 시간 상한을 "Auth 당 창 타임아웃 1회 + probe 왕복 최대 3회" 로 정정 | 3회 연속 시도가 가능한 것은 창이 정상으로 닫히고 probe 만 실패하는 경우뿐이다 |
 
 I1 은 plan §13 Lifecycle 의 항목이었어야 한다 — plan 은 `resume` 의 무예외 성질만 인용하고
@@ -356,7 +356,7 @@ I1 은 plan §13 Lifecycle 의 항목이었어야 한다 — plan 은 `resume` �
 | 시도 가능 방식 = `oauth`·`browser-session` | `auth-resume.ts:53-64` `autoReloginable` · `:147` 루프 진입 전 | `M2a`(kind 판정 제거) → 4건 실패 · `M2b`(빈 methods 통과) → 2건 실패 |
 | 재시도 전제 = 직전 snapshot 이 `expired` | `auth-resume.ts:111` — **매 시도 직전**(루프 안) | `M3`(1회차만 확인) 심어 `none`·`valid` 2건 실패 확인 |
 | 계속 조건 = `failed` + `probe_failed` | `auth-resume.ts:139` | `M4`(done 만 중단) 심어 `cancelled`·`input-required`·`code-required` 3건 실패 확인 |
-| `methods[0]` 선택 (기존 SSOT) | `features/auth/login.ts:371-374` — **변경 없음** | `auth-resume.ts:133` 이 kind 를 넘기지 않는다(`deps.auth.login(definition.id)`) — 선택 규칙이 한 벌로 유지된다 |
+| `methods[0]` 선택 (기존 SSOT) | `features/auth/login.ts:371-374` — **변경 없음** | `auth-resume.ts:122` (r2 정정 — 구 `:133`) 가 kind 를 넘기지 않는다(`deps.auth.login(definition.id)`) — 선택 규칙이 한 벌로 유지된다 |
 
 plan §10 밖이지만 같은 성질의 지점 2곳도 함께 닫았다: 순차 실행(`:147-151`, `M5` 로 검출) ·
 조건부 마지막 방송(`:152`, `M6` 로 검출).
@@ -432,15 +432,99 @@ plan §10 밖이지만 같은 성질의 지점 2곳도 함께 닫았다: 순차 
 
 검산: ✅ 11 · ⚠️ 0 · ❌ 0 = **총 11** (plan §7 의 AC 총수 11, 분모 변경 없음).
 
+## [구현자 기입] 구현 노트 (r2 — 2026-08-20, verify FAIL r1 대응)
+
+프로덕션 동작은 **한 줄도 바꾸지 않았다** — `auth-resume.ts` 의 diff 는 주석 5줄 교체뿐이다(D4).
+이번 라운드가 바꾼 것은 **검사 장치의 시야**와 인용의 정확성이다.
+
+### 닫은 항목 — D1~D5 전건
+
+| # | 판정 | 이번 턴 관측 |
+|---|---|---|
+| D1 | ✅ | `auth-resume.test.ts:582` 에 `toHaveBeenCalledTimes(1)` — r1 을 통과하던 결함(N3)이 이제 이 케이스를 실패시킨다 |
+| D2 | ✅ | `it.each` 4결말(`:447`) — `unsupported 는 남은 횟수와…` 케이스가 실재하고 33/33 통과 |
+| D3 | ✅ | INDEX 0193 비고 **4문장 / 373자**(`e17621a` 가 교체) — 이번 라운드 갱신본도 5문장 이내로 유지 |
+| D4 | ✅ **3/3** | `auth-resume.ts:114-118` · `auth-resume.test.ts:620-622` · 위 I1 행 — 세 곳 모두 `oauth-runner` 근거로 교체 |
+| D5 | ✅ **2/2** | §14 시간 상한 재서술 · 강제 지점 표 좌표 `:133` → `:122` |
+
+**D3 은 이번 라운드가 고친 것이 아니다** — 검증 턴의 보드 갱신(`e17621a`)이 이미 교체했다. 이번
+턴의 몫은 상태를 되돌리지 않는 것이고, 갱신 후 다시 세어 확인했다.
+
+### 지적을 불변식으로 올려 전수 적용
+
+| 지적 | 승격한 불변식 | 성립해야 하는 지점 | 결과 |
+|---|---|---|---|
+| D1 (`attempted` 한 지점) | **시도 여부로 갈리는 방송은, 시도가 0건일 수 있는 모든 경로에서 횟수를 단언한다** | P1 후보 0건 조기 반환(`:163`) · P2 방식 게이트 탈락(`:148`) · P3 강등 아님(`:111`) · P4 시도≥1(`:152`) | **4/4** — P1·P2·P3 신설, P4 는 기존(`test:638`·`:657`) |
+| D4 (주석 2곳) | **인용한 근거는 코드에서 도달 가능해야 한다** | 코드 주석 · 테스트 주석 · plan I1 행 | **3/3** — verify 가 센 2곳보다 1곳 많다 |
+
+P1·P3 는 r1 에 방송 단언이 아예 없었다. verify 가 지적한 것은 **P3 하나**고, 같은 불변식을 전수로
+걸으며 **P1 을 추가로 찾았다**(아래 차집합).
+
+### 검사 장치의 적대 검증 — 차집합으로 센다
+
+이번에 만든 단언이 무엇을 **새로** 잡는지 보려고, 같은 결함을 r1 테스트 파일에도 심어 대조했다.
+
+| 심은 결함 | r2 에서 실패한 테스트 | r1 테스트에서는 |
+|---|---|---|
+| N1 후보 0건 조기 반환 제거 | `probe 가 없거나 grant 가 없는 Auth 는 묻지 않는다` | **32/32 통과 — 못 봤다** |
+| N2 마지막 방송 무조건화 | 6건 — 기존 2 + 신규 단언이 만든 4건 | 2건 검출 |
+| N3 `attempted` 를 `demoted` 확인 앞으로 (= verify V6) | `강등되지 않은 Auth 는 시도 대상이 아니다` | **32/32 통과 — 못 봤다** |
+| N4 계속 조건에서 reason 절 제거 | `cancelled` · `unsupported` | 1건 검출 |
+
+**차집합 = 2**(N1·N3). r1 의 "적대 검증 9/9 · 전부 검출" 은 **총계였고 차집합이 아니었다** — 심은
+9건이 전부 잡혔다는 사실은 심지 않은 지점에 대해 아무것도 말하지 않는다. 이번 표는 반대로
+"r1 이 못 보던 것 2건"을 직접 뺀 값이다.
+
+### Product/UX 파생 검토
+
+- 새 사용자 대면 문자열 0개 · 프로덕션 분기 변경 0건 — 화면에 도달하는 것이 달라지지 않는다.
+- verify 의 O1(전역 step 경쟁) · O2(D-006 근거) · O3(`gateOpen` 재확인)은 **제품 결정**이라 손대지
+  않았다. 결정이 필요한 자리로 `[검증자 기입]` 에 남아 있다.
+
+### 구현 보고
+
+| 축 | 값 |
+|---|---|
+| 변경 파일 | `auth-resume.test.ts`(+18/-4) · `auth-resume.ts`(+4/-4, **전부 주석**) · `plan.md` · `INDEX.md` |
+| 신규 의존성 | 0 |
+| 계약 변경 | 없음 |
+| 테스트 | `auth-resume.test.ts` **32 → 33 케이스** · 신규 방송 단언 **3곳**(`:293`·`:487`·`:582`, diff 로 확인) — 기존 4곳(`:334`·`:351`·`:638`·`:657`)은 그대로 |
+
+**게이트 (이번 턴 실측)**
+
+| 명령 | 관측한 산출 |
+|---|---|
+| `npm run typecheck` | node·web·test **3/3**, error 0 |
+| `npm run lint` | **0 error / 1 warning**(`useTranscriptVirtualizer.ts:22`, 0102 베이스라인). `--fix` 후 두 수정 파일 diff 0 |
+| `./node_modules/.bin/vitest run` | **1,960 케이스 통과** · 파일 203/204 |
+| `./node_modules/.bin/vitest run src/main/app/auth-resume.test.ts` | **33/33** |
+| `node --test "scripts/*.test.mjs"` | **49/49** (suites 7) |
+| `node scripts/check-doc-inventory.mjs --check` | 차이 0 · 링크 전건 해석 |
+
+**환경 기인 실패 1파일**: `app/chat-turn.continuity.test.ts` 가 `Electron failed to install correctly`
+로 0건 수집 — r1 과 같은 서명이고 변경 무관(`app/AGENTS.md §제약 환경 게이트 가이드`).
+
+**AC 재검산**: AC 문장·분모는 r1 에서 바뀌지 않았다(§7 행 수를 다시 세어 **11**). 이번 라운드는
+AC4·AC8 의 **관측 범위**만 넓혔다. 검산: ✅ 11 · ⚠️ 0 · ❌ 0 = **총 11**.
+
+### Review Signals — 사실만
+
+- 같은 축인가: **예**. `attempted`/방송 상한은 AC8 이 이미 다루던 축이다.
+- 막았어야 할 지침: plan §7 AC8 의 검증 수단 칸이 관측 지점을 "기존 2케이스 무수정 통과" 로
+  **한 곳으로 지정**했고, 그 한 곳이 `methods: []` 경로만 덮었다.
+- 사용자 결정 변경 근거: 없음.
+- 반복되는 환경 한계: electron 미설치(`chat-turn.continuity` 0건 수집) — r1 과 동일.
+- 현재 라운드: **2**.
+
 ## [검증자 기입] 파생 이슈 (r1 — FAIL, 2026-08-20)
 
 판정 원문과 관측은 [`verify.md`](verify.md). 여기에는 다음 라운드가 닫을 항목만 둔다.
 
-- [ ] **D1 — `attempted` 판정 지점에 눈이 없다.** `attempted = true` 를 `demoted()` 확인 앞으로 옮기는 결함(verify §4 V6)이 32케이스를 전부 통과한다. AC8 의 `1 + K` 관측이 `methods: []` 경로에만 걸려 있어, 배포의 정상 형상(`browser-session` 이 `methods[0]` + probe 성공)에서 방송 횟수가 잠기지 않는다. `auth-resume.test.ts:569` 뒤 `expect(broadcast).toHaveBeenCalledTimes(1)` 한 줄이면 닫힌다(현재 코드 통과·V6 검출 실측). **함께 "적대 검증 9/9 전부 검출" 보고를 차집합 기준으로 다시 적는다.**
-- [ ] **D2 — AC4 의 4결말 중 `unsupported` 가 단언되지 않는다.** `it.each` 배열에 `'unsupported'` 를 넣는다 — `stepOf` 의 `default` 분기가 그대로 받는다. 분기 자체는 V4 로 잠긴 것을 확인했다.
-- [ ] **D3 — INDEX 0193 행 비고가 7문장 / 560자다.** `docs/handoff/AGENTS.md §산출물 문장 규칙 3` 의 5줄 상한을 넘는다(0192 선례 `77229ac`). 게이트 실측·I1/I2 상세는 이 문서가 갖는다.
-- [ ] **D4 — I1 의 근거 예시가 코드와 어긋난다.** `SessionRunner.login` 은 `acquire` 직전에 `register` 를 부르므로(`runner.ts:48-52`) "미등록 group raw throw" 는 그 경로에서 도달 불가다. `auth-resume.ts:114-118` 주석과 `auth-resume.test.ts:607-608` 주석에서 그 예시를 뺀다 — **방어 catch 자체는 타당하므로 유지**한다.
-- [ ] **D5 — plan 정정 2건.** §14 시간 상한을 "Auth 당 창 타임아웃 최대 1회(≈5분) 또는 정상 종료 ×3 + probe 15초 ×3" 으로(I2 수용, 타임아웃 3연속은 불가) · 위 강제 지점 표의 `auth-resume.ts:133` → `:122`.
+- [x] **D1 — `attempted` 판정 지점에 눈이 없다.** `attempted = true` 를 `demoted()` 확인 앞으로 옮기는 결함(verify §4 V6)이 32케이스를 전부 통과한다. AC8 의 `1 + K` 관측이 `methods: []` 경로에만 걸려 있어, 배포의 정상 형상(`browser-session` 이 `methods[0]` + probe 성공)에서 방송 횟수가 잠기지 않는다. `auth-resume.test.ts:569` 뒤 `expect(broadcast).toHaveBeenCalledTimes(1)` 한 줄이면 닫힌다(현재 코드 통과·V6 검출 실측). **함께 "적대 검증 9/9 전부 검출" 보고를 차집합 기준으로 다시 적는다.**
+- [x] **D2 — AC4 의 4결말 중 `unsupported` 가 단언되지 않는다.** `it.each` 배열에 `'unsupported'` 를 넣는다 — `stepOf` 의 `default` 분기가 그대로 받는다. 분기 자체는 V4 로 잠긴 것을 확인했다.
+- [x] **D3 — INDEX 0193 행 비고가 7문장 / 560자다.** `docs/handoff/AGENTS.md §산출물 문장 규칙 3` 의 5줄 상한을 넘는다(0192 선례 `77229ac`). 게이트 실측·I1/I2 상세는 이 문서가 갖는다.
+- [x] **D4 — I1 의 근거 예시가 코드와 어긋난다.** `SessionRunner.login` 은 `acquire` 직전에 `register` 를 부르므로(`runner.ts:48-52`) "미등록 group raw throw" 는 그 경로에서 도달 불가다. `auth-resume.ts:114-118` 주석과 `auth-resume.test.ts:607-608` 주석에서 그 예시를 뺀다 — **방어 catch 자체는 타당하므로 유지**한다.
+- [x] **D5 — plan 정정 2건.** §14 시간 상한을 "Auth 당 창 타임아웃 최대 1회(≈5분) 또는 정상 종료 ×3 + probe 15초 ×3" 으로(I2 수용, 타임아웃 3연속은 불가) · 위 강제 지점 표의 `auth-resume.ts:133` → `:122`.
 
 ### 사용자 결정이 필요한 관찰 (파생 이슈 아님)
 

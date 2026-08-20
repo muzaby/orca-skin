@@ -56,7 +56,13 @@ function definition(
 // 재로그인 시도가 돌려줄 결말. `LoginService` 가 실제로 낼 수 있는 5종을 그대로 쓴다.
 // `throws` 는 step 이 아니라 예외다 — `login` 에는 `resume` 과 달리 "던지지 않는다" 는 계약이 없다.
 type LoginOutcome =
-  'done' | 'probe_failed' | 'cancelled' | 'input-required' | 'code-required' | 'throws'
+  | 'done'
+  | 'probe_failed'
+  | 'cancelled'
+  | 'unsupported'
+  | 'input-required'
+  | 'code-required'
+  | 'throws'
 
 function stepOf(authId: string, outcome: Exclude<LoginOutcome, 'throws'>): AuthStep {
   switch (outcome) {
@@ -283,6 +289,8 @@ describe('createAuthResume — 순서', () => {
     }).run()
 
     expect(log).toEqual([])
+    // 후보가 0건이면 batch push 도 재시도 push 도 없다.
+    expect(broadcast).toHaveBeenCalledTimes(0)
   })
 
   it('나머지는 병렬로 묻는다 — 직렬이면 probe 타임아웃이 Auth 수만큼 쌓인다', async () => {
@@ -436,7 +444,7 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
     expect(loginsOf(log, 'wiki')).toEqual(['login:wiki:1', 'login:wiki:2', 'login:wiki:3'])
   })
 
-  it.each(['cancelled', 'input-required', 'code-required'] as const)(
+  it.each(['cancelled', 'unsupported', 'input-required', 'code-required'] as const)(
     '%s 는 남은 횟수와 무관하게 즉시 중단한다 — 사용자가 닫은 창을 다시 열지 않는다',
     async (outcome) => {
       const { auth, log, broadcast } = fakeRuntime({ wiki: demoted([outcome]) })
@@ -475,6 +483,8 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
       }).run()
 
       expect(loginsOf(log, 'wiki')).toEqual([])
+      // 시도 0건 — 강등 즉시 방송 1(K=1) + batch push 1 로 끝난다.
+      expect(broadcast).toHaveBeenCalledTimes(2)
     }
   )
 
@@ -567,6 +577,9 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
     }).run()
 
     expect(loginsOf(log, 'wiki')).toEqual([])
+    // **`attempted` 의 반대편**: 루프에 들어갔지만 시도가 0건이면 마지막 push 가 붙지 않는다.
+    // 강등이 없어 K=0 이므로 batch push 1 회가 전부다.
+    expect(broadcast).toHaveBeenCalledTimes(1)
   })
 
   it('gate Auth 의 복원 실패는 재로그인하지 않는다 — 대상은 나머지 Auth 뿐이다', async () => {
@@ -604,8 +617,9 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
   })
 
   it('로그인이 던져도 그 Auth 만 멈추고 다음 Auth 와 마지막 방송이 이어진다', async () => {
-    // `login` 에는 `resume` 의 "부팅 경로라 던지지 않는다" 계약이 없다(`sessions.acquire` 는 raw
-    // throw). 흘려보내면 fire-and-forget 부팅 경로에서 나머지가 통째로 사라진다.
+    // `login` 에는 `resume` 의 "부팅 경로라 던지지 않는다" 계약이 없다 — 주입 포트를 try 밖에서
+    // 부르는 자리가 있다(`oauth-runner.ts` 의 `states.issue`·`listen`). 흘려보내면
+    // fire-and-forget 부팅 경로에서 나머지가 통째로 사라진다.
     const logger = vi.fn<(event: string, data: Record<string, unknown>) => void>()
     const { auth, log, broadcast } = fakeRuntime({ a: demoted(['throws']), b: demoted(['done']) })
     await expect(
