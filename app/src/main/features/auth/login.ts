@@ -378,7 +378,29 @@ export class LoginService {
       this.deps.logger?.('auth.refresh.threw', { authId, reason: errorMessage(error) })
       return 'failed'
     }
-    const { candidate, writeVault } = this.tokenCandidate(authId, 'oauth', token)
+    // **응답이 새 refresh token 을 주지 않으면 보내던 것을 계속 쓴다** (0194 D-014). RFC 6749
+    // §6 은 새 refresh token 발급을 선택으로 두므로, 회전하지 않는 서버의 정상 응답에는 access
+    // token 만 온다. 그것을 "refresh token 없음" 으로 커밋하면 갱신 한 번에 회복 능력을 잃고
+    // 두 번째 만료부터 로그인 창밖에 길이 없다(r1 D1).
+    //
+    // **옛 키를 계속 가리키지 않고 값을 새 세대 키로 옮겨 적는다.** `settleGrant` 의 되돌리기는
+    // "새 자격증명이 이름 붙인 자리는 전부 버려도 된다" 를 전제하므로(`discardKeys(candidate.grant)`,
+    // `keep` 없음), 옛 키를 공유하면 갱신 실패가 **살아 있는 옛 grant 의 자리**를 지운다.
+    //
+    // **최초 로그인·재인증(`absorbToken`)에는 이 승계가 없다** — 그쪽은 새 인가라 옛 refresh
+    // token 이 다른 계보이고, 이미 폐기됐을 수 있는 값을 새 자격증명이 물고 가면 안 된다.
+    const carried: TokenValue =
+      token.refreshToken !== undefined
+        ? token
+        : {
+            ...token,
+            refreshToken,
+            // 만료도 **함께** 옮긴다 — 값만 옮기면 "만료를 모른다" 가 되어 죽은 토큰으로 매번
+            // 왕복을 한 번씩 쓴다(D-009). 응답이 새 만료를 줬으면 그것이 이긴다: 회전 없이
+            // 만료만 늘려 주는 서버가 있다.
+            ...ifPresent('refreshExpiresAt', token.refreshExpiresAt ?? grant.refreshExpiresAt)
+          }
+    const { candidate, writeVault } = this.tokenCandidate(authId, 'oauth', carried)
     const outcome = await this.settleGrant(definition, attempt, candidate, writeVault)
     this.deps.logger?.('auth.refresh.result', { authId, outcome: outcome.kind })
     // superseded 는 실패가 아니다 — 사용자의 새 시도가 이미 이겼으므로 회복은 그 자리에서

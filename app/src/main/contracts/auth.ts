@@ -169,6 +169,11 @@ export type AuthMethod =
       //
       // `AuthCtx` 를 받지 않는 이유: PKCE·state 는 인가 요청의 것이고 refresh 흐름에는 없다.
       // 필요한 입력은 refresh token 하나이며, endpoint·client_id 는 선언의 클로저가 갖는다.
+      //
+      // **새 `refreshToken` 을 돌려주지 않아도 된다** (D-014). 서버가 회전하지 않으면 access
+      // token 만 담아 돌려주면 되고, 그 경우 앱이 **보내던 refresh token 을 그대로 유지**한다.
+      // 회전하는 서버는 새 값을 담고, 그러면 옛 값은 커밋과 함께 폐기된다. `refreshExpiresAt`
+      // 은 회전 없이도 갱신할 수 있다 — 담아 보내면 그 값이 보관된 만료를 대체한다.
       refresh?(refreshToken: string): Promise<TokenValue>
     }
   | { kind: 'browser-session'; label: string; config: BrowserSessionConfig }
