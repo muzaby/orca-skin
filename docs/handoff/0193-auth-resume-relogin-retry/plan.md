@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-20 |
 | 매핑 | — |
-| 상태 | READY |
+| 상태 | READY → IMPL_DONE (r1) |
 
 # Part I — Product & UX Contract
 
@@ -333,9 +333,104 @@ LoginService(로그인 성공) → store.put(verified=true, revision+1)
 - 관련 테스트: `./node_modules/.bin/vitest run src/main/app/auth-resume.test.ts` (pretest 우회 — 비-DB 스위트).
 - 사람 실기: 없음.
 
-## [구현자 기입] 구현 노트
+## [구현자 기입] 구현 노트 (r1 — 2026-08-20)
 
-- (구현 턴에서 채운다)
+### 설계 리뷰 — plan 을 계약으로 수행한 결과
+
+plan 의 Decision·AC·Technical Design 은 코드로 그대로 옮겨졌다. §11 의 스케치와 실제 구현의
+차이는 없다. 아래 두 건만 plan 이 못 본 것이라 **선조치 후 보고**한다.
+
+| # | 발견 | 처리 | 근거 |
+|---|---|---|---|
+| I1 | **`auth.login()` 은 던질 수 있다.** `resume` 에는 "부팅 경로라 던지지 않는다" 계약이 있지만(`features/auth/login.ts:285`) `login` 에는 없다 — `BrowserSessionPort.acquire` 는 미등록 group 에 raw throw 하고(`infra/browser-session.ts:96-98`) `SessionRunner.login` 은 그것을 **try 밖에서** 부른다(`features/auth/browser-session/runner.ts:52`) | **선조치** — `auth-resume.ts:120-131` 에서 catch 해 `cancelled` 와 같은 취급으로 중단하고 `auth.resume.relogin.threw` 로 남긴다 | 부팅은 `void authResume.run()`(`app/bootstrap.ts:404`)이라 방치하면 unhandled rejection 이 되고 **남은 후보의 재로그인과 마지막 방송이 통째로 사라진다** |
+| I2 | **plan §14 의 worst case 가 과대했다.** "Auth 1건당 3 × 5분" 은 창 타임아웃이 3회 연속 일어나는 것을 전제하는데, 창 타임아웃은 `SessionRunner` 에서 `cancelled` 로 접히므로(`runner.ts:59-62`) **1회에서 중단된다**(D-004) | **plan 수정 제안** — §14 시간 상한을 "Auth 당 창 타임아웃 1회 + probe 왕복 최대 3회" 로 정정 | 3회 연속 시도가 가능한 것은 창이 정상으로 닫히고 probe 만 실패하는 경우뿐이다 |
+
+I1 은 plan §13 Lifecycle 의 항목이었어야 한다 — plan 은 `resume` 의 무예외 성질만 인용하고
+`login` 의 예외 성질을 확인하지 않았다. Part I 상태 전이표에도 이 행이 없다.
+
+### 강제 지점 — plan §10 전수 `5/5`
+
+| 계약 | 닫은 지점 | 이번 턴 관측 |
+|---|---|---|
+| 재시도 상한 3 | `auth-resume.ts:47` 상수 · `:109` 루프 조건 | `M1`(상한 4) 심어 `최대 3회까지만 시도한다` 실패 확인 |
+| 시도 가능 방식 = `oauth`·`browser-session` | `auth-resume.ts:53-64` `autoReloginable` · `:147` 루프 진입 전 | `M2a`(kind 판정 제거) → 4건 실패 · `M2b`(빈 methods 통과) → 2건 실패 |
+| 재시도 전제 = 직전 snapshot 이 `expired` | `auth-resume.ts:111` — **매 시도 직전**(루프 안) | `M3`(1회차만 확인) 심어 `none`·`valid` 2건 실패 확인 |
+| 계속 조건 = `failed` + `probe_failed` | `auth-resume.ts:139` | `M4`(done 만 중단) 심어 `cancelled`·`input-required`·`code-required` 3건 실패 확인 |
+| `methods[0]` 선택 (기존 SSOT) | `features/auth/login.ts:371-374` — **변경 없음** | `auth-resume.ts:133` 이 kind 를 넘기지 않는다(`deps.auth.login(definition.id)`) — 선택 규칙이 한 벌로 유지된다 |
+
+plan §10 밖이지만 같은 성질의 지점 2곳도 함께 닫았다: 순차 실행(`:147-151`, `M5` 로 검출) ·
+조건부 마지막 방송(`:152`, `M6` 로 검출).
+
+### 검사 장치의 적대 검증 — 판정 지점 `9/9`
+
+이번 턴에 만든 테스트가 결함을 실제로 볼 수 있는지, **지점마다 하나씩** 결함을 심어 확인했다.
+전부 그 지점을 지키는 테스트가 실패했다(다른 테스트가 대신 잡은 경우 없음).
+
+| 심은 결함 | 실패한 테스트 |
+|---|---|
+| `M1` 상한 3 → 4 | `확인 실패가 이어지면 최대 3회까지만 시도한다 — 4번째는 없다` |
+| `M2a` 방식 kind 판정 제거 | 입력형 3케이스 + `입력형 뒤에 browser-session 이 있어도…` |
+| `M2b` 빈 `methods` 통과 | `methods 가 비면 로그인을 부르지 않는다` · `실패 K 건은 즉시 방송된다 — 총 1 + K` |
+| `M3` `expired` 재확인을 1회차로 축소 | `시도 사이에 상태가 none/valid 가 되면…` 2건 |
+| `M4` 계속 조건을 `done` 아님으로 확대 | `cancelled`·`input-required`·`code-required` 3건 |
+| `M5` 순차 → `Promise.all` | `재로그인은 순차다 — 첫 로그인이 끝나야 두 번째가 시작된다` |
+| `M6` 마지막 방송을 무조건화 | 기존 `1 + K` 2케이스 (`전부 성공하면…` · `실패 K 건은…`) |
+| `M7` gate 도 재로그인 대상에 포함 | `gate Auth 의 복원 실패는 재로그인하지 않는다` |
+| `M8` `login` try/catch 제거 | `로그인이 던져도 그 Auth 만 멈추고…` |
+
+`M6` 이 **기존 테스트**를 실패시킨 것이 AC8 의 관측 지점이다 — 재시도 0건 경로의 방송 상한이
+실제로 고정돼 있음을 뜻한다.
+
+### Product/UX 파생 검토
+
+- 새 사용자 대면 문자열 0개 — 이번 turn 이 만든 문자열은 전부 진단 로그다(`auth.resume.relogin.*`).
+- 재로그인 실패의 화면 결말은 **기존 강등 상태 그대로**다 — Part I 흐름도의 마지막 가지와 같다.
+- `login` 이 던지는 경로(I1)는 Part I 상태 전이표에 행이 없다 → 설계자 확인 대상.
+- 늦게 도착한 응답: `demoted()` 확인과 `login()` 진입 사이의 경쟁은 plan §17 이 이미 accepted 로
+  적었다 — 변경 없음.
+
+### 구현 보고
+
+| 축 | 값 |
+|---|---|
+| 변경 파일 | `app/src/main/app/auth-resume.ts`(+103) · `auth-resume.test.ts`(+368) · `bootstrap.ts`(+3/-1) · `docs/arch/backend/auth.md`(+19/-2) |
+| 신규 의존성 | 0 |
+| 계약 변경 | `ResumeAuthDeps.logger?` 추가 1건 (`auth-resume.ts:75`). `AuthRuntime`·`LoginService`·`AuthDefinition` 무변경 |
+| 테스트 | `auth-resume.test.ts` **12 → 32 케이스** |
+
+**게이트 (이번 턴 실측)**
+
+| 명령 | 산출 |
+|---|---|
+| `npm run typecheck` | node·web·test **3/3** 통과, error 0 |
+| `npm run lint` | **0 error / 1 warning** — warning 은 `renderer/.../useTranscriptVirtualizer.ts:22`(0102 베이스라인, 이번 변경과 무관). `--fix` 후 트리 변화 0(수정 파일 3개 그대로) |
+| `./node_modules/.bin/vitest run` | **1,959/1,959 케이스 통과** · 파일 203/204 |
+| `./node_modules/.bin/vitest run src/main/app/auth-resume.test.ts` | **32/32** |
+| `node --test "scripts/*.test.mjs"` | **49/49** |
+| `node scripts/check-doc-inventory.mjs --check` | 차이 0 — 링크 전건 해석 |
+
+**환경 기인 실패 1파일**: `src/main/app/chat-turn.continuity.test.ts` 가 **0건 수집**으로 실패한다
+— `Electron failed to install correctly`. egress 제약으로 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci`
+로 설치했기 때문이고(`app/AGENTS.md §제약 환경 게이트 가이드`), 변경과 무관하다. DB 로드 스위트
+4개는 `npm rebuild better-sqlite3`(Node ABI) 후 전부 green 이다.
+
+**AC 자기보고**
+
+| AC | 판정 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | `probe 가 실패해 강등되면 methods[0] 방식으로 다시 로그인한다` — `login:wiki:1` 1건 |
+| AC2 | ✅ | `최대 3회까지만 시도한다` — `['login:wiki:1','login:wiki:2','login:wiki:3']`, `M1` 검출 |
+| AC3 | ✅ | `로그인이 성공하면 그 자리에서 멈추고…` — 호출 1건 + snapshot `{status:'valid',verified:true}` |
+| AC4 | ✅ | `it.each` 3케이스(`cancelled`·`input-required`·`code-required`) 각 `login:wiki:1` 1건, `M4` 검출 |
+| AC5 | ✅ | 입력형 3 + 빈 `methods` 1 + `pat` 뒤 `browser-session` 1 = **5케이스** 모두 호출 0건 |
+| AC6 | ✅ | 첫 flush 로그 `['enter:a','enter:b','exit:a','exit:b','login:a:1']` — b 로그인 미시작, `M5` 검출 |
+| AC7 | ✅ | `none`·`valid` 2케이스 각 `login:wiki:1` 1건에서 멈춤, `M3` 검출 |
+| AC8 | ✅ | 기존 `1 + K` describe 2케이스가 **무수정 통과**(`toHaveBeenCalledTimes(1)`·`(3)`), `M6` 검출 |
+| AC9 | ✅ | `gate Auth 의 복원 실패는 재로그인하지 않는다` — 호출 0건, `M7` 검출 |
+| AC10 | ✅ | `logger.mock.calls` 4건 정확 일치(start/result ×2) + `relogin.threw` 인자 일치 |
+| AC11 | ✅ | `docs/arch/backend/auth.md §5.2` — 흐름도에 재로그인 단계 1줄 + 규칙 4행 표 + 방송 상한 조건 |
+
+검산: ✅ 11 · ⚠️ 0 · ❌ 0 = **총 11** (plan §7 의 AC 총수 11, 분모 변경 없음).
 
 ## [검증자 기입] 파생 이슈
 
