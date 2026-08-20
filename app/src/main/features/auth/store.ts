@@ -470,6 +470,19 @@ export class AuthStore {
     return current.expiresAt === undefined || current.expiresAt > this.clock()
   }
 
+  // refresh token 값 (0194). **`grant.expiresAt` 을 보지 않는다** — access token 이 만료된
+  // 바로 그 순간이 이 값을 쓰는 때다. 보는 것은 refresh 자신의 만료(`refreshExpiresAt`)뿐이고,
+  // 그것이 없으면 "모른다" 라서 값을 준다(D-009 — 시도하고 실패로 판정한다).
+  //
+  // `secret()` 과 합치지 않는 이유가 이것이다: 두 값은 만료 판정 기준이 다르다.
+  refreshSecret(authId: AuthId): string | null {
+    const grant = this.entries.get(authId)?.grant
+    if (!grant || grant.kind !== 'token' || grant.refreshKey === undefined) return null
+    if (grant.refreshExpiresAt !== undefined && grant.refreshExpiresAt <= this.clock()) return null
+    const read = this.vault.read(grant.refreshKey)
+    return read.state === 'found' ? read.value : null
+  }
+
   // 유효할 때만 값을 준다 — 만료·복호화 실패 상태의 값을 요청에 싣지 않는다.
   //
   // `status()` 를 부르고 vault 를 또 읽지 않는다. `SecretStore.get` 은 호출마다 파일을

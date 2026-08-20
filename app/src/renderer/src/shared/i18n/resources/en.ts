@@ -38,6 +38,8 @@ export const en: typeof ko = {
   boot: {
     label: 'Booting',
     preparingSr: 'Preparing the app',
+    resumingLabel: 'Restoring connections',
+    resumingSr: 'Restoring your connections',
     errorTitle: 'A problem occurred while preparing the app.',
     retry: 'Retry boot'
   },

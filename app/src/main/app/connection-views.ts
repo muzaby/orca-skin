@@ -87,12 +87,16 @@ export function connectionList(
 export function connectionState(
   auth: AuthStepReader,
   gate: Gate,
-  sources: readonly ConnectionViewSource[]
+  sources: readonly ConnectionViewSource[],
+  // 부팅 복원 진행 여부 (0194). 계산은 `app/auth-resume.ts` 가 소유하고 여기서는 **싣기만**
+  // 한다 — 재계산하면 판정이 두 벌이 된다.
+  resuming: boolean
 ): ProviderPlatformState {
   return {
     gate: gate.state(),
     providers: connectionList(auth, sources),
-    step: auth.currentStep()
+    step: auth.currentStep(),
+    resuming
   }
 }
 

@@ -37,6 +37,8 @@ export const ko = {
   boot: {
     label: '부팅',
     preparingSr: '앱을 준비 중입니다',
+    resumingLabel: '연결 복원',
+    resumingSr: '사내 연결을 복원하는 중입니다',
     errorTitle: '앱 준비 중 문제가 발생했습니다.',
     retry: '부트 다시 시도'
   },

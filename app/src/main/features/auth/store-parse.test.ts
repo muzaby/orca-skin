@@ -60,6 +60,50 @@ describe('parseGrantRecords — 레코드 단위', () => {
     expect(isAuthoritative(parsed)).toBe(true)
   })
 
+  // 0194 — refresh 만료가 재시작을 넘어와야 한다. 잃으면 이미 만료된 refresh token 으로
+  // 매 부팅마다 왕복을 한 번씩 버린다(그리고 그 뒤에야 재로그인한다).
+  it('token grant 의 refresh 좌표와 만료가 왕복한다', () => {
+    const raw = {
+      corp: {
+        kind: 'token',
+        vaultKey: 'provider:corp:oauth@2',
+        refreshKey: 'provider:corp:oauth#refresh@2',
+        refreshExpiresAt: 1_700_000_000_000,
+        expiresAt: 1_600_000_000_000,
+        authKind: 'oauth',
+        createdAt: 1_500_000_000_000
+      }
+    }
+    const parsed = parseGrantRecords(raw)
+    expect(parsed.records.corp).toEqual({
+      kind: 'token',
+      vaultKey: 'provider:corp:oauth@2',
+      refreshKey: 'provider:corp:oauth#refresh@2',
+      refreshExpiresAt: 1_700_000_000_000,
+      expiresAt: 1_600_000_000_000,
+      authKind: 'oauth',
+      createdAt: 1_500_000_000_000
+    })
+    expect(isAuthoritative(parsed)).toBe(true)
+  })
+
+  it('refreshExpiresAt 이 숫자가 아니면 그 필드만 빠지고 grant 는 산다', () => {
+    const parsed = parseGrantRecords({
+      corp: {
+        kind: 'token',
+        vaultKey: 'k',
+        refreshKey: 'r',
+        refreshExpiresAt: 'soon',
+        authKind: 'oauth',
+        createdAt: 1
+      }
+    })
+    // 만료를 모르는 것은 "만료됨" 이 아니다 — grant 를 버리면 살아 있는 refresh 를 잃는다.
+    expect(parsed.records.corp).not.toHaveProperty('refreshExpiresAt')
+    expect(parsed.records.corp).toMatchObject({ kind: 'token', refreshKey: 'r' })
+    expect(parsed.dropped).toBe(0)
+  })
+
   // 부분 파싱: 살아남은 것은 쓰되, 버린 레코드의 vaultKey 를 모르므로 권위는 잃는다(r9).
   it('레코드 하나를 버리면 나머지는 살리되 권위를 잃는다', () => {
     const parsed = parseGrantRecords({ corp: validSecretGrant, broken: { kind: 'secret' } })

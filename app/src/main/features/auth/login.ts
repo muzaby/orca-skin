@@ -18,6 +18,7 @@ import type {
   AuthId,
   AuthMethod,
   AuthMethodKind,
+  AuthRefreshResult,
   AuthSnapshotChangeCause,
   AuthStep,
   Grant,
@@ -340,6 +341,50 @@ export class LoginService {
     } else if (options?.emitVerifiedChange ?? true) {
       this.deps.onSnapshot?.(definition.id, 'verified')
     }
+  }
+
+  // ── 만료된 token grant 의 갱신 (0194) ───────────────────────────────────────
+  //
+  // **창을 열지 않는다.** 그래서 부팅 복원의 회복 경로가 재로그인보다 먼저 이것을 부른다 —
+  // 성공하면 사용자는 아무것도 보지 못하고 연결이 살아난다.
+  //
+  // 가능 판정이 **여기 한 곳**에 있다(계약 §10). 호출자(`app/auth-resume.ts`)는 결과 3분기만
+  // 보고, `refreshKey` 유무나 만료를 스스로 다시 판정하지 않는다 — 두 벌이 되면 갈린다.
+  //
+  // **`settled()` 를 쓰지 않는 이유**: 그 경로의 `rejected` 는 `fail()` 을 거쳐 전역 `failed`
+  // step 을 emit 한다. 사용자가 시작하지도 않은 조용한 갱신이 화면에 "인증을 확인하지
+  // 못했습니다" 를 띄우면 안 된다. 그래서 `settleGrant` 의 3분기를 직접 접는다 — 커밋 규칙
+  // 자체(새 키 2개 · probe 통과 후 커밋)는 `tokenCandidate`+`settleGrant` 가 그대로 갖는다.
+  async refresh(authId: AuthId): Promise<AuthRefreshResult> {
+    const definition = this.deps.registry.get(authId)
+    if (!definition) return 'unsupported'
+    const grant = this.deps.store.get(authId)
+    // 값형·세션 grant 에는 refresh 라는 개념이 없다. `authKind` 까지 보는 이유는 세션 교환이
+    // 만든 token grant(`authKind:'browser-session'`)를 oauth 선언의 refresh 로 갱신하면
+    // 자격증명 계보가 섞이기 때문이다.
+    if (!grant || grant.kind !== 'token' || grant.authKind !== 'oauth') return 'unsupported'
+    const spec = definition.methods.find((method): method is OAuthSpec => method.kind === 'oauth')
+    if (!spec?.refresh) return 'unsupported'
+    // 없음·만료·복호화 실패가 전부 여기서 접힌다(`AuthStore.refreshSecret`).
+    const refreshToken = this.deps.store.refreshSecret(authId)
+    if (refreshToken === null) return 'unsupported'
+
+    // 갱신도 **세대를 연다** — 도는 사이 사용자가 직접 로그인했거나 해제했으면 커밋되지 않는다.
+    const attempt = this.openAttempt(authId)
+    let token: TokenValue
+    try {
+      token = await spec.refresh(refreshToken)
+    } catch (error) {
+      this.deps.logger?.('auth.refresh.threw', { authId, reason: errorMessage(error) })
+      return 'failed'
+    }
+    const { candidate, writeVault } = this.tokenCandidate(authId, 'oauth', token)
+    const outcome = await this.settleGrant(definition, attempt, candidate, writeVault)
+    this.deps.logger?.('auth.refresh.result', { authId, outcome: outcome.kind })
+    // superseded 는 실패가 아니다 — 사용자의 새 시도가 이미 이겼으므로 회복은 그 자리에서
+    // 그만두면 된다. 재로그인으로 넘어가면 사용자의 로그인을 덮는다.
+    if (outcome.kind === 'superseded') return 'unsupported'
+    return outcome.kind === 'settled' ? 'refreshed' : 'failed'
   }
 
   // 확인 대상인가 — grant 가 있고, 아직 이번 실행에서 확인되지 않았고, 지금 요청을 낼 수 있는
@@ -732,41 +777,61 @@ export class LoginService {
     authKind: AuthMethodKind,
     token: TokenValue
   ): Promise<AuthStep> {
-    const vaultKey = this.newVaultKey(definition.id, authKind)
-    const createdAt = this.clock()
-    const refreshKey =
-      token.refreshToken !== undefined
-        ? versionedVaultKey(providerRefreshKey(definition.id, authKind), this.newVersion())
-        : undefined
-    const candidate: CandidateCredential = {
-      grant: {
-        kind: 'token',
-        vaultKey,
-        authKind,
-        createdAt,
-        ...ifPresent('expiresAt', token.expiresAt),
-        ...ifPresent('refreshKey', refreshKey),
-        ...ifPresent('principalId', token.principalId)
-      },
-      secret: token.token
-    }
-    // access·refresh 를 **둘 다 새 키에** 쓴다. 어느 쪽이 실패해도 아직 grant 가 가리키지 않는
-    // 자리이므로 옛 access/refresh 쌍은 통째로 그대로 살아 있다 — r6 의 `new-access +
-    // old-refresh` 혼합 상태가 만들어질 자리가 없다.
-    const writeVault = (): void => {
-      this.deps.vault.set(vaultKey, token.token, {
-        kind: authKind,
-        createdAt,
-        ...ifPresent('expiresAt', token.expiresAt)
-      })
-      if (refreshKey !== undefined && token.refreshToken !== undefined) {
-        this.deps.vault.set(refreshKey, token.refreshToken, { kind: authKind, createdAt })
-      }
-    }
+    const { candidate, writeVault } = this.tokenCandidate(definition.id, authKind, token)
     return this.settled(
       definition,
       await this.settleGrant(definition, attempt, candidate, writeVault)
     )
+  }
+
+  // token grant 의 candidate + vault 쓰기 (0194 — `absorbToken` 에서 분리).
+  //
+  // `secretCandidate` 와 같은 이유로 갈랐다: **소비자가 둘**이 됐다(최초 로그인 `absorbToken`,
+  // 갱신 `refresh`). 아래 "둘 다 새 키에" 규칙이 두 벌이 되면 한쪽만 고쳐지고, 그때 그 경로에만
+  // `new-access + old-refresh` 혼합 상태가 남는다.
+  private tokenCandidate(
+    authId: AuthId,
+    authKind: AuthMethodKind,
+    token: TokenValue
+  ): { candidate: CandidateCredential; writeVault: () => void } {
+    const vaultKey = this.newVaultKey(authId, authKind)
+    const createdAt = this.clock()
+    const refreshKey =
+      token.refreshToken !== undefined
+        ? versionedVaultKey(providerRefreshKey(authId, authKind), this.newVersion())
+        : undefined
+    return {
+      candidate: {
+        grant: {
+          kind: 'token',
+          vaultKey,
+          authKind,
+          createdAt,
+          ...ifPresent('expiresAt', token.expiresAt),
+          ...ifPresent('refreshKey', refreshKey),
+          // refresh 키가 없으면 그 만료도 의미가 없다 — 짝으로만 싣는다.
+          ...ifPresent(
+            'refreshExpiresAt',
+            refreshKey !== undefined ? token.refreshExpiresAt : undefined
+          ),
+          ...ifPresent('principalId', token.principalId)
+        },
+        secret: token.token
+      },
+      // access·refresh 를 **둘 다 새 키에** 쓴다. 어느 쪽이 실패해도 아직 grant 가 가리키지 않는
+      // 자리이므로 옛 access/refresh 쌍은 통째로 그대로 살아 있다 — r6 의 `new-access +
+      // old-refresh` 혼합 상태가 만들어질 자리가 없다.
+      writeVault: (): void => {
+        this.deps.vault.set(vaultKey, token.token, {
+          kind: authKind,
+          createdAt,
+          ...ifPresent('expiresAt', token.expiresAt)
+        })
+        if (refreshKey !== undefined && token.refreshToken !== undefined) {
+          this.deps.vault.set(refreshKey, token.refreshToken, { kind: authKind, createdAt })
+        }
+      }
+    }
   }
 
   // 입력 폼이 없는 흐름(OAuth·브라우저 세션)의 확인 실패는 `failed` 다 — 되돌려 보낼 폼이 없고,

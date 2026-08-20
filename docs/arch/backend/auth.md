@@ -351,18 +351,21 @@ change 가 나간다 — Harness cache 가 그 change 를 무시한다. 정착 �
 
 ```text
 gate Auth 를 순차 확인 (resuming step 노출)
-  → 통과하면 나머지 Auth 를 1회 병렬 확인 (step 미노출)
+  → 통과하면 GUI 는 대기 화면으로 — 아래가 끝날 때까지 메인 셸을 띄우지 않는다
+  → 나머지 Auth 중 status='valid' 인 것만 1회 병렬 확인 (step 미노출)
   → 성공한 verified 변화는 마지막 full-state push 한 번
-  → 확인에 실패해 강등된 나머지 Auth 는 순차로 자동 재로그인
+  → status='expired' 인 나머지 Auth 를 순차로 회복 — refresh 1회 → 실패면 재로그인
+  → 복원 종료를 알리는 push 1회 (대기 화면이 걷힌다)
 ```
 
 **순서가 규칙인 이유**: 사내 서비스는 대개 게이트와 같은 cookie jar 를 쓴다(`sessionGroup` 공유).
 로그인 전에 물으면 살아 있는 연결도 미인증으로 떨어지고, 한 번 강등되면 요청 정책이 막아 스스로
 회복하지 못한다(회복은 재인증뿐).
 
-**방송 상한 `1 + K`**: 성공은 batch 로 합치고 실패 강등 K 건만 즉시 push 한다. 강등을 미루면 죽은
-연결의 도구가 남은 probe 의 타임아웃만큼 화면에 남는다. 자동 재로그인을 한 번이라도 시도했으면
-그 결과를 알리는 push 가 한 번 더 붙는다(시도가 없으면 상한은 그대로다).
+**방송 상한**: probe 단계는 `1 + K` 다 — 성공은 batch 로 합치고 실패 강등 K 건만 즉시 push 한다.
+강등을 미루면 죽은 연결의 도구가 남은 probe 의 타임아웃만큼 화면에 남는다. 여기에 **복원 종료
+push 1회**가 항상 더해진다 — 게이트가 열린 시점에 `resuming: true` 가 이미 나갔으므로 시도가
+0건이어도 그것을 거둬야 한다.
 
 **강등된 나머지 Auth 의 자동 재로그인** (0193): probe 실패는 `expired` 강등으로 끝나고 요청 정책이
 그 뒤를 막아 스스로 회복하지 못하는데, 나머지 Auth 는 대개 게이트와 cookie jar 를 공유하므로 그
@@ -370,10 +373,25 @@ gate Auth 를 순차 확인 (resuming step 노출)
 
 | 축 | 규칙 | 이유 |
 |---|---|---|
-| 대상 | `methods` 의 첫 방식이 `browser-session`·`oauth` 인 것만 | 입력형은 입력 없이 부르면 네트워크를 타지 않고 전역 `input-required` step 만 남긴다 |
+| 대상 | 그 시점 `status='expired'` 인 나머지 Auth 전부 — 방금 강등된 것과 **부팅 시점에 이미 만료였던 것** | 만료 grant 는 `status!=='valid'` 라 probe 후보에 들어오지 못한다. 후보 배열을 회복 대상으로 쓰면 앱이 꺼진 사이 만료된 경우가 통째로 빠진다 |
+| 수단 | refresh 1회 → 실패·불가면 재로그인 | refresh 는 창을 열지 않아 성공하면 사용자가 아무것도 보지 못한다 |
+| 재로그인 대상 | `methods` 의 첫 방식이 `browser-session`·`oauth` 인 것만 | 입력형은 입력 없이 부르면 네트워크를 타지 않고 전역 `input-required` step 만 남긴다 |
+| refresh 대상 | grant 가 `token`+`refreshKey` 이고 `authKind='oauth'` 이며 선언이 `refresh` 를 구현한 것. **`methods[0]` 를 보지 않는다** | 재로그인 게이트가 입력형을 막는 이유(전역 입력 폼)가 refresh 에는 성립하지 않는다 — 창·폼·step 을 만들지 않는다 |
 | 횟수 | Auth 당 최대 3회 | 로그인 자체가 probe 를 포함하므로 확인 왕복은 그만큼 늘어난다 |
 | 계속 조건 | 확인 실패(`probe_failed`)만 다음 시도로 잇는다 | 취소·창 닫기·code 입력 대기는 사용자를 기다리는 상태다 — 닫은 창을 다시 열지 않는다 |
 | 동시성 | probe 는 병렬, 재로그인은 **순차** | `browser-session` 은 실제로 보이는 창을 열어서 병렬이면 창이 동시에 여러 개 뜬다 |
+
+refresh token 의 만료는 `Grant.refreshExpiresAt` 이 갖는다 — **없으면 "모른다" 지 "만료 없음" 이
+아니라서** 일단 시도하고 실패로 판정한다. 값이 있고 지났으면 왕복 없이 바로 재로그인한다. 갱신된
+토큰도 평소 로그인과 같은 커밋 경로를 탄다 — `probe` 를 통과해야 하고, access·refresh 를 둘 다 새
+세대 키에 쓴 뒤 grant 저장이 곧 커밋이다.
+
+**대기 화면** (0194): 게이트 통과부터 위 전부가 끝날 때까지 renderer 는 메인 셸을 띄우지 않는다.
+`ProviderPlatformState.resuming` 이 그 신호이고, 값은 `app/auth-resume.ts` 가 **파생**한다
+(`!배치종료 && gateOpen()`). 별도 플래그를 두면 방송 구독자와 배치 시작 구독자의 등록 순서에 정답이
+생기고, 순서가 뒤집히면 `{passed:true, resuming:false}` 가 한 번 나가 메인 셸이 한 프레임 뜬다.
+`gateOpen()` 재사용이 우회 빌드의 잠김도 함께 막는다 — 우회로 통과한 빌드는 배치를 아예 돌리지
+않으므로 대기 화면에 갇히면 안 된다.
 
 매 시도 직전에 상태를 다시 읽어 `expired` 일 때만 진행한다 — 그 사이 사용자가 해제했거나(`none`)
 직접 로그인을 시작했으면(`valid`) 건드리지 않는다. gate Auth 자신의 복원 실패는 대상이 아니다:

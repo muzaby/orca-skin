@@ -45,7 +45,8 @@ function runtime(descriptors: Record<string, AuthDescriptor>): AuthRuntime {
     login: () => Promise.reject(new Error('not used')),
     continue: () => Promise.reject(new Error('not used')),
     reauth: () => Promise.reject(new Error('not used')),
-    revoke: () => undefined
+    revoke: () => undefined,
+    refresh: () => Promise.resolve('unsupported')
   }
 }
 
@@ -162,11 +163,22 @@ describe('connectionState', () => {
     const auth = runtime({ a: { ...DESCRIPTOR, authId: 'a' } })
     const gate: Gate = { state: () => ({ required: true, passed: false, bypassed: false }) }
 
-    const state = connectionState(auth, gate, [{ category: 'gate', auth: bound('a') }])
+    const state = connectionState(auth, gate, [{ category: 'gate', auth: bound('a') }], false)
 
     expect(state.gate).toEqual({ required: true, passed: false, bypassed: false })
     expect(state.step).toEqual({ kind: 'resuming', providerId: 'corp-sso' })
     expect(state.providers).toHaveLength(1)
+    expect(state.resuming).toBe(false)
+  })
+
+  // renderer 가 파생할 수 없는 값이라 wire 로만 온다 — 싣지 않으면 대기 화면이 열리지 않는다.
+  it('복원 진행 여부를 그대로 싣는다', () => {
+    const auth = runtime({ a: { ...DESCRIPTOR, authId: 'a' } })
+    const gate: Gate = { state: () => ({ required: true, passed: true, bypassed: false }) }
+
+    const state = connectionState(auth, gate, [{ category: 'gate', auth: bound('a') }], true)
+
+    expect(state.resuming).toBe(true)
   })
 })
 

@@ -42,6 +42,9 @@ function parseGrant(raw: unknown): Grant | null {
         vaultKey: record.vaultKey,
         ...(typeof record.expiresAt === 'number' ? { expiresAt: record.expiresAt } : {}),
         ...(typeof record.refreshKey === 'string' ? { refreshKey: record.refreshKey } : {}),
+        ...(typeof record.refreshExpiresAt === 'number'
+          ? { refreshExpiresAt: record.refreshExpiresAt }
+          : {}),
         ...base
       }
     case 'session':
