@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-20 |
 | 매핑 | 0193 후속 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) |
 
 # Part I — Product & UX Contract
 
@@ -591,3 +591,9 @@ plan 의 Decision·Technical Design 은 코드로 그대로 옮겨졌다. **AC 2
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
+| D1 | **refresh 응답이 새 refresh token 을 주지 않으면 회복 능력을 영구히 잃는다.** `tokenCandidate` 가 `refreshKey` 를 만들지 않고(`login.ts:806-809`) `discardKeys(previous, …)`(`:549`)가 옛 refresh 키를 지운다 | verify r1 §13 — 실측 3관측(`'refreshed'` 반환 · 새 grant `refreshKey` = `undefined` · 2회차 `'unsupported'`) | **사용자 결정 대기.** ⓐ 새 값이 없으면 옛 `refreshKey` 승계 ⓑ 선언이 반드시 되돌려주도록 계약 문서에 명시 — 검증자가 고르지 않는다 | 미해결 |
+| D2 | **`refreshExpiresAt` 쓰기 경로에 눈이 없다.** `tokenCandidate` 의 `ifPresent('refreshExpiresAt', …)` 4줄을 지워도 `vitest run src/main/features/auth src/main/app` 이 **330/330 통과**한다 | verify r1 §9 적대 검증 | 회귀 1건(로그인/refresh 커밋이 grant 에 값을 싣는지) + §10 6행에 producer 지점 추가 | 미해결 |
+| D3 | **`auth-resume.ts:20-21` 모듈 헤더가 거짓이 됐다** — "재로그인이 0건이면 상한은 그대로" 인데 종료 push 는 `finally` 에서 무조건 나간다(`:217`). `auth.md §5.2` 만 갱신돼 두 사본이 갈렸다 | verify r1 §7 | 헤더 주석을 `1 + K + 1` 로 정정 · `bootstrap.ts:404-405` 도 종료 push 를 서술 | 미해결 |
+| D4 | **AC18·§16 이 shipped 코드와 모순인 채로 남아 있다.** D-008 이 요구하는 대기 화면은 `resuming:true` 를 거두는 push 없이 걷히지 않는다 | 구현 보고 I3·I4 + verify r1 §5 | **설계자 몫.** 사용자 결정(D-008) > 설계자 AC 이므로 AC18·§16·§10 `resuming` 행(2→3)을 정정 | 미해결 |
+| D5 | **renderer 가 `resuming` 을 셀렉터 밖에서 한 번 더 읽는다**(`RootGate.tsx:42`). §12 는 "읽는 곳은 `rootFrame()` 하나" 였다. `bootPhase !== 'ready'` + `resuming:true` 에서 부팅 스피너가 "연결 복원" 라벨을 단다 | verify r1 §3 | 라벨 선택도 `rootFrame` 반환값으로 내리거나, 현 동작을 의도로 적고 케이스를 추가 | 미해결 |
+| D6 | **unhandled rejection 노출이 넓어졌다** — `recoverExpired` 가 `remainingDefinitions` 전체에 `demoted()` 를 부르고 후보 0건 조기 반환이 사라졌다. 구현 보고의 "이번 변경이 넓히지 않았다" 를 정정한다 | verify r1 §12 | `finally` 덕에 화면 잠김은 없다 — 보고만, 처리는 범위 밖 | 보고만 |
