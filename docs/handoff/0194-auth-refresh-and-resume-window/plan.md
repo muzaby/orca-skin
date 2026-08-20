@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-20 |
 | 매핑 | 0193 후속 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) |
 
 # Part I — Product & UX Contract
 
@@ -701,9 +701,12 @@ r1 검증의 **D1·D2 를 닫았다.** D3·D4·D5·D6 은 손대지 않았다 �
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| D1 | **refresh 응답이 새 refresh token 을 주지 않으면 회복 능력을 영구히 잃는다.** `tokenCandidate` 가 `refreshKey` 를 만들지 않고(`login.ts:806-809`) `discardKeys(previous, …)`(`:549`)가 옛 refresh 키를 지운다 | verify r1 §13 — 실측 3관측(`'refreshed'` 반환 · 새 grant `refreshKey` = `undefined` · 2회차 `'unsupported'`) | **사용자 결정 대기.** ⓐ 새 값이 없으면 옛 `refreshKey` 승계 ⓑ 선언이 반드시 되돌려주도록 계약 문서에 명시 — 검증자가 고르지 않는다 | **해결 (r2)** — 사용자가 ⓐ 를 골랐고 값을 새 세대 키로 옮기는 방식으로 닫았다(D-014·AC21·AC23). `M16`·`M17` 검출 |
-| D2 | **`refreshExpiresAt` 쓰기 경로에 눈이 없다.** `tokenCandidate` 의 `ifPresent('refreshExpiresAt', …)` 4줄을 지워도 `vitest run src/main/features/auth src/main/app` 이 **330/330 통과**한다 | verify r1 §9 적대 검증 | 회귀 1건(로그인/refresh 커밋이 grant 에 값을 싣는지) + §10 6행에 producer 지점 추가 | **해결 (r2)** — §10 6행을 2지점으로 정정하고 AC22 4케이스를 신설했다. `M19` 가 이제 3케이스를 실패시킨다 |
-| D3 | **`auth-resume.ts:20-21` 모듈 헤더가 거짓이 됐다** — "재로그인이 0건이면 상한은 그대로" 인데 종료 push 는 `finally` 에서 무조건 나간다(`:217`). `auth.md §5.2` 만 갱신돼 두 사본이 갈렸다 | verify r1 §7 | 헤더 주석을 `1 + K + 1` 로 정정 · `bootstrap.ts:404-405` 도 종료 push 를 서술 | 미해결 |
-| D4 | **AC18·§16 이 shipped 코드와 모순인 채로 남아 있다.** D-008 이 요구하는 대기 화면은 `resuming:true` 를 거두는 push 없이 걷히지 않는다 | 구현 보고 I3·I4 + verify r1 §5 | **설계자 몫.** 사용자 결정(D-008) > 설계자 AC 이므로 AC18·§16·§10 `resuming` 행(2→3)을 정정 | 미해결 |
-| D5 | **renderer 가 `resuming` 을 셀렉터 밖에서 한 번 더 읽는다**(`RootGate.tsx:42`). §12 는 "읽는 곳은 `rootFrame()` 하나" 였다. `bootPhase !== 'ready'` + `resuming:true` 에서 부팅 스피너가 "연결 복원" 라벨을 단다 | verify r1 §3 | 라벨 선택도 `rootFrame` 반환값으로 내리거나, 현 동작을 의도로 적고 케이스를 추가 | 미해결 |
+| D1 | **refresh 응답이 새 refresh token 을 주지 않으면 회복 능력을 영구히 잃는다.** `tokenCandidate` 가 `refreshKey` 를 만들지 않고(`login.ts:806-809`) `discardKeys(previous, …)`(`:549`)가 옛 refresh 키를 지운다 | verify r1 §13 — 실측 3관측(`'refreshed'` 반환 · 새 grant `refreshKey` = `undefined` · 2회차 `'unsupported'`) | **사용자 결정 대기.** ⓐ 새 값이 없으면 옛 `refreshKey` 승계 ⓑ 선언이 반드시 되돌려주도록 계약 문서에 명시 — 검증자가 고르지 않는다 | **해결 확인 (verify r2)** — 검증자가 심은 `MV1`(만료 우선순위)·`MV2`(승계 무조건화)가 각각 1건·2건을 실패시킨다 |
+| D2 | **`refreshExpiresAt` 쓰기 경로에 눈이 없다.** `tokenCandidate` 의 `ifPresent('refreshExpiresAt', …)` 4줄을 지워도 `vitest run src/main/features/auth src/main/app` 이 **330/330 통과**한다 | verify r1 §9 적대 검증 | 회귀 1건(로그인/refresh 커밋이 grant 에 값을 싣는지) + §10 6행에 producer 지점 추가 | **해결 확인 (verify r2)** — r1 이 330/330 을 통과시킨 그 변이를 검증자가 다시 심으니 **3케이스 실패**(`MV4`) |
+| D3 | **`auth-resume.ts:20-21` 모듈 헤더가 거짓이 됐다** — "재로그인이 0건이면 상한은 그대로" 인데 종료 push 는 `finally` 에서 무조건 나간다(`:217`). `auth.md §5.2` 만 갱신돼 두 사본이 갈렸다 | verify r1 §7 | 헤더 주석을 `1 + K + 1` 로 정정 · `bootstrap.ts:404-405` 도 종료 push 를 서술 | **미해결 유지** (verify r2 재확인) |
+| D4 | **AC18·§16 이 shipped 코드와 모순인 채로 남아 있다.** D-008 이 요구하는 대기 화면은 `resuming:true` 를 거두는 push 없이 걷히지 않는다 | 구현 보고 I3·I4 + verify r1 §5 | **설계자 몫.** 사용자 결정(D-008) > 설계자 AC 이므로 AC18·§16·§10 `resuming` 행(2→3)을 정정 | **미해결 유지** (verify r2 재확인) |
+| D5 | **renderer 가 `resuming` 을 셀렉터 밖에서 한 번 더 읽는다**(`RootGate.tsx:42`). §12 는 "읽는 곳은 `rootFrame()` 하나" 였다. `bootPhase !== 'ready'` + `resuming:true` 에서 부팅 스피너가 "연결 복원" 라벨을 단다 | verify r1 §3 | 라벨 선택도 `rootFrame` 반환값으로 내리거나, 현 동작을 의도로 적고 케이스를 추가 | **미해결 유지** (verify r2 재확인) |
 | D6 | **unhandled rejection 노출이 넓어졌다** — `recoverExpired` 가 `remainingDefinitions` 전체에 `demoted()` 를 부르고 후보 0건 조기 반환이 사라졌다. 구현 보고의 "이번 변경이 넓히지 않았다" 를 정정한다 | verify r1 §12 | `finally` 덕에 화면 잠김은 없다 — 보고만, 처리는 범위 밖 | 보고만 |
+| D7 | **갱신 커밋이 옛 grant 의 `principalId` 를 잃는다.** 응답이 그 필드를 다시 말하지 않으면 새 grant 에서 사라진다 — D1 과 **같은 문장의 다른 필드**다 | verify r2 §1~3 — 스크래치 실측(`'kim@corp'` → `AFTER REFRESH principalId = undefined`) | 소비자는 `runtime.ts:141` → `connection-views.ts:74` `principal` → `ProviderDetail.tsx:93` (표시 전용, 게이트는 D-001 로 대상 밖). **승계 범위를 `Grant` 필드 전수로 올릴지**가 결정 지점이다 | 미해결 |
+| D8 | **배포가 읽는 유일한 oauth 예제가 `refresh` 포트를 모른다.** `docs/guides/closed-network-extensions.md` §3-b 는 "`authorize(ctx)` **하나만** 채운다" 이고 예제 `exchange` 도 `{token, expiresAt}` 만 돌려준다 | verify r2 §11 — plan §15 가 지시한 문서인데 r1·r2 모두 갱신 0(`git log -- <file>` 최근 커밋 3건이 전부 0194 이전) | 그 절에 `refresh?`·`refreshToken`·`refreshExpiresAt` 을 더한다. 갱신 없이는 실제 배포에서 0194 의 창 없는 회복이 켜지지 않는다 | 미해결 |
+| D9 | **`refreshKey`↔`refreshExpiresAt` 짝 불변식에 눈이 없다.** `tokenCandidate` 주석은 "짝으로만 싣는다" 인데 조건을 지워도 `vitest run src/main/features/auth src/main/app` 이 **338/338 통과** | verify r2 §6 `MV3` | 동작 결과는 안 바뀐다(`refreshSecret` 이 `refreshKey === undefined` 를 먼저 접는다) — 케이스 1건을 더하거나 주석의 계약 표현을 낮춘다 | 미해결 |

@@ -1,5 +1,159 @@
 # Verify — 0194-auth-refresh-and-resume-window
 
+# r2 — 2026-08-20 · **FAIL**
+
+> r1 판정 원문은 아래 [`# r1`](#r1--2026-08-20--fail-원문-보존)에 그대로 둔다. 이 절은 **r2 에서 달라진 것만** 적는다.
+
+## 메타 (r2)
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `ddf180a..b9b05c4` (구현 `7c60433`) |
+| 구현 전 plan 기준 | `064c06a`(원 설계) · r1 판정 `ddf180a` |
+| 라운드 | 2 |
+| 상태 | **FAIL** |
+| 다음 주체 | **사람/설계자**(D4) + **구현자**(D3·D5·D7) |
+| 자기 검증 여부 | 예 — 설계·구현·검증이 모두 Claude Code |
+
+**한 줄 판정**: r1 의 **D1·D2 는 내 변이로 닫힌 것을 확인**했지만, **AC18 은 원 기준으로 여전히 ❌**이고 D3·D5 는 손대지 않은 채이며, **같은 축의 결함이 하나 더 살아 있다** — 갱신 커밋이 옛 grant 의 `principalId` 를 잃는다(실측). 그래서 FAIL 이다.
+
+## 0. 기준선 (r2)
+
+- **기준선이 diff 로 성립한다** — r1 판정 커밋 `ddf180a` 와 구현 커밋 `7c60433` 이 갈려 있다.
+- **AC 원문 무변경 · 신설 3건.** `git show 7c60433 -- …/plan.md` 의 §7 hunk 는 **추가 3줄뿐**(AC21~AC23)이고 AC1~AC20 은 문맥 줄로만 나온다 — **AC18 은 한 글자도 바뀌지 않았다**. 완화·재작성 0건.
+- Decision Ledger: **D-014 1건 추가 · SUPERSEDED 0.** 문면이 r1 이 올린 D1 의 선택지 ⓐ 와 일치한다.
+- **다만 사용자 원문 사본이 저장소에 없어 "사용자 선택 2026-08-20" 이라는 provenance 자체는 확인 불가**다. 이 사실을 적고 D-014 를 새 기준으로 받는다 — 방향이 r1 이 제시한 ⓐ 와 같고 기존 결정을 바꾸지 않기 때문이다.
+- 구현자가 고친 Part II 2곳은 **전부 r1 파생 이슈가 지시한 것**이다: §10 6행(D2 — 1→2지점, `(r2 정정)` 표식) · §10 승계 행 신설(D-014).
+- **안 고친 것도 기준선이다**: §10 `resuming` 행은 여전히 `2지점`(실제 3) · §16 "방송 상한 … **유지**" 행 무변경 — 둘 다 D4 대기이고 이번 채점은 원 기준 그대로 한다.
+
+## 1~3. 구현 비판적 읽기 / 역방향 (r2)
+
+- **실행 변경은 `LoginService.refresh` 한 블록이 전부다** — `login.ts:392-402` 의 `carried` 상수와 `tokenCandidate(…, carried)` 인자 1개. `contracts/auth.ts` `+5` 는 전부 주석(`:172-176`)이다.
+- 그래서 r1 의 §1~§3 판정은 그대로 성립하고, 이번에 새로 볼 표면은 **갱신 커밋 경로 하나**다.
+- `scan-surface.sh ddf180a..b9b05c4`: 미사용 값 export **0건** · 형제 정책 비대칭 **0건** · 테스트 전용 1건(`LoginDeps` — 타입, 프로덕션 생성자 인자라 정상).
+- **테스트가 프로덕션 계약을 잠그는가**: ✅ — 신규 8케이스가 실물 `LoginService`·`AuthStore`·`createVault` 를 세워 `login.refresh('wiki')` 를 부른다. 같은 형상의 로컬 재구현 0건.
+- **부분 실패 잔여**: 승계는 되돌리기와 어긋나지 않는다. 금고 실패 지점을 **두 번째 쓰기(승계된 refresh)로 옮겨도** 옛 쌍이 그대로 살아남는다(§6 MV5).
+- **기준 밖 결함 1건 — 신규.** 갱신 커밋이 옛 grant 의 `principalId` 를 승계하지 않는다 → **D7**. 실측: `principalId:'kim@corp'` 를 심고 회전 응답으로 `refresh()` → `AFTER REFRESH principalId = undefined`. 소비자는 `runtime.ts:141` → `connection-views.ts:74` → `ProviderDetail.tsx:93`.
+
+## 4. 구현 보고 재측정 — 보고를 증거로 쓰지 않는다
+
+| 보고 값 | 내 재측정 | 결과 |
+|---|---|---|
+| D1 닫힘 | MV2(승계 무조건화) → 회전 2케이스 실패 · MV1(만료 우선순위 뒤집기) → 1케이스 실패 | ✅ |
+| D2 닫힘 | **r1 이 330/330 통과시킨 그 변이**를 다시 심으니 3케이스 실패 (§6 MV4) | ✅ |
+| 강제 지점 `16/16` | §5 표에서 지점별 현재 좌표로 다시 셈 — **16** | ✅ |
+| AC `22✅/1❌ = 23` | §7 행 재계수 **23** · 내 채점도 22✅/1❌ | ✅ 일치 |
+| `+8` 케이스 (1,997 → 2,005) | `vitest run` → **2,005** · `login.test.ts` **46** | ✅ |
+| 게이트 산출 5종 | §8 재실행에서 전부 같은 값 | ✅ |
+| "게이트가 트리를 바꾸지 않았다" | 내 실행도 lint 전후 `git status --short` 둘 다 빈 출력 | ✅ |
+
+## 5. AC 재검증 — 신규 3건 + AC18
+
+| # | 결과 | 이번 턴 관측 |
+|---|---|---|
+| AC1~AC17 · AC19 · AC20 | ✅ 유지 | 실행 변경이 `refresh` 한 블록에 갇혀 있고, 관련 **18파일 275케이스**가 이번 턴에 전건 green. r1 관측 원문은 아래 r1 §5 |
+| AC18 | ❌ **미충족 유지** | 기존 2케이스가 여전히 무수정이 아니다 — `auth-resume.test.ts:353` `toHaveBeenCalledTimes(2)`(원 1) · `:371` `(4)`(원 3) |
+| AC21 | ✅ | `응답에 refresh token 이 없으면 옛 값을 새 세대 키로 옮긴다` — `refreshOf`=`'old-refresh-value'` · `refreshKey`≠옛 키 · 옛 키 2개 금고에서 사라짐. `승계한 뒤에도 다시 갱신할 수 있다` — 2회차 `refreshed`, `calls`=같은 값 2회 |
+| AC22 | ✅ 4케이스 | 9,999 승계 · 50,000 이 이김 · 회전이면 `undefined` · 회전+만료면 77,000. MV1 이 두 번째 케이스로 검출된다 |
+| AC23 | ✅ 2케이스 | probe 거부 → 옛 access·refresh 둘 다 생존 · 금고 쓰기 실패 → 같음. **기준을 좁혀 실패 지점을 두 번째 쓰기로 옮겨도 46/46 green**(§6 MV5) |
+
+- **합계 재측정**: `✅ 22 · ⚠️ 0 · ❌ 1 = 총 23`. 분모는 `awk '/^## 7\. Acceptance/,/^### AC 검증/' | grep -cE "^\| AC[0-9]+ \|"` → **23**. r1 의 20 과 직접 비교하지 않는다(AC21~23 신설).
+- **자기보고와 갈림 0건.** r1 은 AC18 에서 ⚠️↔❌ 로 갈렸고 이번 라운드는 세 사본(본문·trailer·INDEX)과 내 채점이 모두 `22/23` 이다.
+
+### plan §10 강제 지점 표 (r2) — AC와 별개로 걷는다
+
+| 계약/필드 | plan 기재 | 코드에서 확인한 지점 (현재 좌표) | 결과 |
+|---|---|---|---|
+| 회복 대상 = 그 시점 `expired` | 2 | `auth-resume.ts:178` `continue` · `:116` 재로그인 루프 머리 | 2/2 ✅ |
+| refresh 가능 판정 한 곳 | 1 | `login.ts:360-370` 4판정이 한 함수 안 | 1/1 ✅ |
+| refresh 1회 · 재로그인 3회 | 2 | `refreshOnce`(`:152`) 루프 부재 · `MAX_RELOGIN_ATTEMPTS`(`:48`)+루프(`:114`) | 2/2 ✅ |
+| probe 통과 후에만 커밋 | 1 | `login.ts:404` `settleGrant` | 1/1 ✅ |
+| 새 세대 키 2개 | 1 | `tokenCandidate.writeVault`(`:846-856`) | 1/1 ✅ |
+| `refreshExpiresAt` 영속 (r2 정정 1→2) | 2 | ① 커밋 쓰기 `login.ts:835-838` ② 부팅 파싱 `store-parse.ts:45` | 2/2 ✅ **눈이 생겼다**(MV4) |
+| **미회전 시 값 승계 (D-014)** | 1 | `login.ts:392-402` — `tokenCandidate` 직전 1지점 | 1/1 ✅ (MV1·MV2) |
+| `resuming` 파생 | **2** (미정정) | `bootstrap.ts:367` · `handlers/providers.ts:47` · `rootFrame.ts:30` | **3/3** ✅ 지점 수는 여전히 D4 |
+| `remainingSettled` 는 `finally` | 1 | `auth-resume.ts:211-214` | 1/1 ✅ |
+| 판정·상태의 문서 사본 | 2 | `plan.md` 메타 · `INDEX.md` 행 둘 다 `IMPL_DONE (r2)` | 2/2 ✅ |
+
+- **plan 기재 합계 15**(2+1+2+1+1+2+1+2+1+2) **∖ 실제 닫힌 16 = 0** · 닫힌 16 ∖ plan 15 = **1**(`connectionState` invoke — r1 I4, D4 대기). 구현 보고 `16/16` 과 일치한다.
+- 표에 없는데 같은 불변식이 필요한 지점 — **1건 신규**: 갱신 커밋이 **옛 grant 의 필드를 승계하는 범위**. 표는 `refreshToken`·`refreshExpiresAt` 두 필드만 지점으로 갖고 `principalId` 는 어느 행에도 없다 → D7.
+
+## 6. 더 좁힌 기준 — 내가 심은 변이 5건
+
+구현이 심은 `M16`~`M19` 를 그대로 다시 돌리는 것은 재현이지 검증이 아니다. 구현이 심지 **않은** 자리에 심고, 기준을 한 단계 좁혔다.
+
+| 변이 | 심은 곳 | 실행 산출 | 판정 |
+|---|---|---|---|
+| MV1 만료 우선순위 뒤집기 (`grant ?? token`) | `login.ts:401` | `응답이 만료만 새로 주면 그 값이 이긴다` 1건 실패 (45/46) | ✅ 눈 있음 |
+| MV2 승계 무조건화 (회전 무시) | `login.ts:393` | 2건 실패 — `access·refresh 둘 다 새 세대 키에` · `회전 응답은 새 값으로 갈아끼우고…` | ✅ 눈 있음 |
+| MV3 `refreshKey`↔`refreshExpiresAt` 짝 조건 제거 | `login.ts:836-837` | `vitest run src/main/features/auth src/main/app` → **338/338 통과** | ❌ **눈 없음** → D9 |
+| MV4 = r1 D2 변이 재현 (쓰기 4줄 제거) | `login.ts:835-838` | **3건 실패** (r1 에서는 330/330 통과였다) | ✅ D2 닫힘 |
+| MV5 금고 실패를 **두 번째 쓰기**(승계된 refresh)로 이동 — 테스트 측 기준 강화 | `login.test.ts` AC23 케이스 | **46/46 통과** | ✅ 불변식이 두 쓰기 위치 모두에서 성립 |
+
+- 다섯 건 모두 실행 후 원복하고 `git status --short` 빈 출력으로 트리 복원을 확인했다.
+- **MV3 의 차집합이 비어 있지 않다**: `tokenCandidate` 주석이 "refresh 키가 없으면 그 만료도 의미가 없다 — 짝으로만 싣는다" 를 계약처럼 적었는데 그 문장을 지키는 케이스가 0건이다. 동작 결과는 바뀌지 않는다(`refreshSecret` 이 `refreshKey === undefined` 를 먼저 접는다) → D9 로 남긴다.
+
+## 7. 숫자 / 상한 재측정 (r2)
+
+- **AC 분모 23** · **§10 지점 15 기재 / 16 실측** — 위 §5.
+- **vitest 205 파일 · 2,005 케이스 · 1,963 pass / 42 fail** · `login.test.ts` **46**(r1 38 +8) · 관련 18파일 **275** green.
+- **금고 쓰기 수가 미회전 응답에서 1 → 2 로 늘었다** — 옛 값을 새 키에 옮겨 적으므로. 삭제도 짝으로 늘어(`discardKeys(previous, …)`) **보관 키 총수는 불변**이다.
+- **요청 상한 `4N` 불변** — 승계는 왕복을 늘리지 않는다(refresh 1회 그대로).
+- 0건 게이트의 정당한 예외 보존 ✅ — `refreshExpiresAt` 미선언은 여전히 "모른다 → 시도"(D-009).
+
+## 8. 게이트 재실행 (r2)
+
+- 적용 정본 `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드`. **`npm test` 미사용**.
+- **관측한 실행 산출**(exit code 아님):
+  - typecheck — node·web·test **3/3, error 0**.
+  - lint — **0 error / 1 warning**(`useTranscriptVirtualizer.ts:22`, 0102 베이스라인).
+  - vitest 전체 — **205 파일 · 2,005 케이스**, `1,963 pass / 42 fail`.
+  - vitest 관련 — `features/auth`·`auth-resume`·`connection-views`·`handlers/providers`·`renderer/src/app` = **18 파일 / 275 케이스 전건 green**.
+  - scripts — `# tests 49 # suites 7 # pass 49 # fail 0`.
+  - doc-inventory — `generated doc ok (9 items, 76 channels)` · `prose ok` · `links ok` · **차이 0**.
+- **환경 기인 실패 분리**: 42 red = **5파일**(`app/chat-turn.continuity` · `extensions/builder` · `orchestration/fork` · `infra/db/migrate` · `infra/db/queries`)이고 `app/AGENTS.md:135` 의 알려진 집합과 **정확히 같다**. 서명은 `Module did not self-register` · `Electron failed to install`.
+- **게이트가 트리를 바꿨는가**: 아니다 — lint 전후 `git status --short` 둘 다 빈 출력.
+- **내 명령의 잔여물**: 스크래치 테스트 1건(`zz-scratch-principal.test.ts`)을 만들어 D7 을 관측하고 삭제했다. 삭제 후 트리 빈 출력 확인.
+
+## 9. Repository operation checks (r2)
+
+- `AGENTS.md` 변경 **0건** — range 6파일(`git diff --stat ddf180a..b9b05c4`)에 없다.
+- **INDEX 정합** ✅ — `impl` · `IMPL_DONE (r2)` · 다음 주체 `Claude(검증)+사람(D4)` · 대상 커밋 `7c60433` · 라운드 2 가 실제 상태와 맞았다. 비고는 **523자 / 711바이트**로 5줄 이내(0193 PASS 행 300자와 같은 자릿수).
+- **trailer** ✅ — `7c60433` 6줄 · `b9b05c4` 4줄이 `git interpret-trailers --parse` 로 전부 파싱되고 값이 root `AGENTS.md` 허용값이다. 구현 커밋에만 `Criteria-*`, 둘 다 `Verified-By: pending`.
+- **인용 해시 실재** ✅ — `git rev-parse` 로 `7c60433`·`b9b05c4` 둘 다 해석. plan `대상 커밋` 과 INDEX 가 같은 값이다.
+- **합계 사본 3곳 일치** ✅ — 본문 `22/23` ↔ trailer `Criteria-Met: 22/23` ↔ INDEX `AC 22✅/1❌ = 23`. 0190 의 갈림 축은 이번에도 재현되지 않았다.
+- reference/script 이동·삭제 **0건**.
+
+## 10. 파생 이슈 (r2)
+
+- **D1 · D2 — 해결 확인.** 내 변이로 닫힌 것을 재측정했다(§4·§6). `plan.md` 표의 상태 칸을 갱신했다.
+- **D3 · D4 · D5 — 미해결 유지.** r2 가 손대지 않았고 코드에서 그대로 확인된다: `auth-resume.ts:20-21` 헤더가 여전히 "재로그인이 0건이면 이 상한은 그대로다" 인데 종료 push 는 `:217` 에서 무조건 나간다(같은 파일 `:215-217` 주석이 스스로 그것을 설명한다) · `bootstrap.ts:404-405` 도 종료 push 를 서술하지 않는다 · `RootGate.tsx:42` 가 `gate.resuming` 을 셀렉터 밖에서 한 번 더 읽는다.
+- **D6 — 보고만 유지.**
+- 신규 **D7 · D8 · D9** 는 `plan.md` 의 `[검증자 기입] 파생 이슈` 로 이관했다.
+
+## 11. Review Signals (r2) — 사실만
+
+- **같은 축의 재발이 같은 handoff 안에서 일어났다.** r1 D1("갱신 커밋이 옛 `refreshToken` 을 잃는다")과 이번 D7("같은 커밋이 옛 `principalId` 를 잃는다")은 같은 문장의 다른 필드다. r2 는 사용자 결정이 **이름 붙인 두 필드**(`refreshToken`·`refreshExpiresAt`)를 닫았고 `Grant` 의 나머지 필드는 세지 않았다.
+- **관련 plan 지침**: §15 "semantics 검증" 이 3의미(`failed`·`unsupported`·커밋 거부)만 열거했고 r2 가 네 번째(미회전)를 더했다. "응답이 옛 grant 의 다른 필드를 말하지 않는다" 는 다섯 번째는 여전히 목록 밖이다.
+- **plan §15 가 지시한 문서 중 하나가 두 라운드 모두 갱신되지 않았다** — `docs/guides/closed-network-extensions.md` §3-b(D8). AC20 이 그 파일을 이름으로 갖지 않아 AC 채점에 걸리지 않았다.
+- **사용자 결정 변경 근거**: D-014 는 사용자 선택으로 기록됐고 저장소 안에 원문 사본은 없다. 기존 결정 SUPERSEDE 0건.
+- **반복된 검증 환경 한계**: electron 미설치 + better-sqlite3 ABI 로 5파일 42케이스 red — r1·0193 r1/r2 와 같은 서명.
+- 현재 라운드 **2**. 다음 재구현이 라운드 3이고, **3을 초과하면(라운드 4) `handoff-review` 진입 조건**이다.
+
+## 12. 결론 (r2)
+
+- 상태: **FAIL (r2)**
+- **닫힌 것**: D1(승계) · D2(쓰기 지점의 눈). 둘 다 구현 보고가 아니라 **내 변이 실행 산출**로 확인했다.
+- **막는 것 5건**: AC18 ❌(원 기준) · D3(코드 헤더 drift) · **D4(사람/설계자 결정)** · D5(셀렉터 밖 읽기) · **D7(신규 — `principalId` 승계 누락)**.
+- **AC**: `✅ 22 · ❌ 1 = 23`, 자기보고와 갈림 0건. **강제 지점 16/16**(plan 기재 15 + invoke 1).
+- **repository operation mismatch 0** — INDEX·trailer·해시·doc-inventory·합계 사본 전건 정합.
+- **남은 사람 확인**: D4 의 AC18·§16·§10 정정 승인 · 스피너 시각 품질(r1 §8 그대로).
+- **다음 단계**: D4 를 사람/설계자가 정정한 뒤 구현자가 D3·D5·D7 을 닫는다. D8·D9 는 같은 라운드에 함께 처리할 수 있다.
+
+---
+
+# r1 — 2026-08-20 · FAIL (원문 보존)
+
 ## 메타
 
 | 항목 | 값 |
