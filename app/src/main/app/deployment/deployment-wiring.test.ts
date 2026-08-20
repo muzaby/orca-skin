@@ -356,7 +356,7 @@ describe('가상 배포 — 카탈로그 row', () => {
       plugins
     })
 
-    const state = connectionState(auth, gate, connections)
+    const state = connectionState(auth, gate, connections, false)
 
     // r2 는 harness·usage row 를 만들 자리가 없어 이 둘이 통째로 빠졌다 — 카탈로그에 없으면
     // 사용자가 로그인할 방법이 없다.

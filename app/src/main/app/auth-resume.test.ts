@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type {
   AuthChange,
   AuthDefinition,
+  AuthRefreshResult,
   AuthMethod,
   AuthMethodKind,
   AuthId,
@@ -94,6 +95,10 @@ interface FakeState {
   probeOk: boolean
   // 재로그인 시도가 차례로 돌려줄 결말. 다 쓰면 마지막 값을 반복한다. 미지정이면 계속 실패한다.
   logins?: readonly LoginOutcome[]
+  // refresh 가 돌려줄 결과. 미지정이면 `unsupported` — 대다수 배포(선언에 refresh 없음)의 형상이다.
+  // **가능 판정은 여기서 흉내내지 않는다** — 그것은 `LoginService.refresh` 의 몫이고
+  // (계약 §10) 이 모듈은 결과만 본다. 판정 자체는 `features/auth/login.test.ts` 가 잠근다.
+  refresh?: AuthRefreshResult | 'throws'
 }
 
 // 실제 `AuthRuntime` 을 흉내내되 **순서를 관측할 수 있게** 한다: resume 진입/이탈을 로그에
@@ -198,6 +203,18 @@ function fakeRuntime(
       }
       return stepOf(authId, outcome)
     },
+    async refresh(authId) {
+      log.push(`refresh:${authId}`)
+      const state = states.get(authId)
+      const outcome = state?.refresh ?? 'unsupported'
+      if (outcome === 'throws') throw new Error(`refresh exploded: ${authId}`)
+      // 성공만 상태를 바꾼다 — 실패한 refresh 는 아무것도 쓰지 않는다(`settleGrant` 계약).
+      if (outcome === 'refreshed' && state) {
+        state.status = 'valid'
+        state.verified = true
+      }
+      return outcome
+    },
     continue: () => Promise.reject(new Error('not used')),
     reauth: () => Promise.reject(new Error('not used')),
     revoke: () => undefined
@@ -289,8 +306,9 @@ describe('createAuthResume — 순서', () => {
     }).run()
 
     expect(log).toEqual([])
-    // 후보가 0건이면 batch push 도 재시도 push 도 없다.
-    expect(broadcast).toHaveBeenCalledTimes(0)
+    // 후보가 0건이라 batch push 도 회복 시도도 없다. 그래도 **복원 종료 push 1회는 있다**
+    // (0194) — 게이트가 열린 시점에 `resuming:true` 가 이미 나갔으므로 그것을 거둬야 한다.
+    expect(broadcast).toHaveBeenCalledTimes(1)
   })
 
   it('나머지는 병렬로 묻는다 — 직렬이면 probe 타임아웃이 Auth 수만큼 쌓인다', async () => {
@@ -330,8 +348,9 @@ describe('createAuthResume — 방송 상한 1 + K (0187 D2 승계)', () => {
       pushConnectionState: broadcast
     }).run()
 
-    // 성공 3건은 `emitVerifiedChange:false` 로 억제되고 마지막 push 하나로 합쳐진다.
-    expect(broadcast).toHaveBeenCalledTimes(1)
+    // 성공 3건은 `emitVerifiedChange:false` 로 억제되고 batch push 하나로 합쳐진다(`1 + K`,
+    // K=0). 여기에 복원 종료 push 1회가 더해진다(0194) — probe 단계의 상한은 그대로다.
+    expect(broadcast).toHaveBeenCalledTimes(2)
   })
 
   it('실패 K 건은 즉시 방송된다 — 총 1 + K', async () => {
@@ -348,7 +367,8 @@ describe('createAuthResume — 방송 상한 1 + K (0187 D2 승계)', () => {
     }).run()
 
     // K=2 — 죽은 연결의 도구가 남은 probe 타임아웃만큼 화면에 남지 않도록 즉시 낸다.
-    expect(broadcast).toHaveBeenCalledTimes(3)
+    // probe 단계는 `1 + K` = 3 으로 불변이고, 복원 종료 push 1회가 더해진다(0194).
+    expect(broadcast).toHaveBeenCalledTimes(4)
   })
 })
 
@@ -483,8 +503,8 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
       }).run()
 
       expect(loginsOf(log, 'wiki')).toEqual([])
-      // 시도 0건 — 강등 즉시 방송 1(K=1) + batch push 1 로 끝난다.
-      expect(broadcast).toHaveBeenCalledTimes(2)
+      // 강등 즉시 방송 1(K=1) + batch push 1 + 복원 종료 push 1.
+      expect(broadcast).toHaveBeenCalledTimes(3)
     }
   )
 
@@ -528,7 +548,8 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
 
     await flush()
     // probe 는 병렬(enter 두 개가 먼저), 로그인은 a 하나만 떠 있다.
-    expect(log).toEqual(['enter:a', 'enter:b', 'exit:a', 'exit:b', 'login:a:1'])
+    // refresh 가 재로그인보다 **먼저**다 — 창을 열지 않으므로 먼저 시도한다(0194 AC4).
+    expect(log).toEqual(['enter:a', 'enter:b', 'exit:a', 'exit:b', 'refresh:a', 'login:a:1'])
     releaseLogin('a')
     await flush()
     expect(log).toContain('login:b:1')
@@ -577,9 +598,9 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
     }).run()
 
     expect(loginsOf(log, 'wiki')).toEqual([])
-    // **`attempted` 의 반대편**: 루프에 들어갔지만 시도가 0건이면 마지막 push 가 붙지 않는다.
-    // 강등이 없어 K=0 이므로 batch push 1 회가 전부다.
-    expect(broadcast).toHaveBeenCalledTimes(1)
+    // 강등이 없어 K=0 → batch push 1 + 복원 종료 push 1. (0193 의 조건부 `attempted` push 는
+    // 0194 에서 무조건 종료 push 로 대체됐다 — 시도가 없어도 `resuming` 을 거둬야 한다.)
+    expect(broadcast).toHaveBeenCalledTimes(2)
   })
 
   it('gate Auth 의 복원 실패는 재로그인하지 않는다 — 대상은 나머지 Auth 뿐이다', async () => {
@@ -606,6 +627,9 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
     }).run()
 
     expect(logger.mock.calls).toEqual([
+      // refresh 가 먼저 시도되고(불가) 그 다음이 재로그인이다.
+      ['auth.resume.refresh.start', { authId: 'wiki' }],
+      ['auth.resume.refresh.result', { authId: 'wiki', result: 'unsupported' }],
       ['auth.resume.relogin.start', { authId: 'wiki', attempt: 1 }],
       [
         'auth.resume.relogin.result',
@@ -655,6 +679,261 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
 
     // 강등 즉시 방송 1(K=1) + batch push 1 + 재시도 push 1.
     expect(broadcast).toHaveBeenCalledTimes(3)
+  })
+})
+
+// ── 0194 ────────────────────────────────────────────────────────────────────
+
+// 부팅 시점에 **이미 시계상 만료된** grant. probe 후보 필터(`status==='valid'`)에 걸리지
+// 않으므로 0193 까지는 회복 대상 밖이었다 — 앱이 꺼져 있는 동안 토큰이 만료된 형상이다.
+const stale = (patch?: Partial<FakeState>): FakeState => ({
+  status: 'expired',
+  verified: false,
+  probeOk: true,
+  ...patch
+})
+
+describe('createAuthResume — 부팅 시점에 이미 만료된 grant (0194)', () => {
+  it('probe 후보가 아니어도 회복 대상이다 — 재로그인을 시도한다', async () => {
+    const { auth, log, broadcast } = fakeRuntime({ wiki: stale({ logins: ['done'] }) })
+    await createAuthResume({
+      auth,
+      gateDefinitions: [],
+      remainingDefinitions: [session('wiki')],
+      pushConnectionState: broadcast
+    }).run()
+
+    expect(loginsOf(log, 'wiki')).toEqual(['login:wiki:1'])
+  })
+
+  it('만료된 것에는 probe 를 묻지 않는다 — 정책이 요청 자체를 막는다', async () => {
+    const { auth, log, broadcast } = fakeRuntime({ wiki: stale({ logins: ['done'] }) })
+    await createAuthResume({
+      auth,
+      gateDefinitions: [],
+      remainingDefinitions: [session('wiki')],
+      pushConnectionState: broadcast
+    }).run()
+
+    expect(log).not.toContain('enter:wiki')
+  })
+
+  it('probe 후보가 0건이어도 회복 패스는 돈다 — 조기 반환이 회복을 건너뛰지 않는다', async () => {
+    // 전건이 만료라 probe 대상이 하나도 없다. 0193 은 여기서 조기 반환해 회복이 통째로 없었다.
+    const { auth, log, broadcast } = fakeRuntime({
+      wiki: stale({ logins: ['done'] }),
+      jira: stale({ logins: ['done'] })
+    })
+    await createAuthResume({
+      auth,
+      gateDefinitions: [],
+      remainingDefinitions: [session('wiki'), session('jira')],
+      pushConnectionState: broadcast
+    }).run()
+
+    expect(log.filter((entry) => entry.startsWith('enter:'))).toEqual([])
+    expect(loginsOf(log, 'wiki')).toEqual(['login:wiki:1'])
+    expect(loginsOf(log, 'jira')).toEqual(['login:jira:1'])
+  })
+
+  it('만료됐어도 입력형이면 재로그인하지 않는다 — probe 단계 방송 상한도 그대로다', async () => {
+    const { auth, log, broadcast } = fakeRuntime({ wiki: stale({ logins: ['done'] }) })
+    await createAuthResume({
+      auth,
+      gateDefinitions: [],
+      remainingDefinitions: [definition('wiki', true, ['pat'])],
+      pushConnectionState: broadcast
+    }).run()
+
+    expect(loginsOf(log, 'wiki')).toEqual([])
+    // probe 대상 0 · 강등 0 → probe 단계 방송 0. 복원 종료 push 1회가 전부다.
+    expect(broadcast).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('createAuthResume — OAuth refresh (0194)', () => {
+  it('refresh 가 재로그인보다 먼저다', async () => {
+    const { auth, log, broadcast } = fakeRuntime({
+      wiki: stale({ refresh: 'failed', logins: ['done'] })
+    })
+    await createAuthResume({
+      auth,
+      gateDefinitions: [],
+      remainingDefinitions: [session('wiki')],
+      pushConnectionState: broadcast
+    }).run()
+
+    expect(log).toEqual(['refresh:wiki', 'login:wiki:1'])
+  })
+
+  it('refresh 가 성공하면 로그인을 한 번도 부르지 않는다 — 창이 뜨지 않는다', async () => {
+    const { auth, log, broadcast } = fakeRuntime({
+      wiki: stale({ refresh: 'refreshed', logins: ['done'] })
+    })
+    await createAuthResume({
+      auth,
+      gateDefinitions: [],
+      remainingDefinitions: [session('wiki')],
+      pushConnectionState: broadcast
+    }).run()
+
+    expect(log).toEqual(['refresh:wiki'])
+    expect(auth.tryBind('wiki')?.snapshot()).toMatchObject({ status: 'valid', verified: true })
+  })
+
+  it.each(['failed', 'unsupported'] as const)(
+    'refresh 가 %s 면 두 번 부르지 않고 재로그인 3회로 넘어간다',
+    async (result) => {
+      const { auth, log, broadcast } = fakeRuntime({ wiki: stale({ refresh: result }) })
+      await createAuthResume({
+        auth,
+        gateDefinitions: [],
+        remainingDefinitions: [session('wiki')],
+        pushConnectionState: broadcast
+      }).run()
+
+      // refresh 는 **1회뿐**이다 — 같은 refresh token 을 다시 보내도 판정이 같다(D-010).
+      expect(log.filter((entry) => entry === 'refresh:wiki')).toHaveLength(1)
+      expect(loginsOf(log, 'wiki')).toEqual(['login:wiki:1', 'login:wiki:2', 'login:wiki:3'])
+    }
+  )
+
+  it('refresh 가 던져도 그 Auth 는 재로그인으로 이어지고 다음 Auth 도 산다', async () => {
+    const logger = vi.fn<(event: string, data: Record<string, unknown>) => void>()
+    const { auth, log, broadcast } = fakeRuntime({
+      a: stale({ refresh: 'throws', logins: ['done'] }),
+      b: stale({ refresh: 'refreshed' })
+    })
+    await expect(
+      createAuthResume({
+        auth,
+        gateDefinitions: [],
+        remainingDefinitions: [session('a'), session('b')],
+        pushConnectionState: broadcast,
+        logger
+      }).run()
+    ).resolves.toBeUndefined()
+
+    expect(loginsOf(log, 'a')).toEqual(['login:a:1'])
+    expect(log).toContain('refresh:b')
+    expect(logger).toHaveBeenCalledWith('auth.resume.refresh.threw', {
+      authId: 'a',
+      reason: 'refresh exploded: a'
+    })
+  })
+
+  it('강등되지 않은 Auth 에는 refresh 도 부르지 않는다', async () => {
+    const { auth, log, broadcast } = fakeRuntime({ wiki: restored(true) })
+    await createAuthResume({
+      auth,
+      gateDefinitions: [],
+      remainingDefinitions: [session('wiki')],
+      pushConnectionState: broadcast
+    }).run()
+
+    expect(log).not.toContain('refresh:wiki')
+  })
+
+  it('gate Auth 는 refresh 대상도 아니다', async () => {
+    const { auth, log, broadcast } = fakeRuntime({ sso: demoted(['done']) })
+    await createAuthResume({
+      auth,
+      gateDefinitions: [session('sso')],
+      remainingDefinitions: [],
+      pushConnectionState: broadcast
+    }).run()
+
+    expect(log).not.toContain('refresh:sso')
+  })
+})
+
+describe('createAuthResume — resuming (0194)', () => {
+  const remaining = (id: string): AuthDefinition => session(id)
+
+  it('게이트가 열린 그 change 에서 이미 참이다 — 구독자 등록 순서와 무관하다', async () => {
+    // 실제 배선에는 구독자가 둘이다(방송 · 배치 시작). 파생값이 아니라 플래그였다면 순서에
+    // 정답이 생기고, 뒤집히면 `{passed:true, resuming:false}` 가 한 번 나가 메인 셸이 뜬다.
+    for (const recorderFirst of [true, false]) {
+      const { auth, broadcast } = fakeRuntime({ sso: restored(true), wiki: restored(true) })
+      const handle = createAuthResume({
+        auth,
+        gateDefinitions: [session('sso')],
+        remainingDefinitions: [remaining('wiki')],
+        pushConnectionState: broadcast
+      })
+      const seen: boolean[] = []
+      const recorder = (): void => void seen.push(handle.resuming())
+      if (recorderFirst) {
+        auth.subscribe(recorder)
+        auth.subscribe((change) => {
+          if (change.kind === 'snapshot') handle.onGateChange(change.authId)
+        })
+      } else {
+        auth.subscribe((change) => {
+          if (change.kind === 'snapshot') handle.onGateChange(change.authId)
+        })
+        auth.subscribe(recorder)
+      }
+      await handle.run()
+
+      expect(seen.length).toBeGreaterThan(0)
+      expect(seen.every(Boolean)).toBe(true)
+    }
+  })
+
+  it('배치가 끝나면 거둬진다 — 성공·회복·후보 0건 전부', async () => {
+    for (const initial of [
+      { wiki: restored(true) },
+      { wiki: demoted(['done']) },
+      { wiki: { status: 'none', verified: false, probeOk: true } as FakeState }
+    ]) {
+      const { auth, broadcast } = fakeRuntime(initial)
+      const handle = createAuthResume({
+        auth,
+        gateDefinitions: [],
+        remainingDefinitions: [remaining('wiki')],
+        pushConnectionState: broadcast
+      })
+      await handle.run()
+
+      expect(handle.resuming()).toBe(false)
+    }
+  })
+
+  it('배치가 예외로 끝나도 거둬진다 — 대기 화면에 영구히 잠기지 않는다', async () => {
+    const broadcast = vi.fn<() => void>()
+    const exploding = {
+      tryBind: () => {
+        throw new Error('store exploded')
+      },
+      subscribe: () => () => undefined
+    } as unknown as AuthRuntime
+    const handle = createAuthResume({
+      auth: exploding,
+      gateDefinitions: [],
+      remainingDefinitions: [remaining('wiki')],
+      pushConnectionState: broadcast
+    })
+
+    await expect(handle.run()).rejects.toThrow('store exploded')
+    // `finally` 가 없으면 여기가 true 로 굳고 앱이 스피너에서 나오지 못한다.
+    expect(handle.resuming()).toBe(false)
+    expect(broadcast).toHaveBeenCalledTimes(1)
+  })
+
+  it('게이트가 열리지 않았으면 거짓이다 — 우회로 통과한 빌드가 잠기지 않는다', async () => {
+    // `gateOpen()` 은 bypass 를 보지 않는다. 우회로 `passed:true` 가 된 빌드는 gate 선언이
+    // 미검증이라 배치를 아예 돌리지 않으므로, 여기서 참이면 그 빌드가 영영 못 들어온다.
+    const { auth, broadcast } = fakeRuntime({ sso: restored(false), wiki: restored(true) })
+    const handle = createAuthResume({
+      auth,
+      gateDefinitions: [session('sso')],
+      remainingDefinitions: [remaining('wiki')],
+      pushConnectionState: broadcast
+    })
+    await handle.run()
+
+    expect(handle.resuming()).toBe(false)
   })
 })
 

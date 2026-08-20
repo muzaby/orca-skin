@@ -357,8 +357,15 @@ export class Bootstrap {
       getLogger().child('auth').warn('auth.connection.duplicate-row', { authId: duplicate })
     }
 
+    // `createAuthResume` 는 `pushConnectionState` 를 필요로 하고 이 클로저는 그 handle 의
+    // `resuming()` 을 필요로 한다 — 순환이라 ref 로 끊는다(같은 파일 `harnessRuntimeRef` 선례).
+    // **배선 사이에 push 가 끼지 않는다**: 아래 `auth.subscribe` 는 change 에만 발화하고
+    // `registerConnectionHandlers` 는 등록만 하며, ref 대입은 `void authResume.run()` 앞이다.
+    let authResumeRef: { resuming: () => boolean } | undefined = undefined
     const pushConnectionState = (): void => {
-      broadcastProviderState(connectionState(auth, gate, connections))
+      broadcastProviderState(
+        connectionState(auth, gate, connections, authResumeRef?.resuming() ?? false)
+      )
     }
 
     // ── Auth change 소비 (0188 D-008) ──────────────────────────────────────────
@@ -379,7 +386,12 @@ export class Bootstrap {
     // cache 자체가 없으므로 무효화할 것도 없다.
     let harnessRuntimeRef: { invalidateForAuth: (authId: AuthId) => void } | undefined = undefined
 
-    registerConnectionHandlers({ auth, gate, connections })
+    registerConnectionHandlers({
+      auth,
+      gate,
+      connections,
+      resuming: () => authResumeRef?.resuming() ?? false
+    })
 
     // 자동 로그인 — 복원된 세션 쿠키가 아직 유효한지 확인한다. **await 하지 않는다**: probe 는
     // 네트워크 왕복이라 부팅을 붙들면 안 되고, 그동안 게이트는 닫혀 있어 사용자는 로그인 화면에서
@@ -398,6 +410,7 @@ export class Bootstrap {
       pushConnectionState,
       logger: (event, data) => getLogger().child('auth').info(event, data)
     })
+    authResumeRef = authResume
     auth.subscribe((change) => {
       if (change.kind === 'snapshot') authResume.onGateChange(change.authId)
     })

@@ -37,6 +37,7 @@ import type {
   AuthDefinition,
   AuthId,
   AuthMethodKind,
+  AuthRefreshResult,
   AuthRuntime,
   AuthStep
 } from '../contracts/auth'
@@ -91,11 +92,15 @@ export interface AuthResumeHandle {
   // gate 가 나중에 열린 경우(사용자가 로그인 버튼을 누름)의 재진입. 같은 batch 를 두 번 돌지
   // 않도록 Promise 를 기억한다.
   onGateChange(authId: AuthId): void
+  // 게이트는 열렸는데 나머지 복원이 아직 안 끝났는가 (0194). GUI 가 이 값이 참인 동안 메인
+  // 셸 대신 대기 화면을 유지한다.
+  resuming(): boolean
 }
 
 export function createAuthResume(deps: ResumeAuthDeps): AuthResumeHandle {
   const gateIds = new Set(deps.gateDefinitions.map((definition) => definition.id))
   let remainingResume: Promise<void> | null = null
+  let remainingSettled = false
 
   // probe 실패의 결과만 재로그인 대상이다. `expired` 가 아니면 그 사이 **사용자가 개입한 것**이다
   // — `none` 은 [연결 해제](끊은 연결을 되살리지 않는다), `valid` 는 사용자가 직접 시작한 로그인
@@ -103,13 +108,12 @@ export function createAuthResume(deps: ResumeAuthDeps): AuthResumeHandle {
   const demoted = (definition: AuthDefinition): boolean =>
     deps.auth.tryBind(definition.id)?.snapshot().status === 'expired'
 
-  // 한 Auth 의 재로그인. 시도를 한 번이라도 했으면 true 를 돌려준다(마지막 방송 여부의 근거).
-  const reloginOnce = async (definition: AuthDefinition): Promise<boolean> => {
-    let attempted = false
+  // 한 Auth 의 재로그인. 마지막 방송이 무조건 일어나게 바뀌어(0194) 시도 여부를 돌려줄 이유가
+  // 없어졌다 — 0193 의 `attempted` 누적은 함께 사라졌다.
+  const reloginOnce = async (definition: AuthDefinition): Promise<void> => {
     for (let attempt = 1; attempt <= MAX_RELOGIN_ATTEMPTS; attempt += 1) {
       // **매 시도 직전에 다시 읽는다** — 순차 루프라 시도와 시도 사이에 사용자 조작이 끼어든다.
-      if (!demoted(definition)) return attempted
-      attempted = true
+      if (!demoted(definition)) return
       deps.logger?.('auth.resume.relogin.start', { authId: definition.id, attempt })
       // **로그인은 던질 수 있다.** `resume` 과 달리 `login` 에는 "부팅 경로라 던지지 않는다" 는
       // 계약이 없고, 그 아래에는 주입 포트를 try 밖에서 부르는 자리가 있다 — `oauth-runner.ts`
@@ -126,7 +130,7 @@ export function createAuthResume(deps: ResumeAuthDeps): AuthResumeHandle {
           attempt,
           reason: errorMessage(error)
         })
-        return attempted
+        return
       }
       deps.logger?.('auth.resume.relogin.result', {
         authId: definition.id,
@@ -136,40 +140,82 @@ export function createAuthResume(deps: ResumeAuthDeps): AuthResumeHandle {
       })
       // 확인만 실패한 것이면 다시 해 볼 여지가 있다. 그 밖의 결말은 사용자를 기다리거나
       // (`input-required`·`code-required`) 사용자가 이미 그만둔 것이다(`cancelled`·`unsupported`).
-      if (step.kind !== 'failed' || step.reason !== 'probe_failed') return attempted
+      if (step.kind !== 'failed' || step.reason !== 'probe_failed') return
     }
-    return attempted
   }
 
-  // 강등된 Auth 를 **순차로** 다시 로그인한다 — 창이 동시에 여러 개 뜨지 않게(헤더 참조).
-  const reloginDemoted = async (candidates: readonly AuthDefinition[]): Promise<void> => {
-    let attempted = false
-    for (const definition of candidates) {
-      if (!autoReloginable(definition)) continue
-      if (await reloginOnce(definition)) attempted = true
+  // 한 Auth 의 refresh. **1회뿐이다** (D-010) — 같은 refresh token 을 다시 보내도 서버 판정이
+  // 같으므로 루프를 두지 않는다. 루프가 없는 것이 곧 상한이다.
+  //
+  // 가능 판정(`refreshKey` 유무·만료·선언 구현)은 **여기서 하지 않는다** — `LoginService.refresh`
+  // 한 곳이 갖는다(계약 §10). 두 벌이 되면 갈린다.
+  const refreshOnce = async (definition: AuthDefinition): Promise<boolean> => {
+    deps.logger?.('auth.resume.refresh.start', { authId: definition.id })
+    let result: AuthRefreshResult
+    try {
+      // `login` 과 같은 이유로 감싼다 — `void run()` 경로라 흘려보내면 남은 후보의 회복과
+      // 마지막 방송이 통째로 사라진다.
+      result = await deps.auth.refresh(definition.id)
+    } catch (error) {
+      deps.logger?.('auth.resume.refresh.threw', {
+        authId: definition.id,
+        reason: errorMessage(error)
+      })
+      return false
     }
-    // 시도가 없었으면 방송도 없다 — 재시도 0건인 부팅의 방송 횟수가 `1 + K` 로 유지된다.
-    if (attempted) deps.pushConnectionState()
+    deps.logger?.('auth.resume.refresh.result', { authId: definition.id, result })
+    return result === 'refreshed'
+  }
+
+  // 만료된 Auth 를 **순차로** 회복한다 — 창이 동시에 여러 개 뜨지 않게(헤더 참조).
+  //
+  // **probe 후보 배열이 아니라 `remainingDefinitions` 전체를 훑는다** (0194). 부팅 시점에 이미
+  // 시계상 만료된 grant 는 `status !== 'valid'` 라 probe 후보에 애초에 들어오지 못하는데,
+  // 0193 은 그 후보 배열을 그대로 회복 대상으로 썼다 — 그래서 앱이 꺼져 있는 동안 토큰이
+  // 만료된 경우가 통째로 회복 대상 밖이었다. 회복이 물어야 할 것은 "지금 만료인가" 하나다.
+  const recoverExpired = async (): Promise<void> => {
+    for (const definition of deps.remainingDefinitions) {
+      if (!demoted(definition)) continue
+      // refresh 가 먼저다 — 창을 열지 않으므로 성공하면 사용자가 아무것도 보지 못한다.
+      //
+      // **`autoReloginable` 게이트를 적용하지 않는다** (D-012). 그 게이트가 입력형을 막는
+      // 이유는 "사용자가 요청하지 않은 입력 폼이 전역 방송된다" 인데, refresh 는 창·폼·step
+      // 을 만들지 않아 그 이유가 성립하지 않는다. 대상 판정은 grant 가 한다.
+      if (await refreshOnce(definition)) continue
+      if (!autoReloginable(definition)) continue
+      await reloginOnce(definition)
+    }
   }
 
   const resumeRemainingOnce = async (): Promise<void> => {
-    const candidates = deps.remainingDefinitions.filter((definition) => {
-      if (!definition.probe) return false
-      const snapshot = deps.auth.tryBind(definition.id)?.snapshot()
-      // 이미 확인된 것과 grant 가 없는 것은 물어볼 이유가 없다. `status !== 'valid'` 면 정책이
-      // 요청 자체를 막으므로 물어볼 수도 없다.
-      return snapshot?.status === 'valid' && !snapshot.verified
-    })
-    if (candidates.length === 0) return
-    await Promise.all(
-      candidates.map((definition) =>
-        deps.auth.resume(definition.id, { exposeStep: false, emitVerifiedChange: false })
-      )
-    )
-    // 성공한 probe 들의 상태는 **재로그인 전에** 화면에 도달한다 — 재시도는 로그인 창 타임아웃만큼
-    // 길어질 수 있고, 그동안 살아 있는 연결까지 붙들려 있으면 안 된다.
-    deps.pushConnectionState()
-    await reloginDemoted(candidates)
+    try {
+      const probeTargets = deps.remainingDefinitions.filter((definition) => {
+        if (!definition.probe) return false
+        const snapshot = deps.auth.tryBind(definition.id)?.snapshot()
+        // 이미 확인된 것과 grant 가 없는 것은 물어볼 이유가 없다. `status !== 'valid'` 면 정책이
+        // 요청 자체를 막으므로 물어볼 수도 없다.
+        return snapshot?.status === 'valid' && !snapshot.verified
+      })
+      // **조기 반환하지 않는다** — probe 할 것이 없어도 회복할 것은 있을 수 있다(위 주석).
+      if (probeTargets.length > 0) {
+        await Promise.all(
+          probeTargets.map((definition) =>
+            deps.auth.resume(definition.id, { exposeStep: false, emitVerifiedChange: false })
+          )
+        )
+        // 성공한 probe 들의 상태는 **회복 전에** 화면에 도달한다 — 재로그인은 로그인 창
+        // 타임아웃만큼 길어질 수 있고, 그동안 살아 있는 연결까지 붙들려 있으면 안 된다.
+        deps.pushConnectionState()
+      }
+      await recoverExpired()
+    } finally {
+      // **`finally` 여야 한다** — 여기서 새는 예외 하나가 `resuming` 을 참으로 굳히면 앱이
+      // 대기 화면에 영구히 잠긴다(§10 강제 지점).
+      remainingSettled = true
+      // 복원 종료를 알리는 마지막 방송. 0193 의 조건부 `attempted` push 를 **대체**한다 —
+      // 시도가 없었어도 `resuming: true` 는 이미 나갔으므로 그것을 거두는 push 가 필요하다.
+      deps.pushConnectionState()
+    }
   }
 
   const startRemaining = (): Promise<void> => (remainingResume ??= resumeRemainingOnce())
@@ -184,6 +230,18 @@ export function createAuthResume(deps: ResumeAuthDeps): AuthResumeHandle {
     onGateChange(authId: AuthId): void {
       if (!gateIds.has(authId)) return
       if (gateOpen(deps.auth, deps.gateDefinitions)) void startRemaining()
+    },
+    // **파생값이지 플래그가 아니다.** 별도 boolean 을 두면 "게이트가 열렸다" 를 방송하는 구독자와
+    // 배치를 시작하는 구독자의 **등록 순서에 정답이 생기고**, 순서가 뒤집히면
+    // `{passed:true, resuming:false}` 가 한 번 나가 메인 셸이 한 프레임 번쩍인다.
+    // `gateOpen()` 은 store 를 동기로 읽으므로 게이트가 열린 그 change 시점에 이미 참이고,
+    // 그래서 어느 구독자가 먼저 돌든 같은 값이 나간다.
+    //
+    // `gateOpen()` 재사용이 **bypass 잠김도 함께 막는다** — 우회로 `passed:true` 가 된 빌드는
+    // gate 선언이 미검증이라 `gateOpen()` 이 거짓이고, 그런 빌드는 배치를 아예 돌리지 않으므로
+    // 대기 화면에 갇히면 안 된다.
+    resuming(): boolean {
+      return !remainingSettled && gateOpen(deps.auth, deps.gateDefinitions)
     }
   }
 }

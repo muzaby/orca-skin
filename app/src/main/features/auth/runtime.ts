@@ -225,7 +225,8 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     // 것뿐이고 그것이 `begin` 의 기본 동작이다. 의도 구분은 이 계약 표면과 IPC 채널이
     // 표현하므로 `LoginService` 에 같은 호출을 한 번 더 두지 않는다(0190).
     reauth: (authId, method?: AuthMethodKind) => login.begin(authId, method),
-    revoke: (authId) => login.revoke(authId)
+    revoke: (authId) => login.revoke(authId),
+    refresh: (authId) => login.refresh(authId)
   }
 
   return { runtime, secretReader: createAuthSecretReader(store), rejected: registry.rejected() }

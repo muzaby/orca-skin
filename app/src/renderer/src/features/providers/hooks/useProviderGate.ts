@@ -11,6 +11,8 @@ import { providerApi } from '../../../shared/api/ipc'
 export interface UseProviderGate {
   // 판정 전(첫 invoke 응답 대기)에는 null — 게이트를 통과시키지도, 화면을 띄우지도 않는다.
   gate: ProviderGateState | null
+  // 게이트 통과 후 나머지 Auth 의 부팅 복원이 진행 중인가 (0194).
+  resuming: boolean
   // 게이트 대상(`kind:'gate'`)만.
   providers: ProviderInfo[]
   step: ProviderStepInfo | null
@@ -68,6 +70,9 @@ export function useProviderGate(): UseProviderGate {
 
   return {
     gate: state?.gate ?? null,
+    // 미판정(`state === null`)이면 false 로 둔다 — 그 경우 `gate` 도 null 이라 호출부가 어차피
+    // 대기 화면을 유지한다(fail-closed 는 `gate` 축이 갖는다).
+    resuming: state?.resuming ?? false,
     providers: (state?.providers ?? []).filter((provider) => provider.kind === 'gate'),
     step: state?.step ?? null,
     busy,

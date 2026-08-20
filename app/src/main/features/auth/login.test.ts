@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import type { AuthDefinition, AuthenticatedResponse } from '../../contracts/auth'
+import type { AuthDefinition, AuthenticatedResponse, TokenValue } from '../../contracts/auth'
 import { createVault, type Vault } from '../../infra/vault'
 import type { SecretStorePort } from '../../infra/config/secret-store-port'
-import { LoginService } from './login'
+import { LoginService, type LoginDeps } from './login'
 import { AuthRegistry } from './registry'
 import { createMemoryGrantPersistence, AuthStore, type GrantPersistencePort } from './store'
 import {
@@ -88,14 +88,24 @@ interface Harness {
   refreshOf(authId: string): string | null
 }
 
-function harness(providers: AuthDefinition[] = [gateway()]): Harness {
+function harness(
+  providers: AuthDefinition[] = [gateway()],
+  // probe 통로. 미주입이면 확인 없이 통과한다(`LoginDeps.request` 의 기본 의미).
+  request?: LoginDeps['request']
+): Harness {
   const secrets = fakeSecretStore()
   const vault = createVault(secrets)
   const persistence = createMemoryGrantPersistence()
   const registry = new AuthRegistry(providers)
   const store = new AuthStore({ persistence, vault, clock: () => 1_000 })
   store.restore(registry.list().map((p) => p.id))
-  const login = new LoginService({ registry, store, vault, clock: () => 1_000 })
+  const login = new LoginService({
+    registry,
+    store,
+    vault,
+    clock: () => 1_000,
+    ...(request ? { request } : {})
+  })
   const keyOf = (authId: string, which: 'value' | 'refresh'): string | null => {
     const grant = store.get(authId)
     if (!grant || grant.kind === 'session') return null
@@ -422,6 +432,206 @@ describe('LoginService — 로그인 시 probe', () => {
     expect(await login.begin('sso')).toMatchObject({ kind: 'failed', reason: 'probe_failed' })
     expect(store.isVerified('sso')).toBe(false)
     expect(store.status('sso')).toBe('none')
+  })
+})
+
+// ── 0194 · refresh_token grant ──────────────────────────────────────────────
+
+// refresh 를 구현한 oauth 선언. `authorize` 는 이 경로에서 불리지 않아야 하므로 던지게 둔다 —
+// 불리면 그 자체가 결함이다(refresh 는 인가 왕복을 다시 하지 않는다).
+function oauthWithRefresh(
+  calls: string[],
+  refresh?: (refreshToken: string) => Promise<TokenValue>
+): AuthDefinition {
+  return {
+    id: 'wiki',
+    label: '위키',
+    origin: 'https://wiki.example.corp',
+    probe: { path: '/api/me' },
+    methods: [
+      {
+        kind: 'oauth',
+        label: 'SSO',
+        present: BEARER,
+        authorize: () => Promise.reject(new Error('authorize must not run during refresh')),
+        ...(refresh
+          ? {
+              refresh: (token: string) => {
+                calls.push(token)
+                return refresh(token)
+              }
+            }
+          : {})
+      }
+    ]
+  }
+}
+
+// 만료된 token grant 를 심는다. **키 이름을 계약으로 삼지 않는다** — grant 가 가리키는 자리에
+// 값이 있다는 것만 세운다(r8 규칙).
+function seedExpiredToken(
+  h: Harness,
+  patch?: { refreshKey?: string | null; refreshExpiresAt?: number }
+): { accessKey: string; refreshKey: string | null } {
+  const accessKey = 'old-access@v1'
+  const refreshKey = patch?.refreshKey === undefined ? 'old-refresh@v1' : patch.refreshKey
+  h.vault.set(accessKey, 'old-access-value', { kind: 'oauth', createdAt: 1 })
+  if (refreshKey !== null) {
+    h.vault.set(refreshKey, 'old-refresh-value', { kind: 'oauth', createdAt: 1 })
+  }
+  h.store.put('wiki', {
+    kind: 'token',
+    vaultKey: accessKey,
+    authKind: 'oauth',
+    createdAt: 1,
+    // clock 이 1_000 이라 이미 만료다 — refresh 를 쓰는 바로 그 형상.
+    expiresAt: 500,
+    ...(refreshKey !== null ? { refreshKey } : {}),
+    ...(patch?.refreshExpiresAt !== undefined ? { refreshExpiresAt: patch.refreshExpiresAt } : {})
+  })
+  return { accessKey, refreshKey }
+}
+
+describe('LoginService — refresh (0194)', () => {
+  it('새 토큰이 probe 를 통과하면 커밋된다 — access·refresh 둘 다 새 세대 키에', async () => {
+    const calls: string[] = []
+    const definition = oauthWithRefresh(calls, () =>
+      Promise.resolve({ token: 'new-access', refreshToken: 'new-refresh' })
+    )
+    const h = harness([definition], probeApi(true))
+    const seeded = seedExpiredToken(h)
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('refreshed')
+
+    // 선언에 넘어간 것은 **보관돼 있던 refresh token** 이다.
+    expect(calls).toEqual(['old-refresh-value'])
+    const grant = h.store.get('wiki')
+    expect(grant?.kind).toBe('token')
+    expect(grant?.kind === 'token' && grant.vaultKey).not.toBe(seeded.accessKey)
+    expect(grant?.kind === 'token' && grant.refreshKey).not.toBe(seeded.refreshKey)
+    expect(h.secretOf('wiki')).toBe('new-access')
+    expect(h.refreshOf('wiki')).toBe('new-refresh')
+  })
+
+  it('새 토큰이 probe 를 통과하지 못하면 옛 grant 가 그대로다', async () => {
+    const calls: string[] = []
+    const definition = oauthWithRefresh(calls, () => Promise.resolve({ token: 'new-access' }))
+    const h = harness([definition], probeApi(false))
+    const seeded = seedExpiredToken(h)
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('failed')
+
+    // 아무것도 쓰지 않았다 — 되돌릴 중간 상태가 애초에 생기지 않는다(`settleGrant` r5 계약).
+    const grant = h.store.get('wiki')
+    expect(grant?.kind === 'token' && grant.vaultKey).toBe(seeded.accessKey)
+    expect(h.secretOf('wiki')).toBe('old-access-value')
+  })
+
+  it('선언이 refresh 를 구현하지 않으면 unsupported 다', async () => {
+    const h = harness([oauthWithRefresh([])], probeApi(true))
+    seedExpiredToken(h)
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('unsupported')
+  })
+
+  it('refresh token 이 없으면 부르지 않는다', async () => {
+    const calls: string[] = []
+    const h = harness(
+      [oauthWithRefresh(calls, () => Promise.resolve({ token: 'new' }))],
+      probeApi(true)
+    )
+    seedExpiredToken(h, { refreshKey: null })
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('unsupported')
+    expect(calls).toEqual([])
+  })
+
+  it('refreshExpiresAt 이 지났으면 부르지 않는다 — 왕복 0회로 재로그인에 넘긴다', async () => {
+    const calls: string[] = []
+    const h = harness(
+      [oauthWithRefresh(calls, () => Promise.resolve({ token: 'new' }))],
+      probeApi(true)
+    )
+    seedExpiredToken(h, { refreshExpiresAt: 900 })
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('unsupported')
+    expect(calls).toEqual([])
+  })
+
+  it('refreshExpiresAt 이 없으면 시도한다 — 없음은 "모른다" 지 "만료" 가 아니다', async () => {
+    const calls: string[] = []
+    const h = harness(
+      [oauthWithRefresh(calls, () => Promise.resolve({ token: 'new', refreshToken: 'r' }))],
+      probeApi(true)
+    )
+    seedExpiredToken(h)
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('refreshed')
+    expect(calls).toHaveLength(1)
+  })
+
+  it('refreshExpiresAt 이 미래면 시도한다', async () => {
+    const calls: string[] = []
+    const h = harness(
+      [oauthWithRefresh(calls, () => Promise.resolve({ token: 'new', refreshToken: 'r' }))],
+      probeApi(true)
+    )
+    seedExpiredToken(h, { refreshExpiresAt: 9_999 })
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('refreshed')
+    expect(calls).toHaveLength(1)
+  })
+
+  it('선언이 던지면 failed 다 — 옛 grant 는 손대지 않는다', async () => {
+    const h = harness(
+      [oauthWithRefresh([], () => Promise.reject(new Error('idp down')))],
+      probeApi(true)
+    )
+    const seeded = seedExpiredToken(h)
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('failed')
+    expect(h.store.get('wiki')?.kind === 'token' && h.store.get('wiki')).toMatchObject({
+      vaultKey: seeded.accessKey
+    })
+  })
+
+  it('세션 grant 는 대상이 아니다 — refresh 라는 개념이 없다', async () => {
+    const calls: string[] = []
+    const h = harness([oauthWithRefresh(calls, () => Promise.resolve({ token: 'new' }))])
+    h.store.put('wiki', {
+      kind: 'session',
+      sessionGroup: 'corp',
+      authKind: 'browser-session',
+      createdAt: 1,
+      expiresAt: 500
+    })
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('unsupported')
+    expect(calls).toEqual([])
+  })
+
+  it('세션 교환이 만든 token grant 는 oauth refresh 로 갱신하지 않는다', async () => {
+    // `authKind` 가 다르면 자격증명 계보가 다르다 — oauth 선언의 refresh 로 갱신하면 섞인다.
+    const calls: string[] = []
+    const h = harness([oauthWithRefresh(calls, () => Promise.resolve({ token: 'new' }))])
+    h.vault.set('sess-access@v1', 'v', { kind: 'browser-session', createdAt: 1 })
+    h.vault.set('sess-refresh@v1', 'r', { kind: 'browser-session', createdAt: 1 })
+    h.store.put('wiki', {
+      kind: 'token',
+      vaultKey: 'sess-access@v1',
+      refreshKey: 'sess-refresh@v1',
+      authKind: 'browser-session',
+      createdAt: 1,
+      expiresAt: 500
+    })
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('unsupported')
+    expect(calls).toEqual([])
+  })
+
+  it('등록되지 않은 Auth 는 unsupported 다', async () => {
+    const h = harness([oauthWithRefresh([], () => Promise.resolve({ token: 'new' }))])
+    await expect(h.login.refresh('nope')).resolves.toBe('unsupported')
   })
 })
 

@@ -93,6 +93,10 @@ export interface TokenValue {
   token: string
   expiresAt?: number
   refreshToken?: string
+  // refresh token 자체의 만료(epoch ms). **없으면 "모른다" 지 "만료 없음" 이 아니다** (0194
+  // D-009) — 그 경우 만료 시 일단 refresh 를 시도하고, 실패하면 재로그인으로 넘어간다. 값이
+  // 있고 지났으면 왕복 없이 바로 재로그인한다.
+  refreshExpiresAt?: number
   principalId?: string
 }
 
@@ -160,6 +164,12 @@ export type AuthMethod =
       label: string
       present: Presentation
       authorize(ctx: AuthCtx): Promise<OAuthStart>
+      // RFC 6749 §6 refresh_token grant (0194). **선언하지 않으면 만료 시 재로그인만 남는다** —
+      // 조용히 성공시키지 않고 `unsupported` 로 접는다.
+      //
+      // `AuthCtx` 를 받지 않는 이유: PKCE·state 는 인가 요청의 것이고 refresh 흐름에는 없다.
+      // 필요한 입력은 refresh token 하나이며, endpoint·client_id 는 선언의 클로저가 갖는다.
+      refresh?(refreshToken: string): Promise<TokenValue>
     }
   | { kind: 'browser-session'; label: string; config: BrowserSessionConfig }
 
@@ -185,7 +195,12 @@ interface GrantBase {
 
 export type Grant =
   | ({ kind: 'secret'; vaultKey: string } & GrantBase)
-  | ({ kind: 'token'; vaultKey: string; refreshKey?: string } & GrantBase)
+  | ({
+      kind: 'token'
+      vaultKey: string
+      refreshKey?: string
+      refreshExpiresAt?: number
+    } & GrantBase)
   | ({ kind: 'session'; sessionGroup: string } & GrantBase)
 
 // ── 인증 확인(probe) ──────────────────────────────────────────────────────────
@@ -362,7 +377,22 @@ export interface AuthRuntime {
   continue(authId: AuthId, input: Record<string, string>): Promise<AuthStep>
   reauth(authId: AuthId, method?: AuthMethodKind): Promise<AuthStep>
   revoke(authId: AuthId): void
+
+  // 만료된 token grant 를 refresh token 으로 갱신한다 (0194). **`login` 과 달리 창을 열지
+  // 않는다** — 조용한 요청 하나라, 만료 회복에서 재로그인보다 먼저 시도한다.
+  //
+  // `AuthStep` 이 아니라 전용 결과를 돌려주는 이유(D-013): 이 결과의 소비자는 부팅 복원
+  // (`app/auth-resume.ts`) 하나이고, `ProviderFailureReason` 을 늘리면 renderer·i18n·문서가
+  // 따라와야 하는데 화면에 나갈 것이 없다.
+  refresh(authId: AuthId): Promise<AuthRefreshResult>
 }
+
+// `refresh` 의 3분기. 호출자는 `'refreshed'` 가 아니면 전부 재로그인으로 넘어간다.
+//
+//   refreshed   — 새 토큰이 probe 를 통과해 커밋됐다.
+//   unsupported — 시도할 수 없었다(선언 미구현 · refresh token 없음 · 이미 만료 · token grant 아님).
+//   failed      — 시도했으나 실패했다(선언이 던짐 · 새 토큰이 probe 를 통과하지 못함).
+export type AuthRefreshResult = 'refreshed' | 'unsupported' | 'failed'
 
 // ── trusted-main 전용 raw credential 포트 ─────────────────────────────────────
 //

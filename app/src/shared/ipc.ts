@@ -1318,6 +1318,12 @@ export interface ProviderPlatformState {
   gate: ProviderGateState
   providers: ProviderInfo[]
   step: ProviderStepInfo | null
+  // 게이트는 통과했으나 **나머지 Auth 의 부팅 복원이 아직 진행 중**인가 (0194). 참인 동안
+  // renderer 는 메인 셸 대신 대기 화면을 유지한다 — 복원 중에 열리는 로그인 창이 메인 UI
+  // 뒤에서 뜨지 않도록.
+  //
+  // renderer 가 파생할 수 없는 값이라 wire 로만 온다(main 의 배치 진행 상태다).
+  resuming: boolean
 }
 
 // authKind 미지정 = 선언 배열의 첫 방식(단일 선언이면 GUI 가 고를 것이 없다).
