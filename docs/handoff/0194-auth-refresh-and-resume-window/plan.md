@@ -1089,7 +1089,7 @@ self-register` ×6 · `Electron failed to install` ×1.
 | `auth-resume.test.ts:337-345` describe + 헤더 | `방송 상한 P + K + 1` → `자기 push 는 P + 1`. fake 가 모형하지 않는 호출부(`login`·`refresh`)를 헤더에 명시 |
 | `auth-resume.test.ts` 케이스 주석 3곳 | 기대값 2/4/1 을 `자기 push` + `resume 이 낸 change` 로 분해. **기대값은 그대로** — 코드는 옳다 |
 | `login.ts:302`·`:335` · `runtime.test.ts:268` · `auth-resume.ts:21-22` | **무변경** — `K` 항 인용이거나 숫자 없이 정본을 가리킨다 |
-| plan §7 AC18 · 주의사항 · §16 · §10 8행 | **설계 커밋 `2cb2723`** — 규범 행이라 이 커밋에 담지 않는다 |
+| plan §7 AC18 · 주의사항 · §16 · §10 8행 | **설계 커밋 `ca48f59`** — 규범 행이라 이 커밋에 담지 않는다 |
 
 - 전수 관측: `rg -n "P \+ K \+ 1" docs app --glob '!docs/archive/**' --glob '!docs/handoff/**'` → **0건**.
   handoff 문서 안의 7건은 r1~r4 판정 원문이라 과거 증거로 보존한다.
@@ -1153,7 +1153,7 @@ self-register` ×6 · `Electron failed to install` ×1.
 
 - **변경 파일 4개**: `docs/arch/backend/auth.md`(§5.2) · `app/src/main/features/auth/store-parse.ts` ·
   `app/src/main/features/auth/store-parse.test.ts` · `app/src/main/app/auth-resume.test.ts`.
-  규범 행 정정은 별도 커밋 `2cb2723` 이다.
+  규범 행 정정은 별도 커밋 `ca48f59` 이다.
 - **게이트 산출** (정본 `app/AGENTS.md` · `npm test` 미사용):
   - `npm run typecheck` — node·web·test **3/3**, 출력의 `error` 줄 **0**.
   - `npm run lint` — **0 errors, 1 warning**(`useTranscriptVirtualizer.ts:22`, 0102 베이스라인).
