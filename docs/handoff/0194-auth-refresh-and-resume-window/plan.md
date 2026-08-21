@@ -140,7 +140,7 @@
 | AC15 | 배치가 끝나면 `resuming` 이 false 가 된다 — 성공·실패·후보 0건·**예외** 4경로 | 단위 4케이스 | 같음 |
 | AC16 | 게이트가 열리지 않았으면 `resuming` 은 false 다 — bypass 로 `passed:true` 인 빌드가 스피너에 잠기지 않는다 | 단위 1케이스 | `gateOpen()` 이 bypass 를 보지 않는 기존 성질 |
 | AC17 | `connectionState()` 가 `resuming` 을 채우고 wire 타입에 **필수** 필드로 있다 | 단위(`connection-views.test.ts`) + typecheck 3/3 | `handlers/providers.ts` invoke·push |
-| AC18 | 부팅 방송은 `1 + K + 1` 이다 — probe 단계 `1 + K` 는 불변이고 복원 종료 push 1회가 **시도 유무와 무관하게** 붙는다 | 단위 — 방송 상한 describe 의 2케이스가 `2`·`4` 를 단언 + 만료 후보가 입력형이라 시도 0건인 케이스도 같은 값. **"기존 테스트 무수정 통과" 를 기준으로 쓰지 않는다**(r3 D4 — 대리 기준은 코드가 정당하게 횟수를 바꾸면 자동으로 거짓이 된다) | 같음 (D-008 — `resuming:true` 를 거두는 push) |
+| AC18 | 부팅 방송은 `P + K + 1` 이다 — **`P` = probe 후보가 있으면 1, 없으면 0**(batch push 는 후보가 있을 때만 나간다) · `K` = 즉시 강등 수 · 복원 종료 push 1회는 **시도 유무와 무관하게** 붙는다 | 단위 — 방송 상한 describe 의 **3케이스**가 `2`(P=1·K=0) · `4`(P=1·K=2) · `1`(P=0·K=0) 을 단언한다. **"기존 테스트 무수정 통과" 를 기준으로 쓰지 않는다**(r3 D4 — 대리 기준은 코드가 정당하게 횟수를 바꾸면 자동으로 거짓이 된다) | 같음 (D-008 — `resuming:true` 를 거두는 push) |
 | AC19 | gate Auth 는 refresh·재로그인 대상이 아니다 | 단위 — gate 만 만료시키고 `refresh`·`login` 각 0회 | 회복 패스가 `remainingDefinitions` 만 돈다 |
 | AC20 | **§15 가 이름 붙인 문서 전부**가 갱신된다 — `docs/arch/backend/auth.md §5.2`(refresh 단계·회복 대상·갱신 커밋 필드 규칙) · `docs/guides/closed-network-extensions.md §3-b`(배포가 채우는 `refresh`·`refreshToken` 예제) · `docs/IPC_CONTRACT.md`(`resuming`) | 문서 대조 + `check-doc-inventory --check` 차이 0. **AC 의 문서 목록과 §15 의 목록은 한 목록이다**(r3 D8 — 두 벌이라 §15 에만 있던 guide 가 두 라운드 동안 채점 밖이었다) | 문서 |
 | AC21 | refresh 응답에 refresh token 이 없으면 옛 값이 **새 세대 키**로 승계된다 — 옛 키는 정리되고 2회차 갱신이 다시 성공한다 | 단위(`login.test.ts`) — 값 동일 · `refreshKey` ≠ 옛 키 · 옛 키 금고에서 사라짐 · 2회차 `refresh()` = `refreshed` | `LoginService.refresh` → `tokenCandidate` |
@@ -149,13 +149,13 @@
 
 ### AC 검증 주의사항
 
-- 기존 테스트 재사용: `describe('createAuthResume — 방송 상한 1 + K (0187 D2 승계)')` 가 `auth-resume.test.ts:319` 에 실재하고 2케이스가 `:320`·`:337` 이다. **0193 plan 이 적은 `:213`·`:231` 은 현재 좌표가 아니다** — 이번 세션에서 다시 셌다.
-- AC18 의 관측 지점: `definition()`(`:42`)의 `methodKinds` 기본값이 `[]`(`:44`)라 그 12케이스는 회복 게이트에서 전부 걸러진다. 그래서 무수정 통과가 곧 "시도 0건 경로의 방송 상한이 잠겨 있다" 이다.
+- 기존 테스트 재사용: 방송 상한 describe 가 `auth-resume.test.ts` 에 실재하고 **P=1 인 2케이스**(K=0 / K=2)를 갖는다. **0193 plan 이 적은 `:213`·`:231` 은 현재 좌표가 아니다** — 설계 세션에서 다시 셌다. AC18 이 요구하는 **P=0 케이스는 그 describe 에 없다** — 지금은 다른 describe(`부팅 시점에 이미 만료된 grant`)에만 있어, 상한의 정본이 `P` 항을 스스로 증명하지 못한다.
+- AC18 의 관측 지점: fake `pushConnectionState` 의 **호출 횟수**다. 세 케이스가 `P`·`K` 를 각각 독립으로 움직여 세 항을 가른다 — **P 만 0 으로 내린 케이스가 없으면 batch push 를 무조건으로 만들어도 상한이 초록**이다(r3 D12 가 그 자리였다).
 - N회 기준의 관측 지점: fake `AuthRuntime` 의 `refresh`·`login` **호출 횟수**다. 호출 지점 grep 이 아니다.
 - 순서 기준의 관측 지점: 기존 fake 의 `enter:`/`exit:`/`login:` 로그 배열(`:83`·`:108` 관례)에 `refresh:` 를 같은 방식으로 잇는다.
 - AC14 는 structural proxy 를 쓰지 않는다 — "구독자 순서와 무관" 을 주석으로 적는 대신 **테스트에서 실제로 뒤집어** 두 순서 모두 단언한다.
 - 부정형 AC(AC3·AC5·AC7·AC8·AC16·AC19)는 각각 짝이 되는 정상 동작 AC(AC1·AC4·AC6·AC13)가 같은 파일에 있다.
-- 총량/0건 기준: AC18 의 `1 + K` 는 "시도 0건" 경로에만 걸린다. 시도가 있는 경로의 상한은 `1 + K + 1`(회복 push) + 로그인 자체가 내는 change 이고, 이것은 AC 로 잠그지 않는다(0187 D2 의 "통지 1회" 가 달성 불가였던 선례).
+- 총량/0건 기준: AC18 이 잠그는 것은 **회복이 로그인 창을 열지 않은 경로**의 방송 총량이다. 재로그인이 실제로 도는 경로는 로그인 자체가 내는 change 가 더해져 `P + K + 1` 을 넘고, 그 총량은 AC 로 잠그지 않는다(0187 D2 의 "통지 1회" 가 달성 불가였던 선례).
 
 ---
 
@@ -199,7 +199,7 @@
 - 내역 합 = 총계: `refreshKey` = contracts 1 + login 4(`:737`·`:748`·`:762`·`:763`) + store-parse 1 + store 1 = **7**. `rg -c` 합계도 7 로 일치한다.
 - "유일한/항상" 반례 검색: "refresh token 을 읽는 곳이 없다" 는 `vaultKeysOf`(`store.ts:22`)가 유일한 읽기인데 그것은 **키 목록 도출**이지 값 읽기가 아니다. `vault.read(` 호출부 중 refresh 키를 넘기는 곳 0건.
 - 문서 앵커 확인: `docs/arch/backend/auth.md` 의 `### 5.2 부팅 복원 순서` 가 실재한다(`:350`).
-- 기존 테스트 케이스 존재 확인: `describe('createAuthResume — 방송 상한 1 + K (0187 D2 승계)')` `:319`, 케이스 `:320`·`:337`. **0193 plan 의 `:213`·`:231` 은 stale 좌표다.**
+- 기존 테스트 케이스 존재 확인: `describe('createAuthResume — 방송 상한 1 + K (0187 D2 승계)')` `:319`, 케이스 `:320`·`:337`. **0193 plan 의 `:213`·`:231` 은 stale 좌표다.** (설계 시점 스냅샷이다 — describe 명과 좌표는 r3·r4 에서 바뀌었고 현재 기준은 §7 AC18 이 갖는다.)
 
 ## 9. Architecture / Data & Control Flow — AS-IS → TO-BE
 
@@ -236,7 +236,7 @@ bootstrap → void authResume.run()
   → subscribe#1 pushConnectionState                   ← {passed:true, resuming:true}
   → subscribe#2 onGateChange → startRemaining()
        → probeTargets = remaining.filter(probe && valid && !verified)
-       → if (probeTargets.length > 0) { Promise.all(resume ×N); push }   ← 1 + K 불변
+       → if (probeTargets.length > 0) { Promise.all(resume ×N); push }   ← P + K (P=0|1)
        → recoverExpired(remaining)                    ← 전체를 다시 훑는다
             for each (status==='expired') 순차:
                ① refreshOnce  (grant 기준 · 1회)
@@ -283,7 +283,8 @@ renderer: RootGate → rootFrame({bootPhase, bootError, gate, resuming})
 | refresh 커밋은 access·refresh 둘 다 **새 세대 키** | `absorbToken`(기존) | 같음 | 같음 1지점 | 부분 적용 자격증명 창이 열린다 |
 | `refreshExpiresAt` 영속 | `tokenCandidate` + `store-parse.ts` | 커밋·파서 | ① **커밋 쓰기**(`tokenCandidate` — grant 에 싣는 곳) ② 부팅 파싱 — **2지점** (r2 정정: r1 은 "직렬화는 자동" 이라 적어 producer 를 세지 않았고 그 지점에 눈이 없었다) | 재시작하면 만료 정보를 잃고 죽은 refresh 로 왕복한다 |
 | refresh 미회전 시 값 승계 (D-014) | `LoginService.refresh` **한 곳** | 갱신 커밋 | `tokenCandidate` 호출 직전 — **1지점** | 갱신 한 번에 회복 능력을 잃고 두 번째 만료부터 로그인 창만 남는다 |
-| **갱신 커밋이 옛 grant 필드를 잃지 않는다** (r3 신설 — D7) | `login.ts` `tokenCandidate` 의 조립 리터럴 **한 곳** | 갱신 커밋 | 리터럴 1지점. 타입이 **전 필드를 요구**하므로 `Grant` 에 필드가 늘면 여기서 컴파일이 깨진다 | 필드 하나가 조용히 사라지고, 라운드마다 다른 필드로 재발한다(D1 `refreshToken` → D7 `principalId`) |
+| **grant 조립은 필드를 빠뜨릴 수 없다** (r3 신설 D7 · **r4 정정 1→3**) | `Grant` 갈래별 조립 리터럴 | 최초 로그인·재인증·갱신 커밋 | `compact<T>` 리터럴 — ① `secretCandidate` ② `tokenCandidate` ③ `absorb` 의 `session` case — **3지점**. 분모는 `Grant` union 갈래 수이고 `rg -c "kind: 'secret'\|kind: 'token'\|kind: 'session'" src/main/contracts/auth.ts` 로 센다 | 안 닫힌 갈래는 `GrantBase` 에 필드가 늘어도 조용히 통과하고, 라운드마다 다른 필드로 재발한다(D1 `refreshToken` → D7 `principalId`) |
+| **`compact` 인자는 필수 키에 `undefined` 를 받지 않는다** (r4 신설 — D14) | `shared/obj.ts` `compact` 시그니처 **한 곳** | 위 3지점 전부 | 시그니처 1지점 — 필수 키는 `T[K]` 를, 선택 키만 `null`/`undefined` 를 받는다 | `Partial<T>` 는 필수 키에도 `undefined` 를 허용한다. `vaultKey: undefined` 가 typecheck 를 통과하고 `as T` 가 그것을 감춰 런타임에만 드러난다(r3 VF1) |
 | `resuming` = `!remainingSettled && gateOpen(...)` | `auth-resume.ts` **파생 함수 1개** | 소비자 | ① 조립 push(`bootstrap.ts`) ② 조립 invoke(`handlers/providers.ts`) ③ `rootFrame()` 판정 — **3지점** (r3 정정: r1 은 조립을 1지점으로 셌다) | 별도 플래그면 push 순서에 따라 메인 셸이 한 프레임 번쩍인다 |
 | `remainingSettled` 는 `finally` 에서 | `auth-resume.ts` | 배치 | 종료(성공·실패·throw) 1지점 | 예외 하나로 앱이 스피너에 영구히 잠긴다 |
 | 판정·상태의 문서 사본 | `plan.md` + `INDEX.md` | 설계자·구현자·검증자 | 상태를 바꾸는 **모든** 커밋 — **2지점** | 두 사본이 서로 다른 말을 한다 |
@@ -412,7 +413,7 @@ LoginService.refresh(성공) → absorbToken → settleGrant(probe) → store.pu
 | 0193 D-001 ~ D-007 | `docs/handoff/0193-…/plan.md §3` | §3 승계 표 | **전건 유지** |
 | "복원된 grant 는 통과 근거가 아니다 · 별도 검증 경로를 만들지 마라" | `features/gate/index.ts:43-51` | §10 refresh 커밋 행 | **유지** — refresh 도 `settleGrant` 의 probe 를 통과해야 커밋된다 |
 | "게이트가 먼저" 순서 규칙 | `app/auth-resume.ts:8-14` | §9 TO-BE | 유지 — 회복은 gate 통과 후에만 돈다 |
-| 방송 상한 `1 + K` (0187 D2) | `auth.md §5.2` (**정본 1벌**) | §7 AC18 · §9 Delta | **변경 — `1 + K + 1`.** probe 단계 `1 + K` 는 그대로고 복원 종료 push 1회가 항상 붙는다: D-008 의 대기 화면은 `resuming:true` 를 거두는 push 없이 걷히지 않는다. 코드 주석의 사본은 r3 에서 삭제했다(D3) |
+| 방송 상한 (0187 D2) | `auth.md §5.2` (**정본 1벌**) | §7 AC18 · §9 Delta | **변경 — `P + K + 1`.** probe 단계는 `P + K` 로 그대로다 — `P` = 후보가 있으면 1, 없으면 0 이고 0193 의 조기 반환이 이미 그랬다. `1 + K` 라 적던 문면이 후보가 있는 경우만 적은 것이다(r3 D12). 여기에 복원 종료 push 1회가 항상 붙는다: D-008 의 대기 화면은 `resuming:true` 를 거두는 push 없이 걷히지 않는다 |
 | "인증 코어는 제품 정책을 모른다"(0188) | `app/auth-resume.ts:3-6` | §9 책임 소유자 | 유지 — 회복 *정책*은 app 에, refresh *가능 판정과 실행*은 lifecycle 이라 `features/auth` 에 둔다 |
 | 새 값은 새 키에, grant 저장이 커밋 (0190 r8) | `login.ts:449-462` | §13 다중 저장소 쓰기 | 유지 — `absorbToken` 을 재사용하고 규칙을 다시 적지 않는다 |
 | 채널을 둘로 쪼개지 않는다 (구 auth 의 2벌 동기화 버그) | `shared/ipc.ts:110-113` | §11 wire 변경 | **유지** — 새 채널 0개, `provider:state` payload 만 넓힌다 |
@@ -479,6 +480,7 @@ LoginService.refresh(성공) → absorbToken → settleGrant(probe) → store.pu
 - [x] 게이트 명령이 `app/AGENTS.md` 현재 지침과 충돌하지 않는다(`npm test` 미사용, `vitest run` 직접 호출).
 - [x] 본문 완성 후 교차검증했고 `ACTIVE 결정 ↔ AC` 대조 결과를 §3 갱신 메모에 관측으로 적었다(충돌 0, 9쌍 대조).
 - [x] 산출물 문장 규칙 — 판정 먼저, 주장 한 줄에 관측 하나, 표 한 칸 3줄. Part I 은 관측 결과, Part II 는 경로·계약으로 갈랐다.
+- [x] **(r4 재게이트) 정정한 AC18 을 §5 AC 게이트로 다시 걸었다** — 행동 단언(`P + K + 1`)이 `P`·`K` 를 각각 움직이는 3케이스로 관측되고, 대리 기준("기존 테스트 무수정 통과")을 쓰지 않으며, `N회` 의 관측 지점(fake push 호출 수)을 적었다. r3 이 빠뜨린 것은 **조건부 항 `P`** 하나였고 저장소의 기존 케이스가 그것을 반증했다.
 
 ### 구현 착수 전 확인이 필요한 1건
 
