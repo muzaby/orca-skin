@@ -761,7 +761,7 @@ AC18 삭제)으로 제시했고 정정안이 담긴 계획을 승인받았다(20
 | 8 | **갱신 커밋 필드 규칙 (r3 신설)** | 1/1 | `login.ts:839-853` `compact<TokenGrant>` 리터럴 | 아래 MV1~MV5 |
 | 9 | `resuming` 파생 | 3/3 | `bootstrap.ts:367` · `handlers/providers.ts:47` · `rootFrame.ts:36` | `rg -n "connectionState\(\|resuming" 세 파일` |
 | 10 | `remainingSettled` 는 `finally` | 1/1 | `auth-resume.ts:214-218` | `sed -n '214,218p' app/src/main/app/auth-resume.ts` |
-| 11 | 판정·상태의 문서 사본 | 2/2 | `plan.md` 메타 `IMPL_DONE (r3)` · `INDEX.md` 행 `IMPL_DONE (r3)` | `rg -n "IMPL_DONE \(r3\)" docs/handoff/` |
+| 11 | 판정·상태의 문서 사본 | 2/2 | `plan.md:11` 메타 `→ IMPL_DONE (r3)` · `INDEX.md:21` 행 `` `IMPL_DONE` (r3) `` | `rg -n "IMPL_DONE.{0,2} \(r3\)" docs/handoff/INDEX.md docs/handoff/0194-*/plan.md` → 2파일 |
 
 - **합계 검산**: 2+1+2+1+1+2+1+1+3+1+2 = **17**. plan 기재 17 ∖ 닫힌 17 = **0** · 닫힌 17 ∖ plan
   17 = **0**. r2 의 16 과 직접 비교하지 않는다(§10 에 행 1개 신설 + `resuming` 2→3 정정).
