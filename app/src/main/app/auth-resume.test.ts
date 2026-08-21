@@ -334,11 +334,16 @@ describe('createAuthResume — 순서', () => {
   })
 })
 
-// 상한은 `P + K + 1` 이다 — `P` = probe 후보가 있으면 1, 없으면 **0**(batch push 는 후보가 있을
-// 때만 나간다) · `K` = 즉시 강등 수 · `+1` = 복원 종료 push. 아래 세 케이스가 `P` 와 `K` 를 각각
-// 독립으로 움직인다. `P` 를 0 으로 내린 케이스가 없으면 batch push 를 무조건으로 만들어도 이
-// describe 가 전건 green 이다(0194 D12 가 그 자리였다).
-describe('createAuthResume — 방송 상한 P + K + 1 (0187 D2 승계 · 0194 종료 push)', () => {
+// **여기가 잠그는 것은 `createAuthResume` 이 *스스로* 부르는 push 뿐이다 — `P + 1`.**
+// `P` = probe 후보가 있으면 1, 없으면 **0**(batch push 는 후보가 있을 때만 나간다) · `+1` = 복원
+// 종료 push(시도 유무 무관). 아래 세 케이스가 `P` 를 독립으로 움직인다 — `P` 를 0 으로 내린
+// 케이스가 없으면 batch push 를 무조건으로 만들어도 전건 green 이다(0194 D12 가 그 자리였다).
+//
+// 기대값에 섞여 있는 `K` 는 자기 push 가 아니라 **change 구독**이 내는 몫이다. 이 fake 는
+// `resume` 에서만 `broadcast()` 를 부르므로 그 경로를 강등까지만 모형한다 — 프로덕션에서 같은
+// 클로저를 부르는 `login`·`refresh` 의 change 는 **여기 없다**. 그래서 부팅 총량은 이 describe
+// 로 단언하지 않는다(0194 D19: 총량을 적었더니 관측 지점이 못 보는 항이 네 라운드를 살아남았다).
+describe('createAuthResume — 자기 push 는 P + 1 (0187 D2 승계 · 0194 종료 push)', () => {
   it('전부 성공하면 마지막 full-state push 한 번이다', async () => {
     const { auth, broadcast } = fakeRuntime({
       a: restored(true),
@@ -352,8 +357,8 @@ describe('createAuthResume — 방송 상한 P + K + 1 (0187 D2 승계 · 0194 �
       pushConnectionState: broadcast
     }).run()
 
-    // 성공 3건은 `emitVerifiedChange:false` 로 억제되고 batch push 하나로 합쳐진다(P=1·K=0).
-    // 여기에 복원 종료 push 1회가 더해진다(0194) — probe 단계의 상한은 그대로다.
+    // 자기 push 2 (batch P=1 + 종료 1) + resume 이 낸 change 0 (K=0 — 성공 3건은
+    // `emitVerifiedChange:false` 로 억제되고 batch push 하나로 합쳐진다).
     expect(broadcast).toHaveBeenCalledTimes(2)
   })
 
@@ -370,8 +375,8 @@ describe('createAuthResume — 방송 상한 P + K + 1 (0187 D2 승계 · 0194 �
       pushConnectionState: broadcast
     }).run()
 
-    // K=2 — 죽은 연결의 도구가 남은 probe 타임아웃만큼 화면에 남지 않도록 즉시 낸다.
-    // probe 단계는 `P + K` = 3 으로 불변이고, 복원 종료 push 1회가 더해진다(0194).
+    // 자기 push 2 (batch P=1 + 종료 1) + resume 이 낸 change 2 (K=2 — 죽은 연결의 도구가 남은
+    // probe 타임아웃만큼 화면에 남지 않도록 즉시 낸다).
     expect(broadcast).toHaveBeenCalledTimes(4)
   })
 
@@ -385,8 +390,8 @@ describe('createAuthResume — 방송 상한 P + K + 1 (0187 D2 승계 · 0194 �
       pushConnectionState: broadcast
     }).run()
 
-    // 복원 종료 push 1회가 전부다. 이 케이스가 `P` 항을 잠근다 — batch push 를 무조건으로
-    // 만들면 여기만 2가 된다.
+    // 자기 push 1 (batch 없음 P=0 + 종료 1) + change 0. 이 케이스가 `P` 항을 잠근다 —
+    // batch push 를 무조건으로 만들면 여기만 2가 된다.
     expect(broadcast).toHaveBeenCalledTimes(1)
   })
 })

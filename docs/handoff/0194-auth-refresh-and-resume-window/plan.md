@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-20 |
 | 매핑 | 0193 후속 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → plan/READY (r5) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → plan/READY (r5) → IMPL_DONE (r5) |
 
 # Part I — Product & UX Contract
 
@@ -1062,6 +1062,145 @@ self-register` ×6 · `Electron failed to install` ×1.
 - **반복된 환경 한계**: electron 미설치 + better-sqlite3 ABI 로 5파일 42케이스 red — r1·r2·r3·0193
   과 같은 서명. 차집합 양방향 0줄.
 - 현재 라운드 **4**. `handoff-review` 는 라운드 4 진입 전에 수행됐다(round 13, `efb874e`).
+
+---
+
+## [구현자 기입] r5 — 총량 식을 버리고 조립을 파서까지 (2026-08-21)
+
+### 설계 리뷰 (r5)
+
+| # | 발견 | 처리 | 근거 |
+|---|---|---|---|
+| I12 | **D20 이 지목한 자리에 유실이 진행 중이었다.** `parseGrant` 의 secret·session 분기가 `expiresAt` 을 읽지 않아 만료 정착이 재시작을 못 넘는다 | **선조치**(명백한 버그) + 규범화는 설계 커밋의 AC24 | `markExpired`(`store.ts:381-382`)는 갈래를 가리지 않고 `expiresAt` 을 못 박고 `status()`(`:327`)는 그 값만 본다 |
+| I13 | **sink 의 프로덕션 호출부는 2곳이 아니라 4곳이다.** verify r4 는 `bootstrap.ts` 의 두 소비자만 셌다 | 설계 커밋 §7 주의사항에 4곳 → 항 매핑으로 기입 | `rg -n "pushConnectionState" app/src/main --glob '!*.test.ts'` → `bootstrap.ts:365`(정의)·`:375`·`:410` · `settings-reactions.ts:34` · `auth-resume.ts:210`·`:219` |
+| I14 | **`K` 항을 인용하는 사본 4건은 새 문면에서도 참이다** | 무변경 — 확인만 | `auth.md:306` · `login.ts:302`·`:335` · `runtime.test.ts:268` 전건이 "강등 항 `K`" 만 인용하고 총량을 적지 않는다 |
+
+### 무엇을 바꿨나
+
+**축 1 — 총량 식을 버린다 (D19).** 불변식을 한 문장으로 올렸다: **"방송 횟수를 적는 문장은 그
+횟수를 스스로 내는 주체의 호출만 세거나, 총량을 주장하지 않는다."** 그 문장이 성립해야 할 지점을
+전수로 닫았다 — **불변식을 낳은 정본부터**다(r4 는 사본 10건을 정리하면서 정본이 새 총량을 단언하게 뒀다).
+
+| 지점 | 처리 |
+|---|---|
+| `auth.md:365-374` (**정본**) | 총량 단언 삭제 → `자기 push 는 P + 1` · `그 밖은 AuthChange 하나당 1회` 두 문단. 회복이 change 를 낸다는 사실을 조건과 함께 적고 숫자는 적지 않는다 |
+| `auth.md:357` (§5.2 흐름 블록) | 회복 단계가 change 를 낸다는 한 줄 추가 |
+| `auth.md:306` (형제 절 §4.5) | **무변경** — `강등 항 K` 인용은 새 문면에서도 참 |
+| `auth-resume.test.ts:337-345` describe + 헤더 | `방송 상한 P + K + 1` → `자기 push 는 P + 1`. fake 가 모형하지 않는 호출부(`login`·`refresh`)를 헤더에 명시 |
+| `auth-resume.test.ts` 케이스 주석 3곳 | 기대값 2/4/1 을 `자기 push` + `resume 이 낸 change` 로 분해. **기대값은 그대로** — 코드는 옳다 |
+| `login.ts:302`·`:335` · `runtime.test.ts:268` · `auth-resume.ts:21-22` | **무변경** — `K` 항 인용이거나 숫자 없이 정본을 가리킨다 |
+| plan §7 AC18 · 주의사항 · §16 · §10 8행 | **설계 커밋 `2cb2723`** — 규범 행이라 이 커밋에 담지 않는다 |
+
+- 전수 관측: `rg -n "P \+ K \+ 1" docs app --glob '!docs/archive/**' --glob '!docs/handoff/**'` → **0건**.
+  handoff 문서 안의 7건은 r1~r4 판정 원문이라 과거 증거로 보존한다.
+
+**축 2 — 조립은 파서까지다 (D20).** 불변식은 **"`Grant` 를 부분에서 조립하는 리터럴은 필드를
+빠뜨릴 수 없다"** 이고, r4 는 그것을 *쓰는 쪽*에만 적용했다. 읽는 쪽이 빠지면 같은 필드가
+재시작에서 사라진다.
+
+- `parseGrant` 세 분기를 `compact<T>` 로 바꿨다(`store-parse.ts:59`·`:70`·`:84`). 별칭 3개는
+  `login.ts:45-47` 관례를 따랐고, `base` 스프레드를 없애 분기마다 전 필드를 한 줄씩 적는다.
+- **실제 유실을 고쳤다** — secret·session 분기가 `expiresAt` 을 읽지 않아, 강등된 grant 가 재시작
+  후 `valid` 로 돌아왔다. 그러면 화면은 "연결됨" 이라 말하고, 0194 의 회복 패스는 `expired` 만
+  대상으로 삼으므로 그 grant 는 회복 대상에서도 빠진다.
+- 좌표 **3 → 6**. MV-1 이 깨는 좌표가 r4 의 3개에서 6개로 늘었다(아래 눈 검사).
+
+### 설계 대비 명시적 차이
+
+1. **`store-parse.ts` 를 §11 이 적은 것보다 넓게 고쳤다.** §11 은 "token 분기에 `refreshExpiresAt`"
+   만 적는다. §10 8행이 이번 설계 커밋에서 파싱 3분기를 지점으로 편입했으므로 그 범위 안이다.
+2. **테스트에 `AuthStore`·`createVault` 를 들였다**(`store-parse.test.ts`). 파싱 결과만 단언하면
+   *소비처가 그 필드를 안 읽는 경우*를 놓친다 — AC24 검증수단이 요구하는 지점이다.
+
+### 강제 지점 전수 (§10 대조) — `23/23`
+
+| # | 계약/필드 | 지점 | 현재 좌표 | 재현 명령 |
+|---|---|---|---|---|
+| 1 | 회복 대상 = `expired` | 2/2 | `auth-resume.ts:118` 재로그인 루프 머리 · `:180` 회복 패스 필터 | `rg -n "demoted\(definition\)" app/src/main/app/auth-resume.ts` |
+| 2 | refresh 가능 판정 한 곳 | 1/1 | `login.ts:367-379` 4판정이 한 함수 안 | `sed -n '367,379p' app/src/main/features/auth/login.ts` |
+| 3 | refresh 1회 · 재로그인 3회 | 2/2 | `refreshOnce`(`:154`) 루프 부재 · `MAX_RELOGIN_ATTEMPTS`(`:50`) + 루프(`:116`) | `rg -n "MAX_RELOGIN_ATTEMPTS\|const refreshOnce" app/src/main/app/auth-resume.ts` |
+| 4 | probe 통과 후에만 커밋 | 1/1 | `login.ts:413` `settleGrant` | `sed -n '413p' app/src/main/features/auth/login.ts` |
+| 5 | 새 세대 키 2개 | 1/1 | `tokenCandidate.writeVault`(`:867-876`) | `sed -n '867,876p' app/src/main/features/auth/login.ts` |
+| 6 | `refreshExpiresAt` 영속 | 2/2 | ① 커밋 쓰기 `login.ts:858` ② 부팅 파싱 `store-parse.ts:78` | `rg -n "refreshExpiresAt" app/src/main/features/auth/{login,store-parse}.ts` |
+| 7 | 미회전 시 값 승계 (D-014) | 1/1 | `login.ts:401` `const carried` | `sed -n '401p' app/src/main/features/auth/login.ts` |
+| 8 | **grant 조립 6지점 (r5 정정 3→6)** | 6/6 | `login.ts:608`·`:788`·`:847` · `store-parse.ts:59`·`:70`·`:84` | `rg -n "kind: 'secret'\|kind: 'token'\|kind: 'session'" app/src/main --glob '!*.test.ts'` → 22건을 조립 6 / 타입 선언 12 / `AuthResult` 3 / 요청 plan 1 로 가른다 |
+| 9 | `compact` 인자 시그니처 | 1/1 | `obj.ts:48` `source: CompactSource<T>` | `rg -n "source: CompactSource<T>" app/src/shared/obj.ts` |
+| 10 | `resuming` 파생 | 3/3 | `bootstrap.ts:367` · `app/handlers/providers.ts:47` · `rootFrame.ts:36` | `rg -n "resuming" app/src/main/app/bootstrap.ts app/src/main/app/handlers/providers.ts app/src/renderer/src/app/rootFrame.ts` |
+| 11 | `remainingSettled` 는 `finally` | 1/1 | `auth-resume.ts:216` (`:213` 이 `} finally {`) | `sed -n '213,219p' app/src/main/app/auth-resume.ts` |
+| 12 | 판정·상태의 문서 사본 | 2/2 | `plan.md:11` 메타 `→ IMPL_DONE (r5)` · `INDEX.md:21` 행 `` `IMPL_DONE` (r5) `` | `rg -n "IMPL_DONE \(r5\)" docs/handoff/INDEX.md docs/handoff/0194-*/plan.md` |
+
+- **합계 검산**: 2+1+2+1+1+2+1+6+1+3+1+2 = **23**. plan 기재 23 ∖ 닫힌 23 = **0** · 닫힌 23 ∖
+  plan 23 = **0**. r4 의 20 과 직접 비교하지 않는다 — 8행이 `3→6` 으로 정정됐다(20 − 3 + 6 = 23).
+- **표에 없는데 같은 불변식이 필요한 지점 — 0건.** 술어(`Grant` 를 조립하는 리터럴) 전수 22건이
+  6/12/3/1 로 갈리고 **미분류 0**이다. 스프레드로 기존 grant 를 고치는 `store.ts:382` 는 필드를
+  잃을 수 없어 조립이 아니다. **술어의 한계도 적는다** — `kind:` 리터럴 없이 변수로 조립하면 이
+  grep 이 놓친다. 현재 `Grant` 를 돌려주는 함수는 `parseGrant` 하나다(`rg -n ": Grant\b" app/src/main --glob '!*.test.ts'`).
+
+### 이번 턴에 만든 검사 장치의 눈 — 판정 지점마다 하나씩 심었다
+
+| 변이 | 심은 축 | 관측 산출 | 판정 |
+|---|---|---|---|
+| MV-1 `GrantBase` 에 `zzTenant?: string` | 조립 분모 | `npm run typecheck` → 깨진 좌표 **6개**(`login.ts:608`·`788`·`847` · `store-parse.ts:59`·`70`·`84`) | ✅ r4 의 3좌표에서 6으로 |
+| MV-2 secret 분기에서 `expiresAt` 을 `undefined` 로 | 유실 필드 | `store-parse.test.ts` **1 실패**(`secret grant 의 expiresAt 이 왕복한다`) | ✅ |
+| MV-3 session 분기에서 `expiresAt` 을 `undefined` 로 | 유실 필드 + 소비처 | **2 실패**(왕복 + `status 가 expired 다`) | ✅ 파싱과 판정 두 눈 |
+| MV-4 batch push 를 무조건으로(`probeTargets.length > 0` 제거) | AC18 의 `P` 항 | `auth-resume.test.ts` **3 실패**, 그중 상한 describe 의 `P=0·K=0` 케이스 | ✅ 개명한 describe 가 여전히 `P` 를 증명한다 |
+
+- 넷 다 원복했다. 확인: `git status --short` 에 `contracts/auth.ts`·`auth-resume.ts` 가 없다.
+- **MV-1 이 증명하는 것은 집합 *안*의 감도다.** 집합의 완전성은 위 술어 분류(22건 → 6/12/3/1)가 진다 —
+  r4 는 술어가 `compact<` 라 `3/3` 과 "표 밖 0건" 이 함께 참이었다.
+
+### 구현 보고 (r5)
+
+- **변경 파일 4개**: `docs/arch/backend/auth.md`(§5.2) · `app/src/main/features/auth/store-parse.ts` ·
+  `app/src/main/features/auth/store-parse.test.ts` · `app/src/main/app/auth-resume.test.ts`.
+  규범 행 정정은 별도 커밋 `2cb2723` 이다.
+- **게이트 산출** (정본 `app/AGENTS.md` · `npm test` 미사용):
+  - `npm run typecheck` — node·web·test **3/3**, 출력의 `error` 줄 **0**.
+  - `npm run lint` — **0 errors, 1 warning**(`useTranscriptVirtualizer.ts:22`, 0102 베이스라인).
+    실행 전후 `git status --short` **동일** — `--fix` 가 트리를 바꾸지 않았다.
+  - `./node_modules/.bin/vitest run` 전체 — **206 파일 · 2,027 케이스**, `1,985 pass / 42 fail`.
+  - 관련 스위트(`features/auth` · `main/app` · `renderer/src/app` · `shared`) — **55 파일 / 522 케이스
+    전건 green**(1파일은 아래 ABI 기인 로드 실패).
+  - `node --test "scripts/*.test.mjs"` — `# tests 49 # pass 49 # fail 0`.
+  - `check-doc-inventory --check` — `generated doc ok (9 items, 76 channels)` · `prose ok` · `links ok`.
+- **환경 기인 실패 분리 — 차집합 양방향 0줄.** 42 red 의 5파일을 `app/AGENTS.md` 의 알려진 집합과
+  뺐다(`comm -23` **0줄** · `comm -13` **0줄**). **서명이 r1~r4 와 다르다** — 이 컨테이너는
+  `node_modules` 가 비어 있어 `npm ci --ignore-scripts` 로 설치했고, 그래서 `Module did not
+  self-register` 가 아니라 `Could not locate the bindings file` 이 뜬다. 원인(네이티브 바인딩 부재)과
+  실패 파일 집합은 같다.
+- **케이스 증가 검산**: r4 2,024 → r5 **2,027** = **+3**. 내역 = `store-parse.test.ts` 15 → **18**
+  (만료 정착 왕복 describe 3케이스). 합 3 ✅.
+
+### AC 자기보고 (r5) — 이번 턴에 재현한 관측
+
+| # | 결과 | 이번 턴 관측 |
+|---|---|---|
+| AC1~AC17 · AC19 · AC21~AC23 | ✅ 유지 | 실행 경로 변경은 `parseGrant` 한 곳이고 token 분기 semantics 불변 — 기존 왕복 케이스(`token grant 의 refresh 좌표와 만료가 왕복한다`) green. 관련 **55파일 522케이스** 전건 green |
+| **AC18** | ✅ **정정 기준(자기 push `P + 1`)으로 충족** | 상한 describe 3케이스 — `auth-resume.test.ts` `(2)`(P=1·K=0) · `(4)`(P=1·K=2) · `(1)`(P=0·K=0). MV-4 가 그 3케이스를 실패시킨다 |
+| AC20 | ✅ 유지 + 정본 정정 | `auth.md §5.2` 총량 단언 삭제(`:365-374`) · 흐름 블록 `:357` 한 줄 · `check-doc-inventory --check` 3줄 ok |
+| **AC24** | ✅ **신규 충족** | `store-parse.test.ts` 3케이스 — secret 왕복 · session 왕복 · `restore` 뒤 `status()==='expired'`. MV-2(1 실패)·MV-3(2 실패)가 검출 |
+
+- **합계 검산**: `✅ 24 · ⚠️ 0 · ❌ 0 = 총 24`. 분모 재계수:
+  `awk '/^## 7\. Acceptance/,/^### AC 검증/' plan.md | grep -cE "^\| AC[0-9]+ \|"` → **24**.
+  r4 의 23 과 직접 비교하지 않는다(AC24 신설).
+- **강제 지점 23/23** — 위 전수표. r4 의 20 과 분모가 다르다(8행 `3→6`).
+
+### Review Signals — 사실만 (r5)
+
+- **이번에 닫은 불변식이 이전 라운드와 같은 축인가: 예, 둘 다.** ① *횟수 문면*은 D3(r3) →
+  D11·D12(r4) → D19(r5) 로 **5라운드째**다. 이번에는 식을 고치는 대신 **버렸다**. ② *지점
+  과소계수*는 0193 `attempted` → r1 `resuming` → r2 producer → r3 조립 → r4 사본 → r5 파서(D20)
+  로 **6연속**이다.
+- **막았어야 할 지침이 이번에 걸렸다.** review round 14 의 `handoff-plan/SKILL.md §5`(sink 의
+  프로덕션 호출부 전수 → 항 매핑, 모형하지 않는 호출부면 범위를 좁힌다)가 §7 주의사항의 4곳
+  매핑과 AC18 의 범위 축소를 만들었고, `handoff-impl/SKILL.md §2`(전수 술어는 불변식의 주어)가
+  §10 8행의 술어 교체를 만들었다. **둘 다 r5 가 첫 적용이다.**
+- **걸리지 않은 것**: verify r4 가 sink 호출부를 **2곳**으로 셌는데 실제 **4곳**이다
+  (`settings-reactions.ts:34` 누락). 복원 창 밖이라 r4 판정은 바뀌지 않지만, 검증자의 전수도 같은
+  종류의 누락을 낸다 — r4 의 S8·I11 과 같은 축이다.
+- **반복된 환경 한계**: 네이티브 바인딩 부재로 5파일 42케이스 red — r1~r4 와 같은 파일 집합.
+  이 컨테이너는 `node_modules` 가 비어 있어 설치부터 필요했다(서명 차이의 이유).
+- 현재 라운드 **5**. `handoff-review` 는 라운드 5 진입 전에 수행됐다(round 14, `9082583`).
 
 ---
 
