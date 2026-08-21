@@ -1007,7 +1007,7 @@ self-register` ×6 · `Electron failed to install` ×1.
 
 ### 구현 보고 (r4)
 
-- **변경 파일 7개**: `app/src/shared/obj.ts` · `app/src/shared/obj.test.ts`(신규) ·
+- **대상 커밋 `ae882b1`** · **변경 파일 7개**: `app/src/shared/obj.ts` · `app/src/shared/obj.test.ts`(신규) ·
   `app/src/main/features/auth/login.ts` · `login.test.ts` · `runtime.test.ts` ·
   `app/src/main/app/auth-resume.test.ts` · `docs/arch/backend/auth.md`. (plan.md 의 규범 행 정정은
   **별도 커밋** `23ac69f` — `handoff-plan/SKILL.md` 마무리.)
