@@ -286,7 +286,7 @@ renderer: RootGate → rootFrame({bootPhase, bootError, gate, resuming})
 | refresh 커밋은 access·refresh 둘 다 **새 세대 키** | `absorbToken`(기존) | 같음 | 같음 1지점 | 부분 적용 자격증명 창이 열린다 |
 | `refreshExpiresAt` 영속 | `tokenCandidate` + `store-parse.ts` | 커밋·파서 | ① **커밋 쓰기**(`tokenCandidate` — grant 에 싣는 곳) ② 부팅 파싱 — **2지점** (r2 정정: r1 은 "직렬화는 자동" 이라 적어 producer 를 세지 않았고 그 지점에 눈이 없었다) | 재시작하면 만료 정보를 잃고 죽은 refresh 로 왕복한다 |
 | refresh 미회전 시 값 승계 (D-014) | `LoginService.refresh` **한 곳** | 갱신 커밋 | `tokenCandidate` 호출 직전 — **1지점** | 갱신 한 번에 회복 능력을 잃고 두 번째 만료부터 로그인 창만 남는다 |
-| **grant 조립은 필드를 빠뜨릴 수 없다** (r3 신설 D7 · r4 정정 `1→3` · **r5 정정 `3→6`**) | `Grant` 를 **부분에서 조립하는** 리터럴 전수 | 최초 로그인·재인증·갱신 커밋 **+ 부팅 파싱** | `compact<T>` 리터럴 — ① `secretCandidate` ② `tokenCandidate` ③ `absorb` 의 `session` case ④~⑥ `parseGrant` 의 secret·token·session 분기 — **6지점**. **분모의 술어는 불변식의 주어**(`Grant` 를 조립하는 리터럴)이지 해법의 이름(`compact<`)이 아니다 — 해법으로 세면 이미 고친 지점만 분모에 오른다(r4 가 그 자리였다). `rg -n "kind: 'secret'\|kind: 'token'\|kind: 'session'" app/src/main --glob '!*.test.ts'` → **22건**을 `Grant` 조립 **6** · 타입 선언 **12** · `AuthResult` 조립 **3** · 요청 plan 리터럴 **1** 로 가른다(합 22 · 미분류 0). `store.ts:382` 의 `{ ...grant, expiresAt }` 는 **기존 grant 를 고치는** 자리라 필드를 잃을 수 없어 조립이 아니다 | 안 닫힌 갈래는 `GrantBase` 에 필드가 늘어도 조용히 통과하고, 라운드마다 다른 필드로 재발한다(D1 `refreshToken` → D7 `principalId` → **r5 `expiresAt` 이 파서에서 실제로 유실 중**). `GrantBase` 결함 심기는 **이 집합 안의 감도만** 증명한다 — 집합이 좁으면 심어도 안 보인다 |
+| **grant 조립은 필드를 빠뜨릴 수 없다** (r3 신설 D7 · r4 정정 `1→3` · **r5 정정 `3→6`**) | `Grant` 를 **부분에서 조립하는** 리터럴 전수 | 최초 로그인·재인증·갱신 커밋 **+ 부팅 파싱** | `compact<T>` 리터럴 — ① `secretCandidate` ② `tokenCandidate` ③ `absorb` 의 `session` case ④~⑥ `parseGrant` 의 secret·token·session 분기 — **6지점**. **분모의 술어는 불변식의 주어**(`Grant` 를 조립하는 리터럴)이지 해법의 이름(`compact<`)이 아니다 — 해법으로 세면 이미 고친 지점만 분모에 오른다(r4 가 그 자리였다). `rg -n "kind: 'secret'\|kind: 'token'\|kind: 'session'" app/src/main --glob '!*.test.ts'` → **25건**을 `Grant` 조립 **6** · 타입 선언 **15** · `AuthResult` 조립 **3** · 요청 plan 리터럴 **1** 로 가른다(합 25 · 미분류 0). 비-조립 버킷은 diff 를 따라 움직이고 **조립만 이 행의 분모**다. `store.ts:382` 의 `{ ...grant, expiresAt }` 는 **기존 grant 를 고치는** 자리라 필드를 잃을 수 없어 조립이 아니다 | 안 닫힌 갈래는 `GrantBase` 에 필드가 늘어도 조용히 통과하고, 라운드마다 다른 필드로 재발한다(D1 `refreshToken` → D7 `principalId` → **r5 `expiresAt` 이 파서에서 실제로 유실 중**). `GrantBase` 결함 심기는 **이 집합 안의 감도만** 증명한다 — 집합이 좁으면 심어도 안 보인다 |
 | **`compact` 인자는 필수 키에 `undefined` 를 받지 않는다** (r4 신설 — D14) | `shared/obj.ts` `compact` 시그니처 **한 곳** | 위 행의 6지점 전부 | 시그니처 **1지점** — 필수 키는 `T[K]` 를, 선택 키만 `null`/`undefined` 를 받는다 | `Partial<T>` 는 필수 키에도 `undefined` 를 허용한다. `vaultKey: undefined` 가 typecheck 를 통과하고 `as T` 가 그것을 감춰 런타임에만 드러난다(r3 VF1) |
 | `resuming` = `!remainingSettled && gateOpen(...)` | `auth-resume.ts` **파생 함수 1개** | 소비자 | ① 조립 push(`bootstrap.ts`) ② 조립 invoke(`handlers/providers.ts`) ③ `rootFrame()` 판정 — **3지점** (r3 정정: r1 은 조립을 1지점으로 셌다) | 별도 플래그면 push 순서에 따라 메인 셸이 한 프레임 번쩍인다 |
 | `remainingSettled` 는 `finally` 에서 | `auth-resume.ts` | 배치 | 종료(성공·실패·throw) 1지점 | 예외 하나로 앱이 스피너에 영구히 잠긴다 |
@@ -1123,7 +1123,7 @@ self-register` ×6 · `Electron failed to install` ×1.
 | 5 | 새 세대 키 2개 | 1/1 | `tokenCandidate.writeVault`(`:867-876`) | `sed -n '867,876p' app/src/main/features/auth/login.ts` |
 | 6 | `refreshExpiresAt` 영속 | 2/2 | ① 커밋 쓰기 `login.ts:858` ② 부팅 파싱 `store-parse.ts:78` | `rg -n "refreshExpiresAt" app/src/main/features/auth/{login,store-parse}.ts` |
 | 7 | 미회전 시 값 승계 (D-014) | 1/1 | `login.ts:401` `const carried` | `sed -n '401p' app/src/main/features/auth/login.ts` |
-| 8 | **grant 조립 6지점 (r5 정정 3→6)** | 6/6 | `login.ts:608`·`:788`·`:847` · `store-parse.ts:59`·`:70`·`:84` | `rg -n "kind: 'secret'\|kind: 'token'\|kind: 'session'" app/src/main --glob '!*.test.ts'` → 22건을 조립 6 / 타입 선언 12 / `AuthResult` 3 / 요청 plan 1 로 가른다 |
+| 8 | **grant 조립 6지점 (r5 정정 3→6)** | 6/6 | `login.ts:608`·`:788`·`:847` · `store-parse.ts:59`·`:70`·`:84` | `rg -n "kind: 'secret'\|kind: 'token'\|kind: 'session'" app/src/main --glob '!*.test.ts'` → **25건**을 조립 **6** / 타입 선언 15 / `AuthResult` 3 / 요청 plan 1 로 가른다(합 25 · 미분류 0) |
 | 9 | `compact` 인자 시그니처 | 1/1 | `obj.ts:48` `source: CompactSource<T>` | `rg -n "source: CompactSource<T>" app/src/shared/obj.ts` |
 | 10 | `resuming` 파생 | 3/3 | `bootstrap.ts:367` · `app/handlers/providers.ts:47` · `rootFrame.ts:36` | `rg -n "resuming" app/src/main/app/bootstrap.ts app/src/main/app/handlers/providers.ts app/src/renderer/src/app/rootFrame.ts` |
 | 11 | `remainingSettled` 는 `finally` | 1/1 | `auth-resume.ts:216` (`:213` 이 `} finally {`) | `sed -n '213,219p' app/src/main/app/auth-resume.ts` |
@@ -1131,8 +1131,8 @@ self-register` ×6 · `Electron failed to install` ×1.
 
 - **합계 검산**: 2+1+2+1+1+2+1+6+1+3+1+2 = **23**. plan 기재 23 ∖ 닫힌 23 = **0** · 닫힌 23 ∖
   plan 23 = **0**. r4 의 20 과 직접 비교하지 않는다 — 8행이 `3→6` 으로 정정됐다(20 − 3 + 6 = 23).
-- **표에 없는데 같은 불변식이 필요한 지점 — 0건.** 술어(`Grant` 를 조립하는 리터럴) 전수 22건이
-  6/12/3/1 로 갈리고 **미분류 0**이다. 스프레드로 기존 grant 를 고치는 `store.ts:382` 는 필드를
+- **표에 없는데 같은 불변식이 필요한 지점 — 0건.** 술어(`Grant` 를 조립하는 리터럴) 전수 25건이
+  6/15/3/1 로 갈리고 **미분류 0**이다. 스프레드로 기존 grant 를 고치는 `store.ts:382` 는 필드를
   잃을 수 없어 조립이 아니다. **술어의 한계도 적는다** — `kind:` 리터럴 없이 변수로 조립하면 이
   grep 이 놓친다. 현재 `Grant` 를 돌려주는 함수는 `parseGrant` 하나다(`rg -n ": Grant\b" app/src/main --glob '!*.test.ts'`).
 
@@ -1148,8 +1148,12 @@ self-register` ×6 · `Electron failed to install` ×1.
 - 넷 다 원복했다. 확인: `git status --short` 에 `contracts/auth.ts`·`auth-resume.ts` 가 없다.
 - **재현 명령 자신도 눈 검사 대상이었다.** 12행의 첫 명령(`"IMPL_DONE \(r5\)"`)은 plan.md 2줄만
   냈다 — INDEX 행이 `` **`IMPL_DONE`** (r5) `` 라 백틱 사이를 건너뛴다. 사본은 실제로 둘 다
-  갱신돼 있었고 **틀린 것은 관측 명령**이었다. 백틱을 넘는 패턴으로 바꿔 3줄 / 2파일을 확인했다.
-- **MV-1 이 증명하는 것은 집합 *안*의 감도다.** 집합의 완전성은 위 술어 분류(22건 → 6/12/3/1)가 진다 —
+  갱신돼 있었고 **틀린 것은 관측 명령**이었다. 백틱을 넘는 패턴 + `-l`(파일 수)로 바꿔 **2파일**을
+  확인했다 — 줄 수로 세면 이 보고가 문자열을 인용할 때마다 값이 흔들린다.
+- **같은 이유로 8행의 분류 수를 다시 셌다.** 설계 커밋 시점 22건(6/12/3/1)이 이번 턴의 별칭 3개
+  때문에 **25건(6/15/3/1)** 이 됐다. §10 8행에서 고친 것은 이 관측 수치뿐이고 **지점 수(6)·SSOT·
+  실패 의미는 불변**이다.
+- **MV-1 이 증명하는 것은 집합 *안*의 감도다.** 집합의 완전성은 위 술어 분류(25건 → 6/15/3/1)가 진다 —
   r4 는 술어가 `compact<` 라 `3/3` 과 "표 밖 0건" 이 함께 참이었다.
 
 ### 구현 보고 (r5)
