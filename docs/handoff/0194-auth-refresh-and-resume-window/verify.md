@@ -1,5 +1,218 @@
 # Verify — 0194-auth-refresh-and-resume-window
 
+# r5 — 2026-08-21 · **PASS**
+
+> r1~r4 판정 원문은 아래에 그대로 둔다. 이 절은 **r5 에서 달라진 것만** 적는다.
+
+## 메타 (r5)
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `ca48f59..0a56959` (구현 `c77ecd4` · 보드 `14ad93b` · 자기정정 `3c1e9b0`·`3eff24e`·`0a56959`) |
+| 구현 전 plan 기준 | `ca48f59` — **이번 라운드도 diff 로 성립한다** |
+| 라운드 | 5 |
+| 상태 | **PASS** |
+| 다음 주체 | **사람** — D21 제품 결정 |
+| 자기 검증 여부 | 예 — 설계·구현·검증이 모두 Claude Code |
+
+**한 줄 판정**: D19·D20 이 둘 다 실제로 닫혔고 **AC 24/24 ✅ · 강제 지점 23/23** 을 내 기준으로 다시
+세어 일치하며 repository operation mismatch 가 없어 PASS 다. D20 이 드러낸 유실은 내가 **구현자와
+다른 경로**(`markExpired` → JSON → 파서 → `status()`)로 재현했고 수정 전 파서에서 2건 실패한다.
+남은 3건(W1·W2·W3)은 관측 부족이고 코드 결함 0건이라 PASS 를 막지 않는다. **D21 은 이번 수정이
+만든 제품 결과**라 사람이 고른다 — 결함이 아니다.
+
+## 0. 기준선 (r5) — 성립한다
+
+규범 행 정정(`ca48f59`)과 구현(`c77ecd4`)이 갈렸다. §0 의 자기 증명 방지 장치가 작동한다.
+
+- **구현 커밋의 `plan.md` diff 에 §7·§3·§10 hunk 가 0건**이다 — 메타 상태 줄과 `[구현자 기입] r5`
+  절만 늘었다(`git show c77ecd4 -- …/plan.md` 의 hunk 2개).
+- **Decision Ledger 무변경** — 두 커밋 모두 §3(31~56행)에 hunk 가 없다. SUPERSEDED 0.
+- 설계 커밋이 고친 규범 행은 **AC18 · AC24 신설 · §10 8행 · §16 방송 상한 행** 넷이고, AC18 은
+  기준을 **좁히는** 방향이다(총량 단언을 버리고 자기 push 로 범위 축소).
+- **IMPL_DONE 뒤 §10 8행을 한 번 더 고쳤다**(`0a56959`, `Status: implemented`). 바뀐 것은 술어
+  전수의 **관측 수치**(22 → 25 · 12 → 15)뿐이고 **지점 수 6 · SSOT · 실패 의미는 동일**하다 —
+  내가 현재 트리에서 다시 세어 25 = 6/15/3/1 을 얻었다(§5 표 8행). 채점 기준은 바뀌지 않는다.
+- 채점 기준은 `ca48f59` 시점의 §7 **24행**이다.
+
+## 1~3. 구현 비판적 읽기 / 역방향 (r5)
+
+- **프로덕션 실행 경로 변경은 `parseGrant` 한 곳뿐이다** — `store-parse.ts:43-96`. 나머지 diff 는
+  테스트 2파일·`auth.md` 문면·plan 이다(`git diff --stat ca48f59..HEAD` → 6파일).
+- **token 분기의 semantics 는 불변이다.** 옛 코드의 4개 조건부 스프레드와 새 `compact` 인자가 같은
+  판정을 쓴다(`typeof === 'number'|'string'` → 아니면 드롭). 내 스크래치 4케이스가 secret·session·
+  token 전 필드 왕복과 `principalId: ''` 보존을 단언해 통과했다.
+- **secret·session 분기는 semantics 가 바뀐다 — 그것이 이번 수정이다.** `expiresAt` 을 이제 읽는다.
+- **false success 가능성 — `compact` 의 `as T`**: 필수 필드(`vaultKey`·`sessionGroup`·`authKind`·
+  `createdAt`)는 리터럴 앞의 가드가 이미 좁혀 런타임에 `undefined` 가 될 경로가 없다.
+- **`numberOr`·`stringOr` 는 중복 구현이 아니다** — `rg "const stringOr|asString" app/src` → 이 파일
+  2건뿐이고 `shared/obj.ts` 에 같은 역할의 함수가 없다.
+- **`Extract<Grant, …>` 별칭 3개는 `login.ts:45-47`·`authenticated-request.ts:43-44` 의 기존 관례를
+  따른다** — 새 SSOT 를 만들지 않는다(타입 별칭이라 drift 할 값이 없다).
+- **scan-surface(`ca48f59..HEAD`)** — 미사용 export 0 · test-only 참조 0 · 형제 정책 비대칭 0.
+- **키 순서 변경이 소비처에 닿지 않는다** — grant 비교는 참조 동일성이다(`store.ts:460`·`:467`).
+
+## 4. 구현 보고 재측정 — 보고를 증거로 쓰지 않는다
+
+| 보고 | 재측정 | 결과 |
+|---|---|---|
+| 강제 지점 `23/23` | 2+1+2+1+1+2+1+6+1+3+1+2 = **23**, 좌표 전건 실재 | ✅ 일치 |
+| 술어 전수 `25건 = 6/15/3/1` | 같은 명령 → 25건. 내가 직접 분류해 조립 6 / 타입 선언 15 / `AuthResult` 3 / 요청 plan 1 | ✅ 일치·미분류 0 |
+| sink 프로덕션 호출부 **4곳** | `rg -n "pushConnectionState" app/src/main --glob '!*.test.ts'` → 호출 4(`bootstrap:375`·`auth-resume:210`·`:219`·`settings-reactions:34`) + 정의/전달/타입 4 | ✅ I13 이 옳다 (r4 의 "2곳" 은 클로저를 넘기는 자리를 셌다) |
+| vitest `206파일 · 2,027케이스 · 1,985/42` | 실행 관측 동일 | ✅ 일치 |
+| 케이스 `+3`(store-parse 15 → 18) | 그 파일 단독 실행 **18 케이스** · `it(` 블록 8 → 11 | ✅ 합 3 |
+| 관련 스위트 `55파일 / 522케이스` | `Test Files 1 failed · 54 passed (55)` · `Tests 522 passed` | ✅ 일치(1파일은 electron 부재 로드 실패) |
+| 합계 사본 | 본문 `24/24` ↔ trailer `Criteria-Met: 24/24` ↔ INDEX `AC 24/24` | ✅ 세 사본 일치 |
+| AC 분모 24 | `awk '/^## 7\. Acceptance/,/^### AC 검증/' plan.md \| grep -cE "^\| AC[0-9]+ \|"` → **24**(AC1~AC24 연속, 결번 0) | ✅ 일치 |
+
+## 5. AC 재검증 — 이번 라운드가 건드린 행
+
+| # | 결과 | 재측정 관측 |
+|---|---|---|
+| AC1~AC17 · AC19 · AC21~AC23 | ✅ 유지 | 관련 **55파일 522/522 green**. 실행 변경은 `parseGrant` 하나이고 token 분기 semantics 동일(§1) |
+| **AC18** | ✅ | describe 가 `자기 push 는 P + 1` 로 개명됐고 3케이스 기대값 2/4/1 이 각각 `자기 push` + `resume 이 낸 change` 로 갈려 적혔다. ①은 내 변이 3건이 잠근다(§6) |
+| AC20 | ✅ | `auth.md:366-378` 총량 단언 삭제 · 흐름 블록 `:358` 한 줄 · `check-doc-inventory --check` **3줄 ok**. 총량 식 전수 `rg "P \+ K \+ 1\|1 \+ K\|P \+ K"`(archive·handoff 제외) → **0건** |
+| **AC24** | ✅ | 구현자 fixture 와 **다른 경로**로 재현했다 — `markExpired` → `JSON.parse(JSON.stringify())` → 파서 → `restore` → `status()` 가 secret·session 둘 다 `expired`(스크래치 2케이스). 같은 테스트가 `ca48f59` 의 파서에서 **2건 실패** |
+
+- **합계 재측정**: `✅ 24 · ⚠️ 0 · ❌ 0 = 총 24`. 분모 24 는 위 §4 명령으로 직접 셌다.
+  r4 의 23 과 직접 비교하지 않는다(AC24 신설).
+
+### plan §10 강제 지점 표 (r5) — AC와 별개로 걷는다
+
+| # | 계약/필드 | plan 지점 | 내가 확인한 좌표 | 결과 |
+|---|---|---|---|---|
+| 1 | 회복 대상 = `expired` | 2 | `auth-resume.ts:118` 루프 머리 · `:180` 회복 필터 — 둘 다 `demoted()` | 2/2 ✅ |
+| 2 | refresh 가능 판정 한 곳 | 1 | `login.ts:367-379` 4판정이 한 함수 안 · `auth-resume.ts:154-170` 은 결과만 본다 | 1/1 ✅ |
+| 3 | refresh 1회 · 재로그인 3회 | 2 | `refreshOnce`(`:154`) 루프 부재 · `MAX_RELOGIN_ATTEMPTS`(`:50`)+루프(`:116`) | 2/2 ✅ |
+| 4 | probe 통과 후에만 커밋 | 1 | `login.ts:413` `settleGrant` | 1/1 ✅ |
+| 5 | 새 세대 키 2개 | 1 | `login.ts:867-876` `writeVault` | 1/1 ✅ |
+| 6 | `refreshExpiresAt` 영속 | 2 | ① `login.ts:858` 쓰기 ② `store-parse.ts:78` 파싱 — 각각 변이 1건씩이 검출(§6) | 2/2 ✅ |
+| 7 | 미회전 시 값 승계 | 1 | `login.ts:401` `const carried` | 1/1 ✅ |
+| 8 | **grant 조립 6지점** | 6 | `login.ts:608`·`:788`·`:847` · `store-parse.ts:59`·`:70`·`:84` — VMV-1 이 **정확히 이 6좌표**를 깬다 | 6/6 ✅ |
+| 9 | `compact` 인자 시그니처 | 1 | `obj.ts:48` `source: CompactSource<T>` | 1/1 ✅ |
+| 10 | `resuming` 파생 | 3 | `bootstrap.ts:367` · `handlers/providers.ts:47` · `rootFrame.ts:36` | 3/3 ✅ |
+| 11 | `remainingSettled` 는 `finally` | 1 | `auth-resume.ts:213` `} finally {` → `:216` — VMV-C' 가 1건 검출 | 1/1 ✅ |
+| 12 | 판정·상태의 문서 사본 | 2 | `plan.md:11` · `INDEX.md:21` 둘 다 `IMPL_DONE (r5)` | 2/2 ✅ |
+
+- **합계 23/23.** plan 기재 23 ∖ 닫힌 23 = 0 · 닫힌 23 ∖ plan 23 = 0.
+- **표에 없는데 같은 불변식이 필요한 지점 — 0건.** 술어를 한 단계 넓혀 다시 확인했다:
+  `Grant` 를 돌려주거나 조립하는 자리를 `: Grant`·`<Grant>`·`as Grant`·`...grant` 로 훑으면
+  `parseGrant` 와 `login.ts` 조립 3곳 외에 `store.ts:382` `{ ...grant, expiresAt }` 뿐이고,
+  그것은 기존 grant 를 고치는 자리라 필드를 잃을 수 없다.
+
+## 6. 더 좁힌 기준 — 내가 심은 변이 8건
+
+> 구현자가 이번 라운드에 만든 검사 장치(파서 3분기·`store-parse.test.ts` 3케이스·개명한 describe)는
+> 그 자체가 검증 대상이다. 같은 변이를 다시 돌리는 것은 재현이므로 **기준을 좁혀** 다시 심었다.
+
+| 변이 | 좁힌 지점 | 관측 산출 | 판정 |
+|---|---|---|---|
+| VMV-1 `GrantBase` 에 **필수** `zzTenant: string` | MV-1 은 선택 필드였다 | `typecheck` → 깨진 좌표 **정확히 6개**, 그 밖 0 | ✅ 분모가 전수다 |
+| VMV-2 **token 갈래에만** `zzScope?` | 공유 base 가 아니라 갈래별 감도 | `login.ts:847` · `store-parse.ts:70` **2좌표** | ✅ 쓰는 쪽·읽는 쪽 짝 |
+| VMV-3 **session 갈래에만** `zzJar?` | 같음 | `login.ts:788` · `store-parse.ts:84` **2좌표** | ✅ 같음 |
+| VMV-4 파서 6필드를 하나씩 `undefined` 로 | MV-2·MV-3 은 2필드였다 — 나는 **전 필드**를 돌렸다 | secret.expiresAt **1** · session.expiresAt **2** · token.expiresAt **1** · refreshKey **2** · refreshExpiresAt **1** 실패 | ✅ 5/6 검출 · `principalId` 만 0 → **W1** |
+| VMV-5 batch push 를 무조건으로 | MV-4 와 같은 자리 | `auth-resume.test.ts` **3 실패**(상한 describe 의 P=0 케이스 포함) | ✅ `P` 항이 잠겨 있다 |
+| VMV-6 종료 push 삭제 | 구현자가 심지 않은 자리 | **12 실패** (상한 3케이스 전부 포함) | ✅ `+1` 항이 잠겨 있다 |
+| VMV-7 종료 push 를 `probeTargets.length > 0` 로 | `+1` 의 **무조건성**만 | **41 실패** | ✅ |
+| VMV-8 `remainingSettled` 를 `finally` 밖으로 | §10 11행 | **1 실패**(`배치가 예외로 끝나도 거둬진다`) | ✅ |
+
+- 여덟 건 모두 원복했다. 확인: `git status --short` 빈 출력 · 전체 재실행 산출이 §8 과 같다.
+- **W1 — 파서의 `principalId` 에는 런타임 눈이 없다.** `stringOr(record.principalId)` 를 통째로
+  `undefined` 로 바꿔도 관련 **502 케이스가 전건 통과**한다(`rg -ln "principalId" app/src --glob '*.test.ts'`
+  → `login.test.ts`·`runner.test.ts`·`connection-views.test.ts` 3파일, 파서 경로 0건).
+  **코드는 옳다** — 내 스크래치가 세 갈래의 왕복을 단언해 통과했다. 빠진 것은 눈이다.
+  §10 8행이 요구하는 것은 *컴파일 타임* 강제이고 그것은 VMV-1 로 성립한다.
+
+## 7. 숫자 / 상한 재측정 (r5)
+
+- **총량을 단언하는 문장이 저장소에 남지 않았다** — `rg "P \+ K \+ 1|1 \+ K|K \+ 1|P \+ K" docs app`
+  (archive·handoff 제외) → **0건**. `방송 상한` 인용 9건은 전부 정본 포인터이거나 `강등 항 K` 서술이다.
+- **AC18 ②("그 밖은 change 하나당 1회")는 프로덕션에서 참이다** — `bootstrap.ts:374-375` 의
+  `auth.subscribe` 가 조건 없이 `pushConnectionState()` 를 먼저 부르고, 그 뒤에야 `credentialChanged`
+  로 갈라진다. **기계 눈은 없다**(→ W3).
+- **`settings-reactions.ts:34` 은 복원 창 밖이 맞다** — `registerSettingsReactions` 는 사용자의
+  `authBypass` 패치에만 발화하고(`bootstrap.ts:503` 등록), 복원 중 화면은 `BootScreen` 이라 그
+  토글에 손이 닿지 않는다. AC18 이 총량을 안 세므로 판정에 영향도 없다.
+- **시도 상한 불변** — refresh 1 + 로그인 3 = Auth 당 `4N`. r1 계산 그대로다.
+- **파서의 worst-case 는 레코드 수 선형** — 분기마다 상수 필드이고 재귀가 없다.
+
+## 8. 게이트 재실행 (r5)
+
+정본은 `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드`다. **`npm test` 를 쓰지 않았다** —
+이번 변경에 DB 동작이 없다.
+
+| 명령 | 관측한 실행 산출 |
+|---|---|
+| `npm run typecheck` | node·web·test **3/3** · 출력의 `error TS` 줄 **0** |
+| `npm run lint` | **0 errors, 1 warning**(`useTranscriptVirtualizer.ts:22:10`, 0102 베이스라인) |
+| `./node_modules/.bin/vitest run` | **206파일 / 2,027케이스** · `1,985 pass / 42 fail` |
+| `./node_modules/.bin/vitest run src/main/features/auth src/main/app src/renderer/src/app src/shared` | **55파일(54 pass/1 load-fail) / 522 pass** |
+| `node --test "scripts/*.test.mjs"` | `# tests 49 # pass 49 # fail 0` |
+| `node scripts/check-doc-inventory.mjs --check` | `generated doc ok (9 items, 76 channels)` · `prose ok` · `links ok` |
+
+- **환경 기인 실패 분리 — 파일 집합이 `app/AGENTS.md` 의 알려진 5파일과 정확히 같다**:
+  `infra/db/{queries,migrate}` · `features/extensions/builder` · `features/orchestration/fork` ·
+  `app/chat-turn.continuity`. 차집합 양방향 0.
+- **서명도 확인했다** — `Could not locate the bindings file`(better-sqlite3) ·
+  `Electron failed to install correctly`(continuity). 둘 다 네이티브 부재이고 변경 무관이다.
+- **게이트가 작업 트리를 바꿨는가: 아니오.** `npm run lint`(`--fix`) 실행 직후 `git status --short`
+  빈 출력이다.
+- **검증 중 잔여물: 없음.** 스크래치 테스트 2파일(`zz-verify-scratch*.test.ts`)은 관측을 마치고
+  삭제했고 최종 `git status --short` 는 비어 있다. 뮤테이션 8건도 전부 원복했다.
+
+## 9. Repository operation checks (r5)
+
+- **INDEX 보드** — 21행이 `impl` · `IMPL_DONE (r5)` · 다음 주체 **Claude(검증)** · 대상 커밋
+  `c77ecd4` · 라운드 5 로 실제 상태와 맞다. 비고는 524자(0193 행 475자와 같은 급)로 5줄 이내다.
+- **AGENTS.md 변경 0건** — 이번 range 에 `AGENTS.md` hunk 가 없다.
+- **커밋 trailer** — 구현 `c77ecd4` 는 `Agent: claude` + `Status: implemented` + `Criteria-Met: 24/24`
+  + `Verified-By: pending` 로 root `AGENTS.md` 표를 따른다. `Next-Action` 없음 ✅(검증 커밋 전용).
+- **자기정정 3커밋**(`3c1e9b0`·`3eff24e`·`0a56959`)은 `Criteria-*` 를 붙이지 않았다 — r3 의 D16 이
+  지적한 형태가 재발하지 않았다.
+- **인용 해시 전건 실재** — plan 이 인용하는 10개 해시를 `git cat-file -e` 로 확인해 죽은 좌표 0건.
+  r5 가 `2cb2723`(amend 전 객체)을 `ca48f59` 로 고친 것(`3c1e9b0`)이 실제로 반영돼 있다.
+- **reference/script 이동·삭제 0건.**
+
+## 10. 파생 이슈 — PASS 를 막지 않는 관측
+
+- **W1** — 파서의 `principalId` 에 런타임 눈이 없다(§6). 케이스 1건이면 닫힌다. 코드는 옳다.
+- **W2** — `auth-resume.test.ts:763` 케이스 **제목**이 폐기된 어휘를 남긴다("probe 단계 방송 상한도
+  그대로다"). 같은 케이스의 본문 주석은 새 문면(`P=0·K=0` · 종료 push 1회)으로 고쳐져 있다.
+- **W3** — AC18 ②는 `bootstrap.ts:374-375` 를 읽어서만 확인된다. 그 파일은 electron 을 물어
+  vitest 대상이 아니고, AC 자신이 "이 describe 가 잠그는 것은 ①과 `K` 까지" 라고 범위를 적었다.
+- **D21·D22** 는 `plan.md` 의 `[검증자 기입] 파생 이슈` 로 이관했다 — D21 은 **사람 결정**이다.
+
+## 11. Review Signals (r5) — 사실만
+
+- **이전 라운드와 같은 축인가: 아니오 — 두 축이 이번에 끊겼다.** *횟수 문면*은 D3(r3) → D11·D12(r4)
+  → D19(r5) 로 5라운드 연속이었는데, 이번 라운드에 그 축의 신규 지적이 **0건**이다(총량을 고치는
+  대신 버렸다). *지점 과소계수*도 0193 이후 6연속이었는데 §10 전수를 넓힌 술어로 다시 세어 **0건**이다.
+- **W1 은 그 두 축이 아니다.** 분모가 좁은 것도 문면이 틀린 것도 아니고, 닫힌 지점 안의 **한 필드에
+  런타임 케이스가 없는** 것이다 — D2(r1)·D9(r2)와 같은 "눈 없음" 계열이고, 그 둘은 각각
+  다음 라운드에 케이스를 더해 닫혔다(D2 → r2 에서 3케이스 실패 · D9 → r3 에서 1케이스 실패).
+- **관련 plan 지침의 존재**: AC18 이 "관측 지점이 모형하지 않는 호출부" 를 명시하고 §10 8행이
+  "분모의 술어는 불변식의 주어" 를 명시한다 — 둘 다 review round 14(`9082583`)가 만든 조항이고
+  r5 가 첫 적용이다. 이번 검증에서 그 두 조항이 **반증 시도를 통과했다**(VMV-1·VMV-4).
+- **사용자 결정 변경 근거**: 없음. Decision Ledger 는 D-001~D-014 그대로이고 SUPERSEDED 0건이다.
+- **반복된 검증 환경 한계**: 네이티브 바인딩 부재로 5파일 42케이스 red — r1~r4 와 같은 파일 집합.
+  이 컨테이너는 `node_modules` 가 이미 설치돼 있어 r5 구현 턴과 달리 설치 단계가 없었다.
+- **검증자 자신의 과거 오관측**: r4 가 sink 호출부를 2곳으로 셌다(실제 4곳, `settings-reactions.ts:34`
+  누락). 판정은 바뀌지 않지만 D17 과 같은 축이다 — 이번에는 명령 산출을 그대로 옮겨 적었다.
+
+## 12. 결론 (r5)
+
+- 상태: **PASS**. 다음 주체 = **사람**(D21 결정) — 그 결정 전까지 보드 행을 archive 로 옮기지
+  않는다(0192·0193 선례).
+- Product/UX: 대기 화면·창 없는 refresh·만료 grant 회복 세 흐름이 전부 production path 로 닫혔다.
+  ACTIVE Decision D-001~D-014 와 충돌 0.
+- AC: **24/24 ✅**. 분모를 직접 세었고 자기보고와 일치한다.
+- 강제 지점: **23/23**. 좌표를 다시 세고 8건의 변이로 감도를 확인했다.
+- 기준 밖: W1·W2·W3(관측 부족) · D21(제품 결정) · D22(문서 정정). **코드 결함 0건.**
+- 남은 사람 확인: **D21 하나** — 값형 연결의 만료가 재시작을 넘게 되면서 자동 회복 경로가 0이 된다.
+  실기 항목은 없다(`dev`/`build` 는 egress 차단이라 CI·사람 몫이라는 기존 경계 그대로다).
+
+---
+
 # r4 — 2026-08-21 · **FAIL**
 
 > r1~r3 판정 원문은 아래에 그대로 둔다. 이 절은 **r4 에서 달라진 것만** 적는다.
