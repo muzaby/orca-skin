@@ -8,7 +8,7 @@
 //
 // 파일 어댑터는 `store-file.ts`, `Grant` 는 contracts 타입이다.
 
-import { isRecord } from '../../../shared/obj'
+import { compact, isRecord } from '../../../shared/obj'
 import type { ProviderAuthKind } from '../../../shared/ipc'
 import { ProviderAuthKindSchema } from '../../../shared/protocol'
 import type { Grant } from '../../contracts/auth'
@@ -21,35 +21,75 @@ function isAuthKind(value: unknown): value is ProviderAuthKind {
   return ProviderAuthKindSchema.safeParse(value).success
 }
 
+type SecretGrant = Extract<Grant, { kind: 'secret' }>
+type TokenGrant = Extract<Grant, { kind: 'token' }>
+type SessionGrant = Extract<Grant, { kind: 'session' }>
+
+const numberOr = (value: unknown): number | undefined =>
+  typeof value === 'number' ? value : undefined
+const stringOr = (value: unknown): string | undefined =>
+  typeof value === 'string' ? value : undefined
+
+// grant 조립은 **읽는 쪽에서도** 필드를 빠뜨릴 수 없다 (0194 r5).
+//
+// 세 갈래를 `{ kind, …, ...base }` 로 쌓아 올리던 동안 `GrantBase` 에 필드가 늘어도 여기서는
+// 컴파일이 깨지지 않았고, 그 필드는 **재시작 때 조용히 사라졌다** — 쓰는 쪽(`login.ts` 의 조립
+// 3지점)만 `compact` 로 닫혀 있었기 때문이다. 실제로 `expiresAt` 이 그 상태였다: 강등이
+// secret·session grant 에 만료를 못 박아 영속되는데 파서가 그것을 읽지 않아, 만료 정착이
+// 재시작을 넘지 못하고 죽은 연결이 다시 `valid` 로 돌아왔다.
+//
+// `compact` 의 인자 타입이 전 필드를 요구하므로 이제 `Grant` 에 필드를 더하면 **이 세 리터럴에서
+// 컴파일이 깨진다**. 규칙을 못 적고 지나갈 자리가 없다.
 function parseGrant(raw: unknown): Grant | null {
   if (!isRecord(raw)) return null
   const record = raw
   if (!isAuthKind(record.authKind)) return null
   if (typeof record.createdAt !== 'number') return null
-  const base = {
-    authKind: record.authKind,
-    createdAt: record.createdAt,
-    ...(typeof record.principalId === 'string' ? { principalId: record.principalId } : {})
-  }
+  const authKind = record.authKind
+  const createdAt = record.createdAt
+  const principalId = stringOr(record.principalId)
+  // **만료는 갈래를 가리지 않는다.** 값형·세션 grant 는 발급 시점에 만료를 선언하지 않지만,
+  // 401 관측과 시계 경과가 `markExpired` 로 어느 갈래에든 `expiresAt` 을 못 박고(`store.ts`)
+  // `status()` 는 그 값만 보고 `expired` 를 낸다.
+  const expiresAt = numberOr(record.expiresAt)
   switch (record.kind) {
-    case 'secret':
+    // 필드 규칙 — 필드마다 한 줄, 빠짐없이 (`login.ts` 의 조립 3지점과 같은 형식).
+    case 'secret': {
       if (typeof record.vaultKey !== 'string') return null
-      return { kind: 'secret', vaultKey: record.vaultKey, ...base }
-    case 'token':
+      return compact<SecretGrant>({
+        kind: 'secret',
+        vaultKey: record.vaultKey,
+        authKind,
+        createdAt,
+        expiresAt,
+        principalId
+      })
+    }
+    case 'token': {
       if (typeof record.vaultKey !== 'string') return null
-      return {
+      return compact<TokenGrant>({
         kind: 'token',
         vaultKey: record.vaultKey,
-        ...(typeof record.expiresAt === 'number' ? { expiresAt: record.expiresAt } : {}),
-        ...(typeof record.refreshKey === 'string' ? { refreshKey: record.refreshKey } : {}),
-        ...(typeof record.refreshExpiresAt === 'number'
-          ? { refreshExpiresAt: record.refreshExpiresAt }
-          : {}),
-        ...base
-      }
-    case 'session':
+        authKind,
+        createdAt,
+        expiresAt,
+        // refresh 좌표와 그 만료는 짝이다 — 형상이 깨진 쪽만 떨어지고 grant 는 산다.
+        refreshKey: stringOr(record.refreshKey),
+        refreshExpiresAt: numberOr(record.refreshExpiresAt),
+        principalId
+      })
+    }
+    case 'session': {
       if (typeof record.sessionGroup !== 'string') return null
-      return { kind: 'session', sessionGroup: record.sessionGroup, ...base }
+      return compact<SessionGrant>({
+        kind: 'session',
+        sessionGroup: record.sessionGroup,
+        authKind,
+        createdAt,
+        expiresAt,
+        principalId
+      })
+    }
     default:
       return null
   }

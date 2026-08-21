@@ -1,10 +1,23 @@
 import { describe, expect, it } from 'vitest'
+import type { AuthId } from '../../contracts/auth'
+import { createVault } from '../../infra/vault'
+import type { SecretStorePort } from '../../infra/config/secret-store-port'
+import { AuthStore, createMemoryGrantPersistence } from './store'
 import {
   isAuthoritative,
   parseGrantRecords,
   parsePendingRecords,
   type ParsedRecordMap
 } from './store-parse'
+
+function fakeSecretStore(): SecretStorePort {
+  const map = new Map<string, string>()
+  return {
+    get: (key) => map.get(key),
+    set: (key, value) => void map.set(key, value),
+    delete: (key) => void map.delete(key)
+  }
+}
 
 // 이 파일이 존재하는 이유 (r10):
 //
@@ -49,6 +62,47 @@ describe('parseGrantRecords — top-level 형상', () => {
     expect(isAuthoritative(parsed)).toBe(false)
     // 읽어낸 것이 없다는 사실 자체는 같다 — 다른 것은 "그것을 사실로 믿어도 되는가" 뿐이다.
     expect(parsed.records).toEqual({})
+  })
+})
+
+// 만료 정착은 재시작을 넘어야 한다 (0194 D20).
+//
+// `markExpired` 는 갈래를 가리지 않고 `expiresAt` 을 못 박는데(`store.ts`), 파서가 secret·session
+// 분기에서 그것을 읽지 않던 동안 **죽은 연결이 재시작 후 `valid` 로 돌아왔다**. 화면은 그것을
+// "연결됨" 으로 보여주고, 0194 의 회복 패스는 `status==='expired'` 만 대상으로 삼으므로 그 grant 는
+// 회복 대상에서도 빠진다.
+describe('parseGrantRecords — 만료 정착의 왕복 (0194)', () => {
+  const EXPIRED_AT = 1_600_000_000_000
+  const AFTER = EXPIRED_AT + 1
+
+  const sessionGrant = {
+    kind: 'session',
+    sessionGroup: 'corp',
+    authKind: 'browser-session',
+    createdAt: 1
+  }
+
+  it('secret grant 의 expiresAt 이 왕복한다', () => {
+    const parsed = parseGrantRecords({ corp: { ...validSecretGrant, expiresAt: EXPIRED_AT } })
+    expect(parsed.records.corp).toMatchObject({ kind: 'secret', expiresAt: EXPIRED_AT })
+  })
+
+  it('session grant 의 expiresAt 이 왕복한다', () => {
+    const parsed = parseGrantRecords({ corp: { ...sessionGrant, expiresAt: EXPIRED_AT } })
+    expect(parsed.records.corp).toMatchObject({ kind: 'session', expiresAt: EXPIRED_AT })
+  })
+
+  // 파싱 결과만 보면 **소비처가 그 필드를 안 읽는 경우**를 놓친다 — 실제 판정까지 내려가 관측한다.
+  it('파싱한 grant 를 store 에 심으면 status 가 expired 다', () => {
+    const parsed = parseGrantRecords({ corp: { ...sessionGrant, expiresAt: EXPIRED_AT } })
+    const store = new AuthStore({
+      persistence: createMemoryGrantPersistence(parsed.records),
+      vault: createVault(fakeSecretStore()),
+      clock: () => AFTER
+    })
+    // 부팅이 실제로 지나는 경로다 — 파서 → `restore` → `status`.
+    store.restore(['corp' as AuthId])
+    expect(store.status('corp' as AuthId)).toBe('expired')
   })
 })
 
