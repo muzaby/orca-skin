@@ -327,9 +327,11 @@ change 가 나간다 — Harness cache 가 그 change 를 무시한다. 정착 �
 토큰을 만드는 경로는 없다(`features/auth/no-cookie-token.test.ts` 가 기계 강제). 코드를 돌려주지
 않는 SP 는 `exchange` 자체를 선언하지 않고 세션 grant 로 끝낸다.
 
-**교환 요청의 형상은 선언이 정한다** — `code.in`(`'query'`\|`'form'`) · `code.name` · `code.params` ·
-`method`. 코드 파라미터 이름이 배포마다 다르다는 것은 곧 표준 인가 서버가 아니라는 뜻이고, 그러면
-요청 형상도 표준이라는 보장이 없다. 표준 AS 를 상대하는 배포에는 `kind:'oauth'` 가 이미 있다.
+**교환 요청은 `POST` + `application/json` 하나다.** 전송 형상은 코어가 고정하고, 선언이 정하는
+것은 이름뿐이다 — 코드를 final URL 어디서 꺼내(`code.param`) 본문에 무슨 이름으로(`code.name`)
+무엇과 함께(`code.params`) 실을 것인가. 같은 이름이 겹치면 **실제 인가 코드가 이긴다**. 코드가
+본문에만 실리므로 프록시·서버 액세스 로그에 인가 코드가 남을 경로가 없다. 폼 본문만 받는 SP 는
+교환이 415/405 로 끝난다 — 그때는 선언이 아니라 코어를 넓힌다.
 
 **전송은 `sessions.send()` 다** — 파티션·쿠키를 유지하는 유일한 경로다(`netFetch` 는 세션 인자 없이
 나가고 `createSender` 는 `credentials:'omit'` 을 박는다). "쿠키에서 파싱하지 않는다" 는 토큰의
@@ -343,8 +345,6 @@ browser-session 에도 그대로 걸린다 — 빠지면 교환이 만든 token 
 **refresh token 은 저장만 한다.** `exchange.refreshTokenPath` 를 선언하면 값이 vault 에 봉인되고
 `Grant.refreshKey` 가 생기지만, 그것으로 갱신하지는 않는다 — §5.2 의 refresh 대상이 `authKind` 를
 함께 보는 이유가 여기다.
-
----
 
 ---
 
