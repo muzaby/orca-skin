@@ -1,5 +1,200 @@
 # Verify — 0194-auth-refresh-and-resume-window
 
+# r3 — 2026-08-21 · **FAIL**
+
+> r1·r2 판정 원문은 아래에 그대로 둔다. 이 절은 **r3 에서 달라진 것만** 적는다.
+
+## 메타 (r3)
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `799bc56..193b5eb` (구현 `3371df2`) |
+| 구현 전 plan 기준 | **diff 로 성립하지 않는다** — §0 참조 |
+| 라운드 | 3 |
+| 상태 | **FAIL** |
+| 다음 주체 | **`handoff-review` → 구현자** (라운드 4는 review 선행 조건) |
+| 자기 검증 여부 | 예 — 설계·구현·검증이 모두 Claude Code |
+
+**한 줄 판정**: D3·D5·D7·D8·D9 는 실제로 닫혔고 게이트 수치도 자기보고와 갈림 0이지만,
+**이번 라운드가 정정한 AC18 의 문면이 여전히 코드와 어긋난다** — 저장소 안의 테스트가 그것을
+반증한다(D12). AC18 이 코드와 어긋나는 것은 **3라운드 연속**이다.
+
+## 0. 기준선 (r3) — **diff 로 성립하지 않는다**
+
+`3371df2` **한 커밋**에 AC18·AC20·§10·§15·§16 정정과 구현이 함께 들어왔다. r1(`064c06a` →
+`ee11eab`)·r2(`ddf180a` → `7c60433`)는 갈려 있었다. §0 의 자기 증명 방지 장치가 이번 라운드에는
+작동하지 않으므로, 아래를 확인해 기준을 고정한 뒤 채점했다.
+
+- **실제로 바뀐 AC 는 2행뿐**(AC18·AC20). `git show 3371df2 -- …/plan.md` 의 §7 hunk(`@@ -140,9`)에서
+  AC15~AC17·AC19·AC21~AC23 은 문맥 줄로만 나온다.
+- **Decision Ledger 무변경** — §3(11~56행)에 hunk 가 없다. SUPERSEDED 0.
+- **AC20 은 기준을 좁혔다** — 문서를 2개에서 3개로 늘렸다(`closed-network-extensions.md §3-b` 추가).
+  §10 은 지점을 15→17 로, §15·§16 은 사실을 코드에 맞췄다. 넷 다 자기 이롭지 않다.
+- **자기 이로운 정정은 AC18 하나**이고 그것이 D12 로 여전히 부정확하다. 방향(정정한다)은 verify
+  r1 §13 D4·r2 §10 이 이미 지시한 것과 같아 새 기준으로 받되 **문면을 고쳐야 한다**.
+- 사용자 승인 원문은 저장소에 없다 — r2 의 D-014 와 같은 상황이라 같은 방식으로 기록만 한다.
+
+## 1~3. 구현 비판적 읽기 / 역방향 (r3)
+
+- **실행 변경은 두 곳이다**: `tokenCandidate` 조립부(`login.ts:818-856`)와 `rootFrame` 마지막
+  분기(`rootFrame.ts:36`). 나머지 diff 는 주석·테스트·문서다.
+- `scan-surface.sh 799bc56..193b5eb`: 미사용 값 export **0건** · 형제 정책 비대칭 **0건**.
+  타입 전용 4건(`RootFrame`·`RootFrameInput`·`AuthResumeHandle`·`ResumeAuthDeps`)은 자기 파일
+  시그니처용이고, 테스트 전용 2건(`gateOpen`·`LoginDeps`)은 r2 와 같은 판단이다.
+- **`compact` 는 미배선이 아니다** — 프로덕션 소비처 1건(`login.ts:839`).
+- **테스트가 프로덕션 계약을 잠그는가**: ✅ — 신규 4케이스가 실물 `LoginService`·`AuthStore`·
+  `createVault` 를 세워 `login.refresh('wiki')`/`login.begin('wiki')` 를 부른다. 로컬 재구현 0건.
+- **되살아남 없음**: `revoke()` 가 `openAttempt()` 로 세대를 올린다(`login.ts:231`). 도는 중인
+  refresh 는 `superseded` → `'unsupported'` 로 접혀 커밋되지 않으므로, `previous` 가 나르는
+  데이터가 늘어도 해제한 Auth 가 되살아나지 않는다.
+- **기준 밖 결함 3건 — 신규**: D13(전수 강제가 3지점 중 1곳) · D14(`compact` 가 필수 필드를
+  드롭) · D15(`compact` 자기 테스트 부재). 전부 §6 에서 실측했다.
+
+## 4. 구현 보고 재측정 — 보고를 증거로 쓰지 않는다
+
+| 보고 값 | 내 재측정 | 결과 |
+|---|---|---|
+| typecheck 3/3 · error 0 | `npm run typecheck` → error **0** | ✅ |
+| vitest 205 파일 · 2,011 케이스 · 1,969/42 | 동일 | ✅ |
+| 관련 18파일 281 green | 동일 | ✅ |
+| scripts 49/49 · doc-inventory 차이 0 | 동일(`prose ok` · `links ok`) | ✅ |
+| 42 red = 알려진 ABI 5파일 | **차집합 양방향 0줄** | ✅ |
+| 강제 지점 17 | §10 행별 재계수 `2+1+2+1+1+2+1+1+3+1+2` = **17** | ✅ |
+| `resuming` 3지점 | `connectionState(` 프로덕션 호출부 **2** + `rootFrame.ts:36` | ✅ |
+| `RootGate` 의 `resuming` 읽기 1건 | `rg "\.resuming" src/renderer/src` → `RootGate.tsx:35` 1건 | ✅ |
+| AC 분모 23 | 재계수 **23** | ✅ |
+| `Criteria-Met: 23/23` | **불일치** — 내 채점은 `22✅ · 1⚠️ = 23` (AC18) | ❌ |
+
+## 5. AC 재검증 — 이번 라운드가 건드린 두 행
+
+| # | 결과 | 이번 턴 관측 |
+|---|---|---|
+| AC1~AC17 · AC19 · AC21~AC23 | ✅ 유지 | 실행 변경이 조립부·프레임 분기 두 곳에 갇혀 있고 관련 **18파일 281케이스**가 전건 green |
+| **AC18** | ⚠️ **문면이 코드와 어긋난다** | "부팅 방송은 `1 + K + 1` 이다" 인데 `auth-resume.test.ts:750` 이 **1** 을 단언한다 → D12 |
+| AC20 | ✅ 확대된 목록으로 충족 | `auth.md §5.2` 갱신 · `closed-network-extensions.md §3-b` 에 `refresh` 갈래 · `IPC_CONTRACT.md:399` 에 `resuming` 실재 · doc-inventory 차이 0 |
+
+- **합계 재측정**: `✅ 22 · ⚠️ 1 · ❌ 0 = 총 23`. 분모는
+  `awk '/^## 7\. Acceptance/,/^### AC 검증/' | grep -cE "^\| AC[0-9]+ \|"` → **23**.
+  r2 와 분모가 같다(AC 신설·분할 0).
+- **자기보고와 갈림 1건** — 구현 보고는 `23/23`, 내 채점은 `22/23`. AC18 을 ✅ 로 세지 않았다.
+- **AC18 의 제품 목적은 충족한다** — D-008 이 요구하는 "대기 화면이 반드시 걷힌다" 는 종료 push
+  가 무조건이라 성립한다(`auth-resume.ts:213-219`). 어긋난 것은 **횟수 문면**이다.
+
+### plan §10 강제 지점 표 (r3) — AC와 별개로 걷는다
+
+| 계약/필드 | plan 기재 | 코드에서 확인한 지점 | 결과 |
+|---|---|---|---|
+| 회복 대상 = `expired` | 2 | `auth-resume.ts:180` · `:116` | 2/2 ✅ |
+| refresh 가능 판정 한 곳 | 1 | `login.ts:362-374` 4판정이 한 함수 안 | 1/1 ✅ |
+| refresh 1회 · 재로그인 3회 | 2 | `refreshOnce`(`:154`) 루프 부재 · `MAX_RELOGIN_ATTEMPTS`(`:50`) | 2/2 ✅ |
+| probe 통과 후에만 커밋 | 1 | `login.ts:408` `settleGrant` | 1/1 ✅ |
+| 새 세대 키 2개 | 1 | `tokenCandidate.writeVault`(`:859-871`) | 1/1 ✅ |
+| `refreshExpiresAt` 영속 | 2 | `login.ts:850` · `store-parse.ts:45` | 2/2 ✅ |
+| 미회전 시 값 승계 (D-014) | 1 | `login.ts:396-406` `carried` | 1/1 ✅ |
+| **갱신 커밋 필드 규칙 (r3 신설)** | 1 | `login.ts:839-853` 조립 리터럴 | 1/1 ✅ **눈이 생겼다**(VF3) |
+| `resuming` 파생 | 3 | `bootstrap.ts:367` · `handlers/providers.ts:47` · `rootFrame.ts:36` | 3/3 ✅ |
+| `remainingSettled` 는 `finally` | 1 | `auth-resume.ts:213-219` | 1/1 ✅ |
+| 판정·상태의 문서 사본 | 2 | `plan.md:11` · `INDEX.md:21` | 2/2 ✅ |
+
+- **plan 기재 17 ∖ 닫힌 17 = 0** · **닫힌 17 ∖ plan 17 = 0**. 구현 보고 `17/17` 과 일치한다.
+- **표에 없는데 같은 불변식이 필요한 지점 — 2건 신규**: grant 조립 **secret**(`login.ts:605`)과
+  **session**(`:783`). 같은 `GrantBase` 를 쓰는데 전수 강제가 없다 → D13.
+
+## 6. 더 좁힌 기준 — 내가 심은 변이 3건
+
+구현이 심은 `MV1`~`MV6` 을 그대로 다시 돌리는 것은 재현이지 검증이 아니다. **구현이 주장한
+성질 자체를 반대 방향에서** 찔렀다.
+
+| 변이 | 심은 곳 | 실행 산출 | 판정 |
+|---|---|---|---|
+| VF1 필수 필드에 `undefined` (`vaultKey: undefined`) | `login.ts:841` | `typecheck:node` → **error 0** | ❌ **타입이 막지 못한다** → D14 |
+| VF2 같은 변이의 런타임 | 같음 | `vitest run src/main/features/auth` → **7 실패**/201 | ✅ 테스트는 잡는다 |
+| VF3 `GrantBase` 에 필드 추가(`zzTenant?`) | `contracts/auth.ts` | `typecheck:node` → 깨진 좌표가 **`login.ts(839,39)` 하나** | ⚠️ token 만 눈이 있다 → D13 |
+
+- 세 건 모두 실행 후 원복하고 `git diff --stat` 빈 출력 · `typecheck:node` error 0 ·
+  `vitest run src/main/features/auth` **201/201** 로 복원을 확인했다.
+- **VF1+VF2 가 D14 의 실체다**: r3 는 "전수 강제를 타입에 뒀다" 고 보고했는데, 타입이 강제하는
+  것은 **키의 존재**뿐이고 필수 키의 **값 건전성**은 테스트가 막고 있다. `compact` 의
+  `Partial<T>` 가 필수 키에도 `undefined` 를 허용하고(`exactOptionalPropertyTypes` 미설정 —
+  `tsc --showConfig` 로 확인), `compact` 는 그것을 드롭한 뒤 `as T` 로 캐스팅한다.
+- **VF3 이 D13 의 실체다**: `GrantBase` 는 세 갈래가 공유하는데 깨지는 자리가 하나다.
+
+## 7. 숫자 / 상한 재측정 (r3)
+
+- **AC 분모 23** · **§10 지점 17 기재 / 17 실측** — 위 §5.
+- **vitest 205 파일 · 2,011 케이스 · 1,969 pass / 42 fail** · 관련 18파일 **281** green
+  (r2 2,005·275 → +6: `login.test.ts` +4 · `rootFrame.test.ts` +2).
+- **요청 상한 `4N` 불변** — 이번 변경은 왕복을 만들지 않는다.
+- **방송 총량 실측**: `(probe 후보 있으면 1, 없으면 0) + K + 1`. 세 케이스가 각각
+  `:353`=2(후보 3·K=0) · `:371`=4(후보 3·K=2) · `:750`=1(후보 0·K=0) 이다 → D12.
+- 0건 게이트의 정당한 예외 보존 ✅ — `refreshExpiresAt` 미선언은 여전히 "모른다 → 시도"(D-009).
+
+## 8. 게이트 재실행 (r3)
+
+- 적용 정본 `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드`. **`npm test` 미사용**.
+- **관측한 실행 산출**(exit code 아님):
+  - typecheck — node·web·test **3/3, error 0**.
+  - vitest 전체 — **205 파일 · 2,011 케이스**, `1,969 pass / 42 fail`.
+  - vitest 관련 — **18 파일 / 281 케이스 전건 green**.
+  - scripts — `# tests 49 # pass 49 # fail 0`.
+  - doc-inventory — `generated doc ok (9 items, 76 channels)` · `prose ok` · `links ok` · 차이 0.
+- **`npm run lint` 은 이 턴에 돌리지 않았다** — `--fix` 라 검증 대상 파일을 쓴다. 구현자가
+  "재실행 전후 `git diff` 해시 동일" 을 보고했고, 검증자가 고친 코드를 검증자가 채점하지 않기
+  위해 그 항목은 **미확인으로 남긴다**.
+- **환경 기인 실패 분리 — 차집합 0**: 42 red 의 5파일(`app/chat-turn.continuity` ·
+  `extensions/builder` · `orchestration/fork` · `infra/db/migrate` · `infra/db/queries`)을
+  `app/AGENTS.md:135` 의 알려진 집합과 실제로 뺐다. 양방향 **0줄**.
+- **내 명령의 잔여물**: 변이 3건뿐이고 전부 원복했다(위 §6).
+
+## 9. Repository operation checks (r3)
+
+- `AGENTS.md` 변경 **0건** — range 12파일에 없다.
+- **INDEX 정합** ✅ — `impl` · `` `IMPL_DONE` (r3) `` · 다음 주체 `Claude (검증)` · 대상 커밋
+  `3371df2` · 라운드 3 이 실제 상태와 맞았다. 비고는 **735바이트**로 5줄 이내.
+- **인용 해시 실재** ✅ — `git rev-parse --verify 3371df2` 해석.
+- **상태 사본 2곳 일치** ✅ — `plan.md:11` · `INDEX.md:21`.
+- **trailer** ⚠️ **1건 불일치** — 보드 커밋 `193b5eb` 에 `Criteria-Met: 23/23` 이 붙었다.
+  root `AGENTS.md` 표는 `Criteria-*` 를 **구현 커밋만**으로 정한다. r2 의 같은 성격 커밋
+  `b9b05c4` 는 4줄이었다 → D16.
+- reference/script 이동·삭제 **0건**.
+
+## 10. 파생 이슈 (r3)
+
+- **D3 · D5 · D7 · D8 · D9 — 해결 확인.** 구현 보고가 아니라 코드·테스트·변이로 확인했다.
+  D7 은 전체 형상 단언이 `principalId: 'kim@corp'` 승계와 옛 `expiresAt`(500) **미승계**를 둘 다
+  잠근다. D9 는 짝 케이스가 신설됐다.
+- **D6 · D10 · D11 — 보고만 유지.**
+- 신규 **D12 · D13 · D14 · D15 · D16** 은 `plan.md` 의 `[검증자 기입] 파생 이슈` 로 이관했다.
+
+## 11. Review Signals (r3) — 사실만
+
+- **AC18 이 3라운드 연속 코드와 어긋났다.** r1 ❌(대리 기준) → r2 ❌(같은 기준) → r3 ⚠️(정정한
+  문면이 부정확). r1 의 `[구현자 기입]`(plan.md:582)은 이미 "probe 방송 0 + 종료 push 1 = 1" 이라
+  정확히 적었는데, r3 의 정정은 그 케이스를 "같은 값" 이라 적었다.
+- **"지점을 적게 셌다" 가 4연속이다.** 0193 `attempted` → 0194 r1 `resuming`(I4) → r2
+  `refreshExpiresAt` producer(D2) → r3 grant 조립 3지점 중 1곳(D13).
+- **설계 정정과 구현이 한 커밋에 들어왔다** — r1·r2 에는 없던 일이고 §0 이 그 경우를 위해 둔
+  조항을 이번에 처음 썼다.
+- **반복된 검증 환경 한계**: electron 미설치 + better-sqlite3 ABI 로 5파일 42케이스 red —
+  r1·r2·0193 과 같은 서명.
+- 현재 라운드 **3**. **다음 재구현은 라운드 4이고, `docs/handoff/AGENTS.md` 의 review 진입
+  조건("impl 라운드가 3을 초과")에 해당한다.**
+
+## 12. 결론 (r3)
+
+- 상태: **FAIL (r3)**
+- **닫힌 것**: D3(사본 삭제) · D5(셀렉터 단일 독자) · D7(필드 규칙) · D8(guide 예제) ·
+  D9(짝 케이스). 전부 내 재측정·변이로 확인했다.
+- **막는 것 1건**: **D12 — AC18 의 정정된 문면이 코드와 어긋난다.** 한 줄 수정이면 닫힌다.
+- **기준 밖 결함 4건**: D13(전수 강제 1/3지점) · D14(`compact` 가 필수 필드를 드롭) ·
+  D15(`compact` 자기 테스트 부재) · D16(보드 커밋 trailer).
+- **AC**: `✅ 22 · ⚠️ 1 · ❌ 0 = 23`. 자기보고 `23/23` 과 **1건 갈림**. **강제 지점 17/17**.
+- **repository operation mismatch 1건** — D16.
+- **다음 단계**: **`handoff-review` 를 먼저 수행한다**(라운드 4 진입 조건). 그 뒤 구현자가
+  D12 를 닫고 D13·D14·D15·D16 을 함께 처리한다.
+
+---
+
 # r2 — 2026-08-20 · **FAIL**
 
 > r1 판정 원문은 아래 [`# r1`](#r1--2026-08-20--fail-원문-보존)에 그대로 둔다. 이 절은 **r2 에서 달라진 것만** 적는다.
