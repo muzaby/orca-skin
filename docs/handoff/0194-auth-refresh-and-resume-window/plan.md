@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-20 |
 | 매핑 | 0193 후속 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → plan/READY (r5) |
 
 # Part I — Product & UX Contract
 
@@ -140,22 +140,25 @@
 | AC15 | 배치가 끝나면 `resuming` 이 false 가 된다 — 성공·실패·후보 0건·**예외** 4경로 | 단위 4케이스 | 같음 |
 | AC16 | 게이트가 열리지 않았으면 `resuming` 은 false 다 — bypass 로 `passed:true` 인 빌드가 스피너에 잠기지 않는다 | 단위 1케이스 | `gateOpen()` 이 bypass 를 보지 않는 기존 성질 |
 | AC17 | `connectionState()` 가 `resuming` 을 채우고 wire 타입에 **필수** 필드로 있다 | 단위(`connection-views.test.ts`) + typecheck 3/3 | `handlers/providers.ts` invoke·push |
-| AC18 | 부팅 방송은 `P + K + 1` 이다 — **`P` = probe 후보가 있으면 1, 없으면 0**(batch push 는 후보가 있을 때만 나간다) · `K` = 즉시 강등 수 · 복원 종료 push 1회는 **시도 유무와 무관하게** 붙는다 | 단위 — 방송 상한 describe 의 **3케이스**가 `2`(P=1·K=0) · `4`(P=1·K=2) · `1`(P=0·K=0) 을 단언한다. **"기존 테스트 무수정 통과" 를 기준으로 쓰지 않는다**(r3 D4 — 대리 기준은 코드가 정당하게 횟수를 바꾸면 자동으로 거짓이 된다) | 같음 (D-008 — `resuming:true` 를 거두는 push) |
+| AC18 | 부팅 방송은 **두 규칙으로 갈린다** — ① `createAuthResume` 이 **스스로 부르는** `pushConnectionState` 는 `P + 1` 이다(**`P` = probe 후보가 있으면 1, 없으면 0** · `+1` = 복원 종료 push, 시도 유무 무관) ② 그 밖의 부팅 방송은 `auth.subscribe` 가 **AuthChange 하나당 1회** 낸다 — 즉시 강등 `K` 건도, refresh 커밋·재로그인 step 도 여기다. **부팅 총량 숫자는 단언하지 않는다**(r5 D19 — 회복이 성공하면 같은 sink 를 2회 더 부르므로 총량은 상수가 아니다) | 단위 — 방송 상한 describe 의 **3케이스**가 `2`(P=1·K=0) · `4`(P=1·K=2) · `1`(P=0·K=0) 을 단언하고, 각 기대값을 `자기 push(P+1)` + `fake resume 이 낸 change(K)` 로 **갈라 적는다**. **"기존 테스트 무수정 통과" 를 기준으로 쓰지 않는다**(r3 D4 — 대리 기준은 코드가 정당하게 횟수를 바꾸면 자동으로 거짓이 된다). 이 describe 가 잠그는 것은 ①과 `K` 까지다 | 같음 (D-008 — `resuming:true` 를 거두는 push) |
 | AC19 | gate Auth 는 refresh·재로그인 대상이 아니다 | 단위 — gate 만 만료시키고 `refresh`·`login` 각 0회 | 회복 패스가 `remainingDefinitions` 만 돈다 |
 | AC20 | **§15 가 이름 붙인 문서 전부**가 갱신된다 — `docs/arch/backend/auth.md §5.2`(refresh 단계·회복 대상·갱신 커밋 필드 규칙) · `docs/guides/closed-network-extensions.md §3-b`(배포가 채우는 `refresh`·`refreshToken` 예제) · `docs/IPC_CONTRACT.md`(`resuming`) | 문서 대조 + `check-doc-inventory --check` 차이 0. **AC 의 문서 목록과 §15 의 목록은 한 목록이다**(r3 D8 — 두 벌이라 §15 에만 있던 guide 가 두 라운드 동안 채점 밖이었다) | 문서 |
 | AC21 | refresh 응답에 refresh token 이 없으면 옛 값이 **새 세대 키**로 승계된다 — 옛 키는 정리되고 2회차 갱신이 다시 성공한다 | 단위(`login.test.ts`) — 값 동일 · `refreshKey` ≠ 옛 키 · 옛 키 금고에서 사라짐 · 2회차 `refresh()` = `refreshed` | `LoginService.refresh` → `tokenCandidate` |
 | AC22 | 승계 시 `refreshExpiresAt` 도 grant 에 실린다 — 응답이 새 만료를 주면 그것이 이긴다 | 단위 — 4케이스(승계 시 옛 만료 · 응답 만료가 이김 · 회전이면 만료 없음 · 회전+만료면 그 값) | 같음 |
 | AC23 | 갱신이 실패하면 옛 access·refresh 가 **둘 다** 산다 — probe 거부 경로와 **금고 쓰기 실패 경로 모두** | 단위 2케이스 — 후자가 옛 키 참조 승계를 배제하는 근거다 | `settleGrant` 되돌리기 |
+| AC24 | 만료 정착된 secret·session grant 는 **재시작을 넘어 `expired` 로 남는다** — 파서가 `expiresAt` 을 잃지 않는다 | 단위(`store-parse.test.ts`) — secret·session 각각 `expiresAt` 왕복 + **파싱 결과를 `AuthStore` 에 심었을 때 `status()` 가 `expired`**(파싱만 보면 파서가 필드를 실어도 소비처가 안 읽는 경우를 놓친다) | `markExpired`(`store.ts:382`) → 영속 → 부팅 `parseGrant` |
 
 ### AC 검증 주의사항
 
 - 기존 테스트 재사용: 방송 상한 describe 가 `auth-resume.test.ts` 에 실재하고 **P=1 인 2케이스**(K=0 / K=2)를 갖는다. **0193 plan 이 적은 `:213`·`:231` 은 현재 좌표가 아니다** — 설계 세션에서 다시 셌다. AC18 이 요구하는 **P=0 케이스는 그 describe 에 없다** — 지금은 다른 describe(`부팅 시점에 이미 만료된 grant`)에만 있어, 상한의 정본이 `P` 항을 스스로 증명하지 못한다.
-- AC18 의 관측 지점: fake `pushConnectionState` 의 **호출 횟수**다. 세 케이스가 `P`·`K` 를 각각 독립으로 움직여 세 항을 가른다 — **P 만 0 으로 내린 케이스가 없으면 batch push 를 무조건으로 만들어도 상한이 초록**이다(r3 D12 가 그 자리였다).
+- AC18 의 `N회`/총량 기준 — **sink 의 프로덕션 호출부 전수 → 항 매핑**: `rg -n "pushConnectionState" app/src/main --glob '!*.test.ts'` → **4곳**이다. `bootstrap.ts:375`(`auth.subscribe` 안) = **change 당 1회**(`K` 항 + 회복이 낸 change) · `auth-resume.ts:210`(batch) = **`P`** · `:219`(`finally` 종료) = **`+1`** · `settings-reactions.ts:34`(`authBypass` 변경) = **복원 창 밖**. 네 호출부가 `bootstrap.ts:365` 의 **같은 클로저 하나**를 공유한다.
+- AC18 의 관측 지점: fake `pushConnectionState` 의 **호출 횟수**다. 세 케이스가 `P`·`K` 를 각각 독립으로 움직여 두 항을 가른다 — **P 만 0 으로 내린 케이스가 없으면 batch push 를 무조건으로 만들어도 상한이 초록**이다(r3 D12 가 그 자리였다). **관측 지점이 모형하지 않는 호출부**: `login`·`refresh` 가 낸 change 로 도는 `bootstrap.ts:375` — fake 는 `resume` 에서만 `broadcast()` 를 부른다. 그래서 AC18 은 그 항을 세지 않고 **자기 push 로 단언 범위를 좁힌다**(r5 D19 — 못 보는 항은 그 지점에서 반증될 수 없어 r1~r4 가 매 라운드 다른 항을 놓쳤다).
 - N회 기준의 관측 지점: fake `AuthRuntime` 의 `refresh`·`login` **호출 횟수**다. 호출 지점 grep 이 아니다.
 - 순서 기준의 관측 지점: 기존 fake 의 `enter:`/`exit:`/`login:` 로그 배열(`:83`·`:108` 관례)에 `refresh:` 를 같은 방식으로 잇는다.
 - AC14 는 structural proxy 를 쓰지 않는다 — "구독자 순서와 무관" 을 주석으로 적는 대신 **테스트에서 실제로 뒤집어** 두 순서 모두 단언한다.
 - 부정형 AC(AC3·AC5·AC7·AC8·AC16·AC19)는 각각 짝이 되는 정상 동작 AC(AC1·AC4·AC6·AC13)가 같은 파일에 있다.
-- 총량/0건 기준: AC18 이 잠그는 것은 **회복이 로그인 창을 열지 않은 경로**의 방송 총량이다. 재로그인이 실제로 도는 경로는 로그인 자체가 내는 change 가 더해져 `P + K + 1` 을 넘고, 그 총량은 AC 로 잠그지 않는다(0187 D2 의 "통지 1회" 가 달성 불가였던 선례).
+- 총량/0건 기준: **AC18 은 부팅 방송 총량을 잠그지 않는다.** 회복이 내는 change 는 refresh 성공(커밋 + 종료 step)·재로그인 step 마다 붙어 상수가 아니고, 그 항을 세는 관측 지점이 없다. r4 까지 적혀 있던 예외 경계 "회복이 **로그인 창을 열지 않은** 경로" 는 틀렸다 — refresh 성공은 창을 열지 않으면서 상한을 넘는다(r5 D19). 잠그는 것은 `auth-resume` **자신의** push `P + 1` 이다(0187 D2 의 "통지 1회" 가 달성 불가였던 선례).
+- AC 분모: **23 → 24**(AC24 신설, r5). 이전 라운드 합계와 직접 비교하지 않는다.
 
 ---
 
@@ -283,8 +286,8 @@ renderer: RootGate → rootFrame({bootPhase, bootError, gate, resuming})
 | refresh 커밋은 access·refresh 둘 다 **새 세대 키** | `absorbToken`(기존) | 같음 | 같음 1지점 | 부분 적용 자격증명 창이 열린다 |
 | `refreshExpiresAt` 영속 | `tokenCandidate` + `store-parse.ts` | 커밋·파서 | ① **커밋 쓰기**(`tokenCandidate` — grant 에 싣는 곳) ② 부팅 파싱 — **2지점** (r2 정정: r1 은 "직렬화는 자동" 이라 적어 producer 를 세지 않았고 그 지점에 눈이 없었다) | 재시작하면 만료 정보를 잃고 죽은 refresh 로 왕복한다 |
 | refresh 미회전 시 값 승계 (D-014) | `LoginService.refresh` **한 곳** | 갱신 커밋 | `tokenCandidate` 호출 직전 — **1지점** | 갱신 한 번에 회복 능력을 잃고 두 번째 만료부터 로그인 창만 남는다 |
-| **grant 조립은 필드를 빠뜨릴 수 없다** (r3 신설 D7 · **r4 정정 1→3**) | `Grant` 갈래별 조립 리터럴 | 최초 로그인·재인증·갱신 커밋 | `compact<T>` 리터럴 — ① `secretCandidate` ② `tokenCandidate` ③ `absorb` 의 `session` case — **3지점**. 분모는 `Grant` union 갈래 수이고 `rg -c "kind: 'secret'\|kind: 'token'\|kind: 'session'" src/main/contracts/auth.ts` 로 센다 | 안 닫힌 갈래는 `GrantBase` 에 필드가 늘어도 조용히 통과하고, 라운드마다 다른 필드로 재발한다(D1 `refreshToken` → D7 `principalId`) |
-| **`compact` 인자는 필수 키에 `undefined` 를 받지 않는다** (r4 신설 — D14) | `shared/obj.ts` `compact` 시그니처 **한 곳** | 위 행의 3지점 전부 | 시그니처 **1지점** — 필수 키는 `T[K]` 를, 선택 키만 `null`/`undefined` 를 받는다 | `Partial<T>` 는 필수 키에도 `undefined` 를 허용한다. `vaultKey: undefined` 가 typecheck 를 통과하고 `as T` 가 그것을 감춰 런타임에만 드러난다(r3 VF1) |
+| **grant 조립은 필드를 빠뜨릴 수 없다** (r3 신설 D7 · r4 정정 `1→3` · **r5 정정 `3→6`**) | `Grant` 를 **부분에서 조립하는** 리터럴 전수 | 최초 로그인·재인증·갱신 커밋 **+ 부팅 파싱** | `compact<T>` 리터럴 — ① `secretCandidate` ② `tokenCandidate` ③ `absorb` 의 `session` case ④~⑥ `parseGrant` 의 secret·token·session 분기 — **6지점**. **분모의 술어는 불변식의 주어**(`Grant` 를 조립하는 리터럴)이지 해법의 이름(`compact<`)이 아니다 — 해법으로 세면 이미 고친 지점만 분모에 오른다(r4 가 그 자리였다). `rg -n "kind: 'secret'\|kind: 'token'\|kind: 'session'" app/src/main --glob '!*.test.ts'` → **22건**을 `Grant` 조립 **6** · 타입 선언 **12** · `AuthResult` 조립 **3** · 요청 plan 리터럴 **1** 로 가른다(합 22 · 미분류 0). `store.ts:382` 의 `{ ...grant, expiresAt }` 는 **기존 grant 를 고치는** 자리라 필드를 잃을 수 없어 조립이 아니다 | 안 닫힌 갈래는 `GrantBase` 에 필드가 늘어도 조용히 통과하고, 라운드마다 다른 필드로 재발한다(D1 `refreshToken` → D7 `principalId` → **r5 `expiresAt` 이 파서에서 실제로 유실 중**). `GrantBase` 결함 심기는 **이 집합 안의 감도만** 증명한다 — 집합이 좁으면 심어도 안 보인다 |
+| **`compact` 인자는 필수 키에 `undefined` 를 받지 않는다** (r4 신설 — D14) | `shared/obj.ts` `compact` 시그니처 **한 곳** | 위 행의 6지점 전부 | 시그니처 **1지점** — 필수 키는 `T[K]` 를, 선택 키만 `null`/`undefined` 를 받는다 | `Partial<T>` 는 필수 키에도 `undefined` 를 허용한다. `vaultKey: undefined` 가 typecheck 를 통과하고 `as T` 가 그것을 감춰 런타임에만 드러난다(r3 VF1) |
 | `resuming` = `!remainingSettled && gateOpen(...)` | `auth-resume.ts` **파생 함수 1개** | 소비자 | ① 조립 push(`bootstrap.ts`) ② 조립 invoke(`handlers/providers.ts`) ③ `rootFrame()` 판정 — **3지점** (r3 정정: r1 은 조립을 1지점으로 셌다) | 별도 플래그면 push 순서에 따라 메인 셸이 한 프레임 번쩍인다 |
 | `remainingSettled` 는 `finally` 에서 | `auth-resume.ts` | 배치 | 종료(성공·실패·throw) 1지점 | 예외 하나로 앱이 스피너에 영구히 잠긴다 |
 | 판정·상태의 문서 사본 | `plan.md` + `INDEX.md` | 설계자·구현자·검증자 | 상태를 바꾸는 **모든** 커밋 — **2지점** | 두 사본이 서로 다른 말을 한다 |
@@ -413,7 +416,7 @@ LoginService.refresh(성공) → absorbToken → settleGrant(probe) → store.pu
 | 0193 D-001 ~ D-007 | `docs/handoff/0193-…/plan.md §3` | §3 승계 표 | **전건 유지** |
 | "복원된 grant 는 통과 근거가 아니다 · 별도 검증 경로를 만들지 마라" | `features/gate/index.ts:43-51` | §10 refresh 커밋 행 | **유지** — refresh 도 `settleGrant` 의 probe 를 통과해야 커밋된다 |
 | "게이트가 먼저" 순서 규칙 | `app/auth-resume.ts:8-14` | §9 TO-BE | 유지 — 회복은 gate 통과 후에만 돈다 |
-| 방송 상한 (0187 D2) | `auth.md §5.2` (**정본 1벌**) | §7 AC18 · §9 Delta | **변경 — `P + K + 1`.** probe 단계는 `P + K` 로 그대로다 — `P` = 후보가 있으면 1, 없으면 0 이고 0193 의 조기 반환이 이미 그랬다. `1 + K` 라 적던 문면이 후보가 있는 경우만 적은 것이다(r3 D12). 여기에 복원 종료 push 1회가 항상 붙는다: D-008 의 대기 화면은 `resuming:true` 를 거두는 push 없이 걷히지 않는다 |
+| 방송 상한 (0187 D2) | `auth.md §5.2` (**정본 1벌**) | §7 AC18 · §9 Delta | **변경 — 총량 식을 버리고 두 규칙으로 갈랐다(r5).** `auth-resume` 이 **자신이 내는** push 는 `P + 1` 이다: probe 단계 batch 는 후보가 있을 때만 나가고(`P`), D-008 의 대기 화면은 `resuming:true` 를 거두는 종료 push 없이 걷히지 않는다(`+1`). 그 밖의 방송은 `auth.subscribe` 가 **change 하나당 1회** 내며 즉시 강등 `K` 와 회복이 낸 change 가 여기다 — 0187 D2 의 "성공은 합치고 강등은 즉시" 는 그대로 승계된다 |
 | "인증 코어는 제품 정책을 모른다"(0188) | `app/auth-resume.ts:3-6` | §9 책임 소유자 | 유지 — 회복 *정책*은 app 에, refresh *가능 판정과 실행*은 lifecycle 이라 `features/auth` 에 둔다 |
 | 새 값은 새 키에, grant 저장이 커밋 (0190 r8) | `login.ts:449-462` | §13 다중 저장소 쓰기 | 유지 — `absorbToken` 을 재사용하고 규칙을 다시 적지 않는다 |
 | 채널을 둘로 쪼개지 않는다 (구 auth 의 2벌 동기화 버그) | `shared/ipc.ts:110-113` | §11 wire 변경 | **유지** — 새 채널 0개, `provider:state` payload 만 넓힌다 |
@@ -480,6 +483,7 @@ LoginService.refresh(성공) → absorbToken → settleGrant(probe) → store.pu
 - [x] 게이트 명령이 `app/AGENTS.md` 현재 지침과 충돌하지 않는다(`npm test` 미사용, `vitest run` 직접 호출).
 - [x] 본문 완성 후 교차검증했고 `ACTIVE 결정 ↔ AC` 대조 결과를 §3 갱신 메모에 관측으로 적었다(충돌 0, 9쌍 대조).
 - [x] 산출물 문장 규칙 — 판정 먼저, 주장 한 줄에 관측 하나, 표 한 칸 3줄. Part I 은 관측 결과, Part II 는 경로·계약으로 갈랐다.
+- [x] **(r5 재게이트) 정정한 AC18 과 신설 AC24 를 §5 AC 게이트로 다시 걸었다** — ① 행동 단언인가: AC18 은 `auth-resume` 이 스스로 내는 호출 수, AC24 는 재시작 후 `status()` 로 둘 다 관측 가능한 결과다 ② 대리 기준이 아닌가: "무수정 통과"·"필드가 실린다" 같은 구조 대리를 쓰지 않는다 ③ **관측 지점이 그 항을 반증할 수 있는가**: AC18 이 세는 두 항(`P`·`+1`)은 fake 가 전부 모형하고, 모형하지 않는 회복 항은 **단언에서 뺐다**. AC24 는 파싱 단언만으로는 소비처 미독을 놓치므로 `status()` 까지 내려 관측한다. 분모 **23 → 24**.
 - [x] **(r4 재게이트) 정정한 AC18 을 §5 AC 게이트로 다시 걸었다** — 행동 단언(`P + K + 1`)이 `P`·`K` 를 각각 움직이는 3케이스로 관측되고, 대리 기준("기존 테스트 무수정 통과")을 쓰지 않으며, `N회` 의 관측 지점(fake push 호출 수)을 적었다. r3 이 빠뜨린 것은 **조건부 항 `P`** 하나였고 저장소의 기존 케이스가 그것을 반증했다.
 
 ### 구현 착수 전 확인이 필요한 1건
@@ -1083,5 +1087,5 @@ self-register` ×6 · `Electron failed to install` ×1.
 | D16 | **보드 커밋에 `Criteria-Met` 이 붙었다.** root `AGENTS.md` 표는 `Criteria-*` 를 구현 커밋만으로 정한다 | verify r3 §9 — `193b5eb` trailer 7줄에 `Criteria-Met: 23/23`. r2 의 같은 성격 커밋 `b9b05c4` 는 4줄이었다 | 다음 보드 커밋부터 `Criteria-*` 를 빼거나, 규칙을 바꾸려면 root `AGENTS.md` 에서 바꾼다 | **해결 (r4)** — r4 보드 커밋의 trailer 에서 `Criteria-*` 를 뺐다. 규칙(root `AGENTS.md`)은 바꾸지 않았다 |
 | D17 | **verify r3 §4 의 `resuming` 재측정이 재현되지 않는다.** "`rg "\.resuming" src/renderer/src` → `RootGate.tsx:35` 1건" 이라 적혔는데 같은 커밋에서 **5줄 / 4파일**이다 | r4 구현 §S8 — `git grep -n "\.resuming" 3371df2 -- app/src/renderer/src` 가 `3371df2` 시점에도 5줄을 낸다 | 그 관측이 뒷받침한 §10 행(`resuming` 3지점)은 **여전히 옳다** — 5줄 중 3줄은 `BootScreen.tsx:19`·`:20` 지역 변수와 `GateLogin.tsx:96` i18n 키다. 실제 wire 필드 독자는 `RootGate.tsx:35`(transport)·`useProviderGate.ts:75`(기본값) 2곳이다. 관측 자체의 오류라 다음 verify 가 같은 명령을 그대로 쓰지 않게 적는다 | 보고만 |
 | D18 | **`useProviderGate.ts:75` 의 `state?.resuming ?? false` 는 §10 어느 행에도 없는 기본값 판정이다** — `useProviderGate` 테스트 파일이 없어 그 줄 자체에는 눈이 없다 | r4 구현 §Product/UX 파생 검토 | **결과는 잠겨 있다**: `state === null` 이면 `gate` 도 null 이고 `rootFrame` 이 `gate === null` 을 `resuming` 보다 먼저 본다(`rootFrame.ts:35`). `rootFrame.test.ts:47`(`게이트 미판정이면 resuming 이어도 그냥 대기다`)이 그 조합을 단언한다 | 보고만 |
-| D19 | **AC18 과 정본 `auth.md §5.2` 의 `P + K + 1` 이 프로덕션 부팅 방송 총량이 아니다.** 회복이 성공하면 같은 `pushConnectionState` 가 더 불린다 — `bootstrap.ts:365` 의 한 함수를 `:376` `auth.subscribe` 와 `:404` `createAuthResume` 이 함께 쓴다 | verify r4 §7 — 만료 oauth 1건이 refresh 로 살아나는 부팅에서 문서상 총 1(P=0·K=0), 실제는 커밋(`login.ts:586`) + step(`:587`) + 종료 = **3**. fake 는 `resume` 에서만 `broadcast()` 를 부르고(`auth-resume.test.ts:168`·`:183`) `login`·`refresh` 에서는 부르지 않아 이 항이 관측 밖이다 | **설계자 몫 — 규범 행 정정.** ① AC18 문면에 회복 항을 넣거나 상한의 적용 범위를 `auth-resume` 이 스스로 내는 push 로 좁힌다 ② §7 주의사항의 예외 경계를 `로그인 창을 열지 않은 경로` → `회복이 change 를 내지 않은 경로` 로 고친다 ③ `auth.md:365-368` 의 `총 P + K + 1 이다` 에서 총량 단언을 뺀다 | 미해결 |
-| D20 | **`store-parse.ts` 의 grant 조립 3리터럴에 §10 8행의 전수 강제가 없다.** `parseGrant` 가 `{ kind, …, ...base }` 로 조립해 `GrantBase` 에 필드가 늘어도 컴파일이 통과하고, 그 필드는 재시작 때 조용히 사라진다 | verify r4 §5 — `GrantBase` 에 `zzTenant?` 를 더하면 깨지는 좌표가 `login.ts:608`·`:788`·`:847` **3개**뿐이고 `store-parse.ts:37`·`:41`·`:52` 는 통과한다 | §10 8행이 `최초 로그인·재인증·갱신 커밋` 으로 범위를 적었으므로 **닫을지 자체가 결정 지점**이다. 닫는다면 파서도 같은 `compact<T>` 형식으로 바꾸고 분모를 `조립 리터럴 수` 로 올린다. D2(`refreshExpiresAt` 영속)가 이 축의 필드별 선례다 | 보고만 |
+| D19 | **AC18 과 정본 `auth.md §5.2` 의 `P + K + 1` 이 프로덕션 부팅 방송 총량이 아니다.** 회복이 성공하면 같은 `pushConnectionState` 가 더 불린다 — `bootstrap.ts:365` 의 한 함수를 `:376` `auth.subscribe` 와 `:404` `createAuthResume` 이 함께 쓴다 | verify r4 §7 — 만료 oauth 1건이 refresh 로 살아나는 부팅에서 문서상 총 1(P=0·K=0), 실제는 커밋(`login.ts:586`) + step(`:587`) + 종료 = **3**. fake 는 `resume` 에서만 `broadcast()` 를 부르고(`auth-resume.test.ts:168`·`:183`) `login`·`refresh` 에서는 부르지 않아 이 항이 관측 밖이다 | **설계자 몫 — 규범 행 정정.** ① AC18 문면에 회복 항을 넣거나 상한의 적용 범위를 `auth-resume` 이 스스로 내는 push 로 좁힌다 ② §7 주의사항의 예외 경계를 `로그인 창을 열지 않은 경로` → `회복이 change 를 내지 않은 경로` 로 고친다 ③ `auth.md:365-368` 의 `총 P + K + 1 이다` 에서 총량 단언을 뺀다 | **해결 (r5)** — 총량 식을 버리고 AC18 을 **두 규칙**으로 갈랐다(자기 push `P + 1` · 그 밖은 change 당 1회). §7 주의사항의 예외 경계와 `N회`/총량 필드(sink 호출부 4곳 → 항 매핑 · 모형하지 않는 호출부)를 다시 썼고 §16 행도 같은 문면이다. 정본 `auth.md §5.2` 의 총량 단언 삭제는 구현 커밋이 한다 |
+| D20 | **`store-parse.ts` 의 grant 조립 3리터럴에 §10 8행의 전수 강제가 없다.** `parseGrant` 가 `{ kind, …, ...base }` 로 조립해 `GrantBase` 에 필드가 늘어도 컴파일이 통과하고, 그 필드는 재시작 때 조용히 사라진다 | verify r4 §5 — `GrantBase` 에 `zzTenant?` 를 더하면 깨지는 좌표가 `login.ts:608`·`:788`·`:847` **3개**뿐이고 `store-parse.ts:37`·`:41`·`:52` 는 통과한다 | §10 8행이 `최초 로그인·재인증·갱신 커밋` 으로 범위를 적었으므로 **닫을지 자체가 결정 지점**이다. 닫는다면 파서도 같은 `compact<T>` 형식으로 바꾸고 분모를 `조립 리터럴 수` 로 올린다. D2(`refreshExpiresAt` 영속)가 이 축의 필드별 선례다 | **설계 완료 (r5) — 닫는다.** §10 8행의 술어를 불변식의 주어로 바꾸고 지점을 `3→6` 으로 정정했다. 조사 중 **실제 유실**이 드러났다 — `parseGrant` 가 secret·session 분기에서 `expiresAt` 을 파싱하지 않아 만료 정착된 grant 가 재시작하면 `valid` 로 돌아온다. 그 행동을 AC24 로 신설했다. 코드 전환은 구현 커밋이 한다 |
