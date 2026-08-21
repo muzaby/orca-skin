@@ -11,7 +11,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join, sep } from 'node:path'
 
 const MAIN_ROOT = join(__dirname, '..', '..')
 
@@ -22,6 +22,9 @@ const ALLOWED = new Set(['net-fetch.ts'])
 // 대상이 아니다. 그래서 바로 앞 글자가 `.` 이거나 식별자면 제외한다.
 const GLOBAL_FETCH = /(^|[^.\w$])fetch\s*\(/
 
+// 경로 표기는 플랫폼 구분자를 타지 않는다 — CI 게이트는 windows 러너에서 돈다(`.github/
+// workflows/ci.yml`). `join` 이 만든 `\` 를 `/` 로 자르면 파일 이름 대신 전체 경로가 나와
+// `ALLOWED` 면제가 조용히 풀리고, 위반 목록도 OS 마다 다른 이름으로 보인다.
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
     const full = join(dir, entry)
@@ -44,9 +47,14 @@ function stripCommentsAndStrings(source: string): string {
 describe('main 은 전역 fetch 를 쓰지 않는다 (0173)', () => {
   it('net-fetch.ts 외에 전역 fetch 호출이 없다', () => {
     const offenders = sourceFiles(MAIN_ROOT)
-      .filter((file) => !ALLOWED.has(file.slice(file.lastIndexOf('/') + 1)))
+      .filter((file) => !ALLOWED.has(basename(file)))
       .filter((file) => GLOBAL_FETCH.test(stripCommentsAndStrings(readFileSync(file, 'utf8'))))
-      .map((file) => file.slice(MAIN_ROOT.length + 1))
+      .map((file) =>
+        file
+          .slice(MAIN_ROOT.length + 1)
+          .split(sep)
+          .join('/')
+      )
 
     // 실패 메시지가 곧 수정 지시가 되게 파일 목록을 싣는다.
     expect(

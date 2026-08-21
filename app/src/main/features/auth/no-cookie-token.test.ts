@@ -16,7 +16,7 @@
 import { describe, expect, it } from 'vitest'
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, sep } from 'node:path'
 
 const AUTH_ROOT = join(__dirname)
 
@@ -42,10 +42,17 @@ function stripCommentsAndStrings(source: string): string {
     .replace(/`(?:[^`\\]|\\[\s\S])*`/g, '``')
 }
 
+// 보고 표기는 플랫폼 구분자를 타지 않는다 — CI 게이트는 windows 러너에서 돌고(`.github/
+// workflows/ci.yml`), `join` 이 만든 `\` 를 그대로 내보내면 같은 위반이 OS 마다 다른 이름으로
+// 보인다. 위반 목록은 사람이 읽고 비교하는 값이라 `/` 하나로 고정한다.
+function toPosix(relative: string): string {
+  return relative.split(sep).join('/')
+}
+
 function offendersIn(root: string): string[] {
   return sourceFiles(root)
     .filter((file) => COOKIE_READ.test(stripCommentsAndStrings(readFileSync(file, 'utf8'))))
-    .map((file) => file.slice(root.length + 1))
+    .map((file) => toPosix(file.slice(root.length + 1)))
 }
 
 describe('토큰은 쿠키에서 나오지 않는다 (0195 D-006)', () => {
