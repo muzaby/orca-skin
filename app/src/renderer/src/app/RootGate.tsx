@@ -36,11 +36,10 @@ export function RootGate(): React.JSX.Element {
   if (frame === 'boot-failure') {
     return <BootFailureFrame bootError={bootError} onRetryBoot={() => void bootActions.runBoot()} />
   }
-  if (frame === 'waiting') {
-    // 게이트 통과 후의 대기는 **복원 중**이라고 말한다 — 같은 스피너지만 사용자가 기다리는
-    // 대상이 다르다(부팅 준비 vs 사내 연결 복원).
-    return gate.resuming ? <BootScreen label="resuming" /> : <BootScreen />
-  }
+  if (frame === 'waiting') return <BootScreen />
+  // 게이트 통과 후의 대기는 **복원 중**이라고 말한다 — 같은 스피너지만 사용자가 기다리는 대상이
+  // 다르다(부팅 준비 vs 사내 연결 복원). 어느 쪽인지는 셀렉터가 이미 골랐다.
+  if (frame === 'waiting-resume') return <BootScreen label="resuming" />
   if (frame === 'gate') {
     return (
       <GateFrame

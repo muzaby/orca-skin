@@ -334,7 +334,7 @@ describe('createAuthResume — 순서', () => {
   })
 })
 
-describe('createAuthResume — 방송 상한 1 + K (0187 D2 승계)', () => {
+describe('createAuthResume — 방송 상한 1 + K + 1 (0187 D2 승계 · 0194 종료 push)', () => {
   it('전부 성공하면 마지막 full-state push 한 번이다', async () => {
     const { auth, broadcast } = fakeRuntime({
       a: restored(true),

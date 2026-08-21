@@ -433,8 +433,12 @@ apiKeySpec({
 
 ### 3-b. OAuth code→token
 
-표준 OAuth 를 쓰는 대상이 있으면 `authorize(ctx)` 하나만 채운다. **PKCE 와 `state` 는 코어가
+표준 OAuth 를 쓰는 대상이 있으면 `authorize(ctx)` 를 채운다. **PKCE 와 `state` 는 코어가
 발급·보관·대조한다** — 배포는 코어가 준 값을 authorize URL 에 싣기만 한다.
+
+`refresh(refreshToken)` 은 **선택이지만, 없으면 토큰이 만료될 때마다 로그인 창이 뜬다.** 채우면
+부팅 복원이 창 없이 갱신한다(0194). 갱신을 쓰려면 `exchange` 가 `refreshToken` 도 함께 돌려줘야
+한다 — access token 만 돌려주면 갱신할 재료가 없다.
 
 ```ts
 {
@@ -458,12 +462,33 @@ apiKeySpec({
         // 코어가 보관하던 verifier 를 넘겨준다 — 따로 저장하지 마라.
         const res = await fetch('https://llm.example.corp/oauth/token', { … })
         const body = await res.json()
-        return { token: body.access_token, expiresAt: Date.now() + body.expires_in * 1000 }
+        return {
+          token: body.access_token,
+          expiresAt: Date.now() + body.expires_in * 1000,
+          // 이 값을 담아야 아래 `refresh` 가 쓸 재료가 생긴다.
+          refreshToken: body.refresh_token
+        }
       }
+    }
+  },
+  // RFC 6749 §6. 만료 시 창 없이 먼저 시도된다 — 실패하면 코어가 재로그인으로 넘어간다.
+  async refresh(refreshToken) {
+    const res = await fetch('https://llm.example.corp/oauth/token', { … })
+    const body = await res.json()
+    // **새 refresh token 을 돌려주지 않아도 된다.** 회전하지 않는 서버면 access token 만 담는다 —
+    // 앱이 보내던 refresh token 을 그대로 유지한다.
+    return {
+      token: body.access_token,
+      expiresAt: Date.now() + body.expires_in * 1000,
+      ...(body.refresh_token ? { refreshToken: body.refresh_token } : {})
     }
   }
 }
 ```
+
+**`refreshExpiresAt` 은 아는 경우에만 담는다.** 없으면 "만료 없음" 이 아니라 **"모른다"** 로 읽혀,
+만료 시 일단 갱신을 시도하고 실패하면 재로그인으로 넘어간다. 값을 담으면 그 시각이 지난 뒤에는
+왕복 없이 바로 재로그인한다.
 
 **SP 명세에 `state` 가 없으면 `ctx.state()` 를 부르지 않는다.** 부르지 않으면 인가 요청에 state 가
 실리지 않고, 코어는 콜백에서 state 를 **요구하지 않는다**(대신 진행 중인 인가 1건으로 대조한다 —

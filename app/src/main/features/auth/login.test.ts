@@ -91,7 +91,10 @@ interface Harness {
 function harness(
   providers: AuthDefinition[] = [gateway()],
   // probe 통로. 미주입이면 확인 없이 통과한다(`LoginDeps.request` 의 기본 의미).
-  request?: LoginDeps['request']
+  request?: LoginDeps['request'],
+  // 최초 로그인 경로를 실물로 태우기 위한 구멍 — `SessionAuthenticator.login` 은 `AuthResult` 를
+  // 돌려주므로 token 갈래(`absorbToken`)를 임의의 `TokenValue` 로 열 수 있다.
+  session?: LoginDeps['session']
 ): Harness {
   const secrets = fakeSecretStore()
   const vault = createVault(secrets)
@@ -104,7 +107,8 @@ function harness(
     store,
     vault,
     clock: () => 1_000,
-    ...(request ? { request } : {})
+    ...(request ? { request } : {}),
+    ...(session ? { session } : {})
   })
   const keyOf = (authId: string, which: 'value' | 'refresh'): string | null => {
     const grant = store.get(authId)
@@ -471,7 +475,7 @@ function oauthWithRefresh(
 // 값이 있다는 것만 세운다(r8 규칙).
 function seedExpiredToken(
   h: Harness,
-  patch?: { refreshKey?: string | null; refreshExpiresAt?: number }
+  patch?: { refreshKey?: string | null; refreshExpiresAt?: number; principalId?: string }
 ): { accessKey: string; refreshKey: string | null } {
   const accessKey = 'old-access@v1'
   const refreshKey = patch?.refreshKey === undefined ? 'old-refresh@v1' : patch.refreshKey
@@ -487,7 +491,8 @@ function seedExpiredToken(
     // clock 이 1_000 이라 이미 만료다 — refresh 를 쓰는 바로 그 형상.
     expiresAt: 500,
     ...(refreshKey !== null ? { refreshKey } : {}),
-    ...(patch?.refreshExpiresAt !== undefined ? { refreshExpiresAt: patch.refreshExpiresAt } : {})
+    ...(patch?.refreshExpiresAt !== undefined ? { refreshExpiresAt: patch.refreshExpiresAt } : {}),
+    ...(patch?.principalId !== undefined ? { principalId: patch.principalId } : {})
   })
   return { accessKey, refreshKey }
 }
@@ -785,6 +790,139 @@ describe('LoginService — refresh 미회전 승계 (0194 D-014)', () => {
     expect(h.secretOf('wiki')).toBe('old-access-value')
     // 다음 시도가 여전히 가능하다 — 회복 능력을 잃지 않았다.
     expect(h.store.refreshSecret('wiki')).toBe('old-refresh-value')
+  })
+})
+
+// ── 커밋 grant 의 **전체 형상** (0194 r3) ────────────────────────────────────
+//
+// 위 케이스들은 필드를 **골라서** 단언한다(`grant.refreshKey`·`refreshOf`). 그래서 이름을 적지
+// 않은 필드는 커밋에서 빠져도 green 이었다 — D2(`refreshExpiresAt` 쓰기 제거 후 330/330) ·
+// D9(짝 조건 제거 후 338/338) · D7(`principalId` 유실이 두 라운드 통과)이 전부 같은 이유다.
+//
+// 여기서는 grant 를 **통째로** 단언한다. 필드 이름을 몰라도 빠진 필드가 잡히고, 있으면 안 되는
+// 필드(승계 금지 `expiresAt`)도 같은 단언이 잡는다. 키 이름은 계약이 아니므로(r8) 새 세대 키는
+// `expect.any(String)` 으로 받고 "옛 키와 다르다" 만 따로 단언한다.
+function sessionTokenProvider(): AuthDefinition {
+  return {
+    id: 'wiki',
+    label: '위키',
+    origin: 'https://wiki.example.corp',
+    probe: { path: '/api/me' },
+    methods: [
+      {
+        kind: 'browser-session',
+        label: '통합 인증',
+        config: {
+          sessionGroup: 'corp',
+          loginUrl: 'https://adfs.example.corp/adfs/ls/',
+          doneUrlPrefix: 'https://wiki.example.corp/home',
+          allowedOrigins: ['https://adfs.example.corp', 'https://wiki.example.corp']
+        }
+      }
+    ]
+  }
+}
+
+describe('LoginService — 커밋 grant 전체 형상 (0194 r3)', () => {
+  it('회전 갱신 — 응답이 말한 것 + 옛 grant 에서 승계한 것', async () => {
+    const h = harness(
+      [
+        oauthWithRefresh([], () =>
+          Promise.resolve({
+            token: 'new-access',
+            refreshToken: 'new-refresh',
+            expiresAt: 9_000,
+            refreshExpiresAt: 77_000
+          })
+        )
+      ],
+      probeApi(true)
+    )
+    // 응답은 신원을 다시 말하지 않는다 — 계정은 갱신으로 바뀌지 않으므로 옛 값이 살아야 한다(D7).
+    const seeded = seedExpiredToken(h, { principalId: 'kim@corp' })
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('refreshed')
+
+    expect(h.store.get('wiki')).toEqual({
+      kind: 'token',
+      vaultKey: expect.any(String),
+      authKind: 'oauth',
+      createdAt: 1_000,
+      expiresAt: 9_000,
+      refreshKey: expect.any(String),
+      refreshExpiresAt: 77_000,
+      principalId: 'kim@corp'
+    })
+    const grant = h.store.get('wiki')
+    expect(grant?.kind === 'token' && grant.vaultKey).not.toBe(seeded.accessKey)
+    expect(grant?.kind === 'token' && grant.refreshKey).not.toBe(seeded.refreshKey)
+  })
+
+  it('미회전 갱신 — 승계는 refresh 쌍과 신원까지다. 옛 `expiresAt` 은 넘어오지 않는다', async () => {
+    const h = harness(
+      [oauthWithRefresh([], () => Promise.resolve({ token: 'new-access' }))],
+      probeApi(true)
+    )
+    // 심은 grant 의 `expiresAt` 은 500(이미 만료)이다. 그것이 새 access token 에 실리면 갱신
+    // 직후 만료로 태어난다 — `markExpired` 가 강등 시점에 `now` 를 못 박기 때문이다.
+    seedExpiredToken(h, { refreshExpiresAt: 9_999, principalId: 'kim@corp' })
+
+    await expect(h.login.refresh('wiki')).resolves.toBe('refreshed')
+
+    expect(h.store.get('wiki')).toEqual({
+      kind: 'token',
+      vaultKey: expect.any(String),
+      authKind: 'oauth',
+      createdAt: 1_000,
+      refreshKey: expect.any(String),
+      refreshExpiresAt: 9_999,
+      principalId: 'kim@corp'
+    })
+  })
+
+  it('최초 로그인 — refresh token 이 없으면 `refreshExpiresAt` 도 싣지 않는다 (짝 불변식)', async () => {
+    const h = harness([sessionTokenProvider()], probeApi(true), {
+      // 응답이 refresh 만료만 주고 refresh token 은 주지 않는다. 짝 조건이 없으면 `refreshKey`
+      // 없는 grant 에 만료만 실려 "가리킬 자리 없는 만료" 가 영속된다.
+      login: () =>
+        Promise.resolve({
+          kind: 'token',
+          token: {
+            token: 'first-access',
+            expiresAt: 9_000,
+            refreshExpiresAt: 77_000,
+            principalId: 'lee@corp'
+          }
+        })
+    })
+
+    await expect(h.login.begin('wiki')).resolves.toMatchObject({ kind: 'done' })
+
+    expect(h.store.get('wiki')).toEqual({
+      kind: 'token',
+      vaultKey: expect.any(String),
+      authKind: 'browser-session',
+      createdAt: 1_000,
+      expiresAt: 9_000,
+      principalId: 'lee@corp'
+    })
+  })
+
+  it('최초 로그인은 옛 grant 에서 아무것도 승계하지 않는다 — 새 인가다', async () => {
+    const h = harness([sessionTokenProvider()], probeApi(true), {
+      login: () => Promise.resolve({ kind: 'token', token: { token: 'first-access' } })
+    })
+    // 옛 grant 에 신원·refresh 쌍이 다 있다. 승계가 갱신 경로를 넘어가면 여기서 되살아난다.
+    seedExpiredToken(h, { refreshExpiresAt: 9_999, principalId: 'kim@corp' })
+
+    await expect(h.login.begin('wiki')).resolves.toMatchObject({ kind: 'done' })
+
+    expect(h.store.get('wiki')).toEqual({
+      kind: 'token',
+      vaultKey: expect.any(String),
+      authKind: 'browser-session',
+      createdAt: 1_000
+    })
   })
 })
 

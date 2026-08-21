@@ -401,8 +401,8 @@ export class Bootstrap {
     // 게이트와 *같은 cookie jar* 를 쓰므로(`sessionGroup` 공유), 로그인 전에 물으면 살아 있는
     // 연결도 미인증으로 떨어진다. 그렇게 한 번 강등되면 요청 정책이 막아 스스로 회복하지 못한다.
     //
-    // **방송 상한 `1 + K`** (0187 D2 유지): 나머지 Auth 는 병렬로 묻고 성공한 `verified` 변화는
-    // 마지막 push 한 번으로 합친다. 즉시 강등 `K` 건만 그 자리에서 push 된다.
+    // 방송 상한은 여기 적지 않는다 — 정본은 `docs/arch/backend/auth.md §5.2` 다(0194 D3: 같은
+    // 수치를 여기·`auth-resume.ts` 헤더·문서 세 곳에 두었더니 코드만 바뀌고 사본이 갈렸다).
     const authResume = createAuthResume({
       auth,
       gateDefinitions: GATE_AUTH_DEFINITIONS,

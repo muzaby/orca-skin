@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-20 |
 | 매핑 | 0193 후속 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) |
 
 # Part I — Product & UX Contract
 
@@ -140,9 +140,9 @@
 | AC15 | 배치가 끝나면 `resuming` 이 false 가 된다 — 성공·실패·후보 0건·**예외** 4경로 | 단위 4케이스 | 같음 |
 | AC16 | 게이트가 열리지 않았으면 `resuming` 은 false 다 — bypass 로 `passed:true` 인 빌드가 스피너에 잠기지 않는다 | 단위 1케이스 | `gateOpen()` 이 bypass 를 보지 않는 기존 성질 |
 | AC17 | `connectionState()` 가 `resuming` 을 채우고 wire 타입에 **필수** 필드로 있다 | 단위(`connection-views.test.ts`) + typecheck 3/3 | `handlers/providers.ts` invoke·push |
-| AC18 | refresh·재로그인이 0건인 부팅의 방송 횟수는 `1 + K` 로 불변이다 | 단위 — 기존 describe(`auth-resume.test.ts:319`)의 2케이스(`:320`·`:337`)가 **무수정** 통과 + 만료 후보가 입력형이라 시도 0건인 신규 1케이스 | 같음 |
+| AC18 | 부팅 방송은 `1 + K + 1` 이다 — probe 단계 `1 + K` 는 불변이고 복원 종료 push 1회가 **시도 유무와 무관하게** 붙는다 | 단위 — 방송 상한 describe 의 2케이스가 `2`·`4` 를 단언 + 만료 후보가 입력형이라 시도 0건인 케이스도 같은 값. **"기존 테스트 무수정 통과" 를 기준으로 쓰지 않는다**(r3 D4 — 대리 기준은 코드가 정당하게 횟수를 바꾸면 자동으로 거짓이 된다) | 같음 (D-008 — `resuming:true` 를 거두는 push) |
 | AC19 | gate Auth 는 refresh·재로그인 대상이 아니다 | 단위 — gate 만 만료시키고 `refresh`·`login` 각 0회 | 회복 패스가 `remainingDefinitions` 만 돈다 |
-| AC20 | `auth.md §5.2` 가 refresh 단계와 회복 대상 확대를, `IPC_CONTRACT.md` 가 `resuming` 을 서술한다 | 문서 대조 + `check-doc-inventory --check` 차이 0 | 문서 |
+| AC20 | **§15 가 이름 붙인 문서 전부**가 갱신된다 — `docs/arch/backend/auth.md §5.2`(refresh 단계·회복 대상·갱신 커밋 필드 규칙) · `docs/guides/closed-network-extensions.md §3-b`(배포가 채우는 `refresh`·`refreshToken` 예제) · `docs/IPC_CONTRACT.md`(`resuming`) | 문서 대조 + `check-doc-inventory --check` 차이 0. **AC 의 문서 목록과 §15 의 목록은 한 목록이다**(r3 D8 — 두 벌이라 §15 에만 있던 guide 가 두 라운드 동안 채점 밖이었다) | 문서 |
 | AC21 | refresh 응답에 refresh token 이 없으면 옛 값이 **새 세대 키**로 승계된다 — 옛 키는 정리되고 2회차 갱신이 다시 성공한다 | 단위(`login.test.ts`) — 값 동일 · `refreshKey` ≠ 옛 키 · 옛 키 금고에서 사라짐 · 2회차 `refresh()` = `refreshed` | `LoginService.refresh` → `tokenCandidate` |
 | AC22 | 승계 시 `refreshExpiresAt` 도 grant 에 실린다 — 응답이 새 만료를 주면 그것이 이긴다 | 단위 — 4케이스(승계 시 옛 만료 · 응답 만료가 이김 · 회전이면 만료 없음 · 회전+만료면 그 값) | 같음 |
 | AC23 | 갱신이 실패하면 옛 access·refresh 가 **둘 다** 산다 — probe 거부 경로와 **금고 쓰기 실패 경로 모두** | 단위 2케이스 — 후자가 옛 키 참조 승계를 배제하는 근거다 | `settleGrant` 되돌리기 |
@@ -283,7 +283,8 @@ renderer: RootGate → rootFrame({bootPhase, bootError, gate, resuming})
 | refresh 커밋은 access·refresh 둘 다 **새 세대 키** | `absorbToken`(기존) | 같음 | 같음 1지점 | 부분 적용 자격증명 창이 열린다 |
 | `refreshExpiresAt` 영속 | `tokenCandidate` + `store-parse.ts` | 커밋·파서 | ① **커밋 쓰기**(`tokenCandidate` — grant 에 싣는 곳) ② 부팅 파싱 — **2지점** (r2 정정: r1 은 "직렬화는 자동" 이라 적어 producer 를 세지 않았고 그 지점에 눈이 없었다) | 재시작하면 만료 정보를 잃고 죽은 refresh 로 왕복한다 |
 | refresh 미회전 시 값 승계 (D-014) | `LoginService.refresh` **한 곳** | 갱신 커밋 | `tokenCandidate` 호출 직전 — **1지점** | 갱신 한 번에 회복 능력을 잃고 두 번째 만료부터 로그인 창만 남는다 |
-| `resuming` = `!remainingSettled && gateOpen(...)` | `auth-resume.ts` **파생 함수 1개** | 소비자 | ① `connectionState()` 조립 ② `rootFrame()` 판정 — **2지점** | 별도 플래그면 push 순서에 따라 메인 셸이 한 프레임 번쩍인다 |
+| **갱신 커밋이 옛 grant 필드를 잃지 않는다** (r3 신설 — D7) | `login.ts` `tokenCandidate` 의 조립 리터럴 **한 곳** | 갱신 커밋 | 리터럴 1지점. 타입이 **전 필드를 요구**하므로 `Grant` 에 필드가 늘면 여기서 컴파일이 깨진다 | 필드 하나가 조용히 사라지고, 라운드마다 다른 필드로 재발한다(D1 `refreshToken` → D7 `principalId`) |
+| `resuming` = `!remainingSettled && gateOpen(...)` | `auth-resume.ts` **파생 함수 1개** | 소비자 | ① 조립 push(`bootstrap.ts`) ② 조립 invoke(`handlers/providers.ts`) ③ `rootFrame()` 판정 — **3지점** (r3 정정: r1 은 조립을 1지점으로 셌다) | 별도 플래그면 push 순서에 따라 메인 셸이 한 프레임 번쩍인다 |
 | `remainingSettled` 는 `finally` 에서 | `auth-resume.ts` | 배치 | 종료(성공·실패·throw) 1지점 | 예외 하나로 앱이 스피너에 영구히 잠긴다 |
 | 판정·상태의 문서 사본 | `plan.md` + `INDEX.md` | 설계자·구현자·검증자 | 상태를 바꾸는 **모든** 커밋 — **2지점** | 두 사본이 서로 다른 말을 한다 |
 
@@ -400,7 +401,7 @@ LoginService.refresh(성공) → absorbToken → settleGrant(probe) → store.pu
 배포가 구현할 표면이 **2개 늘어난다**. 둘 다 optional 이라 기존 선언은 컴파일이 그대로다.
 
 - port: `AuthMethod.oauth.refresh?(refreshToken: string): Promise<TokenValue>` · `TokenValue.refreshExpiresAt?: number`(epoch ms).
-- 구현 문서: `docs/guides/closed-network-extensions.md` §3(LLM)·§4(서비스) 의 oauth 예제와 `docs/arch/backend/auth.md §5.2`.
+- 구현 문서(= AC20 의 목록): `docs/guides/closed-network-extensions.md §3-b`(유일한 oauth 예제) · `docs/arch/backend/auth.md §5.2` · `docs/IPC_CONTRACT.md`. **이 목록과 AC20 은 한 목록이다** — 두 벌이면 한쪽에만 있는 문서가 채점 밖으로 샌다(r3 D8).
 - **shape 검증**: 문서 예제를 실제 `app/deployment/auth-definitions.ts` 에 채워 `npm run typecheck` 3/3 을 통과시킨 뒤 되돌린다 (0181 5단계-e · 0182 AC11 · 0183 선례).
 - **semantics 검증**: `refresh` 가 던지면 `'failed'`, `undefined` 면 `'unsupported'`, 성공해도 probe 실패면 커밋되지 않음 — 3의미를 contract 성격의 단위 테스트로 잠근다(AC9·AC10).
 
@@ -411,7 +412,7 @@ LoginService.refresh(성공) → absorbToken → settleGrant(probe) → store.pu
 | 0193 D-001 ~ D-007 | `docs/handoff/0193-…/plan.md §3` | §3 승계 표 | **전건 유지** |
 | "복원된 grant 는 통과 근거가 아니다 · 별도 검증 경로를 만들지 마라" | `features/gate/index.ts:43-51` | §10 refresh 커밋 행 | **유지** — refresh 도 `settleGrant` 의 probe 를 통과해야 커밋된다 |
 | "게이트가 먼저" 순서 규칙 | `app/auth-resume.ts:8-14` | §9 TO-BE | 유지 — 회복은 gate 통과 후에만 돈다 |
-| 방송 상한 `1 + K` (0187 D2) | `app/auth-resume.ts:16-21` · `auth.md §5.2` | §7 AC18 · §9 Delta | **유지** — 시도 0건이면 불변. 시도가 있으면 회복 push 1회가 붙는 것도 0193 이 이미 정한 조건이다 |
+| 방송 상한 `1 + K` (0187 D2) | `auth.md §5.2` (**정본 1벌**) | §7 AC18 · §9 Delta | **변경 — `1 + K + 1`.** probe 단계 `1 + K` 는 그대로고 복원 종료 push 1회가 항상 붙는다: D-008 의 대기 화면은 `resuming:true` 를 거두는 push 없이 걷히지 않는다. 코드 주석의 사본은 r3 에서 삭제했다(D3) |
 | "인증 코어는 제품 정책을 모른다"(0188) | `app/auth-resume.ts:3-6` | §9 책임 소유자 | 유지 — 회복 *정책*은 app 에, refresh *가능 판정과 실행*은 lifecycle 이라 `features/auth` 에 둔다 |
 | 새 값은 새 키에, grant 저장이 커밋 (0190 r8) | `login.ts:449-462` | §13 다중 저장소 쓰기 | 유지 — `absorbToken` 을 재사용하고 규칙을 다시 적지 않는다 |
 | 채널을 둘로 쪼개지 않는다 (구 auth 의 2벌 동기화 버그) | `shared/ipc.ts:110-113` | §11 wire 변경 | **유지** — 새 채널 0개, `provider:state` payload 만 넓힌다 |
@@ -697,16 +698,179 @@ r1 검증의 **D1·D2 를 닫았다.** D3·D4·D5·D6 은 손대지 않았다 �
 
 ---
 
+## [구현자 기입] r3 — 세 뿌리를 닫는다 (2026-08-21)
+
+verify r2 가 막은 6건(AC18 · D3 · D4 · D5 · D7 · D8 · D9)을 **개별 결함이 아니라 뿌리 3개**로 묶어
+닫았다. r1 이 D1(`refreshToken` 유실)을 닫자 r2 에서 D7(`principalId` 유실)이 나온 것이 근거다 —
+verify 자신이 "같은 문장의 다른 필드" 라고 적었다.
+
+| 뿌리 | 무엇이 잘못됐나 | 낳은 결함 |
+|---|---|---|
+| **R1** | 갱신이 새 grant 를 **응답에서 새로 조립**했다 — 빈 객체에 `...ifPresent()` 누적 | D1 · D7 · 앞으로의 모든 `Grant` 필드 |
+| **R2** | 커밋 테스트가 **필드를 골라서** 단언했다 | D2(330/330 통과) · D9(338/338 통과) · D7 이 두 라운드 통과 |
+| **R3** | 같은 사실이 **여러 사본**으로 살았다 | D3(상한 3벌) · D5(`resuming` 2벌) · D8(문서 목록 2벌) · AC18/D4(불변식 대신 대리 기준) |
+
+### 무엇을 바꿨나
+
+**S1 — 조립을 delta 로 (R1 → D7).** `tokenCandidate` 가 `previous?: Grant` 를 받고, grant 를
+**필드를 전부 적은 리터럴 하나**로 만든다(`login.ts:839-853`). `compact()` 의 인자 타입이
+`Record<keyof T, unknown> & Partial<T>` 이라 **전 필드를 요구**한다 — `Grant` 에 필드를 더하면 이
+리터럴에서 컴파일이 깨진다. `previous` 는 `refresh` 만 넘기므로(`:407`) D-014 의 "갱신 경로에만"
+이 호출부로 지켜진다. 필드 규칙은 `principalId` 승계 · `expiresAt` 응답 전용 · `refreshExpiresAt`
+짝 조건이다.
+
+**S2 — 단언을 grant 통째로 (R2 → D2·D7·D9).** 신규 describe `LoginService — 커밋 grant 전체 형상`
+4케이스가 `store.get()` 을 `toEqual` 로 통째 단언한다(`login.test.ts:826-927`). 키 이름은 계약이
+아니므로(r8) 새 세대 키는 `expect.any(String)` 으로 받는다. **필드 이름을 몰라도 빠진 필드가
+잡히고**, 있으면 안 되는 필드(`expiresAt` 승계)도 같은 단언이 잡는다.
+
+**S3 — 사본 삭제 (R3 → D3·D5·D8).**
+
+| 대상 | 조치 | 관측 |
+|---|---|---|
+| D3 | `auth-resume.ts` 헤더와 `bootstrap.ts` 주석에서 **횟수 문장을 뺐다**. 정본은 `auth.md §5.2` + 테스트 describe | `rg "1 \+ K" src/ \| rg -v "\.test\."` → `login.ts:297`·`:330` 2건. 둘 다 **probe 단계** 상한을 0187 근거로 인용하는 문장이고 `auth.md §5.2`("probe 단계는 `1 + K`")와 일치한다 — 거짓이 아니라 남긴다 |
+| D5 | `RootFrame` 에 `'waiting-resume'` 을 더해 셀렉터가 라벨까지 고른다 | `rg resuming src/renderer/src/app/RootGate.tsx` → **1건**(`:35` 셀렉터 입력). `:42` 는 frame 비교라 `resuming` 을 읽지 않는다 |
+| D8 | guide §3-b 예제에 `refresh` 갈래와 `exchange` 의 `refreshToken` 을 넣었다. **AC20 이 §15 의 문서 목록을 그대로 인용**하게 바꿔 두 목록을 하나로 합쳤다 | `sed -n '434,495p' docs/guides/closed-network-extensions.md` — `async refresh(refreshToken)` · `refreshToken: body.refresh_token` · `refreshExpiresAt` 문단 |
+
+**AC18/§16/§10 정정 (D4).** AC18 의 기준을 대리 기준("기존 2케이스 무수정 통과")에서 불변식
+(`1 + K + 1`)으로 바꿨다. §16 행을 `유지` → `변경`, §10 `resuming` 행을 `2` → `3`, §15 문서 목록을
+AC20 과 한 목록으로 맞췄다. **근거**: D-008(사용자 결정)이 요구하는 대기 화면은 `resuming:true` 를
+거두는 push 없이 걷히지 않는다. **provenance**: 이 정정안을 사용자에게 3안(정정 / 코드 되돌리기 /
+AC18 삭제)으로 제시했고 정정안이 담긴 계획을 승인받았다(2026-08-21).
+
+### 설계 대비 명시적 차이
+
+- **§10 에 행 1개를 신설했다** — "갱신 커밋이 옛 grant 필드를 잃지 않는다". verify r2 가 "표에 없는데
+  같은 불변식이 필요한 지점" 으로 지목한 자리다. plan 기재 합계가 **16 → 17** 이 된다.
+- **`bootstrap.ts:404-405` 를 "종료 push 서술 추가" 가 아니라 "상한 사본 삭제" 로 처리했다.**
+  verify D3 의 대응 방향은 서술 추가였다. 사본을 3벌로 유지하면 다음 변경에서 또 갈린다 — 정본
+  1벌(`auth.md §5.2`)로 줄이는 쪽을 골랐다.
+- **D6 은 손대지 않았다** — verify 가 "보고만" 으로 남긴 항목이다.
+
+### 강제 지점 전수 (§10 대조) — `17/17`
+
+| # | 계약/필드 | 지점 | 현재 좌표 | 재현 명령 |
+|---|---|---|---|---|
+| 1 | 회복 대상 = `expired` | 2/2 | `auth-resume.ts:180` `continue` · `:116` 재로그인 루프 머리 | `sed -n '116p;180p' app/src/main/app/auth-resume.ts` |
+| 2 | refresh 가능 판정 한 곳 | 1/1 | `login.ts:369`·`:371`·`:374` + `refreshSecret` 만료 판정이 한 함수 안(`:362-374`) | `sed -n '362,374p' app/src/main/features/auth/login.ts` |
+| 3 | refresh 1회 · 재로그인 3회 | 2/2 | `refreshOnce`(`:154`) 루프 부재 · `MAX_RELOGIN_ATTEMPTS`(`:50`)+루프(`:116`) | `rg -n "MAX_RELOGIN_ATTEMPTS\|const refreshOnce" app/src/main/app/auth-resume.ts` |
+| 4 | probe 통과 후에만 커밋 | 1/1 | `login.ts:408` `settleGrant` | `sed -n '408p' app/src/main/features/auth/login.ts` |
+| 5 | 새 세대 키 2개 | 1/1 | `tokenCandidate.writeVault`(`:859-871`) | `sed -n '859,871p' app/src/main/features/auth/login.ts` |
+| 6 | `refreshExpiresAt` 영속 | 2/2 | ① 커밋 쓰기 `login.ts:850` ② 부팅 파싱 `store-parse.ts:45` | `sed -n '850p' …/login.ts; sed -n '45p' …/store-parse.ts` |
+| 7 | 미회전 시 값 승계 (D-014) | 1/1 | `login.ts:396-406` `const carried` — `tokenCandidate` 직전 1지점 | `sed -n '396,406p' app/src/main/features/auth/login.ts` |
+| 8 | **갱신 커밋 필드 규칙 (r3 신설)** | 1/1 | `login.ts:839-853` `compact<TokenGrant>` 리터럴 | 아래 MV1~MV5 |
+| 9 | `resuming` 파생 | 3/3 | `bootstrap.ts:367` · `handlers/providers.ts:47` · `rootFrame.ts:36` | `rg -n "connectionState\(\|resuming" 세 파일` |
+| 10 | `remainingSettled` 는 `finally` | 1/1 | `auth-resume.ts:214-218` | `sed -n '214,218p' app/src/main/app/auth-resume.ts` |
+| 11 | 판정·상태의 문서 사본 | 2/2 | `plan.md` 메타 `IMPL_DONE (r3)` · `INDEX.md` 행 `IMPL_DONE (r3)` | `rg -n "IMPL_DONE \(r3\)" docs/handoff/` |
+
+- **합계 검산**: 2+1+2+1+1+2+1+1+3+1+2 = **17**. plan 기재 17 ∖ 닫힌 17 = **0** · 닫힌 17 ∖ plan
+  17 = **0**. r2 의 16 과 직접 비교하지 않는다(§10 에 행 1개 신설 + `resuming` 2→3 정정).
+
+### 이번 턴에 만든 검사 장치의 눈 — 판정 지점마다 하나씩 심었다
+
+| 변이 | 심은 곳 | 관측 산출 | 판정 |
+|---|---|---|---|
+| MV1 `principalId` 승계 제거 | `login.ts:852` | `vitest run src/main/features/auth src/main/app` → **2 실패** (전체 형상 2케이스) | ✅ D7 에 눈 있음 |
+| MV2 `refreshExpiresAt` 쓰기 제거 | `login.ts:850` | **5 실패** — r1 에서는 330/330 통과였다 | ✅ D2 회귀 잠김 |
+| MV3 짝 조건 제거 | `login.ts:850` | **1 실패**(최초 로그인 짝 케이스) — r2 에서는 338/338 통과였다 | ✅ D9 에 눈 생김 |
+| MV4 `expiresAt` 승계 추가 | `login.ts:846` | **1 실패**(미회전 전체 형상) | ✅ 해로운 승계도 잡힌다 |
+| MV5 `Grant` 에 더미 필드 추가 | `contracts/auth.ts` | `typecheck:node` → `login.ts:839 error TS2345` | ✅ **타입이 전수를 강제한다**(R1 이 닫혔다는 증거) |
+| MV6 셀렉터 안에서 두 읽기 의미 재현 | `rootFrame.ts:34` | `vitest run src/renderer/src/app` → **2 실패**(신규 2케이스) | ✅ D5 조합이 잠김 |
+
+- 여섯 건 모두 실행 후 원복했다. 복원 확인: 변이 흔적 grep **0건**(`zzProbe`) · 세 좌표 재확인
+  (`login.ts:850`·`:852` · `rootFrame.ts:34`) · 관련 18파일 **281/281** 재green · typecheck error 0.
+- **눈을 심지 못한 곳**: D3·D8 은 문서/주석이라 기계 장치가 없다. D8 의 눈은 **AC20 이 파일을
+  이름으로 갖는 것**이고(그래서 §15 와 한 목록으로 합쳤다), D3 의 눈은 **사본을 지운 것**이다 —
+  갈릴 사본이 없으면 갈릴 수 없다. `RootGate` 자체는 컴포넌트 테스트가 없다(`src/renderer/AGENTS.md`
+  — "UI 자체는 시각 검증으로 갈음한다"). 그래서 D5 는 셀렉터 케이스 + grep 1건으로 닫았다.
+
+### Product/UX 파생 검토
+
+- **사용자가 보는 변화 1건**: `bootPhase !== 'ready'` + `resuming:true` 조합에서 스피너 라벨이
+  "연결 복원" → 기본 부팅 라벨로 바뀐다(D5 가 지적한 오작동의 수정). 그 조합은 게이트 통과 전이라
+  복원이 아직 시작되지 않은 상태다.
+- **D7 이 고친 것의 화면 위치**: 설정 → 연결 상세의 계정 식별자(`ProviderDetail.tsx:93`). 갱신
+  이후 사라지던 것이 유지된다. 사이드바 신원은 게이트 provider 만 읽으므로 영향 없다(verify r2 §1).
+- **새로 만든 사용자 대면 문자열 0건.** `waiting-resume` 은 프레임 이름이고 라벨은 기존
+  `BootScreen label="resuming"` 을 그대로 쓴다.
+- **실패가 "아무 일도 안 일어남" 으로 보이는 경로 0건** — 이번 변경은 실패 경로를 만들지 않는다.
+
+### 놓친 잠재 문제 + 대응
+
+1. **`compact()` 가 `0`·`''` 를 드롭하는가** — 아니다. `!= null` 이라 `ifPresent` 와 같은
+   semantics 다. `createdAt: 0` 인 경우가 실제로 없지만 규칙은 같게 뒀다.
+2. **`previous` 를 넘기는 호출부가 늘면 승계가 새 경로로 샌다** — 현재 호출부 2곳
+   (`rg -n "tokenCandidate\(" app/src/main/features/auth/login.ts` → `:407` refresh · `:806`
+   absorbToken)이고 후자는 넘기지 않는다. 이 사실이 타입으로 강제되지는 않는다(optional 인자) →
+   파생 이슈로 남긴다.
+3. **`login.ts:297`·`:330` 의 `1 + K` 인용** — probe 단계 상한 인용이라 여전히 참이다. 다만 D3 와
+   같은 축의 사본이므로 다음에 상한이 바뀌면 이 두 줄이 후보다.
+
+**보고만 (범위 밖, 검증자 판단 대상)**: ① `previous` 가 optional 이라 "갱신 경로에만" 이 타입이
+아니라 호출부 관례로 지켜진다 — 현재 호출부 2곳(`login.ts:407` refresh · `:806` absorbToken)이고
+후자는 넘기지 않는다. ② `login.ts:297`·`:330` 의 상한 인용 2건.
+
+### 구현 보고
+
+**변경 파일 12** (`git diff --stat`): 코드 9(`login.ts`·`login.test.ts`·`obj.ts`·`auth-resume.ts`·
+`auth-resume.test.ts`·`bootstrap.ts`·`rootFrame.ts`·`rootFrame.test.ts`·`RootGate.tsx`) + 문서 3
+(`auth.md`·`closed-network-extensions.md`·`plan.md`). **신규 파일 0 · 신규 의존성 0 · 신규 채널 0.**
+
+**관측한 게이트 산출** (exit code 아님) — `app/AGENTS.md §better-sqlite3 ABI` 를 따랐고 `npm test`
+는 쓰지 않았다:
+
+- typecheck — node·web·test **3/3, error 0**.
+- lint — **0 error / 1 warning** (`useTranscriptVirtualizer.ts:22`, 0102 베이스라인).
+- vitest 전체 — **205 파일 · 2,011 케이스**, `1,969 pass / 42 fail` (r2 2,005 → +6: login +4 ·
+  rootFrame +2).
+- vitest 관련 — `features/auth`·`auth-resume`·`connection-views`·`handlers/providers`·
+  `renderer/src/app` = **18 파일 / 281 케이스 전건 green** (r2 275 → +6).
+- scripts — `# tests 49 # suites 7 # pass 49 # fail 0`.
+- doc-inventory — `generated doc ok (9 items, 76 channels)` · `prose ok` · `links ok` · 차이 0.
+
+**환경 기인 실패 분리 — 차집합 0.** 42 red 의 5파일을 `app/AGENTS.md:135` 의 알려진 집합과 실제로
+빼 봤다: 내 실패 ∖ 알려진 = **0줄**, 알려진 ∖ 내 실패 = **0줄**. 서명은 `Module did not
+self-register` ×6 · `Electron failed to install` ×1.
+
+**게이트가 트리를 바꿨는가** — 아니다. `npm run lint`(`--fix`) 재실행 전후 `git diff | md5sum` 이
+같은 값(`8e152708…`)이다.
+
+### AC 자기보고 — 이번 턴에 재현한 관측
+
+| # | 결과 | 이번 턴 관측 |
+|---|---|---|
+| AC1~AC17 · AC19 | ✅ 유지 | 관련 18파일 **281케이스 전건 green**. 실행 변경은 `tokenCandidate` 조립부와 `rootFrame` 마지막 분기뿐이다 |
+| **AC18** | ✅ **정정 기준으로 충족** | `auth-resume.test.ts:353` `toHaveBeenCalledTimes(2)`(K=0 → `1+0+1`) · `:371` `(4)`(K=2 → `1+2+1`) · `:739` 시도 0건 케이스. describe 명도 `1 + K + 1` 로 맞췄다(`:337`) |
+| **AC20** | ✅ **확대된 목록으로 충족** | `auth.md §5.2` 갱신(+필드 규칙 문단) · `closed-network-extensions.md §3-b` 갱신(`refresh` 갈래) · `IPC_CONTRACT.md` 기존 `resuming` 유지 · doc-inventory 차이 0 |
+| AC21~AC23 | ✅ 유지 | `login.test.ts` 미회전 승계 describe 전건 green (50케이스, r2 46 → +4) |
+
+- **합계 검산**: `✅ 23 · ⚠️ 0 · ❌ 0 = 총 23`. 분모는
+  `awk '/^## 7\. Acceptance/,/^### AC 검증/' plan.md | grep -cE "^\| AC[0-9]+ \|"` → **23**.
+  r2 와 분모가 같다(AC 신설·분할 0건, AC18·AC20 은 **기준 문면만** 바뀌었다).
+
+### Review Signals — 사실만
+
+- **같은 축의 재발이 세 라운드 연속이었다.** r1 D1(`refreshToken`) → r2 D7(`principalId`) 은 같은
+  조립부의 다른 필드다. r3 는 필드가 아니라 조립 방식을 바꿨고, 그 강제를 타입에 뒀다(MV5).
+- **막았어야 할 plan 지침**: §10 이 필드별 지점을 세었을 뿐 "조립이 전수인가" 를 묻지 않았다.
+  §15 "semantics 검증" 은 3의미만 열거했고 r2 가 4번째, r3 가 5번째("응답이 옛 grant 의 다른 필드를
+  말하지 않는다")를 더했다.
+- **대리 기준이 라운드 2개를 썼다.** AC18 의 "기존 테스트 무수정 통과" 는 r1·r2 두 라운드 내내
+  ❌ 였고, 실제 결함이 아니라 기준 자체가 코드와 모순이었다.
+- **반복된 검증 환경 한계**: electron 미설치 + better-sqlite3 ABI 로 5파일 42케이스 red — r1·r2·
+  0193 과 같은 서명.
+- 현재 라운드 **3**. **다음 재구현이 라운드 4이고, 그것은 `handoff-review` 진입 조건이다.**
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
 | D1 | **refresh 응답이 새 refresh token 을 주지 않으면 회복 능력을 영구히 잃는다.** `tokenCandidate` 가 `refreshKey` 를 만들지 않고(`login.ts:806-809`) `discardKeys(previous, …)`(`:549`)가 옛 refresh 키를 지운다 | verify r1 §13 — 실측 3관측(`'refreshed'` 반환 · 새 grant `refreshKey` = `undefined` · 2회차 `'unsupported'`) | **사용자 결정 대기.** ⓐ 새 값이 없으면 옛 `refreshKey` 승계 ⓑ 선언이 반드시 되돌려주도록 계약 문서에 명시 — 검증자가 고르지 않는다 | **해결 확인 (verify r2)** — 검증자가 심은 `MV1`(만료 우선순위)·`MV2`(승계 무조건화)가 각각 1건·2건을 실패시킨다 |
 | D2 | **`refreshExpiresAt` 쓰기 경로에 눈이 없다.** `tokenCandidate` 의 `ifPresent('refreshExpiresAt', …)` 4줄을 지워도 `vitest run src/main/features/auth src/main/app` 이 **330/330 통과**한다 | verify r1 §9 적대 검증 | 회귀 1건(로그인/refresh 커밋이 grant 에 값을 싣는지) + §10 6행에 producer 지점 추가 | **해결 확인 (verify r2)** — r1 이 330/330 을 통과시킨 그 변이를 검증자가 다시 심으니 **3케이스 실패**(`MV4`) |
-| D3 | **`auth-resume.ts:20-21` 모듈 헤더가 거짓이 됐다** — "재로그인이 0건이면 상한은 그대로" 인데 종료 push 는 `finally` 에서 무조건 나간다(`:217`). `auth.md §5.2` 만 갱신돼 두 사본이 갈렸다 | verify r1 §7 | 헤더 주석을 `1 + K + 1` 로 정정 · `bootstrap.ts:404-405` 도 종료 push 를 서술 | **미해결 유지** (verify r2 재확인) |
-| D4 | **AC18·§16 이 shipped 코드와 모순인 채로 남아 있다.** D-008 이 요구하는 대기 화면은 `resuming:true` 를 거두는 push 없이 걷히지 않는다 | 구현 보고 I3·I4 + verify r1 §5 | **설계자 몫.** 사용자 결정(D-008) > 설계자 AC 이므로 AC18·§16·§10 `resuming` 행(2→3)을 정정 | **미해결 유지** (verify r2 재확인) |
-| D5 | **renderer 가 `resuming` 을 셀렉터 밖에서 한 번 더 읽는다**(`RootGate.tsx:42`). §12 는 "읽는 곳은 `rootFrame()` 하나" 였다. `bootPhase !== 'ready'` + `resuming:true` 에서 부팅 스피너가 "연결 복원" 라벨을 단다 | verify r1 §3 | 라벨 선택도 `rootFrame` 반환값으로 내리거나, 현 동작을 의도로 적고 케이스를 추가 | **미해결 유지** (verify r2 재확인) |
+| D3 | **`auth-resume.ts:20-21` 모듈 헤더가 거짓이 됐다** — "재로그인이 0건이면 상한은 그대로" 인데 종료 push 는 `finally` 에서 무조건 나간다(`:217`). `auth.md §5.2` 만 갱신돼 두 사본이 갈렸다 | verify r1 §7 | 헤더 주석을 `1 + K + 1` 로 정정 · `bootstrap.ts:404-405` 도 종료 push 를 서술 | **해결 (r3)** — 헤더·`bootstrap.ts` 주석의 횟수 사본을 **삭제**했다. 정본 1벌(`auth.md §5.2`)+테스트 describe. 잔여 인용 2건(`login.ts:297`·`:330`)은 probe 단계 상한이라 참 |
+| D4 | **AC18·§16 이 shipped 코드와 모순인 채로 남아 있다.** D-008 이 요구하는 대기 화면은 `resuming:true` 를 거두는 push 없이 걷히지 않는다 | 구현 보고 I3·I4 + verify r1 §5 | **설계자 몫.** 사용자 결정(D-008) > 설계자 AC 이므로 AC18·§16·§10 `resuming` 행(2→3)을 정정 | **해결 (r3)** — AC18 기준을 `1 + K + 1` 불변식으로 · §16 행 `유지`→`변경` · §10 `resuming` `2`→`3` · §15↔AC20 문서 목록 통합. 사용자에게 3안 제시 후 정정안 승인(2026-08-21) |
+| D5 | **renderer 가 `resuming` 을 셀렉터 밖에서 한 번 더 읽는다**(`RootGate.tsx:42`). §12 는 "읽는 곳은 `rootFrame()` 하나" 였다. `bootPhase !== 'ready'` + `resuming:true` 에서 부팅 스피너가 "연결 복원" 라벨을 단다 | verify r1 §3 | 라벨 선택도 `rootFrame` 반환값으로 내리거나, 현 동작을 의도로 적고 케이스를 추가 | **해결 (r3)** — `RootFrame` 에 `'waiting-resume'` 신설, 라벨 선택을 셀렉터로 내렸다. `RootGate.tsx` 의 `resuming` 참조 **1건**(셀렉터 입력)뿐 · 신규 2케이스가 MV6 로 실패한다 |
 | D6 | **unhandled rejection 노출이 넓어졌다** — `recoverExpired` 가 `remainingDefinitions` 전체에 `demoted()` 를 부르고 후보 0건 조기 반환이 사라졌다. 구현 보고의 "이번 변경이 넓히지 않았다" 를 정정한다 | verify r1 §12 | `finally` 덕에 화면 잠김은 없다 — 보고만, 처리는 범위 밖 | 보고만 |
-| D7 | **갱신 커밋이 옛 grant 의 `principalId` 를 잃는다.** 응답이 그 필드를 다시 말하지 않으면 새 grant 에서 사라진다 — D1 과 **같은 문장의 다른 필드**다 | verify r2 §1~3 — 스크래치 실측(`'kim@corp'` → `AFTER REFRESH principalId = undefined`) | 소비자는 `runtime.ts:141` → `connection-views.ts:74` `principal` → `ProviderDetail.tsx:93` (표시 전용, 게이트는 D-001 로 대상 밖). **승계 범위를 `Grant` 필드 전수로 올릴지**가 결정 지점이다 | 미해결 |
-| D8 | **배포가 읽는 유일한 oauth 예제가 `refresh` 포트를 모른다.** `docs/guides/closed-network-extensions.md` §3-b 는 "`authorize(ctx)` **하나만** 채운다" 이고 예제 `exchange` 도 `{token, expiresAt}` 만 돌려준다 | verify r2 §11 — plan §15 가 지시한 문서인데 r1·r2 모두 갱신 0(`git log -- <file>` 최근 커밋 3건이 전부 0194 이전) | 그 절에 `refresh?`·`refreshToken`·`refreshExpiresAt` 을 더한다. 갱신 없이는 실제 배포에서 0194 의 창 없는 회복이 켜지지 않는다 | 미해결 |
-| D9 | **`refreshKey`↔`refreshExpiresAt` 짝 불변식에 눈이 없다.** `tokenCandidate` 주석은 "짝으로만 싣는다" 인데 조건을 지워도 `vitest run src/main/features/auth src/main/app` 이 **338/338 통과** | verify r2 §6 `MV3` | 동작 결과는 안 바뀐다(`refreshSecret` 이 `refreshKey === undefined` 를 먼저 접는다) — 케이스 1건을 더하거나 주석의 계약 표현을 낮춘다 | 미해결 |
+| D7 | **갱신 커밋이 옛 grant 의 `principalId` 를 잃는다.** 응답이 그 필드를 다시 말하지 않으면 새 grant 에서 사라진다 — D1 과 **같은 문장의 다른 필드**다 | verify r2 §1~3 — 스크래치 실측(`'kim@corp'` → `AFTER REFRESH principalId = undefined`) | 소비자는 `runtime.ts:141` → `connection-views.ts:74` `principal` → `ProviderDetail.tsx:93` (표시 전용, 게이트는 D-001 로 대상 밖). **승계 범위를 `Grant` 필드 전수로 올릴지**가 결정 지점이다 | **해결 (r3)** — 전수 승계가 아니라 **필드별 규칙**으로 닫았다(`expiresAt` 승계는 해롭다). 조립을 delta 로 바꿔 `Grant` 에 필드가 늘면 컴파일이 깨진다(MV5) · MV1 이 2케이스를 실패시킨다 |
+| D8 | **배포가 읽는 유일한 oauth 예제가 `refresh` 포트를 모른다.** `docs/guides/closed-network-extensions.md` §3-b 는 "`authorize(ctx)` **하나만** 채운다" 이고 예제 `exchange` 도 `{token, expiresAt}` 만 돌려준다 | verify r2 §11 — plan §15 가 지시한 문서인데 r1·r2 모두 갱신 0(`git log -- <file>` 최근 커밋 3건이 전부 0194 이전) | 그 절에 `refresh?`·`refreshToken`·`refreshExpiresAt` 을 더한다. 갱신 없이는 실제 배포에서 0194 의 창 없는 회복이 켜지지 않는다 | **해결 (r3)** — §3-b 에 `refresh` 갈래 · `exchange` 의 `refreshToken` · `refreshExpiresAt` 문단을 더했다. **AC20 이 §15 의 문서 목록을 인용**하게 바꿔 두 목록을 하나로 합쳤다(채점 밖으로 새던 뿌리) |
+| D9 | **`refreshKey`↔`refreshExpiresAt` 짝 불변식에 눈이 없다.** `tokenCandidate` 주석은 "짝으로만 싣는다" 인데 조건을 지워도 `vitest run src/main/features/auth src/main/app` 이 **338/338 통과** | verify r2 §6 `MV3` | 동작 결과는 안 바뀐다(`refreshSecret` 이 `refreshKey === undefined` 를 먼저 접는다) — 케이스 1건을 더하거나 주석의 계약 표현을 낮춘다 | **해결 (r3)** — 최초 로그인 응답이 `refreshExpiresAt` 만 주는 케이스를 더했다(`login.test.ts:883`). MV3(짝 조건 제거)이 **1건 실패** — r2 에서는 338/338 통과였다 |
