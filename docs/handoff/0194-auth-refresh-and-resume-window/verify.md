@@ -1,5 +1,194 @@
 # Verify — 0194-auth-refresh-and-resume-window
 
+# r4 — 2026-08-21 · **FAIL**
+
+> r1~r3 판정 원문은 아래에 그대로 둔다. 이 절은 **r4 에서 달라진 것만** 적는다.
+
+## 메타 (r4)
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `41b7050..eaa3333` (설계 `23ac69f` · 구현 `ae882b1` · 보드 `eaa3333`) |
+| 구현 전 plan 기준 | `23ac69f` — **이번 라운드는 diff 로 성립한다** |
+| 라운드 | 4 |
+| 상태 | **FAIL** |
+| 다음 주체 | **Claude** (설계 — 규범 행 정정 1건) |
+| 자기 검증 여부 | 예 — 설계·구현·검증이 모두 Claude Code |
+
+**한 줄 판정**: D11~D16 여섯 건은 전부 실제로 닫혔고 강제 지점 20/20 도 재측정으로 일치하지만,
+**AC18 과 정본 `auth.md §5.2` 가 말하는 `P + K + 1` 이 프로덕션 부팅 방송 총량이 아니다** — 0194 가
+새로 만든 refresh 회복 성공 경로가 같은 `pushConnectionState` 를 2회 더 부른다(D19). AC18 문면이
+코드와 어긋나는 것은 **4라운드 연속**이고, 이번에는 조건부 항 `P` 가 아니라 **회복 항**이 빠졌다.
+
+## 0. 기준선 (r4) — 성립한다
+
+r3 과 달리 규범 행 정정(`23ac69f`)과 구현(`ae882b1`)이 갈렸다. §0 의 자기 증명 방지 장치가 작동한다.
+
+- **AC 변경은 설계 커밋에만 있다** — `git show ae882b1 -- …/plan.md` 의 삭제 줄 8개 중 §7 AC 행은 0건.
+- **구현 커밋이 §10 에서 바꾼 것은 문면 2군데뿐** — `위 3지점 전부` → `위 행의 3지점 전부` ·
+  `시그니처 1지점` → 볼드. 지점 수·SSOT·실패 의미 불변.
+- **Decision Ledger 무변경** — 두 커밋 모두 §3(11~56행)에 hunk 가 없다. SUPERSEDED 0.
+- 설계 커밋이 고친 AC 는 **AC18 한 행**이고 자기 이롭지 않다(2케이스 → 3케이스로 기준을 늘렸다).
+- 채점 기준은 `23ac69f` 시점의 §7 23행이다.
+
+## 1~3. 구현 비판적 읽기 / 역방향 (r4)
+
+- **실행 경로 변경은 두 곳뿐이다** — `secretCandidate`(`login.ts:608`)·`absorb` 의 session
+  case(`:788`)가 `ifPresent` 누적에서 `compact` 리터럴로 바뀌었다. 나머지 diff 는 타입·테스트·주석·문서다.
+- **두 조립의 키 집합과 삽입 순서가 옛 코드와 같다** — 옛 `{kind, vaultKey, authKind, createdAt,
+  ...ifPresent('principalId')}` ↔ 새 리터럴에서 `expiresAt: undefined` 만 `compact` 가 드롭한다.
+  `Object.entries` 순회라 순서도 같다. grant 를 `JSON.stringify` 로 비교·해싱하는 소비처는 0건
+  (`rg -n "JSON.stringify" src/main/features/auth src/main/app --glob '!*.test.ts'` → `handlers/log.ts` 1건, grant 무관).
+- **false success 가능성 — `compact` 의 `as T`** 는 런타임 `null` 을 여전히 감춘다(구현 S6 와 같은 판정).
+  프로덕션 호출부 3곳이 전부 리터럴이라 현재 도달 경로가 없다.
+- **scan-surface(`23ac69f..eaa3333`)** — 미사용 값 export 0 · 형제 정책 비대칭 0. `CompactSource` 가
+  "테스트에만 등장" 으로 잡히나 **오탐**이다: 프로덕션 참조는 같은 파일의 `compact` 시그니처(`obj.ts:48`)
+  이고 `obj.test.ts` 는 이름을 주석에서만 쓴다.
+- **`CompactSource` 를 export 할 필요는 없다** — 외부 소비처 0건이다. 결함이 아니라 표면 메모다.
+
+## 4. 구현 보고 재측정 — 보고를 증거로 쓰지 않는다
+
+| 보고 | 재측정 | 결과 |
+|---|---|---|
+| 강제 지점 `20/20` | 2+1+2+1+1+2+1+3+1+3+1+2 = **20**, 좌표 전건 실재 | ✅ 일치 |
+| 프로덕션 `compact` 호출부 3 | `rg -n "compact<" src \| grep -v '\.test\.'` → `obj.ts:48`(정의) + `login.ts:608·788·847` | ✅ 일치 |
+| `1 + K` 사본 0건 | 더 넓은 기준(`rg "방송 상한"` 전 저장소)으로 재측정 → 10건 전부 정본 인용·상대 서술 | ✅ 숫자 사본 0 |
+| vitest `1,982/2,024` · 206 파일 | 실행 관측 동일 | ✅ 일치 |
+| 케이스 `+13` | `obj.test.ts` **10** · `login.test.ts` 50→**52** · `auth-resume.test.ts` +1 | ✅ 합 13 |
+| 합계 사본 | 본문 `23/23` ↔ trailer `Criteria-Met: 23/23` ↔ INDEX `AC 23/23` | ✅ 세 사본 일치 |
+| D17(r3 검증자의 `.resuming` 오관측) | `git grep -n "\.resuming" 3371df2 -- app/src/renderer/src` → **5줄 / 4파일** | ✅ 구현자 정정이 옳다 |
+
+- **자기보고와 갈리는 것은 AC18 한 행**이다 — 구현자 `✅ 23`, 내 채점 `✅ 22 · ⚠️ 1`. 근거는 §5·§7.
+
+## 5. AC 재검증 — 이번 라운드가 건드린 행
+
+| # | 결과 | 재측정 관측 |
+|---|---|---|
+| AC1~AC17 · AC19 · AC21~AC23 | ✅ 유지 | 관련 55파일 **519/519 green**(1파일은 ABI). 실행 변경 2곳의 semantics 동일을 §1 에서 확인 |
+| **AC18** | ⚠️ | 3케이스는 실재하고 `P`·`K`·`+1` 을 각각 가른다. **문면이 프로덕션 총량과 다르다** — D19 |
+| AC20 | ✅ | `auth.md:306`·`:356`·`:365-368` 갱신 · `closed-network-extensions.md §3-b`·`IPC_CONTRACT.md` 무변경이 정당(둘 다 횟수 문장이 없다, `rg -n "resuming\|상한" docs/IPC_CONTRACT.md`) · `check-doc-inventory --check` 차이 0 |
+
+- **합계 재측정**: `✅ 22 · ⚠️ 1 · ❌ 0 = 총 23`. 분모는
+  `awk '/^## 7\. Acceptance/,/^### AC 검증/' plan.md | grep -cE "^\| AC[0-9]+ \|"` → **23**.
+  r3 과 분모가 같다.
+
+### plan §10 강제 지점 표 (r4) — AC와 별개로 걷는다
+
+| # | 계약/필드 | plan 지점 | 내가 확인한 좌표 | 결과 |
+|---|---|---|---|---|
+| 1 | 회복 대상 = `expired` | 2 | `auth-resume.ts:118`·`:180` 둘 다 `demoted()` | 2/2 ✅ |
+| 2 | refresh 가능 판정 한 곳 | 1 | `login.ts:367-379` 4판정이 한 함수 안 | 1/1 ✅ |
+| 3 | refresh 1회 · 재로그인 3회 | 2 | `refreshOnce`(`:154`) 루프 부재 · `MAX_RELOGIN_ATTEMPTS`(`:50`)+루프(`:116`) | 2/2 ✅ |
+| 4 | probe 통과 후에만 커밋 | 1 | `login.ts:413` `settleGrant` | 1/1 ✅ |
+| 5 | 새 세대 키 2개 | 1 | `tokenCandidate.writeVault`(`:867-876`) | 1/1 ✅ |
+| 6 | `refreshExpiresAt` 영속 | 2 | `login.ts:858` 쓰기 · `store-parse.ts:45` 파싱 | 2/2 ✅ |
+| 7 | 미회전 시 값 승계 | 1 | `login.ts:401-411` `const carried` | 1/1 ✅ |
+| 8 | grant 조립 3지점 | 3 | `login.ts:608`·`:788`·`:847` — MV-A 재현이 **3좌표**를 깬다 | 3/3 ✅ |
+| 9 | `compact` 인자 시그니처 | 1 | `obj.ts:48` — MV-B·MV-K·MV-L 재현 | 1/1 ✅ |
+| 10 | `resuming` 파생 | 3 | `bootstrap.ts:367`·`handlers/providers.ts:47`·`rootFrame.ts:36` | 3/3 ✅ |
+| 11 | `remainingSettled` 는 `finally` | 1 | `auth-resume.ts:213` `} finally {` → `:216` | 1/1 ✅ |
+| 12 | 판정·상태의 문서 사본 | 2 | `plan.md:11` · `INDEX.md:21` 둘 다 `IMPL_DONE (r4)` | 2/2 ✅ |
+
+- **합계 20/20.** plan 기재 20 ∖ 닫힌 20 = 0 · 닫힌 20 ∖ plan 20 = 0.
+- **표에 없는데 같은 불변식이 필요한 지점 — 3건 발견**(8행의 파싱 쪽). D20.
+
+## 6. 더 좁힌 기준 — 내가 심은 변이 5건
+
+> 구현자가 이번 라운드에 만든 게이트(`CompactSource`·`obj.test.ts`·P=0 케이스)는 그 자체가
+> 검증 대상이다. 같은 변이를 다시 돌리는 것은 재현이므로, **기준을 한 단계 좁혀** 다시 심었다.
+
+| 변이 | 좁힌 지점 | 관측 산출 | 판정 |
+|---|---|---|---|
+| VR1 `GrantBase` 에 `zzTenant?: string` | 구현자 MV-A 와 같은 자리 | `typecheck:node` → **3좌표**(`login.ts:608`·`788`·`847`) | ✅ D13 닫힘 |
+| VR2 `vaultKey: undefined`(secret) | MV-B 와 같은 자리 | `login.ts(610,7) error TS2322` | ✅ D14 닫힘 |
+| VR3 session 리터럴에서 **키 자체 삭제**(`principalId` 줄) | MV-N 은 값을 떨어뜨렸다 — 나는 키를 지웠다 | `typecheck:node` `TS2345` **+** `login.test.ts` **1 실패**(session 전체 형상) | ✅ 타입·런타임 두 눈 |
+| VR4 `compact` 시그니처를 r3 판으로 복원 | MV-K | `typecheck:test` → `obj.test.ts(52,5)`·`(67,5) TS2578` | ✅ 음성 타입이 상주 감시 |
+| VR5 **`push` 만 guard 밖으로**(`Promise.all` 은 남긴다) | MV-J 는 블록 전체를 무조건화했다 — 나는 `P` 항만 건드렸다 | `auth-resume.test.ts` **3 실패**, 그중 상한 describe 의 신규 P=0 케이스 | ✅ 정본이 `P` 를 증명 |
+
+- 다섯 건 모두 원복했다. 확인: `git status --short` 빈 출력 · 전체 재실행 산출이 §8 과 같다.
+
+## 7. 숫자 / 상한 재측정 (r4) — **AC18 이 여기서 갈린다**
+
+**AC18·`auth.md §5.2` 가 적은 `P + K + 1` 은 프로덕션 부팅 방송 총량이 아니다.** 회복이 성공하면
+같은 `pushConnectionState` 가 더 불린다 — 그것을 부르는 자리가 프로덕션에는 **둘**인데 fake 는 하나만 모형한다.
+
+| 관측 | 근거 |
+|---|---|
+| `pushConnectionState` 를 부르는 프로덕션 자리는 2곳 | `bootstrap.ts:365` 에서 한 번 정의해 `:376` `auth.subscribe` 와 `:404` `createAuthResume` 에 **같은 함수**를 준다 |
+| refresh 성공은 change 를 **2개** 낸다 | `settleGrant` 가 `onSnapshot('credential-committed')`(`login.ts:586`) 와 `emit({kind:'done'})`(`:587`) 를 잇달아 낸다 |
+| `publish` 는 합치지 않는다 | `runtime.ts:190`(`onStep`)·`:165-177`(`emitSnapshot`) 이 각각 구독자를 부른다. 디바운스·dedupe 없음 |
+| fake 는 회복 경로를 모형하지 않는다 | `auth-resume.test.ts` 의 fake `resume` 은 `broadcast()` 를 부르지만(`:168`·`:183`) `login`·`refresh` 는 부르지 않는다 |
+
+- **실측 대신 경로 계산**: 부팅 시점 만료된 oauth Auth 1건이 refresh 로 살아나는 경우 —
+  P=0 · K=0 이므로 문서상 총 **1**, 실제는 커밋 1 + step 1 + 종료 1 = **3**.
+- **plan §7 주의사항의 예외 경계도 틀렸다** — "AC18 이 잠그는 것은 **회복이 로그인 창을 열지 않은
+  경로**" 인데, refresh 성공이 바로 창을 열지 않으면서 상한을 넘는 경로다.
+- **정본 `auth.md:365-368` 에는 예외절이 아예 없다** — r4 가 "총 `P + K + 1` 이다" 로 총량 단언을 새로 넣었다.
+- 참 인 서술: probe 단계는 `P + K` · 종료 push 1회는 무조건. **회복이 change 를 내면 그만큼 더 나간다.**
+- 그 밖의 상한은 불변 — 시도 상한 `4N`(refresh 1 + 로그인 3)은 r1 계산 그대로다.
+
+## 8. 게이트 재실행 (r4)
+
+정본은 `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드`. **`npm test` 미사용.**
+
+- `npm run typecheck` — node·web·test **3/3 · error 0**(출력에 error 줄 0).
+- `npm run lint` — **0 errors, 1 warning**(`useTranscriptVirtualizer.ts:22`, 0102 베이스라인).
+- `./node_modules/.bin/vitest run` — **206 파일 · 2,024 케이스 · 1,982 pass / 42 fail**.
+- 관련 스위트(`features/auth`·`main/app`·`renderer/src/app`·`shared`) — **55 파일 / 519 케이스 green**.
+- `node --test "scripts/*.test.mjs"` — `# tests 49 # pass 49 # fail 0`.
+- `check-doc-inventory --check` — `generated doc ok (9 items, 76 channels)` · `prose ok` · `links ok`.
+- **환경 기인 실패 분리 — 차집합 양방향 0줄.** 실패 5파일을 `app/AGENTS.md` 의 알려진 집합과
+  `comm` 으로 뺐다: 내 실패 ∖ 알려진 = 0 · 알려진 ∖ 내 실패 = 0. 서명 `Module did not
+  self-register: better_sqlite3.node` · `Electron failed to install correctly`.
+- **게이트가 트리를 바꿨는가 — 아니다.** `npm run lint`(`--fix`) 실행 전후 `git status --short` 가 둘 다 빈 출력.
+- **검증 중 남긴 잔여물 — 없다.** 변이 5건은 전부 원복했고 백업은 스크래치 디렉토리에만 있다.
+
+## 9. Repository operation checks (r4)
+
+- **INDEX 정합** ✅ — `impl` · `` `IMPL_DONE` (r4) `` · 다음 주체 `Claude (검증)` · 대상 커밋
+  `ae882b1` · 라운드 4 가 실제 상태와 맞다.
+- **비고 길이** — 표시폭 **725칸**(r3 613 · 0193 PASS 행 385). 앞 라운드가 통과시킨 대역 안이라
+  미스매치로 세지 않되, 두 라운드 연속 늘었다.
+- **trailer** ✅ — `ae882b1` = `Agent: claude`·`Status: implemented`·`Criteria-Met: 23/23`·
+  `Verified-By: pending`. `23ac69f` = `Status: designed`, `Criteria-*` 없음. **D16 닫힘**:
+  보드 커밋 `eaa3333` 의 trailer 에 `Criteria-*` 가 없다(`git interpret-trailers --parse` 로 확인).
+- **인용 해시 실재** ✅ — `23ac69f`·`ae882b1`·`193b5eb`·`3371df2`·`b9b05c4`·`7c60433`·`ee11eab`·
+  `efb874e` 전건 `git rev-parse` 해석.
+- **AGENTS.md 변경 0** — 이번 range 에 `AGENTS.md` hunk 가 없다.
+
+## 10. 파생 이슈 (r4)
+
+- [ ] **D19** — AC18·`auth.md §5.2` 의 `P + K + 1` 이 프로덕션 부팅 방송 총량이 아니다. **FAIL 사유.**
+- [ ] **D20** — `store-parse.ts` 의 grant 조립 3리터럴에 §10 8행의 전수 강제가 없다. 보고만.
+
+## 11. Review Signals (r4) — 사실만
+
+- **동일 증상 4라운드 연속.** AC18 문면 ↔ 코드 불일치가 r1 I3 · r2 D4 · r3 D12 · r4 D19 다.
+  매 라운드 **다른 항**이 빠졌다: 종료 push(r1·r2) → 조건부 항 `P`(r3) → **회복 항**(r4).
+- **막았어야 할 지침이 이번에도 있었다.** r4 가 스스로 올린 불변식("횟수를 적는 문장은 조건을 함께
+  적거나 정본을 가리키고 숫자를 적지 않는다")을 정본 문장이 어긴다 — "총 `P + K + 1` 이다" 는
+  조건 없는 숫자다.
+- **관측 지점이 프로덕션 계약을 잠그지 않는다.** AC18 이 지목한 관측 지점(fake
+  `pushConnectionState` 호출 수)은 프로덕션의 두 호출자 중 하나만 센다.
+- **사용자 결정 변경 근거**: 없음. Decision Ledger 무변경, SUPERSEDED 0.
+- **반복된 검증 환경 한계**: electron 미설치 + better-sqlite3 ABI 로 5파일 42케이스 red — r1~r3·
+  0193 과 같은 서명, 차집합 양방향 0.
+- 현재 라운드 **4**. `handoff-review` 는 라운드 4 진입 전에 수행됐다(round 13, `efb874e`).
+
+## 12. 결론 (r4)
+
+- 상태: **FAIL** — 미충족 1건(AC18 문면), 파생 2건.
+- **닫힌 것**: D11(사본 3건 전수) · D12(`P` 항) · D13(조립 3지점) · D14(`compact` 값 건전성) ·
+  D15(`obj.test.ts`) · D16(보드 trailer) — 여섯 건 전부 내 변이로 재확인했다.
+- **강제 지점 20/20** · **게이트 전건 자기보고와 일치** · **repository operation mismatch 0**.
+- **막는 것 하나**: 정본 `auth.md §5.2` 가 프로덕션에서 거짓인 총량을 단언한다. 코드는 옳고
+  고칠 곳은 문장이다 — 규범 행이므로 **설계 커밋**(`handoff-plan` 마무리)으로 간다.
+- 남은 사람 확인: 없음. D19 는 사실 정정이라 제품 결정이 아니다.
+- 다음 단계: AC18 문면 + §7 주의사항 예외 경계 + `auth.md:365-368` 을 함께 고친다. D20 은 같은
+  턴에 §10 에 행을 더할지만 정한다.
+
+---
+
 # r3 — 2026-08-21 · **FAIL**
 
 > r1·r2 판정 원문은 아래에 그대로 둔다. 이 절은 **r3 에서 달라진 것만** 적는다.

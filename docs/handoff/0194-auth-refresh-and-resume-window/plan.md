@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-20 |
 | 매핑 | 0193 후속 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) |
 
 # Part I — Product & UX Contract
 
@@ -1083,3 +1083,5 @@ self-register` ×6 · `Electron failed to install` ×1.
 | D16 | **보드 커밋에 `Criteria-Met` 이 붙었다.** root `AGENTS.md` 표는 `Criteria-*` 를 구현 커밋만으로 정한다 | verify r3 §9 — `193b5eb` trailer 7줄에 `Criteria-Met: 23/23`. r2 의 같은 성격 커밋 `b9b05c4` 는 4줄이었다 | 다음 보드 커밋부터 `Criteria-*` 를 빼거나, 규칙을 바꾸려면 root `AGENTS.md` 에서 바꾼다 | **해결 (r4)** — r4 보드 커밋의 trailer 에서 `Criteria-*` 를 뺐다. 규칙(root `AGENTS.md`)은 바꾸지 않았다 |
 | D17 | **verify r3 §4 의 `resuming` 재측정이 재현되지 않는다.** "`rg "\.resuming" src/renderer/src` → `RootGate.tsx:35` 1건" 이라 적혔는데 같은 커밋에서 **5줄 / 4파일**이다 | r4 구현 §S8 — `git grep -n "\.resuming" 3371df2 -- app/src/renderer/src` 가 `3371df2` 시점에도 5줄을 낸다 | 그 관측이 뒷받침한 §10 행(`resuming` 3지점)은 **여전히 옳다** — 5줄 중 3줄은 `BootScreen.tsx:19`·`:20` 지역 변수와 `GateLogin.tsx:96` i18n 키다. 실제 wire 필드 독자는 `RootGate.tsx:35`(transport)·`useProviderGate.ts:75`(기본값) 2곳이다. 관측 자체의 오류라 다음 verify 가 같은 명령을 그대로 쓰지 않게 적는다 | 보고만 |
 | D18 | **`useProviderGate.ts:75` 의 `state?.resuming ?? false` 는 §10 어느 행에도 없는 기본값 판정이다** — `useProviderGate` 테스트 파일이 없어 그 줄 자체에는 눈이 없다 | r4 구현 §Product/UX 파생 검토 | **결과는 잠겨 있다**: `state === null` 이면 `gate` 도 null 이고 `rootFrame` 이 `gate === null` 을 `resuming` 보다 먼저 본다(`rootFrame.ts:35`). `rootFrame.test.ts:47`(`게이트 미판정이면 resuming 이어도 그냥 대기다`)이 그 조합을 단언한다 | 보고만 |
+| D19 | **AC18 과 정본 `auth.md §5.2` 의 `P + K + 1` 이 프로덕션 부팅 방송 총량이 아니다.** 회복이 성공하면 같은 `pushConnectionState` 가 더 불린다 — `bootstrap.ts:365` 의 한 함수를 `:376` `auth.subscribe` 와 `:404` `createAuthResume` 이 함께 쓴다 | verify r4 §7 — 만료 oauth 1건이 refresh 로 살아나는 부팅에서 문서상 총 1(P=0·K=0), 실제는 커밋(`login.ts:586`) + step(`:587`) + 종료 = **3**. fake 는 `resume` 에서만 `broadcast()` 를 부르고(`auth-resume.test.ts:168`·`:183`) `login`·`refresh` 에서는 부르지 않아 이 항이 관측 밖이다 | **설계자 몫 — 규범 행 정정.** ① AC18 문면에 회복 항을 넣거나 상한의 적용 범위를 `auth-resume` 이 스스로 내는 push 로 좁힌다 ② §7 주의사항의 예외 경계를 `로그인 창을 열지 않은 경로` → `회복이 change 를 내지 않은 경로` 로 고친다 ③ `auth.md:365-368` 의 `총 P + K + 1 이다` 에서 총량 단언을 뺀다 | 미해결 |
+| D20 | **`store-parse.ts` 의 grant 조립 3리터럴에 §10 8행의 전수 강제가 없다.** `parseGrant` 가 `{ kind, …, ...base }` 로 조립해 `GrantBase` 에 필드가 늘어도 컴파일이 통과하고, 그 필드는 재시작 때 조용히 사라진다 | verify r4 §5 — `GrantBase` 에 `zzTenant?` 를 더하면 깨지는 좌표가 `login.ts:608`·`:788`·`:847` **3개**뿐이고 `store-parse.ts:37`·`:41`·`:52` 는 통과한다 | §10 8행이 `최초 로그인·재인증·갱신 커밋` 으로 범위를 적었으므로 **닫을지 자체가 결정 지점**이다. 닫는다면 파서도 같은 `compact<T>` 형식으로 바꾸고 분모를 `조립 리터럴 수` 로 올린다. D2(`refreshExpiresAt` 영속)가 이 축의 필드별 선례다 | 보고만 |
