@@ -551,7 +551,9 @@ plan §7 은 AC13 을 `auth-resume.test.ts` 방송 상한 describe 에 두라고
 
 ### 대상 커밋
 
-`<이 문단은 커밋 후 해시로 채운다>`
+`995f1cd` — `feat(auth): browser-session 이 final URL 의 인가 코드를 토큰으로 교환한다`
+(`Agent: claude` · `Status: implemented` · `Criteria-Met: 14/14` · `Verified-By: pending`).
+보고 해시를 채우는 이 문단 자체는 그 다음 커밋에 담긴다 — 커밋은 자기 해시를 담을 수 없다.
 
 ## [구현자 기입] Review Signals — 사실만
 
