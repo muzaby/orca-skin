@@ -76,6 +76,28 @@ function gateway(): AuthDefinition {
   }
 }
 
+// 브라우저 세션 선언. probe 확인 케이스와 grant 조립 형상 케이스가 함께 쓴다.
+function ssoGate(): AuthDefinition {
+  return {
+    id: 'sso',
+    label: '사내 로그인',
+    origin: 'https://portal.example.corp',
+    probe: { path: '/api/me' },
+    methods: [
+      {
+        kind: 'browser-session',
+        label: '통합 인증',
+        config: {
+          sessionGroup: 'corp',
+          loginUrl: 'https://adfs.example.corp/adfs/ls/',
+          doneUrlPrefix: 'https://portal.example.corp/home',
+          allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp']
+        }
+      }
+    ]
+  }
+}
+
 interface Harness {
   login: LoginService
   store: AuthStore
@@ -404,24 +426,7 @@ describe('LoginService — 로그인 시 probe', () => {
   // 브라우저 세션·OAuth 도 같은 판정을 받는다 — `doneUrlPrefix` 도달만으로 성공을 선언하지
   // 않는다(로그인 폼이 같은 접두사로 렌더되는 배포가 있다).
   it('브라우저 세션 로그인도 probe 로 확인한다', async () => {
-    const gate: AuthDefinition = {
-      id: 'sso',
-      label: '사내 로그인',
-      origin: 'https://portal.example.corp',
-      probe: { path: '/api/me' },
-      methods: [
-        {
-          kind: 'browser-session',
-          label: '통합 인증',
-          config: {
-            sessionGroup: 'corp',
-            loginUrl: 'https://adfs.example.corp/adfs/ls/',
-            doneUrlPrefix: 'https://portal.example.corp/home',
-            allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp']
-          }
-        }
-      ]
-    }
+    const gate = ssoGate()
     const registry = new AuthRegistry([gate])
     const vault = createVault(fakeSecretStore())
     const store = new AuthStore({ persistence: createMemoryGrantPersistence(), vault })
@@ -436,6 +441,46 @@ describe('LoginService — 로그인 시 probe', () => {
     expect(await login.begin('sso')).toMatchObject({ kind: 'failed', reason: 'probe_failed' })
     expect(store.isVerified('sso')).toBe(false)
     expect(store.status('sso')).toBe('none')
+  })
+})
+
+// ── grant 조립의 전체 형상 — 세 갈래 (0194 r4 · D13) ─────────────────────────
+//
+// r3 은 token 갈래에만 전체 형상 단언을 뒀고(D7), 그래서 secret·session 조립은 커밋된 결과를
+// 아무도 보지 않았다. `toEqual` 은 초과 키도 잡으므로 **필드가 늘어도 줄어도** 여기가 깨진다 —
+// 조립 리터럴을 타입이 강제하는 것과 **짝**이다(타입은 빠뜨림을, 이 단언은 결과물을 본다).
+describe('LoginService — grant 조립의 전체 형상 (0194)', () => {
+  it('secret 갈래 — 만료는 싣지 않는다(발급 시점에 모른다)', async () => {
+    const h = harness()
+
+    expect(await h.login.begin('gw', 'api-key', { [FIELD_SECRET]: 'key-value' })).toMatchObject({
+      kind: 'done'
+    })
+
+    expect(h.store.get('gw')).toEqual({
+      kind: 'secret',
+      vaultKey: expect.any(String),
+      authKind: 'api-key',
+      createdAt: 1_000
+    })
+  })
+
+  it('session 갈래 — vault 키도 만료도 없다(cookie jar 가 값을 나른다)', async () => {
+    const h = harness([ssoGate()], probeApi(true), {
+      login: async () => ({ kind: 'session', sessionGroup: 'corp', principalId: 'kim@corp' })
+    })
+
+    expect(await h.login.begin('sso')).toMatchObject({ kind: 'done' })
+
+    expect(h.store.get('sso')).toEqual({
+      kind: 'session',
+      sessionGroup: 'corp',
+      authKind: 'browser-session',
+      createdAt: 1_000,
+      principalId: 'kim@corp'
+    })
+    // 세션은 vault 에 아무것도 쓰지 않는다 — 위 형상의 `vaultKey` 부재와 같은 사실이다.
+    expect(h.secrets.raw.size).toBe(0)
   })
 })
 

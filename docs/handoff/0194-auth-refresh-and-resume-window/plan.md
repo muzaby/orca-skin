@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-20 |
 | 매핑 | 0193 후속 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) |
 
 # Part I — Product & UX Contract
 
@@ -284,7 +284,7 @@ renderer: RootGate → rootFrame({bootPhase, bootError, gate, resuming})
 | `refreshExpiresAt` 영속 | `tokenCandidate` + `store-parse.ts` | 커밋·파서 | ① **커밋 쓰기**(`tokenCandidate` — grant 에 싣는 곳) ② 부팅 파싱 — **2지점** (r2 정정: r1 은 "직렬화는 자동" 이라 적어 producer 를 세지 않았고 그 지점에 눈이 없었다) | 재시작하면 만료 정보를 잃고 죽은 refresh 로 왕복한다 |
 | refresh 미회전 시 값 승계 (D-014) | `LoginService.refresh` **한 곳** | 갱신 커밋 | `tokenCandidate` 호출 직전 — **1지점** | 갱신 한 번에 회복 능력을 잃고 두 번째 만료부터 로그인 창만 남는다 |
 | **grant 조립은 필드를 빠뜨릴 수 없다** (r3 신설 D7 · **r4 정정 1→3**) | `Grant` 갈래별 조립 리터럴 | 최초 로그인·재인증·갱신 커밋 | `compact<T>` 리터럴 — ① `secretCandidate` ② `tokenCandidate` ③ `absorb` 의 `session` case — **3지점**. 분모는 `Grant` union 갈래 수이고 `rg -c "kind: 'secret'\|kind: 'token'\|kind: 'session'" src/main/contracts/auth.ts` 로 센다 | 안 닫힌 갈래는 `GrantBase` 에 필드가 늘어도 조용히 통과하고, 라운드마다 다른 필드로 재발한다(D1 `refreshToken` → D7 `principalId`) |
-| **`compact` 인자는 필수 키에 `undefined` 를 받지 않는다** (r4 신설 — D14) | `shared/obj.ts` `compact` 시그니처 **한 곳** | 위 3지점 전부 | 시그니처 1지점 — 필수 키는 `T[K]` 를, 선택 키만 `null`/`undefined` 를 받는다 | `Partial<T>` 는 필수 키에도 `undefined` 를 허용한다. `vaultKey: undefined` 가 typecheck 를 통과하고 `as T` 가 그것을 감춰 런타임에만 드러난다(r3 VF1) |
+| **`compact` 인자는 필수 키에 `undefined` 를 받지 않는다** (r4 신설 — D14) | `shared/obj.ts` `compact` 시그니처 **한 곳** | 위 행의 3지점 전부 | 시그니처 **1지점** — 필수 키는 `T[K]` 를, 선택 키만 `null`/`undefined` 를 받는다 | `Partial<T>` 는 필수 키에도 `undefined` 를 허용한다. `vaultKey: undefined` 가 typecheck 를 통과하고 `as T` 가 그것을 감춰 런타임에만 드러난다(r3 VF1) |
 | `resuming` = `!remainingSettled && gateOpen(...)` | `auth-resume.ts` **파생 함수 1개** | 소비자 | ① 조립 push(`bootstrap.ts`) ② 조립 invoke(`handlers/providers.ts`) ③ `rootFrame()` 판정 — **3지점** (r3 정정: r1 은 조립을 1지점으로 셌다) | 별도 플래그면 push 순서에 따라 메인 셸이 한 프레임 번쩍인다 |
 | `remainingSettled` 는 `finally` 에서 | `auth-resume.ts` | 배치 | 종료(성공·실패·throw) 1지점 | 예외 하나로 앱이 스피너에 영구히 잠긴다 |
 | 판정·상태의 문서 사본 | `plan.md` + `INDEX.md` | 설계자·구현자·검증자 | 상태를 바꾸는 **모든** 커밋 — **2지점** | 두 사본이 서로 다른 말을 한다 |
@@ -863,6 +863,204 @@ self-register` ×6 · `Electron failed to install` ×1.
   0193 과 같은 서명.
 - 현재 라운드 **3**. **다음 재구현이 라운드 4이고, 그것은 `handoff-review` 진입 조건이다.**
 
+## [구현자 기입] r4 — 조건부 항과 전수 강제 (2026-08-21)
+
+### 설계 리뷰 (r4)
+
+| # | 발견 | 처리 | 근거 |
+|---|---|---|---|
+| I8 | **AC18 정정이 세 라운드 연속 틀렸다.** r3 이 `1 + K + 1` 로 고쳤는데 batch push 는 `probeTargets.length > 0` 일 때만 나간다 | **plan 수정 제안 → 승인 → 별도 커밋**(`23ac69f`) | `auth-resume.ts:201` 의 조건 · `auth-resume.test.ts:750` 이 후보 0건에서 `1` 을 단언 |
+| I9 | **§10 의 grant 조립 행이 1지점으로 적혀 있다.** `GrantBase` 를 세 갈래가 공유하는데 눈은 token 에만 있었다 | 같음 — `1 → 3` 정정 | `Grant` union 갈래 수 3(`rg -c "kind: 'secret'\|kind: 'token'\|kind: 'session'" src/main/contracts/auth.ts`) |
+| I10 | **§10 에 `compact` 시그니처 행이 없다.** "전수 강제를 타입에 뒀다" 는 주장이 실제로는 키 존재만 덮었다 | 같음 — 행 신설 | r3 VF1: `vaultKey: undefined` 가 `typecheck:node` error 0 으로 통과 |
+| I11 | **`1 + K` 문면 사본이 설계자가 센 2건보다 많다.** D11 은 `login.ts:297`·`:330` 2건을 지목했는데 전수는 `runtime.test.ts:268` 을 포함해 3건이고, 테스트 describe·주석까지 세면 9건이다 | **선조치**(구현 세부 — 문면 통일) | `rg "1 \+ K" app/src/ docs/arch/ docs/guides/ docs/decisions/ docs/*.md` |
+
+### 무엇을 바꿨나
+
+**축 1 — 방송 상한 문면의 조건부 항 (D12·D11).** 불변식을 한 문장으로 올렸다: **"부팅 방송 횟수를
+적는 문장은 batch push 의 조건(probe 후보가 있을 때만)을 함께 적거나, 정본을 가리키고 숫자를 적지
+않는다."** 그 문장이 성립해야 할 지점을 전수로 찾아 함께 닫았다.
+
+| 지점 | 처리 |
+|---|---|
+| `auth.md:365-368` (정본) | `probe 단계는 1 + K` → `P + K` (`P` 정의 포함) · 총합 `P + K + 1` 명시 |
+| `auth.md:356` (§5.2 흐름 블록) | `성공한 verified 변화는 마지막 full-state push 한 번` → `확인할 후보가 있었으면 …` |
+| `auth.md:306` (형제 절 §4.5) | `방송 상한(§5.2 `1 + K`)도 함께 무너진다` → 숫자를 빼고 `강등 항 K 가 두 배가 된다` |
+| `auth-resume.test.ts:337-341` describe + 헤더 주석 | `1 + K + 1` → `P + K + 1` + 세 항을 정의하는 헤더 주석 |
+| `auth-resume.test.ts` it·주석 3곳 | `1 + K` 인용 → `P=1·K=0` / `P=1·K=2` / `P=0·K=0` |
+| `auth-resume.test.ts` **신규 케이스** | `probe 후보가 0건이면 batch push 자체가 없다 — P=0·K=0` |
+| `login.ts:302` · `:335` | 상한 사본 제거 — 정본(`auth.md §5.2`) 가리키기 · `강등 항 K 를 2K 로` |
+| `runtime.test.ts:268` | 같음 (D11 이 세지 않은 3번째 사본) |
+
+**축 2 — grant 조립 전수 강제 (D13).** 불변식은 **"grant 조립 리터럴은 필드를 빠뜨릴 수 없다"**
+이고, 성립해야 할 지점은 `Grant` union 갈래 수만큼이다. r3 이 닫은 token 외에 secret
+(`login.ts:608`)·session(`:788`)을 같은 `compact<T>` 형식으로 바꿨다. `SecretGrant`·`SessionGrant`
+별칭을 `TokenGrant` 옆에 뒀다.
+
+**축 3 — `compact` 가 강제하는 범위 (D14).** 인자 타입을 `Record<keyof T, unknown> & Partial<T>`
+에서 `CompactSource<T>` 로 좁혔다. 필수 키는 `T[K]` 를, 선택 키만 `null`/`undefined` 를 받는다.
+**`-?` 로는 쓸 수 없다** — homomorphic 매핑의 `-?` 는 값 타입의 `undefined` 까지 벗겨 선택 키에
+`undefined` 를 넘기는 정상 호출 8건이 깨졌다(실측). 그래서 필수/선택 키 union 을 명시적으로
+갈랐다. **union 분배(`T extends unknown`)도 함께 넣었다** — 없으면 `keyof (A | B)` 가 공통 키만
+내어 `compact<Grant>` 같은 호출에서 전수 강제가 갈래 수만큼 조용히 느슨해진다(실측).
+
+**축 4 — `compact` 자기 테스트 (D15).** `src/shared/obj.test.ts` 신설. 런타임 semantics 6케이스 +
+`@ts-expect-error` 음성 타입 3케이스(필수 키 `undefined` · 키 누락 · union 갈래)로 `typecheck:test`
+가 게이트가 된다. 같은 수단의 선례는 `deployment-wiring.test.ts` 다.
+
+**축 5 — 조립 결과의 전체 형상 (D13 의 런타임 짝).** r3 은 token 갈래에만 `toEqual` 전체 형상
+단언을 뒀다(D7). secret·session 은 커밋된 grant 를 아무도 보지 않았으므로 2케이스를 더했다 —
+타입은 *빠뜨림*을, 이 단언은 *결과물*을 본다.
+
+### 설계 대비 명시적 차이
+
+1. **`compact` 의 시그니처를 plan §10 이 적은 것보다 한 갈래 더 좁혔다.** §10 신설 행은 "필수
+   키는 `T[K]`, 선택 키만 `null`/`undefined`" 까지만 요구한다. union 분배는 그 행에 없는데,
+   없으면 같은 행의 강제가 union 호출에서 무너져 넣었다. 행의 목적 안이라 선조치로 처리했다.
+2. **테스트를 2개 파일에 더했다** — plan §11 은 `obj.test.ts` 를 예상하지 않았다(D15 는 검증자가
+   "보고만" 으로 남긴 항목이다). D14 로 `compact` 를 고치는 턴이라 §3 의 "이번 턴에 만든 장치는
+   눈을 먼저 보인다" 가 걸린다고 판단했다.
+3. **D16 은 코드 변경이 아니다** — 이번 보드 커밋의 trailer 에서 `Criteria-*` 를 뺀다.
+
+### 강제 지점 전수 (§10 대조) — `20/20`
+
+| # | 계약/필드 | 지점 | 현재 좌표 | 재현 명령 |
+|---|---|---|---|---|
+| 1 | 회복 대상 = `expired` | 2/2 | `auth-resume.ts:180` `continue` · `:118` 재로그인 루프 머리 | `sed -n '118p;180p' app/src/main/app/auth-resume.ts` |
+| 2 | refresh 가능 판정 한 곳 | 1/1 | `login.ts:367-379` 4판정이 한 함수 안 | `sed -n '367,379p' app/src/main/features/auth/login.ts` |
+| 3 | refresh 1회 · 재로그인 3회 | 2/2 | `refreshOnce`(`:154`) 루프 부재 · `MAX_RELOGIN_ATTEMPTS`(`:50`)+루프(`:116`) | `rg -n "MAX_RELOGIN_ATTEMPTS\|const refreshOnce" app/src/main/app/auth-resume.ts` |
+| 4 | probe 통과 후에만 커밋 | 1/1 | `login.ts:413` `settleGrant` | `sed -n '413p' app/src/main/features/auth/login.ts` |
+| 5 | 새 세대 키 2개 | 1/1 | `tokenCandidate.writeVault`(`:867-876`) | `sed -n '867,876p' app/src/main/features/auth/login.ts` |
+| 6 | `refreshExpiresAt` 영속 | 2/2 | ① 커밋 쓰기 `login.ts:858` ② 부팅 파싱 `store-parse.ts:45` | `sed -n '858p' …/login.ts; sed -n '45p' …/store-parse.ts` |
+| 7 | 미회전 시 값 승계 (D-014) | 1/1 | `login.ts:401-411` `const carried` | `sed -n '401,411p' app/src/main/features/auth/login.ts` |
+| 8 | **grant 조립 3지점 (r4 정정 1→3)** | 3/3 | `login.ts:608` secret · `:788` session · `:847` token | `rg -n "compact<SecretGrant>\|compact<SessionGrant>\|compact<TokenGrant>" app/src/main/features/auth/login.ts` → 3줄 (분모 = `Grant` union 갈래 3) |
+| 9 | **`compact` 인자 시그니처 (r4 신설)** | 1/1 | `obj.ts:48` `source: CompactSource<T>` | `rg -n "source: CompactSource<T>" app/src/shared/obj.ts` → 1줄 |
+| 10 | `resuming` 파생 | 3/3 | `bootstrap.ts:367` · `handlers/providers.ts:47` · `rootFrame.ts:36` | `rg -n "resuming" 세 파일` |
+| 11 | `remainingSettled` 는 `finally` | 1/1 | `auth-resume.ts:216` (`finally` 블록 안 — `:213` 이 `} finally {`) | `sed -n '213,219p' app/src/main/app/auth-resume.ts` |
+| 12 | 판정·상태의 문서 사본 | 2/2 | `plan.md:11` 메타 `→ IMPL_DONE (r4)` · `INDEX.md:21` 행 `` `IMPL_DONE` (r4) `` | `rg -c "IMPL_DONE.{0,2} \(r4\)" docs/handoff/INDEX.md docs/handoff/0194-*/plan.md` → **2파일**(1줄·2줄 — plan.md 의 둘째 줄은 이 행이 인용한 문면이다) |
+
+- **합계 검산**: 2+1+2+1+1+2+1+3+1+3+1+2 = **20**. plan 기재 20 ∖ 닫힌 20 = **0** · 닫힌 20 ∖
+  plan 20 = **0**. r3 의 17 과 직접 비교하지 않는다 — §10 에서 1행이 `1→3` 으로 정정됐고 1행이
+  신설됐다(17 − 1 + 3 + 1 = 20).
+- **표에 없는데 같은 불변식이 필요한 지점 — 0건.** 프로덕션 `compact` 호출부는 전수 3곳뿐이다
+  (`rg -n "= compact<" app/src/main app/src/shared app/src/renderer | grep -v '\.test\.'` → **3줄, 전부
+  `login.ts`** — 위 8행의 세 좌표와 같다).
+
+### 이번 턴에 만든 검사 장치의 눈 — 판정 지점마다 하나씩 심었다
+
+**타입 장치**(`CompactSource`) — 판정 지점 4개를 세어 각각 심었다.
+
+| 변이 | 심은 곳 | 관측 산출 | 판정 |
+|---|---|---|---|
+| MV-A `GrantBase` 에 `zzTenant?: string` 추가 | `contracts/auth.ts:192` 아래 | `typecheck:node` → 깨진 좌표 **3개**(`login.ts:608`·`:788`·`:847`) | ✅ 전수 강제 — r3 은 1개였다(D13) |
+| MV-B `vaultKey: undefined` (secret) | `login.ts:610` | `error TS2322: Type 'undefined' is not assignable to type 'string'` | ✅ 필수 키 값 건전성 |
+| MV-C `vaultKey: undefined` (token) | `login.ts:849` | 같은 오류 | ✅ 같음 |
+| MV-D `sessionGroup: undefined` (session) | `login.ts:790` | 같은 오류 | ✅ 같음 |
+| MV-E 키 자체 삭제(session 의 `expiresAt` 줄) | `login.ts:794` | `error TS2345` — 인자 형상 불일치 | ✅ 키 존재 |
+| **거짓 양성 확인** | — | 선택 키에 `undefined`/`null` 을 넘기는 정상 호출은 typecheck error **0** | ✅ 실사용을 막지 않는다 |
+| MV-K r3 시그니처(`Record & Partial`)로 되돌리기 | `obj.ts:48` | `typecheck:test` → `obj.test.ts(46,5) error TS2578: Unused '@ts-expect-error'` | ✅ 음성 타입 테스트가 회귀를 잡는다 |
+| MV-L union 분배 제거 | `obj.ts:42-44` | `typecheck:test` → `obj.test.ts(67,5) TS2578` | ✅ union 갈래 강제에 눈이 있다 |
+
+- **MV-K 가 가른 것**: r3 판으로 되돌리면 *필수 키 `undefined`* 지시자만 unused 가 되고 *키 누락*
+  지시자는 그대로다 — `Record<keyof T, unknown>` 이 존재는 이미 강제했기 때문이다. r3 이 못 본
+  판정 지점은 **값 건전성 하나**였다는 뜻이고, D14 의 서술과 일치한다.
+
+**런타임 장치**(`obj.test.ts` · 조립 형상 · 방송 상한) — 판정 지점 6개.
+
+| 변이 | 심은 곳 | 관측 산출 | 판정 |
+|---|---|---|---|
+| MV-F `compact` 판정을 truthy 로 | `obj.ts:52` | `obj.test.ts` **1 실패** (0·''·false 유지 케이스) | ✅ |
+| MV-G `compact` 가 null 통과 | `obj.ts:52` | **1 실패** | ✅ |
+| MV-H `ifPresent` 판정을 truthy 로 | `obj.ts:10` | **1 실패** | ✅ |
+| MV-I `isRecord` 가 배열 통과 | `obj.ts:15` | **1 실패** | ✅ |
+| MV-M secret 조립이 `expiresAt` 을 싣는다 | `login.ts:615` | `login.test.ts` **2 실패** | ✅ 전체 형상이 초과 키를 잡는다 |
+| MV-N session 조립이 `principalId` 를 떨어뜨린다 | `login.ts:796` | **1 실패** | ✅ 누락도 잡는다 |
+| MV-J batch push 를 무조건으로 (`P` 항 제거) | `auth-resume.ts:202` 블록 | `auth-resume.test.ts` **3 실패** — 그중 하나가 **상한 describe 안의 신규 P=0 케이스**다 | ✅ 정본이 스스로 `P` 를 증명한다 |
+
+- 열세 건 모두 실행 후 원복했다. 복원 확인: `git status --short` 가 의도한 7파일만 · `typecheck`
+  3/3 error 0 · 관련 55파일 **519/519** 재green · 변이 흔적 grep(`zzTenant`) **0건**.
+- **눈을 심지 못한 곳**: `auth.md` 문면 3곳은 산문이라 기계 장치가 없다. 이 축의 눈은 **사본을
+  없앤 것**이다 — `rg "1 \+ K" app/src/ docs/arch/ docs/guides/ docs/decisions/ docs/*.md` 가
+  **0건**이고, 남은 `P + K + 1` 2건은 정본(`auth.md:368`)과 테스트 describe(`:337`·`:341`)뿐이다.
+
+### Product/UX 파생 검토 (r4)
+
+- **사용자가 관측하는 것은 달라지지 않는다.** 이번 변경은 전부 타입·주석·테스트·문서다. 유일한
+  실행 경로 변경은 secret·session grant 조립을 `ifPresent` 누적에서 `compact` 로 바꾼 것인데,
+  두 함수의 semantics 가 같아(`!= null` 드롭) **키 집합도 삽입 순서도 같다**. 신규 전체 형상
+  2케이스가 그것을 단언한다.
+- **새로 만든 사용자 대면 문자열 0건** — 소비자 없는 producer 가 생길 자리가 없다.
+- **이번에 만든 실패 경로 0건** — Part I 상태 전이표에 더할 행이 없다.
+- **`useProviderGate.ts:75` 의 `state?.resuming ?? false` 는 §10 어느 행에도 없는 기본값 판정이다.**
+  그 자체에는 테스트가 없지만(`useProviderGate` 테스트 파일 부재), 결과는 잠겨 있다 —
+  `state === null` 이면 `gate` 도 null 이고 `rootFrame` 이 `gate === null` 을 `resuming` 보다 먼저
+  본다(`rootFrame.ts:35`). `rootFrame.test.ts:47`(`게이트 미판정이면 resuming 이어도 그냥 대기다`)
+  가 그 조합을 단언한다. **보고만** — 파생 이슈 D18.
+
+### 놓친 잠재 문제 + 대응 (r4)
+
+| # | 문제 | 대응 |
+|---|---|---|
+| S6 | **`compact` 의 `as T` 는 여전히 런타임 `null` 을 감춘다.** 타입이 막는 것은 *리터럴*이고, 런타임에 `null` 이 든 값이 들어오면 그 키는 드롭된 채 `T` 로 캐스팅된다 | 세 호출부가 전부 리터럴이라 현재 도달 경로가 없다. 넓히지 않고 `obj.ts` 주석에 범위를 적었다 |
+| S7 | **union 분배가 없으면 강제가 갈래 수만큼 샌다** — `compact<Grant>` 가 `vaultKey` 를 요구하지 않았다(실측) | 선조치 — `T extends unknown` 분배 + 음성 타입 케이스 1건 |
+| S8 | **verify r3 §4 의 재측정 1건이 재현되지 않는다.** `rg "\.resuming" src/renderer/src` 는 `3371df2` 시점에도 **5줄 / 4파일**이다(`git grep` 로 커밋본에서 확인) | 그 관측이 뒷받침한 §10 행(3지점)은 여전히 옳다 — 5줄 중 3줄은 `BootScreen` 지역 변수와 i18n 키다. 관측 자체의 오류라 파생 이슈 D17 로 올린다 |
+| S9 | **`Grant` 갈래가 늘면 §10 8행의 분모가 조용히 바뀐다.** 지금은 `rg -c` 가 세지만 새 갈래를 `compact` 없이 조립하면 그 명령이 4를 내고 `compact<` 는 3에 머문다 | 두 수를 **함께** 세는 것이 재현 명령이다(위 표 8행). 자동 게이트로 굳히는 것은 범위 밖 — 보고만 |
+
+### 구현 보고 (r4)
+
+- **변경 파일 7개**: `app/src/shared/obj.ts` · `app/src/shared/obj.test.ts`(신규) ·
+  `app/src/main/features/auth/login.ts` · `login.test.ts` · `runtime.test.ts` ·
+  `app/src/main/app/auth-resume.test.ts` · `docs/arch/backend/auth.md`. (plan.md 의 규범 행 정정은
+  **별도 커밋** `23ac69f` — `handoff-plan/SKILL.md` 마무리.)
+- **게이트 — 관측한 산출**(exit code 아님). 정본은 `app/AGENTS.md §better-sqlite3 ABI · 제약 환경
+  게이트 가이드`. `npm test` 미사용.
+  - `npm run lint` — **0 errors, 1 warning**. 그 1건은 `useTranscriptVirtualizer.ts:22`
+    (`react-hooks/incompatible-library`)로 이번 변경과 무관하다. **실행 전후 `git status --short`
+    동일** — `--fix` 가 트리를 바꾸지 않았다.
+  - `npm run typecheck` — node·web·test **3/3, error 0**.
+  - `vitest run` 전체 — **206 파일 · 2,024 케이스**, `1,982 pass / 42 fail`.
+  - `vitest run` 관련(auth · main/app · renderer/app · shared) — **55 파일 / 519 케이스 전건 green**
+    (1파일은 아래 ABI 기인이라 로드 실패).
+  - `node --test scripts/*.test.mjs` — `# tests 49 # pass 49 # fail 0`.
+  - `check-doc-inventory --check` — `generated doc ok (9 items, 76 channels)` · `prose ok` ·
+    `links ok` · 차이 0.
+- **환경 기인 실패 분리 — 차집합 양방향 0줄.** 42 red 의 5파일을 `app/AGENTS.md` 의 알려진 집합과
+  실제로 뺐다(`comm -23` **0줄** · `comm -13` **0줄**). 서명 확인:
+  `Module did not self-register: better_sqlite3.node`.
+- **케이스 증가 검산**: r3 2,011 → r4 2,024 = **+13**. 내역 = `obj.test.ts` 10 · `auth-resume.test.ts`
+  P=0 케이스 1 · `login.test.ts` 조립 형상 2. 합 13 ✅.
+
+### AC 자기보고 — 이번 턴에 재현한 관측
+
+| # | 결과 | 이번 턴 관측 |
+|---|---|---|
+| AC1~AC17 · AC19 · AC21~AC23 | ✅ 유지 | 실행 경로 변경이 secret·session 조립 2곳뿐이고 semantics 동일. 관련 **55파일 519케이스** 전건 green |
+| **AC18** | ✅ **정정 기준(`P + K + 1`)으로 충족** | 상한 describe 3케이스 — `auth-resume.test.ts:357` `(2)`(P=1·K=0) · `:375` `(4)`(P=1·K=2) · **신규** `:390` `(1)`(P=0·K=0). MV-J(batch push 무조건화)가 그 3케이스 중 신규 1건 포함 3건을 실패시킨다 |
+| AC20 | ✅ 유지 + 정본 정정 | `auth.md §5.2` 방송 상한 문면을 코드에 맞췄다(`:356`·`:365-368`) · 형제 절 `:306` · `closed-network-extensions.md §3-b`·`IPC_CONTRACT.md` 무변경 · `check-doc-inventory --check` 차이 0 |
+
+- **합계 검산**: `✅ 23 · ⚠️ 0 · ❌ 0 = 총 23`. 분모 재계수:
+  `awk '/^## 7\. Acceptance/,/^### AC 검증/' plan.md | grep -cE "^\| AC[0-9]+ \|"` → **23**.
+  r3 과 분모가 같다(AC 신설·분할 0건).
+- **강제 지점 20/20** — 위 전수표. r3 의 17 과 분모가 다르다(1행 `1→3` 정정 + 1행 신설).
+
+### Review Signals — 사실만 (r4)
+
+- **이번에 닫은 불변식이 이전 라운드와 같은 축인가: 예, 둘 다.** ① *횟수 문면*은 D3(r3) → D11·D12(r4)
+  로 4라운드째다. ② *"지점을 적게 셌다"* 는 0193 `attempted` → r1 `resuming`(I4) → r2
+  `refreshExpiresAt` producer(D2) → r3 grant 조립(D13) → r4 `1 + K` 사본 3건 중 2건만 지목(I11)
+  으로 **5연속**이다.
+- **그것을 막았어야 할 지침이 있었고 이번에 걸렸다.** review round 13 이 `handoff-impl/SKILL.md §2`
+  에 넣은 "네가 §10 에 행을 신설하면 지점 수도 전수 검색으로 세고 검색 명령을 함께 적는다" 가
+  I9·I10 을 만들었고, `handoff-plan/SKILL.md` 의 "고쳐 쓴 AC 행은 §5 AC 게이트를 다시 통과시킨다"
+  가 AC18 재게이트 줄을 만들었다. **두 지침 다 r4 가 첫 적용이다.**
+- **걸리지 않은 것**: D11 이 사본을 2건으로 셌는데 실제 3건이었다. 검증자의 전수도 같은 종류의
+  누락을 낸다는 뜻이고(S8 의 `\.resuming` 오관측이 같은 축), 지침은 구현자에게만 전수 명령을
+  요구한다.
+- **반복된 환경 한계**: electron 미설치 + better-sqlite3 ABI 로 5파일 42케이스 red — r1·r2·r3·0193
+  과 같은 서명. 차집합 양방향 0줄.
+- 현재 라운드 **4**. `handoff-review` 는 라운드 4 진입 전에 수행됐다(round 13, `efb874e`).
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
@@ -877,9 +1075,11 @@ self-register` ×6 · `Electron failed to install` ×1.
 | D8 | **배포가 읽는 유일한 oauth 예제가 `refresh` 포트를 모른다.** `docs/guides/closed-network-extensions.md` §3-b 는 "`authorize(ctx)` **하나만** 채운다" 이고 예제 `exchange` 도 `{token, expiresAt}` 만 돌려준다 | verify r2 §11 — plan §15 가 지시한 문서인데 r1·r2 모두 갱신 0(`git log -- <file>` 최근 커밋 3건이 전부 0194 이전) | 그 절에 `refresh?`·`refreshToken`·`refreshExpiresAt` 을 더한다. 갱신 없이는 실제 배포에서 0194 의 창 없는 회복이 켜지지 않는다 | **해결 (r3)** — §3-b 에 `refresh` 갈래 · `exchange` 의 `refreshToken` · `refreshExpiresAt` 문단을 더했다. **AC20 이 §15 의 문서 목록을 인용**하게 바꿔 두 목록을 하나로 합쳤다(채점 밖으로 새던 뿌리) |
 | D9 | **`refreshKey`↔`refreshExpiresAt` 짝 불변식에 눈이 없다.** `tokenCandidate` 주석은 "짝으로만 싣는다" 인데 조건을 지워도 `vitest run src/main/features/auth src/main/app` 이 **338/338 통과** | verify r2 §6 `MV3` | 동작 결과는 안 바뀐다(`refreshSecret` 이 `refreshKey === undefined` 를 먼저 접는다) — 케이스 1건을 더하거나 주석의 계약 표현을 낮춘다 | **해결 (r3)** — 최초 로그인 응답이 `refreshExpiresAt` 만 주는 케이스를 더했다(`login.test.ts:883`). MV3(짝 조건 제거)이 **1건 실패** — r2 에서는 338/338 통과였다 |
 | D10 | **`tokenCandidate(previous)` 를 넘기는 호출부가 늘면 승계가 갱신 밖으로 샌다.** 인자가 optional 이라 "갱신 경로에만" 이 타입이 아니라 호출부 관례로 지켜진다 | r3 구현 §놓친 잠재 문제 → verify r3 확인 | 현재 호출부 2곳(`login.ts:407` refresh · `:806` absorbToken)이고 후자는 넘기지 않는다. `최초 로그인은 옛 grant 에서 아무것도 승계하지 않는다` 케이스가 결과는 잠근다 | 보고만 |
-| D11 | **`login.ts:297`·`:330` 이 `1 + K` 를 인용한다.** 지금은 참이다(probe 단계 상한) — D3 와 같은 축의 사본이다 | r3 구현 §S3 → verify r3 확인 | D12 가 상한 문면을 고치는 김에 이 두 줄도 함께 본다 | 보고만 |
-| D12 | **AC18 의 정정된 문면이 코드와 어긋난다.** "부팅 방송은 `1 + K + 1` 이다" 인데 batch push 는 `probeTargets.length > 0` 일 때만 나간다(`auth-resume.ts:201-210`) | verify r3 §5·§7 — `auth-resume.test.ts:750` 이 후보 0·K=0 에서 `toHaveBeenCalledTimes(1)` 을 단언한다. `1+K+1 = 2` 가 아니다 | 문면을 **`(probe 후보 있으면 1, 없으면 0) + K + 1`** 로 고친다. 검증수단 칸의 "시도 0건 케이스도 **같은 값**" 도 함께 고친다(1 ≠ 2). `auth.md §5.2:365` 의 "probe 단계는 `1 + K` 다" 도 같은 축이니 함께 정확히 한다 | 미해결 |
-| D13 | **전수 강제가 grant 조립 3지점 중 1곳에만 닫혔다.** `GrantBase` 는 세 갈래가 공유하는데 눈은 token 에만 있다 | verify r3 §6 `VF3` — `GrantBase` 에 `zzTenant?` 를 더하니 깨진 좌표가 **`login.ts(839,39)` 하나**다. `:605` secret · `:783` session 은 통과한다 | 두 지점도 같은 방식으로 닫거나, 닫지 않는 이유를 §10 에 적는다. r3 가 올린 불변식("조립은 필드를 빠뜨릴 수 없다")의 나머지 지점이다 | 미해결 |
-| D14 | **`compact()` 가 필수 필드도 드롭한다 — 타입이 막지 못한다.** `Partial<T>` 가 필수 키에도 `undefined` 를 허용한다(`exactOptionalPropertyTypes` 미설정) | verify r3 §6 `VF1`·`VF2` — `vaultKey: undefined` 가 `typecheck:node` **error 0** 으로 통과하고, 런타임에서만 7건이 실패한다 | r3 의 주장은 "전수 강제를 **타입**에 뒀다" 인데 지금은 키 존재만 타입이 보고 값 건전성은 테스트가 본다. 필수/선택을 가르는 시그니처로 좁히거나, 주장을 실제 범위로 낮춘다 | 미해결 |
-| D15 | **`compact` 자기 테스트가 없다 — "0·'' 는 유지한다" 계약에 눈이 없다** | verify r3 §1~3 — `src/shared/` 에 `obj.test.ts` 부재 | 케이스 1건이면 닫힌다. 기존 `ifPresent`·`isRecord` 도 같은 상태라 신규 회귀는 아니다 | 보고만 |
-| D16 | **보드 커밋에 `Criteria-Met` 이 붙었다.** root `AGENTS.md` 표는 `Criteria-*` 를 구현 커밋만으로 정한다 | verify r3 §9 — `193b5eb` trailer 7줄에 `Criteria-Met: 23/23`. r2 의 같은 성격 커밋 `b9b05c4` 는 4줄이었다 | 다음 보드 커밋부터 `Criteria-*` 를 빼거나, 규칙을 바꾸려면 root `AGENTS.md` 에서 바꾼다 | 보고만 |
+| D11 | **`login.ts:297`·`:330` 이 `1 + K` 를 인용한다.** 지금은 참이다(probe 단계 상한) — D3 와 같은 축의 사본이다 | r3 구현 §S3 → verify r3 확인 | D12 가 상한 문면을 고치는 김에 이 두 줄도 함께 본다 | **해결 (r4)** — 전수는 **3건**이었다(`runtime.test.ts:268` 추가). 셋 다 숫자 사본을 지우고 정본을 가리키게 했다. `rg "1 \+ K" app/src/ docs/arch/ docs/guides/ docs/decisions/ docs/*.md` → **0건** |
+| D12 | **AC18 의 정정된 문면이 코드와 어긋난다.** "부팅 방송은 `1 + K + 1` 이다" 인데 batch push 는 `probeTargets.length > 0` 일 때만 나간다(`auth-resume.ts:201-210`) | verify r3 §5·§7 — `auth-resume.test.ts:750` 이 후보 0·K=0 에서 `toHaveBeenCalledTimes(1)` 을 단언한다. `1+K+1 = 2` 가 아니다 | 문면을 **`(probe 후보 있으면 1, 없으면 0) + K + 1`** 로 고친다. 검증수단 칸의 "시도 0건 케이스도 **같은 값**" 도 함께 고친다(1 ≠ 2). `auth.md §5.2:365` 의 "probe 단계는 `1 + K` 다" 도 같은 축이니 함께 정확히 한다 | **해결 (r4)** — AC18·§16·§7 주의사항을 `P + K + 1` 로 정정(설계 커밋 `23ac69f`)하고 정본 `auth.md:365-368`·흐름 블록 `:356`·형제 절 `:306`·테스트 describe 를 함께 고쳤다. **상한 describe 안에 P=0 케이스를 신설**해 정본이 `P` 항을 스스로 증명한다 — MV-J(batch push 무조건화)가 그것을 실패시킨다 |
+| D13 | **전수 강제가 grant 조립 3지점 중 1곳에만 닫혔다.** `GrantBase` 는 세 갈래가 공유하는데 눈은 token 에만 있다 | verify r3 §6 `VF3` — `GrantBase` 에 `zzTenant?` 를 더하니 깨진 좌표가 **`login.ts(839,39)` 하나**다. `:605` secret · `:783` session 은 통과한다 | 두 지점도 같은 방식으로 닫거나, 닫지 않는 이유를 §10 에 적는다. r3 가 올린 불변식("조립은 필드를 빠뜨릴 수 없다")의 나머지 지점이다 | **해결 (r4)** — `compact<SecretGrant>`(`login.ts:608`)·`compact<SessionGrant>`(`:788`)로 닫았다. MV-A(`GrantBase` 에 필드 추가)가 깨는 좌표가 **1개 → 3개**다. §10 행도 `1→3` 으로 정정했다 |
+| D14 | **`compact()` 가 필수 필드도 드롭한다 — 타입이 막지 못한다.** `Partial<T>` 가 필수 키에도 `undefined` 를 허용한다(`exactOptionalPropertyTypes` 미설정) | verify r3 §6 `VF1`·`VF2` — `vaultKey: undefined` 가 `typecheck:node` **error 0** 으로 통과하고, 런타임에서만 7건이 실패한다 | r3 의 주장은 "전수 강제를 **타입**에 뒀다" 인데 지금은 키 존재만 타입이 보고 값 건전성은 테스트가 본다. 필수/선택을 가르는 시그니처로 좁히거나, 주장을 실제 범위로 낮춘다 | **해결 (r4)** — `CompactSource<T>` 로 좁혔다. VF1 재현(`vaultKey: undefined`)이 이제 `TS2322` 이고 세 갈래 전부에서 그렇다(MV-B·C·D). `@ts-expect-error` 음성 케이스가 회귀를 상주 감시한다 — MV-K(r3 시그니처 복원)가 `TS2578` 로 깨진다 |
+| D15 | **`compact` 자기 테스트가 없다 — "0·'' 는 유지한다" 계약에 눈이 없다** | verify r3 §1~3 — `src/shared/` 에 `obj.test.ts` 부재 | 케이스 1건이면 닫힌다. 기존 `ifPresent`·`isRecord` 도 같은 상태라 신규 회귀는 아니다 | **해결 (r4)** — `src/shared/obj.test.ts` 신설(런타임 6 + 음성 타입 3 = 9케이스, 세 함수 전부). MV-F~MV-I 가 판정 지점 4개에서 각각 1건씩 실패한다 |
+| D16 | **보드 커밋에 `Criteria-Met` 이 붙었다.** root `AGENTS.md` 표는 `Criteria-*` 를 구현 커밋만으로 정한다 | verify r3 §9 — `193b5eb` trailer 7줄에 `Criteria-Met: 23/23`. r2 의 같은 성격 커밋 `b9b05c4` 는 4줄이었다 | 다음 보드 커밋부터 `Criteria-*` 를 빼거나, 규칙을 바꾸려면 root `AGENTS.md` 에서 바꾼다 | **해결 (r4)** — r4 보드 커밋의 trailer 에서 `Criteria-*` 를 뺐다. 규칙(root `AGENTS.md`)은 바꾸지 않았다 |
+| D17 | **verify r3 §4 의 `resuming` 재측정이 재현되지 않는다.** "`rg "\.resuming" src/renderer/src` → `RootGate.tsx:35` 1건" 이라 적혔는데 같은 커밋에서 **5줄 / 4파일**이다 | r4 구현 §S8 — `git grep -n "\.resuming" 3371df2 -- app/src/renderer/src` 가 `3371df2` 시점에도 5줄을 낸다 | 그 관측이 뒷받침한 §10 행(`resuming` 3지점)은 **여전히 옳다** — 5줄 중 3줄은 `BootScreen.tsx:19`·`:20` 지역 변수와 `GateLogin.tsx:96` i18n 키다. 실제 wire 필드 독자는 `RootGate.tsx:35`(transport)·`useProviderGate.ts:75`(기본값) 2곳이다. 관측 자체의 오류라 다음 verify 가 같은 명령을 그대로 쓰지 않게 적는다 | 보고만 |
+| D18 | **`useProviderGate.ts:75` 의 `state?.resuming ?? false` 는 §10 어느 행에도 없는 기본값 판정이다** — `useProviderGate` 테스트 파일이 없어 그 줄 자체에는 눈이 없다 | r4 구현 §Product/UX 파생 검토 | **결과는 잠겨 있다**: `state === null` 이면 `gate` 도 null 이고 `rootFrame` 이 `gate === null` 을 `resuming` 보다 먼저 본다(`rootFrame.ts:35`). `rootFrame.test.ts:47`(`게이트 미판정이면 resuming 이어도 그냥 대기다`)이 그 조합을 단언한다 | 보고만 |

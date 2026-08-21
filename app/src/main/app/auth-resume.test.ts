@@ -334,7 +334,11 @@ describe('createAuthResume — 순서', () => {
   })
 })
 
-describe('createAuthResume — 방송 상한 1 + K + 1 (0187 D2 승계 · 0194 종료 push)', () => {
+// 상한은 `P + K + 1` 이다 — `P` = probe 후보가 있으면 1, 없으면 **0**(batch push 는 후보가 있을
+// 때만 나간다) · `K` = 즉시 강등 수 · `+1` = 복원 종료 push. 아래 세 케이스가 `P` 와 `K` 를 각각
+// 독립으로 움직인다. `P` 를 0 으로 내린 케이스가 없으면 batch push 를 무조건으로 만들어도 이
+// describe 가 전건 green 이다(0194 D12 가 그 자리였다).
+describe('createAuthResume — 방송 상한 P + K + 1 (0187 D2 승계 · 0194 종료 push)', () => {
   it('전부 성공하면 마지막 full-state push 한 번이다', async () => {
     const { auth, broadcast } = fakeRuntime({
       a: restored(true),
@@ -348,12 +352,12 @@ describe('createAuthResume — 방송 상한 1 + K + 1 (0187 D2 승계 · 0194 �
       pushConnectionState: broadcast
     }).run()
 
-    // 성공 3건은 `emitVerifiedChange:false` 로 억제되고 batch push 하나로 합쳐진다(`1 + K`,
-    // K=0). 여기에 복원 종료 push 1회가 더해진다(0194) — probe 단계의 상한은 그대로다.
+    // 성공 3건은 `emitVerifiedChange:false` 로 억제되고 batch push 하나로 합쳐진다(P=1·K=0).
+    // 여기에 복원 종료 push 1회가 더해진다(0194) — probe 단계의 상한은 그대로다.
     expect(broadcast).toHaveBeenCalledTimes(2)
   })
 
-  it('실패 K 건은 즉시 방송된다 — 총 1 + K', async () => {
+  it('실패 K 건은 즉시 방송된다 — P=1·K=2', async () => {
     const { auth, broadcast } = fakeRuntime({
       a: restored(true),
       b: restored(false),
@@ -367,8 +371,23 @@ describe('createAuthResume — 방송 상한 1 + K + 1 (0187 D2 승계 · 0194 �
     }).run()
 
     // K=2 — 죽은 연결의 도구가 남은 probe 타임아웃만큼 화면에 남지 않도록 즉시 낸다.
-    // probe 단계는 `1 + K` = 3 으로 불변이고, 복원 종료 push 1회가 더해진다(0194).
+    // probe 단계는 `P + K` = 3 으로 불변이고, 복원 종료 push 1회가 더해진다(0194).
     expect(broadcast).toHaveBeenCalledTimes(4)
+  })
+
+  it('probe 후보가 0건이면 batch push 자체가 없다 — P=0·K=0', async () => {
+    // 선언에 `probe` 가 없으면 후보 필터가 걸러낸다. `valid` 라 회복 대상도 아니므로 K=0 이다.
+    const { auth, broadcast } = fakeRuntime({ noprobe: restored(true) })
+    await createAuthResume({
+      auth,
+      gateDefinitions: [],
+      remainingDefinitions: [definition('noprobe', false)],
+      pushConnectionState: broadcast
+    }).run()
+
+    // 복원 종료 push 1회가 전부다. 이 케이스가 `P` 항을 잠근다 — batch push 를 무조건으로
+    // 만들면 여기만 2가 된다.
+    expect(broadcast).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -746,7 +765,7 @@ describe('createAuthResume — 부팅 시점에 이미 만료된 grant (0194)', 
     }).run()
 
     expect(loginsOf(log, 'wiki')).toEqual([])
-    // probe 대상 0 · 강등 0 → probe 단계 방송 0. 복원 종료 push 1회가 전부다.
+    // probe 대상 0 · 강등 0 → P=0·K=0. 복원 종료 push 1회가 전부다.
     expect(broadcast).toHaveBeenCalledTimes(1)
   })
 })
