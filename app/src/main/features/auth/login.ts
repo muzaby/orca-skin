@@ -37,9 +37,14 @@ import type { AuthRegistry } from './registry'
 import { vaultKeysOf, type AuthStore } from './store'
 import { compact, ifPresent } from '../../../shared/obj'
 
-// `Grant` 의 token 갈래. `tokenCandidate` 의 필드 규칙이 **전 필드를 요구**하는 대상이다 —
-// `Grant` 에 필드가 늘면 그 리터럴에서 컴파일이 깨진다(0194 r3).
+// `Grant` 의 세 갈래. **셋 다** `compact<T>` 로 조립해 필드 규칙이 전 필드를 요구하게 한다 —
+// `GrantBase` 에 필드가 늘면 세 리터럴 모두에서 컴파일이 깨진다(0194 r3 신설 · r4 전수).
+//
+// r3 은 token 갈래만 닫았고, 그래서 `GrantBase` 에 필드를 더해도 깨지는 자리가 하나였다
+// (r3 D13). 불변식은 갈래마다가 아니라 **조립마다** 성립해야 한다.
+type SecretGrant = Extract<Grant, { kind: 'secret' }>
 type TokenGrant = Extract<Grant, { kind: 'token' }>
+type SessionGrant = Extract<Grant, { kind: 'session' }>
 
 // 방식 실행기가 돌려주는 원자재. grant 로 접는 것은 이 파일의 몫이다 — 실행기는 vault 를 모른다.
 export type AuthResult =
@@ -294,7 +299,7 @@ export class LoginService {
   // `emitVerifiedChange` — 성공(`verified` 전이)했을 때 즉시 통지할지. batch 는 false 로 두고
   //                        호출자가 마지막에 한 번 push 한다. **실패 강등은 이 값과 무관하게
   //                        즉시 통지한다** — 죽은 연결의 도구가 남은 probe 의 타임아웃만큼
-  //                        화면에 남으면 안 된다(0187 D2 의 `1 + K` 상한).
+  //                        화면에 남으면 안 된다(0187 D2 의 방송 상한 — 정본 `auth.md §5.2`).
   async resume(
     authId: AuthId,
     options?: { exposeStep?: boolean; emitVerifiedChange?: boolean }
@@ -327,7 +332,7 @@ export class LoginService {
     // **전이를 만든 호출만 통지한다** (r4). probe 가 401/403 을 받은 경우 요청 경로가 이미
     // 강등하고 `onUnauthorized` 로 통지했다 — 여기서 다시 내면 같은 사실이 두 번 나가고,
     // 두 번째는 revision 이 그대로라 `credentialChanged:true` 와 어긋난다. 그 유령 이벤트가
-    // 부팅 방송 상한을 `1 + K`(0187 D2)에서 `1 + 2K` 로 늘리고 Harness cache 를 한 번 더 비웠다.
+    // 부팅 방송 상한(0187 D2)의 강등 항 K 를 2K 로 늘리고 Harness cache 를 한 번 더 비웠다.
     //
     // 401 이 아닌 실패(비-2xx·origin 미복귀·전송 오류)에서는 요청 경로가 강등하지 않으므로
     // 여기가 유일한 전이 지점이고, `markExpired` 가 전이를 보고한다.
@@ -599,17 +604,19 @@ export class LoginService {
   ): { candidate: CandidateCredential; writeVault: () => void } {
     const vaultKey = this.newVaultKey(authId, authKind)
     const createdAt = this.clock()
+    // 필드 규칙 — 필드마다 한 줄, 빠짐없이 (0194 r4 · `tokenCandidate` 와 같은 형식).
+    const grant = compact<SecretGrant>({
+      kind: 'secret',
+      vaultKey,
+      authKind,
+      createdAt,
+      // 값형 자격증명은 만료를 **선언하지 않는다**. 이 필드는 401 관측이 `markExpired` 로
+      // 채우는 자리이지 발급 시점에 아는 값이 아니다.
+      expiresAt: undefined,
+      principalId
+    })
     return {
-      candidate: {
-        grant: {
-          kind: 'secret',
-          vaultKey,
-          authKind,
-          createdAt,
-          ...ifPresent('principalId', principalId)
-        },
-        secret: value
-      },
+      candidate: { grant, secret: value },
       writeVault: () => this.deps.vault.set(vaultKey, value, { kind: authKind, createdAt })
     }
   }
@@ -776,18 +783,19 @@ export class LoginService {
       case 'session': {
         // 세션 grant 는 vault 에 값을 쓰지 않는다 — cookie jar 가 값을 나른다. 확인이 끝나기
         // 전에는 store 에도 넣지 않으므로 이전 세션 grant 는 그대로 살아 있다.
-        return this.settled(
-          definition,
-          await this.settleGrant(definition, attempt, {
-            grant: {
-              kind: 'session',
-              sessionGroup: result.sessionGroup,
-              authKind,
-              createdAt: this.clock(),
-              ...ifPresent('principalId', result.principalId)
-            }
-          })
-        )
+        //
+        // 필드 규칙 — 필드마다 한 줄, 빠짐없이 (0194 r4 · `tokenCandidate` 와 같은 형식).
+        const grant = compact<SessionGrant>({
+          kind: 'session',
+          sessionGroup: result.sessionGroup,
+          authKind,
+          createdAt: this.clock(),
+          // 세션의 만료는 서버의 cookie 가 갖고 앱은 그것을 읽지 못한다 — probe 실패가
+          // `markExpired` 로 채우는 자리다.
+          expiresAt: undefined,
+          principalId: result.principalId
+        })
+        return this.settled(definition, await this.settleGrant(definition, attempt, { grant }))
       }
     }
   }

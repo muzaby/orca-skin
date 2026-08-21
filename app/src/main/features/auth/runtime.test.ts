@@ -265,7 +265,7 @@ describe('재인증 롤백 (AC7)', () => {
 // 무관하게 항상 `onSnapshot('expired')` 를 냈다. probe 가 401 이면 요청 경로가 이미 강등하고
 // 통지했으므로 같은 사실이 두 번 나갔고, 두 번째는 `markExpired` 가 조기 반환해 revision 이
 // 그대로였다 — `credentialChanged:true` 인데 세대는 안 오르는 유령 이벤트다. 그것이 Harness
-// cache 를 한 번 더 비우고 부팅 방송 상한을 `1 + K`(0187 D2) 에서 `1 + 2K` 로 늘렸다.
+// cache 를 한 번 더 비우고 부팅 방송 상한(0187 D2)의 강등 항 K 를 2K 로 늘렸다.
 describe('강등 통지는 실제 전이를 따른다 (r4)', () => {
   // 복원된 미확인 grant — `restorable()` 을 만족해 resume 이 실제로 probe 를 낸다.
   function buildRestorable(probeStatus: number): {
