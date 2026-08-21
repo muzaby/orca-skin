@@ -348,7 +348,7 @@ const EXCHANGED: AuthDefinition = {
         exchange: {
           path: '/api/token',
           valuePath: 'access_token',
-          code: { in: 'query' },
+          code: {},
           present: { location: 'header', name: 'Authorization', scheme: 'bearer' }
         }
       }

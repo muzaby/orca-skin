@@ -138,26 +138,33 @@ export interface SessionLookup {
   valuePath: string
 }
 
-// 로그인 final URL 이 돌려준 **인가 코드**를 어디서 꺼내 어디에 실을지 (0195).
+// 로그인 final URL 이 돌려준 **인가 코드**를 어디서 꺼내 어떤 이름으로 실을지 (0195 → 0196).
 //
 // 이름을 코어가 고정하지 않는 이유는 요구 ② 다 — "sp가 final url에서 code 쿼리 반환 (code 이름이
-// 아닐 수 있음)". 이름이 다르다는 것은 곧 표준 AS 가 아니라는 뜻이고, 그러면 교환 **요청**의
-// 형상도 표준이라는 보장이 없다. 그래서 형상을 전부 선언이 정한다.
+// 아닐 수 있음)". 그 문장은 **코드를 final URL 의 쿼리에서 추출한다**는 뜻이지(0196 D-008) 교환
+// 요청의 형상을 지시한 것이 아니다. 요청은 `POST` + `application/json` 하나로 고정이라(D-009)
+// 이 선언이 정하는 것은 이름 셋뿐이다 — 어디서 꺼내(`param`) 무슨 이름으로(`name`) 무엇과
+// 함께(`params`).
 export interface SessionCodeExchange {
   // final URL 에서 코드를 꺼낼 파라미터 이름. **미지정이면 `'code'`** 다. 쿼리와 프래그먼트를
   // 모두 본다(`response_mode=fragment` 로 돌려주는 배포가 있다).
   param?: string
-  // 교환 요청에서 코드를 싣는 자리. `'form'` 이면 `application/x-www-form-urlencoded` 본문,
-  // `'query'` 면 URL 쿼리다.
-  in: 'query' | 'form'
-  // 교환 요청에서 코드를 부를 이름. 미지정이면 **유효 `param`**(= `param ?? 'code'`)을 쓴다 —
-  // 받은 이름과 보내는 이름이 다른 SP 만 여기를 적는다.
+  // 교환 요청 **본문**에서 코드를 부를 이름. 미지정이면 **유효 `param`**(= `param ?? 'code'`)을
+  // 쓴다 — 받은 이름과 보내는 이름이 다른 SP 만 여기를 적는다.
   name?: string
-  // 코드와 **함께** 실어 보낼 고정 파라미터(`grant_type`·`client_id`·`redirect_uri` 등).
-  // 비밀은 여기 적지 않는다 — 이 파일은 배포 소스이지 vault 가 아니다.
+  // 코드와 **함께** 본문에 실어 보낼 고정 파라미터(`grant_type`·`client_id`·`redirect_uri` 등).
+  // 같은 이름이 겹치면 **실제 인가 코드가 이긴다**. 비밀은 여기 적지 않는다 — 이 파일은 배포
+  // 소스이지 vault 가 아니다.
   params?: Readonly<Record<string, string>>
 }
 
+// 인가 코드를 토큰으로 바꾸는 요청 선언.
+//
+// **요청은 `POST` + `application/json` 본문 하나로 고정이다** (0196 D-009) — 근거는 "post로 밖에
+// 교환이 안됨" 이다. 그래서 이 선언에 전송 형상을 고르는 자리가 없다: 배포가 결정할 것이 없는
+// 선택지는 두지 않고, 갈래가 하나면 인가 코드가 URL 에 실릴 경로도 없다. form 본문이 필요한 SP
+// 가 나오면 `SessionCodeExchange` 에 `in?: 'json'|'form'` 을 **선택** 필드로 넓힌다 — 그러면
+// 기존 선언은 한 글자도 고치지 않아도 유효하다(D-010).
 export interface SessionTokenExchange {
   // origin 기준 상대 경로. 절대 URL 을 쓰지 않는 이유는 `Provider.origin` 밖으로 나가지
   // 못하게 하기 위함이다(정책 판정과 같은 규칙).
@@ -170,8 +177,6 @@ export interface SessionTokenExchange {
   // 파일의 규칙(위 `Presentation` 주석)을 browser-session 도 따른다. 빠지면 교환이 만든 token
   // grant 를 아무 데도 실을 수 없어 모든 API 가 `grant_not_valid` 로 죽는다.
   present: Presentation
-  // 교환 요청의 메서드. 미지정이면 `code.in==='form'` 일 때 `POST`, 아니면 `GET`.
-  method?: string
   // 응답 JSON 에서 토큰을 꺼낼 점 경로. 예: `access_token` · `data.token`.
   valuePath: string
   // 응답 JSON 에서 refresh token 을 꺼낼 점 경로. **미지정이면 저장하지 않는다.** 값을 저장해도

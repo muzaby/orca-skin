@@ -112,23 +112,20 @@ export class SessionRunner implements SessionAuthenticator {
   // (`netFetch` 는 세션 인자 없이 나가고 `createSender` 는 `credentials:'omit'` 을 박는다),
   // 교환이 다른 전송을 타면 SSO 쿠키를 요구하는 SP 에서 곧바로 미인증이 된다.
   //
-  // 메서드·본문·쿼리는 **선언이 정한다**(D-002) — 표준 AS 가 아닌 SP 를 상대하므로 한 형상으로
-  // 고정할 수 없다. `getJson` 은 그 형상을 그대로 실어 보내고 응답 해석만 자기가 한다.
+  // **쿼리 인자를 받지 않는다**(0196 D-009). 교환이 `POST` + JSON 본문으로 고정되면서 URL 에
+  // 값을 얹을 호출부가 사라졌고, 남겨 두면 인가 코드를 URL 로 되돌릴 자리가 남는다 — whoami 는
+  // 처음부터 `{path}` 만 넘긴다. 형상은 호출부가 정하고 `getJson` 은 응답 해석만 자기가 한다.
   private async getJson(
     provider: AuthDefinition,
     handleId: string,
     req: {
       path: string
       method?: string
-      query?: Readonly<Record<string, string>>
       body?: string
       contentType?: string
     }
   ): Promise<{ ok: true; payload: unknown } | { ok: false; failure: JsonReadFailure }> {
     const url = new URL(req.path, `${provider.origin}/`)
-    for (const [name, value] of Object.entries(req.query ?? {})) {
-      url.searchParams.set(name, value)
-    }
     let result: SendResult
     try {
       result = await this.deps.sessions.send(handleId, {
@@ -228,8 +225,11 @@ function codeParam(code: SessionCodeExchange): string {
   return code.param ?? 'code'
 }
 
-// 교환 요청의 **형상은 선언이 정한다** (D-002). 코어가 정하는 것은 "코드를 반드시 싣는다" 하나뿐
-// 이고, 어디에·어떤 이름으로·무엇과 함께 싣는지는 전부 `code` 가 말한다.
+// 교환 요청의 **형상은 코어가 고정한다** (0196 D-009): `POST` + `application/json` 하나다.
+// 선언이 정하는 것은 이름뿐이다 — 코드를 어떤 이름으로(`name`) 무엇과 함께(`params`) 싣는가.
+//
+// 갈래가 하나인 것이 보안이기도 하다: 코드가 **본문에만** 실리므로 프록시·서버 액세스 로그에
+// 인가 코드가 남을 자리가 없다. 되돌리려면 `SessionCodeExchange.in` 을 선택 필드로 되살린다.
 //
 // `params` 를 먼저 펼치고 코드를 나중에 넣는다 — 같은 이름이 겹치면 코드가 이긴다. 반대로 두면
 // 배포가 `params` 에 남긴 자리표시자가 실제 코드를 덮는다.
@@ -239,24 +239,16 @@ function exchangeRequest(
 ): {
   path: string
   method: string
-  query?: Record<string, string>
-  body?: string
-  contentType?: string
+  body: string
+  contentType: string
 } {
   const name = exchange.code.name ?? codeParam(exchange.code)
   const fields: Record<string, string> = { ...exchange.code.params, [name]: code }
-  if (exchange.code.in === 'form') {
-    return {
-      path: exchange.path,
-      method: exchange.method ?? 'POST',
-      body: new URLSearchParams(fields).toString(),
-      contentType: 'application/x-www-form-urlencoded'
-    }
-  }
   return {
     path: exchange.path,
-    method: exchange.method ?? 'GET',
-    query: fields
+    method: 'POST',
+    body: JSON.stringify(fields),
+    contentType: 'application/json'
   }
 }
 

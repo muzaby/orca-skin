@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-21 |
 | 매핑 | 0195 요구사항 정정 (`docs/handoff/0195-browser-session-token-exchange/`) |
-| 상태 | plan/READY |
+| 상태 | impl/IMPL_DONE (r1) |
 
 > **0195 의 후속 정정이다.** 0195 는 `verify/PASS (r1)` 로 끝나 archive 로 갔고 그 판정은 그대로
 > 유효하다 — 정정되는 것은 *통과 여부* 가 아니라 그때의 **요구 해석**이다. Decision Ledger 는
@@ -399,6 +399,142 @@ SP final URL → pickUrlParam → JSON POST 교환 → 응답 JSON → TokenValu
 
 ## [구현자 기입] 설계 리뷰
 
+**판정: 설계대로 구현 가능했다.** Decision·AC·§10 을 재해석 없이 수행했고 규범 행을 고치지 않았다.
+plan §8 의 전수 수치는 구현 전에 직접 재측정해 전건 일치했다 — 예외 1건은 아래 ②.
+
+| # | 발견 | 성격(§6) | 처리 |
+|---|---|---|---|
+| ① | AC7 이 "교환 실패 **4종**(코드 없음·전송 실패·비-2xx·비-JSON)" 을 "기존 케이스 무변경 통과" 로 닫는데, 교환 describe 에 **전송 실패(send throw) 케이스가 없었다**. 그 갈래(`exchangeReason` `case 'send'`)는 whoami describe 에만 케이스가 있다(`runner.test.ts:454` '전송 예외') | 명백한 누락 | **선조치** — 교환 실패 케이스 배열에 `'전송 실패'` 1건을 더하고 사유 문장(`네트워크 끊김`)까지 단언했다. 변이 M7(`getJson` 의 `catch` 제거)이 이 케이스를 검출한다 |
+| ② | plan §8 전수표의 `SessionCodeExchange` 참조 행이 **N=2**(계약 1·import 1)인데 실측은 **4**다 — 계약 선언(`:146`)·필드 타입(`:168`)·import(`runner.ts:13`)·파라미터 타입(`runner.ts:227`) | 수치 오차(작업에 무영향) | **보고만** — 이 행은 어느 AC·강제 지점도 참조하지 않아 구현 판단을 바꾸지 않았다. 나머지 6행은 전건 일치 |
+| ③ | 계약 주석에 "0196 에서 `code.in`·`method` 를 삭제했다" 를 남기면 **AC10 의 술어가 자기 문장에 걸린다**(술어 범위가 `app/src` 를 포함) | 구현 세부 | **선조치** — 주석을 삭제 이력이 아니라 **현재 규칙 + 되돌리는 법**으로 썼다. root `AGENTS.md` 원칙 5(델타 이력은 changelog 지 정본이 아니다)와 같은 방향이다 |
+
+**AC10 술어의 한계 — 토큰 축만으로는 부족하다.** `code.in`·`exchange.method` 라는 *해법의 이름*
+으로 세면 그 토큰을 쓰지 않는 stale 문장은 잡히지 않는다. 그래서 **불변식의 주어**(교환 요청 형상을
+서술하는 문장)로 한 번 더 훑었다 — `rg "urlencoded|형상은 선언|선언이 정한다|교환 요청" app/src
+docs/guides docs/arch` → 9히트 전건 확인, stale 0. 토큰 축이 놓쳤을 문장이 실제로는 없었다.
+
 ## [구현자 기입] 구현 보고
+
+**판정: AC 10/10 · 강제 지점 17/17 을 닫았다.** 남긴 곳 없음. 대상 커밋 `__COMMIT__`.
+
+### 변경 파일 (8)
+
+| 파일 | 변경 |
+|---|---|
+| `app/src/main/contracts/auth.ts` | `SessionCodeExchange.in` 삭제 · `SessionTokenExchange.method` 삭제 · `code` 주석을 D-008 의 정정된 뜻으로 재작성 · `SessionTokenExchange` 에 POST+JSON 고정과 되돌리는 법(D-010) 주석 신설 |
+| `.../browser-session/runner.ts` | `exchangeRequest` 분기 제거 → POST+JSON 단일 형상(`:236-253`) · `getJson` 에서 `query` 인자와 `searchParams` 루프 제거 · `URLSearchParams` 사용 0 |
+| `.../browser-session/runner.test.ts` | `exchangeSpec` 기본값 `code:{}` · `sentBody` 헬퍼 신설 · AC2·AC3·AC6 신설, AC4·AC5 재작성 · AC7 전송 실패 케이스 추가 (총 25케이스) |
+| `.../auth/login.test.ts` · `.../auth/authenticated-request.test.ts` | `code:{in:'query'}` → `code:{}` |
+| `docs/guides/closed-network-extensions.md` | §2-b 예제에서 `in`·`method` 삭제 + 실제 요청 형상 문단 신설 · 필드표 `code.in` 행 삭제, `code.name`·`code.params` 를 "본문" 으로 · §9 에 415/405 행 1개 |
+| `docs/arch/backend/auth.md` | §4.6 형상 문단을 POST+JSON 고정으로 재작성 · `---` 중복 1건 제거(0195 D5) |
+| `docs/handoff/0195-.../plan.md` | 메타 아래 전방 포인터 — D-002 SUPERSEDED, r1 PASS 판정 자체는 유효 |
+
+### 게이트 — 관측한 산출
+
+| 명령 | 관측값 |
+|---|---|
+| `npm run typecheck` | **3/3 통과** (node·web·test), `error TS` **0건** |
+| `npm run lint` | **0 error · 1 warning**. 그 warning 은 `useTranscriptVirtualizer.ts:22`(react-hooks/incompatible-library)로 **이번 변경과 무관한 기존 것** — 실행 전후 `git diff --name-only` 가 동일해 `--fix` 가 쓴 파일 0 |
+| `vitest run src/main/features/auth` | **12파일 237케이스 전건 green** |
+| `vitest run` (전체) | **207파일 중 202 green · 5 red / 2058케이스 중 2016 green · 42 red** |
+| `node scripts/check-doc-inventory.mjs --check` | generated ok(9 items·76 channels) · prose ok · **links ok** |
+
+**red 42건은 환경 기인이다 — 변경과 무관.** 실패 파일은 `app/AGENTS.md` 가 적은 알려진 베이스라인
+**5파일과 정확히 같다**(`infra/db/{queries,migrate}` · `features/extensions/builder` ·
+`features/orchestration/fork` · `app/chat-turn.continuity`), 서명은 전건
+`Module did not self-register: …/better_sqlite3.node`(egress 차단 → Electron ABI 재빌드 403).
+**추정이 아니라 실측이다**: `git stash` 로 변경을 뺀 트리에서 같은 5파일을 돌려 **42 failed 동일**
+을 관측했다. 인증 스위트는 이 5파일과 겹치지 않는다.
+
+### 강제 지점 전수 (§10 8행 → 17지점)
+
+| §10 행 | 지점 수 | 결과 | 이번 턴 재현한 관측값 |
+|---|---:|---|---|
+| `code.in` 부재 | 4 (배포1+테스트3) | **4/4** | 배포: `TS2353 … 'in' does not exist in type 'SessionCodeExchange'` · 테스트 3파일: `rg "\bin: '(query\|form)'" app/src` → **0건** |
+| `exchange.method` 부재 | 4 (같은 지점) | **4/4** | 배포: `TS2353 … 'method' does not exist in type 'SessionTokenExchange'` · `rg "exchange\.method" app/src` → **0건** |
+| `code`·`present` 필수 | 2 | **2/2** | `TS2741 Property 'code' is missing` · `TS2741 Property 'present' is missing` |
+| 교환 요청 = POST + `application/json` | 1 | **1/1** | `runner.ts:247-252`. 지점 수는 **주어 축**으로 셌다 — `rg "sessions\.send" features/auth --glob '!*.test.ts'` 중 browser-session 로그인 경로는 `runner.ts:131` 하나(나머지는 로그인 후 API 전송). 변이 M1·M2 검출 |
+| 코드가 `params` 를 이긴다 | 1 | **1/1** | 신설 케이스 `code.params 에 같은 이름이 있어도…` · 변이 M3(전개 순서 반전) 검출 |
+| 코드가 URL 에 실리지 않는다 | 1 | **1/1** | 신설 케이스 `교환 요청 URL 에 쿼리가 붙지 않고…` · 변이 M6(0196 이전 query 갈래 복원) 검출 |
+| 토큰 출처 = 응답 JSON | 1 | **1/1** | `no-cookie-token.test.ts` 1파일 4케이스 green. **이번 턴 무변경 장치**라 변이를 심지 않았다 |
+| 문서가 구 형상을 서술하지 않는다 | 3 | **3/3** | 토큰 축 `rg "code\.in\b\|exchange\.method\b\|in: '(query\|form\|json)'" app/src docs/guides docs/arch` → **0건** + 주어 축 sweep(설계 리뷰 참조) stale **0** |
+
+`✅ 8행 · ⚠️ 0 · ❌ 0 = 총 8행` / 지점 합 `4+4+2+1+1+1+1+3 = 17`.
+(1·2행은 같은 4파일에 걸리는 **서로 다른 두 불변식**이라 따로 센다.)
+
+### 검사 장치의 적대 검사 — 이번 턴에 만든 장치에 결함을 심었다
+
+**AC1(typecheck 거부)은 control 을 함께 돌렸다.** 유효 선언 1회 + 변형 4회 = 5회. control 이
+PASS 해야 4건의 FAIL 이 "무엇을 넣어도 빨간 것" 이 아님을 말한다 — control **PASS**, 변형 **4/4
+FAIL** 이고 각 오류가 지목한 필드가 서로 달랐다(위 표의 TS 코드).
+
+**신설 테스트에는 판정 지점마다 변이를 하나씩 심었다** (7건 전건 검출, 전부 되돌림):
+
+| 변이 | 심은 결함 | 검출한 케이스 |
+|---|---|---|
+| M1 | `method: 'POST'` → `'GET'` | AC2 |
+| M2 | `contentType` → `x-www-form-urlencoded` | AC2 |
+| M3 | 전개 순서 반전 — 자리표시자가 이긴다 | AC6 |
+| M4 | `code.name` 무시 (항상 유효 param) | AC5 · AC2 |
+| M5 | `param` 기본값 `'code'` → `'ticket'` | AC4 외 11건 |
+| M6 | 코드를 본문에서 빼 URL 쿼리로 (**0196 이전 갈래 복원**) | AC3 외 5건 |
+| M7 | `getJson` 의 `catch` 제거 — 전송 예외를 흘려보낸다 | AC7 신설 케이스 |
+
+**AC9 는 문서를 다시 타이핑하지 않았다** — 가이드 §2-b 의 ```ts 펜스를 정규식으로 **파일에서 추출**해
+그대로 `auth-definitions.ts` 에 대입했다. 내 기억이 아니라 문서가 검증 대상이다.
+
+### AC 자기보고 (검증자는 증거로 받지 않는다)
+
+| AC | 판정 | 이번 턴 재현한 관측값 |
+|---|---|---|
+| AC1 | ✅ | control PASS + 4변형 FAIL, TS2353×2·TS2741×2. 대입 후 `git diff` 빈 출력으로 원복 확인 |
+| AC2 | ✅ | `method='POST'` · `content-type='application/json'` · 본문 `{authorization_code, grant_type, client_id}` `toEqual` |
+| AC3 | ✅ | `new URL(req.url).search === ''` **그리고** `req.url` 에 `secret-code` 부재 **그리고** 본문에 존재 |
+| AC4 | ✅ | ⓐ `code:{}`+`?code=xyz` → 본문 `{code:'xyz'}` ⓑ `{param:'ticket'}`+`?ticket=abc` → `{ticket:'abc'}` |
+| AC5 | ✅ | ⓐ `{param:'ticket'}` → 본문 키 `ticket` ⓑ `+name` → `{authorization_code:'abc'}` (`toEqual` 이 `ticket` 키 부재까지 센다) |
+| AC6 | ✅ | `params:{code:'PLACEHOLDER'}` → 본문 `{code:'auth-code-1', grant_type:'x'}` |
+| AC7 | ✅ | 실패 4종 전건(코드 없음·**전송 실패**·비-2xx·비-JSON) → `exchange_failed`. 로그 케이스의 `JSON.stringify(events)` 에 `secret-code` 부재. 4번째 갈래는 이번 턴에 신설(설계 리뷰 ①) |
+| AC8 | ✅ | `runner.test.ts` 세션 케이스 + `authenticated-request.test.ts` 무변경 통과 — auth 12파일 237케이스 green 에 포함 |
+| AC9 | ✅ | 가이드 예제 추출 → 대입 → `typecheck` **3/3, error 0** → 원복(`git diff` 빈 출력) |
+| AC10 | ✅ | 토큰 축 **0건** + 주어 축 stale **0**. 부수로 `---` 중복은 `docs/**`(handoff·archive 제외) 전수 **0** — 지적받은 auth.md 1곳만이 아니라 전 축을 확인했다 |
+
+`✅ 10 · ⚠️ 0 · ❌ 0 = 총 10` — plan §7 의 현재 AC 총수도 **10** 이라 분모 변경 없음.
+
+### 구현 중에만 보인 것 (§3)
+
+- **다중 저장소 쓰기 — 코드에는 없다.** vault·grant 쓰기 순서를 건드리지 않았다. **문서에는 있다**:
+  이 handoff 의 상태가 `plan.md` 메타와 `INDEX.md` 보드 **2곳**에 산다. 같은 커밋에서 둘 다 갱신했다.
+- **제거한 분기가 건너뛰던 것은 없다.** `getJson` 의 `query` 루프는 소비자가 `exchangeRequest`
+  하나뿐이었고(whoami 는 처음부터 `{path}` 만 넘긴다) 삭제 후 재검증을 잃는 경로가 없다.
+- **`getJson` 의 `method ?? 'GET'` 기본값은 살려 뒀다** — whoami 가 여전히 그 갈래의 유일한
+  소비자다. 교환이 POST 를 명시하므로 두 소비자가 갈리지 않는다.
+- **false success 가능성 0** — `exchangeRequest` 는 순수 함수라 삼킬 오류가 없고, 전송 예외는
+  `getJson` 의 `catch` 가 사유로 접는다(M7 이 그 catch 의 실재를 센다).
+- **동시 호출·늦은 응답·종료 중**: 이번 변경이 만드는 새 상태가 없다 — 본문 조립만 바뀌었다.
+
+### Product/UX 파생 검토 (§4)
+
+- **새 사용자 대면 문자열 0.** `ProviderFailureReason` 도 문장 4종도 그대로라 renderer·i18n 변경이
+  0이다 — `rg "exchange" src/renderer src/shared` 의 히트는 전부 chat turn 의 동음이의어이고
+  `shared/ipc.ts:1301` 의 `'exchange_failed'` 는 무변경이다.
+- **이번에 만든 실패 경로는 Part I 상태 전이표의 기존 행이다.** "SP 가 form 만 받는다" → 비-2xx →
+  `토큰 교환이 415 로 실패했습니다`(`exchangeReason` `case 'status'`). **표에 빠진 행이 없다.**
+  그 문장을 사용자가 어디서 보는지까지 확인해 가이드 §9 에 진단 행 1개로 남겼다.
+- **"아무 일도 안 일어남" 없음** — 모든 실패가 `exchange_failed` 로 화면에 뜬다.
+- **보안은 좋아졌다**: 인가 코드가 URL 에 실릴 갈래가 사라져 프록시·서버 액세스 로그 노출 경로가
+  **0**이 됐다. AC3 이 그 상태를 잠근다.
+
+### Review Signals (사실만 — 분류는 `handoff-review` 몫)
+
+- **현재 라운드: 1.** 재구현이 아니라 신규 구현 턴이다.
+- **같은 축의 재발**: 0195 파생 D2(`params` 우선순위 무테스트)와 이번 설계 리뷰 ①(AC7 의 4갈래 중
+  1갈래 무케이스)은 **같은 축**이다 — *주석·문장이 선언한 불변식에 케이스가 없다*. 0195 verify 가
+  D1~D4 로 같은 축 4건을 이미 적었고, 이번 턴에 그중 D2 를 닫으면서 같은 형태를 하나 더 만났다.
+- **그것을 막았어야 할 지침**: plan §7 "AC 검증 주의사항" 이 "기존 테스트 재사용 — 실재 확인" 을
+  요구하고 그 확인을 **케이스 파일·줄 단위로** 했으나, AC7 처럼 "N종" 을 세는 AC 는 *케이스가
+  실재하는가* 가 아니라 *N갈래가 각각 덮이는가* 를 물어야 걸린다. 실재 확인은 통과했고 갈래
+  누락은 통과하지 못했다.
+- **환경 한계(반복)**: egress 차단으로 Electron ABI 재빌드가 403 — DB 로드 5파일 red 가 이번에도
+  베이스라인이다. 실 SP 왕복은 이 환경에서 관측 불가(§17 이 인수 조건에서 제외).
 
 ## [검증자 기입] 파생 이슈
