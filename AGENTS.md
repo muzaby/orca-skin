@@ -71,12 +71,13 @@
 |---|---|---|
 | `Agent` | `codex` \| `claude` | 둘 다 |
 | `Handoff` | `docs/handoff/<NNNN-slug>/` \| `none` | 둘 다 |
-| `Status` | `implemented` \| `partial` \| `blocked` \| `verified` | 둘 다 |
+| `Status` | `designed` \| `implemented` \| `partial` \| `blocked` \| `verified` | 둘 다 |
 | `Criteria-Met` / `Criteria-Pending` | `3/5` / 미충족 목록 | **구현 커밋(Codex)만** |
 | `Verified-By` | `pending` \| `claude:pass` \| `claude:fail` | 구현=`pending`, 검증=결과 |
 | `Next-Action` | `codex` \| `claude` \| `none` | **검증 커밋(Claude)만** |
 | `Refs` | `#<이슈번호>` | 둘 다(선택) |
 
+- **설계 커밋(Claude)**: `Agent: claude` + `Status: designed`. `Criteria-*`·`Next-Action` 은 넣지 않는다 — `plan/DRAFT`·`plan/READY` 와 verify/FAIL 후 **규범 행 정정**(Decision·AC·§10)이 여기다. **구현 산출과 같은 커밋에 담지 않는다** (정본 `.agents/skills/handoff-plan/SKILL.md` 마무리).
 - **구현 커밋(Codex)**: `Agent: codex` + `Status: implemented|partial|blocked` + `Criteria-*` + `Verified-By: pending`.
 - **검증 커밋(Claude)**: `Agent: claude` + `Status: verified` + `Verified-By: claude:pass|claude:fail` + `Next-Action`.
 - 필드 의미·예시·파싱 명령 상세는 [`docs/git-template.md`](docs/git-template.md).
