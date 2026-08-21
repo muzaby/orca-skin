@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-20 |
 | 매핑 | 0193 후속 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) |
 
 # Part I — Product & UX Contract
 
@@ -874,3 +874,10 @@ self-register` ×6 · `Electron failed to install` ×1.
 | D7 | **갱신 커밋이 옛 grant 의 `principalId` 를 잃는다.** 응답이 그 필드를 다시 말하지 않으면 새 grant 에서 사라진다 — D1 과 **같은 문장의 다른 필드**다 | verify r2 §1~3 — 스크래치 실측(`'kim@corp'` → `AFTER REFRESH principalId = undefined`) | 소비자는 `runtime.ts:141` → `connection-views.ts:74` `principal` → `ProviderDetail.tsx:93` (표시 전용, 게이트는 D-001 로 대상 밖). **승계 범위를 `Grant` 필드 전수로 올릴지**가 결정 지점이다 | **해결 (r3)** — 전수 승계가 아니라 **필드별 규칙**으로 닫았다(`expiresAt` 승계는 해롭다). 조립을 delta 로 바꿔 `Grant` 에 필드가 늘면 컴파일이 깨진다(MV5) · MV1 이 2케이스를 실패시킨다 |
 | D8 | **배포가 읽는 유일한 oauth 예제가 `refresh` 포트를 모른다.** `docs/guides/closed-network-extensions.md` §3-b 는 "`authorize(ctx)` **하나만** 채운다" 이고 예제 `exchange` 도 `{token, expiresAt}` 만 돌려준다 | verify r2 §11 — plan §15 가 지시한 문서인데 r1·r2 모두 갱신 0(`git log -- <file>` 최근 커밋 3건이 전부 0194 이전) | 그 절에 `refresh?`·`refreshToken`·`refreshExpiresAt` 을 더한다. 갱신 없이는 실제 배포에서 0194 의 창 없는 회복이 켜지지 않는다 | **해결 (r3)** — §3-b 에 `refresh` 갈래 · `exchange` 의 `refreshToken` · `refreshExpiresAt` 문단을 더했다. **AC20 이 §15 의 문서 목록을 인용**하게 바꿔 두 목록을 하나로 합쳤다(채점 밖으로 새던 뿌리) |
 | D9 | **`refreshKey`↔`refreshExpiresAt` 짝 불변식에 눈이 없다.** `tokenCandidate` 주석은 "짝으로만 싣는다" 인데 조건을 지워도 `vitest run src/main/features/auth src/main/app` 이 **338/338 통과** | verify r2 §6 `MV3` | 동작 결과는 안 바뀐다(`refreshSecret` 이 `refreshKey === undefined` 를 먼저 접는다) — 케이스 1건을 더하거나 주석의 계약 표현을 낮춘다 | **해결 (r3)** — 최초 로그인 응답이 `refreshExpiresAt` 만 주는 케이스를 더했다(`login.test.ts:883`). MV3(짝 조건 제거)이 **1건 실패** — r2 에서는 338/338 통과였다 |
+| D10 | **`tokenCandidate(previous)` 를 넘기는 호출부가 늘면 승계가 갱신 밖으로 샌다.** 인자가 optional 이라 "갱신 경로에만" 이 타입이 아니라 호출부 관례로 지켜진다 | r3 구현 §놓친 잠재 문제 → verify r3 확인 | 현재 호출부 2곳(`login.ts:407` refresh · `:806` absorbToken)이고 후자는 넘기지 않는다. `최초 로그인은 옛 grant 에서 아무것도 승계하지 않는다` 케이스가 결과는 잠근다 | 보고만 |
+| D11 | **`login.ts:297`·`:330` 이 `1 + K` 를 인용한다.** 지금은 참이다(probe 단계 상한) — D3 와 같은 축의 사본이다 | r3 구현 §S3 → verify r3 확인 | D12 가 상한 문면을 고치는 김에 이 두 줄도 함께 본다 | 보고만 |
+| D12 | **AC18 의 정정된 문면이 코드와 어긋난다.** "부팅 방송은 `1 + K + 1` 이다" 인데 batch push 는 `probeTargets.length > 0` 일 때만 나간다(`auth-resume.ts:201-210`) | verify r3 §5·§7 — `auth-resume.test.ts:750` 이 후보 0·K=0 에서 `toHaveBeenCalledTimes(1)` 을 단언한다. `1+K+1 = 2` 가 아니다 | 문면을 **`(probe 후보 있으면 1, 없으면 0) + K + 1`** 로 고친다. 검증수단 칸의 "시도 0건 케이스도 **같은 값**" 도 함께 고친다(1 ≠ 2). `auth.md §5.2:365` 의 "probe 단계는 `1 + K` 다" 도 같은 축이니 함께 정확히 한다 | 미해결 |
+| D13 | **전수 강제가 grant 조립 3지점 중 1곳에만 닫혔다.** `GrantBase` 는 세 갈래가 공유하는데 눈은 token 에만 있다 | verify r3 §6 `VF3` — `GrantBase` 에 `zzTenant?` 를 더하니 깨진 좌표가 **`login.ts(839,39)` 하나**다. `:605` secret · `:783` session 은 통과한다 | 두 지점도 같은 방식으로 닫거나, 닫지 않는 이유를 §10 에 적는다. r3 가 올린 불변식("조립은 필드를 빠뜨릴 수 없다")의 나머지 지점이다 | 미해결 |
+| D14 | **`compact()` 가 필수 필드도 드롭한다 — 타입이 막지 못한다.** `Partial<T>` 가 필수 키에도 `undefined` 를 허용한다(`exactOptionalPropertyTypes` 미설정) | verify r3 §6 `VF1`·`VF2` — `vaultKey: undefined` 가 `typecheck:node` **error 0** 으로 통과하고, 런타임에서만 7건이 실패한다 | r3 의 주장은 "전수 강제를 **타입**에 뒀다" 인데 지금은 키 존재만 타입이 보고 값 건전성은 테스트가 본다. 필수/선택을 가르는 시그니처로 좁히거나, 주장을 실제 범위로 낮춘다 | 미해결 |
+| D15 | **`compact` 자기 테스트가 없다 — "0·'' 는 유지한다" 계약에 눈이 없다** | verify r3 §1~3 — `src/shared/` 에 `obj.test.ts` 부재 | 케이스 1건이면 닫힌다. 기존 `ifPresent`·`isRecord` 도 같은 상태라 신규 회귀는 아니다 | 보고만 |
+| D16 | **보드 커밋에 `Criteria-Met` 이 붙었다.** root `AGENTS.md` 표는 `Criteria-*` 를 구현 커밋만으로 정한다 | verify r3 §9 — `193b5eb` trailer 7줄에 `Criteria-Met: 23/23`. r2 의 같은 성격 커밋 `b9b05c4` 는 4줄이었다 | 다음 보드 커밋부터 `Criteria-*` 를 빼거나, 규칙을 바꾸려면 root `AGENTS.md` 에서 바꾼다 | 보고만 |
