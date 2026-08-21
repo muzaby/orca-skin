@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-21 |
 | 매핑 | — |
-| 상태 | READY |
+| 상태 | IMPL_DONE (r1) |
 
 # Part I — Product & UX Contract
 
@@ -404,19 +404,168 @@ SP final URL → pickUrlParam → 교환 요청 → 응답 JSON → TokenValue
 
 ## [구현자 기입] 설계 리뷰
 
+설계는 계약으로 수행 가능했다. Decision·AC·§10 을 재해석 없이 그대로 옮겼고, ACTIVE Decision 을
+바꾼 곳은 없다. 세 가지만 어긋났고 전부 아래 §되먹임에 있다 — **AC13 의 검증 수단**(fake 가
+관측 대상을 통째로 빼는 자리) · **§7 주의사항의 기존 테스트 수**(2건이 아니라 3 선언 사이트) ·
+`getJson` 시그니처의 파급(whoami 호출부도 함께 바뀐다, §11 이 적지 않음).
+
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+**전수 13/13.** 지점 수는 §10 의 `언제 강제` 칸을 세어 잡았고, 각 행의 관측값은 이번 턴에 다시
+재현한 것이다.
 
 | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|
-| | | | | |
+| `exchange.present` 필수 | 컴파일 — 배포 선언·테스트 선언 **전부** | **3/3** | `rg -n 'valuePath' src/main --glob '!*.md'` → 교환 리터럴 3 (`authenticated-request.test.ts:350`·`login.test.ts:1264`·`runner.test.ts:32`) + 프로덕션 0. 한 곳에서 `present` 를 지우고 `tsc -p tsconfig.test.json` → `TS2322 … missing … present` | 없음 |
+| `exchange.code` 필수 | 〃 | **3/3** | 같은 3 리터럴. 한 곳에서 `code` 를 지우면 `TS2322 … missing … code` | 없음 |
+| token grant 의 presentation 해석 | 요청 1회 (`presentationFor` 호출부) | **1/1** | `rg -n 'presentationFor\(' src/main -g '!*.test.ts'` → 호출 1(`:301`)·정의 1(`:341`). 심은 변이 M1(`null` 복귀) → `login.test.ts` 3케이스 실패 | 없음 |
+| 세션 만료 판정(D-004) | ① 요청 응답 시 ② 부팅 복원 probe 실패 시 — **2곳** | **2/2** | `rg -n 'store\.markExpired\(' src/main -g '!*.test.ts'` → `authenticated-request.ts:167`·`login.ts:342`. ①=M2·M3 변이가 `authenticated-request.test.ts`·`login.test.ts` 양쪽을 깨뜨림. ②=이미 존재하던 지점이라 **이중 방송이 없음**을 단언(`snapshots` 가 `unauthorized` 1건) | 없음 |
+| 토큰 출처 = 응답 JSON | CI 위생 테스트 | **1/1** | `no-cookie-token.test.ts` — `features/auth/**` 훑어 위반 **0건(차집합)**. 가드에 결함 3건(중첩 디렉토리·추출·주석) 을 심어 전부 잡히는 것을 같은 파일이 단언 | 없음 |
+| code 값 비로깅 | 실패 로그 작성 시 | **3/3** | runner 의 `logger?.(` 호출부 3곳의 payload 키 = `{authId,valuePath,reason}`·`{authId,param}`·`{authId,valuePath}` — **값을 나르는 키 0건(차집합)**. 변이 M12(`finalUrl` 추가) → "실패 로그에 코드 값이 실리지 않는다" 실패 | 없음 |
+
+### 표 밖에서 닫은 축 — D-004 조건 문장의 전수
+
+§10 은 코드 지점만 세지만, "요청 경로가 언제 강등하는가" 는 **문장으로도 여러 곳에 산다**. 술어는
+해법 이름(`authenticationReturned`)이 아니라 불변식의 주어(`401` 을 강등 조건으로 말하는 서술)로
+잡았다.
+
+- 후보 **36** = 두 조건을 함께 말하는 서술 **14** + 조건 열거가 아닌 서술 **22** + **잔여 0**.
+- 면제 7종은 각각 다른 축이다 — 후보 자격증명(4) · 세대/동시성(5) · SDK 에러 문자열(3) · 과거
+  결함 서술(3) · 값형 grant(2) · 변화 원인 분류표(2, **3사본 일괄 유지**) · Plugin lifecycle(2).
+- 이 스윕 자신에게도 결함을 심었다 — `runtime.ts` 의 조건절을 지우자 잔여가 `0 → 2` 로 올라온다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
+- **새 문장의 소비자를 확인했다.** `'인가 코드를 찾지 못했습니다'` 는 `AuthResult{kind:'failed',
+  reason:'exchange_failed'}` 로 접히고, `login.ts` 의 `fail()` 이 `ProviderStepInfo.message` 에
+  실어 화면에 올린다 — `ProviderFailureReason` 을 늘리지 않았으므로 renderer·i18n 변경 0.
+- **새 실패 경로가 Part I 상태 전이표의 어느 행인가**: "final URL 에 code 파라미터 없음" 행이다.
+  표에 빠진 행은 없다.
+- **"아무 일도 안 일어남" 이 되지 않는다.** 교환 실패는 grant 를 커밋하지 않고 실패 step 을 내므로
+  화면이 사유와 함께 이전 연결을 유지한다(`login.test.ts` "교환 실패는 grant 를 커밋하지 않는다").
+- **파생 이슈 ①(범위 밖 — 적어만 둔다)**: D-004 의 강등은 `AUTO_RELOGIN_KINDS` 를 통해 부팅에서
+  **로그인 창을 띄운다**. `allowedOrigins` 를 잘못 적은 배포는 "요청 → 강등 → 부팅마다 창" 이
+  되고, 창은 최대 3회까지 뜬다(`auth.md §5.2`). 가이드 §2-c·배포 헤더에 경고를 넣었지만
+  **런타임 방어는 없다** — 등록 검사에 "allowedOrigins 에 origin 이 포함되는가" 를 더하는 것이
+  후속 후보다.
+- **파생 이슈 ②(범위 밖)**: `code.params` 는 배포 소스에 평문으로 앉는다. `client_secret` 을
+  요구하는 SP 가 있으면 배포가 그 자리에 적을 유혹이 생긴다 — 계약 주석과 가이드 표에 "비밀을
+  적지 않는다" 를 넣었으나 타입으로 막지는 못한다.
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응
+
+- **fake 가 관측 대상을 빼는 자리** (AC13). `auth-resume.test.ts` 의 `fakeRuntime.resume` 은 요청
+  경로를 갖지 않는다 — 거기서 세는 방송 수는 **fake 자신의 산수**이지 "요청 경로와 resume 이 같은
+  강등을 두 번 내는가" 의 관측이 아니다. **대응**: 같은 행동 단언을 진짜 `AuthenticatedRequester`
+  를 물린 `login.test.ts` 로 옮겼다(§설계 대비 차이).
+- **`getJson` 파급.** 요청 형상을 선언이 정하게 하려면 `getJson` 이 `{path,method,query,body,
+  contentType}` 를 받아야 하고, 그러면 **whoami 호출부도 함께 바뀐다**(§11 은 exchange 만 적었다).
+  **대응**: 선조치 — 두 호출부를 같은 객체 형태로 통일하고 whoami 의 기존 단언(`method:'GET'` ·
+  `accept` 헤더)이 그대로 통과하는 것을 확인했다.
+- **`vitest` 초록이 `typecheck` 초록을 뜻하지 않는다.** 새 fake 응답의 삼항이 `SendResult` 로 좁혀
+  지지 않아 `typecheck:test` 만 2건 실패했는데 테스트는 전부 통과했다. **대응**: 반환 타입을
+  명시했고, 게이트 판정을 exit code 가 아니라 세 명령의 산출로 각각 적는다.
+- **`store.put()` 은 `verified` 를 세운다.** 복원 grant 를 `put` 으로 심으면 `restorable()` 이
+  false 가 되어 `resume()` 이 probe 를 아예 내지 않는다 — 처음 쓴 AC13 하네스가 이 함정에 빠져
+  "아무 일도 안 일어나는" 초록을 낼 뻔했다. **대응**: 부팅과 같은 경로(`createMemoryGrantPersistence`
+  + `store.restore`)로 심고, 그 이유를 하네스 주석에 남겼다.
+- **`refreshTokenPath` 를 무조건 흡수하면 죽은 비밀이 남는다.** D-003 으로 소비자가 0이므로
+  fail-closed 로 뒀다 — 선언한 배포만 저장한다(`runner.test.ts` 2케이스).
 
 ## [구현자 기입] 구현 보고
 
+### 설계 대비 차이 — AC13 의 검증 수단 위치
+
+plan §7 은 AC13 을 `auth-resume.test.ts` 방송 상한 describe 에 두라고 적었다. **행동 단언은 그대로
+두고 파일만 옮겼다** — `login.test.ts` 의 `LoginService — 세션 grant 의 origin 미복귀 강등` 이다.
+이유는 위 §놓친 잠재 문제 첫 항이다. `auth-resume.test.ts` 는 무변경이고 `P + 1` 상한 describe 는
+그대로 통과한다(3케이스). 이것은 §6 가운데 갈래의 **plan 수정 제안**이기도 하다 — §7 AC13 행의
+`검증 수단` 칸을 이 위치로 정정하는 것이 맞다.
+
+### 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `contracts/auth.ts` | `SessionCodeExchange` 신설 · `SessionTokenExchange` 에 `code`(필수)·`present`(필수)·`method`·`refreshTokenPath` |
+| `features/auth/specs/browser-session.ts` | `pickUrlParam` 신설(쿼리+프래그먼트) · 헤더 ② 를 코드 교환으로 정정 |
+| `features/auth/browser-session/runner.ts` | finalUrl 보존 · 코드 추출 · `getJson` 형상 확장 · `exchangeRequest`/`codeParam`/`pickSecretPath` · `no-code` 로그 |
+| `features/auth/authenticated-request.ts` | `presentationOf` 가 `exchange.present` 를 돌려준다 · `authenticationReturned` 로 D-004 강등 |
+| `features/auth/login.ts` | `resume()` 주석 정정(요청 경로의 강등 조건 2가지) |
+| `features/auth/runtime.ts` · `store.ts` | 같은 축의 조건 문장 정정(위 전수 스윕) |
+| `app/deployment/auth-definitions.ts` | 헤더 ⚠️ — `exchange` 는 `code`+`present` 필수 · `allowedOrigins` 에 API 종점 금지 |
+| `features/auth/no-cookie-token.test.ts` | **신규** — 토큰 출처 위생 가드 + 자기 결함 심기 3건 |
+| `runner.test.ts` · `authenticated-request.test.ts` · `login.test.ts` | AC1~AC13 |
+| `docs/arch/backend/auth.md` | §4.5 관측 지점 표 · **§4.6 신설**(browser-session 의 두 grant) · §5.2 refresh 제외 행 · 모듈 지도 |
+| `docs/guides/closed-network-extensions.md` | §2-b 재작성 · **§2-c 신설**(세션이 끊기면) · §1.7·§3-b·§4·§9 |
+
+### 게이트 — 관측한 산출
+
+| 명령 | 산출 |
+|---|---|
+| `npm run lint` | **0 error · 1 warning** — warning 은 `useTranscriptVirtualizer.ts` 의 react-compiler 기존 경고(변경 무관). `--fix` 가 만든 트리 변화 없음 |
+| `npm run typecheck` | **3/3 통과** (`node`·`web`·`test`) — `error TS` 0줄 |
+| `vitest run src/main/features/auth src/main/app/auth-resume.test.ts src/main/features/gate src/main/infra/net` | **16파일 / 321케이스 전부 통과** |
+| `vitest run` (전체) | **202파일 통과 · 5파일 실패 / 2014 통과 · 42 실패** — 실패 5는 전부 `Module did not self-register: better_sqlite3.node` 로 **알려진 ABI 베이스라인**(`app/AGENTS.md` 실측 5파일과 동일: `infra/db/{queries,migrate}` · `features/extensions/builder` · `features/orchestration/fork` · `app/chat-turn.continuity`). 변경 무관 |
+| `node --test scripts/*.test.mjs` | **49 pass · 0 fail** |
+| `node scripts/check-doc-inventory.mjs --check` | generated ok · prose ok · **links ok** |
+
+### AC 자기보고 — 재현 명령 동반
+
+| # | 판정 | 재현 명령 / 관측 |
+|---|---|---|
+| AC1 | ✅ | `authenticated-request.test.ts` "선언한 present 대로 Authorization: Bearer 가 실린다" — 주입 fetch 가 받은 헤더 `Bearer tok-abc` |
+| AC2 | ✅ | `login.test.ts` "로그인 probe 가 후보 토큰을 bearer 로 싣고 나가 done 으로 끝난다" — 나간 요청 1건, URL `/api/me`, 헤더 `Bearer tok-1` |
+| AC3 | ✅ | `runner.test.ts` "선언한 이름으로 final URL 에서 코드를 꺼내 그 이름으로 실어 보낸다" — 교환 URL 의 `ticket=abc` |
+| AC4 | ✅ | `runner.test.ts` "code.in:'form' 이면 POST 폼 본문에 코드와 code.params 가 함께 실린다" — `POST` · `x-www-form-urlencoded` · 본문 3키 · 쿼리 빈 문자열 |
+| AC5 | ✅ | `runner.test.ts` "code.param 미지정이면 code 라는 이름으로 찾는다" — 교환 URL 의 `code=xyz` |
+| AC6 | ✅ | `runner.test.ts` "final URL 에 그 이름이 없으면…" — `exchange_failed` + `sessions.send` **미호출** + 로그 `{authId,param}`. `login.test.ts` "교환 실패는 grant 를 커밋하지 않는다" — `store.get()` 이 이전 grant 그대로 |
+| AC7 | ✅ | `runner.test.ts` "교환은 sessions.send 로 나간다" — handle `handle-1`·`acquire('corp')`. 같은 파일 `@ts-expect-error` 케이스가 `fetchImpl` 자리 부재를 컴파일로 고정 |
+| AC8 | ✅ | ⓐ `runner.test.ts` "같은 세션·다른 응답 본문이면 토큰이 응답을 따라간다" — `A`/`B`. ⓑ `no-cookie-token.test.ts` — 위반 0건 차집합 |
+| AC9 | ✅ | `login.test.ts` "refreshToken 이 오면 refreshKey 가 생기고…" — `vault.names()` **2** (서로 다른 키). 미선언 케이스는 **1** · `refreshKey` 부재 |
+| AC10 | ✅ | `login.test.ts` "refreshKey 가 있는 browser-session token grant 도 refresh 는 unsupported 다" — 먼저 `refreshKey` 존재를 단언한 뒤 `'unsupported'` |
+| AC11 | ✅ | `authenticated-request.test.ts` "401 이면 expired 로 강등된다" — `status()==='expired'` · 통지 1건 |
+| AC12 | ✅ | `authenticated-request.test.ts` "200 이어도 체인이 origin 밖에서 끝나면 expired 이고 통지는 1회다" — `finalUrl` = IdP · 통지 배열 길이 **1** |
+| AC13 | ✅ | **위치 이동**(§설계 대비 차이). `login.test.ts` "부팅 복원 probe 가 IdP 폼(200)에서 끝나면 expired 이고 통지는 1회다" — `snapshots` 가 `[{unauthorized}]` 하나. `auth-resume.test.ts` 의 `P + 1` describe 3케이스는 무변경 통과 |
+| AC14 | ✅ | 가이드 §2-b 예제를 `auth-definitions.ts` 에 대입 → `npm run typecheck` **3/3 통과** → `git diff --stat` 으로 되돌림 확인(남은 변경 = 헤더 주석 4줄) |
+
+**검산 — ✅ 14 · ⚠️ 0 · ❌ 0 = 총 14.** 현재 AC 총수를 §7 표에서 다시 셌다(AC1~AC14, 분할·추가
+없음). 이전 라운드가 없으므로 분모 비교 대상 없음.
+
+### 심은 결함 (§3 적대 검사)
+
+이번 턴에 만들거나 고친 검사 장치가 **결함을 실제로 보는지** 확인했다 — 프로덕션 변이 **13건**과
+타입 변이 **2건**, 전부 검출(13/13 · 2/2). 스윕 가드는 판정 지점 3곳(대상 집합·추출·실재 판정)에
+각각 심어 자기 파일이 단언하고, D-004 문장 스윕에도 조건절 제거를 심어 잔여 `0 → 2` 를 확인했다.
+
+| 변이 | 잡은 케이스 |
+|---|---|
+| M1 `presentationOf` 가 다시 `null` | AC2·AC9 등 3케이스 |
+| M2 강등 조건에서 origin 항 제거 · M3 origin 판정 무조건 참 | AC12·AC13 |
+| M4 선언한 `param` 무시 | AC3·AC6 |
+| M5 form 이 쿼리로 · M6 form 기본 GET · M10 `getJson` GET 고정 · M11 본문 폐기 | AC4 |
+| M7 `refreshToken` 미흡수 | AC9 |
+| M8 프래그먼트 미조회 · M9 빈 문자열을 값으로 | `pickUrlParam` 단위 |
+| M12 `no-code` 로그에 finalUrl 추가 | AC6 · "코드 값이 실리지 않는다" |
+| M13 코드 없이도 교환 요청(쿠키 교환 복귀) | AC6 |
+| T1 `present` 제거 · T2 `code` 제거 | `tsc -p tsconfig.test.json` |
+
+### 대상 커밋
+
+`<이 문단은 커밋 후 해시로 채운다>`
+
 ## [구현자 기입] Review Signals — 사실만
+
+- **현재 라운드**: 1 (신규 handoff, 재구현 아님).
+- **이전 라운드와 같은 축인가**: 해당 없음. 다만 이번에 닫은 D-004 는 0194 r4 가 401 경로에서
+  닫은 **"같은 강등을 두 지점이 보면 방송이 두 배가 된다"** 와 같은 불변식의 새 조건절이다 —
+  그 축이 조건을 하나 늘릴 때마다 다시 열린다는 사실이 남는다.
+- **plan 지침이 막았어야 했는데 못 막은 것**: AC13 의 `검증 수단` 칸이 **관측 대상을 갖지 않는
+  fake 를 지목**했다. plan 의 "프로덕션 도달 경로" 열은 채워져 있었지만(`auth-resume.resumeRemainingOnce`),
+  그 경로가 *테스트에서* 진입되는지는 열이 묻지 않는다.
+- **반복해서 부딪히는 환경 한계**: electron ABI(egress) — DB 로드 5스위트가 계속 red 다. 이번에도
+  `npm test` 를 쓰지 않고 `./node_modules/.bin/vitest run` 으로 우회했다.
+- **게이트 산출의 함정**: `vitest` 초록과 `typecheck:test` 초록이 갈렸다(2건). 두 명령을 모두 돌려야
+  한다는 것이 `app/AGENTS.md` 의 기본 게이트(lint+typecheck)와 일치한다.
 
 ---
 

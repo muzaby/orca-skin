@@ -112,8 +112,8 @@ export interface BrowserSessionConfig {
   doneUrlPrefix: string
   // 로그인 창이 오갈 수 있는 origin 전수. 서브도메인 자동 허용 없음.
   allowedOrigins: readonly string[]
-  // 선언되면 세션 성립 후 그 쿠키로 사내 API 를 불러 **토큰까지** 받는다(사용자 결정 "둘 다").
-  // 없으면 grant 는 세션에서 끝난다. 실값은 배포가 채운다(0181 OQ2).
+  // 선언되면 로그인 final URL 이 돌려준 **인가 코드**를 그 세션으로 토큰과 교환한다(0195).
+  // 없으면 grant 는 세션에서 끝난다 — 코드를 주지 않는 SP 가 여기다. 실값은 배포가 채운다.
   exchange?: SessionTokenExchange
   // 선언되면 세션 성립 후 **누가 로그인했는지**를 한 번 더 물어 `Grant.principalId` 로 싣는다
   // (0182). 사이드바가 그 값을 표시한다.
@@ -138,12 +138,45 @@ export interface SessionLookup {
   valuePath: string
 }
 
+// 로그인 final URL 이 돌려준 **인가 코드**를 어디서 꺼내 어디에 실을지 (0195).
+//
+// 이름을 코어가 고정하지 않는 이유는 요구 ② 다 — "sp가 final url에서 code 쿼리 반환 (code 이름이
+// 아닐 수 있음)". 이름이 다르다는 것은 곧 표준 AS 가 아니라는 뜻이고, 그러면 교환 **요청**의
+// 형상도 표준이라는 보장이 없다. 그래서 형상을 전부 선언이 정한다.
+export interface SessionCodeExchange {
+  // final URL 에서 코드를 꺼낼 파라미터 이름. **미지정이면 `'code'`** 다. 쿼리와 프래그먼트를
+  // 모두 본다(`response_mode=fragment` 로 돌려주는 배포가 있다).
+  param?: string
+  // 교환 요청에서 코드를 싣는 자리. `'form'` 이면 `application/x-www-form-urlencoded` 본문,
+  // `'query'` 면 URL 쿼리다.
+  in: 'query' | 'form'
+  // 교환 요청에서 코드를 부를 이름. 미지정이면 **유효 `param`**(= `param ?? 'code'`)을 쓴다 —
+  // 받은 이름과 보내는 이름이 다른 SP 만 여기를 적는다.
+  name?: string
+  // 코드와 **함께** 실어 보낼 고정 파라미터(`grant_type`·`client_id`·`redirect_uri` 등).
+  // 비밀은 여기 적지 않는다 — 이 파일은 배포 소스이지 vault 가 아니다.
+  params?: Readonly<Record<string, string>>
+}
+
 export interface SessionTokenExchange {
   // origin 기준 상대 경로. 절대 URL 을 쓰지 않는 이유는 `Provider.origin` 밖으로 나가지
   // 못하게 하기 위함이다(정책 판정과 같은 규칙).
   path: string
+  // **필수** (0195 D-006). 코드를 돌려주지 않는 SP 는 `exchange` 자체를 선언하지 않는다 —
+  // 그러면 grant 가 세션에서 끝난다. 쿠키만으로 토큰을 받던 0181 경로는 제거됐다: 토큰의
+  // 출처는 교환 응답 JSON 하나뿐이다.
+  code: SessionCodeExchange
+  // **필수** (0195 D-001). 받은 토큰을 요청에 싣는 방법 — `kind` 에서 추론하지 않는다는 이
+  // 파일의 규칙(위 `Presentation` 주석)을 browser-session 도 따른다. 빠지면 교환이 만든 token
+  // grant 를 아무 데도 실을 수 없어 모든 API 가 `grant_not_valid` 로 죽는다.
+  present: Presentation
+  // 교환 요청의 메서드. 미지정이면 `code.in==='form'` 일 때 `POST`, 아니면 `GET`.
+  method?: string
   // 응답 JSON 에서 토큰을 꺼낼 점 경로. 예: `access_token` · `data.token`.
   valuePath: string
+  // 응답 JSON 에서 refresh token 을 꺼낼 점 경로. **미지정이면 저장하지 않는다.** 값을 저장해도
+  // 그것으로 갱신하지는 않는다(0195 D-003) — browser-session 의 만료는 재로그인으로 회복한다.
+  refreshTokenPath?: string
   // 만료(epoch ms 또는 초). 없으면 만료를 모른다 — 401 로만 강등된다.
   expiresAtPath?: string
   // 같은 응답에 계정 식별자가 실려 오면 그 점 경로. 있으면 `whoami` 를 **부르지 않는다**
@@ -193,7 +226,8 @@ interface GrantBase {
   authKind: AuthMethodKind
   principalId?: string
   createdAt: number
-  // 만료 시각. 토큰이 실제로 만료를 선언한 경우와, **401 관측으로 강등된 경우**가 같은 필드를
+  // 만료 시각. 토큰이 실제로 만료를 선언한 경우와, **요청 실패 관측으로 강등된 경우**(401/403,
+  // 세션 grant 의 origin 미복귀)가 같은 필드를
   // 쓴다 — UI 와 게이트가 "지금 못 쓴다" 를 한 가지 방식으로 읽게 하기 위함이다.
   expiresAt?: number
 }

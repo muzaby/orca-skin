@@ -121,7 +121,7 @@ interface AuthEntry {
   // 매 change 마다 무효화하거나(불필요한 network·respawn) 아무것도 안 하거나(stale token)
   // 둘 중 하나로 몰린다.
   //
-  // **같은 상태를 다시 관측했다고 올리지 않는다** — commit·revoke·만료 전이·401/403 강등만
+  // **같은 상태를 다시 관측했다고 올리지 않는다** — commit·revoke·만료 전이·요청 실패 강등만
   // 올린다. 그 판정은 각 mutator 안에 있다.
   revision: number
   // 시간 만료를 이미 정착시켰는가. **idempotency 를 여기서 잡는다** (r3) — 구현은
@@ -319,7 +319,7 @@ export class AuthStore {
     }
   }
 
-  // 만료된 토큰을 `expired` 로 강등한다(401 관측 또는 `expiresAt` 경과). grant 자체는 남긴다 —
+  // 만료된 토큰을 `expired` 로 강등한다(요청 실패 관측 또는 `expiresAt` 경과). grant 자체는 남긴다 —
   // 사용자가 어느 provider 를 다시 인증해야 하는지 화면에서 봐야 한다.
   status(authId: AuthId): AuthStatus {
     const grant = this.entries.get(authId)?.grant
@@ -332,7 +332,7 @@ export class AuthStore {
     return expired ? 'expired' : 'valid'
   }
 
-  // 401 관측 시 강등. **grant 를 지우지 않는다** — 사용자가 어느 provider 를 다시 인증해야
+  // 요청 실패 관측 시 강등. **grant 를 지우지 않는다** — 사용자가 어느 provider 를 다시 인증해야
   // 하는지 화면에서 봐야 하고, 재인증이 기존 항목을 교체하는 형태여야 하기 때문이다.
   //
   // 돌려주는 값은 **이번 호출이 무엇을 바꿨는가** 다 (r4 → r5 에서 두 축으로 분리).
@@ -385,7 +385,7 @@ export class AuthStore {
     return { credentialChanged: true, snapshotChanged: true }
   }
 
-  // 만료 정착의 **공통 꼬리** (0190 S5). 같은 전이를 두 입구가 낸다 — `markExpired`(401 관측)와
+  // 만료 정착의 **공통 꼬리** (0190 S5). 같은 전이를 두 입구가 낸다 — `markExpired`(요청 실패 관측)와
   // `settleExpiry`(시계 경과). 꼬리를 두 벌로 적으면 한쪽만 고쳐지고, 그때 무엇이 어긋나는지는
   // 0188 이 두 라운드로 배웠다: r3 은 정착이 revision 증가를 건너뛰어 `credentialChanged:true`
   // 를 받은 소비자가 세대로는 아무 변화도 못 봤고, r6 은 정착 판정 기준 자체가 두 벌이라

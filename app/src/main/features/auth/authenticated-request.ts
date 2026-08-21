@@ -1,5 +1,5 @@
 // 인증된 요청 (0181 `api.ts` → 0188 분리) — 정책 통과 → 자격증명 주입 → 전송 →
-// (redirect 재검사) → 401/403 강등.
+// (redirect 재검사) → 401/403·origin 미복귀 강등.
 //
 // **0188 이 여기서 뺀 두 표면**:
 //   `materialize()` — env/header 물질화. 환경변수 이름·ModelProvider URL·서비스별 header 조립은
@@ -26,7 +26,7 @@ import type {
 import type { PreparedRequest, SendOptions, SendResult } from '../../infra/net/transport'
 import { createSender } from '../../infra/net/transport'
 import { applyPresentation } from './present'
-import { checkOutboundRequest, checkRedirect } from './policy'
+import { checkOutboundRequest, checkRedirect, isAllowedOrigin } from './policy'
 import type { AuthRegistry } from './registry'
 import type { AuthStore } from './store'
 import type { BrowserSessionPort } from './specs/browser-session'
@@ -82,7 +82,8 @@ export interface AuthenticatedRequesterDeps {
   // 세션 grant 의 전송 경로. 미주입이면 세션 Auth 의 요청은 거부된다.
   sessions?: BrowserSessionPort
   logger?: (event: string, data: Record<string, unknown>) => void
-  // 401/403 관측 시의 강등 통지 (0188). 구 `onChange` 는 "무언가 바뀌었다" 였고 소비자가
+  // 요청 실패 관측 시의 강등 통지 (0188) — 401/403, 그리고 세션 grant 의 **origin 미복귀**
+  // (0195 D-004). 구 `onChange` 는 "무언가 바뀌었다" 였고 소비자가
   // 무엇이 바뀌었는지 몰랐다 — 여기서는 **어느 Auth 가** 강등됐는지까지 말한다.
   //
   // `credentialChanged` 는 이 관측이 **실제 만료 전이를 만들었는가** 다 (r4). 동시에 떠 있던 두
@@ -145,7 +146,7 @@ export class AuthenticatedRequester {
     // 강등·만료가 끼어들 수 있다 — 요청은 `await` 를 포함하고 `LoginService.revoke()` 는 IPC 에서
     // 동기로 들어온다. 그 확인은 메모리 판정이라 vault 를 다시 읽지 않는다.
     const carrier = this.resolveCarrier(definition, candidate)
-    // 401 판정이 **어느 세대의 자격증명**에 대한 것인지 적어 둔다 (r8) — 아래 강등이 이 값을
+    // 실패 판정이 **어느 세대의 자격증명**에 대한 것인지 적어 둔다 (r8) — 아래 강등이 이 값을
     // 확인한다.
     const revisionAtSend = this.deps.store.credentialRevision(authId)
     const { result, finalUrl } = await this.send(
@@ -160,13 +161,18 @@ export class AuthenticatedRequester {
     // 401 은 "자격증명이 더 이상 유효하지 않다" 는 **서버의 판정**이다. 여기서 강등해야
     // 사용자가 GUI 에서 재인증 지점을 본다 — 조용히 실패만 반복하지 않는다.
     //
+    // **판정을 두 가지로 본다** (0195 D-004): status 와, 세션 grant 의 **origin 복귀 여부**.
+    // SSO 는 그 판정을 status 로 말하지 않는다(아래 `authenticationReturned`).
+    //
     // **후보는 강등하지 않는다** (r5) — 커밋된 것이 없으므로 내릴 상태가 없다. 후보의 401 은
     // 그냥 "이 값이 거부됐다" 이고, 그 해석은 로그인 흐름이 자기 실패 모양으로 만든다.
-    if (!candidate && (result.status === 401 || result.status === 403)) {
+    const returned = this.authenticationReturned(definition, carrier, finalUrl)
+    if (!candidate && (result.status === 401 || result.status === 403 || !returned)) {
       const changed = this.deps.store.markExpired(authId, revisionAtSend)
       this.deps.logger?.('auth.request.unauthorized', {
         authId,
-        status: result.status
+        status: result.status,
+        returned
       })
       // 아무것도 안 바뀌었으면 방송하지 않는다 — 같은 401 을 두 요청이 각각 봐도 상태는
       // 한 번만 달라진다.
@@ -243,6 +249,24 @@ export class AuthenticatedRequester {
     return spec?.kind === 'browser-session'
       ? [definition.origin, ...spec.config.allowedOrigins]
       : [definition.origin]
+  }
+
+  // 이 응답이 **인증된 것으로 읽히는가** (0195 D-004). SSO 는 세션이 죽으면 401 이 아니라 IdP
+  // 로그인 폼을 **200 으로** 준다(`contracts/auth.ts` `AuthenticatedResponse.finalUrl` 의 0174
+  // 실기 주석) — status 만 보면 그 200 을 성공으로 읽고, 세션 Auth 는 영원히 `valid` 인 채
+  // 모든 요청이 로그인 폼을 받는다. 요구 ⑤ 의 "api 실패시 expired 상태" 가 여기서 성립한다.
+  //
+  // **세션 carrier 에만 적용한다.** 값형의 체인은 `redirectOrigins` 가 `definition.origin` 하나로
+  // 묶어 두므로 밖에서 끝날 수 없고, 그 카운터가 없는 판정을 더하면 없던 정책이 새로 생긴다.
+  //
+  // 판정은 `probeOk`(`login.ts`)와 **같은 구현**을 쓴다 — 두 벌이면 "인증됐는가" 가 갈린다.
+  private authenticationReturned(
+    definition: AuthDefinition,
+    carrier: Carrier,
+    finalUrl: string
+  ): boolean {
+    if (carrier.kind !== 'session') return true
+    return isAllowedOrigin(finalUrl, [definition.origin])
   }
 
   // 홉 사이에 grant 가 바뀌었는가. **carrier 마다 보는 것이 다르다** — 0187 이전의 홉당 동작을
@@ -327,6 +351,14 @@ function presentationFor(
   return spec ? presentationOf(spec) : null
 }
 
+// browser-session 은 **두 가지 grant 를 만든다** — `exchange` 미선언이면 세션(쿠키가 곧 자격증명,
+// 실을 값이 없다), 선언이면 교환이 만든 token grant 다. 세션 grant 는 `resolveCarrier` 가 위에서
+// 이미 갈라 나가므로 여기 도달하는 browser-session 은 **token grant 뿐**이고, 그 값을 싣는 방법은
+// 선언이 말한다(0195 D-001 — `kind` 에서 추론하지 않는다는 이 파일의 규칙 그대로).
+//
+// 0195 이전에는 무조건 `null` 이었다. 그래서 교환이 성공해도 그 token grant 로는 아무 요청도
+// 나가지 못했고(`grant_not_valid`), `probe` 를 선언한 배포는 **로그인 자체가** `probe_failed` 로
+// 끝났다 — 교환 경로가 양방향으로 죽어 있었다.
 function presentationOf(spec: AuthMethod): Presentation | null {
-  return spec.kind === 'browser-session' ? null : spec.present
+  return spec.kind === 'browser-session' ? (spec.config.exchange?.present ?? null) : spec.present
 }

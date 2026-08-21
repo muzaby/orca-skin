@@ -329,13 +329,16 @@ export class LoginService {
       this.deps.logger?.('auth.resume.attempt-superseded', { authId: definition.id })
       return
     }
-    // **전이를 만든 호출만 통지한다** (r4). probe 가 401/403 을 받은 경우 요청 경로가 이미
+    // **전이를 만든 호출만 통지한다** (r4). probe 가 401/403 을 받았거나 세션 체인이 origin 밖에서
+    // 끝난 경우 요청 경로가 이미
     // 강등하고 `onUnauthorized` 로 통지했다 — 여기서 다시 내면 같은 사실이 두 번 나가고,
     // 두 번째는 revision 이 그대로라 `credentialChanged:true` 와 어긋난다. 그 유령 이벤트가
     // 부팅 방송 상한(0187 D2)의 강등 항 K 를 2K 로 늘리고 Harness cache 를 한 번 더 비웠다.
     //
-    // 401 이 아닌 실패(비-2xx·origin 미복귀·전송 오류)에서는 요청 경로가 강등하지 않으므로
-    // 여기가 유일한 전이 지점이고, `markExpired` 가 전이를 보고한다.
+    // 요청 경로가 강등하는 경우는 둘이다 — 401/403, 그리고 **세션 grant 의 origin 미복귀**
+    // (0195 D-004). 그 밖의 실패(비-2xx·전송 오류·정책 위반)에서는 여기가 유일한 전이 지점이고,
+    // 어느 쪽이든 `markExpired` 가 "이번 호출이 전이를 만들었는가" 를 보고하므로 통지는 한 번만
+    // 나간다 — 요청 경로가 이미 정착시켰으면 여기서는 `credentialChanged:false` 다.
     const demoted = ok ? null : this.deps.store.markExpired(definition.id)
     if (ok) this.deps.store.markVerified(definition.id)
 

@@ -36,6 +36,10 @@
 //    composition 이 runtime 에서도 fail-closed 한다. 확인 없이 통과하는 게이트는 우회다.
 //    gate 가 아닌 Auth 도 `probe` 를 선언하라 — 없으면 값 입력만으로 "연결됨" 이 되고 서버가
 //    이미 회수한 자격증명은 실제 도구 호출이 401 을 받을 때에야 드러난다.
+// ⚠️ `config.exchange` 를 선언하면 `code` 와 `present` 가 **둘 다 필수**다(타입 강제). 코드를
+//    돌려주지 않는 SP 는 `exchange` 를 아예 선언하지 않는다 — 쿠키만으로 토큰을 받는 경로는
+//    없다. `allowedOrigins` 에 **API 종점 origin 을 넣지 않는다**: 그 목록은 로그인 창이 오가는
+//    origin 이고, 세션 grant 의 요청이 그 안에서 끝나면 인증이 살아 있는 것으로 읽히지 않는다.
 
 import type { AuthDefinition } from '../../contracts/auth'
 

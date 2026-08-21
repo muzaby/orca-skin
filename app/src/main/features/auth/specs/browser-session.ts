@@ -4,10 +4,15 @@
 // 폐쇄망 사내 앱은 첫 로그인에서 WIA 로 ADFS 세션을 만든 뒤, 후속 서비스 로그인에 **동일한
 // Electron partition** 을 써서 ADFS 쿠키를 재사용한다. 중앙 OAuth OBO 나 KCD 가 아니다.
 //
-// ── "둘 다 필요" 의 구체 형태 (사용자 2차 결정) ──────────────────────────────
+// ── "둘 다 필요" 의 구체 형태 (사용자 2차 결정 · 0195 재정의) ────────────────
 //   ① 게이트 로그인    — 창이 doneUrlPrefix 에 도달 → probe 로 판정 → `session` grant
-//   ② 토큰이 필요한 곳 — `config.exchange` 가 선언돼 있으면 **그 세션의 cookie jar 로** 사내
-//      API 를 불러 토큰을 받아 `token` grant 로 승격한다. 표준 OAuth 왕복이 아니라 세션 교환이다.
+//   ② 토큰이 필요한 곳 — `config.exchange` 가 선언돼 있으면 **final URL 이 돌려준 인가 코드**를
+//      같은 세션으로 토큰과 교환해 `token` grant 로 승격한다. 표준 OAuth 왕복이 아니라 창이
+//      만든 코드의 교환이다.
+//
+//      **쿠키에서 토큰을 만들지 않는다** (0195 D-006). 요청은 파티션을 유지해 쿠키를 싣지만,
+//      토큰의 출처는 교환 응답 JSON 하나다. 코드를 돌려주지 않는 SP 는 `exchange` 를 선언하지
+//      않고 세션 grant 로 끝낸다.
 //
 // **로그인 흐름 자체는 `../browser-session/runner.ts` 가 갖는다** (0188) — 여기에는 포트와
 // 응답 해석 헬퍼만 둔다. Electron partition/cookie jar 구현은 `infra/browser-session.ts` 다.
@@ -50,6 +55,26 @@ export function pickPath(source: unknown, path: string): unknown {
 export function pickPrincipal(source: unknown, path: string): string | undefined {
   const value = pickPath(source, path)
   return typeof value === 'string' && value.trim().length > 0 ? value : undefined
+}
+
+// 로그인 final URL 에서 파라미터 하나를 꺼낸다. **쿼리와 프래그먼트를 모두 본다** —
+// `response_mode=fragment` 로 돌려주는 배포가 있다(`oauth.ts`의 `parseCallbackUrl` 과 같은 규칙).
+//
+// `parseCallbackUrl` 을 재사용하지 **않는** 이유: 그쪽은 `code`/`error`/`state` 라는 OAuth 어휘에
+// 묶여 있는데 이 흐름에는 state 도 error 규약도 없고, 파라미터 이름이 배포마다 다르다(D-005).
+//
+// 빈 문자열은 값이 아니다 — `?code=` 로 끝난 URL 을 "코드를 받았다" 로 읽으면 교환 요청이 빈
+// 코드로 나가고 실패 사유가 SP 응답으로 미뤄진다.
+export function pickUrlParam(rawUrl: string, name: string): string | undefined {
+  let url: URL
+  try {
+    url = new URL(rawUrl)
+  } catch {
+    return undefined
+  }
+  const fragment = new URLSearchParams(url.hash.replace(/^#/, ''))
+  const value = url.searchParams.get(name) ?? fragment.get(name)
+  return value !== null && value.length > 0 ? value : undefined
 }
 
 // 만료 표기는 배포마다 초/밀리초/ISO 로 갈린다. 초로 보이는 값은 밀리초로 올린다 —
