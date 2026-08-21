@@ -1085,3 +1085,94 @@ verify §0 의 기준선 잠금이 이번 라운드에 작동하지 않았다.
   둘 다 "같은 턴 안에서 자기 산출을 자기가 채점" 이 원인이고, 커밋 분리는 그것을 *관측 가능하게*
   만들 뿐 없애지 못한다.
 - electron 바이너리 부재 — 0194 r1~r3 동일 서명. 환경.
+
+---
+
+# Round 14 — 0194 (라운드 4, AC18 4연속 · 지점 과소계수 5연속)
+
+## 발견 — 식을 이미 가진 관측 지점에서 유도하면 그 지점이 못 보는 항은 반증되지 않는다
+
+round 13 의 규칙 셋은 r4 에서 전부 지켜졌다 — 정정이 설계 커밋(`23ac69f`)으로 갈려 verify §0 의
+기준선 잠금이 작동했고, §10 신설 행은 검색 명령을 달았고, 분모 정정(`1→3`)도 실제로 닫혔다
+(강제 지점 **20/20**). 그런데 같은 두 축이 다시 열렸다.
+
+| 자리 | 쓴 것 | 실제 | 왜 정상 수행으로 못 막나 |
+|---|---|---|---|
+| AC18 · `auth.md §5.2` | 부팅 방송 총량 `P + K + 1` | refresh 회복 성공이 같은 `pushConnectionState` 를 2회 더 낸다(`login.ts:586`·`:587`) | 관측 지점(fake)이 프로덕션 두 호출자(`bootstrap.ts:376`·`:404`) 중 하나만 모형한다 — **못 보는 항은 그 지점에서 반증될 수 없다** |
+| §10 8행 전수 강제 | `3/3` · 표 밖 `0건` | `store-parse.ts:37`·`:41`·`:52` 가 같은 `GrantBase` 를 스프레드로 조립 | 두 수의 술어가 **해법의 이름**(`compact<`)이라 고친 지점만 분모에 오른다. MV-A 결함 심기는 집합 *안*의 감도만 증명한다 |
+
+**둘 다 A (coverage gap).** 지침은 있었고 정상 수행했으나 실패를 차단하지 못한다 — plan §5 는
+관측 지점을 *적으라*고만 했고, impl §2 는 전수 검색을 *하라*고만 했다. 산문 정본에서도 같은 축이
+열렸다: r4 는 "횟수를 적는 문장은 조건을 함께 적거나 숫자를 적지 않는다" 를 불변식으로 올려 사본
+10건을 정리했는데, **그 불변식을 낳은 정본 문장**이 조건 빠진 총량을 같은 턴에 새로 단언했다.
+
+*verify r3 §4 의 `.resuming` 재측정 오류(D17)는 **B** — "산출물에서 표식을 다시 찾는다" 는 이미
+충분히 명확하다. 같은 문장을 반복하지 않는다. D6·D10·D18·D20 의 "보고만" 처리는 정상 동작이고,
+Decision Ledger 무변경·SUPERSEDED 0 이라 **D 유형(사용자 변심) 오염 0**.*
+
+## 조치 — 추가 0 · REPLACE 6줄 / 5규칙 사이트 · 신규 P 0
+
+| 사이트 | 판정 | 내용 |
+|---|---|---|
+| `handoff-plan/SKILL.md` §5 | REPLACE | `N회`·총량 식은 **sink 의 프로덕션 호출부를 전수로 세어 항에 매핑한 뒤** 관측 지점을 적는다. 관측 지점이 일부만 모형하면 단언 범위를 그 주체가 스스로 내는 호출로 좁힌다 |
+| `plan.template.md` AC 검증 주의사항 | REPLACE | `N회/순서` 필드를 `N회/총량` 으로 — **검색 명령 + 개수 → 항 매핑 · 모형하지 않는 호출부**를 필수 기입으로. 순서 기준 필드는 그대로 |
+| `handoff-impl/SKILL.md` §2 | REPLACE | 전수 검색의 **술어는 불변식의 주어** — 해법의 이름이 아니다. 결함 심기는 집합 안의 감도만 증명한다 |
+| `handoff-impl/SKILL.md` §5.2 | REPLACE | 전수는 **불변식을 낳은 문장 자신부터** — 사본만 고치면 그 규칙은 태어난 자리에서만 계속 깨진다 |
+| `docs/handoff/AGENTS.md` §2 | 미러 | 위 두 impl 규칙의 최소 계약 1줄씩 (정본은 impl SKILL) |
+| `failure-patterns.corpus.md` | 보강 | **P41 · P42 에 각각 한 블록** — 새 P 신설 0. 같은 causal class 의 재발이라 사례를 새로 쌓지 않는다 |
+| `handoff-verify` | 변경 0 | verify 는 r1~r4 를 **매 라운드 잡았다**(§4 `N회` 실제 관측 주체 · §6 표 밖 지점). 작동하는 규칙을 중복하지 않는다 |
+
+## Tier 판정
+
+**Tier 1** — plan/impl 의 normative behavior(evidence 요구·전수 술어·전수 범위)와 template 필수
+필드가 바뀐다. Tier 2 조건(실행 의미 불변)에 해당하지 않는다.
+
+## 6-A Operational Instruction Delta
+
+- **변경 줄 6개(SKILL 정본 3 — plan §5 1 · impl §2·§5.2 2 · 템플릿 1 · 미러 AGENTS 2) 전부 REPLACE · DELETE 0 · MOVE 0 · regression 0.** 설명 없이 사라진
+  gate·command·reference **0건**. 명령·게이트·CI·`verify.template.md`·`handoff-verify/SKILL.md` **diff 0**.
+- `plan/SKILL.md:147` semantic target **2/2 KEEP** — ① 관측 지점 기재 요구 ② `호출 지점 grep ≠ sink
+  총호출 횟수` 문구(같은 파일 `:217` 0190 사례가 이 문구를 인용한다). 요구를 **넓혔고** 좁히지 않았다.
+- `plan.template.md:111` semantic target **2/2 KEEP** — N회 관측 지점 · **순서 기준 관측 지점**(P25 방어).
+- `handoff-impl/SKILL.md:65` **4/4 KEEP** · `:97` **4/4 KEEP** — 기존 문장 전문 보존 후 절 추가.
+- reference/script **MOVE·REPLACE 0건** — inbound `N`/semantic `M/M` 대상 없음.
+
+## 6-B Historical Failure Regression
+
+- **42 P 전수** · 변경 전 COVERED → 변경 후 **PARTIAL/GAP 0 · OBSOLETE 0**.
+- 변경이 닿은 방어 지점은 6줄뿐이므로 판정을 둘로 나눠 확인했다.
+  - **방어 지점이 바뀐 5건** — P2(측정 가능 AC)·P25(순서 관측 지점)·P37(structural proxy)·P38
+    (전수 지점)·P41/P42(전수 술어·규범 행): 위 6-A 의 semantic target 보존으로 **COVERED 유지**.
+    P25 는 템플릿에서 순서 필드가 살아 있음을 diff 로 확인했다.
+  - **나머지 37건** — 방어 문장이 이번 diff 에 없다(변경 줄 6개 전수 열거로 확인). 규칙 삭제·축소가
+    없으므로 방어 약화 경로가 존재하지 않는다.
+- 새 보강 블록이 이름으로 가리키는 앵커 **12/12 resolve** — plan §5·§마무리·§"verify/FAIL 후 plan
+  갱신" · impl §2·§3·§5.2·§6·§8 · verify §0·§4·§6·§8(엄격화 재측정은 §8 하위 "자기 게이트 실행도
+  §4의 대상이다") · `plan.template.md` AC 검증 주의사항.
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 술어 규칙 사이트 **2**(정본 `handoff-impl §2` + 미러 `docs/handoff/AGENTS.md §2`),
+  원본-우선 규칙 사이트 **2**(정본 `handoff-impl §5.2` + 같은 미러). root `AGENTS.md` 는 두 규칙을
+  재서술하지 않는다(사본 0) — 변경 없음.
+- **owner 충돌 0** — 설계가 식을 유도하고(plan §5 + template), 구현이 지점을 닫고(impl §2·§5),
+  검증이 다시 센다(verify §4·§6·§7). 어느 쪽도 상대를 면제하지 않는다.
+- template 이 명령을 새로 하드코딩하지 않는다 — `app/AGENTS.md` 게이트 정본·`.github/workflows/ci.yml`
+  과 **scope 충돌 0**.
+- `Handoff: none` 카브아웃은 검증 면제가 아니다 — 본 review 는 handoff 인프라 메타 수정이므로
+  `Handoff: none` 직접 커밋이되 Tier 1 전 축을 수행했다.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md`·`CLAUDE.md` stub 없음.
+- INDEX/commit trailer 규칙 **무변경** — 삭제 0.
+
+## review 기록 정책
+
+`round14-review.md` 를 만들지 않았다 — 압축으로 잃는 rationale 이 없고 사용자 보존 요구도 없었다.
+기존 `round2-review.md` 1개 유지(라운드 문서는 동시에 1개).
+
+## 지침으로 해결할 수 없는 한계
+
+- **자기 검증 겹수** — 0194 는 설계·구현·검증·review 가 전부 같은 에이전트다. 이번 두 실패도 저자가
+  자기 관측 지점 안에서 자기 식을 확인한 것이 뿌리이고, 지침은 유도 경로를 바꿀 뿐 저자를 바꾸지 못한다.
+- **산문 정본에는 기계 눈이 없다** — `auth.md §5.2` 같은 문장은 테스트가 직접 잠그지 못한다. 이번
+  규칙은 유도 절차를 요구할 뿐이고, 최종 방어는 verify 의 재측정이다(r1~r4 전 라운드가 그 자리에서 잡혔다).
+- electron 바이너리 부재 + better-sqlite3 ABI — 0194 r1~r4 · 0193 동일 서명, 차집합 양방향 0. 환경.
