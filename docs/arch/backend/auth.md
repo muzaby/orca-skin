@@ -71,10 +71,10 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 | `features/auth/runtime.ts` | `createAuthRuntime()` — registry·store·요청·로그인을 묶고 `{ runtime, secretReader }` 반환 |
 | `features/auth/registry.ts` | 빌드타임 선언 검사 (중복 id · bare origin). **gate probe 검사는 여기 없다** |
 | `features/auth/store.ts` | `authId → Grant` 단일 맵 + `verified` + `credentialRevision` + 만료 정착 집합 |
-| `features/auth/authenticated-request.ts` | 정책 → credential 주입 → 전송 → redirect 재검사 → 401/403 강등 |
+| `features/auth/authenticated-request.ts` | 정책 → credential 주입 → 전송 → redirect 재검사 → 강등(401/403 · 세션의 origin 미복귀) |
 | `features/auth/secret-access.ts` | trusted-main raw 조회 (동기) |
 | `features/auth/login.ts` | `AuthMethod` 분기 실행 · 후보 probe → 성공 시 1회 커밋 · 단일 Auth `resume` |
-| `features/auth/browser-session/runner.ts` | 브라우저 세션 로그인 흐름 (창·교환·whoami) |
+| `features/auth/browser-session/runner.ts` | 브라우저 세션 로그인 흐름 (창 → final URL 의 인가 코드 → 토큰 교환 · whoami) |
 | `features/auth/specs/` | 선언 헬퍼(값 입력형) + 브라우저 세션 포트·응답 해석 |
 | `features/gate/index.ts` | `evaluateGate`(순수 진리표) · `createGate` · `selectGateMembers`(fail-closed) |
 | `features/harnesses/settings-entries.ts` | `sources/settings/<harness>/<modelProvider>/` 열거 |
@@ -186,7 +186,7 @@ network·respawn), 아무것도 안 하거나(stale token 사용).
 | probe 왕복 뒤 (`settleGrant`) | 성공·실패 **양쪽** 해석 전에 |
 | 실행기 왕복 뒤 (`absorb`) | OAuth `begin`/`complete`·브라우저 세션 `login` 의 `code-required`·`failed` 포함 |
 | 부팅 복원 probe 뒤 (`resume`) | 새 시도를 **열지 않고** 현재 세대만 비교한다 — 복원이 사용자의 로그인을 무효화하면 안 된다 |
-| 401 강등 (`markExpired(authId, observedRevision)`) | 401 은 **요청을 보낸 그 세대**에 대한 판정이다. 요청이 도는 사이 재인증됐다면 새 값을 내리는 근거가 못 된다 |
+| 요청 실패 강등 (`markExpired(authId, observedRevision)`) | 서버의 거부는 **요청을 보낸 그 세대**에 대한 판정이다. 요청이 도는 사이 재인증됐다면 새 값을 내리는 근거가 못 된다 |
 
 Renderer 도 같은 순서를 지킨다(`useProviders`) — invoke 응답은 probe 왕복만큼 늦게 오므로,
 자기보다 뒤에 시작된 요청이 있으면 그 응답을 버린다. **다만 renderer 가드는 invoke 응답만 막는다** —
@@ -278,8 +278,8 @@ change 가 나간다 — Harness cache 가 그 change 를 무시한다. 정착 �
 
 ### 4.5 강등 통지는 전이를 따른다 — 관측 횟수가 아니라
 
-만료 **전**의 강등(401/403, probe 실패)도 같은 문제를 갖는다. 한 번의 강등을 두 지점이 볼 수 있기
-때문이다 — 요청 경로가 401 을 보고 강등한 뒤 `resume()` 이 그 실패를 다시 강등으로 처리하거나,
+만료 **전**의 강등(요청 실패, probe 실패)도 같은 문제를 갖는다. 한 번의 강등을 두 지점이 볼 수
+있기 때문이다 — 요청 경로가 실패를 보고 강등한 뒤 `resume()` 이 그 실패를 다시 강등으로 처리하거나,
 동시에 떠 있던 두 요청이 각각 401 을 받는 경우다.
 
 그래서 **`AuthStore.markExpired()` 가 "이번 호출이 전이를 만들었는가" 를 돌려주고, 통지가 그 값을
@@ -294,8 +294,15 @@ change 가 나간다 — Harness cache 가 그 change 를 무시한다. 정착 �
 
 | 관측 지점 | 전이를 만들었을 때 | 전이가 없을 때 |
 |---|---|---|
-| 요청 경로 (401/403) | `cause:'unauthorized'` · `credentialChanged:true` | `snapshotChanged` 면 `credentialChanged:false` 로 통지, **둘 다 false 면 방송하지 않는다** |
+| 요청 경로 (401/403 · 세션 grant 의 origin 미복귀) | `cause:'unauthorized'` · `credentialChanged:true` | `snapshotChanged` 면 `credentialChanged:false` 로 통지, **둘 다 false 면 방송하지 않는다** |
 | `resume()` probe 실패 | `cause:'expired'` · `credentialChanged:true` | **통지하지 않는다** (요청 경로가 이미 냈다) |
+
+**요청 경로가 강등하는 조건은 둘이다.** 401/403 은 서버가 자격증명을 명시적으로 거부한 것이고,
+**세션 grant 의 origin 미복귀**는 SSO 가 미인증을 200 으로 말하는 형태다 — 세션이 죽으면 IdP
+로그인 폼이 200 으로 오므로 status 만 보면 그 200 을 성공으로 읽고, 세션 Auth 가 영원히 `valid` 인
+채 모든 요청이 로그인 폼을 받는다(§4.6). 판정은 `probeOk` 와 **같은 구현**(`isAllowedOrigin`)을
+쓴다 — 두 벌이면 하필 "인증됐는가" 가 갈린다. 값형 grant 에는 적용하지 않는다: 그쪽 체인은
+`definition.origin` 하나로 묶여 있어 밖에서 끝날 수 없다.
 
 두 축을 가른 이유: `markExpired()` 는 전이가 없어도 `verified` 는 푼다 — 그때는 화면만 갱신하면
 된다. 반대로 **아무것도 안 바뀐** 호출(동시 401 두 건 중 두 번째)은 방송할 것도 없다. boolean
@@ -304,6 +311,40 @@ change 가 나간다 — Harness cache 가 그 change 를 무시한다. 정착 �
 이 규칙이 없으면 실패 멤버 하나가 credential-effective change 를 두 번 내고, 두 번째는
 `credentialRevision` 이 그대로여서 §4.4 가 시계 만료에서 막은 불일치가 그대로 재현된다. 부팅
 방송 상한(§5.2)의 강등 항 `K` 도 함께 두 배가 된다.
+
+### 4.6 browser-session 은 두 가지 grant 를 만든다
+
+같은 방식(`kind:'browser-session'`)이 `config.exchange` 의 유무로 서로 다른 grant 를 낸다. 이것이
+이 방식의 유일한 분기이고, 나머지 규칙은 전부 여기서 파생된다.
+
+| `config.exchange` | grant | 자격증명을 나르는 것 | 만료를 관측하는 방법 |
+|---|---|---|---|
+| 미선언 | `kind:'session'` | cookie jar (partition) | 401/403 **또는 origin 미복귀**(§4.5) |
+| 선언 | `kind:'token'` (`authKind:'browser-session'`) | `exchange.present` 로 실린 토큰 | 401/403 · 토큰이 선언한 시계 만료 |
+
+**토큰의 출처는 교환 응답 JSON 하나다.** 로그인 창이 `doneUrlPrefix` 에 도달하면 그 final URL 에서
+인가 코드를 꺼내(`exchange.code.param`, 미지정이면 `'code'`) 같은 세션으로 교환한다 — 쿠키를 읽어
+토큰을 만드는 경로는 없다(`features/auth/no-cookie-token.test.ts` 가 기계 강제). 코드를 돌려주지
+않는 SP 는 `exchange` 자체를 선언하지 않고 세션 grant 로 끝낸다.
+
+**교환 요청의 형상은 선언이 정한다** — `code.in`(`'query'`\|`'form'`) · `code.name` · `code.params` ·
+`method`. 코드 파라미터 이름이 배포마다 다르다는 것은 곧 표준 인가 서버가 아니라는 뜻이고, 그러면
+요청 형상도 표준이라는 보장이 없다. 표준 AS 를 상대하는 배포에는 `kind:'oauth'` 가 이미 있다.
+
+**전송은 `sessions.send()` 다** — 파티션·쿠키를 유지하는 유일한 경로다(`netFetch` 는 세션 인자 없이
+나가고 `createSender` 는 `credentials:'omit'` 을 박는다). "쿠키에서 파싱하지 않는다" 는 토큰의
+*출처* 에 대한 제약이지 *전송* 에 대한 제약이 아니다.
+
+**`present` 는 필수다.** 이 파일의 "kind 에서 추론하지 않는다" 규칙(§2.1 의 계약 축)이
+browser-session 에도 그대로 걸린다 — 빠지면 교환이 만든 token grant 를 어디에도 실을 수 없어
+모든 요청이 `grant_not_valid` 로 죽고, `probe` 를 선언한 배포는 로그인 자체가 `probe_failed` 로
+끝난다. 타입이 필수로 강제하므로 런타임에 그 상태가 만들어질 자리가 없다.
+
+**refresh token 은 저장만 한다.** `exchange.refreshTokenPath` 를 선언하면 값이 vault 에 봉인되고
+`Grant.refreshKey` 가 생기지만, 그것으로 갱신하지는 않는다 — §5.2 의 refresh 대상이 `authKind` 를
+함께 보는 이유가 여기다.
+
+---
 
 ---
 
@@ -384,6 +425,7 @@ gate Auth 를 순차 확인 (resuming step 노출)
 | 수단 | refresh 1회 → 실패·불가면 재로그인 | refresh 는 창을 열지 않아 성공하면 사용자가 아무것도 보지 못한다 |
 | 재로그인 대상 | `methods` 의 첫 방식이 `browser-session`·`oauth` 인 것만 | 입력형은 입력 없이 부르면 네트워크를 타지 않고 전역 `input-required` step 만 남긴다 |
 | refresh 대상 | grant 가 `token`+`refreshKey` 이고 `authKind='oauth'` 이며 선언이 `refresh` 를 구현한 것. **`methods[0]` 를 보지 않는다** | 재로그인 게이트가 입력형을 막는 이유(전역 입력 폼)가 refresh 에는 성립하지 않는다 — 창·폼·step 을 만들지 않는다 |
+| refresh 에서 빠지는 것 | `authKind='browser-session'` 인 token grant — **`refreshKey` 가 있어도** 빠진다 | 세션 교환이 만든 토큰은 `oauth` 선언과 계보가 다르다. `refreshKey` 유무로만 판정하면 §4.6 의 `refreshTokenPath` 를 선언한 배포가 oauth 선언의 `refresh` 로 갱신돼 자격증명 계보가 섞인다 |
 | 횟수 | Auth 당 최대 3회 | 로그인 자체가 probe 를 포함하므로 확인 왕복은 그만큼 늘어난다 |
 | 계속 조건 | 확인 실패(`probe_failed`)만 다음 시도로 잇는다 | 취소·창 닫기·code 입력 대기는 사용자를 기다리는 상태다 — 닫은 창을 다시 열지 않는다 |
 | 동시성 | probe 는 병렬, 재로그인은 **순차** | `browser-session` 은 실제로 보이는 창을 열어서 병렬이면 창이 동시에 여러 개 뜬다 |

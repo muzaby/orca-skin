@@ -149,7 +149,8 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     fetchImpl: deps.fetchImpl,
     ...(deps.sessions ? { sessions: deps.sessions } : {}),
     ...(deps.logger ? { logger: deps.logger } : {}),
-    // 401/403 강등은 실행 credential 을 못 쓰게 만든 것이다 — 도구 회수와 cache 무효화가
+    // 요청 경로의 강등(401/403 · 세션 grant 의 origin 미복귀)은 실행 credential 을 못 쓰게
+    // 만든 것이다 — 도구 회수와 cache 무효화가
     // 걸려 있으므로 그 자리에서 즉시 낸다.
     // 강등이 **실제 전이였을 때만** credential-effective 다 (r4) — 동시 401 두 건 중 두 번째는
     // 아무것도 바꾸지 않는다. 화면은 그래도 갱신해야 하므로 통지 자체는 낸다.

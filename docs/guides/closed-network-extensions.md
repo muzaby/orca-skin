@@ -218,7 +218,7 @@ service : { sessionGroup: 'corp', allowedOrigins: ['https://wiki…'] }
 | SP 호출 | 시점 | 통로 | 경로 표기 | 게이트 |
 |---|---|---|---|---|
 | whoami — 누구인가 | 로그인 중 | `sessions.send()` | origin 상대 | `allowedOrigins` |
-| exchange — 토큰 승격 | 로그인 중 | `sessions.send()` | origin 상대 | `allowedOrigins` |
+| exchange — 인가 코드를 토큰으로 | 로그인 중 (창이 닫힌 직후) | `sessions.send()` | origin 상대 | `allowedOrigins` |
 | **probe — 인증됐나** | **grant 커밋 직후 · 부팅 복원** | 인증된 요청 | origin 상대 | `checkOutboundRequest` 전부 |
 | 그 외 API (도구·사용량…) | 로그인 후 | `BoundAuth.request()` | origin 상대 | `checkOutboundRequest` 전부 |
 
@@ -259,7 +259,8 @@ request: (req, signal) => api.request('confluence', req, signal)
 예약 헤더(`authorization`·`cookie`·`proxy-authorization`) 금지 · grant 가 `valid` 가 아니면 차단 ·
 컨텍스트 경로는 호출자가 prefix(`normalizeBasePath()` 재사용) · `query` 는 `path` 와 분리 ·
 바이트가 필요하면 `responseType:'binary'` + `maxBytes` · redirect 는 홉마다 재검사 ·
-401/403 은 자동 `expired` 강등 · `signal` 전파.
+401/403 은 자동 `expired` 강등(세션 grant 는 **체인이 origin 밖에서 끝나도** 같다 — §2-c) ·
+`signal` 전파.
 
 ---
 
@@ -276,7 +277,7 @@ request: (req, signal) => api.request('confluence', req, signal)
 | 2 | **`origin` 을 정한다** — `exchange.path` 가 붙는 기준이고 등록 검사의 대상이다. 로그인 시작 IdP 가 아니라 **probe·토큰 교환이 사는 호스트**로 잡는다(아래 주의) | 같은 파일 |
 | 3 | `probe.path` 를 정하고 `config` 4필드를 채운다 (`sessionGroup`·`loginUrl`·`doneUrlPrefix`·`allowedOrigins`) | 같은 파일. **파일 헤더 주석에 같은 레시피가 들어 있다** — 거기서 시작하는 편이 빠르다 |
 | 4 | **그 상수를 `GATE_AUTH_DEFINITIONS` 에 객체 참조로 담는다** — 이 단계를 빼면 인증 대상일 뿐 게이트가 아니다 | `app/src/main/app/deployment/gate-auth.ts`. 타입이 `GateAuthDefinition` 이라 `probe` 를 빠뜨리면 **컴파일이 안 된다** |
-| 5 | 토큰까지 필요하면 `config.exchange` 를 더한다 | §2-b |
+| 5 | 토큰까지 필요하면 `config.exchange` 를 더한다 — `code`·`present` 가 **필수**다. SP 가 인가 코드를 돌려주지 않으면 이 단계를 건너뛴다(세션 grant 로 끝난다) | §2-b |
 | 6 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/auth src/main/features/gate` | 형상·회귀 |
 | 7 | `npm run dev` 로 로그인 왕복을 실기한다 | **§6** (dev 게이트 동작이 prod 와 다르다) |
 
@@ -348,29 +349,73 @@ probe 와 **같은 endpoint** 를 적어도 된다 — 요청은 두 번 나가�
 **게이트가 여럿이면 전부 통과해야 앱이 열린다** — 로그인이 체인이라 멤버 하나만 풀려도 인증이
 아니다. 게이트 화면은 선언 순서대로 순차 진행하고 "n/N" 진행 표시를 낸다.
 
-### 2-b. 세션으로 토큰까지 받기 ("둘 다 필요")
+### 2-b. 인가 코드로 토큰까지 받기 ("둘 다 필요")
 
-쿠키 세션만으로는 부족하고 **토큰이 필요한 대상**이 있으면 `config.exchange` 를 더한다. 게이트
-세션이 성립한 뒤 그 cookie jar 로 사내 API 를 불러 토큰을 받아 grant 를 승격한다.
+쿠키 세션만으로는 부족하고 **토큰이 필요한 대상**이 있으면 `config.exchange` 를 더한다. 로그인
+창이 `doneUrlPrefix` 에 도달했을 때의 **final URL 이 돌려준 인가 코드**를 같은 세션으로 토큰과
+교환해 grant 를 승격한다.
+
+**SP 가 코드를 돌려주지 않으면 `exchange` 를 선언하지 않는다** — 그러면 grant 가 세션에서 끝나고
+쿠키가 곧 자격증명이다(§2 의 기본형). 쿠키만으로 토큰을 받는 경로는 없다.
 
 ```ts
 config: {
   …,
   exchange: {
     path: '/api/token',         // provider.origin 기준 상대 경로 (2단계 주의 참고)
+    // ── 필수 ①: 코드를 어디서 꺼내 어디에 실을 것인가 ──
+    code: {
+      param: 'ticket',          // final URL 에서 찾을 이름. 생략하면 'code'
+      in: 'form',               // 'form' = x-www-form-urlencoded 본문 · 'query' = URL 쿼리
+      name: 'authorization_code', // 보낼 때의 이름. 생략하면 param(또는 'code')
+      params: { grant_type: 'authorization_code', client_id: 'orca' } // 함께 실을 고정값
+    },
+    // ── 필수 ②: 받은 토큰을 요청에 싣는 방법 ──
+    present: { location: 'header', name: 'Authorization', scheme: 'bearer' },
+    method: 'POST',             // 선택. 생략하면 in:'form' 은 POST, in:'query' 는 GET
     valuePath: 'data.token',    // 응답 JSON 에서 토큰을 꺼낼 점 경로
+    refreshTokenPath: 'data.refresh', // 선택. **저장만** 한다 (아래 주의)
     expiresAtPath: 'data.exp',  // 선택. 초·밀리초·ISO 를 모두 흡수한다
     principalPath: 'data.mail'  // 선택(0182). 같은 응답에 계정이 실려 오면 여기서 꺼낸다
   }
 }
 ```
 
-값을 못 찾으면 `providers.session.exchange.no-token` 로그가 **`valuePath` 를 그대로 찍는다** —
-경로 오타는 로그에서 바로 보인다.
+| 필드 | 의미 | 흔한 실수 |
+|---|---|---|
+| `code.param` | **final URL** 에서 코드를 찾을 이름. 쿼리와 프래그먼트를 모두 본다 | 생략 시 기본은 `'code'` 다 — SP 가 다른 이름을 쓰면 반드시 적는다 |
+| `code.in` | 교환 **요청**에서 코드를 싣는 자리 | `'form'` 이면 코드가 URL 에 남지 않는다(프록시 로그 노출 없음) |
+| `code.name` | 교환 요청에서 코드를 부를 이름 | 생략하면 `param` 과 같다. 받는 이름과 보내는 이름이 다를 때만 적는다 |
+| `code.params` | 코드와 함께 실을 고정 파라미터 | **비밀을 적지 않는다** — 이 파일은 배포 소스이지 vault 가 아니다 |
+| `present` | 받은 토큰을 이후 요청에 싣는 방법 | 빠지면 컴파일이 깨진다. `kind` 에서 추론하지 않는 것이 이 선언의 규칙이다(§1.5) |
+| `refreshTokenPath` | refresh token 을 vault 에 봉인한다 | **갱신에 쓰이지 않는다** — 만료되면 재로그인이다. 안 쓸 값이면 선언하지 않는다 |
+
+**로그는 값이 아니라 이름만 남긴다.** 코드를 못 찾으면 `providers.session.exchange.no-code` 가
+찾던 `param` 을, 토큰을 못 찾으면 `providers.session.exchange.no-token` 이 `valuePath` 를 찍는다 —
+인가 코드·토큰 자체는 로그 파일에 남지 않는다.
 
 **`principalPath` 가 있으면 `whoami` 를 부르지 않는다** (추가 왕복 0). 교환 응답이 이미 신원을
 말했는데 한 번 더 묻지 않는다. 둘 다 선언해 두면 교환이 신원을 안 주는 배포에서만 `whoami` 로
 넘어간다.
+
+> ⚠️ **표준 인가 서버를 상대한다면 `kind:'oauth'` 를 쓴다** (§3-b). 이 경로에는 PKCE 도 `state` 도
+> 없다 — 창·allowlist·같은 파티션 안에서 완결되고 코드가 즉시 소비되는 사내 흐름을 위한 것이다.
+
+### 2-c. 세션이 끊기면 무엇이 일어나는가
+
+토큰을 받지 않는 세션 grant 는 **쿠키가 곧 자격증명**이라 서버가 세션을 끊어도 앱은 그것을
+바로 알 수 없다 — SSO 는 미인증에 401 이 아니라 **IdP 로그인 폼을 200 으로** 준다. 그래서 세션
+grant 의 요청은 두 가지로 만료를 판정한다:
+
+1. 응답이 **401/403** 이다.
+2. 리다이렉트 체인이 **`origin` 밖에서 끝났다** — 로그인 폼에 머물렀다는 뜻이다.
+
+둘 중 하나면 grant 가 `expired` 로 강등되고 연결 탭에 재인증 지점이 뜬다. 부팅 복원은 그 상태를
+보고 같은 방식으로 다시 로그인한다(SSO 쿠키가 살아 있으면 창이 곧바로 닫히는 무마찰 왕복이다).
+
+> ⚠️ **`allowedOrigins` 에 API 종점 origin 을 넣지 않는다.** 그 목록은 **로그인 창이 오가는**
+> origin 이다. 여기에 API 나 CDN 호스트를 넣으면 그 host 에서 정상적으로 끝난 응답까지 "로그인
+> 폼에 머물렀다" 로 읽혀 살아 있는 연결이 만료된다.
 
 ---
 
@@ -437,8 +482,13 @@ apiKeySpec({
 발급·보관·대조한다** — 배포는 코어가 준 값을 authorize URL 에 싣기만 한다.
 
 `refresh(refreshToken)` 은 **선택이지만, 없으면 토큰이 만료될 때마다 로그인 창이 뜬다.** 채우면
-부팅 복원이 창 없이 갱신한다(0194). 갱신을 쓰려면 `exchange` 가 `refreshToken` 도 함께 돌려줘야
-한다 — access token 만 돌려주면 갱신할 재료가 없다.
+부팅 복원이 창 없이 갱신한다(0194). 갱신을 쓰려면 `OAuthStart.exchange` 가 `refreshToken` 도 함께
+돌려줘야 한다 — access token 만 돌려주면 갱신할 재료가 없다.
+
+> ⚠️ **여기의 `exchange` 는 §2-b 의 `config.exchange` 와 다른 것이다.** 이쪽은 배포가 구현하는
+> code→token 함수이고, 저쪽은 browser-session 의 선언이다. **자동 갱신은 이 방식(`kind:'oauth'`)
+> 에서만 돈다** — browser-session 의 `refreshTokenPath` 는 값을 보관할 뿐이고, 만료되면 재로그인
+> 창이 뜬다.
 
 ```ts
 {
@@ -652,7 +702,9 @@ export function createPluginBindings(deps: {
 - **예약 헤더 금지** — `authorization` · `cookie` · `proxy-authorization` 을 덮어쓸 수 없다.
 - **미인증 차단** — grant 가 `valid` 가 아니면 전송하지 않는다.
 - **redirect 는 홉마다 재검사** — allowlist 밖 `Location` 은 따라가지 않는다.
-- **401/403 → grant 를 `expired` 로 강등** — 화면에 재인증 지점이 생긴다.
+- **401/403 → grant 를 `expired` 로 강등** — 화면에 재인증 지점이 생긴다. 세션 grant 는
+  **리다이렉트 체인이 `origin` 밖에서 끝난 경우**도 같다(미인증 SSO 는 로그인 폼을 200 으로
+  준다 — §2-c).
 
 ---
 
@@ -751,7 +803,7 @@ scheduler.schedule('corp-quota-sync', { enabled: true, cron: '*/5 * * * *' })
 | `schedule(key, spec)` | `spec` = `{ cron: '분 시 일 월 요일' }` 또는 `{ intervalMs }` (+ `enabled?`) | 둘을 같이 주지 않는다. cron 은 **벽시계 정렬**, interval 은 **`schedule()` 호출 시각 anchor**("앱 시작 후 N시간") |
 | cron 표현식 | 표준 5필드 | 잘못된 식은 **등록 시점에 던진다**(`assertValidCron`) — 조용히 안 뜨는 잡을 만들지 않으려는 결정이다. `enabled:false` 라도 검증은 먼저 돈다 |
 | `path` | **origin 기준 상대 경로** | 절대 URL 은 정책이 `absolute_path` 로 거부한다. 컨텍스트 경로(`/confluence`)는 호출자가 prefix |
-| 인증 실패 | grant 가 `valid` 가 아니면 요청이 **차단**된다 | 오류로 올리지 마라 — 부팅 직후·사내망 밖·로그아웃 후의 **정상 상태**다. 401/403 은 자동 `expired` 강등 → 카탈로그에 재인증 지점이 뜬다 |
+| 인증 실패 | grant 가 `valid` 가 아니면 요청이 **차단**된다 | 오류로 올리지 마라 — 부팅 직후·사내망 밖·로그아웃 후의 **정상 상태**다. 401/403(세션 grant 는 origin 미복귀도, §2-c)은 자동 `expired` 강등 → 카탈로그에 재인증 지점이 뜬다 |
 | `signal` | 타임아웃·취소는 **호출자 몫** | 엔진이 대신 걸어주지 않는다. `AbortController` 를 만들어 넘긴다 |
 
 - **주기는 선언에 두지 않는다.** 배포마다 주기가 갈리면 원격 부하를 예측할 수 없다.
@@ -992,8 +1044,11 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 | 우회 토글이 **보이지 않는다** | prod 빌드다 | prod 에는 디버그 패널 자체가 없다 (§6.2) |
 | 선언했는데 provider 가 **목록에 없다** | 등록 거부(중복 `id` 또는 `origin` 형태) | 로그 `providers.declaration.rejected` 의 `reason` |
 | 로그인 창이 **중간에 멈춘다** | `allowedOrigins` 누락 | 로그가 막힌 origin 을 지목한다 |
-| `doneUrlPrefix` 에 닿았는데 **실패**로 끝난다 | probe 가 미인증을 봤다(로그인 폼이 200 으로 뜨는 배포) | 로그 `providers.session.probe.unauthenticated` |
+| `doneUrlPrefix` 에 닿았는데 **실패**로 끝난다 | probe 가 미인증을 봤다(로그인 폼이 200 으로 뜨는 배포) | 로그 `auth.probe.result` 의 `ok`·`returned` — `returned:false` 면 체인이 origin 으로 못 돌아왔다 |
+| 토큰 교환이 **인가 코드를 못 찾는다** | `code.param` 이 SP 가 쓰는 이름과 다르다(생략 시 기본은 `code`) | 로그 `providers.session.exchange.no-code` 가 찾던 `param` 을 찍는다 (§2-b) |
 | 토큰 교환이 **값을 못 찾는다** | `valuePath` 오타 또는 응답 구조 상이 | 로그 `providers.session.exchange.no-token` 이 `valuePath` 를 찍는다 |
+| 토큰을 받았는데 API 가 **`grant_not_valid`** 로 죽는다 | `exchange.present` 가 SP 가 받는 형태와 다르다 | §1.5 — 같은 값이라도 Bearer·Basic·PRIVATE-TOKEN 으로 갈린다 |
+| 세션 연결이 **자꾸 만료**된다 | `allowedOrigins` 에 API·CDN 종점이 들어 있다 | §2-c — 그 목록은 로그인 창이 오가는 origin 이다 |
 | 토큰 교환이 **엉뚱한 호스트로** 나간다 | `origin` 을 IdP 로 잡았다 | §2 2단계 주의 |
 | 사이드바 이름이 **`developer` 로 남는다** | ⓐ `whoami` 미선언 ⓑ `valuePath` 오타·응답 구조 상이 ⓒ 우회 토글 ON ⓓ 신원을 안 주는 방식(`api-key`·`pat`) | ⓑ는 로그 `providers.session.whoami.failed` 가 `valuePath` 를 찍는다. ⓒⓓ는 **정상**이다 (§6.3) |
 | 사이드바에 **엉뚱한 계정**이 뜬다 | 게이트가 여럿이고 앞선 선언이 principal 을 갖고 있다 | 선언 순서 = 표시 우선순위 (§6.3) |

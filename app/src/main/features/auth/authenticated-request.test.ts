@@ -322,3 +322,230 @@ describe('AuthenticatedRequester — 체인 도중 grant 변경 (D1)', () => {
     expect(sessions.sent).toEqual(['https://wiki.example.corp/rest/api/content'])
   })
 })
+
+// ── 0195 · browser-session 교환이 만든 token grant ────────────────────────────
+//
+// **막으려는 회귀**: `presentationOf` 가 browser-session 에 무조건 `null` 을 돌려줬다. 그래서
+// 교환이 성공해 token grant 가 커밋돼도 그 grant 로는 아무 요청도 나가지 못했고
+// (`grant_not_valid`), `probe` 를 선언한 배포는 로그인 자체가 `probe_failed` 로 끝났다.
+//
+// 이 블록은 **선언한 `present` 가 실제 요청 헤더에 도달하는가** 를 센다 — 함수가 불렸는가가
+// 아니라 나간 요청이 무엇을 실었는가다.
+
+const EXCHANGED: AuthDefinition = {
+  id: 'sso',
+  label: '사내 로그인',
+  origin: 'https://portal.example.corp',
+  methods: [
+    {
+      kind: 'browser-session',
+      label: '통합 인증',
+      config: {
+        sessionGroup: 'corp',
+        loginUrl: 'https://adfs.example.corp/adfs/ls',
+        doneUrlPrefix: 'https://portal.example.corp/home',
+        allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp'],
+        exchange: {
+          path: '/api/token',
+          valuePath: 'access_token',
+          code: { in: 'query' },
+          present: { location: 'header', name: 'Authorization', scheme: 'bearer' }
+        }
+      }
+    }
+  ]
+}
+
+// 교환이 끝난 뒤의 프로세스 — token grant 하나가 복원돼 있다.
+function tokenGrantHarness(): {
+  api: AuthenticatedRequester
+  headers: Record<string, string>[]
+} {
+  const registry = new AuthRegistry([EXCHANGED])
+  const vault = createVault(fakeSecretStore())
+  const grant: Grant = {
+    kind: 'token',
+    vaultKey: 'sso:browser-session@v1',
+    authKind: 'browser-session',
+    createdAt: 1_000
+  }
+  const store = new AuthStore({
+    persistence: createMemoryGrantPersistence({ sso: grant }),
+    vault
+  })
+  store.restore(registry.list().map((p) => p.id))
+  vault.set('sso:browser-session@v1', 'tok-abc', { kind: 'browser-session', createdAt: 1_000 })
+
+  const headers: Record<string, string>[] = []
+  const api = new AuthenticatedRequester({
+    registry,
+    store,
+    fetchImpl: (async (_url: string, init: { headers: Record<string, string> }) => {
+      headers.push(init.headers)
+      return { status: 200, headers: new Headers(), text: async () => '{"ok":true}' }
+    }) as unknown as typeof fetch
+  })
+  return { api, headers }
+}
+
+describe('AuthenticatedRequester — browser-session token grant (0195)', () => {
+  it('선언한 present 대로 Authorization: Bearer 가 실린다', async () => {
+    const { api, headers } = tokenGrantHarness()
+
+    const res = await api.request('sso', { path: '/api/thing' })
+
+    expect(res.ok).toBe(true)
+    expect(headers).toHaveLength(1)
+    expect(headers[0]?.['Authorization']).toBe('Bearer tok-abc')
+  })
+
+  it('present 를 선언하지 않은 방식은 여전히 실을 방법이 없다 — kind 로 추론하지 않는다', async () => {
+    // `exchange` 없는 browser-session 선언에 token grant 가 들어오는 것은 D-006 이후 만들어질
+    // 수 없는 조합이지만, 그때도 조용히 무언가를 실어 보내지 않는 것이 계약이다.
+    const registry = new AuthRegistry([WIKI])
+    const vault = createVault(fakeSecretStore())
+    const store = new AuthStore({
+      persistence: createMemoryGrantPersistence({
+        wiki: {
+          kind: 'token',
+          vaultKey: 'wiki:browser-session@v1',
+          authKind: 'browser-session',
+          createdAt: 1_000
+        }
+      }),
+      vault
+    })
+    store.restore(registry.list().map((p) => p.id))
+    vault.set('wiki:browser-session@v1', 'tok', { kind: 'browser-session', createdAt: 1_000 })
+
+    const api = new AuthenticatedRequester({
+      registry,
+      store,
+      fetchImpl: (() => {
+        throw new Error('present 가 없는데 나갔다')
+      }) as unknown as typeof fetch
+    })
+
+    await expect(api.request('wiki', { path: '/thing' })).rejects.toBeInstanceOf(AuthPolicyError)
+  })
+})
+
+// ── 0195 D-004 · 세션 grant 의 만료 판정 ──────────────────────────────────────
+//
+// SSO 는 세션이 죽으면 401 이 아니라 **IdP 로그인 폼을 200 으로** 준다. status 만 보면 그 200 을
+// 성공으로 읽고, 세션 Auth 는 영원히 `valid` 인 채 모든 요청이 로그인 폼을 받는다.
+
+function sessionDemotionHarness(respond: (sent: string[]) => SendResult | Promise<SendResult>): {
+  api: AuthenticatedRequester
+  store: AuthStore
+  sessions: ReturnType<typeof fakeSessions>
+  unauthorized: { authId: string; credentialChanged: boolean }[]
+} {
+  const grant: Grant = {
+    kind: 'session',
+    sessionGroup: 'corp',
+    authKind: 'browser-session',
+    createdAt: 1_000
+  }
+  const registry = new AuthRegistry([WIKI])
+  const store = new AuthStore({
+    persistence: createMemoryGrantPersistence({ wiki: grant }),
+    vault: createVault(fakeSecretStore())
+  })
+  store.restore(registry.list().map((p) => p.id))
+
+  const sessions = fakeSessions()
+  registerDeclaredSessions(sessions, registry.list())
+  sessions.send = vi.fn(async (_handleId: string, req: PreparedRequest): Promise<SendResult> => {
+    sessions.sent.push(req.url)
+    return respond(sessions.sent)
+  })
+
+  const unauthorized: { authId: string; credentialChanged: boolean }[] = []
+  const api = new AuthenticatedRequester({
+    registry,
+    store,
+    fetchImpl: (() => {
+      throw new Error('세션 grant 가 fetch 스택으로 샜다')
+    }) as unknown as typeof fetch,
+    sessions,
+    onUnauthorized: (authId, credentialChanged) =>
+      void unauthorized.push({ authId, credentialChanged })
+  })
+  return { api, store, sessions, unauthorized }
+}
+
+describe('AuthenticatedRequester — 세션 grant 의 강등 (0195 D-004)', () => {
+  it('401 이면 expired 로 강등된다', async () => {
+    const { api, store, unauthorized } = sessionDemotionHarness(() => ({
+      status: 401,
+      headers: {},
+      body: ''
+    }))
+
+    const res = await api.request('wiki', { path: '/rest/api/content' })
+
+    expect(res.status).toBe(401)
+    expect(store.status('wiki')).toBe('expired')
+    expect(unauthorized).toEqual([{ authId: 'wiki', credentialChanged: true }])
+  })
+
+  it('200 이어도 체인이 origin 밖에서 끝나면 expired 이고 통지는 1회다', async () => {
+    // allowedOrigins 안의 IdP 로 302 → 그 폼이 200 으로 끝난다. 홉 정책은 통과하지만
+    // **인증은 성립하지 않았다**.
+    const { api, store, sessions, unauthorized } = sessionDemotionHarness((sent): SendResult =>
+      sent.length === 1
+        ? { status: 302, headers: { location: 'https://adfs.example.corp/adfs/ls' }, body: '' }
+        : { status: 200, headers: {}, body: '<html>login</html>' }
+    )
+
+    const res = await api.request('wiki', { path: '/rest/api/content' })
+
+    expect(res.status).toBe(200)
+    expect(res.finalUrl).toBe('https://adfs.example.corp/adfs/ls')
+    expect(sessions.sent).toEqual([
+      'https://wiki.example.corp/rest/api/content',
+      'https://adfs.example.corp/adfs/ls'
+    ])
+    expect(store.status('wiki')).toBe('expired')
+    // sink 는 하나이고 프로덕션 호출부도 하나다 — 같은 강등이 두 번 나가면 부팅 방송 상한의
+    // 강등 항이 두 배가 된다(`auth.md §5.2`).
+    expect(unauthorized).toEqual([{ authId: 'wiki', credentialChanged: true }])
+  })
+
+  it('체인이 origin 으로 돌아오면 강등하지 않는다', async () => {
+    const { api, store, unauthorized } = sessionDemotionHarness((sent): SendResult => {
+      if (sent.length === 1) {
+        return { status: 302, headers: { location: 'https://adfs.example.corp/adfs/ls' }, body: '' }
+      }
+      if (sent.length === 2) {
+        return {
+          status: 302,
+          headers: { location: 'https://wiki.example.corp/rest/api/content' },
+          body: ''
+        }
+      }
+      return { status: 200, headers: {}, body: '{"ok":true}' }
+    })
+
+    const res = await api.request('wiki', { path: '/rest/api/content' })
+
+    expect(res.ok).toBe(true)
+    expect(store.status('wiki')).toBe('valid')
+    expect(unauthorized).toEqual([])
+  })
+
+  it('값형 grant 는 origin 판정을 받지 않는다 — 없던 정책을 새로 만들지 않는다', async () => {
+    // 값형의 체인은 `redirectOrigins` 가 definition.origin 하나로 묶어 두므로 밖에서 끝날 수
+    // 없다. 리다이렉트 없이 200 으로 끝나는 정상 요청이 강등되지 않는 것을 센다.
+    const { api, sent } = valueHarness(
+      () => undefined,
+      () => 1_000
+    )
+
+    const res = await api.request('api', { path: '/thing' })
+
+    expect(res.ok).toBe(true)
+    expect(sent).toHaveLength(2)
+  })
+})

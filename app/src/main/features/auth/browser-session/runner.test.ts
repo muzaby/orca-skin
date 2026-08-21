@@ -1,13 +1,19 @@
 // 게이트 인증 방식(ADFS/WIA) — 사용자 결정 "둘 다 필요" 의 두 갈래를 확인한다:
-// ① 세션에서 끝나는 경우 ② 그 세션으로 사내 API 를 불러 토큰까지 받는 경우.
+// ① 세션에서 끝나는 경우 ② 그 세션으로 **final URL 의 인가 코드**를 토큰과 교환하는 경우(0195).
 //
-// `BrowserSessionPort` 를 fake 로 두므로 electron 없이 돈다(실제 창·쿠키는 사람 실기 AC13).
+// `BrowserSessionPort` 를 fake 로 두므로 electron 없이 돈다(실제 창·쿠키는 사람 실기).
 
 import { describe, expect, it, vi } from 'vitest'
-import type { AuthDefinition } from '../../../contracts/auth'
+import type { AuthDefinition, Presentation, SessionTokenExchange } from '../../../contracts/auth'
 import type { BrowserSessionSpec } from '../login'
-import { normalizeExpiry, pickPath, type BrowserSessionPort } from '../specs/browser-session'
-import { SessionRunner } from './runner'
+import type { PreparedRequest } from '../../../infra/net/transport'
+import {
+  normalizeExpiry,
+  pickPath,
+  pickUrlParam,
+  type BrowserSessionPort
+} from '../specs/browser-session'
+import { SessionRunner, type SessionRunnerDeps } from './runner'
 
 const PROVIDER: AuthDefinition = {
   id: 'corp-sso',
@@ -16,11 +22,21 @@ const PROVIDER: AuthDefinition = {
   methods: []
 }
 
-function spec(exchange?: {
-  path: string
-  valuePath: string
-  expiresAtPath?: string
-}): BrowserSessionSpec {
+const BEARER: Presentation = { location: 'header', name: 'Authorization', scheme: 'bearer' }
+
+// 교환 선언의 필수 두 자리(`code`·`present`)를 기본값으로 채운다 — 케이스가 **자기가 바꾸는
+// 축만** 적게 하려는 것이다. 두 자리는 타입이 필수로 강제하므로(0195 §10) 여기서 뺄 수 없다.
+function exchangeSpec(patch: Partial<SessionTokenExchange> = {}): SessionTokenExchange {
+  return {
+    path: '/api/token',
+    valuePath: 'data.token',
+    present: BEARER,
+    code: { in: 'query' },
+    ...patch
+  }
+}
+
+function spec(exchange?: SessionTokenExchange): BrowserSessionSpec {
   return {
     kind: 'browser-session',
     label: '통합 인증(WIA)',
@@ -34,15 +50,32 @@ function spec(exchange?: {
   }
 }
 
+// 창이 돌려주는 final URL. 코드는 **여기에만** 있다 — 기본값은 코드를 담은 URL 이라 교환 케이스가
+// 매번 적지 않아도 된다.
+const DONE_URL = 'https://portal.example.corp/home?code=auth-code-1'
+
 function port(overrides: Partial<BrowserSessionPort> = {}): BrowserSessionPort {
   return {
     register: vi.fn(),
     acquire: vi.fn(() => 'handle-1'),
-    openLoginWindow: vi.fn(async () => ({ finalUrl: 'https://portal.example.corp/home' })),
+    openLoginWindow: vi.fn(async () => ({ finalUrl: DONE_URL })),
     clear: async () => undefined,
     send: vi.fn(async () => ({ status: 200, headers: {}, body: '{}' })),
     ...overrides
   }
+}
+
+// fake `sessions.send` 가 받은 요청. 교환이 **무엇을 실어 보냈는지**를 이 값으로 단언한다.
+function sentRequest(sessions: BrowserSessionPort, index = 0): PreparedRequest {
+  const call = (sessions.send as ReturnType<typeof vi.fn>).mock.calls[index] ?? []
+  return call[1] as PreparedRequest
+}
+
+function jsonPort(body: string, finalUrl = DONE_URL): BrowserSessionPort {
+  return port({
+    openLoginWindow: vi.fn(async () => ({ finalUrl })),
+    send: vi.fn(async () => ({ status: 200, headers: {}, body }))
+  })
 }
 
 describe('SessionRunner — ① 게이트 로그인', () => {
@@ -85,27 +118,164 @@ describe('SessionRunner — ① 게이트 로그인', () => {
   })
 })
 
-describe('SessionRunner — ② 세션으로 토큰 교환', () => {
+describe('SessionRunner — ② 인가 코드로 토큰 교환 (0195)', () => {
   it('exchange 가 선언되면 token grant 로 승격한다', async () => {
-    const sessions = port({
-      clear: async () => undefined,
-      send: vi.fn(async () => ({
-        status: 200,
-        headers: {},
-        body: JSON.stringify({ data: { token: 'tok-1', expires_in: 1_700_000_000 } })
-      }))
-    })
+    const sessions = jsonPort(
+      JSON.stringify({ data: { token: 'tok-1', expires_in: 1_700_000_000 } })
+    )
     const result = await new SessionRunner({ sessions }).login(
       PROVIDER,
-      spec({ path: '/api/token', valuePath: 'data.token', expiresAtPath: 'data.expires_in' })
+      spec(exchangeSpec({ expiresAtPath: 'data.expires_in' }))
     )
     expect(result).toEqual({
       kind: 'token',
       token: { token: 'tok-1', expiresAt: 1_700_000_000_000 }
     })
     // origin 밖으로 나가지 않는다 — path 는 provider.origin 기준 상대 경로다.
-    const [, req] = (sessions.send as ReturnType<typeof vi.fn>).mock.calls[0] ?? []
-    expect((req as { url: string }).url).toBe('https://portal.example.corp/api/token')
+    expect(new URL(sentRequest(sessions).url).origin).toBe('https://portal.example.corp')
+    expect(new URL(sentRequest(sessions).url).pathname).toBe('/api/token')
+  })
+
+  // AC3 — 이름은 선언이 정한다. `code` 라는 이름을 코어가 고정하면 요구 ② 의 SP 가 통째로 빠진다.
+  it('선언한 이름으로 final URL 에서 코드를 꺼내 그 이름으로 실어 보낸다', async () => {
+    const sessions = jsonPort(
+      '{"data":{"token":"t"}}',
+      'https://portal.example.corp/home?ticket=abc'
+    )
+    await new SessionRunner({ sessions }).login(
+      PROVIDER,
+      spec(exchangeSpec({ code: { param: 'ticket', in: 'query' } }))
+    )
+
+    const url = new URL(sentRequest(sessions).url)
+    expect(url.searchParams.get('ticket')).toBe('abc')
+    expect(sentRequest(sessions).method).toBe('GET')
+  })
+
+  // AC4 — form 갈래. 표준 token endpoint 의 형상이지만 **코어가 아니라 선언이** 그렇게 정한 것이다.
+  it("code.in:'form' 이면 POST 폼 본문에 코드와 code.params 가 함께 실린다", async () => {
+    const sessions = jsonPort('{"data":{"token":"t"}}')
+    await new SessionRunner({ sessions }).login(
+      PROVIDER,
+      spec(
+        exchangeSpec({
+          code: {
+            in: 'form',
+            name: 'authorization_code',
+            params: { grant_type: 'authorization_code', client_id: 'orca' }
+          }
+        })
+      )
+    )
+
+    const req = sentRequest(sessions)
+    expect(req.method).toBe('POST')
+    expect(req.headers['content-type']).toBe('application/x-www-form-urlencoded')
+    const body = new URLSearchParams(req.body ?? '')
+    expect(body.get('authorization_code')).toBe('auth-code-1')
+    expect(body.get('grant_type')).toBe('authorization_code')
+    expect(body.get('client_id')).toBe('orca')
+    // 폼 갈래는 쿼리에 아무것도 싣지 않는다 — 코드가 URL 에 남으면 프록시 로그에 새어 나간다.
+    expect(new URL(req.url).search).toBe('')
+  })
+
+  // AC5 — `param` 미지정의 기본값.
+  it('code.param 미지정이면 code 라는 이름으로 찾는다', async () => {
+    const sessions = jsonPort('{"data":{"token":"t"}}', 'https://portal.example.corp/home?code=xyz')
+    await new SessionRunner({ sessions }).login(PROVIDER, spec(exchangeSpec()))
+
+    expect(new URL(sentRequest(sessions).url).searchParams.get('code')).toBe('xyz')
+  })
+
+  // AC6 — 코드가 없으면 실패다. **쿠키로 떨어지지 않는다** (D-006): 0195 이전에는 코드를 보지도
+  // 않고 쿠키로 GET 했으므로, 이 케이스가 그 경로의 부재를 센다.
+  it('final URL 에 그 이름이 없으면 exchange_failed 이고 요청 자체가 나가지 않는다', async () => {
+    const events: Array<[string, Record<string, unknown>]> = []
+    const sessions = jsonPort('{"data":{"token":"t"}}', 'https://portal.example.corp/home?other=1')
+    const result = await new SessionRunner({
+      sessions,
+      logger: (event, data) => void events.push([event, data])
+    }).login(PROVIDER, spec(exchangeSpec({ code: { param: 'ticket', in: 'query' } })))
+
+    expect(result).toMatchObject({ kind: 'failed', reason: 'exchange_failed' })
+    expect(sessions.send).not.toHaveBeenCalled()
+    const logged = events.find(([event]) => event === 'providers.session.exchange.no-code')
+    expect(logged?.[1]).toEqual({ authId: 'corp-sso', param: 'ticket' })
+  })
+
+  // 값이 아니라 **이름**만 남는다. 인가 코드는 자격증명이라 로그 파일에 실리면 안 된다.
+  it('실패 로그에 코드 값이 실리지 않는다', async () => {
+    const events: Array<[string, Record<string, unknown>]> = []
+    const sessions = jsonPort(
+      '{"data":{"token":"t"}}',
+      'https://portal.example.corp/home?code=secret-code'
+    )
+    await new SessionRunner({
+      sessions,
+      logger: (event, data) => void events.push([event, data])
+    }).login(PROVIDER, spec(exchangeSpec({ code: { param: 'ticket', in: 'query' } })))
+
+    expect(JSON.stringify(events)).not.toContain('secret-code')
+  })
+
+  // AC7 — 파티션·쿠키를 유지하는 전송은 `sessions.send` 하나다(D-007). `netFetch` 는 세션 인자
+  // 없이 나가고 `createSender` 는 `credentials:'omit'` 을 박는다.
+  it('교환은 sessions.send 로 나간다 — 그 handle 은 acquire 가 준 것이다', async () => {
+    const sessions = jsonPort('{"data":{"token":"t"}}')
+    await new SessionRunner({ sessions }).login(PROVIDER, spec(exchangeSpec()))
+
+    const call = (sessions.send as ReturnType<typeof vi.fn>).mock.calls[0] ?? []
+    expect(call[0]).toBe('handle-1')
+    expect(sessions.acquire).toHaveBeenCalledWith('corp')
+  })
+
+  it('SessionRunnerDeps 에 전송 포트를 하나 더 둘 자리가 없다 (D-007)', () => {
+    // @ts-expect-error — `fetchImpl` 자리가 생기면 이 줄이 컴파일에 성공해 버려 실패한다.
+    const deps: SessionRunnerDeps = { sessions: port(), fetchImpl: globalThis.fetch }
+    expect(deps.sessions).toBeDefined()
+  })
+
+  // AC8ⓐ — 토큰의 출처는 **응답 JSON** 이다. 쿠키(= 같은 fake port·같은 handle)는 그대로인데
+  // 응답 본문만 바꾸면 토큰이 따라 바뀐다. 쿠키에서 파생된다면 이 단언이 깨진다.
+  it('같은 세션·다른 응답 본문이면 토큰이 응답을 따라간다', async () => {
+    const first = await new SessionRunner({ sessions: jsonPort('{"data":{"token":"A"}}') }).login(
+      PROVIDER,
+      spec(exchangeSpec())
+    )
+    const second = await new SessionRunner({ sessions: jsonPort('{"data":{"token":"B"}}') }).login(
+      PROVIDER,
+      spec(exchangeSpec())
+    )
+
+    expect(first).toMatchObject({ kind: 'token', token: { token: 'A' } })
+    expect(second).toMatchObject({ kind: 'token', token: { token: 'B' } })
+  })
+
+  // AC9 — refresh 는 **경로를 선언한 경우에만** 흡수한다(D-003 fail-closed). 갱신 기능이 없는
+  // 지금 무조건 저장하면 vault 에 쓰이지 않는 비밀이 남는다.
+  it('refreshTokenPath 를 선언한 경우에만 refreshToken 이 실린다', async () => {
+    const body = '{"data":{"token":"t","refresh":"r-1"}}'
+
+    const declared = await new SessionRunner({ sessions: jsonPort(body) }).login(
+      PROVIDER,
+      spec(exchangeSpec({ refreshTokenPath: 'data.refresh' }))
+    )
+    const omitted = await new SessionRunner({ sessions: jsonPort(body) }).login(
+      PROVIDER,
+      spec(exchangeSpec())
+    )
+
+    expect(declared).toEqual({ kind: 'token', token: { token: 't', refreshToken: 'r-1' } })
+    // 키 자체가 없다 — `undefined` 를 담으면 `compact` 를 거쳐도 의미가 갈린다.
+    expect(omitted).toEqual({ kind: 'token', token: { token: 't' } })
+  })
+
+  it('선언한 refreshTokenPath 에 값이 없으면 싣지 않는다', async () => {
+    const result = await new SessionRunner({
+      sessions: jsonPort('{"data":{"token":"t"}}')
+    }).login(PROVIDER, spec(exchangeSpec({ refreshTokenPath: 'data.refresh' })))
+
+    expect(result).toEqual({ kind: 'token', token: { token: 't' } })
   })
 
   it('교환 실패·형식 불일치는 exchange_failed 로 표면화된다', async () => {
@@ -117,12 +287,12 @@ describe('SessionRunner — ② 세션으로 토큰 교환', () => {
         { send: vi.fn(async () => ({ status: 200, headers: {}, body: '{"other":1}' })) }
       ]
     ]
-    for (const [, overrides] of cases) {
+    for (const [label, overrides] of cases) {
       const result = await new SessionRunner({ sessions: port(overrides) }).login(
         PROVIDER,
-        spec({ path: '/api/token', valuePath: 'data.token' })
+        spec(exchangeSpec())
       )
-      expect(result).toMatchObject({ kind: 'failed', reason: 'exchange_failed' })
+      expect(result, label).toMatchObject({ kind: 'failed', reason: 'exchange_failed' })
     }
   })
 })
@@ -142,6 +312,17 @@ describe('응답 파싱 헬퍼', () => {
     expect(normalizeExpiry('nope')).toBeUndefined()
     expect(normalizeExpiry(null)).toBeUndefined()
   })
+
+  it('final URL 의 파라미터는 쿼리와 프래그먼트를 모두 본다', () => {
+    expect(pickUrlParam('https://p.example.corp/home?code=a', 'code')).toBe('a')
+    expect(pickUrlParam('https://p.example.corp/home#code=b', 'code')).toBe('b')
+    expect(pickUrlParam('https://p.example.corp/home?ticket=c', 'ticket')).toBe('c')
+    // 이름이 다르면 못 찾는다 — 이름을 선언이 정한다는 규칙이 여기서 성립한다.
+    expect(pickUrlParam('https://p.example.corp/home?ticket=c', 'code')).toBeUndefined()
+    // 빈 값은 값이 아니다 — 빈 코드로 교환 요청을 내면 실패 사유가 SP 응답으로 미뤄진다.
+    expect(pickUrlParam('https://p.example.corp/home?code=', 'code')).toBeUndefined()
+    expect(pickUrlParam('not a url', 'code')).toBeUndefined()
+  })
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -153,7 +334,7 @@ describe('응답 파싱 헬퍼', () => {
 
 function specWith(config: {
   whoami?: { path: string; valuePath: string }
-  exchange?: { path: string; valuePath: string; principalPath?: string }
+  exchange?: SessionTokenExchange
 }): BrowserSessionSpec {
   return {
     kind: 'browser-session',
@@ -252,7 +433,7 @@ describe('SessionRunner — ③ 신원 조회(whoami)', () => {
       PROVIDER,
       specWith({
         whoami: { path: '/api/me', valuePath: 'mail' },
-        exchange: { path: '/api/token', valuePath: 'data.token', principalPath: 'data.mail' }
+        exchange: exchangeSpec({ principalPath: 'data.mail' })
       })
     )
 
@@ -273,7 +454,7 @@ describe('SessionRunner — ③ 신원 조회(whoami)', () => {
       PROVIDER,
       specWith({
         whoami: { path: '/api/me', valuePath: 'mail' },
-        exchange: { path: '/api/token', valuePath: 'data.token' }
+        exchange: exchangeSpec()
       })
     )
 

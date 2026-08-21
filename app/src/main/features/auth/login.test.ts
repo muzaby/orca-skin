@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import type { AuthDefinition, AuthenticatedResponse, TokenValue } from '../../contracts/auth'
+import type { AuthDefinition, AuthenticatedResponse, Grant, TokenValue } from '../../contracts/auth'
 import { createVault, type Vault } from '../../infra/vault'
 import type { SecretStorePort } from '../../infra/config/secret-store-port'
+import type { PreparedRequest, SendResult } from '../../infra/net/transport'
+import { AuthenticatedRequester } from './authenticated-request'
 import { LoginService, type LoginDeps } from './login'
 import { AuthRegistry } from './registry'
+import type { BrowserSessionPort } from './specs/browser-session'
 import { createMemoryGrantPersistence, AuthStore, type GrantPersistencePort } from './store'
 import {
   apiKeySpec,
@@ -1228,5 +1231,302 @@ describe('LoginService — 자동 로그인(resume)', () => {
     expect(rejected).toEqual(['key-gate'])
     expect(store.isVerified('key-gate')).toBe(false)
     expect(store.status('key-gate')).toBe('expired')
+  })
+})
+
+// ── 0195 · browser-session 교환의 end-to-end ─────────────────────────────────
+//
+// **여기만 `probeApi` fake 를 쓰지 않는다.** 이 블록이 세는 것은 "실행기 → grant → 요청 헤더" 라는
+// 배선 자체이므로, probe 통로를 흉내 내면 정확히 그 배선이 관측 대상에서 빠진다 — 0195 가 고치는
+// 결함(`presentationOf` 가 browser-session 에 `null` 을 돌려주던 것)은 통로를 fake 로 두면
+// 아무 테스트도 볼 수 없는 자리에 있었다. 그래서 진짜 `AuthenticatedRequester` 를 같은 store 에
+// 물린다.
+
+const EXCHANGE_PRESENT = { location: 'header', name: 'Authorization', scheme: 'bearer' } as const
+
+function ssoExchangeGate(): AuthDefinition {
+  return {
+    id: 'sso',
+    label: '사내 로그인',
+    origin: 'https://portal.example.corp',
+    probe: { path: '/api/me' },
+    methods: [
+      {
+        kind: 'browser-session',
+        label: '통합 인증',
+        config: {
+          sessionGroup: 'corp',
+          loginUrl: 'https://adfs.example.corp/adfs/ls/',
+          doneUrlPrefix: 'https://portal.example.corp/home',
+          allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp'],
+          exchange: {
+            path: '/api/token',
+            valuePath: 'access_token',
+            code: { in: 'query' },
+            present: EXCHANGE_PRESENT
+          }
+        }
+      }
+    ]
+  }
+}
+
+interface WiredHarness extends Harness {
+  // 실제로 나간 요청. probe 도 여기 쌓인다 — 후보 자격증명이 헤더에 실렸는지를 이 값이 말한다.
+  sent: { url: string; headers: Record<string, string> }[]
+  snapshots: { authId: string; cause: string }[]
+  sessions: BrowserSessionPort & { sent: string[] }
+  setSessionResponse(next: () => SendResult): void
+}
+
+// 세션 전송 fake. 요청은 cookie jar 로 나가고, 응답은 케이스가 정한다.
+function wiredSessions(): BrowserSessionPort & { sent: string[]; respond: () => SendResult } {
+  const port = {
+    sent: [] as string[],
+    respond: (): SendResult => ({ status: 200, headers: {}, body: '{"ok":true}' }),
+    register: () => undefined,
+    acquire: () => 'handle-corp',
+    openLoginWindow: async () => ({ finalUrl: 'https://portal.example.corp/home' }),
+    clear: async () => undefined,
+    send: async (_handleId: string, req: PreparedRequest): Promise<SendResult> => {
+      port.sent.push(req.url)
+      return port.respond()
+    }
+  }
+  return port
+}
+
+// `LoginService` + 진짜 `AuthenticatedRequester` 를 **같은 store** 에 물린다 — 부팅 배선
+// (`features/auth/runtime.ts`)과 같은 형상이다.
+function wiredHarness(
+  definition: AuthDefinition,
+  session: LoginDeps['session'],
+  // 부팅에서 복원된 grant. **`store.put()` 로 심지 않는다** — 그쪽은 커밋 경로라 `verified` 를
+  // 세우고, 그러면 `restorable()` 이 false 가 되어 `resume()` 이 probe 를 아예 내지 않는다.
+  restored?: Record<string, Grant>
+): WiredHarness {
+  const secrets = fakeSecretStore()
+  const vault = createVault(secrets)
+  const persistence = createMemoryGrantPersistence(restored)
+  const registry = new AuthRegistry([definition])
+  const store = new AuthStore({ persistence, vault, clock: () => 1_000 })
+  store.restore(registry.list().map((p) => p.id))
+
+  const sessions = wiredSessions()
+  const sent: { url: string; headers: Record<string, string> }[] = []
+  const snapshots: { authId: string; cause: string }[] = []
+
+  const api = new AuthenticatedRequester({
+    registry,
+    store,
+    fetchImpl: (async (url: string, init: { headers: Record<string, string> }) => {
+      sent.push({ url: String(url), headers: init.headers })
+      return { status: 200, headers: new Headers(), text: async () => '{"ok":true}' }
+    }) as unknown as typeof fetch,
+    sessions,
+    onUnauthorized: (authId) => void snapshots.push({ authId, cause: 'unauthorized' })
+  })
+
+  const login = new LoginService({
+    registry,
+    store,
+    vault,
+    clock: () => 1_000,
+    sessions,
+    ...(session ? { session } : {}),
+    request: (authId, req, signal, candidate) => api.request(authId, req, signal, candidate),
+    onSnapshot: (authId, cause) => void snapshots.push({ authId, cause })
+  })
+
+  const keyOf = (authId: string, which: 'value' | 'refresh'): string | null => {
+    const grant = store.get(authId)
+    if (!grant || grant.kind === 'session') return null
+    if (which === 'refresh') return grant.kind === 'token' ? (grant.refreshKey ?? null) : null
+    return grant.vaultKey
+  }
+  return {
+    login,
+    store,
+    vault,
+    persistence,
+    secrets,
+    sent,
+    snapshots,
+    sessions,
+    setSessionResponse: (next) => {
+      sessions.respond = next
+    },
+    secretOf: (authId) => {
+      const key = keyOf(authId, 'value')
+      return key === null ? null : vault.get(key)
+    },
+    refreshOf: (authId) => {
+      const key = keyOf(authId, 'refresh')
+      return key === null ? null : vault.get(key)
+    }
+  }
+}
+
+// 실행기가 돌려줄 토큰을 그대로 싣는 `SessionAuthenticator`. 창·교환은 `runner.test.ts` 가
+// 이미 잠갔으므로 여기서는 **그 결과가 어디로 흘러가는가** 만 본다.
+function tokenSession(token: TokenValue): LoginDeps['session'] {
+  return { login: async () => ({ kind: 'token', token }) }
+}
+
+describe('LoginService — browser-session 교환의 end-to-end (0195)', () => {
+  it('로그인 probe 가 후보 토큰을 bearer 로 싣고 나가 done 으로 끝난다', async () => {
+    const h = wiredHarness(ssoExchangeGate(), tokenSession({ token: 'tok-1' }))
+
+    expect(await h.login.begin('sso')).toMatchObject({ kind: 'done' })
+
+    // probe 가 실제로 나갔고, 그 요청이 선언한 present 를 실었다.
+    expect(h.sent).toHaveLength(1)
+    expect(h.sent[0]?.url).toBe('https://portal.example.corp/api/me')
+    expect(h.sent[0]?.headers['Authorization']).toBe('Bearer tok-1')
+    expect(h.store.isVerified('sso')).toBe(true)
+  })
+
+  it('커밋된 뒤의 API 호출도 같은 헤더로 나간다', async () => {
+    const h = wiredHarness(ssoExchangeGate(), tokenSession({ token: 'tok-1' }))
+    await h.login.begin('sso')
+
+    // 로그인 직후의 상태에서 grant 가 가리키는 값이 vault 에 앉아 있다.
+    expect(h.secretOf('sso')).toBe('tok-1')
+    expect(h.store.get('sso')).toMatchObject({ kind: 'token', authKind: 'browser-session' })
+  })
+
+  // AC9 — refresh token 은 **저장만** 한다(D-003).
+  it('refreshToken 이 오면 refreshKey 가 생기고 vault 에 봉인된다', async () => {
+    const h = wiredHarness(
+      ssoExchangeGate(),
+      tokenSession({ token: 'tok-1', refreshToken: 'ref-1' })
+    )
+
+    expect(await h.login.begin('sso')).toMatchObject({ kind: 'done' })
+
+    const grant = h.store.get('sso')
+    expect(grant).toMatchObject({ kind: 'token', refreshKey: expect.any(String) })
+    expect(h.refreshOf('sso')).toBe('ref-1')
+    // access·refresh 는 **서로 다른 자리**다 — 같은 키를 공유하면 갱신 실패가 살아 있는 쪽을
+    // 지운다(0194 r6).
+    expect(h.vault.names()).toHaveLength(2)
+    expect(new Set(h.vault.names()).size).toBe(2)
+  })
+
+  it('refreshToken 이 없으면 refreshKey 자체가 없다', async () => {
+    const h = wiredHarness(ssoExchangeGate(), tokenSession({ token: 'tok-1' }))
+
+    await h.login.begin('sso')
+
+    expect(h.store.get('sso')).toEqual({
+      kind: 'token',
+      vaultKey: expect.any(String),
+      authKind: 'browser-session',
+      createdAt: 1_000
+    })
+    expect(h.refreshOf('sso')).toBeNull()
+    expect(h.vault.names()).toHaveLength(1)
+  })
+
+  // AC10 — refresh 키가 **있어도** 갱신하지 않는다(D-003). "있으니 되겠지" 를 막는다.
+  it('refreshKey 가 있는 browser-session token grant 도 refresh 는 unsupported 다', async () => {
+    const h = wiredHarness(
+      ssoExchangeGate(),
+      tokenSession({ token: 'tok-1', refreshToken: 'ref-1' })
+    )
+    await h.login.begin('sso')
+    expect(h.store.get('sso')).toMatchObject({ refreshKey: expect.any(String) })
+
+    expect(await h.login.refresh('sso')).toBe('unsupported')
+  })
+
+  // AC6 후단 — 교환이 실패하면 **이전 자격증명이 그대로 산다**.
+  it('교환 실패는 grant 를 커밋하지 않는다 — 이전 연결이 그대로다', async () => {
+    const h = wiredHarness(ssoExchangeGate(), tokenSession({ token: 'first' }))
+    await h.login.begin('sso')
+    const committed = h.store.get('sso')
+
+    // 재인증 시도가 코드 부재로 실패한다.
+    const failing: LoginDeps['session'] = {
+      login: async () => ({
+        kind: 'failed',
+        reason: 'exchange_failed',
+        message: '인가 코드를 찾지 못했습니다'
+      })
+    }
+    const reauth = new LoginService({
+      registry: new AuthRegistry([ssoExchangeGate()]),
+      store: h.store,
+      vault: h.vault,
+      clock: () => 1_000,
+      session: failing
+    })
+
+    expect(await reauth.begin('sso')).toMatchObject({
+      kind: 'failed',
+      reason: 'exchange_failed'
+    })
+    expect(h.store.get('sso')).toEqual(committed)
+    expect(h.secretOf('sso')).toBe('first')
+  })
+})
+
+// ── 0195 AC13 · 강등 통지는 한 번만 나간다 ────────────────────────────────────
+//
+// D-004 로 요청 경로가 origin 미복귀에서도 강등한다. 부팅 복원 probe 는 그 요청 경로를 지나므로
+// **같은 강등을 두 지점이 본다** — 요청 경로(`onUnauthorized`)와 `resume()` 의 `markExpired`.
+// 둘 다 통지하면 `auth.md §5.2` 의 강등 항 `K` 가 두 배가 되고, 두 번째는 revision 이 그대로라
+// `credentialChanged:true` 와 어긋난다(0194 r4 가 401 경로에서 배운 것과 같은 자리).
+//
+// **이 단언을 `auth-resume.test.ts` 에 두지 않는 이유**: 그쪽 `fakeRuntime.resume` 은 요청 경로를
+// 갖지 않아 두 지점이 존재하지 않는다 — 거기서 세는 방송 수는 fake 자신의 산수이지 이 배선의
+// 관측이 아니다. 상한 식(P + K + 1)의 `K` 항 자체는 그 파일이 계속 잠근다.
+describe('LoginService — 세션 grant 의 origin 미복귀 강등 (0195 D-004)', () => {
+  function restoredSession(): WiredHarness {
+    return wiredHarness(ssoGate(), undefined, {
+      sso: {
+        kind: 'session',
+        sessionGroup: 'corp',
+        authKind: 'browser-session',
+        createdAt: 1_000
+      }
+    })
+  }
+
+  it('부팅 복원 probe 가 IdP 폼(200)에서 끝나면 expired 이고 통지는 1회다', async () => {
+    const h = restoredSession()
+    // probe 체인이 IdP 로 넘어가 200 으로 끝난다 — 미인증 SSO 의 정확한 형상이다.
+    h.setSessionResponse(() => ({
+      status: 200,
+      headers: {},
+      body: '<html>login</html>'
+    }))
+    // 첫 홉이 곧 마지막 홉이고 그 URL 은 portal 이므로, IdP 로 한 번 넘어가게 만든다.
+    let hop = 0
+    h.sessions.send = async (_handleId: string, req: PreparedRequest): Promise<SendResult> => {
+      h.sessions.sent.push(req.url)
+      hop += 1
+      return hop === 1
+        ? { status: 302, headers: { location: 'https://adfs.example.corp/adfs/ls' }, body: '' }
+        : { status: 200, headers: {}, body: '<html>login</html>' }
+    }
+
+    await h.login.resume('sso')
+
+    expect(h.store.status('sso')).toBe('expired')
+    expect(h.store.isVerified('sso')).toBe(false)
+    // 요청 경로가 낸 `unauthorized` 하나뿐 — `resume` 은 전이가 없어 아무것도 내지 않는다.
+    expect(h.snapshots).toEqual([{ authId: 'sso', cause: 'unauthorized' }])
+  })
+
+  it('probe 체인이 origin 으로 돌아오면 verified 이고 강등 통지가 없다', async () => {
+    const h = restoredSession()
+    h.setSessionResponse(() => ({ status: 200, headers: {}, body: '{"ok":true}' }))
+
+    await h.login.resume('sso')
+
+    expect(h.store.status('sso')).toBe('valid')
+    expect(h.store.isVerified('sso')).toBe(true)
+    expect(h.snapshots).toEqual([{ authId: 'sso', cause: 'verified' }])
   })
 })
