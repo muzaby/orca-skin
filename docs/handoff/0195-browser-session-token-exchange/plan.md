@@ -136,7 +136,7 @@
 | AC10 | browser-session token grant 에 `auth.refresh()` 를 부르면 `'unsupported'` 다 (D-003) | `login.test.ts` — `refreshKey` 가 **있는** grant 로도 `'unsupported'` 임을 단언(있으니 되겠지를 막는다) | `LoginService.refresh` |
 | AC11 | `exchange` 미선언 Auth 는 토큰 없이 cookie jar 로 요청하고 401 에 `expired` 가 된다 | `authenticated-request.test.ts` — 기존 세션 grant 케이스 + 401 응답 → `store.status()==='expired'` | `resolveCarrier`(session) → `transport` |
 | AC12 | 세션 grant 요청의 체인이 200 이어도 `definition.origin` 밖에서 끝나면 `expired` 로 강등되고 `onUnauthorized` 가 **1회** 나간다 | `authenticated-request.test.ts` — allowedOrigins 안의 IdP 로 302 → 200 으로 끝나는 fake → `status()==='expired'` + 통지 호출 수 1 | `request()` 의 강등 분기 |
-| AC13 | AC12 의 강등을 부팅 복원 probe 가 다시 관측해도 방송이 늘지 않는다 — `auth.md §5.2` 의 `P + 1` 이 불변이다 | `auth-resume.test.ts` 방송 상한 describe 에 케이스 추가 — origin 미복귀로 실패하는 probe 후보 1건에서 `pushConnectionState` 호출 수가 기존 식과 같음 | `auth-resume.resumeRemainingOnce` |
+| AC13 | AC12 의 강등을 부팅 복원 probe 가 다시 관측해도 방송이 늘지 않는다 — `auth.md §5.2` 의 `P + 1` 이 불변이다 | `login.test.ts` — 진짜 `AuthenticatedRequester` 를 같은 store 에 물린 하네스로 `resume()` 을 돌려 통지 배열이 `[{unauthorized}]` **1건**임을 단언. `auth-resume.test.ts` 의 `P + 1` describe 는 그 식 자체를 계속 잠근다(무변경) | `LoginService.resume` → `markExpired`(요청 경로가 이미 정착시켰으면 `credentialChanged:false`) |
 | AC14 | 가이드 §2-b 의 새 예제를 실제 `auth-definitions.ts` 에 대입하면 `npm run typecheck` 3/3 을 통과한다 | 붙여넣고 실행한 뒤 되돌린다(0181 5단계-e · 0182 AC11 · 0183 선례) | 배포 선언 컴파일 |
 
 ### AC 검증 주의사항
@@ -145,6 +145,7 @@
 - **AC8-ⓑ 의 술어는 해법 이름이 아니라 불변식의 주어다**: "쿠키를 읽는 호출" 을 찾는다(`\.cookies\b`), "내가 만든 함수가 안 불린다" 를 찾지 않는다. 허용 예외는 `BrowserSessionPort.clear` 의 구현(`infra/browser-session.ts:171`) 하나이고 그것은 `features/auth/**` 밖이라 검색 범위에서 이미 빠진다.
 - **AC12 의 "1회"**: sink 는 `onUnauthorized` 이고 프로덕션 **호출**부는 `authenticated-request.ts:174` **1곳**이다(`rg -n 'onUnauthorized\?\.\(' src/main -g '!*.test.ts'` → 1건). 관측 지점(fake 콜백)이 그 유일한 호출부를 그대로 모형한다 — 모형되지 않는 항이 없다.
 - **AC13 의 상한 식**: `P + 1` 은 `docs/arch/backend/auth.md §5.2` 가 정본이다. 이 AC 는 **새 항을 더하지 않음**을 단언하지 실제 총량을 다시 세지 않는다 — 총량은 조건부라 상수가 아니라고 그 문서가 이미 적었다.
+- **AC13 을 `auth-resume.test.ts` 에 두지 않는 이유** (r1 정정): 그 파일의 `fakeRuntime.resume`(`:155`)은 요청 경로를 갖지 않아 **두 emitter 가 존재하지 않는다** — 거기서 세는 방송 수는 fake 자신의 산수이지 "요청 경로와 resume 이 같은 강등을 두 번 내는가" 의 관측이 아니다. 관측 대상을 갖는 하네스는 진짜 `AuthenticatedRequester` 를 무는 `login.test.ts` 쪽이다.
 - **사람 실기 항목**: 없다. 창·전송·vault 는 전부 포트로 주입되므로 순수 테스트로 닫는다.
 
 ---
@@ -587,4 +588,4 @@ plan §7 은 AC13 을 `auth-resume.test.ts` 방송 상한 describe 에 두라고
 | D5 | `docs/arch/backend/auth.md` 347·349행에 `---` 2개 연속 — §4.6 신설이 넣은 구분선이 기존 것과 겹쳤다 | verify §13 | 한 줄 삭제 | 후속(트리비얼) |
 | D6 | `SessionRunner.getJson` 이 `checkRequestPath` 를 지나지 않는다 — `exchange.path`·`whoami.path` 에 절대 URL 을 적으면 세션 쿠키가 origin 밖으로 나간다. **선행 결함**(0181/0182)이나 0195 가 같은 요청에 인가 코드를 실으면서 노출이 넓어졌다 | verify §13 | 등록 검사 또는 `getJson` 진입에 `checkRequestPath` 를 건다 | 후속(설계 필요) |
 | D7 | INDEX 비고 631자·6문장 — `docs/handoff/AGENTS.md §산출물 문장 규칙 3` 의 5줄 상한 초과 | verify §11 | verify 갱신에서 줄였다 | **해소** |
-| D8 | §7 AC13 행의 `검증 수단` 칸이 `auth-resume.test.ts` 를 지목하나 실제 위치는 `login.test.ts` 다. 구현자 제안이 타당하다(그 파일의 fake 는 요청 경로를 갖지 않는다) | 구현 보고 §설계 대비 차이 | **규범 행 정정 — 설계 커밋으로** | 대기 |
+| D8 | §7 AC13 행의 `검증 수단` 칸이 `auth-resume.test.ts` 를 지목하나 실제 위치는 `login.test.ts` 다. 구현자 제안이 타당하다(그 파일의 fake 는 요청 경로를 갖지 않는다) | 구현 보고 §설계 대비 차이 | 규범 행 정정 — 설계 커밋으로 §7 AC13 행과 검증 주의사항을 고쳤다 | **해소** |
