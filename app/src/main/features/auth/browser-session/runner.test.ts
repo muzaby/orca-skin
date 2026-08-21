@@ -31,7 +31,9 @@ function exchangeSpec(patch: Partial<SessionTokenExchange> = {}): SessionTokenEx
     path: '/api/token',
     valuePath: 'data.token',
     present: BEARER,
-    code: { in: 'query' },
+    // `code` 는 필드가 전부 선택이라 **빈 객체가 곧 표식**이다 — "이 SP 는 코드를 돌려준다".
+    // 객체 자체의 필수 여부가 D-006 의 컴파일 강제를 담당한다.
+    code: {},
     ...patch
   }
 }
@@ -69,6 +71,14 @@ function port(overrides: Partial<BrowserSessionPort> = {}): BrowserSessionPort {
 function sentRequest(sessions: BrowserSessionPort, index = 0): PreparedRequest {
   const call = (sessions.send as ReturnType<typeof vi.fn>).mock.calls[index] ?? []
   return call[1] as PreparedRequest
+}
+
+// 교환 요청이 실어 보낸 **본문**. 형상이 `application/json` 하나로 고정이라(0196 D-009) 케이스가
+// 파서를 고를 필요가 없다 — 코드가 어디 실렸는지는 전부 이 값이 말한다.
+function sentBody(sessions: BrowserSessionPort, index = 0): unknown {
+  const { body } = sentRequest(sessions, index)
+  expect(typeof body).toBe('string')
+  return JSON.parse(body as string)
 }
 
 function jsonPort(body: string, finalUrl = DONE_URL): BrowserSessionPort {
@@ -136,31 +146,15 @@ describe('SessionRunner — ② 인가 코드로 토큰 교환 (0195)', () => {
     expect(new URL(sentRequest(sessions).url).pathname).toBe('/api/token')
   })
 
-  // AC3 — 이름은 선언이 정한다. `code` 라는 이름을 코어가 고정하면 요구 ② 의 SP 가 통째로 빠진다.
-  it('선언한 이름으로 final URL 에서 코드를 꺼내 그 이름으로 실어 보낸다', async () => {
-    const sessions = jsonPort(
-      '{"data":{"token":"t"}}',
-      'https://portal.example.corp/home?ticket=abc'
-    )
-    await new SessionRunner({ sessions }).login(
-      PROVIDER,
-      spec(exchangeSpec({ code: { param: 'ticket', in: 'query' } }))
-    )
-
-    const url = new URL(sentRequest(sessions).url)
-    expect(url.searchParams.get('ticket')).toBe('abc')
-    expect(sentRequest(sessions).method).toBe('GET')
-  })
-
-  // AC4 — form 갈래. 표준 token endpoint 의 형상이지만 **코어가 아니라 선언이** 그렇게 정한 것이다.
-  it("code.in:'form' 이면 POST 폼 본문에 코드와 code.params 가 함께 실린다", async () => {
+  // AC2 (0196) — 요청 형상은 **코어가 고정한다**(D-009). 선언이 고를 수 있는 것은 이름뿐이라
+  // `method`·content-type 을 단언하는 이 케이스가 곧 그 고정의 정본이다.
+  it('교환 요청은 POST + application/json 이고 본문에 코드와 code.params 가 함께 실린다', async () => {
     const sessions = jsonPort('{"data":{"token":"t"}}')
     await new SessionRunner({ sessions }).login(
       PROVIDER,
       spec(
         exchangeSpec({
           code: {
-            in: 'form',
             name: 'authorization_code',
             params: { grant_type: 'authorization_code', client_id: 'orca' }
           }
@@ -170,21 +164,81 @@ describe('SessionRunner — ② 인가 코드로 토큰 교환 (0195)', () => {
 
     const req = sentRequest(sessions)
     expect(req.method).toBe('POST')
-    expect(req.headers['content-type']).toBe('application/x-www-form-urlencoded')
-    const body = new URLSearchParams(req.body ?? '')
-    expect(body.get('authorization_code')).toBe('auth-code-1')
-    expect(body.get('grant_type')).toBe('authorization_code')
-    expect(body.get('client_id')).toBe('orca')
-    // 폼 갈래는 쿼리에 아무것도 싣지 않는다 — 코드가 URL 에 남으면 프록시 로그에 새어 나간다.
-    expect(new URL(req.url).search).toBe('')
+    expect(req.headers['content-type']).toBe('application/json')
+    expect(sentBody(sessions)).toEqual({
+      authorization_code: 'auth-code-1',
+      grant_type: 'authorization_code',
+      client_id: 'orca'
+    })
   })
 
-  // AC5 — `param` 미지정의 기본값.
-  it('code.param 미지정이면 code 라는 이름으로 찾는다', async () => {
-    const sessions = jsonPort('{"data":{"token":"t"}}', 'https://portal.example.corp/home?code=xyz')
+  // AC3 (0196) — 코드는 **URL 어디에도** 없다. `search === ''` 하나로는 코드가 path 에 붙는 변이를
+  // 못 보므로 URL 전체를 함께 본다 — 두 단언이 같은 불변식의 두 면이다. 마지막 줄이 없으면
+  // "코드를 아예 안 싣는다" 는 변이도 앞의 두 줄을 통과한다.
+  it('교환 요청 URL 에 쿼리가 붙지 않고 코드 값도 실리지 않는다', async () => {
+    const sessions = jsonPort(
+      '{"data":{"token":"t"}}',
+      'https://portal.example.corp/home?code=secret-code'
+    )
     await new SessionRunner({ sessions }).login(PROVIDER, spec(exchangeSpec()))
 
-    expect(new URL(sentRequest(sessions).url).searchParams.get('code')).toBe('xyz')
+    const req = sentRequest(sessions)
+    expect(new URL(req.url).search).toBe('')
+    expect(req.url).not.toContain('secret-code')
+    expect(sentBody(sessions)).toEqual({ code: 'secret-code' })
+  })
+
+  // AC4 — final URL 에서 코드를 **꺼낼** 이름 (D-005). ⓐ 미지정 기본값 `'code'` ⓑ 선언한 이름.
+  it('code.param 미지정이면 code 로 찾고, 지정하면 그 이름으로 찾는다', async () => {
+    const byDefault = jsonPort(
+      '{"data":{"token":"t"}}',
+      'https://portal.example.corp/home?code=xyz'
+    )
+    await new SessionRunner({ sessions: byDefault }).login(PROVIDER, spec(exchangeSpec()))
+    expect(sentBody(byDefault)).toEqual({ code: 'xyz' })
+
+    const named = jsonPort('{"data":{"token":"t"}}', 'https://portal.example.corp/home?ticket=abc')
+    await new SessionRunner({ sessions: named }).login(
+      PROVIDER,
+      spec(exchangeSpec({ code: { param: 'ticket' } }))
+    )
+    expect(sentBody(named)).toEqual({ ticket: 'abc' })
+  })
+
+  // AC5 — 본문에서 코드를 **부를** 이름. 미지정이면 유효 `param`, 지정하면 그 이름이고 받은
+  // 이름은 본문에 남지 않는다(`toEqual` 이 그 부재를 센다).
+  it('code.name 미지정이면 본문 키가 유효 param 이고, 지정하면 그 이름 하나만 남는다', async () => {
+    const inherited = jsonPort(
+      '{"data":{"token":"t"}}',
+      'https://portal.example.corp/home?ticket=abc'
+    )
+    await new SessionRunner({ sessions: inherited }).login(
+      PROVIDER,
+      spec(exchangeSpec({ code: { param: 'ticket' } }))
+    )
+    expect(sentBody(inherited)).toEqual({ ticket: 'abc' })
+
+    const renamed = jsonPort(
+      '{"data":{"token":"t"}}',
+      'https://portal.example.corp/home?ticket=abc'
+    )
+    await new SessionRunner({ sessions: renamed }).login(
+      PROVIDER,
+      spec(exchangeSpec({ code: { param: 'ticket', name: 'authorization_code' } }))
+    )
+    expect(sentBody(renamed)).toEqual({ authorization_code: 'abc' })
+  })
+
+  // AC6 (0196) — `params` 에 코드와 **같은 이름**이 있으면 실제 인가 코드가 이긴다. 0195 는 이
+  // 불변식을 주석으로만 갖고 있었다(파생 D2). 전개 순서를 뒤집으면 자리표시자가 실려 실패한다.
+  it('code.params 에 같은 이름이 있어도 final URL 의 코드가 이긴다', async () => {
+    const sessions = jsonPort('{"data":{"token":"t"}}')
+    await new SessionRunner({ sessions }).login(
+      PROVIDER,
+      spec(exchangeSpec({ code: { params: { code: 'PLACEHOLDER', grant_type: 'x' } } }))
+    )
+
+    expect(sentBody(sessions)).toEqual({ code: 'auth-code-1', grant_type: 'x' })
   })
 
   // AC6 — 코드가 없으면 실패다. **쿠키로 떨어지지 않는다** (D-006): 0195 이전에는 코드를 보지도
@@ -195,7 +249,7 @@ describe('SessionRunner — ② 인가 코드로 토큰 교환 (0195)', () => {
     const result = await new SessionRunner({
       sessions,
       logger: (event, data) => void events.push([event, data])
-    }).login(PROVIDER, spec(exchangeSpec({ code: { param: 'ticket', in: 'query' } })))
+    }).login(PROVIDER, spec(exchangeSpec({ code: { param: 'ticket' } })))
 
     expect(result).toMatchObject({ kind: 'failed', reason: 'exchange_failed' })
     expect(sessions.send).not.toHaveBeenCalled()
@@ -213,7 +267,7 @@ describe('SessionRunner — ② 인가 코드로 토큰 교환 (0195)', () => {
     await new SessionRunner({
       sessions,
       logger: (event, data) => void events.push([event, data])
-    }).login(PROVIDER, spec(exchangeSpec({ code: { param: 'ticket', in: 'query' } })))
+    }).login(PROVIDER, spec(exchangeSpec({ code: { param: 'ticket' } })))
 
     expect(JSON.stringify(events)).not.toContain('secret-code')
   })
@@ -285,6 +339,17 @@ describe('SessionRunner — ② 인가 코드로 토큰 교환 (0195)', () => {
       [
         '경로에 값 없음',
         { send: vi.fn(async () => ({ status: 200, headers: {}, body: '{"other":1}' })) }
+      ],
+      // 전송 예외 — `getJson` 의 catch 가 잡아 사유로 접는다. whoami 쪽에는 이 갈래의 케이스가
+      // 있었지만 교환 쪽에는 없었다(0196 구현 턴 발견): 예외가 그대로 새면 로그인 호출부가
+      // reject 되어 `exchange_failed` 가 아니라 처리되지 않은 예외가 된다.
+      [
+        '전송 실패',
+        {
+          send: vi.fn(async () => {
+            throw new Error('네트워크 끊김')
+          })
+        }
       ]
     ]
     for (const [label, overrides] of cases) {
@@ -293,6 +358,9 @@ describe('SessionRunner — ② 인가 코드로 토큰 교환 (0195)', () => {
         spec(exchangeSpec())
       )
       expect(result, label).toMatchObject({ kind: 'failed', reason: 'exchange_failed' })
+      if (label === '전송 실패') {
+        expect(result).toMatchObject({ message: '네트워크 끊김' })
+      }
     }
   })
 })

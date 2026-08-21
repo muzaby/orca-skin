@@ -10,6 +10,13 @@
 | 매핑 | — |
 | 상태 | verify/PASS (r1) |
 
+> **이 문서의 교환 요청 계약은 [`0196-session-exchange-json-request`](../0196-session-exchange-json-request/plan.md)
+> 가 정정했다.** 요구 ② 의 "code 쿼리" 는 final URL 에서 코드를 **추출**한다는 뜻이었고(0196 D-008)
+> 교환 **요청**의 형상 지시가 아니었다 — 그 오독으로 생긴 `D-002`(형상은 선언이 정한다)는
+> **SUPERSEDED** 다. 요청은 `POST` + `application/json` 고정이며 `code.in`·`method` 두 필드는
+> 삭제됐다(0196 D-009·D-010). **r1 의 PASS 판정 자체는 그대로 유효하다** — 정정된 것은 통과
+> 여부가 아니라 그때의 요구 해석이다. 나머지 결정(D-001·D-003~D-007)은 전건 ACTIVE 승계다.
+
 # Part I — Product & UX Contract
 
 ## 1. Context / 목표

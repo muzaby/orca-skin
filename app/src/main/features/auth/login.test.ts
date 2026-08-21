@@ -1262,7 +1262,7 @@ function ssoExchangeGate(): AuthDefinition {
           exchange: {
             path: '/api/token',
             valuePath: 'access_token',
-            code: { in: 'query' },
+            code: {},
             present: EXCHANGE_PRESENT
           }
         }
