@@ -1008,3 +1008,80 @@ r6 은 여섯 라운드 만에 **계측 축이 닫힌** 라운드다. 코퍼스 
 - electron 바이너리 부재 — r1~r6 동일 서명. 환경.
 - 자기 검증 겹수(설계·구현·검증·review 전부 Claude Code).
 
+
+# Round 13 — 0194 (라운드 3, AC18 3연속 · 지점 과소계수 4연속)
+
+## 발견 — 저작자와 채점자가 같으면 그 행은 아무도 안 본다
+
+r3 의 두 실패는 같은 문장이다. **구현자가 규범 행을 쓰고 같은 턴에 그 행에 자기 합격을 매겼다.**
+
+| 자리 | 구현자가 쓴 것 | 실제 | 누가 잡았나 |
+|---|---|---|---|
+| AC18 | "부팅 방송은 `1 + K + 1` 이다" | 첫 항이 조건부 — `probeTargets.length > 0` 일 때만 | verify r3 (`auth-resume.test.ts:750` 이 `1` 을 단언) |
+| §10 신설 행 | 지점 수 `1` → `1/1` 보고 | 형제 조립 지점 셋 (`login.ts:605`·`:783`·`:840`) | verify r3 (`GrantBase` 에 필드를 심어 깨진 좌표가 하나뿐임을 실측) |
+
+최초 작성은 `plan §5 AC 게이트` + READY self-review 를 통과하는데 **정정은 어느 게이트도 통과하지
+않는다.** 한 커밋에 섞인 것이 이것을 가렸다 — r3 은 AC 정정과 구현을 `3371df2` 하나에 담았고,
+verify §0 의 기준선 잠금이 이번 라운드에 작동하지 않았다.
+
+**A (coverage gap).** `handoff-plan` 마무리에 커밋 분리 규칙이 이미 있었으나 발동 조건이
+**`plan/READY` 커밋**으로만 적혀 verify/FAIL 후 정정에 걸리지 않았고, `handoff-impl` 에는 아예
+없어 정정을 실제로 수행하는 구현자가 읽지 못한다. *형제 지점을 못 찾은 것 자체는 **B** —
+`impl §5.2` 가 이미 전수 검색을 지시한다. 같은 문장을 반복하지 않고 evidence 요구만 더했다.*
+
+## 조치 — 추가 0 · REPLACE 3 · 미러 2 · 어휘 1
+
+| 사이트 | 판정 | 내용 |
+|---|---|---|
+| `handoff-plan/SKILL.md` 마무리 | REPLACE | 발동 조건 `plan/READY 커밋` → **`plan 의 규범 행(Decision·AC·§10)을 바꾸는 커밋`** |
+| `handoff-plan/SKILL.md` §verify/FAIL 후 갱신 | REPLACE | 고쳐 쓴 AC 행은 **§5 AC 게이트 + READY self-review 의 AC 항목을 다시 통과**시킨다 |
+| `handoff-impl/SKILL.md` §2 | REPLACE | 구현자가 §10 에 행을 신설하면 **지점 수도 전수 검색으로 세고 검색 명령을 적는다** |
+| `handoff-impl/SKILL.md` §6 · `docs/handoff/AGENTS.md` §2 | 미러 | 승인받은 규범 행 정정은 구현과 다른 커밋 (정본은 plan SKILL) |
+| root `AGENTS.md` · `docs/git-template.md` | 어휘 추가 | `Status: designed` — 설계 전용 커밋이 자기를 정확히 말한다 (사용자 선택. verify 0194 r1 §11 이 review 로 넘긴 항목) |
+| `failure-patterns.corpus.md` | 신설 | **P42** — 저작자=채점자. P24(승인 없이 재작성)·P41(도구가 전수 정의)과 다른 causal class |
+
+## Tier 판정
+
+**Tier 1** — trigger(커밋 분리 발동 조건)·evidence(신설 행의 분모)·게이트 적용 범위(정정 AC)가
+바뀐다. `Status: designed` 는 같은 커밋에 실렸으므로 함께 Tier 1 로 다룬다.
+
+## 6-A Operational Instruction Delta
+
+- **regression 0** — 삭제 줄 **1건**뿐이고 REPLACE 다. DELETE 0 · MOVE 0.
+- 구 문장(`plan/READY 커밋은 구현 산출과…`) semantic target **4/4 KEEP** — READY 커밋 명시 ·
+  verify §0 이유절 · 설계자=구현자 적용 · 0189 r1 근거. `AC를 고쳤는지` → `기준을 고쳤는지` 로
+  **넓혔고** 좁히지 않았다.
+- `Status` 는 기존 4값의 의미·소비자 무변경이고 값 1개 **추가**뿐이다.
+- 게이트·명령·CI·`plan.template.md`·`verify.template.md`·`handoff-verify/SKILL.md` **diff 0**.
+
+## 6-B Historical Failure Regression
+
+- **42 P 전수**(P42 포함) · 변경 전 COVERED → 변경 후 **PARTIAL/GAP 0**. 변경이 순수 강화라
+  방어 약화 경로가 없다.
+- corpus 가 이름 붙여 가리키는 앵커 **12/12 resolve** — `plan §10`·`§11` 은 SKILL 이 아니라
+  `plan.template.md:197`·`:207` 로 해석된다.
+- `Status: designed` 는 **어휘 추가**라 6-B 방어 약화 경로가 없다 — 기존 4값을 소비하는 규칙
+  (구현 커밋 판별 · 검증 커밋 판별)이 그대로다. 전수는 위와 같은 패스에서 함께 확인했다.
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 커밋 분리 규칙 사이트 **3**(정본 `handoff-plan/SKILL.md` + 미러 `handoff-impl §6` ·
+  `docs/handoff/AGENTS.md §2`). root `AGENTS.md` 는 이 규칙을 **재서술하지 않는다**(사본 0).
+- `Status` 정본 **2곳이 같은 값** — `AGENTS.md:74` · `docs/git-template.md:62`. 사용 규칙도 양쪽에
+  설계 커밋 줄이 있다.
+- `git-template.md` 의 파싱 규칙 문장을 **두 갈래 → 세 갈래**로 고쳤다 — 값 추가가 그 문장을
+  낡게 만들었고, 같은 커밋에서 닫았다.
+- owner 분리 유지 — 구현자가 정정을 **제안·수행**하고, verify §0 이 **기준선이 diff 로
+  성립하는지 다시 본다**. `Handoff: none` 카브아웃 무변경.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md` 없음.
+
+## review 기록 정책
+
+`round13-review.md` 를 만들지 않았다 — 압축으로 잃는 rationale 이 없고 사용자 보존 요구도 없었다.
+
+## 지침으로 해결할 수 없는 한계
+
+- **자기 검증 겹수** — 0194 는 설계·구현·검증·review 가 전부 같은 에이전트다. r3 의 두 실패는
+  둘 다 "같은 턴 안에서 자기 산출을 자기가 채점" 이 원인이고, 커밋 분리는 그것을 *관측 가능하게*
+  만들 뿐 없애지 못한다.
+- electron 바이너리 부재 — 0194 r1~r3 동일 서명. 환경.
