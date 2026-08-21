@@ -1127,7 +1127,7 @@ self-register` ×6 · `Electron failed to install` ×1.
 | 9 | `compact` 인자 시그니처 | 1/1 | `obj.ts:48` `source: CompactSource<T>` | `rg -n "source: CompactSource<T>" app/src/shared/obj.ts` |
 | 10 | `resuming` 파생 | 3/3 | `bootstrap.ts:367` · `app/handlers/providers.ts:47` · `rootFrame.ts:36` | `rg -n "resuming" app/src/main/app/bootstrap.ts app/src/main/app/handlers/providers.ts app/src/renderer/src/app/rootFrame.ts` |
 | 11 | `remainingSettled` 는 `finally` | 1/1 | `auth-resume.ts:216` (`:213` 이 `} finally {`) | `sed -n '213,219p' app/src/main/app/auth-resume.ts` |
-| 12 | 판정·상태의 문서 사본 | 2/2 | `plan.md:11` 메타 `→ IMPL_DONE (r5)` · `INDEX.md:21` 행 `` `IMPL_DONE` (r5) `` | `rg -n "IMPL_DONE \(r5\)" docs/handoff/INDEX.md docs/handoff/0194-*/plan.md` |
+| 12 | 판정·상태의 문서 사본 | 2/2 | `plan.md:11` 메타 `→ IMPL_DONE (r5)` · `INDEX.md:21` 행 `` `IMPL_DONE` (r5) `` | `rg -n 'IMPL_DONE.*\(r5\)' docs/handoff/INDEX.md docs/handoff/0194-*/plan.md` → **3줄 / 2파일** (INDEX 는 `` **`IMPL_DONE`** `` 라 백틱을 건너뛰는 패턴이어야 잡힌다) |
 
 - **합계 검산**: 2+1+2+1+1+2+1+6+1+3+1+2 = **23**. plan 기재 23 ∖ 닫힌 23 = **0** · 닫힌 23 ∖
   plan 23 = **0**. r4 의 20 과 직접 비교하지 않는다 — 8행이 `3→6` 으로 정정됐다(20 − 3 + 6 = 23).
@@ -1146,6 +1146,9 @@ self-register` ×6 · `Electron failed to install` ×1.
 | MV-4 batch push 를 무조건으로(`probeTargets.length > 0` 제거) | AC18 의 `P` 항 | `auth-resume.test.ts` **3 실패**, 그중 상한 describe 의 `P=0·K=0` 케이스 | ✅ 개명한 describe 가 여전히 `P` 를 증명한다 |
 
 - 넷 다 원복했다. 확인: `git status --short` 에 `contracts/auth.ts`·`auth-resume.ts` 가 없다.
+- **재현 명령 자신도 눈 검사 대상이었다.** 12행의 첫 명령(`"IMPL_DONE \(r5\)"`)은 plan.md 2줄만
+  냈다 — INDEX 행이 `` **`IMPL_DONE`** (r5) `` 라 백틱 사이를 건너뛴다. 사본은 실제로 둘 다
+  갱신돼 있었고 **틀린 것은 관측 명령**이었다. 백틱을 넘는 패턴으로 바꿔 3줄 / 2파일을 확인했다.
 - **MV-1 이 증명하는 것은 집합 *안*의 감도다.** 집합의 완전성은 위 술어 분류(22건 → 6/12/3/1)가 진다 —
   r4 는 술어가 `compact<` 라 `3/3` 과 "표 밖 0건" 이 함께 참이었다.
 
