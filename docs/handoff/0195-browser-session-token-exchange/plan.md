@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-21 |
 | 매핑 | — |
-| 상태 | IMPL_DONE (r1) |
+| 상태 | verify/PASS (r1) |
 
 # Part I — Product & UX Contract
 
@@ -573,6 +573,18 @@ plan §7 은 AC13 을 `auth-resume.test.ts` 방송 상한 describe 에 두라고
 
 ## [검증자 기입] 파생 이슈
 
+**r1 = PASS.** 판정 원문은 [`verify.md`](verify.md). 아래는 그 §13 이관분이며 **전부 가드·문서
+공백이고 프로덕션 결함이 아니다** — D1~D4 는 한 축이다: *코드 주석이 불변식을 선언했는데 케이스가
+없다*. §10 은 계약 필드의 강제 지점을 열거하지만 구현이 주석으로 새로 선언한 불변식은 어느 표에도
+들어가지 않는다.
+
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| | | | | |
+| D1 | `authenticationReturned` 의 값형 면제가 전수 무테스트 — 가드를 지워도 전체 2056케이스 0 실패. 동명 테스트의 체인이 `definition.origin` 안에서 끝나 항진명제다 | verify §5-b 변이 M-D | `redirectOrigins` 가 값형에 대해 넓어지는 케이스를 세우거나, 테스트 이름을 실제 단언에 맞춘다 | 후속 |
+| D2 | `exchangeRequest` 의 "겹치면 코드가 이긴다"(`runner.ts:243` 주석)가 무테스트 — 전개 순서를 뒤집어도 0 실패 | verify §5-b 변이 M-G | `code.params` 에 같은 이름을 넣은 케이스 1건 | 후속 |
+| D3 | `pickSecretPath` 의 빈 문자열 거부가 무테스트 — 형제 `pickUrlParam` 은 `?code=` 로 그 축을 잠갔다 | verify §3 형제 비대칭 | `refreshTokenPath` 가 `""` 를 가리키는 케이스 1건 | 후속 |
+| D4 | `no-cookie-token.test.ts` 의 `stripCommentsAndStrings` **배선**이 무테스트 — 함수는 잠겼으나 `offendersIn` 에서 떼도 0 실패 | verify §5-b 변이 G3 | 실패 방향이 fail-loud 라 위험도 낮음. 임시 트리 케이스에 주석 파일 1건 추가 | 후속 |
+| D5 | `docs/arch/backend/auth.md` 347·349행에 `---` 2개 연속 — §4.6 신설이 넣은 구분선이 기존 것과 겹쳤다 | verify §13 | 한 줄 삭제 | 후속(트리비얼) |
+| D6 | `SessionRunner.getJson` 이 `checkRequestPath` 를 지나지 않는다 — `exchange.path`·`whoami.path` 에 절대 URL 을 적으면 세션 쿠키가 origin 밖으로 나간다. **선행 결함**(0181/0182)이나 0195 가 같은 요청에 인가 코드를 실으면서 노출이 넓어졌다 | verify §13 | 등록 검사 또는 `getJson` 진입에 `checkRequestPath` 를 건다 | 후속(설계 필요) |
+| D7 | INDEX 비고 631자·6문장 — `docs/handoff/AGENTS.md §산출물 문장 규칙 3` 의 5줄 상한 초과 | verify §11 | verify 갱신에서 줄였다 | **해소** |
+| D8 | §7 AC13 행의 `검증 수단` 칸이 `auth-resume.test.ts` 를 지목하나 실제 위치는 `login.test.ts` 다. 구현자 제안이 타당하다(그 파일의 fake 는 요청 경로를 갖지 않는다) | 구현 보고 §설계 대비 차이 | **규범 행 정정 — 설계 커밋으로** | 대기 |
