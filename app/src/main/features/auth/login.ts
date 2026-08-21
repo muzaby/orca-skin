@@ -35,7 +35,11 @@ import type { CandidateCredential } from './authenticated-request'
 import { isAllowedOrigin } from './policy'
 import type { AuthRegistry } from './registry'
 import { vaultKeysOf, type AuthStore } from './store'
-import { ifPresent } from '../../../shared/obj'
+import { compact, ifPresent } from '../../../shared/obj'
+
+// `Grant` 의 token 갈래. `tokenCandidate` 의 필드 규칙이 **전 필드를 요구**하는 대상이다 —
+// `Grant` 에 필드가 늘면 그 리터럴에서 컴파일이 깨진다(0194 r3).
+type TokenGrant = Extract<Grant, { kind: 'token' }>
 
 // 방식 실행기가 돌려주는 원자재. grant 로 접는 것은 이 파일의 몫이다 — 실행기는 vault 를 모른다.
 export type AuthResult =
@@ -400,7 +404,7 @@ export class LoginService {
             // 만료만 늘려 주는 서버가 있다.
             ...ifPresent('refreshExpiresAt', token.refreshExpiresAt ?? grant.refreshExpiresAt)
           }
-    const { candidate, writeVault } = this.tokenCandidate(authId, 'oauth', carried)
+    const { candidate, writeVault } = this.tokenCandidate(authId, 'oauth', carried, grant)
     const outcome = await this.settleGrant(definition, attempt, candidate, writeVault)
     this.deps.logger?.('auth.refresh.result', { authId, outcome: outcome.kind })
     // superseded 는 실패가 아니다 — 사용자의 새 시도가 이미 이겼으므로 회복은 그 자리에서
@@ -814,7 +818,8 @@ export class LoginService {
   private tokenCandidate(
     authId: AuthId,
     authKind: AuthMethodKind,
-    token: TokenValue
+    token: TokenValue,
+    previous?: Grant
   ): { candidate: CandidateCredential; writeVault: () => void } {
     const vaultKey = this.newVaultKey(authId, authKind)
     const createdAt = this.clock()
@@ -822,24 +827,32 @@ export class LoginService {
       token.refreshToken !== undefined
         ? versionedVaultKey(providerRefreshKey(authId, authKind), this.newVersion())
         : undefined
+    // ── 새 grant 의 **필드 규칙** — 필드마다 한 줄, 빠짐없이 (0194 r3) ───────────────
+    //
+    // 옛 구조는 빈 객체에 `...ifPresent()` 를 쌓아 올렸다. 그래서 **응답이 말하지 않은 필드는
+    // 조용히 사라졌다** — D1(`refreshToken`)·D7(`principalId`)이 같은 문장의 다른 필드였다.
+    // 여기서는 `compact` 의 인자 타입이 전 필드를 요구하므로, `Grant` 에 필드를 더하면
+    // **이 리터럴에서 컴파일이 깨진다**. 규칙을 못 적고 지나갈 자리가 없다.
+    //
+    // `previous` 는 **갱신(`refresh`)만** 넘긴다. 최초 로그인·재인증(`absorbToken`)은 새 인가라
+    // 옛 자격증명의 어떤 값도 물려받지 않는다(D-014 의 "갱신 경로에만" 이 호출부로 지켜진다).
+    const grant = compact<TokenGrant>({
+      kind: 'token',
+      vaultKey,
+      authKind,
+      createdAt,
+      // **응답 전용 — 승계 금지.** `markExpired` 가 강등 시점에 `expiresAt` 을 `now` 로 못 박으므로
+      // (`store.ts`), 그 지난 값을 새 access token 에 물리면 갱신 직후 만료 상태로 태어난다.
+      expiresAt: token.expiresAt,
+      refreshKey,
+      // refresh 키가 없으면 그 만료도 의미가 없다 — 짝으로만 싣는다. 미회전 응답의 옛 만료 승계는
+      // `refresh` 가 `token` 을 정규화하며 이미 끝냈다(D-014).
+      refreshExpiresAt: refreshKey !== undefined ? token.refreshExpiresAt : undefined,
+      // **승계** — 계정 신원은 갱신으로 바뀌지 않는다. 응답이 다시 말하면 그것이 이긴다.
+      principalId: token.principalId ?? previous?.principalId
+    })
     return {
-      candidate: {
-        grant: {
-          kind: 'token',
-          vaultKey,
-          authKind,
-          createdAt,
-          ...ifPresent('expiresAt', token.expiresAt),
-          ...ifPresent('refreshKey', refreshKey),
-          // refresh 키가 없으면 그 만료도 의미가 없다 — 짝으로만 싣는다.
-          ...ifPresent(
-            'refreshExpiresAt',
-            refreshKey !== undefined ? token.refreshExpiresAt : undefined
-          ),
-          ...ifPresent('principalId', token.principalId)
-        },
-        secret: token.token
-      },
+      candidate: { grant, secret: token.token },
       // access·refresh 를 **둘 다 새 키에** 쓴다. 어느 쪽이 실패해도 아직 grant 가 가리키지 않는
       // 자리이므로 옛 access/refresh 쌍은 통째로 그대로 살아 있다 — r6 의 `new-access +
       // old-refresh` 혼합 상태가 만들어질 자리가 없다.

@@ -394,6 +394,13 @@ refresh token 이 없으면 **보내던 값을 그대로 다음 세대 키에 �
 전제하므로, 옛 키를 공유하면 그 정리가 살아 있는 grant 의 refresh 자리를 지운다. 이 승계는 **갱신
 경로에만** 있다: 최초 로그인·재인증은 새 인가라 옛 refresh token 이 다른 계보다.
 
+**갱신 커밋의 필드 규칙**: 갱신은 grant 를 응답에서 새로 조립하지 않고 **옛 grant 에 대한 delta**
+로 만든다 — 응답이 말하지 않은 필드가 조용히 사라지지 않게 하기 위함이다. 규칙은 필드마다 하나다:
+`principalId` 는 승계(계정 신원은 갱신으로 바뀌지 않는다) · `refreshToken`·`refreshExpiresAt` 은
+위 승계 규칙 · **`expiresAt` 은 응답 전용**(강등이 옛 값을 `now` 로 못 박으므로 승계하면 갱신 직후
+만료로 태어난다). 규칙을 적는 자리는 `features/auth/login.ts` 의 조립 리터럴 하나이고, `Grant` 에
+필드가 늘면 거기서 컴파일이 깨진다.
+
 **대기 화면** (0194): 게이트 통과부터 위 전부가 끝날 때까지 renderer 는 메인 셸을 띄우지 않는다.
 `ProviderPlatformState.resuming` 이 그 신호이고, 값은 `app/auth-resume.ts` 가 **파생**한다
 (`!배치종료 && gateOpen()`). 별도 플래그를 두면 방송 구독자와 배치 시작 구독자의 등록 순서에 정답이

@@ -14,3 +14,18 @@ export function ifPresent<K extends string, V>(
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
+
+// `undefined`/`null` 인 키를 지운다 — `ifPresent` 의 복수형이다. semantics 는 같다(`!= null`):
+// 0·'' 는 유지한다.
+//
+// **인자 타입이 전 필드를 요구한다** (`Record<keyof T, unknown>` 이 존재를, `Partial<T>` 가 타입을
+// 본다). 그래서 조립 대상 타입에 필드가 늘면 호출부 리터럴에서 컴파일이 깨진다 — "안 적어서
+// 조용히 사라지는" 결함(0194 D1 `refreshToken`·D7 `principalId`)을 타입이 잡게 하는 것이 이
+// 함수의 존재 이유다. `ifPresent` 누적은 그 자리를 만들지 못한다.
+export function compact<T extends object>(source: Record<keyof T, unknown> & Partial<T>): T {
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(source)) {
+    if (value != null) out[key] = value
+  }
+  return out as T
+}
