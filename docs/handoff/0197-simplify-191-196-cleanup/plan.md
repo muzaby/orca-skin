@@ -470,56 +470,82 @@ SP final URL → urlParams → exchangeFields → getJson → sessions.send
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- **동의 / 그대로 진행**: A(재사용 6) · B(단순화 9) · C(명명 11) · D(계약·로그 3) 전부 설계대로.
+- **이견 / 현실성 문제**: **AC7 의 검증 수단이 실행 불가능하다.** §7 AC7 은 "변이: `bootstrap.ts` 의
+  공유 클로저를 한쪽에서 `false` 리터럴로 바꿈 → 그 테스트 실패" 를 요구하는데, `bootstrap.ts` 는
+  electron 을 물어 vitest 대상이 아니다 — `deployment-wiring.test.ts:15` 가 그 사실을 명시한다
+  ("`bootstrap.ts` 자체는 electron 을 물어 vitest 대상이 아니다"). §6 가운데 갈래로 올린다.
+- **ACTIVE Decision과 충돌하는 설계 발견**: 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|
-| … | … | … | … | … |
+| `Grant` 필드 전수 조립 | 조립 6 (`login.ts` 3 · `store-parse.ts` 3) | **6/6** | `GrantBase` 에 `mutantProbe: number` 심고 `tsc -p tsconfig.node.json` → 좌표 6건 전부 보고: `login.ts(618,798,859)` · `store-parse.ts(50,61,75)`. 되돌린 뒤 `error TS` **0** | — |
+| `TokenValue` 필드 전수 조립 | 1 (`runner.ts` 교환) | **1/1** | `TokenValue` 에 **선택** 필드 `mutantProbe?: number` 심음 → `runner.ts(225,39) TS2345`. **선택 필드가 판정 지점이다** — 필수 필드는 개명 전 `ifPresent` 판에서도 깨져 변이가 변별력이 없다(`git show 9f13533:…/runner.ts` 의 `: TokenValue = { …ifPresent }` 로 확인) | — |
+| `SessionTokenExchange` 필수 3 | 배포 선언 작성 시점 | **3/3** | `path`·`code`·`present` 필수 유지 · 선택 4 유지. 옛 철자 대입은 `TS2353` 으로 거부됨(테스트 12건이 실제로 그렇게 깨져 고쳤다) | — |
+| URL 파라미터 추출 규칙 | 공유 lookup 1 (소비자 2) | **2/2** | fragment 폴백 제거 변이 → `oauth.test.ts` "query 와 fragment 를 모두 본다" + `runner.test.ts` "final URL 의 파라미터는 쿼리와 프래그먼트를 모두 본다" **양쪽** 실패(2 failed / 50 passed). 되돌리면 52 passed | — |
+| 빈 문자열 정책(갈래별) | 2 (`parseCallbackUrl` 유지 · `pickUrlParam` 배제) | **2/2** | 위 되돌림 후 두 스위트 52/52 green — 공유 조각이 `string \| null` lookup 이라 정책이 각자 유지됨 | — |
+| 위생 스캐너 판정 지점 | 3 (대상 집합 · 주석/문자열 · posix) | **2/3** | ① `.test.ts` 제외 삭제 → 3 failed ② 재귀 삭제 → 1 failed ③ `stripCommentsAndStrings` 항등화 → 2 failed. 각 변이 후 되돌려 7/7 green | **posix 축**: linux 는 `sep === '/'` 라 변이해도 산출이 같다 — **이 환경에서 심을 수 없다**(windows CI 전용 축) |
+| 로그 필드 철자(코드+문서 2사본) | 2 | **2/2** | 새 철자 5개 각각 `app/src` ≥1 **그리고** `docs/arch docs/guides` ≥1 (표는 아래 구현 보고) | — |
+| `resuming` 값의 일치 | 2 (invoke · push) | **1/2** | invoke 축: `providers.test.ts` "첫 스냅샷에도 복원 진행 여부를 싣는다" 3/3 green. 구조: `bootstrap.ts` 에서 `const resuming` 정의 1(`:368`)·사용 2(`:370`·`:391`) | **bootstrap 축 변이 불가** — electron 의존, vitest 대상 아님(위 설계 리뷰) |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+- **§10에 없는데 같은 불변식이 필요했던 지점**: 없음.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | **해당 없음** — 새 문구 0. `BootScreen` 은 prop 이름만 바뀌고 i18n 키(`boot.resumingLabel` 등)는 그대로다 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | **새 실패 경로 0.** 제어 흐름을 만들지도 없애지도 않았다 | — |
+| 실패가 화면에서 "아무 일도 안 일어남" 으로 보이지 않는가 | 해당 없음(동작 불변) | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 — attempt 세대·`isDemoted` 재읽기 구조를 건드리지 않았다 | — |
+| **배포자가 보는 것이 달라지는가** | **예** — 계약 필드 철자 3+1. 옛 선언은 `TS2353` 으로 **빌드에서 즉시** 깨진다(조용히 무시되지 않는다) | 가이드·`auth.md` 동반 갱신 완료 |
+| **운영자가 보는 것이 달라지는가** | **예** — 로그 키 `returned` → `returnedToOrigin`. 이미 쌓인 JSONL 은 옛 키를 갖는다 | 비가역. §17 에 기록됨 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | **AC7 의 변이 수단이 존재하지 않는다** — `bootstrap.ts` 는 vitest 대상이 아니다 | 📝 **plan 수정 제안**: AC7 의 검증 수단을 ⓐ `providers.test.ts`(invoke 축, 실재·green) + ⓑ `bootstrap.ts` 의 `resuming` 정의 1·사용 2 구조 관측으로 바꾸고, "bootstrap 축은 사람/CI 실기" 로 명시한다 | `deployment-wiring.test.ts:15` · `grep -n resuming src/main/app/bootstrap.ts` |
+| 2 | **AC2 의 변이가 변별력이 없었다** — 필수 필드는 개명 전 `ifPresent` 판에서도 컴파일이 깨진다 | ✅ 선조치: 변이를 **선택 필드**로 바꿔 재실행. 0197 A-2 가 막는 것은 *선택* 필드의 조용한 누락이므로 그것이 옳은 판정 지점이다 | `git show 9f13533:…/runner.ts` 의 옛 조립 |
+| 3 | 위생 스캐너의 **posix 축은 linux 에서 심을 수 없다**(`sep === '/'`) | ⚠️ 보고만 — 그 축의 실제 판정자는 windows CI 다 | `node:path` `sep` |
+| 4 | **`doc-gate.sh check` 가 시제 축에서 실패한다** — `envKey` 사이트가 baseline `:390` 인데 실제 `:438` | ⚠️ 보고만 — **선재 실패**다. 내 변경을 `git stash` 한 트리에서 **바이트 동일한 출력**을 확인했다. `docs/handoff/0192-*/baselines/` 는 다른 handoff 의 산출물이고 D-007 범위 밖이라 고치지 않았다 | 아래 구현 보고 |
+| 5 | 일괄 정규식 치환이 무관한 `name:`·`valuePath:` 를 건드렸다(`Presentation.name`·`SessionLookup.valuePath`) | ✅ 선조치: 세 테스트 파일을 `git checkout` 으로 되돌리고 **좌표 지정**으로 재적용. plan §손댈 파일의 "무분별한 치환 금지" 가 예고한 자리다 | typecheck 16 error → 0 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- **`auth-definitions.ts` 경고 블록을 고치지 않았다.** plan §11·§18 이 대상으로 적었으나, 실제로
+  그 블록은 `config.exchange.path`·`code`·`present` 만 언급하고 개명 대상 철자를 담고 있지
+  않다(`grep -n "config.exchange" -A 4`). 고칠 것이 없어 건드리지 않았다.
+- 그 밖에는 plan 그대로다.
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| 관측한 게이트 산출 | … |
-| 강제 지점 전수 | … |
-| AC 자기보고 | … |
-| 합계 검산 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | … |
+| 변경 파일 | 22 modified + 2 new (`features/auth/url-params.ts` · `infra/source-scan.ts`). `+266/−263` |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node scripts/check-doc-inventory.mjs --check` · `doc-gate.sh check` |
+| **관측한 게이트 산출** | **lint** 0 error · 1 warning(`useTranscriptVirtualizer.ts` — 미변경 파일, 선재). **typecheck** 3분할 전부 `error TS` **0**. **vitest** `Test Files 5 failed \| 202 passed (207)` · `Tests 42 failed \| 2017 passed (2059)`. **doc-inventory** 3축 ok(exit 0). **doc-gate** 심볼 미분류 0·잔류 0 / 경로 미등재 0·잔류 0 / **시제 미판정 1·잔류 1 → exit 1 (선재)** |
+| 환경 기인 실패 분리 | 5파일 42케이스 전부 `Module did not self-register: better_sqlite3.node` — `app/AGENTS.md` 가 예고한 실측 5파일(`chat-turn.continuity`·`extensions/builder`·`orchestration/fork`·`db/migrate`·`db/queries`)과 **일치**. 변경 전 베이스라인과 동일 |
+| 회귀 판정 | 베이스라인 `202 passed (207)` · `2016 passed (2058)` → 현재 `202 passed (207)` · `2017 passed (2059)`. **+1 은 이번에 추가한 AC2 키집합 테스트**, 실패 집합 불변 |
+| 강제 지점 전수 | **6/8 완전 · 2/8 부분** — posix 축(linux 에서 변이 불가) · bootstrap 축(vitest 대상 아님) |
+| **AC 자기보고** | AC1 ✅(변이 6/6 좌표) · AC2 ✅(선택 필드 변이 → `runner.ts(225,39)`) · AC3 ✅(양쪽 스위트 동시 실패→52/52 복원) · AC4 ⚠️(판정 3지점 중 2개 검증, posix 는 linux 에서 심을 수 없음) · AC5 ✅(`runner.test.ts` 의 `toHaveBeenCalledWith` 가 **수정 없이** 통과 — whoami `method:'GET'`+content-type 부재 단언 이미 실재) · AC6 ✅(`'loading'` 2건이 `TS2322` 로 먼저 깨짐 → `'running'` 으로 고친 뒤 9케이스 green) · AC7 ⚠️(invoke 축 green, bootstrap 축 변이 불가) · AC8 ✅(옛 철자 7종 전부 0건, `valuePath` 는 `SessionLookup` 만 잔존) · AC9 ✅(필수 3·선택 4 유지) · AC10 ✅(옛 철자 대입이 실제로 `TS2353` 12건) · AC11 ✅(새 철자 5개 양쪽 ≥1 — `urlParam` 23/8 · `bodyField` 7/3 · `extraFields` 10/4 · `accessTokenPath` 6/3 · `returnedToOrigin` 6/2) · AC12 ✅ |
+| **합계 검산** | **✅ 10 · ⚠️ 2 · ❌ 0 = 총 12** — 분모 12 는 §7 표를 다시 세었다(AC1~AC12, 분할·추가 없음) |
+| 블로커 / 역질문 | 없음. AC4·AC7 의 ⚠️ 는 **환경 한계**(linux `sep` · electron 의존)이지 미구현이 아니다 |
+| 대상 커밋 | `51a79ec` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드 수: …
+- **이번에 닫은 불변식이 이전 라운드와 같은 축인가**: 예 — `compact` 전수 조립은 0194 r3→r4 가
+  두 라운드에 걸쳐 연 축이고, 이번에 `TokenValue`(7번째 조립부)가 같은 축에서 나왔다.
+- **그것을 막았어야 할 plan 지침·AC가 있었는가**: 0194 의 강제 지점 표가 `Grant` 조립만 세었다.
+  술어가 `compact<`(해법 이름)였고 `TokenValue` 는 그 집합 밖이라 분모에 오르지 않았다 —
+  `handoff-impl §2` 가 경고하는 바로 그 형태다.
+- **반복해서 부딪히는 환경 한계**: ① better-sqlite3 ABI(5파일 고정) ② `bootstrap.ts` 가 vitest
+  대상이 아니라 컴포지션 배선의 변이 검증이 매번 구조 관측으로 대체된다 ③ posix 축은 linux 에서
+  심을 수 없다.
+- **현재 라운드 수**: 1
 
 ---
 
