@@ -8,10 +8,10 @@
 //
 // 파일 어댑터는 `store-file.ts`, `Grant` 는 contracts 타입이다.
 
-import { compact, isRecord } from '../../../shared/obj'
+import { asNumber, asString, compact, isRecord } from '../../../shared/obj'
 import type { ProviderAuthKind } from '../../../shared/ipc'
 import { ProviderAuthKindSchema } from '../../../shared/protocol'
-import type { Grant } from '../../contracts/auth'
+import type { Grant, SecretGrant, SessionGrant, TokenGrant } from '../../contracts/auth'
 import type { PendingAuthorization } from './oauth'
 
 // 방식 목록의 정본은 wire 스키마다 (0190). 0188 은 같은 5개를 여기 다시 적었는데, 그 목록은
@@ -20,15 +20,6 @@ import type { PendingAuthorization } from './oauth'
 function isAuthKind(value: unknown): value is ProviderAuthKind {
   return ProviderAuthKindSchema.safeParse(value).success
 }
-
-type SecretGrant = Extract<Grant, { kind: 'secret' }>
-type TokenGrant = Extract<Grant, { kind: 'token' }>
-type SessionGrant = Extract<Grant, { kind: 'session' }>
-
-const numberOr = (value: unknown): number | undefined =>
-  typeof value === 'number' ? value : undefined
-const stringOr = (value: unknown): string | undefined =>
-  typeof value === 'string' ? value : undefined
 
 // grant 조립은 **읽는 쪽에서도** 필드를 빠뜨릴 수 없다 (0194 r5).
 //
@@ -47,11 +38,11 @@ function parseGrant(raw: unknown): Grant | null {
   if (typeof record.createdAt !== 'number') return null
   const authKind = record.authKind
   const createdAt = record.createdAt
-  const principalId = stringOr(record.principalId)
+  const principalId = asString(record.principalId)
   // **만료는 갈래를 가리지 않는다.** 값형·세션 grant 는 발급 시점에 만료를 선언하지 않지만,
   // 401 관측과 시계 경과가 `markExpired` 로 어느 갈래에든 `expiresAt` 을 못 박고(`store.ts`)
   // `status()` 는 그 값만 보고 `expired` 를 낸다.
-  const expiresAt = numberOr(record.expiresAt)
+  const expiresAt = asNumber(record.expiresAt)
   switch (record.kind) {
     // 필드 규칙 — 필드마다 한 줄, 빠짐없이 (`login.ts` 의 조립 3지점과 같은 형식).
     case 'secret': {
@@ -74,8 +65,8 @@ function parseGrant(raw: unknown): Grant | null {
         createdAt,
         expiresAt,
         // refresh 좌표와 그 만료는 짝이다 — 형상이 깨진 쪽만 떨어지고 grant 는 산다.
-        refreshKey: stringOr(record.refreshKey),
-        refreshExpiresAt: numberOr(record.refreshExpiresAt),
+        refreshKey: asString(record.refreshKey),
+        refreshExpiresAt: asNumber(record.refreshExpiresAt),
         principalId
       })
     }

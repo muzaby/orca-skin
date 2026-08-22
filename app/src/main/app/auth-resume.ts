@@ -62,8 +62,8 @@ const AUTO_RELOGIN_KINDS: ReadonlySet<AuthMethodKind> = new Set<AuthMethodKind>(
 // (`features/auth/login.ts` 의 `run`). 여기서 kind 를 인자로 넘기면 방식 선택 규칙이 두 벌이 되고,
 // 그 둘은 언젠가 갈린다.
 function autoReloginable(definition: AuthDefinition): boolean {
-  const first = definition.methods[0]
-  return first !== undefined && AUTO_RELOGIN_KINDS.has(first.kind)
+  const firstMethod = definition.methods[0]
+  return firstMethod !== undefined && AUTO_RELOGIN_KINDS.has(firstMethod.kind)
 }
 
 export interface ResumeAuthDeps {
@@ -107,15 +107,18 @@ export function createAuthResume(deps: ResumeAuthDeps): AuthResumeHandle {
   // probe 실패의 결과만 재로그인 대상이다. `expired` 가 아니면 그 사이 **사용자가 개입한 것**이다
   // — `none` 은 [연결 해제](끊은 연결을 되살리지 않는다), `valid` 는 사용자가 직접 시작한 로그인
   // (그 경우 `resume` 은 세대가 밀려 아무것도 바꾸지 않고 끝났다. 새 attempt 로 덮지 않는다).
-  const demoted = (definition: AuthDefinition): boolean =>
+  const isDemoted = (definition: AuthDefinition): boolean =>
     deps.auth.tryBind(definition.id)?.snapshot().status === 'expired'
 
   // 한 Auth 의 재로그인. 마지막 방송이 무조건 일어나게 바뀌어(0194) 시도 여부를 돌려줄 이유가
   // 없어졌다 — 0193 의 `attempted` 누적은 함께 사라졌다.
-  const reloginOnce = async (definition: AuthDefinition): Promise<void> => {
+  //
+  // **이름에 `Once` 를 붙이지 않는다** (0197 C-1) — 아래 루프가 `MAX_RELOGIN_ATTEMPTS` 회 돈다.
+  // 아래 `refreshOnce` 는 실제로 1회라 두 이름의 비대칭이 몸통의 비대칭과 맞는다.
+  const relogin = async (definition: AuthDefinition): Promise<void> => {
     for (let attempt = 1; attempt <= MAX_RELOGIN_ATTEMPTS; attempt += 1) {
       // **매 시도 직전에 다시 읽는다** — 순차 루프라 시도와 시도 사이에 사용자 조작이 끼어든다.
-      if (!demoted(definition)) return
+      if (!isDemoted(definition)) return
       deps.logger?.('auth.resume.relogin.start', { authId: definition.id, attempt })
       // **로그인은 던질 수 있다.** `resume` 과 달리 `login` 에는 "부팅 경로라 던지지 않는다" 는
       // 계약이 없고, 그 아래에는 주입 포트를 try 밖에서 부르는 자리가 있다 — `oauth-runner.ts`
@@ -177,7 +180,7 @@ export function createAuthResume(deps: ResumeAuthDeps): AuthResumeHandle {
   // 만료된 경우가 통째로 회복 대상 밖이었다. 회복이 물어야 할 것은 "지금 만료인가" 하나다.
   const recoverExpired = async (): Promise<void> => {
     for (const definition of deps.remainingDefinitions) {
-      if (!demoted(definition)) continue
+      if (!isDemoted(definition)) continue
       // refresh 가 먼저다 — 창을 열지 않으므로 성공하면 사용자가 아무것도 보지 못한다.
       //
       // **`autoReloginable` 게이트를 적용하지 않는다** (D-012). 그 게이트가 입력형을 막는
@@ -185,7 +188,7 @@ export function createAuthResume(deps: ResumeAuthDeps): AuthResumeHandle {
       // 을 만들지 않아 그 이유가 성립하지 않는다. 대상 판정은 grant 가 한다.
       if (await refreshOnce(definition)) continue
       if (!autoReloginable(definition)) continue
-      await reloginOnce(definition)
+      await relogin(definition)
     }
   }
 

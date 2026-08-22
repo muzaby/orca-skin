@@ -143,19 +143,23 @@ export interface SessionLookup {
 // 이름을 코어가 고정하지 않는 이유는 요구 ② 다 — "sp가 final url에서 code 쿼리 반환 (code 이름이
 // 아닐 수 있음)". 그 문장은 **코드를 final URL 의 쿼리에서 추출한다**는 뜻이지(0196 D-008) 교환
 // 요청의 형상을 지시한 것이 아니다. 요청은 `POST` + `application/json` 하나로 고정이라(D-009)
-// 이 선언이 정하는 것은 이름 셋뿐이다 — 어디서 꺼내(`param`) 무슨 이름으로(`name`) 무엇과
-// 함께(`params`).
+// 이 선언이 정하는 것은 이름 셋뿐이다 — 어디서 꺼내(`urlParam`) 무슨 이름으로(`bodyField`)
+// 무엇과 함께(`extraFields`).
+//
+// **철자는 0197 D-1 에서 바뀌었다** — 옛 이름은 `param`·`name`·`params` 였다. 단수 `param` 과
+// 복수 `params` 가 서로의 복수형이 아니라 완전히 다른 것(URL 파라미터 이름 vs 본문 필드 맵)을
+// 가리켰고, `name` 은 목적어가 없었다. 의미·기본값·선택성은 그대로다.
 export interface SessionCodeExchange {
-  // final URL 에서 코드를 꺼낼 파라미터 이름. **미지정이면 `'code'`** 다. 쿼리와 프래그먼트를
-  // 모두 본다(`response_mode=fragment` 로 돌려주는 배포가 있다).
-  param?: string
-  // 교환 요청 **본문**에서 코드를 부를 이름. 미지정이면 **유효 `param`**(= `param ?? 'code'`)을
-  // 쓴다 — 받은 이름과 보내는 이름이 다른 SP 만 여기를 적는다.
-  name?: string
-  // 코드와 **함께** 본문에 실어 보낼 고정 파라미터(`grant_type`·`client_id`·`redirect_uri` 등).
+  // final URL 에서 코드를 꺼낼 **쿼리 파라미터 이름**. **미지정이면 `'code'`** 다. 쿼리와
+  // 프래그먼트를 모두 본다(`response_mode=fragment` 로 돌려주는 배포가 있다).
+  urlParam?: string
+  // 교환 요청 **본문**에서 코드를 부를 필드 이름. 미지정이면 **유효 `urlParam`**
+  // (= `urlParam ?? 'code'`)을 쓴다 — 받은 이름과 보내는 이름이 다른 SP 만 여기를 적는다.
+  bodyField?: string
+  // 코드와 **함께** 본문에 실어 보낼 고정 필드(`grant_type`·`client_id`·`redirect_uri` 등).
   // 같은 이름이 겹치면 **실제 인가 코드가 이긴다**. 비밀은 여기 적지 않는다 — 이 파일은 배포
   // 소스이지 vault 가 아니다.
-  params?: Readonly<Record<string, string>>
+  extraFields?: Readonly<Record<string, string>>
 }
 
 // 인가 코드를 토큰으로 바꾸는 요청 선언.
@@ -177,8 +181,11 @@ export interface SessionTokenExchange {
   // 파일의 규칙(위 `Presentation` 주석)을 browser-session 도 따른다. 빠지면 교환이 만든 token
   // grant 를 아무 데도 실을 수 없어 모든 API 가 `grant_not_valid` 로 죽는다.
   present: Presentation
-  // 응답 JSON 에서 토큰을 꺼낼 점 경로. 예: `access_token` · `data.token`.
-  valuePath: string
+  // 응답 JSON 에서 **access token** 을 꺼낼 점 경로. 예: `access_token` · `data.token`.
+  // 옛 이름은 `valuePath` 였다(0197 D-2) — 형제 셋(`refreshTokenPath`·`expiresAtPath`·
+  // `principalPath`)이 대상을 이름에 담는데 이것만 "value" 였고, 같은 파일 `SessionLookup`
+  // 의 `valuePath`(principal 을 가리킨다)와 한 철자가 두 대상을 갖고 있었다.
+  accessTokenPath: string
   // 응답 JSON 에서 refresh token 을 꺼낼 점 경로. **미지정이면 저장하지 않는다.** 값을 저장해도
   // 그것으로 갱신하지는 않는다(0195 D-003) — browser-session 의 만료는 재로그인으로 회복한다.
   refreshTokenPath?: string
@@ -246,6 +253,18 @@ export type Grant =
       refreshExpiresAt?: number
     } & GrantBase)
   | ({ kind: 'session'; sessionGroup: string } & GrantBase)
+
+// `Grant` 의 갈래를 **여기서 한 번** 이름 붙인다 (0197 A-1).
+//
+// 이 별칭들은 `compact<T>` 의 타입 인자다 — 필드를 빠뜨리면 컴파일이 깨지게 하는 그 기계의
+// 입력이다(`shared/obj.ts`). 소비자가 각자 `Extract` 를 다시 쓰면 갈래를 하나 더할 때 낡은
+// 사본이 조용히 남고, 그 사본을 쓰는 조립부만 강제에서 빠진다. 0197 이전에는 세 파일이 각자
+// 갖고 있었다(`authenticated-request.ts` · `login.ts` · `store-parse.ts`).
+export type SecretGrant = Extract<Grant, { kind: 'secret' }>
+export type TokenGrant = Extract<Grant, { kind: 'token' }>
+export type SessionGrant = Extract<Grant, { kind: 'session' }>
+// 세션이 아닌 갈래 전부 — vault 에 값을 두고 요청에 실어 나르는 것들이다.
+export type ValueGrant = Exclude<Grant, { kind: 'session' }>
 
 // ── 인증 확인(probe) ──────────────────────────────────────────────────────────
 //

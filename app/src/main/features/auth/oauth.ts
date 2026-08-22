@@ -15,6 +15,7 @@
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { PkcePair } from '../../contracts/auth'
+import { urlParams } from './url-params'
 
 // 발급된 인가 요청 1건. **verifier 는 비밀이지만 vault 에 넣지 않는다** — 수명이 인가 왕복
 // (수 분)뿐이고, 유출돼도 code 없이는 토큰이 되지 않는다. 대신 소비 즉시 폐기한다.
@@ -91,14 +92,11 @@ export type CallbackParse =
 // 콜백 URL 에서 code·state 를 뽑는다. **query 와 fragment 를 모두 본다** — 일부 서버가
 // `response_mode=fragment` 로 돌려준다.
 export function parseCallbackUrl(rawUrl: string): CallbackParse {
-  let url: URL
-  try {
-    url = new URL(rawUrl)
-  } catch {
-    return { kind: 'unrelated' }
-  }
-  const fragment = new URLSearchParams(url.hash.replace(/^#/, ''))
-  const pick = (name: string): string | null => url.searchParams.get(name) ?? fragment.get(name)
+  // 추출은 `url-params.ts` 가 갖는다(0197 A-3) — browser-session 의 final URL 파싱과 같은
+  // 세 줄이었다. **빈 문자열을 값으로 유지하는 것은 여기만의 규칙이다**: `?code=` 로 끝난
+  // 콜백을 "코드 없음" 이 아니라 "빈 코드" 로 읽어야 아래 error 규약 판정이 먼저 걸린다.
+  const pick = urlParams(rawUrl)
+  if (pick === null) return { kind: 'unrelated' }
 
   const error = pick('error')
   if (error !== null) {

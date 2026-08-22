@@ -1,10 +1,12 @@
 import type { ProviderGateState } from '../../../shared/ipc'
+import type { BootPhase } from './boot/bootStore'
 
 // 최상위 화면 선택 (0194 — 구 `RootGate.tsx` 안의 if 사슬).
 //
 // **별도 파일인 이유**: `RootGate.tsx` 안에 두면 React·preload 를 물어 vitest 대상에서
-// 벗어난다. 이 판정은 게이트 통과 여부와 fail-closed 규칙을 담고 있어 사람 실기로 미룰
-// 대상이 아니다(`src/renderer/AGENTS.md §테스트` — 파생 셀렉터는 단위 테스트와 함께).
+// 벗어난다. `BootPhase` 는 `import type` 이라 완전히 소거되므로 zustand 를 물지 않는다.
+// 이 판정은 게이트 통과 여부와 fail-closed 규칙을 담고 있어 사람 실기로 미룰 대상이
+// 아니다(`src/renderer/AGENTS.md §테스트` — 파생 셀렉터는 단위 테스트와 함께).
 //
 // `waiting` 과 `waiting-resume` 은 **같은 스피너에 다른 라벨**이다. 프레임을 갈라 두는 이유는
 // 그리는 쪽이 `resuming` 을 다시 읽지 않게 하기 위함이다 — 읽는 곳이 둘이 되면 조합 하나가
@@ -13,7 +15,10 @@ import type { ProviderGateState } from '../../../shared/ipc'
 export type RootFrame = 'boot-failure' | 'waiting' | 'waiting-resume' | 'gate' | 'app'
 
 export interface RootFrameInput {
-  bootPhase: string
+  // **`string` 이 아니다** (0197 B-4). 유일한 호출부(`RootGate`)가 이미 `BootPhase` 를 들고
+  // 있는데 여기서 넓히면 존재하지 않는 phase 가 조용히 `waiting` 으로 접힌다 — 실제로 이
+  // 파일의 테스트가 `'loading'`(없는 phase)을 단언하고 있었다.
+  bootPhase: BootPhase
   // main 이 준 게이트 판정. **판정 전에는 `null`** 이다.
   gate: ProviderGateState | null
   // 게이트 통과 후 나머지 Auth 의 부팅 복원이 진행 중인가.

@@ -22,10 +22,11 @@ import {
   normalizeExpiry,
   pickPath,
   pickPrincipal,
+  pickSecret,
   pickUrlParam,
   type BrowserSessionPort
 } from '../specs/browser-session'
-import { ifPresent } from '../../../../shared/obj'
+import { compact, ifPresent } from '../../../../shared/obj'
 
 export interface SessionRunnerDeps {
   sessions: BrowserSessionPort
@@ -93,7 +94,7 @@ export class SessionRunner implements SessionAuthenticator {
     // 미선언이면 요청을 아예 내지 않는다 — 신원을 안 쓰는 배포에 왕복을 물리지 않는다.
     if (!lookup) return undefined
 
-    const read = await this.getJson(provider, handleId, { path: lookup.path })
+    const read = await this.getJson(provider, handleId, lookup.path)
     if (!read.ok) {
       return this.whoamiFailed(provider, lookup, whoamiReason(read.failure))
     }
@@ -113,29 +114,30 @@ export class SessionRunner implements SessionAuthenticator {
   // 교환이 다른 전송을 타면 SSO 쿠키를 요구하는 SP 에서 곧바로 미인증이 된다.
   //
   // **쿼리 인자를 받지 않는다**(0196 D-009). 교환이 `POST` + JSON 본문으로 고정되면서 URL 에
-  // 값을 얹을 호출부가 사라졌고, 남겨 두면 인가 코드를 URL 로 되돌릴 자리가 남는다 — whoami 는
-  // 처음부터 `{path}` 만 넘긴다. 형상은 호출부가 정하고 `getJson` 은 응답 해석만 자기가 한다.
+  // 값을 얹을 호출부가 사라졌고, 남겨 두면 인가 코드를 URL 로 되돌릴 자리가 남는다.
+  //
+  // **형상 갈래는 `jsonBody` 유무 하나다** (0197 B-1). 옛 판은 `method`·`body`·`contentType`
+  // 세 선택 필드를 따로 받았는데, 호출부가 둘뿐이고(whoami=없음 · 교환=POST+JSON) 세 값이
+  // 전부 `body` 유무에 종속이라 독립적으로 변주되지 않았다. 갈래를 하나로 두면 `method:'PUT'`
+  // + 본문 없음처럼 아무 코드도 다루지 않는 조합이 타입에서 사라진다. form 본문이 필요해지면
+  // 그때 `contentType` 을 되살린다(0196 D-010 의 확장 지점과 같은 자리).
   private async getJson(
     provider: AuthDefinition,
     handleId: string,
-    req: {
-      path: string
-      method?: string
-      body?: string
-      contentType?: string
-    }
+    path: string,
+    jsonBody?: Readonly<Record<string, string>>
   ): Promise<{ ok: true; payload: unknown } | { ok: false; failure: JsonReadFailure }> {
-    const url = new URL(req.path, `${provider.origin}/`)
+    const url = new URL(path, `${provider.origin}/`).toString()
     let result: SendResult
     try {
       result = await this.deps.sessions.send(handleId, {
-        url: url.toString(),
-        method: req.method ?? 'GET',
+        url,
+        method: jsonBody ? 'POST' : 'GET',
         headers: {
           accept: 'application/json',
-          ...ifPresent('content-type', req.contentType)
+          ...ifPresent('content-type', jsonBody ? 'application/json' : undefined)
         },
-        ...ifPresent('body', req.body)
+        ...ifPresent('body', jsonBody ? JSON.stringify(jsonBody) : undefined)
       })
     } catch (error) {
       return { ok: false, failure: { kind: 'send', message: errorMessage(error) } }
@@ -174,27 +176,34 @@ export class SessionRunner implements SessionAuthenticator {
     exchange: SessionTokenExchange,
     whoamiLookup?: SessionLookup
   ): Promise<AuthResult> {
-    const param = codeParam(exchange.code)
-    const code = pickUrlParam(finalUrl, param)
+    // 기본 이름 `'code'` 는 **여기 한 번만** 나온다 (0197 B-3) — 아래 본문 필드 이름도 이 값을
+    // 물려받으므로, 두 자리에서 각자 `?? 'code'` 하면 기본값이 갈릴 자리가 생긴다.
+    const urlParam = exchange.code.urlParam ?? 'code'
+    const code = pickUrlParam(finalUrl, urlParam)
     if (code === undefined) {
       // **찾던 이름만 남긴다** — 인가 코드 자체는 자격증명이라 로그 파일에 남기지 않는다.
       // 이름을 찍는 것으로 오타·응답 형식 상이는 그대로 지목된다(`no-token` 과 같은 형태).
       this.deps.logger?.('providers.session.exchange.no-code', {
         authId: provider.id,
-        param
+        urlParam
       })
       return failure('exchange_failed', '인가 코드를 찾지 못했습니다')
     }
 
-    const read = await this.getJson(provider, handleId, exchangeRequest(exchange, code))
+    const read = await this.getJson(
+      provider,
+      handleId,
+      exchange.path,
+      exchangeFields(exchange.code, urlParam, code)
+    )
     if (!read.ok) return failure('exchange_failed', exchangeReason(read.failure))
     const payload = read.payload
-    const value = pickPath(payload, exchange.valuePath)
-    if (typeof value !== 'string' || value.length === 0) {
+    const accessToken = pickSecret(payload, exchange.accessTokenPath)
+    if (accessToken === undefined) {
       // 경로를 로그에 남긴다 — 실값 미정(OQ2) 상태에서 배포가 고칠 지점을 지목한다.
       this.deps.logger?.('providers.session.exchange.no-token', {
         authId: provider.id,
-        valuePath: exchange.valuePath
+        accessTokenPath: exchange.accessTokenPath
       })
       return failure('exchange_failed', '토큰 응답에서 값을 찾지 못했습니다')
     }
@@ -204,59 +213,44 @@ export class SessionRunner implements SessionAuthenticator {
     // **경로를 선언하지 않았으면 저장하지 않는다** (D-003 fail-closed). 갱신 기능이 없는 지금은
     // 저장이 곧 vault 에 남는 죽은 비밀이므로, 배포가 명시한 경우에만 받는다.
     const refreshToken = exchange.refreshTokenPath
-      ? pickSecretPath(payload, exchange.refreshTokenPath)
+      ? pickSecret(payload, exchange.refreshTokenPath)
       : undefined
     // 교환 응답이 이미 신원을 말했으면 **한 번 더 묻지 않는다**(왕복 0). 없을 때만 whoami 로 간다.
     const principalId =
       (exchange.principalPath ? pickPrincipal(payload, exchange.principalPath) : undefined) ??
       (await this.whoami(provider, handleId, whoamiLookup))
-    const token: TokenValue = {
-      token: value,
-      ...ifPresent('expiresAt', expiresAt),
-      ...ifPresent('refreshToken', refreshToken),
-      ...ifPresent('principalId', principalId)
-    }
+    // 필드 규칙 — 필드마다 한 줄, 빠짐없이 (0197 A-2 · `login.ts` 의 grant 조립과 같은 형식).
+    // `TokenValue` 에 필드가 늘면 **이 리터럴에서 컴파일이 깨진다**. 0194 가 `refreshExpiresAt`
+    // 을 더했을 때 이 자리가 `ifPresent` 누적이라 조용히 지나갔던 것이 통합의 이유다.
+    const token = compact<TokenValue>({
+      token: accessToken,
+      expiresAt,
+      refreshToken,
+      // 교환 응답의 refresh 만료를 읽을 경로는 선언에 없다 — 지금은 알 수 없는 값이다.
+      // (browser-session 의 만료는 재로그인으로 회복한다, 0195 D-003.)
+      refreshExpiresAt: undefined,
+      principalId
+    })
     return { kind: 'token', token }
   }
 }
 
-// final URL 에서 코드를 찾을 이름. 미지정이면 `'code'` 다 (D-005).
-function codeParam(code: SessionCodeExchange): string {
-  return code.param ?? 'code'
-}
-
-// 교환 요청의 **형상은 코어가 고정한다** (0196 D-009): `POST` + `application/json` 하나다.
-// 선언이 정하는 것은 이름뿐이다 — 코드를 어떤 이름으로(`name`) 무엇과 함께(`params`) 싣는가.
+// 교환 요청 **본문 필드**. 형상(`POST` + `application/json`)은 `getJson` 이 고정하고
+// (0196 D-009), 이 함수는 이름만 정한다 — 코드를 무슨 이름으로(`bodyField`) 무엇과 함께
+// (`extraFields`) 싣는가.
 //
 // 갈래가 하나인 것이 보안이기도 하다: 코드가 **본문에만** 실리므로 프록시·서버 액세스 로그에
 // 인가 코드가 남을 자리가 없다. 되돌리려면 `SessionCodeExchange.in` 을 선택 필드로 되살린다.
 //
-// `params` 를 먼저 펼치고 코드를 나중에 넣는다 — 같은 이름이 겹치면 코드가 이긴다. 반대로 두면
-// 배포가 `params` 에 남긴 자리표시자가 실제 코드를 덮는다.
-function exchangeRequest(
-  exchange: SessionTokenExchange,
-  code: string
-): {
-  path: string
-  method: string
-  body: string
-  contentType: string
-} {
-  const name = exchange.code.name ?? codeParam(exchange.code)
-  const fields: Record<string, string> = { ...exchange.code.params, [name]: code }
-  return {
-    path: exchange.path,
-    method: 'POST',
-    body: JSON.stringify(fields),
-    contentType: 'application/json'
-  }
-}
-
-// 점 경로에서 **비밀 문자열**을 꺼낸다. `pickPrincipal` 과 달리 trim 하지 않는다 — 토큰은 표시용
-// 문자열이 아니라 그대로 전송될 값이라, 코어가 임의로 다듬으면 서버가 거부한다.
-function pickSecretPath(source: unknown, path: string): string | undefined {
-  const value = pickPath(source, path)
-  return typeof value === 'string' && value.length > 0 ? value : undefined
+// `extraFields` 를 먼저 펼치고 코드를 나중에 넣는다 — 같은 이름이 겹치면 코드가 이긴다.
+// 반대로 두면 배포가 `extraFields` 에 남긴 자리표시자가 실제 코드를 덮는다.
+function exchangeFields(
+  code: SessionCodeExchange,
+  urlParam: string,
+  value: string
+): Record<string, string> {
+  const name = code.bodyField ?? urlParam
+  return { ...code.extraFields, [name]: value }
 }
 
 // `getJson` 이 실패한 자리. **문장이 아니라 사유**로 돌려 준다 — 같은 요청이지만 whoami 는

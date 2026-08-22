@@ -11,11 +11,15 @@ const DRAG_STYLE: CSSProperties = { WebkitAppRegion: 'drag' } as CSSProperties
 //
 // **문자열이 아니라 variant 를 받는다** — 호출부가 `tr()` 을 부르게 하면 i18n 조회가 화면
 // 바깥으로 샌다. 기본값이 'boot' 라 기존 호출부(`<BootScreen />`)의 DOM 이 그대로다.
+// prop 이름이 `label` 이 아닌 이유가 그것이다(0197 C-3) — 라벨은 아래 `screenLabel`·`srLabel`
+// 이고, 이 prop 은 그 둘을 고르는 variant 다.
 export function BootScreen({
-  label = 'boot'
-}: { label?: 'boot' | 'resuming' } = {}): React.JSX.Element {
+  variant = 'boot'
+}: {
+  variant?: 'boot' | 'resuming'
+}): React.JSX.Element {
   const { tr } = useI18n()
-  const resuming = label === 'resuming'
+  const resuming = variant === 'resuming'
   const screenLabel = resuming ? tr('boot.resumingLabel') : tr('boot.label')
   const srLabel = resuming ? tr('boot.resumingSr') : tr('boot.preparingSr')
   const macOsPadLeft = getPlatform() === 'darwin' ? 'pl-[80px]' : 'pl-[14px]'

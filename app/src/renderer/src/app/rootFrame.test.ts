@@ -22,7 +22,7 @@ describe('rootFrame', () => {
   })
 
   it('부팅이 끝나지 않았으면 대기한다', () => {
-    expect(rootFrame({ bootPhase: 'loading', gate: gate(), resuming: false })).toBe('waiting')
+    expect(rootFrame({ bootPhase: 'running', gate: gate(), resuming: false })).toBe('waiting')
   })
 
   it('게이트를 통과하지 못했으면 로그인 화면이다', () => {
@@ -41,7 +41,7 @@ describe('rootFrame', () => {
   // 달았다 — 프레임은 `waiting` 인데 컴포넌트가 `resuming` 을 한 번 더 읽었기 때문이다.
   // 판정을 셀렉터로 내리면 그 조합이 여기서 잠긴다.
   it('부팅이 안 끝났으면 `resuming` 이어도 그냥 대기다 — 복원 라벨이 아니다', () => {
-    expect(rootFrame({ bootPhase: 'loading', gate: gate(), resuming: true })).toBe('waiting')
+    expect(rootFrame({ bootPhase: 'running', gate: gate(), resuming: true })).toBe('waiting')
   })
 
   it('게이트 미판정이면 `resuming` 이어도 그냥 대기다', () => {

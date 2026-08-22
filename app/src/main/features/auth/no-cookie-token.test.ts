@@ -14,45 +14,21 @@
 // 소스를 문자열로 읽기만 하므로 electron 을 물지 않는다.
 
 import { describe, expect, it } from 'vitest'
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, sep } from 'node:path'
+import { join } from 'node:path'
+import { scanOffenders, stripCommentsAndStrings } from '../../infra/source-scan'
 
 const AUTH_ROOT = join(__dirname)
 
 // Electron `Session.cookies` 표면 — `ses.cookies.get(...)` · `entry.ses.cookies.remove(...)`.
 const COOKIE_READ = /\.cookies\b/
 
-function sourceFiles(dir: string): string[] {
-  return readdirSync(dir).flatMap((entry) => {
-    const full = join(dir, entry)
-    if (statSync(full).isDirectory()) return sourceFiles(full)
-    if (!entry.endsWith('.ts') || entry.endsWith('.test.ts')) return []
-    return [full]
-  })
-}
-
-// 주석·문자열 안의 `.cookies` 는 규칙 위반이 아니다(금지하려면 이름을 적어야 한다).
-function stripCommentsAndStrings(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ')
-    .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
-    .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
-    .replace(/`(?:[^`\\]|\\[\s\S])*`/g, '``')
-}
-
-// 보고 표기는 플랫폼 구분자를 타지 않는다 — CI 게이트는 windows 러너에서 돌고(`.github/
-// workflows/ci.yml`), `join` 이 만든 `\` 를 그대로 내보내면 같은 위반이 OS 마다 다른 이름으로
-// 보인다. 위반 목록은 사람이 읽고 비교하는 값이라 `/` 하나로 고정한다.
-function toPosix(relative: string): string {
-  return relative.split(sep).join('/')
-}
-
+// 스윕 자체(대상 집합 · 주석/문자열 제거 · posix 표기)는 `infra/source-scan.ts` 가 갖는다 —
+// `no-node-fetch.test.ts` 와 **같은 구현**이다(0197 A-5). 두 벌이던 동안 커밋 `88f27f0` 이
+// 같은 경로-구분자 버그를 양쪽에서 고쳐야 했다.
 function offendersIn(root: string): string[] {
-  return sourceFiles(root)
-    .filter((file) => COOKIE_READ.test(stripCommentsAndStrings(readFileSync(file, 'utf8'))))
-    .map((file) => toPosix(file.slice(root.length + 1)))
+  return scanOffenders(root, (source) => COOKIE_READ.test(source))
 }
 
 describe('토큰은 쿠키에서 나오지 않는다 (0195 D-006)', () => {
