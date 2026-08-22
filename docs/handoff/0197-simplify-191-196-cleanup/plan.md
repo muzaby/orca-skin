@@ -553,4 +553,6 @@ SP final URL → urlParams → exchangeFields → getJson → sessions.send
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| D1 | … | … | … | open |
+| W1 | `infra/source-scan.ts` 의 `sourceFiles`·`toPosix` 가 export 인데 외부 소비처 0 | verify r1 §2 | export 를 `scanOffenders`·`stripCommentsAndStrings` 둘로 좁힌다 | open (비차단) |
+| W2 | 구현 커밋 `51a79ec` trailer 의 `Criteria-Met: 11/12` 가 정본 `10/12` 와 갈림 | verify r1 §9 | 되돌릴 수 없다 — 정본은 plan 본문 합계 검산·INDEX·`verify.md` 의 **10/12** | 기록 |
+| W3 | `doc-gate.sh` 시제 축 baseline 라인 드리프트 (`envKey` :390 → :438) | verify r1 §8 | **선재**(stash 트리에서 동일 출력). 0192 baseline `regen` 은 그 handoff 소관 | open (범위 밖) |
