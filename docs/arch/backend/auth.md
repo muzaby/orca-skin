@@ -323,13 +323,13 @@ change 가 나간다 — Harness cache 가 그 change 를 무시한다. 정착 �
 | 선언 | `kind:'token'` (`authKind:'browser-session'`) | `exchange.present` 로 실린 토큰 | 401/403 · 토큰이 선언한 시계 만료 |
 
 **토큰의 출처는 교환 응답 JSON 하나다.** 로그인 창이 `doneUrlPrefix` 에 도달하면 그 final URL 에서
-인가 코드를 꺼내(`exchange.code.param`, 미지정이면 `'code'`) 같은 세션으로 교환한다 — 쿠키를 읽어
+인가 코드를 꺼내(`exchange.code.urlParam`, 미지정이면 `'code'`) 같은 세션으로 교환한다 — 쿠키를 읽어
 토큰을 만드는 경로는 없다(`features/auth/no-cookie-token.test.ts` 가 기계 강제). 코드를 돌려주지
 않는 SP 는 `exchange` 자체를 선언하지 않고 세션 grant 로 끝낸다.
 
 **교환 요청은 `POST` + `application/json` 하나다.** 전송 형상은 코어가 고정하고, 선언이 정하는
-것은 이름뿐이다 — 코드를 final URL 어디서 꺼내(`code.param`) 본문에 무슨 이름으로(`code.name`)
-무엇과 함께(`code.params`) 실을 것인가. 같은 이름이 겹치면 **실제 인가 코드가 이긴다**. 코드가
+것은 이름뿐이다 — 코드를 final URL 어디서 꺼내(`code.urlParam`) 본문에 무슨 이름으로
+(`code.bodyField`) 무엇과 함께(`code.extraFields`) 실을 것인가. 같은 이름이 겹치면 **실제 인가 코드가 이긴다**. 코드가
 본문에만 실리므로 프록시·서버 액세스 로그에 인가 코드가 남을 경로가 없다. 폼 본문만 받는 SP 는
 교환이 415/405 로 끝난다 — 그때는 선언이 아니라 코어를 넓힌다.
 

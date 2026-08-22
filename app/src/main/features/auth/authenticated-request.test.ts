@@ -347,7 +347,7 @@ const EXCHANGED: AuthDefinition = {
         allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp'],
         exchange: {
           path: '/api/token',
-          valuePath: 'access_token',
+          accessTokenPath: 'access_token',
           code: {},
           present: { location: 'header', name: 'Authorization', scheme: 'bearer' }
         }

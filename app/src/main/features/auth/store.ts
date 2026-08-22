@@ -475,7 +475,11 @@ export class AuthStore {
   // 그것이 없으면 "모른다" 라서 값을 준다(D-009 — 시도하고 실패로 판정한다).
   //
   // `secret()` 과 합치지 않는 이유가 이것이다: 두 값은 만료 판정 기준이 다르다.
-  refreshSecret(authId: AuthId): string | null {
+  //
+  // **이름이 `refreshSecret` 이 아닌 이유** (0197 C-11): 같은 feature 에서 `refresh` 는 동사다
+  // (`LoginService.refresh`·`AuthRuntime.refresh`·`OAuthSpec.refresh`). `refreshSecret(id)` 는
+  // 호출부에서 "비밀을 갱신하라" 로 읽히는데, 이 함수는 갱신을 하지 않고 값을 돌려줄 뿐이다.
+  refreshTokenSecret(authId: AuthId): string | null {
     const grant = this.entries.get(authId)?.grant
     if (!grant || grant.kind !== 'token' || grant.refreshKey === undefined) return null
     if (grant.refreshExpiresAt !== undefined && grant.refreshExpiresAt <= this.clock()) return null

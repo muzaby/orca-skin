@@ -15,10 +15,24 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+// `unknown` 을 원시 타입으로 좁히고, 아니면 `undefined`. JSON 파서가 필드마다 쓰는 삼항을
+// 이름으로 만든 것이다 — `compact` 의 인자에 그대로 넘길 수 있어 "없으면 키를 지운다" 가
+// 한 줄로 표현된다.
+export function asNumber(value: unknown): number | undefined {
+  return typeof value === 'number' ? value : undefined
+}
+
+export function asString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
 // `T` 의 키를 **선택적인 것과 아닌 것**으로 가른다. `undefined extends T[K]` 가 판정이고, 이는
 // `exactOptionalPropertyTypes` 가 꺼져 있어 `k?: V` 의 타입이 `V | undefined` 이기에 성립한다.
+//
+// 선택 키는 **필수 키의 여집합으로 유도한다** — 같은 술어를 `never`/`K` 만 바꿔 두 번 적으면
+// 한쪽만 고쳐질 수 있고, 여집합으로 두면 "둘이 `keyof T` 를 분할한다" 가 구문으로 참이 된다.
 type RequiredKeysOf<T> = { [K in keyof T]-?: undefined extends T[K] ? never : K }[keyof T]
-type OptionalKeysOf<T> = { [K in keyof T]-?: undefined extends T[K] ? K : never }[keyof T]
+type OptionalKeysOf<T> = Exclude<keyof T, RequiredKeysOf<T>>
 
 // `compact` 의 인자 타입 — **전 필드를 요구하되, `undefined` 는 선택 키에만 허용한다.**
 //

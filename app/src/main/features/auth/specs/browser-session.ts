@@ -22,6 +22,7 @@
 
 import type { SessionGroupPolicy } from '../../../infra/browser-session-policy'
 import type { PreparedRequest, SendOptions, SendResult } from '../../../infra/net/transport'
+import { urlParams } from '../url-params'
 
 // `BrowserSessionStore`(infra, electron 의존)가 구조적으로 만족하는 포트.
 export interface BrowserSessionPort {
@@ -57,24 +58,29 @@ export function pickPrincipal(source: unknown, path: string): string | undefined
   return typeof value === 'string' && value.trim().length > 0 ? value : undefined
 }
 
+// 점 경로에서 **비밀 문자열**을 꺼낸다. 위 `pickPrincipal` 과 나란히 두는 이유가 그 차이다 —
+// **여기는 trim 하지 않는다.** 토큰은 표시용 문자열이 아니라 그대로 전송될 값이라, 코어가
+// 임의로 다듬으면 서버가 거부한다. 공백만 있는 값의 판정도 그래서 갈린다(저쪽은 버리고
+// 이쪽은 살린다).
+export function pickSecret(source: unknown, path: string): string | undefined {
+  const value = pickPath(source, path)
+  return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
 // 로그인 final URL 에서 파라미터 하나를 꺼낸다. **쿼리와 프래그먼트를 모두 본다** —
-// `response_mode=fragment` 로 돌려주는 배포가 있다(`oauth.ts`의 `parseCallbackUrl` 과 같은 규칙).
+// `response_mode=fragment` 로 돌려주는 배포가 있다.
 //
-// `parseCallbackUrl` 을 재사용하지 **않는** 이유: 그쪽은 `code`/`error`/`state` 라는 OAuth 어휘에
-// 묶여 있는데 이 흐름에는 state 도 error 규약도 없고, 파라미터 이름이 배포마다 다르다(D-005).
+// 추출 자체는 `../url-params.ts` 가 갖는다(0197 A-3) — `oauth.ts` 의 `parseCallbackUrl` 과
+// 같은 세 줄이 두 벌 있던 것을 하나로 모았다. `parseCallbackUrl` 을 **통째로** 재사용하지
+// 않는 이유는 그대로다: 그쪽은 `code`/`error`/`state` 라는 OAuth 어휘에 묶여 있는데 이 흐름에는
+// state 도 error 규약도 없고, 파라미터 이름이 배포마다 다르다(0195 D-005).
 //
 // 빈 문자열은 값이 아니다 — `?code=` 로 끝난 URL 을 "코드를 받았다" 로 읽으면 교환 요청이 빈
-// 코드로 나가고 실패 사유가 SP 응답으로 미뤄진다.
+// 코드로 나가고 실패 사유가 SP 응답으로 미뤄진다. **이 규칙은 여기만의 것이다**:
+// `parseCallbackUrl` 은 `''` 를 값으로 유지한다.
 export function pickUrlParam(rawUrl: string, name: string): string | undefined {
-  let url: URL
-  try {
-    url = new URL(rawUrl)
-  } catch {
-    return undefined
-  }
-  const fragment = new URLSearchParams(url.hash.replace(/^#/, ''))
-  const value = url.searchParams.get(name) ?? fragment.get(name)
-  return value !== null && value.length > 0 ? value : undefined
+  const value = urlParams(rawUrl)?.(name)
+  return value !== null && value !== undefined && value.length > 0 ? value : undefined
 }
 
 // 만료 표기는 배포마다 초/밀리초/ISO 로 갈린다. 초로 보이는 값은 밀리초로 올린다 —

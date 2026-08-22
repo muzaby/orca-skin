@@ -810,7 +810,7 @@ describe('LoginService — refresh 미회전 승계 (0194 D-014)', () => {
     expect(h.secretOf('wiki')).toBe('old-access-value')
     expect(h.refreshOf('wiki')).toBe('old-refresh-value')
     // 거부 뒤에도 다음 시도가 가능하다.
-    expect(h.store.refreshSecret('wiki')).toBe('old-refresh-value')
+    expect(h.store.refreshTokenSecret('wiki')).toBe('old-refresh-value')
   })
 
   it('금고 쓰기가 실패해도 옛 refresh 가 산다 — 되돌리기가 살아 있는 자리를 지우지 않는다', async () => {
@@ -837,7 +837,7 @@ describe('LoginService — refresh 미회전 승계 (0194 D-014)', () => {
     expect(h.refreshOf('wiki')).toBe('old-refresh-value')
     expect(h.secretOf('wiki')).toBe('old-access-value')
     // 다음 시도가 여전히 가능하다 — 회복 능력을 잃지 않았다.
-    expect(h.store.refreshSecret('wiki')).toBe('old-refresh-value')
+    expect(h.store.refreshTokenSecret('wiki')).toBe('old-refresh-value')
   })
 })
 
@@ -1261,7 +1261,7 @@ function ssoExchangeGate(): AuthDefinition {
           allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp'],
           exchange: {
             path: '/api/token',
-            valuePath: 'access_token',
+            accessTokenPath: 'access_token',
             code: {},
             present: EXCHANGE_PRESENT
           }

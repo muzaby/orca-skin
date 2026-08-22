@@ -22,6 +22,9 @@ import type {
   AuthSnapshotChangeCause,
   AuthStep,
   Grant,
+  SecretGrant,
+  SessionGrant,
+  TokenGrant,
   TokenValue
 } from '../../contracts/auth'
 import { errorMessage } from '../../infra/errors'
@@ -37,14 +40,13 @@ import type { AuthRegistry } from './registry'
 import { vaultKeysOf, type AuthStore } from './store'
 import { compact, ifPresent } from '../../../shared/obj'
 
-// `Grant` 의 세 갈래. **셋 다** `compact<T>` 로 조립해 필드 규칙이 전 필드를 요구하게 한다 —
-// `GrantBase` 에 필드가 늘면 세 리터럴 모두에서 컴파일이 깨진다(0194 r3 신설 · r4 전수).
+// `Grant` 의 세 갈래는 **`contracts/auth.ts` 가 이름 붙인다** (0197 A-1) — 여기·`store-parse.ts`·
+// `authenticated-request.ts` 가 각자 `Extract` 를 쓰던 것을 한 곳으로 모았다.
 //
-// r3 은 token 갈래만 닫았고, 그래서 `GrantBase` 에 필드를 더해도 깨지는 자리가 하나였다
-// (r3 D13). 불변식은 갈래마다가 아니라 **조립마다** 성립해야 한다.
-type SecretGrant = Extract<Grant, { kind: 'secret' }>
-type TokenGrant = Extract<Grant, { kind: 'token' }>
-type SessionGrant = Extract<Grant, { kind: 'session' }>
+// **셋 다** `compact<T>` 로 조립해 필드 규칙이 전 필드를 요구하게 한다 — `GrantBase` 에 필드가
+// 늘면 세 리터럴 모두에서 컴파일이 깨진다(0194 r3 신설 · r4 전수). r3 은 token 갈래만 닫았고,
+// 그래서 `GrantBase` 에 필드를 더해도 깨지는 자리가 하나였다(r3 D13). 불변식은 갈래마다가
+// 아니라 **조립마다** 성립해야 한다.
 
 // 방식 실행기가 돌려주는 원자재. grant 로 접는 것은 이 파일의 몫이다 — 실행기는 vault 를 모른다.
 export type AuthResult =
@@ -377,8 +379,8 @@ export class LoginService {
     if (!grant || grant.kind !== 'token' || grant.authKind !== 'oauth') return 'unsupported'
     const spec = definition.methods.find((method): method is OAuthSpec => method.kind === 'oauth')
     if (!spec?.refresh) return 'unsupported'
-    // 없음·만료·복호화 실패가 전부 여기서 접힌다(`AuthStore.refreshSecret`).
-    const refreshToken = this.deps.store.refreshSecret(authId)
+    // 없음·만료·복호화 실패가 전부 여기서 접힌다(`AuthStore.refreshTokenSecret`).
+    const refreshToken = this.deps.store.refreshTokenSecret(authId)
     if (refreshToken === null) return 'unsupported'
 
     // 갱신도 **세대를 연다** — 도는 사이 사용자가 직접 로그인했거나 해제했으면 커밋되지 않는다.
@@ -401,7 +403,7 @@ export class LoginService {
     //
     // **최초 로그인·재인증(`absorbToken`)에는 이 승계가 없다** — 그쪽은 새 인가라 옛 refresh
     // token 이 다른 계보이고, 이미 폐기됐을 수 있는 값을 새 자격증명이 물고 가면 안 된다.
-    const carried: TokenValue =
+    const tokenToCommit: TokenValue =
       token.refreshToken !== undefined
         ? token
         : {
@@ -412,7 +414,12 @@ export class LoginService {
             // 만료만 늘려 주는 서버가 있다.
             ...ifPresent('refreshExpiresAt', token.refreshExpiresAt ?? grant.refreshExpiresAt)
           }
-    const { candidate, writeVault } = this.tokenCandidate(authId, 'oauth', carried, grant)
+    const { candidate, writeVault } = this.tokenCandidate(
+      authId,
+      'oauth',
+      tokenToCommit,
+      grant.principalId
+    )
     const outcome = await this.settleGrant(definition, attempt, candidate, writeVault)
     this.deps.logger?.('auth.refresh.result', { authId, outcome: outcome.kind })
     // superseded 는 실패가 아니다 — 사용자의 새 시도가 이미 이겼으므로 회복은 그 자리에서
@@ -492,14 +499,14 @@ export class LoginService {
       // origin 비교는 브라우저 세션·홉별 검사와 **같은 구현**을 쓴다 — 두 벌이면 규칙이
       // 갈리는데, 하필 이 한 줄이 "인증됐는가" 의 판정이다. `definition.origin` 은 등록에서
       // bare origin 임이 강제되므로(`registry.isBareOrigin`) allowlist 원소로 그대로 쓴다.
-      const returned = isAllowedOrigin(res.finalUrl, [definition.origin])
-      const ok = res.ok && returned
+      const returnedToOrigin = isAllowedOrigin(res.finalUrl, [definition.origin])
+      const ok = res.ok && returnedToOrigin
       // 성공·실패 **양쪽 다** 남긴다 — 쿠키·키가 재시작을 넘어왔는지를 이 한 줄이 말해 준다.
       this.deps.logger?.('auth.probe.result', {
         authId: definition.id,
         ok,
         status: res.status,
-        returned
+        returnedToOrigin
       })
       return ok
     } catch (error) {
@@ -830,7 +837,7 @@ export class LoginService {
     authId: AuthId,
     authKind: AuthMethodKind,
     token: TokenValue,
-    previous?: Grant
+    previousPrincipalId?: string
   ): { candidate: CandidateCredential; writeVault: () => void } {
     const vaultKey = this.newVaultKey(authId, authKind)
     const createdAt = this.clock()
@@ -845,8 +852,10 @@ export class LoginService {
     // 여기서는 `compact` 의 인자 타입이 전 필드를 요구하므로, `Grant` 에 필드를 더하면
     // **이 리터럴에서 컴파일이 깨진다**. 규칙을 못 적고 지나갈 자리가 없다.
     //
-    // `previous` 는 **갱신(`refresh`)만** 넘긴다. 최초 로그인·재인증(`absorbToken`)은 새 인가라
-    // 옛 자격증명의 어떤 값도 물려받지 않는다(D-014 의 "갱신 경로에만" 이 호출부로 지켜진다).
+    // `previousPrincipalId` 는 **갱신(`refresh`)만** 넘긴다. 최초 로그인·재인증(`absorbToken`)은
+    // 새 인가라 옛 자격증명의 어떤 값도 물려받지 않는다(D-014 의 "갱신 경로에만" 이 호출부로
+    // 지켜진다). **승계 대상이 이 한 필드뿐이라 grant 전체가 아니라 그 값을 받는다** (0197 B-6)
+    // — `secretCandidate` 가 이미 같은 형태다.
     const grant = compact<TokenGrant>({
       kind: 'token',
       vaultKey,
@@ -860,14 +869,14 @@ export class LoginService {
       // `refresh` 가 `token` 을 정규화하며 이미 끝냈다(D-014).
       refreshExpiresAt: refreshKey !== undefined ? token.refreshExpiresAt : undefined,
       // **승계** — 계정 신원은 갱신으로 바뀌지 않는다. 응답이 다시 말하면 그것이 이긴다.
-      principalId: token.principalId ?? previous?.principalId
+      principalId: token.principalId ?? previousPrincipalId
     })
     return {
       candidate: { grant, secret: token.token },
       // access·refresh 를 **둘 다 새 키에** 쓴다. 어느 쪽이 실패해도 아직 grant 가 가리키지 않는
       // 자리이므로 옛 access/refresh 쌍은 통째로 그대로 살아 있다 — r6 의 `new-access +
       // old-refresh` 혼합 상태가 만들어질 자리가 없다.
-      writeVault: (): void => {
+      writeVault: () => {
         this.deps.vault.set(vaultKey, token.token, {
           kind: authKind,
           createdAt,

@@ -21,7 +21,9 @@ import type {
   AuthMethod,
   AuthMethodKind,
   Grant,
-  Presentation
+  Presentation,
+  SessionGrant,
+  ValueGrant
 } from '../../contracts/auth'
 import type { PreparedRequest, SendOptions, SendResult } from '../../infra/net/transport'
 import { createSender } from '../../infra/net/transport'
@@ -40,9 +42,6 @@ const MAX_REDIRECTS = 5
 // `grant` 는 **해석 시점의 grant 객체**다. 홉 사이에 store 가 바뀌었는지를 이 참조로 판정한다
 // (`AuthStore.isCurrentGrant` 주석에 근거). 타입을 갈라 두면 세션 carrier 에 값형 grant 가
 // 들어가는 불가능 상태를 컴파일 타임에 막는다 — 런타임 비용은 0이다.
-type SessionGrant = Extract<Grant, { kind: 'session' }>
-type ValueGrant = Exclude<Grant, { kind: 'session' }>
-
 type Carrier =
   | { kind: 'session'; grant: SessionGrant; sessions: BrowserSessionPort; sessionGroup: string }
   | { kind: 'value'; grant: ValueGrant; presentation: Presentation; secret: string }
@@ -162,17 +161,17 @@ export class AuthenticatedRequester {
     // 사용자가 GUI 에서 재인증 지점을 본다 — 조용히 실패만 반복하지 않는다.
     //
     // **판정을 두 가지로 본다** (0195 D-004): status 와, 세션 grant 의 **origin 복귀 여부**.
-    // SSO 는 그 판정을 status 로 말하지 않는다(아래 `authenticationReturned`).
+    // SSO 는 그 판정을 status 로 말하지 않는다(아래 `readsAsAuthenticated`).
     //
     // **후보는 강등하지 않는다** (r5) — 커밋된 것이 없으므로 내릴 상태가 없다. 후보의 401 은
     // 그냥 "이 값이 거부됐다" 이고, 그 해석은 로그인 흐름이 자기 실패 모양으로 만든다.
-    const returned = this.authenticationReturned(definition, carrier, finalUrl)
-    if (!candidate && (result.status === 401 || result.status === 403 || !returned)) {
+    const returnedToOrigin = this.readsAsAuthenticated(definition, carrier, finalUrl)
+    if (!candidate && (result.status === 401 || result.status === 403 || !returnedToOrigin)) {
       const changed = this.deps.store.markExpired(authId, revisionAtSend)
       this.deps.logger?.('auth.request.unauthorized', {
         authId,
         status: result.status,
-        returned
+        returnedToOrigin
       })
       // 아무것도 안 바뀌었으면 방송하지 않는다 — 같은 401 을 두 요청이 각각 봐도 상태는
       // 한 번만 달라진다.
@@ -260,7 +259,7 @@ export class AuthenticatedRequester {
   // 묶어 두므로 밖에서 끝날 수 없고, 그 카운터가 없는 판정을 더하면 없던 정책이 새로 생긴다.
   //
   // 판정은 `probeOk`(`login.ts`)와 **같은 구현**을 쓴다 — 두 벌이면 "인증됐는가" 가 갈린다.
-  private authenticationReturned(
+  private readsAsAuthenticated(
     definition: AuthDefinition,
     carrier: Carrier,
     finalUrl: string

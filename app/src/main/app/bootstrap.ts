@@ -362,10 +362,12 @@ export class Bootstrap {
     // **배선 사이에 push 가 끼지 않는다**: 아래 `auth.subscribe` 는 change 에만 발화하고
     // `registerConnectionHandlers` 는 등록만 하며, ref 대입은 `void authResume.run()` 앞이다.
     let authResumeRef: { resuming: () => boolean } | undefined = undefined
+    // **두 경로가 같은 값을 실어야 한다** — invoke 첫 스냅샷(`registerConnectionHandlers`)과
+    // push 방송이다(`handlers/providers.ts` 의 `resuming` 주석). 그 불변식을 표현식 두 사본으로
+    // 지키지 않고 정의 하나로 지킨다(0197 B-5).
+    const resuming = (): boolean => authResumeRef?.resuming() ?? false
     const pushConnectionState = (): void => {
-      broadcastProviderState(
-        connectionState(auth, gate, connections, authResumeRef?.resuming() ?? false)
-      )
+      broadcastProviderState(connectionState(auth, gate, connections, resuming()))
     }
 
     // ── Auth change 소비 (0188 D-008) ──────────────────────────────────────────
@@ -386,12 +388,7 @@ export class Bootstrap {
     // cache 자체가 없으므로 무효화할 것도 없다.
     let harnessRuntimeRef: { invalidateForAuth: (authId: AuthId) => void } | undefined = undefined
 
-    registerConnectionHandlers({
-      auth,
-      gate,
-      connections,
-      resuming: () => authResumeRef?.resuming() ?? false
-    })
+    registerConnectionHandlers({ auth, gate, connections, resuming })
 
     // 자동 로그인 — 복원된 세션 쿠키가 아직 유효한지 확인한다. **await 하지 않는다**: probe 는
     // 네트워크 왕복이라 부팅을 붙들면 안 되고, 그동안 게이트는 닫혀 있어 사용자는 로그인 화면에서

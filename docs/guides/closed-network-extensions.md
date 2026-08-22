@@ -159,7 +159,7 @@ probe: { path: '/rest/api/user/current' }   // origin 기준 상대 경로. 2xx 
 | 왜 최종 origin 까지 보나 | 미인증 SSO 는 IdP 로그인 폼을 **200** 으로 준다. status 만 보면 인증됨으로 오독한다(0174 실기) |
 | 언제 도나 | ① grant 커밋 직후 ② 부팅 복원(gate 순차) ③ 게이트 통과 직후(나머지 Auth 1회 병렬) |
 | 실패하면 | 로그인 중이면 되돌리고(입력형은 같은 폼에 사유 표시), 부팅이면 `expired` 로 강등 — grant 는 남겨 재인증 지점을 보여 준다 |
-| 진단 | `auth.probe.result{ok,status,returned}` · `auth.probe.failed{reason}` |
+| 진단 | `auth.probe.result{ok,status,returnedToOrigin}` · `auth.probe.failed{reason}` |
 
 > ⚠️ **한계 하나.** 인증 실패를 `200` + 로그인 HTML 로 주면서 리다이렉트도 하지 않는 배포는
 > 통과한다(상태코드와 최종 origin 만 본다).
@@ -365,13 +365,13 @@ config: {
     path: '/api/token',         // provider.origin 기준 상대 경로 (2단계 주의 참고)
     // ── 필수 ①: 코드를 어디서 꺼내 무슨 이름으로 실을 것인가 ──
     code: {
-      param: 'ticket',          // final URL 에서 찾을 이름. 생략하면 'code'
-      name: 'authorization_code', // 본문에 실을 때의 이름. 생략하면 param(또는 'code')
-      params: { grant_type: 'authorization_code', client_id: 'orca' } // 함께 실을 고정값
+      urlParam: 'ticket',       // final URL 에서 찾을 이름. 생략하면 'code'
+      bodyField: 'authorization_code', // 본문에 실을 때의 이름. 생략하면 urlParam(또는 'code')
+      extraFields: { grant_type: 'authorization_code', client_id: 'orca' } // 함께 실을 고정값
     },
     // ── 필수 ②: 받은 토큰을 요청에 싣는 방법 ──
     present: { location: 'header', name: 'Authorization', scheme: 'bearer' },
-    valuePath: 'data.token',    // 응답 JSON 에서 토큰을 꺼낼 점 경로
+    accessTokenPath: 'data.token', // 응답 JSON 에서 access token 을 꺼낼 점 경로
     refreshTokenPath: 'data.refresh', // 선택. **저장만** 한다 (아래 주의)
     expiresAtPath: 'data.exp',  // 선택. 초·밀리초·ISO 를 모두 흡수한다
     principalPath: 'data.mail'  // 선택(0182). 같은 응답에 계정이 실려 오면 여기서 꺼낸다
@@ -382,19 +382,19 @@ config: {
 **교환 요청은 항상 `POST` + `application/json` 이다** — 전송 형상을 고르는 선언은 없다. 위
 예제가 실제로 내보내는 요청은 `POST /api/token` 에 본문
 `{"grant_type":"authorization_code","client_id":"orca","authorization_code":"<코드>"}` 하나다.
-`code.params` 에 코드와 **같은 이름**을 적어도 실제 인가 코드가 이긴다. 코드는 본문에만 실리므로
+`code.extraFields` 에 코드와 **같은 이름**을 적어도 실제 인가 코드가 이긴다. 코드는 본문에만 실리므로
 프록시·서버 액세스 로그에 인가 코드가 남지 않는다.
 
 | 필드 | 의미 | 흔한 실수 |
 |---|---|---|
-| `code.param` | **final URL** 에서 코드를 찾을 이름. 쿼리와 프래그먼트를 모두 본다 | 생략 시 기본은 `'code'` 다 — SP 가 다른 이름을 쓰면 반드시 적는다 |
-| `code.name` | 교환 요청 **본문**에서 코드를 부를 이름 | 생략하면 `param` 과 같다. 받는 이름과 보내는 이름이 다를 때만 적는다 |
-| `code.params` | 코드와 함께 본문에 실을 고정 파라미터 | **비밀을 적지 않는다** — 이 파일은 배포 소스이지 vault 가 아니다 |
+| `code.urlParam` | **final URL** 에서 코드를 찾을 이름. 쿼리와 프래그먼트를 모두 본다 | 생략 시 기본은 `'code'` 다 — SP 가 다른 이름을 쓰면 반드시 적는다 |
+| `code.bodyField` | 교환 요청 **본문**에서 코드를 부를 필드 이름 | 생략하면 `urlParam` 과 같다. 받는 이름과 보내는 이름이 다를 때만 적는다 |
+| `code.extraFields` | 코드와 함께 본문에 실을 고정 필드 | **비밀을 적지 않는다** — 이 파일은 배포 소스이지 vault 가 아니다 |
 | `present` | 받은 토큰을 이후 요청에 싣는 방법 | 빠지면 컴파일이 깨진다. `kind` 에서 추론하지 않는 것이 이 선언의 규칙이다(§1.5) |
 | `refreshTokenPath` | refresh token 을 vault 에 봉인한다 | **갱신에 쓰이지 않는다** — 만료되면 재로그인이다. 안 쓸 값이면 선언하지 않는다 |
 
 **로그는 값이 아니라 이름만 남긴다.** 코드를 못 찾으면 `providers.session.exchange.no-code` 가
-찾던 `param` 을, 토큰을 못 찾으면 `providers.session.exchange.no-token` 이 `valuePath` 를 찍는다 —
+찾던 `urlParam` 을, 토큰을 못 찾으면 `providers.session.exchange.no-token` 이 `accessTokenPath` 를 찍는다 —
 인가 코드·토큰 자체는 로그 파일에 남지 않는다.
 
 **`principalPath` 가 있으면 `whoami` 를 부르지 않는다** (추가 왕복 0). 교환 응답이 이미 신원을
@@ -1047,9 +1047,9 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 | 우회 토글이 **보이지 않는다** | prod 빌드다 | prod 에는 디버그 패널 자체가 없다 (§6.2) |
 | 선언했는데 provider 가 **목록에 없다** | 등록 거부(중복 `id` 또는 `origin` 형태) | 로그 `providers.declaration.rejected` 의 `reason` |
 | 로그인 창이 **중간에 멈춘다** | `allowedOrigins` 누락 | 로그가 막힌 origin 을 지목한다 |
-| `doneUrlPrefix` 에 닿았는데 **실패**로 끝난다 | probe 가 미인증을 봤다(로그인 폼이 200 으로 뜨는 배포) | 로그 `auth.probe.result` 의 `ok`·`returned` — `returned:false` 면 체인이 origin 으로 못 돌아왔다 |
-| 토큰 교환이 **인가 코드를 못 찾는다** | `code.param` 이 SP 가 쓰는 이름과 다르다(생략 시 기본은 `code`) | 로그 `providers.session.exchange.no-code` 가 찾던 `param` 을 찍는다 (§2-b) |
-| 토큰 교환이 **값을 못 찾는다** | `valuePath` 오타 또는 응답 구조 상이 | 로그 `providers.session.exchange.no-token` 이 `valuePath` 를 찍는다 |
+| `doneUrlPrefix` 에 닿았는데 **실패**로 끝난다 | probe 가 미인증을 봤다(로그인 폼이 200 으로 뜨는 배포) | 로그 `auth.probe.result` 의 `ok`·`returnedToOrigin` — `returnedToOrigin:false` 면 체인이 origin 으로 못 돌아왔다 |
+| 토큰 교환이 **인가 코드를 못 찾는다** | `code.urlParam` 이 SP 가 쓰는 이름과 다르다(생략 시 기본은 `code`) | 로그 `providers.session.exchange.no-code` 가 찾던 `urlParam` 을 찍는다 (§2-b) |
+| 토큰 교환이 **값을 못 찾는다** | `accessTokenPath` 오타 또는 응답 구조 상이 | 로그 `providers.session.exchange.no-token` 이 `accessTokenPath` 를 찍는다 |
 | 토큰 교환이 **415/405** 로 거절된다 | SP 가 JSON 본문을 받지 않는다(폼 전용 token endpoint) | 교환은 `POST` + `application/json` 고정이다 (§2-b) — 선언으로 바꿀 수 없으니 코어 확장이 필요하다 |
 | 토큰을 받았는데 API 가 **`grant_not_valid`** 로 죽는다 | `exchange.present` 가 SP 가 받는 형태와 다르다 | §1.5 — 같은 값이라도 Bearer·Basic·PRIVATE-TOKEN 으로 갈린다 |
 | 세션 연결이 **자꾸 만료**된다 | `allowedOrigins` 에 API·CDN 종점이 들어 있다 | §2-c — 그 목록은 로그인 창이 오가는 origin 이다 |

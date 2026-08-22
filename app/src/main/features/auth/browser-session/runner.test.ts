@@ -29,7 +29,7 @@ const BEARER: Presentation = { location: 'header', name: 'Authorization', scheme
 function exchangeSpec(patch: Partial<SessionTokenExchange> = {}): SessionTokenExchange {
   return {
     path: '/api/token',
-    valuePath: 'data.token',
+    accessTokenPath: 'data.token',
     present: BEARER,
     // `code` 는 필드가 전부 선택이라 **빈 객체가 곧 표식**이다 — "이 SP 는 코드를 돌려준다".
     // 객체 자체의 필수 여부가 D-006 의 컴파일 강제를 담당한다.
@@ -148,15 +148,15 @@ describe('SessionRunner — ② 인가 코드로 토큰 교환 (0195)', () => {
 
   // AC2 (0196) — 요청 형상은 **코어가 고정한다**(D-009). 선언이 고를 수 있는 것은 이름뿐이라
   // `method`·content-type 을 단언하는 이 케이스가 곧 그 고정의 정본이다.
-  it('교환 요청은 POST + application/json 이고 본문에 코드와 code.params 가 함께 실린다', async () => {
+  it('교환 요청은 POST + application/json 이고 본문에 코드와 code.extraFields 가 함께 실린다', async () => {
     const sessions = jsonPort('{"data":{"token":"t"}}')
     await new SessionRunner({ sessions }).login(
       PROVIDER,
       spec(
         exchangeSpec({
           code: {
-            name: 'authorization_code',
-            params: { grant_type: 'authorization_code', client_id: 'orca' }
+            bodyField: 'authorization_code',
+            extraFields: { grant_type: 'authorization_code', client_id: 'orca' }
           }
         })
       )
@@ -189,7 +189,7 @@ describe('SessionRunner — ② 인가 코드로 토큰 교환 (0195)', () => {
   })
 
   // AC4 — final URL 에서 코드를 **꺼낼** 이름 (D-005). ⓐ 미지정 기본값 `'code'` ⓑ 선언한 이름.
-  it('code.param 미지정이면 code 로 찾고, 지정하면 그 이름으로 찾는다', async () => {
+  it('code.urlParam 미지정이면 code 로 찾고, 지정하면 그 이름으로 찾는다', async () => {
     const byDefault = jsonPort(
       '{"data":{"token":"t"}}',
       'https://portal.example.corp/home?code=xyz'
@@ -200,21 +200,21 @@ describe('SessionRunner — ② 인가 코드로 토큰 교환 (0195)', () => {
     const named = jsonPort('{"data":{"token":"t"}}', 'https://portal.example.corp/home?ticket=abc')
     await new SessionRunner({ sessions: named }).login(
       PROVIDER,
-      spec(exchangeSpec({ code: { param: 'ticket' } }))
+      spec(exchangeSpec({ code: { urlParam: 'ticket' } }))
     )
     expect(sentBody(named)).toEqual({ ticket: 'abc' })
   })
 
   // AC5 — 본문에서 코드를 **부를** 이름. 미지정이면 유효 `param`, 지정하면 그 이름이고 받은
   // 이름은 본문에 남지 않는다(`toEqual` 이 그 부재를 센다).
-  it('code.name 미지정이면 본문 키가 유효 param 이고, 지정하면 그 이름 하나만 남는다', async () => {
+  it('code.bodyField 미지정이면 본문 키가 유효 urlParam 이고, 지정하면 그 이름 하나만 남는다', async () => {
     const inherited = jsonPort(
       '{"data":{"token":"t"}}',
       'https://portal.example.corp/home?ticket=abc'
     )
     await new SessionRunner({ sessions: inherited }).login(
       PROVIDER,
-      spec(exchangeSpec({ code: { param: 'ticket' } }))
+      spec(exchangeSpec({ code: { urlParam: 'ticket' } }))
     )
     expect(sentBody(inherited)).toEqual({ ticket: 'abc' })
 
@@ -224,18 +224,18 @@ describe('SessionRunner — ② 인가 코드로 토큰 교환 (0195)', () => {
     )
     await new SessionRunner({ sessions: renamed }).login(
       PROVIDER,
-      spec(exchangeSpec({ code: { param: 'ticket', name: 'authorization_code' } }))
+      spec(exchangeSpec({ code: { urlParam: 'ticket', bodyField: 'authorization_code' } }))
     )
     expect(sentBody(renamed)).toEqual({ authorization_code: 'abc' })
   })
 
   // AC6 (0196) — `params` 에 코드와 **같은 이름**이 있으면 실제 인가 코드가 이긴다. 0195 는 이
   // 불변식을 주석으로만 갖고 있었다(파생 D2). 전개 순서를 뒤집으면 자리표시자가 실려 실패한다.
-  it('code.params 에 같은 이름이 있어도 final URL 의 코드가 이긴다', async () => {
+  it('code.extraFields 에 같은 이름이 있어도 final URL 의 코드가 이긴다', async () => {
     const sessions = jsonPort('{"data":{"token":"t"}}')
     await new SessionRunner({ sessions }).login(
       PROVIDER,
-      spec(exchangeSpec({ code: { params: { code: 'PLACEHOLDER', grant_type: 'x' } } }))
+      spec(exchangeSpec({ code: { extraFields: { code: 'PLACEHOLDER', grant_type: 'x' } } }))
     )
 
     expect(sentBody(sessions)).toEqual({ code: 'auth-code-1', grant_type: 'x' })
@@ -249,12 +249,12 @@ describe('SessionRunner — ② 인가 코드로 토큰 교환 (0195)', () => {
     const result = await new SessionRunner({
       sessions,
       logger: (event, data) => void events.push([event, data])
-    }).login(PROVIDER, spec(exchangeSpec({ code: { param: 'ticket' } })))
+    }).login(PROVIDER, spec(exchangeSpec({ code: { urlParam: 'ticket' } })))
 
     expect(result).toMatchObject({ kind: 'failed', reason: 'exchange_failed' })
     expect(sessions.send).not.toHaveBeenCalled()
     const logged = events.find(([event]) => event === 'providers.session.exchange.no-code')
-    expect(logged?.[1]).toEqual({ authId: 'corp-sso', param: 'ticket' })
+    expect(logged?.[1]).toEqual({ authId: 'corp-sso', urlParam: 'ticket' })
   })
 
   // 값이 아니라 **이름**만 남는다. 인가 코드는 자격증명이라 로그 파일에 실리면 안 된다.
@@ -267,7 +267,7 @@ describe('SessionRunner — ② 인가 코드로 토큰 교환 (0195)', () => {
     await new SessionRunner({
       sessions,
       logger: (event, data) => void events.push([event, data])
-    }).login(PROVIDER, spec(exchangeSpec({ code: { param: 'ticket' } })))
+    }).login(PROVIDER, spec(exchangeSpec({ code: { urlParam: 'ticket' } })))
 
     expect(JSON.stringify(events)).not.toContain('secret-code')
   })
@@ -303,6 +303,20 @@ describe('SessionRunner — ② 인가 코드로 토큰 교환 (0195)', () => {
 
     expect(first).toMatchObject({ kind: 'token', token: { token: 'A' } })
     expect(second).toMatchObject({ kind: 'token', token: { token: 'B' } })
+  })
+
+  // 0197 A-2 — 조립이 `compact<TokenValue>` 로 바뀌어도 **결과 객체의 키 집합은 그대로**여야
+  // 한다. `toEqual` 은 `undefined` 프로퍼티를 없는 것과 같게 보므로 그것으로는 이 축을 못
+  // 잡는다 — 키를 직접 센다. `refreshExpiresAt: undefined` 를 명시적으로 넘기고 있어서, 그것이
+  // 지워지지 않으면 여기서 드러난다.
+  it('응답이 말하지 않은 필드는 키 자체가 생기지 않는다', async () => {
+    const result = await new SessionRunner({
+      sessions: jsonPort('{"data":{"token":"t"}}')
+    }).login(PROVIDER, spec(exchangeSpec()))
+
+    expect(result.kind).toBe('token')
+    const token = (result as Extract<typeof result, { kind: 'token' }>).token
+    expect(Object.keys(token).sort()).toEqual(['token'])
   })
 
   // AC9 — refresh 는 **경로를 선언한 경우에만** 흡수한다(D-003 fail-closed). 갱신 기능이 없는
