@@ -19,6 +19,7 @@ import {
 import type { RouterContext } from '../context'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import { getLogger } from '../../infra/log'
+import { canonicalProviderKey, providerKeyOf } from '../../infra/config/provider-key'
 
 async function refreshHarnessSettings(ctx: RouterContext): Promise<void> {
   try {
@@ -40,8 +41,9 @@ async function refreshHarnessSettings(ctx: RouterContext): Promise<void> {
 
 export function registerEngineHandlers(ctx: RouterContext): void {
   const assertMutable = (key: string): void => {
-    if (ctx.runtimeModelCatalog?.isReadOnly(key)) {
-      throw new Error(`runtime-managed engine is read-only: ${key}`)
+    const canonical = canonicalProviderKey(key, ['claude'])
+    if (ctx.runtimeModelCatalog?.isReadOnly(canonical)) {
+      throw new Error(`runtime-managed engine is read-only: ${canonical}`)
     }
   }
   handle(
@@ -49,7 +51,7 @@ export function registerEngineHandlers(ctx: RouterContext): void {
     CreateEngineSchema,
     'reject',
     async (req): Promise<EngineWriteResult> => {
-      assertMutable(`${req.engine}-${req.provider}`)
+      assertMutable(providerKeyOf(req.engine, req.provider))
       const result = addHarnessSettings(req.engine, req.provider, req.settingsJson)
       await refreshHarnessSettings(ctx)
       return result

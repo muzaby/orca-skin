@@ -4,8 +4,7 @@ import type {
   CreateEngineRequest,
   UpdateEngineRequest
 } from '../../../../../shared/ipc'
-import { engineApi } from '../../../shared/api/ipc'
-import { providerApi } from '../../../shared/api/ipc'
+import { engineApi, providerApi } from '../../../shared/api/ipc'
 import type { UiMessage } from '../../../shared/i18n'
 import { refreshAgents, useAgentStore } from '../../../shared/stores/agentStore'
 

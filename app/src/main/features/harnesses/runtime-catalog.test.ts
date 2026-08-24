@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createRuntimeModelCatalog } from './runtime-catalog'
+import { createRuntimeModelCatalog, createRuntimeModelCatalogBridge } from './runtime-catalog'
 import { createHarnessRuntimeConfigService } from './runtime-config'
 import type { AuthSnapshot } from '../../contracts/auth'
 import type { HarnessRuntimeConfig } from '../../adapters/harness-config'
@@ -26,6 +26,29 @@ const valid = (revision = 1): AuthSnapshot => ({
 })
 
 describe('runtime model catalog', () => {
+  it('replays an auth-resume snapshot that arrived before bootstrap attached the catalog', async () => {
+    const reconcile = vi.fn(async () => undefined)
+    const snapshotOf = vi.fn(() => valid(0))
+    const bridge = createRuntimeModelCatalogBridge({ contributions: [contribution], snapshotOf })
+
+    await bridge.onSnapshot('gate', valid(3))
+    await bridge.attach({ list: () => [], isReadOnly: () => true, reconcile })
+
+    expect(reconcile).toHaveBeenCalledOnce()
+    expect(reconcile).toHaveBeenCalledWith('gate', valid(3))
+    expect(snapshotOf).not.toHaveBeenCalled()
+  })
+
+  it('catches up from the current auth snapshot when no earlier event arrived', async () => {
+    const reconcile = vi.fn(async () => undefined)
+    const snapshotOf = vi.fn(() => valid(4))
+    const bridge = createRuntimeModelCatalogBridge({ contributions: [contribution], snapshotOf })
+
+    await bridge.attach({ list: () => [], isReadOnly: () => true, reconcile })
+
+    expect(reconcile).toHaveBeenCalledWith('gate', valid(4))
+  })
+
   it('fetches once per verified revision and serves subsequent reads from memory', async () => {
     const resolve = vi.fn(async () => config(['corp-model']))
     const catalog = createRuntimeModelCatalog({
@@ -39,7 +62,7 @@ describe('runtime model catalog', () => {
       expect.objectContaining({ key: 'orca-corp', readOnly: true, source: 'runtime' })
     ])
     expect(catalog.list()[0].models[0]).toMatchObject({
-      alias: 'corp-model',
+      alias: 'custom',
       model: 'corp-model'
     })
   })
@@ -96,5 +119,42 @@ describe('runtime model catalog', () => {
     await runtime.resolve(contribution)
 
     expect(fetchContribution).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects non-array availableModels at the runtime boundary', async () => {
+    const resolve = vi.fn(async () => ({ ...config([]), availableModels: 'abc' as never }))
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      runtime: { resolve, invalidate: vi.fn() }
+    })
+
+    await catalog.reconcile('gate', valid())
+
+    expect(catalog.list()).toEqual([])
+  })
+
+  it('removes only the failing contribution when a fetch rejects', async () => {
+    const other = { ...contribution, key: 'orca-other', modelProviderId: 'other' }
+    const resolve = vi.fn(async (item: typeof contribution) => {
+      if (item.key === contribution.key) throw new Error('offline')
+      return { ...config(['sonnet-other']), key: other.key, modelProviderId: other.modelProviderId }
+    })
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution, other],
+      runtime: { resolve, invalidate: vi.fn() }
+    })
+
+    await catalog.reconcile('gate', valid())
+
+    expect(catalog.list().map((entry) => entry.key)).toEqual(['orca-other'])
+  })
+
+  it('treats declared runtime keys as read-only across casing and whitespace variants', () => {
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      runtime: { resolve: vi.fn(), invalidate: vi.fn() }
+    })
+
+    expect(catalog.isReadOnly(' orca-CORP ')).toBe(true)
   })
 })
