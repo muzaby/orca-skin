@@ -13,24 +13,29 @@ export function availableModelsOf(value: unknown): string[] | undefined {
 
 export function normalizeAvailableModels(models: readonly string[]): ParsedModel[] {
   const seenModels = new Set<string>()
-  const seenAliases = new Set<string>()
   const normalized: ParsedModel[] = []
   for (const raw of models) {
-    const model = raw.trim()
+    const { value: model, oneMillion } = stripOneMillion(raw)
     if (!model || seenModels.has(model)) continue
     seenModels.add(model)
     const lower = model.toLowerCase()
     const family = FAMILY_ORDER.find((candidate) => lower.includes(candidate))
-    const alias = family ?? model
-    if (seenAliases.has(alias)) continue
-    seenAliases.add(alias)
+    const alias = family ?? 'custom'
     normalized.push({
       alias,
       model,
       isCustom: family === undefined,
-      oneMillionContext: false,
+      oneMillionContext: oneMillion,
       isDefault: normalized.length === 0
     })
   }
   return normalized
+}
+
+export function stripOneMillion(raw: string): { value: string; oneMillion: boolean } {
+  const trimmed = raw.trim()
+  if (trimmed.toLowerCase().endsWith('[1m]')) {
+    return { value: trimmed.slice(0, -'[1m]'.length).trim(), oneMillion: true }
+  }
+  return { value: trimmed, oneMillion: false }
 }

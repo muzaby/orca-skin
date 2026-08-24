@@ -10,15 +10,29 @@ function defaults(models: ParsedModel[]): string[] {
 }
 
 describe('parseClaudeModels — 노출 + default 불변식', () => {
-  it('exact availableModels가 legacy env 모델보다 우선하며 custom 이름을 보존한다', () => {
+  it('env family 모델을 먼저 구성하고 availableModels를 모두 뒤에 추가한다', () => {
     const models = parseClaudeModels({
       availableModels: ['claude-sonnet-corp', 'orca-private-v1'],
-      env: { ANTHROPIC_DEFAULT_OPUS_MODEL: 'legacy-opus' }
+      env: { ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-default' }
     })
     expect(models).toEqual([
+      expect.objectContaining({ alias: 'opus', model: 'claude-opus-default' }),
       expect.objectContaining({ alias: 'sonnet', model: 'claude-sonnet-corp' }),
-      expect.objectContaining({ alias: 'orca-private-v1', model: 'orca-private-v1' })
+      expect.objectContaining({ alias: 'custom', model: 'orca-private-v1' })
     ])
+  })
+
+  it('env 기본 모델이 같은 family의 discovery 모델보다 default 우선권을 유지한다', () => {
+    const models = parseClaudeModels({
+      env: { ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-env' },
+      availableModels: ['claude-sonnet-first', 'claude-sonnet-last']
+    })
+    expect(models.map((model) => model.model)).toEqual([
+      'claude-sonnet-env',
+      'claude-sonnet-first',
+      'claude-sonnet-last'
+    ])
+    expect(models.find((model) => model.isDefault)?.model).toBe('claude-sonnet-env')
   })
   it('빈 설정 → 3개 alias 노출, model null, sonnet default', () => {
     const models = parseClaudeModels({})
@@ -46,7 +60,7 @@ describe('parseClaudeModels — 노출 + default 불변식', () => {
     expect(models.map((m) => m.alias)).toEqual(['opus'])
     expect(byAlias(models).opus).toMatchObject({
       model: 'claude-opus-4-6',
-      isCustom: true,
+      isCustom: false,
       oneMillionContext: false,
       isDefault: true
     })
@@ -129,7 +143,7 @@ describe('parseClaudeModels — 노출 + default 불변식', () => {
     expect(defaults(models)).toEqual(['opus'])
   })
 
-  it('불변식 — 노출 length 1~3, isDefault 정확히 1, 비커스텀은 model null', () => {
+  it('불변식 — env-only 노출 length 1~3, isDefault 정확히 1, family 설정은 model을 보존', () => {
     for (const settings of [
       {},
       { model: 'haiku' },
@@ -140,7 +154,7 @@ describe('parseClaudeModels — 노출 + default 불변식', () => {
       expect(models.length).toBeGreaterThanOrEqual(1)
       expect(models.length).toBeLessThanOrEqual(3)
       expect(models.filter((m) => m.isDefault)).toHaveLength(1)
-      expect(models.every((m) => m.isCustom || m.model === null)).toBe(true)
+      expect(models.every((m) => m.alias !== 'custom')).toBe(true)
     }
   })
 })

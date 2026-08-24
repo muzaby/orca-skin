@@ -16,14 +16,27 @@ describe('availableModels exact contract', () => {
       expect.objectContaining({ alias: 'sonnet', model: 'Claude-SONNET-4', isDefault: true }),
       expect.objectContaining({ alias: 'opus', model: 'x-opus-y', isDefault: false }),
       expect.objectContaining({ alias: 'haiku', model: 'haiku-next', isDefault: false }),
-      expect.objectContaining({ alias: 'corp/model-v1', model: 'corp/model-v1', isCustom: true })
+      expect.objectContaining({ alias: 'custom', model: 'corp/model-v1', isCustom: true })
     ])
   })
 
-  it('trims empties and deterministically keeps the first model per family', () => {
-    expect(normalizeAvailableModels([' ', 'sonnet-a', 'sonnet-b', 'custom', 'custom'])).toEqual([
+  it('trims empties, keeps every distinct family model, and deduplicates exact names', () => {
+    expect(
+      normalizeAvailableModels([' ', 'sonnet-a', 'sonnet-b', 'private-v1', 'private-v1'])
+    ).toEqual([
       expect.objectContaining({ alias: 'sonnet', model: 'sonnet-a' }),
-      expect.objectContaining({ alias: 'custom', model: 'custom' })
+      expect.objectContaining({ alias: 'sonnet', model: 'sonnet-b' }),
+      expect.objectContaining({ alias: 'custom', model: 'private-v1' })
+    ])
+  })
+
+  it('normalizes the [1m] suffix consistently with env-configured models', () => {
+    expect(normalizeAvailableModels(['claude-sonnet-4-6[1m]'])).toEqual([
+      expect.objectContaining({
+        alias: 'sonnet',
+        model: 'claude-sonnet-4-6',
+        oneMillionContext: true
+      })
     ])
   })
 })
