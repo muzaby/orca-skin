@@ -8,7 +8,7 @@
 | 작성자 | Codex |
 | 일자 | 2026-08-24 |
 | 매핑 | 런타임 모델 카탈로그 자동 투영 |
-| 상태 | IMPL_DONE |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → **verify/FAIL (r2)** |
 
 # Part I — Product & UX Contract
 
@@ -428,9 +428,20 @@ settings / Auth+runtime augmenter
 
 ## [검증자 기입] 파생 이슈
 
+> r2 검증 판정 원문은 [`verify.md`](verify.md). 아래는 재구현이 닫을 목록이다.
+
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| — | 없음 | — | — | — |
+| D1 | `parseClaudeModels`의 `byAlias` Map이 같은 alias에서 마지막 항목을 남겨 두 producer의 default가 갈린다 | verify r2 · AC4 | 노출 순서 기준 첫 항목으로 고르고 두 producer 동일성을 테스트로 잠근다 | open |
+| D2 | 세션 로드(`modelFamily=null`)에서 `selectionExists`가 항상 false라 저장된 provider가 첫 provider로 바뀐다 | verify r2 · AC10·AC12 | null 선택은 provider 유지 분기로 보내고 재화해는 "존재했으나 사라진" 경우로 좁힌다 | open |
+| D3 | runtime 경계가 `availableModelsOf` 없이 정규화해 문자열 입력이 가짜 모델을 만든다 | verify r2 · AC1·§10 1행 | `runtime-catalog`도 같은 type guard를 통과시키고 음성 케이스를 둔다 | open |
+| D4 | `assertMutable`이 정규화 전 키를 봐 대소문자·공백 변형으로 우회된다 | verify r2 · §10 5행 | 가드 입력을 `providerKeyOf`/`normalizeProvider` 결과로 맞춘다 | open |
+| D5 | AC6·AC11·AC13이 주장한 bootstrap/auth-resume 배선 테스트가 없다 | verify r2 | 구독 순서·로그인당 1회·턴 fetch 0을 주입 테스트로 관측한다 | open |
+| D6 | resolve reject로 entry가 제거되는 경로에 테스트가 없다 | verify r2 · AC7 | reject fixture 케이스를 추가한다 | open |
+| D7 | `available-models.test.ts`의 케이스 이름이 단언과 어긋난다 | verify r2 | 이름을 r2 의미로 고친다 | open |
+| D8 | `agent:list`가 settings·runtime의 같은 key를 병합하지 않는다 | verify r2 | 충돌 시 우선순위를 정하고 renderer key 중복을 막는다 | open |
+| D9 | `useEngines.ts` 중복 import · `availableModels` 항목의 `[1m]` 미해석 | verify r2 | 위생 정리와 `[1m]` 의미 결정 | open |
+| D10 | plan 인용 해시 `7fb771f` 부재 · r1 커밋 type 오표기 · r2 설계/구현 동일 커밋 | verify r2 | 다음 라운드 커밋에서 좌표와 type을 바로잡는다 | open |
 
 ## [구현자 기입] r2 사용자 피드백 반영
 
