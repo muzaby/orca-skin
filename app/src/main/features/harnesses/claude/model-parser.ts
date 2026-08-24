@@ -8,14 +8,18 @@
 //
 // 순수 함수 — fs 비의존, vitest 대상.
 
-import { availableModelsOf, normalizeAvailableModels, stripOneMillion } from './available-models'
+import {
+  availableModelsOf,
+  markDefaultModel,
+  normalizeAvailableModels,
+  stripOneMillion
+} from './available-models'
 
 type ModelAlias = 'sonnet' | 'opus' | 'haiku'
 
 // 필터링 폴백/노출 순서. UI 표시 순서이자 default 폴백 순서(sonnet→haiku→opus 는 §4 규칙,
 // 단 노출 배열은 sonnet/opus/haiku — 폴백 평가는 별도 ORDER 로).
 const DISPLAY_ORDER: readonly ModelAlias[] = ['sonnet', 'opus', 'haiku']
-const FALLBACK_ORDER: readonly ModelAlias[] = ['sonnet', 'haiku', 'opus']
 
 const ALIAS_ENV_KEY: Record<ModelAlias, string> = {
   sonnet: 'ANTHROPIC_DEFAULT_SONNET_MODEL',
@@ -80,29 +84,11 @@ export function parseClaudeModels(settings: {
         ? configured
         : candidates
 
-  for (const model of visible) model.isDefault = false
-
   // 3단계 — 노출 목록 내 default 정확히 1개.
   const rawExplicit = modelValue(env.ANTHROPIC_MODEL) ?? modelValue(settings.model)
   const explicit = rawExplicit ? stripOneMillion(rawExplicit).value : undefined
 
-  const chooseDefault = (): ParsedModel => {
-    // 규칙 1 — 명시 모델이 노출 항목의 alias 또는 model 과 일치.
-    if (explicit) {
-      const hit = visible.find(
-        (m) => m.alias === explicit || (m.model !== null && m.model === explicit)
-      )
-      if (hit) return hit
-    }
-    // 규칙 2 — 노출 항목 중 sonnet→haiku→opus 순 첫 항목.
-    for (const alias of FALLBACK_ORDER) {
-      const hit = visible.find((model) => model.alias === alias)
-      if (hit) return hit
-    }
-    // 규칙 3 — 폴백(노출 집합은 항상 non-empty).
-    return visible[0]
-  }
-  chooseDefault().isDefault = true
+  markDefaultModel(visible, explicit)
 
   return visible
 }

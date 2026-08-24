@@ -8,7 +8,7 @@
 | 작성자 | Codex |
 | 일자 | 2026-08-24 |
 | 매핑 | 런타임 모델 카탈로그 자동 투영 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → **verify/FAIL (r3)** |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → **verify/FAIL (r3) → **IMPL_DONE (r4)** |
 
 # Part I — Product & UX Contract
 
@@ -443,12 +443,12 @@ settings / Auth+runtime augmenter
 | D8 | `agent:list`가 settings·runtime의 같은 key를 병합하지 않는다 | verify r2 | runtime 우선 key 병합으로 단일 행 보장 | closed r3 |
 | D9 | `useEngines.ts` 중복 import · `availableModels` 항목의 `[1m]` 미해석 | verify r2 | import 통합, 공용 suffix parser 적용 | closed r3 |
 | D10 | plan 인용 해시 `7fb771f` 부재 · r1 커밋 type 오표기 · r2 설계/구현 동일 커밋 | verify r2 | 좌표를 `803bd50`으로 교정; 과거 커밋은 재작성하지 않고 r3를 `fix` 구현 커밋으로 분리 | closed r3 |
-| D11 | 두 producer의 기본 선택이 여전히 갈린다 — 배열 첫 항목 vs `FALLBACK_ORDER`, 5배열 중 3배열 불일치 | verify r3 · AC4·D-004 | 공유 default 규칙 하나로 모으고 §10에 "기본 선택 동일성" 행을 신설; env 우선권 적용 여부는 사람 결정 | open |
-| D12 | augmenter가 `validUntil`을 주면 만료 뒤 턴이 재fetch한다(`AUGMENTER_CALLS=2`) | verify r3 · AC13·D-008·§10 4행 | 턴 경로를 catalog snapshot 전용으로 막거나 만료를 Gate 재인증으로만 처리; 가이드 6-a 예제와 정합 | open |
-| D13 | key 충돌 시 `agent:list`는 runtime 행, `turn-setup`은 settings 행을 쓴다 | verify r3 · D-007 | 턴 경로도 `mergeAgentEnvironments`와 같은 우선순위로 병합 | open |
-| D14 | `IPC_CONTRACT.md:69`의 "custom의 alias/model은 원문 self"가 `alias='custom'` 코드와 어긋난다 | verify r3 | D-003 재정의에 맞춰 문장 갱신 | open |
-| D15 | 커밋/좌표 위생 4건 — INDEX `fb04047` 부재 · `a5f06c4` trailer 파싱 0건 · `d479e7c`가 `Agent: codex`+`designed` · `8e17aae`에 규범 행·verify 혼입 | verify r3 | 좌표는 이번 검증 커밋에서 교정; 나머지는 다음 라운드 커밋 규약 준수 | open |
-| D16 | `!verified \|\| status!=='valid'`의 뒤 항을 지워도 10케이스 전건 통과(변이 M1) | verify r3 · AC7 | `status:'expired'`·`'unknown'`을 `verified:true`와 함께 넣는 케이스 추가 | open |
+| D11 | 두 producer의 기본 선택이 여전히 갈린다 — 배열 첫 항목 vs `FALLBACK_ORDER`, 5배열 중 3배열 불일치 | verify r3 · AC4·D-004 | 공유 default 규칙 하나로 모으고 §10에 "기본 선택 동일성" 행을 신설; env 우선권 적용 여부는 사람 결정 | closed r4 |
+| D12 | augmenter가 `validUntil`을 주면 만료 뒤 턴이 재fetch한다(`AUGMENTER_CALLS=2`) | verify r3 · AC13·D-008·§10 4행 | 턴 경로를 catalog snapshot 전용으로 막거나 만료를 Gate 재인증으로만 처리; 가이드 6-a 예제와 정합 | closed r4 |
+| D13 | key 충돌 시 `agent:list`는 runtime 행, `turn-setup`은 settings 행을 쓴다 | verify r3 · D-007 | 턴 경로도 `mergeAgentEnvironments`와 같은 우선순위로 병합 | closed r4 |
+| D14 | `IPC_CONTRACT.md:69`의 "custom의 alias/model은 원문 self"가 `alias='custom'` 코드와 어긋난다 | verify r3 | D-003 재정의에 맞춰 문장 갱신 | closed r4 |
+| D15 | 커밋/좌표 위생 4건 — INDEX `fb04047` 부재 · `a5f06c4` trailer 파싱 0건 · `d479e7c`가 `Agent: codex`+`designed` · `8e17aae`에 규범 행·verify 혼입 | verify r3 | 좌표는 이번 검증 커밋에서 교정; 나머지는 다음 라운드 커밋 규약 준수 | partial r4 |
+| D16 | `!verified \|\| status!=='valid'`의 뒤 항을 지워도 10케이스 전건 통과(변이 M1) | verify r3 · AC7 | `status:'expired'`·`'unknown'`을 `verified:true`와 함께 넣는 케이스 추가 | closed r4 |
 
 ## [구현자 기입] r2 사용자 피드백 반영
 
@@ -467,3 +467,17 @@ settings / Auth+runtime augmenter
 - 관측: 관련 Vitest 18파일 124케이스 통과; bridge/turn 대상 2파일 11케이스 통과; lint 0 error/기존 warning 1; typecheck 3/3; doc inventory 9 items·76 channels; `git diff --check` 통과.
 - AC 자기보고: ✅ AC1~AC8·AC10~AC14 = 13, ⚠️ AC9 두 테마 시각 확인. `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14`.
 - Review Signals: r2와 같은 모델 identity 축의 재구현이며 현재 라운드는 3이다. 다음 재구현이 필요하면 handoff-review를 먼저 수행한다.
+
+## [구현자 기입] r4 verify/FAIL 재구현
+
+- **판정: D11~D14·D16 해결, D15 부분 처리.** review round 15(`1a2c0c6`) 뒤 AC4·AC13과 형제 소비처를 전수 재측정했다. 과거 커밋 trailer/type 혼입은 history rewrite 없이 보고만 유지한다.
+- **D11 / AC4 해결.** `markDefaultModel` 한 함수가 settings·runtime의 sonnet→haiku→opus→첫 항목 규칙을 소유하며, 동일 3모델 배열의 default가 `claude-sonnet-4-5`로 일치하는 production 함수 테스트를 추가했다. §10의 기본 선택 동일성 행 신설은 규범 변경이므로 설계자 정정 제안으로 남긴다.
+- **D12 / AC13 해결.** runtime catalog 항목의 턴은 `HarnessRuntimeConfigService.cached()`만 읽고 cache miss를 명시 실패로 만들었다. `validUntil` 뒤 시계를 120초 이동한 두 번째 턴에서도 augmenter 호출은 1회다.
+- **D13 해결.** `resolveTurnProvider`가 `agent:list`와 같은 `mergeAgentEnvironments`를 사용해 key 충돌 시 runtime 행을 선택하며, settings/runtime 충돌 fixture가 실행 모델 `runtime-model`을 단언한다.
+- **D14·D16 해결.** IPC 문서는 custom을 `alias='custom'`·`model=self`로 정정했고, `verified:true`인 `expired`·`unknown` 두 상태가 entry를 제거하는 테스트를 추가했다.
+- **강제 지점 자기보고: 22/22.** exact shape 2/2 · family/model/self 4/4 · Auth 전이 5/5 · 로그인/세션 fetch 3/3 · read-only 6/6 · 두 UI snapshot 2/2. 추가 불변식인 producer default 동일성은 production 함수 대조 1/1, key 충돌 소비처는 목록·턴 2/2다.
+- **Product/UX 파생:** runtime cache가 없으면 턴이 network fallback 없이 오류로 끝난다. 이는 D-008의 “Gate 로그인만 fetch”를 지키며 버튼 무반응이 아니라 기존 턴 오류 경로로 관측된다. 신규 문자열·의존성·IPC 채널은 없다.
+- **설계 대비 차이 재유도:** 전용 catalog cache 대신 runtime service cache를 쓰는 기존 차이의 고유 실패 모드 `validUntil`을 AC13에서 다시 단언했고 1회 로그인 + 만료 후 2턴의 fetch 수 1을 관측했다.
+- **게이트:** 대상 5파일/44케이스 PASS · typecheck 3구성 PASS · eslint 0 error · doc inventory PASS · 전체 vitest는 기존 better-sqlite3 바인딩 부재 5파일/42케이스만 FAIL.
+- **AC 자기보고:** ✅ AC1~AC5·AC7·AC8·AC10·AC12~AC14 = 11, ⚠️ AC6·AC9·AC11 = 3, ❌ 0, 총 14. AC6·AC11 bootstrap 배선과 AC9 두 테마는 기존 사람/통합 경계다.
+- **Review Signals:** r3의 동일 증상 D11·D13을 각각 공유 규칙과 형제 소비처 전수로 닫았다. 신규 파생 결함은 없고 D15의 과거 커밋 위생은 history rewrite 없이 남는다.

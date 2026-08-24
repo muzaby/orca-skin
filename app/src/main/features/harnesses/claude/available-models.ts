@@ -1,6 +1,7 @@
 import type { ParsedModel } from './model-parser'
 
 const FAMILY_ORDER = ['sonnet', 'opus', 'haiku'] as const
+const DEFAULT_FAMILY_ORDER = ['sonnet', 'haiku', 'opus'] as const
 
 export function availableModelsOf(value: unknown): string[] | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
@@ -26,10 +27,24 @@ export function normalizeAvailableModels(models: readonly string[]): ParsedModel
       model,
       isCustom: family === undefined,
       oneMillionContext: oneMillion,
-      isDefault: normalized.length === 0
+      isDefault: false
     })
   }
+  markDefaultModel(normalized)
   return normalized
+}
+
+export function markDefaultModel(models: ParsedModel[], explicit?: string): void {
+  for (const model of models) model.isDefault = false
+  const selected =
+    (explicit
+      ? models.find((model) => model.alias === explicit || model.model === explicit)
+      : undefined) ??
+    DEFAULT_FAMILY_ORDER.map((family) => models.find((model) => model.alias === family)).find(
+      (model) => model !== undefined
+    ) ??
+    models[0]
+  if (selected) selected.isDefault = true
 }
 
 export function stripOneMillion(raw: string): { value: string; oneMillion: boolean } {

@@ -95,6 +95,23 @@ describe('runtime model catalog', () => {
     expect(catalog.list()).toEqual([])
   })
 
+  it.each(['expired', 'unknown'] as const)(
+    'removes a verified entry when auth status becomes %s',
+    async (status) => {
+      const catalog = createRuntimeModelCatalog({
+        contributions: [contribution],
+        runtime: {
+          resolve: vi.fn(async () => config(['sonnet-corp'])),
+          cached: vi.fn(),
+          invalidate: vi.fn()
+        }
+      })
+      await catalog.reconcile('gate', valid())
+      await catalog.reconcile('gate', { ...valid(), status })
+      expect(catalog.list()).toEqual([])
+    }
+  )
+
   it('refetches once for a new credential revision', async () => {
     const resolve = vi.fn(async () => config(['custom']))
     const catalog = createRuntimeModelCatalog({
