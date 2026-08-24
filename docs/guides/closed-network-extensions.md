@@ -441,7 +441,7 @@ subprocess env가 아니라 runtime catalog에 전달된다.
 | 4 | 1단계 key 에 augmenter 를 붙인다. **config API 방식과 direct credential 방식은 서로 다른 factory 다**(§3-c) | `app/deployment/harness-runtime.ts` |
 | 5 | 그 Auth 가 바뀌면 무효화할 key 를 `AUTH_INVALIDATED_HARNESS_KEYS` 에 적는다 | 같은 파일. 안 적으면 재인증 뒤에도 옛 token 이 warm cache 로 남는다 |
 | 6 | **카탈로그 row 를 추가한다** — `{category:'harness', auth, harnessModelProviderKey}` | `app/deployment/connections.ts`. **안 하면 연결 탭에 행이 없어 인증 자체가 불가능하다** |
-| 6-a | 모델 API 응답을 `availableModels`에 넣고 `{authId,key,harnessId,modelProviderId}` contribution을 선언한다 | Gate 로그인당 1회 fetch·프로세스 cache. 새 세션/턴 fetch 금지 |
+| 6-a | 모델 API 응답을 `availableModels`에 넣고 `{authId,key,harnessId,modelProviderId}` contribution을 선언한다 | Gate 로그인당 1회 fetch·프로세스 cache. 새 세션/턴 fetch 금지; 설정 배포로 cache가 무효화되면 자동 항목도 미노출 |
 | 7 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/harnesses src/main/features/auth src/main/app/deployment` | 형상·cache·fence·배선 회귀 |
 | 8 | 실기: 연결 탭에서 인증 → 새 채팅 전송 → 게이트웨이 로그에 요청이 도달하는지 | 사람 실기 |
 
@@ -614,6 +614,12 @@ export function createConfigApiAugmenters(deps: HarnessConfigApiDeps): RuntimeCo
   }
 }
 ```
+
+`validUntil`은 실행 token의 만료 시각이다. runtime catalog contribution으로 선언한 key는 Gate
+로그인에서 채운 snapshot만 턴에 사용하므로, 턴 진입이 만료를 이유로 config API를 다시 호출하지
+않는다. 인증·설정 변경이 cache를 무효화하면 해당 자동 모델은 두 UI에서 사라지고 다음 Gate 인증
+성공의 1회 fetch로 다시 나타난다. contribution이 아닌 settings key는 기존처럼 `validUntil`을
+검사해 필요할 때 resolve하며, 만료 token을 stale-while-revalidate로 실행하지 않는다.
 
 direct credential 방식은 Bootstrap 이 넘긴 **AuthId 를 닫은 closure** 하나만 받는다:
 

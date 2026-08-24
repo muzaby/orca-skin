@@ -36,6 +36,7 @@ async function refreshHarnessSettings(ctx: RouterContext): Promise<void> {
     // sourceRevision 기준 값을 warm hit 로 계속 돌려준다.
     ctx.harnessSettings.invalidateAll()
     ctx.harnessRuntime?.invalidate(undefined, 'harness-settings-crud')
+    ctx.runtimeModelCatalog?.invalidate()
   }
 }
 

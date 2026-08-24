@@ -638,6 +638,7 @@ export class Bootstrap {
     // 동적 runtime config 가 옛 sourceRevision 기준 값을 warm hit 로 계속 돌려준다.
     harnessSettings.invalidateAll()
     harnessRuntime.invalidate(undefined, 'settings-deploy')
+    runtimeModelCatalog.invalidate()
     // ClaudeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
     await this.bootReport.step('skill-scan', { critical: false, label: '스킬 스캔' }, () =>
       this.refreshSkills()

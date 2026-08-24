@@ -11,11 +11,12 @@ import {
 } from '../../adapters/harness-config'
 import {
   defaultModelFamily,
+  mergeAgentEnvironments,
   modelNameForFamily,
-  resolveTitleModel
+  resolveTitleModel,
+  toAgentEnvironments
 } from '../../features/harnesses/models'
 import { defaultProvider } from '../../features/harnesses/settings-entries'
-import { mergeAgentEnvironments, toAgentEnvironments } from '../../features/harnesses/models'
 import { getLogger } from '../../infra/log'
 import { sendChatEvent } from '../../infra/ipc/send'
 import type { RuntimeSessionAdapter } from '../../contracts/ports'

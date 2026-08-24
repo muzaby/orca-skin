@@ -8,6 +8,10 @@ import type { ParsedModel } from './claude/model-parser'
 
 export type { ParsedModel } from './claude/model-parser'
 
+export function canonicalAgentKey(key: string): string {
+  return key.trim().toLowerCase()
+}
+
 export function modelKey(model: ParsedModel): string {
   return model.model ?? model.alias
 }
@@ -76,7 +80,7 @@ export function mergeAgentEnvironments(
   settings: AgentEnvironment[],
   runtime: AgentEnvironment[]
 ): AgentEnvironment[] {
-  const merged = new Map(settings.map((entry) => [entry.key, entry]))
-  for (const entry of runtime) merged.set(entry.key, entry)
+  const merged = new Map(settings.map((entry) => [canonicalAgentKey(entry.key), entry]))
+  for (const entry of runtime) merged.set(canonicalAgentKey(entry.key), entry)
   return [...merged.values()]
 }
