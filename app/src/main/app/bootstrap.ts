@@ -66,12 +66,17 @@ import { OAuthRunner } from '../features/auth/oauth-runner'
 import { createGate, selectGateMembers } from '../features/gate'
 import { createAuthResume } from './auth-resume'
 import { createHarnessRuntimeConfigService } from '../features/harnesses/runtime-config'
+import {
+  createRuntimeModelCatalog,
+  type RuntimeModelCatalog
+} from '../features/harnesses/runtime-catalog'
 import { AUTH_DEFINITIONS } from './deployment/auth-definitions'
 import { GATE_AUTH_DEFINITIONS, remainingAuthDefinitions } from './deployment/gate-auth'
 import {
   AUTH_INVALIDATED_HARNESS_KEYS,
   createRuntimeConfigAugmenters,
-  DIRECT_CREDENTIAL_AUTH_IDS
+  DIRECT_CREDENTIAL_AUTH_IDS,
+  RUNTIME_MODEL_CONTRIBUTIONS
 } from './deployment/harness-runtime'
 import { createPluginBindings } from './deployment/plugins'
 import { createConnectionSources } from './deployment/connections'
@@ -373,15 +378,21 @@ export class Bootstrap {
     // ── Auth change 소비 (0188 D-008) ──────────────────────────────────────────
     // **listener 를 resume 보다 먼저 붙인다** — 복원 probe 가 강등을 만들면 그 자리에서 도구가
     // 회수돼야 한다. 구독이 늦으면 죽은 연결의 도구가 첫 턴에 실린다.
+    const runtimeModelCatalogRef: { current?: RuntimeModelCatalog } = {}
     auth.subscribe((change: AuthChange) => {
       pushConnectionState()
       // 화면 변화(입력 폼·OAuth 대기·resuming)와 `verified`-only 변화는 여기서 끝난다 —
       // 실행 credential 이 그대로이므로 도구를 다시 sync 하거나 Harness cache 를 비우지 않는다.
-      if (change.kind !== 'snapshot' || !change.credentialChanged) return
-      for (const plugin of plugins) {
-        if (plugin.auth.authId === change.authId) plugin.sync()
+      if (change.kind === 'snapshot' && change.credentialChanged) {
+        for (const plugin of plugins) {
+          if (plugin.auth.authId === change.authId) plugin.sync()
+        }
+        harnessRuntimeRef?.invalidateForAuth(change.authId)
       }
-      harnessRuntimeRef?.invalidateForAuth(change.authId)
+      // runtime config 무효화가 먼저다. 반대 순서면 재인증 reconcile 이 이전 cache 를 publish한다.
+      if (change.kind === 'snapshot') {
+        void runtimeModelCatalogRef.current?.reconcile(change.authId, change.snapshot)
+      }
     })
 
     // Harness runtime config 는 DB 뒤에 만들어진다 — 그 전에 도착한 credential change 는
@@ -460,14 +471,32 @@ export class Bootstrap {
       }),
       logger: (event, data) => getLogger().child('harness').debug(event, data)
     })
-    // Auth change → **고정 key 만** 무효화한다(0188 §성능 계약). AuthId → feature contribution
-    // registry 를 만들어 자동 발견하지 않는다 — 배포가 배선에서 명시한다.
+    // Auth change → 배포가 명시한 고정 key만 무효화한다(0188 §성능 계약).
+    // 실행 env와 model catalog contribution의 합집합이며 런타임 자동 발견은 하지 않는다.
     harnessRuntimeRef = {
       invalidateForAuth: (authId) => {
-        for (const key of AUTH_INVALIDATED_HARNESS_KEYS[authId] ?? []) {
+        const keys = new Set([
+          ...(AUTH_INVALIDATED_HARNESS_KEYS[authId] ?? []),
+          ...RUNTIME_MODEL_CONTRIBUTIONS.filter((item) => item.authId === authId).map(
+            (item) => item.key
+          )
+        ])
+        for (const key of keys) {
           harnessRuntime.invalidate(key, 'auth-change')
         }
       }
+    }
+    const runtimeModelCatalog = createRuntimeModelCatalog({
+      contributions: RUNTIME_MODEL_CONTRIBUTIONS,
+      runtime: harnessRuntime,
+      onChange: pushConnectionState
+    })
+    runtimeModelCatalogRef.current = runtimeModelCatalog
+    for (const contribution of RUNTIME_MODEL_CONTRIBUTIONS) {
+      void runtimeModelCatalog.reconcile(
+        contribution.authId,
+        auth.bind(contribution.authId).snapshot()
+      )
     }
 
     // ── 원격 사용량 fetcher (0186 → 0188 배포 모듈로 이설) ────────────────────────
@@ -639,7 +668,8 @@ export class Bootstrap {
       runtimeTools,
       auth,
       gate,
-      harnessRuntime
+      harnessRuntime,
+      runtimeModelCatalog
     }
     this.register(ctx)
   }

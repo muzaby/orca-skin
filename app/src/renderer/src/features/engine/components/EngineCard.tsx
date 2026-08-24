@@ -17,7 +17,7 @@ export function EngineCard({
   onDelete
 }: EngineCardProps): React.JSX.Element {
   const { tr } = useI18n()
-  const canMutate = agent.adapter === 'claude'
+  const canMutate = agent.adapter === 'claude' && agent.readOnly !== true
   return (
     <div className="rounded-xl border border-border bg-panel px-4 py-3.5">
       <div className="flex items-center gap-3">
@@ -30,25 +30,34 @@ export function EngineCard({
                 {tr('engine.card.unsupportedAdapter')}
               </span>
             )}
+            {agent.readOnly && (
+              <span className="rounded-sm bg-bg2 px-1.5 py-px text-[10px] font-semibold text-ink3 ring-1 ring-border">
+                {tr('engine.card.readOnly')}
+              </span>
+            )}
           </div>
           <div className="mt-0.5 font-mono text-[11px] text-ink3">{agent.key}</div>
         </div>
-        <Button
-          variant="contained"
-          size="small"
-          disabled={!canMutate || busy}
-          onClick={() => onEdit(agent)}
-        >
-          {tr('common.edit')}
-        </Button>
-        <Button
-          variant="danger-ghost"
-          size="small"
-          disabled={!canMutate || busy}
-          onClick={() => onDelete(agent)}
-        >
-          {tr('common.delete')}
-        </Button>
+        {canMutate && (
+          <Button
+            variant="contained"
+            size="small"
+            disabled={!canMutate || busy}
+            onClick={() => onEdit(agent)}
+          >
+            {tr('common.edit')}
+          </Button>
+        )}
+        {canMutate && (
+          <Button
+            variant="danger-ghost"
+            size="small"
+            disabled={!canMutate || busy}
+            onClick={() => onDelete(agent)}
+          >
+            {tr('common.delete')}
+          </Button>
+        )}
       </div>
       <EngineModelList models={agent.models} />
     </div>

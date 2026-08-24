@@ -49,7 +49,17 @@ export async function resolveTurnProvider(
     modelFamily: string | null
   }
 ): Promise<ResolvedTurnProvider> {
-  const entries = ctx.harnessSettings.list(req.adapter.id)
+  const entries = [
+    ...ctx.harnessSettings.list(req.adapter.id),
+    ...(ctx.runtimeModelCatalog?.list() ?? [])
+      .filter((entry) => entry.adapter === req.adapter.id)
+      .map((entry) => ({
+        key: entry.key,
+        harnessId: entry.adapter,
+        modelProviderId: entry.provider ?? entry.key,
+        models: entry.models
+      }))
+  ]
   const meta = req.sessionId ? ctx.db.getSessionById(req.sessionId) : undefined
   const byKey = (key: string | null | undefined): (typeof entries)[number] | undefined =>
     key ? entries.find((entry) => entry.key === key) : undefined

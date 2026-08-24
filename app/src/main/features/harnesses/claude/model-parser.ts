@@ -8,6 +8,8 @@
 //
 // 순수 함수 — fs 비의존, vitest 대상.
 
+import { availableModelsOf, normalizeAvailableModels } from './available-models'
+
 type ModelAlias = 'sonnet' | 'opus' | 'haiku'
 
 // 필터링 폴백/노출 순서. UI 표시 순서이자 default 폴백 순서(sonnet→haiku→opus 는 §4 규칙,
@@ -23,7 +25,7 @@ const ALIAS_ENV_KEY: Record<ModelAlias, string> = {
 
 // 모델 선택 UI 1행. meta.json 의 구 OrcaModelConfig({name,family,default}) 를 대체한다.
 export interface ParsedModel {
-  alias: ModelAlias
+  alias: string
   model: string | null // env 에 구성된 model명. 미구성 시 null (추측 금지).
   isCustom: boolean // ANTHROPIC_DEFAULT_<ALIAS>_MODEL 키 존재 여부.
   oneMillionContext: boolean // model/명시값에 [1m] 접미사가 있었으면 true.
@@ -53,7 +55,16 @@ function modelValue(value: unknown): string | undefined {
   return trimmed === '' ? undefined : trimmed
 }
 
-export function parseClaudeModels(settings: { model?: unknown; env?: unknown }): ParsedModel[] {
+export function parseClaudeModels(settings: {
+  model?: unknown
+  env?: unknown
+  availableModels?: unknown
+}): ParsedModel[] {
+  const availableModels = availableModelsOf(settings)
+  if (availableModels !== undefined) {
+    const normalized = normalizeAvailableModels(availableModels)
+    if (normalized.length > 0) return normalized
+  }
   const env = asRecord(settings.env)
 
   // 1단계 — alias 별 후보 빌드.

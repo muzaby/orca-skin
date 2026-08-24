@@ -1,10 +1,11 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type {
   AgentEnvironment,
   CreateEngineRequest,
   UpdateEngineRequest
 } from '../../../../../shared/ipc'
 import { engineApi } from '../../../shared/api/ipc'
+import { providerApi } from '../../../shared/api/ipc'
 import type { UiMessage } from '../../../shared/i18n'
 import { refreshAgents, useAgentStore } from '../../../shared/stores/agentStore'
 
@@ -26,6 +27,8 @@ export function useEngines(): {
   const agents = useAgentStore((store) => store.agents)
   const ensureLoaded = useAgentStore((store) => store.ensureLoaded)
   const [state, setState] = useState<EngineMutationState>({ busy: false, error: null })
+
+  useEffect(() => providerApi.onState(() => void refreshAgents()), [])
 
   const mutate = useCallback(async (fn: () => Promise<unknown>): Promise<void> => {
     setState({ busy: true, error: null })

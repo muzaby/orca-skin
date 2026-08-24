@@ -10,6 +10,16 @@ function defaults(models: ParsedModel[]): string[] {
 }
 
 describe('parseClaudeModels — 노출 + default 불변식', () => {
+  it('exact availableModels가 legacy env 모델보다 우선하며 custom 이름을 보존한다', () => {
+    const models = parseClaudeModels({
+      availableModels: ['claude-sonnet-corp', 'orca-private-v1'],
+      env: { ANTHROPIC_DEFAULT_OPUS_MODEL: 'legacy-opus' }
+    })
+    expect(models).toEqual([
+      expect.objectContaining({ alias: 'sonnet', model: 'claude-sonnet-corp' }),
+      expect.objectContaining({ alias: 'orca-private-v1', model: 'orca-private-v1' })
+    ])
+  })
   it('빈 설정 → 3개 alias 노출, model null, sonnet default', () => {
     const models = parseClaudeModels({})
     expect(models.map((m) => m.alias)).toEqual(['sonnet', 'opus', 'haiku'])

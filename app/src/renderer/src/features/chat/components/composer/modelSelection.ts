@@ -29,6 +29,14 @@ export function defaultSelection(
   return null
 }
 
+export function selectionExists(agents: AgentEnvironment[], selection: ModelSelection): boolean {
+  return agents.some(
+    (agent) =>
+      agent.key === selection.providerKey &&
+      agent.models.some((model) => modelKey(model) === selection.modelFamily)
+  )
+}
+
 // 선택 없음(null)이면 null — '모델' 폴백 라벨은 렌더(Composer)가 tr 로 채운다(0097).
 export function selectionLabel(selection: ModelSelection | null): string | null {
   if (!selection) return null
