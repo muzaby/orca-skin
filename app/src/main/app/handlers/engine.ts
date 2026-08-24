@@ -39,11 +39,17 @@ async function refreshHarnessSettings(ctx: RouterContext): Promise<void> {
 }
 
 export function registerEngineHandlers(ctx: RouterContext): void {
+  const assertMutable = (key: string): void => {
+    if (ctx.runtimeModelCatalog?.isReadOnly(key)) {
+      throw new Error(`runtime-managed engine is read-only: ${key}`)
+    }
+  }
   handle(
     CHANNELS.engineAdd,
     CreateEngineSchema,
     'reject',
     async (req): Promise<EngineWriteResult> => {
+      assertMutable(`${req.engine}-${req.provider}`)
       const result = addHarnessSettings(req.engine, req.provider, req.settingsJson)
       await refreshHarnessSettings(ctx)
       return result
@@ -55,6 +61,7 @@ export function registerEngineHandlers(ctx: RouterContext): void {
     UpdateEngineSchema,
     'reject',
     async (req): Promise<EngineWriteResult> => {
+      assertMutable(req.key)
       const result = updateHarnessSettings(req.key, req.settingsJson)
       await refreshHarnessSettings(ctx)
       return result
@@ -62,11 +69,13 @@ export function registerEngineHandlers(ctx: RouterContext): void {
   )
 
   handle(CHANNELS.engineDelete, DeleteEngineSchema, 'reject', async (req): Promise<void> => {
+    assertMutable(req.key)
     deleteHarnessSettings(req.key)
     await refreshHarnessSettings(ctx)
   })
 
   handle(CHANNELS.engineRead, ReadEngineSchema, 'reject', (req): EngineReadResult => {
+    assertMutable(req.key)
     return readHarnessSettings(req.key)
   })
 

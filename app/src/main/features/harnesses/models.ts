@@ -60,6 +60,8 @@ export function toAgentEnvironments(
     adapter: entry.harnessId,
     provider: entry.modelProviderId,
     supported: supported.has(entry.harnessId),
+    source: 'settings',
+    readOnly: false,
     models: entry.models.map((model): AgentModelView => ({
       alias: model.alias,
       model: model.model,

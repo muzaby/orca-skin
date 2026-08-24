@@ -134,6 +134,19 @@ describe('model helpers (alias 기준)', () => {
     expect(defaultModelFamily([])).toBeNull()
   })
 
+  it('custom 모델 alias는 실행 모델로 self resolve된다', () => {
+    const custom = [
+      {
+        alias: 'orca-private-v1',
+        model: 'orca-private-v1',
+        isCustom: true,
+        oneMillionContext: false,
+        isDefault: true
+      }
+    ]
+    expect(modelNameForFamily(custom, 'orca-private-v1')).toBe('orca-private-v1')
+  })
+
   it('resolveTitleModel 은 haiku 보유 시 haiku, 없으면 default, 빈 배열이면 undefined', () => {
     // haiku 보유 → bare alias(haiku, null 모델).
     expect(resolveTitleModel(models)).toBe('haiku')
@@ -169,6 +182,8 @@ describe('toAgentEnvironments', () => {
       adapter: 'claude',
       provider: 'bedrock',
       supported: true,
+      source: 'settings',
+      readOnly: false,
       models: [
         {
           alias: 'sonnet',
