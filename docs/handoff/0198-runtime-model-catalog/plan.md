@@ -8,7 +8,7 @@
 | 작성자 | Codex |
 | 일자 | 2026-08-24 |
 | 매핑 | 런타임 모델 카탈로그 자동 투영 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) → verify/FAIL (r5) |
 
 # Part I — Product & UX Contract
 
@@ -430,7 +430,7 @@ settings / Auth+runtime augmenter
 ## [검증자 기입] 파생 이슈
 
 > 라운드별 검증 판정 원문은 [`verify.md`](verify.md). 아래는 재구현이 닫을 목록이다.
-> D1~D10은 r2, D11~D16은 r3, D17~D23·W1은 r4 산출이다.
+> D1~D10은 r2, D11~D16은 r3, D17~D23·W1은 r4, D24~D31은 r5 산출이다.
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
@@ -458,6 +458,14 @@ settings / Auth+runtime augmenter
 | D22 | `validUntil` 의미가 catalog contribution key 여부로 갈리는데 가이드가 그대로다 | verify r4 · §15 | 6-a와 예제 뒤에 contribution/settings 분기 및 미노출 복구를 기록 | closed r5 |
 | D23 | INDEX 대상 커밋의 `(r4 구현)` 자리표시자 · plan 메타 `상태` 행 볼드 중첩 깨짐 | verify r4 | r4 좌표는 검증 커밋에서 교정; 메타 행 정정 | closed r5 |
 | W1 | `markDefaultModel` 의 `?? models[0]` 폴백이 구현자 스위트로 잠기지 않는다(변이 M3) | verify r4 | 전 항목 custom 배열 케이스 추가 | closed r5 |
+| D24 | 부팅 deploy 무효화(`bootstrap.ts:641`)가 Gate 인증이 방금 fetch한 entry를 지우고 재조정 트리거가 없다 | verify r5 · AC11·Part I §5 | `:641`을 Auth 구독/attach 앞으로 옮기거나 부팅 경로를 catalog 무효화에서 제외 — **AC11·D-008 중 하나를 손대므로 제품 결정** | open |
+| D25 | 같은 key의 settings 디렉터리가 있으면 무효화 뒤 settings 행이 남아 D18 유령이 재현된다 | verify r5 · D-008·Part I §14 | `isReadOnly`(선언 기준)와 `list()`(entry 기준)의 갈림을 없앤다 — 무효화된 contribution key는 settings 행도 미노출로 수렴시킬지 결정 | open |
+| D26 | `engine.ts:39`·`bootstrap.ts:641`의 `catalog.invalidate()`를 지워도 401케이스 전건 통과(변이 M-E·M-F) | verify r5 | `misc-split.test.ts`의 `vi.mock('electron')` 패턴으로 engine CRUD 배선 테스트 추가 | open |
+| D27 | `mergeAgentEnvironments`·`entries` map의 canonical key가 잠기지 않는다(변이 M-G·M-H) | verify r5 | 대소문자 다른 settings/runtime key 충돌 fixture로 두 지점을 각각 단언 | open |
+| D28 | `invalidate(key)`의 key 필터가 잠기지 않는다(변이 M-I) | verify r5 | contribution 2개에서 한 key만 무효화되는 케이스 추가 | open |
+| D29 | `bootstrap.ts:488`이 자기 authId만 재조정해 cross-auth `AUTH_INVALIDATED_HARNESS_KEYS` 경로가 열려 있다 | verify r5 · §10 신설 축 | 무효화한 key가 속한 **모든** authId를 재조정하거나 catalog 무효화를 함께 건다. 엄격 술어로 이 축은 3/4 | open |
+| D30 | 게이트 자기보고 `2092케이스/44 ABI fail`이 재측정 `2090/42`와 다르다(plan·INDEX 2사본) | verify r5 | 다음 라운드 보고에서 재측정값 사용 | open |
+| D31 | 좌표·기준선 위생 3건 — `176a73f`에 규범 행 D-008 혼입(D15 축) · INDEX `(r5 구현)` 자리표시자 · §10 read-only 행이 아직 `3지점` | verify r5 | 좌표는 이번 검증 커밋에서 교정. 규범 행 분리와 §10 정정은 설계 턴에서 | partial r5 |
 
 ## [구현자 기입] r2 사용자 피드백 반영
 
