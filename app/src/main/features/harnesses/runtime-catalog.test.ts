@@ -1,0 +1,212 @@
+import { describe, expect, it, vi } from 'vitest'
+import { createRuntimeModelCatalog, createRuntimeModelCatalogBridge } from './runtime-catalog'
+import { createHarnessRuntimeConfigService } from './runtime-config'
+import type { AuthSnapshot } from '../../contracts/auth'
+import type { HarnessRuntimeConfig } from '../../adapters/harness-config'
+
+const contribution = {
+  authId: 'gate',
+  key: 'orca-corp',
+  harnessId: 'orca',
+  modelProviderId: 'corp'
+}
+const config = (models: string[]): HarnessRuntimeConfig => ({
+  key: contribution.key,
+  harnessId: contribution.harnessId,
+  modelProviderId: contribution.modelProviderId,
+  runtimeEnv: {},
+  availableModels: models
+})
+
+const valid = (revision = 1): AuthSnapshot => ({
+  authId: 'gate',
+  status: 'valid' as const,
+  verified: true,
+  credentialRevision: revision
+})
+
+describe('runtime model catalog', () => {
+  it('replays an auth-resume snapshot that arrived before bootstrap attached the catalog', async () => {
+    const reconcile = vi.fn(async () => undefined)
+    const snapshotOf = vi.fn(() => valid(0))
+    const bridge = createRuntimeModelCatalogBridge({ contributions: [contribution], snapshotOf })
+
+    await bridge.onSnapshot('gate', valid(3))
+    await bridge.attach({ list: () => [], isReadOnly: () => true, invalidate: vi.fn(), reconcile })
+
+    expect(reconcile).toHaveBeenCalledOnce()
+    expect(reconcile).toHaveBeenCalledWith('gate', valid(3))
+    expect(snapshotOf).not.toHaveBeenCalled()
+  })
+
+  it('catches up from the current auth snapshot when no earlier event arrived', async () => {
+    const reconcile = vi.fn(async () => undefined)
+    const snapshotOf = vi.fn(() => valid(4))
+    const bridge = createRuntimeModelCatalogBridge({ contributions: [contribution], snapshotOf })
+
+    await bridge.attach({ list: () => [], isReadOnly: () => true, invalidate: vi.fn(), reconcile })
+
+    expect(reconcile).toHaveBeenCalledWith('gate', valid(4))
+  })
+
+  it('fetches once per verified revision and serves subsequent reads from memory', async () => {
+    const resolve = vi.fn(async () => config(['corp-model']))
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
+    })
+    await catalog.reconcile('gate', valid())
+    await catalog.reconcile('gate', valid())
+    expect(resolve).toHaveBeenCalledTimes(1)
+    expect(catalog.list()).toEqual([
+      expect.objectContaining({ key: 'orca-corp', readOnly: true, source: 'runtime' })
+    ])
+    expect(catalog.list()[0].models[0]).toMatchObject({
+      alias: 'custom',
+      model: 'corp-model'
+    })
+  })
+
+  it('coalesces concurrent verified events into one fetch', async () => {
+    let release!: (value: HarnessRuntimeConfig) => void
+    const resolve = vi.fn(() => new Promise<HarnessRuntimeConfig>((done) => (release = done)))
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
+    })
+    const first = catalog.reconcile('gate', valid())
+    const second = catalog.reconcile('gate', valid())
+    release(config(['sonnet-corp']))
+    await Promise.all([first, second])
+    expect(resolve).toHaveBeenCalledTimes(1)
+  })
+
+  it('removes on unusable auth and rejects a late success', async () => {
+    let release!: (value: HarnessRuntimeConfig) => void
+    const resolve = vi.fn(() => new Promise<HarnessRuntimeConfig>((done) => (release = done)))
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
+    })
+    const pending = catalog.reconcile('gate', valid())
+    await catalog.reconcile('gate', { ...valid(), status: 'none', verified: false })
+    release(config(['late']))
+    await pending
+    expect(catalog.list()).toEqual([])
+  })
+
+  it.each(['expired', 'unknown'] as const)(
+    'removes a verified entry when auth status becomes %s',
+    async (status) => {
+      const catalog = createRuntimeModelCatalog({
+        contributions: [contribution],
+        runtime: {
+          resolve: vi.fn(async () => config(['sonnet-corp'])),
+          cached: vi.fn(),
+          invalidate: vi.fn()
+        }
+      })
+      await catalog.reconcile('gate', valid())
+      await catalog.reconcile('gate', { ...valid(), status })
+      expect(catalog.list()).toEqual([])
+    }
+  )
+
+  it('refetches once for a new credential revision', async () => {
+    const resolve = vi.fn(async () => config(['custom']))
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
+    })
+    await catalog.reconcile('gate', valid(1))
+    await catalog.reconcile('gate', valid(2))
+    expect(resolve).toHaveBeenCalledTimes(2)
+  })
+
+  it('warms the shared runtime cache so later session and turn resolves do not fetch', async () => {
+    const fetchContribution = vi.fn(async () => config(['orca-private-v1']))
+    const runtime = createHarnessRuntimeConfigService({
+      settings: { resolve: async () => undefined },
+      augmenters: { [contribution.key]: { resolve: fetchContribution } }
+    })
+    const catalog = createRuntimeModelCatalog({ contributions: [contribution], runtime })
+
+    await catalog.reconcile('gate', valid())
+    await runtime.resolve(contribution)
+    await runtime.resolve(contribution)
+
+    expect(fetchContribution).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects non-array availableModels at the runtime boundary', async () => {
+    const resolve = vi.fn(async () => ({ ...config([]), availableModels: 'abc' as never }))
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
+    })
+
+    await catalog.reconcile('gate', valid())
+
+    expect(catalog.list()).toEqual([])
+  })
+
+  it('removes only the failing contribution when a fetch rejects', async () => {
+    const other = { ...contribution, key: 'orca-other', modelProviderId: 'other' }
+    const resolve = vi.fn(async (item: typeof contribution) => {
+      if (item.key === contribution.key) throw new Error('offline')
+      return { ...config(['sonnet-other']), key: other.key, modelProviderId: other.modelProviderId }
+    })
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution, other],
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
+    })
+
+    await catalog.reconcile('gate', valid())
+
+    expect(catalog.list().map((entry) => entry.key)).toEqual(['orca-other'])
+  })
+
+  it('treats declared runtime keys as read-only across casing and whitespace variants', () => {
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      runtime: { resolve: vi.fn(), cached: vi.fn(), invalidate: vi.fn() }
+    })
+
+    expect(catalog.isReadOnly(' orca-CORP ')).toBe(true)
+  })
+
+  it('removes invalidated entries and permits the next verified snapshot to refill them', async () => {
+    const resolve = vi.fn(async () => config(['corp-model']))
+    const onChange = vi.fn()
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() },
+      onChange
+    })
+    await catalog.reconcile('gate', valid())
+
+    catalog.invalidate(' ORCA-corp ')
+    expect(catalog.list()).toEqual([])
+    expect(onChange).toHaveBeenCalledTimes(2)
+
+    await catalog.reconcile('gate', valid())
+    expect(resolve).toHaveBeenCalledTimes(2)
+    expect(catalog.list()).toHaveLength(1)
+  })
+
+  it('does not republish a fetch that completes after settings invalidation', async () => {
+    let release!: (value: HarnessRuntimeConfig) => void
+    const resolve = vi.fn(() => new Promise<HarnessRuntimeConfig>((done) => (release = done)))
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
+    })
+    const pending = catalog.reconcile('gate', valid())
+
+    catalog.invalidate()
+    release(config(['late-model']))
+    await pending
+
+    expect(catalog.list()).toEqual([])
+  })
+})

@@ -297,7 +297,7 @@ export const ko = {
       '<c>~/.config/orca/sources/settings</c> 의 provider settings 를 기반으로 Composer 모델 메뉴가 구성됩니다. 편집 후 앱 재시작 없이 모델 메뉴가 갱신됩니다.',
     emptyState: '등록된 provider 가 없습니다. 엔진 추가 버튼으로 claude provider 를 생성하세요.',
     deleteConfirm: '{{name}} provider 를 삭제할까요?',
-    card: { unsupportedAdapter: '미지원 adapter' },
+    card: { unsupportedAdapter: '미지원 adapter', readOnly: '읽기 전용' },
     readSettingsFailed: '설정을 불러오지 못했어요.',
     sdkDefaultModel: 'SDK 기본',
     provider: {

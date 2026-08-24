@@ -11,8 +11,10 @@ import {
 } from '../../adapters/harness-config'
 import {
   defaultModelFamily,
+  mergeAgentEnvironments,
   modelNameForFamily,
-  resolveTitleModel
+  resolveTitleModel,
+  toAgentEnvironments
 } from '../../features/harnesses/models'
 import { defaultProvider } from '../../features/harnesses/settings-entries'
 import { getLogger } from '../../infra/log'
@@ -49,7 +51,16 @@ export async function resolveTurnProvider(
     modelFamily: string | null
   }
 ): Promise<ResolvedTurnProvider> {
-  const entries = ctx.harnessSettings.list(req.adapter.id)
+  const settingsEntries = ctx.harnessSettings.list(req.adapter.id)
+  const entries = mergeAgentEnvironments(
+    toAgentEnvironments(settingsEntries, [req.adapter.id]),
+    (ctx.runtimeModelCatalog?.list() ?? []).filter((entry) => entry.adapter === req.adapter.id)
+  ).map((entry) => ({
+    key: entry.key,
+    harnessId: entry.adapter,
+    modelProviderId: entry.provider ?? entry.key,
+    models: entry.models
+  }))
   const meta = req.sessionId ? ctx.db.getSessionById(req.sessionId) : undefined
   const byKey = (key: string | null | undefined): (typeof entries)[number] | undefined =>
     key ? entries.find((entry) => entry.key === key) : undefined
@@ -69,18 +80,22 @@ export async function resolveTurnProvider(
   // ── 실행 구성 해석은 **턴당 1회** (0188 D-019) ────────────────────────────────
   // settings 해석과 동적 보강(있으면)을 한 번에 끝내고, 그 결과로 spawn 입력을 조립한다.
   // 정적 구성에서는 augmenter 가 없으므로 network 접근이 0이고 기존 mtime stat 만 남는다.
+  const runtimeManaged = ctx.runtimeModelCatalog?.isReadOnly(selected.key) === true
   const config = ctx.harnessRuntime
-    ? await ctx.harnessRuntime.resolve({
-        key: selected.key,
-        harnessId: selected.harnessId,
-        modelProviderId: selected.modelProviderId
-      })
+    ? runtimeManaged
+      ? ctx.harnessRuntime.cached(selected.key)
+      : await ctx.harnessRuntime.resolve({
+          key: selected.key,
+          harnessId: selected.harnessId,
+          modelProviderId: selected.modelProviderId
+        })
     : {
         key: selected.key,
         harnessId: selected.harnessId,
         modelProviderId: selected.modelProviderId,
         runtimeEnv: {}
       }
+  if (!config) throw new Error(`Runtime model cache is unavailable for "${selected.key}"`)
   const prepared = prepareHarnessConfig({
     config,
     appEnv: turnAppEnv(ctx),

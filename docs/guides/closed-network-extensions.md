@@ -428,18 +428,20 @@ grant 의 요청은 두 가지로 만료를 판정한다:
 
 **0188 에서 달라진 것**: 구 `llm: { adapter, provider, envKey }` 는 credential **한 값**만 표현했다.
 이제 배포가 붙이는 것은 선택된 key 의 **`RuntimeConfigAugmenter`** 이고, 그 결과는 환경변수
-**overlay 전체**다 — token 뿐 아니라 URL·모델 변수·flag 를 함께 담는다.
+**overlay 전체**와 선택적 `availableModels: string[]`이다. 모델 배열은 정확한 camelCase로 쓰며
+subprocess env가 아니라 runtime catalog에 전달된다.
 
 ### 단계
 
 | # | 하는 일 | 고치는 파일 / 확인 지점 |
 |---|---|---|
-| 1 | 대상 게이트웨이의 디렉토리가 있는지 확인한다 — `~/.config/orca/sources/settings/<harness>/<modelProvider>/` | **디렉토리가 열거 SSOT 다.** 없으면 augmenter 를 붙여도 선택되지 않는다 |
+| 1 | 사용자 편집 provider면 settings 디렉토리를 만들고, 인증 파생 Orca Harness면 runtime contribution을 선언한다 | 전자는 settings SSOT, 후자는 read-only catalog다 |
 | 2 | 인증 대상을 선언한다 (`AuthDefinition` — `envKey` 는 적지 않는다) | `app/deployment/auth-definitions.ts` |
 | 3 | 인증 방식을 고른다 — 입력 수집형(§3-a) · OAuth(§3-b) · 또는 **둘 다 `methods` 배열에** | 같은 파일 |
 | 4 | 1단계 key 에 augmenter 를 붙인다. **config API 방식과 direct credential 방식은 서로 다른 factory 다**(§3-c) | `app/deployment/harness-runtime.ts` |
 | 5 | 그 Auth 가 바뀌면 무효화할 key 를 `AUTH_INVALIDATED_HARNESS_KEYS` 에 적는다 | 같은 파일. 안 적으면 재인증 뒤에도 옛 token 이 warm cache 로 남는다 |
 | 6 | **카탈로그 row 를 추가한다** — `{category:'harness', auth, harnessModelProviderKey}` | `app/deployment/connections.ts`. **안 하면 연결 탭에 행이 없어 인증 자체가 불가능하다** |
+| 6-a | 모델 API 응답을 `availableModels`에 넣고 `{authId,key,harnessId,modelProviderId}` contribution을 선언한다 | Gate 로그인당 1회 fetch·프로세스 cache. 새 세션/턴 fetch 금지; 설정 배포로 cache가 무효화되면 자동 항목도 미노출 |
 | 7 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/harnesses src/main/features/auth src/main/app/deployment` | 형상·cache·fence·배선 회귀 |
 | 8 | 실기: 연결 탭에서 인증 → 새 채팅 전송 → 게이트웨이 로그에 요청이 도달하는지 | 사람 실기 |
 
@@ -612,6 +614,12 @@ export function createConfigApiAugmenters(deps: HarnessConfigApiDeps): RuntimeCo
   }
 }
 ```
+
+`validUntil`은 실행 token의 만료 시각이다. runtime catalog contribution으로 선언한 key는 Gate
+로그인에서 채운 snapshot만 턴에 사용하므로, 턴 진입이 만료를 이유로 config API를 다시 호출하지
+않는다. 인증·설정 변경이 cache를 무효화하면 해당 자동 모델은 두 UI에서 사라지고 다음 Gate 인증
+성공의 1회 fetch로 다시 나타난다. contribution이 아닌 settings key는 기존처럼 `validUntil`을
+검사해 필요할 때 resolve하며, 만료 token을 stale-while-revalidate로 실행하지 않는다.
 
 direct credential 방식은 Bootstrap 이 넘긴 **AuthId 를 닫은 closure** 하나만 받는다:
 
