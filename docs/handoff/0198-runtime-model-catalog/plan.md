@@ -8,7 +8,7 @@
 | 작성자 | Codex |
 | 일자 | 2026-08-24 |
 | 매핑 | 런타임 모델 카탈로그 자동 투영 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → **verify/FAIL (r2)** |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → **verify/FAIL (r3)** |
 
 # Part I — Product & UX Contract
 
@@ -428,7 +428,8 @@ settings / Auth+runtime augmenter
 
 ## [검증자 기입] 파생 이슈
 
-> r2 검증 판정 원문은 [`verify.md`](verify.md). 아래는 재구현이 닫을 목록이다.
+> 라운드별 검증 판정 원문은 [`verify.md`](verify.md). 아래는 재구현이 닫을 목록이다.
+> D1~D10은 r2 산출, D11~D16은 r3 산출이다.
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
@@ -442,6 +443,12 @@ settings / Auth+runtime augmenter
 | D8 | `agent:list`가 settings·runtime의 같은 key를 병합하지 않는다 | verify r2 | runtime 우선 key 병합으로 단일 행 보장 | closed r3 |
 | D9 | `useEngines.ts` 중복 import · `availableModels` 항목의 `[1m]` 미해석 | verify r2 | import 통합, 공용 suffix parser 적용 | closed r3 |
 | D10 | plan 인용 해시 `7fb771f` 부재 · r1 커밋 type 오표기 · r2 설계/구현 동일 커밋 | verify r2 | 좌표를 `803bd50`으로 교정; 과거 커밋은 재작성하지 않고 r3를 `fix` 구현 커밋으로 분리 | closed r3 |
+| D11 | 두 producer의 기본 선택이 여전히 갈린다 — 배열 첫 항목 vs `FALLBACK_ORDER`, 5배열 중 3배열 불일치 | verify r3 · AC4·D-004 | 공유 default 규칙 하나로 모으고 §10에 "기본 선택 동일성" 행을 신설; env 우선권 적용 여부는 사람 결정 | open |
+| D12 | augmenter가 `validUntil`을 주면 만료 뒤 턴이 재fetch한다(`AUGMENTER_CALLS=2`) | verify r3 · AC13·D-008·§10 4행 | 턴 경로를 catalog snapshot 전용으로 막거나 만료를 Gate 재인증으로만 처리; 가이드 6-a 예제와 정합 | open |
+| D13 | key 충돌 시 `agent:list`는 runtime 행, `turn-setup`은 settings 행을 쓴다 | verify r3 · D-007 | 턴 경로도 `mergeAgentEnvironments`와 같은 우선순위로 병합 | open |
+| D14 | `IPC_CONTRACT.md:69`의 "custom의 alias/model은 원문 self"가 `alias='custom'` 코드와 어긋난다 | verify r3 | D-003 재정의에 맞춰 문장 갱신 | open |
+| D15 | 커밋/좌표 위생 4건 — INDEX `fb04047` 부재 · `a5f06c4` trailer 파싱 0건 · `d479e7c`가 `Agent: codex`+`designed` · `8e17aae`에 규범 행·verify 혼입 | verify r3 | 좌표는 이번 검증 커밋에서 교정; 나머지는 다음 라운드 커밋 규약 준수 | open |
+| D16 | `!verified \|\| status!=='valid'`의 뒤 항을 지워도 10케이스 전건 통과(변이 M1) | verify r3 · AC7 | `status:'expired'`·`'unknown'`을 `verified:true`와 함께 넣는 케이스 추가 | open |
 
 ## [구현자 기입] r2 사용자 피드백 반영
 
