@@ -8,7 +8,7 @@ export interface ModelSelection {
 }
 
 export function modelKey(model: AgentModelView): string {
-  return model.alias
+  return model.model ?? model.alias
 }
 
 export function defaultSelection(
@@ -33,7 +33,8 @@ export function selectionExists(agents: AgentEnvironment[], selection: ModelSele
   return agents.some(
     (agent) =>
       agent.key === selection.providerKey &&
-      agent.models.some((model) => modelKey(model) === selection.modelFamily)
+      (selection.modelFamily == null ||
+        agent.models.some((model) => modelKey(model) === selection.modelFamily))
   )
 }
 
