@@ -1176,3 +1176,109 @@ Decision Ledger 무변경·SUPERSEDED 0 이라 **D 유형(사용자 변심) 오�
 - **산문 정본에는 기계 눈이 없다** — `auth.md §5.2` 같은 문장은 테스트가 직접 잠그지 못한다. 이번
   규칙은 유도 절차를 요구할 뿐이고, 최종 방어는 verify 의 재측정이다(r1~r4 전 라운드가 그 자리에서 잡혔다).
 - electron 바이너리 부재 + better-sqlite3 ABI — 0194 r1~r4 · 0193 동일 서명, 차집합 양방향 0. 환경.
+
+---
+
+# Round 15 — 0198 (라운드 3, verify/FAIL 후 재구현 · AC4 2연속)
+
+## 발견 — 방어는 있었는데 발동 조건이 이번 라운드 종류를 부르지 않았다
+
+r3 은 verify r2 의 파생 이슈 D1~D10 을 전건 `closed` 로 보고했고, 그중 일곱은 실제로 닫혔다
+(검증자 변이 6건 중 5건이 잡힘). 갈린 셋은 **전부 같은 형태** 다 — 지목된 지점만 닫았다.
+
+| 파생 이슈 | 닫은 것 | 남은 것 | 왜 정상 수행으로 못 막나 |
+|---|---|---|---|
+| D1 (AC4) | `model-parser.ts` 의 first/last | runtime producer 는 여전히 배열 첫 항목이 default (5배열 중 3 갈림) | 행의 `대응 방향`("첫 항목 탐색으로 교체")이 인용된 AC4 보다 좁고, 그 칸의 권위가 어디에도 없다 |
+| D8 (D-007) | `agent:list` 의 key 병합 | 형제 소비처 `turn-setup.ts:52` 는 concat + `find` 라 settings 행을 쓴다 | §5.2 가 형제 지점 전수를 요구하지만 §5 첫 문장이 이 라운드 종류를 부르지 않는다 |
+| D10 | plan 본문 해시 `7fb771f`→`803bd50` | `INDEX.md` 대상 커밋 칸의 `fb04047` (부재 해시) | 같음 — 같은 좌표의 다른 사본 |
+
+**A (coverage gap).** 방어는 `handoff-impl §5`(P38)에 이미 셋을 전부 덮게 적혀 있는데 **첫 문장의
+발동 조건이 "외부 PR 리뷰·사용자 지적" 이었다** — P38 의 증거(0188)가 verify 턴 0회인 handoff 라
+verify/FAIL 라운드가 문면에 들어간 적이 없다. 곁따르는 원인은 `대응 방향` 칸의 권위 부재다.
+
+**두 번째 A — 보고된 설계 대비 차이가 AC 로 되돌아오지 않았다(신규 P43).** 구현은 plan 이 지정한
+전용 catalog cache 를 기존 `HarnessRuntimeConfigService` cache 로 바꾸고 그 차이를 정직하게 적었다.
+대체물에만 있는 `validUntil` 만료가 AC13·§10 4행을 깨는데, **보고된 차이를 AC 로 재유도하는 단계가
+어느 스킬에도 없었다** — verify r2 도 그 차이를 "타당" 으로 적고 AC13 을 ⚠️ 로 넘겼다.
+
+*B 로 판정해 지침을 늘리지 않은 것 셋: 규범 행 정정이 구현 커밋에 혼입(impl §6 에 규칙 있음) ·
+`INDEX.md` 죽은 해시(impl §8 "이번 턴이 갱신한 상태 사본") · AC7 변이 미검출(impl §3 "판정 지점마다
+하나씩"). Decision Ledger 무변경 · SUPERSEDED 0 이라 **D 유형 오염 0**.*
+
+## 조치 — REPLACE 4 · 신규 줄 3 · 신규 P 1 · 보강 1
+
+| 사이트 | 판정 | 내용 |
+|---|---|---|
+| `handoff-impl/SKILL.md` §5 첫 문단 | REPLACE | 발동 조건을 **지적으로 도는 모든 재구현 라운드**(verify/FAIL 파생 이슈·외부 PR 리뷰·사용자 지적)로 확대 |
+| `handoff-impl/SKILL.md` §5 (신규 문단) | 추가 | 파생 이슈의 **계약은 `출처`의 AC·§10 행, `대응 방향`은 제안** — 닫힘은 제안 수행이 아니라 AC 성립 |
+| `handoff-impl/SKILL.md` §6 차이 문단 | REPLACE | 차이를 적는 데서 끝내지 않고 **대체물이 갖고 원본이 갖지 않던 실패 모드**로 그 AC·§10 행을 재유도하고 어느 행을 재확인했는지 보고 |
+| `handoff-verify/SKILL.md` §4 | 추가 1줄 | 보고된 차이는 **"타당" 판정으로 닫히지 않는다** — 그 모드를 만들어 AC 를 다시 단언한다 |
+| `plan.template.md` 파생 이슈 | REPLACE + 주석 1줄 | `출처` 에 위반한 AC·§10 행을 함께 적게 하고 칸의 권위를 명시 |
+| `docs/handoff/AGENTS.md` §2 | REPLACE 1 + 추가 1 | 위 두 impl 규칙의 최소 계약 (정본은 impl SKILL) |
+| `failure-patterns.corpus.md` | 보강 + 신규 | **P38 보강 1블록**(같은 causal class 재발이라 새 P 신설 안 함) · **P43 신설**(대체 메커니즘 — 새 causal class) |
+| `handoff-plan/SKILL.md` | 변경 0 | 설계 축 실패가 아니다. AC4·AC13 문면은 r1 부터 정확했고 갈린 것은 구현·검증이다 |
+
+## Tier 판정
+
+**Tier 1** — impl 의 발동 조건(trigger)과 evidence 요구, template 필드의 의미가 바뀐다.
+Tier 2 조건(실행 의미 불변)에 해당하지 않는다.
+
+## 6-A Operational Instruction Delta
+
+- **변경 줄 7(REPLACE 4 · 신규 3) · DELETE 0 · MOVE 0 · regression 0.** 삭제 4줄을 전수 열거해
+  전부 REPLACE 원문임을 확인했다. 설명 없이 사라진 gate·command·reference **0건**.
+- 명령·게이트·CI·`verify.template.md`·`handoff-plan/SKILL.md`·`handoff-review/SKILL.md` **diff 0**.
+- `handoff-impl/SKILL.md:94` semantic target **3/3 KEEP** — ① 재현으로 끝나지 않는다 ② 리뷰는 본
+  표면만 말한다 ③ 한 지점만 닫으면 다음 라운드에 올라온다. 발동 조건을 **넓혔고** 좁히지 않았다.
+- `handoff-impl/SKILL.md:118` **3/3 KEEP** — ① 숨기지 않는다 ② 사실·이유 기재 ③ 결과가 나아도
+  차이는 차이다. 구문 "별도로 적는다" 의 *분리 기재* 요구는 `plan.template.md:364`
+  `### 설계 대비 명시적 차이` 전용 절이 계속 보유한다(diff 밖).
+- `docs/handoff/AGENTS.md:230` **5/5 KEEP** — 재현에서 안 멈춤 · 불변식 한 문장 · 낳은 문장부터
+  전수 · 새 표면 자기검사 · Decision≠적용.
+- `plan.template.md` 파생 이슈 표 **컬럼 5/5 KEEP** — `출처` 예시만 확장.
+- reference/script **MOVE·REPLACE 0건** — inbound `N`/semantic `M/M` 대상 없음.
+
+## 6-B Historical Failure Regression
+
+- **43 P 전수**(P43 신설 포함) · 변경 전 COVERED → 변경 후 **PARTIAL/GAP 0 · OBSOLETE 0**.
+- **방어 지점이 diff 에 닿은 4건** — P38(impl §5: 발동 조건 확대, 규칙 3문장 보존) · P42(impl §6 의
+  *다른* 문장 "승인받은 정정은 다른 커밋" 에 의존, diff 밖 — 실재 확인) · P39·P40(verify §4 의 다른
+  bullet 에 의존, 이번 diff 는 bullet 추가뿐 — "구현자가 닫고 검증자가 다시 센다"·"`N회` 는 실제
+  관측 주체" 실재 확인): 전부 **COVERED 유지**.
+- **나머지 38건** — 방어 문장이 이번 diff 에 없다(삭제 4줄 전수 열거로 확인). 규칙 삭제·축소가
+  없으므로 방어 약화 경로가 존재하지 않는다.
+- **P43 신설** — 이번 변경이 그 방어를 만든다(impl §6 · verify §4 · AGENTS §2). 기존 P 와 중복
+  아님: P14 는 *참조* 구현의 커버리지 착각, 여기는 *대체* 구현의 실패 모드다.
+- 새 블록이 이름으로 가리키는 앵커 **5/5 resolve** — impl §5·§6 · verify §4 ·
+  `docs/handoff/AGENTS.md` `### 2. 구현 — handoff-impl` · 0198 plan §11.
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 규칙 사이트 — 발동 조건 **2**(정본 `handoff-impl §5` + 미러 `docs/handoff/AGENTS.md §2`) ·
+  `대응 방향` 권위 **3**(위 둘 + 칸이 사는 `plan.template.md`) · 대체물 재유도 **3**(정본 impl §6 +
+  미러 AGENTS §2 + 검증자 대응 `verify §4`). root `AGENTS.md` 는 셋 다 재서술하지 않는다(사본 0).
+- **owner 충돌 0** — 구현자가 대체물 실패 모드로 AC 를 재유도하고(impl §6), 검증자가 그 모드를 실제로
+  만들어 다시 단언한다(verify §4). 어느 쪽도 상대를 면제하지 않는다.
+- 새 명령·게이트 **0** — `app/AGENTS.md` 게이트 정본·`.github/workflows/ci.yml` 과 scope 충돌 0.
+- `node scripts/check-doc-inventory.mjs --check` 링크 전건 resolve · `git diff --check` 통과.
+- `Handoff: none` 카브아웃은 검증 면제가 아니다 — 본 review 는 handoff 인프라 메타 수정이므로
+  직접 커밋이되 Tier 1 전 축을 수행했다.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md`·`CLAUDE.md` stub 없음.
+- INDEX/commit trailer 규칙 **무변경** — 삭제 0.
+
+## review 기록 정책
+
+`round15-review.md` 를 만들지 않았다 — 압축으로 잃는 rationale 이 없고 사용자 보존 요구도 없었다.
+기존 `round2-review.md` 1개 유지(라운드 문서는 동시에 1개).
+
+## 지침으로 해결할 수 없는 한계
+
+- **기준선을 diff 로 잠글 수 없었다.** r2 구현 커밋 `fb04047` 이 저장소에 없고(브랜치 재작성),
+  r2 의 규범 행 정정(AC2·AC3 재작성 + AC14 신설)과 r2 `verify.md` 227줄이 **r3 구현 커밋
+  `8e17aae`** 안에 있다. verify §0 의 예외 절차(원문 인용 고정)가 작동했지만, 이력을 재작성하는
+  환경에서 지침은 잠금을 복구하지 못한다.
+- **설계 주체 표기는 C 로 두고 지침을 바꾸지 않았다.** 0198 은 plan 작성자가 Codex 이고 설계 커밋
+  두 개가 `Agent: codex`(`d479e7c`) 또는 파싱 불가 trailer(`a5f06c4`)인데, root `AGENTS.md` 의 설계
+  커밋 행은 `Agent: claude` 이고 `docs/handoff/AGENTS.md §역할 분담` 은 *Claude 가 구현하는* 경우만
+  다룬다. 역할 계약 변경은 사용자 결정이라 review 가 단독으로 고치지 않는다.
+- **better-sqlite3 bindings 부재** — 0198 r3 검증 · 0194 · 0193 동일 서명, 차집합 양방향 0. 환경.
