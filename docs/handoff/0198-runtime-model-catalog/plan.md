@@ -8,7 +8,7 @@
 | 작성자 | Codex |
 | 일자 | 2026-08-24 |
 | 매핑 | 런타임 모델 카탈로그 자동 투영 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → **verify/FAIL (r3) → **IMPL_DONE (r4)** |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) |
 
 # Part I — Product & UX Contract
 
@@ -40,11 +40,12 @@
 | D-005 | Harness 인증 성공은 Engine & Models에 앱 사용자가 편집할 수 없는 read-only Orca Harness 항목을 생성하고 실패·unavailable·해제는 제거한다. | UI 상태가 아니라 실제 Auth 파생 상태이며 renderer와 main mutation 경계 모두 편집을 막는다. | 최초 요청 + 사용자 후속 결정 | ACTIVE | — |
 | D-006 | 기존 `AuthRuntime.subscribe` snapshot lifecycle을 트리거로 쓰고 polling·별도 영속 상태를 만들지 않는다. | 앱 로그인 자동 인증도 같은 event path를 지난다. | 최초 사용자 요청 | ACTIVE | — |
 | D-007 | 두 UI는 같은 `orca:agent:list` 카탈로그를 소비한다. | 자동 등록 결과의 동일 반영. | 최초 사용자 요청 + 현행 IPC | ACTIVE | — |
-| D-008 | runtime contribution fetch는 Gate 로그인 인증 성공 시 contribution별 1회만 수행하고 프로세스 수명 동안 cache하며, 새 세션 생성·턴 실행은 cache만 읽는다. | Gate 인증과 같은 로그인 lifecycle을 권위 트리거로 쓰며 세션마다 network 요청할 수 없다. | 사용자 후속 결정 | ACTIVE | — |
+| D-008 | runtime contribution fetch는 Gate 로그인 인증 성공 시 contribution별 1회만 수행하고, 새 세션 생성·턴 실행은 cache만 읽는다. Auth 밖 설정 변경이 cache를 무효화하면 해당 자동 항목도 두 UI에서 숨긴다. | Gate 인증을 권위 트리거로 쓰며 세션마다 network 요청할 수 없다. 사용자는 D18에서 재fetch보다 fail-closed 미노출을 선택했다. | 사용자 후속 결정 (2026-08-24) | ACTIVE | — |
 
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-008은 runtime contribution fetch를 Gate 로그인당 1회로 제한하고 새 세션 경로의 network 요청을 금지한다.
+- D18 사용자 결정: Auth 밖 설정 무효화도 runtime cache와 catalog entry를 함께 제거하는 선택지 A다. 설정 CRUD/부팅 deploy는 자동 재fetch하지 않는다.
 - 변경된 결정: D-002는 같은 family 복수 항목 보존으로, D-003은 `custom` 분류 표기와 self 실행 식별자의 분리로 보완했다. D-005는 자동 추가된 Orca Harness의 앱 사용자 편집 금지를 renderer와 main 양쪽 계약으로 강화했다.
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: D-001·D-002·D-004·D-006·D-007.
 - `ACTIVE 결정 ↔ AC` 대조: D-001↔AC1, D-002·D-003↔AC2·AC3, D-004↔AC4, D-005·D-006↔AC5~AC8, D-007↔AC9·AC10, D-008↔AC6·AC8·AC11·AC13 — 충돌 0.
@@ -449,14 +450,14 @@ settings / Auth+runtime augmenter
 | D14 | `IPC_CONTRACT.md:69`의 "custom의 alias/model은 원문 self"가 `alias='custom'` 코드와 어긋난다 | verify r3 | D-003 재정의에 맞춰 문장 갱신 | closed r4 |
 | D15 | 커밋/좌표 위생 4건 — INDEX `fb04047` 부재 · `a5f06c4` trailer 파싱 0건 · `d479e7c`가 `Agent: codex`+`designed` · `8e17aae`에 규범 행·verify 혼입 | verify r3 | 좌표는 이번 검증 커밋에서 교정; 나머지는 다음 라운드 커밋 규약 준수 | partial r4 |
 | D16 | `!verified \|\| status!=='valid'`의 뒤 항을 지워도 10케이스 전건 통과(변이 M1) | verify r3 · AC7 | `status:'expired'`·`'unknown'`을 `verified:true`와 함께 넣는 케이스 추가 | closed r4 |
-| D17 | `npm run typecheck` exit 2 · `error TS2741` 7건 — `cached` 를 인터페이스에 넣고 fake 7곳 중 1곳만 갱신 | verify r4 · AC12 | `runtime-catalog.test.ts` 56·75·89·119·145·161·172행 fake 에 `cached` 추가 | open |
-| D18 | Auth 밖 `invalidate(undefined)` 2지점이 cache 를 비우는데 catalog entry 는 남아 턴이 영구 실패 | verify r4 · §10 4행·Part I §5·§14 | cache 부재를 목록에서도 감출지 이 경로만 재fetch 를 허용할지는 **제품 결정** | open |
-| D19 | `cached()` 가 `sourceRevision` 대조까지 건너뛴다 — settings 편집이 턴에 반영되지 않는다 | verify r4 | 의도면 §10·가이드에 적고, 아니면 cache 조회에 revision 대조를 복원 | open |
-| D20 | `isReadOnly` 만 key 를 정규화하고 `cached()`·`mergeAgentEnvironments` 는 원문 key 를 쓴다 | verify r4 | 세 소비처의 key 정규화를 한 함수로 모은다 | open |
-| D21 | `turn-setup.ts` 가 `features/harnesses/models` 를 두 줄로 import (r2 D9 와 같은 축) | verify r4 | import 통합; `import/no-duplicates` 도입 여부는 설계 판단 | open |
-| D22 | `validUntil` 의미가 catalog contribution key 여부로 갈리는데 가이드가 그대로다 | verify r4 · §15 | `closed-network-extensions.md` 6-a·예제에 분기와 만료 token 실행 결과를 적는다 | open |
-| D23 | INDEX 대상 커밋의 `(r4 구현)` 자리표시자 · plan 메타 `상태` 행 볼드 중첩 깨짐 | verify r4 | 좌표는 이번 검증 커밋에서 교정; 메타 행은 다음 라운드에서 정정 | partial r4 |
-| W1 | `markDefaultModel` 의 `?? models[0]` 폴백이 구현자 스위트로 잠기지 않는다(변이 M3) | verify r4 | 전 항목 custom 배열 케이스 추가 — AC 밖 관측 부족이라 PASS 를 막지 않는다 | open |
+| D17 | `npm run typecheck` exit 2 · `error TS2741` 7건 — `cached` 를 인터페이스에 넣고 fake 7곳 중 1곳만 갱신 | verify r4 · AC12 | `runtime-catalog.test.ts` fake 7곳에 `cached` 추가 | closed r5 |
+| D18 | Auth 밖 `invalidate(undefined)` 2지점이 cache 를 비우는데 catalog entry 는 남아 턴이 영구 실패 | verify r4 · §10 4행·Part I §5·§14 | **사용자 결정 A:** cache와 catalog entry를 함께 제거하고 Gate 재인증 전에는 미노출 | accepted r5 |
+| D19 | `cached()` 가 `sourceRevision` 대조까지 건너뛴다 — settings 편집이 턴에 반영되지 않는다 | verify r4 | 사용자 선택 A에 따라 settings 편집 시 runtime entry를 숨기고 다음 Gate 인증에서 새 revision resolve | closed r5 |
+| D20 | `isReadOnly` 만 key 를 정규화하고 `cached()`·`mergeAgentEnvironments` 는 원문 key 를 쓴다 | verify r4 | 세 소비처의 key 정규화를 한 함수로 모은다 | closed r5 |
+| D21 | `turn-setup.ts` 가 `features/harnesses/models` 를 두 줄로 import (r2 D9 와 같은 축) | verify r4 | import 통합 | closed r5 |
+| D22 | `validUntil` 의미가 catalog contribution key 여부로 갈리는데 가이드가 그대로다 | verify r4 · §15 | 6-a와 예제 뒤에 contribution/settings 분기 및 미노출 복구를 기록 | closed r5 |
+| D23 | INDEX 대상 커밋의 `(r4 구현)` 자리표시자 · plan 메타 `상태` 행 볼드 중첩 깨짐 | verify r4 | r4 좌표는 검증 커밋에서 교정; 메타 행 정정 | closed r5 |
+| W1 | `markDefaultModel` 의 `?? models[0]` 폴백이 구현자 스위트로 잠기지 않는다(변이 M3) | verify r4 | 전 항목 custom 배열 케이스 추가 | closed r5 |
 
 ## [구현자 기입] r2 사용자 피드백 반영
 
@@ -489,3 +490,15 @@ settings / Auth+runtime augmenter
 - **게이트:** 대상 5파일/44케이스 PASS · typecheck 3구성 PASS · eslint 0 error · doc inventory PASS · 전체 vitest는 기존 better-sqlite3 바인딩 부재 5파일/42케이스만 FAIL.
 - **AC 자기보고:** ✅ AC1~AC5·AC7·AC8·AC10·AC12~AC14 = 11, ⚠️ AC6·AC9·AC11 = 3, ❌ 0, 총 14. AC6·AC11 bootstrap 배선과 AC9 두 테마는 기존 사람/통합 경계다.
 - **Review Signals:** r3의 동일 증상 D11·D13을 각각 공유 규칙과 형제 소비처 전수로 닫았다. 신규 파생 결함은 없고 D15의 과거 커밋 위생은 history rewrite 없이 남는다.
+
+## [구현자 기입] r5 verify/FAIL 재구현
+
+- **설계 리뷰:** 사용자 선택 A를 D-008에 반영했다. Auth 밖 settings 무효화는 재fetch하지 않고 runtime cache와 자동 catalog entry를 함께 제거한다.
+- **강제 지점 전수:** runtime cache 무효화 3지점 중 auth-change 1곳은 기존 reconcile 제거, settings CRUD·부팅 deploy 2곳은 catalog invalidate를 추가해 3/3이다. exact shape 2/2 · family/model/self 4/4 · Auth 전이 5/5 · 로그인/세션 fetch 3/3 · read-only 6/6 · 두 UI snapshot 2/2, 총 22/22를 유지했다.
+- **Product/UX 파생 검토:** 설정 변경 뒤 실행 불가능한 자동 모델은 Engine과 Composer에서 함께 사라진다. 기존 settings 모델은 유지되고 신규 사용자 문자열·무반응 경로는 없다.
+- **놓친 잠재 문제 + 대응:** settings 무효화 중 늦은 fetch가 entry를 되살릴 수 있어 auth generation fence를 같은 invalidate 표면에 적용했다. 늦은 결과 fixture에서 catalog 0건을 관측했다.
+- **설계 대비 명시적 차이:** 만료 축은 contribution key에서 턴 fetch 0을 유지한다. 공유 축은 settings CRUD·부팅 deploy가 cache와 catalog를 함께 비운다. 재진입은 같은 credential snapshot reconcile이 새 fetch를 허용한다. 다른 무효화 축인 auth-change는 기존 removeForAuth를 유지한다.
+- **구현 보고:** D17~D23·W1 전건을 닫았다. canonical key를 merge/read-only/invalidate에 공유하고, fake 7곳·custom fallback 음성 기준·운영 가이드를 갱신했다.
+- **관측한 게이트 산출:** eslint 0 error/기존 warning 1 · typecheck 3/3 · 대상 4파일 37/37 · doc inventory 9 items/76 channels · 전체 vitest 211파일 중 206 pass/5 ABI fail, 2092케이스 중 2048 pass/44 ABI fail.
+- **AC 자기보고:** ✅ AC1~AC8·AC10~AC14 = 13, ⚠️ AC9 두 테마 시각 확인 = 1, ❌ 0, 총 14. `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14`.
+- **Review Signals:** r4 D18은 cache 수명 공유 축 누락이었고 r5에서 invalidate 호출자 3/3을 닫았다. 신규 의존성·IPC·DB 변경은 없다.

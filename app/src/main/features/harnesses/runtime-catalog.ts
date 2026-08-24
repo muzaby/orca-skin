@@ -2,6 +2,7 @@ import type { AgentEnvironment } from '../../../shared/ipc'
 import type { AuthId, AuthSnapshot } from '../../contracts/auth'
 import type { HarnessRuntimeConfigService } from './runtime-config'
 import { availableModelsOf, normalizeAvailableModels } from './claude/available-models'
+import { canonicalAgentKey } from './models'
 
 export interface RuntimeModelContribution {
   authId: AuthId
@@ -13,6 +14,7 @@ export interface RuntimeModelContribution {
 export interface RuntimeModelCatalog {
   list(): AgentEnvironment[]
   isReadOnly(key: string): boolean
+  invalidate(key?: string): void
   reconcile(authId: AuthId, snapshot: AuthSnapshot): Promise<void>
 }
 
@@ -60,7 +62,7 @@ export function createRuntimeModelCatalog(input: {
     for (const contribution of input.contributions) {
       if (contribution.authId !== authId) continue
       resolvedRevision.delete(contribution.key)
-      if (entries.delete(contribution.key)) changed = true
+      if (entries.delete(canonicalAgentKey(contribution.key))) changed = true
     }
     if (changed) input.onChange?.()
   }
@@ -98,15 +100,16 @@ export function createRuntimeModelCatalog(input: {
                     source: 'runtime' as const,
                     readOnly: true
                   }
-            const previous = entries.get(contribution.key)
-            if (next) entries.set(contribution.key, next)
-            else entries.delete(contribution.key)
+            const key = canonicalAgentKey(contribution.key)
+            const previous = entries.get(key)
+            if (next) entries.set(key, next)
+            else entries.delete(key)
             resolvedRevision.set(contribution.key, snapshot.credentialRevision)
             if (previous !== next) input.onChange?.()
           } catch {
             if ((authGeneration.get(authId) ?? 0) !== generation) return
             resolvedRevision.delete(contribution.key)
-            if (entries.delete(contribution.key)) input.onChange?.()
+            if (entries.delete(canonicalAgentKey(contribution.key))) input.onChange?.()
           } finally {
             inFlight.delete(contribution.key)
           }
@@ -121,8 +124,24 @@ export function createRuntimeModelCatalog(input: {
     list: () => [...entries.values()].sort((a, b) => a.key.localeCompare(b.key)),
     isReadOnly: (key) =>
       input.contributions.some(
-        (contribution) => contribution.key.toLowerCase() === key.trim().toLowerCase()
+        (contribution) => canonicalAgentKey(contribution.key) === canonicalAgentKey(key)
       ),
+    invalidate(key) {
+      const targets = key
+        ? input.contributions.filter(
+            (contribution) => canonicalAgentKey(contribution.key) === canonicalAgentKey(key)
+          )
+        : input.contributions
+      for (const authId of new Set(targets.map((contribution) => contribution.authId))) {
+        authGeneration.set(authId, (authGeneration.get(authId) ?? 0) + 1)
+      }
+      let changed = false
+      for (const contribution of targets) {
+        resolvedRevision.delete(contribution.key)
+        if (entries.delete(canonicalAgentKey(contribution.key))) changed = true
+      }
+      if (changed) input.onChange?.()
+    },
     reconcile
   }
 }
