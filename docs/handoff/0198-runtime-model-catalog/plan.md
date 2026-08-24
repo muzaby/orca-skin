@@ -429,7 +429,7 @@ settings / Auth+runtime augmenter
 ## [검증자 기입] 파생 이슈
 
 > 라운드별 검증 판정 원문은 [`verify.md`](verify.md). 아래는 재구현이 닫을 목록이다.
-> D1~D10은 r2 산출, D11~D16은 r3 산출이다.
+> D1~D10은 r2, D11~D16은 r3, D17~D23·W1은 r4 산출이다.
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
@@ -449,6 +449,14 @@ settings / Auth+runtime augmenter
 | D14 | `IPC_CONTRACT.md:69`의 "custom의 alias/model은 원문 self"가 `alias='custom'` 코드와 어긋난다 | verify r3 | D-003 재정의에 맞춰 문장 갱신 | closed r4 |
 | D15 | 커밋/좌표 위생 4건 — INDEX `fb04047` 부재 · `a5f06c4` trailer 파싱 0건 · `d479e7c`가 `Agent: codex`+`designed` · `8e17aae`에 규범 행·verify 혼입 | verify r3 | 좌표는 이번 검증 커밋에서 교정; 나머지는 다음 라운드 커밋 규약 준수 | partial r4 |
 | D16 | `!verified \|\| status!=='valid'`의 뒤 항을 지워도 10케이스 전건 통과(변이 M1) | verify r3 · AC7 | `status:'expired'`·`'unknown'`을 `verified:true`와 함께 넣는 케이스 추가 | closed r4 |
+| D17 | `npm run typecheck` exit 2 · `error TS2741` 7건 — `cached` 를 인터페이스에 넣고 fake 7곳 중 1곳만 갱신 | verify r4 · AC12 | `runtime-catalog.test.ts` 56·75·89·119·145·161·172행 fake 에 `cached` 추가 | open |
+| D18 | Auth 밖 `invalidate(undefined)` 2지점이 cache 를 비우는데 catalog entry 는 남아 턴이 영구 실패 | verify r4 · §10 4행·Part I §5·§14 | cache 부재를 목록에서도 감출지 이 경로만 재fetch 를 허용할지는 **제품 결정** | open |
+| D19 | `cached()` 가 `sourceRevision` 대조까지 건너뛴다 — settings 편집이 턴에 반영되지 않는다 | verify r4 | 의도면 §10·가이드에 적고, 아니면 cache 조회에 revision 대조를 복원 | open |
+| D20 | `isReadOnly` 만 key 를 정규화하고 `cached()`·`mergeAgentEnvironments` 는 원문 key 를 쓴다 | verify r4 | 세 소비처의 key 정규화를 한 함수로 모은다 | open |
+| D21 | `turn-setup.ts` 가 `features/harnesses/models` 를 두 줄로 import (r2 D9 와 같은 축) | verify r4 | import 통합; `import/no-duplicates` 도입 여부는 설계 판단 | open |
+| D22 | `validUntil` 의미가 catalog contribution key 여부로 갈리는데 가이드가 그대로다 | verify r4 · §15 | `closed-network-extensions.md` 6-a·예제에 분기와 만료 token 실행 결과를 적는다 | open |
+| D23 | INDEX 대상 커밋의 `(r4 구현)` 자리표시자 · plan 메타 `상태` 행 볼드 중첩 깨짐 | verify r4 | 좌표는 이번 검증 커밋에서 교정; 메타 행은 다음 라운드에서 정정 | partial r4 |
+| W1 | `markDefaultModel` 의 `?? models[0]` 폴백이 구현자 스위트로 잠기지 않는다(변이 M3) | verify r4 | 전 항목 custom 배열 케이스 추가 — AC 밖 관측 부족이라 PASS 를 막지 않는다 | open |
 
 ## [구현자 기입] r2 사용자 피드백 반영
 
