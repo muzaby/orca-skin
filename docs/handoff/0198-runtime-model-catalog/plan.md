@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | slug | `0198-runtime-model-catalog` |
-| 작성자 | Claude Code |
+| 작성자 | Codex |
 | 일자 | 2026-08-24 |
 | 매핑 | 런타임 모델 카탈로그 자동 투영 |
 | 상태 | READY |
@@ -26,7 +26,7 @@
 | 명시 요구 | 이름에 sonnet/opus/haiku가 포함되면 해당 family, 아니면 custom family이며 custom fallback은 self다. | 최초 사용자 요청 |
 | 명시 요구 | 환경 모델과 인증된 Harness Runtime LLM을 두 UI에 자동 투영하고 원본 소멸 시 자동 제거한다. | 최초 사용자 요청 |
 | 명시 요구 | Harness 인증 성공 시 자동 등록하고 실패·unavailable·해제 시 제거하며, 앱 로그인 자동 인증에도 같은 규칙을 쓴다. | 최초 사용자 요청 |
-| 명시 요구 | Harness 자동 항목은 엔진 & 모델에서 read-only이고 인증 hook/lifecycle을 polling보다 우선한다. | 최초 사용자 요청 |
+| 명시 요구 | Engine & Models에 자동 추가된 Orca Harness 항목은 앱 사용자가 편집할 수 없고 인증 hook/lifecycle을 polling보다 우선한다. | 최초 요청 + 사용자 후속 결정 |
 | 추론 의도 | “Harness Runtime LLM 자동 등록”은 기존 settings provider에 모델만 합치는 것이 아니라 인증된 runtime contribution 자체를 카드로 생성·제거하는 요구다. | 사용자의 “새로운 요구사항을 확인하라” 정정 + 최초 흐름도 |
 
 ## 3. Decision Ledger
@@ -35,18 +35,19 @@
 |---|---|---|---|---|---|
 | D-001 | 입력 필드 이름과 타입은 정확히 `availableModels: string[]`이다. | 대소문자·띄어쓰기·camelCase를 변경하지 않는다. | 사용자 후속 결정 | ACTIVE | — |
 | D-002 | family 분류는 모델명을 case-insensitive로 검사해 sonnet → opus → haiku 순으로 첫 일치 family를 택하고, 무일치는 `custom`이다. | 한 이름에 여러 식별자가 든 비정상 입력도 결정적이어야 한다. | 최초 요구 + 설계 해석 | ACTIVE | — |
-| D-003 | custom 모델은 alias를 실제 모델명으로 유지하고 fallback model도 같은 실제 모델명(self)으로 둔다. | 별도 추론·치환 금지. | 최초 사용자 요청 | ACTIVE | — |
+| D-003 | custom 모델은 Composer 선택기에 실제 모델명을 그대로 표시하고 선택 alias·실행 model·fallback model도 그 이름(self)으로 둔다. | 표시·실행 어느 경계에서도 별도 추론·치환 금지. | 최초 요청 + 사용자 후속 결정 | ACTIVE | — |
 | D-004 | 정적 settings와 동적 Harness runtime config의 모델을 같은 정규화 함수로 카탈로그에 투영한다. | Engine과 Composer의 결과가 갈리지 않아야 한다. | 최초 사용자 요청 | ACTIVE | — |
-| D-005 | Harness 인증 성공은 read-only runtime provider 항목을 생성하고 실패·unavailable·해제는 제거한다. | UI 상태가 아니라 실제 Auth 파생 상태다. | 최초 사용자 요청 | ACTIVE | — |
+| D-005 | Harness 인증 성공은 Engine & Models에 앱 사용자가 편집할 수 없는 read-only Orca Harness 항목을 생성하고 실패·unavailable·해제는 제거한다. | UI 상태가 아니라 실제 Auth 파생 상태이며 renderer와 main mutation 경계 모두 편집을 막는다. | 최초 요청 + 사용자 후속 결정 | ACTIVE | — |
 | D-006 | 기존 `AuthRuntime.subscribe` snapshot lifecycle을 트리거로 쓰고 polling·별도 영속 상태를 만들지 않는다. | 앱 로그인 자동 인증도 같은 event path를 지난다. | 최초 사용자 요청 | ACTIVE | — |
 | D-007 | 두 UI는 같은 `orca:agent:list` 카탈로그를 소비한다. | 자동 등록 결과의 동일 반영. | 최초 사용자 요청 + 현행 IPC | ACTIVE | — |
+| D-008 | runtime contribution fetch는 Gate 로그인 인증 성공 시 contribution별 1회만 수행하고 프로세스 수명 동안 cache하며, 새 세션 생성·턴 실행은 cache만 읽는다. | Gate 인증과 같은 로그인 lifecycle을 권위 트리거로 쓰며 세션마다 network 요청할 수 없다. | 사용자 후속 결정 | ACTIVE | — |
 
 ### 갱신 메모
 
-- 이번 턴에서 새로 추가된 결정: D-001은 `AVAILABLE_MODELS` 문자열 해석안을 폐기하고 정확한 `availableModels: string[]` 계약으로 정정했다.
-- 변경된 결정: 이전 응답의 “기존 provider에 투영” 제안은 사용자 재확인으로 채택하지 않고 D-005의 동적 read-only provider 등록으로 닫았다.
-- 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: D-002~D-007.
-- `ACTIVE 결정 ↔ AC` 대조: D-001↔AC1, D-002·D-003↔AC2·AC3, D-004↔AC4, D-005·D-006↔AC5~AC8, D-007↔AC9·AC10 — 충돌 0.
+- 이번 턴에서 새로 추가된 결정: D-008은 runtime contribution fetch를 Gate 로그인당 1회로 제한하고 새 세션 경로의 network 요청을 금지한다.
+- 변경된 결정: D-003은 custom 이름의 Composer 원문 노출까지 명시했고, D-005는 자동 추가된 Orca Harness의 앱 사용자 편집 금지를 renderer와 main 양쪽 계약으로 강화했다.
+- 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: D-001·D-002·D-004·D-006·D-007.
+- `ACTIVE 결정 ↔ AC` 대조: D-001↔AC1, D-002·D-003↔AC2·AC3, D-004↔AC4, D-005·D-006↔AC5~AC8, D-007↔AC9·AC10, D-008↔AC6·AC8·AC11·AC13 — 충돌 0.
 
 ## 4. 요구 비판적 검토
 
@@ -70,7 +71,7 @@ settings.availableModels 또는 runtimeConfig.availableModels
   → Engine & Models + Composer model selector
 
 Plugin/App login → Auth snapshot
-  → verified 성공 → Harness runtime contribution resolve → read-only LLM 등록
+  → verified 성공 → contribution fetch 1회 → process-memory cache → read-only Orca Harness 등록
   ↘ 실패/unavailable/revoke/unauthorized → contribution 제거
 ```
 
@@ -79,15 +80,16 @@ Plugin/App login → Auth snapshot
 | 시작 상태/이벤트 | 시스템 동작 | 사용자/소비자에게 보이는 결과 |
 |---|---|---|
 | 정적 `availableModels` 존재 | 배열을 즉시 정규화해 settings provider 모델과 병합한다. | 두 UI에 같은 모델이 보인다. |
-| 인증 snapshot이 `verified:true`이고 usable | 해당 Auth에 연결된 Harness contribution을 resolve한다. | read-only 엔진 카드와 Composer 선택지가 나타난다. |
+| Gate 인증 snapshot이 `verified:true`이고 usable | 해당 Auth의 Harness contribution을 로그인 lifecycle에서 1회 fetch하고 process-memory cache에 publish한다. | read-only Orca Harness 카드와 Composer 선택지가 나타난다. |
 | 인증 실패·unavailable·revoke·401/403 | 해당 Auth contribution을 무효화하고 카탈로그에서 제외한다. | 자동 카드와 Composer 선택지가 함께 사라진다. |
-| 재인증 성공 | 최신 generation의 runtime config만 채택한다. | 최신 모델 목록이 다시 나타나며 stale 결과가 되살아나지 않는다. |
+| 새 세션 생성·턴 실행 | network resolve를 호출하지 않고 로그인 때 채운 cache snapshot을 읽는다. | 모델 선택과 실행 준비가 추가 fetch 없이 동작한다. |
+| 재인증 성공 | 기존 cache를 무효화하고 해당 Gate 로그인의 fetch 1회 결과만 채택한다. | 최신 모델 목록이 다시 나타나며 stale 결과가 되살아나지 않는다. |
 
 ### 파생 UX / 엣지케이스
 
 - loading / empty / error: resolve 중에는 이전 인증 결과를 새 성공으로 간주하지 않는다. 실패는 자동 항목 미노출이며 기존 사용자 설정 카드는 유지한다.
-- cancel / retry / close / restart: 취소·실패 결과는 cache에 넣지 않고, 재시작 시 영속 grant만으로 노출하지 않으며 이번 실행의 verified snapshot 뒤에 재등록한다.
-- concurrency / multi-session: 동일 Auth의 늦은 성공은 generation fence로 폐기하고 모든 renderer가 다음 catalog 조회에서 동일 결과를 받는다.
+- cancel / retry / close / restart: fetch 취소·실패 결과는 cache에 넣지 않는다. 재시작 시 영속 grant만으로 노출하지 않고 Gate 자동 인증 성공에서 다시 1회 fetch한다.
+- concurrency / multi-session: 동일 Gate 로그인 안의 중복 성공 이벤트는 single-flight/cache로 1회 fetch에 합류한다. 새 세션 수와 무관하게 network 호출 수는 늘지 않으며 늦은 옛 성공은 generation fence로 폐기한다.
 - keyboard / a11y / theme: read-only 카드는 편집·삭제 버튼을 disabled로 남기지 않고 동작 버튼 자체를 숨기며 읽기 전용 배지를 텍스트로 표시한다.
 - 외부환경/오프라인/폐쇄망: 네트워크 unavailable은 자동 항목 제거로 수렴하며 polling이나 외부 서비스 의존성을 추가하지 않는다.
 
@@ -107,22 +109,23 @@ Plugin/App login → Auth snapshot
 |---|---|---|---|
 | AC1 | 정확한 `availableModels` 배열만 입력으로 인정하며 유사 철자·비배열은 자동 모델을 만들지 않는다. | 계약/단위 테스트: exact key·array 성공, casing 오타·문자열·혼합 타입 거부 | settings/augmenter → parser |
 | AC2 | 모델명 포함 식별자로 sonnet·opus·haiku·custom을 결정적으로 분류한다. | 순수 단위 테스트: 대소문자, 부분 포함, 무일치, 복수 식별자 | parser → catalog |
-| AC3 | custom 모델의 선택 alias와 실행 model/fallback은 모두 자기 자신이다. | 순수+turn setup 테스트: custom 선택값이 치환 없이 adapter 요청에 전달 | Composer → chat send → model resolution |
+| AC3 | custom 모델은 Composer 선택기에 `availableModels`의 이름을 그대로 표시하고 선택 alias·실행 model·fallback도 자기 자신이다. | renderer+순수+turn setup 테스트: 원문 라벨과 선택값이 치환 없이 adapter 요청에 전달 | catalog → ModelMenu → chat send → model resolution |
 | AC4 | 정적 settings와 runtime config가 같은 중복 제거·분류·기본 선택 규칙을 쓴다. | 단위 테스트: 같은 배열이 양 producer에서 동일 `AgentModelView` 생성 | 두 producer → shared normalizer |
-| AC5 | 인증 성공한 Harness LLM은 settings 디렉터리 유무와 무관하게 read-only agent로 등록된다. | bootstrap/catalog 통합 테스트: verified snapshot + contribution → 동적 entry | Auth subscribe → runtime catalog → agent:list |
-| AC6 | app login의 자동 인증 성공도 수동 plugin login과 같은 경로로 등록된다. | auth-resume 배선 테스트: verified snapshot의 origin과 무관하게 동일 reconcile 호출 | authResume/login → AuthChange |
+| AC5 | 인증 성공한 Harness LLM은 settings 디렉터리 유무와 무관하게 앱 사용자가 편집할 수 없는 read-only Orca Harness로 등록된다. | bootstrap/catalog+renderer+IPC 테스트: 카드 액션 부재와 mutation reject | Auth subscribe → runtime catalog → agent:list/engine IPC |
+| AC6 | 수동·자동 Gate 로그인은 각각 인증 성공 시 contribution fetch를 정확히 1회 수행하고 같은 등록 경로를 쓴다. | auth-resume 배선 테스트: 로그인당 fetch 1회, 중복 verified 이벤트는 추가 호출 0 | authResume/login → AuthChange → fetch/cache |
 | AC7 | revoke·expired·unauthorized·unavailable·resolve 실패 시 해당 자동 entry만 제거된다. | 상태 전이 테스트: 원인별 제거와 사용자 설정 entry 보존 | AuthChange/runtime failure → catalog |
-| AC8 | 무효화 전 시작한 늦은 resolve 성공은 자동 entry를 되살리지 않는다. | deferred promise 통합 테스트: invalidate 뒤 stale completion 폐기 | Auth subscribe → generation fence |
-| AC9 | Engine & Models는 자동 entry를 표시하되 편집·삭제 액션 없이 read-only로 표시한다. | renderer 컴포넌트 테스트 + 사람 시각 확인 | agentStore → AgentEnvironmentView |
+| AC8 | Gate 로그인 fetch의 무효화 전 시작한 늦은 성공은 자동 entry를 되살리지 않고 재인증은 새 fetch 1회만 허용한다. | deferred promise 통합 테스트: invalidate 뒤 stale completion 폐기와 세대별 호출 수 | Auth subscribe → single-flight/cache → generation fence |
+| AC9 | Engine & Models는 자동 Orca Harness를 표시하되 앱 사용자에게 편집·삭제 액션을 제공하지 않고 직접 IPC mutation도 거부한다. | renderer 컴포넌트 테스트 + 사람 시각 확인 | agentStore → AgentEnvironmentView |
 | AC10 | Composer는 Engine과 같은 자동·정적 모델 집합을 표시하고 사라진 선택은 유효한 기본값으로 재화해한다. | selector/store 테스트: 동일 입력 집합, 제거 후 stale selection 미전송 | agentStore → ModelMenu/chat store |
-| AC11 | 앱 재시작 때 저장된 grant만으로 자동 entry를 노출하지 않고 실제 probe 성공 뒤 노출한다. | bootstrap/auth-resume 통합 테스트: restore 전/verified 후 비교 | restore → authResume → catalog |
+| AC11 | 앱 재시작 때 저장된 grant만으로 자동 entry를 노출하지 않고 Gate 자동 인증 성공 뒤 contribution을 1회 fetch해 cache한다. | bootstrap/auth-resume 통합 테스트: restore 전 0회·verified 후 1회 | restore → authResume → fetch/cache → catalog |
 | AC12 | 기존 settings 기반 모델 CRUD와 기본 sonnet/opus/haiku 동작은 회귀하지 않는다. | 기존 parser/settings/engine 테스트 + 정적 게이트 | engine IPC → deploy → agent:list |
+| AC13 | 로그인 후 새 세션을 여러 개 만들고 턴을 실행해도 contribution fetch 호출 수는 증가하지 않고 cache snapshot만 사용한다. | 통합 테스트: Gate 로그인 1회 + 세션 N개 + 턴 M개에서 fetch 총 1회 | Gate login → cache → session/turn setup |
 
 ### AC 검증 주의사항
 
 - 기존 테스트 재사용: `settings.test.ts`의 `toAgentEnvironments`와 parser 테스트, `runtime-config.test.ts`의 generation fence, auth resume 테스트가 존재하지만 동적 catalog 의미는 신규 케이스로 추가한다.
 - 사람 실기 항목: AC9의 실제 배지·버튼 부재와 두 테마만 시각 확인한다. 목록/분류/read-only 판정은 자동 테스트로 내린다.
-- 순서 기준: Auth 구독은 `authResume.run()`보다 먼저 등록되는 현재 bootstrap 순서를 유지하고 deferred resolve 로그로 stale 완료 순서를 관측한다.
+- 순서 기준: Auth 구독은 `authResume.run()`보다 먼저 등록한다. fetch 관측점은 Gate 로그인 성공 hook 하나이며 session/turn setup spy에서 network 호출 0을 함께 단언한다.
 - 총량/0건 기준: 자동 entry 제거와 사용자 entry 보존을 함께 단언해 “전체 목록이 비어서 통과”하는 거짓 양성을 막는다.
 
 ---
@@ -211,7 +214,8 @@ AuthSnapshot → runtime contribution resolve ┘                         ├→
 |---|---|---|---|---|
 | `availableModels: string[]` exact shape | `available-models.ts` validator/type guard | settings parser·runtime augmenter boundary | settings load·runtime resolve 2지점 | invalid field는 자동 모델 0, 기존 기본 모델 유지 |
 | family 분류 + custom self fallback | `normalizeAvailableModels` | 정적·동적 producer | catalog materialize 2지점 | 복제 규칙 금지, 불일치 테스트 실패 |
-| runtime entry의 Auth 파생성 | `RuntimeModelContribution.authId` + reconciler | bootstrap | verified·revoke·expired·unauthorized·resolve failure 5전이 | unusable이면 entry 부재 |
+| runtime entry의 Auth 파생성 | `RuntimeModelContribution.authId` + reconciler | bootstrap | Gate verified·revoke·expired·unauthorized·fetch failure 5전이 | unusable이면 entry 부재 |
+| 로그인당 fetch 1회·세션 fetch 0회 | runtime catalog single-flight process cache | Gate login reconciler·session/turn readers | 로그인 성공 1지점에서만 fetch; session create·turn setup 2지점은 read-only cache | 중복 fetch 또는 cache miss 시 명시 실패 |
 | read-only provenance | `AgentEnvironment.source/readOnly` | main mapper·Engine renderer·engine mutation handler | DTO 생성·UI action·IPC mutation 3지점 | UI 숨김만 우회해도 main이 mutation reject |
 | 두 UI 동일 snapshot | `orca:agent:list` | agentStore | Engine/Composer load·refresh 2소비축 | 목록 차이 테스트 실패 |
 
@@ -227,9 +231,9 @@ AuthSnapshot → runtime contribution resolve ┘                         ├→
 | `features/harnesses/claude/model-parser.ts` + test | 정적 입력 합성 | exact top-level `availableModels`을 기존 alias 설정과 결정적으로 병합 | 순수 단위 |
 | `adapters/harness-config.ts` | runtime 계약 | `HarnessRuntimeConfig.availableModels?` typed field 추가; env fingerprint와 분리 | 계약/typecheck |
 | `features/harnesses/runtime-config.ts` + test | augmenter 결과 운반 | typed 배열을 cache/generation 결과에 포함 | deferred 단위 |
-| `features/harnesses/runtime-catalog.ts` + test | 파생 catalog | runtime contribution reconcile, removal, late result fence | 순수/주입 통합 |
+| `features/harnesses/runtime-catalog.ts` + test | 파생 catalog | Gate-login single-flight fetch, process cache, removal, late result fence | 순수/주입 통합 |
 | `app/deployment/harness-runtime.ts` + wiring test | 배포 선언 | AuthId와 harness/provider key를 묶은 runtime model contributions 추가 | shape/semantic 계약 |
-| `app/bootstrap.ts`, `app/context.ts`, `handlers/misc.ts` | lifecycle/IPC 배선 | Auth snapshot hook reconcile, catalog snapshot 조회 | bootstrap 통합 |
+| `app/bootstrap.ts`, `app/context.ts`, `handlers/misc.ts` | lifecycle/IPC 배선 | Gate 인증 성공에서만 fetch, session/handler는 catalog cache snapshot 조회 | bootstrap 통합 |
 | `shared/ipc.ts`, `shared/protocol.ts` | provenance 계약 | source/readOnly wire 필드와 schema 갱신 | protocol test |
 | Engine components + i18n | read-only UX | 배지 표시, edit/delete 숨김 | component + 시각 |
 | chat model selection/store tests | stale selection | 제거된 runtime 모델 선택 재화해 | 순수 reducer/selector |
@@ -238,7 +242,7 @@ AuthSnapshot → runtime contribution resolve ┘                         ├→
 ### 테스트 가능성
 
 - Electron/DB/native 분리: normalizer와 runtime catalog state machine은 `features/harnesses`의 별도 순수 파일로 두고 Auth/runtime 포트를 주입한다.
-- 기존 메커니즘 재사용: runtime config generation cache는 config 값 stale 방지에 재사용하되 catalog publish generation은 Auth unusable 전이도 막도록 별도 snapshot revision을 둔다.
+- 기존 메커니즘 재사용: runtime config generation fence는 stale 결과 방지에 재사용한다. catalog는 Gate 로그인당 single-flight process cache를 소유하며 session/turn 경로에는 fetch 포트를 주입하지 않는다.
 - 순서 관측: deferred augmenter, 명시적 AuthChange fixture, publish callback spy로 `success start → revoke → late success` 순서를 고정한다.
 
 ## 12. End-to-end 영향
@@ -270,19 +274,19 @@ settings / Auth+runtime augmenter
 
 ## 13. Lifecycle / 오류 / 정리
 
-- 생성/시작: Auth 구독을 먼저 설치하고 runtime catalog를 만든 뒤 auto-resume verified snapshot이 contribution reconcile을 발화한다.
+- 생성/시작: Auth 구독과 runtime catalog를 먼저 설치하고 Gate 수동/자동 로그인 verified snapshot이 contribution fetch 1회를 발화한다. 성공 snapshot을 process-memory cache에 원자 publish한다.
 - 취소/중단: Auth unusable 전이는 in-flight resolve를 abort하고 generation을 올린 뒤 entry를 즉시 제거한다.
 - 종료/quit/crash/renderer-gone: catalog는 메모리 파생 상태라 별도 저장·cleanup 없이 프로세스와 함께 사라진다.
-- retry/timeout/partial failure: resolve 실패는 해당 contribution만 제거하고 다른 settings/runtime entries는 유지한다. 다음 verified 전이 또는 명시 재인증이 재시도 트리거다.
+- retry/timeout/partial failure: Gate 로그인 fetch 실패는 해당 contribution만 제거하고 다른 entries는 유지한다. 새 세션은 재시도 트리거가 아니며 다음 Gate 재인증만 새 fetch를 허용한다.
 - cleanup/rollback: runtime 등록은 파일·DB를 쓰지 않으므로 제거는 memory snapshot 원자 교체 한 번이다.
 - 다중 저장소 쓰기: 제품 상태는 메모리 catalog 한 곳뿐이다. 설계 산출 상태는 이 plan과 `INDEX.md` 두 사본이므로 같은 커밋에서 READY로 함께 갱신한다.
 
 ## 14. 성능 / 상한 / 최적화
 
 - 새 출력 상한: settings 모델 수 + 인증된 runtime contribution별 `availableModels.length`; 입력 배열 크기 이상의 모델을 만들지 않는다.
-- 새 요청 상한: polling 0. Auth snapshot당 영향 contribution 수만 resolve하며 verified-only UI step은 credential 변화 여부와 무관하게 실제 usable 전이를 비교해 중복 요청을 억제한다.
+- 새 요청 상한: Gate 로그인 1회 × 해당 Auth contribution 수이며 polling 0, 새 세션 N × 턴 M의 추가 fetch는 0이다. 같은 로그인 내 중복 verified snapshot은 single-flight/cache hit로 network 0회다.
 - 구조적 목표: 별도 순수 normalizer와 catalog state machine 두 응집 모듈로 분리해 bootstrap에 parsing/state machine을 인라인하지 않는다.
-- 캐시 트레이드오프: runtime config cache를 쓰되 Auth removal 때 catalog snapshot도 즉시 버린다. cache hit가 유령 entry를 보존하지 않는 테스트를 둔다.
+- 캐시 트레이드오프: process-memory cache는 Gate 재인증·revoke·expired·unauthorized에서 해당 contribution을 버린다. session/turn은 stale-while-revalidate를 하지 않으며 유령 entry보다 미노출을 택한다.
 
 ## 15. 외부 구현 포트 / 문서 계약
 
@@ -310,7 +314,7 @@ settings / Auth+runtime augmenter
 | verified-only snapshot은 `credentialChanged:false`라 기존 early return에 막힘 | catalog reconcile은 GUI push 뒤 별도 usable-state 분기로 두고 plugin/env invalidation 규칙과 섞지 않는다. |
 | runtime-only entry가 settings CRUD/usage 후보로 샘 | provenance를 DTO와 main mutation 경계에서 강제하고 usage는 기존 settings entry 열거를 유지한다. |
 | stale Composer 선택이 제거 뒤 전송됨 | agent snapshot 갱신 시 선택 유효성을 재검사하고 기본 선택으로 화해한다. |
-| custom alias 충돌 | 실제 모델명을 key로 쓰고 stable dedupe하며 family는 별도 필드 의미로 alias에 투영한다. |
+| custom alias 충돌 | 실제 모델명을 key·Composer label로 그대로 쓰고 stable dedupe하며 family 표시는 별도 metadata로 둔다. |
 
 - 되돌리기 어려운 결정: `AgentEnvironment` provenance와 augmenter `availableModels`는 wire/배포 계약이므로 문서와 테스트를 같은 변경에서 잠근다.
 - 신규 의존성: 없음. 사용자 승인 불필요.
@@ -331,7 +335,7 @@ settings / Auth+runtime augmenter
 - ABI/네트워크 제약: DB 변경이 없으므로 `npm test` pretest를 피하고 관련 vitest를 직접 실행한다. 공식 문서 web search는 현 환경 401이었으며 사용자 확정 계약을 기준선으로 기록했다.
 - 기본 정적 게이트: `cd app && npm run lint && npm run typecheck`.
 - 관련 테스트: `./node_modules/.bin/vitest run`으로 model parser/normalizer, runtime config/catalog, bootstrap wiring, protocol, engine, composer selection 대상 suite를 실행한다.
-- 문서 게이트: `cd app && npm run check:docs`와 `git diff --check`를 실행한다.
+- 문서 게이트: `cd app && node scripts/check-doc-inventory.mjs --check`와 저장소 루트 `git diff --check`를 실행한다.
 - 사람 실기: 앱에서 수동 plugin login·자동 app login·revoke를 각각 수행해 read-only 카드와 Composer 항목의 동시 출현/제거를 두 테마에서 확인하고 스크린샷을 남긴다.
 
 ## READY self-review
