@@ -34,8 +34,8 @@
 | ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
 |---|---|---|---|---|---|
 | D-001 | 입력 필드 이름과 타입은 정확히 `availableModels: string[]`이다. | 대소문자·띄어쓰기·camelCase를 변경하지 않는다. | 사용자 후속 결정 | ACTIVE | — |
-| D-002 | family 분류는 모델명을 case-insensitive로 검사해 sonnet → opus → haiku 순으로 첫 일치 family를 택하고, 무일치는 `custom`이다. | 한 이름에 여러 식별자가 든 비정상 입력도 결정적이어야 한다. | 최초 요구 + 설계 해석 | ACTIVE | — |
-| D-003 | custom 모델은 Composer 선택기에 실제 모델명을 그대로 표시하고 선택 alias·실행 model·fallback model도 그 이름(self)으로 둔다. | 표시·실행 어느 경계에서도 별도 추론·치환 금지. | 최초 요청 + 사용자 후속 결정 | ACTIVE | — |
+| D-002 | 모델명은 case-insensitive로 sonnet → opus → haiku 순의 첫 일치 family 또는 `custom`으로 분류하되, 같은 family의 `availableModels` 항목을 모두 보존한다. | opus/sonnet/haiku도 배열에 따라 복수 모델일 수 있으므로 family alias 중복을 제거 근거로 쓰지 않는다. | 최초 요구 + 사용자 후속 결정 | ACTIVE | — |
+| D-003 | custom 모델은 family 표시를 `custom`, 실제 모델명과 선택·실행·fallback 값은 자기 모델명(self)으로 둔다. | family 표기와 실행 식별자를 분리하며 custom을 실행 alias로 넘기지 않는다. | 최초 요청 + 사용자 후속 결정 | ACTIVE | — |
 | D-004 | 정적 settings와 동적 Harness runtime config의 모델을 같은 정규화 함수로 카탈로그에 투영한다. | Engine과 Composer의 결과가 갈리지 않아야 한다. | 최초 사용자 요청 | ACTIVE | — |
 | D-005 | Harness 인증 성공은 Engine & Models에 앱 사용자가 편집할 수 없는 read-only Orca Harness 항목을 생성하고 실패·unavailable·해제는 제거한다. | UI 상태가 아니라 실제 Auth 파생 상태이며 renderer와 main mutation 경계 모두 편집을 막는다. | 최초 요청 + 사용자 후속 결정 | ACTIVE | — |
 | D-006 | 기존 `AuthRuntime.subscribe` snapshot lifecycle을 트리거로 쓰고 polling·별도 영속 상태를 만들지 않는다. | 앱 로그인 자동 인증도 같은 event path를 지난다. | 최초 사용자 요청 | ACTIVE | — |
@@ -45,7 +45,7 @@
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-008은 runtime contribution fetch를 Gate 로그인당 1회로 제한하고 새 세션 경로의 network 요청을 금지한다.
-- 변경된 결정: D-003은 custom 이름의 Composer 원문 노출까지 명시했고, D-005는 자동 추가된 Orca Harness의 앱 사용자 편집 금지를 renderer와 main 양쪽 계약으로 강화했다.
+- 변경된 결정: D-002는 같은 family 복수 항목 보존으로, D-003은 `custom` 분류 표기와 self 실행 식별자의 분리로 보완했다. D-005는 자동 추가된 Orca Harness의 앱 사용자 편집 금지를 renderer와 main 양쪽 계약으로 강화했다.
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: D-001·D-002·D-004·D-006·D-007.
 - `ACTIVE 결정 ↔ AC` 대조: D-001↔AC1, D-002·D-003↔AC2·AC3, D-004↔AC4, D-005·D-006↔AC5~AC8, D-007↔AC9·AC10, D-008↔AC6·AC8·AC11·AC13 — 충돌 0.
 
@@ -65,8 +65,10 @@
 ## 5. 동작 / 사용자 흐름
 
 ```text
+ANTHROPIC_DEFAULT_<FAMILY>_MODEL
+  → 먼저 family 기본 항목 구성
 settings.availableModels 또는 runtimeConfig.availableModels
-  → trim·빈 값 제거·중복 제거·family 분류
+  → trim·빈 값 제거·모델명 중복 제거·family 분류 후 순서대로 추가
   → 파생 모델 카탈로그
   → Engine & Models + Composer model selector
 
@@ -79,7 +81,7 @@ Plugin/App login → Auth snapshot
 
 | 시작 상태/이벤트 | 시스템 동작 | 사용자/소비자에게 보이는 결과 |
 |---|---|---|
-| 정적 `availableModels` 존재 | 배열을 즉시 정규화해 settings provider 모델과 병합한다. | 두 UI에 같은 모델이 보인다. |
+| 정적 `availableModels` 존재 | `ANTHROPIC_DEFAULT_<FAMILY>_MODEL` 항목을 먼저 구성하고 배열 항목을 stable order로 추가한다. | 같은 family의 복수 모델과 custom 모델이 두 UI에 모두 보인다. |
 | Gate 인증 snapshot이 `verified:true`이고 usable | 해당 Auth의 Harness contribution을 로그인 lifecycle에서 1회 fetch하고 process-memory cache에 publish한다. | read-only Orca Harness 카드와 Composer 선택지가 나타난다. |
 | 인증 실패·unavailable·revoke·401/403 | 해당 Auth contribution을 무효화하고 카탈로그에서 제외한다. | 자동 카드와 Composer 선택지가 함께 사라진다. |
 | 새 세션 생성·턴 실행 | network resolve를 호출하지 않고 로그인 때 채운 cache snapshot을 읽는다. | 모델 선택과 실행 준비가 추가 fetch 없이 동작한다. |
@@ -108,8 +110,9 @@ Plugin/App login → Auth snapshot
 | # | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|
 | AC1 | 정확한 `availableModels` 배열만 입력으로 인정하며 유사 철자·비배열은 자동 모델을 만들지 않는다. | 계약/단위 테스트: exact key·array 성공, casing 오타·문자열·혼합 타입 거부 | settings/augmenter → parser |
-| AC2 | 모델명 포함 식별자로 sonnet·opus·haiku·custom을 결정적으로 분류한다. | 순수 단위 테스트: 대소문자, 부분 포함, 무일치, 복수 식별자 | parser → catalog |
-| AC3 | custom 모델은 Composer 선택기에 `availableModels`의 이름을 그대로 표시하고 선택 alias·실행 model·fallback도 자기 자신이다. | renderer+순수+turn setup 테스트: 원문 라벨과 선택값이 치환 없이 adapter 요청에 전달 | catalog → ModelMenu → chat send → model resolution |
+| AC2 | 모델명 포함 식별자로 sonnet·opus·haiku·custom을 결정적으로 분류하고 같은 family의 복수 모델을 모두 보존한다. | 순수 단위 테스트: 대소문자, 부분 포함, 무일치, 복수 식별자, 동일 family N개 | parser → catalog |
+| AC3 | custom 모델은 두 UI에서 `custom`으로 분류되고 실제 모델명을 함께 표시하며 선택·실행·fallback은 자기 모델명이다. | renderer+순수+turn setup 테스트: family 라벨과 실제 모델명, self 선택값이 adapter 요청에 전달 | catalog → ModelMenu → chat send → model resolution |
+| AC14 | settings에서는 `ANTHROPIC_DEFAULT_<FAMILY>_MODEL` 항목을 먼저 구성한 뒤 `availableModels` 항목을 배열 순서대로 추가한다. | parser 단위 테스트: env 기본 항목 선행, 모델명 중복만 제거, 같은 family 추가 항목 보존 | settings env + availableModels → parser |
 | AC4 | 정적 settings와 runtime config가 같은 중복 제거·분류·기본 선택 규칙을 쓴다. | 단위 테스트: 같은 배열이 양 producer에서 동일 `AgentModelView` 생성 | 두 producer → shared normalizer |
 | AC5 | 인증 성공한 Harness LLM은 settings 디렉터리 유무와 무관하게 앱 사용자가 편집할 수 없는 read-only Orca Harness로 등록된다. | bootstrap/catalog+renderer+IPC 테스트: 카드 액션 부재와 mutation reject | Auth subscribe → runtime catalog → agent:list/engine IPC |
 | AC6 | 수동·자동 Gate 로그인은 각각 인증 성공 시 contribution fetch를 정확히 1회 수행하고 같은 등록 경로를 쓴다. | auth-resume 배선 테스트: 로그인당 fetch 1회, 중복 verified 이벤트는 추가 호출 0 | authResume/login → AuthChange → fetch/cache |
@@ -213,7 +216,7 @@ AuthSnapshot → runtime contribution resolve ┘                         ├→
 | 계약/필드 | SSOT | 누가 | 언제 강제 | 실패 의미 |
 |---|---|---|---|---|
 | `availableModels: string[]` exact shape | `available-models.ts` validator/type guard | settings parser·runtime augmenter boundary | settings load·runtime resolve 2지점 | invalid field는 자동 모델 0, 기존 기본 모델 유지 |
-| family 분류 + custom self fallback | `normalizeAvailableModels` | 정적·동적 producer | catalog materialize 2지점 | 복제 규칙 금지, 불일치 테스트 실패 |
+| family 분류 + model identity + custom self fallback | `normalizeAvailableModels`·`modelKey` | 정적·동적 producer·두 UI | catalog materialize 2지점·선택/표시 2지점 | family alias 충돌로 모델 유실 또는 custom alias 실행 |
 | runtime entry의 Auth 파생성 | `RuntimeModelContribution.authId` + reconciler | bootstrap | Gate verified·revoke·expired·unauthorized·fetch failure 5전이 | unusable이면 entry 부재 |
 | 로그인당 fetch 1회·세션 fetch 0회 | runtime catalog single-flight process cache | Gate login reconciler·session/turn readers | 로그인 성공 1지점에서만 fetch; session create·turn setup 2지점은 read-only cache | 중복 fetch 또는 cache miss 시 명시 실패 |
 | read-only provenance | `AgentEnvironment.source/readOnly` | main mapper·Engine renderer·engine mutation handler | DTO 생성·UI action·IPC mutation 3지점 | UI 숨김만 우회해도 main이 mutation reject |
@@ -228,7 +231,7 @@ AuthSnapshot → runtime contribution resolve ┘                         ├→
 | 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
 |---|---|---|---|
 | `features/harnesses/claude/available-models.ts` + test | 모델 정규화 | trim, empty drop, stable dedupe, family, self fallback, default | 순수 단위 |
-| `features/harnesses/claude/model-parser.ts` + test | 정적 입력 합성 | exact top-level `availableModels`을 기존 alias 설정과 결정적으로 병합 | 순수 단위 |
+| `features/harnesses/claude/model-parser.ts` + test | 정적 입력 합성 | env family 기본 항목을 먼저 만들고 exact top-level `availableModels`을 뒤에 병합 | 순수 단위 |
 | `adapters/harness-config.ts` | runtime 계약 | `HarnessRuntimeConfig.availableModels?` typed field 추가; env fingerprint와 분리 | 계약/typecheck |
 | `features/harnesses/runtime-config.ts` + test | augmenter 결과 운반 | typed 배열을 cache/generation 결과에 포함 | deferred 단위 |
 | `features/harnesses/runtime-catalog.ts` + test | 파생 catalog | Gate-login single-flight fetch, process cache, removal, late result fence | 순수/주입 통합 |
@@ -428,3 +431,12 @@ settings / Auth+runtime augmenter
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
 | — | 없음 | — | — | — |
+
+## [구현자 기입] r2 사용자 피드백 반영
+
+- 판정: env family 기본 모델을 먼저 구성하고 `availableModels`를 뒤에 합치며, family alias가 같아도 실제 모델명이 다르면 전부 보존한다.
+- 강제 지점: 정적 parser 병합 1/1, 정적·runtime normalizer 2/2, main·renderer model key 2/2, Engine·Composer 표시 2/2를 닫았다.
+- custom은 `alias:'custom'`·`model:<실제 이름>`으로 만들고, 선택 key·default·fallback 해석은 `model`을 우선해 `custom` 문자열이 SDK에 전달되지 않는다.
+- 관측: 관련 Vitest 5파일 39케이스 통과, lint 0 error/기존 warning 1, typecheck 3/3, doc inventory 9 items·76 channels, `git diff --check` 통과.
+- AC 자기보고: ✅ AC1~AC8·AC10~AC14 = 13, ⚠️ AC9 = 실제 앱 두 테마 시각 확인 대기. `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14`.
+- Review Signals: 사용자 피드백은 r1의 family alias 중복 제거와 custom alias 의미가 같은 `alias` 필드에 겹친 축을 바로잡았다. 현재 라운드는 2다.

@@ -27,7 +27,7 @@ const ALIAS_ENV_KEY: Record<ModelAlias, string> = {
 export interface ParsedModel {
   alias: string
   model: string | null // env 에 구성된 model명. 미구성 시 null (추측 금지).
-  isCustom: boolean // ANTHROPIC_DEFAULT_<ALIAS>_MODEL 키 존재 여부.
+  isCustom: boolean // family 식별자가 없는 실제 custom 모델인지 여부.
   oneMillionContext: boolean // model/명시값에 [1m] 접미사가 있었으면 true.
   isDefault: boolean // 노출 목록 전체에서 정확히 1개.
 }
@@ -61,10 +61,6 @@ export function parseClaudeModels(settings: {
   availableModels?: unknown
 }): ParsedModel[] {
   const availableModels = availableModelsOf(settings)
-  if (availableModels !== undefined) {
-    const normalized = normalizeAvailableModels(availableModels)
-    if (normalized.length > 0) return normalized
-  }
   const env = asRecord(settings.env)
 
   // 1단계 — alias 별 후보 빌드.
@@ -74,12 +70,25 @@ export function parseClaudeModels(settings: {
       return { alias, model: null, isCustom: false, oneMillionContext: false, isDefault: false }
     }
     const { value, oneMillion } = stripOneMillion(raw)
-    return { alias, model: value, isCustom: true, oneMillionContext: oneMillion, isDefault: false }
+    return { alias, model: value, isCustom: false, oneMillionContext: oneMillion, isDefault: false }
   })
 
-  // 2단계 — 노출 집합. 커스텀이 있으면 그것만, 없으면 3개 alias 전부.
-  const customs = candidates.filter((c) => c.isCustom)
-  const visible = customs.length > 0 ? customs : candidates
+  // 2단계 — env 기본 항목을 먼저 두고 discovery 항목을 모델 identity 기준으로 추가한다.
+  const configured = candidates.filter((candidate) => candidate.model !== null)
+  const discovered = availableModels ? normalizeAvailableModels(availableModels) : []
+  const visible =
+    discovered.length > 0
+      ? [
+          ...configured,
+          ...discovered.filter(
+            (entry) => !configured.some((candidate) => candidate.model === entry.model)
+          )
+        ]
+      : configured.length > 0
+        ? configured
+        : candidates
+
+  for (const model of visible) model.isDefault = false
 
   // 3단계 — 노출 목록 내 default 정확히 1개.
   const rawExplicit = modelValue(env.ANTHROPIC_MODEL) ?? modelValue(settings.model)

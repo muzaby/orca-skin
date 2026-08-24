@@ -39,7 +39,7 @@ describe('runtime model catalog', () => {
       expect.objectContaining({ key: 'orca-corp', readOnly: true, source: 'runtime' })
     ])
     expect(catalog.list()[0].models[0]).toMatchObject({
-      alias: 'corp-model',
+      alias: 'custom',
       model: 'corp-model'
     })
   })

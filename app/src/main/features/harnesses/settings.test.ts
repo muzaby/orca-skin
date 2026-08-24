@@ -49,7 +49,7 @@ describe('listProviders / listAdapters', () => {
       {
         alias: 'sonnet',
         model: 'claude-sonnet-4-6',
-        isCustom: true,
+        isCustom: false,
         oneMillionContext: false,
         isDefault: true
       }
@@ -96,7 +96,7 @@ describe('model helpers (alias 기준)', () => {
     {
       alias: 'sonnet',
       model: 'claude-sonnet-4-6',
-      isCustom: true,
+      isCustom: false,
       oneMillionContext: false,
       isDefault: true
     },
@@ -118,7 +118,7 @@ describe('model helpers (alias 기준)', () => {
       {
         alias: 'opus',
         model: 'global.anthropic.claude-opus-4-8',
-        isCustom: true,
+        isCustom: false,
         oneMillionContext: true,
         isDefault: true
       }
@@ -129,15 +129,15 @@ describe('model helpers (alias 기준)', () => {
     expect(modelNameForFamily(models, 'sonnet')).toBe('claude-sonnet-4-6')
   })
 
-  it('defaultModelFamily 는 default 항목의 alias, 빈 배열이면 null', () => {
-    expect(defaultModelFamily(models)).toBe('sonnet')
+  it('defaultModelFamily 는 default 항목의 고유 model key, 빈 배열이면 null', () => {
+    expect(defaultModelFamily(models)).toBe('claude-sonnet-4-6')
     expect(defaultModelFamily([])).toBeNull()
   })
 
-  it('custom 모델 alias는 실행 모델로 self resolve된다', () => {
+  it('custom 분류는 custom으로 표시하되 실행 모델은 self resolve된다', () => {
     const custom = [
       {
-        alias: 'orca-private-v1',
+        alias: 'custom',
         model: 'orca-private-v1',
         isCustom: true,
         oneMillionContext: false,

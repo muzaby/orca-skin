@@ -13,7 +13,6 @@ export function availableModelsOf(value: unknown): string[] | undefined {
 
 export function normalizeAvailableModels(models: readonly string[]): ParsedModel[] {
   const seenModels = new Set<string>()
-  const seenAliases = new Set<string>()
   const normalized: ParsedModel[] = []
   for (const raw of models) {
     const model = raw.trim()
@@ -21,9 +20,7 @@ export function normalizeAvailableModels(models: readonly string[]): ParsedModel
     seenModels.add(model)
     const lower = model.toLowerCase()
     const family = FAMILY_ORDER.find((candidate) => lower.includes(candidate))
-    const alias = family ?? model
-    if (seenAliases.has(alias)) continue
-    seenAliases.add(alias)
+    const alias = family ?? 'custom'
     normalized.push({
       alias,
       model,
