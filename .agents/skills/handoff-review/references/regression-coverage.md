@@ -1282,3 +1282,127 @@ Tier 2 조건(실행 의미 불변)에 해당하지 않는다.
   커밋 행은 `Agent: claude` 이고 `docs/handoff/AGENTS.md §역할 분담` 은 *Claude 가 구현하는* 경우만
   다룬다. 역할 계약 변경은 사용자 결정이라 review 가 단독으로 고치지 않는다.
 - **better-sqlite3 bindings 부재** — 0198 r3 검증 · 0194 · 0193 동일 서명, 차집합 양방향 0. 환경.
+
+---
+
+# Round 16 — 0198 (라운드 4, verify/FAIL · 게이트 자기보고 + 축 하나만 재유도)
+
+0198 이 라운드 3 을 초과해 재구현 전에 수행했다. 직전 round 15 의 조치는 **작동했다** — r3 이 남긴
+D11~D14·D16 은 전건 닫혔고 검증자 재측정에서 AC4(12배열 동일)·AC13(만료 뒤 턴 3회에 fetch 1회)이 ✅ 다.
+r4 의 미충족 2건은 **새 축**이다.
+
+## 발견 1 — 게이트 자기보고가 사실과 달랐다 (P39 재발, 표면 축)
+
+구현 보고는 `typecheck 3구성 PASS` 였고 실제 `npm run typecheck` 는 **exit 2 · `TS2741` 7건**이다
+(`e0517e0` 트리로 되돌려 실행하면 exit 0 — 회귀 주체는 r4). `cached(key)` 를 인터페이스 필수 멤버로
+추가하고 `runtime-catalog.test.ts` 의 fake 7곳 중 신규 1곳만 갱신했다. vitest 는 타입을 지우고
+실행하므로 테스트만 초록이었다.
+
+- **행위 자체는 B.** impl §7 이 "게이트 결과는 exit code 가 아니라 관측한 산출 — error·warning 수" 를,
+  template 필드명이 `관측한 게이트 산출`(exit code 아님) 을 이미 요구한다. 수행했으면 잡혔다.
+- **그 아래 A(coverage gap)** — template 은 `[구현자 기입]` 을 **1회분 표면**으로만 규정한다. 재구현
+  라운드는 새 절을 자유 형식으로 쓰고, 그때 필드 이름과 함께 그 필드가 요구하던 증거도 사라진다.
+
+| 라운드 | 표면 | 같은 자리에 적힌 것 |
+|---|---|---|
+| 0198 r1 | template 표 `관측한 게이트 산출` | `lint 0 error/warning 1; typecheck 3/3` |
+| 0198 r4 | 표 없는 8줄 산문 | `typecheck 3구성 PASS` |
+
+0194 r5·0191 r5 는 같은 자유 형식에서 소절을 **모방으로** 복원했다 — 규칙이 아니라 습관이 지켰다.
+
+## 발견 2 — 보고된 차이를 축 하나에서만 재유도했다 (P43 재발, 축 축)
+
+round 15 가 만든 규칙("대체물이 갖고 원본이 갖지 않던 실패 모드로 AC 재유도")이 **발동했고 만료 축을
+닫았다.** 축 목록이 산문 괄호(`만료·공유·재진입·다른 무효화`)라 **한 축만 적은 보고가 나머지를 조사한
+것처럼 보인다.** 남은 공유 축이 다음 라운드의 결함이 됐다 — 같은 `HarnessRuntimeConfigService` cache 를
+`invalidate(undefined)` 호출자 3곳이 공유하는데, 설정 CRUD(`handlers/engine.ts:38`)와 부팅
+배포(`bootstrap.ts:640`)는 cache 를 비우고 catalog entry 는 남긴다. 목록에는 모델이 보이고 턴만 죽으며
+Gate 재인증 전까지 회복 경로가 없다.
+
+- **A (coverage gap).** 규칙은 있었고 정상 수행이 부분 커버리지를 허용했다.
+- 곁따르는 A — impl §3 의 캐시 질문이 **한 방향**이었다. "무엇을 건너뛰는가" 는 묻고 "새로 요구하게 된
+  상태를 누가 비울 수 있는가" 는 묻지 않는다. P20 의 거울면이다(그쪽은 새 값을 *읽는* 소비처, 여기는
+  필요한 상태를 *지우는* 지점).
+
+*B/F 로 판정해 지침을 늘리지 않은 것: 중복 import(D21) · `sourceRevision` 유실(D19) · key 정규화
+비대칭(D20) · 가이드 drift(D22) · 변이 M3 미검출(W1, impl §3 에 규칙 있음). Decision 무변경 ·
+SUPERSEDED 0 이라 **D 유형 오염 0**. INDEX 대상 커밋의 `(r4 구현)` 자리표시자는 **E** — 커밋 전에는
+자기 해시가 없다. 검증자가 채우는 현행 관행(r3·r4)으로 두고 규칙을 만들지 않았다.*
+
+## 조치 — REPLACE 4 · 신규 줄 2 · 표 1 · 보강 2 · 신규 P 0
+
+| 사이트 | 판정 | 내용 |
+|---|---|---|
+| `handoff-impl/SKILL.md` §3 캐시 불릿 | REPLACE | 질문을 **양방향**으로 — 폴백 있던 읽기를 필수 전제로 바꿨으면 그 전제를 **지우는 지점을 전수로** 세고 지점마다 재충전을 확인 |
+| `handoff-impl/SKILL.md` §6 차이 문단 | REPLACE | 실패 모드를 **축마다 한 줄씩**, 축마다 재확인한 AC·§10 행 또는 `해당 없음` + 근거 |
+| `handoff-impl/SKILL.md` §6 사례 | 추가 | 0198 r4 — 만료 축만 재유도, 공유 축 미기재 |
+| `handoff-impl/SKILL.md` §8 서두 | REPLACE | 섹션 목록을 `세 섹션` → 실제 **6개**로 정정 + **재구현 라운드도 같은 이름 필드를 다시 채운다**(해당 없으면 `해당 없음`) + 0198 사례 1줄 |
+| `plan.template.md` `[구현자 기입]` 머리 | 추가 2줄 | 같은 규칙을 필드가 사는 자리에 |
+| `plan.template.md` `### 설계 대비 명시적 차이` | 표 신설 | 축 4행 × `실패 모드`/`재확인한 AC·§10 행 / 관측`. 기존 불릿 KEEP |
+| `docs/handoff/AGENTS.md` §2 | REPLACE 1 + 추가 1 | 위 두 impl 규칙의 최소 계약 (정본은 impl SKILL) |
+| `failure-patterns.corpus.md` | 보강 2 | **P39 보강**(remedy 가 재구현 라운드에서 표면째 사라진다) · **P43 보강**(축별 부분 커버리지). 둘 다 같은 causal class 재발이라 **신규 P 0** |
+| `handoff-verify/SKILL.md` | 변경 0 | 검증 축은 작동했다 — D17·D18 을 둘 다 잡았고 §8 의 "exit code 를 통과 증거로 쓰지 않는다" 가 `--reporter=basic` 0파일 실행도 걸러냈다 |
+| `handoff-plan/SKILL.md` | 변경 0 | 설계 축 실패가 아니다. AC4·AC13·§10 문면은 r1 부터 정확했고 공유 cache 는 구현자의 대체 선택이다 |
+
+## Tier 판정
+
+**Tier 1** — evidence 요구(축별 판정)와 보고 표면 계약(재구현 라운드 필드)이 바뀐다. Tier 2 조건(실행
+의미 불변)에 해당하지 않는다.
+
+## 6-A Operational Instruction Delta
+
+- **삭제 9줄 · 추가 51줄 · DELETE 0 · MOVE 0 · regression 0.** 삭제 9줄을 전수 열거해 **전부 REPLACE
+  원문**임을 확인했다.
+- **추출 자체를 한 단계 엄격하게 다시 쟀다.** 1차 추출 `git diff -U0 | grep -E '^-[^-]'` 은 `- ` 로
+  시작하는 마크다운 목록 항목을 **삭제 줄에서 누락**해 7줄만 냈다. `awk` 로 다시 세어 9줄이고, 놓친
+  2줄이 impl §3·AGENTS §2 의 불릿이다 — 이 review 의 핵심 사이트 둘이다.
+- semantic target 실측 — impl §3 `1/1`(재검증 문장) · §6 `3/3`(숨기지 않는다·AC 재유도·차이는 차이다) ·
+  §8 `5/5`(변경 파일·관측한 게이트 산출·강제 지점 `N/M`·대상 커밋·`git show <hash>`) · AGENTS §2 `1/1`.
+- impl §8 의 나머지 블록 `4/4` 생존 — 합계 검산 4단계 · `✅ N · ⚠️ M · ❌ K = 총 T` · 완결성=차집합 ·
+  Review Signals.
+- `handoff-verify/**` · `handoff-plan/SKILL.md` · `handoff-review/SKILL.md` · root `AGENTS.md` ·
+  `app/AGENTS.md` · `.github/**` **diff 0**.
+- reference/script **MOVE·REPLACE 0건** — inbound `N`/semantic `M/M` 대상 없음.
+
+## 6-B Historical Failure Regression
+
+- **43 P 전수** · 변경 후 **COVERED 43 / PARTIAL 0 / GAP 0 / OBSOLETE 0** · **신규 P 0**.
+- 방어 지점이 diff 에 닿은 **5건**: **P39**(impl §8 + template 머리 — 재구현 라운드 필드로 **강화**) ·
+  **P43**(impl §6 + AGENTS §2 + template 축 표로 **강화**) · **P40**(impl §8 합계 블록은 diff 밖, 4/4
+  실재 확인) · **P42**(impl §6 의 *다른* 문장 "승인받은 정정은 다른 커밋", diff 밖 — 실재 확인) ·
+  **P20**(impl §3 의 새 절이 *지우는 지점* 거울면을 추가; 기존 *읽는 소비처* 방어는 무변경).
+- **나머지 38건** — 방어 문장이 삭제 9줄 어디에도 없다(전수 열거로 확인). 규칙 삭제·축소가 없으므로
+  방어 약화 경로가 존재하지 않는다.
+- P heading 무결성 — `P1`~`P43` 연속·중복 0. `0173/plan.md` 의 line-scoped 인용
+  `failure-patterns.md:541-552` 는 **P29 본문에 그대로 착지**(실측). 이번 편집은 P39(837행 이후)·
+  P43(1033행 이후)이라 541 이전 offset 무변경이다.
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 규칙 사이트 — 축별 재유도 **4**(정본 `impl §6` + 미러 `AGENTS §2` + 표가 사는
+  `plan.template.md` + 검증자 대응 `verify §4:111`) · 재구현 라운드 필드 **3**(`impl §8` + `AGENTS §2` +
+  `plan.template.md` 머리). root `AGENTS.md` 사본 **0**.
+- **owner 충돌 0** — 구현자가 축마다 재유도하고(impl §6), 검증자는 그 모드를 **실제로 만들어** 다시
+  단언한다(verify §4, 무변경). 어느 쪽도 상대를 면제하지 않는다.
+- **`세 섹션` 잔존 사본 0** — impl §8 이 부르는 6개 이름이 `plan.template.md` 의
+  `## [구현자 기입] …` heading 과 **6/6** 일치(실측). 이 불일치는 이번 라운드에 처음 측정됐다.
+- 새 명령·게이트 **0** — `app/AGENTS.md` 게이트 정본·`.github/workflows/ci.yml` 과 scope 충돌 0.
+- `cd app && node scripts/check-doc-inventory.mjs --check` — generated ok · prose ok · **links ok** ·
+  `git diff --check` 통과.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md`·`CLAUDE.md` stub 없음.
+  INDEX/commit trailer 규칙 **무변경**.
+- `Handoff: none` 카브아웃은 검증 면제가 아니다 — 본 review 는 handoff 인프라 메타 수정이라 직접
+  커밋이되 Tier 1 전 축을 수행했다.
+
+## review 기록 정책
+
+`round16-review.md` 를 만들지 않았다 — 압축으로 잃는 rationale 이 없고 사용자 보존 요구도 없었다.
+기존 `round2-review.md` 1개 유지(라운드 문서는 동시에 1개).
+
+## 지침으로 해결할 수 없는 한계
+
+- **커밋 전에는 자기 해시가 없다.** INDEX `대상 커밋` 칸의 자리표시자는 구현자가 원리적으로 채울 수
+  없다. 검증자가 채우는 현행 관행(0198 r3·r4)으로 두고 규칙을 만들지 않았다.
+- **round 15 가 남긴 두 한계는 그대로다** — 설계 주체 표기(`Agent: codex` + `Status: designed`)는 역할
+  계약이라 사용자 결정이고, better-sqlite3 bindings 부재는 환경이다. r4 검증에서도 같은 5파일·42케이스
+  서명이며 차집합 양방향 0.
