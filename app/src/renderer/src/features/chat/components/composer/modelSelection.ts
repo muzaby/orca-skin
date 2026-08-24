@@ -8,7 +8,7 @@ export interface ModelSelection {
 }
 
 export function modelKey(model: AgentModelView): string {
-  return model.alias
+  return model.model ?? model.alias
 }
 
 export function defaultSelection(
