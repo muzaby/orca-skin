@@ -39,4 +39,11 @@ describe('availableModels exact contract', () => {
       })
     ])
   })
+
+  it('uses the first item when every discovered model is custom', () => {
+    expect(normalizeAvailableModels(['corp-a', 'corp-b'])).toEqual([
+      expect.objectContaining({ model: 'corp-a', isDefault: true }),
+      expect.objectContaining({ model: 'corp-b', isDefault: false })
+    ])
+  })
 })

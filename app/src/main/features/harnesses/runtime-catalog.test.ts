@@ -32,7 +32,7 @@ describe('runtime model catalog', () => {
     const bridge = createRuntimeModelCatalogBridge({ contributions: [contribution], snapshotOf })
 
     await bridge.onSnapshot('gate', valid(3))
-    await bridge.attach({ list: () => [], isReadOnly: () => true, reconcile })
+    await bridge.attach({ list: () => [], isReadOnly: () => true, invalidate: vi.fn(), reconcile })
 
     expect(reconcile).toHaveBeenCalledOnce()
     expect(reconcile).toHaveBeenCalledWith('gate', valid(3))
@@ -44,7 +44,7 @@ describe('runtime model catalog', () => {
     const snapshotOf = vi.fn(() => valid(4))
     const bridge = createRuntimeModelCatalogBridge({ contributions: [contribution], snapshotOf })
 
-    await bridge.attach({ list: () => [], isReadOnly: () => true, reconcile })
+    await bridge.attach({ list: () => [], isReadOnly: () => true, invalidate: vi.fn(), reconcile })
 
     expect(reconcile).toHaveBeenCalledWith('gate', valid(4))
   })
@@ -53,7 +53,7 @@ describe('runtime model catalog', () => {
     const resolve = vi.fn(async () => config(['corp-model']))
     const catalog = createRuntimeModelCatalog({
       contributions: [contribution],
-      runtime: { resolve, invalidate: vi.fn() }
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
     })
     await catalog.reconcile('gate', valid())
     await catalog.reconcile('gate', valid())
@@ -72,7 +72,7 @@ describe('runtime model catalog', () => {
     const resolve = vi.fn(() => new Promise<HarnessRuntimeConfig>((done) => (release = done)))
     const catalog = createRuntimeModelCatalog({
       contributions: [contribution],
-      runtime: { resolve, invalidate: vi.fn() }
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
     })
     const first = catalog.reconcile('gate', valid())
     const second = catalog.reconcile('gate', valid())
@@ -86,7 +86,7 @@ describe('runtime model catalog', () => {
     const resolve = vi.fn(() => new Promise<HarnessRuntimeConfig>((done) => (release = done)))
     const catalog = createRuntimeModelCatalog({
       contributions: [contribution],
-      runtime: { resolve, invalidate: vi.fn() }
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
     })
     const pending = catalog.reconcile('gate', valid())
     await catalog.reconcile('gate', { ...valid(), status: 'none', verified: false })
@@ -116,7 +116,7 @@ describe('runtime model catalog', () => {
     const resolve = vi.fn(async () => config(['custom']))
     const catalog = createRuntimeModelCatalog({
       contributions: [contribution],
-      runtime: { resolve, invalidate: vi.fn() }
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
     })
     await catalog.reconcile('gate', valid(1))
     await catalog.reconcile('gate', valid(2))
@@ -142,7 +142,7 @@ describe('runtime model catalog', () => {
     const resolve = vi.fn(async () => ({ ...config([]), availableModels: 'abc' as never }))
     const catalog = createRuntimeModelCatalog({
       contributions: [contribution],
-      runtime: { resolve, invalidate: vi.fn() }
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
     })
 
     await catalog.reconcile('gate', valid())
@@ -158,7 +158,7 @@ describe('runtime model catalog', () => {
     })
     const catalog = createRuntimeModelCatalog({
       contributions: [contribution, other],
-      runtime: { resolve, invalidate: vi.fn() }
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
     })
 
     await catalog.reconcile('gate', valid())
@@ -169,9 +169,44 @@ describe('runtime model catalog', () => {
   it('treats declared runtime keys as read-only across casing and whitespace variants', () => {
     const catalog = createRuntimeModelCatalog({
       contributions: [contribution],
-      runtime: { resolve: vi.fn(), invalidate: vi.fn() }
+      runtime: { resolve: vi.fn(), cached: vi.fn(), invalidate: vi.fn() }
     })
 
     expect(catalog.isReadOnly(' orca-CORP ')).toBe(true)
+  })
+
+  it('removes invalidated entries and permits the next verified snapshot to refill them', async () => {
+    const resolve = vi.fn(async () => config(['corp-model']))
+    const onChange = vi.fn()
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() },
+      onChange
+    })
+    await catalog.reconcile('gate', valid())
+
+    catalog.invalidate(' ORCA-corp ')
+    expect(catalog.list()).toEqual([])
+    expect(onChange).toHaveBeenCalledTimes(2)
+
+    await catalog.reconcile('gate', valid())
+    expect(resolve).toHaveBeenCalledTimes(2)
+    expect(catalog.list()).toHaveLength(1)
+  })
+
+  it('does not republish a fetch that completes after settings invalidation', async () => {
+    let release!: (value: HarnessRuntimeConfig) => void
+    const resolve = vi.fn(() => new Promise<HarnessRuntimeConfig>((done) => (release = done)))
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
+    })
+    const pending = catalog.reconcile('gate', valid())
+
+    catalog.invalidate()
+    release(config(['late-model']))
+    await pending
+
+    expect(catalog.list()).toEqual([])
   })
 })
