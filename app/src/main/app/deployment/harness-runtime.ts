@@ -33,6 +33,7 @@
 
 import type { AuthBinder, AuthId } from '../../contracts/auth'
 import type { RuntimeConfigAugmenters } from '../../features/harnesses/runtime-config'
+import type { RuntimeModelContribution } from '../../features/harnesses/runtime-catalog'
 
 // ── 두 능력은 **타입으로** 갈라져 있다 (r5 D-048) ─────────────────────────────
 //
@@ -111,3 +112,7 @@ export function mergeAugmenters(
 // 명시적으로 invalidate 한다. 자동 발견하려고 AuthId → feature contribution registry 를
 // 만들지 않는다(0188 §성능 계약).
 export const AUTH_INVALIDATED_HARNESS_KEYS: Readonly<Record<string, readonly string[]>> = {}
+
+// 인증 성공 시 한 번 resolve해 모델 카탈로그에 투영할 Orca Harness 선언.
+// 기본 배포는 Auth와 마찬가지로 비어 있고 폐쇄망 배포가 실제 Auth 상수의 id를 사용해 채운다.
+export const RUNTIME_MODEL_CONTRIBUTIONS: readonly RuntimeModelContribution[] = []

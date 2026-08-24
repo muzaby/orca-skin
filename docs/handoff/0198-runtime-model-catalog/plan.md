@@ -8,7 +8,7 @@
 | 작성자 | Codex |
 | 일자 | 2026-08-24 |
 | 매핑 | 런타임 모델 카탈로그 자동 투영 |
-| 상태 | READY |
+| 상태 | IMPL_DONE |
 
 # Part I — Product & UX Contract
 
@@ -361,7 +361,67 @@ settings / Auth+runtime augmenter
 
 ---
 
-> **[구현자 기입]** 구현 턴에서 `handoff-impl` 절차에 따라 설계 리뷰·강제 지점 전수·Product/UX 파생 검토·구현 보고를 추가한다.
+> **[구현자 기입]** 구현 턴에서 `handoff-impl` 절차에 따라 아래 결과를 기록한다.
+
+## [구현자 기입] 설계 리뷰
+
+- 동의 / 그대로 진행: D-001~D-008과 AC1~AC13을 production path에 반영했다. `rg "availableModels|runtimeModelCatalog|readOnly" app/src`로 producer→catalog→IPC→두 UI 경로를 재확인했다.
+- 이견 / 현실성 문제: §10의 read-only 강제 지점은 3곳이 아니라 DTO·Engine UI·add·update·delete·read 6곳이었다. 선언된 runtime key는 인증 해제 뒤에도 main mutation 4종을 계속 거부하도록 선조치했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+| 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|
+| exact `availableModels` | settings load·runtime resolve (2) | 2/2 | `available-models.test` + `model-parser.test` + `runtime-config.test` 통과 | — |
+| family·custom self | 정적·동적 producer (2) | 2/2 | normalizer/model selection/settings 테스트에서 family 4종·self 확인 | — |
+| Auth 파생 전이 | verified·revoke·expired·unauthorized·failure (5) | 5/5 | runtime catalog usable/unusable/failure/generation 테스트 통과 | — |
+| 로그인 fetch·세션 cache | login 1·session create·turn setup (3) | 3/3 | 실제 runtime service를 쓴 warm-cache 테스트에서 login+2 resolve의 augmenter 1회 | — |
+| read-only provenance | 설계 3, 실측 6 | 6/6 | `rg "assertMutable|readOnly"`로 DTO·UI·IPC 4종 확인, catalog 선언 key 테스트 통과 | — |
+| 두 UI 동일 snapshot | Engine·Composer (2) | 2/2 | agentStore refresh 배선·ModelMenu/EngineCard 소비와 selection 테스트 확인 | — |
+
+- §10에 없는데 같은 불변식이 필요했던 지점: Engine `read`도 runtime settings 파일 접근을 막아야 했다. add/update/delete와 함께 4/4를 닫았다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 대면 문구·상태에 소비자가 있는가 | ✅ `engine.card.readOnly`를 EngineCard가 소비 | 한국어·영어 catalog 동시 추가 |
+| 새 실패 경로가 Part I 상태 전이표의 어느 행인가 | ✅ fetch 실패/unavailable 행 | 자동 항목 제거, settings 항목 보존 |
+| 실패가 “아무 일도 안 일어남”으로 보이지 않는가 | ✅ 원천 소멸과 동일하게 두 UI 항목이 제거 | provider-state push 뒤 agent refresh |
+| 늦은 응답이 화면을 되돌리지 않는가 | ✅ generation fence 테스트 | revoke 뒤 late success 폐기 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | Auth state push가 catalog publish보다 먼저 끝나면 renderer가 옛 목록을 다시 읽는다. | ✅ 선조치 — catalog `onChange`에서 provider state를 한 번 더 push | `bootstrap.ts` catalog callback |
+| 2 | 현재 entry만 read-only로 보면 revoke 직후 같은 key를 사용자 파일로 만들 수 있다. | ✅ 선조치 — contribution 선언 key 자체를 불변 read-only로 판정 | `runtime-catalog.test` 인증 전 단언 |
+| 3 | §10 read-only 지점 수가 main mutation 4종을 누락했다. | 📝 plan 수정 제안 — 3지점→6지점 | `engine.ts` add/update/delete/read 전수 |
+
+### 설계 대비 명시적 차이
+
+- plan은 별도 catalog cache를 설계했지만 구현은 catalog snapshot과 기존 `HarnessRuntimeConfigService` cache를 결합했다. Gate reconcile이 기존 cache를 warm하므로 session/turn resolve는 network 없이 같은 config를 얻는다.
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | production 20개·테스트 6개·현재 문서 4개, 신규 의존성 0 |
+| 실행 명령 | 관련 vitest, `npm run lint`, `npm run typecheck`, `node scripts/check-doc-inventory.mjs --check`, `git diff --check` |
+| 관측한 게이트 산출 | 관련 11파일 92케이스 + 최종 cache 2파일 16케이스 통과; lint 0 error/기존 warning 1; typecheck 3/3; doc inventory 9 items·76 channels |
+| 강제 지점 전수 | 20/20 — 2+2+5+3+6+2 |
+| AC 자기보고 | ✅ AC1~AC8·AC10~AC13 = 12, ⚠️ AC9 = 실제 앱 두 테마 시각 확인 대기 |
+| 합계 검산 | `✅ 12 · ⚠️ 1 · ❌ 0 = 총 13` |
+| 블로커 / 역질문 | 코드 블로커 없음. GUI 캡처 도구/X server 부재로 AC9 사람 실기만 대기 |
+| 대상 커밋 | `7fb771f` — `git show 7fb771f --oneline --no-patch`로 실재 확인 |
+
+## [구현자 기입] Review Signals — 사실만
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 신규 구현 r1이다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: read-only AC는 있었지만 §10의 main 강제 지점 분모가 4 IPC 중 1개로 축약돼 있었다.
+- 반복해서 부딪히는 환경 한계: GUI/X server·스크린샷 도구가 없다.
+- 현재 라운드 수: 1.
 
 ## [검증자 기입] 파생 이슈
 

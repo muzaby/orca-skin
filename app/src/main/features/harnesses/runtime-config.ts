@@ -53,6 +53,7 @@ export interface RuntimeConfigAugmenter {
     signal?: AbortSignal
   ): Promise<{
     runtimeEnv: Readonly<Record<string, string>>
+    availableModels?: readonly string[]
     validUntil?: number
   }>
 }
@@ -150,6 +151,7 @@ export function createHarnessRuntimeConfigService(
     return {
       ...base,
       runtimeEnv: augmented.runtimeEnv,
+      ...ifPresent('availableModels', augmented.availableModels),
       ...ifPresent('validUntil', augmented.validUntil)
     }
   }
