@@ -8,7 +8,7 @@
 //
 // 순수 함수 — fs 비의존, vitest 대상.
 
-import { availableModelsOf, normalizeAvailableModels } from './available-models'
+import { availableModelsOf, normalizeAvailableModels, stripOneMillion } from './available-models'
 
 type ModelAlias = 'sonnet' | 'opus' | 'haiku'
 
@@ -27,7 +27,7 @@ const ALIAS_ENV_KEY: Record<ModelAlias, string> = {
 export interface ParsedModel {
   alias: string
   model: string | null // env 에 구성된 model명. 미구성 시 null (추측 금지).
-  isCustom: boolean // ANTHROPIC_DEFAULT_<ALIAS>_MODEL 키 존재 여부.
+  isCustom: boolean // family 식별자가 없는 실제 custom 모델인지 여부.
   oneMillionContext: boolean // model/명시값에 [1m] 접미사가 있었으면 true.
   isDefault: boolean // 노출 목록 전체에서 정확히 1개.
 }
@@ -35,14 +35,6 @@ export interface ParsedModel {
 interface AliasCandidate extends ParsedModel {}
 
 // [1m] 접미사 분리 — trim 후 정확한 브래킷 토큰만. 구 includes('1m') 부분문자열 매칭 금지.
-function stripOneMillion(raw: string): { value: string; oneMillion: boolean } {
-  const trimmed = raw.trim()
-  if (trimmed.toLowerCase().endsWith('[1m]')) {
-    return { value: trimmed.slice(0, -'[1m]'.length).trim(), oneMillion: true }
-  }
-  return { value: trimmed, oneMillion: false }
-}
-
 function asRecord(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
   return value as Record<string, unknown>
@@ -61,10 +53,6 @@ export function parseClaudeModels(settings: {
   availableModels?: unknown
 }): ParsedModel[] {
   const availableModels = availableModelsOf(settings)
-  if (availableModels !== undefined) {
-    const normalized = normalizeAvailableModels(availableModels)
-    if (normalized.length > 0) return normalized
-  }
   const env = asRecord(settings.env)
 
   // 1단계 — alias 별 후보 빌드.
@@ -74,18 +62,30 @@ export function parseClaudeModels(settings: {
       return { alias, model: null, isCustom: false, oneMillionContext: false, isDefault: false }
     }
     const { value, oneMillion } = stripOneMillion(raw)
-    return { alias, model: value, isCustom: true, oneMillionContext: oneMillion, isDefault: false }
+    return { alias, model: value, isCustom: false, oneMillionContext: oneMillion, isDefault: false }
   })
 
-  // 2단계 — 노출 집합. 커스텀이 있으면 그것만, 없으면 3개 alias 전부.
-  const customs = candidates.filter((c) => c.isCustom)
-  const visible = customs.length > 0 ? customs : candidates
+  // 2단계 — env 기본 항목을 먼저 두고 discovery 항목을 모델 identity 기준으로 추가한다.
+  const configured = candidates.filter((candidate) => candidate.model !== null)
+  const discovered = availableModels ? normalizeAvailableModels(availableModels) : []
+  const visible =
+    discovered.length > 0
+      ? [
+          ...configured,
+          ...discovered.filter(
+            (entry) => !configured.some((candidate) => candidate.model === entry.model)
+          )
+        ]
+      : configured.length > 0
+        ? configured
+        : candidates
+
+  for (const model of visible) model.isDefault = false
 
   // 3단계 — 노출 목록 내 default 정확히 1개.
   const rawExplicit = modelValue(env.ANTHROPIC_MODEL) ?? modelValue(settings.model)
   const explicit = rawExplicit ? stripOneMillion(rawExplicit).value : undefined
 
-  const byAlias = new Map(visible.map((m) => [m.alias, m]))
   const chooseDefault = (): ParsedModel => {
     // 규칙 1 — 명시 모델이 노출 항목의 alias 또는 model 과 일치.
     if (explicit) {
@@ -96,7 +96,7 @@ export function parseClaudeModels(settings: {
     }
     // 규칙 2 — 노출 항목 중 sonnet→haiku→opus 순 첫 항목.
     for (const alias of FALLBACK_ORDER) {
-      const hit = byAlias.get(alias)
+      const hit = visible.find((model) => model.alias === alias)
       if (hit) return hit
     }
     // 규칙 3 — 폴백(노출 집합은 항상 non-empty).

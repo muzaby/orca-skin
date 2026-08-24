@@ -67,8 +67,8 @@ import { createGate, selectGateMembers } from '../features/gate'
 import { createAuthResume } from './auth-resume'
 import { createHarnessRuntimeConfigService } from '../features/harnesses/runtime-config'
 import {
-  createRuntimeModelCatalog,
-  type RuntimeModelCatalog
+  createRuntimeModelCatalogBridge,
+  createRuntimeModelCatalog
 } from '../features/harnesses/runtime-catalog'
 import { AUTH_DEFINITIONS } from './deployment/auth-definitions'
 import { GATE_AUTH_DEFINITIONS, remainingAuthDefinitions } from './deployment/gate-auth'
@@ -378,7 +378,10 @@ export class Bootstrap {
     // ── Auth change 소비 (0188 D-008) ──────────────────────────────────────────
     // **listener 를 resume 보다 먼저 붙인다** — 복원 probe 가 강등을 만들면 그 자리에서 도구가
     // 회수돼야 한다. 구독이 늦으면 죽은 연결의 도구가 첫 턴에 실린다.
-    const runtimeModelCatalogRef: { current?: RuntimeModelCatalog } = {}
+    const runtimeModelCatalogBridge = createRuntimeModelCatalogBridge({
+      contributions: RUNTIME_MODEL_CONTRIBUTIONS,
+      snapshotOf: (authId) => auth.bind(authId).snapshot()
+    })
     auth.subscribe((change: AuthChange) => {
       pushConnectionState()
       // 화면 변화(입력 폼·OAuth 대기·resuming)와 `verified`-only 변화는 여기서 끝난다 —
@@ -391,7 +394,7 @@ export class Bootstrap {
       }
       // runtime config 무효화가 먼저다. 반대 순서면 재인증 reconcile 이 이전 cache 를 publish한다.
       if (change.kind === 'snapshot') {
-        void runtimeModelCatalogRef.current?.reconcile(change.authId, change.snapshot)
+        void runtimeModelCatalogBridge.onSnapshot(change.authId, change.snapshot)
       }
     })
 
@@ -491,13 +494,7 @@ export class Bootstrap {
       runtime: harnessRuntime,
       onChange: pushConnectionState
     })
-    runtimeModelCatalogRef.current = runtimeModelCatalog
-    for (const contribution of RUNTIME_MODEL_CONTRIBUTIONS) {
-      void runtimeModelCatalog.reconcile(
-        contribution.authId,
-        auth.bind(contribution.authId).snapshot()
-      )
-    }
+    void runtimeModelCatalogBridge.attach(runtimeModelCatalog)
 
     // ── 원격 사용량 fetcher (0186 → 0188 배포 모듈로 이설) ────────────────────────
     // **`undefined` 는 오류가 아니라 정상 구성이다.** 사용량은 로컬 원장만으로 완전히 동작하고,

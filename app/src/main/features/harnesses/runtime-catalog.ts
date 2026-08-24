@@ -1,7 +1,7 @@
 import type { AgentEnvironment } from '../../../shared/ipc'
 import type { AuthId, AuthSnapshot } from '../../contracts/auth'
 import type { HarnessRuntimeConfigService } from './runtime-config'
-import { normalizeAvailableModels } from './claude/available-models'
+import { availableModelsOf, normalizeAvailableModels } from './claude/available-models'
 
 export interface RuntimeModelContribution {
   authId: AuthId
@@ -14,6 +14,35 @@ export interface RuntimeModelCatalog {
   list(): AgentEnvironment[]
   isReadOnly(key: string): boolean
   reconcile(authId: AuthId, snapshot: AuthSnapshot): Promise<void>
+}
+
+export interface RuntimeModelCatalogBridge {
+  onSnapshot(authId: AuthId, snapshot: AuthSnapshot): Promise<void>
+  attach(catalog: RuntimeModelCatalog): Promise<void>
+}
+
+export function createRuntimeModelCatalogBridge(input: {
+  contributions: readonly RuntimeModelContribution[]
+  snapshotOf: (authId: AuthId) => AuthSnapshot
+}): RuntimeModelCatalogBridge {
+  let catalog: RuntimeModelCatalog | undefined
+  const latest = new Map<AuthId, AuthSnapshot>()
+
+  return {
+    async onSnapshot(authId, snapshot) {
+      latest.set(authId, snapshot)
+      await catalog?.reconcile(authId, snapshot)
+    },
+    async attach(next) {
+      catalog = next
+      const authIds = new Set(input.contributions.map((contribution) => contribution.authId))
+      await Promise.all(
+        [...authIds].map((authId) =>
+          next.reconcile(authId, latest.get(authId) ?? input.snapshotOf(authId))
+        )
+      )
+    }
+  }
 }
 
 export function createRuntimeModelCatalog(input: {
@@ -55,7 +84,8 @@ export function createRuntimeModelCatalog(input: {
           try {
             const config = await input.runtime.resolve(contribution)
             if ((authGeneration.get(authId) ?? 0) !== generation) return
-            const models = normalizeAvailableModels(config.availableModels ?? [])
+            const availableModels = availableModelsOf(config)
+            const models = normalizeAvailableModels(availableModels ?? [])
             const next =
               models.length === 0
                 ? undefined
@@ -89,7 +119,10 @@ export function createRuntimeModelCatalog(input: {
 
   return {
     list: () => [...entries.values()].sort((a, b) => a.key.localeCompare(b.key)),
-    isReadOnly: (key) => input.contributions.some((contribution) => contribution.key === key),
+    isReadOnly: (key) =>
+      input.contributions.some(
+        (contribution) => contribution.key.toLowerCase() === key.trim().toLowerCase()
+      ),
     reconcile
   }
 }
