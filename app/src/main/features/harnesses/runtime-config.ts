@@ -64,6 +64,7 @@ export type RuntimeConfigAugmenters = Readonly<
 
 export interface HarnessRuntimeConfigService {
   resolve(entry: HarnessModelProviderEntry, signal?: AbortSignal): Promise<HarnessRuntimeConfig>
+  cached(key: HarnessModelProviderKey): HarnessRuntimeConfig | undefined
   // key 미지정 = 전부. `reason` 은 진단 로그용이다.
   invalidate(key?: HarnessModelProviderKey, reason?: string): void
 }
@@ -212,6 +213,9 @@ export function createHarnessRuntimeConfigService(
   }
 
   return {
+    cached(key) {
+      return states.get(key)?.cached?.config
+    },
     async resolve(entry, signal) {
       // caller 의 취소는 **자기 대기만** 끝낸다. 공유 작업은 계속 돌아 다른 caller 에게
       // 정상적으로 resolve 된다.

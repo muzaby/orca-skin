@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseClaudeModels, type ParsedModel } from './model-parser'
+import { normalizeAvailableModels } from './available-models'
 
 function byAlias(models: ParsedModel[]): Record<string, ParsedModel> {
   return Object.fromEntries(models.map((m) => [m.alias, m]))
@@ -10,6 +11,14 @@ function defaults(models: ParsedModel[]): string[] {
 }
 
 describe('parseClaudeModels — 노출 + default 불변식', () => {
+  it('settings와 runtime 배열에 공유 default 규칙을 적용한다', () => {
+    const availableModels = ['claude-opus-4-1', 'claude-sonnet-4-5', 'claude-haiku-3-5']
+    const settings = parseClaudeModels({ availableModels })
+    const runtime = normalizeAvailableModels(availableModels)
+
+    expect(settings.find((model) => model.isDefault)?.model).toBe('claude-sonnet-4-5')
+    expect(runtime.find((model) => model.isDefault)?.model).toBe('claude-sonnet-4-5')
+  })
   it('env family 모델을 먼저 구성하고 availableModels를 모두 뒤에 추가한다', () => {
     const models = parseClaudeModels({
       availableModels: ['claude-sonnet-corp', 'orca-private-v1'],
