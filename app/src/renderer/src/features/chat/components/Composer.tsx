@@ -151,27 +151,17 @@ export function Composer({
 
   useEffect(() => {
     if (agents.length === 0) return
-    if (
-      providerKey &&
-      !selectionExists(agents, {
-        providerKey,
-        modelFamily,
-        adapter: backend ?? 'claude'
-      })
-    ) {
+    // 선택이 없거나 원천이 사라졌으면(런타임 contribution 회수 포함) default 로 되돌린다.
+    if (!providerKey || !selectionExists(agents, providerKey, modelFamily)) {
       const next = defaultSelection(agents, backend)
       if (next) setModel(next.providerKey, next.modelFamily, next.adapter)
       return
     }
-    if (providerKey && modelFamily == null) {
-      const agent = agents.find((a) => a.key === providerKey)
-      const model = agent?.models.find((m) => m.isDefault) ?? agent?.models[0]
-      if (agent && model) setModel(providerKey, modelKey(model), agent.adapter)
-      return
-    }
-    if (providerKey) return
-    const next = defaultSelection(agents, backend)
-    if (next) setModel(next.providerKey, next.modelFamily, next.adapter)
+    if (modelFamily != null) return
+    // provider 만 복원된 상태 — 그 provider 의 default 모델로 채운다.
+    const agent = agents.find((a) => a.key === providerKey)
+    const model = agent?.models.find((m) => m.isDefault) ?? agent?.models[0]
+    if (agent && model) setModel(providerKey, modelKey(model), agent.adapter)
   }, [agents, backend, modelFamily, providerKey, setModel])
 
   const conversationStatusModel = useMemo(() => {

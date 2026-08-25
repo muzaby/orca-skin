@@ -50,22 +50,24 @@ export function resolveTitleModel(models: ParsedModel[]): string | undefined {
   return modelNameForFamily(models, haiku ? modelKey(haiku) : null)
 }
 
-// HarnessModelProviderEntry(settings-entries.ts)를 orca:agent:list 페이로드로 변환. 순환을 피해 구조적
-// 입력만 받는다(HarnessModelProviderEntry 미import). ParsedModel 을 필드 변환 없이 그대로 통과시킨다.
-export function toAgentEnvironments(
-  entries: { key: string; harnessId: string; modelProviderId: string; models: ParsedModel[] }[],
-  supportedHarnesses: Iterable<string>
-): AgentEnvironment[] {
-  const supported = new Set(supportedHarnesses)
-  // **wire 필드명은 유지한다** (0188 D-030) — `AgentEnvironment.adapter`/`.provider` 는 renderer
-  // 가 읽는 compat 계약이다. 도메인 어휘(harnessId·modelProviderId)는 이 경계에서 변환한다.
-  return entries.map((entry) => ({
+// 도메인 entry → `orca:agent:list` 행. 순환을 피해 구조적 입력만 받는다(HarnessModelProviderEntry
+// 미import). ParsedModel 은 필드 변환 없이 그대로 통과시킨다.
+//
+// **행을 만드는 자리는 여기 하나다** — settings 원천과 runtime 카탈로그가 같은 함수를 지나야
+// wire 필드가 늘 때 한쪽만 갱신되는 드리프트가 생기지 않는다.
+// **wire 필드명은 유지한다** (0188 D-030) — `AgentEnvironment.adapter`/`.provider` 는 renderer
+// 가 읽는 compat 계약이다. 도메인 어휘(harnessId·modelProviderId)는 이 경계에서 변환한다.
+export function toAgentEnvironment(
+  entry: { key: string; harnessId: string; modelProviderId: string; models: ParsedModel[] },
+  provenance: { supported: boolean; source: 'settings' | 'runtime'; readOnly: boolean }
+): AgentEnvironment {
+  return {
     key: entry.key,
     adapter: entry.harnessId,
     provider: entry.modelProviderId,
-    supported: supported.has(entry.harnessId),
-    source: 'settings',
-    readOnly: false,
+    supported: provenance.supported,
+    source: provenance.source,
+    readOnly: provenance.readOnly,
     models: entry.models.map((model): AgentModelView => ({
       alias: model.alias,
       model: model.model,
@@ -73,7 +75,21 @@ export function toAgentEnvironments(
       oneMillionContext: model.oneMillionContext,
       isDefault: model.isDefault
     }))
-  }))
+  }
+}
+
+export function toAgentEnvironments(
+  entries: { key: string; harnessId: string; modelProviderId: string; models: ParsedModel[] }[],
+  supportedHarnesses: Iterable<string>
+): AgentEnvironment[] {
+  const supported = new Set(supportedHarnesses)
+  return entries.map((entry) =>
+    toAgentEnvironment(entry, {
+      supported: supported.has(entry.harnessId),
+      source: 'settings',
+      readOnly: false
+    })
+  )
 }
 
 export function mergeAgentEnvironments(

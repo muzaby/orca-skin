@@ -14,7 +14,7 @@ import {
   type DebugMockState
 } from '../../../shared/protocol'
 import { BrowserWindow, Notification } from 'electron'
-import { mergeAgentEnvironments, toAgentEnvironments } from '../../features/harnesses/models'
+import { toAgentEnvironments } from '../../features/harnesses/models'
 import type { RouterContext } from '../context'
 import { sendInstallStatus, setWireLog } from '../../infra/ipc/send'
 import { setWireSink } from '../../infra/ipc/wire-log'
@@ -39,11 +39,8 @@ export function registerMiscHandlers(ctx: RouterContext): void {
     const entries = ctx.harnessSettings
       .adapters()
       .flatMap((adapter) => ctx.harnessSettings.list(adapter))
-    return mergeAgentEnvironments(
-      toAgentEnvironments(entries, supported),
-      ctx.runtimeModelCatalog?.list() ?? [],
-      (key) => ctx.runtimeModelCatalog?.isReadOnly(key) === true
-    )
+    const settings = toAgentEnvironments(entries, supported)
+    return ctx.runtimeModelCatalog?.merge(settings) ?? settings
   })
 
   // 백엔드 설치 — 어댑터의 install() 스트림을 renderer 로 중계하고 완료 후 설치 상태를 갱신한다.

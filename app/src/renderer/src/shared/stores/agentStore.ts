@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { AgentEnvironment } from '../../../../shared/ipc'
-import { agentApi } from '../api/ipc'
+import { agentApi, providerApi } from '../api/ipc'
 import type { UiMessage } from '../i18n'
 
 interface AgentStoreState {
@@ -39,3 +39,10 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
 }))
 
 export const refreshAgents = (): Promise<AgentEnvironment[]> => useAgentStore.getState().refresh()
+
+// **카탈로그 무효화 규칙은 store 의 것이다** (`usageStore.subscribeUsage` 선례) — provider 상태
+// push 는 자동 등록/회수된 런타임 모델 행을 바꿀 수 있다. 소비처마다 구독을 다시 적으면
+// 새 소비처가 조용히 낡은 목록을 보여준다.
+export function subscribeAgents(): () => void {
+  return providerApi.onState(() => void refreshAgents())
+}

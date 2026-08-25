@@ -37,9 +37,3 @@ export function parseProviderKey(
   }
   return best
 }
-
-export function canonicalProviderKey(key: string, knownAdapters: Iterable<string>): string {
-  const normalized = key.trim().toLowerCase()
-  const parsed = parseProviderKey(normalized, knownAdapters)
-  return parsed?.provider ? providerKeyOf(parsed.adapter, parsed.provider) : normalized
-}

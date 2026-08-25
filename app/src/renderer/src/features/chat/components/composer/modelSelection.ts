@@ -29,12 +29,17 @@ export function defaultSelection(
   return null
 }
 
-export function selectionExists(agents: AgentEnvironment[], selection: ModelSelection): boolean {
+// 선택이 아직 카탈로그에 있는가 — adapter 는 판정에 참여하지 않으므로 받지 않는다
+// (`modelFamily == null` 은 default hydration 대기 중이라 provider 존재만 본다).
+export function selectionExists(
+  agents: AgentEnvironment[],
+  providerKey: string,
+  modelFamily: string | null
+): boolean {
   return agents.some(
     (agent) =>
-      agent.key === selection.providerKey &&
-      (selection.modelFamily == null ||
-        agent.models.some((model) => modelKey(model) === selection.modelFamily))
+      agent.key === providerKey &&
+      (modelFamily == null || agent.models.some((model) => modelKey(model) === modelFamily))
   )
 }
 

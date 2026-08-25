@@ -39,24 +39,19 @@ export function EngineCard({
           <div className="mt-0.5 font-mono text-[11px] text-ink3">{agent.key}</div>
         </div>
         {canMutate && (
-          <Button
-            variant="contained"
-            size="small"
-            disabled={!canMutate || busy}
-            onClick={() => onEdit(agent)}
-          >
-            {tr('common.edit')}
-          </Button>
-        )}
-        {canMutate && (
-          <Button
-            variant="danger-ghost"
-            size="small"
-            disabled={!canMutate || busy}
-            onClick={() => onDelete(agent)}
-          >
-            {tr('common.delete')}
-          </Button>
+          <>
+            <Button variant="contained" size="small" disabled={busy} onClick={() => onEdit(agent)}>
+              {tr('common.edit')}
+            </Button>
+            <Button
+              variant="danger-ghost"
+              size="small"
+              disabled={busy}
+              onClick={() => onDelete(agent)}
+            >
+              {tr('common.delete')}
+            </Button>
+          </>
         )}
       </div>
       <EngineModelList models={agent.models} />

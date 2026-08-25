@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { AgentEnvironment } from '../../shared/ipc'
 import {
   affectedRuntimeModelAuthIds,
   createRuntimeModelAuthInvalidator,
@@ -13,6 +14,7 @@ describe('runtime model startup', () => {
     const catalog = {
       list: () => [],
       isReadOnly: () => true,
+      merge: (settings: AgentEnvironment[]) => settings,
       invalidate: vi.fn(() => order.push('catalog-invalidate')),
       reconcile: vi.fn(async () => undefined)
     }
