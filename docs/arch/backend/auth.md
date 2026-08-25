@@ -468,11 +468,14 @@ refresh token 이 없으면 **보내던 값을 그대로 다음 세대 키에 �
 
 ## 6. Harness 실행 구성
 
-### 6.1 열거의 SSOT 는 여전히 디렉터리다
+### 6.1 사용자 설정 열거의 SSOT 는 디렉터리다
 
-선택 가능한 Harness + ModelProvider 목록과 Model 목록은 `sources/settings/<harness>/<modelProvider>/`
-가 소유한다. **별도 definition 배열·registry 를 만들지 않는다** — 두 번째 ModelProvider 플랫폼이
-생기면 두 목록이 반드시 갈린다.
+사용자가 CRUD하는 Harness + ModelProvider 목록은 `sources/settings/<harness>/<modelProvider>/`
+가 소유한다. 인증된 Harness가 반환한 `availableModels: string[]`은 예외로, Gate 로그인 성공 때
+`RuntimeModelCatalog`가 프로세스 메모리에 read-only 항목으로 투영한다.
+
+runtime contribution은 Gate 로그인당 한 번 resolve해 cache한다. 새 세션과 턴은 cache만 읽고,
+revoke·만료·unauthorized·재인증은 해당 cache를 제거하거나 새 세대의 결과로 교체한다.
 
 `sources/settings/` 에 디렉터리가 있다는 것과 그 Harness 를 **실행할 수 있다**는 것은 다르다.
 후자의 SSOT 는 `AdapterRegistry`/`SessionAdapter` 다.
@@ -489,8 +492,9 @@ type RuntimeConfigAugmenters = Readonly<
 코드가 있는지만** 조회한다. key 가 없으면 기존 settings 와 app env 만으로 동작하며 **network 는 0**
 이다.
 
-augmenter 의 결과는 credential 한 값이 아니라 **전체 `runtimeEnv` overlay** 다 — URL·모델 변수·flag·
-실행 token 을 함께 담을 수 있다. 두 방식은 **서로 다른 factory** 로 분리한다:
+augmenter 의 결과는 **전체 `runtimeEnv` overlay**와 선택적 `availableModels: string[]`이다. 후자는
+subprocess env로 직렬화하지 않고 runtime model catalog에만 투영한다. 두 credential 방식은
+**서로 다른 factory** 로 분리한다:
 
 ```text
 config API 방식      BoundAuth.request → OAuth/session 으로 API 접근 → 응답의 LLM token·URL·Model
@@ -576,8 +580,9 @@ env 가 실제로 달라지므로 그때는 env 축이 정확히 잡아낸다.
   `env` 를 같은 값으로 전달한다.
 - fingerprint 가 spawn 당시 값과 다르면 continuation 전에 channel 을 teardown 한다.
 
-Model 선택 UI 는 계속 settings.json 에서 파생한다. runtime API 가 돌려준 모델 환경변수는 **실행
-구성에만** 반영하고 카탈로그 목록에 넣지 않는다.
+Model 선택 UI 는 settings 항목과 인증된 runtime model contribution을 합성한 catalog에서 파생한다.
+runtime API의 `availableModels`는 read-only 항목으로 합성되며, 실행 구성은 같은 runtime cache
+snapshot을 읽는다.
 
 ---
 

@@ -103,6 +103,7 @@ export interface HarnessRuntimeConfig {
   // 동적 subprocess overlay. credential 뿐 아니라 URL·모델 변수·flag 를 포함한다.
   // app/process/settings env 와의 최종 병합은 아래 spawn preparation 이 수행한다.
   runtimeEnv: Readonly<Record<string, string>>
+  availableModels?: readonly string[]
   // 동적 token/config 의 사용 기한. 없으면 명시 무효화 전까지 cache 할 수 있다.
   validUntil?: number
 }

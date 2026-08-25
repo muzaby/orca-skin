@@ -66,7 +66,7 @@
 
 | 채널              | 방향         | 페이로드 | 응답                 | 설명                                                                                                                                                                                                                                                                                                                                                                                |
 | ----------------- | ------------ | -------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `orca:agent:list` | R→M (invoke) | —        | `AgentEnvironment[]` | `~/.config/orca/sources/settings/<adapter>/<provider>/` 의 provider 디렉토리를 열거하고 각 `settings.json` 을 `claude/model-parser.ts` 로 파싱해 renderer-safe DTO 로 반환. `models` 는 `AgentModelView = { alias, model: string\|null, isCustom, oneMillionContext, isDefault }`. `authToken`/`baseUrl`/`env`/secret 값 필드는 존재하지 않는다(화이트리스트 — `toAgentEnvironments`). |
+| `orca:agent:list` | R→M (invoke) | —        | `AgentEnvironment[]` | settings provider와 인증된 runtime model catalog를 합쳐 반환한다. `AgentEnvironment.source='settings'\|'runtime'`, runtime 항목은 `readOnly:true`다. `models`는 `{ alias, model, isCustom, oneMillionContext, isDefault }`이며 custom은 `alias='custom'`, `model`은 원문 self다. secret 값 필드는 없다. |
 
 ### 2.2-c Engine (handoff 0021)
 

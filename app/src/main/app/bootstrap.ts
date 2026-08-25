@@ -66,12 +66,22 @@ import { OAuthRunner } from '../features/auth/oauth-runner'
 import { createGate, selectGateMembers } from '../features/gate'
 import { createAuthResume } from './auth-resume'
 import { createHarnessRuntimeConfigService } from '../features/harnesses/runtime-config'
+import {
+  createRuntimeModelCatalogBridge,
+  createRuntimeModelCatalog
+} from '../features/harnesses/runtime-catalog'
+import {
+  createRuntimeModelAuthResume,
+  invalidateRuntimeModelsForAuth,
+  startRuntimeModelCatalogAfterDeploy
+} from './runtime-model-startup'
 import { AUTH_DEFINITIONS } from './deployment/auth-definitions'
 import { GATE_AUTH_DEFINITIONS, remainingAuthDefinitions } from './deployment/gate-auth'
 import {
   AUTH_INVALIDATED_HARNESS_KEYS,
   createRuntimeConfigAugmenters,
-  DIRECT_CREDENTIAL_AUTH_IDS
+  DIRECT_CREDENTIAL_AUTH_IDS,
+  RUNTIME_MODEL_CONTRIBUTIONS
 } from './deployment/harness-runtime'
 import { createPluginBindings } from './deployment/plugins'
 import { createConnectionSources } from './deployment/connections'
@@ -371,19 +381,10 @@ export class Bootstrap {
     }
 
     // ── Auth change 소비 (0188 D-008) ──────────────────────────────────────────
-    // **listener 를 resume 보다 먼저 붙인다** — 복원 probe 가 강등을 만들면 그 자리에서 도구가
-    // 회수돼야 한다. 구독이 늦으면 죽은 연결의 도구가 첫 턴에 실린다.
-    auth.subscribe((change: AuthChange) => {
-      pushConnectionState()
-      // 화면 변화(입력 폼·OAuth 대기·resuming)와 `verified`-only 변화는 여기서 끝난다 —
-      // 실행 credential 이 그대로이므로 도구를 다시 sync 하거나 Harness cache 를 비우지 않는다.
-      if (change.kind !== 'snapshot' || !change.credentialChanged) return
-      for (const plugin of plugins) {
-        if (plugin.auth.authId === change.authId) plugin.sync()
-      }
-      harnessRuntimeRef?.invalidateForAuth(change.authId)
+    const runtimeModelCatalogBridge = createRuntimeModelCatalogBridge({
+      contributions: RUNTIME_MODEL_CONTRIBUTIONS,
+      snapshotOf: (authId) => auth.bind(authId).snapshot()
     })
-
     // Harness runtime config 는 DB 뒤에 만들어진다 — 그 전에 도착한 credential change 는
     // cache 자체가 없으므로 무효화할 것도 없다.
     let harnessRuntimeRef: { invalidateForAuth: (authId: AuthId) => void } | undefined = undefined
@@ -408,11 +409,6 @@ export class Bootstrap {
       logger: (event, data) => getLogger().child('auth').info(event, data)
     })
     authResumeRef = authResume
-    auth.subscribe((change) => {
-      if (change.kind === 'snapshot') authResume.onGateChange(change.authId)
-    })
-    void authResume.run()
-
     const db = this.bootReport.stepSync('db-init', { critical: true, label: 'DB 초기화' }, () =>
       initDb({
         onBackupStart: () => {
@@ -460,16 +456,35 @@ export class Bootstrap {
       }),
       logger: (event, data) => getLogger().child('harness').debug(event, data)
     })
-    // Auth change → **고정 key 만** 무효화한다(0188 §성능 계약). AuthId → feature contribution
-    // registry 를 만들어 자동 발견하지 않는다 — 배포가 배선에서 명시한다.
+    // Auth change → 배포가 명시한 고정 key만 무효화한다(0188 §성능 계약).
+    // 실행 env와 model catalog contribution의 합집합이며 런타임 자동 발견은 하지 않는다.
     harnessRuntimeRef = {
       invalidateForAuth: (authId) => {
-        for (const key of AUTH_INVALIDATED_HARNESS_KEYS[authId] ?? []) {
-          harnessRuntime.invalidate(key, 'auth-change')
-        }
+        const keys = new Set([
+          ...(AUTH_INVALIDATED_HARNESS_KEYS[authId] ?? []),
+          ...RUNTIME_MODEL_CONTRIBUTIONS.filter((item) => item.authId === authId).map(
+            (item) => item.key
+          )
+        ])
+        // A deployment may declare that Auth A invalidates a contribution owned by Auth B. Every
+        // owner of an invalidated canonical key must reconcile; replaying only A leaves B's row
+        // visible over an empty cache.
+        invalidateRuntimeModelsForAuth({
+          keys,
+          contributions: RUNTIME_MODEL_CONTRIBUTIONS,
+          invalidate: (key) => harnessRuntime.invalidate(key, 'auth-change'),
+          snapshotOf: (ownerAuthId) => auth.bind(ownerAuthId).snapshot(),
+          reconcile: (ownerAuthId, snapshot) => {
+            void runtimeModelCatalogBridge.onSnapshot(ownerAuthId, snapshot)
+          }
+        })
       }
     }
-
+    const runtimeModelCatalog = createRuntimeModelCatalog({
+      contributions: RUNTIME_MODEL_CONTRIBUTIONS,
+      runtime: harnessRuntime,
+      onChange: pushConnectionState
+    })
     // ── 원격 사용량 fetcher (0186 → 0188 배포 모듈로 이설) ────────────────────────
     // **`undefined` 는 오류가 아니라 정상 구성이다.** 사용량은 로컬 원장만으로 완전히 동작하고,
     // 아래 `registerUsageJobs` 도 원격 잡을 등록하지 않는다. 폐쇄망 배포는
@@ -610,8 +625,35 @@ export class Bootstrap {
     )
     // scaffold → deploy 이후의 무효화. **두 cache 를 함께 비운다** — settings 만 비우면
     // 동적 runtime config 가 옛 sourceRevision 기준 값을 warm hit 로 계속 돌려준다.
-    harnessSettings.invalidateAll()
-    harnessRuntime.invalidate(undefined, 'settings-deploy')
+    // Deploy invalidation is the last boot-time cache reset. Attach replays the latest snapshots
+    // only after it, so Gate resume fetches become the final catalog state instead of being erased.
+    await startRuntimeModelCatalogAfterDeploy({
+      invalidateSettings: () => harnessSettings.invalidateAll(),
+      invalidateRuntime: () => harnessRuntime.invalidate(undefined, 'settings-deploy'),
+      catalog: runtimeModelCatalog,
+      bridge: runtimeModelCatalogBridge,
+      // **listener 를 resume 보다 먼저 붙인다** — 복원 probe 가 강등을 만들면 그 자리에서 도구가
+      // 회수돼야 한다. 구독이 늦으면 죽은 연결의 도구가 첫 턴에 실린다.
+      resumeAuth: createRuntimeModelAuthResume({
+        auth,
+        // The sole Auth-change consumer is installed only after deploy invalidation. No verified
+        // snapshot can fetch a contribution and then be erased by the boot-time reset.
+        onChange: (change: AuthChange) => {
+          pushConnectionState()
+          if (change.kind === 'snapshot' && change.credentialChanged) {
+            for (const plugin of plugins) {
+              if (plugin.auth.authId === change.authId) plugin.sync()
+            }
+            harnessRuntimeRef?.invalidateForAuth(change.authId)
+          }
+          if (change.kind === 'snapshot') {
+            void runtimeModelCatalogBridge.onSnapshot(change.authId, change.snapshot)
+          }
+        },
+        onGateChange: (authId) => authResume.onGateChange(authId),
+        run: () => void authResume.run()
+      })
+    })
     // ClaudeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
     await this.bootReport.step('skill-scan', { critical: false, label: '스킬 스캔' }, () =>
       this.refreshSkills()
@@ -639,7 +681,8 @@ export class Bootstrap {
       runtimeTools,
       auth,
       gate,
-      harnessRuntime
+      harnessRuntime,
+      runtimeModelCatalog
     }
     this.register(ctx)
   }
