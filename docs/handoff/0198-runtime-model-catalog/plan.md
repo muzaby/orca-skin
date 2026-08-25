@@ -8,7 +8,7 @@
 | 작성자 | Codex |
 | 일자 | 2026-08-24 |
 | 매핑 | 런타임 모델 카탈로그 자동 투영 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) → verify/FAIL (r5) → READY (r6) → IMPL_DONE (r6) → verify/FAIL (r6) → READY (r7) → IMPL_DONE (r7) → verify/FAIL (r7) → READY (r8) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) → verify/FAIL (r5) → READY (r6) → IMPL_DONE (r6) → verify/FAIL (r6) → READY (r7) → IMPL_DONE (r7) → verify/FAIL (r7) → READY (r8) → IMPL_DONE (r8) → verify/FAIL (r8) |
 
 # Part I — Product & UX Contract
 
@@ -447,7 +447,7 @@ settings / Auth+runtime augmenter
 ## [검증자 기입] 파생 이슈
 
 > 라운드별 검증 판정 원문은 [`verify.md`](verify.md). 아래는 재구현이 닫을 목록이다.
-> D1~D10은 r2, D11~D16은 r3, D17~D23·W1은 r4, D24~D31은 r5, D32~D39는 r6, D40~D43은 r7 산출이다.
+> D1~D10은 r2, D11~D16은 r3, D17~D23·W1은 r4, D24~D31은 r5, D32~D39는 r6, D40~D43은 r7, D44~D46은 r8 산출이다.
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
@@ -484,8 +484,8 @@ settings / Auth+runtime augmenter
 | D30 | 게이트 자기보고 `2092케이스/44 ABI fail`이 재측정 `2090/42`와 다르다(plan·INDEX 2사본) | verify r5 | r6은 대상 스위트 실측 5파일/39케이스만 보고한다. 전체 스위트는 ABI red 뒤 최종 집계 없이 중단된 사실을 분리한다. | closed r6 |
 | D31 | 좌표·기준선 위생 3건 — `176a73f`에 규범 행 D-008 혼입(D15 축) · INDEX `(r5 구현)` 자리표시자 · §10 read-only 행이 아직 `3지점` | verify r5 | 과거 혼입은 history로 보존한다. INDEX 좌표는 교정됐고 §10은 실효 6지점·7좌표로 정정한다. | closed r6 — 단 같은 축이 D36·D37로 재발했다 |
 | D32 | `misc.ts:45`의 3번째 인자를 지워도 전체 스위트가 베이스라인과 같다(변이 M-B) — AC5가 지목한 두 UI **목록** 경로가 잠기지 않았다 | verify r6 · AC5·§10 6행 | `agent:list` handler를 `engine.runtime-catalog.test.ts`의 `vi.mock('../../infra/ipc/handle')` 패턴으로 열어 catalog 주입 후 충돌 행 미노출을 단언한다 | closed r7 |
-| D33 | `auth.subscribe`×2 + `authResume.run()`을 deploy 앞으로 되돌려도 전건 통과하고 typecheck exit 0(변이 M-H) — AC11·D-009의 실제 배선이 소스 문자열 grep으로만 잠겼다 | verify r6 · AC11·AC6 | `resumeAuth` 설치를 순수 팩토리로 한 겹 더 뽑아 "helper에 무엇을 넘겼는가"를 주입 테스트로 잠근다. 규범 축(AC11 검증 수단·§10 행)은 D35에서 닫혔고 남은 것은 잠금 구현이다 | partial r7 — factory 안쪽은 잠겼고(M-F·M-G 검출) 인용 변이 M-H 는 재현된다(D40) |
-| D34 | cross-auth 루프에 `.filter(item => item === authId)`를 붙여 r5 D29 버그를 되살려도 미검출(변이 M-D2) | verify r6 · §10 cache 수명 4행 | helper 반환값이 아니라 호출 결과로 재조정된 authId 집합을 관측하는 seam을 만든다 | partial r7 — helper 안쪽은 잠겼고(M-D4 검출) 좁힘이 호출부로 옮겨가면 미검출이다(D40) |
+| D33 | `auth.subscribe`×2 + `authResume.run()`을 deploy 앞으로 되돌려도 전건 통과하고 typecheck exit 0(변이 M-H) — AC11·D-009의 실제 배선이 소스 문자열 grep으로만 잠겼다 | verify r6 · AC11·AC6 | `resumeAuth` 설치를 순수 팩토리로 한 겹 더 뽑아 "helper에 무엇을 넘겼는가"를 주입 테스트로 잠근다. 규범 축(AC11 검증 수단·§10 행)은 D35에서 닫혔고 남은 것은 잠금 구현이다 | closed r8 — D40 이 닫히며 인용 변이 M-H(=M-H2)가 검출된다 |
+| D34 | cross-auth 루프에 `.filter(item => item === authId)`를 붙여 r5 D29 버그를 되살려도 미검출(변이 M-D2) | verify r6 · §10 cache 수명 4행 | helper 반환값이 아니라 호출 결과로 재조정된 authId 집합을 관측하는 seam을 만든다 | closed r8 — D40 이 닫히며 호출부 좁힘(M-D3)이 검출된다 |
 | D35 | plan §7 순서 기준(attach 마지막)과 구현(attach 3번째)이 어긋나는데 "설계 대비 차이 없음"으로 보고됐다 | verify r6 · §7·D-009 | **§7을 구현 순서로 정정했다** — attach를 resume 뒤에 두면 `await attach()`가 부팅에서 network를 기다린다. 함께 AC11 검증 수단에서 소스 문자열 검사를 배제하고 §10에 부팅 시퀀스 순서 행(2지점)을 신설했다. | closed(설계) r6 |
 | D36 | INDEX·plan 두 사본의 r6 좌표 `d214581`이 실재하지 않는다(`git cat-file -t` 실패, `git rev-list --all` 전수 부재). 실제 좌표는 `a843557` | verify r6 · §11 | 좌표는 이번 검증 커밋에서 교정했다. 다음 라운드는 좌표를 적기 전에 `git cat-file -t`로 확인한다 | closed r6(교정) |
 | D37 | `a843557`이 규범 행(D-009·AC5·AC7·AC11·§10 2행)과 구현을 한 커밋에 담아 §0 기준선이 성립하지 않는다 — r3 D15·r5 D31①의 3회차 | verify r6 · §0 | 설계 턴 커밋과 구현 커밋을 나눈다. 과거 커밋은 history rewrite 없이 남긴다 | closed r7 |
@@ -495,6 +495,9 @@ settings / Auth+runtime augmenter
 | D41 | AC11 검증 수단이 소스 문자열 검사를 전면 배제해(D35) 합성 seam을 잠글 수단이 남지 않는다 — `bootstrap.ts`는 `@electron-toolkit/utils`의 CJS `require('electron')` 때문에 vitest가 열 수 없다(verify r7 §8 실측) | verify r7 · AC11 검증 수단·§10 부팅 시퀀스 행 | 이 저장소의 음성 소스 가드 관용구(`infra/net/no-node-fetch.test.ts` + `infra/source-scan.ts`)를 §10 2번째 지점의 수단으로 허용할지, 아니면 지점 수를 1로 줄일지 규범 행에서 정한다 · **규범 정정 필요** | **closed(설계) r8** — D-010 신설, AC11 검증 수단·§10 두 행 정정. 음성 가드를 채택하고 electron alias 대안은 P29 약화로 기각했다 |
 | D42 | 신규 `misc.runtime-catalog.test.ts`의 `toEqual([])`가 한쪽만 잠근다 — handler가 settings 입력을 통째로 버려도 전건 통과(변이 M-B3) | verify r7 · AC5 | fixture에 비충돌 settings 행 1개를 넣고 같은 `toEqual`에서 보존과 미노출을 함께 단언한다(r6 AC5 probe 형태) | closed r8 — 보존 행을 동반한 단언이 M-B3를 검출했다 |
 | D43 | `6934d77` 본문이 리터럴 `\n`으로 한 줄이라 trailer가 파싱되지 않는다(`git interpret-trailers --parse` 0건) — r3 D15와 같은 축 | verify r7 · §11 | 과거 커밋은 rewrite하지 않는다. 다음 라운드부터 trailer를 실제 개행으로 적고 커밋 후 `git log -1 --format='%(trailers:only=true)'`로 확인한다 | closed r8 — 구현 커밋 뒤 파싱 결과를 관측한다 |
+| D44 | 유일성 가드가 "배선"이 아니라 "그 파일에 호출문이 있다"를 잰다 — `bootstrap.ts`의 runtime-model Auth 배선을 지우고 그로 인해 unused가 된 심볼까지 정리하면 typecheck 0·eslint 0·vitest 215/215·2108/2108 green이고 production Auth listener는 0개다(변이 M-P, 3단계 수렴). §10 부팅 시퀀스 행의 실패 의미 "호출 자체의 소멸은 `noUnusedLocals`가 typecheck를 red로 만든다(r7 M-J)"가 거짓이다 — r7 M-J는 정리 1단계에서 멈춘 관측이다 | verify r8 · AC6·AC11·§10 부팅 시퀀스 행·D-010 | ① §10 실패 의미 문장을 실측으로 정정한다 ② 소멸 축을 잠글지, 잠근다면 양성 술어(그 파일의 export를 부르는 production 파일 ≥1)·타입 강화 중 무엇으로 할지 D-010에서 정한다 · **규범 정정 필요** | open |
+| D45 | `bootstrap.ts:372` 주석 "아래 `auth.subscribe` 는 change 에만 발화하고"가 그 파일에 없는 구성을 가리킨다 — r7 이설 뒤 남았고 D-010은 그 파일에서 해당 호출을 금지한다. 불변식 자체(ref 대입이 `run()` 앞)는 성립한다 | verify r8 · 기준 밖 · 위생 | 주석을 helper를 가리키도록 고친다. r7 D39와 같은 축 | open |
+| D46 | 가드 술어가 수신자 이름 `auth`에 묶여 `authRuntime.subscribe(` 형태는 우회한다. 오늘 더 엄격한 술어와의 차집합이 0이라 현재 `1건`은 참인 전수이므로 판정을 막지 않는다 | verify r8 · 기준 밖 · 관측 | D44를 정할 때 술어 폭도 함께 본다 | open |
 
 ## [구현자 기입] r2 사용자 피드백 반영
 
