@@ -32,7 +32,13 @@ describe('runtime model catalog', () => {
     const bridge = createRuntimeModelCatalogBridge({ contributions: [contribution], snapshotOf })
 
     await bridge.onSnapshot('gate', valid(3))
-    await bridge.attach({ list: () => [], isReadOnly: () => true, invalidate: vi.fn(), reconcile })
+    await bridge.attach({
+      list: () => [],
+      isReadOnly: () => true,
+      merge: (settings) => settings,
+      invalidate: vi.fn(),
+      reconcile
+    })
 
     expect(reconcile).toHaveBeenCalledOnce()
     expect(reconcile).toHaveBeenCalledWith('gate', valid(3))
@@ -44,7 +50,13 @@ describe('runtime model catalog', () => {
     const snapshotOf = vi.fn(() => valid(4))
     const bridge = createRuntimeModelCatalogBridge({ contributions: [contribution], snapshotOf })
 
-    await bridge.attach({ list: () => [], isReadOnly: () => true, invalidate: vi.fn(), reconcile })
+    await bridge.attach({
+      list: () => [],
+      isReadOnly: () => true,
+      merge: (settings) => settings,
+      invalidate: vi.fn(),
+      reconcile
+    })
 
     expect(reconcile).toHaveBeenCalledWith('gate', valid(4))
   })

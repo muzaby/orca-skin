@@ -10,16 +10,16 @@
 
 import {
   availableModelsOf,
+  FAMILY_ORDER,
   markDefaultModel,
   normalizeAvailableModels,
   stripOneMillion
 } from './available-models'
 
-type ModelAlias = 'sonnet' | 'opus' | 'haiku'
-
-// 필터링 폴백/노출 순서. UI 표시 순서이자 default 폴백 순서(sonnet→haiku→opus 는 §4 규칙,
-// 단 노출 배열은 sonnet/opus/haiku — 폴백 평가는 별도 ORDER 로).
-const DISPLAY_ORDER: readonly ModelAlias[] = ['sonnet', 'opus', 'haiku']
+// family 목록은 discovery 분류와 같은 사실이라 `available-models.ts` 가 SSOT 다 — 여기서
+// 노출 순서로 쓴다(default 폴백 평가 순서는 그쪽의 별도 ORDER).
+type ModelAlias = (typeof FAMILY_ORDER)[number]
+const DISPLAY_ORDER: readonly ModelAlias[] = FAMILY_ORDER
 
 const ALIAS_ENV_KEY: Record<ModelAlias, string> = {
   sonnet: 'ANTHROPIC_DEFAULT_SONNET_MODEL',

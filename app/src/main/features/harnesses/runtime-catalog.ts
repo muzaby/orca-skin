@@ -2,7 +2,7 @@ import type { AgentEnvironment } from '../../../shared/ipc'
 import type { AuthId, AuthSnapshot } from '../../contracts/auth'
 import type { HarnessRuntimeConfigService } from './runtime-config'
 import { availableModelsOf, normalizeAvailableModels } from './claude/available-models'
-import { canonicalAgentKey } from './models'
+import { canonicalAgentKey, mergeAgentEnvironments, toAgentEnvironment } from './models'
 
 export interface RuntimeModelContribution {
   authId: AuthId
@@ -14,6 +14,10 @@ export interface RuntimeModelContribution {
 export interface RuntimeModelCatalog {
   list(): AgentEnvironment[]
   isReadOnly(key: string): boolean
+  // settings 행 위에 런타임 행을 얹는다 — 선언된 contribution 이 cache 가 빌 때도 자기
+  // canonical 행을 소유한다(D-008 fail-closed). 규칙이 소비처마다 재조립되면 새 소비처가
+  // 조용히 빠뜨린다. `adapter` 를 주면 그 harness 행만 남긴다.
+  merge(settings: AgentEnvironment[], adapter?: string): AgentEnvironment[]
   invalidate(key?: string): void
   reconcile(authId: AuthId, snapshot: AuthSnapshot): Promise<void>
 }
@@ -57,12 +61,25 @@ export function createRuntimeModelCatalog(input: {
   const resolvedRevision = new Map<string, number>()
   const inFlight = new Map<string, Promise<void>>()
 
-  const removeForAuth = (authId: AuthId): void => {
+  const ownsKey =
+    (key: string) =>
+    (contribution: RuntimeModelContribution): boolean =>
+      canonicalAgentKey(contribution.key) === canonicalAgentKey(key)
+
+  // 세대 증가는 **진행 중 fetch 를 무효로 만드는** 행위다 — 소멸 경로(무효 snapshot·명시
+  // invalidate)만 부르고, 실패 정리(catch)는 부르지 않는다.
+  const bumpGenerations = (authIds: Iterable<AuthId>): void => {
+    for (const authId of new Set(authIds)) {
+      authGeneration.set(authId, (authGeneration.get(authId) ?? 0) + 1)
+    }
+  }
+
+  // 제거의 유일한 경로 — `resolvedRevision` 정리와 `onChange` 발화를 한 몸으로 묶는다.
+  const drop = (targets: readonly RuntimeModelContribution[]): void => {
     let changed = false
-    for (const contribution of input.contributions) {
-      if (contribution.authId !== authId) continue
-      resolvedRevision.delete(contribution.key)
-      if (entries.delete(canonicalAgentKey(contribution.key))) changed = true
+    for (const target of targets) {
+      resolvedRevision.delete(target.key)
+      if (entries.delete(canonicalAgentKey(target.key))) changed = true
     }
     if (changed) input.onChange?.()
   }
@@ -71,8 +88,8 @@ export function createRuntimeModelCatalog(input: {
     const contributions = input.contributions.filter((item) => item.authId === authId)
     if (contributions.length === 0) return
     if (!snapshot.verified || snapshot.status !== 'valid') {
-      authGeneration.set(authId, (authGeneration.get(authId) ?? 0) + 1)
-      removeForAuth(authId)
+      bumpGenerations([authId])
+      drop(contributions)
       return
     }
 
@@ -86,20 +103,14 @@ export function createRuntimeModelCatalog(input: {
           try {
             const config = await input.runtime.resolve(contribution)
             if ((authGeneration.get(authId) ?? 0) !== generation) return
-            const availableModels = availableModelsOf(config)
-            const models = normalizeAvailableModels(availableModels ?? [])
+            const models = normalizeAvailableModels(availableModelsOf(config) ?? [])
             const next =
               models.length === 0
                 ? undefined
-                : {
-                    key: contribution.key,
-                    adapter: contribution.harnessId,
-                    provider: contribution.modelProviderId,
-                    models,
-                    supported: true,
-                    source: 'runtime' as const,
-                    readOnly: true
-                  }
+                : toAgentEnvironment(
+                    { ...contribution, models },
+                    { supported: true, source: 'runtime', readOnly: true }
+                  )
             const key = canonicalAgentKey(contribution.key)
             const previous = entries.get(key)
             if (next) entries.set(key, next)
@@ -108,8 +119,7 @@ export function createRuntimeModelCatalog(input: {
             if (previous !== next) input.onChange?.()
           } catch {
             if ((authGeneration.get(authId) ?? 0) !== generation) return
-            resolvedRevision.delete(contribution.key)
-            if (entries.delete(canonicalAgentKey(contribution.key))) input.onChange?.()
+            drop([contribution])
           } finally {
             inFlight.delete(contribution.key)
           }
@@ -120,27 +130,23 @@ export function createRuntimeModelCatalog(input: {
     )
   }
 
+  const list = (): AgentEnvironment[] =>
+    [...entries.values()].sort((a, b) => a.key.localeCompare(b.key))
+  const isReadOnly = (key: string): boolean => input.contributions.some(ownsKey(key))
+
   return {
-    list: () => [...entries.values()].sort((a, b) => a.key.localeCompare(b.key)),
-    isReadOnly: (key) =>
-      input.contributions.some(
-        (contribution) => canonicalAgentKey(contribution.key) === canonicalAgentKey(key)
+    list,
+    isReadOnly,
+    merge: (settings, adapter) =>
+      mergeAgentEnvironments(
+        adapter === undefined ? settings : settings.filter((entry) => entry.adapter === adapter),
+        adapter === undefined ? list() : list().filter((entry) => entry.adapter === adapter),
+        isReadOnly
       ),
     invalidate(key) {
-      const targets = key
-        ? input.contributions.filter(
-            (contribution) => canonicalAgentKey(contribution.key) === canonicalAgentKey(key)
-          )
-        : input.contributions
-      for (const authId of new Set(targets.map((contribution) => contribution.authId))) {
-        authGeneration.set(authId, (authGeneration.get(authId) ?? 0) + 1)
-      }
-      let changed = false
-      for (const contribution of targets) {
-        resolvedRevision.delete(contribution.key)
-        if (entries.delete(canonicalAgentKey(contribution.key))) changed = true
-      }
-      if (changed) input.onChange?.()
+      const targets = key ? input.contributions.filter(ownsKey(key)) : input.contributions
+      bumpGenerations(targets.map((contribution) => contribution.authId))
+      drop(targets)
     },
     reconcile
   }

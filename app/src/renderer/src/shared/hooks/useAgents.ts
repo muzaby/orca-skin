@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import type { AgentEnvironment } from '../../../../shared/ipc'
-import { refreshAgents, useAgentStore } from '../stores/agentStore'
-import { providerApi } from '../api/ipc'
+import { subscribeAgents, useAgentStore } from '../stores/agentStore'
 
 export function useAgents(): AgentEnvironment[] {
   const agents = useAgentStore((state) => state.agents)
@@ -9,9 +8,8 @@ export function useAgents(): AgentEnvironment[] {
 
   useEffect(() => {
     void ensureLoaded()
-    const off = providerApi.onState(() => void refreshAgents())
-    return off
   }, [ensureLoaded])
+  useEffect(() => subscribeAgents(), [])
 
   return agents
 }

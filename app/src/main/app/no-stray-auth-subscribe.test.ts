@@ -1,8 +1,8 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { scanOffenders, sourceFiles, stripCommentsAndStrings } from '../infra/source-scan'
+import { scanOffenders, stripCommentsAndStrings } from '../infra/source-scan'
 
 const MAIN_ROOT = join(__dirname, '..')
 const AUTH_SUBSCRIBE = /\bauth\s*\.\s*subscribe\s*\(/
@@ -10,19 +10,20 @@ const TRANSFORMED_CONTRIBUTIONS = /\bRUNTIME_MODEL_CONTRIBUTIONS\s*\./
 const START_RUNTIME_MODEL_CATALOG = /\bstartRuntimeModelCatalogAfterDeploy\s*\(/
 const INSTALL_AUTH_RESUME = /\bcreateRuntimeModelAuthResume\s*\(/
 
+// 스윕은 `infra/source-scan.ts` 가 소유한다 (0197 A-5) — 여기서 다시 적으면 같은 경로-구분자
+// 버그를 두 벌 고쳐야 한다. 단언은 파일 이름으로 읽는 편이 좌표로 짧아 basename 으로 되돌린다.
+function matchingFiles(root: string, pattern: RegExp, exempt: ReadonlySet<string>): string[] {
+  return scanOffenders(root, (source) => pattern.test(source), exempt).map((path) => basename(path))
+}
+
 function authSubscribeFiles(root: string): string[] {
-  return sourceFiles(root)
-    .filter((file) => AUTH_SUBSCRIBE.test(stripCommentsAndStrings(readFileSync(file, 'utf8'))))
-    .map((file) => basename(file))
+  return matchingFiles(root, AUTH_SUBSCRIBE, new Set())
 }
 
 // 호출 형태(`이름(`)만 실재로 센다 — import 절의 식별자 언급은 배선이 아니다.
 // 정의 파일(`runtime-model-startup.ts`)을 제외하므로 production 호출부가 사라지면 빈 배열이 된다.
 function productionCallers(root: string, callPattern: RegExp): string[] {
-  return sourceFiles(root)
-    .filter((file) => basename(file) !== 'runtime-model-startup.ts')
-    .filter((file) => callPattern.test(stripCommentsAndStrings(readFileSync(file, 'utf8'))))
-    .map((file) => basename(file))
+  return matchingFiles(root, callPattern, new Set(['runtime-model-startup.ts']))
 }
 
 function runtimeModelStartupCallers(root: string): string[] {
