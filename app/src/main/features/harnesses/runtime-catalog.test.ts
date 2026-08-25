@@ -26,6 +26,23 @@ const valid = (revision = 1): AuthSnapshot => ({
 })
 
 describe('runtime model catalog', () => {
+  it('filters both settings and runtime rows to the requested adapter', () => {
+    const catalog = createRuntimeModelCatalog({
+      contributions: [],
+      runtime: { resolve: vi.fn(), cached: vi.fn(), invalidate: vi.fn() }
+    })
+
+    expect(
+      catalog.merge(
+        [
+          { key: 'orca-local', adapter: 'orca', models: [], supported: false },
+          { key: 'other-local', adapter: 'other', models: [], supported: false }
+        ],
+        'orca'
+      )
+    ).toEqual([{ key: 'orca-local', adapter: 'orca', models: [], supported: false }])
+  })
+
   it('replays an auth-resume snapshot that arrived before bootstrap attached the catalog', async () => {
     const reconcile = vi.fn(async () => undefined)
     const snapshotOf = vi.fn(() => valid(0))

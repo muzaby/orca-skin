@@ -47,4 +47,21 @@ describe('engine runtime catalog invalidation wiring', () => {
     expect(invalidateRuntime).toHaveBeenCalledWith(undefined, 'harness-settings-crud')
     expect(invalidateCatalog).toHaveBeenCalledOnce()
   })
+
+  it.each([
+    [CHANNELS.engineUpdate, { key: 'claude-  CORP', settingsJson: '{}' }],
+    [CHANNELS.engineDelete, { key: 'claude-  CORP' }],
+    [CHANNELS.engineRead, { key: 'claude-  CORP' }]
+  ])('rejects non-canonical runtime-managed keys on %s', async (channel, request) => {
+    const isReadOnly = vi.fn((key: string) => key === 'claude-corp')
+    registerEngineHandlers({
+      harnessSettings: { invalidateAll: vi.fn() },
+      runtimeModelCatalog: { isReadOnly, invalidate: vi.fn() }
+    } as never)
+
+    await expect(async () => callbacks.get(channel)?.(request as never)).rejects.toThrow(
+      'runtime-managed engine is read-only: claude-corp'
+    )
+    expect(isReadOnly).toHaveBeenCalledWith('claude-corp')
+  })
 })

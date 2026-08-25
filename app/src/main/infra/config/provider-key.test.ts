@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { parseProviderKey, providerKeyOf } from './provider-key'
+import { canonicalProviderKey, parseProviderKey, providerKeyOf } from './provider-key'
 
 describe('provider key helpers', () => {
   it('providerKeyOf 는 trim/lowercase 합성 키를 만들고 공백 provider 는 adapter 단독', () => {
     expect(providerKeyOf('claude', '  BedRock ')).toBe('claude-bedrock')
     expect(providerKeyOf('claude', 'anthropic')).toBe('claude-anthropic')
     expect(providerKeyOf('claude', '   ')).toBe('claude')
+  })
+
+  it('canonicalProviderKey 는 provider 구성요소의 casing과 공백을 정규화한다', () => {
+    expect(canonicalProviderKey(' CLAUDE-  CORP ', ['claude'])).toBe('claude-corp')
   })
 
   it('parseProviderKey 는 알려진 adapter 최장 접두 매칭으로 분해한다 (adapter 자체 하이픈 허용)', () => {
