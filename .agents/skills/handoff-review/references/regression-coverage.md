@@ -1481,3 +1481,76 @@ SUPERSEDED 0 이라 **D 유형 오염 0**. INDEX 대상 커밋의 `(r4 구현)` 
   문장들을 부분 수행했다. 남은 것은 수행 품질이고, 같은 문장을 다시 쓰는 것은 조치가 아니다.
 - round 15·16 이 남긴 두 한계 그대로 — 설계 주체 표기는 사용자 결정, better-sqlite3 bindings 부재는
   환경(r5 재측정도 같은 5파일, 케이스는 42로 구현자 보고 44 와 갈림).
+
+---
+
+# review round 18 — 좌표는 확인할 수 있는 쪽이 적는다 · 보드 칸은 주체 하나
+
+**발동**: 0198 impl 라운드 6(3 초과) + verify r6 FAIL + 사용자의 명시적 review 요청.
+
+## 분류
+
+| # | 이슈 | 분류 | 조치 |
+|---|---|---|---|
+| D36 | 좌표 5연속 — r2 `7fb771f`·r3 `fb04047`·r6 `d214581` 부재, r4·r5 자리표시자 | **A** — impl §8이 `git show`로 확인하라고 적고 r6은 확인했다고 적었다. 분리 환경에서 로컬 해시는 공유 브랜치 좌표가 아니므로 **정상 수행해도 실패한다** | **P47** 신설 + 소유권 이전(구현자→검증자) |
+| D37 | 규범 정정(D-009 신설·AC5·AC7·AC11·§10 2행)과 구현이 한 커밋, 설계 커밋 부재 | **A** — P45 remedy는 작동해 보드가 설계자를 지목했으나 칸이 `Claude (… → 이후 Codex r6)`라 구현자가 자기 차례로 읽었다 | **P46** 신설 + 「다음 주체」 단일 표기 |
+| D32~D34 | 이번 라운드 수정 5 hunk 중 3 미검출(`agent:list` 인자·cross-auth 의미·부팅 배선) | **B** — P44(round 17)가 이미 요구. 다만 신설 필드가 산문 한 줄로 접히며 3/5만 실렸다 | 문장 추가 없음. **P39 보강** — 검출을 검증자 쪽에 둔다 |
+| D35 | §7 순서 기준(attach 마지막) ↔ 구현(attach 3번째), "설계 대비 차이 없음" 보고 | **F** — 0198 설계 결함이지 지침 결함이 아니다 | handoff 내 정정(`fa7ea4c`). 지침 변경 없음 |
+| D38 | `auth.md:583`이 "카탈로그 목록에 넣지 않는다"로 남아 같은 파일 `:496`과 어긋남 | **F** — plan §18이 문서를 열거했고 P19·P31이 이미 방어 | 문장 추가 없음. r7 파생 이슈 |
+| D39 | 주석이 옮겨간 listener를 가리킴 | **F** — 위생 | 문장 추가 없음 |
+
+**B 1건에 문장을 더하지 않았다.** round 16·17이 같은 축에 두 번 썼고 r5·r6이 같은 모양으로 접었다.
+세 번째 문장 대신 **검증자가 필드 수를 세게** 했다 — 판정이 성실성이 아니라 heading 개수로 내려간다.
+
+## Tier
+
+**Tier 1.** owner(좌표 기입 주체가 구현자→검증자)·evidence(재구현 라운드 필드 전수)·보드 표기 semantics가 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+- 삭제 **5줄, DELETE 0건** — 전부 **REPLACE**이고 원 책임이 살아 있다:
+  impl §8 필드 문장(7개 이름 **불변**, 좌표 의무만 이전) · impl §8 문장 규칙 줄(앞부분 불변) ·
+  impl 마무리 INDEX 줄(`IMPL_DONE`·다음 주체 **유지**) · `plan.template.md` 대상 커밋 행(행 유지, 값 규칙 교체) ·
+  `verify.template.md` 해시 확인 줄(`git show` → `git cat-file -t`, 같은 검사의 더 정확한 명령).
+- **MOVE 1건 — 좌표 기입 책임 impl → verify.** inbound **7사이트**(handoff AGENTS §INDEX 운영·§2·§3 · impl §8 ·
+  impl 마무리 · `plan.template.md` 구현 보고 · verify §9 · `verify.template.md §11`) ·
+  semantic target **3/3 보존**(좌표가 INDEX에 존재한다 · 실재하는 커밋이다 · 다음 라운드 기준선을 연다).
+- **좌표 사본을 2 → 1로 줄였다.** 정본은 `INDEX.md`, plan 구현 보고 행은 자리표시자다 — r6은 두 사본이 **함께** 죽었다(P40 예방).
+- 새 명령 **0건**. `app/AGENTS.md` ABI 규칙과 충돌 없음(게이트 문장 무변경).
+- reference/script **MOVE·REPLACE 0건**. corpus 편집은 P39 본문(878행 이후)과 말미 append — line-scoped inbound
+  `failure-patterns.md:541-552`는 **P29 본문에 그대로 착지**(실측: 541행 = `## P29`). P heading **P1~P47 연속·중복 0**(실측).
+
+## 6-B Historical Failure Regression
+
+- **47 P 전수**(기존 45 + 신규 2) · 변경 후 **COVERED 47 / PARTIAL 0 / GAP 0 / OBSOLETE 0** · 신규 **P46·P47**.
+- **삭제 5줄 어디에도 기존 P의 방어 문장이 없다**(전수 확인). corpus의 유일한 `git show` 인용(477행)은
+  verify §0 기준선 대조용이며 이번 변경이 건드리지 않았다.
+- 방어가 **강화된 3건**: **P39**(검증자가 재구현 라운드 필드 수를 센다) · **P44**(`잠금` 필드의 부재가
+  개수로 드러난다) · **P45**(지정된 주체가 실제로 읽힌다 — remedy의 마지막 구간).
+- **회귀 위험 2건을 능동 차단**: **P22**(하치장) — 자리표시자가 "아무도 안 적는 칸"이 되지 않도록
+  verify §9와 `verify.template.md §11`에 기입 의무를 두었다. **P40**(사본 갈림) — 좌표 SSOT를 INDEX 한 곳으로 명시했다.
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 규칙 사이트 — 좌표 소유권 **9**(handoff AGENTS §INDEX 운영·§2·§3 최소 계약 · impl §8 두 곳 ·
+  impl 마무리 · `plan.template.md` 구현 보고 · verify §9 · `verify.template.md §11` 2줄) ·
+  보드 단일 주체 **2**(handoff AGENTS §INDEX 운영 · `verify.template.md §11`).
+- **owner 충돌 0** — 구현자는 자리표시자를 남기고 검증자가 채운다. 어느 쪽도 상대를 면제하지 않는다.
+- root `AGENTS.md`는 좌표·다음 주체 규칙을 갖지 않아 **충돌 없음**(실측: `대상 커밋`·`다음 주체` 0건).
+- `docs/handoff/AGENTS.md:199`의 "대상 커밋이 다른 지적"은 **외부 피드백이 가리키는 커밋**이라 다른 의미다 — KEEP.
+- `plan.template.md` `## [구현자 기입] …` heading **7/7**이 impl §8이 부르는 이름과 일치(실측, 무변경).
+- 새 규칙을 이번 보드에 **dogfood**했다 — 0198 행의 「다음 주체」를 `Codex` 하나로 고쳤다(직전 verify 커밋이 두 주체를 담았다).
+- `cd app && node scripts/check-doc-inventory.mjs --check` — generated ok · prose ok · **links ok** · `git diff --check` 통과.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md`·`CLAUDE.md` stub 없음. commit trailer 규칙 무변경.
+
+## review 기록 정책
+
+`round18-review.md`를 만들지 않았다 — 압축으로 잃는 rationale이 없고 사용자 보존 요구도 없었다.
+기존 `round2-review.md` 1개 유지(라운드 문서는 동시에 1개).
+
+## 지침으로 해결할 수 없는 한계
+
+- **D35·D38·D39는 F다.** 0198의 설계·문서 결함이고 지침 변경으로 예방되지 않는다 — 각각 이번 설계 턴과 r7 파생 이슈로 간다.
+- **좌표 규칙은 분리 환경을 전제한다.** 한 에이전트가 설계·구현·검증을 모두 하는 환경에서는 구현자가 좌표를 적어도 무해하지만,
+  규칙을 환경별로 갈라 두면 그 판정 자체가 새 실패면이 되므로 하나로 둔다.
+- better-sqlite3 bindings·GUI 부재는 round 15~17과 같은 환경 한계다. 단 이번 검증 환경은 전체 vitest가 완주했다(2098케이스 · ABI red 42).
