@@ -34,6 +34,28 @@ export function invalidateRuntimeModelsForAuth(input: {
   }
 }
 
+export function createRuntimeModelAuthInvalidator(input: {
+  invalidatedKeys: Readonly<Partial<Record<AuthId, readonly string[]>>>
+  contributions: readonly RuntimeModelContribution[]
+  invalidate(key: string): void
+  snapshotOf(authId: AuthId): AuthSnapshot
+  reconcile(authId: AuthId, snapshot: AuthSnapshot): void
+}): (authId: AuthId) => void {
+  return (authId) => {
+    const keys = new Set([
+      ...(input.invalidatedKeys[authId] ?? []),
+      ...input.contributions.filter((item) => item.authId === authId).map((item) => item.key)
+    ])
+    invalidateRuntimeModelsForAuth({
+      keys,
+      contributions: input.contributions,
+      invalidate: input.invalidate,
+      snapshotOf: input.snapshotOf,
+      reconcile: input.reconcile
+    })
+  }
+}
+
 export function createRuntimeModelAuthResume(input: {
   auth: Pick<AuthRuntime, 'subscribe'>
   onChange(change: AuthChange): void
