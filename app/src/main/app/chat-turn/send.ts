@@ -150,6 +150,7 @@ export async function handleChatSend(
       payload: {
         sessionId: payload.sessionId,
         cwd: payload.cwd ?? null,
+        ...(payload.extraDirs !== undefined ? { extraDirs: payload.extraDirs } : {}),
         attachmentViews: payload.attachmentViews as AttachmentView[],
         ...(payload.forkFrom !== undefined ? { forkFrom: payload.forkFrom } : {}),
         ...(payload.handoffFrom !== undefined ? { handoffFrom: payload.handoffFrom } : {})
@@ -285,6 +286,7 @@ export async function handleChatSend(
         promptUuid: mainBatch.uuid,
         ...(preludes.length > 0 ? { preludes } : {}),
         cwd: turn.cwd,
+        ...(turn.extraDirs.length > 0 ? { extraDirs: turn.extraDirs } : {}),
         signal: controller.signal,
         extensions,
         ...(resolved.prepared.env ? { env: { ...resolved.prepared.env } } : {}),

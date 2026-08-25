@@ -177,3 +177,60 @@ describe('makeContinuationTurn', () => {
     expect(next.controller).not.toBe(prev.controller)
   })
 })
+
+// 추가 참조 경로(CLI `/add-dir`) — cwd 와 **같은 규칙**이라는 것이 요점이다. 새 채팅은 요청값을,
+// resume 은 세션행을, continuity 는 출발 세션을 따른다. 규칙이 갈라지면 도착/재개 세션이 참조
+// 경로를 잃고 workspace 가드가 그 경로를 막는다.
+describe('extraDirs 해석', () => {
+  it('새 채팅은 요청값을 그대로 쓴다', () => {
+    const turn = buildTurnContext<string>({
+      ...base(),
+      payload: { sessionId: null, cwd: null, extraDirs: ['/refs/a'], attachmentViews: [] }
+    })
+    expect(turn.extraDirs).toEqual(['/refs/a'])
+  })
+
+  it('요청값이 없으면 빈 배열이다', () => {
+    expect(buildTurnContext<string>(base()).extraDirs).toEqual([])
+  })
+
+  it('resume 은 세션행 값이 요청값을 이긴다', () => {
+    const turn = buildTurnContext<string>({
+      ...base(),
+      payload: { sessionId: 's1', cwd: null, extraDirs: ['/ignored'], attachmentViews: [] },
+      sessionMeta: { cwd: '/w', project_id: null, extra_dirs: '["/refs/persisted"]' }
+    })
+    expect(turn.extraDirs).toEqual(['/refs/persisted'])
+  })
+
+  it('손상된 세션행 값은 없음으로 접는다', () => {
+    const turn = buildTurnContext<string>({
+      ...base(),
+      payload: { sessionId: 's1', cwd: null, attachmentViews: [] },
+      sessionMeta: { cwd: '/w', project_id: null, extra_dirs: 'not-json' }
+    })
+    expect(turn.extraDirs).toEqual([])
+  })
+
+  it('continuity 는 출발 세션의 참조 경로를 계승한다', () => {
+    const turn = buildTurnContext<string>({
+      ...base(),
+      payload: { sessionId: null, cwd: null, forkFrom: 'src-1', attachmentViews: [] },
+      continuityMeta: {
+        title: '원본',
+        cwd: '/origin',
+        project_id: null,
+        extra_dirs: '["/refs/origin"]'
+      }
+    })
+    expect(turn.extraDirs).toEqual(['/refs/origin'])
+  })
+
+  it('자동 연속 턴은 직전 턴의 참조 경로를 그대로 잇는다', () => {
+    const prev = buildTurnContext<string>({
+      ...base(),
+      payload: { sessionId: null, cwd: null, extraDirs: ['/refs/a'], attachmentViews: [] }
+    })
+    expect(makeContinuationTurn(prev).extraDirs).toEqual(['/refs/a'])
+  })
+})

@@ -54,6 +54,7 @@ import { registerMiscHandlers } from './handlers/misc'
 import { registerSettingsHandlers } from './handlers/settings'
 import { registerSkillsHandlers } from './handlers/skills'
 import { registerFilesHandlers } from './handlers/files'
+import { registerGitHandlers } from './handlers/git'
 import { registerCostHandlers } from './handlers/cost'
 import { registerBootHandlers } from './handlers/boot'
 import { registerUpdateHandlers } from './handlers/update'
@@ -854,6 +855,7 @@ export class Bootstrap {
     registerSettingsHandlers(ctx)
     registerSkillsHandlers(ctx)
     registerFilesHandlers(ctx)
+    registerGitHandlers()
     registerCostHandlers(ctx)
     registerMiscHandlers(ctx)
     registerLogHandlers()

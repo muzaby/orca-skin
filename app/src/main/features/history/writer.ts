@@ -167,7 +167,8 @@ export class HistoryWriter {
           projectId: turn.pendingProjectId,
           createdAt: now,
           providerKey: turn.providerKey,
-          cwd: turn.cwd
+          cwd: turn.cwd,
+          extraDirs: turn.extraDirs
         })
         // 세션 생성 경계(0124 카탈로그) — sessionId 발급 시점(system/init)이 생성의 진실.
         if (turn.isNewSession) {

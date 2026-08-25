@@ -636,7 +636,21 @@ export const ko = {
       noModels: '사용 가능한 모델이 없습니다.',
       sdkDefaultModel: 'SDK 기본',
       cwdOpenAria: '작업 폴더 열기',
-      cwdSelectAria: '작업 폴더 선택'
+      cwdSelectAria: '작업 폴더 선택',
+      branchTitle: '브랜치 전환',
+      branchDetached: 'HEAD 분리됨',
+      branchSearchPlaceholder: '브랜치 검색…',
+      branchSwitchFailed: '브랜치를 전환하지 못했습니다.',
+      branchDirtyAria: '커밋되지 않은 변경 사항 처리',
+      branchDirtyMenuAria: '변경 사항 처리 방식',
+      branchDirtyTitleSuffix: '에 커밋되지 않은 변경 사항이 있습니다.',
+      branchDirtyTargetSuffix: ' 브랜치로 전환하기 전에 처리하세요.',
+      branchDirtyStat: '{{files}} 개 파일 변경됨',
+      dirtyStash: '변경 사항 스태시',
+      dirtyCommitWip: 'WIP으로 커밋',
+      dirtyDiscard: '변경 사항 취소',
+      extraDirAdd: '다른 폴더 추가',
+      extraDirRemoveAria: '{{name}} 참조 경로 제거'
     },
     status: {
       warn: {

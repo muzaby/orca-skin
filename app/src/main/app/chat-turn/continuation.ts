@@ -36,6 +36,7 @@ export function buildListenRequest(input: {
     sessionId: input.sessionId,
     text: '',
     cwd: input.base.cwd,
+    ...(input.base.extraDirs ? { extraDirs: input.base.extraDirs } : {}),
     extensions: continuation.extensions,
     signal: input.signal,
     ...(continuation.model !== undefined ? { model: continuation.model } : {}),

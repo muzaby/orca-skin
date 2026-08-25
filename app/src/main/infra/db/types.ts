@@ -36,6 +36,8 @@ export interface SessionRow {
   title_source: SessionTitleSource
   provider_key: string | null
   cwd: string | null
+  // 0017 — 추가 참조 경로 JSON 배열 문자열. NULL = 없음.
+  extra_dirs: string | null
 }
 
 export interface SessionListRow {
@@ -48,6 +50,7 @@ export interface SessionListRow {
   title_source: SessionTitleSource
   provider_key: string | null
   cwd: string | null
+  extra_dirs: string | null
   pinned_at: number | null
 }
 
@@ -228,6 +231,8 @@ export interface SessionInsert {
   createdAt: number
   providerKey?: string | null
   cwd?: string | null
+  // 추가 참조 경로. 빈 배열/미지정이면 NULL 로 저장한다.
+  extraDirs?: string[] | null
 }
 
 export interface MessageInsert {

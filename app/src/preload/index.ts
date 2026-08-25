@@ -21,6 +21,10 @@ import {
   type ProviderReauthRequest,
   type ProviderRevokeRequest,
   type FileEntry,
+  type GitBranchList,
+  type GitCheckoutRequest,
+  type GitCheckoutResult,
+  type GitStatus,
   type PickedAttachment,
   type OpenPathRequest,
   type ReadAttachmentResult,
@@ -152,6 +156,13 @@ const orca = {
     readAttachment: (path: string): Promise<ReadAttachmentResult> =>
       ipcRenderer.invoke(CHANNELS.filesReadAttachment, { path }),
     pathForFile: (file: File): string => webUtils.getPathForFile(file)
+  },
+  git: {
+    status: (cwd: string): Promise<GitStatus> => ipcRenderer.invoke(CHANNELS.gitStatus, { cwd }),
+    branches: (cwd: string): Promise<GitBranchList> =>
+      ipcRenderer.invoke(CHANNELS.gitBranches, { cwd }),
+    checkout: (req: GitCheckoutRequest): Promise<GitCheckoutResult> =>
+      ipcRenderer.invoke(CHANNELS.gitCheckout, req)
   },
   session: {
     cwd: (): Promise<string> => ipcRenderer.invoke(CHANNELS.sessionCwd),

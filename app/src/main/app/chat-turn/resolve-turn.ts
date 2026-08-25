@@ -23,7 +23,13 @@ interface ResolvedTurn {
   continuityLang: ContinuityLang
   resolved: ResolvedTurnProvider
   sessionMeta:
-    { cwd: string | null; project_id: string | null; provider_key?: string | null } | undefined
+    | {
+        cwd: string | null
+        project_id: string | null
+        provider_key?: string | null
+        extra_dirs?: string | null
+      }
+    | undefined
   boundProjectId: string | null
   /** handoff 면 main 이 조립한 자동 메시지, 아니면 사용자 입력 그대로. */
   effectiveText: string

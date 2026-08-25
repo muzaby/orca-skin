@@ -86,6 +86,10 @@ export interface ChatState {
   // 어댑터가 발급한 세션의 working directory (`init` 이벤트). Composer 의 `@`
   // 파일 자동완성이 이 경로 기준으로 디렉토리를 리스팅한다.
   cwd: string | null
+  // 컴포저 참조 경로 칩이 모으는 cwd 밖 추가 경로(CLI `/add-dir` 대응).
+  // **세션 출생 전(랜딩)에만 의미가 있다** — 첫 전송에 실려 세션행에 고정된 뒤로는
+  // main/DB 가 정본이고 renderer 는 이 값을 다시 읽지 않는다.
+  extraDirs: string[]
   // 커밋된 transcript 메시지(SSOT 는 DB, 이 배열은 그 미러). 스트리밍 라이브 텍스트/사고는
   // 여기 없다 — chatStore 의 live 슬라이스(transient)가 담당하고, 완성 시 parts 로 커밋된다.
   messages: Message[]
@@ -189,6 +193,7 @@ export const initialChatState: ChatState = {
   turnProviderKey: null,
   effort: 'high',
   cwd: null,
+  extraDirs: [],
   messages: [],
   sendCount: 0,
   inflight: false,
@@ -270,6 +275,9 @@ export type ChatAction =
   | { type: 'CANCEL_CHAT' }
   | { type: 'CLEAR_ERROR' }
   | { type: 'SET_CWD'; cwd: string }
+  // 참조 경로 칩 추가/제거 — 세션 확정 전에만 유효(리듀서가 가드하지 않고 호출부가 게이트한다).
+  | { type: 'ADD_EXTRA_DIR'; dir: string }
+  | { type: 'REMOVE_EXTRA_DIR'; dir: string }
   | { type: 'START_LOAD_SESSION'; sessionId: string; title: string | null }
   | { type: 'LOAD_SESSION'; session: LoadedSession }
   | { type: 'RENAME_SESSION'; sessionId: string; title: string }
@@ -613,7 +621,16 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
 
     case 'SET_CWD':
-      return { ...state, cwd: action.cwd }
+      // 작업 경로가 바뀌면 그 밑으로 들어온 참조 경로는 의미가 달라진다 — 같이 비운다.
+      return { ...state, cwd: action.cwd, extraDirs: [] }
+
+    case 'ADD_EXTRA_DIR':
+      if (state.extraDirs.includes(action.dir) || action.dir === state.cwd) return state
+      return { ...state, extraDirs: [...state.extraDirs, action.dir] }
+
+    case 'REMOVE_EXTRA_DIR':
+      if (!state.extraDirs.includes(action.dir)) return state
+      return { ...state, extraDirs: state.extraDirs.filter((dir) => dir !== action.dir) }
 
     case 'CANCEL_CHAT':
       // 턴 취소 시 main 의 broker 가 보류 게이트를 해소하므로 카드(질문/계획/도구)도 함께 비운다.

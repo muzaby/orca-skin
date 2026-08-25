@@ -102,18 +102,18 @@ export class DbQueries {
   constructor(db: Database.Database) {
     this.db = db
     this.insertSessionStmt = db.prepare(`
-      INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key, cwd)
-      VALUES (@id, @backend, @title, @projectId, @createdAt, @createdAt, NULL, @providerKey, @cwd)
+      INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key, cwd, extra_dirs)
+      VALUES (@id, @backend, @title, @projectId, @createdAt, @createdAt, NULL, @providerKey, @cwd, @extraDirs)
       ON CONFLICT(id) DO NOTHING
     `)
     this.listSessionsStmt = db.prepare(`
-      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd, pinned_at
+      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd, extra_dirs, pinned_at
       FROM sessions
       ORDER BY updated_at DESC
       LIMIT @limit
     `)
     this.getSessionByIdStmt = db.prepare(`
-      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd
+      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd, extra_dirs
       FROM sessions
       WHERE id = @id
     `)
@@ -447,7 +447,9 @@ export class DbQueries {
     this.insertSessionStmt.run({
       ...row,
       providerKey: row.providerKey ?? null,
-      cwd: row.cwd ?? null
+      cwd: row.cwd ?? null,
+      // 빈 배열과 '없음' 을 같은 NULL 로 접는다 — 읽는 쪽이 두 표현을 구분할 이유가 없다.
+      extraDirs: row.extraDirs && row.extraDirs.length > 0 ? JSON.stringify(row.extraDirs) : null
     })
   }
 
@@ -532,7 +534,8 @@ export class DbQueries {
 
   getTitleSource(id: string): SessionTitleSource | null {
     const row = this.getTitleSourceStmt.get({ id }) as
-      { title_source: SessionTitleSource } | undefined
+      | { title_source: SessionTitleSource }
+      | undefined
     return row?.title_source ?? null
   }
 
@@ -624,7 +627,8 @@ export class DbQueries {
       FROM provider_usage_report_cache WHERE provider_key = @providerKey
     `)
     return this.getProviderUsageReportStmt.get({ providerKey }) as
-      ProviderUsageReportRow | undefined
+      | ProviderUsageReportRow
+      | undefined
   }
 
   upsertProviderUsageReport(row: ProviderUsageReportUpsert): void {
@@ -734,7 +738,8 @@ export class DbQueries {
   // provider별 월 한도 조회 — 행 부재/NULL 이면 null(무제한 또는 미설정).
   getProviderLimit(providerKey: string): number | null {
     const row = this.getProviderLimitStmt.get({ providerKey }) as
-      { limit_usd: number | null } | undefined
+      | { limit_usd: number | null }
+      | undefined
     return row?.limit_usd ?? null
   }
 
@@ -798,7 +803,8 @@ export class DbQueries {
 
   getProjectContextForSession(sessionId: string): { name: string; instructions: string } | null {
     const row = this.getProjectContextForSessionStmt.get({ sessionId }) as
-      { name: string; instructions: string } | undefined
+      | { name: string; instructions: string }
+      | undefined
     return row ?? null
   }
 

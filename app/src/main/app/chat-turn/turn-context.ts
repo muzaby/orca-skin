@@ -52,10 +52,33 @@ export function resolveTurnCwd(
   return req.cwd ?? getCwd(req.projectId)
 }
 
+// 세션행의 extra_dirs(JSON 배열 문자열) → 경로 배열. 손상된 값은 '없음' 으로 접는다 —
+// 참조 경로 하나가 깨졌다고 턴을 실패시킬 이유가 없다(스코프가 좁아질 뿐 안전한 방향이다).
+export function parseExtraDirs(raw: string | null | undefined): string[] {
+  if (!raw) return []
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((v): v is string => typeof v === 'string' && v.length > 0)
+  } catch {
+    return []
+  }
+}
+
+// 추가 참조 경로 해석 — cwd 와 같은 규칙이다. resume 은 세션행에 박힌 값을, 새 채팅은 요청값을.
+export function resolveTurnExtraDirs(
+  req: { sessionId: string | null; extraDirs?: string[] | undefined },
+  sessionMeta: { extra_dirs?: string | null } | undefined
+): string[] {
+  if (req.sessionId) return parseExtraDirs(sessionMeta?.extra_dirs)
+  return req.extraDirs ?? []
+}
+
 export interface ContinuitySourceMeta {
   title: string | null
   cwd: string | null
   project_id: string | null
+  extra_dirs?: string | null
 }
 
 interface BuildTurnContextInput<W> {
@@ -82,6 +105,7 @@ interface BuildTurnContextInput<W> {
   payload: {
     sessionId: string | null
     cwd?: string | null | undefined
+    extraDirs?: string[] | undefined
     attachmentViews: AttachmentView[]
     forkFrom?: string | undefined
     handoffFrom?: string | undefined
@@ -89,7 +113,9 @@ interface BuildTurnContextInput<W> {
   /** handoff 는 main 이 자동 메시지로 대체한 텍스트가 들어온다. */
   effectiveText: string
   boundProjectId: string | null
-  sessionMeta: { cwd: string | null; project_id: string | null } | undefined
+  sessionMeta:
+    | { cwd: string | null; project_id: string | null; extra_dirs?: string | null }
+    | undefined
   continuityMeta: ContinuitySourceMeta | undefined
   continuityLang: ContinuityLang
   queueKey: string
@@ -133,6 +159,14 @@ export function buildTurnContext<W>(input: BuildTurnContextInput<W>): TurnContex
           input.sessionMeta,
           input.getCwd
         ),
+    // cwd 와 짝이다 — continuity 는 출발 세션의 참조 경로까지 계승해야 도착 세션에서 같은
+    // 파일들을 계속 읽을 수 있다.
+    extraDirs: continuityMeta
+      ? parseExtraDirs(continuityMeta.extra_dirs)
+      : resolveTurnExtraDirs(
+          { sessionId: payload.sessionId, extraDirs: payload.extraDirs },
+          input.sessionMeta
+        ),
     titleGenerationStarted: continuitySource != null,
     blockedSubagents: input.control.blockedSubagents,
     ...(continuitySource
@@ -174,6 +208,7 @@ export function makeContinuationTurn<W>(prev: TurnContext<W>): TurnContext<W> {
     pendingProjectId: null,
     isNewSession: false,
     cwd: prev.cwd,
+    extraDirs: prev.extraDirs,
     titleGenerationStarted: prev.titleGenerationStarted,
     blockedSubagents: prev.blockedSubagents
   }

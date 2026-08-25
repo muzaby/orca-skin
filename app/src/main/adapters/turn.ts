@@ -131,6 +131,9 @@ export interface TurnRequest {
   handoff?: boolean
   text: string
   cwd: string
+  // cwd 밖 추가 참조 경로(CLI `/add-dir` 대응). 어댑터는 이것을 `additionalDirectories` 와
+  // workspace 가드 루트에 **같은 배열로** 넘겨 두 스코프가 갈라지지 않게 한다.
+  extraDirs?: string[]
   signal?: AbortSignal
   extensions: TurnExtensions
   // subprocess env (orca.json 앱 전역 env 병합 결과). 확장 묶음이 아니라 자식

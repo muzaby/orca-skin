@@ -19,6 +19,10 @@ import type {
   ProviderReauthRequest,
   ProviderRevokeRequest,
   FileEntry,
+  GitBranchList,
+  GitCheckoutRequest,
+  GitCheckoutResult,
+  GitStatus,
   PickedAttachment,
   OpenPathRequest,
   ReadAttachmentResult,
@@ -127,6 +131,12 @@ export const fileApi = {
   readAttachment: (path: string): Promise<ReadAttachmentResult> =>
     window.orca.files.readAttachment(path),
   pathForFile: (file: File): string => window.orca.files.pathForFile(file)
+}
+
+export const gitApi = {
+  status: (cwd: string): Promise<GitStatus> => window.orca.git.status(cwd),
+  branches: (cwd: string): Promise<GitBranchList> => window.orca.git.branches(cwd),
+  checkout: (req: GitCheckoutRequest): Promise<GitCheckoutResult> => window.orca.git.checkout(req)
 }
 
 export const concurrencyApi = {

@@ -635,7 +635,21 @@ export const en: typeof ko = {
       noModels: 'No models available.',
       sdkDefaultModel: 'SDK default',
       cwdOpenAria: 'Open working folder',
-      cwdSelectAria: 'Select working folder'
+      cwdSelectAria: 'Select working folder',
+      branchTitle: 'Switch branch',
+      branchDetached: 'Detached HEAD',
+      branchSearchPlaceholder: 'Search branches…',
+      branchSwitchFailed: 'Could not switch branch.',
+      branchDirtyAria: 'Handle uncommitted changes',
+      branchDirtyMenuAria: 'How to handle changes',
+      branchDirtyTitleSuffix: ' has uncommitted changes.',
+      branchDirtyTargetSuffix: ' — handle them before switching.',
+      branchDirtyStat: '{{files}} files changed',
+      dirtyStash: 'Stash changes',
+      dirtyCommitWip: 'Commit as WIP',
+      dirtyDiscard: 'Discard changes',
+      extraDirAdd: 'Add another folder',
+      extraDirRemoveAria: 'Remove reference folder {{name}}'
     },
     status: {
       warn: {
