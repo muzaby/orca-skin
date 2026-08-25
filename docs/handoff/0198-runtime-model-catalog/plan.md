@@ -491,10 +491,10 @@ settings / Auth+runtime augmenter
 | D37 | `a843557`이 규범 행(D-009·AC5·AC7·AC11·§10 2행)과 구현을 한 커밋에 담아 §0 기준선이 성립하지 않는다 — r3 D15·r5 D31①의 3회차 | verify r6 · §0 | 설계 턴 커밋과 구현 커밋을 나눈다. 과거 커밋은 history rewrite 없이 남긴다 | closed r7 |
 | D38 | `docs/arch/backend/auth.md:583`이 "Model 선택 UI 는 계속 settings.json 에서 파생한다 … 카탈로그 목록에 넣지 않는다"로 남아 같은 파일 `:496`·코드와 어긋난다 | verify r6 · 기준 밖 · §16 | 현재 동작(settings + runtime catalog 합성)으로 문장을 정정한다 — `803bd50`이 §6.1·§6.2만 고치고 §6.5 말미를 두고 갔다 | closed r7 |
 | D39 | `bootstrap.ts:382-384`의 "listener 를 resume 보다 먼저 붙인다" 주석이 bridge 팩토리 위에 남아 실제 listener(`:642-657`)를 가리키지 않는다 | verify r6 · 위생 | 주석을 listener가 있는 자리로 옮긴다. 불변식 자체는 closure 안에서 지켜진다 | closed r7 |
-| D40 | `bootstrap.ts` 호출부 2좌표가 잠기지 않는다 — `resumeAuth: () => {}` + subscribe×2·`run()`을 deploy 앞으로 되돌려도 2100케이스 green·typecheck exit 0(변이 M-H2, r6 M-H 재현), `contributions`를 자기 authId로 좁혀도 미검출(M-D3, r5 D29 재현) | verify r7 · AC6·AC11·§10 cache 수명 4행·부팅 시퀀스 2행 | startup 인자 묶음 전체를 순수 factory로 뽑아 `resumeAuth` 실체와 `contributions` 폭을 주입 테스트로 단언하거나 두 helper를 하나로 합쳐 지점을 1로 줄인다. 같은 변경에서 `createRuntimeModelAuthResume`의 이름·배치를 배선 책임에 맞춘다 | **설계 확정 r8** — D-010이 수단을 정했다(음성 유일성 가드). 구현은 §11의 r8 3행 |
+| D40 | `bootstrap.ts` 호출부 2좌표가 잠기지 않는다 — `resumeAuth: () => {}` + subscribe×2·`run()`을 deploy 앞으로 되돌려도 2100케이스 green·typecheck exit 0(변이 M-H2, r6 M-H 재현), `contributions`를 자기 authId로 좁혀도 미검출(M-D3, r5 D29 재현) | verify r7 · AC6·AC11·§10 cache 수명 4행·부팅 시퀀스 2행 | startup 인자 묶음 전체를 순수 factory로 뽑아 `resumeAuth` 실체와 `contributions` 폭을 주입 테스트로 단언하거나 두 helper를 하나로 합쳐 지점을 1로 줄인다. 같은 변경에서 `createRuntimeModelAuthResume`의 이름·배치를 배선 책임에 맞춘다 | closed r8 — 음성 가드가 M-H2·M-D3를 각각 검출하고 무효화 조립을 helper로 이설했다 |
 | D41 | AC11 검증 수단이 소스 문자열 검사를 전면 배제해(D35) 합성 seam을 잠글 수단이 남지 않는다 — `bootstrap.ts`는 `@electron-toolkit/utils`의 CJS `require('electron')` 때문에 vitest가 열 수 없다(verify r7 §8 실측) | verify r7 · AC11 검증 수단·§10 부팅 시퀀스 행 | 이 저장소의 음성 소스 가드 관용구(`infra/net/no-node-fetch.test.ts` + `infra/source-scan.ts`)를 §10 2번째 지점의 수단으로 허용할지, 아니면 지점 수를 1로 줄일지 규범 행에서 정한다 · **규범 정정 필요** | **closed(설계) r8** — D-010 신설, AC11 검증 수단·§10 두 행 정정. 음성 가드를 채택하고 electron alias 대안은 P29 약화로 기각했다 |
-| D42 | 신규 `misc.runtime-catalog.test.ts`의 `toEqual([])`가 한쪽만 잠근다 — handler가 settings 입력을 통째로 버려도 전건 통과(변이 M-B3) | verify r7 · AC5 | fixture에 비충돌 settings 행 1개를 넣고 같은 `toEqual`에서 보존과 미노출을 함께 단언한다(r6 AC5 probe 형태) | open |
-| D43 | `6934d77` 본문이 리터럴 `\n`으로 한 줄이라 trailer가 파싱되지 않는다(`git interpret-trailers --parse` 0건) — r3 D15와 같은 축 | verify r7 · §11 | 과거 커밋은 rewrite하지 않는다. 다음 라운드부터 trailer를 실제 개행으로 적고 커밋 후 `git log -1 --format='%(trailers:only=true)'`로 확인한다 | open |
+| D42 | 신규 `misc.runtime-catalog.test.ts`의 `toEqual([])`가 한쪽만 잠근다 — handler가 settings 입력을 통째로 버려도 전건 통과(변이 M-B3) | verify r7 · AC5 | fixture에 비충돌 settings 행 1개를 넣고 같은 `toEqual`에서 보존과 미노출을 함께 단언한다(r6 AC5 probe 형태) | closed r8 — 보존 행을 동반한 단언이 M-B3를 검출했다 |
+| D43 | `6934d77` 본문이 리터럴 `\n`으로 한 줄이라 trailer가 파싱되지 않는다(`git interpret-trailers --parse` 0건) — r3 D15와 같은 축 | verify r7 · §11 | 과거 커밋은 rewrite하지 않는다. 다음 라운드부터 trailer를 실제 개행으로 적고 커밋 후 `git log -1 --format='%(trailers:only=true)'`로 확인한다 | closed r8 — 구현 커밋 뒤 파싱 결과를 관측한다 |
 
 ## [구현자 기입] r2 사용자 피드백 반영
 
@@ -568,3 +568,17 @@ settings / Auth+runtime augmenter
 - **관측한 게이트 산출:** 대상 Vitest 2파일·5케이스 PASS, typecheck 3/3 PASS, eslint 0 error, doc inventory PASS, `git diff --check` PASS.
 - **AC 자기보고:** ✅ AC1~AC8·AC10~AC14 = 13, ⚠️ AC9 두 테마 시각 확인 = 1, ❌ 0. `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14`.
 - **Review Signals:** D32는 read-only 목록 잠금 축, D33은 부팅 배선 잠금 축, D34는 cross-auth cache 수명 축으로 모두 r6에서 보고만 초록이었던 production 좌표다. 현재 라운드는 7이며 review round 18 뒤 첫 구현이다.
+
+## [구현자 기입] r8 verify/FAIL 재구현
+
+- **설계 리뷰:** D-010과 r8 변경 3행을 그대로 수행했다. 제품 계약·공개 타입·신규 의존성은 바꾸지 않았다.
+- **강제 지점 전수:** §10은 exact shape 2 + identity 4 + Auth 전이 5 + fetch 3 + read-only 7 + cache 수명 6 + 부팅 2 + UI 2 = **31좌표/30지점**이다. `rg -n "auth\\s*\\.\\s*subscribe\\s*\\(" app/src/main --glob '*.ts' --glob '!*.test.ts'`의 production 호출은 startup 2좌표·1파일이고 `rg -n "RUNTIME_MODEL_CONTRIBUTIONS\\s*\\." app/src/main --glob '*.ts' --glob '!*.test.ts'`의 production 변형은 0건이다.
+- **이번 라운드 수정의 잠금:** M-H2(bootstrap subscribe 추가)와 M-D3(contribution filter 추가)는 유일성 가드를 각각 red로 만들었다. M-B3(settings 전건 폐기)는 handler 테스트를 red로 만들었다.
+- **Product/UX 파생 검토:** 신규 문자열·상태·저장소·실패 경로는 없다. 기존 목록에서 충돌 runtime 행은 숨기되 비충돌 settings 행은 보존하는 결과만 더 강하게 잠갔다.
+- **놓친 잠재 문제 + 대응:** 음성 가드의 대상 집합·Auth subscribe 술어·contribution 변형 술어를 각각 결함 주입으로 확인했다. bootstrap의 무효화 key 조립을 helper로 옮겨 배포 선언은 변형 없이 전달한다.
+- **설계 대비 명시적 차이:** 없음. `createRuntimeModelAuthResume`은 listener 유일 설치점으로 유지하고, 새 invalidator helper가 cross-auth owner 재조정을 보존한다.
+- **구현 보고:** production 2파일·테스트 3파일·handoff 2파일을 변경했다. 신규 의존성·IPC·DB 변경은 0이다.
+- **대상 커밋:** `(r8 구현 — 검증자 기입)`.
+- **관측한 게이트 산출:** 대상 3파일/11케이스 PASS, typecheck 3/3 PASS, eslint 0 error, scripts/doc inventory PASS. 전체 Vitest는 비-DB 210개 파일이 pass했고 기존 Electron ABI의 DB 5파일/44케이스만 red다.
+- **AC 자기보고:** ✅ AC1~AC8·AC10~AC14 = 13, ⚠️ AC9 두 테마 시각 확인 = 1, ❌ 0. `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14`.
+- **Review Signals:** r7의 D40은 배선 유일성·선언 무변형, D42는 음성 단언의 반대편 보존 축이다. 현재 라운드는 8이며 review round 19 뒤 첫 구현이다.

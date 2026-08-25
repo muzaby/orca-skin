@@ -30,7 +30,10 @@ describe('agent:list runtime catalog wiring', () => {
       },
       harnessSettings: {
         adapters: () => ['claude'],
-        list: () => [{ key: ' Shared ', harness: 'claude', name: 'Settings', models: [] }]
+        list: () => [
+          { key: ' Shared ', harness: 'claude', name: 'Settings', models: [] },
+          { key: 'local', harness: 'claude', name: 'Local', models: [] }
+        ]
       },
       runtimeModelCatalog: {
         list: () => [],
@@ -39,6 +42,16 @@ describe('agent:list runtime catalog wiring', () => {
       debugMock: { log: false }
     } as never)
 
-    expect(callbacks.get(CHANNELS.agentList)?.()).toEqual([])
+    expect(callbacks.get(CHANNELS.agentList)?.()).toEqual([
+      {
+        adapter: undefined,
+        key: 'local',
+        models: [],
+        provider: undefined,
+        readOnly: false,
+        source: 'settings',
+        supported: false
+      }
+    ])
   })
 })

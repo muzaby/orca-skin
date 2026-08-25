@@ -72,7 +72,7 @@ import {
 } from '../features/harnesses/runtime-catalog'
 import {
   createRuntimeModelAuthResume,
-  invalidateRuntimeModelsForAuth,
+  createRuntimeModelAuthInvalidator,
   startRuntimeModelCatalogAfterDeploy
 } from './runtime-model-startup'
 import { AUTH_DEFINITIONS } from './deployment/auth-definitions'
@@ -459,26 +459,18 @@ export class Bootstrap {
     // Auth change → 배포가 명시한 고정 key만 무효화한다(0188 §성능 계약).
     // 실행 env와 model catalog contribution의 합집합이며 런타임 자동 발견은 하지 않는다.
     harnessRuntimeRef = {
-      invalidateForAuth: (authId) => {
-        const keys = new Set([
-          ...(AUTH_INVALIDATED_HARNESS_KEYS[authId] ?? []),
-          ...RUNTIME_MODEL_CONTRIBUTIONS.filter((item) => item.authId === authId).map(
-            (item) => item.key
-          )
-        ])
-        // A deployment may declare that Auth A invalidates a contribution owned by Auth B. Every
-        // owner of an invalidated canonical key must reconcile; replaying only A leaves B's row
-        // visible over an empty cache.
-        invalidateRuntimeModelsForAuth({
-          keys,
-          contributions: RUNTIME_MODEL_CONTRIBUTIONS,
-          invalidate: (key) => harnessRuntime.invalidate(key, 'auth-change'),
-          snapshotOf: (ownerAuthId) => auth.bind(ownerAuthId).snapshot(),
-          reconcile: (ownerAuthId, snapshot) => {
-            void runtimeModelCatalogBridge.onSnapshot(ownerAuthId, snapshot)
-          }
-        })
-      }
+      // A deployment may declare that Auth A invalidates a contribution owned by Auth B. Every
+      // owner of an invalidated canonical key must reconcile; replaying only A leaves B's row
+      // visible over an empty cache. Keep declarations intact at this composition seam.
+      invalidateForAuth: createRuntimeModelAuthInvalidator({
+        invalidatedKeys: AUTH_INVALIDATED_HARNESS_KEYS,
+        contributions: RUNTIME_MODEL_CONTRIBUTIONS,
+        invalidate: (key) => harnessRuntime.invalidate(key, 'auth-change'),
+        snapshotOf: (ownerAuthId) => auth.bind(ownerAuthId).snapshot(),
+        reconcile: (ownerAuthId, snapshot) => {
+          void runtimeModelCatalogBridge.onSnapshot(ownerAuthId, snapshot)
+        }
+      })
     }
     const runtimeModelCatalog = createRuntimeModelCatalog({
       contributions: RUNTIME_MODEL_CONTRIBUTIONS,
