@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   affectedRuntimeModelAuthIds,
+  createRuntimeModelAuthInvalidator,
   createRuntimeModelAuthResume,
   invalidateRuntimeModelsForAuth,
   startRuntimeModelCatalogAfterDeploy
@@ -65,6 +66,26 @@ describe('runtime model startup', () => {
     })
 
     expect(invalidated).toEqual([' ORCA-SHARED '])
+    expect(reconciled).toEqual(['a', 'b'])
+  })
+
+  it('derives invalidated keys from the full deployment declarations', () => {
+    const invalidated: string[] = []
+    const reconciled: string[] = []
+    const invalidateForAuth = createRuntimeModelAuthInvalidator({
+      invalidatedKeys: { a: ['runtime-env'] },
+      contributions: [
+        { authId: 'a', key: 'shared', harnessId: 'orca', modelProviderId: 'a' },
+        { authId: 'b', key: 'SHARED', harnessId: 'orca', modelProviderId: 'b' }
+      ],
+      invalidate: (key) => invalidated.push(key),
+      snapshotOf: (authId) => ({ authId }) as never,
+      reconcile: (authId) => reconciled.push(authId)
+    })
+
+    invalidateForAuth('a')
+
+    expect(invalidated).toEqual(['runtime-env', 'shared'])
     expect(reconciled).toEqual(['a', 'b'])
   })
 
