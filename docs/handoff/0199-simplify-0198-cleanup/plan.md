@@ -8,7 +8,7 @@
 | 작성자 | Claude |
 | 일자 | 2026-08-25 |
 | 매핑 | 0198 런타임 모델 카탈로그의 `/simplify` 정리 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) |
 
 # Part I — Product & UX Contract
 
@@ -304,3 +304,15 @@ useEngines.ts  ─┘
 
 - **`merge` 가 인터페이스에 늘어 stub 부담이 생긴다.** 트레이드오프로 받아들였다 — 필수 멤버라 누락이 침묵 대신 컴파일 에러가 되는 편이 낫다(강제 지점 1).
 - **구독 왕복 중복은 남았다** (§14). 규칙 단일화만 했다 — 실측 비용은 auth 이벤트당 IPC 1회 추가이고, 해소책(refcount)은 새 전역 가변 상태를 들인다. 필요해지면 별도 핸드오프.
+
+## [검증자 기입] 파생 이슈 (r1 — verify/FAIL)
+
+판정 원문과 재현 명령은 [`verify.md`](verify.md). 아래는 미충족만 옮긴 체크리스트다.
+
+- [ ] **D1 — `assertMutable` 의 key 정규화를 복원한다. (규범 정정 필요)** `engine.ts:46` 이 raw key 를 `isReadOnly` 에 넘겨 `'claude-  corp'` 류가 read-only 가드를 지나고, 하류 `normalizeProvider`(`settings-write.ts:40`)가 공백을 지워 같은 provider 에 도달한다. D-005 의 근거 문장("두 함수는 같은 값을 낸다")이 안쪽 공백 입력에서 거짓이므로 Decision 행 정정과 §10 행 신설이 함께 필요하다.
+- [ ] **D2 — `catalog.merge` 의 `adapter === undefined` 분기에 잠금을 세운다.** settings 를 전량 폐기하는 변이와 신설 필터 소거 변이가 둘 다 미검출이다. `misc.runtime-catalog.test.ts` 가 stub 대신 production `merge` 를 지나게 한다.
+- [ ] **D3 — §13 문장을 정정한다. (규범 정정 필요)** 클로저의 선행 사용은 컴파일 에러가 아니라 런타임 `ReferenceError` 다.
+- [ ] **D4 — §9·§11·§18 에 `claude/available-models.ts`·`claude/model-parser.ts` 를 기재한다. (규범 정정 필요)** 동작은 보존됐고 신고만 빠졌다.
+- [ ] **D5 — `[구현자 기입]` 을 impl §8 의 7필드로 채운다.** 빠진 `이번 라운드 수정의 잠금` 이 D2 가 드러난 축이다.
+- [ ] D6 — AC2 인용 수치를 트리와 맞춘다(`4 단언` → 18 · `15 테스트` → 13). 기준 자체는 충족이다.
+- [x] D7 — INDEX `대상 커밋` 에 `be76207` 기입 — 검증 턴에서 처리.
