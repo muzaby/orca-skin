@@ -369,8 +369,9 @@ export class Bootstrap {
 
     // `createAuthResume` 는 `pushConnectionState` 를 필요로 하고 이 클로저는 그 handle 의
     // `resuming()` 을 필요로 한다 — 순환이라 ref 로 끊는다(같은 파일 `harnessRuntimeRef` 선례).
-    // **배선 사이에 push 가 끼지 않는다**: 아래 `auth.subscribe` 는 change 에만 발화하고
-    // `registerConnectionHandlers` 는 등록만 하며, ref 대입은 `void authResume.run()` 앞이다.
+    // **배선 사이에 push 가 끼지 않는다**: Auth 구독은 아래 `createRuntimeModelAuthResume` 가
+    // helper 안에서 설치하고 change 에만 발화하며, `registerConnectionHandlers` 는 등록만 하고,
+    // ref 대입은 `void authResume.run()` 앞이다.
     let authResumeRef: { resuming: () => boolean } | undefined = undefined
     // **두 경로가 같은 값을 실어야 한다** — invoke 첫 스냅샷(`registerConnectionHandlers`)과
     // push 방송이다(`handlers/providers.ts` 의 `resuming` 주석). 그 불변식을 표현식 두 사본으로

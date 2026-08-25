@@ -8,7 +8,7 @@
 | 작성자 | Codex |
 | 일자 | 2026-08-24 |
 | 매핑 | 런타임 모델 카탈로그 자동 투영 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) → verify/FAIL (r5) → READY (r6) → IMPL_DONE (r6) → verify/FAIL (r6) → READY (r7) → IMPL_DONE (r7) → verify/FAIL (r7) → READY (r8) → IMPL_DONE (r8) → verify/FAIL (r8) → IMPL_DONE (r9, 부분) → verify/FAIL (r9) → READY (r10) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) → verify/FAIL (r5) → READY (r6) → IMPL_DONE (r6) → verify/FAIL (r6) → READY (r7) → IMPL_DONE (r7) → verify/FAIL (r7) → READY (r8) → IMPL_DONE (r8) → verify/FAIL (r8) → IMPL_DONE (r9, 부분) → verify/FAIL (r9) → READY (r10) → IMPL_DONE (r10) |
 
 # Part I — Product & UX Contract
 
@@ -602,3 +602,17 @@ settings / Auth+runtime augmenter
 - **관측한 게이트 산출:** 대상 Vitest 2파일·12케이스 PASS, typecheck 3/3 PASS, eslint 0 error·기존 warning 1, doc inventory 9항목·76채널 PASS, `git diff --check` PASS. M-P 소거 변이는 대상 1파일·7케이스 중 신규 가드 1건 red로 검출했다.
 - **AC 자기보고:** ✅ AC1~AC8·AC10~AC14 = 13, ⚠️ AC9 두 테마 시각 확인 = 1, ❌ 0. `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14`.
 - **Review Signals:** bootstrap 호출부 잠금은 r5~r8과 같은 배선 축이며 r8 D44가 인용한 소거 변이를 이번에는 검출한다. 현재 라운드는 9이고 handoff-review round 20 뒤 첫 구현이다.
+
+## [구현자 기입] r10 verify/FAIL 재구현
+
+- **설계 리뷰:** r10 설계 턴(D44·D46·D47 정정)이 정한 §10 부팅 시퀀스 4지점·D-010 양성 실재 술어 2심볼을 그대로 수행했다. Decision·AC·§10 규범 행은 이번 커밋에서 바꾸지 않았다 — `plan.md` 변경은 본 `[구현자 기입] r10`뿐이다.
+- **강제 지점 전수:** 부팅 시퀀스 행 **4/4** — ① 5단계 순서: `runtime-model-startup.test.ts` 주입 관측(기존) ② 설치 유일성: `no-stray-auth-subscribe.test.ts:38` 음성 단언 ③ startup 호출 실재: `:42` 양성 단언 ④ **설치 실재(신설 지점)**: `:46` 양성 단언 `toEqual(['bootstrap.ts'])`. 이번 턴 전수 검색(불변식의 주어 = 설치/호출 심볼): 테스트 제외 `auth.subscribe(` 파일 1(`runtime-model-startup.ts`) · 정의 파일 제외 `startRuntimeModelCatalogAfterDeploy(` 호출 파일 1(`bootstrap.ts:622`) · 정의 파일 제외 `createRuntimeModelAuthResume(` 호출 파일 1(`bootstrap.ts:629` — `:74` import 식별자는 호출 형태 불일치로 미포함). 다른 7행은 r10 diff 밖(verify r9 §5가 재측정 완료).
+- **이번 라운드 수정의 잠금:** 분모 = D47 인용 변이 **M-Q** 1건. `bootstrap.ts:629`의 `resumeAuth: createRuntimeModelAuthResume({…})`를 `resumeAuth: () => void authResume.run()`으로 치환하자 신설 가드만 red — `expected [] to deeply equal ['bootstrap.ts']`(1 failed | 8 passed). 회귀 확인으로 M-P(호출 블록 삭제)도 다시 심어 **2 red**(startup·설치 실재 둘 다)를 관측했다 — r9 장치의 시야 유지. 원상 복구 후 대상 2파일·14케이스 전건 green. D45 주석 정정은 동작 보존 위생이라 인용 변이 없음 — 잠금 해당 없음(주석은 어떤 게이트의 판정에도 안 들어간다).
+- **Product/UX 파생 검토:** 신규 사용자 문자열·상태·저장소·실패 경로 없음. production 코드 변경은 `bootstrap.ts` 주석 3줄(D45)뿐이라 관측 가능한 동작 불변.
+- **놓친 잠재 문제 + 대응:** 신설 술어의 판정 지점을 fixture로 확인했다 — 대상 집합(중첩 포함·테스트 제외, `:73`), 실재 판정(정의 파일·import 절 식별자·주석·문자열 전부 0건 → 실제 호출만 1건, 신설 self-test `detects resume installer calls…`). 공통 helper `productionCallers`로 추출해 두 양성 술어의 정의 파일 제외 규칙이 한 벌이다. basename 비교의 동명 파일 한계는 r9와 동일(오늘 동명 production 파일 각 1개 — 기준 밖 관측 유지).
+- **설계 대비 명시적 차이:** 없음 — §10 4지점·D-010 문면 그대로다. 만료·공유·재진입·다른 무효화 축은 검사 전용 소스 스윕에 런타임 상태가 없어 전 축 해당 없음(r9와 동일 근거).
+- **구현 보고:** 변경 2파일 — `no-stray-auth-subscribe.test.ts`(+술어 1·단언 3·self-test 1, 7→9케이스) · `bootstrap.ts`(D45 주석 3줄). 신규 의존성·IPC·스키마·DB 변경 0. 이번 라운드가 닫는 파생 이슈: D47 구현 절반(§10 ④ 지점, M-Q 검출 관측 위), D45(주석이 helper를 가리킨다 — `bootstrap.ts:372-374` 재독 확인). D44·D46·D47 규범 절반은 설계 커밋(좌표는 INDEX)이 닫았다.
+- **대상 커밋:** `(r10 구현 — 좌표는 INDEX)`.
+- **관측한 게이트 산출:** 대상 vitest 2파일·**14케이스** PASS(가드 7→9케이스) · typecheck node/web/test 3구성 **0 error** · eslint **0 error·1 warning**(`useTranscriptVirtualizer.ts:22` 기존) · 전체 vitest(Electron ABI 미빌드 환경) **210 pass/5 fail 파일 · 2068 pass/42 fail 케이스** — 실패 5파일이 `app/AGENTS.md` ABI 베이스라인 목록과 일치, 총 케이스 2108→**2110**(+2 = 이번 신설). doc inventory `9 items, 76 channels` PASS · `git diff --check` 출력 없음. lint `--fix` 실행 후 `git status --short` = 내 변경 2파일뿐.
+- **AC 자기보고:** ✅ AC1~AC8·AC10~AC14 = 13, ⚠️ AC9 두 테마 시각 확인 = 1, ❌ 0. `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14`. r9에서 ⚠️였던 AC6·AC11은 M-Q 잠금 관측(위)으로 ✅ 주장 — 검증자 재측정 대상.
+- **Review Signals:** r5~r9와 같은 bootstrap 배선 축의 마지막 열린 반쪽(설치 실재)을 닫는다. 규범(§10 ④·D-010 심볼)은 이번 라운드 시작 전에 이미 있었다. 현재 라운드 10, review round 21 완료 후 첫 구현.
