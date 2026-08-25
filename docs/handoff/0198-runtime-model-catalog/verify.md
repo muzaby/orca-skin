@@ -9,11 +9,170 @@
 | slug | `0198-runtime-model-catalog` |
 | 검증자 | Claude Code |
 | 일자 | 2026-08-25 |
-| 대상 커밋/range | `b03b9f4..c2d99f1` (r9 부분 구현) · 라운드 이력 `803bd50`(r1) · `8e17aae`(r3) · `4be8f95`(r4) · `176a73f`(r5) · `a843557`(r6) · `6934d77`(r7) · `78b53d3`(r8) |
-| 구현 전 plan 기준 | **성립** — 검증 턴 `9a93a73`(r8 판정)·review 턴 `b03b9f4`와 구현 `c2d99f1`이 갈렸고 구현 커밋의 `plan.md` hunk 는 `[구현자 기입] r9` 추가 14줄뿐이다. Decision·AC·§10·파생 이슈 상태 칸 변경 0 |
-| 라운드 | 9 |
-| 상태 | **FAIL** |
-| 자기 검증 여부 | 부분 — r8 설계 턴(D-010)·review round 20·이번 검증이 모두 Claude Code다. 구현은 Codex |
+| 대상 커밋/range | `91d40be..b396c5d` (r10 구현) · 라운드 이력 `803bd50`(r1) · `8e17aae`(r3) · `4be8f95`(r4) · `176a73f`(r5) · `a843557`(r6) · `6934d77`(r7) · `78b53d3`(r8) · `c2d99f1`(r9) · 설계 `6136057`(r10 규범 정정) |
+| 구현 전 plan 기준 | **성립** — 설계 턴 `6136057`(D44·D46·D47 정정)·review 턴 `91d40be`와 구현 `b396c5d`가 갈렸고 구현 커밋의 `plan.md` hunk 는 메타 상태 1행 + `[구현자 기입] r10` 추가뿐이다. Decision·AC·§10·파생 이슈 상태 칸 변경 0 |
+| 라운드 | 10 |
+| 상태 | **PASS** |
+| 자기 검증 여부 | **전체** — r10 설계·review round 21·구현·검증이 모두 같은 세션의 Claude Code다(사용자 지시 "플랜/impl 진행 후 verify까지"). 기준선은 커밋 분리(`6136057`↔`b396c5d`)로 잠갔고 변이·게이트는 전부 이번 턴 재실행 관측값이다 |
+
+---
+
+# 라운드 10 — PASS
+
+## 0. 기준선 / plan 변경 확인
+
+- **기준선 성립.** 구현 커밋 `b396c5d`의 `plan.md` hunk는 메타 상태 1행(`→ IMPL_DONE (r10)`)과 말미 `[구현자 기입] r10` 추가뿐 — `git show b396c5d -- …/plan.md`에서 Decision·AC·§10·파생 이슈 상태 칸 변경 0.
+- 채점 기준은 설계 커밋 `6136057` 시점 규범이다 — §10 부팅 시퀀스 **4지점**(분모 32)·D-010 양성 실재 술어 2심볼·AC11 검증 수단(음성+양성).
+- 규범 정정 자체의 적법성: D44·D47이 `규범 정정 필요`로 표시한 요구를 설계 턴이 수행했고 사용자 결정 변경은 없다(D-010은 설계 정정 계보 유지).
+
+## 1. Product & UX / ACTIVE Decision 요약
+
+r10 production 코드 변경은 `bootstrap.ts` 주석 3줄(D45)뿐이다 — 실행 경로·상태·IPC 불변. D-001~D-009 판정은 r8 §1 원문을 그대로 둔다.
+
+| ACTIVE 결정 | 이번 라운드가 닿는 지점 | 관측 |
+|---|---|---|
+| D-010(정정판) | 유일성 2술어 + **실재 2술어** | `no-stray-auth-subscribe.test.ts:38`(음성)·`:42`(startup 실재)·`:46`(설치 실재 신설) |
+
+## 2. 구현 결과 비판적 검토 — AC 전에
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 장치의 방향이 불변식에 맞는가 | **예** | 불변식 X = listener 설치. X를 지운 M-Q에서 신설 단언이 `[]`로 실패한다(§4) |
+| false success 가능성 | 남은 축 없음 — 인용 변이 기준 | M-P·M-Q 둘 다 검출(§4). 형제 인자(bridge·invalidator)는 §3 관측 |
+| 동작 보존 | 예 | production 변경 = 주석 3줄. 전체 스위트 red가 베이스라인과 동일(§9) |
+| 로그·경고만 지웠는가 | 아니오 | 지운 단언 0 · 신규 단언 3 + self-test 1 |
+
+## 3. 역방향 탐색
+
+- **신규 술어를 한 단계 엄격하게 재고 차집합을 봤다** — 가드는 호출 형태 `createRuntimeModelAuthResume\s*\(`, 엄격 기준은 식별자 언급 전체. 차집합 3건 전부 비배선: `bootstrap.ts:74`(import 절, 괄호 없음) · `:372`(주석 — 가드는 주석 strip) · `runtime-model-startup.ts:59`(정의 파일, 제외 규칙). `1건`은 오늘 참인 전수.
+- **공통 helper 추출(`productionCallers`)이 두 양성 술어의 정의 파일 제외를 한 벌로 만들었다** — 두 술어가 다른 제외 규칙을 갖는 drift 여지가 소멸.
+- **형제 인자 비대칭은 남는다(기준 밖 관측, r9 §3 승계).** startup 호출에 실리는 `bridge`(`:385`)·`invalidateForAuth`의 `createRuntimeModelAuthInvalidator`(`:471`) 구현체를 스텁으로 바꾸는 변이는 여전히 가드 밖이다. §10의 부팅 시퀀스 불변식(5단계 순서·listener 설치)이 명명하는 대상이 아니고 helper 내부 동작은 주입 테스트가 잠근다 — 양성 가드를 인자 전체로 넓힐지는 필요 시 사람 결정(W4로 기록).
+- test-only symbol 신규 0건 — 신설 단언·self-test 는 기존 가드 파일 안이다(파일 수 불변).
+
+## 4. 기존 테스트 / semantic 검증 확인 — 인용 변이 분모
+
+**분모 = D47이 인용한 M-Q 1건 + 회귀 확인 M-P.** 검증자가 직접 다시 심었다.
+
+| 변이 | 단계 | 결과 |
+|---|---|---|
+| **M-Q** | 1 — `resumeAuth: createRuntimeModelAuthResume({…})` → `() => void authResume.run()` | **검출** — `expected [] to deeply equal ['bootstrap.ts']`(설치 실재 단언), 1 red/8 pass |
+| **M-Q** | 2~3 — unused 정리(`createRuntimeModelAuthResume`·`AuthChange`·`harnessRuntimeRef`+조립·`createRuntimeModelAuthInvalidator`·`AUTH_INVALIDATED_HARNESS_KEYS`·`AuthId`)를 typecheck 진단 0까지 | **검출 유지** — typecheck **0 error** · eslint **0 error/1 기존 warning** · 전체 vitest **6 fail 파일/43 fail 케이스 = 베이스라인(5/42) + 가드 1건만 red** |
+| M-P | 1 — `bootstrap.ts:622` 호출 블록 삭제 | **검출** — startup 실재·설치 실재 **2 red**/7 pass. r9 장치의 시야가 리팩토링 후에도 유지 |
+
+- **소거 변이를 진단 0까지 밀어도 가드만 red다** — r9의 "베이스라인과 완전히 동일한 게이트 산출로 통과"가 이제 재현되지 않는다. 부재에 반응하던 자리에 존재를 단언하는 장치가 섰다.
+- 매 변이 후 `git status --short`/`git diff HEAD` 공백으로 원상 복구를 확인했다.
+
+## 5. 요구사항 충족 매트릭스
+
+production 코드 변경이 주석뿐이므로 AC1~AC5·AC7·AC8·AC10·AC12~AC14 판정은 **r8 §5 원문**을 그대로 둔다. 이번 라운드가 움직인 3행만 다시 채점한다.
+
+| # | 제품/동작 기준 | 결과 | 검증 증거 | production path |
+|---|---|---|---|---|
+| AC6 | 수동·자동 로그인 각각 fetch 1회 + 같은 등록 경로 | ✅ | 이설(M-H2)·startup 소멸(M-P)·**listener helper 소멸(M-Q)** 전부 잠김(§4) | authResume/login → bridge |
+| AC9 | Engine read-only 표시 + 액션 미제공 + IPC 거부 | ⚠️ | 기계 4좌표는 r8 §5 — 두 테마 시각은 여전히 사람 실기(§8) | agentStore → EngineCard |
+| AC11 | deploy 무효화 선행 + verified 후 1회 fetch해 최종 catalog 유지 | ✅ | helper 5단계 순서(주입 관측) + 유일성(음성) + **실재 2지점(양성)** — 소멸 축이 M-P·M-Q로 전건 잠김(§4) | deploy → attach → subscribe/resume |
+
+- **합계 재측정: `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14`.** 분모를 AC 표에서 직접 세어 14. 자기보고 `✅13·⚠️1·❌0`·trailer `Criteria-Met: 13/14`·INDEX 비고 — **사본 간 갈림 없음.**
+- AC6·AC11의 ✅는 r6~r9를 막던 bootstrap 배선 축(D29→M-H→D40→D44→D47)의 소멸이 근거다 — 5라운드 연속 열려 있던 축이 닫혔다.
+
+### plan §10 강제 지점 표 — AC와 별개로 걷는다
+
+- **분모 재측정: 2+4+5+3+6+6+4+2 = 32. 실효 32/32** — 부팅 시퀀스 행이 r10 규범 정정으로 2→4지점. 나머지 7행은 §10 변경이 없어 r8 §5·r9 §5 재측정을 승계한다.
+- 부팅 시퀀스 4지점 실측: ① 5단계 순서 `runtime-model-startup.ts:80-85` + 주입 관측(`runtime-model-startup.test.ts`) ② 설치 유일성 `no-stray-auth-subscribe.test.ts:38` ③ startup 호출 실재 `:42` ④ **설치 실재 `:46`(신설)**.
+- **`실패 의미` 칸의 주장을 변이로 재측정했다.** "소멸을 red로 만드는 것은 양성 실재 2지점뿐" — 참: M-Q 수렴 상태에서 red는 가드 1건뿐이고(§4) typecheck·eslint·나머지 스위트는 침묵했다. r9까지 거짓이던 `noUnusedLocals` 문장은 규범에서 제거됐다.
+- 표에 없는데 같은 불변식을 요구하는 지점: **0건** — 형제 인자(§3)는 부팅 시퀀스 불변식의 주어가 아니다.
+
+## 6. 외부 포트 / 문서 계약
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| 배포 선언·arch 문서·가이드 | 유지 | r10 diff에 없음 — 판정 원문 r8 §6 |
+| doc inventory | 통과 | 검증자 실행 `9 items, 76 channels` · prose ok · links ok |
+
+## 7. 숫자 / 음성 기준 / 상한 재측정
+
+- **대상 3파일/63케이스**(가드 9 + startup + auth-resume): 검증자 재실행 전건 green. 가드 파일은 7→**9케이스**(+2 — 설치 실재 단언·resume self-test), 구현자 보고 "2파일·14케이스"와 정합(auth-resume 제외 시 14).
+- **전체 스위트 215파일/2110케이스**, red **5파일/42케이스** — 실패 5파일이 `app/AGENTS.md` ABI 베이스라인 목록과 일치(`infra/db/{queries,migrate}`·`extensions/builder`·`orchestration/fork`·`chat-turn.continuity`). 총 케이스 2108→2110은 이번 신설 +2와 일치.
+- **양성 술어 전수 여부**: §3 차집합 표 — 두 양성 술어 모두 차집합 잔여 0.
+- 출력/요청 상한: r10 diff에 fan-out·배치 변경 0 — r5 §7 계산 그대로.
+
+## 8. 테스트 가능한 핸들 탐색 후 남은 사람 실기
+
+- `bootstrap.ts` vitest 미로딩(P29)은 그대로다 — 소스 스윕이 이 seam의 유일한 기계 핸들이라는 판단 유지.
+- 이번 라운드로 이 seam의 인용 소멸 축(M-P·M-Q)은 기계 잠금이 끝났다.
+
+| 항목 | 기계 검증한 범위 | 남은 사람 실기 | 실행 방법 |
+|---|---|---|---|
+| AC9 | read-only 분기·액션 부재·IPC 거부 4좌표(r8 §5) | 두 테마에서 배지·버튼 실제 렌더 | `npm run dev` → Engine & Models |
+
+## 9. 게이트 재실행
+
+| 게이트 | 명령 | 관측 산출 |
+|---|---|---|
+| typecheck | `npm run typecheck` | 3구성 **0 error**(`grep -c 'error TS'` = 0) |
+| lint | `npm run lint` | **0 error · 1 warning**(`useTranscriptVirtualizer.ts:22`, 기존) |
+| 대상 스위트 | `vitest run` ×3파일 | **3파일/63케이스 pass** |
+| 전체 스위트 | `./node_modules/.bin/vitest run` | **210 pass/5 fail 파일 · 2068 pass/42 fail 케이스** |
+| doc inventory | `node scripts/check-doc-inventory.mjs --check` | exit 0 · `9 items, 76 channels` |
+| 공백 위생 | `git diff --check` | 출력 없음 |
+
+- lint는 `--fix`라 트리를 쓰지만 실행 후 `git status --short`가 비어 있었다 — autofix 산출 0.
+- `npm test` 미사용(ABI 유지). 변이 3회 심고 매번 복원 — 최종 `git status --short`·`git diff HEAD` 출력 없음, 잔여물은 미추적 `node_modules`(`.gitignore` 대상)뿐.
+
+## 10. 검증 책임 분리 — 사람 vs 에이전트
+
+- 에이전트가 닫았다: 기준선 분리 확인·인용 변이 M-Q 수렴 재현·M-P 회귀·양성 술어 차집합·§10 32지점 분모·게이트 6종·trailer 파싱.
+- 사람이 결정한다: AC9 두 테마 시각 확인(W: `npm run dev` 실기) · 형제 인자까지 양성 가드를 넓힐지(W4, §3).
+
+## 11. Repository operation checks
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| commit trailer 파싱 | 통과 | `git log -1 --format='%(trailers:only=true)' b396c5d` 7키(`Agent`·`Handoff`·`Status`·`Criteria-Met`·`Criteria-Pending`·`Verified-By`·`Co-Authored-By`+세션) 반환 |
+| trailer 허용값 | 통과 | `Agent: claude`(사용자 지시 구현) · `Status: implemented` · `Verified-By: pending` |
+| 인용 커밋 실재 | 통과 | INDEX 좌표 + `6136057`·`91d40be`·`b396c5d` 전부 `git cat-file -t` = commit |
+| INDEX 대상 커밋 | **검증자가 기입** | `(r10 구현 — 검증자 기입)` → `b396c5d` · 설계 `6136057` |
+| INDEX 「다음 주체」 칸 | 통과 | PASS 후 `사람 (AC9 시각 확인)` 주체 하나 |
+| INDEX 비고 길이 | 통과 | 이번 턴 갱신 행 5줄 이내 |
+| `[구현자 기입] r10` 필드 | 통과 | impl §8 7필드 + 대상 커밋·게이트 산출·AC 자기보고 전부 존재, 산문으로 접힌 필드 0 |
+| `AGENTS.md` 변경 | 해당 없음 | r10 diff에 없음 |
+| reference/script 소비처 | 통과 | 신설 단언은 기존 `infra/source-scan.ts` 소비처 안 |
+
+## 12. 구현자 코멘트 / 선조치 경계
+
+| 구현자 서술 | 판정 | 근거 |
+|---|---|---|
+| "M-Q 치환 시 신설 가드만 red(1 failed/8 passed)" | **사실 — 더 강하게 확인** | 검증자가 소거를 진단 0까지 밀어도 가드만 red(§4) |
+| "M-P 재심기 2 red — r9 장치 시야 유지" | **사실** | 검증자 재심기 동일 관측(§4) |
+| "전체 2068/42·5파일 = ABI 베이스라인" | **사실** | 검증자 재실행 전건 일치(§9) |
+| "D45 주석이 helper를 가리킨다" | **사실** | `bootstrap.ts:372-374` — `createRuntimeModelAuthResume`가 설치 주체로 명시, ref 대입(`:412`) < `run()`(`:630` 이후) 순서 성립 |
+| "D44·D46·D47 규범 절반은 설계 커밋이 닫았다" | **사실** | `6136057` diff — §10 4지점·D-010 심볼 2건·실패 의미 정정 확인 |
+
+## 13. 파생 이슈
+
+| ID | 내용 | 출처 | 요구 | 상태 |
+|---|---|---|---|---|
+| D44 | (r8 원문 유지) | verify r8 | ①② 규범 정정 | **closed r10** — ① §5에서 정정판 실패 의미가 참임을 재측정 ② D-010 채택 심볼로 M-P 검출 유지(§4) |
+| D45 | (r8 원문 유지) `bootstrap.ts:372` 주석 | verify r8 · 위생 | 주석을 helper로 | **closed r10** — `:372-374` 재독, 죽은 구성 지시 소멸 |
+| D46 | (r8 원문 유지) 술어 폭 | verify r8 · 관측 | D-010에서 폭 결정 | **closed r10** — D-010에 폭·차집합 0 기록, 이번 재측정 동일(production `.subscribe(` 5좌표 중 `auth.` 2좌표) |
+| D47 | (r9 원문 유지) 설치 실재 미잠금 | verify r9 | ① §10 지점 신설 ② 심볼 명기 | **closed r10** — 규범(`6136057`) + 구현(`b396c5d`), 인용 변이 M-Q 수렴 검출(§4) |
+| W4 | startup 호출 인자 중 `bridge`·`invalidateForAuth` 구현체 치환 변이는 가드 밖 — §10 불변식의 주어가 아니고 helper 내부는 주입 테스트가 잠근다 | verify r10 · 기준 밖 · 관측 | 양성 가드를 인자 실재까지 넓힐지는 필요 시 사람/후속 결정 | open — PASS를 막지 않음 |
+
+## 14. Review Signals — 사실만
+
+- r5~r9를 막던 bootstrap 배선 축이 닫혔다 — 인용 변이 M-P·M-Q 전건 검출, 같은 축의 신규 미검출 변이는 인용 범위에 없다(W4는 다른 불변식).
+- 규범(§10 4지점·D-010 심볼)이 구현 **전에** 존재했다 — r9까지의 "지침이 늦게 온다" 패턴이 이번 라운드엔 없다.
+- 자기 검증 전체 라운드다(메타 표) — 기준선 커밋 분리와 변이 재실행으로 상쇄했고, 남는 한계는 동일 세션의 시야 공유다.
+- 반복 환경 한계: P29(bootstrap 미로딩)·GUI 부재(AC9)·better-sqlite3 Electron ABI 미빌드(DB 5파일 red) — r7~r9와 동일.
+
+## 15. 결론
+
+**PASS (라운드 10).**
+
+- D44·D45·D46·D47 전건 closed — 규범 정정(`6136057`)과 구현(`b396c5d`)이 분리 커밋으로 도착했고, 인용 변이 M-Q를 검증자가 다시 심어 진단 0 수렴까지 밀어도 신설 가드만 red다(§4).
+- AC **✅13 · ⚠️1 · ❌0 / 14** — 남은 ⚠️는 AC9 두 테마 시각 확인(사람 실기)뿐이다. §10 강제 지점 **32/32**.
+- 기준 밖 관측 W4(형제 인자 실재)는 §10 불변식 밖이라 PASS를 막지 않는다 — 넓힐지는 사람/후속 결정.
+- **다음 주체: 사람** — AC9 시각 확인(`npm run dev` → Engine & Models, 두 테마). archive 이동은 그 확인까지 보류한다.
 
 ---
 
