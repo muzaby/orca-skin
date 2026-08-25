@@ -585,3 +585,17 @@ settings / Auth+runtime augmenter
 - **관측한 게이트 산출:** 대상 3파일/11케이스 PASS, typecheck 3/3 PASS, eslint 0 error, scripts/doc inventory PASS. 전체 Vitest는 비-DB 210개 파일이 pass했고 기존 Electron ABI의 DB 5파일/44케이스만 red다.
 - **AC 자기보고:** ✅ AC1~AC8·AC10~AC14 = 13, ⚠️ AC9 두 테마 시각 확인 = 1, ❌ 0. `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14`.
 - **Review Signals:** r7의 D40은 배선 유일성·선언 무변형, D42는 음성 단언의 반대편 보존 축이다. 현재 라운드는 8이며 review round 19 뒤 첫 구현이다.
+
+## [구현자 기입] r9 피드백 제안 검토·부분 구현
+
+- **설계 리뷰:** D44의 두 제안 가운데 양성 술어를 채택했다. production composition root의 실제 호출 존재를 직접 재며, `resumeAuth` 타입 강화는 빈 callback을 막아도 startup helper 호출 자체의 소멸을 막지 못한다. Decision·AC·§10 규범 행은 구현자 권한으로 바꾸지 않았다.
+- **강제 지점 전수:** 부팅 시퀀스의 listener 설치 지점 1개와 startup 호출 지점 1개를 각각 음성·양성 술어로 검사한다. production `auth.subscribe(` 파일은 `runtime-model-startup.ts` 1개, helper 정의 파일을 제외한 `startRuntimeModelCatalogAfterDeploy(` 호출 파일은 `bootstrap.ts` 1개다.
+- **이번 라운드 수정의 잠금:** D44가 인용한 M-P의 소거 방향으로 `bootstrap.ts` 호출명을 제거하면 신규 양성 가드가 `expected [] to deeply equal ['bootstrap.ts']`로 실패했다. 원상 복구 뒤 대상 2파일·12케이스가 통과했다.
+- **Product/UX 파생 검토:** 신규 사용자 문자열·상태·저장소·실패 경로는 없다. 기존 runtime 모델 catalog의 부팅 진입점 소멸만 기계적으로 차단한다.
+- **놓친 잠재 문제 + 대응:** 신규 양성 술어의 대상 집합은 중첩 production 포함·테스트 제외 fixture로, 추출과 실재 판정은 정의·주석·문자열만 있는 0건 fixture와 실제 호출 1건 fixture로 확인했다. basename 비교는 현재 동명 파일이 없지만 향후 동명 composition root를 구분하지 못할 수 있어 기준 밖 관측으로 남긴다.
+- **설계 대비 명시적 차이:** D44의 양성 술어 제안을 코드로 먼저 구현했지만 D-010과 §10 실패 의미의 규범 정정은 아직 없다. 만료·공유·재진입·다른 무효화 축은 검사 전용 소스 스윕이고 런타임 상태가 없어 해당 없음이다.
+- **구현 보고:** 테스트 1파일과 handoff 보고 1파일을 변경했다. D44의 production 소멸 변이는 검출하지만 규범 행 정정이 남아 D44 상태는 open을 유지한다. D45·D46은 관측 범위이고 신규 의존성·IPC·DB 변경은 0이다.
+- **대상 커밋:** `(r9 부분 구현 — 좌표는 INDEX)`.
+- **관측한 게이트 산출:** 대상 Vitest 2파일·12케이스 PASS, typecheck 3/3 PASS, eslint 0 error·기존 warning 1, doc inventory 9항목·76채널 PASS, `git diff --check` PASS. M-P 소거 변이는 대상 1파일·7케이스 중 신규 가드 1건 red로 검출했다.
+- **AC 자기보고:** ✅ AC1~AC8·AC10~AC14 = 13, ⚠️ AC9 두 테마 시각 확인 = 1, ❌ 0. `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14`.
+- **Review Signals:** bootstrap 호출부 잠금은 r5~r8과 같은 배선 축이며 r8 D44가 인용한 소거 변이를 이번에는 검출한다. 현재 라운드는 9이고 handoff-review round 20 뒤 첫 구현이다.
