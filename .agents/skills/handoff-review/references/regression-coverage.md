@@ -1639,3 +1639,87 @@ SUPERSEDED 0 이라 **D 유형 오염 0**. INDEX 대상 커밋의 `(r4 구현)` 
   거기서는 round 17의 한계(구현자가 심을 자리를 고른다)가 그대로 남는다.
 - better-sqlite3 bindings·GUI 부재는 round 15~18과 같은 환경 한계다. r7 검증 환경은 전체 vitest가
   완주했다(214파일 2100케이스 · ABI red 5파일 42케이스).
+
+---
+
+# review round 20 — 부재에 반응하는 장치는 존재를 잠그지 못한다
+
+**발동**: 0198 impl 라운드 8(3 초과) + verify r8 FAIL + 같은 축(호출부 잠금)의 4라운드 연속 재발.
+
+## 분류
+
+| # | 이슈 | 분류 | 조치 |
+|---|---|---|---|
+| D44 | D-010의 음성 유일성 가드가 인용 변이 2건을 검출하면서도, 배선을 통째로 지우면 침묵한다 — production Auth listener 0개가 typecheck 0·eslint 0·vitest 215/215·2108/2108 green | **A** — plan §5 structural proxy 규칙이 있고 설계 턴이 그것을 스스로 점검했는데 *방향*이 뒤집혔다. 정상 수행으로 막히지 않는다 | **신규 P48** — 장치 방향 규칙 + 소거 변이 수렴 |
+| D44 (곁) | §10 부팅 시퀀스 행이 소멸을 `noUnusedLocals`가 막는다고 적었고, 근거는 r7 M-J의 1단계 관측이다 | **A** — plan §5가 "차이를 §10 `실패 의미`에 적는다"만 요구하고, 그 칸이 *측정하지 않은 보호 주장*을 담는 것은 금지하지 않는다 | **P48 곁따르는 규칙** — 보호 주장은 그 턴에 측정 |
+| D45 | `bootstrap.ts:372` 주석이 그 파일에 없는 `auth.subscribe`를 가리킨다 | **F** — r7 D39와 같은 축, 0198이 고친다 | 문장 추가 없음 |
+| D46 | 가드 술어가 수신자 이름 `auth`에 묶인다. 오늘 차집합 0 | **관찰** — verify §8 엄격화가 실제로 작동해 r8이 쟀다 | 문장 추가 없음 |
+| — | r7이 보고·round 19가 승계한 `2100케이스/42 red`가 실측 **2102/44**였다(r8이 r7 트리를 체크아웃해 재측정) | **B** — verify §7 "내역 합 = 총계"가 이미 요구한다 | 문장 추가 없음. 아래 좌표 정정만 |
+
+**B 1건·F 1건·관찰 1건에 문장을 더하지 않았다.** A 2건은 같은 causal class라 **신규 P는 1개**다.
+
+## Tier
+
+**Tier 1.** "잠겼다"의 판정 기준(evidence semantics)과 §10 `실패 의미` 칸이 담을 수 있는 주장이 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+- 삭제 **9줄, DELETE 0건** — 전부 **REPLACE(superset)** 이고 원 문장이 추가분 안에 그대로 남는다:
+  impl §3 장치 적대 검사 bullet · plan §5 게이트 완료 조건 bullet · plan §5 음성 게이트 bullet ·
+  verify §4 인용 변이 bullet · verify §6 `실패 의미` bullet · verify §8 엄격화 bullet ·
+  `docs/handoff/AGENTS.md` §2·§3 최소 계약 2줄 · corpus P41·P44 `현재 방어`.
+  꼬리 문구 9종을 편집 후 전문에서 역검색해 **9/9 잔존**(실측).
+- 신규 **6줄** — plan §5 방향 규칙 bullet 1 · plan READY self-review 항목 1 · `plan.template.md §10` 측정 근거 줄 1 ·
+  verify §4 소거 변이 bullet 1 · `verify.template.md` §4·§5 줄 2.
+- 나머지 전 축 **KEEP** — trigger·owner·command·gate·human/agent 경계·INDEX/좌표·commit trailer 규칙 무변경.
+- **새 명령 0건.** 소거 변이 수렴은 기존 게이트를 다시 돌리는 것이라 `app/AGENTS.md` ABI 규칙과 무관하다.
+- reference/script **MOVE·REPLACE 0건**. corpus 편집은 P41·P44 `현재 방어` 본문과 말미 P48 추가뿐이라
+  line-scoped inbound `failure-patterns.md:541-552`는 **P29 본문에 그대로 착지**(실측: 541행 = `## P29`).
+  P heading **P1~P48 연속·중복 0**(실측).
+
+## 6-B Historical Failure Regression
+
+- **48 P 전수** · 변경 후 **COVERED 48 / PARTIAL 0 / GAP 0 / OBSOLETE 0** · 신규 **1**(P48).
+- 편집한 사이트를 인용하는 P는 **10건**(P39~P48, 기계 추출). 삭제가 0건이므로 나머지 38건의 방어 문장은 손대지 않았다.
+- 방어가 **강화된 2건**: **P44**(인용 변이 전건 검출이 배선 잠금을 뜻하지 않음을 명시) ·
+  **P41**(엄격화가 재는 축이 *전수*이지 *방향*이 아님을 명시 — r8이 엄격화를 정상 수행하고도 D44를 못 잡은 자리다).
+- **P37과의 경계를 P48 본문에 명시**했다 — P37은 semantic 목표를 structural proxy로 검증한 경우이고, P48은
+  프록시의 *방향*이 뒤집힌 경우다. 0198 설계 턴이 P37을 스스로 점검하고도 통과한 것이 그 구분의 근거다.
+- **회귀 위험 2건을 능동 차단**: **P22·P18**(하치장) — `verify.template.md`의 `해당 없음`이 소거 변이 회피구가
+  되지 않도록 적용 조건을 plan §5의 불변식 형태("X가 있다/쓰인다")로 못 박았고, §4의 인용 변이 분모는 독립으로 남는다.
+  **P30·P35**(음성 게이트) — 새 clause는 "음성 게이트가 무엇을 못 잠그는가"만 더하고 기존 술어 규칙을 바꾸지 않는다.
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 규칙 사이트 — 장치 방향 **4**(plan `SKILL.md` · impl `SKILL.md` · `docs/handoff/AGENTS.md §2` · corpus P48) ·
+  소거 변이 수렴 **4**(verify `SKILL.md` · `verify.template.md` · `docs/handoff/AGENTS.md §3` · corpus P48) ·
+  `실패 의미` 보호 주장 **5**(plan `SKILL.md` · `plan.template.md` · verify `SKILL.md` · `verify.template.md` · corpus P48).
+- **owner 충돌 0** — 설계자가 수단의 방향을 고르고(plan §5), 구현자가 X를 지우는 변이를 심고(impl §3),
+  검증자가 그 변이를 수렴까지 밀어 판정한다(verify §4). 기존 결함 심기 쌍(구현자가 닫고 검증자가 다시 센다)과 같은 관계이고
+  어느 쪽도 상대를 면제하지 않는다.
+- **scope 충돌 0** — verify §8에 붙인 것은 규칙이 아니라 *범위 한정*이다("엄격화는 전수를 재지 방향을 재지 않는다").
+  두 문장이 같은 것을 요구하지 않는다.
+- **stale 사본 0** — 편집한 6문장의 구 버전 꼬리 문구를 skills/docs 전문에서 역검색해 잔존 0건(corpus 인용 제외).
+- **좌표 정정 1건** — round 19의 한계 절이 r7 환경을 `214파일 2100케이스 · ABI red 5파일 42케이스`로 적었다.
+  r8 검증이 r7 트리(`6934d77`)를 체크아웃해 재측정한 값은 **214파일 2102케이스 · red 44**다.
+  round 19 원문은 그대로 두고 여기서 정정한다(이력은 rewrite하지 않는다).
+- `cd app && node scripts/check-doc-inventory.mjs --check` — generated ok · prose ok · **links ok** · `git diff --check` 통과.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md`·`CLAUDE.md` stub 없음.
+
+## review 기록 정책
+
+`round20-review.md`를 만들지 않았다 — 압축으로 잃는 rationale이 없고 사용자 보존 요구도 없었다.
+기존 `round2-review.md` 1개 유지(라운드 문서는 동시에 1개). 신규 P **1**(P48) — 기존 P로 환원되지 않는
+새 causal class다(장치가 반응하는 *방향*).
+
+## 지침으로 해결할 수 없는 한계
+
+- **D44의 해결 수단은 0198의 규범 결정이다.** 양성 술어(helper의 export를 부르는 production 파일 ≥1)를 가드에
+  더할지, `resumeAuth`를 빈 구현이 타입에서 걸리는 구조로 좁힐지는 그 handoff의 설계 턴이 정한다.
+  이 review는 "그 자리가 잠기지 않았다"를 판정하는 규칙만 바꾼다.
+- **`bootstrap.ts` 미로딩은 그대로다** — `@electron-toolkit/utils`의 CJS `require('electron')`이 ESM mock을
+  우회한다(P29). round 19와 같은 한계다.
+- **소거 변이 수렴은 정리 단계를 따라가야 한다.** 컴파일러 진단이 매 단계 달라지므로 한 번에 판정하는 명령이 없다.
+  r8은 3단계였고 규모가 큰 배선이면 더 길어진다.
+- r8 검증 환경은 egress가 열려 **Node ABI 전체 스위트가 완주**했다(215파일 2108케이스 전건 green).
+  round 15~19가 "환경 한계"로 분리 보고하던 ABI red를 실측으로 닫은 첫 라운드다.
