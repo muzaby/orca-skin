@@ -399,7 +399,7 @@ producer → contract/normalize → state/store → consumer/UI/tool
 | **AC 자기보고**(`Criteria-Met`) | N/M — 각 AC 옆에 **이번 턴에 재현한 관측값**을 적는다. 표식을 다시 찾지 못한 AC는 ✅로 세지 않는다 |
 | **합계 검산** | `✅ N · ⚠️ M · ❌ K = 총 T` — 분모를 다시 세고 **이 줄을 쓴 뒤** 커밋 trailer를 적는다. 분모가 바뀌었으면(AC 분할·추가) 그 사실을 적고 이전 라운드 합계와 직접 비교하지 않는다 |
 | 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` — 적기 전에 `git show <hash> --oneline`으로 실재를 확인한다(다음 라운드의 기준선 좌표) |
+| 대상 커밋 | `(r<N> 구현 — 좌표는 INDEX)` — 자기 환경의 해시를 적지 않는다. 좌표 정본은 `INDEX.md` 한 곳이고 검증자가 채운다 |
 
 ## [구현자 기입] Review Signals — 사실만
 
