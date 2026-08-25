@@ -8,7 +8,7 @@
 | 작성자 | Codex |
 | 일자 | 2026-08-24 |
 | 매핑 | 런타임 모델 카탈로그 자동 투영 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) → verify/FAIL (r5) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) → verify/FAIL (r5) → READY (r6) → IMPL_DONE (r6) |
 
 # Part I — Product & UX Contract
 
@@ -40,15 +40,16 @@
 | D-005 | Harness 인증 성공은 Engine & Models에 앱 사용자가 편집할 수 없는 read-only Orca Harness 항목을 생성하고 실패·unavailable·해제는 제거한다. | UI 상태가 아니라 실제 Auth 파생 상태이며 renderer와 main mutation 경계 모두 편집을 막는다. | 최초 요청 + 사용자 후속 결정 | ACTIVE | — |
 | D-006 | 기존 `AuthRuntime.subscribe` snapshot lifecycle을 트리거로 쓰고 polling·별도 영속 상태를 만들지 않는다. | 앱 로그인 자동 인증도 같은 event path를 지난다. | 최초 사용자 요청 | ACTIVE | — |
 | D-007 | 두 UI는 같은 `orca:agent:list` 카탈로그를 소비한다. | 자동 등록 결과의 동일 반영. | 최초 사용자 요청 + 현행 IPC | ACTIVE | — |
-| D-008 | runtime contribution fetch는 Gate 로그인 인증 성공 시 contribution별 1회만 수행하고, 새 세션 생성·턴 실행은 cache만 읽는다. Auth 밖 설정 변경이 cache를 무효화하면 해당 자동 항목도 두 UI에서 숨긴다. | Gate 인증을 권위 트리거로 쓰며 세션마다 network 요청할 수 없다. 사용자는 D18에서 재fetch보다 fail-closed 미노출을 선택했다. | 사용자 후속 결정 (2026-08-24) | ACTIVE | — |
+| D-008 | runtime contribution fetch는 Gate 로그인 인증 성공 시 contribution별 1회만 수행하고, 새 세션 생성·턴 실행은 cache만 읽는다. Auth 밖 설정 변경이 cache를 무효화하면 같은 canonical key의 settings 행을 포함한 자동 항목 전체를 두 UI에서 숨긴다. | Gate 인증을 권위 트리거로 쓰며 세션마다 network 요청할 수 없다. 사용자는 D18에서 재fetch보다 fail-closed 미노출을 선택했다. | 사용자 후속 결정 (2026-08-24) + D25 정정 | ACTIVE | — |
+| D-009 | 부팅 deploy 무효화는 Auth 구독·resume·catalog attach보다 먼저 완료하고, 그 뒤 Gate 자동 인증 snapshot이 부팅 세션의 최종 runtime contribution을 만든다. | 일반 설정 변경의 fail-closed 의미를 유지하면서 Gate 인증 fetch 결과가 뒤늦은 부팅 무효화에 지워지는 비결정성을 없앤다. | 사용자 `/handoff-plan` 갱신 지시 (2026-08-25) | ACTIVE | — |
 
 ### 갱신 메모
 
-- 이번 턴에서 새로 추가된 결정: D-008은 runtime contribution fetch를 Gate 로그인당 1회로 제한하고 새 세션 경로의 network 요청을 금지한다.
-- D18 사용자 결정: Auth 밖 설정 무효화도 runtime cache와 catalog entry를 함께 제거하는 선택지 A다. 설정 CRUD/부팅 deploy는 자동 재fetch하지 않는다.
+- 이번 턴에서 새로 추가된 결정: D-009는 부팅 deploy 무효화를 Auth 구독·resume·catalog attach보다 먼저 완료한다.
+- D18·D25 정정: Auth 밖 설정 무효화는 runtime cache와 같은 canonical key의 settings 행을 포함한 자동 항목 전체를 함께 숨긴다. 설정 CRUD는 자동 재fetch하지 않는다.
 - 변경된 결정: D-002는 같은 family 복수 항목 보존으로, D-003은 `custom` 분류 표기와 self 실행 식별자의 분리로 보완했다. D-005는 자동 추가된 Orca Harness의 앱 사용자 편집 금지를 renderer와 main 양쪽 계약으로 강화했다.
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: D-001·D-002·D-004·D-006·D-007.
-- `ACTIVE 결정 ↔ AC` 대조: D-001↔AC1, D-002·D-003↔AC2·AC3, D-004↔AC4, D-005·D-006↔AC5~AC8, D-007↔AC9·AC10, D-008↔AC6·AC8·AC11·AC13 — 충돌 0.
+- `ACTIVE 결정 ↔ AC` 대조: D-001↔AC1, D-002·D-003↔AC2·AC3, D-004↔AC4, D-005·D-006↔AC5~AC8, D-007↔AC9·AC10, D-008↔AC5~AC8·AC13, D-009↔AC11 — 충돌 0.
 
 ## 4. 요구 비판적 검토
 
@@ -60,7 +61,7 @@
 | 선행 자료의 주장을 코드와 대조했는가 | 대조 완료 | runtime augmenter는 현재 env만 반환하고 catalog가 아니며(`runtime-config.ts:45-67`), Auth snapshot hook은 이미 존재한다(`bootstrap.ts:373-385`). |
 | ACTIVE 결정·기존 채택 결정과 충돌하는가 | 의도적 변경 | settings 디렉터리 단독 SSOT라는 0188 주석을 확장한다. 사용자의 새 runtime catalog 요구가 변경 근거다. |
 
-- 사용자에게 올릴 결정: 없음. 사용자가 값 shape와 동적 등록 요구를 후속 턴에서 확정했다.
+- 사용자에게 올릴 결정: 없음. 사용자의 2026-08-25 갱신 지시는 D24의 권장안인 부팅 deploy 선행 순서를 채택한 것으로 기록했다.
 - 코드 조사로 닫은 사실: `availableModels`는 OS subprocess env 문자열로 직렬화하지 않고 Harness native settings/runtime config의 정확한 배열 필드로 운반해야 현재 타입 안전성을 보존한다.
 
 ## 5. 동작 / 사용자 흐름
@@ -87,6 +88,8 @@ Plugin/App login → Auth snapshot
 | 인증 실패·unavailable·revoke·401/403 | 해당 Auth contribution을 무효화하고 카탈로그에서 제외한다. | 자동 카드와 Composer 선택지가 함께 사라진다. |
 | 새 세션 생성·턴 실행 | network resolve를 호출하지 않고 로그인 때 채운 cache snapshot을 읽는다. | 모델 선택과 실행 준비가 추가 fetch 없이 동작한다. |
 | 재인증 성공 | 기존 cache를 무효화하고 해당 Gate 로그인의 fetch 1회 결과만 채택한다. | 최신 모델 목록이 다시 나타나며 stale 결과가 되살아나지 않는다. |
+| 앱 재시작 | 부팅 deploy 무효화를 먼저 끝내고 Auth 구독·resume·catalog attach를 설치한 뒤 Gate 자동 인증 결과를 반영한다. | 저장 grant만으로는 노출되지 않고 verified fetch 뒤 자동 항목이 결정적으로 나타난다. |
+| Auth 밖 설정 변경으로 contribution cache 무효화 | 같은 canonical key의 runtime entry와 settings 행을 함께 catalog에서 제외한다. | 두 UI에서 자동 항목이 사라지고 실행만 실패하는 유령 행이나 편집 버튼이 남지 않는다. |
 
 ### 파생 UX / 엣지케이스
 
@@ -115,13 +118,13 @@ Plugin/App login → Auth snapshot
 | AC3 | custom 모델은 두 UI에서 `custom`으로 분류되고 실제 모델명을 함께 표시하며 선택·실행·fallback은 자기 모델명이다. | renderer+순수+turn setup 테스트: family 라벨과 실제 모델명, self 선택값이 adapter 요청에 전달 | catalog → ModelMenu → chat send → model resolution |
 | AC14 | settings에서는 `ANTHROPIC_DEFAULT_<FAMILY>_MODEL` 항목을 먼저 구성한 뒤 `availableModels` 항목을 배열 순서대로 추가한다. | parser 단위 테스트: env 기본 항목 선행, 모델명 중복만 제거, 같은 family 추가 항목 보존 | settings env + availableModels → parser |
 | AC4 | 정적 settings와 runtime config가 같은 중복 제거·분류·기본 선택 규칙을 쓴다. | 단위 테스트: 같은 배열이 양 producer에서 동일 `AgentModelView` 생성 | 두 producer → shared normalizer |
-| AC5 | 인증 성공한 Harness LLM은 settings 디렉터리 유무와 무관하게 앱 사용자가 편집할 수 없는 read-only Orca Harness로 등록된다. | bootstrap/catalog+renderer+IPC 테스트: 카드 액션 부재와 mutation reject | Auth subscribe → runtime catalog → agent:list/engine IPC |
+| AC5 | 인증 성공한 Harness LLM은 settings 디렉터리 유무와 무관하게 앱 사용자가 편집할 수 없는 read-only Orca Harness로 등록되고, contribution cache가 무효화되면 같은 canonical key의 settings 행까지 미노출된다. | catalog+renderer+IPC 테스트: 등록 중 카드 액션 부재·mutation reject, 무효화 뒤 두 UI 목록과 mutation 후보에서 key 부재 | Auth subscribe → runtime catalog → agent:list/engine IPC |
 | AC6 | 수동·자동 Gate 로그인은 각각 인증 성공 시 contribution fetch를 정확히 1회 수행하고 같은 등록 경로를 쓴다. | auth-resume 배선 테스트: 로그인당 fetch 1회, 중복 verified 이벤트는 추가 호출 0 | authResume/login → AuthChange → fetch/cache |
-| AC7 | revoke·expired·unauthorized·unavailable·resolve 실패 시 해당 자동 entry만 제거된다. | 상태 전이 테스트: 원인별 제거와 사용자 설정 entry 보존 | AuthChange/runtime failure → catalog |
+| AC7 | revoke·expired·unauthorized·unavailable·resolve 실패 또는 Auth 밖 cache 무효화 시 영향받은 canonical contribution key만 제거된다. 충돌하지 않는 사용자 설정 entry는 보존한다. | 상태 전이 테스트: 원인별 제거, 같은 key의 settings 행 미노출, 다른 key의 사용자 설정 entry 보존 | AuthChange/runtime failure/settings invalidation → catalog |
 | AC8 | Gate 로그인 fetch의 무효화 전 시작한 늦은 성공은 자동 entry를 되살리지 않고 재인증은 새 fetch 1회만 허용한다. | deferred promise 통합 테스트: invalidate 뒤 stale completion 폐기와 세대별 호출 수 | Auth subscribe → single-flight/cache → generation fence |
 | AC9 | Engine & Models는 자동 Orca Harness를 표시하되 앱 사용자에게 편집·삭제 액션을 제공하지 않고 직접 IPC mutation도 거부한다. | renderer 컴포넌트 테스트 + 사람 시각 확인 | agentStore → AgentEnvironmentView |
 | AC10 | Composer는 Engine과 같은 자동·정적 모델 집합을 표시하고 사라진 선택은 유효한 기본값으로 재화해한다. | selector/store 테스트: 동일 입력 집합, 제거 후 stale selection 미전송 | agentStore → ModelMenu/chat store |
-| AC11 | 앱 재시작 때 저장된 grant만으로 자동 entry를 노출하지 않고 Gate 자동 인증 성공 뒤 contribution을 1회 fetch해 cache한다. | bootstrap/auth-resume 통합 테스트: restore 전 0회·verified 후 1회 | restore → authResume → fetch/cache → catalog |
+| AC11 | 앱 재시작 때 부팅 deploy 무효화를 Auth 구독·resume·catalog attach보다 먼저 끝낸다. 저장 grant만으로는 자동 entry를 노출하지 않고 Gate 자동 인증 성공 뒤 contribution을 1회 fetch해 최종 catalog에 유지한다. | bootstrap 순서 테스트 + 상태 기계 테스트: deploy invalidation 선행, restore 전 0회, verified 후 1회와 최종 entry 존재 | deploy invalidation → Auth subscribe/resume → catalog attach → fetch/cache |
 | AC12 | 기존 settings 기반 모델 CRUD와 기본 sonnet/opus/haiku 동작은 회귀하지 않는다. | 기존 parser/settings/engine 테스트 + 정적 게이트 | engine IPC → deploy → agent:list |
 | AC13 | 로그인 후 새 세션을 여러 개 만들고 턴을 실행해도 contribution fetch 호출 수는 증가하지 않고 cache snapshot만 사용한다. | 통합 테스트: Gate 로그인 1회 + 세션 N개 + 턴 M개에서 fetch 총 1회 | Gate login → cache → session/turn setup |
 
@@ -129,7 +132,7 @@ Plugin/App login → Auth snapshot
 
 - 기존 테스트 재사용: `settings.test.ts`의 `toAgentEnvironments`와 parser 테스트, `runtime-config.test.ts`의 generation fence, auth resume 테스트가 존재하지만 동적 catalog 의미는 신규 케이스로 추가한다.
 - 사람 실기 항목: AC9의 실제 배지·버튼 부재와 두 테마만 시각 확인한다. 목록/분류/read-only 판정은 자동 테스트로 내린다.
-- 순서 기준: Auth 구독은 `authResume.run()`보다 먼저 등록한다. fetch 관측점은 Gate 로그인 성공 hook 하나이며 session/turn setup spy에서 network 호출 0을 함께 단언한다.
+- 순서 기준: 부팅 deploy 무효화 완료 < Auth 구독 < `authResume.run()` < catalog attach 순서를 고정한다. fetch 관측점은 Gate 로그인 성공 hook 하나이며 session/turn setup spy에서 network 호출 0을 함께 단언한다.
 - 총량/0건 기준: 자동 entry 제거와 사용자 entry 보존을 함께 단언해 “전체 목록이 비어서 통과”하는 거짓 양성을 막는다.
 
 ---
@@ -220,7 +223,8 @@ AuthSnapshot → runtime contribution resolve ┘                         ├→
 | family 분류 + model identity + custom self fallback | `normalizeAvailableModels`·`modelKey` | 정적·동적 producer·두 UI | catalog materialize 2지점·선택/표시 2지점 | family alias 충돌로 모델 유실 또는 custom alias 실행 |
 | runtime entry의 Auth 파생성 | `RuntimeModelContribution.authId` + reconciler | bootstrap | Gate verified·revoke·expired·unauthorized·fetch failure 5전이 | unusable이면 entry 부재 |
 | 로그인당 fetch 1회·세션 fetch 0회 | runtime catalog single-flight process cache | Gate login reconciler·session/turn readers | 로그인 성공 1지점에서만 fetch; session create·turn setup 2지점은 read-only cache | 중복 fetch 또는 cache miss 시 명시 실패 |
-| read-only provenance | `AgentEnvironment.source/readOnly` | main mapper·Engine renderer·engine mutation handler | DTO 생성·UI action·IPC mutation 3지점 | UI 숨김만 우회해도 main이 mutation reject |
+| read-only provenance | runtime-managed canonical key + `AgentEnvironment.source/readOnly` | catalog mapper·runtime entry mapper·Engine renderer·engine mutation handler | settings DTO 생성·runtime DTO 생성·UI action·IPC mutation 4종(IPC mutation 4좌표), 실효 6지점·7좌표 | 충돌 settings 행 노출, UI 편집 액션 노출 또는 main mutation 허용 |
+| contribution cache 수명과 catalog 가시성의 결합 | `canonicalAgentKey` + runtime catalog invalidation/reconcile | settings CRUD·부팅 deploy·Auth invalidation·catalog reconciler | settings CRUD 전체 무효화·부팅 deploy 선행 무효화·Auth key 무효화·영향받은 모든 authId reconcile 4지점 | cache MISS인데 행이 남는 유령 상태 또는 다른 auth의 entry만 stale 상태 |
 | 두 UI 동일 snapshot | `orca:agent:list` | agentStore | Engine/Composer load·refresh 2소비축 | 목록 차이 테스트 실패 |
 
 - 같은 규칙의 SSOT: family 분류와 모델 정규화는 main 순수 함수 하나를 두 producer가 호출하고 renderer는 결과만 표시한다.
@@ -278,7 +282,7 @@ settings / Auth+runtime augmenter
 
 ## 13. Lifecycle / 오류 / 정리
 
-- 생성/시작: Auth 구독과 runtime catalog를 먼저 설치하고 Gate 수동/자동 로그인 verified snapshot이 contribution fetch 1회를 발화한다. 성공 snapshot을 process-memory cache에 원자 publish한다.
+- 생성/시작: 부팅 deploy 무효화를 먼저 완료한 뒤 Auth 구독·resume·runtime catalog attach를 설치한다. Gate 수동/자동 로그인 verified snapshot이 contribution fetch 1회를 발화하고 성공 snapshot을 process-memory cache에 원자 publish한다.
 - 취소/중단: Auth unusable 전이는 in-flight resolve를 abort하고 generation을 올린 뒤 entry를 즉시 제거한다.
 - 종료/quit/crash/renderer-gone: catalog는 메모리 파생 상태라 별도 저장·cleanup 없이 프로세스와 함께 사라진다.
 - retry/timeout/partial failure: Gate 로그인 fetch 실패는 해당 contribution만 제거하고 다른 entries는 유지한다. 새 세션은 재시도 트리거가 아니며 다음 Gate 재인증만 새 fetch를 허용한다.
@@ -458,14 +462,14 @@ settings / Auth+runtime augmenter
 | D22 | `validUntil` 의미가 catalog contribution key 여부로 갈리는데 가이드가 그대로다 | verify r4 · §15 | 6-a와 예제 뒤에 contribution/settings 분기 및 미노출 복구를 기록 | closed r5 |
 | D23 | INDEX 대상 커밋의 `(r4 구현)` 자리표시자 · plan 메타 `상태` 행 볼드 중첩 깨짐 | verify r4 | r4 좌표는 검증 커밋에서 교정; 메타 행 정정 | closed r5 |
 | W1 | `markDefaultModel` 의 `?? models[0]` 폴백이 구현자 스위트로 잠기지 않는다(변이 M3) | verify r4 | 전 항목 custom 배열 케이스 추가 | closed r5 |
-| D24 | 부팅 deploy 무효화(`bootstrap.ts:641`)가 Gate 인증이 방금 fetch한 entry를 지우고 재조정 트리거가 없다 | verify r5 · AC11·Part I §5 | `:641`을 Auth 구독/attach 앞으로 옮기거나 부팅 경로를 catalog 무효화에서 제외 — **AC11·D-008 중 하나를 손대므로 제품 결정** | **규범 정정 필요** |
-| D25 | 같은 key의 settings 디렉터리가 있으면 무효화 뒤 settings 행이 남아 D18 유령이 재현된다 | verify r5 · D-008·Part I §14 | `isReadOnly`(선언 기준)와 `list()`(entry 기준)의 갈림을 없앤다 — 무효화된 contribution key는 settings 행도 미노출로 수렴시킬지 결정 | open |
-| D26 | `engine.ts:39`·`bootstrap.ts:641`의 `catalog.invalidate()`를 지워도 401케이스 전건 통과(변이 M-E·M-F) | verify r5 | `misc-split.test.ts`의 `vi.mock('electron')` 패턴으로 engine CRUD 배선 테스트 추가 | open |
-| D27 | `mergeAgentEnvironments`·`entries` map의 canonical key가 잠기지 않는다(변이 M-G·M-H) | verify r5 | 대소문자 다른 settings/runtime key 충돌 fixture로 두 지점을 각각 단언 | open |
-| D28 | `invalidate(key)`의 key 필터가 잠기지 않는다(변이 M-I) | verify r5 | contribution 2개에서 한 key만 무효화되는 케이스 추가 | open |
-| D29 | `bootstrap.ts:488`이 자기 authId만 재조정해 cross-auth `AUTH_INVALIDATED_HARNESS_KEYS` 경로가 열려 있다 | verify r5 · §10 신설 축 | 무효화한 key가 속한 **모든** authId를 재조정하거나 catalog 무효화를 함께 건다. 엄격 술어로 이 축은 3/4 | **규범 정정 필요** (§10 행 신설) |
-| D30 | 게이트 자기보고 `2092케이스/44 ABI fail`이 재측정 `2090/42`와 다르다(plan·INDEX 2사본) | verify r5 | 다음 라운드 보고에서 재측정값 사용 | open |
-| D31 | 좌표·기준선 위생 3건 — `176a73f`에 규범 행 D-008 혼입(D15 축) · INDEX `(r5 구현)` 자리표시자 · §10 read-only 행이 아직 `3지점` | verify r5 | 좌표는 이번 검증 커밋에서 교정. 규범 행 분리와 §10 정정은 설계 턴에서 | partial r5 · **규범 정정 필요**(③) |
+| D24 | 부팅 deploy 무효화(`bootstrap.ts:641`)가 Gate 인증이 방금 fetch한 entry를 지우고 재조정 트리거가 없다 | verify r5 · AC11·Part I §5 | **D-009:** 부팅 deploy 무효화를 Auth 구독·resume·catalog attach 앞으로 옮겨 verified fetch를 최종 상태로 만든다. | closed r6 |
+| D25 | 같은 key의 settings 디렉터리가 있으면 무효화 뒤 settings 행이 남아 D18 유령이 재현된다 | verify r5 · D-008·Part I §14 | **D-008·AC5·AC7:** 무효화된 canonical contribution key는 settings 행도 두 UI에서 미노출로 수렴시킨다. | closed r6 |
+| D26 | `engine.ts:39`·`bootstrap.ts:641`의 `catalog.invalidate()`를 지워도 401케이스 전건 통과(변이 M-E·M-F) | verify r5 | engine 실제 handler callback과 startup production seam 배선 테스트를 추가하고 각 호출 삭제 변이가 실패함을 관측한다. | closed r6 |
+| D27 | `mergeAgentEnvironments`·`entries` map의 canonical key가 잠기지 않는다(변이 M-G·M-H) | verify r5 | 대소문자·공백이 다른 settings/runtime key 충돌과 빈 runtime row 미노출을 production 함수로 단언한다. | closed r6 |
+| D28 | `invalidate(key)`의 key 필터가 잠기지 않는다(변이 M-I) | verify r5 | 기존 두 contribution 중 한 key만 제거하는 catalog 케이스와 r6 settings 충돌 필터 변이를 함께 재실행한다. | closed r6 |
+| D29 | `bootstrap.ts:488`이 자기 authId만 재조정해 cross-auth `AUTH_INVALIDATED_HARNESS_KEYS` 경로가 열려 있다 | verify r5 · §10 cache 수명 행 | canonical key를 소유한 모든 authId를 계산해 snapshot을 재조정하고 A/B 공동 key fixture를 잠근다. | closed r6 |
+| D30 | 게이트 자기보고 `2092케이스/44 ABI fail`이 재측정 `2090/42`와 다르다(plan·INDEX 2사본) | verify r5 | r6은 대상 스위트 실측 5파일/39케이스만 보고한다. 전체 스위트는 ABI red 뒤 최종 집계 없이 중단된 사실을 분리한다. | closed r6 |
+| D31 | 좌표·기준선 위생 3건 — `176a73f`에 규범 행 D-008 혼입(D15 축) · INDEX `(r5 구현)` 자리표시자 · §10 read-only 행이 아직 `3지점` | verify r5 | 과거 혼입은 history로 보존한다. INDEX 좌표는 교정됐고 §10은 실효 6지점·7좌표로 정정한다. | ready r6 |
 
 ## [구현자 기입] r2 사용자 피드백 반영
 
@@ -510,3 +514,17 @@ settings / Auth+runtime augmenter
 - **관측한 게이트 산출:** eslint 0 error/기존 warning 1 · typecheck 3/3 · 대상 4파일 37/37 · doc inventory 9 items/76 channels · 전체 vitest 211파일 중 206 pass/5 ABI fail, 2092케이스 중 2048 pass/44 ABI fail.
 - **AC 자기보고:** ✅ AC1~AC8·AC10~AC14 = 13, ⚠️ AC9 두 테마 시각 확인 = 1, ❌ 0, 총 14. `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14`.
 - **Review Signals:** r4 D18은 cache 수명 공유 축 누락이었고 r5에서 invalidate 호출자 3/3을 닫았다. 신규 의존성·IPC·DB 변경은 없다.
+
+## [구현자 기입] r6 verify/FAIL 재구현
+
+- **설계 리뷰:** D-008·D-009와 AC5·AC7·AC11을 그대로 수행했다. 부팅 deploy 무효화 뒤에 catalog attach와 Auth 구독·resume을 한 production seam으로 묶었다.
+- **강제 지점 전수:** cache 수명 4/4는 settings CRUD·부팅 deploy·Auth key 무효화·cross-auth owner reconcile이다. read-only는 settings DTO·runtime DTO·Engine action·IPC add/update/delete/read의 실효 6지점·7좌표를 유지했다.
+- **이번 라운드 수정의 잠금:** startup catalog invalidate 삭제, engine catalog invalidate 삭제, settings collision filter 제거 변이 3건은 각 대상 스위트를 exit 1로 만들었다. production helper 배선은 `bootstrap.ts` source seam과 helper의 순서 단언을 함께 쓴다.
+- **Product/UX 파생 검토:** cache가 빈 canonical runtime key는 colliding settings 행도 Engine·Composer·턴 후보에서 사라진다. 다른 key의 사용자 settings 행은 보존하며 신규 문자열·로딩·재시도 상태는 없다.
+- **놓친 잠재 문제 + 대응:** `AUTH_INVALIDATED_HARNESS_KEYS[A]`가 B 소유 key를 가리킬 수 있었다. canonical key 소유자 전원을 계산해 현재 snapshot을 재조정하고 A/B 공동 key fixture로 선조치했다.
+- **설계 대비 명시적 차이:** 없음. D-009의 부팅 순서는 `settings invalidate → runtime invalidate → catalog invalidate → attach → Auth subscribe/resume`로 구현했다.
+- **구현 보고:** production 5파일·테스트 5파일·handoff 2파일, 신규 의존성·IPC·DB 변경 0이다. D24~D30을 닫았고 D31의 과거 커밋은 history rewrite 없이 유지했다.
+- **대상 커밋:** `d214581` — r6 production·테스트 구현 좌표이며 `git show --stat d214581`로 실재를 확인했다.
+- **관측한 게이트 산출:** 대상 5파일/40케이스 PASS, eslint 0 error, typecheck 3구성 PASS, `git diff --check` PASS. 전체 vitest는 기존 DB ABI 경계에서 `queries` 28건·`chat-turn.continuity` 2건 red를 출력한 뒤 최종 집계 없이 중단됐다.
+- **AC 자기보고:** ✅ AC1~AC8·AC10~AC14 = 13, ⚠️ AC9 두 테마 시각 확인 = 1, ❌ 0. `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14`.
+- **Review Signals:** r5 D24·D25·D29의 cache 수명 축을 부팅 순서·동일 key 미노출·cross-auth owner 전수로 닫았다. 현재 라운드는 6이며 review round 17 이후 첫 구현이다.

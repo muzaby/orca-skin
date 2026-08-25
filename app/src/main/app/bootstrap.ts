@@ -70,6 +70,10 @@ import {
   createRuntimeModelCatalogBridge,
   createRuntimeModelCatalog
 } from '../features/harnesses/runtime-catalog'
+import {
+  affectedRuntimeModelAuthIds,
+  startRuntimeModelCatalogAfterDeploy
+} from './runtime-model-startup'
 import { AUTH_DEFINITIONS } from './deployment/auth-definitions'
 import { GATE_AUTH_DEFINITIONS, remainingAuthDefinitions } from './deployment/gate-auth'
 import {
@@ -382,22 +386,6 @@ export class Bootstrap {
       contributions: RUNTIME_MODEL_CONTRIBUTIONS,
       snapshotOf: (authId) => auth.bind(authId).snapshot()
     })
-    auth.subscribe((change: AuthChange) => {
-      pushConnectionState()
-      // 화면 변화(입력 폼·OAuth 대기·resuming)와 `verified`-only 변화는 여기서 끝난다 —
-      // 실행 credential 이 그대로이므로 도구를 다시 sync 하거나 Harness cache 를 비우지 않는다.
-      if (change.kind === 'snapshot' && change.credentialChanged) {
-        for (const plugin of plugins) {
-          if (plugin.auth.authId === change.authId) plugin.sync()
-        }
-        harnessRuntimeRef?.invalidateForAuth(change.authId)
-      }
-      // runtime config 무효화가 먼저다. 반대 순서면 재인증 reconcile 이 이전 cache 를 publish한다.
-      if (change.kind === 'snapshot') {
-        void runtimeModelCatalogBridge.onSnapshot(change.authId, change.snapshot)
-      }
-    })
-
     // Harness runtime config 는 DB 뒤에 만들어진다 — 그 전에 도착한 credential change 는
     // cache 자체가 없으므로 무효화할 것도 없다.
     let harnessRuntimeRef: { invalidateForAuth: (authId: AuthId) => void } | undefined = undefined
@@ -422,11 +410,6 @@ export class Bootstrap {
       logger: (event, data) => getLogger().child('auth').info(event, data)
     })
     authResumeRef = authResume
-    auth.subscribe((change) => {
-      if (change.kind === 'snapshot') authResume.onGateChange(change.authId)
-    })
-    void authResume.run()
-
     const db = this.bootReport.stepSync('db-init', { critical: true, label: 'DB 초기화' }, () =>
       initDb({
         onBackupStart: () => {
@@ -487,6 +470,18 @@ export class Bootstrap {
         for (const key of keys) {
           harnessRuntime.invalidate(key, 'auth-change')
         }
+        // A deployment may declare that Auth A invalidates a contribution owned by Auth B. Every
+        // owner of an invalidated canonical key must reconcile; replaying only A leaves B's row
+        // visible over an empty cache.
+        for (const affectedAuthId of affectedRuntimeModelAuthIds(
+          keys,
+          RUNTIME_MODEL_CONTRIBUTIONS
+        )) {
+          void runtimeModelCatalogBridge.onSnapshot(
+            affectedAuthId,
+            auth.bind(affectedAuthId).snapshot()
+          )
+        }
       }
     }
     const runtimeModelCatalog = createRuntimeModelCatalog({
@@ -494,8 +489,6 @@ export class Bootstrap {
       runtime: harnessRuntime,
       onChange: pushConnectionState
     })
-    void runtimeModelCatalogBridge.attach(runtimeModelCatalog)
-
     // ── 원격 사용량 fetcher (0186 → 0188 배포 모듈로 이설) ────────────────────────
     // **`undefined` 는 오류가 아니라 정상 구성이다.** 사용량은 로컬 원장만으로 완전히 동작하고,
     // 아래 `registerUsageJobs` 도 원격 잡을 등록하지 않는다. 폐쇄망 배포는
@@ -636,9 +629,34 @@ export class Bootstrap {
     )
     // scaffold → deploy 이후의 무효화. **두 cache 를 함께 비운다** — settings 만 비우면
     // 동적 runtime config 가 옛 sourceRevision 기준 값을 warm hit 로 계속 돌려준다.
-    harnessSettings.invalidateAll()
-    harnessRuntime.invalidate(undefined, 'settings-deploy')
-    runtimeModelCatalog.invalidate()
+    // Deploy invalidation is the last boot-time cache reset. Attach replays the latest snapshots
+    // only after it, so Gate resume fetches become the final catalog state instead of being erased.
+    await startRuntimeModelCatalogAfterDeploy({
+      invalidateSettings: () => harnessSettings.invalidateAll(),
+      invalidateRuntime: () => harnessRuntime.invalidate(undefined, 'settings-deploy'),
+      catalog: runtimeModelCatalog,
+      bridge: runtimeModelCatalogBridge,
+      resumeAuth: () => {
+        // The sole Auth-change consumer is installed only after deploy invalidation. No verified
+        // snapshot can fetch a contribution and then be erased by the boot-time reset.
+        auth.subscribe((change: AuthChange) => {
+          pushConnectionState()
+          if (change.kind === 'snapshot' && change.credentialChanged) {
+            for (const plugin of plugins) {
+              if (plugin.auth.authId === change.authId) plugin.sync()
+            }
+            harnessRuntimeRef?.invalidateForAuth(change.authId)
+          }
+          if (change.kind === 'snapshot') {
+            void runtimeModelCatalogBridge.onSnapshot(change.authId, change.snapshot)
+          }
+        })
+        auth.subscribe((change) => {
+          if (change.kind === 'snapshot') authResume.onGateChange(change.authId)
+        })
+        void authResume.run()
+      }
+    })
     // ClaudeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
     await this.bootReport.step('skill-scan', { critical: false, label: '스킬 스캔' }, () =>
       this.refreshSkills()

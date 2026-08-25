@@ -54,7 +54,8 @@ export async function resolveTurnProvider(
   const settingsEntries = ctx.harnessSettings.list(req.adapter.id)
   const entries = mergeAgentEnvironments(
     toAgentEnvironments(settingsEntries, [req.adapter.id]),
-    (ctx.runtimeModelCatalog?.list() ?? []).filter((entry) => entry.adapter === req.adapter.id)
+    (ctx.runtimeModelCatalog?.list() ?? []).filter((entry) => entry.adapter === req.adapter.id),
+    (key) => ctx.runtimeModelCatalog?.isReadOnly(key) === true
   ).map((entry) => ({
     key: entry.key,
     harnessId: entry.adapter,

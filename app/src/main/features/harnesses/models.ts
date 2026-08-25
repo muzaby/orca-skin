@@ -78,9 +78,17 @@ export function toAgentEnvironments(
 
 export function mergeAgentEnvironments(
   settings: AgentEnvironment[],
-  runtime: AgentEnvironment[]
+  runtime: AgentEnvironment[],
+  isRuntimeManaged: (key: string) => boolean = () => false
 ): AgentEnvironment[] {
-  const merged = new Map(settings.map((entry) => [canonicalAgentKey(entry.key), entry]))
+  // A declared runtime contribution owns its canonical row even while its cache is empty. Keeping
+  // a colliding settings row here would expose an editable card that turn setup still treats as
+  // runtime-managed, so the UI would offer an action whose execution can only fail.
+  const merged = new Map(
+    settings
+      .filter((entry) => !isRuntimeManaged(entry.key))
+      .map((entry) => [canonicalAgentKey(entry.key), entry])
+  )
   for (const entry of runtime) merged.set(canonicalAgentKey(entry.key), entry)
   return [...merged.values()]
 }
