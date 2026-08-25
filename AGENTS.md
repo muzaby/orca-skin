@@ -54,7 +54,7 @@
 - **구현 주체 분담**: *기능 구현* 은 Codex, **리팩토링·버그수정 등 비기능 작업은 Claude 가 핸드오프 문서(`<NNNN-slug>/plan.md`)를 만들어 직접 구현까지 수행**한다. 이때도 핸드오프 절차(plan → impl → verify)와 구현 커밋 trailer 형식은 동일하게 따른다.
 - **진입 트리거 (구현 요청 시 find-or-create)**: 사용자 요청이 *자료조사/질문/요약* 이 아니라 **구현·작업 요청**("구현해줘"·"고쳐줘"·"추가해줘"·리팩토링·버그수정 등)이면, `INDEX.md` 에서 해당 핸드오프를 **찾고, 없으면 `max(번호)+1` 로 새로 생성(`<NNNN-slug>/plan.md`, 설계 턴부터)**한다 — 구현 요청이라도 plan(설계)을 건너뛰지 않는다. 자료조사/질문은 핸드오프 없이 바로 답한다. **예외(핸드오프 생략, `Handoff: none` 직접 커밋 허용)**: 트리비얼(오타·주석·한두 줄) 및 *핸드오프 인프라 자체* 메타 수정. **애매하면 핸드오프 생성**(설계-우선 기본값). handoff 인프라의 normative 지침/SKILL/template/AGENTS를 바꾸면 `handoff-review`의 **Tier 1(full: instruction-delta + historical regression + cross-document consistency)** 검증을 수행한다. 실행 의미·owner·gate·policy가 불변인 단순 오탈자·상대경로·링크 정정은 **Tier 2(affected instruction-delta + cross-document consistency)** 로 줄일 수 있다. **tier가 애매하면 Tier 1**이다. (분류·절차 상세는 `docs/handoff/AGENTS.md`.)
 - **착수 전 항상 [`docs/handoff/INDEX.md`](docs/handoff/INDEX.md) 를 먼저 읽는다** — "지금 누구 차례인가" 의 단일 진실원(디스패치 보드).
-- 흐름: Claude `plan.md`(READY) → Codex 구현 + 게이트 통과(`impl/IMPL_DONE`) → Claude `verify.md`(PASS/FAIL). FAIL 이면 verify 의 "미충족" 체크리스트로 Codex 재구현.
+- 흐름: Claude `plan.md`(READY) → Codex 구현 + 게이트 통과(`impl/IMPL_DONE`) → Claude `verify.md`(PASS/FAIL). FAIL 이면 verify 의 "미충족" 체크리스트로 Codex 재구현 — **단 파생 이슈가 `규범 정정 필요`(Decision·AC·§10)를 달고 있으면 Claude 의 규범 행 정정이 먼저다** (구현자는 규범 행을 고칠 수 없어 그대로 넘기면 요구가 소멸한다).
 - 규칙·상태 머신·템플릿 정본은 [`docs/handoff/AGENTS.md`](docs/handoff/AGENTS.md).
 - **단계별 스킬 = 절차의 정본**: `plan.md`는 [`.agents/skills/handoff-plan/`](.agents/skills/handoff-plan/), **구현 턴은 [`.agents/skills/handoff-impl/`](.agents/skills/handoff-impl/)**, `verify.md`는 [`.agents/skills/handoff-verify/`](.agents/skills/handoff-verify/), handoff 지침 자체의 개선은 [`.agents/skills/handoff-review/`](.agents/skills/handoff-review/)를 쓴다 (`.claude/skills` 는 `.agents/skills` 를 가리키는 심링크). `plan`/`impl`/`verify`는 정상 작업 중 과거 실패 사례를 읽어 즉석에서 자기 규칙을 만들거나 corpus를 직접 갱신하지 않는다. **역사적 실패 사례는 `handoff-review/references/failure-patterns.md` 진입점을 통해 review가 지침 변경 후 회귀 검증에만 사용**하며, 사례 추가/일반화 여부도 review가 결정한다. `docs/handoff/AGENTS.md` 는 협업 규칙·상태 머신·**게이트 정본**과 skill 을 읽지 못하는 환경을 위한 **구현 턴 최소 계약**을 갖는다.
 
@@ -66,6 +66,7 @@
 
 - 제목: `<type>(<scope>): <요약>` (type=`feat|fix|refactor|docs|test|chore`).
 - 본문과 빈 줄로 분리된 마지막 문단에 trailer 를 모은다. 안 쓰는 키는 줄을 생략한다(빈 값 금지). **trailer 블록 내부에는 빈 줄을 넣지 않는다** — `Co-Authored-By`·세션 URL 도 같은 블록(빈 줄로 끊으면 앞 trailer 가 파싱에서 누락).
+- **커밋한 뒤 `git log -1 --format='%(trailers:only=true)'` 로 파싱을 확인한다.** 값이 허용값이어도 파싱은 별개 축이고 빈 줄만이 원인은 아니다 — 리터럴 `\n` 이 개행으로 해석되지 않으면 본문과 trailer 가 한 줄이 되어 전부 0건이 된다.
 
 | Key | 허용값 | 작성 주체 |
 |---|---|---|

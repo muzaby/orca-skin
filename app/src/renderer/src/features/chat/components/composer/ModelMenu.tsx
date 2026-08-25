@@ -37,23 +37,23 @@ export function ModelMenu({
             {agent.key}
           </div>
           {agent.models.map((model) => {
-            const alias = modelKey(model)
-            const active = selection?.providerKey === agent.key && selection.modelFamily === alias
+            const modelId = modelKey(model)
+            const active = selection?.providerKey === agent.key && selection.modelFamily === modelId
             return (
               <MenuItem
-                key={`${agent.key}/${alias}`}
+                key={`${agent.key}/${modelId}`}
                 role="menuitemradio"
                 aria-checked={active}
                 icon="cpu"
                 iconSize={13}
                 align="start"
                 onClick={() =>
-                  onPick({ providerKey: agent.key, modelFamily: alias, adapter: agent.adapter })
+                  onPick({ providerKey: agent.key, modelFamily: modelId, adapter: agent.adapter })
                 }
               >
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink">
-                    {alias}
+                    {model.alias}
                     {model.oneMillionContext && <span className="text-[10px] text-ink3">1M</span>}
                     {model.isDefault && <span className="text-[10px] text-rust">default</span>}
                     {active && <Icon name="check" size={12} />}

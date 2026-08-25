@@ -270,6 +270,8 @@ export interface AgentEnvironment {
   provider?: string
   models: AgentModelView[]
   supported: boolean
+  source?: 'settings' | 'runtime'
+  readOnly?: boolean
 }
 
 export interface CreateEngineRequest {

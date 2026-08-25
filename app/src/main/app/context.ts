@@ -12,6 +12,7 @@ import type { UsageTracker } from '../features/usage/tracker'
 import type { ExtensionBuilder } from '../features/extensions/builder'
 import type { HarnessSettingsService } from '../features/harnesses/settings'
 import type { HarnessRuntimeConfigService } from '../features/harnesses/runtime-config'
+import type { RuntimeModelCatalog } from '../features/harnesses/runtime-catalog'
 import type { Scheduler } from '../features/scheduler'
 import type { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
 import type { AuthRuntime } from '../contracts/auth'
@@ -59,4 +60,5 @@ export interface RouterContext {
   auth?: AuthRuntime
   gate?: Gate
   harnessRuntime?: HarnessRuntimeConfigService
+  runtimeModelCatalog?: RuntimeModelCatalog
 }
