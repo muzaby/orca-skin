@@ -8,12 +8,219 @@
 |---|---|
 | slug | `0198-runtime-model-catalog` |
 | 검증자 | Claude Code |
-| 일자 | 2026-08-24 |
-| 대상 커밋/range | `4be8f95..176a73f` (r5 구현) · 라운드 이력 `803bd50`(r1) · `8e17aae`(r3) · `4be8f95`(r4) |
-| 구현 전 plan 기준 | **부분 성립** — `176a73f`가 D-008(규범 행)을 구현과 같은 커밋에서 고쳤다(r5 §0) |
-| 라운드 | 5 |
+| 일자 | 2026-08-25 |
+| 대상 커밋/range | `f3f9968..a843557` (r6 구현 — INDEX·plan이 적은 `d214581`은 실재하지 않는다, r6 §11) · 라운드 이력 `803bd50`(r1) · `8e17aae`(r3) · `4be8f95`(r4) · `176a73f`(r5) |
+| 구현 전 plan 기준 | **미성립** — `a843557`이 설계(D-009·AC5·AC7·AC11·§10 2행)와 구현·보고·보드를 한 커밋에 담았다(r6 §0) |
+| 라운드 | 6 |
 | 상태 | **FAIL** |
 | 자기 검증 여부 | 아니오 — 설계·구현 Codex, 검증 Claude Code |
+
+---
+
+# 라운드 6 — FAIL
+
+## 0. 기준선 / plan 변경 확인
+
+- **기준선이 diff로 성립하지 않는다 — 설계·구현·보고·보드가 한 커밋(`a843557`)이다.** r6 설계 턴의 규범 정정 커밋이 저장소에 없다(`git log f3f9968..a843557` = 1 커밋). §0의 자기 증명 방지 장치는 이번 라운드에 작동하지 않았다.
+- **"AC 변경 없음"을 확인할 수 없다.** 같은 커밋이 D-009 신설 · D-008 본문 · AC5·AC7·AC11 · §10 2행(read-only 정정 + cache 수명 신설) · Part I §5 2행 · §7 순서 기준 · §13을 함께 담는다. r3 D15 · r5 D31①과 같은 축의 3회차다.
+- **채점 기준을 이번 문서에 인용해 고정한다** (현행 plan 원문, `a843557` 시점):
+  - D-009 = "부팅 deploy 무효화는 Auth 구독·resume·catalog attach보다 먼저 완료하고, 그 뒤 Gate 자동 인증 snapshot이 부팅 세션의 최종 runtime contribution을 만든다."
+  - AC11 = "앱 재시작 때 부팅 deploy 무효화를 Auth 구독·resume·catalog attach보다 먼저 끝낸다. 저장 grant만으로는 자동 entry를 노출하지 않고 Gate 자동 인증 성공 뒤 contribution을 1회 fetch해 최종 catalog에 유지한다."
+  - AC5 = "…contribution cache가 무효화되면 같은 canonical key의 settings 행까지 미노출된다."
+  - AC7 = "…또는 Auth 밖 cache 무효화 시 영향받은 canonical contribution key만 제거된다. 충돌하지 않는 사용자 설정 entry는 보존한다."
+  - §7 순서 기준 = "부팅 deploy 무효화 완료 < Auth 구독 < `authResume.run()` < catalog attach 순서를 고정한다."
+- **D-009의 사용자 근거는 문서 자기 진술뿐이다.** plan §3이 출처를 "사용자 `/handoff-plan` 갱신 지시 (2026-08-25)"로 적었고 그 내용은 r5 verify D24가 올린 권장안과 같다. 저장소 안에서 확인할 수 있는 것은 여기까지다.
+- Decision Ledger: D-001~D-009 ACTIVE, SUPERSEDED 0건.
+
+## 1. Product & UX / ACTIVE Decision 요약
+
+| Decision | 기대 결과 | 실제 production path |
+|---|---|---|
+| D-009 | 부팅 deploy 무효화가 Auth 구독·resume·attach보다 먼저 | `bootstrap.ts:634` → `runtime-model-startup.ts:30-34` ✅ |
+| D-008(D25 정정) | 무효화된 canonical key는 settings 행까지 미노출 | `models.ts:89` 필터 + `misc.ts:45`·`turn-setup.ts:58` ✅ |
+| D-001~D-007 | r5에서 전건 ✅ | 이번 라운드 diff가 건드리지 않았다 — 판정은 r5 §1 |
+
+### end-to-end 흐름 (r6이 바꾼 구간만)
+
+```text
+extension-deploy 완료
+  → invalidateSettings → invalidateRuntime → catalog.invalidate()
+  → bridge.attach(catalog)          ← latest snapshot 재생(부팅 전 도착분 포함)
+  → resumeAuth(): auth.subscribe ×2 → authResume.run()
+  → Gate verified snapshot → catalog.reconcile → runtime.resolve 1회 → entry
+```
+
+## 2. 구현 결과 비판적 검토 — AC 전에
+
+| 질문 | 판정 | 근거/후속 |
+|---|---|---|
+| Product/UX의 A가 아닌 B를 구현했는가 | **부분 — 순서가 §7과 다르다** | 구현은 `attach`가 3번째(`runtime-model-startup.ts:32`), §7은 마지막을 요구한다(D35) |
+| false success 가능성 | 없음 | 빈 `availableModels`는 entry 삭제로 수렴(`runtime-catalog.ts:92`) |
+| 늦은 응답이 화면을 되돌리는가 | 아니오 | attach 전 도착 snapshot은 `latest` 버퍼로 재생되고 generation fence를 그대로 통과(검증자 probe, §7) |
+| 증상만 제거하고 상태가 남는가 | 아니오 | cache MISS인 canonical key는 목록·턴 후보 양쪽에서 사라진다(검증자 probe, §7) |
+| 부팅 지연 | 있음(수용) | `authResume.run()`이 db-init·scaffold·deploy 뒤로 이동했다 — probe는 await하지 않으므로 부팅을 붙들지 않는다 |
+| 출력/요청 worst-case 상한 | 변화 없음 | contribution 수 × 1, polling 0 |
+
+## 3. 역방향 탐색
+
+```bash
+bash .agents/skills/handoff-verify/scripts/scan-surface.sh f3f9968..a843557
+```
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| 미사용 export | 없음 | 스크립트 1a·1b 모두 `(없음)` |
+| 테스트 전용 참조 | 없음 | `affectedRuntimeModelAuthIds`·`startRuntimeModelCatalogAfterDeploy` 둘 다 `bootstrap.ts`가 호출 |
+| 형제 정책 비대칭 | 없음 | `mergeAgentEnvironments` 두 production 호출자가 모두 3번째 인자를 넘긴다(`rg mergeAgentEnvironments src/` = production 2건) |
+| 신규 기본 인자의 기존 소비처 | **주의** | `isRuntimeManaged`가 기본값 `() => false`라 인자 누락이 타입 오류가 아니다 — M-B가 그 자리다(D32) |
+| producer ↔ consumer 파생 불일치 | 없음 | `canonicalProviderKey(key,['claude'])`와 `canonicalAgentKey`는 trim+lowercase로 같은 값을 낸다(`provider-key.ts:41`) |
+| 배포 선언의 실제 값 | **문맥** | `RUNTIME_MODEL_CONTRIBUTIONS = []`·`AUTH_INVALIDATED_HARNESS_KEYS = {}`(`harness-runtime.ts:114,118`) — 기본 배포에서 이 기능은 **전부 비활성**이다. 폐쇄망 배포가 채우는 확장점이므로 AC 검증은 port 계약 수준까지만 가능하다 |
+
+## 4. 기존 테스트 / semantic 검증 확인
+
+- **이번 라운드 수정의 잠금 재측정: 5 production hunk에 변이 8건 — 검출 5 · 미검출 3.** 구현자는 3건을 보고했고 검증자는 술어를 한 단계 엄격하게(호출 삭제 → 호출 의미 변형) 바꿔 다시 셌다.
+
+| 변이 | 되돌린 지점 | 결과 |
+|---|---|---|
+| M-A | `models.ts:89` 충돌 필터 제거 | 검출 — 2파일 신규 red(`settings`·`turn-setup.runtime-catalog`) |
+| M-B | `misc.ts:45` 3번째 인자 제거 | **미검출 — 5파일/42케이스, 베이스라인과 동일** |
+| M-C | `turn-setup.ts:58` 3번째 인자 제거 | 검출 — 1파일 신규 red |
+| M-D | `bootstrap.ts:476` cross-auth 루프 삭제 | 검출 — 단 `runtime-model-startup.test.ts`의 **소스 문자열 grep**만 |
+| M-D2 | 같은 루프에 `.filter((item) => item === authId)` 부착(r5 D29 버그 재현, grep 문자열 유지) | **미검출 — 베이스라인과 동일** |
+| M-E | `runtime-model-startup.ts` `catalog.invalidate()`를 attach·resume 뒤로 이동 | 검출 — 순서 테스트 red |
+| M-G | `engine.ts:39` `catalog.invalidate()` 제거 | 검출 — `engine.runtime-catalog.test.ts` red |
+| M-H | `auth.subscribe` 2개 + `authResume.run()`을 deploy 앞으로 복귀, `resumeAuth: () => {}` (r5 D24 버그 재현) | **미검출 — 베이스라인과 동일, `npm run typecheck` exit 0** |
+
+- **`runtime-model-startup.test.ts`의 첫 케이스는 production 계약을 잠그지 않는다.** `readFileSync('./bootstrap.ts')` + `toContain('await startRuntimeModelCatalogAfterDeploy({')`는 호출의 **존재**만 본다 — 인자가 무엇인지, 순서가 실제로 어떤지는 보지 않는다. M-H는 그 문자열을 남긴 채 D24를 그대로 되살린다.
+- **순서 테스트는 helper 안쪽만 잠근다.** `startRuntimeModelCatalogAfterDeploy`에 주입한 fake 5개의 호출 순서를 단언하므로 helper의 내부 순서는 잠기지만, `bootstrap.ts`가 그 helper에 **무엇을** 넘기는지는 잠기지 않는다.
+
+## 5. 요구사항 충족 매트릭스
+
+| # | 제품/동작 기준 | 결과 | 검증 증거 | production path |
+|---|---|---|---|---|
+| AC1~AC4·AC14 | exact shape · family · custom self · 두 producer 동일 규칙 | ✅ | r6 diff가 건드리지 않았고 해당 스위트가 전건 green — 재측정 원문은 r5 §5 | parser → catalog |
+| AC5 | read-only 등록 + 무효화 시 같은 key의 settings 행 미노출 | ✅ | **검증자 probe**: 선언 key 1 + settings 2행에서 `[' CLAUDE-Corp ', 'claude-mine']` → `['claude-mine']` | `toAgentEnvironments` → `mergeAgentEnvironments` → agent:list |
+| AC6 | 수동·자동 로그인 각각 fetch 정확히 1회 | ⚠️ | revision 단위 1회·동시 합류는 r5에서 관측 · **bootstrap 배선은 여전히 소스 grep뿐**(M-H 미검출) | authResume/login → bridge |
+| AC7 | 영향받은 canonical key만 제거, 비충돌 entry 보존 | ✅ | 같은 probe가 총량 1행과 0건(충돌 행 부재)을 함께 단언 · 5원인 제거는 r5 §7 | AuthChange/settings invalidation → catalog |
+| AC8 | 늦은 성공 폐기 + 재인증 새 fetch 1회 | ✅ | r5 §5 원문 · `runtime-catalog.ts:88,110`의 generation fence 변경 없음 | subscribe → fence |
+| AC9 | Engine read-only 표시 + 액션 미제공 + IPC 거부 | ⚠️ | `EngineCard.tsx:20,33` · `engine.ts:44` `assertMutable` × add/update/delete/read 4좌표 · **두 테마 시각은 사람 실기** | agentStore → EngineCard / engine IPC |
+| AC10 | Composer 동일 집합 + 사라진 선택 재화해 | ✅ | `modelSelection` 스위트 green(전체 2098 중) · 목록·턴이 같은 병합 함수 | agentStore → Composer |
+| AC11 | 부팅 deploy 무효화 선행 + verified 후 1회 fetch해 **최종** catalog 유지 | ⚠️ | **검증자 probe**: attach 전 도착한 verified snapshot이 무효화를 지나 `['claude-corp']`로 남는다(r5는 `[]`였다) — 제품 동작은 닫혔다. **그러나 실제 bootstrap 순서는 잠기지 않았다**(M-H) | deploy invalidation → attach → subscribe/resume |
+| AC12 | 기존 CRUD·기본 3 alias 회귀 없음 + 정적 게이트 | ✅ | **검증자 실행**: typecheck exit 0(3구성) · lint 0 error · 전체 스위트 신규 red 0 | CI lint→typecheck→test |
+| AC13 | 세션 N·턴 M에서 fetch 증가 0 | ✅ | `turn-setup.runtime-catalog.test.ts` 4케이스가 실제 `HarnessRuntimeConfigService`로 augmenter 1회를 단언 · 만료 축은 r5 §7 | login → cache → 턴 cache-only |
+
+- **합계 재측정: `✅ 11 · ⚠️ 3 · ❌ 0 = 총 14`.** 자기보고는 `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14` — 분모 일치, **AC6·AC11이 ✅→⚠️로 갈린다**.
+- **합계 사본 대조: 본문 14 ↔ trailer `Criteria-Met: 13/14`·`Criteria-Pending: AC9` ↔ INDEX 비고 — 세 사본 일치**(0190형 분기 없음).
+- **D24는 닫혔다.** r5가 `list()=[]`로 관측한 자리에서 이번 probe는 entry가 남는다. 미충족은 동작이 아니라 **잠금**이다.
+
+### plan §10 강제 지점 표 — AC와 별개로 걷는다
+
+| 계약/필드 | plan이 적은 강제 지점 | 코드에서 확인한 지점 | 결과 |
+|---|---|---|---|
+| exact `availableModels` shape | settings load·runtime resolve (2) | `model-parser.ts` · `runtime-catalog.ts:89` | 2/2 |
+| family + model identity + self | materialize 2 · 선택/표시 2 (4) | parser · catalog · `models.ts:11` · `modelSelection.ts` | 4/4 |
+| runtime entry의 Auth 파생성 | verified·revoke·expired·unauthorized·failure (5) | `runtime-catalog.ts:73` 분기 4전이 + `:109` catch | 5/5 |
+| 로그인당 fetch 1·세션 0 | login 1 · session create·turn setup (3) | bridge `onSnapshot` · `misc.ts:45` · `turn-setup.ts:87` `cached()` | 3/3 |
+| read-only provenance | settings DTO·runtime DTO·UI·IPC 4종 = **6지점·7좌표** | `models.ts:68`·`runtime-catalog.ts:101`·`EngineCard.tsx:20`·`engine.ts:44`(add·update·delete·read 4좌표) | 6/6(좌표 7) |
+| **cache 수명 ↔ catalog 가시성**(r6 신설) | settings CRUD·부팅 deploy·Auth key·영향 authId 전원 (4) | `engine.ts:39` · `runtime-model-startup.ts:32` · `bootstrap.ts:471` · `bootstrap.ts:476` | 4/4 |
+| 두 UI 동일 snapshot | Engine·Composer (2) | `useEngines.ts` · `useAgents.ts` | 2/2 |
+
+- **분모 재측정: 2+4+5+3+6+4+2 = 26**(r5의 22 + 신설 행 4). 실효 **26/26** — 26지점 전부 코드에 있다.
+- **그러나 26 중 3지점은 잠금이 없다** — `misc.ts:45`(M-B) · `bootstrap.ts:476`(M-D2) · 부팅 순서 배선(M-H). "존재"와 "잠김"은 다른 축이다.
+- 구현자는 r6 총계를 적지 않았다(cache 수명 4/4와 read-only 6/7만 보고) — 대조할 자기보고 총계가 없다.
+
+## 6. 외부 포트 / 문서 계약
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| `docs/guides/closed-network-extensions.md` 6-a | 유지 | `:431`·`:444`가 exact field와 "설정 배포로 cache 무효화 → 자동 항목 미노출"을 갖는다(D22 산출) |
+| `docs/IPC_CONTRACT.md:69` | 유지 | `source`·`readOnly`·custom `alias='custom'` 서술이 코드와 일치 |
+| `docs/arch/frontend/ux-domains.md:159` | 유지 | read-only 배지·mutation 거부 서술 일치 |
+| **`docs/arch/backend/auth.md:583`** | **어긋남** | "Model 선택 UI 는 계속 settings.json 에서 파생한다 … 카탈로그 목록에 넣지 않는다" — 같은 파일 `:496`("runtime model catalog에만 투영한다", 이 handoff의 `803bd50`이 추가)과 코드에 정면으로 어긋난다. 어느 라운드도 지적하지 않았다(D38) |
+| `harness-runtime.ts` 배포 선언 | 유지 | 기본 배포는 빈 배열·빈 map이고 가이드가 채우는 법을 갖는다 |
+
+## 7. 숫자 / 음성 기준 / 상한 재측정
+
+- **대상 5파일/40케이스: 재측정 일치.** `vitest run` 5파일 지정 → `Test Files 5 passed (5) · Tests 40 passed (40)`. 자기보고와 같다 — **D30(자기보고 ↔ 재측정 분기)은 닫혔다**.
+- **전체 스위트는 이 환경에서 완주한다.** `213 files (208 passed / 5 failed)` · `2098 tests (2056 passed / 42 failed)`. 구현자는 "최종 집계 없이 중단"이라 보고했으나 여기서는 집계가 나온다.
+- **42 red는 전부 알려진 ABI 베이스라인이다.** 5파일 = `infra/db/queries` · `infra/db/migrate` · `features/extensions/builder` · `features/orchestration/fork` · `app/chat-turn.continuity` — `app/AGENTS.md:135`의 실측 목록과 정확히 같다. 서명은 `NODE_MODULE_VERSION 140 … requires 127`(Electron ABI 바이너리를 plain Node가 로드). 변경 무관.
+- **r5 대비 케이스 증가 8 = r6이 추가한 테스트 8건**(startup 3 · engine 1 · turn-setup 1 · runtime-catalog 1 · settings 2). r5 검증자 재측정 2090 + 8 = 2098로 맞는다 — r5의 재측정값이 옳았음을 이번 수치가 뒷받침한다.
+- **probe의 0건 기준은 총량과 함께 단언했다.** AC5 probe는 "충돌 행 부재"만이 아니라 "`claude-mine` 1행 보존"을 같은 `toEqual`에 넣어 목록이 비어서 통과하는 거짓 양성을 막았다.
+
+## 8. 테스트 가능한 핸들 탐색 후 남은 사람 실기
+
+- **`bootstrap.ts`는 electron을 import해 vitest가 직접 열 수 없다.** 그래서 r6은 순서를 helper로 뽑았고 그 선택 자체는 옳다 — 다만 helper **호출부**를 잠글 핸들이 아직 소스 grep뿐이다. 대안이 있다: `resumeAuth` 콜백을 `bootstrap.ts` 밖 순수 팩토리(예: `createAuthResumeInstaller(deps)`)로 한 겹 더 뽑으면 "무엇을 넘겼는가"까지 주입 테스트로 잠긴다(D33).
+- **남는 사람 실기는 AC9의 두 테마 시각 확인 하나다.** 배지 문자열·액션 부재·IPC 거부는 기계 검증이 끝났고 GUI/X server 부재는 이번에도 같다.
+
+## 9. 게이트 재실행
+
+| 게이트 | 산출 | 판정 |
+|---|---|---|
+| `npm run typecheck` | 3구성(node·web·test) 전건 통과, error 0 | ✅ |
+| `npm run lint` | `✖ 1 problem (0 errors, 1 warning)` — `useTranscriptVirtualizer.ts:22` 기존 warning | ✅ |
+| lint 후 트리 | `git status --short` 무출력 — `--fix`가 아무 파일도 쓰지 않았다 | ✅ 자기 실행분 혼입 0 |
+| `vitest run`(전체) | 213파일/2098케이스, red 5파일/42케이스 = ABI 베이스라인 | ✅ 신규 red 0 |
+| `node scripts/check-doc-inventory.mjs --check` | `9 items, 76 channels` · prose ok · links ok | ✅ |
+| `git diff --check` | 무출력 | ✅ |
+
+- **exit code를 통과 증거로 쓰지 않았다.** 첫 전체 실행은 `--reporter=basic`이 이 vitest(v4.1.10)에 없어 **케이스 0건 실행**으로 끝났다. 리포터를 기본값으로 바꿔 다시 돌린 뒤에야 집계가 나왔다 — 산출을 보지 않았다면 그 실행을 게이트로 옮길 뻔했다.
+- **검증 잔여물 0.** `npm ci`가 만든 `node_modules`는 `app/.gitignore:149`가 무시하고, probe 테스트 파일은 실행 후 삭제해 트리는 깨끗하다.
+
+## 10. 검증 책임 분리 — 사람 vs 에이전트
+
+- 에이전트가 닫았다: 26 강제 지점 실재, AC5·AC7·AC11 제품 동작 probe, 변이 8건, 게이트 6종, 문서 4종 대조.
+- 사람이 결정한다: AC9 두 테마 시각 · §7 순서 기준을 attach-마지막으로 둘지 attach-먼저로 둘지(D35) · `RUNTIME_MODEL_CONTRIBUTIONS`가 빈 배포에서 이 기능을 어디까지 검증된 것으로 볼지.
+
+## 11. Repository operation checks
+
+| 대상 | 판정 | 근거 |
+|---|---|---|
+| INDEX 상태·다음 주체 | 정합 | `impl/IMPL_DONE (r6)` · 다음 주체 Claude(재검증)로 실제 상태와 일치했다 |
+| INDEX 비고 길이 | 정합 | 4문장 — 5줄 상한 안 |
+| **대상 커밋 좌표** | **불일치** | INDEX·plan 두 사본이 `d214581`(r6)을 가리키는데 **그 객체가 없다** — `git cat-file -t d214581` = `Not a valid object name`, `git rev-list --all` 전수에도 없다. 실제 r6 좌표는 `a843557`(D36) |
+| 구현자의 좌표 근거 진술 | **거짓** | plan이 "`git show --stat d214581`로 실재를 확인했다"고 적었으나 이 저장소에서 그 명령은 실패한다 |
+| commit trailer 허용값 | 정합 | `Agent: codex` · `Status: implemented` · `Criteria-*` · `Verified-By: pending` — `docs/git-template.md` 허용값 |
+| **커밋 분리** | **불일치** | `a843557`이 규범 행 정정과 구현 산출을 한 커밋에 담았다(D37) |
+| AGENTS.md 변경 | 해당 없음 | r6 diff에 `AGENTS.md` 없음 |
+| reference/script 이동 | 해당 없음 | 이동·삭제 0 |
+
+## 12. 구현자 코멘트 / 선조치 경계
+
+- **"설계 대비 명시적 차이: 없음"은 사실과 다르다.** 같은 절이 구현 순서를 `… → catalog invalidate → attach → Auth subscribe/resume`로 적었고 이는 §7의 `… < Auth 구독 < authResume.run() < catalog attach`와 다르다. 차이를 적고 그 차이가 만드는 실패 모드를 단언했어야 한다(D35).
+- **cross-auth 선조치는 타당하다.** `AUTH_INVALIDATED_HARNESS_KEYS[A]`가 B 소유 key를 가리킬 수 있다는 진단은 배포 계약상 실재하고 `affectedRuntimeModelAuthIds`의 단위 테스트가 helper를 잠근다. 잠기지 않은 것은 호출부다(D34).
+- **"이번 라운드 수정의 잠금" 보고는 3건으로 좁다.** r6이 만진 production hunk는 5개인데 변이는 3개만 걸었다 — 걸리지 않은 두 hunk(`misc.ts` 인자, bootstrap 호출부)가 정확히 미검출 자리다.
+
+## 13. 파생 이슈
+
+| # | 이슈 | 출처 | 대응 방향 |
+|---|---|---|---|
+| D32 | `misc.ts:45`의 3번째 인자를 지워도 전체 스위트가 베이스라인과 같다(변이 M-B) — AC5가 지목한 **두 UI 목록** 경로가 잠기지 않았다 | verify r6 · AC5·§10 6행 | `agent:list` handler를 `engine.runtime-catalog.test.ts`의 `vi.mock('../../infra/ipc/handle')` 패턴으로 열어 catalog 주입 후 충돌 행 미노출을 단언한다 |
+| D33 | `auth.subscribe`×2 + `authResume.run()`을 deploy 앞으로 되돌려도 전건 통과하고 typecheck exit 0(변이 M-H) — AC11·D-009의 실제 배선이 소스 문자열 grep으로만 잠겼다 | verify r6 · AC11·AC6 | `resumeAuth` 설치를 순수 팩토리로 한 겹 더 뽑아 "helper에 무엇을 넘겼는가"를 주입 테스트로 잠근다 |
+| D34 | cross-auth 루프에 `.filter(item => item === authId)`를 붙여 r5 D29 버그를 되살려도 미검출(변이 M-D2) | verify r6 · §10 cache 수명 4행 | helper 반환값이 아니라 **호출 결과로 재조정된 authId 집합**을 관측하는 seam을 만든다 |
+| D35 | plan §7 순서 기준(attach 마지막)과 구현(attach 3번째)이 어긋나는데 "설계 대비 차이 없음"으로 보고됐다 | verify r6 · §7·D-009 | **attach를 subscribe 앞에 두는 현재 구현이 옳다면 §7 순서 기준을 그 순서로 정정한다.** 반대라면 구현을 바꾼다 — 어느 쪽이든 규범 행 수정이다 · **규범 정정 필요** |
+| D36 | INDEX·plan 두 사본의 r6 좌표 `d214581`이 실재하지 않는다. 실제 좌표는 `a843557` | verify r6 · §11 | 좌표는 이번 검증 커밋에서 `a843557`로 교정했다. 다음 라운드는 좌표를 적기 전에 `git cat-file -t`로 확인한다 |
+| D37 | `a843557`이 규범 행(D-009·AC5·AC7·AC11·§10 2행)과 구현을 한 커밋에 담아 §0 기준선이 성립하지 않는다 — r3 D15·r5 D31①의 3회차 | verify r6 · §0 | 설계 턴 커밋과 구현 커밋을 나눈다. 과거 커밋은 history rewrite 없이 남긴다 |
+| D38 | `docs/arch/backend/auth.md:583`이 "Model 선택 UI 는 계속 settings.json 에서 파생한다 … 카탈로그 목록에 넣지 않는다"로 남아 같은 파일 `:496`·코드와 어긋난다 | verify r6 · 기준 밖 · §16 | 현재 동작(settings + runtime catalog 합성)으로 문장을 정정한다. `803bd50`이 §6.1·§6.2만 고치고 §6.5 말미를 두고 갔다 |
+| D39 | `bootstrap.ts:382-384`의 "── Auth change 소비 ── listener 를 resume 보다 먼저 붙인다" 주석이 bridge 팩토리 위에 남아 실제 listener(`:642-657`)를 가리키지 않는다 | verify r6 · 위생 | 주석을 listener가 있는 자리로 옮긴다. 불변식 자체는 closure 안에서 지켜진다 |
+
+## 14. Review Signals — 사실만
+
+- **이전 라운드와 동일 증상**: D37은 r3 D15 · r5 D31①과 같은 축(규범 행과 구현의 커밋 혼입)의 3회차다. D36은 r2 D10 · r3 D15 · r4 D23 · r5 D31②에 이은 좌표 위생 5회차다.
+- **관련 plan 지침/AC의 존재**: D32·D33·D34는 §10의 해당 행과 AC5·AC11이 이미 요구한 지점이다 — 지침 부재가 아니라 **지점의 "존재"를 "잠김"으로 읽은 결과**다.
+- **사용자 결정 변경 근거**: D-009는 plan §3에 "사용자 `/handoff-plan` 갱신 지시 (2026-08-25)"로 기록돼 있고 r5 verify D24의 권장안과 같다. 결정 자체는 저장소에서 재현할 수 없다.
+- **반복된 검증 환경 한계**: GUI/X server 부재로 AC9 시각 확인은 6라운드 연속 사람 몫이다. better-sqlite3 ABI red 5파일도 반복이다 — 단 이번 환경은 전체 스위트가 완주해 집계가 나왔다.
+- **현재 라운드: 6.** 라운드가 3을 넘었으므로 다음 재구현 전에 `handoff-review`를 수행한다.
+
+## 15. 결론
+
+- 상태: **FAIL**
+- Product/UX 및 ACTIVE Decision 충족: **D-009와 D-008(D25 정정)은 충족한다** — r5의 D24·D25는 검증자 probe로 닫힌 것을 확인했다. D-001~D-007은 r5 판정 유지.
+- AC 충족: `✅ 11 · ⚠️ 3 · ❌ 0 = 총 14`. 자기보고 `✅ 13 · ⚠️ 1`과 AC6·AC11에서 갈린다 — **동작이 아니라 잠금이 미달**이다.
+- 강제 지점: 재측정 분모 **26**(r5의 22 + 신설 4), 실효 **26/26** 존재. 그중 **3지점은 변이로 검출되지 않는다**.
+- 기준 밖 결함: `auth.md:583`의 카탈로그 미투영 서술(D38) — 이 handoff가 만든 drift이고 5라운드 동안 아무도 보지 않았다.
+- repository operation checks: **좌표 1건 사망(2사본) · 규범/구현 동일 커밋 1건**. trailer 허용값·INDEX 상태·비고 길이는 정합.
+- 남은 사람 확인: AC9 두 테마 시각, D35의 순서 기준 방향.
+- 다음 단계: **설계자(Claude)** — D35가 규범 행(§7 순서 기준) 정정을 요구하므로 구현자에게 바로 넘기지 않는다. 라운드 6 > 3이므로 재구현 전에 `handoff-review`를 함께 수행한다. 그 뒤 D32~D34(잠금) · D36~D39(위생·문서)를 구현 라운드로 넘긴다.
 
 ---
 
