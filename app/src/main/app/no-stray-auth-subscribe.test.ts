@@ -8,6 +8,7 @@ const MAIN_ROOT = join(__dirname, '..')
 const AUTH_SUBSCRIBE = /\bauth\s*\.\s*subscribe\s*\(/
 const TRANSFORMED_CONTRIBUTIONS = /\bRUNTIME_MODEL_CONTRIBUTIONS\s*\./
 const START_RUNTIME_MODEL_CATALOG = /\bstartRuntimeModelCatalogAfterDeploy\s*\(/
+const INSTALL_AUTH_RESUME = /\bcreateRuntimeModelAuthResume\s*\(/
 
 function authSubscribeFiles(root: string): string[] {
   return sourceFiles(root)
@@ -15,13 +16,21 @@ function authSubscribeFiles(root: string): string[] {
     .map((file) => basename(file))
 }
 
-function runtimeModelStartupCallers(root: string): string[] {
+// 호출 형태(`이름(`)만 실재로 센다 — import 절의 식별자 언급은 배선이 아니다.
+// 정의 파일(`runtime-model-startup.ts`)을 제외하므로 production 호출부가 사라지면 빈 배열이 된다.
+function productionCallers(root: string, callPattern: RegExp): string[] {
   return sourceFiles(root)
     .filter((file) => basename(file) !== 'runtime-model-startup.ts')
-    .filter((file) =>
-      START_RUNTIME_MODEL_CATALOG.test(stripCommentsAndStrings(readFileSync(file, 'utf8')))
-    )
+    .filter((file) => callPattern.test(stripCommentsAndStrings(readFileSync(file, 'utf8'))))
     .map((file) => basename(file))
+}
+
+function runtimeModelStartupCallers(root: string): string[] {
+  return productionCallers(root, START_RUNTIME_MODEL_CATALOG)
+}
+
+function authResumeInstallers(root: string): string[] {
+  return productionCallers(root, INSTALL_AUTH_RESUME)
 }
 
 describe('runtime model Auth composition seam', () => {
@@ -31,6 +40,10 @@ describe('runtime model Auth composition seam', () => {
 
   it('starts the runtime model catalog from the production composition root', () => {
     expect(runtimeModelStartupCallers(MAIN_ROOT)).toEqual(['bootstrap.ts'])
+  })
+
+  it('installs the Auth resume listener helper from the production composition root', () => {
+    expect(authResumeInstallers(MAIN_ROOT)).toEqual(['bootstrap.ts'])
   })
 
   it('passes runtime model contribution declarations without transforming them', () => {
@@ -44,15 +57,20 @@ describe('runtime model Auth composition seam', () => {
     writeFileSync(join(root, 'ignored.test.ts'), 'auth.subscribe(listener)\n')
     writeFileSync(
       join(root, 'nested', 'bootstrap.ts'),
-      'startRuntimeModelCatalogAfterDeploy(input)\n'
+      ['startRuntimeModelCatalogAfterDeploy(input)', 'createRuntimeModelAuthResume(input)'].join(
+        '\n'
+      )
     )
     writeFileSync(
       join(root, 'ignored-startup.test.ts'),
-      'startRuntimeModelCatalogAfterDeploy(input)\n'
+      ['startRuntimeModelCatalogAfterDeploy(input)', 'createRuntimeModelAuthResume(input)'].join(
+        '\n'
+      )
     )
 
     expect(authSubscribeFiles(root)).toEqual(['install.ts'])
     expect(runtimeModelStartupCallers(root)).toEqual(['bootstrap.ts'])
+    expect(authResumeInstallers(root)).toEqual(['bootstrap.ts'])
   })
 
   it('detects Auth subscription calls but ignores comments and strings', () => {
@@ -90,5 +108,26 @@ describe('runtime model Auth composition seam', () => {
 
     writeFileSync(join(root, 'bootstrap.ts'), 'await startRuntimeModelCatalogAfterDeploy(input)\n')
     expect(runtimeModelStartupCallers(root)).toEqual(['bootstrap.ts'])
+  })
+
+  it('detects resume installer calls but ignores the definition, imports, comments, and strings', () => {
+    const root = mkdtempSync(join(tmpdir(), 'orca-runtime-model-resume-'))
+    writeFileSync(
+      join(root, 'runtime-model-startup.ts'),
+      'export function createRuntimeModelAuthResume() {}\n'
+    )
+    writeFileSync(
+      join(root, 'bootstrap.ts'),
+      [
+        "import { createRuntimeModelAuthResume } from './runtime-model-startup'",
+        '// createRuntimeModelAuthResume(commented)',
+        "const hint = 'createRuntimeModelAuthResume(string)'"
+      ].join('\n')
+    )
+
+    expect(authResumeInstallers(root)).toEqual([])
+
+    writeFileSync(join(root, 'bootstrap.ts'), 'resumeAuth: createRuntimeModelAuthResume(input)\n')
+    expect(authResumeInstallers(root)).toEqual(['bootstrap.ts'])
   })
 })
