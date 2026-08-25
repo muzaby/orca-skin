@@ -41,7 +41,8 @@ export function registerMiscHandlers(ctx: RouterContext): void {
       .flatMap((adapter) => ctx.harnessSettings.list(adapter))
     return mergeAgentEnvironments(
       toAgentEnvironments(entries, supported),
-      ctx.runtimeModelCatalog?.list() ?? []
+      ctx.runtimeModelCatalog?.list() ?? [],
+      (key) => ctx.runtimeModelCatalog?.isReadOnly(key) === true
     )
   })
 

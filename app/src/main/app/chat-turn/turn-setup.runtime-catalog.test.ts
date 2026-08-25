@@ -130,4 +130,39 @@ describe('turn setup with the runtime model catalog', () => {
 
     expect(resolved.model).toBe('runtime-model')
   })
+
+  it('does not execute a colliding settings row after runtime invalidation', async () => {
+    const runtime = createHarnessRuntimeConfigService({
+      settings: { resolve: async () => undefined },
+      augmenters: { [contribution.key]: { resolve: async () => ({ runtimeEnv: {} }) } }
+    })
+    const catalog = createRuntimeModelCatalog({ contributions: [contribution], runtime })
+
+    const resolved = await resolveTurnProvider(
+      {
+        harnessSettings: {
+          list: () => [
+            {
+              key: ' CLAUDE-CORP ',
+              harnessId: 'claude',
+              modelProviderId: 'corp',
+              models: []
+            }
+          ]
+        },
+        runtimeModelCatalog: catalog,
+        harnessRuntime: runtime,
+        db: { getSessionById: () => undefined },
+        mcp: { resolver: () => () => undefined }
+      } as never,
+      {
+        adapter: { id: 'claude' } as never,
+        sessionId: null,
+        providerKey: contribution.key,
+        modelFamily: null
+      }
+    )
+
+    expect(resolved.providerKey).toBeNull()
+  })
 })

@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { HarnessSettingsService } from './settings'
 import { expandEnvRecord } from './env'
 import {
+  canonicalAgentKey,
   defaultModelFamily,
   mergeAgentEnvironments,
   modelNameForFamily,
@@ -215,6 +216,38 @@ describe('mergeAgentEnvironments', () => {
     const runtime = { ...settings, source: 'runtime' as const, readOnly: true }
 
     expect(mergeAgentEnvironments([settings], [runtime])).toEqual([runtime])
+  })
+
+  it('hides a canonical settings collision while its runtime-managed cache is empty', () => {
+    const settings = {
+      key: ' Claude-Corp ',
+      adapter: 'claude',
+      provider: 'corp',
+      supported: true,
+      source: 'settings' as const,
+      readOnly: false,
+      models: []
+    }
+
+    expect(
+      mergeAgentEnvironments([settings], [], (key) => canonicalAgentKey(key) === 'claude-corp')
+    ).toEqual([])
+  })
+
+  it('preserves settings rows that do not collide with a runtime-managed key', () => {
+    const settings = {
+      key: 'claude-other',
+      adapter: 'claude',
+      provider: 'other',
+      supported: true,
+      source: 'settings' as const,
+      readOnly: false,
+      models: []
+    }
+
+    expect(mergeAgentEnvironments([settings], [], (key) => key === 'claude-corp')).toEqual([
+      settings
+    ])
   })
 })
 
