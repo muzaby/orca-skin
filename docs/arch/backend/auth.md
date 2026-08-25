@@ -580,8 +580,9 @@ env 가 실제로 달라지므로 그때는 env 축이 정확히 잡아낸다.
   `env` 를 같은 값으로 전달한다.
 - fingerprint 가 spawn 당시 값과 다르면 continuation 전에 channel 을 teardown 한다.
 
-Model 선택 UI 는 계속 settings.json 에서 파생한다. runtime API 가 돌려준 모델 환경변수는 **실행
-구성에만** 반영하고 카탈로그 목록에 넣지 않는다.
+Model 선택 UI 는 settings 항목과 인증된 runtime model contribution을 합성한 catalog에서 파생한다.
+runtime API의 `availableModels`는 read-only 항목으로 합성되며, 실행 구성은 같은 runtime cache
+snapshot을 읽는다.
 
 ---
 
