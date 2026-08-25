@@ -1554,3 +1554,88 @@ SUPERSEDED 0 이라 **D 유형 오염 0**. INDEX 대상 커밋의 `(r4 구현)` 
 - **좌표 규칙은 분리 환경을 전제한다.** 한 에이전트가 설계·구현·검증을 모두 하는 환경에서는 구현자가 좌표를 적어도 무해하지만,
   규칙을 환경별로 갈라 두면 그 판정 자체가 새 실패면이 되므로 하나로 둔다.
 - better-sqlite3 bindings·GUI 부재는 round 15~17과 같은 환경 한계다. 단 이번 검증 환경은 전체 vitest가 완주했다(2098케이스 · ABI red 42).
+
+---
+
+# review round 19 — 잠금의 분모는 diff가 아니라 인용 변이 · 커밋 메시지도 다시 읽는다
+
+**발동**: 0198 impl 라운드 7(3 초과) + verify r7 FAIL + 같은 축(P44)의 3라운드 연속 재발.
+
+## 분류
+
+| # | 이슈 | 분류 | 조치 |
+|---|---|---|---|
+| D40 | r7이 만든 두 helper 안쪽은 잠겼으나 `bootstrap.ts` 호출부 2좌표가 열려 있다 — D33·D34가 인용한 변이가 2100케이스·typecheck exit 0을 통과 | **A** — P44 방어 5사이트가 전부 발동했고 `[구현자 기입]` 7필드도 채워졌다. **분모가 diff라서** 동작 보존 추출 라운드를 재지 못한다 | **P44 강화** — 분모를 인용 변이로 교체 + 7사이트 |
+| D43 | r7 구현 커밋 본문이 리터럴 `\n` 한 줄이라 trailer 파싱 0건 | **A** — root AGENTS·git-template이 원인 하나(블록 내부 빈 줄)만 금지한다. 정상 수행해도 이 원인은 걸리지 않는다. r3 D15가 같은 증상 1회차 | **P39 강화** — 다시 읽는 산출물에 커밋 메시지 포함 + 7사이트 |
+| D42 | 신규 handler 테스트의 `toEqual([])`가 총량 없이 0건만 단언 | **B** — 0198 plan §7 "AC 검증 주의사항"이 "자동 entry 제거와 사용자 entry 보존을 함께 단언"을 이미 적었고 P35도 방어한다 | 문장 추가 없음 |
+| D41 | AC11이 소스 문자열 검사를 전면 배제해 합성 seam을 잠글 수단이 없다 | **F** + **E** | 0198 설계 턴이 정한다. `bootstrap.ts` 미로딩 원인은 실측(아래 한계) |
+| — | §10 cache 수명 행이 무효화 4지점만 열거하고 유령을 실제로 막는 읽기 2좌표를 빼놓았다 | 관찰 | impl §2·verify §6의 "표 밖 지점" 규칙이 실제로 작동해 r7 verify가 찾았다. 1회 관측 → 규칙 추가 없음 |
+
+**B 1건에 문장을 더하지 않았다.** A 2건은 둘 다 **기존 규칙의 분모/적용면 교체**이고 신규 P는 0이다 —
+같은 causal class의 재발이라 사례를 늘리지 않는다(SKILL §7).
+
+## Tier
+
+**Tier 1.** 잠금 판정의 분모(evidence semantics)와 파생 이슈 `닫힘`의 정의, 커밋 후 필수 관측이 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+- 삭제 **22줄, DELETE 0건** — 전부 **REPLACE(superset)** 이고 원 책임이 추가분 안에 남는다:
+  impl §3 잠금 bullet · impl §5 파생 이슈 계약 문장 · impl §8 "닫았다" 문장 · `plan.template.md` 잠금 필드
+  주석 4줄과 표 2줄 · verify §4 bullet · verify §9 trailer bullet · `verify.template.md §4` ·
+  `git-template.md` 함정 heading·본문 · `docs/handoff/AGENTS.md` §2 잠금 bullet·§3 trailer 줄 ·
+  corpus P39·P44 `현재 방어` 6줄.
+- **초안이 3사이트 → 1사이트로 줄인 문장 1건을 복원했다** — "hunk 분모에서 아무것도 실패하지 않으면
+  잠기지 않은 것"이 impl §3에만 남을 뻔해 `plan.template.md`·`verify §4`·`AGENTS §2`에 되돌렸다.
+  신규 구현 라운드(인용 변이 없음)의 유일한 방어선이다.
+- 나머지 전 축 **KEEP** — trigger·owner·command·gate·human/agent 경계·INDEX/좌표 규칙 무변경.
+- 새 명령 **1건**(`git log -1 --format='%(trailers:only=true)'`) — 읽기 전용이고 `app/AGENTS.md` ABI 규칙과 무관.
+- **신규 bullet 1건 — `AGENTS.md §3` 검증 최소 계약.** §2에만 있던 잠금 축을 §3에 대칭으로 두었다(skill 미가용 환경).
+- reference/script **MOVE·REPLACE 0건**. corpus 편집은 P39(878행 이후)·P44(1101행 이후) 본문이라
+  line-scoped inbound `failure-patterns.md:541-552`는 **P29 본문에 그대로 착지**(실측: 541행 = `## P29`).
+  P heading **P1~P47 연속·중복 0**(실측, 신규 P 0).
+
+## 6-B Historical Failure Regression
+
+- **47 P 전수** · 변경 후 **COVERED 47 / PARTIAL 0 / GAP 0 / OBSOLETE 0** · 신규 **0**.
+- 편집한 사이트를 인용하는 P는 **9건**(P39~P47, 기계 추출). 나머지 38건의 방어 문장은 삭제 22줄
+  어디에도 없다 — 삭제 문구 7종을 corpus 전문에서 역검색해 고아 인용 **1건**만 나왔고, 그것은 P44 자신의
+  round 17 규칙 줄로 바로 아래 r7 보강이 명시적으로 교체한다.
+- 방어가 **강화된 3건**: **P44**(분모를 구현자가 고를 수 없는 값으로 교체) · **P39**(다시 읽는 산출물에
+  커밋 메시지 추가) · **P41**(전수 분모를 도구·자기가 정의하지 못한다는 성질이 잠금 축까지 확장).
+- **corpus 내부 모순 1건을 닫았다** — P44 본문의 "분모는 diff 다"가 새 규칙과 정면으로 어긋나 round 17
+  당시 상태임을 명시하고 r7 보강으로 교체됨을 표시했다.
+- **회귀 위험 2건을 능동 차단**: **P22·P18**(하치장) — 새 `심은 결함`·`출처` 열이 "심을 수 없었다"의
+  하치장이 되지 않도록 `잠금 없음 + 사유`와 검증자 재심기를 그대로 유지했다. **P37**(structural proxy) —
+  인용 변이 검출은 AC 검증을 대체하지 않는다. 미검출이 이슈를 되돌릴 뿐 검출이 통과 근거가 아니다(실측: 어느 사이트도 "검출되면 충분"을 말하지 않는다).
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 규칙 사이트 — 잠금 분모 **7**(impl §3 · impl §5 · `plan.template.md` 잠금 필드 · verify §4 ·
+  `verify.template.md §4` · `docs/handoff/AGENTS.md` §2·§3) · trailer 파싱 **7**(root `AGENTS.md` ·
+  `git-template.md §함정` · `docs/handoff/AGENTS.md §3` · impl §8 · impl 마무리 · verify §9 · `verify.template.md §11`).
+- **owner 충돌 0** — 구현자가 결함을 심고(impl §3) 검증자가 같은 결함을 다시 심는다(verify §4). 커밋 파싱도
+  구현자 확인(impl 마무리) ↔ 검증자 재확인(verify §9)으로 같은 관계다. 어느 쪽도 상대를 면제하지 않는다.
+- **파생 이슈 `상태` 칸의 소유자가 처음으로 명시됐다** — 이전에 어느 문서도 정하지 않았고(실측 0건),
+  새 문장은 `[검증자 기입] 파생 이슈`라는 절 이름과 같은 방향이라 충돌이 없다.
+- **stale 사본 0** — "고친 hunk를 하나씩 되돌"·"되돌림을 다시 돌린다"·"되돌려 실패 수"를 skills/docs 전문에서 역검색해 잔존 0건(corpus 제외).
+- `plan.template.md` `## [구현자 기입] …` heading **7/7**이 impl §8이 부르는 이름과 일치(실측, 무변경).
+- 새 규칙을 이번 턴에 **dogfood**했다 — verify r7이 D33·D34의 인용 변이를 다시 심어 `closed r7`을 `partial r7`로
+  되돌렸고(새 verify §4가 요구하는 그 동작), 이 review의 커밋도 `%(trailers:only=true)`로 파싱을 확인한다.
+- `cd app && node scripts/check-doc-inventory.mjs --check` — generated ok · prose ok · **links ok** · `git diff --check` 통과.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md`·`CLAUDE.md` stub 없음. INDEX·좌표 규칙 무변경.
+
+## review 기록 정책
+
+`round19-review.md`를 만들지 않았다 — 압축으로 잃는 rationale이 없고 사용자 보존 요구도 없었다.
+기존 `round2-review.md` 1개 유지(라운드 문서는 동시에 1개). 신규 P **0** — 두 이슈 모두 기존 P의 분모·적용면 교체다.
+
+## 지침으로 해결할 수 없는 한계
+
+- **D41은 0198의 규범 결정이다.** `bootstrap.ts`는 `@electron-toolkit/utils/dist/index.cjs`의 CJS
+  `require('electron')`이 ESM mock을 우회해 vitest가 열지 못한다(검증자 probe 실측). 합성 seam을 잠글
+  수단을 음성 소스 가드로 할지 helper 병합으로 할지는 handoff의 설계 턴이 정한다 — 지침 변경 대상이 아니다.
+- **인용 변이 분모는 재구현 라운드에만 있다.** 신규 구현 라운드는 인용할 변이가 없어 hunk 분모로 돌아가고,
+  거기서는 round 17의 한계(구현자가 심을 자리를 고른다)가 그대로 남는다.
+- better-sqlite3 bindings·GUI 부재는 round 15~18과 같은 환경 한계다. r7 검증 환경은 전체 vitest가
+  완주했다(214파일 2100케이스 · ABI red 5파일 42케이스).

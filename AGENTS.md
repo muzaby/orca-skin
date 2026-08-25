@@ -66,6 +66,7 @@
 
 - 제목: `<type>(<scope>): <요약>` (type=`feat|fix|refactor|docs|test|chore`).
 - 본문과 빈 줄로 분리된 마지막 문단에 trailer 를 모은다. 안 쓰는 키는 줄을 생략한다(빈 값 금지). **trailer 블록 내부에는 빈 줄을 넣지 않는다** — `Co-Authored-By`·세션 URL 도 같은 블록(빈 줄로 끊으면 앞 trailer 가 파싱에서 누락).
+- **커밋한 뒤 `git log -1 --format='%(trailers:only=true)'` 로 파싱을 확인한다.** 값이 허용값이어도 파싱은 별개 축이고 빈 줄만이 원인은 아니다 — 리터럴 `\n` 이 개행으로 해석되지 않으면 본문과 trailer 가 한 줄이 되어 전부 0건이 된다.
 
 | Key | 허용값 | 작성 주체 |
 |---|---|---|
