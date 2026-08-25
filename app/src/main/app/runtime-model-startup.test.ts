@@ -1,18 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { readFileSync } from 'node:fs'
 import {
   affectedRuntimeModelAuthIds,
+  createRuntimeModelAuthResume,
+  invalidateRuntimeModelsForAuth,
   startRuntimeModelCatalogAfterDeploy
 } from './runtime-model-startup'
 
 describe('runtime model startup', () => {
-  it('keeps the tested startup and cross-Auth ownership seams wired into Bootstrap', () => {
-    const bootstrap = readFileSync(new URL('./bootstrap.ts', import.meta.url), 'utf8')
-
-    expect(bootstrap).toContain('await startRuntimeModelCatalogAfterDeploy({')
-    expect(bootstrap).toContain('affectedRuntimeModelAuthIds(')
-  })
-
   it('finishes every deploy invalidation before catalog attach and Auth resume', async () => {
     const order: string[] = []
     const catalog = {
@@ -54,5 +48,46 @@ describe('runtime model startup', () => {
         ]
       )
     ).toEqual(['a', 'b'])
+  })
+
+  it('reconciles every Auth owner after invalidating shared contribution keys', () => {
+    const invalidated: string[] = []
+    const reconciled: string[] = []
+    invalidateRuntimeModelsForAuth({
+      keys: [' ORCA-SHARED '],
+      contributions: [
+        { authId: 'a', key: 'orca-shared', harnessId: 'orca', modelProviderId: 'a' },
+        { authId: 'b', key: 'ORCA-SHARED', harnessId: 'orca', modelProviderId: 'b' }
+      ],
+      invalidate: (key) => invalidated.push(key),
+      snapshotOf: (authId) => ({ authId }) as never,
+      reconcile: (authId) => reconciled.push(authId)
+    })
+
+    expect(invalidated).toEqual([' ORCA-SHARED '])
+    expect(reconciled).toEqual(['a', 'b'])
+  })
+
+  it('installs both Auth listeners before running the real resume callback', () => {
+    const order: string[] = []
+    const listeners: Array<(change: never) => void> = []
+    const resume = createRuntimeModelAuthResume({
+      auth: {
+        subscribe: (listener) => {
+          order.push('subscribe')
+          listeners.push(listener as never)
+          return () => undefined
+        }
+      },
+      onChange: () => order.push('change'),
+      onGateChange: (authId) => order.push(`gate:${authId}`),
+      run: () => order.push('run')
+    })
+
+    resume()
+    listeners[0]?.({ kind: 'snapshot', authId: 'gate' } as never)
+    listeners[1]?.({ kind: 'snapshot', authId: 'gate' } as never)
+
+    expect(order).toEqual(['subscribe', 'subscribe', 'run', 'change', 'gate:gate'])
   })
 })

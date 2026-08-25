@@ -8,7 +8,7 @@
 | 작성자 | Codex |
 | 일자 | 2026-08-24 |
 | 매핑 | 런타임 모델 카탈로그 자동 투영 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) → verify/FAIL (r5) → READY (r6) → IMPL_DONE (r6) → verify/FAIL (r6) → READY (r7) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) → verify/FAIL (r5) → READY (r6) → IMPL_DONE (r6) → verify/FAIL (r6) → READY (r7) → IMPL_DONE (r7) |
 
 # Part I — Product & UX Contract
 
@@ -472,14 +472,14 @@ settings / Auth+runtime augmenter
 | D29 | `bootstrap.ts:488`이 자기 authId만 재조정해 cross-auth `AUTH_INVALIDATED_HARNESS_KEYS` 경로가 열려 있다 | verify r5 · §10 cache 수명 행 | canonical key를 소유한 모든 authId를 계산해 snapshot을 재조정하고 A/B 공동 key fixture를 잠근다. | partial r6 — helper는 닫혔고 호출부가 열려 D34로 이어진다 |
 | D30 | 게이트 자기보고 `2092케이스/44 ABI fail`이 재측정 `2090/42`와 다르다(plan·INDEX 2사본) | verify r5 | r6은 대상 스위트 실측 5파일/39케이스만 보고한다. 전체 스위트는 ABI red 뒤 최종 집계 없이 중단된 사실을 분리한다. | closed r6 |
 | D31 | 좌표·기준선 위생 3건 — `176a73f`에 규범 행 D-008 혼입(D15 축) · INDEX `(r5 구현)` 자리표시자 · §10 read-only 행이 아직 `3지점` | verify r5 | 과거 혼입은 history로 보존한다. INDEX 좌표는 교정됐고 §10은 실효 6지점·7좌표로 정정한다. | closed r6 — 단 같은 축이 D36·D37로 재발했다 |
-| D32 | `misc.ts:45`의 3번째 인자를 지워도 전체 스위트가 베이스라인과 같다(변이 M-B) — AC5가 지목한 두 UI **목록** 경로가 잠기지 않았다 | verify r6 · AC5·§10 6행 | `agent:list` handler를 `engine.runtime-catalog.test.ts`의 `vi.mock('../../infra/ipc/handle')` 패턴으로 열어 catalog 주입 후 충돌 행 미노출을 단언한다 | open |
-| D33 | `auth.subscribe`×2 + `authResume.run()`을 deploy 앞으로 되돌려도 전건 통과하고 typecheck exit 0(변이 M-H) — AC11·D-009의 실제 배선이 소스 문자열 grep으로만 잠겼다 | verify r6 · AC11·AC6 | `resumeAuth` 설치를 순수 팩토리로 한 겹 더 뽑아 "helper에 무엇을 넘겼는가"를 주입 테스트로 잠근다. 규범 축(AC11 검증 수단·§10 행)은 D35에서 닫혔고 남은 것은 잠금 구현이다 | open |
-| D34 | cross-auth 루프에 `.filter(item => item === authId)`를 붙여 r5 D29 버그를 되살려도 미검출(변이 M-D2) | verify r6 · §10 cache 수명 4행 | helper 반환값이 아니라 호출 결과로 재조정된 authId 집합을 관측하는 seam을 만든다 | open |
+| D32 | `misc.ts:45`의 3번째 인자를 지워도 전체 스위트가 베이스라인과 같다(변이 M-B) — AC5가 지목한 두 UI **목록** 경로가 잠기지 않았다 | verify r6 · AC5·§10 6행 | `agent:list` handler를 `engine.runtime-catalog.test.ts`의 `vi.mock('../../infra/ipc/handle')` 패턴으로 열어 catalog 주입 후 충돌 행 미노출을 단언한다 | closed r7 |
+| D33 | `auth.subscribe`×2 + `authResume.run()`을 deploy 앞으로 되돌려도 전건 통과하고 typecheck exit 0(변이 M-H) — AC11·D-009의 실제 배선이 소스 문자열 grep으로만 잠겼다 | verify r6 · AC11·AC6 | `resumeAuth` 설치를 순수 팩토리로 한 겹 더 뽑아 "helper에 무엇을 넘겼는가"를 주입 테스트로 잠근다. 규범 축(AC11 검증 수단·§10 행)은 D35에서 닫혔고 남은 것은 잠금 구현이다 | closed r7 |
+| D34 | cross-auth 루프에 `.filter(item => item === authId)`를 붙여 r5 D29 버그를 되살려도 미검출(변이 M-D2) | verify r6 · §10 cache 수명 4행 | helper 반환값이 아니라 호출 결과로 재조정된 authId 집합을 관측하는 seam을 만든다 | closed r7 |
 | D35 | plan §7 순서 기준(attach 마지막)과 구현(attach 3번째)이 어긋나는데 "설계 대비 차이 없음"으로 보고됐다 | verify r6 · §7·D-009 | **§7을 구현 순서로 정정했다** — attach를 resume 뒤에 두면 `await attach()`가 부팅에서 network를 기다린다. 함께 AC11 검증 수단에서 소스 문자열 검사를 배제하고 §10에 부팅 시퀀스 순서 행(2지점)을 신설했다. | closed(설계) r6 |
 | D36 | INDEX·plan 두 사본의 r6 좌표 `d214581`이 실재하지 않는다(`git cat-file -t` 실패, `git rev-list --all` 전수 부재). 실제 좌표는 `a843557` | verify r6 · §11 | 좌표는 이번 검증 커밋에서 교정했다. 다음 라운드는 좌표를 적기 전에 `git cat-file -t`로 확인한다 | closed r6(교정) |
-| D37 | `a843557`이 규범 행(D-009·AC5·AC7·AC11·§10 2행)과 구현을 한 커밋에 담아 §0 기준선이 성립하지 않는다 — r3 D15·r5 D31①의 3회차 | verify r6 · §0 | 설계 턴 커밋과 구현 커밋을 나눈다. 과거 커밋은 history rewrite 없이 남긴다 | open |
-| D38 | `docs/arch/backend/auth.md:583`이 "Model 선택 UI 는 계속 settings.json 에서 파생한다 … 카탈로그 목록에 넣지 않는다"로 남아 같은 파일 `:496`·코드와 어긋난다 | verify r6 · 기준 밖 · §16 | 현재 동작(settings + runtime catalog 합성)으로 문장을 정정한다 — `803bd50`이 §6.1·§6.2만 고치고 §6.5 말미를 두고 갔다 | open |
-| D39 | `bootstrap.ts:382-384`의 "listener 를 resume 보다 먼저 붙인다" 주석이 bridge 팩토리 위에 남아 실제 listener(`:642-657`)를 가리키지 않는다 | verify r6 · 위생 | 주석을 listener가 있는 자리로 옮긴다. 불변식 자체는 closure 안에서 지켜진다 | open |
+| D37 | `a843557`이 규범 행(D-009·AC5·AC7·AC11·§10 2행)과 구현을 한 커밋에 담아 §0 기준선이 성립하지 않는다 — r3 D15·r5 D31①의 3회차 | verify r6 · §0 | 설계 턴 커밋과 구현 커밋을 나눈다. 과거 커밋은 history rewrite 없이 남긴다 | closed r7 |
+| D38 | `docs/arch/backend/auth.md:583`이 "Model 선택 UI 는 계속 settings.json 에서 파생한다 … 카탈로그 목록에 넣지 않는다"로 남아 같은 파일 `:496`·코드와 어긋난다 | verify r6 · 기준 밖 · §16 | 현재 동작(settings + runtime catalog 합성)으로 문장을 정정한다 — `803bd50`이 §6.1·§6.2만 고치고 §6.5 말미를 두고 갔다 | closed r7 |
+| D39 | `bootstrap.ts:382-384`의 "listener 를 resume 보다 먼저 붙인다" 주석이 bridge 팩토리 위에 남아 실제 listener(`:642-657`)를 가리키지 않는다 | verify r6 · 위생 | 주석을 listener가 있는 자리로 옮긴다. 불변식 자체는 closure 안에서 지켜진다 | closed r7 |
 
 ## [구현자 기입] r2 사용자 피드백 반영
 
@@ -538,3 +538,18 @@ settings / Auth+runtime augmenter
 - **관측한 게이트 산출:** 대상 5파일/40케이스 PASS, eslint 0 error, typecheck 3구성 PASS, `git diff --check` PASS. 전체 vitest는 기존 DB ABI 경계에서 `queries` 28건·`chat-turn.continuity` 2건 red를 출력한 뒤 최종 집계 없이 중단됐다.
 - **AC 자기보고:** ✅ AC1~AC8·AC10~AC14 = 13, ⚠️ AC9 두 테마 시각 확인 = 1, ❌ 0. `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14`.
 - **Review Signals:** r5 D24·D25·D29의 cache 수명 축을 부팅 순서·동일 key 미노출·cross-auth owner 전수로 닫았다. 현재 라운드는 6이며 review round 17 이후 첫 구현이다.
+
+
+## [구현자 기입] r7 verify/FAIL 재구현
+
+- **설계 리뷰:** D35가 정정한 `deploy 무효화 < catalog attach < Auth 구독 < resume` 순서를 그대로 수행했다. D32~D34의 잠금과 D38~D39의 문서·주석 정합만 바꾸고 제품 계약·공개 타입·의존성은 바꾸지 않았다.
+- **강제 지점 전수:** 부팅 시퀀스 2/2는 순수 helper의 5단계와 Auth resume factory의 구독 2회→run 순서로 관측했다. cache 수명 4/4 중 cross-auth owner 호출 결과는 공유 key의 A·B 모두 reconcile됨을 관측했다. read-only 6지점·7좌표 중 목록 IPC 좌표는 실제 `agent:list` callback에서 충돌 settings 행 0건을 관측했다.
+- **이번 라운드 수정의 잠금:** `agent:list`의 catalog 세 번째 인자를 제거하면 신규 handler 테스트가 settings 행을 반환해 실패한다. Auth resume factory에서 구독 하나를 제거하거나 run을 앞으로 옮기면 순서 테스트가 실패한다. cross-auth 실행 helper에서 owner 반복을 자기 authId로 좁히면 reconcile 관측값 `['a','b']`가 깨진다.
+- **Product/UX 파생 검토:** 신규 사용자 대면 문자열·상태·실패 경로는 없다. Engine과 Composer가 이미 공유하는 `agent:list` snapshot의 충돌 행 미노출만 production callback에서 잠갔다.
+- **놓친 잠재 문제 + 대응:** D32의 source 문자열 검사를 새로 만들지 않고 IPC 등록 callback을 호출했다. D33은 부팅 helper에 전달되는 callback을 순수 factory 산출로 만들어 두 listener 설치와 실제 run callback 순서를 함께 잠갔다. D34는 반환값만 검사하지 않고 invalidate와 reconcile side effect를 관측했다.
+- **설계 대비 명시적 차이:** 없음. 전용 상태·저장소·새 추상화 수명은 추가하지 않았고 기존 startup seam에 실행 helper 두 개를 두었다.
+- **구현 보고:** production 2파일, 테스트 2파일(신규 1), 현재 아키텍처 문서 1파일, handoff 2파일을 변경했다. D32~D34·D38·D39를 닫았고 D37은 이번 규범 커밋과 구현 커밋 분리를 준수해 닫았다. 신규 의존성·IPC·DB 변경은 0이다.
+- **대상 커밋:** `(r7 구현 — 검증자 기입)`.
+- **관측한 게이트 산출:** 대상 Vitest 2파일·5케이스 PASS, typecheck 3/3 PASS, eslint 0 error, doc inventory PASS, `git diff --check` PASS.
+- **AC 자기보고:** ✅ AC1~AC8·AC10~AC14 = 13, ⚠️ AC9 두 테마 시각 확인 = 1, ❌ 0. `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14`.
+- **Review Signals:** D32는 read-only 목록 잠금 축, D33은 부팅 배선 잠금 축, D34는 cross-auth cache 수명 축으로 모두 r6에서 보고만 초록이었던 production 좌표다. 현재 라운드는 7이며 review round 18 뒤 첫 구현이다.

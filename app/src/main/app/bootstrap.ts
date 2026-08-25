@@ -71,7 +71,8 @@ import {
   createRuntimeModelCatalog
 } from '../features/harnesses/runtime-catalog'
 import {
-  affectedRuntimeModelAuthIds,
+  createRuntimeModelAuthResume,
+  invalidateRuntimeModelsForAuth,
   startRuntimeModelCatalogAfterDeploy
 } from './runtime-model-startup'
 import { AUTH_DEFINITIONS } from './deployment/auth-definitions'
@@ -380,8 +381,6 @@ export class Bootstrap {
     }
 
     // ── Auth change 소비 (0188 D-008) ──────────────────────────────────────────
-    // **listener 를 resume 보다 먼저 붙인다** — 복원 probe 가 강등을 만들면 그 자리에서 도구가
-    // 회수돼야 한다. 구독이 늦으면 죽은 연결의 도구가 첫 턴에 실린다.
     const runtimeModelCatalogBridge = createRuntimeModelCatalogBridge({
       contributions: RUNTIME_MODEL_CONTRIBUTIONS,
       snapshotOf: (authId) => auth.bind(authId).snapshot()
@@ -467,21 +466,18 @@ export class Bootstrap {
             (item) => item.key
           )
         ])
-        for (const key of keys) {
-          harnessRuntime.invalidate(key, 'auth-change')
-        }
         // A deployment may declare that Auth A invalidates a contribution owned by Auth B. Every
         // owner of an invalidated canonical key must reconcile; replaying only A leaves B's row
         // visible over an empty cache.
-        for (const affectedAuthId of affectedRuntimeModelAuthIds(
+        invalidateRuntimeModelsForAuth({
           keys,
-          RUNTIME_MODEL_CONTRIBUTIONS
-        )) {
-          void runtimeModelCatalogBridge.onSnapshot(
-            affectedAuthId,
-            auth.bind(affectedAuthId).snapshot()
-          )
-        }
+          contributions: RUNTIME_MODEL_CONTRIBUTIONS,
+          invalidate: (key) => harnessRuntime.invalidate(key, 'auth-change'),
+          snapshotOf: (ownerAuthId) => auth.bind(ownerAuthId).snapshot(),
+          reconcile: (ownerAuthId, snapshot) => {
+            void runtimeModelCatalogBridge.onSnapshot(ownerAuthId, snapshot)
+          }
+        })
       }
     }
     const runtimeModelCatalog = createRuntimeModelCatalog({
@@ -636,10 +632,13 @@ export class Bootstrap {
       invalidateRuntime: () => harnessRuntime.invalidate(undefined, 'settings-deploy'),
       catalog: runtimeModelCatalog,
       bridge: runtimeModelCatalogBridge,
-      resumeAuth: () => {
+      // **listener 를 resume 보다 먼저 붙인다** — 복원 probe 가 강등을 만들면 그 자리에서 도구가
+      // 회수돼야 한다. 구독이 늦으면 죽은 연결의 도구가 첫 턴에 실린다.
+      resumeAuth: createRuntimeModelAuthResume({
+        auth,
         // The sole Auth-change consumer is installed only after deploy invalidation. No verified
         // snapshot can fetch a contribution and then be erased by the boot-time reset.
-        auth.subscribe((change: AuthChange) => {
+        onChange: (change: AuthChange) => {
           pushConnectionState()
           if (change.kind === 'snapshot' && change.credentialChanged) {
             for (const plugin of plugins) {
@@ -650,12 +649,10 @@ export class Bootstrap {
           if (change.kind === 'snapshot') {
             void runtimeModelCatalogBridge.onSnapshot(change.authId, change.snapshot)
           }
-        })
-        auth.subscribe((change) => {
-          if (change.kind === 'snapshot') authResume.onGateChange(change.authId)
-        })
-        void authResume.run()
-      }
+        },
+        onGateChange: (authId) => authResume.onGateChange(authId),
+        run: () => void authResume.run()
+      })
     })
     // ClaudeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
     await this.bootReport.step('skill-scan', { critical: false, label: '스킬 스캔' }, () =>
