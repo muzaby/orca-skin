@@ -294,7 +294,7 @@ export const en: typeof ko = {
       'The Composer model menu is built from the provider settings in <c>~/.config/orca/sources/settings</c>. After editing, the model menu refreshes without restarting the app.',
     emptyState: 'No providers registered. Use the Add engine button to create a claude provider.',
     deleteConfirm: 'Delete provider {{name}}?',
-    card: { unsupportedAdapter: 'Unsupported adapter' },
+    card: { unsupportedAdapter: 'Unsupported adapter', readOnly: 'Read-only' },
     readSettingsFailed: 'Failed to load the settings.',
     sdkDefaultModel: 'SDK default',
     provider: {

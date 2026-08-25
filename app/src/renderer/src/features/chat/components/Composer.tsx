@@ -10,7 +10,12 @@ import { ModeMenu } from './composer/ModeMenu'
 import { ModelMenu } from './composer/ModelMenu'
 import { EffortMenu } from './composer/EffortMenu'
 import { EFFORT_LABEL_KEYS } from './composer/effort'
-import { defaultSelection, modelKey, selectionLabel } from './composer/modelSelection'
+import {
+  defaultSelection,
+  modelKey,
+  selectionExists,
+  selectionLabel
+} from './composer/modelSelection'
 import { steerBlockedByProviderBoundary } from '../lib/steerGate'
 import { ConversationStatusLine } from './composer/ConversationStatusLine'
 import { Button } from '../../../shared/ui/Button'
@@ -146,6 +151,18 @@ export function Composer({
 
   useEffect(() => {
     if (agents.length === 0) return
+    if (
+      providerKey &&
+      !selectionExists(agents, {
+        providerKey,
+        modelFamily,
+        adapter: backend ?? 'claude'
+      })
+    ) {
+      const next = defaultSelection(agents, backend)
+      if (next) setModel(next.providerKey, next.modelFamily, next.adapter)
+      return
+    }
     if (providerKey && modelFamily == null) {
       const agent = agents.find((a) => a.key === providerKey)
       const model = agent?.models.find((m) => m.isDefault) ?? agent?.models[0]
