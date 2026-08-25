@@ -1,4 +1,4 @@
-import type { AuthId } from '../contracts/auth'
+import type { AuthChange, AuthId, AuthRuntime, AuthSnapshot } from '../contracts/auth'
 import type {
   RuntimeModelCatalog,
   RuntimeModelCatalogBridge,
@@ -18,6 +18,35 @@ export function affectedRuntimeModelAuthIds(
         .map((item) => item.authId)
     )
   ]
+}
+
+export function invalidateRuntimeModelsForAuth(input: {
+  keys: Iterable<string>
+  contributions: readonly RuntimeModelContribution[]
+  invalidate(key: string): void
+  snapshotOf(authId: AuthId): AuthSnapshot
+  reconcile(authId: AuthId, snapshot: AuthSnapshot): void
+}): void {
+  const keys = [...input.keys]
+  for (const key of keys) input.invalidate(key)
+  for (const authId of affectedRuntimeModelAuthIds(keys, input.contributions)) {
+    input.reconcile(authId, input.snapshotOf(authId))
+  }
+}
+
+export function createRuntimeModelAuthResume(input: {
+  auth: Pick<AuthRuntime, 'subscribe'>
+  onChange(change: AuthChange): void
+  onGateChange(authId: AuthId): void
+  run(): void
+}): () => void {
+  return () => {
+    input.auth.subscribe(input.onChange)
+    input.auth.subscribe((change) => {
+      if (change.kind === 'snapshot') input.onGateChange(change.authId)
+    })
+    input.run()
+  }
 }
 
 export async function startRuntimeModelCatalogAfterDeploy(input: {
