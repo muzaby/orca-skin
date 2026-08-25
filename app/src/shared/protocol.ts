@@ -73,6 +73,8 @@ export const SendChatMessageSchema = z
     attachments: z.array(ComposerAttachmentSchema).default([]),
     attachmentViews: z.array(AttachmentViewSchema).default([]),
     cwd: z.string().min(1).nullable().optional(),
+    // CLI `/add-dir` 대응 — 작업 디렉토리 밖 추가 참조 경로(절대 경로). 새 세션 출생 시 고정.
+    extraDirs: z.array(z.string().min(1)).optional(),
     // 0064 continuity — 상호 배타·새 세션 전용(아래 refine).
     forkFrom: z.string().min(1).optional(),
     handoffFrom: z.string().min(1).optional(),
@@ -178,6 +180,27 @@ export const ListFilesRequestSchema = z.object({
 })
 
 export const OpenPathRequestSchema = z.object({ path: z.string().min(1) })
+
+// ── git (컴포저 브랜치 칩) ──────────────────────────────────────────────────
+export const GitPathRequestSchema = z.object({ cwd: z.string().min(1) })
+
+export const GitDirtyResolutionSchema = z.enum(['stash', 'commit-wip', 'discard'])
+
+// branch 는 사용자가 목록에서 고른 값이지만 IPC 는 신뢰 경계다 — 옵션 주입(`--`·`-f`)과
+// refspec 문법을 문자셋으로 잘라낸다. main 의 실행부도 같은 규칙을 한 번 더 검사한다.
+export const GitBranchNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(255)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._/-]*$/, 'branch 이름에 허용되지 않는 문자가 있습니다')
+  .refine((v) => !v.includes('..') && !v.endsWith('.lock'), 'branch 이름이 올바르지 않습니다')
+
+export const GitCheckoutRequestSchema = z.object({
+  cwd: z.string().min(1),
+  branch: GitBranchNameSchema,
+  resolution: GitDirtyResolutionSchema.optional()
+})
 
 export const ReadAttachmentRequestSchema = z.object({ path: z.string().min(1) })
 
@@ -609,6 +632,13 @@ export type {
   WindowBounds,
   ListFilesRequest,
   FileEntry,
+  GitPathRequest,
+  GitDirtyStat,
+  GitStatus,
+  GitBranchList,
+  GitDirtyResolution,
+  GitCheckoutRequest,
+  GitCheckoutResult,
   SessionListItem,
   SessionTitleEvent,
   LoadSessionRequest,

@@ -19,7 +19,7 @@ import {
 import { steerBlockedByProviderBoundary } from '../lib/steerGate'
 import { ConversationStatusLine } from './composer/ConversationStatusLine'
 import { Button } from '../../../shared/ui/Button'
-import { CwdButton } from './CwdButton'
+import { CwdPanel } from './CwdPanel'
 import { Notice } from './Notice'
 import { StatusPopover } from './composer/StatusPopover'
 import { conversationStatusModel as conversationStatusModelFactory } from './composer/statusViewModel'
@@ -278,15 +278,7 @@ export function Composer({
               input={p.input}
             />
           ))}
-          {showLandingCwdPanel && (
-            <div
-              className="app-frame-composer-directory flex rounded-r7 border border-transparent bg-transparent px-1 py-1"
-              data-surface="cwd-panel"
-              data-state="landing"
-            >
-              <CwdButton cwd={cwd} sessionStarted={false} inflight={inflight} />
-            </div>
-          )}
+          {showLandingCwdPanel && <CwdPanel cwd={cwd} inflight={inflight} />}
           {showConcurrencyNotice && (
             <Notice
               title={tr('chat.composer.concurrencyNoticeTitle')}

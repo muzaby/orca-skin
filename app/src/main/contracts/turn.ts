@@ -19,6 +19,9 @@ export interface TurnContext<W = unknown> {
   pendingProjectId: string | null
   isNewSession: boolean
   cwd: string
+  // CLI `/add-dir` 대응 — cwd 밖 추가 참조 경로. 어댑터의 `additionalDirectories` + workspace
+  // 가드 루트로 함께 흘러 r/w 스코프를 넓힌다. cwd 와 같은 수명(새 세션 출생 시 고정).
+  extraDirs: string[]
   titleGenerationStarted: boolean
   currentAssistantMessageId: number | null
   assistantText: string

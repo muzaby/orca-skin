@@ -594,6 +594,8 @@ function send(
       attachments: [...attachments],
       attachmentViews: [...attachmentViews],
       cwd: cur.cwd,
+      // 컴포저 참조 경로 칩(CLI `/add-dir` 대응) — cwd 와 함께 새 세션 출생 시 고정된다.
+      ...(cur.extraDirs.length > 0 ? { extraDirs: [...cur.extraDirs] } : {}),
       // 0067 AC9 — draft 키를 main 의 세션-이전 큐 키로 전달(init 에서 실 id 로 rekey).
       clientKey: draftKey,
       clientRequestId: requestId,
@@ -723,17 +725,29 @@ function send(
   return true
 }
 
-function setPendingCwd(cwd: string): void {
+// 참조 경로 칩(CLI `/add-dir`) — cwd 와 같은 게이트: 세션이 확정되기 전에만 편집할 수 있다.
+function addExtraDir(dir: string): void {
+  patchPendingSession((session) => chatReducer(session, { type: 'ADD_EXTRA_DIR', dir }))
+}
+
+function removeExtraDir(dir: string): void {
+  patchPendingSession((session) => chatReducer(session, { type: 'REMOVE_EXTRA_DIR', dir }))
+}
+
+// 세션 id 가 발급되기 전(랜딩)의 활성 엔트리에만 리듀서를 적용한다. 확정된 세션은 무시 —
+// cwd·참조 경로는 세션 출생 시 고정이라 뒤늦은 수정이 main 과 어긋나면 안 된다.
+function patchPendingSession(apply: (session: ChatState) => ChatState): void {
   setState((s) => {
     const entry = s.sessions[s.activeKey]
     if (!entry || entry.session.sessionId != null) return s
-    return {
-      sessions: {
-        ...s.sessions,
-        [s.activeKey]: { ...entry, session: chatReducer(entry.session, { type: 'SET_CWD', cwd }) }
-      }
-    }
+    const session = apply(entry.session)
+    if (session === entry.session) return s
+    return { sessions: { ...s.sessions, [s.activeKey]: { ...entry, session } } }
   })
+}
+
+function setPendingCwd(cwd: string): void {
+  patchPendingSession((session) => chatReducer(session, { type: 'SET_CWD', cwd }))
 }
 
 // 구 steer() 는 send() 로 흡수(0067 AC5) — busy/idle 판정은 main 소관, renderer 는 단일 send.
@@ -1175,6 +1189,8 @@ export const chatActions = {
   activateContinuityDraft,
   discardContinuityDraft,
   setPendingCwd,
+  addExtraDir,
+  removeExtraDir,
   clearError: (): void => dispatchActive({ type: 'CLEAR_ERROR' }),
   loadSession,
   renameSession,

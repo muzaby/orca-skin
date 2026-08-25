@@ -40,6 +40,11 @@ export const CHANNELS = {
   filesPickDirectory: 'orca:files:pickDirectory',
   filesOpenPath: 'orca:files:openPath',
   filesReadAttachment: 'orca:files:readAttachment',
+  // 컴포저 브랜치 칩(작업 경로의 git 상태·브랜치 목록·전환). 작업 경로가 git 저장소가 아니면
+  // status 가 `isRepo:false` 를 돌려주고 renderer 는 칩 자체를 렌더하지 않는다.
+  gitStatus: 'orca:git:status',
+  gitBranches: 'orca:git:branches',
+  gitCheckout: 'orca:git:checkout',
   sessionCwd: 'orca:session:cwd',
   sessionList: 'orca:session:list',
   sessionLoad: 'orca:session:load',
@@ -113,7 +118,13 @@ export const CHANNELS = {
 } as const
 
 export type UpdateStateStatus =
-  'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'installing' | 'error'
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'ready'
+  | 'installing'
+  | 'error'
 export interface UpdateProgress {
   percent: number
   transferred?: number
@@ -628,7 +639,9 @@ export interface PlanReviewRequest {
 // (재제안 금지) / revise=피드백 반영해 재작성. renderer→main 와이어는 PermissionRespond 로
 // 통일됐다 — approved↔allow, revise↔deny{message}, rejected↔deny{interrupt:true} 로 매핑.
 export type PlanDecision =
-  { type: 'approved' } | { type: 'rejected' } | { type: 'revise'; feedback: string }
+  | { type: 'approved' }
+  | { type: 'rejected' }
+  | { type: 'revise'; feedback: string }
 
 export type AttachmentSourceKind = 'dialog' | 'drag_drop' | 'clipboard'
 
@@ -704,6 +717,10 @@ export interface SendChatMessage {
   attachmentViews?: AttachmentView[]
   // 새 세션 출생 시 고정할 작업 디렉토리. sessionId != null resume 턴에서는 main 이 DB cwd 를 우선한다.
   cwd?: string | null
+  // 작업 디렉토리 밖의 **추가 참조 경로**(CLI `/add-dir` 대응). 컴포저 참조 경로 칩이 만든다.
+  // cwd 와 마찬가지로 새 세션 출생 시 고정되고 세션행에 영속된다 — resume 턴에서는 DB 값이 이긴다.
+  // 어댑터에서 `additionalDirectories` + workspace 가드 루트로 함께 흘러 r/w 스코프를 넓힌다.
+  extraDirs?: string[]
   // 0064 continuity — fork/handoff 물질화 트리거. 새 세션 send(sessionId=null)에서만 유효하며
   // 상호 배타. main 은 출발 세션의 cwd/project/provider 를 계승하고 SDK forkSession 으로
   // 새 session_id 를 발급받는다. forkFrom = 분기(도착 세션에 display 복사 + lineage 'fork').
@@ -970,6 +987,52 @@ export interface FileEntry {
 export interface OpenPathRequest {
   path: string
 }
+
+// ── git (컴포저 브랜치 칩) ──────────────────────────────────────────────────
+// 작업 경로 한 곳에 대한 읽기 2종 + 전환 1종. worktree 는 다루지 않는다(제품 결정).
+export interface GitPathRequest {
+  cwd: string
+}
+
+// 커밋되지 않은 변경 요약 — **추적 파일의 HEAD 대비 차이만** 센다(`git diff HEAD --shortstat`).
+// 미추적 파일은 체크아웃을 막지 않으므로 경고·해소 대상에서 일관되게 제외한다.
+export interface GitDirtyStat {
+  files: number
+  insertions: number
+  deletions: number
+}
+
+export interface GitStatus {
+  isRepo: boolean
+  // 현재 브랜치명. detached HEAD 이거나 저장소가 아니면 null.
+  branch: string | null
+  detached: boolean
+  // 커밋되지 않은 변경 요약. null = 깨끗함.
+  dirty: GitDirtyStat | null
+}
+
+export interface GitBranchList {
+  current: string | null
+  // 로컬 브랜치 이름(현재 브랜치 우선, 나머지는 최근 커밋순). 원격 전용 브랜치는 제외.
+  branches: string[]
+}
+
+// dirty 트리를 어떻게 처리하고 전환할 것인가 — 모달의 분할 버튼 3선택지와 1:1.
+export type GitDirtyResolution = 'stash' | 'commit-wip' | 'discard'
+
+export interface GitCheckoutRequest {
+  cwd: string
+  branch: string
+  // 생략하면 dirty 트리에서 전환하지 않고 `reason:'dirty'` 로 되돌려준다(모달을 띄우라는 신호).
+  resolution?: GitDirtyResolution
+}
+
+// 전환 실패를 예외가 아니라 값으로 돌려준다 — dirty 트리 충돌은 정상 흐름(사용자에게 물어야
+// 하는 상태)이지 프로그래머 오류가 아니다.
+export type GitCheckoutResult =
+  | { ok: true; branch: string }
+  | { ok: false; reason: 'dirty'; from: string | null; stat: GitDirtyStat }
+  | { ok: false; reason: 'not-repo' | 'error'; message: string }
 
 // 세션 카탈로그 (사이드바 "최근 대화") — Phase 3 로컬 DB SSOT.
 export interface SessionListItem {

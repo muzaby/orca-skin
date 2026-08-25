@@ -338,8 +338,9 @@ export class ClaudeAdapter implements SessionAdapter {
     const compactSummaries: string[] = []
 
     // Workspace 격리(0075) — 작업 폴더(cwd) 밖 r/w 를 PreToolUse 가드 훅으로 막는다. additionalDirectories
-    // 는 옵션과 훅이 **같은 배열**을 공유해 드리프트를 막는다(가이드 §5). 추후 주입 전까지 비움([]).
-    const additionalDirectories: string[] = []
+    // 는 옵션과 훅이 **같은 배열**을 공유해 드리프트를 막는다(가이드 §5). 값은 컴포저 참조 경로
+    // 칩(CLI `/add-dir` 대응)이 세션 출생 시 고정한 것이 턴 요청에 실려 온다.
+    const additionalDirectories: string[] = req.extraDirs ?? []
     const runtimeToolApprovalNames = runtimeApprovalToolNames(extensions.runtimeTools)
 
     const handle = query({
