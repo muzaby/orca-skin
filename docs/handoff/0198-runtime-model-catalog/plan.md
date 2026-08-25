@@ -8,7 +8,7 @@
 | 작성자 | Codex |
 | 일자 | 2026-08-24 |
 | 매핑 | 런타임 모델 카탈로그 자동 투영 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) → verify/FAIL (r5) → READY (r6) → IMPL_DONE (r6) → verify/FAIL (r6) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) → verify/FAIL (r5) → READY (r6) → IMPL_DONE (r6) → verify/FAIL (r6) → READY (r7) |
 
 # Part I — Product & UX Contract
 
@@ -46,6 +46,7 @@
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-009는 부팅 deploy 무효화를 Auth 구독·resume·catalog attach보다 먼저 완료한다.
+- D35 정정(설계, 사용자 결정 변경 아님): D-009가 열어 둔 **세 항목 사이의 순서**를 `attach < 구독 < resume`으로 §7·§10·§13에 고정했다. D-009 문면은 그대로 ACTIVE다.
 - D18·D25 정정: Auth 밖 설정 무효화는 runtime cache와 같은 canonical key의 settings 행을 포함한 자동 항목 전체를 함께 숨긴다. 설정 CRUD는 자동 재fetch하지 않는다.
 - 변경된 결정: D-002는 같은 family 복수 항목 보존으로, D-003은 `custom` 분류 표기와 self 실행 식별자의 분리로 보완했다. D-005는 자동 추가된 Orca Harness의 앱 사용자 편집 금지를 renderer와 main 양쪽 계약으로 강화했다.
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: D-001·D-002·D-004·D-006·D-007.
@@ -88,7 +89,7 @@ Plugin/App login → Auth snapshot
 | 인증 실패·unavailable·revoke·401/403 | 해당 Auth contribution을 무효화하고 카탈로그에서 제외한다. | 자동 카드와 Composer 선택지가 함께 사라진다. |
 | 새 세션 생성·턴 실행 | network resolve를 호출하지 않고 로그인 때 채운 cache snapshot을 읽는다. | 모델 선택과 실행 준비가 추가 fetch 없이 동작한다. |
 | 재인증 성공 | 기존 cache를 무효화하고 해당 Gate 로그인의 fetch 1회 결과만 채택한다. | 최신 모델 목록이 다시 나타나며 stale 결과가 되살아나지 않는다. |
-| 앱 재시작 | 부팅 deploy 무효화를 먼저 끝내고 Auth 구독·resume·catalog attach를 설치한 뒤 Gate 자동 인증 결과를 반영한다. | 저장 grant만으로는 노출되지 않고 verified fetch 뒤 자동 항목이 결정적으로 나타난다. |
+| 앱 재시작 | 부팅 deploy 무효화를 먼저 끝내고 catalog attach → Auth 구독 → resume 순으로 설치한 뒤 Gate 자동 인증 결과를 반영한다. | 저장 grant만으로는 노출되지 않고 verified fetch 뒤 자동 항목이 결정적으로 나타난다. |
 | Auth 밖 설정 변경으로 contribution cache 무효화 | 같은 canonical key의 runtime entry와 settings 행을 함께 catalog에서 제외한다. | 두 UI에서 자동 항목이 사라지고 실행만 실패하는 유령 행이나 편집 버튼이 남지 않는다. |
 
 ### 파생 UX / 엣지케이스
@@ -124,7 +125,7 @@ Plugin/App login → Auth snapshot
 | AC8 | Gate 로그인 fetch의 무효화 전 시작한 늦은 성공은 자동 entry를 되살리지 않고 재인증은 새 fetch 1회만 허용한다. | deferred promise 통합 테스트: invalidate 뒤 stale completion 폐기와 세대별 호출 수 | Auth subscribe → single-flight/cache → generation fence |
 | AC9 | Engine & Models는 자동 Orca Harness를 표시하되 앱 사용자에게 편집·삭제 액션을 제공하지 않고 직접 IPC mutation도 거부한다. | renderer 컴포넌트 테스트 + 사람 시각 확인 | agentStore → AgentEnvironmentView |
 | AC10 | Composer는 Engine과 같은 자동·정적 모델 집합을 표시하고 사라진 선택은 유효한 기본값으로 재화해한다. | selector/store 테스트: 동일 입력 집합, 제거 후 stale selection 미전송 | agentStore → ModelMenu/chat store |
-| AC11 | 앱 재시작 때 부팅 deploy 무효화를 Auth 구독·resume·catalog attach보다 먼저 끝낸다. 저장 grant만으로는 자동 entry를 노출하지 않고 Gate 자동 인증 성공 뒤 contribution을 1회 fetch해 최종 catalog에 유지한다. | bootstrap 순서 테스트 + 상태 기계 테스트: deploy invalidation 선행, restore 전 0회, verified 후 1회와 최종 entry 존재 | deploy invalidation → Auth subscribe/resume → catalog attach → fetch/cache |
+| AC11 | 앱 재시작 때 부팅 deploy 무효화를 Auth 구독·resume·catalog attach보다 먼저 끝낸다. 저장 grant만으로는 자동 entry를 노출하지 않고 Gate 자동 인증 성공 뒤 contribution을 1회 fetch해 최종 catalog에 유지한다. | bootstrap 순서 테스트 + 상태 기계 테스트: deploy invalidation 선행, restore 전 0회, verified 후 1회와 최종 entry 존재. **순서 단언은 주입된 관측 주체가 실행 순서를 기록해 내린다 — `bootstrap.ts` 소스 문자열 검사(`readFileSync`+`toContain`)는 이 AC의 검증 수단이 아니다**(D35 정정) | deploy invalidation → catalog attach → Auth subscribe/resume → fetch/cache |
 | AC12 | 기존 settings 기반 모델 CRUD와 기본 sonnet/opus/haiku 동작은 회귀하지 않는다. | 기존 parser/settings/engine 테스트 + 정적 게이트 | engine IPC → deploy → agent:list |
 | AC13 | 로그인 후 새 세션을 여러 개 만들고 턴을 실행해도 contribution fetch 호출 수는 증가하지 않고 cache snapshot만 사용한다. | 통합 테스트: Gate 로그인 1회 + 세션 N개 + 턴 M개에서 fetch 총 1회 | Gate login → cache → session/turn setup |
 
@@ -132,7 +133,7 @@ Plugin/App login → Auth snapshot
 
 - 기존 테스트 재사용: `settings.test.ts`의 `toAgentEnvironments`와 parser 테스트, `runtime-config.test.ts`의 generation fence, auth resume 테스트가 존재하지만 동적 catalog 의미는 신규 케이스로 추가한다.
 - 사람 실기 항목: AC9의 실제 배지·버튼 부재와 두 테마만 시각 확인한다. 목록/분류/read-only 판정은 자동 테스트로 내린다.
-- 순서 기준: 부팅 deploy 무효화 완료 < Auth 구독 < `authResume.run()` < catalog attach 순서를 고정한다. fetch 관측점은 Gate 로그인 성공 hook 하나이며 session/turn setup spy에서 network 호출 0을 함께 단언한다.
+- 순서 기준(D35 정정): **부팅 deploy 무효화 완료 < catalog attach < Auth 구독 < `authResume.run()`** 순서를 고정한다. attach를 `authResume.run()` 뒤에 두면 probe가 먼저 verified가 됐을 때 `await bridge.attach()`가 `runtime.resolve` 네트워크 왕복을 부팅 경로에서 기다린다 — `bootstrap.ts:392-394`의 "probe 는 네트워크 왕복이라 부팅을 붙들면 안 된다"를 어기는 순서다. attach 시점에는 복원 grant가 아직 `verified:false`이므로(`features/auth/store.ts:156,206`) `reconcile`이 `runtime-catalog.ts:73`에서 즉시 반환해 fetch가 없다. fetch 관측점은 Gate 로그인 성공 hook 하나이며 session/turn setup spy에서 network 호출 0을 함께 단언한다.
 - 총량/0건 기준: 자동 entry 제거와 사용자 entry 보존을 함께 단언해 “전체 목록이 비어서 통과”하는 거짓 양성을 막는다.
 
 ---
@@ -225,6 +226,7 @@ AuthSnapshot → runtime contribution resolve ┘                         ├→
 | 로그인당 fetch 1회·세션 fetch 0회 | runtime catalog single-flight process cache | Gate login reconciler·session/turn readers | 로그인 성공 1지점에서만 fetch; session create·turn setup 2지점은 read-only cache | 중복 fetch 또는 cache miss 시 명시 실패 |
 | read-only provenance | runtime-managed canonical key + `AgentEnvironment.source/readOnly` | catalog mapper·runtime entry mapper·Engine renderer·engine mutation handler | settings DTO 생성·runtime DTO 생성·UI action·IPC mutation 4종(IPC mutation 4좌표), 실효 6지점·7좌표 | 충돌 settings 행 노출, UI 편집 액션 노출 또는 main mutation 허용 |
 | contribution cache 수명과 catalog 가시성의 결합 | `canonicalAgentKey` + runtime catalog invalidation/reconcile | settings CRUD·부팅 deploy·Auth invalidation·catalog reconciler | settings CRUD 전체 무효화·부팅 deploy 선행 무효화·Auth key 무효화·영향받은 모든 authId reconcile 4지점 | cache MISS인데 행이 남는 유령 상태 또는 다른 auth의 entry만 stale 상태 |
+| 부팅 시퀀스 순서 | `startRuntimeModelCatalogAfterDeploy` 인자 순서 | 컴포지션 루트(`bootstrap.ts`) | helper 내부 5단계 순서 1지점 · helper 호출부가 넘기는 `resumeAuth` 실체 1지점 = 2지점 | invalidate가 attach 뒤로 가면 Gate fetch가 지워지고(r5 D24), attach가 subscribe 뒤로 가면 부팅이 network를 await한다 |
 | 두 UI 동일 snapshot | `orca:agent:list` | agentStore | Engine/Composer load·refresh 2소비축 | 목록 차이 테스트 실패 |
 
 - 같은 규칙의 SSOT: family 분류와 모델 정규화는 main 순수 함수 하나를 두 producer가 호출하고 renderer는 결과만 표시한다.
@@ -282,7 +284,7 @@ settings / Auth+runtime augmenter
 
 ## 13. Lifecycle / 오류 / 정리
 
-- 생성/시작: 부팅 deploy 무효화를 먼저 완료한 뒤 Auth 구독·resume·runtime catalog attach를 설치한다. Gate 수동/자동 로그인 verified snapshot이 contribution fetch 1회를 발화하고 성공 snapshot을 process-memory cache에 원자 publish한다.
+- 생성/시작: 부팅 deploy 무효화를 먼저 완료하고 → runtime catalog attach → Auth 구독 → `authResume.run()` 순으로 설치한다(§7 순서 기준). Gate 수동/자동 로그인 verified snapshot이 contribution fetch 1회를 발화하고 성공 snapshot을 process-memory cache에 원자 publish한다.
 - 취소/중단: Auth unusable 전이는 in-flight resolve를 abort하고 generation을 올린 뒤 entry를 즉시 제거한다.
 - 종료/quit/crash/renderer-gone: catalog는 메모리 파생 상태라 별도 저장·cleanup 없이 프로세스와 함께 사라진다.
 - retry/timeout/partial failure: Gate 로그인 fetch 실패는 해당 contribution만 제거하고 다른 entries는 유지한다. 새 세션은 재시도 트리거가 아니며 다음 Gate 재인증만 새 fetch를 허용한다.
@@ -471,9 +473,9 @@ settings / Auth+runtime augmenter
 | D30 | 게이트 자기보고 `2092케이스/44 ABI fail`이 재측정 `2090/42`와 다르다(plan·INDEX 2사본) | verify r5 | r6은 대상 스위트 실측 5파일/39케이스만 보고한다. 전체 스위트는 ABI red 뒤 최종 집계 없이 중단된 사실을 분리한다. | closed r6 |
 | D31 | 좌표·기준선 위생 3건 — `176a73f`에 규범 행 D-008 혼입(D15 축) · INDEX `(r5 구현)` 자리표시자 · §10 read-only 행이 아직 `3지점` | verify r5 | 과거 혼입은 history로 보존한다. INDEX 좌표는 교정됐고 §10은 실효 6지점·7좌표로 정정한다. | closed r6 — 단 같은 축이 D36·D37로 재발했다 |
 | D32 | `misc.ts:45`의 3번째 인자를 지워도 전체 스위트가 베이스라인과 같다(변이 M-B) — AC5가 지목한 두 UI **목록** 경로가 잠기지 않았다 | verify r6 · AC5·§10 6행 | `agent:list` handler를 `engine.runtime-catalog.test.ts`의 `vi.mock('../../infra/ipc/handle')` 패턴으로 열어 catalog 주입 후 충돌 행 미노출을 단언한다 | open |
-| D33 | `auth.subscribe`×2 + `authResume.run()`을 deploy 앞으로 되돌려도 전건 통과하고 typecheck exit 0(변이 M-H) — AC11·D-009의 실제 배선이 소스 문자열 grep으로만 잠겼다 | verify r6 · AC11·AC6 | `resumeAuth` 설치를 순수 팩토리로 한 겹 더 뽑아 "helper에 무엇을 넘겼는가"를 주입 테스트로 잠근다 | open |
+| D33 | `auth.subscribe`×2 + `authResume.run()`을 deploy 앞으로 되돌려도 전건 통과하고 typecheck exit 0(변이 M-H) — AC11·D-009의 실제 배선이 소스 문자열 grep으로만 잠겼다 | verify r6 · AC11·AC6 | `resumeAuth` 설치를 순수 팩토리로 한 겹 더 뽑아 "helper에 무엇을 넘겼는가"를 주입 테스트로 잠근다. 규범 축(AC11 검증 수단·§10 행)은 D35에서 닫혔고 남은 것은 잠금 구현이다 | open |
 | D34 | cross-auth 루프에 `.filter(item => item === authId)`를 붙여 r5 D29 버그를 되살려도 미검출(변이 M-D2) | verify r6 · §10 cache 수명 4행 | helper 반환값이 아니라 호출 결과로 재조정된 authId 집합을 관측하는 seam을 만든다 | open |
-| D35 | plan §7 순서 기준(attach 마지막)과 구현(attach 3번째)이 어긋나는데 "설계 대비 차이 없음"으로 보고됐다 | verify r6 · §7·D-009 | 현재 구현(attach를 subscribe 앞)이 옳다면 §7 순서 기준을 그 순서로 정정한다. 반대면 구현을 바꾼다 — 어느 쪽이든 규범 행 수정이다 | open · **규범 정정 필요** |
+| D35 | plan §7 순서 기준(attach 마지막)과 구현(attach 3번째)이 어긋나는데 "설계 대비 차이 없음"으로 보고됐다 | verify r6 · §7·D-009 | **§7을 구현 순서로 정정했다** — attach를 resume 뒤에 두면 `await attach()`가 부팅에서 network를 기다린다. 함께 AC11 검증 수단에서 소스 문자열 검사를 배제하고 §10에 부팅 시퀀스 순서 행(2지점)을 신설했다. | closed(설계) r6 |
 | D36 | INDEX·plan 두 사본의 r6 좌표 `d214581`이 실재하지 않는다(`git cat-file -t` 실패, `git rev-list --all` 전수 부재). 실제 좌표는 `a843557` | verify r6 · §11 | 좌표는 이번 검증 커밋에서 교정했다. 다음 라운드는 좌표를 적기 전에 `git cat-file -t`로 확인한다 | closed r6(교정) |
 | D37 | `a843557`이 규범 행(D-009·AC5·AC7·AC11·§10 2행)과 구현을 한 커밋에 담아 §0 기준선이 성립하지 않는다 — r3 D15·r5 D31①의 3회차 | verify r6 · §0 | 설계 턴 커밋과 구현 커밋을 나눈다. 과거 커밋은 history rewrite 없이 남긴다 | open |
 | D38 | `docs/arch/backend/auth.md:583`이 "Model 선택 UI 는 계속 settings.json 에서 파생한다 … 카탈로그 목록에 넣지 않는다"로 남아 같은 파일 `:496`·코드와 어긋난다 | verify r6 · 기준 밖 · §16 | 현재 동작(settings + runtime catalog 합성)으로 문장을 정정한다 — `803bd50`이 §6.1·§6.2만 고치고 §6.5 말미를 두고 갔다 | open |
