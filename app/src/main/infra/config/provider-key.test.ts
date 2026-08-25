@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canonicalProviderKey, parseProviderKey, providerKeyOf } from './provider-key'
+import { parseProviderKey, providerKeyOf } from './provider-key'
 
 describe('provider key helpers', () => {
   it('providerKeyOf 는 trim/lowercase 합성 키를 만들고 공백 provider 는 adapter 단독', () => {
@@ -33,9 +33,5 @@ describe('provider key helpers', () => {
     expect(parseProviderKey('', adapters)).toBeUndefined()
     // 빈 provider 조각('claude-')은 매칭 실패로 undefined.
     expect(parseProviderKey('claude-', adapters)).toBeUndefined()
-  })
-
-  it('canonicalProviderKey 는 read-only 판정 전에 casing과 공백을 정규화한다', () => {
-    expect(canonicalProviderKey(' CLAUDE-Corp ', ['claude'])).toBe('claude-corp')
   })
 })

@@ -4,9 +4,9 @@ import type {
   CreateEngineRequest,
   UpdateEngineRequest
 } from '../../../../../shared/ipc'
-import { engineApi, providerApi } from '../../../shared/api/ipc'
+import { engineApi } from '../../../shared/api/ipc'
 import type { UiMessage } from '../../../shared/i18n'
-import { refreshAgents, useAgentStore } from '../../../shared/stores/agentStore'
+import { refreshAgents, subscribeAgents, useAgentStore } from '../../../shared/stores/agentStore'
 
 export interface EngineMutationState {
   busy: boolean
@@ -27,7 +27,7 @@ export function useEngines(): {
   const ensureLoaded = useAgentStore((store) => store.ensureLoaded)
   const [state, setState] = useState<EngineMutationState>({ busy: false, error: null })
 
-  useEffect(() => providerApi.onState(() => void refreshAgents()), [])
+  useEffect(() => subscribeAgents(), [])
 
   const mutate = useCallback(async (fn: () => Promise<unknown>): Promise<void> => {
     setState({ busy: true, error: null })

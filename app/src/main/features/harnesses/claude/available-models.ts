@@ -1,11 +1,13 @@
+import { isRecord } from '../../../../shared/obj'
 import type { ParsedModel } from './model-parser'
 
-const FAMILY_ORDER = ['sonnet', 'opus', 'haiku'] as const
+// Claude 모델 family — 노출 순서이자 discovery 분류 순서. 폴백 평가 순서는 아래 별도 상수다.
+export const FAMILY_ORDER = ['sonnet', 'opus', 'haiku'] as const
 const DEFAULT_FAMILY_ORDER = ['sonnet', 'haiku', 'opus'] as const
 
 export function availableModelsOf(value: unknown): string[] | undefined {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
-  const candidate = (value as Record<string, unknown>).availableModels
+  if (!isRecord(value)) return undefined
+  const candidate = value.availableModels
   if (candidate === undefined) return undefined
   if (!Array.isArray(candidate) || candidate.some((model) => typeof model !== 'string'))
     return undefined

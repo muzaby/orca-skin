@@ -88,7 +88,7 @@ import { createConnectionSources } from './deployment/connections'
 import { createUsageFetcher } from './deployment/usage-fetcher'
 import { connectionState, duplicateConnectionAuthIds } from './connection-views'
 import type { ConnectionViewSource } from './connection-views'
-import type { AuthChange, AuthId, AuthRuntime, AuthSecretReader } from '../contracts/auth'
+import type { AuthChange, AuthRuntime, AuthSecretReader } from '../contracts/auth'
 import { errorMessage } from '../infra/errors'
 import { createVault } from '../infra/vault'
 import { BrowserSessionStore } from '../infra/browser-session'
@@ -368,7 +368,7 @@ export class Bootstrap {
     }
 
     // `createAuthResume` 는 `pushConnectionState` 를 필요로 하고 이 클로저는 그 handle 의
-    // `resuming()` 을 필요로 한다 — 순환이라 ref 로 끊는다(같은 파일 `harnessRuntimeRef` 선례).
+    // `resuming()` 을 필요로 한다 — 순환이라 ref 로 끊는다.
     // **배선 사이에 push 가 끼지 않는다**: Auth 구독은 아래 `createRuntimeModelAuthResume` 가
     // helper 안에서 설치하고 change 에만 발화하며, `registerConnectionHandlers` 는 등록만 하고,
     // ref 대입은 `void authResume.run()` 앞이다.
@@ -386,10 +386,6 @@ export class Bootstrap {
       contributions: RUNTIME_MODEL_CONTRIBUTIONS,
       snapshotOf: (authId) => auth.bind(authId).snapshot()
     })
-    // Harness runtime config 는 DB 뒤에 만들어진다 — 그 전에 도착한 credential change 는
-    // cache 자체가 없으므로 무효화할 것도 없다.
-    let harnessRuntimeRef: { invalidateForAuth: (authId: AuthId) => void } | undefined = undefined
-
     registerConnectionHandlers({ auth, gate, connections, resuming })
 
     // 자동 로그인 — 복원된 세션 쿠키가 아직 유효한지 확인한다. **await 하지 않는다**: probe 는
@@ -459,20 +455,22 @@ export class Bootstrap {
     })
     // Auth change → 배포가 명시한 고정 key만 무효화한다(0188 §성능 계약).
     // 실행 env와 model catalog contribution의 합집합이며 런타임 자동 발견은 하지 않는다.
-    harnessRuntimeRef = {
-      // A deployment may declare that Auth A invalidates a contribution owned by Auth B. Every
-      // owner of an invalidated canonical key must reconcile; replaying only A leaves B's row
-      // visible over an empty cache. Keep declarations intact at this composition seam.
-      invalidateForAuth: createRuntimeModelAuthInvalidator({
-        invalidatedKeys: AUTH_INVALIDATED_HARNESS_KEYS,
-        contributions: RUNTIME_MODEL_CONTRIBUTIONS,
-        invalidate: (key) => harnessRuntime.invalidate(key, 'auth-change'),
-        snapshotOf: (ownerAuthId) => auth.bind(ownerAuthId).snapshot(),
-        reconcile: (ownerAuthId, snapshot) => {
-          void runtimeModelCatalogBridge.onSnapshot(ownerAuthId, snapshot)
-        }
-      })
-    }
+    //
+    // **`const` 다** — 유일한 Auth 구독은 이 줄 뒤(`startRuntimeModelCatalogAfterDeploy`)에서
+    // 설치되므로 ref 로 끊을 시간 순환이 없다. 구독이 앞으로 옮겨지면 컴파일이 깨진다.
+    //
+    // A deployment may declare that Auth A invalidates a contribution owned by Auth B. Every
+    // owner of an invalidated canonical key must reconcile; replaying only A leaves B's row
+    // visible over an empty cache. Keep declarations intact at this composition seam.
+    const invalidateHarnessForAuth = createRuntimeModelAuthInvalidator({
+      invalidatedKeys: AUTH_INVALIDATED_HARNESS_KEYS,
+      contributions: RUNTIME_MODEL_CONTRIBUTIONS,
+      invalidate: (key) => harnessRuntime.invalidate(key, 'auth-change'),
+      snapshotOf: (ownerAuthId) => auth.bind(ownerAuthId).snapshot(),
+      reconcile: (ownerAuthId, snapshot) => {
+        void runtimeModelCatalogBridge.onSnapshot(ownerAuthId, snapshot)
+      }
+    })
     const runtimeModelCatalog = createRuntimeModelCatalog({
       contributions: RUNTIME_MODEL_CONTRIBUTIONS,
       runtime: harnessRuntime,
@@ -633,15 +631,15 @@ export class Bootstrap {
         // snapshot can fetch a contribution and then be erased by the boot-time reset.
         onChange: (change: AuthChange) => {
           pushConnectionState()
-          if (change.kind === 'snapshot' && change.credentialChanged) {
+          // 화면 변화(입력 폼·OAuth 대기·resuming)는 여기서 끝난다 — 실행 credential 이 그대로다.
+          if (change.kind !== 'snapshot') return
+          if (change.credentialChanged) {
             for (const plugin of plugins) {
               if (plugin.auth.authId === change.authId) plugin.sync()
             }
-            harnessRuntimeRef?.invalidateForAuth(change.authId)
+            invalidateHarnessForAuth(change.authId)
           }
-          if (change.kind === 'snapshot') {
-            void runtimeModelCatalogBridge.onSnapshot(change.authId, change.snapshot)
-          }
+          void runtimeModelCatalogBridge.onSnapshot(change.authId, change.snapshot)
         },
         onGateChange: (authId) => authResume.onGateChange(authId),
         run: () => void authResume.run()

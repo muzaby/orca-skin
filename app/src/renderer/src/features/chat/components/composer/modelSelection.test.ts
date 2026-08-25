@@ -34,23 +34,12 @@ describe('runtime model selection', () => {
   })
 
   it('detects a selection removed with its runtime contribution', () => {
-    const selection = {
-      providerKey: 'orca-corp',
-      adapter: 'orca',
-      modelFamily: 'orca-private-v1'
-    }
-    expect(selectionExists(agents, selection)).toBe(true)
-    expect(selectionExists([], selection)).toBe(false)
+    expect(selectionExists(agents, 'orca-corp', 'orca-private-v1')).toBe(true)
+    expect(selectionExists([], 'orca-corp', 'orca-private-v1')).toBe(false)
   })
 
   it('keeps a restored provider while its model is awaiting default hydration', () => {
-    const selection = {
-      providerKey: 'orca-corp',
-      adapter: 'orca',
-      modelFamily: null
-    }
-
-    expect(selectionExists(agents, selection)).toBe(true)
+    expect(selectionExists(agents, 'orca-corp', null)).toBe(true)
   })
 
   it('uses actual model names as unique keys for repeated families and custom models', () => {
@@ -80,19 +69,7 @@ describe('runtime model selection', () => {
     ]
 
     expect(defaultSelection([agent], null)?.modelFamily).toBe('sonnet-a')
-    expect(
-      selectionExists([agent], {
-        providerKey: agent.key,
-        modelFamily: 'sonnet-b',
-        adapter: agent.adapter
-      })
-    ).toBe(true)
-    expect(
-      selectionExists([agent], {
-        providerKey: agent.key,
-        modelFamily: 'private-v1',
-        adapter: agent.adapter
-      })
-    ).toBe(true)
+    expect(selectionExists([agent], agent.key, 'sonnet-b')).toBe(true)
+    expect(selectionExists([agent], agent.key, 'private-v1')).toBe(true)
   })
 })
