@@ -8,7 +8,7 @@
 | 작성자 | Codex |
 | 일자 | 2026-08-24 |
 | 매핑 | 런타임 모델 카탈로그 자동 투영 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) → verify/FAIL (r5) → READY (r6) → IMPL_DONE (r6) → verify/FAIL (r6) → READY (r7) → IMPL_DONE (r7) → verify/FAIL (r7) → READY (r8) → IMPL_DONE (r8) → verify/FAIL (r8) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) → verify/FAIL (r5) → READY (r6) → IMPL_DONE (r6) → verify/FAIL (r6) → READY (r7) → IMPL_DONE (r7) → verify/FAIL (r7) → READY (r8) → IMPL_DONE (r8) → verify/FAIL (r8) → IMPL_DONE (r9, 부분) → verify/FAIL (r9) |
 
 # Part I — Product & UX Contract
 
@@ -447,7 +447,7 @@ settings / Auth+runtime augmenter
 ## [검증자 기입] 파생 이슈
 
 > 라운드별 검증 판정 원문은 [`verify.md`](verify.md). 아래는 재구현이 닫을 목록이다.
-> D1~D10은 r2, D11~D16은 r3, D17~D23·W1은 r4, D24~D31은 r5, D32~D39는 r6, D40~D43은 r7, D44~D46은 r8 산출이다.
+> D1~D10은 r2, D11~D16은 r3, D17~D23·W1은 r4, D24~D31은 r5, D32~D39는 r6, D40~D43은 r7, D44~D46은 r8, D47은 r9 산출이다.
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
@@ -495,9 +495,10 @@ settings / Auth+runtime augmenter
 | D41 | AC11 검증 수단이 소스 문자열 검사를 전면 배제해(D35) 합성 seam을 잠글 수단이 남지 않는다 — `bootstrap.ts`는 `@electron-toolkit/utils`의 CJS `require('electron')` 때문에 vitest가 열 수 없다(verify r7 §8 실측) | verify r7 · AC11 검증 수단·§10 부팅 시퀀스 행 | 이 저장소의 음성 소스 가드 관용구(`infra/net/no-node-fetch.test.ts` + `infra/source-scan.ts`)를 §10 2번째 지점의 수단으로 허용할지, 아니면 지점 수를 1로 줄일지 규범 행에서 정한다 · **규범 정정 필요** | **closed(설계) r8** — D-010 신설, AC11 검증 수단·§10 두 행 정정. 음성 가드를 채택하고 electron alias 대안은 P29 약화로 기각했다 |
 | D42 | 신규 `misc.runtime-catalog.test.ts`의 `toEqual([])`가 한쪽만 잠근다 — handler가 settings 입력을 통째로 버려도 전건 통과(변이 M-B3) | verify r7 · AC5 | fixture에 비충돌 settings 행 1개를 넣고 같은 `toEqual`에서 보존과 미노출을 함께 단언한다(r6 AC5 probe 형태) | closed r8 — 보존 행을 동반한 단언이 M-B3를 검출했다 |
 | D43 | `6934d77` 본문이 리터럴 `\n`으로 한 줄이라 trailer가 파싱되지 않는다(`git interpret-trailers --parse` 0건) — r3 D15와 같은 축 | verify r7 · §11 | 과거 커밋은 rewrite하지 않는다. 다음 라운드부터 trailer를 실제 개행으로 적고 커밋 후 `git log -1 --format='%(trailers:only=true)'`로 확인한다 | closed r8 — 구현 커밋 뒤 파싱 결과를 관측한다 |
-| D44 | 유일성 가드가 "배선"이 아니라 "그 파일에 호출문이 있다"를 잰다 — `bootstrap.ts`의 runtime-model Auth 배선을 지우고 그로 인해 unused가 된 심볼까지 정리하면 typecheck 0·eslint 0·vitest 215/215·2108/2108 green이고 production Auth listener는 0개다(변이 M-P, 3단계 수렴). §10 부팅 시퀀스 행의 실패 의미 "호출 자체의 소멸은 `noUnusedLocals`가 typecheck를 red로 만든다(r7 M-J)"가 거짓이다 — r7 M-J는 정리 1단계에서 멈춘 관측이다 | verify r8 · AC6·AC11·§10 부팅 시퀀스 행·D-010 | ① §10 실패 의미 문장을 실측으로 정정한다 ② 소멸 축을 잠글지, 잠근다면 양성 술어(그 파일의 export를 부르는 production 파일 ≥1)·타입 강화 중 무엇으로 할지 D-010에서 정한다 · **규범 정정 필요** | open |
+| D44 | 유일성 가드가 "배선"이 아니라 "그 파일에 호출문이 있다"를 잰다 — `bootstrap.ts`의 runtime-model Auth 배선을 지우고 그로 인해 unused가 된 심볼까지 정리하면 typecheck 0·eslint 0·vitest 215/215·2108/2108 green이고 production Auth listener는 0개다(변이 M-P, 3단계 수렴). §10 부팅 시퀀스 행의 실패 의미 "호출 자체의 소멸은 `noUnusedLocals`가 typecheck를 red로 만든다(r7 M-J)"가 거짓이다 — r7 M-J는 정리 1단계에서 멈춘 관측이다 | verify r8 · AC6·AC11·§10 부팅 시퀀스 행·D-010 | ① §10 실패 의미 문장을 실측으로 정정한다 ② 소멸 축을 잠글지, 잠근다면 양성 술어(그 파일의 export를 부르는 production 파일 ≥1)·타입 강화 중 무엇으로 할지 D-010에서 정한다 · **규범 정정 필요** | open — r9가 ②의 코드 절반만 선행 구현했다(양성 술어). ①은 미수행이고 verify r9 §5가 실패 의미 문장의 거짓을 재측정했다 |
 | D45 | `bootstrap.ts:372` 주석 "아래 `auth.subscribe` 는 change 에만 발화하고"가 그 파일에 없는 구성을 가리킨다 — r7 이설 뒤 남았고 D-010은 그 파일에서 해당 호출을 금지한다. 불변식 자체(ref 대입이 `run()` 앞)는 성립한다 | verify r8 · 기준 밖 · 위생 | 주석을 helper를 가리키도록 고친다. r7 D39와 같은 축 | open |
-| D46 | 가드 술어가 수신자 이름 `auth`에 묶여 `authRuntime.subscribe(` 형태는 우회한다. 오늘 더 엄격한 술어와의 차집합이 0이라 현재 `1건`은 참인 전수이므로 판정을 막지 않는다 | verify r8 · 기준 밖 · 관측 | D44를 정할 때 술어 폭도 함께 본다 | open |
+| D46 | 가드 술어가 수신자 이름 `auth`에 묶여 `authRuntime.subscribe(` 형태는 우회한다. 오늘 더 엄격한 술어와의 차집합이 0이라 현재 `1건`은 참인 전수이므로 판정을 막지 않는다 | verify r8 · 기준 밖 · 관측 | D44를 정할 때 술어 폭도 함께 본다 | open — r9 미착수. 재측정에서 차집합 0 유지(production `.subscribe(` 5좌표 중 `auth.` 2좌표) |
+| D47 | 채택한 양성 술어가 소멸 축을 절반만 덮는다 — `bootstrap.ts:629`를 `resumeAuth: () => void authResume.run()`으로 바꾸고 unused를 4단계 정리하면 typecheck 0·eslint 0·vitest 210/215 파일·2066/2108 케이스가 **베이스라인과 동일**하고 production Auth listener는 0개다(변이 M-Q). §10 부팅 시퀀스 행이 "listener 설치 유일성" 1지점만 열거해 **설치 실재**가 지점으로 없다 | verify r9 · AC6·AC11·§10 부팅 시퀀스 행·D-010 | ① §10 부팅 시퀀스 행에 설치 실재 지점을 세우고 분모를 고친다 ② D-010에 양성 술어의 대상 심볼을 적는다 — `createRuntimeModelAuthResume(` production 호출부 `['bootstrap.ts']`가 M-P·M-Q를 함께 덮는다 · **규범 정정 필요** | open |
 
 ## [구현자 기입] r2 사용자 피드백 반영
 
