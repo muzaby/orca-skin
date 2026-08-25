@@ -8,7 +8,7 @@
 | 작성자 | Claude |
 | 일자 | 2026-08-25 |
 | 매핑 | 0198 런타임 모델 카탈로그의 `/simplify` 정리 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → verify/FAIL (r1) → READY → IMPL_DONE (r2) |
 
 # Part I — Product & UX Contract
 
@@ -34,15 +34,16 @@
 | D-002 | 0198 의 `plan.md`/`verify.md` 에 **좌표·수치로 기록된 증거**를 무효화하는 정리는 하지 않는다. | PASS 판정의 근거를 사후에 지우면 판정이 재현 불가가 된다. 규범 정정은 설계 턴의 일이지 정리의 일이 아니다. | 저장소 원칙 1 | ACTIVE | — |
 | D-003 | settings 행과 runtime 행의 **병합 규칙은 카탈로그가 소유**한다 (`RuntimeModelCatalog.merge`). 소비처는 술어를 다시 조립하지 않는다. | 규칙이 소비처마다 인자로 전달되면 새 소비처가 조용히 빠뜨린다(기본값 `() => false` 가 침묵을 만든다). | altitude 리뷰 · 본 턴 | ACTIVE | — |
 | D-004 | `AgentEnvironment` 행을 만드는 자리는 `toAgentEnvironment` **하나**다. settings·runtime 둘 다 그것을 지난다. | wire 필드가 늘 때 한쪽만 갱신되는 드리프트를 타입이 아니라 구조로 막는다. `source`·`readOnly` 가 optional 이라 컴파일러가 못 잡는다. | reuse 리뷰 · 본 턴 | ACTIVE | — |
-| D-005 | key 정규화 어휘는 `canonicalAgentKey` **하나**다. `canonicalProviderKey` 는 제거한다. | 0198 verify.md §r10 이 두 함수가 같은 값을 낸다고 이미 관측했다 — 두 어휘는 미래 호출자에게 선택을 강요하고 갈라질 여지만 남긴다. | verify.md 관측 + reuse/simplify/altitude 3축 합치 | ACTIVE | — |
+| D-005 | key 정규화 어휘는 `canonicalAgentKey` **하나**다. `canonicalProviderKey` 는 제거한다. | r1 검증에서 내부 공백 입력에 두 함수의 결과가 다름을 실측했다. | verify r1 D1 | SUPERSEDED | D-008 |
 | D-006 | agent 목록 무효화 구독은 **store 가 소유**한다 (`subscribeAgents`) — `usageStore.subscribeUsage` 선례를 승계한다. | 소비처(hook)마다 구독을 다시 적으면 새 소비처가 낡은 목록을 보여준다. | 4축 전건 합치 · 본 턴 | ACTIVE | — |
 | D-007 | 부팅 순서(D-009/D35)와 `auth.subscribe` 좌표 폭(D-010/D46)은 **건드리지 않는다**. | 전자는 사용자 결정, 후자는 verify 가 좌표로 센 증거다. 효율 이득이 있어도 정리의 권한 밖이다. | D-002 적용 | ACTIVE | — |
+| D-008 | agent key 비교 정규화와 provider 합성 key 정규화는 의미가 다르므로 각각 `canonicalAgentKey`·`canonicalProviderKey` 가 소유한다. mutation handler 는 read-only 판정 전에 provider key 를 canonicalize 한다. | `'claude-  corp'` 는 하류에서 `claude-corp` 로 수렴하므로 raw 비교는 fail-open 이다. | verify r1 D1 | ACTIVE | D-005 대체 |
 
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-001~D-007 전부(신규 핸드오프).
 - 리뷰가 제안했으나 **채택하지 않은 것**은 §17 에 이유와 함께 남긴다 — 되풀이 제안을 막기 위해서다.
-- `ACTIVE 결정 ↔ AC` 대조: D-001↔AC1, D-002↔AC2, D-003↔AC3, D-004↔AC4, D-005↔AC5, D-006↔AC6, D-007↔AC7 — 충돌 0.
+- `ACTIVE 결정 ↔ AC` 대조: D-001↔AC1, D-002↔AC2, D-003↔AC3, D-004↔AC4, D-006↔AC6, D-007↔AC7, D-008↔AC5 — 충돌 0.
 
 ## 4. 요구 비판적 검토
 
@@ -90,19 +91,19 @@
 | # | 기준 | 검증 수단 |
 |---|---|---|
 | AC1 | 사용자 대면 동작·wire shape 변화 0. | `src/shared/ipc.ts` diff 없음 + 전체 vitest green |
-| AC2 | 0198 의 강제 지점 테스트가 **한 건도 삭제되지 않는다**. | `no-stray-auth-subscribe.test.ts` 4 단언 유지 · `runtime-catalog.test.ts` 15 테스트 유지 |
+| AC2 | 0198 의 강제 지점 테스트가 **한 건도 삭제되지 않는다**. | `no-stray-auth-subscribe.test.ts` 18 단언 유지 · `runtime-catalog.test.ts` 13 테스트 유지 |
 | AC3 | `mergeAgentEnvironments` 를 직접 부르는 production 소비처가 **0** 이다 — 전부 `catalog.merge()` 를 지난다. | `grep -rn "mergeAgentEnvironments" src/main --include=*.ts` 가 정의(`models.ts`)·카탈로그(`runtime-catalog.ts`)·테스트만 낸다 |
 | AC4 | `AgentEnvironment` 행을 조립하는 production 자리가 `toAgentEnvironment` **하나**다. | `grep -rn "adapter: .*harnessId" src/main --include=*.ts` (테스트 제외) 가 `models.ts:66` 1좌표만 낸다 — `runtime-catalog.ts` 는 provenance 인자만 넘긴다 |
-| AC5 | `canonicalProviderKey` 심볼이 트리에 **없다**. | `grep -rn "canonicalProviderKey" src` → 0건 |
+| AC5 | update/delete/read 의 provider key 는 read-only 판정 전에 provider 구성요소의 공백·casing 을 정규화해 runtime-managed 행을 fail-closed 로 막는다. | production `engine.ts` handler를 지나는 테스트에서 `'claude-  CORP'` 세 요청이 모두 거부됨을 단언 |
 | AC6 | `providerApi.onState` 로 agent 목록을 갱신하는 자리가 `agentStore` **하나**다. | `grep -rn "onState(() => void refreshAgents" src/renderer` → `agentStore.ts` 1건 |
 | AC7 | 부팅 시퀀스·`auth.subscribe` 좌표가 0198 기록과 동일하다. | `no-stray-auth-subscribe.test.ts` green + `bootstrap.ts` 의 호출 순서 diff 없음 |
 | AC8 | 게이트 전건 통과 — typecheck 3분할 · lint 0 error · vitest 전체 green. | `npm run typecheck` · `npm run lint` · `npx vitest run` |
 
 ### AC 검증 주의사항
 
-- **AC3·AC4·AC5·AC6 은 음성 술어다** — "없다" 만 잠근다. 실재(배선이 살아 있다)는 기존 0198 테스트가 계속 진다. 음성 스윕만으로 배선을 잠갔다고 읽지 마라(0198 D-010 이 두 라운드에 걸쳐 배운 것).
+- **AC3·AC4·AC6 은 음성 술어다** — "없다" 만 잠근다. 실재(배선이 살아 있다)는 production path 테스트와 짝지어 확인한다. AC5 는 mutation handler 자체를 지나는 양성 거부 단언이다.
 - **AC1 의 "동작 변화 0" 은 테스트 green 으로 완증되지 않는다** — 테스트가 없는 경로(부팅 실기·두 테마 시각)는 0198 과 같은 한계를 그대로 승계한다.
-- vitest 총수는 baseline 2,112 → 2,111 이 **정상**이다: `canonicalProviderKey` 제거로 그 단위 테스트 1건이 함께 사라진다(AC5 와 같은 사실).
+- r2 에서 `canonicalProviderKey` 단위 테스트와 handler semantic 테스트를 복원·추가하므로 vitest 총수는 실행 산출로 다시 측정한다.
 
 # Part II — Technical Design
 
@@ -165,7 +166,7 @@ useEngines.ts  ─┘
 |---|---|---|---|
 | 병합 규칙 | 소비처 2곳이 3인자로 재조립 | `RuntimeModelCatalog.merge` | D-003 |
 | 행 조립 | 리터럴 2벌 | `toAgentEnvironment` 1자리 | D-004 |
-| key 정규화 | `canonicalProviderKey` + `canonicalAgentKey` | `canonicalAgentKey` | D-005 |
+| key 정규화 | provider 합성 + agent 비교의 두 의미 | 두 의미를 각각 `canonicalProviderKey` + `canonicalAgentKey` 가 소유 | D-008 |
 | 목록 무효화 구독 | hook 2곳 | `agentStore.subscribeAgents` | D-006 |
 | 카탈로그 제거 경로 | 3벌(각자 `resolvedRevision.delete` + `onChange`) | `drop()` 1자리 + `bumpGenerations()` | simplify |
 | `harnessRuntimeRef` | `let ... \| undefined` + `?.` | `const invalidateHarnessForAuth` | 유일 구독이 대입 뒤로 옮겨져 시간 순환 소멸 |
@@ -194,20 +195,24 @@ useEngines.ts  ─┘
 | 10 | Composer 선택 소멸 감지 | `modelSelection.test.ts` | red |
 | 11 | `normalizeAvailableModels` 가 default 를 정한다 | `available-models.test.ts` · `model-parser.test.ts` | red (본 턴 실측 — §17 참조) |
 | 12 | 카탈로그가 비배열 `availableModels` 를 거부한다 | `runtime-catalog.test.ts` | red (본 턴 실측 — §17 참조) |
+| 13 | mutation handler 가 provider key 를 canonicalize 한 뒤 read-only 를 판정한다 | `engine.runtime-catalog.test.ts` production handler 3경로 | 내부 공백/casing 변이가 fail-open 이면 red |
+| 14 | adapter 미지정 `catalog.merge` 가 settings 를 보존하고 runtime 충돌만 대체한다 | `misc.runtime-catalog.test.ts` 가 실 `createRuntimeModelCatalog` 사용 | settings 전량 폐기·adapter 필터 소거 시 red |
 
 ## 11. 구현 설계
 
 1. `models.ts` — `toAgentEnvironment(entry, provenance)` 추출, `toAgentEnvironments` 가 그것을 map.
 2. `runtime-catalog.ts` — `ownsKey`·`bumpGenerations`·`drop` 추출, 제거 3경로를 그리로. `merge` 를 인터페이스와 구현에 추가. 행 조립을 `toAgentEnvironment` 로.
 3. `misc.ts`·`turn-setup.ts` — `catalog.merge()` 로 교체. `turn-setup` 의 3필드 리터럴 3벌을 `entry` const 하나로.
-4. `provider-key.ts` — `canonicalProviderKey` + 그 단위 테스트 제거. `engine.ts` 는 `canonicalAgentKey` 로.
+4. `provider-key.ts` — provider 합성 key 용 `canonicalProviderKey` 를 복원한다. `engine.ts` 는 update/delete/read 모두 이 정규화를 거친 뒤 `isReadOnly` 를 호출한다.
 5. `bootstrap.ts` — `harnessRuntimeRef` → `const invalidateHarnessForAuth`. `onChange` 의 이중 narrowing 을 early return 으로.
 6. renderer — `agentStore.subscribeAgents` 신설, 두 hook 이 호출. `EngineCard` 죽은 조건 제거 + fragment 로 가드 1벌. `Composer` 폴백 2벌 → 1벌. `selectionExists` 를 실제로 읽는 2인자로.
 7. `no-stray-auth-subscribe.test.ts` — 스윕을 `scanOffenders` 재사용으로. **단언 값(basename)은 유지**한다 — 0198 D-010 이 인용한 좌표라서다(D-002).
+8. `misc.runtime-catalog.test.ts` — 로컬 `merge` 재구현을 제거하고 실 카탈로그를 주입해 adapter 미지정 production 분기를 잠근다.
+9. `engine.runtime-catalog.test.ts` — update/delete/read 각 handler 에 비-canonical key 를 넣고 read-only 거부 및 settings 함수 미호출을 단언한다.
 
 ### 테스트 가능성
 
-- 새 테스트를 만들지 않는다. 기존 강제 지점이 정리의 안전망이다 — 정리가 동작을 바꿨다면 그것이 red 로 드러나야 정리가 옳게 된 것이다.
+- r2 는 verify D1·D2 가 밝힌 production 도달 공백을 기존 테스트 파일의 semantic 케이스로 보강한다.
 - `merge` 는 인터페이스 필수 멤버라 stub 누락이 **타입으로** 잡힌다(강제 지점 1).
 
 ## 12. End-to-end 영향
@@ -227,7 +232,7 @@ useEngines.ts  ─┘
 
 - `subscribeAgents()` 는 해제 함수를 그대로 돌려준다 — `useEffect(() => subscribeAgents(), [])` 가 언마운트 시 해제. 기존과 동일.
 - `drop()` 은 `catch` 경로에서도 불린다 — `bumpGenerations` 를 부르지 않는 것이 의도다(진행 중 fetch 를 죽이면 안 된다). 주석으로 고정했다.
-- `invalidateHarnessForAuth` 가 `const` 라 미초기화 접근이 **컴파일 에러**가 된다 — 구독이 앞으로 옮겨지면 빌드가 깨진다(이전엔 `?.` 가 조용히 no-op).
+- `invalidateHarnessForAuth` 를 초기화 전에 클로저가 실행하면 런타임 `ReferenceError` 가 난다. 현재 구독 순서에서는 초기화 뒤에만 실행되며 부팅 순서는 AC7 가드가 잠근다.
 
 ## 14. 성능 / 상한 / 최적화
 
@@ -268,9 +273,9 @@ useEngines.ts  ─┘
 
 ## 18. 영향 받는 파일 / 문서
 
-**main**: `app/bootstrap.ts` · `app/chat-turn/turn-setup.ts` · `app/handlers/engine.ts` · `app/handlers/misc.ts` · `features/harnesses/models.ts` · `features/harnesses/runtime-catalog.ts` · `infra/config/provider-key.ts`
+**main**: `app/bootstrap.ts` · `app/chat-turn/turn-setup.ts` · `app/handlers/engine.ts` · `app/handlers/misc.ts` · `features/harnesses/models.ts` · `features/harnesses/runtime-catalog.ts` · `features/harnesses/claude/available-models.ts` · `features/harnesses/claude/model-parser.ts` · `infra/config/provider-key.ts`
 **renderer**: `shared/stores/agentStore.ts` · `shared/hooks/useAgents.ts` · `features/engine/hooks/useEngines.ts` · `features/engine/components/EngineCard.tsx` · `features/chat/components/Composer.tsx` · `features/chat/components/composer/modelSelection.ts`
-**테스트**: `app/no-stray-auth-subscribe.test.ts` · `app/runtime-model-startup.test.ts` · `app/handlers/misc.runtime-catalog.test.ts` · `features/harnesses/runtime-catalog.test.ts` · `infra/config/provider-key.test.ts` · `composer/modelSelection.test.ts`
+**테스트**: `app/no-stray-auth-subscribe.test.ts` · `app/runtime-model-startup.test.ts` · `app/handlers/engine.runtime-catalog.test.ts` · `app/handlers/misc.runtime-catalog.test.ts` · `features/harnesses/runtime-catalog.test.ts` · `infra/config/provider-key.test.ts` · `composer/modelSelection.test.ts`
 **문서**: 본 `plan.md` · `docs/handoff/INDEX.md`
 
 ## 19. 게이트
@@ -309,10 +314,52 @@ useEngines.ts  ─┘
 
 판정 원문과 재현 명령은 [`verify.md`](verify.md). 아래는 미충족만 옮긴 체크리스트다.
 
-- [ ] **D1 — `assertMutable` 의 key 정규화를 복원한다. (규범 정정 필요)** `engine.ts:46` 이 raw key 를 `isReadOnly` 에 넘겨 `'claude-  corp'` 류가 read-only 가드를 지나고, 하류 `normalizeProvider`(`settings-write.ts:40`)가 공백을 지워 같은 provider 에 도달한다. D-005 의 근거 문장("두 함수는 같은 값을 낸다")이 안쪽 공백 입력에서 거짓이므로 Decision 행 정정과 §10 행 신설이 함께 필요하다.
-- [ ] **D2 — `catalog.merge` 의 `adapter === undefined` 분기에 잠금을 세운다.** settings 를 전량 폐기하는 변이와 신설 필터 소거 변이가 둘 다 미검출이다. `misc.runtime-catalog.test.ts` 가 stub 대신 production `merge` 를 지나게 한다.
-- [ ] **D3 — §13 문장을 정정한다. (규범 정정 필요)** 클로저의 선행 사용은 컴파일 에러가 아니라 런타임 `ReferenceError` 다.
-- [ ] **D4 — §9·§11·§18 에 `claude/available-models.ts`·`claude/model-parser.ts` 를 기재한다. (규범 정정 필요)** 동작은 보존됐고 신고만 빠졌다.
-- [ ] **D5 — `[구현자 기입]` 을 impl §8 의 7필드로 채운다.** 빠진 `이번 라운드 수정의 잠금` 이 D2 가 드러난 축이다.
-- [ ] D6 — AC2 인용 수치를 트리와 맞춘다(`4 단언` → 18 · `15 테스트` → 13). 기준 자체는 충족이다.
+- [x] **D1 — `assertMutable` 의 key 정규화를 복원한다.** r2 handler 3경로 테스트와 raw-key 복귀 변이 3건 red 로 확인했다.
+- [x] **D2 — `catalog.merge` 두 분기에 잠금을 세운다.** settings 전량 폐기(M-15)와 adapter 필터 소거(M-2)가 각각 새 production 테스트를 red 로 만들었다.
+- [x] **D3 — §13 문장을 정정한다.** 클로저의 선행 사용은 런타임 `ReferenceError` 로 기록했다.
+- [x] **D4 — §9·§11·§18 영향 범위를 보완한다.** `claude/available-models.ts`·`claude/model-parser.ts` 를 기재했다.
+- [x] **D5 — `[구현자 기입]` 7필드를 채운다.** 아래 r2 보고에 7/7 필드를 유지했다.
+- [x] D6 — AC2 인용 수치를 18 단언·13 테스트로 정정했다.
 - [x] D7 — INDEX `대상 커밋` 에 `be76207` 기입 — 검증 턴에서 처리.
+
+## [설계자 기입] r2 규범 정정
+
+- ✅ D1: D-005 를 SUPERSEDED 처리하고 D-008·AC5·강제 지점 13으로 provider key fail-closed 계약을 복원했다.
+- ✅ D2: 강제 지점 14와 production catalog를 직접 지나는 테스트 설계를 추가했다.
+- ✅ D3·D4·D6: §13의 런타임 실패 의미, §18 영향 파일, AC2 실측 수치를 정정했다.
+- 다음 단계: r2 구현은 D1·D2·D5를 닫고 `[구현자 기입]` 7필드를 새 라운드 절로 보고한다.
+
+## [구현자 기입] r2 설계 리뷰
+
+- ✅ D-008은 `providerKeyOf`와 settings-write의 정규화 의미를 복원한다. `canonicalProviderKey(' CLAUDE-  CORP ')` 단위 테스트가 `claude-corp`를 관측했다.
+- ✅ 설계 대비 차이 없음. 신규 의존성·IPC·wire shape·사용자 대면 변화는 0이다(`git diff -- app/src/shared` 0줄).
+
+## [구현자 기입] r2 강제 지점 전수
+
+- ✅ 14/14. 기존 12행 targeted 4파일 25케이스 green에 더해 13행 raw-key 복귀 변이는 handler 3케이스 red, 14행 M-15·M-2는 각각 misc·catalog 테스트 red였다.
+- 검산: ✅14 · ⚠️0 · ❌0 = 총 14.
+
+## [구현자 기입] r2 이번 라운드 수정의 잠금
+
+- ✅ D1 변이: `assertMutable`가 raw key를 넘기면 update/delete/read 3/3 red.
+- ✅ D2 변이: adapter 미지정 settings 전량 폐기는 misc 1건 red, adapter 지정 settings 필터 소거는 catalog 1건 red.
+
+## [구현자 기입] r2 Product/UX 파생 검토
+
+- ✅ read-only runtime-managed 행은 비-canonical IPC key에서도 다시 fail-closed다. 오류 문구는 canonical key를 유지하며 신규 UI 상태·문구는 없다.
+- 해당 없음: 로딩·취소·늦은 응답·저장소 부분 실패 경로를 새로 만들지 않았다.
+
+## [구현자 기입] r2 놓친 잠재 문제 + 대응
+
+- ✅ provider canonicalizer의 known adapter가 현재 handler 계약대로 `claude`에 고정된 기존 구조다. 새 adapter 공개 계약은 만들지 않았다.
+- ⚠️ 전체 vitest의 DB 5파일 44케이스는 Node ABI 115와 better-sqlite3 ABI 140 불일치로 red이며 변경 파일과 무관하다.
+
+## [구현자 기입] r2 구현 보고
+
+- ✅ 변경 6파일. AC ✅8 · ⚠️0 · ❌0 = 총 8; 강제 지점 14/14.
+- ✅ lint 0 error·1 기존 warning, typecheck 3분할 0 error, vitest 210/215파일·2,072/2,116케이스 pass, scripts 49/49, doc inventory 전건 green.
+
+## [구현자 기입] r2 Review Signals
+
+- 같은 축: D2는 r1에서 production symbol 미도달로 드러난 축이며 r2에서 실 factory를 직접 주입했다.
+- plan 지침은 r2 강제 지점 13·14로 보완됐고 두 인용 변이를 실제 red로 확인했다. 현재 구현 라운드 수는 2다.

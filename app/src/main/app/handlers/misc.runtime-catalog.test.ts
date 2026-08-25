@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AgentEnvironment } from '../../../shared/ipc'
 import { CHANNELS } from '../../../shared/protocol'
-import { mergeAgentEnvironments } from '../../features/harnesses/models'
+import { createRuntimeModelCatalog } from '../../features/harnesses/runtime-catalog'
 
 const callbacks = vi.hoisted(() => new Map<string, () => unknown>())
 
@@ -20,8 +19,6 @@ vi.mock('../../infra/config/orca-config', () => ({ getOrcaConfig: () => ({}) }))
 
 const { registerMiscHandlers } = await import('./misc')
 
-const isRuntimeManaged = (key: string): boolean => key.trim().toLowerCase() === 'shared'
-
 describe('agent:list runtime catalog wiring', () => {
   beforeEach(() => callbacks.clear())
 
@@ -39,12 +36,12 @@ describe('agent:list runtime catalog wiring', () => {
           { key: 'local', harness: 'claude', name: 'Local', models: [] }
         ]
       },
-      runtimeModelCatalog: {
-        list: () => [],
-        isReadOnly: isRuntimeManaged,
-        merge: (settings: AgentEnvironment[]) =>
-          mergeAgentEnvironments(settings, [], isRuntimeManaged)
-      },
+      runtimeModelCatalog: createRuntimeModelCatalog({
+        contributions: [
+          { authId: 'claude', key: 'shared', harnessId: 'claude', modelProviderId: 'claude' }
+        ],
+        runtime: { resolve: vi.fn() } as never
+      }),
       debugMock: { log: false }
     } as never)
 
