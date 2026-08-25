@@ -8,7 +8,7 @@
 | 작성자 | Codex |
 | 일자 | 2026-08-24 |
 | 매핑 | 런타임 모델 카탈로그 자동 투영 |
-| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) → verify/FAIL (r5) → READY (r6) → IMPL_DONE (r6) |
+| 상태 | DRAFT → READY → IMPL_DONE (r1) → IMPL_DONE (r2) → verify/FAIL (r2) → IMPL_DONE (r3) → verify/FAIL (r3) → IMPL_DONE (r4) → verify/FAIL (r4) → IMPL_DONE (r5) → verify/FAIL (r5) → READY (r6) → IMPL_DONE (r6) → verify/FAIL (r6) |
 
 # Part I — Product & UX Contract
 
@@ -434,7 +434,7 @@ settings / Auth+runtime augmenter
 ## [검증자 기입] 파생 이슈
 
 > 라운드별 검증 판정 원문은 [`verify.md`](verify.md). 아래는 재구현이 닫을 목록이다.
-> D1~D10은 r2, D11~D16은 r3, D17~D23·W1은 r4, D24~D31은 r5 산출이다.
+> D1~D10은 r2, D11~D16은 r3, D17~D23·W1은 r4, D24~D31은 r5, D32~D39는 r6 산출이다.
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
@@ -467,9 +467,17 @@ settings / Auth+runtime augmenter
 | D26 | `engine.ts:39`·`bootstrap.ts:641`의 `catalog.invalidate()`를 지워도 401케이스 전건 통과(변이 M-E·M-F) | verify r5 | engine 실제 handler callback과 startup production seam 배선 테스트를 추가하고 각 호출 삭제 변이가 실패함을 관측한다. | closed r6 |
 | D27 | `mergeAgentEnvironments`·`entries` map의 canonical key가 잠기지 않는다(변이 M-G·M-H) | verify r5 | 대소문자·공백이 다른 settings/runtime key 충돌과 빈 runtime row 미노출을 production 함수로 단언한다. | closed r6 |
 | D28 | `invalidate(key)`의 key 필터가 잠기지 않는다(변이 M-I) | verify r5 | 기존 두 contribution 중 한 key만 제거하는 catalog 케이스와 r6 settings 충돌 필터 변이를 함께 재실행한다. | closed r6 |
-| D29 | `bootstrap.ts:488`이 자기 authId만 재조정해 cross-auth `AUTH_INVALIDATED_HARNESS_KEYS` 경로가 열려 있다 | verify r5 · §10 cache 수명 행 | canonical key를 소유한 모든 authId를 계산해 snapshot을 재조정하고 A/B 공동 key fixture를 잠근다. | closed r6 |
+| D29 | `bootstrap.ts:488`이 자기 authId만 재조정해 cross-auth `AUTH_INVALIDATED_HARNESS_KEYS` 경로가 열려 있다 | verify r5 · §10 cache 수명 행 | canonical key를 소유한 모든 authId를 계산해 snapshot을 재조정하고 A/B 공동 key fixture를 잠근다. | partial r6 — helper는 닫혔고 호출부가 열려 D34로 이어진다 |
 | D30 | 게이트 자기보고 `2092케이스/44 ABI fail`이 재측정 `2090/42`와 다르다(plan·INDEX 2사본) | verify r5 | r6은 대상 스위트 실측 5파일/39케이스만 보고한다. 전체 스위트는 ABI red 뒤 최종 집계 없이 중단된 사실을 분리한다. | closed r6 |
-| D31 | 좌표·기준선 위생 3건 — `176a73f`에 규범 행 D-008 혼입(D15 축) · INDEX `(r5 구현)` 자리표시자 · §10 read-only 행이 아직 `3지점` | verify r5 | 과거 혼입은 history로 보존한다. INDEX 좌표는 교정됐고 §10은 실효 6지점·7좌표로 정정한다. | ready r6 |
+| D31 | 좌표·기준선 위생 3건 — `176a73f`에 규범 행 D-008 혼입(D15 축) · INDEX `(r5 구현)` 자리표시자 · §10 read-only 행이 아직 `3지점` | verify r5 | 과거 혼입은 history로 보존한다. INDEX 좌표는 교정됐고 §10은 실효 6지점·7좌표로 정정한다. | closed r6 — 단 같은 축이 D36·D37로 재발했다 |
+| D32 | `misc.ts:45`의 3번째 인자를 지워도 전체 스위트가 베이스라인과 같다(변이 M-B) — AC5가 지목한 두 UI **목록** 경로가 잠기지 않았다 | verify r6 · AC5·§10 6행 | `agent:list` handler를 `engine.runtime-catalog.test.ts`의 `vi.mock('../../infra/ipc/handle')` 패턴으로 열어 catalog 주입 후 충돌 행 미노출을 단언한다 | open |
+| D33 | `auth.subscribe`×2 + `authResume.run()`을 deploy 앞으로 되돌려도 전건 통과하고 typecheck exit 0(변이 M-H) — AC11·D-009의 실제 배선이 소스 문자열 grep으로만 잠겼다 | verify r6 · AC11·AC6 | `resumeAuth` 설치를 순수 팩토리로 한 겹 더 뽑아 "helper에 무엇을 넘겼는가"를 주입 테스트로 잠근다 | open |
+| D34 | cross-auth 루프에 `.filter(item => item === authId)`를 붙여 r5 D29 버그를 되살려도 미검출(변이 M-D2) | verify r6 · §10 cache 수명 4행 | helper 반환값이 아니라 호출 결과로 재조정된 authId 집합을 관측하는 seam을 만든다 | open |
+| D35 | plan §7 순서 기준(attach 마지막)과 구현(attach 3번째)이 어긋나는데 "설계 대비 차이 없음"으로 보고됐다 | verify r6 · §7·D-009 | 현재 구현(attach를 subscribe 앞)이 옳다면 §7 순서 기준을 그 순서로 정정한다. 반대면 구현을 바꾼다 — 어느 쪽이든 규범 행 수정이다 | open · **규범 정정 필요** |
+| D36 | INDEX·plan 두 사본의 r6 좌표 `d214581`이 실재하지 않는다(`git cat-file -t` 실패, `git rev-list --all` 전수 부재). 실제 좌표는 `a843557` | verify r6 · §11 | 좌표는 이번 검증 커밋에서 교정했다. 다음 라운드는 좌표를 적기 전에 `git cat-file -t`로 확인한다 | closed r6(교정) |
+| D37 | `a843557`이 규범 행(D-009·AC5·AC7·AC11·§10 2행)과 구현을 한 커밋에 담아 §0 기준선이 성립하지 않는다 — r3 D15·r5 D31①의 3회차 | verify r6 · §0 | 설계 턴 커밋과 구현 커밋을 나눈다. 과거 커밋은 history rewrite 없이 남긴다 | open |
+| D38 | `docs/arch/backend/auth.md:583`이 "Model 선택 UI 는 계속 settings.json 에서 파생한다 … 카탈로그 목록에 넣지 않는다"로 남아 같은 파일 `:496`·코드와 어긋난다 | verify r6 · 기준 밖 · §16 | 현재 동작(settings + runtime catalog 합성)으로 문장을 정정한다 — `803bd50`이 §6.1·§6.2만 고치고 §6.5 말미를 두고 갔다 | open |
+| D39 | `bootstrap.ts:382-384`의 "listener 를 resume 보다 먼저 붙인다" 주석이 bridge 팩토리 위에 남아 실제 listener(`:642-657`)를 가리키지 않는다 | verify r6 · 위생 | 주석을 listener가 있는 자리로 옮긴다. 불변식 자체는 closure 안에서 지켜진다 | open |
 
 ## [구현자 기입] r2 사용자 피드백 반영
 
@@ -524,7 +532,7 @@ settings / Auth+runtime augmenter
 - **놓친 잠재 문제 + 대응:** `AUTH_INVALIDATED_HARNESS_KEYS[A]`가 B 소유 key를 가리킬 수 있었다. canonical key 소유자 전원을 계산해 현재 snapshot을 재조정하고 A/B 공동 key fixture로 선조치했다.
 - **설계 대비 명시적 차이:** 없음. D-009의 부팅 순서는 `settings invalidate → runtime invalidate → catalog invalidate → attach → Auth subscribe/resume`로 구현했다.
 - **구현 보고:** production 5파일·테스트 5파일·handoff 2파일, 신규 의존성·IPC·DB 변경 0이다. D24~D30을 닫았고 D31의 과거 커밋은 history rewrite 없이 유지했다.
-- **대상 커밋:** `d214581` — r6 production·테스트 구현 좌표이며 `git show --stat d214581`로 실재를 확인했다.
+- **대상 커밋:** `a843557` — r6 production·테스트 구현 좌표. *[검증자 교정]* 원문은 `d214581`이었으나 그 객체는 이 저장소의 어떤 ref에도 없다(D36).
 - **관측한 게이트 산출:** 대상 5파일/40케이스 PASS, eslint 0 error, typecheck 3구성 PASS, `git diff --check` PASS. 전체 vitest는 기존 DB ABI 경계에서 `queries` 28건·`chat-turn.continuity` 2건 red를 출력한 뒤 최종 집계 없이 중단됐다.
 - **AC 자기보고:** ✅ AC1~AC8·AC10~AC14 = 13, ⚠️ AC9 두 테마 시각 확인 = 1, ❌ 0. `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14`.
 - **Review Signals:** r5 D24·D25·D29의 cache 수명 축을 부팅 순서·동일 key 미노출·cross-auth owner 전수로 닫았다. 현재 라운드는 6이며 review round 17 이후 첫 구현이다.
