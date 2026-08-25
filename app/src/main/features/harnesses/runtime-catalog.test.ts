@@ -194,6 +194,27 @@ describe('runtime model catalog', () => {
     expect(catalog.list()).toHaveLength(1)
   })
 
+  it('invalidates only the requested canonical contribution key', async () => {
+    const other = { ...contribution, key: 'orca-other', modelProviderId: 'other' }
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution, other],
+      runtime: {
+        resolve: vi.fn(async (item: typeof contribution) => ({
+          ...config([`${item.modelProviderId}-model`]),
+          key: item.key,
+          modelProviderId: item.modelProviderId
+        })),
+        cached: vi.fn(),
+        invalidate: vi.fn()
+      }
+    })
+    await catalog.reconcile('gate', valid())
+
+    catalog.invalidate(' ORCA-CORP ')
+
+    expect(catalog.list().map((entry) => entry.key)).toEqual(['orca-other'])
+  })
+
   it('does not republish a fetch that completes after settings invalidation', async () => {
     let release!: (value: HarnessRuntimeConfig) => void
     const resolve = vi.fn(() => new Promise<HarnessRuntimeConfig>((done) => (release = done)))
