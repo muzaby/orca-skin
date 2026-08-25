@@ -162,6 +162,115 @@ describe('env 우선순위 (AC15)', () => {
   })
 })
 
+describe('host-managed provider spawn env (0200)', () => {
+  const MANAGED = 'CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST'
+
+  it('settings-only host-managed 구성은 provider env 전체를 subprocess env 로 hoist 한다', () => {
+    const source = settings(
+      {
+        [MANAGED]: '1',
+        ANTHROPIC_BASE_URL: 'https://settings.example.test',
+        ANTHROPIC_AUTH_TOKEN: 'settings-token',
+        ANTHROPIC_MODEL: 'settings-model',
+        UNAFFECTED_FLAG: 'kept'
+      },
+      { model: 'native-setting' }
+    )
+    const prepared = prepareHarnessConfig({ config: config({ settings: source }), baseEnv: BASE })
+
+    expect(prepared.env).toMatchObject({
+      [MANAGED]: '1',
+      ANTHROPIC_BASE_URL: 'https://settings.example.test',
+      ANTHROPIC_AUTH_TOKEN: 'settings-token',
+      ANTHROPIC_MODEL: 'settings-model',
+      UNAFFECTED_FLAG: 'kept',
+      INHERITED: 'from-process'
+    })
+    expect(prepared.providerSettings?.settings).not.toHaveProperty('env')
+    expect(prepared.providerSettings?.settings).toMatchObject({ model: 'native-setting' })
+  })
+
+  it('runtimeEnv 의 host-managed provider 값이 네 레이어 충돌에서 최종값이 된다', () => {
+    const prepared = prepareHarnessConfig({
+      config: config({
+        settings: settings({
+          [MANAGED]: '1',
+          ANTHROPIC_BASE_URL: 'https://settings.example.test',
+          ANTHROPIC_AUTH_TOKEN: 'settings-token',
+          ANTHROPIC_MODEL: 'settings-model'
+        }),
+        runtimeEnv: {
+          [MANAGED]: '1',
+          ANTHROPIC_BASE_URL: 'https://runtime.example.test',
+          ANTHROPIC_AUTH_TOKEN: 'runtime-token',
+          ANTHROPIC_MODEL: 'runtime-model'
+        }
+      }),
+      appEnv: {
+        [MANAGED]: '0',
+        ANTHROPIC_BASE_URL: 'https://app.example.test',
+        ANTHROPIC_AUTH_TOKEN: 'app-token',
+        ANTHROPIC_MODEL: 'app-model'
+      },
+      baseEnv: () => ({
+        [MANAGED]: '0',
+        ANTHROPIC_BASE_URL: 'https://process.example.test',
+        ANTHROPIC_AUTH_TOKEN: 'process-token',
+        ANTHROPIC_MODEL: 'process-model'
+      })
+    })
+
+    expect(prepared.env).toMatchObject({
+      [MANAGED]: '1',
+      ANTHROPIC_BASE_URL: 'https://runtime.example.test',
+      ANTHROPIC_AUTH_TOKEN: 'runtime-token',
+      ANTHROPIC_MODEL: 'runtime-model'
+    })
+    expect(prepared.providerSettings?.settings).not.toHaveProperty('env')
+  })
+
+  it('process env 의 host-managed flag 도 settings provider env 를 hoist 한다', () => {
+    let reads = 0
+    const prepared = prepareHarnessConfig({
+      config: config({
+        settings: settings({ ANTHROPIC_BASE_URL: 'https://settings.example.test' })
+      }),
+      baseEnv: () => {
+        reads += 1
+        return { [MANAGED]: '1', PATH: '/usr/bin' }
+      }
+    })
+
+    expect(reads).toBe(1)
+    expect(prepared.env).toMatchObject({
+      [MANAGED]: '1',
+      ANTHROPIC_BASE_URL: 'https://settings.example.test'
+    })
+    expect(prepared.providerSettings?.settings).not.toHaveProperty('env')
+  })
+
+  it('host-managed flag 판정은 runtime > settings > app > process 순서다', () => {
+    const prepared = prepareHarnessConfig({
+      config: config({
+        settings: settings({ [MANAGED]: '1', ANTHROPIC_BASE_URL: 'https://settings.test' }),
+        runtimeEnv: { [MANAGED]: '0' }
+      }),
+      appEnv: { [MANAGED]: '1' },
+      baseEnv: () => ({ [MANAGED]: '1' })
+    })
+
+    expect(prepared.env?.[MANAGED]).toBe('0')
+  })
+
+  it('정확히 1이 아닌 settings-only flag 는 host-managed fast path 를 켜지 않는다', () => {
+    const source = settings({ [MANAGED]: 'true', ANTHROPIC_BASE_URL: 'https://settings.test' })
+    const prepared = prepareHarnessConfig({ config: config({ settings: source }), baseEnv: BASE })
+
+    expect(prepared.env).toBeUndefined()
+    expect(prepared.providerSettings).toBe(source)
+  })
+})
+
 describe('secret 격리 (AC16)', () => {
   it('동적 token 은 options.env 에만 있고 options.settings 에는 복제되지 않는다', () => {
     const prepared = prepareHarnessConfig({

@@ -216,6 +216,8 @@ function stringEnvOf(settings: HarnessNativeSettings | undefined): Record<string
   return out
 }
 
+const HOST_MANAGED_PROVIDER_ENV = 'CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST'
+
 export interface PrepareHarnessConfigInput {
   config: HarnessRuntimeConfig
   // orca.json 앱 전역 env(`${VAR}` 확장 완료). 없으면 앱 env 레이어가 비었다는 뜻.
@@ -239,17 +241,41 @@ export function prepareHarnessConfig(input: PrepareHarnessConfigInput): Prepared
   const hasAppEnv = Object.keys(appEnv).length > 0
 
   const settings = config.settings
+  const settingsEnv = stringEnvOf(settings?.settings)
+
+  // `CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST` 는 settings 가 병합되는 시점보다 앞서 Claude Code
+  // 프로세스 시작 환경에서 판정된다. 따라서 네 레이어의 **최종값**이 `1`이면 settings env 도
+  // 실제 spawn env 로 올려야 한다. 판정 우선순위는 최종 env 조립과 같은
+  // runtime > settings > app > process 다. 상위 레이어의 명시적 `0`을 `??`로 보존해야 하위
+  // `1`이 모드를 되살리지 않는다.
+  //
+  // process 레이어를 봐야 하는 settings-only 경로에서는 base snapshot 을 한 번만 만들고 아래
+  // 조립에서 재사용한다. 서로 다른 process.env 순간을 판정과 실행에 쓰면 같은 턴 안에서도
+  // host-managed 여부와 실제 spawn env 가 갈릴 수 있다.
+  let baseEnvSnapshot: Record<string, string> | undefined
+  const baseEnv = (): Record<string, string> => (baseEnvSnapshot ??= input.baseEnv())
+  const explicitHostManaged =
+    runtimeEnv[HOST_MANAGED_PROVIDER_ENV] ??
+    settingsEnv[HOST_MANAGED_PROVIDER_ENV] ??
+    appEnv[HOST_MANAGED_PROVIDER_ENV]
+  const inheritedHostManaged =
+    explicitHostManaged === undefined && Object.keys(settingsEnv).length > 0
+      ? baseEnv()[HOST_MANAGED_PROVIDER_ENV]
+      : undefined
+  const hostManaged = (explicitHostManaged ?? inheritedHostManaged) === '1'
+
   // 동적 값이 없고 앱 env 도 없으면 **옵션 자체를 생략**한다 — SDK 기본 env(process.env 상속)
-  // 동작과 settings 채널을 그대로 둔다(정적 배포의 상시 경로).
-  const buildsEnv = hasRuntimeEnv || hasAppEnv
+  // 동작과 settings 채널을 그대로 둔다. 단 host-managed 모드는 settings env 가 너무 늦게
+  // 적용되므로 정적 배포여도 완전한 subprocess env 를 만든다(0200).
+  const buildsEnv = hasRuntimeEnv || hasAppEnv || hostManaged
   const adjusted = settings && buildsEnv ? withEnvBlockHoisted(settings) : settings
 
   // 나중 spread 가 이기므로 순서가 곧 우선순위다.
   const env: Record<string, string> | undefined = buildsEnv
     ? {
-        ...input.baseEnv(),
+        ...baseEnv(),
         ...appEnv,
-        ...stringEnvOf(settings?.settings),
+        ...settingsEnv,
         ...runtimeEnv
       }
     : undefined

@@ -537,15 +537,19 @@ in-memory 사본에서 걷어내고 그 값을 위 순서로 `options.env` 에 h
 settings 와 app env 양쪽에 있는 키가 두 채널에 동시에 남아 최종 값이 SDK 내부 우선순위에 달린다.
 전부 걷어내야 "어느 채널이 우선해도 결과가 하나" 가 성립한다.
 
-`options.env` 를 만들지 않는 턴(정적 배포 + app env 없음)에는 settings 채널을 건드리지 않는다 —
-그 경로 동작은 0188 이전과 같다. **디스크 `settings.json` 은 수정하지 않는다.**
+`options.env` 를 만들지 않는 턴(정적 배포 + app env 없음)에는 settings 채널을 건드리지 않는다.
+단 네 레이어의 최종 `CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST` 값이 정확히 `1`이면 Claude Code 가
+프로세스 시작 시 provider 를 판정하므로, 정적 배포여도 settings env 전체를 `options.env` 로
+hoist 한다. 상속 process env 에서 활성화된 경우도 같고, 상위 레이어의 명시적 `0`은 하위 `1`을
+덮는다. **디스크 `settings.json` 은 수정하지 않는다.**
 
 **순서가 곧 우선순위다.** 구현은 `baseEnv → appEnv → settings env → runtimeEnv` 로 얹는다(나중이
 이긴다). app 을 settings 뒤에 얹으면 전역 폴백이 ModelProvider 전용 설정을 덮어, 게이트웨이를
 바꿔도 URL·모델 변수가 따라오지 않는다.
 
 Auth 에서 얻은 secret 과 config API 의 LLM token 은 `options.settings` 나 argv 에 복제하지 않고
-**`options.env` 에만** 둔다.
+**`options.env` 에만** 둔다. 하네스 런타임 `runtimeEnv` 가 제공하는 API base URL·auth token·model
+등도 같은 spawn 환경을 쓰며, 위 우선순위의 최상위에서 settings/app/process 값을 덮는다.
 
 `runtimeEnvFingerprint` 는 adapter 에 실제로 전달하는 **최종 env** 를 key 정렬 canonical form 으로
 접고 **프로세스 수명 랜덤 키로 HMAC-SHA256 한 digest** 다. `providerSettingsChangedSinceSpawn`
