@@ -8,8 +8,12 @@ import type { ParsedModel } from './claude/model-parser'
 
 export type { ParsedModel } from './claude/model-parser'
 
+export function canonicalAgentKey(key: string): string {
+  return key.trim().toLowerCase()
+}
+
 export function modelKey(model: ParsedModel): string {
-  return model.alias
+  return model.model ?? model.alias
 }
 
 // 선택된 alias 를 SDK 에 넘길 model 문자열로 해석. model 이 null(커스텀 미구성)이면 bare alias
@@ -35,15 +39,15 @@ export function modelNameForFamily(
 export function defaultModelFamily(models: ParsedModel[]): string | null {
   if (models.length === 0) return null
   const selected = models.find((model) => model.isDefault) ?? models[0]
-  return selected ? selected.alias : null
+  return selected ? modelKey(selected) : null
 }
 
 // 제목 생성용 모델 선택 정책: 저가 모델('haiku' alias)이 있으면 그것을, 없으면 provider default
 // 로 해석한다(요청 전 사전 선택 — 어댑터는 실패-후-재시도 폴백을 두지 않는다). 모델 목록이 비면
 // undefined → SDK 기본 모델. 모델 티어 어휘는 settings 레이어 책임이라 여기 둔다.
 export function resolveTitleModel(models: ParsedModel[]): string | undefined {
-  const hasHaiku = models.some((model) => model.alias === 'haiku')
-  return modelNameForFamily(models, hasHaiku ? 'haiku' : null)
+  const haiku = models.find((model) => model.alias === 'haiku')
+  return modelNameForFamily(models, haiku ? modelKey(haiku) : null)
 }
 
 // HarnessModelProviderEntry(settings-entries.ts)를 orca:agent:list 페이로드로 변환. 순환을 피해 구조적
@@ -60,6 +64,8 @@ export function toAgentEnvironments(
     adapter: entry.harnessId,
     provider: entry.modelProviderId,
     supported: supported.has(entry.harnessId),
+    source: 'settings',
+    readOnly: false,
     models: entry.models.map((model): AgentModelView => ({
       alias: model.alias,
       model: model.model,
@@ -68,4 +74,21 @@ export function toAgentEnvironments(
       isDefault: model.isDefault
     }))
   }))
+}
+
+export function mergeAgentEnvironments(
+  settings: AgentEnvironment[],
+  runtime: AgentEnvironment[],
+  isRuntimeManaged: (key: string) => boolean = () => false
+): AgentEnvironment[] {
+  // A declared runtime contribution owns its canonical row even while its cache is empty. Keeping
+  // a colliding settings row here would expose an editable card that turn setup still treats as
+  // runtime-managed, so the UI would offer an action whose execution can only fail.
+  const merged = new Map(
+    settings
+      .filter((entry) => !isRuntimeManaged(entry.key))
+      .map((entry) => [canonicalAgentKey(entry.key), entry])
+  )
+  for (const entry of runtime) merged.set(canonicalAgentKey(entry.key), entry)
+  return [...merged.values()]
 }

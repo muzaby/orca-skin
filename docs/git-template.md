@@ -34,9 +34,12 @@ Handoff: docs/handoff/<NNNN-slug>/
 - **본문 = 사람용.** 짧은 문장 + 맥락으로 *왜* 를 전한다. 한 줄에 절·수식을 욱여넣지 말고 끊어 읽히게. 2~3줄 권장 — `Handoff:` 포인터가 깊이를 지므로 길게 쓸 필요가 없다. 핸드오프 없는 독립 커밋(포인터 부재)만 자기완결성을 위해 몇 줄 더 허용한다.
 - **trailer 는 본문과 빈 줄 1개로 분리된 *마지막 연속 문단* 이다.** `Key: value`(콜론+공백) 를 엄수해야 `git interpret-trailers` 가 파싱한다. **안 쓰는 키는 줄 자체를 생략한다**(빈 값 금지).
 
-### 함정 — trailer 블록 내부 빈 줄 금지
+### 함정 — 블록이 끊기거나 개행이 없으면 통째로 사라진다
 
-`git interpret-trailers` 는 **마지막 연속 문단만** trailer 로 인식한다. 블록 중간에 빈 줄이 들어가면 그 위의 키들이 **다른 문단으로 끊겨 누락된다.** 하니스가 붙이는 `Co-Authored-By`·`Claude-Session` 도 **같은 블록**에 둬야 한다 — 빈 줄로 떼면 앞의 `Agent`/`Handoff` 가 파싱에서 사라진다.
+**커밋한 뒤 `git log -1 --format='%(trailers:only=true)'` 로 파싱을 확인한다.** 아래 두 함정은
+증상이 같고(파싱 0~일부 건) 원인만 다르며, 커밋 메시지는 나중에 고칠 수 없는 사본이다.
+
+**함정 1 — 블록 내부 빈 줄.** `git interpret-trailers` 는 **마지막 연속 문단만** trailer 로 인식한다. 블록 중간에 빈 줄이 들어가면 그 위의 키들이 **다른 문단으로 끊겨 누락된다.** 하니스가 붙이는 `Co-Authored-By`·`Claude-Session` 도 **같은 블록**에 둬야 한다 — 빈 줄로 떼면 앞의 `Agent`/`Handoff` 가 파싱에서 사라진다.
 
 ```
 # ✗ 나쁨 — 빈 줄이 Agent/Handoff 를 끊는다
@@ -52,6 +55,11 @@ Handoff: docs/handoff/0019-test-abi-green/
 Co-Authored-By: ...
 Claude-Session: https://claude.ai/code/session_...
 ```
+
+**함정 2 — 개행이 리터럴 `\n` 으로 들어간다.** 셸이 escape 를 해석하지 않는 경로(`git commit -m` 에
+`\n` 을 그대로 넣는 등)로 커밋하면 본문과 trailer 가 **한 줄**이 되어 마지막 연속 문단이 `Key: value`
+꼴을 잃는다 — 값은 전부 맞는데 파싱은 **0건**이다(0198 r7). 실제 개행을 담은 파일을 `-F <파일>` 로
+넘기면 이 함정이 없다.
 
 ## 필드 표
 

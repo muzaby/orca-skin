@@ -19,6 +19,7 @@ import {
 import type { RouterContext } from '../context'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import { getLogger } from '../../infra/log'
+import { canonicalProviderKey, providerKeyOf } from '../../infra/config/provider-key'
 
 async function refreshHarnessSettings(ctx: RouterContext): Promise<void> {
   try {
@@ -35,15 +36,23 @@ async function refreshHarnessSettings(ctx: RouterContext): Promise<void> {
     // sourceRevision 기준 값을 warm hit 로 계속 돌려준다.
     ctx.harnessSettings.invalidateAll()
     ctx.harnessRuntime?.invalidate(undefined, 'harness-settings-crud')
+    ctx.runtimeModelCatalog?.invalidate()
   }
 }
 
 export function registerEngineHandlers(ctx: RouterContext): void {
+  const assertMutable = (key: string): void => {
+    const canonical = canonicalProviderKey(key, ['claude'])
+    if (ctx.runtimeModelCatalog?.isReadOnly(canonical)) {
+      throw new Error(`runtime-managed engine is read-only: ${canonical}`)
+    }
+  }
   handle(
     CHANNELS.engineAdd,
     CreateEngineSchema,
     'reject',
     async (req): Promise<EngineWriteResult> => {
+      assertMutable(providerKeyOf(req.engine, req.provider))
       const result = addHarnessSettings(req.engine, req.provider, req.settingsJson)
       await refreshHarnessSettings(ctx)
       return result
@@ -55,6 +64,7 @@ export function registerEngineHandlers(ctx: RouterContext): void {
     UpdateEngineSchema,
     'reject',
     async (req): Promise<EngineWriteResult> => {
+      assertMutable(req.key)
       const result = updateHarnessSettings(req.key, req.settingsJson)
       await refreshHarnessSettings(ctx)
       return result
@@ -62,11 +72,13 @@ export function registerEngineHandlers(ctx: RouterContext): void {
   )
 
   handle(CHANNELS.engineDelete, DeleteEngineSchema, 'reject', async (req): Promise<void> => {
+    assertMutable(req.key)
     deleteHarnessSettings(req.key)
     await refreshHarnessSettings(ctx)
   })
 
   handle(CHANNELS.engineRead, ReadEngineSchema, 'reject', (req): EngineReadResult => {
+    assertMutable(req.key)
     return readHarnessSettings(req.key)
   })
 

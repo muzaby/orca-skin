@@ -5,7 +5,9 @@ import { join } from 'node:path'
 import { HarnessSettingsService } from './settings'
 import { expandEnvRecord } from './env'
 import {
+  canonicalAgentKey,
   defaultModelFamily,
+  mergeAgentEnvironments,
   modelNameForFamily,
   resolveTitleModel,
   toAgentEnvironments,
@@ -49,7 +51,7 @@ describe('listProviders / listAdapters', () => {
       {
         alias: 'sonnet',
         model: 'claude-sonnet-4-6',
-        isCustom: true,
+        isCustom: false,
         oneMillionContext: false,
         isDefault: true
       }
@@ -96,7 +98,7 @@ describe('model helpers (alias 기준)', () => {
     {
       alias: 'sonnet',
       model: 'claude-sonnet-4-6',
-      isCustom: true,
+      isCustom: false,
       oneMillionContext: false,
       isDefault: true
     },
@@ -118,7 +120,7 @@ describe('model helpers (alias 기준)', () => {
       {
         alias: 'opus',
         model: 'global.anthropic.claude-opus-4-8',
-        isCustom: true,
+        isCustom: false,
         oneMillionContext: true,
         isDefault: true
       }
@@ -129,9 +131,22 @@ describe('model helpers (alias 기준)', () => {
     expect(modelNameForFamily(models, 'sonnet')).toBe('claude-sonnet-4-6')
   })
 
-  it('defaultModelFamily 는 default 항목의 alias, 빈 배열이면 null', () => {
-    expect(defaultModelFamily(models)).toBe('sonnet')
+  it('defaultModelFamily 는 default 항목의 고유 model key, 빈 배열이면 null', () => {
+    expect(defaultModelFamily(models)).toBe('claude-sonnet-4-6')
     expect(defaultModelFamily([])).toBeNull()
+  })
+
+  it('custom 분류는 custom으로 표시하되 실행 모델은 self resolve된다', () => {
+    const custom = [
+      {
+        alias: 'custom',
+        model: 'orca-private-v1',
+        isCustom: true,
+        oneMillionContext: false,
+        isDefault: true
+      }
+    ]
+    expect(modelNameForFamily(custom, 'orca-private-v1')).toBe('orca-private-v1')
   })
 
   it('resolveTitleModel 은 haiku 보유 시 haiku, 없으면 default, 빈 배열이면 undefined', () => {
@@ -169,6 +184,8 @@ describe('toAgentEnvironments', () => {
       adapter: 'claude',
       provider: 'bedrock',
       supported: true,
+      source: 'settings',
+      readOnly: false,
       models: [
         {
           alias: 'sonnet',
@@ -182,6 +199,55 @@ describe('toAgentEnvironments', () => {
     expect(envs[1].supported).toBe(false)
     expect('authToken' in envs[0]).toBe(false)
     expect('env' in envs[0]).toBe(false)
+  })
+})
+
+describe('mergeAgentEnvironments', () => {
+  it('uses one runtime-managed row when a persisted settings key collides', () => {
+    const settings = {
+      key: 'claude-corp',
+      adapter: 'claude',
+      provider: 'corp',
+      supported: true,
+      source: 'settings' as const,
+      readOnly: false,
+      models: []
+    }
+    const runtime = { ...settings, source: 'runtime' as const, readOnly: true }
+
+    expect(mergeAgentEnvironments([settings], [runtime])).toEqual([runtime])
+  })
+
+  it('hides a canonical settings collision while its runtime-managed cache is empty', () => {
+    const settings = {
+      key: ' Claude-Corp ',
+      adapter: 'claude',
+      provider: 'corp',
+      supported: true,
+      source: 'settings' as const,
+      readOnly: false,
+      models: []
+    }
+
+    expect(
+      mergeAgentEnvironments([settings], [], (key) => canonicalAgentKey(key) === 'claude-corp')
+    ).toEqual([])
+  })
+
+  it('preserves settings rows that do not collide with a runtime-managed key', () => {
+    const settings = {
+      key: 'claude-other',
+      adapter: 'claude',
+      provider: 'other',
+      supported: true,
+      source: 'settings' as const,
+      readOnly: false,
+      models: []
+    }
+
+    expect(mergeAgentEnvironments([settings], [], (key) => key === 'claude-corp')).toEqual([
+      settings
+    ])
   })
 })
 

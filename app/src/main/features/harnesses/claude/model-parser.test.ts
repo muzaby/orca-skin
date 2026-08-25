@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseClaudeModels, type ParsedModel } from './model-parser'
+import { normalizeAvailableModels } from './available-models'
 
 function byAlias(models: ParsedModel[]): Record<string, ParsedModel> {
   return Object.fromEntries(models.map((m) => [m.alias, m]))
@@ -10,6 +11,38 @@ function defaults(models: ParsedModel[]): string[] {
 }
 
 describe('parseClaudeModels — 노출 + default 불변식', () => {
+  it('settings와 runtime 배열에 공유 default 규칙을 적용한다', () => {
+    const availableModels = ['claude-opus-4-1', 'claude-sonnet-4-5', 'claude-haiku-3-5']
+    const settings = parseClaudeModels({ availableModels })
+    const runtime = normalizeAvailableModels(availableModels)
+
+    expect(settings.find((model) => model.isDefault)?.model).toBe('claude-sonnet-4-5')
+    expect(runtime.find((model) => model.isDefault)?.model).toBe('claude-sonnet-4-5')
+  })
+  it('env family 모델을 먼저 구성하고 availableModels를 모두 뒤에 추가한다', () => {
+    const models = parseClaudeModels({
+      availableModels: ['claude-sonnet-corp', 'orca-private-v1'],
+      env: { ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-default' }
+    })
+    expect(models).toEqual([
+      expect.objectContaining({ alias: 'opus', model: 'claude-opus-default' }),
+      expect.objectContaining({ alias: 'sonnet', model: 'claude-sonnet-corp' }),
+      expect.objectContaining({ alias: 'custom', model: 'orca-private-v1' })
+    ])
+  })
+
+  it('env 기본 모델이 같은 family의 discovery 모델보다 default 우선권을 유지한다', () => {
+    const models = parseClaudeModels({
+      env: { ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-env' },
+      availableModels: ['claude-sonnet-first', 'claude-sonnet-last']
+    })
+    expect(models.map((model) => model.model)).toEqual([
+      'claude-sonnet-env',
+      'claude-sonnet-first',
+      'claude-sonnet-last'
+    ])
+    expect(models.find((model) => model.isDefault)?.model).toBe('claude-sonnet-env')
+  })
   it('빈 설정 → 3개 alias 노출, model null, sonnet default', () => {
     const models = parseClaudeModels({})
     expect(models.map((m) => m.alias)).toEqual(['sonnet', 'opus', 'haiku'])
@@ -36,7 +69,7 @@ describe('parseClaudeModels — 노출 + default 불변식', () => {
     expect(models.map((m) => m.alias)).toEqual(['opus'])
     expect(byAlias(models).opus).toMatchObject({
       model: 'claude-opus-4-6',
-      isCustom: true,
+      isCustom: false,
       oneMillionContext: false,
       isDefault: true
     })
@@ -119,7 +152,7 @@ describe('parseClaudeModels — 노출 + default 불변식', () => {
     expect(defaults(models)).toEqual(['opus'])
   })
 
-  it('불변식 — 노출 length 1~3, isDefault 정확히 1, 비커스텀은 model null', () => {
+  it('불변식 — env-only 노출 length 1~3, isDefault 정확히 1, family 설정은 model을 보존', () => {
     for (const settings of [
       {},
       { model: 'haiku' },
@@ -130,7 +163,7 @@ describe('parseClaudeModels — 노출 + default 불변식', () => {
       expect(models.length).toBeGreaterThanOrEqual(1)
       expect(models.length).toBeLessThanOrEqual(3)
       expect(models.filter((m) => m.isDefault)).toHaveLength(1)
-      expect(models.every((m) => m.isCustom || m.model === null)).toBe(true)
+      expect(models.every((m) => m.alias !== 'custom')).toBe(true)
     }
   })
 })
