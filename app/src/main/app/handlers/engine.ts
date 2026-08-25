@@ -19,8 +19,7 @@ import {
 import type { RouterContext } from '../context'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import { getLogger } from '../../infra/log'
-import { providerKeyOf } from '../../infra/config/provider-key'
-import { canonicalAgentKey } from '../../features/harnesses/models'
+import { canonicalProviderKey, providerKeyOf } from '../../infra/config/provider-key'
 
 async function refreshHarnessSettings(ctx: RouterContext): Promise<void> {
   try {
@@ -42,10 +41,10 @@ async function refreshHarnessSettings(ctx: RouterContext): Promise<void> {
 }
 
 export function registerEngineHandlers(ctx: RouterContext): void {
-  // `isReadOnly` 가 양쪽 key 를 canonical 로 맞춘다 — 여기서 미리 정규화하지 않는다.
   const assertMutable = (key: string): void => {
-    if (ctx.runtimeModelCatalog?.isReadOnly(key)) {
-      throw new Error(`runtime-managed engine is read-only: ${canonicalAgentKey(key)}`)
+    const canonical = canonicalProviderKey(key, ['claude'])
+    if (ctx.runtimeModelCatalog?.isReadOnly(canonical)) {
+      throw new Error(`runtime-managed engine is read-only: ${canonical}`)
     }
   }
   handle(

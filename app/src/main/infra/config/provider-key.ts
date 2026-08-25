@@ -37,3 +37,11 @@ export function parseProviderKey(
   }
   return best
 }
+
+// IPC update/read/delete 는 합성 key 자체를 받는다. provider 구성요소를 생성 경로와 같은
+// 규칙으로 정규화해 read-only 판정과 settings 저장소가 같은 key 를 보게 한다.
+export function canonicalProviderKey(key: string, knownAdapters: Iterable<string>): string {
+  const normalized = key.trim().toLowerCase()
+  const parsed = parseProviderKey(normalized, knownAdapters)
+  return parsed?.provider ? providerKeyOf(parsed.adapter, parsed.provider) : normalized
+}
