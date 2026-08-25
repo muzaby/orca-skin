@@ -289,3 +289,89 @@ M-8(`if (modelFamily != null) return` → `== null`)이 미검출이다. `modelS
 - repository operation: INDEX 대상 커밋 미기입(검증자 처리) · `[구현자 기입]` 3/7 필드.
 - 남은 사람 확인: **없음**.
 - 다음 단계: D1·D3·D4 가 `규범 정정 필요` 를 달았으므로 **다음 주체는 설계자**다. 규범 행 정정 후 D1·D2·D5 구현.
+
+---
+
+# r2 재검증 — PASS
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Codex |
+| 일자 | 2026-08-25 |
+| 대상 커밋/range | `7e969a6..178c808` |
+| 구현 전 plan 기준 | `7e969a6` (r1 검증 커밋) |
+| 라운드 | 2 |
+| 상태 | **PASS** |
+| 자기 검증 여부 | r2 구현·검증 모두 Codex — 구현 보고를 증거로 사용하지 않고 diff·production path·독립 변이로 재측정 |
+
+## 0. 기준선 / 규범 변경
+
+- **✅ 기준선은 성립한다.** `7e969a6..178c808`에서 r1 D1·D3·D4에 필요한 D-008·AC5·강제 지점 13·14가 추가됐고, r1의 미충족 체크리스트 D1~D6이 닫혔다.
+- **✅ 규범 변경은 r1 판정이 요구한 범위다.** D-005를 `SUPERSEDED`하고 provider 합성 key와 agent 비교 key의 의미를 D-008로 분리했다.
+- 채점 기준은 현재 plan의 ACTIVE D-001~D-004·D-006~D-008, AC1~AC8, §10 강제 지점 14행이다.
+
+## 1. Product & UX / production path
+
+| 요구 | 판정 | 실제 경로 |
+|---|---|---|
+| 비-canonical mutation key fail-closed | ✅ | engine update/delete/read → `assertMutable` → `canonicalProviderKey` → `catalog.isReadOnly` → canonical key 오류 |
+| agent 목록 병합 정책 단일화 | ✅ | `orca:agent:list` → `catalog.merge(settings)` → settings 보존 + runtime 충돌 대체 |
+| adapter 지정 병합 대칭 | ✅ | turn setup → `catalog.merge(settings, adapter)` → settings/runtime 양쪽 adapter filter |
+| 사용자 대면·wire shape 불변 | ✅ | r2 `app/src/shared` diff 0줄, 신규 UI·IPC·문구 없음 |
+
+## 2. 비판적 읽기 / 역방향 탐색
+
+- **✅ false success 경로를 닫았다.** `canonicalProviderKey('claude-  CORP', ['claude'])`가 `claude-corp`로 수렴하며 세 mutation handler가 저장소 호출 전에 같은 read-only 판정을 지난다.
+- **✅ partial failure·rollback·동시성·요청 상한은 불변이다.** r2 production 변경은 순수 key 정규화와 기존 handler 가드 입력뿐이다.
+- `bash .agents/skills/handoff-verify/scripts/scan-surface.sh 7e969a6..178c808` 결과 미사용 export·test-only symbol·형제 정책 비대칭은 모두 0건이다.
+- **✅ 신규 테스트는 production symbol을 직접 지난다.** handler 테스트는 `registerEngineHandlers`, 목록 테스트는 `createRuntimeModelCatalog`를 사용해 r1의 로컬 `merge` 재구현을 제거했다.
+
+## 3. r1 파생 이슈 및 잠금 독립 재측정
+
+| 이슈/변이 | 검증자 변이 | 관측 | 결과 |
+|---|---|---|---|
+| D1 raw-key fail-open | `isReadOnly(canonical)` → `isReadOnly(key)` | engine update/delete/read **3/3 red** | ✅ |
+| D2 M-15 | adapter 미지정 settings 입력을 `[]`로 치환 | misc production-catalog 테스트 **1 red** | ✅ |
+| D2 M-2 | adapter 지정 settings filter 소거 | runtime-catalog 테스트 **1 red** | ✅ |
+| D3 | compile error 문구 정정 | §13이 런타임 `ReferenceError`로 서술 | ✅ |
+| D4 | 영향 파일 누락 | §18에 두 claude 모델 파일 기재 | ✅ |
+| D5 | 구현자 보고 7필드 | 설계 리뷰·강제 지점·잠금·Product/UX·잠재 문제·구현 보고·Review Signals **7/7** | ✅ |
+| D6 | AC2 수치 | 18 단언·13 테스트로 정정 | ✅ |
+
+- **잠금 합계: 인용 변이 5/5 검출.** raw-key 3경로와 M-15·M-2를 각각 원문대로 심었고 잔여물 없이 production 파일을 복원했다.
+
+## 4. 요구사항 / 강제 지점
+
+| 기준 | 결과 | 독립 증거 |
+|---|---|---|
+| AC1 동작·wire shape 변화 0 | ✅ | r2 shared diff 0, targeted 25/25 green |
+| AC2 0198 강제 테스트 삭제 0 | ✅ | r1 기준 수치 정정, 해당 테스트 유지 |
+| AC3 production 직접 merge 호출 0 | ✅ | 정책은 catalog 내부에 유지 |
+| AC4 행 조립 1자리 | ✅ | r2가 해당 구조를 변경하지 않음 |
+| AC5 mutation provider key fail-closed | ✅ | production handler 3경로 green + raw-key 변이 3 red |
+| AC6 agent 목록 구독 1자리 | ✅ | r2가 해당 구조를 변경하지 않음 |
+| AC7 부팅/auth 좌표 불변 | ✅ | r2 bootstrap/auth diff 0 |
+| AC8 게이트 | ✅ | ABI 중립 게이트·관련 테스트 green, full vitest의 44 red는 기존 ABI 집합 |
+
+- **AC 합계: ✅8 · ⚠️0 · ❌0 = 8/8.** plan 본문·구현 trailer `Criteria-Met: 8/8`·INDEX 자기보고와 일치한다.
+- **강제 지점: 14/14.** r1에서 확인한 1~12행을 r2가 변경하지 않았고, 신규 13행은 raw-key 3경로 변이, 14행은 M-15·M-2로 재측정했다.
+- 표 밖의 동일 불변식 요구 지점과 기준 밖 중대 결함은 발견하지 못했다.
+
+## 5. 게이트 / repository operation
+
+- `npm run typecheck`: 3분할, TypeScript error 0.
+- `./node_modules/.bin/eslint ./src ./scripts`: error 0, 출력 0.
+- 관련 vitest 4파일: **4/4 파일 · 25/25 케이스 pass**.
+- 전체 vitest: **210/215 파일 · 2,072/2,116 케이스 pass**, 5파일 44케이스 red. 전건 `better-sqlite3` Node ABI 115 ↔ binary ABI 140 불일치로 r1·구현 보고와 같은 환경 집합이다.
+- scripts: **49/49 pass**. doc inventory: 9 items·76 channels, prose·links green.
+- 검증 명령은 추적 파일을 바꾸지 않았다. 임시 변이는 원본으로 복원했고 최종 작업 트리에는 본 검증 문서/보드 변경만 남겼다.
+- 구현 커밋 `178c808`은 실재하며 trailer 5키가 파싱된다: `Agent: codex`, `Handoff`, `Status: implemented`, `Criteria-Met: 8/8`, `Verified-By: pending`.
+
+## 6. Review Signals / 결론
+
+- 이전 라운드와 같은 증상: **없음.** r1의 두 결함 축은 인용 변이 전건 red로 닫혔다.
+- 관련 plan 지침: D-008·AC5·강제 지점 13·14가 r2 전에 추가됐다.
+- 사용자 결정 변경: 없음. 반복 환경 한계는 better-sqlite3 ABI 5파일뿐이다.
+- **상태: PASS.** Product/UX·ACTIVE Decision·AC 8/8·강제 지점 14/14·repository operation checks를 충족했고 남은 사람 실기는 없다.
