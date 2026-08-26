@@ -34,13 +34,15 @@ export const PinnedSection = memo(function PinnedSection({
 }: PinnedSectionProps): React.JSX.Element {
   const { tr } = useI18n()
   const [expanded, setExpanded] = useState(true)
-  const list = useSessionsState((s) => s.list)
+  const byId = useSessionsState((state) => state.byId)
   // 셀렉터가 새 배열을 반환하면 useSyncExternalStore 캐시가 깨지므로 raw list 를 구독하고
   // 파생은 useMemo — 고정 세션만, 고정 시각 내림차순(최근 고정이 위).
   const pinnedSessions = useMemo(
     () =>
-      list.filter((s) => s.pinnedAt != null).sort((a, b) => (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0)),
-    [list]
+      Object.values(byId)
+        .filter((session) => session.pinnedAt != null)
+        .sort((a, b) => (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0)),
+    [byId]
   )
 
   return (
@@ -236,8 +238,8 @@ interface PinnedProjectChildrenProps {
   onRenameSession: (sessionId: string, title: string) => void
 }
 
-// 고정 프로젝트의 하위 대화. 전역 세션 목록의 최신 pin 상태를 우선 적용하므로 대화는
-// pin 토글과 동시에 더 높은 우선순위인 "고정됨"으로 이동하거나 여기로 돌아온다.
+// 고정 프로젝트의 하위 대화도 공용 sessionsStore 엔티티를 사용한다. 따라서 pin 토글과
+// 동시에 더 높은 우선순위인 "고정됨"으로 이동하거나 여기로 돌아온다.
 function PinnedProjectChildren({
   projectId,
   currentSessionId,
@@ -247,13 +249,8 @@ function PinnedProjectChildren({
   onRenameSession
 }: PinnedProjectChildrenProps): React.JSX.Element {
   const { tr } = useI18n()
-  const globalSessions = useSessionsState((state) => state.list)
   const { list, loading } = useProjectSessions(projectId)
-  const currentPinById = new Map(globalSessions.map((session) => [session.id, session.pinnedAt]))
-  const visibleSessions = list.filter(
-    (session) =>
-      (currentPinById.has(session.id) ? currentPinById.get(session.id) : session.pinnedAt) == null
-  )
+  const visibleSessions = list.filter((session) => session.pinnedAt == null)
 
   if (loading) {
     return <div className="px-2 py-1 text-[11.5px] text-ink3">{tr('common.loading')}</div>
