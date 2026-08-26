@@ -425,3 +425,154 @@ r1 매트릭스(위)를 기준으로 삼고 r2가 바꾼 칸만 적는다.
 - repository operation: 좌표 기입·7필드·trailer 파싱 이상 없음. 문장 하나가 실제 잠금 범위보다 넓다(§9).
 - 남은 사람 확인: 없음.
 - 다음 단계: **구현자가 D4를 닫고 r3로 돌아온다.**
+
+
+---
+
+# r3 검증 (2026-08-26)
+
+## 메타 — r3
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `841b997..9ff7421` |
+| 구현 전 plan 기준 | `841b997` (r2 verify 커밋 — D4 이관본) |
+| 라운드 | 3 |
+| 상태 | **PASS** |
+| 자기 검증 여부 | **예 — r3 구현자와 검증자가 같은 에이전트다.** 판정은 전부 이번 턴에 다시 심은 변이로 내렸고 구현 보고 문장은 근거로 쓰지 않았다 |
+
+## 0. 기준선 — r3
+
+- **성립한다.** `git diff 841b997..9ff7421 -- plan.md` 의 hunk가 전부 `@@ -478` 이상 = `[구현자 기입]`·파생 이슈 영역이다. §3 Decision Ledger·§7 AC·§10 은 무변경.
+- 채점 기준은 r1과 같은 AC 원문이다.
+
+## 1. r3 구현 비판적 검토
+
+r3 도 **동작을 보존하는 재배치 + 검사 장치 추가**다. 판정은 D4가 인용한 변이로만 내렸다.
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 추출이 `AuthChange` 처리를 바꿨는가 | **아니다** | 순서·분기가 1:1 — 방송 → `kind!=='snapshot'` 조기 반환 → `credentialChanged`면 plugin sync + 무효화 → 재조정. diff를 줄 단위로 대조했다 |
+| 순서가 실제로 잠겼는가 | **잠겼다** | 변이 W5(재조정을 방송 앞으로) **2케이스 red** · W6(`credentialChanged` 분기 제거) **1케이스 red** |
+| 새 실패 모드 | 없음 | 두 factory 모두 상태 0, `void` fire-and-forget — r1·r2와 같은 성질 |
+| TDZ / 조립 순서 | 안전 | `runtimeModelSnapshotOf`(:390)·`reconcileRuntimeModelSnapshot`(:397)이 소비처(:418·:483·:484·:645)보다 앞 |
+| false success 가능성 | **이번 축에서는 없음** | 아래 §4의 인용 변이 4건이 전부 red |
+
+## 2. 역방향 탐색 — r3
+
+```bash
+bash .agents/skills/handoff-verify/scripts/scan-surface.sh 841b997..9ff7421
+```
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| 미사용 export (값·타입) | **0건** | 신규 export 둘 다 미검출 = 프로덕션 배선됨 |
+| `createRuntimeModelReconcileSnapshot` | **배선됨** | `bootstrap.ts:398` |
+| `createRuntimeModelAuthChangeHandler` | **배선됨** | `bootstrap.ts:645` |
+| `affectedRuntimeModelAuthIds`·`invalidateRuntimeModelsForAuth` test-only | **오탐(r1과 동일)** | 같은 파일 안 `:32`·`:49`에서 호출된다 |
+| 형제 정책 비대칭 | **0건** | 스크립트 (없음) |
+| 신규 테스트가 production 심볼을 부르는가 | **부른다** | `runtime-model-startup.test.ts`가 두 factory를 직접 호출. 스윕은 `MAIN_ROOT = src/main` 실트리를 훑는다 |
+
+## 3. Product/UX end-to-end — r3
+
+두 축 경로는 r1 §1에서 확인한 그대로이고 r3는 그 위에 잠금만 얹었다(재서술하지 않는다). `AuthChange` 축의 네 갈래가 이제 순수 factory 안에 있고 순서까지 단언된다 — 이 축은 r1·r2에서 **아무 장치도 보지 않던** 자리다.
+
+## 4. 잠금 재측정 — 분모는 D4가 **인용한 변이**
+
+| # | 심은 변이 | r2 결과 | r3 실측 |
+|---|---|---|---|
+| W1 | catalog seam만 굳은 미인증 snapshot (E4) | green | ✅ **red** — `wires every catalog-reconcile injection point…` |
+| W2 | factory 호출 유지 + 가짜 bridge (E3) | green | ✅ **red** — 같은 케이스 |
+| W3 | 두 단계로 나눈 store 읽기 (E1) | green | ✅ **red** — 같은 케이스 |
+| — | bridge seam만 굳힘 (E5) | green | ✅ **red** (r3 구현 턴에서 확인, 이번 턴은 W1이 같은 판정 지점을 덮는다) |
+
+**D4의 인용 변이 4건이 전부 검출된다 — D4는 닫혔다.**
+
+### r1·r2 잠금 회귀 — 전부 살아 있다
+
+| # | 변이 | 실측 |
+|---|---|---|
+| W8 | slot 동일성 가드 제거 (D1) | red 1케이스 |
+| W9 | `reconcileVerified: () => {}` (D2, 진단 0) | red 2케이스 |
+| W10 | merge 두 형태 갈림 (D3) | red 5케이스 |
+| W11 | `runtime-config.ts:211` 정리 identity (D1 형제) | red 1케이스 |
+
+### 검사 장치를 엄격화해 다시 쟀다 (§8)
+
+- **분모 재측정**: `키:` 출현을 직접 세어 **21건**(`snapshotOf` 8 · `bridge` 5 · `onChange` 3 · `reconcileVerified` 2 · `reconcile` 2 · `invalidateForAuth` 1). 그중 `active-turn-tracker.ts`의 `onChange` 1건이 축 밖이라 **축 내 20건**. 구현자 보고와 일치하고 `injectionViolations(MAIN_ROOT)` = `[]` 이므로 **차집합 0**.
+- **범위 엄격화**: 스윕 루트를 `src/main` → `src` 로 넓히면 추가로 잡히는 것은 renderer의 React `onChange:` prop **10건 이상**뿐이고 축 지점은 0건이다 — `src/main` 스코프가 축 지점을 숨기고 있지 않다.
+- **방향**: 이 스윕은 "허용 형태가 **쓰인다**"를 요구하는 양성 술어라 교체·변형에 직접 반응한다(W1~W3). 남은 방향은 **삭제**인데 그것은 아래 D5가 말한다.
+
+## 5. AC 1:1 — r3 (변동분만)
+
+| # | 결과 | r3에서 달라진 것 |
+|---|---|---|
+| AC5 | **✅** (r2 ⚠️ → 상향) | 배선이 무동작이어도 초록이던 자리가 red가 됐다(W1). 단위+배선 양쪽이 잠겼다 |
+| AC12 | ✅ 유지 | W9가 red. E3(가짜 bridge)도 이제 red(W2) |
+| 그 외 | 변동 없음 | W8·W10·W11로 r1·r2 판정이 유지됨을 확인 |
+
+- **합계 재측정**: `✅ 15 · ⚠️ 0 · ❌ 0 = 총 15`. 분모는 §7 AC1~AC15를 다시 셌다.
+- **합계 사본 대조**: 본문 15 ↔ trailer `Criteria-Met: 15/15` ↔ INDEX `15/15` — 일치하고, 이번에는 재측정과도 일치한다.
+
+### §10 강제 지점 — r3 재측정
+
+`5+3+2+1+3+2+6 = 22`. 각 행의 지점을 코드에서 다시 확인했고 r1·r2와 같은 좌표다(재서술하지 않는다). 이번 라운드가 바꾼 것은 지점 수가 아니라 **2행·7행의 배선 잠금 강도**다.
+
+- 2행 `실패 의미`("호출자에 replay를 남기면 다음 호출자가 다시 빠뜨린다"): 이제 컴포지션 축에서도 적대 상태를 만들 수 없다 — W1이 red.
+- 7행 `실패 의미`("한 지점이라도 빠지면 그 축의 contribution이 부팅에서 영영 안 붙는다"): W9·W2가 red.
+- 표 밖에서 같은 불변식이 필요한 지점: **1건 남았다** — 아래 D5.
+
+## 6~8. 게이트 / 환경 / 사람 실기 — r3
+
+- `npm run lint` → **0 error / warning 1**(기존 `useTranscriptVirtualizer.ts:22`). 실행 후 `git status --short` **빈 출력**.
+- `npm run typecheck` → 3구성 **출력 0줄**.
+- `./node_modules/.bin/vitest run` → **227파일 / 2318케이스**, red **1파일** = `chat-turn.continuity.test.ts`(`Error: Electron failed to install correctly` — 검증 환경의 `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 설치 결과, 코드 무관).
+- `node --test scripts/*.test.mjs` → **59 pass / 0 fail**. `check-doc-inventory --check` → 3항목 ok.
+- 케이스 증분 재측정: 2312 → **2318**(+6). 구현자 보고와 일치.
+- **잔여물**: 없음. 변이는 전부 백업 사본으로 복구했고 최종 `git status --short`가 빈 출력이다.
+- 사람 실기: **없음.**
+
+## 9. Repository operation checks — r3
+
+- **대상 커밋 좌표를 기입했다** — `(r3 구현 — 검증자 기입)` → `9ff7421`. `git cat-file -t 9ff7421` = `commit`.
+- `[구현자 기입] r3`가 7필드를 모두 표로 갖는다(설계 리뷰·강제 지점 전수·이번 라운드 수정의 잠금·Product/UX 파생 검토·놓친 잠재 문제 + 설계 대비 차이·구현 보고·Review Signals). 산문으로 접힌 필드 0.
+- trailer: `Agent: claude` · `Status: implemented` · `Criteria-Met: 15/15` · `Verified-By: pending` — 허용값이고 `git log -1 --format='%(trailers:only=true)' 9ff7421`이 6키를 그대로 돌려준다.
+- 인용 커밋 해시 `72255c9`·`c0760db`·`9ff7421` 전부 `git cat-file -t` = `commit`.
+- `AGENTS.md` 변경 없음.
+- **문장 정확도 1건** — `[구현자 기입] r3` 놓친 잠재 문제 #6이 "누락은 red 로 나타난다"고 적었으나, **선택 필드의 누락은 red가 아니다**(D5). 형태 교체에 대해서만 참이다.
+
+## 10. 구현자 코멘트 / 선조치 경계 — r3
+
+| 구현자 코멘트 | 검증자 판단 | 반영 |
+|---|---|---|
+| 판정 단위를 파일 → 주입 지점으로 | **타당하고 재현됨** — W1~W3이 red | 유지 |
+| 이름 축을 생성 형태로 별도 잠금 | **타당** — 토큰 스윕만으로는 가짜 몸이 통과한다 | 유지 |
+| `AuthChange` handler 추출 | **타당** — 텍스트로만 지키던 자리가 동작으로 잠겼다(W5·W6 red) | 유지 |
+| "`syncPlugins`는 무동작 가능, 계약 밖" | **재현됨**(W7 green) — 0188 plugin 축이라 D4 계약 밖이 맞다 | D6(비차단) |
+| "누락은 red 로 나타난다" | **부정확** — 선택 필드 삭제는 red가 아니다 | D5(비차단) |
+
+## 11. 파생 이슈 — r3
+
+- [x] **D4 — closed.** 인용 변이 E1·E3·E4·E5가 전부 red(W1~W3 + r3 턴 E5). 이름 축·분류 단위·실재 판정 변이도 red.
+- [ ] **D5 (비차단) — 선택 필드의 *삭제*는 스윕이 볼 수 없다.** `createRuntimeModelCatalog`의 `onChange?`를 지우면 typecheck 0 · **2318 케이스 전건 green**(변이 W4)이고, 카탈로그가 행을 바꿔도 `pushConnectionState`가 돌지 않아 두 UI가 그 자리에서 갱신되지 않는다. **이 라운드의 회귀가 아니다** — 0198부터 있던 선택 필드이고 어느 AC·§10 행도 이 지점을 단언하지 않는다. 대응 방향: `onChange`를 필수로 올리거나(소비처 1곳), 스윕에 "이 factory 호출은 `onChange:` 출현을 가져야 한다"는 존재 규칙을 더한다.
+- [ ] **D6 (비차단) — `syncPlugins` 인라인 클로저가 무동작이어도 전건 초록이다**(변이 W7). 0188 plugin 축이라 D4 계약(§10 2·7행 · AC5·AC12) 밖이고 구현자가 이미 보고했다. 대응 방향: 같은 factory 패턴으로 뽑아 동작으로 잠근다.
+
+- **규범 정정 필요 없음.** D5·D6 모두 구현 범위이며 **PASS를 막지 않는다** — 어느 AC·ACTIVE Decision·§10 행도 미충족이 아니다.
+
+## 12. Review Signals — r3
+
+- 이전 라운드와 동일/유사 증상: **판정 단위가 한 칸씩 내려온 축이 r1→r2→r3로 이어졌고 r3에서 멈췄다.** r3의 인용 변이는 전건 검출이고 회귀 4건도 전부 red다.
+- 관련 plan 지침/AC: plan §7 방향 기준이 "지웠을 때 실패해야 한다"만 적고 **판정 단위**를 적지 않았다 — 세 라운드가 그 빈자리를 메웠다. D5가 남긴 것은 그 지침이 여전히 말하지 않는 축(선택 필드 삭제)이다.
+- 사용자 결정 변경 근거: 없음 — Decision Ledger 무변경.
+- 반복된 검증 환경 한계: `bootstrap.ts`가 vitest 대상이 아님(0198 D-010)이 세 라운드 내내 같은 자리를 만들었고, r3가 그 파일에서 로직을 걷어내는 쪽으로 대응했다. 이 환경의 electron 바이너리 미설치로 `chat-turn.continuity.test.ts` 2케이스는 세 라운드 모두 미실행.
+- 현재 라운드 수: 3. **다음 재구현이 생기면 라운드가 3을 넘으므로 `handoff-review`를 먼저 수행해야 한다.**
+
+## 13. 결론 — r3
+
+- 상태: **PASS**
+- Product/UX 및 ACTIVE Decision: **충족.** 편집 축·부팅 축이 end-to-end로 도달하고 D-001~D-006·D-008이 production path에서 성립한다.
+- AC: **✅15 · ⚠️0 · ❌0 / 15**. 강제 지점 **22/22**, 주입 지점 **20건 차집합 0**.
+- 기준 밖 결함: **없음.** D5·D6은 이 handoff의 어느 계약도 요구하지 않는 인접 표면이고 비차단으로 기록했다.
+- repository operation: 좌표·7필드·trailer 파싱 이상 없음. 보고 문장 1건이 실제보다 넓어 D5에 적었다.
+- 남은 사람 확인: **D5·D6 후속 여부**(범위 결정) 하나. 구현 자체가 막는 것은 없다.
+- 다음 단계: **archive 이동은 D5·D6 처리 결정까지 보류**한다.
