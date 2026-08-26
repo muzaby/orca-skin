@@ -10,7 +10,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-26 |
 | 매핑 | PR #382(draft) · 구현 브랜치 `claude/composer-branch-and-add-dir` · CI 수정 브랜치 `claude/ci-failure-fix-dquqv7` |
-| 상태 | … → plan/READY (r3) → **impl/IMPL_DONE (r3)** — 단계·좌표 정본은 [`INDEX.md`](../INDEX.md) |
+| 상태 | … → impl/IMPL_DONE (r3) → **verify/PASS (r3)** — 단계·좌표 정본은 [`INDEX.md`](../INDEX.md) |
 
 **이 plan 은 소급 설계다.** 구현이 먼저 있었고(D-016 — 사용자 지시로 `Handoff: none` 부분수정을 연속 수행), 이제 그 구현이 만족해야 할 계약을 세운다. 따라서 §7 AC 는 "앞으로 만들 것"이 아니라 **"현재 코드가 만족해야 하는데 일부는 아직 만족하지 않는 것"** 이다 — 미충족 항목은 각 행의 `현재` 칸이 관측으로 표시한다.
 
@@ -858,3 +858,4 @@ CwdPanel(＋) → chatReducer.extraDirs → chat:send.extraDirs → buildTurnCon
 | D2 | **AC9 의 "그 문구가 모달에 도달" 이 잠기지 않았다.** 모달의 `error?.applied` 문단 + import 를 지워 잔여물 진단 0까지 밀었을 때 `typecheck:web` exit 0 · 렌더러 chat **352/352 green** | AC9 검증 수단 후반절 | 렌더 하네스 없이도 대부분 닫힌다 — `checkoutErrorView(error, tr)` 순수 seam 으로 문구 조립과 순서(안내 먼저·원문 나중)를 떼고 `BranchChip` 이 그것을 렌더한다. 남는 미검증은 JSX→DOM 한 홉 | open |
 | D3 | **`/`·`C:\`(파일시스템 루트)가 `extraDirs` 를 통과해 write 루트가 된다.** 실측 `isAbsolutePath('/')=true` · `resolveGuardRoots('/tmp/ws',['/']).writeRoots[1] === '/'` — §10 `실패 의미` 가 지목한 적대 상태가 그대로 재현된다 | §10 `extraDirs 절대 경로` 행 ↔ AC12 | **규범 정정 필요** — 루트 거부는 사용자가 받는 결과를 바꾼다. 설계자가 AC12 문면을 정하거나 §10 `실패 의미` 에서 그 사례를 내린다 | **규범 정정 완료 (2026-08-26)** — 사용자 결정으로 닫았다: 루트 **거부**, 거부는 **칩 추가 시점**에 사유와 함께. 산출 = D-019·D-020 신설 · AC12 문면 정정 · **AC25 신설** · §10 행 (2)→(4) · §17 리스크 행 정정. 남은 것은 구현이다(r2) |
 | D4 | `IPC_CONTRACT.md §2.6-b` 의 `GitCheckoutResult` 서술이 이번에 추가된 `applied` 필드를 적지 않는다 | §15 문서 계약 | 문서 한 줄 추가. AC20 대조 테스트는 정책만 보므로 이 drift 를 잡지 못한다 | **r2 closed** — `IPC_CONTRACT.md:169` 에 `applied` 3값과 부분 실패 의미 + 실행부 재검사 서술 추가. AC20 4케이스 유지 |
+| D5 | **`extraDirRejection` 주석이 두 벌이고 앞의 것이 틀렸다** — r2 주석("마지막 참조 경로 추가가 거부된 이유")이 남은 채 r3 주석이 덧붙었다. `SET_CWD` 도 이 값을 쓰므로 첫 주석은 거짓이다 | r3 verify · `chatReducer.ts:95-100` | 앞 주석 삭제. 코드 변경 0 | open (비차단) |
