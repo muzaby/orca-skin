@@ -273,3 +273,155 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh 70d65c1..72255c9
 - repository operation checks: trailer 파싱 5키 · 좌표 실재 · doc-inventory green · 게이트가 트리를 바꾸지 않았다 — 미스매치 0.
 - 남은 사람 확인: **없음.** D-007(OPEN)은 이 handoff의 완결 조건이 아니다.
 - 다음 단계: **구현자가 D1·D2·D3를 닫고 r2로 돌아온다.** 규범 행 정정은 필요 없다.
+
+
+---
+
+# r2 검증 (2026-08-26)
+
+## 메타 — r2
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `ab2d020..c0760db` |
+| 구현 전 plan 기준 | `ab2d020` (r1 verify 커밋 — D1·D2·D3 이관본) |
+| 라운드 | 2 |
+| 상태 | **FAIL** |
+| 자기 검증 여부 | **예 — r2 구현자와 검증자가 같은 에이전트다.** 그래서 판정은 전부 이번 턴에 다시 심은 변이로만 내렸고, 구현 보고의 문장은 근거로 쓰지 않았다 |
+
+## 0. 기준선 — r2
+
+- **기준선이 diff로 성립한다.** `git diff ab2d020..c0760db -- plan.md`의 hunk가 전부 `@@ -472` 이상이고, §3 Decision Ledger(≈40줄)·§7 AC(≈100~140줄)·§10(≈250줄)은 한 줄도 바뀌지 않았다.
+- Decision Ledger / Product/UX Contract / AC 변경: **없음.** r1과 같은 원문으로 채점한다.
+- r2가 plan에 더한 것은 `[구현자 기입] r2` 7필드 + 파생 이슈 상태 칸뿐이다.
+
+## 1. r2 구현 비판적 검토
+
+r2는 **동작을 보존하는 재배치**다 — `bootstrap.ts`의 인라인 람다 4벌이 factory 호출로 바뀌었고 그 외 production 변경은 없다. SKILL §4대로 hunk 되돌림은 판정 근거로 쓰지 않고, **파생 이슈가 인용한 변이**로만 판정했다.
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 추출이 동작을 바꿨는가 | 아니다 | `createRuntimeModelSnapshotReader`는 `(authId) => auth.bind(authId).snapshot()` 그대로, `createRuntimeModelReconcileVerified`는 `void bridge.onSnapshot(...)` 그대로 |
+| 새 실패 모드 | 없음 | seam마다 새 closure를 만들지만 상태가 0이라 공유·만료 대상이 없다 |
+| false success 가능성 | **있다 — §4 E4** | 이번 라운드가 잠갔다고 적은 자리에서 잠금이 성립하지 않는다 |
+| 게이트만 늘고 원인이 남았는가 | 부분적으로 | reconcileVerified 축은 실제로 닫혔고, snapshotOf 축은 문서가 말하는 만큼 닫히지 않았다 |
+
+## 2. 역방향 탐색 — r2
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| 신규 export `createRuntimeModelSnapshotReader` | **배선됨** | `bootstrap.ts:390`·`:411`·`:476`·`:484` 4곳 (`rg` 재측정) |
+| 신규 export `createRuntimeModelReconcileVerified` | **배선됨** | `bootstrap.ts:409` 1곳 |
+| 신규 테스트가 production 심볼을 부르는가 | **부른다** | `runtime-model-startup.test.ts`가 두 factory를 직접 import·호출. 동명 로컬 재구현 0 |
+| 신규 스윕이 실제 소스를 훑는가 | **훑는다** | `MAIN_ROOT = join(__dirname, '..')` = `src/main` 실트리. tmp-root 케이스는 자기검사용으로 **추가**돼 있고 실트리 단언을 대체하지 않는다 |
+| 형제 정책 비대칭 | **1건 해소** | `runtime-config.ts:211`의 같은 identity 가드가 r1까지 무잠금이었고 r2가 케이스를 붙였다 |
+
+## 3. Product/UX end-to-end — r2
+
+r1에서 확인한 두 축 경로는 그대로다(위 r1 §1 참조 — 재서술하지 않는다). r2는 그 경로 위에 잠금만 얹었고 사용자 대면 표면 변경은 0이다(`rg "ko\.ts|CHANNELS\."` 대상 변경 없음, IPC·DTO 무변경).
+
+## 4. 잠금 재측정 — 분모는 D1·D2·D3가 **인용한 변이**
+
+| # | 심은 변이 | 기대 | 실측 |
+|---|---|---|---|
+| V1 | `inFlight` slot 동일성 가드 → 무조건 `delete` (**D1 인용**) | red | ✅ **red** — `joins the replay an invalidation started…` 1케이스 |
+| V2 | `reconcileVerified: () => {}` + 미사용 import 정리 (**D2 인용**) | red | ✅ **red** — `wires the verified-reconcile sink…` 1케이스. typecheck 0 · eslint 0 상태에서 red라 잔여물 부산물이 아니다 |
+| V3 | 필터 형태에서 runtime 행 소멸 (**D3 인용 갈림**) | red | ✅ **red** — engine 3 + turn-setup 2 케이스 |
+| V6 | `runtime-config.ts:211` identity 가드 제거 (D1 형제) | red | ✅ **red** — `옛 sourceRevision 작업이 끝나도…` 1케이스 |
+| V4 | `reconcileVerified` 필드 삭제 (r1 M-I 회귀) | red | ✅ **red** — typecheck TS2345 **+** 스윕 1케이스 (r1보다 강해졌다) |
+| V5 | `invalidate`의 replay 제거 (r1 M-E 회귀) | red | ✅ **red** — `runtime-catalog.test.ts` 4케이스 |
+
+**인용 변이 3건은 전부 검출된다 — D1·D3는 닫혔고 D2도 인용 변이 기준으로는 닫혔다.**
+
+### 그러나 새 장치의 판정 기준을 한 단계 엄격하게 하면 `0건`이 전수가 아니다
+
+SKILL §8대로 구현자가 이번 라운드에 만든 스윕을 **재실행이 아니라 엄격화**로 다시 쟀다.
+
+| # | 심은 변이 | 결과 | 의미 |
+|---|---|---|---|
+| E1 | catalog seam을 `const bound = auth.bind(id); return bound.snapshot()` 두 단계로 | **전건 green** · typecheck 0 | 음성 스윕 `INLINE_SNAPSHOT_READ`가 두 단계 형태를 놓친다 |
+| **E4** | **catalog seam이 `{status:'expired', verified:false}` 굳은 값을 돌려준다** | **2312/2312 green** · typecheck 0 · 스윕 3건 green | **AC5가 production에서 깨지는데 게이트가 전부 초록이다** |
+| E5 | bridge seam만 같은 방식으로 굳힌다 | **전건 green** | seam 단위가 아니라 파일 단위 판정임을 재확인 |
+| E3 | factory 호출은 유지하고 `bridge`에 가짜 `{onSnapshot: async () => undefined}` | **전건 green** · typecheck 0 | 인자 축으로 한 칸만 내려가면 sink가 다시 무동작이 된다 |
+| E6 | 4 seam **전부** 즉석 lambda로 | **red** 2케이스 | 가드가 무의미하지는 않다 — 일괄 제거는 잡는다 |
+
+- 원인은 판정 단위다. `unwiredSeams`는 **파일**이 `snapshotOf: createRuntimeModelSnapshotReader(`를 하나라도 가지면 통과시킨다 — `bootstrap.ts`에 4벌이 있으므로 **어느 한 seam이든 개별로 무동작이 될 수 있다**.
+- E4가 만드는 상태는 가설이 아니다: `snapshotOf`의 유일한 소비처가 `runtime-catalog.ts:163`(invalidate의 replay)이므로, 굳은 미인증 snapshot은 `invalidate(key)`를 **drop 전용**으로 만든다 — D-002·AC5가 존재하는 이유 그 자체가 무효화된다.
+- AC5 테스트가 전부 green인 이유도 같다 — 테스트는 자기 `snapshotOf`를 주입하므로 **단위는 잠기고 배선은 안 잠긴다**(SKILL §2).
+
+## 5. AC 1:1 — r2 (변동분만)
+
+r1 매트릭스(위)를 기준으로 삼고 r2가 바꾼 칸만 적는다.
+
+| # | 결과 | r2에서 달라진 것 |
+|---|---|---|
+| AC5 | **⚠️** (r1 ✅ → 하향) | 단위는 그대로 green이나 **컴포지션 배선이 무동작이어도 초록**임이 E4로 관측됐다. 행이 다시 채워진다는 계약의 production 성립을 아무 장치도 보지 않는다 |
+| AC11 | **✅** (r1 ⚠️ → 상향) | `engine.runtime-catalog.test.ts` 3채널에서 CRUD 뒤 같은 인스턴스의 두 merge 형태를 비교. 갈림 변이 V3가 red |
+| AC10 | ✅ 유지 | D1 잠금이 붙어 in-flight 구간의 상한까지 단언된다(V1 red) |
+| AC12 | ✅ 유지 | 인용 변이 V2가 red. 다만 E3(가짜 bridge)는 통과 |
+| 그 외 | 변동 없음 | V4·V5 회귀 측정에서 r1 잠금이 살아 있다 |
+
+- **합계 재측정**: `✅ 13 · ⚠️ 2 · ❌ 0 = 총 15`. AC11이 올라오고 AC5가 내려갔다.
+- **합계 사본 대조**: 구현자 본문 `15/15` ↔ trailer `Criteria-Met: 15/15` ↔ INDEX `15/15` — **세 사본은 서로 일치**하나 재측정(13✅)과 갈린다.
+
+### §10 강제 지점 — r2 재측정
+
+지점 수는 r1과 같다: `5+3+2+1+3+2+6 = 22`. 재측정 명령과 관측값도 r1과 동일하므로 재서술하지 않는다(위 r1 §5 표). r2는 지점을 늘리지 않고 그중 **2행(2행 replay · 7행 verified→재조정)의 배선 잠금만** 손댔다.
+
+- 7행(`verified` 전이 → 재조정): 인용 변이 기준으로 닫혔다(V2·V4 red).
+- 2행(drop+replay): **`snapshotOf` 배선이 무동작이어도 초록**이다(E4) — 이 행의 `실패 의미`("호출자에 replay를 남기면 다음 호출자가 다시 빠뜨린다")를 지키는 장치가 컴포지션 축에는 없다.
+
+## 6~8. 게이트 / 환경 / 사람 실기 — r2
+
+- `npm run lint` → **0 error / warning 1**(기존 `useTranscriptVirtualizer.ts:22`). 실행 후 `git status --short` **빈 출력** — autofix가 트리를 바꾸지 않았다.
+- `npm run typecheck` → 3구성 **출력 0줄**.
+- `./node_modules/.bin/vitest run` → **227파일 / 2312케이스**, red **1파일**. red = `chat-turn.continuity.test.ts`, 서명 `Error: Electron failed to install correctly` — 검증 환경이 `ELECTRON_SKIP_BINARY_DOWNLOAD=1`로 설치된 결과지 코드 무관(r1 검증과 같은 서명).
+- `node --test scripts/*.test.mjs` → **59 pass / 0 fail**. `check-doc-inventory --check` → 3항목 ok.
+- 케이스 증분 재측정: r1 2303 → r2 **2312** (+9). 구현자 보고와 일치.
+- **검증 중 실행한 명령이 남긴 잔여물**: 없음. 변이는 전부 백업 사본으로 복구했고 최종 `git status --short`가 빈 출력이다.
+- 남은 사람 실기: **없음.** E4가 드러낸 자리도 사람이 아니라 스윕 단위를 seam으로 낮추면 기계가 판정한다.
+
+## 9. Repository operation checks — r2
+
+- **대상 커밋 좌표를 기입했다** — `(r2 구현 — 검증자 기입)` → `c0760db`. `git cat-file -t c0760db` = `commit`.
+- `[구현자 기입]` r2가 impl §8의 **7필드를 모두 표로** 갖는다 — 설계 리뷰·강제 지점 전수·이번 라운드 수정의 잠금·Product/UX 파생 검토·놓친 잠재 문제(+설계 대비 차이)·구현 보고·Review Signals. 산문으로 접힌 필드 0.
+- trailer: `Agent: claude` · `Status: implemented` · `Criteria-Met: 15/15` · `Verified-By: pending` — 허용값이고 `git log -1 --format='%(trailers:only=true)' c0760db`가 **6키를 그대로** 돌려준다.
+- **미스매치 1건**: `[구현자 기입] r2`와 INDEX 비고가 "4 seam 을 모으고" · "무동작 배선은 진단 0 상태에서도 red"라 적었는데, 재측정에서 **red가 되는 것은 reconcileVerified seam 하나**다(E4·E5). 문장이 실제 잠금 범위보다 넓다.
+- `AGENTS.md` 변경 없음 — 위생 검사 해당 없음.
+
+## 10. 구현자 코멘트 / 선조치 경계 — r2
+
+| 구현자 코멘트 | 검증자 판단 | 반영 |
+|---|---|---|
+| factory 둘로 추출 (설계 대비 차이) | **타당** — 인라인으로는 D2를 잠글 수 없다. 축 4개(만료·공유·재진입·다른 무효화 축) 보고도 재측정과 일치 | 유지 |
+| "4 seam 을 모으고 실재 스윕 3건 신설" | **부분 부정확** — 모은 것은 맞으나 잠금은 파일 단위다 | D4 |
+| `runtime-config.ts:211` 형제 선조치 | **재현됨** (V6 red) | 유지 |
+| §10 행 신설 제안 (컴포지션 sink 실배선 3지점 중 1지점) | **타당하고, 제안한 것보다 넓다** — `onSnapshot` 축뿐 아니라 `snapshotOf` 축도 같은 구멍이다 | D4에 병합 |
+
+## 11. 파생 이슈 — r2
+
+- [x] **D1 — closed.** 인용 변이 V1이 red이고 형제 지점(V6)도 red다.
+- [x] **D2 — closed(인용 변이 기준).** V2가 진단 0 상태에서 red다. 잔여 표면은 D4로 분리한다.
+- [x] **D3 — closed.** 인용 갈림 V3가 red다.
+- [ ] **D4 — 컴포지션 seam 잠금이 파일 단위라 seam 하나가 개별로 무동작이 될 수 있다.** 출처: §10 2행·7행 · AC5·AC12. 관측: E4(catalog `snapshotOf`가 굳은 미인증 snapshot → **2312/2312 green · typecheck 0 · 스윕 3건 green**) · E5(bridge seam 동일) · E3(factory 호출 유지 + 가짜 bridge) · E1(두 단계 store 읽기). E6(4 seam 일괄 교체)만 red다. **대응 방향**: 판정 단위를 파일에서 **토큰**으로 낮춘다 — `snapshotOf\s*:` 출현마다 뒤가 `createRuntimeModelSnapshotReader(`인지 보고(부정 lookahead), `bridge\s*:` 도 같은 방식으로 컴포지션 루트의 bridge 식별자를 요구한다. 대안은 seam 수를 줄이는 구조 변경(bridge가 reader를 소유하고 catalog·sink가 그것을 받는다). 어느 쪽이든 **판정 지점마다 변이를 심어** E1·E3·E4·E5가 red가 되는 것을 보인다.
+
+- **규범 정정 필요 없음** — D4는 스윕 술어와 배선 형태로 닫힌다. Decision·AC·§10 문면은 그대로다. 다음 주체는 **구현자**다.
+
+## 12. Review Signals — r2
+
+- 이전 라운드와 동일/유사 증상: **예.** r1 FAIL 근거가 "이번 라운드가 만든 것이 스스로를 잠그는가"였고 r2도 같은 축에서 한 칸 남았다 — 잠금의 *존재*는 생겼고 *단위*가 모자란다.
+- 관련 plan 지침/AC: plan §7 방향 기준이 "지웠을 때 실패해야 한다"만 적고 **판정 단위**를 적지 않았다. 구현자가 올린 §10 행 신설 제안이 그 빈자리를 가리킨다.
+- 사용자 결정 변경 근거: 없음 — Decision Ledger 무변경.
+- 반복된 검증 환경 한계: `bootstrap.ts`가 vitest 대상이 아님(0198 D-010)이 세 라운드째 같은 자리를 만든다. 이번 환경 한계는 electron 바이너리 미설치 1건(`chat-turn.continuity.test.ts` 2케이스 미실행).
+- 현재 라운드 수: 2 (다음 재구현은 r3)
+
+## 13. 결론 — r2
+
+- 상태: **FAIL**
+- 파생 이슈: **D1·D2·D3 closed**, 신규 **D4** 1건.
+- AC: **✅13 · ⚠️2 · ❌0 / 15** — AC11 상향, AC5 하향.
+- 강제 지점: **22/22** 재측정 일치(분모 불변).
+- FAIL 근거: 점수가 아니라 **E4** 하나다 — 이번 라운드가 "닫았다"고 적은 자리에서, production 계약(AC5)을 깨는 배선이 전체 스위트·typecheck·새 스윕을 전부 통과한다.
+- repository operation: 좌표 기입·7필드·trailer 파싱 이상 없음. 문장 하나가 실제 잠금 범위보다 넓다(§9).
+- 남은 사람 확인: 없음.
+- 다음 단계: **구현자가 D4를 닫고 r3로 돌아온다.**

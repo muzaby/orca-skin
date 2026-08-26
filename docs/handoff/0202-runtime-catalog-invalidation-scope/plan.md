@@ -642,5 +642,8 @@ Auth snapshot / 명시 invalidate
 | D2 | `bootstrap.ts:407-409`·`:481` 배선이 *부재*만 닫혀 있다 — `reconcileVerified: () => {}`로 바꾸면 typecheck·lint·전체 스위트 전건 green | verify r1 §4(M-J) · §10 7행 · AC12 | 0198 D-010의 실재 가드(`infra/source-scan.ts` + `no-stray-auth-subscribe.test.ts`) 형태로 두 인자의 실재를 production 스윕한다. 가드를 만들면 판정 지점마다 변이를 심어 눈이 있음을 먼저 보인다 | **closed r2** — `createRuntimeModelSnapshotReader`·`createRuntimeModelReconcileVerified` 로 4 seam 을 모으고 실재 스윕 3건 신설. 인용 변이(`() => {}`) 재측정 **red**, 미사용 import 까지 치워 **진단 0** 인 상태에서도 red |
 | D3 | AC11의 검증 수단이 없다 — `rg "\.merge\(" src/main --glob '*.test.ts'` **1건**(필터 단독). 두 소비처를 같은 인스턴스로 비교한 케이스도 CRUD 뒤 단언도 0 | verify r1 §5 · AC11 | `engine.runtime-catalog.test.ts`의 행 존속 케이스에서 CRUD 뒤 같은 인스턴스의 `merge(settings)`와 `merge(settings,'claude')` key 집합이 같음을 단언한다 | **closed r2** — CRUD 뒤 같은 인스턴스로 `merge(settings)` ↔ `merge(settings, 'claude')` 의 runtime key 집합을 3채널에서 비교. 두 형태를 갈라 놓는 변이 N7·N8 각각 **red** |
 
-- **규범 정정 필요 없음** — 셋 다 테스트·가드 추가로 닫혔다. Decision·AC·§10 문면은 그대로다.
-- r2 가 올린 **§10 행 신설 제안 1건**(컴포지션 루트 sink 실배선 · 3지점 중 1지점만 잠김)은 설계자 판단이다 — `[구현자 기입] 놓친 잠재 문제 r2` 참조.
+| D4 | 컴포지션 seam 잠금이 **파일 단위**라 seam 하나가 개별로 무동작이 될 수 있다 | verify r2 §4(E1·E3·E4·E5) · §10 2·7행 · AC5·AC12 | 판정 단위를 **토큰**으로 낮춘다 — `snapshotOf\s*:` 출현마다 뒤가 `createRuntimeModelSnapshotReader(` 인지 부정 lookahead 로 보고, `bridge\s*:` 도 컴포지션 루트의 bridge 식별자를 요구한다. 대안은 seam 수를 줄이는 구조 변경(bridge 가 reader 를 소유) | open |
+
+- **규범 정정 필요 없음** — D1·D2·D3 는 닫혔고 D4 도 스윕 술어·배선 형태로 닫힌다. Decision·AC·§10 문면은 그대로다.
+- **관측(E4)**: catalog seam 의 `snapshotOf` 가 굳은 미인증 snapshot 을 돌려주면 **AC5 가 production 에서 깨지는데** vitest **2312/2312 green** · typecheck 0 · 새 스윕 3건 green 이다. E6(4 seam 일괄 교체)만 red 다.
+- r2 가 올린 **§10 행 신설 제안**은 D4 에 병합했다 — 재측정 결과 `onSnapshot` 축뿐 아니라 `snapshotOf` 축도 같은 구멍이라 규범 행 없이 스윕 술어로 닫을 수 있다.
