@@ -472,6 +472,12 @@ Auth snapshot / 명시 invalidate
 - 이견 / 현실성 문제: **⚠️ 기존 `inFlight`는 generation을 몰라 stale 작업에 합류했다.** `runtime-catalog.test.ts`의 deferred 변이에서 resolve가 2회가 아닌 1회라 replay 소멸을 재현했다.
 - ACTIVE Decision과 충돌하는 설계 발견: **없음.** generation-aware slot은 D-002를 동시 호출에서도 성립시키는 구현 세부이며 AC10의 최신 replay 상한을 유지한다.
 
+### r2 (2026-08-26) — 검증자 파생 이슈 D1·D2·D3
+
+- 동의 / 그대로 진행: **✅ D1·D2·D3 를 닫았다.** 코드 동작은 r1 그대로이고, 이번 라운드가 더한 것은 **잠금**과 그 잠금을 성립시키는 컴포지션 factory 둘이다.
+- 이견 / 현실성 문제: **⚠️ `bootstrap.ts` 는 vitest 대상이 아니라 배선을 단위로 잠글 수 없다**(0198 D-010). 그래서 *부재*는 typecheck, *무동작*은 실재 스윕으로 갈라 잠갔다.
+- ACTIVE Decision 과 충돌하는 설계 발견: **없음.** factory 둘은 `bootstrap` 이 4벌로 적던 같은 식을 한 자리로 모은 것이라 동작이 같다.
+
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
@@ -486,6 +492,21 @@ Auth snapshot / 명시 invalidate
 
 - §10에 없는데 같은 불변식이 필요했던 지점: **1곳 선조치.** `runtime-catalog.ts`의 `inFlight` slot에 generation을 싣고 동일 generation만 합류시켰다.
 
+### r2 — 재측정 (분모 불변 22)
+
+| 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|
+| 무효화 폭 = canonical key | 5 | **5/5** | `rg "assertMutable\(\|refreshHarnessSettings\(ctx\|invalidate" engine.ts` = 3채널 + 2 sink | 없음 |
+| drop+replay | 3 | **3/3** | `runtime-catalog.ts:158` 본체 + `engine.ts:39` + `runtime-model-startup.ts:103` | 없음 |
+| 열거 cache 전체 무효화 | 2 | **2/2** | `engine.ts:37` · `bootstrap.ts:630` | 없음 |
+| read-only 실행 cache-only | 1 | **1/1** | `turn-setup.ts:89` | 없음 |
+| 미노출 병합 | 3 | **3/3** | `models.ts:105` 필터 + `misc.ts:43` + `turn-setup.ts:54`. 변이 N7·N8 각각 **3케이스 red** | 없음 |
+| 부팅 순서 | 2 | **2/2** | helper `runtime-model-startup.ts:94` + `bootstrap.ts:629` | 없음 |
+| verified→재조정 | 6 | **6/6** | `rg "markVerified\|emitVerifiedChange" src/main --glob '!*.test.ts'` **9건**(주석2+시그니처2+정의1+코드4) + 신설 2(`auth-resume.ts:216` · `bootstrap.ts:409`). 신설 2 는 이제 **무동작도** red | 없음 |
+
+- 합계: `5+3+2+1+3+2+6 = 22`. r1 과 분모 동일 — r2 는 지점을 늘리지 않고 잠금만 더했다.
+- §10 에 없는데 같은 불변식이 필요했던 지점: **1곳 선조치**(D1 형제) + **1곳 보고**(§놓친 잠재 문제 3).
+
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
@@ -494,6 +515,24 @@ Auth snapshot / 명시 invalidate
 | engine runtime invalidate를 전체로 복귀 | AC4·§10 | `engine.runtime-catalog.test.ts` 3 | **red** — 3 CRUD 모두 `undefined` 검출 |
 | remaining verified 통지 제거 | AC12·§10 | `auth-resume.test.ts` 1 | **red** — sink 1회 기대에 0회 |
 | catalog invalidate await 제거 | AC9·§10 | `runtime-model-startup.test.ts` 1 | **red** — attach·resume 조기 실행 검출 |
+
+### r2 — 분모는 파생 이슈가 **인용한 변이**다
+
+| 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|
+| N1 slot 동일성 가드 → 무조건 `delete` | **D1 인용 변이** | `runtime-catalog.test.ts` 1 (`joins the replay an invalidation started…`) | **red** — resolve 2회 기대에 3회 |
+| N5 `reconcileVerified: () => {}` | **D2 인용 변이** | `no-stray-auth-subscribe.test.ts` 1 (`wires the verified-reconcile sink…`) | **red** |
+| N5′ 같은 변이 + 미사용 import 정리(진단 0) | D2 (소거 변이 수렴) | 같은 케이스 1 | **red** — typecheck 0 · eslint 0 상태에서도 가드만 red |
+| N7 adapter 필터 형태에서 runtime 행 누락 | **D3 인용 갈림** | `engine.runtime-catalog.test.ts` 3 + `turn-setup.runtime-catalog.test.ts` 2 | **red** |
+| N8 adapter 필터가 settings 에 안 걸림 | **D3 인용 갈림** | `engine.runtime-catalog.test.ts` 3 + `runtime-catalog.test.ts` 1 | **red** |
+| N2 `createRuntimeModelReconcileVerified` 무동작 | 이번 턴 신설 장치 | `runtime-model-startup.test.ts` 1 | **red** |
+| N3 통지가 생성 시점 snapshot 캡처 | 같음 | `runtime-model-startup.test.ts` 1 | **red** |
+| N4 reader 가 첫 snapshot 을 굳힘 | 같음 | `runtime-model-startup.test.ts` 1 | **red** |
+| N6 catalog seam → 즉석 `auth.bind().snapshot()` | 같음(음성 스윕 방향) | `no-stray-auth-subscribe.test.ts` 1 (`reads Auth snapshots only through the shared reader`) | **red** |
+| N9′ `runtime-config.ts:211` 정리 identity 가드 제거 | D1 형제 지점 | `runtime-config.test.ts` 1 | **red** (테스트 추가 **전**에는 8스위트 전건 green — 그래서 추가했다) |
+
+- 스윕 자기 검사(대상 집합·실재 판정·방향)는 tmp-root 케이스 2건이 갖는다 — `.test.ts` 제외 · 주석/문자열은 배선으로 세지 않음 · 무동작 람다는 flag.
+- 되돌릴 수 없거나 잠글 수 없는 지점: **1곳** — `bootstrap.ts:650` AuthChange 축 forwarding(N10, §놓친 잠재 문제 3).
 
 ## [구현자 기입] Product/UX 파생 검토
 
@@ -504,12 +543,30 @@ Auth snapshot / 명시 invalidate
 | 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | **기존 정책 유지** — 실패 시 행 미노출 | D-007 후속 결정 유지 |
 | 늦게 도착한 응답이 화면을 되돌리지 않는가 | **✅ generation fence 유지** | stale pending 변이 테스트로 잠금 |
 
+### r2
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | **해당 없음** — UI 문자열·DTO·IPC 변경 0 | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | **새 실패 경로 없음** — factory 둘은 기존 식을 옮긴 것이다 | 표 변경 불요 |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | **r1 과 동일** — 실패는 행 미노출(D-006) | D-007 후속 유지 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | **✅ 잠금이 강화됐다** — N1·N9′ 가 정리 축을 red 로 만든다 | 없음 |
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
 | 1 | 이전 generation `inFlight`에 새 replay가 합류하면 둘 다 stale로 폐기됨 | generation-aware slot으로 최신 resolve를 별도 시작 | deferred 변이에서 1회 호출·빈 catalog 재현 |
 | 2 | `assertMutable`이 canonical key를 반환하지 않아 sink 재사용 불가 | 반환형을 `string`으로 바꾸고 3채널이 같은 값 재사용 | 공백·대소문자 fixture 3건 |
+
+### r2
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 3 | `bootstrap.ts:478`·`:650` 의 AuthChange 축 forwarding 은 무동작으로 바꿔도 전건 초록이다 | **보고 + 수정 제안** — 이번 라운드가 닫지 않았다 | 변이 N10(`onSnapshot` 호출 → `void 0`): 8스위트 green · typecheck 0 |
+| 4 | `runtime-config.ts:211` 이 D1 과 같은 불변식인데 잠금이 없었다 | **선조치** — 케이스 1건 추가 | N9′ 가 red |
+
+**§10 행 신설 제안(설계자 판단 필요)**: "컴포지션 루트가 넘기는 sink 는 **실배선**이다 — 부재는 typecheck, 무동작은 실재 스윕이 막는다". 지점은 불변식의 주어(`runtimeModelCatalogBridge.onSnapshot` 으로 들어가는 production forwarding)로 세면 **3지점**이다 — `rg -n "onSnapshot\(" src/main --glob '!*.test.ts'` 5건 중 정의 2(`runtime-catalog.ts:26`·`:38`) 제외, `bootstrap.ts:478` · `:650` · `runtime-model-startup.ts:75`. 이번 라운드는 그중 **1지점**(`:75`, D-008 축)만 잠갔다. 나머지 2는 0198 Auth-change 축이라 규범 행이 없으면 분모가 성립하지 않는다.
 
 ### 설계 대비 명시적 차이
 
@@ -521,6 +578,17 @@ Auth snapshot / 명시 invalidate
 | 공유 (누가 함께 쓰고 누가 비울 수 있는가) | authId generation은 같은 owner contribution이 공유 | AC8 전체 invalidate 2 owner replay green |
 | 재진입 | 이전·최신 fetch가 공존하나 이전 결과는 fence가 폐기 | stale pending 변이 테스트 red 확인 |
 | 다른 무효화 축 | Auth invalidator와 deploy 전체 invalidate 계약 유지 | §10 3·6행 전수 검색 잔여 0 |
+
+#### r2
+
+- plan 이 지정한 것과 다르게 구현한 것과 그 이유: **`bootstrap` 이 인라인 람다로 넘기던 두 sink 를 `runtime-model-startup.ts` 의 factory 둘로 뽑았다**(§11 은 인라인을 적었다). 인라인은 *무동작*이 타입으로도 테스트로도 잡히지 않아 D2 를 닫을 수 없다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | **없음** — reader 가 호출마다 store 를 읽어 lazy-expiry 전이가 그대로 관측된다 | 변이 N4(첫 값 굳힘) **red** · AC12·AC15 green |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | **없음** — seam 마다 새 closure 를 만들고 상태가 0 이라 공유·비움 대상이 없다 | 캐시를 넣는 변이 N3·N4 가 **red** · AC5·AC13 green |
+| 재진입 | **없음** — sink 는 여전히 `void` fire-and-forget 이라 호출 수·순서 불변 | `P + 1` describe 3케이스 수정 없이 green |
+| 다른 무효화 축 | **형태만 바뀜** — `createRuntimeModelAuthInvalidator` 의 `snapshotOf` 도 같은 reader 를 쓴다 | `invalidateRuntimeModelsForAuth`·invalidator 케이스 2건 green · §10 3·6행 지점 수 불변 |
 
 ## [구현자 기입] 구현 보고
 
@@ -535,6 +603,21 @@ Auth snapshot / 명시 invalidate
 | 블로커 / 역질문 | 없음. D-007 OPEN은 기존 비범위 유지 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
+### r2
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | main 코드 2(`runtime-model-startup.ts`·`bootstrap.ts`) · 테스트 4 · handoff 2 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs` · `node scripts/check-doc-inventory.mjs --check` |
+| 관측한 게이트 산출 | lint **0 error / warning 1**(기존 `useTranscriptVirtualizer.ts:22`) · typecheck 3구성 **출력 0줄** · vitest **227파일 2312케이스, 1파일 red** · scripts **59 pass / 0 fail** · doc inventory 3항목 ok |
+| 환경 기인 실패 분리 | red 1파일 = `chat-turn.continuity.test.ts`, 서명 `Error: Electron failed to install correctly` — `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 의 결과지 코드 무관. better-sqlite3 는 Node ABI 로 rebuild 해 DB 스위트 5파일 전부 green |
+| 강제 지점 전수 | **22/22** — 7행 합 `5+3+2+1+3+2+6`, r1 대비 분모 불변 |
+| AC 자기보고 | **15/15** — AC11 이 ⚠️ 에서 ✅ 로(같은 인스턴스 두 merge 형태 비교, N7·N8 이 red) |
+| 합계 검산 | `✅ 15 · ⚠️ 0 · ❌ 0 = 총 15` (분모는 §7 AC1~AC15 를 다시 셌다) |
+| 케이스 증분 | 2303 → **2312** (+9: factory 2 · seam 가드 3 · 스윕 자기검사 2 · D1 1 · D1 형제 1) |
+| 블로커 / 역질문 | **§10 행 신설 제안 1건**(위 §놓친 잠재 문제 3) — 설계자 판단 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
 ## [구현자 기입] Review Signals — 사실만
 
 - 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **예.** 0198의 cache invalidation→reconcile 짝 축이며 0202가 직접 승계했다.
@@ -542,14 +625,22 @@ Auth snapshot / 명시 invalidate
 - 반복해서 부딪히는 환경 한계: **없음.** `npm ci` 후 Node ABI 게이트와 전체 테스트가 실행됐다.
 - 현재 라운드 수: 1
 
+### r2
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **예.** "이번 라운드가 만든 것이 스스로를 잠그는가" 는 0198 r5·r7 · 0201 r1 과 같은 축이고, 0202 r1 이 그 축에서 FAIL 했다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **부분적으로 있었다.** plan §7 방향 기준이 AC5·AC12 에 대해 "지웠을 때 실패해야 한다" 를 적었고 그 둘은 r1 에서 실제로 잠겼다. **컴포지션 루트 sink 의 *무동작*** 은 어느 AC·§10 행도 요구하지 않았다 — 그래서 §10 행 신설을 제안했다.
+- 반복해서 부딪히는 환경 한계: **`bootstrap.ts` 가 vitest 대상이 아님**(0198 D-010). 이번에도 배선을 단위로 잠그지 못해 실재 스윕으로 우회했다. 그리고 이 환경의 electron 바이너리 미설치로 `chat-turn.continuity.test.ts` 2케이스를 못 돌렸다.
+- 현재 라운드 수: 2
+
 ---
 
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| D1 | `runtime-catalog.ts:132-135` slot 동일성 가드가 잠기지 않았다 — 무조건 `delete`로 되돌려도 전체 스위트 **2303/2303 green** · typecheck 0 · eslint 0 | verify r1 §4(M-G) · AC10 · §10 2행 | invalidate가 만든 replay가 in-flight인 구간에 후속 reconcile이 **합류**함을 단언하는 케이스를 추가하고, 이 hunk 되돌림에서 red가 되는 것을 보인다 (재현 관측: `resolve` 2회 기대에 3회) | open |
-| D2 | `bootstrap.ts:407-409`·`:481` 배선이 *부재*만 닫혀 있다 — `reconcileVerified: () => {}`로 바꾸면 typecheck·lint·전체 스위트 전건 green | verify r1 §4(M-J) · §10 7행 · AC12 | 0198 D-010의 실재 가드(`infra/source-scan.ts` + `no-stray-auth-subscribe.test.ts`) 형태로 두 인자의 실재를 production 스윕한다. 가드를 만들면 판정 지점마다 변이를 심어 눈이 있음을 먼저 보인다 | open |
-| D3 | AC11의 검증 수단이 없다 — `rg "\.merge\(" src/main --glob '*.test.ts'` **1건**(필터 단독). 두 소비처를 같은 인스턴스로 비교한 케이스도 CRUD 뒤 단언도 0 | verify r1 §5 · AC11 | `engine.runtime-catalog.test.ts`의 행 존속 케이스에서 CRUD 뒤 같은 인스턴스의 `merge(settings)`와 `merge(settings,'claude')` key 집합이 같음을 단언한다 | open |
+| D1 | `runtime-catalog.ts:132-135` slot 동일성 가드가 잠기지 않았다 — 무조건 `delete`로 되돌려도 전체 스위트 **2303/2303 green** · typecheck 0 · eslint 0 | verify r1 §4(M-G) · AC10 · §10 2행 | invalidate가 만든 replay가 in-flight인 구간에 후속 reconcile이 **합류**함을 단언하는 케이스를 추가하고, 이 hunk 되돌림에서 red가 되는 것을 보인다 (재현 관측: `resolve` 2회 기대에 3회) | **closed r2** — 케이스 `joins the replay an invalidation started instead of opening a second fetch` 추가. 인용 변이(무조건 `delete`) 재측정 **red**(resolve 2회 기대에 3회). 같은 불변식의 형제 `runtime-config.ts:211` 도 함께 잠갔다(N9′ red) |
+| D2 | `bootstrap.ts:407-409`·`:481` 배선이 *부재*만 닫혀 있다 — `reconcileVerified: () => {}`로 바꾸면 typecheck·lint·전체 스위트 전건 green | verify r1 §4(M-J) · §10 7행 · AC12 | 0198 D-010의 실재 가드(`infra/source-scan.ts` + `no-stray-auth-subscribe.test.ts`) 형태로 두 인자의 실재를 production 스윕한다. 가드를 만들면 판정 지점마다 변이를 심어 눈이 있음을 먼저 보인다 | **closed r2** — `createRuntimeModelSnapshotReader`·`createRuntimeModelReconcileVerified` 로 4 seam 을 모으고 실재 스윕 3건 신설. 인용 변이(`() => {}`) 재측정 **red**, 미사용 import 까지 치워 **진단 0** 인 상태에서도 red |
+| D3 | AC11의 검증 수단이 없다 — `rg "\.merge\(" src/main --glob '*.test.ts'` **1건**(필터 단독). 두 소비처를 같은 인스턴스로 비교한 케이스도 CRUD 뒤 단언도 0 | verify r1 §5 · AC11 | `engine.runtime-catalog.test.ts`의 행 존속 케이스에서 CRUD 뒤 같은 인스턴스의 `merge(settings)`와 `merge(settings,'claude')` key 집합이 같음을 단언한다 | **closed r2** — CRUD 뒤 같은 인스턴스로 `merge(settings)` ↔ `merge(settings, 'claude')` 의 runtime key 집합을 3채널에서 비교. 두 형태를 갈라 놓는 변이 N7·N8 각각 **red** |
 
-- **규범 정정 필요 없음** — 셋 다 테스트·가드 추가로 닫힌다. Decision·AC·§10 문면은 그대로다.
+- **규범 정정 필요 없음** — 셋 다 테스트·가드 추가로 닫혔다. Decision·AC·§10 문면은 그대로다.
+- r2 가 올린 **§10 행 신설 제안 1건**(컴포지션 루트 sink 실배선 · 3지점 중 1지점만 잠김)은 설계자 판단이다 — `[구현자 기입] 놓친 잠재 문제 r2` 참조.

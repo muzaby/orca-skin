@@ -4,6 +4,8 @@ import {
   affectedRuntimeModelAuthIds,
   createRuntimeModelAuthInvalidator,
   createRuntimeModelAuthResume,
+  createRuntimeModelReconcileVerified,
+  createRuntimeModelSnapshotReader,
   invalidateRuntimeModelsForAuth,
   startRuntimeModelCatalogAfterDeploy
 } from './runtime-model-startup'
@@ -72,6 +74,36 @@ describe('runtime model startup', () => {
     release()
     await pending
     expect(order).toEqual(['attach', 'resume'])
+  })
+
+  it('reads the live store snapshot on every call rather than a captured one', () => {
+    const snapshots: Record<string, { authId: string; revision: number }> = {
+      gate: { authId: 'gate', revision: 1 }
+    }
+    const reader = createRuntimeModelSnapshotReader({
+      bind: (authId) => ({ snapshot: () => snapshots[authId] }) as never
+    })
+
+    expect(reader('gate')).toMatchObject({ revision: 1 })
+    snapshots['gate'] = { authId: 'gate', revision: 2 }
+    expect(reader('gate')).toMatchObject({ revision: 2 })
+  })
+
+  it('forwards a verified authId to the catalog bridge with its current snapshot', () => {
+    const onSnapshot = vi.fn(async () => undefined)
+    let revision = 1
+    const notify = createRuntimeModelReconcileVerified({
+      bridge: { onSnapshot },
+      snapshotOf: (authId) => ({ authId, revision }) as never
+    })
+
+    notify('wiki')
+    revision = 2
+    notify('wiki')
+
+    expect(onSnapshot).toHaveBeenCalledTimes(2)
+    expect(onSnapshot).toHaveBeenNthCalledWith(1, 'wiki', { authId: 'wiki', revision: 1 })
+    expect(onSnapshot).toHaveBeenNthCalledWith(2, 'wiki', { authId: 'wiki', revision: 2 })
   })
 
   it('returns every Auth owner of invalidated canonical contribution keys', () => {

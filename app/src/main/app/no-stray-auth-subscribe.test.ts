@@ -9,6 +9,18 @@ const AUTH_SUBSCRIBE = /\bauth\s*\.\s*subscribe\s*\(/
 const TRANSFORMED_CONTRIBUTIONS = /\bRUNTIME_MODEL_CONTRIBUTIONS\s*\./
 const START_RUNTIME_MODEL_CATALOG = /\bstartRuntimeModelCatalogAfterDeploy\s*\(/
 const INSTALL_AUTH_RESUME = /\bcreateRuntimeModelAuthResume\s*\(/
+// 아래 넷이 0202 D-008 의 **무동작 배선**을 막는다. 필수 필드라 *부재*는 typecheck 가 잡지만,
+// `reconcileVerified: () => {}` 나 굳은 snapshot 은 타입이 맞아 전건 초록으로 지나간다.
+const BUILD_AUTH_RESUME = /\bcreateAuthResume\s*\(/
+const RECONCILE_VERIFIED_WIRING =
+  /\breconcileVerified\s*:\s*createRuntimeModelReconcileVerified\s*\(/
+const BUILD_RUNTIME_MODEL_CATALOG = /\bcreateRuntimeModelCatalog(?:Bridge)?\s*\(/
+const SNAPSHOT_READER_WIRING = /\bsnapshotOf\s*:\s*createRuntimeModelSnapshotReader\s*\(/
+// 불변식의 주어로 쓰는 음성 술어 — seam 이 store 를 손으로 다시 읽으면 여기 걸린다.
+const INLINE_SNAPSHOT_READ = /\.\s*bind\s*\(\s*[A-Za-z_$][\w$]*\s*\)\s*\.\s*snapshot\s*\(\s*\)/
+// 정의 파일은 조립 지점이 아니다 — 면제하지 않으면 `export function` 선언이 자기 스윕에 걸린다.
+const AUTH_RESUME_DEFINITION = new Set(['auth-resume.ts'])
+const CATALOG_DEFINITION = new Set(['runtime-catalog.ts'])
 
 // 스윕은 `infra/source-scan.ts` 가 소유한다 (0197 A-5) — 여기서 다시 적으면 같은 경로-구분자
 // 버그를 두 벌 고쳐야 한다. 단언은 파일 이름으로 읽는 편이 좌표로 짧아 basename 으로 되돌린다.
@@ -34,6 +46,19 @@ function authResumeInstallers(root: string): string[] {
   return productionCallers(root, INSTALL_AUTH_RESUME)
 }
 
+// 조립 지점(`assembles`)을 훑고 그중 실배선(`wires`)이 없는 파일만 남긴다 — 분모는 내가 쓴
+// 헬퍼 이름이 아니라 **불변식의 주어**(복원 batch 를 만드는 지점 · 카탈로그를 만드는 지점)다.
+function unwiredSeams(
+  root: string,
+  assembles: RegExp,
+  wires: RegExp,
+  exempt: ReadonlySet<string> = new Set()
+): string[] {
+  return scanOffenders(root, (source) => assembles.test(source) && !wires.test(source), exempt).map(
+    (path) => basename(path)
+  )
+}
+
 describe('runtime model Auth composition seam', () => {
   it('installs Auth listeners in exactly one production file', () => {
     expect(authSubscribeFiles(MAIN_ROOT)).toEqual(['runtime-model-startup.ts'])
@@ -45,6 +70,32 @@ describe('runtime model Auth composition seam', () => {
 
   it('installs the Auth resume listener helper from the production composition root', () => {
     expect(authResumeInstallers(MAIN_ROOT)).toEqual(['bootstrap.ts'])
+  })
+
+  it('wires the verified-reconcile sink wherever it builds the resume batch', () => {
+    expect(
+      unwiredSeams(MAIN_ROOT, BUILD_AUTH_RESUME, RECONCILE_VERIFIED_WIRING, AUTH_RESUME_DEFINITION)
+    ).toEqual([])
+    expect(matchingFiles(MAIN_ROOT, RECONCILE_VERIFIED_WIRING, new Set())).toEqual(['bootstrap.ts'])
+  })
+
+  it('wires the live snapshot reader wherever it builds the catalog or its bridge', () => {
+    expect(
+      unwiredSeams(
+        MAIN_ROOT,
+        BUILD_RUNTIME_MODEL_CATALOG,
+        SNAPSHOT_READER_WIRING,
+        CATALOG_DEFINITION
+      )
+    ).toEqual([])
+    expect(matchingFiles(MAIN_ROOT, SNAPSHOT_READER_WIRING, new Set())).toEqual(['bootstrap.ts'])
+  })
+
+  it('reads Auth snapshots only through the shared reader', () => {
+    // 면제는 reader 정의 파일 하나다 — 그 파일이 곧 `auth.bind(id).snapshot()` 의 유일한 자리다.
+    expect(
+      matchingFiles(MAIN_ROOT, INLINE_SNAPSHOT_READ, new Set(['runtime-model-startup.ts']))
+    ).toEqual([])
   })
 
   it('passes runtime model contribution declarations without transforming them', () => {
@@ -72,6 +123,68 @@ describe('runtime model Auth composition seam', () => {
     expect(authSubscribeFiles(root)).toEqual(['install.ts'])
     expect(runtimeModelStartupCallers(root)).toEqual(['bootstrap.ts'])
     expect(authResumeInstallers(root)).toEqual(['bootstrap.ts'])
+  })
+
+  it('flags a resume batch whose reconcile sink is inert, commented, or stringified', () => {
+    const root = mkdtempSync(join(tmpdir(), 'orca-runtime-model-sink-'))
+    mkdirSync(join(root, 'nested'))
+    const inert = ['const resume = createAuthResume({', '  reconcileVerified: () => {}', '})'].join(
+      '\n'
+    )
+    writeFileSync(join(root, 'nested', 'bootstrap.ts'), inert)
+    writeFileSync(join(root, 'ignored.test.ts'), inert)
+    expect(unwiredSeams(root, BUILD_AUTH_RESUME, RECONCILE_VERIFIED_WIRING)).toEqual([
+      'bootstrap.ts'
+    ])
+
+    writeFileSync(
+      join(root, 'nested', 'bootstrap.ts'),
+      [
+        'const resume = createAuthResume({',
+        '  // reconcileVerified: createRuntimeModelReconcileVerified(deps)',
+        '})'
+      ].join('\n')
+    )
+    expect(unwiredSeams(root, BUILD_AUTH_RESUME, RECONCILE_VERIFIED_WIRING)).toEqual([
+      'bootstrap.ts'
+    ])
+
+    writeFileSync(
+      join(root, 'nested', 'bootstrap.ts'),
+      [
+        'const resume = createAuthResume({',
+        '  reconcileVerified: createRuntimeModelReconcileVerified(deps)',
+        '})'
+      ].join('\n')
+    )
+    expect(unwiredSeams(root, BUILD_AUTH_RESUME, RECONCILE_VERIFIED_WIRING)).toEqual([])
+  })
+
+  it('flags a catalog built without the shared snapshot reader, and ad-hoc store reads', () => {
+    const root = mkdtempSync(join(tmpdir(), 'orca-runtime-model-reader-'))
+    writeFileSync(
+      join(root, 'bootstrap.ts'),
+      [
+        'const catalog = createRuntimeModelCatalog({',
+        '  snapshotOf: (authId) => auth.bind(authId).snapshot()',
+        '})'
+      ].join('\n')
+    )
+    expect(unwiredSeams(root, BUILD_RUNTIME_MODEL_CATALOG, SNAPSHOT_READER_WIRING)).toEqual([
+      'bootstrap.ts'
+    ])
+    expect(matchingFiles(root, INLINE_SNAPSHOT_READ, new Set())).toEqual(['bootstrap.ts'])
+
+    writeFileSync(
+      join(root, 'bootstrap.ts'),
+      [
+        'const bridge = createRuntimeModelCatalogBridge({',
+        '  snapshotOf: createRuntimeModelSnapshotReader(auth)',
+        '})'
+      ].join('\n')
+    )
+    expect(unwiredSeams(root, BUILD_RUNTIME_MODEL_CATALOG, SNAPSHOT_READER_WIRING)).toEqual([])
+    expect(matchingFiles(root, INLINE_SNAPSHOT_READ, new Set())).toEqual([])
   })
 
   it('detects Auth subscription calls but ignores comments and strings', () => {

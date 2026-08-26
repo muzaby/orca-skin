@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { AgentEnvironment } from '../../../shared/ipc'
 import { CHANNELS } from '../../../shared/protocol'
 import { createRuntimeModelCatalog } from '../../features/harnesses/runtime-catalog'
 import { createHarnessRuntimeConfigService } from '../../features/harnesses/runtime-config'
@@ -95,6 +96,31 @@ describe('engine runtime catalog invalidation wiring', () => {
 
     expect(runtimeModelCatalog.list().map((entry) => entry.key)).toEqual(['claude-corp'])
     expect(runtime.cached('claude-corp')).toBeDefined()
+
+    // AC11 — 같은 인스턴스에서 두 소비처 형태를 비교한다. `agent:list`(무필터, misc.ts:43)와
+    // 턴 후보(`adapter` 필터, turn-setup.ts:54)가 같은 runtime key 집합을 봐야 한다.
+    const settings: AgentEnvironment[] = [
+      { key: 'claude-local', adapter: 'claude', provider: 'local', models: [], supported: true },
+      { key: 'claude-corp', adapter: 'claude', provider: 'corp', models: [], supported: true },
+      { key: 'other-local', adapter: 'other', provider: 'local', models: [], supported: false }
+    ] as AgentEnvironment[]
+    const listed = runtimeModelCatalog.merge(settings)
+    const candidates = runtimeModelCatalog.merge(settings, 'claude')
+    const runtimeKeys = (rows: AgentEnvironment[]): string[] =>
+      rows
+        .filter((row) => row.source === 'runtime')
+        .map((row) => row.key)
+        .sort()
+
+    expect(runtimeKeys(listed)).toEqual(['claude-corp'])
+    expect(runtimeKeys(candidates)).toEqual(runtimeKeys(listed))
+    // adapter 필터는 **양쪽(settings·runtime)에 함께** 걸린다 — 한쪽에만 걸면 두 소비처가 갈린다.
+    expect(listed.map((row) => row.key).sort()).toEqual([
+      'claude-corp',
+      'claude-local',
+      'other-local'
+    ])
+    expect(candidates.map((row) => row.key).sort()).toEqual(['claude-corp', 'claude-local'])
   })
 
   it.each([
