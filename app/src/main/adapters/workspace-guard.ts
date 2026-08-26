@@ -56,6 +56,17 @@ export function resolveGuardRoots(
   additionalDirs: string[] = []
 ): GuardRoots {
   const ws = path.resolve(workspaceRoot)
+  // **도달 불가 전제를 소리내어 깬다** (D-021). 앞의 세 지점(선택·스키마·세션행 폴백)이
+  // 막으므로 여기까지 루트가 오면 그것은 배선 결함이다 — 조용히 통과시키면 가드가 켜져 있는
+  // 채로 아무것도 막지 않는다(`writeRoots[0]` 이 모든 경로의 조상이 된다). `extraDirs` 처럼
+  // 버릴 수 없으므로 폴백 대신 실패로 표면화한다.
+  //
+  // `extraDirs` 와 같은 2층으로 본다: 원문(텍스트)과 정규화 결과 양쪽. 정규화만 보면 판정이
+  // 플랫폼에 묶인다 — Linux 에서 `path.resolve('C:\\')` 는 `<cwd>/C:\` 라 루트가 아니게 되고,
+  // 같은 입력이 windows CI 에서만 걸린다.
+  if (isFilesystemRoot(workspaceRoot) || isFilesystemRoot(ws)) {
+    throw new Error(`workspace root cannot be a filesystem root: ${workspaceRoot}`)
+  }
   // **절대 경로만 루트로 올린다** — 상대경로는 `path.resolve` 가 main 프로세스의 cwd 기준으로
   // 조용히 풀어 사용자가 지목한 적 없는 폴더를 write 루트로 만든다. IPC 스키마(`ExtraDirSchema`)가
   // 이미 같은 규칙으로 자르지만, 이 함수는 IPC 를 타지 않는 호출부(테스트·세션 복원)도 받으므로

@@ -84,7 +84,13 @@ export const SendChatMessageSchema = z
     effort: EffortLevelSchema.optional(),
     attachments: z.array(ComposerAttachmentSchema).default([]),
     attachmentViews: z.array(AttachmentViewSchema).default([]),
-    cwd: z.string().min(1).nullable().optional(),
+    // 루트는 가드 ws 가 될 수 없다 (D-019). `extraDirs` 와 같은 SSOT 를 쓴다.
+    cwd: z
+      .string()
+      .min(1)
+      .refine((v) => !isFilesystemRoot(v), '작업 경로로 루트 폴더를 쓸 수 없습니다')
+      .nullable()
+      .optional(),
     // CLI `/add-dir` 대응 — 작업 디렉토리 밖 추가 참조 경로(절대 경로). 새 세션 출생 시 고정.
     extraDirs: z.array(ExtraDirSchema).optional(),
     // 0064 continuity — 상호 배타·새 세션 전용(아래 refine).

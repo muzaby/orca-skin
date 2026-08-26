@@ -57,3 +57,25 @@ describe('resolveGuardRoots — 루트 거부 (정규화 후)', () => {
     expect(roots.writeRoots).toContain(path.resolve('/tmp'))
   })
 })
+
+// D-021 — 앞의 세 지점이 막으므로 여기까지 루트가 오면 배선 결함이다. 조용히 통과시키면
+// 가드가 켜져 있는 채로 아무것도 막지 않는다(`writeRoots[0]` 이 모든 경로의 조상이 된다).
+describe('resolveGuardRoots — 루트 ws 는 실패로 표면화한다', () => {
+  it.each(['/', 'C:\\', '\\\\srv\\share'])('ws 가 %s 면 throw 한다', (root) => {
+    expect(() => resolveGuardRoots(root, [])).toThrow(/workspace root cannot be a filesystem root/)
+  })
+
+  it('정규화하면 루트가 되는 ws 도 throw 한다', () => {
+    expect(() => resolveGuardRoots('/a/..', [])).toThrow(/filesystem root/)
+  })
+
+  it('루트가 아닌 ws 는 그대로 통과한다', () => {
+    expect(resolveGuardRoots(WS, []).ws).toBe(WS)
+  })
+
+  it('**writeRoots[0] 이 루트인 상태를 만들 수 없다** — AC26 의 핵심 단언', () => {
+    for (const root of ['/', '/.', '/a/..']) {
+      expect(() => resolveGuardRoots(root, [])).toThrow()
+    }
+  })
+})

@@ -120,3 +120,37 @@ describe('chatReducer — 루트 참조 경로 거부 (AC25)', () => {
     expect(initialChatState.extraDirRejection).toBeNull()
   })
 })
+
+// D-019 확장 — cwd 도 같은 축이다. `writeRoots[0]` 이라 오히려 더 직접적이다.
+describe('chatReducer — 루트 작업 경로 거부 (AC25 · cwd 축)', () => {
+  it.each(['/', 'C:\\', '\\\\srv\\share'])('%s 는 cwd 가 되지 않고 사유가 남는다', (root) => {
+    const before = withCwd('/repo', ['/refs/a'])
+    const state = chatReducer(before, { type: 'SET_CWD', cwd: root })
+
+    expect(state.cwd).toBe('/repo')
+    expect(state.extraDirRejection).toBe('root')
+  })
+
+  it('거부된 SET_CWD 는 참조 경로를 비우지 않는다 — cwd 가 안 바뀌었으므로', () => {
+    const state = chatReducer(withCwd('/repo', ['/refs/a', '/refs/b']), {
+      type: 'SET_CWD',
+      cwd: '/'
+    })
+
+    expect(state.extraDirs).toEqual(['/refs/a', '/refs/b'])
+  })
+
+  it('루트가 아닌 경로는 계속 cwd 가 된다 — 범위 정책이 아니다', () => {
+    const state = chatReducer(withCwd('/repo'), { type: 'SET_CWD', cwd: '/etc' })
+
+    expect(state.cwd).toBe('/etc')
+    expect(state.extraDirRejection).toBeNull()
+  })
+
+  it('두 선택창이 같은 사유 상태를 공유한다 — 규칙이 하나라 문장도 하나다', () => {
+    const byChip = chatReducer(withCwd('/repo'), { type: 'ADD_EXTRA_DIR', dir: '/' })
+    const byCwd = chatReducer(withCwd('/repo'), { type: 'SET_CWD', cwd: '/' })
+
+    expect(byChip.extraDirRejection).toBe(byCwd.extraDirRejection)
+  })
+})

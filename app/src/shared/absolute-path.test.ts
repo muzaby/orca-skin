@@ -116,3 +116,22 @@ describe('SendChatMessageSchema.extraDirs — 루트 거부 (AC12)', () => {
     expect(send(['/a/b/c']).success).toBe(true)
   })
 })
+
+// D-019 확장 — cwd 는 `writeRoots[0]` 이라 루트면 가드가 판정할 바깥이 아예 없다.
+describe('SendChatMessageSchema.cwd — 루트 거부 (AC26)', () => {
+  const withCwd = (cwd: unknown): { success: boolean } =>
+    SendChatMessageSchema.safeParse({ sessionId: null, projectId: null, text: 'hi', cwd })
+
+  it.each(['/', 'C:\\', '\\\\srv\\share'])('%s 를 거부한다', (value) => {
+    expect(withCwd(value).success).toBe(false)
+  })
+
+  it('루트 밑의 실제 폴더는 통과한다', () => {
+    expect(withCwd('/repo/app').success).toBe(true)
+  })
+
+  it('null·미지정은 통과한다 — 프로젝트 파생으로 넘어간다', () => {
+    expect(withCwd(null).success).toBe(true)
+    expect(withCwd(undefined).success).toBe(true)
+  })
+})
