@@ -118,13 +118,7 @@ export const CHANNELS = {
 } as const
 
 export type UpdateStateStatus =
-  | 'idle'
-  | 'checking'
-  | 'available'
-  | 'downloading'
-  | 'ready'
-  | 'installing'
-  | 'error'
+  'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'installing' | 'error'
 export interface UpdateProgress {
   percent: number
   transferred?: number
@@ -639,9 +633,7 @@ export interface PlanReviewRequest {
 // (재제안 금지) / revise=피드백 반영해 재작성. renderer→main 와이어는 PermissionRespond 로
 // 통일됐다 — approved↔allow, revise↔deny{message}, rejected↔deny{interrupt:true} 로 매핑.
 export type PlanDecision =
-  | { type: 'approved' }
-  | { type: 'rejected' }
-  | { type: 'revise'; feedback: string }
+  { type: 'approved' } | { type: 'rejected' } | { type: 'revise'; feedback: string }
 
 export type AttachmentSourceKind = 'dialog' | 'drag_drop' | 'clipboard'
 
@@ -1029,10 +1021,15 @@ export interface GitCheckoutRequest {
 
 // 전환 실패를 예외가 아니라 값으로 돌려준다 — dirty 트리 충돌은 정상 흐름(사용자에게 물어야
 // 하는 상태)이지 프로그래머 오류가 아니다.
+//
+// **`applied` 는 부분 실패의 식별자다.** 해소(stash/commit-wip/discard)는 성공했는데 그 뒤
+// checkout 이 실패하면 사용자 작업 트리는 **이미 바뀌었고 브랜치만 그대로**다. 어느 해소가
+// 적용됐는지 값으로 실어야 화면이 "변경은 스태시됐고 브랜치는 그대로"를 말할 수 있다 —
+// `discard` 는 되돌릴 수 없으므로 이것이 안 보이면 데이터 유실로 읽힌다.
 export type GitCheckoutResult =
   | { ok: true; branch: string }
   | { ok: false; reason: 'dirty'; from: string | null; stat: GitDirtyStat }
-  | { ok: false; reason: 'not-repo' | 'error'; message: string }
+  | { ok: false; reason: 'not-repo' | 'error'; message: string; applied?: GitDirtyResolution }
 
 // 세션 카탈로그 (사이드바 "최근 대화") — Phase 3 로컬 DB SSOT.
 export interface SessionListItem {

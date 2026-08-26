@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type {
-  GitBranchList,
-  GitDirtyResolution,
-  GitDirtyStat,
-  GitStatus
-} from '../../../../../../shared/ipc'
+import type { GitBranchList, GitDirtyResolution } from '../../../../../../shared/ipc'
 import { gitApi } from '../../../../shared/api/ipc'
 import { Button } from '../../../../shared/ui/Button'
 import { Modal } from '../../../../shared/ui/Modal'
@@ -13,16 +8,18 @@ import { useI18n } from '../../../../shared/i18n'
 import { ComposerChip } from './ComposerChip'
 import { BranchMenu } from './BranchMenu'
 import { BranchSwitchDialog } from './BranchSwitchDialog'
+import {
+  APPLIED_NOTICE_KEY,
+  branchChipView,
+  checkoutOutcome,
+  statusForCwd,
+  type BranchSnapshot,
+  type DirtyPrompt
+} from './branchChipState'
 
 interface BranchChipProps {
   cwd: string | null
   disabled?: boolean
-}
-
-interface DirtyPrompt {
-  target: string
-  from: string | null
-  stat: GitDirtyStat
 }
 
 const EMPTY_LIST: GitBranchList = { current: null, branches: [] }
@@ -37,18 +34,16 @@ export function BranchChip({ cwd, disabled = false }: BranchChipProps): React.JS
   // 상태는 **어느 경로의 것인지와 함께** 들고 있는다. 폴더를 빠르게 바꾸면 늦게 도착한 응답이
   // 새 경로의 상태를 덮는데, 경로를 같이 저장하면 아래 한 줄 비교로 그 값을 무시할 수 있다
   // (effect 안에서 동기 setState 를 하지 않아도 되는 이유이기도 하다).
-  const [snapshot, setSnapshot] = useState<{ cwd: string | null; status: GitStatus | null }>({
-    cwd: null,
-    status: null
-  })
-  const status = snapshot.cwd === cwd ? snapshot.status : null
+  const [snapshot, setSnapshot] = useState<BranchSnapshot>({ cwd: null, status: null })
+  const status = statusForCwd(cwd, snapshot)
   const [list, setList] = useState<GitBranchList>(EMPTY_LIST)
   const [listLoading, setListLoading] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [dirty, setDirty] = useState<DirtyPrompt | null>(null)
   const [busy, setBusy] = useState(false)
   // 전환 실패 문구. 전역 toast 가 없는 앱이라 실패는 그 자리에서 모달로 보여준다.
-  const [error, setError] = useState<string | null>(null)
+  // `applied` 가 있으면 해소만 적용된 **부분 실패** 라 변경이 어디로 갔는지도 함께 말한다.
+  const [error, setError] = useState<{ message: string; applied?: GitDirtyResolution } | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
   // 전환 직후 재조회 — 라벨이 옛 브랜치에 머무르지 않게 한다.
@@ -73,7 +68,10 @@ export function BranchChip({ cwd, disabled = false }: BranchChipProps): React.JS
     }
   }, [cwd])
 
-  if (!cwd || !status?.isRepo) return null
+  const view = branchChipView(cwd, status)
+  // `branchChipView` 가 이미 cwd null 을 걸러 냈지만 그 좁히기는 함수 경계를 넘지 못한다 —
+  // 아래 gitApi 호출들이 string 을 요구하므로 여기서 한 번 더 명시한다.
+  if (!view.visible || cwd == null) return null
 
   const openMenu = (): void => {
     setMenuOpen(true)
@@ -89,26 +87,28 @@ export function BranchChip({ cwd, disabled = false }: BranchChipProps): React.JS
   const checkout = async (branch: string, resolution?: GitDirtyResolution): Promise<void> => {
     setBusy(true)
     try {
-      const result = await gitApi.checkout({
-        cwd,
-        branch,
-        ...(resolution ? { resolution } : {})
-      })
-      if (result.ok) {
+      const outcome = checkoutOutcome(
+        await gitApi.checkout({ cwd, branch, ...(resolution ? { resolution } : {}) }),
+        branch
+      )
+      if (outcome.kind === 'switched') {
         setDirty(null)
         await refresh()
         return
       }
-      if (result.reason === 'dirty') {
-        setDirty({ target: branch, from: result.from, stat: result.stat })
+      if (outcome.kind === 'ask') {
+        setDirty(outcome.prompt)
         return
       }
       // 전환 실패는 조용히 삼키지 않는다 — 왜 브랜치가 그대로인지 그 자리에서 보여야 한다.
       setDirty(null)
-      setError(result.message)
+      setError({
+        message: outcome.message,
+        ...(outcome.applied ? { applied: outcome.applied } : {})
+      })
     } catch {
       setDirty(null)
-      setError(tr('chat.composer.branchSwitchFailed'))
+      setError({ message: tr('chat.composer.branchSwitchFailed') })
     } finally {
       setBusy(false)
     }
@@ -119,7 +119,7 @@ export function BranchChip({ cwd, disabled = false }: BranchChipProps): React.JS
       <ComposerChip
         ref={buttonRef}
         icon="fork"
-        label={status.branch ?? tr('chat.composer.branchDetached')}
+        label={view.branch ?? tr('chat.composer.branchDetached')}
         variant="outlined"
         // `claude/composer-branch-and-add-dir` 같은 이름은 그냥 두면 행을 통째로 밀어낸다.
         className="max-w-[16rem]"
@@ -131,12 +131,12 @@ export function BranchChip({ cwd, disabled = false }: BranchChipProps): React.JS
       />
       <Popover open={menuOpen} anchorRef={buttonRef} onClose={() => setMenuOpen(false)}>
         <BranchMenu
-          current={list.current ?? status.branch}
+          current={list.current ?? view.branch}
           branches={list.branches}
           loading={listLoading}
           onPick={(branch) => {
             setMenuOpen(false)
-            if (branch !== (list.current ?? status.branch)) void checkout(branch)
+            if (branch !== (list.current ?? view.branch)) void checkout(branch)
           }}
         />
       </Popover>
@@ -154,8 +154,15 @@ export function BranchChip({ cwd, disabled = false }: BranchChipProps): React.JS
         <p className="text-[13.5px] font-medium text-ink">
           {tr('chat.composer.branchSwitchFailed')}
         </p>
+        {/* 해소만 적용된 부분 실패면 변경이 어디로 갔는지 먼저 말한다 — `discard` 는 되돌릴 수
+            없어서 이 문장이 없으면 데이터 유실과 구분되지 않는다. */}
+        {error?.applied && (
+          <p className="mt-2 text-[13px] leading-relaxed text-ink2">
+            {tr(APPLIED_NOTICE_KEY[error.applied])}
+          </p>
+        )}
         <p className="mt-2 whitespace-pre-wrap break-words font-mono text-[12px] text-ink2">
-          {error}
+          {error?.message}
         </p>
       </Modal>
       {dirty && (

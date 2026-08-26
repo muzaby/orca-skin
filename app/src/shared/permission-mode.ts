@@ -25,6 +25,10 @@ export type ClaudePermissionMode =
 // 같은 값을 읽도록 단일 정의로 둔다 — 셋이 어긋나면 "칩은 편집 수락인데 SDK 는 plan" 이 된다.
 export const PLAN_APPROVED_MODE: NormalizedPermissionMode = 'accept_edits'
 
+// 미설정 세션의 기본 권한 모드 (D-012). **렌더러 초기 상태와 main 미설정 조회가 이 상수 하나를
+// 읽는다** — 양쪽에 리터럴을 두면 한쪽만 옮겼을 때 칩과 main 이 서로 다른 모드를 진실로 삼는다.
+export const DEFAULT_PERMISSION_MODE: NormalizedPermissionMode = 'auto_classified'
+
 // 정규화 모드 전수 (UI 메뉴·검증 루프용 단일 출처).
 export const NORMALIZED_MODES: readonly NormalizedPermissionMode[] = [
   'default',

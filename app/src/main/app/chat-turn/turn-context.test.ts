@@ -233,4 +233,29 @@ describe('extraDirs 해석', () => {
     })
     expect(makeContinuationTurn(prev).extraDirs).toEqual(['/refs/a'])
   })
+
+  // 세 번째 강제 지점 — 세션행은 IPC 스키마를 다시 타지 않는다. 절대경로 검증이 없던 시절에
+  // 쓰인 행이 resume 으로 되살아나면 그 값이 SDK 옵션 `additionalDirectories` 까지 흘러간다.
+  it('세션행의 상대 경로는 버린다 — 스키마 이전에 쓰인 행이 되살아나지 않는다', () => {
+    const turn = buildTurnContext<string>({
+      ...base(),
+      payload: { sessionId: 's1', cwd: null, attachmentViews: [] },
+      sessionMeta: { cwd: '/w', project_id: null, extra_dirs: '["refs","../up","/refs/ok"]' }
+    })
+    expect(turn.extraDirs).toEqual(['/refs/ok'])
+  })
+
+  it('continuity 계승도 같은 규칙을 받는다', () => {
+    const turn = buildTurnContext<string>({
+      ...base(),
+      payload: { sessionId: null, cwd: null, forkFrom: 'src-1', attachmentViews: [] },
+      continuityMeta: {
+        title: '원본',
+        cwd: '/origin',
+        project_id: null,
+        extra_dirs: '["relative/x","/refs/origin"]'
+      }
+    })
+    expect(turn.extraDirs).toEqual(['/refs/origin'])
+  })
 })
