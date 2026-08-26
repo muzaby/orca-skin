@@ -12,6 +12,7 @@ import type {
   EffortLevel
 } from '../../../../../shared/ipc'
 import { subagentNoticePart } from '../../../../../shared/ipc'
+import { isFilesystemRoot } from '../../../../../shared/absolute-path'
 import { DEFAULT_PERMISSION_MODE } from '../../../../../shared/permission-mode'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 import type { ContinuityLang } from '../../../../../shared/continuity-lang'
@@ -91,6 +92,10 @@ export interface ChatState {
   // **세션 출생 전(랜딩)에만 의미가 있다** — 첫 전송에 실려 세션행에 고정된 뒤로는
   // main/DB 가 정본이고 renderer 는 이 값을 다시 읽지 않는다.
   extraDirs: string[]
+  // 마지막 참조 경로 추가가 **거부된 이유**. null = 거부 없음. 중복·cwd 자기 자신은 조용히
+  // 무시하지만(사용자가 이미 가진 것을 다시 고른 것뿐) 루트는 사유를 남긴다 — 고른 폴더가
+  // 칩으로 안 붙는데 아무 말도 없으면 사용자는 앱이 먹은 것으로 읽는다 (D-020).
+  extraDirRejection: 'root' | null
   // 커밋된 transcript 메시지(SSOT 는 DB, 이 배열은 그 미러). 스트리밍 라이브 텍스트/사고는
   // 여기 없다 — chatStore 의 live 슬라이스(transient)가 담당하고, 완성 시 parts 로 커밋된다.
   messages: Message[]
@@ -195,6 +200,7 @@ export const initialChatState: ChatState = {
   effort: 'high',
   cwd: null,
   extraDirs: [],
+  extraDirRejection: null,
   messages: [],
   sendCount: 0,
   inflight: false,
@@ -623,15 +629,28 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     case 'SET_CWD':
       // 작업 경로가 바뀌면 그 밑으로 들어온 참조 경로는 의미가 달라진다 — 같이 비운다.
-      return { ...state, cwd: action.cwd, extraDirs: [] }
+      return { ...state, cwd: action.cwd, extraDirs: [], extraDirRejection: null }
 
     case 'ADD_EXTRA_DIR':
+      // **루트는 거부하고 사유를 남긴다** (D-019·D-020). 가드 루트로 오르면 0075 격리가
+      // 판정할 바깥이 없어지므로 스키마·가드·세션행 3지점이 뒤에서 또 자르지만, 여기서
+      // 막지 않으면 칩은 붙고 전송만 `schema_validation_error` 로 죽어 원인이 안 보인다.
+      if (isFilesystemRoot(action.dir)) return { ...state, extraDirRejection: 'root' }
+      // 중복·cwd 자기 자신은 조용히 무시한다 — 사용자가 이미 가진 것을 다시 고른 것뿐이다.
       if (state.extraDirs.includes(action.dir) || action.dir === state.cwd) return state
-      return { ...state, extraDirs: [...state.extraDirs, action.dir] }
+      return {
+        ...state,
+        extraDirs: [...state.extraDirs, action.dir],
+        extraDirRejection: null
+      }
 
     case 'REMOVE_EXTRA_DIR':
       if (!state.extraDirs.includes(action.dir)) return state
-      return { ...state, extraDirs: state.extraDirs.filter((dir) => dir !== action.dir) }
+      return {
+        ...state,
+        extraDirs: state.extraDirs.filter((dir) => dir !== action.dir),
+        extraDirRejection: null
+      }
 
     case 'CANCEL_CHAT':
       // 턴 취소 시 main 의 broker 가 보류 게이트를 해소하므로 카드(질문/계획/도구)도 함께 비운다.

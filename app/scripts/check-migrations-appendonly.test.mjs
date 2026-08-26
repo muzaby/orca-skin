@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import {
   checkAppendOnly,
   checkNoListCopies,
   checkSync,
+  collectSourceFiles,
   findMigrationListCopies,
   findPreviousTag,
   parseImportedMigrations
@@ -161,4 +165,72 @@ test('checkNoListCopies 는 사본 파일명과 인용 개수를 오류에 싣�
 
 test('checkNoListCopies 는 사본이 없으면 통과한다', () => {
   assert.equal(checkNoListCopies([]).ok, true)
+})
+
+// ── 스윕의 **대상 집합** 판정 지점 ──────────────────────────────────────────
+// 이 축이 좁아지면 사본이 그 그늘에 숨는데, 위 테스트들은 `sources` 를 직접 넘겨받으므로
+// 전부 초록으로 남는다 — 실제로 `SOURCE_EXTENSIONS` 에서 `.tsx` 를 빼도 14/14 가 통과했다.
+// 컴포저 기능이 `.tsx` 로 가득한 저장소라 그 그늘이 곧 실제 위험이다.
+
+function makeTree() {
+  const root = mkdtempSync(join(tmpdir(), 'orca-scan-'))
+  mkdirSync(join(root, 'src', 'deep', 'nested'), { recursive: true })
+  const files = {
+    'src/a.ts': 'ts',
+    'src/b.tsx': 'tsx',
+    'src/c.mts': 'mts',
+    'src/d.cts': 'cts',
+    'src/notes.md': 'md',
+    'src/data.json': '{}',
+    'src/deep/e.ts': 'deep ts',
+    'src/deep/nested/f.tsx': 'deep tsx'
+  }
+  for (const [rel, body] of Object.entries(files)) {
+    writeFileSync(join(root, ...rel.split('/')), body)
+  }
+  return root
+}
+
+test('collectSourceFiles 는 4개 확장자를 전부 훑는다', () => {
+  const root = makeTree()
+  try {
+    const found = collectSourceFiles(root).sort()
+    assert.ok(found.includes('src/a.ts'), '.ts')
+    assert.ok(found.includes('src/b.tsx'), '.tsx')
+    assert.ok(found.includes('src/c.mts'), '.mts')
+    assert.ok(found.includes('src/d.cts'), '.cts')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('collectSourceFiles 는 하위 디렉토리를 재귀로 내려간다', () => {
+  const root = makeTree()
+  try {
+    const found = collectSourceFiles(root)
+    assert.ok(found.includes('src/deep/e.ts'), '1단 아래')
+    assert.ok(found.includes('src/deep/nested/f.tsx'), '2단 아래')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('collectSourceFiles 는 소스가 아닌 파일을 세지 않는다', () => {
+  const root = makeTree()
+  try {
+    const found = collectSourceFiles(root)
+    assert.equal(found.length, 6)
+    assert.ok(!found.some((f) => f.endsWith('.md') || f.endsWith('.json')))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('collectSourceFiles 산출은 `/` 로 정규화된다 — 허용 목록과 같은 축', () => {
+  const root = makeTree()
+  try {
+    assert.ok(collectSourceFiles(root).every((f) => !f.includes('\\')))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })

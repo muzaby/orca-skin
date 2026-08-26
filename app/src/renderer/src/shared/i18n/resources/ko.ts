@@ -654,6 +654,7 @@ export const ko = {
       dirtyStash: '변경 사항 스태시',
       dirtyCommitWip: 'WIP으로 커밋',
       dirtyDiscard: '변경 사항 취소',
+      extraDirRejectRoot: '루트 폴더는 참조 경로로 추가할 수 없습니다.',
       extraDirAdd: '다른 폴더 추가',
       extraDirRemoveAria: '{{name}} 참조 경로 제거'
     },

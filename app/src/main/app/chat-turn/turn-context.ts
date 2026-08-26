@@ -10,7 +10,7 @@ import type { TurnContext } from '../../contracts/turn'
 import type { RuntimeTitleAdapter } from '../../contracts/ports'
 import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
 import type { SessionControl } from '../../features/sessions/session-chain-lease'
-import { isAbsolutePath } from '../../../shared/absolute-path'
+import { isAbsolutePath, isFilesystemRoot } from '../../../shared/absolute-path'
 
 // 턴-로컬 상태의 단일 초기값 — 신규 턴과 자동 연속 턴이 공유한다. TurnContext 에 턴-로컬
 // 필드를 더하면 여기에만 더한다(턴 간 계승/차이가 있는 것은 각 호출부가 명시).
@@ -66,7 +66,9 @@ export function parseExtraDirs(raw: string | null | undefined): string[] {
   try {
     const parsed: unknown = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
-    return parsed.filter((v): v is string => typeof v === 'string' && isAbsolutePath(v))
+    return parsed.filter(
+      (v): v is string => typeof v === 'string' && isAbsolutePath(v) && !isFilesystemRoot(v)
+    )
   } catch {
     return []
   }

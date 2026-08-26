@@ -4,7 +4,7 @@
 // 사용자가 지목한 적 없는 폴더가 에이전트에게 열린다.
 
 import { describe, expect, it } from 'vitest'
-import { isAbsolutePath } from './absolute-path'
+import { isAbsolutePath, isFilesystemRoot } from './absolute-path'
 import { SendChatMessageSchema } from './protocol'
 
 const send = (extraDirs: unknown): { success: boolean } =>
@@ -74,5 +74,45 @@ describe('SendChatMessageSchema.extraDirs', () => {
   it('미지정과 빈 배열은 통과한다 — 둘 다 "없음" 이다', () => {
     expect(send(undefined).success).toBe(true)
     expect(send([]).success).toBe(true)
+  })
+})
+
+// D-019 — 루트는 모든 경로의 조상이라 가드 루트로 오르면 0075 격리가 no-op 이 된다.
+describe('isFilesystemRoot', () => {
+  it.each(['/', 'C:\\', 'c:/', '\\\\srv\\share', '\\\\srv\\share\\'])('%s 는 루트다', (value) => {
+    expect(isFilesystemRoot(value)).toBe(true)
+  })
+
+  it.each(['/a', '/a/b', 'C:\\work', '\\\\srv\\share\\x', '/a/'])(
+    '%s 는 루트가 아니다',
+    (value) => {
+      expect(isFilesystemRoot(value)).toBe(false)
+    }
+  )
+
+  it('절대 경로가 아니면 루트도 아니다', () => {
+    expect(isFilesystemRoot('refs')).toBe(false)
+    expect(isFilesystemRoot('')).toBe(false)
+  })
+
+  // 텍스트 층의 한계를 명시적으로 잠근다 — 이 별칭들은 `resolveGuardRoots` 가 정규화 후 잡는다.
+  it('정규화해야 드러나는 별칭은 텍스트 층에서 잡히지 않는다', () => {
+    expect(isFilesystemRoot('/.')).toBe(false)
+    expect(isFilesystemRoot('/a/..')).toBe(false)
+  })
+})
+
+describe('SendChatMessageSchema.extraDirs — 루트 거부 (AC12)', () => {
+  it.each(['/', 'C:\\', '\\\\srv\\share'])('%s 를 거부한다', (value) => {
+    expect(send([value]).success).toBe(false)
+  })
+
+  it('루트가 섞이면 배열 전체가 거부된다', () => {
+    expect(send(['/abs/ok', '/']).success).toBe(false)
+  })
+
+  it('루트 밑의 실제 폴더는 계속 통과한다 — 범위 정책이 아니다', () => {
+    expect(send(['/etc']).success).toBe(true)
+    expect(send(['/a/b/c']).success).toBe(true)
   })
 })

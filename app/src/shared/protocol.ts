@@ -11,7 +11,7 @@ import type {
   EffortLevel,
   ProviderAuthKind
 } from './ipc'
-import { isAbsolutePath } from './absolute-path'
+import { isAbsolutePath, isFilesystemRoot } from './absolute-path'
 import { LOG_EVENT_PATTERN, LOG_SCOPE_MAX_LENGTH, LOG_STRING_MAX_LENGTH } from './logging'
 import type { LogInput, SerializedError as LogSerializedError } from './logging'
 
@@ -69,6 +69,8 @@ export const ExtraDirSchema = z
   .string()
   .min(1)
   .refine(isAbsolutePath, '참조 경로는 절대 경로여야 합니다')
+  // 루트는 모든 경로의 조상이라 가드 루트로 오르면 0075 격리가 no-op 이 된다 (D-019).
+  .refine((v) => !isFilesystemRoot(v), '참조 경로로 루트 폴더를 쓸 수 없습니다')
 
 export const SendChatMessageSchema = z
   .object({

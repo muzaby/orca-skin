@@ -73,3 +73,50 @@ describe('초기 상태', () => {
     expect(initialChatState.extraDirs).toEqual([])
   })
 })
+
+// D-020 / AC25 — 루트를 고르면 칩이 붙지 않고 **사유가 남는다**. 중복·cwd 자기 자신의 조용한
+// 무시와 다른 점이 이것이다: 사용자가 고른 폴더가 사라졌는데 아무 말도 없으면 앱이 먹은 것으로
+// 읽힌다. 사유를 리듀서 상태로 둔 덕분에 렌더 하네스 없이 순수 단언으로 잠긴다.
+describe('chatReducer — 루트 참조 경로 거부 (AC25)', () => {
+  it.each(['/', 'C:\\', '\\\\srv\\share'])('%s 는 칩이 붙지 않고 사유가 남는다', (root) => {
+    const state = chatReducer(withCwd('/repo'), { type: 'ADD_EXTRA_DIR', dir: root })
+
+    expect(state.extraDirs).toEqual([])
+    expect(state.extraDirRejection).toBe('root')
+  })
+
+  it('루트 밑의 실제 폴더는 계속 붙는다 — 범위 정책이 아니다', () => {
+    const state = chatReducer(withCwd('/repo'), { type: 'ADD_EXTRA_DIR', dir: '/etc' })
+
+    expect(state.extraDirs).toEqual(['/etc'])
+    expect(state.extraDirRejection).toBeNull()
+  })
+
+  it('중복·cwd 자기 자신은 사유를 남기지 않는다 — 조용한 무시가 맞는 경우', () => {
+    const seeded = chatReducer(withCwd('/repo'), { type: 'ADD_EXTRA_DIR', dir: '/refs/a' })
+
+    expect(
+      chatReducer(seeded, { type: 'ADD_EXTRA_DIR', dir: '/refs/a' }).extraDirRejection
+    ).toBeNull()
+    expect(
+      chatReducer(seeded, { type: 'ADD_EXTRA_DIR', dir: '/repo' }).extraDirRejection
+    ).toBeNull()
+  })
+
+  it('다음 성공 추가·제거·작업 경로 변경이 사유를 지운다', () => {
+    const rejected = chatReducer(withCwd('/repo', ['/refs/a']), { type: 'ADD_EXTRA_DIR', dir: '/' })
+    expect(rejected.extraDirRejection).toBe('root')
+
+    expect(
+      chatReducer(rejected, { type: 'ADD_EXTRA_DIR', dir: '/refs/b' }).extraDirRejection
+    ).toBeNull()
+    expect(
+      chatReducer(rejected, { type: 'REMOVE_EXTRA_DIR', dir: '/refs/a' }).extraDirRejection
+    ).toBeNull()
+    expect(chatReducer(rejected, { type: 'SET_CWD', cwd: '/other' }).extraDirRejection).toBeNull()
+  })
+
+  it('초기 상태에는 거부 사유가 없다', () => {
+    expect(initialChatState.extraDirRejection).toBeNull()
+  })
+})
