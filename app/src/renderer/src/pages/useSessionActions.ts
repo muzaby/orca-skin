@@ -27,7 +27,7 @@ export function useSessionActions({
 }: SessionActionsOptions): SessionActions {
   const navigate = useNavigate()
   const activeSessionId = useChatSession((s) => s.sessionId)
-  // 활성 세션의 고정 상태 — sessions 목록(SSOT)에서 파생. 토글 후 store refresh 로 갱신.
+  // 활성 세션의 고정 상태 — sessions 엔티티(SSOT)에서 파생. 토글은 store 를 제자리 패치한다.
   const sessionPinned = useSessionsState(
     (state) => activeSessionId != null && state.byId[activeSessionId]?.pinnedAt != null
   )

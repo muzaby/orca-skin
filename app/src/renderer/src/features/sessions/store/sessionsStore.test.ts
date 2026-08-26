@@ -37,7 +37,6 @@ describe('sessionsStore single entity source', () => {
       byId: {},
       recentIds: [],
       projectSessionIds: {},
-      projectLoading: {},
       loading: true
     })
     sessionList.mockReset()
