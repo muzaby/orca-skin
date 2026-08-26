@@ -723,6 +723,9 @@ Auth snapshot / 명시 invalidate
 
 | D4 | 컴포지션 seam 잠금이 **파일 단위**라 seam 하나가 개별로 무동작이 될 수 있다 | verify r2 §4(E1·E3·E4·E5) · §10 2·7행 · AC5·AC12 | 판정 단위를 **토큰**으로 낮춘다 — `snapshotOf\s*:` 출현마다 뒤가 `createRuntimeModelSnapshotReader(` 인지 부정 lookahead 로 보고, `bridge\s*:` 도 컴포지션 루트의 bridge 식별자를 요구한다. 대안은 seam 수를 줄이는 구조 변경(bridge 가 reader 를 소유) | **closed r3** — 판정 단위를 파일 → **주입 지점**으로 낮췄다. 인용 변이 E1·E3·E4·E5 전부 **red**. 이름 축(F1′·F2)·분류 단위(F4′)·실재 판정(F5)·주입 축 전수(H1)도 red. 마지막 텍스트-전용 자리는 `createRuntimeModelAuthChangeHandler` 로 뽑아 동작으로 잠갔다(F3 red) |
 
-- **규범 정정 필요 없음** — D1·D2·D3 는 닫혔고 D4 도 스윕 술어·배선 형태로 닫힌다. Decision·AC·§10 문면은 그대로다.
+| D5 | **비차단.** 선택 필드의 *삭제*는 스윕이 못 본다 — `createRuntimeModelCatalog` 의 `onChange?` 를 지우면 typecheck 0 · **2318 전건 green**(변이 W4)이고 행이 바뀌어도 두 UI 가 갱신되지 않는다 | verify r3 §11 | `onChange` 를 필수로 올리거나(소비처 1곳) 스윕에 "이 factory 호출은 `onChange:` 출현을 갖는다"는 **존재 규칙**을 더한다. r1~r3 의 회귀가 아니라 0198 부터 있던 표면이다 | open (비차단) |
+| D6 | **비차단.** `syncPlugins` 인라인 클로저가 무동작이어도 전건 초록이다(변이 W7) — 0188 plugin 축이라 D4 계약 밖 | verify r3 §10 · 구현자 r3 보고 | 같은 factory 패턴으로 뽑아 동작으로 잠근다 | open (비차단) |
+
+- **규범 정정 필요 없음** — D1~D4 는 닫혔다. D5·D6 은 어느 AC·ACTIVE Decision·§10 행도 미충족이 아니라 **PASS 를 막지 않는다**. Decision·AC·§10 문면은 그대로다.
 - **관측(E4)**: catalog seam 의 `snapshotOf` 가 굳은 미인증 snapshot 을 돌려주면 **AC5 가 production 에서 깨지는데** vitest **2312/2312 green** · typecheck 0 · 새 스윕 3건 green 이다. E6(4 seam 일괄 교체)만 red 다.
 - r2 가 올린 **§10 행 신설 제안**은 D4 에 병합했다 — 재측정 결과 `onSnapshot` 축뿐 아니라 `snapshotOf` 축도 같은 구멍이라 규범 행 없이 스윕 술어로 닫을 수 있다.
