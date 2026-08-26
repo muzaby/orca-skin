@@ -17,10 +17,6 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
   // footer = 사용자 버튼(이메일/developer + 팝오버 메뉴 + 설정 모달). 안정 identity 로
   // 두어 Sidebar memo 를 유지한다(자체 상태는 컴포넌트 내부 useState 로 격리).
   const footerSlot = useMemo(() => <SidebarUserButton />, [])
-  const pinnedProjectIds = useMemo(
-    () => new Set(handlers.pinnedProjects.map((project) => project.id)),
-    [handlers.pinnedProjects]
-  )
   const projectsSlot = useMemo(
     () => (
       <PinnedProjectsSection
@@ -69,7 +65,7 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
       <SessionList
         currentSessionId={handlers.currentSessionId}
         projectNameById={handlers.projectNameById}
-        pinnedProjectIds={pinnedProjectIds}
+        pinnedProjectIds={handlers.pinnedProjectIds}
         onSelect={handlers.handleSelectSession}
         onDelete={handlers.handleDeleteSession}
         onRename={handlers.handleRenameSession}
@@ -83,7 +79,7 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
     [
       handlers.currentSessionId,
       handlers.projectNameById,
-      pinnedProjectIds,
+      handlers.pinnedProjectIds,
       handlers.handleSelectSession,
       handlers.handleDeleteSession,
       handlers.handleRenameSession,

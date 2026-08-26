@@ -31,8 +31,9 @@ export interface SessionRowProps {
   pinned?: boolean
 }
 
-// memo(0108) — 제목 이벤트/목록 재조회가 list 배열 identity 를 갈아도, sessionsStore 의
-// in-place 패치가 비변경 항목의 참조를 보존하므로 변경 행만 재렌더된다.
+// memo(0108) — 제목 이벤트/목록 재조회가 목록 배열 identity 를 갈아도, sessionsStore 가
+// 비변경 엔티티의 참조를 보존하므로(patchSession 패치 + mergeItems 동일값 bail-out)
+// 실제로 바뀐 행만 재렌더된다.
 export const SessionRow = memo(function SessionRow({
   session,
   isActive,

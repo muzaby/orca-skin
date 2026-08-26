@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom'
-import { chatActions, ChatTile, Composer, useChatBusy, useChatSession } from '../features/chat'
+import { ChatTile, Composer, useChatBusy, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { useUsageForTelemetryProvider } from './useUsageForTelemetryProvider'
 import { useOpenSettings, providerTabId } from '../features/settings'
@@ -83,8 +83,8 @@ export function ProjectLandingPage(): React.JSX.Element {
             currentSessionId={sessionId}
             refreshOnTurnEnd={inflight}
             onSessionSelected={(id) => navigate(`/chat/${id}`)}
-            onSessionDeleting={(id) => chatActions.handleSessionDeleted(id, projectId)}
-            onSessionRenamed={chatActions.renameSession}
+            onDeleteSession={sessionActions.onDeleteSession}
+            onRenameSession={sessionActions.onRenameSession}
           />
         </main>
         <aside className="min-w-0 xl:col-span-2">

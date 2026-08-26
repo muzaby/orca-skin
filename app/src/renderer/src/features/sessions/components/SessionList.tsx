@@ -1,7 +1,9 @@
+import { useMemo } from 'react'
 import { SessionRow } from './SessionRow'
 import { useSessionsState } from '../store/sessionsStore'
 import type { SessionListItem } from '../../../../../shared/ipc'
 import { useI18n } from '../../../shared/i18n'
+import { isPinnedSession, placementOf } from '../lib/sessionPlacement'
 
 // 미물질화 draft nav 행(0064 r4 fork/handoff + 0065 활성 '새 대화'). chat feature 의
 // DraftRow 와 구조적으로 호환 — cross-feature import 대신 셸(app/)이 매핑해 props 로
@@ -17,6 +19,8 @@ interface SessionListProps {
   // ChatContext, ProjectsContext 는 cross-feature 이므로 app/AppLayout 가 wiring.
   currentSessionId: string | null
   projectNameById: Map<string, string>
+  // 배치 우선순위 판정용 — 고정 프로젝트의 대화는 그 프로젝트 하위 목록이 가져간다.
+  // 고정 여부는 projects feature 소관이라 app 셸이 내려 준다(cross-feature 는 props-only).
   pinnedProjectIds: ReadonlySet<string>
   onSelect: (id: string) => void
   onDelete: (id: string) => void
@@ -48,13 +52,17 @@ export function SessionList({
   const { tr } = useI18n()
   const recentIds = useSessionsState((state) => state.recentIds)
   const byId = useSessionsState((state) => state.byId)
-  const list = recentIds.flatMap((id) => (byId[id] ? [byId[id]] : []))
-  // nav 배치 우선순위: 고정 대화 > 고정 프로젝트의 대화 > 최근 대화.
-  // 프로젝트 고정을 해제하면 이 필터에서 즉시 빠져 store 의 updatedAt 정렬 위치로 복귀한다.
-  const recentSessions = list.filter(
-    (session) =>
-      session.pinnedAt == null &&
-      (session.projectId == null || !pinnedProjectIds.has(session.projectId))
+  // 셀렉터가 새 배열을 반환하면 useSyncExternalStore 캐시가 깨지므로 파생은 useMemo.
+  // 배치 규칙은 lib/sessionPlacement 단일 정의 — 프로젝트 고정을 해제하면 그 대화가
+  // 즉시 'recent' 로 판정돼 store 의 updatedAt 정렬 위치로 복귀한다.
+  const recentSessions = useMemo(
+    () =>
+      recentIds.flatMap((id) => {
+        const session = byId[id]
+        if (!session || placementOf(session, pinnedProjectIds) !== 'recent') return []
+        return [session]
+      }),
+    [recentIds, byId, pinnedProjectIds]
   )
 
   if (recentSessions.length === 0 && drafts.length === 0) {
@@ -84,7 +92,7 @@ export function SessionList({
           onDelete={onDelete}
           onRename={onRename}
           onTogglePin={onTogglePin}
-          pinned={false}
+          pinned={isPinnedSession(s)}
         />
       ))}
     </>

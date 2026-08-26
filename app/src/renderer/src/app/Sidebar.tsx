@@ -5,13 +5,13 @@ import { OrcaLogo } from '../shared/ui/OrcaLogo'
 import { useTweakContext } from '../shared/theme'
 import { useI18n } from '../shared/i18n'
 import { useDragResize } from '../shared/hooks/useDragResize'
+import { SIDEBAR_SECTION_HEAD } from '../shared/ui/SidebarSection'
 import { SIDEBAR_NAV } from './navItems'
 
 // NAV 라벨은 언어 전환 시 stale 해지지 않도록 키만 상수로 두고 렌더에서 t() 해석(0096).
-// pathname prefix 매칭으로 active 판정. `/projects` 와 `/projects/:id` 모두 활성,
-// `/new` 와 `/chat/:sessionId` 모두 활성 — `isActive(pathname)` 가 그 차이를 흡수.
-// Claude Code 사이드바의 "Recents" 헤더 — sans 소문자 그대로, 연한 잉크.
-const SECTION_HEAD = 'px-3 pb-1 pt-4 text-caption font-medium text-ink3'
+// active 판정은 항목마다 다르다 — `isActive(pathname)` 가 그 차이를 흡수한다. `/agent` 는
+// prefix, `/new`·`/projects` 는 정확 일치(`/chat/:id`·`/projects/:id` 는 전용 nav 표면이
+// 따로 있어 상단 메뉴까지 함께 켜지지 않는다).
 
 // sidebar 의 *도메인 특정* 설정값. 공용 인프라가 아니라 sidebar 자체 책임이므로
 // 일반 useDragResize 훅이 아닌 이 파일에 둔다.
@@ -154,7 +154,7 @@ function SidebarImpl({
           <div className="app-frame-sidebar-scroll flex min-h-0 flex-1 flex-col overflow-y-auto">
             {projectsSlot}
             {pinnedSlot}
-            <div className={SECTION_HEAD}>{tr('sidebar.recents')}</div>
+            <div className={SIDEBAR_SECTION_HEAD}>{tr('sidebar.recents')}</div>
             <div className="app-frame-sidebar-sessions px-1.5 pt-1">{sessionsSlot}</div>
           </div>
 

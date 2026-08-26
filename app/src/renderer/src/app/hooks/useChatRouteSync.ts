@@ -26,13 +26,17 @@ import { useSessionsState } from '../../features/sessions'
 export function useChatRouteSync(): void {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const sessionsById = useSessionsState((state) => state.byId)
 
   const onNew = pathname === '/new'
   const chatMatch = matchPath('/chat/:sessionId', pathname)
   const projectMatch = matchPath('/projects/:projectId', pathname)
   const urlSessionId = chatMatch?.params.sessionId ?? null
   const urlProjectId = projectMatch?.params.projectId ?? null
+  // URL 이 가리키는 세션 하나만 구독한다 — byId 맵 전체를 구독하면 무관한 세션의 제목
+  // 이벤트·고정 토글까지 이 effect 를 다시 돌린다(엔티티 참조는 store 가 보존).
+  const urlSessionMeta = useSessionsState((state) =>
+    urlSessionId != null ? state.byId[urlSessionId] : undefined
+  )
 
   // 방향 1 — URL → State (URL/sessions 변화만 트리거, 상태는 imperative read)
   //
@@ -61,8 +65,7 @@ export function useChatRouteSync(): void {
       // /chat/<새 id> 로 이동). 다른 세션으로의 이동(urlSessionId ≠ 소스)은 정상 로드 —
       // r1 의 무조건 가드가 사이드바 세션 전환까지 차단하던 버그 수정(r2).
       if (cur.sessionId == null && urlSessionId === (cur.forkFrom ?? cur.handoffFrom)) return
-      const meta = sessionsById[urlSessionId]
-      const metaTitle = meta?.title?.trim() || meta?.preview?.trim() || null
+      const metaTitle = urlSessionMeta?.title?.trim() || urlSessionMeta?.preview?.trim() || null
       void chatActions.loadSession(urlSessionId, metaTitle)
       return
     }
@@ -74,7 +77,7 @@ export function useChatRouteSync(): void {
       return
     }
     // chat 라우트(비채팅, 예: /projects, /agent 등) → no-op.
-  }, [onNew, urlSessionId, urlProjectId, sessionsById, pathname])
+  }, [onNew, urlSessionId, urlProjectId, urlSessionMeta, pathname])
 
   // 방향 2 — State → URL (armed-ref)
   const sessionId = useChatSession((s) => s.sessionId)

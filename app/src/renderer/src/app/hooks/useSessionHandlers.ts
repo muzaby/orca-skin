@@ -18,6 +18,8 @@ export interface SessionHandlers {
   handleRenameSession: (id: string, title: string) => void
   // 0129 고정 — "고정됨" 섹션 데이터·토글. app 셸이 sessions/projects 두 feature 를 잇는다.
   pinnedProjects: Project[]
+  // 최근 대화의 배치 판정에 쓰는 고정 프로젝트 id 집합 — pinnedProjects 와 같은 곳에서 파생한다.
+  pinnedProjectIds: ReadonlySet<string>
   handleTogglePinSession: (id: string, pinned: boolean) => void
   handleTogglePinProject: (id: string, pinned: boolean) => void
   handleOpenProject: (id: string) => void
@@ -73,6 +75,8 @@ export function useSessionHandlers(): SessionHandlers {
     [projects]
   )
 
+  const pinnedProjectIds = useMemo(() => new Set(pinnedProjects.map((p) => p.id)), [pinnedProjects])
+
   const handleTogglePinSession = useCallback((id: string, pinned: boolean): void => {
     void sessionsActions.setPinned(id, pinned)
   }, [])
@@ -102,7 +106,7 @@ export function useSessionHandlers(): SessionHandlers {
 
   const handleSelectSession = useCallback(
     (id: string): void => {
-      // 메타 title 의 즉시 적용은 useChatRouteSync 가 sessions list 에서 직접 읽음.
+      // 메타 title 의 즉시 적용은 useChatRouteSync 가 sessions 엔티티에서 직접 읽음.
       // 활성 continuity draft 는 /chat/<부모> 위의 파생 뷰라, 부모 행 클릭 시 URL 이 안 바뀌어
       // 라우트 싱크가 못 깨어난다 — store 전환(loadSession)을 직접 수행해 draft 에서 빠져나온다.
       if (continuityDraftActive) void chatActions.loadSession(id)
@@ -152,6 +156,7 @@ export function useSessionHandlers(): SessionHandlers {
     handleDeleteSession,
     handleRenameSession,
     pinnedProjects,
+    pinnedProjectIds,
     handleTogglePinSession,
     handleTogglePinProject,
     handleOpenProject,

@@ -1,5 +1,6 @@
 export { SessionsProvider } from './providers/SessionsProvider'
 export { sessionsActions, useSessionsState } from './store/sessionsStore'
 export { SessionList, type DraftSessionRow } from './components/SessionList'
-export { PinnedProjectsSection, PinnedSection } from './components/PinnedSection'
+export { PinnedSection } from './components/PinnedSection'
+export { PinnedProjectsSection } from './components/PinnedProjectsSection'
 export { ProjectSessionsPanel } from './components/ProjectSessionsPanel'
