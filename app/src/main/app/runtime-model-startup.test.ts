@@ -15,7 +15,9 @@ describe('runtime model startup', () => {
       list: () => [],
       isReadOnly: () => true,
       merge: (settings: AgentEnvironment[]) => settings,
-      invalidate: vi.fn(() => order.push('catalog-invalidate')),
+      invalidate: vi.fn(async () => {
+        order.push('catalog-invalidate')
+      }),
       reconcile: vi.fn(async () => undefined)
     }
     await startRuntimeModelCatalogAfterDeploy({
@@ -38,6 +40,38 @@ describe('runtime model startup', () => {
       'attach',
       'resume'
     ])
+  })
+
+  it('waits for catalog replay to settle before attaching the bridge', async () => {
+    let release!: () => void
+    const order: string[] = []
+    const pending = startRuntimeModelCatalogAfterDeploy({
+      invalidateSettings: vi.fn(),
+      invalidateRuntime: vi.fn(),
+      catalog: {
+        list: () => [],
+        isReadOnly: () => true,
+        merge: (settings: AgentEnvironment[]) => settings,
+        invalidate: () =>
+          new Promise<void>((resolve) => {
+            release = resolve
+          }),
+        reconcile: vi.fn(async () => undefined)
+      },
+      bridge: {
+        onSnapshot: vi.fn(async () => undefined),
+        attach: vi.fn(async () => {
+          order.push('attach')
+        })
+      },
+      resumeAuth: () => order.push('resume')
+    })
+
+    await Promise.resolve()
+    expect(order).toEqual([])
+    release()
+    await pending
+    expect(order).toEqual(['attach', 'resume'])
   })
 
   it('returns every Auth owner of invalidated canonical contribution keys', () => {

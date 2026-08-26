@@ -29,7 +29,12 @@ describe('turn setup with the runtime model catalog', () => {
       augmenters: { [contribution.key]: { resolve: fetchContribution } },
       clock: () => now
     })
-    const catalog = createRuntimeModelCatalog({ contributions: [contribution], runtime })
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      snapshotOf: () =>
+        ({ authId: 'gate', status: 'valid', verified: true, credentialRevision: 1 }) as never,
+      runtime
+    })
     await catalog.reconcile('gate', {
       authId: 'gate',
       status: 'valid',
@@ -87,7 +92,12 @@ describe('turn setup with the runtime model catalog', () => {
         }
       }
     })
-    const catalog = createRuntimeModelCatalog({ contributions: [contribution], runtime })
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      snapshotOf: () =>
+        ({ authId: 'gate', status: 'valid', verified: true, credentialRevision: 1 }) as never,
+      runtime
+    })
     await catalog.reconcile('gate', {
       authId: 'gate',
       status: 'valid',
@@ -136,7 +146,12 @@ describe('turn setup with the runtime model catalog', () => {
       settings: { resolve: async () => undefined },
       augmenters: { [contribution.key]: { resolve: async () => ({ runtimeEnv: {} }) } }
     })
-    const catalog = createRuntimeModelCatalog({ contributions: [contribution], runtime })
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      snapshotOf: () =>
+        ({ authId: 'gate', status: 'valid', verified: true, credentialRevision: 1 }) as never,
+      runtime
+    })
 
     const resolved = await resolveTurnProvider(
       {

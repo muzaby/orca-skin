@@ -80,7 +80,7 @@ export async function startRuntimeModelCatalogAfterDeploy(input: {
 }): Promise<void> {
   input.invalidateSettings()
   input.invalidateRuntime()
-  input.catalog.invalidate()
+  await input.catalog.invalidate()
   await input.bridge.attach(input.catalog)
   input.resumeAuth()
 }

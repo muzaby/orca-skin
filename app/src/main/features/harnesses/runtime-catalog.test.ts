@@ -29,6 +29,7 @@ describe('runtime model catalog', () => {
   it('filters both settings and runtime rows to the requested adapter', () => {
     const catalog = createRuntimeModelCatalog({
       contributions: [],
+      snapshotOf: () => valid(),
       runtime: { resolve: vi.fn(), cached: vi.fn(), invalidate: vi.fn() }
     })
 
@@ -82,6 +83,7 @@ describe('runtime model catalog', () => {
     const resolve = vi.fn(async () => config(['corp-model']))
     const catalog = createRuntimeModelCatalog({
       contributions: [contribution],
+      snapshotOf: () => valid(),
       runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
     })
     await catalog.reconcile('gate', valid())
@@ -101,6 +103,7 @@ describe('runtime model catalog', () => {
     const resolve = vi.fn(() => new Promise<HarnessRuntimeConfig>((done) => (release = done)))
     const catalog = createRuntimeModelCatalog({
       contributions: [contribution],
+      snapshotOf: () => valid(),
       runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
     })
     const first = catalog.reconcile('gate', valid())
@@ -115,6 +118,7 @@ describe('runtime model catalog', () => {
     const resolve = vi.fn(() => new Promise<HarnessRuntimeConfig>((done) => (release = done)))
     const catalog = createRuntimeModelCatalog({
       contributions: [contribution],
+      snapshotOf: () => valid(),
       runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
     })
     const pending = catalog.reconcile('gate', valid())
@@ -129,6 +133,7 @@ describe('runtime model catalog', () => {
     async (status) => {
       const catalog = createRuntimeModelCatalog({
         contributions: [contribution],
+        snapshotOf: () => valid(),
         runtime: {
           resolve: vi.fn(async () => config(['sonnet-corp'])),
           cached: vi.fn(),
@@ -145,6 +150,7 @@ describe('runtime model catalog', () => {
     const resolve = vi.fn(async () => config(['custom']))
     const catalog = createRuntimeModelCatalog({
       contributions: [contribution],
+      snapshotOf: () => valid(),
       runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
     })
     await catalog.reconcile('gate', valid(1))
@@ -158,7 +164,11 @@ describe('runtime model catalog', () => {
       settings: { resolve: async () => undefined },
       augmenters: { [contribution.key]: { resolve: fetchContribution } }
     })
-    const catalog = createRuntimeModelCatalog({ contributions: [contribution], runtime })
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      snapshotOf: () => valid(),
+      runtime
+    })
 
     await catalog.reconcile('gate', valid())
     await runtime.resolve(contribution)
@@ -171,6 +181,7 @@ describe('runtime model catalog', () => {
     const resolve = vi.fn(async () => ({ ...config([]), availableModels: 'abc' as never }))
     const catalog = createRuntimeModelCatalog({
       contributions: [contribution],
+      snapshotOf: () => valid(),
       runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
     })
 
@@ -187,6 +198,7 @@ describe('runtime model catalog', () => {
     })
     const catalog = createRuntimeModelCatalog({
       contributions: [contribution, other],
+      snapshotOf: () => valid(),
       runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
     })
 
@@ -198,35 +210,35 @@ describe('runtime model catalog', () => {
   it('treats declared runtime keys as read-only across casing and whitespace variants', () => {
     const catalog = createRuntimeModelCatalog({
       contributions: [contribution],
+      snapshotOf: () => valid(),
       runtime: { resolve: vi.fn(), cached: vi.fn(), invalidate: vi.fn() }
     })
 
     expect(catalog.isReadOnly(' orca-CORP ')).toBe(true)
   })
 
-  it('removes invalidated entries and permits the next verified snapshot to refill them', async () => {
+  it('replays a valid snapshot inside the same invalidation', async () => {
     const resolve = vi.fn(async () => config(['corp-model']))
     const onChange = vi.fn()
     const catalog = createRuntimeModelCatalog({
       contributions: [contribution],
+      snapshotOf: () => valid(),
       runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() },
       onChange
     })
     await catalog.reconcile('gate', valid())
 
-    catalog.invalidate(' ORCA-corp ')
-    expect(catalog.list()).toEqual([])
-    expect(onChange).toHaveBeenCalledTimes(2)
-
-    await catalog.reconcile('gate', valid())
+    await catalog.invalidate(' ORCA-corp ')
     expect(resolve).toHaveBeenCalledTimes(2)
     expect(catalog.list()).toHaveLength(1)
+    expect(onChange).toHaveBeenCalledTimes(3)
   })
 
   it('invalidates only the requested canonical contribution key', async () => {
     const other = { ...contribution, key: 'orca-other', modelProviderId: 'other' }
     const catalog = createRuntimeModelCatalog({
       contributions: [contribution, other],
+      snapshotOf: () => valid(),
       runtime: {
         resolve: vi.fn(async (item: typeof contribution) => ({
           ...config([`${item.modelProviderId}-model`]),
@@ -239,24 +251,89 @@ describe('runtime model catalog', () => {
     })
     await catalog.reconcile('gate', valid())
 
-    catalog.invalidate(' ORCA-CORP ')
+    await catalog.invalidate(' ORCA-CORP ')
 
-    expect(catalog.list().map((entry) => entry.key)).toEqual(['orca-other'])
+    expect(catalog.list().map((entry) => entry.key)).toEqual(['orca-corp', 'orca-other'])
   })
 
-  it('does not republish a fetch that completes after settings invalidation', async () => {
-    let release!: (value: HarnessRuntimeConfig) => void
-    const resolve = vi.fn(() => new Promise<HarnessRuntimeConfig>((done) => (release = done)))
+  it('replays every contribution during a full invalidation', async () => {
+    const other = { ...contribution, authId: 'other-auth', key: 'orca-other' }
+    const snapshots: Record<string, AuthSnapshot> = {
+      gate: valid(),
+      'other-auth': { ...valid(), authId: 'other-auth' }
+    }
+    const resolve = vi.fn(async (item: typeof contribution) => ({
+      ...config([`${item.key}-model`]),
+      key: item.key,
+      modelProviderId: item.modelProviderId
+    }))
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution, other],
+      snapshotOf: (authId) => snapshots[authId],
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
+    })
+    await Promise.all([
+      catalog.reconcile('gate', valid()),
+      catalog.reconcile('other-auth', snapshots['other-auth'])
+    ])
+
+    await catalog.invalidate()
+
+    expect(resolve).toHaveBeenCalledTimes(4)
+    expect(catalog.list().map((entry) => entry.key)).toEqual(['orca-corp', 'orca-other'])
+  })
+
+  it('starts a latest-generation replay instead of joining stale in-flight work', async () => {
+    let releaseFirst!: (value: HarnessRuntimeConfig) => void
+    const resolve = vi
+      .fn()
+      .mockImplementationOnce(
+        () => new Promise<HarnessRuntimeConfig>((done) => (releaseFirst = done))
+      )
+      .mockResolvedValueOnce(config(['latest-model']))
     const catalog = createRuntimeModelCatalog({
       contributions: [contribution],
+      snapshotOf: () => valid(),
       runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
     })
     const pending = catalog.reconcile('gate', valid())
 
-    catalog.invalidate()
-    release(config(['late-model']))
-    await pending
+    const invalidated = catalog.invalidate()
+    releaseFirst(config(['late-model']))
+    await Promise.all([pending, invalidated])
 
+    expect(resolve).toHaveBeenCalledTimes(2)
+    expect(catalog.list()[0]?.models[0]).toMatchObject({ model: 'latest-model' })
+  })
+
+  it('keeps invalidated entries absent when the current snapshot is unusable', async () => {
+    const resolve = vi.fn(async () => config(['corp-model']))
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      snapshotOf: () => ({ ...valid(), status: 'expired' }),
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
+    })
+    await catalog.reconcile('gate', valid())
+
+    await catalog.invalidate()
+
+    expect(resolve).toHaveBeenCalledTimes(1)
+    expect(catalog.list()).toEqual([])
+  })
+
+  it('contains replay fetch failures and leaves the invalidated entry absent', async () => {
+    const resolve = vi
+      .fn()
+      .mockResolvedValueOnce(config(['corp-model']))
+      .mockRejectedValueOnce(new Error('offline'))
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      snapshotOf: () => valid(),
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
+    })
+    await catalog.reconcile('gate', valid())
+
+    await expect(catalog.invalidate()).resolves.toBeUndefined()
     expect(catalog.list()).toEqual([])
   })
 })
