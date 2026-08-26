@@ -51,3 +51,14 @@ export const MenuItem = forwardRef<HTMLButtonElement, MenuItemProps>(function Me
     </button>
   )
 })
+
+/**
+ * Popover 메뉴 최상단 섹션 라벨 (모드 · 모델 · 노력 팝오버 공용).
+ *
+ * 세 메뉴가 같은 활자 계단(라벨 13px / 설명·보조 11.5px / 섹션 라벨 11px)을 쓰도록
+ * 한 곳에서 정의한다 — 각자 클래스를 적어두면 한쪽만 바뀌어 팝오버끼리 어긋난다.
+ * 좌측 인셋은 MenuItem 의 px-2.5 에 맞춘다.
+ */
+export function MenuTitle({ children }: { children: ReactNode }): React.JSX.Element {
+  return <div className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-ink3">{children}</div>
+}

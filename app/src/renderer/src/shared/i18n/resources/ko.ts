@@ -569,30 +569,31 @@ export const ko = {
     },
     composer: {
       modes: {
+        title: '모드',
+        auto_classified: {
+          label: '자동',
+          desc: 'Claude가 권한 결정을 처리합니다'
+        },
+        default: { label: '수동', desc: '변경하기 전에 항상 확인' },
+        accept_edits: {
+          label: '편집 자동 수락',
+          desc: '모든 파일 편집 자동 승인'
+        },
         plan: {
           label: '계획',
-          desc: '읽기 전용 — 코드를 탐색·분석하고 계획만 세웁니다 (편집 없음).'
+          desc: '변경하기 전에 계획 만들기'
         },
-        default: { label: '기본', desc: '표준 동작 — 위험한 작업은 그때그때 확인을 요청합니다.' },
-        accept_edits: {
-          label: '편집 수락',
-          desc: '파일 편집을 자동으로 수락합니다 (확인 없이 적용).'
-        },
-        auto_classified: {
-          label: '자동 분류',
-          desc: '모델이 위험도를 분류해 안전한 작업을 자동 승인합니다.'
+        bypass: {
+          label: '권한 무시'
         },
         dont_ask: {
           label: '묻지 않음',
           desc: 'Orca 승인 질문을 만들지 않고 기본 자동 진행 정책을 따릅니다.'
         },
-        bypass: {
-          label: '권한 우회',
-          desc: '샌드박스/승인 권한 검사를 최대한 건너뜁니다 — 매우 위험.'
-        },
         riskyConfirm: '모든 승인 게이트가 해제됩니다. 한 번 더 눌러 확인하세요.'
       },
       effort: {
+        title: '노력',
         low: { label: '낮음', desc: '빠른 응답을 우선합니다.' },
         medium: { label: '중간', desc: '속도와 사고 깊이를 균형 있게 사용합니다.' },
         high: { label: '높음', desc: '기본값. 충분한 사고 깊이로 작업합니다.' },
@@ -622,6 +623,7 @@ export const ko = {
       permissionModeTitle: '권한 모드',
       attachMenuTitle: '추가 메뉴',
       modelSelectTitle: '모델 선택',
+      modelMenuTitle: '모델',
       modelFallback: '모델',
       effortTitle: '작업량',
       contextTitle: '컨텍스트 ~{{used}}k / {{window}}k 토큰 · 사용량 보기',
@@ -634,7 +636,6 @@ export const ko = {
       noMatches: '일치하는 항목 없음',
       skillAutocompleteAria: '스킬 자동완성',
       noModels: '사용 가능한 모델이 없습니다.',
-      sdkDefaultModel: 'SDK 기본',
       cwdOpenAria: '작업 폴더 열기',
       cwdSelectAria: '작업 폴더 선택',
       branchTitle: '시작 브랜치',
