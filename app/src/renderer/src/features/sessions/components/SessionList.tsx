@@ -45,8 +45,9 @@ export function SessionList({
 }: SessionListProps): React.JSX.Element {
   const { tr } = useI18n()
   const list = useSessionsState((s) => s.list)
+  const recentSessions = list.filter((s) => s.pinnedAt == null)
 
-  if (list.length === 0 && drafts.length === 0) {
+  if (recentSessions.length === 0 && drafts.length === 0) {
     return <div className="px-1.5 text-[11.5px] text-ink3">{tr('sessions.empty')}</div>
   }
 
@@ -63,7 +64,7 @@ export function SessionList({
           renameable={false}
         />
       ))}
-      {list.map((s) => (
+      {recentSessions.map((s) => (
         <SessionRow
           key={s.id}
           session={s}
@@ -73,7 +74,7 @@ export function SessionList({
           onDelete={onDelete}
           onRename={onRename}
           onTogglePin={onTogglePin}
-          pinned={s.pinnedAt != null}
+          pinned={false}
         />
       ))}
     </>

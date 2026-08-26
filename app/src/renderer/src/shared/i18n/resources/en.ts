@@ -744,6 +744,7 @@ export const en: typeof ko = {
       plugins: 'Plugins'
     },
     recents: 'Recents',
+    pinnedProjects: 'Projects',
     pinned: 'Pinned',
     resizeAria: 'Resize sidebar'
   },

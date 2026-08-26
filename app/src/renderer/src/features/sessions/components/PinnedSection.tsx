@@ -14,31 +14,23 @@ import { useProjectSessions } from '../hooks/useProjectSessions'
 const SECTION_HEAD = 'px-3 pb-1 pt-4 text-caption font-medium text-ink3'
 
 export interface PinnedSectionProps {
-  // app 셸이 projectsStore 에서 고정 프로젝트를 걸러 주입(cross-feature 는 props-only).
-  pinnedProjects: Project[]
   currentSessionId: string | null
   onSelectSession: (sessionId: string) => void
   onTogglePinSession: (sessionId: string, pinned: boolean) => void
-  onOpenProject: (projectId: string) => void
-  onTogglePinProject: (projectId: string, pinned: boolean) => void
   // 고정 대화 행의 kebab 에도 최근 대화와 동일한 이름변경/삭제를 노출한다.
   onDeleteSession: (sessionId: string) => void
   onRenameSession: (sessionId: string, title: string) => void
 }
 
-// 좌측 nav "고정됨" 섹션 — 고정 프로젝트(접기/펼치기 + 하위 대화)와 고정 대화를 나열한다.
-// 고정 세션은 자기 feature 인 sessionsStore 에서 직접 선택; 프로젝트는 app 이 주입한다.
-// 고정 항목이 하나도 없으면 섹션 헤더까지 통째로 숨긴다(null 반환).
+// 좌측 nav "고정됨" 섹션 — 소속과 무관하게 고정된 대화만 한곳에 나열한다.
+// 같은 대화는 최근 대화 및 프로젝트 하위 목록에서 제외되어 nav 안에 한 번만 나타난다.
 export const PinnedSection = memo(function PinnedSection({
-  pinnedProjects,
   currentSessionId,
   onSelectSession,
   onTogglePinSession,
-  onOpenProject,
-  onTogglePinProject,
   onDeleteSession,
   onRenameSession
-}: PinnedSectionProps): React.JSX.Element | null {
+}: PinnedSectionProps): React.JSX.Element {
   const { tr } = useI18n()
   const list = useSessionsState((s) => s.list)
   // 셀렉터가 새 배열을 반환하면 useSyncExternalStore 캐시가 깨지므로 raw list 를 구독하고
@@ -49,22 +41,10 @@ export const PinnedSection = memo(function PinnedSection({
     [list]
   )
 
-  if (pinnedProjects.length === 0 && pinnedSessions.length === 0) return null
-
   return (
     <div className="app-frame-sidebar-pinned" data-context="pinned">
       <div className={SECTION_HEAD}>{tr('sidebar.pinned')}</div>
       <div className="px-1.5">
-        {pinnedProjects.map((p) => (
-          <PinnedProjectRow
-            key={p.id}
-            project={p}
-            currentSessionId={currentSessionId}
-            onOpenProject={onOpenProject}
-            onTogglePinProject={onTogglePinProject}
-            onSelectSession={onSelectSession}
-          />
-        ))}
         {pinnedSessions.map((s) => (
           <SessionRow
             key={s.id}
@@ -76,6 +56,43 @@ export const PinnedSection = memo(function PinnedSection({
             onTogglePin={onTogglePinSession}
             pinned
             leadingIcon="chat"
+          />
+        ))}
+      </div>
+    </div>
+  )
+})
+
+export interface PinnedProjectsSectionProps {
+  pinnedProjects: Project[]
+  currentSessionId: string | null
+  onOpenProject: (projectId: string) => void
+  onTogglePinProject: (projectId: string, pinned: boolean) => void
+  onSelectSession: (sessionId: string) => void
+}
+
+// 고정 프로젝트는 대화 고정과 구분된 전용 섹션에만 둔다. 별도 추가 버튼은 두지 않는다.
+export const PinnedProjectsSection = memo(function PinnedProjectsSection({
+  pinnedProjects,
+  currentSessionId,
+  onOpenProject,
+  onTogglePinProject,
+  onSelectSession
+}: PinnedProjectsSectionProps): React.JSX.Element {
+  const { tr } = useI18n()
+
+  return (
+    <div className="app-frame-sidebar-projects" data-context="projects">
+      <div className={SECTION_HEAD}>{tr('sidebar.pinnedProjects')}</div>
+      <div className="px-1.5">
+        {pinnedProjects.map((project) => (
+          <PinnedProjectRow
+            key={project.id}
+            project={project}
+            currentSessionId={currentSessionId}
+            onOpenProject={onOpenProject}
+            onTogglePinProject={onTogglePinProject}
+            onSelectSession={onSelectSession}
           />
         ))}
       </div>
@@ -176,7 +193,7 @@ interface PinnedProjectChildrenProps {
 }
 
 // 고정 프로젝트의 하위 대화 — 펼쳤을 때만 마운트되어 useProjectSessions 로 조회한다.
-// 하위 행은 선택 전용(고정/이름변경/삭제 없음 — 프로젝트 컨텍스트가 이미 명확).
+// 고정된 대화는 전용 "고정됨" 섹션으로 이동하므로 이 목록에서는 제외한다.
 function PinnedProjectChildren({
   projectId,
   currentSessionId,
@@ -184,16 +201,17 @@ function PinnedProjectChildren({
 }: PinnedProjectChildrenProps): React.JSX.Element {
   const { tr } = useI18n()
   const { list, loading } = useProjectSessions(projectId)
+  const visibleSessions = list.filter((session) => session.pinnedAt == null)
 
   if (loading) {
     return <div className="px-2 py-1 text-[11.5px] text-ink3">{tr('common.loading')}</div>
   }
-  if (list.length === 0) {
+  if (visibleSessions.length === 0) {
     return <div className="px-2 py-1 text-[11.5px] text-ink3">{tr('sessions.empty')}</div>
   }
   return (
     <>
-      {list.map((s) => (
+      {visibleSessions.map((s) => (
         <SessionRow
           key={s.id}
           session={s}
