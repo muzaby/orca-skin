@@ -44,13 +44,25 @@ function freshTurnLocalState<W>(
 }
 
 // 세션 cwd 해석. resume 은 세션행에 박힌 값을, 새 채팅은 요청값 → 프로젝트 파생 순.
+//
+// **루트는 없는 것으로 친다** (D-019·D-021). cwd 는 `writeRoots[0]` 이라 루트면 0075 가드가
+// 무력화되는데, `extraDirs` 처럼 버릴 수는 없다 — 턴이 설 자리가 없어진다. 그래서 **이미 있는
+// 폴백**(cwd 미지정 시의 `getCwd(projectId)`)으로 접는다: 새 동작을 만들지 않고, 스키마가
+// 생기기 전에 쓰인 세션행을 되살려도 턴은 정상 진행된다.
+function usableCwd(value: string | null | undefined): string | null {
+  if (value == null || value.length === 0) return null
+  return isFilesystemRoot(value) ? null : value
+}
+
 export function resolveTurnCwd(
   req: { sessionId: string | null; projectId: string | null; cwd?: string | null | undefined },
   sessionMeta: { cwd: string | null; project_id: string | null } | undefined,
   getCwd: (projectId: string | null) => string
 ): string {
-  if (req.sessionId) return sessionMeta?.cwd ?? getCwd(sessionMeta?.project_id ?? null)
-  return req.cwd ?? getCwd(req.projectId)
+  if (req.sessionId) {
+    return usableCwd(sessionMeta?.cwd) ?? getCwd(sessionMeta?.project_id ?? null)
+  }
+  return usableCwd(req.cwd) ?? getCwd(req.projectId)
 }
 
 // 세션행의 extra_dirs(JSON 배열 문자열) → 경로 배열. 손상된 값은 '없음' 으로 접는다 —

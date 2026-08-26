@@ -181,6 +181,49 @@ describe('makeContinuationTurn', () => {
 // 추가 참조 경로(CLI `/add-dir`) — cwd 와 **같은 규칙**이라는 것이 요점이다. 새 채팅은 요청값을,
 // resume 은 세션행을, continuity 는 출발 세션을 따른다. 규칙이 갈라지면 도착/재개 세션이 참조
 // 경로를 잃고 workspace 가드가 그 경로를 막는다.
+// D-019·D-021 — cwd 는 버릴 수 없으므로 **이미 있는 폴백**(프로젝트 기본)으로 접는다.
+// 스키마가 생기기 전에 쓰인 세션행을 되살려도 턴은 정상 진행되어야 한다.
+describe('resolveTurnCwd — 루트는 없는 것으로 친다', () => {
+  const getCwd = (projectId: string | null): string => `/projects/${projectId ?? 'default'}`
+
+  it.each(['/', 'C:\\', '\\\\srv\\share'])(
+    '세션행 cwd 가 %s 면 프로젝트 기본으로 폴백한다',
+    (root) => {
+      const cwd = resolveTurnCwd(
+        { sessionId: 's1', projectId: null, cwd: null },
+        { cwd: root, project_id: 'p1' },
+        getCwd
+      )
+      expect(cwd).toBe('/projects/p1')
+    }
+  )
+
+  it('새 채팅 요청값이 루트면 프로젝트 기본으로 폴백한다', () => {
+    expect(resolveTurnCwd({ sessionId: null, projectId: 'p2', cwd: '/' }, undefined, getCwd)).toBe(
+      '/projects/p2'
+    )
+  })
+
+  it('루트가 아닌 값은 그대로 쓴다 — 폴백은 루트에만 걸린다', () => {
+    expect(
+      resolveTurnCwd(
+        { sessionId: 's1', projectId: null, cwd: null },
+        { cwd: '/w', project_id: null },
+        getCwd
+      )
+    ).toBe('/w')
+    expect(
+      resolveTurnCwd({ sessionId: null, projectId: null, cwd: '/pick' }, undefined, getCwd)
+    ).toBe('/pick')
+  })
+
+  it('폴백은 턴을 죽이지 않는다 — 항상 문자열을 돌려준다', () => {
+    expect(
+      typeof resolveTurnCwd({ sessionId: null, projectId: null, cwd: '/' }, undefined, getCwd)
+    ).toBe('string')
+  })
+})
+
 describe('extraDirs 해석', () => {
   it('새 채팅은 요청값을 그대로 쓴다', () => {
     const turn = buildTurnContext<string>({
