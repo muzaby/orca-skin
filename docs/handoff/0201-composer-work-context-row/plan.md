@@ -10,7 +10,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-26 |
 | 매핑 | PR #382(draft) · 구현 브랜치 `claude/composer-branch-and-add-dir` · CI 수정 브랜치 `claude/ci-failure-fix-dquqv7` |
-| 상태 | DRAFT → READY |
+| 상태 | DRAFT → READY → **impl/IMPL_DONE (r1)** — 단계·좌표 정본은 [`INDEX.md`](../INDEX.md) |
 
 **이 plan 은 소급 설계다.** 구현이 먼저 있었고(D-016 — 사용자 지시로 `Handoff: none` 부분수정을 연속 수행), 이제 그 구현이 만족해야 할 계약을 세운다. 따라서 §7 AC 는 "앞으로 만들 것"이 아니라 **"현재 코드가 만족해야 하는데 일부는 아직 만족하지 않는 것"** 이다 — 미충족 항목은 각 행의 `현재` 칸이 관측으로 표시한다.
 
@@ -446,74 +446,158 @@ CwdPanel(＋) → chatReducer.extraDirs → chat:send.extraDirs → buildTurnCon
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- **동의 / 그대로 진행**: Part I 계약(D-001~D-018)과 §10 강제 지점 표를 그대로 수행했다. 소급 설계라 §7 `현재` 칸이 곧 작업 목록이었고, ❌ 15 · ⚠️ 4 를 전부 열어 닫았다.
+- **이견 / 현실성 문제 — 2건**:
+  1. **AC21 의 술어가 §7 주의사항과 충돌한다.** `rg "migrations/\d{4}[^']*\.sql\?raw" src/ -l` → `migrate.ts`·`migrate.test.ts` 만" 이 목표인데, 같은 절이 "`queries.test.ts` 의 `dbBefore0006()` 도 의도적 부분집합이므로 술어에서 제외한다" 고 적었다. 파일 단위 술어에서 그 둘은 동시에 참일 수 없다 — `queries.test.ts` 가 부분집합 import 를 남기면 목록에 계속 뜬다. **술어를 고치는 대신 부분집합을 옮겨** 목표 문장을 원문 그대로 성립시켰다(아래 §설계 대비 차이 2).
+  2. **§11 이 지정한 `.test.tsx` 렌더 테스트는 신규 devDependency 없이 불가능하다.** 선례 실측 `rg -l "@testing-library" src/` → **0건**, `vitest.config.ts` 의 `include` 는 `src/**/*.test.ts`(=`.tsx` 미포함) · `environment: 'node'`(DOM 없음). §6 상 신규 의존성은 **보고만** 이고 `app/AGENTS.md §의존성 정책` 도 사용자 승인 필수라, 추가하지 않고 보고한다(아래 §설계 대비 차이 1).
+- **ACTIVE Decision과 충돌하는 설계 발견**: 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
+> 검색 술어는 **불변식의 주어**로 잡았다(해법 이름이 아니라) — `isAbsolutePath` 로 세면 이미 고친 자리만 분모에 오른다.
+
 | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|
-| 브랜치 이름 문자셋 | invoke · execFile 직전 (2) | … | … | … |
-| `extraDirs` 절대 경로 | `chat:send` · 가드 루트 해석 (2) | … | … | … |
-| `additionalDirectories` 동일 배열 | 옵션 조립 · 훅 생성 (2) | … | … | … |
-| 기본 권한 모드 | 리듀서 초기값 · 컨트롤러 기본 인자 (2) | … | … | … |
-| 마이그레이션 목록 | 픽스처 (4) · 골든 단언 (1) · 사본 스캔 (1) | … | … | … |
-| `git` 채널 검증 정책 | 채널 등록 (3) | … | … | … |
+| 브랜치 이름 문자셋 | invoke · execFile 직전 (2) | **2/2** | `grep -rn "GitBranchNameSchema" src/ \| grep -v '\.test\.'` → `protocol.ts:201` 정의·`:211` invoke · `git-cli.ts:115` 실행부. `grep -n "run(cwd, \[" git-cli.ts` → 9지점 중 branch 를 싣는 것은 `:99`(stash 메시지)·`:140`(checkout) 둘뿐이고 둘 다 가드 뒤 | 없음 |
+| `extraDirs` 절대 경로 | `chat:send` · 가드 루트 해석 (2) | **3/3** (§10 표 밖 1지점 신설) | `grep -rn "extraDirs\|additionalDirs" src/ --include=*.ts --include=*.tsx \| grep -v '\.test\.'` → 경로로 *해석* 하는 지점 3: `protocol.ts:87`(ExtraDirSchema) · `workspace-guard.ts:63`(filter) · **`turn-context.ts:69`(`parseExtraDirs` — DB 행 읽기)**. 나머지 히트는 전달·저장·상태 보관이라 해석 지점이 아니다 | 없음 |
+| `additionalDirectories` 동일 배열 | 옵션 조립 · 훅 생성 (2) | **2/2** | `claude.ts:343` 지역 배열 → `:367` 옵션 · `:392` 훅. `claude.extra-dirs.test.ts` 가 `toBe`(참조 동일성)로 단언 — 값 비교가 아니다 | 없음 |
+| 기본 권한 모드 | 리듀서 초기값 · 컨트롤러 기본 인자 (2) | **2/2** | `grep -rn "'auto_classified'" src/ --include=*.ts --include=*.tsx \| grep -v test` → 6건이 남지만 전부 타입 유니온·전수 배열·exhaustive switch·zod enum·메뉴 카탈로그다. **기본값 리터럴은 `permission-mode.ts:30` 하나** | 없음 |
+| 마이그레이션 목록 | 픽스처 (4) · 골든 단언 (1) · 사본 스캔 (1) | **6/6** | 픽스처 4곳 → `applyMigrations(db)`. `grep -rlE "migrations/[0-9]{4}[^']*\.sql\?raw" src/` → `migrate.ts`·`migrate.test.ts` **2건**(AC21 목표 문장 원문). 골든 = `migrate.test.ts EXPECTED_MIGRATIONS`. 스캔 = `scripts/check-migrations-appendonly.mjs` → `no-copies ok: scanned 748 source files, 2 list owners` | 없음 |
+| `git` 채널 검증 정책 | 채널 등록 (3) | **3/3** | `handlers/git.test.ts` — status/branches=fallback · checkout=reject, 그리고 문서 §2.6-b 행과 대조 | 없음 |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+- **§10에 없는데 같은 불변식이 필요했던 지점 — 1건**: `app/chat-turn/turn-context.ts:69` `parseExtraDirs`. 세션행(`sessions.extra_dirs`)은 **IPC 스키마를 다시 타지 않는다** — 절대경로 검증이 없던 시절에 쓰인 행이 resume/continuity 로 되살아나면 그 값이 `TurnContext.extraDirs` → `claude.ts:343` → SDK 옵션 `additionalDirectories` 까지 흘러간다. workspace 가드는 이번에 걸러도 **SDK 자신의 스코프는 안 걸러져** D-006 이 막으려는 "두 스코프가 갈라짐" 이 정확히 일어난다. 같은 SSOT(`isAbsolutePath`)로 닫았다 → §10 `extraDirs` 행을 **(2) → (3)** 으로 정정 제안.
+- **분모 검산**: §10 표 합계 = 2+2+2+2+(4+1+1)+3 = **17**. 신설 1 = **18**. 닫은 지점 **18/18**. (템플릿의 `N/14` 는 마지막 `git` 채널 행 3을 빠뜨린 값이다 — 정정 제안.)
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
+> 분모 = 이번 라운드가 고친 프로덕션 지점(신규 handoff 라 인용된 변이가 없다). 지점마다 결함을 심어 **어떤 테스트가 죽는지** 관측했다.
+
 | 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|
-| … | … | … | … |
+| M1 `git-cli` 실행부 문자셋 검사 제거 | AC7 | `git-cli.test.ts` **6/18 실패** | ✅ 검출 |
+| M2 같은 검사를 `resolveDirty` **뒤**(checkout 직전)로 이동 | AC7 배치 | `git-cli.test.ts` **6/18 실패** | ✅ 검출 — 순서까지 잠겼다 |
+| M3 `applied` 를 결과에서 뺌 | AC9 | `git-cli.test.ts` **3/18 실패** | ✅ 검출 |
+| M4 `discard` 가 `clean -fd` 로 미추적까지 지움 | AC5 | `git-cli.test.ts` **1/18 실패** | ✅ 검출 |
+| M5 `ExtraDirSchema` 의 절대경로 refine 제거 | AC12 지점1 | `absolute-path.test.ts` **2/20 실패** | ✅ 검출 |
+| M6 `resolveGuardRoots` 의 절대경로 filter 제거 | AC12 지점2 | `workspace-guard.extra-dirs.test.ts` **2/3 실패** | ✅ 검출 |
+| M7 `parseExtraDirs` 를 옛 술어(`v.length > 0`)로 되돌림 | AC12 지점3(신설) | `turn-context.test.ts` **2/16 실패** | ✅ 검출 |
+| M8 send 페이로드에서 `extraDirs` 누락 | AC10 | `chatStore.extraDirs.test.ts` **3/4 실패** | ✅ 검출 |
+| M9 DB 가 빈 배열을 NULL 로 접지 않음 | AC13 | `queries.test.ts` **1/30 실패** | ✅ 검출 |
+| M10 `gitStatus` 읽기 정책을 `reject` 로 | AC20 | `handlers/git.test.ts` **3/4 실패** | ✅ 검출 |
+| M11 메뉴 항목 onClick 이 `onConfirm` 까지 부름 | AC6 | `BranchSwitchActions.test.ts` **1/6 실패** | ✅ 검출 |
+| M12 `!status?.isRepo` 가드 제거 (저장소 아님인데 칩 렌더) | AC1 | `branchChipState.test.ts` **2/15 실패** | ✅ 검출 |
+| M13 `snapshot.cwd === cwd` 비교 제거 (늦은 응답 수용) | 동시성 | `branchChipState.test.ts` **1/15 실패** | ✅ 검출 |
+| M14 `showLandingCwdPanel` 기본값 `true` | AC16 | `CwdPanel.landing.test.ts` **1/5 실패** | ✅ 검출 |
+| M15 세션 뷰(ChatTile)가 플래그를 켬 | AC16 | `CwdPanel.landing.test.ts` **1/5 실패** | ✅ 검출 |
+| M16 Composer 의 `showLandingCwdPanel &&` 가드 제거 | AC16 | `CwdPanel.landing.test.ts` **1/5 실패** | ✅ 검출 |
+| M17 `additionalDirectories` 를 훅에만 복사(`[...]`)해 전달 | AC11 | `claude.extra-dirs.test.ts` **2/3 실패** | ✅ 검출 |
+| M18 `DEFAULT_PERMISSION_MODE` 를 `'plan'` 으로 | AC18 | **3파일 6케이스 동시 실패**(shared·renderer·main) | ✅ 검출 — "함께 빨개진다" 를 실측 |
+| M19~M22 사본 스캔 4지점(.tsx·상대경로·동명파일·허용목록) | AC21 | 4건 전부 게이트 RED, 정상 트리는 GREEN | ✅ 검출 |
+| M23 픽스처 4곳에서 `applyMigrations(db)` 삭제 | AC22 양성 | queries **26** · continuity **2** · builder **4** · fork **4** 실패 | ✅ 검출 |
+
+- **심을 수 없던 지점**: AC9 의 renderer 마지막 홉(`error.applied` → 모달 JSX). 렌더 하네스가 없어 JSX→DOM 을 관측할 수 없다 — 결함을 심어도 죽일 테스트가 없다. AC9 를 ⚠️ 로 남긴 이유다.
+- **적대 검사가 실제로 잡은 결함 2건**(테스트를 쓰는 도중 프로덕션 코드에서 발견):
+  1. `toPosix` 가 `path.sep` 으로 잘라 **플랫폼 의존**이었다 — Linux 개발기와 windows-latest CI 가 같은 입력에 다른 판정을 냈다. 두 구분자를 항상 접도록 고쳤다.
+  2. `isAbsolutePath` 의 UNC 루트가 뒤따르는 구분자를 먹지 않아 `\\server\share\x` 가 **전부 거부**됐다(첫 세그먼트가 늘 빈 것으로 보였다). 루트 길이에 구분자를 포함하고 회귀를 잠갔다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | **있다.** 신규 i18n 키 3개(`branchAppliedStash`·`branchAppliedCommitWip`·`branchAppliedDiscard`)의 소비자는 `BranchChip` 오류 모달이고, `APPLIED_NOTICE_KEY` 가 해소 3종을 전수 매핑한다. ko/en 양쪽 실재 확인(각 1건) | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | **"해소 성공 · checkout 실패"** 행 — 그 행이 달고 있던 ⚠️("변경이 어디로 갔는지 안 보인다")를 이번에 닫았다. 브랜치 이름 거부(AC7)는 새 행이 아니라 기존 "실패 → 사유 모달" 행에 들어간다 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | **아니다.** 이번에 만든 조기 반환(실행부 문자셋 거부)은 `reason:'error'` + 문구를 돌려주고 `checkoutOutcome` 이 `failed` 로 접어 모달을 띄운다 — 조용한 no-op 경로를 만들지 않았다 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | **아니다.** `statusForCwd` 로 규칙을 떼어 M13(비교 제거)이 검출되는 것까지 확인했다 | — |
+| **(추가)** 참조 경로가 조용히 사라지는가 | **가능하다.** `parseExtraDirs` 가 이제 상대경로 원소를 버린다 — 스키마 이전에 저장된 세션을 resume 하면 그 칩이 UI 없이 없어진다. 다만 랜딩에만 편집 표면이 있어(D-009) resume 화면에는 원래 이 행이 없고, 사용자가 보는 것은 "에이전트가 그 폴더를 못 읽음" 뿐이다 | 📝 파생 이슈 — 통지 여부는 제품 판단 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 선조치 / 📝 plan 수정 제안 / ⚠️ 보고만 | … |
+| 1 | `sessions.extra_dirs` 를 읽는 `parseExtraDirs` 가 절대경로를 검사하지 않아, 스키마 이전 행이 resume 시 SDK `additionalDirectories` 까지 도달한다 | ✅ 선조치 + 📝 §10 `extraDirs` 행 (2)→(3) 정정 제안 | `turn-context.ts:69` · M7 로 검출 확인 |
+| 2 | 새 게이트의 `toPosix` 가 `path.sep` 의존이라 Linux/Windows 판정이 갈린다 | ✅ 선조치 | 자기 적대 테스트가 red 로 잡음 |
+| 3 | `isAbsolutePath` 가 UNC 경로를 전부 거부 | ✅ 선조치 | 자기 적대 테스트가 red 로 잡음 |
+| 4 | **`/`(파일시스템 루트)는 절대 경로라 AC12 를 통과한다.** §10 `실패 의미` 칸이 "`/` 한 개면 `writeRoots` 가 루트를 덮어 0075 가드가 무력화된다" 를 적대 사례로 지목했는데, AC12 의 행동 단언("절대 경로만")은 그것을 막지 않는다 | ⚠️ 보고만 — 루트 거부는 사용자가 받는 결과를 바꾸는 **제품 판단**이라 단독 결정하지 않는다 | `isAbsolutePath('/')` → `true` · `resolveGuardRoots(ws, ['/'])` 는 `/` 를 writeRoot 로 올린다 |
+| 5 | 렌더 테스트 하네스 부재(`@testing-library` 0건 · vitest node 환경 · include 가 `.ts` 만) | ⚠️ 보고만 — 신규 devDependency(`@testing-library/react`+`jsdom` 등)는 §6·`app/AGENTS.md` 상 사용자 승인 사항 | AC9 마지막 홉·AC16 이 ⚠️ 로 남은 직접 원인 |
+| 6 | plan 템플릿의 `강제 지점 전수 \| N/14` 가 §10 표 실제 합계(17)와 어긋난다 — `git` 채널 행 3이 빠졌다 | 📝 정정 제안(본문은 실측 18/18 로 적음) | §10 표 6행 재합산 |
+| 7 | §14 가 지적한 `git-cli.ts:7` 주석의 "주기적으로" ↔ 코드(주기 조회 없음) 불일치 | ✅ 선조치 — 주석 정정 | plan §14 "주석을 정정한다" 지시 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+**차이 1 — §11 의 `.test.tsx` 렌더 테스트 2종을 도입하지 않았다.** 대신 (a) 순수 seam `branchChipState.ts` 를 떼어 컴포넌트가 부르는 그 함수를 단언하고, (b) 훅 없는 `BranchSwitchActions.tsx` 를 떼어 **반환된 엘리먼트 트리를 훑어 onClick 배선**을 단언했다. 이유는 신규 의존성 승인 사항(§6·`app/AGENTS.md`).
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| **관측 범위** | 렌더 하네스는 JSX→DOM 까지 보지만 seam/트리-워크는 **거기서 멈춘다** — 컴포넌트가 seam 을 부르지 *않도록* 바꾸면(예: 라벨을 인라인 재계산) 트리-워크 밖의 회귀가 남는다 | AC1·AC6·AC8 은 M11·M12·M13 으로 검출을 실측했다. **AC9 마지막 홉과 AC16 은 이 축에서 못 닫아 ⚠️** 로 남겼다 |
+| 만료 | 해당 없음 — 대체물은 상태를 캐시하지 않는다(순수 함수 + 1회 호출) | — |
+| 공유 | 해당 없음 — 테스트마다 새 spy·새 트리를 만들고 전역 상태를 공유하지 않는다. `vi.mock` 은 파일 스코프 | `claude.extra-dirs.test.ts` 는 `capture()` 마다 `mockClear()` |
+| 재진입 | **있다** — 훅 없는 컴포넌트를 직접 부르므로 `useState` 를 도로 넣으면 테스트가 "Invalid hook call" 로 죽는다(조용한 통과가 아니라 실패라 안전한 방향) | 실측: 훅을 쓰는 `ExtraDirChip` 을 같은 방식으로 부르면 `Cannot read properties of null (reading 'useContext')` |
+| 다른 무효화 축 | 트리-워크는 `props` 를 가진 노드만 훑으므로 **문자열 자식·Fragment 로 감싼 구조 변경**에 눈이 멀 수 있다 | 그래서 확인 버튼을 `data-action="dirty-confirm"` 으로 앵커했다 — 클래스·순서 변경에 흔들리지 않는다 |
+
+**차이 2 — `queries.test.ts` 의 마이그레이션 SQL 동작 테스트 2 describe 를 `migrate.test.ts` 로 옮겼다.** plan 은 "픽스처 4곳의 목록 사본 → `applyMigrations(db)`" 만 적었고 이설은 적지 않았다. 옮기지 않으면 AC21 의 목표 문장(`src/` 술어 결과 = 정본+골든 2건)이 성립할 수 없다(§설계 리뷰 이견 1). 행동 단언은 그대로 유지했다 — `0006` 이관·`0009` backfill 두 케이스가 같은 단언으로 새 파일에서 돈다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| **공유** | `migrate.test.ts` 가 이제 골든 목록 + 부분집합 픽스처를 **함께** 갖는다 — 이 파일 하나가 사본 스캔의 유일한 예외라, 여기에 현재 목록 사본을 새로 적으면 게이트가 못 잡는다 | 완화: 허용 목록을 **정확 경로 2건**으로 좁히고 M21(동명 파일 `src/main/features/x/migrate.ts`)로 `endsWith` 누수가 없음을 확인 |
+| 만료 | 해당 없음 — 옮긴 목록은 과거에 고정된 부분집합이라 새 마이그레이션을 따라갈 필요가 없다 | `memDb(0001~0005)` · `memDb(0001~0008)` |
+| 재진입 | 해당 없음 — `memDb()` 가 호출마다 새 `:memory:` DB 를 만든다 | queries 30건 · migrate 이설 후 전건 통과 |
+| 다른 무효화 축 | 해당 없음 | — |
+
+## [구현자 기입] AC 자기보고
+
+> 각 행에 **이번 턴에 재현한 관측**을 함께 적는다. 다시 찾지 못한 행은 ✅로 세지 않았다.
+
+| # | 판정 | 재현 명령 / 관측 |
+|---|---|---|
+| AC1 | ✅ | `vitest run branchChipState.test.ts` — `isRepo:false`→`{visible:false}` · `branch:null`→`{visible:true,branch:null}`. M12 로 검출 확인 |
+| AC2 | ✅ | `grep -c "  it(" git-parse.test.ts` → **9**. 전건 통과 |
+| AC3 | ✅ | `git-cli.test.ts` "실제 checkout 이 일어나고…" — `gitStatus().branch`·`rev-parse --abbrev-ref HEAD` 둘 다 `feature` |
+| AC4 | ✅ | 같은 파일 — 호출 전후 `git status --porcelain` **문자열 동일** + `{ok:false,reason:'dirty',from:'main'}` |
+| AC5 | ✅ | 해소 3종 각각 미추적 파일 잔존(`?? untracked.txt`) + 추적 변경 소멸. M4 로 검출 확인 |
+| AC6 | ✅ | `BranchSwitchActions.test.ts` — 메뉴 3항목 전부 클릭 후 `onConfirm` **0회**, 왼쪽 버튼에서 **1회**(`'discard'`). M11 로 검출 확인 |
+| AC7 | ✅ | 실행부 직접 호출로 `-f`·`--`·`a..b`·`x.lock`·`--upload-pack=…`·`''` **6종 거부** + 트리·브랜치 불변. **2/2 지점** |
+| AC8 | ✅ | `checkoutOutcome({reason:'error'})` → `{kind:'failed',message}`. `not-repo` 도 `failed` 로 접힌다 |
+| AC9 | ⚠️ | main 절반 ✅ — `applied` 가 해소 3종 각각에 실려 오고 해소 없는 실패엔 키가 없다(M3 검출). **renderer 마지막 홉 미단언** — `error.applied` → 모달 JSX 는 렌더 하네스 부재로 결함을 심어도 죽일 테스트가 없다 |
+| AC10 | ✅ | `chatStore.extraDirs.test.ts` — 추가/제거가 페이로드에 반영, 0개면 `not.toHaveProperty('extraDirs')`. M8 로 검출 확인 |
+| AC11 | ✅ | `claude.extra-dirs.test.ts` — `expect(guardArg).toBe(option)` **참조 동일성**. M17(한쪽만 `[...]` 복사) 검출 |
+| AC12 | ✅ | 스키마 `['refs']`·`['../x']` 거부 / `['/abs']` 통과 · 가드 루트가 상대 원소를 버림 · DB 읽기도 동일. **3/3 지점**(§10 표 2 + 신설 1) |
+| AC13 | ✅ | `queries.test.ts` — `["/refs/a","/refs/b"]` 왕복 · 빈배열/null/미지정 전부 `NULL` · `listSessions` 도 같은 값 |
+| AC14 | ✅ | `sed -n "/describe('extraDirs 해석'/,/^})/p" \| grep -c '  it('` → **8**(기존 6 + 신설 2). 전건 통과 |
+| AC15 | ✅ | `chatReducer.extraDirs.test.ts` — `SET_CWD` 후 `[]` · 중복 추가 시 길이 1 **이자 동일 참조** · cwd 자기 자신 무시 |
+| AC16 | ⚠️ | **호출부 스윕으로 대체**(렌더 부재 단언 아님) — 기본값 `false` · `<CwdPanel` 렌더 1곳이 플래그 뒤 · 랜딩 2페이지만 켬 · ChatTile 미전달. M14·M15·M16 셋 다 검출 |
+| AC17 | ✅ | `grep -c "  it(" modes.test.ts` → **4** · `ko.ts:600 xhigh: { label: '엑스트라' … }` · `modes.ts:49 hidden: true`(dont_ask) |
+| AC18 | ✅ | `DEFAULT_PERMISSION_MODE` 를 `'plan'` 으로 바꾸자 **3파일 6케이스 동시 red**(M18), 원복 시 23건 전건 통과. **2/2 지점이 한 상수를 읽는다** |
+| AC19 | ✅ | `check-doc-inventory.mjs --check` → `generated doc ok (9 items, 79 channels)` + prose ok + links ok |
+| AC20 | ✅ | `handlers/git.test.ts` 4케이스 — 등록부 정책(fallback·fallback·reject) ↔ 문서 §2.6-b 행 대조 + 폴백 값 형상. M10 검출 |
+| AC21 | ✅ | `grep -rlE "migrations/[0-9]{4}[^']*\.sql\?raw" src/` → **`migrate.ts`·`migrate.test.ts` 2건**(목표 문장 원문). 게이트: `no-copies ok: scanned 748 source files, 2 list owners` |
+| AC22 | ✅ | **양방향 실측** — 음성: 사본을 4가지 형태(.tsx·상대경로·동명파일·깊은 경로)로 되살리면 전부 게이트 RED. 양성: `applyMigrations(db)` 제거 시 queries **26** · continuity **2** · builder **4** · fork **4** 실패 |
+| AC23 | ✅ | `npx eslint --no-fix ./src ./scripts` → **prettier 0건**(작업 전 15건: 브랜치 기인 7 + 이번 신규 7 + 기타 1). 남은 1 warning 은 `useTranscriptVirtualizer.ts` 의 `react-hooks/incompatible-library`(선재·prettier 아님·이 브랜치 무관) |
+| AC24 | ⚠️ | **이 환경에서 못 돈다** — windows-latest 러너 필요. 브랜치는 `5e6fdcb`(CI 수정)를 이미 포함하고(`git merge-base --is-ancestor 5e6fdcb HEAD` → 참) 로컬 등가 게이트 5종이 전건 green 이다. 최종 판정은 CI/사람 몫(`app/AGENTS.md §제약 환경`) |
+
+**합계 검산**: `✅ 21 · ⚠️ 3 · ❌ 0 = 총 24`. (AC 총수는 §7 표를 다시 세었다 — 24행, 이번 라운드에 분할·추가 없음.)
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| 관측한 게이트 산출 | … |
-| 강제 지점 전수 | N/14 |
-| AC 자기보고 | N/24 |
-| 합계 검산 | `✅ N · ⚠️ M · ❌ K = 총 24` |
-| 블로커 / 역질문 | … |
+| 변경 파일 | **app 35** = 신규 13(프로덕션 3 — `shared/absolute-path.ts`·`composer/branchChipState.ts`·`composer/BranchSwitchActions.tsx` + 테스트 10) + 수정 22. 여기에 handoff 산출물 2(`plan.md`·`INDEX.md`) = 총 **37** |
+| 실행 명령 | `npm ci` · `npm run typecheck` · `npx eslint --no-fix ./src ./scripts` · `npm run lint`(--fix, AC23) · `npm test` · `node scripts/check-migrations-appendonly.mjs` · `node scripts/check-doc-inventory.mjs --check` |
+| 관측한 게이트 산출 | **typecheck 3구성 전건 통과**(node·web·test, exit 0) · **lint `--no-fix` 0 error / 1 warning**(선재 `react-hooks/incompatible-library`, prettier **0**) · **vitest 226파일 / 2233케이스 전건 통과**(기준선 216/2138 → +10파일 +95케이스) · **scripts `node --test` 55/55**(기준선 49 → +6) · migrations 게이트 3검사 ok(`748 source files, 2 list owners`) · doc-inventory `9 items, 79 channels` ok |
+| 강제 지점 전수 | **18/18** (§10 표 17 + 표 밖 신설 1) |
+| AC 자기보고 | **21/24 ✅** (⚠️ 3 · ❌ 0) |
+| 합계 검산 | `✅ 21 · ⚠️ 3 · ❌ 0 = 총 24` |
+| 블로커 / 역질문 | **3건 — 전부 사용자 판단 사항.** ① 렌더 테스트 하네스(`@testing-library/react`+`jsdom`) 도입 여부 — AC9 마지막 홉·AC16 이 ⚠️ 로 남은 직접 원인이고 신규 devDependency라 단독 결정하지 않았다. ② `extraDirs` 에 `/`(파일시스템 루트)를 허용할 것인가 — §10 `실패 의미` 가 지목한 적대 사례인데 AC12 의 행동 단언은 막지 않는다. ③ resume 시 상대경로 참조 경로가 조용히 버려지는 것을 사용자에게 알릴 것인가 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드 수: …
+- **이번에 닫은 불변식이 이전 라운드와 같은 축인가**: 이전 라운드가 없다(r1, 소급 설계). 다만 **한 축이 이번 턴 안에서 두 번 열렸다** — "extraDirs 원소는 절대 경로만" 이 §10 표의 2지점을 닫은 뒤 전수 검색에서 **세 번째 지점**(`parseExtraDirs`, DB 행 읽기)을 드러냈다. 설계가 *입구* 2곳만 셌고 *DB 를 다시 읽는 자리* 를 세지 않았다.
+- **그것을 막았어야 할 plan 지침·AC가 있었는가**: §12 producer→consumer 도식이 `sessions.extra_dirs → resume/fork/handoff 재해석(D-007)` 을 명시적으로 그렸고 §10 의 SSOT 칸도 있었지만, **강제 지점 표는 그 되읽기 화살표를 지점으로 세지 않았다.** 도식에 있는 화살표가 §10 지점 수에 반영됐는지 교차하는 절차가 없다.
+- **AC 술어가 자기 주의사항과 모순인 채로 READY 가 됐다**: AC21 의 `검증 수단`(파일 단위 `-l` 결과 = 2건)과 §7 주의사항(`queries.test.ts` 부분집합은 술어에서 제외)은 동시에 참일 수 없다. READY self-review 의 "각 AC가 행동 단언·검증 수단·도달 경로를 가진다" 는 셋의 **존재** 만 보고 술어와 예외의 **양립** 은 보지 않는다.
+- **plan 템플릿의 분모가 §10 과 어긋난 채 배포됐다**: `강제 지점 전수 | N/14` ↔ §10 표 실제 합계 17. 템플릿 분모를 §10 에서 자동 유도하지 않으면 구현자가 남의 분모에 맞추게 된다.
+- **적대 검사가 프로덕션 결함을 2건 잡았다**(테스트 작성 도중): `toPosix` 플랫폼 의존 · `isAbsolutePath` UNC 전면 거부. 둘 다 "장치에 눈이 있는가" 를 확인하려고 쓴 케이스에서 나왔지 기능 테스트에서 나오지 않았다.
+- **반복해서 부딪히는 환경 한계**: (1) 렌더 하네스 부재 — 이 저장소의 renderer 테스트는 전부 순수 `.ts` 이고 컴포넌트 계약은 구조적으로 검증 불가. (2) windows-latest CI 를 로컬에서 재현할 수 없음(AC24). (3) `npm run lint` 는 2분 넘게 걸려 짧은 타임아웃에 잘린다.
+- **현재 라운드 수**: **1**
 
 ---
 

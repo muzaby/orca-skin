@@ -12,6 +12,7 @@ import type {
   EffortLevel
 } from '../../../../../shared/ipc'
 import { subagentNoticePart } from '../../../../../shared/ipc'
+import { DEFAULT_PERMISSION_MODE } from '../../../../../shared/permission-mode'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 import type { ContinuityLang } from '../../../../../shared/continuity-lang'
 import { contextTokens } from '../lib/telemetry'
@@ -208,7 +209,7 @@ export const initialChatState: ChatState = {
   loadingSession: false,
   turnStartedAt: null,
   pendingAsks: [],
-  permissionMode: 'auto_classified',
+  permissionMode: DEFAULT_PERMISSION_MODE,
   pendingPlanReview: null,
   rightPanelTiles: [],
   rightPanelTileLabels: {},

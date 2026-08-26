@@ -1,12 +1,9 @@
 import { useRef, useState } from 'react'
 import type { GitDirtyResolution, GitDirtyStat } from '../../../../../../shared/ipc'
-import { Button } from '../../../../shared/ui/Button'
-import { Icon } from '../../../../shared/ui/Icon'
-import { MenuItem } from '../../../../shared/ui/MenuItem'
 import { Modal } from '../../../../shared/ui/Modal'
-import { Popover } from '../../../../shared/ui/Popover'
 import { useI18n } from '../../../../shared/i18n'
 import type { MessageKey } from '../../../../shared/i18n'
+import { BranchSwitchActions } from './BranchSwitchActions'
 
 // 분할 버튼의 3선택지 — 순서가 곧 메뉴 순서고, 첫 항목이 기본값이다.
 const RESOLUTIONS: Array<{ value: GitDirtyResolution; labelKey: MessageKey }> = [
@@ -39,13 +36,13 @@ export function BranchSwitchDialog({
   onConfirm
 }: BranchSwitchDialogProps): React.JSX.Element {
   const { tr } = useI18n()
-  const [resolution, setResolution] = useState<GitDirtyResolution>('stash')
+  const [resolution, setResolution] = useState<GitDirtyResolution>(RESOLUTIONS[0].value)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
-  const activeLabel = tr(
-    RESOLUTIONS.find((option) => option.value === resolution)?.labelKey ??
-      'chat.composer.dirtyStash'
-  )
+  const options = RESOLUTIONS.map((option) => ({
+    value: option.value,
+    label: tr(option.labelKey)
+  }))
 
   return (
     <Modal
@@ -55,61 +52,23 @@ export function BranchSwitchDialog({
       width={480}
       ariaLabel={tr('chat.composer.branchDirtyAria')}
       footer={
-        <div className="flex w-full items-center justify-between">
-          <Button variant="contained" size="small" onClick={onCancel} disabled={busy}>
-            {tr('common.cancel')}
-          </Button>
-          {/* 분할 버튼 — 왼쪽이 현재 선택된 처리 방식의 실행, 오른쪽 chevron 이 방식 선택. */}
-          <div className="flex items-stretch">
-            <Button
-              variant="contained"
-              size="small"
-              busy={busy}
-              onClick={() => onConfirm(resolution)}
-              className="rounded-r-none"
-            >
-              {activeLabel}
-            </Button>
-            <Button
-              ref={menuButtonRef}
-              variant="contained"
-              size="small"
-              iconOnly
-              leadingIcon="chevD"
-              disabled={busy}
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-label={tr('chat.composer.branchDirtyMenuAria')}
-              onClick={() => setMenuOpen((value) => !value)}
-              className="-ml-px rounded-l-none"
-            />
-          </div>
-          <Popover
-            open={menuOpen}
-            anchorRef={menuButtonRef}
-            onClose={() => setMenuOpen(false)}
-            align="end"
-          >
-            <div role="none" className="flex w-[200px] flex-col">
-              {RESOLUTIONS.map((option) => (
-                <MenuItem
-                  key={option.value}
-                  role="menuitemradio"
-                  aria-checked={option.value === resolution}
-                  onClick={() => {
-                    setResolution(option.value)
-                    setMenuOpen(false)
-                  }}
-                >
-                  <span className="min-w-0 flex-1">{tr(option.labelKey)}</span>
-                  {option.value === resolution && (
-                    <Icon name="check" size={12} className="shrink-0" />
-                  )}
-                </MenuItem>
-              ))}
-            </div>
-          </Popover>
-        </div>
+        <BranchSwitchActions
+          options={options}
+          resolution={resolution}
+          menuOpen={menuOpen}
+          busy={busy}
+          cancelLabel={tr('common.cancel')}
+          menuAriaLabel={tr('chat.composer.branchDirtyMenuAria')}
+          menuButtonRef={menuButtonRef}
+          onCancel={onCancel}
+          onSelect={(next) => {
+            setResolution(next)
+            setMenuOpen(false)
+          }}
+          onToggleMenu={() => setMenuOpen((value) => !value)}
+          onCloseMenu={() => setMenuOpen(false)}
+          onConfirm={onConfirm}
+        />
       }
     >
       <p className="text-[13.5px] font-medium leading-relaxed text-ink">

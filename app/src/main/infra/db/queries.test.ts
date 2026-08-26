@@ -1,55 +1,15 @@
 import Database from 'better-sqlite3'
 import { describe, expect, it } from 'vitest'
-import migration0001 from './migrations/0001_initial.sql?raw'
-import migration0002 from './migrations/0002_projects.sql?raw'
-import migration0003 from './migrations/0003_messages_fts.sql?raw'
-import migration0004 from './migrations/0004_message_parts.sql?raw'
-import migration0005 from './migrations/0005_usage_events.sql?raw'
-import migration0006 from './migrations/0006_turn_usage.sql?raw'
-import migration0007 from './migrations/0007_title_source.sql?raw'
-import migration0008 from './migrations/0008_provider_key.sql?raw'
-import migration0009 from './migrations/0009_message_complete.sql?raw'
-import migration0010 from './migrations/0010_session_cwd.sql?raw'
-import migration0011 from './migrations/0011_session_lineage.sql?raw'
-import migration0012 from './migrations/0012_provider_limits.sql?raw'
-import migration0013 from './migrations/0013_schedules.sql?raw'
-import migration0014 from './migrations/0014_provider_usage_report_cache.sql?raw'
-import migration0015 from './migrations/0015_pinned.sql?raw'
-import migration0016 from './migrations/0016_turn_model_context_window.sql?raw'
-import migration0017 from './migrations/0017_session_extra_dirs.sql?raw'
+import { applyMigrations } from './migrate'
 import { DbQueries } from './queries'
 
+// **현재 스키마 DB 는 정본을 통해서만 만든다.** 목록을 여기 베껴 두면 마이그레이션이 하나
+// 늘 때마다 이 픽스처가 조용히 뒤처진다 — 0017 이 그렇게 터졌고(생성자 statement 준비 실패)
+// 0013 은 아무도 안 죽인 채 스키마만 갈라져 있었다.
 function dbWithMigrations(): Database.Database {
   const db = new Database(':memory:')
   db.pragma('foreign_keys = ON')
-  db.exec(migration0001)
-  db.exec(migration0002)
-  db.exec(migration0003)
-  db.exec(migration0004)
-  db.exec(migration0005)
-  db.exec(migration0006)
-  db.exec(migration0007)
-  db.exec(migration0008)
-  db.exec(migration0009)
-  db.exec(migration0010)
-  db.exec(migration0011)
-  db.exec(migration0012)
-  db.exec(migration0013)
-  db.exec(migration0014)
-  db.exec(migration0015)
-  db.exec(migration0016)
-  db.exec(migration0017)
-  return db
-}
-
-function dbBefore0006(): Database.Database {
-  const db = new Database(':memory:')
-  db.pragma('foreign_keys = ON')
-  db.exec(migration0001)
-  db.exec(migration0002)
-  db.exec(migration0003)
-  db.exec(migration0004)
-  db.exec(migration0005)
+  applyMigrations(db)
   return db
 }
 
@@ -59,72 +19,6 @@ function insertSession(db: Database.Database, id = 's1'): void {
      VALUES (?, 'claude', NULL, NULL, 1, 1, NULL, NULL)`
   ).run(id)
 }
-
-describe('0006_turn_usage migration', () => {
-  it('usage_events 데이터를 id 보존 turn_usage/turn_model_usage 로 이관하고 기존 테이블을 제거한다', () => {
-    const db = dbBefore0006()
-    db.prepare(
-      `INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview)
-       VALUES ('s1', 'claude', NULL, NULL, 1, 1, NULL)`
-    ).run()
-    db.prepare(
-      `INSERT INTO usage_events
-       (id, session_id, model, created_at, input_tokens, output_tokens, cache_read_tokens,
-        cache_creation_tokens, cost_usd)
-       VALUES (42, 's1', 'claude-opus-4-5', 1000, 10, 20, 30, 40, 0.5)`
-    ).run()
-
-    db.exec(migration0006)
-
-    expect(
-      db.prepare(`SELECT name FROM sqlite_master WHERE name = 'usage_events'`).get()
-    ).toBeUndefined()
-    expect(db.prepare('SELECT * FROM turn_usage').get()).toMatchObject({
-      id: 42,
-      session_id: 's1',
-      message_id: null,
-      input_tokens: 10,
-      output_tokens: 20,
-      cache_read_input_tokens: 30,
-      cache_creation_input_tokens: 40,
-      total_cost_usd: 0.5,
-      created_at: 1000
-    })
-    expect(db.prepare('SELECT * FROM turn_model_usage').get()).toMatchObject({
-      turn_usage_id: 42,
-      model: 'claude-opus-4-5',
-      input_tokens: 10,
-      output_tokens: 20,
-      cache_read_input_tokens: 30,
-      cache_creation_input_tokens: 40,
-      cost_usd: 0.5
-    })
-  })
-})
-
-describe('0009_message_complete migration', () => {
-  it('기존 messages 행을 complete=1 로 backfill 한다', () => {
-    const db = new Database(':memory:')
-    db.pragma('foreign_keys = ON')
-    db.exec(migration0001)
-    db.exec(migration0002)
-    db.exec(migration0003)
-    db.exec(migration0004)
-    db.exec(migration0005)
-    db.exec(migration0006)
-    db.exec(migration0007)
-    db.exec(migration0008)
-    insertSession(db)
-    db.prepare(
-      `INSERT INTO messages (session_id, role, content, created_at, idx)
-       VALUES ('s1', 'assistant', 'old', 1, 0)`
-    ).run()
-
-    db.exec(migration0009)
-
-    expect(db.prepare('SELECT complete FROM messages').get()).toEqual({ complete: 1 })
-  })
-})
 
 describe('DbQueries turn usage', () => {
   it('insertTurnUsage id 반환과 insertTurnModelUsage 연결을 제공한다', () => {
@@ -880,5 +774,61 @@ describe('schedule_runs', () => {
         error: null
       }
     ])
+  })
+})
+
+// 0017 `sessions.extra_dirs` 왕복 (AC13) — 컴포저 참조 경로가 세션 출생 시 고정되는 자리다.
+// 빈 배열과 미지정은 **같은 NULL** 로 접는다: 읽는 쪽이 두 표현을 구분할 이유가 없다.
+describe('DbQueries — sessions.extra_dirs 왕복', () => {
+  const insert = (db: Database.Database, id: string, extraDirs?: string[] | null): void => {
+    new DbQueries(db).insertSession({
+      id,
+      backend: 'claude',
+      title: null,
+      projectId: null,
+      createdAt: 1,
+      cwd: '/repo',
+      ...(extraDirs === undefined ? {} : { extraDirs })
+    })
+  }
+
+  it('배열을 JSON 문자열로 저장하고 그대로 돌려준다', () => {
+    const db = dbWithMigrations()
+    insert(db, 's1', ['/refs/a', '/refs/b'])
+
+    const row = new DbQueries(db).getSessionById('s1')
+
+    expect(row?.extra_dirs).toBe('["/refs/a","/refs/b"]')
+    expect(JSON.parse(row?.extra_dirs ?? 'null')).toEqual(['/refs/a', '/refs/b'])
+  })
+
+  it('빈 배열·null·미지정은 전부 NULL 이다', () => {
+    const db = dbWithMigrations()
+    insert(db, 'empty', [])
+    insert(db, 'null', null)
+    insert(db, 'absent', undefined)
+
+    const q = new DbQueries(db)
+    expect(q.getSessionById('empty')?.extra_dirs).toBeNull()
+    expect(q.getSessionById('null')?.extra_dirs).toBeNull()
+    expect(q.getSessionById('absent')?.extra_dirs).toBeNull()
+  })
+
+  it('원소가 하나여도 배열 형태를 유지한다', () => {
+    const db = dbWithMigrations()
+    insert(db, 's1', ['/refs/only'])
+
+    expect(JSON.parse(new DbQueries(db).getSessionById('s1')?.extra_dirs ?? 'null')).toEqual([
+      '/refs/only'
+    ])
+  })
+
+  it('listSessions 행도 같은 값을 싣는다 — 목록/단건이 갈라지지 않는다', () => {
+    const db = dbWithMigrations()
+    insert(db, 's1', ['/refs/a'])
+
+    const listed = new DbQueries(db).listSessions().find((row) => row.id === 's1')
+
+    expect(listed?.extra_dirs).toBe('["/refs/a"]')
   })
 })

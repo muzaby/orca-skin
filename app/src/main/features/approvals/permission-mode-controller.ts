@@ -8,6 +8,7 @@
 // Vitest 로만 운동되는 seam 이다. router/adapter 와이어링과 라이브 `Query.setPermissionMode`
 // 위임은 PR③(스트리밍 입력 전환)에서 덧댄다 — RevertManager(§5) 가 머지된 선례와 동일 패턴.
 
+import { DEFAULT_PERMISSION_MODE } from '../../../shared/permission-mode'
 import type { NormalizedPermissionMode } from '../../../shared/permission-mode'
 
 export class PermissionModeController {
@@ -15,9 +16,9 @@ export class PermissionModeController {
   // sessionAllowedTools(router.ts:94) 와 동일한 세션-스코프 메모리 맵 패턴.
   private readonly modes = new Map<string, NormalizedPermissionMode>()
 
-  // 미설정 세션이 돌려받을 기본 모드. 현 앱 기본(chatReducer 초기값 'auto_classified')과
-  // 같은 값을 둔다 — 어긋나면 renderer 칩과 main 이 서로 다른 모드를 진실로 삼는다.
-  constructor(private readonly defaultMode: NormalizedPermissionMode = 'auto_classified') {}
+  // 미설정 세션이 돌려받을 기본 모드. 렌더러 초기 상태(chatReducer)와 **같은 상수**를 읽는다 —
+  // 리터럴을 각자 두면 한쪽만 옮겼을 때 renderer 칩과 main 이 서로 다른 모드를 진실로 삼는다.
+  constructor(private readonly defaultMode: NormalizedPermissionMode = DEFAULT_PERMISSION_MODE) {}
 
   // 세션의 현재 모드. 미설정 시 생성자 기본값.
   getCurrentMode(sessionId: string): NormalizedPermissionMode {
