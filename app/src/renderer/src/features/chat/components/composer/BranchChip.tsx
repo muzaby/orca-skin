@@ -120,6 +120,9 @@ export function BranchChip({ cwd, disabled = false }: BranchChipProps): React.JS
         ref={buttonRef}
         icon="fork"
         label={status.branch ?? tr('chat.composer.branchDetached')}
+        variant="outlined"
+        // `claude/composer-branch-and-add-dir` 같은 이름은 그냥 두면 행을 통째로 밀어낸다.
+        className="max-w-[16rem]"
         disabled={disabled || busy}
         onClick={() => (menuOpen ? setMenuOpen(false) : openMenu())}
         ariaHasPopup

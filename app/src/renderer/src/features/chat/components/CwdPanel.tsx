@@ -34,11 +34,11 @@ export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
 
   return (
     <div
-      className="app-frame-composer-directory flex flex-wrap items-center gap-0.5 rounded-r7 border border-transparent bg-transparent px-1 py-1"
+      className="app-frame-composer-directory flex flex-wrap items-center gap-g3 rounded-r7 border border-transparent bg-transparent px-1 py-1"
       data-surface="cwd-panel"
       data-state="landing"
     >
-      <CwdButton cwd={cwd} sessionStarted={false} inflight={inflight} />
+      <CwdButton cwd={cwd} sessionStarted={false} inflight={inflight} variant="outlined" />
       <BranchChip cwd={cwd} disabled={inflight} />
       {extraDirs.map((dir) => (
         <ExtraDirChip
@@ -50,6 +50,7 @@ export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
       ))}
       <ComposerChip
         icon="plus"
+        variant="outlined"
         disabled={picking || inflight}
         onClick={() => void addDir()}
         title={tr('chat.composer.extraDirAdd')}

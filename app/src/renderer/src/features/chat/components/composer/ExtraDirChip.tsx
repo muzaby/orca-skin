@@ -1,6 +1,7 @@
 import { basenameForDisplay } from '../../../../../../shared/path-basename'
 import { Icon } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
+import { chipSurface } from './chipSurface'
 
 interface ExtraDirChipProps {
   path: string
@@ -22,7 +23,7 @@ export function ExtraDirChip({
     <span
       title={path}
       data-surface="extra-dir"
-      className="inline-flex h-7 max-w-[14rem] items-center gap-g3 rounded-r4 bg-transparent px-p5 text-footnote text-t6 transition-colors hover:bg-fill-contained-hover hover:text-t7"
+      className={`${chipSurface('outlined')} max-w-[14rem]`}
     >
       <Icon name="folder" size={12} className="shrink-0" />
       <span className="min-w-0 truncate">{name}</span>

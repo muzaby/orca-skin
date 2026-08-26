@@ -636,7 +636,7 @@ export const en: typeof ko = {
       sdkDefaultModel: 'SDK default',
       cwdOpenAria: 'Open working folder',
       cwdSelectAria: 'Select working folder',
-      branchTitle: 'Switch branch',
+      branchTitle: 'Starting branch',
       branchDetached: 'Detached HEAD',
       branchSearchPlaceholder: 'Search branches…',
       branchSwitchFailed: 'Could not switch branch.',

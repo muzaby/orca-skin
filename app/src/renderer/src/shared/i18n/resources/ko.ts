@@ -637,7 +637,7 @@ export const ko = {
       sdkDefaultModel: 'SDK 기본',
       cwdOpenAria: '작업 폴더 열기',
       cwdSelectAria: '작업 폴더 선택',
-      branchTitle: '브랜치 전환',
+      branchTitle: '시작 브랜치',
       branchDetached: 'HEAD 분리됨',
       branchSearchPlaceholder: '브랜치 검색…',
       branchSwitchFailed: '브랜치를 전환하지 못했습니다.',
