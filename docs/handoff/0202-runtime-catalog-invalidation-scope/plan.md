@@ -548,4 +548,8 @@ Auth snapshot / 명시 invalidate
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| — | — | — | — | — |
+| D1 | `runtime-catalog.ts:132-135` slot 동일성 가드가 잠기지 않았다 — 무조건 `delete`로 되돌려도 전체 스위트 **2303/2303 green** · typecheck 0 · eslint 0 | verify r1 §4(M-G) · AC10 · §10 2행 | invalidate가 만든 replay가 in-flight인 구간에 후속 reconcile이 **합류**함을 단언하는 케이스를 추가하고, 이 hunk 되돌림에서 red가 되는 것을 보인다 (재현 관측: `resolve` 2회 기대에 3회) | open |
+| D2 | `bootstrap.ts:407-409`·`:481` 배선이 *부재*만 닫혀 있다 — `reconcileVerified: () => {}`로 바꾸면 typecheck·lint·전체 스위트 전건 green | verify r1 §4(M-J) · §10 7행 · AC12 | 0198 D-010의 실재 가드(`infra/source-scan.ts` + `no-stray-auth-subscribe.test.ts`) 형태로 두 인자의 실재를 production 스윕한다. 가드를 만들면 판정 지점마다 변이를 심어 눈이 있음을 먼저 보인다 | open |
+| D3 | AC11의 검증 수단이 없다 — `rg "\.merge\(" src/main --glob '*.test.ts'` **1건**(필터 단독). 두 소비처를 같은 인스턴스로 비교한 케이스도 CRUD 뒤 단언도 0 | verify r1 §5 · AC11 | `engine.runtime-catalog.test.ts`의 행 존속 케이스에서 CRUD 뒤 같은 인스턴스의 `merge(settings)`와 `merge(settings,'claude')` key 집합이 같음을 단언한다 | open |
+
+- **규범 정정 필요 없음** — 셋 다 테스트·가드 추가로 닫힌다. Decision·AC·§10 문면은 그대로다.
