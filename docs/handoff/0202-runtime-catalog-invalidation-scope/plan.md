@@ -468,68 +468,78 @@ Auth snapshot / 명시 invalidate
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: **✅ D-001~D-006·D-008을 구현했다.** 편집 key 축소, drop+replay 결합, remaining verified 별도 통지가 production 경로에 들어갔다.
+- 이견 / 현실성 문제: **⚠️ 기존 `inFlight`는 generation을 몰라 stale 작업에 합류했다.** `runtime-catalog.test.ts`의 deferred 변이에서 resolve가 2회가 아닌 1회라 replay 소멸을 재현했다.
+- ACTIVE Decision과 충돌하는 설계 발견: **없음.** generation-aware slot은 D-002를 동시 호출에서도 성립시키는 구현 세부이며 AC10의 최신 replay 상한을 유지한다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|
-| … | … | … | … | … |
+| 무효화 폭 = canonical key | 5 | **5/5** | `rg "invalidate" engine.ts` = handler 전달 3 + sink 2, 변이 시 engine 테스트 **3 실패** | 없음 |
+| drop+replay | 3 | **3/3** | catalog 본체 + 호출자 2; stale join 변이 시 catalog 테스트 **1 실패** | 없음 |
+| 열거 cache 전체 무효화 | 2 | **2/2** | `rg "invalidateAll"` = engine·bootstrap 유지 | 없음 |
+| read-only 실행 cache-only | 1 | **1/1** | `turn-setup.ts`의 `cached(selected.key)` 유지 | 없음 |
+| 미노출 병합 | 3 | **3/3** | `models.ts` 필터 + misc·turn 소비처 테스트 green | 없음 |
+| 부팅 순서 | 2 | **2/2** | helper await + bootstrap 호출; await 제거 변이 시 startup 테스트 **1 실패** | 없음 |
+| verified→재조정 | 6 | **6/6** | 기존 전이 4 + auth-resume 통지 + bootstrap 배선; 통지 제거 변이 시 **1 실패** | 없음 |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+- §10에 없는데 같은 불변식이 필요했던 지점: **1곳 선조치.** `runtime-catalog.ts`의 `inFlight` slot에 generation을 싣고 동일 generation만 합류시켰다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|
-| … | … | … | … |
+| 이전 generation pending에 합류 | 구현 전 비판 검토 | `runtime-catalog.test.ts` 1 | **red** — resolve 2회 기대에 1회 |
+| engine runtime invalidate를 전체로 복귀 | AC4·§10 | `engine.runtime-catalog.test.ts` 3 | **red** — 3 CRUD 모두 `undefined` 검출 |
+| remaining verified 통지 제거 | AC12·§10 | `auth-resume.test.ts` 1 | **red** — sink 1회 기대에 0회 |
+| catalog invalidate await 제거 | AC9·§10 | `runtime-model-startup.test.ts` 1 | **red** — attach·resume 조기 실행 검출 |
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | **해당 없음** — UI 문자열·DTO 변경 0 | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | **일치** — invalid snapshot·fetch 실패는 미노출 행 | D-006 유지 |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | **기존 정책 유지** — 실패 시 행 미노출 | D-007 후속 결정 유지 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | **✅ generation fence 유지** | stale pending 변이 테스트로 잠금 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | 이전 generation `inFlight`에 새 replay가 합류하면 둘 다 stale로 폐기됨 | generation-aware slot으로 최신 resolve를 별도 시작 | deferred 변이에서 1회 호출·빈 catalog 재현 |
+| 2 | `assertMutable`이 canonical key를 반환하지 않아 sink 재사용 불가 | 반환형을 `string`으로 바꾸고 3채널이 같은 값 재사용 | 공백·대소문자 fixture 3건 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: **`inFlight`에 generation을 추가했다.** 단순 Promise 합류는 invalidate가 요구한 최신 replay를 삼키므로 D-002를 만족시키기 위한 선조치다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 차이 없음 — snapshot valid 판정과 runtime `usable` 유지 | AC6·AC7 대상 테스트 green |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | authId generation은 같은 owner contribution이 공유 | AC8 전체 invalidate 2 owner replay green |
+| 재진입 | 이전·최신 fetch가 공존하나 이전 결과는 fence가 폐기 | stale pending 변이 테스트 red 확인 |
+| 다른 무효화 축 | Auth invalidator와 deploy 전체 invalidate 계약 유지 | §10 3·6행 전수 검색 잔여 0 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| 관측한 게이트 산출 | … |
-| 강제 지점 전수 | N/22 |
-| AC 자기보고 | N/15 |
-| 합계 검산 | `✅ N · ⚠️ M · ❌ K = 총 15` |
-| 블로커 / 역질문 | … |
+| 변경 파일 | main 코드 5 · 테스트 6 · 현재 arch 1 · handoff 2 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `npm test` · 관련 vitest · `node scripts/check-doc-inventory.mjs --check` |
+| 관측한 게이트 산출 | lint 0 error/기존 warning 1 · typecheck 3/3 · vitest **227파일/2305건** + scripts **59건** · doc inventory green |
+| 강제 지점 전수 | **22/22** — 7행 합 `5+3+2+1+3+2+6`, 검색 차집합 0 |
+| AC 자기보고 | **15/15** — AC1~15 대상 케이스 및 production sink 검색으로 재현 |
+| 합계 검산 | `✅ 15 · ⚠️ 0 · ❌ 0 = 총 15` |
+| 블로커 / 역질문 | 없음. D-007 OPEN은 기존 비범위 유지 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **예.** 0198의 cache invalidation→reconcile 짝 축이며 0202가 직접 승계했다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: **AC5·AC10은 있었지만 pending fetch fixture가 없었다.** 새 deferred 케이스가 그 교집합을 잠근다.
+- 반복해서 부딪히는 환경 한계: **없음.** `npm ci` 후 Node ABI 게이트와 전체 테스트가 실행됐다.
 - 현재 라운드 수: 1
 
 ---

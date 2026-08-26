@@ -74,6 +74,8 @@ export interface ResumeAuthDeps {
   remainingDefinitions: readonly AuthDefinition[]
   // 마지막 full-state 방송.
   pushConnectionState: () => void
+  // remaining batch가 방송을 합쳐도 성공한 verified 전이는 catalog에 별도로 전달한다.
+  reconcileVerified: (authId: AuthId) => void
   // 자동 재로그인 진단. 미주입이면 남기지 않는다 — 동작은 같다.
   logger?: (event: string, data: Record<string, unknown>) => void
 }
@@ -208,6 +210,12 @@ export function createAuthResume(deps: ResumeAuthDeps): AuthResumeHandle {
             deps.auth.resume(definition.id, { exposeStep: false, emitVerifiedChange: false })
           )
         )
+        for (const definition of probeTargets) {
+          const snapshot = deps.auth.tryBind(definition.id)?.snapshot()
+          if (snapshot?.status === 'valid' && snapshot.verified) {
+            deps.reconcileVerified(definition.id)
+          }
+        }
         // 성공한 probe 들의 상태는 **회복 전에** 화면에 도달한다 — 재로그인은 로그인 창
         // 타임아웃만큼 길어질 수 있고, 그동안 살아 있는 연결까지 붙들려 있으면 안 된다.
         deps.pushConnectionState()

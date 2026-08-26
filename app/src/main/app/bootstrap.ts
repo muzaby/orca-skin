@@ -404,6 +404,9 @@ export class Bootstrap {
       gateDefinitions: GATE_AUTH_DEFINITIONS,
       remainingDefinitions: remainingAuthDefinitions(AUTH_DEFINITIONS, GATE_AUTH_DEFINITIONS),
       pushConnectionState,
+      reconcileVerified: (authId) => {
+        void runtimeModelCatalogBridge.onSnapshot(authId, auth.bind(authId).snapshot())
+      },
       logger: (event, data) => getLogger().child('auth').info(event, data)
     })
     authResumeRef = authResume
@@ -475,6 +478,7 @@ export class Bootstrap {
     const runtimeModelCatalog = createRuntimeModelCatalog({
       contributions: RUNTIME_MODEL_CONTRIBUTIONS,
       runtime: harnessRuntime,
+      snapshotOf: (authId) => auth.bind(authId).snapshot(),
       onChange: pushConnectionState
     })
     // ── 원격 사용량 fetcher (0186 → 0188 배포 모듈로 이설) ────────────────────────

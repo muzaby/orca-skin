@@ -40,6 +40,8 @@ describe('agent:list runtime catalog wiring', () => {
         contributions: [
           { authId: 'claude', key: 'shared', harnessId: 'claude', modelProviderId: 'claude' }
         ],
+        snapshotOf: () =>
+          ({ authId: 'claude', status: 'valid', verified: true, credentialRevision: 1 }) as never,
         runtime: { resolve: vi.fn() } as never
       }),
       debugMock: { log: false }

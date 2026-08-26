@@ -244,6 +244,40 @@ const restored = (probeOk: boolean): FakeState => ({
 })
 
 describe('createAuthResume — 순서', () => {
+  it('remaining probe 성공분만 별도 재조정하고 실패분은 제외한다', async () => {
+    const { auth, broadcast } = fakeRuntime({
+      healthy: restored(true),
+      failed: restored(false)
+    })
+    const reconcileVerified = vi.fn()
+
+    await createAuthResume({
+      auth,
+      gateDefinitions: [],
+      remainingDefinitions: [definition('healthy'), definition('failed')],
+      pushConnectionState: broadcast,
+      reconcileVerified
+    }).run()
+
+    expect(reconcileVerified).toHaveBeenCalledOnce()
+    expect(reconcileVerified).toHaveBeenCalledWith('healthy')
+  })
+
+  it('gate 성공은 AuthChange 경로만 쓰고 remaining 재조정과 중복하지 않는다', async () => {
+    const { auth, broadcast } = fakeRuntime({ sso: restored(true) })
+    const reconcileVerified = vi.fn()
+
+    await createAuthResume({
+      auth,
+      gateDefinitions: [definition('sso')],
+      remainingDefinitions: [],
+      pushConnectionState: broadcast,
+      reconcileVerified
+    }).run()
+
+    expect(reconcileVerified).not.toHaveBeenCalled()
+  })
+
   it('게이트가 실패하면 나머지는 건드리지 않는다 — 순서가 규칙이다', async () => {
     // 사내 서비스는 대개 게이트와 같은 cookie jar 를 쓴다. 로그인 전에 물으면 살아 있는
     // 연결도 미인증으로 떨어지고, 한 번 강등되면 스스로 회복하지 못한다.
@@ -255,7 +289,8 @@ describe('createAuthResume — 순서', () => {
       auth,
       gateDefinitions: [definition('sso')],
       remainingDefinitions: [definition('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(log).toEqual(['enter:sso', 'exit:sso'])
@@ -270,7 +305,8 @@ describe('createAuthResume — 순서', () => {
       auth,
       gateDefinitions: [definition('sso')],
       remainingDefinitions: [definition('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(log).toEqual(['enter:sso', 'exit:sso', 'enter:wiki', 'exit:wiki'])
@@ -282,7 +318,8 @@ describe('createAuthResume — 순서', () => {
       auth,
       gateDefinitions: [],
       remainingDefinitions: [definition('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(log).toEqual(['enter:wiki', 'exit:wiki'])
@@ -302,7 +339,8 @@ describe('createAuthResume — 순서', () => {
         definition('nograant'),
         definition('done')
       ],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(log).toEqual([])
@@ -321,7 +359,8 @@ describe('createAuthResume — 순서', () => {
       auth,
       gateDefinitions: [],
       remainingDefinitions: [definition('a'), definition('b')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     })
     const pending = runtime.run()
     await Promise.resolve()
@@ -354,7 +393,8 @@ describe('createAuthResume — 자기 push 는 P + 1 (0187 D2 승계 · 0194 종
       auth,
       gateDefinitions: [],
       remainingDefinitions: [definition('a'), definition('b'), definition('c')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     // 자기 push 2 (batch P=1 + 종료 1) + resume 이 낸 change 0 (K=0 — 성공 3건은
@@ -372,7 +412,8 @@ describe('createAuthResume — 자기 push 는 P + 1 (0187 D2 승계 · 0194 종
       auth,
       gateDefinitions: [],
       remainingDefinitions: [definition('a'), definition('b'), definition('c')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     // 자기 push 2 (batch P=1 + 종료 1) + resume 이 낸 change 2 (K=2 — 죽은 연결의 도구가 남은
@@ -387,7 +428,8 @@ describe('createAuthResume — 자기 push 는 P + 1 (0187 D2 승계 · 0194 종
       auth,
       gateDefinitions: [],
       remainingDefinitions: [definition('noprobe', false)],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     // 자기 push 1 (batch 없음 P=0 + 종료 1) + change 0. 이 케이스가 `P` 항을 잠근다 —
@@ -406,7 +448,8 @@ describe('createAuthResume — 게이트가 나중에 열리는 경우', () => {
       auth,
       gateDefinitions: [definition('sso')],
       remainingDefinitions: [definition('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     })
     await resume.run()
     resume.onGateChange('sso')
@@ -425,7 +468,8 @@ describe('createAuthResume — 게이트가 나중에 열리는 경우', () => {
       auth,
       gateDefinitions: [definition('sso')],
       remainingDefinitions: [definition('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     })
     await resume.run()
     resume.onGateChange('wiki')
@@ -457,7 +501,8 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
       auth,
       gateDefinitions: [],
       remainingDefinitions: [session('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(loginsOf(log, 'wiki')).toEqual(['login:wiki:1'])
@@ -469,7 +514,8 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
       auth,
       gateDefinitions: [],
       remainingDefinitions: [session('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(loginsOf(log, 'wiki')).toHaveLength(1)
@@ -482,7 +528,8 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
       auth,
       gateDefinitions: [],
       remainingDefinitions: [session('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(loginsOf(log, 'wiki')).toEqual(['login:wiki:1', 'login:wiki:2', 'login:wiki:3'])
@@ -496,7 +543,8 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
         auth,
         gateDefinitions: [],
         remainingDefinitions: [session('wiki')],
-        pushConnectionState: broadcast
+        pushConnectionState: broadcast,
+        reconcileVerified: vi.fn()
       }).run()
 
       expect(loginsOf(log, 'wiki')).toEqual(['login:wiki:1'])
@@ -509,7 +557,8 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
       auth,
       gateDefinitions: [],
       remainingDefinitions: [session('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(loginsOf(log, 'wiki')).toEqual(['login:wiki:1', 'login:wiki:2'])
@@ -523,7 +572,8 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
         auth,
         gateDefinitions: [],
         remainingDefinitions: [definition('wiki', true, [kind])],
-        pushConnectionState: broadcast
+        pushConnectionState: broadcast,
+        reconcileVerified: vi.fn()
       }).run()
 
       expect(loginsOf(log, 'wiki')).toEqual([])
@@ -538,7 +588,8 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
       auth,
       gateDefinitions: [],
       remainingDefinitions: [definition('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(loginsOf(log, 'wiki')).toEqual([])
@@ -550,7 +601,8 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
       auth,
       gateDefinitions: [],
       remainingDefinitions: [definition('wiki', true, ['pat', 'browser-session'])],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(loginsOf(log, 'wiki')).toEqual([])
@@ -567,7 +619,8 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
       auth,
       gateDefinitions: [],
       remainingDefinitions: [session('a'), session('b')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     await flush()
@@ -598,7 +651,8 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
         auth,
         gateDefinitions: [],
         remainingDefinitions: [session('wiki')],
-        pushConnectionState: broadcast
+        pushConnectionState: broadcast,
+        reconcileVerified: vi.fn()
       }).run()
 
       await flush()
@@ -618,7 +672,8 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
       auth,
       gateDefinitions: [],
       remainingDefinitions: [session('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(loginsOf(log, 'wiki')).toEqual([])
@@ -633,7 +688,8 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
       auth,
       gateDefinitions: [session('sso')],
       remainingDefinitions: [],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(loginsOf(log, 'sso')).toEqual([])
@@ -647,6 +703,7 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
       gateDefinitions: [],
       remainingDefinitions: [session('wiki')],
       pushConnectionState: broadcast,
+      reconcileVerified: vi.fn(),
       logger
     }).run()
 
@@ -676,6 +733,7 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
         gateDefinitions: [],
         remainingDefinitions: [session('a'), session('b')],
         pushConnectionState: broadcast,
+        reconcileVerified: vi.fn(),
         logger
       }).run()
     ).resolves.toBeUndefined()
@@ -698,7 +756,8 @@ describe('createAuthResume — 복원 실패 후 자동 재로그인 (0193)', ()
       auth,
       gateDefinitions: [],
       remainingDefinitions: [session('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     // 강등 즉시 방송 1(K=1) + batch push 1 + 재시도 push 1.
@@ -724,7 +783,8 @@ describe('createAuthResume — 부팅 시점에 이미 만료된 grant (0194)', 
       auth,
       gateDefinitions: [],
       remainingDefinitions: [session('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(loginsOf(log, 'wiki')).toEqual(['login:wiki:1'])
@@ -736,7 +796,8 @@ describe('createAuthResume — 부팅 시점에 이미 만료된 grant (0194)', 
       auth,
       gateDefinitions: [],
       remainingDefinitions: [session('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(log).not.toContain('enter:wiki')
@@ -752,7 +813,8 @@ describe('createAuthResume — 부팅 시점에 이미 만료된 grant (0194)', 
       auth,
       gateDefinitions: [],
       remainingDefinitions: [session('wiki'), session('jira')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(log.filter((entry) => entry.startsWith('enter:'))).toEqual([])
@@ -766,7 +828,8 @@ describe('createAuthResume — 부팅 시점에 이미 만료된 grant (0194)', 
       auth,
       gateDefinitions: [],
       remainingDefinitions: [definition('wiki', true, ['pat'])],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(loginsOf(log, 'wiki')).toEqual([])
@@ -784,7 +847,8 @@ describe('createAuthResume — OAuth refresh (0194)', () => {
       auth,
       gateDefinitions: [],
       remainingDefinitions: [session('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(log).toEqual(['refresh:wiki', 'login:wiki:1'])
@@ -798,7 +862,8 @@ describe('createAuthResume — OAuth refresh (0194)', () => {
       auth,
       gateDefinitions: [],
       remainingDefinitions: [session('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(log).toEqual(['refresh:wiki'])
@@ -813,7 +878,8 @@ describe('createAuthResume — OAuth refresh (0194)', () => {
         auth,
         gateDefinitions: [],
         remainingDefinitions: [session('wiki')],
-        pushConnectionState: broadcast
+        pushConnectionState: broadcast,
+        reconcileVerified: vi.fn()
       }).run()
 
       // refresh 는 **1회뿐**이다 — 같은 refresh token 을 다시 보내도 판정이 같다(D-010).
@@ -834,6 +900,7 @@ describe('createAuthResume — OAuth refresh (0194)', () => {
         gateDefinitions: [],
         remainingDefinitions: [session('a'), session('b')],
         pushConnectionState: broadcast,
+        reconcileVerified: vi.fn(),
         logger
       }).run()
     ).resolves.toBeUndefined()
@@ -852,7 +919,8 @@ describe('createAuthResume — OAuth refresh (0194)', () => {
       auth,
       gateDefinitions: [],
       remainingDefinitions: [session('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(log).not.toContain('refresh:wiki')
@@ -864,7 +932,8 @@ describe('createAuthResume — OAuth refresh (0194)', () => {
       auth,
       gateDefinitions: [session('sso')],
       remainingDefinitions: [],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     }).run()
 
     expect(log).not.toContain('refresh:sso')
@@ -883,7 +952,8 @@ describe('createAuthResume — resuming (0194)', () => {
         auth,
         gateDefinitions: [session('sso')],
         remainingDefinitions: [remaining('wiki')],
-        pushConnectionState: broadcast
+        pushConnectionState: broadcast,
+        reconcileVerified: vi.fn()
       })
       const seen: boolean[] = []
       const recorder = (): void => void seen.push(handle.resuming())
@@ -916,7 +986,8 @@ describe('createAuthResume — resuming (0194)', () => {
         auth,
         gateDefinitions: [],
         remainingDefinitions: [remaining('wiki')],
-        pushConnectionState: broadcast
+        pushConnectionState: broadcast,
+        reconcileVerified: vi.fn()
       })
       await handle.run()
 
@@ -936,7 +1007,8 @@ describe('createAuthResume — resuming (0194)', () => {
       auth: exploding,
       gateDefinitions: [],
       remainingDefinitions: [remaining('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     })
 
     await expect(handle.run()).rejects.toThrow('store exploded')
@@ -953,7 +1025,8 @@ describe('createAuthResume — resuming (0194)', () => {
       auth,
       gateDefinitions: [session('sso')],
       remainingDefinitions: [remaining('wiki')],
-      pushConnectionState: broadcast
+      pushConnectionState: broadcast,
+      reconcileVerified: vi.fn()
     })
     await handle.run()
 
