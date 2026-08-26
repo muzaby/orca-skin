@@ -208,7 +208,7 @@ export const initialChatState: ChatState = {
   loadingSession: false,
   turnStartedAt: null,
   pendingAsks: [],
-  permissionMode: 'plan',
+  permissionMode: 'auto_classified',
   pendingPlanReview: null,
   rightPanelTiles: [],
   rightPanelTileLabels: {},

@@ -158,7 +158,9 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
   })
 
   it('승인 흐름(RESOLVE_PLAN + SET_PERMISSION_MODE) — 카드 제거 + 모드를 acceptEdits 로 전환', () => {
-    const withPlan = chatReducer(initialChatState, recv(planEvent()))
+    // 계획 검토는 plan 모드에서만 도달하는 상태 — 전제를 명시한다(초기값에 기대지 않는다).
+    const inPlan = chatReducer(initialChatState, { type: 'SET_PERMISSION_MODE', mode: 'plan' })
+    const withPlan = chatReducer(inPlan, recv(planEvent()))
     expect(withPlan.permissionMode).toBe('plan')
     const resolved = chatReducer(withPlan, { type: 'RESOLVE_PLAN' })
     const approved = chatReducer(resolved, { type: 'SET_PERMISSION_MODE', mode: 'accept_edits' })
