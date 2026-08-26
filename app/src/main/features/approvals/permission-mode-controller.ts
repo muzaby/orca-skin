@@ -15,8 +15,9 @@ export class PermissionModeController {
   // sessionAllowedTools(router.ts:94) 와 동일한 세션-스코프 메모리 맵 패턴.
   private readonly modes = new Map<string, NormalizedPermissionMode>()
 
-  // 미설정 세션이 돌려받을 기본 모드. 현 앱 기본(chatReducer 초기값 'plan')과 호환되도록 'plan' 기본.
-  constructor(private readonly defaultMode: NormalizedPermissionMode = 'plan') {}
+  // 미설정 세션이 돌려받을 기본 모드. 현 앱 기본(chatReducer 초기값 'auto_classified')과
+  // 같은 값을 둔다 — 어긋나면 renderer 칩과 main 이 서로 다른 모드를 진실로 삼는다.
+  constructor(private readonly defaultMode: NormalizedPermissionMode = 'auto_classified') {}
 
   // 세션의 현재 모드. 미설정 시 생성자 기본값.
   getCurrentMode(sessionId: string): NormalizedPermissionMode {

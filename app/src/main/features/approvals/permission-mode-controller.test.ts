@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { PermissionModeController } from './permission-mode-controller'
 
 describe('PermissionModeController', () => {
-  it('미설정 세션은 기본 모드(plan)를 돌려준다', () => {
+  it('미설정 세션은 기본 모드(auto_classified)를 돌려준다', () => {
     const c = new PermissionModeController()
-    expect(c.getCurrentMode('s1')).toBe('plan')
+    expect(c.getCurrentMode('s1')).toBe('auto_classified')
   })
 
   it('생성자로 기본 모드를 바꿀 수 있다', () => {
@@ -35,8 +35,8 @@ describe('PermissionModeController', () => {
 
   it('forget 후에는 기본 모드로 되돌아간다', async () => {
     const c = new PermissionModeController()
-    await c.setMode('s1', 'auto_classified')
+    await c.setMode('s1', 'bypass')
     c.forget('s1')
-    expect(c.getCurrentMode('s1')).toBe('plan')
+    expect(c.getCurrentMode('s1')).toBe('auto_classified')
   })
 })

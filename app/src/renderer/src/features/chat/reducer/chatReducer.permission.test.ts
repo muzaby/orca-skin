@@ -9,8 +9,8 @@ const sendUser = (s: ChatState, text: string): ChatState =>
   })
 
 describe('chatReducer — 권한 모드', () => {
-  it('기본값은 plan', () => {
-    expect(initialChatState.permissionMode).toBe('plan')
+  it('기본값은 auto_classified', () => {
+    expect(initialChatState.permissionMode).toBe('auto_classified')
   })
 
   it('SET_PERMISSION_MODE 가 모드를 갱신', () => {
@@ -18,14 +18,14 @@ describe('chatReducer — 권한 모드', () => {
     expect(s.permissionMode).toBe('accept_edits')
   })
 
-  it('NEW_CHAT 는 모드를 plan 으로 리셋', () => {
+  it('NEW_CHAT 는 모드를 기본값으로 리셋', () => {
     const edited = chatReducer(initialChatState, {
       type: 'SET_PERMISSION_MODE',
       mode: 'accept_edits'
     })
     expect(edited.permissionMode).toBe('accept_edits')
     const fresh = chatReducer(edited, { type: 'NEW_CHAT' })
-    expect(fresh.permissionMode).toBe('plan')
+    expect(fresh.permissionMode).toBe('auto_classified')
   })
 
   it('턴 시작(BEGIN_TURN)·커밋은 현재 모드를 유지', () => {
