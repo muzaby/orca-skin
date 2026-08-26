@@ -72,8 +72,10 @@ import {
   createRuntimeModelCatalog
 } from '../features/harnesses/runtime-catalog'
 import {
+  createRuntimeModelAuthChangeHandler,
   createRuntimeModelAuthResume,
   createRuntimeModelAuthInvalidator,
+  createRuntimeModelReconcileSnapshot,
   createRuntimeModelReconcileVerified,
   createRuntimeModelSnapshotReader,
   startRuntimeModelCatalogAfterDeploy
@@ -91,7 +93,7 @@ import { createConnectionSources } from './deployment/connections'
 import { createUsageFetcher } from './deployment/usage-fetcher'
 import { connectionState, duplicateConnectionAuthIds } from './connection-views'
 import type { ConnectionViewSource } from './connection-views'
-import type { AuthChange, AuthRuntime, AuthSecretReader } from '../contracts/auth'
+import type { AuthRuntime, AuthSecretReader } from '../contracts/auth'
 import { errorMessage } from '../infra/errors'
 import { createVault } from '../infra/vault'
 import { BrowserSessionStore } from '../infra/browser-session'
@@ -385,10 +387,15 @@ export class Bootstrap {
     }
 
     // ── Auth change 소비 (0188 D-008) ──────────────────────────────────────────
+    // **reader 는 한 벌이다** (0202 D4) — seam 마다 새로 만들면 그중 하나만 굳어도 나머지
+    // 리터럴이 스윕을 통과시킨다. 주입 지점은 이 상수를 참조만 한다.
+    const runtimeModelSnapshotOf = createRuntimeModelSnapshotReader(auth)
     const runtimeModelCatalogBridge = createRuntimeModelCatalogBridge({
       contributions: RUNTIME_MODEL_CONTRIBUTIONS,
-      snapshotOf: createRuntimeModelSnapshotReader(auth)
+      snapshotOf: runtimeModelSnapshotOf
     })
+    const reconcileRuntimeModelSnapshot =
+      createRuntimeModelReconcileSnapshot(runtimeModelCatalogBridge)
     registerConnectionHandlers({ auth, gate, connections, resuming })
 
     // 자동 로그인 — 복원된 세션 쿠키가 아직 유효한지 확인한다. **await 하지 않는다**: probe 는
@@ -408,7 +415,7 @@ export class Bootstrap {
       pushConnectionState,
       reconcileVerified: createRuntimeModelReconcileVerified({
         bridge: runtimeModelCatalogBridge,
-        snapshotOf: createRuntimeModelSnapshotReader(auth)
+        snapshotOf: runtimeModelSnapshotOf
       }),
       logger: (event, data) => getLogger().child('auth').info(event, data)
     })
@@ -473,15 +480,13 @@ export class Bootstrap {
       invalidatedKeys: AUTH_INVALIDATED_HARNESS_KEYS,
       contributions: RUNTIME_MODEL_CONTRIBUTIONS,
       invalidate: (key) => harnessRuntime.invalidate(key, 'auth-change'),
-      snapshotOf: createRuntimeModelSnapshotReader(auth),
-      reconcile: (ownerAuthId, snapshot) => {
-        void runtimeModelCatalogBridge.onSnapshot(ownerAuthId, snapshot)
-      }
+      snapshotOf: runtimeModelSnapshotOf,
+      reconcile: reconcileRuntimeModelSnapshot
     })
     const runtimeModelCatalog = createRuntimeModelCatalog({
       contributions: RUNTIME_MODEL_CONTRIBUTIONS,
       runtime: harnessRuntime,
-      snapshotOf: createRuntimeModelSnapshotReader(auth),
+      snapshotOf: runtimeModelSnapshotOf,
       onChange: pushConnectionState
     })
     // ── 원격 사용량 fetcher (0186 → 0188 배포 모듈로 이설) ────────────────────────
@@ -637,18 +642,16 @@ export class Bootstrap {
         auth,
         // The sole Auth-change consumer is installed only after deploy invalidation. No verified
         // snapshot can fetch a contribution and then be erased by the boot-time reset.
-        onChange: (change: AuthChange) => {
-          pushConnectionState()
-          // 화면 변화(입력 폼·OAuth 대기·resuming)는 여기서 끝난다 — 실행 credential 이 그대로다.
-          if (change.kind !== 'snapshot') return
-          if (change.credentialChanged) {
+        onChange: createRuntimeModelAuthChangeHandler({
+          pushConnectionState,
+          syncPlugins: (authId) => {
             for (const plugin of plugins) {
-              if (plugin.auth.authId === change.authId) plugin.sync()
+              if (plugin.auth.authId === authId) plugin.sync()
             }
-            invalidateHarnessForAuth(change.authId)
-          }
-          void runtimeModelCatalogBridge.onSnapshot(change.authId, change.snapshot)
-        },
+          },
+          invalidateForAuth: invalidateHarnessForAuth,
+          reconcileSnapshot: reconcileRuntimeModelSnapshot
+        }),
         onGateChange: (authId) => authResume.onGateChange(authId),
         run: () => void authResume.run()
       })
