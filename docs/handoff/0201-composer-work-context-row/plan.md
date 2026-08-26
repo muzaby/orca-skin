@@ -10,7 +10,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-26 |
 | 매핑 | PR #382(draft) · 구현 브랜치 `claude/composer-branch-and-add-dir` · CI 수정 브랜치 `claude/ci-failure-fix-dquqv7` |
-| 상태 | DRAFT → READY → **impl/IMPL_DONE (r1)** — 단계·좌표 정본은 [`INDEX.md`](../INDEX.md) |
+| 상태 | DRAFT → READY → impl/IMPL_DONE (r1) → **verify/FAIL (r1)** — 단계·좌표 정본은 [`INDEX.md`](../INDEX.md) |
 
 **이 plan 은 소급 설계다.** 구현이 먼저 있었고(D-016 — 사용자 지시로 `Handoff: none` 부분수정을 연속 수행), 이제 그 구현이 만족해야 할 계약을 세운다. 따라서 §7 AC 는 "앞으로 만들 것"이 아니라 **"현재 코드가 만족해야 하는데 일부는 아직 만족하지 않는 것"** 이다 — 미충족 항목은 각 행의 `현재` 칸이 관측으로 표시한다.
 
@@ -603,6 +603,12 @@ CwdPanel(＋) → chatReducer.extraDirs → chat:send.extraDirs → buildTurnCon
 
 ## [검증자 기입] 파생 이슈
 
+> r1 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md). AC는 ✅22·⚠️2·❌0/24 · 강제 지점 18/18 ·
+> windows CI green — FAIL 근거는 AC 점수가 아니라 아래 **두 미잠금**이다.
+
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| — | — | — | — | — |
+| D1 | **사본 스캔의 `대상 집합` 판정 지점이 커밋된 테스트로 잠기지 않았다.** `SOURCE_EXTENSIONS` 에서 `.tsx` 를 빼도 `node --test scripts/check-migrations-appendonly.test.mjs` **14/14 green** — D-018 이 요구한 재발 방지가 스스로 좁아져도 아무도 모른다 | AC22 · §10 `마이그레이션 목록` 행의 `사본 스캔 (1)` | `collectSourceFiles` 를 임시 디렉토리 픽스처로 도는 단위 테스트를 더한다. 확장자·재귀 두 축에 각각 결함을 심어 red 를 확인한다 | open |
+| D2 | **AC9 의 "그 문구가 모달에 도달" 이 잠기지 않았다.** 모달의 `error?.applied` 문단 + import 를 지워 잔여물 진단 0까지 밀었을 때 `typecheck:web` exit 0 · 렌더러 chat **352/352 green** | AC9 검증 수단 후반절 | 렌더 하네스 없이도 대부분 닫힌다 — `checkoutErrorView(error, tr)` 순수 seam 으로 문구 조립과 순서(안내 먼저·원문 나중)를 떼고 `BranchChip` 이 그것을 렌더한다. 남는 미검증은 JSX→DOM 한 홉 | open |
+| D3 | **`/`·`C:\`(파일시스템 루트)가 `extraDirs` 를 통과해 write 루트가 된다.** 실측 `isAbsolutePath('/')=true` · `resolveGuardRoots('/tmp/ws',['/']).writeRoots[1] === '/'` — §10 `실패 의미` 가 지목한 적대 상태가 그대로 재현된다 | §10 `extraDirs 절대 경로` 행 ↔ AC12 | **규범 정정 필요** — 루트 거부는 사용자가 받는 결과를 바꾼다. 설계자가 AC12 문면을 정하거나 §10 `실패 의미` 에서 그 사례를 내린다 | **규범 정정 필요** |
+| D4 | `IPC_CONTRACT.md §2.6-b` 의 `GitCheckoutResult` 서술이 이번에 추가된 `applied` 필드를 적지 않는다 | §15 문서 계약 | 문서 한 줄 추가. AC20 대조 테스트는 정책만 보므로 이 drift 를 잡지 못한다 | open |
