@@ -395,6 +395,7 @@ gate Auth 를 순차 확인 (resuming step 노출)
   → 통과하면 GUI 는 대기 화면으로 — 아래가 끝날 때까지 메인 셸을 띄우지 않는다
   → 나머지 Auth 중 status='valid' 인 것만 1회 병렬 확인 (step 미노출)
   → 확인할 후보가 있었으면 성공한 verified 변화를 마지막 full-state push 한 번으로 합친다
+  → 성공한 verified Auth 는 UI 방송과 별도로 runtime model catalog 재조정에 연결한다
   → status='expired' 인 나머지 Auth 를 순차로 회복 — refresh 1회 → 실패면 재로그인
     (회복이 만든 change 도 아래 change 구독을 통해 방송된다)
   → 복원 종료를 알리는 push 1회 (대기 화면이 걷힌다)

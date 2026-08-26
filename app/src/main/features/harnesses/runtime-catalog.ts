@@ -18,7 +18,7 @@ export interface RuntimeModelCatalog {
   // canonical 행을 소유한다(D-008 fail-closed). 규칙이 소비처마다 재조립되면 새 소비처가
   // 조용히 빠뜨린다. `adapter` 를 주면 그 harness 행만 남긴다.
   merge(settings: AgentEnvironment[], adapter?: string): AgentEnvironment[]
-  invalidate(key?: string): void
+  invalidate(key?: string): Promise<void>
   reconcile(authId: AuthId, snapshot: AuthSnapshot): Promise<void>
 }
 
@@ -54,12 +54,13 @@ export function createRuntimeModelCatalogBridge(input: {
 export function createRuntimeModelCatalog(input: {
   contributions: readonly RuntimeModelContribution[]
   runtime: HarnessRuntimeConfigService
+  snapshotOf: (authId: AuthId) => AuthSnapshot
   onChange?: () => void
 }): RuntimeModelCatalog {
   const entries = new Map<string, AgentEnvironment>()
   const authGeneration = new Map<AuthId, number>()
   const resolvedRevision = new Map<string, number>()
-  const inFlight = new Map<string, Promise<void>>()
+  const inFlight = new Map<string, { generation: number; promise: Promise<void> }>()
 
   const ownsKey =
     (key: string) =>
@@ -98,7 +99,15 @@ export function createRuntimeModelCatalog(input: {
       contributions.map(async (contribution) => {
         if (resolvedRevision.get(contribution.key) === snapshot.credentialRevision) return
         const pending = inFlight.get(contribution.key)
-        if (pending) return pending
+        if (pending?.generation === generation) return pending.promise
+        // An invalidation can advance the generation while an older fetch is still pending.
+        // Waiting for that stale work would leave the dropped entry empty, so let the latest
+        // generation start its own resolve. The generation fence below prevents the old result
+        // from publishing, and the identity guard in `finally` preserves the newer slot.
+        const slot: { generation: number; promise: Promise<void> } = {
+          generation,
+          promise: Promise.resolve()
+        }
         const work = (async (): Promise<void> => {
           try {
             const config = await input.runtime.resolve(contribution)
@@ -121,10 +130,13 @@ export function createRuntimeModelCatalog(input: {
             if ((authGeneration.get(authId) ?? 0) !== generation) return
             drop([contribution])
           } finally {
-            inFlight.delete(contribution.key)
+            if (inFlight.get(contribution.key) === slot) {
+              inFlight.delete(contribution.key)
+            }
           }
         })()
-        inFlight.set(contribution.key, work)
+        slot.promise = work
+        inFlight.set(contribution.key, slot)
         return work
       })
     )
@@ -143,10 +155,12 @@ export function createRuntimeModelCatalog(input: {
         adapter === undefined ? list() : list().filter((entry) => entry.adapter === adapter),
         isReadOnly
       ),
-    invalidate(key) {
+    async invalidate(key) {
       const targets = key ? input.contributions.filter(ownsKey(key)) : input.contributions
       bumpGenerations(targets.map((contribution) => contribution.authId))
       drop(targets)
+      const authIds = new Set(targets.map((contribution) => contribution.authId))
+      await Promise.all([...authIds].map((authId) => reconcile(authId, input.snapshotOf(authId))))
     },
     reconcile
   }
