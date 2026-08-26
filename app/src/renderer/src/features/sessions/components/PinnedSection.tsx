@@ -81,6 +81,9 @@ export interface PinnedProjectsSectionProps {
   onOpenProject: (projectId: string) => void
   onTogglePinProject: (projectId: string, pinned: boolean) => void
   onSelectSession: (sessionId: string) => void
+  onTogglePinSession: (sessionId: string, pinned: boolean) => void
+  onDeleteSession: (sessionId: string) => void
+  onRenameSession: (sessionId: string, title: string) => void
 }
 
 // 고정 프로젝트는 대화 고정과 구분된 전용 섹션에만 둔다. 별도 추가 버튼은 두지 않는다.
@@ -89,7 +92,10 @@ export const PinnedProjectsSection = memo(function PinnedProjectsSection({
   currentSessionId,
   onOpenProject,
   onTogglePinProject,
-  onSelectSession
+  onSelectSession,
+  onTogglePinSession,
+  onDeleteSession,
+  onRenameSession
 }: PinnedProjectsSectionProps): React.JSX.Element {
   const { tr } = useI18n()
   const [expanded, setExpanded] = useState(true)
@@ -115,6 +121,9 @@ export const PinnedProjectsSection = memo(function PinnedProjectsSection({
               onOpenProject={onOpenProject}
               onTogglePinProject={onTogglePinProject}
               onSelectSession={onSelectSession}
+              onTogglePinSession={onTogglePinSession}
+              onDeleteSession={onDeleteSession}
+              onRenameSession={onRenameSession}
             />
           ))}
         </div>
@@ -129,6 +138,9 @@ interface PinnedProjectRowProps {
   onOpenProject: (projectId: string) => void
   onTogglePinProject: (projectId: string, pinned: boolean) => void
   onSelectSession: (sessionId: string) => void
+  onTogglePinSession: (sessionId: string, pinned: boolean) => void
+  onDeleteSession: (sessionId: string) => void
+  onRenameSession: (sessionId: string, title: string) => void
 }
 
 // 고정 프로젝트 행 — chevron 으로 하위 대화 접기/펼치기, 이름 클릭으로 프로젝트 열기,
@@ -138,7 +150,10 @@ function PinnedProjectRow({
   currentSessionId,
   onOpenProject,
   onTogglePinProject,
-  onSelectSession
+  onSelectSession,
+  onTogglePinSession,
+  onDeleteSession,
+  onRenameSession
 }: PinnedProjectRowProps): React.JSX.Element {
   const { tr } = useI18n()
   const [expanded, setExpanded] = useState(false)
@@ -202,6 +217,9 @@ function PinnedProjectRow({
             projectId={project.id}
             currentSessionId={currentSessionId}
             onSelectSession={onSelectSession}
+            onTogglePinSession={onTogglePinSession}
+            onDeleteSession={onDeleteSession}
+            onRenameSession={onRenameSession}
           />
         </div>
       )}
@@ -213,6 +231,9 @@ interface PinnedProjectChildrenProps {
   projectId: string
   currentSessionId: string | null
   onSelectSession: (sessionId: string) => void
+  onTogglePinSession: (sessionId: string, pinned: boolean) => void
+  onDeleteSession: (sessionId: string) => void
+  onRenameSession: (sessionId: string, title: string) => void
 }
 
 // 고정 프로젝트의 하위 대화. 전역 세션 목록의 최신 pin 상태를 우선 적용하므로 대화는
@@ -220,7 +241,10 @@ interface PinnedProjectChildrenProps {
 function PinnedProjectChildren({
   projectId,
   currentSessionId,
-  onSelectSession
+  onSelectSession,
+  onTogglePinSession,
+  onDeleteSession,
+  onRenameSession
 }: PinnedProjectChildrenProps): React.JSX.Element {
   const { tr } = useI18n()
   const globalSessions = useSessionsState((state) => state.list)
@@ -245,7 +269,9 @@ function PinnedProjectChildren({
           session={s}
           isActive={s.id === currentSessionId}
           onSelect={onSelectSession}
-          renameable={false}
+          onTogglePin={onTogglePinSession}
+          onDelete={onDeleteSession}
+          onRename={onRenameSession}
           leadingIcon="chat"
         />
       ))}

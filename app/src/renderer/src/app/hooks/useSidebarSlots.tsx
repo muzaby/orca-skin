@@ -29,6 +29,9 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
         onOpenProject={handlers.handleOpenProject}
         onTogglePinProject={handlers.handleTogglePinProject}
         onSelectSession={handlers.handleSelectSession}
+        onTogglePinSession={handlers.handleTogglePinSession}
+        onDeleteSession={handlers.handleDeleteSession}
+        onRenameSession={handlers.handleRenameSession}
       />
     ),
     [
@@ -36,7 +39,10 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
       handlers.currentSessionId,
       handlers.handleOpenProject,
       handlers.handleTogglePinProject,
-      handlers.handleSelectSession
+      handlers.handleSelectSession,
+      handlers.handleTogglePinSession,
+      handlers.handleDeleteSession,
+      handlers.handleRenameSession
     ]
   )
   // 고정된 대화만 모으는 섹션. 프로젝트는 바로 위의 전용 섹션에만 노출한다.
