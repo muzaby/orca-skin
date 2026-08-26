@@ -229,6 +229,36 @@ describe('single-flight 와 caller 취소 (AC14)', () => {
     expect(augment).toHaveBeenCalledTimes(1)
   })
 
+  it('옛 sourceRevision 작업이 끝나도 최신 in-flight 등록을 지우지 않는다', async () => {
+    // 정리는 **자기 자리에만** 미친다 — 옛 작업의 `finally` 가 최신 등록을 지우면 뒤이은
+    // 요청이 합류하지 못하고 같은 세대에서 augmenter 를 한 번 더 부른다.
+    const stale = deferred<{ runtimeEnv: Record<string, string> }>()
+    const latest = deferred<{ runtimeEnv: Record<string, string> }>()
+    const augment = vi
+      .fn()
+      .mockImplementationOnce(async () => stale.promise)
+      .mockImplementationOnce(async () => latest.promise)
+    let revision = 'rev-1'
+    const service = createHarnessRuntimeConfigService({
+      settings: settingsPort(() => revision),
+      augmenters: { [ENTRY.key]: { resolve: augment } }
+    })
+
+    const first = service.resolve(ENTRY)
+    revision = 'rev-2'
+    const second = service.resolve(ENTRY)
+    // 옛 작업이 **먼저** 끝난다.
+    stale.resolve({ runtimeEnv: { A: 'stale' } })
+    await expect(first).resolves.toMatchObject({ runtimeEnv: { A: 'stale' } })
+
+    const joined = service.resolve(ENTRY)
+    latest.resolve({ runtimeEnv: { A: 'latest' } })
+
+    await expect(second).resolves.toMatchObject({ runtimeEnv: { A: 'latest' } })
+    await expect(joined).resolves.toMatchObject({ runtimeEnv: { A: 'latest' } })
+    expect(augment).toHaveBeenCalledTimes(2)
+  })
+
   it('한 caller 의 취소가 다른 caller 의 정상 resolve 를 끌고 죽지 않는다', async () => {
     const gate = deferred<{ runtimeEnv: Record<string, string> }>()
     const service = createHarnessRuntimeConfigService({

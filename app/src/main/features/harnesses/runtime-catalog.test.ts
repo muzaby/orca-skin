@@ -306,6 +306,37 @@ describe('runtime model catalog', () => {
     expect(catalog.list()[0]?.models[0]).toMatchObject({ model: 'latest-model' })
   })
 
+  it('joins the replay an invalidation started instead of opening a second fetch', async () => {
+    let releaseStale!: (value: HarnessRuntimeConfig) => void
+    let releaseReplay!: (value: HarnessRuntimeConfig) => void
+    const resolve = vi
+      .fn()
+      .mockImplementationOnce(
+        () => new Promise<HarnessRuntimeConfig>((done) => (releaseStale = done))
+      )
+      .mockImplementationOnce(
+        () => new Promise<HarnessRuntimeConfig>((done) => (releaseReplay = done))
+      )
+      .mockResolvedValue(config(['third-model']))
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      snapshotOf: () => valid(),
+      runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() }
+    })
+    const stale = catalog.reconcile('gate', valid())
+    const invalidated = catalog.invalidate()
+    // 옛 세대 작업이 **먼저** 끝나도 그것이 남긴 정리는 최신 replay 의 자리를 건드리면 안 된다.
+    releaseStale(config(['stale-model']))
+    await stale
+
+    const joined = catalog.reconcile('gate', valid())
+    releaseReplay(config(['replayed-model']))
+    await Promise.all([invalidated, joined])
+
+    expect(resolve).toHaveBeenCalledTimes(2)
+    expect(catalog.list()[0]?.models[0]).toMatchObject({ model: 'replayed-model' })
+  })
+
   it('keeps invalidated entries absent when the current snapshot is unusable', async () => {
     const resolve = vi.fn(async () => config(['corp-model']))
     const catalog = createRuntimeModelCatalog({

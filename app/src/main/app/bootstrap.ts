@@ -74,6 +74,8 @@ import {
 import {
   createRuntimeModelAuthResume,
   createRuntimeModelAuthInvalidator,
+  createRuntimeModelReconcileVerified,
+  createRuntimeModelSnapshotReader,
   startRuntimeModelCatalogAfterDeploy
 } from './runtime-model-startup'
 import { AUTH_DEFINITIONS } from './deployment/auth-definitions'
@@ -385,7 +387,7 @@ export class Bootstrap {
     // ── Auth change 소비 (0188 D-008) ──────────────────────────────────────────
     const runtimeModelCatalogBridge = createRuntimeModelCatalogBridge({
       contributions: RUNTIME_MODEL_CONTRIBUTIONS,
-      snapshotOf: (authId) => auth.bind(authId).snapshot()
+      snapshotOf: createRuntimeModelSnapshotReader(auth)
     })
     registerConnectionHandlers({ auth, gate, connections, resuming })
 
@@ -404,9 +406,10 @@ export class Bootstrap {
       gateDefinitions: GATE_AUTH_DEFINITIONS,
       remainingDefinitions: remainingAuthDefinitions(AUTH_DEFINITIONS, GATE_AUTH_DEFINITIONS),
       pushConnectionState,
-      reconcileVerified: (authId) => {
-        void runtimeModelCatalogBridge.onSnapshot(authId, auth.bind(authId).snapshot())
-      },
+      reconcileVerified: createRuntimeModelReconcileVerified({
+        bridge: runtimeModelCatalogBridge,
+        snapshotOf: createRuntimeModelSnapshotReader(auth)
+      }),
       logger: (event, data) => getLogger().child('auth').info(event, data)
     })
     authResumeRef = authResume
@@ -470,7 +473,7 @@ export class Bootstrap {
       invalidatedKeys: AUTH_INVALIDATED_HARNESS_KEYS,
       contributions: RUNTIME_MODEL_CONTRIBUTIONS,
       invalidate: (key) => harnessRuntime.invalidate(key, 'auth-change'),
-      snapshotOf: (ownerAuthId) => auth.bind(ownerAuthId).snapshot(),
+      snapshotOf: createRuntimeModelSnapshotReader(auth),
       reconcile: (ownerAuthId, snapshot) => {
         void runtimeModelCatalogBridge.onSnapshot(ownerAuthId, snapshot)
       }
@@ -478,7 +481,7 @@ export class Bootstrap {
     const runtimeModelCatalog = createRuntimeModelCatalog({
       contributions: RUNTIME_MODEL_CONTRIBUTIONS,
       runtime: harnessRuntime,
-      snapshotOf: (authId) => auth.bind(authId).snapshot(),
+      snapshotOf: createRuntimeModelSnapshotReader(auth),
       onChange: pushConnectionState
     })
     // ── 원격 사용량 fetcher (0186 → 0188 배포 모듈로 이설) ────────────────────────
