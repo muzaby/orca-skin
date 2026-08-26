@@ -17,6 +17,7 @@ interface SessionListProps {
   // ChatContext, ProjectsContext 는 cross-feature 이므로 app/AppLayout 가 wiring.
   currentSessionId: string | null
   projectNameById: Map<string, string>
+  pinnedProjectIds: ReadonlySet<string>
   onSelect: (id: string) => void
   onDelete: (id: string) => void
   onRename: (id: string, title: string) => void
@@ -34,6 +35,7 @@ interface SessionListProps {
 export function SessionList({
   currentSessionId,
   projectNameById,
+  pinnedProjectIds,
   onSelect,
   onDelete,
   onRename,
@@ -45,7 +47,13 @@ export function SessionList({
 }: SessionListProps): React.JSX.Element {
   const { tr } = useI18n()
   const list = useSessionsState((s) => s.list)
-  const recentSessions = list.filter((s) => s.pinnedAt == null)
+  // nav 배치 우선순위: 고정 대화 > 고정 프로젝트의 대화 > 최근 대화.
+  // 프로젝트 고정을 해제하면 이 필터에서 즉시 빠져 store 의 updatedAt 정렬 위치로 복귀한다.
+  const recentSessions = list.filter(
+    (session) =>
+      session.pinnedAt == null &&
+      (session.projectId == null || !pinnedProjectIds.has(session.projectId))
+  )
 
   if (recentSessions.length === 0 && drafts.length === 0) {
     return <div className="px-1.5 text-[11.5px] text-ink3">{tr('sessions.empty')}</div>

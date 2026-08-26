@@ -11,7 +11,8 @@ import { useProjectSessions } from '../hooks/useProjectSessions'
 
 // Claude Code 사이드바 "Recents" 헤더와 동형(Sidebar.tsx SECTION_HEAD). app/ 레이어의
 // 상수를 import 하면 4-layer 경계를 거스르므로 클래스 문자열만 복제한다.
-const SECTION_HEAD = 'px-3 pb-1 pt-4 text-caption font-medium text-ink3'
+const SECTION_HEAD =
+  'flex w-full items-center gap-1 border-0 bg-transparent px-3 pb-1 pt-4 text-left text-caption font-medium text-ink3 hover:text-t7'
 
 export interface PinnedSectionProps {
   currentSessionId: string | null
@@ -32,6 +33,7 @@ export const PinnedSection = memo(function PinnedSection({
   onRenameSession
 }: PinnedSectionProps): React.JSX.Element {
   const { tr } = useI18n()
+  const [expanded, setExpanded] = useState(true)
   const list = useSessionsState((s) => s.list)
   // 셀렉터가 새 배열을 반환하면 useSyncExternalStore 캐시가 깨지므로 raw list 를 구독하고
   // 파생은 useMemo — 고정 세션만, 고정 시각 내림차순(최근 고정이 위).
@@ -43,22 +45,32 @@ export const PinnedSection = memo(function PinnedSection({
 
   return (
     <div className="app-frame-sidebar-pinned" data-context="pinned">
-      <div className={SECTION_HEAD}>{tr('sidebar.pinned')}</div>
-      <div className="px-1.5">
-        {pinnedSessions.map((s) => (
-          <SessionRow
-            key={s.id}
-            session={s}
-            isActive={s.id === currentSessionId}
-            onSelect={onSelectSession}
-            onDelete={onDeleteSession}
-            onRename={onRenameSession}
-            onTogglePin={onTogglePinSession}
-            pinned
-            leadingIcon="chat"
-          />
-        ))}
-      </div>
+      <button
+        type="button"
+        className={SECTION_HEAD}
+        onClick={() => setExpanded((value) => !value)}
+        aria-expanded={expanded}
+      >
+        <span>{tr('sidebar.pinned')}</span>
+        <Icon name={expanded ? 'chevD' : 'chevR'} size={12} />
+      </button>
+      {expanded && (
+        <div className="px-1.5">
+          {pinnedSessions.map((s) => (
+            <SessionRow
+              key={s.id}
+              session={s}
+              isActive={s.id === currentSessionId}
+              onSelect={onSelectSession}
+              onDelete={onDeleteSession}
+              onRename={onRenameSession}
+              onTogglePin={onTogglePinSession}
+              pinned
+              leadingIcon="chat"
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 })
@@ -80,22 +92,33 @@ export const PinnedProjectsSection = memo(function PinnedProjectsSection({
   onSelectSession
 }: PinnedProjectsSectionProps): React.JSX.Element {
   const { tr } = useI18n()
+  const [expanded, setExpanded] = useState(true)
 
   return (
     <div className="app-frame-sidebar-projects" data-context="projects">
-      <div className={SECTION_HEAD}>{tr('sidebar.pinnedProjects')}</div>
-      <div className="px-1.5">
-        {pinnedProjects.map((project) => (
-          <PinnedProjectRow
-            key={project.id}
-            project={project}
-            currentSessionId={currentSessionId}
-            onOpenProject={onOpenProject}
-            onTogglePinProject={onTogglePinProject}
-            onSelectSession={onSelectSession}
-          />
-        ))}
-      </div>
+      <button
+        type="button"
+        className={SECTION_HEAD}
+        onClick={() => setExpanded((value) => !value)}
+        aria-expanded={expanded}
+      >
+        <span>{tr('sidebar.pinnedProjects')}</span>
+        <Icon name={expanded ? 'chevD' : 'chevR'} size={12} />
+      </button>
+      {expanded && (
+        <div className="px-1.5">
+          {pinnedProjects.map((project) => (
+            <PinnedProjectRow
+              key={project.id}
+              project={project}
+              currentSessionId={currentSessionId}
+              onOpenProject={onOpenProject}
+              onTogglePinProject={onTogglePinProject}
+              onSelectSession={onSelectSession}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 })
@@ -192,16 +215,21 @@ interface PinnedProjectChildrenProps {
   onSelectSession: (sessionId: string) => void
 }
 
-// 고정 프로젝트의 하위 대화 — 펼쳤을 때만 마운트되어 useProjectSessions 로 조회한다.
-// 고정된 대화는 전용 "고정됨" 섹션으로 이동하므로 이 목록에서는 제외한다.
+// 고정 프로젝트의 하위 대화. 전역 세션 목록의 최신 pin 상태를 우선 적용하므로 대화는
+// pin 토글과 동시에 더 높은 우선순위인 "고정됨"으로 이동하거나 여기로 돌아온다.
 function PinnedProjectChildren({
   projectId,
   currentSessionId,
   onSelectSession
 }: PinnedProjectChildrenProps): React.JSX.Element {
   const { tr } = useI18n()
+  const globalSessions = useSessionsState((state) => state.list)
   const { list, loading } = useProjectSessions(projectId)
-  const visibleSessions = list.filter((session) => session.pinnedAt == null)
+  const currentPinById = new Map(globalSessions.map((session) => [session.id, session.pinnedAt]))
+  const visibleSessions = list.filter(
+    (session) =>
+      (currentPinById.has(session.id) ? currentPinById.get(session.id) : session.pinnedAt) == null
+  )
 
   if (loading) {
     return <div className="px-2 py-1 text-[11.5px] text-ink3">{tr('common.loading')}</div>
