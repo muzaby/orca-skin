@@ -29,8 +29,7 @@ export function useSessionActions({
   const activeSessionId = useChatSession((s) => s.sessionId)
   // 활성 세션의 고정 상태 — sessions 목록(SSOT)에서 파생. 토글 후 store refresh 로 갱신.
   const sessionPinned = useSessionsState(
-    (s) =>
-      activeSessionId != null && s.list.some((x) => x.id === activeSessionId && x.pinnedAt != null)
+    (state) => activeSessionId != null && state.byId[activeSessionId]?.pinnedAt != null
   )
 
   return {

@@ -60,11 +60,9 @@ export function ProjectSessionsPanel({
               onSelect={onSessionSelected}
               onDelete={(id) => {
                 onSessionDeleting(id)
-                void sessions.remove(id)
               }}
               onRename={(id, title) => {
                 onSessionRenamed(id, title)
-                void sessions.rename(id, title)
               }}
             />
           ))

@@ -26,7 +26,7 @@ import { useSessionsState } from '../../features/sessions'
 export function useChatRouteSync(): void {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const sessions = useSessionsState((s) => s.list)
+  const sessionsById = useSessionsState((state) => state.byId)
 
   const onNew = pathname === '/new'
   const chatMatch = matchPath('/chat/:sessionId', pathname)
@@ -61,7 +61,7 @@ export function useChatRouteSync(): void {
       // /chat/<새 id> 로 이동). 다른 세션으로의 이동(urlSessionId ≠ 소스)은 정상 로드 —
       // r1 의 무조건 가드가 사이드바 세션 전환까지 차단하던 버그 수정(r2).
       if (cur.sessionId == null && urlSessionId === (cur.forkFrom ?? cur.handoffFrom)) return
-      const meta = sessions.find((s) => s.id === urlSessionId)
+      const meta = sessionsById[urlSessionId]
       const metaTitle = meta?.title?.trim() || meta?.preview?.trim() || null
       void chatActions.loadSession(urlSessionId, metaTitle)
       return
@@ -74,7 +74,7 @@ export function useChatRouteSync(): void {
       return
     }
     // chat 라우트(비채팅, 예: /projects, /agent 등) → no-op.
-  }, [onNew, urlSessionId, urlProjectId, sessions, pathname])
+  }, [onNew, urlSessionId, urlProjectId, sessionsById, pathname])
 
   // 방향 2 — State → URL (armed-ref)
   const sessionId = useChatSession((s) => s.sessionId)

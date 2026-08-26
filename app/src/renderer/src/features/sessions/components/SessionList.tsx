@@ -46,7 +46,9 @@ export function SessionList({
   onDeleteDraft
 }: SessionListProps): React.JSX.Element {
   const { tr } = useI18n()
-  const list = useSessionsState((s) => s.list)
+  const recentIds = useSessionsState((state) => state.recentIds)
+  const byId = useSessionsState((state) => state.byId)
+  const list = recentIds.flatMap((id) => (byId[id] ? [byId[id]] : []))
   // nav 배치 우선순위: 고정 대화 > 고정 프로젝트의 대화 > 최근 대화.
   // 프로젝트 고정을 해제하면 이 필터에서 즉시 빠져 store 의 updatedAt 정렬 위치로 복귀한다.
   const recentSessions = list.filter(
