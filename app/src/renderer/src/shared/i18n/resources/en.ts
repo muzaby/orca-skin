@@ -592,7 +592,7 @@ export const en: typeof ko = {
         low: { label: 'Low', desc: 'Prioritizes fast responses.' },
         medium: { label: 'Medium', desc: 'Balances speed and thinking depth.' },
         high: { label: 'High', desc: 'Default. Works with sufficient thinking depth.' },
-        xhigh: { label: 'Very high', desc: 'Thinks more deeply for complex tasks.' },
+        xhigh: { label: 'Extra', desc: 'Thinks more deeply for complex tasks.' },
         max: { label: 'Max', desc: 'Uses the deepest thinking budget.' }
       },
       handoffNoSession: 'No session to hand off',
