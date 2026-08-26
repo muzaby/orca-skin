@@ -10,6 +10,7 @@ import type { TurnContext } from '../../contracts/turn'
 import type { RuntimeTitleAdapter } from '../../contracts/ports'
 import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
 import type { SessionControl } from '../../features/sessions/session-chain-lease'
+import { isAbsolutePath } from '../../../shared/absolute-path'
 
 // 턴-로컬 상태의 단일 초기값 — 신규 턴과 자동 연속 턴이 공유한다. TurnContext 에 턴-로컬
 // 필드를 더하면 여기에만 더한다(턴 간 계승/차이가 있는 것은 각 호출부가 명시).
@@ -54,12 +55,18 @@ export function resolveTurnCwd(
 
 // 세션행의 extra_dirs(JSON 배열 문자열) → 경로 배열. 손상된 값은 '없음' 으로 접는다 —
 // 참조 경로 하나가 깨졌다고 턴을 실패시킬 이유가 없다(스코프가 좁아질 뿐 안전한 방향이다).
+//
+// **상대 경로는 여기서도 버린다.** IPC 스키마(`ExtraDirSchema`)가 입구를 막지만 이 함수는
+// 입구가 아니라 **DB 행을 읽는 자리**라, 그 검증이 없던 시절에 쓰인 행이 그대로 들어온다.
+// 그 값은 resume/continuity 턴에서 SDK 옵션 `additionalDirectories` 까지 흘러가는데, workspace
+// 가드는 걸러도 SDK 자신의 스코프는 걸러지지 않아 D-006 이 막으려는 "두 스코프가 갈라짐" 이
+// 정확히 일어난다. 같은 규칙을 같은 SSOT(`isAbsolutePath`)로 세 번째 지점에 세운다.
 export function parseExtraDirs(raw: string | null | undefined): string[] {
   if (!raw) return []
   try {
     const parsed: unknown = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
-    return parsed.filter((v): v is string => typeof v === 'string' && v.length > 0)
+    return parsed.filter((v): v is string => typeof v === 'string' && isAbsolutePath(v))
   } catch {
     return []
   }
@@ -114,8 +121,7 @@ interface BuildTurnContextInput<W> {
   effectiveText: string
   boundProjectId: string | null
   sessionMeta:
-    | { cwd: string | null; project_id: string | null; extra_dirs?: string | null }
-    | undefined
+    { cwd: string | null; project_id: string | null; extra_dirs?: string | null } | undefined
   continuityMeta: ContinuitySourceMeta | undefined
   continuityLang: ContinuityLang
   queueKey: string

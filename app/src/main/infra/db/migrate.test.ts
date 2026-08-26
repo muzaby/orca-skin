@@ -9,6 +9,9 @@ import migration0003 from './migrations/0003_messages_fts.sql?raw'
 import migration0004 from './migrations/0004_message_parts.sql?raw'
 import migration0005 from './migrations/0005_usage_events.sql?raw'
 import migration0006 from './migrations/0006_turn_usage.sql?raw'
+import migration0007 from './migrations/0007_title_source.sql?raw'
+import migration0008 from './migrations/0008_provider_key.sql?raw'
+import migration0009 from './migrations/0009_message_complete.sql?raw'
 import {
   DB_SCHEMA_TOO_NEW,
   MIGRATION_NAMES,
@@ -205,5 +208,90 @@ describe('DB migrations hardening', () => {
     expect(backup.pragma('integrity_check', { simple: true })).toBe('ok')
     backup.close()
     db.close()
+  })
+})
+
+// ── 마이그레이션 SQL 자체의 동작 ────────────────────────────────────────────
+// 아래 두 describe 는 **그 시점의 오래된 DB** 를 손으로 세우고 마이그레이션 한 장을 적용해
+// 데이터가 어떻게 옮겨지는지를 검사한다. 여기 쓰이는 목록은 과거에 고정된 부분집합이라 새
+// 마이그레이션을 따라가지 않는다 — 그래서 정본(`applyMigrations`)을 쓸 수 없고, 이 파일이
+// 마이그레이션 목록을 손으로 적어도 되는 유일한 곳인 이유다(골든 목록과 같은 성격).
+function memDb(...sqls: string[]): Database.Database {
+  const db = new Database(':memory:')
+  db.pragma('foreign_keys = ON')
+  for (const sql of sqls) db.exec(sql)
+  return db
+}
+
+function insertSession(db: Database.Database, id = 's1'): void {
+  db.prepare(
+    `INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key)
+     VALUES (?, 'claude', NULL, NULL, 1, 1, NULL, NULL)`
+  ).run(id)
+}
+
+describe('0006_turn_usage migration', () => {
+  it('usage_events 데이터를 id 보존 turn_usage/turn_model_usage 로 이관하고 기존 테이블을 제거한다', () => {
+    const db = memDb(migration0001, migration0002, migration0003, migration0004, migration0005)
+    db.prepare(
+      `INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview)
+       VALUES ('s1', 'claude', NULL, NULL, 1, 1, NULL)`
+    ).run()
+    db.prepare(
+      `INSERT INTO usage_events
+       (id, session_id, model, created_at, input_tokens, output_tokens, cache_read_tokens,
+        cache_creation_tokens, cost_usd)
+       VALUES (42, 's1', 'claude-opus-4-5', 1000, 10, 20, 30, 40, 0.5)`
+    ).run()
+
+    db.exec(migration0006)
+
+    expect(
+      db.prepare(`SELECT name FROM sqlite_master WHERE name = 'usage_events'`).get()
+    ).toBeUndefined()
+    expect(db.prepare('SELECT * FROM turn_usage').get()).toMatchObject({
+      id: 42,
+      session_id: 's1',
+      message_id: null,
+      input_tokens: 10,
+      output_tokens: 20,
+      cache_read_input_tokens: 30,
+      cache_creation_input_tokens: 40,
+      total_cost_usd: 0.5,
+      created_at: 1000
+    })
+    expect(db.prepare('SELECT * FROM turn_model_usage').get()).toMatchObject({
+      turn_usage_id: 42,
+      model: 'claude-opus-4-5',
+      input_tokens: 10,
+      output_tokens: 20,
+      cache_read_input_tokens: 30,
+      cache_creation_input_tokens: 40,
+      cost_usd: 0.5
+    })
+  })
+})
+
+describe('0009_message_complete migration', () => {
+  it('기존 messages 행을 complete=1 로 backfill 한다', () => {
+    const db = memDb(
+      migration0001,
+      migration0002,
+      migration0003,
+      migration0004,
+      migration0005,
+      migration0006,
+      migration0007,
+      migration0008
+    )
+    insertSession(db)
+    db.prepare(
+      `INSERT INTO messages (session_id, role, content, created_at, idx)
+       VALUES ('s1', 'assistant', 'old', 1, 0)`
+    ).run()
+
+    db.exec(migration0009)
+
+    expect(db.prepare('SELECT complete FROM messages').get()).toEqual({ complete: 1 })
   })
 })

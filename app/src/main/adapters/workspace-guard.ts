@@ -18,6 +18,7 @@ import type {
   PreToolUseHookSpecificOutput
 } from '@anthropic-ai/claude-agent-sdk'
 import { isWithinDir, orcaConfigDir } from '../infra/config/paths'
+import { isAbsolutePath } from '../../shared/absolute-path'
 
 const WRITE_TOOLS = ['Write', 'Edit']
 const READ_TOOLS = ['Read', 'Glob', 'Grep']
@@ -55,7 +56,11 @@ export function resolveGuardRoots(
   additionalDirs: string[] = []
 ): GuardRoots {
   const ws = path.resolve(workspaceRoot)
-  const extra = additionalDirs.map((d) => path.resolve(d))
+  // **절대 경로만 루트로 올린다** — 상대경로는 `path.resolve` 가 main 프로세스의 cwd 기준으로
+  // 조용히 풀어 사용자가 지목한 적 없는 폴더를 write 루트로 만든다. IPC 스키마(`ExtraDirSchema`)가
+  // 이미 같은 규칙으로 자르지만, 이 함수는 IPC 를 타지 않는 호출부(테스트·세션 복원)도 받으므로
+  // 여기서 한 번 더 강제한다. 버리는 쪽이 안전하다 — 못 넓히면 가드가 좁게 남을 뿐이다.
+  const extra = additionalDirs.filter(isAbsolutePath).map((d) => path.resolve(d))
   // write 허용 = cwd + additionalDirectories + write 예외(~/.claude)
   const writeRoots = [ws, ...extra, ...writeExceptionRoots()]
   // read 허용 = write + read-only 예외(~/.config/orca·런타임)

@@ -11,6 +11,7 @@ import type {
   EffortLevel,
   ProviderAuthKind
 } from './ipc'
+import { isAbsolutePath } from './absolute-path'
 import { LOG_EVENT_PATTERN, LOG_SCOPE_MAX_LENGTH, LOG_STRING_MAX_LENGTH } from './logging'
 import type { LogInput, SerializedError as LogSerializedError } from './logging'
 
@@ -60,6 +61,15 @@ const NormalizedPermissionModeSchema = z.enum([
   'auto_classified'
 ])
 
+// 참조 경로 원소 — **절대 경로만** 받는다. 이 배열은 어댑터 `additionalDirectories` 와 0075
+// workspace 가드 루트로 **그대로** 흘러가므로(D-006), 상대경로가 통과하면 main 프로세스 cwd 기준
+// 으로 풀려 사용자가 지목한 적 없는 폴더가 read/write 루트로 올라간다. 판정은 플랫폼 독립이다
+// (`./absolute-path` — Linux CI 에서도 Windows 경로를 절대로 읽는다).
+export const ExtraDirSchema = z
+  .string()
+  .min(1)
+  .refine(isAbsolutePath, '참조 경로는 절대 경로여야 합니다')
+
 export const SendChatMessageSchema = z
   .object({
     sessionId: z.string().nullable(),
@@ -74,7 +84,7 @@ export const SendChatMessageSchema = z
     attachmentViews: z.array(AttachmentViewSchema).default([]),
     cwd: z.string().min(1).nullable().optional(),
     // CLI `/add-dir` 대응 — 작업 디렉토리 밖 추가 참조 경로(절대 경로). 새 세션 출생 시 고정.
-    extraDirs: z.array(z.string().min(1)).optional(),
+    extraDirs: z.array(ExtraDirSchema).optional(),
     // 0064 continuity — 상호 배타·새 세션 전용(아래 refine).
     forkFrom: z.string().min(1).optional(),
     handoffFrom: z.string().min(1).optional(),
