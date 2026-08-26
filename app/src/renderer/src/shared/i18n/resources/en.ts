@@ -564,33 +564,31 @@ export const en: typeof ko = {
     },
     composer: {
       modes: {
+        title: 'Mode',
+        auto_classified: {
+          label: 'Auto',
+          desc: 'Claude handles permission decisions'
+        },
+        default: { label: 'Manual', desc: 'Always confirm before making changes' },
+        accept_edits: {
+          label: 'Accept edits automatically',
+          desc: 'Auto-approve all file edits'
+        },
         plan: {
           label: 'Plan',
-          desc: 'Read-only — explores and analyzes code, planning only (no edits).'
+          desc: 'Make a plan before making changes'
         },
-        default: {
-          label: 'Default',
-          desc: 'Standard behavior — asks for confirmation on risky actions as they come up.'
-        },
-        accept_edits: {
-          label: 'Accept edits',
-          desc: 'Automatically accepts file edits (applied without confirmation).'
-        },
-        auto_classified: {
-          label: 'Auto-classified',
-          desc: 'The model classifies risk and auto-approves safe actions.'
+        bypass: {
+          label: 'Bypass permissions'
         },
         dont_ask: {
           label: "Don't ask",
           desc: 'Skips Orca approval prompts and follows the default auto-proceed policy.'
         },
-        bypass: {
-          label: 'Bypass permissions',
-          desc: 'Skips sandbox/approval permission checks as much as possible — very risky.'
-        },
         riskyConfirm: 'All approval gates will be disabled. Click once more to confirm.'
       },
       effort: {
+        title: 'Effort',
         low: { label: 'Low', desc: 'Prioritizes fast responses.' },
         medium: { label: 'Medium', desc: 'Balances speed and thinking depth.' },
         high: { label: 'High', desc: 'Default. Works with sufficient thinking depth.' },
@@ -621,6 +619,7 @@ export const en: typeof ko = {
       permissionModeTitle: 'Permission mode',
       attachMenuTitle: 'More menu',
       modelSelectTitle: 'Select model',
+      modelMenuTitle: 'Model',
       modelFallback: 'Model',
       effortTitle: 'Effort',
       contextTitle: 'Context ~{{used}}k / {{window}}k tokens · view usage',
@@ -633,7 +632,6 @@ export const en: typeof ko = {
       noMatches: 'No matching items',
       skillAutocompleteAria: 'Skill autocomplete',
       noModels: 'No models available.',
-      sdkDefaultModel: 'SDK default',
       cwdOpenAria: 'Open working folder',
       cwdSelectAria: 'Select working folder',
       branchTitle: 'Starting branch',

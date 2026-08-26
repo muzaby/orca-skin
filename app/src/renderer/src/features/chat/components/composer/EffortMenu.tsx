@@ -3,7 +3,7 @@ import { useI18n } from '../../../../shared/i18n'
 import type { EffortLevel } from '../../../../../../shared/ipc'
 
 import { EFFORT_DESC_KEYS, EFFORT_LABEL_KEYS } from './effort'
-import { MenuItem } from '../../../../shared/ui/MenuItem'
+import { MenuItem, MenuTitle } from '../../../../shared/ui/MenuItem'
 
 const EFFORT_OPTIONS: EffortLevel[] = ['low', 'medium', 'high', 'xhigh', 'max']
 
@@ -16,6 +16,7 @@ export function EffortMenu({ effort, onPick }: EffortMenuProps): React.JSX.Eleme
   const { tr } = useI18n()
   return (
     <div role="none" className="flex w-[240px] flex-col">
+      <MenuTitle>{tr('chat.composer.effort.title')}</MenuTitle>
       {EFFORT_OPTIONS.map((level) => {
         const active = level === effort
         return (
