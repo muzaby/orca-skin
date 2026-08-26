@@ -95,6 +95,8 @@ export interface ChatState {
   // 마지막 참조 경로 추가가 **거부된 이유**. null = 거부 없음. 중복·cwd 자기 자신은 조용히
   // 무시하지만(사용자가 이미 가진 것을 다시 고른 것뿐) 루트는 사유를 남긴다 — 고른 폴더가
   // 칩으로 안 붙는데 아무 말도 없으면 사용자는 앱이 먹은 것으로 읽는다 (D-020).
+  // 마지막 **경로 선택**이 거부된 이유. 참조 경로(＋)와 작업 경로(cwd 버튼)가 같은 사유를
+  // 공유한다 — 규칙이 하나(D-019)이므로 사용자에게 보이는 문장도 하나다.
   extraDirRejection: 'root' | null
   // 커밋된 transcript 메시지(SSOT 는 DB, 이 배열은 그 미러). 스트리밍 라이브 텍스트/사고는
   // 여기 없다 — chatStore 의 live 슬라이스(transient)가 담당하고, 완성 시 parts 로 커밋된다.
@@ -628,6 +630,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
 
     case 'SET_CWD':
+      // **루트는 작업 경로도 될 수 없다** (D-019). cwd 는 `writeRoots[0]` 이라 루트면 0075
+      // 가드가 판정할 바깥이 아예 없어진다 — 참조 경로보다 오히려 직접적이다.
+      if (isFilesystemRoot(action.cwd)) return { ...state, extraDirRejection: 'root' }
       // 작업 경로가 바뀌면 그 밑으로 들어온 참조 경로는 의미가 달라진다 — 같이 비운다.
       return { ...state, cwd: action.cwd, extraDirs: [], extraDirRejection: null }
 
