@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 import type { AgentEnvironment } from '../../shared/ipc'
 import {
   affectedRuntimeModelAuthIds,
+  createRuntimeModelAuthChangeHandler,
   createRuntimeModelAuthInvalidator,
   createRuntimeModelAuthResume,
+  createRuntimeModelReconcileSnapshot,
   createRuntimeModelReconcileVerified,
   createRuntimeModelSnapshotReader,
   invalidateRuntimeModelsForAuth,
@@ -104,6 +106,55 @@ describe('runtime model startup', () => {
     expect(onSnapshot).toHaveBeenCalledTimes(2)
     expect(onSnapshot).toHaveBeenNthCalledWith(1, 'wiki', { authId: 'wiki', revision: 1 })
     expect(onSnapshot).toHaveBeenNthCalledWith(2, 'wiki', { authId: 'wiki', revision: 2 })
+  })
+
+  it('forwards an already-held snapshot to the bridge without re-reading the store', () => {
+    const onSnapshot = vi.fn(async () => undefined)
+    const forward = createRuntimeModelReconcileSnapshot({ onSnapshot })
+
+    forward('wiki', { authId: 'wiki', revision: 7 } as never)
+
+    expect(onSnapshot).toHaveBeenCalledExactlyOnceWith('wiki', { authId: 'wiki', revision: 7 })
+  })
+
+  it('routes one Auth snapshot change to broadcast, plugin sync, invalidation, and reconcile', () => {
+    const log: string[] = []
+    const handle = createRuntimeModelAuthChangeHandler({
+      pushConnectionState: () => log.push('push'),
+      syncPlugins: (authId) => log.push(`sync:${authId}`),
+      invalidateForAuth: (authId) => log.push(`invalidate:${authId}`),
+      reconcileSnapshot: (authId) => log.push(`reconcile:${authId}`)
+    })
+
+    handle({
+      kind: 'snapshot',
+      authId: 'wiki',
+      credentialChanged: true,
+      snapshot: { authId: 'wiki' }
+    } as never)
+
+    expect(log).toEqual(['push', 'sync:wiki', 'invalidate:wiki', 'reconcile:wiki'])
+  })
+
+  it('reconciles a snapshot change that did not swap credentials, and stops at step changes', () => {
+    const log: string[] = []
+    const handle = createRuntimeModelAuthChangeHandler({
+      pushConnectionState: () => log.push('push'),
+      syncPlugins: (authId) => log.push(`sync:${authId}`),
+      invalidateForAuth: (authId) => log.push(`invalidate:${authId}`),
+      reconcileSnapshot: (authId) => log.push(`reconcile:${authId}`)
+    })
+
+    // `verified` 는 `credentialChanged:false` 인데도 재조정에 도달해야 한다 (0202 D-008).
+    handle({
+      kind: 'snapshot',
+      authId: 'gate',
+      credentialChanged: false,
+      snapshot: { authId: 'gate' }
+    } as never)
+    handle({ kind: 'step', authId: 'gate' } as never)
+
+    expect(log).toEqual(['push', 'reconcile:gate', 'push'])
   })
 
   it('returns every Auth owner of invalidated canonical contribution keys', () => {

@@ -478,6 +478,12 @@ Auth snapshot / 명시 invalidate
 - 이견 / 현실성 문제: **⚠️ `bootstrap.ts` 는 vitest 대상이 아니라 배선을 단위로 잠글 수 없다**(0198 D-010). 그래서 *부재*는 typecheck, *무동작*은 실재 스윕으로 갈라 잠갔다.
 - ACTIVE Decision 과 충돌하는 설계 발견: **없음.** factory 둘은 `bootstrap` 이 4벌로 적던 같은 식을 한 자리로 모은 것이라 동작이 같다.
 
+### r3 (2026-08-26) — 검증자 파생 이슈 D4
+
+- 동의 / 그대로 진행: **✅ D4 를 닫았다.** 판정 단위를 파일에서 **주입 지점(`키:` 출현)** 으로 낮췄고, 마지막 텍스트-전용 자리(AuthChange forwarding)는 순수 factory 로 뽑아 동작으로 잠갔다.
+- 이견 / 현실성 문제: **⚠️ 토큰 스윕은 `runtimeModelSnapshotOf` 라는 *이름*만 요구한다.** 그 이름의 몸이 가짜면 통과하므로 `const … = createRuntimeModelSnapshotReader(auth)` 생성 형태를 별도 케이스로 잠갔다(변이 F1′ red).
+- ACTIVE Decision 과 충돌하는 설계 발견: **없음.** `AuthChange` 처리 순서(방송 → plugin → 무효화 → 재조정)를 그대로 옮겼다.
+
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
@@ -507,6 +513,21 @@ Auth snapshot / 명시 invalidate
 - 합계: `5+3+2+1+3+2+6 = 22`. r1 과 분모 동일 — r2 는 지점을 늘리지 않고 잠금만 더했다.
 - §10 에 없는데 같은 불변식이 필요했던 지점: **1곳 선조치**(D1 형제) + **1곳 보고**(§놓친 잠재 문제 3).
 
+### r3 — 재측정 (분모 불변 22)
+
+| 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|
+| 무효화 폭 = canonical key | 5 | **5/5** | `rg "assertMutable\(" engine.ts` = 4(3 write + 1 read) + sink 2 — r1·r2 와 동일 | 없음 |
+| drop+replay | 3 | **3/3** | 본체 + 호출자 2. **배선 축이 이번에 닫혔다** — catalog `snapshotOf` 가 굳으면 스윕 red(E4) | 없음 |
+| 열거 cache 전체 무효화 | 2 | **2/2** | `engine.ts:37` · `bootstrap.ts:635` | 없음 |
+| read-only 실행 cache-only | 1 | **1/1** | `turn-setup.ts:89` | 없음 |
+| 미노출 병합 | 3 | **3/3** | `models.ts:105` + `misc.ts:43` + `turn-setup.ts:54`; 갈림 변이 G3 **5케이스 red** | 없음 |
+| 부팅 순서 | 2 | **2/2** | helper 본체 + `bootstrap.ts:634` | 없음 |
+| verified→재조정 | 6 | **6/6** | `rg "markVerified\|emitVerifiedChange" src/main --glob '!*.test.ts'` **9건** + 신설 2. 배선의 *무동작*도 red(G2 · 진단 0) | 없음 |
+
+- 합계: `5+3+2+1+3+2+6 = 22`. r1·r2 와 분모 동일.
+- **§10 밖 전수(D4 불변식)**: "재조정 축의 각 주입 지점은 살아 있는 채널로 배선된다" 의 주어로 센 `키:` 출현 = **20건**(`snapshotOf` 8 · `bridge` 5 · `onChange` 3 · `reconcileVerified` 2 · `reconcile` 2 · `invalidateForAuth` 1 — 합 21 중 `ActiveTurnCountListener` 1건은 축 밖). 허용 형태와의 **차집합 0**(`injectionViolations(MAIN_ROOT)` = `[]`).
+
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
@@ -534,6 +555,26 @@ Auth snapshot / 명시 invalidate
 - 스윕 자기 검사(대상 집합·실재 판정·방향)는 tmp-root 케이스 2건이 갖는다 — `.test.ts` 제외 · 주석/문자열은 배선으로 세지 않음 · 무동작 람다는 flag.
 - 되돌릴 수 없거나 잠글 수 없는 지점: **1곳** — `bootstrap.ts:650` AuthChange 축 forwarding(N10, §놓친 잠재 문제 3).
 
+### r3 — 분모는 D4 가 **인용한 변이**다
+
+| 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|
+| E4 catalog seam 만 굳은 미인증 snapshot | **D4 인용** | `no-stray-auth-subscribe.test.ts` 1 | **red** (r2 에서는 green 이었다) |
+| E5 bridge seam 만 굳은 snapshot | **D4 인용** | 같음 1 | **red** |
+| E1 두 단계로 나눈 store 읽기 | **D4 인용** | 같음 1 | **red** |
+| E3 factory 호출 유지 + 가짜 bridge | **D4 인용** | 같음 1 | **red** |
+| F1′ reader 상수 이름 유지 + 가짜 몸 (잔여물 정리 후) | 이름 축 자기검사 | `builds the shared reader and bridge sink…` 1 | **red** — typecheck 0 · eslint 0 |
+| F2 sink 상수 이름 유지 + 무동작 | 같음 | 같음 1 | **red** |
+| F3 AuthChange handler 의 재조정 호출 삭제 | r2 verify N10 자리 | `runtime-model-startup.test.ts` 2 | **red** — 텍스트가 아니라 동작이 잡는다 |
+| F4′ AuthChange seam 을 손으로 쓴 클로저로 (잔여물 정리 후) | 분류 단위 | `wires every catalog-reconcile…` 1 | **red** |
+| F5 주석에 정답 형태 + 실제는 무동작 | 실재 판정 | 같음 1 | **red** |
+| H1 `invalidateForAuth` 무동작 | 주입 축 전수 | 같음 1 | **red** |
+| G1·G2·G3·G4 (r1·r2 잠금 회귀) | 회귀 확인 | 각각 1·2·5·1 | **전부 red** |
+| H2 `syncPlugins` 무동작 | 0188 plugin 축 | — | **green — 잠기지 않았다**(§놓친 잠재 문제 5) |
+
+- 스윕 자기검사(대상 집합·추출·비교·실재 판정·분류 단위)는 tmp-root 케이스 2건이 갖는다 — nested 포함·`.test.ts` 제외 · seam 하나만 굳어도 flag · 가짜 bridge 인자 flag · 손으로 쓴 forwarding 은 음성 스윕이 flag.
+- 잠글 수 없는 지점: **없음.** 남은 것은 계약 밖 1건(H2)이고 그것도 사람 실기가 아니다.
+
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
@@ -552,6 +593,15 @@ Auth snapshot / 명시 invalidate
 | 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | **r1 과 동일** — 실패는 행 미노출(D-006) | D-007 후속 유지 |
 | 늦게 도착한 응답이 화면을 되돌리지 않는가 | **✅ 잠금이 강화됐다** — N1·N9′ 가 정리 축을 red 로 만든다 | 없음 |
 
+### r3
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | **해당 없음** — UI 문자열·DTO·IPC 변경 0 | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | **새 실패 경로 없음** — `AuthChange` 처리 순서가 그대로다 | 표 변경 불요 |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | **r1·r2 와 동일** | D-007 후속 유지 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | **✅ 불변** — 세대 fence·정리 identity 잠금 유지(G1·G4 red) | 없음 |
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
@@ -567,6 +617,13 @@ Auth snapshot / 명시 invalidate
 | 4 | `runtime-config.ts:211` 이 D1 과 같은 불변식인데 잠금이 없었다 | **선조치** — 케이스 1건 추가 | N9′ 가 red |
 
 **§10 행 신설 제안(설계자 판단 필요)**: "컴포지션 루트가 넘기는 sink 는 **실배선**이다 — 부재는 typecheck, 무동작은 실재 스윕이 막는다". 지점은 불변식의 주어(`runtimeModelCatalogBridge.onSnapshot` 으로 들어가는 production forwarding)로 세면 **3지점**이다 — `rg -n "onSnapshot\(" src/main --glob '!*.test.ts'` 5건 중 정의 2(`runtime-catalog.ts:26`·`:38`) 제외, `bootstrap.ts:478` · `:650` · `runtime-model-startup.ts:75`. 이번 라운드는 그중 **1지점**(`:75`, D-008 축)만 잠갔다. 나머지 2는 0198 Auth-change 축이라 규범 행이 없으면 분모가 성립하지 않는다.
+
+### r3
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 5 | `syncPlugins` 인라인 클로저는 무동작으로 바꿔도 전건 초록이다 | **보고만** — 0188 plugin 축이라 D4 계약(§10 2·7행 · AC5·AC12) 밖이다 | 변이 H2: 2318 케이스 green · typecheck 0 |
+| 6 | 토큰 스윕이 `키:` 이름을 안다 — 새 주입 키가 생기면 규칙에 추가해야 한다 | **선조치 + 안전 방향 확인** | 허용 목록에 없는 형태는 flag 이므로 누락은 red 로 나타난다(H1 이 실증) |
 
 ### 설계 대비 명시적 차이
 
@@ -618,6 +675,21 @@ Auth snapshot / 명시 invalidate
 | 블로커 / 역질문 | **§10 행 신설 제안 1건**(위 §놓친 잠재 문제 3) — 설계자 판단 |
 | 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
 
+### r3
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | main 코드 2(`runtime-model-startup.ts`·`bootstrap.ts`) · 테스트 2 · handoff 2 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs` · `node scripts/check-doc-inventory.mjs --check` |
+| 관측한 게이트 산출 | lint **0 error / warning 1**(기존) · typecheck 3구성 **출력 0줄** · vitest **227파일 2318케이스, 1파일 red** · scripts **59 pass / 0 fail** · doc inventory 3항목 ok |
+| 환경 기인 실패 분리 | red 1파일 = `chat-turn.continuity.test.ts`, 서명 `Error: Electron failed to install correctly` — `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 설치 결과지 코드 무관 |
+| 강제 지점 전수 | **22/22** — 분모 불변. D4 불변식의 주입 지점 **20건 차집합 0** |
+| AC 자기보고 | **15/15** — AC5 가 ⚠️ 에서 ✅ 로(배선 무동작이 이제 red) |
+| 합계 검산 | `✅ 15 · ⚠️ 0 · ❌ 0 = 총 15` (§7 AC1~AC15 를 다시 셌다) |
+| 케이스 증분 | 2312 → **2318** (+6: factory 3 · 주입 스윕 1 · forwarding 음성 1 · 생성 형태 1, tmp-root 자기검사 2건은 기존 1건을 대체) |
+| 블로커 / 역질문 | 없음. `syncPlugins`(H2)는 계약 밖 보고 |
+| 대상 커밋 | `(r3 구현 — 좌표는 INDEX)` |
+
 ## [구현자 기입] Review Signals — 사실만
 
 - 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **예.** 0198의 cache invalidation→reconcile 짝 축이며 0202가 직접 승계했다.
@@ -632,6 +704,13 @@ Auth snapshot / 명시 invalidate
 - 반복해서 부딪히는 환경 한계: **`bootstrap.ts` 가 vitest 대상이 아님**(0198 D-010). 이번에도 배선을 단위로 잠그지 못해 실재 스윕으로 우회했다. 그리고 이 환경의 electron 바이너리 미설치로 `chat-turn.continuity.test.ts` 2케이스를 못 돌렸다.
 - 현재 라운드 수: 2
 
+### r3
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **예.** r1(잠금 없음) → r2(잠금 있으나 파일 단위) → r3(주입 지점 단위)로 같은 축의 **판정 단위**가 한 칸씩 내려왔다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **없다.** plan §7 방향 기준은 "지웠을 때 실패해야 한다"만 요구하고 **판정 단위**를 요구하지 않는다. r2 가 그 빈자리를 §10 행 신설로 제안했고, r3 는 규범 행 없이 스윕 술어로 닫았다.
+- 반복해서 부딪히는 환경 한계: **`bootstrap.ts` 가 vitest 대상이 아님**(0198 D-010) — 세 라운드 연속 같은 자리다. 이번에는 그 파일에서 로직을 걷어내 순수 factory 로 옮기는 쪽으로 대응했다. electron 바이너리 미설치로 `chat-turn.continuity.test.ts` 2케이스 미실행.
+- 현재 라운드 수: 3
+
 ---
 
 ## [검증자 기입] 파생 이슈
@@ -642,7 +721,7 @@ Auth snapshot / 명시 invalidate
 | D2 | `bootstrap.ts:407-409`·`:481` 배선이 *부재*만 닫혀 있다 — `reconcileVerified: () => {}`로 바꾸면 typecheck·lint·전체 스위트 전건 green | verify r1 §4(M-J) · §10 7행 · AC12 | 0198 D-010의 실재 가드(`infra/source-scan.ts` + `no-stray-auth-subscribe.test.ts`) 형태로 두 인자의 실재를 production 스윕한다. 가드를 만들면 판정 지점마다 변이를 심어 눈이 있음을 먼저 보인다 | **closed r2** — `createRuntimeModelSnapshotReader`·`createRuntimeModelReconcileVerified` 로 4 seam 을 모으고 실재 스윕 3건 신설. 인용 변이(`() => {}`) 재측정 **red**, 미사용 import 까지 치워 **진단 0** 인 상태에서도 red |
 | D3 | AC11의 검증 수단이 없다 — `rg "\.merge\(" src/main --glob '*.test.ts'` **1건**(필터 단독). 두 소비처를 같은 인스턴스로 비교한 케이스도 CRUD 뒤 단언도 0 | verify r1 §5 · AC11 | `engine.runtime-catalog.test.ts`의 행 존속 케이스에서 CRUD 뒤 같은 인스턴스의 `merge(settings)`와 `merge(settings,'claude')` key 집합이 같음을 단언한다 | **closed r2** — CRUD 뒤 같은 인스턴스로 `merge(settings)` ↔ `merge(settings, 'claude')` 의 runtime key 집합을 3채널에서 비교. 두 형태를 갈라 놓는 변이 N7·N8 각각 **red** |
 
-| D4 | 컴포지션 seam 잠금이 **파일 단위**라 seam 하나가 개별로 무동작이 될 수 있다 | verify r2 §4(E1·E3·E4·E5) · §10 2·7행 · AC5·AC12 | 판정 단위를 **토큰**으로 낮춘다 — `snapshotOf\s*:` 출현마다 뒤가 `createRuntimeModelSnapshotReader(` 인지 부정 lookahead 로 보고, `bridge\s*:` 도 컴포지션 루트의 bridge 식별자를 요구한다. 대안은 seam 수를 줄이는 구조 변경(bridge 가 reader 를 소유) | open |
+| D4 | 컴포지션 seam 잠금이 **파일 단위**라 seam 하나가 개별로 무동작이 될 수 있다 | verify r2 §4(E1·E3·E4·E5) · §10 2·7행 · AC5·AC12 | 판정 단위를 **토큰**으로 낮춘다 — `snapshotOf\s*:` 출현마다 뒤가 `createRuntimeModelSnapshotReader(` 인지 부정 lookahead 로 보고, `bridge\s*:` 도 컴포지션 루트의 bridge 식별자를 요구한다. 대안은 seam 수를 줄이는 구조 변경(bridge 가 reader 를 소유) | **closed r3** — 판정 단위를 파일 → **주입 지점**으로 낮췄다. 인용 변이 E1·E3·E4·E5 전부 **red**. 이름 축(F1′·F2)·분류 단위(F4′)·실재 판정(F5)·주입 축 전수(H1)도 red. 마지막 텍스트-전용 자리는 `createRuntimeModelAuthChangeHandler` 로 뽑아 동작으로 잠갔다(F3 red) |
 
 - **규범 정정 필요 없음** — D1·D2·D3 는 닫혔고 D4 도 스윕 술어·배선 형태로 닫힌다. Decision·AC·§10 문면은 그대로다.
 - **관측(E4)**: catalog seam 의 `snapshotOf` 가 굳은 미인증 snapshot 을 돌려주면 **AC5 가 production 에서 깨지는데** vitest **2312/2312 green** · typecheck 0 · 새 스윕 3건 green 이다. E6(4 seam 일괄 교체)만 red 다.

@@ -1,8 +1,8 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { scanOffenders, stripCommentsAndStrings } from '../infra/source-scan'
+import { scanOffenders, sourceFiles, stripCommentsAndStrings } from '../infra/source-scan'
 
 const MAIN_ROOT = join(__dirname, '..')
 const AUTH_SUBSCRIBE = /\bauth\s*\.\s*subscribe\s*\(/
@@ -14,13 +14,74 @@ const INSTALL_AUTH_RESUME = /\bcreateRuntimeModelAuthResume\s*\(/
 const BUILD_AUTH_RESUME = /\bcreateAuthResume\s*\(/
 const RECONCILE_VERIFIED_WIRING =
   /\breconcileVerified\s*:\s*createRuntimeModelReconcileVerified\s*\(/
-const BUILD_RUNTIME_MODEL_CATALOG = /\bcreateRuntimeModelCatalog(?:Bridge)?\s*\(/
-const SNAPSHOT_READER_WIRING = /\bsnapshotOf\s*:\s*createRuntimeModelSnapshotReader\s*\(/
+// 공유 상수가 **진짜 factory 로** 만들어졌는지 — 이름만 같고 몸이 가짜면 토큰 스윕은 통과한다.
+const SHARED_READER_BUILD =
+  /\bconst\s+runtimeModelSnapshotOf\s*=\s*createRuntimeModelSnapshotReader\s*\(\s*auth\s*\)/
+const SHARED_SINK_BUILD =
+  /\bconst\s+reconcileRuntimeModelSnapshot\s*=\s*createRuntimeModelReconcileSnapshot\s*\(\s*runtimeModelCatalogBridge\s*\)/
 // 불변식의 주어로 쓰는 음성 술어 — seam 이 store 를 손으로 다시 읽으면 여기 걸린다.
+// 손으로 쓴 bridge forwarding — factory 정의 파일 밖에서는 0건이어야 한다.
+const BRIDGE_FORWARD = /\.\s*onSnapshot\s*\(/
 const INLINE_SNAPSHOT_READ = /\.\s*bind\s*\(\s*[A-Za-z_$][\w$]*\s*\)\s*\.\s*snapshot\s*\(\s*\)/
+// **주입 지점 단위 판정** (0202 D4). 파일 단위 boolean 은 `bootstrap.ts` 에 리터럴이 한 벌만
+// 남아 있어도 통과시켜서, seam 하나가 개별로 무동작이 돼도 초록이었다. 그래서 `키:` 출현을
+// **전부** 뽑아 허용 형태와 대조한다 — 분모는 불변식의 주어(재조정 축에 주입되는 인자)다.
+const INJECTION_RULES: ReadonlyArray<{ key: string; allow: readonly RegExp[] }> = [
+  {
+    key: 'snapshotOf',
+    allow: [
+      /^runtimeModelSnapshotOf\b/, // 컴포지션 루트의 단일 reader 참조
+      /^input\.snapshotOf\b/, // 순수 helper 내부 전달
+      /^\(authId: AuthId\) => AuthSnapshot/ // 포트 타입 선언
+    ]
+  },
+  {
+    key: 'reconcileVerified',
+    allow: [/^createRuntimeModelReconcileVerified\s*\(/, /^\(authId: AuthId\) => void/]
+  },
+  {
+    key: 'reconcile',
+    allow: [/^reconcileRuntimeModelSnapshot\b/, /^input\.reconcile\b/]
+  },
+  {
+    key: 'bridge',
+    allow: [
+      /^runtimeModelCatalogBridge\b/,
+      /^Pick<RuntimeModelCatalogBridge/,
+      /^RuntimeModelCatalogBridge\b/
+    ]
+  },
+  {
+    key: 'invalidateForAuth',
+    allow: [/^invalidateHarnessForAuth\b/, /^\(authId: AuthId\) => void/]
+  },
+  {
+    key: 'onChange',
+    allow: [
+      /^createRuntimeModelAuthChangeHandler\s*\(/,
+      /^pushConnectionState\b/,
+      /^ActiveTurnCountListener\b/ // 재조정 축이 아닌 동명 생성자 인자
+    ]
+  }
+]
+
+// 뒤 60자면 형태를 가르기에 충분하다 — 줄바꿈은 첫 줄만 남겨 보고를 짧게 유지한다.
+function injectionViolations(root: string): string[] {
+  return sourceFiles(root).flatMap((file) => {
+    const source = stripCommentsAndStrings(readFileSync(file, 'utf8'))
+    return INJECTION_RULES.flatMap((rule) =>
+      [...source.matchAll(new RegExp(`\\b${rule.key}\\s*:\\s*`, 'g'))]
+        .map((match) =>
+          source.slice(match.index + match[0].length, match.index + match[0].length + 60).trim()
+        )
+        .filter((tail) => !rule.allow.some((form) => form.test(tail)))
+        .map((tail) => `${basename(file)} :: ${rule.key}: ${tail.split('\n')[0].trim()}`)
+    )
+  })
+}
+
 // 정의 파일은 조립 지점이 아니다 — 면제하지 않으면 `export function` 선언이 자기 스윕에 걸린다.
 const AUTH_RESUME_DEFINITION = new Set(['auth-resume.ts'])
-const CATALOG_DEFINITION = new Set(['runtime-catalog.ts'])
 
 // 스윕은 `infra/source-scan.ts` 가 소유한다 (0197 A-5) — 여기서 다시 적으면 같은 경로-구분자
 // 버그를 두 벌 고쳐야 한다. 단언은 파일 이름으로 읽는 편이 좌표로 짧아 basename 으로 되돌린다.
@@ -79,16 +140,22 @@ describe('runtime model Auth composition seam', () => {
     expect(matchingFiles(MAIN_ROOT, RECONCILE_VERIFIED_WIRING, new Set())).toEqual(['bootstrap.ts'])
   })
 
-  it('wires the live snapshot reader wherever it builds the catalog or its bridge', () => {
-    expect(
-      unwiredSeams(
-        MAIN_ROOT,
-        BUILD_RUNTIME_MODEL_CATALOG,
-        SNAPSHOT_READER_WIRING,
-        CATALOG_DEFINITION
-      )
-    ).toEqual([])
-    expect(matchingFiles(MAIN_ROOT, SNAPSHOT_READER_WIRING, new Set())).toEqual(['bootstrap.ts'])
+  it('builds the shared reader and bridge sink from the real factories', () => {
+    // 토큰 스윕은 `runtimeModelSnapshotOf` 라는 **이름**만 요구한다. 그 이름의 몸이 실제
+    // factory 인지는 여기가 잠근다 — 갈리면 이름만 맞는 가짜가 통과한다.
+    expect(matchingFiles(MAIN_ROOT, SHARED_READER_BUILD, new Set())).toEqual(['bootstrap.ts'])
+    expect(matchingFiles(MAIN_ROOT, SHARED_SINK_BUILD, new Set())).toEqual(['bootstrap.ts'])
+  })
+
+  it('wires every catalog-reconcile injection point to a locked form', () => {
+    // 파일이 아니라 **출현**을 센다 — seam 하나만 굳어도 여기 걸린다.
+    expect(injectionViolations(MAIN_ROOT)).toEqual([])
+  })
+
+  it('forwards to the catalog bridge only from the composition factories', () => {
+    expect(matchingFiles(MAIN_ROOT, BRIDGE_FORWARD, new Set(['runtime-model-startup.ts']))).toEqual(
+      []
+    )
   })
 
   it('reads Auth snapshots only through the shared reader', () => {
@@ -160,31 +227,54 @@ describe('runtime model Auth composition seam', () => {
     expect(unwiredSeams(root, BUILD_AUTH_RESUME, RECONCILE_VERIFIED_WIRING)).toEqual([])
   })
 
-  it('flags a catalog built without the shared snapshot reader, and ad-hoc store reads', () => {
-    const root = mkdtempSync(join(tmpdir(), 'orca-runtime-model-reader-'))
-    writeFileSync(
-      join(root, 'bootstrap.ts'),
+  it('flags one inert injection even when sibling seams keep the locked form', () => {
+    // 이것이 D4 의 본체다 — r2 의 파일 단위 판정은 아래 fixture 를 통과시켰다.
+    const root = mkdtempSync(join(tmpdir(), 'orca-runtime-model-injection-'))
+    mkdirSync(join(root, 'nested'))
+    const seams = (second: string): string =>
       [
-        'const catalog = createRuntimeModelCatalog({',
-        '  snapshotOf: (authId) => auth.bind(authId).snapshot()',
-        '})'
+        'const bridge = createRuntimeModelCatalogBridge({ snapshotOf: runtimeModelSnapshotOf })',
+        `const catalog = createRuntimeModelCatalog({ snapshotOf: ${second} })`
       ].join('\n')
-    )
-    expect(unwiredSeams(root, BUILD_RUNTIME_MODEL_CATALOG, SNAPSHOT_READER_WIRING)).toEqual([
-      'bootstrap.ts'
-    ])
-    expect(matchingFiles(root, INLINE_SNAPSHOT_READ, new Set())).toEqual(['bootstrap.ts'])
+    writeFileSync(join(root, 'nested', 'bootstrap.ts'), seams('(authId) => frozen'))
+    writeFileSync(join(root, 'ignored.test.ts'), seams('(authId) => frozen'))
 
+    expect(injectionViolations(root)).toEqual(['bootstrap.ts :: snapshotOf: (authId) => frozen })'])
+
+    writeFileSync(join(root, 'nested', 'bootstrap.ts'), seams('runtimeModelSnapshotOf'))
+    expect(injectionViolations(root)).toEqual([])
+  })
+
+  it('flags an inert bridge argument and a hand-written forwarding', () => {
+    const root = mkdtempSync(join(tmpdir(), 'orca-runtime-model-forward-'))
     writeFileSync(
       join(root, 'bootstrap.ts'),
       [
-        'const bridge = createRuntimeModelCatalogBridge({',
-        '  snapshotOf: createRuntimeModelSnapshotReader(auth)',
+        'const sink = createRuntimeModelReconcileVerified({',
+        '  bridge: { onSnapshot: async () => undefined },',
+        '  snapshotOf: runtimeModelSnapshotOf',
         '})'
       ].join('\n')
     )
-    expect(unwiredSeams(root, BUILD_RUNTIME_MODEL_CATALOG, SNAPSHOT_READER_WIRING)).toEqual([])
-    expect(matchingFiles(root, INLINE_SNAPSHOT_READ, new Set())).toEqual([])
+    // 가짜 bridge 는 **인자 형태**가 잡는다 — 객체 리터럴 키는 forwarding 이 아니다.
+    expect(injectionViolations(root).map((entry) => entry.split(' :: ')[1])).toEqual([
+      'bridge: { onSnapshot: async () => undefined },'
+    ])
+    expect(matchingFiles(root, BRIDGE_FORWARD, new Set())).toEqual([])
+
+    // 손으로 쓴 forwarding 은 **음성 스윕**이 잡는다 — 두 장치가 서로 다른 것을 본다.
+    writeFileSync(
+      join(root, 'bootstrap.ts'),
+      [
+        'const sink = createRuntimeModelReconcileVerified({',
+        '  bridge: runtimeModelCatalogBridge,',
+        '  snapshotOf: runtimeModelSnapshotOf',
+        '})',
+        'void runtimeModelCatalogBridge.onSnapshot(authId, snapshot)'
+      ].join('\n')
+    )
+    expect(injectionViolations(root)).toEqual([])
+    expect(matchingFiles(root, BRIDGE_FORWARD, new Set())).toEqual(['bootstrap.ts'])
   })
 
   it('detects Auth subscription calls but ignores comments and strings', () => {
