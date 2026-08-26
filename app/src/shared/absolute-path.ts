@@ -43,3 +43,18 @@ export function isAbsolutePath(value: string): boolean {
   if (root === 0) return false
   return !hasEmptySegment(value.slice(root))
 }
+
+// 파일시스템 루트인가 — `/` · `C:\` · `\\server\share` (뒤 구분자 포함/미포함 모두).
+//
+// **루트를 `extraDirs` 로 받으면 0075 가드가 no-op 이 된다** (D-019): writeRoots 에 모든 경로의
+// 조상이 오르면 가드가 "밖" 이라고 판정할 대상이 남지 않는다. 실측 —
+// `resolveGuardRoots('/tmp/ws', ['/']).writeRoots[1] === '/'`.
+//
+// **이 판정은 텍스트 층이다.** `/.` · `/a/..` 처럼 정규화해야만 루트로 드러나는 별칭은 여기서
+// 잡히지 않는다 — 그것은 `path.resolve` 를 이미 하는 `resolveGuardRoots` 가 정규화 **후** 이
+// 함수를 다시 불러 잡는다. 두 층은 중복이 아니라 역할이 다르다: 앞 층은 사용자에게 즉시
+// 말하고(칩 추가 거부), 뒤 층은 무엇이 통과했든 가드를 지킨다.
+export function isFilesystemRoot(value: string): boolean {
+  if (!isAbsolutePath(value)) return false
+  return value.slice(rootLength(value)).length === 0
+}

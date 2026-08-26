@@ -649,6 +649,7 @@ export const en: typeof ko = {
       dirtyStash: 'Stash changes',
       dirtyCommitWip: 'Commit as WIP',
       dirtyDiscard: 'Discard changes',
+      extraDirRejectRoot: 'The root folder cannot be added as a reference path.',
       extraDirAdd: 'Add another folder',
       extraDirRemoveAria: 'Remove reference folder {{name}}'
     },
