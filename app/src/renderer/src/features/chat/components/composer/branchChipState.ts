@@ -66,3 +66,26 @@ export const APPLIED_NOTICE_KEY: Record<GitDirtyResolution, MessageKey> = {
   'commit-wip': 'chat.composer.branchAppliedCommitWip',
   discard: 'chat.composer.branchAppliedDiscard'
 }
+
+// 전환 실패 모달의 본문 — **문단 목록을 여기서 조립한다** (D2).
+//
+// 순서가 계약이다: 적용된 해소 안내가 **먼저**, git 원문이 뒤. `discard` 는 되돌릴 수 없으므로
+// "변경이 어디로 갔는가" 가 오류 원문보다 먼저 읽혀야 한다.
+//
+// 모달이 이 배열을 그대로 map 하게 두는 것이 요점이다 — 조립을 JSX 안에 인라인으로 두면
+// 안내 문단을 지워도 죽는 테스트가 없다(r1 verify D2: 문단+import 를 지우고 잔여물 진단 0까지
+// 밀었을 때 typecheck 와 렌더러 352케이스가 전건 통과했다).
+export type CheckoutErrorLine =
+  { kind: 'notice'; messageKey: MessageKey } | { kind: 'detail'; text: string }
+
+export function checkoutErrorLines(
+  error: { message: string; applied?: GitDirtyResolution } | null
+): CheckoutErrorLine[] {
+  if (error == null) return []
+  return [
+    ...(error.applied
+      ? [{ kind: 'notice' as const, messageKey: APPLIED_NOTICE_KEY[error.applied] }]
+      : []),
+    { kind: 'detail' as const, text: error.message }
+  ]
+}

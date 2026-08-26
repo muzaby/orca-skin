@@ -245,6 +245,15 @@ describe('extraDirs 해석', () => {
     expect(turn.extraDirs).toEqual(['/refs/ok'])
   })
 
+  it('세션행의 루트도 버린다 — 스키마 이전 행이 SDK 옵션까지 가지 않는다', () => {
+    const turn = buildTurnContext<string>({
+      ...base(),
+      payload: { sessionId: 's1', cwd: null, attachmentViews: [] },
+      sessionMeta: { cwd: '/w', project_id: null, extra_dirs: '["/","/refs/ok"]' }
+    })
+    expect(turn.extraDirs).toEqual(['/refs/ok'])
+  })
+
   it('continuity 계승도 같은 규칙을 받는다', () => {
     const turn = buildTurnContext<string>({
       ...base(),
