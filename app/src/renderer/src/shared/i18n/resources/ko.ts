@@ -597,7 +597,7 @@ export const ko = {
         low: { label: '낮음', desc: '빠른 응답을 우선합니다.' },
         medium: { label: '중간', desc: '속도와 사고 깊이를 균형 있게 사용합니다.' },
         high: { label: '높음', desc: '기본값. 충분한 사고 깊이로 작업합니다.' },
-        xhigh: { label: '매우 높음', desc: '복잡한 작업에 더 깊게 사고합니다.' },
+        xhigh: { label: '엑스트라', desc: '복잡한 작업에 더 깊게 사고합니다.' },
         max: { label: '최대', desc: '가장 깊은 사고 예산을 사용합니다.' }
       },
       handoffNoSession: '핸드오프할 세션이 없습니다',
