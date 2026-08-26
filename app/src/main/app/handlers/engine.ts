@@ -21,7 +21,7 @@ import { handle, handlePlain } from '../../infra/ipc/handle'
 import { getLogger } from '../../infra/log'
 import { canonicalProviderKey, providerKeyOf } from '../../infra/config/provider-key'
 
-async function refreshHarnessSettings(ctx: RouterContext): Promise<void> {
+async function refreshHarnessSettings(ctx: RouterContext, key: string): Promise<void> {
   try {
     const result = await deploy('claude')
     if (!result.validation.ok) {
@@ -35,26 +35,27 @@ async function refreshHarnessSettings(ctx: RouterContext): Promise<void> {
     // **두 cache 를 함께 비운다** (0188) — settings 만 비우면 동적 runtime config 가 옛
     // sourceRevision 기준 값을 warm hit 로 계속 돌려준다.
     ctx.harnessSettings.invalidateAll()
-    ctx.harnessRuntime?.invalidate(undefined, 'harness-settings-crud')
-    ctx.runtimeModelCatalog?.invalidate()
+    ctx.harnessRuntime?.invalidate(key, 'harness-settings-crud')
+    await ctx.runtimeModelCatalog?.invalidate(key)
   }
 }
 
 export function registerEngineHandlers(ctx: RouterContext): void {
-  const assertMutable = (key: string): void => {
+  const assertMutable = (key: string): string => {
     const canonical = canonicalProviderKey(key, ['claude'])
     if (ctx.runtimeModelCatalog?.isReadOnly(canonical)) {
       throw new Error(`runtime-managed engine is read-only: ${canonical}`)
     }
+    return canonical
   }
   handle(
     CHANNELS.engineAdd,
     CreateEngineSchema,
     'reject',
     async (req): Promise<EngineWriteResult> => {
-      assertMutable(providerKeyOf(req.engine, req.provider))
+      const canonical = assertMutable(providerKeyOf(req.engine, req.provider))
       const result = addHarnessSettings(req.engine, req.provider, req.settingsJson)
-      await refreshHarnessSettings(ctx)
+      await refreshHarnessSettings(ctx, canonical)
       return result
     }
   )
@@ -64,17 +65,17 @@ export function registerEngineHandlers(ctx: RouterContext): void {
     UpdateEngineSchema,
     'reject',
     async (req): Promise<EngineWriteResult> => {
-      assertMutable(req.key)
+      const canonical = assertMutable(req.key)
       const result = updateHarnessSettings(req.key, req.settingsJson)
-      await refreshHarnessSettings(ctx)
+      await refreshHarnessSettings(ctx, canonical)
       return result
     }
   )
 
   handle(CHANNELS.engineDelete, DeleteEngineSchema, 'reject', async (req): Promise<void> => {
-    assertMutable(req.key)
+    const canonical = assertMutable(req.key)
     deleteHarnessSettings(req.key)
-    await refreshHarnessSettings(ctx)
+    await refreshHarnessSettings(ctx, canonical)
   })
 
   handle(CHANNELS.engineRead, ReadEngineSchema, 'reject', (req): EngineReadResult => {
