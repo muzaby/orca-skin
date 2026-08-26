@@ -10,7 +10,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-26 |
 | 매핑 | PR #382(draft) · 구현 브랜치 `claude/composer-branch-and-add-dir` · CI 수정 브랜치 `claude/ci-failure-fix-dquqv7` |
-| 상태 | … → plan/READY (r2) → **impl/IMPL_DONE (r2)** — 단계·좌표 정본은 [`INDEX.md`](../INDEX.md) |
+| 상태 | … → impl/IMPL_DONE (r2) → **plan/READY (r3 — D-019 cwd 축 확장)** — 단계·좌표 정본은 [`INDEX.md`](../INDEX.md) |
 
 **이 plan 은 소급 설계다.** 구현이 먼저 있었고(D-016 — 사용자 지시로 `Handoff: none` 부분수정을 연속 수행), 이제 그 구현이 만족해야 할 계약을 세운다. 따라서 §7 AC 는 "앞으로 만들 것"이 아니라 **"현재 코드가 만족해야 하는데 일부는 아직 만족하지 않는 것"** 이다 — 미충족 항목은 각 행의 `현재` 칸이 관측으로 표시한다.
 
@@ -61,16 +61,19 @@
 | D-016 | 핸드오프 문서는 부분수정을 마친 뒤 **모아서** 작성한다 | 사용자 지시 | PR #382 | ACTIVE | 이번 턴이 이행 |
 | D-017 | CI 수정은 마이그레이션 정본(`migrate.ts`)의 **사본만 따라 붙인다** | 이번 턴 범위를 CI 초록으로 한정 | 세션 턴 1 | ACTIVE | — |
 | D-018 | 픽스처 중복 제거와 그 재발 방지는 **이 handoff 의 검증범위** 다 | 사용자가 "지금까지 설명한 요소를 모두 포함" 으로 지정 | 세션 턴 3 | ACTIVE | — |
-| D-019 | `extraDirs` 원소는 절대 경로이면서 **파일시스템 루트가 아니어야** 한다 — `/` · `C:\` · UNC share 루트를 거부한다 | "루트는 모든 경로의 조상이라 가드를 무력화한다". **범위 정책이 아니라 축퇴(degenerate) 값 배제다** — 어떤 실제 폴더도 계속 허용되므로 `/add-dir` 대응이라는 목적은 그대로다(D-020 과 짝) | r1 verify D3 → 사용자 결정 | ACTIVE | §17 리스크 행 정정 |
+| D-019a | `extraDirs` 원소만 루트를 거부한다 | — | r1 verify D3 | SUPERSEDED | → D-019 |
+| D-019 | **가드 루트가 되는 경로는 루트가 아니어야 한다** — `extraDirs` **와 `cwd`(작업 경로)** 양쪽이 대상이다 | "루트는 모든 경로의 조상이라 가드를 무력화한다" 는 이유가 두 축에 똑같이 걸린다 — 실측 `resolveGuardRoots('/', []).writeRoots[0] === '/'` 로 **cwd 쪽이 오히려 첫 번째 write 루트**다. **범위 정책이 아니라 축퇴 값 배제**이므로 어떤 실제 폴더도 계속 허용된다 | r1 verify D3 → 사용자 결정 · r2 구현자 발견(cwd 축) → **사용자 확장 지시** | ACTIVE | D-019a 대체 |
 | D-020 | 루트 거부는 **칩 추가 시점에** 하고 이유를 사용자에게 보여준다 — 조용한 무시가 아니다 | 칩 추가를 막지 않고 IPC 에서만 막으면 칩은 남고 전송이 `schema_validation_error` 로 죽어 "사용자는 원인을 모른 채 그 칩을 지울 때까지 막힌다". IPC·가드·DB 3지점은 방어선으로 유지 | r1 verify D3 → 사용자 결정 | ACTIVE | — |
+| D-021 | cwd 는 **필수라 버릴 수 없다** — 거부 지점마다 대응이 다르다: 선택은 막고, 세션행 손상값은 **프로젝트 기본 cwd 로 폴백**, 가드는 도달 불가 전제를 **소리내어 깬다**(throw) | `extraDirs` 는 버리면 스코프가 좁아질 뿐이지만 cwd 를 버리면 턴이 설 자리가 없다. 폴백은 이미 있는 경로(`getCwd(projectId)` — cwd 미지정 시의 기존 동작)를 재사용하므로 새 동작을 만들지 않는다 | r2 확장 설계 | ACTIVE | — |
 
 ### 갱신 메모
 
-- **새로 추가된 결정**: D-016 · D-017 · D-018 (설계 턴) · **D-019 · D-020 (r1 verify D3 정정 턴 — 사용자 결정)**.
+- **새로 추가된 결정**: D-016 · D-017 · D-018 (설계 턴) · **D-019 · D-020 (r1 verify D3 정정 턴)** · **D-021 (r2 확장 턴)**.
+- **변경된 결정**: D-019a → D-019 — r2 구현자가 `cwd` 축에서 같은 불변식 위반을 실측했고(§놓친 문제 1) 사용자가 확장을 지시했다. 축이 하나 늘었을 뿐 이유·조건절은 그대로다.
 - **변경된 결정**: D-010a → D-010(툴팁 의미) · D-012a → D-012(기본 권한 모드) · D-015a → D-015(노력 라벨). 셋 다 사용자/구현자의 명시적 후속 커밋이 근거다.
 - **이번 턴에 언급되지 않았지만 유지되는 ACTIVE**: D-001 ~ D-015 전부. 세션 턴 1~3은 CI 와 검증범위만 다뤘고 제품 계약을 건드리지 않았다.
 - **r1 verify D3 정정 (2026-08-26)**: 검증자가 `규범 정정 필요` 로 올린 D3 을 여기서 닫았다 — AC12 문면 정정 · **AC25 신설** · §10 `extraDirs` 행 (2)→(4) · §17 리스크 행 정정. 근거 관측: `isAbsolutePath('/')=true` · `resolveGuardRoots('/tmp/ws',['/']).writeRoots[1] === '/'`.
-- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-019↔AC12(루트 거부) 일치 · D-020↔AC25(칩 추가 시점·가시적 사유) 일치. 개별 판정 — D-001↔비범위("worktree 채널 0") 일치 · D-003↔AC5("아무 파일도 바꾸지 않는다") 일치 · D-004↔AC7 일치 · D-005↔AC6 일치 · D-006↔AC11 일치 · D-007↔AC14 일치 · D-009↔AC16 일치 · D-012↔AC18("두 곳이 같은 값") 일치 · D-013↔AC17 일치 · D-018↔AC21·AC22 일치. **D-002 는 AC1 과 같은 방향이나 AC1 이 더 강하다**(칩 부재 + detached 라벨까지) — 강화이지 반대가 아니다.
+- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-019↔AC12·**AC26**(두 축 루트 거부) 일치 · D-020↔AC25(선택 시점·가시적 사유, **두 선택창 모두**) 일치 · D-021↔AC26(폴백·throw 분기) 일치. 개별 판정 — D-001↔비범위("worktree 채널 0") 일치 · D-003↔AC5("아무 파일도 바꾸지 않는다") 일치 · D-004↔AC7 일치 · D-005↔AC6 일치 · D-006↔AC11 일치 · D-007↔AC14 일치 · D-009↔AC16 일치 · D-012↔AC18("두 곳이 같은 값") 일치 · D-013↔AC17 일치 · D-018↔AC21·AC22 일치. **D-002 는 AC1 과 같은 방향이나 AC1 이 더 강하다**(칩 부재 + detached 라벨까지) — 강화이지 반대가 아니다.
 
 ## 4. 요구 비판적 검토
 
@@ -109,6 +112,8 @@
 | 모달에서 방식만 고름 | 없음 | ✓ 만 이동. 실행은 왼쪽 버튼 |
 | 해소 성공 · checkout 실패 | 해소는 **이미 적용됨**, 브랜치 그대로 | ⚠️ 현재는 checkout 오류 문구만 — 변경이 어디로 갔는지 안 보인다(AC9) |
 | **＋에서 루트 폴더를 고름** | 리듀서가 거부 — `extraDirs` 불변 | **칩이 붙지 않고 거부 사유가 보인다**(D-020). 조용한 무시가 아니다 |
+| **작업 경로 버튼에서 루트를 고름** | 리듀서가 거부 — `cwd` 불변 | **경로가 바뀌지 않고 같은 사유가 보인다**(D-019·D-020) |
+| resume 인데 세션행 cwd 가 루트 | `resolveTurnCwd` 가 프로젝트 기본 cwd 로 폴백 | 턴은 정상 진행. 작업 경로만 기본값으로 보인다(D-021) |
 | 전송 | `extraDirs` → `TurnContext` → 세션행 | 작업 컨텍스트 행이 사라지고 값은 고정 |
 | resume / fork / handoff | 세션행 / 출발 세션의 `extra_dirs` 계승 | 같은 참조 경로로 계속 읽는다 |
 
@@ -169,7 +174,8 @@
 | AC22 | AC21 의 검사 장치가 **양방향으로** 반응한다 — 사본을 되살리면 실패하고, 픽스처에서 `applyMigrations(db)` 를 지워도 실패한다 | 변이 2종을 심어 각각 red 확인. 후자는 스키마 부재로 해당 스위트 전건 실패 | 게이트 스크립트 + vitest | ❌ 장치 미존재 |
 | AC23 | 이 브랜치가 새로 만든 prettier 위반이 0이다 | `npx eslint --no-fix <변경 파일>` → 이 브랜치 기인 warning 0 | CI `Lint` | ❌ 현재 **7건** (`queries.ts` 4 · `ipc.ts` 2 · `turn-context.ts` 1) |
 | AC24 | windows 러너 gate 9스텝이 전건 success 다 | `.github/workflows/ci.yml` 실행 결과 | CI | ✅ run `32918456816` (CI 수정 브랜치 기준) |
-| AC25 | 폴더 선택창에서 **루트를 고르면 칩이 추가되지 않고 그 이유가 화면에 보인다** — 조용한 무시가 아니다 (D-020) | 리듀서/스토어 테스트 — `ADD_EXTRA_DIR('/')` 후 `extraDirs` 길이 **0 이자** 거부 사유 상태가 세팅된다(둘 다 단언). ko/en 문구 leaf 실재. **렌더 하네스 불필요** — 사유를 리듀서 상태로 두어 순수 단언으로 내린다 | `CwdPanel.addDir` → `chatActions.addExtraDir` → `chatReducer` | ❌ 현재 무검증 통과(칩이 그대로 붙는다) |
+| AC25 | 폴더 선택창에서 **루트를 고르면 값이 반영되지 않고 그 이유가 화면에 보인다** — 참조 경로(＋)든 **작업 경로(cwd 버튼)**든 같다. 조용한 무시가 아니다 (D-019·D-020) | 리듀서 테스트 — `ADD_EXTRA_DIR('/')` 후 `extraDirs` 길이 0 · **`SET_CWD('/')` 후 `cwd` 불변**, 둘 다 거부 사유 상태가 세팅된다. ko/en 문구 leaf 실재. **렌더 하네스 불필요** — 사유를 리듀서 상태로 두어 순수 단언으로 내린다 | `CwdPanel.addDir`·`CwdButton` → `chatActions` → `chatReducer` | ⚠️ r2 가 참조 경로 축만 닫았다. **cwd 축 미구현** |
+| AC26 | **cwd 가 루트면 가드 ws 가 되지 않는다** — 거부는 지점마다 다르게 끝난다 (D-021): `chat:send` 는 거부 · 손상된 세션행은 **프로젝트 기본 cwd 로 폴백**(턴은 계속 산다) · 가드는 **throw** 로 전제를 깬다 | 스키마 테스트 `cwd:'/'` 거부 · `resolveTurnCwd` 가 세션행 `'/'` 에서 `getCwd(project_id)` 를 돌려줌 · `resolveGuardRoots('/')` 가 throw. **`writeRoots[0]` 이 `/` 인 상태를 만들 수 없다** | `SendChatMessageSchema.cwd` → `resolveTurnCwd` → `resolveGuardRoots` | ❌ 현재 전부 무검증 — 실측 `writeRoots[0] === '/'` |
 
 ### AC 검증 주의사항
 
@@ -177,7 +183,9 @@
 - **사람 실기 항목**: 컴포저 상단 행의 **시각 정렬**(칩 높이·반경·글리프)만 사람 몫이다 — D-011이 `chipSurface` 한 곳으로 모았으므로 *어느 클래스를 쓰는가* 는 순수 단언으로 내릴 수 있고, *눈에 어긋나 보이는가* 만 남는다. 나머지(목록 포함 여부·상태 파생·라벨)는 전부 순수 테스트다.
 - **`동일 배열` 기준(AC11)**: 값 비교가 아니라 **참조 동일성**을 단언한다 — 두 곳이 각각 `[...extraDirs]` 로 복사해도 값 비교는 통과하지만 D-006의 드리프트 방지는 깨진다.
 - **루트 판정 기준(AC12·AC25)**: 텍스트 루트 3형태(`/` · `X:\`·`X:/` · `\\srv\share`)를 거부한다. `/.` 같은 정규화 별칭은 텍스트 판정이 놓치므로 `resolveGuardRoots` 가 `path.resolve` **후** 잡는다(§10 2층 설계). AC12 는 앞 층을, AC25 는 사용자에게 보이는 결과를 단언한다 — 같은 규칙의 다른 축이다.
-- **분모 변경**: AC 총수가 **24 → 25** 다(AC25 신설). r1 자기보고·verify 의 `/24` 와 직접 비교하지 않는다.
+- **분모 변경**: AC 총수 **24 → 25**(AC25) → **26**(AC26). 라운드마다 분모가 달라졌으므로 이전 라운드 합계와 직접 비교하지 않는다.
+- **AC 26건 — 분할 검토(§5 게이트)**: **분할하지 않는다.** 두 축(`extraDirs`·`cwd`)이 §10 에서 *하나의 불변식*을 공유하고 강제 지점 표가 두 축에 걸쳐 있어, 지금 가르면 그 표가 두 문서로 쪼개져 전수 대조가 불가능해진다. AC 증가분 2건은 전부 같은 불변식의 규범 정정이다.
+- **루트 판정 기준(AC12·AC25·AC26)**: 두 축이 같은 SSOT(`isFilesystemRoot`)를 쓴다. 다른 것은 **거부 후 처리**뿐이다 — `extraDirs` 는 버리고, `cwd` 는 버릴 수 없어 폴백하거나 throw 한다(D-021).
 - **`0건` 기준 분해(AC21)**: 허용 대상 = `migrate.ts`(정본) + `migrate.test.ts`(골든 목록 · `APPLIED_SQL` 6건은 "부분 적용된 오래된 DB" 시나리오라 의도적 부분집합). 제거 대상 = 나머지 4곳. `queries.test.ts` 의 `dbBefore0006()` 도 의도적 부분집합이므로 술어에서 제외한다.
 - **방향 규칙(AC22)**: AC21 은 음성 게이트(`= 0`)라 "사본이 없다" 만 잠근다. "픽스처가 정본을 통과한다"는 양성 불변식이므로 `applyMigrations` 제거 변이를 함께 심어야 잠긴다.
 - **AC24 의 도달 범위**: 현재 green 은 **CI 수정 브랜치**(`5e6fdcb`)에서 관측한 것이다. PR #382 의 head 는 그 커밋을 아직 갖지 않아 red 다 — 구현 턴이 합류시켜야 AC24가 PR #382 에 대해 성립한다.
@@ -289,6 +297,7 @@
 |---|---|---|---|---|
 | 브랜치 이름 문자셋 | `GitBranchNameSchema` (`protocol.ts`) | `handle()` + `git-cli.gitCheckout` | invoke 검증 시점 · **execFile 직전** (**2**) | 옵션 주입(`-f`·`--`)·refspec 문법이 `git checkout` 인자로 들어간다. **현재 1/2** — `protocol.ts:189` 주석이 2를 약속했으나 실행부 검사 0건 |
 | `extraDirs` 절대 경로 · 비루트 | `ExtraDirSchema` + `isFilesystemRoot` (`shared/absolute-path.ts`) | 칩 추가(리듀서) + IPC 스키마 + `resolveGuardRoots` + `parseExtraDirs` | **칩 추가 시점** · `chat:send` 검증 시점 · 가드 루트 해석 시점 · **세션행 읽기 시점** (**4**) | 상대경로는 main 프로세스 cwd 기준으로 풀린다. **루트는 모든 경로의 조상이라 `writeRoots` 에 오르면 0075 가드가 no-op 이 된다** — 실측 `resolveGuardRoots('/tmp/ws',['/']).writeRoots[1] === '/'`. **칩 추가 지점이 빠지면** 스키마 거부가 전송 전체를 `schema_validation_error`(`admission.ts:28`)로 죽이고 사용자는 원인을 모른 채 그 칩을 지울 때까지 막힌다. **현재 절대경로 3/4 · 루트 0/4** |
+| `cwd` 비루트 | `isFilesystemRoot` (`shared/absolute-path.ts`) | `SET_CWD` 리듀서 + IPC 스키마 + `resolveTurnCwd` + `resolveGuardRoots` | 작업 경로 선택 시점 · `chat:send` 검증 시점 · 세션행 해석 시점 · 가드 ws 판정 (**4**) | **cwd 는 `writeRoots[0]` 이라 루트면 가드가 판정할 바깥이 아예 없다** — 실측 `resolveGuardRoots('/', []).writeRoots[0] === '/'`. `extraDirs` 와 달리 **버릴 수 없어** 지점마다 끝이 다르다(D-021): 선택 거부 · 세션행은 프로젝트 기본으로 폴백 · 가드는 throw. **현재 0/4** |
 | `additionalDirectories` ↔ 가드 루트 동일 배열 | `claude.ts:343` 지역 배열 | 어댑터 | `query()` 옵션 조립 · 훅 생성 (**2**) | 옵션은 넓은데 가드는 좁거나 그 반대 — D-006 이 막으려는 드리프트. **현재 2/2 성립(참조 동일), 관측 장치 0** |
 | 기본 권한 모드 | (신설) `shared/permission-mode.ts` 상수 | 렌더러 초기 상태 + main 미설정 조회 | 리듀서 초기값 · 컨트롤러 기본 인자 (**2**) | 칩과 main 이 서로 다른 모드를 진실로 삼는다. **현재 리터럴 2개 · SSOT 0** |
 | 마이그레이션 목록 | `migrate.ts MIGRATIONS` | 픽스처 + 골든 목록 + 가드 스크립트 | 픽스처 DB 생성 (**4**) · 골든 단언 (**1**) · 사본 스캔 (**1**) | **A(즉시)** = 새 컬럼이 생성자 46문에 실리면 픽스처가 `new DbQueries(db)` 에서 즉사(0017 → 39건). **B(조용)** = 새 테이블이면 아무도 안 죽고 픽스처만 실제 스키마와 갈라진다(0013 → 3곳). **현재 사본 4** |
@@ -312,6 +321,10 @@
 | `app/src/renderer/…/components/CwdPanel.tsx` | 소비처 | 거부 사유를 행에 표시하고 다음 조작에서 지운다 | 컴포넌트(시각) |
 | `app/src/renderer/…/i18n/resources/{ko,en}.ts` | 문구 | 루트 거부 사유 1키 | leaf 실재 단언 |
 | `app/src/main/adapters/workspace-guard.ts` | 거부 지점 3 | `path.resolve` **후** 루트 판정 추가 — 별칭(`/.`)을 여기서 잡는다 | 단위 |
+| `app/src/renderer/…/reducer/chatReducer.ts` | cwd 지점 1 | `SET_CWD` 가 루트를 거부하고 같은 사유 상태를 세팅. **두 dispatch 지점**(`setPendingCwd`·세션 복원)이 이 리듀서로 모인다 | 순수 리듀서 |
+| `app/src/shared/protocol.ts` | cwd 지점 2 | `SendChatMessageSchema.cwd` 에 비루트 강제 | 스키마 단위 |
+| `app/src/main/app/chat-turn/turn-context.ts` | cwd 지점 3 | `resolveTurnCwd` 가 루트 세션행/요청값을 `getCwd(projectId)` 로 폴백 | 순수 단위 |
+| `app/src/main/adapters/workspace-guard.ts` | cwd 지점 4 | `ws` 가 루트면 **throw** — 도달 불가 전제를 조용한 가드 무력화 대신 소리내어 깬다 | 단위 |
 | `app/src/renderer/…/chatReducer.ts` · `permission-mode-controller.ts` | 소비처 | 리터럴 → 상수 참조 | 단위 |
 | `app/src/main/infra/git/git-cli.test.ts` (신규) | 관측 | 임시 저장소 fixture — AC3·AC4·AC5·AC7·AC9 | 통합(실 git) |
 | `app/src/main/adapters/claude.extra-dirs.test.ts` (신규) | 관측 | `query()` 옵션 배열과 훅 인자의 **참조 동일성**(AC11) | 단위(SDK fake) |
@@ -400,7 +413,7 @@ CwdPanel(＋) → chatReducer.extraDirs → chat:send.extraDirs → buildTurnCon
 |---|---|
 | 브랜치 칩이 사용자 작업 트리에 파괴적 명령(`reset --hard`)을 실행한다 | D-004 의 3동작 게이트(메뉴 열기 → 선택 → 실행 버튼) + AC5(추적 변경만) + AC9(적용 결과 가시화) |
 | 기본 권한 모드 완화(`plan`→`auto_classified`)로 승인 게이트 강도가 낮아진다 | 제품 결정 D-012. AC18 은 값을 되돌리지 않고 **두 곳이 갈라지지 않음**만 잠근다 |
-| `extraDirs` 가 0075 가드를 넓힌다 | AC12 절대경로 + **비루트** 강제(D-019). **범위 정책은 여전히 하지 않는다** — 홈 밖 금지 같은 스코프 제한은 두지 않고 실제 폴더는 전부 허용한다. 루트만 배제하는 이유는 정책이 아니라 축퇴다: 루트가 `writeRoots` 에 오르면 가드가 판정할 바깥이 없어진다 |
+| `extraDirs` 가 0075 가드를 넓힌다 | AC12 절대경로 + **비루트** 강제(D-019). **범위 정책은 여전히 하지 않는다** — 홈 밖 금지 같은 스코프 제한은 두지 않고 실제 폴더는 전부 허용한다. 루트만 배제하는 이유는 정책이 아니라 축퇴다: 루트가 `writeRoots` 에 오르면 가드가 판정할 바깥이 없어진다. **`cwd` 도 같은 축이다**(D-019 확장) — 오히려 `writeRoots[0]` 이라 더 직접적이다 |
 | 실 `git` 의존 테스트가 CI 환경에 묶인다 | windows-latest 와 로컬 모두 `git` 보유 확인. fixture 는 `mkdtemp` + `git init` 로 자족한다 |
 | 앱 종료 중 `git checkout` 진행 | 정리 경로 없음. 10초 타임아웃이 상한이며 이 handoff 범위 밖으로 둔다 |
 
@@ -418,6 +431,7 @@ CwdPanel(＋) → chatReducer.extraDirs → chat:send.extraDirs → buildTurnCon
 - `app/src/main/features/approvals/permission-mode-controller.ts`
 - `app/scripts/check-migrations-appendonly.mjs` · `check-migrations-appendonly.test.mjs`
 - **r2(D-019·D-020)**: `app/src/shared/absolute-path.ts`(+`isFilesystemRoot`) · `app/src/main/adapters/workspace-guard.ts`(정규화 후 루트 판정) · `app/src/renderer/…/reducer/chatReducer.ts`(거부 + 사유 상태) · `…/components/CwdPanel.tsx`(사유 표시) · `…/i18n/resources/{ko,en}.ts`(사유 1키) · `app/src/main/app/chat-turn/turn-context.ts`(세션행 읽기)
+- **r3(D-019 cwd 확장·D-021)**: `app/src/renderer/…/reducer/chatReducer.ts`(`SET_CWD` 거부) · `app/src/shared/protocol.ts`(`cwd` 비루트) · `app/src/main/app/chat-turn/turn-context.ts`(`resolveTurnCwd` 폴백) · `app/src/main/adapters/workspace-guard.ts`(`ws` throw) · `app/src/renderer/…/components/CwdButton.tsx`(사유 표시)
 - **r2 파생 이슈(D1·D2·D4)**: `app/scripts/check-migrations-appendonly.test.mjs`(대상 집합 잠금) · `app/src/renderer/…/composer/branchChipState.ts`(`checkoutErrorView` seam) · `docs/IPC_CONTRACT.md`(§2.6-b `applied`)
 - `docs/handoff/INDEX.md` · `docs/handoff/0201-composer-work-context-row/plan.md`
 
