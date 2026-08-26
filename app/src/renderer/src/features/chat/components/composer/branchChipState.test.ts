@@ -5,6 +5,7 @@ import type { GitCheckoutResult, GitDirtyStat, GitStatus } from '../../../../../
 import {
   APPLIED_NOTICE_KEY,
   branchChipView,
+  checkoutErrorLines,
   checkoutOutcome,
   statusForCwd
 } from './branchChipState'
@@ -113,6 +114,38 @@ describe('checkoutOutcome — 부분 실패는 적용된 해소를 식별한다 
     const keys = Object.values(APPLIED_NOTICE_KEY)
 
     expect(keys).toHaveLength(3)
+    expect(new Set(keys).size).toBe(3)
+  })
+})
+
+// D2 / AC9 후반절 — 모달 본문의 **구성과 순서**를 여기서 잠근다. r1 은 이 조립이 JSX 안에
+// 인라인이라 안내 문단을 지워도 죽는 테스트가 없었다(typecheck exit 0 · 렌더러 352/352 green).
+describe('checkoutErrorLines — 부분 실패 안내가 오류 원문보다 먼저다', () => {
+  it.each(['stash', 'commit-wip', 'discard'] as const)(
+    '%s 적용 시 안내 문단이 앞, 원문이 뒤',
+    (applied) => {
+      const lines = checkoutErrorLines({ message: 'boom', applied })
+
+      expect(lines).toHaveLength(2)
+      expect(lines[0]).toEqual({ kind: 'notice', messageKey: APPLIED_NOTICE_KEY[applied] })
+      expect(lines[1]).toEqual({ kind: 'detail', text: 'boom' })
+    }
+  )
+
+  it('적용된 해소가 없으면 원문 한 문단뿐이다', () => {
+    expect(checkoutErrorLines({ message: 'boom' })).toEqual([{ kind: 'detail', text: 'boom' }])
+  })
+
+  it('오류가 없으면 빈 목록이다 — 모달이 그릴 것이 없다', () => {
+    expect(checkoutErrorLines(null)).toEqual([])
+  })
+
+  it('해소 3종이 서로 다른 안내 키를 낸다 — 같은 문구로 접히지 않는다', () => {
+    const keys = (['stash', 'commit-wip', 'discard'] as const).map((applied) => {
+      const first = checkoutErrorLines({ message: 'x', applied })[0]
+      return first.kind === 'notice' ? first.messageKey : null
+    })
+
     expect(new Set(keys).size).toBe(3)
   })
 })

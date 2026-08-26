@@ -19,6 +19,7 @@ interface CwdPanelProps {
 export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
   const { tr } = useI18n()
   const extraDirs = useChatSession((s) => s.extraDirs)
+  const rejection = useChatSession((s) => s.extraDirRejection)
   const [picking, setPicking] = useState(false)
 
   const addDir = async (): Promise<void> => {
@@ -55,6 +56,13 @@ export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
         onClick={() => void addDir()}
         title={tr('chat.composer.extraDirAdd')}
       />
+      {/* 거부 사유 — 고른 폴더가 칩으로 안 붙었는데 아무 말도 없으면 사용자는 앱이 먹은
+          것으로 읽는다(D-020). 다음 추가·제거·작업 경로 변경에서 리듀서가 지운다. */}
+      {rejection === 'root' && (
+        <span data-surface="extra-dir-rejection" className="w-full px-1 text-footnote text-rust">
+          {tr('chat.composer.extraDirRejectRoot')}
+        </span>
+      )}
     </div>
   )
 }

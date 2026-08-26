@@ -8,9 +8,10 @@ import { useI18n } from '../../../../shared/i18n'
 import { ComposerChip } from './ComposerChip'
 import { BranchMenu } from './BranchMenu'
 import { BranchSwitchDialog } from './BranchSwitchDialog'
+import { CheckoutErrorBody } from './CheckoutErrorBody'
 import {
-  APPLIED_NOTICE_KEY,
   branchChipView,
+  checkoutErrorLines,
   checkoutOutcome,
   statusForCwd,
   type BranchSnapshot,
@@ -154,16 +155,9 @@ export function BranchChip({ cwd, disabled = false }: BranchChipProps): React.JS
         <p className="text-[13.5px] font-medium text-ink">
           {tr('chat.composer.branchSwitchFailed')}
         </p>
-        {/* 해소만 적용된 부분 실패면 변경이 어디로 갔는지 먼저 말한다 — `discard` 는 되돌릴 수
-            없어서 이 문장이 없으면 데이터 유실과 구분되지 않는다. */}
-        {error?.applied && (
-          <p className="mt-2 text-[13px] leading-relaxed text-ink2">
-            {tr(APPLIED_NOTICE_KEY[error.applied])}
-          </p>
-        )}
-        <p className="mt-2 whitespace-pre-wrap break-words font-mono text-[12px] text-ink2">
-          {error?.message}
-        </p>
+        {/* 구성·순서는 `checkoutErrorLines`, 그리기는 `CheckoutErrorBody` 가 갖는다 —
+            둘 다 훅 없는 순수부라 렌더 하네스 없이 잠긴다. */}
+        <CheckoutErrorBody lines={checkoutErrorLines(error)} translate={tr} />
       </Modal>
       {dirty && (
         <BranchSwitchDialog

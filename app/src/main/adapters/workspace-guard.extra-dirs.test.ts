@@ -33,3 +33,27 @@ describe('resolveGuardRoots — additionalDirs 절대 경로 강제', () => {
     expect(roots.writeRoots).not.toContain(path.resolve('refs'))
   })
 })
+
+// D-019 지점3 — 이 층은 `path.resolve` **후** 판정하므로 텍스트 층이 놓치는 별칭까지 잡는다.
+describe('resolveGuardRoots — 루트 거부 (정규화 후)', () => {
+  it('루트는 write/read 루트가 되지 않는다', () => {
+    const roots = resolveGuardRoots(WS, ['/'])
+
+    expect(roots.writeRoots).not.toContain('/')
+    expect(roots.writeRoots).toEqual(resolveGuardRoots(WS, []).writeRoots)
+  })
+
+  it('정규화하면 루트가 되는 별칭도 버린다 — 텍스트 층이 놓치는 자리', () => {
+    for (const alias of ['/.', '/a/..', '/x/y/../..']) {
+      expect(resolveGuardRoots(WS, [alias]).writeRoots, alias).toEqual(
+        resolveGuardRoots(WS, []).writeRoots
+      )
+    }
+  })
+
+  it('루트가 아닌 실제 폴더는 정규화 후에도 남는다', () => {
+    const roots = resolveGuardRoots(WS, ['/tmp/keep/..'])
+
+    expect(roots.writeRoots).toContain(path.resolve('/tmp'))
+  })
+})
