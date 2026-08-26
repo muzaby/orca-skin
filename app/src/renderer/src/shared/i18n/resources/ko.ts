@@ -748,6 +748,7 @@ export const ko = {
       plugins: '플러그인'
     },
     recents: '최근 대화',
+    pinnedProjects: '프로젝트',
     pinned: '고정됨',
     resizeAria: '사이드바 폭 조절'
   },

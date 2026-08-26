@@ -1,9 +1,10 @@
 import { useMemo, type ReactNode } from 'react'
-import { PinnedSection, SessionList } from '../../features/sessions'
+import { PinnedProjectsSection, PinnedSection, SessionList } from '../../features/sessions'
 import { SidebarUserButton } from '../SidebarUserButton'
 import type { SessionHandlers } from './useSessionHandlers'
 
 export interface SidebarSlots {
+  projectsSlot: ReactNode
   pinnedSlot: ReactNode
   sessionsSlot: ReactNode
   footerSlot: ReactNode
@@ -16,27 +17,39 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
   // footer = 사용자 버튼(이메일/developer + 팝오버 메뉴 + 설정 모달). 안정 identity 로
   // 두어 Sidebar memo 를 유지한다(자체 상태는 컴포넌트 내부 useState 로 격리).
   const footerSlot = useMemo(() => <SidebarUserButton />, [])
-  // 0129 "고정됨" 섹션 — 최근 대화 위. 고정 항목이 없으면 PinnedSection 이 null 반환.
-  const pinnedSlot = useMemo(
+  const projectsSlot = useMemo(
     () => (
-      <PinnedSection
+      <PinnedProjectsSection
         pinnedProjects={handlers.pinnedProjects}
         currentSessionId={handlers.currentSessionId}
-        onSelectSession={handlers.handleSelectSession}
-        onTogglePinSession={handlers.handleTogglePinSession}
         onOpenProject={handlers.handleOpenProject}
         onTogglePinProject={handlers.handleTogglePinProject}
-        onDeleteSession={handlers.handleDeleteSession}
-        onRenameSession={handlers.handleRenameSession}
+        onSelectSession={handlers.handleSelectSession}
       />
     ),
     [
       handlers.pinnedProjects,
       handlers.currentSessionId,
-      handlers.handleSelectSession,
-      handlers.handleTogglePinSession,
       handlers.handleOpenProject,
       handlers.handleTogglePinProject,
+      handlers.handleSelectSession
+    ]
+  )
+  // 고정된 대화만 모으는 섹션. 프로젝트는 바로 위의 전용 섹션에만 노출한다.
+  const pinnedSlot = useMemo(
+    () => (
+      <PinnedSection
+        currentSessionId={handlers.currentSessionId}
+        onSelectSession={handlers.handleSelectSession}
+        onTogglePinSession={handlers.handleTogglePinSession}
+        onDeleteSession={handlers.handleDeleteSession}
+        onRenameSession={handlers.handleRenameSession}
+      />
+    ),
+    [
+      handlers.currentSessionId,
+      handlers.handleSelectSession,
+      handlers.handleTogglePinSession,
       handlers.handleDeleteSession,
       handlers.handleRenameSession
     ]
@@ -69,5 +82,5 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
       handlers.handleDeleteDraft
     ]
   )
-  return { pinnedSlot, sessionsSlot, footerSlot }
+  return { projectsSlot, pinnedSlot, sessionsSlot, footerSlot }
 }
