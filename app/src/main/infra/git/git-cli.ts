@@ -4,9 +4,10 @@
 // 저장소가 아니거나 git 이 없으면 예외가 아니라 `isRepo:false` / `reason:'error'` 값으로
 // 돌려준다 — 컴포저는 git 없이도 정상 동작해야 하고, 그 판정 자체가 UI 의 입력이다.
 //
-// 읽기 명령에는 `GIT_OPTIONAL_LOCKS=0` 을 건다. 칩이 주기적으로 상태를 물으므로 index.lock
-// 을 잡으면 사용자의 다른 git 작업과 충돌한다. `GIT_TERMINAL_PROMPT=0` 은 자격증명 프롬프트로
-// 프로세스가 매달리는 것을 막는다.
+// 읽기 명령에는 `GIT_OPTIONAL_LOCKS=0` 을 건다. 칩의 조회는 주기적이지 않지만(작업 경로가
+// 바뀔 때와 팝오버를 열 때뿐) 사용자가 같은 저장소에서 다른 git 작업을 하는 중일 수 있어
+// index.lock 을 잡지 않는다. `GIT_TERMINAL_PROMPT=0` 은 자격증명 프롬프트로 프로세스가
+// 매달리는 것을 막는다.
 
 import { execFile } from 'node:child_process'
 import { stat } from 'node:fs/promises'
@@ -17,6 +18,7 @@ import type {
   GitDirtyStat,
   GitStatus
 } from '../../../shared/ipc'
+import { GitBranchNameSchema } from '../../../shared/protocol'
 import { firstErrorLine, parseBranchList, parseShortstat } from './git-parse'
 
 const GIT_ENV = { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' }
@@ -105,6 +107,14 @@ export async function gitCheckout(
   branch: string,
   resolution?: GitDirtyResolution
 ): Promise<GitCheckoutResult> {
+  // **실행부의 두 번째 문자셋 검사**(IPC 스키마가 첫 번째). 같은 정규식을 복붙하지 않고
+  // `GitBranchNameSchema` 를 그대로 재사용한다 — 규칙이 두 벌이 되면 한쪽만 느슨해진다.
+  //
+  // 아래 **모든** execFile 보다 앞이어야 한다: `resolveDirty` 의 stash 메시지도 branch 를
+  // 인자로 싣고 나가므로, checkout 직전에만 검사하면 그 경로가 검사를 건너뛴다.
+  if (!GitBranchNameSchema.safeParse(branch).success) {
+    return { ok: false, reason: 'error', message: 'branch 이름이 올바르지 않습니다.' }
+  }
   if (!(await insideWorkTree(cwd))) {
     return { ok: false, reason: 'not-repo', message: 'git 저장소가 아닙니다.' }
   }
@@ -113,6 +123,9 @@ export async function gitCheckout(
     // 아직 아무것도 하지 않았다 — 무엇을 할지는 사용자가 모달에서 고른다.
     return { ok: false, reason: 'dirty', from: await currentBranch(cwd), stat: dirty }
   }
+  // 여기서부터 사용자 작업 트리가 실제로 바뀐다. 해소가 적용된 뒤 checkout 이 실패하면
+  // 트리는 바뀌고 브랜치는 그대로인 **부분 실패** 이므로, 무엇이 적용됐는지 값에 실어 보낸다.
+  let applied: GitDirtyResolution | undefined
   if (dirty) {
     const resolved = await resolveDirty(cwd, resolution as GitDirtyResolution, branch)
     if (!resolved.ok) {
@@ -122,13 +135,15 @@ export async function gitCheckout(
         message: firstErrorLine(resolved.stderr) || '변경 사항을 처리하지 못했습니다.'
       }
     }
+    applied = resolution
   }
   const checkout = await run(cwd, ['checkout', branch])
   if (!checkout.ok) {
     return {
       ok: false,
       reason: 'error',
-      message: firstErrorLine(checkout.stderr) || '브랜치를 전환하지 못했습니다.'
+      message: firstErrorLine(checkout.stderr) || '브랜치를 전환하지 못했습니다.',
+      ...(applied ? { applied } : {})
     }
   }
   return { ok: true, branch }

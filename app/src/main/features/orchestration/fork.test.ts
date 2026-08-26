@@ -1,47 +1,13 @@
 import Database from 'better-sqlite3'
 import { describe, expect, it } from 'vitest'
-import migration0001 from '../../infra/db/migrations/0001_initial.sql?raw'
-import migration0002 from '../../infra/db/migrations/0002_projects.sql?raw'
-import migration0003 from '../../infra/db/migrations/0003_messages_fts.sql?raw'
-import migration0004 from '../../infra/db/migrations/0004_message_parts.sql?raw'
-import migration0005 from '../../infra/db/migrations/0005_usage_events.sql?raw'
-import migration0006 from '../../infra/db/migrations/0006_turn_usage.sql?raw'
-import migration0007 from '../../infra/db/migrations/0007_title_source.sql?raw'
-import migration0008 from '../../infra/db/migrations/0008_provider_key.sql?raw'
-import migration0009 from '../../infra/db/migrations/0009_message_complete.sql?raw'
-import migration0010 from '../../infra/db/migrations/0010_session_cwd.sql?raw'
-import migration0011 from '../../infra/db/migrations/0011_session_lineage.sql?raw'
-import migration0014 from '../../infra/db/migrations/0014_provider_usage_report_cache.sql?raw'
-import migration0015 from '../../infra/db/migrations/0015_pinned.sql?raw'
-import migration0016 from '../../infra/db/migrations/0016_turn_model_context_window.sql?raw'
-import migration0017 from '../../infra/db/migrations/0017_session_extra_dirs.sql?raw'
-import migration0012 from '../../infra/db/migrations/0012_provider_limits.sql?raw'
 import { DbQueries } from '../../infra/db/queries'
+import { applyMigrations } from '../../infra/db/migrate'
 import { materializeContinuityArrival } from './fork'
 
 function makeDb(): { db: Database.Database; q: DbQueries } {
   const db = new Database(':memory:')
   db.pragma('foreign_keys = ON')
-  for (const sql of [
-    migration0001,
-    migration0002,
-    migration0003,
-    migration0004,
-    migration0005,
-    migration0006,
-    migration0007,
-    migration0008,
-    migration0009,
-    migration0010,
-    migration0011,
-    migration0012,
-    migration0014,
-    migration0015,
-    migration0016,
-    migration0017
-  ]) {
-    db.exec(sql)
-  }
+  applyMigrations(db)
   return { db, q: new DbQueries(db) }
 }
 

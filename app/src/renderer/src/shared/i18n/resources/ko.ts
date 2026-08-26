@@ -642,6 +642,10 @@ export const ko = {
       branchDetached: 'HEAD 분리됨',
       branchSearchPlaceholder: '브랜치 검색…',
       branchSwitchFailed: '브랜치를 전환하지 못했습니다.',
+      // 부분 실패 — 해소는 적용됐는데 checkout 이 실패했다. 변경이 어디로 갔는지 말해준다.
+      branchAppliedStash: '변경 사항은 스태시에 보관되었고 브랜치는 그대로입니다.',
+      branchAppliedCommitWip: '변경 사항은 WIP 커밋으로 남았고 브랜치는 그대로입니다.',
+      branchAppliedDiscard: '변경 사항은 폐기되었고 브랜치는 그대로입니다.',
       branchDirtyAria: '커밋되지 않은 변경 사항 처리',
       branchDirtyMenuAria: '변경 사항 처리 방식',
       branchDirtyTitleSuffix: '에 커밋되지 않은 변경 사항이 있습니다.',
