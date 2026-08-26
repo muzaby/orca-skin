@@ -10,7 +10,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-26 |
 | 매핑 | PR #382(draft) · 구현 브랜치 `claude/composer-branch-and-add-dir` · CI 수정 브랜치 `claude/ci-failure-fix-dquqv7` |
-| 상태 | DRAFT → READY → impl/IMPL_DONE (r1) → **verify/FAIL (r1)** — 단계·좌표 정본은 [`INDEX.md`](../INDEX.md) |
+| 상태 | … → verify/FAIL (r1) → **plan/READY (r2 — D3 규범 정정 완료)** — 단계·좌표 정본은 [`INDEX.md`](../INDEX.md) |
 
 **이 plan 은 소급 설계다.** 구현이 먼저 있었고(D-016 — 사용자 지시로 `Handoff: none` 부분수정을 연속 수행), 이제 그 구현이 만족해야 할 계약을 세운다. 따라서 §7 AC 는 "앞으로 만들 것"이 아니라 **"현재 코드가 만족해야 하는데 일부는 아직 만족하지 않는 것"** 이다 — 미충족 항목은 각 행의 `현재` 칸이 관측으로 표시한다.
 
@@ -61,13 +61,16 @@
 | D-016 | 핸드오프 문서는 부분수정을 마친 뒤 **모아서** 작성한다 | 사용자 지시 | PR #382 | ACTIVE | 이번 턴이 이행 |
 | D-017 | CI 수정은 마이그레이션 정본(`migrate.ts`)의 **사본만 따라 붙인다** | 이번 턴 범위를 CI 초록으로 한정 | 세션 턴 1 | ACTIVE | — |
 | D-018 | 픽스처 중복 제거와 그 재발 방지는 **이 handoff 의 검증범위** 다 | 사용자가 "지금까지 설명한 요소를 모두 포함" 으로 지정 | 세션 턴 3 | ACTIVE | — |
+| D-019 | `extraDirs` 원소는 절대 경로이면서 **파일시스템 루트가 아니어야** 한다 — `/` · `C:\` · UNC share 루트를 거부한다 | "루트는 모든 경로의 조상이라 가드를 무력화한다". **범위 정책이 아니라 축퇴(degenerate) 값 배제다** — 어떤 실제 폴더도 계속 허용되므로 `/add-dir` 대응이라는 목적은 그대로다(D-020 과 짝) | r1 verify D3 → 사용자 결정 | ACTIVE | §17 리스크 행 정정 |
+| D-020 | 루트 거부는 **칩 추가 시점에** 하고 이유를 사용자에게 보여준다 — 조용한 무시가 아니다 | 칩 추가를 막지 않고 IPC 에서만 막으면 칩은 남고 전송이 `schema_validation_error` 로 죽어 "사용자는 원인을 모른 채 그 칩을 지울 때까지 막힌다". IPC·가드·DB 3지점은 방어선으로 유지 | r1 verify D3 → 사용자 결정 | ACTIVE | — |
 
 ### 갱신 메모
 
-- **새로 추가된 결정**: D-016 · D-017 · D-018 (이번 세션 3개 턴).
+- **새로 추가된 결정**: D-016 · D-017 · D-018 (설계 턴) · **D-019 · D-020 (r1 verify D3 정정 턴 — 사용자 결정)**.
 - **변경된 결정**: D-010a → D-010(툴팁 의미) · D-012a → D-012(기본 권한 모드) · D-015a → D-015(노력 라벨). 셋 다 사용자/구현자의 명시적 후속 커밋이 근거다.
 - **이번 턴에 언급되지 않았지만 유지되는 ACTIVE**: D-001 ~ D-015 전부. 세션 턴 1~3은 CI 와 검증범위만 다뤘고 제품 계약을 건드리지 않았다.
-- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. 개별 판정 — D-001↔비범위("worktree 채널 0") 일치 · D-003↔AC5("아무 파일도 바꾸지 않는다") 일치 · D-004↔AC7 일치 · D-005↔AC6 일치 · D-006↔AC11 일치 · D-007↔AC14 일치 · D-009↔AC16 일치 · D-012↔AC18("두 곳이 같은 값") 일치 · D-013↔AC17 일치 · D-018↔AC21·AC22 일치. **D-002 는 AC1 과 같은 방향이나 AC1 이 더 강하다**(칩 부재 + detached 라벨까지) — 강화이지 반대가 아니다.
+- **r1 verify D3 정정 (2026-08-26)**: 검증자가 `규범 정정 필요` 로 올린 D3 을 여기서 닫았다 — AC12 문면 정정 · **AC25 신설** · §10 `extraDirs` 행 (2)→(4) · §17 리스크 행 정정. 근거 관측: `isAbsolutePath('/')=true` · `resolveGuardRoots('/tmp/ws',['/']).writeRoots[1] === '/'`.
+- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-019↔AC12(루트 거부) 일치 · D-020↔AC25(칩 추가 시점·가시적 사유) 일치. 개별 판정 — D-001↔비범위("worktree 채널 0") 일치 · D-003↔AC5("아무 파일도 바꾸지 않는다") 일치 · D-004↔AC7 일치 · D-005↔AC6 일치 · D-006↔AC11 일치 · D-007↔AC14 일치 · D-009↔AC16 일치 · D-012↔AC18("두 곳이 같은 값") 일치 · D-013↔AC17 일치 · D-018↔AC21·AC22 일치. **D-002 는 AC1 과 같은 방향이나 AC1 이 더 강하다**(칩 부재 + detached 라벨까지) — 강화이지 반대가 아니다.
 
 ## 4. 요구 비판적 검토
 
@@ -105,6 +108,7 @@
 | 브랜치 선택 · 트리 더티 | **아무 파일도 안 바꾸고** `reason:'dirty'` 반환 | 처리 모달 — `from` · `target` · `N개 파일 +i -d` |
 | 모달에서 방식만 고름 | 없음 | ✓ 만 이동. 실행은 왼쪽 버튼 |
 | 해소 성공 · checkout 실패 | 해소는 **이미 적용됨**, 브랜치 그대로 | ⚠️ 현재는 checkout 오류 문구만 — 변경이 어디로 갔는지 안 보인다(AC9) |
+| **＋에서 루트 폴더를 고름** | 리듀서가 거부 — `extraDirs` 불변 | **칩이 붙지 않고 거부 사유가 보인다**(D-020). 조용한 무시가 아니다 |
 | 전송 | `extraDirs` → `TurnContext` → 세션행 | 작업 컨텍스트 행이 사라지고 값은 고정 |
 | resume / fork / handoff | 세션행 / 출발 세션의 `extra_dirs` 계승 | 같은 참조 경로로 계속 읽는다 |
 
@@ -152,7 +156,7 @@
 | AC9 | **해소는 성공했는데 checkout 이 실패하면** 변경이 어디로 갔는지(스태시/WIP 커밋/폐기)가 사용자에게 보인다 | 실 저장소 fixture — checkout 실패를 강제하고 반환값이 적용된 해소를 식별 + 그 문구가 모달에 도달 | `gitCheckout` 부분 실패 경로 | ❌ 현재 checkout 오류 문구만 반환 |
 | AC10 | 참조 경로 칩 추가/제거가 `chat:send` 페이로드의 `extraDirs` 로 나간다 | store 테스트 — `addExtraDir` 후 send 페이로드에 배열 · 0개면 키 자체가 없음 | `chatActions.addExtraDir` → `send()` | ❌ 리듀서/스토어 테스트 0건 |
 | AC11 | `extraDirs` 는 어댑터 `additionalDirectories` 와 workspace 가드 훅에 **같은 배열**로 도달한다 | 어댑터 테스트 — `query()` 옵션의 배열과 `makeWorkspaceGuardHook` 인자가 **동일 참조** | `claude.ts:343→367·392` | ❌ 테스트 0건 |
-| AC12 | `extraDirs` 원소는 **절대 경로만** 허용된다 — 상대경로·빈 세그먼트는 IPC 에서 거부된다 | 스키마 테스트 — `['refs']` · `['../x']` 거부, `['/abs']` 통과. 그리고 `resolveGuardRoots` 가 상대경로를 받지 않음 | `SendChatMessageSchema.extraDirs` | ❌ 현재 `z.string().min(1)` 뿐 |
+| AC12 | `extraDirs` 원소는 **절대 경로이면서 파일시스템 루트가 아니어야** 한다 — 상대경로·빈 세그먼트·루트(`/`·`C:\`·UNC share 루트)가 거부된다 (D-019) | 스키마 테스트 — `['refs']`·`['../x']`·**`['/']`·`['C:\\']`** 거부, `['/abs']` 통과. 그리고 `resolveGuardRoots` 가 **정규화 후에도** 루트를 루트 목록에 올리지 않는다(`writeRoots` 에 `/` 부재) | `ExtraDirSchema` → `resolveGuardRoots` → `parseExtraDirs` | ⚠️ r1 이 절대경로 3지점을 닫았다. **루트는 여전히 통과** — 실측 `writeRoots[1] === '/'` |
 | AC13 | `sessions.extra_dirs` 가 왕복한다 — `insertSession(extraDirs)` → `getSessionById().extra_dirs` | `queries.test.ts` — 배열 저장 후 JSON 문자열로 복원 · 빈 배열/미지정은 `NULL` | `HistoryWriter.insertSession` | ❌ `rg extra_dirs infra/**/*.test.ts` → 0건 |
 | AC14 | 참조 경로 해석이 cwd 와 같은 규칙이다 — 새 채팅=요청값 · resume=세션행 우선 · continuity=출발 세션 · 손상값=없음 | `turn-context.test.ts` `extraDirs 해석` **6케이스** | `buildTurnContext` | ✅ 6/6 통과 |
 | AC15 | cwd 를 바꾸면 참조 경로가 비워지고, 중복·cwd 자기 자신 추가는 무시된다 | 리듀서 테스트 — `SET_CWD` 후 `extraDirs:[]` · 같은 값 2회 추가 시 길이 1 | `chatReducer` | ❌ 테스트 0건 |
@@ -165,12 +169,15 @@
 | AC22 | AC21 의 검사 장치가 **양방향으로** 반응한다 — 사본을 되살리면 실패하고, 픽스처에서 `applyMigrations(db)` 를 지워도 실패한다 | 변이 2종을 심어 각각 red 확인. 후자는 스키마 부재로 해당 스위트 전건 실패 | 게이트 스크립트 + vitest | ❌ 장치 미존재 |
 | AC23 | 이 브랜치가 새로 만든 prettier 위반이 0이다 | `npx eslint --no-fix <변경 파일>` → 이 브랜치 기인 warning 0 | CI `Lint` | ❌ 현재 **7건** (`queries.ts` 4 · `ipc.ts` 2 · `turn-context.ts` 1) |
 | AC24 | windows 러너 gate 9스텝이 전건 success 다 | `.github/workflows/ci.yml` 실행 결과 | CI | ✅ run `32918456816` (CI 수정 브랜치 기준) |
+| AC25 | 폴더 선택창에서 **루트를 고르면 칩이 추가되지 않고 그 이유가 화면에 보인다** — 조용한 무시가 아니다 (D-020) | 리듀서/스토어 테스트 — `ADD_EXTRA_DIR('/')` 후 `extraDirs` 길이 **0 이자** 거부 사유 상태가 세팅된다(둘 다 단언). ko/en 문구 leaf 실재. **렌더 하네스 불필요** — 사유를 리듀서 상태로 두어 순수 단언으로 내린다 | `CwdPanel.addDir` → `chatActions.addExtraDir` → `chatReducer` | ❌ 현재 무검증 통과(칩이 그대로 붙는다) |
 
 ### AC 검증 주의사항
 
 - **기존 테스트 재사용**: `turn-context.test.ts` 의 `describe('extraDirs 해석')` **6 `it()` 실재 확인**(AC14) · `modes.test.ts` 4케이스 실재 확인(AC17) · `git-parse.test.ts` 9케이스 실재 확인(AC2).
 - **사람 실기 항목**: 컴포저 상단 행의 **시각 정렬**(칩 높이·반경·글리프)만 사람 몫이다 — D-011이 `chipSurface` 한 곳으로 모았으므로 *어느 클래스를 쓰는가* 는 순수 단언으로 내릴 수 있고, *눈에 어긋나 보이는가* 만 남는다. 나머지(목록 포함 여부·상태 파생·라벨)는 전부 순수 테스트다.
 - **`동일 배열` 기준(AC11)**: 값 비교가 아니라 **참조 동일성**을 단언한다 — 두 곳이 각각 `[...extraDirs]` 로 복사해도 값 비교는 통과하지만 D-006의 드리프트 방지는 깨진다.
+- **루트 판정 기준(AC12·AC25)**: 텍스트 루트 3형태(`/` · `X:\`·`X:/` · `\\srv\share`)를 거부한다. `/.` 같은 정규화 별칭은 텍스트 판정이 놓치므로 `resolveGuardRoots` 가 `path.resolve` **후** 잡는다(§10 2층 설계). AC12 는 앞 층을, AC25 는 사용자에게 보이는 결과를 단언한다 — 같은 규칙의 다른 축이다.
+- **분모 변경**: AC 총수가 **24 → 25** 다(AC25 신설). r1 자기보고·verify 의 `/24` 와 직접 비교하지 않는다.
 - **`0건` 기준 분해(AC21)**: 허용 대상 = `migrate.ts`(정본) + `migrate.test.ts`(골든 목록 · `APPLIED_SQL` 6건은 "부분 적용된 오래된 DB" 시나리오라 의도적 부분집합). 제거 대상 = 나머지 4곳. `queries.test.ts` 의 `dbBefore0006()` 도 의도적 부분집합이므로 술어에서 제외한다.
 - **방향 규칙(AC22)**: AC21 은 음성 게이트(`= 0`)라 "사본이 없다" 만 잠근다. "픽스처가 정본을 통과한다"는 양성 불변식이므로 `applyMigrations` 제거 변이를 함께 심어야 잠긴다.
 - **AC24 의 도달 범위**: 현재 green 은 **CI 수정 브랜치**(`5e6fdcb`)에서 관측한 것이다. PR #382 의 head 는 그 커밋을 아직 갖지 않아 red 다 — 구현 턴이 합류시켜야 AC24가 PR #382 에 대해 성립한다.
@@ -281,12 +288,13 @@
 | 계약/필드 | SSOT | 누가 | 언제 강제 (지점 수) | 실패 의미 |
 |---|---|---|---|---|
 | 브랜치 이름 문자셋 | `GitBranchNameSchema` (`protocol.ts`) | `handle()` + `git-cli.gitCheckout` | invoke 검증 시점 · **execFile 직전** (**2**) | 옵션 주입(`-f`·`--`)·refspec 문법이 `git checkout` 인자로 들어간다. **현재 1/2** — `protocol.ts:189` 주석이 2를 약속했으나 실행부 검사 0건 |
-| `extraDirs` 절대 경로 | `SendChatMessageSchema.extraDirs` | IPC 스키마 + `resolveGuardRoots` | `chat:send` 검증 시점 · 가드 루트 해석 시점 (**2**) | 상대경로는 main 프로세스 cwd 기준으로 풀리고, `/` 한 개면 `writeRoots` 가 루트를 덮어 0075 가드가 무력화된다. **현재 0/2** |
+| `extraDirs` 절대 경로 · 비루트 | `ExtraDirSchema` + `isFilesystemRoot` (`shared/absolute-path.ts`) | 칩 추가(리듀서) + IPC 스키마 + `resolveGuardRoots` + `parseExtraDirs` | **칩 추가 시점** · `chat:send` 검증 시점 · 가드 루트 해석 시점 · **세션행 읽기 시점** (**4**) | 상대경로는 main 프로세스 cwd 기준으로 풀린다. **루트는 모든 경로의 조상이라 `writeRoots` 에 오르면 0075 가드가 no-op 이 된다** — 실측 `resolveGuardRoots('/tmp/ws',['/']).writeRoots[1] === '/'`. **칩 추가 지점이 빠지면** 스키마 거부가 전송 전체를 `schema_validation_error`(`admission.ts:28`)로 죽이고 사용자는 원인을 모른 채 그 칩을 지울 때까지 막힌다. **현재 절대경로 3/4 · 루트 0/4** |
 | `additionalDirectories` ↔ 가드 루트 동일 배열 | `claude.ts:343` 지역 배열 | 어댑터 | `query()` 옵션 조립 · 훅 생성 (**2**) | 옵션은 넓은데 가드는 좁거나 그 반대 — D-006 이 막으려는 드리프트. **현재 2/2 성립(참조 동일), 관측 장치 0** |
 | 기본 권한 모드 | (신설) `shared/permission-mode.ts` 상수 | 렌더러 초기 상태 + main 미설정 조회 | 리듀서 초기값 · 컨트롤러 기본 인자 (**2**) | 칩과 main 이 서로 다른 모드를 진실로 삼는다. **현재 리터럴 2개 · SSOT 0** |
 | 마이그레이션 목록 | `migrate.ts MIGRATIONS` | 픽스처 + 골든 목록 + 가드 스크립트 | 픽스처 DB 생성 (**4**) · 골든 단언 (**1**) · 사본 스캔 (**1**) | **A(즉시)** = 새 컬럼이 생성자 46문에 실리면 픽스처가 `new DbQueries(db)` 에서 즉사(0017 → 39건). **B(조용)** = 새 테이블이면 아무도 안 죽고 픽스처만 실제 스키마와 갈라진다(0013 → 3곳). **현재 사본 4** |
 | `git` 채널 검증 실패 정책 | `handlers/git.ts` 등록부 | `handle()` | 등록 시점 (**3채널**) | 읽기가 `reject` 가 되면 저장소 아닌 폴더에서 컴포저가 깨진다 |
 
+- **루트 판정은 2층이고 4지점은 중복이 아니다.** 칩 추가·스키마·세션행 읽기 지점은 **순수 텍스트 판정**(`isFilesystemRoot`)으로 `/`·`C:\`·`\\srv\share` 형태를 막는다 — 플랫폼 독립이라 Linux 러너와 windows CI 가 같은 답을 낸다(`isAbsolutePath` 와 같은 이유). 정규화해야만 드러나는 별칭(`/.` · `/a/..`)은 텍스트 판정이 놓치므로, **이미 `path.resolve` 를 하는 `resolveGuardRoots` 가 정규화 후 한 번 더 판정**한다. 앞 지점은 사용자에게 빨리 말하고, 뒤 지점은 무엇이 통과했든 가드를 지킨다 — 구현자는 한 지점으로 나머지를 갈음하지 않는다.
 - **같은 규칙이 여러 레이어에 있을 때 SSOT 와 공유 방법**: 브랜치 문자셋은 `GitBranchNameSchema` 를 `git-cli` 가 **import 해서 재사용**한다 — 정규식을 복붙하지 않는다. 기본 권한 모드는 `shared/permission-mode.ts` 에 `DEFAULT_PERMISSION_MODE` 를 두고 양쪽이 읽는다.
 - **`실패 의미` 에 "다른 게이트가 막는다" 를 적었는가**: 적지 않았다. 마이그레이션 행의 A 는 vitest 가 잡지만 **B 는 어떤 게이트도 잡지 못한다**는 것이 이번 턴의 실측이다 — `check-migrations-appendonly.mjs` 는 파일 2개만 읽고, `check-doc-inventory.mjs` 는 문서를 보며, lint/typecheck 에는 16개짜리 목록과 17개짜리 목록이 똑같이 유효하다.
 - **선택적 필드의 `true/false/undefined` 의미**: `resolution` 미지정 = "아직 묻지 않았다"(D-003 — 아무 것도 하지 않고 되돌아온다). `extraDirs` 미지정 = 없음, 빈 배열 = 없음(DB 는 둘 다 `NULL`). `hidden` 미지정 = 메뉴에 내건다.
@@ -299,6 +307,11 @@
 | `app/src/main/infra/git/git-cli.ts` | 실행부 | `GitBranchNameSchema` import 해 checkout 직전 재검사(AC7) · 부분 실패에 `applied` 실어 반환(AC9) | 실 저장소 fixture 통합 |
 | `app/src/shared/protocol.ts` | 계약 | `extraDirs` 를 절대 경로 스키마로(AC12) · `GitCheckoutResult` 에 `applied` 추가 | 스키마 단위 |
 | `app/src/shared/permission-mode.ts` | 계약 | `DEFAULT_PERMISSION_MODE` 신설(AC18) | 단위 |
+| `app/src/shared/absolute-path.ts` | 계약 | **`isFilesystemRoot` 신설**(D-019) — 텍스트 루트 3형태. `isAbsolutePath` 와 같은 파일·같은 플랫폼 독립 규칙 | 단위 |
+| `app/src/renderer/…/reducer/chatReducer.ts` | 거부 지점 1 | `ADD_EXTRA_DIR` 이 루트를 거부하고 **사유 상태**를 세팅(AC25). 중복·cwd 자기 자신의 조용한 무시와 달리 사유가 남는다 | 순수 리듀서 |
+| `app/src/renderer/…/components/CwdPanel.tsx` | 소비처 | 거부 사유를 행에 표시하고 다음 조작에서 지운다 | 컴포넌트(시각) |
+| `app/src/renderer/…/i18n/resources/{ko,en}.ts` | 문구 | 루트 거부 사유 1키 | leaf 실재 단언 |
+| `app/src/main/adapters/workspace-guard.ts` | 거부 지점 3 | `path.resolve` **후** 루트 판정 추가 — 별칭(`/.`)을 여기서 잡는다 | 단위 |
 | `app/src/renderer/…/chatReducer.ts` · `permission-mode-controller.ts` | 소비처 | 리터럴 → 상수 참조 | 단위 |
 | `app/src/main/infra/git/git-cli.test.ts` (신규) | 관측 | 임시 저장소 fixture — AC3·AC4·AC5·AC7·AC9 | 통합(실 git) |
 | `app/src/main/adapters/claude.extra-dirs.test.ts` (신규) | 관측 | `query()` 옵션 배열과 훅 인자의 **참조 동일성**(AC11) | 단위(SDK fake) |
@@ -387,7 +400,7 @@ CwdPanel(＋) → chatReducer.extraDirs → chat:send.extraDirs → buildTurnCon
 |---|---|
 | 브랜치 칩이 사용자 작업 트리에 파괴적 명령(`reset --hard`)을 실행한다 | D-004 의 3동작 게이트(메뉴 열기 → 선택 → 실행 버튼) + AC5(추적 변경만) + AC9(적용 결과 가시화) |
 | 기본 권한 모드 완화(`plan`→`auto_classified`)로 승인 게이트 강도가 낮아진다 | 제품 결정 D-012. AC18 은 값을 되돌리지 않고 **두 곳이 갈라지지 않음**만 잠근다 |
-| `extraDirs` 가 0075 가드를 넓힌다 | AC12 절대경로 강제. 값 자체의 범위 제한(예: 홈 밖 금지)은 하지 않는다 — `/add-dir` 대응이 목적이다 |
+| `extraDirs` 가 0075 가드를 넓힌다 | AC12 절대경로 + **비루트** 강제(D-019). **범위 정책은 여전히 하지 않는다** — 홈 밖 금지 같은 스코프 제한은 두지 않고 실제 폴더는 전부 허용한다. 루트만 배제하는 이유는 정책이 아니라 축퇴다: 루트가 `writeRoots` 에 오르면 가드가 판정할 바깥이 없어진다 |
 | 실 `git` 의존 테스트가 CI 환경에 묶인다 | windows-latest 와 로컬 모두 `git` 보유 확인. fixture 는 `mkdtemp` + `git init` 로 자족한다 |
 | 앱 종료 중 `git checkout` 진행 | 정리 경로 없음. 10초 타임아웃이 상한이며 이 handoff 범위 밖으로 둔다 |
 
@@ -404,6 +417,8 @@ CwdPanel(＋) → chatReducer.extraDirs → chat:send.extraDirs → buildTurnCon
 - `app/src/renderer/src/features/chat/components/composer/BranchChip.test.tsx` · `BranchSwitchDialog.test.tsx`(신규)
 - `app/src/main/features/approvals/permission-mode-controller.ts`
 - `app/scripts/check-migrations-appendonly.mjs` · `check-migrations-appendonly.test.mjs`
+- **r2(D-019·D-020)**: `app/src/shared/absolute-path.ts`(+`isFilesystemRoot`) · `app/src/main/adapters/workspace-guard.ts`(정규화 후 루트 판정) · `app/src/renderer/…/reducer/chatReducer.ts`(거부 + 사유 상태) · `…/components/CwdPanel.tsx`(사유 표시) · `…/i18n/resources/{ko,en}.ts`(사유 1키) · `app/src/main/app/chat-turn/turn-context.ts`(세션행 읽기)
+- **r2 파생 이슈(D1·D2·D4)**: `app/scripts/check-migrations-appendonly.test.mjs`(대상 집합 잠금) · `app/src/renderer/…/composer/branchChipState.ts`(`checkoutErrorView` seam) · `docs/IPC_CONTRACT.md`(§2.6-b `applied`)
 - `docs/handoff/INDEX.md` · `docs/handoff/0201-composer-work-context-row/plan.md`
 
 ## 19. 게이트
@@ -610,5 +625,5 @@ CwdPanel(＋) → chatReducer.extraDirs → chat:send.extraDirs → buildTurnCon
 |---|---|---|---|---|
 | D1 | **사본 스캔의 `대상 집합` 판정 지점이 커밋된 테스트로 잠기지 않았다.** `SOURCE_EXTENSIONS` 에서 `.tsx` 를 빼도 `node --test scripts/check-migrations-appendonly.test.mjs` **14/14 green** — D-018 이 요구한 재발 방지가 스스로 좁아져도 아무도 모른다 | AC22 · §10 `마이그레이션 목록` 행의 `사본 스캔 (1)` | `collectSourceFiles` 를 임시 디렉토리 픽스처로 도는 단위 테스트를 더한다. 확장자·재귀 두 축에 각각 결함을 심어 red 를 확인한다 | open |
 | D2 | **AC9 의 "그 문구가 모달에 도달" 이 잠기지 않았다.** 모달의 `error?.applied` 문단 + import 를 지워 잔여물 진단 0까지 밀었을 때 `typecheck:web` exit 0 · 렌더러 chat **352/352 green** | AC9 검증 수단 후반절 | 렌더 하네스 없이도 대부분 닫힌다 — `checkoutErrorView(error, tr)` 순수 seam 으로 문구 조립과 순서(안내 먼저·원문 나중)를 떼고 `BranchChip` 이 그것을 렌더한다. 남는 미검증은 JSX→DOM 한 홉 | open |
-| D3 | **`/`·`C:\`(파일시스템 루트)가 `extraDirs` 를 통과해 write 루트가 된다.** 실측 `isAbsolutePath('/')=true` · `resolveGuardRoots('/tmp/ws',['/']).writeRoots[1] === '/'` — §10 `실패 의미` 가 지목한 적대 상태가 그대로 재현된다 | §10 `extraDirs 절대 경로` 행 ↔ AC12 | **규범 정정 필요** — 루트 거부는 사용자가 받는 결과를 바꾼다. 설계자가 AC12 문면을 정하거나 §10 `실패 의미` 에서 그 사례를 내린다 | **규범 정정 필요** |
+| D3 | **`/`·`C:\`(파일시스템 루트)가 `extraDirs` 를 통과해 write 루트가 된다.** 실측 `isAbsolutePath('/')=true` · `resolveGuardRoots('/tmp/ws',['/']).writeRoots[1] === '/'` — §10 `실패 의미` 가 지목한 적대 상태가 그대로 재현된다 | §10 `extraDirs 절대 경로` 행 ↔ AC12 | **규범 정정 필요** — 루트 거부는 사용자가 받는 결과를 바꾼다. 설계자가 AC12 문면을 정하거나 §10 `실패 의미` 에서 그 사례를 내린다 | **규범 정정 완료 (2026-08-26)** — 사용자 결정으로 닫았다: 루트 **거부**, 거부는 **칩 추가 시점**에 사유와 함께. 산출 = D-019·D-020 신설 · AC12 문면 정정 · **AC25 신설** · §10 행 (2)→(4) · §17 리스크 행 정정. 남은 것은 구현이다(r2) |
 | D4 | `IPC_CONTRACT.md §2.6-b` 의 `GitCheckoutResult` 서술이 이번에 추가된 `applied` 필드를 적지 않는다 | §15 문서 계약 | 문서 한 줄 추가. AC20 대조 테스트는 정책만 보므로 이 drift 를 잡지 못한다 | open |
