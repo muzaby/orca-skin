@@ -32,7 +32,8 @@ const EXPECTED_MIGRATIONS = [
   '0013_schedules',
   '0014_provider_usage_report_cache',
   '0015_pinned',
-  '0016_turn_model_context_window'
+  '0016_turn_model_context_window',
+  '0017_session_extra_dirs'
 ]
 
 const APPLIED_SQL = [

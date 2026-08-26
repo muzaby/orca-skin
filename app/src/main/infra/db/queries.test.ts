@@ -16,6 +16,7 @@ import migration0013 from './migrations/0013_schedules.sql?raw'
 import migration0014 from './migrations/0014_provider_usage_report_cache.sql?raw'
 import migration0015 from './migrations/0015_pinned.sql?raw'
 import migration0016 from './migrations/0016_turn_model_context_window.sql?raw'
+import migration0017 from './migrations/0017_session_extra_dirs.sql?raw'
 import { DbQueries } from './queries'
 
 function dbWithMigrations(): Database.Database {
@@ -37,6 +38,7 @@ function dbWithMigrations(): Database.Database {
   db.exec(migration0014)
   db.exec(migration0015)
   db.exec(migration0016)
+  db.exec(migration0017)
   return db
 }
 
