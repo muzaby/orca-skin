@@ -55,12 +55,23 @@ function asIdList(value: unknown): string[] | undefined {
 }
 
 // 목록 항목에 실릴 수 있는 필드 묶음 — 관측마다 아는 것만 채운다(누락 = 기존 값 보존).
+//
+// **의존 간선은 두 의미로 흐른다**(0204 D-029 · §10 EP-19). SDK 가 이름으로 이미 가른다:
+//   `blockedBy`    — `TaskGet`/`TaskList` **출력**. 그 시점의 전체 목록이라 **교체**한다.
+//   `addBlockedBy` — `TaskUpdate` **입력**. `add-` 접두 그대로 **가산**한다.
+// 한 필드에 담으면 `TaskUpdate` 한 번이 기존 간선을 통째로 지운다.
+//
+// `blocks`("내가 막는 것")는 **싣지 않는다**(D-028) — `TaskListOutput` 에 그 필드가 없어
+// 전체 스냅샷(D-008)이 보정할 수 없다. 저장하면 삭제된 간선이 영구 잔류한다. `blockedBy` 의
+// 역방향이라 정보 손실은 0이다.
 export interface AgentTaskPatch {
   subject?: string
   description?: string
   status?: AgentTaskStatus
+  // 전체 교체 — 출력이 준 그 시점의 전량.
   blockedBy?: string[]
-  blocks?: string[]
+  // 가산 병합 — 기존 간선에 더한다(중복 id 는 한 번만).
+  addBlockedBy?: string[]
   owner?: string
 }
 
@@ -126,6 +137,12 @@ function readUpdate(
     const owner = asText(input.owner)
     if (owner) patch.owner = owner
   }
+  // 의존 간선 추가(D-029). `updatedFields` 가 어느 이름을 싣는지 SDK 가 문서화하지 않아
+  // **두 이름을 모두** 허용한다(D-030) — 놓치면 의존이 화면에서 사라지는 쪽이 더 나쁘다.
+  if (changed('addBlockedBy') || changed('blockedBy')) {
+    const added = asIdList(input.addBlockedBy)
+    if (added && added.length > 0) patch.addBlockedBy = added
+  }
   // 필드가 하나도 안 잡히면 목록이 바뀔 것이 없다 — 빈 upsert 로 항목을 만들지 않는다.
   if (Object.keys(patch).length === 0) return null
   return { kind: 'upserted', id, patch }
@@ -168,10 +185,9 @@ function patchFromTaskRecord(task: Record<string, unknown>): AgentTaskPatch {
   if (status) patch.status = status
   const owner = asText(task.owner)
   if (owner) patch.owner = owner
+  // 출력의 `blockedBy` 는 전체 교체다. `task.blocks` 는 읽지 않는다(D-028).
   const blockedBy = asIdList(task.blockedBy)
   if (blockedBy) patch.blockedBy = blockedBy
-  const blocks = asIdList(task.blocks)
-  if (blocks) patch.blocks = blocks
   return patch
 }
 

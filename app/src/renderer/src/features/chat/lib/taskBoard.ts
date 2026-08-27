@@ -119,7 +119,11 @@ function applyPatch(entry: AgentEntry, patch: AgentTaskPatch): void {
   if (patch.subject !== undefined) entry.subject = patch.subject
   if (patch.description !== undefined) entry.description = patch.description
   if (patch.status !== undefined) entry.status = patch.status
+  // 의존 간선의 두 의미를 각각 구현한다(0204 §10 EP-19). 하나만 알면 나머지가 조용히 무시된다.
   if (patch.blockedBy !== undefined) entry.blockedBy = patch.blockedBy
+  if (patch.addBlockedBy !== undefined) {
+    entry.blockedBy = [...new Set([...entry.blockedBy, ...patch.addBlockedBy])]
+  }
   if (patch.owner !== undefined) entry.owner = patch.owner
 }
 

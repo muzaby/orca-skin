@@ -395,3 +395,64 @@ describe('키 네임스페이스 (EP-04)', () => {
     )
   })
 })
+
+// 0204 ΔV2 AT-34 / §10 EP-19 — 의존 간선의 두 의미.
+//
+//   TaskUpdate(addBlockedBy) = 가산    TaskGet/TaskList(blockedBy) = 전체 교체
+//
+// 한 의미로 합치면 둘 중 하나가 조용히 깨진다 — 가산만 알면 삭제된 간선이 영구 잔류하고,
+// 교체만 알면 TaskUpdate 한 번이 기존 간선을 통째로 지운다.
+describe('의존 간선 — 가산 vs 교체 (AT-34)', () => {
+  const dependsOn = (id: string, items: TaskBoardItem[]): string[] =>
+    byKey(items, agentTaskKey(id)).blockedBy
+
+  // 의존 id 는 **args** 가 나른다 — `TaskUpdateOutput` 에는 blockedBy 필드가 없다.
+  // 출력은 성공 여부와 `updatedFields` 게이트만 준다.
+  const addBlocked = (id: string): unknown => ({
+    success: true,
+    taskId: id,
+    updatedFields: ['addBlockedBy']
+  })
+
+  it('TaskUpdate 의 addBlockedBy 는 기존 의존에 더한다 — 중복 id 는 한 번만', () => {
+    const items = taskBoardFromMessages(
+      messages(
+        call('TaskCreate', { subject: '배포' }, created('5', '배포')),
+        call('TaskUpdate', { taskId: '5', addBlockedBy: ['1'] }, addBlocked('5')),
+        call('TaskUpdate', { taskId: '5', addBlockedBy: ['2'] }, addBlocked('5')),
+        // 같은 id 를 다시 더해도 누적되지 않는다.
+        call('TaskUpdate', { taskId: '5', addBlockedBy: ['1'] }, addBlocked('5'))
+      )
+    )
+    expect(dependsOn('5', items)).toEqual(['1', '2'])
+  })
+
+  it('TaskList 스냅샷은 의존을 전체 교체한다 — 가산분이 누적되지 않는다', () => {
+    const items = taskBoardFromMessages(
+      messages(
+        call('TaskCreate', { subject: '배포' }, created('5', '배포')),
+        call('TaskUpdate', { taskId: '5', addBlockedBy: ['1', '2'] }, addBlocked('5')),
+        call(
+          'TaskList',
+          {},
+          { tasks: [{ id: '5', subject: '배포', status: 'pending', blockedBy: ['3'] }] }
+        )
+      )
+    )
+    // 교체다 — ['1','2','3'] 이면 가산으로 잘못 구현된 것이다.
+    expect(dependsOn('5', items)).toEqual(['3'])
+  })
+
+  it('완료 후 새로 생긴 작업은 앞의 것과 의존이 없다 (D-031)', () => {
+    const items = taskBoardFromMessages(
+      messages(
+        call('TaskCreate', { subject: '먼저' }, created('1', '먼저')),
+        call('TaskUpdate', { taskId: '1', status: 'completed' }, updated('1', 'completed')),
+        call('TaskCreate', { subject: '나중' }, created('2', '나중'))
+      )
+    )
+    // 순서(id)는 의존이 아니다 — 목록에 둘 다 있고 새 항목의 의존은 비어 있다.
+    expect(taskBoardOrdered(items).map((i) => i.id)).toEqual(['1', '2'])
+    expect(dependsOn('2', items)).toEqual([])
+  })
+})
