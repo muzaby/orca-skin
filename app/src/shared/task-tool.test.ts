@@ -120,11 +120,13 @@ describe('readTaskToolObservation — TaskGet', () => {
             description: '핸들러 정리',
             status: 'in_progress',
             blocks: ['2'],
-            blockedBy: []
+            blockedBy: ['9']
           }
         },
         { taskId: '1' }
       )
+      // AT-34③ — `blocks` 는 patch 에 실리지 않는다(D-028: TaskList 가 보정할 수 없다).
+      // 양성 짝: 같은 출력의 `blockedBy` 는 실린다 — 파서가 통째로 죽어도 참이 되는 형태가 아니다.
     ).toEqual({
       kind: 'upserted',
       id: '1',
@@ -132,8 +134,7 @@ describe('readTaskToolObservation — TaskGet', () => {
         subject: 'API 수정',
         description: '핸들러 정리',
         status: 'in_progress',
-        blocks: ['2'],
-        blockedBy: []
+        blockedBy: ['9']
       }
     })
   })
