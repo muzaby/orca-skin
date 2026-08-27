@@ -5,16 +5,18 @@ import { MenuItem } from '../../../shared/ui/MenuItem'
 import { Popover } from '../../../shared/ui/Popover'
 import { CollapsibleSection } from '../../../shared/ui/SidebarSection'
 import { useI18n } from '../../../shared/i18n'
-import type { Project, SessionListItem } from '../../../../../shared/ipc'
+import type { Project } from '../../../../../shared/ipc'
 import { SessionRow } from './SessionRow'
 import { useNavSections } from '../hooks/useNavSections'
+import type { ProjectChildSessions } from '../lib/navSections'
 import { sessionsActions } from '../store/sessionsStore'
 
 export interface PinnedProjectsSectionViewProps {
   // app 셸이 projectsStore 에서 걸러 주입(cross-feature 는 props-only).
   pinnedProjects: Project[]
   // 0203 ΔV1 EP-9 — 프로젝트별 하위 대화. 키가 없으면 미조회(로딩)다.
-  projectChildren: Record<string, SessionListItem[]>
+  // ΔV2 EP-11 — 슬롯 브랜드. 파티션의 다른 칸을 넘기면 컴파일되지 않는다.
+  projectChildren: Record<string, ProjectChildSessions>
   // 펼칠 때 그 프로젝트의 membership 조회를 트리거한다(조회는 펼친 것만).
   onExpandProject: (projectId: string) => void
   currentSessionId: string | null
@@ -61,7 +63,7 @@ interface PinnedProjectRowProps extends Omit<
 > {
   project: Project
   // 이 프로젝트의 하위 대화. `undefined` = 아직 조회하지 않음.
-  sessions: SessionListItem[] | undefined
+  sessions: ProjectChildSessions | undefined
 }
 
 // 고정 프로젝트 행 — chevron 으로 하위 대화 접기/펼치기, 이름 클릭으로 프로젝트 열기,
@@ -154,9 +156,10 @@ function PinnedProjectRow({
   )
 }
 
-interface PinnedProjectChildrenProps {
+export interface PinnedProjectChildrenProps {
   // `undefined` = 미조회 → 로딩. `[]` = 조회했고 보여 줄 대화가 없음.
-  sessions: SessionListItem[] | undefined
+  // ΔV2 EP-11 — 슬롯 브랜드.
+  sessions: ProjectChildSessions | undefined
   currentSessionId: string | null
   onSelectSession: (sessionId: string) => void
   onTogglePinSession: (sessionId: string, pinned: boolean) => void
@@ -166,7 +169,10 @@ interface PinnedProjectChildrenProps {
 
 // 하위 대화 목록. 고정된 대화가 여기서 빠지는 판정은 파티션이 이미 했다 — 이 컴포넌트는
 // 받은 목록을 그린다. 행 액션은 최근 대화와 동일하다(D-009).
-function PinnedProjectChildren({
+//
+// export 하는 이유(0203 D7): 이 목록은 행의 `expanded` 상태 뒤에 있어 구획 단위 SSR 렌더로는
+// **아무것도 그려지지 않는다** — 그 출력에 대한 음성 단언은 무엇을 넣어도 참이 된다.
+export function PinnedProjectChildren({
   sessions,
   currentSessionId,
   onSelectSession,
