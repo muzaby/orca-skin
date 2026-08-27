@@ -472,51 +472,112 @@ sessionApi.list / projectApi.listSessions
 
 ---
 
-> **[구현자 기입]** 이하는 구현 턴에서 채운다.
-> **이번 handoff 는 구현이 plan 보다 먼저 도착했다** — 아래 필드는 비어 있고, 그 사실 자체가 관측이다. 검증자는 구현자 보고 없이 §메타의 5개 커밋과 코드에서 직접 판정한다.
+> **[구현자 기입]** — r1. 구현 코드 5커밋은 handoff 밖에서 먼저 도착했고, 이 보고는 그 산출물을
+> plan 계약으로 되돌려 측정한 결과다. 이번 턴이 만든 코드 변경은 **AC8 오라클 1건**뿐이다.
+> `Criteria-Met` 은 자기보고이며 검증자는 증거로 받지 않는다.
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: 미작성 — 구현 턴이 handoff 밖에서 진행됐다.
-- 이견 / 현실성 문제: 미작성.
-- ACTIVE Decision 과 충돌하는 설계 발견: 미작성.
+- 동의 / 그대로 진행: Part I 요구 6개와 §10 강제 지점 8곳이 코드에서 전부 실재한다(아래 전수표). Part II 의 AS-IS→TO-BE Delta 8행도 실제 diff 와 어긋나는 행이 없다.
+- 이견 / 현실성 문제: **없음.** 다만 §7 이 AC8 을 "신규 케이스 요구"로 적어 둔 대로 오라클이 없었다 — 이번 턴에 신설했다(선조치 #2).
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음. D-001~D-011 중 코드가 반대로 구현한 것 0건.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
-미작성 — 검증자가 EP-1~EP-8 을 코드에서 직접 센다.
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-05·06·07·09 | 한 대화는 nav 에서 정확히 한 구획 | `EP-1`·`EP-2`·`EP-3` (3) | 3/3 | `sed -n '34p' PinnedSection.tsx` → `.filter(isPinnedSession)` · `sed -n '179p' PinnedProjectsSection.tsx` → `!isPinnedSession(session)` · `sed -n '62p' SessionList.tsx` → `placementOf(...) !== 'recent'` | — |
+| VP-08 | 상단 메뉴는 `/projects` 정확 일치 | `EP-4` (1) | 1/1 | `sed -n '17p' navItems.ts` → `(p: string) => p === '/projects'` | — |
+| VP-04 | "고정됨"은 프로젝트를 담지 않는다 | `EP-5` (1) | 1/1 | `grep -c 'Project' PinnedSection.tsx` → **0** | — |
+| VP-11·12 | 이름·고정·삭제는 엔티티 1개를 패치 | `EP-6` (1) | 1/1 | `grep -n patchSession sessionsStore.ts` → 정의 1(`:57`) · 호출 3(`:116`·`:122`·`:158`) | — |
+| VP-11 | 새 membership 은 GC 루트에 포함 | `EP-7` (1) | 1/1 | `sed -n '73,79p' sessionsStore.ts` → `for (const ids of Object.values(state.projectSessionIds))` | — |
+| VP-03·10 | 구획 헤더의 컨트롤은 접기 토글 하나 | `EP-8` (1) | 1/1 | `grep -c 'aria-expanded={' SidebarSection.tsx` → **1** | — |
+
+**전수 = 8/8.** 완결성 관측은 차집합이다 — nav 에서 `SessionRow` 를 렌더하는 소스 배열 **5**개(`PinnedSection:45 pinnedSessions` · `PinnedProjectsSection:189 visibleSessions` · `SessionList:74 drafts` · `SessionList:85 recentSessions` · `ProjectSessionsPanel:58 sessions.list`) 중 배치 술어를 통과한 것 **3**개(EP-1~EP-3). **차집합 2**: `drafts`(DB 세션 아님 — `byId` 미등록, `draftAsListItem` 이 `pinnedAt: null` 합성) · `ProjectSessionsPanel`(프로젝트 랜딩 = nav 아님, D-010 비범위). 술어 밖으로 새어나간 nav 지점 **0**.
+
+- §10 에 없는데 같은 불변식이 필요했던 지점: 없음.
+
+**V-pair 자기확인** — `SELF_PASS 6 / SELF_BLOCKED 6`.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_BLOCKED | 사람 실기 — 이 컨테이너에 Electron GUI 없음. 구조만 확인: `Sidebar.tsx:131`·`:155`·`:156`·`:157` 순서 | not selected |
+| VP-02 | REQUIRED | SELF_BLOCKED | 사람 실기. 구조만: `useSessionHandlers.ts:70-78` 필터 + `pinnedAt` 내림차순 | not selected |
+| VP-03 | REQUIRED | SELF_PASS | 음성 0 · 양성 1 (스윕 스크립트) | **M2 양성 1→0 · M3 음성 0→1 — 양방향 검출** |
+| VP-04 | REQUIRED | SELF_BLOCKED | 구조 절반 닫힘(`EP-5` 0건), 시각 절반은 실기 대기 | **M4 EP-5 0→2 — 검출** |
+| VP-05 | REQUIRED | SELF_PASS | `고정 대화는 프로젝트 소속과 무관하게 고정됨이 가져간다` 통과 | not selected — 직접 행동 결과 관측 |
+| VP-06 | REQUIRED | SELF_PASS | `모든 조합이 정확히 한 섹션에 배치된다` 6조합 전수 통과 | not selected — 전수 열거가 직접 oracle |
+| VP-07 | REQUIRED | SELF_PASS | `고정 프로젝트의 비고정 대화는…` + `고정되지 않은 프로젝트의 대화는…` 통과 | not selected |
+| VP-08 | REQUIRED | SELF_PASS | 신설 `프로젝트 메뉴는 목록 경로에서만 활성이다` 통과 | **M5 `startsWith` 복귀 → 1건 실패 — 검출** |
+| VP-09 | REQUIRED | SELF_BLOCKED | §5 전이표 7행 중 배치 4행은 순수로 닫힘, 3행(프로젝트 고정·해제·행 클릭)은 실기 | not selected |
+| VP-10 | REQUIRED | SELF_BLOCKED | AC1·AC4 시각 절반이 실기 대기 | 위 M2~M4 로 구조 절반 확인 |
+| VP-11 | REQUIRED | SELF_BLOCKED | AC11 순수 2케이스 통과, AC12(IPC+DB 영속)는 실기 | not selected |
+| VP-12 | REQUIRED | SELF_PASS | `sessionsStore.test.ts` 2케이스 통과 | not selected |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-미작성 — VP-03·VP-04 의 결함 변이는 검증자가 심는다.
+| 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|
+| **M1** `PinnedSection.tsx:34` `.filter(isPinnedSession)` 삭제 → 잔여 import 까지 삭제 | 이번 턴 §3 자기검사 — EP-1 배선 | **0건** — vitest 8/8 pass · `typecheck:web` 진단 0 · eslint 0 error(prettier warning 1) | **잠금 없음 — 배선을 자동 게이트가 못 본다**(§10 `실패 의미` 가 예고한 그대로. 잔여물만 남기면 `TS6133` 이 걸리지만 그것까지 지우면 전부 침묵) |
+| **M2** `SidebarSection.tsx:32-41` 접기 토글 → 정적 `<div>` | VP-03 선택 증거 | 양성 스윕 `1 → 0` | 잠김 |
+| **M3** `PinnedProjectsSection` 헤더에 `<Icon name="plus">` 버튼 추가 | VP-03 선택 증거 | 음성 스윕 `0 → 1` | 잠김 |
+| **M4** `PinnedSection` 에 `import type { Project }` + `pinnedProjects` prop 복귀 | VP-04 선택 증거 | EP-5 스윕 `0 → 2` | 잠김 |
+| **M5** `navItems.ts:17` → `p.startsWith('/projects')` | 이번 턴 신설 oracle 민감도 | **1건** — `프로젝트 메뉴는 목록 경로에서만 활성이다` (`expected true to be false`) | 잠김 |
+
+- 다섯 변이 모두 되돌렸다: `git status --short` → `M app/src/renderer/src/app/navItems.test.ts` 한 줄(이번 턴 신설 오라클)뿐이고, 스윕 3값이 기준선 `0 / 1 / 0` 으로 복귀했다.
+- 신설 oracle 의 production 경로 진입: `navItems.test.ts` 가 import 하는 `SIDEBAR_NAV` 는 `Sidebar.tsx:90`·`:133` 이 `it.isActive(pathname)` 로 부르는 같은 상수다(동명 재구현 아님).
 
 ## [구현자 기입] Product/UX 파생 검토
 
-미작성 — §17 R-1·R-2 가 설계자가 대신 적은 파생 검토다.
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ✅ | `sidebar.pinnedProjects` 가 ko(`:751` '프로젝트')·en(`:747` 'Projects') 양쪽에 있고 `PinnedProjectsSection.tsx:41` 이 소비한다 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | **표에 없음** | 프로젝트 하위 조회 실패는 §5 *파생 UX* 에만 있고 상태 전이표 7행 중 어느 행도 아니다 → 잠재 문제 #3 |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | ⚠️ | 조회 실패가 빈 membership 으로 확정돼(`sessionsStore.ts:144-148`) 화면에는 `sessions.empty`("대화 없음")로 보인다 — 진짜 빈 프로젝트와 구분되지 않는다 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | ⚠️ | `loadProject` 에 세대·취소 토큰이 없다(`sessionsStore.ts:128-140`) — 같은 projectId 의 두 조회가 겹치면 나중 응답이 이긴다. 창은 좁다(마운트 + 턴 종료 두 트리거뿐) |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
-미작성.
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | **EP-1~EP-3 배선을 어떤 자동 게이트도 잠그지 않는다.** 세 필터 중 하나를 지워도 lint·typecheck·vitest 가 전부 초록이다 — 순수 테스트는 `placementOf` 규칙만 잠그고 그것을 *부르는 줄* 은 보지 않는다 | ⚠️ **보고만** — 닫으려면 렌더 하네스(신규 devDependency, 사용자 승인 사항) 또는 세 구획의 파생을 순수 셀렉터로 뽑아 store 조합 테스트를 만들어야 한다. 둘 다 설계 결정 | M1 실측: vitest 8/8 pass · typecheck 진단 0 · eslint 0 error |
+| 2 | AC8 의 오라클이 없었다 — `navItems.test.ts` 에 `/projects` 술어 케이스 부재 | ✅ **선조치** — 케이스 1건 신설(`navItems.test.ts:9-14`). plan §11 이 이미 "**신규 케이스**"로 요구한 행이라 설계 변경이 아니다 | M5 로 민감도 확인 |
+| 3 | 프로젝트 하위 조회 실패가 "대화 없음"으로 위장한다 | ⚠️ **보고만** — 실패 표시를 넣으면 §5 상태 전이표에 행이 하나 늘고, 그것은 Product 결정이다 | `useProjectSessions.ts:19` `.catch(() => undefined)` + `sessionsStore.ts:144-148` 빈 membership 확정 |
+| 4 | AC3 양성 스윕의 첫 정의(`grep -c 'aria-expanded'`)가 **주석 줄까지 세어 2** 를 돌려줬다 | ✅ **선조치** — 술어를 `aria-expanded={` 로 좁혀 1로 정정한 뒤 M2 를 돌렸다 | `grep -n 'aria-expanded' SidebarSection.tsx` → `:20`(주석)·`:36`(속성) |
+| 5 | §17 R-1(고정 프로젝트의 새 대화가 어느 구획에도 안 보일 수 있음)을 코드에서 재확인했다 | ⚠️ **보고만** — 설계자가 이미 리스크로 등록. 최소 해법은 `initSessions` 가 이미 조회된 버킷 membership 도 갱신하는 것 | `useProjectSessions.ts:20` deps `[projectId]` · `sessionsStore.ts:81-85` 반환에 `projectSessionIds` 없음 |
+
+### 설계 대비 명시적 차이
+
+- plan 이 지정한 것과 다르게 구현한 것: **없음** — plan 이 구현 뒤에 쓰인 기준선이라 설계 대비 차이가 구조적으로 생길 수 없다. 이번 턴의 유일한 코드 변경(AC8 오라클)은 plan §11 이 지정한 파일·역할 그대로다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 대체한 메커니즘이 없다 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — 대체 없음. 다만 기존 설계의 공유 축은 확인했다: `byId` 를 네 소비자가 함께 읽고 비우는 곳은 `initSessions` GC 하나다 | EP-7 관측(`sessionsStore.ts:73-79`) |
+| 재진입 | 해당 없음 — 대체 없음 | — |
+| 다른 무효화 축 | 해당 없음 — 대체 없음 | — |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | §18 목록 (5커밋 diff 기준) |
-| 실행 명령 | 미보고 |
-| 관측한 게이트 산출 | 미보고 |
-| V-pair 자기확인 | 미보고 |
-| 강제 지점 전수 | 미보고 |
-| AC 자기보고 | 미보고 |
-| 합계 검산 | 미보고 |
-| 블로커 / 역질문 | 없음 |
-| 대상 커밋 | 좌표는 `INDEX.md` |
+| 변경 파일 | 이번 턴 **1개** — `app/src/renderer/src/app/navItems.test.ts`(AC8 오라클 신설). 앞선 5커밋의 파일 목록은 §18 |
+| 실행 명령 | `npm ci` · `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `./node_modules/.bin/vitest run src/renderer` · `node scripts/check-doc-inventory.mjs --check` |
+| **관측한 게이트 산출**(exit code 아님) | lint **0 error / 1 warning**(`useTranscriptVirtualizer.ts:22` `react-hooks/incompatible-library` — nav 무관, 기존) · typecheck **3구성 진단 0건** · vitest 전체 **229파일 2328케이스 중 5파일 48케이스 실패** · vitest renderer **61파일 478케이스 전부 통과** · doc gate **generated ok · prose ok · links ok** |
+| 환경 기인 실패 분리 | 실패 48건은 전부 `src/main/**` 5파일(`migrate`·`queries`·`fork`·`builder`·`chat-turn.continuity`)이고 서명은 `NODE_MODULE_VERSION 127` vs `140` · `Module did not self-register: better_sqlite3.node` — `app/AGENTS.md` 의 알려진 ABI 마찰이다. renderer 478건 전건 통과로 이번 변경과 분리된다 |
+| V-pair 자기확인 | `SELF_PASS 6 / SELF_BLOCKED 6`; pair 별 상세는 위 표. SELF_BLOCKED 6건은 전부 **사람 실기**(Electron GUI 부재)이고 구현 결함이 아니다 |
+| 강제 지점 전수 | **8/8** (차집합 0 — 위 전수표) |
+| **AC 자기보고**(`Criteria-Met`) | **6/12.** ✅ AC3(스윕 0/1 + M2·M3) · AC5(2단언) · AC6(6조합) · AC7(2단언) · AC8(신설 케이스 + M5) · AC11(2케이스). ⚠️ AC1·AC2·AC4·AC9·AC10·AC12 — 전부 plan 이 사람 실기로 지정한 항목이라 이 환경에서 닫을 수 없다(AC4 는 구조 절반만 닫힘) |
+| **합계 검산** | `✅ 6 · ⚠️ 6 · ❌ 0 = 총 12`. 분모는 §7 표의 AT-01~AT-12 를 다시 세어 12. 이전 라운드 없음 |
+| 블로커 / 역질문 | **D-008**(고정 0일 때 빈 헤더 유지)은 §4 가 사용자에게 올린 결정이라 실기 확인 때 함께 답이 필요하다 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 라운드 1.
-- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **있었다** — `docs/handoff/AGENTS.md §진입 트리거` 의 find-or-create 가 구현 요청에 handoff 생성을 요구한다. 5커밋이 `Handoff: none` 으로 우회했다.
-- 반복해서 부딪히는 환경 한계: renderer 렌더 하네스 부재(0201 AC16 과 같은 축).
-- 현재 라운드 수: 1.
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 라운드 1 — 이전 라운드 없음.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **있었다.** `docs/handoff/AGENTS.md §진입 트리거` 의 find-or-create 가 구현 요청에 handoff 생성을 요구하는데 5커밋이 `Handoff: none` 으로 우회했다. 그래서 설계·구현 순서가 뒤집혔고 `handoff-verify §0` 의 기준선 diff 를 쓸 수 없다.
+- 반복해서 부딪히는 환경 한계: **3건.** ① better-sqlite3 ABI(`src/main/**` DB 48케이스) ② Electron GUI 부재 → 사람 실기 6 AC ③ 렌더 하네스 부재(0201 AC16 과 같은 축) — 잠재 문제 #1 이 여기서 막힌다.
+- 현재 라운드 수: **1**.
 
 ---
 
