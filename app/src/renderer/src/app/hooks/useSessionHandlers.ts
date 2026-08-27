@@ -6,7 +6,7 @@ import {
   useDraftSessionRows,
   type DraftRow
 } from '../../features/chat'
-import { sessionsActions, type DraftSessionRow } from '../../features/sessions'
+import { pinnedProjectsOf, sessionsActions, type DraftSessionRow } from '../../features/sessions'
 import { projectsActions, useProjectsState } from '../../features/projects'
 import type { Project } from '../../../../shared/ipc'
 
@@ -66,14 +66,9 @@ export function useSessionHandlers(): SessionHandlers {
     return map
   }, [projects])
 
-  // 고정 프로젝트 — 고정 시각 내림차순(최근 고정이 위). "고정됨" 섹션에 주입.
-  const pinnedProjects = useMemo(
-    () =>
-      projects
-        .filter((p) => p.pinnedAt != null)
-        .sort((a, b) => (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0)),
-    [projects]
-  )
+  // 고정 프로젝트 — 파생은 features/sessions 의 순수 함수가 갖는다(0203 ΔV1 EP-10).
+  // hook 안에 두면 순수 테스트가 닿지 못한다.
+  const pinnedProjects = useMemo(() => pinnedProjectsOf(projects), [projects])
 
   const pinnedProjectIds = useMemo(() => new Set(pinnedProjects.map((p) => p.id)), [pinnedProjects])
 

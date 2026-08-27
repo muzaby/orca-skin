@@ -1,9 +1,9 @@
-import { useMemo } from 'react'
+import { memo } from 'react'
 import { SessionRow } from './SessionRow'
-import { useSessionsState } from '../store/sessionsStore'
 import type { SessionListItem } from '../../../../../shared/ipc'
 import { useI18n } from '../../../shared/i18n'
-import { isPinnedSession, placementOf } from '../lib/sessionPlacement'
+import { isPinnedSession } from '../lib/sessionPlacement'
+import { useNavSections } from '../hooks/useNavSections'
 
 // 미물질화 draft nav 행(0064 r4 fork/handoff + 0065 활성 '새 대화'). chat feature 의
 // DraftRow 와 구조적으로 호환 — cross-feature import 대신 셸(app/)이 매핑해 props 로
@@ -15,13 +15,12 @@ export interface DraftSessionRow {
   deletable: boolean
 }
 
-interface SessionListProps {
+export interface SessionListViewProps {
+  // 0203 ΔV1 EP-9 — 목록은 props 로만 들어온다. 이 컴포넌트에 배치 필터는 없다.
+  sessions: SessionListItem[]
   // ChatContext, ProjectsContext 는 cross-feature 이므로 app/AppLayout 가 wiring.
   currentSessionId: string | null
   projectNameById: Map<string, string>
-  // 배치 우선순위 판정용 — 고정 프로젝트의 대화는 그 프로젝트 하위 목록이 가져간다.
-  // 고정 여부는 projects feature 소관이라 app 셸이 내려 준다(cross-feature 는 props-only).
-  pinnedProjectIds: ReadonlySet<string>
   onSelect: (id: string) => void
   onDelete: (id: string) => void
   onRename: (id: string, title: string) => void
@@ -34,12 +33,12 @@ interface SessionListProps {
   onDeleteDraft?: (key: string) => void
 }
 
-// Sidebar 의 '최근 대화' 슬롯에 주입되는 세션 목록. SessionsContext 는 자기 feature
-// 이므로 직접 구독; 다른 도메인 (chat / projects) 결합은 props 로 받는다.
-export function SessionList({
+// Sidebar 의 '최근 대화' 구획 렌더. 받은 목록을 그대로 그린다 — 무엇이 최근인지는
+// lib/navSections 의 파티션이 이미 정했다(배치 규칙은 이 파일에 없다).
+export const SessionListView = memo(function SessionListView({
+  sessions,
   currentSessionId,
   projectNameById,
-  pinnedProjectIds,
   onSelect,
   onDelete,
   onRename,
@@ -48,24 +47,10 @@ export function SessionList({
   activeDraftKey = null,
   onSelectDraft,
   onDeleteDraft
-}: SessionListProps): React.JSX.Element {
+}: SessionListViewProps): React.JSX.Element {
   const { tr } = useI18n()
-  const recentIds = useSessionsState((state) => state.recentIds)
-  const byId = useSessionsState((state) => state.byId)
-  // 셀렉터가 새 배열을 반환하면 useSyncExternalStore 캐시가 깨지므로 파생은 useMemo.
-  // 배치 규칙은 lib/sessionPlacement 단일 정의 — 프로젝트 고정을 해제하면 그 대화가
-  // 즉시 'recent' 로 판정돼 store 의 updatedAt 정렬 위치로 복귀한다.
-  const recentSessions = useMemo(
-    () =>
-      recentIds.flatMap((id) => {
-        const session = byId[id]
-        if (!session || placementOf(session, pinnedProjectIds) !== 'recent') return []
-        return [session]
-      }),
-    [recentIds, byId, pinnedProjectIds]
-  )
 
-  if (recentSessions.length === 0 && drafts.length === 0) {
+  if (sessions.length === 0 && drafts.length === 0) {
     return <div className="px-1.5 text-[11.5px] text-ink3">{tr('sessions.empty')}</div>
   }
 
@@ -82,7 +67,7 @@ export function SessionList({
           renameable={false}
         />
       ))}
-      {recentSessions.map((s) => (
+      {sessions.map((s) => (
         <SessionRow
           key={s.id}
           session={s}
@@ -97,7 +82,22 @@ export function SessionList({
       ))}
     </>
   )
+})
+
+export interface SessionListProps extends Omit<SessionListViewProps, 'sessions'> {
+  // 배치 판정 입력 — 고정 프로젝트의 대화는 그 프로젝트 하위 목록이 가져간다.
+  // 고정 여부는 projects feature 소관이라 app 셸이 내려 준다(cross-feature 는 props-only).
+  pinnedProjectIds: ReadonlySet<string>
 }
+
+// store 어댑터. 파생은 공용 파티션이 갖고 여기서는 그 결과의 한 칸을 골라 넘긴다.
+export const SessionList = memo(function SessionList({
+  pinnedProjectIds,
+  ...view
+}: SessionListProps): React.JSX.Element {
+  const { recent } = useNavSections(pinnedProjectIds)
+  return <SessionListView sessions={recent} {...view} />
+})
 
 // SessionRow 재사용을 위한 최소 합성 — draft 는 DB 행이 아니므로 메타는 채우지 않는다.
 function draftAsListItem(d: DraftSessionRow): SessionListItem {

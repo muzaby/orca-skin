@@ -676,6 +676,116 @@ sessionApi.list / projectApi.listSessions
 
 ---
 
+> **[구현자 기입] r2** — ΔV1 구현. r1 필드는 위에 그대로 두고 같은 이름의 필드를 다시 채운다.
+
+## [구현자 기입] 설계 리뷰 (r2)
+
+- 동의 / 그대로 진행: ΔV1 의 핵심 판단이 맞았다 — **지점을 줄이는 것이 곧 잠그는 것**이었다. r1 에서 세 필터를 지워도 초록이던 결함(M1)이, 파티션 한 곳으로 접자 세 변이 모두 즉시 red 가 된다(M6·M7·M8).
+- 이견 / 현실성 문제: **없음.** §7-B 스파이크가 지정한 제약(`renderToStaticMarkup` · `.test.ts` · props 전환 필요조건)이 전부 그대로 성립했다.
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r2)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-13·05a·06a·07a | 한 대화는 정확히 한 구획 | `EP-1a` (1) | 1/1 | 배치 분기 전수 = `splitNavSections` 안 **3**(`navSections.ts:31`·`:36`·`:48`) · 함수 밖 배치 분기 **차집합 0** | — |
+| VP-16·05a | 구획은 props 를 재파생하지 않는다 | `EP-9` (3) | 3/3 | `grep -n useSessionsState` 세 구획 → **0건** · nav `<SessionRow>` 4지점 전부 props 목록에서 온다 | — |
+| VP-02a·17 | 고정 프로젝트 파생은 순수 함수 | `EP-10` (1) | 1/1 | `pinnedAt != null` 프로덕션 5건 중 **프로젝트 목록 필터는 `navSections.ts:60` 1건**, 나머지 4는 단건 상태·세션 배치 | — |
+| VP-14 | `/projects` 정확 일치 | `EP-4` (1) | 1/1 | `sed -n '17p' navItems.ts` → `p === '/projects'` | — |
+| VP-04(V1) | 고정됨은 프로젝트를 안 담는다 | `EP-5` (1) | 1/1 | **술어 정정 후** `grep -cE 'type \{[^}]*\bProject\b|: Project\b|Project\[\]'` → **0** (아래 #4) | — |
+| VP-11·12·15 | 엔티티 1건 패치 · GC 루트 | `EP-6`·`EP-7` (2) | 2/2 | `patchSession` 4건(정의 1 + 호출 3) · `state.projectSessionIds` 8건 | — |
+| VP-03·10 | 헤더 컨트롤 1개 | `EP-8` (1) | 1/1 | `grep -c 'aria-expanded={'` → 1 · 렌더 단언 `<button` **1개** | — |
+
+**전수 = 10/10** (ΔV1 5 + V1 승계 5). **술어는 불변식의 주어로 썼다** — EP-1a 를 `splitNavSections` 라는 *해법 이름*이 아니라 `placementOf|isPinnedSession`(배치 판정 심볼)으로 세었다. 첫 술어 `isPinnedSession(` 는 `.filter(isPinnedSession)` 같은 **참조 전달을 놓쳐** `:31` 이 분모에서 빠졌다 — 술어를 정정해 3건으로 다시 셌다.
+
+- §10 에 없는데 같은 불변식이 필요했던 지점: 없음.
+
+**V-pair 자기확인 (r2)** — `SELF_PASS 8 / SELF_BLOCKED 4`.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-13 | REQUIRED | SELF_PASS | 파티션 12케이스 통과(서로소·양방향 차집합 0) | **M6·M7·M8 세 분기 모두 red** (4·6·8건 실패) |
+| VP-14 | REQUIRED | SELF_PASS | `navItems.test.ts` 2케이스 | **M10 red** (1건 실패) |
+| VP-15 | REQUIRED | SELF_BLOCKED | AT-11 순수 2케이스 통과, AT-12 는 IPC+DB 실기 | not selected |
+| VP-16 | REQUIRED | SELF_PASS | 렌더 7케이스 통과 | **M9 red** (2건 실패 — 준 적 없는 대화가 출력에 나타남) |
+| VP-17 | REQUIRED | SELF_PASS | `pinnedProjectsOf` 2케이스 | **M11 red** (2건 실패) |
+| VP-02a | REQUIRED | SELF_PASS | 비고정 제외 + 내림차순을 한 단언에서 본다 | M11 공유 |
+| VP-05a | REQUIRED | SELF_PASS | 파티션 이동 2케이스 + 렌더 분리 1케이스 | M6·M8·M9 공유 |
+| VP-06a | REQUIRED | SELF_PASS | 서로소 + 양방향 차집합 0 + 중복 배치 0 | M6·M7·M8 공유 |
+| VP-07a | REQUIRED | SELF_PASS | 해제 후 소속별 복귀 1케이스 | not selected — 직접 반환값 관측 |
+| VP-01·04·09·10 | REQUIRED | SELF_BLOCKED | 시각 실기(Electron GUI 부재). AC9 의 **빈 헤더 절반은 렌더로 닫혔고** AC3 은 렌더로 전건 닫혔다 | 해당 없음 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+| 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|
+| **M6** `navSections.ts:31` `.filter(isPinnedSession)` 제거 | VP-13 · EP-1a | **4건** | 잠김 — **r1 의 M1 과 같은 결함이 이제 red 다** |
+| **M7** `:36` 최근 대화의 배치 제외 제거 | VP-13 · EP-1a | **6건** | 잠김 |
+| **M8** `:48` 프로젝트 하위의 고정 제외 제거 | VP-13 · EP-1a | **8건** | 잠김 |
+| **M9** `PinnedSectionView` 가 props 밖 대화를 덧붙임 | **VP-16 등록 변이**(props 무시) | **2건** | 잠김 |
+| **M10** `navItems.ts:17` → `startsWith` | **VP-14 등록 변이** | **1건** | 잠김 |
+| **M11** `pinnedProjectsOf` 의 고정 필터 제거 | VP-17 · EP-10 | **2건** | 잠김 |
+| **M12** 어댑터가 `pinned` 대신 `recent` 칸을 넘김 | 등록 안 됨 — 이번 턴 자기검사 | **0건** (vitest 497 초록 · typecheck 0) | **잠금 없음 — 아래 #1** |
+| **M13** `PinnedSection` 에 `Project` 타입·prop 복귀 | EP-5 술어 정정 후 방향 확인 | 술어값 `0 → 2` | 잠김 |
+
+- 신설 oracle 의 production 경로 진입: 렌더 테스트가 import 하는 `PinnedSectionView`·`SessionListView`·`PinnedProjectsSectionView` 는 어댑터가 그대로 감싸는 **같은 컴포넌트**다(동명 로컬 재구현 아님). 파티션 테스트는 세 어댑터가 부르는 `splitNavSections` 를 직접 부른다.
+- 소거 변이의 잔여물 수렴: M6~M8·M11 은 잔여 import 를 남기지 않아(심볼이 계속 쓰인다) 1단계에서 진단이 0이고, 그 상태에서 **테스트가 red** 다 — 잔여물 진단에 기대지 않은 잠금이다.
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ✅ 신규 문구 0 | `common.loading`·`sessions.empty` 재사용. 미조회(`undefined`)와 빈 목록(`[]`)의 구분을 파티션이 타입으로 보존한다 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | **새 실패 경로 없음** | 조회 실패는 r1 과 같은 경로(D2)로 수렴한다 |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | ⚠️ 변화 없음 | 조회 실패가 여전히 "대화 없음"으로 보인다 — D2 유지 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | ⚠️ 변화 없음 | `loadProject` 에 세대 토큰이 없다(r1 과 동일). 트리거는 여전히 2개뿐 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | **어댑터 한 줄은 여전히 안 잠긴다.** 세 store 어댑터가 파티션의 *잘못된 칸*을 넘겨도 게이트가 전부 초록이다 | ⚠️ **보고만** — 어댑터는 store 를 구독하므로 SSR 렌더 단언이 닿지 않는다(빈 스냅샷). 닫으려면 jsdom = D-013 이 배제한 신규 의존성이라 **제품 결정** | **M12 실측**: `pinned`→`recent` 로 바꿔도 vitest 497 초록 · typecheck 0. 다만 **잠기지 않은 면적은 필터 3개 → 한 줄 3개로 줄었다** |
+| 2 | 파티션의 **전수성은 로딩 상태 축에서 성립하지 않는다** — 미조회 고정 프로젝트의 대화는 어느 칸에도 안 들어간다 | ✅ **선조치(관측 고정)** — 고치지 않고 전용 케이스로 못 박았다(`…어느 구획에도 배치되지 않는다 (D3)`). 적어 두지 않으면 위 합집합 단언이 이 경우까지 덮는 것처럼 읽힌다 | D3(NEXT_HANDOFF)의 범위 그대로. 고치는 것은 제품 결정 |
+| 3 | 렌더 단언 초안이 **헤더가 아니라 본문을 셌다** — `<button` 3개(헤더 토글 + 행 chevron + kebab)를 헤더 컨트롤로 오인 | ✅ **선조치** — 고정 프로젝트를 비워 헤더만 남긴 뒤 1개를 단언하도록 좁혔다 | 초안이 `expected [3] to have length 1` 로 실패해 드러났다 |
+| 4 | **EP-5 의 스윕 술어가 ΔV1 때문에 위양성이 됐다** — `grep -c 'Project'` 가 새로 들어온 `pinnedProjectIds`(배치 입력, 프로젝트 엔티티 아님) 3건을 센다 | ✅ **선조치** — 술어를 `Project` **타입 참조**로 좁혀 0 을 재확인하고 M13 으로 방향을 확인했다 | r1 술어 `grep -c 'Project'` → **3**(전부 `pinnedProjectIds`) · 정정 술어 → **0** |
+| 5 | `useProjectSessions` 가 nav 경로에서 빠졌다 — 남은 소비자는 프로젝트 랜딩 하나 | ✅ 선조치 없음(정상) | `grep -rn useProjectSessions` → `ProjectSessionsPanel.tsx` 1건. 죽은 코드 아님 |
+
+### 설계 대비 명시적 차이 (r2)
+
+- plan §11 은 "`useSidebarSlots` 가 `useNavSections` 결과를 구획에 내린다"고 적었다. **실제로는 각 구획 파일이 얇은 store 어댑터를 갖고 그 안에서 `useNavSections` 를 부른다**(`PinnedSection` = 어댑터, `PinnedSectionView` = props 전용). 이유: 셸이 세션 상태를 구독하면 slot identity 가 매 변경마다 갈려 **`Sidebar` 의 `React.memo` 가 무력해진다**(plan §17 R-5 가 예고한 바로 그 축).
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 캐시·TTL 을 도입하지 않았다. 파티션은 매 렌더 입력에서 다시 계산된다 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 세 어댑터가 **각각** `useNavSections` 를 불러 파티션을 3번 계산한다(셸 1회가 아니라). 계산은 순수·무상태라 사본이 갈릴 수 없고, 비우는 주체도 없다 | AC6a 재확인 — 같은 입력에 같은 출력이므로 세 사본이 서로소·전수를 함께 만족한다. `byId` 를 비우는 유일한 지점은 `initSessions` GC(EP-7, 8건 관측) |
+| 재진입 | 구획이 각자 구독하므로 한 구획의 리렌더가 다른 구획을 강제하지 않는다 — 원본(셸 1회 구독)보다 재진입 면적이 **좁다** | AC14 재확인 — 무관한 변경이 다른 구획 내용을 안 바꾼다(파티션 1케이스 통과) |
+| 다른 무효화 축 | 어댑터가 잘못된 칸을 넘기는 실패가 **새로 생겼다** — 셸이 한 번에 내리면 없던 축이다 | **M12 로 실측했고 잠기지 않았다** → #1 로 보고. 면적은 필터 3개 → 한 줄 3개 |
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규 4 — `lib/navSections{,.test}.ts` · `hooks/useNavSections.ts` · `components/navSections.render.test.ts`. 수정 6 — 세 구획 컴포넌트 · `features/sessions/index.ts` · `app/hooks/{useSidebarSlots.tsx,useSessionHandlers.ts}` |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run src/renderer` · `./node_modules/.bin/vitest run` |
+| **관측한 게이트 산출**(exit code 아님) | lint **0 error / 1 warning**(`useTranscriptVirtualizer.ts:22`, nav 무관·기존) · typecheck **`error TS` 0건** · renderer vitest **63파일 497케이스 전건 통과**(r1 61파일 478케이스 → **+2파일 +19케이스**) · 전체 vitest **2347 중 48 실패** |
+| 환경 기인 실패 분리 | 48건은 r1 과 **같은 5파일**(`chat-turn.continuity`·`builder`·`fork`·`migrate`·`queries`), 서명도 같다(`NODE_MODULE_VERSION 127` vs `140` · `did not self-register`). renderer 497 전건 통과로 분리된다 |
+| 게이트가 트리를 바꿨는가 | `npm run lint` 는 `--fix` 라 **이번 턴 신규 파일 2개의 포맷을 정리했다**. 전부 내 변경분이고 남의 파일은 건드리지 않았다 |
+| V-pair 자기확인 | `SELF_PASS 8 / SELF_BLOCKED 4`; pair 별 상세는 위 표 |
+| 강제 지점 전수 | **10/10** (ΔV1 5 + V1 승계 5), 표 밖 차집합 0 |
+| **AC 자기보고**(`Criteria-Met`) | **9/14.** ✅ AC2a(`pinnedProjectsOf` 2케이스+M11) · AC3(렌더 헤더 1케이스 — 버튼 1개·`aria-expanded`·추가 라벨 0) · AC5a(파티션 2+렌더 1+M6·M8·M9) · AC6a(서로소·양방향 차집합+M6·M7·M8) · AC7a(복귀 1케이스) · AC8(navItems+M10) · AC11(store 2케이스) · AC13(렌더 5케이스+M9) · AC14(파티션 1케이스) |
+| **합계 검산** | 표의 ✅ 를 다시 세어 **9**, 현재 AC 총수를 다시 세어 **14** → `✅ 9 · ⚠️ 5 · ❌ 0 = 총 14`. ⚠️ = AC1·AC4·AC9·AC10·AC12(전부 시각 실기). **초안은 `8/14` 였다** — AC3 을 ✅ 목록과 ⚠️ 목록에 **두 번** 넣어 합계만 틀렸다(행 관측값은 맞았다). **분모가 12 → 14 로 바뀌어**(AT-13·AT-14 신설) r1 의 `6/12` 와 직접 비교하지 않는다 |
+| 블로커 / 역질문 | **#1(어댑터 한 줄 미잠금)** 을 닫을지 여부는 jsdom 도입 결정이고 D-013 이 배제했다 — 사용자 결정이 필요하면 그 자리다 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **그렇다.** r1 의 M1(배치 배선 미잠금)과 같은 축이고, ΔV1 이 지점을 3→1 로 접어 닫았다. 잔여는 어댑터 한 줄(#1)로 **면적이 줄었다**.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: `handoff-plan §5`("X 가 쓰인다면 X 를 지웠을 때 실패해야 한다")가 r1 plan 작성 시점에 이미 있었다. r1 은 §10 `실패 의미`에 한계를 **적었지만 장치를 만들지 않았다** — 적는 것과 잠그는 것이 갈린 자리다.
+- 반복해서 부딪히는 환경 한계: **3건 유지** — ① better-sqlite3 ABI(`src/main/**` 48케이스) ② Electron GUI 부재(시각 6 AC) ③ store 구독 컴포넌트의 SSR 한계(#1 이 여기서 막힌다).
+- 현재 라운드 수: **2**.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 > r1 판정 원문은 [`verify.md`](verify.md). `PLAN_GAP` 3건이 있으므로 다음 주체는 **설계자**다 — 구현 코드는 이번 라운드에 고칠 것이 없다.
