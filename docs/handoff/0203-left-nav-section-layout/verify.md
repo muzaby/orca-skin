@@ -479,3 +479,181 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh cc4cde5..HEAD   # 19�
 - AC: `✅ 9 · ⚠️ 5 · ❌ 0 = 14` (자기보고와 일치)
 - 운영 gate: **4종 전부 PASS**, 트리 변화 0, 잔여물 0
 - 다음 단계: 설계자가 **G4 만** ΔV2 로 정정한다(`NavSections` 칸에 branded type + VP-05a 의 이음매 oracle 행). **D7 은 규범 정정이 필요 없는 구현 항목**이므로 같은 라운드의 재구현으로 닫는다.
+
+---
+
+# Verify r3 — ΔV2 구현 + D7 재구현
+
+> **판정: `PASS`.** r2 에서 무음이던 두 이음매가 이제 red 다 — 어댑터 칸 혼동은 `TS2322`, 프로젝트 하위 재파생은 1건 실패. 유효 V 의 `REQUIRED`·`REGRESSION` pair 와 운영 gate 4종이 전부 PASS 이고 `PLAN_GAP` 은 없다.
+> 남은 이음매 1건(V1)은 `NON_BLOCKING` 이다 — **ACTIVE Decision 아래에서는 닫히지 않는다**(§13).
+> r1·r2 판정 원문은 이 문서 위쪽에 그대로 둔다.
+
+## 메타 (r3)
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `b3178a2..55130c1` — 설계 `b3178a2`(ΔV2) · 구현 `55130c1` |
+| 구현 전 plan 기준 | **`b3178a2`** — diff 로 성립한다 |
+| V mode / 유효 V | `V1 + ΔV1 + ΔV2` |
+| 라운드 | 3 |
+| 상태 | **PASS** |
+
+## 0. 기준선 (r3)
+
+- 규범 구간 **1~662행**(§3 Ledger · §7 AC · §7-A · §7-B ΔV1 · §7-C ΔV2 · §10 강제 지점 전부) `b3178a2` ↔ `55130c1` **diff 0줄**.
+- 구현 커밋의 `plan.md` hunk 는 전부 663행 이후 — `[구현자 기입] r3` 블록이다. 삭제된 줄 **0**.
+- **판정: 구현자가 채점 기준을 건드리지 않았다.** r1·r2 검증자 판정과 파생 이슈 표 훼손 0.
+
+### Plan validity (r3)
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| ΔV2 의 `CHANGED` 왼쪽 node ↔ 같은 레벨 pair | 유효 | `AR-03a`→VP-18(IT). 유효 V 재계수: 대체되지 않은 `NEW`·`CHANGED` 왼쪽 node **15** ↔ pair 가 잠근 node **15**, 차집합 0 |
+| pair별 path·§10 전수·직접 oracle | 유효 | VP-18 은 렌더(①)·타입(②) 두 oracle 이 `slots → props` 구간을 덮는다. VP-05b 는 그 둘 + VP-13 결합 |
+| 필요한 pair의 적대 증거·선택 이유 | 유효 | VP-18 만 `required` 로 선택하고 변이(브랜드 제거 → `TS2578`)를 적었다 |
+| §10 분모 정확성 | **부정확하나 비블로킹** | §7-C 는 EP-11 을 `3`(구획 수)으로 셌고 실측은 **5**다(§7). 구현자가 5/5 로 닫았다 — **닫힌 지점이 명명된 수보다 많다**. `PLAN_GAP` 아님(구현자가 새 계약을 발명하지 않고도 닫혔다) |
+| 현재 변경 산출물의 운영 gate | 유효 | 4종 열거, 전부 실행 가능 |
+
+## 1~3. 비판적 읽기 · 역방향 탐색 (r3)
+
+| 질문/후보 | 판정 | 근거 |
+|---|---|---|
+| 브랜드가 런타임 산출을 바꾸는가 | 아니오 | `declare const slot: unique symbol` — 선언만이라 emit 0. 런타임 값은 r2 와 동일한 `SessionListItem[]` |
+| `PinnedProjectChildren` export 가 새 표면을 만드는가 | 통제됨 | 프로덕션 렌더 **1건**(`PinnedProjectsSection.tsx:145`) + 테스트 1건. 배럴 재수출 없음 |
+| 테스트 캐스트 헬퍼가 프로덕션 우회로를 여는가 | 아니오 | `asPinned`·`asRecent`·`asChildren` 의 프로덕션 참조 **0건** — 정의·사용 전부 `navSections.render.test.ts` 안 |
+| 스캔 §2 — `*View` "프로덕션 참조 0" | **오탐**(r2 와 동일) | 스크립트가 파일 간 참조만 센다. 같은 파일 어댑터가 렌더한다 |
+| false success 가능성 | 신규 0 | 새 삼킴·새 catch 0. D2 경로는 r1 과 동일 |
+| 조기 반환·상태 뒤 은닉 | **줄었다** | r2 의 공허 단언 원인(접힘 뒤 0건 렌더)을 컴포넌트 직접 렌더로 우회했다 |
+
+## 4. 적대 증거 재측정 (r3) — 검증자가 다시 센다
+
+**구현자 보고와 무관하게 재현했다. 4건 검출 · 1건 미검출(V1).**
+
+| 재측정 변이 | 검증자 관측 | 판정 |
+|---|---|---|
+| M14′ 브랜드 3개 제거(잔여물 0 상태까지 밀어) | **`TS2578` 3건** — `@ts-expect-error` 가 전부 "불필요"로 뒤집힌다 | 검출 |
+| M15 `PinnedSection.tsx:66` 어댑터가 `recent` 를 넘김 | **`TS2322` 1건** | 검출 — r2 에 무음이던 원본 변이 |
+| M16 `PinnedProjectChildren` 이 목록을 재파생 | **2 failed / 499** | 검출 |
+| M17 프로젝트 하위 재파생(r2 의 미검출 변이) | **1 failed / 499** | 검출 — **D7 닫힘** |
+| **V1** `PinnedProjectsSection.tsx:146` → `sessions={undefined}` | **499 전건 통과 · typecheck 0** | **미검출 → V1** |
+
+- `@ts-expect-error` 3줄의 **이유 확인**: 셋을 동시에 지우면 정확히 `RecentSessions → PinnedSessions` · `PinnedSessions → ProjectChildSessions` · `ProjectChildSessions → RecentSessions` 세 오류가 남는다 — 지시자가 다른 이유로 서 있는 것이 아니다.
+- 어댑터 슬롯 잠금 전수: V2(`SessionList` 어댑터가 `pinned`) → typecheck 1건 · V3(`PinnedProjectsSection` 어댑터가 `pinned`) → typecheck 1건. **세 어댑터 전부 잠긴다.**
+- 소거 변이의 잔여물 수렴: M14′ 는 브랜드 타입·import·캐스트 잔여 진단이 0이 될 때까지 밀어 그 상태에서 `TS2578` 3건이다 — 잔여물에 기댄 red 가 아니다.
+- 동작 보존 추출 라운드인가: **아니오.** 위 변이는 전부 관측 가능한 차이를 만든다.
+
+## 5. V-pair closeout (r3) — `UT → IT → ST → AT`
+
+| Pair | left ↔ right / 레벨 | 결과 | 직접 검증 증거 | §10 전수 |
+|---|---|---|---|---|
+| VP-13 | MD-01a ↔ UT-01a / UT | **PASS**(승계) | 파티션 12케이스 · 세 분기 변이 red(r2 재측정) | EP-1a (1/1) |
+| VP-14 | MD-02 ↔ UT-02 / UT | **PASS**(승계) | 술어 2단언 · `startsWith` 변이 red | EP-4 (1/1) |
+| VP-17 | MD-04 ↔ UT-04 / UT | **PASS**(승계) | `pinnedProjectsOf` 2케이스 · 변이 red | EP-10 (1/1) |
+| VP-12 | MD-03 ↔ UT-03 / UT | **PASS**(승계) | `sessionsStore.test.ts` 2케이스 | EP-6·7 (2/2) |
+| **VP-18** | AR-03a ↔ IT-03a / IT | **PASS** | ① 세 구획의 양성+음성 쌍 전건 통과 · M16·M17 red ② `@ts-expect-error` 3줄 + M14′·M15·V2·V3 | **EP-11 (5/5)** · EP-12 (1/1) |
+| VP-10 | AR-01 ↔ IT-01 / IT | 미판정 — 사람 실기 | 구조: 4슬롯 배선 확인 | EP-4·5·8 (3/3) |
+| VP-11·15 | AR-02·R-07 ↔ IT-02·AT-11·12 | 미판정 — 사람 실기 | AT-11 순수 2케이스 PASS | EP-6·7 (2/2) |
+| VP-09 | SD-01 ↔ ST-01 / ST | **PASS**(승계) | §5 전이표의 배치 4행이 파티션 케이스로 닫힌다 | EP-1a (1/1) |
+| VP-02a | R-02 ↔ AT-02a / AT | **PASS**(승계) | 비고정 제외 + 내림차순 · 변이 red | EP-10 (1/1) |
+| VP-03 | R-03 ↔ AT-03 / AT | **PASS** | 헤더 `<button` **1개** + `aria-expanded` 양성 | EP-8 (1/1) |
+| VP-08 | R-06 ↔ AT-08 / AT | **PASS**(승계) | 술어 2단언 · 변이 red | EP-4 (1/1) |
+| **VP-05b** | R-05 ↔ AT-05a / AT | **PASS** | 파티션 UT + 렌더 + 이음매 타입 셋이 `kebab → … → props → 렌더` 전 구간을 덮는다 | EP-1a·EP-9·EP-11 |
+| VP-06a | R-05 ↔ AT-06a / AT | **PASS** | 서로소 + 양방향 차집합 0 | EP-1a (1/1) |
+| VP-07a | R-05 ↔ AT-07a / AT | **PASS** | 해제 후 소속별 복귀 1케이스 | EP-1a (1/1) |
+| VP-01·04 | R-01·R-04 ↔ AT-01·04 / AT | 미판정 — 사람 실기 | AC4 구조 절반은 EP-5 로 닫힘 | EP-5 (1/1) |
+| VP-16·05a | — | **SUPERSEDED** | ΔV2 가 VP-18·05b 로 대체 | — |
+
+- root `PAIR_FAIL` **0** · `BLOCKED_BY` **0** · `PLAN_GAP` **0**.
+- 이번 라운드 실행 범위: ΔV2 의 REQUIRED 2 pair 전건 + 이번 변경이 닿는 승계 pair + 운영 gate 4종. 영향받지 않은 이전 PASS 는 좌표 참조로 둔다.
+
+### AT / AC 재채점 (r3)
+
+**검증자 독립 재계수: `✅ 10 · ⚠️ 5 · ❌ 0 = 총 15`.** 분모를 §7 + §7-B + §7-C 에서 다시 세어 15(AT-15 신설, AT-13→13a 는 번호 승계).
+
+- ✅ AC2a · AC3 · AC5a · AC6a · AC7a · AC8 · AC11 · **AC13a** · AC14 · **AC15**
+- ⚠️ AC1 · AC4 · AC9 · AC10 · AC12 — 전부 시각/IPC 실기
+- **AC13a 의 ✅ 는 이제 세 지점 전부에 걸린다** — r2 의 "값은 같고 근거 폭이 다름"이 해소됐다(M17 검출).
+- **합계 사본 3곳 대조**: 본문 `10/15` ↔ trailer `Criteria-Met: 10/15` ↔ INDEX `✅10 · ⚠️5 · ❌0 / 15` — **일치**.
+- 분모가 14→15 로 바뀌었으므로 r2 의 `9/14` 와 직접 비교하지 않는다.
+
+### 강제 지점 분모 재측정 (r3)
+
+| 지점 | plan | 검증자 재측정 | 판정 |
+|---|---|---|---|
+| **EP-11** | 3 | **5** — 목록을 나르는 prop 선언: `PinnedSection.tsx:11` · `SessionList.tsx:22` · `PinnedProjectsSection.tsx:19·66·162`. 평범한 `SessionListItem[]` 목록 prop **0건**(차집합 0) | **5/5** — 설계자 분모보다 많다 |
+| **EP-12** | 1 | 프로덕션 캐스트 **3건 전부 `navSections.ts:43·49·61`**(= `splitNavSections` 안). 함수 밖 **0**. 테스트 캐스트 3건은 `navSections.render.test.ts` 안 | 1/1 |
+| EP-1a·EP-9·EP-10 | 5 | 승계 — r2 재측정과 동일. EP-9 는 이번 라운드에 **3/3** 이 됐다(r2 는 2/3) | PASS |
+| EP-4·5·6·7·8 | 5 | 승계 — `p === '/projects'` · `\bProject\b` 타입 참조 0 · `patchSession` 4 · `projectSessionIds` 8 · `aria-expanded={` 1 | PASS |
+
+- **구현자가 신설한 스윕의 엄격화(§8)**: EP-11 술어를 *구획 수*(설계자) → *목록을 나르는 prop 선언*(구현자) → **브랜드 타입 참조 ∪ 평범한 `SessionListItem[]` 목록 prop**(검증자)으로 넓혀 재측정했다. 브랜드 5 · 평범 0 — **차집합 0**. 구현자의 분모가 옳다.
+
+### 현재 변경의 운영 gate (r3)
+
+| Gate | 결과 | 관측한 산출 |
+|---|---|---|
+| renderer 정적 | **PASS** | lint **0 error / 1 warning**(`useTranscriptVirtualizer.ts:22`, nav 무관·기존) · typecheck `error TS` **0건** |
+| 관련 순수·렌더 테스트 | **PASS** | `vitest run src/renderer` → **63파일 / 499케이스 전건 통과**(r2 497 → +2) |
+| 전체 스위트 | 환경 한계 분리 | **231파일 2349케이스 중 5파일 48케이스 실패** — r1·r2 와 같은 `src/main/**` 5파일, `NODE_MODULE_VERSION 127` vs `140` |
+| 문서 링크 | **PASS** | `check-doc-inventory.mjs --check` → `links ok` · `prose ok` |
+| 게이트가 트리를 바꿨는가 | 없음 | `npm run lint`(`--fix`) 실행 후 `git status --porcelain` 빈 출력 |
+| 검증 중 남긴 잔여물 | 없음 | 변이 7건 전부 복원 후 499 초록 · typecheck 0 |
+
+## 8. 사람 실기 경계 (r3)
+
+r2 의 5건 중 하나도 새로 내려오지 않았다 — 이번 라운드가 닫은 것은 전부 타입·렌더 축이다.
+
+| 항목 | 남은 사람 실기 | 이유 |
+|---|---|---|
+| AC1 | 4구획 시각 순서 | 시각 |
+| AC4 | "프로젝트 구획에 나타난다" 절반 | 시각(반대 절반은 EP-5) |
+| AC9 | 헤더 **클릭** 접힘 | 상호작용 — SSR 관측 불가 |
+| AC10 | kebab 3항목 | Popover 가 `menuOpen` 뒤 |
+| AC12 | 랜딩 삭제의 DB 영속 | electron IPC + DB |
+
+## 11. Repository operation checks (r3)
+
+- 상태/다음 주체/좌표: **정정함** — `impl/IMPL_DONE` → `verify/PASS`, 다음 주체 **사람**. `(r3 구현 — 검증자 기입)` → `55130c1`.
+- 인용 좌표 실재: `e3395ea`·`df35f2c`·`b661236`·`edb1545`·`1687c7b`·`3f40221`·`b3178a2`·`55130c1` **8건 전부** `git cat-file -t` → `commit`.
+- 비고 5줄 이내: **5줄** — 위반 없음.
+- `[구현자 기입]` 7필드 × 3라운드: **21** 섹션, 그중 `(r3)` **7**. 산문으로 접힌 필드 0.
+- trailer 파싱: `55130c1` 8키 그대로 반환. `Agent: claude`(비기능 구현은 Claude 담당) · `Criteria-Met: 10/15` 허용값.
+- `AGENTS.md` 변경: 없음.
+- **archive 이동은 보류한다** — ⚠️ 5 AC 가 사람 실기 대기이고 V1 이 사용자 결정을 기다린다. 0201·0202 와 같은 처리다.
+
+## 12. 구현자 코멘트 / 선조치 경계 (r3)
+
+| 구현자 코멘트 | 검증자 판단 | 반영 |
+|---|---|---|
+| #1 EP-11 분모 3 → 실측 5 로 재계수 → 선조치 | **타당.** 술어를 더 넓혀 재측정해도 차집합 0. 닫힌 지점이 명명된 수보다 많다 | 인정 — 설계자 분모 부정확은 `NON_BLOCKING` 기록 |
+| #2 `PinnedProjectChildren` export → 선조치 | **타당.** D7 의 등록 변이(M17)가 이제 검출된다 | 인정 — D7 **closed** |
+| #3 fixture `TS2769` 3건 → 캐스트 헬퍼 → 선조치 | **타당.** 프로덕션 참조 0건 확인 | 인정 |
+| #4 `@ts-expect-error` 가 여러 줄 호출을 못 덮음 → props 호이스팅 | **타당.** 셋 다 지우면 브랜드 오류 3건이 정확히 남는 것을 확인 | 인정 — AC15 ✅ |
+| 강제 지점 **16/16** 자기보고 | **재계수 결과와 일치** | 인정 |
+| `Criteria-Met: 10/15` | 독립 재계수와 **일치** | 인정 |
+
+## 13. Finding disposition (r3)
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| **V1** | **어댑터가 프로젝트 하위 목록을 아예 넘기지 않아도 무관측이다.** `PinnedProjectsSection.tsx:146` 의 `sessions={projectChildren[project.id]}` 를 `sessions={undefined}` 로 바꿔도 **499 초록 · typecheck 0** | 비귀속 — VP-18 은 *잘못된 칸*을 잠그고 이 변이는 *칸 없음*이다 | **NON_BLOCKING** | **ACTIVE Decision 아래에서 닫히지 않는다**: `undefined` 는 "미조회"라는 정당한 값이라 타입이 가르지 못하고, 하위 목록은 `expanded` 상태 뒤라 SSR 이 닿지 못한다(D-013 이 렌더 하네스를 배제). 닫으려면 **D-013 재검토**가 필요하다 — 사용자 결정 |
+| — | §7-C 의 EP-11 분모 `3` 이 실측 `5` 와 다르다 | plan §10 정확성 | **NON_BLOCKING** | 구현자가 5/5 로 닫았다. 다음 Delta V 가 열리면 분모를 5 로 정정한다 |
+| D7 | AT-13 의 프로젝트 절반이 공허 | verify r2 · VP-16→18 | — | **closed (r3)** — M17 이 1 failed 로 검출 |
+| G4 | 파티션↔렌더 이음매 무관측 | verify r2 · VP-05a→05b | — | **closed (ΔV2 + r3)** — M15 가 `TS2322`, 세 어댑터 전부 잠김 |
+| D2·D3·D4·D5·D6·D8·D9·D10 | r1·r2 등록분 — 변화 없음 | 각 라운드 참조 | 유지 | 판정 그대로 |
+
+## 14. Review Signals (r3) — 사실만
+
+- 이전 라운드와 동일/유사 증상: **축은 같고 표면은 매 라운드 줄었다.** r1 = 배치 규칙 전체가 무관측 → r2 = 어댑터 3줄 → r3 = 접힌 subtree 안 배선 1줄(V1). "장치가 주장하는 범위 ≠ 실제로 반응하는 범위"가 네 번째 변주다.
+- 관련 plan 지침/AC 의 존재 여부: `handoff-plan §5` 의 음성 게이트 양성 짝 규칙이 r1 시점부터 있었고, ΔV2 의 AT-13a 가 그것을 **구획마다** 요구하도록 문장을 좁힌 뒤 r3 에서 성립했다.
+- 사용자 결정 변경 근거: 없음. D-013(렌더 하네스 미도입)은 이번 라운드에도 유지됐고, **V1 은 그 결정이 만든 관측 한계 안에 있다**.
+- 반복된 검증 환경 한계: **3건 유지** — ① better-sqlite3 ABI(48케이스) ② Electron GUI 부재(시각 5 AC) ③ store 구독 컴포넌트·상태 뒤 subtree 의 SSR 한계(③ 의 일부를 이번에 타입으로 우회했다).
+- 라운드 수: **3** — `docs/handoff/AGENTS.md §handoff-review 트리거` 의 "impl 라운드가 3을 **초과**"에 아직 못 미친다. r4 가 열리면 재구현 전에 `handoff-review` 를 수행한다.
+
+## 15. 결론 (r3)
+
+- 상태: **PASS**
+- pair 결과: **PASS 12** · `PAIR_FAIL` **0** · `PLAN_GAP` **0** · 미판정(사람 실기) **4** · `SUPERSEDED` 2
+- Product/UX 및 ACTIVE Decision: **D-001~D-014 전건 충족**, 코드에 요구 위반 0
+- AC: `✅ 10 · ⚠️ 5 · ❌ 0 = 15` (자기보고와 일치)
+- 운영 gate: **4종 전부 PASS**, 트리 변화 0, 잔여물 0
+- 남은 것은 둘 다 **사람 몫**이다 — ⚠️ 5 AC 의 시각/IPC 실기, 그리고 V1 을 닫기 위한 **D-013 재검토 여부**. 둘 중 어느 것도 현재 구현의 결함이 아니다.
