@@ -184,6 +184,9 @@ export const MOCK_SCENARIO_IDS = [
   'subagent_task_aborted',
   'subagent_task_multi',
   'subagent_task_running',
+  // 0204 — 작업 타일 실기 진입점. TaskCreate/TaskUpdate/TaskList 관측과 진행 중 background
+  // 작업을 한 세션에서 재현해 CLI 없이 목록·그룹·중단 UI 를 확인한다.
+  'agent_task_board',
   'error',
   'full'
 ] as const
@@ -527,6 +530,10 @@ export type NormalizedEvent =
       // 부모 Task(서브에이전트) tool_result 면 SDK task_* 누산 메타(모델·시간·도구수)를 실어
       // 영속한다 — 세션 재로드 후에도 카드/행이 모델·소요시간을 복원하게 한다.
       subagentMeta?: SubagentTaskMeta
+      // SDK 구조화 도구 출력(tool_use_result) — **TaskXXX 도구에만** 싣는다(0204). `result` 는
+      // 모델용 wire content 라 TaskCreate 의 task.id 같은 필드를 담지 않는다. 다른 도구까지
+      // 실으면 큰 출력이 그대로 영속되므로 `isTaskToolName` 이 유일한 게이트다.
+      structuredOutput?: unknown
     }
   // 서브에이전트(Task) 라이브 메타 — SDK task_started/task_progress/task_notification 정규화.
   // reducer 미경유(메인 transcript 파트 비오염): store 가 toolUseId 키 transient 맵으로 흡수해
@@ -1089,6 +1096,9 @@ export type AppMessagePart =
       parentToolRunId?: string
       // 부모 Task tool_result 면 서브에이전트 영속 메타(모델·시간·도구수).
       subagentMeta?: SubagentTaskMeta
+      // TaskXXX 도구의 SDK 구조화 출력(0204) — 재로드 후에도 작업 타일이 목록을 접을 수 있게
+      // 영속한다. 과거 렌더러는 미인식 필드를 무시하므로 전방 호환.
+      structuredOutput?: unknown
     }
   | { type: 'file'; path: string; readType?: 'raw' | 'patch'; content?: string }
   | { type: 'diff'; patch: string }

@@ -407,6 +407,7 @@ export const en: typeof ko = {
       subagent_task_aborted: 'Subagent aborted',
       subagent_task_multi: 'Multiple subagents',
       subagent_task_running: 'Subagent running',
+      agent_task_board: 'Task board (TaskXXX)',
       error: 'Error',
       full: 'Full'
     }
@@ -547,19 +548,41 @@ export const en: typeof ko = {
       agentLine: 'Agent "{{title}}" {{verb}}',
       took: 'took {{duration}}'
     },
-    subagentTile: {
+    taskTile: {
       status: {
-        running: 'In progress',
+        in_progress: 'In progress',
+        stopping: 'Stopping…',
+        pending: 'Pending',
         completed: 'Completed',
-        failed: 'Failed',
-        aborted: 'Aborted'
+        aborted: 'Stopped',
+        failed: 'Failed'
+      },
+      group: {
+        in_progress: 'In progress',
+        pending: 'Pending',
+        completed: 'Completed',
+        aborted: 'Stopped',
+        failed: 'Failed'
+      },
+      detail: {
+        status: 'Status',
+        description: 'Description',
+        blockedBy: 'Blocked by',
+        elapsed: 'Elapsed',
+        lastTool: 'Last tool',
+        toolUses: 'Tool uses'
       },
       backToList: 'Back to list',
-      headerTitle: 'Background tasks',
+      headerTitle: 'Tasks',
+      badgeAria: '{{count}} finished tasks not yet reviewed',
+      backgroundBadge: 'background',
+      blockedByValue: 'needs #{{ids}}',
+      stoppedReason: 'Stopped by you',
+      stopFailed: 'Could not stop the task',
       noChildActivity: 'No child activity recorded for this task.',
-      emptyTitle: 'No background tasks',
-      emptyDesc: 'Task tool calls will appear here when detected.',
-      openTranscriptAria: 'View transcript for {{description}}',
+      emptyTitle: 'No tasks yet',
+      emptyDesc: 'Tasks Claude creates and background work it starts will appear here.',
+      openDetailAria: 'Open details for {{description}}',
       viewTranscript: 'View transcript'
     },
     composer: {
@@ -714,7 +737,7 @@ export const en: typeof ko = {
     rightpanel: {
       tiles: {
         plan: 'Plan',
-        subagent: 'Background tasks',
+        task: 'Tasks',
         reserved1: 'Reserved 1',
         reserved2: 'Reserved 2'
       },

@@ -16,7 +16,9 @@ import { isFilesystemRoot } from '../../../../../shared/absolute-path'
 import { DEFAULT_PERMISSION_MODE } from '../../../../../shared/permission-mode'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 import type { ContinuityLang } from '../../../../../shared/continuity-lang'
+import { readTaskToolObservation } from '../../../../../shared/task-tool'
 import { contextTokens } from '../lib/telemetry'
+import { agentTaskKey, backgroundTaskKey } from '../lib/taskBoard'
 import { settleOrphanToolParts, settleStaleAsyncLaunchParts } from '../lib/parts'
 import type { RightPanelTileId } from '../lib/rightPanelTiles'
 import {
@@ -39,6 +41,9 @@ export interface ToolCall {
     parentToolRunId?: string
     // 부모 Task tool_result 면 서브에이전트 영속 메타(모델·시간·도구수) — 재로드 후 카드/행 복원.
     subagentMeta?: SubagentTaskMeta
+    // TaskXXX 도구의 SDK 구조화 출력(0204) — 작업 타일 목록 파생의 유일한 권위 입력.
+    // `output` 은 모델용 wire content 라 task.id 같은 필드를 담지 않는다.
+    structuredOutput?: unknown
   }
   parentToolRunId?: string
 }
@@ -160,8 +165,17 @@ export interface ChatState {
   rightPanelColWidths: number[]
   // 우측 패널 열 내부의 상단 행 비율. 행 분리선 드래그로 조절, clamp 0.2–0.8.
   rightPanelRowSplits: number[]
-  // 우측 서브에이전트 타일에서 상세로 표시할 부모 Task toolRunId. null 이면 목록 view.
-  selectedSubagentTaskId: string | null
+  // 우측 작업 타일에서 상세로 표시할 항목 키(`agent:<id>` | `bg:<toolUseId>`, taskBoard 가
+  // 소유하는 네임스페이스). null 이면 목록 view.
+  selectedTaskKey: string | null
+  // 중단 요청을 보내고 SDK 확정을 기다리는 background tool_use id 집합(0204 D-005). 확정되면
+  // 파생 상태가 스스로 진행 중을 벗어나므로 그때 비운다.
+  stoppingTaskIds: string[]
+  // 중단 요청이 실패한 항목의 사유(항목 키 → 사용자 문구). 다음 요청/확정 시 지운다 —
+  // 실패가 "아무 일도 안 일어남" 으로 보이지 않게 하는 유일한 소비자다(0204 AC14).
+  taskStopErrors: Record<string, string>
+  // 사용자가 아직 작업 타일에서 확인하지 않은 종단 상태 항목 키. 타일을 열면 비운다(D-004).
+  unseenSettledTaskKeys: string[]
   // 우측 계획 타일에 표시할 마지막 계획 마크다운. 승인/거부 후에도 유지해 읽기전용으로
   // 계속 보여준다(= pendingPlanReview 와 수명 분리). 세션 전환/새 대화 시 비움.
   planContent: string | null
@@ -169,7 +183,7 @@ export interface ChatState {
   // (RESOLVE_PLAN)·새 대화·세션 전환 시 비운다. revise 전송 시 구조화 태그로 직렬화된다.
   planComments: PlanComment[]
   // 패널↔composer 조정용 — 편집 대상 코멘트(패널이 해당 코멘트 팝오버를 열고 스크롤).
-  // selectedSubagentTaskId 와 동형의 UI 선택 상태.
+  // selectedTaskKey 와 동형의 UI 선택 상태.
   activePlanCommentId: string | null
   // 위험 도구(Bash/Write/Edit 등) 실행 승인 게이트 큐. permission.requested(tool_approval)
   // 도착마다 append, 응답(허용/세션허용/거부) 시 해당 approvalId 만 제거. 서브에이전트·병렬
@@ -223,7 +237,10 @@ export const initialChatState: ChatState = {
   rightPanelTileLabels: {},
   rightPanelColWidths: [],
   rightPanelRowSplits: [],
-  selectedSubagentTaskId: null,
+  selectedTaskKey: null,
+  stoppingTaskIds: [],
+  taskStopErrors: {},
+  unseenSettledTaskKeys: [],
   planContent: null,
   planComments: [],
   activePlanCommentId: null,
@@ -308,8 +325,13 @@ export type ChatAction =
   | { type: 'SET_RIGHT_PANEL_TILE_ACTIVE'; id: RightPanelTileId; active: boolean }
   | { type: 'RENAME_RIGHT_PANEL_TILE'; id: RightPanelTileId; label: string }
   | { type: 'REMOVE_RIGHT_PANEL_TILE'; id: RightPanelTileId }
-  | { type: 'SELECT_SUBAGENT_TASK'; toolRunId: string | null }
-  | { type: 'OPEN_SUBAGENT_TASK'; toolRunId: string }
+  | { type: 'SELECT_TASK'; key: string | null }
+  | { type: 'OPEN_TASK'; key: string }
+  | { type: 'TASK_STOP_REQUESTED'; key: string; toolUseId: string }
+  | { type: 'TASK_STOP_FAILED'; key: string; toolUseId: string; reason: string }
+  | { type: 'TASK_STOP_SETTLED'; toolUseId: string }
+  | { type: 'MARK_SETTLED_TASKS'; keys: string[] }
+  | { type: 'ACKNOWLEDGE_SETTLED_TASKS' }
   | { type: 'SET_RIGHT_PANEL_COL_WIDTH'; col: number; width: number }
   | { type: 'SET_RIGHT_PANEL_ROW_SPLIT'; col: number; frac: number }
 
@@ -434,19 +456,30 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             })
           }
 
-        case 'tool.call.completed':
+        case 'tool.call.completed': {
+          const messages = appendAssistantPart(state.messages, {
+            type: 'tool_result',
+            toolRunId: ev.toolRunId,
+            result: ev.result,
+            isError: ev.isError,
+            ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
+            ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {}),
+            // TaskXXX 구조화 출력(0204) — 라이브 파트가 이것을 빠뜨리면 작업 타일이 재로드
+            // 전까지 비어 보인다(writer 영속과 같은 필드를 실어야 한다).
+            ...(ev.structuredOutput !== undefined ? { structuredOutput: ev.structuredOutput } : {})
+          })
+          // 부모 Task 의 권위 결과 도착 = 중단 대기 종료(확정·watchdog·채널 사망 공통 경로).
+          const stoppingTaskIds = state.stoppingTaskIds.includes(ev.toolRunId)
+            ? state.stoppingTaskIds.filter((id) => id !== ev.toolRunId)
+            : state.stoppingTaskIds
           return {
             ...state,
             retry: undefined,
-            messages: appendAssistantPart(state.messages, {
-              type: 'tool_result',
-              toolRunId: ev.toolRunId,
-              result: ev.result,
-              isError: ev.isError,
-              ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
-              ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {})
-            })
+            messages,
+            stoppingTaskIds,
+            unseenSettledTaskKeys: markCompletedAgentTask(state, ev)
           }
+        }
 
         case 'turn.retrying':
           return {
@@ -581,9 +614,15 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             m.parts.some((p) => p.type === 'subagent_notice' && p.toolRunId === ev.toolUseId)
           )
           if (exists) return state
+          // 완료 통지 파트와 같은 게이트로 작업 타일 미확인 배지도 켠다(0204 D-004) — 사용자가
+          // 직접 중단한 태스크는 background 가 실리지 않으므로 여기 오지 않는다(자기 행위는 소음).
+          const key = backgroundTaskKey(ev.toolUseId)
           return {
             ...state,
-            messages: appendAssistantPart(state.messages, subagentNoticePart(ev))
+            messages: appendAssistantPart(state.messages, subagentNoticePart(ev)),
+            unseenSettledTaskKeys: state.unseenSettledTaskKeys.includes(key)
+              ? state.unseenSettledTaskKeys
+              : [...state.unseenSettledTaskKeys, key]
           }
         }
 
@@ -860,19 +899,58 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...removed,
         rightPanelTileLabels: nextLabels,
-        ...(action.id === 'subagent' ? { selectedSubagentTaskId: null } : {})
+        ...(action.id === 'task' ? { selectedTaskKey: null } : {})
       }
     }
 
-    case 'SELECT_SUBAGENT_TASK':
-      return { ...state, selectedSubagentTaskId: action.toolRunId }
+    case 'SELECT_TASK':
+      // 목록/상세 어느 쪽이든 타일을 실제로 보고 있다 — 미확인 완료 표시를 해제한다.
+      return { ...state, selectedTaskKey: action.key, unseenSettledTaskKeys: [] }
 
-    case 'OPEN_SUBAGENT_TASK':
+    case 'OPEN_TASK':
       return {
         ...state,
-        selectedSubagentTaskId: action.toolRunId,
-        rightPanelTiles: addTileColumnMajor(state.rightPanelTiles, 'subagent')
+        selectedTaskKey: action.key,
+        unseenSettledTaskKeys: [],
+        rightPanelTiles: addTileColumnMajor(state.rightPanelTiles, 'task')
       }
+
+    case 'TASK_STOP_REQUESTED': {
+      if (state.stoppingTaskIds.includes(action.toolUseId)) return state
+      const restErrors = Object.fromEntries(
+        Object.entries(state.taskStopErrors).filter(([key]) => key !== action.key)
+      )
+      return {
+        ...state,
+        stoppingTaskIds: [...state.stoppingTaskIds, action.toolUseId],
+        taskStopErrors: restErrors
+      }
+    }
+
+    case 'TASK_STOP_FAILED':
+      return {
+        ...state,
+        stoppingTaskIds: state.stoppingTaskIds.filter((id) => id !== action.toolUseId),
+        taskStopErrors: { ...state.taskStopErrors, [action.key]: action.reason }
+      }
+
+    case 'TASK_STOP_SETTLED':
+      if (!state.stoppingTaskIds.includes(action.toolUseId)) return state
+      return {
+        ...state,
+        stoppingTaskIds: state.stoppingTaskIds.filter((id) => id !== action.toolUseId)
+      }
+
+    case 'MARK_SETTLED_TASKS': {
+      const next = action.keys.filter((key) => !state.unseenSettledTaskKeys.includes(key))
+      if (next.length === 0) return state
+      return { ...state, unseenSettledTaskKeys: [...state.unseenSettledTaskKeys, ...next] }
+    }
+
+    case 'ACKNOWLEDGE_SETTLED_TASKS':
+      return state.unseenSettledTaskKeys.length === 0
+        ? state
+        : { ...state, unseenSettledTaskKeys: [] }
 
     case 'SET_RIGHT_PANEL_COL_WIDTH': {
       if (action.col < 0) return state
@@ -888,6 +966,48 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, rightPanelRowSplits: nextSplits }
     }
   }
+}
+
+// TaskXXX 결과가 "완료" 전이를 담고 있으면 미확인 배지 키를 더한다(0204 D-004).
+//
+// `structuredOutput` 은 Task 도구에만 실리므로(§10 EP-01) 그 유무가 값싼 게이트다 — 일반 도구
+// 결과에서는 tool_call 역탐색조차 하지 않는다. TaskList/TaskGet 은 보정(reconcile)이지 전이가
+// 아니므로 배지를 켜지 않는다: 전이의 권위는 TaskUpdate 의 statusChange 다.
+function markCompletedAgentTask(
+  state: ChatState,
+  ev: Extract<NormalizedEvent, { type: 'tool.call.completed' }>
+): string[] {
+  if (ev.structuredOutput === undefined || ev.isError) return state.unseenSettledTaskKeys
+  const call = findToolCallPart(state.messages, ev.toolRunId)
+  if (!call || call.toolName !== 'TaskUpdate') return state.unseenSettledTaskKeys
+  const observation = readTaskToolObservation({
+    toolName: call.toolName,
+    args: call.args,
+    structuredOutput: ev.structuredOutput,
+    isError: false
+  })
+  if (!observation || observation.kind !== 'upserted') return state.unseenSettledTaskKeys
+  if (observation.patch.status !== 'completed') return state.unseenSettledTaskKeys
+  const key = agentTaskKey(observation.id)
+  return state.unseenSettledTaskKeys.includes(key)
+    ? state.unseenSettledTaskKeys
+    : [...state.unseenSettledTaskKeys, key]
+}
+
+// toolRunId 의 tool_call 파트를 뒤에서부터 찾는다 — 결과는 대개 방금 커밋된 호출의 것이라
+// 역방향이 첫 몇 파트에서 끝난다.
+function findToolCallPart(
+  messages: Message[],
+  toolRunId: string
+): Extract<AppMessagePart, { type: 'tool_call' }> | undefined {
+  for (let m = messages.length - 1; m >= 0; m -= 1) {
+    const parts = messages[m].parts
+    for (let i = parts.length - 1; i >= 0; i -= 1) {
+      const part = parts[i]
+      if (part.type === 'tool_call' && part.toolRunId === toolRunId) return part
+    }
+  }
+  return undefined
 }
 
 // 타일 제거 — 열 구조에서 해당 타일만 떼어낸다. 그 결과 열이 비면 열을 드롭하면서, 열 인덱스를

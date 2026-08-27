@@ -1,11 +1,11 @@
 import { rightPanelTileDefinitions, type RightPanelTileId } from '../../lib/rightPanelTiles'
 import { PlanTileContent, PlanTileHeaderActions } from './PlanTileContent'
 import { ReservedTileContent } from './ReservedTileContent'
-import { SubAgentTileContent, SubAgentTileHeader } from './SubAgentTileContent'
+import { TaskTileContent, TaskTileHeader } from './TaskTileContent'
 
 const contentById: Record<RightPanelTileId, React.ComponentType> = {
   plan: PlanTileContent,
-  subagent: SubAgentTileContent,
+  task: TaskTileContent,
   reserved1: ReservedTileContent,
   reserved2: ReservedTileContent
 }
@@ -16,10 +16,10 @@ const headerActionsById: Partial<Record<RightPanelTileId, React.ComponentType>> 
   plan: PlanTileHeaderActions
 }
 
-// 타일별 헤더 콘텐츠 override(기본 라벨 span 대체). 서브에이전트 타일만 뒤로가기+동적 제목을
-// 직접 그린다(상세=Task 제목, 목록='백그라운드 작업'). 나머지는 기본 라벨.
+// 타일별 헤더 콘텐츠 override(기본 라벨 span 대체). 작업 타일만 뒤로가기+동적 제목을
+// 직접 그린다(상세=작업 제목, 목록='작업'). 나머지는 기본 라벨.
 const headerContentById: Partial<Record<RightPanelTileId, React.ComponentType>> = {
-  subagent: SubAgentTileHeader
+  task: TaskTileHeader
 }
 
 export const tileRegistry = rightPanelTileDefinitions.map((tile) => ({

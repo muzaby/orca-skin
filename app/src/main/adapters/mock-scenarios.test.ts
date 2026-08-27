@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { MOCK_SCENARIO_IDS } from '../../shared/ipc'
 import type { ApprovalResolution, NormalizedEvent } from '../../shared/ipc'
 import { runScenario, SCENARIOS, type MockStep } from './mock-scenarios'
 
@@ -34,9 +35,13 @@ async function collect(
 }
 
 describe('mock scenarios', () => {
-  it('정의된 시나리오 12종을 제공한다', () => {
+  // 목록은 이름의 계약이고 **개수는 MOCK_SCENARIO_IDS 가 갖는다** — 제목에 수를 적으면
+  // 시나리오가 늘 때마다 제목과 배열 두 곳이 갈라진다(0204).
+  it('SCENARIOS 는 MOCK_SCENARIO_IDS 를 빠짐없이 구현한다', () => {
+    expect(Object.keys(SCENARIOS).sort()).toEqual([...MOCK_SCENARIO_IDS].sort())
     expect(Object.keys(SCENARIOS).sort()).toEqual(
       [
+        'agent_task_board',
         'ask_question',
         'error',
         'full',

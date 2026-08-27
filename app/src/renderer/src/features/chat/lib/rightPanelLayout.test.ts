@@ -21,13 +21,13 @@ describe('rightPanel 열 구조 헬퍼', () => {
     let cols: RightPanelColumns = []
     cols = addTileColumnMajor(cols, 'plan')
     expect(tilesOf(cols)).toEqual([['plan']])
-    cols = addTileColumnMajor(cols, 'subagent')
-    expect(tilesOf(cols)).toEqual([['plan', 'subagent']])
+    cols = addTileColumnMajor(cols, 'task')
+    expect(tilesOf(cols)).toEqual([['plan', 'task']])
     cols = addTileColumnMajor(cols, 'reserved1')
-    expect(tilesOf(cols)).toEqual([['plan', 'subagent'], ['reserved1']])
+    expect(tilesOf(cols)).toEqual([['plan', 'task'], ['reserved1']])
     cols = addTileColumnMajor(cols, 'reserved2')
     expect(tilesOf(cols)).toEqual([
-      ['plan', 'subagent'],
+      ['plan', 'task'],
       ['reserved1', 'reserved2']
     ])
     // 중복 추가는 무변경(참조 동일)
@@ -36,7 +36,7 @@ describe('rightPanel 열 구조 헬퍼', () => {
 
   it('addTileColumnMajor — 새 열은 안정 id 를 받고 기존 열 id 는 보존', () => {
     const first = addTileColumnMajor([], 'plan')
-    const second = addTileColumnMajor(first, 'subagent') // 같은 열에 append
+    const second = addTileColumnMajor(first, 'task') // 같은 열에 append
     expect(second[0].id).toBe(first[0].id)
     const third = addTileColumnMajor(second, 'reserved1') // 새 열
     expect(third[0].id).toBe(first[0].id)
@@ -45,8 +45,8 @@ describe('rightPanel 열 구조 헬퍼', () => {
 
   it('removeTileFromColumns — 같은 열 안에서만 제거하고 다른 열은 id 까지 불변', () => {
     // 사용자 사례: 0열[plan,subagent] / 1열[reserved1] 에서 subagent 제거
-    const input = mk(['plan', 'subagent'], ['reserved1'])
-    const { columns, removedCol } = removeTileFromColumns(input, 'subagent')
+    const input = mk(['plan', 'task'], ['reserved1'])
+    const { columns, removedCol } = removeTileFromColumns(input, 'task')
     expect(tilesOf(columns)).toEqual([['plan'], ['reserved1']])
     expect(removedCol).toBeNull()
     expect(columns[0].id).toBe(input[0].id)
@@ -59,12 +59,12 @@ describe('rightPanel 열 구조 헬퍼', () => {
     expect(removedCol).toBe(0)
     // 없는 타일은 무변경(참조 동일)
     const cols = mk(['plan'])
-    expect(removeTileFromColumns(cols, 'subagent').columns).toBe(cols)
+    expect(removeTileFromColumns(cols, 'task').columns).toBe(cols)
   })
 
   it('flattenColumns / columnsContain', () => {
-    const cols = mk(['plan', 'subagent'], ['reserved1'])
-    expect(flattenColumns(cols)).toEqual(['plan', 'subagent', 'reserved1'])
+    const cols = mk(['plan', 'task'], ['reserved1'])
+    expect(flattenColumns(cols)).toEqual(['plan', 'task', 'reserved1'])
     expect(columnsContain(cols, 'reserved1')).toBe(true)
     expect(columnsContain(cols, 'reserved2')).toBe(false)
   })
@@ -73,26 +73,26 @@ describe('rightPanel 열 구조 헬퍼', () => {
     expect(deriveRightPanelLayout([]).columns).toEqual([])
     expect(deriveRightPanelLayout([]).handles).toEqual([])
 
-    const derived = deriveRightPanelLayout(mk(['plan', 'subagent'], ['reserved1']))
+    const derived = deriveRightPanelLayout(mk(['plan', 'task'], ['reserved1']))
     expect(derived.columns).toEqual([
-      { col: 0, id: 'c0', tiles: ['plan', 'subagent'] },
+      { col: 0, id: 'c0', tiles: ['plan', 'task'] },
       { col: 1, id: 'c1', tiles: ['reserved1'] }
     ])
 
     expect(deriveRightPanelLayout(mk(['plan'])).handles).toEqual([
       { kind: 'outer', axis: 'vertical' }
     ])
-    expect(deriveRightPanelLayout(mk(['plan', 'subagent'])).handles).toEqual([
+    expect(deriveRightPanelLayout(mk(['plan', 'task'])).handles).toEqual([
       { kind: 'outer', axis: 'vertical' },
       { kind: 'row', axis: 'horizontal', col: 0 }
     ])
-    expect(deriveRightPanelLayout(mk(['plan', 'subagent'], ['reserved1'])).handles).toEqual([
+    expect(deriveRightPanelLayout(mk(['plan', 'task'], ['reserved1'])).handles).toEqual([
       { kind: 'outer', axis: 'vertical' },
       { kind: 'column', axis: 'vertical', col: 1 },
       { kind: 'row', axis: 'horizontal', col: 0 }
     ])
     expect(
-      deriveRightPanelLayout(mk(['plan', 'subagent'], ['reserved1', 'reserved2'])).handles
+      deriveRightPanelLayout(mk(['plan', 'task'], ['reserved1', 'reserved2'])).handles
     ).toEqual([
       { kind: 'outer', axis: 'vertical' },
       { kind: 'column', axis: 'vertical', col: 1 },

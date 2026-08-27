@@ -4,7 +4,7 @@ import type { MessageKey } from '../../../shared/i18n'
 // tr() 해석한다(0096 stale-방지 패턴, 0097). 런타임 라벨(rightPanelTileLabels)이 있으면 우선.
 export const rightPanelTileDefinitions = [
   { id: 'plan', defaultLabelKey: 'chat.rightpanel.tiles.plan' },
-  { id: 'subagent', defaultLabelKey: 'chat.rightpanel.tiles.subagent' },
+  { id: 'task', defaultLabelKey: 'chat.rightpanel.tiles.task' },
   { id: 'reserved1', defaultLabelKey: 'chat.rightpanel.tiles.reserved1' },
   { id: 'reserved2', defaultLabelKey: 'chat.rightpanel.tiles.reserved2' }
 ] as const satisfies readonly { id: string; defaultLabelKey: MessageKey }[]
