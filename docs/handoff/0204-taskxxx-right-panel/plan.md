@@ -1222,11 +1222,20 @@ plan 이 적대 증거를 선택한 pair(VP-22·VP-29)와 REGRESSION 인용 변�
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D10 | 이번 라운드에 추출한 순수 View 3종의 **래퍼→View 배선이 잠기지 않는다** — 래퍼에서 지워도 `44파일/422케이스` 전건 통과(변이 V1·V2) | verify r3 · **VP-21**·**VP-22** · AT-28·AT-29 | AT-29 에 "`진행 상황` 섹션 본문이 목록 산출을 담는다" 를 더한다 — SSR 에서 store 가 비므로 `chat.taskTile.emptyDesc` 가 그 자리에 오는지가 가장 싼 관측이다. `subagent` 타일도 동형. **계약 신설이 아니라 기존 AC 보강** | **BLOCKING** | open |
+| D10 | 이번 라운드에 추출한 순수 View 3종의 **래퍼→View 배선이 잠기지 않는다** — 래퍼에서 지워도 `44파일/422케이스` 전건 통과(변이 V1·V2) | verify r3 · **VP-21**·**VP-22** · AT-28·AT-29 | AT-29 에 "`진행 상황` 섹션 본문이 목록 산출을 담는다" 를 더한다 — SSR 에서 store 가 비므로 `chat.taskTile.emptyDesc` 가 그 자리에 오는지가 가장 싼 관측이다. `subagent` 타일도 동형. **계약 신설이 아니라 기존 AC 보강** | **BLOCKING** | **부분 닫힘 (r4)** — VP-21 은 PASS, VP-22 는 열린 채 D15 로 좁혀 이관 |
 | D11 | `backgroundMetaLine` 의 `aborted` 분기가 사유를 하드코딩(`사용자에 의해 중단됨`)한다. `recovery.ts:5`(앱 사망 후 dangling 정산)가 `reason:'aborted'` 라 **사용자가 중단하지 않은 항목**도 그 문구를 받는다 — r1 D1 과 같은 거짓 진술 부류 | verify r3 · §3 역방향 | `failed` 분기와 같이 `settlementMessage` 를 우선 쓰고 없을 때만 라벨로 떨어뜨린다. **D-024 가 `aborted` 분기를 정본으로 삼았으므로 규범 정정이 선행** | NON_BLOCKING | open |
 | D12 | 고아 i18n 키 2건 — `chat.taskTile.emptyTitle`(r2 가 소비처 제거) · `chat.taskTile.viewTranscript`(r1 이래 0건) | verify r3 · §3 역방향 | 제거한다. **D2·G1 과 같은 죽은 표면 축의 세 번째 발현**이고 매번 분모가 달랐다(renderer 심볼 → shared 필드 → i18n 키) | NON_BLOCKING | open |
 | D13 | 구현자 §5 전수 스윕의 축이 좁았다 — "message 로 *상태를 파생*하는 곳" 만 셌고 "*사유를 표시*하는 곳" 은 안 셌다 | verify r3 · §4 | D11 이 그 차집합이다. 다음 라운드의 스윕은 표시 축을 포함한다 | NON_BLOCKING | open |
 | D14 | INDEX 비고가 5줄 규칙 초과(100자 기준 7줄) | verify r3 · `AGENTS.md §산출물 문장 규칙 3` | 이번 검증 갱신에서 줄였다 | NON_BLOCKING | **closed** |
+
+### r4 검증(2026-08-27) — 이관
+
+> r3 의 D10 은 **VP-21 쪽만 닫혔다** — 판정 근거는 [`verify.md`](verify.md) §4. D11·D12·D13 은 열린 채 유지된다(r4 범위 밖).
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D15 | AT-29 가 `진행 상황` 섹션 본문의 **자리**를 잠그지 않는다 — `진행 상황`↔`출력` 본문을 맞바꾸는 변이 M-S 가 `44파일/423케이스` 전건 통과다. VP-22 의 `3섹션` hop 이 세 섹션을 구별하지 못한다 | verify r4 · **VP-22** · AC29 · D-022 | AT-29 에서 문자열 순서를 구속한다 — `indexOf('진행 상황') < indexOf(emptyDesc) < indexOf('출력')`. 또는 `진행 상황` `<section>` 조각만 잘라 그 안에서 `toContain`. **계약 신설이 아니라 기존 AC29 단언의 위치 구속** | **BLOCKING** | open |
+| D16 | r4 구현 커밋 `e459be0` 의 trailer 가 `Agent: codex` 인데 **ACTIVE D-014 는 구현 주체를 Claude 로 확정**했고 r1·r2·r3 구현 커밋 3개는 전부 `Agent: claude` 다 | verify r4 · §7 · **D-014** | 다음 구현 커밋의 `Agent` 를 D-014 와 맞추거나, 주체가 실제로 바뀌었다면 D-014 를 supersede 하는 결정을 남긴다. 값 자체는 허용값이고 파싱된다 | NON_BLOCKING | open |
 
 ---
 

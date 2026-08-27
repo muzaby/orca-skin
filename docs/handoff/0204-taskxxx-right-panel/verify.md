@@ -9,6 +9,7 @@
 |---|---|---|
 | r1 | **FAIL** | 채널 종료 정착이 `실패` 가 아니라 `중단됨` 으로 읽힌다(AC21) |
 | r3 | **FAIL** | 추출한 순수 View 3종의 래퍼→View 배선이 무관측 — 지워도 전 스위트 초록 |
+| r4 | **FAIL** | 배선 삭제는 잠겼으나 `진행 상황`↔`출력` 본문 맞바꿈이 무음 — 섹션 자리가 무관측 |
 
 > r2 는 독립 verify 턴 없이 r3 에 합류했다 — ΔV1(r2)·ΔV2(r3) 구현이 연속으로 들어와 한 번에 검증했다. 대상 range 는 `a6dcfc8..4b3310b` 이다.
 
@@ -519,3 +520,174 @@ SubAgentTileContent.tsx:127  return <SubAgentTaskList tasks={tasks} stoppingIds=
 - **반복된 검증 환경 한계**: better-sqlite3 ABI(3라운드 연속). 새로 관측된 것 — `renderToStaticMarkup` + zustand 는 SSR 스냅샷을 돌려주어 store 연결 컴포넌트를 시드할 수 없다.
 - **자기 검증 한계**: 설계·구현·검증이 같은 에이전트다. 기준선 커밋 분리와 **검증자가 새로 심은 변이 2건**으로 완화했고, 그 2건이 이번 FAIL 을 만들었다.
 - **라운드 수**: **3**. 다음 재구현은 `handoff-review` 트리거(라운드 3 초과)에 해당한다.
+
+
+---
+
+## Verify r4 (2026-08-27) — FAIL
+
+### 메타
+
+| 항목 | 값 |
+|---|---|
+| slug | `0204-taskxxx-right-panel` |
+| 검증자 | Claude Code |
+| 일자 | 2026-08-27 |
+| 대상 커밋/range | `d93d21d..e459be0` (r4 구현 = `e459be0`) |
+| 구현 전 plan 기준 | `d93d21d` (r3 검증 커밋) |
+| V mode / 유효 V | `Baseline V + ΔV1 + ΔV2` / `V1 + ΔV1 + ΔV2` |
+| 라운드 | 4 |
+| 상태 | **FAIL** |
+| 자기 검증 여부 | **예** — 기준선은 커밋 분리로 성립한다(§0) |
+
+### 판정
+
+**FAIL.** D10 의 두 실패 pair 중 **VP-21 은 닫혔고 VP-22 는 아직 열려 있다**. 새 단언은 "래퍼가 목록 View 를 **어디선가** 부른다"를 잠그지만 "**`진행 상황` 섹션 본문이** 담는다"는 잠그지 않는다 — `진행 상황`↔`출력` 두 섹션 본문을 맞바꾸는 변이 **M-S 가 무음**이다(44파일/423케이스 전건 통과). VP-22 의 path `TaskTileContent → 3섹션 → 행` 에서 **`3섹션` hop 이 세 섹션을 구별하지 못한다**.
+
+- 나머지 15 pair·gate 4종은 PASS, `PLAN_GAP` **0**. 수정은 단언 한 줄(위치 구속)이라 새 계약이 필요 없다 → 다음 주체는 **구현자**.
+- D10 의 1차 축(배선 삭제가 무음)은 **닫혔다** — 등록 변이 V1·V2 를 검증자가 재실행해 각각 `1 failed / 422 passed` 다.
+
+---
+
+### 0. 기준선 / plan 변경 확인
+
+**기준선 성립.** 검증 커밋(`d93d21d`)과 구현 커밋(`e459be0`)이 분리돼 §0 의 자기 증명 방지가 작동한다.
+
+- 규범 구간(문서 시작 ~ 첫 `[구현자 기입]`, plan.md:1-825) `diff` → **0줄**. Decision·AC·V node/pair·§10 이 구현 중에 바뀌지 않았다.
+- `e459be0` 의 `plan.md` 변경(+74)은 전부 `[검증자 기입] 파생 이슈` **뒤**에 붙은 r4 구현자 기입이다 — 열린 파생 이슈 D10~D13 의 행도 손대지 않았다.
+- 채점 기준은 r3 이 고정한 AC28·AC29 원문과 VP-21·VP-22 의 path·oracle 이다.
+
+### Plan validity
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| V mode·유효 V 재구성 | 유효 | `none → V1(72766d2) → ΔV1 → ΔV2`. r4 는 V 를 바꾸지 않았다(ΔV3 없음) |
+| 재검증 범위 선택 | 유효 | production 변경 0건이라 root 실패 pair 2개 + gate 만 실행 대상. 나머지 15 pair 는 r3 증거 좌표를 참조한다 |
+| pair별 path·oracle | **1건 미달** | VP-22 의 path 가 `3섹션` hop 을 갖는데 oracle 이 세 섹션을 구별하지 못한다 → **D15**. 구현이 만든 미달이라 `PLAN_GAP` 이 아니다 |
+| 적대 증거 등록 | 유효 | VP-22 는 plan 이 이미 `적대 증거 required` 로 등록한 pair다 — 새 변이를 심는 것이 이 pair의 규정된 절차다 |
+| 운영 gate 범위 | 유효 | 4종 열거. 무관한 기존 실패(better-sqlite3)를 blocking 으로 올리지 않음 |
+
+### 1. AC 전 diff 비판적 읽기
+
+변경은 **테스트 1파일뿐**이다(`rightPanelTiles.render.test.ts` +12/-1). production·i18n·IPC·DB·의존성 **0건** — `git show --stat e459be0` 이 3파일(테스트 1 · plan.md · INDEX.md)만 낸다.
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 새 단언이 vacuous 한가 | 아니오 | V1·V2 재실행이 각각 red. 관측 문자열 3종은 전부 View 안의 `tr()` 산출이다 |
+| 관측 문자열이 유일 생산자를 갖는가 | 예 | `rg` 전수 — `emptyDesc`(작업)=`TaskTileContent.tsx:206` 1곳 · `subagentTile.emptyTitle/emptyDesc`=`SubAgentTileContent.tsx:195,196` 2곳. 래퍼 자신이 같은 문구를 내지 않는다 |
+| 테스트 격리가 SSR 빈 store 에 의존하는가 | 예(문서화됨) | `beforeEach` 는 `runSeq` 만 되돌린다. 빈 상태는 zustand SSR 스냅샷이 만든다 — 구현자 K1 이 같은 한계를 적었다 |
+| 기존 단언을 약화했는가 | 아니오 | diff 는 전부 추가(+12), 삭제는 import 1줄 교체뿐 |
+
+### 2. 역방향 탐색
+
+`bash .agents/skills/handoff-verify/scripts/scan-surface.sh d93d21d..e459be0` → **변경된 소스 파일 0** (테스트 전용 변경이라 스크립트 분모 밖). 직접 본 것:
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| 새 import `SubAgentTileContent` | 정상 | production export 를 그대로 부른다 — 동명 로컬 재구현 0 |
+| D12 고아 i18n 키 | **잔존 2건** | `chat.taskTile.emptyTitle` 0 소비처 · `chat.taskTile.viewTranscript` 0 소비처. r4 범위 밖이라 열린 채 유지 |
+| 새 단언이 죽은 표면을 살렸는가 | 아니오 | `subagentTile.emptyTitle/emptyDesc` 는 소비처 2곳을 이미 갖는다 |
+| 형제 정책 비대칭 | **1건** | `subagent` 타일은 래퍼가 View 를 통째로 반환해 위치 모호성이 없고, `task` 타일만 3섹션 중 하나를 골라야 한다 — D15 가 그 차집합이다 |
+
+### 3. 구현 보고 대조 — 증거로 받지 않고 다시 셌다
+
+| 구현자 보고 | 검증자 재측정 | 판정 |
+|---|---|---|
+| 대상 suite `1파일 / 12케이스` green | `1파일 / 12케이스` green | 일치 |
+| renderer chat `44파일 / 423케이스` green | `44파일 / 423케이스` green | 일치 |
+| 전체 vitest `231파일 / 2388케이스` green + 5파일 46 red | `231 passed / 5 failed (236)` · `2388 passed / 46 failed (2434)` | 일치 |
+| V1 → `1 failed / 11 passed` | 전 chat 스위트로 재실행 → **`1 failed / 422 passed`**, AT-29 의 `emptyDesc` 단언에서 검출 | 일치(분모만 다름) |
+| V2 → `1 failed / 11 passed` | 전 chat 스위트로 재실행 → **`1 failed / 422 passed`**, AT-28 의 새 케이스에서 검출 | 일치(분모만 다름) |
+| §10 강제 지점 `2/2`, production 32곳 무변경 | production diff 0줄로 확인 — 32 는 이번 라운드 재측정 대상이 아니다 | 일치 |
+| AC 자기보고 `✅2 / 총 2` ↔ trailer `Criteria-Met: 2/2` ↔ INDEX 비고 | **세 곳 일치** | 일치 |
+
+**보고에 없던 축이 하나 더 있다 — 위치.** 구현자 잠금 표는 "제거하면 red"만 쟀고 "다른 섹션으로 옮기면?"을 재지 않았다. 그것이 D15 다. r3 의 D10 과 같은 형태의 반복이다 — 그때는 "배선 축"이 보고에 없었다.
+
+**검증자가 새로 심은 변이 1건**:
+
+| 변이 | 대상 | 재측정 | 판정 |
+|---|---|---|---|
+| **M-S** | `TaskTileContent` 의 `진행 상황` 본문 ↔ `출력` 본문 맞바꿈(`<TaskProgressList>` ↔ `<OutputSectionEmpty />`) | **44파일 / 423케이스 전건 통과** | **무음 — D15** |
+
+```text
+TaskTileContent.tsx:307-312
+  <TileSection …progress>  <OutputSectionEmpty />                         ← 맞바꿈
+  <TileSection …output>    <TaskProgressList items={items} …/>            ← 맞바꿈
+  → ./node_modules/.bin/vitest run src/renderer/src/features/chat
+  → 44 files / 423 tests, 실패 0                                          ← 기대: red
+```
+
+**왜 무음인가**: AT-29 는 네 문자열의 **존재**만 본다(`toContain` ×5 + `aria-expanded` 3개). 맞바꿔도 네 문자열이 모두 남으므로 참이다. **깨지는 계약**: AC29 의 "`출력`·`컨텍스트` 는 설명문만 낸다" 와 D-022 — 맞바꾼 화면은 사용자에게 작업 목록을 `출력` 헤더 아래로 낸다. EP-16(섹션 컴포넌트가 `parts` 를 읽지 않는다)도 이 변이를 못 잡는다 — 컴포넌트는 그대로고 자리만 바뀌기 때문이다.
+
+**닫는 방법(제안, 계약 신설 아님)**: AT-29 에서 문자열 **순서**를 구속한다 — `html.indexOf('진행 상황') < html.indexOf(emptyDesc) < html.indexOf('출력')`. 또는 `진행 상황` 섹션의 `<section>` 조각만 잘라 그 안에서 `toContain` 한다.
+
+### 4. V-pair closeout — `UT → IT → ST → AT`
+
+r4 는 production 을 바꾸지 않았다. **실행 대상은 root 실패 pair 2개와 gate**이고, 나머지 15 pair 는 r3 §5 의 증거 좌표를 참조한다(이번 전체 스위트 재실행에서 그 증거가 전건 green 임도 확인했다).
+
+| Pair | 레벨 | requiredness | 결과 | 직접 검증 증거 |
+|---|---|---|---|---|
+| **VP-21** (R-11↔AT-28) | R↔AT | REQUIRED | **PASS** | 새 케이스 "빈 상태에서도 래퍼가 목록 View의 제목과 설명을 그린다" — **변이 V2 재실행 red**. 래퍼가 View 를 통째로 반환하는 형상이라 위치 모호성이 없다 |
+| **VP-22** (R-12↔AT-26/27/29) | R↔AT | REQUIRED | **PAIR_FAIL** | 배선 삭제(V1)는 red 로 바뀌었으나 **위치 변이 M-S 가 무음**. `3섹션 → 행` hop 이 여전히 세 섹션을 구별하지 못한다 |
+| VP-20·23·24·25·26·27·28·29 | 각 레벨 | REQUIRED | PASS(참조) | r3 §5 의 좌표. 이번 라운드 production diff 0줄이라 영향 없음 |
+| VP-06·08·12·16·17·18 | 각 레벨 | REGRESSION | PASS(참조) | 같음 |
+
+**합계: PASS 15 · PAIR_FAIL 1 · BLOCKED_BY 0 · NOT_REQUIRED 0 · PLAN_GAP 0 / 17.** r3 의 `PASS 15 · FAIL 2` 대비 VP-21 이 PASS 로 이동했다.
+
+### AC 세부와 합계 — r4 분모
+
+| AC | 결과 | 증거 |
+|---|---|---|
+| AC28 / VP-21 | ✅ | 빈 제목·설명 2문구 · V2 red |
+| AC29 / VP-22 | ❌ | `emptyDesc` 존재는 참(V1 red)이나 **자리**가 무관측 — M-S 무음 |
+
+**검산: `✅ 1 · ⚠️ 0 · ❌ 1 = 총 2`.** r4 가 다시 채점하는 것은 D10 의 두 행뿐이다. ΔV1·ΔV2 의 나머지 10 AC 와 `V1` 의 사람 실기 3 AC(AC11·AC20·AC25)는 r3 좌표를 승계한다.
+
+### 5. 게이트 (검증자 실행)
+
+| Gate | 관측한 산출 | 판정 |
+|---|---|---|
+| `npm run lint` | **0 error · 1 warning** — `useTranscriptVirtualizer.ts:22` `react-hooks/incompatible-library`(기존·변경 무관) | PASS |
+| `npm run typecheck` | **error TS 0건** (node·web·test 3구성 전부 무출력 종료) | PASS |
+| `vitest run` (전체) | **231파일 green / 5파일 red · 2388케이스 green / 46 red** | PASS(분리 보고) |
+| `check-doc-inventory --check` | `9 items, 79 channels` · prose ok · links ok | PASS |
+
+- **5파일 red 는 알려진 환경 서명이다** — `Could not locate the bindings file … better_sqlite3.node`. 실패 파일이 `app/AGENTS.md §제약 환경` 이 열거한 실측 5파일과 **정확히 일치**한다: `infra/db/queries` · `infra/db/migrate` · `features/extensions/builder` · `features/orchestration/fork` · `app/chat-turn.continuity`(0 test 수집). 이번 변경과 무관하다.
+- **ABI**: 이 트리는 `npm ci --ignore-scripts` 로 세웠다 — better-sqlite3 바인딩 미빌드, electron 바이너리 부재. `dev`/`build` 실기는 여기서 불가능하다.
+- **게이트가 트리를 바꿨는가**: `npm run lint`(`--fix`) 실행 후 `git status --short` **0줄**.
+- **검증 중 잔여물**: 변이 V1·V2·M-S 전부 복원 후 `git diff --quiet` 통과. 백업은 scratchpad 에만. `node_modules/` 는 미추적 설치물이라 커밋에 섞이지 않는다.
+
+### 6. 사람 실기 경계
+
+r3 §7 과 같다 — 3섹션 시각 대조 · 긴 제목의 버튼 잘림 · `72766d2` 시각 동일성 · AC11·AC20 · J1(SDK `updatedFields`). **r4 가 새로 사람에게 넘긴 것은 없다.** D15 는 기계로 닫힌다(단언 한 줄).
+
+### 7. Repository operation checks
+
+| 검사 | 판정 | 관측 |
+|---|---|---|
+| 인용 커밋 실재 | ✓ | `d93d21d`·`e459be0` 둘 다 `git cat-file -t` = `commit` |
+| trailer 파싱 | ✓ | `git log -1 --format='%(trailers:only=true)' e459be0` → **5키 전부 반환** |
+| trailer 허용값 | ✓ | `Agent`·`Handoff`·`Status`·`Criteria-Met`·`Verified-By` 전부 허용값 |
+| trailer 사실성 | **1건 어긋남** | `Agent: codex` 인데 **ACTIVE D-014 는 구현 주체를 Claude 로 확정**했고 r1·r2·r3 구현 커밋 3개는 전부 `Agent: claude` 다 → **D16** |
+| `[구현자 기입]` 7필드 | ✓ | r4 는 7 — `강제 지점 전수 + V-pair 자기확인` 이 한 제목으로 합쳐졌으나 두 내용이 표로 다 있다. 산문으로 접힌 필드 0 |
+| INDEX 비고 5줄 | ✓ | 222자 = 100자 기준 **3줄** |
+| INDEX 대상 커밋 | **자리표시자** | `(r4 구현 — 검증자 기입)` → 이번 갱신에서 `e459be0` 로 채운다 |
+| `AGENTS.md` 변경 | 해당 없음 | r4 diff 에 없다 |
+
+### 8. 검증 책임 분리
+
+| 항목 | 결과 |
+|---|---|
+| lint/typecheck/테스트/inventory | 검증자 실행·산출 관측 완료 |
+| pair·AC ↔ production path | 2행 재채점, 1건 ❌ |
+| 변이 재실행 + 신규 변이 | V1·V2 재현 · M-S 신설 |
+| UI 시각 품질 · merge | 사람 |
+
+### Review Signals — 사실만
+
+- **이전 라운드와 같은 축인가**: **그렇다.** D15 는 D10 과 같은 "hop 이 무관측" 축의 두 번째 발현이고 분모만 한 단계 좁아졌다(래퍼→View → 섹션→View). 두 번 다 구현자 잠금 표가 **소거 변이만** 재고 **치환/이동 변이**를 재지 않았다.
+- **관련 plan 지침/AC 가 있었는가**: **있었다.** r3 이 적은 닫는 방법이 "`진행 상황` **섹션 본문이** 목록 산출을 담는다" 였고 AC29 가 "`출력`·`컨텍스트` 는 설명문만 낸다" 를 이미 갖는다. 구현은 섹션 구속 없는 약한 형태로 내려갔다.
+- **사용자 결정 변경 근거**: 없다. r4 는 Decision 을 건드리지 않았다.
+- **반복된 검증 환경 한계**: better-sqlite3 ABI/egress(4라운드 연속) · zustand SSR 스냅샷이 store 연결 컴포넌트를 시드하지 못함(2라운드 연속, K1 과 동일 관측).
+- **자기 검증 한계**: 설계·구현·검증이 같은 에이전트다. 기준선 커밋 분리와 **검증자가 새로 심은 변이 1건**으로 완화했고, 그 1건이 이번 FAIL 을 만들었다(r3 과 같은 형태).
+- **라운드 수**: **4**. `handoff-review` 트리거(라운드 3 초과)에 이미 해당한다 — r4 구현자가 인라인으로 B(실행 누락) 판정만 남기고 지침 변경 0 으로 닫았는데, 같은 축이 한 번 더 재발했다.
