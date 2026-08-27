@@ -407,6 +407,7 @@ export const en: typeof ko = {
       subagent_task_aborted: 'Subagent aborted',
       subagent_task_multi: 'Multiple subagents',
       subagent_task_running: 'Subagent running',
+      agent_task_board: 'Task board (TaskXXX)',
       error: 'Error',
       full: 'Full'
     }
@@ -550,6 +551,7 @@ export const en: typeof ko = {
     subagentTile: {
       status: {
         running: 'In progress',
+        stopping: 'Stopping…',
         completed: 'Completed',
         failed: 'Failed',
         aborted: 'Aborted'
@@ -560,6 +562,44 @@ export const en: typeof ko = {
       emptyTitle: 'No background tasks',
       emptyDesc: 'Task tool calls will appear here when detected.',
       openTranscriptAria: 'View transcript for {{description}}',
+      viewTranscript: 'View transcript'
+    },
+    taskTile: {
+      status: {
+        in_progress: 'In progress',
+        stopping: 'Stopping…',
+        pending: 'Pending',
+        completed: 'Completed',
+        aborted: 'Stopped',
+        failed: 'Failed'
+      },
+      detail: {
+        status: 'Status',
+        description: 'Description',
+        blockedBy: 'Blocked by',
+        elapsed: 'Elapsed',
+        lastTool: 'Last tool',
+        toolUses: 'Tool uses'
+      },
+      sections: {
+        progress: 'Progress',
+        output: 'Output',
+        outputDesc: 'View and open files created during this work.',
+        context: 'Context',
+        contextDesc: 'Tracks the tools used and files referenced by this work.'
+      },
+      backToList: 'Back to list',
+      headerTitle: 'Tasks',
+      badgeAria: '{{count}} finished tasks not yet reviewed',
+      backgroundBadge: 'background',
+      blockedByValue: 'needs #{{ids}}',
+      stoppedReason: 'Stopped by you',
+      failedReason: 'The execution session ended',
+      stopFailed: 'Could not stop the task',
+      noChildActivity: 'No child activity recorded for this task.',
+      emptyTitle: 'No tasks yet',
+      emptyDesc: 'Tasks Claude creates and background work it starts will appear here.',
+      openDetailAria: 'Open details for {{description}}',
       viewTranscript: 'View transcript'
     },
     composer: {
@@ -715,8 +755,8 @@ export const en: typeof ko = {
       tiles: {
         plan: 'Plan',
         subagent: 'Background tasks',
-        reserved1: 'Reserved 1',
-        reserved2: 'Reserved 2'
+        task: 'Tasks',
+        reserved1: 'Reserved 1'
       },
       closeTile: 'Close {{label}}',
       panelResizeAria: 'Resize right panel',

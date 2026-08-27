@@ -91,6 +91,38 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
     return this.bySession.get(sessionId)?.size ?? 0
   }
 
+  // 특정 태스크가 **정착할 때까지** 기다린다(0204 D-011). 종료 신호는 SDK stream 이 이미 나르는
+  // task_notification(completed/failed/stopped)이고, 그 셋은 전부 `settled` 로 수렴한다 —
+  // 채널 사망/앱 종료의 합성 정착(`clear`)도 같은 자리를 지난다. 주기적 TaskOutput polling 을
+  // 쓰지 않는 이유가 이것이다(명세 §2).
+  //
+  // 이미 추적에 없으면 즉시 `settled` — 정착이 먼저 관측된 경합에서 영원히 걸리지 않는다.
+  // `timeoutMs` 는 밀리초이며 호출부가 상한을 소유한다(미지정 = 무기한 대기 없음: 반드시 준다).
+  waitForTask(
+    sessionId: string,
+    toolUseId: string,
+    opts: { timeoutMs: number }
+  ): Promise<'settled' | 'timeout'> {
+    if (!this.bySession.get(sessionId)?.has(toolUseId)) return Promise.resolve('settled')
+    return new Promise((resolve) => {
+      let done = false
+      const finish = (outcome: 'settled' | 'timeout'): void => {
+        if (done) return
+        done = true
+        clearTimeout(timer)
+        unsubscribe()
+        resolve(outcome)
+      }
+      const unsubscribe = this.subscribe((changed) => {
+        if (changed !== sessionId) return
+        if (!this.bySession.get(sessionId)?.has(toolUseId)) finish('settled')
+      })
+      const timer = setTimeout(() => finish('timeout'), opts.timeoutMs)
+      // 타이머가 Electron main 종료를 붙잡지 않게 한다(Node 전용 API — 테스트 환경도 동일).
+      timer.unref?.()
+    })
+  }
+
   clear(sessionId: string): void {
     if (this.bySession.delete(sessionId)) this.changed(sessionId)
   }

@@ -25,6 +25,7 @@ const SCENARIO_LABEL_KEYS: Record<MockScenarioId, MessageKey> = {
   subagent_task_aborted: 'debug.scenarios.subagent_task_aborted',
   subagent_task_multi: 'debug.scenarios.subagent_task_multi',
   subagent_task_running: 'debug.scenarios.subagent_task_running',
+  agent_task_board: 'debug.scenarios.agent_task_board',
   error: 'debug.scenarios.error',
   full: 'debug.scenarios.full'
 }

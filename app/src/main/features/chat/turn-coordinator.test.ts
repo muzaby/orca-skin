@@ -661,6 +661,46 @@ describe('TurnCoordinator — settled background enrich + listen 회계 (0143)',
     expect((settledForwards[0] as { background?: boolean }).background).toBeUndefined()
   })
 
+  // 0204 §10 EP-06(2) — 사용자가 중단한 태스크는 완료 통지를 만들지 않는다(0143 결정).
+  // 구 경로에서는 중단 클릭이 트래커를 즉시 해제해 이 조건이 부수적으로 거짓이 됐다. D-005 가
+  // 확정까지 추적을 유지하면서 그 부수 효과가 사라져 명시 게이트가 필요해졌다.
+  it('사용자가 중단한 태스크의 settled 는 영수증이 관측됐어도 background 미부여', async () => {
+    // 영수증은 **중단 클릭 이전에** 관측됐다 — 그래서 tracker 에 직접 심는다. 스트림 안에
+    // receipt 이벤트를 두면 coerceStoppedToolCompletion 이 그것을 먼저 aborted 로 바꿔
+    // markAsyncLaunched 자체가 일어나지 않고, 그러면 이 게이트가 판정에 참여하지 못한다.
+    const runtime = fakeRuntime([[subagentStarted('a1'), subagentSettled('a1'), telemetry]])
+    const tracker = new BackgroundTaskTracker()
+    tracker.markAsyncLaunched('s1', 'a1')
+    const deps = makeDeps(runtime, { backgroundTasks: tracker })
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    // 사용자가 중단 버튼을 눌렀다 — 확정이 도착하기 전 상태.
+    turn.stoppedSubagents.add('a1')
+
+    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    const settledForwards = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls
+      .map((c) => c[1] as NormalizedEvent)
+      .filter((ev) => ev.type === 'subagent.task' && ev.phase === 'settled')
+    expect(settledForwards).toHaveLength(1)
+    expect((settledForwards[0] as { background?: boolean }).background).toBeUndefined()
+  })
+
+  // 같은 조건에서 중단만 없으면 background:true 다 — 위 단언이 게이트 때문임을 고정하는 양성 짝.
+  it('중단하지 않은 태스크는 같은 조건에서 background:true 를 받는다', async () => {
+    const runtime = fakeRuntime([[subagentStarted('a1'), subagentSettled('a1'), telemetry]])
+    const tracker = new BackgroundTaskTracker()
+    tracker.markAsyncLaunched('s1', 'a1')
+    const deps = makeDeps(runtime, { backgroundTasks: tracker })
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+
+    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    const settledForwards = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls
+      .map((c) => c[1] as NormalizedEvent)
+      .filter((ev) => ev.type === 'subagent.task' && ev.phase === 'settled')
+    expect((settledForwards[0] as { background?: boolean }).background).toBe(true)
+  })
+
   it('추적 해제 후 지각 도착한 중복 settled 는 background 미부여(통지 중복 차단)', async () => {
     const receipt = {
       type: 'tool.call.completed',

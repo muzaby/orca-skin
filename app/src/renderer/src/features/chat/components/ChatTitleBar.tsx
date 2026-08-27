@@ -5,7 +5,12 @@ import { Popover } from '../../../shared/ui/Popover'
 import { RenameInput } from '../../../shared/ui/RenameInput'
 import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
 import { useI18n } from '../../../shared/i18n'
-import { chatActions, getActiveChatSession, useChatSession } from '../store/chatStore'
+import {
+  chatActions,
+  getActiveChatSession,
+  useChatSession,
+  useUnseenSettledTaskCount
+} from '../store/chatStore'
 import { partsText } from '../lib/parts'
 import type { ChatState } from '../reducer/chatReducer'
 import type { RightPanelTileId } from '../lib/rightPanelTiles'
@@ -13,11 +18,9 @@ import { flattenColumns } from '../lib/rightPanelLayout'
 import { tileRegistry } from './rightpanel/tileRegistry'
 import { CwdButton } from './CwdButton'
 
-// 예약 타일(reserved1/2)은 Future Scope — 메뉴에서 숨긴다. tileRegistry 는 모듈 상수라
-// 결과가 불변이므로 모듈 로드 시 1회만 계산한다(인스턴스별 useMemo 불필요).
-const VISIBLE_TILE_REGISTRY = tileRegistry.filter(
-  (tile) => tile.id !== 'reserved1' && tile.id !== 'reserved2'
-)
+// 예약 타일은 Future Scope — 메뉴에서 숨긴다. tileRegistry 는 모듈 상수라 결과가 불변이므로
+// 모듈 로드 시 1회만 계산한다(인스턴스별 useMemo 불필요).
+const VISIBLE_TILE_REGISTRY = tileRegistry.filter((tile) => tile.id !== 'reserved1')
 
 // 사이드바 메타 (state.title) 가 즉시 채워지므로 사용자가 세션을 선택한 순간부터
 // 헤더에 정확한 제목 표시. 메타가 없는 부팅 자동 복원 1회만 첫 user 메시지에서 fallback.
@@ -59,6 +62,8 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   // zustand Object.is 비교가 매번 깨져 불필요 재렌더가 난다.
   const tileColumns = useChatSession((s) => s.rightPanelTiles)
   const activeTiles = useMemo(() => flattenColumns(tileColumns), [tileColumns])
+  const unseenSettledTasks = useUnseenSettledTaskCount()
+  const showTaskBadge = unseenSettledTasks > 0 && !activeTiles.includes('task')
   const labels = useChatSession((s) => s.rightPanelTileLabels)
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -168,16 +173,26 @@ export const ChatTitleBar = memo(function ChatTitleBar({
           title={copied ? tr('common.copied') : tr('chat.titleBar.copyAll')}
           aria-label={tr('chat.titleBar.copyAll')}
         />
-        <Button
-          ref={anchorRef}
-          iconOnly
-          leadingIcon="kebab"
-          size="small"
-          pressed={open}
-          onClick={() => setOpen((v) => !v)}
-          title={tr('chat.titleBar.tilesButton')}
-          aria-label={tr('chat.titleBar.tilesButton')}
-        />
+        {/* 미확인 완료 배지(0204 D-004) — 작업 타일이 닫혀 있을 때 "완료된 것이 생겼다" 를
+            알리는 유일한 신호다. 타일을 열면 확인으로 간주해 사라진다. */}
+        <span className="relative inline-flex">
+          <Button
+            ref={anchorRef}
+            iconOnly
+            leadingIcon="kebab"
+            size="small"
+            pressed={open}
+            onClick={() => setOpen((v) => !v)}
+            title={tr('chat.titleBar.tilesButton')}
+            aria-label={tr('chat.titleBar.tilesButton')}
+          />
+          {showTaskBadge && (
+            <span
+              aria-label={tr('chat.taskTile.badgeAria', { count: unseenSettledTasks })}
+              className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent"
+            />
+          )}
+        </span>
         <Popover
           open={open}
           anchorRef={anchorRef}
@@ -204,6 +219,11 @@ export const ChatTitleBar = memo(function ChatTitleBar({
                 aria-checked={active}
               >
                 <span>{labels[tile.id as RightPanelTileId] ?? tr(tile.defaultLabelKey)}</span>
+                {tile.id === 'task' && unseenSettledTasks > 0 && (
+                  <span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] px-1.5 text-[10px] font-medium text-accent">
+                    {unseenSettledTasks}
+                  </span>
+                )}
               </MenuItem>
             )
           })}
