@@ -117,24 +117,36 @@ const renderSubagentList = (msgs: Message[], stoppingIds: string[] = []): string
     })
   )
 
+// 섹션 제목 → 그 섹션 **본문** HTML. 산출의 존재만 단언하면 형제 섹션끼리 본문을 맞바꾼
+// 회귀가 초록으로 통과한다(verify r4 D15 / 변이 M-S) — 어느 섹션에 담겼는지까지 본다.
+// 섹션이 없으면 `undefined` 라 단언이 실패한다(fail-closed).
+function sectionBodies(html: string): Record<string, string> {
+  const bodies: Record<string, string> = {}
+  for (const chunk of html.split('<section').slice(1)) {
+    const title = chunk.match(/<span[^>]*>([^<]+)<\/span>/)?.[1]
+    const body = chunk.match(/<div class="pb-3">([\s\S]*)$/)?.[1]
+    if (title !== undefined && body !== undefined) bodies[title] = body
+  }
+  return bodies
+}
+
 beforeEach(() => {
   runSeq = 0
 })
 
 describe('작업 타일 — cowork 3섹션 (AT-29)', () => {
-  it('세 섹션 헤더를 모두 그리고, 출력·컨텍스트는 설명문만 낸다', () => {
+  it('세 섹션이 순서대로 오고 각 본문이 자기 섹션에 담긴다', () => {
     const html = renderToStaticMarkup(createElement(TaskTileContent))
-    // 양성 — 세 헤더가 실제로 렌더된다.
-    expect(html).toContain('진행 상황')
-    expect(html).toContain('출력')
-    expect(html).toContain('컨텍스트')
-    // 래퍼 → 진행 상황 View 배선까지 지난다. 이 단언은 TaskProgressList 를 래퍼에서
-    // 제거하면 실패해야 한다(verify r3 D10 / V1).
-    expect(html).toContain(
+    const bodies = sectionBodies(html)
+    // 양성 — 세 헤더가 cowork 순서(D-017)로 실제 렌더된다.
+    expect(Object.keys(bodies)).toEqual(['진행 상황', '출력', '컨텍스트'])
+    // 래퍼 → 각 섹션 View 배선을 **귀속까지** 지난다. 세 단언은 각각 그 View 를 래퍼에서
+    // 제거해도(verify r3 D10 / V1) 형제 섹션과 맞바꿔도(verify r4 D15 / M-S) 실패한다.
+    expect(bodies['진행 상황']).toContain(
       'Claude 가 Task 를 만들거나 백그라운드 작업을 시작하면 여기에 표시됩니다.'
     )
-    expect(html).toContain('이 작업 중에 생성된 파일을 확인하고 열 수 있습니다.')
-    expect(html).toContain('이 작업에 사용된 도구와 참조된 파일을 추적합니다.')
+    expect(bodies['출력']).toContain('이 작업 중에 생성된 파일을 확인하고 열 수 있습니다.')
+    expect(bodies['컨텍스트']).toContain('이 작업에 사용된 도구와 참조된 파일을 추적합니다.')
     // 섹션은 접힘 가능하다 — 기본 펼침.
     expect(html.match(/aria-expanded="true"/g)).toHaveLength(3)
   })

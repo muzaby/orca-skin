@@ -1234,8 +1234,8 @@ plan 이 적대 증거를 선택한 pair(VP-22·VP-29)와 REGRESSION 인용 변�
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D15 | AT-29 가 `진행 상황` 섹션 본문의 **자리**를 잠그지 않는다 — `진행 상황`↔`출력` 본문을 맞바꾸는 변이 M-S 가 `44파일/423케이스` 전건 통과다. VP-22 의 `3섹션` hop 이 세 섹션을 구별하지 못한다 | verify r4 · **VP-22** · AC29 · D-022 | AT-29 에서 문자열 순서를 구속한다 — `indexOf('진행 상황') < indexOf(emptyDesc) < indexOf('출력')`. 또는 `진행 상황` `<section>` 조각만 잘라 그 안에서 `toContain`. **계약 신설이 아니라 기존 AC29 단언의 위치 구속** | **BLOCKING** | open |
-| D16 | r4 구현 커밋 `e459be0` 의 trailer 가 `Agent: codex` 인데 **ACTIVE D-014 는 구현 주체를 Claude 로 확정**했고 r1·r2·r3 구현 커밋 3개는 전부 `Agent: claude` 다 | verify r4 · §7 · **D-014** | 다음 구현 커밋의 `Agent` 를 D-014 와 맞추거나, 주체가 실제로 바뀌었다면 D-014 를 supersede 하는 결정을 남긴다. 값 자체는 허용값이고 파싱된다 | NON_BLOCKING | open |
+| D15 | AT-29 가 `진행 상황` 섹션 본문의 **자리**를 잠그지 않는다 — `진행 상황`↔`출력` 본문을 맞바꾸는 변이 M-S 가 `44파일/423케이스` 전건 통과다. VP-22 의 `3섹션` hop 이 세 섹션을 구별하지 못한다 | verify r4 · **VP-22** · AC29 · D-022 | AT-29 에서 문자열 순서를 구속한다 — `indexOf('진행 상황') < indexOf(emptyDesc) < indexOf('출력')`. 또는 `진행 상황` `<section>` 조각만 잘라 그 안에서 `toContain`. **계약 신설이 아니라 기존 AC29 단언의 위치 구속** | **BLOCKING** | **구현 완료 (r5)** — 형제 3지점 전수. 변이 M-S·M-S2·M-O 각 1 red |
+| D16 | r4 구현 커밋 `e459be0` 의 trailer 가 `Agent: codex` 인데 **ACTIVE D-014 는 구현 주체를 Claude 로 확정**했고 r1·r2·r3 구현 커밋 3개는 전부 `Agent: claude` 다 | verify r4 · §7 · **D-014** | 다음 구현 커밋의 `Agent` 를 D-014 와 맞추거나, 주체가 실제로 바뀌었다면 D-014 를 supersede 하는 결정을 남긴다. 값 자체는 허용값이고 파싱된다 | NON_BLOCKING | **구현 완료 (r5)** — r5 커밋 trailer 를 `Agent: claude` 로 맞췄다 |
 
 ---
 
@@ -1306,3 +1306,90 @@ plan 이 적대 증거를 선택한 pair(VP-22·VP-29)와 REGRESSION 인용 변�
 - **막았어야 할 지침**: 현 `handoff-impl §3`에 단위와 호출 배선을 함께 잠그라는 규칙이 이미 있어 **B(실행 누락)**다. 중복 지침·corpus·template 변경은 하지 않았다.
 - **환경 한계**: `npm ci --ignore-scripts`로 Electron binary와 better-sqlite3 binding이 없어 전체 vitest의 알려진 5파일/1 suite만 실패했다. 변경 대상 44파일은 전건 green이다.
 - **현재 라운드 수**: **4**. 구현 완료 후 다음 주체는 독립 검증자다.
+
+---
+
+# 라운드 5 — verify r4 D15 재구현
+
+## [구현자 기입] 설계 리뷰 — r5
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| D15 구현 가능성 | **가능** | AC29 가 이미 "`출력`·`컨텍스트` 는 설명문만 낸다" 를 갖는다. 단언을 섹션 본문으로 좁히면 되고 신규 계약·production 변경·`PLAN_GAP` 0 |
+| r5 사전 handoff-review | **수행(DIAGNOSE_ONLY)** | 라운드 4 초과 트리거. 결과는 아래 Review Signals — **A(coverage gap) 1건 진단, 지침 파일 변경 0**(사용자가 지침 수정을 요청하지 않았다) |
+| 인용 변이 실재성 | **재현** | M-S 를 이번 턴에 다시 심어 수정 전 `44파일/423케이스 전건 통과`(무음)를 확인한 뒤 고쳤다 |
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) + V-pair 자기확인 — r5
+
+**불변식(§5-1)**: **형제 슬롯이 서로 다른 계약을 가지면 산출의 *존재*가 아니라 *귀속*을 단언한다.** 존재만 보면 슬롯끼리 맞바꾼 회귀가 초록으로 통과한다.
+
+전수 스윕 — `rg "<TileSection" app/src | rg -v '\.test\.'` → **3지점**(`TaskTileContent.tsx:307·310·313`), 전부 한 부모 아래 형제다.
+
+| 지점 | 계약 | 이번 턴 관측 |
+|---|---|---|
+| `sections.progress` | 목록 View 를 담는다 | `bodies['진행 상황']` 단언 — V1·M-S 에서 red |
+| `sections.output` | 설명문만 담는다(D-022) | `bodies['출력']` 단언 — M-S·M-S2 에서 red |
+| `sections.context` | 설명문만 담는다(D-022) | `bodies['컨텍스트']` 단언 — M-S2 에서 red |
+
+**합계: 3/3.** D15 가 지목한 것은 첫 행 하나였고 나머지 둘은 같은 불변식의 형제 지점이라 함께 닫았다.
+
+| Pair | 자기 상태 | 관측 |
+|---|---|---|
+| VP-22 (R-12↔AT-26/27/29) | SELF_PASS | 섹션 순서 `toEqual` + 본문 3종 귀속 단언. 변이 M-S·M-S2·M-O·V1 각각 1 red |
+| VP-21 (R-11↔AT-28) | SELF_PASS | r4 잠금 유지 회귀 — 변이 V2 가 여전히 1 red |
+
+§10 production 강제 지점 **32곳은 변경하지 않았다** — 이번 diff 에 production 코드가 없다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r5
+
+| 변이 | 대상 | 재측정 | 판정 |
+|---|---|---|---|
+| M-S: `진행 상황`↔`출력` 본문 맞바꿈 | VP-22 · AC29 · D15 | **1 failed / 422 passed** | 검출 |
+| M-S2: `출력`↔`컨텍스트` 본문 맞바꿈 | VP-22 · AC29 · D-022 | **1 failed / 422 passed** | 검출 |
+| M-O: 섹션 순서 뒤집기 | VP-22 · D-017 | **1 failed / 422 passed** | 검출 |
+| V1: 래퍼의 `<TaskProgressList>` 제거 | VP-22 · D10 회귀 | **1 failed / 422 passed** | 검출 |
+| V2: 래퍼의 `<SubAgentTaskList>` 제거 | VP-21 · D10 회귀 | **1 failed / 422 passed** | 검출 |
+
+**새 장치의 적대 검사(§3)**: `sectionBodies()` 는 이번 턴에 만든 구조적 proxy라 눈이 있는지 먼저 봤다. ① 섹션을 못 찾으면 `bodies[제목]` 이 `undefined` 라 단언이 실패한다(fail-closed) ② M-S·M-S2 가 red 라 세 본문을 **서로 구별**한다 — 전부 같은 문자열을 돌려주는 눈먼 장치가 아니다. 5변이 전부 복원 후 두 production 파일은 `git diff` 0줄이다.
+
+## [구현자 기입] Product/UX 파생 검토 — r5
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 사용자 출력이 바뀌는가 | **아니오** | production·i18n 변경 0건. 기존 빈 상태 문구를 더 좁게 관측만 한다 |
+| 섹션이 뒤바뀐 화면이 회귀로 샐 수 있는가 | **잠금** | 본문 귀속 3종 + 헤더 순서까지 단언한다 |
+| 접힘 상태에서 단언이 깨지는가 | **아니오** | SSR 은 `useState(true)` 초기값을 보므로 세 본문이 모두 렌더된다. `aria-expanded` 3개 단언이 그 전제를 함께 잡는다 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r5
+
+| # | 발견 | 분류 | 대응 |
+|---|---|---|---|
+| L1 | `sectionBodies()` 가 `pb-3`·`<section` 이라는 `TileSection` 의 DOM 형태에 묶인다 | 구조적 proxy 한계 | fail-closed 라 형태가 바뀌면 red 가 된다 — 조용히 통과하지 않는다. 선조치 없이 그대로 둔다 |
+| L2 | 형제 파일 `navSections.render.test.ts`(0203)는 같은 축을 **다른 장치**로 이미 닫는다 — 구획마다 별도 렌더 + 슬롯 브랜드 타입 | 보고만 | 저장소에서 이 불변식이 열린 다른 지점 0건. 파생 이슈를 만들지 않는다 |
+| L3 | D11·D12·D13·D16 은 여전히 열려 있다 | 보고만 | r5 범위 밖. D16(trailer `Agent` 값)은 이번 커밋에서 D-014 에 맞춘다 |
+
+## [구현자 기입] 구현 보고 — r5
+
+| 항목 | 값 |
+|---|---|
+| 변경 | `rightPanelTiles.render.test.ts` 1파일 — `sectionBodies()` 헬퍼 신설 + AT-29 첫 케이스를 귀속 단언으로 교체 |
+| 게이트 | renderer chat **44파일 / 423케이스 green** · typecheck **error TS 0건**(3구성) · lint **0 error / 1 warning**(기존 `useTranscriptVirtualizer.ts:22`) · doc inventory `9 items / 79 channels`, prose·link ok |
+| 전체 vitest | **231파일 green / 5파일 red · 2388케이스 green / 46 red** — 5파일은 `app/AGENTS.md §제약 환경` 의 실측 서명(better-sqlite3 bindings 부재)과 동일 목록 |
+| 인벤토리/계약 | 신규 dependency·IPC·DB·i18n·production 변경 **0건** |
+
+### AC 자기보고 — r5
+
+| AC | 결과 | 이번 턴 관측 |
+|---|---|---|
+| AC29 / VP-22 | ✅ | 세 본문 귀속 + 헤더 순서 단언. M-S·M-S2·M-O·V1 각 1 red |
+| AC28 / VP-21 | ✅ | r4 잠금 회귀 유지 — V2 1 red |
+
+**검산: `✅ 2 · ⚠️ 0 · ❌ 0 = 총 2`.** 분모는 r4 와 같다 — D15 는 AC 를 늘리지 않고 AC29 의 단언을 좁혔다.
+
+## [구현자 기입] Review Signals — 사실만 — r5
+
+- **같은 축인가**: **그렇다 — 세 번째다.** r3 D10(래퍼→View 배선), r4 D15(섹션→본문 귀속)가 같은 "hop 이 무관측" 축이고 분모만 좁아졌다. 이번에는 지목된 1지점이 아니라 형제 3지점을 전수로 닫았다.
+- **막았어야 할 지침이 있었는가**: **있었고, 정상 수행해도 못 막는다.** `handoff-impl §3`의 배선 규칙은 "배선을 **지운** 회귀가 초록으로 통과"라고 써 있어 *존재* 축만 지시한다 — r4 는 그 문장을 정확히 수행해 존재를 잠갔고 귀속은 열린 채였다. 사전 `handoff-review`(DIAGNOSE_ONLY)가 이것을 **A(coverage gap)** 로 진단했다.
+- **진단한 지침 변경안(미적용)**: `handoff-impl §3`의 해당 문장을 "지운 회귀"에서 **"지우거나·형제 슬롯과 맞바꾼 회귀"**로 넓힌다. normative 변경이라 `Tier 1`(6-A+6-B+6-C) 회귀 검증이 필요하고, 사용자가 지침 수정을 요청하지 않아 **적용하지 않았다**.
+- **반복된 환경 한계**: better-sqlite3 ABI/egress(5라운드 연속) · zustand SSR 스냅샷이 store 연결 컴포넌트를 시드하지 못함(3라운드 연속).
+- **현재 라운드 수**: **5**. 다음 주체는 독립 검증자다.
