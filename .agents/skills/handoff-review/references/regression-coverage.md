@@ -1897,3 +1897,63 @@ P heading **48/48 전수** · `COVERED 48 / PARTIAL 0 / GAP 0 / OBSOLETE 0` · �
 
 - 어떤 pair가 적대 증거를 필요로 하는지는 위험 조건으로 좁혔지만 기계적으로 완전 결정할 수 없다. 검증자는 새 변이를 scope로 쓰지 말고 필요 oracle 누락이면 `PLAN_GAP`으로 반환한다.
 - V는 잘못된 oracle 실행이나 gate 미실행을 자동으로 없애지 않는다. 구현자 자기확인과 검증자 독립 재측정은 계속 필요하다.
+
+---
+
+# review round 24 — 존재를 잠근 장치가 자리를 잠그지는 않는다
+
+**발동**: 0204 impl 라운드 5(3 초과) + verify r4 FAIL + 같은 축(hop 무관측)의 2라운드 연속 재발. 사용자가 "지침 적용"을 명시해 **APPLY**로 수행했다(r5 사전 review 는 `DIAGNOSE_ONLY` 였다).
+
+## 분류
+
+| # | 이슈 | 분류 | 조치 |
+|---|---|---|---|
+| D15 | AT-29 가 세 섹션 본문 문구를 각각 `toContain` 해 배선 존재는 잠갔는데, `진행 상황`↔`출력` 본문을 맞바꾸면 44파일 423케이스가 전건 통과한다. AC29·D-022 위반이 반증되지 않는다 | **A** — impl §3 배선 문장이 *"배선을 **지운** 회귀"* 라고 써 존재 축만 지시한다. r4 는 그 문장을 정확히 수행했고 자리는 열린 채였다 — 정상 수행으로 막히지 않는다 | **신규 P49** — 자리 축 방향 규칙 + 형제 맞바꿈 변이 |
+| D16 | r4 구현 커밋 trailer 가 `Agent: codex` 인데 ACTIVE D-014 는 Claude 다 | **F** — 0204 r5 가 고쳤다 | 문장 추가 없음 |
+| D11·D12·D13 | 0204 의 열린 NON_BLOCKING 3건 | **F/관찰** — 그 handoff 범위 | 문장 추가 없음 |
+
+**F 3건·관찰에 문장을 더하지 않았다.** A 1건 → 신규 P **1개**.
+
+## Tier
+
+**Tier 1.** "잠겼다"의 판정 기준이 바뀐다 — 소거 변이 검출만으로 배선 잠금을 인정하던 evidence semantics 에 자리 축이 추가된다.
+
+## 6-A Operational Instruction Delta
+
+- 삭제 **0줄, DELETE 0건** — 전부 **REPLACE(superset)** 또는 신규 bullet 이고 원 문장이 그대로 남는다. 편집한 6문장의 꼬리 문구를 편집 후 전문에서 역검색해 **6/6 잔존**(실측): `그 파일이 호출문을 죽은 코드로 들고 있다` · `여분의 사본·남은 잔여물에만 반응하지 않는다` · `배선 존재를 직접 보지 못하는 oracle은 plan의 선택 증거가 필요하다` · `잔여물 진단이 0이 될 때까지` · `일반 hunk를 자동 분모로 삼지 않는다` · `무엇을 어떻게 바꿨는가`.
+- 신규 **8줄** — plan §5 자리 축 bullet 1 · plan READY self-review 꼬리 1 · impl §3 문장 1 · verify §4 bullet 1 · `plan.template.md` 안내 1 + 표 열 1 · `verify.template.md §4` 줄 1 · `docs/handoff/AGENTS.md` 최소 계약 2(구현·검증).
+- 나머지 전 축 **KEEP** — trigger·owner·command·gate·human/agent 경계·INDEX/좌표·commit trailer 규칙 무변경.
+- **새 명령 0건.** 맞바꿈 변이는 기존 스위트를 다시 돌리는 것이라 `app/AGENTS.md` ABI 규칙과 무관하다.
+- reference/script **MOVE·REPLACE 0건**. corpus 편집은 P44·P48 `현재 방어` 꼬리와 말미 P49 추가뿐이라 기존 line-scoped inbound 는 이동하지 않는다. P heading **P1~P49 연속·중복 0**(실측).
+
+## 6-B Historical Failure Regression
+
+- **49 P 전수** · 변경 후 **COVERED 49 / PARTIAL 0 / GAP 0 / OBSOLETE 0** · 신규 **1**(P49).
+- 삭제가 0건이므로 기존 48건의 causal defense mapping 은 구성상 보존된다. 편집한 사이트를 `현재 방어`로 인용하는 P 는 **11건**(P39~P49, 기계 추출)이고 그 11건의 방어 문장은 전부 잔존한다.
+- 방어가 **강화된 2건**: **P44**(배선이 형제 슬롯을 고르는 자리면 지운 변이 검출이 잠금을 뜻하지 않음을 명시) · **P48**(방향이 한 축이 아님을 명시 — r4 가 P48 을 정상 만족하고도 D15 를 못 막은 자리다).
+- **P37 과의 경계를 P49 본문에 명시**했다 — P37 은 semantic 목표를 structural proxy 로 검증한 경우, P48 은 방향이 뒤집힌 경우, P49 는 시야·방향은 맞고 **해상도가 계약보다 거친** 경우다.
+- **회귀 위험 3건을 능동 차단**:
+  **FAIL inflation** — 새 문장의 발동 조건을 `형제 슬롯이 서로 다른 계약을 가지면`으로 못 박았고, impl §3 의 기존 꼬리(`그 밖의 hunk와 직접 행동 oracle에는 mutation을 새로 발명하지 않으며, mutation 부재만으로 실패 범위를 늘리지 않는다`)를 그대로 남겼다. 직접 행동 oracle 로 충분한 pair 는 분모에 들어오지 않는다.
+  **P22·P18(하치장)** — `verify.template.md` 의 `해당 없음 — 형제 슬롯 없음`은 기계로 판정 가능한 조건이다(형제 슬롯 존재 여부). P48 의 `해당 없음` 가드와 같은 성질이라 회피구가 되지 않는다.
+  **P38(지목 지점만 닫음)** — P49 규칙문이 `분모는 형제 전수다(P38)`를 명시해 두 패턴을 연결했다. 0204 r5 가 지목 1지점이 아니라 형제 3지점을 닫은 것이 그 대표 evidence 다.
+- **P41(전수를 도구가 정의)·P30·P35(음성 게이트)** 무영향 — 새 문장은 스윕 분모나 음성 술어 규칙을 건드리지 않는다.
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 규칙 사이트 — 자리 축 방향 **3**(plan `SKILL.md` §5 + READY self-review · corpus P49) · 형제 맞바꿈 변이 **6**(impl `SKILL.md` · verify `SKILL.md` · `plan.template.md` ×2 · `verify.template.md` · corpus P49) · 최소 계약 **2**(`docs/handoff/AGENTS.md` 구현·검증).
+- **owner 충돌 0** — 설계자가 자리 축 방향을 고르고(plan §5), 구현자가 맞바꿈 변이를 심고(impl §3), 검증자가 다시 센다(verify §4). 기존 "구현자가 닫고 검증자가 다시 센다" 쌍과 같은 관계이고 어느 쪽도 상대를 면제하지 않는다.
+- **발동 조건 문면 통일 1건 정정** — 초안의 impl §3 은 `배선이 형제 슬롯 중 하나를 고르는 자리면`으로 verify·AGENTS(`형제 슬롯이 서로 다른 계약을 가지면`)보다 **좁았다**. 구현자 발동 조건이 검증자보다 좁으면 검증자가 재는 것을 구현자가 안 하게 되므로 같은 문면으로 맞췄다(실측: 세 파일 4건 동일 술어).
+- **scope 충돌 0** — 새 문장은 전부 기존 mutation 규칙의 *조건부 확장*이고 새 게이트·새 명령을 만들지 않는다.
+- **stale 사본 0** — 편집한 6문장의 구 버전 꼬리를 skills/docs 전문에서 역검색해 잔존 0건.
+- `cd app && node scripts/check-doc-inventory.mjs --check` — generated ok · prose ok · **links ok**.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md`·`CLAUDE.md` stub 없음.
+
+## review 기록 정책
+
+`round24-review.md`를 만들지 않았다 — 압축으로 잃는 rationale 이 없고 사용자 보존 요구도 없었다. 기존 `round2-review.md` 1개 유지(라운드 문서는 동시에 1개). 신규 P **1**(P49) — 기존 P 로 환원되지 않는 새 causal class 다(장치의 *해상도*).
+
+## 남은 한계
+
+- **형제 슬롯의 판별은 사람/에이전트의 읽기다.** "이 둘이 서로 다른 계약인가"를 기계로 세는 명령이 없다 — 0204 는 `rg "<TileSection"` 로 3지점을 셀 수 있었지만 일반 형태의 스윕은 없다.
+- **맞바꿈 변이는 컴파일되는 쌍에만 심을 수 있다.** 형제 슬롯의 타입이 다르면 맞바꿈이 타입 오류로 먼저 걸리는데, 그 red 는 잠금이 아니라 P48 이 말하는 잔여물 진단일 수 있다 — 그때는 타입이 자리를 잠근 것인지 따로 판정해야 한다.
+- 0204 검증 환경은 `npm ci --ignore-scripts` 라 better-sqlite3 바인딩이 없다(5파일 46케이스 red, `app/AGENTS.md` 실측 서명과 동일). round 15~19 와 같은 한계이고 round 20 처럼 완주하지 못했다.

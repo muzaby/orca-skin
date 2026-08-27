@@ -16,6 +16,7 @@ import type {
 } from '../../shared/ipc'
 import { isRecord } from '../../shared/obj'
 import { isAsyncLaunchedPayload } from '../../shared/subagent'
+import { isTaskToolName } from '../../shared/task-tool'
 import { pickPrimaryModel } from '../../shared/usage/primary-model'
 import { makeClassifiedError } from '../infra/errors'
 import { errorEvent } from './error-classifier'
@@ -53,6 +54,9 @@ export interface MapContext {
   // SDK task_id → 부모 Agent/Task tool_use_id. 일부 task_notification 은 task_id 만 권위로 싣고
   // tool_use_id 가 비어 있을 수 있어, 앞선 task_started/progress 에서 본 매핑으로 복원한다.
   taskToolUseById?: Map<string, string>
+  // tool_use id → 도구 이름(0204). tool_result 는 이름을 싣지 않는데 구조화 출력을 실을지는
+  // **이름으로만** 판정된다(TaskXXX 한정) — 앞선 tool_use 에서 본 이름을 여기 기억한다.
+  toolNameByRunId?: Map<string, string>
 }
 
 // ctx.subagentMeta 에 정의된 필드만 병합(누락은 기존값 보존). 부모 Task tool_result 영속용 누산.
@@ -147,15 +151,21 @@ function readParentToolRunId(msg: unknown): string | undefined {
   return typeof id === 'string' && id.trim() !== '' ? id : undefined
 }
 
-// SDK user 메시지의 구조화 도구 출력(tool_use_result)이 백그라운드 런치 영수증(async_launched)
-// 인지 — 맞으면 그 객체를 반환한다(0136). tool_use_result 는 메시지당 1개라 tool_result 블록이
-// 정확히 1개일 때만 귀속이 명확하다(복수 블록이면 보수적으로 미적용 = 현행 content 유지).
-function asyncLaunchReceipt(msg: unknown, content: unknown[]): Record<string, unknown> | undefined {
+// tool_use_result 는 메시지당 1개다 — tool_result 블록이 정확히 1개일 때만 그 구조화 출력을
+// 특정 도구에 귀속시킬 수 있다. 영수증 판정(0136)과 TaskXXX 구조화 출력(0204)이 같은 전제를
+// 쓰므로 판정을 한 곳에 둔다.
+function hasSingleToolResult(content: unknown[]): boolean {
   let toolResults = 0
   for (const part of content) {
     if (isRecord(part) && part.type === 'tool_result') toolResults += 1
   }
-  if (toolResults !== 1) return undefined
+  return toolResults === 1
+}
+
+// SDK user 메시지의 구조화 도구 출력(tool_use_result)이 백그라운드 런치 영수증(async_launched)
+// 인지 — 맞으면 그 객체를 반환한다(0136). 복수 블록이면 보수적으로 미적용 = 현행 content 유지.
+function asyncLaunchReceipt(msg: unknown, content: unknown[]): Record<string, unknown> | undefined {
+  if (!hasSingleToolResult(content)) return undefined
   const structured = (msg as { tool_use_result?: unknown }).tool_use_result
   if (!isAsyncLaunchedPayload(structured)) return undefined
   return structured as Record<string, unknown>
@@ -314,6 +324,12 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         const toolRunId = typeof p.id === 'string' ? p.id : ''
         const toolName = typeof p.name === 'string' ? p.name : ''
         if (toolRunId && toolName) {
+          // TaskXXX 결과에 구조화 출력을 실으려면 tool_result 시점에 이름이 필요하다(0204).
+          // 그 도구만 기억해 맵이 턴 길이에 비례해 자라지 않게 한다.
+          if (isTaskToolName(toolName)) {
+            if (!ctx.toolNameByRunId) ctx.toolNameByRunId = new Map()
+            ctx.toolNameByRunId.set(toolRunId, toolName)
+          }
           events.push({
             type: 'tool.call.started',
             sessionId: ctx.sessionId,
@@ -339,6 +355,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     // SDK 가 별도 필드(tool_use_result)에 실은 구조화 출력을 result 로 싣는다. 완료/실패 결과는
     // 현행 content 유지(요약 텍스트 렌더·복사 대상 보존) — 영수증일 때만 대체한다.
     const launchReceipt = asyncLaunchReceipt(msg, content)
+    const singleToolResult = hasSingleToolResult(content)
     const events: NormalizedEvent[] = []
     let sawToolResult = false
     for (const part of content) {
@@ -350,6 +367,13 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         if (!toolRunId) continue
         // 부모 Task tool_result 면 누산한 서브에이전트 메타(모델·시간·도구수)를 실어 영속.
         const meta = ctx.subagentMeta?.get(toolRunId)
+        // TaskXXX 도구면 SDK 구조화 출력을 동행시킨다(0204 §10 EP-01). tool_use_result 는
+        // 메시지당 1개라 tool_result 블록이 정확히 1개일 때만 귀속이 명확하다(영수증과 동일 규칙).
+        const taskToolName = ctx.toolNameByRunId?.get(toolRunId)
+        const structuredOutput =
+          taskToolName !== undefined && singleToolResult
+            ? (msg as { tool_use_result?: unknown }).tool_use_result
+            : undefined
         events.push({
           type: 'tool.call.completed',
           sessionId: ctx.sessionId,
@@ -357,7 +381,8 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
           result: launchReceipt ?? p.content,
           isError: p.is_error === true,
           ...(parentToolRunId !== undefined ? { parentToolRunId } : {}),
-          ...(meta && Object.keys(meta).length > 0 ? { subagentMeta: meta } : {})
+          ...(meta && Object.keys(meta).length > 0 ? { subagentMeta: meta } : {}),
+          ...(structuredOutput !== undefined ? { structuredOutput } : {})
         })
       }
     }

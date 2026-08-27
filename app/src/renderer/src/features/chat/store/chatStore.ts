@@ -32,6 +32,8 @@ import {
 } from '../../../../../shared/permission-mode'
 import { continuityLangFor, continuityTitle } from '../../../../../shared/continuity-lang'
 import type { RightPanelTileId } from '../lib/rightPanelTiles'
+import { backgroundToolUseIdFromKey } from '../lib/taskBoard'
+import { i18n } from '../../../shared/i18n'
 
 // Zustand 단일 chat store — arch/frontend/state.md §1.4 채택안의 멀티세션 외피(handoff 0013).
 //
@@ -800,11 +802,34 @@ function cancel(): void {
   dispatchActive({ type: 'CANCEL_CHAT' })
 }
 
-// 서브에이전트(Task) 단위 중단 — 활성 세션의 진행 중 턴에서 한 Agent 도구만 멈춘다(turn 계속).
-// main 이 toolUseId→task_id 를 찾아 SDK stopTask 호출하고, 클릭 즉시 합성 aborted tool_result 를 전파한다.
-function stopSubagent(toolUseId: string): void {
+// 작업 타일의 background 작업 단위 중단 — 활성 세션의 진행 중 턴에서 한 Agent 도구만
+// 멈춘다(turn 계속). 0204 D-005: 클릭은 **요청**이고 확정은 SDK 정착이 준다.
+//
+//   클릭 → '중단 중' 표시 → main 이 stopTask → task_notification(stopped) → '중단됨'
+//                        ↘ 요청 실패(invoke reject) → '진행 중' 복구 + 사유 표시
+//
+// 확정이 오지 않아도 main watchdog 이 합성 정착하므로 '중단 중' 은 고착되지 않는다(D-006).
+function stopTask(key: string): void {
   const sid = getActiveChatSession().sessionId
-  if (sid) void chatApi.stopSubagent(sid, toolUseId)
+  const toolUseId = backgroundToolUseIdFromKey(key)
+  if (!sid || !toolUseId) return
+  const target = getState().activeKey
+  dispatchTo(target, { type: 'TASK_STOP_REQUESTED', key, toolUseId })
+  void chatApi.stopSubagent(sid, toolUseId).catch((err: unknown) => {
+    dispatchTo(target, {
+      type: 'TASK_STOP_FAILED',
+      key,
+      toolUseId,
+      reason: stopFailureReason(err)
+    })
+  })
+}
+
+// 중단 실패 문구 — 화면에 그대로 실린다. main 이 준 메시지가 있으면 뒤에 붙여 원인을 보인다.
+function stopFailureReason(err: unknown): string {
+  const detail = err instanceof Error ? err.message : String(err ?? '')
+  const base = i18n.t('chat.taskTile.stopFailed')
+  return detail ? `${base} — ${detail}` : base
 }
 
 function newChat(projectId: string | null = null): void {
@@ -1223,11 +1248,14 @@ export const chatActions = {
     dispatchActive({ type: 'RENAME_RIGHT_PANEL_TILE', id, label }),
   removeRightPanelTile: (id: RightPanelTileId): void =>
     dispatchActive({ type: 'REMOVE_RIGHT_PANEL_TILE', id }),
+  selectTask: (key: string | null): void => dispatchActive({ type: 'SELECT_TASK', key }),
+  openTask: (key: string): void => dispatchActive({ type: 'OPEN_TASK', key }),
   selectSubagentTask: (toolRunId: string | null): void =>
     dispatchActive({ type: 'SELECT_SUBAGENT_TASK', toolRunId }),
   openSubagentTask: (toolRunId: string): void =>
     dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId }),
-  stopSubagent,
+  acknowledgeSettledTasks: (): void => dispatchActive({ type: 'ACKNOWLEDGE_SETTLED_TASKS' }),
+  stopTask,
   setRightPanelColWidth: (col: number, width: number): void =>
     dispatchActive({ type: 'SET_RIGHT_PANEL_COL_WIDTH', col, width }),
   setRightPanelRowSplit: (col: number, frac: number): void =>
@@ -1338,6 +1366,19 @@ export function usePendingSteer(): PendingSteerState[] {
 // toolUseId 엔트리가 갱신될 때만 재렌더(stored 참조 안정).
 export function useSubagentMeta(toolUseId: string): SubagentMetaState | undefined {
   return useChatStore((s) => s.sessions[s.activeKey].subagentMeta[toolUseId])
+}
+
+// 중단 확정을 기다리는 background tool_use id 집합(0204). 배열 identity 가 그대로면 같은 Set 을
+// 돌려준다 — 작업 목록 파생의 useMemo 의존성이라 매 렌더 새 Set 이면 그 메모가 죽는다.
+// (reducer 는 내용이 안 바뀌면 같은 배열을 유지한다.)
+export function useStoppingTasks(): ReadonlySet<string> {
+  const ids = useChatSession((s) => s.stoppingTaskIds)
+  return useMemo(() => new Set(ids), [ids])
+}
+
+// 확인하지 않은 종단 작업 수 — 타일 칩 배지(0204 D-004).
+export function useUnseenSettledTaskCount(): number {
+  return useChatSession((s) => s.unseenSettledTaskKeys.length)
 }
 
 // nav '최근 대화' 에 즉시 노출할 draft 행(0064 r4 fork/handoff → 0065 '새 대화' 통일).

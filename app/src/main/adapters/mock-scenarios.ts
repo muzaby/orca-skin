@@ -58,6 +58,7 @@ export const SCENARIOS: Record<MockScenarioId, MockStep[]> = {
   subagent_task_aborted: [...prelude(), ...subagentTaskAbortedFragment()],
   subagent_task_multi: [...prelude(), ...subagentTaskMultiFragment()],
   subagent_task_running: [...prelude(), ...subagentTaskRunningFragment()],
+  agent_task_board: [...prelude(), ...agentTaskBoardFragment()],
   error: [...prelude(), ...errorFragment()],
   full: [
     ...prelude(),
@@ -450,6 +451,119 @@ function subagentTaskMultiFragment(): MockStep[] {
 
 // 단일 서브에이전트가 child 도구(Bash)를 실행 중인 상태를 유지 — 단일 항목 진행 중 메타
 // `에이전트 실행 중 {model} · {현재 도구} · {도구수}` + 경과시간 라이브 틱 관찰용.
+// 0204 — 작업 타일 시연. 일반 Task(TaskCreate → TaskUpdate → TaskList 보정)와 진행 중
+// background 작업을 한 턴에서 낸다. 구조화 출력(structuredOutput)이 목록 파생의 유일한
+// 권위 입력이므로 SDK Task*Output 형태를 그대로 싣는다.
+function taskToolCall(
+  toolRunId: string,
+  toolName: string,
+  args: unknown,
+  structuredOutput: unknown
+): MockStep[] {
+  return [
+    emit({ type: 'tool.call.started', toolRunId, toolName, args }),
+    emit({
+      type: 'tool.call.completed',
+      toolRunId,
+      result: 'ok',
+      isError: false,
+      durationMs: 12,
+      structuredOutput
+    })
+  ]
+}
+
+function agentTaskBoardFragment(): MockStep[] {
+  return [
+    emit({
+      type: 'message.delta',
+      delta: { text: '작업 목록을 만들고 백그라운드 작업을 띄웁니다.' }
+    }),
+    ...taskToolCall(
+      'mock-task-create-1',
+      'TaskCreate',
+      { subject: 'API 수정', description: '핸들러 정리' },
+      { task: { id: '1', subject: 'API 수정' } }
+    ),
+    ...taskToolCall(
+      'mock-task-create-2',
+      'TaskCreate',
+      { subject: '문서 갱신', description: 'README 반영' },
+      { task: { id: '2', subject: '문서 갱신' } }
+    ),
+    ...taskToolCall(
+      'mock-task-create-3',
+      'TaskCreate',
+      { subject: '요구사항 분석', description: '명세 읽기' },
+      { task: { id: '3', subject: '요구사항 분석' } }
+    ),
+    delay(400),
+    ...taskToolCall(
+      'mock-task-update-1',
+      'TaskUpdate',
+      { taskId: '1', status: 'in_progress' },
+      {
+        success: true,
+        taskId: '1',
+        updatedFields: ['status'],
+        statusChange: { from: 'pending', to: 'in_progress' }
+      }
+    ),
+    delay(600),
+    ...taskToolCall(
+      'mock-task-update-3',
+      'TaskUpdate',
+      { taskId: '3', status: 'completed' },
+      {
+        success: true,
+        taskId: '3',
+        updatedFields: ['status'],
+        statusChange: { from: 'pending', to: 'completed' }
+      }
+    ),
+    delay(400),
+    // 보정 — Claude 측이 4번을 새로 알고 있고 2번은 이미 진행 중이다.
+    ...taskToolCall(
+      'mock-task-list',
+      'TaskList',
+      {},
+      {
+        tasks: [
+          { id: '1', subject: 'API 수정', status: 'in_progress', blockedBy: [] },
+          { id: '2', subject: '문서 갱신', status: 'in_progress', blockedBy: ['1'] },
+          { id: '3', subject: '요구사항 분석', status: 'completed', blockedBy: [] },
+          { id: '4', subject: '린트 실행', status: 'pending', blockedBy: [] }
+        ]
+      }
+    ),
+    delay(400),
+    // 진행 중 background 작업 — 중단 버튼 실기 대상.
+    emit({
+      type: 'tool.call.started',
+      toolRunId: 'mock-task-board-bg',
+      toolName: 'Task',
+      args: {
+        description: '테스트 실행',
+        prompt: '전체 테스트를 돌려줘.',
+        subagent_type: 'Explore'
+      }
+    }),
+    ...subagentStart('mock-task-board-bg', 'Explore', '테스트 실행'),
+    emit({
+      type: 'tool.call.completed',
+      toolRunId: 'mock-task-board-bg',
+      result: { status: 'async_launched', agentId: 'mock-agent-1' },
+      isError: false
+    }),
+    subagentProgress('mock-task-board-bg', 'Bash', 8),
+    delay(2000),
+    subagentProgress('mock-task-board-bg', 'Bash', 17),
+    delay(2000),
+    subagentProgress('mock-task-board-bg', 'Bash', 24),
+    ...closing('작업 목록과 백그라운드 작업을 우측 작업 타일에서 확인하세요.')
+  ]
+}
+
 function subagentTaskRunningFragment(): MockStep[] {
   return [
     emit({ type: 'message.delta', delta: { text: '진행 중 서브에이전트를 재현합니다.' } }),

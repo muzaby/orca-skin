@@ -411,6 +411,7 @@ export const ko = {
       subagent_task_aborted: '서브에이전트 중단',
       subagent_task_multi: '서브에이전트 복수',
       subagent_task_running: '서브에이전트 진행 중',
+      agent_task_board: '작업 목록(TaskXXX)',
       error: '에러',
       full: '전체'
     }
@@ -555,6 +556,7 @@ export const ko = {
     subagentTile: {
       status: {
         running: '진행 중',
+        stopping: '중단 중…',
         completed: '완료',
         failed: '실패',
         aborted: '중단됨'
@@ -565,6 +567,44 @@ export const ko = {
       emptyTitle: '백그라운드 작업이 없습니다',
       emptyDesc: 'Task 도구 호출이 감지되면 여기에 표시됩니다.',
       openTranscriptAria: '{{description}} 대화록 보기',
+      viewTranscript: '대화록 보기'
+    },
+    taskTile: {
+      status: {
+        in_progress: '진행 중',
+        stopping: '중단 중…',
+        pending: '대기 중',
+        completed: '완료',
+        aborted: '중단됨',
+        failed: '실패'
+      },
+      detail: {
+        status: '상태',
+        description: '설명',
+        blockedBy: '의존성',
+        elapsed: '경과',
+        lastTool: '최근 작업',
+        toolUses: '도구 사용'
+      },
+      sections: {
+        progress: '진행 상황',
+        output: '출력',
+        outputDesc: '이 작업 중에 생성된 파일을 확인하고 열 수 있습니다.',
+        context: '컨텍스트',
+        contextDesc: '이 작업에 사용된 도구와 참조된 파일을 추적합니다.'
+      },
+      backToList: '목록으로',
+      headerTitle: '작업',
+      badgeAria: '확인하지 않은 완료 {{count}}건',
+      backgroundBadge: 'background',
+      blockedByValue: '#{{ids}} 완료 필요',
+      stoppedReason: '사용자에 의해 중단됨',
+      failedReason: '실행 세션이 종료되었습니다',
+      stopFailed: '중단하지 못했습니다',
+      noChildActivity: '이 작업에 기록된 하위 활동이 없습니다.',
+      emptyTitle: '작업이 없습니다',
+      emptyDesc: 'Claude 가 Task 를 만들거나 백그라운드 작업을 시작하면 여기에 표시됩니다.',
+      openDetailAria: '{{description}} 상세 보기',
       viewTranscript: '대화록 보기'
     },
     composer: {
@@ -719,8 +759,8 @@ export const ko = {
       tiles: {
         plan: '계획',
         subagent: '백그라운드 작업',
-        reserved1: '예약 1',
-        reserved2: '예약 2'
+        task: '작업',
+        reserved1: '예약 1'
       },
       closeTile: '{{label}} 닫기',
       panelResizeAria: '우측 패널 크기 조절',
