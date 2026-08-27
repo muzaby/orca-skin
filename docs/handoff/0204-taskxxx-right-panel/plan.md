@@ -11,10 +11,10 @@
 | 일자 | 2026-08-27 |
 | 매핑 | PR [#393](https://github.com/muzaby/orca-skin/pull/393)(draft) · 구현 브랜치 `claude/task-panel-separation-dw3tt6` |
 | 상태 | DRAFT → READY → impl → verify/FAIL(r1) → **READY (ΔV1)** — 단계·좌표 정본은 [`INDEX.md`](../INDEX.md) |
-| V mode | `Baseline V + ΔV1` |
+| V mode | `Baseline V + ΔV1 + ΔV2` |
 | 기준 V | `none` — 0136·0143 은 V 규약 이전 handoff 라 상속할 명시 V node 가 없다 |
-| 이번 V revision | `ΔV1` (`72766d2:V1` 기준) — 사용자 제품 결정 변경(패널 분리·cowork 3섹션)으로 D-003 을 supersede 하고, verify r1 의 D1·D2·D4 를 규범 행에 귀속시킨다. 구 행은 덮어쓰지 않고 supersede |
-| 유효 V | `V1 + ΔV1` |
+| 이번 V revision | `ΔV2` — 사용자 질의에서 파생한 파서 갭 G1·G2(§7-C). 직전 `ΔV1` (`72766d2:V1` 기준) — 사용자 제품 결정 변경(패널 분리·cowork 3섹션)으로 D-003 을 supersede 하고, verify r1 의 D1·D2·D4 를 규범 행에 귀속시킨다. 구 행은 덮어쓰지 않고 supersede |
+| 유효 V | `V1 + ΔV1 + ΔV2` |
 
 ---
 
@@ -69,9 +69,15 @@
 | D-025 | 미배선 표면 4종을 **제거**한다 — `taskBoardSettledKeys` · `isBackgroundTask` · `MARK_SETTLED_TASKS` · `TASK_STOP_SETTLED` | verify r1 D2. `taskBoardSettledKeys` 는 배지 판정 규칙이 실제 경로(reducer)와 달라 SSOT drift 이기도 하다. 실제 배지·중단 해제는 reducer 의 이벤트 경로가 수행하므로 배선이 아니라 제거가 맞다 | verify r1 | ACTIVE | — |
 | D-026 | `docs/IPC_CONTRACT.md` 의 코드 파생 수치·열거를 정정한다 — ① `tool.call.completed` 필드 목록에 `structuredOutput` 추가 ② `MockScenarioId` **13종** 열거를 코드 정본 포인터로 교체 | 0204 구현이 만든 문서 드리프트 2건이고 verify r1 이 못 잡았다(문서 게이트 정규식이 이 형태를 세지 않는다 — `check-doc-inventory.mjs` 추적 항목 9종에 mock 시나리오가 없다). root `AGENTS.md` 원칙 4 = 셀 수 있는 수치를 문서에 적지 않는다 | 이번 턴 실측 | ACTIVE | — |
 | D-027 | 섹션 접힘 상태는 `TaskTileContent` 의 **로컬 `useState`** 다 — reducer 에 두지 않는다 | 외부에서 섹션을 여닫는 소비자가 없다(transcript 행은 타일과 항목을 열지 섹션을 열지 않는다). 세션별 `ChatState` 에 넣으면 표시 취향이 세션마다 갈라진다 | 설계자 판단 | ACTIVE | — |
+| D-028 | `blocks` 를 `AgentTaskPatch` 와 파서에서 **제거**한다 | 소비처 0 + **`TaskListOutput` 에 없어 전체 스냅샷이 보정 불가** → 저장하면 드리프트 확정. `blockedBy` 의 역방향이라 정보 손실 0 | 사용자 질의 파생 G1 + SDK 실측(§7-C) | ACTIVE | — |
+| D-029 | 의존 간선은 두 의미를 분리한다 — `blockedBy`(Get/List) = 전체 교체, `addBlockedBy`(Update) = **가산 병합** | SDK 가 `add-` 접두로 이미 가른다. 한 필드에 담으면 `TaskUpdate` 한 번이 기존 간선을 지운다 | G2 + `TaskUpdateInput` | ACTIVE | — |
+| D-030 | `updatedFields` 게이트는 `addBlockedBy`·`blockedBy` 두 이름을 **모두** 허용한다 | SDK 가 어느 이름을 싣는지 문서화하지 않았다. 놓치면 의존이 화면에서 사라지는 false negative 가 더 나쁘다 — **미실측 불확실성** | 설계자 판단 | ACTIVE | — |
+| D-031 | 목록 **순서는 의존이 아니다** — id 순은 관측 순이고 의존은 `blockedBy` 만 말한다 | "완료후 추가 태스크들이 생기면 앞의 것과 의존이 없어야 해서 그렇다" | 사용자 턴 (2026-08-27) | ACTIVE | D-018 을 보완(대체 아님) |
 
 ### 갱신 메모
 
+- **ΔV2 갱신(2026-08-27)**: 신규 **D-028 ~ D-031**. SUPERSEDED **0** — ΔV1 의 D-018(id 순 나열)은 그대로이고 **D-031 이 그 순서에 의존 의미가 없음을 명시**해 보완한다. 출처는 verify 가 아니라 사용자 질의다.
+- **ΔV2 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-028↔AT-34③(`blocks` 미저장, 양성 짝 동반) · D-029↔AT-34①②(가산 vs 교체) · **D-031 ↔ AT-10a 비충돌**(AT-10a 는 *순서*만 단언하고 의존을 단언하지 않는다) · **D-008 ↔ AT-34② 비충돌**(스냅샷 전체 교체가 가산 병합을 덮는 것이 설계다) — 반대를 요구하는 AC 0건.
 - **ΔV1 갱신(2026-08-27)**: 신규 **D-015 ~ D-027**. SUPERSEDED **1건 — D-003**(단일 타일 통합 → 두 타일 분리). D-001·D-002·D-004~D-011·D-013·D-014 는 **문장 그대로 유지**된다 — 사용자가 바꾼 것은 *패널 구성*이지 관측 범위·fold 방식·통지 수단·중단 수명주기가 아니다.
 - **ΔV1 `ACTIVE 결정 ↔ AC` 대조: 충돌 0.** 확인한 쌍 — D-015↔AT-09a(두 타일이 서로 다른 집합을 낸다) · D-016↔AT-28(복구 대상은 정보구조) · **D-016a↔AT-12/13/15 비충돌**(복구가 `중단 중` 을 되돌리지 않는다, 두 문장이 서로 다른 축) · D-018↔AT-10a(그룹 배열이 아니라 단일 순서 배열) · D-019↔AT-09a(진행 상황이 두 종류를 갖는다) · D-020↔AT-27 · D-022↔AT-29(빈 상태 + 파생 0건) · D-023↔AT-21(권위 필드 우선) · D-025↔AT-32 · **D-010 ↔ AT-32 비충돌**(제거 대상 4종에 `TaskOutput` 관측 경로가 없다) — **반대를 요구하는 AC 0건**.
 - **D-019 는 D-015 를 좁히지 않는다**: 두 타일이 background 를 함께 보이되 *책임*이 다르다 — `백그라운드 작업` = 전용 상세(child transcript·프롬프트·StatusLine), `작업` = 한 줄 진행 요약. 같은 항목이 두 곳에 *렌더*되지만 파생 SSOT 는 `taskBoard.ts` 하나다(§10 EP-14).
@@ -443,6 +449,74 @@ AS-IS (c3bb0d1)                        TO-BE (ΔV1)
 | `check-doc-inventory --check` | 채널·variant·마이그레이션 수치 **불변**이어야 한다(신규 IPC 0 · 신규 variant 0). `IPC_CONTRACT.md` 편집이 prose 검사를 깨지 않는지도 본다 |
 
 > **환경 주의**: 이 세션 시점 `app/node_modules` 가 없다(`ls app/node_modules` → No such file). 구현 턴은 `npm ci` 후 게이트를 돌리고, `app/AGENTS.md §better-sqlite3 ABI` 대로 DB 스위트는 ABI 정합 후에만 blocking 으로 센다.
+
+---
+
+## 7-C. ΔV2 — 의존 간선의 두 의미를 가른다
+
+> **적용 순서: `V1` → `ΔV1` → `ΔV2`.** 출처는 verify 가 아니라 **사용자 질의**다 — "task 가 id 로 할당될텐데 그룹의 개념이 있나 … 완료후 추가 태스크들이 생기면 앞의 것과 의존이 없어야 해서". 그 답을 조사하다 파서 갭 2건(G1·G2)이 나왔고 사용자가 "고치고 검증 진행해" 로 범위에 넣었다.
+
+| 출처 | 진단 | ΔV2 의 답 |
+|---|---|---|
+| 사용자 질의 | SDK 에 **그룹 개념이 없고** 의존은 작업별 간선(`blockedBy`/`blocks`)이다 — 목록 순서(id)는 의존이 아니다 | 규범 변경 없음. **확인 사실**로 §7-C 조사에 기록한다 |
+| **G1** | `patch.blocks` 가 파싱되는데(`task-tool.ts:173`) `applyPatch`(`taskBoard.ts:122`)가 적용하지 않는다 — 죽은 필드 | **D-028** — 제거. `TaskListOutput` 에 `blocks` 가 없어 스냅샷이 보정할 수 없다 |
+| **G2** | `readUpdate` 가 `addBlockedBy`/`addBlocks` 를 안 읽어, `TaskUpdate` 로 만든 의존이 다음 `TaskGet`/`TaskList` 전까지 안 보인다 | **D-029** — 가산 병합으로 읽는다. AC24("상세=…의존성")가 이미 약속한 표시를 실제로 닿게 한다 |
+
+### ΔV2 조사 — SDK 실측
+
+| 대상 | 검색 / 출처 | N | 의미 |
+|---|---|---|---|
+| 그룹·배치 개념 | `rg "group\|batch\|parentTask" sdk-tools.d.ts` 중 Task 관련 | **0** | 그룹 API 가 없다. 유사 표면은 `owner?`(담당자 배정)와 `metadata`(SDK 미해석) 둘뿐 |
+| Task 도구 총수 | `rg -oE "Task[A-Za-z]+(Input\|Output)"` | **6종** | 재시작·재개 계열 도구 **없음**. 되돌리는 수단은 `TaskUpdate(status)` 뿐이고 모델이 부른다 |
+| todo task 상태 어휘 | `sdk-tools.d.ts:2529` | **3+1** | `pending\|in_progress\|completed` + `deleted`(제거 신호). **취소·중단·실패 상태가 없다** → "중간에서 스탑" 을 표현할 방법이 없고 연쇄 취소도 정의되지 않는다 |
+| 의존 간선 | `TaskGetOutput.task.{blocks,blockedBy}`(`:3614`) · `TaskUpdateInput.{addBlocks,addBlockedBy}`(`:2531`) | 2쌍 | 그룹이 아니라 **DAG 간선**. 새 태스크는 `blockedBy: []` 로 시작해 앞의 것과 무관하다 — 사용자가 요구한 성질이 SDK 계약에서 이미 성립 |
+| `blocks` 의 스냅샷 가용성 | `TaskListOutput.tasks[]` = `{id, subject, status, owner?, blockedBy[]}` (`:3628`) | **부재** | `TaskList` 가 `blocks` 를 못 싣는다 → 저장하면 D-008 전체 스냅샷이 보정할 수 없어 **반드시 드리프트한다**. D-028 의 결정적 근거 |
+| id 단조 증가 보장 | SDK 문서·타입 | **없음** | `id: string` 이고 단조성 문언이 없다. 수치 정렬(ΔV1 D-018)은 관측된 형태에 기댄 것이라는 사실을 여기 남긴다 — 실측 반례는 0건 |
+
+### ΔV2 Decision
+
+| ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
+|---|---|---|---|---|---|
+| D-028 | `blocks` 를 `AgentTaskPatch` 와 파서에서 **제거**한다 | ① 소비처 0(죽은 필드) ② **`TaskListOutput` 에 없어 전체 스냅샷이 보정 불가** — 저장하면 드리프트가 확정이다 ③ `blockedBy` 의 역방향이라 정보 손실 0 | G1 + SDK 실측 | ACTIVE | — |
+| D-029 | 의존 간선은 **두 의미를 분리**한다 — `blockedBy`(Get/List 출력) = 전체 교체, `addBlockedBy`(Update 입력) = **가산 병합** | SDK 가 이름으로 이미 가르고 있다(`add-` 접두). 한 필드에 담으면 `TaskUpdate` 한 번이 기존 간선을 지운다 | G2 + `TaskUpdateInput:2531` | ACTIVE | — |
+| D-030 | `updatedFields` 게이트는 `addBlockedBy`·`blockedBy` **두 이름을 모두** 허용한다 | SDK 가 `updatedFields` 에 어느 이름을 싣는지 문서화하지 않았다. 놓치면 의존이 화면에서 사라지는 쪽(false negative)이 더 나쁘다 — **이 불확실성은 실측하지 못했고 여기 명시한다** | 설계자 판단 | ACTIVE | — |
+| D-031 | 목록 **순서는 의존이 아니다** — id 순은 관측 순이고 의존은 `blockedBy` 만 말한다 | 사용자 요구("완료후 추가 태스크가 앞의 것과 의존이 없어야")를 계약으로 고정한다. 표시가 연쇄처럼 읽히는 문제는 별도 축이다(NEXT_HANDOFF) | 사용자 턴 | ACTIVE | ΔV1 D-018 을 보완(대체 아님) |
+
+### ΔV2 Node / Pair registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| MD-01a | MD | §7-C EP-19 — 파서의 의존 간선 병합 불변식 | **CHANGED** | `V1:MD-01` 대체 |
+| UT-05 | UT | §7-C AT-34 | **NEW** | — |
+| R-02 | R | §7 TaskUpdate 관측 | INHERITED | `V1` — 계약 문장 불변, AT-34 가 붙는다 |
+| MD-02a·MD-04 | MD | ΔV1 | INHERITED | 정렬·권위 필드 불변 |
+
+| Pair | left ↔ right | requiredness | production path | 직접 evidence oracle | 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-30 | MD-01a ↔ UT-05(AT-34) | REQUIRED | `TaskUpdate(addBlockedBy)` → `readTaskToolObservation` → `applyPatch` → 상세 `의존성` 행 | 가산 병합 전후 배열 동등 + `blocks` 미저장 단언 | not selected — 배열을 직접 관측 | EP-19 |
+| VP-17 | MD-01 ↔ UT-01 | **REGRESSION** | 파서 전체 | `task-tool.test` 17케이스 — `blocks` 제거가 나머지 관측을 바꾸지 않는다 | — | EP-02 |
+| VP-03·VP-18 | R-03/MD-02 ↔ AT-07/08 | **REGRESSION** | 스냅샷 보정 | `TaskList` 가 여전히 전체 교체 | — | EP-03 |
+
+### ΔV2 Acceptance — 신설
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-02 | **AT-34** / AC34 (신설) | `TaskUpdate(addBlockedBy)` 는 기존 의존에 **더하고**, `TaskGet`/`TaskList` 는 **전체를 교체**한다. `blocks` 는 어디에도 저장되지 않는다 | UT — ① `addBlockedBy:['1']` 후 `addBlockedBy:['2']` → `['1','2']`(중복 id 는 한 번) ② 그 뒤 `TaskList` 스냅샷 `blockedBy:['3']` → `['3']`(교체, 누적 아님) ③ `TaskGet` 출력에 `blocks` 가 있어도 patch·항목 어디에도 없다(음성) + **양성 짝**: 같은 출력의 `blockedBy` 는 실린다 | SDK 결과 → 파서 → fold → 상세 `#N 완료 필요` |
+
+**AC 게이트 재통과**(§5) — 신설 1행:
+
+- 세 칸 보유. **방향**: "간선이 쓰인다" 를 잠근다 — 가산 병합을 지우면 ①이, 교체를 가산으로 바꾸면 ②가 red 다.
+- **음성 게이트의 양성 짝**: ③의 `blocks` 부재는 같은 단언 안의 `blockedBy` 실림과 짝지어 있다 — 파서가 통째로 죽어도 참이 되는 형태가 아니다.
+- structural proxy 없음 — 배열 내용을 직접 관측한다.
+- **AC 총수: `V1` 25 + ΔV1 8 + ΔV2 1 = 34.**
+
+### ΔV2 §10 강제 지점 — 신설
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 | 실패 의미 |
+|---|---|---|---|---|---|
+| MD-01a / VP-30 | **EP-19** 의존 간선은 **두 경로가 다른 의미**로 흐른다 — (1) `readUpdate` 는 `addBlockedBy` 를 **가산**으로, (2) `patchFromTaskRecord`(Get/List)는 `blockedBy` 를 **전체 교체**로 싣는다. `applyPatch` 가 두 의미를 각각 구현한다 | `shared/task-tool.ts` `AgentTaskPatch` | 파서 + `taskBoard.applyPatch` | 결과 파싱 · fold 시점 | 지점 **3**(파서 2 + 적용 1). (1)이 빠지면 G2 재발, (2)가 가산이 되면 삭제된 의존이 영구 잔류, 적용부가 한 의미만 알면 둘 중 하나가 조용히 무시된다 |
+
+- `blocks` 는 이 표에서 **사라진다** — 필드 자체가 없어지므로 강제할 지점이 없다(D-028).
 
 ---
 
