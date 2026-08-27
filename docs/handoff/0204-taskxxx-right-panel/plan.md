@@ -52,13 +52,15 @@
 | D-009 | `TaskUpdate(status:'deleted')`·`TaskGet(task:null)` 은 목록에서 제거한다 | 명세에 없는 SDK 상태값이다. 남겨두면 삭제된 Task 가 패널에 영구 잔류한다 | 설계자 판단 (SDK `TaskUpdateInput.status` 에 `deleted` 존재) | ACTIVE | — |
 | D-010 | `TaskOutput`·`TaskStop` 은 transcript 에만 남기고 패널 상태를 바꾸지 않는다 | 명세 §2 "GUI의 background 상태를 TaskOutput 호출 여부에 의존시키지 않는다" | 명세 §2 | ACTIVE | — |
 | D-011 | `waitForTask` 의 생산 소비자는 중단 확정 대기(D-005/D-006) 한 곳이다 — 주기적 `TaskOutput` polling 을 만들지 않는다 | 명세 §2 "별도의 주기적인 TaskOutput polling으로 구현하지 않는다". 소비자 없는 export 는 죽은 계약이므로 실제 경로에 붙인다 | 명세 §2 + 설계자 판단 | ACTIVE | — |
-| D-012 | 이번 작업의 구현 주체는 Codex 다. Claude 는 plan 만 커밋한다 | 사용자가 "plan만 커밋 → Codex 구현"을 선택 | 사용자 턴 (AskUserQuestion) | ACTIVE | — |
+| D-012 | 이번 작업의 구현 주체는 Codex 다. Claude 는 plan 만 커밋한다 | 사용자가 "plan만 커밋 → Codex 구현"을 선택 | 사용자 턴 (AskUserQuestion) | SUPERSEDED | D-014 |
+| D-014 | 이번 작업의 구현 주체는 Claude 다 — plan → impl → verify 절차는 낮추지 않는다 | 사용자가 같은 세션에서 `/handoff-impl` 을 명시 호출했다. `docs/handoff/AGENTS.md §역할 분담` 이 "사용자가 명시적으로 요청하면 Claude 가 기능 구현을 맡을 수 있으나 절차는 낮추지 않는다" 를 허용한다 | 사용자 턴 (`/handoff-impl`) | ACTIVE | D-012 를 대체 |
 | D-013 | `skip_transcript` task 는 계속 드롭한다(패널에도 안 띄운다) | SDK 는 "may still appear in a tasks panel" 로 허용만 하고 명세는 요구하지 않는다. 현행 `mapTaskSystem` 드롭을 유지해 범위를 넓히지 않는다 | 설계자 판단 (SDK `SDKTaskStartedMessage.skip_transcript` 주석) | ACTIVE | — |
 
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-001 ~ D-013 (신규 handoff).
 - 변경된 결정: D-005 가 0143 의 낙관 정착을 대체한다 — 사용자 명세가 `중단 중` 중간 상태를 명시 요구했다.
+- 변경된 결정(구현 턴 직전): D-012 → **D-014** — 사용자가 `/handoff-impl` 을 명시 호출해 구현 주체가 Claude 로 바뀌었다. AC·V node/pair·§10 은 불변이다.
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: 0143 의 "사용자 중단은 통지 없음"(D-007 로 명시 승계), 0136 의 "채널 사망 시 합성 failed 정착"(§8 에서 이미 충족으로 판정).
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. 확인한 쌍 — D-004("패널 내 표시만") ↔ AC19("타일 칩 미확인 배지, OS 알림 호출 0건") → 일치 · D-005("즉시 확정 금지") ↔ AC12/AC13 → 일치 · D-007("사용자 중단 통지 없음") ↔ AC17 → 일치 · D-010("TaskOutput 의존 금지") ↔ AC23 → 일치 · D-002("main Task 스토어 없음") ↔ AC18(재로드 후 동일 상태를 parts fold 로 달성) → 일치.
 
@@ -507,7 +509,7 @@ SDK tool_result / system task_*
 
 ## READY self-review
 
-- [x] Decision Ledger 의 ACTIVE/SUPERSEDED/OPEN 이 여러 턴의 결정을 보존한다 — 이번이 첫 턴이라 ACTIVE 13, SUPERSEDED 는 D-005 가 0143 코드 결정을 대체(대체 관계 칸에 기록).
+- [x] Decision Ledger 의 ACTIVE/SUPERSEDED/OPEN 이 여러 턴의 결정을 보존한다 — ACTIVE 13 · SUPERSEDED 1(D-012 → D-014). D-005 는 0143 코드 결정을 대체(대체 관계 칸에 기록).
 - [x] Part I 만 읽어도 사용자/제품 완료 상태가 이해된다 — §5 전이표가 구현 파일을 언급하지 않는다.
 - [x] 조건절·이유절·제거/유지 요구를 임의 재해석하지 않았다 — 명세의 "즉시 '중단됨'으로 확정하지 않는다"·"별도의 주기적인 TaskOutput polling으로 구현하지 않는다"를 원문으로 D-005·D-011 에 인용했다.
 - [x] Product/UX 의 각 핵심 동작이 AC 와 Technical Design 에 연결된다 — §5 전이표 18행이 AC1~AC25 와 §9 TO-BE 경로로 각각 이어진다.
