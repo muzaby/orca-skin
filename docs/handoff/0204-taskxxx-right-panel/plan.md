@@ -1234,8 +1234,8 @@ plan 이 적대 증거를 선택한 pair(VP-22·VP-29)와 REGRESSION 인용 변�
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D15 | AT-29 가 `진행 상황` 섹션 본문의 **자리**를 잠그지 않는다 — `진행 상황`↔`출력` 본문을 맞바꾸는 변이 M-S 가 `44파일/423케이스` 전건 통과다. VP-22 의 `3섹션` hop 이 세 섹션을 구별하지 못한다 | verify r4 · **VP-22** · AC29 · D-022 | AT-29 에서 문자열 순서를 구속한다 — `indexOf('진행 상황') < indexOf(emptyDesc) < indexOf('출력')`. 또는 `진행 상황` `<section>` 조각만 잘라 그 안에서 `toContain`. **계약 신설이 아니라 기존 AC29 단언의 위치 구속** | **BLOCKING** | **구현 완료 (r5)** — 형제 3지점 전수. 변이 M-S·M-S2·M-O 각 1 red |
-| D16 | r4 구현 커밋 `e459be0` 의 trailer 가 `Agent: codex` 인데 **ACTIVE D-014 는 구현 주체를 Claude 로 확정**했고 r1·r2·r3 구현 커밋 3개는 전부 `Agent: claude` 다 | verify r4 · §7 · **D-014** | 다음 구현 커밋의 `Agent` 를 D-014 와 맞추거나, 주체가 실제로 바뀌었다면 D-014 를 supersede 하는 결정을 남긴다. 값 자체는 허용값이고 파싱된다 | NON_BLOCKING | **구현 완료 (r5)** — r5 커밋 trailer 를 `Agent: claude` 로 맞췄다 |
+| D15 | AT-29 가 `진행 상황` 섹션 본문의 **자리**를 잠그지 않는다 — `진행 상황`↔`출력` 본문을 맞바꾸는 변이 M-S 가 `44파일/423케이스` 전건 통과다. VP-22 의 `3섹션` hop 이 세 섹션을 구별하지 못한다 | verify r4 · **VP-22** · AC29 · D-022 | AT-29 에서 문자열 순서를 구속한다 — `indexOf('진행 상황') < indexOf(emptyDesc) < indexOf('출력')`. 또는 `진행 상황` `<section>` 조각만 잘라 그 안에서 `toContain`. **계약 신설이 아니라 기존 AC29 단언의 위치 구속** | **BLOCKING** | **closed (r5 검증)** — 변이 M-S 가 1 red. 형제 3지점 전수 |
+| D16 | r4 구현 커밋 `e459be0` 의 trailer 가 `Agent: codex` 인데 **ACTIVE D-014 는 구현 주체를 Claude 로 확정**했고 r1·r2·r3 구현 커밋 3개는 전부 `Agent: claude` 다 | verify r4 · §7 · **D-014** | 다음 구현 커밋의 `Agent` 를 D-014 와 맞추거나, 주체가 실제로 바뀌었다면 D-014 를 supersede 하는 결정을 남긴다. 값 자체는 허용값이고 파싱된다 | NON_BLOCKING | **closed (r5 검증)** — `7b45fa3` 은 `Agent: claude`, D-014 와 일치 |
 
 ---
 
@@ -1306,7 +1306,6 @@ plan 이 적대 증거를 선택한 pair(VP-22·VP-29)와 REGRESSION 인용 변�
 - **막았어야 할 지침**: 현 `handoff-impl §3`에 단위와 호출 배선을 함께 잠그라는 규칙이 이미 있어 **B(실행 누락)**다. 중복 지침·corpus·template 변경은 하지 않았다.
 - **환경 한계**: `npm ci --ignore-scripts`로 Electron binary와 better-sqlite3 binding이 없어 전체 vitest의 알려진 5파일/1 suite만 실패했다. 변경 대상 44파일은 전건 green이다.
 - **현재 라운드 수**: **4**. 구현 완료 후 다음 주체는 독립 검증자다.
-
 ---
 
 # 라운드 5 — verify r4 D15 재구현
@@ -1393,3 +1392,13 @@ plan 이 적대 증거를 선택한 pair(VP-22·VP-29)와 REGRESSION 인용 변�
 - **진단한 지침 변경안(미적용)**: `handoff-impl §3`의 해당 문장을 "지운 회귀"에서 **"지우거나·형제 슬롯과 맞바꾼 회귀"**로 넓힌다. normative 변경이라 `Tier 1`(6-A+6-B+6-C) 회귀 검증이 필요하고, 사용자가 지침 수정을 요청하지 않아 **적용하지 않았다**.
 - **반복된 환경 한계**: better-sqlite3 ABI/egress(5라운드 연속) · zustand SSR 스냅샷이 store 연결 컴포넌트를 시드하지 못함(3라운드 연속).
 - **현재 라운드 수**: **5**. 다음 주체는 독립 검증자다.
+
+---
+
+### r5 검증(2026-08-27) — 이관
+
+> D15·D16 은 위 표에서 **닫혔다** — 판정 근거는 [`verify.md`](verify.md) §3·§8. D11·D12·D13 은 열린 채 유지된다.
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D17 | AT-29 가 *여분의 사본*에는 침묵한다 — `출력` 섹션에 목록 View 를 **추가**로 넣는 변이 M-N 이 `44파일/423케이스` 전건 통과다. AC29 의 "설명문만 낸다"는 자리는 잠갔고 배타는 안 잠갔다 | verify r5 · §3 · AC29 음성 절 · §10 EP-16 | **지금은 잠그지 않는다** — D-022 가 두 섹션의 빈 상태를 이번 라운드 한정으로 명시했고 다음 handoff 가 내용을 채운다. 래퍼 수준의 "only" 장치가 필요한지는 그 handoff 의 설계 질문이다 | NON_BLOCKING → **NEXT_HANDOFF** | open(이관) |
