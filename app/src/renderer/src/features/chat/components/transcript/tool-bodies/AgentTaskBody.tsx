@@ -3,6 +3,7 @@ import { useI18n } from '../../../../../shared/i18n'
 import { chatActions } from '../../../store/chatStore'
 import { stringify } from '../../../format'
 import type { ToolCall } from '../../../reducer/chatReducer'
+import { backgroundTaskKey } from '../../../lib/taskBoard'
 
 function asRecord(input: unknown): Record<string, unknown> {
   return typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {}
@@ -37,7 +38,10 @@ export function AgentTaskBody({ call }: { call: ToolCall }): React.JSX.Element {
         </pre>
       )}
       <div>
-        <Button size="small" onClick={() => chatActions.openSubagentTask(call.toolUseId)}>
+        <Button
+          size="small"
+          onClick={() => chatActions.openTask(backgroundTaskKey(call.toolUseId))}
+        >
           {tr('chat.toolMeta.openSubagentPanel')}
         </Button>
       </div>

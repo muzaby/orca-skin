@@ -539,76 +539,139 @@ SDK tool_result / system task_*
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision 과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: Part I 전부와 Part II §9~§14. AS-IS 조사가 실제 코드와 맞았다 — background 목록·listen·채널 사망 정착은 이미 있었고 이번 작업은 일반 Task fold·통합 타일·`중단 중`에 집중됐다.
+- 이견 / 현실성 문제: 없음.
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | … | … | … | … |
+| VP-01·14·17 | EP-01 `structuredOutput` 은 Task 도구에만 | `claude-map` tool_result 매핑 (1) | 1/1 | `rg -n "isTaskToolName" app/src --glob '!*.test.ts'` → 5행 / 게이트 지점 `claude-map.ts:329` · 소비 `taskBoard.ts:163` | — |
+| VP-02·17 | EP-02 `success===true` 만, 상태는 `statusChange.to` 우선 | 결과 파싱 (1) | 1/1 | 케이스 `success 가 true 가 아니면 관측이 없다 (미지정 포함 — fail-closed)` · `statusChange.to 를 상태의 권위로 읽는다` | — |
+| VP-03·17 | EP-03 `TaskList` 전체 스냅샷 — 부재 제거 | fold 중 snapshot (1) | 1/1 | 케이스 `TaskList 스냅샷이 상태 교체·신규 추가·부재 제거를 모두 수행한다` (id `9` 부재 단언) | — |
+| VP-04·18 | EP-04 키 네임스페이스 분리 | 키 생성 + 선택 상태 (1) | 1/1 | 케이스 `같은 문자열 id 를 가진 두 종류가 서로 덮어쓰지 않는다` → 2건 | — |
+| VP-05·11 | EP-05 턴-후 갱신 2지점 | `post-turn.ts` listen · store transient (2) | 2/2 | `git diff --stat -- app/src/main/app/chat-turn/post-turn.ts app/src/renderer/src/features/chat/store/chatStore.ts` → post-turn **변경 0줄**(경로 무변경), store 는 `subagent.task` transient 흡수 그대로 | — |
+| VP-06·12·16 | EP-06 중단 확정 3지점 | 즉시 정착 없음 · enrich 게이트 · watchdog (3) | 3/3 | (1) `SDK 확정을 기다리며, 요청 시점에는 합성 정착을 하지 않는다` (2) `사용자가 중단한 태스크의 settled 는 영수증이 관측됐어도 background 미부여` (3) `확정이 없으면 합성 정착으로 마감한다` | — |
+| VP-07·13·14 | EP-07 구조화 출력 쓰기 지점 | 라이브 이벤트 · writer (2) — **실측 3** | 3/3 | `rg -n "structuredOutput" app/src --glob '!*.test.ts'` 중 이 필드의 쓰기 지점 = `claude-map.ts:355`(생산) · `writer.ts:272`(영속) · `chatReducer.ts:466`(라이브 파트). 셋 다 결함 심기로 확인 | — |
+| VP-08 | EP-08 fold 입력은 그 세션 messages 뿐 | 렌더 시점 (1) | 1/1 | `rg -n "chatStore|useChatSession" app/src/renderer/src/features/chat/lib/taskBoard.ts` → **0건**(전역 상태 미참조, 시그니처가 강제) | — |
+| VP-09·19 | EP-09 polling 금지 | 중단 대기 (1) | 1/1 | `rg -n "TaskOutput" app/src/main --glob '!*.test.ts'` → 1행, **전부 주석**(코드 참조 0) · `rg -n "setInterval" <신규 main 2파일>` → 0 | — |
+| VP-10 | EP-10 상세는 종류별 정보만 | 렌더 (1) | 1/1 | 케이스 `background Task 는 …설명/의존성 행이 없다` (`not.toContain` 2건) | — |
+| VP-15 | EP-11 타일 개명 4곳 | 정의·레지스트리·reducer 특례·i18n (4) | 4/4 | `rg -n "'subagent'" app/src/renderer/src` → **0건** · 개명 후 `rg -n "'task'" .../rightPanelTiles.ts .../tileRegistry.ts .../chatReducer.ts` → 각 1·2·1 | — |
 
-- §10 에 없는데 같은 불변식이 필요했던 지점: …
+- §10 에 없는데 같은 불변식이 필요했던 지점: **1건 — EP-07 의 세 번째 쓰기 지점**(renderer reducer 의 `tool_result` 파트 조립). §10 은 "라이브 이벤트 · writer" 2곳으로 적었는데, 라이브 이벤트가 파트가 되는 hop 이 하나 더 있고 거기서 필드를 떨어뜨리면 **재로드 전까지 목록이 비어 보인다**. 현재 pair(VP-07/AC18)에 귀속되는 지점이라 선조치했고, §10 행의 지점 수를 2→3 으로 정정할 것을 제안한다(아래 §plan 수정 제안 1).
 
-**V-pair 자기확인**
+**V-pair 자기확인** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다.
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | `taskBoard.test` AC1/AC2 2케이스 | not selected — 항목 수를 직접 관측 |
+| VP-02 | REQUIRED | SELF_PASS | `task-tool.test` TaskUpdate 6케이스 | not selected |
+| VP-03 | REQUIRED | SELF_PASS | 스냅샷 id 집합 차집합 단언 | not selected |
+| VP-04 | REQUIRED | SELF_PASS | 키 충돌 케이스 2건 | not selected |
+| VP-05 | REQUIRED | SELF_PASS | listen 경로 무변경(diff 0줄) + 기존 `post-turn.test.ts` green | not selected |
+| VP-06 | REQUIRED | SELF_PASS | `stop-subagent.test` 9케이스 | **required** — 변이 2종 red 확인(아래 잠금 표) |
+| VP-07 | REQUIRED | SELF_PASS | reducer·writer·taskBoard 3층 단언 | not selected(직접) + 변이 2종 red |
+| VP-08 | REQUIRED | SELF_PASS | 전역 참조 0건 + 시그니처 | not selected |
+| VP-09 | REQUIRED | SELF_PASS | `waitForTask` 6케이스 | not selected — resolve 를 직접 관측 |
+| VP-10 | REQUIRED | SELF_PASS | `taskDetailRows` 2케이스 | not selected |
+| VP-11 | REQUIRED | SELF_PASS | 경로 무변경 | not selected |
+| VP-12 | REQUIRED | SELF_PASS | 확정·watchdog 두 종단 | not selected |
+| VP-13 | REQUIRED | SELF_PASS | 라이브 파트 → fold 동등 + 영속 payload | not selected |
+| VP-14 | REQUIRED | SELF_PASS | `claude-map.test` 3케이스 | **required** — 게이트 제거 변이 red |
+| VP-15 | REQUIRED | SELF_PASS | 개명 전수 0건 + typecheck | not selected |
+| VP-16 | REQUIRED | SELF_PASS | coordinator 음성 + 양성 짝 2케이스 | **required** — 게이트 제거 변이 red |
+| VP-17 | REQUIRED | SELF_PASS | `task-tool.test` 17케이스 | not selected |
+| VP-18 | REQUIRED | SELF_PASS | `taskBoard.test` 17케이스 | not selected |
+| VP-19 | REQUIRED | SELF_PASS | `background-tasks.test` waitForTask 6케이스 | not selected |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|
-| … | … | … | … |
+| `turn-coordinator.ts:264` — enrich 의 `!turn.stoppedSubagents.has(...)` 삭제 | `VP-06·VP-16 선택 증거`(AC17 0건 주장) | **1차: 0건 — 잠금 없음** → oracle 정정 후 `사용자가 중단한 태스크의 settled 는 … background 미부여` 1 failed | 잠김(정정 후) |
+| `stop-subagent.ts` — 0143 낙관 정착 복원(요청 직후 합성 정착) | `VP-06 선택 증거`(AC12 "즉시 확정 안 함") | `SDK 확정을 기다리며…` 외 3건 | 잠김 |
+| `claude-map.ts:329` — `isTaskToolName` 게이트를 `true` 로 | `VP-14 구조·전수 oracle 민감도`(EP-01) | `Task 도구가 아닌 결과에는 structuredOutput 을 싣지 않는다` 1건 | 잠김 |
+| `chatReducer.ts:466` — 라이브 파트에서 `structuredOutput` 드롭 | `VP-07·VP-13 배선 존재 oracle`(AC18) | `라이브 이벤트로 만든 파트만으로…` 외 1건 | 잠김 |
+| `writer.ts:272` — 영속 payload 에서 `structuredOutput` 드롭 | `VP-07 배선 존재 oracle`(EP-07) | `structuredOutput 을 tool_result payload 에 싣는다` 1건 | 잠김 |
+
+> **첫 변이가 무음이었던 것이 이 라운드의 실질 산출이다.** 최초 AC17 테스트는 스트림에 async_launched 영수증을 넣었는데, `coerceStoppedToolCompletion` 이 그 영수증을 먼저 aborted 로 바꿔 `markAsyncLaunched` 자체가 일어나지 않았다 — 그래서 게이트를 지워도 `isAsyncLaunched` 가 false 라 결과가 같았다. 영수증 관측을 tracker 에 직접 심어(중단 클릭 **이전** 관측을 재현) 게이트가 판정에 참여하게 만든 뒤에야 변이가 red 가 됐고, 같은 조건의 양성 짝(`중단하지 않은 태스크는 … background:true`)을 붙여 방향을 고정했다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ✅ 전부 있다 | `chat.taskTile.*` 25키 — 목록/그룹/상세/배지/중단 실패가 각각 렌더 지점을 갖는다. `stopFailed` 는 `TaskRow` 의 `stopError` 줄이 유일한 소비자다 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | ✅ 전부 표에 있다 | `stop 요청 거절`·`watchdog timeout`·`채널 종료` 3행. **표에 없던 것 1건**: 턴이 없는 세션에서 중단을 누르는 경우 → 구 코드는 조용히 성공했다. 지금은 reject 하므로 `stop 요청 거절` 행으로 수렴한다 |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | ✅ | 요청 실패 시 `중단 중` 이 풀리고 카드 아래에 사유가 붙는다(`taskStopErrors[key]`). 구 코드에는 실패 표시가 아예 없었다 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | ✅ | `stopping` 해제는 **부모 Task 결과 도착**이 유일한 신호라 순서에 무관하다. watchdog 합성 정착과 진짜 확정이 겹쳐도 `settled` 는 멱등(트래커 delete 실패 시 no-op) |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | §10 EP-07 이 쓰기 지점을 2곳으로 셌으나 실제는 **3곳** — 라이브 이벤트가 파트가 되는 reducer hop 이 빠졌다 | 📝 **plan 수정 제안** — EP-07 의 `언제 강제` 를 `(1) 이벤트 방출 (2) renderer 파트 조립 (3) writer payload` 로, 전수 `2`→`3` 으로 정정 | 그 hop 을 빠뜨리면 재로드 전까지 목록이 빈다. 변이로 확인(잠금 표 4행) |
+| 2 | `structuredOutput` 이름이 기존 어댑터 **capability 플래그**와 겹친다 | ⚠️ 보고만 | `adapters/descriptor.ts:40` 의 `structuredOutput: true`(Options.outputFormat 지원 여부)와 이름만 같고 타입·위치가 다르다. 혼동 가능하나 개명은 공개 파트 필드 변경이라 사용자 결정 |
+| 3 | `TaskList`/`TaskGet` **보정으로만** completed 가 되는 Task 는 배지를 켜지 않는다 | ✅ 선조치(범위 명시) | 전이의 권위는 `TaskUpdate.statusChange` 다. 보정은 "지금 상태가 이렇다" 이지 "방금 끝났다" 가 아니라 배지를 켜면 재보정마다 알림이 생긴다. `chatReducer.ts` 주석에 명시 |
+| 4 | `parts.ts` 에 tool_result→ToolCall 변환 본문이 **3벌 복사**돼 있었다 | ✅ 선조치 | 이번에 필드를 하나 더하면서 세 곳이 갈라질 수 있었다 — `resultMap(parts)` 한 곳으로 접었다(`parts.ts:80`·`:449`). 동작 변화 없음, 기존 `parts.test.ts` green |
+| 5 | mock 시나리오 개수가 테스트 **제목**(`12종`)에 박혀 있었다 | ✅ 선조치 | 시나리오를 늘리자 제목과 배열이 갈라졌다. `MOCK_SCENARIO_IDS` 대조로 바꿔 개수를 코드가 갖게 했다(root `AGENTS.md` 원칙 4 와 같은 축) |
+| 6 | 일반 Task 는 GUI 에서 중단/편집할 수 없다 | ⚠️ 보고만 | 명세가 요구하지 않았고 §6 비범위다. `canStopTask` 가 `kind==='background'` 로 잠가 UI 에 오해 여지가 없다 |
 
 ### 설계 대비 명시적 차이
 
-- plan 이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan 이 지정한 것과 다르게 구현한 것과 그 이유: **1건** — §11 은 중단 흐름을 `app/chat-turn/index.ts` 에 두라고 적었으나 `features/chat/stop-subagent.ts` 로 **분리**했다. 이유: `app/` 은 배선 레이어라 IPC 없이 테스트할 수 없고(`src/main/AGENTS.md §작업 규칙 1`), AC12~AC16 이 전부 이 흐름의 판정이다. 계약·경로·강제 지점은 그대로다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 시한은 `timeoutMs` 인자 하나뿐이고 캐시·자격증명 같은 만료 상태를 새로 만들지 않았다 | AC15 `확정이 없으면 합성 정착으로 마감한다`(timeoutMs 5ms 주입) |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | **있다** — `stoppedSubagents`·`blockedSubagents` 는 turn 이 공유하고 lease 재사용이 `clear()` 한다(`session-chain-lease.ts:166`). 요청 실패 시 되돌리지 않으면 다른 경로가 이 태스크를 stopped 로 강등한다 | AC14 `채널이 죽었으면 throw 하고 중단 표식을 되돌린다` — `stoppedSubagents.has` false 단언 |
+| 재진입 | **있다** — 같은 태스크에 중단을 두 번 누르면 요청이 두 번 나간다 | UI 에서 막았다: `canStopTask` 가 `stopping` 을 제외한다(케이스 `중단 중에는 버튼을 다시 누를 수 없다`). reducer 도 `TASK_STOP_REQUESTED` 를 멱등 처리 |
+| 다른 무효화 축 | **있다** — watchdog 합성 정착과 진짜 SDK 확정이 겹칠 수 있다 | `tracker.settled` 는 미존재 키에 no-op 이고 `settleSubagentTask` 는 `openToolRuns` 에서 이미 지워진 항목을 건너뛴다 — 중복 정착이 이벤트를 두 번 만들지 않는다(`settle.ts:56` delete 후 재호출 no-op) |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| 관측한 게이트 산출 | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| AC 자기보고 | … |
-| 합계 검산 | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | 27 수정 + 9 신규 · 1 삭제(`SubAgentTileContent.tsx` → `TaskTileContent.tsx` 대체). `git diff --stat -- app/` = 794 insertions / 398 deletions |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node scripts/check-doc-inventory.mjs --check` · `npm rebuild better-sqlite3`(Node ABI) |
+| **관측한 게이트 산출**(exit code 아님) | lint **0 error · 1 warning**(warning 은 기존 `TranscriptVirtualizer` 의 `react-hooks/incompatible-library`, 변경 무관) · typecheck 3구성 **출력 0줄** · vitest **235파일 / 2413 케이스 통과, 실패 0**. 로드 실패 1파일 = `chat-turn.continuity.test.ts`(`electron` import) — **stash 후 기준선에서 동일 실패 재현**, 환경 기인(ELECTRON_SKIP_BINARY_DOWNLOAD) · inventory `9 items, 79 channels` + prose/links ok |
+| V-pair 자기확인 | `SELF_PASS 19 / SELF_BLOCKED 0`; pair 별 상세는 위 표 |
+| 강제 지점 전수 | **18/18** (EP-05 2 · EP-06 3 · EP-07 3(§10 은 2로 적었다, 위 제안 1) · EP-11 4 · 나머지 각 1) |
+| **AC 자기보고**(`Criteria-Met`) | 21/25 — 아래 합계 검산 참조 |
+| **합계 검산** | `✅ 21 · ⚠️ 4 · ❌ 0 = 총 25`. 분모 25 는 §7 표 행 수를 다시 세어 확인했고 이번 라운드에 AC 를 나누거나 더하지 않았다. ⚠️ 4 = AC11(경로 무변경·기존 커버리지) · AC20(2세션 실기) · AC21(경로 무변경) · AC25(시각 실기) |
+| 블로커 / 역질문 | 없음. 사람 실기 2건(시각·2세션)과 CLI 실환경에서 TaskXXX 가 실제로 호출되는지의 확인이 남는다 — 후자는 §17 리스크 1이고 mock `agent_task_board` 가 렌더 경로를 CLI 와 독립 검증한다 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+### AC 자기보고 상세
+
+| AC | 판정 | 이번 턴에 재현한 관측 |
+|---|---|---|
+| AC1·AC2 | ✅ | `taskBoard.test` — `성공 결과가 도착해야 항목이 생긴다` (pending 0건 / settled 1건) · `실패한 TaskCreate 는 항목을 만들지 않는다` |
+| AC3~AC6 | ✅ | 같은 파일 TaskUpdate 4케이스 — 중복 없음(1건) · 제목 교체 · deleted 제거 · `success:false` 무변화 |
+| AC7·AC8 | ✅ | `TaskList 스냅샷이 상태 교체·신규 추가·부재 제거를 모두 수행한다`(id 9 부재) · `TaskGet 은 그 id 만 갱신하고 task:null 은 제거한다` |
+| AC9·AC10 | ✅ | `background 항목만 실행 메타를 갖고…` · 그룹 배열 `['in_progress','pending','completed','aborted','failed']` 동등 단언 |
+| AC11 | ⚠️ | listen 경로 **변경 0줄**(`git diff -- app/src/main/app/chat-turn/post-turn.ts` 빈 출력) + 기존 `post-turn.test.ts` green. 턴-후 실제 갱신은 사람 실기 |
+| AC12 | ✅ | `중단 요청 중인 background 는 stopping 이고 진행 중 그룹에 남는다` + reducer `요청은 중단 대기에 넣고…` |
+| AC13 | ✅ | coordinator `사용자가 중단한 태스크의 settled…`(부모 결과 `reason:'aborted'`) + taskBoard 그룹 테스트의 `aborted` 행 |
+| AC14 | ✅ | `stop-subagent.test` 2케이스(no-channel / stopTask 거절) + reducer `요청 실패는 대기를 풀고 사유를 남긴다` |
+| AC15 | ✅ | `확정이 없으면 합성 정착으로 마감한다` — `onWatchdog` 호출 + `settled` 1건 |
+| AC16 | ✅ | `turn 전체를 중단하지 않는다 — 다른 열린 도구는 그대로다` |
+| AC17 | ✅ | coordinator 음성 + 양성 짝 2케이스, 변이 red 확인 |
+| AC18 | ✅ | reducer `라이브 이벤트로 만든 파트만으로 작업 목록이 파생된다` + writer payload 단언 + 로드 경로가 payload 를 통째로 spread(`dto.ts:52`) |
+| AC19 | ✅ | reducer 배지 4케이스(켜짐/안 켜짐/해제/중단 제외) + `rg notifyApi <신규 5파일>` → 0건 |
+| AC20 | ⚠️ | `rg "chatStore\|useChatSession" taskBoard.ts` → **0건**(EP-08 구성상 성립) + 라우팅 코드 무변경. 2세션 전환은 사람 실기 |
+| AC21 | ⚠️ | `settleDeadBackgroundTasks` 무변경 + taskBoard 가 `failed` 를 실패 그룹으로 사상(그룹 테스트). 채널 사망 실기는 사람 몫 |
+| AC22 | ✅ | `waitForTask` 6케이스(settled/clear/즉시/timeout/타세션/구독해제) + `rg TaskOutput app/src/main` → 1행 전부 주석 |
+| AC23 | ✅ | `TaskOutput·TaskStop 호출은 목록을 만들지 않는다`(0건) |
+| AC24 | ✅ | `taskDetailRows` 2케이스 — 종류별 labelKey 배열 동등/부재 단언 |
+| AC25 | ⚠️ | `rg "#[0-9a-fA-F]{3,6}" <신규 tsx 2파일>` → 0건. 시각 대조는 사람 실기 |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC 가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드 수: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음 — r1 이다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: EP-07 의 지점 수(2→3)는 plan 이 producer/consumer 를 셀 때 **파트 조립 hop 을 레이어로 세지 않아서** 빠졌다. §10 작성 시 "이벤트 → 파트 → DB" 를 세 층으로 나눠 세면 걸렸을 것이다.
+- 반복해서 부딪히는 환경 한계: `chat-turn.continuity.test.ts` 가 `electron` 을 import 해 이 환경에서 로드 실패한다(기준선 동일). better-sqlite3 는 `npm rebuild` 로 Node ABI 를 맞춰 DB 스위트까지 green 으로 돌렸다.
+- 현재 라운드 수: 1
 
 ---
 

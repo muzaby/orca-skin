@@ -77,18 +77,7 @@ export function partsReasoning(parts: AppMessagePart[]): ReasoningItem[] {
 // tool_call 을 같은 toolRunId 의 tool_result 와 페어링해 ToolCall view 로. 결과 미도착이면
 // result 미포함(= '실행 중').
 export function partsToolCalls(parts: AppMessagePart[]): ToolCall[] {
-  const resultByRun = new Map<string, NonNullable<ToolCall['result']>>()
-  for (const p of parts) {
-    if (p.type === 'tool_result') {
-      resultByRun.set(p.toolRunId, {
-        output: p.result,
-        isError: p.isError,
-        ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {}),
-        ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {}),
-        ...(p.subagentMeta !== undefined ? { subagentMeta: p.subagentMeta } : {})
-      })
-    }
-  }
+  const resultByRun = resultMap(parts)
   const calls: ToolCall[] = []
   for (const p of parts) {
     if (p.type === 'tool_call' && p.parentToolRunId === undefined) {
@@ -206,6 +195,9 @@ function toolCallFromPart(
   }
 }
 
+// tool_result 파트 → toolRunId 별 ToolCall.result. 0204 이전에는 같은 본문이 세 곳
+// (partsToolCalls·subagentTasksFromMessages·messageSegments)에 복사돼 있었고, 파트에 필드가
+// 늘 때마다 세 곳이 갈라질 수 있었다 — 한 곳이 소유한다.
 function resultMap(parts: AppMessagePart[]): Map<string, NonNullable<ToolCall['result']>> {
   const resultByRun = new Map<string, NonNullable<ToolCall['result']>>()
   for (const p of parts) {
@@ -215,7 +207,8 @@ function resultMap(parts: AppMessagePart[]): Map<string, NonNullable<ToolCall['r
         isError: p.isError,
         ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {}),
         ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {}),
-        ...(p.subagentMeta !== undefined ? { subagentMeta: p.subagentMeta } : {})
+        ...(p.subagentMeta !== undefined ? { subagentMeta: p.subagentMeta } : {}),
+        ...(p.structuredOutput !== undefined ? { structuredOutput: p.structuredOutput } : {})
       })
     }
   }
@@ -456,18 +449,7 @@ export type MessageSegment =
 // 선구축한 맵에서 페어링되며(partsToolCalls 와 동일 규칙) 순회 중에는 흡수(스킵)한다.
 // file/diff(claude 미생성 seam)는 현재 미렌더 — OpenCode 어댑터 도입 시 채운다.
 export function messageSegments(parts: AppMessagePart[]): MessageSegment[] {
-  const resultByRun = new Map<string, NonNullable<ToolCall['result']>>()
-  for (const p of parts) {
-    if (p.type === 'tool_result') {
-      resultByRun.set(p.toolRunId, {
-        output: p.result,
-        isError: p.isError,
-        ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {}),
-        ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {}),
-        ...(p.subagentMeta !== undefined ? { subagentMeta: p.subagentMeta } : {})
-      })
-    }
-  }
+  const resultByRun = resultMap(parts)
 
   const segments: MessageSegment[] = []
   let current: MessageSegment | null = null
