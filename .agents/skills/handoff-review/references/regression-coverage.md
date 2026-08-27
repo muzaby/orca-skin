@@ -1818,3 +1818,82 @@ P heading **48/48 전수** · `COVERED 48 / PARTIAL 0 / GAP 0 / OBSOLETE 0` · �
 
 - V는 추적 누락과 판정 범위를 줄이지만 실행자가 증거를 조작하거나 실제 gate를 실행하지 않는 capability failure를 없애지 못한다. 기존 독립 재측정·변이 검증이 계속 필요하다.
 - 기존 handoff 전체를 V 형식으로 소급 변환하지 않는다. legacy 합성은 검증 시 읽기 전용이며, 실질적 설계 변경 때만 영향 Delta를 새 revision으로 올린다.
+
+---
+
+# review round 23 — Baseline V와 Delta V 경계 · 선택적 적대 증거
+
+**발동/모드**: 사용자가 초안의 작은 V 개념을 다시 검토한 뒤 반영을 지시했다. `APPLY`이며
+V mode·required evidence·blocking scope의 실행 의미를 바꾸므로 **Tier 1**이다.
+
+round 22의 이력은 보존하되 다음 세 결론은 이 라운드가 대체한다: 모든 신규 plan을 Delta V로 부른 것,
+모든 pair와 일반 hunk에 mutation을 요구한 것, V 밖 `G-*`를 제품 blocking 범위로 둔 것이다.
+
+## 분류
+
+| 관측 | 분류 | 조치 |
+|---|---|---|
+| 최초 V와 기존 V의 증분을 모두 Delta V로 명명했다 | **A** — 상속 기준이 없는 V도 증분처럼 보이고 작은 V의 경계가 사라진다 | 최초는 `Baseline V`, 명시 기준 V 일부 변경만 `Delta V`, 둘을 합친 것을 `유효 V`로 정의 |
+| 모든 pair의 mutation과 일반 hunk fallback이 READY/PASS 조건이었다 | **A** — 새 변이가 스스로 blocking 범위를 계속 늘릴 수 있다 | 직접 oracle은 필수로 유지하고 구조 proxy·0건/전수·배선 등 민감도 위험 pair만 적대 증거를 선택 |
+| `G-SEC/G-DATA/G-DOC/G-REPO/G-SUBTREE`가 V 밖에서도 제품 FAIL을 만들었다 | **A** — 정해진 V만 닫는다는 범위 고정을 우회한다 | 제품 제약은 V·Decision·AC·§10에 귀속하고 subtree/repository 검사는 현재 변경 산출물의 완료 gate로 한정 |
+
+## 6-A Operational Instruction Delta
+
+| 판정 | 변경 | 승계 근거 |
+|---|---|---|
+| KEEP | Decision Ledger·AC·§10 전수·production path·직접 oracle·기준선 잠금·INDEX/trailer·ABI/repository 검사 | V는 기존 방어의 추적축이며 해당 책임과 명령을 삭제하지 않음 |
+| KEEP | `PLAN_GAP→RETURN_TO_PLAN`, `PAIR_FAIL`, `BLOCKED_BY`, provenance·requiredness, legacy read-only 합성 | 계획 누락·구현 위반·인과 종속·구 plan 호환 경계를 그대로 유지 |
+| REPLACE | 신규 `Delta V V1` → `Baseline V V1`; 기준 V의 변경 경로만 `ΔV<N>` | 초안의 일반 V와 작은 증분 V를 분리하고 commit/revision 상속을 요구 |
+| REPLACE | pair별 mutation·일반 hunk fallback → 선택 pair·인용 finding·새 구조·전수·배선 oracle 민감도만 재측정 | mutation은 oracle의 방향·민감도 증거이지 scope source가 아님 |
+| REPLACE | V 밖 `G-*` registry → 현재 변경의 subtree/repository/message-bus gate | 변경 산출물의 완료 조건은 유지하되 관련 없는 기존 결함으로 제품 범위를 늘리지 않음 |
+| DELETE | mutation 부재만으로 FAIL, 모든 hunk 자동 분모 | 직접 행동 oracle이 충분한 pair의 거짓 FAIL을 만들므로 선택적 적대 증거가 대체 |
+
+- reference/script **MOVE 0건**, 새 gate 명령 **0건**, 다섯 번째 skill **0건**이다.
+- corpus는 P41·P44·P45·P48의 `현재 방어`만 REPLACE했고 역사 사례·P 번호는 유지했다. 신규 P는 0이다.
+- root/handoff AGENTS, 네 SKILL, 두 template에서 같은 mode·scope·evidence vocabulary로 기존 문장을 통합했다.
+
+## 6-B Historical Failure Regression
+
+P heading **48/48 전수** · `COVERED 48 / PARTIAL 0 / GAP 0 / OBSOLETE 0` · 신규 P **0**.
+
+| 범위 | 교정 뒤 방어 | 판정 |
+|---|---|---|
+| P1~P40 | 조사·Decision·AC·path·강제 지점·semantic oracle·기준선·운영 gate 책임은 유지 | COVERED 40 |
+| P41 | 구조 proxy·0건/전수 oracle은 적대 증거 선택 조건이라 대상 집합·추출·비교·실재·분류 단위의 눈을 확인 | COVERED |
+| P42~P43 | 자기보고 독립 재측정과 합계/사본 대조는 mutation requiredness와 무관하게 유지 | COVERED 2 |
+| P44 | 일반 hunk는 분모에서 빼되 pair가 선택한 배선 변이와 finding이 인용한 변이는 구현·검증이 다시 실행 | COVERED |
+| P45 | 필요한 규범·pair·oracle 누락은 기준 V의 Delta V로 정정한 뒤 `plan/READY`로 복귀 | COVERED |
+| P46~P47 | 저장소 좌표와 규범 정정 owner 방어는 lifecycle 변경 없이 유지 | COVERED 2 |
+| P48 | “X가 쓰인다”·배선 존재 oracle은 소거 방향을 별도 입증해야 하므로 선택적이라는 말로 면제되지 않음 | COVERED |
+
+### 실제 handoff state replay
+
+| anchor | 교정된 상태로 재생 | false PASS / FAIL inflation |
+|---|---|---|
+| 0191 docs-code-resync | 명시 문서·§10 위반은 `PAIR_FAIL`; 전수 대상·추출·비교 oracle 자체가 빠진 라운드는 `PLAN_GAP`; G-DOC은 사용하지 않음 | 0 / 0 |
+| 0194 auth-refresh | 명시 영속 사슬·producer·필드 위반은 `PAIR_FAIL`; 강제 지점 분모나 AC18 식이 누락·모순이면 `PLAN_GAP` | 0 / 0 |
+| 0198 runtime-model-catalog | AC·§10·인용 변이 위반은 `PAIR_FAIL`; cache lifecycle·필요 oracle 누락은 `PLAN_GAP`; 이번 턴이 바꾼 commit/INDEX drift만 repository gate `FAIL` | 0 / 0 |
+| 0202 invalidation-scope r1 | D3은 AC11이 같은 인스턴스 비교를 명시했는데 증거를 만들지 않아 `PAIR_FAIL`; D1·D2의 새 concurrency·컴포지션 oracle은 plan에 없어 `PLAN_GAP`; 종속 pair만 `BLOCKED_BY` | 0 / 0 |
+| 0202 invalidation-scope r2~r3 | D4의 토큰 단위 oracle 확장은 `PLAN_GAP`; D5·D6은 유효 V·Decision·AC·§10 비귀속이라 `NON_BLOCKING/NEXT_HANDOFF`이고 r3 PASS 유지 | 0 / 0 |
+
+0202의 r1·r2를 모두 구현 FAIL로 두었던 round 22 판정은 대체한다. 명시된 오른쪽 증거를 구현하지 않은 D3은
+실패로 유지하지만, 검증자가 새 oracle 단위·mutation을 발명해야만 보이는 D1·D2·D4는 planner가 Delta V로 정한다.
+
+## 6-C Cross-document Consistency
+
+- **PASS.** root AGENTS ↔ handoff AGENTS ↔ 네 SKILL ↔ 두 template이 `Baseline V / Delta V / 유효 V`,
+  change-effect level selection, 선택적 적대 증거, 현재 변경 운영 gate를 같은 owner와 상태로 사용한다.
+- normative 파일의 `G-SEC/G-DATA/G-DOC/G-REPO/G-SUBTREE` ID **0건**, 일반 hunk fallback **0건**이다.
+  역사 round 22의 구 표현은 이 절의 명시적 supersede 대상이며 실행 정본이 아니다.
+- 구현 보고 heading **7/7**, P heading **P1~P48 연속·중복 0**, 새 `handoff-vmodel` 디렉토리 0이다.
+- skill 형식 **4/4 valid**, 문서 inventory·prose·relative links, `git diff --check`를 모두 통과했다.
+- gate 명령·ABI 규칙·CI scope·commit trailer 허용값 변경 0이며 새 AGENTS/CLAUDE stub은 없다.
+
+## review 기록 정책
+
+`round23-review.md`를 만들지 않았다. 영구 결과는 지침과 이 절에 압축했고 기존 `round2-review.md` 1개만 유지한다.
+
+## 남은 한계
+
+- 어떤 pair가 적대 증거를 필요로 하는지는 위험 조건으로 좁혔지만 기계적으로 완전 결정할 수 없다. 검증자는 새 변이를 scope로 쓰지 말고 필요 oracle 누락이면 `PLAN_GAP`으로 반환한다.
+- V는 잘못된 oracle 실행이나 gate 미실행을 자동으로 없애지 않는다. 구현자 자기확인과 검증자 독립 재측정은 계속 필요하다.

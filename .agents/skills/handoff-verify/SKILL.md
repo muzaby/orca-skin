@@ -1,6 +1,6 @@
 ---
 name: handoff-verify
-description: docs/handoff/ 의 verify.md를 작성할 때 쓴다. **구현이 끝나 보드가 `impl/IMPL_DONE`이고 다음 주체가 검증자면** 로드한다 — 외부 PR 리뷰는 verify가 아니다. 현재 구현을 처음 보는 남의 PR처럼 독립 검증하며 plan validity와 REQUIRED·REGRESSION V-pair를 UT→IT→ST→AT 순으로 닫고 전역 불변식을 확인한다. 역방향 발견은 BLOCKING·PLAN_GAP·NON_BLOCKING·NEXT_HANDOFF로 범위를 판정하며 구현자 보고는 증거로 받지 않는다. 지침 개선은 handoff-review에 위임한다.
+description: docs/handoff/ 의 verify.md를 작성할 때 쓴다. **구현이 끝나 보드가 `impl/IMPL_DONE`이고 다음 주체가 검증자면** 로드한다 — 외부 PR 리뷰는 verify가 아니다. 현재 구현을 처음 보는 남의 PR처럼 독립 검증하며 plan의 유효 V와 REQUIRED·REGRESSION pair를 UT→IT→ST→AT 순으로 닫고 현재 변경 산출물의 운영 gate를 확인한다. 역방향 발견은 BLOCKING·PLAN_GAP·NON_BLOCKING·NEXT_HANDOFF로 범위를 판정하며 구현자 보고는 증거로 받지 않는다. 지침 개선은 handoff-review에 위임한다.
 ---
 
 # handoff-verify — 현재 구현을 독립 검증하기
@@ -10,9 +10,9 @@ description: docs/handoff/ 의 verify.md를 작성할 때 쓴다. **구현이 �
 이 스킬은 **이번 구현이 운영에 나가도 되는지 판단하는 실행 스킬**이다.
 
 - 설계자·구현자가 자신이어도 처음 보는 남의 PR처럼 읽는다.
-- AC만 채점하지 않는다. **Product & UX Contract / ACTIVE Decision / Delta V / 실제 production path**를 함께 검증한다.
+- AC만 채점하지 않는다. **Product & UX Contract / ACTIVE Decision / 유효 V(Baseline V 또는 기준 V + Delta V) / 실제 production path**를 함께 검증한다.
 - 구현 보고·코드 주석·이전 verify 결론을 증거로 받지 않는다.
-- 기준 밖 결함도 찾되 현재 pair·ACTIVE Decision·기존 blocking 이슈·전역 불변식에 귀속되지 않으면 현재 PASS를 막지 않는다.
+- 기준 밖 결함도 찾되 현재 pair·ACTIVE Decision·기존 blocking 이슈 또는 이번 변경 산출물의 필수 gate에 귀속되지 않으면 현재 PASS를 막지 않는다.
 - 못 본 것은 못 봤다고 쓴다.
 
 **하지 않는 일**:
@@ -56,8 +56,10 @@ description: docs/handoff/ 의 verify.md를 작성할 때 쓴다. **구현이 �
 
 기준선을 잠근 뒤 **plan validity**를 먼저 감사한다.
 
-- 모든 `NEW`·`CHANGED` 왼쪽 node에 같은 레벨 `REQUIRED` pair가 있고, 영향받은 `INHERITED` 상위 node에 `REGRESSION` pair가 있는가.
-- 각 pair에 production path·§10 강제 지점 전수·직접 oracle·음성 대조/결함 변이가 있는가. 적용 전역 불변식도 열거됐는가.
+- V mode가 맞는가. 상속 기준이 없으면 Baseline V이고, Delta V라면 기준 handoff·plan revision·commit과 적용 순서로 유효 V를 재구성할 수 있는가.
+- 변경 효과에 필요한 레벨이 선택됐고 모든 `NEW`·`CHANGED` 왼쪽 node에 같은 레벨 `REQUIRED` pair, 영향받은 `INHERITED` 상위 node에 `REGRESSION` pair가 있는가.
+- 각 pair에 production path·§10 강제 지점 전수·직접 oracle이 있는가. 구조적 proxy·0건/전수·배선 존재처럼 적대 증거가 필요한 pair는 선택 이유와 변이가 있고, 나머지는 직접 oracle로 충분한 이유가 있는가.
+- 현재 변경 산출물에 적용되는 subtree·repository gate가 열거됐는가. 관련 없는 기존 실패를 새 blocking 범위로 올리지 않았는가.
 - 구현/검증에 필요한 계약·node·pair·경로·강제 지점·oracle이 빠졌거나 서로 모순되어 구현자가 선택해야 한다면 `PLAN_GAP`이다. 다만 이미 명시된 Decision·AC·코드 계약을 구현이 위반하면 pair 행 누락을 이유로 결함을 낮추지 않고 `PAIR_FAIL`로 판정하며 plan gap도 함께 기록할 수 있다.
 - V 도입 전 작성된 진행 중 plan은 AC·§10·production path에서 **읽기 전용 V 매핑을 합성**한다. 형식이 옛것이라는 이유만으로 migrate하거나 `PLAN_GAP`을 만들지 않고, 실제 판정에 필요한 계약/증거가 빠졌을 때만 gap으로 판정한다.
 
@@ -89,7 +91,7 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 - 같은 규칙의 중복 구현/SSOT drift.
 - 외부 SDK/문서 예제/fixture의 실제 계약 타입·의미.
 
-발견은 숨기지 않되 바로 blocking으로 승격하지 않는다. 현재 V-pair·ACTIVE Decision·이전 blocking 이슈에 매핑되면 `BLOCKING`, 필요한 기준선 자체가 빠졌으면 `PLAN_GAP`, 전역 불변식에 매핑되면 `BLOCKING`, 그 밖은 `NON_BLOCKING` 또는 `NEXT_HANDOFF`다.
+발견은 숨기지 않되 바로 blocking으로 승격하지 않는다. 현재 유효 V-pair·ACTIVE Decision·이전 blocking 이슈에 매핑되면 `BLOCKING`, 필요한 기준선 자체가 빠졌으면 `PLAN_GAP`, 이번 변경 산출물의 필수 gate 위반이면 `BLOCKING`, 그 밖은 `NON_BLOCKING` 또는 `NEXT_HANDOFF`다.
 
 **테스트가 있다는 사실과 프로덕션에 배선됐다는 사실을 분리한다.** 두 방향을 모두 본다.
 
@@ -118,12 +120,11 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 - **행을 다 센 뒤 합계와 분모를 따로 센다.** 행마다 관측값이 맞아도 합계는 틀린다 — 0187 r1·0189 r1·0190 r1이 전부 합계 축에서 어긋났고 0190 r1의 행 관측값은 재측정과 전부 일치했다. 자기보고 합계가 **본문·커밋 trailer·INDEX 비고에서 같은 값인지** 대조한다(0190 r1은 본문 `14/17` ↔ trailer 3개 `13/17`로 갈렸다).
 - 파일:라인은 “구현됨”이지 “검증됨”이 아니다.
 - **구현자가 보고한 “설계 대비 차이”는 타당 판정으로 닫히지 않는다.** 대체물이 갖고 원본이 갖지 않던 실패 모드를 실제로 만들어 그 메커니즘에 기대던 AC·§10 행을 다시 단언한다 — 0198 r2는 catalog cache↔runtime cache 결합을 “타당한 차이·warm-cache 테스트로 뒷받침”으로 적었고, 만료를 넣자 AC13이 깨졌다.
-- **이번 라운드가 닫았다는 잠금을 검증자가 다시 센다.** 구현자가 무엇을 심었다고 보고했든 관계없다. **분모는 이번 라운드가 닫는 파생 이슈가 인용한 변이이고, 인용된 변이가 없을 때만 고친 hunk다** — 이슈가 적어 둔 결함을 그대로 다시 심고 스위트를 돌려 실패 수를 적는다. 0198 r5는 hunk 분모에서 수정 5곳이 전부 미검출이었고, r7은 인용 변이 분모에서 D33·D34의 변이 2건이 그대로 통과했다.
-- **hunk가 분모인데 아무것도 실패하지 않는 수정은 배선이 지워져도 게이트가 초록인 자리**이므로 파생 이슈다.
-- **동작을 보존하는 추출·재배치 라운드에서 hunk 되돌림은 아무것도 재지 못한다.** 되돌리면 동작이 같은 이전 코드로 돌아갈 뿐이라 초록이 정답이다 — 그 초록을 `잠금 없음`으로도, `잠김`으로도 읽지 않는다. 그런 라운드의 판정은 인용 변이로만 내린다.
+- **등록된 적대 증거와 인용 변이를 검증자가 다시 센다.** 구현자가 무엇을 심었다고 보고했든 관계없이 pair가 선택한 변이, 파생 이슈가 인용한 변이, 이번 라운드가 새로 만든 구조적 proxy·0건/전수·배선 oracle의 민감도 검사를 그대로 재현한다. 일반 hunk를 자동 분모로 삼지 않고 직접 행동 oracle이 충분한 pair에 새 mutation을 발명하지 않는다.
+- **동작을 보존하는 추출·재배치 라운드에서 hunk 되돌림은 아무것도 재지 못한다.** 되돌리면 동작이 같은 이전 코드로 돌아갈 뿐이라 초록이 정답이므로, 그 초록을 `잠금 없음`이나 `잠김`으로 읽지 않는다.
 - **소거 변이는 장치가 침묵할 때까지 민다.** 지운 자리가 남긴 잔여물(unused import·dead local·타입 진단)에 게이트가 걸리면 그 red는 잠금이 아니라 치우면 사라지는 부산물이다 — 잔여물을 치우는 정리를 따라가 **진단이 0이 될 때까지** 밀고 그 상태의 게이트로 판정한다. 0198 r7 M-J는 1단계에서 멈춰 `typecheck red`를 잠금으로 적었고, r8이 3단계까지 밀자 typecheck·eslint·전체 스위트가 전부 초록이었다.
 - **검출되지 않은 인용 변이가 있으면 그 파생 이슈는 닫히지 않았다.** 구현자가 `closed`로 적었어도 상태를 되돌리고 §13으로 이관한다.
-- blocking 변이의 분모는 현재 pair의 음성 대조, 닫는 이슈가 인용한 변이, 또는 전역 불변식 변이다. V 도입 전 plan이나 음성 대조가 없는 첫 라운드만 기존 hunk fallback을 쓴다. 인접·무관 표면의 변이가 살아도 현재 계약에 매핑되지 않으면 `NON_BLOCKING`/`NEXT_HANDOFF`이며, 새 필수 계약이 필요함을 보이면 `PLAN_GAP`이다.
+- mutation은 현재 pair가 선택한 적대 증거 또는 닫는 이슈가 인용한 변이일 때만 blocking 증거가 된다. 새 mutation이 현재 계약 위반을 드러내면 기존 pair를 `PAIR_FAIL`, 필요한 oracle/pair 누락을 드러내면 `PLAN_GAP`, 현재 유효 V와 무관하면 `NON_BLOCKING`/`NEXT_HANDOFF`로 둔다.
 - 함수 호출 지점 1개, `Promise.all`, 특정 시그니처가 semantic 목표를 실제 보장하는지 적대 사례를 본다.
 - `N회`는 실제 관측 주체에서 횟수를 단언한다.
 - 순서 AC는 훅/로그/주입 경계에서 순서를 관측한다.
@@ -145,16 +146,16 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 
 각 `REQUIRED`·`REGRESSION` pair를 낮은 레벨부터 독립 판정한다. 결과는 `PASS` · `PAIR_FAIL` · `BLOCKED_BY:<root-pair>` · `NOT_REQUIRED`만 쓴다.
 
-- `MD↔UT`: 모듈 불변식·알고리즘·seam을 직접 단언하고 음성 대조/결함 변이를 심는다.
+- `MD↔UT`: 모듈 불변식·알고리즘·seam을 직접 단언하고, plan이 선택한 경우에만 음성 대조/결함 변이를 심는다.
 - `AR↔IT`: 실제 producer/consumer·모듈 경계·조립·계약 edge를 지난다. 동명 로컬 재구현은 증거가 아니다.
 - `SD↔ST`: 시작점부터 저장/상태/오류·정리까지 end-to-end 수명주기를 지난다.
 - `R↔AT`: Product/UX 목적과 AC 행동을 production path에서 닫는다. 외부 port/schema/config는 shape + semantics 두 층으로 확인한다.
 
 하위 root 실패로 상위 pair를 독립 판정할 수 없을 때만 `BLOCKED_BY:<root-pair>`로 둔다. 상위 행동을 다른 경로에서 독립 관측할 수 있으면 실행하며, 같은 root 원인을 네 단계의 `PAIR_FAIL`로 부풀리지 않는다. 하나의 직접 증거가 여러 pair를 닫으면 각 행에 공유 증거와 판정 범위를 적는다.
 
-plan §10은 pair 안에서 **별도 분모**로 계속 걷는다. `언제 강제`에 열거된 지점을 코드에서 하나씩 다시 세고, `실패 의미`의 적대 상태를 만든다. “다른 게이트가 막는다”는 주장도 변이로 재측정한다. 표 밖 지점이 현재 pair·ACTIVE Decision·전역 불변식에 필수면 `PLAN_GAP`, 그 밖이면 `NON_BLOCKING`/`NEXT_HANDOFF`다.
+plan §10은 pair 안에서 **별도 분모**로 계속 걷는다. `언제 강제`에 열거된 지점을 코드에서 하나씩 다시 세고, `실패 의미`의 적대 상태를 만든다. “다른 게이트가 막는다”는 주장도 필요한 pair의 선택된 변이로 재측정한다. 표 밖 지점이 현재 pair·ACTIVE Decision·AC에 필수면 `PLAN_GAP`, 그 밖이면 `NON_BLOCKING`/`NEXT_HANDOFF`다.
 
-첫 검증 라운드는 모든 `REQUIRED`·`REGRESSION` pair와 전역 불변식을 실행한다. 재검증은 root 실패 pair·그 종속 pair·이번 변경으로 영향받은 pair·전역 gate를 실행하고, 영향받지 않은 이전 `PASS`는 증거 좌표를 참조한다. 이전 라운드 산문을 복사해 다시 PASS 수에 더하지 않는다.
+첫 검증 라운드는 유효 V의 모든 `REQUIRED`·`REGRESSION` pair와 현재 변경의 운영 gate를 실행한다. 재검증은 root 실패 pair·그 종속 pair·이번 변경으로 영향받은 pair·적용 gate를 실행하고, 영향받지 않은 이전 `PASS`는 증거 좌표를 참조한다. 이전 라운드 산문을 복사해 다시 PASS 수에 더하지 않는다.
 
 ## 7. 숫자·음성 기준·상한을 재측정한다
 
@@ -184,7 +185,7 @@ plan §10은 pair 안에서 **별도 분모**로 계속 걷는다. `언제 강�
 
 - **exit code를 통과 증거로 쓰지 않는다.** 실행 산출을 관측해 적는다 — 테스트는 파일 수·케이스 수, 정적 검사는 error/warning 수. 리포터·설정·경로 오류로 **아무것도 실행되지 않고 exit 0**이 나올 수 있고, 그 0을 그대로 옮기면 검증 자체가 false success다.
 - **게이트가 작업 트리를 바꿨는지 확인한다.** 포맷·autofix가 붙은 명령(`--fix`·formatter·codegen)은 검증 대상 파일을 쓴다. 실행 후 트리 상태를 보고, 변경이 있으면 그것이 검증 대상에 포함되는지 판정한다 — 검증자가 고친 코드를 검증자가 채점하면 자기 증명이다.
-- **구현자가 이번 라운드에 만들거나 고친 게이트는 그 자체가 검증 대상이다.** 스윕·정규식·실재 판정 기준을 그대로 재실행해 같은 산출을 얻는 것은 재현이지 검증이 아니다 — **판정 기준을 한 단계 엄격하게 바꿔 재측정하고 차집합을 본다**(부분 문자열 → 접미사, 전체 파일 → 비주석 줄). 차집합이 비어야 그 `0건`이 전수를 뜻한다. **다만 엄격화는 그 스윕이 전수인지를 재지, 그 스윕이 불변식을 잠그는지를 재지 않는다** — 방향은 §4의 소거 변이가 판정한다.
+- **구현자가 이번 라운드에 만들거나 고친 구조적 proxy·0건/전수 게이트는 그 자체가 검증 대상이다.** 스윕·정규식·실재 판정 기준을 그대로 재실행해 같은 산출을 얻는 것은 재현이지 검증이 아니다 — **판정 기준을 한 단계 엄격하게 바꿔 재측정하고 차집합을 본다**(부분 문자열 → 접미사, 전체 파일 → 비주석 줄). 차집합이 비어야 그 `0건`이 전수를 뜻한다. **다만 엄격화는 그 스윕이 전수인지를 재지, 그 스윕이 불변식을 잠그는지를 재지 않는다** — 방향은 §4의 소거 변이가 판정한다.
 - **자기 명령이 남긴 잔여물도 본다.** 의존성 복구·캐시·로그 등 검증 중 실행한 명령이 만든 미추적 산출물은 구현 결과가 아니다. 남았으면 정리하거나 파생 이슈로 적는다.
 
 ## 9. Repository operation checks
@@ -214,8 +215,8 @@ plan §10은 pair 안에서 **별도 분모**로 계속 걷는다. `언제 강�
 
 ## 11. PASS / FAIL / RETURN_TO_PLAN
 
-- `PASS`: 모든 `REQUIRED`·`REGRESSION` pair가 PASS이고 ACTIVE Decision·적용 전역 불변식이 충족되며 `PLAN_GAP`이 없다. `NON_BLOCKING`·`NEXT_HANDOFF`는 기록하되 PASS를 막지 않는다.
-- `FAIL`: 하나 이상의 현재 pair 또는 전역 불변식이 실패했다. root `PAIR_FAIL`과 종속 `BLOCKED_BY`를 분리해 `[검증자 기입] 파생 이슈`로 이관한다.
+- `PASS`: 모든 `REQUIRED`·`REGRESSION` pair와 이번 변경 산출물의 필수 gate가 PASS이고 ACTIVE Decision이 충족되며 `PLAN_GAP`이 없다. `NON_BLOCKING`·`NEXT_HANDOFF`는 기록하되 PASS를 막지 않는다.
+- `FAIL`: 하나 이상의 현재 pair 또는 이번 변경 산출물의 필수 gate가 실패했다. root `PAIR_FAIL`과 종속 `BLOCKED_BY`를 분리해 `[검증자 기입] 파생 이슈`로 이관한다.
 - `RETURN_TO_PLAN`: 구현자가 새 계약을 발명하지 않고는 닫을 수 없는 `PLAN_GAP`이 있다. root gap과 영향 pair를 적고 설계자로 돌린다.
 
 제품 결정이 필요하면 해결안으로 위장하지 않는다. `FAIL`과 `PLAN_GAP`이 함께 있으면 둘 다 기록하고 다음 주체는 planner다. 명시 계약 위반을 gap으로 약화하지 않는다.

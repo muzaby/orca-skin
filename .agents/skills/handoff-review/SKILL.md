@@ -60,7 +60,7 @@ V/lifecycle 변경이면 corpus뿐 아니라 실제 라운드 이력을 replay�
 
 사용자가 이미 구체적으로 결정했는데 몇 턴 뒤 에이전트가 다른 안을 채택했다면 B다. 처음부터 여러 제품적 선택지가 가능했는데 확인 없이 택했다면 C다. 사용자가 명시적으로 바꿨다면 D다. 조건절·이유절이 대안을 지정했는데 배경으로 읽은 경우는 현재 지침 존재 여부와 **그 지침을 정상 수행했을 때 실제로 실패를 차단하는지**에 따라 A/B로 판정한다.
 
-A~F는 원인 분류이고 lifecycle 결과를 대체하지 않는다. 기존 계약이 충분했던 B/F는 관련 pair·전역 불변식 `FAIL`, 필요한 계약이 없었던 A/C는 `PLAN_GAP` 후보, D는 supersede, E는 증거 한계/사람 경계 후보로 매핑하되 실제 계약 증거로 최종 판정한다. `BLOCKED_BY`는 root pair 실패의 인과 종속에만 쓴다. 새 규약이 결함을 모두 `PLAN_GAP`으로 낮추거나 인접 발견을 모두 `FAIL`로 올리면 분류가 아니라 판정 왜곡이다.
+A~F는 원인 분류이고 lifecycle 결과를 대체하지 않는다. 기존 계약이 충분했던 B/F는 관련 pair 또는 이번 변경 산출물의 필수 gate `FAIL`, 필요한 계약이 없었던 A/C는 `PLAN_GAP` 후보, D는 supersede, E는 증거 한계/사람 경계 후보로 매핑하되 실제 계약 증거로 최종 판정한다. `BLOCKED_BY`는 root pair 실패의 인과 종속에만 쓴다. 새 규약이 결함을 모두 `PLAN_GAP`으로 낮추거나 인접 발견을 모두 `FAIL`로 올리면 분류가 아니라 판정 왜곡이다.
 
 ## 3. 현재 지침의 결함을 찾는다
 
@@ -78,8 +78,10 @@ B 유형은 같은 문장을 더 추가하지 않는다. 체크가 아니라 evi
 V 프로토콜을 건드리면 다음을 함께 감사한다.
 
 - trigger·owner·상태가 plan/impl/verify 사이에서 하나의 lifecycle을 만드는가.
+- Baseline V와 Delta V가 구분되고 Delta V가 명시적인 기준 V의 증분만 기록하는가.
 - node provenance와 pair requiredness가 상위 문서 복사를 강제하지 않으면서 변경 영향 회귀를 선택하는가.
-- pair path·전수 분모·oracle·음성 대조와 V 밖 전역 불변식이 기존 강제 지점·mutation·gate를 약화하지 않는가.
+- pair path·전수 분모·직접 oracle·필요한 pair의 선택적 적대 증거가 기존 강제 지점·mutation 방어를 약화하지 않는가.
+- 현재 변경 산출물의 운영 gate가 유지되면서 V 밖 포괄 규칙으로 제품 blocking 범위를 늘리지 않는가.
 - `FAIL`·`RETURN_TO_PLAN`·`BLOCKED_BY`·nonblocking 분리가 거짓 PASS와 실패 부풀리기를 모두 막는가.
 - V 도입 전 진행 중 plan/verify를 형식 migration 없이 읽을 수 있는가.
 
@@ -173,7 +175,7 @@ Tier 1에서 Operational delta를 닫은 **뒤에** [`references/failure-pattern
 
 `COVERED`는 키워드 일치가 아니다. 실제 실패가 일어나기 **전에** 발동하는 실행 가능한 절차여야 한다.
 
-V/lifecycle 변경은 각 historical pattern을 새 상태 머신으로도 replay한다. 결함이 기존 pair/전역 불변식 위반인데 `PLAN_GAP`이나 nonblocking으로 내려가 **거짓 PASS**가 생기지 않는지, 비귀속 인접 결함이 blocking으로 올라가 **FAIL inflation**이 생기지 않는지 함께 판정한다. 선택한 실제 handoff anchor는 라운드별 finding이 `PAIR_FAIL`·`PLAN_GAP`·`BLOCKED_BY`·`NON_BLOCKING` 중 어디로 가는지 표로 남긴다.
+V/lifecycle 변경은 각 historical pattern을 새 상태 머신으로도 replay한다. 결함이 기존 pair 또는 이번 변경 산출물의 필수 gate 위반인데 `PLAN_GAP`이나 nonblocking으로 내려가 **거짓 PASS**가 생기지 않는지, 비귀속 인접 결함이 blocking으로 올라가 **FAIL inflation**이 생기지 않는지 함께 판정한다. 선택한 실제 handoff anchor는 라운드별 finding이 `PAIR_FAIL`·`PLAN_GAP`·`BLOCKED_BY`·`NON_BLOCKING` 중 어디로 가는지 표로 남긴다.
 
 ## 6-C. Cross-document Consistency — 정본끼리 서로 다른 명령을 하지 않는지 본다
 
@@ -197,7 +199,7 @@ references / scripts
 
 - 같은 행위를 서로 다른 owner에게 맡기지 않는가.
 - 한 문서는 금지하고 다른 문서는 요구하지 않는가.
-- `NEW/CHANGED/INHERITED/SUPERSEDED`, `REQUIRED/REGRESSION/NOT_REQUIRED`, `PASS/PAIR_FAIL/BLOCKED_BY`, `BLOCKING/PLAN_GAP/NON_BLOCKING/NEXT_HANDOFF`, `FAIL/RETURN_TO_PLAN`의 의미와 전이가 모두 같은가.
+- `Baseline V/Delta V/유효 V`, `NEW/CHANGED/INHERITED/SUPERSEDED`, `REQUIRED/REGRESSION/NOT_REQUIRED`, `PASS/PAIR_FAIL/BLOCKED_BY`, `BLOCKING/PLAN_GAP/NON_BLOCKING/NEXT_HANDOFF`, `FAIL/RETURN_TO_PLAN`의 의미와 전이가 모두 같은가.
 - template 명령이 더 구체적인 하위 `AGENTS.md`의 안전 규칙과 충돌하지 않는가.
 - root 진입점이 새 skill/소유권을 알고 있는가.
 - 이동한 reference/script의 **inbound reference N건이 새 target에서 기대한 semantic target M/M을 유지하는가.**
