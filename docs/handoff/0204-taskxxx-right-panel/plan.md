@@ -1215,3 +1215,15 @@ plan 이 적대 증거를 선택한 pair(VP-22·VP-29)와 REGRESSION 인용 변�
 | D7 | `structuredOutput` 이름이 기존 어댑터 capability 플래그(`descriptor.ts:40`)와 겹친다 | verify r1 · §3 | NEXT_HANDOFF | 이번 ΔV1 범위 밖 — 파트 필드 개명은 영속 payload 계약 변경이라 마이그레이션 판단이 필요하다. **D-026 이 문서에 필드를 명시**하므로 다음 handoff 가 두 이름을 나란히 볼 수 있다 | open(이관) |
 | D8 | `TaskUpdate` 가 미지 id 에 도착하면 제목이 id 인 유령 항목이 생긴다(압축된 세션 재개 시나리오) | verify r1 · §2 | NON_BLOCKING | **ΔV1 이 가시성을 높인다** — id 단일 나열(D-018)에서 제목이 `3` 인 행은 정상 행과 구분되지 않는다. 다만 "존재하는 Task 를 버리지 않는다" 는 제품 판단이라 사용자에게 올릴 항목으로 남긴다 | open(사용자 판단 대기) |
 | D9 | `IPC_CONTRACT.md` 문서 드리프트 2건 — `tool.call.completed` 필드에 `structuredOutput` 부재 · `MockScenarioId` **13종**(코드 14) | **이번 턴 실측** · §7-B 조사 | NON_BLOCKING → **범위 편입** | **D-026** · **AT-33**. 문서 게이트가 세지 않는 형태라 r1 이 통과했다 | 규범 정정 완료 → 구현 대기 |
+
+### r3 검증(2026-08-27) — 이관
+
+> r1 의 D1·D2·D4·D5·D9 는 위 표에서 **닫혔다** — 판정 근거는 [`verify.md`](verify.md) §1·§5. D7·D8 은 열린 채 유지된다.
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D10 | 이번 라운드에 추출한 순수 View 3종의 **래퍼→View 배선이 잠기지 않는다** — 래퍼에서 지워도 `44파일/422케이스` 전건 통과(변이 V1·V2) | verify r3 · **VP-21**·**VP-22** · AT-28·AT-29 | AT-29 에 "`진행 상황` 섹션 본문이 목록 산출을 담는다" 를 더한다 — SSR 에서 store 가 비므로 `chat.taskTile.emptyDesc` 가 그 자리에 오는지가 가장 싼 관측이다. `subagent` 타일도 동형. **계약 신설이 아니라 기존 AC 보강** | **BLOCKING** | open |
+| D11 | `backgroundMetaLine` 의 `aborted` 분기가 사유를 하드코딩(`사용자에 의해 중단됨`)한다. `recovery.ts:5`(앱 사망 후 dangling 정산)가 `reason:'aborted'` 라 **사용자가 중단하지 않은 항목**도 그 문구를 받는다 — r1 D1 과 같은 거짓 진술 부류 | verify r3 · §3 역방향 | `failed` 분기와 같이 `settlementMessage` 를 우선 쓰고 없을 때만 라벨로 떨어뜨린다. **D-024 가 `aborted` 분기를 정본으로 삼았으므로 규범 정정이 선행** | NON_BLOCKING | open |
+| D12 | 고아 i18n 키 2건 — `chat.taskTile.emptyTitle`(r2 가 소비처 제거) · `chat.taskTile.viewTranscript`(r1 이래 0건) | verify r3 · §3 역방향 | 제거한다. **D2·G1 과 같은 죽은 표면 축의 세 번째 발현**이고 매번 분모가 달랐다(renderer 심볼 → shared 필드 → i18n 키) | NON_BLOCKING | open |
+| D13 | 구현자 §5 전수 스윕의 축이 좁았다 — "message 로 *상태를 파생*하는 곳" 만 셌고 "*사유를 표시*하는 곳" 은 안 셌다 | verify r3 · §4 | D11 이 그 차집합이다. 다음 라운드의 스윕은 표시 축을 포함한다 | NON_BLOCKING | open |
+| D14 | INDEX 비고가 5줄 규칙 초과(100자 기준 7줄) | verify r3 · `AGENTS.md §산출물 문장 규칙 3` | 이번 검증 갱신에서 줄였다 | NON_BLOCKING | **closed** |

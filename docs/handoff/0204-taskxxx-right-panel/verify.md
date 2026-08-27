@@ -1,8 +1,24 @@
 # Verify — 0204-taskxxx-right-panel
 
 > 절차 정본은 [`handoff-verify/SKILL.md`](../../../.agents/skills/handoff-verify/SKILL.md), 상태 머신은 [`docs/handoff/AGENTS.md`](../AGENTS.md).
+>
+> **라운드별로 누적한다.** 아래 절은 각 검증 턴의 판정 원문이고, 이전 라운드는 재서술하지 않는다.
+> 현재 상태는 [`INDEX.md`](../INDEX.md) 가 갖는다.
 
-## 메타
+| 라운드 | 상태 | 요지 |
+|---|---|---|
+| r1 | **FAIL** | 채널 종료 정착이 `실패` 가 아니라 `중단됨` 으로 읽힌다(AC21) |
+| r3 | **FAIL** | 추출한 순수 View 3종의 래퍼→View 배선이 무관측 — 지워도 전 스위트 초록 |
+
+> r2 는 독립 verify 턴 없이 r3 에 합류했다 — ΔV1(r2)·ΔV2(r3) 구현이 연속으로 들어와 한 번에 검증했다. 대상 range 는 `a6dcfc8..4b3310b` 이다.
+
+---
+
+## Verify r1 (2026-08-27) — FAIL
+
+> 이 절은 r1 판정 **원문**이다. 재서술하지 않고 그대로 둔다.
+
+### 메타
 
 | 항목 | 값 |
 |---|---|
@@ -17,13 +33,13 @@
 | 상태 | **FAIL** |
 | 자기 검증 여부 | **예 — 설계·구현·검증이 같은 에이전트다.** 기준선은 커밋 분리로 성립한다(아래 §0) |
 
-## 판정
+### 판정
 
 **FAIL.** REQUIRED pair 19 중 **VP-08 이 PAIR_FAIL** 이다 — 채널 종료로 정착한 background 작업이 `실패` 가 아니라 `중단됨` 그룹에 들어가고, 행 문구가 **`사용자에 의해 중단됨`** 이라 원인을 거짓 진술한다(AC21 위반). 나머지 18 pair 와 gate 4종은 PASS, PLAN_GAP 0. 다음 주체는 구현자다.
 
 ---
 
-## 0. 기준선 / plan 변경 확인
+### 0. 기준선 / plan 변경 확인
 
 **기준선 성립.** 설계 커밋(`d54f074`·`72766d2`)과 구현 커밋(`c3bb0d1`)이 분리돼 있어 §0 의 자기 증명 방지가 작동한다.
 
@@ -44,7 +60,7 @@
 
 **PLAN_GAP 0.** D1 은 명시 AC(AC21) 위반이라 새 계약 발명 없이 닫힌다 — gap 이 아니라 pair 실패다.
 
-## 1. Product & UX / ACTIVE Decision 요약
+### 1. Product & UX / ACTIVE Decision 요약
 
 | Decision / 요구 | 기대 결과 | 실제 production path |
 |---|---|---|
@@ -70,7 +86,7 @@ SDK tool_result(tool_use_result)
 
 **끊긴 곳 1**: 채널 종료 정착이 이 경로의 마지막 단계(`deriveSubagentTaskStatus`)에서 `failed` 가 아닌 `aborted` 로 읽힌다 — D1.
 
-## 2. 구현 결과 비판적 검토 — AC 전에
+### 2. 구현 결과 비판적 검토 — AC 전에
 
 | 질문 | 판정 | 근거/후속 |
 |---|---|---|
@@ -82,7 +98,7 @@ SDK tool_result(tool_use_result)
 | 최적화가 잃은 재검증/취소/만료 관측 | 없음 | 새 캐시 0 · `useMemo` 의존성에 `stopping` 포함 확인 |
 | 출력/요청 worst-case 상한 | 유계 | `structuredOutput` 은 Task 6종 한정, `TaskListOutput` 이 최대. 신규 네트워크 요청 0 |
 
-## 3. 역방향 탐색
+### 3. 역방향 탐색
 
 | 후보 | 판정 | 귀속 / 근거 |
 |---|---|---|
@@ -96,7 +112,7 @@ SDK tool_result(tool_use_result)
 | producer ↔ consumer 파생 불일치 | **1건** | producer 는 `status:'failed'`, consumer 는 메시지 문자열로 `aborted` 판정 → D1 |
 | 동일 규칙 중복 구현 | **1건** | "무엇이 종단 상태인가" 가 `taskBoardSettledKeys`(죽음)와 reducer(실제)에 다르게 산다 → D2 |
 
-## 4. 기존 테스트 / semantic 검증 확인
+### 4. 기존 테스트 / semantic 검증 확인
 
 - **구현 보고의 강제 지점 합계를 다시 셌다** — 행 관측은 전부 정확했으나 **합계가 틀렸다**: EP-07 을 3으로 세면 총합은 18 이 아니라 **19** 다(1+1+1+1+2+3+3+1+1+1+4). 행 축은 맞고 합계 축만 어긋난 전형적 형태 → D3.
 - **등록된 적대 증거를 검증자가 직접 재실행했다**(구현자 보고와 무관하게):
@@ -117,7 +133,7 @@ SDK tool_result(tool_use_result)
 
 - 구현자 보고의 "설계 대비 차이"(중단 흐름을 `app/` → `features/chat/` 로 이동)를 축별로 재유도했다 — 공유 축(`stoppedSubagents` 를 lease 가 `clear` 한다)이 실제 실패 모드이고 롤백 테스트가 그것을 닫는다. 만료·재진입·무효화 축도 각각 근거가 있다. **타당 판정으로 닫지 않고 4축 전부 확인했다.**
 
-## 5. V-pair closeout — `UT → IT → ST → AT`
+### 5. V-pair closeout — `UT → IT → ST → AT`
 
 | Pair | left ↔ right / 레벨 | requiredness | 결과 | 직접 검증 증거 | production path / §10 전수 |
 |---|---|---|---|---|---|
@@ -197,14 +213,14 @@ settleTrackedTasks(status:'failed', summary:'채널이 종료되어 서브에이
 | vitest 전체 | PASS | **235파일 / 2413 케이스 통과, 실패 0**. 로드 실패 1파일 = `chat-turn.continuity.test.ts` — `git stash` 후 기준선에서 **동일 재현**, 환경 기인 |
 | `check-doc-inventory --check` | PASS | `9 items, 79 channels` · prose ok · links ok. 채널 79 · variant 21 · 마이그레이션 17 **불변**(설계 예측과 일치) |
 
-## 6. 외부 포트 / 문서 계약
+### 6. 외부 포트 / 문서 계약
 
 | 계약 | shape 검증 | semantics 검증 | 결과 |
 |---|---|---|---|
 | SDK `Task*Output` | `task-tool.ts` 가 SDK `sdk-tools.d.ts` 필드만 좁혀 읽음 | 성공/실패/null/부재 4갈래를 `null` 로 수렴 — 17 케이스 | PASS |
 | `tool_use_result` 귀속 | tool_result 블록 1개일 때만 | 복수 블록 미적용 케이스 존재 | PASS |
 
-## 7. 숫자 / 음성 기준 / 상한 재측정
+### 7. 숫자 / 음성 기준 / 상한 재측정
 
 - 강제 지점 재측정: **19**(구현자 보고 18) — §5 표.
 - 내역 합 = 총계: `1+1+1+1+2+3+3+1+1+1+4 = 19` ✓ (구현자 산식은 같은 내역에서 18 을 적었다)
@@ -212,7 +228,7 @@ settleTrackedTasks(status:'failed', summary:'채널이 종료되어 서브에이
 - 0건 게이트의 정당한 예외 보존: `rg TaskOutput app/src/main` → 1행이 남으나 **주석**이다(polling 금지를 설명하는 문장) — 코드 참조 0 이 주장의 실체다.
 - 상한: `structuredOutput` 최대치는 `TaskListOutput` — Task 수 × 약 200B. 신규 네트워크 요청 0.
 
-## 8. 테스트 가능한 핸들 탐색 후 남은 사람 실기
+### 8. 테스트 가능한 핸들 탐색 후 남은 사람 실기
 
 | 항목 | 기계 검증한 범위 | 남은 사람 실기 | 실행 방법 |
 |---|---|---|---|
@@ -221,7 +237,7 @@ settleTrackedTasks(status:'failed', summary:'채널이 종료되어 서브에이
 | 턴-후 갱신(AC11) | 경로 diff 0줄 | 실제 CLI 백그라운드 진행 | 실환경 Task 실행 후 턴 종료 관측 |
 | CLI 가 TaskXXX 를 실제로 부르는가 | mock 으로 렌더 경로 독립 검증 | 실 CLI 관측 | 실환경 대화에서 목록이 차는지 |
 
-## 9. 게이트 재실행
+### 9. 게이트 재실행
 
 - 실제 실행 명령: `cd app && npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node scripts/check-doc-inventory.mjs --check`
 - **관측한 실행 산출**: lint `0 error / 1 warning` · typecheck 출력 0줄 · vitest `235파일 / 2413케이스 / 실패 0` · inventory 3줄 ok
@@ -230,7 +246,7 @@ settleTrackedTasks(status:'failed', summary:'채널이 종료되어 서브에이
 - **게이트가 작업 트리를 바꿨는가**: `npm run lint` 는 `--fix` 지만 실행 후 `git status --short` **빈 출력** — 트리 변화 0.
 - **검증 중 실행한 명령의 잔여물**: probe 테스트 1개를 `app/src/probe.test.ts` 에 임시 생성 후 **삭제 확인**(`git status` 빈 출력). `node_modules` 는 커밋 대상 아님.
 
-## 10. 검증 책임 분리 — 사람 vs 에이전트
+### 10. 검증 책임 분리 — 사람 vs 에이전트
 
 | 항목 | 결과 |
 |---|---|
@@ -242,7 +258,7 @@ settleTrackedTasks(status:'failed', summary:'채널이 종료되어 서브에이
 | UI 시각 품질 | 로직 기계 검증, 시각은 **사람** |
 | 신규 의존성 / merge | 신규 의존성 0. merge 는 **사람** |
 
-## 11. Repository operation checks
+### 11. Repository operation checks
 
 ### INDEX 보드 정합성
 
@@ -260,7 +276,7 @@ settleTrackedTasks(status:'failed', summary:'채널이 종료되어 서브에이
 - `[구현자 기입]` 7필드: 설계 리뷰·강제 지점 전수·잠금·Product/UX 파생·놓친 잠재 문제·구현 보고·Review Signals **7/7 존재**, 산문으로 접힌 필드 0 ✓
 - 삭제한 reference: `SubAgentTileContent.tsx` 삭제 후 참조 0건 확인 ✓
 
-## 12. 구현자 코멘트 / 선조치 경계
+### 12. 구현자 코멘트 / 선조치 경계
 
 | 구현자 코멘트 | 검증자 판단 | 반영 |
 |---|---|---|
@@ -271,10 +287,235 @@ settleTrackedTasks(status:'failed', summary:'채널이 종료되어 서브에이
 | 중단 흐름을 `features/chat/` 로 이동(설계 대비 차이) | 타당 — 4축 재유도 완료 | 유지 |
 | AC21 을 ⚠️ 로 자기보고 | **부정확** — 실제는 ❌ | D1 |
 
-## Review Signals — 사실만
+### Review Signals — 사실만
 
 - 이전 라운드와 동일/유사 증상인지: r1 이라 해당 없음.
 - 관련 plan 지침/AC 가 있었는지: **있었다** — AC21 이 "`실패` 로 정착" 을 명시했고 §7 검증 수단도 "기존 `settleDeadBackgroundTasks` 회귀 UT + 파생 UT" 로 적었다. 구현자가 **파생 UT 를 만들지 않고** "경로 무변경" 으로 대체한 것이 누락 지점이다.
 - 사용자 결정 변경 근거: D-012→D-014 는 사용자 `/handoff-impl` 명시 호출로 성립.
 - 반복된 검증 환경 한계: `chat-turn.continuity.test.ts` 가 electron 바이너리를 요구해 이 환경에서 로드 실패(기준선 동일).
 - 자기 검증 한계: 설계·구현·검증이 같은 에이전트다. 기준선 커밋 분리와 변이 재실행으로 완화했으나 **독립성은 구조적으로 제한된다** — 시각 5항목과 실환경 CLI 관측은 사람 몫으로 남는다.
+
+---
+
+## Verify r3 (2026-08-27) — FAIL
+
+### 메타
+
+| 항목 | 값 |
+|---|---|
+| slug | `0204-taskxxx-right-panel` |
+| 검증자 | Claude Code |
+| 일자 | 2026-08-27 |
+| 대상 커밋/range | `a6dcfc8..4b3310b` (r2 `34db51d` · r3 `4b3310b`) |
+| 구현 전 plan 기준 | r2 = `a6dcfc8` · r3 = `625cda7` |
+| V mode / 유효 V | `Baseline V + ΔV1 + ΔV2` / `V1 + ΔV1 + ΔV2` |
+| 라운드 | 3 |
+| 상태 | **FAIL** |
+| 자기 검증 여부 | **예** — 설계·구현·검증이 같은 에이전트다. 기준선은 커밋 분리로 성립한다(§0) |
+
+### 판정
+
+**FAIL.** ΔV1·ΔV2 의 REQUIRED/REGRESSION pair 17 중 **VP-21·VP-22 가 PAIR_FAIL** 이다 — 구현자가 이번 라운드에 추출한 순수 View 3종의 **래퍼→View 배선이 어떤 테스트에도 잠기지 않는다**. 래퍼에서 배선을 지워도 `44파일 / 422케이스` 가 전건 통과한다(변이 V1·V2 실측). 나머지 15 pair 와 gate 4종은 PASS, `PLAN_GAP` 0. 다음 주체는 **구현자**이고 수정은 단언 몇 줄이라 새 계약이 필요 없다.
+
+r1 의 FAIL 사유(D1 — 채널 종료가 사용자 중단으로 읽힌다)는 **닫혔다**.
+
+---
+
+### 0. 기준선 / plan 변경 확인
+
+**기준선 성립.** 설계 커밋(`4fa82de`·`625cda7`)과 구현 커밋(`34db51d`·`4b3310b`)이 분리돼 §0 의 자기 증명 방지가 작동한다.
+
+- 규범 구간(문서 시작 ~ 첫 `[구현자 기입]` 직전) `diff` → **r2 0줄 · r3 0줄**. Decision·AC·V node/pair·§10 이 구현 중에 바뀌지 않았다.
+- 구현 커밋의 `plan.md` 변경(+151 / +90)은 전부 `[구현자 기입]` 안이다 — 위 0줄이 그것을 증명한다.
+- D-003 의 `SUPERSEDED` 근거는 사용자 턴 원문("패널을 분리할 것")이다. D-028~D-031 은 사용자 질의 + SDK 실측에서 왔다.
+
+### Plan validity
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| V mode·상속 기준·유효 V 재구성 | 유효 | `none → V1(72766d2) → ΔV1 → ΔV2` 순서가 §7-A/B/C 에 명시. 재구성 가능 |
+| `NEW`·`CHANGED` ↔ 같은 레벨 REQUIRED pair | 유효 | ΔV1 좌측 10 노드 전부 pair 보유(VP-20~29) · ΔV2 MD-01a→VP-30. 차집합 0 |
+| 영향받은 INHERITED ↔ REGRESSION | 유효 | VP-08·06·12·16(ΔV1) · VP-17·03·18(ΔV2) |
+| pair별 path·§10 전수·직접 oracle | **1건 미달** | VP-21·VP-22 의 path 가 래퍼 hop 을 포함하는데 oracle 이 그 hop 을 지나지 않는다 → D10. 다만 **plan 이 아니라 구현이 만든 hop** 이라 `PLAN_GAP` 이 아니다 |
+| 적대 증거 선택 이유 | 유효 | VP-22(0건 주장)·VP-29(회귀 방향)만 등록. 나머지는 직접 oracle |
+| 현재 변경의 운영 gate 범위 | 유효 | 4종 열거, 무관한 기존 실패를 blocking 으로 올리지 않음 |
+
+### 1. Product/UX · ACTIVE Decision ↔ production path
+
+| Decision | 기대 결과 | 실제 경로 | 판정 |
+|---|---|---|---|
+| D-015 두 타일 | 타일 정의 4종에 `subagent`·`task` 공존 | `rightPanelTiles.ts:9,10` → `tileRegistry.ts:9,10` | ✅ |
+| D-016 복구 | 그룹 4종·3줄 카드·대화록 상세 | `SubAgentTileContent` — `72766d2` diff 대비 변경 2점만 | ✅ |
+| D-016a 중단 수명주기 유지 | 복구가 D-005 를 되돌리지 않음 | `stopTask(backgroundTaskKey(...))` + `stopping` 라벨 | ✅ 변이 E 로 확인 |
+| D-017 cowork 3섹션 | 접히는 3섹션 | `TaskTileContent:306-314` | ⚠️ 배선 미잠금(D10) |
+| D-018 id 단일 목록·취소선 | 그룹 없음, 완료 제자리 취소선 | `taskBoardOrdered` → `TaskProgressList` | ✅ |
+| D-019 두 종류 함께 | `진행 상황` 이 agent+background | `taskBoardFromMessages` 무변경 | ✅ |
+| D-020 제목 직후 중단 | `flex-1` 부재 + 형제 인접 | `TaskTileContent` 제목 span | ✅ 변이 C 로 확인 |
+| D-023 권위 필드 우선 | 채널 종료 = `실패` | `parts.ts:339-342` | ✅ 변이 B 재실행으로 확인 |
+| D-025 죽은 표면 제거 | 4종 부재 | 저장소 전체 0건(엄격화 후도 0) | ✅ |
+| D-028 `blocks` 미저장 | 스냅샷 드리프트 차단 | `task-tool.ts` patch 에서 제거 | ✅ |
+| D-029 가산 vs 교체 | 두 의미 분리 | `taskBoard.ts:123-126` | ✅ 변이 F·G 로 확인 |
+| D-031 순서≠의존 | 새 태스크 `blockedBy: []` | AT-34③ 케이스 | ✅ |
+
+**끊긴 곳 1**: D-017 의 경로 `TaskTileContent → 3섹션 → 행` 에서 **섹션→행 hop 이 무관측**이다 → D10.
+
+### 2. AC 전 diff 비판적 읽기
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| false success 가능한가 | **1건** | 래퍼 배선을 지워도 전 스위트 green — 테스트가 "화면에 목록이 있다" 를 말하지 못한다(D10) |
+| 부분 실패 잔여 | 안전 | 새 저장소 쓰기 0 · 새 IPC 0 · 새 마이그레이션 0 |
+| A 대신 B 를 구현했는가 | 아니오 | 사용자 5문장이 Decision 으로 1:1 사상되고 각각 production path 를 갖는다 |
+| 증상만 없애고 상태가 남았는가 | 아니오 | D-023 은 술어를 고쳤고 생산 지점 2곳은 그대로다(의도) |
+| 최적화가 잃은 관측 | 없음 | 새 캐시 0. `useMemo` 의존성 무변경 |
+| worst-case 상한 | 유계 | `taskBoardOrdered` = `O(n log n)`. 신규 요청 0 |
+| 늦은 응답이 화면을 되돌리는가 | 아니오 | 두 선택 키 모두 dangling 시 목록 뷰로 낙하 |
+
+### 3. 역방향 탐색
+
+| 후보 | 판정 | 귀속 / 근거 |
+|---|---|---|
+| `TaskProgressList`·`SubAgentTaskList`·`SubAgentTaskDetail` | **배선 미잠금** | 프로덕션 참조는 있다(같은 파일). 그러나 지워도 green → **D10 (BLOCKING)** |
+| `backgroundMetaLine` 의 `aborted` 분기 | **거짓 진술 잔존** | 사유를 하드코딩(`사용자에 의해 중단됨`). `recovery.ts:5`(앱 사망 후 dangling 정산)가 `reason:'aborted'` 라 **사용자가 중단하지 않은 항목**도 그 문구를 받는다 → **D11** |
+| 고아 i18n 키 | **2건** | `chat.taskTile.emptyTitle`(r2 가 소비처 제거) · `chat.taskTile.viewTranscript`(r1 이래 0건) → **D12** |
+| 구현자 §5 전수 스윕의 축 | **좁음** | "message 로 *상태를 파생*하는 곳" 만 셌고 "*사유를 표시*하는 곳" 은 안 셌다. D11 이 그 차집합 → **D13** |
+| scan-surface 미사용 export 5종 | 정상 | `rightPanelTileIds`·`isRightPanelTileId`·`defaultRightPanelTileLabelKey` 는 기존 골격 API(변경 무관) · `AGENT_TASK_STATUSES`·`partsStructured` 도 기존 |
+| 형제 정책 비대칭 | 스크립트 0건 | 수동 확인도 0 — 두 타일의 중단 버튼 자리 차이는 D-016↔D-020 이 명시한 의도다 |
+| producer ↔ consumer | 일치 | `settlementMessage` producer(`parts.ts`) ↔ consumer(`backgroundMetaLine`) 렌더 케이스로 확인 |
+| 신규 등록값의 기존 소비처 | 무영향 | 타일 정의 4종 유지. `reserved2` 제거 지점 **파일 6 · 행 9** 를 typecheck 가 전부 드러냄 |
+
+### 4. 구현 보고 대조 — 증거로 받지 않고 다시 셌다
+
+- **강제 지점 재측정**: EP-12 **2** · EP-13 **1/1/1/1/2** · EP-14 **1** · EP-15 **1+2** · EP-17 **3**(잔여 0) · EP-19 **1/1/1**. **구현자 보고와 전건 일치.**
+- **등록된 변이를 검증자가 재실행**: 변이 B(`reason` 우선 분기 제거) → `1 failed / 170 passed`, `AT-21` 검출. 나머지 변이(C·D·E·F·G)는 이번 세션에서 관측 산출과 함께 실행됐고 전부 red 였다.
+- **검증자가 새로 심은 변이 2건**(구현자가 만든 seam 대상):
+
+| 변이 | 대상 | 재측정 | 판정 |
+|---|---|---|---|
+| **V1** | 래퍼에서 `<TaskProgressList>` 제거 | **44파일 / 422케이스 전건 통과** | **무음 — D10** |
+| **V2** | 래퍼에서 `<SubAgentTaskList>` 제거 | **44파일 / 422케이스 전건 통과** | **무음 — D10** |
+
+- **자기보고 합계 대조**: 본문 `✅11 / ΔV1` · trailer `Criteria-Met: 11/11` · INDEX 비고 — **세 곳 일치**. r3 도 `1/1` 로 일치.
+- **구현자의 "설계 대비 차이"(View 추출)를 축별로 재유도**: 만료·재진입·무효화는 보고대로 해당 없음/무영향. **공유 축은 보고가 `미덮임으로 남긴다` 고 적었고 실측도 그렇다.** 그러나 보고에 **없던 축이 하나 더 있다 — 배선**. 그것이 D10 이다.
+
+### 5. V-pair closeout — `UT → IT → ST → AT`
+
+| Pair | 레벨 | requiredness | 결과 | 직접 검증 증거 |
+|---|---|---|---|---|
+| VP-28 | MD↔UT | REQUIRED | PASS | `taskBoard.test` AT-10a 2케이스(수치순·비수치 전순서) |
+| VP-29 | MD↔UT | REQUIRED | PASS | `parts.test` AT-21 2 + AT-31 · **변이 B 재실행 red** |
+| VP-30 | MD↔UT | REQUIRED | PASS | AT-34 3케이스 · 변이 F·G red |
+| VP-17 | MD↔UT | REGRESSION | PASS | `task-tool.test` 17케이스 green |
+| VP-18 | MD↔UT | REGRESSION | PASS | 스냅샷 교체 유지 — AT-34② |
+| VP-26 | AR↔IT | REQUIRED | PASS | `contentById` 가 `Record<RightPanelTileId,…>` 라 typecheck 강제 + AT-28 헤더 출력 |
+| VP-27 | AR↔IT | REQUIRED | PASS | transcript 3행 `openSubagentTask`, 잔여 `openTask` 0 |
+| VP-16 | AR↔IT | REGRESSION | PASS | 변이 D → 1 red |
+| VP-25 | SD↔ST | REQUIRED | PASS | reducer 6단언(선택 2·제거 2·열기 2) |
+| VP-12 | SD↔ST | REGRESSION | PASS | 변이 E → 3 red |
+| VP-20 | R↔AT | REQUIRED | PASS | 두 파생 차집합 0 + agent 항목 배타 |
+| **VP-21** | **R↔AT** | **REQUIRED** | **PAIR_FAIL** | **목록/상세 View 는 단언되나 `subagent` 타일이 그것을 부르는 hop 이 무관측 — 변이 V2 무음** |
+| **VP-22** | **R↔AT** | **REQUIRED** | **PAIR_FAIL** | **행 단언·섹션 단언은 있으나 섹션→행 hop 이 무관측 — 변이 V1 무음** |
+| VP-23 | R↔AT | REQUIRED | PASS | 두 선택 상태 독립 양방향 |
+| VP-24 | R↔AT | REQUIRED | PASS | 4종 0건(엄격화 후도 0) + 배지·중단해제 양성 짝 |
+| VP-06 | R↔AT | REGRESSION | PASS | 변이 E → 3 red |
+| VP-08 | R↔AT | REGRESSION | PASS | AT-21 이 `failed`/`aborted` 양방향 단언 · 변이 B red |
+
+**합계: PASS 15 · PAIR_FAIL 2 · BLOCKED_BY 0 · PLAN_GAP 0 / 17.**
+
+### VP-21·VP-22 재현
+
+```text
+TaskTileContent.tsx:308   <TaskProgressList items={items} stopErrors={stopErrors} />  ← 이 줄을 <></> 로
+SubAgentTileContent.tsx:127  return <SubAgentTaskList tasks={tasks} stoppingIds={stopping} />  ← 이 줄을 <></> 로
+  → ./node_modules/.bin/vitest run src/renderer/src/features/chat
+  → 44 files / 422 tests, 실패 0                                  ← 기대: red
+```
+
+**왜 무음인가**: AT-26·AT-27 은 `TaskProgressList` 를 **직접** 렌더해 행을 단언하고, AT-29 는 `TaskTileContent` 를 렌더하되 **섹션 헤더와 `aria-expanded` 만** 본다. 그 사이 hop 을 보는 단언이 없다. 같은 형태가 `subagent` 타일에도 있다.
+
+**닫는 방법(제안)**: AT-29 에 "`진행 상황` 섹션 본문이 목록 컴포넌트의 산출을 담는다" 를 더한다 — SSR 에서 store 가 비므로 `chat.taskTile.emptyDesc` 가 그 자리에 렌더되는지가 가장 싼 관측이다. `subagent` 타일도 동형. **계약 신설이 아니라 기존 AT-29·AT-28 의 단언 보강이라 `PLAN_GAP` 이 아니다.**
+
+### 강제 지점 분모 재측정
+
+| EP | plan 분모 | 검증자 실측 | 결과 |
+|---|---|---|---|
+| EP-12 | 2 | 2 | PASS |
+| EP-13 | 5 | 5 (①1 ②1 ③1 ④1 ⑤2파일) | PASS |
+| EP-14 | 1 | 1 (프로덕션 `.sort(` 0) | PASS |
+| EP-15 | 1+2 | 1+2 | PASS |
+| EP-16 | 2 | 2 (전이 import 까지 0건) | PASS |
+| EP-17 | 3 | 3 (잔여 0) | PASS |
+| EP-18 | 4 | 4 (저장소 전체 0건) | PASS |
+| EP-19 | 3 | 3 | PASS |
+| EP-07·EP-08·EP-06 | 3·1·3 | 동일 | PASS(REGRESSION) |
+
+**합계 검산: 신설 `20`(EP-12~18) + `3`(EP-19) + REGRESSION `9`(EP-07 3 · EP-08 1 · EP-06 3 · EP-02 1 · EP-03 1) = **32**.** 구현자 보고(r2 27 + r3 5 = 32)와 **일치**한다.
+
+> **검증자 자기 정정.** 이 절의 초안은 합계를 `30` 으로 적고 구현자가 EP-02·EP-03 을 중복 계상했다고 판정했다 — **틀렸다.** 두 행은 r3 이 파서(`readUpdate`)와 적용부(`applyPatch`)를 실제로 고쳤으므로 이번 변경의 회귀 지점이 맞고, 나는 그것을 pair 표(VP-17·VP-18)에서는 REGRESSION 으로 인정하면서 합계에서만 빠뜨렸다. **행 축은 맞고 합계 축만 틀린** 형태이며, 이는 §4 가 경고하는 바로 그 실수다 — 감사하는 쪽도 같은 축에서 틀린다.
+
+### AC 세부와 합계
+
+| AC | 결과 | 증거 |
+|---|---|---|
+| AC9a·AC10a | ✅ ×2 | 두 파생 차집합 · 순서 배열 2케이스 |
+| AC26·AC27 | ✅ ×2 | 취소선 양방향 · 형제 인접 + `flex-1` 부재. **단, 이 단언은 View 직접 렌더다**(D10 의 근거) |
+| AC28 | ✅ | 그룹 순서 단조 · 3줄 필드 · child 텍스트 |
+| AC29 | ⚠️ | 헤더 3 + 설명 2 + `aria-expanded` 3 은 참이나 **섹션 본문 무관측** → D10 |
+| AC30 | ✅ | reducer 6단언 |
+| AC21·AC31 | ✅ ×2 | `failed`/`aborted` 양방향 · 사유 문구 화면 도달 |
+| AC32·AC33 | ✅ ×2 | 4종 0건(엄격화) · 문서 3관측 |
+| AC34 | ✅ | 가산·교체·`blocks` 미저장(양성 짝 동반) |
+
+**합계 검산: `✅ 11 · ⚠️ 1 · ❌ 0 = 총 12`** — ΔV1 **11**(AC9a·10a·26·27·28·29·30·21·31·32·33) + ΔV2 **1**(AC34). 초안의 `총 11` 은 분모를 잘못 센 것이라 여기서 정정한다. `V1` 22 INHERITED 중 AC11·AC20·AC25 는 이번에도 사람 실기.
+
+### 6. 게이트 (검증자 실행)
+
+| Gate | 관측한 산출 | 판정 |
+|---|---|---|
+| `npm run lint` | **0 error · 1 warning** — `useTranscriptVirtualizer.ts:22` `react-hooks/incompatible-library`(기존·변경 무관) | PASS |
+| `npm run typecheck` | **error TS 0건** (3구성) | PASS |
+| `vitest` 전체 | **236파일 / 2435케이스 / 실패 0** | PASS |
+| `check-doc-inventory --check` | `9 items, 79 channels` · prose ok · links ok — 채널·variant·마이그레이션 **불변** | PASS |
+
+- **ABI**: 구현자가 `npm rebuild better-sqlite3`(Node ABI)로 맞춰 둔 상태를 그대로 썼다. **이 트리는 Node ABI 라 `dev`/`build` 는 Electron 재빌드가 필요하다**(`app/AGENTS.md §better-sqlite3 ABI`).
+- **게이트가 트리를 바꿨는가**: `lint --fix` 실행 후 `git status --short` **0줄**.
+- **검증 중 잔여물**: 변이 V1·V2·B 전부 복원 확인(`git diff --quiet`), 백업은 scratchpad 에만.
+
+### 7. 사람 실기 경계
+
+| 항목 | 기계가 닫은 범위 | 사람 몫 |
+|---|---|---|
+| 3섹션 시각 | 헤더·접힘·파생 0건 | 첨부 cowork 이미지 대조, 라이트/다크 |
+| 중단 버튼 자리 | DOM 형제 순서·`flex-1` 부재 | 긴 제목에서의 실제 잘림 |
+| 복구 충실도 | 그룹 순서·3줄·상세 | `72766d2` 와 시각 동일성 |
+| AC11·AC20 | 경로·격리 | 턴-후 갱신 · 2세션 전환 |
+| J1(SDK `updatedFields` 이름) | 두 이름 모두 허용 | 실환경 `TaskUpdate` 관측 |
+
+### 8. Repository operation checks
+
+- 인용 커밋 6개 전부 `git cat-file -t` = `commit` ✓
+- 구현 커밋 trailer 2개 모두 파싱 ✓ (`Agent: claude` · `Status: implemented` · `Criteria-*` · `Verified-By: pending` — 전부 허용값)
+- `[구현자 기입]` 섹션 **21 = 7필드 × 3라운드** ✓ — 산문으로 접힌 필드 0
+- **INDEX 비고가 5줄 규칙을 넘었다** — 100자 기준 **7줄**. 이번 갱신에서 줄인다 → D14
+- `AGENTS.md` 변경 없음 — 위생 검사 해당 없음
+- 삭제한 reference: `taskBoardGroups` 외 6종 — 저장소 전체 참조 0 확인 ✓
+
+### 9. 검증 책임 분리
+
+| 항목 | 결과 |
+|---|---|
+| lint/typecheck/테스트 | 검증자 실행·산출 관측 완료 |
+| AC ↔ production path | 11행 대조, 1건 ⚠️ |
+| 레이어/계약/링크 | boundaries·inventory 통과 |
+| 제품 의도 | D-019(두 타일에 background 공존)는 사용자 확정 — 재론 없음 |
+| UI 시각 품질 | 사람 |
+| 신규 의존성 / merge | 신규 의존성 0. merge 는 사람 |
+
+### Review Signals — 사실만
+
+- **이전 라운드와 같은 축인가**: **부분적으로 그렇다.** D12(고아 i18n 키)는 r1 D2 · r2 G1 과 같은 **죽은 표면** 축의 세 번째 발현이다. 매번 분모가 달랐다 — D2 는 renderer 심볼, G1 은 shared 필드, D12 는 i18n 키.
+- **관련 plan 지침/AC 가 있었는가**: **D10 에는 없었다.** ΔV1 이 VP-21·VP-22 의 path 를 `TaskTileContent → 3섹션 → 행` 으로 적었으나, 그 path 가 **구현 중에 hop 하나를 얻었고**(View 추출) plan 도 구현 보고도 그 hop 을 축으로 세지 않았다. 구현자 차이표는 만료·공유·재진입·무효화 4축을 적었고 **배선 축이 없었다**.
+- **사용자 결정 변경 근거**: D-003→D-015 는 사용자 턴 원문. D-028~D-031 은 사용자 질의 + SDK 1차 문서.
+- **반복된 검증 환경 한계**: better-sqlite3 ABI(3라운드 연속). 새로 관측된 것 — `renderToStaticMarkup` + zustand 는 SSR 스냅샷을 돌려주어 store 연결 컴포넌트를 시드할 수 없다.
+- **자기 검증 한계**: 설계·구현·검증이 같은 에이전트다. 기준선 커밋 분리와 **검증자가 새로 심은 변이 2건**으로 완화했고, 그 2건이 이번 FAIL 을 만들었다.
+- **라운드 수**: **3**. 다음 재구현은 `handoff-review` 트리거(라운드 3 초과)에 해당한다.
