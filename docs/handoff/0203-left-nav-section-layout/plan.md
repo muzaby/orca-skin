@@ -583,6 +583,16 @@ sessionApi.list / projectApi.listSessions
 
 ## [검증자 기입] 파생 이슈
 
+> r1 판정 원문은 [`verify.md`](verify.md). `PLAN_GAP` 3건이 있으므로 다음 주체는 **설계자**다 — 구현 코드는 이번 라운드에 고칠 것이 없다.
+
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | (검증 턴에서 채운다) | — | — | — | — |
+| G2 | `NEW` 왼쪽 노드 3개(`MD-01`·`MD-02`·`R-07`)에 같은 레벨 `REQUIRED` pair 가 없다 — NEW 13 − paired 10 = 차집합 3 | verify r1 · §7-A pair registry / `docs/handoff/AGENTS.md §Baseline V · Delta V · pair` | 세 pair 행을 ΔV1 로 신설 | **PLAN_GAP** (root) | open |
+| G1 | VP-05·06·07 의 oracle 이 `placementOf` 반환값만 본다 — AC5~AC7 의 "구획에서 사라진다"를 닫지 못한다. M1: EP-1 소거 후 renderer 478케이스·typecheck·eslint 전부 초록 | verify r1 · VP-05·06·07 · AT-05~07 · §10 EP-1~EP-3 | MD-01↔UT-01 pair 를 세우고, 세 구획 파생을 순수 셀렉터로 내리거나 렌더 하네스를 결정 | **PLAN_GAP** (root=G2) | open |
+| G3 | AT-02 의 유일한 oracle 이 사람 실기인데 대상은 `filter + sort` 순수 파생이다 | verify r1 · VP-02 · AT-02 / `handoff-verify §5` | §11 에 순수 seam 을 지정하거나 실기 유지 근거를 명시 | **PLAN_GAP** (root=G2) | open |
+| D1 | INDEX 0203 비고가 9줄로 5줄 상한 초과 | verify r1 · 현재 산출물 gate(`§산출물 문장 규칙 3`) | 5줄 이내로 축약, 상세는 문서 링크 | NON_BLOCKING | **closed** — 검증 커밋에서 정정 |
+| D2 | 프로젝트 하위 조회 실패가 `sessions.empty` 로 보여 빈 프로젝트와 구분되지 않는다 | verify r1 · Part I §5 — 상태 전이표에 행 없음 | 실패 표시 추가 여부는 제품 결정(전이표 행이 하나 는다) | NON_BLOCKING | open |
+| D3 | 고정 프로젝트의 새 대화가 어느 구획에도 안 보일 수 있다 | verify r1 · plan §17 R-1 | `initSessions` 가 이미 조회된 버킷 membership 도 갱신 | NEXT_HANDOFF | open |
+| D4 | 모든 대화가 고정된 프로젝트는 하위가 "대화 없음"으로 보인다 | verify r1 · D-005 의 부수 결과 | 문구 분기 또는 고정 대화 요약 | NEXT_HANDOFF | open |
+| D5 | `listSessions(limit = 50)` 밖의 고정 대화는 재부팅 후 "고정됨"에 안 나타난다 | verify r1 · 비귀속(`cc4cde5` 에서도 동일, 회귀 아님) | main 쿼리가 고정 세션을 LIMIT 밖에서도 반환 | NEXT_HANDOFF | open |
+| D6 | `SIDEBAR_DEFAULT_WIDTH` 미참조 | verify r1 · 비귀속(이번 변경 이전부터) | 기록만 | NON_BLOCKING | open |
