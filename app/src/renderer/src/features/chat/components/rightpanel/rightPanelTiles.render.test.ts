@@ -12,7 +12,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { SubAgentTaskDetail, SubAgentTaskList } from './SubAgentTileContent'
+import { SubAgentTaskDetail, SubAgentTaskList, SubAgentTileContent } from './SubAgentTileContent'
 import { TaskProgressList, TaskTileContent } from './TaskTileContent'
 import { childMessageForParentToolRunId, subagentTasksFromMessages } from '../../lib/parts'
 import {
@@ -128,6 +128,11 @@ describe('작업 타일 — cowork 3섹션 (AT-29)', () => {
     expect(html).toContain('진행 상황')
     expect(html).toContain('출력')
     expect(html).toContain('컨텍스트')
+    // 래퍼 → 진행 상황 View 배선까지 지난다. 이 단언은 TaskProgressList 를 래퍼에서
+    // 제거하면 실패해야 한다(verify r3 D10 / V1).
+    expect(html).toContain(
+      'Claude 가 Task 를 만들거나 백그라운드 작업을 시작하면 여기에 표시됩니다.'
+    )
     expect(html).toContain('이 작업 중에 생성된 파일을 확인하고 열 수 있습니다.')
     expect(html).toContain('이 작업에 사용된 도구와 참조된 파일을 추적합니다.')
     // 섹션은 접힘 가능하다 — 기본 펼침.
@@ -189,6 +194,14 @@ describe('작업 타일 — 중단 버튼 자리 (AT-27 · D-020)', () => {
 })
 
 describe('백그라운드 작업 타일 — 복구 (AT-28 · D-016)', () => {
+  it('빈 상태에서도 래퍼가 목록 View의 제목과 설명을 그린다', () => {
+    const html = renderToStaticMarkup(createElement(SubAgentTileContent))
+    // 래퍼 → 목록 View 배선의 양성 관측. SubAgentTaskList 를 래퍼에서 제거하면
+    // 두 문구가 함께 사라져야 한다(verify r3 D10 / V2).
+    expect(html).toContain('백그라운드 작업이 없습니다')
+    expect(html).toContain('Task 도구 호출이 감지되면 여기에 표시됩니다.')
+  })
+
   it('상태 그룹을 진행 중 → 완료 → 중단됨 → 실패 순으로 그린다', () => {
     const html = renderSubagentList(
       messages(
