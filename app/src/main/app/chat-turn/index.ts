@@ -24,9 +24,9 @@ import { abortTurn } from '../../features/chat/abort'
 import {
   settleOpenToolRuns,
   settleSubagentTask,
-  settleTrackedTasks,
-  stopLiveSubagent
+  settleTrackedTasks
 } from '../../features/chat/settle'
+import { stopSubagentTask } from '../../features/chat/stop-subagent'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import { sendChatEvent } from '../../infra/ipc/send'
 import { getLogger, runWithLogContext } from '../../infra/log'
@@ -179,33 +179,16 @@ export function registerChatHandlers(deps: ChatDeps): void {
   })
 
   // 서브에이전트(Task) 단위 중단 — turn 전체가 아니라 한 Agent 도구 호출만 멈춘다(turn 계속).
-  // 클릭 즉시 부모/child transcript 를 aborted 로 낙관 정착하고, SDK task_notification(stopped)이
-  // 도착하면 같은 toolUseId 로 권위 메타를 보강한다. stopTask 는 task_id 기반 제어 신호일 뿐
-  // UI 상태 SSOT 는 합성 tool_result 다.
+  // 흐름(요청 → 확정 대기 → watchdog)은 `features/chat/stop-subagent.ts` 가 소유한다 —
+  // 여기서는 배선만 한다. 요청 실패는 그대로 reject 되어 renderer 가 '진행 중' 으로 복구한다.
   handle(CHANNELS.chatStopSubagent, StopSubagentSchema, 'reject', async (req): Promise<void> => {
     const turn = supervisor.getBySession(req.sessionId)
-    if (!turn) return
-    const taskId = turn.subagentTaskIds.get(req.toolUseId)
-    const subagentType = turn.subagentTypes.get(req.toolUseId)
-    if (subagentType) turn.blockedSubagents.add(subagentType)
-    turn.stoppedSubagents.add(req.toolUseId)
-    const trackerSessionId = turn.dbSessionId ?? req.sessionId
-    // per-task background 관측(0143) — settled(추적 해제)가 관측까지 지우므로 **해제 전에** 읽는다.
-    const alreadyBackground = backgroundTasks.isAsyncLaunched(trackerSessionId, req.toolUseId)
-    // 0136 — 사용자 중단은 즉시 추적 해제(아래 합성 settled 는 버스 직행이라 coordinator 의
-    // 추적 훅을 지나지 않는다). 늦게 오는 SDK task_notification(stopped)의 해제는 멱등.
-    backgroundTasks.settled(trackerSessionId, req.toolUseId)
-
-    // 사용자 자기 행위의 통지는 소음(0143 설계 결정) — background 플래그를 싣지 않아
-    // subagent_notice 미생성. 행 상태('중단')와 패널이 이미 결과를 보여준다.
-    settleSubagentTask(turn, emitTurn, {
-      type: 'subagent.task',
-      sessionId: trackerSessionId,
-      toolUseId: req.toolUseId,
-      phase: 'settled',
-      status: 'stopped'
+    // 턴이 없으면 멈출 대상이 없다 — 조용히 성공으로 끝내면 renderer 가 '중단 중' 에 갇힌다.
+    if (!turn) throw new Error('subagent-stop: no active turn for session')
+    await stopSubagentTask(turn, req, {
+      tracker: backgroundTasks,
+      settle: (t, ev) => settleSubagentTask(t, emitTurn, ev),
+      onWatchdog: (info) => getLogger().child('chat').warn('chat.subagent.stop.watchdog', info)
     })
-
-    await stopLiveSubagent(turn.live, req.toolUseId, taskId, alreadyBackground)
   })
 }

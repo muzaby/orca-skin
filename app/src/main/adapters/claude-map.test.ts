@@ -251,6 +251,98 @@ describe('claudeToNormalized', () => {
     ])
   })
 
+  // 0204 §10 EP-01 — 구조화 출력은 TaskXXX 결과에만 실린다. `result` 는 모델용 wire content 라
+  // TaskCreate 의 task.id 를 담지 않으므로, 이 동행이 없으면 작업 타일이 목록을 만들 수 없다.
+  it('TaskXXX tool_result 에 SDK 구조화 출력을 structuredOutput 으로 동행시킨다 (0204)', () => {
+    const c = ctx()
+    const structured = { task: { id: '3', subject: '테스트 작성' } }
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'tool_use', id: 't1', name: 'TaskCreate', input: { subject: '테스트 작성' } }
+          ]
+        }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        tool_use_result: structured,
+        message: {
+          content: [{ type: 'tool_result', tool_use_id: 't1', content: 'ok', is_error: false }]
+        }
+      }),
+      c
+    )
+    expect(out).toEqual([
+      {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 't1',
+        result: 'ok',
+        isError: false,
+        structuredOutput: structured
+      }
+    ])
+  })
+
+  it('Task 도구가 아닌 결과에는 structuredOutput 을 싣지 않는다 (0204 EP-01)', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'tool_use', id: 't1', name: 'Read', input: { file_path: 'a.md' } }]
+        }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        tool_use_result: { file: { content: 'big payload' } },
+        message: {
+          content: [{ type: 'tool_result', tool_use_id: 't1', content: 'a.md', is_error: false }]
+        }
+      }),
+      c
+    )
+    expect(out[0]).not.toHaveProperty('structuredOutput')
+  })
+
+  it('tool_result 블록이 여러 개면 귀속이 모호해 structuredOutput 을 싣지 않는다 (0204)', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'tool_use', id: 't1', name: 'TaskCreate', input: { subject: 'a' } },
+            { type: 'tool_use', id: 't2', name: 'TaskCreate', input: { subject: 'b' } }
+          ]
+        }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        tool_use_result: { task: { id: '1', subject: 'a' } },
+        message: {
+          content: [
+            { type: 'tool_result', tool_use_id: 't1', content: 'ok', is_error: false },
+            { type: 'tool_result', tool_use_id: 't2', content: 'ok', is_error: false }
+          ]
+        }
+      }),
+      c
+    )
+    expect(out.every((ev) => !('structuredOutput' in ev))).toBe(true)
+  })
+
   it('완료(비-async) tool_use_result 는 매핑하지 않고 wire content 를 유지한다 (0136)', () => {
     const out = claudeToNormalized(
       sdk({

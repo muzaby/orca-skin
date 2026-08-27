@@ -1,0 +1,689 @@
+# Plan — 0204-taskxxx-right-panel
+
+> 절차 정본은 [`handoff-plan/SKILL.md`](../../../.agents/skills/handoff-plan/SKILL.md), 상태 머신은 [`docs/handoff/AGENTS.md`](../AGENTS.md).
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| slug | `0204-taskxxx-right-panel` |
+| 작성자 | Claude Code |
+| 일자 | 2026-08-27 |
+| 매핑 | 없음 |
+| 상태 | DRAFT → READY |
+| V mode | `Baseline V` |
+| 기준 V | `none` — 0136·0143 은 V 규약 이전 handoff 라 상속할 명시 V node 가 없다 |
+| 이번 V revision | `V1` |
+| 유효 V | `V1` |
+
+---
+
+# Part I — Product & UX Contract
+
+## 1. Context / 목표
+
+- 해결하려는 문제: Claude Agent SDK 의 `TaskCreate`/`TaskUpdate`/`TaskList`/`TaskGet` 호출이 transcript 의 일반 tool call 로만 흐른다 — 세션의 Task 목록과 현재 상태를 지속적으로 볼 곳이 없다.
+- 완료 후 달라지는 것: 우측 패널 **`작업` 타일 하나**가 현재 세션의 일반 Task(TaskXXX)와 background Task 를 같은 상태 그룹으로 보여주고, background Task 는 거기서 개별 중단할 수 있다.
+- 성공을 사용자 관점에서 한 문장으로: 에이전트가 Task 를 만들거나 상태를 바꾸면 사용자가 아무 조작 없이 우측 패널에서 그 변화를 본다.
+
+## 2. 사용자 의도 / 요구 출처
+
+| 구분 | 내용 | 출처 |
+|---|---|---|
+| 명시 요구 | 「TaskXXX GUI 상호작용 시나리오 명세」 §1~§3 전문 (범위=6개 도구, 우측 패널 지속 표시, background 중단, 완료 통지, 세션 귀속, 채널 종료 처리) | 사용자 턴 (2026-08-27) |
+| 명시 요구 | "task 기능은 우측 패널에서 상호작용할 수 있어야 한다" · "현재 프로젝트의 디자인 룰 및 시각효과와 통일성이 있어야 한다" | 같은 턴 |
+| 명시 요구 | 첨부 `cowork_progress_widget.html` — 원형 상태 아이콘(✓/↻/번호) + 라벨 1행 목록 양식 | 같은 턴 첨부 |
+| 명시 요구 | "별도의 범용 Task 추상화나 타 Agent SDK 대응은 수행하지 않는다" · "이번 작업에서 별도의 범용 Task 모델이나 backend 공통 추상화는 추가하지 않는다" | 명세 §1·§3 말미 |
+| 사용자 결정 | 패널 구성 = 단일 `작업` 타일 통합 / 완료 통지 = 패널 내 표시만 / 구현 주체 = Codex | 같은 턴 AskUserQuestion 응답 |
+| 추론 의도 | 일반 Task 는 transcript tool call 의 **순수 fold** 로 파생한다(main 에 Task 모델 미도입) — 명세의 "별도 backend 공통 추상화 추가 금지"를 만족하는 최소 해법이라는 설계자 판단 | 추론 |
+
+## 3. Decision Ledger
+
+| ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
+|---|---|---|---|---|---|
+| D-001 | 범위는 `TaskCreate`·`TaskGet`·`TaskList`·`TaskUpdate`·`TaskOutput`·`TaskStop` 6개 도구의 실제 호출 관찰로 한정한다 | "별도의 범용 Task 추상화나 타 Agent SDK 대응은 수행하지 않는다" | 명세 §1 | ACTIVE | — |
+| D-002 | 일반 Task 상태의 SSOT 는 **transcript parts 의 순수 fold** — main 에 Task 스토어를 두지 않는다 | 명세 §3 "별도의 범용 Task 모델이나 backend 공통 추상화는 추가하지 않는다". 세션별 격리·재로드 복원이 기존 `sessions[key].messages` 로 공짜 | 추론 + 명세 §3 | ACTIVE | — |
+| D-003 | 우측 패널은 기존 `subagent` 타일을 **`task`(`작업`) 타일로 확장**해 일반 Task 와 background Task 를 한 목록에 둔다 | 명세 §3 예시가 진행 중/대기 중/완료 그룹 안에 두 종류를 섞어 보여준다. 사용자가 "단일 '작업' 타일로 통합"을 선택 | 사용자 턴 (AskUserQuestion) | ACTIVE | — |
+| D-004 | 완료 통지는 **패널 내 표시만** — 타일 칩의 미확인 배지 + 완료 그룹 이동. OS 알림 게이트를 바꾸지 않고 in-app 토스트도 만들지 않는다 | 사용자가 세 선택지 중 "패널 내 표시만"을 선택. 명세 §2 의 "완료 notification" 문언보다 좁다는 점을 제시한 뒤의 선택 | 사용자 턴 (AskUserQuestion) | ACTIVE | — |
+| D-005 | background Task 중단은 클릭 즉시 `중단됨`으로 확정하지 않고 `중단 중` 을 거쳐 SDK 확인 후 확정한다. 중단 실패면 `진행 중` 복구 + 사유 표시 | 명세 §2 "즉시 '중단됨'으로 확정하지 않는다" · "중단 실패 시에는 다시 '진행 중' 상태로 복구하고 실패 원인을 표시할 수 있어야 한다" | 명세 §2 | ACTIVE | D-005 가 0143 의 "클릭 즉시 낙관 정착"(`chat-turn/index.ts:182`)을 대체한다 |
+| D-006 | `중단 중` 이 영구 고착되지 않도록 main 이 `STOP_SETTLE_TIMEOUT_MS` watchdog 으로 합성 정착한다 | D-005 는 "확인될 때까지 기다린다"를 요구하고, 명세 §2 는 별도로 "GUI를 영원히 '진행 중'으로 남겨서는 안 된다"를 요구한다. 두 요구를 동시에 만족하는 유일한 구조 | 명세 §2 + 설계자 판단 | ACTIVE | — |
+| D-007 | 사용자 중단은 완료 통지(`subagent_notice` 행)를 만들지 않는다 — 0143 결정을 유지한다 | "사용자 자기 행위의 통지는 소음"(`settle` 경로 주석, `chat-turn/index.ts:196`). D-005 로 추적 해제 시점이 늦어지므로 명시 게이트가 필요해졌다 | 0143 채택 결정 | ACTIVE | — |
+| D-008 | `TaskList` 결과는 **전체 스냅샷**으로 취급한다 — 스냅샷에 없는 로컬 항목은 제거한다 | `TaskListOutput.tasks` 는 전체 목록이고(SDK 타입), 명세 §2 는 "실제 Claude 측 상태와 불일치하는 항목을 수정할 수 있어야 한다"를 요구한다 | SDK 타입 + 명세 §2 | ACTIVE | — |
+| D-009 | `TaskUpdate(status:'deleted')`·`TaskGet(task:null)` 은 목록에서 제거한다 | 명세에 없는 SDK 상태값이다. 남겨두면 삭제된 Task 가 패널에 영구 잔류한다 | 설계자 판단 (SDK `TaskUpdateInput.status` 에 `deleted` 존재) | ACTIVE | — |
+| D-010 | `TaskOutput`·`TaskStop` 은 transcript 에만 남기고 패널 상태를 바꾸지 않는다 | 명세 §2 "GUI의 background 상태를 TaskOutput 호출 여부에 의존시키지 않는다" | 명세 §2 | ACTIVE | — |
+| D-011 | `waitForTask` 의 생산 소비자는 중단 확정 대기(D-005/D-006) 한 곳이다 — 주기적 `TaskOutput` polling 을 만들지 않는다 | 명세 §2 "별도의 주기적인 TaskOutput polling으로 구현하지 않는다". 소비자 없는 export 는 죽은 계약이므로 실제 경로에 붙인다 | 명세 §2 + 설계자 판단 | ACTIVE | — |
+| D-012 | 이번 작업의 구현 주체는 Codex 다. Claude 는 plan 만 커밋한다 | 사용자가 "plan만 커밋 → Codex 구현"을 선택 | 사용자 턴 (AskUserQuestion) | SUPERSEDED | D-014 |
+| D-014 | 이번 작업의 구현 주체는 Claude 다 — plan → impl → verify 절차는 낮추지 않는다 | 사용자가 같은 세션에서 `/handoff-impl` 을 명시 호출했다. `docs/handoff/AGENTS.md §역할 분담` 이 "사용자가 명시적으로 요청하면 Claude 가 기능 구현을 맡을 수 있으나 절차는 낮추지 않는다" 를 허용한다 | 사용자 턴 (`/handoff-impl`) | ACTIVE | D-012 를 대체 |
+| D-013 | `skip_transcript` task 는 계속 드롭한다(패널에도 안 띄운다) | SDK 는 "may still appear in a tasks panel" 로 허용만 하고 명세는 요구하지 않는다. 현행 `mapTaskSystem` 드롭을 유지해 범위를 넓히지 않는다 | 설계자 판단 (SDK `SDKTaskStartedMessage.skip_transcript` 주석) | ACTIVE | — |
+
+### 갱신 메모
+
+- 이번 턴에서 새로 추가된 결정: D-001 ~ D-013 (신규 handoff).
+- 변경된 결정: D-005 가 0143 의 낙관 정착을 대체한다 — 사용자 명세가 `중단 중` 중간 상태를 명시 요구했다.
+- 변경된 결정(구현 턴 직전): D-012 → **D-014** — 사용자가 `/handoff-impl` 을 명시 호출해 구현 주체가 Claude 로 바뀌었다. AC·V node/pair·§10 은 불변이다.
+- 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: 0143 의 "사용자 중단은 통지 없음"(D-007 로 명시 승계), 0136 의 "채널 사망 시 합성 failed 정착"(§8 에서 이미 충족으로 판정).
+- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. 확인한 쌍 — D-004("패널 내 표시만") ↔ AC19("타일 칩 미확인 배지, OS 알림 호출 0건") → 일치 · D-005("즉시 확정 금지") ↔ AC12/AC13 → 일치 · D-007("사용자 중단 통지 없음") ↔ AC17 → 일치 · D-010("TaskOutput 의존 금지") ↔ AC23 → 일치 · D-002("main Task 스토어 없음") ↔ AC18(재로드 후 동일 상태를 parts fold 로 달성) → 일치.
+
+## 4. 요구 비판적 검토
+
+| 질문 | 판단 | 근거 |
+|---|---|---|
+| 요구가 증상이 아니라 원인을 겨냥하는가 | 타당 | `rg "TaskCreate\|TaskUpdate\|TaskList\|TaskGet" app/src` → **0건**. 6개 도구를 인식하는 코드가 저장소에 없다 |
+| 이미 기존 코드가 충족하는가 — background 부분 | **상당 부분 충족** | background listen(`app/src/main/app/chat-turn/post-turn.ts:75`) · 세션별 라우팅(`chatStore.ts:373` 주석 "비활성 세션의 턴도 백그라운드로 누적") · 개별 stop UI(`SubAgentTileContent.tsx:222`) · 진행 메타(`claude-map.ts:69` `mapTaskSystem`) |
+| 이미 기존 코드가 충족하는가 — 채널 종료 처리 | **충족** | `chat-turn/index.ts:66` `settleDeadBackgroundTasks` 가 `status:'failed'` + `summary:'채널이 종료되어 서브에이전트가 중단되었습니다.'` 로 정착한다. 명세의 "실행 세션 종료"와 문언만 다르다 |
+| 이미 기존 코드가 충족하는가 — 일반 Task 부분 | **미충족** | 위 0건. `TaskCreateOutput.task.id` 를 읽는 경로가 없고 `tool.call.completed.result` 는 모델용 wire content 다(`claude-map.ts:354`) |
+| 더 작은 해법이 있는가 | 있다 — 채택 | main 에 Task 스토어를 만들지 않고 renderer 순수 fold 로 파생한다(D-002). 새 IPC 채널 0개·새 DB 마이그레이션 0개 |
+| 선행 자료의 주장을 코드와 대조했는가 | 했다 | 명세의 "background task를 GUI에서 중단할 수 없다"는 **틀렸다** — `CHANNELS.chatStopSubagent`(`app/src/shared/ipc.ts:16`)와 우측 패널 중단 버튼이 이미 있다. 그래서 이번 범위는 `중단 중` 중간 상태(D-005)와 통합 목록(D-003)이다 |
+| ACTIVE 결정·기존 채택 결정과 충돌하는가 | 1건 충돌 → 대체 처리 | 0143 낙관 정착(`chat-turn/index.ts:182` 주석) ↔ 명세 §2 `중단 중`. D-005 로 supersede |
+
+- 사용자에게 올릴 결정: **없음** — 세 건(패널 구성·완료 통지 수단·구현 주체)은 이번 턴에 물어 D-003·D-004·D-012 로 확정했다.
+- 코드 조사로 닫은 사실: SDK 6개 도구의 입력/출력 타입(§8), `tool_use_result` 가 구조화 출력의 유일한 출처(§8), 우측 패널 타일 상태가 DB 미영속(§8), 새 IPC 채널·마이그레이션 불필요(§8).
+- **명세보다 좁아진 지점(사용자 확정)**: 명세 §2·§3 은 "완료 notification 을 발생시킨다"를 요구하지만 D-004 는 패널 내 표시로 좁혔다. 창이 활성인 채 다른 세션을 보는 사용자는 배지로만 알게 된다.
+
+## 5. 동작 / 사용자 흐름
+
+```text
+[에이전트가 TaskCreate 호출]
+  → tool_use 관측(아직 항목 없음)
+  → tool_result 성공 관측 → 작업 타일 '대기 중'에 항목 추가
+  ↘ tool_result 실패 → 항목 미생성
+
+[에이전트가 TaskUpdate(status) 호출]
+  → 성공 결과 관측 → 같은 항목이 그룹 이동(중복 생성 없음)
+  ↘ success:false → 무변화
+
+[background Task 시작(task_started)]
+  → '진행 중' 그룹에 background 배지 + 경과 + 도구수
+  → task_progress 반복 → 같은 카드 갱신(메인 턴 종료 후에도)
+  → task_notification → 완료/실패/중단됨 확정
+
+[사용자가 [■] 클릭]
+  → '중단 중' 표시(즉시 확정 아님)
+  → SDK stopped 확인 → '중단됨' + 사유
+  ↘ 중단 요청 거절 → '진행 중' 복구 + 실패 사유
+  ↘ 확인 무응답 → watchdog 이 합성 정착(고착 없음)
+```
+
+### 상태와 전이
+
+| 시작 상태/이벤트 | 시스템 동작 | 사용자/소비자에게 보이는 결과 |
+|---|---|---|
+| `TaskCreate` tool_use 만 관측 | Task id 미확정 → 등록하지 않음 | 목록 무변화 |
+| `TaskCreate` 성공 tool_result | `task.id`/`task.subject` + 입력 `description` 으로 항목 생성 | `대기 중` 그룹에 `○ <subject>` |
+| `TaskUpdate` 성공(`statusChange.to`) | 같은 id 항목의 상태 교체 | `진행 중`/`완료` 그룹으로 이동 |
+| `TaskUpdate` 성공(subject/description) | 제목·설명 교체 | 라벨/상세 갱신 |
+| `TaskUpdate` `status:'deleted'` 성공 | 항목 제거 (D-009) | 목록에서 사라짐 |
+| `TaskUpdate` `success:false` | 무시 | 무변화 |
+| `TaskList` 결과 | 스냅샷으로 보정 — 상태 교체 · 미지 id 추가 · 스냅샷 부재 id 제거 (D-008) | 목록이 Claude 측 상태와 일치 |
+| `TaskGet` 결과 `task:null` | 그 id 제거 | 목록에서 사라짐 |
+| `task_started` | 기존 경로가 background 항목 생성 | `진행 중`에 `● <description> · background · mm:ss` |
+| `task_progress` | 같은 항목 갱신(카드 1개) | 경과·최근 작업·도구수 갱신 |
+| 메인 턴 result 이후 background 잔존 | listen 턴 유지(기존 0136/0143) | 갱신이 계속 보인다 |
+| `[■]` 클릭 | main 이 stop 요청 + 확정 대기 | `중단 중` |
+| `task_notification(stopped)` | 부모/child 를 `stopped` 로 정착 | `중단됨` + `사용자에 의해 중단됨` |
+| stop 요청 거절(IPC reject) | renderer 가 `중단 중` 해제 | `진행 중` 복구 + 실패 사유 |
+| watchdog timeout | main 이 합성 `stopped` 정착 (D-006) | `중단됨` (고착 없음) |
+| 채널 종료 | 기존 `settleDeadBackgroundTasks` | `실패` + 사유 문구 |
+| 세션 전환 | 이벤트가 `sessionId` 키 엔트리로 누적 | 다른 세션 Task 는 안 보이고, 돌아오면 최종 상태가 보인다 |
+| 완료 발생 시 타일이 닫혀 있음 | 미확인 완료 카운트 증가 (D-004) | 타일 칩에 배지, 열면 해제 |
+
+### 파생 UX / 엣지케이스
+
+- loading / empty / error: 항목 0건이면 기존 빈 상태 문구를 `작업` 문맥으로 교체한다. 결과 파싱 실패는 항목을 만들지 않고 조용히 무시한다(패널이 거짓 항목을 만들지 않는다).
+- cancel / retry / close / restart: 중단은 D-005/D-006. 타일을 닫으면 선택 상태를 비운다(기존 `REMOVE_RIGHT_PANEL_TILE` 동작 승계).
+- concurrency / multi-session: 항목 키는 `agent:<taskId>` / `bg:<toolUseId>` 로 분리해 두 네임스페이스가 충돌하지 않는다.
+- keyboard / a11y / theme: 카드는 기존 `role="button"` + Enter/Space 계약을 그대로 쓴다. 색은 시맨틱 토큰만 쓴다(`renderer/AGENTS.md §스타일`).
+- 외부환경/오프라인/폐쇄망: 해당 없음 — 네트워크 호출을 추가하지 않는다.
+
+## 6. 범위 / 비범위
+
+- **범위**: 6개 Task 도구 결과 관측 → 우측 `작업` 타일(통합 목록 + 상세) · `중단 중` 중간 상태와 watchdog · 미확인 완료 배지 · `waitForTask` · mock 시나리오 1종.
+- **비범위**: 범용 Task 모델/타 SDK 대응(D-001) · OS 알림 게이트 변경·in-app 토스트(D-004) · `TodoWrite` 대응 · `skip_transcript` task 표시(D-013) · GUI 에서 **일반** Task 를 생성/편집/중단하는 기능(명세는 관찰과 background 중단만 요구) · `background_tasks_changed` level 신호 채택.
+
+| 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
+|---|---|---|
+| in-app 토스트 통지 | 아니오 — 새 UI 표면이라 언제 넣어도 비용이 같다 | 후속 (D-004) |
+| `background_tasks_changed` 로 membership 보정 | 아니오 — 기존 edge 추적이 이미 정착 경로를 갖는다 | 후속 |
+| 일반 Task 의 GUI 편집/중단 | 아니오 — 새 도구 호출 경로라 독립 | 후속 |
+| 타일 id `subagent` → `task` 개명 | **아니오** — 타일 상태는 DB 미영속(`chatReducer.ts:222` `rightPanelTiles: []`)이라 마이그레이션 비용 0 | 지금 (D-003) |
+
+## 7. Requirements / Acceptance — `R ↔ AT`
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-01 | AT-01 / AC1 | `TaskCreate` 성공 결과 관측 후에만 항목이 생긴다 | `taskBoard` UT — tool_call 만 있는 parts → 항목 0건, 성공 tool_result 추가 → `대기 중` 1건 | SDK user(tool_result) → `claude-map` → parts → `taskBoardFromMessages` → 타일 |
+| R-01 | AT-02 / AC2 | `TaskCreate` 실패는 항목을 만들지 않는다 | UT — `isError:true` parts → 항목 0건 | 같은 경로 |
+| R-02 | AT-03 / AC3 | `TaskUpdate(in_progress)` 성공은 같은 항목을 이동시키고 중복을 만들지 않는다 | UT — create+update 2회 fold → 항목 1건, `status==='in_progress'` | 같은 경로 |
+| R-02 | AT-04 / AC4 | `TaskUpdate` 의 `subject`/`description` 변경이 반영된다 | UT — `updatedFields:['subject']` + args.subject → 제목 교체 | 같은 경로 |
+| R-02 | AT-05 / AC5 | `status:'deleted'` 성공은 항목을 제거한다 | UT — 항목 0건 | 같은 경로 |
+| R-02 | AT-06 / AC6 | `success:false` 는 무변화 | UT — 상태가 update 이전과 동일 | 같은 경로 |
+| R-03 | AT-07 / AC7 | `TaskList` 스냅샷이 상태 교체·신규 추가·부재 제거를 모두 수행한다 | UT — 로컬 {1:in_progress,2:pending,9:pending} + 스냅샷 {1:completed,2:in_progress,3:pending} → 결과 {1:completed,2:in_progress,3:pending}, id `9` 부재 | 같은 경로 |
+| R-03 | AT-08 / AC8 | `TaskGet` 은 그 id 만 갱신하고 `task:null` 은 제거한다 | UT — 두 케이스 각각 | 같은 경로 |
+| R-04 | AT-09 / AC9 | background 항목만 `background` 배지·경과·도구수를 갖고 일반 Task 행은 갖지 않는다 | UT — 혼합 parts fold → `kind:'background'` 행만 `background` 필드 존재 | `subagent.task` → transient meta + parts → 같은 fold |
+| R-04 | AT-10 / AC10 | 그룹 순서 `진행 중 → 대기 중 → 완료 → 중단됨 → 실패`, 빈 그룹 미렌더 | UT — 5종 혼합 입력의 그룹 배열이 정확히 이 순서, 항목 없는 그룹 부재 | 타일 렌더 |
+| R-05 | AT-11 / AC11 | 메인 턴 종료 후 도착한 `task_progress` 가 같은 카드를 갱신한다(카드 수 불변) | 기존 listen 경로 IT + UT — progress 3회 후 항목 1건, 마지막 값 반영 | `post-turn.ts` listen 턴 → `subagent.task` → store |
+| R-06 | AT-12 / AC12 | 중단 클릭 직후 표시는 `중단 중` 이다 | UT — `stopping` 집합에 든 항목의 파생 상태가 `stopping` | 타일 `[■]` → `chatActions.stopTask` |
+| R-06 | AT-13 / AC13 | SDK `stopped` 확인 후 `중단됨` + 사유가 보인다 | UT(파생) + main IT — 정착 이벤트 후 `aborted` | `chatStopSubagent` → SDK → `settleSubagentTask` |
+| R-06 | AT-14 / AC14 | 중단 요청이 거절되면 `진행 중` 으로 복구되고 사유가 보인다 | 스토어 UT — reject 시 `stopping` 해제 + `stopError` 설정 | `chatApi.stopSubagent` reject |
+| R-06 | AT-15 / AC15 | 확정이 오지 않아도 `중단 중` 이 고착되지 않는다 | main UT — fake timer 로 `STOP_SETTLE_TIMEOUT_MS` 경과 → 합성 settled 1건 방출 | watchdog |
+| R-06 | AT-16 / AC16 | 개별 중단이 turn 전체를 중단하지 않는다 | main UT — `abortTurn` 미호출, 다른 열린 도구의 정착 이벤트 0건 | `chatStopSubagent` 핸들러 |
+| R-06 | AT-17 / AC17 | 사용자 중단에서 완료 통지 파트가 생기지 않는다 | main UT — `stoppedSubagents` 에 든 toolUseId 의 settled 는 `background` 미부여 → `subagent_notice` 0건 | coordinator enrich |
+| R-07 | AT-18 / AC18 | 완료·실패·중단 최종 상태가 재로드 후에도 같다 | UT — 영속 parts(구조화 출력 포함)만으로 fold 한 결과가 라이브 결과와 동일 | writer 영속 → `LoadedSession` → fold |
+| R-07 | AT-19 / AC19 | 완료 발생 시 타일 칩에 미확인 배지가 뜨고 열면 해제된다. OS 알림 호출은 0건 | 스토어 UT — 배지 카운트 증가/0 복귀 · `rg "notifyApi" <새 파일들>` → 0건 | `ChatTitleBar` 칩 |
+| R-08 | AT-20 / AC20 | 세션 A 의 Task 는 세션 B 패널에 없고, A 로 돌아오면 완료 상태가 보인다 | UT — 두 엔트리 fold 결과가 서로 배타 · 사람 실기(2세션) | `chatStore` sessionId 라우팅 |
+| R-08 | AT-21 / AC21 | 채널 종료 시 background 항목이 `실패` 로 정착한다(`진행 중` 고착 없음) | 기존 `settleDeadBackgroundTasks` 회귀 UT + 파생 UT | `post-turn.ts:73` |
+| R-09 | AT-22 / AC22 | `waitForTask` 는 completed/failed/stopped 어느 것으로든 resolve 하고 polling 을 하지 않는다 | UT — 3 케이스 resolve · `rg "TaskOutput" app/src/main` → 0건 | `background-tasks.ts` |
+| R-09 | AT-23 / AC23 | `TaskOutput`/`TaskStop` tool call 은 transcript 에 남고 패널 상태를 바꾸지 않는다 | UT — 두 도구만 있는 parts fold → 항목 0건, transcript 세그먼트에는 존재 | 같은 fold |
+| R-10 | AT-24 / AC24 | 상세가 종류별로 다른 정보를 보여준다 — 일반=상태/설명/의존성, background=상태/경과/최근 작업/도구 사용/출력/중단 | UT(상세 뷰모델 파생) + 사람 실기(시각) | 타일 상세 |
+| R-10 | AT-25 / AC25 | 시각이 첨부 양식을 따르고 raw hex 를 쓰지 않는다 | `rg "#[0-9a-fA-F]{3,6}" <새 tsx 파일들>` → 0건 + 사람 실기(시각) | 타일 렌더 |
+
+### AC 검증 주의사항
+
+- 기존 테스트 재사용: `app/src/main/features/chat/background-tasks.test.ts` 에 `영수증이 task_started 보다 먼저 와도(순서 역전) 등록 + 관측을 기록한다` 케이스가 실재한다(`:56`) — `waitForTask` UT 를 같은 파일에 붙인다. `chatReducer.listen.test.ts` 의 `settled + background:true 는 subagent_notice 파트로 물질화된다`(`:172`)가 AC17 의 회귀 대상이다.
+- 사람 실기 항목: AC25 시각과 AC20 의 2세션 조작만. 목록 포함 여부·그룹 순서·상태 파생은 전부 순수 fold UT 로 내렸다.
+- N회/총량 기준: AC19 의 `OS 알림 호출 0건` 은 **이번에 추가한 파일들**로 분모를 좁힌다 — 기존 `useCompletionNotifier.ts:25` 의 호출 1건은 이번 변경 대상이 아니며 제거 대상도 아니다. 검색 명령은 새 파일 목록(§18)에 한정한다.
+- 총량/0건 기준: AC22 의 `rg "TaskOutput" app/src/main` → 0건은 "main 이 polling 하지 않는다"의 음성 게이트다. 양성 짝은 AC22 의 3개 resolve 케이스가 갖는다(§5 방향 규칙 — polling 코드를 지워도 resolve 테스트는 계속 참이어야 한다).
+- AC25 의 raw hex 0건 역시 음성 게이트다. 양성 짝은 AC10(그룹 순서 UT)과 사람 실기 시각 확인이다.
+
+## 7-A. V / Trace Matrix
+
+- V mode 판정: **Baseline V**. 0136·0143·0034 는 V 규약 도입 이전 handoff 라 상속할 명시 node 가 없다(`docs/handoff/AGENTS.md §신규 템플릿 적용 경계`).
+- 기준 V 상속 근거: 없음.
+- 변경이 시작되는 수준: Baseline 이라 해당 없음 — R 부터 MD 까지 전 층을 새로 만든다.
+
+### Node registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| R-01 | R | §7 TaskCreate 관측 | NEW | — |
+| R-02 | R | §7 TaskUpdate 관측 | NEW | — |
+| R-03 | R | §7 TaskList/TaskGet 보정 | NEW | — |
+| R-04 | R | §7 통합 목록·그룹 | NEW | — |
+| R-05 | R | §7 턴-후 진행 갱신 | NEW | — |
+| R-06 | R | §7 중단 중 → 확정/복구 | NEW | — |
+| R-07 | R | §7 최종 상태 일치·완료 배지 | NEW | — |
+| R-08 | R | §7 세션 귀속·채널 종료 | NEW | — |
+| R-09 | R | §7 waitForTask·polling 금지 | NEW | — |
+| R-10 | R | §7 상세·시각 | NEW | — |
+| AT-01…AT-25 | AT | §7 각 행 | NEW | — |
+| SD-01 | SD | §5·§9 관측 → 패널 end-to-end 수명주기 | NEW | — |
+| SD-02 | SD | §5·§13 중단 수명주기(요청→중단 중→확정/복구/watchdog) | NEW | — |
+| SD-03 | SD | §5·§12 세션별 귀속과 재로드 복원 | NEW | — |
+| ST-01…ST-03 | ST | §7 AT-11·AT-13/15·AT-18/20 | NEW | — |
+| AR-01 | AR | §9·§10 `tool.call.completed.structuredOutput` producer/consumer 계약 | NEW | — |
+| AR-02 | AR | §9·§10 `작업` 타일 조립(레지스트리·선택 키) | NEW | — |
+| AR-03 | AR | §10 stop 경로 배선(핸들러 ↔ tracker ↔ coordinator enrich) | NEW | — |
+| IT-01…IT-03 | IT | §7 AT-18·AT-09/10·AT-17 | NEW | — |
+| MD-01 | MD | §11 `shared/task-tool.ts` 결과 파서 불변식 | NEW | — |
+| MD-02 | MD | §11 `taskBoard.ts` fold 불변식 | NEW | — |
+| MD-03 | MD | §11 `BackgroundTaskTracker.waitForTask` 불변식 | NEW | — |
+| UT-01…UT-03 | UT | §7 AT-01~08/23 · AT-09/10/12 · AT-22 | NEW | — |
+
+### Pair registry
+
+| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §10 강제 지점 전수 |
+|---|---|---|---|---|---|---|
+| VP-01 | R-01 ↔ AT-01/02 | REQUIRED | SDK user(tool_result) → `claude-map` → `tool.call.completed` → parts → `taskBoardFromMessages` → 타일 | 항목 수·상태 단언 UT | not selected — 항목 존재/부재를 직접 관측 | EP-01 (1) |
+| VP-02 | R-02 ↔ AT-03/04/05/06 | REQUIRED | 같은 경로 | 같은 id 항목 1건 + 필드 단언 UT | not selected — 직접 관측 | EP-02 (1) |
+| VP-03 | R-03 ↔ AT-07/08 | REQUIRED | 같은 경로 | 스냅샷 전후 id 집합 차집합 단언 UT | not selected — 집합 차이를 직접 관측 | EP-03 (1) |
+| VP-04 | R-04 ↔ AT-09/10 | REQUIRED | `subagent.task` + parts → 같은 fold → 그룹 배열 | 그룹 순서 배열 동등 단언 UT | not selected — 배열을 직접 관측 | EP-04 (1) |
+| VP-05 | R-05 ↔ AT-11 | REQUIRED | `post-turn.ts` listen → `subagent.task(progress)` → store transient → 타일 | 항목 수 불변 + 최신 값 단언 | not selected — 직접 관측 | EP-05 (2) |
+| VP-06 | R-06 ↔ AT-12/13/14/15/16/17 | REQUIRED | 타일 `[■]` → `chatStopSubagent` → `stopLiveSubagent` → `waitForTask`/watchdog → 정착 → 타일 | 상태 문자열 전이 단언 + 합성 이벤트 1건 단언 | **required** — AT-17 은 "통지가 **없다**"라 0건 단언이다. `stoppedSubagents` 게이트를 지우는 변이를 심어 `subagent_notice` 1건이 나오는지 확인한다 | EP-06 (3) |
+| VP-07 | R-07 ↔ AT-18/19 | REQUIRED | writer 영속 → `LoadedSession` → fold / 완료 관측 → 배지 | 영속 parts 만으로 fold 한 결과 동등 단언 · 배지 카운트 단언 | not selected — 결과 동등을 직접 관측 | EP-07 (2) |
+| VP-08 | R-08 ↔ AT-20/21 | REQUIRED | `chatStore.receive` sessionId 라우팅 / `settleDeadBackgroundTasks` | 두 엔트리 항목 집합 배타 단언 · 정착 상태 단언 | not selected — 직접 관측 | EP-08 (1) |
+| VP-09 | R-09 ↔ AT-22/23 | REQUIRED | `chatStopSubagent` → `waitForTask` → resolve | 3 종료 상태 각각 resolve 단언 | not selected — resolve 를 직접 관측(0건 스윕은 보조) | EP-09 (1) |
+| VP-10 | R-10 ↔ AT-24/25 | REQUIRED | 타일 상세 렌더 | 상세 뷰모델 필드 단언 UT + 사람 실기 | not selected — 뷰모델을 직접 관측 | EP-10 (1) |
+| VP-11 | SD-01 ↔ ST-01(AT-11) | REQUIRED | 위 VP-05 경로 전체 | 턴 종료 이후 프레임에서도 갱신 도달 | not selected | EP-05 (2) |
+| VP-12 | SD-02 ↔ ST-02(AT-13/15) | REQUIRED | 위 VP-06 경로 전체 | 확정/watchdog 두 종단 상태 단언 | not selected | EP-06 (3) |
+| VP-13 | SD-03 ↔ ST-03(AT-18/20) | REQUIRED | 위 VP-07/08 경로 | 재로드·세션 전환 후 상태 동등 | not selected | EP-07 (2) |
+| VP-14 | AR-01 ↔ IT-01(AT-18) | REQUIRED | `claude-map` → 이벤트 → writer → DB payload → 로드 → fold | 구조화 출력이 영속되고 되읽힌다는 왕복 단언 | not selected | EP-01 (1) |
+| VP-15 | AR-02 ↔ IT-02(AT-09/10) | REQUIRED | `tileRegistry` → `RightPanelTile` → 타일 콘텐츠 | 레지스트리 id 로 콘텐츠가 해석된다는 단언 | not selected | EP-11 (1) |
+| VP-16 | AR-03 ↔ IT-03(AT-17) | REQUIRED | 핸들러 → tracker → coordinator enrich → store | enrich 가 stopped 태스크에 background 를 안 싣는다는 단언 | **required** — VP-06 과 같은 0건 주장 | EP-06 (3) |
+| VP-17 | MD-01 ↔ UT-01(AT-01~08/23) | REQUIRED | `shared/task-tool.ts` 순수 파서 | 도구별 입력→관측 매핑 단언 | not selected | EP-01·EP-02·EP-03 (3) |
+| VP-18 | MD-02 ↔ UT-02(AT-09/10/12) | REQUIRED | `taskBoard.ts` 순수 fold | 그룹·키·stopping 파생 단언 | not selected | EP-04 (1) |
+| VP-19 | MD-03 ↔ UT-03(AT-22) | REQUIRED | `background-tasks.ts` | resolve/timeout/이미-정착 3 케이스 | not selected | EP-09 (1) |
+
+### 현재 변경의 운영 gate
+
+| Gate | 이번 변경 산출물에 적용되는 이유 | 증거 / 명령 | 실패 범위 |
+|---|---|---|---|
+| `app/**` 정적 게이트 | main·renderer·shared 를 모두 고친다 | `cd app && npm run lint && npm run typecheck` (`app/AGENTS.md §better-sqlite3 ABI` — ABI 중립) | 이번 변경이 유발한 error 만 blocking |
+| renderer/main 경계 | 새 파일이 `features/chat` · `src/shared` 에 생긴다 | `npm run lint` 의 `boundaries/dependencies` · `import/no-cycle` | 같음 |
+| 비-DB vitest | 새 순수 모듈 3종 + 기존 chat 스위트 회귀 | `./node_modules/.bin/vitest run src/shared src/main/features/chat src/main/adapters src/renderer/src/features/chat` | 같음. better-sqlite3 ABI 차단 환경의 DB 로드 스위트 실패는 기준선으로 분리 보고 |
+| 문서 인벤토리 | `shared/ipc.ts` 를 고치므로 채널/variant 수가 바뀌었는지 확인해야 한다 | `node app/scripts/check-doc-inventory.mjs --check` | 수치 변동 시 생성물 갱신 누락만 blocking |
+
+> 이번 설계는 새 IPC 채널 0개·새 `NormalizedEvent` variant 0개·새 마이그레이션 0개다(§8) — 인벤토리 수치는 불변이어야 하고, 바뀌었다면 설계와 다르게 구현된 것이다.
+
+---
+
+# Part II — Technical Design
+
+## 8. Research — 현재 코드와 계약
+
+| 발견 / 제약 | 근거 |
+|---|---|
+| 6개 Task 도구를 인식하는 코드가 없다 | `rg "TaskCreate\|TaskUpdate\|TaskList\|TaskGet"` → 0건 |
+| `TaskCreateOutput = { task: { id, subject } }` — description·status 는 출력에 없다 | SDK `sdk-tools.d.ts` `TaskCreateOutput` |
+| `TaskGetOutput = { task: {id,subject,description,status,blocks,blockedBy} \| null }` | 같은 파일 `TaskGetOutput` |
+| `TaskUpdateOutput = { success, taskId, updatedFields, error?, statusChange?:{from,to} }` — 새 subject/description 은 출력에 없다(입력에서 읽어야 한다) | 같은 파일 `TaskUpdateOutput` |
+| `TaskListOutput = { tasks: [{id,subject,status,owner?,blockedBy}] }` — 전체 목록 | 같은 파일 `TaskListOutput` (D-008 근거) |
+| 일반 Task status 어휘는 `pending\|in_progress\|completed` + `deleted` | `TaskUpdateInput.status` |
+| background Task status 어휘는 별개다 — `completed\|failed\|stopped` | `SDKTaskNotificationMessage.status` |
+| **두 네임스페이스가 다르다** — 일반 Task 는 `taskId`(camelCase), background 는 `task_id`(snake_case) | `TaskGetInput.taskId` vs `TaskStopInput.task_id` |
+| 구조화 tool 출력은 `SDKUserMessage.tool_use_result` 에만 있다 — `tool_result.content` 는 모델용 텍스트다 | `sdk.d.ts:4589` 주석 "the tool's full Output object, not the string content sent to the model" |
+| 현재 매퍼는 `tool_use_result` 를 async_launched 영수증에만 쓴다 | `app/src/main/adapters/claude-map.ts:354` `result: launchReceipt ?? p.content` |
+| `tool_call` 파트가 `args` 를 영속한다 → 재로드 후에도 입력을 읽을 수 있다 | `app/src/main/features/history/writer.ts:223` |
+| 파트 payload 는 `payload_json` 이라 새 옵션 필드에 마이그레이션이 불필요하다 | `app/src/main/infra/db/queries.ts:155` |
+| 우측 패널 타일 상태는 DB 미영속(reducer 초기값 `[]`) | `app/src/renderer/src/features/chat/reducer/chatReducer.ts:222` |
+| background 목록·상세·개별 중단 UI 가 이미 있다 | `app/src/renderer/src/features/chat/components/rightpanel/SubAgentTileContent.tsx` (245줄) |
+| 채널 사망 시 합성 failed 정착이 이미 있다 | `app/src/main/app/chat-turn/index.ts:66` |
+| 사용자 중단은 지금 **즉시** 합성 settled 를 흘린다 | `app/src/main/app/chat-turn/index.ts:182` 주석 "클릭 즉시 … 낙관 정착" (D-005 가 대체) |
+| settled background enrich 가 `isAsyncLaunched` 로만 게이트된다 | `app/src/main/features/chat/turn-coordinator.ts:259-268` (D-007 의 새 게이트가 필요한 지점) |
+| 비활성 세션 이벤트가 그 세션 엔트리로 누적된다 | `app/src/renderer/src/features/chat/store/chatStore.ts:373` 주석 |
+| `stopSubagent` 는 `Promise<void>` 라 거절을 renderer 가 받을 수 있다 | `app/src/renderer/src/shared/api/ipc.ts:70` |
+| 시맨틱 색 토큰 `good`/`warn`/`bad`/`accent`/`t1~t9` 가 있다 | `app/src/renderer/src/styles/tokens.css:48-71` |
+| 아이콘 `check`·`stop`·`alert` 가 있다 — `○`/`●` 는 CSS 원으로 그린다(기존 목록도 동일) | `app/src/renderer/src/shared/ui/Icon.tsx` · `SubAgentTileContent.tsx:190` |
+
+### 전수 조사
+
+| 대상 | 검색/방법 | N | 의미 |
+|---|---|---:|---|
+| Task 도구 인식 코드 | `rg "TaskCreate\|TaskUpdate\|TaskList\|TaskGet" app/src` | 0 | 전부 신규 |
+| 우측 패널 타일 정의 | `rightPanelTiles.ts` 배열 | 4 | `plan`·`subagent`·`reserved1`·`reserved2` → `subagent` 를 `task` 로 개명 (총 4 유지) |
+| 타일 개명 영향 지점(비-테스트) | `rg "selectedSubagentTaskId\|openSubagentTask\|selectSubagentTask\|OPEN_SUBAGENT_TASK\|SELECT_SUBAGENT_TASK\|'subagent'" app/src/renderer/src \| grep -v .test.` | 23 | 개명 전수 분모 |
+| 같은 검색의 테스트 지점 | 같은 검색 + `grep .test.` | 24 | 테스트도 함께 갱신해야 한다 |
+| `tool.call.completed` 생산 지점(main, 비-테스트) | `rg "type: 'tool.call.completed'" app/src/main \| grep -v .test.` | 21 | 그중 새 필드를 실어야 하는 곳은 `claude-map.ts:354` **1곳** — 나머지는 합성/mock 이라 구조화 출력이 없다 |
+| mock 시나리오 | `MOCK_SCENARIO_IDS` | 13 | 그중 subagent 계열 5 — 신규 1종 추가 시 14 |
+| OS 알림 호출 지점 | `rg "notifyApi" app/src/renderer/src` | 1 | `useCompletionNotifier.ts:25` — 이번 변경 대상 아님(D-004) |
+| DB 마이그레이션 | `ls app/src/main/infra/db/migrations` | 17 | 이번 변경 0개 추가 |
+
+### 수치 / 전칭 표현 검산
+
+- 재측정 수치: 위 표는 전부 이번 세션에서 실행한 검색 결과다.
+- 내역 합 = 총계: 타일 개명 지점 23(비-테스트) + 24(테스트) = 47 — 두 분모를 합치지 않고 분리해 센다.
+- "유일한/항상/절대" 반례 검색: `rg -n "tool_use_result" app/src` → **9행**, 그중 프로덕션은 전부 `claude-map.ts`(150·151·159·339) 한 파일이고 나머지 5행은 `claude-map.test.ts` 다 — "구조화 출력을 읽는 프로덕션 지점은 매퍼 1곳"이 성립한다.
+- 문서 앵커 / 기존 테스트 케이스 존재 확인: `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드`(`:112`) 실재 · `background-tasks.test.ts:56` 케이스 실재 · `chatReducer.listen.test.ts:172` 케이스 실재.
+
+## 9. Architecture / Data & Control Flow — AS-IS → TO-BE
+
+### AS-IS — 현재 구조와 문제 발생 경로
+
+- 관련 V node: 없음(신규).
+- 현재 책임 소유자: background Task = `BackgroundTaskTracker`(main) + `subagentTasksFromMessages`(renderer). 일반 Task = **소유자 없음**.
+- 현재 entry → flow → state → consumer: SDK `system task_*` → `mapTaskSystem` → `subagent.task` → store transient meta + parts → `SubAgentTileContent`. `TaskCreate` 등은 `tool.call.started/completed` 로만 흘러 `ToolGroup` 안의 익명 도구 행이 된다.
+- 현재 오류/취소/정리 경로: 개별 중단 = 즉시 낙관 정착. 채널 사망 = 합성 failed 정착. 턴 중단 = `settleOpenToolRuns`.
+- 문제의 직접 원인: `tool.call.completed.result` 가 모델용 wire content 라 `TaskCreateOutput.task.id` 를 얻을 수 없다. id 가 없으면 같은 Task 의 후속 `TaskUpdate` 와 이어붙일 수 없다.
+
+```text
+SDK user(tool_result)
+  → claude-map (result = p.content, 모델용 텍스트)
+  → tool_result part
+  → ToolGroup (익명 도구 행)          ← Task 정체성이 여기서 소실된다
+```
+
+### TO-BE — 변경 후 목표 구조와 동작 경로
+
+- 관련 V node: `SD-01`·`AR-01`·`AR-02`·`MD-01`·`MD-02`.
+- 변경 후 책임 소유자: 결과 파싱 = `shared/task-tool.ts`(양 프로세스 공용 wire 지식) · 목록 파생 = `renderer .../lib/taskBoard.ts` · 중단 수명주기 = `chatStopSubagent` 핸들러 + `BackgroundTaskTracker`.
+- 변경 후 entry → flow → state → consumer: `claude-map` 이 6개 Task 도구의 `tool_use_result` 를 `structuredOutput` 으로 실어 보내고, writer 가 파트에 영속하며, renderer 가 parts 를 fold 해 목록을 만든다.
+- 변경 후 오류/취소/정리 경로: 중단 = `중단 중` → SDK 확정 / IPC 거절 복구 / watchdog 합성. 채널 사망·턴 중단은 **기존 경로 그대로**.
+- 유지하는 기존 메커니즘: listen 턴 · 세션별 이벤트 라우팅 · `settleSubagentTask` · `settleDeadBackgroundTasks` · `subagentTasksFromMessages`. 대체하는 메커니즘: 중단 시 즉시 합성 settled(D-005) · `subagent` 타일(→ `task` 타일).
+
+```text
+SDK user(tool_result)
+  → claude-map (+ structuredOutput, Task 도구 한정)
+  → tool.call.completed → writer → tool_result part(payload_json)
+  → taskBoardFromMessages(parts, stopping)   ← 일반 Task + background Task 통합 fold
+  → TaskTileContent (상태 그룹 목록 / 상세)
+```
+
+### AS-IS → TO-BE Delta
+
+| 비교 축 | AS-IS | TO-BE | 변경 이유 | V / 구현·검증 연결 |
+|---|---|---|---|---|
+| 책임/소유권 | 일반 Task 소유자 없음 | `shared/task-tool.ts` + `lib/taskBoard.ts` | id 없이는 이어붙일 수 없다 | AR-01·MD-01/02 / VP-01·VP-17 |
+| data/control flow | 구조화 출력이 매퍼에서 버려짐 | Task 도구 한정으로 `structuredOutput` 동행 | `TaskCreateOutput.task.id` 확보 | SD-01 / VP-14 · `claude-map.ts` |
+| state/contract | `tool.call.completed`/`tool_result` 파트에 구조화 출력 자리 없음 | 옵션 필드 `structuredOutput?: unknown` 추가 | 재로드 복원(AC18) | AR-01 / VP-14 · `shared/ipc.ts` |
+| UI 조립 | `subagent` 타일 = background 전용 | `task` 타일 = 통합 목록 + 종류별 상세 | D-003 | AR-02 / VP-15 · `tileRegistry.ts` |
+| error/lifecycle | 중단 클릭 = 즉시 확정 | `중단 중` → 확정/복구/watchdog | D-005·D-006 | SD-02 / VP-06·VP-12 |
+| error/lifecycle | 통지 억제가 "추적 즉시 해제"의 부수 효과 | `stoppedSubagents` 명시 게이트 | D-007 — 추적 해제가 늦어지면 부수 효과가 사라진다 | AR-03 / VP-16 |
+| test seam/관측점 | 없음 | 순수 모듈 3종 + mock 시나리오 1종 | 사람 실기 최소화 | MD-01/02/03 / VP-17/18/19 |
+
+### 핵심 책임 분리
+
+| 모듈/레이어 | 책임 | 입력/출력 | 누가 import/호출 |
+|---|---|---|---|
+| `app/src/shared/task-tool.ts` (L0) | 6개 도구 이름 술어 + 결과 → 관측(observation) 파싱 | `(toolName, args, structuredOutput)` → `TaskToolObservation \| null` | `claude-map.ts`(이름 술어), `taskBoard.ts`(파싱) |
+| `app/src/main/adapters/claude-map.ts` | `tool_use_id → toolName` 기억 + Task 도구 결과에 `structuredOutput` 동행 | SDKMessage → NormalizedEvent[] | 어댑터 |
+| `app/src/main/features/history/writer.ts` | `structuredOutput` 파트 영속 | 이벤트 → payload_json | 버스 |
+| `app/src/main/features/chat/background-tasks.ts` | 추적 + `waitForTask` | `(sessionId, toolUseId, {signal, timeoutMs})` → `Promise<'settled'\|'timeout'>` | `chatStopSubagent` 핸들러 |
+| `app/src/main/app/chat-turn/index.ts` | 중단 요청 → 확정 대기 → watchdog 합성 | IPC req → Promise | preload |
+| `.../features/chat/lib/taskBoard.ts` (renderer) | parts + stopping → 통합 목록/상세 뷰모델 | 순수 | 타일 컴포넌트 |
+| `.../components/rightpanel/TaskTileContent.tsx` | 목록/상세 렌더 + 중단 버튼 | 뷰모델 → JSX | `tileRegistry` |
+
+## 10. 계약 / 타입 / 강제 지점
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 | 실패 의미 |
+|---|---|---|---|---|---|
+| AR-01 / VP-01·VP-14·VP-17 | **EP-01** `structuredOutput` 은 `isTaskToolName(name)` 인 tool_result 에만 실린다 | `shared/task-tool.ts` `TASK_TOOL_NAMES` | `claude-map.ts` `claudeToNormalized`(user 분기) | tool_result 매핑 시점 | 다른 도구의 큰 출력까지 영속돼 DB 가 부푼다 |
+| MD-01 / VP-02·VP-17 | **EP-02** `TaskUpdate` 는 `success===true` 일 때만 관측을 만들고, 상태는 `statusChange.to` → 없으면 `args.status` 순으로 읽는다 | `shared/task-tool.ts` | 같은 파서 | 결과 파싱 시점 | 실패한 갱신이 패널에 반영된다(AC6 위반) |
+| MD-01 / VP-03·VP-17 | **EP-03** `TaskList` 는 전체 스냅샷 — 반환 집합에 없는 로컬 id 를 제거한다 | `taskBoard.ts` fold | `taskBoardFromMessages` | fold 중 snapshot 관측 시점 | 삭제된 Task 가 영구 잔류(AC7 위반) |
+| MD-02 / VP-04·VP-18 | **EP-04** 항목 키는 `agent:<taskId>` / `bg:<toolUseId>` — 두 네임스페이스를 절대 합치지 않는다 | `taskBoard.ts` `taskKey()` | 같은 fold + 선택 상태 | 키 생성 시점 | 숫자 id 와 tool_use id 가 충돌해 항목이 서로 덮인다 |
+| SD-01 / VP-05·VP-11 | **EP-05** 턴-후 갱신은 두 지점이 함께 성립해야 한다 — (1) `post-turn.ts` 의 listen 스텝 유지, (2) store 의 `subagent.task` transient 흡수 | 기존 코드 | `post-turn.ts` · `chatStore.ts` | 매 턴 종료 후 루프 반복 | 턴 종료 후 카드가 멈춘다(AC11 위반) |
+| SD-02 / VP-06·VP-12·VP-16 | **EP-06** 중단 확정은 세 지점이 함께 성립해야 한다 — (1) 핸들러가 즉시 합성 정착을 하지 **않는다**, (2) coordinator enrich 가 `stoppedSubagents` 를 게이트해 `background` 를 안 싣는다, (3) watchdog 이 timeout 에 합성 정착한다 | `chat-turn/index.ts` + `turn-coordinator.ts` | 중단 요청 시점 · settled 도착 시점 · timeout 시점 | (1) 빠지면 AC12 위반, (2) 빠지면 AC17 위반(사용자 중단에 통지 발생), (3) 빠지면 `중단 중` 고착 |
+| R-07 / VP-07·VP-13·VP-14 | **EP-07** 구조화 출력은 두 곳에 같은 규칙으로 실려야 한다 — (1) 라이브 이벤트, (2) writer 의 `payload_json` | `shared/ipc.ts` 타입 | `claude-map.ts` · `writer.ts` | 이벤트 방출 · 파트 upsert | 라이브와 재로드가 갈라진다(AC18 위반) |
+| R-08 / VP-08 | **EP-08** fold 입력은 **그 세션 엔트리의 messages** 뿐이다 — 전역 상태를 읽지 않는다 | `taskBoard.ts` 시그니처 | 타일 컴포넌트 | 렌더 시점 | 다른 세션 Task 가 섞인다(AC20 위반) |
+| MD-03 / VP-09·VP-19 | **EP-09** `waitForTask` 는 tracker 구독으로만 종료를 안다 — polling 하지 않는다 | `background-tasks.ts` | 핸들러 | 중단 대기 시점 | 명세 §2 polling 금지 위반 |
+| R-10 / VP-10 | **EP-10** 상세는 항목 `kind` 로 분기해 **그 종류가 실제로 가진 정보만** 보여준다 | `taskBoard.ts` 상세 뷰모델 | 상세 렌더 | 렌더 시점 | 일반 Task 에 경과/도구수 같은 빈 칸이 생긴다(AC24 위반) |
+| AR-02 / VP-15 | **EP-11** 타일 id 개명은 정의·레지스트리·reducer 특례·i18n **네 곳 전부**에서 이뤄져야 한다 | `rightPanelTiles.ts` | lint/typecheck + 렌더 | 빌드 시점 | 타일이 콘텐츠 없이 렌더되거나 라벨이 비어 보인다 |
+
+- 같은/동일 규칙이 여러 레이어에 있다면 SSOT 와 공유 방법: 6개 도구 이름과 결과 해석은 `shared/task-tool.ts` 한 곳이 갖는다 — main 은 이름 술어만, renderer 는 파서를 쓴다. 정규식/문자열 리터럴을 두 프로세스가 각자 갖지 않는다(`shared/subagent.ts` 선례와 동형).
+- `실패 의미`에 "다른 게이트가 막는다"를 적었다면 그 범위를 이 턴에 측정한 근거: **해당 없음** — 어느 행도 다른 게이트에 의존한다고 적지 않았다.
+- 선택적 필드의 `true/false/undefined` 의미: `structuredOutput` 은 `undefined` = Task 도구가 아니거나 SDK 가 안 실었다(둘 다 "항목을 만들지 않는다"로 수렴). `TaskUpdateOutput.success` 는 `false`/`undefined` 모두 무시(fail-closed).
+- 외부 SDK 경계의 실제 요구 타입/의미: `tool_use_result` 는 SDK 에서 `unknown` 이다 — 파서는 `isRecord` 가드로 좁히고 실패 시 `null` 을 돌려준다. `as any`/`as never` 를 쓰지 않는다.
+
+## 11. 구현 설계
+
+| 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
+|---|---|---|---|
+| `app/src/shared/task-tool.ts` **(신규)** | 도구 이름 술어 + 결과 파서 | `TASK_TOOL_NAMES`(6) · `isTaskToolName` · `readTaskToolObservation` | 순수 단위 |
+| `app/src/shared/task-tool.test.ts` **(신규)** | MD-01 UT | 도구별 성공/실패/누락 케이스 | 순수 단위 |
+| `app/src/shared/ipc.ts` | 계약 | `tool.call.completed` 와 `tool_result` 파트에 `structuredOutput?: unknown` 추가 (variant 수 불변) | typecheck |
+| `app/src/main/adapters/claude-map.ts` | EP-01 | `MapContext.toolNameByRunId` 추가 · tool_use 에서 기록 · tool_result 에서 Task 도구면 `structuredOutput` 동행 | 순수 단위(기존 `claude-map.test.ts`) |
+| `app/src/main/features/history/writer.ts` | EP-07(2) | `tool.call.completed` 영속 payload 에 `structuredOutput` 조건부 포함 | 통합 |
+| `app/src/main/features/chat/background-tasks.ts` | MD-03 | `waitForTask(sessionId, toolUseId, opts)` 추가 — `subscribe` 기반, 이미 미추적이면 즉시 resolve | 순수 단위(기존 테스트 파일) |
+| `app/src/main/app/chat-turn/index.ts` | EP-06(1)(3) | 즉시 합성 정착 제거 · `stopLiveSubagent` 후 `waitForTask` 대기 · timeout 시 기존 합성 정착 수행 · 실패는 reject | 단위(fake timer) |
+| `app/src/main/features/chat/turn-coordinator.ts` | EP-06(2) | settled background enrich 에 `!turn.stoppedSubagents.has(id)` 게이트 추가 | 단위 |
+| `app/src/main/adapters/mock-scenarios.ts` · `app/src/shared/ipc.ts` | 실기 경로 | `agent_task_board` 시나리오 추가(TaskCreate→TaskUpdate→TaskList + background 1건) | 사람 실기 진입점 |
+| `.../features/chat/lib/taskBoard.ts` **(신규)** | MD-02 | `taskBoardFromMessages` · `taskBoardGroups` · `taskDetailView` · `taskKey`/`backgroundTaskKey` | 순수 단위 |
+| `.../features/chat/lib/taskBoard.test.ts` **(신규)** | MD-02 UT | AC1~AC10·AC12·AC23·AC24 | 순수 단위 |
+| `.../features/chat/lib/rightPanelTiles.ts` | EP-11 | `subagent` → `task`, 라벨 키 교체 | typecheck |
+| `.../components/rightpanel/TaskTileContent.tsx` **(신규, `SubAgentTileContent.tsx` 대체)** | 목록/상세 렌더 | 통합 목록 + 종류별 상세 + `중단 중`/중단 버튼 | 사람 실기(시각) |
+| `.../components/rightpanel/tileRegistry.ts` | EP-11 | `task` 매핑 | typecheck |
+| `.../reducer/chatReducer.ts` | EP-04·EP-11 | `selectedSubagentTaskId` → `selectedTaskKey` · 액션 개명 · 타일 특례 id 교체 · 미확인 완료 카운트 상태 | 단위(기존 reducer 테스트) |
+| `.../store/chatStore.ts` | AT-12/14/19 | `stoppingTasks` transient · `stopTask` 가 `await` 후 실패 시 해제 + 사유 보관 · 완료 배지 카운트 | 단위 |
+| `.../components/ChatTitleBar.tsx` | AT-19 | 타일 칩 미확인 배지 | 사람 실기(시각) |
+| `.../components/transcript/{AgentTaskRow,AgentTaskBody,SubagentNoticeRow}.tsx` | EP-04 | `openTask(backgroundTaskKey(toolRunId))` 로 호출 교체 | typecheck |
+| `.../shared/i18n/resources/{ko,en}.ts` | 라벨 | `chat.taskTile.*` 신설 + `chat.rightpanel.tiles.task` | typecheck |
+
+### 테스트 가능성
+
+- electron/DB/native 의존부와 분리할 **별도 순수 파일**: `shared/task-tool.ts` 와 `lib/taskBoard.ts` 는 electron·DB·SDK 런타임을 import 하지 않는다(타입만) — `claude-map.ts` 와 같은 성질이라 vitest 직행이 가능하다.
+- 기존 메커니즘 재사용 시 형상/시점 적합성: `subagentTasksFromMessages`(`lib/parts.ts:269`)의 반환을 그대로 background 항목으로 매핑한다 — 상태 어휘가 `running/completed/aborted/failed` 라 통합 어휘로 1:1 사상된다(`running` → `in_progress`, 나머지 동명).
+- 순서를 관측할 훅/로그/주입 경계: fold 는 parts 순회 순서가 곧 관측 순서다 — 항목의 `order` 필드가 최초 관측 인덱스를 들어 정렬을 관측 가능하게 만든다.
+
+## 12. End-to-end 영향
+
+### producer → consumer
+
+```text
+SDK tool_result / system task_*
+  → claude-map(정규화 + structuredOutput)
+  → 버스 → writer(영속) ∥ renderer(라이브)
+  → parts
+  → taskBoardFromMessages(순수 fold)
+  → TaskTileContent(목록/상세) · ChatTitleBar(배지)
+```
+
+- producer 기준: 항목 존재의 권위는 **성공한 tool_result** 다. tool_use 만으로는 항목을 만들지 않는다(AC1).
+- consumer 파생 규칙: 상태 그룹·`중단 중`·배지 카운트는 전부 fold 결과에서 파생한다 — 컴포넌트가 자체 상태로 상태를 만들지 않는다.
+- 파생 가능한 합성값이 정본을 우회하지 않는가: `stopping` 은 fold **입력**이지 항목 필드가 아니다 — 렌더가 따로 `stopping` 을 다시 읽어 표시를 만들지 않는다.
+
+### 부팅/등록/초기화 변경 시 기존 소비처
+
+| 기존 소비처 | 값 증가/변경 시 영향 | 회귀 AC |
+|---|---|---|
+| `tileRegistry` 소비자(`RightPanelTile`·`ChatTitleBar`) | 타일 id 집합 크기 불변(4) — 한 원소의 이름만 바뀐다 | AC24·AC25 |
+| `MOCK_SCENARIO_IDS` 소비자(디버그 패널 셀렉트) | 13 → 14, 셀렉트 항목 1개 증가 | 사람 실기 |
+| `tool_result` 파트 소비자(`parts.ts`·transcript) | 새 옵션 필드는 기존 소비자가 무시한다(전방 호환) | AC18 |
+| `NormalizedEvent` variant 소비자 | variant 수 불변 → 인벤토리 수치 불변 | 운영 gate |
+
+## 13. Lifecycle / 오류 / 정리
+
+- 생성/시작: 항목 생성 = 성공 tool_result 관측 또는 `task_started`. 별도 등록 절차가 없다.
+- 취소/중단: D-005/D-006 — `중단 중` → (a) SDK stopped 확정 (b) IPC 거절 → `진행 중` 복구 (c) timeout → 합성 정착.
+- 종료/quit/crash/renderer-gone: 기존 경로 유지 — `settleDeadBackgroundTasks`(채널 사망)와 앱 종료 정리(`settleTrackedTasks`)가 이미 모든 추적을 정착시킨다. `waitForTask` 는 `clear()` 에서도 resolve 되므로 대기가 남지 않는다.
+- retry/timeout/partial failure: `waitForTask` 의 `timeoutMs` 는 밀리초 단위 정수이며 `STOP_SETTLE_TIMEOUT_MS = 15_000` 을 기본값으로 쓴다. 범위는 `[1_000, 60_000]` 을 벗어나지 않는다(상수 1개, 설정 노출 없음).
+- cleanup/rollback: renderer `stoppingTasks` 는 항목이 `in_progress` 를 벗어나면 해제한다 — 정착 이벤트가 유일한 해제 신호가 아니어야 재로드/세션 전환에서도 남지 않는다.
+- **다중 저장소 쓰기**: 런타임에는 없다 — 일반 Task 는 어디에도 별도 저장되지 않고 파트 하나에만 실린다(D-002). **산출물 사본은 둘이다** — 이 `plan.md` 의 상태와 `docs/handoff/INDEX.md` 보드 행. 둘이 갈라지지 않도록 상태·다음 주체는 INDEX 를 정본으로 두고 plan 메타는 단계만 적는다.
+
+## 14. 성능 / 상한 / 최적화
+
+- 새 출력의 `원천 상한 × 배치 상한`: `structuredOutput` 은 6개 도구에만 실린다. 최대 크기는 `TaskListOutput` — Task 수 × (id+subject+status+blockedBy) 다. 실용 상한을 Task 200건 × 약 200B ≈ **40KB/호출**로 잡고, 이를 넘는 파싱은 항목 수 상한 없이 그대로 fold 한다(목록 렌더는 가상화 없이 200행까지 안전 — 기존 background 목록과 같은 규모).
+- 새 요청 수의 `원천 상한 × 배치 상한`: 네트워크 요청 증가 0 — 새 IPC 채널도 없다.
+- 구조적 목표: 없음.
+- 캐시/snapshot/호출 축소로 잃는 부수 효과: fold 는 `useMemo(messages)` 로 감싼다 — 기존 `subagentTasksFromMessages` 와 같은 메모 경계이며(`SubAgentTileContent.tsx:97` 선례), `messages` identity 는 커밋 이벤트에만 바뀐다. `stopping` 집합이 바뀌면 재계산해야 하므로 **의존성에 `stopping` 을 포함**한다 — 빠뜨리면 `중단 중` 표시가 갱신되지 않는다(AC12 회귀).
+
+## 15. 외부 구현 포트 / 문서 계약
+
+- 외부/배포가 구현할 port/schema/config: 해당 없음.
+- 구현 문서: `docs/arch/frontend/ux-domains.md` 의 우측 패널 서술과 `docs/arch/backend/provider-runtime.md` 의 파트/이벤트 서술이 타일 이름·파트 필드를 언급하면 같이 갱신한다(구현 턴에 실측).
+
+## 16. 기존 결정·규칙과의 관계
+
+| 기존 결정/규칙 | 출처 | 본문에서 건드리는 문장 | 결과 |
+|---|---|---|---|
+| 0143 "클릭 즉시 낙관 정착" | `chat-turn/index.ts:182` 주석 | §5 상태 전이표 `[■] 클릭` 행, D-005 | **변경** — 명세 §2 가 `중단 중` 을 명시 요구 |
+| 0143 "사용자 자기 행위의 통지는 소음" | `chat-turn/index.ts:196` 주석 | D-007, EP-06(2) | **유지** — 부수 효과였던 억제를 명시 게이트로 승격 |
+| 0136 "채널 사망 시 합성 failed 정착" | `chat-turn/index.ts:66` | §4 "이미 충족", AC21 | 유지 |
+| 0149 "프로세스 경계를 넘는 wire 상수는 shared 가 단일 소유" | `shared/subagent.ts` 헤더 주석 | §10 SSOT 항, `shared/task-tool.ts` | 유지(같은 패턴으로 확장) |
+| renderer 4-layer + 그룹 스코프 | `app/src/renderer/AGENTS.md` | §11 파일 배치, §5 a11y | 유지 |
+| "코드에서 셀 수 있는 수치를 문서에 적지 마라" | root `AGENTS.md` 원칙 4 | §7-A 운영 gate 의 인벤토리 행 | 유지 — 수치는 생성물이 갖고 본 문서는 "불변이어야 한다"만 적는다 |
+| 마이그레이션 append-only | `app/AGENTS.md` | §8 "마이그레이션 0개 추가" | 유지 |
+
+## 17. 리스크 / 트레이드오프
+
+| 리스크 | 완화/결정 |
+|---|---|
+| 현재 CLI 가 `TaskCreate` 대신 `TodoWrite` 를 쓸 수 있다 — 그러면 패널이 비어 있다 | mock 시나리오 `agent_task_board` 로 렌더 경로를 CLI 와 독립적으로 검증한다. `TodoWrite` 대응은 비범위(D-001) |
+| `tool_use_result` 가 특정 도구/버전에서 누락될 수 있다 | 파서가 `null` 을 돌려주고 항목을 만들지 않는다 — 거짓 항목보다 미표시를 택한다 |
+| 중단 확정 대기가 IPC 응답을 최대 15초 붙잡는다 | 렌더러는 `중단 중` 으로 즉시 피드백하므로 사용자 체감 지연이 없다. 핸들러는 turn 을 막지 않는다(AC16) |
+| 타일 개명이 47개 지점에 걸린다 | typecheck 가 전수를 잡는다(문자열 id 3곳만 수동 확인 — EP-11) |
+| `TaskList` 스냅샷 제거 규칙(D-008)이 과했을 가능성 | `TaskListOutput.tasks` 가 전체 목록이라는 SDK 타입에 근거한다. 반증되면 D-008 만 뒤집으면 되고 fold 한 곳만 바뀐다 |
+
+- 되돌리기 어려운 결정: 없다 — 타일 상태·일반 Task 상태 모두 미영속이고, 새 파트 필드는 옵션이라 무시 가능하다.
+- 신규 의존성: 없음 → 사용자 승인 불필요.
+
+## 18. 영향 받는 파일 / 문서
+
+- `app/src/shared/task-tool.ts` **(신규)** · `app/src/shared/task-tool.test.ts` **(신규)** · `app/src/shared/ipc.ts`
+- `app/src/main/adapters/claude-map.ts` · `claude-map.test.ts` · `mock-scenarios.ts`
+- `app/src/main/features/history/writer.ts`
+- `app/src/main/features/chat/background-tasks.ts` · `background-tasks.test.ts` · `turn-coordinator.ts`
+- `app/src/main/app/chat-turn/index.ts`
+- `app/src/renderer/src/features/chat/lib/taskBoard.ts` **(신규)** · `taskBoard.test.ts` **(신규)** · `rightPanelTiles.ts`
+- `app/src/renderer/src/features/chat/components/rightpanel/TaskTileContent.tsx` **(신규)** · `tileRegistry.ts` · (삭제) `SubAgentTileContent.tsx`
+- `app/src/renderer/src/features/chat/reducer/chatReducer.ts` · `store/chatStore.ts` · `components/ChatTitleBar.tsx`
+- `app/src/renderer/src/features/chat/components/transcript/{AgentTaskRow,SubagentNoticeRow}.tsx` · `tool-bodies/AgentTaskBody.tsx`
+- `app/src/renderer/src/shared/i18n/resources/{ko,en}.ts`
+- `docs/handoff/INDEX.md` · (실측 후) `docs/arch/frontend/ux-domains.md` · `docs/arch/backend/provider-runtime.md`
+
+## 19. 게이트
+
+- 적용할 하위 가이드: `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드` · `app/src/renderer/AGENTS.md §테스트` · `app/src/main/AGENTS.md`.
+- ABI/네트워크 등 환경 제약: 이 저장소 클론에는 `app/node_modules` 가 없다(`ls app/node_modules` → 0개). 구현 턴은 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 로 설치하고 postinstall(Electron ABI) 실패는 환경 제약으로 분리 보고한다.
+- 기본 정적 게이트: `cd app && npm run lint && npm run typecheck`.
+- 관련 테스트: `./node_modules/.bin/vitest run src/shared src/main/adapters src/main/features/chat src/main/app src/renderer/src/features/chat` (비-DB, `pretest` 우회).
+- 문서 게이트: `node app/scripts/check-doc-inventory.mjs --check`.
+- 사람 실기: AC25(시각 — 첨부 양식 대조, 라이트/다크 두 테마) · AC20(2세션 전환) · mock `agent_task_board` 시나리오로 AC1~AC10 육안 확인.
+
+## READY self-review
+
+- [x] Decision Ledger 의 ACTIVE/SUPERSEDED/OPEN 이 여러 턴의 결정을 보존한다 — ACTIVE 13 · SUPERSEDED 1(D-012 → D-014). D-005 는 0143 코드 결정을 대체(대체 관계 칸에 기록).
+- [x] Part I 만 읽어도 사용자/제품 완료 상태가 이해된다 — §5 전이표가 구현 파일을 언급하지 않는다.
+- [x] 조건절·이유절·제거/유지 요구를 임의 재해석하지 않았다 — 명세의 "즉시 '중단됨'으로 확정하지 않는다"·"별도의 주기적인 TaskOutput polling으로 구현하지 않는다"를 원문으로 D-005·D-011 에 인용했다.
+- [x] Product/UX 의 각 핵심 동작이 AC 와 Technical Design 에 연결된다 — §5 전이표 18행이 AC1~AC25 와 §9 TO-BE 경로로 각각 이어진다.
+- [x] Technical Design 에 AS-IS 와 TO-BE 가 모두 있고 같은 비교 축으로 작성됐다.
+- [x] AS-IS → TO-BE Delta 의 각 변경이 구현 파일/모듈 또는 AC 에 추적 가능하다 — Delta 7행 전부 §11 파일 또는 VP 를 가리킨다.
+- [x] AS-IS 에서 사라진 책임은 명시했다 — `SubAgentTileContent.tsx` 는 `TaskTileContent.tsx` 로 **대체**(§11 · §18), 즉시 낙관 정착은 **삭제**(D-005).
+- [x] 수치·전칭 표현·외부 규약·문서 앵커·기존 테스트 인용을 실측했다 — §8 전수 조사 8행 + 검산 4항.
+- [x] 각 AC 가 행동 단언, 검증 수단, 프로덕션 도달 경로를 가진다 — §7 표 3칸.
+- [x] Baseline V 를 썼고 유효 V 를 재구성할 수 있다 — 상속 기준 `none`.
+- [x] 변경 효과에 필요한 레벨을 선택했고 모든 NEW node 에 같은 레벨 REQUIRED pair 가 있다 — R 10·SD 3·AR 3·MD 3 전부 pair 보유.
+- [x] 영향받은 INHERITED node 는 REGRESSION, 비영향 node 만 NOT_REQUIRED 다 — Baseline 이라 INHERITED 없음.
+- [x] 각 pair 의 경로·§10 전수 분모·직접 oracle 이 있고 적대 증거가 필요한 pair 만 선택 이유·변이를 갖는다 — VP-06·VP-16 두 pair 만 0건 주장이라 변이를 요구했다.
+- [x] 현재 변경 산출물의 운영 gate 가 열거됐고 관련 없는 기존 실패를 새 blocking 범위로 만들지 않는다 — DB 로드 스위트 실패는 기준선 분리.
+- [x] 사람 실기로 미룬 순수 로직이 없다 — 그룹 순서·상태 파생·키 생성은 전부 UT.
+- [x] semantic 목표가 structural proxy 만으로 검증되지 않는다 — AC22 의 0건 스윕에 3개 resolve 케이스 양성 짝을 붙였다.
+- [x] 신규 계약의 SSOT·강제 지점·테스트 seam 이 있다 — §10 EP-01~EP-11.
+- [x] 부팅/등록 변경의 기존 소비처를 전수 확인했다 — §12 표 4행.
+- [x] producer/consumer 양쪽 의미를 확인했다 — §12.
+- [x] 상한·총량·one-way door 를 필요한 곳에서 계산했다 — §14, §17.
+- [x] 게이트 명령이 대상 subtree 의 현재 `AGENTS.md` 와 충돌하지 않는다 — `npm test` 대신 lint+typecheck+직접 vitest(§19).
+- [x] 본문 완성 후 Decision Ledger 와 기존 결정을 전체 교차검증했고 결과를 §3 갱신 메모에 적었다.
+- [x] 산출물 문장 규칙을 지켰다 — Part I 은 관측 결과, Part II 는 경로·계약. 같은 사실을 양쪽에 쓰지 않았다.
+
+---
+
+> **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
+
+## [구현자 기입] 설계 리뷰
+
+- 동의 / 그대로 진행: Part I 전부와 Part II §9~§14. AS-IS 조사가 실제 코드와 맞았다 — background 목록·listen·채널 사망 정착은 이미 있었고 이번 작업은 일반 Task fold·통합 타일·`중단 중`에 집중됐다.
+- 이견 / 현실성 문제: 없음.
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-01·14·17 | EP-01 `structuredOutput` 은 Task 도구에만 | `claude-map` tool_result 매핑 (1) | 1/1 | `rg -n "isTaskToolName" app/src --glob '!*.test.ts'` → 5행 / 게이트 지점 `claude-map.ts:329` · 소비 `taskBoard.ts:163` | — |
+| VP-02·17 | EP-02 `success===true` 만, 상태는 `statusChange.to` 우선 | 결과 파싱 (1) | 1/1 | 케이스 `success 가 true 가 아니면 관측이 없다 (미지정 포함 — fail-closed)` · `statusChange.to 를 상태의 권위로 읽는다` | — |
+| VP-03·17 | EP-03 `TaskList` 전체 스냅샷 — 부재 제거 | fold 중 snapshot (1) | 1/1 | 케이스 `TaskList 스냅샷이 상태 교체·신규 추가·부재 제거를 모두 수행한다` (id `9` 부재 단언) | — |
+| VP-04·18 | EP-04 키 네임스페이스 분리 | 키 생성 + 선택 상태 (1) | 1/1 | 케이스 `같은 문자열 id 를 가진 두 종류가 서로 덮어쓰지 않는다` → 2건 | — |
+| VP-05·11 | EP-05 턴-후 갱신 2지점 | `post-turn.ts` listen · store transient (2) | 2/2 | `git diff --stat -- app/src/main/app/chat-turn/post-turn.ts app/src/renderer/src/features/chat/store/chatStore.ts` → post-turn **변경 0줄**(경로 무변경), store 는 `subagent.task` transient 흡수 그대로 | — |
+| VP-06·12·16 | EP-06 중단 확정 3지점 | 즉시 정착 없음 · enrich 게이트 · watchdog (3) | 3/3 | (1) `SDK 확정을 기다리며, 요청 시점에는 합성 정착을 하지 않는다` (2) `사용자가 중단한 태스크의 settled 는 영수증이 관측됐어도 background 미부여` (3) `확정이 없으면 합성 정착으로 마감한다` | — |
+| VP-07·13·14 | EP-07 구조화 출력 쓰기 지점 | 라이브 이벤트 · writer (2) — **실측 3** | 3/3 | `rg -n "structuredOutput" app/src --glob '!*.test.ts'` 중 이 필드의 쓰기 지점 = `claude-map.ts:355`(생산) · `writer.ts:272`(영속) · `chatReducer.ts:466`(라이브 파트). 셋 다 결함 심기로 확인 | — |
+| VP-08 | EP-08 fold 입력은 그 세션 messages 뿐 | 렌더 시점 (1) | 1/1 | `rg -n "chatStore|useChatSession" app/src/renderer/src/features/chat/lib/taskBoard.ts` → **0건**(전역 상태 미참조, 시그니처가 강제) | — |
+| VP-09·19 | EP-09 polling 금지 | 중단 대기 (1) | 1/1 | `rg -n "TaskOutput" app/src/main --glob '!*.test.ts'` → 1행, **전부 주석**(코드 참조 0) · `rg -n "setInterval" <신규 main 2파일>` → 0 | — |
+| VP-10 | EP-10 상세는 종류별 정보만 | 렌더 (1) | 1/1 | 케이스 `background Task 는 …설명/의존성 행이 없다` (`not.toContain` 2건) | — |
+| VP-15 | EP-11 타일 개명 4곳 | 정의·레지스트리·reducer 특례·i18n (4) | 4/4 | `rg -n "'subagent'" app/src/renderer/src` → **0건** · 개명 후 `rg -n "'task'" .../rightPanelTiles.ts .../tileRegistry.ts .../chatReducer.ts` → 각 1·2·1 | — |
+
+- §10 에 없는데 같은 불변식이 필요했던 지점: **1건 — EP-07 의 세 번째 쓰기 지점**(renderer reducer 의 `tool_result` 파트 조립). §10 은 "라이브 이벤트 · writer" 2곳으로 적었는데, 라이브 이벤트가 파트가 되는 hop 이 하나 더 있고 거기서 필드를 떨어뜨리면 **재로드 전까지 목록이 비어 보인다**. 현재 pair(VP-07/AC18)에 귀속되는 지점이라 선조치했고, §10 행의 지점 수를 2→3 으로 정정할 것을 제안한다(아래 §plan 수정 제안 1).
+
+**V-pair 자기확인** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `taskBoard.test` AC1/AC2 2케이스 | not selected — 항목 수를 직접 관측 |
+| VP-02 | REQUIRED | SELF_PASS | `task-tool.test` TaskUpdate 6케이스 | not selected |
+| VP-03 | REQUIRED | SELF_PASS | 스냅샷 id 집합 차집합 단언 | not selected |
+| VP-04 | REQUIRED | SELF_PASS | 키 충돌 케이스 2건 | not selected |
+| VP-05 | REQUIRED | SELF_PASS | listen 경로 무변경(diff 0줄) + 기존 `post-turn.test.ts` green | not selected |
+| VP-06 | REQUIRED | SELF_PASS | `stop-subagent.test` 9케이스 | **required** — 변이 2종 red 확인(아래 잠금 표) |
+| VP-07 | REQUIRED | SELF_PASS | reducer·writer·taskBoard 3층 단언 | not selected(직접) + 변이 2종 red |
+| VP-08 | REQUIRED | SELF_PASS | 전역 참조 0건 + 시그니처 | not selected |
+| VP-09 | REQUIRED | SELF_PASS | `waitForTask` 6케이스 | not selected — resolve 를 직접 관측 |
+| VP-10 | REQUIRED | SELF_PASS | `taskDetailRows` 2케이스 | not selected |
+| VP-11 | REQUIRED | SELF_PASS | 경로 무변경 | not selected |
+| VP-12 | REQUIRED | SELF_PASS | 확정·watchdog 두 종단 | not selected |
+| VP-13 | REQUIRED | SELF_PASS | 라이브 파트 → fold 동등 + 영속 payload | not selected |
+| VP-14 | REQUIRED | SELF_PASS | `claude-map.test` 3케이스 | **required** — 게이트 제거 변이 red |
+| VP-15 | REQUIRED | SELF_PASS | 개명 전수 0건 + typecheck | not selected |
+| VP-16 | REQUIRED | SELF_PASS | coordinator 음성 + 양성 짝 2케이스 | **required** — 게이트 제거 변이 red |
+| VP-17 | REQUIRED | SELF_PASS | `task-tool.test` 17케이스 | not selected |
+| VP-18 | REQUIRED | SELF_PASS | `taskBoard.test` 17케이스 | not selected |
+| VP-19 | REQUIRED | SELF_PASS | `background-tasks.test` waitForTask 6케이스 | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|
+| `turn-coordinator.ts:264` — enrich 의 `!turn.stoppedSubagents.has(...)` 삭제 | `VP-06·VP-16 선택 증거`(AC17 0건 주장) | **1차: 0건 — 잠금 없음** → oracle 정정 후 `사용자가 중단한 태스크의 settled 는 … background 미부여` 1 failed | 잠김(정정 후) |
+| `stop-subagent.ts` — 0143 낙관 정착 복원(요청 직후 합성 정착) | `VP-06 선택 증거`(AC12 "즉시 확정 안 함") | `SDK 확정을 기다리며…` 외 3건 | 잠김 |
+| `claude-map.ts:329` — `isTaskToolName` 게이트를 `true` 로 | `VP-14 구조·전수 oracle 민감도`(EP-01) | `Task 도구가 아닌 결과에는 structuredOutput 을 싣지 않는다` 1건 | 잠김 |
+| `chatReducer.ts:466` — 라이브 파트에서 `structuredOutput` 드롭 | `VP-07·VP-13 배선 존재 oracle`(AC18) | `라이브 이벤트로 만든 파트만으로…` 외 1건 | 잠김 |
+| `writer.ts:272` — 영속 payload 에서 `structuredOutput` 드롭 | `VP-07 배선 존재 oracle`(EP-07) | `structuredOutput 을 tool_result payload 에 싣는다` 1건 | 잠김 |
+
+> **첫 변이가 무음이었던 것이 이 라운드의 실질 산출이다.** 최초 AC17 테스트는 스트림에 async_launched 영수증을 넣었는데, `coerceStoppedToolCompletion` 이 그 영수증을 먼저 aborted 로 바꿔 `markAsyncLaunched` 자체가 일어나지 않았다 — 그래서 게이트를 지워도 `isAsyncLaunched` 가 false 라 결과가 같았다. 영수증 관측을 tracker 에 직접 심어(중단 클릭 **이전** 관측을 재현) 게이트가 판정에 참여하게 만든 뒤에야 변이가 red 가 됐고, 같은 조건의 양성 짝(`중단하지 않은 태스크는 … background:true`)을 붙여 방향을 고정했다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ✅ 전부 있다 | `chat.taskTile.*` 25키 — 목록/그룹/상세/배지/중단 실패가 각각 렌더 지점을 갖는다. `stopFailed` 는 `TaskRow` 의 `stopError` 줄이 유일한 소비자다 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | ✅ 전부 표에 있다 | `stop 요청 거절`·`watchdog timeout`·`채널 종료` 3행. **표에 없던 것 1건**: 턴이 없는 세션에서 중단을 누르는 경우 → 구 코드는 조용히 성공했다. 지금은 reject 하므로 `stop 요청 거절` 행으로 수렴한다 |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | ✅ | 요청 실패 시 `중단 중` 이 풀리고 카드 아래에 사유가 붙는다(`taskStopErrors[key]`). 구 코드에는 실패 표시가 아예 없었다 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | ✅ | `stopping` 해제는 **부모 Task 결과 도착**이 유일한 신호라 순서에 무관하다. watchdog 합성 정착과 진짜 확정이 겹쳐도 `settled` 는 멱등(트래커 delete 실패 시 no-op) |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | §10 EP-07 이 쓰기 지점을 2곳으로 셌으나 실제는 **3곳** — 라이브 이벤트가 파트가 되는 reducer hop 이 빠졌다 | 📝 **plan 수정 제안** — EP-07 의 `언제 강제` 를 `(1) 이벤트 방출 (2) renderer 파트 조립 (3) writer payload` 로, 전수 `2`→`3` 으로 정정 | 그 hop 을 빠뜨리면 재로드 전까지 목록이 빈다. 변이로 확인(잠금 표 4행) |
+| 2 | `structuredOutput` 이름이 기존 어댑터 **capability 플래그**와 겹친다 | ⚠️ 보고만 | `adapters/descriptor.ts:40` 의 `structuredOutput: true`(Options.outputFormat 지원 여부)와 이름만 같고 타입·위치가 다르다. 혼동 가능하나 개명은 공개 파트 필드 변경이라 사용자 결정 |
+| 3 | `TaskList`/`TaskGet` **보정으로만** completed 가 되는 Task 는 배지를 켜지 않는다 | ✅ 선조치(범위 명시) | 전이의 권위는 `TaskUpdate.statusChange` 다. 보정은 "지금 상태가 이렇다" 이지 "방금 끝났다" 가 아니라 배지를 켜면 재보정마다 알림이 생긴다. `chatReducer.ts` 주석에 명시 |
+| 4 | `parts.ts` 에 tool_result→ToolCall 변환 본문이 **3벌 복사**돼 있었다 | ✅ 선조치 | 이번에 필드를 하나 더하면서 세 곳이 갈라질 수 있었다 — `resultMap(parts)` 한 곳으로 접었다(`parts.ts:80`·`:449`). 동작 변화 없음, 기존 `parts.test.ts` green |
+| 5 | mock 시나리오 개수가 테스트 **제목**(`12종`)에 박혀 있었다 | ✅ 선조치 | 시나리오를 늘리자 제목과 배열이 갈라졌다. `MOCK_SCENARIO_IDS` 대조로 바꿔 개수를 코드가 갖게 했다(root `AGENTS.md` 원칙 4 와 같은 축) |
+| 6 | 일반 Task 는 GUI 에서 중단/편집할 수 없다 | ⚠️ 보고만 | 명세가 요구하지 않았고 §6 비범위다. `canStopTask` 가 `kind==='background'` 로 잠가 UI 에 오해 여지가 없다 |
+
+### 설계 대비 명시적 차이
+
+- plan 이 지정한 것과 다르게 구현한 것과 그 이유: **1건** — §11 은 중단 흐름을 `app/chat-turn/index.ts` 에 두라고 적었으나 `features/chat/stop-subagent.ts` 로 **분리**했다. 이유: `app/` 은 배선 레이어라 IPC 없이 테스트할 수 없고(`src/main/AGENTS.md §작업 규칙 1`), AC12~AC16 이 전부 이 흐름의 판정이다. 계약·경로·강제 지점은 그대로다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 시한은 `timeoutMs` 인자 하나뿐이고 캐시·자격증명 같은 만료 상태를 새로 만들지 않았다 | AC15 `확정이 없으면 합성 정착으로 마감한다`(timeoutMs 5ms 주입) |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | **있다** — `stoppedSubagents`·`blockedSubagents` 는 turn 이 공유하고 lease 재사용이 `clear()` 한다(`session-chain-lease.ts:166`). 요청 실패 시 되돌리지 않으면 다른 경로가 이 태스크를 stopped 로 강등한다 | AC14 `채널이 죽었으면 throw 하고 중단 표식을 되돌린다` — `stoppedSubagents.has` false 단언 |
+| 재진입 | **있다** — 같은 태스크에 중단을 두 번 누르면 요청이 두 번 나간다 | UI 에서 막았다: `canStopTask` 가 `stopping` 을 제외한다(케이스 `중단 중에는 버튼을 다시 누를 수 없다`). reducer 도 `TASK_STOP_REQUESTED` 를 멱등 처리 |
+| 다른 무효화 축 | **있다** — watchdog 합성 정착과 진짜 SDK 확정이 겹칠 수 있다 | `tracker.settled` 는 미존재 키에 no-op 이고 `settleSubagentTask` 는 `openToolRuns` 에서 이미 지워진 항목을 건너뛴다 — 중복 정착이 이벤트를 두 번 만들지 않는다(`settle.ts:56` delete 후 재호출 no-op) |
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 27 수정 + 9 신규 · 1 삭제(`SubAgentTileContent.tsx` → `TaskTileContent.tsx` 대체). `git diff --stat -- app/` = 794 insertions / 398 deletions |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node scripts/check-doc-inventory.mjs --check` · `npm rebuild better-sqlite3`(Node ABI) |
+| **관측한 게이트 산출**(exit code 아님) | lint **0 error · 1 warning**(warning 은 기존 `TranscriptVirtualizer` 의 `react-hooks/incompatible-library`, 변경 무관) · typecheck 3구성 **출력 0줄** · vitest **235파일 / 2413 케이스 통과, 실패 0**. 로드 실패 1파일 = `chat-turn.continuity.test.ts`(`electron` import) — **stash 후 기준선에서 동일 실패 재현**, 환경 기인(ELECTRON_SKIP_BINARY_DOWNLOAD) · inventory `9 items, 79 channels` + prose/links ok |
+| V-pair 자기확인 | `SELF_PASS 19 / SELF_BLOCKED 0`; pair 별 상세는 위 표 |
+| 강제 지점 전수 | **18/18** (EP-05 2 · EP-06 3 · EP-07 3(§10 은 2로 적었다, 위 제안 1) · EP-11 4 · 나머지 각 1) |
+| **AC 자기보고**(`Criteria-Met`) | 21/25 — 아래 합계 검산 참조 |
+| **합계 검산** | `✅ 21 · ⚠️ 4 · ❌ 0 = 총 25`. 분모 25 는 §7 표 행 수를 다시 세어 확인했고 이번 라운드에 AC 를 나누거나 더하지 않았다. ⚠️ 4 = AC11(경로 무변경·기존 커버리지) · AC20(2세션 실기) · AC21(경로 무변경) · AC25(시각 실기) |
+| 블로커 / 역질문 | 없음. 사람 실기 2건(시각·2세션)과 CLI 실환경에서 TaskXXX 가 실제로 호출되는지의 확인이 남는다 — 후자는 §17 리스크 1이고 mock `agent_task_board` 가 렌더 경로를 CLI 와 독립 검증한다 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+### AC 자기보고 상세
+
+| AC | 판정 | 이번 턴에 재현한 관측 |
+|---|---|---|
+| AC1·AC2 | ✅ | `taskBoard.test` — `성공 결과가 도착해야 항목이 생긴다` (pending 0건 / settled 1건) · `실패한 TaskCreate 는 항목을 만들지 않는다` |
+| AC3~AC6 | ✅ | 같은 파일 TaskUpdate 4케이스 — 중복 없음(1건) · 제목 교체 · deleted 제거 · `success:false` 무변화 |
+| AC7·AC8 | ✅ | `TaskList 스냅샷이 상태 교체·신규 추가·부재 제거를 모두 수행한다`(id 9 부재) · `TaskGet 은 그 id 만 갱신하고 task:null 은 제거한다` |
+| AC9·AC10 | ✅ | `background 항목만 실행 메타를 갖고…` · 그룹 배열 `['in_progress','pending','completed','aborted','failed']` 동등 단언 |
+| AC11 | ⚠️ | listen 경로 **변경 0줄**(`git diff -- app/src/main/app/chat-turn/post-turn.ts` 빈 출력) + 기존 `post-turn.test.ts` green. 턴-후 실제 갱신은 사람 실기 |
+| AC12 | ✅ | `중단 요청 중인 background 는 stopping 이고 진행 중 그룹에 남는다` + reducer `요청은 중단 대기에 넣고…` |
+| AC13 | ✅ | coordinator `사용자가 중단한 태스크의 settled…`(부모 결과 `reason:'aborted'`) + taskBoard 그룹 테스트의 `aborted` 행 |
+| AC14 | ✅ | `stop-subagent.test` 2케이스(no-channel / stopTask 거절) + reducer `요청 실패는 대기를 풀고 사유를 남긴다` |
+| AC15 | ✅ | `확정이 없으면 합성 정착으로 마감한다` — `onWatchdog` 호출 + `settled` 1건 |
+| AC16 | ✅ | `turn 전체를 중단하지 않는다 — 다른 열린 도구는 그대로다` |
+| AC17 | ✅ | coordinator 음성 + 양성 짝 2케이스, 변이 red 확인 |
+| AC18 | ✅ | reducer `라이브 이벤트로 만든 파트만으로 작업 목록이 파생된다` + writer payload 단언 + 로드 경로가 payload 를 통째로 spread(`dto.ts:52`) |
+| AC19 | ✅ | reducer 배지 4케이스(켜짐/안 켜짐/해제/중단 제외) + `rg notifyApi <신규 5파일>` → 0건 |
+| AC20 | ⚠️ | `rg "chatStore\|useChatSession" taskBoard.ts` → **0건**(EP-08 구성상 성립) + 라우팅 코드 무변경. 2세션 전환은 사람 실기 |
+| AC21 | ⚠️ | `settleDeadBackgroundTasks` 무변경 + taskBoard 가 `failed` 를 실패 그룹으로 사상(그룹 테스트). 채널 사망 실기는 사람 몫 |
+| AC22 | ✅ | `waitForTask` 6케이스(settled/clear/즉시/timeout/타세션/구독해제) + `rg TaskOutput app/src/main` → 1행 전부 주석 |
+| AC23 | ✅ | `TaskOutput·TaskStop 호출은 목록을 만들지 않는다`(0건) |
+| AC24 | ✅ | `taskDetailRows` 2케이스 — 종류별 labelKey 배열 동등/부재 단언 |
+| AC25 | ⚠️ | `rg "#[0-9a-fA-F]{3,6}" <신규 tsx 2파일>` → 0건. 시각 대조는 사람 실기 |
+
+## [구현자 기입] Review Signals — 사실만
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음 — r1 이다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: EP-07 의 지점 수(2→3)는 plan 이 producer/consumer 를 셀 때 **파트 조립 hop 을 레이어로 세지 않아서** 빠졌다. §10 작성 시 "이벤트 → 파트 → DB" 를 세 층으로 나눠 세면 걸렸을 것이다.
+- 반복해서 부딪히는 환경 한계: `chat-turn.continuity.test.ts` 가 `electron` 을 import 해 이 환경에서 로드 실패한다(기준선 동일). better-sqlite3 는 `npm rebuild` 로 Node ABI 를 맞춰 DB 스위트까지 green 으로 돌렸다.
+- 현재 라운드 수: 1
+
+---
+
+## [검증자 기입] 파생 이슈
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D1 | 채널 종료 정착이 패널에서 `실패` 가 아니라 `중단됨` 으로 분류되고, 행 문구가 `사용자에 의해 중단됨` 이라 원인을 거짓 진술한다 | verify r1 · **VP-08** · AC21 | `isAbortedResult`(`parts.ts:330`)가 권위 필드 `reason` 을 메시지 부분문자열보다 우선하게 한다 — `reason:'failed'` 면 abort 로 읽지 않는다. 충돌 지점 전수 **2**: `settle.ts:26` · `chat-turn/index.ts:68`. AC21 의 파생 UT 를 실제로 만든다 | **BLOCKING** | open |
+| D2 | 미배선 표면 4종 — `taskBoardSettledKeys`(프로덕션 참조 0 + 배지 규칙이 reducer 와 다름) · `isBackgroundTask`(참조 0) · `MARK_SETTLED_TASKS`·`TASK_STOP_SETTLED`(도달 불가 액션) | verify r1 · §3 역방향 | 죽은 표면을 지우거나 실제 경로에 연결한다. `taskBoardSettledKeys` 는 SSOT drift 라 특히 — 살릴 거면 reducer 가 그것을 쓰게, 아니면 테스트째 제거 | NON_BLOCKING | open |
+| D3 | 구현 보고 강제 지점 합계 `18/18` 이 내역과 어긋난다 — EP-07=3 이면 **19** | verify r1 · §7 | 다음 라운드 보고에서 합계를 내역에서 다시 계산한다. 행 관측은 전부 정확했다 | NON_BLOCKING | open |
+| D4 | 실패 상태 background 행에 사유 문구가 없다 — 명세 §2 는 `실행 세션 종료` 를 요구한다 | verify r1 · AC21(명세 §2) | `backgroundMetaLine` 의 `aborted` 분기와 대칭으로 `failed` 분기를 만든다. D1 과 같은 자리 | NON_BLOCKING | open |
+| D5 | 대기 중 항목 번호가 **그룹 내 순번** 이다(첨부 예시는 전역 순번) | verify r1 · AC25 | 시각 실기에서 사람이 판단할 항목으로 남긴다 | NON_BLOCKING | open |
+| D6 | 일반 Task 행에 상태 보조줄이 없다(그룹 헤더만 상태를 말한다) | verify r1 · AC25 | 같음 — 시각 실기 판단 | NON_BLOCKING | open |
+| D7 | `structuredOutput` 이름이 기존 어댑터 capability 플래그(`descriptor.ts:40`)와 겹친다 | verify r1 · §3 | 파트 필드 개명은 공개 계약 변경이라 별도 결정이 필요하다 | NEXT_HANDOFF | open |
+| D8 | `TaskUpdate` 가 미지 id 에 도착하면 제목이 id 인 유령 항목이 생긴다(압축된 세션 재개 시나리오) | verify r1 · §2 | 현재는 "존재하는 Task 를 버리지 않는다" 는 선택이다. 제품 판단이 필요하면 사용자에게 올린다 | NON_BLOCKING | open |

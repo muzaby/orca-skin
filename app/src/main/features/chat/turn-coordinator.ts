@@ -260,9 +260,15 @@ export class TurnCoordinator<W = unknown> {
             // 정착에 background:true 를 실어 renderer 완료 통지·writer 영속(subagent_notice)의
             // 권위 신호로 삼는다. 트래커 해제(아래)보다 먼저 판정해야 하며, 해제 후 지각 도착한
             // 중복 settled 는 관측이 이미 사라져 미부여된다(통지 중복 차단).
+            //
+            // **사용자가 중단한 태스크는 제외한다**(0143 결정, 0204 §10 EP-06 로 명시 게이트화):
+            // 자기 행위의 완료 통지는 소음이다. 구 경로는 중단 클릭이 트래커를 즉시 해제해
+            // 이 조건이 부수적으로 거짓이 됐지만, 0204 D-005 가 확정까지 추적을 유지하면서
+            // 그 부수 효과가 사라졌다 — stoppedSubagents 를 직접 본다.
             const ev =
               coerced.type === 'subagent.task' &&
               coerced.phase === 'settled' &&
+              !turn.stoppedSubagents.has(coerced.toolUseId) &&
               turn.dbSessionId &&
               this.deps.backgroundTasks.isAsyncLaunched(turn.dbSessionId, coerced.toolUseId)
                 ? { ...coerced, background: true }

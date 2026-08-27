@@ -269,7 +269,10 @@ export class HistoryWriter {
             ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
             ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {}),
             // 부모 Task 면 서브에이전트 메타(모델·시간·도구수) 영속 — 재로드 후 카드/행 복원.
-            ...(ev.subagentMeta !== undefined ? { subagentMeta: ev.subagentMeta } : {})
+            ...(ev.subagentMeta !== undefined ? { subagentMeta: ev.subagentMeta } : {}),
+            // TaskXXX 구조화 출력 영속(0204 §10 EP-07) — 작업 타일이 재로드 후에도 같은
+            // 목록을 접으려면 라이브 이벤트와 이 파트가 같은 필드를 실어야 한다.
+            ...(ev.structuredOutput !== undefined ? { structuredOutput: ev.structuredOutput } : {})
           })
         )
         break

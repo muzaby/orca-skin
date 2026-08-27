@@ -154,3 +154,66 @@ describe('HistoryWriter — assistant content 마감 1회 기록 (0107)', () => 
     expect(turn.assistantText).toBe('')
   })
 })
+
+// 0204 §10 EP-07 — 구조화 출력은 라이브 이벤트와 영속 파트 **두 곳**에 같은 규칙으로 실려야
+// 한다. 여기가 빠지면 작업 타일이 재로드 후 비어 보인다(AC18).
+describe('HistoryWriter — TaskXXX 구조화 출력 영속 (0204)', () => {
+  function harness(): {
+    persistence: HistoryWriter
+    upsertToolResultPart: ReturnType<typeof vi.fn>
+    turn: TurnContext
+  } {
+    const upsertToolResultPart = vi.fn()
+    const db = {
+      appendMessage: vi.fn(() => 7),
+      appendPart: vi.fn(() => 0),
+      upsertToolResultPart,
+      updateSessionPreview: vi.fn(),
+      updateSessionProviderKey: vi.fn()
+    }
+    const persistence = new HistoryWriter(db as unknown as DbQueries)
+    const turn = {
+      dbSessionId: 's1',
+      currentAssistantMessageId: null,
+      assistantText: '',
+      providerKey: null,
+      askResolved: new Map()
+    } as unknown as TurnContext
+    return { persistence, upsertToolResultPart, turn }
+  }
+
+  it('structuredOutput 을 tool_result payload 에 싣는다', () => {
+    const { persistence, upsertToolResultPart, turn } = harness()
+    const structured = { task: { id: '3', subject: '테스트 작성' } }
+    persistence.persist(turn, {
+      type: 'tool.call.completed',
+      sessionId: 's1',
+      toolRunId: 't1',
+      result: 'ok',
+      isError: false,
+      structuredOutput: structured
+    } as NormalizedEvent)
+
+    const payload = JSON.parse(upsertToolResultPart.mock.calls[0][2] as string) as {
+      structuredOutput?: unknown
+    }
+    expect(payload.structuredOutput).toEqual(structured)
+  })
+
+  it('없으면 키를 만들지 않는다 — 일반 도구 결과는 그대로다', () => {
+    const { persistence, upsertToolResultPart, turn } = harness()
+    persistence.persist(turn, {
+      type: 'tool.call.completed',
+      sessionId: 's1',
+      toolRunId: 't1',
+      result: 'ok',
+      isError: false
+    } as NormalizedEvent)
+
+    const payload = JSON.parse(upsertToolResultPart.mock.calls[0][2] as string) as Record<
+      string,
+      unknown
+    >
+    expect('structuredOutput' in payload).toBe(false)
+  })
+})

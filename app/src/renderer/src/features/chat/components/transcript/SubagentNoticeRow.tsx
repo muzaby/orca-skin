@@ -4,6 +4,7 @@ import { formatDurationLabel } from '../../lib/toolMeta'
 import { subagentTaskDescription } from '../../lib/parts'
 import { chatActions, useChatSession } from '../../store/chatStore'
 import { TranscriptActionRow } from './TranscriptActionRow'
+import { backgroundTaskKey } from '../../lib/taskBoard'
 
 // 백그라운드 서브에이전트 완료 통지(0143, r2 — Claude Code web 패리티 평문 행). 카드 크롬 없이
 // AgentTaskRow 와 동형의 한 줄 텍스트 행으로 렌더한다(행 셸은 TranscriptActionRow 공용):
@@ -51,7 +52,7 @@ export const SubagentNoticeRow = memo(function SubagentNoticeRow({
     <div className="flex flex-col gap-1">
       <TranscriptActionRow
         groupClassName="group/notice"
-        onActivate={() => chatActions.openSubagentTask(toolRunId)}
+        onActivate={() => chatActions.openTask(backgroundTaskKey(toolRunId))}
       >
         <span
           className={`shrink-0 ${status === 'failed' ? 'text-bad' : ''} group-hover/notice:text-t9`}
