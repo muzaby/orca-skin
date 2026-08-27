@@ -1,0 +1,527 @@
+# Plan — left-nav-section-layout
+
+> 좌측 nav 를 **메뉴 · 프로젝트 · 고정됨 · 최근 대화** 4구획으로 가르고, 한 대화가 정확히 한 구획에만 보이게 한다.
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| slug | `0203-left-nav-section-layout` |
+| 작성자 | Claude Code |
+| 일자 | 2026-08-27 |
+| 매핑 | 브랜치 `claude/handoff-left-nav-layout-qhek9m` |
+| 상태 | DRAFT → READY |
+| V mode | `Baseline V` |
+| 기준 V | `none` — 선행 0129 는 구 템플릿이라 상속할 V node/pair 가 없다 |
+| 이번 V revision | `V1` |
+| 유효 V | `V1` |
+
+### 기준선 잠금의 한계 (사후 작성)
+
+**판정: 이 plan 은 구현 도착 *후* 작성된 기준선이다.** 구현 5커밋(`4bb0948`·`b88ea27`·`33ec6ef`·`c700595`·`e3395ea`)이 모두 `Handoff: none` 으로 먼저 도착했고 사용자가 "수정 후 핸드오프 문서를 작성하겠다"고 지정했다.
+
+- 카브아웃 오적용이다 — `docs/handoff/AGENTS.md §카브아웃` 은 트리비얼·handoff 메타 수정만 `Handoff: none` 을 허용하고 "애매하면 handoff 를 생성한다"고 적는다. 5커밋은 nav 구조 변경이라 어느 쪽도 아니다.
+- 따라서 `handoff-verify §0` 의 "구현 전 plan 을 diff 로 꺼낸다"는 수행할 수 없다. 대신 **위 5개 커밋 해시가 기준선**이고, 검증자는 이 plan 커밋 이후의 `app/**` 변경을 재구현으로 센다.
+- 이 plan 은 규범 행(Decision·AC·V node/pair·§10)만 담는 **설계 커밋**이다. 구현 산출과 같은 커밋에 담지 않는다.
+
+---
+
+# Part I — Product & UX Contract
+
+## 1. Context / 목표
+
+- 해결하려는 문제: 좌측 nav 가 **메뉴 · 고정됨 · 최근 대화** 3구획이라 고정 프로젝트와 고정 대화가 "고정됨" 한 곳에 섞였고, 고정한 대화가 "최근 대화"에도 그대로 남아 같은 대화가 두 번 보였다.
+- 완료 후 달라지는 것: 구획이 4개로 갈리고, 고정 프로젝트는 전용 "프로젝트" 구획이 갖고, 대화 고정은 **복제가 아니라 이동**이 된다.
+- 성공을 사용자 관점 한 문장으로: 대화 하나를 nav 에서 찾을 때 볼 곳이 항상 한 군데다.
+
+## 2. 사용자 의도 / 요구 출처
+
+> 조건절·강조는 원문 그대로 인용한다(요구 5 의 `**이동**` 포함).
+
+| 구분 | 내용 | 출처 |
+|---|---|---|
+| 명시 요구 1 | "메뉴, 프로젝트, 고정됨, 최근 대화 4개로 구분한다." | 라이브 세션 (2026-08-27) |
+| 명시 요구 2 | "프로젝트는 고정된 프로젝트를 나열한다." | 〃 |
+| 명시 요구 3 | "우측에 + 버튼을 설치하지 말 것." | 〃 |
+| 명시 요구 4 | "프로젝트를 고정할 시, 고정됨 메뉴가 아닌 프로젝트 메뉴의 항목으로 추가된다." | 〃 |
+| 명시 요구 5 | "일반대화, 프로젝트 하위 대화는 고정 버튼 클릭 시 고정됨 메뉴의 하위로 **이동**한다. 다른 메뉴의 하위로 보이면 안된다." | 〃 |
+| 명시 요구 6 | "고정된 프로젝트 항목을 클릭시, nav 상단의 프로젝트가 클릭된 효과가 보이면 안된다." | 〃 |
+| 추론 의도 A | 배치 우선순위 = 고정 대화 > 고정 프로젝트의 대화 > 최근 대화 | 추론 — 요구 5 의 "다른 메뉴의 하위로 보이면 안된다"가 상호배타를 요구하므로 전순서가 필요하다 |
+| 추론 의도 B | 프로젝트·고정됨 구획은 접기/펼치기 가능하고 **비어 있어도 헤더를 유지**한다 | 추론 — 요구 1 의 "4개로 구분한다"가 항상 4구획을 뜻한다고 읽었다. 0129 의 "고정 항목 0 → 섹션 미렌더"를 대체한다 |
+| 추론 의도 C | 고정 프로젝트 하위 대화 행도 최근 대화 행과 같은 kebab(고정·이름변경·삭제)을 갖는다 | 추론 — 요구 5 가 "프로젝트 하위 대화"의 고정 버튼 클릭을 전제하므로 그 행에 고정 버튼이 있어야 한다 |
+
+## 3. Decision Ledger
+
+| ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
+|---|---|---|---|---|---|
+| D-001 | 좌측 nav 는 메뉴 · 프로젝트 · 고정됨 · 최근 대화 4구획이다 | 요구 1 | 사용자 턴 | ACTIVE | — |
+| D-002 | "프로젝트" 구획은 **고정된** 프로젝트만 나열한다 (전체 프로젝트 목록이 아니다) | 요구 2 | 사용자 턴 | ACTIVE | — |
+| D-003 | "프로젝트" 구획 헤더 우측에 추가(+) 버튼을 두지 않는다 | 요구 3 — "설치하지 말 것" | 사용자 턴 | ACTIVE | — |
+| D-004 | 프로젝트 고정의 목적지는 "프로젝트" 구획이다. "고정됨"은 프로젝트를 담지 않는다 | 요구 4 | 사용자 턴 | ACTIVE | — |
+| D-005 | 대화 고정은 **이동**이다 — 원래 구획에서 사라지고 "고정됨" 하위에만 남는다 | 요구 5. "이동"을 "복제"나 "강조"로 재해석하지 않는다 | 사용자 턴 | ACTIVE | — |
+| D-006 | 배치 우선순위는 고정 대화 > 고정 프로젝트의 대화 > 최근 대화이고, 판정은 단일 함수가 갖는다 | 추론 A — 세 구획이 각자 필터를 가지면 상호배타를 아무도 보장하지 않는다 | 추론 | ACTIVE | — |
+| D-007 | 상단 "프로젝트" 메뉴의 활성 판정은 `/projects` **정확 일치**다 | 요구 6 — `/projects/:id` 에서 상단 메뉴가 켜지면 안 된다 | 사용자 턴 | ACTIVE | — |
+| D-008 | 프로젝트·고정됨 구획은 접히고, 항목이 0개여도 헤더는 남는다 | 추론 B | 추론 | ACTIVE | 0129 "고정 항목 0 → 섹션 미렌더" 대체 |
+| D-009 | 고정 프로젝트 하위 대화 행도 고정·이름변경·삭제 kebab 을 갖는다 | 추론 C — 요구 5 가 그 행의 고정 버튼을 전제한다 | 추론 | ACTIVE | 0129 "하위 행은 선택 전용" 대체 |
+| D-010 | 프로젝트 랜딩(`/projects/:id`)의 "이 프로젝트의 대화" 패널은 배치 규칙 밖이다 | 요구 5 는 nav 의 "메뉴 하위"를 말한다. 랜딩 패널은 nav 가 아니다 | 추론 | ACTIVE | — |
+| D-011 | renderer 세션 엔티티의 정본은 `sessionsStore.byId` 하나이고 각 목록은 ID membership 만 갖는다 | 네 목록이 같은 대화를 그리므로 사본이 갈라지면 구획마다 다른 제목·고정 상태가 보인다 | 추론(구현 전제) | ACTIVE | — |
+
+### 갱신 메모
+
+- 이번 턴에서 새로 추가된 결정: D-001 ~ D-011 전부 (Baseline — 선행 handoff 의 ACTIVE ledger 없음).
+- 변경된 결정: 없음. 다만 D-008·D-009 는 **0129 plan 의 문장을 대체**한다 — `docs/handoff/0129-sidebar-pin-title-autosize/plan.md:144`("고정 항목 0 → \"고정됨\" 섹션 자체 미렌더")와 같은 문서의 "하위 행은 선택 전용(고정/이름변경/삭제 없음)". 0129 는 archive 이력이라 이 plan 이 현재 정본이다.
+- 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: 없음.
+- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001↔AC1(4구획 순서) · D-002↔AC2 · D-003↔AC3 · D-004↔AC4 · D-005↔AC5·AC6 · D-006↔AC6·AC7 · D-007↔AC8 · D-008↔AC9 · D-009↔AC10 · D-010↔§6 비범위(AC 없음, 의도적) · D-011↔AC11·AC12. **반대를 요구하는 AC 0건** — 특히 AC5 는 "이동"을, AC3 은 "+ 버튼 0건"을 각각 D-005·D-003 과 같은 방향으로 단언한다.
+
+## 4. 요구 비판적 검토
+
+| 질문 | 판단 | 근거 |
+|---|---|---|
+| 요구가 증상이 아니라 원인을 겨냥하는가 | 타당 | 중복 노출의 직접 원인은 `git show cc4cde5:…/SessionList.tsx` 가 `list` 를 필터 없이 전부 렌더한 것 — 고정 세션이 "고정됨"과 "최근 대화" 양쪽에 나온다 |
+| 이미 기존 코드가 충족하는가 | 아니오 | 같은 커밋의 `PinnedSection.tsx:58` 이 `pinnedProjects` 와 `pinnedSessions` 를 한 섹션에 함께 렌더한다 |
+| 더 작은 해법이 있는가 | 없음 | 요구 1 이 구획 수를 지정한다. 필터만 고쳐서는 D-001·D-002·D-004 를 만족할 수 없다 |
+| 제거 요구인가 — 능력 자체가 없어도 되는가 | 요구 3(+ 버튼)은 **신설 금지**지 기존 능력 제거가 아니다 | 좌측 nav 에는 애초에 + 버튼이 없었다(§8 전수 조사) — "프로젝트 추가"는 `/projects` 화면이 계속 갖는다 |
+| 선행 자료의 주장을 코드와 대조했는가 | 대조함 | 0129 plan §C 가 설계한 단일 "고정됨" 섹션이 실제 `cc4cde5` 코드와 일치했다 — 이 plan 이 그 설계를 대체한다 |
+| ACTIVE 결정·기존 채택 결정과 충돌하는가 | 부분 충돌 → D-008·D-009 로 명시 대체 | 0129 의 "빈 섹션 미렌더"·"하위 행 선택 전용" 두 문장 |
+
+- 사용자에게 올릴 결정: **D-008 하나** — 고정 항목이 0개일 때 "프로젝트"·"고정됨" 헤더가 빈 채로 보인다. 요구 1("4개로 구분한다")을 항상-4구획으로 읽은 추론이고, 0129 는 반대(빈 섹션 숨김)였다. 시각 확인 시 어느 쪽인지 확정해 주면 D-008 을 갱신한다.
+- 코드 조사로 닫은 사실: 좌측 nav 의 + 버튼 유무 · 배치 판정 지점 수 · 상단 메뉴 활성 술어 · 프로젝트 membership 갱신 트리거(§8).
+
+## 5. 동작 / 사용자 흐름
+
+```text
+[대화 행 kebab → 고정]
+  → sessionApi.setPinned → sessionsStore.byId 패치(pinnedAt=now)
+  → 배치 판정이 'pinned' 로 바뀜
+  → "고정됨" 하위에 나타나고 원래 구획(최근 대화 / 프로젝트 하위)에서 사라짐
+  ↘ IPC 실패 → 엔티티 패치 없음 → 행이 원래 자리에 남음
+
+[고정 프로젝트 행 클릭]
+  → navigate('/projects/<id>')
+  → 프로젝트 랜딩 표시, 상단 "프로젝트" 메뉴는 비활성 유지
+```
+
+### 상태와 전이
+
+| 시작 상태/이벤트 | 시스템 동작 | 사용자에게 보이는 결과 |
+|---|---|---|
+| 최근 대화 행 고정 | `pinnedAt=now` 패치 | "최근 대화"에서 사라지고 "고정됨" 최상단에 나타난다 |
+| 고정 프로젝트 하위 대화 고정 | 〃 | 프로젝트 하위에서 사라지고 "고정됨"으로 옮겨간다 |
+| 고정 대화 해제 | `pinnedAt=null` 패치 | 소속이 고정 프로젝트면 그 프로젝트 하위로, 아니면 "최근 대화"의 `updatedAt` 순 위치로 복귀 |
+| 프로젝트 고정 | `projectApi.setPinned` | "프로젝트" 구획에 최근 고정 순 최상단으로 추가. "고정됨"은 변화 없음 |
+| 프로젝트 고정 해제 | 〃 | "프로젝트" 구획에서 빠지고, 그 프로젝트의 비고정 대화가 "최근 대화"로 복귀 |
+| 고정 프로젝트 행 클릭 | `/projects/:id` 이동 | 랜딩 표시. 상단 "프로젝트" 메뉴에 활성 표시 없음 |
+| 구획 헤더 클릭 | 로컬 `expanded` 토글 | 본문이 접히고 헤더만 남는다 |
+
+### 파생 UX / 엣지케이스
+
+- empty: 고정 항목 0 → 헤더만 남는다(D-008). 프로젝트 하위 대화 0 → `sessions.empty` 문구. 조회 중 → `common.loading`.
+- error: 프로젝트 하위 조회 실패는 빈 membership 으로 확정해 로딩 표시가 영원히 걸리지 않는다.
+- 접힌 사이드바: 도메인 슬롯을 노출하지 않고 상단 메뉴 아이콘만 그린다 — 4구획 규칙은 확장 상태에만 적용된다.
+- a11y: 구획 헤더는 `aria-expanded`/`aria-controls` 를 갖는 버튼, 상단 메뉴는 활성 시 `aria-current="page"`.
+- concurrency: 같은 대화가 여러 구획의 memo 된 행으로 존재하지 않는다 — 엔티티 1개를 구획 하나가 그린다.
+
+## 6. 범위 / 비범위
+
+- **범위**: 좌측 nav 확장 상태의 구획 구성·배치 규칙·상단 메뉴 활성 술어·구획별 행 액션, 그리고 이를 가능하게 하는 renderer 세션 엔티티 정본 통합.
+- **비범위**: 프로젝트 랜딩의 "이 프로젝트의 대화" 패널의 배치 규칙(D-010 — 그 화면은 프로젝트 컨텍스트가 이미 명확해 고정 대화를 숨기면 오히려 목록이 비어 보인다) · 접힌 사이드바 · 프로젝트 생성 UI · main 프로세스·DB·IPC 계약.
+
+| 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
+|---|---|---|
+| 고정 프로젝트 파생(`pinnedProjects`)의 순수 seam 추출 | 아니오 — 2줄 파생이고 `pinnedProjectIds` 경유로 `placementOf` 테스트가 같은 술어를 간접 고정한다 | 후속(§17 R-3) |
+| 프로젝트 membership 의 turn-end 갱신 | 아니오 — 화면 재진입/재펼침으로 회복된다 | 후속(§17 R-1) |
+| 렌더 하네스 도입(구획 순서·빈 상태 자동 검증) | 아니오 — 신규 devDependency 는 사용자 승인 사항(0201 AC16 선례) | 후속 |
+
+## 7. Requirements / Acceptance — `R ↔ AT`
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-01 | AT-01 / AC1 | 확장 사이드바가 메뉴 → 프로젝트 → 고정됨 → 최근 대화 순으로 4구획을 보인다 | 사람 실기 — DOM 마커 `app-frame-sidebar-nav` → `-projects` → `-pinned` → `-sessions` 가 이 순서로 존재 | `App → AppLayout → Sidebar` 확장 렌더 |
+| R-02 | AT-02 / AC2 | "프로젝트" 구획은 고정된 프로젝트만, 최근 고정 순으로 나열한다 | 사람 실기 — 프로젝트 2개를 순서대로 고정하면 나중 고정이 위 | `useSessionHandlers.pinnedProjects → useSidebarSlots.projectsSlot → PinnedProjectsSection` |
+| R-03 | AT-03 / AC3 | "프로젝트" 구획 헤더에 추가(+) 버튼이 없고, 헤더의 컨트롤은 접기 토글 하나다 | 음성+양성 쌍 — nav subtree 에 `Icon name="plus"` 0건(§8 전수) **이면서** 헤더 버튼이 `aria-expanded` 를 갖는 1개 | 위와 같음 |
+| R-04 | AT-04 / AC4 | 프로젝트를 고정하면 "프로젝트" 구획에 나타나고 "고정됨"에는 나타나지 않는다 | 사람 실기 + 구조 단언 — `PinnedSection` 이 `Project` 타입을 import 하지 않는다(세션 전용 props) | `ProjectsScreen/ProjectInfoHero 고정 → projectsStore → pinnedProjects` |
+| R-05 | AT-05 / AC5 | 대화 고정 시 그 대화가 "고정됨" 하위로 **이동**한다 — 최근 대화·프로젝트 하위에서 사라진다 | 순수 — `sessionPlacement.test.ts` "고정 대화는 프로젝트 소속과 무관하게 고정됨이 가져간다"(2단언) | `SessionRow kebab → setPinned → byId 패치 → 세 구획 재판정` |
+| R-05 | AT-06 / AC6 | 어떤 대화도 두 구획에 동시에 나타나지 않고, 모든 (고정×소속) 조합이 정확히 한 구획에 배치된다 | 순수 — 같은 파일 "모든 조합이 정확히 한 섹션에 배치된다"(6조합 전수 배열 비교) | 위와 같음 |
+| R-05 | AT-07 / AC7 | 고정 해제 시 소속이 고정 프로젝트면 그 하위로, 아니면 최근 대화의 `updatedAt` 위치로 복귀한다 | 순수 — 같은 파일 "고정 프로젝트의 비고정 대화는 그 프로젝트 하위가 가져간다" + "고정되지 않은 프로젝트의 대화는 최근 대화로 복귀한다" | 위와 같음 |
+| R-06 | AT-08 / AC8 | `/projects/:id` 에서 상단 "프로젝트" 메뉴가 활성이 아니고, `/projects` 에서는 활성이다 | 순수 — `navItems.test.ts` 신규 케이스: `SIDEBAR_NAV[1].isActive('/projects/abc') === false` **및** `isActive('/projects') === true` | `PinnedProjectsSection 행 클릭 → handleOpenProject → navigate → Sidebar aria-current` |
+| R-01 | AT-09 / AC9 | 프로젝트·고정됨 구획은 헤더 클릭으로 접히고, 항목 0개여도 헤더가 남는다 | 사람 실기 — 고정 0 상태에서 두 헤더가 보이고 클릭 시 본문만 접힌다 | `CollapsibleSection` |
+| R-05 | AT-10 / AC10 | 고정 프로젝트 하위 대화 행의 kebab 에 고정·이름변경·삭제가 모두 있다 | 사람 실기 — 하위 행 hover → kebab → 3항목 | `PinnedProjectsSection → SessionRow(onTogglePin·onRename·onDelete)` |
+| R-07 | AT-11 / AC11 | 한 대화의 이름변경·고정·삭제가 모든 목록에 즉시 같은 값으로 반영된다 | 순수 — `sessionsStore.test.ts` "recent와 project membership이 동일한 세션 객체를 가리킨다" + "rename은 프로젝트 전용 세션도 공용 엔티티에서 즉시 갱신한다" | `sessionsActions.rename/setPinned/remove → patchSession → 모든 구독자` |
+| R-07 | AT-12 / AC12 | 프로젝트 랜딩에서 대화를 삭제·이름변경하면 DB 에 반영되어 재부팅 후에도 유지된다 | 사람 실기 — 랜딩에서 삭제 후 앱 재시작 시 목록에 없음 | `ProjectLandingPage → useSessionActions → sessionsActions → IPC` |
+
+### AC 검증 주의사항
+
+- 기존 테스트 재사용 — 실재 확인: `sessionPlacement.test.ts` 는 `describe` 2 · `it` **5**, `sessionsStore.test.ts` 는 `it` 2 로 인용한 케이스명이 모두 존재한다. `navItems.test.ts` 는 **1케이스(플러그인 항목)뿐이고 `/projects` 술어 케이스가 없다** — AC8 은 신규 케이스를 요구한다.
+- 사람 실기로 남긴 항목과 이유: AC1·AC9(구획 순서·빈 상태 = 시각) · AC2·AC4·AC10(React hook/컴포넌트 렌더 결과, 렌더 하네스 없음 — 신규 devDependency 는 사용자 승인 사항) · AC12(electron IPC + DB 영속). **로직은 사람에게 넘기지 않았다** — 배치 판정 전체(AC5·AC6·AC7)와 엔티티 정본(AC11), 활성 술어(AC8)는 순수 테스트가 갖는다.
+- 총량/0건 기준의 분해: AC3 의 `plus` 0건은 **좌측 nav subtree 한정**이다. 허용 대상으로 먼저 빼는 것 — 상단 메뉴 "새 대화"(`navItems.ts:6`)와 프로젝트 상세 우측 패널 카드(`SidebarCard.tsx:36`)는 이 구획이 아니다. 제거 대상은 "프로젝트 구획 헤더의 추가 액션"이고 현재 0건이다.
+- 음성 게이트 방향: AC3 은 0건만 잠그므로 **양성 짝**(헤더 컨트롤 = `aria-expanded` 버튼 1개)과 함께 센다. 접기 토글을 지우면 양성 단언이 깨진다.
+
+## 7-A. V / Trace Matrix
+
+- V mode 판정: **Baseline V**. 선행 0129 는 구 템플릿(V node/pair 없음)이라 상속할 명시 V 가 없다.
+- 기준 V 상속 근거: 없음.
+- 변경이 시작되는 수준: R (사용자 관측 결과부터 바뀐다).
+
+### Node registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| R-01 | R | §7 구획 구성 | NEW | — |
+| R-02 | R | §7 고정 프로젝트 나열 | NEW | — |
+| R-03 | R | §7 + 버튼 금지 | NEW | — |
+| R-04 | R | §7 프로젝트 고정 목적지 | NEW | — |
+| R-05 | R | §7 대화 고정 = 이동 | NEW | — |
+| R-06 | R | §7 상단 메뉴 활성 술어 | NEW | — |
+| R-07 | R | §7 엔티티 정본·영속 | NEW | — |
+| AT-01…AT-12 | AT | §7 | NEW | — |
+| SD-01 | SD | §5 상태 전이표 · §9 TO-BE | NEW | — |
+| ST-01 | ST | §7 AC5·AC7 실기/순수 조합 | NEW | — |
+| AR-01 | AR | §9 셸 슬롯 조립 · §10 EP-4·EP-5 | NEW | — |
+| IT-01 | IT | §7 AC1·AC4·AC8 | NEW | — |
+| AR-02 | AR | §9 엔티티 정본 ↔ 4소비자 · §10 EP-6·EP-7 | NEW | — |
+| IT-02 | IT | §7 AC11·AC12 | NEW | — |
+| MD-01 | MD | §10 EP-1~EP-3 · §11 `sessionPlacement.ts` | NEW | — |
+| UT-01 | UT | `sessionPlacement.test.ts` | NEW | — |
+| MD-02 | MD | §11 `navItems.ts` 술어 | NEW | — |
+| UT-02 | UT | `navItems.test.ts` 신규 케이스 | NEW | — |
+| MD-03 | MD | §11 `sessionsStore` byId/membership | NEW | — |
+| UT-03 | UT | `sessionsStore.test.ts` | NEW | — |
+
+### Pair registry
+
+| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §10 강제 지점 전수 |
+|---|---|---|---|---|---|---|
+| VP-01 | R-01 ↔ AT-01 | REQUIRED | `AppLayout → useSidebarSlots → Sidebar 확장 렌더` | 사람 실기 — DOM 마커 4개 순서 | not selected — 직접 시각 관측 | 0 + 시각 순서에는 강제 지점이 없다 |
+| VP-02 | R-02 ↔ AT-02 | REQUIRED | `projectsStore → useSessionHandlers.pinnedProjects → PinnedProjectsSection` | 사람 실기 — 고정 2건의 순서 | not selected — 직접 실기 | 0 + 파생이 단일 지점(§8) |
+| VP-03 | R-03 ↔ AT-03 | REQUIRED | 위와 같음 | 음성 전수(`plus` 0건) + 양성(접기 토글 1개) | **required** — 접기 토글을 지우면 양성 단언이 실패해야 한다(방향 확인) | EP-8 (1) |
+| VP-04 | R-04 ↔ AT-04 | REQUIRED | `프로젝트 고정 → projectsStore → 두 구획 각각의 소비` | 구조 단언 — `PinnedSection` 의 `Project` import 0건 + 사람 실기 | **required** — `PinnedSection` 에 프로젝트 행을 되돌리면 실패해야 한다 | EP-5 (1) |
+| VP-05 | R-05 ↔ AT-05 | REQUIRED | `SessionRow kebab → setPinned → patchSession → placementOf` | 순수 `placementOf` 2단언 | not selected — 직접 행동 결과 관측 | EP-1·EP-2·EP-3 (3) |
+| VP-06 | R-05 ↔ AT-06 | REQUIRED | 위와 같음 | 순수 6조합 전수 배열 비교 | not selected — 전수 열거가 직접 oracle | EP-1·EP-2·EP-3 (3) |
+| VP-07 | R-05 ↔ AT-07 | REQUIRED | `해제 → pinnedAt=null → placementOf` | 순수 2단언 | not selected — 직접 관측 | EP-1·EP-2·EP-3 (3) |
+| VP-08 | R-06 ↔ AT-08 | REQUIRED | `행 클릭 → handleOpenProject → navigate → SIDEBAR_NAV[1].isActive` | 순수 술어 2단언(참·거짓 양방향) | not selected — 술어를 직접 호출한다 | EP-4 (1) |
+| VP-09 | SD-01 ↔ ST-01 | REQUIRED | §5 전이표 7행의 종단 경로 | AC5·AC7 순수 + AC2·AC10 실기 조합 | not selected — 각 전이의 결과를 직접 본다 | EP-1~EP-3 (3) |
+| VP-10 | AR-01 ↔ IT-01 | REQUIRED | `Sidebar props 4슬롯 ← useSidebarSlots ← useSessionHandlers` | AC1·AC4·AC8 | not selected | EP-4·EP-5·EP-8 (3) |
+| VP-11 | AR-02 ↔ IT-02 | REQUIRED | `IPC → sessionsStore.byId ← 4개 nav 렌더 지점 + 랜딩 패널` | AC11 순수 2케이스 + AC12 실기 | not selected — 상태 결과를 직접 읽는다 | EP-6·EP-7 (2) |
+| VP-12 | MD-03 ↔ UT-03 | REQUIRED | `loadProject/rename → mergeItems/patchSession → byId` | `sessionsStore.test.ts` 2케이스 | not selected | EP-6·EP-7 (2) |
+
+> `NOT_REQUIRED` 행 없음 — Baseline V 라 상속한 비영향 pair 가 존재하지 않는다.
+
+### 현재 변경의 운영 gate
+
+| Gate | 이번 변경 산출물에 적용되는 이유 | 증거 / 명령 | 실패 범위 |
+|---|---|---|---|
+| renderer subtree 정적 게이트 | `app/src/renderer/**` 를 수정한다 (`app/src/renderer/AGENTS.md §테스트`) | `cd app && npm run lint && npm run typecheck` | 이번 변경이 낸 error 만 blocking |
+| 관련 순수 테스트 | AC5~AC8·AC11 의 oracle | `cd app && ./node_modules/.bin/vitest run src/renderer/src/features/sessions src/renderer/src/app/navItems.test.ts` | 인용 케이스 실패만 blocking |
+| 문서 링크 게이트 | `docs/handoff/INDEX.md` 에 이 plan 링크를 추가한다 (`check-doc-inventory.mjs:346` — 보드는 링크 검사 대상) | `cd app && node scripts/check-doc-inventory.mjs --check` | 이번에 추가한 링크의 파손만 blocking |
+| 커밋 trailer 파싱 | 설계 커밋이 메시지 버스다 | `git log -1 --format='%(trailers:only=true)'` | 파싱 0건이면 blocking |
+
+- 환경 한계: 이 설계 턴의 컨테이너에 `app/node_modules` 가 없어(`ls app/node_modules` → 부재) 게이트를 실행하지 않았다. 실행은 구현/검증 턴 몫이다.
+
+---
+
+# Part II — Technical Design
+
+## 8. Research — 현재 코드와 계약
+
+| 발견 / 제약 | 근거 |
+|---|---|
+| 좌측 nav 는 한 스크롤 컨테이너에 `projectsSlot` → `pinnedSlot` → 최근 대화 헤더 → `sessionsSlot` 을 담는다 | `app/Sidebar.tsx:154-158` |
+| 상단 메뉴는 4항목이고 활성 판정을 항목마다 갖는다 | `app/navItems.ts` — `isActive:` 4건(5번째는 `satisfies` 타입 선언) |
+| 섹션 헤더 클래스는 `shared/ui/SidebarSection.tsx:7` 한 곳이 갖고 app/features 양쪽이 쓴다 | `Sidebar.tsx:8` import · `CollapsibleSection` 내부 `TOGGLE_HEAD` |
+| 배치 규칙은 순수 함수 1개(`placementOf`)와 그 최우선 분기(`isPinnedSession`) | `features/sessions/lib/sessionPlacement.ts:9`·`:20` |
+| 세션 엔티티 정본은 `byId`, 목록은 `recentIds`·`projectSessionIds` membership | `features/sessions/store/sessionsStore.ts:10-17` |
+| `initSessions` 의 GC 루트에 `projectSessionIds` 가 포함된다 — 새 membership 을 추가하면 여기도 갱신해야 한다 | `sessionsStore.ts:69-80` (주석이 규칙을 명시) |
+| 프로젝트 membership 갱신 트리거는 2곳뿐이다 | `useProjectSessions.ts:19`(마운트) · `ProjectSessionsPanel.tsx:36`(턴 종료) — `sessionsActions.refresh` 는 `recentIds`/`byId` 만 갱신 |
+| renderer 4-layer 경계상 cross-feature 는 props 로만 내린다 | `app/src/renderer/AGENTS.md §4-layer DAG` — `pinnedProjects`·`pinnedProjectIds` 를 셸이 주입하는 이유 |
+| 렌더 하네스가 없다 — UI 는 시각 검증으로 갈음한다 | `app/src/renderer/AGENTS.md §테스트` |
+
+### 전수 조사
+
+| 대상 | 검색/방법 | N | 의미 |
+|---|---|---:|---|
+| `SessionRow` 렌더 지점 | `rg "<SessionRow" app/src/renderer/src` | 5 | nav 4 + 프로젝트 랜딩 1 |
+| 그중 DB 세션을 담는 nav 지점 | 위 5건에서 draft 행(`SessionList.tsx:75`, `draftAsListItem` 이 `pinnedAt:null` 로 합성)과 랜딩(`ProjectSessionsPanel.tsx:59`) 제외 | 3 | §10 EP-1~EP-3 의 분모 |
+| 배치 술어 사용 | `rg "placementOf\|isPinnedSession" app/src/renderer/src` | 22 (프로덕션 11 · 테스트 11) | 프로덕션 11 = 정의 3줄 · import 3 · 주석 1 · **호출 4**(배치 3 = EP-1~EP-3, `SessionList.tsx:95` kebab 표시 상태 1) |
+| 좌측 nav subtree 의 `plus` 아이콘 | `rg "name=\"plus\"\|'plus'" app/src/renderer/src` → 4건 중 nav 구획 소속 | 0 | 허용 대상 2건(상단 메뉴 `navItems.ts:6` · 우측 패널 `SidebarCard.tsx:36`), 아이콘 타입 선언 1건, 채팅 타이틀바 1건 |
+| `SidebarCard`(+ 버튼 보유) 소비 파일 | `rg "SidebarCard" app/src/renderer/src` | 2 | `ProjectFilesCard`·`ProjectInstructionsCard` — 둘 다 프로젝트 상세 **우측** 패널 |
+| `sessionsActions.loadProject` 호출부 | `rg "loadProject" app/src/renderer/src` | 프로덕션 2 | `useProjectSessions.ts:19` · `ProjectSessionsPanel.tsx:36` |
+| 세션 엔티티 패치 지점 | `rg "patchSession" app/src/renderer/src` | 1 정의 + 3 호출 | rename·setPinned·title 이벤트가 한 함수를 공유 |
+
+### 수치 / 전칭 표현 검산
+
+- 재측정 수치: nav 구획 4(메뉴 · 프로젝트 · 고정됨 · 최근 대화) = `Sidebar.tsx:131`(nav) + `:155`(projectsSlot) + `:156`(pinnedSlot) + `:157-158`(recents). 내역 합 4 = 총계 4.
+- "배치 판정은 단일 함수가 갖는다"의 반례 검색: `rg "pinnedAt" app/src/renderer/src` → 프로덕션 9건. 그중 **세션 배치**에 쓰이는 것은 `sessionPlacement.ts:21` 하나다 — 나머지는 프로젝트 고정 판정 3건(`useSessionHandlers.ts:73`·`ProjectsScreen.tsx:81`·`ProjectInfoHero.tsx:27`), 정렬 2건, 쓰기 1건, draft 합성 1건, 활성 세션 고정 상태 1건. 반례 0.
+- 문서 앵커 확인: `docs/handoff/AGENTS.md §공통 V 추적 프로토콜`·`§산출물 문장 규칙`·`§카브아웃` 실재. `app/src/renderer/AGENTS.md §4-layer DAG`·`§테스트` 실재.
+- 기존 테스트 케이스 실재: `sessionPlacement.test.ts` `it` 5건 · `sessionsStore.test.ts` `it` 2건 · `navItems.test.ts` `it` 1건(인용한 `/projects` 케이스는 **없음** — AC8 이 신설을 요구한다).
+
+## 9. Architecture / Data & Control Flow — AS-IS → TO-BE
+
+### AS-IS — 현재 구조와 문제 발생 경로
+
+- 관련 V node: 없음(Baseline 이전 상태).
+- 현재 책임 소유자: `PinnedSection` 하나가 고정 프로젝트와 고정 대화를 **함께** 그렸다(`cc4cde5:PinnedSection.tsx:58-80`).
+- 현재 entry → flow → state → consumer: `sessionApi.list()` → `sessionsStore.list`(배열 1개) → `SessionList` 가 필터 없이 전부 렌더 + `PinnedSection` 이 `pinnedAt != null` 만 다시 렌더.
+- 현재 오류/정리 경로: rename·삭제·고정이 매번 `initSessions()` 전체 재조회를 돌려 목록 배열 identity 를 통째로 갈았다(`cc4cde5:sessionsStore.ts:31-45`).
+- 문제의 직접 원인: 배치 규칙이 없다. "고정됨"은 자기 필터를 갖고 "최근 대화"는 아무 필터가 없어 고정 대화가 두 곳에 나온다.
+
+```text
+sessionApi.list → sessionsStore.list ─┬→ PinnedSection (pinnedAt≠null + 고정 프로젝트)
+                                      └→ SessionList   (전체 — 고정 대화 중복)
+projectApi.listSessions → useProjectSessions (자체 사본) → PinnedProjectChildren (선택 전용)
+```
+
+### TO-BE — 변경 후 목표 구조와 동작 경로
+
+- 관련 V node: `SD-01`·`AR-01`·`AR-02`·`MD-01`~`MD-03`.
+- 변경 후 책임 소유자: 구획마다 컴포넌트 하나 — `PinnedProjectsSection`(프로젝트) · `PinnedSection`(고정 대화) · `SessionList`(최근). 배치 판정은 `lib/sessionPlacement` 가 단독으로 갖고, 각 구획은 "이 대화가 내 몫인가"만 묻는다.
+- 변경 후 entry → flow → state → consumer: 두 조회(`sessionApi.list`·`projectApi.listSessions`)가 엔티티를 `byId` 에 병합하고 membership 만 따로 기록 → 세 구획이 같은 엔티티를 읽는다.
+- 변경 후 오류/정리 경로: mutation 은 전체 재조회 대신 `patchSession` 제자리 패치 — 비변경 행의 참조가 보존돼 `SessionRow` memo 가 산다. 프로젝트 조회 실패는 빈 membership 으로 확정한다.
+- 유지하는 기존 메커니즘: `SessionRow` kebab/rename/삭제 UX · `useDragResize` · 접힌 사이드바 경로. 대체하는 것: 단일 "고정됨" 섹션 → 두 구획, 목록 배열 정본 → 엔티티 정본 + membership.
+
+```text
+sessionApi.list ─┐
+                 ├→ sessionsStore.byId ─┬→ PinnedProjectsSection (프로젝트 + 하위: !isPinnedSession)
+projectApi.list ─┘   + recentIds        ├→ PinnedSection        (isPinnedSession)
+                     + projectSessionIds└→ SessionList          (placementOf === 'recent')
+navItems.SIDEBAR_NAV[1].isActive(p) = (p === '/projects')  → 상단 메뉴 활성
+```
+
+### AS-IS → TO-BE Delta
+
+| 비교 축 | AS-IS | TO-BE | 변경 이유 | V / 구현·검증 연결 |
+|---|---|---|---|---|
+| 구획 소유권 | `PinnedSection` 이 프로젝트+대화 겸임 | 프로젝트는 `PinnedProjectsSection` 으로 **이동**, `PinnedSection` 은 대화 전용 | D-001·D-004 | AR-01 / VP-04·VP-10 |
+| 배치 규칙 | 없음(구획별 임의 필터) | `placementOf` 단일 정의 + 세 소비 지점 | D-005·D-006 | MD-01 / VP-05~VP-07 |
+| state/contract | `list: SessionListItem[]` 단일 배열 | `byId` 엔티티 + `recentIds`·`projectSessionIds` membership | D-011 | AR-02·MD-03 / VP-11·VP-12 |
+| 상단 메뉴 활성 | `p.startsWith('/projects')` | `p === '/projects'` | D-007 | MD-02 / VP-08 |
+| 섹션 헤더 | app 과 features 가 클래스 문자열을 각자 복제 | `shared/ui/SidebarSection` 이 상수+접기 컴포넌트를 소유 | D-008, 복제본이 이미 한쪽만 바뀌어 있었다 | AR-01 / VP-03 |
+| 하위 행 액션 | 선택 전용(`renameable={false}`) | 고정·이름변경·삭제 kebab | D-009 | AR-01 / AC10 |
+| error/lifecycle | mutation 마다 전체 재조회 | `patchSession` 제자리 패치, 프로젝트 조회 실패는 빈 membership 확정 | 리렌더 폭발·무한 로딩 방지 | AR-02 / VP-11 |
+| test seam | 순수 seam 없음 | `lib/sessionPlacement.ts`(순수) + `sessionsStore`(IPC mock) + `navItems.ts`(순수) | 로직을 사람 실기에서 내린다 | MD-01~03 / UT-01~03 |
+
+### 핵심 책임 분리
+
+| 모듈/레이어 | 책임 | 입력/출력 | 누가 import/호출 |
+|---|---|---|---|
+| `app/Sidebar.tsx` | 4구획 골격과 렌더 순서 | 4개 slot ReactNode → aside | `AppLayout` |
+| `app/navItems.ts` | 상단 메뉴 항목과 활성 술어 | `pathname` → boolean | `Sidebar` |
+| `app/hooks/useSidebarSlots.tsx` | slot 합성(안정 identity) | `SessionHandlers` → 4 slot | `AppLayout` |
+| `app/hooks/useSessionHandlers.ts` | cross-feature 배선 — 고정 프로젝트 파생·핸들러 | projects/chat store → props | `useSidebarSlots` |
+| `features/sessions/lib/sessionPlacement.ts` | 배치 규칙 단일 정의 | `(session, pinnedProjectIds)` → 3값 | 세 구획 컴포넌트 |
+| `features/sessions/store/sessionsStore.ts` | 엔티티 정본 + membership + 패치 | IPC → `byId`/`recentIds`/`projectSessionIds` | 구획·훅·페이지 |
+| `shared/ui/SidebarSection.tsx` | 섹션 헤더 시각·접근성 단일 소스 | label/children → 접히는 섹션 | app + features 양쪽 |
+
+## 10. 계약 / 타입 / 강제 지점
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 | 실패 의미 |
+|---|---|---|---|---|---|
+| MD-01 / VP-05·06·07·09 | 한 대화는 nav 에서 정확히 한 구획에만 보인다 | `lib/sessionPlacement.ts` | 세 구획 컴포넌트 | **EP-1** `PinnedSection.tsx:34` `.filter(isPinnedSession)` · **EP-2** `PinnedProjectsSection.tsx:179` `.filter(!isPinnedSession)` · **EP-3** `SessionList.tsx:62` `placementOf !== 'recent'` 제외 | 한 지점만 어긋나도 대화가 두 구획에 겹치거나 어디에도 안 보인다. 순수 테스트는 규칙만 잠그고 지점 누락은 잡지 못한다 |
+| MD-02 / VP-08 | 상단 "프로젝트" 메뉴는 `/projects` 정확 일치에서만 활성 | `app/navItems.ts` | `Sidebar` 확장·접힘 두 렌더 경로 | **EP-4** `navItems.ts:17` `isActive` | `/projects/:id` 에서 상단 메뉴가 켜져 요구 6 위반 |
+| AR-01 / VP-04 | "고정됨"은 프로젝트를 담지 않는다 | `PinnedSection` props 타입 | 컴파일러 + 셸 배선 | **EP-5** `PinnedSection.tsx:8-15` props 에 `Project` 없음 | 프로젝트가 두 구획에 겹쳐 D-004 위반 |
+| AR-02 / VP-11·12 | 이름·고정·삭제는 엔티티 1개를 패치한다 | `sessionsStore.patchSession` | store | **EP-6** `sessionsStore.ts:57` 단일 패치 함수 | 목록마다 사본이 갈라져 구획별로 다른 제목·고정 상태가 보인다 |
+| AR-02 / VP-11 | 새 membership 목록은 `initSessions` GC 루트에 포함된다 | 같은 파일 주석 | `initSessions` | **EP-7** `sessionsStore.ts:69-80` retained 루트 | 턴 종료 refresh 마다 프로젝트 하위 엔티티가 조용히 쓸려나간다 |
+| AR-01 / VP-03·10 | 구획 헤더의 컨트롤은 접기 토글 하나다 | `shared/ui/SidebarSection.tsx` | 두 구획이 공유 | **EP-8** `SidebarSection.tsx:32` 헤더 버튼 | 추가 액션이 헤더로 새어 들어가면 D-003 위반 |
+
+- 같은 규칙이 여러 레이어에 있는 경우와 SSOT: 섹션 헤더 클래스는 `SIDEBAR_SECTION_HEAD` 상수 하나를 `app/Sidebar.tsx:8` 과 `CollapsibleSection` 이 함께 import 한다 — 레이어별 복제를 금지한다(복제 시절 이미 한쪽만 바뀌어 있었다).
+- `실패 의미` 에 "다른 게이트가 막는다"를 적은 행: **없음**. EP-1~EP-3 은 순수 테스트가 규칙만 잠그고 지점 전수는 잠그지 않는다고 명시했다.
+- 선택적 필드의 의미: `SessionListItem.pinnedAt` 은 `number` = 고정 시각, `null` = 비고정. `undefined` 는 계약에 없다 — `placementOf` 는 `!= null` 로 판정해 `0` 을 고정으로 센다(`sessionPlacement.test.ts` `isPinnedSession` 케이스가 `0` 을 포함해 고정한다).
+- 외부 SDK 경계: 해당 없음(renderer 내부 변경).
+
+## 11. 구현 설계
+
+| 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
+|---|---|---|---|
+| `app/src/renderer/src/app/Sidebar.tsx` | 4구획 골격 | `projectsSlot` prop 추가, 헤더 클래스를 `shared` 상수로 | 사람 실기 |
+| `app/src/renderer/src/app/navItems.ts` | 메뉴 활성 술어 | `/projects` 정확 일치로 좁힘 | 순수 |
+| `app/src/renderer/src/app/navItems.test.ts` | 술어 잠금 | **신규 케이스** — `/projects` true · `/projects/abc` false | 순수 |
+| `app/src/renderer/src/app/hooks/useSidebarSlots.tsx` | slot 합성 | `projectsSlot` 추가, 두 구획에 핸들러 배선 | — |
+| `app/src/renderer/src/app/hooks/useSessionHandlers.ts` | cross-feature 배선 | `pinnedProjects`·`pinnedProjectIds` 파생 제공 | 사람 실기(§17 R-3) |
+| `…/features/sessions/components/PinnedProjectsSection.tsx` | 프로젝트 구획 | **신규** — 고정 프로젝트 행 + 하위 대화(비고정만) | 사람 실기 |
+| `…/features/sessions/components/PinnedSection.tsx` | 고정 대화 구획 | 프로젝트 책임 제거, 대화 전용으로 축소 | 사람 실기 |
+| `…/features/sessions/components/SessionList.tsx` | 최근 대화 구획 | `placementOf === 'recent'` 만 렌더 | 순수(규칙) |
+| `…/features/sessions/lib/sessionPlacement.ts` | 배치 규칙 | **신규** — `placementOf`·`isPinnedSession` | 순수 |
+| `…/features/sessions/lib/sessionPlacement.test.ts` | 규칙 잠금 | **신규** — 5케이스(6조합 전수 포함) | 순수 |
+| `…/features/sessions/store/sessionsStore.ts` | 엔티티 정본 | `byId` + membership 전환, `patchSession`, GC 루트 | IPC mock |
+| `…/features/sessions/store/sessionsStore.test.ts` | 정본 잠금 | **신규** — 2케이스 | IPC mock |
+| `…/features/sessions/hooks/useProjectSessions.ts` | 프로젝트 membership 조회 | 자체 사본 제거, 공용 store 사용 | IPC mock |
+| `…/features/sessions/components/ProjectSessionsPanel.tsx` | 랜딩 패널 | 삭제·이름변경을 page 핸들러에 위임 | 사람 실기 |
+| `…/pages/ProjectLandingPage.tsx` | 랜딩 조립 | `useSessionActions` 로 DB 경로 연결(회귀 수정) | 사람 실기 |
+| `…/pages/useSessionActions.ts` | 두 store 동기화 | 고정 상태를 `byId` 에서 파생 | — |
+| `…/app/hooks/useChatRouteSync.ts` | 라우트 싱크 | `byId` 전체 대신 URL 세션 하나만 구독 | — |
+| `…/shared/ui/SidebarSection.tsx` | 섹션 헤더 | **신규** — 헤더 상수 + `CollapsibleSection` | 사람 실기 |
+| `…/shared/i18n/resources/{ko,en}.ts` | 라벨 | `sidebar.pinnedProjects` 추가 | `resources.test.ts` |
+
+### 테스트 가능성
+
+- electron/DB 의존과 분리한 **별도 순수 파일**: `lib/sessionPlacement.ts` — `SessionListItem` 타입만 의존하고 store·React 를 import 하지 않는다. `app/navItems.ts` 도 같은 성질(i18n 키 타입만 참조).
+- 기존 메커니즘 재사용의 형상 적합성: `SessionRow` 는 `onTogglePin` 이 있을 때만 kebab 에 고정 항목을 낸다 — 프로젝트 하위 행에 핸들러를 넘기는 것만으로 D-009 를 만족한다(새 prop 불필요).
+- 순서를 관측할 훅: 필요 없음 — 이 작업의 순서 요구는 렌더 순서(시각)뿐이다.
+
+## 12. End-to-end 영향
+
+### producer → consumer
+
+```text
+sessionApi.list / projectApi.listSessions
+  → sessionsStore.byId (엔티티 정본) + recentIds·projectSessionIds (membership)
+  → placementOf(session, pinnedProjectIds)
+  → PinnedSection · PinnedProjectsSection · SessionList
+```
+
+- producer 기준: main 의 `sessions` 테이블이 SSOT 이고 `pinnedAt` 은 시각 또는 `null`.
+- consumer 파생 규칙: 구획 선택은 `placementOf` 만 쓴다. 구획이 자체 `pinnedAt` 비교를 다시 쓰면 SSOT 를 우회한다(§8 반례 검색으로 현재 0건 확인).
+- 파생 가능한 합성값이 정본을 우회하지 않는가: `pinnedProjectIds` 는 `pinnedProjects` 와 같은 `useMemo` 사슬에서 나와 두 값이 갈라지지 않는다(`useSessionHandlers.ts:70-78`).
+
+### 부팅/등록/초기화 변경 시 기존 소비처
+
+| 기존 소비처 | 값 증가/변경 시 영향 | 회귀 AC |
+|---|---|---|
+| `initSessions` GC 루트 | membership 목록이 2종(`recentIds`·`projectSessionIds`)으로 늘었다 — 루트에 넣지 않으면 턴 종료 refresh 가 프로젝트 엔티티를 버린다 | AC11 |
+| `useChatRouteSync` | `byId` 전체 구독은 무관한 제목·고정 이벤트로 effect 를 재실행시킨다 → URL 세션 하나만 구독 | AC12(랜딩 회귀와 같은 커밋) |
+| `useSessionActions` | 활성 세션 고정 상태를 `byId` 에서 파생 — 목록 배열 제거의 소비처 | AC11 |
+| `ProjectSessionsPanel` | 자체 사본 제거 후 공용 엔티티 사용 | AC11 |
+
+## 13. Lifecycle / 오류 / 정리
+
+- 생성/시작: 부팅 시 `initSessions` 1회. 프로젝트 하위는 구획을 펼칠 때 마운트되어 조회한다(지연).
+- 취소/중단: 해당 없음(사용자 취소 가능한 장기 작업 없음).
+- 종료/crash: renderer 상태는 휘발이고 정본은 DB — 재부팅 시 `initSessions` 로 복원된다.
+- retry/timeout/partial failure: 프로젝트 조회 실패는 **첫 조회에 한해** 빈 membership 으로 확정해 무한 로딩을 막고, 이미 목록이 있으면 그대로 둔다(재검증 실패).
+- cleanup/rollback: 삭제는 담고 있던 membership 버킷만 새 배열로 교체해 무관한 프로젝트 뷰의 memo 를 깨지 않는다.
+- **다중 저장소 쓰기**: 런타임에는 해당 없음 — 모든 mutation 이 main 의 DB 한 곳을 쓰고 renderer store 는 그 결과의 캐시다. **문서 산출물에는 해당한다** — 이 작업의 상태·판정이 `plan.md`(본 문서)와 `docs/handoff/INDEX.md` 보드 두 곳에 산다. 보드만 갱신하고 plan 을 안 고치면 두 사본이 다른 말을 하므로, 상태 전이마다 두 곳을 같은 커밋에서 함께 갱신한다.
+
+## 14. 성능 / 상한 / 최적화
+
+- 새 출력/요청의 원천 상한 × 배치 상한: 프로젝트 조회는 `고정 프로젝트 수 × 1회`이고 **펼친 구획에만** 발생한다(기본 접힘, `PinnedProjectRow` 의 `useState(false)`). 고정 프로젝트 수는 사용자가 정하고 상한이 없으나, 접힌 행은 조회하지 않으므로 부팅 시 추가 요청은 0이다.
+- 구조적 목표(줄/파일 수): 없음.
+- 캐시/호출 축소로 잃는 부수 효과: 전체 재조회를 제자리 패치로 바꾸면서 "재조회가 곁들여 주던 최신화"를 잃는다 — 그 손실이 §17 R-1(프로젝트 membership 이 turn-end refresh 에서 갱신되지 않음)이다. `mergeItems` 의 동일값 bail-out 은 반대 방향(불필요 리렌더 제거)이고 `sessionsStore.test.ts` 1케이스가 엔티티 공유를 잠근다.
+
+## 15. 외부 구현 포트 / 문서 계약
+
+해당 없음 — renderer 내부 변경이고 외부 구현자가 채우는 port/schema/config 가 없다.
+
+## 16. 기존 결정·규칙과의 관계
+
+| 기존 결정/규칙 | 출처 | 본문에서 건드리는 문장 | 결과 |
+|---|---|---|---|
+| "고정 항목 0 → 고정됨 섹션 자체 미렌더" | `docs/handoff/0129-…/plan.md:144` | §2 추론 B · D-008 · AC9 | **변경** — 항상 4구획(요구 1). 사용자 확인 대상(§4) |
+| "하위 행은 선택 전용(고정/이름변경/삭제 없음)" | `0129` 같은 문서 `PinnedProjectChildren` 주석 | D-009 · AC10 | **변경** — 요구 5 가 하위 행의 고정 클릭을 전제한다 |
+| "고정됨 섹션은 프로젝트+대화를 함께 나열" | `0129 plan §C` | §9 Delta 구획 소유권 | **변경** — 요구 1·4 |
+| feature 끼리 직접 import 금지, cross-feature 는 props | `app/src/renderer/AGENTS.md §4-layer DAG` | §11 `useSessionHandlers` 가 `pinnedProjects` 주입 | **유지** — `PinnedProjectsSection` 은 `projects` feature 를 import 하지 않고 `Project` 타입만 shared ipc 에서 받는다 |
+| 그룹 스코프 격리(`group/<이름>`) | 같은 문서 §스타일 | `PinnedProjectsSection.tsx:94` `group/pinproj` | **유지** |
+| 400줄 초과 시 분해 검토 | 같은 문서 §단일 파일 분해 가이드 | §11 파일 목록 | **유지** — 최대 `PinnedProjectsSection.tsx` 203줄 |
+| 시맨틱 토큰 우선, raw hex 금지 | 같은 문서 §스타일 | 신규 컴포넌트 클래스 | **유지** — `text-t7`·`bg-fill-uncontained-hover` 등 |
+| UI 라벨은 한국어 i18n | root `AGENTS.md §8` | `sidebar.pinnedProjects` ko/en 동시 추가 | **유지** |
+| 카브아웃은 트리비얼·handoff 메타 수정만 | `docs/handoff/AGENTS.md §카브아웃` | §메타 기준선 잠금의 한계 | **위반이 있었음을 기록** — 5커밋이 `Handoff: none` 으로 도착 |
+
+## 17. 리스크 / 트레이드오프
+
+| 리스크 | 완화/결정 |
+|---|---|
+| **R-1** 고정 프로젝트에 새 대화가 생겨도 그 구획이 이미 펼쳐져 있으면 목록이 갱신되지 않는다 — `useProjectSessions` 의 effect deps 가 `[projectId]` 이고(`:20`) 턴 종료 `sessionsActions.refresh` 는 `projectSessionIds` 를 건드리지 않는다(`sessionsStore.ts:81-85`). 그 대화는 배치상 `pinnedProject` 라 "최근 대화"에서도 빠져 **어느 구획에도 안 보인다** | 접었다 펴거나 프로젝트 랜딩을 방문하면 회복된다. 이번 범위 밖 — 검증자가 재현되면 `NEXT_HANDOFF` 로 이관하고, 고칠 때는 `initSessions` 가 이미 조회된 버킷의 membership 도 함께 갱신하는 쪽이 최소 해법이다 |
+| **R-2** 고정 항목 0일 때 빈 헤더 2개가 보인다 | D-008 의 추론 결과. 사용자 시각 확인으로 확정(§4) |
+| **R-3** 고정 프로젝트 파생에 순수 seam 이 없다 | `pinnedProjectIds` 경유로 `placementOf` 테스트가 같은 술어를 간접 고정한다. 추출은 후속(§6) |
+| **R-4** 이 plan 이 구현 뒤에 왔다 | 기준선을 커밋 해시로 고정하고 한계를 §메타에 명시했다. 검증자는 구현자 보고 없이 코드에서 직접 판정한다 |
+
+- 되돌리기 어려운 결정: 없음 — 공개 계약·스키마·저장 형식 변경이 없고 renderer 내부 구조만 바뀐다.
+- 신규 의존성: 없음. 렌더 하네스는 도입하지 않았다(사용자 승인 필요 사항).
+
+## 18. 영향 받는 파일 / 문서
+
+- `app/src/renderer/src/app/` — `Sidebar.tsx` · `navItems.ts` · `navItems.test.ts` · `hooks/useSidebarSlots.tsx` · `hooks/useSessionHandlers.ts` · `hooks/useChatRouteSync.ts`
+- `app/src/renderer/src/features/sessions/` — `components/{PinnedProjectsSection,PinnedSection,SessionList,SessionRow,ProjectSessionsPanel}.tsx` · `lib/sessionPlacement{,.test}.ts` · `store/sessionsStore{,.test}.ts` · `hooks/useProjectSessions.ts` · `index.ts`
+- `app/src/renderer/src/pages/` — `ProjectLandingPage.tsx` · `useSessionActions.ts`
+- `app/src/renderer/src/shared/` — `ui/SidebarSection.tsx` · `i18n/resources/{ko,en}.ts`
+- `docs/handoff/INDEX.md` · 본 문서
+- `docs/arch/frontend/state.md:105` — slot 목록이 `pinnedSlot`/`sessionsSlot`/`footerSlot` 3개로 적혀 있어 `projectsSlot` 이 빠졌다. 이번 범위 밖이나 검증자가 문서 동기화 후보로 다룬다
+
+## 19. 게이트
+
+- 적용할 하위 가이드: `app/src/renderer/AGENTS.md §테스트` · `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드`.
+- ABI/네트워크 제약: renderer 순수 변경이라 DB 동작 검증이 필요 없다 — `npm test`(DB 포함)를 기본 게이트로 쓰지 않는다.
+- 기본 정적 게이트: `cd app && npm run lint && npm run typecheck`.
+- 관련 테스트: `cd app && ./node_modules/.bin/vitest run src/renderer/src/features/sessions src/renderer/src/app/navItems.test.ts` (`pretest` 우회).
+- 문서 게이트: `cd app && node scripts/check-doc-inventory.mjs --check` — 보드에 추가한 링크가 해석되는지.
+- 사람 실기: AC1 · AC2 · AC4 · AC9 · AC10 · AC12 (§7 사유).
+
+## READY self-review
+
+- [x] Decision Ledger 의 ACTIVE/SUPERSEDED/OPEN 이 결정을 보존한다 — Baseline 이라 ACTIVE 11건, SUPERSEDED 0건, OPEN 0건(D-008 은 ACTIVE 이되 §4 에서 사용자 확인 대상으로 올렸다).
+- [x] Part I 만 읽어도 완료 상태를 이해할 수 있다 — §5 전이표 7행이 구현 언급 없이 결과를 적는다.
+- [x] 조건절·"이동"·"설치하지 말 것"을 재해석하지 않았다 — §2 에 원문 인용, D-003·D-005 가 같은 어휘를 쓴다.
+- [x] Product/UX 의 각 동작이 AC 와 Technical Design 에 연결된다 — §5 전이표 7행 ↔ AC2·AC4·AC5·AC7·AC8·AC9.
+- [x] AS-IS 와 TO-BE 가 같은 축으로 있다 — §9 Delta 8행이 두 절을 축별로 대조한다.
+- [x] Delta 의 각 변경이 §11 파일 또는 AC 로 추적된다 — 8행 전부 V node + 파일/AC 연결.
+- [x] AS-IS 에서 사라진 책임을 명시했다 — "프로젝트 책임은 `PinnedSection` → `PinnedProjectsSection` **이동**"(삭제 아님).
+- [x] 수치·전칭·앵커·기존 테스트 인용을 실측했다 — §8 검산 4항목. `navItems.test.ts` 에 `/projects` 케이스가 **없음**을 확인해 AC8 을 신설 요구로 적었다.
+- [x] 각 AC 가 행동 단언·검증 수단·프로덕션 도달 경로를 가진다 — §7 표 3열.
+- [x] 상속 기준이 없어 Baseline V 를 썼고 유효 V = V1 로 재구성된다.
+- [x] 변경 효과에 필요한 레벨을 골랐다 — R(사용자 결과)·SD(전이)·AR(경계·저장소)·MD(규칙·술어) 전부, 모든 NEW node 에 같은 레벨 REQUIRED pair 12건.
+- [x] 영향받은 INHERITED node 없음 — Baseline 이라 REGRESSION·NOT_REQUIRED 행이 존재하지 않는다.
+- [x] 각 pair 가 경로·§10 전수·직접 oracle 을 갖고, 적대 증거는 VP-03·VP-04 둘만 이유와 함께 선택했다.
+- [x] 현재 변경 산출물의 gate 4종을 열거했고 무관한 기존 실패를 blocking 으로 만들지 않았다.
+- [x] 사람 실기로 미룬 순수 로직이 없다 — 배치·술어·엔티티는 전부 순수 테스트, 실기는 시각·IPC 영속뿐(§7 주의사항).
+- [x] semantic 목표를 structural proxy 만으로 검증하는 AC 가 없다 — AC3·AC4 의 구조 단언에 적대 증거를 붙였다.
+- [x] 신규 계약의 SSOT·강제 지점·테스트 seam 이 있다 — §10 EP-1~EP-8, §11 seam 열.
+- [x] 부팅/등록 변경의 기존 소비처를 전수 확인했다 — §12 표 4건 + `loadProject` 호출부 2건.
+- [x] producer/consumer 양쪽 의미를 확인했다 — §12.
+- [x] 상한·one-way door 를 계산했다 — §14, §17(되돌리기 어려운 결정 없음).
+- [x] 게이트 명령이 대상 subtree 의 현재 `AGENTS.md` 와 충돌하지 않는다 — `npm test` 를 기본으로 쓰지 않는다.
+- [x] 본문 완성 후 Decision Ledger 와 교차검증했고 결과를 §3 갱신 메모에 관측으로 적었다(충돌 0, 11건 대조).
+- [x] 산출물 문장 규칙 — 판정 먼저, 주장 한 줄에 관측 하나, 표 한 칸 3줄.
+
+---
+
+> **[구현자 기입]** 이하는 구현 턴에서 채운다.
+> **이번 handoff 는 구현이 plan 보다 먼저 도착했다** — 아래 필드는 비어 있고, 그 사실 자체가 관측이다. 검증자는 구현자 보고 없이 §메타의 5개 커밋과 코드에서 직접 판정한다.
+
+## [구현자 기입] 설계 리뷰
+
+- 동의 / 그대로 진행: 미작성 — 구현 턴이 handoff 밖에서 진행됐다.
+- 이견 / 현실성 문제: 미작성.
+- ACTIVE Decision 과 충돌하는 설계 발견: 미작성.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+미작성 — 검증자가 EP-1~EP-8 을 코드에서 직접 센다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+미작성 — VP-03·VP-04 의 결함 변이는 검증자가 심는다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+미작성 — §17 R-1·R-2 가 설계자가 대신 적은 파생 검토다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+미작성.
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | §18 목록 (5커밋 diff 기준) |
+| 실행 명령 | 미보고 |
+| 관측한 게이트 산출 | 미보고 |
+| V-pair 자기확인 | 미보고 |
+| 강제 지점 전수 | 미보고 |
+| AC 자기보고 | 미보고 |
+| 합계 검산 | 미보고 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | 좌표는 `INDEX.md` |
+
+## [구현자 기입] Review Signals — 사실만
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 라운드 1.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **있었다** — `docs/handoff/AGENTS.md §진입 트리거` 의 find-or-create 가 구현 요청에 handoff 생성을 요구한다. 5커밋이 `Handoff: none` 으로 우회했다.
+- 반복해서 부딪히는 환경 한계: renderer 렌더 하네스 부재(0201 AC16 과 같은 축).
+- 현재 라운드 수: 1.
+
+---
+
+## [검증자 기입] 파생 이슈
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| — | (검증 턴에서 채운다) | — | — | — | — |
