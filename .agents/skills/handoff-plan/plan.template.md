@@ -15,8 +15,10 @@
 | 일자 | YYYY-MM-DD |
 | 매핑 | PHASES / PR (있으면) |
 | 상태 | DRAFT → READY |
-| 이전 V 기준선 | `none` / `<이전 plan commit>:V<N>` |
-| Delta V revision | `V1` — 변경 시 `V2`로 올리고 대체 관계 기록 |
+| V mode | `Baseline V` / `Delta V` |
+| 기준 V | `none` / `<handoff>:<plan revision>@<commit>` |
+| 이번 V revision | `V1` / `ΔV<N>` — 대체 관계 기록 |
+| 유효 V | `V1` / `<기준 V> + ΔV1…ΔV<N>` |
 
 # Part I — Product & UX Contract
 
@@ -113,9 +115,13 @@
 - N회/총량 기준: sink 의 프로덕션 호출부 전수(검색 명령 + 개수) → 식의 항 매핑 · 관측 지점이 모형하지 않는 호출부 … / 순서 기준: 관측 지점 …
 - 총량/0건 기준: 허용 대상과 제거 대상 분해 …
 
-## 7-A. Delta V / Trace Matrix
+## 7-A. V / Trace Matrix
 
-> 공통 vocabulary·requiredness·결과 상태는 [`docs/handoff/AGENTS.md §공통 V 추적 프로토콜`](../../../docs/handoff/AGENTS.md)을 따른다. V는 many-to-many이며 변경된 경로와 영향받은 상위 회귀만 Delta로 적는다.
+> 공통 vocabulary·requiredness·결과 상태는 [`docs/handoff/AGENTS.md §공통 V 추적 프로토콜`](../../../docs/handoff/AGENTS.md)을 따른다. 상속할 V가 없으면 Baseline V를 만들고, 명시적인 기준 V를 일부 변경할 때만 변경 경로와 영향받은 회귀를 Delta V로 적는다.
+
+- V mode 판정: …
+- 기준 V 상속 근거: 없음 / `<handoff>:<plan revision>@<commit>`
+- 변경이 시작되는 수준: R / SD / AR / MD / Baseline이라 해당 없음
 
 ### Node registry
 
@@ -129,18 +135,20 @@
 
 ### Pair registry
 
-| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 음성 대조 / 결함 변이 | §10 강제 지점 전수 |
+| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §10 강제 지점 전수 |
 |---|---|---|---|---|---|---|
-| VP-01 | R-01 ↔ AT-01 | REQUIRED / REGRESSION / NOT_REQUIRED | … | … | … | EP-… (N) / 0 + 이유 |
+| VP-01 | R-01 ↔ AT-01 | REQUIRED / REGRESSION / NOT_REQUIRED | … | … | required — 이유·변이 / not selected — 직접 oracle 근거 | EP-… (N) / 0 + 이유 |
 | VP-02 | SD-01 ↔ ST-01 | … | … | … | … | EP-… (N) |
 
-`NOT_REQUIRED`는 requiredness 칸에 비영향 근거, evidence 칸에 재사용할 기존 증거 좌표를 적는다. 필요한 pair 행을 생략해 암묵적으로 처리하지 않는다.
+`NOT_REQUIRED`는 Delta V에서 명시적으로 비영향을 판정한 inherited pair에만 쓰고 requiredness 칸에 비영향 근거, evidence 칸에 기존 증거 좌표를 적는다. 영향 없는 기준 V 전체를 복사하지 않으며 필요한 변경·회귀 행을 생략해 암묵적으로 처리하지 않는다.
 
-### 전역 불변식
+### 현재 변경의 운영 gate
 
-| Global | 적용 이유 | 강제/관측 지점 | 증거 / gate |
+| Gate | 이번 변경 산출물에 적용되는 이유 | 증거 / 명령 | 실패 범위 |
 |---|---|---|---|
-| G-SEC / G-DATA / G-DOC / G-REPO / G-SUBTREE | 해당 항목만 남김 | … | … |
+| subtree / repository / message-bus | … | … | 현재 변경이 유발한 실패 또는 명시 계약 위반만 blocking |
+
+> 보안·데이터 무결성처럼 제품 요구 경로에 필요한 제약은 V node·Decision·AC·§10에 넣는다. 이 표는 V 밖 제품 범위를 만드는 전역 불변식 목록이 아니다.
 
 ---
 
@@ -336,9 +344,11 @@ producer → contract/normalize → state/store → consumer/UI/tool
 - [ ] AS-IS에서 사라진 책임은 삭제/이동/대체 중 무엇인지 TO-BE에 명시했다.
 - [ ] 수치·전칭 표현·외부 규약·문서 앵커·기존 테스트 인용을 실측했다.
 - [ ] 각 AC가 행동 단언, 검증 수단, 프로덕션 도달 경로를 가진다.
-- [ ] 모든 R에 AT가 있고 모든 NEW/CHANGED node에 같은 레벨 REQUIRED pair가 있다.
+- [ ] 상속 기준이 없으면 Baseline V, 명시적인 기존 V를 일부 바꿀 때만 Delta V를 썼고 유효 V를 재구성할 수 있다.
+- [ ] 변경 효과에 필요한 레벨을 선택했고 모든 NEW/CHANGED node에 같은 레벨 REQUIRED pair가 있다.
 - [ ] 영향받은 INHERITED node는 REGRESSION, 비영향 node만 출처·기존 증거와 함께 NOT_REQUIRED다.
-- [ ] 각 pair의 경로·§10 전수 분모·직접 oracle·음성 대조가 있으며 적용 전역 불변식도 열거됐다.
+- [ ] 각 pair의 경로·§10 전수 분모·직접 oracle이 있고 적대 증거가 필요한 pair만 선택 이유·변이를 갖는다.
+- [ ] 현재 변경 산출물의 운영 gate가 열거됐고 관련 없는 기존 실패를 새 blocking 범위로 만들지 않는다.
 - [ ] 사람 실기로 미룬 순수 로직이 없다.
 - [ ] semantic 목표가 structural proxy만으로 검증되지 않는다.
 - [ ] 신규 계약의 SSOT·강제 지점·테스트 seam이 있다.
@@ -368,36 +378,32 @@ producer → contract/normalize → state/store → consumer/UI/tool
 > 대표 경로 AC는 통과하므로 게이트 green은 전수를 뜻하지 않는다.
 > **각 행의 `재현 명령 / 관측`은 이번 턴에 실제로 실행한 것만 적는다** — 산출물에서 표식을 다시
 > 찾지 못하면 그 행은 닫힌 것이 아니다.
-> **그 관측을 만든 장치(테스트·스윕·게이트)를 이번 턴에 만들거나 고쳤다면, 결함을 심어 실패하는지
-> 먼저 확인하고 그 결과를 적는다** — 눈이 없는 장치의 `0건`은 전수의 증거가 아니다. **고친 지점
-> 하나가 아니라 장치의 판정 지점마다 하나씩 심는다**(impl §3).
+> **그 관측이 구조적 proxy·0건/전수 스윕·배선 존재 oracle이고 이번 턴에 장치를 만들거나 고쳤다면,
+> 등록된 결함을 심어 실패하는지 먼저 확인한다** — 눈이 없는 장치의 `0건`은 전수의 증거가 아니다.
+> 직접 행동 결과를 관측하는 oracle에는 mutation을 자동 요구하지 않는다(impl §3).
 > **`전건`·`미분류 0`·`잔여 0` 행의 관측은 차집합이다** — 총계·합계는 그 주장을 반증할 수 없다(impl §8).
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
 | VP-… | … | `commit·revoke·expiry·401` (4) | 4/4 | `rg …` → 4건 / 테스트 `…` 케이스명 | — |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: 없음 / … → 현재 pair 필수면 PLAN_GAP, 아니면 별도 finding
+- §10에 없는데 같은 불변식이 필요했던 지점: 없음 / … → 현재 pair·Decision·AC 필수면 PLAN_GAP, 아니면 별도 finding
 
 **V-pair 자기확인** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다.
 
-| Pair | requiredness | 자기 상태 | 직접 관측 | 음성 대조 / 변이 결과 |
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED / REGRESSION | SELF_PASS / SELF_BLOCKED | … | … |
+| VP-… | REQUIRED / REGRESSION | SELF_PASS / SELF_BLOCKED | … | required — 결과 / not selected — 직접 oracle 근거 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-> **결함을 심어 이번 라운드의 장치가 검출하는지 본다**(impl §3). **분모는 이번 라운드가 닫는 파생
-> 이슈가 인용한 변이이고, 인용된 변이가 없을 때만 고친 hunk다** — 동작을 보존하는 추출·재배치
-> 라운드는 hunk를 되돌려도 초록이 정답이라 그 되돌림이 아무것도 재지 못한다. hunk가 분모인데
-> 아무것도 실패하지 않으면 그 수정은 잠기지 않은 것이다 — 배선을 지운 회귀가 게이트를 초록으로
-> 통과한다. 잠글 수 없는 지점은
-> `잠금 없음`과 이유를 적되, **검증자가 같은 결함을 다시 심으므로**(verify §4) 재현되지 않는 사유는
-> 파생 이슈가 된다 — 이 칸은 측정 불가 항목의 하치장이 아니다.
+> pair가 적대 증거를 선택했거나 파생 이슈가 변이를 인용했거나 이번 턴에 구조적 proxy·0건/전수·배선 oracle을 만들었다면
+> 그 결함을 심어 장치의 방향·민감도를 확인한다(impl §3). 그 밖의 hunk에는 mutation을 새로 발명하지
+> 않고 `해당 없음 — 직접 oracle …`을 적는다. mutation이 없다는 이유만으로 현재 FAIL 범위를 늘리지 않는다.
 
 | 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|
-| `파일:줄` — 무엇을 어떻게 바꿨는가 | `D<N> 인용 변이` / `이번 hunk 되돌림` | `<케이스명>` 외 N건 | 잠김 / **잠금 없음 — 사유** |
+| `파일:줄` — 무엇을 어떻게 바꿨는가 | `VP-… 선택 증거` / `D<N> 인용 변이` / `구조·전수·배선 oracle 민감도` | `<케이스명>` 외 N건 | 잠김 / **잠금 없음 — 사유** / 해당 없음 — 직접 oracle |
 
 ## [구현자 기입] Product/UX 파생 검토
 
@@ -461,8 +467,8 @@ producer → contract/normalize → state/store → consumer/UI/tool
 
 ## [검증자 기입] 파생 이슈
 
-> `출처`에는 위반한 **pair/Global·Decision·AC·§10 행**을 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.
+> `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.
 
-| # | 이슈 | 출처 pair / Global·계약 | 대응 방향 | 분류 | 상태 |
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | … | verify r<N> · VP-… / G-… · AC<N> / §10 <N>행 | … | BLOCKING / PLAN_GAP / NON_BLOCKING / NEXT_HANDOFF | open / 구현중 / 해결 |
+| D1 | … | verify r<N> · VP-… · AC<N> / §10 <N>행 / gate | … | BLOCKING / PLAN_GAP / NON_BLOCKING / NEXT_HANDOFF | open / 구현중 / 해결 |

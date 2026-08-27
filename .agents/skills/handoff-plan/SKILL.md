@@ -1,6 +1,6 @@
 ---
 name: handoff-plan
-description: docs/handoff/ 의 plan.md를 새로 작성하거나 갱신할 때 쓴다. 구현·리팩토링·버그수정·기능 추가 요청이 들어왔는데 **아직 READY인 plan이 없으면 여기가 진입점**이다 — 구현 요청이라도 설계를 건너뛰지 않는다(이미 READY plan이 있는 구현 턴은 handoff-impl). verify/RETURN_TO_PLAN·verify/FAIL·사용자 결정 변경으로 기존 plan을 갱신할 때도 쓴다. 여러 턴의 결정을 Decision Ledger로 보존하고 Product/UX Contract와 Delta V 노드/pair를 확정한 뒤 코드베이스 조사·아키텍처·구현·검증 설계를 작성한다.
+description: docs/handoff/ 의 plan.md를 새로 작성하거나 갱신할 때 쓴다. 구현·리팩토링·버그수정·기능 추가 요청이 들어왔는데 **아직 READY인 plan이 없으면 여기가 진입점**이다 — 구현 요청이라도 설계를 건너뛰지 않는다(이미 READY plan이 있는 구현 턴은 handoff-impl). verify/RETURN_TO_PLAN·verify/FAIL·사용자 결정 변경으로 기존 plan을 갱신할 때도 쓴다. 여러 턴의 결정을 Decision Ledger로 보존하고 Product/UX Contract와 Baseline V 또는 기존 V의 Delta V를 확정한 뒤 코드베이스 조사·아키텍처·구현·검증 설계를 작성한다.
 ---
 
 # handoff-plan — 현재 작업의 설계 정본 만들기
@@ -10,7 +10,7 @@ description: docs/handoff/ 의 plan.md를 새로 작성하거나 갱신할 때 �
 이 스킬은 **이번 작업의 plan을 정확하게 만드는 실행 스킬**이다.
 
 - 앞부분은 **Product & UX Contract**다. UI가 없는 작업도 사용자가 관측할 동작·외부 계약·운영 행위를 여기서 먼저 고정한다.
-- **Delta V**는 `R↔AT`·`SD↔ST`·`AR↔IT`·`MD↔UT`로 계약과 검증 증거를 연결한다. 공통 상태·판정 규약은 `docs/handoff/AGENTS.md §공통 V 추적 프로토콜`을 따른다.
+- **V**는 `R↔AT`·`SD↔ST`·`AR↔IT`·`MD↔UT`로 계약과 검증 증거를 연결한다. 명시적인 기존 V가 없으면 Baseline V, 기존 V를 일부 변경할 때만 Delta V를 쓰며 공통 상태·판정 규약은 `docs/handoff/AGENTS.md §공통 V 추적 프로토콜`을 따른다.
 - 뒷부분은 **Technical Design**이다. 코드베이스 사실, 아키텍처, 데이터/제어 흐름, 모듈 책임, 테스트 방법을 구현자가 바로 작업할 수 있을 정도로 구체화한다.
 - 현재 요구를 비판적으로 검토하는 책임은 유지한다. 과거 실패를 분석해 이 스킬 자체를 고치는 메타 책임은 [`../handoff-review/SKILL.md`](../handoff-review/SKILL.md)에 위임한다.
 
@@ -38,7 +38,7 @@ description: docs/handoff/ 의 plan.md를 새로 작성하거나 갱신할 때 �
 3. 요구 비판적 검토 + 필요한 사용자 질의 판정
 4. 코드·계약·외부 규약 조사
 5. Product & UX Contract 확정 + Acceptance Criteria 작성
-6. Delta V 노드·pair·전역 불변식 확정
+6. Baseline V 또는 Delta V 노드·pair와 적용 gate 확정
 7. Technical Design 작성
 8. 검증 가능성·구현 가능성 게이트
 9. 문서 전체 정합성 검사
@@ -163,17 +163,18 @@ UI 작업만을 뜻하지 않는다. renderer가 없어도 CLI/API/저장/운영
 
 ---
 
-# 5-A. Delta V — 계약과 증거를 구현 전에 묶는다
+# 5-A. V / Trace Matrix — 계약과 증거를 구현 전에 묶는다
 
-`docs/handoff/AGENTS.md §공통 V 추적 프로토콜`의 vocabulary와 requiredness를 그대로 쓴다. 기존 plan을 갱신할 때는 전체 V를 다시 쓰지 않고 **변경된 경로와 영향받은 상위 회귀만** Delta로 기록한다.
+`docs/handoff/AGENTS.md §공통 V 추적 프로토콜`의 vocabulary와 requiredness를 그대로 쓴다.
 
-- Product/UX와 AC에서 `R`·`AT`, end-to-end 상태/수명주기에서 `SD`·`ST`, 모듈·producer/consumer·조립 edge에서 `AR`·`IT`, 모듈 불변식·알고리즘·seam에서 `MD`·`UT`를 뽑는다.
-- 노드마다 `NEW`·`CHANGED`·`INHERITED`·`SUPERSEDED`와 기준선 출처/대체 노드를 적는다. 상위 노드를 관성적으로 복사하지 않는다.
-- 모든 `NEW`·`CHANGED` 왼쪽 노드에 같은 레벨 `REQUIRED` pair를 둔다. 변경 경로가 기존 상위 동작에 닿으면 그 `INHERITED` 노드를 `REGRESSION`으로 선택한다.
-- pair에는 `start → edges → end` 경로, §10 강제 지점 전수, 직접 oracle, 음성 대조/결함 변이를 둔다. §10 행은 관련 node/pair를 가리키되 모든 강제 지점을 억지로 `MD`로 내리지 않는다.
-- 보안·데이터 무결성·현재상태 문서·repository/message-bus·수정 subtree 필수 gate 중 적용되는 전역 불변식과 증거를 따로 열거한다.
+- 상속할 V가 없으면 이번 작업에 필요한 수준으로 **Baseline V**를 만든다. 기존 handoff의 V를 상속한다면 handoff·plan revision·commit을 고정하고, 변경이 시작되는 수준부터 아래쪽과 영향받은 상위 회귀만 **Delta V**로 기록한다.
+- Product/UX 결과가 바뀌면 `R↔AT`, end-to-end 상태·수명주기가 바뀌면 `SD↔ST`, production 경계·producer/consumer·이벤트·저장소가 바뀌면 `AR↔IT`, 모듈 불변식·알고리즘·seam이 바뀌면 `MD↔UT`를 포함한다.
+- 노드마다 `NEW`·`CHANGED`·`INHERITED`·`SUPERSEDED`와 기준선 출처/대체 노드를 적는다. Delta V는 영향 없는 기준 V 전체를 복사하지 않고, 명시적으로 비영향을 판정할 필요가 있는 inherited pair만 `NOT_REQUIRED`로 기록한다.
+- 모든 `NEW`·`CHANGED` 왼쪽 노드에 같은 레벨 `REQUIRED` pair를 둔다. 변경 경로가 기존 상위 동작에 닿으면 해당 `INHERITED` 노드를 `REGRESSION`으로 선택한다.
+- pair에는 `start → edges → end` 경로, §10 강제 지점 전수, 직접 oracle을 둔다. 음성 대조/결함 변이는 oracle이 구조적 proxy·0건/전수 주장·배선 존재처럼 방향이나 민감도를 별도로 입증해야 할 때만 선택하고, 선택 이유와 심을 결함을 적는다.
+- 보안·데이터 무결성처럼 이번 요구에 필요한 제약은 V node·Decision·AC·§10에 귀속시킨다. 수정 subtree gate와 repository/message-bus 검사는 현재 변경 산출물의 운영 완료 조건으로 별도 열거하며 새 제품 범위를 만들지 않는다.
 
-READY 전 `R↔AT` 누락, `NEW`·`CHANGED` node의 pair 누락, 영향받은 상위 회귀 누락, 경로/전수 분모/oracle/음성 대조 누락, 적용 전역 불변식 누락을 확인한다. 하나라도 있으면 plan은 READY가 아니다.
+READY 전 V mode·상속 기준, 변경 효과에 필요한 레벨, `NEW`·`CHANGED` node의 pair, 영향받은 상위 회귀, 경로·전수 분모·직접 oracle, 선택한 적대 증거의 이유, 현재 변경에 적용할 gate를 확인한다. 필요한 항목이 없으면 plan은 READY가 아니다.
 
 ---
 
@@ -225,7 +226,7 @@ Product/UX Contract가 **무엇을** 정했다면 여기서는 **어떻게**를 
 1. Decision Ledger의 모든 `ACTIVE` 항목이 Product/UX·**AC**·Technical Design에서 유지되는지 확인한다. **AC가 ACTIVE Decision의 반대를 요구하면 그것은 문서 결함이다.**
 2. 같은 대상(수명주기·식별자·상태·연결 수·오류 의미)을 여러 절이 서술하면 나란히 읽어 충돌을 찾는다.
 3. Product/UX의 각 핵심 동작이 Technical Design의 실제 경로와 AC에 연결되는지 추적한다.
-4. 모든 `NEW`·`CHANGED` V node와 영향받은 `INHERITED` node가 requiredness 규칙에 맞는 pair·§10 강제 지점·증거를 갖는지 확인한다.
+4. V mode·상속 기준이 맞고 모든 `NEW`·`CHANGED` V node와 영향받은 `INHERITED` node가 requiredness 규칙에 맞는 pair·§10 강제 지점·증거를 갖는지 확인한다.
 5. 기존 결정·규칙 표는 본문을 훑은 뒤 마지막에 채운다. **실제 본문 문장** 기준으로 유지/변경을 판정한다.
 6. 인용 경로·문서 앵커·기존 테스트 케이스가 실제 존재하는지 확인한다.
 7. 범위/비범위가 사람 실기나 프로덕션 도달 경로를 스스로 막지 않는지 확인한다.
@@ -252,9 +253,11 @@ Product/UX Contract가 **무엇을** 정했다면 여기서는 **어떻게**를 
 - [ ] 수치·전칭 표현·외부 규약·문서 앵커·기존 테스트 인용을 실측했다.
 - [ ] 작업 관련 저장소 규칙(eslint/위생/마이그레이션/레이어 관례)을 설계 입력으로 확인했다.
 - [ ] 각 AC가 행동 단언, 검증 방법, 프로덕션 도달 경로를 가진다.
-- [ ] 모든 `R`에 `AT`가 있고 모든 `NEW`·`CHANGED` node에 같은 레벨 `REQUIRED` pair가 있다.
+- [ ] 상속 기준이 없으면 Baseline V, 명시적인 기존 V를 일부 바꿀 때만 Delta V를 사용했고 유효 V를 재구성할 수 있다.
+- [ ] 변경 효과에 필요한 레벨을 선택했고 모든 `NEW`·`CHANGED` node에 같은 레벨 `REQUIRED` pair가 있다.
 - [ ] 영향받은 `INHERITED` 상위 node는 `REGRESSION`, 비영향 node만 출처·기존 증거와 함께 `NOT_REQUIRED`다.
-- [ ] 각 pair가 production path, §10 강제 지점 전수, 직접 oracle, 음성 대조/결함 변이를 가지며 적용 전역 불변식도 열거됐다.
+- [ ] 각 pair가 production path, §10 강제 지점 전수, 직접 oracle을 가지며 적대 증거가 필요한 pair만 선택 이유·결함 변이를 갖는다.
+- [ ] 현재 변경 산출물에 적용되는 subtree·repository gate가 열거됐고 관련 없는 기존 실패를 새 blocking 범위로 만들지 않는다.
 - [ ] 사람 실기로 미룬 순수 로직이 없다.
 - [ ] semantic 목표를 structural proxy만으로 검증하는 AC가 없다.
 - [ ] “X가 쓰인다”를 요구하는 불변식의 검사 장치가 X를 지웠을 때 실패한다 — 여분의 사본·남은 잔여물에만 반응하지 않는다.
@@ -271,7 +274,7 @@ Product/UX Contract가 **무엇을** 정했다면 여기서는 **어떻게**를 
 FAIL/RETURN_TO_PLAN의 미해결 항목은 `[검증자 기입] 파생 이슈`에 누적한다. Product/UX Contract나 Decision Ledger와 영향받지 않은 상위 V node를 매번 다시 쓰지 않는다.
 
 - 명시 계약 위반인 `FAIL`은 기존 pair에 귀속한 파생 이슈로 좁혀 재구현한다.
-- **`PLAN_GAP`은 재구현 전에 여기서 닫는다.** 필요한 Decision·AC·V node/pair·경로·§10·oracle을 영향 범위만 새 Delta V revision으로 정정하고 구 행을 덮어쓰지 말고 supersede한다. `RETURN_TO_PLAN`을 구현자에게 그대로 넘기지 않는다.
+- **`PLAN_GAP`은 재구현 전에 여기서 닫는다.** 구현 전 Baseline V가 이미 확정돼 있으므로 필요한 Decision·AC·V node/pair·경로·§10·oracle을 새 Delta V revision으로 정정하고 구 행을 덮어쓰지 말고 supersede한다. `RETURN_TO_PLAN`을 구현자에게 그대로 넘기지 않는다.
 - 설계 계약이 틀렸다는 증거가 생기면 관련 Decision/AC/Technical Design만 명시적으로 수정하고 변경 이유를 남긴다. **고쳐 쓴 AC 행은 §5 AC 게이트와 READY self-review의 AC 항목을 다시 통과시킨다** — 최초 작성만 게이트를 받고 정정은 안 받으면 세 라운드째 틀린 기준으로 채점한다(0194 AC18: 대리 기준 → 정정한 닫힌 식이 조건부 항을 빼먹어 저장소의 테스트가 그것을 반증했다).
 - 사용자 결정 변경이면 기존 Decision을 `SUPERSEDED` 처리한다. 실패로 위장하지 않는다.
 - 반복 라운드에서 같은 종류가 다시 나오면 `handoff-review` 대상 신호로 올린다. **여기서 failure-patterns를 직접 갱신하지 않는다.**
