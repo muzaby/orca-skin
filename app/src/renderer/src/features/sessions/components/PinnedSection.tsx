@@ -1,13 +1,14 @@
 import { memo } from 'react'
 import { CollapsibleSection } from '../../../shared/ui/SidebarSection'
 import { useI18n } from '../../../shared/i18n'
-import type { SessionListItem } from '../../../../../shared/ipc'
 import { SessionRow } from './SessionRow'
 import { useNavSections } from '../hooks/useNavSections'
+import type { PinnedSessions } from '../lib/navSections'
 
 export interface PinnedSectionViewProps {
   // 0203 ΔV1 EP-9 — 목록은 props 로만 들어온다. 이 컴포넌트에 배치 필터는 없다.
-  sessions: SessionListItem[]
+  // ΔV2 EP-11 — 슬롯 브랜드. 파티션의 다른 칸을 넘기면 컴파일되지 않는다.
+  sessions: PinnedSessions
   currentSessionId: string | null
   onSelectSession: (sessionId: string) => void
   onTogglePinSession: (sessionId: string, pinned: boolean) => void
