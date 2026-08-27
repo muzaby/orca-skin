@@ -9,7 +9,7 @@
 | slug | `0204-taskxxx-right-panel` |
 | 작성자 | Claude Code |
 | 일자 | 2026-08-27 |
-| 매핑 | 없음 |
+| 매핑 | PR [#393](https://github.com/muzaby/orca-skin/pull/393)(draft) · 구현 브랜치 `claude/task-panel-separation-dw3tt6` |
 | 상태 | DRAFT → READY → impl → verify/FAIL(r1) → **READY (ΔV1)** — 단계·좌표 정본은 [`INDEX.md`](../INDEX.md) |
 | V mode | `Baseline V + ΔV1` |
 | 기준 V | `none` — 0136·0143 은 V 규약 이전 handoff 라 상속할 명시 V node 가 없다 |
