@@ -11,10 +11,10 @@
 | 일자 | 2026-08-27 |
 | 매핑 | 브랜치 `claude/handoff-left-nav-layout-qhek9m` |
 | 상태 | DRAFT → READY |
-| V mode | `Baseline V + ΔV1` |
+| V mode | `Baseline V + ΔV1 + ΔV2` |
 | 기준 V | `none` — 선행 0129 는 구 템플릿이라 상속할 V node/pair 가 없다 |
-| 이번 V revision | `ΔV1` — verify r1 의 `PLAN_GAP` G1·G2·G3 정정. 구 행은 덮어쓰지 않고 supersede |
-| 유효 V | `V1 + ΔV1` |
+| 이번 V revision | `ΔV2` — verify r2 의 `PLAN_GAP` G4 정정 + AT-13 의 음성-only 구멍(D7 의 뿌리) 정정. 구 행은 supersede |
+| 유효 V | `V1 + ΔV1 + ΔV2` |
 
 ### 기준선 잠금의 한계 (사후 작성)
 
@@ -73,6 +73,8 @@
 - 이번 턴에서 새로 추가된 결정: D-001 ~ D-011 전부 (Baseline — 선행 handoff 의 ACTIVE ledger 없음).
 - 변경된 결정: 없음. 다만 D-008·D-009 는 **0129 plan 의 문장을 대체**한다 — `docs/handoff/0129-sidebar-pin-title-autosize/plan.md:144`("고정 항목 0 → \"고정됨\" 섹션 자체 미렌더")와 같은 문서의 "하위 행은 선택 전용(고정/이름변경/삭제 없음)". 0129 는 archive 이력이라 이 plan 이 현재 정본이다.
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: 없음.
+- **ΔV2 갱신(2026-08-27)**: 신규 **D-014**(슬롯 브랜드 타입) 하나. SUPERSEDED 결정 **0** — D-013(렌더 하네스 미도입)은 유지된다(브랜드는 타입 수단이라 신규 의존성 0).
+- **ΔV2 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-014↔AT-15(잘못된 칸은 컴파일 실패) · D-012↔AT-13a(구획은 받은 목록만, 이제 **양성 짝** 포함) · **D-013 ↔ AT-15 비충돌**(oracle 이 `tsc` 라 하네스 불필요) · D-005↔AT-05a 방향 유지 — **반대를 요구하는 AC 0건**.
 - **ΔV1 갱신(2026-08-27)**: 신규 D-012·D-013(사용자 선택지 A) · D-008 provenance 추론 → **사용자 결정**. SUPERSEDED 결정 **0** — 요구 6개와 D-001~D-011 의 문장은 하나도 바뀌지 않았다. ΔV1 은 *증거*만 바꾼다.
 - **ΔV1 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-012↔AT-13(구획이 props 를 재파생하지 않는다)·AT-06a(파티션이 배치를 소유) · D-013↔AT-05a·AT-13 의 oracle 이 `renderToStaticMarkup` 이고 신규 의존성 0 · D-008↔AT-09(빈 헤더 유지, 이제 사용자 승인) · **D-005 ↔ AT-05a 방향 일치**(둘 다 "이동", 복제 아님) · D-006 ↔ EP-1a(단일 소유) — **반대를 요구하는 AC 0건**.
 - **`ACTIVE 결정 ↔ AC` 대조**(V1): 충돌 0. D-001↔AC1(4구획 순서) · D-002↔AC2 · D-003↔AC3 · D-004↔AC4 · D-005↔AC5·AC6 · D-006↔AC6·AC7 · D-007↔AC8 · D-008↔AC9 · D-009↔AC10 · D-010↔§6 비범위(AC 없음, 의도적) · D-011↔AC11·AC12. **반대를 요구하는 AC 0건** — 특히 AC5 는 "이동"을, AC3 은 "+ 버튼 0건"을 각각 D-005·D-003 과 같은 방향으로 단언한다.
@@ -282,7 +284,7 @@
 | R-05 | **AT-05a** / AC5a (AT-05 대체) | 대화 고정 시 그 대화가 "고정됨" 출력에만 나타나고 최근·프로젝트 하위 출력에서는 사라진다 | 순수+렌더 — `splitNavSections` 출력에서 해당 id 가 `pinned` 에만 있고, 그 목록으로 렌더한 구획 HTML 에 그 제목이 나타나며 다른 두 구획 HTML 에는 없다 | `kebab → setPinned → byId → splitNavSections → props → 렌더` |
 | R-05 | **AT-06a** / AC6a (AT-06 대체) | 어떤 대화도 두 구획에 동시에 나타나지 않고, 모든 (고정×소속) 조합이 정확히 한 구획에 배치된다 | 순수 — 조합 전수 입력에 대해 세 출력이 **pairwise 서로소**이고 **합집합이 입력과 같다**(차집합 양방향 0) | 위와 같음 |
 | R-05 | **AT-07a** / AC7a (AT-07 대체) | 고정 해제 시 소속이 고정 프로젝트면 그 하위 출력으로, 아니면 최근 출력으로 돌아온다 | 순수 — 같은 입력에서 `pinnedAt` 만 `null` 로 바꾼 두 호출의 출력 차이가 정확히 그 id 의 이동이다 | `해제 → pinnedAt=null → splitNavSections` |
-| R-01 | **AT-13** / AC13 (신설) | 구획 컴포넌트는 받은 목록을 **재파생하지 않는다** — props 에 없는 대화는 어떤 경로로도 출력되지 않는다 | 렌더 — 세 구획에 각각 1건짜리 목록을 주고, store 에 넣어 둔 다른 대화의 제목이 출력에 **없음**을 단언. 양성 짝: 준 1건은 **있음** | `props → 구획 → renderToStaticMarkup` |
+| R-01 | ~~**AT-13** / AC13~~ → **AT-13a (§7-C)** | 구획 컴포넌트는 받은 목록을 **재파생하지 않는다** — props 에 없는 대화는 어떤 경로로도 출력되지 않는다 | 렌더 — 세 구획에 각각 1건짜리 목록을 주고, store 에 넣어 둔 다른 대화의 제목이 출력에 **없음**을 단언. 양성 짝: 준 1건은 **있음** | `props → 구획 → renderToStaticMarkup` |
 | R-01 | **AT-14** / AC14 (신설) | 무관한 세션 변경이 다른 구획의 목록 내용을 바꾸지 않는다 | 순수 — `splitNavSections` 를 두 번 부르되 한 구획에만 영향 주는 입력 변경을 가하고, 나머지 두 출력이 **내용상 동일**함을 단언 | `byId 패치 → splitNavSections` |
 
 **AC 게이트 재통과**(§5) — 정정·신설한 6행에 대해:
@@ -296,6 +298,94 @@
 - AC 총수: `V1` 12 + 신설 2 = **14**(정정 4행은 번호를 승계해 분모를 늘리지 않는다).
 
 **G2 재발 방지 자기검사** — ΔV1 자신의 `NEW`·`CHANGED` 왼쪽 노드에 같은 레벨 pair 가 있는가: `MD-01a`→VP-13 · `AR-03`→VP-16 · `MD-04`→**VP-17**. 초안에는 `MD-04` 가 `AT` 레벨 VP-02a 만 갖고 UT pair 가 없어 G2 와 같은 형태였다 — 이 검사에서 잡아 VP-17 을 신설했다. **차집합 0.**
+
+
+## 7-C. ΔV2 — verify r2 `PLAN_GAP` 정정
+
+> **적용 순서: `V1` → `ΔV1` → `ΔV2`.** verify r2(`3f40221`)가 되돌린 **G4** 를 닫는다. **D7 은 규범 정정이 필요 없다** — AT-13 이 요구한 것을 구현이 덜 채운 것이라 재구현 항목이다. 다만 D7 을 낳은 *AC 문장의 구멍*(음성 단언만 있고 양성 짝이 없었다)은 여기서 메운다.
+
+### 무엇이 왜 바뀌는가
+
+| 출처 | 진단 | ΔV2 의 답 |
+|---|---|---|
+| **G4** | VP-05a 의 path 에 `slots → props` 구간이 있는데 oracle 이 없다. 어댑터가 `pinned` 대신 `recent` 를 넘겨도 vitest 497 초록·typecheck 0 | 세 칸에 **슬롯별 브랜드 타입**을 준다. 잘못된 칸은 `TS2322` 로 컴파일되지 않는다 |
+| **D7** 의 뿌리 | AT-13 이 "준 목록만 그린다"를 **음성 단언만으로** 요구했다 — 접힌 subtree 는 아무것도 안 그리므로 음성이 자동 참이 된다 | AT-13a: **구획마다 양성 + 음성 쌍**. 준 항목이 그 구획 출력에 **나타나야** 한다 |
+
+### 설계 근거 — 이번 턴에 측정한 것
+
+| 관측 | 결과 | 설계에 미친 영향 |
+|---|---|---|
+| 브랜드 타입이 슬롯 혼동을 잡는가 | **잡는다** — `Type 'RecentList' is not assignable to type 'PinnedList'` (`TS2322`) | D-014 의 근거. 신규 의존성 0 |
+| renderer 의 `.test.ts` 가 `typecheck` 대상인가 | **대상이다** — 일부러 심은 `const n: number = 'x'` 가 `typecheck:web` 에서 `TS2322` 로 잡혔다 | `@ts-expect-error` oracle 이 게이트에 걸린다 |
+| 같은 수단의 저장소 선례 | **2건** — `src/shared/obj.test.ts:36`(0194 D14) · `src/main/app/deployment/deployment-wiring.test.ts:444`(0190) | 새 관례가 아니다. 선례 주석: "`@ts-expect-error` 는 **뒤집힌 단언**이라 그 줄의 오류가 사라지면 깨진다 — 한 번 심었다 지우는 변이와 달리 **다음 라운드에도 남는 눈**이다" |
+
+### ΔV2 Decision
+
+| ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
+|---|---|---|---|---|---|
+| D-014 | 구획 View 의 목록 prop 은 **슬롯별 브랜드 타입**을 받는다 — 파티션의 다른 칸을 넘기면 컴파일되지 않는다 | 이음매를 잠그는 유일한 무의존 수단이다. 렌더 단언은 "무엇을 그리는가"만 보고 "무엇을 받았는가"는 못 본다 | 추론 — verify r2 G4 실측 + 스파이크 | ACTIVE | — |
+
+> D-013(렌더 하네스 미도입)은 **유지된다** — 브랜드는 타입 수단이라 신규 의존성이 없다.
+
+### ΔV2 Node registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| AR-03a | AR | §10 EP-11·EP-12 · 구획 View 의 **브랜드된** props 계약 | **CHANGED** | `ΔV1:AR-03` 대체 |
+| IT-03a | IT | 렌더 양성+음성 쌍 · `@ts-expect-error` 음성 타입 단언 | **CHANGED** | `ΔV1:IT-03` 대체 |
+| MD-01a·MD-02·MD-04·MD-03 | MD | — | INHERITED | `ΔV1`·`V1` — 파티션 로직 무변경 |
+| R-01·R-05 | R | §7 | INHERITED | 요구 문장 무변경 |
+
+### ΔV2 Pair registry
+
+| Pair | left ↔ right / 레벨 | requiredness | production path | 직접 evidence oracle | 선택적 적대 증거 | §10 강제 지점 |
+|---|---|---|---|---|---|---|
+| VP-18 | AR-03a ↔ IT-03a / IT | REQUIRED | `splitNavSections 반환(브랜드) → 어댑터 → View props` | **① 렌더**: 구획마다 준 항목이 출력에 **있고** 안 준 항목이 **없다**(양성+음성 쌍) · **② 타입**: 세 어댑터의 잘못된 칸 전달이 `@ts-expect-error` 로 고정 | **required** — 브랜드를 지우면 `@ts-expect-error` 3줄이 `TS2578`(불필요한 지시)로 뒤집혀 typecheck 가 red 여야 한다 | EP-11 (3) · EP-12 (1) |
+| VP-05b | R-05 ↔ AT-05a / AT | REQUIRED | `kebab → setPinned → byId → splitNavSections → **props** → 렌더` | 파티션 UT(VP-13) + 렌더(VP-18①) + **이음매 타입(VP-18②)** 셋의 결합 | not selected — 세 직접 oracle 이 경로 전 구간을 덮는다 | EP-1a·EP-9·EP-11 |
+| VP-16 | — | **SUPERSEDED** | — | VP-18 로 대체 | — | — |
+| VP-05a | — | **SUPERSEDED** | — | VP-05b 로 대체 | — | — |
+| VP-13·14·17·02a·06a·07a | 그대로 | INHERITED | — | ΔV1 에서 r2 가 PASS 판정 | — | 무변경 |
+
+> ΔV1 의 나머지 pair 와 `V1` 의 VP-01·03·04·08~12 는 ΔV2 가 건드리지 않는다 — r2 가 PASS 10 · 사람 실기 4 로 판정했고 이번 변경 경로에 닿지 않는다.
+
+### ΔV2 Acceptance — 정정·신설
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-01 | **AT-13a** / AC13a (AT-13 대체) | 구획 컴포넌트는 받은 목록을 **그대로** 그린다 — 준 항목은 나타나고, 주지 않은 항목은 어떤 경로로도 나타나지 않는다 | 렌더 — 세 구획 각각 **양성**(준 항목의 제목이 출력에 있다)과 **음성**(안 준 항목의 제목이 없다)을 **쌍으로** 단언한다. **목록이 실제로 그려지는 상태에서 잰다** — 접혀서 아무것도 안 그리는 출력에 대한 음성 단언은 이 AC 를 만족하지 않는다 | `props → 구획 → renderToStaticMarkup` |
+| R-05 | **AT-15** / AC15 (신설) | 어댑터가 파티션의 **다른 칸**을 구획에 넘기면 컴파일되지 않는다 | 타입 — 세 조합(`recent`→고정됨 · `pinned`→최근 · `pinned`→프로젝트하위)에 `@ts-expect-error` 를 붙인다. 브랜드가 사라지면 그 줄들이 `TS2578` 로 뒤집혀 `typecheck` 가 실패한다 | `splitNavSections → 어댑터 → View props` |
+
+**AC 게이트 재통과**(§5) — 정정 1행 + 신설 1행:
+
+- 행동 단언·검증 수단·도달 경로: 두 행 모두 세 칸을 갖는다.
+- **방향**: AT-13a 는 양성 짝이 있어 **목록이 안 그려지면 실패한다** — r2 의 공허 형태(음성만)를 구조적으로 배제한다. AT-15 는 뒤집힌 단언이라 **브랜드를 지우면 실패한다**.
+- **음성 게이트의 양성 짝**: AT-13a 가 구획마다 쌍을 명시적으로 요구한다.
+- structural proxy 없음 — AT-13a 는 출력 내용을, AT-15 는 컴파일 가능 여부를 단언한다. 둘 다 행동이다.
+- 사람 실기로 미룬 순수 로직 없음.
+- AC 총수: `V1` 12 + ΔV1 2 + **ΔV2 1(AT-15)** = **15**(AT-13→13a 는 번호 승계).
+- **G2 재발 방지 자기검사**: ΔV2 의 `CHANGED` 왼쪽 노드는 `AR-03a` 하나이고 VP-18 이 같은 레벨(IT) pair 다. 유효 V 전체 재계수 — 대체되지 않은 `NEW`·`CHANGED` 왼쪽 노드 **15**(`MD-01`·`AR-03` 은 supersede) ↔ pair 가 잠근 노드 **15**, **차집합 0**. 초안은 16 이라고 적었고 기계 재계수에서 틀린 것을 잡았다 — 차집합은 맞았고 **총계만** 틀렸다.
+
+### ΔV2 §10 강제 지점
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 | 실패 의미 |
+|---|---|---|---|---|---|
+| AR-03a / VP-18·05b | 구획 View 의 목록 prop 은 슬롯 브랜드를 요구한다 | `lib/navSections.ts` 의 브랜드 타입 | `tsc` | **EP-11** — `PinnedSectionView` · `SessionListView` · 프로젝트 하위 목록 세 prop 선언 (3) | 한 곳이라도 평범한 `SessionListItem[]` 로 남으면 그 구획의 이음매는 계속 무관측이다 |
+| AR-03a / VP-18 | 브랜드는 파티션이 부여한다 | 같은 파일 | `splitNavSections` | **EP-12** — 세 칸에 브랜드를 씌우는 유일한 지점 (1) | 다른 곳에서 브랜드를 만들 수 있으면 어댑터가 우회로를 얻는다 — 캐스트는 이 함수 안에서만 |
+
+- `실패 의미` 에 "다른 게이트가 막는다"를 적은 행: **없음.**
+- **ΔV2 유효 강제 지점 전수: EP-1a(1) · EP-9(3) · EP-10(1) · EP-11(3) · EP-12(1) + `V1` EP-4~8(5) = 14.**
+
+### ΔV2 구현 설계
+
+| 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
+|---|---|---|---|
+| `…/features/sessions/lib/navSections.ts` | 브랜드 정의 + 부여 | `PinnedSessions`·`RecentSessions`·`ProjectChildSessions` 브랜드 타입 export. `splitNavSections` 반환 타입을 브랜드로 좁히고 **캐스트는 이 파일 안에서만**(EP-12) | 순수 |
+| `…/components/{PinnedSection,SessionList,PinnedProjectsSection}.tsx` | props 계약 | 세 View 의 목록 prop 타입을 브랜드로 교체(EP-11). 어댑터 코드는 그대로 — 타입만 좁아진다 | 렌더 + 타입 |
+| `…/components/navSections.render.test.ts` | AT-13a·AT-15 | ① 구획마다 **양성 단언 추가**(현재 프로젝트 구획에 없다) ② `PinnedProjectChildren` 을 export 해 **직접 렌더**(접힘 뒤에 가려지지 않게) ③ `@ts-expect-error` 3줄 신설 | 렌더 + 타입 |
+| `…/components/PinnedProjectsSection.tsx` | 테스트 seam | `PinnedProjectChildren` 을 export 한다 — 접기 상태 뒤에 있어 구획 단위 렌더로는 관측할 수 없다 | — |
+
+- **테스트 fixture 의 브랜드**: 렌더 테스트는 fixture 를 캐스트해 만든다. 브랜드의 목적은 *프로덕션 배선의 슬롯 혼동*을 막는 것이지 fixture 생성을 막는 것이 아니다 — 어댑터가 받는 값은 항상 `splitNavSections` 산출이라 캐스트 경로가 없다.
+- **`@ts-expect-error` 를 쓰는 이유**: 브랜드가 "좁아졌다"는 구조적 사실만으로는 이음매가 닫혔다고 말할 수 없다. 뒤집힌 단언은 오류가 사라지는 순간 그 자체로 실패하므로 **다음 라운드에도 남는 눈**이다(선례 주석 인용, §7-C 조사표).
 
 ---
 
@@ -514,6 +604,7 @@ sessionApi.list / projectApi.listSessions
 | **R-2** 고정 항목 0일 때 빈 헤더 2개가 보인다 | D-008 의 추론 결과. 사용자 시각 확인으로 확정(§4) |
 | **R-3** 고정 프로젝트 파생에 순수 seam 이 없다 | `pinnedProjectIds` 경유로 `placementOf` 테스트가 같은 술어를 간접 고정한다. 추출은 후속(§6) |
 | **R-5** (ΔV1) props 전환으로 `useSidebarSlots` 가 세션 상태에 의존해 `Sidebar` memo 가 약해질 수 있다 | `useNavSections` 가 구획별 `useMemo` 로 세 배열의 identity 를 분리 유지하고, 엔티티 참조는 store 가 이미 보존한다(`patchSession`·`mergeItems` 동일값 bail-out) — 행 단위 `SessionRow` memo 는 그대로 산다. 구현 턴이 실측해 `[구현자 기입]` 에 적는다 |
+| **R-6** (ΔV2) 브랜드가 fixture 작성에 캐스트를 요구해 테스트가 장황해질 수 있다 | 캐스트는 fixture 에만 필요하고 프로덕션 경로에는 없다 — 어댑터가 받는 값은 항상 `splitNavSections` 산출이다. 헬퍼 하나로 접는다 |
 | **R-4** 이 plan 이 구현 뒤에 왔다 | 기준선을 커밋 해시로 고정하고 한계를 §메타에 명시했다. 검증자는 구현자 보고 없이 코드에서 직접 판정한다 |
 
 - 되돌리기 어려운 결정: 없음 — 공개 계약·스키마·저장 형식 변경이 없고 renderer 내부 구조만 바뀐다.
@@ -524,6 +615,7 @@ sessionApi.list / projectApi.listSessions
 - `app/src/renderer/src/app/` — `Sidebar.tsx` · `navItems.ts` · `navItems.test.ts` · `hooks/useSidebarSlots.tsx` · `hooks/useSessionHandlers.ts` · `hooks/useChatRouteSync.ts`
 - `app/src/renderer/src/features/sessions/` — `components/{PinnedProjectsSection,PinnedSection,SessionList,SessionRow,ProjectSessionsPanel}.tsx` · `lib/sessionPlacement{,.test}.ts` · `store/sessionsStore{,.test}.ts` · `hooks/useProjectSessions.ts` · `index.ts`
 - **ΔV1 신규** — `features/sessions/lib/navSections{,.test}.ts` · `features/sessions/hooks/useNavSections.ts` · `features/sessions/components/navSections.render.test.ts`
+- **ΔV2 변경** — `lib/navSections.ts`(브랜드) · 세 구획의 목록 prop 타입 · `navSections.render.test.ts`(양성 단언 + `PinnedProjectChildren` 직접 렌더 + `@ts-expect-error` 3줄) · `PinnedProjectsSection.tsx`(`PinnedProjectChildren` export)
 - `app/src/renderer/src/pages/` — `ProjectLandingPage.tsx` · `useSessionActions.ts`
 - `app/src/renderer/src/shared/` — `ui/SidebarSection.tsx` · `i18n/resources/{ko,en}.ts`
 - `docs/handoff/INDEX.md` · 본 문서
@@ -536,6 +628,7 @@ sessionApi.list / projectApi.listSessions
 - 기본 정적 게이트: `cd app && npm run lint && npm run typecheck`.
 - 관련 테스트: `cd app && ./node_modules/.bin/vitest run src/renderer/src/features/sessions src/renderer/src/app/navItems.test.ts` (`pretest` 우회). **ΔV1 이후 이 경로에 `navSections.test.ts` 와 `navSections.render.test.ts` 가 포함된다.**
 - ΔV1 회귀 범위: `./node_modules/.bin/vitest run src/renderer` — props 전환이 renderer 전체(r1 기준 61파일·478케이스)를 깨지 않는지 본다.
+- **ΔV2 는 `npm run typecheck` 가 oracle 의 일부다** — AT-15 의 `@ts-expect-error` 는 vitest 가 아니라 `typecheck:web` 이 판정한다(renderer `.test.ts` 가 `tsconfig.web.json` 의 `src/renderer/src/**/*` 에 포함됨을 이번 턴에 실측).
 - 문서 게이트: `cd app && node scripts/check-doc-inventory.mjs --check` — 보드에 추가한 링크가 해석되는지.
 - 사람 실기: AC1 · AC4 · AC9 · AC10 · AC12 (§7 사유). **ΔV1 에서 AC2 가 빠졌다** — AT-02a 로 순수 seam 에 내렸다(G3).
 
@@ -801,8 +894,8 @@ sessionApi.list / projectApi.listSessions
 | D4 | 모든 대화가 고정된 프로젝트는 하위가 "대화 없음"으로 보인다 | verify r1 · D-005 의 부수 결과 | 문구 분기 또는 고정 대화 요약 | NEXT_HANDOFF | open |
 | D5 | `listSessions(limit = 50)` 밖의 고정 대화는 재부팅 후 "고정됨"에 안 나타난다 | verify r1 · 비귀속(`cc4cde5` 에서도 동일, 회귀 아님) | main 쿼리가 고정 세션을 LIMIT 밖에서도 반환 | NEXT_HANDOFF | open |
 | D6 | `SIDEBAR_DEFAULT_WIDTH` 미참조 | verify r1 · 비귀속(이번 변경 이전부터) | 기록만 | NON_BLOCKING | open |
-| **D7** | **AT-13 의 프로젝트 절반이 공허하다** — `PinnedProjectsSectionView` 의 하위 대화는 `expanded=false` 뒤에 있어 SSR 출력에 **0건** 렌더된다. 재파생 변이가 미검출(497 전건 통과) | verify r2 · VP-16 · AT-13 · §10 EP-9 (2/3) | `PinnedProjectChildren` 을 export 해 props 로 직접 렌더 — 의존성 0 | **BLOCKING** | open |
-| **G4** | **파티션과 렌더 사이 이음매가 무관측이다** — 어댑터가 `pinned` 대신 `recent` 를 넘겨도 vitest 497 초록 · typecheck 0. VP-05a 의 path 에 `slots → props` 구간이 있는데 oracle 이 없다 | verify r2 · VP-05a · AT-05a | `NavSections` 세 칸에 **branded type** → `TS2322` 로 잡힌다(스파이크 확인, 신규 의존성 0). 계약 변경이라 설계자 몫 | **PLAN_GAP** | open |
+| **D7** | **AT-13 의 프로젝트 절반이 공허하다** — `PinnedProjectsSectionView` 의 하위 대화는 `expanded=false` 뒤에 있어 SSR 출력에 **0건** 렌더된다. 재파생 변이가 미검출(497 전건 통과) | verify r2 · VP-16 · AT-13 · §10 EP-9 (2/3) | `PinnedProjectChildren` 을 export 해 props 로 직접 렌더 — 의존성 0 | **BLOCKING** | **open — r3 구현 항목**(규범은 AT-13a 로 정정, 재구현이 닫는다) |
+| **G4** | **파티션과 렌더 사이 이음매가 무관측이다** — 어댑터가 `pinned` 대신 `recent` 를 넘겨도 vitest 497 초록 · typecheck 0. VP-05a 의 path 에 `slots → props` 구간이 있는데 oracle 이 없다 | verify r2 · VP-05a · AT-05a | `NavSections` 세 칸에 **branded type** → `TS2322` 로 잡힌다(스파이크 확인, 신규 의존성 0). 계약 변경이라 설계자 몫 | **PLAN_GAP** | **closed (ΔV2)** — D-014 · VP-18 · AT-15 · EP-11·EP-12 |
 | D8 | `index.ts` 재수출 `splitNavSections` 의 외부 소비처 0 — 실소비는 `useNavSections.ts:17` 하나 | verify r2 · 비귀속 | 배럴에서 내려도 무방 | NON_BLOCKING | open |
 | D9 | `SessionList.tsx:80` `pinned={isPinnedSession(s)}` 가 항상 `false` — 상수 치환해도 497 초록. View 에 남은 유일한 배치 심볼 | verify r2 · 비귀속 | 상수화하면 View 의 배치 심볼이 0 | NON_BLOCKING | open |
 | D10 | 테스트명 `고정 항목이 0개여도…` 의 프로젝트 절반이 실제로는 고정 프로젝트 1개로 돈다 | verify r2 · 비귀속 | 이름과 입력을 맞춘다 | NON_BLOCKING | open |
