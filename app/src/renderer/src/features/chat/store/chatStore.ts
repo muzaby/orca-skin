@@ -32,8 +32,6 @@ import {
 } from '../../../../../shared/permission-mode'
 import { continuityLangFor, continuityTitle } from '../../../../../shared/continuity-lang'
 import type { RightPanelTileId } from '../lib/rightPanelTiles'
-import { backgroundToolUseIdFromKey } from '../lib/taskBoard'
-import { i18n } from '../../../shared/i18n'
 
 // Zustand 단일 chat store — arch/frontend/state.md §1.4 채택안의 멀티세션 외피(handoff 0013).
 //
@@ -809,27 +807,16 @@ function cancel(): void {
 //                        ↘ 요청 실패(invoke reject) → '진행 중' 복구 + 사유 표시
 //
 // 확정이 오지 않아도 main watchdog 이 합성 정착하므로 '중단 중' 은 고착되지 않는다(D-006).
-function stopTask(key: string): void {
+function stopTask(toolUseId: string): void {
   const sid = getActiveChatSession().sessionId
-  const toolUseId = backgroundToolUseIdFromKey(key)
-  if (!sid || !toolUseId) return
+  if (!sid) return
   const target = getState().activeKey
-  dispatchTo(target, { type: 'TASK_STOP_REQUESTED', key, toolUseId })
+  dispatchTo(target, { type: 'TASK_STOP_REQUESTED', toolUseId })
   void chatApi.stopSubagent(sid, toolUseId).catch((err: unknown) => {
-    dispatchTo(target, {
-      type: 'TASK_STOP_FAILED',
-      key,
-      toolUseId,
-      reason: stopFailureReason(err)
-    })
+    // 문구는 만들지 않는다 — 카탈로그 키 해석은 렌더의 몫이고, 여기서는 main 이 준 원문만 싣는다.
+    const detail = err instanceof Error ? err.message : String(err ?? '')
+    dispatchTo(target, { type: 'TASK_STOP_FAILED', toolUseId, ...(detail ? { detail } : {}) })
   })
-}
-
-// 중단 실패 문구 — 화면에 그대로 실린다. main 이 준 메시지가 있으면 뒤에 붙여 원인을 보인다.
-function stopFailureReason(err: unknown): string {
-  const detail = err instanceof Error ? err.message : String(err ?? '')
-  const base = i18n.t('chat.taskTile.stopFailed')
-  return detail ? `${base} — ${detail}` : base
 }
 
 function newChat(projectId: string | null = null): void {

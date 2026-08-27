@@ -17,6 +17,7 @@ import { DEFAULT_PERMISSION_MODE } from '../../../../../shared/permission-mode'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 import type { ContinuityLang } from '../../../../../shared/continuity-lang'
 import { readTaskToolObservation } from '../../../../../shared/task-tool'
+import type { MessageKey } from '../../../shared/i18n'
 import { contextTokens } from '../lib/telemetry'
 import { agentTaskKey, backgroundTaskKey } from '../lib/taskBoard'
 import { settleOrphanToolParts, settleStaleAsyncLaunchParts } from '../lib/parts'
@@ -175,9 +176,9 @@ export interface ChatState {
   // 중단 요청을 보내고 SDK 확정을 기다리는 background tool_use id 집합(0204 D-005). 확정되면
   // 파생 상태가 스스로 진행 중을 벗어나므로 그때 비운다.
   stoppingTaskIds: string[]
-  // 중단 요청이 실패한 항목의 사유(항목 키 → 사용자 문구). 다음 요청/확정 시 지운다 —
+  // 중단 요청이 실패한 항목의 사유(항목 키 → 실패 서술). 다음 요청/확정 시 지운다 —
   // 실패가 "아무 일도 안 일어남" 으로 보이지 않게 하는 유일한 소비자다(0204 AC14).
-  taskStopErrors: Record<string, string>
+  taskStopErrors: Record<string, TaskStopError>
   // 사용자가 아직 작업 타일에서 확인하지 않은 종단 상태 항목 키. 타일을 열면 비운다(D-004).
   unseenSettledTaskKeys: string[]
   // 우측 계획 타일에 표시할 마지막 계획 마크다운. 승인/거부 후에도 유지해 읽기전용으로
@@ -275,6 +276,14 @@ const TURN_END_RESET: Pick<ChatState, 'inflight' | 'turnProviderKey' | 'turnStar
     retry: undefined
   }
 
+// 중단 요청 실패의 표시 재료. **번역하지 않은 채** 싣는다 — 카탈로그 키는 렌더에서 tr() 로
+// 풀어야 언어 전환이 표시 중인 문구까지 따라온다(0096/0097 stale-방지, `UiMessage` 와 같은 이유).
+// `detail` 은 main 이 준 원문이라 번역 대상이 아니다.
+export interface TaskStopError {
+  messageKey: MessageKey
+  detail?: string
+}
+
 export type ChatAction =
   // 턴 시작 전이 — user 버블은 붙이지 않는다(버블은 낙관 커밋 또는 echo 커밋이 별도로).
   // 자동 연속 턴(send 없는 턴)도 store 가 활동 이벤트에서 같은 액션으로 전이시킨다.
@@ -334,8 +343,10 @@ export type ChatAction =
   | { type: 'OPEN_TASK'; key: string }
   | { type: 'SELECT_SUBAGENT_TASK'; toolRunId: string | null }
   | { type: 'OPEN_SUBAGENT_TASK'; toolRunId: string }
-  | { type: 'TASK_STOP_REQUESTED'; key: string; toolUseId: string }
-  | { type: 'TASK_STOP_FAILED'; key: string; toolUseId: string; reason: string }
+  // 항목 키는 `backgroundTaskKey(toolUseId)` 로 유도된다 — 두 필드를 함께 실으면 둘이
+  // 어긋날 수 있고 타입이 그것을 막지 못한다.
+  | { type: 'TASK_STOP_REQUESTED'; toolUseId: string }
+  | { type: 'TASK_STOP_FAILED'; toolUseId: string; detail?: string }
   | { type: 'ACKNOWLEDGE_SETTLED_TASKS' }
   | { type: 'SET_RIGHT_PANEL_COL_WIDTH'; col: number; width: number }
   | { type: 'SET_RIGHT_PANEL_ROW_SPLIT'; col: number; frac: number }
@@ -936,13 +947,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     case 'TASK_STOP_REQUESTED': {
       if (state.stoppingTaskIds.includes(action.toolUseId)) return state
-      const restErrors = Object.fromEntries(
-        Object.entries(state.taskStopErrors).filter(([key]) => key !== action.key)
-      )
+      const taskStopErrors = { ...state.taskStopErrors }
+      delete taskStopErrors[backgroundTaskKey(action.toolUseId)]
       return {
         ...state,
         stoppingTaskIds: [...state.stoppingTaskIds, action.toolUseId],
-        taskStopErrors: restErrors
+        taskStopErrors
       }
     }
 
@@ -950,7 +960,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         stoppingTaskIds: state.stoppingTaskIds.filter((id) => id !== action.toolUseId),
-        taskStopErrors: { ...state.taskStopErrors, [action.key]: action.reason }
+        taskStopErrors: {
+          ...state.taskStopErrors,
+          [backgroundTaskKey(action.toolUseId)]: {
+            messageKey: 'chat.taskTile.stopFailed',
+            ...(action.detail ? { detail: action.detail } : {})
+          }
+        }
       }
 
     case 'ACKNOWLEDGE_SETTLED_TASKS':

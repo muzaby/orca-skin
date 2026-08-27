@@ -61,6 +61,9 @@ function asIdList(value: unknown): string[] | undefined {
 //   `addBlockedBy` — `TaskUpdate` **입력**. `add-` 접두 그대로 **가산**한다.
 // 한 필드에 담으면 `TaskUpdate` 한 번이 기존 간선을 통째로 지운다.
 //
+// `owner`(담당자 배정) 역시 **싣지 않는다** — 패널에 담당자를 보이는 자리가 없다. 이 파일은
+// "패널이 쓰는 필드만" 읽는다(헤더) — 소비처 없는 파싱은 계약처럼 보이는 죽은 표면이다.
+//
 // `blocks`("내가 막는 것")는 **싣지 않는다**(D-028) — `TaskListOutput` 에 그 필드가 없어
 // 전체 스냅샷(D-008)이 보정할 수 없다. 저장하면 삭제된 간선이 영구 잔류한다. `blockedBy` 의
 // 역방향이라 정보 손실은 0이다.
@@ -72,7 +75,6 @@ export interface AgentTaskPatch {
   blockedBy?: string[]
   // 가산 병합 — 기존 간선에 더한다(중복 id 는 한 번만).
   addBlockedBy?: string[]
-  owner?: string
 }
 
 // 도구 호출 1건이 목록에 지시하는 것. `null` 은 "이 호출은 목록을 바꾸지 않는다".
@@ -133,10 +135,6 @@ function readUpdate(
     const description = asText(input.description)
     if (description) patch.description = description
   }
-  if (changed('owner')) {
-    const owner = asText(input.owner)
-    if (owner) patch.owner = owner
-  }
   // 의존 간선 추가(D-029). `updatedFields` 가 어느 이름을 싣는지 SDK 가 문서화하지 않아
   // **두 이름을 모두** 허용한다(D-030) — 놓치면 의존이 화면에서 사라지는 쪽이 더 나쁘다.
   if (changed('addBlockedBy') || changed('blockedBy')) {
@@ -183,8 +181,6 @@ function patchFromTaskRecord(task: Record<string, unknown>): AgentTaskPatch {
   if (description) patch.description = description
   const status = asStatus(task.status)
   if (status) patch.status = status
-  const owner = asText(task.owner)
-  if (owner) patch.owner = owner
   // 출력의 `blockedBy` 는 전체 교체다. `task.blocks` 는 읽지 않는다(D-028).
   const blockedBy = asIdList(task.blockedBy)
   if (blockedBy) patch.blockedBy = blockedBy

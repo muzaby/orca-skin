@@ -24,7 +24,12 @@ import {
   type AgentTaskStatus
 } from '../../../../../shared/task-tool'
 import type { Message } from '../reducer/chatReducer'
-import { subagentTasksFromMessages, type SubagentTaskSummary } from './parts'
+import {
+  promptFromCall,
+  resultMap,
+  subagentTasksFromMessages,
+  type SubagentTaskSummary
+} from './parts'
 
 // 목록에 렌더되는 상태. `stopping` 은 사용자가 중단을 요청했고 SDK 확정을 기다리는 중이다
 // (0204 D-005) — 별도 그룹을 만들지 않고 '진행 중' 그룹 안에서 라벨만 달라진다.
@@ -36,14 +41,15 @@ export type TaskBoardKind = 'agent' | 'background'
 // background 항목만 갖는 실행 메타. 일반 Task 에는 경과·도구수 같은 개념이 없으므로 `null`
 // 이며, 렌더는 이 필드의 유무로 `background` 배지를 판정한다(0204 §10 EP-10).
 export interface TaskBoardBackgroundMeta {
-  createdAtMs: number
   durationMs: number | null
   toolUses: number
   tokenCount: number | null
   currentToolLabel: string | null
-  agentLabel: string | null
   // 종단 정착이 남긴 사유 문구 — 실패/중단 행이 원인을 말한다(0204 D-024). 미정착이면 null.
   settlementMessage: string | null
+  // 상세가 보이는 요청 프롬프트. 여기서 한 번 뽑아 두면 상세 컴포넌트가 전체 parts 를 다시
+  // 훑지 않는다 — 상세 뷰모델의 소유자는 이 파일이다(0204 §10 EP-10).
+  prompt: string | null
 }
 
 export interface TaskBoardItem {
@@ -56,7 +62,6 @@ export interface TaskBoardItem {
   description: string | null
   status: TaskBoardStatus
   blockedBy: string[]
-  owner: string | null
   background: TaskBoardBackgroundMeta | null
 }
 
@@ -66,12 +71,6 @@ export function agentTaskKey(id: string): string {
 
 export function backgroundTaskKey(toolUseId: string): string {
   return `bg:${toolUseId}`
-}
-
-// 목록 키에서 background tool_use id 를 되꺼낸다. agent 키(또는 미지 형식)면 null —
-// 일반 Task 에는 중단 경로가 없다(0204 비범위).
-export function backgroundToolUseIdFromKey(key: string): string | null {
-  return key.startsWith('bg:') ? key.slice(3) : null
 }
 
 // 목록 순서의 단일 소유자(0204 §10 EP-14). 컴포넌트는 이 배열을 그대로 그리고 자체 정렬·
@@ -112,7 +111,6 @@ interface AgentEntry {
   description?: string
   status: AgentTaskStatus
   blockedBy: string[]
-  owner?: string
 }
 
 function applyPatch(entry: AgentEntry, patch: AgentTaskPatch): void {
@@ -124,7 +122,6 @@ function applyPatch(entry: AgentEntry, patch: AgentTaskPatch): void {
   if (patch.addBlockedBy !== undefined) {
     entry.blockedBy = [...new Set([...entry.blockedBy, ...patch.addBlockedBy])]
   }
-  if (patch.owner !== undefined) entry.owner = patch.owner
 }
 
 function ensure(entries: Map<string, AgentEntry>, id: string): AgentEntry {
@@ -140,18 +137,9 @@ function ensure(entries: Map<string, AgentEntry>, id: string): AgentEntry {
 // 곧 최초 관측 순서다 — 별도 order 필드를 들지 않는다.
 function agentEntriesFromMessages(messages: Message[]): Map<string, AgentEntry> {
   const entries = new Map<string, AgentEntry>()
-  const resultByRun = new Map<string, { result: unknown; isError: boolean; structured: unknown }>()
-  for (const message of messages) {
-    for (const part of message.parts) {
-      if (part.type === 'tool_result') {
-        resultByRun.set(part.toolRunId, {
-          result: part.result,
-          isError: part.isError,
-          structured: part.structuredOutput
-        })
-      }
-    }
-  }
+  // 파트 페어링 규칙은 `parts.ts` 하나가 갖는다 — 여기서 사본을 만들면 tool_result 에 필드가
+  // 늘 때 조용히 갈라진다(그 comment 가 말하는 네 번째 사본이 된다).
+  const resultByRun = resultMap(messages.flatMap((message) => message.parts))
 
   for (const message of messages) {
     for (const part of message.parts) {
@@ -164,7 +152,7 @@ function agentEntriesFromMessages(messages: Message[]): Map<string, AgentEntry> 
       const observation = readTaskToolObservation({
         toolName: part.toolName,
         args: part.args,
-        structuredOutput: paired.structured,
+        structuredOutput: paired.structuredOutput,
         isError: paired.isError
       })
       if (!observation) continue
@@ -199,18 +187,27 @@ function agentItem(entry: AgentEntry): TaskBoardItem {
     description: entry.description ?? null,
     status: entry.status,
     blockedBy: entry.blockedBy,
-    owner: entry.owner ?? null,
     background: null
   }
 }
 
+/**
+ * background 실행 상태 + 중단 대기 집합 → 화면 상태. **두 타일이 공유하는 단일 규칙**이다
+ * (plan §3 갱신메모 — "파생 SSOT 는 taskBoard.ts 하나다"). `작업` 타일은 `TaskBoardItem.status`
+ * 로, `백그라운드 작업` 타일은 이 함수를 직접 불러 라벨/버튼을 정한다. 인라인으로 각자 쓰면
+ * 수명주기가 바뀔 때 한쪽만 따라간다.
+ */
+export function backgroundBoardStatus(
+  status: SubagentTaskSummary['status'],
+  toolUseId: string,
+  stopping: ReadonlySet<string>
+): TaskBoardStatus {
+  if (status !== 'running') return status
+  return stopping.has(toolUseId) ? 'stopping' : 'in_progress'
+}
+
 function backgroundItem(task: SubagentTaskSummary, stopping: ReadonlySet<string>): TaskBoardItem {
-  const status: TaskBoardStatus =
-    task.status === 'running'
-      ? stopping.has(task.toolUseId)
-        ? 'stopping'
-        : 'in_progress'
-      : task.status
+  const status = backgroundBoardStatus(task.status, task.toolUseId, stopping)
   return {
     key: backgroundTaskKey(task.toolUseId),
     kind: 'background',
@@ -219,15 +216,13 @@ function backgroundItem(task: SubagentTaskSummary, stopping: ReadonlySet<string>
     description: null,
     status,
     blockedBy: [],
-    owner: null,
     background: {
-      createdAtMs: task.createdAtMs,
       durationMs: task.durationMs,
       toolUses: task.childToolCount,
       tokenCount: task.tokenCount,
       currentToolLabel: task.currentChildLabel,
-      agentLabel: task.agentLabel,
-      settlementMessage: task.settlementMessage
+      settlementMessage: task.settlementMessage,
+      prompt: promptFromCall(task.call)
     }
   }
 }
@@ -299,8 +294,13 @@ export function taskDetailRows(item: TaskBoardItem): TaskDetailRow[] {
   return rows
 }
 
-// 중단 버튼을 노출할 항목인가 — background 이고 아직 진행 중일 때만. `stopping` 중에는 다시
-// 누를 수 없다(중복 요청 차단).
+// 중단 버튼을 노출할 상태인가 — 아직 진행 중일 때만. `stopping` 중에는 다시 누를 수 없다
+// (중복 요청 차단). `backgroundBoardStatus` 와 짝이라 두 타일이 같은 규칙을 본다.
+export function canStopBackgroundStatus(status: TaskBoardStatus): boolean {
+  return status === 'in_progress'
+}
+
+// 중단 버튼을 노출할 항목인가 — background 이고 아직 진행 중일 때만.
 export function canStopTask(item: TaskBoardItem): boolean {
-  return item.kind === 'background' && item.status === 'in_progress'
+  return item.kind === 'background' && canStopBackgroundStatus(item.status)
 }

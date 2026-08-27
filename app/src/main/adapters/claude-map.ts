@@ -54,9 +54,10 @@ export interface MapContext {
   // SDK task_id → 부모 Agent/Task tool_use_id. 일부 task_notification 은 task_id 만 권위로 싣고
   // tool_use_id 가 비어 있을 수 있어, 앞선 task_started/progress 에서 본 매핑으로 복원한다.
   taskToolUseById?: Map<string, string>
-  // tool_use id → 도구 이름(0204). tool_result 는 이름을 싣지 않는데 구조화 출력을 실을지는
-  // **이름으로만** 판정된다(TaskXXX 한정) — 앞선 tool_use 에서 본 이름을 여기 기억한다.
-  toolNameByRunId?: Map<string, string>
+  // 구조화 출력을 실을 tool_use id 집합(0204). tool_result 는 도구 이름을 싣지 않는데 실을지는
+  // **이름으로만** 판정되므로(TaskXXX 한정) 앞선 tool_use 에서 본 판정 결과를 여기 기억한다.
+  // 이름이 아니라 멤버십만 담는다 — 소비처는 "이 run 이 Task 도구였나" 하나다.
+  taskToolRunIds?: Set<string>
 }
 
 // ctx.subagentMeta 에 정의된 필드만 병합(누락은 기존값 보존). 부모 Task tool_result 영속용 누산.
@@ -163,9 +164,9 @@ function hasSingleToolResult(content: unknown[]): boolean {
 }
 
 // SDK user 메시지의 구조화 도구 출력(tool_use_result)이 백그라운드 런치 영수증(async_launched)
-// 인지 — 맞으면 그 객체를 반환한다(0136). 복수 블록이면 보수적으로 미적용 = 현행 content 유지.
-function asyncLaunchReceipt(msg: unknown, content: unknown[]): Record<string, unknown> | undefined {
-  if (!hasSingleToolResult(content)) return undefined
+// 인지 — 맞으면 그 객체를 반환한다(0136). 귀속 전제(`hasSingleToolResult`)는 호출부가 이미
+// 확인했다 — 복수 블록이면 보수적으로 미적용 = 현행 content 유지.
+function asyncLaunchReceipt(msg: unknown): Record<string, unknown> | undefined {
   const structured = (msg as { tool_use_result?: unknown }).tool_use_result
   if (!isAsyncLaunchedPayload(structured)) return undefined
   return structured as Record<string, unknown>
@@ -327,8 +328,8 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
           // TaskXXX 결과에 구조화 출력을 실으려면 tool_result 시점에 이름이 필요하다(0204).
           // 그 도구만 기억해 맵이 턴 길이에 비례해 자라지 않게 한다.
           if (isTaskToolName(toolName)) {
-            if (!ctx.toolNameByRunId) ctx.toolNameByRunId = new Map()
-            ctx.toolNameByRunId.set(toolRunId, toolName)
+            if (!ctx.taskToolRunIds) ctx.taskToolRunIds = new Set()
+            ctx.taskToolRunIds.add(toolRunId)
           }
           events.push({
             type: 'tool.call.started',
@@ -354,8 +355,10 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     // async_launched 판정(isAsyncLaunchedResult — output.status 객체 검사)이 성립하지 않으므로,
     // SDK 가 별도 필드(tool_use_result)에 실은 구조화 출력을 result 로 싣는다. 완료/실패 결과는
     // 현행 content 유지(요약 텍스트 렌더·복사 대상 보존) — 영수증일 때만 대체한다.
-    const launchReceipt = asyncLaunchReceipt(msg, content)
+    // tool_use_result 는 메시지당 1개다 — 영수증 판정과 TaskXXX 구조화 출력이 같은 이 전제를
+    // 공유하므로 한 번만 센다.
     const singleToolResult = hasSingleToolResult(content)
+    const launchReceipt = singleToolResult ? asyncLaunchReceipt(msg) : undefined
     const events: NormalizedEvent[] = []
     let sawToolResult = false
     for (const part of content) {
@@ -369,9 +372,8 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         const meta = ctx.subagentMeta?.get(toolRunId)
         // TaskXXX 도구면 SDK 구조화 출력을 동행시킨다(0204 §10 EP-01). tool_use_result 는
         // 메시지당 1개라 tool_result 블록이 정확히 1개일 때만 귀속이 명확하다(영수증과 동일 규칙).
-        const taskToolName = ctx.toolNameByRunId?.get(toolRunId)
         const structuredOutput =
-          taskToolName !== undefined && singleToolResult
+          singleToolResult && ctx.taskToolRunIds?.has(toolRunId) === true
             ? (msg as { tool_use_result?: unknown }).tool_use_result
             : undefined
         events.push({

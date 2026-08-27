@@ -4,7 +4,7 @@ import { StatusLine } from '../StatusLine'
 import { AssistantMessage } from '../transcript/AssistantMessage'
 import { UserBubbleText } from '../UserBubbleText'
 import { TaskStatusIcon } from './TaskStatusIcon'
-import { childMessageForParentToolRunId, partsToolCalls } from '../../lib/parts'
+import { childMessageForParentToolRunId } from '../../lib/parts'
 import {
   canStopTask,
   taskBoardFromMessages,
@@ -15,9 +15,10 @@ import {
   type TaskBoardStatus,
   type TaskDetailValue
 } from '../../lib/taskBoard'
-import { ContextSectionEmpty, OutputSectionEmpty, TileSection } from './TaskTileSections'
-import { formatDurationLabel, formatTokenLabel } from '../../lib/toolMeta'
+import { SectionPlaceholder, TileSection } from './TaskTileSections'
+import { formatDurationLabel, formatTokenLabel, META_GAP } from '../../lib/toolMeta'
 import type { TFunction } from 'i18next'
+import type { TaskStopError } from '../../reducer/chatReducer'
 import { useI18n, type MessageKey } from '../../../../shared/i18n'
 import {
   chatActions,
@@ -37,9 +38,6 @@ const STATUS_KEY: Record<TaskBoardStatus, MessageKey> = {
   failed: 'chat.taskTile.status.failed'
 }
 
-// 메타 라인의 항목 구분 — 가시 간격 유지를 위해 nbsp 2칸(기존 백그라운드 목록과 동일 양식).
-const GAP = '  '
-
 // 현재 세션의 작업 목록. 중단 대기 집합이 바뀌면 재계산해야 '중단 중' 표시가 갱신된다 —
 // 의존성에서 빠뜨리면 클릭이 화면에 반영되지 않는다(0204 §14).
 function useTaskBoard(): TaskBoardItem[] {
@@ -52,17 +50,29 @@ function useTaskBoard(): TaskBoardItem[] {
   )
 }
 
-function useSelectedTask(): TaskBoardItem | undefined {
-  const items = useTaskBoard()
+// 헤더 전용 — 선택이 없으면 **접지 않는다**. 헤더는 그때 고정 문자열만 그리므로 전체 fold 가
+// 통째로 버려진다(`SubAgentTileHeader` 가 같은 이유로 같은 가드를 둔다).
+function useSelectedTaskForHeader(): TaskBoardItem | undefined {
+  const messages = useChatSession((s) => s.messages)
+  const stopping = useStoppingTasks()
   const selectedKey = useChatSession((s) => s.selectedTaskKey)
-  return taskBoardItemByKey(items, selectedKey)
+  return useMemo(
+    () =>
+      selectedKey
+        ? taskBoardItemByKey(
+            taskBoardFromMessages(messages, { stoppingBackgroundIds: stopping }),
+            selectedKey
+          )
+        : undefined,
+    [messages, stopping, selectedKey]
+  )
 }
 
 // 타일 헤더 — 상세면 뒤로가기 + 작업 제목, 목록이면 '작업'. RightPanelTile 의 기본 라벨 span 을
 // 대체한다(tileRegistry 주입). 제목 폰트/톤은 기본 라벨과 일치.
 export function TaskTileHeader(): React.JSX.Element {
   const { tr } = useI18n()
-  const selected = useSelectedTask()
+  const selected = useSelectedTaskForHeader()
 
   if (selected) {
     return (
@@ -119,12 +129,18 @@ function backgroundMetaLine(tr: TFunction, item: TaskBoardItem): string {
   if (item.status === 'failed') {
     pieces.push(meta.settlementMessage ?? tr('chat.taskTile.failedReason'))
   }
-  return pieces.join(GAP)
+  return pieces.join(META_GAP)
+}
+
+// 실패 문구는 여기서 조립한다 — 상태에는 카탈로그 키와 원문만 산다(0096 stale-방지).
+function stopErrorText(tr: TFunction, err: TaskStopError): string {
+  const base = tr(err.messageKey)
+  return err.detail ? `${base} — ${err.detail}` : base
 }
 
 interface TaskRowProps {
   item: TaskBoardItem
-  stopError?: string
+  stopError?: TaskStopError
 }
 
 function TaskRow({ item, stopError }: TaskRowProps): React.JSX.Element {
@@ -176,7 +192,7 @@ function TaskRow({ item, stopError }: TaskRowProps): React.JSX.Element {
             className="shrink-0"
             onClick={(e) => {
               e.stopPropagation()
-              chatActions.stopTask(item.key)
+              chatActions.stopTask(item.id)
             }}
           />
         )}
@@ -186,7 +202,9 @@ function TaskRow({ item, stopError }: TaskRowProps): React.JSX.Element {
           {backgroundMetaLine(tr, item)}
         </div>
       )}
-      {stopError && <div className="mt-0.5 pl-6 text-footnote text-bad">{stopError}</div>}
+      {stopError && (
+        <div className="mt-0.5 pl-6 text-footnote text-bad">{stopErrorText(tr, stopError)}</div>
+      )}
     </div>
   )
 }
@@ -199,7 +217,7 @@ export function TaskProgressList({
   stopErrors = {}
 }: {
   items: TaskBoardItem[]
-  stopErrors?: Record<string, string>
+  stopErrors?: Record<string, TaskStopError>
 }): React.JSX.Element {
   const { tr } = useI18n()
   if (items.length === 0) {
@@ -220,21 +238,16 @@ function TaskDetail({ item }: { item: TaskBoardItem }): React.JSX.Element {
   const { tr } = useI18n()
   const messages = useChatSession((s) => s.messages)
   const meta = useSubagentMeta(item.kind === 'background' ? item.id : '')
-  const childMessage =
-    item.kind === 'background' ? childMessageForParentToolRunId(messages, item.id) : null
-  const prompt = useMemo(() => {
-    if (item.kind !== 'background') return null
-    for (const message of messages) {
-      for (const call of partsToolCalls(message.parts)) {
-        if (call.toolUseId !== item.id) continue
-        const input = call.input
-        if (typeof input !== 'object' || input === null) return null
-        const value = (input as Record<string, unknown>).prompt
-        return typeof value === 'string' && value.trim() !== '' ? value : null
-      }
-    }
-    return null
-  }, [messages, item])
+  // 전체 parts 순회 + 매 렌더 새 Message 객체 — 메모하지 않으면 `AssistantMessage` 의 memo 가
+  // 매번 깨진다. `subagent.task` 진행 이벤트는 `messages` 를 건드리지 않은 채 이 컴포넌트를
+  // 다시 그리므로 그 재계산이 그대로 반복된다.
+  const childMessage = useMemo(
+    () => (item.kind === 'background' ? childMessageForParentToolRunId(messages, item.id) : null),
+    [messages, item.kind, item.id]
+  )
+  // 프롬프트는 파생이 이미 뽑아 뒀다(taskBoard `backgroundItem`) — 상세가 transcript 를 다시
+  // 훑지 않는다.
+  const prompt = item.background?.prompt ?? null
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-g4 overflow-auto px-p5 py-p4">
@@ -279,7 +292,7 @@ function TaskDetail({ item }: { item: TaskBoardItem }): React.JSX.Element {
           size="small"
           leadingIcon="stop"
           className="self-start"
-          onClick={() => chatActions.stopTask(item.key)}
+          onClick={() => chatActions.stopTask(item.id)}
         >
           {tr('common.stop')}
         </Button>
@@ -290,7 +303,10 @@ function TaskDetail({ item }: { item: TaskBoardItem }): React.JSX.Element {
 
 export function TaskTileContent(): React.JSX.Element {
   const items = useTaskBoard()
-  const selected = useSelectedTask()
+  // 선택 항목은 이미 접은 목록에서 찾는다 — 별도 훅으로 부르면 같은 렌더에서 fold 가 한 번 더
+  // 돈다(목록은 세션 전체 parts 순회다).
+  const selectedKey = useChatSession((s) => s.selectedTaskKey)
+  const selected = taskBoardItemByKey(items, selectedKey)
   const stopErrors = useChatSession((s) => s.taskStopErrors)
   // 타일이 화면에 있으면 사용자가 결과를 본 것이다 — 미확인 배지를 계속 비운다(0204 D-004).
   const unseen = useUnseenSettledTaskCount()
@@ -308,10 +324,10 @@ export function TaskTileContent(): React.JSX.Element {
         <TaskProgressList items={items} stopErrors={stopErrors} />
       </TileSection>
       <TileSection titleKey="chat.taskTile.sections.output">
-        <OutputSectionEmpty />
+        <SectionPlaceholder icon="chart" descKey="chat.taskTile.sections.outputDesc" />
       </TileSection>
       <TileSection titleKey="chat.taskTile.sections.context">
-        <ContextSectionEmpty />
+        <SectionPlaceholder icon="board" descKey="chat.taskTile.sections.contextDesc" />
       </TileSection>
     </div>
   )
