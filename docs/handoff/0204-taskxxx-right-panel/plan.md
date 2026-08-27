@@ -1227,3 +1227,73 @@ plan 이 적대 증거를 선택한 pair(VP-22·VP-29)와 REGRESSION 인용 변�
 | D12 | 고아 i18n 키 2건 — `chat.taskTile.emptyTitle`(r2 가 소비처 제거) · `chat.taskTile.viewTranscript`(r1 이래 0건) | verify r3 · §3 역방향 | 제거한다. **D2·G1 과 같은 죽은 표면 축의 세 번째 발현**이고 매번 분모가 달랐다(renderer 심볼 → shared 필드 → i18n 키) | NON_BLOCKING | open |
 | D13 | 구현자 §5 전수 스윕의 축이 좁았다 — "message 로 *상태를 파생*하는 곳" 만 셌고 "*사유를 표시*하는 곳" 은 안 셌다 | verify r3 · §4 | D11 이 그 차집합이다. 다음 라운드의 스윕은 표시 축을 포함한다 | NON_BLOCKING | open |
 | D14 | INDEX 비고가 5줄 규칙 초과(100자 기준 7줄) | verify r3 · `AGENTS.md §산출물 문장 규칙 3` | 이번 검증 갱신에서 줄였다 | NON_BLOCKING | **closed** |
+
+---
+
+# 라운드 4 — verify r3 D10 재구현
+
+## [구현자 기입] 설계 리뷰 — r4
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| D10 구현 가능성 | **가능** | VP-21·VP-22의 기존 AT-28·AT-29에 wrapper 출력 단언을 보강하면 된다. 신규 계약·production 변경·`PLAN_GAP` 0 |
+| r4 사전 handoff-review | **B(실행 누락), 지침 변경 없음** | 현 `handoff-impl §3`이 “단위와 그 단위를 부르는 배선” 및 인용 변이 재실행을 이미 요구한다. 같은 규칙 중복 추가를 금지하므로 APPLY 검토 결과 normative delta 0 |
+| 인용 변이 실재성 | **재현** | V1은 AT-29 1 red, V2는 AT-28 1 red로 바뀌었다. 두 production 파일은 변이 후 byte 동일 복원 |
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) + V-pair 자기확인 — r4
+
+| Pair | 자기 상태 | 강제 지점 / 관측 |
+|---|---|---|
+| VP-21 (R-11↔AT-28) | SELF_PASS | `SubAgentTileContent → SubAgentTaskList` **1/1**. 빈 제목·설명 양성 단언, V2에서 1 failed |
+| VP-22 (R-12↔AT-29) | SELF_PASS | `TaskTileContent → TaskProgressList` **1/1**. 진행 상황 빈 설명 양성 단언, V1에서 1 failed |
+
+**합계: 2/2.** 이번 변경은 테스트 oracle만 보강했고 §10 production 강제 지점 32곳은 변경하지 않았다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r4
+
+| 변이 | 대상 | 재측정 | 판정 |
+|---|---|---|---|
+| V1: wrapper의 `<TaskProgressList>` 제거 | VP-22 · AT-29 | **1 failed / 11 passed** — 진행 상황 빈 설명 단언 | 검출 |
+| V2: wrapper의 `<SubAgentTaskList>` 제거 | VP-21 · AT-28 | **1 failed / 11 passed** — background 빈 제목 단언 | 검출 |
+
+두 변이는 원본 복원 후 `cmp`로 production 파일 byte 동일을 확인했다. 정상 대상 suite는 **1파일 / 12케이스** 전건 green이다.
+
+## [구현자 기입] Product/UX 파생 검토 — r4
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 사용자 출력이 바뀌는가 | **아니오** | production 코드·i18n 변경 0건. 기존 빈 상태 문구를 oracle로 관측만 한다 |
+| 빈 상태가 무출력으로 퇴행할 수 있는가 | **잠금** | 두 wrapper에서 목록 View를 제거하면 V1·V2가 각각 red다 |
+| 늦은 응답·상태 전이에 영향이 있는가 | **없음** | store·reducer·effect 변경 0건 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r4
+
+| # | 발견 | 분류 | 대응 |
+|---|---|---|---|
+| K1 | SSR은 store initial state만 보므로 비어 있지 않은 wrapper 배선은 이 seam으로 관측할 수 없다 | 환경/증거 한계 | 이번 D10은 빈 상태 양성 출력으로 두 wrapper 호출 자체를 직접 잠근다. 행 의미는 기존 순수 View 테스트가 담당 |
+| K2 | D11~D13은 D10과 별개이며 D11은 D-024 규범 정정이 선행돼야 한다 | 보고만 | production/i18n을 임의 수정하지 않고 열린 파생 이슈로 유지 |
+
+## [구현자 기입] 구현 보고 — r4
+
+| 항목 | 값 |
+|---|---|
+| 변경 | `rightPanelTiles.render.test.ts` 1파일 — wrapper 빈 상태 양성 단언 3개, AT-28 케이스 1개 추가 |
+| 게이트 | renderer chat **44파일 / 423케이스 green** · typecheck 3구성 TS error 0 · lint 0 error/1 기존 warning · doc inventory **9 items/79 channels**, prose/link green |
+| 전체 vitest | **231파일 / 2388케이스 green**, 5파일 46 red + 1 suite 0건은 install scripts를 생략한 환경의 `better-sqlite3` binding·Electron binary 부재 서명 |
+| 인벤토리/계약 | 신규 dependency·IPC·DB·i18n·production 변경 **0건** |
+
+### AC 자기보고 — r4
+
+| AC | 결과 | 이번 턴 관측 |
+|---|---|---|
+| AC28 / VP-21 | ✅ | `SubAgentTileContent` 빈 상태가 제목·설명 2문구를 출력하고 V2에서 1 red |
+| AC29 / VP-22 | ✅ | `TaskTileContent` 진행 상황 본문이 빈 설명을 출력하고 V1에서 1 red |
+
+**검산: `✅ 2 · ⚠️ 0 · ❌ 0 = 총 2`.** D10의 실패 pair 두 건만 이번 r4 분모로 센다.
+
+## [구현자 기입] Review Signals — 사실만 — r4
+
+- **같은 축인가**: r3에서 새로 발견된 wrapper 배선 축을 그대로 닫았다. V1·V2가 `44파일/422케이스 green`에서 각각 `1 failed/11 passed`로 바뀌었다.
+- **막았어야 할 지침**: 현 `handoff-impl §3`에 단위와 호출 배선을 함께 잠그라는 규칙이 이미 있어 **B(실행 누락)**다. 중복 지침·corpus·template 변경은 하지 않았다.
+- **환경 한계**: `npm ci --ignore-scripts`로 Electron binary와 better-sqlite3 binding이 없어 전체 vitest의 알려진 5파일/1 suite만 실패했다. 변경 대상 44파일은 전건 green이다.
+- **현재 라운드 수**: **4**. 구현 완료 후 다음 주체는 독립 검증자다.
