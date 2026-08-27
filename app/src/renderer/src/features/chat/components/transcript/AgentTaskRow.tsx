@@ -10,7 +10,6 @@ import { formatDurationLabel, toolDescription } from '../../lib/toolMeta'
 import { chatActions, useChatSession, useSubagentMeta } from '../../store/chatStore'
 import type { ToolCall } from '../../reducer/chatReducer'
 import { TranscriptActionRow } from './TranscriptActionRow'
-import { backgroundTaskKey } from '../../lib/taskBoard'
 
 // 서브에이전트(Task) 행의 상태별 접두 동사 키 — 렌더에서 tr() 해석(0096 패턴). 진행 중만 shimmer.
 const PREFIX_KEY: Record<SubagentTaskStatus, MessageKey> = {
@@ -73,7 +72,7 @@ export function AgentTaskRow({
     detail = `${model} ${title}${duration}`
   }
 
-  const activate = (): void => chatActions.openTask(backgroundTaskKey(call.toolUseId))
+  const activate = (): void => chatActions.openSubagentTask(call.toolUseId)
 
   return (
     <TranscriptActionRow groupClassName="group/tool" onActivate={activate}>

@@ -4,8 +4,7 @@ import {
   backgroundTaskKey,
   canStopTask,
   taskBoardFromMessages,
-  taskBoardGroups,
-  taskBoardSettledKeys,
+  taskBoardOrdered,
   taskDetailRows,
   type TaskBoardItem
 } from './taskBoard'
@@ -249,42 +248,50 @@ describe('taskBoardFromMessages — background 항목 (AC9·AC10·AC12)', () => 
     expect(bg.status).toBe('in_progress')
   })
 
-  it('중단 요청 중인 background 는 stopping 이고 진행 중 그룹에 남는다', () => {
+  it('중단 요청 중인 background 는 stopping 이고 목록에서 사라지지 않는다', () => {
     const items = taskBoardFromMessages(messages(backgroundTask('bg1', '테스트 실행')), {
       stoppingBackgroundIds: new Set(['bg1'])
     })
     expect(items[0].status).toBe('stopping')
-    expect(taskBoardGroups(items).map((g) => g.status)).toEqual(['in_progress'])
+    expect(taskBoardOrdered(items)).toHaveLength(1)
     // 중단 중에는 버튼을 다시 누를 수 없다(중복 요청 차단).
     expect(canStopTask(items[0])).toBe(false)
   })
 
-  it('그룹은 진행 중 → 대기 중 → 완료 → 중단됨 → 실패 순이고 빈 그룹은 없다', () => {
+  it('AT-10a — 그룹 없이 id 오름차순 단일 목록이고 background 는 관측 순으로 뒤에 온다', () => {
     const items = taskBoardFromMessages(
       messages(
-        call('TaskCreate', { subject: 'pend' }, created('1', 'pend')),
-        call('TaskCreate', { subject: 'run' }, created('2', 'run')),
-        call('TaskUpdate', { taskId: '2', status: 'in_progress' }, updated('2', 'in_progress')),
-        call('TaskCreate', { subject: 'done' }, created('3', 'done')),
-        call('TaskUpdate', { taskId: '3', status: 'completed' }, updated('3', 'completed')),
-        backgroundTask('bg1', '중단된 작업', {
-          output: { reason: 'aborted', message: '중단됨' },
-          isError: true
-        }),
-        backgroundTask('bg2', '실패한 작업', { output: { message: 'boom' }, isError: true })
+        // 일부러 뒤섞어 넣는다 — 관측 순서가 아니라 id 순서가 정본임을 본다.
+        call('TaskCreate', { subject: 'ten' }, created('10', 'ten')),
+        call('TaskCreate', { subject: 'two' }, created('2', 'two')),
+        call('TaskCreate', { subject: 'one' }, created('1', 'one')),
+        call('TaskUpdate', { taskId: '1', status: 'completed' }, updated('1', 'completed')),
+        backgroundTask('bgA', '먼저 뜬 백그라운드'),
+        backgroundTask('bgB', '나중에 뜬 백그라운드')
       )
     )
-    const groups = taskBoardGroups(items)
-    expect(groups.map((g) => g.status)).toEqual([
-      'in_progress',
-      'pending',
-      'completed',
-      'aborted',
-      'failed'
+    const ordered = taskBoardOrdered(items)
+    // 수치 비교여야 한다 — 사전순이면 '10' 이 '2' 앞에 온다.
+    expect(ordered.map((i) => i.key)).toEqual([
+      agentTaskKey('1'),
+      agentTaskKey('2'),
+      agentTaskKey('10'),
+      backgroundTaskKey('bgA'),
+      backgroundTaskKey('bgB')
     ])
-    expect(groups.every((g) => g.items.length > 0)).toBe(true)
-    expect(titles(groups[0].items)).toEqual(['run'])
-    expect(titles(groups[1].items)).toEqual(['pend'])
+    // 완료 항목이 뒤로 옮겨가지 않는다 — 제자리에서 취소선으로 표시된다(D-018).
+    expect(ordered[0].status).toBe('completed')
+  })
+
+  it('AT-10a — 숫자가 아닌 id 는 수치 id 뒤에 사전순으로 오고 순서가 전순서다', () => {
+    const items = taskBoardFromMessages(
+      messages(
+        call('TaskCreate', { subject: 'b' }, created('beta', 'b')),
+        call('TaskCreate', { subject: 'a' }, created('alpha', 'a')),
+        call('TaskCreate', { subject: '3' }, created('3', '3'))
+      )
+    )
+    expect(taskBoardOrdered(items).map((i) => i.id)).toEqual(['3', 'alpha', 'beta'])
   })
 })
 
@@ -371,22 +378,6 @@ describe('taskDetailRows (AC24)', () => {
     expect(keys).toContain('chat.taskTile.detail.toolUses')
     expect(keys).not.toContain('chat.taskTile.detail.description')
     expect(keys).not.toContain('chat.taskTile.detail.blockedBy')
-  })
-})
-
-describe('taskBoardSettledKeys (AC19)', () => {
-  it('완료·실패·중단만 세고 진행 중·대기 중은 세지 않는다', () => {
-    const items = taskBoardFromMessages(
-      messages(
-        call('TaskCreate', { subject: 'pend' }, created('1', 'pend')),
-        call('TaskCreate', { subject: 'done' }, created('2', 'done')),
-        call('TaskUpdate', { taskId: '2', status: 'completed' }, updated('2', 'completed')),
-        backgroundTask('bg1', '실패', { output: { message: 'boom' }, isError: true })
-      )
-    )
-    expect(taskBoardSettledKeys(items).sort()).toEqual(
-      [agentTaskKey('2'), backgroundTaskKey('bg1')].sort()
-    )
   })
 })
 

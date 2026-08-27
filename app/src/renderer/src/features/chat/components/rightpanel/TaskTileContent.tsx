@@ -8,14 +8,14 @@ import { childMessageForParentToolRunId, partsToolCalls } from '../../lib/parts'
 import {
   canStopTask,
   taskBoardFromMessages,
-  taskBoardGroups,
   taskBoardItemByKey,
+  taskBoardOrdered,
   taskDetailRows,
-  type TaskBoardGroup,
   type TaskBoardItem,
   type TaskBoardStatus,
   type TaskDetailValue
 } from '../../lib/taskBoard'
+import { ContextSectionEmpty, OutputSectionEmpty, TileSection } from './TaskTileSections'
 import { formatDurationLabel, formatTokenLabel } from '../../lib/toolMeta'
 import type { TFunction } from 'i18next'
 import { useI18n, type MessageKey } from '../../../../shared/i18n'
@@ -37,14 +37,6 @@ const STATUS_KEY: Record<TaskBoardStatus, MessageKey> = {
   failed: 'chat.taskTile.status.failed'
 }
 
-const GROUP_KEY: Record<TaskBoardGroup, MessageKey> = {
-  in_progress: 'chat.taskTile.group.in_progress',
-  pending: 'chat.taskTile.group.pending',
-  completed: 'chat.taskTile.group.completed',
-  aborted: 'chat.taskTile.group.aborted',
-  failed: 'chat.taskTile.group.failed'
-}
-
 // 메타 라인의 항목 구분 — 가시 간격 유지를 위해 nbsp 2칸(기존 백그라운드 목록과 동일 양식).
 const GAP = '  '
 
@@ -53,8 +45,9 @@ const GAP = '  '
 function useTaskBoard(): TaskBoardItem[] {
   const messages = useChatSession((s) => s.messages)
   const stopping = useStoppingTasks()
+  // 순서는 `taskBoardOrdered` 하나가 정한다(§10 EP-14) — 컴포넌트가 다시 정렬하지 않는다.
   return useMemo(
-    () => taskBoardFromMessages(messages, { stoppingBackgroundIds: stopping }),
+    () => taskBoardOrdered(taskBoardFromMessages(messages, { stoppingBackgroundIds: stopping })),
     [messages, stopping]
   )
 }
@@ -121,17 +114,21 @@ function backgroundMetaLine(tr: TFunction, item: TaskBoardItem): string {
   pieces.push(tr('chat.toolMeta.toolUses', { count: meta.toolUses }))
   if (item.status === 'stopping') pieces.push(tr(STATUS_KEY.stopping))
   if (item.status === 'aborted') pieces.push(tr('chat.taskTile.stoppedReason'))
+  // 실패도 사유를 말한다(0204 D-024) — `aborted` 분기와 대칭. 정착 생산자가 실은 사람용 문장을
+  // 그대로 쓰고, 없을 때만 일반 문구로 떨어진다.
+  if (item.status === 'failed') {
+    pieces.push(meta.settlementMessage ?? tr('chat.taskTile.failedReason'))
+  }
   return pieces.join(GAP)
 }
 
 interface TaskRowProps {
   item: TaskBoardItem
-  index: number
+  stopError?: string
 }
 
-function TaskRow({ item, index }: TaskRowProps): React.JSX.Element {
+function TaskRow({ item, stopError }: TaskRowProps): React.JSX.Element {
   const { tr } = useI18n()
-  const stopError = useChatSession((s) => s.taskStopErrors[item.key])
   const open = (): void => chatActions.selectTask(item.key)
   // 카드 전체가 상세 열기 트리거. 내부에 중단 버튼(중첩 버튼 불가)을 두기 위해 <button> 대신
   // role="button" div 로 두고 키보드 동작을 유지한다.
@@ -149,11 +146,19 @@ function TaskRow({ item, index }: TaskRowProps): React.JSX.Element {
       aria-label={tr('chat.taskTile.openDetailAria', { description: item.title })}
       className="group/task cursor-pointer rounded-r6 px-p2 py-1.5 text-left transition-colors hover:bg-fill-uncontained-hover focus:outline-none hide-focus-ring ring-focus"
     >
-      <div className="flex min-w-0 items-start gap-g3">
-        <TaskStatusIcon status={item.status} index={index} />
+      {/* 제목 행 — 아이콘 · 제목 · (background 진행 중이면) 중단 버튼. 제목에 `flex-1` 을 주지
+          않는 것이 D-020 의 요지다: flex-1 이면 남는 폭을 제목이 다 먹어 버튼이 행 우측 끝으로
+          밀린다. `min-w-0 truncate` 만 주면 제목은 필요한 만큼만 차지하고 버튼이 **바로 뒤**에
+          붙으며, 제목이 길면 잘리면서도 버튼 자리를 밀어내지 않는다. */}
+      <div className="flex min-w-0 items-start gap-g2">
+        {item.status === 'pending' ? (
+          <TaskStatusIcon status="pending" badge={item.id} />
+        ) : (
+          <TaskStatusIcon status={item.status} />
+        )}
         <span
-          className={`min-w-0 flex-1 truncate text-body leading-[1.5] ${
-            item.status === 'completed' ? 'text-t6' : 'font-medium text-t9'
+          className={`min-w-0 truncate text-body leading-[1.5] ${
+            item.status === 'completed' ? 'text-t6 line-through' : 'font-medium text-t9'
           }`}
         >
           {item.title}
@@ -177,11 +182,36 @@ function TaskRow({ item, index }: TaskRowProps): React.JSX.Element {
         )}
       </div>
       {item.background && (
-        <div className="mt-0.5 truncate pl-7 text-footnote text-ink3">
+        <div className="mt-0.5 truncate pl-6 text-footnote text-ink3">
           {backgroundMetaLine(tr, item)}
         </div>
       )}
-      {stopError && <div className="mt-0.5 pl-7 text-footnote text-bad">{stopError}</div>}
+      {stopError && <div className="mt-0.5 pl-6 text-footnote text-bad">{stopError}</div>}
+    </div>
+  )
+}
+
+// `진행 상황` 섹션 본문 — **props 만 읽는 순수 View**. store 를 읽지 않으므로
+// `renderToStaticMarkup` 으로 직접 검증할 수 있다(zustand 는 SSR 에서 `getInitialState()` 를
+// 돌려주기 때문에 store 연결 컴포넌트는 시드가 반영되지 않는다). 0203 의 `...View` 선례와 동형.
+export function TaskProgressList({
+  items,
+  stopErrors = {}
+}: {
+  items: TaskBoardItem[]
+  stopErrors?: Record<string, string>
+}): React.JSX.Element {
+  const { tr } = useI18n()
+  if (items.length === 0) {
+    return <p className="px-p2 text-caption text-ink3">{tr('chat.taskTile.emptyDesc')}</p>
+  }
+  // 상태 그룹 없이 한 줄로 나열한다(D-018) — 순서는 `taskBoardOrdered` 가 정하고 완료 항목은
+  // 그룹으로 옮겨가지 않고 제자리에서 취소선으로 표시된다.
+  return (
+    <div className="flex flex-col gap-px">
+      {items.map((item) => (
+        <TaskRow key={item.key} item={item} stopError={stopErrors[item.key]} />
+      ))}
     </div>
   )
 }
@@ -259,9 +289,9 @@ function TaskDetail({ item }: { item: TaskBoardItem }): React.JSX.Element {
 }
 
 export function TaskTileContent(): React.JSX.Element {
-  const { tr } = useI18n()
   const items = useTaskBoard()
   const selected = useSelectedTask()
+  const stopErrors = useChatSession((s) => s.taskStopErrors)
   // 타일이 화면에 있으면 사용자가 결과를 본 것이다 — 미확인 배지를 계속 비운다(0204 D-004).
   const unseen = useUnseenSettledTaskCount()
   useEffect(() => {
@@ -270,32 +300,19 @@ export function TaskTileContent(): React.JSX.Element {
 
   if (selected) return <TaskDetail item={selected} />
 
-  if (items.length === 0) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        <div className="m-auto flex max-w-[240px] flex-col items-center gap-g3 px-4 text-center">
-          <p className="text-footnote font-medium text-t6">{tr('chat.taskTile.emptyTitle')}</p>
-          <p className="text-caption text-ink3">{tr('chat.taskTile.emptyDesc')}</p>
-        </div>
-      </div>
-    )
-  }
-
-  const groups = taskBoardGroups(items)
+  // cowork 우측 패널 양식(0204 D-017) — 한 카드 안에 접히는 세 섹션. `진행 상황` 만 데이터를
+  // 갖고, 나머지 둘은 이번 라운드에 빈 상태다(D-022).
   return (
-    <div className="min-h-0 flex-1 overflow-auto px-p3 py-p4">
-      {groups.map((group, gi) => (
-        <div key={group.status} className={gi > 0 ? 'mt-4' : ''}>
-          <div className="mb-g2 mt-g1 flex items-center px-p2 text-footnote text-t6">
-            <span>{tr(GROUP_KEY[group.status])}</span>
-          </div>
-          <div className="flex flex-col gap-px">
-            {group.items.map((item, index) => (
-              <TaskRow key={item.key} item={item} index={index + 1} />
-            ))}
-          </div>
-        </div>
-      ))}
+    <div className="min-h-0 flex-1 overflow-auto px-p3 py-p2">
+      <TileSection titleKey="chat.taskTile.sections.progress">
+        <TaskProgressList items={items} stopErrors={stopErrors} />
+      </TileSection>
+      <TileSection titleKey="chat.taskTile.sections.output">
+        <OutputSectionEmpty />
+      </TileSection>
+      <TileSection titleKey="chat.taskTile.sections.context">
+        <ContextSectionEmpty />
+      </TileSection>
     </div>
   )
 }

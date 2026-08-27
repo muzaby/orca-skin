@@ -168,6 +168,9 @@ export interface SubagentTaskSummary {
   subagentType: string | null
   // 진행 중일 때 마지막으로 실행 중인 child 도구명(예: 'Bash') — 단일 항목 메타 라인용.
   currentChildLabel: string | null
+  // 종단 정착이 남긴 사람용 사유 문구(`result.output.message`) — 실패/중단 행이 "왜" 를 말한다
+  // (0204 D-024). 진행 중이거나 성공이면 null. 생산자는 `subagent-settlement.ts:28`.
+  settlementMessage: string | null
   call: ToolCall
 }
 
@@ -303,6 +306,7 @@ export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSumm
         agentLabel: agentModelFromCall(call),
         subagentType: subagentTypeFromCall(call),
         currentChildLabel: currentChild.get(call.toolUseId) ?? null,
+        settlementMessage: settlementMessageFromCall(call),
         call
       })
     }
@@ -325,16 +329,17 @@ export function isAsyncLaunchedResult(result: ToolCall['result']): boolean {
 // 도구 결과가 중단/취소(에러이되 사용자/시스템 abort 마커를 가진) 인지. 전체 턴 취소·개별
 // 서브에이전트 stop·SDK stopTask 가 남기는 결과를 일반 실패와 구분한다(메인 카드 "중단됨" 라벨,
 // 서브에이전트 'aborted' 분류). 일반 도구 에러(isError 이나 abort 마커 없음)는 false.
+//
+// **`reason` 이 있으면 그것만 본다**(0204 D-023 · §10 EP-15). 정착 생산자는 사유를 `reason` 에
+// 싣고 `message` 에는 사람용 문장을 싣는데, 그 문장이 '중단' 을 담을 수 있다 — 채널 종료 정착은
+// `{ reason:'failed', message:'채널이 종료되어 서브에이전트가 중단되었습니다.' }` 라서, 메시지를
+// 먼저 보면 실패가 "사용자가 중단함" 으로 읽힌다. 권위 필드가 없을 때만 문구로 폴백한다.
 export function isAbortedResult(result: ToolCall['result']): boolean {
   if (!result?.isError) return false
-  const reason = valueString(result.output, 'reason')?.toLowerCase() ?? ''
+  const reason = valueString(result.output, 'reason')?.toLowerCase()
+  if (reason) return reason.includes('abort') || reason.includes('cancel')
   const message = valueString(result.output, 'message')?.toLowerCase() ?? ''
-  return (
-    reason.includes('abort') ||
-    reason.includes('cancel') ||
-    message.includes('abort') ||
-    message.includes('중단')
-  )
+  return message.includes('abort') || message.includes('중단')
 }
 
 export function deriveSubagentTaskStatus(call: ToolCall): SubagentTaskStatus {
@@ -349,6 +354,13 @@ function valueString(input: unknown, key: string): string | null {
   if (typeof input !== 'object' || input === null) return null
   const value = (input as Record<string, unknown>)[key]
   return typeof value === 'string' && value.trim() !== '' ? value : null
+}
+
+// 종단 정착의 사유 문구. 에러 결과의 `message` 만 사유다 — 성공 결과의 `summary` 는 답변이라
+// 사유 자리에 쓰지 않는다(0204 D-024).
+function settlementMessageFromCall(call: ToolCall): string | null {
+  if (!call.result?.isError) return null
+  return valueString(call.result.output, 'message')
 }
 
 function valueNumber(input: unknown, key: string): number | null {

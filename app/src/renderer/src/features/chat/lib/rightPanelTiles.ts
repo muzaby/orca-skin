@@ -2,11 +2,13 @@ import type { MessageKey } from '../../../shared/i18n'
 
 // 타일 기본 라벨은 카탈로그 키만 두고 소비자(RightPanelTile/ChatTitleBar)가 렌더에서
 // tr() 해석한다(0096 stale-방지 패턴, 0097). 런타임 라벨(rightPanelTileLabels)이 있으면 우선.
+// 0204 D-021 — 4종. `백그라운드 작업`(전용 대화록 상세)과 `작업`(cowork 3섹션)은 별개 타일이고
+// (D-015), 늘어난 자리는 예약 슬롯 하나가 내준다. 정의 순서가 곧 타일 메뉴 순서다.
 export const rightPanelTileDefinitions = [
   { id: 'plan', defaultLabelKey: 'chat.rightpanel.tiles.plan' },
+  { id: 'subagent', defaultLabelKey: 'chat.rightpanel.tiles.subagent' },
   { id: 'task', defaultLabelKey: 'chat.rightpanel.tiles.task' },
-  { id: 'reserved1', defaultLabelKey: 'chat.rightpanel.tiles.reserved1' },
-  { id: 'reserved2', defaultLabelKey: 'chat.rightpanel.tiles.reserved2' }
+  { id: 'reserved1', defaultLabelKey: 'chat.rightpanel.tiles.reserved1' }
 ] as const satisfies readonly { id: string; defaultLabelKey: MessageKey }[]
 
 export type RightPanelTileId = (typeof rightPanelTileDefinitions)[number]['id']

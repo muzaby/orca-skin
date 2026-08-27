@@ -548,17 +548,26 @@ export const en: typeof ko = {
       agentLine: 'Agent "{{title}}" {{verb}}',
       took: 'took {{duration}}'
     },
+    subagentTile: {
+      status: {
+        running: 'In progress',
+        stopping: 'Stopping…',
+        completed: 'Completed',
+        failed: 'Failed',
+        aborted: 'Aborted'
+      },
+      backToList: 'Back to list',
+      headerTitle: 'Background tasks',
+      noChildActivity: 'No child activity recorded for this task.',
+      emptyTitle: 'No background tasks',
+      emptyDesc: 'Task tool calls will appear here when detected.',
+      openTranscriptAria: 'View transcript for {{description}}',
+      viewTranscript: 'View transcript'
+    },
     taskTile: {
       status: {
         in_progress: 'In progress',
         stopping: 'Stopping…',
-        pending: 'Pending',
-        completed: 'Completed',
-        aborted: 'Stopped',
-        failed: 'Failed'
-      },
-      group: {
-        in_progress: 'In progress',
         pending: 'Pending',
         completed: 'Completed',
         aborted: 'Stopped',
@@ -572,12 +581,20 @@ export const en: typeof ko = {
         lastTool: 'Last tool',
         toolUses: 'Tool uses'
       },
+      sections: {
+        progress: 'Progress',
+        output: 'Output',
+        outputDesc: 'View and open files created during this work.',
+        context: 'Context',
+        contextDesc: 'Tracks the tools used and files referenced by this work.'
+      },
       backToList: 'Back to list',
       headerTitle: 'Tasks',
       badgeAria: '{{count}} finished tasks not yet reviewed',
       backgroundBadge: 'background',
       blockedByValue: 'needs #{{ids}}',
       stoppedReason: 'Stopped by you',
+      failedReason: 'The execution session ended',
       stopFailed: 'Could not stop the task',
       noChildActivity: 'No child activity recorded for this task.',
       emptyTitle: 'No tasks yet',
@@ -737,9 +754,9 @@ export const en: typeof ko = {
     rightpanel: {
       tiles: {
         plan: 'Plan',
+        subagent: 'Background tasks',
         task: 'Tasks',
-        reserved1: 'Reserved 1',
-        reserved2: 'Reserved 2'
+        reserved1: 'Reserved 1'
       },
       closeTile: 'Close {{label}}',
       panelResizeAria: 'Resize right panel',

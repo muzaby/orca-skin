@@ -168,6 +168,10 @@ export interface ChatState {
   // 우측 작업 타일에서 상세로 표시할 항목 키(`agent:<id>` | `bg:<toolUseId>`, taskBoard 가
   // 소유하는 네임스페이스). null 이면 목록 view.
   selectedTaskKey: string | null
+  // 우측 **백그라운드 작업** 타일에서 상세(child transcript)로 표시할 부모 Task toolRunId.
+  // null 이면 목록 view. `selectedTaskKey` 와 **독립**이다(0204 §10 EP-12) — 두 타일이 서로
+  // 다른 항목을 열어 둘 수 있고, 한 타일을 닫아도 다른 타일의 상세가 접히지 않는다.
+  selectedSubagentTaskId: string | null
   // 중단 요청을 보내고 SDK 확정을 기다리는 background tool_use id 집합(0204 D-005). 확정되면
   // 파생 상태가 스스로 진행 중을 벗어나므로 그때 비운다.
   stoppingTaskIds: string[]
@@ -238,6 +242,7 @@ export const initialChatState: ChatState = {
   rightPanelColWidths: [],
   rightPanelRowSplits: [],
   selectedTaskKey: null,
+  selectedSubagentTaskId: null,
   stoppingTaskIds: [],
   taskStopErrors: {},
   unseenSettledTaskKeys: [],
@@ -327,10 +332,10 @@ export type ChatAction =
   | { type: 'REMOVE_RIGHT_PANEL_TILE'; id: RightPanelTileId }
   | { type: 'SELECT_TASK'; key: string | null }
   | { type: 'OPEN_TASK'; key: string }
+  | { type: 'SELECT_SUBAGENT_TASK'; toolRunId: string | null }
+  | { type: 'OPEN_SUBAGENT_TASK'; toolRunId: string }
   | { type: 'TASK_STOP_REQUESTED'; key: string; toolUseId: string }
   | { type: 'TASK_STOP_FAILED'; key: string; toolUseId: string; reason: string }
-  | { type: 'TASK_STOP_SETTLED'; toolUseId: string }
-  | { type: 'MARK_SETTLED_TASKS'; keys: string[] }
   | { type: 'ACKNOWLEDGE_SETTLED_TASKS' }
   | { type: 'SET_RIGHT_PANEL_COL_WIDTH'; col: number; width: number }
   | { type: 'SET_RIGHT_PANEL_ROW_SPLIT'; col: number; frac: number }
@@ -896,10 +901,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       const nextLabels = { ...state.rightPanelTileLabels }
       delete nextLabels[action.id]
       const removed = removeTile(state, action.id)
+      // 타일마다 자기 선택만 비운다(0204 §10 EP-12) — 한 분기로 합치면 한 타일을 닫을 때
+      // 다른 타일의 상세까지 접힌다.
       return {
         ...removed,
         rightPanelTileLabels: nextLabels,
-        ...(action.id === 'task' ? { selectedTaskKey: null } : {})
+        ...(action.id === 'task' ? { selectedTaskKey: null } : {}),
+        ...(action.id === 'subagent' ? { selectedSubagentTaskId: null } : {})
       }
     }
 
@@ -913,6 +921,17 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         selectedTaskKey: action.key,
         unseenSettledTaskKeys: [],
         rightPanelTiles: addTileColumnMajor(state.rightPanelTiles, 'task')
+      }
+
+    // 백그라운드 작업 타일의 선택 — `selectedTaskKey` 를 건드리지 않는다(EP-12).
+    case 'SELECT_SUBAGENT_TASK':
+      return { ...state, selectedSubagentTaskId: action.toolRunId }
+
+    case 'OPEN_SUBAGENT_TASK':
+      return {
+        ...state,
+        selectedSubagentTaskId: action.toolRunId,
+        rightPanelTiles: addTileColumnMajor(state.rightPanelTiles, 'subagent')
       }
 
     case 'TASK_STOP_REQUESTED': {
@@ -933,19 +952,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         stoppingTaskIds: state.stoppingTaskIds.filter((id) => id !== action.toolUseId),
         taskStopErrors: { ...state.taskStopErrors, [action.key]: action.reason }
       }
-
-    case 'TASK_STOP_SETTLED':
-      if (!state.stoppingTaskIds.includes(action.toolUseId)) return state
-      return {
-        ...state,
-        stoppingTaskIds: state.stoppingTaskIds.filter((id) => id !== action.toolUseId)
-      }
-
-    case 'MARK_SETTLED_TASKS': {
-      const next = action.keys.filter((key) => !state.unseenSettledTaskKeys.includes(key))
-      if (next.length === 0) return state
-      return { ...state, unseenSettledTaskKeys: [...state.unseenSettledTaskKeys, ...next] }
-    }
 
     case 'ACKNOWLEDGE_SETTLED_TASKS':
       return state.unseenSettledTaskKeys.length === 0
