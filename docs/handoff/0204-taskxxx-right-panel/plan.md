@@ -679,4 +679,11 @@ SDK tool_result / system task_*
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | … | … | … | … | … |
+| D1 | 채널 종료 정착이 패널에서 `실패` 가 아니라 `중단됨` 으로 분류되고, 행 문구가 `사용자에 의해 중단됨` 이라 원인을 거짓 진술한다 | verify r1 · **VP-08** · AC21 | `isAbortedResult`(`parts.ts:330`)가 권위 필드 `reason` 을 메시지 부분문자열보다 우선하게 한다 — `reason:'failed'` 면 abort 로 읽지 않는다. 충돌 지점 전수 **2**: `settle.ts:26` · `chat-turn/index.ts:68`. AC21 의 파생 UT 를 실제로 만든다 | **BLOCKING** | open |
+| D2 | 미배선 표면 4종 — `taskBoardSettledKeys`(프로덕션 참조 0 + 배지 규칙이 reducer 와 다름) · `isBackgroundTask`(참조 0) · `MARK_SETTLED_TASKS`·`TASK_STOP_SETTLED`(도달 불가 액션) | verify r1 · §3 역방향 | 죽은 표면을 지우거나 실제 경로에 연결한다. `taskBoardSettledKeys` 는 SSOT drift 라 특히 — 살릴 거면 reducer 가 그것을 쓰게, 아니면 테스트째 제거 | NON_BLOCKING | open |
+| D3 | 구현 보고 강제 지점 합계 `18/18` 이 내역과 어긋난다 — EP-07=3 이면 **19** | verify r1 · §7 | 다음 라운드 보고에서 합계를 내역에서 다시 계산한다. 행 관측은 전부 정확했다 | NON_BLOCKING | open |
+| D4 | 실패 상태 background 행에 사유 문구가 없다 — 명세 §2 는 `실행 세션 종료` 를 요구한다 | verify r1 · AC21(명세 §2) | `backgroundMetaLine` 의 `aborted` 분기와 대칭으로 `failed` 분기를 만든다. D1 과 같은 자리 | NON_BLOCKING | open |
+| D5 | 대기 중 항목 번호가 **그룹 내 순번** 이다(첨부 예시는 전역 순번) | verify r1 · AC25 | 시각 실기에서 사람이 판단할 항목으로 남긴다 | NON_BLOCKING | open |
+| D6 | 일반 Task 행에 상태 보조줄이 없다(그룹 헤더만 상태를 말한다) | verify r1 · AC25 | 같음 — 시각 실기 판단 | NON_BLOCKING | open |
+| D7 | `structuredOutput` 이름이 기존 어댑터 capability 플래그(`descriptor.ts:40`)와 겹친다 | verify r1 · §3 | 파트 필드 개명은 공개 계약 변경이라 별도 결정이 필요하다 | NEXT_HANDOFF | open |
+| D8 | `TaskUpdate` 가 미지 id 에 도착하면 제목이 id 인 유령 항목이 생긴다(압축된 세션 재개 시나리오) | verify r1 · §2 | 현재는 "존재하는 Task 를 버리지 않는다" 는 선택이다. 제품 판단이 필요하면 사용자에게 올린다 | NON_BLOCKING | open |
