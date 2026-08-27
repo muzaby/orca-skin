@@ -18,11 +18,9 @@ import { flattenColumns } from '../lib/rightPanelLayout'
 import { tileRegistry } from './rightpanel/tileRegistry'
 import { CwdButton } from './CwdButton'
 
-// 예약 타일(reserved1/2)은 Future Scope — 메뉴에서 숨긴다. tileRegistry 는 모듈 상수라
-// 결과가 불변이므로 모듈 로드 시 1회만 계산한다(인스턴스별 useMemo 불필요).
-const VISIBLE_TILE_REGISTRY = tileRegistry.filter(
-  (tile) => tile.id !== 'reserved1' && tile.id !== 'reserved2'
-)
+// 예약 타일은 Future Scope — 메뉴에서 숨긴다. tileRegistry 는 모듈 상수라 결과가 불변이므로
+// 모듈 로드 시 1회만 계산한다(인스턴스별 useMemo 불필요).
+const VISIBLE_TILE_REGISTRY = tileRegistry.filter((tile) => tile.id !== 'reserved1')
 
 // 사이드바 메타 (state.title) 가 즉시 채워지므로 사용자가 세션을 선택한 순간부터
 // 헤더에 정확한 제목 표시. 메타가 없는 부팅 자동 복원 1회만 첫 user 메시지에서 fallback.

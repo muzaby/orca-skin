@@ -320,6 +320,72 @@ describe('parts selectors', () => {
     expect(deriveSubagentTaskStatus(call)).toBe('running')
   })
 
+  const emptyCall: ToolCall = { toolUseId: 't', name: 'Task', input: {} }
+
+  // 0204 D-023 / §10 EP-15 — 권위 필드 `reason` 이 메시지 부분문자열을 이긴다.
+  //
+  // 회귀의 실체: 채널 종료 정착은 `{ reason:'failed', message:'채널이 종료되어 서브에이전트가
+  // 중단되었습니다.' }` 다. 메시지를 먼저 보면 '중단' 이 걸려 실패가 "사용자가 중단함" 으로
+  // 읽힌다(verify r1 D1 · AC21 위반). 프로덕션 생산 지점 전수 2곳을 그대로 옮겨 단언한다.
+  it('AT-21 — reason 이 failed 면 메시지에 중단이 들어 있어도 aborted 로 읽지 않는다', () => {
+    // ① chat-turn/index.ts:68 → subagent-settlement.ts:28 (채널 종료)
+    const channelDeath = {
+      output: { reason: 'failed', message: '채널이 종료되어 서브에이전트가 중단되었습니다.' },
+      isError: true
+    }
+    expect(isAbortedResult(channelDeath)).toBe(false)
+    expect(deriveSubagentTaskStatus({ ...emptyCall, result: channelDeath })).toBe('failed')
+
+    // ② settle.ts:26 (턴 실패 정착)
+    const turnFailure = {
+      output: { reason: 'failed', message: '오류로 중단되었습니다' },
+      isError: true
+    }
+    expect(isAbortedResult(turnFailure)).toBe(false)
+    expect(deriveSubagentTaskStatus({ ...emptyCall, result: turnFailure })).toBe('failed')
+  })
+
+  it('AT-21 회귀 짝 — reason 이 aborted 면 그대로 중단으로 읽는다', () => {
+    const userStop = {
+      output: { reason: 'aborted', message: '서브에이전트가 중단되었습니다.' },
+      isError: true
+    }
+    expect(isAbortedResult(userStop)).toBe(true)
+    expect(deriveSubagentTaskStatus({ ...emptyCall, result: userStop })).toBe('aborted')
+  })
+
+  it('AT-31 — 종단 정착의 사유 문구가 요약에 실린다(진행 중·성공은 null)', () => {
+    const failed = subagentTasksFromMessages([
+      {
+        role: 'assistant',
+        createdAt: 1,
+        parts: [
+          { type: 'tool_call', toolRunId: 'bgF', toolName: 'Task', args: { description: '실패' } },
+          {
+            type: 'tool_result',
+            toolRunId: 'bgF',
+            result: { reason: 'failed', message: '채널이 종료되어 서브에이전트가 중단되었습니다.' },
+            isError: true
+          }
+        ]
+      }
+    ])
+    expect(failed[0].settlementMessage).toBe('채널이 종료되어 서브에이전트가 중단되었습니다.')
+
+    // 양성 짝 — 성공/진행 중은 사유가 없다(답변 요약을 사유 자리에 쓰지 않는다).
+    const ok = subagentTasksFromMessages([
+      {
+        role: 'assistant',
+        createdAt: 1,
+        parts: [
+          { type: 'tool_call', toolRunId: 'bgOk', toolName: 'Task', args: { description: '성공' } },
+          { type: 'tool_result', toolRunId: 'bgOk', result: { summary: '다 했다' }, isError: false }
+        ]
+      }
+    ])
+    expect(ok[0].settlementMessage).toBeNull()
+  })
+
   it('isAbortedResult 는 abort 마커 결과만 true(일반 에러는 false)', () => {
     expect(isAbortedResult({ output: { reason: 'aborted' }, isError: true })).toBe(true)
     expect(isAbortedResult({ output: { reason: 'user_cancelled' }, isError: true })).toBe(true)

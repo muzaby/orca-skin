@@ -25,10 +25,10 @@ describe('rightPanel 열 구조 헬퍼', () => {
     expect(tilesOf(cols)).toEqual([['plan', 'task']])
     cols = addTileColumnMajor(cols, 'reserved1')
     expect(tilesOf(cols)).toEqual([['plan', 'task'], ['reserved1']])
-    cols = addTileColumnMajor(cols, 'reserved2')
+    cols = addTileColumnMajor(cols, 'subagent')
     expect(tilesOf(cols)).toEqual([
       ['plan', 'task'],
-      ['reserved1', 'reserved2']
+      ['reserved1', 'subagent']
     ])
     // 중복 추가는 무변경(참조 동일)
     expect(addTileColumnMajor(cols, 'plan')).toBe(cols)
@@ -66,7 +66,7 @@ describe('rightPanel 열 구조 헬퍼', () => {
     const cols = mk(['plan', 'task'], ['reserved1'])
     expect(flattenColumns(cols)).toEqual(['plan', 'task', 'reserved1'])
     expect(columnsContain(cols, 'reserved1')).toBe(true)
-    expect(columnsContain(cols, 'reserved2')).toBe(false)
+    expect(columnsContain(cols, 'subagent')).toBe(false)
   })
 
   it('deriveRightPanelLayout — 열/핸들을 열 구조에서 파생(빈 열 필터, id 전달)', () => {
@@ -91,13 +91,13 @@ describe('rightPanel 열 구조 헬퍼', () => {
       { kind: 'column', axis: 'vertical', col: 1 },
       { kind: 'row', axis: 'horizontal', col: 0 }
     ])
-    expect(
-      deriveRightPanelLayout(mk(['plan', 'task'], ['reserved1', 'reserved2'])).handles
-    ).toEqual([
-      { kind: 'outer', axis: 'vertical' },
-      { kind: 'column', axis: 'vertical', col: 1 },
-      { kind: 'row', axis: 'horizontal', col: 0 },
-      { kind: 'row', axis: 'horizontal', col: 1 }
-    ])
+    expect(deriveRightPanelLayout(mk(['plan', 'task'], ['reserved1', 'subagent'])).handles).toEqual(
+      [
+        { kind: 'outer', axis: 'vertical' },
+        { kind: 'column', axis: 'vertical', col: 1 },
+        { kind: 'row', axis: 'horizontal', col: 0 },
+        { kind: 'row', axis: 'horizontal', col: 1 }
+      ]
+    )
   })
 })

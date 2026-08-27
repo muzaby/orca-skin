@@ -184,3 +184,58 @@ describe('chatReducer — 미확인 완료 배지 (AC19)', () => {
     expect(s.unseenSettledTaskKeys).toEqual([])
   })
 })
+
+// 0204 ΔV1 AT-30 / §10 EP-12 — 두 타일의 선택 상태는 독립 필드 2개다.
+//
+// 하나로 합치면 한 타일을 닫을 때 다른 타일의 상세가 함께 접힌다. 네 방향을 모두 본다 —
+// 선택 2방향 · 타일 제거 2방향.
+describe('chatReducer — 두 타일의 선택 상태 독립 (AT-30)', () => {
+  const bothSelected = (): ChatState => {
+    let s = chatReducer(initialChatState, { type: 'OPEN_TASK', key: 'agent:1' })
+    s = chatReducer(s, { type: 'OPEN_SUBAGENT_TASK', toolRunId: 'bg1' })
+    return s
+  }
+
+  it('한 타일의 선택이 다른 타일의 선택을 바꾸지 않는다', () => {
+    const s = bothSelected()
+    expect(s.selectedTaskKey).toBe('agent:1')
+    expect(s.selectedSubagentTaskId).toBe('bg1')
+
+    // 작업 타일에서 목록으로 돌아가도 백그라운드 상세는 열려 있다.
+    const backToTaskList = chatReducer(s, { type: 'SELECT_TASK', key: null })
+    expect(backToTaskList.selectedTaskKey).toBeNull()
+    expect(backToTaskList.selectedSubagentTaskId).toBe('bg1')
+
+    // 반대 방향도 같다.
+    const backToSubagentList = chatReducer(s, { type: 'SELECT_SUBAGENT_TASK', toolRunId: null })
+    expect(backToSubagentList.selectedSubagentTaskId).toBeNull()
+    expect(backToSubagentList.selectedTaskKey).toBe('agent:1')
+  })
+
+  it('타일을 닫으면 그 타일의 선택만 비워진다', () => {
+    const s = bothSelected()
+
+    const taskClosed = chatReducer(s, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'task' })
+    expect(taskClosed.selectedTaskKey).toBeNull()
+    expect(taskClosed.selectedSubagentTaskId).toBe('bg1')
+
+    const subagentClosed = chatReducer(s, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'subagent' })
+    expect(subagentClosed.selectedSubagentTaskId).toBeNull()
+    expect(subagentClosed.selectedTaskKey).toBe('agent:1')
+  })
+
+  it('각 타일 열기는 자기 타일만 패널에 붙인다', () => {
+    const taskOnly = chatReducer(initialChatState, { type: 'OPEN_TASK', key: 'agent:1' })
+    const tiles = taskOnly.rightPanelTiles.flatMap((c) => c.tiles)
+    expect(tiles).toContain('task')
+    expect(tiles).not.toContain('subagent')
+
+    const subagentOnly = chatReducer(initialChatState, {
+      type: 'OPEN_SUBAGENT_TASK',
+      toolRunId: 'bg1'
+    })
+    const tiles2 = subagentOnly.rightPanelTiles.flatMap((c) => c.tiles)
+    expect(tiles2).toContain('subagent')
+    expect(tiles2).not.toContain('task')
+  })
+})

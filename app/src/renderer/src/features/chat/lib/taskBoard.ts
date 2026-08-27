@@ -5,6 +5,9 @@
 //   - `agent`      TaskCreate/TaskUpdate/TaskList/TaskGet 로 관측되는 세션 할 일 목록.
 //   - `background` Agent/Task 도구로 뜬 서브에이전트(기존 subagentTasksFromMessages 파생).
 //
+// 이 목록의 소비자는 `작업` 타일의 `진행 상황` 섹션 하나다(0204 D-017). `백그라운드 작업` 타일은
+// `subagentTasksFromMessages` 를 직접 쓴다 — 두 타일이 같은 항목을 다른 책임으로 그린다(D-019).
+//
 // **왜 fold 인가**: 일반 Task 의 상태는 어디에도 저장돼 있지 않다. main 에 Task 스토어를 두면
 // 세션별 격리·재로드 복원·다중 창을 전부 다시 만들어야 하는데, transcript 는 그 셋을 이미
 // 갖고 있다(parts 는 세션 엔트리에 살고 DB 에 영속된다). 그래서 목록은 파생값이고 이 파일이
@@ -39,6 +42,8 @@ export interface TaskBoardBackgroundMeta {
   tokenCount: number | null
   currentToolLabel: string | null
   agentLabel: string | null
+  // 종단 정착이 남긴 사유 문구 — 실패/중단 행이 원인을 말한다(0204 D-024). 미정착이면 null.
+  settlementMessage: string | null
 }
 
 export interface TaskBoardItem {
@@ -55,16 +60,6 @@ export interface TaskBoardItem {
   background: TaskBoardBackgroundMeta | null
 }
 
-// 목록 그룹 순서 — 명세 §3 의 진행 중 → 대기 중 → 완료 에 background 종단 상태 둘을 잇는다.
-export const TASK_BOARD_GROUP_ORDER = [
-  'in_progress',
-  'pending',
-  'completed',
-  'aborted',
-  'failed'
-] as const
-export type TaskBoardGroup = (typeof TASK_BOARD_GROUP_ORDER)[number]
-
 export function agentTaskKey(id: string): string {
   return `agent:${id}`
 }
@@ -79,19 +74,27 @@ export function backgroundToolUseIdFromKey(key: string): string | null {
   return key.startsWith('bg:') ? key.slice(3) : null
 }
 
-// `stopping` 은 아직 진행 중이다 — 중단이 확정되기 전에 '중단됨' 그룹으로 옮기면 사용자가
-// 실패한 중단을 성공으로 읽는다.
-export function taskBoardGroupOf(status: TaskBoardStatus): TaskBoardGroup {
-  return status === 'stopping' ? 'in_progress' : status
+// 목록 순서의 단일 소유자(0204 §10 EP-14). 컴포넌트는 이 배열을 그대로 그리고 자체 정렬·
+// 그룹핑을 하지 않는다 — 두 곳에서 정렬하면 규칙이 갈라진다.
+//
+// 규칙: **agent 항목이 id 오름차순으로 먼저**, background 항목이 **관측 순서로** 뒤에 온다
+// (D-018). agent id 는 SDK 가 매기는 할 일 순번('1'·'2'·'10')이라 수치 비교해야 한다 —
+// 사전순이면 '10' 이 '2' 앞에 온다. 숫자가 아닌 id 는 수치 id 뒤에 사전순으로 둔다(전순서 보장).
+// background 는 tool_use id(불투명)라 정렬 키가 없고, fold 가 만든 관측 순서가 곧 시작 순서다.
+export function taskBoardOrdered(items: TaskBoardItem[]): TaskBoardItem[] {
+  const agents = items.filter((item) => item.kind === 'agent')
+  const backgrounds = items.filter((item) => item.kind !== 'agent')
+  const sorted = [...agents].sort((a, b) => compareAgentTaskId(a.id, b.id))
+  return [...sorted, ...backgrounds]
 }
 
-export function taskBoardGroups(
-  items: TaskBoardItem[]
-): { status: TaskBoardGroup; items: TaskBoardItem[] }[] {
-  return TASK_BOARD_GROUP_ORDER.map((status) => ({
-    status,
-    items: items.filter((item) => taskBoardGroupOf(item.status) === status)
-  })).filter((group) => group.items.length > 0)
+function compareAgentTaskId(a: string, b: string): number {
+  const na = /^\d+$/.test(a) ? Number(a) : null
+  const nb = /^\d+$/.test(b) ? Number(b) : null
+  if (na !== null && nb !== null) return na - nb
+  if (na !== null) return -1
+  if (nb !== null) return 1
+  return a < b ? -1 : a > b ? 1 : 0
 }
 
 export function taskBoardItemByKey(
@@ -99,16 +102,6 @@ export function taskBoardItemByKey(
   key: string | null
 ): TaskBoardItem | undefined {
   return key ? items.find((item) => item.key === key) : undefined
-}
-
-// 미확인 완료 배지(0204 D-004) — 타일이 닫혀 있을 때 "완료된 것이 생겼다" 를 알리는 유일한
-// 신호다. 종단 상태 전부를 센다: 실패·중단도 사용자가 확인해야 할 결과다.
-export function taskBoardSettledKeys(items: TaskBoardItem[]): string[] {
-  return items
-    .filter(
-      (item) => item.status === 'completed' || item.status === 'failed' || item.status === 'aborted'
-    )
-    .map((item) => item.key)
 }
 
 const AGENT_STATUS_FALLBACK: AgentTaskStatus = 'pending'
@@ -229,7 +222,8 @@ function backgroundItem(task: SubagentTaskSummary, stopping: ReadonlySet<string>
       toolUses: task.childToolCount,
       tokenCount: task.tokenCount,
       currentToolLabel: task.currentChildLabel,
-      agentLabel: task.agentLabel
+      agentLabel: task.agentLabel,
+      settlementMessage: task.settlementMessage
     }
   }
 }
@@ -299,13 +293,6 @@ export function taskDetailRows(item: TaskBoardItem): TaskDetailRow[] {
     value: { kind: 'count', count: meta.toolUses }
   })
   return rows
-}
-
-// 목록 한 줄의 보조 메타(카드 두 번째 줄). ToolCall 을 다시 뒤지지 않게 파생값만 쓴다.
-export function isBackgroundTask(item: TaskBoardItem): item is TaskBoardItem & {
-  background: TaskBoardBackgroundMeta
-} {
-  return item.background !== null
 }
 
 // 중단 버튼을 노출할 항목인가 — background 이고 아직 진행 중일 때만. `stopping` 중에는 다시

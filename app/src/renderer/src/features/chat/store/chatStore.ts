@@ -1250,6 +1250,10 @@ export const chatActions = {
     dispatchActive({ type: 'REMOVE_RIGHT_PANEL_TILE', id }),
   selectTask: (key: string | null): void => dispatchActive({ type: 'SELECT_TASK', key }),
   openTask: (key: string): void => dispatchActive({ type: 'OPEN_TASK', key }),
+  selectSubagentTask: (toolRunId: string | null): void =>
+    dispatchActive({ type: 'SELECT_SUBAGENT_TASK', toolRunId }),
+  openSubagentTask: (toolRunId: string): void =>
+    dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId }),
   acknowledgeSettledTasks: (): void => dispatchActive({ type: 'ACKNOWLEDGE_SETTLED_TASKS' }),
   stopTask,
   setRightPanelColWidth: (col: number, width: number): void =>

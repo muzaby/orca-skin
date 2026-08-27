@@ -887,6 +887,156 @@ SDK tool_result / system task_*
 
 ---
 
+---
+
+# 라운드 2 (ΔV1) — 패널 분리 · cowork 3섹션 · verify r1 파생 이슈
+
+## [구현자 기입] 설계 리뷰 — r2
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| ΔV1 규범 행이 구현 가능한가 | 가능 | Decision 13건·AC 11행·pair 14·EP 7신설 모두 코드 지점으로 사상됐다. `PLAN_GAP` 0 |
+| 인용한 기존 테스트가 실재하는가 | **실재** | AT-32 양성 짝으로 인용한 두 케이스를 확인했다 — `chatReducer.task.test.ts` 의 `부모 Task 결과가 도착하면 중단 대기가 풀린다`(:101) · `TaskUpdate 의 completed 전이가 배지를 켠다`(:124). 둘 다 제거 대상 4종을 거치지 않는 실제 경로다 |
+| 인용 커밋이 실재하는가 | 실재 | `git show 72766d2:.../SubAgentTileContent.tsx` 가 245줄을 돌려준다 — D-016 복구 원본 |
+| §7-B 조사표의 수치가 맞는가 | **1건 정정** | 「예약 타일이 메뉴에 안 뜬다」 행은 맞다(`ChatTitleBar.tsx:23`). 다만 `reserved2` 참조를 **6** 으로 적었는데 실측 **파일 6 · 행 9** 다(`git grep -c reserved2 HEAD -- app/src`: ChatTitleBar 1 · tileRegistry 1 · rightPanelLayout.test **4** · rightPanelTiles 1 · en 1 · ko 1). plan 의 6 은 **파일 축**이고 일치한다 — 분모 단위를 여기 적어 둔다 |
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r2
+
+각 행의 `재현 명령` 은 이번 턴에 실제로 실행한 것이다.
+
+| EP | plan 분모 | 실측 | 재현 명령 | 관측 |
+|---|---|---|---|---|
+| EP-12 | 2 | **2/2** | `rg -n "action.id === 'task'\|action.id === 'subagent'" chatReducer.ts` | `:909` `:910` 두 분기 |
+| EP-13 | 5 | **5/5** | 지점별 `rg` 5회(아래) | ①`rightPanelTiles.ts:9` ②`tileRegistry.ts:9` ③`tileRegistry.ts:26` ④`chatReducer.ts:910` ⑤`ko.ts`+`en.ts` 각 1 |
+| EP-14 | 1 | **1/1** | `rg -n taskBoardOrdered src -g '!*.test.ts'` · `rg -n "\.sort\(" rightpanel/` | 소비 `TaskTileContent.tsx:50` 1곳 · 컴포넌트 프로덕션 `.sort(` **0**(유일 히트는 테스트 파일의 인덱스 단조 단언) |
+| EP-15 | 1 술어 + 2 생산 | **3/3** | `rg -n "if \(reason\) return" parts.ts` · `rg -n "reason: 'failed'" settle.ts subagent-settlement.ts` | 술어 `parts.ts:340` · 생산 `settle.ts:26` `subagent-settlement.ts:28` |
+| EP-16 | 2 | **2/2** | `rg -c "^import.*(lib/parts\|lib/taskBoard\|store/chatStore\|reducer/chatReducer)" TaskTileSections.tsx` | 섹션 2개(`:67` `:71`) · 세션 파생 import **0건** |
+| EP-17 | 3 | **3/3** | `rg -n "chatActions.openSubagentTask" transcript/` · `rg -c "chatActions.openTask" transcript/` | 3행(`SubagentNoticeRow:54`·`AgentTaskRow:75`·`AgentTaskBody:40`) · 잔여 `openTask` **0건** |
+| EP-18 | 4 | **4/4** | 심볼별 `rg -c <심볼> app/src` ×4 | `taskBoardSettledKeys`·`isBackgroundTask`·`MARK_SETTLED_TASKS`·`TASK_STOP_SETTLED` 전부 **0건** |
+| EP-07 | 3(ΔV1 정정) | **3/3** | `rg -n structuredOutput claude-map.ts writer.ts chatReducer.ts` | `claude-map.ts:385` · `writer.ts:275` · `chatReducer.ts:469` — D3 의 분모 정정이 실측과 일치 |
+| EP-08 | 1 | **1/1**(REGRESSION) | `rg -c "chatStore\|useChatSession\|getState" taskBoard.ts` | **0건** — import 4개가 전부 타입·shared·parts |
+| EP-06 | 3 | **3/3**(REGRESSION) | 변이 D·E (아래 잠금 절) | (1)(3)은 변이 E 가 3 red, (2)는 변이 D 가 1 red |
+
+**합계 검산: `2+5+1+3+2+3+4+3+1+3 = 27`.** ΔV1 신설 7행이 **20**, REGRESSION 으로 다시 닫은 V1 행이 **7**(EP-07 3 · EP-08 1 · EP-06 3)이다. 미충족 **0**.
+
+### V-pair 자기확인
+
+| Pair | 자기 상태 | 증거 |
+|---|---|---|
+| VP-20 (R-04a↔AT-09a/10a) | SELF_PASS | `taskBoard.test` AT-10a 2케이스(수치순·비수치 전순서) + 렌더 `두 파생이 다르다` 차집합 0 |
+| VP-21 (R-11↔AT-28) | SELF_PASS | 렌더 3케이스 — 그룹 순서 배열 단조 · 3줄 필드 · child transcript |
+| VP-22 (R-12↔AT-26/27/29) | SELF_PASS | 렌더 4케이스 + **변이 A**(섹션에 세션 파생 import) 스윕 red |
+| VP-23·VP-25 (R-13/SD-04↔AT-30) | SELF_PASS | reducer 3케이스 — 선택 2방향 · 제거 2방향 · 열기 2방향 |
+| VP-24 (R-14↔AT-32/33) | SELF_PASS | 4종 0건(음성) + 배지·중단해제 기존 2케이스(양성) + 문서 3관측 |
+| VP-26 (AR-02a↔IT-02a) | SELF_PASS | typecheck 3구성 0 + AT-28 헤더 출력 단언(③은 `Partial` 이라 typecheck 무관) |
+| VP-27 (AR-04↔IT-04) | SELF_PASS | EP-17 3/3 + 잔여 `openTask` 0 |
+| VP-28 (MD-02a↔UT-02a) | SELF_PASS | `taskBoardOrdered` 2케이스 |
+| VP-29 (MD-04↔UT-04) | SELF_PASS | `parts.test` AT-21 2케이스 + AT-31 + **변이 B** red |
+| **VP-08** (REGRESSION) | SELF_PASS | AT-21 이 `failed`/`aborted` 양방향을 단언 — 변이 B 가 이 pair 도 red 로 만든다 |
+| **VP-06·12·16** (REGRESSION) | SELF_PASS | 변이 D(1 red) · 변이 E(3 red) 재실행 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r2
+
+plan 이 적대 증거를 선택한 pair(VP-22·VP-29)와 REGRESSION 인용 변이(VP-06·VP-16), 그리고 **이번 턴에 새로 만든 구조적 oracle**(AT-26·AT-27)만 다룬다. 나머지는 `해당 없음 — 직접 oracle`.
+
+| # | 심은 결함 | 대상 | 재측정 | 판정 |
+|---|---|---|---|---|
+| A | `TaskTileSections.tsx` 에 `import { taskBoardFromMessages }` 추가 | VP-22 (AT-29 파생 0건) | 스윕 `0건 → 1건` | 검출 |
+| B | `isAbortedResult` 의 `reason` 우선 분기 삭제(수정 전 코드로 복귀) | VP-29 · VP-08 | `1 failed / 416 passed` — `AT-21` | 검출 |
+| C | 제목에 `flex-1` 복귀 + `line-through` 제거 | AT-26·AT-27(신규 구조적 oracle) | `2 failed / 7 passed` | 검출 |
+| D | coordinator enrich 의 `!turn.stoppedSubagents.has(...)` 제거 | VP-16 (EP-06②) | `1 failed / 281 passed` | 검출 |
+| E | 요청 직후 즉시 합성 정착 복원(0143 회귀) | VP-06 (EP-06①③) | `3 failed / 166 passed` | 검출 |
+
+- **스윕의 실재 판정을 한 번 고쳤다.** EP-16 을 처음엔 `rg "messages|parts"` 로 셌더니 **내가 쓴 주석 1건**이 걸렸다 — 낱말이 아니라 **import 그래프**가 불변식의 주어라서, 술어를 `^import.*(lib/parts|lib/taskBoard|store/chatStore|reducer/chatReducer)` 로 바꿨다. 변이 A 는 바꾼 술어로 검출을 확인한 것이다.
+- 변이 5건 모두 적용 후 원본 복원했고 `git diff --quiet <파일>` 로 HEAD 동일을 확인했다. 게이트 후 변경 파일 수 **22** 로 불변.
+
+## [구현자 기입] Product/UX 파생 검토 — r2
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 새 사용자 대면 문구에 소비자가 있는가 | **있다 — 렌더로 확인** | `sections.*` 3종 → AT-29 · `failedReason`/정착 사유 → 신설 케이스 `작업 타일의 실패 행이 정착 사유를 그대로 보인다` · `subagentTile.status.stopping` → 신설 케이스. **producer 만 만든 문구 0건** |
+| 실패가 "아무 일도 안 일어남" 으로 보이는가 | 아니오 | 중단 요청 실패는 `taskStopErrors` → 행 아래 빨간 줄(`TaskProgressList` 가 `stopErrors` 를 받아 내린다). 채널 종료는 이제 `실패` + 사유 문구 |
+| 이번 실패 경로가 Part I 상태 전이표의 어느 행인가 | 전건 대응 | `채널 종료 → 실패 + 사유 문구` 행이 이미 있었다(D1 은 그 행이 코드에서 안 지켜진 것) |
+| 빈 상태에서 무엇이 보이는가 | 3섹션이 그대로 | 항목 0건이면 `진행 상황` 이 안내문 한 줄, 나머지 두 섹션은 일러스트+설명. **타일 전체가 빈 화면이 되지 않는다** — 기존에는 전체가 빈 상태 카드였다 |
+| 늦게 도착한 응답이 화면을 되돌리는가 | 아니오 | 두 선택 상태 모두 파생 목록에서 항목이 사라지면 목록 뷰로 떨어진다(dangling key → `undefined`) |
+| 같은 항목이 두 타일에 보이는 것이 혼란인가 | **의도** | D-019. 책임이 다르다 — `백그라운드 작업` = 대화록 상세, `작업` = 한 줄 진행 요약. 파생 SSOT 는 `taskBoard.ts` 하나(EP-14) |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r2
+
+| # | 발견 | 분류 | 대응 |
+|---|---|---|---|
+| I1 | `renderToStaticMarkup` + zustand 는 **항상 `getInitialState()`** 를 돌려준다 — store 연결 컴포넌트는 시드가 반영되지 않아 렌더 단언이 빈 출력에서 자동 참이 된다 | 구현 세부 | **선조치** — 순수 View 3종(`TaskProgressList`·`SubAgentTaskList`·`SubAgentTaskDetail`) 추출. 0203 의 `PinnedSectionView` 와 같은 seam 이다. 처음 작성한 store-시드 방식 테스트가 **7 failed** 로 이 사실을 드러냈다 |
+| I2 | `TaskStatusIcon` 의 `index:number` 는 background 의 `toolUseId`(불투명 긴 문자열)를 18px 원에 넣는 조합을 타입이 허용했다 | 구현 세부 | **선조치** — plan 대로 판별 union(`{status:'pending'; badge}` \| `{status: Exclude<…>}`). 잘못된 칸은 컴파일 실패 |
+| I3 | `chevronD` 아이콘이 없다 — 실제 이름은 `chevD` | 구현 세부 | 선조치. 아이콘 이름은 `Icon.tsx` 의 union 이라 typecheck 가 잡았다 |
+| I4 | `ChatTitleBar.tsx:23` 의 `VISIBLE_TILE_REGISTRY` 가 `reserved2` 를 참조 — 정의 제거로 `TS2367` | 구현 세부 | 선조치. **plan §7-B 조사가 예고한 그대로** typecheck 가 `reserved2` 지점을 전부 드러냈다 — **4건**(`ChatTitleBar` 1 · `rightPanelLayout.test` 3; 같은 expect 블록의 2행이 1건으로 합쳐진다). 나머지 typecheck error 2건은 `taskBoard.test` 의 제거 심볼 import 라 다른 축이다 |
+| I5 | `백그라운드 작업` 타일 복구본은 `stopping` 상태 어휘가 없었다(`72766d2` 는 4종) | 구현 세부 | 선조치 — D-016a 대로 `status.stopping` 라벨 신설 + 대기 중 버튼 숨김. **복구가 D-005 를 되돌리지 않는다**는 것을 렌더 케이스로 잠갔다 |
+| I6 | `작업` 타일이 background 를 계속 보이므로, 같은 작업이 두 타일에 동시에 렌더된다 | **보고만** | D-019 의 직접 귀결이고 사용자 확정 사항이다. 재론하지 않는다 |
+| I7 | 섹션 접힘 상태가 로컬 `useState` 라 **타일을 닫았다 열면 초기화**된다(모두 펼침) | **보고만** | D-027 이 로컬 상태를 택했다. 세션/전역 영속이 필요하면 제품 판단 — 다음 handoff 후보 |
+| I8 | `출력`·`컨텍스트` 는 **항상 빈 상태**다 — 데이터가 붙기 전까지 사용자는 영원히 같은 문구를 본다 | **보고만** | D-022(사용자 확정). 첨부 이미지 자체가 빈 상태였다. 다만 "언제 채워지는가" 를 화면이 말하지 않는다는 점은 남는다 |
+
+### 설계 대비 명시적 차이 — r2
+
+**차이 1건: plan §11 이 `TaskTileContent.tsx` 를 store 연결 컴포넌트 하나로 두었으나, 순수 View 를 추출했다**(I1).
+
+| 축 | 대체물이 갖고 원본이 갖지 않던 실패 모드 | 다시 확인한 AC/§10 |
+|---|---|---|
+| **공유** | View 가 `stopErrors` 를 props 로 받으므로, 래퍼가 전달을 빠뜨리면 중단 실패 문구가 조용히 사라진다(원본은 행이 직접 store 를 읽어 누락이 불가능했다) | `TaskProgressList` 기본값 `{}` + 래퍼 `TaskTileContent:294` 가 실제로 전달. AT-27 의 stopError 경로는 렌더 케이스가 덮지 않으므로 **미덮임으로 남긴다**(아래 사람 실기) |
+| **재진입** | 없음 — View 가 상태를 갖지 않는다(접힘 `useState` 는 `TileSection` 소유이고 항목과 무관) | AT-29 의 `aria-expanded` 3건 |
+| **만료** | 해당 없음 — 캐시·TTL 을 도입하지 않았다 | — |
+| **다른 무효화 축** | 해당 없음 — `useMemo` 의존성(`messages`·`stopping`)은 원본과 동일하고 View 는 매 렌더 props 를 그대로 받는다 | 기존 `useTaskBoard` 무변경 |
+
+**차이 2건째: `SubAgentTileContent.tsx` 도 같은 이유로 목록/상세를 View 로 갈랐다.** 축별 판정은 위와 동일하며, 추가 실패 모드는 `startedAtMs` 를 props 로 받는 것 하나다 — 래퍼가 `useSubagentMeta` 결과를 그대로 넘기고(`:122`) 원본과 같은 값이다.
+
+## [구현자 기입] 구현 보고 — r2
+
+| 항목 | 값 |
+|---|---|
+| 변경 파일 | **22**(수정 19 · 신규 3). `app/**` 19 · `docs/**` 1 · 나머지는 plan/INDEX(별도 커밋) |
+| 신규 파일 | `TaskTileSections.tsx` · `rightPanelTiles.render.test.ts` · `SubAgentTileContent.tsx`(복구) |
+| 관측한 게이트 산출 | `lint` **0 error · 1 warning**(`useTranscriptVirtualizer.ts:22` `react-hooks/incompatible-library` — 기존, 변경 무관) · `typecheck` **error TS 0건**(3구성) · `vitest` **236파일 / 2432케이스 / 실패 0** · `check-doc-inventory --check` **9 items, 79 channels · prose ok · links ok** |
+| ABI 처리 | 최초 `vitest` 는 **5파일 / 48케이스 red** — 전부 `Module did not self-register: better_sqlite3.node`. `app/AGENTS.md §better-sqlite3 ABI` 가 적은 **실측 5파일과 정확히 일치**(`infra/db/{queries,migrate}` · `extensions/builder` · `orchestration/fork` · `app/chat-turn.continuity`). `npm rebuild better-sqlite3`(Node ABI) 후 전건 green |
+| 인벤토리 수치 | 채널 **79** · variant **21** · 마이그레이션 **17** — **불변**(설계 예측대로 신규 IPC 0 · 신규 variant 0) |
+| 게이트가 트리를 바꿨는가 | 아니오 — `lint --fix` 실행 후에도 `git status --short` **22** 로 불변 |
+| 검증 중 잔여물 | 변이 5건 전부 원본 복원 확인(`git diff --quiet`). 백업은 scratchpad 에만 |
+
+### AC 자기보고 상세 — r2
+
+ΔV1 이 정정·신설한 11행만 센다. `V1` 의 나머지 22행은 이번 변경 경로에 닿지 않는 `INHERITED` 다.
+
+| AC | 결과 | 이번 턴 재현 관측 |
+|---|---|---|
+| AC9a | ✅ | 렌더 `두 파생이 다르다` — 차집합 `[]`, board 가 `agent:1` 포함·background 파생은 미포함 |
+| AC10a | ✅ | `taskBoard.test` — `['1','2','10',bgA,bgB]` 순서 동등 · 비수치 id `['3','alpha','beta']` |
+| AC26 | ✅ | 완료 제목 class 에 `line-through` 有 · 진행 중 제목엔 無(양방향) |
+| AC27 | ✅ | `/로그 파서 조사<\/span><button/` 매치 · 제목 class 에 `flex-1` 無 · `truncate` 有 · 버튼 실재 |
+| AC28 | ✅ | 그룹 4종 인덱스 단조 증가 · 3줄 필드 · child 텍스트 · 중단 버튼이 '대화록 보기' 우측(제목 우측 아님) |
+| AC29 | ✅ | 헤더 3종 + 설명문 2종 + `aria-expanded="true"` 3건 · 세션 파생 import **0건**(변이 A 로 감도 확인) |
+| AC30 | ✅ | reducer 6단언 — 선택 2방향 · 제거 2방향 · 열기 2방향 |
+| AC21 | ✅ | `reason:'failed'`+'중단' 메시지 → `failed` 2케이스(생산 지점 2곳 그대로) · `reason:'aborted'` → `aborted` 회귀 짝 |
+| AC31 | ✅ | 요약 필드 + **화면 출력** 둘 다 — `채널이 종료되어 …` 가 실패 행에 실린다 · `aborted` 사유도 유지 |
+| AC32 | ✅ | 4종 `rg` **0건**(음성) + 배지·중단 해제 기존 2케이스 green(양성) |
+| AC33 | ✅ | `MockScenarioId.*13종` **0건** · `structuredOutput?` 존재 · 포인터 `MOCK_SCENARIO_IDS` 가 `ipc.ts:175` 실재 심볼 |
+
+**검산: `✅ 11 · ⚠️ 0 · ❌ 0 = 총 11`**(ΔV1 분모). `V1` 22행 INHERITED 를 더하면 **33** 이고, 그중 r1 에서 ⚠️ 였던 **AC11·AC20·AC25** 는 이번에도 사람 실기로 남는다.
+
+**남은 사람 실기**(기계로 못 내린 것만):
+
+| 항목 | 기계가 닫은 범위 | 사람이 볼 것 |
+|---|---|---|
+| 3섹션 시각(D-017) | 헤더·접힘·파생 0건 | 첨부 cowork 이미지와 여백·구분선·일러스트 대조, 라이트/다크 |
+| 중단 버튼 자리(D-020) | DOM 형제 순서 · `flex-1` 부재 | 제목이 길 때 실제 잘림/버튼 유지 |
+| 복구 충실도(D-016) | 그룹 순서·3줄 필드·상세 | `72766d2` 와 시각 동일성 |
+| 중단 실패 문구 | reducer 상태 전이 | `stopErrors` 가 화면에 실제로 뜨는지(렌더 케이스 미덮임 — 위 차이표) |
+| AC11·AC20 | 경로·격리 | 턴-후 갱신 · 2세션 전환 |
+
+## [구현자 기입] Review Signals — 사실만 — r2
+
+- **이전 라운드와 같은 축인가**: 아니다. r1 의 D1 은 *권위 필드 vs 메시지 문구* 축이고 이번 라운드가 그것을 닫았다. 같은 불변식의 형제 지점을 4축으로 전수 검색해 **renderer 1 · main 0** 을 확인했다 — 남은 곳이 없다.
+- **막았어야 할 plan 지침·AC 가 있었는가**: **있었다.** `V1` AC21 이 "`실패` 로 정착" 을 명시했으나 **UT pair 가 없어** 구현자가 "경로 무변경" 으로 대체할 수 있었다. ΔV1 이 `MD-04/UT-04` 를 신설해 그 자리를 메웠다 — 이번 라운드의 변이 B 가 그 pair 에 눈이 있음을 보였다.
+- **반복해서 부딪히는 환경 한계**: better-sqlite3 ABI. 이번엔 `npm rebuild better-sqlite3` 로 전건 green 까지 갔다(r1 은 1파일 로드 실패를 남겼다). 대신 이 트리는 이제 Node ABI 라 `dev`/`build` 는 재빌드가 필요하다.
+- **새로 관측한 도구 한계**: `renderToStaticMarkup` + zustand = 항상 `getInitialState()`. 저장소에 이 사실이 적힌 곳이 없어 처음 작성한 테스트 7건이 조용히 빈 출력을 단언할 뻔했다(음성 단언만 있었다면 통과했을 것이다). 순수 View seam 으로 우회했고 근거를 두 컴포넌트 주석에 남겼다.
+- **현재 라운드 수**: **2**.
+
 ## [검증자 기입] 파생 이슈
 
 > **ΔV1 처분(2026-08-27, 설계 턴).** `대응 방향` 은 제안이고 닫힘은 `출처` 가 가리키는 계약의 성립이다 — 아래 `귀속` 칸이 ΔV1 에서 그 계약을 어디로 옮겼는지 적는다.
