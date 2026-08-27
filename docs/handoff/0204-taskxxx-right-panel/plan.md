@@ -10,11 +10,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-27 |
 | 매핑 | 없음 |
-| 상태 | DRAFT → READY |
-| V mode | `Baseline V` |
+| 상태 | DRAFT → READY → impl → verify/FAIL(r1) → **READY (ΔV1)** — 단계·좌표 정본은 [`INDEX.md`](../INDEX.md) |
+| V mode | `Baseline V + ΔV1` |
 | 기준 V | `none` — 0136·0143 은 V 규약 이전 handoff 라 상속할 명시 V node 가 없다 |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 이번 V revision | `ΔV1` (`72766d2:V1` 기준) — 사용자 제품 결정 변경(패널 분리·cowork 3섹션)으로 D-003 을 supersede 하고, verify r1 의 D1·D2·D4 를 규범 행에 귀속시킨다. 구 행은 덮어쓰지 않고 supersede |
+| 유효 V | `V1 + ΔV1` |
 
 ---
 
@@ -43,7 +43,7 @@
 |---|---|---|---|---|---|
 | D-001 | 범위는 `TaskCreate`·`TaskGet`·`TaskList`·`TaskUpdate`·`TaskOutput`·`TaskStop` 6개 도구의 실제 호출 관찰로 한정한다 | "별도의 범용 Task 추상화나 타 Agent SDK 대응은 수행하지 않는다" | 명세 §1 | ACTIVE | — |
 | D-002 | 일반 Task 상태의 SSOT 는 **transcript parts 의 순수 fold** — main 에 Task 스토어를 두지 않는다 | 명세 §3 "별도의 범용 Task 모델이나 backend 공통 추상화는 추가하지 않는다". 세션별 격리·재로드 복원이 기존 `sessions[key].messages` 로 공짜 | 추론 + 명세 §3 | ACTIVE | — |
-| D-003 | 우측 패널은 기존 `subagent` 타일을 **`task`(`작업`) 타일로 확장**해 일반 Task 와 background Task 를 한 목록에 둔다 | 명세 §3 예시가 진행 중/대기 중/완료 그룹 안에 두 종류를 섞어 보여준다. 사용자가 "단일 '작업' 타일로 통합"을 선택 | 사용자 턴 (AskUserQuestion) | ACTIVE | — |
+| D-003 | 우측 패널은 기존 `subagent` 타일을 **`task`(`작업`) 타일로 확장**해 일반 Task 와 background Task 를 한 목록에 둔다 | 명세 §3 예시가 진행 중/대기 중/완료 그룹 안에 두 종류를 섞어 보여준다. 사용자가 "단일 '작업' 타일로 통합"을 선택 | 사용자 턴 (AskUserQuestion) | **SUPERSEDED** | → D-015 (사용자가 분리를 지시) |
 | D-004 | 완료 통지는 **패널 내 표시만** — 타일 칩의 미확인 배지 + 완료 그룹 이동. OS 알림 게이트를 바꾸지 않고 in-app 토스트도 만들지 않는다 | 사용자가 세 선택지 중 "패널 내 표시만"을 선택. 명세 §2 의 "완료 notification" 문언보다 좁다는 점을 제시한 뒤의 선택 | 사용자 턴 (AskUserQuestion) | ACTIVE | — |
 | D-005 | background Task 중단은 클릭 즉시 `중단됨`으로 확정하지 않고 `중단 중` 을 거쳐 SDK 확인 후 확정한다. 중단 실패면 `진행 중` 복구 + 사유 표시 | 명세 §2 "즉시 '중단됨'으로 확정하지 않는다" · "중단 실패 시에는 다시 '진행 중' 상태로 복구하고 실패 원인을 표시할 수 있어야 한다" | 명세 §2 | ACTIVE | D-005 가 0143 의 "클릭 즉시 낙관 정착"(`chat-turn/index.ts:182`)을 대체한다 |
 | D-006 | `중단 중` 이 영구 고착되지 않도록 main 이 `STOP_SETTLE_TIMEOUT_MS` watchdog 으로 합성 정착한다 | D-005 는 "확인될 때까지 기다린다"를 요구하고, 명세 §2 는 별도로 "GUI를 영원히 '진행 중'으로 남겨서는 안 된다"를 요구한다. 두 요구를 동시에 만족하는 유일한 구조 | 명세 §2 + 설계자 판단 | ACTIVE | — |
@@ -55,9 +55,26 @@
 | D-012 | 이번 작업의 구현 주체는 Codex 다. Claude 는 plan 만 커밋한다 | 사용자가 "plan만 커밋 → Codex 구현"을 선택 | 사용자 턴 (AskUserQuestion) | SUPERSEDED | D-014 |
 | D-014 | 이번 작업의 구현 주체는 Claude 다 — plan → impl → verify 절차는 낮추지 않는다 | 사용자가 같은 세션에서 `/handoff-impl` 을 명시 호출했다. `docs/handoff/AGENTS.md §역할 분담` 이 "사용자가 명시적으로 요청하면 Claude 가 기능 구현을 맡을 수 있으나 절차는 낮추지 않는다" 를 허용한다 | 사용자 턴 (`/handoff-impl`) | ACTIVE | D-012 를 대체 |
 | D-013 | `skip_transcript` task 는 계속 드롭한다(패널에도 안 띄운다) | SDK 는 "may still appear in a tasks panel" 로 허용만 하고 명세는 요구하지 않는다. 현행 `mapTaskSystem` 드롭을 유지해 범위를 넓히지 않는다 | 설계자 판단 (SDK `SDKTaskStartedMessage.skip_transcript` 주석) | ACTIVE | — |
+| D-015 | 우측 패널은 **두 타일**을 갖는다 — `subagent`(`백그라운드 작업`) 와 `task`(`작업`) | "백그라운드 작업 패널과 작업 패널이 합쳐졌는데, **패널을 분리할 것**" | 사용자 턴 (2026-08-27) | ACTIVE | D-003 을 대체 |
+| D-016 | `백그라운드 작업` 타일은 `72766d2` 의 **기능·디자인을 그대로 복구**한다 — 상태 그룹 4종·3줄 카드·child transcript 상세·'대화록 보기' 우측의 중단 버튼 자리까지 | "백그라운드 작업 패널과 **기존의 기능, 디자인을 복구할 것**" · "백그라운드 패널은 **완전 복구**이다" | 사용자 턴 (2026-08-27) | ACTIVE | — |
+| D-016a | 단 D-016 의 복구 대상은 **표시(디자인·정보구조)** 다 — 중단 수명주기는 D-005·D-006(`중단 중` → SDK 확정)을 유지한다 | D-005 는 명세 §2 "즉시 '중단됨'으로 확정하지 않는다" 에서 온 ACTIVE 결정이고 사용자가 이번 턴에 철회하지 않았다. Ledger 규칙 — 최신 턴에 언급되지 않았다는 이유로 삭제하지 않는다 | 설계자 판단 + D-005 승계 | ACTIVE | — |
+| D-017 | `작업` 타일 내용은 cowork 우측 패널 양식을 따른다 — **한 카드 안에 접히는 3섹션**(`진행 상황` · `출력` · `컨텍스트`), 각 섹션은 제목 + chevron | "새로운 패널의 cowork의 스타일을 따라갈것" + 첨부 이미지(claude.ai/cowork 우측 패널) · 사용자 선택 "`작업` 타일 안에 3섹션" | 사용자 턴 + 첨부 (2026-08-27) | ACTIVE | — |
+| D-018 | `진행 상황` 섹션은 **상태 그룹 헤더 없이** id 오름차순 단일 목록이고, 완료 항목은 제자리에서 **취소선**(+ ✓)으로 표시한다 | "작업 나열 방식을 id 로 순자적으로 나열하고 다 된 작업은 스트라이크 표시를 추가로 할 것" · 사용자 선택 "그룹 제거 + id 단일 목록" | 사용자 턴 (2026-08-27) | ACTIVE | verify r1 D5(그룹 내 순번)를 함께 닫는다 |
+| D-019 | `진행 상황` 목록은 TaskXXX(할 일)와 background 실행 태스크를 **함께** 나열하고, background 행에만 중단 버튼이 붙는다 | "Taskoutput 이 백그라운드작업으로 출력을 검색한다. 그리고 taskstop 도구도 있다 code.claude.com/docs/en/tools-reference 참고할것" — Task 도구군은 두 네임스페이스를 모두 포함한다. **분리(D-015)의 의미는 background 전용 상세(대화록)를 갖는 타일을 되살리는 것**이다 | 사용자 턴 (2026-08-27) + SDK 실측(§7-B 조사) | ACTIVE | — |
+| D-020 | background 행의 중단 버튼은 **제목 텍스트 바로 오른쪽**에 붙는다 — 행 우측 끝 정렬이 아니다 | "중단 아이콘이 우측에 얼라인 되어있는데 타이틀 우측에 나열할 것" | 사용자 턴 (2026-08-27) | ACTIVE | — |
+| D-021 | 타일 정의는 4종을 유지한다 — `plan` · `subagent` · `task` · `reserved1`. `reserved2` 를 `task` 가 대체한다 | 사용자 선택 "4종 — 예약 2 를 대체" | 사용자 턴 (AskUserQuestion) | ACTIVE | — |
+| D-022 | 이번 라운드에 `출력`·`컨텍스트` 섹션은 **빈 상태만** 만든다 — 일러스트 + 설명문이고 parts 파생 코드를 두지 않는다 | 사용자 선택 "진행 상황만 — 나머지는 빈 상태". 첨부 이미지 자체가 세 섹션의 빈 상태다. 두 섹션 충전은 다음 handoff | 사용자 턴 (AskUserQuestion) | ACTIVE | — |
+| D-023 | `isAbortedResult` 는 권위 필드 `reason` 이 있으면 **그것만** 본다 — 메시지 부분문자열은 `reason` 이 없을 때의 폴백이다 | verify r1 D1 — `reason:'failed'` + 메시지에 '중단' 인 채널 종료 정착이 패널에서 `중단됨` 으로 읽히고 행 문구가 `사용자에 의해 중단됨` 이라 원인을 거짓 진술했다(AC21 위반) | verify r1 (`337a696`) | ACTIVE | — |
+| D-024 | 실패로 정착한 background 행은 **정착 사유 문구를 그대로** 보인다 — `aborted` 분기와 대칭 | verify r1 D4 · 명세 §2 가 `실행 세션 종료` 표시를 요구한다. 사유는 `result.output.message`(`subagent-settlement.ts:28` — `ev.summary` 를 싣는다)에 이미 있다 | verify r1 | ACTIVE | — |
+| D-025 | 미배선 표면 4종을 **제거**한다 — `taskBoardSettledKeys` · `isBackgroundTask` · `MARK_SETTLED_TASKS` · `TASK_STOP_SETTLED` | verify r1 D2. `taskBoardSettledKeys` 는 배지 판정 규칙이 실제 경로(reducer)와 달라 SSOT drift 이기도 하다. 실제 배지·중단 해제는 reducer 의 이벤트 경로가 수행하므로 배선이 아니라 제거가 맞다 | verify r1 | ACTIVE | — |
+| D-026 | `docs/IPC_CONTRACT.md` 의 코드 파생 수치·열거를 정정한다 — ① `tool.call.completed` 필드 목록에 `structuredOutput` 추가 ② `MockScenarioId` **13종** 열거를 코드 정본 포인터로 교체 | 0204 구현이 만든 문서 드리프트 2건이고 verify r1 이 못 잡았다(문서 게이트 정규식이 이 형태를 세지 않는다 — `check-doc-inventory.mjs` 추적 항목 9종에 mock 시나리오가 없다). root `AGENTS.md` 원칙 4 = 셀 수 있는 수치를 문서에 적지 않는다 | 이번 턴 실측 | ACTIVE | — |
+| D-027 | 섹션 접힘 상태는 `TaskTileContent` 의 **로컬 `useState`** 다 — reducer 에 두지 않는다 | 외부에서 섹션을 여닫는 소비자가 없다(transcript 행은 타일과 항목을 열지 섹션을 열지 않는다). 세션별 `ChatState` 에 넣으면 표시 취향이 세션마다 갈라진다 | 설계자 판단 | ACTIVE | — |
 
 ### 갱신 메모
 
+- **ΔV1 갱신(2026-08-27)**: 신규 **D-015 ~ D-027**. SUPERSEDED **1건 — D-003**(단일 타일 통합 → 두 타일 분리). D-001·D-002·D-004~D-011·D-013·D-014 는 **문장 그대로 유지**된다 — 사용자가 바꾼 것은 *패널 구성*이지 관측 범위·fold 방식·통지 수단·중단 수명주기가 아니다.
+- **ΔV1 `ACTIVE 결정 ↔ AC` 대조: 충돌 0.** 확인한 쌍 — D-015↔AT-09a(두 타일이 서로 다른 집합을 낸다) · D-016↔AT-28(복구 대상은 정보구조) · **D-016a↔AT-12/13/15 비충돌**(복구가 `중단 중` 을 되돌리지 않는다, 두 문장이 서로 다른 축) · D-018↔AT-10a(그룹 배열이 아니라 단일 순서 배열) · D-019↔AT-09a(진행 상황이 두 종류를 갖는다) · D-020↔AT-27 · D-022↔AT-29(빈 상태 + 파생 0건) · D-023↔AT-21(권위 필드 우선) · D-025↔AT-32 · **D-010 ↔ AT-32 비충돌**(제거 대상 4종에 `TaskOutput` 관측 경로가 없다) — **반대를 요구하는 AC 0건**.
+- **D-019 는 D-015 를 좁히지 않는다**: 두 타일이 background 를 함께 보이되 *책임*이 다르다 — `백그라운드 작업` = 전용 상세(child transcript·프롬프트·StatusLine), `작업` = 한 줄 진행 요약. 같은 항목이 두 곳에 *렌더*되지만 파생 SSOT 는 `taskBoard.ts` 하나다(§10 EP-14).
 - 이번 턴에서 새로 추가된 결정: D-001 ~ D-013 (신규 handoff).
 - 변경된 결정: D-005 가 0143 의 낙관 정착을 대체한다 — 사용자 명세가 `중단 중` 중간 상태를 명시 요구했다.
 - 변경된 결정(구현 턴 직전): D-012 → **D-014** — 사용자가 `/handoff-impl` 을 명시 호출해 구현 주체가 Claude 로 바뀌었다. AC·V node/pair·§10 은 불변이다.
@@ -253,6 +270,179 @@
 | 문서 인벤토리 | `shared/ipc.ts` 를 고치므로 채널/variant 수가 바뀌었는지 확인해야 한다 | `node app/scripts/check-doc-inventory.mjs --check` | 수치 변동 시 생성물 갱신 누락만 blocking |
 
 > 이번 설계는 새 IPC 채널 0개·새 `NormalizedEvent` variant 0개·새 마이그레이션 0개다(§8) — 인벤토리 수치는 불변이어야 하고, 바뀌었다면 설계와 다르게 구현된 것이다.
+
+---
+
+## 7-B. ΔV1 — 패널 분리 · cowork 3섹션 · verify r1 파생 이슈
+
+> **적용 순서: `V1` → `ΔV1`.** 두 출처가 합류한다 — ① 사용자 제품 결정 변경(D-003 supersede), ② verify r1(`337a696`)의 파생 이슈 D1·D2·D4·D5. 구 행은 §7·§7-A·§10 에 그대로 두고 여기서 `SUPERSEDED` 로 가리킨다.
+
+| 출처 | 진단 | ΔV1 의 답 |
+|---|---|---|
+| 사용자 턴 | D-003(단일 타일 통합)이 사용자가 원한 결과가 아니었다 — background 전용 상세를 잃었다 | D-015·D-016 — 두 타일. `subagent` 복구 + `task` 신설 |
+| 사용자 턴 + 첨부 | `작업` 타일의 시각 정본이 "첨부 양식"(AC25)이라는 이름뿐이었다 | D-017 — cowork 우측 패널의 **3섹션 아코디언**으로 형태를 고정. AT-29 가 섹션 존재를 잠근다 |
+| 사용자 턴 | 상태 그룹 나열이 요구와 다르다 | D-018 — 그룹 제거, id 단일 순서. `taskBoardGroups` 는 `작업` 타일에서 소비자를 잃는다 |
+| verify r1 **D1** | `reason:'failed'` 정착이 `aborted` 로 읽힌다(AC21 위반) | D-023 — `isAbortedResult` 가 권위 필드 우선. **MD-04/UT-04 신설** — V1 에 파서 불변식 노드가 없어 AC21 이 UT pair 없이 AT 만 갖고 있었다 |
+| verify r1 **D2** | 미배선 표면 4종 + SSOT drift | D-025 — 제거. AT-32 가 음성+양성 짝으로 잠근다 |
+| verify r1 **D4** | 실패 행에만 사유가 없다 | D-024 — `aborted` 분기와 대칭. AT-31 |
+| verify r1 **D5** | 번호가 그룹 내 순번 | D-018 이 흡수 — 번호는 **task id** 다 |
+| verify r1 **D3** | 구현 보고 합계 18 ≠ 내역 19 | 규범 행 변경 없음 — §10 EP-07 분모를 **3** 으로 정정(아래 표) |
+| 이번 턴 실측 | `IPC_CONTRACT.md` 문서 드리프트 2건 | D-026 — AT-33 |
+
+### ΔV1 조사 — 이번 턴 실측
+
+| 대상 | 검색 / 출처 | N | 의미 |
+|---|---|---|---|
+| `TaskStop` 이 무엇을 멈추는가 | SDK 0.3.220 `sdk-tools.d.ts:702` `TaskStopInput.task_id` = "The ID of the **background task** to stop" + [tools-reference](https://code.claude.com/docs/en/tools-reference) | 1 | background 전용. D-019 의 근거이고, 일반 Task(`taskId` camelCase)에는 중단 op 이 없다 |
+| 일반 Task 상태 어휘 | `sdk-tools.d.ts:2509` `TaskUpdateInput.status` | 4 | `pending`·`in_progress`·`completed`·`deleted` — 중단·실패 상태가 없다. `진행 상황` 섹션의 아이콘 분기가 이 4종 + background 5종을 덮는다 |
+| `TaskCreateOutput.task` 필드 | `sdk-tools.d.ts:3602` | 2 | `id`·`subject` 뿐 — `activeForm` 은 출력에 없다. 진행 중 라벨은 `subject` 를 쓴다 |
+| `reason:'failed'` + '중단' 메시지 조합 | `rg "message: '[^']*중단\|summary: '[^']*중단" app/src/main`(비테스트) → **10 사이트**. 그중 `reason:'failed'` 로 흐르는 것: `settle.ts:26` · `subagent-settlement.ts:28`(`chat-turn/index.ts:68` 의 summary 를 싣는다) | **2 / 10** | D-023 의 강제 지점 전수. 나머지 **8** 은 전부 `reason:'aborted'`(`subagent-settlement.ts:23,81,102` · `settle.ts:25` · `recovery.ts:5` · `mock-scenarios.ts:371,380` · `chat-turn/index.ts:81`)라 무영향 — 이번 턴 전수 확인 |
+| 타일 메뉴의 가시 항목 | `ChatTitleBar.tsx:22` `VISIBLE_TILE_REGISTRY` 가 `reserved1`·`reserved2` 를 제외 | 2 | **예약 타일은 메뉴에 뜨지 않는다** — D-021 의 4종은 *정의* 수이고 사용자가 보는 메뉴는 `계획`·`백그라운드 작업`·`작업` 3항목이 된다 |
+| `reserved2` 프로덕션 참조 | `rg reserved2 app/src` | 6 | 정의 1 · 레지스트리 1 · 메뉴 필터 1 · i18n 2 · 테스트 3행. 제거 시 전부 따라간다(typecheck 강제) |
+| `structuredOutput` 문서화 | `rg structuredOutput docs/` | **0** | 코드 `ipc.ts:536`·`ipc.ts:1101` 에 있으나 `IPC_CONTRACT.md:447` 필드 목록에 없다 → D-026 ① |
+| `MockScenarioId` 수 | 코드 `ipc.ts:175` = **14** vs `IPC_CONTRACT.md:386` = **13종** 열거 | 1 | 문서 게이트가 세지 않는 형태(`check-doc-inventory.mjs` 추적 9종에 없다) → D-026 ② |
+| 출력·컨텍스트를 채울 재료 | `toolMeta.ts:17` `FILE_EDIT_TOOLS`(3) · `FILE_TOOLS`(4) · `toolDiffStat` · 채널 `orca:files:openPath` · 0201 의 cwd/브랜치/참조경로 | — | 세 섹션 모두 새 IPC·DB 없이 순수 fold 로 채울 수 있다. **이번 라운드는 D-022 로 빈 상태만** 만든다 |
+
+### ΔV1 Node registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| R-04a | R | §7-B AT-09a·AT-10a — 두 타일의 책임 분리 + `진행 상황` 단일 순서 | **CHANGED** | `V1:R-04` 대체 |
+| R-11 | R | §7-B AT-28 — `백그라운드 작업` 타일 복구 | **NEW** | — |
+| R-12 | R | §7-B AT-26·AT-27·AT-29 — cowork 3섹션 · 취소선 · 중단 버튼 자리 | **NEW** | — |
+| R-13 | R | §7-B AT-30 — 두 타일 선택 상태 독립 | **NEW** | — |
+| R-14 | R | §7-B AT-32·AT-33 — 미배선 표면 제거 · 문서 계약 정정 | **NEW** | — |
+| R-08 | R | §7 AT-20/21 | INHERITED | `V1` — 계약 문장 불변, D-023 이 파생만 고친다 |
+| R-01·R-02·R-03·R-05·R-06·R-07·R-09 | R | §7 | INHERITED | `V1` — r1 에서 PASS |
+| R-10 | R | §7 AT-24/25 | INHERITED | `V1` — 상세 뷰모델 불변(AT-25 의 "첨부 양식"은 AT-29 가 구체화) |
+| AT-09a·AT-10a·AT-26~AT-33 | AT | §7-B 각 행 | **NEW/CHANGED** | AT-09/AT-10 대체 · 나머지 신설 |
+| SD-04 | SD | §7-B — 두 타일의 선택·표시 수명주기 | **NEW** | — |
+| ST-04 | ST | §7-B AT-30 | **NEW** | — |
+| SD-01·SD-02·SD-03 | SD | §5 | INHERITED | `V1` — 관측·중단·귀속 수명주기 무변경 |
+| AR-02a | AR | §7-B EP-13 — 타일 조립(정의 4종·콘텐츠 2종·헤더 override 2종·선택 상태 2개) | **CHANGED** | `V1:AR-02` 대체 |
+| AR-04 | AR | §7-B EP-17 — transcript 3행 → `subagent` 타일 배선 | **NEW** | — |
+| IT-02a·IT-04 | IT | §7-B AT-09a/28 · AT-30 | **CHANGED/NEW** | `V1:IT-02` 대체 · IT-04 신설 |
+| AR-01·AR-03 | AR | §10 | INHERITED | `V1` — 구조화 출력 계약·stop 배선 무변경 |
+| MD-02a | MD | §7-B EP-14 — `taskBoardOrdered` 순서 불변식(그룹 제거) | **CHANGED** | `V1:MD-02` 대체 |
+| MD-04 | MD | §7-B EP-15 — `isAbortedResult` 권위 필드 우선 | **NEW** | — |
+| UT-02a·UT-04 | UT | §7-B AT-10a · AT-21/31 | **CHANGED/NEW** | `V1:UT-02` 대체 · UT-04 신설 |
+| MD-01·MD-03 | MD | §11 | INHERITED | `V1` — 파서·`waitForTask` 무변경 |
+
+### ΔV1 Pair registry
+
+| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §10 강제 지점 전수 |
+|---|---|---|---|---|---|---|
+| VP-20 | R-04a ↔ AT-09a/10a | REQUIRED | parts → `taskBoardFromMessages` → `taskBoardOrdered` → `진행 상황` 섹션 ∥ `subagentTasksFromMessages` → `백그라운드 작업` 타일 | 두 파생의 항목 집합·순서 배열 동등 단언 UT | not selected — 배열을 직접 관측 | EP-13 · EP-14 |
+| VP-21 | R-11 ↔ AT-28 | REQUIRED | `subagent` 타일 → `SubAgentTileContent` → 그룹·카드·상세 | 그룹 순서 배열 + 카드 필드 존재 단언(렌더 문자열) | not selected — 출력 내용을 직접 관측 | EP-13 |
+| VP-22 | R-12 ↔ AT-26/27/29 | REQUIRED | `TaskTileContent` → 3섹션 → 행 | 취소선 클래스 유무 · 버튼이 제목 직후 형제 · 두 섹션의 파생 호출 0건 | **required** (AT-29) — "파생 코드 0" 은 0건 주장이다. `출력` 섹션이 parts 를 읽는 변이를 심어 AT-29 가 red 인지 확인 | EP-16 |
+| VP-23 | R-13 ↔ AT-30 | REQUIRED | `SELECT_TASK` / `SELECT_SUBAGENT_TASK` → 두 상태 → 두 타일 | 한쪽 선택이 다른 쪽을 바꾸지 않는다는 reducer 단언(양방향) | not selected — 두 필드를 직접 관측 | EP-12 |
+| VP-24 | R-14 ↔ AT-32/33 | REQUIRED | 저장소 전수 스윕 + 문서 | 4종 부재(음성) **+ 배지·중단 해제가 계속 동작(양성 짝)** · 문서 문자열 존재/부재 | not selected — 양성 짝이 방향을 잡는다 | EP-18 |
+| VP-25 | SD-04 ↔ ST-04(AT-30) | REQUIRED | 타일 열기/닫기/전환 전체 | 타일 제거 시 그 타일의 선택만 비워진다는 단언 | not selected | EP-12 |
+| VP-26 | AR-02a ↔ IT-02a(AT-09a/28) | REQUIRED | `rightPanelTiles` → `tileRegistry` → `RightPanelTile` → 두 콘텐츠 | 두 타일 id 가 각각 다른 콘텐츠·헤더로 해석된다는 단언 + typecheck | not selected | EP-13 |
+| VP-27 | AR-04 ↔ IT-04(AT-30) | REQUIRED | transcript 행 → `openSubagentTask` → `subagent` 타일 활성 | 3행 각각이 `subagent` 를 여는지 단언(`task` 가 아님) | not selected | EP-17 |
+| VP-28 | MD-02a ↔ UT-02a(AT-10a) | REQUIRED | `taskBoard.ts` 순수 정렬 | id 순서 배열 동등 + background 후치 단언 | not selected | EP-14 |
+| VP-29 | MD-04 ↔ UT-04(AT-21/31) | REQUIRED | `parts.ts` `isAbortedResult` → `deriveSubagentTaskStatus` → 두 타일 | `reason:'failed'`+'중단' 메시지 → `failed`, `reason:'aborted'` → `aborted` 두 단언 | **required** — 회귀 방향. `reason` 우선 분기를 지우는 변이를 심어 red 인지 확인 | EP-15 |
+| **VP-08** | R-08 ↔ AT-20/21 | **REGRESSION** | `settleDeadBackgroundTasks` → 정착 → fold → 타일 | AC21 재측정 — 채널 종료가 `실패` 그룹/문구로 읽힌다 | VP-29 의 변이가 이 pair 도 red 로 만든다 | EP-08 · EP-15 |
+| VP-06·VP-12·VP-16 | R-06/SD-02/AR-03 ↔ AT-12~17 | **REGRESSION** | 중단 경로 전체 | D-016a 가 유지를 요구한다 — `중단 중`·watchdog·통지 0건이 복구 후에도 성립 | 기존 변이 2종 재실행 | EP-06 (3) |
+| VP-15 | AR-02 ↔ IT-02 | **SUPERSEDED** | — | → VP-26 | — | — |
+| VP-04·VP-18 | R-04/MD-02 ↔ AT-09/10 | **SUPERSEDED** | — | → VP-20 · VP-28 | — | — |
+| VP-01·02·03·05·07·09·10·11·13·14·17·19 | — | INHERITED | — | r1 에서 PASS. 이번 변경 경로에 닿지 않는다 | — | 무변경 |
+
+> `V1` 의 12개 INHERITED pair 는 ΔV1 이 건드리지 않는다 — 파서(`task-tool.ts`)·fold 입력·구조화 출력 영속·`waitForTask` 는 diff 대상이 아니다. **VP-08·VP-06·VP-12·VP-16 만 REGRESSION** 으로 다시 닫는다: 앞은 D-023 이 파생을 바꾸고, 뒤 셋은 D-016a 가 "복구가 중단 수명주기를 되돌리지 않는다"를 주장하기 때문이다.
+
+### ΔV1 Acceptance — 정정·신설
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-04a | **AT-09a** / AC9a (AT-09 대체) | `백그라운드 작업` 타일은 background 항목만, `작업` 타일 `진행 상황` 은 TaskXXX + background 를 함께 낸다 | UT — 혼합 parts 하나로 두 파생을 부르고 `subagentTasksFromMessages` 결과 집합 ⊂ `taskBoardFromMessages` 결과 집합이며, agent 항목이 앞엔 없고 뒤엔 있음을 단언 | 같은 parts → 두 파생 → 두 타일 |
+| R-04a | **AT-10a** / AC10a (AT-10 대체) | `진행 상황` 은 그룹 헤더 없이 **id 오름차순 단일 배열**이고 background 는 관측 순으로 뒤에 온다 | UT — `taskBoardOrdered` 가 `['1','2','10', bg-a, bg-b]` 를 정확히 그 순서로 낸다(숫자 id 는 사전순 `'10'<'2'` 가 아니라 수치순). 그룹 배열을 내는 API 가 `작업` 타일 경로에 없음도 함께 | fold → `taskBoardOrdered` → 섹션 |
+| R-12 | **AT-26** / AC26 (신설) | 완료 항목 제목에 취소선이 걸리고 미완료 항목에는 걸리지 않는다 | 렌더 — 완료 1건 + 진행 중 1건을 준 출력에서 완료 제목에만 `line-through` 가 있고 진행 중 제목에는 없음(양방향) | `TaskRow` |
+| R-12 | **AT-27** / AC27 (신설) | background 진행 중 행의 중단 버튼이 **제목 직후**에 온다 — 행 우측 끝으로 밀리지 않는다 | 렌더 — 제목 span 과 버튼이 같은 flex 행의 **연속 형제**이고 제목에 `flex-1` 이 없음. 양성 짝: 버튼이 실제 렌더된다(진행 중 background 1건) | `TaskRow` |
+| R-11 | **AT-28** / AC28 (신설) | `백그라운드 작업` 타일이 `72766d2` 의 정보 구조를 복원한다 — 상태 그룹 `진행 중→완료→중단됨→실패` · 카드 3줄(제목 / 에이전트·상태·경과·시각 / 토큰·도구수·대화록 보기) · 상세 = child transcript | 렌더 — 4상태 혼합 입력의 그룹 헤더 순서 배열 동등 + 카드 세 줄의 필드 존재 + 상세에 child 텍스트 존재 | `subagent` 타일 |
+| R-12 | **AT-29** / AC29 (신설) | `작업` 타일은 `진행 상황`·`출력`·`컨텍스트` 세 섹션 헤더를 갖고 각 섹션이 접힌다. `출력`·`컨텍스트` 는 설명문만 내고 **parts 를 읽지 않는다** | 렌더 — 세 헤더 존재 + chevron 클릭 후 내용 부재(양성) · `rg "messages\|parts" <두 섹션 컴포넌트>` → 0건(음성) | `TaskTileContent` |
+| R-13 | **AT-30** / AC30 (신설) | 두 타일의 선택 상태가 독립이다 — 한쪽 상세를 열거나 타일을 닫아도 다른 쪽 선택이 바뀌지 않는다 | reducer UT — `SELECT_TASK` 후 `selectedSubagentTaskId` 불변, `SELECT_SUBAGENT_TASK` 후 `selectedTaskKey` 불변, `REMOVE_RIGHT_PANEL_TILE('task')` 가 `selectedSubagentTaskId` 를 비우지 않음(양방향 4단언) | reducer |
+| R-08 | **AT-21** / AC21 (재측정 · 계약 문장 불변) | 채널 종료 시 background 항목이 `실패` 로 정착하고 행 문구가 사용자 중단이라고 말하지 않는다 | UT(신설) — `{reason:'failed', message:'채널이 종료되어 … 중단되었습니다.'}` → `deriveSubagentTaskStatus` = `'failed'` **그리고** `{reason:'aborted', …}` → `'aborted'`(회귀 짝) | `settleDeadBackgroundTasks` → 정착 → `parts.ts` → 두 타일 |
+| R-04a | **AT-31** / AC31 (신설) | 실패로 정착한 background 행이 정착 사유 문구를 보인다 | UT — 실패 항목의 메타 줄이 `result.output.message` 문자열을 포함. 양성 짝으로 `aborted` 행의 기존 사유도 계속 나온다 | `subagent-settlement.ts:28` → parts → 메타 줄 |
+| R-14 | **AT-32** / AC32 (신설) | 미배선 표면 4종이 저장소에 없다 | 음성 — `rg "taskBoardSettledKeys\|isBackgroundTask\|MARK_SETTLED_TASKS\|TASK_STOP_SETTLED" app/src` → **0건**. **양성 짝** — 미확인 배지가 여전히 켜지고(완료 관측 → 카운트 1), 중단 대기가 여전히 해제된다(`tool.call.completed` → `stoppingTaskIds` 비움) | reducer 이벤트 경로 |
+| R-14 | **AT-33** / AC33 (신설) | `IPC_CONTRACT.md` 가 코드와 어긋나지 않는다 | 문서 — `tool.call.completed` 행 필드 목록에 `structuredOutput` 이 있고, `MockScenarioId` 의 **개수 열거가 없다**(코드 정본 포인터로 대체). 양성 짝: 포인터가 실재 심볼(`MOCK_SCENARIO_IDS`)을 가리킨다 | `docs/IPC_CONTRACT.md` |
+
+**AC 게이트 재통과**(§5) — 정정 2 · 재측정 1 · 신설 8 = **11행**에 대해:
+
+- 세 칸(행동 단언·검증 수단·도달 경로): 11행 모두 보유.
+- **방향**: AT-26·AT-27·AT-28·AT-30·AT-31 은 "X 가 있다/쓰인다"를 잠그고 각각 그 X 를 지우면 red 다 — 취소선 클래스 제거·버튼을 `ml-auto` 로 복귀·그룹 배열 축소·선택 필드 통합·사유 분기 삭제. **여분 사본이나 잔여물에 반응하는 장치가 아니다.**
+- **음성 게이트의 양성 짝**: AT-29(파생 0건)↔같은 행의 "세 헤더가 렌더된다" · AT-32(4종 부재)↔"배지·중단 해제가 계속 동작" · AT-10a(그룹 API 부재)↔"순서 배열 동등".
+- structural proxy 검토: AT-27 은 DOM 형제 관계라 구조적이다 — 이것이 "제목 우측"(D-020)의 의미 그 자체이고, 최종 시각 대조는 아래 **ΔV1 사람 실기**로 남긴다. AT-29 의 chevron 접힘도 같은 성질이다.
+- 사람 실기로 미룬 순수 로직: 없다. 순서·취소선 유무·그룹 배열·선택 독립은 전부 순수/렌더 단언으로 내렸다.
+- **AC 총수: `V1` 25 + 신설 8(AT-26~AT-33) = 33**(정정 2행 AT-09a·AT-10a 와 재측정 1행 AT-21 은 번호를 승계해 분모를 늘리지 않는다). **25 초과라 분할을 검토했다** — 분할하지 않는다: ① 0204 가 `verify/FAIL` 이고 D1 은 이 handoff 의 AC21 위반이라 여기서 닫아야 한다, ② 패널 분리·복구·3섹션은 같은 렌더 트리 하나를 동시에 바꾸므로 두 handoff 로 가르면 중간 상태가 컴파일되지 않는다. **분할 가능한 유일한 덩어리는 AT-33(문서 2줄)** 이고 그것만 떼면 나머지가 여전히 32 다.
+
+**ΔV1 사람 실기 — 기계로 못 내리는 것만**
+
+| 항목 | 기계가 닫는 범위 | 사람이 볼 것 | 실행 방법 |
+|---|---|---|---|
+| 3섹션 시각(D-017) | 헤더 3종 존재 · 접힘 동작 · 파생 0건 | 첨부 cowork 이미지와의 여백·구분선·일러스트 대조, 라이트/다크 | 디버그 패널 → mock `agent_task_board` → `작업` 타일 |
+| 중단 버튼 자리(D-020) | DOM 형제 순서 · `flex-1` 부재 | 긴 제목이 잘릴 때 버튼이 밀리지 않는지 | 같은 mock, 제목 긴 background 1건 |
+| 복구 충실도(D-016) | 그룹 순서 · 카드 3줄 필드 · 상세 child 텍스트 | `72766d2` 스크린샷과의 시각 동일성 | `git stash` 로 두 판을 번갈아 띄워 대조 |
+
+### ΔV1 §10 강제 지점 — 정정·신설
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 | 실패 의미 |
+|---|---|---|---|---|---|
+| SD-04 / VP-23·VP-25 | **EP-12** 두 타일의 선택 상태는 **독립 필드 2개**다 — `selectedSubagentTaskId`(subagent) · `selectedTaskKey`(task). `REMOVE_RIGHT_PANEL_TILE` 은 **두 특례 분기 각각**이 자기 필드만 비운다 | `chatReducer.ts` `ChatState` | reducer | 타일 제거·선택 시점 | 지점 **2**. 하나만 두면 한 타일을 닫을 때 다른 타일의 상세가 함께 접힌다(AC30 위반) |
+| AR-02a / VP-20·VP-21·VP-26 | **EP-13** 타일 정의 변경은 **다섯 곳 전부**에서 이뤄져야 한다 — ① `rightPanelTiles.ts` 정의 배열(`reserved2` 제거 + `subagent` 재도입) ② `tileRegistry.ts` `contentById` ③ 같은 파일 `headerContentById` ④ `chatReducer` 타일 특례(EP-12 와 같은 분기) ⑤ i18n `chat.rightpanel.tiles.*` 2파일 | `rightPanelTiles.ts` | lint/typecheck + 렌더 | 빌드 시점 | 지점 **5**. `V1:EP-11`(4곳) 을 대체한다 — 헤더 override 가 두 타일로 늘어 3번이 독립 지점이 됐다. 빠지면 타일이 콘텐츠 없이 렌더되거나 헤더가 기본 라벨로 떨어진다 |
+| MD-02a / VP-20·VP-28 | **EP-14** `진행 상황` 목록 순서의 SSOT 는 `taskBoardOrdered` **하나**다 — 컴포넌트가 자체 정렬·그룹핑하지 않는다. agent 는 id 수치순, background 는 관측순 후치 | `taskBoard.ts` | `TaskTileContent` | 렌더 시점 | 지점 **1**. 컴포넌트가 다시 정렬하면 `백그라운드 작업` 타일과 순서 규칙이 갈라진다 |
+| MD-04 / VP-29·VP-08 | **EP-15** `isAbortedResult` 는 `reason` 이 있으면 message 를 보지 않는다 | `parts.ts` | `deriveSubagentTaskStatus` | 결과 해석 시점 | 지점 **1** (술어) + 영향 생산 지점 **2**(`settle.ts:26` · `subagent-settlement.ts:28`). 빠지면 실패가 사용자 중단으로 보인다(AC21 위반) |
+| R-12 / VP-22 | **EP-16** `출력`·`컨텍스트` 섹션 컴포넌트는 `messages`/`parts` 를 읽지 않는다 | 두 섹션 컴포넌트 | 렌더 | 렌더 시점 | 지점 **2**(섹션 2개). 빠지면 D-022 가 무의미해지고 미완성 파생이 화면에 샌다 |
+| AR-04 / VP-27 | **EP-17** transcript 행은 **`subagent` 타일**을 연다 — `AgentTaskRow` · `AgentTaskBody` · `SubagentNoticeRow` | `chatStore` `openSubagentTask` | 세 컴포넌트 | 클릭 시점 | 지점 **3**. 하나라도 `openTask` 로 남으면 대화록을 기대한 클릭이 한 줄 요약을 연다 |
+| R-14 / VP-24 | **EP-18** 제거 대상 4종은 **정의·소비처·테스트** 전부에서 사라진다 | 저장소 | lint/typecheck + 스윕 | 빌드·검증 시점 | 지점 **4**(심볼 4종). 정의만 지우고 테스트를 남기면 빌드가 깨지고, 테스트만 지우면 죽은 코드가 남는다 |
+| R-07 / VP-07·VP-13·VP-14 | **EP-07 (분모 정정)** 구조화 출력은 **세 곳**에 같은 규칙으로 실린다 — `claude-map.ts:385` · `writer.ts:275` · `chatReducer.ts:469` | `shared/ipc.ts` 타입 | 세 지점 | 이벤트 방출 · 파트 upsert · 라이브 리듀스 | verify r1 실측이 3이다(`V1` 표기 2). **분모만 정정, 계약 불변** |
+
+- **`실패 의미`에 "다른 게이트가 막는다"를 적은 행**: 없다. EP-13 은 typecheck 가 ①②④⑤ 를 잡지만 ③(`headerContentById`)은 **선택적 map 이라 빠져도 컴파일된다** — 그래서 AT-28 이 헤더 출력을 직접 단언한다. 이 범위는 이번 턴에 측정했다: `headerContentById` 는 `Partial<Record<…>>`(`tileRegistry.ts:21`)이고 키 누락이 타입 오류가 아니다.
+- **`진행 상황` 아이콘의 불가능 조합 제거**: `TaskStatusIcon` 은 `{ status: 'pending'; badge: string } | { status: Exclude<TaskBoardStatus,'pending'> }` 판별 union 을 받는다 — 번호 배지는 `pending` 에만 존재하고(background 는 `pending` 이 될 수 없다) flat prop 이면 `toolUseId` 가 18px 원에 들어가는 조합을 타입이 허용한다.
+
+### ΔV1 구현 설계
+
+| 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
+|---|---|---|---|
+| `.../lib/rightPanelTiles.ts` | EP-13① | 정의 = `plan`·`subagent`·`task`·`reserved1`. `reserved2` 제거 | typecheck |
+| `.../rightpanel/SubAgentTileContent.tsx` **(복원)** | R-11 | `72766d2` 판을 되살린다. **변경 2점만** — ① `chatActions.stopSubagent` → `stopTask(backgroundTaskKey(id))`(D-016a) ② `stopping` 상태 라벨 + 그때 버튼 숨김 | 렌더 |
+| `.../rightpanel/TaskTileContent.tsx` | R-12 | 3섹션 아코디언 껍데기 + `진행 상황` 목록. 그룹 렌더 제거, `taskBoardOrdered` 소비, 취소선, 중단 버튼을 제목 직후로 | 렌더 |
+| `.../rightpanel/TaskTileSections.tsx` **(신규)** | EP-16 | `출력`·`컨텍스트` 빈 상태 2종 + 접힘 껍데기(`useState`, D-027). parts 미import | 렌더 + 음성 스윕 |
+| `.../rightpanel/TaskStatusIcon.tsx` | R-12 | props 를 판별 union 으로. `index:number` → `badge:string`(pending 전용) | 순수 |
+| `.../rightpanel/tileRegistry.ts` | EP-13②③ | `subagent`·`task` 두 콘텐츠 + 두 헤더 override | typecheck + AT-28 |
+| `.../lib/taskBoard.ts` | MD-02a · D-025 | `taskBoardOrdered` 신설. `taskBoardGroups`·`TASK_BOARD_GROUP_ORDER`·`taskBoardGroupOf`·`taskBoardSettledKeys`·`isBackgroundTask` 제거 | 순수 단위 |
+| `.../lib/parts.ts` | MD-04 | `isAbortedResult` 권위 필드 우선. `SubagentTaskSummary` 에 `settlementMessage` 추가(D-024) | 순수 단위 |
+| `.../reducer/chatReducer.ts` | EP-12 · D-025 | `selectedSubagentTaskId` 복원(2필드 공존) · `SELECT/OPEN_SUBAGENT_TASK` 복원 · 타일 특례 2분기 · `MARK_SETTLED_TASKS`·`TASK_STOP_SETTLED` 제거 | reducer 단위 |
+| `.../store/chatStore.ts` | EP-12·EP-17 | `selectSubagentTask`·`openSubagentTask` 복원(`stopTask` 는 유지) | 단위 |
+| `.../transcript/{AgentTaskRow,AgentTaskBody,SubagentNoticeRow}.tsx` | EP-17 | `openTask(backgroundTaskKey(id))` → `openSubagentTask(id)` | typecheck + AT-30 |
+| `.../shared/i18n/resources/{ko,en}.ts` | EP-13⑤ | `chat.subagentTile.*` 복원(+`status.stopping` 신설) · `tiles.subagent` 복원 · `tiles.reserved2` 제거 · `taskTile.group.*` 제거 · `taskTile.sections.*`·`taskTile.failedReason` 신설 | typecheck |
+| `.../lib/rightPanelLayout.test.ts` | — | `reserved2` 를 쓰는 3행을 `subagent` 로 교체 | 단위 |
+| `docs/IPC_CONTRACT.md` | D-026 | `tool.call.completed` 필드에 `structuredOutput` · mock 시나리오 개수 열거 → 코드 포인터 | AT-33 |
+
+**AS-IS → TO-BE 요약**
+
+```text
+AS-IS (c3bb0d1)                        TO-BE (ΔV1)
+  [계획][작업]                            [계획][백그라운드 작업][작업]
+         └ 상태 그룹 목록                            │              └ 진행 상황 ▾  ← id 순 · 취소선 · 제목직후 중단
+           (agent+bg 혼합)                          │                 출력 ▾      ← 빈 상태
+           상세: dl + child transcript              │                 컨텍스트 ▾  ← 빈 상태
+                                                    └ 상태 그룹 카드 · 상세=child transcript (72766d2 복원)
+  selectedTaskKey 1개                     selectedTaskKey + selectedSubagentTaskId 2개
+  transcript 행 → task 타일               transcript 행 → subagent 타일
+```
+
+### ΔV1 운영 gate
+
+`V1` §7-A 의 4종을 그대로 쓴다. 이번 변경으로 달라지는 점만:
+
+| Gate | 이번 변경에서 추가로 보는 것 |
+|---|---|
+| `npm run typecheck` | `RightPanelTileId` 에서 `reserved2` 가 빠지므로 잔여 참조 6곳이 전부 error 로 드러난다 — EP-13 의 기계적 강제 |
+| `npm run lint` | 신규 `TaskTileSections.tsx` 가 `features/chat` 안에 있어 boundaries 무영향. 제거한 4종의 unused import 가 error 로 드러난다 |
+| vitest | `taskBoard.test.ts`·`chatReducer.task.test.ts` 는 그룹/제거 심볼을 참조하므로 **함께 고쳐야 한다** — 테스트 수정이 곧 AT-32 의 일부다 |
+| `check-doc-inventory --check` | 채널·variant·마이그레이션 수치 **불변**이어야 한다(신규 IPC 0 · 신규 variant 0). `IPC_CONTRACT.md` 편집이 prose 검사를 깨지 않는지도 본다 |
+
+> **환경 주의**: 이 세션 시점 `app/node_modules` 가 없다(`ls app/node_modules` → No such file). 구현 턴은 `npm ci` 후 게이트를 돌리고, `app/AGENTS.md §better-sqlite3 ABI` 대로 DB 스위트는 ABI 정합 후에만 blocking 으로 센다.
 
 ---
 
@@ -507,6 +697,28 @@ SDK tool_result / system task_*
 - 문서 게이트: `node app/scripts/check-doc-inventory.mjs --check`.
 - 사람 실기: AC25(시각 — 첨부 양식 대조, 라이트/다크 두 테마) · AC20(2세션 전환) · mock `agent_task_board` 시나리오로 AC1~AC10 육안 확인.
 
+## ΔV1 READY self-review
+
+- [x] 여러 턴의 결정이 Ledger 에 보존 — D-001~D-014 유지, **D-003 만 SUPERSEDED**, 신규 D-015~D-027. 최신 턴에 안 나온 D-005·D-006·D-010 은 삭제하지 않고 D-016a 로 명시 승계했다.
+- [x] 사용자 표현을 재해석하지 않았다 — "패널을 분리할 것"·"완전 복구이다"·"타이틀 우측에 나열"·"id 로 순자적으로"를 §3 에 **원문 인용**으로 실었다. "복구"를 "부분 이동"으로 바꾸지 않았고, D-016a 가 *무엇을 복구하지 않는지*(중단 수명주기)를 근거와 함께 적었다.
+- [x] 사용자 결정과 코드 조사를 갈랐다 — 물은 것 4건(나열 방식·중단 버튼·타일 슬롯·섹션 범위), 조사로 닫은 것: `TaskStop` 대상(SDK 실측) · 예약 타일이 메뉴에 안 뜬다는 사실 · `reason:'failed'` 사이트 2/10 · 문서 드리프트 2건.
+- [x] 수치·전칭 표현 실측 — '중단' 문자열 **10 사이트 전수 열거** 후 2/8 분해. `reserved2` 참조 6곳. EP-13 지점 5. 승계 숫자 0건(EP-07 분모는 verify 실측으로 2→3 정정).
+- [x] 저장소 규칙을 설계 입력으로 확인 — `renderer/AGENTS.md` 의 시맨틱 토큰·`group/<이름>` 스코프·400줄 분해 트리거(그래서 `TaskTileSections.tsx` 를 분리), boundaries(신규 파일이 `features/chat` 내부).
+- [x] 각 AC 가 행동 단언·검증 수단·도달 경로 3칸 보유(11행 전수).
+- [x] Delta V 를 썼다 — `72766d2:V1` 기준, 변경이 시작되는 수준(R-04a)부터 아래로. 영향 없는 V1 pair 12개를 복사하지 않았다.
+- [x] 모든 `NEW`·`CHANGED` 왼쪽 노드에 같은 레벨 pair — R-04a→VP-20 · R-11→VP-21 · R-12→VP-22 · R-13→VP-23 · R-14→VP-24 · SD-04→VP-25 · AR-02a→VP-26 · AR-04→VP-27 · MD-02a→VP-28 · MD-04→VP-29. **차집합 0.**
+- [x] 영향받은 INHERITED 상위는 REGRESSION — VP-08(D-023 이 파생을 바꾼다) · VP-06·12·16(D-016a 가 유지를 주장한다). 나머지 12 pair 만 무변경 INHERITED.
+- [x] 적대 증거는 필요한 pair 에만 — VP-22(파생 0건 주장) · VP-29(회귀 방향). 각각 심을 변이를 적었다.
+- [x] "X 가 쓰인다" 불변식의 장치 방향 — AT-26/27/28/30/31 은 그 X 를 지우면 red 다(§AC 게이트 재통과의 방향 항목에 지움 대상을 적었다).
+- [x] 상호배타 상태의 불가능 조합을 타입이 막는다 — `TaskStatusIcon` 판별 union(`pending` 만 `badge`).
+- [x] 신규 모듈마다 레이어·강제 지점·seam — `TaskTileSections.tsx`(features/chat · EP-16 · 렌더+음성 스윕) · `taskBoardOrdered`(lib · EP-14 · 순수).
+- [x] end-to-end 로 닫혔다 — producer(`subagent-settlement.ts:28`) → 파생(`parts.ts` MD-04) → 두 소비자(두 타일). transcript 3행의 배선(EP-17)까지 포함.
+- [x] 다중 저장소 쓰기 검사 — **문서 사본 2곳**: 이 `plan.md` 의 판정과 `INDEX.md` 보드 행. 함께 갱신하지 않으면 두 사본이 다른 말을 한다 → 이번 커밋이 둘을 같은 커밋에 담는다. 코드 쪽 다중 저장소 쓰기는 없다(신규 IPC 0 · DB 0).
+- [x] worst-case — 신규 네트워크 요청 0 · 신규 영속 필드 0. `taskBoardOrdered` 는 `O(n log n)`, n = 세션 Task 수.
+- [x] 본문 ↔ Ledger 교차검증 관측을 §3 갱신 메모에 남겼다(`충돌 0`, 확인한 쌍 10개 + 비충돌 판정 2건).
+- [x] 문장 규칙 — 판정 먼저 · 주장 한 줄에 관측 하나 · Part I(관측)/Part II(경로) 중복 없음.
+- [x] **규범 행과 구현 산출을 같은 커밋에 담지 않는다** — 이 ΔV1 설계 커밋은 `2 files changed`(`plan.md` · `INDEX.md`), `app/**` 0파일. trailer 파싱 `git log -1 --format='%(trailers:only=true)'` → **5키 반환**(`Agent: claude` · `Status: designed`, `Criteria-*`/`Next-Action` 없음).
+
 ## READY self-review
 
 - [x] Decision Ledger 의 ACTIVE/SUPERSEDED/OPEN 이 여러 턴의 결정을 보존한다 — ACTIVE 13 · SUPERSEDED 1(D-012 → D-014). D-005 는 0143 코드 결정을 대체(대체 관계 칸에 기록).
@@ -677,13 +889,16 @@ SDK tool_result / system task_*
 
 ## [검증자 기입] 파생 이슈
 
-| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+> **ΔV1 처분(2026-08-27, 설계 턴).** `대응 방향` 은 제안이고 닫힘은 `출처` 가 가리키는 계약의 성립이다 — 아래 `귀속` 칸이 ΔV1 에서 그 계약을 어디로 옮겼는지 적는다.
+
+| # | 이슈 | 출처 pair / 계약·gate | 분류 | ΔV1 귀속 | 상태 |
 |---|---|---|---|---|---|
-| D1 | 채널 종료 정착이 패널에서 `실패` 가 아니라 `중단됨` 으로 분류되고, 행 문구가 `사용자에 의해 중단됨` 이라 원인을 거짓 진술한다 | verify r1 · **VP-08** · AC21 | `isAbortedResult`(`parts.ts:330`)가 권위 필드 `reason` 을 메시지 부분문자열보다 우선하게 한다 — `reason:'failed'` 면 abort 로 읽지 않는다. 충돌 지점 전수 **2**: `settle.ts:26` · `chat-turn/index.ts:68`. AC21 의 파생 UT 를 실제로 만든다 | **BLOCKING** | open |
-| D2 | 미배선 표면 4종 — `taskBoardSettledKeys`(프로덕션 참조 0 + 배지 규칙이 reducer 와 다름) · `isBackgroundTask`(참조 0) · `MARK_SETTLED_TASKS`·`TASK_STOP_SETTLED`(도달 불가 액션) | verify r1 · §3 역방향 | 죽은 표면을 지우거나 실제 경로에 연결한다. `taskBoardSettledKeys` 는 SSOT drift 라 특히 — 살릴 거면 reducer 가 그것을 쓰게, 아니면 테스트째 제거 | NON_BLOCKING | open |
-| D3 | 구현 보고 강제 지점 합계 `18/18` 이 내역과 어긋난다 — EP-07=3 이면 **19** | verify r1 · §7 | 다음 라운드 보고에서 합계를 내역에서 다시 계산한다. 행 관측은 전부 정확했다 | NON_BLOCKING | open |
-| D4 | 실패 상태 background 행에 사유 문구가 없다 — 명세 §2 는 `실행 세션 종료` 를 요구한다 | verify r1 · AC21(명세 §2) | `backgroundMetaLine` 의 `aborted` 분기와 대칭으로 `failed` 분기를 만든다. D1 과 같은 자리 | NON_BLOCKING | open |
-| D5 | 대기 중 항목 번호가 **그룹 내 순번** 이다(첨부 예시는 전역 순번) | verify r1 · AC25 | 시각 실기에서 사람이 판단할 항목으로 남긴다 | NON_BLOCKING | open |
-| D6 | 일반 Task 행에 상태 보조줄이 없다(그룹 헤더만 상태를 말한다) | verify r1 · AC25 | 같음 — 시각 실기 판단 | NON_BLOCKING | open |
-| D7 | `structuredOutput` 이름이 기존 어댑터 capability 플래그(`descriptor.ts:40`)와 겹친다 | verify r1 · §3 | 파트 필드 개명은 공개 계약 변경이라 별도 결정이 필요하다 | NEXT_HANDOFF | open |
-| D8 | `TaskUpdate` 가 미지 id 에 도착하면 제목이 id 인 유령 항목이 생긴다(압축된 세션 재개 시나리오) | verify r1 · §2 | 현재는 "존재하는 Task 를 버리지 않는다" 는 선택이다. 제품 판단이 필요하면 사용자에게 올린다 | NON_BLOCKING | open |
+| D1 | 채널 종료 정착이 패널에서 `실패` 가 아니라 `중단됨` 으로 분류되고, 행 문구가 `사용자에 의해 중단됨` 이라 원인을 거짓 진술한다 | verify r1 · **VP-08** · AC21 | **BLOCKING** | **D-023** · **MD-04/UT-04(신설)** · **VP-29(REQUIRED)** · **EP-15** · AT-21 재측정. V1 은 AC21 에 UT pair 가 없어 "경로 무변경" 으로 대체될 수 있었다 — 그 구멍을 노드 신설로 메운다 | 규범 정정 완료 → 구현 대기 |
+| D2 | 미배선 표면 4종 — `taskBoardSettledKeys`(참조 0 + 배지 규칙이 reducer 와 다름) · `isBackgroundTask`(참조 0) · `MARK_SETTLED_TASKS`·`TASK_STOP_SETTLED`(도달 불가 액션) | verify r1 · §3 역방향 | NON_BLOCKING → **범위 편입** | **D-025** · **AT-32**(음성 4종 + 양성 짝) · **EP-18** | 규범 정정 완료 → 구현 대기 |
+| D3 | 구현 보고 강제 지점 합계 `18/18` 이 내역과 어긋난다 — EP-07=3 이면 **19** | verify r1 · §7 | NON_BLOCKING | **§7-B EP-07 분모 정정(2→3)**. 계약 불변, 분모만 정정 — 다음 구현 보고는 정정된 표에서 센다 | closed(규범) |
+| D4 | 실패 상태 background 행에 사유 문구가 없다 — 명세 §2 는 `실행 세션 종료` 를 요구한다 | verify r1 · AC21(명세 §2) | NON_BLOCKING → **범위 편입** | **D-024** · **AT-31** · `SubagentTaskSummary.settlementMessage` | 규범 정정 완료 → 구현 대기 |
+| D5 | 대기 중 항목 번호가 **그룹 내 순번** 이다(첨부 예시는 전역 순번) | verify r1 · AC25 | NON_BLOCKING | **D-018 이 흡수** — 그룹 자체가 사라지고 번호는 task id 다. `AT-10a` 가 순서를, `TaskStatusIcon` 판별 union 이 배지 출처를 잠근다 | closed(규범) |
+| D6 | 일반 Task 행에 상태 보조줄이 없다(그룹 헤더만 상태를 말한다) | verify r1 · AC25 | NON_BLOCKING | **의도된 결과로 확정** — cowork 양식(D-017)에서 상태는 아이콘(✓/↻/번호)과 취소선이 말한다. 그룹 헤더가 사라져도 상태가 사라지지 않는다. 별도 보조줄을 만들지 않는다 | closed(설계 확정) |
+| D7 | `structuredOutput` 이름이 기존 어댑터 capability 플래그(`descriptor.ts:40`)와 겹친다 | verify r1 · §3 | NEXT_HANDOFF | 이번 ΔV1 범위 밖 — 파트 필드 개명은 영속 payload 계약 변경이라 마이그레이션 판단이 필요하다. **D-026 이 문서에 필드를 명시**하므로 다음 handoff 가 두 이름을 나란히 볼 수 있다 | open(이관) |
+| D8 | `TaskUpdate` 가 미지 id 에 도착하면 제목이 id 인 유령 항목이 생긴다(압축된 세션 재개 시나리오) | verify r1 · §2 | NON_BLOCKING | **ΔV1 이 가시성을 높인다** — id 단일 나열(D-018)에서 제목이 `3` 인 행은 정상 행과 구분되지 않는다. 다만 "존재하는 Task 를 버리지 않는다" 는 제품 판단이라 사용자에게 올릴 항목으로 남긴다 | open(사용자 판단 대기) |
+| D9 | `IPC_CONTRACT.md` 문서 드리프트 2건 — `tool.call.completed` 필드에 `structuredOutput` 부재 · `MockScenarioId` **13종**(코드 14) | **이번 턴 실측** · §7-B 조사 | NON_BLOCKING → **범위 편입** | **D-026** · **AT-33**. 문서 게이트가 세지 않는 형태라 r1 이 통과했다 | 규범 정정 완료 → 구현 대기 |
