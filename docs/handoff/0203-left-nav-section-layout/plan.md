@@ -801,3 +801,8 @@ sessionApi.list / projectApi.listSessions
 | D4 | 모든 대화가 고정된 프로젝트는 하위가 "대화 없음"으로 보인다 | verify r1 · D-005 의 부수 결과 | 문구 분기 또는 고정 대화 요약 | NEXT_HANDOFF | open |
 | D5 | `listSessions(limit = 50)` 밖의 고정 대화는 재부팅 후 "고정됨"에 안 나타난다 | verify r1 · 비귀속(`cc4cde5` 에서도 동일, 회귀 아님) | main 쿼리가 고정 세션을 LIMIT 밖에서도 반환 | NEXT_HANDOFF | open |
 | D6 | `SIDEBAR_DEFAULT_WIDTH` 미참조 | verify r1 · 비귀속(이번 변경 이전부터) | 기록만 | NON_BLOCKING | open |
+| **D7** | **AT-13 의 프로젝트 절반이 공허하다** — `PinnedProjectsSectionView` 의 하위 대화는 `expanded=false` 뒤에 있어 SSR 출력에 **0건** 렌더된다. 재파생 변이가 미검출(497 전건 통과) | verify r2 · VP-16 · AT-13 · §10 EP-9 (2/3) | `PinnedProjectChildren` 을 export 해 props 로 직접 렌더 — 의존성 0 | **BLOCKING** | open |
+| **G4** | **파티션과 렌더 사이 이음매가 무관측이다** — 어댑터가 `pinned` 대신 `recent` 를 넘겨도 vitest 497 초록 · typecheck 0. VP-05a 의 path 에 `slots → props` 구간이 있는데 oracle 이 없다 | verify r2 · VP-05a · AT-05a | `NavSections` 세 칸에 **branded type** → `TS2322` 로 잡힌다(스파이크 확인, 신규 의존성 0). 계약 변경이라 설계자 몫 | **PLAN_GAP** | open |
+| D8 | `index.ts` 재수출 `splitNavSections` 의 외부 소비처 0 — 실소비는 `useNavSections.ts:17` 하나 | verify r2 · 비귀속 | 배럴에서 내려도 무방 | NON_BLOCKING | open |
+| D9 | `SessionList.tsx:80` `pinned={isPinnedSession(s)}` 가 항상 `false` — 상수 치환해도 497 초록. View 에 남은 유일한 배치 심볼 | verify r2 · 비귀속 | 상수화하면 View 의 배치 심볼이 0 | NON_BLOCKING | open |
+| D10 | 테스트명 `고정 항목이 0개여도…` 의 프로젝트 절반이 실제로는 고정 프로젝트 1개로 돈다 | verify r2 · 비귀속 | 이름과 입력을 맞춘다 | NON_BLOCKING | open |
