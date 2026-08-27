@@ -1,18 +1,22 @@
-import { memo, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { KebabButton } from '../../../shared/ui/KebabButton'
 import { MenuItem } from '../../../shared/ui/MenuItem'
 import { Popover } from '../../../shared/ui/Popover'
 import { CollapsibleSection } from '../../../shared/ui/SidebarSection'
 import { useI18n } from '../../../shared/i18n'
-import type { Project } from '../../../../../shared/ipc'
+import type { Project, SessionListItem } from '../../../../../shared/ipc'
 import { SessionRow } from './SessionRow'
-import { useProjectSessions } from '../hooks/useProjectSessions'
-import { isPinnedSession } from '../lib/sessionPlacement'
+import { useNavSections } from '../hooks/useNavSections'
+import { sessionsActions } from '../store/sessionsStore'
 
-export interface PinnedProjectsSectionProps {
-  // app 셸이 projectsStore 에서 고정 프로젝트를 걸러 주입(cross-feature 는 props-only).
+export interface PinnedProjectsSectionViewProps {
+  // app 셸이 projectsStore 에서 걸러 주입(cross-feature 는 props-only).
   pinnedProjects: Project[]
+  // 0203 ΔV1 EP-9 — 프로젝트별 하위 대화. 키가 없으면 미조회(로딩)다.
+  projectChildren: Record<string, SessionListItem[]>
+  // 펼칠 때 그 프로젝트의 membership 조회를 트리거한다(조회는 펼친 것만).
+  onExpandProject: (projectId: string) => void
   currentSessionId: string | null
   onOpenProject: (projectId: string) => void
   onTogglePinProject: (projectId: string, pinned: boolean) => void
@@ -22,18 +26,14 @@ export interface PinnedProjectsSectionProps {
   onRenameSession: (sessionId: string, title: string) => void
 }
 
-// 좌측 nav "프로젝트" 섹션 — 고정 프로젝트는 대화 고정과 구분된 전용 섹션에만 둔다.
-// 별도 추가 버튼은 두지 않는다.
-export const PinnedProjectsSection = memo(function PinnedProjectsSection({
+// 좌측 nav "프로젝트" 구획 — 고정 프로젝트는 대화 고정과 구분된 전용 구획에만 둔다.
+// 별도 추가 버튼은 두지 않는다(D-003).
+export const PinnedProjectsSectionView = memo(function PinnedProjectsSectionView({
   pinnedProjects,
-  currentSessionId,
-  onOpenProject,
-  onTogglePinProject,
-  onSelectSession,
-  onTogglePinSession,
-  onDeleteSession,
-  onRenameSession
-}: PinnedProjectsSectionProps): React.JSX.Element {
+  projectChildren,
+  onExpandProject,
+  ...row
+}: PinnedProjectsSectionViewProps): React.JSX.Element {
   const { tr } = useI18n()
 
   return (
@@ -46,34 +46,30 @@ export const PinnedProjectsSection = memo(function PinnedProjectsSection({
         <PinnedProjectRow
           key={project.id}
           project={project}
-          currentSessionId={currentSessionId}
-          onOpenProject={onOpenProject}
-          onTogglePinProject={onTogglePinProject}
-          onSelectSession={onSelectSession}
-          onTogglePinSession={onTogglePinSession}
-          onDeleteSession={onDeleteSession}
-          onRenameSession={onRenameSession}
+          sessions={projectChildren[project.id]}
+          onExpandProject={onExpandProject}
+          {...row}
         />
       ))}
     </CollapsibleSection>
   )
 })
 
-interface PinnedProjectRowProps {
+interface PinnedProjectRowProps extends Omit<
+  PinnedProjectsSectionViewProps,
+  'pinnedProjects' | 'projectChildren'
+> {
   project: Project
-  currentSessionId: string | null
-  onOpenProject: (projectId: string) => void
-  onTogglePinProject: (projectId: string, pinned: boolean) => void
-  onSelectSession: (sessionId: string) => void
-  onTogglePinSession: (sessionId: string, pinned: boolean) => void
-  onDeleteSession: (sessionId: string) => void
-  onRenameSession: (sessionId: string, title: string) => void
+  // 이 프로젝트의 하위 대화. `undefined` = 아직 조회하지 않음.
+  sessions: SessionListItem[] | undefined
 }
 
 // 고정 프로젝트 행 — chevron 으로 하위 대화 접기/펼치기, 이름 클릭으로 프로젝트 열기,
-// hover kebab 으로 고정 해제. 하위 목록은 펼쳤을 때만 마운트해 조회를 지연한다.
+// hover kebab 으로 고정 해제. 하위 목록은 펼쳤을 때만 조회한다.
 function PinnedProjectRow({
   project,
+  sessions,
+  onExpandProject,
   currentSessionId,
   onOpenProject,
   onTogglePinProject,
@@ -86,6 +82,10 @@ function PinnedProjectRow({
   const [expanded, setExpanded] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const kebabRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (expanded) onExpandProject(project.id)
+  }, [expanded, project.id, onExpandProject])
 
   return (
     <>
@@ -141,7 +141,7 @@ function PinnedProjectRow({
       {expanded && (
         <div className="pl-4">
           <PinnedProjectChildren
-            projectId={project.id}
+            sessions={sessions}
             currentSessionId={currentSessionId}
             onSelectSession={onSelectSession}
             onTogglePinSession={onTogglePinSession}
@@ -155,7 +155,8 @@ function PinnedProjectRow({
 }
 
 interface PinnedProjectChildrenProps {
-  projectId: string
+  // `undefined` = 미조회 → 로딩. `[]` = 조회했고 보여 줄 대화가 없음.
+  sessions: SessionListItem[] | undefined
   currentSessionId: string | null
   onSelectSession: (sessionId: string) => void
   onTogglePinSession: (sessionId: string, pinned: boolean) => void
@@ -163,11 +164,10 @@ interface PinnedProjectChildrenProps {
   onRenameSession: (sessionId: string, title: string) => void
 }
 
-// 고정 프로젝트의 하위 대화도 공용 sessionsStore 엔티티를 사용한다. 따라서 pin 토글과
-// 동시에 더 높은 우선순위인 "고정됨"으로 이동하거나 여기로 돌아온다 — 이 목록은 항상
-// 고정 프로젝트 아래 있으므로 배치 판정이 isPinnedSession 하나로 좁혀진다.
+// 하위 대화 목록. 고정된 대화가 여기서 빠지는 판정은 파티션이 이미 했다 — 이 컴포넌트는
+// 받은 목록을 그린다. 행 액션은 최근 대화와 동일하다(D-009).
 function PinnedProjectChildren({
-  projectId,
+  sessions,
   currentSessionId,
   onSelectSession,
   onTogglePinSession,
@@ -175,18 +175,16 @@ function PinnedProjectChildren({
   onRenameSession
 }: PinnedProjectChildrenProps): React.JSX.Element {
   const { tr } = useI18n()
-  const { list, loading } = useProjectSessions(projectId)
-  const visibleSessions = list.filter((session) => !isPinnedSession(session))
 
-  if (loading) {
+  if (sessions == null) {
     return <div className="px-2 py-1 text-[11.5px] text-ink3">{tr('common.loading')}</div>
   }
-  if (visibleSessions.length === 0) {
+  if (sessions.length === 0) {
     return <div className="px-2 py-1 text-[11.5px] text-ink3">{tr('sessions.empty')}</div>
   }
   return (
     <>
-      {visibleSessions.map((s) => (
+      {sessions.map((s) => (
         <SessionRow
           key={s.id}
           session={s}
@@ -200,4 +198,31 @@ function PinnedProjectChildren({
       ))}
     </>
   )
+}
+
+export interface PinnedProjectsSectionProps extends Omit<
+  PinnedProjectsSectionViewProps,
+  'projectChildren' | 'onExpandProject'
+> {
+  pinnedProjectIds: ReadonlySet<string>
+}
+
+// store 어댑터 — 파티션 결과의 프로젝트 칸을 넘기고, 펼침은 membership 조회로 잇는다.
+export const PinnedProjectsSection = memo(function PinnedProjectsSection({
+  pinnedProjectIds,
+  ...view
+}: PinnedProjectsSectionProps): React.JSX.Element {
+  const { projectChildren } = useNavSections(pinnedProjectIds)
+  return (
+    <PinnedProjectsSectionView
+      projectChildren={projectChildren}
+      onExpandProject={loadProjectSessions}
+      {...view}
+    />
+  )
+})
+
+// 모듈 상수라 identity 가 안정적이다 — 행의 effect deps 를 매 렌더 흔들지 않는다.
+function loadProjectSessions(projectId: string): void {
+  void sessionsActions.loadProject(projectId).catch(() => undefined)
 }

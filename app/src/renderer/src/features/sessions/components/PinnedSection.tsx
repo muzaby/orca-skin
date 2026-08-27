@@ -1,11 +1,13 @@
-import { memo, useMemo } from 'react'
+import { memo } from 'react'
 import { CollapsibleSection } from '../../../shared/ui/SidebarSection'
 import { useI18n } from '../../../shared/i18n'
+import type { SessionListItem } from '../../../../../shared/ipc'
 import { SessionRow } from './SessionRow'
-import { useSessionsState } from '../store/sessionsStore'
-import { isPinnedSession } from '../lib/sessionPlacement'
+import { useNavSections } from '../hooks/useNavSections'
 
-export interface PinnedSectionProps {
+export interface PinnedSectionViewProps {
+  // 0203 ΔV1 EP-9 — 목록은 props 로만 들어온다. 이 컴포넌트에 배치 필터는 없다.
+  sessions: SessionListItem[]
   currentSessionId: string | null
   onSelectSession: (sessionId: string) => void
   onTogglePinSession: (sessionId: string, pinned: boolean) => void
@@ -14,27 +16,17 @@ export interface PinnedSectionProps {
   onRenameSession: (sessionId: string, title: string) => void
 }
 
-// 좌측 nav "고정됨" 섹션 — 소속과 무관하게 고정된 대화만 한곳에 나열한다(배치 규칙은
-// lib/sessionPlacement). 같은 대화는 최근 대화 및 프로젝트 하위 목록에서 제외되어
-// nav 안에 한 번만 나타난다.
-export const PinnedSection = memo(function PinnedSection({
+// 좌측 nav "고정됨" 구획의 렌더. 받은 목록을 그대로 그린다 — 무엇이 고정인지는
+// lib/navSections 의 파티션이 이미 정했다(배치 규칙은 이 파일에 없다).
+export const PinnedSectionView = memo(function PinnedSectionView({
+  sessions,
   currentSessionId,
   onSelectSession,
   onTogglePinSession,
   onDeleteSession,
   onRenameSession
-}: PinnedSectionProps): React.JSX.Element {
+}: PinnedSectionViewProps): React.JSX.Element {
   const { tr } = useI18n()
-  const byId = useSessionsState((state) => state.byId)
-  // 셀렉터가 새 배열을 반환하면 useSyncExternalStore 캐시가 깨지므로 엔티티 맵을 구독하고
-  // 파생은 useMemo — 고정 세션만, 고정 시각 내림차순(최근 고정이 위).
-  const pinnedSessions = useMemo(
-    () =>
-      Object.values(byId)
-        .filter(isPinnedSession)
-        .sort((a, b) => (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0)),
-    [byId]
-  )
 
   return (
     <CollapsibleSection
@@ -42,7 +34,7 @@ export const PinnedSection = memo(function PinnedSection({
       className="app-frame-sidebar-pinned"
       dataContext="pinned"
     >
-      {pinnedSessions.map((s) => (
+      {sessions.map((s) => (
         <SessionRow
           key={s.id}
           session={s}
@@ -57,4 +49,18 @@ export const PinnedSection = memo(function PinnedSection({
       ))}
     </CollapsibleSection>
   )
+})
+
+export interface PinnedSectionProps extends Omit<PinnedSectionViewProps, 'sessions'> {
+  // 배치 판정 입력 — 고정 여부는 projects feature 소관이라 app 셸이 내려 준다.
+  pinnedProjectIds: ReadonlySet<string>
+}
+
+// store 어댑터. 파생은 공용 파티션이 갖고 여기서는 그 결과의 한 칸을 골라 넘긴다.
+export const PinnedSection = memo(function PinnedSection({
+  pinnedProjectIds,
+  ...view
+}: PinnedSectionProps): React.JSX.Element {
+  const { pinned } = useNavSections(pinnedProjectIds)
+  return <PinnedSectionView sessions={pinned} {...view} />
 })

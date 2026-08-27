@@ -21,6 +21,7 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
     () => (
       <PinnedProjectsSection
         pinnedProjects={handlers.pinnedProjects}
+        pinnedProjectIds={handlers.pinnedProjectIds}
         currentSessionId={handlers.currentSessionId}
         onOpenProject={handlers.handleOpenProject}
         onTogglePinProject={handlers.handleTogglePinProject}
@@ -32,6 +33,7 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
     ),
     [
       handlers.pinnedProjects,
+      handlers.pinnedProjectIds,
       handlers.currentSessionId,
       handlers.handleOpenProject,
       handlers.handleTogglePinProject,
@@ -45,6 +47,7 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
   const pinnedSlot = useMemo(
     () => (
       <PinnedSection
+        pinnedProjectIds={handlers.pinnedProjectIds}
         currentSessionId={handlers.currentSessionId}
         onSelectSession={handlers.handleSelectSession}
         onTogglePinSession={handlers.handleTogglePinSession}
@@ -53,6 +56,7 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
       />
     ),
     [
+      handlers.pinnedProjectIds,
       handlers.currentSessionId,
       handlers.handleSelectSession,
       handlers.handleTogglePinSession,
