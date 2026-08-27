@@ -69,52 +69,39 @@ describe('chatReducer — TaskXXX 라이브 파트 (AC18)', () => {
 
 describe('chatReducer — 중단 대기 상태 (AC12·AC13·AC15)', () => {
   it('요청은 중단 대기에 넣고 이전 실패 사유를 지운다', () => {
-    let s = chatReducer(initialChatState, {
-      type: 'TASK_STOP_FAILED',
-      key: 'bg:a1',
-      toolUseId: 'a1',
-      reason: '중단하지 못했습니다'
-    })
+    let s = chatReducer(initialChatState, { type: 'TASK_STOP_FAILED', toolUseId: 'a1' })
+    // 실패는 `agent:` 가 아니라 background 네임스페이스의 키로 들어간다(유도값).
     expect(s.taskStopErrors['bg:a1']).toBeDefined()
 
-    s = chatReducer(s, { type: 'TASK_STOP_REQUESTED', key: 'bg:a1', toolUseId: 'a1' })
+    s = chatReducer(s, { type: 'TASK_STOP_REQUESTED', toolUseId: 'a1' })
     expect(s.stoppingTaskIds).toEqual(['a1'])
     expect(s.taskStopErrors['bg:a1']).toBeUndefined()
   })
 
   it('요청 실패는 대기를 풀고 사유를 남긴다 — 화면이 진행 중으로 복구된다', () => {
-    let s = chatReducer(initialChatState, {
-      type: 'TASK_STOP_REQUESTED',
-      key: 'bg:a1',
-      toolUseId: 'a1'
-    })
+    let s = chatReducer(initialChatState, { type: 'TASK_STOP_REQUESTED', toolUseId: 'a1' })
     s = chatReducer(s, {
       type: 'TASK_STOP_FAILED',
-      key: 'bg:a1',
       toolUseId: 'a1',
-      reason: '중단하지 못했습니다 — channel is not live'
+      detail: 'channel is not live'
     })
     expect(s.stoppingTaskIds).toEqual([])
-    expect(s.taskStopErrors['bg:a1']).toContain('중단하지 못했습니다')
+    // 번역된 문장이 아니라 카탈로그 키 + 원문이 실린다 — 언어 전환이 표시 중인 문구를 따라온다.
+    expect(s.taskStopErrors['bg:a1']).toEqual({
+      messageKey: 'chat.taskTile.stopFailed',
+      detail: 'channel is not live'
+    })
   })
 
   it('부모 Task 결과가 도착하면 중단 대기가 풀린다 — 확정·watchdog·채널 사망 공통 경로', () => {
-    let s = chatReducer(initialChatState, {
-      type: 'TASK_STOP_REQUESTED',
-      key: 'bg:a1',
-      toolUseId: 'a1'
-    })
+    let s = chatReducer(initialChatState, { type: 'TASK_STOP_REQUESTED', toolUseId: 'a1' })
     expect(s.stoppingTaskIds).toEqual(['a1'])
     s = chatReducer(s, recv(completed('a1', undefined, true)))
     expect(s.stoppingTaskIds).toEqual([])
   })
 
   it('다른 도구의 결과는 중단 대기를 건드리지 않는다', () => {
-    let s = chatReducer(initialChatState, {
-      type: 'TASK_STOP_REQUESTED',
-      key: 'bg:a1',
-      toolUseId: 'a1'
-    })
+    let s = chatReducer(initialChatState, { type: 'TASK_STOP_REQUESTED', toolUseId: 'a1' })
     s = chatReducer(s, recv(completed('other')))
     expect(s.stoppingTaskIds).toEqual(['a1'])
   })

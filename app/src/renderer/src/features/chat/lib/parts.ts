@@ -200,8 +200,9 @@ function toolCallFromPart(
 
 // tool_result 파트 → toolRunId 별 ToolCall.result. 0204 이전에는 같은 본문이 세 곳
 // (partsToolCalls·subagentTasksFromMessages·messageSegments)에 복사돼 있었고, 파트에 필드가
-// 늘 때마다 세 곳이 갈라질 수 있었다 — 한 곳이 소유한다.
-function resultMap(parts: AppMessagePart[]): Map<string, NonNullable<ToolCall['result']>> {
+// 늘 때마다 세 곳이 갈라질 수 있었다 — 한 곳이 소유한다. 파생을 직접 접는 소비자(taskBoard 의
+// Task 도구 fold)도 자기 사본을 만들지 않고 이것을 부른다.
+export function resultMap(parts: AppMessagePart[]): Map<string, NonNullable<ToolCall['result']>> {
   const resultByRun = new Map<string, NonNullable<ToolCall['result']>>()
   for (const p of parts) {
     if (isToolResultPart(p)) {
@@ -354,6 +355,17 @@ function valueString(input: unknown, key: string): string | null {
   if (typeof input !== 'object' || input === null) return null
   const value = (input as Record<string, unknown>)[key]
   return typeof value === 'string' && value.trim() !== '' ? value : null
+}
+
+// Task 도구 입력의 요청 프롬프트. 두 타일의 상세가 같은 wire 필드를 읽으므로 여기가 소유한다 —
+// 컴포넌트가 각자 `input.prompt` 를 shape-sniff 하면 SDK 가 키를 바꿀 때 한쪽만 따라간다.
+export function promptFromCall(call: ToolCall): string | null {
+  const input = call.input
+  if (typeof input === 'object' && input !== null) {
+    const prompt = (input as Record<string, unknown>).prompt
+    if (typeof prompt === 'string' && prompt.trim() !== '') return prompt
+  }
+  return null
 }
 
 // 종단 정착의 사유 문구. 에러 결과의 `message` 만 사유다 — 성공 결과의 `summary` 는 답변이라

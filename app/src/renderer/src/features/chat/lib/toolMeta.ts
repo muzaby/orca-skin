@@ -260,3 +260,7 @@ export function formatTokenLabel(
     ? tr('chat.toolMeta.tokensK', { n: (tokenCount / 1000).toFixed(1) })
     : tr('chat.toolMeta.tokens', { n: tokenCount })
 }
+
+// 메타 라인의 항목 구분 — 가시 간격 유지를 위해 nbsp 2칸. 두 우측 패널 타일이 같은 양식으로
+// 같은 줄을 조립하므로 리터럴을 각자 들지 않는다(보이지 않는 문자라 육안 대조가 안 된다).
+export const META_GAP = '  '

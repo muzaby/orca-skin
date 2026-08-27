@@ -597,10 +597,8 @@ export const en: typeof ko = {
       failedReason: 'The execution session ended',
       stopFailed: 'Could not stop the task',
       noChildActivity: 'No child activity recorded for this task.',
-      emptyTitle: 'No tasks yet',
       emptyDesc: 'Tasks Claude creates and background work it starts will appear here.',
-      openDetailAria: 'Open details for {{description}}',
-      viewTranscript: 'View transcript'
+      openDetailAria: 'Open details for {{description}}'
     },
     composer: {
       modes: {

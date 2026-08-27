@@ -45,7 +45,7 @@ export interface StopSubagentDeps<W> {
  * taskId 미상은 실패가 아니다: 아직 task_started 를 못 본 foreground 태스크이며, coordinator 가
  * taskId 도착 시 `stoppedSubagents` 를 보고 이어서 멈춘다.
  */
-export async function requestLiveSubagentStop(
+async function requestLiveSubagentStop(
   live: GovernedLiveTurn | null,
   toolUseId: string,
   taskId: string | undefined,

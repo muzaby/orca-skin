@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Icon } from '../../../../shared/ui/Icon'
+import { Icon, type IconName } from '../../../../shared/ui/Icon'
 import { useI18n, type MessageKey } from '../../../../shared/i18n'
 
 // `작업` 타일의 접히는 섹션 껍데기와, 아직 데이터가 붙지 않은 두 섹션의 빈 상태(0204 D-017·D-022).
@@ -43,11 +43,11 @@ export function TileSection({
 }
 
 // 데이터가 붙기 전의 섹션 본문 — 일러스트 자리 + 한 줄 설명(첨부 cowork 양식).
-function SectionPlaceholder({
+export function SectionPlaceholder({
   icon,
   descKey
 }: {
-  icon: 'chart' | 'board'
+  icon: IconName
   descKey: MessageKey
 }): React.JSX.Element {
   const { tr } = useI18n()
@@ -62,12 +62,4 @@ function SectionPlaceholder({
       <p className="text-caption text-ink3">{tr(descKey)}</p>
     </div>
   )
-}
-
-export function OutputSectionEmpty(): React.JSX.Element {
-  return <SectionPlaceholder icon="chart" descKey="chat.taskTile.sections.outputDesc" />
-}
-
-export function ContextSectionEmpty(): React.JSX.Element {
-  return <SectionPlaceholder icon="board" descKey="chat.taskTile.sections.contextDesc" />
 }

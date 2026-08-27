@@ -5,12 +5,13 @@ import { AssistantMessage } from '../transcript/AssistantMessage'
 import { UserBubbleText } from '../UserBubbleText'
 import {
   childMessageForParentToolRunId,
+  promptFromCall,
   subagentTasksFromMessages,
   type SubagentTaskStatus,
   type SubagentTaskSummary
 } from '../../lib/parts'
-import { backgroundTaskKey } from '../../lib/taskBoard'
-import { formatDurationLabel, formatTokenLabel } from '../../lib/toolMeta'
+import { backgroundBoardStatus, canStopBackgroundStatus } from '../../lib/taskBoard'
+import { formatDurationLabel, formatTokenLabel, META_GAP } from '../../lib/toolMeta'
 import { formatTimeFull, formatTimeShort, useI18n, type MessageKey } from '../../../../shared/i18n'
 import {
   chatActions,
@@ -35,18 +36,6 @@ const GROUP_ORDER: SubagentTaskStatus[] = ['running', 'completed', 'aborted', 'f
 // D-005/D-006 을 유지한다**: 클릭은 요청이고 확정은 SDK 정착이 준다. 그래서 `running` 이지만
 // 중단 확정을 기다리는 동안은 '중단 중…' 을 보이고 버튼을 감춘다(중복 요청 차단).
 // 복구가 "즉시 중단됨 확정" 으로 되돌아가는 것이 아니라는 점이 D-016a 의 요지다.
-
-// 메타 라인의 항목 구분 — 가시 간격 유지를 위해 nbsp 2칸(이미지 양식).
-const GAP = '  '
-
-function promptFromCall(call: ToolCall): string | null {
-  const input = call.input
-  if (typeof input === 'object' && input !== null) {
-    const prompt = (input as Record<string, unknown>).prompt
-    if (typeof prompt === 'string' && prompt.trim() !== '') return prompt
-  }
-  return null
-}
 
 // Task 결과 output 에서 완료 답변 텍스트를 끌어낸다 — 문자열이면 그대로, 객체면 summary/message.
 function answerTextFromCall(call: ToolCall): string | null {
@@ -181,13 +170,12 @@ export function SubAgentTaskDetail({
 // **props 만 읽는 순수 View** — 위와 같은 이유.
 export function SubAgentTaskList({
   tasks,
-  stoppingIds
+  stoppingIds: stopping
 }: {
   tasks: SubagentTaskSummary[]
   stoppingIds: ReadonlySet<string>
 }): React.JSX.Element {
   const { tr, locale } = useI18n()
-  const stopping = stoppingIds
   if (tasks.length === 0) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
@@ -215,6 +203,9 @@ export function SubAgentTaskList({
           <div className="flex flex-col gap-g3">
             {group.items.map((task) => {
               const open = (): void => chatActions.selectSubagentTask(task.toolUseId)
+              // 중단 대기 → 표시 상태의 규칙은 `taskBoard` 가 소유한다(plan §3 갱신메모) —
+              // 두 타일이 같은 수명주기를 각자의 인라인 조건으로 쓰면 한쪽만 따라간다.
+              const boardStatus = backgroundBoardStatus(task.status, task.toolUseId, stopping)
               return (
                 // 카드 전체가 대화록 열기 트리거. 내부에 중단 버튼(중첩 버튼 불가)을 두기 위해
                 // <button> 대신 role="button" div 로 두고 키보드 동작을 유지한다.
@@ -241,30 +232,30 @@ export function SubAgentTaskList({
                     </span>
                   </div>
                   <div className="mt-g1 pl-5 text-footnote text-ink3">
-                    {`${tr('chat.toolMeta.agentFallback')}${GAP}${
-                      task.status === 'running' && stopping.has(task.toolUseId)
+                    {`${tr('chat.toolMeta.agentFallback')}${META_GAP}${
+                      boardStatus === 'stopping'
                         ? tr('chat.subagentTile.status.stopping')
                         : tr(STATUS_KEY[task.status])
                     }`}
                     {formatDurationLabel(tr, task.durationMs)
-                      ? `${GAP}${formatDurationLabel(tr, task.durationMs)}`
+                      ? `${META_GAP}${formatDurationLabel(tr, task.durationMs)}`
                       : ''}
                     <span title={formatTimeFull(task.createdAtMs, locale)}>
-                      {`${GAP}${formatTimeShort(task.createdAtMs, locale)}`}
+                      {`${META_GAP}${formatTimeShort(task.createdAtMs, locale)}`}
                     </span>
                   </div>
                   <div className="mt-g1 flex items-center pl-5 text-footnote text-ink3">
                     <span className="min-w-0 truncate">
                       {formatTokenLabel(tr, task.tokenCount)
-                        ? `${formatTokenLabel(tr, task.tokenCount)}${GAP}`
+                        ? `${formatTokenLabel(tr, task.tokenCount)}${META_GAP}`
                         : ''}
                       {tr('chat.toolMeta.toolUses', { count: task.childToolCount })}
-                      {GAP}
+                      {META_GAP}
                       <span className="font-medium text-t7 group-hover/subagent:underline">
                         {tr('chat.subagentTile.viewTranscript')}
                       </span>
                     </span>
-                    {task.status === 'running' && !stopping.has(task.toolUseId) && (
+                    {canStopBackgroundStatus(boardStatus) && (
                       // 진행 중 서브에이전트 중단 — 네모·라운드·채움없음(stop 아이콘). 카드 열기와
                       // 버블링 분리(stopPropagation). turn 전체가 아니라 이 Task 만 멈춘다.
                       // '대화록 보기' 바로 우측에 좌측정렬(ml-auto 로 끝까지 밀지 않음) — 이 자리가
@@ -279,7 +270,7 @@ export function SubAgentTaskList({
                         className="ml-g2 shrink-0"
                         onClick={(e) => {
                           e.stopPropagation()
-                          chatActions.stopTask(backgroundTaskKey(task.toolUseId))
+                          chatActions.stopTask(task.toolUseId)
                         }}
                       />
                     )}

@@ -602,10 +602,8 @@ export const ko = {
       failedReason: '실행 세션이 종료되었습니다',
       stopFailed: '중단하지 못했습니다',
       noChildActivity: '이 작업에 기록된 하위 활동이 없습니다.',
-      emptyTitle: '작업이 없습니다',
       emptyDesc: 'Claude 가 Task 를 만들거나 백그라운드 작업을 시작하면 여기에 표시됩니다.',
-      openDetailAria: '{{description}} 상세 보기',
-      viewTranscript: '대화록 보기'
+      openDetailAria: '{{description}} 상세 보기'
     },
     composer: {
       modes: {
