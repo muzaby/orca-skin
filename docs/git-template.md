@@ -79,9 +79,9 @@ Claude-Session: https://claude.ai/code/session_...
 
 ## 에이전트별 작성 규칙
 
-- **설계 커밋 (Claude)**: `Agent: claude` · `Status: designed`. `Criteria-*`·`Next-Action` 은 넣지 않는다. `plan/DRAFT`·`plan/READY` 와 **verify/FAIL 후 규범 행 정정**(Decision·AC·`§10 강제 지점`)이 이 갈래다. **구현 산출과 같은 커밋에 담지 않는다** — 섞이면 `handoff-verify §0` 의 기준선 잠금이 "구현 전 plan" 을 diff 로 꺼내지 못해, 구현자가 자기 산출에 맞춰 기준을 고쳤는지 아무도 확인할 수 없다 (정본 [`../.agents/skills/handoff-plan/SKILL.md`](../.agents/skills/handoff-plan/SKILL.md) 마무리).
+- **설계 커밋 (Claude)**: `Agent: claude` · `Status: designed`. `Criteria-*`·`Next-Action` 은 넣지 않는다. `plan/DRAFT`·`plan/READY` 와 **RETURN_TO_PLAN 후 규범 행 정정**(Decision·AC·V node/pair·`§10 강제 지점`)이 이 갈래다. **구현 산출과 같은 커밋에 담지 않는다** — 섞이면 `handoff-verify §0` 의 기준선 잠금이 "구현 전 plan" 을 diff 로 꺼내지 못해, 구현자가 자기 산출에 맞춰 기준을 고쳤는지 아무도 확인할 수 없다 (정본 [`../.agents/skills/handoff-plan/SKILL.md`](../.agents/skills/handoff-plan/SKILL.md) 마무리).
 - **구현 커밋**: `Agent: <구현 에이전트>` · `Status: implemented|partial|blocked` · `Criteria-Met` · (미충족 있으면) `Criteria-Pending` · `Verified-By: pending`. `Next-Action` 은 넣지 않는다. 구현 에이전트는 보통 Codex(기능 구현)지만, **리팩토링·버그수정은 Claude 가 구현**하므로 그 경우 `Agent: claude` 로 동일 형식을 쓴다 (역할 분담 정본은 [`handoff/AGENTS.md`](handoff/AGENTS.md)).
-- **검증 커밋 (Claude)**: `Agent: claude` · `Status: verified` · `Verified-By: claude:pass|claude:fail` · `Next-Action: codex|claude|none`. `Criteria-*` 는 넣지 않는다.
+- **검증 커밋 (Claude)**: `Agent: claude` · `Status: verified` · `Verified-By: claude:pass|claude:fail` · `Next-Action: codex|claude|none`. `RETURN_TO_PLAN`은 `Verified-By: claude:fail` + `Next-Action: claude`로 인코딩하고 lifecycle 원인은 INDEX/verify 상태가 구분한다. `Criteria-*`는 넣지 않는다.
 - **공통**: `Handoff`, `Refs`(선택).
 
 이 분리로 파싱 측이 "설계·구현·검증 중 어느 커밋인지" 와 "다음에 누가 움직여야 하는지" 를 키 존재 여부 + 값으로 판별한다 — `Status` 값이 갈래를 주고, `Criteria-*`(구현만)·`Next-Action`(검증만) 의 존재가 그것을 다시 확인한다.

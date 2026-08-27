@@ -1176,13 +1176,14 @@ lifecycle 이 갈렸다. root `AGENTS.md` 는 "verify/FAIL 후 **규범 행 정�
 P15 는 설계가 강제 지점을 애초에 지정하지 않은 경우다. 여기는 **검증이 그 누락을 찾아 요구까지 했는데
 그 요구를 받을 주체가 라이프사이클에 없었다.**
 
-→ **규칙.** **파생 이슈가 구현자 권한 밖의 수정(§10 행 신설·AC 문면 정정)을 요구하면 `규범 정정 필요`로
-표시하고, 그 행이 하나라도 있으면 다음 주체는 구현자가 아니라 설계자다.** 설계자는 정정하거나,
-정정하지 않는 근거를 그 행에 적어 요구를 종결시킨다 — 둘 중 하나를 해야 요구가 소멸하지 않는다.
+→ **현재 규칙(round 22 교체).** 필요한 Decision·AC·V node/pair·경로·§10·oracle이 없으면
+`PLAN_GAP`으로 분류하고 `RETURN_TO_PLAN`으로 설계자에게 돌린다. 설계자는 영향 Delta를 정정하거나
+정정하지 않는 근거로 gap을 종결한 뒤 별도 설계 커밋으로 `plan/READY`에 돌려놓는다. 명시 계약 위반은
+`PAIR_FAIL`로 유지해 gap으로 낮추지 않는다.
 
-현재 방어: verify SKILL 마무리 + `verify.template.md §13` 표시 · `handoff-plan` §verify/FAIL 후 plan
-갱신(재구현 전 종결) · `docs/handoff/AGENTS.md §정상 라이프사이클` 분기와 상태표 · root `AGENTS.md`
-협업 흐름 · `plan.template.md` `[검증자 기입] 파생 이슈` 상태값.
+현재 방어: verify SKILL §0·§11·마무리 + `verify.template.md §0·§13·§15` · `handoff-plan`
+§verify/FAIL·RETURN_TO_PLAN 후 갱신 · `docs/handoff/AGENTS.md §공통 V 추적 프로토콜`과
+§정상 라이프사이클 · root `AGENTS.md` 협업 흐름 · `plan.template.md` `[검증자 기입] 파생 이슈` 분류.
 
 ---
 
