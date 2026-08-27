@@ -1,6 +1,6 @@
 ---
 name: handoff-verify
-description: docs/handoff/ 의 verify.md를 작성할 때 쓴다. **구현이 끝나 보드가 `impl/IMPL_DONE`이고 다음 주체가 검증자면** 로드한다 — 외부 PR 리뷰가 도착했어도 그것은 verify가 아니다. 현재 구현을 처음 보는 남의 PR처럼 독립 검증하며, plan의 Product/UX Contract·Decision Ledger·강제 지점 표·Acceptance Criteria와 실제 end-to-end 동작을 대조하고 기준 밖 결함도 역방향으로 찾는다. 구현자의 보고는 증거로 받지 않는다. 실패를 일반화해 스킬 자체를 고치는 일은 handoff-review에 위임한다.
+description: docs/handoff/ 의 verify.md를 작성할 때 쓴다. **구현이 끝나 보드가 `impl/IMPL_DONE`이고 다음 주체가 검증자면** 로드한다 — 외부 PR 리뷰는 verify가 아니다. 현재 구현을 처음 보는 남의 PR처럼 독립 검증하며 plan validity와 REQUIRED·REGRESSION V-pair를 UT→IT→ST→AT 순으로 닫고 전역 불변식을 확인한다. 역방향 발견은 BLOCKING·PLAN_GAP·NON_BLOCKING·NEXT_HANDOFF로 범위를 판정하며 구현자 보고는 증거로 받지 않는다. 지침 개선은 handoff-review에 위임한다.
 ---
 
 # handoff-verify — 현재 구현을 독립 검증하기
@@ -10,9 +10,9 @@ description: docs/handoff/ 의 verify.md를 작성할 때 쓴다. **구현이 �
 이 스킬은 **이번 구현이 운영에 나가도 되는지 판단하는 실행 스킬**이다.
 
 - 설계자·구현자가 자신이어도 처음 보는 남의 PR처럼 읽는다.
-- AC만 채점하지 않는다. **Product & UX Contract / ACTIVE Decision / 실제 production path**를 함께 검증한다.
+- AC만 채점하지 않는다. **Product & UX Contract / ACTIVE Decision / Delta V / 실제 production path**를 함께 검증한다.
 - 구현 보고·코드 주석·이전 verify 결론을 증거로 받지 않는다.
-- 기준 밖 결함도 찾는다.
+- 기준 밖 결함도 찾되 현재 pair·ACTIVE Decision·기존 blocking 이슈·전역 불변식에 귀속되지 않으면 현재 PASS를 막지 않는다.
 - 못 본 것은 못 봤다고 쓴다.
 
 **하지 않는 일**:
@@ -32,16 +32,16 @@ description: docs/handoff/ 의 verify.md를 작성할 때 쓴다. **구현이 �
 # 검증 순서
 
 ```text
-0. 검증 대상 commit/range와 구현 전 plan 기준선 고정
+0. 검증 대상 commit/range·구현 전 plan 기준선·plan validity 고정
 1. Product/UX + ACTIVE Decision 기억
 2. AC 전에 diff 비판적 읽기
 3. 역방향 탐색 — 미배선/죽은 코드/비대칭/소비자 누락
 4. 구현자가 plan/AC를 바꿨는지 확인
 5. Product/UX ↔ end-to-end 경로 검증
-6. AC 1:1 검증 + plan §10 강제 지점 표 대조
+6. REQUIRED/REGRESSION V-pair를 UT → IT → ST → AT로 닫기
 7. gate/환경 분리/사람 실기 경계
 8. repository operation checks(AGENTS/INDEX/trailer)
-9. PASS/FAIL + 파생 이슈 + review signal 기록
+9. PASS/FAIL/RETURN_TO_PLAN + finding disposition + review signal 기록
 ```
 
 ## 0. 검증 기준선을 잠근다
@@ -53,6 +53,13 @@ description: docs/handoff/ 의 verify.md를 작성할 때 쓴다. **구현이 �
 - 구현자가 자기 코드에 맞춰 AC를 완화/재작성했다면 원래 기준으로 채점한다.
 - 사용자 결정이 실제로 바뀐 경우만 `SUPERSEDED` 근거를 확인하고 새 기준을 따른다.
 - **기준선이 diff로 성립하지 않으면 그 사실을 먼저 적는다.** 설계와 산출이 한 커밋에 들어왔거나 plan 커밋이 따로 없으면 §0의 자기 증명 방지 장치는 작동하지 않는다 — "AC 변경 없음"을 확인했다고 쓰지 말고 **확인할 수 없었다**고 쓰고, 채점 기준으로 삼은 AC·Decision 원문을 이번 문서에 인용해 고정한 뒤 그 기준으로 채점한다. 다음 라운드부터는 plan 커밋과 구현 커밋이 갈리므로 이 예외는 그 라운드에 한정된다.
+
+기준선을 잠근 뒤 **plan validity**를 먼저 감사한다.
+
+- 모든 `NEW`·`CHANGED` 왼쪽 node에 같은 레벨 `REQUIRED` pair가 있고, 영향받은 `INHERITED` 상위 node에 `REGRESSION` pair가 있는가.
+- 각 pair에 production path·§10 강제 지점 전수·직접 oracle·음성 대조/결함 변이가 있는가. 적용 전역 불변식도 열거됐는가.
+- 구현/검증에 필요한 계약·node·pair·경로·강제 지점·oracle이 빠졌거나 서로 모순되어 구현자가 선택해야 한다면 `PLAN_GAP`이다. 다만 이미 명시된 Decision·AC·코드 계약을 구현이 위반하면 pair 행 누락을 이유로 결함을 낮추지 않고 `PAIR_FAIL`로 판정하며 plan gap도 함께 기록할 수 있다.
+- V 도입 전 작성된 진행 중 plan은 AC·§10·production path에서 **읽기 전용 V 매핑을 합성**한다. 형식이 옛것이라는 이유만으로 migrate하거나 `PLAN_GAP`을 만들지 않고, 실제 판정에 필요한 계약/증거가 빠졌을 때만 gap으로 판정한다.
 
 ## 1. AC 전에 구현 자체를 비판적으로 읽는다
 
@@ -81,6 +88,8 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 - producer ↔ consumer 파생 불일치.
 - 같은 규칙의 중복 구현/SSOT drift.
 - 외부 SDK/문서 예제/fixture의 실제 계약 타입·의미.
+
+발견은 숨기지 않되 바로 blocking으로 승격하지 않는다. 현재 V-pair·ACTIVE Decision·이전 blocking 이슈에 매핑되면 `BLOCKING`, 필요한 기준선 자체가 빠졌으면 `PLAN_GAP`, 전역 불변식에 매핑되면 `BLOCKING`, 그 밖은 `NON_BLOCKING` 또는 `NEXT_HANDOFF`다.
 
 **테스트가 있다는 사실과 프로덕션에 배선됐다는 사실을 분리한다.** 두 방향을 모두 본다.
 
@@ -114,6 +123,7 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 - **동작을 보존하는 추출·재배치 라운드에서 hunk 되돌림은 아무것도 재지 못한다.** 되돌리면 동작이 같은 이전 코드로 돌아갈 뿐이라 초록이 정답이다 — 그 초록을 `잠금 없음`으로도, `잠김`으로도 읽지 않는다. 그런 라운드의 판정은 인용 변이로만 내린다.
 - **소거 변이는 장치가 침묵할 때까지 민다.** 지운 자리가 남긴 잔여물(unused import·dead local·타입 진단)에 게이트가 걸리면 그 red는 잠금이 아니라 치우면 사라지는 부산물이다 — 잔여물을 치우는 정리를 따라가 **진단이 0이 될 때까지** 밀고 그 상태의 게이트로 판정한다. 0198 r7 M-J는 1단계에서 멈춰 `typecheck red`를 잠금으로 적었고, r8이 3단계까지 밀자 typecheck·eslint·전체 스위트가 전부 초록이었다.
 - **검출되지 않은 인용 변이가 있으면 그 파생 이슈는 닫히지 않았다.** 구현자가 `closed`로 적었어도 상태를 되돌리고 §13으로 이관한다.
+- blocking 변이의 분모는 현재 pair의 음성 대조, 닫는 이슈가 인용한 변이, 또는 전역 불변식 변이다. V 도입 전 plan이나 음성 대조가 없는 첫 라운드만 기존 hunk fallback을 쓴다. 인접·무관 표면의 변이가 살아도 현재 계약에 매핑되지 않으면 `NON_BLOCKING`/`NEXT_HANDOFF`이며, 새 필수 계약이 필요함을 보이면 `PLAN_GAP`이다.
 - 함수 호출 지점 1개, `Promise.all`, 특정 시그니처가 semantic 목표를 실제 보장하는지 적대 사례를 본다.
 - `N회`는 실제 관측 주체에서 횟수를 단언한다.
 - 순서 AC는 훅/로그/주입 경계에서 순서를 관측한다.
@@ -131,21 +141,20 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 
 가능한 부분까지 기계 검증하고 남는 경계만 사람 실기로 넘긴다.
 
-## 6. AC 1:1 매트릭스
+## 6. V-pair closeout — `UT → IT → ST → AT`
 
-각 AC에 대해 Product/UX 목적, 직접 검증 수단, production path, 선택 필드 undefined, SDK 타입/의미, fixture/example, 총량/0건 예외, 구조적 목표의 과분해 유인을 독립 확인한다.
+각 `REQUIRED`·`REGRESSION` pair를 낮은 레벨부터 독립 판정한다. 결과는 `PASS` · `PAIR_FAIL` · `BLOCKED_BY:<root-pair>` · `NOT_REQUIRED`만 쓴다.
 
-외부가 구현하는 port/schema/config는 **shape + semantics** 두 층으로 검증한다. 시그니처가 같아도 실패 의미가 바뀌면 문서 drift다.
+- `MD↔UT`: 모듈 불변식·알고리즘·seam을 직접 단언하고 음성 대조/결함 변이를 심는다.
+- `AR↔IT`: 실제 producer/consumer·모듈 경계·조립·계약 edge를 지난다. 동명 로컬 재구현은 증거가 아니다.
+- `SD↔ST`: 시작점부터 저장/상태/오류·정리까지 end-to-end 수명주기를 지난다.
+- `R↔AT`: Product/UX 목적과 AC 행동을 production path에서 닫는다. 외부 port/schema/config는 shape + semantics 두 층으로 확인한다.
 
-### plan §10 강제 지점 표를 AC와 **별개로** 걷는다
+하위 root 실패로 상위 pair를 독립 판정할 수 없을 때만 `BLOCKED_BY:<root-pair>`로 둔다. 상위 행동을 다른 경로에서 독립 관측할 수 있으면 실행하며, 같은 root 원인을 네 단계의 `PAIR_FAIL`로 부풀리지 않는다. 하나의 직접 증거가 여러 pair를 닫으면 각 행에 공유 증거와 판정 범위를 적는다.
 
-AC 는 제품 행동을 말하고, plan 의 `계약 / 타입 / 강제 지점` 표는 **하나의 불변식이 성립해야 하는 지점들**을 말한다. 둘은 다른 축이고, AC 만 채점하면 이 표는 아무도 읽지 않는다.
+plan §10은 pair 안에서 **별도 분모**로 계속 걷는다. `언제 강제`에 열거된 지점을 코드에서 하나씩 다시 세고, `실패 의미`의 적대 상태를 만든다. “다른 게이트가 막는다”는 주장도 변이로 재측정한다. 표 밖 지점이 현재 pair·ACTIVE Decision·전역 불변식에 필수면 `PLAN_GAP`, 그 밖이면 `NON_BLOCKING`/`NEXT_HANDOFF`다.
 
-- **`언제 강제` 칸에 열거된 지점을 하나씩 코드에서 확인한다.** `commit·revoke·expiry·401` 처럼 여러 지점이 적혀 있으면 **그 개수만큼** 확인하고 개수를 적는다. 한 지점만 구현돼 있어도 AC 는 통과할 수 있다 — AC 가 대표 경로 하나만 단언하기 때문이다.
-- **`실패 의미` 칸이 곧 적대 사례다.** 그 문장이 서술하는 상태를 실제로 만들 수 있는지 본다. **그 칸이 “다른 게이트가 막는다”고 적으면 그 주장 자체를 변이로 재측정한다** — 다른 라운드가 남긴 얕은 관측이면 규범 행이 없는 보호를 갖는다고 말하게 된다.
-- 표에 없는데 코드에 같은 불변식을 요구하는 지점이 더 있으면 그것도 적는다 — 설계가 못 본 지점이다.
-
-이 표는 여러 지점에 걸친 불변식을 설계가 미리 열거해 둔 **유일한 자리**다. 걷지 않으면 부분 구현이 라운드마다 하나씩 드러난다.
+첫 검증 라운드는 모든 `REQUIRED`·`REGRESSION` pair와 전역 불변식을 실행한다. 재검증은 root 실패 pair·그 종속 pair·이번 변경으로 영향받은 pair·전역 gate를 실행하고, 영향받지 않은 이전 `PASS`는 증거 좌표를 참조한다. 이전 라운드 산문을 복사해 다시 PASS 수에 더하지 않는다.
 
 ## 7. 숫자·음성 기준·상한을 재측정한다
 
@@ -203,11 +212,13 @@ AC 는 제품 행동을 말하고, plan 의 `계약 / 타입 / 강제 지점` �
 - **이전 라운드 판정은 보존하되 재서술하지 않는다.** r1 원문은 그 자리에 두고 이번 본문은 링크한다 — 같은 판정이 두 곳에 길게 있으면 갈린다.
 - 줄이는 것은 서술이다. 재측정 수치·재현 명령·전수 개수·못 본 것의 명시는 줄이지 않는다.
 
-## 11. PASS / FAIL
+## 11. PASS / FAIL / RETURN_TO_PLAN
 
-PASS는 Product/UX 핵심 흐름과 ACTIVE Decision이 충족되고, 각 AC의 검증 수준이 정직하며, 기준 밖 중대 결함과 repository operation mismatch가 없을 때만 준다.
+- `PASS`: 모든 `REQUIRED`·`REGRESSION` pair가 PASS이고 ACTIVE Decision·적용 전역 불변식이 충족되며 `PLAN_GAP`이 없다. `NON_BLOCKING`·`NEXT_HANDOFF`는 기록하되 PASS를 막지 않는다.
+- `FAIL`: 하나 이상의 현재 pair 또는 전역 불변식이 실패했다. root `PAIR_FAIL`과 종속 `BLOCKED_BY`를 분리해 `[검증자 기입] 파생 이슈`로 이관한다.
+- `RETURN_TO_PLAN`: 구현자가 새 계약을 발명하지 않고는 닫을 수 없는 `PLAN_GAP`이 있다. root gap과 영향 pair를 적고 설계자로 돌린다.
 
-FAIL은 미충족을 `plan.md`의 `[검증자 기입] 파생 이슈`로 이관한다. 제품 결정이 필요하면 해결안으로 위장하지 않는다.
+제품 결정이 필요하면 해결안으로 위장하지 않는다. `FAIL`과 `PLAN_GAP`이 함께 있으면 둘 다 기록하고 다음 주체는 planner다. 명시 계약 위반을 gap으로 약화하지 않는다.
 
 ## Review Signals — 사실만
 
@@ -223,7 +234,7 @@ A~F 분류와 skill 변경은 `handoff-review`가 한다.
 ## 마무리
 
 - PASS: INDEX `verify/PASS`, 완료 행 archive 이동.
-- FAIL: INDEX `verify/FAIL`, 라운드 +1, 다음 주체는 **기본이 구현자**이고 아래 한 경우만 설계자다.
-- **파생 이슈가 규범 행(Decision·AC·§10) 정정을 요구하면 다음 주체는 구현자가 아니라 설계자다.** 구현자는 규범 행을 고칠 수 없으므로(impl §6) 그대로 넘기면 그 요구는 사라진다 — 0198 r4가 §10 두 행 신설을 요구했으나 보드가 곧장 구현자로 갔고, r5에서 같은 축이 다시 열렸다. 해당 파생 이슈에 **`규범 정정 필요`를 표시**하고 INDEX 다음 주체를 설계자로 둔다.
+- FAIL: INDEX `verify/FAIL`, 라운드 +1, 다음 주체는 구현자다.
+- RETURN_TO_PLAN 또는 FAIL과 함께 있는 PLAN_GAP: INDEX `verify/RETURN_TO_PLAN`, 다음 주체는 설계자다. 설계자는 Decision·AC·V node/pair·§10·oracle 중 영향받은 규범 행을 새 Delta V revision으로 고치고 별도 커밋으로 `plan/READY`에 돌린다.
 - 라운드가 3을 초과하면 다음 재구현 전에 `handoff-review`를 수행한다.
 - 커밋 형식은 root `AGENTS.md`와 `docs/git-template.md`를 따른다.

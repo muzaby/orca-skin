@@ -15,6 +15,8 @@
 | 일자 | YYYY-MM-DD |
 | 매핑 | PHASES / PR (있으면) |
 | 상태 | DRAFT → READY |
+| 이전 V 기준선 | `none` / `<이전 plan commit>:V<N>` |
+| Delta V revision | `V1` — 변경 시 `V2`로 올리고 대체 관계 기록 |
 
 # Part I — Product & UX Contract
 
@@ -95,14 +97,14 @@
 |---|---|---|
 | … | 아니오 / **예 — 이름·식별자·스키마·공개 계약** | 후속 / 지금 사용자 결정 |
 
-## 7. Acceptance Criteria — 제품 계약
+## 7. Requirements / Acceptance — `R ↔ AT`
 
-> 구현 파일명이 아니라 **관측 가능한 동작**을 기준으로 쓴다. 테스트 위치는 변경 가능하지만 단언 대상 동작은 바뀌지 않는다.
+> 구현 파일명이 아니라 **관측 가능한 동작**을 기준으로 쓴다. `AT`는 기존 `AC` 번호를 함께 써서 역사적 참조를 보존한다.
 
-| # | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
-|---|---|---|---|
-| AC1 | …하면 …가 된다 | 단위/통합/계약 테스트에서 `조건 → 결과` / 사람 실기 — 실행 경로 | 실제 entry → consumer |
-| AC2 | … | … | … |
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-01 | AT-01 / AC1 | …하면 …가 된다 | 테스트에서 `조건 → 결과` / 사람 실기 — 실행 경로 | 실제 entry → consumer |
+| R-02 | AT-02 / AC2 | … | … | … |
 
 ### AC 검증 주의사항
 
@@ -110,6 +112,35 @@
 - 사람 실기 항목: 순수 로직을 분리할 수 없는 이유 + 실행 경로 …
 - N회/총량 기준: sink 의 프로덕션 호출부 전수(검색 명령 + 개수) → 식의 항 매핑 · 관측 지점이 모형하지 않는 호출부 … / 순서 기준: 관측 지점 …
 - 총량/0건 기준: 허용 대상과 제거 대상 분해 …
+
+## 7-A. Delta V / Trace Matrix
+
+> 공통 vocabulary·requiredness·결과 상태는 [`docs/handoff/AGENTS.md §공통 V 추적 프로토콜`](../../../docs/handoff/AGENTS.md)을 따른다. V는 many-to-many이며 변경된 경로와 영향받은 상위 회귀만 Delta로 적는다.
+
+### Node registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| R-01 | R | §7 … | NEW / CHANGED / INHERITED / SUPERSEDED | — / commit·기존 plan / R-0N |
+| AT-01 | AT | §7 … | NEW / CHANGED / INHERITED / SUPERSEDED | — / 테스트·실기 evidence / AT-0N |
+| SD-01 | SD | §5·§9 … | … | … |
+| AR-01 | AR | §9·§10 … | … | … |
+| MD-01 | MD | §10·§11 … | … | … |
+
+### Pair registry
+
+| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 음성 대조 / 결함 변이 | §10 강제 지점 전수 |
+|---|---|---|---|---|---|---|
+| VP-01 | R-01 ↔ AT-01 | REQUIRED / REGRESSION / NOT_REQUIRED | … | … | … | EP-… (N) / 0 + 이유 |
+| VP-02 | SD-01 ↔ ST-01 | … | … | … | … | EP-… (N) |
+
+`NOT_REQUIRED`는 requiredness 칸에 비영향 근거, evidence 칸에 재사용할 기존 증거 좌표를 적는다. 필요한 pair 행을 생략해 암묵적으로 처리하지 않는다.
+
+### 전역 불변식
+
+| Global | 적용 이유 | 강제/관측 지점 | 증거 / gate |
+|---|---|---|---|
+| G-SEC / G-DATA / G-DOC / G-REPO / G-SUBTREE | 해당 항목만 남김 | … | … |
 
 ---
 
@@ -148,6 +179,7 @@
 
 ### AS-IS — 현재 구조와 문제 발생 경로
 
+- 관련 V node: `SD-…`, `AR-…`
 - 현재 책임 소유자: …
 - 현재 entry → data/control flow → state/store → consumer: …
 - 현재 오류/취소/정리 경로: …
@@ -162,6 +194,7 @@
 
 ### TO-BE — 변경 후 목표 구조와 동작 경로
 
+- 관련 V node: `SD-…`, `AR-…`
 - 변경 후 책임 소유자: …
 - 변경 후 entry → data/control flow → state/store → consumer: …
 - 변경 후 오류/취소/정리 경로: …
@@ -176,13 +209,13 @@
 
 ### AS-IS → TO-BE Delta
 
-| 비교 축 | AS-IS | TO-BE | 변경 이유 | 구현/검증 연결 |
+| 비교 축 | AS-IS | TO-BE | 변경 이유 | V / 구현·검증 연결 |
 |---|---|---|---|---|
-| 책임/소유권 | … | … | … | 파일/모듈 · AC… |
-| data/control flow | … | … | … | 파일/테스트 · AC… |
-| state/contract | … | … | … | 타입/스키마 · AC… |
-| error/lifecycle | … | … | … | cleanup/retry 테스트 · AC… |
-| test seam/관측점 | … | … | … | 테스트 파일/하네스 |
+| 책임/소유권 | … | … | … | AR-… / VP-… · 파일/모듈 |
+| data/control flow | … | … | … | SD-… / VP-… · 테스트 |
+| state/contract | … | … | … | AR-… / VP-… · 타입/스키마 |
+| error/lifecycle | … | … | … | SD-… / VP-… · cleanup/retry 테스트 |
+| test seam/관측점 | … | … | … | MD-… / VP-… · 테스트/하네스 |
 
 > Delta의 각 행은 아래 `구현 설계` 또는 AC로 이어져야 한다. TO-BE에만 존재하는 중요한 변경이
 > Delta와 구현 파일 목록 어디에도 없으면 설계 누락이다. 반대로 AS-IS에 있던 책임이 TO-BE에서
@@ -196,9 +229,9 @@
 
 ## 10. 계약 / 타입 / 강제 지점
 
-| 계약/필드 | SSOT | 누가 | 언제 강제 | 실패 의미 |
-|---|---|---|---|---|
-| … | … | … | 등록/연결/턴/저장 시점 | … |
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 | 실패 의미 |
+|---|---|---|---|---|---|
+| AR-… / VP-… | … | … | … | 등록/연결/턴/저장 시점 | … |
 
 - 같은/동일 규칙이 여러 레이어에 있다면 SSOT와 공유 방법: …
 - `실패 의미`에 “다른 게이트가 막는다”를 적었다면 그 범위를 이 턴에 측정한 근거: 해당 없음 / …
@@ -303,6 +336,9 @@ producer → contract/normalize → state/store → consumer/UI/tool
 - [ ] AS-IS에서 사라진 책임은 삭제/이동/대체 중 무엇인지 TO-BE에 명시했다.
 - [ ] 수치·전칭 표현·외부 규약·문서 앵커·기존 테스트 인용을 실측했다.
 - [ ] 각 AC가 행동 단언, 검증 수단, 프로덕션 도달 경로를 가진다.
+- [ ] 모든 R에 AT가 있고 모든 NEW/CHANGED node에 같은 레벨 REQUIRED pair가 있다.
+- [ ] 영향받은 INHERITED node는 REGRESSION, 비영향 node만 출처·기존 증거와 함께 NOT_REQUIRED다.
+- [ ] 각 pair의 경로·§10 전수 분모·직접 oracle·음성 대조가 있으며 적용 전역 불변식도 열거됐다.
 - [ ] 사람 실기로 미룬 순수 로직이 없다.
 - [ ] semantic 목표가 structural proxy만으로 검증되지 않는다.
 - [ ] 신규 계약의 SSOT·강제 지점·테스트 seam이 있다.
@@ -337,11 +373,17 @@ producer → contract/normalize → state/store → consumer/UI/tool
 > 하나가 아니라 장치의 판정 지점마다 하나씩 심는다**(impl §3).
 > **`전건`·`미분류 0`·`잔여 0` 행의 관측은 차집합이다** — 총계·합계는 그 주장을 반증할 수 없다(impl §8).
 
-| 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
-|---|---|---|---|---|
-| … | `commit·revoke·expiry·401` (4) | 4/4 | `rg …` → 4건 / 테스트 `…` 케이스명 | — |
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-… | … | `commit·revoke·expiry·401` (4) | 4/4 | `rg …` → 4건 / 테스트 `…` 케이스명 | — |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: 없음 / … → 되먹임 대상
+- §10에 없는데 같은 불변식이 필요했던 지점: 없음 / … → 현재 pair 필수면 PLAN_GAP, 아니면 별도 finding
+
+**V-pair 자기확인** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 음성 대조 / 변이 결과 |
+|---|---|---|---|---|
+| VP-… | REQUIRED / REGRESSION | SELF_PASS / SELF_BLOCKED | … | … |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
@@ -399,6 +441,7 @@ producer → contract/normalize → state/store → consumer/UI/tool
 | 변경 파일 | … |
 | 실행 명령 | … |
 | **관측한 게이트 산출**(exit code 아님) | 테스트 N파일 / M케이스 · error·warning 수 · 환경 기인 실패 분리 근거 |
+| V-pair 자기확인 | `SELF_PASS N / SELF_BLOCKED M`; pair별 상세는 위 표 |
 | 강제 지점 전수 | N/M |
 | **AC 자기보고**(`Criteria-Met`) | N/M — 각 AC 옆에 **이번 턴에 재현한 관측값**을 적는다. 표식을 다시 찾지 못한 AC는 ✅로 세지 않는다 |
 | **합계 검산** | `✅ N · ⚠️ M · ❌ K = 총 T` — 분모를 다시 세고 **이 줄을 쓴 뒤** 커밋 trailer를 적는다. 분모가 바뀌었으면(AC 분할·추가) 그 사실을 적고 이전 라운드 합계와 직접 비교하지 않는다 |
@@ -418,10 +461,8 @@ producer → contract/normalize → state/store → consumer/UI/tool
 
 ## [검증자 기입] 파생 이슈
 
-> `출처`에는 이 이슈가 위반한 **AC·§10 행**을 함께 적는다 — 재구현의 계약은 그 행이고 `대응 방향`은 제안이다. 닫힘 판정은 제안을 수행했는가가 아니라 그 AC가 성립하는가다.
-> **구현자 권한 밖의 요구(§10 행 신설·AC 문면 정정)는 `상태`를 `규범 정정 필요`로 둔다** — 그런 행이 하나라도 있으면
-> 다음 주체는 구현자가 아니라 설계자다(verify SKILL 마무리 · `docs/handoff/AGENTS.md §정상 라이프사이클`).
+> `출처`에는 위반한 **pair/Global·Decision·AC·§10 행**을 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.
 
-| # | 이슈 | 출처 | 대응 방향 | 상태 |
-|---|---|---|---|---|
-| D1 | … | verify r<N> (AC<N> / §10 <N>행) / 구현자 코멘트 / 사용자 | … | open / 구현중 / **규범 정정 필요** / 해결 |
+| # | 이슈 | 출처 pair / Global·계약 | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D1 | … | verify r<N> · VP-… / G-… · AC<N> / §10 <N>행 | … | BLOCKING / PLAN_GAP / NON_BLOCKING / NEXT_HANDOFF | open / 구현중 / 해결 |

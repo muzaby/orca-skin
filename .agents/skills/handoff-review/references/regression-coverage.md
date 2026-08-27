@@ -1746,3 +1746,75 @@ SUPERSEDED 0 이라 **D 유형 오염 0**. INDEX 대상 커밋의 `(r4 구현)` 
 - r10 재구현의 계약은 규범에 이미 있다 — §10 부팅 시퀀스 4지점·D-010 대상 심볼·인용 변이 M-Q.
   추가 지침 없이 닫힌다.
 - 환경 한계는 round 20 과 같다 — `bootstrap.ts` 미로딩(P29) · AC9 두 테마 시각 확인은 사람 몫.
+
+---
+
+# review round 22 — Delta V 추적축 · PLAN_GAP 분리 · blocking scope 한정
+
+**발동/모드**: 사용자가 handoff V-model 재설계를 명시적으로 검토한 뒤 적용을 지시했다. `APPLY` ·
+handoff SKILL/template/AGENTS의 trigger·required field·failure semantics·lifecycle을 바꾸므로 **Tier 1**이다.
+
+## 분류
+
+| 관측 | 분류 | 조치 |
+|---|---|---|
+| 필요한 계약/강제 지점이 없는 실패와 명시 계약을 어긴 구현 실패가 모두 `verify/FAIL` 한 상태였다 | **A** — next owner가 planner/implementer로 갈리는 정보가 lifecycle에 없다 | `PLAN_GAP → RETURN_TO_PLAN`, pair/global 위반 → `FAIL`로 분리 |
+| verify의 “기준 밖 결함도 찾는다”가 discovery와 blocking scope를 분리하지 않았다 | **A** — 0202 r3처럼 인접 결함을 기록하며 PASS한 판정을 규칙이 설명하지 못한다 | `BLOCKING / PLAN_GAP / NON_BLOCKING / NEXT_HANDOFF` disposition 신설 |
+| test level·변경 영향·증거 oracle이 구현 전 하나의 추적축으로 선언되지 않았다 | **A** — AC·§10·Technical Design은 강했으나 서로의 pair/provenance가 암묵적이었다 | `R↔AT`·`SD↔ST`·`AR↔IT`·`MD↔UT`, node provenance, pair requiredness 신설 |
+| V만으로 기존 전수·mutation·baseline·repo gate를 대체할 위험 | **설계 제약** | V를 공통 추적축으로만 두고 §10·production path·변이·전역 불변식을 pair evidence로 유지 |
+
+## 6-A Operational Instruction Delta
+
+- **DELETE 0 · MOVE 0 · reference/script 이동 0 · 새 gate 명령 0.** 네 기존 skill과 두 template의 책임은 유지했고 V 연결과 판정 상태를 REPLACE/ADD했다.
+- **다섯 번째 skill 0건.** 공통 vocabulary와 lifecycle은 `docs/handoff/AGENTS.md`, 단계별 실행은 기존 네 skill이 소유한다.
+- **KEEP**: Decision Ledger, Product/UX Contract, AS-IS→TO-BE, producer/consumer 전수, §10 강제 지점 전수,
+  semantic-vs-structural 검증, cited-mutation/hunk fallback, 소거 변이 수렴, 기준선 잠금, gate/ABI 분리,
+  INDEX·좌표·trailer·AGENTS 위생, A~F 분류와 Tier 1/2.
+- **REPLACE**: 규범 정정 분기 `규범 정정 필요` → `PLAN_GAP/RETURN_TO_PLAN`; AC 단독 closeout →
+  `UT→IT→ST→AT` pair closeout; 무제한 “기준 밖 결함” → 귀속 기반 disposition; 전체 상위 설계 재서술 → Delta V provenance.
+- **ADD**: `NEW/CHANGED/INHERITED/SUPERSEDED`, `REQUIRED/REGRESSION/NOT_REQUIRED`,
+  `PASS/PAIR_FAIL/BLOCKED_BY`, V 밖 `G-SEC/G-DATA/G-DOC/G-REPO/G-SUBTREE`, legacy read-only V 합성.
+- commit trailer 값은 늘리지 않았다. `RETURN_TO_PLAN`은 기존 `Verified-By: claude:fail` +
+  `Next-Action: claude`로 인코딩하고 INDEX/verify 상태가 원인을 구분한다.
+- corpus는 **P45 현재 방어만 REPLACE**했다. 역사 서술과 P1~P48 번호는 보존했고 신규 P는 0이다.
+
+## 6-B Historical Failure Regression
+
+P heading **48/48 전수** · `COVERED 48 / PARTIAL 0 / GAP 0 / OBSOLETE 0` · 신규 P **0**.
+
+| 범위 | V 도입 뒤에도 유지되는 방어 | 판정 |
+|---|---|---|
+| P1~P18 | 조사·측정 가능한 AC·test seam·lifecycle·사람 경계는 pair의 path/oracle/requiredness 앞단에 그대로 남음 | COVERED 18 |
+| P19~P37 | 문서 앵커·기존 소비처·producer/consumer·외부 포트·음성 gate·semantic proxy는 AR/IT·SD/ST 및 §10·Global evidence로 유지 | COVERED 19 |
+| P38~P48 | 불변식 전수·자기보고 재측정·합계/사본·기준선·대체물 실패 모드·배선 잠금·규범 정정·좌표·변이 방향을 pair closeout이 대체하지 않음 | COVERED 11 |
+
+### 실제 handoff state replay
+
+| anchor | 새 상태로 재생 | false PASS / FAIL inflation |
+|---|---|---|
+| 0191 docs-code-resync | 좁은 oracle로 AC/§10 밖 잔여를 놓친 r1·r2는 `G-DOC` 또는 명시 pair `PAIR_FAIL`; 필요한 전수 정의 누락은 병행 `PLAN_GAP` | 0 / 0 |
+| 0194 auth-refresh | 명시된 영속 사슬·호출부 위반은 `PAIR_FAIL`; producer/강제 지점·AC18 기준 누락/모순은 `PLAN_GAP`, 전체 next owner는 planner | 0 / 0 |
+| 0198 runtime-model-catalog | 기존 AC·§10 위반과 인용 변이 미검출은 `PAIR_FAIL`; cache 수명/검증 수단 누락은 `PLAN_GAP`; commit/INDEX drift는 `G-REPO` | 0 / 0 |
+| 0202 invalidation-scope | r1 D1~D3와 r2 D4는 기존 AC·§10 pair `PAIR_FAIL`; causally dependent 상위 pair만 `BLOCKED_BY`; r3 D5·D6은 비귀속 `NON_BLOCKING/NEXT_HANDOFF`라 기존 PASS 유지 | 0 / 0 |
+
+`BLOCKED_BY`는 root pair의 인과 종속에만 적용해 같은 원인을 네 test level의 실패로 부풀리지 않는다.
+명시 계약 위반은 pair 행 누락이 있어도 `PAIR_FAIL`이므로 `PLAN_GAP`이 결함을 낮추는 회피구가 아니다.
+
+## 6-C Cross-document Consistency
+
+- **PASS.** root AGENTS ↔ handoff AGENTS/INDEX ↔ git template ↔ 네 SKILL ↔ 두 template ↔ P45 current defense가
+  lifecycle·owner·status를 같은 의미로 사용한다. plan gap owner=planner, pair/global fail owner=implementer다.
+- legacy boundary가 일치한다 — 신규 handoff는 Delta V template, 진행 중 handoff는 AC·§10·path에서 읽기 전용 V를 합성하며 형식만으로 migration/FAIL을 만들지 않는다.
+- 구현 보고 heading **7/7**, P heading **P1~P48 연속·중복 0**, 새 `handoff-vmodel` 디렉토리 0.
+- skill 형식 검증 **4/4 valid**(`quick_validate.py`).
+- `node app/scripts/check-doc-inventory.mjs --check`: generated **9 items/79 channels** · prose ok · relative links ok.
+- vocabulary/owner 정적 대조와 `git diff --check`: **PASS**. gate 명령·ABI 규칙·CI scope 변경 0.
+
+## review 기록 정책
+
+`round22-review.md`를 만들지 않았다. 영구 결과는 지침과 이 절에 압축했고, 기존 `round2-review.md` 1개만 유지한다.
+
+## 남은 한계
+
+- V는 추적 누락과 판정 범위를 줄이지만 실행자가 증거를 조작하거나 실제 gate를 실행하지 않는 capability failure를 없애지 못한다. 기존 독립 재측정·변이 검증이 계속 필요하다.
+- 기존 handoff 전체를 V 형식으로 소급 변환하지 않는다. legacy 합성은 검증 시 읽기 전용이며, 실질적 설계 변경 때만 영향 Delta를 새 revision으로 올린다.

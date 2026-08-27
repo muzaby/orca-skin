@@ -11,8 +11,9 @@
 ## 단계 / 상태 범례
 
 - **단계**: `plan` → `impl` → `verify`
-- **상태**: `DRAFT` · `READY` · `IN_PROGRESS` · `IMPL_DONE` · `PASS` · `FAIL`
+- **상태**: `DRAFT` · `READY` · `IN_PROGRESS` · `IMPL_DONE` · `PASS` · `FAIL` · `RETURN_TO_PLAN`
 - **다음 주체**: `Claude` (설계/검증) · `Codex` (구현) · `—` (종료)
+- `RETURN_TO_PLAN`은 verify에서 발견한 `PLAN_GAP` 상태다. pair별 `PAIR_FAIL`·`BLOCKED_BY`는 `verify.md`에 두고 보드 상태로 늘리지 않는다.
 
 ## 미완료 작업
 

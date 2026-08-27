@@ -14,8 +14,9 @@
 | 일자 | YYYY-MM-DD |
 | 대상 커밋/range | `<base>..<head>` |
 | 구현 전 plan 기준 | `<commit>` |
+| Delta V 기준 / revision | `<plan commit>` / `V<N>` |
 | 라운드 | N |
-| 상태 | PASS / FAIL |
+| 상태 | PASS / FAIL / RETURN_TO_PLAN |
 | 자기 검증 여부 | 설계·구현·검증 동일 에이전트인가 |
 
 ## 0. 기준선 / plan 변경 확인
@@ -25,7 +26,20 @@
 - Decision Ledger 변경: 없음 / 사용자 승인된 SUPERSEDE / **무단 변경 의심**
 - Product/UX Contract 변경: …
 - AC 변경: …
+- V node/pair·requiredness·§10·oracle 변경: …
 - 채점에 사용할 원 기준: …
+
+### Plan validity
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| NEW/CHANGED node ↔ 같은 레벨 REQUIRED pair | 유효 / PLAN_GAP | … |
+| 영향받은 INHERITED ↔ REGRESSION pair | 유효 / PLAN_GAP | … |
+| pair별 path·§10 전수·직접 oracle·음성 대조 | 유효 / PLAN_GAP | … |
+| 적용 전역 불변식 | 유효 / PLAN_GAP | … |
+
+- V 도입 전 plan이면 읽기 전용 합성 매핑: 해당 없음 / `AC·§10·path → VP-L…`; 형식만을 이유로 migration하지 않음
+- root PLAN_GAP과 영향 pair: 없음 / …
 
 ## 1. Product & UX / ACTIVE Decision 요약
 
@@ -61,9 +75,9 @@
 bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 ```
 
-| 후보 | 판정 | 근거 |
+| 후보 | 판정 | 귀속 / 근거 |
 |---|---|---|
-| 미사용 export | 정상 / 미배선 | … |
+| 미사용 export | 정상 / 미배선 | VP-… / G-… / 비귀속 — … |
 | 테스트 전용 참조 | 정상 / 죽은 코드 | … |
 | 형제 정책 비대칭 | 의도 / 결함 | … |
 | 신규 등록값의 기존 소비처 영향 | 무영향 / 회귀 | … |
@@ -77,31 +91,51 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 - plan이 인용한 기존 테스트 케이스 실제 존재: …
 - 핵심 입력/분기가 실제 실행됨: …
 - structural proxy만으로 semantic 목표를 통과시킨 AC: 없음 / …
-- **이번 라운드 잠금 재측정** — 분모는 닫는 파생 이슈가 **인용한 변이**, 없으면 고친 hunk: N건 중 검출 M · 미검출 K → 미검출은 §13(인용 변이가 미검출이면 그 이슈는 닫히지 않았다)
+- **이번 라운드 잠금 재측정** — 분모는 pair 음성 대조 / 닫는 이슈의 인용 변이 / 전역 불변식 변이; V 도입 전 또는 최초 pair에 정의가 없을 때만 hunk fallback: N건 중 검출 M · 미검출 K
 - 동작 보존 추출 라운드인가: 아니오 / 예 — hunk 되돌림의 초록은 판정 근거가 아니다
 - 소거 변이의 잔여물 수렴: 해당 없음 / N단계까지 밀어 진단 0 → 그 상태의 게이트 …
 - `N회` 기준의 실제 관측 주체: …
 - 순서 기준의 관측 훅/로그: …
 
-## 5. 요구사항 충족 매트릭스
+## 5. V-pair closeout — `UT → IT → ST → AT`
 
-| # | 제품/동작 기준 | 결과 | 검증 증거 | production path |
+| Pair | left ↔ right / 레벨 | requiredness | 결과 | 직접 검증 증거 | production path / §10 전수 |
+|---|---|---|---|---|---|
+| VP-04 | MD-01 ↔ UT-01 / UT | REQUIRED | PASS / PAIR_FAIL / BLOCKED_BY:VP-… / NOT_REQUIRED | 테스트·변이 | start → … → end / N/N |
+| VP-03 | AR-01 ↔ IT-01 / IT | … | … | … | … |
+| VP-02 | SD-01 ↔ ST-01 / ST | … | … | … | … |
+| VP-01 | R-01 ↔ AT-01 / AT | … | … | … | … |
+
+- root `PAIR_FAIL`: 없음 / VP-… — …
+- 종속 `BLOCKED_BY`: 없음 / VP-… → VP-…
+- 하나의 증거가 함께 닫은 pair와 직접 판정 범위: 해당 없음 / …
+- 이번 라운드 실행 범위: 최초 검증 — REQUIRED/REGRESSION 전건 / 재검증 — root·종속·변경 영향 pair + 전역 gate; 이전 PASS 참조 …
+
+### AT / AC 세부와 합계
+
+| AT / AC | 제품/동작 기준 | 결과 | 검증 증거 | production path |
 |---|---|---|---|---|
-| AC1 | … | ✅ / ⚠️ / ❌ | 테스트/명령/실기 | … |
+| AT-01 / AC1 | … | ✅ / ⚠️ / ❌ | 테스트/명령/실기 | … |
 
 - **합계 재측정**: `✅ N · ⚠️ M · ❌ K = 총 T`(분모를 직접 세어 적는다) · 자기보고 값 … · 일치/불일치
 - **합계 사본 대조**: 본문 T ↔ 커밋 trailer `Criteria-Met` ↔ INDEX 비고 — 일치 / 갈림(…)
 
 > 코드 존재는 “구현됨”이지 “검증됨”이 아니다. `Criteria-Met` 자기보고를 증거로 쓰지 않는다.
 
-### plan §10 강제 지점 표 — AC와 별개로 걷는다
+### pair별 plan §10 강제 지점 분모
 
-| 계약/필드 | plan이 적은 강제 지점 | 코드에서 확인한 지점 | 결과 |
-|---|---|---|---|
-| … | `commit·revoke·expiry·401` (4) | … (N/4) | ✅ / ❌ 부분 구현 |
+| Pair | 계약/필드 | plan이 적은 강제 지점 | 코드에서 확인한 지점 | 결과 |
+|---|---|---|---|---|
+| VP-… | … | `commit·revoke·expiry·401` (4) | … (N/4) | PASS / PAIR_FAIL / PLAN_GAP |
 
-- 표에 없는데 같은 불변식이 필요한 지점: 없음 / …
+- 표에 없는데 같은 불변식이 필요한 지점: 없음 / … → 현재 pair·Decision·Global 필수면 PLAN_GAP, 아니면 NON_BLOCKING/NEXT_HANDOFF
 - `실패 의미`가 “다른 게이트가 막는다”고 적은 행의 재측정: 해당 없음 / …
+
+### 전역 불변식
+
+| Global | 결과 | 증거 |
+|---|---|---|
+| G-SEC / G-DATA / G-DOC / G-REPO / G-SUBTREE | PASS / FAIL / PLAN_GAP | … |
 
 ## 6. 외부 포트 / 문서 계약 (해당 시)
 
@@ -190,13 +224,14 @@ $ ./node_modules/.bin/vitest run <relevant-suite>
 |---|---|---|
 | … | 타당 / 무단 제품·AC 변경 / 구현 세부 보완 | … |
 
-## 13. [FAIL 시] 파생 이슈
+## 13. Finding disposition / 파생 이슈
 
-- [ ] D… — …
-- [ ] D… — … **(규범 정정 필요)** — §10 행 신설·AC 문면 정정처럼 구현자 권한 밖의 요구
+| # | finding | 귀속 | disposition | root / 영향 pair | 후속 |
+|---|---|---|---|---|---|
+| D… | … | VP-… / G-… / Decision·AC·§10 / 비귀속 | BLOCKING / PLAN_GAP / NON_BLOCKING / NEXT_HANDOFF | … | 구현 / planner / 기록 / 새 handoff 후보 |
 
 > plan의 `[검증자 기입] 파생 이슈`로 이관한다.
-> **`규범 정정 필요`가 하나라도 있으면 INDEX 다음 주체는 구현자가 아니라 설계자다**(SKILL 마무리).
+> `PLAN_GAP`이 하나라도 있으면 결과는 `RETURN_TO_PLAN`이고 다음 주체는 설계자다. 명시 계약 위반은 `PAIR_FAIL`로 유지하며 gap으로 낮추지 않는다.
 
 ## 14. Review Signals — 사실만
 
@@ -209,10 +244,13 @@ $ ./node_modules/.bin/vitest run <relevant-suite>
 
 ## 15. 결론
 
-- 상태: PASS / FAIL
+- 상태: PASS / FAIL / RETURN_TO_PLAN
+- pair 결과: REQUIRED/REGRESSION PASS N · root PAIR_FAIL M · BLOCKED_BY K
+- PLAN_GAP: 없음 / root gap … → 영향 pair …
 - Product/UX 및 ACTIVE Decision 충족: …
 - AC 충족: …
-- 기준 밖 결함: …
+- 전역 불변식: …
+- NON_BLOCKING / NEXT_HANDOFF: 없음 / …
 - repository operation checks: …
 - 남은 사람 확인: …
 - 다음 단계: …

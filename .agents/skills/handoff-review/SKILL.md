@@ -1,6 +1,6 @@
 ---
 name: handoff-review
-description: handoff-plan·handoff-impl·handoff-verify의 지침 **자체**를 리뷰하고 개선할 때 쓴다. 특정 작업의 설계나 구현을 검사하는 스킬이 아니다. 반복 라운드(impl 라운드 3 초과), 여러 턴의 결정 drift, 동일 실수 재발, 사용자의 명시적 handoff 프로세스 리뷰 요청, 또는 handoff SKILL/template/AGENTS를 바꾸거나 새 handoff 스킬을 만드는 메타 수정이면 로드한다. 실패 원인을 A~F로 분류하고 기존 운영지침 승계·historical failure regression·cross-document consistency를 검증한다.
+description: handoff-plan·handoff-impl·handoff-verify의 지침 **자체**를 진단하거나 개선할 때 쓴다. 특정 구현을 한 번 더 검사하는 스킬이 아니다. 반복 라운드, 결정 drift, 동일 실수 재발, 사용자의 handoff 프로세스 리뷰 요청, 또는 handoff SKILL/template/AGENTS·V 추적 규약을 바꾸는 메타 수정이면 로드한다. DIAGNOSE_ONLY/APPLY 모드를 먼저 고르고 실패를 A~F로 분류한 뒤 운영지침 승계·historical regression·cross-document consistency를 검증한다.
 ---
 
 # handoff-review — handoff 시스템의 지침을 개선하는 메타 리뷰
@@ -32,11 +32,20 @@ description: handoff-plan·handoff-impl·handoff-verify의 지침 **자체**를 
 
 정상 단일 PASS마다 자동 실행하지 않는다.
 
+## 0. 실행 모드
+
+- `DIAGNOSE_ONLY`: 사용자가 검토·진단·수정안만 요청했다. 파일을 바꾸지 않고 증거·분류·정확한 변경안을 보고한다.
+- `APPLY`: 사용자가 수정·적용·진행을 명시했다. 지침을 실제로 고친 뒤 선택 tier의 회귀 검증과 git 동기화까지 완료한다.
+
+명시 요청을 모드 근거로 기록한다. 진단 요청을 암묵적 수정 승인으로 읽지 않고, APPLY 중에도 분석 범위 밖의 제품/코드 변경으로 확장하지 않는다.
+
 ## 1. 증거 수집
 
 관련 plan/verify의 모든 라운드, `[구현자 기입]`과 diff·테스트, 여러 턴의 사용자 결정, 현재/변경 전 plan·impl·verify SKILL과 template, root 및 `docs/handoff/AGENTS.md`, 관련 하위 `AGENTS.md`, references/scripts를 읽는다. 최신 턴이나 변경 후 파일만 보고 이전 계약을 재구성하지 않는다.
 
 **지침 리팩터링에서는 변경 전 파일도 1급 증거다.** `git diff <before>..<after>`로 삭제·이동·대체된 문장을 먼저 추출한다.
+
+V/lifecycle 변경이면 corpus뿐 아니라 실제 라운드 이력을 replay한다. 최소 anchor는 계획·oracle 실패, producer/consumer 누락, 반복 재구현, blocking scope 분리가 각각 드러나는 handoff이며 선택 이유와 commit/range를 남긴다.
 
 ## 2. 실패 분류
 
@@ -51,6 +60,8 @@ description: handoff-plan·handoff-impl·handoff-verify의 지침 **자체**를 
 
 사용자가 이미 구체적으로 결정했는데 몇 턴 뒤 에이전트가 다른 안을 채택했다면 B다. 처음부터 여러 제품적 선택지가 가능했는데 확인 없이 택했다면 C다. 사용자가 명시적으로 바꿨다면 D다. 조건절·이유절이 대안을 지정했는데 배경으로 읽은 경우는 현재 지침 존재 여부와 **그 지침을 정상 수행했을 때 실제로 실패를 차단하는지**에 따라 A/B로 판정한다.
 
+A~F는 원인 분류이고 lifecycle 결과를 대체하지 않는다. 기존 계약이 충분했던 B/F는 관련 pair·전역 불변식 `FAIL`, 필요한 계약이 없었던 A/C는 `PLAN_GAP` 후보, D는 supersede, E는 증거 한계/사람 경계 후보로 매핑하되 실제 계약 증거로 최종 판정한다. `BLOCKED_BY`는 root pair 실패의 인과 종속에만 쓴다. 새 규약이 결함을 모두 `PLAN_GAP`으로 낮추거나 인접 발견을 모두 `FAIL`로 올리면 분류가 아니라 판정 왜곡이다.
+
 ## 3. 현재 지침의 결함을 찾는다
 
 각 A/B/C/E 이슈마다:
@@ -63,6 +74,14 @@ description: handoff-plan·handoff-impl·handoff-verify의 지침 **자체**를 
 6. 지침이 없으면 가장 일반적인 형태로 어디에 추가해야 하는가.
 
 B 유형은 같은 문장을 더 추가하지 않는다. 체크가 아니라 evidence를 남기게 할 수 있는지, 실행 순서를 바꿀지, template 필수 필드로 강제할지, 흩어진 규칙을 통합할지만 본다. 그것도 불가능하면 capability limitation으로 기록한다.
+
+V 프로토콜을 건드리면 다음을 함께 감사한다.
+
+- trigger·owner·상태가 plan/impl/verify 사이에서 하나의 lifecycle을 만드는가.
+- node provenance와 pair requiredness가 상위 문서 복사를 강제하지 않으면서 변경 영향 회귀를 선택하는가.
+- pair path·전수 분모·oracle·음성 대조와 V 밖 전역 불변식이 기존 강제 지점·mutation·gate를 약화하지 않는가.
+- `FAIL`·`RETURN_TO_PLAN`·`BLOCKED_BY`·nonblocking 분리가 거짓 PASS와 실패 부풀리기를 모두 막는가.
+- V 도입 전 진행 중 plan/verify를 형식 migration 없이 읽을 수 있는가.
 
 ## 4. 지침 패치 원칙
 
@@ -154,6 +173,8 @@ Tier 1에서 Operational delta를 닫은 **뒤에** [`references/failure-pattern
 
 `COVERED`는 키워드 일치가 아니다. 실제 실패가 일어나기 **전에** 발동하는 실행 가능한 절차여야 한다.
 
+V/lifecycle 변경은 각 historical pattern을 새 상태 머신으로도 replay한다. 결함이 기존 pair/전역 불변식 위반인데 `PLAN_GAP`이나 nonblocking으로 내려가 **거짓 PASS**가 생기지 않는지, 비귀속 인접 결함이 blocking으로 올라가 **FAIL inflation**이 생기지 않는지 함께 판정한다. 선택한 실제 handoff anchor는 라운드별 finding이 `PAIR_FAIL`·`PLAN_GAP`·`BLOCKED_BY`·`NON_BLOCKING` 중 어디로 가는지 표로 남긴다.
+
 ## 6-C. Cross-document Consistency — 정본끼리 서로 다른 명령을 하지 않는지 본다
 
 최소 다음을 서로 대조한다.
@@ -176,6 +197,7 @@ references / scripts
 
 - 같은 행위를 서로 다른 owner에게 맡기지 않는가.
 - 한 문서는 금지하고 다른 문서는 요구하지 않는가.
+- `NEW/CHANGED/INHERITED/SUPERSEDED`, `REQUIRED/REGRESSION/NOT_REQUIRED`, `PASS/PAIR_FAIL/BLOCKED_BY`, `BLOCKING/PLAN_GAP/NON_BLOCKING/NEXT_HANDOFF`, `FAIL/RETURN_TO_PLAN`의 의미와 전이가 모두 같은가.
 - template 명령이 더 구체적인 하위 `AGENTS.md`의 안전 규칙과 충돌하지 않는가.
 - root 진입점이 새 skill/소유권을 알고 있는가.
 - 이동한 reference/script의 **inbound reference N건이 새 target에서 기대한 semantic target M/M을 유지하는가.**
@@ -218,6 +240,7 @@ round 문서는 **동시에 1개만 유지한다.** 다음 라운드가 새로 �
 - [ ] 이슈마다 A~F 분류와 근거가 있고, A(coverage gap)와 B(실행 누락)를 구분했다.
 - [ ] 사용자 결정 변경을 실패 패턴으로 오염시키지 않았다.
 - [ ] 사례 누적이 아니라 SKILL/template/AGENTS 지침의 변경/유지 판단을 했다.
+- [ ] DIAGNOSE_ONLY/APPLY 모드와 그 사용자 근거를 기록하고 권한 범위를 지켰다.
 - [ ] 새 규칙보다 기존 규칙 통합·교체를 먼저 검토했다.
 - [ ] plan/impl/verify의 현재 작업 비판 책임을 review로 빼앗지 않았다.
 - [ ] 변경을 Tier 1/2로 분류했고 애매하면 Tier 1을 적용했다.
@@ -225,6 +248,7 @@ round 문서는 **동시에 1개만 유지한다.** 다음 라운드가 새로 �
 - [ ] DELETE에는 제거 근거가 있고, 설명 없이 사라진 gate/command/reference가 0개다.
 - [ ] MOVE/REPLACE reference는 inbound `N`과 semantic target `M/M` 증거가 있다.
 - [ ] Tier 1이면 failure corpus의 모든 현재 P heading을 전수 대조하고 historical coverage 회귀가 0건이다.
+- [ ] V/lifecycle 변경이면 historical pattern과 실제 anchor를 새 상태로 replay해 거짓 PASS와 FAIL inflation이 0건이다.
 - [ ] Tier 2에서 historical 전수를 생략했다면 normative 의미 불변 근거를 기록했다.
 - [ ] root AGENTS ↔ handoff AGENTS ↔ SKILL ↔ template ↔ references/scripts ↔ 하위 AGENTS/관련 CI 정본의 명령·scope 충돌이 0건이다.
 - [ ] AGENTS 변경 시 위생·부모/자식 규칙 충돌·필요한 CLAUDE stub을 확인했다.
@@ -238,6 +262,7 @@ round 문서는 **동시에 1개만 유지한다.** 다음 라운드가 새로 �
 다음을 분리해서 보고한다.
 
 - causal class와 지침 변경 이유.
+- 실행 모드와 근거.
 - 선택한 regression tier와 근거.
 - Operational Instruction Delta 결과(KEEP/MOVE/REPLACE/DELETE 및 regression 0 여부).
 - Tier 1이면 historical failure regression 결과, Tier 2면 생략 근거.

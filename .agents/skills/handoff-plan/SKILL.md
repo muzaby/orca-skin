@@ -1,6 +1,6 @@
 ---
 name: handoff-plan
-description: docs/handoff/ 의 plan.md를 새로 작성하거나 갱신할 때 쓴다. 구현·리팩토링·버그수정·기능 추가 요청이 들어왔는데 **아직 READY인 plan이 없으면 여기가 진입점**이다 — 구현 요청이라도 설계를 건너뛰지 않는다(이미 READY plan이 있는 구현 턴은 handoff-impl). verify/FAIL이나 사용자 결정 변경으로 기존 plan을 갱신할 때도 쓴다. 여러 턴의 사용자 결정을 Decision Ledger로 보존하고 Product/UX Contract를 먼저 확정한 뒤 코드베이스 조사·아키텍처·구현·검증 설계를 작성한다.
+description: docs/handoff/ 의 plan.md를 새로 작성하거나 갱신할 때 쓴다. 구현·리팩토링·버그수정·기능 추가 요청이 들어왔는데 **아직 READY인 plan이 없으면 여기가 진입점**이다 — 구현 요청이라도 설계를 건너뛰지 않는다(이미 READY plan이 있는 구현 턴은 handoff-impl). verify/RETURN_TO_PLAN·verify/FAIL·사용자 결정 변경으로 기존 plan을 갱신할 때도 쓴다. 여러 턴의 결정을 Decision Ledger로 보존하고 Product/UX Contract와 Delta V 노드/pair를 확정한 뒤 코드베이스 조사·아키텍처·구현·검증 설계를 작성한다.
 ---
 
 # handoff-plan — 현재 작업의 설계 정본 만들기
@@ -10,6 +10,7 @@ description: docs/handoff/ 의 plan.md를 새로 작성하거나 갱신할 때 �
 이 스킬은 **이번 작업의 plan을 정확하게 만드는 실행 스킬**이다.
 
 - 앞부분은 **Product & UX Contract**다. UI가 없는 작업도 사용자가 관측할 동작·외부 계약·운영 행위를 여기서 먼저 고정한다.
+- **Delta V**는 `R↔AT`·`SD↔ST`·`AR↔IT`·`MD↔UT`로 계약과 검증 증거를 연결한다. 공통 상태·판정 규약은 `docs/handoff/AGENTS.md §공통 V 추적 프로토콜`을 따른다.
 - 뒷부분은 **Technical Design**이다. 코드베이스 사실, 아키텍처, 데이터/제어 흐름, 모듈 책임, 테스트 방법을 구현자가 바로 작업할 수 있을 정도로 구체화한다.
 - 현재 요구를 비판적으로 검토하는 책임은 유지한다. 과거 실패를 분석해 이 스킬 자체를 고치는 메타 책임은 [`../handoff-review/SKILL.md`](../handoff-review/SKILL.md)에 위임한다.
 
@@ -37,10 +38,11 @@ description: docs/handoff/ 의 plan.md를 새로 작성하거나 갱신할 때 �
 3. 요구 비판적 검토 + 필요한 사용자 질의 판정
 4. 코드·계약·외부 규약 조사
 5. Product & UX Contract 확정 + Acceptance Criteria 작성
-6. Technical Design 작성
-7. 검증 가능성·구현 가능성 게이트
-8. 문서 전체 정합성 검사
-9. READY self-review → INDEX 갱신
+6. Delta V 노드·pair·전역 불변식 확정
+7. Technical Design 작성
+8. 검증 가능성·구현 가능성 게이트
+9. 문서 전체 정합성 검사
+10. READY self-review → INDEX 갱신
 ```
 
 문서에서는 Product/UX가 앞에 오지만 **근거 없는 제품 판단을 만들라는 뜻이 아니다**. 조사로 사실을 닫은 뒤 앞부분을 확정한다.
@@ -161,6 +163,20 @@ UI 작업만을 뜻하지 않는다. renderer가 없어도 CLI/API/저장/운영
 
 ---
 
+# 5-A. Delta V — 계약과 증거를 구현 전에 묶는다
+
+`docs/handoff/AGENTS.md §공통 V 추적 프로토콜`의 vocabulary와 requiredness를 그대로 쓴다. 기존 plan을 갱신할 때는 전체 V를 다시 쓰지 않고 **변경된 경로와 영향받은 상위 회귀만** Delta로 기록한다.
+
+- Product/UX와 AC에서 `R`·`AT`, end-to-end 상태/수명주기에서 `SD`·`ST`, 모듈·producer/consumer·조립 edge에서 `AR`·`IT`, 모듈 불변식·알고리즘·seam에서 `MD`·`UT`를 뽑는다.
+- 노드마다 `NEW`·`CHANGED`·`INHERITED`·`SUPERSEDED`와 기준선 출처/대체 노드를 적는다. 상위 노드를 관성적으로 복사하지 않는다.
+- 모든 `NEW`·`CHANGED` 왼쪽 노드에 같은 레벨 `REQUIRED` pair를 둔다. 변경 경로가 기존 상위 동작에 닿으면 그 `INHERITED` 노드를 `REGRESSION`으로 선택한다.
+- pair에는 `start → edges → end` 경로, §10 강제 지점 전수, 직접 oracle, 음성 대조/결함 변이를 둔다. §10 행은 관련 node/pair를 가리키되 모든 강제 지점을 억지로 `MD`로 내리지 않는다.
+- 보안·데이터 무결성·현재상태 문서·repository/message-bus·수정 subtree 필수 gate 중 적용되는 전역 불변식과 증거를 따로 열거한다.
+
+READY 전 `R↔AT` 누락, `NEW`·`CHANGED` node의 pair 누락, 영향받은 상위 회귀 누락, 경로/전수 분모/oracle/음성 대조 누락, 적용 전역 불변식 누락을 확인한다. 하나라도 있으면 plan은 READY가 아니다.
+
+---
+
 # 6. Technical Design — 구현자가 바로 작업할 수 있게 쓴다
 
 Product/UX Contract가 **무엇을** 정했다면 여기서는 **어떻게**를 정한다.
@@ -209,11 +225,12 @@ Product/UX Contract가 **무엇을** 정했다면 여기서는 **어떻게**를 
 1. Decision Ledger의 모든 `ACTIVE` 항목이 Product/UX·**AC**·Technical Design에서 유지되는지 확인한다. **AC가 ACTIVE Decision의 반대를 요구하면 그것은 문서 결함이다.**
 2. 같은 대상(수명주기·식별자·상태·연결 수·오류 의미)을 여러 절이 서술하면 나란히 읽어 충돌을 찾는다.
 3. Product/UX의 각 핵심 동작이 Technical Design의 실제 경로와 AC에 연결되는지 추적한다.
-4. 기존 결정·규칙 표는 본문을 훑은 뒤 마지막에 채운다. **실제 본문 문장** 기준으로 유지/변경을 판정한다.
-5. 인용 경로·문서 앵커·기존 테스트 케이스가 실제 존재하는지 확인한다.
-6. 범위/비범위가 사람 실기나 프로덕션 도달 경로를 스스로 막지 않는지 확인한다.
+4. 모든 `NEW`·`CHANGED` V node와 영향받은 `INHERITED` node가 requiredness 규칙에 맞는 pair·§10 강제 지점·증거를 갖는지 확인한다.
+5. 기존 결정·규칙 표는 본문을 훑은 뒤 마지막에 채운다. **실제 본문 문장** 기준으로 유지/변경을 판정한다.
+6. 인용 경로·문서 앵커·기존 테스트 케이스가 실제 존재하는지 확인한다.
+7. 범위/비범위가 사람 실기나 프로덕션 도달 경로를 스스로 막지 않는지 확인한다.
 
-**교차검증 결과는 관측으로 남긴다.** 체크박스 `[x]`는 검사를 수행했다는 증거가 아니다 — 1의 결과는 Ledger 갱신 메모에 `ACTIVE 결정 ↔ AC 대조: 충돌 0` 또는 `D-00N ↔ ACn (판정)` 한 줄로 적고, 2·5는 대조한 문장·경로를 인용한다.
+**교차검증 결과는 관측으로 남긴다.** 체크박스 `[x]`는 검사를 수행했다는 증거가 아니다 — 1의 결과는 Ledger 갱신 메모에 `ACTIVE 결정 ↔ AC 대조: 충돌 0` 또는 `D-00N ↔ ACn (판정)` 한 줄로 적고, 2·4·6은 대조한 문장·pair·경로를 인용한다.
 
 > 사례(0190). READY self-review 전 항목이 `[x]`인 상태로 plan 결함 3건이 구현 턴까지 갔다 — AC8이 "배포 확장점 제거"를 요구했는데 D-005는 "문서화된 배포 확장점은 지우지 않는다"였고(정면 모순), AC1은 호출 지점과 sink 호출 횟수를 섞었고, AC14 주의사항은 사실이 틀렸다. 셋 다 위 1·2가 담당하는 축이다.
 
@@ -235,6 +252,9 @@ Product/UX Contract가 **무엇을** 정했다면 여기서는 **어떻게**를 
 - [ ] 수치·전칭 표현·외부 규약·문서 앵커·기존 테스트 인용을 실측했다.
 - [ ] 작업 관련 저장소 규칙(eslint/위생/마이그레이션/레이어 관례)을 설계 입력으로 확인했다.
 - [ ] 각 AC가 행동 단언, 검증 방법, 프로덕션 도달 경로를 가진다.
+- [ ] 모든 `R`에 `AT`가 있고 모든 `NEW`·`CHANGED` node에 같은 레벨 `REQUIRED` pair가 있다.
+- [ ] 영향받은 `INHERITED` 상위 node는 `REGRESSION`, 비영향 node만 출처·기존 증거와 함께 `NOT_REQUIRED`다.
+- [ ] 각 pair가 production path, §10 강제 지점 전수, 직접 oracle, 음성 대조/결함 변이를 가지며 적용 전역 불변식도 열거됐다.
 - [ ] 사람 실기로 미룬 순수 로직이 없다.
 - [ ] semantic 목표를 structural proxy만으로 검증하는 AC가 없다.
 - [ ] “X가 쓰인다”를 요구하는 불변식의 검사 장치가 X를 지웠을 때 실패한다 — 여분의 사본·남은 잔여물에만 반응하지 않는다.
@@ -246,12 +266,12 @@ Product/UX Contract가 **무엇을** 정했다면 여기서는 **어떻게**를 
 - [ ] 본문 전체를 Decision Ledger 및 기존 결정과 마지막으로 교차검증했고, `ACTIVE 결정 ↔ AC` 대조 결과를 갱신 메모에 관측으로 적었다.
 - [ ] 산출물 문장 규칙을 지켰다 — 판정 먼저, 주장 한 줄에 관측 하나, 표 한 칸 3줄, 같은 사실을 Part I/II에 중복하지 않음.
 
-## verify/FAIL 후 plan 갱신
+## verify/FAIL·RETURN_TO_PLAN 후 plan 갱신
 
-FAIL의 미해결 항목은 `[검증자 기입] 파생 이슈`에 누적한다. Product/UX Contract나 Decision Ledger를 실패 때마다 처음부터 다시 쓰지 않는다.
+FAIL/RETURN_TO_PLAN의 미해결 항목은 `[검증자 기입] 파생 이슈`에 누적한다. Product/UX Contract나 Decision Ledger와 영향받지 않은 상위 V node를 매번 다시 쓰지 않는다.
 
-- **검증자가 `규범 정정 필요`로 표시한 파생 이슈는 재구현 전에 여기서 닫는다.** 그 표시는 verify가 §10 행 신설·AC 문면 정정처럼 구현자 권한 밖의 수정을 요구했다는 뜻이다 — 정정하거나, 정정하지 않는 근거를 그 행에 적어 요구를 종결시킨다. 어느 쪽도 하지 않고 구현자에게 넘기면 그 요구는 다음 라운드에 소멸한다(0198 r4→r5).
-- 구현 결함이면 파생 이슈로 좁혀 재구현한다.
+- 명시 계약 위반인 `FAIL`은 기존 pair에 귀속한 파생 이슈로 좁혀 재구현한다.
+- **`PLAN_GAP`은 재구현 전에 여기서 닫는다.** 필요한 Decision·AC·V node/pair·경로·§10·oracle을 영향 범위만 새 Delta V revision으로 정정하고 구 행을 덮어쓰지 말고 supersede한다. `RETURN_TO_PLAN`을 구현자에게 그대로 넘기지 않는다.
 - 설계 계약이 틀렸다는 증거가 생기면 관련 Decision/AC/Technical Design만 명시적으로 수정하고 변경 이유를 남긴다. **고쳐 쓴 AC 행은 §5 AC 게이트와 READY self-review의 AC 항목을 다시 통과시킨다** — 최초 작성만 게이트를 받고 정정은 안 받으면 세 라운드째 틀린 기준으로 채점한다(0194 AC18: 대리 기준 → 정정한 닫힌 식이 조건부 항을 빼먹어 저장소의 테스트가 그것을 반증했다).
 - 사용자 결정 변경이면 기존 Decision을 `SUPERSEDED` 처리한다. 실패로 위장하지 않는다.
 - 반복 라운드에서 같은 종류가 다시 나오면 `handoff-review` 대상 신호로 올린다. **여기서 failure-patterns를 직접 갱신하지 않는다.**
@@ -260,4 +280,4 @@ FAIL의 미해결 항목은 `[검증자 기입] 파생 이슈`에 누적한다. 
 
 `docs/handoff/INDEX.md`를 `plan/READY`와 다음 주체로 갱신하고 커밋 형식은 `docs/git-template.md`를 따른다.
 
-**plan의 규범 행을 바꾸는 커밋은 구현 산출과 같은 커밋에 담지 않는다** — Decision·AC·§10 강제 지점이 규범 행이고, `plan/READY` 커밋도 verify/FAIL 후 정정도 같다. 설계자와 구현자가 같은 에이전트여도 마찬가지다 — verify §0의 기준선 잠금은 "구현 전 plan"을 diff로 꺼낼 수 있을 때만 작동하고, 한 커밋에 섞이면 구현자가 자기 산출에 맞춰 기준을 고쳤는지 아무도 확인할 수 없다(0189 r1 · 0194 r3 실측).
+**plan의 규범 행을 바꾸는 커밋은 구현 산출과 같은 커밋에 담지 않는다** — Decision·AC·V node/pair·§10 강제 지점이 규범 행이고, `plan/READY` 커밋도 verify/FAIL·RETURN_TO_PLAN 후 정정도 같다. 설계자와 구현자가 같은 에이전트여도 마찬가지다 — verify §0의 기준선 잠금은 "구현 전 plan"을 diff로 꺼낼 수 있을 때만 작동하고, 한 커밋에 섞이면 구현자가 자기 산출에 맞춰 기준을 고쳤는지 아무도 확인할 수 없다(0189 r1 · 0194 r3 실측).
