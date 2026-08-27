@@ -980,7 +980,7 @@ sessionApi.list / projectApi.listSessions
 
 ## [검증자 기입] 파생 이슈
 
-> r1 판정 원문은 [`verify.md`](verify.md). `PLAN_GAP` 3건이 있으므로 다음 주체는 **설계자**다 — 구현 코드는 이번 라운드에 고칠 것이 없다.
+> 판정 원문은 [`verify.md`](verify.md). **r3 = `PASS`** — 다음 주체는 **사람**이다(⚠️ 5 AC 시각 실기 + V1 의 D-013 재검토 여부). 아래 표는 r1~r3 누적이다.
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
@@ -993,8 +993,10 @@ sessionApi.list / projectApi.listSessions
 | D4 | 모든 대화가 고정된 프로젝트는 하위가 "대화 없음"으로 보인다 | verify r1 · D-005 의 부수 결과 | 문구 분기 또는 고정 대화 요약 | NEXT_HANDOFF | open |
 | D5 | `listSessions(limit = 50)` 밖의 고정 대화는 재부팅 후 "고정됨"에 안 나타난다 | verify r1 · 비귀속(`cc4cde5` 에서도 동일, 회귀 아님) | main 쿼리가 고정 세션을 LIMIT 밖에서도 반환 | NEXT_HANDOFF | open |
 | D6 | `SIDEBAR_DEFAULT_WIDTH` 미참조 | verify r1 · 비귀속(이번 변경 이전부터) | 기록만 | NON_BLOCKING | open |
-| **D7** | **AT-13 의 프로젝트 절반이 공허하다** — `PinnedProjectsSectionView` 의 하위 대화는 `expanded=false` 뒤에 있어 SSR 출력에 **0건** 렌더된다. 재파생 변이가 미검출(497 전건 통과) | verify r2 · VP-16 · AT-13 · §10 EP-9 (2/3) | `PinnedProjectChildren` 을 export 해 props 로 직접 렌더 — 의존성 0 | **BLOCKING** | **open — r3 구현 항목**(규범은 AT-13a 로 정정, 재구현이 닫는다) |
+| **D7** | **AT-13 의 프로젝트 절반이 공허하다** — `PinnedProjectsSectionView` 의 하위 대화는 `expanded=false` 뒤에 있어 SSR 출력에 **0건** 렌더된다. 재파생 변이가 미검출(497 전건 통과) | verify r2 · VP-16 · AT-13 · §10 EP-9 (2/3) | `PinnedProjectChildren` 을 export 해 props 로 직접 렌더 — 의존성 0 | **BLOCKING** | **closed (r3)** — `PinnedProjectChildren` export + 직접 렌더. 인용 변이(하위 목록 재파생)가 **1 failed / 499** 로 검출된다 |
 | **G4** | **파티션과 렌더 사이 이음매가 무관측이다** — 어댑터가 `pinned` 대신 `recent` 를 넘겨도 vitest 497 초록 · typecheck 0. VP-05a 의 path 에 `slots → props` 구간이 있는데 oracle 이 없다 | verify r2 · VP-05a · AT-05a | `NavSections` 세 칸에 **branded type** → `TS2322` 로 잡힌다(스파이크 확인, 신규 의존성 0). 계약 변경이라 설계자 몫 | **PLAN_GAP** | **closed (ΔV2)** — D-014 · VP-18 · AT-15 · EP-11·EP-12 |
 | D8 | `index.ts` 재수출 `splitNavSections` 의 외부 소비처 0 — 실소비는 `useNavSections.ts:17` 하나 | verify r2 · 비귀속 | 배럴에서 내려도 무방 | NON_BLOCKING | open |
 | D9 | `SessionList.tsx:80` `pinned={isPinnedSession(s)}` 가 항상 `false` — 상수 치환해도 497 초록. View 에 남은 유일한 배치 심볼 | verify r2 · 비귀속 | 상수화하면 View 의 배치 심볼이 0 | NON_BLOCKING | open |
 | D10 | 테스트명 `고정 항목이 0개여도…` 의 프로젝트 절반이 실제로는 고정 프로젝트 1개로 돈다 | verify r2 · 비귀속 | 이름과 입력을 맞춘다 | NON_BLOCKING | open |
+| **V1** | **어댑터가 프로젝트 하위 목록을 아예 넘기지 않아도 무관측이다** — `PinnedProjectsSection.tsx:146` 을 `sessions={undefined}` 로 바꿔도 **499 초록 · typecheck 0**. VP-18 은 *잘못된 칸*을 잠그고 이 변이는 *칸 없음*이다 | verify r3 · 비귀속 | **ACTIVE Decision 아래에서 닫히지 않는다** — `undefined` 는 "미조회"라는 정당한 값이라 타입이 못 가르고, 하위 목록은 `expanded` 뒤라 SSR 이 닿지 못한다(D-013). 닫으려면 **D-013 재검토** = 사용자 결정 | NON_BLOCKING | open |
+| D11 | §7-C 의 EP-11 분모 `3` 이 실측 `5` 와 다르다 — 프로젝트 축이 record·row·children 3단 | verify r3 · plan §10 정확성 | 구현자가 5/5 로 닫았다(차집합 0). 다음 Delta V 가 열리면 분모를 5 로 정정 | NON_BLOCKING | open |
