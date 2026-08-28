@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { gitApi } from '../../../../shared/api/ipc'
 import { Button } from '../../../../shared/ui/Button'
+import { Icon } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
 import { chatActions, useChatSession, sessionBusy } from '../../store/chatStore'
 import { columnsContain } from '../../lib/rightPanelLayout'
 import { statusForCwd } from './branchChipState'
+import { COMPOSER_PANEL_ICON_SIZE, composerPanelSurface } from './composerPanel'
 import { gitRowView, shouldRefetchGitStatus, type GitRowView } from './gitRowState'
 
 // 컴포저 입력 **위**의 git 행 — `[저장소] [브랜치] ─ [+N −M]`(0206 D-005).
@@ -14,6 +16,10 @@ import { gitRowView, shouldRefetchGitStatus, type GitRowView } from './gitRowSta
 //
 // PR·CI·상태 글리프·닫기는 **그리지 않는다**(D-005) — 배선할 채널이 없고, 상시 보이는 좁은
 // 자리에 누를 것 없는 버튼을 두지 않는다.
+//
+// 표면은 스택 크롬 SSOT 가 준다(`composerPanel.ts`, D-021) — 배경·반경·여백을 여기 적으면
+// 형제 패널과 어긋난다. 선두 글리프 하나는 참조 배치를 따른 식별 표시다(D-022): 상태를
+// 말하지 않고 누를 수 없으므로 D-005 의 네 금지에 걸리지 않는다.
 
 interface GitRowViewProps {
   view: GitRowView
@@ -34,10 +40,14 @@ export function GitRowView({
     <nav
       aria-label={tr('chat.gitRow.aria')}
       data-surface="git-row"
-      className="flex items-center gap-g3 px-1 py-1"
+      className={`flex items-center gap-g4 ${composerPanelSurface}`}
     >
-      {/* 좌측 = 식별. `flex-1 min-w-0` 이 남는 공간을 먹고 그 안에서 브랜치가 먼저 줄어든다. */}
-      <span className="flex min-w-0 flex-1 items-center gap-g3">
+      {/* 선두 글리프 — 이 행이 무엇에 관한 행인지를 말한다(D-022). `fork` 는 카탈로그의
+          분기 글리프이고 랜딩 브랜치 칩도 같은 이름을 쓴다(`BranchChip.tsx:122`). */}
+      <Icon name="fork" size={COMPOSER_PANEL_ICON_SIZE} className="shrink-0 text-rust" />
+      {/* 좌측 = 식별. `flex-1 min-w-0` 이 남는 공간을 먹고 그 안에서 브랜치가 먼저 줄어든다.
+          저장소와 브랜치는 **같은 톤**이다 — 참조 실측에서 둘 다 #868681 한 단계였다. */}
+      <span className="flex min-w-0 flex-1 items-center gap-g6">
         {view.repo && (
           <span className="max-w-[160px] shrink truncate text-footnote text-t6">{view.repo}</span>
         )}
@@ -55,7 +65,9 @@ export function GitRowView({
         aria-label={changesAria}
         aria-pressed={diffOpen}
       >
-        <span className="contents tabular-nums">
+        {/* 두 수 사이 간격은 **이 래퍼가 소유**한다 — `contents` 로 두면 Button 의
+            `gap-g2`(3.25px)를 물려받아 `+72−1` 처럼 붙는다. 참조 실측은 5.93px 다. */}
+        <span className="inline-flex items-center gap-g4 tabular-nums">
           <span aria-hidden="true" className="text-git-added">
             +{view.added}
           </span>

@@ -670,3 +670,96 @@ GitRow 변경량 버튼 → toggleRightPanelTile('diff') → state.rightPanelTil
 - 그것을 막았어야 할 plan 지침·AC 가 있었는가: **있었고 걸렸다.** VP-09·VP-16 이 등록한 적대 증거가 "props-only View 만 렌더하면 배선이 안 잠긴다" 를 정확히 드러냈다 — plan 이 그 두 pair 에 `required` 를 붙인 것이 이번 턴의 구멍 2개를 찾았다.
 - 반복해서 부딪히는 환경 한계: better-sqlite3 ABI — `npm ci` 의 `postinstall` 이 Electron ABI 로 빌드하므로 vitest(Node)에서 DB 스위트 5개가 항상 red 다. `app/AGENTS.md:130-138` 이 기술한 그대로.
 - 현재 라운드 수: **1**
+
+---
+
+## [구현자 기입] 설계 리뷰 (r2)
+
+- 동의 / 그대로 진행: D-021·D-022 와 §10 EP-09. 4턴 설계가 정한 "크롬은 한 모듈, 값은 실측" 을 그대로 수행했다.
+- 이견 / 현실성 문제: **없음**. 다만 실측이 설계 가정 하나를 뒤집었다 — 아래 §놓친 잠재 문제 1.
+- ACTIVE Decision 과 충돌하는 설계 발견: **없음**. D-005 의 네 금지(PR·CI·상태 글리프·닫기)는 이번 변경에서 그대로다 — 추가한 것은 누를 수 없고 상태를 말하지 않는 식별 글리프 하나뿐이다(D-022).
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r2)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-20 | 패널 크롬을 한 모듈이 소유 | 7 열거 / 2 적용 | **2/2 적용 · 7/7 열거** | 열거: `sed -n '268,320p' Composer.tsx \| grep -E "^ {10}[<{]\|^ {12}<[A-Z]"` → 직접 자식 **7종**(AskUserQuestionCard·ToolApprovalBody·CwdPanel·GitRow·Notice·ApprovalCard·ComposerInputController). 적용: `grep -rn composerPanelSurface --include=*.tsx` → **2파일**(`GitRow.tsx`·`Notice.tsx`) | **5종 제외 — 이유 기록.** ①`CwdPanel` = 랜딩 칩 레일(0201 D-011 이 외형 소유, 참조 이미지는 세션 화면이라 이 표면이 프레임에 없다) ②③④ `AskUserQuestionCard`·`ToolApprovalBody`·`ApprovalCard` = elevated 카드 티어 — `grep -rn "rounded-r7 border border-t5 bg-surface-primary-elevated"` 가 **3사이트**(`ApprovalCard.tsx:73,235`·`AskUserQuestionCard.tsx:191`)로 이미 한 벌이다 ⑤`ComposerInputController` = 입력 자신 |
+| VP-15(회귀) | 크롬이 쓰는 색 토큰이 두 스코프에 | 2 | **2/2 × 2토큰** | `grep -n -- "--color-bg2:\|--color-rust:" tokens.css` → `bg2` **15**(`:root`)·**188**(dark) · `rust` **21**·**194**. 신규 토큰 0 — EP-04 는 값 추가가 아니라 **의존 확인**으로 닫았다 | — |
+| VP-01(회귀) | 행의 자리 순서 | 1 | **1/1** | 선두 글리프 추가 후에도 `gitRow.render.test.ts` 의 `저장소 → 브랜치 → 변경량` 인덱스 단언 통과 — 글리프는 세 문자열 **밖**이라 인덱스를 바꾸지 않는다 | — |
+| VP-10(회귀) | 행에 PR·CI·닫기 없음 + 양성 짝 | 1 | **1/1** | 같은 스위트의 `<a ` 0건 · `haspopup="dialog"` 0건 · `닫기` 0건 · `<button` **정확히 1개** 통과 | — |
+
+- §10 에 없는데 같은 불변식이 필요했던 지점: **없음**.
+- **이 oracle 이 보지 못하는 것(한계 명시)**: 렌더 단언은 *크롬을 쓰는 두 패널*이 그것을 전부·동일하게 쓰는지만 본다. **스택에 새 패널이 자기 표면을 달고 추가되는 것은 잡지 못한다** — 위 `7 열거` 는 기계 게이트가 아니라 재현 명령이 붙은 수동 전수다.
+
+**V-pair 자기확인** — `SELF_PASS` 는 독립 검증의 `PASS` 가 아니다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-20 | REQUIRED | SELF_PASS | 크롬 클래스 차집합 `[]` × 2패널 · 두 패널 크롬 부분집합 동일 · 음성 5종 0건 | **required — `Notice` 에 독자 표면 복원 → 3 failed / 2 passed** |
+| VP-01·07·08·10 | REQUIRED | SELF_PASS | `gitRow.render`·`gitRowState` 기존 케이스 전건 | 회귀 — r1 등록 변이 재실행 없음(hunk 무변경) |
+| VP-02~19 | REQUIRED | SELF_PASS | r1 결과 유지 — composer 12파일 79케이스 green | 해당 없음 — 이번 hunk 밖 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+| 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|
+| `Notice.tsx` — 크롬 SSOT 대신 독자 표면(`rounded-r6 border bg-sidebar px-3 py-2 text-[12px]`) 복원 | VP-20 선택 증거 | `안내 패널 이 크롬 클래스를 전부 갖는다` · `두 패널이 같은 표면을 쓴다` · `음성 짝` = **3 failed / 2 passed** | **잠김** |
+| `GitRow.tsx` — 크롬 위에 `bg-sidebar` 덧칠(형제와 맞바꾸는 게 아니라 **겹쳐 쓰는** 변이) | VP-20 음성 절 | `음성 짝 — 어느 패널도 독자 배경·반경을 덧칠하지 않는다` = **1 failed / 4 passed** | **잠김** |
+| 그 밖의 hunk(선두 글리프 · 수치 간격 · Notice 글리프 크기) | — | — | 해당 없음 — 직접 oracle(렌더 출력·시각 실측) |
+
+- **두 변이를 나눈 이유**: 크롬을 *안 쓰는* 결함과 크롬을 *쓰면서 덮는* 결함은 다른 축이다. 첫 변이만 심으면 "전부 갖는다" 단언이 참인 채로 덧칠이 통과한다 — 실제로 2번 변이는 앞의 두 케이스를 통과하고 음성 짝 하나만 red 였다.
+- **oracle 이 실제로 실행됐는지 확인**: `--reporter=verbose` 로 5케이스 이름을 전부 출력해 확인했다(리포터 침묵으로 exit 0 이 나오는 경우와 구분).
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ✅ 해당 없음 | 신규 문구 0 — 이번 변경은 순수 표면이고 i18n 키를 늘리지 않았다 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | ✅ 해당 없음 | 새 실패 경로 0 — 조건 분기·조회·상태 전이를 건드리지 않았다 |
+| 실패가 화면에서 "아무 일도 안 일어남" 으로 보이지 않는가 | ✅ 유지 | 변경량 버튼의 `aria-pressed` 즉시 반전은 그대로다 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | ✅ 유지 | `live` 플래그 + `statusForCwd` 2중 방어 무변경 |
+| 로딩·빈 상태 | ✅ 유지 | 첫 응답 전 행 없음 · `+0 −0` 정상값 |
+| **두 테마에서 실제로 읽히는가** | ✅ **실측** | 실제 컴포넌트 + 실제 Tailwind 빌드(`@tailwindcss/node` 로 `app.css` 컴파일)를 headless Chromium 으로 렌더해 라이트·다크 둘 다 확인했다. **다크에서 흰 알약이 뜨는 현상은 프리뷰 아티팩트였다** — `data-theme` 을 `<body>` 에 걸면 `:root` 의 별칭(`--color-fill-contained: var(--color-bg)`)이 라이트 값으로 풀린다. 앱은 `TweakProvider.tsx:26` 이 `documentElement` 에 걸므로 정상이고, `<html>` 로 옮겨 재현했다 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | **설계 가정이 실측과 달랐다** — 참조에서 브랜치가 저장소보다 진할 것으로 눈대중했으나, 실측은 `#353`·`orca-skin`·브랜치가 **전부 같은 #868681 한 톤**이다. 두 단계 위계를 넣었으면 참조와 달라졌다 | ✅ **선조치** — 둘 다 `text-t6` 유지(변경 없음) | 글리프 최암부 평균: id `(135,134,129)` · repo `(134,134,129)` · branch `(134,134,129)`. 근black 은 안내 **제목**뿐 `(10,10,8)` |
+| 2 | **`+N −M` 두 수가 붙어 보였다** — 래퍼가 `contents` 라 Button 의 `gap-g2`(3.25px)를 물려받는다. 참조 실측은 **5.93px** | ✅ **선조치** — 래퍼를 `inline-flex items-center gap-g4`(6.5px)로 바꿔 **간격을 자기가 소유**하게 했다 | 참조 녹색 `+72` x 1729-1801 · 적색 `−1` x 1822-1867 → 간격 21 image px × k(0.2824) = 5.93px. 렌더 전후 스크린샷으로 확인 |
+| 3 | **알약 글자 크기는 참조와 다르다** — 참조는 알약 숫자와 행 본문이 **같은 크기**(숫자 높이 31px vs 30px)인데 Orca `Button size="small"` 은 `text-caption`(10.5px)이라 행 본문(12px)보다 작다 | ⚠️ **보고만** — 맞추려면 ⓐ Button primitive 를 고치거나(0206 범위 밖) ⓑ `className="text-footnote"` 로 덮어야 하는데 후자는 **스타일시트 방출 순서에 기대는** 방식이고 저장소에 선례가 0건이다(`grep` 확인) | 알약 높이는 맞다 — 참조 70 image px × k = 19.8px, Orca `small` = `h-[1.7rem]` = 22.1px |
+| 4 | 스택 행 간격을 바꿀 필요가 없었다 | ✅ **확인만** — `gap-2` 유지 | Tailwind v4 `--spacing` 기본 0.25rem × 밀도 루트 13px → **6.5px**. 참조 실측 19 image px × k = **5.4px**. 차 1.1px 이고 `g3`(4.9px)로 바꾸면 오차가 더 커지지 않으나 스택 전원(입력 패널 포함)에 영향이 가 **건드리지 않았다** |
+| 5 | `Notice` 의 `text-[12px]` 는 raw 값이라 밀도를 따라가지 않았다 | ✅ **선조치** — `text-footnote` 로 교체 | 밀도 `조밀 11.5 / 보통 13 / 넓게 14.5` 에서 raw 12px 은 고정이었다. 토큰은 rem 이라 함께 움직인다 |
+
+### 설계 대비 명시적 차이
+
+- plan 이 지정한 것과 다르게 구현한 것과 그 이유: **없음** — D-021·D-022·EP-09 를 그대로 수행했다. §11 이 적은 `composerPanel.ts`·`Notice.tsx`·`composerPanel.render.test.ts` 3파일이 실제 변경분과 일치한다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | **해당 없음** — 크롬은 모듈 상수 문자열이고 TTL·캐시가 없다 | EP-09 2/2 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | **상수 하나를 두 컴포넌트가 공유한다** — 한쪽 요구로 값을 바꾸면 **다른 쪽이 말없이 따라간다**. 이것이 SSOT 의 목적이자 위험이라, 값을 바꾸는 변경은 AT-21 의 `두 패널 크롬 부분집합 동일` 케이스가 양쪽을 함께 본다. 비우는 지점은 없다(런타임 상태가 아니다) | AT-21 3케이스 · EP-09 2/2 |
+| 재진입 | **해당 없음** — 순수 상수라 렌더 시점·횟수와 무관하다 | — |
+| 다른 무효화 축 | **밀도·테마** 둘이 축이다. 값이 전부 rem·토큰이라 둘 다 CSS 캐스케이드가 처리하고, 두 테마는 렌더 실측으로 확인했다 | `--color-bg2` 15·188 · `--color-rust` 21·194 |
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 수정 2(`GitRow.tsx`·`Notice.tsx`) · 신규 2(`composerPanel.ts`·`composerPanel.render.test.ts`) · 삭제 0 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` (`pretest` 우회 — `app/AGENTS.md:127`) |
+| **관측한 게이트 산출**(exit code 아님) | **lint**: `✖ 1 problem (0 errors, 1 warning)` — 경고는 `react-hooks/incompatible-library`(TanStack Virtual), 변경 무관 기존 파일. r1 과 같은 값이다. **typecheck**: 3구성(`node`·`web`·`test`) 전부 출력 0줄 = error 0. **vitest 전체**: `Test Files 5 failed \| 238 passed (243)` · `Tests 46 failed \| 2474 passed (2520)`. **composer 스위트**: `12 passed (12)` · `79 passed (79)` |
+| 환경 기인 실패 분리 근거 | **차집합으로 보인다.** `git stash push -u -- app/src/renderer` 후 같은 명령: `5 failed \| 237 passed (242)` · `46 failed \| 2469 passed (2515)`. 변경 전후 **red 파일 수 5 · red 케이스 수 46 이 동일**하고 green 만 `+1 파일 / +5 케이스` 늘었다 — 신규 red **0**. 실패 5파일은 `chat-turn.continuity`·`extensions/builder`·`orchestration/fork`·`db/migrate`·`db/queries` 로 r1 과 같은 집합이고, 서명은 `Could not locate the bindings file … better_sqlite3.node` **10건** = better-sqlite3 Electron-ABI |
+| V-pair 자기확인 | `SELF_PASS 20 / SELF_BLOCKED 0`(VP-20 신설 1 + 기존 19 유지) |
+| 강제 지점 전수 | **4그룹** — VP-20 `2/2 적용 · 7/7 열거` · VP-15 회귀 `2/2 × 2토큰` · VP-01 회귀 `1/1` · VP-10 회귀 `1/1` |
+| **AC 자기보고**(`Criteria-Met`) | **21/21** — 신설 AC21 은 `composerPanel.render.test.ts` **5케이스**(`--reporter=verbose` 로 이름 전건 확인). 기존 AC1~AC20 은 composer 12파일 79케이스가 전건 green 이라 회귀 0 |
+| **합계 검산** | `✅ 21 · ⚠️ 0 · ❌ 0 = 총 21` — 분모를 `awk '/^\| R \| AT \/ AC \|/,/^### AC 검증 주의사항/' plan.md \| grep -c '^\| R-'` 로 다시 세어 **21**(R-01~R-21, 결번 0) 확인. **4턴 정정에서 AC21 이 늘어 분모가 20→21** 이므로 r1 합계(20/20)와 직접 비교하지 않는다 |
+| 블로커 / 역질문 | 없음. **결정 대기 1건** — 위 §놓친 잠재 문제 3(알약 글자 크기). 사람 실기 2건(§19)은 그대로 남으나 **① 두 테마 색 대비는 이번 턴 렌더 실측으로 상당 부분 내려왔다** |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals (r2)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **같다.** r1 의 D-019(줄 파생·줄 렌더 SSOT, EP-07)와 이번 D-021(패널 크롬 SSOT, EP-09)은 **"규칙이 두 벌이면 갈라진다"** 는 한 문장이다. r1 은 그것을 diff 렌더에, r2 는 패널 표면에 적용했다 — 표면만 다르고 축은 하나다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **없었고, 없는 게 맞다.** 시각 언어는 r1 시점에 계약이 아니었다(사용자가 이번 턴에 처음 지시했다). 다만 **r1 이 `GitRow` 표면을 `px-1 py-1` 투명으로 둔 것**은 스택의 형제(`Notice` = 테두리+`bg-sidebar`, `CwdPanel` = 투명)와 이미 세 벌로 갈려 있었다는 뜻이고, 그 갈라짐을 지적한 AC 는 r1 에도 없었다.
+- 반복해서 부딪히는 환경 한계: ① better-sqlite3 ABI — 이번에도 DB 5스위트가 red 였고 `git stash` 차집합으로 분리했다. ② **컨테이너에 `node_modules` 가 없어 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 로 설치해야 게이트가 돈다**(`app/AGENTS.md` 의 제약 환경 절차 그대로). ③ 시각 검증에 앱 기동이 불가능해 **`@tailwindcss/node` + headless Chromium 으로 실제 CSS 를 컴파일해 렌더**하는 우회를 썼다 — `npm run dev` 없이 두 테마를 실측할 수 있었다.
+- 현재 라운드 수: **2**
