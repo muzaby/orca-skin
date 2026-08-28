@@ -52,6 +52,7 @@
 
 - 이번 턴에서 D-001~D-008 을 신설했다. SUPERSEDED·OPEN 결정은 없다.
 - 사용자 답변 4건이 각각 D-001·D-002·D-003·D-004 를 닫았다. 원문은 §2 에 인용으로 보존했다.
+- **설계 정정 (구현 턴 §0 기준선에서 발견한 `PLAN_GAP`)**: EP-12 분모가 `4지점` → **`12지점`**. 초안 술어 `settings env > app env` 는 *해법 문구*라 층수 서술(`네 레이어`·`4층`)과 형제 케이스명 8곳을 놓쳤다. 술어를 불변식의 주어로 바꿔 다시 셌다(§8). 노드·pair 는 늘지 않아 V revision 은 `V1` 을 유지한다.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001↔AC13, D-002↔AC1·AC2, D-003↔AC3·AC4, D-004↔AC5, D-005↔AC6, D-006↔AC14, D-007↔AC8, D-008↔AC9·AC10.
 
 ## 4. 요구 비판적 검토
@@ -104,7 +105,7 @@
 
 ## 6. 범위 / 비범위
 
-- **범위**: `prepareHarnessConfig` 의 최종 레이어 추가, 배포 주입점 파일 신설, `turn-setup` 두 호출부 배선, 우선순위 사본 4곳 정합, 순수 회귀 테스트.
+- **범위**: `prepareHarnessConfig` 의 최종 레이어 추가, 배포 주입점 파일 신설, `turn-setup` 두 호출부 배선, 우선순위 사본 12곳 정합, 순수 회귀 테스트.
 - **비범위**: `RuntimeConfigAugmenter` 시그니처 변경, 새 설정 파일 스키마, IPC·UI·DB·마이그레이션, 신규 의존성, 실제 폐쇄망 값 하드코딩(배포자 몫).
 
 | 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
@@ -132,7 +133,7 @@
 | R-13 | AT-13 / AC13 | 배포자는 `app/deployment/` 파일 하나만 채운다 | 가이드 예제를 실제 타입에 대입해 `typecheck` 가 통과. 기본 배포 export 가 `undefined` 임을 단언 | 배포자 편집 → bootstrap 없이 turn-setup 이 직접 참조 |
 | R-14 | AT-14 / AC14 | injector 는 credential·network 능력을 받지 않는다 | 타입 단언 테스트 — injector 입력에 `auth`·`secrets`·`signal` 키가 없음을 `@ts-expect-error` 로 고정 | 타입 경계 |
 | R-15 | AT-15 / AC15 | 디스크 `settings.json` 은 그대로이고 secret 은 `options.settings` 로 복제되지 않는다 | injector 가 token 을 낸 조립에서 원본 blob 불변 + `providerSettings.settings` 에 그 token 부재 | 기존 secret 격리 계약 회귀 |
-| R-16 | AT-16 / AC16 | 우선순위 서술 사본 4곳이 5층으로 일치한다 | 네 좌표를 각각 열어 `custom` 층이 있는지 확인 + `check-doc-inventory.mjs --check` exit 0 | 문서 독자(배포자·에이전트) |
+| R-16 | AT-16 / AC16 | 우선순위 서술 사본 12곳이 `custom` 최상위로 일치한다 | §8 좌표 12곳을 각각 열어 `custom` 최상위 또는 층수 무기재 확인 + 층수 표현 전수 `rg '네 레이어\|네 층\|4층\|다섯 레이어\|다섯 층\|5층'` 차집합 0건 + `check-doc-inventory.mjs --check` exit 0 | 문서 독자(배포자·에이전트) |
 
 ### AC 검증 주의사항
 
@@ -170,7 +171,7 @@
 | AR-01 | AR | §9·§10 배포 모듈 → turn-setup → adapter 조립 경계 | NEW | — |
 | AR-02 | AR | §10 `adapters` 는 `app` 을 import 하지 않는다 | INHERITED | `eslint.config.mjs:158` |
 | AR-03 | AR | §10 두 채널 결정표(hoist) | INHERITED | `harness-config.ts:168-205` |
-| AR-04 | AR | §10 우선순위 서술 사본 4곳 | CHANGED | `harness-config.ts:118-124`·`auth.md:527-533`·`closed-network-extensions.md:455`·`harness-config.test.ts:41` |
+| AR-04 | AR | §10 우선순위 서술 사본 12곳 | CHANGED | §8 전수 조사 좌표표 (`harness-config.ts` 2 · `auth.md` 3 · guide 1 · `harness-config.test.ts` 6) |
 | MD-01 | MD | §10·§11 최종 spread 순서 | CHANGED | `harness-config.ts:284-291` |
 | MD-02 | MD | §10·§11 `buildsEnv` 판정식 | CHANGED | `harness-config.ts:281` |
 | MD-03 | MD | §10·§11 host-managed 판정 체인 | CHANGED | `harness-config.ts:266-276` |
@@ -206,7 +207,7 @@
 | VP-23 | R-13 ↔ AT-13 | REQUIRED | 가이드 예제 → 실제 타입 | 가이드 예제를 테스트에 그대로 대입해 `typecheck:test` 통과 | not selected — 컴파일러가 직접 판정 | EP-11 (1) |
 | VP-24 | R-14 ↔ AT-14 | REQUIRED | 타입 경계 | injector 입력에 `signal`·`auth`·`secrets` 접근이 컴파일 오류 | not selected — 컴파일러 직접 | EP-03 (1) |
 | VP-25 | R-15 ↔ AT-15 | REGRESSION | secret 격리 | `harness-config.test.ts:274-298` green + injector token 케이스 | not selected — 기존 직접 oracle | EP-05 (1) |
-| VP-26 | AR-04 ↔ IT-04 | REQUIRED | 우선순위 서술 4 사본 | 네 좌표 각각에서 `custom` 층 문장 존재 확인 | **required** — 사본 4곳 중 하나만 고쳐도 나머지 테스트는 통과한다. 한 사본을 4층으로 되돌리는 변이를 심어, 그 사본을 읽는 검사(테스트 케이스명 + `rg` 전수)가 red 인지 확인 | EP-12 (4) |
+| VP-26 | AR-04 ↔ IT-04 | REQUIRED | 우선순위 서술 12 사본 | 12좌표 각각에서 `custom` 최상위 또는 층수 무기재 확인 + 층수 표현 0건 스윕 | **required** — 사본 하나만 되돌려도 나머지 11곳은 통과한다. 한 사본을 4층 서술로 되돌리는 변이를 심어 0건 스윕이 red 인지 확인한다 — 스윕이 눈을 갖는지가 `0건`의 전제다 | EP-12 (12) |
 
 ### 현재 변경의 운영 gate
 
@@ -247,14 +248,35 @@
 |---|---|---:|---|
 | production `prepareHarnessConfig` / `prepareUnresolvedHarnessConfig` 호출 | `rg 'prepareHarnessConfig\(\|prepareUnresolvedHarnessConfig\(' app/src --glob '*.ts'` 에서 테스트 제외 | 3 | 정의 1 + 내부 위임 1(`:313`) + turn-setup 1(`:93`). 여기에 `prepareUnresolvedHarnessConfig` 호출 1(`turn-setup.ts:116`) — 배선 지점은 turn-setup 2곳이다 |
 | production `adaptEnv` 호출 | `rg 'adaptEnv\(' app/src --glob '*.ts'` 에서 정의·테스트 제외 | 2 | `claude.ts:263`(complete) · `claude.ts:383`(sendMessage). 둘 다 prepared env 를 그대로 받는다 |
-| 우선순위 체인 서술 사본 | `rg "settings env > app env\|선택된 Harness + ModelProvider settings 의 env\|augmenter env >"` (handoff·archive 제외) | 4 | `harness-config.ts:122` · `auth.md:531` · `closed-network-extensions.md:455` · `harness-config.test.ts:41`(케이스명) |
+| 우선순위 체인·층수 서술 사본 | `rg '네 레이어\|네 층\|4층\|runtime > settings\|runtimeEnv > settings\|augmenter env >\|선택된 Harness \+ ModelProvider settings 의 env\|상속된 process env\|baseEnv → appEnv'` (handoff·archive 제외) | 12 사이트 / 15 줄 | 좌표는 아래 표. 술어를 **불변식의 주어**(레이어 순서·층수를 말하는 문장)로 잡았다 — 설계 초안의 `settings env > app env` 술어는 해법 문구라 8사이트를 놓쳤다 |
 | `turn-setup.ts` 의 deployment import | `rg "from '.*deployment" app/src/main/app/chat-turn/*.ts` | 0 | 새 import 를 이 작업이 처음 추가한다 |
 | 기본 배포 augmenter factory | `deployment-wiring.test.ts:409` `augmenter factory 3종은 기본 배포에서 비어 있다` | 1 | 기본 배포가 비어 있다는 불변식이 이미 테스트로 잠겨 있다 — 새 주입점도 같은 스위트에 넣는다 |
+
+#### EP-12 좌표 전수 (12 사이트)
+
+| # | 좌표 | 서술 | 종류 |
+|---|---|---|---|
+| 1 | `app/src/main/adapters/harness-config.ts:118-125` | 조립 체인 fenced 블록 | 체인 |
+| 2 | `app/src/main/adapters/harness-config.ts:246-250` | host-managed 판정 주석 — 층수 + 체인 | 층수·체인 |
+| 3 | `docs/arch/backend/auth.md:527-533` | §6.4 조립 체인 fenced 블록 | 체인 |
+| 4 | `docs/arch/backend/auth.md:542-545` | host-managed 최종값 문단 | 층수 |
+| 5 | `docs/arch/backend/auth.md:547-550` | "구현은 `baseEnv → appEnv → settings env → runtimeEnv` 로 얹는다" | 체인 |
+| 6 | `docs/guides/closed-network-extensions.md:455` | 레시피 B 주입 규칙 우선순위 | 체인 |
+| 7 | `app/src/main/adapters/harness-config.test.ts:4` | 스위트 헤더 주석 | 층수·체인 |
+| 8 | `app/src/main/adapters/harness-config.test.ts:41` | 케이스명 — 조립 체인 | 체인 |
+| 9 | `app/src/main/adapters/harness-config.test.ts:71` | 케이스명 — 상대 순서 table | 층수·체인 |
+| 10 | `app/src/main/adapters/harness-config.test.ts:82` | 인라인 주석 "4층 전부 충돌" | 층수 |
+| 11 | `app/src/main/adapters/harness-config.test.ts:193` | 케이스명 — host-managed 충돌 | 층수 |
+| 12 | `app/src/main/adapters/harness-config.test.ts:252` | 케이스명 — flag 판정 순서 | 체인 |
+
+**층수는 숫자로 적지 않는다.** `네 레이어`·`4층` 은 코드에서 셀 수 있는 수치라 레이어가 늘 때마다
+같은 자리가 다시 틀린다(루트 `AGENTS.md` 원칙 4). 12곳 중 층수 종류는 숫자를 지우고, 체인 종류는
+`custom` 을 최상위로 적는다.
 
 ### 수치 / 전칭 표현 검산
 
 - 재측정 수치: 0200 plan 이 적은 "production prepare 2" 는 이번 세션 검색에서도 성립한다(정의 제외 시 위임 1 + turn-setup 1). "query 소비 2" 도 `adaptEnv` 2건과 일치한다.
-- 내역 합 = 총계: 우선순위 사본 4 = 코드 주석 1 + arch 1 + guide 1 + 테스트 케이스명 1.
+- 내역 합 = 총계: 우선순위 사본 12 = `harness-config.ts` 2 + `auth.md` 3 + guide 1 + `harness-config.test.ts` 6.
 - "유일한/항상/절대" 반례 검색: "최종 env 를 만드는 자리는 `prepareHarnessConfig` 하나" 를 `rg 'baseEnv:'` 비테스트로 전수 확인 → 2건, 둘 다 turn-setup 의 resolved/unresolved 경로다. 다른 조립처는 없다.
 - 문서 앵커 / 기존 테스트 케이스 존재 확인: `auth.md §6.2`·`§6.4` 실재(`sed -n '486,545p'`). `harness-config.test.ts` 의 `:41`·`:139`·`:265`·`:275`·`:521` 케이스 실재(`grep -n "  it("`).
 
@@ -305,7 +327,7 @@
 | state/contract 3 | `buildsEnv` 3항 | 4항 — custom 비어있지 않음 추가 | injector 만으로도 env 가 필요하다 | MD-02 / VP-12 |
 | error/lifecycle | unresolved 경로가 injector 를 모름 | 위임 시 injector 를 함께 넘기고 `resolved:false` 로 알린다 | D-007 | SD-02 / VP-09·VP-10 |
 | test seam/관측점 | 주입 `baseEnv` 하나 | `baseEnv` + 주입 `customEnv`(호출 인자 캡처 가능) | 입력 4종을 직접 관측한다 | MD-05 / VP-06·VP-07 |
-| 문서 계약 | 우선순위 4층이 4곳에 서술 | 5층이 같은 4곳에 서술 | 사본이 갈리면 배포자가 틀린 순서를 믿는다 | AR-04 / VP-26 |
+| 문서 계약 | 우선순위가 12곳에 `custom` 없이 서술 | 같은 12곳이 `custom` 최상위를 말하거나 층수를 말하지 않는다 | 사본이 갈리면 배포자가 틀린 순서를 믿는다 | AR-04 / VP-26 |
 
 ### 핵심 책임 분리
 
@@ -331,9 +353,9 @@
 | MD-04 / VP-20 | `baseEnv` 1회 스냅샷 재사용 (**EP-09**) | lazy `baseEnv` closure | prepare | 판정·조립·injector 입력 **1지점**(같은 closure) | 판정과 실행이 서로 다른 process.env 순간을 읽는다 |
 | AR-02 / VP-22 | `adapters` 는 `app` 을 import 하지 않는다 (**EP-10**) | `eslint.config.mjs:158` | eslint | `npm run lint` **1지점** | 조립부가 배포 모듈을 물어 DAG 가 깨진다 |
 | R-13 / VP-23 | 가이드 예제가 실제 타입에 대입된다 (**EP-11**) | `closed-network-extensions.md` 새 절 | 컴파일러 | 예제를 옮긴 테스트 **1지점** | 배포자가 컴파일되지 않는 예제를 따라 쓴다 |
-| AR-04 / VP-26 | 우선순위 서술 5층 사본 (**EP-12**) | 사본 없음 — 4곳이 같은 문장을 갖는다 | 작성자 | `harness-config.ts:118-124` · `auth.md:527-533` · `closed-network-extensions.md:455` · `harness-config.test.ts:41` = **4지점** | 배포자가 4층 문서를 믿고 settings 로 덮으려다 실패한다 |
+| AR-04 / VP-26 | 우선순위 서술에 `custom` 최상위 (**EP-12**) | 사본 없음 — 12곳이 같은 순서를 말한다 | 작성자 | `harness-config.ts` 2 · `auth.md` 3 · guide 1 · `harness-config.test.ts` 6 = **12지점** (좌표·검색 명령은 §8) | 배포자가 옛 순서 문서를 믿고 settings 로 덮으려다 실패한다 |
 
-- 같은/동일 규칙이 여러 레이어에 있다면 SSOT 와 공유 방법: 우선순위는 **코드 spread 순서가 유일한 실행 정본**이고 나머지 3곳은 서술 사본이다. 사본을 없앨 수는 없다(arch 는 구조를, guide 는 절차를, 테스트 케이스명은 회귀 의도를 서술한다) — 그래서 EP-12 를 4지점으로 세고 VP-26 이 한 사본만 고치는 회귀를 잡는다.
+- 같은/동일 규칙이 여러 레이어에 있다면 SSOT 와 공유 방법: 우선순위는 **코드 spread 순서가 유일한 실행 정본**이고 나머지 11곳은 서술 사본이다. 사본을 없앨 수는 없다(arch 는 구조를, guide 는 절차를, 테스트 케이스명은 회귀 의도를 서술한다) — 그래서 EP-12 를 12지점으로 세고 VP-26 이 한 사본만 되돌리는 회귀를 0건 스윕으로 잡는다.
 - `실패 의미` 에 "다른 게이트가 막는다" 를 적었다면 그 범위를 이 턴에 측정한 근거: 해당 없음 — 어느 행도 다른 게이트에 위임하지 않았다.
 - 선택적 필드의 `true/false/undefined` 의미: `customEnv` 미지정 = 주입 없음(기존 동작). 빈 객체 반환 = 주입할 값 없음(미지정과 같은 결과, D-008). `SpawnEnvTarget.settings` 미지정 = 이번 턴에 settings 를 해석하지 못함.
 - 외부 SDK 경계의 실제 요구 타입/의미: 변경 없음. `options.env` 는 상속을 포함한 완전한 `Record<string,string>` 이어야 한다는 기존 계약 그대로다.
@@ -415,7 +437,7 @@ app/deployment/spawn-env.ts (producer)
 - 종료/quit/crash/renderer-gone: 변경 없음.
 - retry/timeout/partial failure: injector 가 던지면 그 턴이 실패한다. 반쯤 채운 env 로 spawn 하지 않는다 — 이는 `harness-runtime.ts` 가 augmenter 에 세운 규칙과 같은 축이다.
 - cleanup/rollback: 새 자원이 없다.
-- **다중 저장소 쓰기**: 코드에는 해당 없음 — injector 는 읽기만 하고 조립은 in-memory 다. **문서 산출물에는 해당한다**: 이 handoff 의 판정·상태가 `plan.md` 와 `docs/handoff/INDEX.md` 두 곳에 산다. 두 사본은 각 단계 커밋에서 함께 갱신한다. 우선순위 서술 사본 4곳도 같은 종류의 위험이라 §10 EP-12 가 4지점 전부를 세고 VP-26 이 한 곳만 고친 회귀를 잡는다.
+- **다중 저장소 쓰기**: 코드에는 해당 없음 — injector 는 읽기만 하고 조립은 in-memory 다. **문서 산출물에는 해당한다**: 이 handoff 의 판정·상태가 `plan.md` 와 `docs/handoff/INDEX.md` 두 곳에 산다. 두 사본은 각 단계 커밋에서 함께 갱신한다. 우선순위 서술 사본 12곳도 같은 종류의 위험이라 §10 EP-12 가 12지점 전부를 세고 VP-26 이 한 곳만 고친 회귀를 잡는다.
 
 ## 14. 성능 / 상한 / 최적화
 
@@ -435,7 +457,7 @@ app/deployment/spawn-env.ts (producer)
 
 | 기존 결정/규칙 | 출처 | 본문에서 건드리는 문장 | 결과 |
 |---|---|---|---|
-| `runtime > settings > app > process` 4층 우선순위 | `harness-config.ts:118-124` · `auth.md:527-533` · guide:455 | §9 Delta "5층 spread", §10 EP-01·EP-12 | **변경** — 사용자 명시 결정 D-003. 상대 순서는 보존하고 위에 한 층을 얹는다 |
+| `runtime > settings > app > process` 우선순위 | §8 EP-12 좌표 12곳 | §9 Delta "5층 spread", §10 EP-01·EP-12 | **변경** — 사용자 명시 결정 D-003. 상대 순서는 보존하고 위에 한 층을 얹는다 |
 | env 생성 시 settings env 전체 hoist | `harness-config.ts:168-205` | §10 EP-05, AC7 | 유지 |
 | 정적 fast path 참조 안정성 | `harness-config.ts` WeakMap · 테스트 `:459` | AC9·AC10 | 유지 |
 | 해석 실패 턴은 fingerprint 를 내지 않는다 | `harness-config.ts:316-318` | AC8, VP-10 | 유지 — injector 를 부르되 `runtimeEnvFingerprint` 는 여전히 `undefined` |
@@ -452,7 +474,7 @@ app/deployment/spawn-env.ts (producer)
 |---|---|
 | 하드코딩한 custom 값이 config API 가 방금 받아온 token·URL 을 덮는다 | 사용자 명시 결정(D-003)이라 순서는 바꾸지 않는다. 대신 가이드 새 절에 "동적 credential 은 augmenter 가 소유한다 — injector 에 token 을 넣지 마라" 를 계약으로 적고, §5 상태표에 그 전이를 남긴다 |
 | 전역 injector 가 모든 key 를 덮어 특정 provider 만 깨진다 | `target` 4필드로 좁히는 것이 계약이다(AC2). 가이드 예제가 `key` 분기부터 보여준다 |
-| 우선순위 사본 4곳 중 일부만 갱신된다 | §10 EP-12 가 4지점 전수. VP-26 이 한 사본 되돌림 변이로 방향을 확인한다 |
+| 우선순위 사본 12곳 중 일부만 갱신된다 | §10 EP-12 가 12지점 전수. VP-26 이 한 사본 되돌림 변이로 0건 스윕의 민감도를 확인한다 |
 | injector 가 예외를 던져 모든 턴이 죽는다 | 부분 env 로 spawn 하지 않는 것이 기존 계약과 같은 선택이다. 가이드에 "값이 없으면 그 키를 빼라, 던지지 마라" 를 적는다 |
 | `baseEnv` 가 injector 때문에 항상 불린다 | 미등록 경로는 그대로 lazy 다. VP-20 이 호출 1회를 관측한다 |
 
@@ -489,7 +511,7 @@ app/deployment/spawn-env.ts (producer)
 - [x] Product/UX 각 동작이 AC 16행과 §9 TO-BE 경로에 연결된다.
 - [x] AS-IS·TO-BE 를 같은 축(책임/flow/contract/error/seam)으로 썼고 Delta 8행이 모두 §11 파일 또는 AC 로 간다.
 - [x] AS-IS 에서 사라진 책임 없음 — 레이어 추가만이라 삭제·이동 항목이 없다.
-- [x] 수치 실측: prepare 호출 3 · adaptEnv 2 · 우선순위 사본 4 · `harnessProviderId` 0 · turn-setup deployment import 0. 문서 앵커 `auth.md §6.2`·`§6.4` 와 기존 테스트 케이스 5건 존재 확인.
+- [x] 수치 실측: prepare 호출 3 · adaptEnv 2 · 우선순위 사본 12 · `harnessProviderId` 0 · turn-setup deployment import 0. 문서 앵커 `auth.md §6.2`·`§6.4` 와 기존 테스트 케이스 5건 존재 확인.
 - [x] 각 AC 가 행동 단언·검증 수단·프로덕션 도달 경로 3칸을 갖는다.
 - [x] 상속할 V 가 없어 Baseline V 다(0200 plan 에 node/pair registry 부재를 확인).
 - [x] 네 레벨을 모두 선택했고 `NEW`·`CHANGED` node 15건이 같은 레벨 `REQUIRED` pair 를 갖는다.
@@ -505,7 +527,7 @@ app/deployment/spawn-env.ts (producer)
 - [x] 상한: 신규 요청 0, 신규 출력 0. one-way door(타입·파일 이름)를 §6·§17 에서 지금 확정했다.
 - [x] 게이트 명령이 `app/AGENTS.md` 현행 지침과 일치한다 — lint+typecheck 기본, 비-DB 스위트는 `vitest run` 직접 호출.
 - [x] 본문 완성 후 교차검증: `ACTIVE 결정 ↔ AC` 대조 8쌍 충돌 0(§3 갱신 메모). §10 EP-01 의 2지점과 §8 전수 조사의 prepare 호출 수가 같은 사실을 가리키는지 대조했다 — EP-01 은 **조립 지점 2**(resolved·위임), EP-04 는 **배선 지점 3**(turn-setup 2 + 위임 1)로 축이 다르다.
-- [x] 산출물 문장 규칙: Part I 은 관측 결과, Part II 는 경로·계약. 우선순위 사본 4곳이라는 사실은 §8 전수 조사와 §10 EP-12 에서 각각 다른 역할(측정 / 강제)로만 나온다.
+- [x] 산출물 문장 규칙: Part I 은 관측 결과, Part II 는 경로·계약. 우선순위 사본 12곳이라는 사실은 §8 전수 조사와 §10 EP-12 에서 각각 다른 역할(측정 / 강제)로만 나온다.
 
 ---
 
