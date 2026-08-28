@@ -514,101 +514,116 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: … (Part I/II의 정확한 절 인용)
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: Part I·Part II 전부. 설계자와 같은 에이전트지만 규범 행(Decision·AC·V·§10)은 별도 설계 커밋으로 먼저 고정한 뒤 구현했다.
+- 이견 / 현실성 문제: 없음.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
-> `§10`의 `언제 강제` 칸은 **하나의 불변식이 성립해야 하는 지점 목록**이다. 한 지점만 닫아도
-> 대표 경로 AC는 통과하므로 게이트 green은 전수를 뜻하지 않는다.
-> **각 행의 `재현 명령 / 관측`은 이번 턴에 실제로 실행한 것만 적는다** — 산출물에서 표식을 다시
-> 찾지 못하면 그 행은 닫힌 것이 아니다.
-> **그 관측이 구조적 proxy·0건/전수 스윕·배선 존재 oracle이고 이번 턴에 장치를 만들거나 고쳤다면,
-> 등록된 결함을 심어 실패하는지 먼저 확인한다** — 눈이 없는 장치의 `0건`은 전수의 증거가 아니다.
-> 직접 행동 결과를 관측하는 oracle에는 mutation을 자동 요구하지 않는다(impl §3).
-> **`전건`·`미분류 0`·`잔여 0` 행의 관측은 차집합이다** — 총계·합계는 그 주장을 반증할 수 없다(impl §8).
-
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | `commit·revoke·expiry·401` (4) | 4/4 | `rg …` → 4건 / 테스트 `…` 케이스명 | — |
+| VP-01·02·03·04·09 | EP-01 스피너가 세 소비자에 도달 | `PendingAssistant:71`·`TaskTileContent:279`·`SubAgentTileContent:159` (3) | 3/3 | `rg '<StatusLine' --include=*.tsx` → **3건**, 셋 다 분기 없이 같은 `StatusLine` 호출 | — |
+| VP-05·06·07 | EP-02 트랙 이름 TS↔CSS 사본 | `@utility animate-spark-{pulse,dot,spoke,g1..g5}` (8) | 8/8 | `grep -c '@keyframes spark-\|@utility animate-spark-' app.css` → **16**(키프레임 8 + 유틸 8). `sparkCss.test.ts` 가 트랙마다 동명 키프레임 존재를 단언 | — |
+| VP-08 | EP-03 감속 모션이 트랙 전수를 덮는다 | 같은 8 클래스 (8) | 8/8 | `sparkCss.test.ts` "차집합 0" 케이스 — `missing` 배열이 `[]`, `ALL_TRACKS` 길이 8 | — |
+| VP-17·18·20·21 | EP-04 안내를 Meter 트랙에 거는 호출부 | `UsageLimitViews` `LimitBarRow` 1 · `UsageTab` `ModelUsageList` 1 (2) | 2/2 | `rg '<Meter' --include=*.tsx` → 4건 중 2건에 `title` 전달, `UsagePanel` 2건은 D-013 으로 미전달. AT-19 가 그 2건을 음성+양성으로 잠금 | — |
+| VP-16 | EP-05 i18n 두 카탈로그 | ko 추가1·en 추가1·ko 삭제1·en 삭제1 (4) | 4/4 | `grep -c estimateNote ko.ts en.ts` → 각 1 · `rg filesCard` → **0건**. `typecheck:web` exit 0(= `typeof ko` 위반 없음) | — |
+| VP-10·11·12 | EP-06 첨부 카드가 남는 자리 | import·렌더·컴포넌트·일러스트·ko블록·en블록 (6) | 6/6 | `rg 'ProjectFilesCard\|FileDropIllustration\|filesCard' app/src` → **0건**(차집합). `shared/ui/mock.ts` 는 존재 유지(D-009) | — |
+| VP-15 | EP-07 제거 사실의 문서 사본 | `dom-architecture.md:157`·`ProjectLandingPage.tsx:22`·`SparkSpinner.tsx:7` (3) | 3/3 | 위 `rg` 0건에 세 파일 전부 포함. `ProjectLandingPage.tsx:22` 는 "파일 placeholder 는 0208 에서 제거"로 남아 새 문장이다 | — |
+| VP-13·14 | EP-08 본문 높이·잘림 | `SidebarCard.bodyClassName` 전달 (1) | 1/1 | `instructionsCard.render.test.ts` — `min-h-[280px]…overflow-y-auto` 정규식 + `line-clamp` 0건 + 전문 렌더 | — |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: 없음 / … → 현재 pair·Decision·AC 필수면 PLAN_GAP, 아니면 별도 finding
+**합계 35/35.** 분모는 §10 이 적은 지점 수(3+8+8+2+4+6+3+1)를 다시 세어 얻었다.
 
-**V-pair 자기확인** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다.
+- §10에 없는데 같은 불변식이 필요했던 지점: **1건** — `features/settings` 테스트가 `features/chat`(`UsagePanel`)을 import 하면 eslint `boundaries/dependencies` 가 error 다. AC 는 파일 위치가 아니라 행동이 정본이므로 AT-19 단언을 `features/chat/components/usagePanel.render.test.ts` 로 옮겨 닫았다(선조치). PLAN_GAP 아님 — 계약이 아니라 배치가 바뀌었다.
+
+**V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED / REGRESSION | SELF_PASS / SELF_BLOCKED | … | required — 결과 / not selected — 직접 oracle 근거 |
+| VP-01·02·04·09 | REQUIRED | SELF_PASS | `statusLine.render.test.ts` 4케이스 — `<svg>` 1 · `<line>` 10 · `<text>` 5 · `<circle>` 1 · 옛 글리프 0 | not selected — 렌더 출력 직접 관측 |
+| VP-03 | REQUIRED | SELF_PASS | 같은 파일 | **검출** — 스피너를 글리프 span 으로 되돌리자 **3 red** |
+| VP-05 | REQUIRED | SELF_PASS | `sparkFrames.test.ts` "240 프레임 전건" — `mismatches` 가 `[]` | not selected — 전사본과 직접 비교 |
+| VP-06 | REQUIRED | SELF_PASS | 같은 파일 구조 4케이스 | **검출** — `SPARK_SEGMENT_PHASE` 13→14 시 **2 red** |
+| VP-07 | REQUIRED | SELF_PASS | `sparkCss.test.ts` 4케이스 | **검출** — `app.css` pulse 720→700ms 시 **1 red** |
+| VP-08 | REQUIRED | SELF_PASS | 같은 파일 차집합 케이스 | **검출** — 감속 열거에서 `.animate-spark-g3` 제거 시 **1 red** |
+| VP-10·11·12 | REQUIRED | SELF_PASS | `rg` 0건 + `instructionsCard.render.test.ts` 드롭존 흔적 0 | **검출** — `line-clamp-3`+빈 `bodyClassName` 복원 시 **3 red** |
+| VP-13·14 | REQUIRED | SELF_PASS | `instructionsCard.render.test.ts` 4케이스(긴 지침·빈 지침 두 분기) | not selected — 분기 출력 직접 관측 |
+| VP-15 | REGRESSION | SELF_PASS | `CwdPanel.landing.test.ts` 통과(전체 실행에 포함) | not selected — 기존 케이스가 원문을 본다 |
+| VP-16 | REGRESSION | SELF_PASS | `resources.test.ts` 통과 + `typecheck` exit 0 | not selected — 기존 케이스가 두 사본을 본다 |
+| VP-17·18·19·21 | REQUIRED | SELF_PASS | `usageTooltip.render.test.ts` 6 + `usagePanel.render.test.ts` 1 | not selected — 자리 정규식으로 직접 관측 |
+| VP-20 | REQUIRED | SELF_PASS | `meter.render.test.ts` 2케이스 | **검출** — `title` 을 트랙 대신 내부 바로 옮기자 **3 red** |
+| VP-22 | REQUIRED | **SELF_BLOCKED** | 사람 실기 — 헤드리스 환경이라 앱을 띄울 수 없다 | not selected |
+
+`SELF_PASS 21 / SELF_BLOCKED 1`.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-> pair가 적대 증거를 선택했거나 파생 이슈가 변이를 인용했거나 이번 턴에 구조적 proxy·0건/전수·배선 oracle을 만들었다면
-> 그 결함을 심어 장치의 방향·민감도를 확인한다(impl §3). 형제 슬롯이 서로 다른 계약을 가지면
-> 지우는 변이에 더해 **형제와 맞바꾸는 변이**도 심는다. 그 밖의 hunk에는 mutation을 새로 발명하지
-> 않고 `해당 없음 — 직접 oracle …`을 적는다. mutation이 없다는 이유만으로 현재 FAIL 범위를 늘리지 않는다.
-
 | 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|
-| `파일:줄` — 무엇을 어떻게 바꿨는가(제거 / 형제와 맞바꿈) | `VP-… 선택 증거` / `D<N> 인용 변이` / `구조·전수·배선 oracle 민감도` | `<케이스명>` 외 N건 | 잠김 / **잠금 없음 — 사유** / 해당 없음 — 직접 oracle |
+| `sparkFrames.ts:21` — `SPARK_SEGMENT_PHASE` 13 → 14 | `VP-06 선택 증거` | `240 프레임 전건…` 외 **2건** | 잠김 |
+| `app.css` — `animation: spark-pulse 720ms` → `700ms` | `VP-07 선택 증거` | `pulse 트랙이 세그먼트 길이…` **1건** | 잠김 |
+| `app.css` — 감속 열거에서 `.animate-spark-g3` 삭제 | `VP-08 선택 증거` | `트랙 8개가 전부…차집합 0` **1건** | 잠김 |
+| `StatusLine.tsx` — `<SparkSpinner/>` → `<span>✦</span>` | `VP-03 선택 증거` | 노드 수·트랙 클래스·테마 **3건** | 잠김 |
+| `ProjectInstructionsCard.tsx` — `line-clamp-3` 복원 + `bodyClassName` 비움 | `VP-10 선택 증거` | 말줄임·min-h·빈 지침 **3건** | 잠김 |
+| `Meter.tsx` — `title` 을 트랙 `div` → 내부 바 `div` 로 이동 | `VP-20 선택 증거` | 자리 정규식 3표면 **3건** | 잠김 |
+
+심은 결함 6종 **전건 검출**. 복구 후 대상 스위트 재실행 = **38 passed / 38**.
+
+> `git checkout -- app.css` 로 변이를 되돌리다 **커밋되지 않은 트랙 블록 전체를 날린 사고**가 1회 있었다(설계 커밋이 docs 만 담았기 때문). 블록을 재생성하고 `sparkCss.test.ts` 4케이스로 복구를 확인했다 — 이후 변이는 `cp` 백업/복원으로 처리했다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … / **표에 없음** | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
-
-> 범위 밖이라 이번에 고치지 않더라도 **적는다** — 적지 않으면 그 선택지가 존재한 적도 없게 된다.
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ✅ `usage.estimateNote` 는 3표면이 소비한다(AT-15·16·17이 각각 잠금) | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | ✅ 새 실패 경로 없음 — I/O·비동기를 추가하지 않았다. "글리프 폰트 부재" 행이 유일한 열화 상태이고 표에 이미 있다 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | ⚠️ **1건** — 트랙 이름이 갈라지면 그 마크가 *애니메이션 없이 항상 보여* 마크 두 개가 겹친다. 조용한 오작동이라 `sparkCss.test.ts` 가 유일한 눈이다(§10 EP-02) | 잠금 완료 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | ✅ 해당 없음 — 세 변경 모두 비동기 응답을 다루지 않는다 | — |
+| (추가) 접근성이 후퇴하지 않는가 | ⚠️ `title=` 툴팁은 키보드로 열 수 없다. 같은 수치가 인접 텍스트로 이미 보여 정보 손실은 없으나, 안내 문구 자체는 마우스 사용자만 본다 | 아래 #2 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 선조치(구현 세부) / 📝 **plan 수정 제안**(설계가 틀렸다는 증거) / ⚠️ 보고만(제품·AC·Decision·의존성) | … |
-
-> 가운데 갈래가 구현 턴의 핵심 산출이다 — plan을 고치는 것은 설계자 책임이지만, **고쳐야
-> 한다는 증거를 만드는 것은 구현자만 할 수 있다.** 무엇이 틀렸는지·코드에서 무엇을 봤는지·
-> 어느 절을 어떻게 바꿔야 하는지를 함께 적는다.
+| 1 | `features/settings` 테스트가 `features/chat` 을 import 하면 boundaries error | ✅ 선조치 — AT-19 단언을 `usagePanel.render.test.ts`(chat)로 이설. 계약은 행동이지 파일 위치가 아니다 | `npm run lint` → `boundaries/dependencies` error 1건 → 이설 후 **0 error** |
+| 2 | 추정치 안내가 **키보드·스크린리더 사용자에게 도달하지 않는다**(네이티브 `title`) | ⚠️ 보고만 — 제품 결정이다. 일별 차트는 툴팁 본문이라 무관하고, Meter 2표면만 해당. 해소하려면 `aria-describedby` + 시각 표기(각주 한 줄)가 필요한데 그건 새 UX 다 | `Meter.tsx` 트랙 `div` 는 포커스 대상이 아니다 |
+| 3 | 글리프 5종이 `Segoe UI Symbol`/`Apple Symbols` 부재 시 공백 — 프레임의 48% | ⚠️ 보고만 — 사용자 제공 아티팩트라 임의로 바꾸지 않는다(§17 등록 리스크) | `sparkFrames.test.ts` 런 시퀀스: 글리프 5구간 × 23프레임 = 115/240 |
+| 4 | `SidebarCard.bodyClassName` 의 소비자가 다시 1이 됐다(파일 카드 → 지침 카드) | ✅ 선조치 없음(정상) — prop 이 죽지 않고 소비자만 바뀌었다 | `rg 'bodyClassName'` → 정의 1 + 소비 1 |
+| 5 | `shared/ui/mock.ts` 소비자 0 | ⚠️ 보고만 — D-009 가 유지로 확정. `dom-architecture.md` 에 "현재 소비자는 없다"를 명시해 다음 세션이 헤매지 않게 했다 | `rg DISABLED_HATCH_CLASS` → 정의 1건뿐 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: 없음 / …
-
-> 차이가 있으면 **대체물이 갖고 원본이 갖지 않던 실패 모드를 축마다 한 줄씩** 적고, 그 축에서 다시 확인한
-> AC·§10 행을 관측과 함께 남긴다. 한 축만 적은 보고는 나머지 축도 조사한 것처럼 보인다(impl §6).
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: **2건.**
+  1. `sparkCss.test.ts` 의 pulse 단언을 `steps(24, end)` 문자열 대조 → **키프레임 stop 개수 세기 + `step-end`** 로 바꿨다. 원본이 쓴 `steps(1, end)` 는 CSS 에서 `step-end` 이고, `steps(24,end)` 는 2-stop 램프용 문법이라 24-stop 키프레임에는 쓰이지 않는다. 개수를 실제로 세는 쪽이 더 강한 단언이다.
+  2. AT-19 테스트 파일 위치를 settings → chat 으로 옮겼다(위 #1).
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … / 해당 없음 + 근거 | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … / 해당 없음 + 근거 | … |
-| 재진입 | … / 해당 없음 + 근거 | … |
-| 다른 무효화 축 | … / 해당 없음 + 근거 | … |
+| 만료 | 해당 없음 — CSS 애니메이션에는 만료 개념이 없고 두 대체물 모두 상태를 갖지 않는다 | AT-07 재확인: `sparkCss.test.ts` 4케이스 green |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | **있다** — `spark-*` 키프레임은 **문서 전역**이라 다른 컴포넌트가 같은 이름을 정의하면 덮어쓴다. 원본의 인스턴스별 `<style>` 에는 없던 축이다 | EP-02 재확인: `grep '@keyframes spark-' app.css` → **8건, 전부 이번 블록**. 다른 파일의 `spark-` 정의 0건(`rg '@keyframes spark-' src` → app.css 만) |
+| 재진입 | **있다** — 세 소비자가 동시에 마운트되면 각자 애니메이션 시작 시각이 달라 **위상이 어긋난다**(스트립도 마찬가지지만 인스턴스가 1개일 때는 드러나지 않았다). 시각적 문제일 뿐 계약 위반은 아니다 | AT-02 재확인: 세 소비자가 같은 컴포넌트를 쓰므로 *내용*은 같다. 위상 동기화는 계약에 없다 — AT-20 사람 실기로 넘긴다 |
+| 다른 무효화 축 | **있다** — Tailwind `@utility` 는 클래스 리터럴이 소스에 있어야 방출된다. 클래스 이름을 동적으로 조립하면 CSS 가 사라진다 | EP-02 재확인: `sparkFrames.ts:45-53` 이 8개를 **리터럴**로 갖고 `SparkSpinner` 는 그 상수만 참조한다. 문자열 결합 0건 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님) | 테스트 N파일 / M케이스 · error·warning 수 · 환경 기인 실패 분리 근거 |
-| V-pair 자기확인 | `SELF_PASS N / SELF_BLOCKED M`; pair별 상세는 위 표 |
-| 강제 지점 전수 | N/M |
-| **AC 자기보고**(`Criteria-Met`) | N/M — 각 AC 옆에 **이번 턴에 재현한 관측값**을 적는다. 표식을 다시 찾지 못한 AC는 ✅로 세지 않는다 |
-| **합계 검산** | `✅ N · ⚠️ M · ❌ K = 총 T` — 분모를 다시 세고 **이 줄을 쓴 뒤** 커밋 trailer를 적는다. 분모가 바뀌었으면(AC 분할·추가) 그 사실을 적고 이전 라운드 합계와 직접 비교하지 않는다 |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `(r<N> 구현 — 좌표는 INDEX)` — 자기 환경의 해시를 적지 않는다. 좌표 정본은 `INDEX.md` 한 곳이고 검증자가 채운다 |
+| 변경 파일 | 수정 13 · 삭제 2 · 신규 9(소스 2 + 테스트 7) · 문서 1 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node scripts/check-doc-inventory.mjs --check` |
+| **관측한 게이트 산출**(exit code 아님) | lint **0 error · 1 warning**(warning 은 `useTranscriptVirtualizer.ts:22` react-compiler, 변경 무관 기존분) · typecheck **3구성 전부 출력 0줄, exit 0** · vitest **249파일 2545케이스 중 5파일 46케이스 red** · doc-inventory **3검사 ok, exit 0** |
+| 환경 기인 실패 분리 | red 46건 = `infra/db/{queries,migrate}` · `features/extensions/builder` · `features/orchestration/fork` · `app/chat-turn.continuity` **5파일 전부 DB 로드**. 서명 `better_sqlite3.node` 18건. **`git stash` 기준선 재현: 같은 5파일 46케이스**(242파일 2515케이스 중) — 변경 무관. 순증 **7파일 30케이스 전건 green** |
+| V-pair 자기확인 | `SELF_PASS 21 / SELF_BLOCKED 1`; pair별 상세는 위 표 |
+| 강제 지점 전수 | **35/35** (8그룹) |
+| **AC 자기보고**(`Criteria-Met`) | **19/20** — AT-01~AT-19 는 위 표의 재현 관측으로 각각 확인. **AT-20 은 ⚠️**(사람 실기, 헤드리스라 앱 미기동) |
+| **합계 검산** | `✅ 19 · ⚠️ 1 · ❌ 0 = 총 20`. 분모는 §7 의 `AT-\d\d / AC` 행을 다시 세어 **20** 확인. 분모 변경 없음(초안 이후 AC 분할·추가 0) |
+| 블로커 / 역질문 | 없음. 사람 실기 5건(AT-20)이 남는다 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-> 원인 분류(A~F)와 지침 변경은 `handoff-review`가 한다.
-
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음 / …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: …
-- 반복해서 부딪히는 환경 한계: 없음 / …
-- 현재 라운드 수: N (3 초과면 다음 재구현 전에 `handoff-review`)
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음 — r1 이다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: boundaries 위반(#1)은 plan §4 "작업 관련 저장소 규칙을 설계 입력으로 읽는다"가 담당하는 축인데, 설계가 **테스트 파일의 import 방향**까지는 보지 않았다. AC 가 행동 단언이라 이설로 닫혔고 계약은 그대로다.
+- 반복해서 부딪히는 환경 한계: better-sqlite3 ABI(문서화된 기준선) · 헤드리스라 시각 실기 불가.
+- 현재 라운드 수: **1**
 
 ---
 

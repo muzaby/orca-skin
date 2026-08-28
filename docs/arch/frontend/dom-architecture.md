@@ -154,4 +154,4 @@ resize-handle 은 `aside` 형제가 아니라 **자식**으로 둔다.
 
 ## Mock UI marker (0010)
 
-아직 동작하지 않는 장식 UI 는 `disabled` 또는 `aria-disabled`, `data-state="mock"`, 빗금 배경을 함께 적용한다. 공용 빗금 배경은 renderer shared UI 상수(`DISABLED_HATCH_CLASS`, `shared/ui/mock.ts`)를 재사용한다.
+아직 동작하지 않는 장식 UI 는 `disabled` 또는 `aria-disabled`, `data-state="mock"`, 빗금 배경을 함께 적용한다. 공용 빗금 배경은 renderer shared UI 상수(`DISABLED_HATCH_CLASS`, `shared/ui/mock.ts`)를 재사용한다. 현재 소비자는 없다 — 마지막이던 프로젝트 파일 첨부 카드가 0208 에서 제거됐고, 규칙과 상수는 다음 mock UI 를 위해 남긴다.

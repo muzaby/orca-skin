@@ -1,12 +1,11 @@
 // 어시스턴트 턴 진행 표시(스트리밍 인디케이터) — 소비자가 chat 전용(transcript ·
 // 서브에이전트 타일)이라 shared/ui 가 아닌 chat feature 에 둔다. 경과 틱은 범용
 // useElapsed(shared/ui/elapsed)를 공유한다.
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { formatElapsed, useElapsed } from '../../../shared/ui/elapsed'
+import { SparkSpinner } from '../../../shared/ui/SparkSpinner'
 import { useI18n } from '../../../shared/i18n'
 import { deriveActivityLabel, MAX_VISIBLE_FACTS, type ActivityView } from '../lib/activityLabel'
-
-const SYMBOLS = ['✢', '✣', '✦', '✧', '★', '✶']
 
 const VERBS = [
   'Pondering',
@@ -20,8 +19,6 @@ const VERBS = [
   'Mulling',
   'Crystallizing'
 ]
-
-const SYMBOL_INTERVAL_MS = 200
 
 function approximateTokens(text: string): number {
   return Math.max(1, Math.round(text.length / 4))
@@ -54,7 +51,6 @@ export function StatusLine({
   activity
 }: StatusLineProps): React.JSX.Element | null {
   const { tr } = useI18n()
-  const [symbolIdx, setSymbolIdx] = useState(0)
   // verb 는 한 응답 내에서 고정, 새 응답 (turnStartedAt 변경) 마다 재선택.
   // useMemo 가 turnStartedAt 변경 시 재실행되도록 의도적으로 의존성에 포함.
   const verb = useMemo(() => {
@@ -64,20 +60,12 @@ export function StatusLine({
   // 경과초 1s 틱은 공유 훅(useElapsed)으로 — 서브에이전트 진행 중 메타와 동일 메커니즘.
   const elapsedSec = useElapsed(turnStartedAt)
 
-  useEffect(() => {
-    if (turnStartedAt == null) return
-    const t = setInterval(() => {
-      setSymbolIdx((i) => (i + 1) % SYMBOLS.length)
-    }, SYMBOL_INTERVAL_MS)
-    return () => clearInterval(t)
-  }, [turnStartedAt])
-
   const outputTokensLabel = useMemo(() => {
     if (!outputApproxFromText || outputApproxFromText.length === 0) return null
     return `~${formatTokens(approximateTokens(outputApproxFromText))}`
   }, [outputApproxFromText])
 
-  // 심볼 애니메이션이 200ms 마다 재렌더를 부르지만 이 파생의 입력은 초 단위로만 바뀐다.
+  // 재렌더는 경과 초(1s 틱)로만 온다 — 스피너는 CSS 트랙이라 리렌더를 부르지 않는다.
   // 조합 규칙은 순수 모듈이 소유한다(lib/activityLabel) — 여기서는 키를 문구로 옮기기만 한다.
   const label = useMemo(
     () => deriveActivityLabel(activity, elapsedSec * 1000),
@@ -119,12 +107,7 @@ export function StatusLine({
       aria-label={accessibleLabel}
       title={factLabel || undefined}
     >
-      <span className="w-3 text-center text-rust motion-reduce:hidden" aria-hidden>
-        {SYMBOLS[symbolIdx]}
-      </span>
-      <span className="hidden w-3 text-center text-rust motion-reduce:inline" aria-hidden>
-        ✦
-      </span>
+      <SparkSpinner className="shrink-0 text-rust" />
       <span aria-hidden>{statusLabel}</span>
       {visibleFacts.length > 0 && (
         <span className="text-[11px] text-ink3" aria-hidden>
