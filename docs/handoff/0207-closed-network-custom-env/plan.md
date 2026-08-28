@@ -673,6 +673,12 @@ app/deployment/spawn-env.ts (producer)
 
 ## [검증자 기입] 파생 이슈
 
+> r1 검증 = **PASS**. 판정 원문은 [`verify.md`](verify.md).
+
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | 없음 | — | — | — | — |
+| D1 | `explicitHostManaged` 의 `customEnv[FLAG]` 항이 구조적으로 관측 불가. `hostManaged` 소비처는 `buildsEnv` 하나(`:338`·`:343`)이고 `customEnv[FLAG]` 정의됨 ⟹ `hasCustomEnv` ⟹ `buildsEnv` 참 | EP-07 / VP-16 | 순서 일관성 문서로 둘지, `buildsEnv` 에서 `hasCustomEnv` 를 빼 flag 를 살릴지 — **제품 동작 선택** | NON_BLOCKING | **사람 결정 대기** |
+| D2 | AC12 서술의 인과가 실제와 다르다 — flag 와 무관한 키로도 hoist 가 일어난다(verify P1) | AC12 | D1 결정과 함께 AC12 문구를 인과에 맞게 정정 | NON_BLOCKING | open |
+| D3 | injector 입력의 변형 가능성이 비대칭. `hostEnv` 는 `Readonly<>` 지만 `target.settings` 는 캐스트·directive 없이 대입이 통과하고, 그 객체는 WeakMap 키이자 참조 비교 대상이라 오염이 턴을 넘는다 | 비귀속 — 입력 불변성 계약이 없다 | `settings?: Readonly<HarnessNativeSettings>` 로 `hostEnv` 와 수준을 맞춘다 | NON_BLOCKING | open |
+| D4 | EP-12 체인 축에 CI 검출기가 없다 — 체인 최상위 줄 삭제가 스윕·doc gate 를 통과(M5b) | AR-04 / VP-26 | `check-doc-inventory.mjs` 에 체인 검사 추가 여부는 새 게이트 | NEXT_HANDOFF | open |
+| D5 | 이번 3커밋의 `Co-Authored-By` 표기가 기존 이력과 다르다 | 비귀속 | 기록만 — trailer 프로토콜 파싱 키가 아니다 | NON_BLOCKING | 기록 |
