@@ -7,24 +7,24 @@
 | 항목 | 값 |
 |---|---|
 | slug | `0208-spinner-instructions-usage-tooltip` |
-| 작성자 | Claude Code |
+| 작성자 | Claude Code (V1) · Codex (ΔV1, 사용자 요청) |
 | 일자 | 2026-08-28 |
-| 매핑 | — |
+| 매핑 | PR #401 · `claude/ui-improvements-spinner-guidelines-tooltip-taak09` |
 | 상태 | READY |
-| V mode | `Baseline V` |
-| 기준 V | `none` |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| V mode | `Delta V` |
+| 기준 V | `V1@35b44e6` |
+| 이번 V revision | `ΔV1` — V1의 스피너 등가·사용량 안내 배치를 대체 |
+| 유효 V | `V1 + ΔV1` |
 
 ---
 
-# Part I — Product & UX Contract
+# Part I — ΔV1 Product & UX Contract
 
 ## 1. Context / 목표
 
-- 해결하려는 문제: 서로 독립인 renderer UI 결함 3건 — 대기 스피너가 폰트 의존 글리프 6종을 200ms `setInterval`→`setState` 로 돌린다(`StatusLine.tsx:9,67-73`) · 프로젝트 랜딩 우측에 동작 0 인 첨부 placeholder 가 자리를 차지하고 지침은 3줄에서 잘린다(`ProjectFilesCard.tsx` · `ProjectInstructionsCard.tsx:23`) · 사용량 수치가 SDK 추정치라는 사실이 화면 어디에도 없다.
-- 완료 후 달라지는 것: 스피너가 지정 아티팩트로 서면서 리렌더가 0 이 되고, 지침 카드가 되찾은 세로 공간을 쓰며, 사용량 막대 호버에 추정치 안내가 뜬다.
-- 성공을 사용자 관점 한 문장으로: **턴이 도는 동안 화면이 더 가벼워지고, 지침은 더 보이고, 사용량 숫자는 자기가 추정치임을 밝힌다.**
+- 해결하려는 문제: V1 r1은 첨부 SVG의 0~239번 형상·배율은 재현하지만 원본의 **241개 시간 슬롯**을 240개로 바꿨고, 원본 파일도 정본으로 남기지 않았다. 사용량 추정치 안내는 새 요구와 반대로 차트·막대 안에 퍼져 있다.
+- 완료 후 달라지는 것: 원본 SVG 내용이 이 handoff에 남고, 런타임은 원본의 크기·형상·색·241슬롯 타이밍을 그대로 내면서도 기존의 정적 마크+CSS 성능 특성을 유지한다. 추정치 안내는 전역 설정 > 사용량 설명에만 남는다.
+- 성공을 사용자 관점 한 문장으로: **보이는 스피너는 첨부 원본과 같고 가벼우며, 추정치 안내는 차트를 가리지 않고 사용량 설명에서 한 번만 읽힌다.**
 
 ## 2. 사용자 의도 / 요구 출처
 
@@ -36,7 +36,11 @@
 | 명시 요구 | **"스피너로인해 겅능저하가 발생하면 안된다"** (2회 반복) | 플랜 반려 턴 |
 | 명시 요구 | "본문 내용을 svg확장자로 사용하라" (업로드 `…convergev3.md`) | 업로드 턴 |
 | 명시 요구 | 교체 범위 "세 곳 모두 교체" · 확장 방식 "고정 최소 높이를 준다" · 툴팁 대상 3곳 | AskUserQuestion 1·2차 |
-| 추론 의도 | 아티팩트를 **인라인 React 컴포넌트**로 옮긴다 — `.svg` 파일은 `currentColor` 상속이 끊겨 테마 규칙을 깬다 (D-007) | 설계자 판단 → 플랜 승인 |
+| 명시 요구 | "첨부 svg와 똑같은 스피너로 사용, 단 성능저하가 발생하면 안됨" | 사용자 변경 턴 (2026-08-28) |
+| 명시 요구 | `설정 > 사용량` 설명의 "provider별 사용량 한도는 좌측…" 문장을 제거하고 기존 툴팁 문구로 대체 | 같은 턴 |
+| 명시 요구 | "차트에서 해당 안내문이 들어간 내용만 모두 제거" — 차트 자체·기존 수치 툴팁은 유지 | 같은 턴 |
+| 명시 요구 | "원본을 plan.md 경로에 첨부" | 사용자 추가 턴 |
+| 추론 의도 (V1 · 폐기) | 아티팩트를 **인라인 React 컴포넌트**로 옮기고 `.svg` 파일은 남기지 않는다 | 설계자 판단 → D-015·D-017이 대체 |
 | 추론 의도 | 성능 제약을 "노드 수·리렌더 수"로 조작화한다 — 사용자가 수치를 지정하지 않았다 | 설계자 판단 (D-003) |
 
 ## 3. Decision Ledger
@@ -46,28 +50,318 @@
 | D-001 | 대기 스피너를 **사용자 제공 아티팩트**로 대체한다 | 사용자: "첨부 svg로 대체한다" | 사용자 턴 | ACTIVE | — |
 | D-002 | 교체 범위는 `StatusLine` 렌더 지점 **3곳 전부**다 | 사용자 선택 "세 곳 모두 교체". 두 타일 코드에 "메인 transcript 와 동일한 StatusLine" 주석이 이미 있다 | AskUserQuestion 1차 | ACTIVE | — |
 | D-003 | **스피너가 성능을 저하시키면 안 된다** — 원본 스트립을 그대로 펼치지 않는다 | 사용자: "스피너로인해 겅능저하가 발생하면 안된다". 1:1 인라인은 인스턴스당 ≈1767 SVG 노드(3곳 동시 ≈5301)이고 그중 보이는 것은 1프레임뿐이다 | 사용자 턴 + 실측 | ACTIVE | 초안의 "241 프레임 스트립 인라인"을 대체 |
-| D-004 | 값싼 인코딩은 **원본과 프레임 단위로 등가**여야 한다 — 눈이 아니라 240/240 으로 증명한다 | D-003 이 형태를 바꾸므로 시퀀스 동일성이 별도 계약이 된다. 짧은 쪽이 아니라 **같은 쪽**이 계약이다 | 설계자 판단 | ACTIVE | — |
-| D-005 | 색을 지정하지 않고 **`text-rust` 를 `currentColor` 로 상속**한다 | `renderer/AGENTS.md §스타일` raw hex 금지. 원본의 `#d97757` 은 `tokens.css:194` 의 **dark 값**이고 light 는 `:21` `#c96442` 라 그대로 박으면 라이트에서 틀리다 | 저장소 규칙 + 실측 | ACTIVE | — |
+| D-004 | 값싼 인코딩은 **원본과 프레임 단위로 등가**여야 한다 — 눈이 아니라 240/240 으로 증명한다 | 형상·배율만 0~239번 대조해 원본의 241번째 시간 슬롯과 색 차이를 놓쳤다 | 설계자 판단 | SUPERSEDED | D-016 |
+| D-005 | 색을 지정하지 않고 **`text-rust` 를 `currentColor` 로 상속**한다 | light `--color-rust=#c96442` 는 첨부 원본 `#d97757` 과 달라 "똑같은" 요구를 충족하지 않는다 | 저장소 규칙 + 실측 | SUPERSEDED | D-016 |
 | D-006 | 애니메이션 CSS 는 **`styles/app.css` 의 `@utility` 블록**으로 올린다 | 같은 규칙 "새 CSS 파일·규칙 추가 금지". 인라인 `<style>` 은 문서 전역이라 클래스·키프레임 이름이 새고 인스턴스마다 중복된다. `epitaxy-shine`·`status-beacon`·`tile-in` 이 이미 그 자리다 | 저장소 규칙 | ACTIVE | — |
-| D-007 | **`.svg` 파일로 커밋하지 않는다** — 인라인 컴포넌트로 옮긴다 | `<img>`/`<object>` 로 물리면 `currentColor` 상속이 끊겨 D-005 가 깨지고, `?raw` 는 타입·lint 밖의 문자열 주입이다. 저장소 `.svg` 선례 0건 | 설계자 판단 → 플랜 승인 | ACTIVE | — |
+| D-007 | **`.svg` 파일로 커밋하지 않는다** — 인라인 컴포넌트로 옮긴다 | 사용자가 원본을 `plan.md`와 같은 경로에 첨부하라고 명시했다. 런타임 미사용 원칙만 D-017로 승계한다 | 설계자 판단 → 플랜 승인 | SUPERSEDED | D-015·D-017 |
 | D-008 | 첨부 파일 카드를 **제거**한다 — 렌더·컴포넌트 파일·전용 일러스트·i18n 3키까지 | 사용자: "현재 지원하지 않는 첨부 파일 입력란을 제거한다". 이동이 아니라 제거이고, 그 능력 자체가 아직 없다(0039 가 RAG 도입까지 유예로 기록) | 사용자 턴 + 0039 | ACTIVE | — |
 | D-009 | `shared/ui/mock.ts` 의 `DISABLED_HATCH_CLASS` 는 **유지**한다 | 소비자가 0 이 되지만 `dom-architecture.md §Mock UI marker (0010)` 이 그것을 **현재 규칙**으로 소유한다. 규칙 폐기는 D-008 의 범위 밖이다 | 설계자 판단 | ACTIVE | — |
 | D-010 | 지침 카드는 **고정 최소 높이**로 키운다 — 컬럼 전체 높이 배선이 아니다 | 사용자 선택 "고정 최소 높이를 준다". 우측 컬럼에 높이 클래스가 하나도 없어 전체 높이 배선은 `aside`→사이드바→카드 3단 변경이 필요하다 | AskUserQuestion 2차 | ACTIVE | — |
 | D-011 | 본문의 `line-clamp-3` 을 **제거**한다 — 넘치면 카드 안에서 스크롤한다 | 선택지 설명이 "본문은 그 안에서 스크롤합니다"였다. 카드만 키우고 3줄에서 자르면 빈 공간만 남아 "확장"이 성립하지 않는다 | AskUserQuestion 2차 | ACTIVE | — |
-| D-012 | 툴팁 문구는 **사용자 원문 그대로**이고 키는 최상위 `usage.estimateNote` 다 | 두 탭이 공유하는 어휘라 `settings.usage.*` 가 아니다 — `usage.weekly`·`usage.monthly`·`usage.pctUsed` 가 이미 그 네임스페이스에 산다 | 사용자 턴 + 실측 | ACTIVE | — |
-| D-013 | 적용 대상은 **3곳** — 일별 토큰 차트 · provider 주간/월간 · 모델별 내역 | 사용자 다중선택. **컴포저 도넛 팝오버는 범위 밖**이고, `UsagePanel` 은 `LimitBarsSection` 을 쓰지 않고 `Meter` 를 직접 부르므로 자동으로 번지지 않는다 | AskUserQuestion 2차 + 실측 | ACTIVE | — |
-| D-014 | 신규 `Tooltip` 컴포넌트를 만들지 않는다 — 기존 관례를 쓴다 | 저장소에 tooltip 컴포넌트·라이브러리가 0건이다. 관례는 네이티브 `title=`(다수)·SVG `<title>`(`UsageCircle.tsx:21`)·recharts `content=`(`TokensPerDayChart.tsx:82`) 셋이다 | 실측 | ACTIVE | — |
+| D-012 | 툴팁 문구는 **사용자 원문 그대로**이고 키는 최상위 `usage.estimateNote` 다 | 문구·키는 유지하지만 더는 툴팁이 아니다 | 사용자 턴 + 실측 | SUPERSEDED | D-018 |
+| D-013 | 적용 대상은 **3곳** — 일별 토큰 차트 · provider 주간/월간 · 모델별 내역 | 사용자가 차트에 들어간 안내를 모두 제거하도록 변경했다 | AskUserQuestion 2차 + 실측 | SUPERSEDED | D-019 |
+| D-014 | 신규 `Tooltip` 컴포넌트를 만들지 않는다 — 기존 관례를 쓴다 | 안내 자체가 툴팁에서 빠지므로 해당 설계가 소멸한다 | 실측 | SUPERSEDED | D-019 |
+| D-015 | 업로드 원본을 spinner-reference.svg로 **내용 그대로 보존**하고 plan.md에서 링크한다 | 업로드 SHA-256 259933…aca0. 원본 EOF에 없던 LF 1byte만 repository text 정규화로 붙으며 XML·animation 내용은 동일 | 사용자 변경 턴 + 이번 턴 실측 | ACTIVE | D-007 대체 |
+| D-016 | 런타임 스피너는 원본과 **관측 가능한 전 축이 같다** | 18×18·viewBox·spoke/dot/glyph 기하·고정색 `#d97757`·7200ms/241슬롯·마지막 frame-0 중복·감속 모션 frame 0을 원본 파일에서 직접 대조한다 | 사용자 "똑같은" + 실측 | ACTIVE | D-004·D-005 대체 |
+| D-017 | 원본 SVG는 **문서·테스트 oracle 전용**이고 프로덕션 번들에 넣지 않는다 | 원본은 54,552 bytes·프레임 DOM 약 1,767개다. 런타임은 정적 마크와 CSS 트랙을 유지해야 D-003을 지킨다 | 사용자 성능 조건 + 실측 | ACTIVE | D-007의 런타임 원칙 승계 |
+| D-018 | `usage.estimateNote`를 전역 사용량 설명의 **유일한 문구 SSOT**로 유지한다 | `settings.usage.desc`는 첫 문장만 남기고 `UsageTab`이 두 키를 이어 렌더한다. ko/en에 문구를 복제하지 않는다 | 사용자 변경 턴 + 설계자 판단 | ACTIVE | D-012 대체 |
+| D-019 | 추정치 안내는 **전역 사용량 설명 1곳에만** 보이고 모든 차트·막대·도넛에서는 0건이다 | 일별 데이터 툴팁의 날짜·토큰·비용과 각 막대 자체는 유지한다. `Meter.title`은 이 안내만을 위해 생긴 dead API라 함께 제거한다 | 사용자 변경 턴 + 전수 조사 | ACTIVE | D-013·D-014 대체 |
+| D-020 | "해당 안내문이 들어간 내용만" 제거한다 | 차트·기간 탭·주간/월간 수치·모델 내역·기존 recharts 툴팁을 삭제하거나 재배치하지 않는다 | 사용자 조건절 | ACTIVE | — |
 
 ### 갱신 메모
 
-- 신규 결정: D-001 ~ D-014. 이번 handoff 의 첫 턴이라 타 handoff 승계는 없다.
-- **변경된 결정**: 초안 설계는 원본 241 프레임을 그대로 인라인했다. 사용자의 성능 제약(2회 반복)으로 **D-003 이 그 형태를 대체**하고, 형태가 바뀌면서 시퀀스 동일성이 새 계약이 되어 **D-004 가 추가**됐다. 나머지 12건은 문장 그대로다.
+- 신규 결정: ΔV1에서 D-015~D-020이 추가됐다.
+- **변경된 결정**: D-004·D-005·D-007·D-012·D-013·D-014를 각각 D-015~D-019가 대체한다. D-003의 성능 조건과 D-006·D-008~D-011은 유지한다.
 - 초안의 `useId()` 중복 id 대책은 **소멸**했다 — D-003 의 마크 7개 형태에는 `<defs>`/`<use>` 가 없다. 결정이 아니라 설계 세부라 Ledger 행을 만들지 않는다.
-- **`ACTIVE 결정 ↔ AC` 대조: 충돌 0.** 확인한 쌍 — D-001·D-002↔AT-01·AT-02 · D-003↔AT-03·AT-04 · D-004↔AT-05·AT-06 · D-005↔AT-09 · D-006↔AT-07·AT-08 · D-007↔AT-04(파일이 아니라 컴포넌트라야 노드를 셀 수 있다) · D-008↔AT-10 · D-009↔AT-11 · D-010↔AT-12 · D-011↔AT-12 · D-012↔AT-14 · D-013↔AT-15·AT-16·AT-17·AT-19 · D-014↔AT-15·AT-17. **반대를 요구하는 AC 0건.**
+- **`ACTIVE 결정 ↔ AC` 대조: 충돌 0.** D-001·D-002↔AT-01·AT-02 · D-003·D-017↔AT-03·AT-04·AT-24 · D-006↔AT-22·AT-24 · D-008~D-011↔AT-10~AT-14 · D-015↔AT-21 · D-016↔AT-22·AT-23·AT-30 · D-018↔AT-25 · D-019·D-020↔AT-25~AT-29. **SUPERSEDED 결정의 반대 요구는 유효 AC에서 제거했다.**
 - **D-009 ↔ D-008 비충돌**: D-008 이 지우는 것은 *첨부 입력란*이고 D-009 가 지키는 것은 *빗금 규약*이다 — 후자의 마지막 소비자가 전자였을 뿐 같은 대상이 아니다.
 - **D-011 ↔ D-010 비충돌**: D-010 은 카드의 *높이*를, D-011 은 본문의 *잘림*을 정한다. 둘 다 바꿔야 "해당 공간만큼 확장"이 성립한다.
 
-## 4. 요구 비판적 검토
+## 4. ΔV1 요구 비판적 검토
+
+| 질문 | 판단 | 근거 |
+|---|---|---|
+| "첨부 SVG와 똑같이"와 "성능 저하 없음"을 동시에 만족할 수 있는가 | 가능 | 원본 스트립을 런타임에 넣지 않고, 보이는 7개 마크만 한 번 그린 뒤 원본에서 읽은 241슬롯 visibility·scale 트랙을 CSS가 진행한다 |
+| V1의 240프레임 등가 증명은 충분했는가 | 아니오 | 원본은 7200ms에 241개 시간 슬롯이다. frame 240이 frame 0과 같은 형상이어도 약 29.8755ms를 차지하므로 삭제하면 타이밍이 달라진다 |
+| 색도 "똑같은" 범위인가 | 예 | 원본은 항상 #d97757이다. V1의 text-rust는 light 테마에서 #c96442라 원본과 다르다 |
+| 원본을 테스트 정본으로 직접 쓸 수 있는가 | 예 | 같은 디렉터리의 [spinner-reference.svg](spinner-reference.svg)를 파싱하면 손으로 옮긴 240행 기대값을 제거하고 원본 변경에도 테스트가 반응한다 |
+| 안내 문구 이동 범위가 모호한가 | 아니오 | settings.usage.desc의 둘째 문장만 제거하고 usage.estimateNote를 같은 설명에 붙인다. 차트·막대에서는 그 안내만 제거하고 날짜·토큰·비용·막대·기간 탭은 유지한다 |
+
+- 사용자에게 다시 물을 결정은 없다. "똑같은"은 크기·기하·마크 순서·배율·색·7200ms/241슬롯을 모두 포함하는 것으로 닫는다.
+- 업로드 SHA-256은 2599335fdfa6d75a47472fd7455e39abf0cad49ccfaacb6d7af21e6c7899aca0, repository 사본은 마지막 LF 1byte가 붙은 ee57259b2b5cb3c8b7b77509699815800530ca83b05697252799a373009bf79b다. LF를 제외한 54,552 bytes가 완전히 같고 이 파일의 XML 내용이 oracle이다.
+
+## 5. ΔV1 동작 / 사용자 흐름
+
+| 시작 상태/이벤트 | 시스템 동작 | 사용자에게 보이는 결과 |
+|---|---|---|
+| 응답 대기 시작 | StatusLine이 정적 마크 7개를 한 번 마운트하고 CSS 8트랙이 원본 241슬롯을 진행 | 첨부 SVG와 같은 18×18, #d97757, 7200ms 루프 |
+| 감속 모션 on | 모든 트랙을 멈추고 원본 frame 0을 표시 | spoke, scale 1.0으로 정지 |
+| 응답 대기 종료 | StatusLine이 언마운트 | 별도 타이머·cleanup 없음 |
+| 설정 > 사용량 진입 | 제목 아래 설명에 기존 첫 문장과 usage.estimateNote를 연속 표시 | provider 위치 안내 대신 SDK 추정치 안내를 한 번 읽음 |
+| provider 주간·월간 막대 / 모델별 막대 hover | 막대만 표시하고 V1의 title 속성을 두지 않음 | 추정치 안내 툴팁 없음 |
+| 일별 차트 hover | 기존 recharts 패널에 날짜·토큰·비용만 표시 | 추정치 안내 줄 없음 |
+
+### 파생 UX / 엣지케이스
+
+- 사용량 로딩·빈 상태에서도 상단 설명은 항상 보인다. 안내의 전달이 차트 데이터 존재 여부에 좌우되지 않는다.
+- weekly 집계 안내는 별도 의미이므로 유지한다. 제거 대상은 usage.estimateNote 문자열뿐이다.
+- 스피너의 aria-hidden과 상위 aria-live·aria-label 계약은 유지한다. 색은 테마에 따라 바뀌지 않고 원본과 동일하게 고정한다.
+
+## 6. ΔV1 범위 / 비범위
+
+- 범위: 원본 SVG 동봉·링크·직접 파서 oracle, 241슬롯 런타임 등가, 고정 색 토큰, 성능 회귀 잠금, 전역 사용량 설명의 문구 이동, 세 차트/막대 표면의 안내 제거, V1 전용 title API와 테스트 정리.
+- 상속 범위: 세 StatusLine 소비자, 첨부 파일 카드 제거, 지침 카드 min-height·스크롤, i18n ko/en 패리티는 V1 계약을 그대로 유지한다.
+- 비범위: 차트·막대·기간 탭·집계 방식 변경, 사용량 계산 또는 청구 의미 변경, 컴포저 UsagePanel 변경, 새 Tooltip 컴포넌트, 원본 SVG의 런타임 import.
+
+| 미룬 항목 | 처리 |
+|---|---|
+| 글리프 5종을 path로 변환 | 이번 요구는 첨부 원본과 동일성이므로 원본의 폰트 계약을 유지하고 사람 실기에서 확인 |
+| CSS 트랙 자동 생성 빌드 단계 | 신규 빌드 의존성을 만들지 않는다. 테스트가 원본→TS/CSS 사본을 직접 대조 |
+
+## 7. ΔV1 Requirements / Acceptance — R ↔ AT
+
+> V1의 AT-05~AT-09·AT-15~AT-20은 아래 AT-21~AT-30이 대체한다. AT-01~AT-04·AT-10~AT-14는 상속하며, 충돌 시 이 표가 우선한다.
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션/산출물 도달 경로 |
+|---|---|---|---|---|
+| R-08 | AT-21 / AC21 | 업로드 원본 내용이 plan.md와 같은 디렉터리에 남는다 | repository 사본의 마지막 LF를 제외한 54,552 bytes·업로드 SHA 동일, SVG parse 성공, plan 상대 링크 유효 | 업로드 → spinner-reference.svg → plan 링크 |
+| R-08 | AT-22 / AC22 | 런타임이 원본의 241개 시간 슬롯 전부와 관측 축을 그대로 낸다 | 원본 파서가 slot별 shape·scale·key time을 읽어 함수·CSS와 241/241 대조하고, 18×18·viewBox·기하·#d97757·7200ms도 등호 단언 | reference → sparkFrames·app.css·token → SparkSpinner → StatusLine 3곳 |
+| R-08 | AT-23 / AC23 | 등가 oracle이 자기 전사본을 검증하는 허수아비가 아니다 | reference의 slot 수·마지막 slot·key time·색·기하 중 하나를 변조한 fixture가 실패하고, 런타임을 240슬롯으로 되돌려도 실패 | reference parser → expected sequence → runtime source assertions |
+| R-02·R-08 | AT-24 / AC24 | 정확도를 높여도 V1의 성능 특성이 나빠지지 않는다 | spinner 유발 React timer/state 0, 인스턴스당 SVG 약 19노드, 동시 3개 약 57노드, 애니메이션 속성 transform·visibility뿐, production build에 reference 문자열·asset 0 | turnStartedAt → one mount → compositor CSS → unmount |
+| R-09 | AT-25 / AC25 | 설정 > 사용량 설명에서 provider 위치 문장이 사라지고 추정치 안내가 정확히 한 번 보인다 | 순수 UsageDescription 렌더에 첫 문장 + NOTE 각 1건, ko/en desc에 provider 위치 문장 0건 | UsageTab header → settings.usage.desc + usage.estimateNote |
+| R-09 | AT-26 / AC26 | provider 주간·월간 막대에 추정치 안내가 없다 | LimitBarsSection 렌더에 NOTE·title 0건이면서 week/month Meter 트랙 2건과 수치가 남음 | ProviderUsageTab → LimitBarsSection → Meter |
+| R-09 | AT-27 / AC27 | 모델별 막대에 추정치 안내가 없다 | N개 모델 렌더에 NOTE·title 0건이면서 Meter N개·모델명·토큰 breakdown이 남음 | UsageTab → ModelUsageList → Meter |
+| R-09 | AT-28 / AC28 | 일별 차트 툴팁에서 안내 줄만 사라진다 | active tooltip에 NOTE 0건과 날짜·토큰·비용 양성 짝, inactive는 빈 출력 | TokensPerDayChart → recharts Tooltip → UsageTooltip |
+| R-09 | AT-29 / AC29 | usage.estimateNote의 production 소비자는 전역 설명 한 곳뿐이다 | renderer의 비-test callsite 전수 검색 = 1, Meter.title 타입·DOM 전달·V1 전용 주석 = 0 | i18n SSOT → UsageDescription 단일 소비자 |
+| R-01·R-05·R-06·R-08·R-09 | AT-30 / AC30 | 실제 앱에서도 원본 동일성과 상속 UX가 성립한다 | 사람 실기: 두 테마·Windows에서 스피너 크기/정렬/색/속도, 감속 모션 frame 0, 지침 카드, 사용량 설명 1건과 세 표면 안내 0건 | 실행 중인 앱 |
+
+### AC 검증 주의사항
+
+- frame 240은 frame 0과 같은 그림이지만 별도 시간 슬롯이다. SPARK_TOTAL_FRAMES는 241, SPARK_FRAME_MS는 7200/241이며 240×30ms로 정규화하지 않는다.
+- shape·scale 기대값은 spinner-reference.svg를 파싱해 만든다. 테스트 안에 ORIGINAL_FRAMES 240행을 다시 두지 않는다.
+- 음성 단언 AT-26~AT-29에는 막대·모델·날짜·토큰·비용 양성 짝을 둔다. 차트를 통째로 지워 통과할 수 없다.
+- performance는 "체감"만 보지 않는다. timer/state·DOM 상한·animated property·production bundle 경계를 각각 잠근다.
+
+## 7-A. ΔV1 V / Trace Matrix
+
+- V mode: Delta V.
+- 기준 V: V1@35b44e6. 이 문서의 Appendix A가 기준 설계를, Appendix B가 r1 구현 증거를 보존한다.
+- 유효 계약: V1에서 아래 SUPERSEDED node를 제거하고 ΔV1 NEW/CHANGED node를 합친다.
+
+### ΔV1 Node registry
+
+| Node | 레벨 | provenance | 계약 / 대체 |
+|---|---|---|---|
+| R-01·R-02·R-05·R-06 | R | INHERITED | 새 스피너 3곳, 성능, 파일 카드 제거, 지침 카드 확장 |
+| R-03·R-04 | R | SUPERSEDED | R-08이 241슬롯·고정색·감속 모션까지 대체 |
+| R-07 | R | SUPERSEDED | R-09가 안내의 새 위치·제외 표면을 대체 |
+| R-08 | R | NEW | 첨부 원본 직접 oracle, 전 축 동일성, 성능 비회귀 |
+| R-09 | R | NEW | 추정치 안내는 전역 설명 한 곳, 차트·막대 0곳 |
+| AT-01~AT-04·AT-10~AT-14 | AT | INHERITED | Appendix A의 기존 oracle 유지 |
+| AT-05~AT-09·AT-15~AT-20 | AT | SUPERSEDED | AT-21~AT-30으로 대체 |
+| AT-21~AT-30 | AT | NEW | §7의 열 개 AC |
+| SD-01 | SD | INHERITED | 프레임 진행이 React 상태를 거치지 않음 |
+| AR-01·AR-02 | AR | CHANGED | AR-05의 reference→TS/CSS 241슬롯 배선으로 대체 |
+| AR-03·AR-04 | AR | SUPERSEDED/CHANGED | AR-06의 단일 문구 소비와 제거 지점 전수로 대체 |
+| AR-05 | AR | NEW | reference asset → parser → runtime data/CSS/token |
+| AR-06 | AR | NEW | i18n NOTE → UsageDescription 1곳, chart/meter 0곳 |
+| MD-01 | MD | CHANGED | 240 반복식 대신 241슬롯 source-derived model |
+| MD-02 | MD | INHERITED | 지침 카드 min-height·scroll |
+| MD-03 | MD | NEW | SVG reference parser와 mutation-sensitive oracle |
+| ST-02·IT-05·IT-06·UT-03 | ST/IT/UT | NEW | 아래 ΔV pair의 성능·배선·민감도 증거 |
+
+### ΔV1 Pair registry
+
+| Pair | left ↔ right | requiredness | production path | 직접 evidence oracle | 적대 증거 | §10 EP |
+|---|---|---|---|---|---|---|
+| ΔVP-01 | R-08 ↔ AT-21 | REQUIRED | upload → reference → plan | EOF LF 정규화를 제외한 SHA·XML·relative link 검사 | XML 내용 1byte 변경 | EP-09 (2) |
+| ΔVP-02 | R-08 ↔ AT-22 | REQUIRED | reference → runtime tracks → 3 StatusLine | 241/241 + 기하·색·기간 등호 | 241→240 회귀 | EP-10 (4) |
+| ΔVP-03 | MD-03 ↔ AT-23·UT-03 | REQUIRED | parser → expected → assertions | 변조 fixture가 red | 마지막 slot·색·key time 변조 | EP-09·10 (6) |
+| ΔVP-04 | R-02·SD-01 ↔ AT-24·ST-02 | REGRESSION | turn start → one mount → CSS → unmount | timer 0·노드 상한·property allowlist·bundle 0 | timer 또는 reference import 재도입 | EP-11 (4) |
+| ΔVP-05 | AR-05 ↔ AT-22·IT-05 | REQUIRED | reference → TS functions/CSS/token | parser 대조 + CSS 원문 + build output | duration·token·window 한 지점 변경 | EP-10 (4) |
+| ΔVP-06 | R-09 ↔ AT-25 | REQUIRED | i18n → UsageDescription | 렌더 NOTE 1 + provider 문장 0 | NOTE 렌더 제거 | EP-12 (7) |
+| ΔVP-07 | R-09 ↔ AT-26~AT-28 | REQUIRED | settings charts/meters → rendered DOM | 음성 NOTE + 각 표면 양성 짝 | chart 전체 삭제 | EP-12 (7) |
+| ΔVP-08 | AR-06 ↔ AT-29·IT-06 | REQUIRED | NOTE key → one production callsite | 비-test callsite 1, title API 0 | chart callsite 하나 복원 | EP-12 (7) |
+| ΔVP-09 | R-01·R-05·R-06·R-09 ↔ AT-30 | REGRESSION | 실행 앱의 네 표면 | 사람 실기 | not selected — 시각·OS 폰트 | 0 |
+
+### 현재 설계 변경의 운영 gate
+
+| Gate | 이번 산출물 | 명령 | blocking |
+|---|---|---|---|
+| docs handoff | plan·INDEX·reference SVG | cd app && node scripts/check-doc-inventory.mjs --check | 이번 diff가 낸 오류 |
+| repository hygiene | Markdown·SVG 추가 | git diff --check + SVG parser + SHA 대조 | 모두 |
+| message bus | 설계 커밋 1개 | git trailer의 Agent·Handoff·Status | 파싱 0건 |
+
+---
+
+# Part II — ΔV1 Technical Design
+
+## 8. ΔV1 Research — 현재 코드와 원본
+
+| 발견 | 실측 |
+|---|---|
+| 첨부 원본 | 54,552 bytes, 18×18, viewBox 0 0 100 100, color #d97757, 7200ms, keyframe 241개 |
+| 원본 시간축 | n/241 지점의 241슬롯, frame 240은 frame 0과 같은 spoke·scale 1이지만 마지막 약 29.8755ms를 차지 |
+| V1 r1 | shapeAtFrame·scaleAtFrame은 0~239에서 불일치 0, 그러나 240슬롯·30ms로 정규화하고 light 색이 다름 |
+| V1 런타임 비용 | 마크 7개, 약 19 SVG 노드, CSS 트랙 8개, spinner 전용 React timer 0 |
+| 현재 사용량 안내 | UsageLimitViews 1, ModelUsageList 1, UsageTooltip 1 = production callsite 3 |
+| 현재 전역 설명 | ko/en 모두 첫 문장 + provider 위치 둘째 문장을 한 키에 결합 |
+| Meter.title | V1 안내를 위해서만 추가됐고 다른 의미의 소비자 없음 |
+
+### 수치 / 전칭 검산
+
+- 원본 top-level frame group 241, use 116, text 115, circle 10이다. runtime asset으로 넣으면 V1의 노드 상한을 깨므로 docs/test oracle 전용이다.
+- 원본의 0~239 shape·scale와 현 함수 비교 결과 불일치 0, frame 240 == frame 0은 참이다. "같은 그림"과 "같은 시간축"은 다른 계약이다.
+- usage.estimateNote의 production 호출은 현재 세 곳이고, 목표는 정확히 한 곳이다. 설정 외 UsagePanel에는 현재도 NOTE가 없다.
+
+## 9. ΔV1 Architecture — AS-IS → TO-BE
+
+| 축 | AS-IS r1 | TO-BE ΔV1 | 이유 |
+|---|---|---|---|
+| 원본 정본 | repo에 없음, 테스트 240행 손 전사 | handoff의 원본 내용 SVG를 파서가 직접 읽음 | 자기복제 oracle 제거 |
+| 시간축 | 240×30ms, 24-frame pulse 반복 | 241×(7200/241)ms full-period scale + visibility | 마지막 슬롯 포함 |
+| 색 | text-rust/currentColor | 고정 semantic spinner token #d97757/currentColor | 두 테마에서 원본 동일 |
+| 런타임 구조 | 7 mark + 8 CSS animation | 같은 구조·같은 animation/DOM 상한 | 성능 비회귀 |
+| 전역 설명 | token 설명 + provider 위치 | token 설명 + usage.estimateNote | 사용자 요청 |
+| provider/model Meter | title=NOTE | title prop 없음 | 안내 제거 |
+| daily tooltip | 날짜·토큰·비용+NOTE | 날짜·토큰·비용 | 안내 줄만 제거 |
+
+### TO-BE control flow
+
+1. 테스트는 spinner-reference.svg를 읽어 241개의 shape·scale·key time과 정적 기하·색·기간을 추출한다.
+2. production은 원본 파일을 import하지 않는다. SparkSpinner의 7개 마크와 app.css의 full-period 트랙만 사용한다.
+3. UsageDescription이 settings.usage.desc와 usage.estimateNote를 이어 렌더하고, 나머지 settings chart/meter는 NOTE를 알지 못한다.
+
+## 10. ΔV1 계약 / 강제 지점
+
+| EP | SSOT | 강제 지점 전수 | 실패 의미 |
+|---|---|---|---|
+| EP-09 원본 보존 | spinner-reference.svg 내용·두 SHA | reference 파일 1 + plan 상대 링크 1 = 2 | 파일이 없거나 EOF LF 외 내용이 변하면 동일성 기준이 사라짐 |
+| EP-10 원본→runtime | reference parser | sparkFrames.ts·SparkSpinner.tsx·app.css·tokens.css = 4 | 한 축만 다르면 눈으로 비슷해도 "똑같은"이 아님 |
+| EP-11 성능 | D-003/AT-24 | StatusLine timer 0·SparkSpinner 노드 상한·CSS property allowlist·production build asset 0 = 4 | 정확도 대가로 main thread/DOM/bundle 비용이 증가 |
+| EP-12 안내 위치 | usage.estimateNote | UsageDescription add 1·Model remove 1·provider remove 1·daily remove 1·Meter API remove 1·ko/en desc 수정 2 = 7 | 안내가 중복되거나 차트 내용까지 사라짐 |
+
+- 색의 raw 값은 tokens.css의 semantic token 정의 한 곳만 소유한다. SparkSpinner는 currentColor만 쓰고 StatusLine이 token class를 준다.
+- CSS는 24-frame 독립 pulse를 반복하지 않는다. 241 mod 24 = 1이라 pulse가 720ms마다 재시작하면 원본의 마지막 슬롯에서 위상이 달라진다.
+- shape visibility는 연속 window 경계만 두고, scale은 원본 241 stop을 full-period keyframe으로 둔다. CSS 크기는 전역 1회이며 인스턴스당 DOM·animation 수는 늘지 않는다.
+
+## 11. ΔV1 구현 설계
+
+| 파일 | 변경 | 테스트 seam |
+|---|---|---|
+| docs/handoff/0208.../spinner-reference.svg | 업로드 내용 추가; repository final LF 1byte 정규화 | 두 SHA·prefix bytes·XML·plan link |
+| shared/ui/sparkFrames.ts | total 241, frame ms 7200/241, frame 240 window 포함, 24-frame modulo 가정 제거 | pure shapeAtFrame·scaleAtFrame |
+| shared/ui/SparkSpinner.tsx | 기하 유지, semantic fixed-color class 계약 반영 | static markup geometry/node count |
+| styles/tokens.css | 두 테마에서 같은 spinner-reference color token 정의 | CSS source assertion |
+| styles/app.css | 7200ms full-period scale 241 stops와 source-derived visibility windows | reference parser↔CSS source |
+| StatusLine.tsx | text-rust를 fixed spinner token class로 교체; timer 0 유지 | statusLine render/source |
+| UsageTab.tsx | 순수 UsageDescription export·NOTE 1회 추가; ModelUsageList의 title 제거 | settings render |
+| UsageLimitViews.tsx | provider Meter title 제거 | two positive bars |
+| TokensPerDayChart.tsx | NOTE 줄·불필요 tr/max-width/comment 제거; 날짜·토큰·비용 유지 | direct UsageTooltip render |
+| shared/ui/Meter.tsx | title prop·DOM 전달·V1 주석 제거 | 기본 Meter 양성 렌더 |
+| i18n resources ko/en | settings.usage.desc를 첫 문장만 남김; usage.estimateNote 유지 | key parity + exact copy |
+| sparkFrames.test.ts | 240행 전사 삭제, committed SVG parser 기반 241/241 비교 | mutation-sensitive helper |
+| sparkCss.test.ts | 241 slot·7200ms·fixed token·allowlist·reference non-import 검사 | CSS/source/build boundary |
+| usageTooltip.render.test.ts | 설명 NOTE 1, 세 chart/meter NOTE 0와 양성 짝 | pure SSR |
+| meter.render.test.ts | V1 title 계약 삭제, ratio clamp/track 양성 회귀만 유지 | pure SSR |
+| usagePanel.render.test.ts | V1 범위 제외만을 위한 파일이면 삭제; 독립 가치가 있으면 NOTE 0 + bar 양성만 유지 | feature boundary |
+
+### 테스트 가능성
+
+- SVG parser는 test helper에 두고 XML의 frame group, use/text/circle, transform scale, keyframe percentage, outer style을 읽는다. production code는 fs나 docs 경로를 import하지 않는다.
+- CSS animation을 브라우저 시간으로 기다리지 않는다. source slot table과 runtime pure functions/CSS stops를 같은 index로 비교한다.
+- mutation test는 파서 내부 상수를 바꾸는 방식이 아니라 reference 문자열 복사본 한 축을 바꿔 실제 oracle 방향을 검증한다.
+
+## 12. ΔV1 End-to-end 영향
+
+~~~text
+spinner-reference.svg → test parser → expected 241 slots ─┐
+sparkFrames + app.css + token → SparkSpinner → StatusLine ├→ exactness/perf gates
+                                                       ───┘
+ko/en usage.estimateNote → UsageDescription → settings header
+provider/model/daily chart paths ─────────────────────→ NOTE 0 + original data
+~~~
+
+- producer는 원본 SVG와 i18n NOTE 두 개다. 전자는 test-only, 후자는 production 단일 소비자다.
+- 부팅·IPC·DB·네트워크·스토어 스키마는 바뀌지 않는다. 새 요청과 저장소 쓰기는 0이다.
+
+## 13. ΔV1 Lifecycle / 오류 / 정리
+
+- mount/unmount 수명은 V1과 같다. CSS animation은 StatusLine DOM 수명에 묶이고 별도 timer cleanup이 없다.
+- reference parse 실패는 테스트의 즉시 red다. production 런타임은 docs 파일 부재에 의존하지 않는다.
+- 다중 사본은 reference↔TS↔CSS↔token 네 곳과 plan↔INDEX 두 곳이다. 전자는 IT-05, 후자는 문서 gate와 마무리 절차가 잠근다.
+
+## 14. ΔV1 성능 / 상한
+
+- 인스턴스당 출력 상한은 기존과 같은 svg 1 + line 10 + circle 1 + text 5 + wrapper 약 2 = 약 19노드다. 세 소비자 동시 상한은 약 57이다.
+- animation 개수는 scale 1 + shape visibility 7 = 8/instance로 유지한다. animated property allowlist는 transform·visibility이고 layout 속성은 금지한다.
+- full-period scale CSS stop은 24→241로 늘지만 app.css에 전역 1회 존재한다. 원본 54,552-byte asset과 1,767-node strip은 production import/build 결과에서 0건이어야 한다.
+- spinner 전용 React commit은 mount/unmount 외 0이고 기존 useElapsed 1초 갱신만 남는다.
+
+## 15. ΔV1 외부 포트 / 문서 계약
+
+외부 API·SDK·schema 변경은 없다. spinner-reference.svg는 구현 포트가 아니라 이 handoff의 검증 oracle이며 배포 asset이 아니다.
+
+## 16. ΔV1 기존 규칙과의 관계
+
+| 규칙 | 판정 |
+|---|---|
+| raw hex 금지·semantic token 우선 | 유지 — #d97757은 tokens.css의 전용 token 한 곳, component는 currentColor |
+| 새 CSS 파일 금지 | 유지 — 기존 app.css·tokens.css만 수정 |
+| features → shared 의존 방향 | 유지 — StatusLine이 shared SparkSpinner를 소비 |
+| shared에 도메인 문구 금지 | 강화 — Meter.title과 usage 문구 연결을 제거 |
+| UI 시각 검증 | 유지하되 원본 slot·DOM·copy 위치는 기계 검증, 사람은 실제 렌더만 확인 |
+| V1 파일 카드·지침 카드 결정 | 상속 — 이번 Delta에서 해당 코드 경로를 건드리지 않음 |
+
+## 17. ΔV1 리스크 / 트레이드오프
+
+| 리스크 | 완화 |
+|---|---|
+| 241-stop CSS가 커짐 | global 1회, DOM·animation·React commit 상한 유지; production bundle 크기를 r1 기준과 비교 기록 |
+| CSS percentage 반올림으로 slot 경계가 흔들림 | 원본 key time을 그대로 파싱하고 충분한 정밀도로 직렬화; source test가 각 경계 등호 검사 |
+| 원본 글리프가 OS별 다름 | 원본 font-family·glyph를 그대로 유지하고 Windows 사람 실기 |
+| fixed color가 기존 테마 강조색과 다름 | "첨부와 똑같은" 요구를 우선하며 semantic fixed token으로 규칙 준수 |
+| NOTE 제거 중 차트 자체를 손상 | 각 음성 단언에 bar/model/date/token/cost 양성 짝 |
+
+- 신규 의존성 0, 외부 승인 0이다.
+- one-way door는 없다. i18n key를 유지하고 위치만 바꾸며 reference는 test-only다.
+
+## 18. ΔV1 영향 파일
+
+- 추가: docs/handoff/0208-spinner-instructions-usage-tooltip/spinner-reference.svg
+- 수정: 같은 디렉터리 plan.md, docs/handoff/INDEX.md
+- 다음 구현 턴 수정: sparkFrames.ts·SparkSpinner.tsx·app.css·tokens.css·StatusLine.tsx
+- 다음 구현 턴 수정: UsageTab.tsx·UsageLimitViews.tsx·TokensPerDayChart.tsx·Meter.tsx·ko.ts·en.ts
+- 다음 구현 턴 테스트: sparkFrames.test.ts·sparkCss.test.ts·statusLine.render.test.ts·usageTooltip.render.test.ts·meter.render.test.ts·usagePanel.render.test.ts
+
+## 19. ΔV1 게이트
+
+- 설계 턴: git diff --check, XML parse, 업로드↔repository prefix SHA와 EOF LF 검사, plan 상대 링크 검사, cd app && node scripts/check-doc-inventory.mjs --check.
+- 구현 턴 정적: cd app && npm run lint && npm run typecheck.
+- 구현 턴 관련 테스트: renderer shared/chat/settings/projects의 direct vitest. better-sqlite3 DB 로드 스위트는 이 변경의 gate가 아니다.
+- 구현 턴 production: 앱 production build 후 spinner-reference.svg·spark-strip·ten-spoked 문자열 0, bundle size r1 대비 증분 기록.
+- 사람 실기: AT-30.
+
+## ΔV1 READY self-review
+
+- [x] 사용자 변경 요구 4건이 D-015~D-020과 AT-21~AT-30에 연결됐다.
+- [x] 기준 V1@35b44e6과 SUPERSEDED node가 명시돼 유효 V를 재구성할 수 있다.
+- [x] 원본 XML 내용을 final-LF 정규화만 허용한 산출물과 직접 oracle로 고정했다.
+- [x] "똑같은"을 기하·색·241슬롯·기간까지 정의하고 240프레임 정규화를 금지했다.
+- [x] 성능을 React commit·DOM·animation property·bundle 네 축으로 잠갔다.
+- [x] NOTE 음성 단언마다 차트·막대·수치 양성 짝이 있다.
+- [x] usage.estimateNote SSOT와 production 단일 소비자 경로가 명시됐다.
+- [x] 영향을 받는 node/pair만 Delta로 다시 쓰고 파일 카드·지침 카드 계약은 상속했다.
+- [x] 각 새 AC가 행동, oracle, 도달 경로를 가진다.
+- [x] 다음 구현자는 파일별 변경·test seam·gate를 추측 없이 수행할 수 있다.
+
+---
+
+# Appendix A.1 — V1 Product & UX Contract (history)
+
+> 아래 §A4~§A7은 V1@35b44e6의 설계 기록이다. ΔV1과 충돌하는 문장은 SUPERSEDED이며 구현 판단에 사용하지 않는다.
+
+## A4. V1 요구 비판적 검토
 
 | 질문 | 판단 | 근거 |
 |---|---|---|
@@ -80,7 +374,7 @@
 - 사용자에게 올릴 결정: 없음 — 4건을 2회 질의 + 1회 제약 반려로 닫았다.
 - 코드 조사로 닫은 사실: 렌더 하네스가 이미 있다(`gitRow.render.test.ts:1-27` — `react-dom/server` + `createElement`, 신규 의존성 0). `useI18n` 은 모듈 임포트 시 동기 초기화라(`shared/i18n/index.ts:11`) Provider 없이 렌더된다 — `diffTile.render.test.ts` 가 `useI18n` 소비 컴포넌트를 그대로 렌더하는 선례다.
 
-## 5. 동작 / 사용자 흐름
+## A5. V1 동작 / 사용자 흐름
 
 ```text
 [턴 시작 — turnStartedAt 설정]
@@ -118,7 +412,7 @@
 - keyboard / a11y: 스피너는 `aria-hidden` 이고 의미는 상위 `<span aria-live="polite" aria-label>` 이 그대로 전달한다(변경 없음). `title=` 툴팁은 키보드로 열 수 없다 — 같은 수치가 인접 텍스트로 이미 보이므로 정보 손실은 없다.
 - theme: 색은 `currentColor` 뿐이라 두 테마가 자동으로 맞는다 (D-005).
 
-## 6. 범위 / 비범위
+## A6. V1 범위 / 비범위
 
 - **범위**: `StatusLine` 스피너 교체(3 소비자) · `app.css` 트랙 신설 · 파일 카드 제거와 지침 카드 확장 · 사용량 막대 3곳 툴팁 · 관련 i18n(ko/en) · 어긋난 문서 사본 정정.
 - **비범위**: 컴포저 도넛 팝오버 툴팁(D-013) · `Meter` 외 다른 사용량 표면 · 프로젝트 파일 첨부 기능 자체(0039 유예 유지) · `shared/ui/mock.ts` 폐기(D-009) · 글리프를 path 로 대체하는 작업(실기에서 깨지면 후속).
@@ -129,7 +423,7 @@
 | 컴포저 도넛 팝오버 툴팁 | 아니오 — 같은 i18n 키를 재사용한다 | 후속 |
 | `usage.estimateNote` 키 이름 | **예 — i18n 공개 키** | 지금 확정 (D-012) |
 
-## 7. Requirements / Acceptance — `R ↔ AT`
+## A7. V1 Requirements / Acceptance — R ↔ AT
 
 | R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
@@ -162,7 +456,7 @@
 - 노드 수 기준(AT-04): 원본 스트립은 `<line>` 1160 · `<text>` 115 · `<circle>` 10 이었다. 상한이 아니라 **정확한 등호**로 쓰는 이유는, 스트립 형태로의 회귀가 그 셋을 동시에 100배로 만들기 때문이다.
 - 위치 기준(AT-15): 문구의 *존재*만 보면 행 아무 데나 붙어도 통과한다. `Meter` 트랙의 클래스와 `title=` 을 한 정규식에 묶어 자리까지 본다.
 
-## 7-A. V / Trace Matrix
+## A7-A. V1 V / Trace Matrix
 
 - V mode 판정: **Baseline V** — `INDEX.md` 에 이 표면을 다루는 기존 handoff 가 없고 상속할 V node 가 없다.
 - 기준 V 상속 근거: 없음.
@@ -230,9 +524,9 @@
 
 ---
 
-# Part II — Technical Design
+# Appendix A.2 — V1 Technical Design (history)
 
-## 8. Research — 현재 코드와 계약
+## A8. V1 Research — 당시 코드와 계약
 
 | 발견 / 제약 | 근거 |
 |---|---|
@@ -281,7 +575,7 @@
 - 문서 앵커: `dom-architecture.md §Mock UI marker (0010)` 실재(`:155`) · `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드` 실재.
 - 기존 테스트 케이스: `CwdPanel.landing.test.ts:21,36-40` 실재 · `resources.test.ts:33` 실재.
 
-## 9. Architecture / Data & Control Flow — AS-IS → TO-BE
+## A9. V1 Architecture / Data & Control Flow — AS-IS → TO-BE
 
 ### AS-IS — 현재 구조와 문제 발생 경로
 
@@ -342,7 +636,7 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 | `features/settings/.../UsageLimitViews.tsx` · `UsageTab.tsx` | `tr('usage.estimateNote')` 를 `Meter` 에 넘긴다 | — | 설정 탭 |
 | `features/projects/.../ProjectInstructionsCard.tsx` | 지침 본문 파생 + 카드 본문 높이 | `instructions·onEdit` → `<SidebarCard>` | 사이드바 |
 
-## 10. 계약 / 타입 / 강제 지점
+## A10. V1 계약 / 타입 / 강제 지점
 
 | V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 | 실패 의미 |
 |---|---|---|---|---|---|
@@ -360,7 +654,7 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 - 선택적 필드의 `true/false/undefined` 의미: `Meter.title?: string` — `undefined` 는 **툴팁 없음**이고 `title` 속성 자체가 DOM 에 나타나지 않는다(React 가 `undefined` 속성을 생략). 빈 문자열은 쓰지 않는다(브라우저가 빈 툴팁을 띄운다). VP-20 이 `undefined` 경로를 잠근다.
 - 외부 SDK 경계의 실제 요구 타입/의미: recharts `Tooltip content` 는 `active?: boolean` 과 `payload?: Array<{payload?: T}>` 를 주입한다 — 기존 `UsageTooltip:19-29` 의 시그니처를 그대로 유지하고 본문 줄만 더한다. 새 SDK 계약 없음.
 
-## 11. 구현 설계
+## A11. V1 구현 설계
 
 | 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
 |---|---|---|---|
@@ -389,7 +683,7 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 - 기존 메커니즘 재사용 시 형상/시점 적합성: `renderToStaticMarkup` 은 effect 를 실행하지 않는다 — `StatusLine` 의 남은 상태는 `useMemo`·`useElapsed` 의 초기값뿐이라 SSR 스냅샷으로 충분하다. 반대로 **애니메이션 자체는 SSR 로 관측할 수 없어** 클래스 이름 존재로만 잠그고, 그 클래스가 실제 트랙을 갖는지는 `sparkCss.test.ts` 가 CSS 쪽에서 잠근다 — 두 테스트가 합쳐져야 배선이 닫힌다.
 - 순서를 관측할 훅/로그/주입 경계: 프레임 **순서**는 런타임이 아니라 데이터로 관측한다 — `scaleAtFrame`/`shapeAtFrame` 이 인덱스 함수라 240 프레임을 시간 없이 전건 비교할 수 있다. 브라우저 타이밍을 흉내 내지 않는 것이 이 설계의 요점이다.
 
-## 12. End-to-end 영향
+## A12. V1 End-to-end 영향
 
 ### producer → consumer
 
@@ -407,7 +701,7 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 
 해당 없음 — 부팅 시퀀스·레지스트리·스토어 값을 늘리지 않는다. 신규 모듈 2개는 렌더 트리에서만 참조된다.
 
-## 13. Lifecycle / 오류 / 정리
+## A13. V1 Lifecycle / 오류 / 정리
 
 - 생성/시작: `turnStartedAt` 이 non-null 이 되면 `StatusLine` 이 `SparkSpinner` 를 마운트한다. 트랙 8개가 같은 시점에 시작하므로 서로 위상이 맞는다.
 - 취소/중단: `turnStartedAt` → null 이면 `StatusLine:99` 가 `null` 을 반환해 통째로 언마운트된다 — 애니메이션도 함께 사라진다(`clearInterval` 대상 없음).
@@ -416,18 +710,18 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 - cleanup/rollback: 해당 없음.
 - **다중 저장소 쓰기**: 코드 저장소는 없다. **문서·사본 축은 있다** — (a) 트랙 이름·타이밍이 `sparkFrames.ts` 와 `app.css` **두 곳**에 산다(EP-02·EP-03), (b) i18n 문구가 `ko.ts`·`en.ts` **두 곳**에 산다(EP-05), (c) 제거 사실이 코드와 문서 주석 **세 곳**에 산다(EP-07), (d) 이 handoff 의 판정·상태가 `plan.md` 와 `INDEX.md` **두 곳**에 산다. 한쪽만 갱신하면 두 사본이 서로 다른 말을 한다. (a)는 `sparkCss.test.ts`, (b)는 typecheck+`resources.test.ts` 가 기계로 막고, **(c)·(d)는 기계 게이트가 없어 §10 강제 지점의 전수 grep 과 마무리 절차가 유일한 방법**이다.
 
-## 14. 성능 / 상한 / 최적화
+## A14. V1 성능 / 상한 / 최적화
 
 - 새 출력의 `원천 상한 × 배치 상한`: SVG 노드 = **마크 7종 × 인스턴스 3** = `<line> 10 + <text> 5 + <circle> 1 + <svg> 1 + 래퍼 2` ≈ **19/인스턴스 · 57 최악**. AS-IS 스트립 인라인 대비 **93배 감소**(1767 → 19).
 - 새 요청 수: **0** — 네트워크·IPC 를 추가하지 않는다.
 - 구조적 목표의 달성 가능성: D-003 이 요구하는 것은 "저하 없음"이고, 실제 결과는 **개선**이다 — 리렌더가 초당 5회에서 0회로 내려가고(경과 초 1회 틱만 잔존) 애니메이션이 브라우저 축으로 내려간다. CSS 키프레임은 `app.css` 에서 **전역 1회 파싱**이라 인스턴스 수와 무관하다.
 - 캐시/snapshot/호출 축소로 잃는 부수 효과: **1건** — 200ms 리렌더가 부수적으로 제공하던 "표시 파생의 잦은 재평가"가 사라진다. 실측상 그 파생(`deriveActivityLabel`)의 입력은 `activity` 와 `elapsedSec` 뿐이고 둘 다 초 단위 이하로 바뀌지 않으므로 **손실 없음**이다 — `StatusLine.tsx:80` 의 기존 주석이 같은 사실을 이미 인정한다. 회귀 테스트는 AT-03 의 양성 짝(`useElapsed` 잔존)이 담당한다.
 
-## 15. 외부 구현 포트 / 문서 계약
+## A15. V1 외부 구현 포트 / 문서 계약
 
 해당 없음 — 배포·플러그인·외부 구현자가 구현할 port/schema/config 를 만들거나 바꾸지 않는다. `Meter.title` 은 저장소 내부 prop 이다.
 
-## 16. 기존 결정·규칙과의 관계
+## A16. V1 기존 결정·규칙과의 관계
 
 | 기존 결정/규칙 | 출처 | 본문에서 건드리는 문장 | 결과 |
 |---|---|---|---|
@@ -443,7 +737,7 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 | UI 는 시각 검증으로 갈음 | `renderer/AGENTS.md §테스트` | AT-20 · §11 테스트 가능성 | **유지(범위 축소)** — 시각 품질만 사람에게 남기고 노드 수·클래스 열거·문구 자리·프레임 시퀀스는 순수 단언으로 내렸다 |
 | 게이트 = `lint && typecheck` (ABI 중립) | `app/AGENTS.md` | §19 | **유지** |
 
-## 17. 리스크 / 트레이드오프
+## A17. V1 리스크 / 트레이드오프
 
 | 리스크 | 완화/결정 |
 |---|---|
@@ -458,7 +752,7 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 - 되돌리기 어려운 결정: `usage.estimateNote` **i18n 키 이름** 하나. 두 카탈로그와 3 호출부에 퍼지므로 지금 확정한다(D-012).
 - 신규 의존성: **없음.** recharts·react-dom/server 전부 기존 채택분이다 → 사용자 승인 불필요.
 
-## 18. 영향 받는 파일 / 문서
+## A18. V1 영향 받는 파일 / 문서
 
 - `app/src/renderer/src/shared/ui/{sparkFrames.ts,SparkSpinner.tsx,Meter.tsx}` (+ 테스트 2)
 - `app/src/renderer/src/styles/app.css`
@@ -469,7 +763,7 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 - `app/src/renderer/src/shared/i18n/resources/{ko,en}.ts`
 - `docs/arch/frontend/dom-architecture.md` · `docs/handoff/INDEX.md` · 본 문서
 
-## 19. 게이트
+## A19. V1 게이트
 
 - 적용할 하위 가이드: `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드` · `app/src/renderer/AGENTS.md §테스트`
 - ABI/네트워크 등 환경 제약: egress 차단 시 DB 로드 스위트(실측 5파일)가 red 다 — **알려진 기준선**이며 이번 변경과 무관하다. `npm test` 는 쓰지 않는다(ABI 를 Node 로 뒤집고 DB 동작 검증이 필요 없다).
@@ -478,7 +772,7 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 - 문서 게이트: `node app/scripts/check-doc-inventory.mjs --check` (세는 항목이 IPC 채널·디렉토리 수라 이번 변경으로 값이 바뀌지 않을 것으로 예상 — 실행으로 확인한다)
 - 사람 실기: AT-20 의 5건.
 
-## READY self-review
+## A-READY. V1 self-review (history)
 
 - [x] 여러 턴의 결정이 Decision Ledger에 `ACTIVE/SUPERSEDED/OPEN`으로 보존되어 있다 — D-001~D-014 전부 ACTIVE, 초안의 "스트립 인라인"은 D-003 이 대체(§3 갱신 메모).
 - [x] Part I만 읽어도 사용자/제품 완료 상태가 이해된다 — §1·§5·§7 이 구현 파일 없이 완료 상태를 서술한다.
@@ -506,6 +800,10 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 - [x] 산출물 문장 규칙을 지켰다 — Part I 은 관측 결과, Part II 는 경로·계약. 노드 수·프레임 수 같은 사실은 Part I 에 결론만, Part II §8 에 측정 근거를 둔다.
 
 ---
+
+# Appendix B — V1 r1 구현 기록 (history)
+
+> 이하는 ae27113까지의 V1 구현 증거다. ΔV1 완료 증거로 재사용하지 않으며 다음 구현자는 r2 섹션을 별도로 추가한다.
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은
 > [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
@@ -641,4 +939,3 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
 | D1 | … | verify r<N> · VP-… · AC<N> / §10 <N>행 / gate | … | BLOCKING / PLAN_GAP / NON_BLOCKING / NEXT_HANDOFF | open / 구현중 / 해결 |
-
