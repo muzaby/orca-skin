@@ -1,0 +1,16 @@
+# 저장소 텍스트는 전 플랫폼에서 LF 다.
+#
+# `app/.editorconfig` 의 `end_of_line = lf` 와 prettier 기본값(`endOfLine: lf`)이 이미 LF 를
+# 선언하지만, 선언만으로는 git 체크아웃을 막지 못한다 — Windows 의 기본 `core.autocrlf=true`
+# 는 받는 쪽에서 LF→CRLF 로 바꾼다. 그러면 **같은 내용이 플랫폼마다 다른 바이트**가 되고,
+# 바이트를 그대로 단언하는 oracle 이 체크아웃 설정에 좌우된다 (0208 D-021 · §10 EP-09).
+* text=auto eol=lf
+
+# 0208 — 이 원본은 바이트 자체가 계약이다. plan.md 의 D-015·AT-21 이 SHA-256 과 바이트 수를
+# 단언하므로 줄바꿈 변환이 닿으면 동일성 기준이 사라진다.
+docs/handoff/0208-spinner-instructions-usage-tooltip/spinner-reference.svg text eol=lf
+
+# 바이너리 — 줄바꿈 변환 금지. `text=auto` 의 자동 판정에 맡기지 않고 못박는다.
+*.png binary
+*.ico binary
+*.webp binary

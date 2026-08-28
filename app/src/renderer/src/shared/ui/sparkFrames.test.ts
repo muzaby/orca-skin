@@ -8,6 +8,8 @@
 // 남은 240 슬롯이 30ms 씩으로 늘어나 타이밍이 달라진다(D-016). 그래서 240 정규화는 회귀다.
 
 import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   SPARK_FRAME_MS,
@@ -29,6 +31,11 @@ import {
 
 const REFERENCE_TEXT = readSpinnerReferenceText()
 const REF = parseSpinnerReference(REFERENCE_TEXT)
+
+/** 저장소 루트 — `app/src/renderer/src/shared/ui/` 에서 여섯 단계 위다. */
+const GITATTRIBUTES_URL = new URL('../../../../../../.gitattributes', import.meta.url)
+const REFERENCE_REPO_PATH =
+  'docs/handoff/0208-spinner-instructions-usage-tooltip/spinner-reference.svg'
 
 /** 원본과 대조할 수 있는 최소 인터페이스 — 회귀 모델을 같은 자리에 끼워 넣기 위해 있다. */
 interface FrameModel {
@@ -85,6 +92,24 @@ function mismatches(ref: SpinnerReference, model: FrameModel): string[] {
 describe('spark 원본 — 업로드 내용이 그대로 보존된다 (AT-21)', () => {
   // plan.md 와 같은 디렉터리에 사는 파일이 이 handoff 의 동일성 기준이다. 내용이 바뀌면
   // 위의 241/241 은 "바뀐 원본과 같다" 를 말하게 되므로, 원본 자체를 먼저 못박는다.
+  //
+  // 아래 SHA·바이트 단언은 **체크아웃 바이트**를 재므로, 그 바이트가 플랫폼마다 같아야 성립한다.
+  // Windows 기본 `core.autocrlf=true` 는 받는 쪽에서 LF→CRLF 로 바꾼다 — 같은 내용인데 바이트가
+  // 달라져 AT-21 이 깨지고, AT-23 의 여러 줄 변조 fixture 는 패턴이 안 맞아 **조용히 적용되지
+  // 않는다**. `.gitattributes` 가 그것을 막는 지점이다 (D-021 · §10 EP-09 의 3번째 지점).
+  it('.gitattributes 가 줄바꿈을 LF 로 고정한다', () => {
+    const attrs = readFileSync(fileURLToPath(GITATTRIBUTES_URL), 'utf8')
+    const rules = attrs
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line !== '' && !line.startsWith('#'))
+    expect(rules).toContain('* text=auto eol=lf')
+    expect(rules).toContain(`${REFERENCE_REPO_PATH} text eol=lf`)
+    // 고정이 실제로 먹은 결과 — 원본에 CR 이 0건이다. CRLF 로 받은 트리에서는 이 줄이 먼저
+    // red 가 되어 바이트 수 불일치보다 원인을 곧바로 가리킨다.
+    expect(REFERENCE_TEXT).not.toContain('\r')
+  })
+
   // repository text 정규화로 EOF 에 LF 1byte 가 붙었고 그 앞 54,552 bytes 가 업로드 원본이다.
   it('업로드 SHA-256 과 바이트 수가 같다', () => {
     const bytes = Buffer.from(REFERENCE_TEXT, 'utf8')
