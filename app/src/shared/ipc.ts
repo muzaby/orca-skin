@@ -1008,6 +1008,13 @@ export interface GitStatus {
   detached: boolean
   // 커밋되지 않은 변경 요약. null = 깨끗함.
   dirty: GitDirtyStat | null
+  // 저장소 루트의 절대 경로(`rev-parse --show-toplevel`). 저장소가 아니면 null.
+  //
+  // **cwd 에서 파생하지 않는 이유**: 작업 경로가 하위 폴더면(`~/proj/orca-skin/app`)
+  // basename 이 `app` 이라 저장소 이름이 아니다. 이름을 보여주는 쪽이 루트를 받아야 한다.
+  // `--show-toplevel` 만 실패하면 `isRepo:true` 인 채 null 이다 — 이름 자리만 비고
+  // 브랜치·변경량은 산다.
+  root: string | null
 }
 
 export interface GitBranchList {

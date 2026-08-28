@@ -15,7 +15,13 @@ import {
 import { gitBranches, gitCheckout, gitStatus } from '../../infra/git/git-cli'
 import { handle } from '../../infra/ipc/handle'
 
-const NOT_REPO: GitStatus = { isRepo: false, branch: null, detached: false, dirty: null }
+const NOT_REPO: GitStatus = {
+  isRepo: false,
+  branch: null,
+  detached: false,
+  dirty: null,
+  root: null
+}
 const NO_BRANCHES: GitBranchList = { current: null, branches: [] }
 
 export function registerGitHandlers(): void {

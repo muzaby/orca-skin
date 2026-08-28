@@ -74,12 +74,25 @@ async function dirtyStat(cwd: string): Promise<GitDirtyStat | null> {
   return result.ok ? parseShortstat(result.stdout) : null
 }
 
+// 저장소 루트의 절대 경로. 실패하면 null — 저장소 판정 자체를 뒤집지 않는다.
+async function repoRoot(cwd: string): Promise<string | null> {
+  const result = await run(cwd, ['rev-parse', '--show-toplevel'])
+  const path = result.stdout.trim()
+  return result.ok && path.length > 0 ? path : null
+}
+
 export async function gitStatus(cwd: string): Promise<GitStatus> {
   if (!(await insideWorkTree(cwd))) {
-    return { isRepo: false, branch: null, detached: false, dirty: null }
+    return { isRepo: false, branch: null, detached: false, dirty: null, root: null }
   }
   const branch = await currentBranch(cwd)
-  return { isRepo: true, branch, detached: branch == null, dirty: await dirtyStat(cwd) }
+  return {
+    isRepo: true,
+    branch,
+    detached: branch == null,
+    dirty: await dirtyStat(cwd),
+    root: await repoRoot(cwd)
+  }
 }
 
 export async function gitBranches(cwd: string): Promise<GitBranchList> {

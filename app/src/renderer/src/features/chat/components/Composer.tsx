@@ -20,6 +20,7 @@ import { steerBlockedByProviderBoundary } from '../lib/steerGate'
 import { ConversationStatusLine } from './composer/ConversationStatusLine'
 import { Button } from '../../../shared/ui/Button'
 import { CwdPanel } from './CwdPanel'
+import { GitRow } from './composer/GitRow'
 import { Notice } from './Notice'
 import { StatusPopover } from './composer/StatusPopover'
 import { conversationStatusModel as conversationStatusModelFactory } from './composer/statusViewModel'
@@ -67,6 +68,8 @@ interface ComposerProps {
   // 랜딩 페이지가 직접 주입하는 cwd 패널. sessionId null 같은 내부 상태가 아니라
   // page 컨텍스트로만 노출해 첫 전송 직후 ChatTile 전환 중에는 렌더하지 않는다.
   showLandingCwdPanel?: boolean
+  // 세션이 시작됐는가 — git 행의 노출 조건 절반(나머지 절반은 git 저장소 여부, 0206 D-002).
+  showGitRow?: boolean
 }
 
 // 채팅 입력 composer — textarea + chip 행 + send/cancel 버튼 + skills/file 자동완성.
@@ -83,7 +86,8 @@ export function Composer({
   initialDraft,
   restoredDraft,
   flush,
-  showLandingCwdPanel = false
+  showLandingCwdPanel = false,
+  showGitRow = false
 }: ComposerProps): React.JSX.Element {
   const { tr } = useI18n()
   const { send, cancel, answerAsk, skipAsk, setPermissionMode, setModel, setEffort } = chatActions
@@ -279,6 +283,7 @@ export function Composer({
             />
           ))}
           {showLandingCwdPanel && <CwdPanel cwd={cwd} inflight={inflight} />}
+          <GitRow cwd={cwd} sessionStarted={showGitRow} />
           {showConcurrencyNotice && (
             <Notice
               title={tr('chat.composer.concurrencyNoticeTitle')}

@@ -1,0 +1,134 @@
+import { useEffect, useRef } from 'react'
+import { gitApi } from '../../../../shared/api/ipc'
+import { Button } from '../../../../shared/ui/Button'
+import { useI18n } from '../../../../shared/i18n'
+import { chatActions, useChatSession, sessionBusy } from '../../store/chatStore'
+import { columnsContain } from '../../lib/rightPanelLayout'
+import { statusForCwd } from './branchChipState'
+import { gitRowView, shouldRefetchGitStatus, type GitRowView } from './gitRowState'
+
+// 컴포저 입력 **위**의 git 행 — `[저장소] [브랜치] ─ [+N −M]`(0206 D-005).
+//
+// 좌측 둘은 **표시 전용**이다(D-006): Orca 에 저장소 전환 개념이 없고, 세션 시작 후 브랜치
+// 전환은 0201 D-009 가 이미 닫았다. 버튼은 변경량 하나이고 diff 타일을 연다·닫는다(D-007).
+//
+// PR·CI·상태 글리프·닫기는 **그리지 않는다**(D-005) — 배선할 채널이 없고, 상시 보이는 좁은
+// 자리에 누를 것 없는 버튼을 두지 않는다.
+
+interface GitRowViewProps {
+  view: GitRowView
+  diffOpen: boolean
+  onToggleDiff: () => void
+}
+
+export function GitRowView({
+  view,
+  diffOpen,
+  onToggleDiff
+}: GitRowViewProps): React.JSX.Element | null {
+  const { tr } = useI18n()
+  if (!view.visible) return null
+
+  const changesAria = tr('chat.gitRow.changesAria', { added: view.added, removed: view.removed })
+  return (
+    <nav
+      aria-label={tr('chat.gitRow.aria')}
+      data-surface="git-row"
+      className="flex items-center gap-g3 px-1 py-1"
+    >
+      {/* 좌측 = 식별. `flex-1 min-w-0` 이 남는 공간을 먹고 그 안에서 브랜치가 먼저 줄어든다. */}
+      <span className="flex min-w-0 flex-1 items-center gap-g3">
+        {view.repo && (
+          <span className="max-w-[160px] shrink truncate text-footnote text-t6">{view.repo}</span>
+        )}
+        <span className="min-w-0 shrink-[9999] truncate text-footnote text-t6">
+          {view.detached ? tr('chat.gitRow.detached') : view.branch}
+        </span>
+      </span>
+      {/* 우측 = 조작. 유일한 채움이고 유일한 버튼이다 — 누르면 새 표면(diff 타일)이 열린다. */}
+      <Button
+        size="small"
+        variant="contained"
+        pressed={diffOpen}
+        onClick={onToggleDiff}
+        title={tr('chat.gitRow.diffTitle')}
+        aria-label={changesAria}
+        aria-pressed={diffOpen}
+      >
+        <span className="contents tabular-nums">
+          <span aria-hidden="true" className="text-git-added">
+            +{view.added}
+          </span>
+          <span aria-hidden="true" className="text-git-removed">
+            −{view.removed}
+          </span>
+        </span>
+      </Button>
+    </nav>
+  )
+}
+
+// 조회 수명주기 — 계기 **둘**이다(0206 §10 EP-06): cwd 변경 · 턴 종료 전이.
+//
+// 결과는 세션 상태로 올린다(D-020) — diff 타일 헤더가 같은 스냅샷에서 브랜치를 읽는다.
+// 늦게 도착한 응답은 `statusForCwd` 가 cwd 태그로 버린다(0201 선례).
+function useGitRowStatus(cwd: string | null): void {
+  const busy = useChatSession(sessionBusy)
+  const prevBusy = useRef(busy)
+
+  useEffect(() => {
+    if (!cwd) return
+    let live = true
+    void gitApi
+      .status(cwd)
+      .then((status) => {
+        if (live) chatActions.setGitStatus({ cwd, status })
+      })
+      .catch(() => {
+        if (live) chatActions.setGitStatus({ cwd, status: null })
+      })
+    return () => {
+      live = false
+    }
+  }, [cwd])
+
+  useEffect(() => {
+    const refetch = shouldRefetchGitStatus(prevBusy.current, busy)
+    prevBusy.current = busy
+    if (!refetch || !cwd) return
+    let live = true
+    void gitApi
+      .status(cwd)
+      .then((status) => {
+        if (live) chatActions.setGitStatus({ cwd, status })
+      })
+      .catch(() => {
+        /* 조회 실패는 값으로 접힌다 — 다음 턴 종료가 자연스러운 재시도다. */
+      })
+    return () => {
+      live = false
+    }
+  }, [busy, cwd])
+}
+
+interface GitRowProps {
+  cwd: string | null
+  // 랜딩이면 false. **노출 판정은 `gitRowView` 한 곳이 한다**(0206 §10 EP-05) — 호출부가
+  // `showGitRow && <GitRow/>` 로 걸러 버리면 판정자가 둘이 되어 조건이 갈라진다.
+  sessionStarted: boolean
+}
+
+export function GitRow({ cwd, sessionStarted }: GitRowProps): React.JSX.Element | null {
+  // 랜딩에서는 조회하지 않는다 — cwd 를 null 로 넘겨 두 effect 를 함께 끈다.
+  useGitRowStatus(sessionStarted ? cwd : null)
+  const snapshot = useChatSession((s) => s.gitStatus)
+  const tiles = useChatSession((s) => s.rightPanelTiles)
+  const view = gitRowView(sessionStarted, cwd, snapshot ? statusForCwd(cwd, snapshot) : null)
+  return (
+    <GitRowView
+      view={view}
+      diffOpen={columnsContain(tiles, 'diff')}
+      onToggleDiff={() => chatActions.toggleRightPanelTile('diff')}
+    />
+  )
+}

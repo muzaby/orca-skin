@@ -15,24 +15,30 @@ import {
 } from './rightPanelTiles'
 
 describe('우측 패널 타일 가시성 — 메뉴 목록 (AT-01)', () => {
-  it('메뉴 목록은 `계획`·`백그라운드 작업` 둘이고 정의 순서를 지킨다', () => {
-    expect(visibleRightPanelTileDefinitions.map((tile) => tile.id)).toEqual(['plan', 'subagent'])
+  // 0206 AT-10 — 예약 슬롯이 `diff` 로 바뀌며 메뉴가 셋이 됐다. 음성(`task` 부재)만 두면
+  // 아무것도 그리지 않는 회귀가 통과하므로 양성 3종을 순서까지 단언한다.
+  it('메뉴 목록은 `계획`·`백그라운드 작업`·`변경사항` 셋이고 정의 순서를 지킨다', () => {
+    expect(visibleRightPanelTileDefinitions.map((tile) => tile.id)).toEqual([
+      'plan',
+      'subagent',
+      'diff'
+    ])
   })
 
   it('타일 정의 자체는 4종 그대로다 — 정지는 제거가 아니다 (0204 D-021)', () => {
-    expect(rightPanelTileIds).toEqual(['plan', 'subagent', 'task', 'reserved1'])
+    expect(rightPanelTileIds).toEqual(['plan', 'subagent', 'task', 'diff'])
   })
 
-  it('메뉴 비노출은 예약 슬롯 + 정지된 타일이다', () => {
-    expect([...MENU_HIDDEN_RIGHT_PANEL_TILES].sort()).toEqual(['reserved1', 'task'])
+  it('메뉴 비노출은 정지된 타일뿐이다 — 예약 슬롯은 0206 이 diff 로 소진했다', () => {
+    expect([...MENU_HIDDEN_RIGHT_PANEL_TILES].sort()).toEqual(['task'])
   })
 })
 
 describe('우측 패널 타일 가시성 — 정지 술어 (AT-02·AT-03 의 근거)', () => {
-  it('프로덕션 정지 목록은 `작업` 하나다 — `reserved1` 은 활성화를 막지 않는다 (D-008)', () => {
+  it('프로덕션 정지 목록은 `작업` 하나다 — `diff` 은 활성화를 막지 않는다 (D-008)', () => {
     expect([...SUSPENDED_RIGHT_PANEL_TILES]).toEqual(['task'])
     expect(isRightPanelTileSuspended('task')).toBe(true)
-    expect(isRightPanelTileSuspended('reserved1')).toBe(false)
+    expect(isRightPanelTileSuspended('diff')).toBe(false)
     expect(isRightPanelTileSuspended('plan')).toBe(false)
     expect(isRightPanelTileSuspended('subagent')).toBe(false)
   })

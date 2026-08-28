@@ -72,15 +72,15 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
   })
 
   it('0열 하단 타일 제거 시 다른 열로 리플로우되지 않는다(사용자 사례)', () => {
-    // 0열[plan,subagent] / 1열[reserved1] 구성
+    // 0열[plan,subagent] / 1열[diff] 구성
     let s = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'plan' })
     s = chatReducer(s, { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'subagent', active: true })
-    s = chatReducer(s, { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'reserved1', active: true })
-    expect(colTiles(s)).toEqual([['plan', 'subagent'], ['reserved1']])
-    // 0열 2행(subagent) 제거 → 0열[plan] / 1열[reserved1] (reserved1 이 0열로 합쳐지지 않음)
+    s = chatReducer(s, { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'diff', active: true })
+    expect(colTiles(s)).toEqual([['plan', 'subagent'], ['diff']])
+    // 0열 2행(subagent) 제거 → 0열[plan] / 1열[diff] (diff 이 0열로 합쳐지지 않음)
     const removed = chatReducer(s, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'subagent' })
-    expect(colTiles(removed)).toEqual([['plan'], ['reserved1']])
-    // 우측 열(reserved1) id 보존 → React remount 없음
+    expect(colTiles(removed)).toEqual([['plan'], ['diff']])
+    // 우측 열(diff) id 보존 → React remount 없음
     expect(removed.rightPanelTiles[1].id).toBe(s.rightPanelTiles[1].id)
   })
 
@@ -88,14 +88,14 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
     // 0열[plan] / 1열[subagent], 각 열 폭 설정
     let s = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'plan' })
     s = chatReducer(s, { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'subagent', active: true })
-    // subagent 를 1열로 분리: 0열을 꽉 채우지 않았으므로 toggle 로 두 번째 열 만들기 위해 reserved1 추가 후 정리
-    s = chatReducer(s, { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'reserved1', active: true })
-    // 상태: 0열[plan,subagent] / 1열[reserved1]
+    // subagent 를 1열로 분리: 0열을 꽉 채우지 않았으므로 toggle 로 두 번째 열 만들기 위해 diff 추가 후 정리
+    s = chatReducer(s, { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'diff', active: true })
+    // 상태: 0열[plan,subagent] / 1열[diff]
     s = chatReducer(s, { type: 'SET_RIGHT_PANEL_COL_WIDTH', col: 0, width: 300 })
     s = chatReducer(s, { type: 'SET_RIGHT_PANEL_COL_WIDTH', col: 1, width: 500 })
     expect(s.rightPanelColWidths).toEqual([300, 500])
-    // 1열의 유일 타일(reserved1) 제거 → 1열 드롭, 폭 인덱스1도 제거
-    const removed = chatReducer(s, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'reserved1' })
+    // 1열의 유일 타일(diff) 제거 → 1열 드롭, 폭 인덱스1도 제거
+    const removed = chatReducer(s, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'diff' })
     expect(colTiles(removed)).toEqual([['plan', 'subagent']])
     expect(removed.rightPanelColWidths).toEqual([300])
   })
@@ -103,18 +103,18 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
   it('이름 변경/삭제가 라벨 오버라이드와 활성 목록을 갱신', () => {
     const active = chatReducer(initialChatState, {
       type: 'SET_RIGHT_PANEL_TILE_ACTIVE',
-      id: 'reserved1',
+      id: 'diff',
       active: true
     })
     const renamed = chatReducer(active, {
       type: 'RENAME_RIGHT_PANEL_TILE',
-      id: 'reserved1',
+      id: 'diff',
       label: '메모'
     })
-    expect(renamed.rightPanelTileLabels.reserved1).toBe('메모')
-    const removed = chatReducer(renamed, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'reserved1' })
+    expect(renamed.rightPanelTileLabels.diff).toBe('메모')
+    const removed = chatReducer(renamed, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'diff' })
     expect(removed.rightPanelTiles).toEqual([])
-    expect(removed.rightPanelTileLabels.reserved1).toBeUndefined()
+    expect(removed.rightPanelTileLabels.diff).toBeUndefined()
   })
 
   it('열 폭과 행 분할을 clamp', () => {
@@ -255,5 +255,47 @@ describe('chatReducer — 정지된 타일의 활성화 차단 (0205)', () => {
   it('계획 자동 활성화는 정지 대상이 아니라 그대로 열린다 — 다섯째 지점의 양성 짝', () => {
     const s = chatReducer(initialChatState, recv(planEvent()))
     expect(colTiles(s)).toEqual([['plan']])
+  })
+})
+
+// 0206 — diff 타일과 git 스냅샷의 세션 상태.
+describe('0206 · diff 타일 토글과 git 스냅샷', () => {
+  it('변경량 버튼이 diff 타일을 연다·닫는다 — 왕복 (AT-05)', () => {
+    const opened = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'diff' })
+    expect(colTiles(opened)).toEqual([['diff']])
+    const closed = chatReducer(opened, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'diff' })
+    expect(colTiles(closed)).toEqual([])
+  })
+
+  it('파일 목록 토글이 왕복한다 — 기본은 보임 (AT-14)', () => {
+    expect(initialChatState.diffFilesVisible).toBe(true)
+    const hidden = chatReducer(initialChatState, { type: 'TOGGLE_DIFF_FILES' })
+    expect(hidden.diffFilesVisible).toBe(false)
+    const shown = chatReducer(hidden, { type: 'TOGGLE_DIFF_FILES' })
+    expect(shown.diffFilesVisible).toBe(true)
+  })
+
+  it('git 스냅샷은 cwd 와 함께 저장된다 — 늦은 응답을 버리는 근거다 (AT-20)', () => {
+    expect(initialChatState.gitStatus).toBeNull()
+    const snapshot = {
+      cwd: '/repo',
+      status: { isRepo: true, branch: 'main', detached: false, dirty: null, root: '/repo' }
+    }
+    const s = chatReducer(initialChatState, { type: 'SET_GIT_STATUS', snapshot })
+    expect(s.gitStatus).toEqual(snapshot)
+    // 조회 실패는 값으로 접힌다 — 스냅샷 자체는 남고 status 만 null 이다.
+    const failed = chatReducer(s, {
+      type: 'SET_GIT_STATUS',
+      snapshot: { cwd: '/repo', status: null }
+    })
+    expect(failed.gitStatus).toEqual({ cwd: '/repo', status: null })
+  })
+
+  it('diff 타일을 닫아도 파일 목록 상태와 git 스냅샷은 남는다 — 축이 다르다', () => {
+    const opened = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'diff' })
+    const hidden = chatReducer(opened, { type: 'TOGGLE_DIFF_FILES' })
+    const closed = chatReducer(hidden, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'diff' })
+    expect(colTiles(closed)).toEqual([])
+    expect(closed.diffFilesVisible).toBe(false)
   })
 })

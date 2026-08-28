@@ -600,6 +600,12 @@ export const en: typeof ko = {
       emptyDesc: 'Tasks Claude creates and background work it starts will appear here.',
       openDetailAria: 'Open details for {{description}}'
     },
+    gitRow: {
+      aria: 'Repository and changes',
+      detached: 'detached HEAD',
+      changesAria: '{{added}} lines added, {{removed}} lines removed',
+      diffTitle: 'Open changes panel'
+    },
     composer: {
       modes: {
         title: 'Mode',
@@ -754,8 +760,12 @@ export const en: typeof ko = {
         plan: 'Plan',
         subagent: 'Background tasks',
         task: 'Tasks',
-        reserved1: 'Reserved 1'
+        diff: 'Changes'
       },
+      diffMockNotice: 'These entries are a layout preview — not real changes.',
+      diffAllChanges: 'All changes',
+      diffFilesHide: 'Hide file list',
+      diffFilesShow: 'Show file list',
       closeTile: 'Close {{label}}',
       panelResizeAria: 'Resize right panel',
       rowResizeAria: 'Resize panel row',
