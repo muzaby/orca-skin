@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { DbQueries } from '../../infra/db'
+import { isWithinDir } from '../../infra/config/paths'
 import { WorktreeService } from './service'
 
 const exec = promisify(execFile)
@@ -39,7 +40,9 @@ describe('WorktreeService', () => {
     })
     expect(result.kind).toBe('managed')
     expect(rows).toHaveLength(1)
-    if (result.kind === 'managed') expect(result.executionCwd.startsWith(managed)).toBe(true)
+    // `realpath()`는 Windows에서 drive letter 대소문자·junction 표기를 정규화할 수 있다.
+    // 문자열 prefix가 아니라 production과 같은 path containment 의미를 검증한다.
+    if (result.kind === 'managed') expect(isWithinDir(result.executionCwd, managed)).toBe(true)
   })
 
   it('untracked 파일이 있으면 Git mutation 전에 거부한다', async () => {
@@ -66,16 +69,25 @@ describe('WorktreeService', () => {
     const db = {
       insertManagedWorktree: (value: Record<string, unknown>) => {
         row = {
-          id: value.id, session_id: 's1', repo_root: value.repoRoot,
-          source_cwd: value.sourceCwd, worktree_root: value.worktreeRoot,
-          branch: value.branch, base_oid: value.baseOid, created_at: value.createdAt
+          id: value.id,
+          session_id: 's1',
+          repo_root: value.repoRoot,
+          source_cwd: value.sourceCwd,
+          worktree_root: value.worktreeRoot,
+          branch: value.branch,
+          base_oid: value.baseOid,
+          created_at: value.createdAt
         }
       },
       getManagedWorktreeBySession: () => row,
-      deleteManagedWorktree: () => { deleted = true }
+      deleteManagedWorktree: () => {
+        deleted = true
+      }
     } as unknown as DbQueries
     const service = new WorktreeService(db, managed)
-    expect((await service.prepare({ sourceCwd: repo, firstPrompt: 'safe delete' })).kind).toBe('managed')
+    expect((await service.prepare({ sourceCwd: repo, firstPrompt: 'safe delete' })).kind).toBe(
+      'managed'
+    )
     expect(await service.removeForSession('s1')).toEqual({ ok: true })
     expect(deleted).toBe(true)
   })
@@ -89,19 +101,30 @@ describe('WorktreeService', () => {
     const db = {
       insertManagedWorktree: (value: Record<string, unknown>) => {
         row = {
-          id: value.id, session_id: 's1', repo_root: value.repoRoot,
-          source_cwd: value.sourceCwd, worktree_root: value.worktreeRoot,
-          branch: value.branch, base_oid: value.baseOid, created_at: value.createdAt
+          id: value.id,
+          session_id: 's1',
+          repo_root: value.repoRoot,
+          source_cwd: value.sourceCwd,
+          worktree_root: value.worktreeRoot,
+          branch: value.branch,
+          base_oid: value.baseOid,
+          created_at: value.createdAt
         }
       },
       getManagedWorktreeBySession: () => row,
-      deleteManagedWorktree: () => { deleted = true }
+      deleteManagedWorktree: () => {
+        deleted = true
+      }
     } as unknown as DbQueries
     const service = new WorktreeService(db, managed)
     const prepared = await service.prepare({ sourceCwd: repo, firstPrompt: 'preserve dirty' })
     expect(prepared.kind).toBe('managed')
-    if (prepared.kind === 'managed') await writeFile(join(prepared.executionCwd, 'dirty.txt'), 'dirty')
-    expect(await service.removeForSession('s1')).toMatchObject({ ok: false, reason: 'worktree-dirty' })
+    if (prepared.kind === 'managed')
+      await writeFile(join(prepared.executionCwd, 'dirty.txt'), 'dirty')
+    expect(await service.removeForSession('s1')).toMatchObject({
+      ok: false,
+      reason: 'worktree-dirty'
+    })
     expect(deleted).toBe(false)
   })
 })
