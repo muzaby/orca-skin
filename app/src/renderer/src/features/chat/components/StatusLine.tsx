@@ -1,6 +1,7 @@
 // 어시스턴트 턴 진행 표시(스트리밍 인디케이터) — 소비자가 chat 전용(transcript ·
-// 서브에이전트 타일)이라 shared/ui 가 아닌 chat feature 에 둔다. 경과 틱은 범용
-// useElapsed(shared/ui/elapsed)를 공유한다.
+// 작업 타일 · 서브에이전트 타일 셋)이라 shared/ui 가 아닌 chat feature 에 둔다. 경과 틱은
+// 범용 useElapsed(shared/ui/elapsed)를 공유한다.
+// 스피너는 셋이 **분기 없이** 같은 것을 받는다(0208 D-002) — 소비자별 variant 를 두지 않는다.
 import { useMemo } from 'react'
 import { formatElapsed, useElapsed } from '../../../shared/ui/elapsed'
 import { SparkSpinner } from '../../../shared/ui/SparkSpinner'
