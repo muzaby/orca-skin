@@ -189,140 +189,781 @@
 }
 
 /* 어시스턴트 진행 스피너(0208) — `shared/ui/SparkSpinner.tsx` 전용 트랙.
-   원본 아티팩트는 241 프레임을 세로로 쌓아 translateY 로 미는 스프라이트였다(인스턴스당
-   ~1767 SVG 노드). 매 프레임 보이는 마크가 하나뿐이고 scale 이 24 프레임마다 반복한다는
-   실측을 써서, 마크 7개를 켜고 끄는 트랙으로 옮겼다(~19 노드).
-   타이밍은 `shared/ui/sparkFrames.ts` 의 상수와 손으로 맞추고 `sparkCss.test.ts` 가 대조한다.
-   프레임당 30ms · 세그먼트 24프레임(720ms) · 한 바퀴 240프레임(7200ms).
-   원본이 쓴 steps(1, end) = step-end 이므로 모든 트랙이 보간 없이 계단으로 뛴다. */
-@keyframes spark-pulse {
-  0% {
-    transform: scale(0.34);
-  }
-  4.1667% {
-    transform: scale(0.39);
-  }
-  8.3333% {
-    transform: scale(0.46);
-  }
-  12.5% {
-    transform: scale(0.54);
-  }
-  16.6667% {
-    transform: scale(0.63);
-  }
-  20.8333% {
-    transform: scale(0.73);
-  }
-  25% {
-    transform: scale(0.83);
-  }
-  29.1667% {
-    transform: scale(0.93);
-  }
-  33.3333% {
-    transform: scale(1.01);
-  }
-  37.5% {
-    transform: scale(1.08);
-  }
-  41.6667% {
-    transform: scale(1.13);
-  }
-  45.8333% {
-    transform: scale(1.07);
-  }
-  50% {
-    transform: scale(1.02);
-  }
-  54.1667% {
+   원본 아티팩트(`docs/handoff/0208-.../spinner-reference.svg`)는 241 프레임을 세로로 쌓아
+   translateY 로 미는 스프라이트였다(인스턴스당 ~1767 SVG 노드). 매 슬롯 보이는 마크가
+   하나뿐이라는 실측을 써서 마크 7개를 켜고 끄는 트랙으로 옮겼다(~19 노드).
+
+   시간축은 원본 그대로 **241 슬롯 / 7200ms** 다. 241 mod 24 = 1 이라 scale 을 24 프레임
+   주기로 반복시키면 마지막 슬롯에서 위상이 어긋나므로, scale 도 한 바퀴 전체를 241 stop 으로
+   갖는다. stop 경계는 원본 `@keyframes spark-frames` 와 같은 `(n/241*100).toFixed(4)` 다.
+   원본이 쓴 steps(1, end) = step-end 이므로 모든 트랙이 보간 없이 계단으로 뛴다.
+
+   키프레임은 app.css 에 **전역 1회** 존재한다 — 인스턴스가 늘어도 stop 수는 늘지 않고,
+   인스턴스당 애니메이션은 scale 1 + visibility 7 = 8 개로 고정이다.
+   원본과의 대조는 `sparkCss.test.ts` 가 원본 SVG 를 직접 파싱해 수행한다. */
+@keyframes spark-scale {
+  0.0000% {
     transform: scale(1);
   }
-  58.3333% {
+  0.4149% {
     transform: scale(0.93);
   }
-  62.5% {
+  0.8299% {
     transform: scale(0.84);
   }
-  66.6667% {
+  1.2448% {
     transform: scale(0.74);
   }
-  70.8333% {
+  1.6598% {
     transform: scale(0.63);
   }
-  75% {
+  2.0747% {
     transform: scale(0.53);
   }
-  79.1667% {
+  2.4896% {
     transform: scale(0.45);
   }
-  83.3333% {
+  2.9046% {
     transform: scale(0.39);
   }
-  87.5% {
+  3.3195% {
     transform: scale(0.36);
   }
-  91.6667% {
+  3.7344% {
     transform: scale(0.34);
   }
-  95.8333% {
+  4.1494% {
+    transform: scale(1);
+  }
+  4.5643% {
+    transform: scale(0.34);
+  }
+  4.9793% {
+    transform: scale(0.39);
+  }
+  5.3942% {
+    transform: scale(0.46);
+  }
+  5.8091% {
+    transform: scale(0.54);
+  }
+  6.2241% {
+    transform: scale(0.63);
+  }
+  6.6390% {
+    transform: scale(0.73);
+  }
+  7.0539% {
+    transform: scale(0.83);
+  }
+  7.4689% {
+    transform: scale(0.93);
+  }
+  7.8838% {
+    transform: scale(1.01);
+  }
+  8.2988% {
+    transform: scale(1.08);
+  }
+  8.7137% {
+    transform: scale(1.13);
+  }
+  9.1286% {
+    transform: scale(1.07);
+  }
+  9.5436% {
+    transform: scale(1.02);
+  }
+  9.9585% {
+    transform: scale(1);
+  }
+  10.3734% {
+    transform: scale(0.93);
+  }
+  10.7884% {
+    transform: scale(0.84);
+  }
+  11.2033% {
+    transform: scale(0.74);
+  }
+  11.6183% {
+    transform: scale(0.63);
+  }
+  12.0332% {
+    transform: scale(0.53);
+  }
+  12.4481% {
+    transform: scale(0.45);
+  }
+  12.8631% {
+    transform: scale(0.39);
+  }
+  13.2780% {
+    transform: scale(0.36);
+  }
+  13.6929% {
+    transform: scale(0.34);
+  }
+  14.1079% {
+    transform: scale(1);
+  }
+  14.5228% {
+    transform: scale(0.34);
+  }
+  14.9378% {
+    transform: scale(0.39);
+  }
+  15.3527% {
+    transform: scale(0.46);
+  }
+  15.7676% {
+    transform: scale(0.54);
+  }
+  16.1826% {
+    transform: scale(0.63);
+  }
+  16.5975% {
+    transform: scale(0.73);
+  }
+  17.0124% {
+    transform: scale(0.83);
+  }
+  17.4274% {
+    transform: scale(0.93);
+  }
+  17.8423% {
+    transform: scale(1.01);
+  }
+  18.2573% {
+    transform: scale(1.08);
+  }
+  18.6722% {
+    transform: scale(1.13);
+  }
+  19.0871% {
+    transform: scale(1.07);
+  }
+  19.5021% {
+    transform: scale(1.02);
+  }
+  19.9170% {
+    transform: scale(1);
+  }
+  20.3320% {
+    transform: scale(0.93);
+  }
+  20.7469% {
+    transform: scale(0.84);
+  }
+  21.1618% {
+    transform: scale(0.74);
+  }
+  21.5768% {
+    transform: scale(0.63);
+  }
+  21.9917% {
+    transform: scale(0.53);
+  }
+  22.4066% {
+    transform: scale(0.45);
+  }
+  22.8216% {
+    transform: scale(0.39);
+  }
+  23.2365% {
+    transform: scale(0.36);
+  }
+  23.6515% {
+    transform: scale(0.34);
+  }
+  24.0664% {
+    transform: scale(1);
+  }
+  24.4813% {
+    transform: scale(0.34);
+  }
+  24.8963% {
+    transform: scale(0.39);
+  }
+  25.3112% {
+    transform: scale(0.46);
+  }
+  25.7261% {
+    transform: scale(0.54);
+  }
+  26.1411% {
+    transform: scale(0.63);
+  }
+  26.5560% {
+    transform: scale(0.73);
+  }
+  26.9710% {
+    transform: scale(0.83);
+  }
+  27.3859% {
+    transform: scale(0.93);
+  }
+  27.8008% {
+    transform: scale(1.01);
+  }
+  28.2158% {
+    transform: scale(1.08);
+  }
+  28.6307% {
+    transform: scale(1.13);
+  }
+  29.0456% {
+    transform: scale(1.07);
+  }
+  29.4606% {
+    transform: scale(1.02);
+  }
+  29.8755% {
+    transform: scale(1);
+  }
+  30.2905% {
+    transform: scale(0.93);
+  }
+  30.7054% {
+    transform: scale(0.84);
+  }
+  31.1203% {
+    transform: scale(0.74);
+  }
+  31.5353% {
+    transform: scale(0.63);
+  }
+  31.9502% {
+    transform: scale(0.53);
+  }
+  32.3651% {
+    transform: scale(0.45);
+  }
+  32.7801% {
+    transform: scale(0.39);
+  }
+  33.1950% {
+    transform: scale(0.36);
+  }
+  33.6100% {
+    transform: scale(0.34);
+  }
+  34.0249% {
+    transform: scale(1);
+  }
+  34.4398% {
+    transform: scale(0.34);
+  }
+  34.8548% {
+    transform: scale(0.39);
+  }
+  35.2697% {
+    transform: scale(0.46);
+  }
+  35.6846% {
+    transform: scale(0.54);
+  }
+  36.0996% {
+    transform: scale(0.63);
+  }
+  36.5145% {
+    transform: scale(0.73);
+  }
+  36.9295% {
+    transform: scale(0.83);
+  }
+  37.3444% {
+    transform: scale(0.93);
+  }
+  37.7593% {
+    transform: scale(1.01);
+  }
+  38.1743% {
+    transform: scale(1.08);
+  }
+  38.5892% {
+    transform: scale(1.13);
+  }
+  39.0041% {
+    transform: scale(1.07);
+  }
+  39.4191% {
+    transform: scale(1.02);
+  }
+  39.8340% {
+    transform: scale(1);
+  }
+  40.2490% {
+    transform: scale(0.93);
+  }
+  40.6639% {
+    transform: scale(0.84);
+  }
+  41.0788% {
+    transform: scale(0.74);
+  }
+  41.4938% {
+    transform: scale(0.63);
+  }
+  41.9087% {
+    transform: scale(0.53);
+  }
+  42.3237% {
+    transform: scale(0.45);
+  }
+  42.7386% {
+    transform: scale(0.39);
+  }
+  43.1535% {
+    transform: scale(0.36);
+  }
+  43.5685% {
+    transform: scale(0.34);
+  }
+  43.9834% {
+    transform: scale(1);
+  }
+  44.3983% {
+    transform: scale(0.34);
+  }
+  44.8133% {
+    transform: scale(0.39);
+  }
+  45.2282% {
+    transform: scale(0.46);
+  }
+  45.6432% {
+    transform: scale(0.54);
+  }
+  46.0581% {
+    transform: scale(0.63);
+  }
+  46.4730% {
+    transform: scale(0.73);
+  }
+  46.8880% {
+    transform: scale(0.83);
+  }
+  47.3029% {
+    transform: scale(0.93);
+  }
+  47.7178% {
+    transform: scale(1.01);
+  }
+  48.1328% {
+    transform: scale(1.08);
+  }
+  48.5477% {
+    transform: scale(1.13);
+  }
+  48.9627% {
+    transform: scale(1.07);
+  }
+  49.3776% {
+    transform: scale(1.02);
+  }
+  49.7925% {
+    transform: scale(1);
+  }
+  50.2075% {
+    transform: scale(0.93);
+  }
+  50.6224% {
+    transform: scale(0.84);
+  }
+  51.0373% {
+    transform: scale(0.74);
+  }
+  51.4523% {
+    transform: scale(0.63);
+  }
+  51.8672% {
+    transform: scale(0.53);
+  }
+  52.2822% {
+    transform: scale(0.45);
+  }
+  52.6971% {
+    transform: scale(0.39);
+  }
+  53.1120% {
+    transform: scale(0.36);
+  }
+  53.5270% {
+    transform: scale(0.34);
+  }
+  53.9419% {
+    transform: scale(1);
+  }
+  54.3568% {
+    transform: scale(0.34);
+  }
+  54.7718% {
+    transform: scale(0.39);
+  }
+  55.1867% {
+    transform: scale(0.46);
+  }
+  55.6017% {
+    transform: scale(0.54);
+  }
+  56.0166% {
+    transform: scale(0.63);
+  }
+  56.4315% {
+    transform: scale(0.73);
+  }
+  56.8465% {
+    transform: scale(0.83);
+  }
+  57.2614% {
+    transform: scale(0.93);
+  }
+  57.6763% {
+    transform: scale(1.01);
+  }
+  58.0913% {
+    transform: scale(1.08);
+  }
+  58.5062% {
+    transform: scale(1.13);
+  }
+  58.9212% {
+    transform: scale(1.07);
+  }
+  59.3361% {
+    transform: scale(1.02);
+  }
+  59.7510% {
+    transform: scale(1);
+  }
+  60.1660% {
+    transform: scale(0.93);
+  }
+  60.5809% {
+    transform: scale(0.84);
+  }
+  60.9959% {
+    transform: scale(0.74);
+  }
+  61.4108% {
+    transform: scale(0.63);
+  }
+  61.8257% {
+    transform: scale(0.53);
+  }
+  62.2407% {
+    transform: scale(0.45);
+  }
+  62.6556% {
+    transform: scale(0.39);
+  }
+  63.0705% {
+    transform: scale(0.36);
+  }
+  63.4855% {
+    transform: scale(0.34);
+  }
+  63.9004% {
+    transform: scale(1);
+  }
+  64.3154% {
+    transform: scale(0.34);
+  }
+  64.7303% {
+    transform: scale(0.39);
+  }
+  65.1452% {
+    transform: scale(0.46);
+  }
+  65.5602% {
+    transform: scale(0.54);
+  }
+  65.9751% {
+    transform: scale(0.63);
+  }
+  66.3900% {
+    transform: scale(0.73);
+  }
+  66.8050% {
+    transform: scale(0.83);
+  }
+  67.2199% {
+    transform: scale(0.93);
+  }
+  67.6349% {
+    transform: scale(1.01);
+  }
+  68.0498% {
+    transform: scale(1.08);
+  }
+  68.4647% {
+    transform: scale(1.13);
+  }
+  68.8797% {
+    transform: scale(1.07);
+  }
+  69.2946% {
+    transform: scale(1.02);
+  }
+  69.7095% {
+    transform: scale(1);
+  }
+  70.1245% {
+    transform: scale(0.93);
+  }
+  70.5394% {
+    transform: scale(0.84);
+  }
+  70.9544% {
+    transform: scale(0.74);
+  }
+  71.3693% {
+    transform: scale(0.63);
+  }
+  71.7842% {
+    transform: scale(0.53);
+  }
+  72.1992% {
+    transform: scale(0.45);
+  }
+  72.6141% {
+    transform: scale(0.39);
+  }
+  73.0290% {
+    transform: scale(0.36);
+  }
+  73.4440% {
+    transform: scale(0.34);
+  }
+  73.8589% {
+    transform: scale(1);
+  }
+  74.2739% {
+    transform: scale(0.34);
+  }
+  74.6888% {
+    transform: scale(0.39);
+  }
+  75.1037% {
+    transform: scale(0.46);
+  }
+  75.5187% {
+    transform: scale(0.54);
+  }
+  75.9336% {
+    transform: scale(0.63);
+  }
+  76.3485% {
+    transform: scale(0.73);
+  }
+  76.7635% {
+    transform: scale(0.83);
+  }
+  77.1784% {
+    transform: scale(0.93);
+  }
+  77.5934% {
+    transform: scale(1.01);
+  }
+  78.0083% {
+    transform: scale(1.08);
+  }
+  78.4232% {
+    transform: scale(1.13);
+  }
+  78.8382% {
+    transform: scale(1.07);
+  }
+  79.2531% {
+    transform: scale(1.02);
+  }
+  79.6680% {
+    transform: scale(1);
+  }
+  80.0830% {
+    transform: scale(0.93);
+  }
+  80.4979% {
+    transform: scale(0.84);
+  }
+  80.9129% {
+    transform: scale(0.74);
+  }
+  81.3278% {
+    transform: scale(0.63);
+  }
+  81.7427% {
+    transform: scale(0.53);
+  }
+  82.1577% {
+    transform: scale(0.45);
+  }
+  82.5726% {
+    transform: scale(0.39);
+  }
+  82.9876% {
+    transform: scale(0.36);
+  }
+  83.4025% {
+    transform: scale(0.34);
+  }
+  83.8174% {
+    transform: scale(1);
+  }
+  84.2324% {
+    transform: scale(0.34);
+  }
+  84.6473% {
+    transform: scale(0.39);
+  }
+  85.0622% {
+    transform: scale(0.46);
+  }
+  85.4772% {
+    transform: scale(0.54);
+  }
+  85.8921% {
+    transform: scale(0.63);
+  }
+  86.3071% {
+    transform: scale(0.73);
+  }
+  86.7220% {
+    transform: scale(0.83);
+  }
+  87.1369% {
+    transform: scale(0.93);
+  }
+  87.5519% {
+    transform: scale(1.01);
+  }
+  87.9668% {
+    transform: scale(1.08);
+  }
+  88.3817% {
+    transform: scale(1.13);
+  }
+  88.7967% {
+    transform: scale(1.07);
+  }
+  89.2116% {
+    transform: scale(1.02);
+  }
+  89.6266% {
+    transform: scale(1);
+  }
+  90.0415% {
+    transform: scale(0.93);
+  }
+  90.4564% {
+    transform: scale(0.84);
+  }
+  90.8714% {
+    transform: scale(0.74);
+  }
+  91.2863% {
+    transform: scale(0.63);
+  }
+  91.7012% {
+    transform: scale(0.53);
+  }
+  92.1162% {
+    transform: scale(0.45);
+  }
+  92.5311% {
+    transform: scale(0.39);
+  }
+  92.9461% {
+    transform: scale(0.36);
+  }
+  93.3610% {
+    transform: scale(0.34);
+  }
+  93.7759% {
+    transform: scale(1);
+  }
+  94.1909% {
+    transform: scale(0.34);
+  }
+  94.6058% {
+    transform: scale(0.39);
+  }
+  95.0207% {
+    transform: scale(0.46);
+  }
+  95.4357% {
+    transform: scale(0.54);
+  }
+  95.8506% {
+    transform: scale(0.63);
+  }
+  96.2656% {
+    transform: scale(0.73);
+  }
+  96.6805% {
+    transform: scale(0.83);
+  }
+  97.0954% {
+    transform: scale(0.93);
+  }
+  97.5104% {
+    transform: scale(1.01);
+  }
+  97.9253% {
+    transform: scale(1.08);
+  }
+  98.3402% {
+    transform: scale(1.13);
+  }
+  98.7552% {
+    transform: scale(1.07);
+  }
+  99.1701% {
+    transform: scale(1.02);
+  }
+  99.5851% {
     transform: scale(1);
   }
 }
-/* -390ms = frame 0 이 세그먼트의 13번째라는 실측(sparkFrames.ts SPARK_SEGMENT_PHASE). */
-@utility animate-spark-pulse {
-  animation: spark-pulse 720ms step-end -390ms infinite;
+@utility animate-spark-scale {
+  animation: spark-scale 7200ms step-end infinite;
   transform-box: view-box;
   transform-origin: center;
 }
 
-/* dot 은 세그먼트 끝 1프레임만 — pulse 와 같은 720ms 주기·같은 위상. */
-@keyframes spark-dot {
-  0% {
-    visibility: hidden;
-  }
-  95.8333% {
-    visibility: visible;
-  }
-}
-@utility animate-spark-dot {
-  visibility: hidden;
-  animation: spark-dot 720ms step-end -390ms infinite;
-}
-
-/* spoke 는 한 바퀴에 6구간, 글리프 5종은 각 1구간. */
 @keyframes spark-spoke {
-  0% {
+  0.0000% {
     visibility: visible;
   }
-  4.1667% {
+  4.1494% {
     visibility: hidden;
   }
-  14.5833% {
+  14.5228% {
     visibility: visible;
   }
-  24.1667% {
+  24.0664% {
     visibility: hidden;
   }
-  34.5833% {
+  34.4398% {
     visibility: visible;
   }
-  44.1667% {
+  43.9834% {
     visibility: hidden;
   }
-  54.5833% {
+  54.3568% {
     visibility: visible;
   }
-  64.1667% {
+  63.9004% {
     visibility: hidden;
   }
-  74.5833% {
+  74.2739% {
     visibility: visible;
   }
-  84.1667% {
+  83.8174% {
     visibility: hidden;
   }
-  94.5833% {
+  94.1909% {
     visibility: visible;
   }
 }
@@ -331,14 +972,84 @@
   animation: spark-spoke 7200ms step-end infinite;
 }
 
-@keyframes spark-g1 {
-  0% {
+@keyframes spark-dot {
+  0.0000% {
     visibility: hidden;
   }
-  4.5833% {
+  4.1494% {
     visibility: visible;
   }
-  14.1667% {
+  4.5643% {
+    visibility: hidden;
+  }
+  14.1079% {
+    visibility: visible;
+  }
+  14.5228% {
+    visibility: hidden;
+  }
+  24.0664% {
+    visibility: visible;
+  }
+  24.4813% {
+    visibility: hidden;
+  }
+  34.0249% {
+    visibility: visible;
+  }
+  34.4398% {
+    visibility: hidden;
+  }
+  43.9834% {
+    visibility: visible;
+  }
+  44.3983% {
+    visibility: hidden;
+  }
+  53.9419% {
+    visibility: visible;
+  }
+  54.3568% {
+    visibility: hidden;
+  }
+  63.9004% {
+    visibility: visible;
+  }
+  64.3154% {
+    visibility: hidden;
+  }
+  73.8589% {
+    visibility: visible;
+  }
+  74.2739% {
+    visibility: hidden;
+  }
+  83.8174% {
+    visibility: visible;
+  }
+  84.2324% {
+    visibility: hidden;
+  }
+  93.7759% {
+    visibility: visible;
+  }
+  94.1909% {
+    visibility: hidden;
+  }
+}
+@utility animate-spark-dot {
+  visibility: hidden;
+  animation: spark-dot 7200ms step-end infinite;
+}
+
+@keyframes spark-g1 {
+  0.0000% {
+    visibility: hidden;
+  }
+  4.5643% {
+    visibility: visible;
+  }
+  14.1079% {
     visibility: hidden;
   }
 }
@@ -348,13 +1059,13 @@
 }
 
 @keyframes spark-g2 {
-  0% {
+  0.0000% {
     visibility: hidden;
   }
-  24.5833% {
+  24.4813% {
     visibility: visible;
   }
-  34.1667% {
+  34.0249% {
     visibility: hidden;
   }
 }
@@ -364,13 +1075,13 @@
 }
 
 @keyframes spark-g3 {
-  0% {
+  0.0000% {
     visibility: hidden;
   }
-  44.5833% {
+  44.3983% {
     visibility: visible;
   }
-  54.1667% {
+  53.9419% {
     visibility: hidden;
   }
 }
@@ -380,13 +1091,13 @@
 }
 
 @keyframes spark-g4 {
-  0% {
+  0.0000% {
     visibility: hidden;
   }
-  64.5833% {
+  64.3154% {
     visibility: visible;
   }
-  74.1667% {
+  73.8589% {
     visibility: hidden;
   }
 }
@@ -396,13 +1107,13 @@
 }
 
 @keyframes spark-g5 {
-  0% {
+  0.0000% {
     visibility: hidden;
   }
-  84.5833% {
+  84.2324% {
     visibility: visible;
   }
-  94.1667% {
+  93.7759% {
     visibility: hidden;
   }
 }
@@ -412,9 +1123,9 @@
 }
 
 /* 감속 모션에서는 전부 멈춰 frame 0(spoke, scale 1.0)만 남는다 — 원본의
-   prefers-reduced-motion 블록과 같은 동작. 트랙 7개 + pulse 를 전부 열거한다. */
+   prefers-reduced-motion 블록과 같은 동작. 트랙 7개 + scale 을 전부 열거한다. */
 @media (prefers-reduced-motion: reduce) {
-  .animate-spark-pulse {
+  .animate-spark-scale {
     animation: none;
     transform: scale(1);
   }

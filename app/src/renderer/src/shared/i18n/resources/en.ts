@@ -854,7 +854,7 @@ export const en: typeof ko = {
     },
     usage: {
       title: 'Usage summary',
-      desc: 'Token usage (input/output/cache) over time and a per-model breakdown. Per-provider usage limits are available in the sub-items on the left.',
+      desc: 'Token usage (input/output/cache) over time and a per-model breakdown.',
       range7d: 'Last 7 days',
       range30d: 'Last 30 days',
       rangeAll: 'All time',

@@ -859,7 +859,9 @@ export const ko = {
     },
     usage: {
       title: '사용량 요약',
-      desc: '기간별 토큰 사용량(입력·출력·캐시)과 모델별 내역을 보여줍니다. provider별 사용량 한도는 좌측 하위 항목에서 확인할 수 있습니다.',
+      // 0208 D-018 — 둘째 문장(provider 위치 안내)은 제거됐다. 이 설명 뒤에 UsageTab 이
+      // `usage.estimateNote` 를 이어 붙인다. 문구를 여기 복제하지 않는다.
+      desc: '기간별 토큰 사용량(입력·출력·캐시)과 모델별 내역을 보여줍니다.',
       range7d: '최근 7일',
       range30d: '최근 30일',
       rangeAll: '전체',
