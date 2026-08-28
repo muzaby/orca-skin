@@ -18,16 +18,22 @@ const TONE_BG: Record<MeterTone, string> = {
 export function Meter({
   ratio,
   tone,
-  className
+  className,
+  title
 }: {
   ratio: number
   tone?: MeterTone
   className?: string
+  /** 트랙에 거는 네이티브 호버 툴팁. 문구는 호출자가 소유한다(shared 는 도메인을 모른다). */
+  title?: string
 }): React.JSX.Element {
   const clamped = Math.max(0, Math.min(1, ratio))
   const bar = TONE_BG[tone ?? usageToneForRatio(clamped)]
   return (
-    <div className={`h-1.5 w-full overflow-hidden rounded-full bg-border ${className ?? ''}`}>
+    <div
+      className={`h-1.5 w-full overflow-hidden rounded-full bg-border ${className ?? ''}`}
+      title={title}
+    >
       <div
         className={`h-full rounded-full ${bar} transition-[width] duration-300`}
         style={{ width: `${clamped * 100}%` }}

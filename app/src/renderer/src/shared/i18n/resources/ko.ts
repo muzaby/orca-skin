@@ -272,11 +272,6 @@ export const ko = {
       editDetails: '세부사항 수정',
       updated: '업데이트'
     },
-    filesCard: {
-      title: '파일',
-      addTitle: '파일 추가 (준비 중)',
-      emptyHint: '이 프로젝트에서 참조할 PDF, 문서, 폴더 또는 기타 텍스트를 추가하세요.'
-    },
     instructionsCard: {
       title: '지침',
       editTitle: '지침 편집',
@@ -895,6 +890,8 @@ export const ko = {
     weekly: '주간',
     monthly: '월간',
     pctUsed: '{{pct}}% 사용됨',
+    estimateNote:
+      '표시된 사용량은 SDK가 제공하는 추정치입니다. 실제 토큰 사용량 및 청구 금액과 차이가 있을 수 있습니다.',
     loading: '사용량 정보를 불러오는 중입니다…',
     // 0186 r6 (D24) — 이 시각은 **로컬이 값을 반영한 때**지 원격이 집계한 때가 아니다.
     // "마지막 업데이트" 는 원격 신선도로 읽혀, 원격이 며칠 죽어도 "방금" 으로 보인다.

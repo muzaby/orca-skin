@@ -187,3 +187,248 @@
     animation: none;
   }
 }
+
+/* 어시스턴트 진행 스피너(0208) — `shared/ui/SparkSpinner.tsx` 전용 트랙.
+   원본 아티팩트는 241 프레임을 세로로 쌓아 translateY 로 미는 스프라이트였다(인스턴스당
+   ~1767 SVG 노드). 매 프레임 보이는 마크가 하나뿐이고 scale 이 24 프레임마다 반복한다는
+   실측을 써서, 마크 7개를 켜고 끄는 트랙으로 옮겼다(~19 노드).
+   타이밍은 `shared/ui/sparkFrames.ts` 의 상수와 손으로 맞추고 `sparkCss.test.ts` 가 대조한다.
+   프레임당 30ms · 세그먼트 24프레임(720ms) · 한 바퀴 240프레임(7200ms).
+   원본이 쓴 steps(1, end) = step-end 이므로 모든 트랙이 보간 없이 계단으로 뛴다. */
+@keyframes spark-pulse {
+  0% {
+    transform: scale(0.34);
+  }
+  4.1667% {
+    transform: scale(0.39);
+  }
+  8.3333% {
+    transform: scale(0.46);
+  }
+  12.5% {
+    transform: scale(0.54);
+  }
+  16.6667% {
+    transform: scale(0.63);
+  }
+  20.8333% {
+    transform: scale(0.73);
+  }
+  25% {
+    transform: scale(0.83);
+  }
+  29.1667% {
+    transform: scale(0.93);
+  }
+  33.3333% {
+    transform: scale(1.01);
+  }
+  37.5% {
+    transform: scale(1.08);
+  }
+  41.6667% {
+    transform: scale(1.13);
+  }
+  45.8333% {
+    transform: scale(1.07);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  54.1667% {
+    transform: scale(1);
+  }
+  58.3333% {
+    transform: scale(0.93);
+  }
+  62.5% {
+    transform: scale(0.84);
+  }
+  66.6667% {
+    transform: scale(0.74);
+  }
+  70.8333% {
+    transform: scale(0.63);
+  }
+  75% {
+    transform: scale(0.53);
+  }
+  79.1667% {
+    transform: scale(0.45);
+  }
+  83.3333% {
+    transform: scale(0.39);
+  }
+  87.5% {
+    transform: scale(0.36);
+  }
+  91.6667% {
+    transform: scale(0.34);
+  }
+  95.8333% {
+    transform: scale(1);
+  }
+}
+/* -390ms = frame 0 이 세그먼트의 13번째라는 실측(sparkFrames.ts SPARK_SEGMENT_PHASE). */
+@utility animate-spark-pulse {
+  animation: spark-pulse 720ms step-end -390ms infinite;
+  transform-box: view-box;
+  transform-origin: center;
+}
+
+/* dot 은 세그먼트 끝 1프레임만 — pulse 와 같은 720ms 주기·같은 위상. */
+@keyframes spark-dot {
+  0% {
+    visibility: hidden;
+  }
+  95.8333% {
+    visibility: visible;
+  }
+}
+@utility animate-spark-dot {
+  visibility: hidden;
+  animation: spark-dot 720ms step-end -390ms infinite;
+}
+
+/* spoke 는 한 바퀴에 6구간, 글리프 5종은 각 1구간. */
+@keyframes spark-spoke {
+  0% {
+    visibility: visible;
+  }
+  4.1667% {
+    visibility: hidden;
+  }
+  14.5833% {
+    visibility: visible;
+  }
+  24.1667% {
+    visibility: hidden;
+  }
+  34.5833% {
+    visibility: visible;
+  }
+  44.1667% {
+    visibility: hidden;
+  }
+  54.5833% {
+    visibility: visible;
+  }
+  64.1667% {
+    visibility: hidden;
+  }
+  74.5833% {
+    visibility: visible;
+  }
+  84.1667% {
+    visibility: hidden;
+  }
+  94.5833% {
+    visibility: visible;
+  }
+}
+@utility animate-spark-spoke {
+  visibility: hidden;
+  animation: spark-spoke 7200ms step-end infinite;
+}
+
+@keyframes spark-g1 {
+  0% {
+    visibility: hidden;
+  }
+  4.5833% {
+    visibility: visible;
+  }
+  14.1667% {
+    visibility: hidden;
+  }
+}
+@utility animate-spark-g1 {
+  visibility: hidden;
+  animation: spark-g1 7200ms step-end infinite;
+}
+
+@keyframes spark-g2 {
+  0% {
+    visibility: hidden;
+  }
+  24.5833% {
+    visibility: visible;
+  }
+  34.1667% {
+    visibility: hidden;
+  }
+}
+@utility animate-spark-g2 {
+  visibility: hidden;
+  animation: spark-g2 7200ms step-end infinite;
+}
+
+@keyframes spark-g3 {
+  0% {
+    visibility: hidden;
+  }
+  44.5833% {
+    visibility: visible;
+  }
+  54.1667% {
+    visibility: hidden;
+  }
+}
+@utility animate-spark-g3 {
+  visibility: hidden;
+  animation: spark-g3 7200ms step-end infinite;
+}
+
+@keyframes spark-g4 {
+  0% {
+    visibility: hidden;
+  }
+  64.5833% {
+    visibility: visible;
+  }
+  74.1667% {
+    visibility: hidden;
+  }
+}
+@utility animate-spark-g4 {
+  visibility: hidden;
+  animation: spark-g4 7200ms step-end infinite;
+}
+
+@keyframes spark-g5 {
+  0% {
+    visibility: hidden;
+  }
+  84.5833% {
+    visibility: visible;
+  }
+  94.1667% {
+    visibility: hidden;
+  }
+}
+@utility animate-spark-g5 {
+  visibility: hidden;
+  animation: spark-g5 7200ms step-end infinite;
+}
+
+/* 감속 모션에서는 전부 멈춰 frame 0(spoke, scale 1.0)만 남는다 — 원본의
+   prefers-reduced-motion 블록과 같은 동작. 트랙 7개 + pulse 를 전부 열거한다. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-spark-pulse {
+    animation: none;
+    transform: scale(1);
+  }
+  .animate-spark-spoke {
+    animation: none;
+    visibility: visible;
+  }
+  .animate-spark-dot,
+  .animate-spark-g1,
+  .animate-spark-g2,
+  .animate-spark-g3,
+  .animate-spark-g4,
+  .animate-spark-g5 {
+    animation: none;
+    visibility: hidden;
+  }
+}

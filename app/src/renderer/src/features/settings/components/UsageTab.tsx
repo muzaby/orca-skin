@@ -88,7 +88,8 @@ function RangeTabs({
 }
 
 // 모델별 내역 — 총 토큰 내림차순, 최대 모델 대비 비율 Meter(차트와 같은 indigo 톤).
-function ModelUsageList({ models }: { models: UsageStatsModel[] }): React.JSX.Element {
+// export = 렌더 테스트가 직접 렌더한다(usageTooltip.render.test.ts).
+export function ModelUsageList({ models }: { models: UsageStatsModel[] }): React.JSX.Element {
   const { tr } = useI18n()
   const top = models.length > 0 ? totalTokens(models[0]) : 0
   return (
@@ -103,7 +104,12 @@ function ModelUsageList({ models }: { models: UsageStatsModel[] }): React.JSX.El
                 {formatTokens(total)}
               </span>
             </div>
-            <Meter ratio={top > 0 ? total / top : 0} tone="info" className="mt-1.5" />
+            <Meter
+              ratio={top > 0 ? total / top : 0}
+              tone="info"
+              className="mt-1.5"
+              title={tr('usage.estimateNote')}
+            />
             <div className="mt-1 text-[11.5px] tabular-nums text-ink3">
               {tr('settings.usage.modelBreakdown', {
                 input: formatTokens(m.inputTokens),

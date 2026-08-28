@@ -19,7 +19,7 @@ import { useSessionActions } from './useSessionActions'
 // 레이아웃 슬롯:
 // - HEADER (풀-너비): ProjectLandingHeader — "모든 프로젝트" 링크만.
 // - LEFT col-span-3: ProjectInfoHero (제목/지침/메타) → Composer → 세션 목록.
-// - RIGHT col-span-2: ProjectInstructionsSidebar (지침 + 파일 placeholder).
+// - RIGHT col-span-2: ProjectInstructionsSidebar (지침 카드 — 파일 placeholder 는 0208 에서 제거).
 // 중앙:우측 = 6:4. 두 패널은 max-w-[1200px] mx-auto 단일 블록 안에서 고정 gap(gap-x-10)
 // 으로 묶이고, 창이 1200px 를 넘으면 패널 간 간격이 아니라 좌우 바깥 여백이 커진다.
 // xl 미만(< 1280px)에서는 단일 컬럼 자연 스택. 구조 구분선(헤더 하단·패널 사이)은 없음.

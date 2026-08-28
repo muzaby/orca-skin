@@ -269,11 +269,6 @@ export const en: typeof ko = {
       editDetails: 'Edit details',
       updated: 'Updated'
     },
-    filesCard: {
-      title: 'Files',
-      addTitle: 'Add file (coming soon)',
-      emptyHint: 'Add PDFs, documents, folders, or other text for this project to reference.'
-    },
     instructionsCard: {
       title: 'Instructions',
       editTitle: 'Edit instructions',
@@ -890,6 +885,8 @@ export const en: typeof ko = {
     weekly: 'Weekly',
     monthly: 'Monthly',
     pctUsed: '{{pct}}% used',
+    estimateNote:
+      'Usage shown is an estimate provided by the SDK. It may differ from actual token usage and billed amounts.',
     loading: 'Loading usage information…',
     lastUpdated: 'Last applied',
     refreshAria: 'Refresh usage',
