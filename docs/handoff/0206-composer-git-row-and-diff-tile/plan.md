@@ -64,15 +64,18 @@
 | D-018 | 펼치면 **diff 본문이 실제로 그려진다** — 더미 old/new 문자열 쌍을 기존 렌더러에 먹인다 | "diff 패널" 이 diff 를 그리지 않으면 배치 확인이라는 D-010 의 목적을 절반만 채운다. `diff@^9.0.0` 과 렌더러가 이미 있어 새 IPC·새 의존성이 없다 | 사용자 지적 (2026-08-28) | ACTIVE | — |
 | D-019 | 줄 파생·줄 렌더는 **한 곳이 소유한다** — `buildDiffLines` 를 `lib/diffLines.ts` 로, `DiffTable` 을 `components/DiffTable.tsx` 로 올린다 | 소비자가 둘이 되는데 규칙이 두 벌이면 도구 카드와 타일의 +/− 표현이 갈라진다. 현재 둘 다 `DiffBody.tsx` 모듈 로컬이라 재사용할 수 없다 | 설계자 판단 + 실측 | ACTIVE | — |
 | D-020 | git 상태 스냅샷은 **세션 상태(`chatReducer`)가 소유**한다 — 컴포넌트 로컬이 아니다 | 소비자가 둘이다(컴포저 행 · diff 타일 헤더). 로컬 state 로는 서로 다른 서브트리라 공유되지 않고, 각자 조회하면 §14 의 "턴당 1회" 를 깬다. 늦은 응답 방어(`statusForCwd`)는 스냅샷 형상 그대로 살아남는다 | **구현 턴 PLAN_GAP**(2026-08-28) | ACTIVE | §9·§11 의 "로컬 `BranchSnapshot`" 을 대체 |
+| D-021 | 컴포저 **패널 스택**의 패널 크롬은 참조 디자인 **실측값**을 따르고 **한 모듈이 소유**한다 — `composerPanel.ts` | 사용자: "첨부이미지의 컴포저 상단의 패널스택 디자인을 참고하여 bg 컬러, 폰트, 배치, 간격 을 똑같이 흉내내라". 스택에는 성격이 다른 패널이 섞여 서므로 각자 클래스를 적으면 배경 한 톤·반경 2px 차이가 스택 전체를 흐트러뜨린다 — `chipSurface` 가 칩 행에서 막는 것과 같은 어긋남이다 | 사용자 지적 (2026-08-28) | ACTIVE | D-016 과 같은 축(색)이나 D-016 은 **글자색**, 본 결정은 **패널 표면**이다 |
+| D-022 | 행 맨 앞에 **git 식별 글리프 하나**를 둔다 | 참조 디자인의 모든 패널이 글리프로 시작하고 사용자가 **배치**를 흉내내라고 지시했다. D-005 의 3자리(저장소·브랜치·변경량)와 그 넷의 금지(PR·CI·상태 글리프·닫기)는 **그대로**다 — 이 글리프는 상태를 말하지 않고 누를 수 없다 | 사용자 지적 (2026-08-28) | ACTIVE | D-005 의 "3자리" 를 "3자리 + 선행 식별 글리프" 로 좁힌다 |
 | D-S01 | **승계** — 0205 D-008(`reserved1` 의 지위는 바꾸지 않는다)은 이번 D-009 로 대체된다 | `reserved1` 이 `diff` 가 되면 메뉴에 오르고 활성화된다. 그 결정이 지키려던 3타일 기하 회귀는 `diff` 로 그대로 재현된다 | 이번 턴 | SUPERSEDED | 0205 D-008 → 본 D-009 |
 
 ### 갱신 메모
 
 - 신규 결정: D-001 ~ D-019. 이번 handoff 의 첫 턴이라 SUPERSEDED 는 승계 1건(D-S01)뿐이다.
+- **설계 4턴 갱신(2026-08-28, 사용자 지적)**: 사용자가 참조 이미지의 **컴포저 패널 스택**을 지목해 `bg 컬러 · 폰트 · 배치 · 간격` 네 축을 흉내내라고 지시했다 — **D-021·D-022 추가**. D-021 은 크롬을 `composerPanel.ts` 한 곳에 두고 실측값으로 채운다(AT-21·EP-09·VP-20 신설). D-022 는 행 선두 글리프 하나를 더한다. **기존 결정 20건은 문장 그대로다** — 바뀐 것은 표면의 시각 언어이지 노출 조건·행 구성·목업 원칙이 아니다. **D-005 의 네 금지(PR·CI·상태 글리프·닫기)는 유지**되고 D-022 가 좁히는 것은 "3자리" 라는 셈뿐이다.
 - **설계 3턴 갱신(2026-08-28, PLAN_GAP 정정)**: 구현 턴이 **AT-13 의 도달 경로 부재**를 드러냈다 — 양성 짝이 "헤더에 현재 브랜치 문자열이 있다" 를 요구하는데, 2턴 설계는 브랜치의 유일한 출처를 `GitRow` **컴포넌트 로컬 state** 로 두어 다른 서브트리인 타일 헤더가 읽을 수 없었다. **D-020 추가** + §9 Delta·§10 EP-08·§11·§12 정정. AC·V node 는 **AT-20/AR-06/IT-05 하나씩만** 늘고 나머지 19건은 문장 그대로다.
 - **설계 2턴 갱신(2026-08-28)**: 사용자 지적으로 **D-017·D-018·D-019 추가**. 1턴 설계는 우측을 *파일 헤더 목록*으로만 두어 접기·펼치기와 diff 본문이 **둘 다 빠져 있었다** — "diff 패널" 이 diff 를 그리지 않는 상태였다. D-011 의 상호작용 목록도 셋뿐이라 파일 항목 접기가 그 안에 없었다. 기존 결정 16건은 **문장 그대로 유지**된다 — 바뀐 것은 우측 영역의 깊이이지 노출 조건·행 구성·목업 표현 원칙이 아니다.
 - 승계되는 타 handoff ACTIVE 결정: **0201 D-002**(저장소가 아니면 그리지 않는다) · **0201 D-009**(작업 컨텍스트 행은 랜딩에만) · **0201 D-011**(칩 외형은 `chipSurface` 소유) · **0204 D-021**(타일 4종). 넷 다 §16 에서 본문 문장과 대조한다.
-- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. 확인한 쌍 — D-001↔AT-02(랜딩 음성) · D-002↔AT-01·AT-03 · D-003·D-004↔AT-04 · D-005↔AT-07(PR·CI·닫기 음성 + 양성 짝) · D-006↔AT-01(저장소·브랜치가 `button` 이 아니다) · D-007↔AT-05 · D-008↔AT-09 · D-009↔AT-10 · D-010↔AT-11 · D-011↔AT-14·AT-15·AT-16 · D-012↔AT-12 · D-013↔AT-13 · D-014↔AT-13 의 양성 짝 · D-016↔EP-04 · **D-017↔AT-17**(기본 접힘 + 펼침 양성 짝) · **D-018↔AT-18** · **D-019↔AT-19·EP-07** · **D-020↔AT-20·EP-08**. **반대를 요구하는 AC 0건.**
+- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. 확인한 쌍 — D-001↔AT-02(랜딩 음성) · D-002↔AT-01·AT-03 · D-003·D-004↔AT-04 · D-005↔AT-07(PR·CI·닫기 음성 + 양성 짝) · D-006↔AT-01(저장소·브랜치가 `button` 이 아니다) · D-007↔AT-05 · D-008↔AT-09 · D-009↔AT-10 · D-010↔AT-11 · D-011↔AT-14·AT-15·AT-16 · D-012↔AT-12 · D-013↔AT-13 · D-014↔AT-13 의 양성 짝 · D-016↔EP-04 · **D-017↔AT-17**(기본 접힘 + 펼침 양성 짝) · **D-018↔AT-18** · **D-019↔AT-19·EP-07** · **D-020↔AT-20·EP-08** · **D-021↔AT-21·EP-09** · **D-022↔AT-01**(선두 글리프가 순서 단언의 앞자리를 바꾸지 않는다 — 저장소·브랜치·변경량 인덱스 순서는 그대로다). **반대를 요구하는 AC 0건.**
 - **D-020 ↔ SD-02 비충돌**: 스냅샷이 store 로 올라가도 `{cwd, status}` 형상과 `statusForCwd` 비교는 그대로다 — 소유자만 바뀌고 판정 규칙은 그대로다.
 - **D-018 ↔ D-012 비충돌**: 더미 diff 본문이 실제 변경으로 읽히는 위험은 D-012 의 예시 문구가 **본문 최상단**에서 이미 막는다 — 두 결정이 같은 축의 앞뒤다.
 - **D-017 ↔ D-013 비충돌**: 헤더에서 뺀 셋(설정·펼치기·이동)은 *타일 자체*를 다루는 조작이고, D-017 은 *내용 항목*의 접기다 — 서로 다른 계층이다.
@@ -167,6 +170,7 @@
 | R-18 | AT-18 / AC18 | 펼친 본문이 **추가·삭제·유지 줄을 구분해** 그린다 | 순수 — `buildDiffLines` 가 세 종류를 낸다. 렌더 — 펼친 출력에 `+` 거터와 `-` 거터가 각 1건 이상 | `diffTileMock` old/new → `buildDiffLines` → `DiffTable` |
 | R-20 | AT-20 / AC20 | 행과 diff 타일 헤더가 **같은 스냅샷**을 읽는다 | `rg "useGitRowStatus\("` 호출 **1건**(`GitRow.tsx`) · `rg "s.gitStatus"` 소비 **2건**(`GitRow`·`DiffTileHeader`). 순수 — reducer 가 `SET_GIT_STATUS` 로 스냅샷을 접는다 | `useGitRowStatus` → `chatActions.setGitStatus` → `gitStatus` → 두 소비자 |
 | R-19 | AT-19 / AC19 | 줄 파생·줄 렌더의 소비자가 둘이고 **같은 모듈에서 온다** | `rg "lib/diffLines'"` 2건 · `rg "components/DiffTable'"` 2건. **회귀 양성 짝**: 도구 카드 diff(`registry.ts:75` 경로)가 그대로 렌더된다 | `DiffBody` · `DiffFileHeaders` 둘 다 승격 모듈을 import |
+| R-21 | AT-21 / AC21 | 패널 스택의 패널 둘(git 행 · 안내)이 **같은 크롬 모듈**에서 온다 | 렌더 — 두 출력이 `composerPanelSurface` 의 클래스를 **전부** 갖는다. **음성 짝**: 어느 쪽도 독자 배경(`bg-sidebar`·`bg-transparent`)을 갖지 않는다 | `GitRow` · `Notice` 둘 다 `composerPanel.ts` 를 import |
 
 ### AC 검증 주의사항
 
@@ -210,6 +214,8 @@
 | UT-01 ~ UT-04 | UT | AT-01·03·06·08 / AT-04 / AT-16 / AT-18 | NEW | — |
 | IT-04 | IT | AT-17 · AT-19 | NEW | — |
 | IT-05 | IT | AT-20 | NEW | — |
+| AR-07 | AR | §10 EP-09 — 패널 크롬 SSOT 와 소비자 둘 | NEW | — |
+| IT-06 | IT | AT-21 | NEW | — |
 
 ### Pair registry
 
@@ -235,6 +241,7 @@
 | VP-17 | R-18 ↔ AT-18 (UT-04) | REQUIRED | `diffTileMock` old/new → `buildDiffLines` → `DiffTable` → DOM | 줄 종류 3종 반환값 + 거터 문자 존재 | not selected — 반환 배열을 직접 비교한다 | EP-07 (2) |
 | VP-19 | AR-06 ↔ AT-20 (IT-05) | REQUIRED | `useGitRowStatus` → `chatActions.setGitStatus` → reducer → `GitRow`·`DiffTileHeader` | 호출부 1건 · 소비 2건 + reducer 왕복 | not selected — 검색 결과와 상태를 직접 본다 | EP-08 (3) |
 | VP-18 | AR-05·MD-04 ↔ AT-19 | REQUIRED | 승격 모듈 → `DiffBody`(도구 카드) · `DiffFileHeaders`(타일) | import 2건 + 도구 카드 렌더 회귀 | required — 승격 모듈의 export 를 지우면 **두 소비자가 함께** red 인지 확인한다(한쪽만 red 면 SSOT 가 아니다) | EP-07 (2) |
+| VP-20 | AR-07 ↔ AT-21 (IT-06) | REQUIRED | `composerPanel.ts` → `GitRow` · `Notice` → DOM | 두 렌더 출력이 갖는 크롬 클래스 집합 | required — `Notice` 에 독자 표면을 다시 박아 **두 소비자가 갈렸을 때** red 인지 확인한다(한쪽만 보면 SSOT 가 아니다) | EP-09 (2 적용 / 7 열거) |
 
 `NOT_REQUIRED` 행 없음 — Baseline V 라 비영향 판정 대상인 inherited pair 가 없다.
 
@@ -378,6 +385,7 @@ ChatTile → Composer(showGitRow) → GitRow
 | **EP-07** MD-04·AR-05 / VP-17·VP-18 | 줄 파생·줄 렌더를 **한 모듈이 소유**한다 — 소비 지점 **2** (`DiffBody.tsx` · `DiffFileHeaders`) | `lib/diffLines.ts` · `components/DiffTable.tsx` | `rg` 2건 + 도구 카드 회귀 렌더(AT-19) | 테스트 시점 | 소비자가 각자 구현하면 `+`/`-` 거터·색·줄번호 규칙이 갈라진다. **`DiffBody` 에 기존 테스트가 없어 승격 회귀를 잡을 장치가 AT-19 뿐이다** |
 
 | **EP-08** AR-06 / VP-19 | git 스냅샷은 **세션 상태 한 곳**이 소유한다 — 지점 **3** (`chatReducer` 필드+액션 · `useGitRowStatus` 유일 호출부 · 소비자 2가 그 필드만 읽음) | `chatReducer.gitStatus` | `rg`(호출부 1 · 소비 2) + reducer 테스트 | 테스트 시점 | 소비자가 각자 조회하면 턴당 git 프로세스가 배가 되고(§14) 두 표면이 서로 다른 스냅샷을 믿는다 |
+| **EP-09** AR-07 / VP-20 | 패널 스택 패널의 크롬은 **한 모듈이 소유**한다 — 스택 자식 **7** 을 열거해 **2 적용**(`GitRow`·`Notice`) · **5 제외**(`CwdPanel` = 랜딩 칩 레일, 0201 D-011 소유 · `AskUserQuestionCard`·`ToolApprovalBody`·`ApprovalCard` = elevated 카드 티어(`rounded-r7 border bg-surface-primary-elevated shadow`) · `ComposerInputController` = 입력 자신) | `composerPanel.ts` | 렌더 단언(AT-21) | 테스트 시점 | 패널마다 배경·반경·여백을 따로 적으면 스택이 한 시스템으로 읽히지 않는다. **typecheck 가 클래스 문자열을 보지 않으므로 기계 강제가 이 렌더 단언뿐이다** |
 
 - 같은 규칙의 SSOT: 늦은 응답 방어는 `branchChipState.ts` 의 `BranchSnapshot`·`statusForCwd` 를 **재사용한다** — 정규식/구조를 복사하지 않는다. 스냅샷이 store 로 올라가도 그 타입과 비교 함수는 그대로다(D-020).
 - `실패 의미` 에 "다른 게이트가 막는다" 를 적은 행: EP-01·EP-03 둘. 근거는 이번 턴 실측 — `RightPanelTileId` 는 union 이라 잔여 참조가 error 를 내고(0204 r1 이 같은 형태로 4건을 드러냈다), `GitStatus` 필수 필드 추가는 리터럴 3곳에 `TS2739` 를 낸다. **테스트 3지점과 EP-02④·EP-04 는 그 강제 밖이라 별도로 적었다.**
@@ -393,6 +401,9 @@ ChatTile → Composer(showGitRow) → GitRow
 | `app/src/main/app/handlers/git.ts` | IPC | `NOT_REPO` 에 `root: null` | 기존 `git.test.ts` |
 | `.../composer/gitRowState.ts` **신규** | 순수 판정 | `gitRowView` · `shouldRefetchGitStatus` · `repoNameFromRoot` | 순수 (UT-01·02) |
 | `.../composer/gitRowState.test.ts` **신규** | — | AT-02·03·04·06·08·09 | — |
+| `.../composer/composerPanel.ts` **신규** | 패널 스택 크롬 SSOT | `composerPanelSurface` · `COMPOSER_PANEL_ICON_SIZE` — 값은 참조 실측(D-021) | 렌더 (AT-21) |
+| `.../components/Notice.tsx` | 안내 패널 | 독자 표면(`border`·`bg-sidebar`·`r6`·`text-[12px]`)을 크롬 SSOT 로 교체 | 렌더 (AT-21) |
+| `.../composer/composerPanel.render.test.ts` **신규** | — | AT-21 | — |
 | `.../composer/GitRow.tsx` **신규** | 표시 | props-only `GitRowView` + store 연결 `GitRow` + `useGitRowStatus`(**유일 호출부**) | 렌더 (AT-01·07·08) |
 | `.../composer/gitRow.render.test.ts` **신규** | — | AT-01·07·08 | — |
 | `.../components/Composer.tsx` | 조립 | `showGitRow?: boolean` prop 추가 + `CwdPanel` 아래가 아닌 **위**에 배치 | — |
@@ -506,6 +517,7 @@ GitRow 변경량 버튼 → toggleRightPanelTile('diff') → state.rightPanelTil
 - `app/src/shared/ipc.ts` · `app/src/main/infra/git/git-cli.ts` · `app/src/main/app/handlers/git.ts`
 - `app/src/renderer/src/features/chat/components/composer/{gitRowState.ts,gitRowState.test.ts,GitRow.tsx,gitRow.render.test.ts}` (신규)
 - `app/src/renderer/src/features/chat/components/{Composer.tsx,ChatTile.tsx}`
+- `app/src/renderer/src/features/chat/components/composer/{composerPanel.ts,composerPanel.render.test.ts}` (신규) · `components/Notice.tsx`
 - `app/src/renderer/src/features/chat/components/rightpanel/{diffTileMock.ts,diffTileTree.ts,DiffTileContent.tsx,DiffTileHeader.tsx,diffTile.render.test.ts}` (신규) · `tileRegistry.ts` · `ReservedTileContent.tsx`(삭제)
 - `app/src/renderer/src/features/chat/lib/{diffLines.ts,diffLines.test.ts}` (신규·이동) · `components/DiffTable.tsx` (신규·이동) · `components/transcript/tool-bodies/DiffBody.tsx` (수정)
 - `app/src/renderer/src/features/chat/lib/rightPanelTiles.ts` · `reducer/chatReducer.ts`
