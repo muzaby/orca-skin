@@ -1,8 +1,8 @@
 // spawn 입력 조립 — env 우선순위·secret 격리·fingerprint (0188 AC15·AC16·AC19).
 //
 // 0181 의 `buildTurnEnv` 는 `orca.json env + materialize().env` 두 층만 병합했다. 여기서는
-// **네 층**(process → app → settings env → runtimeEnv)의 최종 값과, 그 값이 respawn 판정에
-// 쓰이는 fingerprint 로 접히는지를 본다.
+// spawn env 레이어(process → app → settings env → runtimeEnv → 배포 custom, 0207)의 최종 값과,
+// 그 값이 respawn 판정에 쓰이는 fingerprint 로 접히는지를 본다.
 
 import { describe, expect, it } from 'vitest'
 import {
@@ -10,7 +10,9 @@ import {
   prepareHarnessConfig,
   prepareUnresolvedHarnessConfig,
   type HarnessRuntimeConfig,
-  type ResolvedHarnessSettings
+  type ResolvedHarnessSettings,
+  type SpawnEnvInjector,
+  type SpawnEnvTarget
 } from './harness-config'
 
 function settings(
@@ -38,17 +40,19 @@ function config(overrides: Partial<HarnessRuntimeConfig> = {}): HarnessRuntimeCo
 const BASE = (): Record<string, string> => ({ PATH: '/usr/bin', INHERITED: 'from-process' })
 
 describe('env 우선순위 (AC15)', () => {
-  it('runtimeEnv > settings env > app env > process env', () => {
+  it('customEnv > runtimeEnv > settings env > app env > process env', () => {
     const prepared = prepareHarnessConfig({
       config: config({
         settings: settings({ LAYER: 'settings', ONLY_SETTINGS: 's' }),
         runtimeEnv: { LAYER: 'runtime' }
       }),
       appEnv: { LAYER: 'app', ONLY_APP: 'a' },
-      baseEnv: BASE
+      baseEnv: BASE,
+      customEnv: () => ({ LAYER: 'custom', ONLY_CUSTOM: 'c' })
     })
 
-    expect(prepared.env?.LAYER).toBe('runtime')
+    expect(prepared.env?.LAYER).toBe('custom')
+    expect(prepared.env?.ONLY_CUSTOM).toBe('c')
     expect(prepared.env?.ONLY_SETTINGS).toBe('s')
     expect(prepared.env?.ONLY_APP).toBe('a')
     // SDK `options.env` 는 subprocess env 를 **대체**하므로 상속을 잃으면 안 된다.
@@ -68,21 +72,24 @@ describe('env 우선순위 (AC15)', () => {
     expect(prepared.env?.SHARED).toBe('settings')
   })
 
-  it('네 층의 상대 순서가 계약과 같다 — runtime > settings > app > process', () => {
+  // 위에서부터 한 층씩 걷어내며 같은 표에서 최종값을 관측한다 — 키마다 참여 레이어가 하나씩
+  // 줄어드는 형태라, 순서가 어긋나면 "값이 있다" 가 아니라 **어느 값인가** 에서 깨진다.
+  it('상대 순서가 계약과 같다 — custom > runtime > settings > app > process', () => {
     const prepared = prepareHarnessConfig({
       config: config({
         settings: settings({ A: 'settings', B: 'settings', C: 'settings' }),
-        runtimeEnv: { A: 'runtime' }
+        runtimeEnv: { A: 'runtime', B: 'runtime' }
       }),
-      appEnv: { A: 'app', B: 'app', D: 'app' },
-      baseEnv: () => ({ A: 'process', B: 'process', C: 'process', D: 'process', E: 'process' })
+      appEnv: { A: 'app', B: 'app', C: 'app', D: 'app' },
+      baseEnv: () => ({ A: 'process', B: 'process', C: 'process', D: 'process', E: 'process' }),
+      customEnv: () => ({ A: 'custom' })
     })
 
     expect(prepared.env).toMatchObject({
-      A: 'runtime', // 4층 전부 충돌 → runtime
-      B: 'settings', // settings·app·process → settings
-      C: 'settings', // settings·process → settings
-      D: 'app', // app·process → app
+      A: 'custom', // 모든 레이어가 충돌 → custom
+      B: 'runtime', // custom 을 걷어내면 → runtime
+      C: 'settings', // runtime 까지 걷어내면 → settings
+      D: 'app', // settings 까지 걷어내면 → app
       E: 'process' // process 만 → 상속 유지
     })
   })
@@ -190,7 +197,7 @@ describe('host-managed provider spawn env (0200)', () => {
     expect(prepared.providerSettings?.settings).toMatchObject({ model: 'native-setting' })
   })
 
-  it('runtimeEnv 의 host-managed provider 값이 네 레이어 충돌에서 최종값이 된다', () => {
+  it('runtimeEnv 의 host-managed provider 값이 하위 레이어 충돌에서 최종값이 된다', () => {
     const prepared = prepareHarnessConfig({
       config: config({
         settings: settings({
@@ -249,17 +256,49 @@ describe('host-managed provider spawn env (0200)', () => {
     expect(prepared.providerSettings?.settings).not.toHaveProperty('env')
   })
 
-  it('host-managed flag 판정은 runtime > settings > app > process 순서다', () => {
-    const prepared = prepareHarnessConfig({
+  it('host-managed flag 판정은 custom > runtime > settings > app > process 순서다', () => {
+    const lower = {
       config: config({
         settings: settings({ [MANAGED]: '1', ANTHROPIC_BASE_URL: 'https://settings.test' }),
         runtimeEnv: { [MANAGED]: '0' }
       }),
       appEnv: { [MANAGED]: '1' },
       baseEnv: () => ({ [MANAGED]: '1' })
+    }
+
+    // custom 이 없으면 runtime 의 명시적 `0` 이 하위 `1` 을 계속 덮는다(0200 무회귀).
+    expect(prepareHarnessConfig(lower).env?.[MANAGED]).toBe('0')
+
+    // **양방향으로 본다.** 지우는 변이만 보면 형제 슬롯끼리 맞바꾼 결함이 통과한다.
+    expect(
+      prepareHarnessConfig({ ...lower, customEnv: () => ({ [MANAGED]: '1' }) }).env?.[MANAGED]
+    ).toBe('1')
+    expect(
+      prepareHarnessConfig({
+        ...lower,
+        config: config({
+          settings: settings({ [MANAGED]: '1' }),
+          runtimeEnv: { [MANAGED]: '1' }
+        }),
+        customEnv: () => ({ [MANAGED]: '0' })
+      }).env?.[MANAGED]
+    ).toBe('0')
+  })
+
+  // AC12 — injector 만으로 host-managed 모드가 켜지고, 그 결과 settings env 가 hoist 된다.
+  it('injector 의 host-managed flag 가 settings-only 정적 배포에서 hoist 를 켠다', () => {
+    const source = settings({ ANTHROPIC_BASE_URL: 'https://settings.test' })
+    const prepared = prepareHarnessConfig({
+      config: config({ settings: source }),
+      baseEnv: BASE,
+      customEnv: () => ({ [MANAGED]: '1' })
     })
 
-    expect(prepared.env?.[MANAGED]).toBe('0')
+    expect(prepared.env).toMatchObject({
+      [MANAGED]: '1',
+      ANTHROPIC_BASE_URL: 'https://settings.test'
+    })
+    expect(prepared.providerSettings?.settings).not.toHaveProperty('env')
   })
 
   it('정확히 1이 아닌 settings-only flag 는 host-managed fast path 를 켜지 않는다', () => {
@@ -407,6 +446,23 @@ describe('해석 실패 턴 (prepareUnresolvedHarnessConfig, r10)', () => {
   })
 
   // 기본값이 바뀌면 정상 턴이 조용히 판정을 잃는다 — 그쪽이 훨씬 위험하다.
+  it('injector 를 그대로 부르되 resolved:false 로 알린다 — 사내 프록시가 빠지지 않는다', () => {
+    const seen: SpawnEnvTarget[] = []
+    const prepared = prepareUnresolvedHarnessConfig({
+      baseEnv: BASE,
+      customEnv: ({ target }) => {
+        seen.push(target)
+        return { HTTPS_PROXY: 'http://proxy.corp' }
+      }
+    })
+
+    expect(seen).toEqual([{ resolved: false }])
+    expect(prepared.env?.HTTPS_PROXY).toBe('http://proxy.corp')
+    // 그래도 respawn 판정에는 "모른다" 를 넘긴다 — 해석 실패는 경계가 아니다(0125).
+    expect(prepared.runtimeEnvFingerprint).toBeUndefined()
+    expect(prepared.envFingerprint).toEqual(expect.any(String))
+  })
+
   it('기본값은 여전히 "해석했다" 다 — 정상 턴은 값을 낸다', () => {
     const prepared = prepareHarnessConfig({
       config: config({ runtimeEnv: { TOKEN: 't' } }),
@@ -558,5 +614,184 @@ describe('두 채널 결정표 — characterization (0190 AC13)', () => {
     expect(prepared.env?.STR).toBe('ok')
     expect(prepared.env?.NUM).toBeUndefined()
     expect(prepared.env?.OBJ).toBeUndefined()
+  })
+})
+
+// ── 배포 spawn env injector (0207) ───────────────────────────────────────────
+//
+// 조립부는 injector 를 **인자로** 받는다(`adapters → app` import 금지). 그래서 여기서는 배포
+// 모듈을 흉내 낼 필요 없이 함수 하나를 넘겨 입력·출력·순서를 직접 관측한다.
+describe('배포 spawn env injector (0207)', () => {
+  // AC1 — 등록은 key 를 가리지 않는다. augmenter 가 못 하던 것이 이것이다.
+  it('어느 key 든 injector 반환값이 최종 env 에 있다', () => {
+    const injector: SpawnEnvInjector = () => ({ CORP_CA_BUNDLE: '/etc/corp/ca.pem' })
+    const forKey = (key: string): Record<string, string> | undefined =>
+      prepareHarnessConfig({
+        config: config({ key, modelProviderId: key }),
+        baseEnv: BASE,
+        customEnv: injector
+      }).env
+
+    expect(forKey('claude-anthropic')?.CORP_CA_BUNDLE).toBe('/etc/corp/ca.pem')
+    expect(forKey('claude-corp')?.CORP_CA_BUNDLE).toBe('/etc/corp/ca.pem')
+  })
+
+  // AC2 — 좁히기는 조립부가 아니라 함수 안에서 한다.
+  it('injector 가 식별자로 좁히면 그 key 만 값이 바뀐다', () => {
+    const narrowed: SpawnEnvInjector = ({ target }): Record<string, string> =>
+      target.resolved && target.key === 'claude-corp' ? { CORP_ONLY: '1' } : {}
+    const prepare = (
+      key: string,
+      customEnv?: SpawnEnvInjector
+    ): ReturnType<typeof prepareHarnessConfig> =>
+      prepareHarnessConfig({
+        config: config({ key, settings: settings({ BASE_KEY: 'v' }), runtimeEnv: { R: 'r' } }),
+        baseEnv: BASE,
+        ...(customEnv ? { customEnv } : {})
+      })
+
+    expect(prepare('claude-corp', narrowed).env?.CORP_ONLY).toBe('1')
+    // 대상 밖 key 는 **미등록 조립과 글자까지 같다** — 값이 빠졌는지가 아니라 결과가 같은지를 본다.
+    expect(prepare('claude-anthropic', narrowed).env).toEqual(prepare('claude-anthropic').env)
+  })
+
+  // AC3 — 하드코딩이 config API 응답을 덮는 것이 D-003 의 의도된 결과다(§17 리스크).
+  it('injector 값이 augmenter runtimeEnv 를 이긴다', () => {
+    const prepared = prepareHarnessConfig({
+      config: config({ runtimeEnv: { ANTHROPIC_BASE_URL: 'https://runtime.test' } }),
+      baseEnv: BASE,
+      customEnv: () => ({ ANTHROPIC_BASE_URL: 'https://corp-gateway.test' })
+    })
+
+    expect(prepared.env?.ANTHROPIC_BASE_URL).toBe('https://corp-gateway.test')
+  })
+
+  // AC5 — host env 는 `process.env` 스냅샷 한 장이고, 판정·조립과 **같은** 스냅샷이다.
+  it('injector 는 baseEnv 가 낸 스냅샷을 hostEnv 로 받고 그것에서 값을 파생할 수 있다', () => {
+    let seen: Readonly<Record<string, string>> | undefined
+    const prepared = prepareHarnessConfig({
+      config: config(),
+      baseEnv: BASE,
+      customEnv: ({ hostEnv }) => {
+        seen = hostEnv
+        return { DERIVED_PATH: `${hostEnv['PATH']}:/opt/corp/bin` }
+      }
+    })
+
+    expect(seen).toEqual(BASE())
+    expect(prepared.env?.DERIVED_PATH).toBe('/usr/bin:/opt/corp/bin')
+  })
+
+  // AC6 — 식별자 3종 + `settings.json` **원문 blob**. env 블록을 걷어내기 전 값이어야 배포가
+  // 운영자 설정을 읽고 대상을 판별할 수 있다.
+  it('injector 는 key·harnessId·modelProviderId 와 env 블록이 남은 settings 원문을 받는다', () => {
+    const source = settings({ TOKEN: 'from-settings' }, { model: 'native' })
+    let seen: SpawnEnvTarget | undefined
+    prepareHarnessConfig({
+      config: config({ settings: source, runtimeEnv: { R: 'r' } }),
+      baseEnv: BASE,
+      customEnv: ({ target }) => {
+        seen = target
+        return {}
+      }
+    })
+
+    expect(seen).toEqual({
+      resolved: true,
+      key: 'claude-corp',
+      harnessId: 'claude',
+      modelProviderId: 'corp',
+      settings: { env: { TOKEN: 'from-settings' }, model: 'native' }
+    })
+  })
+
+  // AC7·VP-12 — injector 만으로 env 가 생긴 턴도 두 채널 결정표를 그대로 따른다.
+  it('injector 만으로 값이 생긴 턴도 settings 의 env 블록을 통째로 hoist 한다', () => {
+    const source = settings({ TOKEN: 'from-settings' }, { model: 'native' })
+    const prepared = prepareHarnessConfig({
+      config: config({ settings: source }),
+      baseEnv: BASE,
+      customEnv: () => ({ HTTPS_PROXY: 'http://proxy.corp' })
+    })
+
+    expect(prepared.env).toMatchObject({
+      HTTPS_PROXY: 'http://proxy.corp',
+      TOKEN: 'from-settings'
+    })
+    expect(prepared.providerSettings?.settings).not.toHaveProperty('env')
+    expect(prepared.providerSettings?.settings).toMatchObject({ model: 'native' })
+    // 디스크 원본은 그대로다 — 제거는 사본에서만 일어난다.
+    expect(source.settings['env']).toEqual({ TOKEN: 'from-settings' })
+  })
+
+  // AC9·AC10 — 미등록과 빈 반환은 **같은 결과**다. 참조까지 같아야 상시 경로의 참조 비교가 산다.
+  it('미등록과 빈 객체 반환은 env 를 만들지 않고 같은 settings 참조를 유지한다', () => {
+    const source = settings({ TOKEN: 'from-settings' })
+    const cases = [undefined, () => ({})] as const
+
+    for (const customEnv of cases) {
+      const prepared = prepareHarnessConfig({
+        config: config({ settings: source }),
+        baseEnv: BASE,
+        ...(customEnv ? { customEnv } : {})
+      })
+
+      expect(prepared.env).toBeUndefined()
+      expect(Object.is(prepared.providerSettings, source)).toBe(true)
+    }
+  })
+
+  // AC11 — injector 값이 달라지면 살아 있는 채널을 내리고 respawn 해야 한다.
+  it('injector 결과가 달라지면 envFingerprint 가 달라진다', () => {
+    const withValue = (value: string): string =>
+      prepareHarnessConfig({
+        config: config({ runtimeEnv: { R: 'r' } }),
+        baseEnv: BASE,
+        customEnv: () => ({ CORP_GATEWAY: value })
+      }).envFingerprint
+
+    expect(withValue('https://a.test')).not.toBe(withValue('https://b.test'))
+    expect(withValue('https://a.test')).toBe(withValue('https://a.test'))
+  })
+
+  // AC15 — injector 가 낸 secret 도 `options.env` 에만 남는다(0028 경계 유지).
+  it('injector 가 낸 token 은 options.settings 로 복제되지 않는다', () => {
+    const source = settings({ KEEP: 'yes' }, { model: 'native' })
+    const prepared = prepareHarnessConfig({
+      config: config({ settings: source }),
+      baseEnv: BASE,
+      customEnv: () => ({ CORP_TOKEN: 'super-secret' })
+    })
+
+    expect(prepared.env?.CORP_TOKEN).toBe('super-secret')
+    expect(JSON.stringify(prepared.providerSettings?.settings)).not.toContain('super-secret')
+    expect(JSON.stringify(source.settings)).not.toContain('super-secret')
+  })
+
+  // VP-20 — 판정·조립·injector 입력이 **같은 순간**의 process.env 를 본다.
+  it('injector 가 등록돼도 baseEnv 는 한 번만 불린다', () => {
+    let reads = 0
+    prepareHarnessConfig({
+      config: config({ settings: settings({ S: 's' }), runtimeEnv: { R: 'r' } }),
+      appEnv: { A: 'a' },
+      baseEnv: () => {
+        reads += 1
+        return BASE()
+      },
+      customEnv: () => ({ C: 'c' })
+    })
+
+    expect(reads).toBe(1)
+  })
+
+  // VP-08 — 상호배타 상태를 flat flag 로 두면 배포가 빈 문자열 key 를 실제 key 로 오인한다.
+  // 그 조합은 타입에 존재하지 않는다.
+  it('SpawnEnvTarget 은 discriminated union 이다 — resolved:false 갈래에 식별자가 없다', () => {
+    const unresolved: SpawnEnvTarget = { resolved: false }
+
+    // @ts-expect-error entry 를 못 고른 턴에는 key 가 없다 — 빈 문자열조차 넘기지 않는다.
+    expect(unresolved.key).toBeUndefined()
+    // @ts-expect-error 같은 이유로 harnessId 도 없다.
+    expect(unresolved.harnessId).toBeUndefined()
   })
 })

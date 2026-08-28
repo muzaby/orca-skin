@@ -1,5 +1,9 @@
 // 턴 셋업의 I/O 조각 — provider 해석 · subprocess env 조립 · 소유권 표시 발신 (0179).
 // 순수 판정은 `admission.ts`, 순수 조립은 `turn-context.ts` 가 갖는다.
+//
+// **배포 spawn env injector 를 넘기는 자리는 이 파일 두 곳뿐이다** (0207). `adapters` 는 `app` 을
+// import 할 수 없으므로 조립부가 배포 모듈을 스스로 물지 못한다 — 컴포지션 루트가 넘긴다. 한
+// 경로만 배선하면 entry 해석 실패 턴에서 사내 프록시가 조용히 사라진다.
 
 import type { WebContents } from 'electron'
 import { appEnv } from '../../infra/config/orca-config'
@@ -16,6 +20,7 @@ import {
   toAgentEnvironments
 } from '../../features/harnesses/models'
 import { defaultProvider } from '../../features/harnesses/settings-entries'
+import { SPAWN_ENV_INJECTOR } from '../deployment/spawn-env'
 import { getLogger } from '../../infra/log'
 import { sendChatEvent } from '../../infra/ipc/send'
 import type { RuntimeSessionAdapter } from '../../contracts/ports'
@@ -93,7 +98,8 @@ export async function resolveTurnProvider(
   const prepared = prepareHarnessConfig({
     config,
     appEnv: turnAppEnv(ctx),
-    baseEnv: processEnvRecord
+    baseEnv: processEnvRecord,
+    customEnv: SPAWN_ENV_INJECTOR
   })
 
   const modelFamily = req.modelFamily ?? defaultModelFamily(selected.models)
@@ -113,7 +119,11 @@ export async function resolveTurnProvider(
 // `prepareUnresolvedHarnessConfig` 가 갖는다(r10) — 이 파일은 electron 을 물어 테스트가 닿지
 // 않으므로 조립 규칙을 여기 두지 않는다.
 function unresolvedPrepared(ctx: RouterContext): PreparedHarnessConfig {
-  return prepareUnresolvedHarnessConfig({ appEnv: turnAppEnv(ctx), baseEnv: processEnvRecord })
+  return prepareUnresolvedHarnessConfig({
+    appEnv: turnAppEnv(ctx),
+    baseEnv: processEnvRecord,
+    customEnv: SPAWN_ENV_INJECTOR
+  })
 }
 
 // orca.json 앱 전역 env 의 `${VAR}` 확장. **미해결 키는 드롭**된다(빈 문자열 치환 금지 —

@@ -535,78 +535,139 @@ app/deployment/spawn-env.ts (producer)
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은
 > [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: Part I·Part II 를 그대로 계약으로 수행했다. D-001~D-008 과 충돌하는 구현은 없다.
+- 이견 / 현실성 문제: 없음. 조립부가 injector 를 **인자로** 받는 설계(`adapters → app` 금지 회피)가 그대로 성립했고, 주입 seam 두 개(`baseEnv`·`customEnv`)로 전 경로가 순수 vitest 로 열렸다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+- **`PLAN_GAP` 3건을 발견해 규범 행을 먼저 정정했다** (구현 커밋과 분리 — 설계 커밋 2개). ① EP-12 분모 `4 → 12`(초안 술어가 해법 문구였다) ② VP-16 적대 증거 성립 불가 ③ VP-26 스윕이 층수 축만 본다. 근거는 아래 §잠금·§놓친 잠재 문제.
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r1
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | … | … | … | … |
+| VP-04·VP-05 | 최종 spread 최상위 = `customEnv` (EP-01) | 2 (resolved 조립 · unresolved 위임 조립) | **2/2** | `harness-config.ts:347-354` 한 식을 두 경로가 공유한다. 케이스 `:43`·`:77`(resolved) · `:449`(unresolved) | — |
+| VP-06·VP-07 | injector 입력 `{target, hostEnv}` (EP-02) | 2 (호출 지점 · 타입 선언) | **2/2** | 호출 `harness-config.ts:321-326` · 타입 `:243`·`:262` | — |
+| VP-08·VP-24 | `SpawnEnvTarget` union · 무능력 (EP-03) | 1 (`typecheck:node`+`typecheck:test`) | **1/1** | `npm run typecheck` 3구성 출력 0줄. `@ts-expect-error` 5건(`harness-config.test.ts:616,618` · `deployment-wiring.test.ts:539,541,543`) — 미사용 directive 자체가 오류라 green 이 곧 증거 | — |
+| VP-09·VP-10·VP-21 | injector 배선 (EP-04) | 3 (turn-setup 2 + 위임 1) | **3/3** | `turn-setup.ts:98`·`:122` · 위임 `harness-config.ts:394`. `rg -c 'customEnv: SPAWN_ENV_INJECTOR' turn-setup.ts` → 2 | — |
+| VP-11·VP-12·VP-13·VP-25 | `buildsEnv` 에 custom 포함 + hoist (EP-05) | 1 | **1/1** | `harness-config.ts:343`. 결정표 3케이스(`:578`·`:593`·`:605`) green | — |
+| VP-14·VP-15 | 미등록·빈 반환 fast path (EP-06) | 1 | **1/1** | 같은 판정식 `:343`. 케이스 '미등록과 빈 객체 반환은 …' 이 두 입력을 한 루프로 관측 | — |
+| VP-16·VP-17 | host-managed 판정 체인 최상위 = custom (EP-07) | 1 | **1/1 (코드)** | `harness-config.ts:329-333` 에 항이 있다. **단 관측 불가** — 설계 정정 2 참조 | 관측 가능한 소비처 없음(아래 문제 #1) |
+| VP-18·VP-19 | fingerprint 는 custom 포함 최종 env (EP-08) | 1 | **1/1** | `harness-config.ts:358` 1회 계산. 케이스 'injector 결과가 달라지면 envFingerprint 가 달라진다' + 기존 fingerprint 스위트 green | — |
+| VP-20 | `baseEnv` 1회 스냅샷 (EP-09) | 1 | **1/1** | `harness-config.ts:315-316` 같은 closure. 케이스 'injector 가 등록돼도 baseEnv 는 한 번만 불린다' → `reads === 1` | — |
+| VP-22 | `adapters` 는 `app` 을 import 하지 않는다 (EP-10) | 1 | **1/1** | `npm run lint` → `0 errors, 1 warning`. 조립부는 배포 모듈을 물지 않고 인자로 받는다 | — |
+| VP-23 | 가이드 예제가 실제 타입에 대입 (EP-11) | 1 | **1/1** | `deployment-wiring.test.ts:506`. 가이드 §3-d 블록과 테스트 본문이 **바이트 동일**(python 대조 `IDENTICAL BODY: True`) | — |
+| VP-26 | 우선순위 서술 사본 (EP-12) | 12 | **12/12** | 좌표별 관측은 아래 표. 층수 표현 차집합 `rg '네 레이어\|네 층\|4층\|다섯 레이어\|다섯 층\|5층'`(handoff·archive 제외) → **0줄** | 체인 축 기계 검출 없음(문제 #2) |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+**EP-12 12좌표 (닫은 뒤 재측정)**
+
+| # | 새 좌표 | 관측한 표식 |
+|---|---|---|
+| 1 | `harness-config.ts:121` | `배포 spawn env injector (app/deployment/spawn-env.ts)` 가 체인 최상위 |
+| 2 | `harness-config.ts:307-309` | `모든 레이어를 접은` + `custom > runtime > settings > app > process` |
+| 3 | `auth.md:542` | `배포 spawn env injector` 가 fenced 체인 최상위 |
+| 4 | `auth.md:555` | `단 모든 레이어를 접은 최종 …` — 층수 제거 |
+| 5 | `auth.md:560` | `baseEnv → appEnv → settings env → runtimeEnv → customEnv` |
+| 6 | `closed-network-extensions.md:457` | `spawn env injector > augmenter env > settings env > app env > process env` |
+| 7 | `harness-config.test.ts:4` | `spawn env 레이어(… → 배포 custom, 0207)` — 층수 제거 |
+| 8 | `harness-config.test.ts:43` | 케이스명 `customEnv > runtimeEnv > settings env > app env > process env` |
+| 9 | `harness-config.test.ts:77` | 케이스명 `custom > runtime > settings > app > process` |
+| 10 | `harness-config.test.ts:88` | `// 모든 레이어가 충돌 → custom` — 층수 제거 |
+| 11 | `harness-config.test.ts:200` | 케이스명 `… 하위 레이어 충돌에서 최종값이 된다` — 층수 제거 |
+| 12 | `harness-config.test.ts:259` | 케이스명 `custom > runtime > settings > app > process` |
+
+- §10에 없는데 같은 불변식이 필요했던 지점: **8곳** — 그것이 설계 정정 1의 근거다(4 → 12). 초안 술어 `settings env > app env` 는 *고치려는 문구*라 층수 서술(#2·#4·#7·#10·#11)과 형제 케이스명(#9·#12)과 구현 순서 서술(#5)을 분모 밖에 두었다.
+- 강제 지점 합계: **27/27** (2+2+1+3+1+1+1+1+1+1+1+12).
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01·VP-02·VP-03 | REQUIRED | `SELF_PASS` | key 2종 결과·좁힌 injector 의 두 key 차이·충돌 키 최종값 | not selected |
+| VP-04·VP-05 | REQUIRED | `SELF_PASS` | `:77` 5키 표에서 층마다 다른 최종값 | **M1 red** — spread 에서 `customEnv` 를 `runtimeEnv` 앞으로 맞바꾸니 **4케이스 실패** |
+| VP-06·VP-07 | REQUIRED | `SELF_PASS` | 캡처한 `hostEnv` 가 `BASE()` 와 같고, `target` 4필드가 config 값과 같다 | not selected |
+| VP-08·VP-24 | REQUIRED | `SELF_PASS` | `@ts-expect-error` 5건 · typecheck 3구성 출력 0줄 | not selected — 컴파일러 직접 |
+| VP-09·VP-10 | REQUIRED | `SELF_PASS` | `resolved:false` + `HTTPS_PROXY` 실림 + `runtimeEnvFingerprint === undefined` | **M2 red** — 위임에서 인자를 빼니 **1케이스 실패** |
+| VP-11·VP-12 | REQUIRED | `SELF_PASS` | custom-only 조립에서 `settings.env === undefined` 와 값 hoist 동시 관측 | not selected |
+| VP-13·VP-14·VP-19·VP-22·VP-25 | REGRESSION | `SELF_PASS` | 결정표 3 · fast path 참조 동일 · fingerprint 스위트 · lint 0 error · secret 격리 전부 green | not selected — 기존 직접 oracle |
+| VP-15 | REQUIRED | `SELF_PASS` | 빈 객체 반환이 미등록과 같은 결과·같은 참조 | not selected |
+| VP-16·VP-17 | REQUIRED | `SELF_PASS` (계약) / **적대 증거 불가** | AC12 두 half 를 직접 관측 | **M3 green · M3b green** — 항을 지워도 형제와 맞바꿔도 74/74. 구조적 이유는 문제 #1 |
+| VP-18 | REQUIRED | `SELF_PASS` | injector 값만 바꾼 두 fingerprint 상이 | not selected |
+| VP-20 | REGRESSION | `SELF_PASS` | `reads === 1` | not selected — 카운터 직접 |
+| VP-21 | REQUIRED | `SELF_PASS` | 조립 호출부 수 == injector 인자 수(둘 다 2) | **M4 red** — 한 호출부에서만 인자를 빼니 배선 잠금 1케이스 실패 |
+| VP-23 | REQUIRED | `SELF_PASS` | 가이드 §3-d 본문과 테스트 본문 바이트 동일 | not selected — 컴파일러 직접 |
+| VP-26 | REQUIRED | `SELF_PASS` (12/12) | 좌표 12곳 재측정 + 층수 차집합 0줄 | **M5a red · M5b green** — 층수 축은 검출, 체인 축은 미검출(문제 #2) |
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
 
 | 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|
-| … | … | … | … |
+| M1 — `...customEnv` 를 `...runtimeEnv` **앞으로** 맞바꿈 | VP-04 등록 변이 | `harness-config.test.ts` **4 케이스** (74 → 70 pass) | **red — 검출** |
+| M2 — `prepareUnresolvedHarnessConfig` 위임에서 `customEnv` 제거 | VP-09 등록 변이 | **1 케이스** (74 → 73 pass) | **red — 검출** |
+| M3 — flag 체인에서 `customEnv[FLAG] ??` 항 삭제 | VP-16 등록 변이 | **0 케이스** (74/74) | **green — 미검출.** 구조적으로 관측 불가(문제 #1) |
+| M3b — flag 체인에서 `customEnv`↔`runtimeEnv` 맞바꿈 | VP-16 방향 축 | **0 케이스** (74/74) | **green — 미검출.** 같은 이유 |
+| M4 — `turn-setup` **한** 호출부에서 인자 제거 | VP-21 등록 변이 | `deployment-wiring.test.ts` **1 케이스** (25 → 24 pass) | **red — 검출** |
+| M5a — `auth.md` 사본 하나를 `네 레이어` 로 되돌림 | VP-26 등록 변이(층수 축) | 층수 스윕 **0줄 → 1줄** | **red — 검출** |
+| M5b — `auth.md` 체인 최상위 줄만 삭제 | VP-26 등록 변이(체인 축) | 스윕 **0줄** · doc gate exit 0 | **green — 미검출**(문제 #2) |
 
-## [구현자 기입] Product/UX 파생 검토
+- 새로 만든 oracle 의 민감도: 배선 잠금(`deployment-wiring.test.ts:563`)은 **개수를 상수로 박지 않고** 조립 호출부 수와 인자 수의 일치를 본다 — 세 번째 호출부가 배선 없이 추가돼도 red 다. 가드 자신의 감도는 `:573` 이 별도로 고정한다(인자 없는 호출부·import 줄 오탐 3케이스).
+- 그 밖의 hunk: `해당 없음 — 직접 oracle`(최종 env 값·참조·카운터·fingerprint 를 직접 읽는다).
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 | renderer 변경 0 파일. 새 사용자 대면 문자열을 만들지 않았다 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 8행 전부 실재 | injector 가 던지는 경로는 §13 이 "기존 턴 오류 전파" 로 갖는다 — 새 실패 상태를 만들지 않았다 |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 통과 | injector 는 동기라 그 턴이 `resolveTurnProvider` 밖으로 던지고, 기존 턴 오류 UI 를 그대로 탄다 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | 비동기 경로가 0개다 |
+| **배포자가 관측하는 것이 달라졌는가** | 달라졌다 | 배포자는 이제 파일 하나(`spawn-env.ts`)로 모든 key 를 덮을 수 있다. 그 힘이 augmenter 를 이긴다는 사실을 가이드 §3-d 첫 주입 규칙에 **경고로** 적었다 |
 
-## [구현자 기입] 놓친 잠재 문제 + 대응
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | **EP-07 의 custom 항이 구조적으로 관측 불가다.** `hostManaged` 의 소비처는 `buildsEnv` 하나(`rg 'hostManaged'` → 정의 `:338` · 사용 `:343`)이고, `customEnv[FLAG]` 가 정의됐다는 것은 이미 `hasCustomEnv` 이므로 `buildsEnv` 는 그 항과 무관하게 참이다 | **plan 정정(설계 커밋 2)** — 항은 *순서 일관성 문서*로 남기고 VP-16 의 적대 증거 요구를 내렸다. 제품 동작은 바꾸지 않았다. 관측 가능한 소비처를 만드는 것은 새 동작이라 **사용자 결정 대상** | M3·M3b 둘 다 74/74 green |
+| 2 | **EP-12 체인 축에 CI 검출기가 없다.** 층수 축은 스윕이 잡지만, 체인 최상위 줄을 지우면 스윕도 doc gate 도 green 이다 | **보고만.** 문서 스윕을 기계화하려면 `check-doc-inventory.mjs` 에 새 검사를 더해야 하고, 그것은 모든 향후 문서 편집에 새 실패 모드를 만드는 **새 게이트**다 → 별도 handoff 후보 | M5b: 스윕 0줄 · `check-doc-inventory --check` exit 0 |
+| 3 | injector 가 등록된 배포에서는 `baseEnv()` 가 **항상** 불린다(미등록은 기존 lazy 유지) | 선조치 없음 — plan §14 가 이미 계약으로 적었다. 호출 **1회**임을 카운터로 잠갔다 | 케이스 'injector 가 등록돼도 baseEnv 는 한 번만 불린다' → `reads === 1` |
+| 4 | `EMPTY_ENV` 를 `Object.freeze` 한 공유 상수로 두었다 — 미등록 턴이 매 턴 리터럴을 만들지 않게 | 선조치. 읽기 전용으로만 쓴다(spread 대상) | `harness-config.ts:227` |
+| 5 | 조립 호출부가 셋으로 늘면 배선이 조용히 빠질 수 있다 | 선조치 — 잠금을 **상수 2가 아니라 호출부 수와의 일치**로 썼다 | `deployment-wiring.test.ts:563` |
+| 6 | **문서 산출물의 다중 저장소 쓰기**: 이 handoff 의 상태가 `plan.md` 와 `INDEX.md` 두 곳에 산다 | 두 사본을 같은 커밋에서 갱신했다. 갱신 후 값을 다시 읽어 확인 | `INDEX.md` 0207 행 = `impl`·`IMPL_DONE`·`Claude`(검증) |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan 이 지정한 메커니즘을 다른 것으로 **바꾸지 않았다** — 새 서비스·cache·무효화 축을 만들지 않았고 레이어 하나만 더했다. 대체물이 없으므로 축별 실패 모드 표는 아래처럼 `해당 없음` 이다.
+- 다만 **AC12 가 성립하는 경로가 plan 이 상정한 것과 다르다.** plan 은 `1` half 가 *flag 판정 체인* 을 타고 hoist 를 켤 것으로 적었는데, 실제로는 `hasCustomEnv` 가 `buildsEnv` 를 먼저 켜서 hoist 가 일어난다. 관측 결과는 같고 AC 는 닫혔지만, **강제 지점의 위치가 EP-07 이 아니라 EP-05 다.**
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — injector 는 상태·cache·TTL 을 갖지 않는다(동기 순수 함수, 매 턴 새로 계산) | AC11 — 값이 달라지면 fingerprint 가 달라져 respawn 한다 |
+| 공유 | 해당 없음 — 프로세스 공유 상태를 만들지 않는다. 유일한 공유 객체는 읽기 전용 `EMPTY_ENV` 다 | AC9·AC10 — 미등록·빈 반환 두 입력이 같은 `providerSettings` 참조를 유지 |
+| 재진입 | 해당 없음 — 동기라 `await` 경계가 없고 세션마다 독립 조립한다 | AC8 — unresolved 경로도 같은 함수를 타고 `resolved:false` 만 다르다 |
+| 다른 무효화 축 | 해당 없음 — 무효화할 저장소가 없다. `baseEnv` 스냅샷은 턴 안에서만 살고 1회다 | VP-20 — `reads === 1` |
 
-## [구현자 기입] 구현 보고
+## [구현자 기입] 구현 보고 (r1)
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| 관측한 게이트 산출 | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| AC 자기보고 | … |
-| 합계 검산 | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | 코드 4(`adapters/harness-config.ts` · `app/chat-turn/turn-setup.ts` · `app/deployment/spawn-env.ts` **신규** · `app/deployment/harness-runtime.ts` 헤더) · 테스트 2(`harness-config.test.ts` · `deployment-wiring.test.ts`) · 문서 2(`arch/backend/auth.md` · `guides/closed-network-extensions.md`) |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run src/main/adapters/harness-config.test.ts src/main/app/deployment` · `./node_modules/.bin/vitest run` · `node scripts/check-doc-inventory.mjs --check` |
+| 관측한 게이트 산출 | lint **0 error / 1 warning**(기존 renderer 베이스라인 `useTranscriptVirtualizer.ts:22`) · typecheck **3구성 출력 0줄** · 대상 스위트 **3파일 / 74케이스 pass**(기준선 3/56) · 전체 vitest **242파일 2515케이스 중 237/2469 pass, 5파일 46케이스 fail** · doc gate **exit 0** · `git diff --check` 0 |
+| 환경 기인 실패 분리 | 전체 vitest 의 5파일 46케이스는 전부 `Could not locate the bindings file … better_sqlite3.node` 서명이고, 파일 목록이 `app/AGENTS.md` 의 실측 베이스라인과 일치한다(`infra/db/{queries,migrate}` · `features/extensions/builder` · `features/orchestration/fork` · `app/chat-turn.continuity`). egress 차단으로 네이티브 미빌드 — **변경 무관** |
+| V-pair 자기확인 | `SELF_PASS` **26/26**. VP-16 은 계약은 닫혔고 등록된 적대 증거만 성립하지 않는다(설계 정정 2) |
+| 강제 지점 전수 | **27/27** (EP-01 2 · EP-02 2 · EP-03 1 · EP-04 3 · EP-05 1 · EP-06 1 · EP-07 1 · EP-08 1 · EP-09 1 · EP-10 1 · EP-11 1 · EP-12 12) |
+| AC 자기보고 | AC1~AC16 **16/16**. 행별 재현은 위 전수표와 케이스명 |
+| 합계 검산 | ✅ 16 · ⚠️ 0 · ❌ 0 = **총 16**. 현재 AC 총수를 §7 표에서 다시 세었다(R-01~R-16 = 16행) — 이번 라운드에 AC 를 가르거나 더하지 않았으므로 분모 변경 없음 |
+| 블로커 / 역질문 | **1건** — 문제 #1: `hostManaged` 에 관측 가능한 소비처를 만들지(=`buildsEnv` 에서 `hasCustomEnv` 를 빼고 flag 로만 판정) 아니면 현재대로 순서 일관성 문서로 둘지는 제품 동작 선택이라 사용자 결정 대상이다. **이번 턴은 동작을 바꾸지 않는 쪽**을 택했다 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
-## [구현자 기입] Review Signals — 사실만
+## [구현자 기입] Review Signals — 사실만 (r1)
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드 수: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: r1 이라 이전 라운드가 없다. 다만 **설계 정정 1 은 `handoff-impl/SKILL.md §2` 가 이름 붙인 축과 같다** — "검색 술어를 해법의 이름으로 쓰면 이미 고친 지점만 분모에 오른다"(0194 r3·r4 사례). 이번 초안 술어 `settings env > app env` 가 정확히 그것이었고 8사이트를 놓쳤다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: 있었다 — `handoff-plan` 의 전수 조사 규약. 걸리지 않은 이유는 술어의 *출처*를 검사하는 항목이 없기 때문이다. plan 의 READY self-review 는 "수치 실측" 을 요구하지만 **그 수치를 만든 술어가 불변식의 주어인지**는 묻지 않는다.
+- 반복해서 부딪히는 환경 한계: better-sqlite3 네이티브가 egress 차단으로 빌드되지 않아 DB 5스위트가 상시 red 다(`app/AGENTS.md` 가 이미 베이스라인으로 문서화). 이번 변경 스위트는 비-DB 라 영향 없음.
+- **oracle 감도를 실측하니 등록 변이 7건 중 3건이 green 이었다**(M3·M3b·M5b). 설계 시점에 예측된 것은 M3 하나뿐이고, 예측하고도 `required` 로 남겨 두었다.
+- 현재 라운드 수: **1**
 
 ---
 

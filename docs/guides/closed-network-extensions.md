@@ -36,6 +36,7 @@
 |---|---|---|---|---|
 | 앱을 열 때 사내 로그인을 **강제**한다 (ADFS/WIA) | **[A — §2](#2-레시피-a--로그인-게이트-추가-kindgate)** | `AuthDefinition` + `gate-auth.ts` membership | 필요 | — |
 | 사내 **모델 게이트웨이**에 자격증명을 붙인다 | **[B — §3](#3-레시피-b--llm-provider-추가-kindllm)** | `AuthDefinition` + `harness-runtime.ts` augmenter | 필요 | Orca(발급) → Harness(사용) |
+| 사내 **프록시·사설 CA** 를 Claude subprocess 에 먹인다 | **[B-2 — §3-d](#3-d-spawn-env-주입점--프록시사설-ca-같은-환경-적응값)** | `spawn-env.ts` injector (모든 key) | 필요 | — |
 | 인증이 필요한 **내장 도구**를 모델에 노출한다 (Confluence 등) | **[C — §4](#4-레시피-c--사내-서비스-provider--내장-도구-kindservice)** | `AuthDefinition` + `plugins.ts` binding | 필요 | **Orca** (`BoundAuth.request`) |
 | 그 외 모든 서비스 연동 | **[D — §5](#5-레시피-d--mcp-서버-추가-재빌드-없음)** | MCP 서버 | **불필요** | claude CLI |
 
@@ -58,6 +59,7 @@ app/src/main/app/deployment/
 ├── auth-definitions.ts  ← 인증 대상 전부 (기본값: [])        → 레시피 A·B·C 공통 1단계
 ├── gate-auth.ts         ← 그중 앱 로그인 게이트 membership   → 레시피 A
 ├── harness-runtime.ts   ← Harness 실행 구성 augmenter        → 레시피 B
+├── spawn-env.ts         ← spawn env 주입점 (기본값: undefined) → 레시피 B-2 (§3-d)
 ├── plugins.ts           ← Plugin 도구 조립·가시성            → 레시피 C
 ├── connections.ts       ← 카탈로그 row 조립(gate·harness·plugin·usage)
 └── usage-fetcher.ts     ← 원격 사용량 concrete               → 레시피 E
@@ -452,9 +454,10 @@ subprocess env가 아니라 runtime catalog에 전달된다.
   [`arch/backend/security.md`](../arch/backend/security.md)).
 - **미인증이면 실패시킨다** — 빈 문자열로 치환하지 않는다. 인증된 것처럼 보이는 요청이 나가면
   서버가 401 대신 이상한 오류를 준다.
-- 우선순위는 `augmenter env > settings env > app env > process env` 다. **settings env 가 app env 를
-  이긴다** — `orca.json` 의 app env 는 전역 폴백이고 ModelProvider settings 는 그 ModelProvider
-  전용 설정이다. 폴백이 전용을 이기면 게이트웨이를 바꿔도 URL·모델 변수가 따라오지 않는다.
+- 우선순위는 `spawn env injector > augmenter env > settings env > app env > process env` 다.
+  **settings env 가 app env 를 이긴다** — `orca.json` 의 app env 는 전역 폴백이고 ModelProvider
+  settings 는 그 ModelProvider 전용 설정이다. 폴백이 전용을 이기면 게이트웨이를 바꿔도 URL·모델
+  변수가 따라오지 않는다. 최상위 injector 는 §3-d 다 — **그것이 여기 augmenter 값을 덮는다.**
 - `options.env` 를 만드는 턴에는 settings 의 **`env` 블록이 통째로** in-memory 사본에서 빠지고 그
   값이 `options.env` 로 hoist 된다 — 같은 키가 두 채널에 동시에 남지 않으므로 SDK 가 어느 채널을
   우선하든 결과가 하나다. 디스크 `settings.json` 은 그대로다.
@@ -639,6 +642,54 @@ export function createDirectCredentialAugmenter(readSecret: () => string | null)
 key 별 현재 세대 하나를 cache 하고, 같은 key·generation·sourceRevision 의 동시 요청은 single-flight
 로 합친다. 무효화는 **`credentialChanged:true` Auth change · 명시 refresh · settings 변경 · 응답
 만료** 에서만 일어난다. 자세한 규칙은 [`arch/backend/auth.md`](../arch/backend/auth.md) §6.3.
+
+### 3-d. spawn env 주입점 — 프록시·사설 CA 같은 환경 적응값
+
+augmenter 는 **key 별 등록**이라 운영자가 `sources/settings/` 에 나중에 만든 ModelProvider 에는
+붙지 않는다. 사내 프록시·사설 CA 는 그런 값이 아니다 — **어느 Harness 로 나가든 필요하다.** 그
+자리가 `spawn-env.ts` 의 injector 하나이고, 값은 하네스에 전달되기 직전 **마지막에** 얹힌다.
+
+| # | 하는 일 | 고치는 파일 / 확인 지점 |
+|---|---|---|
+| 1 | `SPAWN_ENV_INJECTOR` 에 함수를 채운다 | `app/deployment/spawn-env.ts` — 이 파일 하나뿐이다 |
+| 2 | 전역값과 좁힌 값을 함수 안에서 가른다 | `target.resolved`·`target.harnessId`·`target.modelProviderId`·`target.key` |
+| 3 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/adapters/harness-config.test.ts src/main/app/deployment` | 순서·배선·형상 회귀 |
+| 4 | 실기: 새 채팅 전송 → 사내 프록시 로그에 subprocess 요청이 도달하는지 | 사람 실기 |
+
+```ts
+import type { SpawnEnvInjector } from '../../adapters/harness-config'
+
+export const SPAWN_ENV_INJECTOR: SpawnEnvInjector | undefined = ({ target, hostEnv }) => {
+  // 프록시·사설 CA 는 모든 key 에 건다.
+  const env: Record<string, string> = {
+    HTTPS_PROXY: 'http://proxy.corp.example:8080',
+    NO_PROXY: 'localhost,127.0.0.1,.corp.example',
+    NODE_EXTRA_CA_CERTS: 'C:\\ProgramData\\corp\\ca-bundle.pem'
+  }
+  // 장비별로 운영자가 덮을 여지를 남긴다 — host 값이 있으면 그것을 쓴다.
+  const override = hostEnv['CORP_PROXY_OVERRIDE']
+  if (override) env.HTTPS_PROXY = override
+  // 특정 게이트웨이에만 거는 값은 **함수 안에서** 좁힌다. 등록 자체는 모든 key 에 걸린다.
+  if (target.resolved && target.harnessId === 'claude' && target.modelProviderId === 'corp') {
+    env.ANTHROPIC_BASE_URL = 'https://llm.corp.example'
+  }
+  return env
+}
+```
+
+**주입 규칙 4가지** (어기면 진단이 어려워진다):
+
+- **동적 credential 을 여기 넣지 마라.** injector 는 augmenter 를 덮으므로, config API 가 방금
+  받아온 token·URL 을 하드코딩이 이긴다. 원격에서 오는 값은 §3-c 의 augmenter 가 소유한다.
+- **값이 없으면 그 키를 빼고 빈 객체를 돌려준다 — 던지지 마라.** 던지면 그 턴이 실패한다.
+  빈 객체는 미등록과 **같은 결과**이고, 그 턴은 `options.env` 자체를 만들지 않는다.
+- **`target.resolved` 가 `false` 인 턴에도 불린다.** 이번 턴이 Harness+ModelProvider 를 못 골랐다는
+  뜻이고, 그때도 프록시는 필요하다. 그 갈래에는 `key` 가 **없다** — 빈 문자열조차 넘기지 않는다.
+- **동기·순수다.** `AbortSignal`·`Promise`·`AuthBinder`·`AuthSecretReader` 를 받지 않는다. 원격
+  왕복이 필요하면 그것은 augmenter 의 일이다.
+
+위 예제는 `app/src/main/app/deployment/deployment-wiring.test.ts` 가 실제 타입에 그대로 대입해
+컴파일한다 — 여기서 예제를 고치면 그 테스트도 함께 고친다.
 
 ---
 
