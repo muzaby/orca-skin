@@ -932,6 +932,183 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 
 ---
 
+# Appendix C — ΔV1 r2 구현 기록
+
+> ΔV1(`ac09b7a` 설계) 기준의 구현 증거다. Appendix B 의 r1 증거를 재사용하지 않는다.
+
+## [구현자 기입] 설계 리뷰
+
+- 동의 / 그대로 진행: Part I·Part II 전부. ΔV1 이 지목한 r1 의 두 결함이 코드에서 그대로 재현됐다 — `sparkFrames.ts:14` 가 `SPARK_TOTAL_FRAMES = 240` 이었고 spoke 마지막 구간이 `[227, 239]` 라 원본 슬롯 240 이 없었다. `StatusLine.tsx:111` 은 `text-rust` 였고 `tokens.css:21` 의 light 값은 `#c96442` 로 원본 `#d97757` 과 다르다.
+- 이견 / 현실성 문제: 없음. §10 의 "241 mod 24 = 1 이라 24-frame pulse 를 반복할 수 없다" 를 실측으로 확인했다 — 24 슬롯 = 24×7200/241 = **717.012ms** 라 10 세그먼트가 7170.12ms 이고 7200ms 트랙과 정확히 한 슬롯 어긋난다. full-period 241 stop 외의 선택지가 없다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 다만 D-016(고정색 한 곳)과 `renderer/AGENTS.md §스타일`("새 토큰은 두 테마 스코프 전부에 값을 채운다")의 해석이 갈리는 지점이 하나 있어 아래 `설계 대비 명시적 차이` 에 적었다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| ΔVP-01 | EP-09 원본 보존 | reference 파일 1 + plan 상대 링크 1 **(2)** | 2/2 | `sha256sum` → `ee57259b…f79b`(54,553B), 마지막 LF 제외 54,552B 의 SHA = `2599335f…aca0`(업로드값과 동일). 링크는 `node scripts/check-doc-inventory.mjs --check` → `links ok: every relative markdown link resolves` | — |
+| ΔVP-02·05 | EP-10 원본→runtime | `sparkFrames.ts`·`SparkSpinner.tsx`·`app.css`·`tokens.css` **(4)** | 4/4 | `sparkFrames.ts` 241항·`frameKeyTimePct`; `SparkSpinner.tsx` 기하 대조 9케이스; `app.css` `grep -c '^@keyframes spark-'` → **8**, `spark-scale` stop **241**; `tokens.css` `--color-spinner: #d97757` **1건**. 넷 다 원본 파싱값과 등호 | — |
+| ΔVP-04 | EP-11 성능 | StatusLine timer 0 · SparkSpinner 노드 상한 · CSS property allowlist · production build asset 0 **(4)** | 4/4 | (1) `statusLine.render.test.ts` — 코드 줄에 `setInterval`·`useState`·`style={` 0건 + `useElapsed` 양성. (2) 렌더 출력 노드 **19**(svg 1·g 2·line 10·circle 1·text 5), 트랙 **8**. (3) `@keyframes spark-*` 8블록의 속성 차집합 = `[]`(transform·visibility 외 0). (4) `grep -rl 'spinner-reference\|spark-strip\|ten-spoked\|testlib' out/` → **0** | — |
+| ΔVP-06·07·08 | EP-12 안내 위치 | UsageDescription add 1 · Model remove 1 · provider remove 1 · daily remove 1 · Meter API remove 1 · ko/en desc 2 **(7)** | 7/7 | `UsageTab.tsx` `UsageDescription` 신설(NOTE 1건) · `ModelUsageList` `<Meter … />` title 없음 · `UsageLimitViews` 동일 · `UsageTooltip` NOTE 줄·`max-w-[240px]`·`tr` 제거 · `Meter.tsx` `grep -c title` → **0** · ko/en `desc` 첫 문장만(`좌측`·`left` 0건). production 등장 수 전수 = **1** | — |
+
+**ΔV1 합계 17/17.** 분모는 §10 이 적은 지점 수(2+4+4+7)를 다시 세어 얻었다.
+
+**상속 EP 회귀 확인**(AT-01~04·AT-10~14 가 기대는 V1 강제 지점 — ΔV1 이 대체하지 않았다)
+
+| EP | 지점 | 닫힘 | 재현 관측 |
+|---|---|---|---|
+| EP-01 | StatusLine 소비자 3 | 3/3 | `grep -rn '<StatusLine' --include=*.tsx src/renderer/src` → `PendingAssistant.tsx:71`·`SubAgentTileContent.tsx:159`·`TaskTileContent.tsx:279`. 나머지 2건은 `StatusLineModel` 타입 참조(이름 충돌, plan §8 이 기록) |
+| EP-06 | 첨부 카드 잔여 6 | 6/6 | `grep -rn 'ProjectFilesCard\|FileDropIllustration\|filesCard' src/renderer/src` → **0건**(차집합) |
+| EP-07 | 문서·주석 사본 3 | 3/3 | 같은 술어를 `dom-architecture.md`·`ProjectLandingPage.tsx`·`SparkSpinner.tsx` 에 직접 대어 **0건** |
+| EP-08 | 지침 카드 본문 1 | 1/1 | `ProjectInstructionsCard.tsx:25` 에 `bodyClassName="min-h-[280px] overflow-y-auto"`, `line-clamp` 은 주석 설명 1줄뿐(코드 0) |
+
+**총 강제 지점 17 + 13 = 30/30.**
+
+- §10에 없는데 같은 불변식이 필요했던 지점: **1건** — `codeOf()`(주석 제외 술어)가 원문 스윕 술어 **9건**(`codeOf(` 호출 7곳)에 필요했는데 §10 은 그것을 지점으로 갖지 않는다. 계약이 아니라 술어 위생이라 PLAN_GAP 이 아니고 선조치했다(아래 `놓친 잠재 문제` #1).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| ΔVP-01 | REQUIRED | SELF_PASS | `sparkFrames.test.ts` AT-21 2케이스 — 업로드 SHA·54,552B·파싱값 | **검출** — 원본 `stroke-width` 1글자 변경 시 **2 red**(M22) |
+| ΔVP-02 | REQUIRED | SELF_PASS | 같은 파일 AT-22 4케이스 — `mismatches(REF, RUNTIME)` = `[]`, 241 슬롯 비교 | **검출** — 런타임 241→240 회귀 시 **8 red**(M1) |
+| ΔVP-03 | REQUIRED | SELF_PASS | AT-23 6케이스 — 변조 fixture 마다 예상 불일치 문자열 등호 | **검출** — 마지막 슬롯 삭제·배율 변조·key time 변조·글리프 교환·240 모델·구조 파괴 6종 전건 |
+| ΔVP-04 | REGRESSION | SELF_PASS | `statusLine.render.test.ts` 3케이스 + `sparkCss.test.ts` 3케이스 | **검출** — `setInterval` 재도입 **1 red**(M10) · testlib import **1 red**(M13·M23) · 키프레임 layout 속성 **1 red**(M14) |
+| ΔVP-05 | REQUIRED | SELF_PASS | `sparkCss.test.ts` 4케이스 — CSS 241 stop ↔ 원본 key time·배율 등호, 트랙 8개 duration | **검출** — stop 키타임(M3)·구간 경계(M4)·duration(M5)·클래스 조립(M15) 각 red |
+| ΔVP-06 | REQUIRED | SELF_PASS | `usageTooltip.render.test.ts` AT-25 1케이스 + 카탈로그 2케이스 | **검출** — NOTE 렌더 제거 **2 red**(M16) · ko desc 문장 복원 **1 red**(M21) |
+| ΔVP-07 | REQUIRED | SELF_PASS | 같은 파일 AT-26~28 5케이스 + `usagePanel.render.test.ts` 1케이스 | **검출** — 툴팁 본문 통째 삭제 **1 red**(M20, 양성 짝) · NOTE 복원 **2 red**(M17·M18) |
+| ΔVP-08 | REQUIRED | SELF_PASS | AT-29 2케이스 — production 등장 수 1, `<Meter … title=` 0 | **검출** — `Meter.title` 복원 **1 red**(M19) · 같은 파일 두 번째 소비자 **2 red**(M17b, 강화 후) |
+| ΔVP-09 | REGRESSION | **SELF_BLOCKED** | 사람 실기 — 헤드리스 환경이라 앱을 띄울 수 없다 | not selected — 시각·OS 폰트 |
+| VP-01·02·04(상속) | REGRESSION | SELF_PASS | `statusLine.render.test.ts` 6케이스 — `<svg>` 1·옛 글리프 0·노드 19 | **검출** — 글리프 1종 누락 **3 red**(M12) |
+| VP-10~16(상속) | REGRESSION | SELF_PASS | i18n·CwdPanel.landing·projects 4파일 **23케이스 green**, `grep` 차집합 0 | not selected — 기존 케이스가 원문을 본다 |
+
+`SELF_PASS 10 / SELF_BLOCKED 1`.
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+**심은 결함 23종 · 전건 검출.** 각 행은 변이를 넣고 대상 스위트를 돌린 뒤 백업본으로 되돌린 실측이다(`git checkout` 을 쓰지 않는다 — r1 이 그것으로 미커밋 CSS 블록을 날렸다).
+
+| 심은 결함 | 출처 | 실패한 케이스 수 | 결과 |
+|---|---|---|---|
+| M1 `SPARK_TOTAL_FRAMES` 241→240 + spoke 구간 `[227,239]` | ΔVP-02 `241→240 회귀` | 8 | 잠김 |
+| M2 `SPARK_FRAME_SCALES` 두 항 교환 | ΔVP-02 | 3 | 잠김 |
+| M3 `app.css` scale stop 키타임 `0.4149%`→`0.4200%` | ΔVP-05 `한 지점 변경` | 1 | 잠김 |
+| M4 `app.css` spoke 구간 경계 `14.5228%`→`14.5000%` | ΔVP-05 `window` | 1 | 잠김 |
+| M5 `app.css` `spark-g3` duration 7200→7170ms | ΔVP-05 `duration` | 1 | 잠김 |
+| M6 감속 열거에서 `.animate-spark-g3` 제거 | 상속 AR-02 | 1 | 잠김 |
+| M7 `--color-spinner` 를 rust light 값 `#c96442` 로 | ΔVP-05 `token` | 1 | 잠김 |
+| M8 `[data-theme='dark']` 가 `--color-spinner` 재정의 | D-016 두 테마 동일 | 1 | 잠김 |
+| M9 소비자가 `text-spinner`→`text-rust` 복귀 | D-016 | 2 | 잠김 |
+| M10 `StatusLine` 에 `setInterval`+`useState` 재도입 | ΔVP-04 `timer 재도입` | 1 | 잠김 |
+| M11 spoke 마크 배율 `scale(0.74)`→`scale(0.8)` | ΔVP-02 기하 | 1 | 잠김 |
+| M12 글리프 5종 중 1종 누락 | 상속 AT-04 | 3 | 잠김 |
+| M13 프로덕션이 `sparkReference.testlib` import | ΔVP-04 `reference import 재도입` | 1 | 잠김 |
+| M14 `@keyframes spark-scale` 에 `width: 18px` 추가 | ΔVP-04 property allowlist | 1 | 잠김 |
+| M15 트랙 클래스 이름을 `join('-')` 로 조립 | 상속 r1 #6 리터럴 가드 | 2 | 잠김 |
+| M16 `UsageDescription` 에서 NOTE 제거 | ΔVP-06 `NOTE 렌더 제거` | 2 | 잠김 |
+| M17 모델 막대 밑에 NOTE 줄 복원 | ΔVP-07 `chart callsite 복원` | 1 | 잠김 |
+| M17b **같은 파일 안** 두 번째 NOTE 소비자 | ΔVP-08 | 1 → **2**(술어 강화 후) | 잠김 |
+| M18 차트 툴팁에 NOTE 줄 복원 | ΔVP-07 | 2 | 잠김 |
+| M19 `Meter.title` prop·DOM 전달 복원 | ΔVP-08 `title API` | 1 | 잠김 |
+| M20 차트 툴팁 본문 통째로 `return null` | ΔVP-07 `chart 전체 삭제` | 1 | 잠김 |
+| M21 ko `desc` 에 provider 위치 문장 복원 | ΔVP-06 | 1 | 잠김 |
+| M22 원본 SVG 의 `stroke-width` 1글자 변경 | ΔVP-01 `XML 1byte 변경` | 2 | 잠김 |
+| M23 프로덕션이 `sourceScan.testlib` import | ΔVP-04(술어 확장 후) | 1 | 잠김 |
+
+- **M17b 가 술어의 결함을 드러냈다.** AT-29 의 초안 술어는 `usage.estimateNote` 를 **파일 목록**으로 셌는데, `ModelUsageList` 가 `UsageTab.tsx` 안에 살기 때문에 같은 파일에 두 번째 소비자가 생겨도 목록이 그대로라 통과했다(1 red — AT-27 만 잡았다). **등장 횟수 + 그 한 번이 `UsageDescription` 함수 본문 안** 으로 바꾸고 재측정해 **2 red** 를 확인했다. "완결성 주장의 관측값은 총계가 아니라 차집합·개수" 규칙이 이 자리에서 한 번 더 필요했다.
+- 복구 후 대상 스위트 재실행 = **renderer 79파일 664케이스 전건 green**, 원본 SVG SHA `ee57259b…f79b` 불변.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ✅ `usage.estimateNote` 의 소비자는 `UsageDescription` **1곳**이고 그것이 실제로 렌더된다(AT-25 가 첫 문장·NOTE 각 1건과 순서를 본다). producer 만 남고 화면에 없는 문구는 0 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | ✅ 새 실패 경로 없음 — I/O·비동기·타이머를 추가하지 않았다. §5 표의 6행이 그대로 성립하고 "감속 모션 on → frame 0" 은 CSS 블록 8트랙 차집합 0 으로 잠겨 있다 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | ⚠️ **2건** — (a) 트랙 이름이 갈라지면 그 마크가 *애니메이션 없이 항상 보여* 마크가 겹친다(조용한 오작동). (b) `--color-spinner` 가 사라지면 `text-spinner` 유틸이 방출되지 않아 스피너가 부모 색을 조용히 상속한다 | 둘 다 잠금 완료 — (a) M15·M6, (b) M7·M8 + 빌드 산출에서 `.text-spinner { color: var(--color-spinner) }` 실재 확인 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | ✅ 해당 없음 — 이번 변경은 비동기 응답을 다루지 않는다 | — |
+| **안내를 옮기면 도달률이 떨어지지 않는가** | ✅ **오히려 올라간다** — r1 의 `title=` 툴팁은 마우스 호버 전용이라 키보드·스크린리더 사용자에게 도달하지 않았다(r1 #2 가 보고만 하고 남긴 이슈). 전역 설명의 본문 텍스트로 옮기면서 그 접근성 결함이 **함께 소멸했다**. 사용량이 비어 있거나 로딩 중이어도 안내가 보인다(막대가 없으면 툴팁도 없던 r1 과 다르다) | r1 #2 종료 |
+| (추가) 차트·막대에서 안내만 빼고 데이터가 상했는가 | ✅ 음성 단언마다 양성 짝을 붙였다 — provider 막대 2개+주간/월간 라벨, 모델 막대 N개+모델명+breakdown, 툴팁 날짜·토큰·비용, 도넛 막대 3개 | — |
+| (추가) 툴팁 폭 제한 제거가 시각 회귀인가 | ⚠️ r1 이 60자 안내 때문에 넣은 `max-w-[240px]` 를 함께 걷었다. 남은 세 줄은 날짜·토큰·비용뿐이라 폭 제한이 필요 없다 | AT-30 사람 실기 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | **원문 스윕 술어가 주석에 반응한다** — 이번 턴에 두 번 걸렸다(원본 leak 스윕이 `SparkSpinner.tsx`·`sparkFrames.ts` 의 *설명 주석* 에 걸려 red, `text-rust` 부재 술어가 그것을 설명하는 주석에 걸려 red) | ✅ 선조치 — `codeOf()`(블록 주석 + `//`·`*` 줄 제거)를 `shared/ui/sourceScan.testlib.ts` 로 뽑아 **원문 스윕 전부**에 적용했다 — `grep -rn 'codeOf(' --include=*.test.ts` → **7 호출**, 술어 9건(leak 스윕 2 · `text-rust` · SparkSpinner raw hex · SparkSpinner 프레임 표 · StatusLine timer · estimateNote 전수 · Meter title · `<Meter title=` 전수) | r1 #8 이 같은 실수를 한 번 했고 사례로 남아 있었다. 한 곳만 고치면 다음 술어가 같은 자리에서 다시 틀린다 |
+| 2 | **AT-29 술어가 파일 목록이라 같은 파일 안의 두 번째 소비자를 못 본다** | ✅ 선조치 — 등장 **횟수** + `UsageDescription` 함수 본문 안이라는 자리까지 본다. M17b 로 1 red → 2 red 재측정 | `ModelUsageList` 가 `UsageTab.tsx` 에 산다 — 목록으로 세면 그 파일은 이미 목록에 있다 |
+| 3 | **`sparkCss.test.ts` 는 여전히 `app.css` *소스* 만 본다** — Tailwind 가 `@utility` 를 방출하지 않으면 스피너가 조용히 멈추는데 전건 green 이다(r1 Review Signal (b) 가 남긴 축) | ✅ 선조치 — 리터럴 가드를 유지하고, **빌드 산출을 이번 턴에도 직접 확인**했다: 유틸 8/8·키프레임 8/8 방출, 방출된 `spark-scale` stop **241개**·원본 key time 과 값 불일치 **0**, visibility stop 11/21/3/3/3/3/3, 감속 블록이 8트랙 전부 포함, `.text-spinner { color: var(--color-spinner) }`·`--color-spinner: #d97757` 실재 | 소스 테스트만으로는 이 축이 닫히지 않는다는 것이 r1 의 기록된 결론이다 |
+| 4 | **241 stop CSS 가 인스턴스 비용을 늘리는가** — 사용자 제약(D-003)의 핵심 질문 | ✅ 늘지 않는다. 실측: 인스턴스당 SVG 노드 **19**(r1과 동일) · 애니메이션 **8**(r1과 동일) · spinner 유발 React timer/state **0**(r1과 동일). 늘어난 것은 **전역 CSS 뿐**이고, JS 번들은 오히려 **250 bytes 줄었다**(프레임 표 241항이 rollup 에서 tree-shake 됨 — `grep -c '0\.34,0\.39,0\.46' index-*.js` → **0**) | 아래 `설계 대비 명시적 차이` 의 성능 표 |
+| 5 | 원본 `<svg style="… overflow:hidden">` 를 런타임이 다시 적지 않는다 | ✅ 선조치 없음(정상) — 바깥 `<svg>` 의 UA 기본값이 `overflow: hidden` 이라 동작이 같다. 주석으로 남겨 다음 세션이 "빠뜨렸나" 를 다시 묻지 않게 했다 | `SparkSpinner.tsx` 헤더 주석 |
+| 6 | `usagePanel.render.test.ts` 의 양성 짝이 **2개**로 적혀 있었다 | ✅ 선조치 — 실제 렌더는 막대 **3개**(컨텍스트 1 + 주간·월간 2)다. r1 은 `toContain` 이라 개수를 세지 않아 드러나지 않았고, plan §A7 AT-19 의 "두 막대" 는 호출부 2곳을 센 값이다. 개수로 바꾸며 정정 | `UsagePanel.tsx:48`(컨텍스트) + `:90`(한도 행, week·month 두 번 렌더) |
+| 7 | `Meter.title` 제거로 `shared/ui` 의 도메인 결합이 사라졌다 | ✅ 부수 이득 — `renderer/AGENTS.md §shared 에 도메인 문구 금지` 가 요구하던 상태로 돌아왔다. `meter.render.test.ts` 는 Meter 고유 계약(트랙·ratio clamp)만 남겼고 title 계약을 지웠다 | plan §16 "shared에 도메인 문구 금지 — 강화" |
+| 8 | 글리프 5종의 폰트 의존(프레임의 48%) | ⚠️ 보고만 — 사용자 제공 아티팩트의 성질이라 임의로 바꾸지 않는다(plan §6 미룬 항목). r1 과 같은 상태 | 원본 `.spark-text` 의 `font-family` 를 그대로 옮겼고 렌더 테스트가 원본 값과 등호로 대조한다 |
+| 9 | 세 인스턴스의 애니메이션 **위상이 서로 다르다**(각자 마운트 시각 기준) | ⚠️ 보고만 — r1 에서 이미 보고된 축이고 ΔV1 이 계약으로 만들지 않았다. 원본 스트립도 같은 성질이다 | AT-30 사람 실기 |
+
+### 설계 대비 차이
+
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: **5건.**
+  1. **`SPARK_PULSE_CLASS`/`spark-pulse` → `SPARK_SCALE_CLASS`/`spark-scale` 로 이름을 바꿨다.** plan §11 은 이름을 지정하지 않았고, "pulse" 는 사라진 24-frame 반복을 가리키는 이름이라 남기면 다음 세션이 720ms 주기를 다시 상상한다. 클래스·키프레임·감속 블록·소비자·테스트 전부 같은 커밋에서 옮겼다(`grep -c 'spark-pulse'` → **0**).
+  2. **`--color-spinner` 를 `@theme` 에 *한 번만* 정의하고 `[data-theme='dark']` 에는 두지 않았다.** plan §11 은 "두 테마에서 같은 token 정의", `renderer/AGENTS.md §스타일` 은 "새 토큰은 두 테마 스코프 전부에 값을 채운다" 라고 적는다. 그러나 §10 은 "raw 값은 semantic token 정의 **한 곳**만 소유한다" 이고, 두 스코프에 같은 값을 적으면 raw hex 사본이 둘이 되어 한쪽만 고치는 r1 유형의 결함이 다시 가능해진다. AGENTS 규칙의 이유절("한쪽만 채우면 그 테마에서 깨진다")은 *테마마다 값이 달라야 하는* 토큰을 겨눈다 — 이 토큰은 반대로 **달라지면 안 된다**. 같은 파일의 `Static accent palette — not themed` 블록(`--color-cream-*`·`--color-indigo`)이 그 선례이고 거기에 넣었다. "두 테마에서 같다" 는 정의를 복제해서가 아니라 **재정의가 없음을 단언해서** 성립시킨다(M8 이 그 방향을 확인한다).
+  3. **테스트 헬퍼 모듈 2개를 만들었다** — `sparkReference.testlib.ts`(plan §11 이 지시한 SVG 파서)와 `sourceScan.testlib.ts`(plan 에 없음, 위 #1 의 선조치). `.testlib.ts` 는 vitest `include`(`src/**/*.test.ts`)에 잡히지 않고, 프로덕션이 import 하면 `sparkCss.test.ts` 의 leak 스윕이 잡는다(M13·M23).
+  4. **`usagePanel.render.test.ts` 를 지우지 않고 D-019 의 "도넛 0건" 으로 재조준했다.** plan §11 은 "V1 범위 제외만을 위한 파일이면 삭제" 를 허용했지만, D-019 는 안내가 **차트·막대·도넛 전부에서 0건**이라고 적는다 — 컴포저 도넛이 그 "도넛" 이라 독립 가치가 남는다.
+  5. **AT-29 술어를 파일 목록에서 등장 횟수 + 함수 본문 위치로 강화했다**(위 #2).
+- 신규 의존성: **0**. 새 패키지·새 CSS 파일 없음(`app.css`·`tokens.css` 기존 파일만 수정).
+
+**대체물이 갖고 원본 설계가 갖지 않던 실패 모드 — 축마다**
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | **없다** — CSS 커스텀 속성과 키프레임에는 만료 개념이 없고, 이번 대체물(전역 토큰 1개·전역 키프레임 8개) 어느 쪽도 시간에 따라 상태를 잃지 않는다. r1 이 쓰던 음수 `animation-delay`(위상 보정)마저 사라져 시간 축 상태가 하나 줄었다 | AT-22 재확인: `sparkCss.test.ts` "트랙 8개가 전부 원본의 한 바퀴·계단 타이밍을 쓴다" 가 `-\d+ms` 부재를 함께 단언 — green |
+| **공유** (누가 함께 쓰고 누가 비울 수 있는가) | **있다 — 두 곳.** (a) `--color-spinner` 는 `:root` 전역이라 **어떤 컴포넌트든 `text-spinner` 로 소비**할 수 있고, 새 `[data-theme]` 스코프가 재정의하면 원본과 색이 갈린다. r1 의 `text-rust` 는 이미 공유였지만 "테마마다 다르다" 가 의도였으므로 이 축이 새로 계약이 됐다. (b) `spark-*` 키프레임 이름은 **문서 전역**이라 다른 파일이 같은 이름을 정의하면 덮어쓴다 | EP-10 재확인: `--color-spinner` 정의 **1건**(`grep -o '--color-spinner:[^;]*' tokens.css`), `[data-theme='dark']` 이후 구간에 **0건** — M7·M8 각 1 red. `@keyframes spark-` 정의 **8건, 전부 app.css**(`css.split()` 길이 2 로 전역 유일성까지 단언) |
+| 재진입 | **있다** — 세 소비자가 서로 다른 시각에 마운트하면 각자의 애니메이션 시작점이 달라 **위상이 어긋난다**. r1 과 같은 성질이지만 슬롯이 241 로 늘어 어긋남의 해상도만 바뀐다. 시각적 문제일 뿐 계약 위반은 아니다 | AT-02(상속) 재확인: 세 소비자가 분기 없이 같은 `StatusLine` 을 부르므로 *내용* 은 같다(`grep -rn '<StatusLine'` → 3). 위상 동기화는 유효 V 의 계약이 아니다 — 위 `놓친 잠재 문제` #9 로 AT-30 에 넘긴다 |
+| 다른 무효화 축 | **있다 — 두 개.** (a) Tailwind `@utility`·`@theme` 는 클래스/토큰 리터럴이 스캔 소스에 있을 때만 방출된다. 이름을 조립하거나 토큰을 지우면 **CSS 가 통째로 사라지고 렌더 테스트는 green** 이다. (b) 241 stop 은 `app.css` 사본이라 원본이 바뀌면 손으로 다시 생성해야 한다 | (a) EP-10·EP-11 재확인: 리터럴 가드 2케이스(M15 2 red) + **빌드 산출에서 유틸 8·키프레임 8·`.text-spinner` 방출 직접 확인**. (b) AT-22 재확인: `sparkCss.test.ts` 가 CSS 원문 stop 을 **원본 파싱값과 등호** 로 보므로 원본이 바뀌면 즉시 red — M22 가 그 방향(2 red) |
+
+**성능 — r1 대비 실측 (D-003 · AT-24)**
+
+| 축 | r1 (`ae27113`) | r2 | 판정 |
+|---|---|---|---|
+| 인스턴스당 SVG 노드 | 19 | **19** | 동일 |
+| 인스턴스당 애니메이션 | 8 | **8** | 동일 |
+| 동시 3곳 노드 | 57 | **57** | 동일 |
+| spinner 유발 React timer/state | 0 | **0** | 동일 |
+| 애니메이션 속성 | transform·visibility | **transform·visibility** | 동일(allowlist 차집합 0) |
+| renderer JS 번들 | 3,052,441 B | **3,052,191 B** | **−250 B** (프레임 표 tree-shake, `Meter.title`·툴팁 줄 제거) |
+| renderer CSS 번들 | 95,819 B (gzip 14,949) | **106,445 B (gzip 16,802)** | +10,626 B (gzip **+1,853 B**) — 전역 1회 파싱 |
+| renderer 산출 총합 | 13,503,269 B | **13,513,645 B** | +10,376 B (+0.08%) |
+| 빌드에 원본 asset·문자열 | 0 | **0** | 동일 |
+
+241 슬롯 정확도의 대가는 **전역 CSS +10.6KB(gzip +1.8KB) 하나**다. 렌더 트리·자바스크립트·메인 스레드 작업량은 어느 축도 늘지 않았고 JS 는 오히려 줄었다.
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 수정 17(소스 9 + 테스트 6 + CSS 2) · 신규 2(테스트 헬퍼) · 삭제 0 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `npx prettier --check ./src` · `./node_modules/.bin/vitest run` · `node scripts/check-doc-inventory.mjs --check` · `npx electron-vite build` |
+| **관측한 게이트 산출**(exit code 아님) | lint **0 error · 1 warning**(`useTranscriptVirtualizer.ts:22` react-compiler — 이번 diff 밖 기존분) · typecheck **3구성 전부 출력 0줄, exit 0** · prettier **1 warn = `src/main/AGENTS.md`**(이번 diff 가 건드리지 않은 파일, `git status` 에 미변경) · vitest **249파일 2571케이스 중 5파일 48케이스 red** · renderer 전용 **79파일 664케이스 전건 green** · doc-inventory **3검사 ok, exit 0** · build **exit 0** |
+| 환경 기인 실패 분리 | red 48건 = `infra/db/{queries,migrate}` · `features/extensions/builder` · `features/orchestration/fork` · `app/chat-turn.continuity` **5파일 전부 DB 로드**. 서명 `better_sqlite3.node` **12건**. **`git stash -u` 기준선 재현: 같은 5파일 48케이스** — 변경 무관(`app/AGENTS.md` 의 알려진 기준선) |
+| V-pair 자기확인 | `SELF_PASS 10 / SELF_BLOCKED 1`; pair별 상세는 위 표 |
+| 강제 지점 전수 | **ΔV1 17/17 + 상속 13/13 = 30/30** |
+| 심은 결함 | **23종 전건 검출**(위 잠금 표) |
+| **AC 자기보고**(`Criteria-Met`) | **18/19** — AT-21~AT-29 와 상속 AT-01~04·AT-10~14 를 위 표의 재현 관측으로 각각 확인. **AT-30 은 ⚠️**(사람 실기, 헤드리스라 앱 미기동) |
+| **합계 검산** | `✅ 18 · ⚠️ 1 · ❌ 0 = 총 19`. **분모가 r1 의 20 에서 19 로 바뀌었다** — V1 AT-01~AT-20(20) 중 **AT-05~09·AT-15~20 의 11개가 SUPERSEDED**, 남은 상속 9개(AT-01~04·AT-10~14)에 ΔV1 의 AT-21~AT-30(10)을 더해 **9 + 10 = 19**. r1 의 `19/20` 과 직접 비교하지 않는다 |
+| 블로커 / 역질문 | 없음. 사람 실기(AT-30) 6건이 남는다 — 두 테마 스피너 크기/정렬/색/속도 · 감속 모션 frame 0 · Windows 글리프 5종 · 지침 카드 · 사용량 설명 1건 · 세 표면 안내 0건 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만
+
+- **이번에 닫은 불변식이 이전 라운드와 같은 축인가: 예 — 두 축이 되풀이됐다.**
+  - (a) **"oracle 의 기대값은 원본에서 파생해야 한다."** r1 은 240행을 손으로 전사해 원본의 241번째 슬롯과 고정색을 놓쳤다. r2 는 프레임·key time·기하·색·기간·구간 전부를 원본 파싱값에서 만든다 — 테스트에 남은 손 전사는 **사용자 원문 문구 1건**(그것은 사본이 아니라 계약 자체다)뿐이다.
+  - (b) **"원문 술어는 코드를 봐야지 산문을 보면 안 된다."** r1 #8 이 같은 실수를 한 번 했고, r2 에서 **두 번 더** 재현됐다(leak 스윕 · `text-rust` 부재). 이번에는 사례를 지점마다 고치지 않고 `codeOf()` 로 올려 **원문 스윕 술어 9건 전부**(`codeOf(` 호출 7곳)에 적용했다.
+- **그것을 막았어야 할 plan 지침·AC가 있었는가: 2건.**
+  - (a) plan §11 "SVG parser는 test helper에 두고" 는 파서의 *존재* 만 요구하고 **술어가 주석에 반응하는 축**은 적지 않는다. §10 에도 지점이 없다 — 계약이 아니라 술어 위생이라 이번엔 선조치로 닫았지만, 같은 축이 세 라운드째다.
+  - (b) plan §7 AT-29 의 oracle 문장("renderer의 비-test callsite **전수 검색** = 1")은 무엇을 세는지(파일 vs 등장)를 정하지 않는다. 초안 술어가 파일을 셌고 M17b 가 그 눈을 통과했다. 술어를 강화해 닫았다.
+- 이번 턴에 만든 장치 중 방향이 틀린 것: **1건**(AT-29 초안 술어, 위 (b)). 나머지 22 변이는 초안 술어가 그대로 잡았다.
+- 반복해서 부딪히는 환경 한계: better-sqlite3 ABI(문서화된 기준선, 5파일 48케이스) · 헤드리스라 시각 실기 불가(AT-30·ΔVP-09).
+- 현재 라운드 수: **2**
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.

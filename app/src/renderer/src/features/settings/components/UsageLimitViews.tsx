@@ -32,12 +32,8 @@ function LimitBarRow({ label, bar }: { label: string; bar: UsageLimitBar }): Rea
           </div>
         </div>
       </div>
-      {/* 0208 — 수치가 SDK telemetry 추정치임을 막대 호버로 알린다. */}
-      <Meter
-        ratio={bar.unlimited ? 0 : bar.pct}
-        tone={bar.unlimited ? 'muted' : undefined}
-        title={tr('usage.estimateNote')}
-      />
+      {/* 추정치 안내는 여기 붙지 않는다 — 전역 사용량 설명 한 곳이 정본이다(0208 D-019). */}
+      <Meter ratio={bar.unlimited ? 0 : bar.pct} tone={bar.unlimited ? 'muted' : undefined} />
     </div>
   )
 }
