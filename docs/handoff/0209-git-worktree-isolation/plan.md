@@ -477,3 +477,10 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 - 게이트 결과: `npm run lint` 0 error/기존 warning 1, `npm run typecheck` 3구성 green, 관련 suite **12파일 127케이스 green**(실제 Git safe-delete 4케이스 포함), migration append-only/sync green, doc inventory/link green, `git diff --check` green. 전체 `npm test` 최초 실행은 **255파일 중 252 green, 2577/2581 green**이었고 당시 red 4건(migration expectation 3+신규 bind test 1)은 수정 후 관련 12파일 127케이스 전건 green으로 재실행했다. 잔여 미수집 suite 1개는 아래 환경 제한이다.
 - 환경 제한: `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci --ignore-scripts` 환경이라 Electron binary가 없어 `chat-turn.continuity.test.ts`가 0건 수집(`Electron failed to install correctly`)했다. perceptible UI screenshot과 Windows 실제 Git 실기는 이 환경에서 수행할 수 없어 AC20을 ⚠️로 남겼다.
 - 파생 이슈: **NON_BLOCKING D1** — V1은 외부 worktree를 mutation하지 않는 계약을 “관리 row로 찾은 대상만 삭제” 구조로 닫았지만, 부팅 reconciliation/UI 노출은 여전히 후속 범위다. **NON_BLOCKING D2** — add 실패 뒤 생성됐을 수 있는 branch는 best-effort `branch -d`로 정리하며 실패 시 Git stderr만 남는다; orphan 관리 UI 전까지 자동 force cleanup은 하지 않는다. PLAN_GAP은 없다.
+
+### r2 — Windows CI 경로 표기 회귀 수정
+
+- 외부 피드백 재현: Windows 전체 suite에서 생성 성공 자체는 관측됐지만 `executionCwd.startsWith(managed)`가 false였다. `realpath()`가 drive letter 대소문자나 junction 표기를 canonicalize할 수 있어 동일 경로의 문자열 표기가 달라진 것이 원인이다.
+- 수정: 테스트의 문자열 prefix proxy를 production과 같은 path containment 술어 `isWithinDir(executionCwd, managed)`로 교체했다. 제품 코드·계약·V node/pair·강제 지점은 변경하지 않았다.
+- 회귀 범위: VP-14/MD-01/UT-01의 Windows path oracle만 정정했다. POSIX·Windows 모두 `resolve/relative/isAbsolute` 의미로 containment를 판정하며 `..` 탈출은 계속 false다.
+- 게이트: `service.test.ts` 4/4, 관련 Git/worktree suite, typecheck 3구성, lint 0 error, doc/migration/diff gate를 재실행한다. AC 분모는 **✅19 · ⚠️1 · ❌0 = 20**, V pair는 **SELF_PASS 17/17**로 불변이다.
