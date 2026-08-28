@@ -57,7 +57,7 @@
 |---|---|
 | [`decisions/`](decisions/) | ADR — 왜 그렇게 결정했나 |
 | [`archive/`](archive/) | 완료된 페이즈·핸드오프 이력 (완료 이력의 정본은 `git log`) |
-| [`etc/`](etc/) | 전략 문서 · 라이프사이클/오케스트레이션 일반론 · 외부 프로젝트 사례 연구(`study/` — cowork 반환 메시지 렌더링은 [`etc/study/cowork/`](etc/study/cowork/README.md), Claude Code 컴포저 상단 스택·diff 패널은 [`etc/study/epitaxy/`](etc/study/epitaxy/README.md)) |
+| [`etc/`](etc/) | 전략 문서 · 라이프사이클/오케스트레이션 일반론 · 외부 프로젝트 사례 연구(`study/` — cowork 반환 메시지 렌더링은 [`etc/study/cowork/`](etc/study/cowork/README.md), Claude Code 컴포저 상단 행·diff 패널의 **버튼 구성**은 [`etc/study/epitaxy/`](etc/study/epitaxy/README.md)) |
 | [`spec/`](spec/) | 외부 공식 문서 **원문 미러** — 편집 금지 ([`claude-code-spec.md`](claude-code-spec.md) 가 라우터) |
 | `chats/` | 사용자 의도 트랜스크립트 (transcript ≠ 현재 요구·아키텍처·코딩 규칙) |
 | `project/` | 디자인 프로토타입 아카이브 (시각 기준) |
