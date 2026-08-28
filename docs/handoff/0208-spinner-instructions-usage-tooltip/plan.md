@@ -523,7 +523,7 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
 | VP-01·02·03·04·09 | EP-01 스피너가 세 소비자에 도달 | `PendingAssistant:71`·`TaskTileContent:279`·`SubAgentTileContent:159` (3) | 3/3 | `rg '<StatusLine' --include=*.tsx` → **3건**, 셋 다 분기 없이 같은 `StatusLine` 호출 | — |
-| VP-05·06·07 | EP-02 트랙 이름 TS↔CSS 사본 | `@utility animate-spark-{pulse,dot,spoke,g1..g5}` (8) | 8/8 | `grep -c '@keyframes spark-\|@utility animate-spark-' app.css` → **16**(키프레임 8 + 유틸 8). `sparkCss.test.ts` 가 트랙마다 동명 키프레임 존재를 단언 | — |
+| VP-05·06·07 | EP-02 트랙 이름 TS↔CSS 사본 | `@utility animate-spark-{pulse,dot,spoke,g1..g5}` (8) | 8/8 | 소스: `grep -c '@keyframes spark-\|@utility animate-spark-' app.css` → **16**. **빌드 산출**(`electron-vite build` → `out/renderer/assets/index-*.css`): 유틸 8/8 · 키프레임 8/8 방출, 차집합 0 | — |
 | VP-08 | EP-03 감속 모션이 트랙 전수를 덮는다 | 같은 8 클래스 (8) | 8/8 | `sparkCss.test.ts` "차집합 0" 케이스 — `missing` 배열이 `[]`, `ALL_TRACKS` 길이 8 | — |
 | VP-17·18·20·21 | EP-04 안내를 Meter 트랙에 거는 호출부 | `UsageLimitViews` `LimitBarRow` 1 · `UsageTab` `ModelUsageList` 1 (2) | 2/2 | `rg '<Meter' --include=*.tsx` → 4건 중 2건에 `title` 전달, `UsagePanel` 2건은 D-013 으로 미전달. AT-19 가 그 2건을 음성+양성으로 잠금 | — |
 | VP-16 | EP-05 i18n 두 카탈로그 | ko 추가1·en 추가1·ko 삭제1·en 삭제1 (4) | 4/4 | `grep -c estimateNote ko.ts en.ts` → 각 1 · `rg filesCard` → **0건**. `typecheck:web` exit 0(= `typeof ko` 위반 없음) | — |
@@ -566,7 +566,9 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 | `ProjectInstructionsCard.tsx` — `line-clamp-3` 복원 + `bodyClassName` 비움 | `VP-10 선택 증거` | 말줄임·min-h·빈 지침 **3건** | 잠김 |
 | `Meter.tsx` — `title` 을 트랙 `div` → 내부 바 `div` 로 이동 | `VP-20 선택 증거` | 자리 정규식 3표면 **3건** | 잠김 |
 
-심은 결함 6종 **전건 검출**. 복구 후 대상 스위트 재실행 = **38 passed / 38**.
+| `sparkFrames.ts:76` — `'animate-spark-g5'` → `` `animate-spark-${'g5'}` `` (템플릿 조립) | `재검토에서 신설한 리터럴 가드 민감도` | 리터럴·조립 **2건** | 잠김 |
+
+심은 결함 **7종 전건 검출**. 복구 후 대상 스위트 재실행 = **40 passed / 40**(리터럴 가드 2케이스 추가).
 
 > `git checkout -- app.css` 로 변이를 되돌리다 **커밋되지 않은 트랙 블록 전체를 날린 사고**가 1회 있었다(설계 커밋이 docs 만 담았기 때문). 블록을 재생성하고 `sparkCss.test.ts` 4케이스로 복구를 확인했다 — 이후 변이는 `cp` 백업/복원으로 처리했다.
 
@@ -589,12 +591,16 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 | 3 | 글리프 5종이 `Segoe UI Symbol`/`Apple Symbols` 부재 시 공백 — 프레임의 48% | ⚠️ 보고만 — 사용자 제공 아티팩트라 임의로 바꾸지 않는다(§17 등록 리스크) | `sparkFrames.test.ts` 런 시퀀스: 글리프 5구간 × 23프레임 = 115/240 |
 | 4 | `SidebarCard.bodyClassName` 의 소비자가 다시 1이 됐다(파일 카드 → 지침 카드) | ✅ 선조치 없음(정상) — prop 이 죽지 않고 소비자만 바뀌었다 | `rg 'bodyClassName'` → 정의 1 + 소비 1 |
 | 5 | `shared/ui/mock.ts` 소비자 0 | ⚠️ 보고만 — D-009 가 유지로 확정. `dom-architecture.md` 에 "현재 소비자는 없다"를 명시해 다음 세션이 헤매지 않게 했다 | `rg DISABLED_HATCH_CLASS` → 정의 1건뿐 |
+| 6 | **테스트 6종이 전부 소스 문자열만 본다** — Tailwind 가 `@utility` 를 방출하지 않으면 스피너가 조용히 정지하는데 전건 green 이다 | ✅ 선조치 — (a) 빌드 산출을 이번 턴에 직접 확인, (b) `sparkCss.test.ts` 에 **리터럴 가드** 신설(코드 줄의 `animate-spark` 등장이 전부 따옴표 리터럴). 조립 회귀가 실제 실패 모드다 | 빌드 CSS 에서 유틸 8·키프레임 8 방출 확인. 가드 방향은 템플릿 조립 변이로 **2 red** 확인 |
+| 7 | `StatusLine.tsx` 헤더 주석이 소비자를 **2곳**으로 적었다 — D-002 는 3곳을 계약으로 만든다 | ✅ 선조치 — "transcript · 작업 타일 · 서브에이전트 타일 셋" + "분기 없이 같은 것을 받는다(D-002)" 로 정정 | `sed -n '1,4p' StatusLine.tsx` 에 세 소비자와 D-002 표기 실재 |
+| 8 | 리터럴 가드 **1차 시도가 방향이 틀렸다** — 술어 `` /`[^`]*animate-spark/ `` 가 코드가 아니라 **주석의 백틱**에 반응해 무조건 red 였다 | ✅ 선조치 — 주석 줄을 제외하고 "등장 수 == 따옴표 등장 수" 로 다시 씀 | 1차 술어는 조립이 없는 상태에서도 실패했다(= 조립 회귀를 구분 못 함). 정정 후 조립 변이에만 red |
 
 ### 설계 대비 명시적 차이
 
 - plan이 지정한 것과 다르게 구현한 것과 그 이유: **2건.**
   1. `sparkCss.test.ts` 의 pulse 단언을 `steps(24, end)` 문자열 대조 → **키프레임 stop 개수 세기 + `step-end`** 로 바꿨다. 원본이 쓴 `steps(1, end)` 는 CSS 에서 `step-end` 이고, `steps(24,end)` 는 2-stop 램프용 문법이라 24-stop 키프레임에는 쓰이지 않는다. 개수를 실제로 세는 쪽이 더 강한 단언이다.
   2. AT-19 테스트 파일 위치를 settings → chat 으로 옮겼다(위 #1).
+  3. `UsageTooltip` 패널에 **`max-w-[240px]`** 를 더했다. plan §11 은 "본문 줄만 더한다" 였는데, 안내 문구가 60자라 폭 제한 없이는 툴팁이 차트를 가로지른다. 시각 변경이라 AT-20 사람 실기 대상이다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
@@ -608,11 +614,11 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 | 항목 | 내용 |
 |---|---|
 | 변경 파일 | 수정 13 · 삭제 2 · 신규 9(소스 2 + 테스트 7) · 문서 1 |
-| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node scripts/check-doc-inventory.mjs --check` |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node scripts/check-doc-inventory.mjs --check` · **`npx electron-vite build`**(재검토 — 빌드 산출 CSS 확인용) |
 | **관측한 게이트 산출**(exit code 아님) | lint **0 error · 1 warning**(warning 은 `useTranscriptVirtualizer.ts:22` react-compiler, 변경 무관 기존분) · typecheck **3구성 전부 출력 0줄, exit 0** · vitest **249파일 2545케이스 중 5파일 46케이스 red** · doc-inventory **3검사 ok, exit 0** |
-| 환경 기인 실패 분리 | red 46건 = `infra/db/{queries,migrate}` · `features/extensions/builder` · `features/orchestration/fork` · `app/chat-turn.continuity` **5파일 전부 DB 로드**. 서명 `better_sqlite3.node` 18건. **`git stash` 기준선 재현: 같은 5파일 46케이스**(242파일 2515케이스 중) — 변경 무관. 순증 **7파일 30케이스 전건 green** |
+| 환경 기인 실패 분리 | red 46건 = `infra/db/{queries,migrate}` · `features/extensions/builder` · `features/orchestration/fork` · `app/chat-turn.continuity` **5파일 전부 DB 로드**. 서명 `better_sqlite3.node` 18건. **`git stash` 기준선 재현: 같은 5파일 46케이스**(242파일 2515케이스 중) — 변경 무관. 순증 **7파일 32케이스 전건 green** |
 | V-pair 자기확인 | `SELF_PASS 21 / SELF_BLOCKED 1`; pair별 상세는 위 표 |
-| 강제 지점 전수 | **35/35** (8그룹) |
+| 강제 지점 전수 | **35/35** (8그룹). EP-02 는 소스 대조에 더해 **빌드 산출**로 재확인 |
 | **AC 자기보고**(`Criteria-Met`) | **19/20** — AT-01~AT-19 는 위 표의 재현 관측으로 각각 확인. **AT-20 은 ⚠️**(사람 실기, 헤드리스라 앱 미기동) |
 | **합계 검산** | `✅ 19 · ⚠️ 1 · ❌ 0 = 총 20`. 분모는 §7 의 `AT-\d\d / AC` 행을 다시 세어 **20** 확인. 분모 변경 없음(초안 이후 AC 분할·추가 0) |
 | 블로커 / 역질문 | 없음. 사람 실기 5건(AT-20)이 남는다 |
@@ -621,7 +627,8 @@ Meter(ratio, tone, title) → <div class="track" title={...}><div class="bar"/><
 ## [구현자 기입] Review Signals — 사실만
 
 - 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음 — r1 이다.
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: boundaries 위반(#1)은 plan §4 "작업 관련 저장소 규칙을 설계 입력으로 읽는다"가 담당하는 축인데, 설계가 **테스트 파일의 import 방향**까지는 보지 않았다. AC 가 행동 단언이라 이설로 닫혔고 계약은 그대로다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: **2건.** (a) boundaries 위반(#1)은 plan §4 "저장소 규칙을 설계 입력으로 읽는다"의 축인데 설계가 **테스트 파일의 import 방향**까지는 보지 않았다 — AC 가 행동 단언이라 이설로 닫혔다. (b) **§10 EP-02 의 `실패 의미` 가 "`sparkCss.test.ts` 가 유일한 게이트"라고 적었지만 그 테스트는 `app.css` **소스**만 본다** — Tailwind 방출 실패는 못 본다. 재검토에서 빌드 산출 확인 + 리터럴 가드로 닫았다(#6).
+- 이번 턴에 만든 장치 중 **방향이 틀린 것 1건**(#8) — 술어가 코드가 아니라 산문에 반응했다. 조립 변이로 재확인해 정정했다.
 - 반복해서 부딪히는 환경 한계: better-sqlite3 ABI(문서화된 기준선) · 헤드리스라 시각 실기 불가.
 - 현재 라운드 수: **1**
 

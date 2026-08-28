@@ -15,6 +15,10 @@ import {
 } from './sparkFrames'
 
 const css = readFileSync(fileURLToPath(new URL('../../styles/app.css', import.meta.url)), 'utf8')
+const constantsSrc = readFileSync(
+  fileURLToPath(new URL('./sparkFrames.ts', import.meta.url)),
+  'utf8'
+)
 
 /** `@utility <name> { … }` 블록 본문. */
 function utility(name: string): string {
@@ -79,5 +83,27 @@ describe('spark CSS — 감속 모션이 트랙 전수를 덮는다 (AT-08)', ()
     const missing = ALL_TRACKS.filter((cls) => !reduced.includes(`.${cls}`))
     expect(missing).toEqual([])
     expect(ALL_TRACKS).toHaveLength(8)
+  })
+})
+
+describe('spark CSS — Tailwind 가 유틸리티를 방출하는 전제 (AT-07 근거)', () => {
+  // `@utility` 는 클래스 리터럴이 스캔 대상 소스에 있을 때만 방출된다. 이름을 템플릿으로
+  // 조립하면 CSS 가 통째로 사라지는데, 그때 렌더 테스트는 클래스 문자열만 보므로 green 이고
+  // 스피너만 조용히 멈춘다. 그래서 "리터럴이다" 를 여기서 직접 잠근다.
+  it('트랙 클래스 8개가 상수 파일에 따옴표 리터럴로 있다', () => {
+    const notLiteral = ALL_TRACKS.filter((cls) => !constantsSrc.includes(`'${cls}'`))
+    expect(notLiteral).toEqual([])
+  })
+
+  it('코드 줄의 animate-spark 등장이 전부 따옴표 리터럴이다', () => {
+    // 주석은 뺀다 — 산문의 백틱에 반응하는 술어는 조립 회귀를 보지 못한다.
+    const codeLines = constantsSrc
+      .split('\n')
+      .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
+      .join('\n')
+    const all = codeLines.match(/animate-spark-[a-z0-9]+/g) ?? []
+    const quoted = codeLines.match(/'animate-spark-[a-z0-9]+'/g) ?? []
+    expect(all).toHaveLength(ALL_TRACKS.length)
+    expect(quoted).toHaveLength(all.length)
   })
 })
