@@ -67,13 +67,14 @@
 | D-018 | `usage.estimateNote`를 전역 사용량 설명의 **유일한 문구 SSOT**로 유지한다 | `settings.usage.desc`는 첫 문장만 남기고 `UsageTab`이 두 키를 이어 렌더한다. ko/en에 문구를 복제하지 않는다 | 사용자 변경 턴 + 설계자 판단 | ACTIVE | D-012 대체 |
 | D-019 | 추정치 안내는 **전역 사용량 설명 1곳에만** 보이고 모든 차트·막대·도넛에서는 0건이다 | 일별 데이터 툴팁의 날짜·토큰·비용과 각 막대 자체는 유지한다. `Meter.title`은 이 안내만을 위해 생긴 dead API라 함께 제거한다 | 사용자 변경 턴 + 전수 조사 | ACTIVE | D-013·D-014 대체 |
 | D-020 | "해당 안내문이 들어간 내용만" 제거한다 | 차트·기간 탭·주간/월간 수치·모델 내역·기존 recharts 툴팁을 삭제하거나 재배치하지 않는다 | 사용자 조건절 | ACTIVE | — |
+| D-021 | 저장소 텍스트의 줄바꿈을 `.gitattributes` 로 **LF 로 고정**한다 | AT-21 은 원본의 바이트 수·SHA 를 단언하는데, Windows 기본 `core.autocrlf=true` 체크아웃이 LF→CRLF 로 바꿔 그 단언이 체크아웃 설정에 좌우된다(실측 3 red). `app/.editorconfig` 의 `end_of_line = lf` 와 prettier 기본값이 이미 LF 를 선언하므로 새 정책이 아니라 **기존 선언의 강제**다 | 사용자 결정 + 실측 | ACTIVE | — |
 
 ### 갱신 메모
 
-- 신규 결정: ΔV1에서 D-015~D-020이 추가됐다.
+- 신규 결정: ΔV1에서 D-015~D-020이 추가됐고, r3 정정에서 D-021이 추가됐다.
 - **변경된 결정**: D-004·D-005·D-007·D-012·D-013·D-014를 각각 D-015~D-019가 대체한다. D-003의 성능 조건과 D-006·D-008~D-011은 유지한다.
 - 초안의 `useId()` 중복 id 대책은 **소멸**했다 — D-003 의 마크 7개 형태에는 `<defs>`/`<use>` 가 없다. 결정이 아니라 설계 세부라 Ledger 행을 만들지 않는다.
-- **`ACTIVE 결정 ↔ AC` 대조: 충돌 0.** D-001·D-002↔AT-01·AT-02 · D-003·D-017↔AT-03·AT-04·AT-24 · D-006↔AT-22·AT-24 · D-008~D-011↔AT-10~AT-14 · D-015↔AT-21 · D-016↔AT-22·AT-23·AT-30 · D-018↔AT-25 · D-019·D-020↔AT-25~AT-29. **SUPERSEDED 결정의 반대 요구는 유효 AC에서 제거했다.**
+- **`ACTIVE 결정 ↔ AC` 대조: 충돌 0.** D-001·D-002↔AT-01·AT-02 · D-003·D-017↔AT-03·AT-04·AT-24 · D-006↔AT-22·AT-24 · D-008~D-011↔AT-10~AT-14 · D-015·D-021↔AT-21 · D-016↔AT-22·AT-23·AT-30 · D-018↔AT-25 · D-019·D-020↔AT-25~AT-29. **SUPERSEDED 결정의 반대 요구는 유효 AC에서 제거했다.**
 - **D-009 ↔ D-008 비충돌**: D-008 이 지우는 것은 *첨부 입력란*이고 D-009 가 지키는 것은 *빗금 규약*이다 — 후자의 마지막 소비자가 전자였을 뿐 같은 대상이 아니다.
 - **D-011 ↔ D-010 비충돌**: D-010 은 카드의 *높이*를, D-011 은 본문의 *잘림*을 정한다. 둘 다 바꿔야 "해당 공간만큼 확장"이 성립한다.
 
@@ -124,7 +125,7 @@
 
 | R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션/산출물 도달 경로 |
 |---|---|---|---|---|
-| R-08 | AT-21 / AC21 | 업로드 원본 내용이 plan.md와 같은 디렉터리에 남는다 | repository 사본의 마지막 LF를 제외한 54,552 bytes·업로드 SHA 동일, SVG parse 성공, plan 상대 링크 유효 | 업로드 → spinner-reference.svg → plan 링크 |
+| R-08 | AT-21 / AC21 | 업로드 원본 내용이 plan.md와 같은 디렉터리에 **모든 플랫폼에서 같은 바이트로** 남는다 | repository 사본의 마지막 LF를 제외한 54,552 bytes·업로드 SHA 동일, SVG parse 성공, plan 상대 링크 유효, `.gitattributes` 가 LF를 고정하고 원본 텍스트의 CR 0건 | 업로드 → `.gitattributes` LF 고정 → spinner-reference.svg → plan 링크 |
 | R-08 | AT-22 / AC22 | 런타임이 원본의 241개 시간 슬롯 전부와 관측 축을 그대로 낸다 | 원본 파서가 slot별 shape·scale·key time을 읽어 함수·CSS와 241/241 대조하고, 18×18·viewBox·기하·#d97757·7200ms도 등호 단언 | reference → sparkFrames·app.css·token → SparkSpinner → StatusLine 3곳 |
 | R-08 | AT-23 / AC23 | 등가 oracle이 자기 전사본을 검증하는 허수아비가 아니다 | reference의 slot 수·마지막 slot·key time·색·기하 중 하나를 변조한 fixture가 실패하고, 런타임을 240슬롯으로 되돌려도 실패 | reference parser → expected sequence → runtime source assertions |
 | R-02·R-08 | AT-24 / AC24 | 정확도를 높여도 V1의 성능 특성이 나빠지지 않는다 | spinner 유발 React timer/state 0, 인스턴스당 SVG 약 19노드, 동시 3개 약 57노드, 애니메이션 속성 transform·visibility뿐, production build에 reference 문자열·asset 0 | turnStartedAt → one mount → compositor CSS → unmount |
@@ -140,6 +141,7 @@
 - frame 240은 frame 0과 같은 그림이지만 별도 시간 슬롯이다. SPARK_TOTAL_FRAMES는 241, SPARK_FRAME_MS는 7200/241이며 240×30ms로 정규화하지 않는다.
 - shape·scale 기대값은 spinner-reference.svg를 파싱해 만든다. 테스트 안에 ORIGINAL_FRAMES 240행을 다시 두지 않는다.
 - 음성 단언 AT-26~AT-29에는 막대·모델·날짜·토큰·비용 양성 짝을 둔다. 차트를 통째로 지워 통과할 수 없다.
+- AT-21의 바이트·SHA 단언은 **체크아웃 줄바꿈에 좌우된다**. `.gitattributes` 로 LF를 고정하지 않으면 Windows 기본값이 CRLF로 받아 같은 내용이 다른 바이트가 된다 — 그 상태에서는 AT-23의 여러 줄 변조 fixture도 조용히 적용되지 않는다(D-021).
 - performance는 "체감"만 보지 않는다. timer/state·DOM 상한·animated property·production bundle 경계를 각각 잠근다.
 
 ## 7-A. ΔV1 V / Trace Matrix
@@ -174,7 +176,7 @@
 
 | Pair | left ↔ right | requiredness | production path | 직접 evidence oracle | 적대 증거 | §10 EP |
 |---|---|---|---|---|---|---|
-| ΔVP-01 | R-08 ↔ AT-21 | REQUIRED | upload → reference → plan | EOF LF 정규화를 제외한 SHA·XML·relative link 검사 | XML 내용 1byte 변경 | EP-09 (2) |
+| ΔVP-01 | R-08 ↔ AT-21 | REQUIRED | upload → `.gitattributes` → reference → plan | EOF LF 정규화를 제외한 SHA·XML·relative link 검사 + LF 고정 | XML 내용 1byte 변경 · CRLF 체크아웃 | EP-09 (3) |
 | ΔVP-02 | R-08 ↔ AT-22 | REQUIRED | reference → runtime tracks → 3 StatusLine | 241/241 + 기하·색·기간 등호 | 241→240 회귀 | EP-10 (4) |
 | ΔVP-03 | MD-03 ↔ AT-23·UT-03 | REQUIRED | parser → expected → assertions | 변조 fixture가 red | 마지막 slot·색·key time 변조 | EP-09·10 (6) |
 | ΔVP-04 | R-02·SD-01 ↔ AT-24·ST-02 | REGRESSION | turn start → one mount → CSS → unmount | timer 0·노드 상한·property allowlist·bundle 0 | timer 또는 reference import 재도입 | EP-11 (4) |
@@ -236,7 +238,7 @@
 
 | EP | SSOT | 강제 지점 전수 | 실패 의미 |
 |---|---|---|---|
-| EP-09 원본 보존 | spinner-reference.svg 내용·두 SHA | reference 파일 1 + plan 상대 링크 1 = 2 | 파일이 없거나 EOF LF 외 내용이 변하면 동일성 기준이 사라짐 |
+| EP-09 원본 보존 | spinner-reference.svg 내용·두 SHA | reference 파일 1 + plan 상대 링크 1 + `.gitattributes` LF 고정 1 = 3 | 파일이 없거나 EOF LF 외 내용이 변하면 동일성 기준이 사라짐. 줄바꿈이 고정되지 않으면 같은 내용이 플랫폼마다 다른 바이트가 되어 단언이 체크아웃 설정에 좌우된다 |
 | EP-10 원본→runtime | reference parser | sparkFrames.ts·SparkSpinner.tsx·app.css·tokens.css = 4 | 한 축만 다르면 눈으로 비슷해도 "똑같은"이 아님 |
 | EP-11 성능 | D-003/AT-24 | StatusLine timer 0·SparkSpinner 노드 상한·CSS property allowlist·production build asset 0 = 4 | 정확도 대가로 main thread/DOM/bundle 비용이 증가 |
 | EP-12 안내 위치 | usage.estimateNote | UsageDescription add 1·Model remove 1·provider remove 1·daily remove 1·Meter API remove 1·ko/en desc 수정 2 = 7 | 안내가 중복되거나 차트 내용까지 사라짐 |
@@ -312,6 +314,7 @@ provider/model/daily chart paths ───────────────�
 | shared에 도메인 문구 금지 | 강화 — Meter.title과 usage 문구 연결을 제거 |
 | UI 시각 검증 | 유지하되 원본 slot·DOM·copy 위치는 기계 검증, 사람은 실제 렌더만 확인 |
 | V1 파일 카드·지침 카드 결정 | 상속 — 이번 Delta에서 해당 코드 경로를 건드리지 않음 |
+| `app/.editorconfig` `end_of_line = lf` · prettier 기본 `endOfLine: lf` | 강제(r3) — 두 규칙이 이미 LF를 선언하지만 git이 강제하지 않아 Windows 체크아웃이 CRLF였다. `.gitattributes`가 같은 선언을 체크아웃에 적용한다 (D-021) |
 
 ## 17. ΔV1 리스크 / 트레이드오프
 
@@ -329,6 +332,7 @@ provider/model/daily chart paths ───────────────�
 ## 18. ΔV1 영향 파일
 
 - 추가: docs/handoff/0208-spinner-instructions-usage-tooltip/spinner-reference.svg
+- 추가(r3): 저장소 루트 `.gitattributes` — D-021의 LF 고정
 - 수정: 같은 디렉터리 plan.md, docs/handoff/INDEX.md
 - 다음 구현 턴 수정: sparkFrames.ts·SparkSpinner.tsx·app.css·tokens.css·StatusLine.tsx
 - 다음 구현 턴 수정: UsageTab.tsx·UsageLimitViews.tsx·TokensPerDayChart.tsx·Meter.tsx·ko.ts·en.ts
