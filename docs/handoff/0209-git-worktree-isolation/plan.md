@@ -484,3 +484,10 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 - 수정: 테스트의 문자열 prefix proxy를 production과 같은 path containment 술어 `isWithinDir(executionCwd, managed)`로 교체했다. 제품 코드·계약·V node/pair·강제 지점은 변경하지 않았다.
 - 회귀 범위: VP-14/MD-01/UT-01의 Windows path oracle만 정정했다. POSIX·Windows 모두 `resolve/relative/isAbsolute` 의미로 containment를 판정하며 `..` 탈출은 계속 false다.
 - 게이트: `service.test.ts` 4/4, 관련 Git/worktree suite, typecheck 3구성, lint 0 error, doc/migration/diff gate를 재실행한다. AC 분모는 **✅19 · ⚠️1 · ❌0 = 20**, V pair는 **SELF_PASS 17/17**로 불변이다.
+
+### r3 — Windows temp junction 기준점 교정
+
+- 외부 피드백 재현: r2의 `isWithinDir(executionCwd, managed)`도 Windows 전체 suite에서 false였다. child만 `realpath()` canonical 값이고 parent는 runner temp junction의 원 표기라, path-aware 비교여도 서로 다른 filesystem identity를 입력한 것이 원인이다.
+- 수정: 서비스가 DB에 실제 기록한 canonical `worktreeRoot`를 fake DB에서 회수하고, `isWithinDir(executionCwd, recorded.worktreeRoot)`를 단언한다. 이제 child와 parent 모두 production이 사용하는 canonical identity다.
+- 회귀 범위: VP-14/MD-01/UT-01 oracle의 **비교 함수뿐 아니라 양 입력의 identity 단계**를 닫았다. 제품 코드는 이미 `realpath(worktreeRoot)`를 metadata와 execution cwd 양쪽에 사용하므로 변경하지 않았다.
+- 게이트: exact failing service suite, Git infra suite, typecheck·lint·doc/migration/diff를 재실행한다. AC/V/EP 분모는 r2와 같다.
