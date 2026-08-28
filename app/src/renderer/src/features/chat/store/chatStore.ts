@@ -32,6 +32,7 @@ import {
 } from '../../../../../shared/permission-mode'
 import { continuityLangFor, continuityTitle } from '../../../../../shared/continuity-lang'
 import type { RightPanelTileId } from '../lib/rightPanelTiles'
+import type { BranchSnapshot } from '../components/composer/branchChipState'
 
 // Zustand 단일 chat store — arch/frontend/state.md §1.4 채택안의 멀티세션 외피(handoff 0013).
 //
@@ -1235,6 +1236,9 @@ export const chatActions = {
     dispatchActive({ type: 'RENAME_RIGHT_PANEL_TILE', id, label }),
   removeRightPanelTile: (id: RightPanelTileId): void =>
     dispatchActive({ type: 'REMOVE_RIGHT_PANEL_TILE', id }),
+  toggleDiffFiles: (): void => dispatchActive({ type: 'TOGGLE_DIFF_FILES' }),
+  setGitStatus: (snapshot: BranchSnapshot): void =>
+    dispatchActive({ type: 'SET_GIT_STATUS', snapshot }),
   selectTask: (key: string | null): void => dispatchActive({ type: 'SELECT_TASK', key }),
   openTask: (key: string): void => dispatchActive({ type: 'OPEN_TASK', key }),
   selectSubagentTask: (toolRunId: string | null): void =>

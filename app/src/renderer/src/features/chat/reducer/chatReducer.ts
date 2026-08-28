@@ -22,6 +22,7 @@ import { contextTokens } from '../lib/telemetry'
 import { agentTaskKey, backgroundTaskKey } from '../lib/taskBoard'
 import { settleOrphanToolParts, settleStaleAsyncLaunchParts } from '../lib/parts'
 import { isRightPanelTileSuspended, type RightPanelTileId } from '../lib/rightPanelTiles'
+import type { BranchSnapshot } from '../components/composer/branchChipState'
 import {
   addTileColumnMajor,
   columnsContain,
@@ -166,6 +167,14 @@ export interface ChatState {
   rightPanelColWidths: number[]
   // 우측 패널 열 내부의 상단 행 비율. 행 분리선 드래그로 조절, clamp 0.2–0.8.
   rightPanelRowSplits: number[]
+  // diff 타일의 좌측 컬럼(파일트리 + 커밋 목록) 표시 여부. 헤더 토글이 뒤집는다.
+  // **본문이 아니라 세션 상태가 갖는 이유**: 토글 버튼은 타일 헤더에, 감춰지는 컬럼은 본문에
+  // 있고 둘은 형제라 로컬 state 로 공유되지 않는다(0206 D-017 주변).
+  diffFilesVisible: boolean
+  // 작업 경로의 git 스냅샷 — **어느 cwd 의 값인지와 함께** 들고 있다(`statusForCwd`).
+  // 컴포저 git 행과 diff 타일 헤더 둘이 읽으므로 세션 상태가 소유한다(0206 D-020).
+  // null = 아직 조회 전. `useGitRowStatus` 만 채운다.
+  gitStatus: BranchSnapshot | null
   // 우측 작업 타일에서 상세로 표시할 항목 키(`agent:<id>` | `bg:<toolUseId>`, taskBoard 가
   // 소유하는 네임스페이스). null 이면 목록 view.
   selectedTaskKey: string | null
@@ -242,6 +251,8 @@ export const initialChatState: ChatState = {
   rightPanelTileLabels: {},
   rightPanelColWidths: [],
   rightPanelRowSplits: [],
+  diffFilesVisible: true,
+  gitStatus: null,
   selectedTaskKey: null,
   selectedSubagentTaskId: null,
   stoppingTaskIds: [],
@@ -339,6 +350,8 @@ export type ChatAction =
   | { type: 'SET_RIGHT_PANEL_TILE_ACTIVE'; id: RightPanelTileId; active: boolean }
   | { type: 'RENAME_RIGHT_PANEL_TILE'; id: RightPanelTileId; label: string }
   | { type: 'REMOVE_RIGHT_PANEL_TILE'; id: RightPanelTileId }
+  | { type: 'TOGGLE_DIFF_FILES' }
+  | { type: 'SET_GIT_STATUS'; snapshot: BranchSnapshot }
   | { type: 'SELECT_TASK'; key: string | null }
   | { type: 'OPEN_TASK'; key: string }
   | { type: 'SELECT_SUBAGENT_TASK'; toolRunId: string | null }
@@ -921,6 +934,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...(action.id === 'subagent' ? { selectedSubagentTaskId: null } : {})
       }
     }
+
+    case 'TOGGLE_DIFF_FILES':
+      return { ...state, diffFilesVisible: !state.diffFilesVisible }
+
+    case 'SET_GIT_STATUS':
+      return { ...state, gitStatus: action.snapshot }
 
     case 'SELECT_TASK':
       // 목록/상세 어느 쪽이든 타일을 실제로 보고 있다 — 미확인 완료 표시를 해제한다.

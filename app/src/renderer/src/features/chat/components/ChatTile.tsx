@@ -117,6 +117,7 @@ export function ChatTile({
           </div>
 
           <Composer
+            showGitRow
             backendLabel={backendLabel}
             canAbort={canAbort}
             showScrollToBottom={showJump}

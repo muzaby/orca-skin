@@ -605,6 +605,12 @@ export const ko = {
       emptyDesc: 'Claude 가 Task 를 만들거나 백그라운드 작업을 시작하면 여기에 표시됩니다.',
       openDetailAria: '{{description}} 상세 보기'
     },
+    gitRow: {
+      aria: '저장소 및 변경 사항',
+      detached: '분리 헤드',
+      changesAria: '{{added}}줄 추가 {{removed}}줄 삭제',
+      diffTitle: '변경사항 패널 열기'
+    },
     composer: {
       modes: {
         title: '모드',
@@ -758,8 +764,13 @@ export const ko = {
         plan: '계획',
         subagent: '백그라운드 작업',
         task: '작업',
-        reserved1: '예약 1'
+        diff: '변경사항'
       },
+      // 0206 — diff 타일은 배치 확인용 골격이다. 이 문구가 그 사실을 말하는 유일한 자리다(D-012).
+      diffMockNotice: '표시된 항목은 배치 확인용 예시입니다 — 실제 변경 내용이 아닙니다.',
+      diffAllChanges: '전체 변경',
+      diffFilesHide: '파일 목록 숨기기',
+      diffFilesShow: '파일 목록 보기',
       closeTile: '{{label}} 닫기',
       panelResizeAria: '우측 패널 크기 조절',
       rowResizeAria: '패널 행 크기 조절',

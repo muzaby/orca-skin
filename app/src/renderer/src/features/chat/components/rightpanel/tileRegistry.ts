@@ -1,6 +1,7 @@
 import { rightPanelTileDefinitions, type RightPanelTileId } from '../../lib/rightPanelTiles'
 import { PlanTileContent, PlanTileHeaderActions } from './PlanTileContent'
-import { ReservedTileContent } from './ReservedTileContent'
+import { DiffTileContent } from './DiffTileContent'
+import { DiffTileHeader } from './DiffTileHeader'
 import { SubAgentTileContent, SubAgentTileHeader } from './SubAgentTileContent'
 import { TaskTileContent, TaskTileHeader } from './TaskTileContent'
 
@@ -8,7 +9,7 @@ const contentById: Record<RightPanelTileId, React.ComponentType> = {
   plan: PlanTileContent,
   subagent: SubAgentTileContent,
   task: TaskTileContent,
-  reserved1: ReservedTileContent
+  diff: DiffTileContent
 }
 
 // 타일별 헤더 액션(닫기 버튼 앞에 놓이는 추가 조작). 계획 타일만 복사 버튼을 갖고,
@@ -24,7 +25,8 @@ const headerActionsById: Partial<Record<RightPanelTileId, React.ComponentType>> 
 // 유일한 지점이라, 두 헤더가 실제로 해석되는지는 AT-28 이 렌더 출력으로 단언한다.
 const headerContentById: Partial<Record<RightPanelTileId, React.ComponentType>> = {
   subagent: SubAgentTileHeader,
-  task: TaskTileHeader
+  task: TaskTileHeader,
+  diff: DiffTileHeader
 }
 
 export const tileRegistry = rightPanelTileDefinitions.map((tile) => ({

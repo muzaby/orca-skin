@@ -546,3 +546,115 @@ GitRow 변경량 버튼 → toggleRightPanelTile('diff') → state.rightPanelTil
 - [x] 게이트 명령이 `app/AGENTS.md` 와 충돌하지 않는다 — `npm test` 를 쓰지 않고 `vitest run` 직접 호출.
 - [x] 본문 완성 후 교차검증 — `ACTIVE 결정 ↔ AC` 대조 결과를 §3 갱신 메모에 관측으로 적었다(충돌 0, 확인 쌍 17 + 비충돌 판정 2건).
 - [x] 문장 규칙 — 판정 먼저, 한 줄에 관측 하나, 표 한 칸 3줄. Part I 은 결과, Part II 는 경로로 갈랐다.
+
+---
+
+## [구현자 기입] 설계 리뷰 (r1)
+
+- 동의 / 그대로 진행: Part I 전체 · §9 TO-BE 경로 · §11 파일 목록. AS-IS 조사 수치(§8)는 이번 턴 재측정과 일치했다.
+- 이견 / 현실성 문제: **없음**. 단 §10 EP-05 의 분모·술어 둘이 3턴 정정 이후로 낡았다 — 아래 §놓친 잠재 문제 1·2.
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-08 | `GitStatus.root` 를 모든 생성 지점이 채운다 | 6 | **7/7** | `git grep -n "isRepo: \(true\|false\)" -- src` → 8행 중 완전 리터럴 **7**, 전부 `root:` 보유(8번째는 factory 부분 오버라이드). 분모가 6→7 인 이유는 이번 턴에 `chatReducer.plan.test.ts:282` 를 새로 만들었기 때문 | — |
+| VP-09·06·12 | 타일 정의 교체 | 6 | **6/6** | `rightPanelTiles.ts:12`(정의) · `:46`(MENU_HIDDEN) · `tileRegistry.ts:12`(content) · `:29`(header) · `ko.ts:767` · `en.ts:763` | — |
+| VP-09 | `reserved1` 잔여 0 | 7파일 42행 | **0건** | `git grep -c reserved1 -- src` → 0 (차집합: 치환 전 7파일 42행 − 치환 후 0 = 42) | — |
+| VP-15 | 색 토큰 2스코프 | 2 | **2/2** | `grep -n "git-added\|git-removed" tokens.css` → 4행 = 2토큰 × 2스코프(`:root` 53·54 · `[data-theme='dark']` 199·200) | — |
+| VP-01·02·03·07·10 | 행 판정은 `gitRowView` 한 곳 | 1 | **2/2** | `grep -rn "gitRowView(" src` → `GitRow.tsx:126` · `DiffTileHeader.tsx:54`. **분모가 1→2** — D-020 이 헤더를 같은 판정에 태웠다(§놓친 잠재 문제 1) | — |
+| VP-04 | 재조회 계기 2 | 2 | **2/2** | `grep -n "useEffect(" GitRow.tsx` → `:79`(cwd) · `:95`(busy 전이) | — |
+| VP-17·18 | 줄 파생·줄 렌더 SSOT | 2 | **2/2** | `DiffTable` 소비 2 — `DiffBody.tsx:3` · `DiffTileContent.tsx:4`. `diffLines` 소비 — `DiffTable.tsx:2`(+타입 1) | — |
+| VP-19 | git 스냅샷 한 곳 소유 | 3 | **3/3** | reducer 필드+액션(`chatReducer.ts:177,354,941`) · `useGitRowStatus` 호출 **1**(`GitRow.tsx:123`) · `s.gitStatus` 소비 **2**(`GitRow.tsx:124`·`DiffTileHeader.tsx:53`) | — |
+
+- §10 에 없는데 같은 불변식이 필요했던 지점: **없음**.
+
+**V-pair 자기확인** — `SELF_PASS` 는 독립 검증의 `PASS` 가 아니다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `gitRow.render` 순서 3케이스 | **required — 저장소·브랜치 span 맞바꿈 → 1 failed** |
+| VP-02·03 | REQUIRED | SELF_PASS | `gitRowState` 노출 3케이스 | not selected — 반환값 직접 |
+| VP-04 | REQUIRED | SELF_PASS | 진리표 4조합 | not selected — 순수 전건 |
+| VP-05 | REQUIRED | SELF_PASS | `branchChipState` 기존 케이스 + `live` 플래그 정리 | not selected — 직접 oracle |
+| VP-06 | REQUIRED | SELF_PASS | reducer 왕복(`colTiles` `[['diff']]`→`[]`) | not selected |
+| VP-07 | REQUIRED | SELF_PASS | 0/0 접기 + 7/2 양성 + detached | not selected |
+| VP-08 | REQUIRED | SELF_PASS | 하위폴더 `orca-skin` · Windows 구분자 | not selected |
+| VP-09 | REQUIRED | SELF_PASS | 메뉴 3항목 + 레지스트리 배선 3케이스 | **required — `headerContentById.diff`+import 제거 → typecheck 0 error(침묵 확인) · 테스트 2 failed** |
+| VP-10 | REQUIRED | SELF_PASS | 음성 3 + 양성 짝 | **required — 변경량 버튼 제거 → 5 failed. 음성 절("PR·CI·닫기 없다")은 그대로 통과** — 음성만으로는 눈이 없음이 실증됐다 |
+| VP-11 | REQUIRED | SELF_PASS | 예시 문구 + 최상단 인덱스 | not selected |
+| VP-12 | REQUIRED | SELF_PASS | reducer 왕복 + 헤더 `aria-pressed` | not selected |
+| VP-13 | REQUIRED | SELF_PASS | `aria-pressed="true"` 1건 | not selected |
+| VP-14 | REQUIRED | SELF_PASS | 접힘 4케이스(전건·하위·중간·바깥) | not selected |
+| VP-15 | REQUIRED | SELF_PASS | 토큰 4행 | not selected |
+| VP-16 | REQUIRED | SELF_PASS | 기본 접힘 + 양성 + **래퍼 기본값** | **required — 래퍼 기본값을 펼침으로 뒤집기 → 1차 통과(구멍), 장치 보강 후 1 failed** |
+| VP-17 | REQUIRED | SELF_PASS | 순수 4케이스 + 렌더 거터 | not selected |
+| VP-18 | REQUIRED | SELF_PASS | import 전수 + 도구 카드 3케이스 | **required — `buildDiffLines` export 제거 → typecheck 3파일 error · 두 소비자 8 failed(함께 red)** |
+| VP-19 | REQUIRED | SELF_PASS | 호출 1 · 소비 2 · reducer 왕복 | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+| 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|
+| `GitRow.tsx` — 저장소·브랜치 span 을 형제와 맞바꿈 | VP-01 선택 증거 | `저장소 → 브랜치 → 변경량 순서로 선다` 1건 | **잠김** |
+| `tileRegistry.ts` — `headerContentById.diff` + import 제거 | VP-09 선택 증거 | `등록된 헤더가 실제로 파일 토글을 그린다` 외 1건 | **1차 잠금 없음 → 보강 후 잠김.** typecheck 는 0 error(§10 EP-02④ 예고대로 침묵) |
+| `GitRow.tsx` — 변경량 버튼(양성 짝) 제거 | VP-10 선택 증거 | 5건 failed / 3건 passed | **잠김 + 음성의 무감도 실증** |
+| `DiffTileContent.tsx` — `expanded` 기본값을 전체 펼침으로 | VP-16 선택 증거 | `래퍼는 전부 접힌 채로 시작한다` 1건 | **1차 잠금 없음 → 보강 후 잠김** |
+| `lib/diffLines.ts` — `buildDiffLines` export 제거 | VP-18 선택 증거 | 두 소비자 8건 + typecheck 3파일 | **잠김** |
+| 그 밖의 hunk | — | — | 해당 없음 — 직접 oracle |
+
+**두 변이가 1차에 통과한 원인은 같다**: AT-13·AT-17 이 **props-only View 를 직접 렌더**하므로 레지스트리 배선과 래퍼 기본값을 보지 못했다. 단위를 잠그고 그 단위를 부르는 배선을 잠그지 않은 형태다. 두 자리 모두 배선을 직접 보는 케이스 4건을 더해 닫았다(`diffTile.render.test.ts` §레지스트리 배선).
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ✅ 8키 전부 | `gitRow.*` 4 · `rightpanel.diff*` 4. 렌더 테스트가 해석 문자열을 다시 찾는다(`분리 헤드`·`실제 변경 내용이 아닙니다`·`파일 목록 숨기기`) |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | ✅ 「조회 실패」 행 | `gitApi.status` reject → `setGitStatus({cwd, status:null})` → `gitRowView` `{visible:false}` → 행 없음 |
+| 실패가 화면에서 "아무 일도 안 일어남" 으로 보이지 않는가 | ✅ | 변경량 버튼은 `aria-pressed` 가 즉시 뒤집히고 타일이 열린다 — 응답 대기가 없다 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | ✅ 2중 방어 | ① effect cleanup 의 `live` 플래그가 cwd 변경 시 쓰기를 막는다 ② 읽는 쪽이 `statusForCwd` 로 cwd 태그를 다시 본다. **스냅샷이 store 로 올라가며 "옛 cwd 값이 store 에 남는" 축이 새로 생겼는데 ①이 그것을 먼저 막는다** |
+| 로딩·빈 상태 | ✅ | 첫 응답 전에는 행이 없다(껍데기를 깜빡이지 않는다). `+0 −0` 은 빈 상태가 아니라 정상 값 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | **§10 EP-05 의 분모가 낡았다** — `1`(GitRow 만)로 적혀 있으나 D-020 이 `DiffTileHeader` 를 같은 `gitRowView` 에 태워 실측 **2** 다 | 📝 **plan 수정 제안** — EP-05 `소비 지점` 을 2로, 지점 목록에 `DiffTileHeader.tsx` 추가 | `grep -rn "gitRowView(" src` → 2건(`GitRow.tsx:126`·`DiffTileHeader.tsx:54`). 3턴 정정이 EP-08 을 신설하며 EP-05 를 갱신하지 않았다 |
+| 2 | **EP-05 의 검색 술어가 불변식의 주어가 아니다** — `rg "isRepo" -- components/composer` 가 `branchChipState.ts` 외 0건이라 적혔는데 `gitRowState.ts` 가 걸린다(설계상 정상) | 📝 **plan 수정 제안** — 술어를 `rg "gitRowView\("`(행 판정을 부르는 곳)으로 교체 | 지금 술어로 세면 랜딩 칩까지 분모에 들어와 "행의 판정자가 둘" 로 오독된다 |
+| 3 | AT-13·AT-17 이 배선을 보지 못했다(위 §잠금) | ✅ **선조치** — 배선 단언 4케이스 추가 | 등록 변이 2건이 1차에 통과했다 |
+| 4 | `Icon` 카탈로그에 `list` 가 없다 | ✅ **선조치** — `folder` 로 대체 | `TS2322: Type '"list"' is not assignable to type 'IconName'` |
+| 5 | `MENU_HIDDEN_RIGHT_PANEL_TILES` 가 이제 `SUSPENDED` 의 얇은 별칭이다 | ⚠️ **보고만** — 두 상수의 의미가 갈리는 축이 사라졌다. 예약 슬롯이 다시 생기면 필요하니 이번엔 합치지 않았다 | `rightPanelTiles.ts:45-47` |
+
+### 설계 대비 명시적 차이
+
+- plan 이 지정한 것과 다르게 구현한 것과 그 이유: **없음** — 3턴 정정(D-020)으로 설계와 구현이 일치한다. 아이콘 이름만 카탈로그 제약으로 바꿨다(위 4번, 계약 아님).
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 스냅샷에 TTL 이 없다. 무효화 축은 cwd 변경과 턴 종료 둘뿐이다 | EP-06 2/2 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | **store 스냅샷은 두 표면이 공유한다** — 한쪽이 비우면 다른 쪽도 빈다. 비우는 지점은 `setGitStatus` 하나뿐이고 호출부도 하나다 | EP-08 3/3 · `useGitRowStatus` 호출 1건 |
+| 재진입 | 같은 cwd 로 두 effect 가 연달아 돌 수 있다(cwd 변경 직후 턴 종료). 마지막 쓰기가 이기고 값이 같아 무해하다 | AT-20 reducer 왕복 |
+| 다른 무효화 축 | 세션 전환은 `initialChatState` 로 `gitStatus: null` 부터 다시 시작한다 | `chatReducer.ts:255` |
+
+## [구현자 기입] 구현 보고 (r1)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 수정 20 · 신규 12 · 삭제 1 (`ReservedTileContent.tsx`) |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` (`pretest` 우회 — `app/AGENTS.md:127`) |
+| **관측한 게이트 산출**(exit code 아님) | **lint**: `✖ 1 problem (0 errors, 1 warning)` — 경고는 `react-hooks/incompatible-library`(TanStack Virtual), 변경과 무관한 기존 파일. **typecheck**: 3구성 전부 error 0. **vitest**: `Test Files 5 failed \| 237 passed (242)` · `Tests 46 failed \| 2451 passed (2497)` |
+| 환경 기인 실패 분리 근거 | 46실패 = **DB 로드 5스위트 전부**(`chat-turn.continuity`·`extensions/builder`·`orchestration/fork`·`db/migrate`·`db/queries`). 서명 `NODE_MODULE_VERSION 140 … requires 127` = better-sqlite3 Electron-ABI. **`git stash -u` 로 변경을 치우고 같은 5파일을 돌려 46실패를 재현**했다 — 변경 무관 기준선 |
+| V-pair 자기확인 | `SELF_PASS 19 / SELF_BLOCKED 0`; pair 별 상세는 위 표 |
+| 강제 지점 전수 | **8그룹 / 지점 합 24** — 7+6+0(잔여)+2+2+2+2+3 |
+| **AC 자기보고**(`Criteria-Met`) | **20/20** — 각 AC 의 관측은 위 pair 표의 `직접 관측` 칸이 그대로 갖는다. 신규 스위트 5개 `Tests 41 passed` + 보강 4케이스 = 45, 회귀 스위트(`rightPanelTiles`·`rightPanelLayout`·`chatReducer.plan`·`branchChipState`·`git-cli`·`handlers/git`)는 전체 실행에 포함 |
+| **합계 검산** | `✅ 20 · ⚠️ 0 · ❌ 0 = 총 20` — 분모를 `grep -c "^| R-"` 로 다시 세어 21행(헤더 제외 20) 확인. 3턴 정정에서 AT-20 이 늘어 **분모가 19→20** 이므로 이전 라운드와 직접 비교하지 않는다 |
+| 블로커 / 역질문 | 없음. 사람 실기 2건(§19 — 두 테마 색 대비 · 실제 `git init` 후 행 등장)은 남는다 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals (r1)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **해당 없음** — r1 이다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **있었고 걸렸다.** VP-09·VP-16 이 등록한 적대 증거가 "props-only View 만 렌더하면 배선이 안 잠긴다" 를 정확히 드러냈다 — plan 이 그 두 pair 에 `required` 를 붙인 것이 이번 턴의 구멍 2개를 찾았다.
+- 반복해서 부딪히는 환경 한계: better-sqlite3 ABI — `npm ci` 의 `postinstall` 이 Electron ABI 로 빌드하므로 vitest(Node)에서 DB 스위트 5개가 항상 red 다. `app/AGENTS.md:130-138` 이 기술한 그대로.
+- 현재 라운드 수: **1**

@@ -47,6 +47,11 @@
 
   /* Status tones */
   --color-good: #5a8a4f;
+  /* git 변경량 텍스트 색(0206 D-016). `good`/`bad` 를 재사용하지 않는 이유: 저 둘은 dark
+     스코프에 재정의가 없어 어두운 배경에서 검증된 적이 없고, diff 표의 **행 틴트**(14~18%
+     혼합)와 이 **텍스트 색**은 필요한 대비가 다르다. */
+  --color-git-added: #3f7a34;
+  --color-git-removed: #a83c2b;
   --color-warn: #c79431;
   --color-bad: #b54a3a;
   --color-slate-dot: #98a2b3;
@@ -191,6 +196,8 @@
   --color-bubble-user: #30302e;
 
   /* Epitaxy non-alias tones (aliases follow their semantic source above) */
+  --color-git-added: #7fbf6a;
+  --color-git-removed: #e08a72;
   --color-t3: #34342f;
   --color-t7: #c9c7bf;
   --color-t8: #e8e6de;

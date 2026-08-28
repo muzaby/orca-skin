@@ -15,6 +15,7 @@ const repo = (over: Partial<GitStatus> = {}): GitStatus => ({
   branch: 'main',
   detached: false,
   dirty: null,
+  root: '/repo',
   ...over
 })
 

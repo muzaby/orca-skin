@@ -4,11 +4,12 @@ import type { MessageKey } from '../../../shared/i18n'
 // tr() 해석한다(0096 stale-방지 패턴, 0097). 런타임 라벨(rightPanelTileLabels)이 있으면 우선.
 // 0204 D-021 — 4종. `백그라운드 작업`(전용 대화록 상세)과 `작업`(cowork 3섹션)은 별개 타일이고
 // (D-015), 늘어난 자리는 예약 슬롯 하나가 내준다. 정의 순서가 곧 타일 메뉴 순서다.
+// 0206 D-009 — 남은 예약 슬롯을 `diff` 가 소진한다(4종 유지).
 export const rightPanelTileDefinitions = [
   { id: 'plan', defaultLabelKey: 'chat.rightpanel.tiles.plan' },
   { id: 'subagent', defaultLabelKey: 'chat.rightpanel.tiles.subagent' },
   { id: 'task', defaultLabelKey: 'chat.rightpanel.tiles.task' },
-  { id: 'reserved1', defaultLabelKey: 'chat.rightpanel.tiles.reserved1' }
+  { id: 'diff', defaultLabelKey: 'chat.rightpanel.tiles.diff' }
 ] as const satisfies readonly { id: string; defaultLabelKey: MessageKey }[]
 
 export type RightPanelTileId = (typeof rightPanelTileDefinitions)[number]['id']
@@ -36,15 +37,12 @@ export function defaultRightPanelTileLabelKey(id: RightPanelTileId): MessageKey 
 //                      닫는다(0205 D-004). 타일 내용·테스트·i18n 은 그대로 두고 *열리는
 //                      경로*만 막는다. **해제는 이 배열을 비우는 것 하나다** — 메뉴·활성화·
 //                      배지 세 소비자가 함께 복귀한다.
-//   메뉴 비노출      — 내용이 없는 예약 슬롯은 메뉴에 올리지 않는다(0204 D-021). 정지된
-//                      타일도 당연히 메뉴에 없다.
-//
-// `reserved1` 은 메뉴에만 없고 활성화는 막지 않는다(0205 D-008) — 요구는 `작업` 타일
-// 하나였고, 예약 슬롯까지 막으면 3타일 열 기하를 reducer 경로로 재현할 수 없다.
+//   메뉴 비노출      — 정지된 타일은 메뉴에 올리지 않는다. 예약 슬롯도 같았으나 0206 이
+//                      마지막 슬롯을 `diff` 로 소진해(D-009) 지금 이 축에 남는 것은
+//                      정지 목록뿐이다 — 0205 D-008 은 그래서 대체됐다.
 export const SUSPENDED_RIGHT_PANEL_TILES: readonly RightPanelTileId[] = ['task']
 
 export const MENU_HIDDEN_RIGHT_PANEL_TILES: readonly RightPanelTileId[] = [
-  'reserved1',
   ...SUSPENDED_RIGHT_PANEL_TILES
 ]
 

@@ -53,7 +53,8 @@ describe('gitStatus / gitBranches', () => {
       isRepo: false,
       branch: null,
       detached: false,
-      dirty: null
+      dirty: null,
+      root: null
     })
     expect(await gitBranches(plain)).toEqual({ current: null, branches: [] })
   })
