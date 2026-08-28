@@ -108,7 +108,9 @@ export function StatusLine({
       aria-label={accessibleLabel}
       title={factLabel || undefined}
     >
-      <SparkSpinner className="shrink-0 text-rust" />
+      {/* text-rust 가 아니라 전용 고정색 토큰이다 — rust 는 light 에서 #c96442 라 첨부 원본과
+          다른 색이 된다(0208 D-016). 원본은 두 테마 모두 #d97757 하나다. */}
+      <SparkSpinner className="shrink-0 text-spinner" />
       <span aria-hidden>{statusLabel}</span>
       {visibleFacts.length > 0 && (
         <span className="text-[11px] text-ink3" aria-hidden>

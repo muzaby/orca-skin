@@ -104,12 +104,7 @@ export function ModelUsageList({ models }: { models: UsageStatsModel[] }): React
                 {formatTokens(total)}
               </span>
             </div>
-            <Meter
-              ratio={top > 0 ? total / top : 0}
-              tone="info"
-              className="mt-1.5"
-              title={tr('usage.estimateNote')}
-            />
+            <Meter ratio={top > 0 ? total / top : 0} tone="info" className="mt-1.5" />
             <div className="mt-1 text-[11.5px] tabular-nums text-ink3">
               {tr('settings.usage.modelBreakdown', {
                 input: formatTokens(m.inputTokens),
@@ -122,6 +117,20 @@ export function ModelUsageList({ models }: { models: UsageStatsModel[] }): React
         )
       })}
     </div>
+  )
+}
+
+// 사용량 탭 상단 설명(0208 D-018·D-019) — SDK 추정치 안내의 **유일한** 소비자다.
+// 차트·막대·도넛에는 이 문구를 붙이지 않는다: 안내가 데이터를 가리지 않고, 사용량이 비어
+// 있거나 로딩 중이어도 항상 한 번 읽힌다. 문구 자체는 `usage.estimateNote` 가 SSOT 이고
+// `settings.usage.desc` 는 토큰 설명 첫 문장만 갖는다(provider 위치 안내는 제거됐다).
+// export = 렌더 테스트가 직접 렌더한다(usageTooltip.render.test.ts).
+export function UsageDescription(): React.JSX.Element {
+  const { tr } = useI18n()
+  return (
+    <p className="mt-1.5 text-[13px] leading-relaxed text-ink2">
+      {tr('settings.usage.desc')} {tr('usage.estimateNote')}
+    </p>
   )
 }
 
@@ -151,7 +160,7 @@ export function UsageTab(): React.JSX.Element {
     <div className="flex flex-col gap-5">
       <div>
         <h3 className="text-[15px] font-semibold text-ink">{tr('settings.usage.title')}</h3>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-ink2">{tr('settings.usage.desc')}</p>
+        <UsageDescription />
       </div>
 
       <RangeTabs value={range} onChange={setRange} />

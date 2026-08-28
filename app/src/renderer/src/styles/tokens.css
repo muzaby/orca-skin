@@ -44,6 +44,11 @@
   --color-rose: #b85a6e;
   --color-amber: #c79431;
   --color-paper: #ffffff;
+  /* 진행 스피너(0208 D-016) — 첨부 원본 SVG 의 고정색이다. 원본은 두 테마 구분 없이 언제나
+     이 값이므로 `[data-theme]` 스코프에 **재정의하지 않는다**(재정의하면 light 에서 원본과
+     다른 색이 나온다 — `--color-rust` 가 정확히 그 경우였다). raw 값은 여기 한 곳만 갖고
+     `SparkSpinner` 는 currentColor 만 쓴다. 정의가 하나뿐임은 `sparkCss.test.ts` 가 센다. */
+  --color-spinner: #d97757;
 
   /* Status tones */
   --color-good: #5a8a4f;

@@ -1,8 +1,7 @@
 // 일별 토큰 바 차트(0112) — recharts(사용자 승인 의존성, TRD §2). 단일 시리즈라 범례 없음.
 // 색은 시맨틱 토큰만 사용한다: 바 = --color-indigo(사용량 지정색, 두 테마 공용), 그리드/축 =
 // --color-border, 라벨 = --color-ink3. 툴팁도 Orca 패널 토큰으로 직접 그린다(기본 스타일 미사용).
-// 0208 — 툴팁 마지막 줄에 SDK 추정치 안내를 둔다. 같은 문구를 설정 사용량의 Meter 막대들도
-// title 로 쓴다(usage.estimateNote 단일 키).
+// 0208 — 툴팁은 날짜·토큰·비용만 낸다. SDK 추정치 안내는 탭 상단 설명 한 곳에만 있다(D-019).
 
 import { useMemo } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -29,19 +28,15 @@ export function UsageTooltip({
   payload?: ReadonlyArray<{ payload?: ChartDatum }>
   locale: UiLocale
 }): React.JSX.Element | null {
-  const { tr } = useI18n()
   const datum = payload?.[0]?.payload
   if (!active || !datum) return null
   return (
-    <div className="max-w-[240px] rounded-r4 border border-border bg-panel px-2.5 py-1.5 shadow-sm">
+    <div className="rounded-r4 border border-border bg-panel px-2.5 py-1.5 shadow-sm">
       <div className="text-[11px] text-ink3">{formatMonthDay(datum.ms, locale)}</div>
       <div className="text-[12.5px] font-medium tabular-nums text-ink">
         {formatTokens(datum.tokens)}
       </div>
       <div className="text-[11px] tabular-nums text-ink3">{fmtUsd(datum.costUsd)}</div>
-      <div className="mt-1 border-t border-border pt-1 text-[10.5px] leading-[1.5] text-ink3">
-        {tr('usage.estimateNote')}
-      </div>
     </div>
   )
 }
