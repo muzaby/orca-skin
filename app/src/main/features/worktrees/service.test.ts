@@ -40,9 +40,11 @@ describe('WorktreeService', () => {
     })
     expect(result.kind).toBe('managed')
     expect(rows).toHaveLength(1)
-    // `realpath()`는 Windows에서 drive letter 대소문자·junction 표기를 정규화할 수 있다.
-    // 문자열 prefix가 아니라 production과 같은 path containment 의미를 검증한다.
-    if (result.kind === 'managed') expect(isWithinDir(result.executionCwd, managed)).toBe(true)
+    // Windows runner의 temp root 자체가 junction일 수 있다. 서비스가 `realpath()`한 뒤 DB에
+    // 기록한 canonical worktree root를 경계로 써야 production identity와 같은 두 값을 비교한다.
+    const recorded = rows[0] as { worktreeRoot: string }
+    if (result.kind === 'managed')
+      expect(isWithinDir(result.executionCwd, recorded.worktreeRoot)).toBe(true)
   })
 
   it('untracked 파일이 있으면 Git mutation 전에 거부한다', async () => {
