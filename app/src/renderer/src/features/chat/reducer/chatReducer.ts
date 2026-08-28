@@ -21,7 +21,7 @@ import type { MessageKey } from '../../../shared/i18n'
 import { contextTokens } from '../lib/telemetry'
 import { agentTaskKey, backgroundTaskKey } from '../lib/taskBoard'
 import { settleOrphanToolParts, settleStaleAsyncLaunchParts } from '../lib/parts'
-import type { RightPanelTileId } from '../lib/rightPanelTiles'
+import { isRightPanelTileSuspended, type RightPanelTileId } from '../lib/rightPanelTiles'
 import {
   addTileColumnMajor,
   columnsContain,
@@ -562,7 +562,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               retry: undefined,
               pendingPlanReview: ev.action.request,
               planContent: ev.action.request.plan,
-              rightPanelTiles: addTileColumnMajor(state.rightPanelTiles, 'plan')
+              rightPanelTiles: activateTile(state.rightPanelTiles, 'plan')
             }
           }
           // tool_approval — 위험 도구 실행 승인 게이트. approvalId 로 응답을 라우팅한다.
@@ -893,11 +893,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'TOGGLE_RIGHT_PANEL_TILE':
       return columnsContain(state.rightPanelTiles, action.id)
         ? removeTile(state, action.id)
-        : { ...state, rightPanelTiles: addTileColumnMajor(state.rightPanelTiles, action.id) }
+        : { ...state, rightPanelTiles: activateTile(state.rightPanelTiles, action.id) }
 
     case 'SET_RIGHT_PANEL_TILE_ACTIVE':
       return action.active
-        ? { ...state, rightPanelTiles: addTileColumnMajor(state.rightPanelTiles, action.id) }
+        ? { ...state, rightPanelTiles: activateTile(state.rightPanelTiles, action.id) }
         : removeTile(state, action.id)
 
     case 'RENAME_RIGHT_PANEL_TILE': {
@@ -931,7 +931,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         selectedTaskKey: action.key,
         unseenSettledTaskKeys: [],
-        rightPanelTiles: addTileColumnMajor(state.rightPanelTiles, 'task')
+        rightPanelTiles: activateTile(state.rightPanelTiles, 'task')
       }
 
     // 백그라운드 작업 타일의 선택 — `selectedTaskKey` 를 건드리지 않는다(EP-12).
@@ -942,7 +942,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         selectedSubagentTaskId: action.toolRunId,
-        rightPanelTiles: addTileColumnMajor(state.rightPanelTiles, 'subagent')
+        rightPanelTiles: activateTile(state.rightPanelTiles, 'subagent')
       }
 
     case 'TASK_STOP_REQUESTED': {
@@ -1035,6 +1035,15 @@ function findToolCallPart(
 // 타일 제거 — 열 구조에서 해당 타일만 떼어낸다. 그 결과 열이 비면 열을 드롭하면서, 열 인덱스를
 // 키로 쓰는 폭(rightPanelColWidths)·행분할(rightPanelRowSplits) 도 같은 인덱스에서 splice 해
 // 정합을 맞춘다(열이 2→1 로 줄 때는 열이 유지되므로 그대로).
+// 타일 활성화의 유일한 통로 (0205 §10 EP-01). 정지된 타일은 어느 경로로도 열에 들어가지
+// 않는다 — 무변경은 참조를 그대로 돌려주므로 `addTileColumnMajor` 의 중복 처리와 동형이다.
+//
+// **reducer 가 `addTileColumnMajor` 를 직접 부르지 않는다**: 지점이 5곳이라 한 곳만 막으면
+// 나머지로 정지가 뚫리고, 대표 경로 테스트는 그대로 통과한다. 게이트는 여기 하나다.
+function activateTile(cols: RightPanelColumns, id: RightPanelTileId): RightPanelColumns {
+  return isRightPanelTileSuspended(id) ? cols : addTileColumnMajor(cols, id)
+}
+
 function removeTile(state: ChatState, id: RightPanelTileId): ChatState {
   const { columns, removedCol } = removeTileFromColumns(state.rightPanelTiles, id)
   if (columns === state.rightPanelTiles) return state

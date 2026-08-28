@@ -53,32 +53,32 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
     expect(colTiles(plan)).toEqual([['plan']])
     const subagent = chatReducer(plan, {
       type: 'SET_RIGHT_PANEL_TILE_ACTIVE',
-      id: 'task',
+      id: 'subagent',
       active: true
     })
-    expect(colTiles(subagent)).toEqual([['plan', 'task']])
+    expect(colTiles(subagent)).toEqual([['plan', 'subagent']])
     const duplicate = chatReducer(subagent, {
       type: 'SET_RIGHT_PANEL_TILE_ACTIVE',
       id: 'plan',
       active: true
     })
-    expect(colTiles(duplicate)).toEqual([['plan', 'task']])
+    expect(colTiles(duplicate)).toEqual([['plan', 'subagent']])
     const closed = chatReducer(duplicate, {
       type: 'SET_RIGHT_PANEL_TILE_ACTIVE',
       id: 'plan',
       active: false
     })
-    expect(colTiles(closed)).toEqual([['task']])
+    expect(colTiles(closed)).toEqual([['subagent']])
   })
 
   it('0열 하단 타일 제거 시 다른 열로 리플로우되지 않는다(사용자 사례)', () => {
     // 0열[plan,subagent] / 1열[reserved1] 구성
     let s = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'plan' })
-    s = chatReducer(s, { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'task', active: true })
+    s = chatReducer(s, { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'subagent', active: true })
     s = chatReducer(s, { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'reserved1', active: true })
-    expect(colTiles(s)).toEqual([['plan', 'task'], ['reserved1']])
+    expect(colTiles(s)).toEqual([['plan', 'subagent'], ['reserved1']])
     // 0열 2행(subagent) 제거 → 0열[plan] / 1열[reserved1] (reserved1 이 0열로 합쳐지지 않음)
-    const removed = chatReducer(s, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'task' })
+    const removed = chatReducer(s, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'subagent' })
     expect(colTiles(removed)).toEqual([['plan'], ['reserved1']])
     // 우측 열(reserved1) id 보존 → React remount 없음
     expect(removed.rightPanelTiles[1].id).toBe(s.rightPanelTiles[1].id)
@@ -87,7 +87,7 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
   it('열이 비면 열 인덱스 키 폭/행분할도 splice 된다', () => {
     // 0열[plan] / 1열[subagent], 각 열 폭 설정
     let s = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'plan' })
-    s = chatReducer(s, { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'task', active: true })
+    s = chatReducer(s, { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'subagent', active: true })
     // subagent 를 1열로 분리: 0열을 꽉 채우지 않았으므로 toggle 로 두 번째 열 만들기 위해 reserved1 추가 후 정리
     s = chatReducer(s, { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'reserved1', active: true })
     // 상태: 0열[plan,subagent] / 1열[reserved1]
@@ -96,7 +96,7 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
     expect(s.rightPanelColWidths).toEqual([300, 500])
     // 1열의 유일 타일(reserved1) 제거 → 1열 드롭, 폭 인덱스1도 제거
     const removed = chatReducer(s, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'reserved1' })
-    expect(colTiles(removed)).toEqual([['plan', 'task']])
+    expect(colTiles(removed)).toEqual([['plan', 'subagent']])
     expect(removed.rightPanelColWidths).toEqual([300])
   })
 
@@ -218,5 +218,42 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
         })
       ).pendingPlanReview
     ).toBeNull()
+  })
+})
+
+// 0205 V1 — 정지된 타일은 어느 활성화 경로로도 열리지 않는다 (AT-02 · AT-03).
+//
+// 세 액션 전부를 본다. `addTileColumnMajor` 를 부르는 reducer 지점이 5곳이라(§10 EP-01)
+// 대표 경로 하나만 막아도 그 하나의 테스트는 통과한다 — 통로가 실제로 하나인지 본다.
+describe('chatReducer — 정지된 타일의 활성화 차단 (0205)', () => {
+  it('TOGGLE 은 정지된 타일을 열지 않는다 — 상태 참조가 그대로다', () => {
+    const s = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'task' })
+    expect(colTiles(s)).toEqual([])
+    expect(s.rightPanelTiles).toBe(initialChatState.rightPanelTiles)
+  })
+
+  it('TOGGLE 은 정지되지 않은 타일을 연다 — 양성 짝', () => {
+    const s = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'subagent' })
+    expect(colTiles(s)).toEqual([['subagent']])
+  })
+
+  it('SET_RIGHT_PANEL_TILE_ACTIVE(true) 도 정지된 타일을 붙이지 않는다', () => {
+    const s = chatReducer(initialChatState, {
+      type: 'SET_RIGHT_PANEL_TILE_ACTIVE',
+      id: 'task',
+      active: true
+    })
+    expect(colTiles(s)).toEqual([])
+  })
+
+  it('이미 열려 있는 다른 타일은 정지된 타일 요청에 영향받지 않는다', () => {
+    const plan = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'plan' })
+    const after = chatReducer(plan, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'task' })
+    expect(colTiles(after)).toEqual([['plan']])
+  })
+
+  it('계획 자동 활성화는 정지 대상이 아니라 그대로 열린다 — 다섯째 지점의 양성 짝', () => {
+    const s = chatReducer(initialChatState, recv(planEvent()))
+    expect(colTiles(s)).toEqual([['plan']])
   })
 })
