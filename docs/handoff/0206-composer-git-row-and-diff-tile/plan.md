@@ -763,3 +763,15 @@ GitRow 변경량 버튼 → toggleRightPanelTile('diff') → state.rightPanelTil
 - 그것을 막았어야 할 plan 지침·AC 가 있었는가: **없었고, 없는 게 맞다.** 시각 언어는 r1 시점에 계약이 아니었다(사용자가 이번 턴에 처음 지시했다). 다만 **r1 이 `GitRow` 표면을 `px-1 py-1` 투명으로 둔 것**은 스택의 형제(`Notice` = 테두리+`bg-sidebar`, `CwdPanel` = 투명)와 이미 세 벌로 갈려 있었다는 뜻이고, 그 갈라짐을 지적한 AC 는 r1 에도 없었다.
 - 반복해서 부딪히는 환경 한계: ① better-sqlite3 ABI — 이번에도 DB 5스위트가 red 였고 `git stash` 차집합으로 분리했다. ② **컨테이너에 `node_modules` 가 없어 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 로 설치해야 게이트가 돈다**(`app/AGENTS.md` 의 제약 환경 절차 그대로). ③ 시각 검증에 앱 기동이 불가능해 **`@tailwindcss/node` + headless Chromium 으로 실제 CSS 를 컴파일해 렌더**하는 우회를 썼다 — `npm run dev` 없이 두 테마를 실측할 수 있었다.
 - 현재 라운드 수: **2**
+
+## [검증자 기입] 파생 이슈 (r2 verify — PASS)
+
+> 판정 정본은 [`verify.md`](verify.md). BLOCKING 0 · PLAN_GAP 0 이라 PASS 를 막지 않는다.
+
+| # | 이슈 | 출처 | disposition | 대응 방향 | 상태 |
+|---|---|---|---|---|---|
+| D1 | `contents` 가 `gap-g2`(3.25px)를 물려받는다는 설명이 틀렸다 — Button 이 children 을 display 미지정 `<span>` 으로 감싸므로 두 수는 inline 문맥이고 gap 이 미적용, 실측 0px 다. **수정과 목표값 5.93px 은 옳다** | 비귀속(간격을 잠그는 AC 없음) | NON_BLOCKING | 코드 주석은 verify 턴이 정정했다(동작 무변경, 79케이스 재확인). 위 r2 §놓친 잠재 문제 2 문장은 구현자 기록으로 보존한다 | closed |
+| D2 | INDEX r2 비고 1285자 — `§산출물 문장 규칙 3`(5줄) 위반 | repository gate | NON_BLOCKING | verify 턴이 보드 행을 소유하므로 축약했다 | closed |
+| D3 | D-022 출처가 `사용자 지적` 인데 사용자는 `배치` 를 말했을 뿐 글리프 추가를 요청하지 않았다. D-005 의 네 금지는 실측상 유지되고 "3자리" 셈만 좁혔다 | 제품 의도 | NON_BLOCKING | **사용자 확인 대기.** 반려 시 `GitRow.tsx` 의 `<Icon>` 1줄 제거로 되돌아간다 | open |
+| D4 | `rootClasses` 가 "첫 `class=` = 루트" 를 암묵 가정한다. 엄격화 변이는 red 였으나 가정이 코드에 없다 | 비귀속 | NON_BLOCKING | 기록만 | open |
+| D5 | 알약 글자 10.5px vs 참조 12px | 제품/시각 | NEXT_HANDOFF | Button primitive 손볼 때 함께 | open |

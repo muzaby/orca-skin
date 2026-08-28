@@ -65,8 +65,10 @@ export function GitRowView({
         aria-label={changesAria}
         aria-pressed={diffOpen}
       >
-        {/* 두 수 사이 간격은 **이 래퍼가 소유**한다 — `contents` 로 두면 Button 의
-            `gap-g2`(3.25px)를 물려받아 `+72−1` 처럼 붙는다. 참조 실측은 5.93px 다. */}
+        {/* 두 수 사이 간격은 **이 래퍼가 소유**한다. `contents` 로 두면 두 수가 Button 의
+            children 래퍼(`<span>`, display 미지정 = inline) 안에 직접 놓여 **gap 이 아예
+            적용되지 않는다** — 버튼의 `gap-g2` 는 두 단계 위라 닿지 않고 실측 간격은 0px 였다.
+            참조 실측은 5.93px 다(0206 verify D1 정정). */}
         <span className="inline-flex items-center gap-g4 tabular-nums">
           <span aria-hidden="true" className="text-git-added">
             +{view.added}
