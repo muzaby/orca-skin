@@ -1,0 +1,1448 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 100 100"
+  width="18"
+  height="18"
+  aria-hidden="true"
+  style="color:#d97757; overflow:hidden"
+>
+  <defs>
+    <g id="ten-spoked" fill="none" stroke="currentColor" stroke-width="6.2" stroke-linecap="round" transform="translate(50 50) scale(0.74) translate(-50 -50)">
+      <line x1="50" y1="50" x2="50" y2="23.5"/>
+      <line x1="50" y1="50" x2="50" y2="23.5" transform="rotate(36 50 50)"/>
+      <line x1="50" y1="50" x2="50" y2="23.5" transform="rotate(72 50 50)"/>
+      <line x1="50" y1="50" x2="50" y2="23.5" transform="rotate(108 50 50)"/>
+      <line x1="50" y1="50" x2="50" y2="23.5" transform="rotate(144 50 50)"/>
+      <line x1="50" y1="50" x2="50" y2="23.5" transform="rotate(180 50 50)"/>
+      <line x1="50" y1="50" x2="50" y2="23.5" transform="rotate(216 50 50)"/>
+      <line x1="50" y1="50" x2="50" y2="23.5" transform="rotate(252 50 50)"/>
+      <line x1="50" y1="50" x2="50" y2="23.5" transform="rotate(288 50 50)"/>
+      <line x1="50" y1="50" x2="50" y2="23.5" transform="rotate(324 50 50)"/>
+    </g>
+  </defs>
+  <style>
+    .spark-strip {
+      fill: currentColor;
+      animation: spark-frames 7200ms steps(1, end) infinite;
+    }
+    .spark-text {
+      fill: currentColor;
+      font-family: "Segoe UI Symbol", "Apple Symbols", sans-serif;
+      font-size: 58px;
+      text-anchor: middle;
+      dominant-baseline: middle;
+    }
+    @keyframes spark-frames {
+      0.0000% { transform: translateY(-0px); }
+      0.4149% { transform: translateY(-100px); }
+      0.8299% { transform: translateY(-200px); }
+      1.2448% { transform: translateY(-300px); }
+      1.6598% { transform: translateY(-400px); }
+      2.0747% { transform: translateY(-500px); }
+      2.4896% { transform: translateY(-600px); }
+      2.9046% { transform: translateY(-700px); }
+      3.3195% { transform: translateY(-800px); }
+      3.7344% { transform: translateY(-900px); }
+      4.1494% { transform: translateY(-1000px); }
+      4.5643% { transform: translateY(-1100px); }
+      4.9793% { transform: translateY(-1200px); }
+      5.3942% { transform: translateY(-1300px); }
+      5.8091% { transform: translateY(-1400px); }
+      6.2241% { transform: translateY(-1500px); }
+      6.6390% { transform: translateY(-1600px); }
+      7.0539% { transform: translateY(-1700px); }
+      7.4689% { transform: translateY(-1800px); }
+      7.8838% { transform: translateY(-1900px); }
+      8.2988% { transform: translateY(-2000px); }
+      8.7137% { transform: translateY(-2100px); }
+      9.1286% { transform: translateY(-2200px); }
+      9.5436% { transform: translateY(-2300px); }
+      9.9585% { transform: translateY(-2400px); }
+      10.3734% { transform: translateY(-2500px); }
+      10.7884% { transform: translateY(-2600px); }
+      11.2033% { transform: translateY(-2700px); }
+      11.6183% { transform: translateY(-2800px); }
+      12.0332% { transform: translateY(-2900px); }
+      12.4481% { transform: translateY(-3000px); }
+      12.8631% { transform: translateY(-3100px); }
+      13.2780% { transform: translateY(-3200px); }
+      13.6929% { transform: translateY(-3300px); }
+      14.1079% { transform: translateY(-3400px); }
+      14.5228% { transform: translateY(-3500px); }
+      14.9378% { transform: translateY(-3600px); }
+      15.3527% { transform: translateY(-3700px); }
+      15.7676% { transform: translateY(-3800px); }
+      16.1826% { transform: translateY(-3900px); }
+      16.5975% { transform: translateY(-4000px); }
+      17.0124% { transform: translateY(-4100px); }
+      17.4274% { transform: translateY(-4200px); }
+      17.8423% { transform: translateY(-4300px); }
+      18.2573% { transform: translateY(-4400px); }
+      18.6722% { transform: translateY(-4500px); }
+      19.0871% { transform: translateY(-4600px); }
+      19.5021% { transform: translateY(-4700px); }
+      19.9170% { transform: translateY(-4800px); }
+      20.3320% { transform: translateY(-4900px); }
+      20.7469% { transform: translateY(-5000px); }
+      21.1618% { transform: translateY(-5100px); }
+      21.5768% { transform: translateY(-5200px); }
+      21.9917% { transform: translateY(-5300px); }
+      22.4066% { transform: translateY(-5400px); }
+      22.8216% { transform: translateY(-5500px); }
+      23.2365% { transform: translateY(-5600px); }
+      23.6515% { transform: translateY(-5700px); }
+      24.0664% { transform: translateY(-5800px); }
+      24.4813% { transform: translateY(-5900px); }
+      24.8963% { transform: translateY(-6000px); }
+      25.3112% { transform: translateY(-6100px); }
+      25.7261% { transform: translateY(-6200px); }
+      26.1411% { transform: translateY(-6300px); }
+      26.5560% { transform: translateY(-6400px); }
+      26.9710% { transform: translateY(-6500px); }
+      27.3859% { transform: translateY(-6600px); }
+      27.8008% { transform: translateY(-6700px); }
+      28.2158% { transform: translateY(-6800px); }
+      28.6307% { transform: translateY(-6900px); }
+      29.0456% { transform: translateY(-7000px); }
+      29.4606% { transform: translateY(-7100px); }
+      29.8755% { transform: translateY(-7200px); }
+      30.2905% { transform: translateY(-7300px); }
+      30.7054% { transform: translateY(-7400px); }
+      31.1203% { transform: translateY(-7500px); }
+      31.5353% { transform: translateY(-7600px); }
+      31.9502% { transform: translateY(-7700px); }
+      32.3651% { transform: translateY(-7800px); }
+      32.7801% { transform: translateY(-7900px); }
+      33.1950% { transform: translateY(-8000px); }
+      33.6100% { transform: translateY(-8100px); }
+      34.0249% { transform: translateY(-8200px); }
+      34.4398% { transform: translateY(-8300px); }
+      34.8548% { transform: translateY(-8400px); }
+      35.2697% { transform: translateY(-8500px); }
+      35.6846% { transform: translateY(-8600px); }
+      36.0996% { transform: translateY(-8700px); }
+      36.5145% { transform: translateY(-8800px); }
+      36.9295% { transform: translateY(-8900px); }
+      37.3444% { transform: translateY(-9000px); }
+      37.7593% { transform: translateY(-9100px); }
+      38.1743% { transform: translateY(-9200px); }
+      38.5892% { transform: translateY(-9300px); }
+      39.0041% { transform: translateY(-9400px); }
+      39.4191% { transform: translateY(-9500px); }
+      39.8340% { transform: translateY(-9600px); }
+      40.2490% { transform: translateY(-9700px); }
+      40.6639% { transform: translateY(-9800px); }
+      41.0788% { transform: translateY(-9900px); }
+      41.4938% { transform: translateY(-10000px); }
+      41.9087% { transform: translateY(-10100px); }
+      42.3237% { transform: translateY(-10200px); }
+      42.7386% { transform: translateY(-10300px); }
+      43.1535% { transform: translateY(-10400px); }
+      43.5685% { transform: translateY(-10500px); }
+      43.9834% { transform: translateY(-10600px); }
+      44.3983% { transform: translateY(-10700px); }
+      44.8133% { transform: translateY(-10800px); }
+      45.2282% { transform: translateY(-10900px); }
+      45.6432% { transform: translateY(-11000px); }
+      46.0581% { transform: translateY(-11100px); }
+      46.4730% { transform: translateY(-11200px); }
+      46.8880% { transform: translateY(-11300px); }
+      47.3029% { transform: translateY(-11400px); }
+      47.7178% { transform: translateY(-11500px); }
+      48.1328% { transform: translateY(-11600px); }
+      48.5477% { transform: translateY(-11700px); }
+      48.9627% { transform: translateY(-11800px); }
+      49.3776% { transform: translateY(-11900px); }
+      49.7925% { transform: translateY(-12000px); }
+      50.2075% { transform: translateY(-12100px); }
+      50.6224% { transform: translateY(-12200px); }
+      51.0373% { transform: translateY(-12300px); }
+      51.4523% { transform: translateY(-12400px); }
+      51.8672% { transform: translateY(-12500px); }
+      52.2822% { transform: translateY(-12600px); }
+      52.6971% { transform: translateY(-12700px); }
+      53.1120% { transform: translateY(-12800px); }
+      53.5270% { transform: translateY(-12900px); }
+      53.9419% { transform: translateY(-13000px); }
+      54.3568% { transform: translateY(-13100px); }
+      54.7718% { transform: translateY(-13200px); }
+      55.1867% { transform: translateY(-13300px); }
+      55.6017% { transform: translateY(-13400px); }
+      56.0166% { transform: translateY(-13500px); }
+      56.4315% { transform: translateY(-13600px); }
+      56.8465% { transform: translateY(-13700px); }
+      57.2614% { transform: translateY(-13800px); }
+      57.6763% { transform: translateY(-13900px); }
+      58.0913% { transform: translateY(-14000px); }
+      58.5062% { transform: translateY(-14100px); }
+      58.9212% { transform: translateY(-14200px); }
+      59.3361% { transform: translateY(-14300px); }
+      59.7510% { transform: translateY(-14400px); }
+      60.1660% { transform: translateY(-14500px); }
+      60.5809% { transform: translateY(-14600px); }
+      60.9959% { transform: translateY(-14700px); }
+      61.4108% { transform: translateY(-14800px); }
+      61.8257% { transform: translateY(-14900px); }
+      62.2407% { transform: translateY(-15000px); }
+      62.6556% { transform: translateY(-15100px); }
+      63.0705% { transform: translateY(-15200px); }
+      63.4855% { transform: translateY(-15300px); }
+      63.9004% { transform: translateY(-15400px); }
+      64.3154% { transform: translateY(-15500px); }
+      64.7303% { transform: translateY(-15600px); }
+      65.1452% { transform: translateY(-15700px); }
+      65.5602% { transform: translateY(-15800px); }
+      65.9751% { transform: translateY(-15900px); }
+      66.3900% { transform: translateY(-16000px); }
+      66.8050% { transform: translateY(-16100px); }
+      67.2199% { transform: translateY(-16200px); }
+      67.6349% { transform: translateY(-16300px); }
+      68.0498% { transform: translateY(-16400px); }
+      68.4647% { transform: translateY(-16500px); }
+      68.8797% { transform: translateY(-16600px); }
+      69.2946% { transform: translateY(-16700px); }
+      69.7095% { transform: translateY(-16800px); }
+      70.1245% { transform: translateY(-16900px); }
+      70.5394% { transform: translateY(-17000px); }
+      70.9544% { transform: translateY(-17100px); }
+      71.3693% { transform: translateY(-17200px); }
+      71.7842% { transform: translateY(-17300px); }
+      72.1992% { transform: translateY(-17400px); }
+      72.6141% { transform: translateY(-17500px); }
+      73.0290% { transform: translateY(-17600px); }
+      73.4440% { transform: translateY(-17700px); }
+      73.8589% { transform: translateY(-17800px); }
+      74.2739% { transform: translateY(-17900px); }
+      74.6888% { transform: translateY(-18000px); }
+      75.1037% { transform: translateY(-18100px); }
+      75.5187% { transform: translateY(-18200px); }
+      75.9336% { transform: translateY(-18300px); }
+      76.3485% { transform: translateY(-18400px); }
+      76.7635% { transform: translateY(-18500px); }
+      77.1784% { transform: translateY(-18600px); }
+      77.5934% { transform: translateY(-18700px); }
+      78.0083% { transform: translateY(-18800px); }
+      78.4232% { transform: translateY(-18900px); }
+      78.8382% { transform: translateY(-19000px); }
+      79.2531% { transform: translateY(-19100px); }
+      79.6680% { transform: translateY(-19200px); }
+      80.0830% { transform: translateY(-19300px); }
+      80.4979% { transform: translateY(-19400px); }
+      80.9129% { transform: translateY(-19500px); }
+      81.3278% { transform: translateY(-19600px); }
+      81.7427% { transform: translateY(-19700px); }
+      82.1577% { transform: translateY(-19800px); }
+      82.5726% { transform: translateY(-19900px); }
+      82.9876% { transform: translateY(-20000px); }
+      83.4025% { transform: translateY(-20100px); }
+      83.8174% { transform: translateY(-20200px); }
+      84.2324% { transform: translateY(-20300px); }
+      84.6473% { transform: translateY(-20400px); }
+      85.0622% { transform: translateY(-20500px); }
+      85.4772% { transform: translateY(-20600px); }
+      85.8921% { transform: translateY(-20700px); }
+      86.3071% { transform: translateY(-20800px); }
+      86.7220% { transform: translateY(-20900px); }
+      87.1369% { transform: translateY(-21000px); }
+      87.5519% { transform: translateY(-21100px); }
+      87.9668% { transform: translateY(-21200px); }
+      88.3817% { transform: translateY(-21300px); }
+      88.7967% { transform: translateY(-21400px); }
+      89.2116% { transform: translateY(-21500px); }
+      89.6266% { transform: translateY(-21600px); }
+      90.0415% { transform: translateY(-21700px); }
+      90.4564% { transform: translateY(-21800px); }
+      90.8714% { transform: translateY(-21900px); }
+      91.2863% { transform: translateY(-22000px); }
+      91.7012% { transform: translateY(-22100px); }
+      92.1162% { transform: translateY(-22200px); }
+      92.5311% { transform: translateY(-22300px); }
+      92.9461% { transform: translateY(-22400px); }
+      93.3610% { transform: translateY(-22500px); }
+      93.7759% { transform: translateY(-22600px); }
+      94.1909% { transform: translateY(-22700px); }
+      94.6058% { transform: translateY(-22800px); }
+      95.0207% { transform: translateY(-22900px); }
+      95.4357% { transform: translateY(-23000px); }
+      95.8506% { transform: translateY(-23100px); }
+      96.2656% { transform: translateY(-23200px); }
+      96.6805% { transform: translateY(-23300px); }
+      97.0954% { transform: translateY(-23400px); }
+      97.5104% { transform: translateY(-23500px); }
+      97.9253% { transform: translateY(-23600px); }
+      98.3402% { transform: translateY(-23700px); }
+      98.7552% { transform: translateY(-23800px); }
+      99.1701% { transform: translateY(-23900px); }
+      99.5851% { transform: translateY(-24000px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .spark-strip { animation: none; transform: translateY(0); }
+    }
+  </style>
+
+  <g class="spark-strip">
+    <g transform="translate(0 0)">
+      <use href="#ten-spoked"/>
+    </g>
+    <g transform="translate(0 100)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 200)">
+      <g transform="translate(50 50) scale(0.84) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 300)">
+      <g transform="translate(50 50) scale(0.74) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 400)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 500)">
+      <g transform="translate(50 50) scale(0.53) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 600)">
+      <g transform="translate(50 50) scale(0.45) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 700)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 800)">
+      <g transform="translate(50 50) scale(0.36) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 900)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 1000)">
+      <circle cx="50" cy="50" r="6.8" fill="currentColor"/>
+    </g>
+    <g transform="translate(0 1100)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 1200)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 1300)">
+      <g transform="translate(50 50) scale(0.46) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 1400)">
+      <g transform="translate(50 50) scale(0.54) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 1500)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 1600)">
+      <g transform="translate(50 50) scale(0.73) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 1700)">
+      <g transform="translate(50 50) scale(0.83) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 1800)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 1900)">
+      <g transform="translate(50 50) scale(1.01) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 2000)">
+      <g transform="translate(50 50) scale(1.08) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 2100)">
+      <g transform="translate(50 50) scale(1.13) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 2200)">
+      <g transform="translate(50 50) scale(1.07) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 2300)">
+      <g transform="translate(50 50) scale(1.02) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 2400)">
+      <text class="spark-text" x="50" y="54">✢</text>
+    </g>
+    <g transform="translate(0 2500)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 2600)">
+      <g transform="translate(50 50) scale(0.84) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 2700)">
+      <g transform="translate(50 50) scale(0.74) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 2800)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 2900)">
+      <g transform="translate(50 50) scale(0.53) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 3000)">
+      <g transform="translate(50 50) scale(0.45) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 3100)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 3200)">
+      <g transform="translate(50 50) scale(0.36) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 3300)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✢</text>
+      </g>
+    </g>
+    <g transform="translate(0 3400)">
+      <circle cx="50" cy="50" r="6.8" fill="currentColor"/>
+    </g>
+    <g transform="translate(0 3500)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 3600)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 3700)">
+      <g transform="translate(50 50) scale(0.46) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 3800)">
+      <g transform="translate(50 50) scale(0.54) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 3900)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 4000)">
+      <g transform="translate(50 50) scale(0.73) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 4100)">
+      <g transform="translate(50 50) scale(0.83) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 4200)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 4300)">
+      <g transform="translate(50 50) scale(1.01) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 4400)">
+      <g transform="translate(50 50) scale(1.08) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 4500)">
+      <g transform="translate(50 50) scale(1.13) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 4600)">
+      <g transform="translate(50 50) scale(1.07) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 4700)">
+      <g transform="translate(50 50) scale(1.02) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 4800)">
+      <use href="#ten-spoked"/>
+    </g>
+    <g transform="translate(0 4900)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 5000)">
+      <g transform="translate(50 50) scale(0.84) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 5100)">
+      <g transform="translate(50 50) scale(0.74) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 5200)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 5300)">
+      <g transform="translate(50 50) scale(0.53) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 5400)">
+      <g transform="translate(50 50) scale(0.45) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 5500)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 5600)">
+      <g transform="translate(50 50) scale(0.36) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 5700)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 5800)">
+      <circle cx="50" cy="50" r="6.8" fill="currentColor"/>
+    </g>
+    <g transform="translate(0 5900)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 6000)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 6100)">
+      <g transform="translate(50 50) scale(0.46) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 6200)">
+      <g transform="translate(50 50) scale(0.54) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 6300)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 6400)">
+      <g transform="translate(50 50) scale(0.73) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 6500)">
+      <g transform="translate(50 50) scale(0.83) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 6600)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 6700)">
+      <g transform="translate(50 50) scale(1.01) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 6800)">
+      <g transform="translate(50 50) scale(1.08) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 6900)">
+      <g transform="translate(50 50) scale(1.13) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 7000)">
+      <g transform="translate(50 50) scale(1.07) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 7100)">
+      <g transform="translate(50 50) scale(1.02) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 7200)">
+      <text class="spark-text" x="50" y="54">✳︎</text>
+    </g>
+    <g transform="translate(0 7300)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 7400)">
+      <g transform="translate(50 50) scale(0.84) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 7500)">
+      <g transform="translate(50 50) scale(0.74) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 7600)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 7700)">
+      <g transform="translate(50 50) scale(0.53) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 7800)">
+      <g transform="translate(50 50) scale(0.45) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 7900)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 8000)">
+      <g transform="translate(50 50) scale(0.36) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 8100)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✳︎</text>
+      </g>
+    </g>
+    <g transform="translate(0 8200)">
+      <circle cx="50" cy="50" r="6.8" fill="currentColor"/>
+    </g>
+    <g transform="translate(0 8300)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 8400)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 8500)">
+      <g transform="translate(50 50) scale(0.46) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 8600)">
+      <g transform="translate(50 50) scale(0.54) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 8700)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 8800)">
+      <g transform="translate(50 50) scale(0.73) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 8900)">
+      <g transform="translate(50 50) scale(0.83) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 9000)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 9100)">
+      <g transform="translate(50 50) scale(1.01) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 9200)">
+      <g transform="translate(50 50) scale(1.08) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 9300)">
+      <g transform="translate(50 50) scale(1.13) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 9400)">
+      <g transform="translate(50 50) scale(1.07) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 9500)">
+      <g transform="translate(50 50) scale(1.02) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 9600)">
+      <use href="#ten-spoked"/>
+    </g>
+    <g transform="translate(0 9700)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 9800)">
+      <g transform="translate(50 50) scale(0.84) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 9900)">
+      <g transform="translate(50 50) scale(0.74) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 10000)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 10100)">
+      <g transform="translate(50 50) scale(0.53) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 10200)">
+      <g transform="translate(50 50) scale(0.45) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 10300)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 10400)">
+      <g transform="translate(50 50) scale(0.36) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 10500)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 10600)">
+      <circle cx="50" cy="50" r="6.8" fill="currentColor"/>
+    </g>
+    <g transform="translate(0 10700)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 10800)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 10900)">
+      <g transform="translate(50 50) scale(0.46) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 11000)">
+      <g transform="translate(50 50) scale(0.54) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 11100)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 11200)">
+      <g transform="translate(50 50) scale(0.73) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 11300)">
+      <g transform="translate(50 50) scale(0.83) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 11400)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 11500)">
+      <g transform="translate(50 50) scale(1.01) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 11600)">
+      <g transform="translate(50 50) scale(1.08) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 11700)">
+      <g transform="translate(50 50) scale(1.13) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 11800)">
+      <g transform="translate(50 50) scale(1.07) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 11900)">
+      <g transform="translate(50 50) scale(1.02) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 12000)">
+      <text class="spark-text" x="50" y="54">✶</text>
+    </g>
+    <g transform="translate(0 12100)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 12200)">
+      <g transform="translate(50 50) scale(0.84) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 12300)">
+      <g transform="translate(50 50) scale(0.74) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 12400)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 12500)">
+      <g transform="translate(50 50) scale(0.53) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 12600)">
+      <g transform="translate(50 50) scale(0.45) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 12700)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 12800)">
+      <g transform="translate(50 50) scale(0.36) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 12900)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✶</text>
+      </g>
+    </g>
+    <g transform="translate(0 13000)">
+      <circle cx="50" cy="50" r="6.8" fill="currentColor"/>
+    </g>
+    <g transform="translate(0 13100)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 13200)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 13300)">
+      <g transform="translate(50 50) scale(0.46) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 13400)">
+      <g transform="translate(50 50) scale(0.54) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 13500)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 13600)">
+      <g transform="translate(50 50) scale(0.73) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 13700)">
+      <g transform="translate(50 50) scale(0.83) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 13800)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 13900)">
+      <g transform="translate(50 50) scale(1.01) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 14000)">
+      <g transform="translate(50 50) scale(1.08) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 14100)">
+      <g transform="translate(50 50) scale(1.13) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 14200)">
+      <g transform="translate(50 50) scale(1.07) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 14300)">
+      <g transform="translate(50 50) scale(1.02) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 14400)">
+      <use href="#ten-spoked"/>
+    </g>
+    <g transform="translate(0 14500)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 14600)">
+      <g transform="translate(50 50) scale(0.84) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 14700)">
+      <g transform="translate(50 50) scale(0.74) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 14800)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 14900)">
+      <g transform="translate(50 50) scale(0.53) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 15000)">
+      <g transform="translate(50 50) scale(0.45) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 15100)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 15200)">
+      <g transform="translate(50 50) scale(0.36) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 15300)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 15400)">
+      <circle cx="50" cy="50" r="6.8" fill="currentColor"/>
+    </g>
+    <g transform="translate(0 15500)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 15600)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 15700)">
+      <g transform="translate(50 50) scale(0.46) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 15800)">
+      <g transform="translate(50 50) scale(0.54) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 15900)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 16000)">
+      <g transform="translate(50 50) scale(0.73) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 16100)">
+      <g transform="translate(50 50) scale(0.83) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 16200)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 16300)">
+      <g transform="translate(50 50) scale(1.01) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 16400)">
+      <g transform="translate(50 50) scale(1.08) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 16500)">
+      <g transform="translate(50 50) scale(1.13) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 16600)">
+      <g transform="translate(50 50) scale(1.07) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 16700)">
+      <g transform="translate(50 50) scale(1.02) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 16800)">
+      <text class="spark-text" x="50" y="54">✻</text>
+    </g>
+    <g transform="translate(0 16900)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 17000)">
+      <g transform="translate(50 50) scale(0.84) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 17100)">
+      <g transform="translate(50 50) scale(0.74) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 17200)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 17300)">
+      <g transform="translate(50 50) scale(0.53) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 17400)">
+      <g transform="translate(50 50) scale(0.45) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 17500)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 17600)">
+      <g transform="translate(50 50) scale(0.36) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 17700)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✻</text>
+      </g>
+    </g>
+    <g transform="translate(0 17800)">
+      <circle cx="50" cy="50" r="6.8" fill="currentColor"/>
+    </g>
+    <g transform="translate(0 17900)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 18000)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 18100)">
+      <g transform="translate(50 50) scale(0.46) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 18200)">
+      <g transform="translate(50 50) scale(0.54) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 18300)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 18400)">
+      <g transform="translate(50 50) scale(0.73) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 18500)">
+      <g transform="translate(50 50) scale(0.83) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 18600)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 18700)">
+      <g transform="translate(50 50) scale(1.01) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 18800)">
+      <g transform="translate(50 50) scale(1.08) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 18900)">
+      <g transform="translate(50 50) scale(1.13) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 19000)">
+      <g transform="translate(50 50) scale(1.07) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 19100)">
+      <g transform="translate(50 50) scale(1.02) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 19200)">
+      <use href="#ten-spoked"/>
+    </g>
+    <g transform="translate(0 19300)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 19400)">
+      <g transform="translate(50 50) scale(0.84) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 19500)">
+      <g transform="translate(50 50) scale(0.74) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 19600)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 19700)">
+      <g transform="translate(50 50) scale(0.53) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 19800)">
+      <g transform="translate(50 50) scale(0.45) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 19900)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 20000)">
+      <g transform="translate(50 50) scale(0.36) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 20100)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 20200)">
+      <circle cx="50" cy="50" r="6.8" fill="currentColor"/>
+    </g>
+    <g transform="translate(0 20300)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 20400)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 20500)">
+      <g transform="translate(50 50) scale(0.46) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 20600)">
+      <g transform="translate(50 50) scale(0.54) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 20700)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 20800)">
+      <g transform="translate(50 50) scale(0.73) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 20900)">
+      <g transform="translate(50 50) scale(0.83) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 21000)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 21100)">
+      <g transform="translate(50 50) scale(1.01) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 21200)">
+      <g transform="translate(50 50) scale(1.08) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 21300)">
+      <g transform="translate(50 50) scale(1.13) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 21400)">
+      <g transform="translate(50 50) scale(1.07) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 21500)">
+      <g transform="translate(50 50) scale(1.02) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 21600)">
+      <text class="spark-text" x="50" y="54">✽</text>
+    </g>
+    <g transform="translate(0 21700)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 21800)">
+      <g transform="translate(50 50) scale(0.84) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 21900)">
+      <g transform="translate(50 50) scale(0.74) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 22000)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 22100)">
+      <g transform="translate(50 50) scale(0.53) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 22200)">
+      <g transform="translate(50 50) scale(0.45) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 22300)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 22400)">
+      <g transform="translate(50 50) scale(0.36) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 22500)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <text class="spark-text" x="50" y="54">✽</text>
+      </g>
+    </g>
+    <g transform="translate(0 22600)">
+      <circle cx="50" cy="50" r="6.8" fill="currentColor"/>
+    </g>
+    <g transform="translate(0 22700)">
+      <g transform="translate(50 50) scale(0.34) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 22800)">
+      <g transform="translate(50 50) scale(0.39) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 22900)">
+      <g transform="translate(50 50) scale(0.46) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 23000)">
+      <g transform="translate(50 50) scale(0.54) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 23100)">
+      <g transform="translate(50 50) scale(0.63) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 23200)">
+      <g transform="translate(50 50) scale(0.73) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 23300)">
+      <g transform="translate(50 50) scale(0.83) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 23400)">
+      <g transform="translate(50 50) scale(0.93) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 23500)">
+      <g transform="translate(50 50) scale(1.01) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 23600)">
+      <g transform="translate(50 50) scale(1.08) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 23700)">
+      <g transform="translate(50 50) scale(1.13) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 23800)">
+      <g transform="translate(50 50) scale(1.07) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 23900)">
+      <g transform="translate(50 50) scale(1.02) translate(-50 -50)">
+        <use href="#ten-spoked"/>
+      </g>
+    </g>
+    <g transform="translate(0 24000)">
+      <use href="#ten-spoked"/>
+    </g>
+  </g>
+</svg>
