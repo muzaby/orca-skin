@@ -27,3 +27,54 @@ export function defaultRightPanelTileLabelKey(id: RightPanelTileId): MessageKey 
     rightPanelTileDefinitions[0].defaultLabelKey
   )
 }
+
+// ── 가시성 정책 (0205) ──────────────────────────────────────────────────────
+//
+// 두 축이 있고 의미가 다르다. 한 상수로 합치면 "왜 안 보이는가" 가 하나로 뭉개진다.
+//
+//   정지(suspended)  — cowork 렌더링 모델을 도입하기 전까지 `작업` 타일의 사용자 진입점을
+//                      닫는다(0205 D-004). 타일 내용·테스트·i18n 은 그대로 두고 *열리는
+//                      경로*만 막는다. **해제는 이 배열을 비우는 것 하나다** — 메뉴·활성화·
+//                      배지 세 소비자가 함께 복귀한다.
+//   메뉴 비노출      — 내용이 없는 예약 슬롯은 메뉴에 올리지 않는다(0204 D-021). 정지된
+//                      타일도 당연히 메뉴에 없다.
+//
+// `reserved1` 은 메뉴에만 없고 활성화는 막지 않는다(0205 D-008) — 요구는 `작업` 타일
+// 하나였고, 예약 슬롯까지 막으면 3타일 열 기하를 reducer 경로로 재현할 수 없다.
+export const SUSPENDED_RIGHT_PANEL_TILES: readonly RightPanelTileId[] = ['task']
+
+export const MENU_HIDDEN_RIGHT_PANEL_TILES: readonly RightPanelTileId[] = [
+  'reserved1',
+  ...SUSPENDED_RIGHT_PANEL_TILES
+]
+
+// 정지된 타일인가 — reducer 의 활성화 게이트가 부른다.
+export function isRightPanelTileSuspended(
+  id: RightPanelTileId,
+  suspended: readonly RightPanelTileId[] = SUSPENDED_RIGHT_PANEL_TILES
+): boolean {
+  return suspended.includes(id)
+}
+
+// 타일 메뉴에 올릴 정의 — 정의 순서(= 메뉴 순서)를 보존한다.
+export const visibleRightPanelTileDefinitions = rightPanelTileDefinitions.filter(
+  (tile) => !MENU_HIDDEN_RIGHT_PANEL_TILES.includes(tile.id)
+)
+
+// 타일 버튼의 미확인 완료 배지를 띄우는가.
+//
+// 배지는 "확인하지 않은 완료가 있는데 그 타일을 보고 있지 않다" 를 뜻한다. `작업` 타일이
+// 정지되면 `activeTiles` 는 그것을 결코 담지 못하므로 두 번째 조건이 항상 참이 되어 배지가
+// 켜진 채 고착한다 — 끄는 3지점(`SELECT_TASK`·`OPEN_TASK`·`ACKNOWLEDGE_SETTLED_TASKS`)이
+// 모두 타일 도달을 전제하기 때문이다. 그래서 정지 여부를 함께 본다(0205 D-006).
+//
+// `suspended` 는 테스트 seam 이다 — 정지 중에는 프로덕션 기본값으로 항상 false 라 양성
+// 방향을 만들 수 없다.
+export function showsUnseenTaskBadge(
+  unseenCount: number,
+  activeTiles: readonly RightPanelTileId[],
+  suspended: readonly RightPanelTileId[] = SUSPENDED_RIGHT_PANEL_TILES
+): boolean {
+  if (isRightPanelTileSuspended('task', suspended)) return false
+  return unseenCount > 0 && !activeTiles.includes('task')
+}

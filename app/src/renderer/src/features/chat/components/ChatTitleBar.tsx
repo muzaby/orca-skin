@@ -13,14 +13,21 @@ import {
 } from '../store/chatStore'
 import { partsText } from '../lib/parts'
 import type { ChatState } from '../reducer/chatReducer'
-import type { RightPanelTileId } from '../lib/rightPanelTiles'
+import {
+  MENU_HIDDEN_RIGHT_PANEL_TILES,
+  showsUnseenTaskBadge,
+  type RightPanelTileId
+} from '../lib/rightPanelTiles'
 import { flattenColumns } from '../lib/rightPanelLayout'
 import { tileRegistry } from './rightpanel/tileRegistry'
 import { CwdButton } from './CwdButton'
 
-// 예약 타일은 Future Scope — 메뉴에서 숨긴다. tileRegistry 는 모듈 상수라 결과가 불변이므로
-// 모듈 로드 시 1회만 계산한다(인스턴스별 useMemo 불필요).
-const VISIBLE_TILE_REGISTRY = tileRegistry.filter((tile) => tile.id !== 'reserved1')
+// 메뉴에 올릴 타일 — 어떤 id 를 숨길지는 `rightPanelTiles.ts` 가 소유한다(0205 §10 EP-02).
+// 예약 슬롯과 정지된 타일이 같은 배열에 있고 이유는 그쪽 주석이 갖는다. tileRegistry 는 모듈
+// 상수라 결과가 불변이므로 모듈 로드 시 1회만 계산한다(인스턴스별 useMemo 불필요).
+const VISIBLE_TILE_REGISTRY = tileRegistry.filter(
+  (tile) => !MENU_HIDDEN_RIGHT_PANEL_TILES.includes(tile.id)
+)
 
 // 사이드바 메타 (state.title) 가 즉시 채워지므로 사용자가 세션을 선택한 순간부터
 // 헤더에 정확한 제목 표시. 메타가 없는 부팅 자동 복원 1회만 첫 user 메시지에서 fallback.
@@ -63,7 +70,8 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   const tileColumns = useChatSession((s) => s.rightPanelTiles)
   const activeTiles = useMemo(() => flattenColumns(tileColumns), [tileColumns])
   const unseenSettledTasks = useUnseenSettledTaskCount()
-  const showTaskBadge = unseenSettledTasks > 0 && !activeTiles.includes('task')
+  // 정지된 타일을 가리키는 배지는 띄우지 않는다 — 판정은 SSOT 가 갖는다(0205 §10 EP-03).
+  const showTaskBadge = showsUnseenTaskBadge(unseenSettledTasks, activeTiles)
   const labels = useChatSession((s) => s.rightPanelTileLabels)
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -219,6 +227,8 @@ export const ChatTitleBar = memo(function ChatTitleBar({
                 aria-checked={active}
               >
                 <span>{labels[tile.id as RightPanelTileId] ?? tr(tile.defaultLabelKey)}</span>
+                {/* `작업` 이 정지된 동안은 이 목록에 오지 않아 도달하지 않는다(0205 §10 EP-03).
+                    정지 해제 시 함께 돌아오도록 지우지 않는다. */}
                 {tile.id === 'task' && unseenSettledTasks > 0 && (
                   <span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] px-1.5 text-[10px] font-medium text-accent">
                     {unseenSettledTasks}

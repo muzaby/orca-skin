@@ -153,8 +153,10 @@ describe('chatReducer — 미확인 완료 배지 (AC19)', () => {
     expect(s.unseenSettledTaskKeys).toEqual(['bg:a1'])
     s = chatReducer(s, { type: 'OPEN_TASK', key: 'bg:a1' })
     expect(s.unseenSettledTaskKeys).toEqual([])
-    // 타일도 함께 열린다.
-    expect(s.rightPanelTiles.flatMap((c) => c.tiles)).toContain('task')
+    // 0205 — `작업` 타일이 정지된 동안은 선택만 서고 타일은 붙지 않는다. 정지 해제 시
+    // 이 단언이 `toContain('task')` 로 돌아간다(0204 AT-30 의 원래 문장).
+    expect(s.selectedTaskKey).toBe('bg:a1')
+    expect(s.rightPanelTiles.flatMap((c) => c.tiles)).not.toContain('task')
   })
 
   it('사용자 중단(background 미부여)은 배지를 켜지 않는다 — 자기 행위는 소음', () => {
@@ -214,7 +216,9 @@ describe('chatReducer — 두 타일의 선택 상태 독립 (AT-30)', () => {
   it('각 타일 열기는 자기 타일만 패널에 붙인다', () => {
     const taskOnly = chatReducer(initialChatState, { type: 'OPEN_TASK', key: 'agent:1' })
     const tiles = taskOnly.rightPanelTiles.flatMap((c) => c.tiles)
-    expect(tiles).toContain('task')
+    // 0205 — `작업` 은 정지 중이라 자기 타일도 붙지 않는다. 선택 상태는 계속 선다.
+    expect(taskOnly.selectedTaskKey).toBe('agent:1')
+    expect(tiles).not.toContain('task')
     expect(tiles).not.toContain('subagent')
 
     const subagentOnly = chatReducer(initialChatState, {

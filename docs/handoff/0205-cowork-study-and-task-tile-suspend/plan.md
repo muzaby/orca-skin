@@ -445,78 +445,99 @@ tool.call.completed / subagent.task settled
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: Part I·Part II 를 그대로 수행했다. 설계가 지정한 SSOT 이름·`activateTile` 통로·5지점 교체·테스트 재작성 범위가 코드와 맞았다.
+- 이견 / 현실성 문제: 없음.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | … | … | … | … |
+| VP-02·VP-05 (EP-01) | 정지된 타일은 `rightPanelTiles` 에 안 들어간다 | `:565` plan 자동 · `:896` TOGGLE · `:900` SET_ACTIVE · `:934` OPEN_TASK · `:945` OPEN_SUBAGENT_TASK (5) | **5/5** | `rg "addTileColumnMajor\(" chatReducer.ts` → **1건**(`:1044` `activateTile` 정의 내부) · `rg "activateTile\(state" chatReducer.ts` → **5건**(565·896·900·934·945) | — |
+| VP-01 (EP-02) | 메뉴 목록 = 정의 − 메뉴 비노출 | 메뉴 렌더 1지점 | **1/1** | `ChatTitleBar.tsx:29` 가 `MENU_HIDDEN_RIGHT_PANEL_TILES` 를 소비 · 테스트 `메뉴 목록은 계획·백그라운드 작업 둘이고 정의 순서를 지킨다` green | — |
+| VP-03 (EP-03) | 배지는 정지된 타일을 가리키지 않는다 | `:66` 버튼 배지 · `:222` 메뉴 내 카운트 (2) | **2/2** | `:74` 가 `showsUnseenTaskBadge(unseenSettledTasks, activeTiles)` 로 교체 · `:232` 는 `VISIBLE_TILE_REGISTRY.map` 안이라 `task` 부재로 도달 불가(주석으로 명시) | — |
+| VP-06 (EP-04) | TaskXXX 파생·타일 내용 불변 | `taskBoard.test.ts` · `rightPanelTiles.render.test.ts` (2) | **2/2** | 두 스위트 무수정 green — `git diff --numstat` 에 두 파일 없음(내용 변경 7파일 목록에 부재) | — |
+| VP-07 (EP-05) | 문서 존재 + 원본 부재 | `docs/etc/study/cowork/` · `docs/INDEX.md` `etc/` 행 (2) | **2/2** | `ls docs/etc/study/cowork` → `README.md`·`01-턴-렌더링-모델.md`·`02-사이드패널과-출력.md`·`03-orca-대조.md` 4건 · `docs/INDEX.md:60` 에 `etc/study/cowork` 문자열 존재 | — |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+- 합계 **12/12**.
+- §10에 없는데 같은 불변식이 필요했던 지점: 없음.
+- **문서 내부 링크 수동 확인**(§10 VP-07 — `docs/etc` 는 link 게이트 밖): 4파일의 상대 링크 **13건 전수 해석, 깨짐 0**.
 
-**V-pair 자기확인**
+**V-pair 자기확인** — `SELF_PASS`는 독립 검증의 `PASS`가 아니다.
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | `visibleRightPanelTileDefinitions` id = `['plan','subagent']` | not selected — 목록이 곧 계약 |
+| VP-02 | REQUIRED | SELF_PASS | TOGGLE/SET_ACTIVE `'task'` → `colTiles` `[]` · 참조 동일. 양성 짝 `'subagent'` → `[['subagent']]` | not selected — 상태 전이 직접 관측 |
+| VP-03 | REQUIRED | SELF_PASS | `showsUnseenTaskBadge` 5조합(양성 1 · 음성 4) | not selected — 반환값이 곧 결과 |
+| VP-04 | REQUIRED | SELF_PASS | `background 완료 통지가 배지를 켜고…` 케이스가 `unseenSettledTaskKeys=['bg:a1']` 누적 + `subagent_notice` 파트 유지 | not selected — 종단 상태 직접 읽음 |
+| VP-05 | REQUIRED | SELF_PASS | `addTileColumnMajor` 직접 호출 0(정의 내부 제외), `activateTile` 5 | **required** — 아래 잠금표 M1·M2 |
+| VP-06 | REGRESSION | SELF_PASS | 45파일 437케이스 green, 두 회귀 스위트 무수정 | not selected |
+| VP-07 | REQUIRED | SELF_PASS | 문서 4건 + INDEX 행 + 링크 13/13 | not selected |
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
 
 | 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|
-| … | … | … | … |
+| `chatReducer.ts:1044` — `activateTile` 의 정지 분기 제거(`return addTileColumnMajor(cols, id)`) | `VP-05 선택 증거` | `TOGGLE 은 정지된 타일을 열지 않는다` 외 **5건** (2파일) | 잠김 |
+| `chatReducer.ts:934` — 5형제 중 `OPEN_TASK` **한 지점만** 게이트 우회 | `VP-05 선택 증거`(부분 폐쇄 감도) | `각 타일 열기는 자기 타일만 패널에 붙인다` 외 **2건** | 잠김 — 부분 폐쇄를 본다 |
+| `rightPanelTiles.ts` — `SUSPENDED_RIGHT_PANEL_TILES` 를 `[]` 로(정지 해제 시뮬레이션) | 이번 턴에 만든 SSOT 의 방향 확인 | **9건** (3파일) | 잠김 — 해제 시 되돌아갈 단언 9건의 목록이기도 하다 |
 
-## [구현자 기입] Product/UX 파생 검토
+- 세 변이 모두 복원 후 45파일 437케이스 green 재확인.
+- 그 밖의 hunk: 해당 없음 — 직접 oracle.
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 신규 문구 **0** — 정지는 기존 표면을 빼는 변경이다. `chat.taskTile.badgeAria` 는 렌더되지 않지만 카탈로그에 남긴다(D-004) | 해제 시 함께 복귀 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 실패 경로를 만들지 않았다 — 거절은 무변경(참조 동일)이고 §5 표의 `TOGGLE…`·`SET_ACTIVE…`·`OPEN_TASK` 세 행이 그것이다 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | **해당 없음 — 누를 것이 없다.** 메뉴 항목이 사라져 사용자가 정지된 타일을 요청할 UI 가 없다. 무변경 거절은 프로그램 경로에만 존재한다 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 — 비동기 경로를 건드리지 않았다 | — |
 
-## [구현자 기입] 놓친 잠재 문제 + 대응
+**적어 두는 것(범위 밖, 고치지 않음)**: agent Task 완료의 in-app 신호가 배지 하나였고 그것이 꺼졌다. 대화록의 `TaskUpdate` 도구 행은 남지만 그것은 *통지*가 아니라 *이력*이다. background 정착은 `subagent_notice` 행이 있어 영향이 없다(AT-05). 정지 기간 동안 agent Task 완료는 사용자가 대화록을 읽어야만 안다 — 0204 D-004 의 의도보다 약하고, 해제 전까지 그 상태다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | `npm run lint` 가 이 환경에서 **7분에도 끝나지 않는다**. 중단된 `--fix` 가 무관한 파일 **25건의 내용**(prettier union 줄바꿈)과 **521건의 줄바꿈**을 고쳤다 | ✅ 선조치 — 무관한 파일 전부 `git checkout` 복구 후 변경 파일만 `eslint --no-fix` 로 판정 | `app/AGENTS.md §ABI 가이드` 가 경고한 그 함정. 복구 후 `git diff --numstat` = 내 7파일뿐 |
+| 2 | `typecheck:node`·`typecheck:test` 가 3 error — `cheerio`·`turndown`·`turndown-plugin-gfm` 모듈 미해결 | ⚠️ 보고만 — 환경 기인, 변경 무관 | 세 패키지는 `package.json:39,49,50` 에 있으나 `node_modules` 에 없다. **내 renderer 변경을 stash 한 트리에서 동일한 3건 재현** |
+| 3 | `unseenSettledTaskKeys` 를 비우는 지점이 §8 이 적은 2곳이 아니라 **3곳**이었다(`ACKNOWLEDGE_SETTLED_TASKS`) | ✅ 설계 단계에서 선조치 — plan §8·D-006 을 실측값으로 정정한 뒤 READY | 셋째의 유일한 소비자가 `TaskTileContent.tsx:314` 라 결론(모두 타일 도달 전제)은 그대로 |
 
-### 설계 대비 명시적 차이
+### 설계 대비 명시적 차이 (r1)
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: **없음.** SSOT 이름·`activateTile` 위치·테스트 재작성 범위 전부 §11 그대로다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 대체물 없음(차이 0). 정지 목록은 모듈 상수라 수명이 없다 | — |
+| 공유 | 해당 없음 — `SUSPENDED_RIGHT_PANEL_TILES` 는 읽기 전용 상수이고 비울 수 있는 주체가 없다 | — |
+| 재진입 | 해당 없음 — `activateTile` 은 순수 함수다 | — |
+| 다른 무효화 축 | 해당 없음 | — |
 
-## [구현자 기입] 구현 보고
+## [구현자 기입] 구현 보고 (r1)
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| 관측한 게이트 산출 | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| AC 자기보고 | … |
-| 합계 검산 | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | 코드 4 — `lib/rightPanelTiles.ts` · `reducer/chatReducer.ts` · `components/ChatTitleBar.tsx` · (신규) `lib/rightPanelTiles.test.ts` / 테스트 2 — `chatReducer.plan.test.ts` · `chatReducer.task.test.ts` / 문서 5 — `docs/etc/study/cowork/` 4건 + `docs/INDEX.md` |
+| 실행 명령 | `./node_modules/.bin/vitest run src/renderer/src/features/chat` · `npm run typecheck:web` · `eslint --no-fix <변경 6파일>` · `node scripts/check-doc-inventory.mjs --check` |
+| **관측한 게이트 산출**(exit code 아님) | vitest **45파일 437케이스 all passed** (기준선 423 + 신규 14 = 437, 검산 일치) · `typecheck:web` **출력 0줄** · eslint 변경 6파일 **0 error 0 warning** · doc gate **출력 0줄, exit 0**. **환경 기인 분리**: `typecheck:node`·`typecheck:test` 각 3 error = `Cannot find module 'cheerio'|'turndown'|'turndown-plugin-gfm'` — renderer 변경을 stash 한 트리에서 동일 재현, 변경 무관 |
+| V-pair 자기확인 | `SELF_PASS 7 / SELF_BLOCKED 0`; pair별 상세는 위 표 |
+| 강제 지점 전수 | **12/12** |
+| **AC 자기보고**(`Criteria-Met`) | **9/9** — AT-01 `visibleRightPanelTileDefinitions`=`['plan','subagent']` ✅ / AT-02 TOGGLE `'task'` 무변경 + `'subagent'` 추가 ✅ / AT-03 SET_ACTIVE·OPEN_TASK 뒤 `'task'` 부재 + `selectedTaskKey` 유지 ✅ / AT-04 배지 5조합 ✅ / AT-05 `subagent_notice` 파트 유지 케이스 green ✅ / AT-06 `taskBoard.test.ts`·`rightPanelTiles.render.test.ts` 무수정 green ✅ / AT-07 문서 4건 + `git ls-files docs '*.txt' '*.html'` 차집합 **0줄** ✅ / AT-08 표 4종 존재 — 이벤트 시퀀스 **49행**(그중 `row` 23 · `text` 21) · 노트 분류 **사고 14 + 텍스트 7 = 21** · 라벨 표 **9행**(23개 행이 갖는 라벨 형태 수, 개별 23건은 시퀀스 표가 갖는다) · 대조표 **9축** ✅ / AT-09 `docs/INDEX.md:60` + doc gate link 검사 통과 ✅ |
+| **합계 검산** | `✅ 9 · ⚠️ 0 · ❌ 0 = 총 9` — 분모 재계수: plan §7 의 R-01~R-09 = 9행, 이번 라운드 분모 변경 없음 |
+| 블로커 / 역질문 | 없음 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
-## [구현자 기입] Review Signals — 사실만
+## [구현자 기입] Review Signals — 사실만 (r1)
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드 수: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음 — r1 이다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 해당 없음(구현 실패 0). 다만 §8 조사가 `unseenSettledTaskKeys` 해제 지점을 2로 적었다가 설계 단계 실측에서 3으로 정정됐다 — READY 전에 잡혔다.
+- 반복해서 부딪히는 환경 한계: ① `npm run lint` 전체 실행이 7분+ 미완(범위를 좁혀야 판정 가능) ② `cheerio`·`turndown`·`turndown-plugin-gfm` 미설치로 `typecheck:node`/`:test` 상시 3 error.
+- 현재 라운드 수: **1**
 
 ---
 
