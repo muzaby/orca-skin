@@ -468,12 +468,12 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 
 ## 19. [구현자 기입]
 
-- 구현 커밋:
-- 변경 요약:
-- AC 자기보고:
-- V pair 자기보고:
-- 강제 지점 전수:
-- 결함 변이 결과:
-- 게이트 결과:
-- 환경 제한:
-- 파생 이슈:
+- 구현 커밋: r1 구현 커밋(이 문서와 같은 구현 커밋, 좌표는 검증자 기입).
+- 변경 요약: 공통 `runGit`·repo mutation queue·repository/worktree command를 추가하고 기존 checkout을 queue에 편입했다. 신규 세션 send는 Host worktree 준비를 TurnContext/Runtime보다 먼저 수행하며 renderer draft chip→IPC→Main→`executionCwd`를 연결했다. `0018_managed_worktrees`와 session insert transaction의 nullable bind, resume cwd 재사용, clean+HEAD==base 안전 삭제와 사용자 보존 이유를 구현했다.
+- AC 자기보고: **✅ 19 · ⚠️ 1 · ❌ 0 = 20**. AC1~AC19는 typecheck와 관련 12 suite 127 case 및 실제 임시 Git repository 4 case에서 관측했다. AC20의 한국어/영어 label·button/disabled 배선은 코드와 typecheck로 확인했으나 실제 Windows Electron 키보드·배치는 ⚠️ 사람 실기다.
+- V pair 자기보고: **SELF_PASS 17 / 17**. VP-01은 draft 기본 off/토글/reset+schema 불가능 조합, VP-05는 `send.ts`의 prepare await가 TurnContext/runtime보다 앞인 위치, VP-06·10·13은 실제 SQLite nullable→bind→ON DELETE SET NULL, VP-12·17은 deferred queue, VP-14~16은 실제 Git/path/dirty/safe-delete 결과를 직접 관측했다.
+- 강제 지점 전수: **EP-01~EP-12 = 12/12군**. renderer 3축, shared/preload 4축, send 준비 2축, Git 5축, migration 2축, metadata 3축, lifecycle 2축, cwd 종단 4축, path 2축, naming 4분기, dirty/delete 3분류, mutation 4진입을 구현 후 `rg`·typecheck·suite로 재열거했다. adapters/sessions subtree의 worktree 생성 호출 차집합은 0줄이다.
+- 결함 변이 결과: M2(untracked dirty 무시)는 service test dirty case red, M4(Adapter worktree 생성)는 architecture sweep 0, M6(dirty를 clean 취급)는 safe-delete dirty case red, M7(global queue)는 다른 repo 병렬 순서 단언 red 방향을 확인했다. 직접 결과 oracle인 나머지 pair에는 임의 mutation을 추가하지 않았다.
+- 게이트 결과: `npm run lint` 0 error/기존 warning 1, `npm run typecheck` 3구성 green, 관련 suite **12파일 127케이스 green**(실제 Git safe-delete 4케이스 포함), migration append-only/sync green, doc inventory/link green, `git diff --check` green. 전체 `npm test` 최초 실행은 **255파일 중 252 green, 2577/2581 green**이었고 당시 red 4건(migration expectation 3+신규 bind test 1)은 수정 후 관련 12파일 127케이스 전건 green으로 재실행했다. 잔여 미수집 suite 1개는 아래 환경 제한이다.
+- 환경 제한: `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci --ignore-scripts` 환경이라 Electron binary가 없어 `chat-turn.continuity.test.ts`가 0건 수집(`Electron failed to install correctly`)했다. perceptible UI screenshot과 Windows 실제 Git 실기는 이 환경에서 수행할 수 없어 AC20을 ⚠️로 남겼다.
+- 파생 이슈: **NON_BLOCKING D1** — V1은 외부 worktree를 mutation하지 않는 계약을 “관리 row로 찾은 대상만 삭제” 구조로 닫았지만, 부팅 reconciliation/UI 노출은 여전히 후속 범위다. **NON_BLOCKING D2** — add 실패 뒤 생성됐을 수 있는 branch는 best-effort `branch -d`로 정리하며 실패 시 Git stderr만 남는다; orphan 관리 UI 전까지 자동 force cleanup은 하지 않는다. PLAN_GAP은 없다.

@@ -14,10 +14,10 @@
 | IPC 도메인 | **23** | `app/src/shared/ipc.ts` |
 | NormalizedEvent variant | **21** | `app/src/shared/ipc.ts` |
 | settings 키 | **18** | `app/src/shared/protocol.ts` |
-| main 수직 슬라이스 | **12** | `app/src/main/features/` |
+| main 수직 슬라이스 | **13** | `app/src/main/features/` |
 | main contracts 모듈 | **5** | `app/src/main/contracts/` |
 | IPC 핸들러 | **14** | `app/src/main/app/handlers/` |
-| DB 마이그레이션 | **17** | `app/src/main/infra/db/migrations/` |
+| DB 마이그레이션 | **18** | `app/src/main/infra/db/migrations/` |
 | renderer feature | **13** | `app/src/renderer/src/features/` |
 
 ## 내역
@@ -38,9 +38,9 @@
 
 `accountInstructions` · `appFont` · `authBypass` · `density` · `language` · `lastBackend` · `lastSessionId` · `mcpEnabled` · `mcpMeta` · `notifyOnComplete` · `scheduler` · `sidebarCollapsed` · `sidebarWidth` · `skillEnabled` · `spendingLimitUsd` · `theme` · `uiLocale` · `windowBounds`
 
-### main 수직 슬라이스 (12)
+### main 수직 슬라이스 (13)
 
-`approvals` · `auth` · `chat` · `extensions` · `gate` · `harnesses` · `history` · `orchestration` · `plugins` · `scheduler` · `sessions` · `usage`
+`approvals` · `auth` · `chat` · `extensions` · `gate` · `harnesses` · `history` · `orchestration` · `plugins` · `scheduler` · `sessions` · `usage` · `worktrees`
 
 ### main contracts 모듈 (5)
 
@@ -50,9 +50,9 @@
 
 `boot` · `cost` · `engine` · `files` · `git` · `log` · `mcp` · `misc` · `project` · `providers` · `session` · `settings` · `skills` · `update`
 
-### DB 마이그레이션 (17)
+### DB 마이그레이션 (18)
 
-`0001_initial` · `0002_projects` · `0003_messages_fts` · `0004_message_parts` · `0005_usage_events` · `0006_turn_usage` · `0007_title_source` · `0008_provider_key` · `0009_message_complete` · `0010_session_cwd` · `0011_session_lineage` · `0012_provider_limits` · `0013_schedules` · `0014_provider_usage_report_cache` · `0015_pinned` · `0016_turn_model_context_window` · `0017_session_extra_dirs`
+`0001_initial` · `0002_projects` · `0003_messages_fts` · `0004_message_parts` · `0005_usage_events` · `0006_turn_usage` · `0007_title_source` · `0008_provider_key` · `0009_message_complete` · `0010_session_cwd` · `0011_session_lineage` · `0012_provider_limits` · `0013_schedules` · `0014_provider_usage_report_cache` · `0015_pinned` · `0016_turn_model_context_window` · `0017_session_extra_dirs` · `0018_managed_worktrees`
 
 ### renderer feature (13)
 

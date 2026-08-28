@@ -36,9 +36,11 @@ export function useSessionActions({
     onOpenProject: (projectId) => navigate(`/projects/${projectId}`),
     onDeleteSession: (id) => {
       const wasActive = activeSessionId === id
-      chatActions.handleSessionDeleted(id, deleteFallbackProjectId)
-      void sessionsActions.remove(id)
-      if (wasActive) navigate(redirectAfterActiveDelete, { replace: true })
+      void sessionsActions.remove(id).then((removed) => {
+        if (!removed) return
+        chatActions.handleSessionDeleted(id, deleteFallbackProjectId)
+        if (wasActive) navigate(redirectAfterActiveDelete, { replace: true })
+      })
     },
     onRenameSession: (id, title) => {
       void chatActions.renameSession(id, title)

@@ -18,6 +18,7 @@ import type { HistoryWriter } from '../../features/history/writer'
 import type { SessionChainLease } from '../../features/sessions/session-chain-lease'
 import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
 import type { RouterContext } from '../context'
+import type { WorktreeService } from '../../features/worktrees/service'
 
 export interface ChatDeps {
   ctx: RouterContext
@@ -30,6 +31,7 @@ export interface ChatDeps {
   backgroundTasks: BackgroundTaskTracker
   activity: SessionActivityProjector
   isUpdateInstallPending: () => boolean
+  worktrees: WorktreeService
 }
 
 export type NormalizedAttachments = Awaited<ReturnType<typeof normalizeAttachments>>

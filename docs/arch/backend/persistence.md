@@ -70,6 +70,8 @@
 | `0014_provider_usage_report_cache.sql` | `provider_usage_report_cache` 테이블 — provider 당 1행의 원격 사용량 스냅샷. `report_json` 은 `{ baselineUsable, raw }` 봉투이고 스칼라 3종(`quota_{limit,used,remaining}_usd`)이 한도·기준선 경로를 싸게 만든다. 원격 fetcher 를 주입한 배포에서만 채워진다 (0111, 0186). |
 | `0015_pinned.sql` | 고정(pin) 섹션 지원 컬럼 (0129). |
 | `0016_turn_model_context_window.sql` | `turn_model_usage.context_window`(nullable) — SDK 실측 컨텍스트 윈도 영속. 재로드 도넛 분모가 라이브와 같은 실측값을 쓰게 해 렌더러의 모델명 추측 목록을 걷어냈다 (0149). |
+| `0017_session_extra_dirs.sql` | `sessions.extra_dirs`(nullable JSON 배열) — 세션 출생 시 고정한 추가 참조 경로. |
+| `0018_managed_worktrees.sql` | `managed_worktrees` — Orca가 생성한 Git worktree의 저장소·경로·branch·base OID와 nullable 세션 연결. |
 
 **마이그레이션 규칙**:
 - `src/main/infra/db/migrations/NNNN_<name>.sql` (NNNN = 0으로 패딩된 일련번호)

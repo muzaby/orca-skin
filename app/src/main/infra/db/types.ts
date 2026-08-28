@@ -235,6 +235,27 @@ export interface SessionInsert {
   extraDirs?: string[] | null
 }
 
+export interface ManagedWorktreeRow {
+  id: string
+  session_id: string | null
+  repo_root: string
+  source_cwd: string
+  worktree_root: string
+  branch: string
+  base_oid: string
+  created_at: number
+}
+
+export interface ManagedWorktreeInsert {
+  id: string
+  repoRoot: string
+  sourceCwd: string
+  worktreeRoot: string
+  branch: string
+  baseOid: string
+  createdAt: number
+}
+
 export interface MessageInsert {
   sessionId: string
   role: MessageRole

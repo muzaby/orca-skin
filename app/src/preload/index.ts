@@ -56,7 +56,8 @@ import {
   type UpdateState,
   type UpdateProgress,
   type UpdateCheckResult,
-  type UpdateInstallResult
+  type UpdateInstallResult,
+  type DeleteSessionResult
 } from '../shared/ipc'
 // 사용량 타입은 `shared/usage/limits.ts` 가 소유한다(ipc.ts 에 두면 순환) — 타입 전용 import 라
 // 빌드에서 지워지므로 preload 에 런타임 코드가 딸려오지 않는다.
@@ -169,7 +170,7 @@ const orca = {
     list: (): Promise<SessionListItem[]> => ipcRenderer.invoke(CHANNELS.sessionList),
     load: (sessionId: string): Promise<LoadedSession | null> =>
       ipcRenderer.invoke(CHANNELS.sessionLoad, { sessionId }),
-    delete: (sessionId: string): Promise<void> =>
+    delete: (sessionId: string): Promise<DeleteSessionResult> =>
       ipcRenderer.invoke(CHANNELS.sessionDelete, { sessionId }),
     rename: (sessionId: string, title: string): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.sessionRename, { sessionId, title }),

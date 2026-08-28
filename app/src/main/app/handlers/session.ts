@@ -16,12 +16,14 @@ import type { RouterContext } from '../context'
 import { partFromRow, toSessionListItem } from '../../infra/ipc/dto'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import type { ChatActivitySnapshot } from '../../../shared/ipc'
+import type { DeleteSessionResult } from '../../../shared/ipc'
 
 // 세션 폐기 시 정리할 in-memory 소유자들(0151 AC8) — 컴포지션 루트가 주입한다. 세션 슬라이스가
 // chat 슬라이스를 직접 참조하지 않기 위한 구조적 포트(main/AGENTS.md 해소책 ③).
 interface SessionDisposeHooks {
   onSessionDisposed?: (sessionId: string) => void
   getActivity?: (sessionId: string) => ChatActivitySnapshot
+  removeManagedWorktree?: (sessionId: string) => Promise<DeleteSessionResult>
 }
 
 export function registerSessionHandlers(ctx: RouterContext, hooks: SessionDisposeHooks = {}): void {
@@ -99,7 +101,9 @@ export function registerSessionHandlers(ctx: RouterContext, hooks: SessionDispos
     CHANNELS.sessionDelete,
     DeleteSessionRequestSchema,
     { fallback: undefined },
-    (req): void => {
+    async (req): Promise<DeleteSessionResult> => {
+      const result = (await hooks.removeManagedWorktree?.(req.sessionId)) ?? { ok: true as const }
+      if (!result.ok) return result
       // 먼저 런타임·미커밋 입력을 닫아 삭제 뒤 지각 이벤트가 DB에 다시 쓰는 경쟁을 막는다.
       hooks.onSessionDisposed?.(req.sessionId)
       ctx.db.deleteSession(req.sessionId)
@@ -108,6 +112,7 @@ export function registerSessionHandlers(ctx: RouterContext, hooks: SessionDispos
       if (current.lastSessionId === req.sessionId) {
         ctx.settings.patch({ lastSessionId: null })
       }
+      return { ok: true }
     }
   )
 

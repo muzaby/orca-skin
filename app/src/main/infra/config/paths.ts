@@ -38,6 +38,10 @@ export function devUserDataDir(appDataDir: string): string {
   return join(appDataDir, 'orca-dev')
 }
 
+export function managedWorktreesDir(userDataDir: string): string {
+  return join(userDataDir, 'worktrees')
+}
+
 // 정규 소스 루트(사람 편집 SSOT).
 function sourcesDir(): string {
   return join(orcaConfigDir(), 'sources')

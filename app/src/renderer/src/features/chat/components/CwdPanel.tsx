@@ -20,6 +20,7 @@ export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
   const { tr } = useI18n()
   const extraDirs = useChatSession((s) => s.extraDirs)
   const rejection = useChatSession((s) => s.extraDirRejection)
+  const worktreeIsolation = useChatSession((s) => s.worktreeIsolation)
   const [picking, setPicking] = useState(false)
 
   const addDir = async (): Promise<void> => {
@@ -41,6 +42,14 @@ export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
     >
       <CwdButton cwd={cwd} sessionStarted={false} inflight={inflight} variant="outlined" />
       <BranchChip cwd={cwd} disabled={inflight} />
+      <ComposerChip
+        label={tr('chat.composer.worktreeIsolation')}
+        variant="outlined"
+        disabled={inflight || !cwd}
+        onClick={() => chatActions.setWorktreeIsolation(!worktreeIsolation)}
+        title={tr('chat.composer.worktreeIsolationHelp')}
+        className={worktreeIsolation ? 'border-accent text-accent' : ''}
+      />
       {extraDirs.map((dir) => (
         <ExtraDirChip
           key={dir}

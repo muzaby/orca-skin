@@ -54,7 +54,8 @@ import type {
   UpdateState,
   UpdateProgress,
   UpdateCheckResult,
-  UpdateInstallResult
+  UpdateInstallResult,
+  DeleteSessionResult
 } from '../../../../shared/ipc'
 // 사용량 타입 정본은 `shared/usage/limits.ts` (ipc.ts 에 두면 순환).
 import type { UsageDelta, UsageLimitsView } from '../../../../shared/usage/limits'
@@ -148,7 +149,8 @@ export const sessionApi = {
   cwd: (): Promise<string> => window.orca.session.cwd(),
   list: (): Promise<SessionListItem[]> => window.orca.session.list(),
   load: (sessionId: string): Promise<LoadedSession | null> => window.orca.session.load(sessionId),
-  delete: (sessionId: string): Promise<void> => window.orca.session.delete(sessionId),
+  delete: (sessionId: string): Promise<DeleteSessionResult> =>
+    window.orca.session.delete(sessionId),
   rename: (sessionId: string, title: string): Promise<void> =>
     window.orca.session.rename(sessionId, title),
   setPinned: (sessionId: string, pinned: boolean): Promise<void> =>

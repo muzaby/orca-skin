@@ -595,6 +595,7 @@ function send(
       attachments: [...attachments],
       attachmentViews: [...attachmentViews],
       cwd: cur.cwd,
+      ...(cur.worktreeIsolation ? { worktreeIsolation: true } : {}),
       // 컴포저 참조 경로 칩(CLI `/add-dir` 대응) — cwd 와 함께 새 세션 출생 시 고정된다.
       ...(cur.extraDirs.length > 0 ? { extraDirs: [...cur.extraDirs] } : {}),
       // 0067 AC9 — draft 키를 main 의 세션-이전 큐 키로 전달(init 에서 실 id 로 rekey).
@@ -749,6 +750,12 @@ function patchPendingSession(apply: (session: ChatState) => ChatState): void {
 
 function setPendingCwd(cwd: string): void {
   patchPendingSession((session) => chatReducer(session, { type: 'SET_CWD', cwd }))
+}
+
+function setWorktreeIsolation(enabled: boolean): void {
+  patchPendingSession((session) =>
+    chatReducer(session, { type: 'SET_WORKTREE_ISOLATION', enabled })
+  )
 }
 
 // 구 steer() 는 send() 로 흡수(0067 AC5) — busy/idle 판정은 main 소관, renderer 는 단일 send.
@@ -1202,6 +1209,7 @@ export const chatActions = {
   activateContinuityDraft,
   discardContinuityDraft,
   setPendingCwd,
+  setWorktreeIsolation,
   addExtraDir,
   removeExtraDir,
   clearError: (): void => dispatchActive({ type: 'CLEAR_ERROR' }),
