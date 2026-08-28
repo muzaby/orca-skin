@@ -7,7 +7,7 @@
 // 올리면서 늘어난 것은 **전역 CSS stop** 뿐이어야 한다 — 인스턴스당 애니메이션 8개, 애니메이션
 // 속성은 transform·visibility 뿐, 원본 asset 은 프로덕션 그래프에 0건.
 
-import { readdirSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -19,7 +19,7 @@ import {
   type SparkShape
 } from './sparkFrames'
 import { parseSpinnerReference, readSpinnerReferenceText } from './sparkReference.testlib'
-import { codeOf } from './sourceScan.testlib'
+import { codeOf, walkSourceFiles } from './sourceScan.testlib'
 
 const REF = parseSpinnerReference(readSpinnerReferenceText())
 
@@ -168,15 +168,9 @@ describe('spark 성능 — 정확도를 올려도 런타임 비용이 늘지 않
     // 원본은 54,552 bytes·~1,767 노드다. 한 곳이라도 import 하면 번들에 통째로 들어간다.
     // 술어는 **코드 줄만** 본다 — 주석의 경로 언급에 반응하는 술어는 실제 import 회귀를
     // 구분하지 못한다(r1 의 리터럴 가드가 같은 자리에서 한 번 틀렸다).
-    const files: string[] = []
-    const walk = (dir: string): void => {
-      for (const e of readdirSync(join(RENDERER_SRC, dir), { withFileTypes: true })) {
-        const rel = join(dir, e.name)
-        if (e.isDirectory()) walk(rel)
-        else if (/\.tsx?$/.test(e.name)) files.push(rel)
-      }
-    }
-    walk('.')
+    // 같은 이유로 구분자를 고정한 전수를 쓴다 — 여기서는 값 비교가 아니라 확장자 판정이라
+    // 지금까지 우연히 통과했지만, 술어가 OS 를 보는 것은 같은 결함이다.
+    const files = walkSourceFiles(RENDERER_SRC)
     const production = files.filter((f) => !f.endsWith('.test.ts') && !f.endsWith('.testlib.ts'))
     expect(production.length).toBeGreaterThan(100)
     // 술어는 원본 경로·내용뿐 아니라 **모든 `.testlib`** 를 본다 — 테스트 전용 모듈이 하나라도

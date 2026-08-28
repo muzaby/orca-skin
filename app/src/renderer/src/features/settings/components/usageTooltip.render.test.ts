@@ -7,7 +7,7 @@
 // AT-19(컴포저 도넛)는 `features/chat` 쪽 형제 파일이 갖는다 — eslint boundaries 가
 // settings → chat import 를 막는다. 계약은 파일 위치가 아니라 행동이다.
 
-import { readdirSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createElement } from 'react'
@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest'
 import type { UsageStatsModel } from '../../../../../shared/ipc'
 import type { UsageLimitsView } from '../../../../../shared/usage/limits'
 import { i18n } from '../../../shared/i18n'
-import { codeOf } from '../../../shared/ui/sourceScan.testlib'
+import { codeOf, walkSourceFiles } from '../../../shared/ui/sourceScan.testlib'
 import { LimitBarsSection } from './UsageLimitViews'
 import { ModelUsageList, UsageDescription } from './UsageTab'
 import { UsageTooltip } from './TokensPerDayChart'
@@ -135,15 +135,9 @@ describe('일별 토큰 차트 툴팁 (AT-28)', () => {
 })
 
 describe('안내 문구의 소비자 전수 (AT-29 · IT-06)', () => {
-  const files: string[] = []
-  const walk = (dir: string): void => {
-    for (const e of readdirSync(join(RENDERER_SRC, dir), { withFileTypes: true })) {
-      const rel = join(dir, e.name)
-      if (e.isDirectory()) walk(rel)
-      else if (/\.tsx?$/.test(e.name)) files.push(rel)
-    }
-  }
-  walk('.')
+  // 경로를 값으로 비교하므로 구분자가 고정돼야 한다 — `join()` 은 Windows 에서 백슬래시를
+  // 만들어 아래 전수 단언을 실행 OS 에 좌우되게 한다.
+  const files = walkSourceFiles(RENDERER_SRC)
   // 주석을 뺀 코드 줄만 본다 — 안내를 설명하는 문장과 실제 호출부를 구분하지 못하면
   // 이 전수는 아무것도 세지 않는다(같은 실수를 이번 턴에 두 번 했다).
   const source = (f: string): string => codeOf(readFileSync(join(RENDERER_SRC, f), 'utf8'))
@@ -152,6 +146,8 @@ describe('안내 문구의 소비자 전수 (AT-29 · IT-06)', () => {
   it('production callsite 가 UsageDescription 한 곳뿐이다', () => {
     // 파일이 아니라 **등장 횟수**를 센다. 파일 목록으로 세면 같은 파일 안에서 두 번째 소비자가
     // 생겨도(ModelUsageList 가 UsageTab.tsx 에 산다) 목록이 그대로라 통과한다.
+    // 값 비교 전에 구분자부터 못박는다 — 섞이면 이 전수는 코드가 아니라 실행 OS 를 본다.
+    expect(files.filter((f) => f.includes('\\'))).toEqual([])
     const callsites = files
       .filter((f) => !isTest(f) && !f.includes('i18n'))
       .flatMap((f) => (source(f).match(/'usage\.estimateNote'/g) ?? []).map(() => f))
