@@ -53,6 +53,7 @@
 - 이번 턴에서 D-001~D-008 을 신설했다. SUPERSEDED·OPEN 결정은 없다.
 - 사용자 답변 4건이 각각 D-001·D-002·D-003·D-004 를 닫았다. 원문은 §2 에 인용으로 보존했다.
 - **설계 정정 (구현 턴 §0 기준선에서 발견한 `PLAN_GAP`)**: EP-12 분모가 `4지점` → **`12지점`**. 초안 술어 `settings env > app env` 는 *해법 문구*라 층수 서술(`네 레이어`·`4층`)과 형제 케이스명 8곳을 놓쳤다. 술어를 불변식의 주어로 바꿔 다시 셌다(§8). 노드·pair 는 늘지 않아 V revision 은 `V1` 을 유지한다.
+- **설계 정정 2 (구현 턴 적대 검사에서 발견한 `PLAN_GAP`)**: VP-16·VP-26 의 적대 증거가 초안대로는 성립하지 않는다. VP-16 은 `customEnv[FLAG]` 항이 구조적으로 관측 불가(M3·M3b 둘 다 green), VP-26 은 층수 축만 기계 검출(M5a red / M5b green). 실측을 근거로 두 행과 §10 EP-07 을 정정했다 — **제품 동작은 바꾸지 않았다.**
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001↔AC13, D-002↔AC1·AC2, D-003↔AC3·AC4, D-004↔AC5, D-005↔AC6, D-006↔AC14, D-007↔AC8, D-008↔AC9·AC10.
 
 ## 4. 요구 비판적 검토
@@ -197,7 +198,7 @@
 | VP-13 | AR-03 ↔ IT-01 | REGRESSION | 기존 두 채널 결정표 3케이스 | `harness-config.test.ts:521-560` 재실행 green | not selected — 기존 직접 oracle | EP-05 (1) |
 | VP-14 | R-09 ↔ AT-09 | REGRESSION | 정적 settings-only 턴 | `env === undefined` + `providerSettings` 참조 동일 | not selected — 참조 비교 직접 | EP-06 (1) |
 | VP-15 | R-10 ↔ AT-10 | REQUIRED | 대상 밖 key 턴 | 빈 객체 반환 시 위와 같은 두 관측 | not selected — 직접 값 | EP-06 (1) |
-| VP-16 | R-12 ↔ AT-12 | REQUIRED | injector → host-managed 판정 체인 | injector `1` 로 settings-only hoist 발생, injector `0` 이 settings `1` 을 끔 | **required** — 판정 체인에서 `customEnv[FLAG]` 항을 지워도 "값이 실린다"는 통과한다(custom 이 `buildsEnv` 를 따로 켠다). 그 항을 지우는 변이로 red 확인 | EP-07 (1) |
+| VP-16 | R-12 ↔ AT-12 | REQUIRED | injector → host-managed 판정 체인 | injector `1` 로 settings-only hoist 발생, injector `0` 이 settings `1` 을 끔 | **not attainable — 구현 턴 실측**. 초안이 예상한 그 이유(`custom` 이 `buildsEnv` 를 따로 켠다) 때문에 항 자체가 관측 불가다. `hostManaged` 의 소비처는 `buildsEnv` 하나이고 `customEnv[FLAG]` 가 정의됐다는 것은 이미 `hasCustomEnv` 라, 항을 지워도(M3) 형제와 맞바꿔도(M3b) 74/74 green 이다. AC12 두 half 는 각각 `buildsEnv` 와 최종 spread 가 직접 닫는다 | EP-07 (1) |
 | VP-17 | MD-03 ↔ UT-04 | REQUIRED | 판정 체인 5항 | 다섯 레이어별 flag 우선순위 table | not selected — VP-16 이 방향을 잠근다 | EP-07 (1) |
 | VP-18 | R-11 ↔ AT-11 | REQUIRED | 최종 env → `harnessEnvFingerprint` | injector 값만 바꾼 두 조립의 `envFingerprint` 상이 | not selected — 두 값 직접 비교 | EP-08 (1) |
 | VP-19 | SD-03 ↔ ST-02 | REGRESSION | fingerprint → `runtimeEnvChangedSinceSpawn` → respawn | 기존 fingerprint suite(`:300-390`) green + 위 신규 케이스 | not selected — 기존 직접 oracle | EP-08 (1) |
@@ -207,7 +208,7 @@
 | VP-23 | R-13 ↔ AT-13 | REQUIRED | 가이드 예제 → 실제 타입 | 가이드 예제를 테스트에 그대로 대입해 `typecheck:test` 통과 | not selected — 컴파일러가 직접 판정 | EP-11 (1) |
 | VP-24 | R-14 ↔ AT-14 | REQUIRED | 타입 경계 | injector 입력에 `signal`·`auth`·`secrets` 접근이 컴파일 오류 | not selected — 컴파일러 직접 | EP-03 (1) |
 | VP-25 | R-15 ↔ AT-15 | REGRESSION | secret 격리 | `harness-config.test.ts:274-298` green + injector token 케이스 | not selected — 기존 직접 oracle | EP-05 (1) |
-| VP-26 | AR-04 ↔ IT-04 | REQUIRED | 우선순위 서술 12 사본 | 12좌표 각각에서 `custom` 최상위 또는 층수 무기재 확인 + 층수 표현 0건 스윕 | **required** — 사본 하나만 되돌려도 나머지 11곳은 통과한다. 한 사본을 4층 서술로 되돌리는 변이를 심어 0건 스윕이 red 인지 확인한다 — 스윕이 눈을 갖는지가 `0건`의 전제다 | EP-12 (12) |
+| VP-26 | AR-04 ↔ IT-04 | REQUIRED | 우선순위 서술 12 사본 | 12좌표 각각을 열어 확인(체인 축) + 층수 표현 0건 스윕(층수 축) | **required, 축마다 감도가 다르다 — 구현 턴 실측**. 층수 축은 기계 검출된다(M5a: 사본 하나를 `네 레이어` 로 되돌리면 스윕 1건 red). **체인 축은 기계 검출되지 않는다**(M5b: 체인 최상위 줄만 지우면 스윕 0건·doc gate exit 0 로 green) — 그 축의 oracle 은 좌표 12곳을 사람이 여는 것뿐이다 | EP-12 (12) |
 
 ### 현재 변경의 운영 gate
 
@@ -348,7 +349,7 @@
 | AR-01·SD-02 / VP-09·VP-10·VP-21 | injector 배선 (**EP-04**) | `turn-setup.ts` | 컴포지션 | `prepareHarnessConfig` 호출 1 + `prepareUnresolvedHarnessConfig` 호출 1 + 그 내부 위임 1 = **2지점**(turn-setup 2줄) + 위임 1 = **3지점** | 한 경로만 배선되면 entry 해석 실패 턴에서 사내 프록시가 사라진다 |
 | AR-03 / VP-11·VP-12·VP-13·VP-25 | `buildsEnv` 에 custom 포함 + hoist (**EP-05**) | `harness-config.ts` `buildsEnv` | prepare | 판정식 **1지점** | injector 값이 조용히 버려지거나 같은 키가 두 채널에 남는다 |
 | R-09·R-10 / VP-14·VP-15 | 미등록·빈 반환의 fast path (**EP-06**) | 같은 판정식 | prepare | 판정식 **1지점** | 기본 배포가 매 턴 불필요한 env 를 만들고 참조 안정성이 깨진다 |
-| MD-03 / VP-16·VP-17 | host-managed 판정 체인 최상위 = custom (**EP-07**) | `explicitHostManaged` 식 | prepare | 판정식 **1지점** | 판정 순서와 조립 순서가 갈려 같은 턴에서 모드와 실제 env 가 어긋난다 |
+| MD-03 / VP-16·VP-17 | host-managed 판정 체인 최상위 = custom (**EP-07**) | `explicitHostManaged` 식 | prepare | 판정식 **1지점** — **현재 구조에서 이 항은 관측 불가다**(VP-16 실측). `hostManaged` 의 소비처가 `buildsEnv` 하나뿐이고 `hasCustomEnv` 가 그것을 이미 켜기 때문이라, 이 항은 *강제되는 불변식*이 아니라 **문서화된 순서 일관성**이다 | 지금은 어긋나도 동작이 같다. `buildsEnv` 에서 `hasCustomEnv` 가 빠지는 날 이 항이 살아난다 |
 | SD-03 / VP-18·VP-19 | fingerprint 는 custom 포함 최종 env 로 계산 (**EP-08**) | `harnessEnvFingerprint(env)` 호출 | prepare | 조립 직후 **1지점** | injector 값이 바뀌어도 stale subprocess 를 재사용한다 |
 | MD-04 / VP-20 | `baseEnv` 1회 스냅샷 재사용 (**EP-09**) | lazy `baseEnv` closure | prepare | 판정·조립·injector 입력 **1지점**(같은 closure) | 판정과 실행이 서로 다른 process.env 순간을 읽는다 |
 | AR-02 / VP-22 | `adapters` 는 `app` 을 import 하지 않는다 (**EP-10**) | `eslint.config.mjs:158` | eslint | `npm run lint` **1지점** | 조립부가 배포 모듈을 물어 DAG 가 깨진다 |
