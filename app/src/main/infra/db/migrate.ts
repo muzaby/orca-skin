@@ -19,6 +19,7 @@ import migration0014 from './migrations/0014_provider_usage_report_cache.sql?raw
 import migration0015 from './migrations/0015_pinned.sql?raw'
 import migration0016 from './migrations/0016_turn_model_context_window.sql?raw'
 import migration0017 from './migrations/0017_session_extra_dirs.sql?raw'
+import migration0018 from './migrations/0018_managed_worktrees.sql?raw'
 
 interface Migration {
   name: string
@@ -42,7 +43,8 @@ const MIGRATIONS: Migration[] = [
   { name: '0014_provider_usage_report_cache', sql: migration0014 },
   { name: '0015_pinned', sql: migration0015 },
   { name: '0016_turn_model_context_window', sql: migration0016 },
-  { name: '0017_session_extra_dirs', sql: migration0017 }
+  { name: '0017_session_extra_dirs', sql: migration0017 },
+  { name: '0018_managed_worktrees', sql: migration0018 }
 ]
 
 export const MIGRATION_NAMES = MIGRATIONS.map((m) => m.name)

@@ -720,6 +720,8 @@ export interface SendChatMessage {
   // cwd 와 마찬가지로 새 세션 출생 시 고정되고 세션행에 영속된다 — resume 턴에서는 DB 값이 이긴다.
   // 어댑터에서 `additionalDirectories` + workspace 가드 루트로 함께 흘러 r/w 스코프를 넓힌다.
   extraDirs?: string[]
+  /** 신규 일반 세션을 Host 관리 Git worktree에서 시작한다. */
+  worktreeIsolation?: boolean
   // 0064 continuity — fork/handoff 물질화 트리거. 새 세션 send(sessionId=null)에서만 유효하며
   // 상호 배타. main 은 출발 세션의 cwd/project/provider 를 계승하고 SDK forkSession 으로
   // 새 session_id 를 발급받는다. forkFrom = 분기(도착 세션에 display 복사 + lineage 'fork').
@@ -1065,6 +1067,18 @@ export interface LoadSessionRequest {
 export interface DeleteSessionRequest {
   sessionId: string
 }
+
+export type DeleteSessionResult =
+  | { ok: true }
+  | {
+      ok: false
+      reason:
+        | 'worktree-dirty'
+        | 'worktree-has-commits'
+        | 'worktree-check-failed'
+        | 'worktree-remove-failed'
+      message: string
+    }
 
 export interface RenameSessionRequest {
   sessionId: string

@@ -26,8 +26,11 @@ import type {
   ProviderUsageReportRow,
   ProviderUsageReportUpsert,
   UsageByBoundaries,
-  UsageSumRow
+  UsageSumRow,
+  ManagedWorktreeInsert,
+  ManagedWorktreeRow
 } from './types'
+import { isWithinDir } from '../config/paths'
 
 export class DbQueries {
   private readonly db: Database.Database
@@ -98,6 +101,11 @@ export class DbQueries {
   private readonly insertMessageCopyStmt: Database.Statement
   private readonly copyPartsToMessageStmt: Database.Statement
   private readonly copyMessagesTx: Database.Transaction<(src: string, dst: string) => number>
+  private readonly insertManagedWorktreeStmt: Database.Statement
+  private readonly listUnboundManagedWorktreesStmt: Database.Statement
+  private readonly bindManagedWorktreeStmt: Database.Statement
+  private readonly getManagedWorktreeBySessionStmt: Database.Statement
+  private readonly deleteManagedWorktreeStmt: Database.Statement
 
   constructor(db: Database.Database) {
     this.db = db
@@ -106,6 +114,21 @@ export class DbQueries {
       VALUES (@id, @backend, @title, @projectId, @createdAt, @createdAt, NULL, @providerKey, @cwd, @extraDirs)
       ON CONFLICT(id) DO NOTHING
     `)
+    this.insertManagedWorktreeStmt = db.prepare(`
+      INSERT INTO managed_worktrees
+        (id, session_id, repo_root, source_cwd, worktree_root, branch, base_oid, created_at)
+      VALUES (@id, NULL, @repoRoot, @sourceCwd, @worktreeRoot, @branch, @baseOid, @createdAt)
+    `)
+    this.listUnboundManagedWorktreesStmt = db.prepare(
+      'SELECT * FROM managed_worktrees WHERE session_id IS NULL ORDER BY created_at DESC'
+    )
+    this.bindManagedWorktreeStmt = db.prepare(
+      'UPDATE managed_worktrees SET session_id = @sessionId WHERE id = @id AND session_id IS NULL'
+    )
+    this.getManagedWorktreeBySessionStmt = db.prepare(
+      'SELECT * FROM managed_worktrees WHERE session_id = @sessionId'
+    )
+    this.deleteManagedWorktreeStmt = db.prepare('DELETE FROM managed_worktrees WHERE id = @id')
     this.listSessionsStmt = db.prepare(`
       SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd, extra_dirs, pinned_at
       FROM sessions
@@ -444,13 +467,16 @@ export class DbQueries {
   }
 
   insertSession(row: SessionInsert): void {
-    this.insertSessionStmt.run({
-      ...row,
-      providerKey: row.providerKey ?? null,
-      cwd: row.cwd ?? null,
-      // 빈 배열과 '없음' 을 같은 NULL 로 접는다 — 읽는 쪽이 두 표현을 구분할 이유가 없다.
-      extraDirs: row.extraDirs && row.extraDirs.length > 0 ? JSON.stringify(row.extraDirs) : null
-    })
+    this.db.transaction(() => {
+      this.insertSessionStmt.run({
+        ...row,
+        providerKey: row.providerKey ?? null,
+        cwd: row.cwd ?? null,
+        // 빈 배열과 '없음' 을 같은 NULL 로 접는다 — 읽는 쪽이 두 표현을 구분할 이유가 없다.
+        extraDirs: row.extraDirs && row.extraDirs.length > 0 ? JSON.stringify(row.extraDirs) : null
+      })
+      if (row.cwd) this.bindManagedWorktreeForCwd(row.id, row.cwd)
+    })()
   }
 
   listSessions(limit = 50): SessionListRow[] {
@@ -750,6 +776,28 @@ export class DbQueries {
 
   deleteSession(id: string): void {
     this.deleteSessionStmt.run({ id })
+  }
+
+  insertManagedWorktree(row: ManagedWorktreeInsert): void {
+    this.insertManagedWorktreeStmt.run(row)
+  }
+
+  bindManagedWorktreeForCwd(sessionId: string, cwd: string): void {
+    const row = (this.listUnboundManagedWorktreesStmt.all() as ManagedWorktreeRow[]).find(
+      (candidate) => isWithinDir(cwd, candidate.worktree_root)
+    )
+    if (row) this.bindManagedWorktreeStmt.run({ id: row.id, sessionId })
+  }
+
+  getManagedWorktreeBySession(sessionId: string): ManagedWorktreeRow | null {
+    return (
+      (this.getManagedWorktreeBySessionStmt.get({ sessionId }) as ManagedWorktreeRow | undefined) ??
+      null
+    )
+  }
+
+  deleteManagedWorktree(id: string): void {
+    this.deleteManagedWorktreeStmt.run({ id })
   }
 
   // 0129 고정 토글 — pinnedAt=시각(고정) 또는 null(해제). 시각값이 정렬 키를 겸한다.

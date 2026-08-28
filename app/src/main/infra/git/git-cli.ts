@@ -9,7 +9,6 @@
 // index.lock 을 잡지 않는다. `GIT_TERMINAL_PROMPT=0` 은 자격증명 프롬프트로 프로세스가
 // 매달리는 것을 막는다.
 
-import { execFile } from 'node:child_process'
 import { stat } from 'node:fs/promises'
 import type {
   GitBranchList,
@@ -21,29 +20,17 @@ import type {
 import { GitBranchNameSchema } from '../../../shared/protocol'
 import { firstErrorLine, parseBranchList, parseShortstat } from './git-parse'
 
-const GIT_ENV = { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' }
 const TIMEOUT_MS = 10_000
 const MAX_BUFFER = 4 * 1024 * 1024
 
-interface RunResult {
-  ok: boolean
-  stdout: string
-  stderr: string
-}
+import { runGit } from './runner'
+import { withRepoMutation } from './mutation-queue'
+type RunResult = Awaited<ReturnType<typeof runGit>>
 
 // 비정상 종료를 예외로 올리지 않는다 — git 은 "그런 ref 없음"·"저장소 아님" 같은 **정상적인
 // 질문의 답** 도 exit code 로 말한다.
 function run(cwd: string, args: string[]): Promise<RunResult> {
-  return new Promise((resolve) => {
-    execFile(
-      'git',
-      args,
-      { cwd, env: GIT_ENV, timeout: TIMEOUT_MS, maxBuffer: MAX_BUFFER, windowsHide: true },
-      (error, stdout, stderr) => {
-        resolve({ ok: error == null, stdout: String(stdout), stderr: String(stderr) })
-      }
-    )
-  })
+  return runGit(cwd, args, { readOnly: true, timeoutMs: TIMEOUT_MS, maxBuffer: MAX_BUFFER })
 }
 
 async function isDirectory(path: string): Promise<boolean> {
@@ -136,28 +123,31 @@ export async function gitCheckout(
     // 아직 아무것도 하지 않았다 — 무엇을 할지는 사용자가 모달에서 고른다.
     return { ok: false, reason: 'dirty', from: await currentBranch(cwd), stat: dirty }
   }
-  // 여기서부터 사용자 작업 트리가 실제로 바뀐다. 해소가 적용된 뒤 checkout 이 실패하면
-  // 트리는 바뀌고 브랜치는 그대로인 **부분 실패** 이므로, 무엇이 적용됐는지 값에 실어 보낸다.
-  let applied: GitDirtyResolution | undefined
-  if (dirty) {
-    const resolved = await resolveDirty(cwd, resolution as GitDirtyResolution, branch)
-    if (!resolved.ok) {
+  const root = (await repoRoot(cwd)) ?? cwd
+  return withRepoMutation(root, async () => {
+    // 여기서부터 사용자 작업 트리가 실제로 바뀐다. 해소가 적용된 뒤 checkout 이 실패하면
+    // 트리는 바뀌고 브랜치는 그대로인 **부분 실패** 이므로, 무엇이 적용됐는지 값에 실어 보낸다.
+    let applied: GitDirtyResolution | undefined
+    if (dirty) {
+      const resolved = await resolveDirty(cwd, resolution as GitDirtyResolution, branch)
+      if (!resolved.ok) {
+        return {
+          ok: false,
+          reason: 'error',
+          message: firstErrorLine(resolved.stderr) || '변경 사항을 처리하지 못했습니다.'
+        }
+      }
+      applied = resolution
+    }
+    const checkout = await runGit(cwd, ['checkout', branch])
+    if (!checkout.ok) {
       return {
         ok: false,
         reason: 'error',
-        message: firstErrorLine(resolved.stderr) || '변경 사항을 처리하지 못했습니다.'
+        message: firstErrorLine(checkout.stderr) || '브랜치를 전환하지 못했습니다.',
+        ...(applied ? { applied } : {})
       }
     }
-    applied = resolution
-  }
-  const checkout = await run(cwd, ['checkout', branch])
-  if (!checkout.ok) {
-    return {
-      ok: false,
-      reason: 'error',
-      message: firstErrorLine(checkout.stderr) || '브랜치를 전환하지 못했습니다.',
-      ...(applied ? { applied } : {})
-    }
-  }
-  return { ok: true, branch }
+    return { ok: true, branch }
+  })
 }

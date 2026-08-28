@@ -22,7 +22,8 @@ import {
   ensureConfigDir,
   getWorkspacePath,
   orcaConfigDir,
-  sourcesSkillsDir
+  sourcesSkillsDir,
+  managedWorktreesDir
 } from '../infra/config/paths'
 import { builtInHarnessPluginRoot } from '../features/extensions/harness-plugins/claude'
 import { userClaudePluginRoot } from '../features/extensions/harness-plugins/claude-user-skills'
@@ -60,6 +61,7 @@ import { registerBootHandlers } from './handlers/boot'
 import { registerUpdateHandlers } from './handlers/update'
 import { registerLogHandlers } from './handlers/log'
 import { registerConnectionHandlers } from './handlers/providers'
+import { WorktreeService } from '../features/worktrees/service'
 import { createAuthRuntime } from '../features/auth/runtime'
 import { createGrantPersistence, createOAuthStatePersistence } from '../features/auth/store-file'
 import { OAuthStateStore } from '../features/auth/oauth'
@@ -830,6 +832,7 @@ export class Bootstrap {
       },
       emit: broadcastChatEvent
     }))
+    const worktrees = new WorktreeService(ctx.db, managedWorktreesDir(app.getPath('userData')))
     registerChatHandlers({
       ctx,
       supervisor,
@@ -840,7 +843,8 @@ export class Bootstrap {
       pendingMessages,
       backgroundTasks,
       activity,
-      isUpdateInstallPending: () => this.isUpdateInstallPending()
+      isUpdateInstallPending: () => this.isUpdateInstallPending(),
+      worktrees
     })
     approvals.registerHandlers(supervisor, permissionModes)
 
@@ -855,7 +859,8 @@ export class Bootstrap {
         backgroundTasks.clear(sessionId)
         activity.clear(sessionId)
       },
-      getActivity: (sessionId) => activity.current(sessionId)
+      getActivity: (sessionId) => activity.current(sessionId),
+      removeManagedWorktree: (sessionId) => worktrees.removeForSession(sessionId)
     })
     registerProjectHandlers(ctx)
     registerMcpHandlers(ctx)

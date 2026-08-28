@@ -99,6 +99,7 @@ export interface ChatState {
   // **세션 출생 전(랜딩)에만 의미가 있다** — 첫 전송에 실려 세션행에 고정된 뒤로는
   // main/DB 가 정본이고 renderer 는 이 값을 다시 읽지 않는다.
   extraDirs: string[]
+  worktreeIsolation: boolean
   // 마지막 참조 경로 추가가 **거부된 이유**. null = 거부 없음. 중복·cwd 자기 자신은 조용히
   // 무시하지만(사용자가 이미 가진 것을 다시 고른 것뿐) 루트는 사유를 남긴다 — 고른 폴더가
   // 칩으로 안 붙는데 아무 말도 없으면 사용자는 앱이 먹은 것으로 읽는다 (D-020).
@@ -230,6 +231,7 @@ export const initialChatState: ChatState = {
   effort: 'high',
   cwd: null,
   extraDirs: [],
+  worktreeIsolation: false,
   extraDirRejection: null,
   messages: [],
   sendCount: 0,
@@ -326,6 +328,7 @@ export type ChatAction =
   | { type: 'CANCEL_CHAT' }
   | { type: 'CLEAR_ERROR' }
   | { type: 'SET_CWD'; cwd: string }
+  | { type: 'SET_WORKTREE_ISOLATION'; enabled: boolean }
   // 참조 경로 칩 추가/제거 — 세션 확정 전에만 유효(리듀서가 가드하지 않고 호출부가 게이트한다).
   | { type: 'ADD_EXTRA_DIR'; dir: string }
   | { type: 'REMOVE_EXTRA_DIR'; dir: string }
@@ -703,6 +706,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       if (isFilesystemRoot(action.cwd)) return { ...state, extraDirRejection: 'root' }
       // 작업 경로가 바뀌면 그 밑으로 들어온 참조 경로는 의미가 달라진다 — 같이 비운다.
       return { ...state, cwd: action.cwd, extraDirs: [], extraDirRejection: null }
+
+    case 'SET_WORKTREE_ISOLATION':
+      return { ...state, worktreeIsolation: action.enabled }
 
     case 'ADD_EXTRA_DIR':
       // **루트는 거부하고 사유를 남긴다** (D-019·D-020). 가드 루트로 오르면 0075 격리가

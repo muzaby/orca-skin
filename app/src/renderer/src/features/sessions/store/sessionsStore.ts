@@ -90,8 +90,12 @@ export async function initSessions(): Promise<void> {
   }
 }
 
-async function remove(sessionId: string): Promise<void> {
-  await sessionApi.delete(sessionId)
+async function remove(sessionId: string): Promise<boolean> {
+  const result = await sessionApi.delete(sessionId)
+  if (!result.ok) {
+    window.alert(result.message)
+    return false
+  }
   setState((state) => {
     const byId = { ...state.byId }
     delete byId[sessionId]
@@ -109,6 +113,7 @@ async function remove(sessionId: string): Promise<void> {
       projectSessionIds: touchedProject ? projectSessionIds : state.projectSessionIds
     }
   })
+  return true
 }
 
 async function rename(sessionId: string, title: string): Promise<void> {

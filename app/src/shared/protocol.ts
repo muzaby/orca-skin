@@ -93,6 +93,7 @@ export const SendChatMessageSchema = z
       .optional(),
     // CLI `/add-dir` 대응 — 작업 디렉토리 밖 추가 참조 경로(절대 경로). 새 세션 출생 시 고정.
     extraDirs: z.array(ExtraDirSchema).optional(),
+    worktreeIsolation: z.boolean().optional(),
     // 0064 continuity — 상호 배타·새 세션 전용(아래 refine).
     forkFrom: z.string().min(1).optional(),
     handoffFrom: z.string().min(1).optional(),
@@ -108,6 +109,12 @@ export const SendChatMessageSchema = z
     clientRequestId: z.string().min(1).optional()
   })
   .superRefine((v, ctx) => {
+    if (
+      v.worktreeIsolation &&
+      (v.sessionId !== null || v.forkFrom !== undefined || v.handoffFrom !== undefined)
+    ) {
+      ctx.addIssue({ code: 'custom', message: 'Worktree 격리는 신규 일반 세션 전용입니다.' })
+    }
     if (v.forkFrom !== undefined && v.handoffFrom !== undefined) {
       ctx.addIssue({ code: 'custom', message: 'forkFrom/handoffFrom 은 상호 배타다' })
     }

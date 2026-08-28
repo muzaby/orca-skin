@@ -34,6 +34,7 @@ import { buildTurnRequest } from './turn-request'
 import { createApprovalRequester } from './approval'
 import { runTurnWithContinuations } from './post-turn'
 import type { ChatRuntimeDeps, NormalizedAttachments } from './deps'
+import { makeClassifiedError } from '../../infra/errors'
 
 export async function handleChatSend(
   deps: ChatRuntimeDeps,
@@ -135,6 +136,31 @@ export async function handleChatSend(
       effectiveText
     } = resolution.value
 
+    let executionCwd = payload.cwd ?? ctx.getCwd(boundProjectId)
+    if (payload.worktreeIsolation) {
+      const prepared = await deps.worktrees.prepare({
+        sourceCwd: executionCwd,
+        firstPrompt: effectiveText,
+        signal: lease.controller.signal,
+        complete: (prompt, signal) =>
+          activeAdapter.complete({
+            prompt,
+            cwd: executionCwd,
+            signal,
+            providerSettings: resolved.prepared.providerSettings,
+            env: resolved.prepared.env
+          })
+      })
+      if (prepared.kind === 'rejected') {
+        sendChatEvent(event.sender, {
+          type: 'error',
+          error: makeClassifiedError('schema_validation_error', prepared.message)
+        })
+        return
+      }
+      executionCwd = prepared.executionCwd
+    }
+
     // ── 6. TurnContext 조립 + 레지스트리 등록 (순수 조립 — turn-context.ts) ──
     const controller = lease.controller
     const turn = buildTurnContext<WebContents>({
@@ -149,7 +175,7 @@ export async function handleChatSend(
       resolved,
       payload: {
         sessionId: payload.sessionId,
-        cwd: payload.cwd ?? null,
+        cwd: executionCwd,
         ...(payload.extraDirs !== undefined ? { extraDirs: payload.extraDirs } : {}),
         attachmentViews: payload.attachmentViews as AttachmentView[],
         ...(payload.forkFrom !== undefined ? { forkFrom: payload.forkFrom } : {}),
