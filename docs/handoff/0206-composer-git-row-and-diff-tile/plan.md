@@ -60,13 +60,19 @@
 | D-014 | 비교 대상 표시는 **현재 브랜치만**이다 — `main →` 을 붙이지 않는다 | base 브랜치를 알 채널이 없다. 조사의 `main → …` 을 그대로 옮기면 `main` 이 가짜 값이 된다 | 설계자 판단 | ACTIVE | — |
 | D-015 | `aria-keyshortcuts` 를 쓰지 않는다 | 단축키를 실제로 배선하지 않으면 그 속성은 거짓 선언이다 | 설계자 판단 | ACTIVE | — |
 | D-016 | git 색은 **`--color-git-added` · `--color-git-removed` 신설**이고 두 테마 스코프 전부에 값을 채운다 | `renderer/AGENTS.md §스타일` 이 요구한다. `--color-good`·`--color-bad` 는 dark 스코프에 재정의가 없어(`tokens.css:177-200`) 어두운 배경에서 검증되지 않았다 | 저장소 규칙 + 실측 | ACTIVE | — |
+| D-017 | 우측 **파일 항목은 접었다 펼 수 있다** — 기본 접힘(`aria-expanded="false"`) | 조사 캡처가 그 상태다(study 02 §3). D-011 과 같은 부류의 순수 UI 상호작용이라 데이터 채널이 필요 없다 | 사용자 지적 (2026-08-28) | ACTIVE | D-011 을 넓힌다 |
+| D-018 | 펼치면 **diff 본문이 실제로 그려진다** — 더미 old/new 문자열 쌍을 기존 렌더러에 먹인다 | "diff 패널" 이 diff 를 그리지 않으면 배치 확인이라는 D-010 의 목적을 절반만 채운다. `diff@^9.0.0` 과 렌더러가 이미 있어 새 IPC·새 의존성이 없다 | 사용자 지적 (2026-08-28) | ACTIVE | — |
+| D-019 | 줄 파생·줄 렌더는 **한 곳이 소유한다** — `buildDiffLines` 를 `lib/diffLines.ts` 로, `DiffTable` 을 `components/DiffTable.tsx` 로 올린다 | 소비자가 둘이 되는데 규칙이 두 벌이면 도구 카드와 타일의 +/− 표현이 갈라진다. 현재 둘 다 `DiffBody.tsx` 모듈 로컬이라 재사용할 수 없다 | 설계자 판단 + 실측 | ACTIVE | — |
 | D-S01 | **승계** — 0205 D-008(`reserved1` 의 지위는 바꾸지 않는다)은 이번 D-009 로 대체된다 | `reserved1` 이 `diff` 가 되면 메뉴에 오르고 활성화된다. 그 결정이 지키려던 3타일 기하 회귀는 `diff` 로 그대로 재현된다 | 이번 턴 | SUPERSEDED | 0205 D-008 → 본 D-009 |
 
 ### 갱신 메모
 
-- 신규 결정: D-001 ~ D-016. 이번 handoff 의 첫 턴이라 SUPERSEDED 는 승계 1건(D-S01)뿐이다.
+- 신규 결정: D-001 ~ D-019. 이번 handoff 의 첫 턴이라 SUPERSEDED 는 승계 1건(D-S01)뿐이다.
+- **설계 2턴 갱신(2026-08-28)**: 사용자 지적으로 **D-017·D-018·D-019 추가**. 1턴 설계는 우측을 *파일 헤더 목록*으로만 두어 접기·펼치기와 diff 본문이 **둘 다 빠져 있었다** — "diff 패널" 이 diff 를 그리지 않는 상태였다. D-011 의 상호작용 목록도 셋뿐이라 파일 항목 접기가 그 안에 없었다. 기존 결정 16건은 **문장 그대로 유지**된다 — 바뀐 것은 우측 영역의 깊이이지 노출 조건·행 구성·목업 표현 원칙이 아니다.
 - 승계되는 타 handoff ACTIVE 결정: **0201 D-002**(저장소가 아니면 그리지 않는다) · **0201 D-009**(작업 컨텍스트 행은 랜딩에만) · **0201 D-011**(칩 외형은 `chipSurface` 소유) · **0204 D-021**(타일 4종). 넷 다 §16 에서 본문 문장과 대조한다.
-- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. 확인한 쌍 — D-001↔AT-02(랜딩 음성) · D-002↔AT-01·AT-03 · D-003·D-004↔AT-04 · D-005↔AT-07(PR·CI·닫기 음성 + 양성 짝) · D-006↔AT-01(저장소·브랜치가 `button` 이 아니다) · D-007↔AT-05 · D-008↔AT-09 · D-009↔AT-10 · D-010↔AT-11 · D-011↔AT-14·AT-15·AT-16 · D-012↔AT-12 · D-013↔AT-13 · D-014↔AT-13 의 양성 짝 · D-016↔EP-04. **반대를 요구하는 AC 0건.**
+- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. 확인한 쌍 — D-001↔AT-02(랜딩 음성) · D-002↔AT-01·AT-03 · D-003·D-004↔AT-04 · D-005↔AT-07(PR·CI·닫기 음성 + 양성 짝) · D-006↔AT-01(저장소·브랜치가 `button` 이 아니다) · D-007↔AT-05 · D-008↔AT-09 · D-009↔AT-10 · D-010↔AT-11 · D-011↔AT-14·AT-15·AT-16 · D-012↔AT-12 · D-013↔AT-13 · D-014↔AT-13 의 양성 짝 · D-016↔EP-04 · **D-017↔AT-17**(기본 접힘 + 펼침 양성 짝) · **D-018↔AT-18** · **D-019↔AT-19·EP-07**. **반대를 요구하는 AC 0건.**
+- **D-018 ↔ D-012 비충돌**: 더미 diff 본문이 실제 변경으로 읽히는 위험은 D-012 의 예시 문구가 **본문 최상단**에서 이미 막는다 — 두 결정이 같은 축의 앞뒤다.
+- **D-017 ↔ D-013 비충돌**: 헤더에서 뺀 셋(설정·펼치기·이동)은 *타일 자체*를 다루는 조작이고, D-017 은 *내용 항목*의 접기다 — 서로 다른 계층이다.
 - 0201 D-002 와 사용자의 "목업만 남겨둔다" 는 **충돌하지 않는다** — 2차 질의에서 사용자가 컴포저 행의 목업 자리를 "안 그린다" 로 좁혔다(D-005). 목업은 diff 타일 안에만 산다.
 
 ## 4. 요구 비판적 검토
@@ -111,6 +117,8 @@
 | `dirty=null`(커밋 없음 ∨ 깨끗함) | 0/0 으로 접는다 | `+0 −0` |
 | cwd 를 빠르게 바꿈 | 늦게 온 응답을 cwd 태그로 버린다 | 화면이 옛 저장소로 되돌아가지 않는다 |
 | 조회 실패 | `handle` 의 `fallback: NOT_REPO` | 행 없음 (오류 표면 없음) |
+| diff 타일 · 파일 항목 초기 | 접힘(`aria-expanded="false"`) | 파일명 · 흐린 경로 · `+N −M` 만 |
+| diff 타일 · 파일 항목 펼침 | 그 항목의 더미 old/new 를 `buildDiffLines` 에 먹인다 | 줄번호 거터 · `+`/`-` 거터 · 본문 3열 |
 
 ### 파생 UX / 엣지케이스
 
@@ -123,8 +131,8 @@
 
 ## 6. 범위 / 비범위
 
-- **범위**: 컴포저 git 행 신설 · `GitStatus.root` 추가 · `reserved1`→`diff` 타일 교체 · diff 타일 3영역 더미 골격 · 색 토큰 2종.
-- **비범위**: PR·CI 표면(GitHub 접근 필요 — 폐쇄망 정책과 걸린다) · 저장소 전체 diff/커밋/파일 내용 IPC · 세션 중 브랜치 전환 · 창 포커스 복귀 재조회 · 다중 저장소 행 스택 · worktree(0201 D-001).
+- **범위**: 컴포저 git 행 신설 · `GitStatus.root` 추가 · `reserved1`→`diff` 타일 교체 · diff 타일 3영역 더미 골격 · **파일 항목 접기/펼치기와 더미 diff 본문 렌더** · 줄 파생·줄 렌더 SSOT 승격 · 색 토큰 2종.
+- **비범위**: PR·CI 표면(GitHub 접근 필요 — 폐쇄망 정책과 걸린다) · **실제** 파일 내용·patch·커밋 목록 IPC(더미만 그린다) · 세션 중 브랜치 전환 · 창 포커스 복귀 재조회 · 다중 저장소 행 스택 · worktree(0201 D-001).
 
 | 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
 |---|---|---|
@@ -152,6 +160,9 @@
 | R-14 | AT-14 / AC14 | 파일 토글이 좌측 컬럼을 감추고 되돌린다 | reducer — `TOGGLE_DIFF_FILES` 2회로 `diffFilesVisible` 왕복. 렌더 — `false` 면 트리 마커 0건, `true` 면 1건 | 헤더 버튼 → `chatActions.toggleDiffFiles()` |
 | R-15 | AT-15 / AC15 | 커밋 목록에서 정확히 하나만 선택 상태다 | 렌더 — `aria-pressed="true"` 가 1건, `"false"` 가 나머지 | `DiffCommitList` props |
 | R-16 | AT-16 / AC16 | 디렉토리를 접으면 그 하위 행이 사라진다 | 순수 — `visibleTreeRows(MOCK_TREE, new Set(['docs']))` 가 `docs/` 하위를 0건으로 만들고 형제 최상위는 남긴다 | `DiffFileTree` 가 같은 함수를 쓴다 |
+| R-17 | AT-17 / AC17 | 파일 항목이 **기본 접힘**이고 펼치면 본문이 나온다 | 렌더 — `expanded:[]` 출력에 `<table` 0건이고 헤더 버튼이 전부 `aria-expanded="false"`. **양성 짝**: `expanded:['<경로>']` 출력에 `<table` 1건 + 그 항목만 `"true"` | 헤더 버튼 → 로컬 `expanded` 집합 → `DiffFileHeaders` |
+| R-18 | AT-18 / AC18 | 펼친 본문이 **추가·삭제·유지 줄을 구분해** 그린다 | 순수 — `buildDiffLines` 가 세 종류를 낸다. 렌더 — 펼친 출력에 `+` 거터와 `-` 거터가 각 1건 이상 | `diffTileMock` old/new → `buildDiffLines` → `DiffTable` |
+| R-19 | AT-19 / AC19 | 줄 파생·줄 렌더의 소비자가 둘이고 **같은 모듈에서 온다** | `rg "lib/diffLines'"` 2건 · `rg "components/DiffTable'"` 2건. **회귀 양성 짝**: 도구 카드 diff(`registry.ts:75` 경로)가 그대로 렌더된다 | `DiffBody` · `DiffFileHeaders` 둘 다 승격 모듈을 import |
 
 ### AC 검증 주의사항
 
@@ -159,7 +170,8 @@
 - 렌더 단언 수단: `renderToStaticMarkup` + `createElement`(`rightPanelTiles.render.test.ts:13-14`). **props-only View** 만 직접 렌더한다 — store 연결 컴포넌트는 SSR 스냅샷을 받아 시드가 반영되지 않는다(같은 파일 주석).
 - 순서 기준: AT-01·AT-11 은 `html.indexOf(a) < html.indexOf(b)` 로 관측한다. **형제 자리를 맞바꾸면 실패**한다 — 존재만 단언하면 순서 회귀가 통과한다(SKILL §5).
 - 음성 기준: AT-07·AT-10·AT-13 은 전부 **양성 짝을 함께 둔다**. 아무것도 그리지 않는 출력에서 음성만 참이 되는 것을 막는다.
-- 총량/0건 분해: AT-07 의 `<a ` 0건은 **행 컴포넌트 출력 안에서만**이다 — 컴포저 전체가 아니다.
+- 총량/0건 분해: AT-07 의 `<a ` 0건은 **행 컴포넌트 출력 안에서만**이다 — 컴포저 전체가 아니다. AT-17 의 `<table` 0건도 `DiffFileHeaders` 출력 안에서만이다.
+- 회귀 인용: AT-19 의 양성 짝은 **기존 도구 카드 경로**다(`registry.ts:75` — `kind:'diff'` 가 `FILE_EDIT_TOOLS` 에 매칭). D-019 의 모듈 승격이 그 경로를 깨지 않는지가 이 AC 의 절반이다.
 - 사람 실기: 색 토큰의 두 테마 실측 1건(AC 아님, §19).
 
 ## 7-A. V / Trace Matrix
@@ -172,8 +184,8 @@
 
 | Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
 |---|---|---|---|---|
-| R-01 ~ R-16 | R | §7 | NEW | — |
-| AT-01 ~ AT-16 | AT | §7 | NEW | — |
+| R-01 ~ R-19 | R | §7 | NEW | — |
+| AT-01 ~ AT-19 | AT | §7 | NEW | — |
 | SD-01 | SD | §5 상태 전이표 · §13 — gitStatus 재조회 수명주기 | NEW | — |
 | SD-02 | SD | §5 "cwd 를 빠르게 바꿈" 행 — 늦은 응답 방어 | NEW | 기법은 `branchChipState.ts:22` 재사용 |
 | ST-01 | ST | AT-04 | NEW | — |
@@ -188,7 +200,10 @@
 | MD-01 | MD | §11 `gitRowState.ts` — 행 뷰모델 | NEW | — |
 | MD-02 | MD | §11 `gitRowState.ts` — 재조회 트리거 판정 | NEW | — |
 | MD-03 | MD | §11 `diffTileTree.ts` — 가시 행 파생 | NEW | — |
-| UT-01 ~ UT-03 | UT | AT-01·03·06·08 / AT-04 / AT-16 | NEW | — |
+| MD-04 | MD | §10 EP-07 · §11 — 줄 파생·줄 렌더 SSOT 승격 | NEW | 현재 `DiffBody.tsx:41,72` 모듈 로컬 |
+| AR-05 | AR | §10 EP-07 — 승격 모듈의 소비자 둘 | NEW | — |
+| UT-01 ~ UT-04 | UT | AT-01·03·06·08 / AT-04 / AT-16 / AT-18 | NEW | — |
+| IT-04 | IT | AT-17 · AT-19 | NEW | — |
 
 ### Pair registry
 
@@ -209,6 +224,10 @@
 | VP-13 | R-15 ↔ AT-15 | REQUIRED | `DiffCommitList` props → DOM | `aria-pressed="true"` 1건 | not selected — 개수 직접 관측 | 0 — props-only View |
 | VP-14 | MD-03 ↔ UT-03 (AT-16) | REQUIRED | `visibleTreeRows` → `DiffFileTree` | 접힘 집합별 행 목록 비교 | not selected — 반환 배열 직접 비교 | 0 — 순수 함수 |
 | VP-15 | AR-04 ↔ AT-01(색) | REQUIRED | `tokens.css` → Tailwind 유틸 → `GitRow` | 두 스코프에 토큰 선언 존재(`rg`) | not selected — 선언 존재가 곧 계약 | EP-04 (2) |
+
+| VP-16 | R-17 ↔ AT-17 (IT-04) | REQUIRED | 헤더 버튼 → `expanded` 집합 → `DiffFileHeaders` → DOM | 접힘/펼침 두 출력의 `<table` 개수 0/1 | required — 기본값을 펼침으로 뒤집어 AT-17 의 음성 절이 red 인지 확인한다 | 0 — 단일 View |
+| VP-17 | R-18 ↔ AT-18 (UT-04) | REQUIRED | `diffTileMock` old/new → `buildDiffLines` → `DiffTable` → DOM | 줄 종류 3종 반환값 + 거터 문자 존재 | not selected — 반환 배열을 직접 비교한다 | EP-07 (2) |
+| VP-18 | AR-05·MD-04 ↔ AT-19 | REQUIRED | 승격 모듈 → `DiffBody`(도구 카드) · `DiffFileHeaders`(타일) | import 2건 + 도구 카드 렌더 회귀 | required — 승격 모듈의 export 를 지우면 **두 소비자가 함께** red 인지 확인한다(한쪽만 red 면 SSOT 가 아니다) | EP-07 (2) |
 
 `NOT_REQUIRED` 행 없음 — Baseline V 라 비영향 판정 대상인 inherited pair 가 없다.
 
@@ -243,6 +262,11 @@
 | `headerContentById` 는 `Partial<Record>` 라 **키 누락이 컴파일된다** | `tileRegistry.ts:23` (0204 §10 EP-13③ 과 같은 지점) |
 | `--color-good`·`--color-bad` 는 dark 스코프에 재정의가 없다 | `tokens.css:49,51` · dark 블록 `177-200` 에 부재 |
 | `Button` 은 `contained` variant 와 `pressed` prop 을 이미 갖는다 | `shared/ui/Button.tsx:22-27` |
+| **diff 렌더러가 이미 있다** — `buildDiffLines`(순수) + `DiffTable`(3열: 줄번호·거터·본문) | `tool-bodies/DiffBody.tsx:41,72` |
+| 둘 다 **모듈 로컬이라 export 되지 않는다** — 지금 형태로는 재사용할 수 없다 | 같은 파일 (`export` 는 `DiffBody` 하나) |
+| `diff@^9.0.0` 이 이미 의존성이다 — `diffLines` 를 새로 들이지 않는다 | `app/package.json:41` |
+| 줄 색은 `--color-good`·`--color-bad` 를 `color-mix` 로 14%/18% 섞은 **행 틴트**다 | `DiffBody.tsx:91-98` |
+| 세 번째 소비자가 그 색 규칙을 이미 따라간다 | `BranchSwitchDialog.tsx:84` 주석 |
 
 ### 전수 조사
 
@@ -253,6 +277,9 @@
 | `ReservedTileContent` 참조 | `git grep -n ReservedTileContent -- app/src` | **2파일 / 3행** | 정의 1 · import 1 · 매핑 1 |
 | 타일 정의 변경 지점 | 0204 EP-13 을 이번 변경 형상으로 재계산 | **6** | ①정의 배열 ②`MENU_HIDDEN` ③`contentById` ④`headerContentById` ⑤`ko.ts` ⑥`en.ts`. reducer 는 제외 — `diff` 특례가 없다 |
 | `showLandingCwdPanel` 전달처 | `git grep -n showLandingCwdPanel -- app/src` | **5** | Composer 3(import·prop·기본값·사용) · 랜딩 2페이지 |
+| `buildDiffLines` 소비처 | `git grep -n buildDiffLines -- app/src` | **1** | `DiffBody.tsx:74` 뿐 — 승격 후 **2**(타일 추가)가 EP-07 의 분모다 |
+| `DiffTable` 소비처 | `git grep -n DiffTable -- app/src` | **1** | `DiffBody.tsx:135` 뿐 — 승격 후 **2** |
+| `DiffBody` 등록 경로 | `git grep -n "DiffBody" -- app/src` | **2** | `registry.ts:13` import · `registry.ts:75` `kind:'diff'` 등록. AT-19 회귀 짝이 이 경로다 |
 
 ### 수치 / 전칭 표현 검산
 
@@ -261,6 +288,7 @@
 - 전칭 검산: "타일 정의 변경 지점에 reducer 가 없다" → `grep -n "'plan'\|'subagent'\|'task'" chatReducer.ts` 가 920·921·934·945·565 를 내고 `reserved1`·`diff` 는 0건 — 반례 없음.
 - 문서 앵커 확인: 0201 D-002·D-009·D-011 은 `0201-composer-work-context-row/plan.md:44,51,54` 에 실재. 0204 D-021 은 `0204-taskxxx-right-panel/plan.md:65`. 0205 D-008 은 `0205-.../plan.md:51`.
 - 기존 테스트 케이스 존재 확인: `rightPanelTiles.test.ts:23`("정의 순서 = 메뉴 순서") · `chatReducer.plan.test.ts:78` · `branchChipState.test.ts:24`("isRepo:false 면 렌더하지 않는다") 전부 실재.
+- **`DiffBody` 에는 테스트가 없다** — `tool-bodies/` 에 `.test.ts` 0건. D-019 의 승격은 회귀 짝을 **새로 만들어야** 하고(AT-19), 기존 케이스를 인용할 수 없다.
 
 ## 9. Architecture / Data & Control Flow — AS-IS → TO-BE
 
@@ -286,6 +314,7 @@ ChatTile  → Composer(prop 없음)            → (git 표면 없음)
 - 변경 후 오류/취소/정리 경로: AS-IS 와 같다 — `fallback` + `statusForCwd` 를 그대로 쓴다. effect 는 `live` 플래그로 정리한다(`BranchChip.tsx:68` 형태).
 - 유지하는 메커니즘: `handle` fallback 정책 · `statusForCwd` 태깅 · `Button` primitive · `chipSurface`(건드리지 않는다 — 이 행은 칩을 쓰지 않는다).
 - 대체하는 메커니즘: `ReservedTileContent` → `DiffTileContent`. `reserved1` 정의 → `diff`.
+- **이동하는 책임**(삭제 아님): `buildDiffLines`·`DiffTable` 이 `DiffBody.tsx` 에서 `lib/diffLines.ts`·`components/DiffTable.tsx` 로 옮겨 간다. `DiffBody` 는 그것을 쓰는 얇은 껍데기로 남는다 — 도구 카드 동작은 그대로다.
 
 ```text
 ChatTile → Composer(showGitRow) → GitRow
@@ -308,6 +337,8 @@ ChatTile → Composer(showGitRow) → GitRow
 | state/contract | 타일 로컬 상태 없음 | `diffFilesVisible: boolean` + `TOGGLE_DIFF_FILES` | 헤더와 본문이 형제라 로컬 state 로 공유할 수 없다 | AR-02 / VP-12 · `chatReducer.ts` |
 | error/lifecycle | fallback + cwd 태깅 | **동일** — 재사용한다 | 검증된 경로를 두 벌로 만들지 않는다 | SD-02 / VP-05 · `branchChipState.ts` |
 | test seam/관측점 | 순수 판정 파일 1개(`branchChipState`) | 순수 3개(`gitRowState`·`diffTileTree`) + 렌더 스위트 2개 | 노출·값·접힘이 전부 순수하다 | MD-01~03 / VP-01·04·14 |
+| 우측 영역 깊이 | (설계 없음 — 1턴은 파일 헤더 목록까지) | 헤더 + **접기/펼치기 + 더미 diff 본문** | D-017·D-018 — diff 패널이 diff 를 그려야 배치 확인이 닫힌다 | R-17·R-18 / VP-16·17 · `DiffFileHeaders` |
+| 줄 파생·줄 렌더 소유 | `DiffBody.tsx` 모듈 로컬, 소비자 1 | `lib/diffLines.ts` · `components/DiffTable.tsx` 로 승격, 소비자 2 | 규칙이 두 벌이면 도구 카드와 타일의 +/− 표현이 갈라진다(D-019) | MD-04·AR-05 / VP-18 · EP-07 |
 | 색 토큰 | git 의미 토큰 없음 | `--color-git-added`·`--color-git-removed` 2종 × 2스코프 | `renderer/AGENTS.md §스타일` | AR-04 / VP-15 · `tokens.css` |
 
 ### 핵심 책임 분리
@@ -318,7 +349,9 @@ ChatTile → Composer(showGitRow) → GitRow
 | `shared/ipc.ts` | `GitStatus` 계약 | — | main · preload · renderer |
 | `features/chat/components/composer/gitRowState.ts` | 노출·값·재조회 판정 **전부** | `(sessionStarted, cwd, status)` → `GitRowView` · `(prev,next)` → `boolean` | `GitRow`·`useGitRowStatus` |
 | `features/chat/components/composer/GitRow.tsx` | 표시 + 변경량 버튼 | props-only View + store 연결 래퍼 | `Composer` |
-| `features/chat/components/rightpanel/diffTileMock.ts` | 더미 데이터 상수 | — | `DiffTile*` |
+| `features/chat/lib/diffLines.ts` | 줄 파생 — `old·new` → `DiffLine[]` | 문자열 2개 → 줄 배열 | `DiffTable` · (간접) 두 소비자 |
+| `features/chat/components/DiffTable.tsx` | 줄 렌더 — 3열 table | `{oldValue,newValue}` | `DiffBody` · `DiffFileHeaders` |
+| `features/chat/components/rightpanel/diffTileMock.ts` | 더미 데이터 상수 — 트리·커밋·**파일별 old/new 쌍** | — | `DiffTile*` |
 | `features/chat/components/rightpanel/diffTileTree.ts` | 접힘 집합 → 가시 행 | `(tree, collapsed)` → `Row[]` | `DiffFileTree` |
 | `features/chat/components/rightpanel/DiffTileContent.tsx` | 3영역 조립 + props-only 하위 View 3개 | props | `tileRegistry` |
 
@@ -332,6 +365,8 @@ ChatTile → Composer(showGitRow) → GitRow
 | **EP-04** AR-04 / VP-15 | 새 색 토큰 2종을 **두 스코프 전부**에 — 지점 **2** (`:root` `@theme` · `[data-theme='dark']`) | `styles/tokens.css` | `rg`(테스트) | 테스트 시점 | 한쪽만 채우면 그 테마에서 색이 죽는다. typecheck 가 CSS 를 보지 않으므로 **기계 강제가 이 검색뿐이다** |
 | **EP-05** AR-03 / VP-01·02·03·07·10 | 행의 노출·값 판정은 `gitRowView` **한 곳**이다 — 소비 지점 **1** (`GitRow.tsx`) | `gitRowState.ts` | 렌더 단언 + `rg "isRepo" -- components/composer` 가 `branchChipState.ts` 외 0건 | 테스트 시점 | 두 곳이 판정하면 랜딩·세션 조건이 갈라진다 |
 | **EP-06** SD-01 / VP-04 | 재조회 계기 **2** (cwd 변경 effect · busy 전이 effect) | `useGitRowStatus` | 순수 진리표(AT-04) + effect 배선 | 테스트 시점 | 하나가 빠지면 D-003(중간 `git init`) 또는 변경량 갱신이 죽는다 |
+
+| **EP-07** MD-04·AR-05 / VP-17·VP-18 | 줄 파생·줄 렌더를 **한 모듈이 소유**한다 — 소비 지점 **2** (`DiffBody.tsx` · `DiffFileHeaders`) | `lib/diffLines.ts` · `components/DiffTable.tsx` | `rg` 2건 + 도구 카드 회귀 렌더(AT-19) | 테스트 시점 | 소비자가 각자 구현하면 `+`/`-` 거터·색·줄번호 규칙이 갈라진다. **`DiffBody` 에 기존 테스트가 없어 승격 회귀를 잡을 장치가 AT-19 뿐이다** |
 
 - 같은 규칙의 SSOT: 늦은 응답 방어는 `branchChipState.ts` 의 `BranchSnapshot`·`statusForCwd` 를 **재사용한다** — 정규식/구조를 복사하지 않는다.
 - `실패 의미` 에 "다른 게이트가 막는다" 를 적은 행: EP-01·EP-03 둘. 근거는 이번 턴 실측 — `RightPanelTileId` 는 union 이라 잔여 참조가 error 를 내고(0204 r1 이 같은 형태로 4건을 드러냈다), `GitStatus` 필수 필드 추가는 리터럴 3곳에 `TS2739` 를 낸다. **테스트 3지점과 EP-02④·EP-04 는 그 강제 밖이라 별도로 적었다.**
@@ -354,11 +389,15 @@ ChatTile → Composer(showGitRow) → GitRow
 | `.../lib/rightPanelTiles.ts` | 타일 SSOT | `reserved1`→`diff`(EP-02①), `MENU_HIDDEN` 에서 제거(EP-02②) | 기존 `rightPanelTiles.test.ts` |
 | `.../rightpanel/tileRegistry.ts` | 레지스트리 | `contentById.diff`·`headerContentById.diff`(EP-02③④), `ReservedTileContent` import 제거 | 렌더 (AT-13) |
 | `.../rightpanel/ReservedTileContent.tsx` | — | **삭제** | — |
-| `.../rightpanel/diffTileMock.ts` **신규** | 더미 상수 | 트리 · 커밋 3건 · 파일 헤더 목록 | — |
+| `.../lib/diffLines.ts` **신규(이동)** | 줄 파생 | `DiffBody.tsx:35-70` 의 `DiffLine`·`buildDiffLines` 를 그대로 옮기고 export | 순수 (UT-04) |
+| `.../lib/diffLines.test.ts` **신규** | — | AT-18 순수 절 | — |
+| `.../components/DiffTable.tsx` **신규(이동)** | 줄 렌더 | `DiffBody.tsx:72-121` 의 `DiffTable` 을 옮기고 export. props-only 유지 | 렌더 (AT-18·19) |
+| `.../transcript/tool-bodies/DiffBody.tsx` | 도구 카드 | 두 조각을 import 로 대체 — `buildPairs`·`DiffBody` 만 남는다 | 렌더 회귀 (AT-19) |
+| `.../rightpanel/diffTileMock.ts` **신규** | 더미 상수 | 트리 · 커밋 3건 · 파일별 `{path, added, removed, oldValue, newValue}` | — |
 | `.../rightpanel/diffTileTree.ts` **신규** | 순수 파생 | `visibleTreeRows(tree, collapsed)` — 깊이·들여쓰기 포함 | 순수 (UT-03) |
-| `.../rightpanel/DiffTileContent.tsx` **신규** | 3영역 | props-only `DiffFileTree`·`DiffCommitList`·`DiffFileHeaders` + store 연결 래퍼 | 렌더 (AT-11·12·14·15) |
+| `.../rightpanel/DiffTileContent.tsx` **신규** | 3영역 | props-only `DiffFileTree`·`DiffCommitList`·`DiffFileHeaders`(`expanded` 집합 소유) + store 연결 래퍼 | 렌더 (AT-11·12·14·15·17) |
 | `.../rightpanel/DiffTileHeader.tsx` **신규** | 헤더 override | 파일 토글 + 현재 브랜치 표시 | 렌더 (AT-13) |
-| `.../rightpanel/diffTile.render.test.ts` **신규** | — | AT-11·12·13·14·15 | — |
+| `.../rightpanel/diffTile.render.test.ts` **신규** | — | AT-11·12·13·14·15·17·18·19 | — |
 | `.../reducer/chatReducer.ts` | 상태 | `diffFilesVisible: boolean`(초기 `true`) + `TOGGLE_DIFF_FILES` | 기존 `chatReducer.plan.test.ts` |
 | `.../shared/i18n/resources/{ko,en}.ts` | 문구 | `tiles.reserved1`→`tiles.diff`, `gitRow.*` 3키, `diffMockNotice` 외 타일 키 | typecheck(`MessageKey`) |
 | `.../styles/tokens.css` | 토큰 | `--color-git-added`·`--color-git-removed` × 2스코프 | `rg`(EP-04) |
@@ -366,10 +405,11 @@ ChatTile → Composer(showGitRow) → GitRow
 
 ### 테스트 가능성
 
-- electron 의존부와 분리한 **별도 순수 파일**: `gitRowState.ts` · `diffTileTree.ts` — 둘 다 `gitApi`·`chatStore` 를 import 하지 않는다. import graph 가 끊긴다.
+- electron 의존부와 분리한 **별도 순수 파일**: `gitRowState.ts` · `diffTileTree.ts` · `diffLines.ts` — 셋 다 `gitApi`·`chatStore` 를 import 하지 않는다. import graph 가 끊긴다.
 - 기존 메커니즘 재사용 적합성: `BranchSnapshot`/`statusForCwd` 는 "어느 cwd 의 값인가" 만 판정하므로 조회 계기가 둘로 늘어도 형상이 맞는다.
 - 순서를 관측할 훅: 렌더 출력의 `indexOf` 비교(AT-01·AT-11). 별도 로그를 만들지 않는다.
-- **props-only 분리**: 렌더 단언 대상 View 5개(`GitRowView`·`DiffFileTree`·`DiffCommitList`·`DiffFileHeaders`·`DiffTileHeaderView`)는 store 를 읽지 않는다 — store 연결 래퍼가 props 를 내려준다.
+- **props-only 분리**: 렌더 단언 대상 View 6개(`GitRowView`·`DiffFileTree`·`DiffCommitList`·`DiffFileHeaders`·`DiffTileHeaderView`·`DiffTable`)는 store 를 읽지 않는다 — store 연결 래퍼가 props 를 내려준다.
+- **`expanded` 는 타일 로컬 state 다** — 헤더가 아니라 본문 안에서만 쓰이므로 reducer 로 올리지 않는다(`diffFilesVisible` 과 다른 축이다).
 
 ## 12. End-to-end 영향
 
@@ -408,7 +448,8 @@ git-cli.gitStatus  →  GitStatus(+root)  →  useGitRowStatus 로컬 snapshot  
 - 새 요청 수: `원천 상한 × 배치 상한` = **턴당 1회** × cwd 1개 = 1. `git rev-parse --show-toplevel` 이 `gitStatus` 안에 1회 더 붙어 프로세스 호출이 turn 당 3→4회가 된다(`insideWorkTree`·`symbolic-ref`·`diff --shortstat` + 신규 1).
 - 새 출력 상한: 행 문자열은 저장소명(파일시스템 상한) + 브랜치명(git 상한 255) + 숫자 2개 — CSS `truncate` 로 접는다. diff 타일 더미는 **모듈 상수라 상한이 고정**이다.
 - 구조적 목표: 없음. 신규 파일 중 400줄을 넘길 후보는 `DiffTileContent.tsx` 하나 — 하위 View 3개를 같은 파일에 두면 `renderer/AGENTS.md §단일 파일 분해 가이드` 의 "컴포넌트 5개" 경고에 닿는다. **4개(래퍼 + View 3)로 유지**한다.
-- 캐시/축소로 잃는 부수 효과: `useGitRowStatus` 는 캐시하지 않는다 — 턴마다 새로 읽는 것이 D-003 의 요구다.
+- 펼침 시 렌더 줄 수: `원천 상한 × 배치 상한` = **더미 파일당 old/new 각 20줄 이내 × 동시 펼침 파일 수**. 더미가 모듈 상수라 상한이 고정이고, `buildDiffLines` 의 `O(n·m)` 은 `DiffTable` 의 기존 `useMemo`(0108)가 이미 막는다.
+- 캐시/축소로 잃는 부수 효과: `useGitRowStatus` 는 캐시하지 않는다 — 턴마다 새로 읽는 것이 D-003 의 요구다. `DiffTable` 의 `useMemo` 는 **승격하며 그대로 옮긴다** — 지우면 부모 재렌더마다 diff 를 다시 계산한다.
 
 ## 15. 외부 구현 포트 / 문서 계약
 
@@ -425,6 +466,8 @@ git-cli.gitStatus  →  GitStatus(+root)  →  useGitRowStatus 로컬 snapshot  
 | 0204 D-021 — 타일 정의 4종 | `0204/plan.md:65` | D-009 | **유지** — `reserved1`→`diff` 로 수를 바꾸지 않는다 |
 | 0205 D-008 — `reserved1` 의 지위를 바꾸지 않는다 | `0205/plan.md:51` | D-009 | **변경(SUPERSEDED)** — D-S01. 그 결정이 지키려던 3타일 기하 회귀는 `diff` 로 재현된다(`rightPanelLayout.test.ts` 16행 치환) |
 | 0205 `SUSPENDED_RIGHT_PANEL_TILES` = `['task']` | `rightPanelTiles.ts:44` | EP-02② | **유지** — `MENU_HIDDEN` 에서 `reserved1` 만 뺀다. 정지 목록은 건드리지 않는다 |
+| `DiffBody.tsx:73` 주석 — `diffLines` 는 `O(n·m)`, `useMemo` 로 재계산 방지(0108) | 코드 주석 | §14 · §11 승격 행 | **유지** — `useMemo` 를 `DiffTable` 과 함께 옮긴다 |
+| `BranchSwitchDialog.tsx:84` 주석 — diff 색은 `DiffBody` 와 같은 토큰(good/bad) | 코드 주석 | §8 조사 · D-016 | **유지** — D-016 이 만드는 `git-added/removed` 는 **텍스트 색**(행의 `+N −M`)이고 저 주석은 **행 틴트** 다. 두 축이라 기존 규칙을 건드리지 않는다 |
 | `renderer/AGENTS.md §스타일` — 새 토큰은 두 테마 스코프 전부 | `app/src/renderer/AGENTS.md` | D-016 · EP-04 | **유지** |
 | `renderer/AGENTS.md §4-layer` — feature 끼리 import 금지 | 같은 문서 | §11 신규 파일 전부 `features/chat/` 내부 | **유지** |
 | `app/AGENTS.md:127` — 비-DB 테스트는 `pretest` 우회 | `app/AGENTS.md` | §19 | **유지** |
@@ -439,6 +482,8 @@ git-cli.gitStatus  →  GitStatus(+root)  →  useGitRowStatus 로컬 snapshot  
 | `--show-toplevel` 추가로 turn 당 git 프로세스 1회 증가 | 수용 — 이미 3회이고 `GIT_OPTIONAL_LOCKS=0` 로 잠금을 잡지 않는다(`git-cli.ts:24`) |
 | 턴 종료 재조회가 긴 턴에서 늦다 | 수용 — D-004 가 계기를 둘로 명시했고 창 포커스는 §6 비범위 |
 | `reserved1` 42행 치환 중 일부 누락 | EP-03 — union 에서 사라지므로 typecheck 가 전부 드러낸다 |
+| **`DiffBody` 승격이 도구 카드를 깬다** — 기존 테스트가 0건이라 잡을 장치가 없었다 | AT-19 가 회귀 짝을 새로 만든다(도구 카드 경로 렌더). VP-18 이 승격 모듈 export 를 지워 **두 소비자가 함께** red 인지 확인한다 |
+| 더미 diff 본문이 실제 변경으로 읽힌다 | D-012 의 예시 문구가 본문 최상단에 있다(AT-12). 접힘이 기본이라 펼치는 행동이 있어야 본문이 나온다(AT-17) |
 
 - 되돌리기 어려운 결정: `GitStatus.root` 필드 추가(공개 IPC 계약) · 타일 id `diff`(사용자 라벨 오버라이드 `rightPanelTileLabels` 의 키가 된다). 둘 다 사용자가 선택했다.
 - 신규 의존성: **0건** — 렌더 하네스는 기존 `react-dom/server` 를 쓴다.
@@ -449,6 +494,7 @@ git-cli.gitStatus  →  GitStatus(+root)  →  useGitRowStatus 로컬 snapshot  
 - `app/src/renderer/src/features/chat/components/composer/{gitRowState.ts,gitRowState.test.ts,GitRow.tsx,gitRow.render.test.ts}` (신규)
 - `app/src/renderer/src/features/chat/components/{Composer.tsx,ChatTile.tsx}`
 - `app/src/renderer/src/features/chat/components/rightpanel/{diffTileMock.ts,diffTileTree.ts,DiffTileContent.tsx,DiffTileHeader.tsx,diffTile.render.test.ts}` (신규) · `tileRegistry.ts` · `ReservedTileContent.tsx`(삭제)
+- `app/src/renderer/src/features/chat/lib/{diffLines.ts,diffLines.test.ts}` (신규·이동) · `components/DiffTable.tsx` (신규·이동) · `components/transcript/tool-bodies/DiffBody.tsx` (수정)
 - `app/src/renderer/src/features/chat/lib/rightPanelTiles.ts` · `reducer/chatReducer.ts`
 - `app/src/renderer/src/shared/i18n/resources/{ko,en}.ts` · `app/src/renderer/src/styles/tokens.css`
 - 회귀 스위트 3: `lib/rightPanelLayout.test.ts` · `lib/rightPanelTiles.test.ts` · `reducer/chatReducer.plan.test.ts`
@@ -459,31 +505,31 @@ git-cli.gitStatus  →  GitStatus(+root)  →  useGitRowStatus 로컬 snapshot  
 - 적용할 하위 가이드: `app/src/renderer/AGENTS.md §테스트` · `app/src/main/AGENTS.md` · `app/AGENTS.md §better-sqlite3 ABI`
 - ABI/네트워크 제약: `npm test` 를 쓰지 않는다 — ABI 를 Node 로 뒤집는다(`app/AGENTS.md:122`).
 - 기본 정적 게이트: `cd app && npm run lint && npm run typecheck`
-- 관련 테스트(ABI 중립): `cd app && ./node_modules/.bin/vitest run src/renderer/src/features/chat` 및 `... src/main/infra/git src/main/app/handlers`
+- 관련 테스트(ABI 중립): `cd app && ./node_modules/.bin/vitest run src/renderer/src/features/chat` 및 `... src/main/infra/git src/main/app/handlers`. **도구 카드 diff 회귀(AT-19)가 이 스위트에 새로 들어온다** — `tool-bodies/` 는 지금 테스트 0건이다.
 - 사람 실기: **2건** — ① 다크/라이트 두 테마에서 `+N −M` 색 대비 ② 세션 중 `git init` → 다음 턴 종료 후 행 등장(D-003 의 실제 환경 확인). 둘 다 순수 로직으로 내릴 수 없는 축이다(색 지각 · 실제 git 부작용).
 
 ## READY self-review
 
-- [x] Decision Ledger 가 ACTIVE 16 · SUPERSEDED 1(D-S01)로 두 차례 질의의 결정을 보존한다.
+- [x] Decision Ledger 가 ACTIVE 19 · SUPERSEDED 1(D-S01)로 세 턴(질의 2회 + 지적 1회)의 결정을 보존한다. 설계 2턴에서 D-001~D-016 을 문장 그대로 유지하고 D-017~D-019 만 더했다.
 - [x] Part I 만 읽어도 완료 상태가 이해된다 — §5 전이표 8행이 구현 방식 없이 결과를 말한다.
 - [x] 조건절을 재해석하지 않았다 — "Git init이 안되어잇엇다면 … 셋업이되면 노출돼야 한다" 를 D-003 에 원문 인용하고 D-004 가 계기를 명시했다.
 - [x] Product/UX 핵심 동작 8행이 전부 AC(AT-01~16)와 §9 TO-BE 경로에 연결된다.
 - [x] AS-IS·TO-BE 가 같은 축(책임·flow·contract·lifecycle·seam)으로 있고 Delta 8행이 전부 §11 파일 또는 AC 로 간다.
-- [x] AS-IS 에서 사라진 책임 명시 — `ReservedTileContent` = **삭제**, `BranchChip` = **유지**(이동 아님).
-- [x] 수치 실측 — `reserved1` 7파일 42행(내역 합 = 총계) · `GitStatus` 리터럴 6(3+3) · 타일 지점 6 · `showLandingCwdPanel` 5.
+- [x] AS-IS 에서 사라진 책임 명시 — `ReservedTileContent` = **삭제**, `buildDiffLines`·`DiffTable` = **이동**(삭제 아님), `BranchChip` = **유지**.
+- [x] 수치 실측 — `reserved1` 7파일 42행(내역 합 = 총계) · `GitStatus` 리터럴 6(3+3) · 타일 지점 6 · `showLandingCwdPanel` 5 · `buildDiffLines`·`DiffTable` 소비처 각 1 → 승격 후 2 · `tool-bodies/` 테스트 **0건**.
 - [x] 전칭 검산 — "reducer 에 타일 특례가 없다" 를 grep 반례 0건으로 확인.
 - [x] 문서 앵커·기존 케이스 존재 확인 — 0201 D-002/009/011 · 0204 D-021 · 0205 D-008 · 테스트 3케이스 전부 실재.
 - [x] 각 AC 가 행동 단언 · 검증 수단 · 프로덕션 도달 경로 3칸을 갖는다.
 - [x] Baseline V 를 만들었고 유효 V = `V1` 로 재구성 가능하다.
 - [x] 모든 NEW node 에 같은 레벨 REQUIRED pair — VP-01~15, `NOT_REQUIRED` 0건(Baseline).
-- [x] 각 pair 가 경로 · §10 전수 분모 · 직접 oracle 을 갖고, 적대 증거는 3개(VP-01·09·10)만 이유와 변이를 적었다.
+- [x] 각 pair 가 경로 · §10 전수 분모 · 직접 oracle 을 갖고, 적대 증거는 5개(VP-01·09·10·16·18)만 이유와 변이를 적었다.
 - [x] 운영 gate 4종이 이번 산출물 기준이고 DB 로드 실패를 blocking 으로 만들지 않는다.
 - [x] 사람 실기로 미룬 순수 로직 없음 — 노출·값·접힘·재조회 트리거가 전부 순수 테스트다. 실기 2건은 색 지각과 실제 git 부작용뿐.
 - [x] structural proxy 만으로 검증하는 AC 없음 — 순서는 인덱스 비교, 음성은 양성 짝과 함께.
 - [x] "X 가 쓰인다" 불변식의 장치가 X 를 지웠을 때 실패한다 — EP-02④를 지우면 AT-13 이 red(VP-09 변이). **자리 불변식(AT-01·AT-11)은 형제를 맞바꿔도 실패한다**(VP-01 변이).
 - [x] 신규 계약의 SSOT · 강제 지점 · 테스트 seam — EP-01~06 이 각각 소유자·강제자·시점을 갖는다.
 - [x] 기존 소비처 전수 — §12 표 5행.
-- [x] 상한 계산 — 턴당 git 프로세스 3→4, 요청 1회. one-way door 2건 명시.
+- [x] 상한 계산 — 턴당 git 프로세스 3→4, 요청 1회, 펼침 줄 수는 모듈 상수로 고정. one-way door 2건 명시.
 - [x] 게이트 명령이 `app/AGENTS.md` 와 충돌하지 않는다 — `npm test` 를 쓰지 않고 `vitest run` 직접 호출.
-- [x] 본문 완성 후 교차검증 — `ACTIVE 결정 ↔ AC` 대조 결과를 §3 갱신 메모에 관측으로 적었다(충돌 0, 확인 쌍 14).
+- [x] 본문 완성 후 교차검증 — `ACTIVE 결정 ↔ AC` 대조 결과를 §3 갱신 메모에 관측으로 적었다(충돌 0, 확인 쌍 17 + 비충돌 판정 2건).
 - [x] 문장 규칙 — 판정 먼저, 한 줄에 관측 하나, 표 한 칸 3줄. Part I 은 결과, Part II 는 경로로 갈랐다.
