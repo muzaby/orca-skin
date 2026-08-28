@@ -16,6 +16,8 @@
 // 의존성 형태**(`AuthRuntime`·`RuntimeToolSink`·AuthId 를 닫은 secret closure)를 그대로 재현한다.
 
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type {
   AuthDefinition,
   AuthId,
@@ -33,7 +35,9 @@ import { RuntimeToolRegistry } from '../../features/extensions/runtime-tool-regi
 import type { RuntimeToolServer } from '../../adapters/runtime-tools'
 import { authToolServerId } from '../../adapters/runtime-tool-policy'
 import { createHarnessRuntimeConfigService } from '../../features/harnesses/runtime-config'
-import { prepareHarnessConfig } from '../../adapters/harness-config'
+import { prepareHarnessConfig, type SpawnEnvInjector } from '../../adapters/harness-config'
+import { stripCommentsAndStrings } from '../../infra/source-scan'
+import { SPAWN_ENV_INJECTOR } from './spawn-env'
 import type { UsageFetcher } from '../../features/usage/fetcher'
 import { connectionState } from '../connection-views'
 import type { ConnectionViewSource } from '../connection-views'
@@ -471,5 +475,112 @@ describe('배포 factory 의 능력 경계 (0190)', () => {
     expect(deps.secrets['corp']?.()).toBe('k')
     // @ts-expect-error 이 방식은 API 요청을 낼 수 없다(D-048 의 두 능력 분리).
     expect(deps.auth).toBeUndefined()
+  })
+})
+
+// ── 폐쇄망 spawn env 주입점 (0207) ───────────────────────────────────────────
+//
+// 세 가지를 서로 다른 축에서 잠근다: **가이드 예제가 실제 타입에 대입되는가**(컴파일러),
+// **기본 배포가 비어 있는가**(값), **컴포지션 루트가 실제로 넘기는가**(배선).
+
+// `docs/guides/closed-network-extensions.md` §3-d 의 예제를 **그대로** 옮긴 것이다. 여기서
+// 컴파일되지 않으면 배포자가 따라 쓸 수 없는 예제를 문서가 들고 있다는 뜻이다(0190 A1).
+const CORP_SPAWN_ENV: SpawnEnvInjector = ({ target, hostEnv }) => {
+  // 프록시·사설 CA 는 모든 key 에 건다.
+  const env: Record<string, string> = {
+    HTTPS_PROXY: 'http://proxy.corp.example:8080',
+    NO_PROXY: 'localhost,127.0.0.1,.corp.example',
+    NODE_EXTRA_CA_CERTS: 'C:\\ProgramData\\corp\\ca-bundle.pem'
+  }
+  // 장비별로 운영자가 덮을 여지를 남긴다 — host 값이 있으면 그것을 쓴다.
+  const override = hostEnv['CORP_PROXY_OVERRIDE']
+  if (override) env.HTTPS_PROXY = override
+  // 특정 게이트웨이에만 거는 값은 **함수 안에서** 좁힌다. 등록 자체는 모든 key 에 걸린다.
+  if (target.resolved && target.harnessId === 'claude' && target.modelProviderId === 'corp') {
+    env.ANTHROPIC_BASE_URL = 'https://llm.corp.example'
+  }
+  return env
+}
+
+describe('폐쇄망 spawn env 주입점 (0207)', () => {
+  it('가이드 예제가 실제 타입으로 동작한다 — 전역값·host 파생·대상 좁히기', () => {
+    const everywhere = CORP_SPAWN_ENV({ target: { resolved: false }, hostEnv: {} })
+    expect(everywhere).toMatchObject({ HTTPS_PROXY: 'http://proxy.corp.example:8080' })
+    expect(everywhere).not.toHaveProperty('ANTHROPIC_BASE_URL')
+
+    const overridden = CORP_SPAWN_ENV({
+      target: { resolved: false },
+      hostEnv: { CORP_PROXY_OVERRIDE: 'http://alt.corp.example:3128' }
+    })
+    expect(overridden.HTTPS_PROXY).toBe('http://alt.corp.example:3128')
+
+    const narrowed = CORP_SPAWN_ENV({
+      target: {
+        resolved: true,
+        key: CLAUDE_CORP_KEY,
+        harnessId: 'claude',
+        modelProviderId: 'corp'
+      },
+      hostEnv: {}
+    })
+    expect(narrowed.ANTHROPIC_BASE_URL).toBe('https://llm.corp.example')
+  })
+
+  it('기본 배포는 주입점을 비워 둔다 — 오류가 아니라 정상 구성', () => {
+    expect(SPAWN_ENV_INJECTOR).toBeUndefined()
+  })
+
+  // injector 는 **세 번째 배포 능력**이고, 앞의 둘과 달리 credential·network 를 받지 않는다
+  // (D-006). 좁힌 타입을 아무도 쓰지 않으면 그만이므로 "이 접근은 컴파일되지 않는다" 를 단언한다.
+  it('injector 입력에는 signal·auth·secrets 능력이 없다', () => {
+    const input: Parameters<SpawnEnvInjector>[0] = { target: { resolved: false }, hostEnv: {} }
+
+    expect(input.target.resolved).toBe(false)
+    // @ts-expect-error 동기 함수다 — 취소 지점이 없다.
+    expect(input.signal).toBeUndefined()
+    // @ts-expect-error 원격 호출은 RuntimeConfigAugmenter 의 책임이다.
+    expect(input.auth).toBeUndefined()
+    // @ts-expect-error raw secret 은 이 능력이 읽지 않는다.
+    expect(input.secrets).toBeUndefined()
+  })
+})
+
+// ── 배선 잠금 (0207 VP-21) ───────────────────────────────────────────────────
+//
+// `turn-setup.ts` 는 electron 을 물어 vitest 가 import 하지 못한다. 그렇다고 배선을 안 보면
+// **두 호출부에서 인자를 지워도 위 테스트가 전부 통과한다** — 조립부는 injector 없이도 정상
+// 동작하기 때문이다. 그래서 소스를 문자열로 읽어 잠근다(`no-node-fetch.test.ts` 와 같은 방식).
+//
+// 개수를 `2` 로 박지 않는다. **모든 조립 호출부가 injector 를 넘긴다**가 불변식이므로, 호출부가
+// 늘면 분모도 함께 늘어야 한다 — 상수로 박으면 세 번째 호출부가 조용히 배선 없이 추가된다.
+const TURN_SETUP = join(__dirname, '..', 'chat-turn', 'turn-setup.ts')
+const PREPARE_CALL = /prepare(?:Unresolved)?HarnessConfig\s*\(/g
+const INJECTOR_ARG = /customEnv:\s*SPAWN_ENV_INJECTOR\b/g
+
+const countOf = (source: string, pattern: RegExp): number => source.match(pattern)?.length ?? 0
+
+describe('turn-setup 이 배포 injector 를 두 조립 경로에 넘긴다 (0207)', () => {
+  it('조립 호출부 수와 injector 인자 수가 같다', () => {
+    const source = stripCommentsAndStrings(readFileSync(TURN_SETUP, 'utf8'))
+    const calls = countOf(source, PREPARE_CALL)
+
+    expect(calls).toBeGreaterThan(0)
+    expect(countOf(source, INJECTOR_ARG)).toBe(calls)
+  })
+
+  // 가드 자신이 맞게 도는지 — 인자를 지운 호출부를 실제로 잡는지 본다. 이게 없으면 정규식이
+  // 아무것도 못 잡는 상태로 "통과" 할 수 있다.
+  it('인자가 빠진 호출부를 잡는다', () => {
+    const wired = 'prepareHarnessConfig({ config, customEnv: SPAWN_ENV_INJECTOR })'
+    const bare = 'prepareUnresolvedHarnessConfig({ baseEnv: processEnvRecord })'
+
+    expect(countOf(wired, PREPARE_CALL)).toBe(1)
+    expect(countOf(wired, INJECTOR_ARG)).toBe(1)
+    expect(countOf(bare, PREPARE_CALL)).toBe(1)
+    expect(countOf(bare, INJECTOR_ARG)).toBe(0)
+    // import 줄의 이름만으로는 배선으로 세지 않는다.
+    expect(
+      countOf("import { SPAWN_ENV_INJECTOR } from '../deployment/spawn-env'", INJECTOR_ARG)
+    ).toBe(0)
   })
 })

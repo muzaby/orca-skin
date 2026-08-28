@@ -505,6 +505,18 @@ direct credential    닫힌 readSecret() → 사용자가 입력한 API key 를 
 config API augmenter 에는 `AuthSecretReader` 를 **주지 않는다** — OAuth access token 과 응답의 실제
 LLM token 을 오인할 여지를 배선에서 제거한다.
 
+배포가 spawn env 에 값을 넣는 축은 둘이고, 서로 다른 것을 소유한다.
+
+| 축 | 등록 | 입력 | 성격 |
+|---|---|---|---|
+| `RuntimeConfigAugmenter` | key 별 | `{key, settings?}` + `AbortSignal` | 동적·원격 — config API 응답의 token·URL·Model |
+| `SpawnEnvInjector` | 모든 key | `{target, hostEnv}` | 정적·전역 — 프록시·사설 CA 같은 환경 적응값 |
+
+후자는 `app/deployment/spawn-env.ts` 의 상수 하나이고 **동기·순수**다 — `AbortSignal`·`AuthBinder`·
+`AuthSecretReader` 를 받지 않는다. 대상 좁히기는 등록이 아니라 함수 안에서 `target` 으로 한다.
+계약 타입은 `adapters/harness-config.ts`, 실행 절차는
+[`guides/closed-network-extensions.md`](../../guides/closed-network-extensions.md) §3-d.
+
 ### 6.3 cache 는 key 당 한 세대만 갖는다
 
 ```text
@@ -527,7 +539,8 @@ generation + sourceRevision + cached value + in-flight operation
 평탄화하면 Harness settings 우선순위가 바뀐다.
 
 ```text
-runtime config augmenter env
+배포 spawn env injector
+  > runtime config augmenter env
   > 선택된 Harness + ModelProvider settings 의 env
   > app env
   > 상속된 process env
@@ -539,14 +552,16 @@ settings 와 app env 양쪽에 있는 키가 두 채널에 동시에 남아 최�
 전부 걷어내야 "어느 채널이 우선해도 결과가 하나" 가 성립한다.
 
 `options.env` 를 만들지 않는 턴(정적 배포 + app env 없음)에는 settings 채널을 건드리지 않는다.
-단 네 레이어의 최종 `CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST` 값이 정확히 `1`이면 Claude Code 가
+단 모든 레이어를 접은 최종 `CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST` 값이 정확히 `1`이면 Claude Code 가
 프로세스 시작 시 provider 를 판정하므로, 정적 배포여도 settings env 전체를 `options.env` 로
 hoist 한다. 상속 process env 에서 활성화된 경우도 같고, 상위 레이어의 명시적 `0`은 하위 `1`을
 덮는다. **디스크 `settings.json` 은 수정하지 않는다.**
 
-**순서가 곧 우선순위다.** 구현은 `baseEnv → appEnv → settings env → runtimeEnv` 로 얹는다(나중이
-이긴다). app 을 settings 뒤에 얹으면 전역 폴백이 ModelProvider 전용 설정을 덮어, 게이트웨이를
-바꿔도 URL·모델 변수가 따라오지 않는다.
+**순서가 곧 우선순위다.** 구현은 `baseEnv → appEnv → settings env → runtimeEnv → customEnv` 로
+얹는다(나중이 이긴다). app 을 settings 뒤에 얹으면 전역 폴백이 ModelProvider 전용 설정을 덮어,
+게이트웨이를 바꿔도 URL·모델 변수가 따라오지 않는다. injector 가 최상위인 것은 그 값이 *하네스에
+전달되기 직전* 의 환경 적응이기 때문이고, 그래서 **하드코딩이 config API 응답을 덮을 수 있다** —
+동적 credential 을 injector 에 넣지 않는 이유가 이것이다.
 
 Auth 에서 얻은 secret 과 config API 의 LLM token 은 `options.settings` 나 argv 에 복제하지 않고
 **`options.env` 에만** 둔다. 하네스 런타임 `runtimeEnv` 가 제공하는 API base URL·auth token·model

@@ -30,6 +30,8 @@
 //     채워진 환경으로 spawn 하면 증상이 원인에서 멀어진다.
 //   · direct credential 은 미인증을 빈 문자열이 아니라 **실패**로 낸다 — 조용한 미인증 진행 금지.
 //   · Bootstrap 은 `AuthSecretReader` 전체가 아니라 **AuthId 를 닫은 closure** 만 넘긴다.
+//   · **정적·전역 적응값(프록시·사설 CA)은 여기가 아니라 `spawn-env.ts` 다** (0207). 이 파일은
+//     key 별 등록이라 운영자가 나중에 만든 ModelProvider 에는 붙지 않는다.
 
 import type { AuthBinder, AuthId } from '../../contracts/auth'
 import type { RuntimeConfigAugmenters } from '../../features/harnesses/runtime-config'

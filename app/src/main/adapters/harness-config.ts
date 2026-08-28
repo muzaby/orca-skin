@@ -118,11 +118,16 @@ export interface HarnessRuntimeConfig {
 // 적용 우선순위는 다음으로 **고정**한다:
 //
 // ```text
-// runtime config augmenter env
+// 배포 spawn env injector (app/deployment/spawn-env.ts)
+//   > runtime config augmenter env
 //   > 선택된 Harness + ModelProvider settings 의 env
 //   > app env
 //   > 상속된 process env
 // ```
+//
+// injector 가 최상위인 것은 사용자 결정이다(0207 D-003) — 폐쇄망 배포가 사내 프록시·인증서를
+// **하네스에 전달되기 직전에** 얹는 자리라서 config API 응답까지 덮는다. 대상 좁히기는 조립부가
+// 아니라 injector 안에서 식별자로 한다(D-002).
 //
 // settings env 가 app env 를 이기는 것이 계약의 핵심이다 — `orca.json` 의 app env 는 **전역
 // 폴백**이고 ModelProvider settings 는 **그 ModelProvider 전용 설정**이다. 폴백이 전용을 이기면
@@ -218,6 +223,59 @@ function stringEnvOf(settings: HarnessNativeSettings | undefined): Record<string
 
 const HOST_MANAGED_PROVIDER_ENV = 'CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST'
 
+// injector 미등록 턴이 매 턴 빈 리터럴을 만들지 않도록 공유한다. 읽기 전용으로만 쓴다.
+const EMPTY_ENV: Readonly<Record<string, string>> = Object.freeze({})
+
+// ── 배포 spawn env 주입점 (0207) ─────────────────────────────────────────────
+//
+// **왜 augmenter 로는 안 되는가**: `RuntimeConfigAugmenter` 등록은 key 정확 매칭
+// (`Partial<Record<HarnessModelProviderKey, …>>`)이라 운영자가 런타임에 만든
+// `sources/settings/<harness>/<modelProvider>/` 에는 붙지 않는다. 폐쇄망 적응값은 **모든**
+// Harness+ModelProvider 에 걸려야 한다(D-002).
+//
+// **왜 조립부가 부르는가**: `adapters` 는 `app` 을 import 할 수 없다(eslint boundaries). 그래서
+// 배포 모듈을 물지 않고 함수를 **인자로 받는다** — 컴포지션 루트(`app/chat-turn/turn-setup.ts`)가
+// 배포 상수를 넘긴다.
+
+// injector 가 대상을 좁히는 데 쓰는 식별자. `resolved` 로 갈린 **discriminated union** 인 이유는
+// entry 를 못 고른 턴에 빈 문자열 key 를 넘기면 배포가 그것을 실제 key 로 오인하기 때문이다
+// (D-007) — 그 조합은 타입에 존재하지 않는다.
+export type SpawnEnvTarget =
+  | {
+      resolved: true
+      key: HarnessModelProviderKey
+      harnessId: string
+      modelProviderId: string
+      // settings.json 원문 blob — env 블록을 걷어내기 **전** 값이다. 해석하지 못한 턴에는 없다.
+      settings?: HarnessNativeSettings
+    }
+  | { resolved: false }
+
+// 배포가 채우는 커스텀 env 계산 함수. **동기·순수다** — `AbortSignal`·`Promise`·`AuthBinder`·
+// `AuthSecretReader` 를 받지 않는다(D-006). 원격 호출과 credential 은 `RuntimeConfigAugmenter`
+// 의 책임이고 그 경계는 0188 r5 가 타입으로 갈라 놓았다.
+//
+// 반환값에 런타임 문자열 필터를 두지 않는다: `settings.json` 은 디스크의 임의 JSON 이라
+// `stringEnvOf` 가 걸러야 하지만, injector 는 in-repo TypeScript 라 컴파일러가 형상을 강제한다.
+//
+// **값이 없으면 그 키를 빼고 빈 객체를 돌려준다 — 던지지 마라.** 던지면 그 턴 전체가 실패한다.
+export type SpawnEnvInjector = (input: {
+  target: SpawnEnvTarget
+  // `process.env` 스냅샷 한 장 (D-004). 판정·조립과 **같은** 스냅샷이다.
+  hostEnv: Readonly<Record<string, string>>
+}) => Record<string, string>
+
+function spawnEnvTarget(config: HarnessRuntimeConfig, configResolved?: boolean): SpawnEnvTarget {
+  if (configResolved === false) return { resolved: false }
+  return {
+    resolved: true,
+    key: config.key,
+    harnessId: config.harnessId,
+    modelProviderId: config.modelProviderId,
+    ...ifPresent('settings', config.settings?.settings)
+  }
+}
+
 export interface PrepareHarnessConfigInput {
   config: HarnessRuntimeConfig
   // orca.json 앱 전역 env(`${VAR}` 확장 완료). 없으면 앱 env 레이어가 비었다는 뜻.
@@ -231,6 +289,8 @@ export interface PrepareHarnessConfigInput {
   // 넘겨 보수적 no-op 이 되게 한다(0125 null 의미론과 같은 축). 값을 내면 해석 실패 턴마다
   // 채널이 내려간다.
   configResolved?: boolean
+  // 배포 spawn env 주입점(0207). 미지정 = 주입 없음 — 기본 배포의 동작·성능은 지금과 같다.
+  customEnv?: SpawnEnvInjector
 }
 
 export function prepareHarnessConfig(input: PrepareHarnessConfigInput): PreparedHarnessConfig {
@@ -244,17 +304,30 @@ export function prepareHarnessConfig(input: PrepareHarnessConfigInput): Prepared
   const settingsEnv = stringEnvOf(settings?.settings)
 
   // `CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST` 는 settings 가 병합되는 시점보다 앞서 Claude Code
-  // 프로세스 시작 환경에서 판정된다. 따라서 네 레이어의 **최종값**이 `1`이면 settings env 도
-  // 실제 spawn env 로 올려야 한다. 판정 우선순위는 최종 env 조립과 같은
-  // runtime > settings > app > process 다. 상위 레이어의 명시적 `0`을 `??`로 보존해야 하위
-  // `1`이 모드를 되살리지 않는다.
+  // 프로세스 시작 환경에서 판정된다. 따라서 모든 레이어를 접은 **최종값**이 `1`이면 settings env
+  // 도 실제 spawn env 로 올려야 한다. 판정 우선순위는 최종 env 조립과 같은
+  // custom > runtime > settings > app > process 다. 상위 레이어의 명시적 `0`을 `??`로 보존해야
+  // 하위 `1`이 모드를 되살리지 않는다.
   //
   // process 레이어를 봐야 하는 settings-only 경로에서는 base snapshot 을 한 번만 만들고 아래
   // 조립에서 재사용한다. 서로 다른 process.env 순간을 판정과 실행에 쓰면 같은 턴 안에서도
   // host-managed 여부와 실제 spawn env 가 갈릴 수 있다.
   let baseEnvSnapshot: Record<string, string> | undefined
   const baseEnv = (): Record<string, string> => (baseEnvSnapshot ??= input.baseEnv())
+
+  // injector 는 판정보다 **먼저** 부른다 — 그 값이 flag 판정과 `buildsEnv` 양쪽에 들어가기
+  // 때문이다. 등록된 배포에서는 이 줄 때문에 `baseEnv()` 가 항상 한 번 불린다(injector 입력).
+  // 미등록 배포는 lazy 조건이 그대로다.
+  const customEnv = input.customEnv
+    ? input.customEnv({
+        target: spawnEnvTarget(config, input.configResolved),
+        hostEnv: baseEnv()
+      })
+    : EMPTY_ENV
+  const hasCustomEnv = Object.keys(customEnv).length > 0
+
   const explicitHostManaged =
+    customEnv[HOST_MANAGED_PROVIDER_ENV] ??
     runtimeEnv[HOST_MANAGED_PROVIDER_ENV] ??
     settingsEnv[HOST_MANAGED_PROVIDER_ENV] ??
     appEnv[HOST_MANAGED_PROVIDER_ENV]
@@ -267,7 +340,7 @@ export function prepareHarnessConfig(input: PrepareHarnessConfigInput): Prepared
   // 동적 값이 없고 앱 env 도 없으면 **옵션 자체를 생략**한다 — SDK 기본 env(process.env 상속)
   // 동작과 settings 채널을 그대로 둔다. 단 host-managed 모드는 settings env 가 너무 늦게
   // 적용되므로 정적 배포여도 완전한 subprocess env 를 만든다(0200).
-  const buildsEnv = hasRuntimeEnv || hasAppEnv || hostManaged
+  const buildsEnv = hasRuntimeEnv || hasAppEnv || hasCustomEnv || hostManaged
   const adjusted = settings && buildsEnv ? withEnvBlockHoisted(settings) : settings
 
   // 나중 spread 가 이기므로 순서가 곧 우선순위다.
@@ -276,7 +349,8 @@ export function prepareHarnessConfig(input: PrepareHarnessConfigInput): Prepared
         ...baseEnv(),
         ...appEnv,
         ...settingsEnv,
-        ...runtimeEnv
+        ...runtimeEnv,
+        ...customEnv
       }
     : undefined
 
@@ -309,11 +383,15 @@ export function prepareHarnessConfig(input: PrepareHarnessConfigInput): Prepared
 export function prepareUnresolvedHarnessConfig(input: {
   appEnv?: Record<string, string>
   baseEnv: () => Record<string, string>
+  // **injector 는 이 경로에서도 불린다** (0207 D-007). 사내 프록시·인증서가 빠진 채 spawn 하면
+  // 증상이 원인에서 멀어진다 — entry 를 못 골랐다는 사실은 `resolved:false` 로 알린다.
+  customEnv?: SpawnEnvInjector
 }): PreparedHarnessConfig {
   return prepareHarnessConfig({
     config: { key: '', harnessId: '', modelProviderId: '', runtimeEnv: {} },
     ...ifPresent('appEnv', input.appEnv),
     baseEnv: input.baseEnv,
+    ...ifPresent('customEnv', input.customEnv),
     configResolved: false
   })
 }
