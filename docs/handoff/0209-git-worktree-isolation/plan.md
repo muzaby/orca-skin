@@ -655,6 +655,8 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 | 강제 지점 전수 | EP-01 3/3 · EP-06 3/3 · EP-07 2/2 · EP-11 3/3 (EP-03 2/2 · EP-08 4/4 · EP-09 2/2 · EP-12 4/4 는 r11 승계) |
 | **AC 자기보고**(`Criteria-Met`) | AC13·AC14·AC15 를 ⚠️→✅ 로 올렸다 — AC13 은 재시작 resume(M-AH2 red)과 종료 시 remove 0회(M-AN2·M-AN3 red) 두 축, AC14 는 세 거부 이유 + 후속 send 성공(service·send 두 층), AC15 는 네 상태 표 + 호출 순서·0/1회 + handler union |
 | **합계 검산** | `✅ 16 · ⚠️ 4 · ❌ 0 = 총 20` — ✅ = AC1·2·3·5·6·7·8·11·12·13·14·15·16·17·18·19 / ⚠️ = AC4(abort 주입, D32)·AC9(HEAD 이동 모사 미관측)·AC10(Windows 경로 표기, CI 러너)·AC20(Windows 시각 실기). 분모 변경 없음 |
+| **Windows CI 후속** | 첫 푸시가 windows 러너에서 **3건 red** 였다 — 이 환경(POSIX)에서는 전건 green 이었다. 둘 다 Windows 전용 축이고 제품 결함이 아니라 **내 oracle 의 결함**이다: (A) `worktree-bind.test.ts` 가 sqlite 핸들을 연 채 temp 디렉토리를 지워 `EBUSY: unlink orca.db` 2건 — Windows 는 열린 파일을 unlink 하지 못한다. (B) `ipc-integration.test.ts` 가 git stdout(`C:/…`)과 Node 경로(`C:\…`)를 문자열로 비교해 1건. 실패 출력의 git 목록에 `branch refs/heads/work/f17d0001` 이 그대로 있었다 — 제품은 정상이고 단언만 틀렸다 |
+| **후속 수정** | (A) 핸들을 여는 자리를 `openHandle` 한 곳으로 모으고 `afterEach` 가 `rm` **앞에** 전부 닫는다(`new Database(` 출현 1건으로 검산). 테스트마다 손으로 닫으면 단언이 먼저 throw 할 때 그 close 를 건너뛴다. (B) 문자열 비교를 버리고 `listWorktrees` + `realpath` + 양방향 `isWithinDir` **동일성**으로 바꿨다 — `service.test.ts` 가 r3 에서 같은 축을 닫은 형태다. 오라클을 교체했으므로 VP-09 변이를 전부 재측정했다: M-AH·M-AI·M-AI2·M-AJ·M-AJ2·M-AJ3 전건 red 유지 + **신규 M-AI3**(기록 worktreeRoot 가 git 이 만든 경로와 갈림) red 1 — 구 장치의 경로 축을 새 장치가 덮는다. 덮개 회귀 0건 |
 | 블로커 / 역질문 | 없음 |
 | 대상 커밋 | `(r12 구현 — 좌표는 INDEX)` |
 
@@ -662,7 +664,9 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
   - 이번에 닫은 것은 r5~r11 의 "같은 불변식의 다음 좌표" 축이 **아니다** — 8 pair 가 전부 미작성 증거였다. 대신 **같은 축이 한 단계 위에서 재발했다**: EP-07 에서 단위(핸들러)는 잠그고 그것을 부르는 배선은 안 잠근 자리를 찾았다. impl §3 이 0198 r5 사례로 서술하는 바로 그 패턴이고, 이번에는 전수를 세다가 구현 턴 안에서 걸렸다.
   - 그것을 막았어야 할 지침은 있었고 **이번에는 작동했다** — §2 의 "지점 수만큼 닫고 개수를 보고한다" 가 EP-07 을 `2/2` 로 세게 했고, 두 번째 지점에 눈이 없다는 사실이 그 셈에서 나왔다.
   - round 25 review 가 신설한 세 규칙이 전부 발동했다: 분모 검산(필수 13행 분리) · 덮개 회귀(M-I 의 green→red 와 r11 5변이 재실행) · 라벨 술어 검증(첫 스윕이 주석을 호출로 세던 것을 자기 눈 케이스가 잡았다).
-  - 반복 환경 한계: `chat-turn.continuity.test.ts` 0건 수집(Electron 바이너리 부재)이 r1 부터 같다. D11 간헐도 r4 부터 같은 비율이다. Windows 경로 표기·시각 확인은 CI 러너와 사람 몫이다.
+  - **Windows 경로 표기는 이 handoff 에서 세 번째로 열린 축이다** — r2(`Windows CI 경로 표기 회귀`) · r3(`Windows temp junction 기준점 교정`) · r12(내 신규 oracle 의 문자열 비교). 매번 *그 라운드가 새로 쓴 단언*에서 났고, 앞선 두 라운드가 만든 해법(`realpath` + 양방향 `isWithinDir`)이 같은 파일에 이미 있었는데 새 테스트가 그것을 쓰지 않았다. 열린 sqlite 핸들의 `EBUSY` 는 이 handoff 에서 **새 축**이다.
+  - 그 둘을 막았어야 할 지침은 **없다** — `app/AGENTS.md §제약 환경` 은 egress·ABI 만 다루고, POSIX 전용 환경에서 Windows 러너용 단언을 쓰는 규칙은 어디에도 없다. 이 환경에서 green 은 Windows green 을 뜻하지 않는데 구현자는 그 차이를 볼 수 없다. `handoff-review` 후보다.
+  - 반복 환경 한계: `chat-turn.continuity.test.ts` 0건 수집(Electron 바이너리 부재)이 r1 부터 같다. D11 간헐도 r4 부터 같은 비율이다. Windows 시각 확인은 사람 몫이고, **Windows 경로·파일 잠금은 CI 러너만 관측한다 — 이 환경의 green 은 그 축의 증거가 아니다.**
   - 현재 라운드 수: **12**. 선행 review 는 round 25.
 
 
