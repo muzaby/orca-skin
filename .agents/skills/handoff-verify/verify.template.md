@@ -18,7 +18,7 @@
 | 검증 기준 plan revision | `<plan commit>:V1` / `<plan commit>:ΔV<N>` |
 | 라운드 | N |
 | 상태 | PASS / FAIL / RETURN_TO_PLAN |
-| 자기 검증 여부 | 설계·구현·검증 동일 에이전트인가 |
+| 자기 검증 여부 | 설계·구현·검증 동일 에이전트인가 — **구현자가 같으면** §4에 구현 보고가 이름을 대지 않은 적대 축을 함께 적는다 |
 
 ## 0. 기준선 / plan 변경 확인
 
@@ -96,6 +96,7 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 - structural proxy만으로 semantic 목표를 통과시킨 AC: 없음 / …
 - **선택된 적대 증거 재측정** — pair가 등록한 변이 / 닫는 이슈의 인용 변이 / 새 구조·전수·배선 oracle 민감도: N건 중 검출 M · 미검출 K · 일반 hunk 자동 확장 0
 - **이전 라운드 대조** — 지난 라운드에 red였던 변이 중 이번에 green: 0건 / N건 → 덮개 회귀 finding
+- **자기검증 분모** — 구현자 ≠ 검증자: 해당 없음 / 구현자 = 검증자: 보고에 없던 축 N건(어떤 축인지와 결과)
 
 | 변이 | 범위 | 이전 라운드 | 이번 라운드 | 귀속 |
 |---|---|---|---|---|
