@@ -26,9 +26,14 @@ import { HistoryWriter } from '../../features/history/writer'
 import type { TurnContext } from '../../contracts/turn'
 
 const dirs: string[] = []
-afterEach(async () =>
-  Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })))
-)
+// 열어 둔 sqlite 핸들은 **지우기 전에** 전부 닫는다. Windows 는 열린 파일을 unlink 하지 못해
+// `rm()` 이 EBUSY 로 죽는다(CI windows 러너 실측). 테스트마다 손으로 닫으면 단언이 먼저
+// throw 할 때 그 close 를 건너뛰므로, 연 자리에서 등록하고 여기서 한 번에 닫는다.
+const handles: Database.Database[] = []
+afterEach(async () => {
+  for (const handle of handles.splice(0)) if (handle.open) handle.close()
+  await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })))
+})
 
 const MANAGED = '/managed/repoid/wtid'
 const EXECUTION = `${MANAGED}/packages/web`
@@ -51,10 +56,18 @@ async function openDb(): Promise<{ file: string; db: Database.Database; q: DbQue
   const dir = await mkdtemp(join(tmpdir(), 'orca-bind-'))
   dirs.push(dir)
   const file = join(dir, 'orca.db')
-  const db = new Database(file)
-  db.pragma('foreign_keys = ON')
+  const db = openHandle(file)
   applyMigrations(db)
   return { file, db, q: new DbQueries(db) }
+}
+
+// 모든 핸들이 이 한 곳을 지난다 — 등록되지 않은 핸들이 생기면 afterEach 가 못 닫는다.
+// 매번 **새 핸들**이다: 재시작 케이스는 닫힌 파일을 다시 여는 것이 계약이라 재사용하면 안 된다.
+function openHandle(file: string): Database.Database {
+  const db = new Database(file)
+  db.pragma('foreign_keys = ON')
+  handles.push(db)
+  return db
 }
 
 describe('HistoryWriter → managed worktree bind → resume (AC12 · AC13)', () => {
@@ -95,8 +108,7 @@ describe('HistoryWriter → managed worktree bind → resume (AC12 · AC13)', ()
     db.close()
 
     // 앱 재시작 — 같은 파일을 새 핸들로 연다.
-    const reopened = new Database(file)
-    reopened.pragma('foreign_keys = ON')
+    const reopened = openHandle(file)
     const q2 = new DbQueries(reopened)
     const meta = q2.getSessionById('s1')
 
@@ -110,7 +122,6 @@ describe('HistoryWriter → managed worktree bind → resume (AC12 · AC13)', ()
         () => '/fallback'
       )
     ).toBe(EXECUTION)
-    reopened.close()
   })
 
   it('source cwd 로 시작한 세션은 어떤 row 에도 묶이지 않는다 — 조상만 묶는다', async () => {
