@@ -1957,3 +1957,64 @@ P heading **48/48 전수** · `COVERED 48 / PARTIAL 0 / GAP 0 / OBSOLETE 0` · �
 - **형제 슬롯의 판별은 사람/에이전트의 읽기다.** "이 둘이 서로 다른 계약인가"를 기계로 세는 명령이 없다 — 0204 는 `rg "<TileSection"` 로 3지점을 셀 수 있었지만 일반 형태의 스윕은 없다.
 - **맞바꿈 변이는 컴파일되는 쌍에만 심을 수 있다.** 형제 슬롯의 타입이 다르면 맞바꿈이 타입 오류로 먼저 걸리는데, 그 red 는 잠금이 아니라 P48 이 말하는 잔여물 진단일 수 있다 — 그때는 타입이 자리를 잠근 것인지 따로 판정해야 한다.
 - 0204 검증 환경은 `npm ci --ignore-scripts` 라 better-sqlite3 바인딩이 없다(5파일 46케이스 red, `app/AGENTS.md` 실측 서명과 동일). round 15~19 와 같은 한계이고 round 20 처럼 완주하지 못했다.
+
+---
+
+# review round 24 — 0209 (라운드 5→9): 장치 교체로 시야가 좁아졌고, 분모를 claim에서 유도하지 않았다
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 장치를 교체하며 구 장치가 잡던 자리를 잃었고, 두 라운드 보고 모두 자기 장치가 잡는 것만 적었다 | 0209 r5 소스 텍스트 단언이 배선 삭제 변이를 red 로 잡았고, r6 이 그것을 fake 주입 seam 으로 바꾸자 삭제 변이·결과 폐기 변이가 모두 green | **A** — 신규 causal class(시간축). impl §3 규칙 + verify §4 이전 라운드 대조 + 양 template + corpus **P50** |
+| 2 | `SELF_PASS`·`closed` 를 적으면서 그 claim 이 정하는 변이가 잠금 표에 없었다 | 0209 r6~r9 가 매 라운드 자기가 고른 변이 1줄만 적고 VP-05 등록 변이·D18 인용 변이를 네 라운드 동안 실행하지 않았다 | **A** — 규칙(impl §5·§3)은 있었으나 분모를 claim 에서 유도하는 장치가 없었다. impl §8 검산 줄 + `plan.template.md` 분모 검산. AC 축의 `합계 검산`(P40)을 변이 축으로 이식 |
+| 3 | 밀린 verify 를 앞에 두고 외부 CI 보고로 세 라운드가 더 돌았다(r7·r8·r9) | 보드는 r6·r7·r8 뒤 모두 `다음 주체 = Claude` 였고 매번 묻지 않고 재구현했다 | **A** — 규칙은 있었으나 발동 조건이 너무 넓어 따를 수 없었다(자기 커밋의 red gate 까지 질문 대상). `docs/handoff/AGENTS.md` + impl §0 을 2갈래로 **narrowing** |
+| 4 | testability seam 을 만들며 production 을 재배치해 등록↔반납 짝이 갈렸다 | 0209 r6 이 `supervisor.startNew(turn)` 을 콜백 안으로 옮겼고 `leaderTurn = turn` 은 밖에 남아, 확보가 reject 하면 `finally` 의 `supervisor.release` 가 실행되지 않는다 | **F**(이번 구현 결함) + **A**(그 표면을 §3 으로 다시 보게 하는 조건절 부재). impl §5.3 한 절 + `plan.template.md` Product/UX 행 |
+| 5 | D18 을 인용 변이가 아닌 자기 변이로 닫았다 | 인용 변이 `executionCwd 미대입` 대신 `prepareTurnExecution` 내부 변이를 심었다 | **B** — impl §5 가 이미 명시한다(`이슈가 변이를 인용했다면 닫힘의 관측값은 그 변이가 이제 검출된다는 것`). 문장 반복 대신 #2 의 분모 검산으로 강제 |
+
+## Tier
+
+**Tier 1.** trigger(외부 피드백 순서 질의 분기) · evidence(잠금 표 분모 검산 · 이전 라운드 대조) · required field(잠금 표 신규 열)가 모두 normative 다. 6-A + 6-B + 6-C 전부 수행.
+
+## 6-A Operational Instruction Delta
+
+순수 삭제 줄 **6건**, 전부 같은 자리에서 대체됐다 — 설명 없이 사라진 항목 **0건**.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| `docs/handoff/AGENTS.md` 외부 피드백 순서 질의 | **REPLACE** | 무조건 질의 → 2갈래. 0188 이 겪은 케이스(새 결함·설계 의견)는 그대로 묻고, 라벨 방어(`impl/IMPL_DONE` 유지 · verify 밀림 명시)를 새 문면에 보존했다 |
+| impl §0 같은 규칙 사본 | **REPLACE** | AGENTS 와 같은 2갈래로 동기화 |
+| impl §5.3 "새 표면에 §3 다시" | **KEEP + 확장** | 원문 그대로 두고 재배치 절만 덧댔다 |
+| `plan.template.md` 잠금 표 헤더 | **REPLACE** | 4열 → 5열. 기존 4열의 의미·문면 불변, `이전 라운드 결과` 추가 |
+| corpus P44 `현재 방어` | **KEEP + 확장** | 기존 문장 그대로, P50 링크만 추가 |
+| 명령·gate·reference 삭제 | **없음** | 삭제 6줄 중 명령·경로를 담은 줄 0건 |
+
+- 방어 앵커 실재 재검사: `plan §5`·`§5-A`·`impl §2/3/5/6/7/8`·`verify §0/2/4/6/9`·양 template·AGENTS 2절 = **죽은 앵커 0건**. (중간에 `^## ` 만 훑어 `plan §5` 를 stale 로 오판했다 — plan SKILL 은 `# 5.` 레벨-1 번호 헤딩이다.)
+
+## 6-B Historical Failure Regression
+
+- **50 P 전수** · 변경 후 **COVERED 50 / PARTIAL 0 / GAP 0 / OBSOLETE 0** · 신규 **1**(P50).
+- 편집 사이트를 `현재 방어`로 인용하는 P **11건**(P39~P45·P47~P50, 기계 추출) — 인용된 방어 문장은 전부 잔존하고 삭제 0건이므로 나머지 39건의 mapping 은 구성상 보존된다.
+- **P38 개별 확인**(0188 라운드 10회·verify 턴 0회). 순서 질의 narrowing 이 이 방어를 되열지 않는다 — 허용한 것은 *자기 산출물의 red gate 수정* 하나뿐이고, 그것은 lifecycle 상 라운드가 끝나지 않았다는 뜻이다. 새 결함·설계 의견은 그대로 질의 대상이고 보드 라벨 방어도 문면에 남겼다.
+- 방어가 **강화된 2건**: **P44**(시간축은 P50 이 잡는다는 경계 추가) · **P40**(합계 검산의 성질을 변이 축으로 확장 — 분모를 claim 에서 유도).
+- **P37·P48·P49 와의 경계를 P50 본문에 명시**했다 — P44 는 *시야 밖*, P48 은 *방향*, P49 는 *해상도*, P50 은 **시간축**(라운드 N 의 시야가 N+1 에서 좁아짐)이다.
+- **회귀 위험 2건 능동 차단**: **FAIL inflation** — 분모 검산의 세 갈래를 `SELF_PASS 로 올린 pair` · `closed 로 적은 이슈` · `이번 턴에 만든 oracle` 로 한정해, 주장하지 않은 pair 는 분모에 들어오지 않는다. impl §3 의 기존 꼬리(`mutation 부재만으로 실패 범위를 늘리지 않는다`)도 그대로다. **P22(하치장)** — 덮개 회귀 판정은 `이전 라운드 red 변이 재실행`이라는 기계 관측이라 사람 실기로 넘길 자리가 없다.
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 규칙 사이트 — 덮개 회귀 **5**(impl `SKILL.md` · verify `SKILL.md` · `plan.template.md` · `verify.template.md` · AGENTS 검증 최소 계약) · 분모 검산 **3**(impl `SKILL.md` · `plan.template.md` · AGENTS 구현 최소 계약) · 순서 질의 **2**(AGENTS · impl §0).
+- **owner 충돌 0** — 구현자가 교체 전 장치의 변이를 다시 확인하고(impl §3), 검증자가 이전 라운드 결과와 나란히 재측정한다(verify §4). 기존 "구현자가 닫고 검증자가 다시 센다" 와 같은 관계다.
+- **scope 충돌 0** — 새 문장은 전부 기존 mutation·보고 규칙의 조건부 확장이고 새 게이트·새 명령을 만들지 않는다. `app/AGENTS.md` 의 ABI·egress 규칙과 겹치는 면이 없다.
+- **skill 미가용 환경 동기화** — AGENTS §단계별 절차 2·3 의 최소 계약에 분모 검산·덮개 회귀 문장을 미러링했다. skill 을 못 읽는 구현자·검증자도 두 규칙을 받는다.
+- `cd app && node scripts/check-doc-inventory.mjs --check` — generated ok · prose ok · **links ok**.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md`·`CLAUDE.md` stub 없음.
+
+## review 기록 정책
+
+`round24-review.md`를 만들지 않았다 — 압축으로 잃는 rationale 이 없고 사용자 보존 요구도 없었다. 기존 `round2-review.md` 1개 유지. 신규 P **1**(P50) — 기존 P 로 환원되지 않는 새 causal class(시간축)다.
+
+## 남은 한계
+
+- **덮개 회귀 판정은 이전 라운드가 그 변이를 실제로 실행했을 때만 성립한다.** 이전 verify 가 변이를 실행하지 않았으면 비교 대상이 없고, `미실행` 은 `green` 과 구분되지만 회귀 여부는 말하지 않는다.
+- **분모 검산은 claim 을 줄여서도 맞출 수 있다.** `SELF_PASS` 대신 전부 `SELF_BLOCKED` 로 적으면 분모가 0이 된다 — 그 축은 검증자의 pair closeout 이 잡고, 이 규칙이 대체하지 않는다.
+- 0209 검증 환경은 Electron 바이너리가 없어 `chat-turn.continuity.test.ts` 가 0건 수집이다(r1~r9 동일). **`handleChatSend` 를 지나는 유일한 스위트**라 `send.ts` 배선은 electron 비의존 seam 없이는 이 환경에서 닫히지 않는다 — 지침으로 해결되지 않는 capability 한계다.
