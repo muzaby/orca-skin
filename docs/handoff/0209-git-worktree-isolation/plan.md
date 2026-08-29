@@ -509,7 +509,7 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | `worktree add` 실패·취소 rollback — r4가 `listWorktrees` 확인을 넣었으나 별칭 managed root에서 대상을 못 찾고(git=canonical ↔ 구성값=별칭) 잠금이 0이다 | verify r3·r4 · VP-05 · D-011 · AC4 · §13 | 대상 식별을 canonical 한 축으로 맞추고 취소 rollback을 관측하는 oracle을 만든다 | BLOCKING | **closed (r5 — 별칭 실 Git fixture)** |
+| D1 | `worktree add` 실패·취소 rollback — r4가 `listWorktrees` 확인을 넣었으나 별칭 managed root에서 대상을 못 찾고(git=canonical ↔ 구성값=별칭) 잠금이 0이다 | verify r3·r4 · VP-05 · D-011 · AC4 · §13 | 대상 식별을 canonical 한 축으로 맞추고 취소 rollback을 관측하는 oracle을 만든다 | BLOCKING | **closed (r5 확인 — M-R1 red)** |
 | D2 | 같은 repo의 두 mutation 생산자가 다른 queue key를 만든다(raw `--show-toplevel` ↔ `canonicalPath`) | verify r3 · VP-12 · D-014 · AC17 · §10 EP-12 | queue key를 canonical repo root 한 함수로 모으고 checkout도 그것을 쓴다 | BLOCKING | **closed (r4 — M-D red)** |
 | D3 | bind가 unbound row를 cwd 포함 first-match로 잡는다 — 유일성·모호 시 보존 규칙 없음 | verify r3 · VP-06 · D-010 · AC12 · §10 DB표 | 조상 row가 정확히 1건일 때만 bind, 그 외는 보존+구조화 로그 | BLOCKING | **closed (r4 — M-E·M-P red)** |
 | D4 | 토글 칩이 `aria-pressed` 없이 색으로만 상태를 알리고 `ComposerChip`의 className 계약을 덮는다 | verify r3 · VP-01 · AC20 | 토글 상태를 chipSurface가 소유하는 형태로 올리고 aria 상태를 붙인다 | NON_BLOCKING | **closed (r4 — 코드 성립, 잠금 0)** |
@@ -520,11 +520,16 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 | D9 | naming 충돌 루프 상한이 9999회 × Git read 2회로 시간 유계가 아니다 | verify r3 · AC11 | 상한을 실제 필요 범위로 낮추고 초과 시 short-id로 강등 | NON_BLOCKING | open |
 | D10 | 외부 worktree UI·orphan 관리, add 실패 후 branch 잔여 정리 (구현자 r1 D1·D2 승계) | verify r3 | 후속 handoff | NEXT_HANDOFF | open |
 | D11 | `withRepoMutation`이 key를 `await`로 해석한 뒤 등록해 큐 진입 순서가 호출 순서와 다르다 — 새 별칭 단언이 간헐 red다(200회 중 18회 역전, 전 스위트 4회 중 2회 red) | verify r4 · VP-17 · AC17 | key 해석을 등록보다 앞당기거나 단언을 상호배제로 좁힌다 | NON_BLOCKING | open |
-| D12 | 준비 실패·취소 rollback이 `<managed>/<repoId>` 빈 버킷을 남긴다(취소 3회 → 3개) | verify r4 · D-011 · AC4 | rollback이 비게 된 bucket까지 정리한다 | NON_BLOCKING | **closed (r5 — 빈 디렉터리 단언)** |
+| D12 | 준비 실패·취소 rollback이 `<managed>/<repoId>` 빈 버킷을 남긴다(취소 3회 → 3개) | verify r4 · D-011 · AC4 | rollback이 비게 된 bucket까지 정리한다 | NON_BLOCKING | **부분 closed (r5 — add 실패 경로만, M-R2 red)** |
 | D13 | `session:delete`의 스키마 실패 fallback 이유가 `worktree-check-failed`다 — worktree 검사 실패가 아니다 | verify r4 · AC15 · D7 파생 | 무효 payload용 이유를 따로 둔다 | NON_BLOCKING | open |
 | D14 | AT-11이 열거한 naming fixture 중 timeout·invalid와 `check-ref` 호출 단언이 없다 | verify r4 · VP-15 · AC11 | 남은 matrix 행을 채운다 | NON_BLOCKING | open |
-| D15 | 구현 커밋 4건의 제목·본문이 영어다 — `docs/handoff/AGENTS.md §커밋·git 규약`은 한국어 메시지를 규정한다 | verify r4 · repository op | 다음 라운드부터 한국어 메시지를 쓴다 | 기록 | open |
+| D15 | 구현 커밋 4건의 제목·본문이 영어다 — `docs/handoff/AGENTS.md §커밋·git 규약`은 한국어 메시지를 규정한다 | verify r4 · repository op | 다음 라운드부터 한국어 메시지를 쓴다 | 기록 | **closed (r5 — 한국어 커밋)** |
 | D16 | plan의 `### r4` 구현자 절이 `## [검증자 기입] 파생 이슈` 안에 있다 | verify r4 · repository op | 다음 라운드 절은 `§19 [구현자 기입]` 아래에 붙인다 | 기록 | open |
+| D17 | `npm run typecheck`가 exit 2 · `error TS` 3건 — 전부 이번 라운드가 신설한 `prepare-worktree.test.ts`의 `providerSettings` 타입이다 | verify r5 · plan §15 gate 1 · `app/AGENTS.md` 기본 게이트 | 테스트 fixture를 `ResolvedHarnessSettings` 계약에 맞춘다 | BLOCKING | open |
+| D18 | 준비 seam의 결과를 버려도(`executionCwd` 미대입) lint 0 error·전 스위트 2595 green — worktree는 만들어지고 Agent는 원본 checkout에서 돈다 | verify r5 · VP-05 · VP-11 · AC3·AC5·AC18 · §10 EP-08 | 소스 텍스트가 아니라 runtime acquire 순서와 최종 `TurnRequest.cwd`를 관측하는 oracle을 만든다 | BLOCKING | open |
+| D19 | `[구현자 기입]` r5 절이 impl §8 7필드 중 4개만 갖는다 — `이번 라운드 수정의 잠금`·`구현 보고`·`Review Signals`와 게이트 산출 보고가 없다 | verify r5 · repository op | 다음 라운드 절은 일곱 필드를 이름 그대로 채운다 | 기록 | open |
+| D20 | INDEX 비고가 "lint·typecheck … gate green"이라고 적었으나 `npm run typecheck`는 exit 2다 | verify r5 · repository op | 게이트 산출을 다시 읽어 적는다 | 기록 | open |
+| D21 | DB insert 실패 rollback이 `<managed>/<repoId>` 빈 bucket을 남긴다(3회 → 3개) — 같은 함수의 `!added.ok` 형제 분기와 정책이 다르다 | verify r5 · D-011 · AC4 | 두 rollback 분기의 bucket 정리를 한 경로로 모은다 | NON_BLOCKING | open |
 
 ### r4 — verify/FAIL 보완
 
