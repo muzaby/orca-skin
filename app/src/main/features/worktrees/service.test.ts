@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { DbQueries } from '../../infra/db'
 import { isWithinDir } from '../../infra/config/paths'
 import { WorktreeService } from './service'
+import { addWorktree, deleteBranch, listWorktrees, removeWorktree } from '../../infra/git/worktree'
 
 const exec = promisify(execFile)
 const roots: string[] = []
@@ -87,6 +88,40 @@ describe('WorktreeService', () => {
     })
     expect(result).toMatchObject({ kind: 'rejected', reason: 'dirty' })
     expect(rows).toEqual([])
+  })
+
+  it('별칭 managed root에서 add가 실패로 끝나면 생성된 worktree와 빈 bucket을 rollback한다', async () => {
+    const repo = await repository()
+    const physical = await mkdtemp(join(tmpdir(), 'orca-managed-real-'))
+    roots.push(physical)
+    const aliasParent = await mkdtemp(join(tmpdir(), 'orca-managed-alias-'))
+    roots.push(aliasParent)
+    const alias = join(aliasParent, 'managed')
+    await symlink(physical, alias, 'dir')
+    const removeCalls: string[] = []
+    const service = new WorktreeService({} as DbQueries, alias, {
+      add: async (input) => {
+        const result = await addWorktree(input)
+        expect(result.ok).toBe(true)
+        return { ...result, ok: false }
+      },
+      list: listWorktrees,
+      remove: async (input) => {
+        removeCalls.push(input.path)
+        return removeWorktree(input)
+      },
+      deleteBranch
+    })
+
+    await expect(
+      service.prepare({ sourceCwd: repo, firstPrompt: 'rollback alias' })
+    ).resolves.toMatchObject({ kind: 'rejected', reason: 'create-failed' })
+    expect(removeCalls).toHaveLength(1)
+    expect(removeCalls[0].startsWith(await realpath(physical))).toBe(true)
+    expect(await listWorktrees(repo)).toEqual([
+      expect.objectContaining({ path: repo, branch: 'master' })
+    ])
+    expect(await import('node:fs/promises').then(({ readdir }) => readdir(physical))).toEqual([])
   })
 
   it('managed worktree가 clean이고 새 commit이 없을 때만 안전 제거한다', async () => {

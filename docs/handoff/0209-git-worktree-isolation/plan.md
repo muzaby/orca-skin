@@ -494,6 +494,14 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 
 ---
 
+### r5 — verify/FAIL 보완
+
+- **메타 리뷰**: DIAGNOSE_ONLY로 r1~r4를 대조했다. `prepare-worktree.ts`·선택 변이·전수 분모가 plan과 impl 지침에 이미 명시되어 반복 원인은 B(명시 seam/증거 미수행)+F(별칭 rollback 결함)다; 지침 patch와 Tier 회귀는 불필요하다.
+- **변경과 강제 지점**: `prepare-worktree.ts`를 신설해 EP-03을 2/2로 닫고, send의 `prepare await → TurnContext` 순서와 cwd·extraDirs 배선을 source oracle로 잠갔다. Git 작업 함수는 service에 주입해 실제 별칭 worktree rollback을 관측했다.
+- **D1·D12**: 구성 경로의 부모를 `realpath`한 canonical candidate로 porcelain path와 대조하고, rollback 뒤 빈 repo bucket은 `rmdir`로만 제거한다. 별칭 fixture에서 remove 1회·worktree 목록 원복·bucket 0개를 단언한다.
+- **자기확인**: VP-04·05·13·15·17은 SELF_PASS, 나머지 12 pair는 독립 검증 전 SELF_BLOCKED다. AC 자기보고는 ✅14 · ⚠️6 · ❌0 = 20이며 사람 실기는 AC20 Windows 시각 확인 1건이다.
+- **Product/UX·잠재 문제**: 실패 메시지와 화면 상태는 불변이고 새 문자열은 없다. D5·D9·D11·D13·D14와 NEXT_HANDOFF D6·D10은 범위 밖으로 유지하며 신규 의존성·PLAN_GAP은 없다.
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.
@@ -501,7 +509,7 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | `worktree add` 실패·취소 rollback — r4가 `listWorktrees` 확인을 넣었으나 별칭 managed root에서 대상을 못 찾고(git=canonical ↔ 구성값=별칭) 잠금이 0이다 | verify r3·r4 · VP-05 · D-011 · AC4 · §13 | 대상 식별을 canonical 한 축으로 맞추고 취소 rollback을 관측하는 oracle을 만든다 | BLOCKING | **open (r4 미해소)** |
+| D1 | `worktree add` 실패·취소 rollback — r4가 `listWorktrees` 확인을 넣었으나 별칭 managed root에서 대상을 못 찾고(git=canonical ↔ 구성값=별칭) 잠금이 0이다 | verify r3·r4 · VP-05 · D-011 · AC4 · §13 | 대상 식별을 canonical 한 축으로 맞추고 취소 rollback을 관측하는 oracle을 만든다 | BLOCKING | **closed (r5 — 별칭 실 Git fixture)** |
 | D2 | 같은 repo의 두 mutation 생산자가 다른 queue key를 만든다(raw `--show-toplevel` ↔ `canonicalPath`) | verify r3 · VP-12 · D-014 · AC17 · §10 EP-12 | queue key를 canonical repo root 한 함수로 모으고 checkout도 그것을 쓴다 | BLOCKING | **closed (r4 — M-D red)** |
 | D3 | bind가 unbound row를 cwd 포함 first-match로 잡는다 — 유일성·모호 시 보존 규칙 없음 | verify r3 · VP-06 · D-010 · AC12 · §10 DB표 | 조상 row가 정확히 1건일 때만 bind, 그 외는 보존+구조화 로그 | BLOCKING | **closed (r4 — M-E·M-P red)** |
 | D4 | 토글 칩이 `aria-pressed` 없이 색으로만 상태를 알리고 `ComposerChip`의 className 계약을 덮는다 | verify r3 · VP-01 · AC20 | 토글 상태를 chipSurface가 소유하는 형태로 올리고 aria 상태를 붙인다 | NON_BLOCKING | **closed (r4 — 코드 성립, 잠금 0)** |
@@ -512,7 +520,7 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 | D9 | naming 충돌 루프 상한이 9999회 × Git read 2회로 시간 유계가 아니다 | verify r3 · AC11 | 상한을 실제 필요 범위로 낮추고 초과 시 short-id로 강등 | NON_BLOCKING | open |
 | D10 | 외부 worktree UI·orphan 관리, add 실패 후 branch 잔여 정리 (구현자 r1 D1·D2 승계) | verify r3 | 후속 handoff | NEXT_HANDOFF | open |
 | D11 | `withRepoMutation`이 key를 `await`로 해석한 뒤 등록해 큐 진입 순서가 호출 순서와 다르다 — 새 별칭 단언이 간헐 red다(200회 중 18회 역전, 전 스위트 4회 중 2회 red) | verify r4 · VP-17 · AC17 | key 해석을 등록보다 앞당기거나 단언을 상호배제로 좁힌다 | NON_BLOCKING | open |
-| D12 | 준비 실패·취소 rollback이 `<managed>/<repoId>` 빈 버킷을 남긴다(취소 3회 → 3개) | verify r4 · D-011 · AC4 | rollback이 비게 된 bucket까지 정리한다 | NON_BLOCKING | open |
+| D12 | 준비 실패·취소 rollback이 `<managed>/<repoId>` 빈 버킷을 남긴다(취소 3회 → 3개) | verify r4 · D-011 · AC4 | rollback이 비게 된 bucket까지 정리한다 | NON_BLOCKING | **closed (r5 — 빈 디렉터리 단언)** |
 | D13 | `session:delete`의 스키마 실패 fallback 이유가 `worktree-check-failed`다 — worktree 검사 실패가 아니다 | verify r4 · AC15 · D7 파생 | 무효 payload용 이유를 따로 둔다 | NON_BLOCKING | open |
 | D14 | AT-11이 열거한 naming fixture 중 timeout·invalid와 `check-ref` 호출 단언이 없다 | verify r4 · VP-15 · AC11 | 남은 matrix 행을 채운다 | NON_BLOCKING | open |
 | D15 | 구현 커밋 4건의 제목·본문이 영어다 — `docs/handoff/AGENTS.md §커밋·git 규약`은 한국어 메시지를 규정한다 | verify r4 · repository op | 다음 라운드부터 한국어 메시지를 쓴다 | 기록 | open |
