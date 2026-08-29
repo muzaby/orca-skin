@@ -100,7 +100,13 @@ export function registerSessionHandlers(ctx: RouterContext, hooks: SessionDispos
   handle(
     CHANNELS.sessionDelete,
     DeleteSessionRequestSchema,
-    { fallback: undefined },
+    {
+      fallback: {
+        ok: false,
+        reason: 'worktree-check-failed',
+        message: '세션 삭제 요청이 올바르지 않습니다.'
+      }
+    },
     async (req): Promise<DeleteSessionResult> => {
       const result = (await hooks.removeManagedWorktree?.(req.sessionId)) ?? { ok: true as const }
       if (!result.ok) return result

@@ -24,6 +24,7 @@ const TONE: Record<ChipVariant, string> = {
 
 // 라벨 없는 아이콘 전용 칩은 좌우 여백을 줄여 정사각에 가깝게 둔다 — 테두리가 붙으면
 // 텍스트 칩과 같은 px 여백이 과하게 넓어 보인다.
-export function chipSurface(variant: ChipVariant, iconOnly = false): string {
-  return `${BASE} ${iconOnly ? 'px-p3' : 'px-p5'} ${TONE[variant]}`
+export function chipSurface(variant: ChipVariant, iconOnly = false, pressed = false): string {
+  const stateTone = pressed ? 'border-accent text-accent' : TONE[variant]
+  return `${BASE} ${iconOnly ? 'px-p3' : 'px-p5'} ${stateTone}`
 }
