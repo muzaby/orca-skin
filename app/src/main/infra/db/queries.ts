@@ -31,6 +31,7 @@ import type {
   ManagedWorktreeRow
 } from './types'
 import { isWithinDir } from '../config/paths'
+import { getLogger } from '../log/registry'
 
 export class DbQueries {
   private readonly db: Database.Database
@@ -783,10 +784,19 @@ export class DbQueries {
   }
 
   bindManagedWorktreeForCwd(sessionId: string, cwd: string): void {
-    const row = (this.listUnboundManagedWorktreesStmt.all() as ManagedWorktreeRow[]).find(
+    const matches = (this.listUnboundManagedWorktreesStmt.all() as ManagedWorktreeRow[]).filter(
       (candidate) => isWithinDir(cwd, candidate.worktree_root)
     )
-    if (row) this.bindManagedWorktreeStmt.run({ id: row.id, sessionId })
+    if (matches.length === 1) {
+      this.bindManagedWorktreeStmt.run({ id: matches[0].id, sessionId })
+      return
+    }
+    if (matches.length > 1) {
+      getLogger().child('db').warn('managed-worktree.bind.ambiguous', {
+        sessionId,
+        candidateCount: matches.length
+      })
+    }
   }
 
   getManagedWorktreeBySession(sessionId: string): ManagedWorktreeRow | null {

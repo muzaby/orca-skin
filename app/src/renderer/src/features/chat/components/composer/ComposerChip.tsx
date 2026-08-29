@@ -12,6 +12,7 @@ interface ComposerChipProps {
   onClick?: () => void
   ariaHasPopup?: boolean
   ariaExpanded?: boolean
+  ariaPressed?: boolean
   // 기본은 입력 아래 컨트롤 행의 flat. 입력 위 작업 컨텍스트 행은 outlined 를 쓴다(chipSurface).
   variant?: ChipVariant
   // 폭 제한 같은 배치 전용 클래스. 색·테두리·높이는 chipSurface 가 소유하므로 여기서 덮지 않는다.
@@ -27,6 +28,7 @@ export const ComposerChip = forwardRef<HTMLButtonElement, ComposerChipProps>(fun
     onClick,
     ariaHasPopup,
     ariaExpanded,
+    ariaPressed,
     variant = 'flat',
     className = ''
   },
@@ -41,7 +43,8 @@ export const ComposerChip = forwardRef<HTMLButtonElement, ComposerChipProps>(fun
       title={title}
       aria-haspopup={ariaHasPopup ? 'menu' : undefined}
       aria-expanded={ariaHasPopup ? ariaExpanded : undefined}
-      className={`${chipSurface(variant, label === undefined)} cursor-default outline-none hide-focus-ring ring-focus disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      aria-pressed={ariaPressed}
+      className={`${chipSurface(variant, label === undefined, ariaPressed)} cursor-default outline-none hide-focus-ring ring-focus disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
     >
       {icon && <Icon name={icon} size={12} className="shrink-0" />}
       {label && <span className="min-w-0 truncate">{label}</span>}

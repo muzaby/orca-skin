@@ -511,3 +511,13 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 | D8 | §16의 "AC 전건 pair 매핑" 주장과 §7-A registry가 어긋난다 — AC9·AC20을 인용하는 pair 행이 없다 | verify r3 · plan §7-A | 다음 revision에서 두 AC의 pair를 추가하거나 §16 주장을 좁힌다 | 기록(planner) | open |
 | D9 | naming 충돌 루프 상한이 9999회 × Git read 2회로 시간 유계가 아니다 | verify r3 · AC11 | 상한을 실제 필요 범위로 낮추고 초과 시 short-id로 강등 | NON_BLOCKING | open |
 | D10 | 외부 worktree UI·orphan 관리, add 실패 후 branch 잔여 정리 (구현자 r1 D1·D2 승계) | verify r3 | 후속 handoff | NEXT_HANDOFF | open |
+
+### r4 — verify/FAIL 보완
+
+- **설계 리뷰**: `APPLY` 모드의 선행 review 결과는 B/F다. plan §7·§9·§10과 impl §3·§5가 seam·변이·전수 증거를 이미 요구했으므로 handoff 지침 중복 추가 없이 구현과 증거를 보완했다.
+- **강제 지점 전수와 V-pair 자기확인**: EP-09 하위 cwd fixture, EP-10 naming 실패/충돌, EP-12 alias queue를 신규 test로 관측했다. VP-14·VP-15·VP-17은 `SELF_PASS`; 전체 17 pair 중 나머지는 독립 검증 전 `SELF_BLOCKED`로 보수 표기한다.
+- **이번 라운드 수정의 잠금**: queue alias swap은 `mutation-queue.test.ts`에서 두 번째 mutation의 조기 시작을 검출하고, containment 소거는 `executionCwd != worktreeRoot`와 정확 subpath 단언이 red로 만든다. runner는 fake `execFile`로 executable·args·env·shell 부재를 직접 관측한다.
+- **Product/UX 파생 검토**: 선택 chip은 `aria-pressed`와 동일 selected tone을 `chipSurface`에서 함께 소유한다. 무효 session delete payload도 `DeleteSessionResult` union을 반환해 renderer의 `undefined.ok`를 막는다.
+- **놓친 잠재 문제 + 대응**: D6·D10은 NEXT_HANDOFF로 유지한다. D5 error taxonomy와 D9 naming 시간 상한, send 준비 순서의 deferred seam은 이번 수정에서 닫지 않았으며 다음 검증 결과에 남긴다.
+- **구현 보고**: D1은 add 실패 뒤 porcelain 목록에서 이번 경로를 exact containment로 찾아 remove하고, D2는 모든 mutation key를 realpath+normalize하며, D3는 조상 후보가 정확히 하나일 때만 bind하고 모호하면 구조화 로그 후 보존한다. AC 자기보고는 **✅ 16 · ⚠️ 3 · ❌ 1 = 20**이며 `Criteria-Met`은 16/20이다.
+- **Review Signals**: r4이며 r2·r3와 같은 oracle 축을 이번에는 비어 있지 않은 subpath와 alias 교환 변이로 잠갔다. 반복 원인은 기존 지침 부재가 아니라 명시 seam·변이 실행 누락(B)과 구현 결함(F)이었다.
