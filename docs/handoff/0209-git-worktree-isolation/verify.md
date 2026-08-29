@@ -10,17 +10,268 @@
 | slug | `0209-git-worktree-isolation` |
 | 검증자 | Claude Code |
 | 일자 | 2026-08-29 |
-| 대상 커밋/range | `a9641813..372803ce` (r10 구현 `372803ce`) — 이전 라운드는 `ac622203..be982785` |
-| 구현 전 plan 기준 | `04ab7ad` (r10에서도 규범 행 변경 없음) |
+| 대상 커밋/range | `d579068d..0ffad305` (r11 구현 `0ffad305`) — 이전 라운드는 `a9641813..372803ce` |
+| 구현 전 plan 기준 | `04ab7ad` (r11에서도 규범 행 변경 없음) |
 | V mode / 유효 V | `Baseline V: V1` |
 | 검증 기준 plan revision | `04ab7ad:V1` |
-| 라운드 | 10 |
+| 라운드 | 11 |
 | 상태 | **FAIL** |
-| 자기 검증 여부 | 아니오 — 설계 Claude, 구현 Codex, 검증 Claude |
+| 자기 검증 여부 | **r11만 예** — 설계 Claude, r11 구현 Claude, 검증 Claude. r1~r10 구현은 Codex |
 
-> 이 문서는 라운드별로 누적한다. **아래 「라운드 10」이 현재 판정**이고, 「라운드 9」 이하는 원문 보존이며 재서술하지 않는다.
+> 이 문서는 라운드별로 누적한다. **아래 「라운드 11」이 현재 판정**이고, 「라운드 10」 이하는 원문 보존이며 재서술하지 않는다.
 
-# 라운드 10 — 현재 판정 **FAIL**
+# 라운드 11 — 현재 판정 **FAIL**
+
+**이 라운드는 자기 검증이다** — r11 구현을 이 검증자가 직접 했다(사용자가 `/handoff-impl` 을 명시
+호출). r1~r10 의 `구현 Codex ↔ 검증 Claude` 분리가 이번 라운드에는 없다. 그래서 변이는 구현 보고를
+보지 않고 전부 처음부터 다시 심었고, 구현 보고가 적지 않은 축(§4 M-W·M-O3·M-O4, §3 형제 비대칭)을
+따로 만들어 확인했다. 그 결과 **구현 보고가 가린 사실 하나를 찾았다**(§13 D29).
+
+BLOCKING **D24 가 닫혔다.** cwd 종단 4좌표가 전부 잠겼고(EP-08 4/4) queue 진입 4지점도 전수로
+잠겼다(EP-12 4/4). **잠금 0인 강제 지점군이 0개**가 됐고 pair 는 PASS 5 → **8**이다. 그러나 남은
+`PAIR_FAIL` 8건(칩 관측·오류 fixture·수명주기 3·IPC 통합·writer 층·분류기)은 그대로라 PASS 조건인
+"모든 REQUIRED·REGRESSION pair PASS" 를 충족하지 않는다.
+
+## 0. 기준선 / plan 변경 확인 (r11)
+
+- 대상 range: `d579068d..0ffad305` — 구현 커밋 1개(`0ffad305`).
+- 기준선이 diff로 성립하는가: **예**. `git diff d579068d..0ffad305 --stat -- docs/` = `plan.md` **53줄 추가·0줄 삭제** + `INDEX.md` 1줄 교체. plan 삭제 줄이 0이므로 규범 행이 지워질 자리가 없다.
+- Decision Ledger·Product/UX·AC·V node/pair·§10·oracle 변경: **없음**. 추가분은 전부 `§19` 뒤 `### r11` 절이다.
+- 채점 기준: r3~r10 과 같은 `04ab7ad:V1`.
+- plan validity: r3 판정 유지. root `PLAN_GAP` **없음**.
+- `[구현자 기입]` 7필드: **7/7 + 3**(`분모 검산`·`덮개 회귀`·`설계 대비 명시적 차이` 를 별도 항으로 더 적었다). 줄어든 필드 0.
+- 라운드 11 인데 새 `handoff-review` 를 수행하지 않았다 — 구현자가 그 판단과 근거를 적었고(review round 24 가 r10 직전, 그 두 규칙이 r10·r11 에서 발동), r10 verify 결론도 새 review 를 요구하지 않았다. **동의한다.**
+
+## 1. ACTIVE Decision — r10 대비 변화만
+
+| Decision | r10 | r11 | 관측 |
+|---|---|---|---|
+| D-007 repo/branch 문자열은 세그먼트가 아니다 | ⚠️ 잠금 0 | ✅ | 경로 2세그먼트가 UUID 정규식과 일치하고 repo basename·프롬프트 문자열을 포함하지 않는다. 되돌리면 red(M-L′) |
+| D-014 repo 단위 mutation queue | ✅ 헬퍼만 | ✅ 진입까지 | 상태를 바꾸는 4진입이 전부 queue 안이고 각각 우회시키면 red(M-O·M-O2·M-O3·M-O4) |
+| D-001 Agent/Runtime 은 worktree 를 모른다 | ✅ | ✅ | 좁은 sweep 0줄, 넓힌 sweep 차집합 3줄 전부 주석·테스트 이름(§4) |
+| D-011 이번 호출 산출물만 rollback | ⚠️ | ⚠️ | 변화 없음. DB insert 경로 빈 bucket 잔존(D21) |
+
+- 나머지 D-002~D-006·D-008~D-010·D-012·D-013·D-015 는 이전 라운드 판정 그대로다.
+
+## 2. 구현 결과 비판적 검토 (r11 변경분)
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 새 oracle 이 production 에 진입하는가 | 예 | `send.worktree.test.ts` 는 `handleChatSend` 를, `claude.cwd.test.ts` 는 `ClaudeAdapter.sendMessage` 를, `queue-entry.test.ts` 는 실제 git 저장소를 지난다 |
+| 좌표 3 이 관측하는 것은 무엇인가 | **`buildTurnRequest` 의 입력** | `./turn-request` 가 mock 이라 실제 `TurnRequest` 객체는 보지 않는다. 이음매는 `turn-request.ts:93` 의 `return { ...fields, ... }` 와 `fields: Omit<TurnRequest, …콜백>` 타입이라 이름이 바뀌면 컴파일이 깨진다 — 그래서 좌표 3↔4 는 이어진다 |
+| `onRuntimeAcquired` 형제 축 | 전수 | `acquireTurnRuntime` production 호출부는 `send.ts:195` **1곳**이고 그 1곳이 콜백을 넘긴다 |
+| 재배치가 만든 새 실패 지점 | 없음 | `leaderTurn` 이 두 번 대입되지만 같은 객체이고 `supervisor.release` 는 멱등(`released.has(turn)`)이다 |
+| false success 가능성 | **queue 테스트에 남는다** | `whileQueueHeld` 가 150ms 고정 대기다. 느린 러너에서 git 이 150ms 를 넘으면 우회해도 통과할 수 있다(§13 D30). 이 환경 10회 반복은 4/4 전건 통과로 안정적이었다 |
+| 형제 비대칭 | **있다** | `resolveDirty` 의 `stash push`·`commit -a`·`reset --hard` 세 mutating 명령이 `readOnly: true` 를 붙이는 `run()` 헬퍼(`git-cli.ts:33`)를 지난다(§13 D29) |
+
+## 3. 역방향 탐색 (r11)
+
+```bash
+bash .agents/skills/handoff-verify/scripts/scan-surface.sh d579068d..0ffad305   # 3 파일
+```
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| 미사용 export · test-only symbol · 형제 파일 비대칭 | 전부 0건 | 스크립트 1a·1b·2·3 모두 빈 목록 |
+| `run()` 헬퍼의 read 라벨 ↔ 실제 mutation | **비대칭** | 스크립트는 파일 단위라 놓친다. 같은 파일이 `checkout` 은 mutation 으로, `stash/commit/reset` 은 read 로 부른다(§13 D29) |
+| 신규 테스트 3파일의 production 참조 | 정상 | 각각 `handleChatSend`·`ClaudeAdapter`·`addWorktree/removeWorktree/deleteBranch/gitCheckout` 를 부른다. `claude.cwd.test.ts` 는 worktree 모듈을 import 하지 않는다(`import` 3줄 전수) |
+
+## 4. 등록 적대 증거 / 소거 변이 재측정 (검증자 실행)
+
+구현 보고를 보지 않고 전부 다시 심었다. 각 행은 잔여물을 치워 **typecheck error 0 · lint 0 error** 가 된 상태의 판정이다(예외는 표에 적었다).
+
+| 변이 | 범위 | **r10** | **r11** | 귀속 |
+|---|---|---|---|---|
+| M-A′ 격리 배선 전체 삭제 | 전 스위트 | red 1 | **red 4** | VP-05 등록 변이 |
+| M-Q′ `buildTurn` 이 준비된 cwd 폐기 | chat-turn | red 3 | **red 3** | D18 인용 변이 |
+| **M-W** `prepareTurnExecution` 이 `sourceCwd` 를 넘김(신규·다른 지점) | chat-turn | 미실행 | **red 4** | 같은 계약을 seam 안쪽에서 깨도 검출된다 |
+| **M-T** TurnRequest 가 `turn.cwd` 대신 source cwd | chat-turn | **green** | **red 2** | D24 인용 변이 — 닫힘 |
+| **M-T2** TurnRequest extraDirs 를 payload 에서 | chat-turn | 미실행 | **red 1** | 형제 축 |
+| **M-U2** `claude.ts sendMessage` 가 `process.cwd()` | adapters | 미실행 | **red 2** | EP-08 4번째 좌표 |
+| **M-V** `onRuntimeAcquired` 배선 제거 | chat-turn | 미실행 | **red 1** | D25 |
+| **M-L′** repo 이름·프롬프트를 경로 세그먼트로 | worktrees | **green** | **red 1** | VP-14 등록 변이 — 닫힘 |
+| M-L worktree 를 저장소 안에 배치 | worktrees | red | **red 2** | AC10 배치. typecheck 잔여 1(`TS6138` unused private)이 남지만 red 는 vitest 단언 2건이라 부산물이 아니다 |
+| M-B `executionCwd` 가 subpath 를 버림 | worktrees | red | **red 1** | AC10 하위 cwd |
+| **M-O** `addWorktree` 가 queue 우회 | infra/git | **green** | **red 1** | VP-12 등록 변이 — 닫힘 |
+| **M-O2** `gitCheckout` 이 queue 우회(타입 동일 pass-through) | infra/git | 미실행 | **red 1** | 형제 진입점 1 |
+| **M-O3** `deleteBranch` 가 queue 우회 | infra/git | 미실행 | **red 2** | 형제 진입점 3 |
+| **M-O4** `removeWorktree` 가 queue 우회 | infra/git | 미실행 | **red 1** | 형제 진입점 4 |
+| M-F `base: baseOid` → `'HEAD'` | 전 스위트 | green | **green 2609** | AC9 미검출 — r3~r10 과 동일 |
+| M-I 격리 칩을 `CwdPanel` 에서 삭제 | 전 스위트 | green | **green 2609** | VP-01 등록 변이 미성립 — 변화 없음 |
+| 정적 sweep `createWorktree\|addWorktree\|removeWorktree` | adapters·sessions | 0줄 | **0줄** | VP-11 선택 증거 |
+
+- **이전 라운드 대조**: r10 에 red 였다가 이번에 green 인 변이 **0건**(덮개 회귀 없음). green → red 가 **4건**(M-T·M-L′·M-O·그리고 r10 미실행이던 M-U2 계열).
+- 구조적 proxy 엄격화: 좁은 sweep 0줄을 `rg -in "worktree"` 로 넓혀 재측정 → 차집합 **3줄** — `adapters/hooks.ts:8`(SDK 훅 이름 주석) + 이번 라운드 신규 `claude.cwd.test.ts` 의 주석·테스트명 2줄. 셋 다 production 호출이 아니고 그 파일의 `import` 3줄에 worktree 모듈이 없다. 0건은 전수다.
+- **구현 보고와의 차이 1건**: 잠금 표가 M-T 를 `1건` 으로 적었으나 재측정은 **2건**이다(계승 extraDirs 케이스도 cwd 를 단언한다). 방향은 같고 과소 보고다.
+- 안정성: `queue-entry.test.ts` **10회 반복 4/4 전건 통과**(실패 0/10).
+
+## 5. V-pair closeout (r11) — `UT → IT → ST → AT`
+
+| Pair | 레벨 | req. | r10 | **r11** | 근거 |
+|---|---|---|---|---|---|
+| VP-17 | UT | REQUIRED | PASS | **PASS** | 변경 무관. 이번 전 스위트 green |
+| VP-16 | UT | REQUIRED | PAIR_FAIL | **PAIR_FAIL** | managed/external 분류기 없음 — EP-11 2/3 |
+| VP-15 | UT | REQUIRED | PASS | **PASS** | 변경 무관 |
+| VP-14 | UT | REQUIRED | PAIR_FAIL(root) | **PASS** | 등록 변이 M-L′ red + 배치 M-L red + subpath M-B red. **범위**: `POSIX/Windows table` 중 Windows 다리는 이 환경에서 실행되지 않는다(§8) |
+| VP-13 | IT | REQUIRED | PASS | **PASS** | 변경 무관 |
+| VP-12 | IT | REQUIRED | PAIR_FAIL | **PASS** | 등록 변이 둘 다 red — shell 옵션(M-N, r4 좌표) · queue bypass(M-O). 형제 진입 3곳도 red |
+| VP-11 | IT | REQUIRED | PAIR_FAIL(root) | **PASS** | 최종 query cwd(M-U2 red) + unchanged extraDirs(M-T2 red) + 정적 0건. 좌표 3↔4 이음매는 타입 spread |
+| VP-10 | IT | REQUIRED | PAIR_FAIL | **PAIR_FAIL** | 변경 무관 — bind 가 `queries.ts` 내부라 writer 층 관측 0 |
+| VP-09 | IT | REQUIRED | PAIR_FAIL | **PAIR_FAIL** | 변경 무관 — payload→schema→service→runner 통합 테스트 부재, 등록 변이 장치도 없다(D26) |
+| VP-08 | ST | REGRESSION | PAIR_FAIL | **PAIR_FAIL** | 변경 무관 — 짝인 양성 resume 관측 0 |
+| VP-07 | ST | REQUIRED | PAIR_FAIL | **PAIR_FAIL** | 변경 무관 — 4상태 중 2 |
+| VP-06 | ST | REQUIRED | PAIR_FAIL | **PAIR_FAIL** | 변경 무관 — reopen/resume 관측 0 |
+| VP-05 | ST | REQUIRED | PASS | **PASS** | M-A′ red 재확인. AC4 잔여는 §13 D27 참조 |
+| VP-04 | AT | REGRESSION | PASS | **PASS** | 변경 무관 |
+| VP-03 | AT | REQUIRED | BLOCKED_BY:VP-07 | **BLOCKED_BY:VP-07** | handler 경로·결과 union 관측 0 |
+| VP-02 | AT | REQUIRED | PAIR_FAIL | **PAIR_FAIL** | ENOENT/non-repo fixture 없음. 오류 분류 `schema_validation_error` 그대로(D5) |
+| VP-01 | AT | REQUIRED | PAIR_FAIL | **PAIR_FAIL** | 등록 변이 미성립(M-I green) |
+
+- 합계: **PASS 8 · PAIR_FAIL 8 · BLOCKED_BY 1 = 17** (r10: 5 · 11 · 1). root `PAIR_FAIL` 은 VP-07(→VP-03) 하나만 남았다.
+- 구현자 자기보고 `SELF_PASS 5`(VP-05·11·12·14·17) 대조: **5/5 성립**. 처음으로 자기보고 pair 가 전건 일치했다.
+- 실행 범위: 이번 변경이 닿은 pair(VP-05·11·12·14)와 §15 gate 전건, 등록 변이가 싼 VP-01·AC9 를 실행했다. 나머지는 「라운드 9」·「라운드 10」 좌표를 참조한다.
+
+### AC 재측정
+
+| AC | r10 | **r11** | 이번 라운드 관측 |
+|---|---|---|---|
+| AC5 | ⚠️ | ✅ | AC5 가 명시한 `TurnRequest cwd 직접 단언` 이 생겼다(M-T red) + adapter 옵션 cwd(M-U2 red) + 정적 0건 |
+| AC4 | ⚠️ | ⚠️ | 준비 **거부** 시 context·runtime·TurnRequest 0회가 관측된다. `abort` 주입은 여전히 0(§13 D27) |
+| AC10 | ⚠️ | ⚠️ | UUID identity·저장소 밖 배치·하위 cwd 셋 다 red. `Windows/POSIX path table` 중 Windows 다리는 미실행 |
+| AC17 | ✅ | ✅ | 진입 배선까지 잠겼다(M-O 계열 4건) |
+| AC18 | ✅ | ✅ | 형제 축(계승 extraDirs)까지 잠겼다(M-T2 red) |
+
+- 나머지 AC1·2·3·6·7·8·9·11·12·13·14·15·16·19·20 은 r10 판정 그대로다.
+- **합계 재측정**: **✅ 13 · ⚠️ 7 · ❌ 0 = 20**.
+  ✅ = AC1·2·3·5·6·7·8·11·12·16·17·18·19 / ⚠️ = AC4·9·10·13·14·15·20.
+- **자기보고 대조**: plan §19 r11 `✅13 · ⚠️7 · ❌0` ↔ trailer `Criteria-Met: 13/20` · `Criteria-Pending` 7항목(13+7=20) ↔ INDEX 비고 `✅13 · ⚠️7 · ❌0`. **세 사본이 서로 일치하고 재측정과 0행 불일치** — 이 handoff 에서 처음이다.
+
+### §10 강제 지점 재열거
+
+| EP | 지점 수 | 잠금 | 근거 |
+|---|---|---|---|
+| EP-03 준비 순서 2곳 | 2/2 | 성립 | M-A′ red |
+| EP-08 cwd 종단 4좌표 | 4/4 | **성립** | `prepare-worktree.ts:50` → `send.ts:167` → `send.ts:324` → `claude.ts:365`. M-W·M-Q′·M-T·M-U2 각각 red |
+| EP-09 path SSOT 2곳 | 2/2 | **성립** | M-L·M-L′·M-B red |
+| EP-12 mutation 4진입 | 4/4 | **성립** | 분모를 불변식의 주어로 재열거 — `runGit` 12건 중 상태를 바꾸는 것은 `git-cli.ts:142`·`worktree.ts:18/30/39` 4건이고 `repository.ts:23/30/37` 은 전부 `readOnly: true`(다음 줄에 있어 한 줄 grep 에는 안 잡힌다). 4건 각각 우회시키면 red |
+| EP-06 · EP-11 | 2/3 · 2/3 | 부분 | 변화 없음 |
+| EP-01·02·04·05·07·10 | 변화 없음 | — | 이전 라운드 재열거 승계 |
+
+- 재열거 합계 **10군 일치 · 2군 부분**(EP-06 · EP-11). **잠금 0인 군 0개** — r10 의 EP-08 부분 잠금이 해소됐다.
+- 구현자 자기보고(EP-03 2/2 · EP-08 4/4 · EP-09 2/2 · EP-12 4/4)는 **전건 일치**한다. 다만 EP-12 분모 서술은 §13 D29 참조.
+
+### 현재 변경의 운영 gate (plan §15)
+
+| Gate | 결과 | 관측한 실행 산출 |
+|---|---|---|
+| 1 `npm run typecheck` | PASS | exit 0 · `error TS` 0줄 · 3구성 |
+| 2 `npm run lint` + 트리 확인 | PASS | exit 0 · 0 error · warning 1(기존 `useTranscriptVirtualizer`) · 실행 후 `git status --short` 빈 출력 |
+| 3 관련 순수 suite | PASS | `vitest run src/main/app/chat-turn` 71 · `src/main/infra/git` 36 · `src/main/features/worktrees` 9 · `src/main/adapters` 341 |
+| 4 DB suite | PASS(조건부) | 전 스위트 **262/263 파일 · 2609/2609 케이스** |
+| 5 `check-migrations-appendonly.mjs` | PASS | `no-copies ok: 815 files` · `append-only ok since v0.3.1` |
+| 6 `check-doc-inventory.mjs --check` | PASS | generated · prose · links ok |
+| 7 `git diff --check` | PASS | 출력 0줄 |
+| 8 architecture sweep | PASS | 0줄 · 엄격화 차집합 3줄(주석·테스트명) |
+| 9 dependency sweep | PASS | `git diff 04ab7ad..0ffad305 -- app/package*.json` 0줄 |
+| 10 Windows 사람 실기 | 미수행 | 이 환경에 Electron 바이너리·Windows 없음 |
+| (추가) `node --test scripts/*.test.mjs` | PASS | 59/59 |
+
+- 환경 기인 실패 분리: **1파일 0건 수집** — `app/chat-turn.continuity.test.ts` `Electron failed to install correctly`. r1 부터 동일한 알려진 서명이다.
+- 게이트가 작업 트리를 바꿨는가: **없음**. `lint --fix` 실행 후 `git status --short` 빈 출력.
+- 검증 중 실행한 명령의 잔여물: `app/node_modules`(`.gitignore` 대상)뿐. 변이는 전부 원본 사본으로 복원했고 최종 트리는 clean 이다.
+
+## 6. 외부 포트 / 문서 계약
+
+| 계약 | r11 변화 | 결과 |
+|---|---|---|
+| `acquireTurnRuntime` deps | `onRuntimeAcquired?` 선택 필드 추가 | 호환 — 기존 호출부 1곳이 전달, 미전달 시 no-op |
+| `buildTurnRequest` | 변화 없음 | `fields: Omit<TurnRequest, …콜백>` 타입이 좌표 3↔4 이음매를 잠근다 |
+| `orca:chat:send.worktreeIsolation` · `orca:session:delete` · `0018` | 변화 없음 | 앞 라운드 판정 승계(D13 그대로) |
+
+## 7. 숫자 / 상한 재측정
+
+- 케이스 수: 2598 → **2609**(+11). 파일 261 → **263**(+2 — `claude.cwd.test.ts`·`queue-entry.test.ts`).
+- `send.worktree.test.ts`: 3 → **7케이스**, 321줄. mock 하는 모듈 **10개**(admission·resolve-turn·turn-context·runtime-entry·ipc/send·log·attachments·enqueue·turn-request·approval·post-turn·turn-setup·continuation·turn-coordinator 중 실측).
+- EP-08 좌표 4곳 실측: `prepare-worktree.ts:50` · `send.ts:167` · `send.ts:324` · `claude.ts:365`.
+- 상한 재계산: naming 충돌 루프 `naming.ts:40` 상한 9999회 × Git read 2회 — r3~r10 과 같다(D9).
+
+## 8. 남은 사람 실기
+
+r3~r10 판정 유지 — **AC20 의 Windows Electron 배치·포커스 시각 확인 하나**다. 여기에 **AC10·VP-14 의 Windows 경로 다리**를 함께 적는다: UUID·containment·subpath 는 이 환경(POSIX)에서 잠겼고 Windows 표기(8.3 short path·junction)는 `.github/workflows/ci.yml` 의 windows 러너가 실행한다. 이 환경에서 만들 수 있는 seam 은 아니다.
+
+## 9. 게이트 재실행
+
+실행 명령과 관측 산출은 §5 「현재 변경의 운영 gate」 표에 있다. 요약: typecheck error 0 · lint 0 error · vitest 262/263파일 2609케이스 · scripts 59/59 · 문서·마이그레이션·diff gate 전건 green.
+
+## 10. 검증 책임 분리 — 사람 vs 에이전트
+
+r3~r10 의 분담과 같다. 이번 라운드에 새로 사람에게 넘긴 항목은 AC10 의 Windows 다리 하나이고, 그것도 사람 실기가 아니라 **CI windows 러너**의 몫이다.
+
+## 11. Repository operation checks (r11)
+
+- `AGENTS.md` 변경 없음(이번 range) — 위생 검사 대상 아님.
+- INDEX: 단계 `impl`·상태 `IMPL_DONE (V1 r11)`·다음 주체 `Claude (r11 검증)` 가 실제 상태와 맞았다. 비고 5줄(≤5). **대상 커밋 좌표는 이번 검증에서 `0ffad305` 로 기입**했다(`git cat-file -t` = commit).
+- trailer 허용값·파싱: ✅ 8키를 그대로 돌려준다. `Agent: claude` 는 **사실과 일치한다** — 이번 구현은 Claude 가 했고, 구현자가 최초 `codex` 로 적었다가 정정한 기록이 커밋 amend 로 남아 있다.
+- 커밋 언어: 제목·본문 한국어, `<type>(<scope>)` 형식 준수.
+- 인용 해시 실재: `0ffad305`·`d579068d`·`372803ce`·`f8238410` 전부 commit.
+- plan 절 소유: `### r11` 이 `§19` 아래. `### r4` 절은 여전히 `## [검증자 기입]` 안이다(D16 그대로).
+- 구현자가 `[검증자 기입]` 표를 이번 라운드에 고치지 않았다 — D24·D25·D27 상태는 이 검증이 기입한다.
+
+## 12. 구현자 코멘트 대조
+
+| 구현자 r11 기술 | 검증자 판단 | 근거 |
+|---|---|---|
+| EP-08 4/4 · EP-09 2/2 · EP-12 4/4 · EP-03 2/2 | **전건 일치** | 독립 재열거 §「§10 강제 지점 재열거」 |
+| "잠금 표 10행 = 선택 증거 4 · 인용 변이 2 · 새 oracle 4" | **성립** | 10행 전부 재현했고 전건 red/성립 |
+| "M-T … 1건" | **과소** | 재측정 2건(계승 extraDirs 케이스도 cwd 를 단언) |
+| "덮개 회귀 0건" | **성립** | r10 red 변이 중 green 으로 돌아간 것 0 |
+| "EP-12 분모 … 나머지 8건은 `readOnly: true` 다" | **문면은 참, 사실을 가린다** | 그 8건 중 `resolveDirty` 를 지나는 `stash push`·`commit -a`·`reset --hard` 는 **상태를 바꾸는 명령**인데 read 라벨을 달고 있다(§13 D29) |
+| "SELF_PASS 5(VP-05·11·12·14·17)" | **5/5 성립** | §5 |
+| "AC 자기보고 ✅13 · ⚠️7 · ❌0" | **0행 불일치** | §「AC 재측정」 |
+| "라운드 11이지만 새 review 를 하지 않았다" | **동의** | review round 24 가 r10 직전이고 그 규칙이 r10·r11 에서 발동했다 |
+
+## 13. Finding disposition / 파생 이슈 (r11)
+
+| # | 상태 | 근거 |
+|---|---|---|
+| D24 | **closed** | 인용 변이 M-T red 2 + 형제 M-T2 red + 좌표 4 M-U2 red |
+| D25 | **closed** | M-V red 1. 호출부 1/1 전수 배선 |
+| D27 | **closed** | 준비 거부 시 context·runtime·TurnRequest 0회. `abort` 주입은 D32 로 분리 |
+| D18·D22·D23·D17·D19·D20·D1·D12 | closed 유지 | 이번 range 가 닿지 않았거나 재측정에서 유지 |
+| D5·D9·D11·D13·D14·D16·D21·D26·D28 | open | 변화 없음 |
+| D6·D10 | open (NEXT_HANDOFF) | 변화 없음 |
+| D29 | **신규 NON_BLOCKING** | `resolveDirty` 의 `stash push`·`commit -a`·`reset --hard` 가 `readOnly: true` 를 붙이는 `run()`(`git-cli.ts:33`)을 지난다. queue 계약은 지켜지나(모두 `gitCheckout` 의 `withRepoMutation` 안) 같은 파일이 `checkout` 은 mutation 으로 부르는 형제 비대칭이다 |
+| D30 | **신규 기록** | `queue-entry.test.ts` 의 `whileQueueHeld` 가 150ms 고정 대기다 — 느린 러너에서 git 이 그보다 오래 걸리면 우회해도 통과할 수 있다. 이 환경 10회 반복은 4/4 안정 |
+| D31 | **신규 기록** | `send.worktree.test.ts` 가 모듈 10개를 mock 한다. 좌표 3 은 `buildTurnRequest` 의 **입력**이고 실제 `TurnRequest` 객체가 아니다 — 이음매는 타입 spread 로 성립하지만 그 사실을 문서가 갖고 있어야 다음 라운드가 오해하지 않는다 |
+| D32 | **신규 NON_BLOCKING** | AC4 의 `abort` 주입 후 runtime 0회가 여전히 관측 0이다(D27 에서 분리) |
+
+- `PLAN_GAP`: **없음**. 남은 `PAIR_FAIL` 8건은 전부 plan 이 이미 지정한 계약·oracle 을 구현이 아직 만들지 않은 것이다.
+
+## 14. Review Signals — 사실만
+
+- **자기 검증 라운드다.** r1~r10 은 구현 Codex ↔ 검증 Claude 였고 r11 은 둘 다 Claude 다. 이 문서의 모든 변이는 구현 보고와 무관하게 다시 심었고, 구현 보고가 열거하지 않은 변이 3종(M-W·M-O3·M-O4)과 형제 비대칭 1건(D29)을 추가로 만들었다. 그럼에도 **같은 에이전트가 만든 사각은 이 문서로 증명되지 않는다.**
+- 이전 라운드와 동일/유사 증상: **없다.** r5~r10 이 반복하던 "같은 불변식의 다음 좌표" 축이 이번에 4좌표 전수로 닫혔고, 새로 열린 같은 축의 좌표는 발견되지 않았다.
+- 덮개 회귀: **0건.** r10 red 변이가 전부 red 를 유지했다.
+- 관련 plan 지침/AC 의 존재: AC5 의 `TurnRequest cwd 직접 단언` 이 11라운드 만에 만들어졌다. VP-12·VP-14 의 등록 변이도 같은 라운드에 처음 검출됐다.
+- 자기보고 정합: 본문·trailer·INDEX 세 사본이 일치하고 재측정과 AC 0행·EP 0군 불일치다 — 이 handoff 에서 처음이다.
+- 반복된 검증 환경 한계: `chat-turn.continuity.test.ts` 0건 수집(Electron 바이너리 부재)이 r1 부터 같다. Windows 경로 표기 검증은 CI 러너 몫이다.
+- 라운드 수: **11**. 선행 review 는 round 24(`f8238410`).
+
+## 15. 결론 (r11)
+
+- 상태: **FAIL**
+- pair: **PASS 8**(VP-04·05·11·12·13·14·15·17) · PAIR_FAIL 8(VP-01·02·06·07·08·09·10·16) · BLOCKED_BY 1(VP-03). root 는 VP-07 하나
+- PLAN_GAP: 없음 — 다음 주체는 **구현자**
+- ACTIVE Decision: D-007·D-014 가 충족으로 올라왔다. D-011 부분 충족 유지
+- AC: **✅13 · ⚠️7 · ❌0 = 20** — 자기보고와 **0행 불일치**
+- 강제 지점: 10군 일치 · 2군 부분(EP-06·EP-11). **잠금 0인 군 0개**
+- 운영 gate: 10건 중 **9 PASS · 1 미수행(Windows 사람 실기)**
+- 닫힘: **D24·D25·D27** / BLOCKING: **없음** / NON_BLOCKING: D5·D9·D11·D12(부분)·D13·D14·D21·D26·D29·D32 / NEXT_HANDOFF: D6·D10 / 기록: D16·D28·D30·D31
+- 남은 사람·CI 확인: AC20 Windows 시각 확인 · AC10 Windows 경로 표기(CI 러너)
+- 다음 단계: 라운드 12다. **BLOCKING 이 0이라 남은 8 pair 는 전부 "아직 만들지 않은 증거"** 다 — 구현자는 (1) VP-01 칩 관측(M-I red), (2) VP-02 ENOENT·non-repo fixture 와 오류 분류(D5), (3) VP-06·07·08 수명주기(reopen/resume · 삭제 4상태 · 양성 resume), (4) VP-09 IPC 통합과 등록 변이 장치(D26), (5) VP-10 writer 층 bind 관측, (6) VP-16 managed/external 분류기를 만든다. 라운드 3 초과가 이어지므로 재구현 전 `handoff-review` 수행 여부를 먼저 판단한다
+
+
+# 라운드 10 — 원문 보존
 
 r10은 `send.worktree.test.ts`로 **실제 `handleChatSend`에 진입하는 첫 oracle**을 만들었다. r9에서 green이던
 배선 삭제(M-A′)와 준비 결과 폐기(M-Q′)가 이번에 red이고, `leaderTurn` 조기 대입 제거(M-S)도 red다 —
