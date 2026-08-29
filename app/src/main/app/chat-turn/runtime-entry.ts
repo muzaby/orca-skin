@@ -21,6 +21,10 @@ interface RuntimeEntryDeps {
   adapter: RuntimeSessionAdapter
   buildExtensions: () => TurnExtensions
   settleDeadBackgroundTasks: (turn: TurnContext<WebContents>, sessionId: string) => Promise<void>
+  // 핸들을 **인출한 순간** 호출자에게 공개한다. 반환값으로만 넘기면 이 함수가 그 뒤에서
+  // throw 할 때(확장 조립·미정착 태스크 정착) 호출자의 finally 가 닫을 대상을 못 본다.
+  // `leaderTurn` 과 같은 축이다 — 등록·인출과 반납 조건 대입이 한 지점이어야 한다.
+  onRuntimeAcquired?: (runtime: SessionRuntime) => void
 }
 
 // `runtime` 은 **호출자가 계속 소유하는 핸들**이다 — 실패해도 돌려주는 이유는 그 때문이다.
@@ -50,6 +54,7 @@ export async function acquireTurnRuntime(
   // Persistent 채널이 세션 키의 idle 핸들로 살아있으면 재사용, 아니면 fresh(0067 — pushTurn
   // 미지원 어댑터는 SessionRuntime 이 턴-스코프 폴백). 반납은 호출자의 finally.
   const runtime = supervisor.acquireRuntime(input.sessionId, () => new SessionRuntime(deps.adapter))
+  deps.onRuntimeAcquired?.(runtime)
   if (!supervisor.activateChain(lease.leaseId, runtime, input.resolved.providerKey, turn)) {
     runtime.close()
     return { ok: false, runtime: null }
