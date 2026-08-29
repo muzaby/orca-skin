@@ -13,6 +13,7 @@ export interface GitRunOptions {
   readOnly?: boolean
   timeoutMs?: number
   maxBuffer?: number
+  execFileImpl?: typeof execFile
 }
 
 export function runGit(
@@ -26,7 +27,8 @@ export function runGit(
       GIT_TERMINAL_PROMPT: '0',
       ...(options.readOnly ? { GIT_OPTIONAL_LOCKS: '0' } : {})
     }
-    execFile(
+    const exec = options.execFileImpl ?? execFile
+    exec(
       'git',
       args,
       {

@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
@@ -45,6 +45,33 @@ describe('WorktreeService', () => {
     const recorded = rows[0] as { worktreeRoot: string }
     if (result.kind === 'managed')
       expect(isWithinDir(result.executionCwd, recorded.worktreeRoot)).toBe(true)
+  })
+
+  it('repository 하위 cwd를 managed worktree 안의 같은 subpath로 보존한다', async () => {
+    const repo = await repository()
+    const sourceCwd = join(repo, 'packages', 'web')
+    await mkdir(sourceCwd, { recursive: true })
+    await writeFile(join(sourceCwd, 'index.ts'), 'export {}\n')
+    await exec('git', ['-C', repo, 'add', '.'])
+    await exec('git', ['-C', repo, 'commit', '-m', 'nested'])
+    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-test-'))
+    roots.push(managed)
+    const rows: Array<{ worktreeRoot: string }> = []
+    const db = {
+      insertManagedWorktree: (row: { worktreeRoot: string }) => rows.push(row)
+    } as unknown as DbQueries
+
+    const result = await new WorktreeService(db, managed).prepare({
+      sourceCwd,
+      firstPrompt: 'nested cwd'
+    })
+
+    expect(result.kind).toBe('managed')
+    if (result.kind === 'managed') {
+      expect(result.executionCwd).not.toBe(rows[0].worktreeRoot)
+      expect(result.executionCwd).toBe(join(rows[0].worktreeRoot, 'packages', 'web'))
+      expect(isWithinDir(result.executionCwd, rows[0].worktreeRoot)).toBe(true)
+    }
   })
 
   it('untracked 파일이 있으면 Git mutation 전에 거부한다', async () => {
