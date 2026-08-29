@@ -7,18 +7,10 @@ const signal = new AbortController().signal
 
 describe('prepareTurnWorktree', () => {
   const providerSettings: ResolvedHarnessSettings = {
-    model: 'test',
-    cliPath: undefined,
-    cliArgs: [],
-    systemPrompt: undefined,
-    appendSystemPrompt: undefined,
-    maxTurns: undefined,
-    maxBudgetUsd: undefined,
-    maxThinkingTokens: undefined,
-    effort: undefined,
-    fallbackModel: undefined,
-    enableFileCheckpointing: false,
-    includePartialMessages: false
+    providerKey: 'claude:test',
+    provider: 'claude',
+    settings: {},
+    sourceRevision: 'test-revision'
   }
 
   it('격리를 끈 요청과 재개 세션은 원래 cwd를 그대로 통과시킨다', async () => {
