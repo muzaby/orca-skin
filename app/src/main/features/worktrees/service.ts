@@ -4,7 +4,7 @@ import { dirname, relative, resolve } from 'node:path'
 import type { DbQueries } from '../../infra/db'
 import { isWithinDir } from '../../infra/config/paths'
 import { canonicalPath, isClean, resolveHead, resolveRepoRoot } from '../../infra/git/repository'
-import { addWorktree, deleteBranch, removeWorktree } from '../../infra/git/worktree'
+import { addWorktree, deleteBranch, listWorktrees, removeWorktree } from '../../infra/git/worktree'
 import { chooseBranchName } from './naming'
 
 export type PrepareWorktreeResult =
@@ -88,7 +88,13 @@ export class WorktreeService {
       ...(input.signal ? { signal: input.signal } : {})
     })
     if (!added.ok) {
+      const entries = await listWorktrees(repoRoot)
+      const created = entries?.find(
+        (entry) => isWithinDir(entry.path, worktreeRoot) && isWithinDir(worktreeRoot, entry.path)
+      )
+      if (created) await removeWorktree({ repoRoot, path: created.path })
       await deleteBranch({ repoRoot, branch })
+      await rm(worktreeRoot, { recursive: true, force: true }).catch(() => undefined)
       return { kind: 'rejected', reason: 'create-failed', message: 'Worktree를 만들지 못했습니다.' }
     }
     try {

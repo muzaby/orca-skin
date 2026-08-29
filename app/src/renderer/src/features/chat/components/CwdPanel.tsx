@@ -48,7 +48,7 @@ export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
         disabled={inflight || !cwd}
         onClick={() => chatActions.setWorktreeIsolation(!worktreeIsolation)}
         title={tr('chat.composer.worktreeIsolationHelp')}
-        className={worktreeIsolation ? 'border-accent text-accent' : ''}
+        ariaPressed={worktreeIsolation}
       />
       {extraDirs.map((dir) => (
         <ExtraDirChip
