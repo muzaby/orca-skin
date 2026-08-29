@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { mkdir, realpath, rm, stat } from 'node:fs/promises'
-import { dirname, relative, resolve } from 'node:path'
+import { mkdir, realpath, rm, rmdir, stat } from 'node:fs/promises'
+import { basename, dirname, relative, resolve } from 'node:path'
 import type { DbQueries } from '../../infra/db'
 import { isWithinDir } from '../../infra/config/paths'
 import { canonicalPath, isClean, resolveHead, resolveRepoRoot } from '../../infra/git/repository'
@@ -27,10 +27,25 @@ export type DeleteManagedWorktreeResult =
       message: string
     }
 
+type WorktreeOperations = {
+  add: typeof addWorktree
+  remove: typeof removeWorktree
+  list: typeof listWorktrees
+  deleteBranch: typeof deleteBranch
+}
+
+const defaultWorktreeOperations: WorktreeOperations = {
+  add: addWorktree,
+  remove: removeWorktree,
+  list: listWorktrees,
+  deleteBranch
+}
+
 export class WorktreeService {
   constructor(
     private readonly db: DbQueries,
-    private readonly rootDir: string
+    private readonly rootDir: string,
+    private readonly operations: WorktreeOperations = defaultWorktreeOperations
   ) {}
 
   async prepare(input: {
@@ -80,7 +95,7 @@ export class WorktreeService {
       ...(input.signal ? { signal: input.signal } : {})
     })
     await mkdir(dirname(worktreeRoot), { recursive: true })
-    const added = await addWorktree({
+    const added = await this.operations.add({
       repoRoot,
       path: worktreeRoot,
       branch,
@@ -88,13 +103,19 @@ export class WorktreeService {
       ...(input.signal ? { signal: input.signal } : {})
     })
     if (!added.ok) {
-      const entries = await listWorktrees(repoRoot)
+      const entries = await this.operations.list(repoRoot)
+      const canonicalParent = await realpath(dirname(worktreeRoot)).catch(() => null)
+      const canonicalCandidate = canonicalParent
+        ? resolve(canonicalParent, basename(worktreeRoot))
+        : worktreeRoot
       const created = entries?.find(
-        (entry) => isWithinDir(entry.path, worktreeRoot) && isWithinDir(worktreeRoot, entry.path)
+        (entry) =>
+          isWithinDir(entry.path, canonicalCandidate) && isWithinDir(canonicalCandidate, entry.path)
       )
-      if (created) await removeWorktree({ repoRoot, path: created.path })
-      await deleteBranch({ repoRoot, branch })
+      if (created) await this.operations.remove({ repoRoot, path: created.path })
+      await this.operations.deleteBranch({ repoRoot, branch })
       await rm(worktreeRoot, { recursive: true, force: true }).catch(() => undefined)
+      await rmdir(dirname(worktreeRoot)).catch(() => undefined)
       return { kind: 'rejected', reason: 'create-failed', message: 'Worktree를 만들지 못했습니다.' }
     }
     try {
@@ -113,8 +134,8 @@ export class WorktreeService {
       })
       return { kind: 'managed', worktreeId, executionCwd }
     } catch {
-      await removeWorktree({ repoRoot, path: worktreeRoot })
-      await deleteBranch({ repoRoot, branch })
+      await this.operations.remove({ repoRoot, path: worktreeRoot })
+      await this.operations.deleteBranch({ repoRoot, branch })
       await rm(worktreeRoot, { recursive: true, force: true }).catch(() => undefined)
       return {
         kind: 'rejected',
@@ -153,14 +174,17 @@ export class WorktreeService {
         reason: 'worktree-has-commits',
         message: 'Worktree에 새 커밋이 있어 세션을 삭제하지 않았습니다.'
       }
-    const removed = await removeWorktree({ repoRoot: row.repo_root, path: row.worktree_root })
+    const removed = await this.operations.remove({
+      repoRoot: row.repo_root,
+      path: row.worktree_root
+    })
     if (!removed.ok)
       return {
         ok: false,
         reason: 'worktree-remove-failed',
         message: 'Worktree를 안전하게 제거하지 못해 세션을 보존했습니다.'
       }
-    await deleteBranch({ repoRoot: row.repo_root, branch: row.branch })
+    await this.operations.deleteBranch({ repoRoot: row.repo_root, branch: row.branch })
     this.db.deleteManagedWorktree(row.id)
     return { ok: true }
   }
