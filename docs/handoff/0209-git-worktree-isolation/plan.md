@@ -542,6 +542,16 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 - **구현 보고**: Windows 8.3 short path와 Git의 long path를 직접 비교하던 형제 단언을 filesystem identity 비교로 교체했다. 대상 반복 suite와 전체 typecheck·lint·test gate 결과를 기록한다. AC 자기보고는 **✅13 · ⚠️7 · ❌0 = 20**이다.
 - **Review Signals**: r9이며 r8과 같은 Windows identity 축이다. 반복 원인은 한 테스트의 형제 단언을 전수로 닫지 않은 B이고 이번에는 raw path 비교 검색 차집합을 확인했다.
 
+### r10 — production send 배선과 turn 반납 복구
+
+- **설계 리뷰**: PLAN_GAP은 없다. 선행 `handoff-review` 커밋 `f823841` 뒤 r9의 BLOCKING D18·D22와 기록 D23을 기존 VP-05·VP-11·AC6·EP-03·EP-08 안에서 재구현했다.
+- **강제 지점 전수와 V-pair 자기확인**: EP-03 2/2와 EP-08 4/4를 실제 `handleChatSend` 진입 테스트가 지난다. VP-04·05·11·13·15·17은 `SELF_PASS`, 나머지 11 pair는 독립 검증 전 `SELF_BLOCKED`다.
+- **이번 라운드 수정의 잠금**: 선택 증거 M-A′ 1 · 인용 변이 M-Q′ 1 · 신규 D22 oracle 1 = 표 행 3이다. M-Q′(prepared cwd 폐기)와 `leaderTurn` 조기 대입 제거는 대상 3케이스를 red로 만들며, M-A′는 준비 완료 전 호출 0회 단언을 깬다.
+- **Product/UX 파생 검토**: 신규 문자열·상태 전이는 없다. 준비 대기 중에는 context/runtime이 0회이고 runtime 확보 실패는 기존 오류 이벤트 뒤 turn·chain을 반납하므로 무응답이나 잔존 busy 상태를 만들지 않는다.
+- **놓친 잠재 문제 + 대응**: D5·D9·D11·D12·D13·D14·D21과 NEXT_HANDOFF D6·D10은 이번 두 BLOCKING과 독립이어서 유지한다. 신규 의존성·공개 계약·PLAN_GAP은 없다.
+- **구현 보고**: `send.worktree.test.ts`가 실제 handler의 production callback을 통과해 managed cwd·extraDirs·prepared snapshot을 runtime 경계에서 관측한다. startNew/startResume 직후 `leaderTurn`을 공개해 acquire reject 두 경로에서 release 1회를 관측했고, 6·7단계와 0188 D-019 주석을 복원했다. AC 자기보고는 **✅13 · ⚠️7 · ❌0 = 20**이다.
+- **Review Signals**: r10이며 D18은 r5~r9와 같은 배선 oracle 축, D22는 r6 재배치가 만든 cleanup 축이다. plan/AC는 두 축을 이미 요구했지만 앞선 테스트가 production handler에 진입하지 않아 검출하지 못했다.
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.
@@ -566,12 +576,12 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 | D15 | 구현 커밋 4건의 제목·본문이 영어다 — `docs/handoff/AGENTS.md §커밋·git 규약`은 한국어 메시지를 규정한다 | verify r4 · repository op | 다음 라운드부터 한국어 메시지를 쓴다 | 기록 | **closed (r5 — 한국어 커밋)** |
 | D16 | plan의 `### r4` 구현자 절이 `## [검증자 기입] 파생 이슈` 안에 있다 | verify r4 · repository op | 다음 라운드 절은 `§19 [구현자 기입]` 아래에 붙인다 | 기록 | open |
 | D17 | `npm run typecheck`가 exit 2 · `error TS` 3건 — 전부 이번 라운드가 신설한 `prepare-worktree.test.ts`의 `providerSettings` 타입이다 | verify r5 · plan §15 gate 1 · `app/AGENTS.md` 기본 게이트 | 테스트 fixture를 `ResolvedHarnessSettings` 계약에 맞춘다 | BLOCKING | **closed (r7 — 실제 4필드 fixture, typecheck 3구성 진단 0)** |
-| D18 | 준비 seam의 결과를 버려도(`executionCwd` 미대입) lint 0 error·전 스위트 2595 green — worktree는 만들어지고 Agent는 원본 checkout에서 돈다 | verify r5 · VP-05 · VP-11 · AC3·AC5·AC18 · §10 EP-08 | 소스 텍스트가 아니라 runtime acquire 순서와 최종 `TurnRequest.cwd`를 관측하는 oracle을 만든다 | BLOCKING | **open (r9 되돌림 — M-Q′ green, 새 oracle이 `send.ts`를 보지 않아 M-A′도 green)** |
+| D18 | 준비 seam의 결과를 버려도(`executionCwd` 미대입) lint 0 error·전 스위트 2595 green — worktree는 만들어지고 Agent는 원본 checkout에서 돈다 | verify r5 · VP-05 · VP-11 · AC3·AC5·AC18 · §10 EP-08 | 소스 텍스트가 아니라 runtime acquire 순서와 최종 `TurnRequest.cwd`를 관측하는 oracle을 만든다 | BLOCKING | **closed (r10 자기확인 — handler 경로 M-A′·M-Q′ red)** |
 | D19 | `[구현자 기입]` r5 절이 impl §8 7필드 중 4개만 갖는다 — `이번 라운드 수정의 잠금`·`구현 보고`·`Review Signals`와 게이트 산출 보고가 없다 | verify r5 · repository op | 다음 라운드 절은 일곱 필드를 이름 그대로 채운다 | 기록 | **closed (r6 — 7/7 필드)** |
 | D20 | INDEX 비고가 "lint·typecheck … gate green"이라고 적었으나 `npm run typecheck`는 exit 2다 | verify r5 · repository op | 게이트 산출을 다시 읽어 적는다 | 기록 | **closed (r6 — INDEX에 r6 관측값 반영)** |
 | D21 | DB insert 실패 rollback이 `<managed>/<repoId>` 빈 bucket을 남긴다(3회 → 3개) — 같은 함수의 `!added.ok` 형제 분기와 정책이 다르다 | verify r5 · D-011 · AC4 | 두 rollback 분기의 bucket 정리를 한 경로로 모은다 | NON_BLOCKING | open |
-| D22 | `supervisor.startNew/startResume(turn)`은 `acquireRuntime` 콜백 안(`send.ts:182·187`)인데 `leaderTurn = turn`은 콜백 밖(213)이다 — 사이의 `await acquireTurnRuntime`(189)이 reject하면 finally의 `supervisor.release(leaderTurn)`(408)이 실행되지 않아 turn 등록이 남는다 | verify r9 · AC6 · VP-11 | turn 등록과 `leaderTurn` 대입을 한 지점에 두거나 콜백이 실패해도 핸들을 돌려준다 | BLOCKING | open |
-| D23 | `send.ts`의 단계 주석 `── 6. TurnContext 조립`·`── 7. 런타임 확보`와 `0188 D-019` 근거 주석이 삭제됐다 — `src/main/AGENTS.md`는 `send.ts`를 "이름 붙은 12단계 시퀀스"로 서술한다 | verify r9 · repository op | 재배치한 단계에 같은 이름의 주석을 복원한다 | 기록 | open |
+| D22 | `supervisor.startNew/startResume(turn)`은 `acquireRuntime` 콜백 안(`send.ts:182·187`)인데 `leaderTurn = turn`은 콜백 밖(213)이다 — 사이의 `await acquireTurnRuntime`(189)이 reject하면 finally의 `supervisor.release(leaderTurn)`(408)이 실행되지 않아 turn 등록이 남는다 | verify r9 · AC6 · VP-11 | turn 등록과 `leaderTurn` 대입을 한 지점에 두거나 콜백이 실패해도 핸들을 돌려준다 | BLOCKING | **closed (r10 자기확인 — new/resume reject 각각 release 1회)** |
+| D23 | `send.ts`의 단계 주석 `── 6. TurnContext 조립`·`── 7. 런타임 확보`와 `0188 D-019` 근거 주석이 삭제됐다 — `src/main/AGENTS.md`는 `send.ts`를 "이름 붙은 12단계 시퀀스"로 서술한다 | verify r9 · repository op | 재배치한 단계에 같은 이름의 주석을 복원한다 | 기록 | **closed (r10 — 세 주석 복원)** |
 
 ### r4 — verify/FAIL 보완
 
