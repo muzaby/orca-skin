@@ -669,6 +669,76 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
   - 반복 환경 한계: `chat-turn.continuity.test.ts` 0건 수집(Electron 바이너리 부재)이 r1 부터 같다. D11 간헐도 r4 부터 같은 비율이다. Windows 시각 확인은 사람 몫이고, **Windows 경로·파일 잠금은 CI 러너만 관측한다 — 이 환경의 green 은 그 축의 증거가 아니다.**
   - 현재 라운드 수: **12**. 선행 review 는 round 25.
 
+### r13 — verify/FAIL 보완: 선언된 path 의 끊긴 hop 과 한 방향 상태 단언
+
+- **설계 리뷰**: `PLAN_GAP` 없음. r12 verify 의 BLOCKING 둘은 **프로덕션이 아니라 오라클 결함**이고 규범 행(Decision·AC·V node/pair·§10)을 바꾸지 않고 닫힌다. 이번 라운드도 **프로덕션 0줄**이다. 라운드 13이라 재구현 전 `handoff-review` 를 **`DIAGNOSE_ONLY` 로 수행**했다 — 사용자 요청이 구현 턴이고 지침 수정을 명시하지 않아 `APPLY` 근거가 없다. 진단 결과 A(instruction gap) 2건은 아래 Review Signals 에 두고 SKILL 파일은 건드리지 않았다.
+- **강제 지점 전수와 V-pair 자기확인**: EP-01 **3/3** — r12 verify 가 `2/3` 으로 내린 `store` 축을 닫았고 `reducer`·`CwdPanel` 두 축도 이번 턴에 다시 심어 확인했다(V-3 red 3 · M-I red 5). VP-01·VP-03 은 `SELF_PASS`, 나머지 15 pair 는 r12 verify 판정을 승계한다.
+- **불변식 전수** — 지적 둘을 지점 이름에서 떼어내 축으로 올린 뒤 그 축의 모든 지점을 함께 닫았다.
+
+| 불변식 | 성립해야 하는 지점 | 닫음 | 관측 |
+|---|---|---|---|
+| 사용자 선택은 리듀서 상태가 아니라 **`chat:send` 인자**에서 관측한다 | 렌더러의 페이로드 조립 3지점(신규 세션 `chatStore.ts:587` · 확정 세션 `:705` · 핸드오프 `:990`) + draft 시드 `continuityDraftSession` + 통과 지점 `sendNewChatPayload` = **5/5** | ✅ 전수 | V-2 red 2 · V-7 red 1 · V-8 red 1 · V-6 red 1 · V-9 red 2 |
+| 상태 단언은 **양방향**이다 — 한 방향만 보면 그 상태를 상수로 만든 변이를 못 잡는다 | 이 handoff 오라클의 상태 단언 3축(`aria-pressed` · 칩 `disabled` · 삭제 결과 `ok`) = **3/3** | ✅ 전수 | `aria-pressed` 는 r12 부터 양방향 · `disabled` V-1/V-1b red 1·1 · `ok` V-5/V-5b red 1·1 |
+
+  전수 검색의 술어는 불변식의 주어(`chat:send 페이로드를 조립하는 지점`)로 썼다 — `worktreeIsolation` 으로 세면 이미 고친 지점만 분모에 오른다. `grep ': SendChatMessage = {'` 는 **2건**이고 확정 세션 분기는 타입 주석 없는 인라인 리터럴이라 그 술어에 안 걸린다. `chatApi.send(` 호출부 전수(2건, `cancelSteer`·`discardSession` 제외)에서 역으로 조립 지점을 세어 3 + 시드 1 + 통과 1 을 얻었다.
+- **이번 라운드 수정의 잠금**
+
+| 심은 결함 | 갈래 / 출처 | 이전 라운드 결과 | 실패한 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M-I 격리 칩을 `CwdPanel` 에서 삭제 | `VP-01 선택 증거` | red 1(r12) | 5건 | 잠김 — 하한 상승 |
+| M-AE handler 가 보존 이유를 무시하고 삭제 진행 | `VP-03 선택 증거` | red 1(r12) | 1건 | 잠김 |
+| **V-2 페이로드에서 격리 플래그 제거** | **`D33 인용 변이`** | **green**(r12 검증 2638 · 이번 턴 수정 전 재현 961) | 2건 | **잠김** |
+| **V-1 칩이 영구 비활성** | **`D34 인용 변이`** | **green**(r12 검증 2638 · 이번 턴 수정 전 재현 675) | 1건 | **잠김** |
+| **V-5 renderer 가 보존 결과 무시** | **`D35 인용 변이`** | **green**(r12 검증 2638 · 구 테스트 파일로 재현 683) | 1건 | **잠김** |
+| V-1b 칩이 영구 활성 | 형제 방향 · 새 proxy 자기 눈 | 미실행 | 1건 | 잠김 |
+| V-1c `cwd` 축만 제거 | 형제 방향(조건 절반) | 미실행 | 1건 | 잠김 |
+| V-1d `inflight` 축만 제거 | **새 proxy 스코프 자기 눈** | 미실행 | 1건 | 잠김 — 구 장치는 **green**(아래 놓친 문제 1) |
+| V-2b 조건을 잃고 항상 실림 | 형제 방향(off 축) | 미실행 | 3건 | 잠김 |
+| V-3 리듀서가 토글을 무시 | `EP-01 reducer 축` | 미실행(이번 재측정) | 3건 | 잠김 |
+| V-5b 이유만 삼키고 목록은 지킴 | 형제 방향 | 미실행 | 1건 | 잠김 |
+| V-6 fork draft 가 원본 선택을 승계 | 새 oracle 눈(음성 축) | 미실행 | 1건 | 잠김 |
+| V-7 확정 세션 페이로드가 플래그를 실음 | 새 oracle 눈(음성 축) | 미실행 | 1건 | 잠김 |
+| V-8 핸드오프 페이로드가 플래그를 실음 | 새 oracle 눈(음성 축) | 미실행 | 1건 | 잠김 |
+| V-9 통과 지점(`sendNewChatPayload`)이 플래그를 벗김 | 새 oracle 눈(배선 hop) | 미실행 | 2건 | 잠김 |
+
+- **분모 검산**: `선택 증거 2(VP-01 M-I · VP-03 M-AE) · 인용 변이 3(D33 V-2 · D34 V-1 · D35 V-5) · 새 oracle 1(칩 조각 추출 = 구조적 proxy, 자기 눈 V-1b·V-1d) = 필수 표 행 6`. 나머지 9행은 형제 방향·음성 축·배선 hop 의 추가 측정이며 의무가 아니다. `SELF_PASS`·`closed` 로 적은 항목이 전부 행을 갖는다.
+- **덮개 회귀**: `red → green` **0건**. 이번 라운드는 오라클 하나를 **교체**했으므로(구 `disabled` 단언 → 칩 조각 스코프 단언) 구 장치가 red 로 만들던 변이를 새 장치에 다시 심었다 — M-I 는 red 1 → **red 5**, V-1b 는 구·신 장치 모두 red 1 이다. 반대로 V-1d 는 구 장치 **green** · 신 장치 red 1 로, 교체가 하한을 낮추지 않고 올렸다(구 테스트 파일을 `git show HEAD:` 로 되돌려 같은 변이를 실측 대조).
+- **Product/UX 파생 검토**: 새 사용자 대면 문자열 0 — 프로덕션 0줄이다. 다만 **닫은 셋은 전부 제품 실패였다**. D33 = 사용자가 칩을 켜고 `aria-pressed` 도 눌림인데 Agent 는 원본 checkout 에서 돈다 — Part I 상태 전이표의 `격리 on` 행이 아무 표시 없이 `격리 off` 행으로 접힌다. D34 = 칩이 영구 비활성이면 §5 흐름의 첫 줄(`랜딩: … "Worktree에서 격리" 선택`)이 아예 없다. D35 = `session delete + dirty/commit/검사 실패` 행("아무것도 제거하지 않음 · 보존 이유 안내 · 세션도 유지")이 화면에서는 `삭제 성공` 으로 보이고, 사용자는 커밋 안 한 작업이 어디 갔는지 알 방법이 없다.
+- **놓친 잠재 문제 + 대응**
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | D34 가 지적한 "한 방향" 과 **별개 축**으로, 구 `disabled` 단언은 패널 **전체 마크업**을 봤다 — 형제 `＋` 칩이 `inflight` 에 비활성이라 `disabled=""` 는 항상 어딘가에 있다 | ✅ **선조치** — 라벨로 칩 자신의 `button` 조각을 떼어 그 조각만 단언 | V-1d(`disabled={!cwd}` — inflight 축만 제거)가 구 장치 **green 4/4** · 신 장치 **red 1**. `cwd` 축은 우연히 스코프돼 있었다(`＋` 칩이 그 조건엔 비활성이 아니다) — 두 축 중 **하나만** 미스코프였다 |
+| 2 | 새 헬퍼 `sentPayload()` 가 `undefined` 를 돌려줄 때 `not.toHaveProperty` 가 공허 통과하면 음성 축 4건이 전부 거짓 초록이 된다 | ⚠️ **변경 없음 — 실측으로 부정** | vitest 는 `expect(undefined).not.toHaveProperty(...)` 를 **red** 로 낸다(별도 probe 스위트 1건 red 로 확인). `toMatchObject` 도 같다 |
+| 3 | 같은 페이로드의 `permissionMode` 는 여전히 잠금 0 (D36) | ⚠️ 기록만 — 계약 밖 | 재측정: 제거해도 `src/renderer src/shared` **872 전건 green**. 이 handoff 의 pair·AC·§10 어디에도 귀속되지 않아 고치면 PR 을 넓힌다 |
+| 4 | D5·D9·D11·D12(부분)·D13·D14·D21·D29·D32 · NEXT_HANDOFF D6·D10 · 기록 D8·D16·D28·D30·D31·D37·D38 | ⚠️ 유지 | 이번 축과 독립. D11 은 변이 측정 중 전 스위트 1회에서 재현됐고 최종 게이트 3회에는 없었다 |
+| 5 | 같은 판정이 **두 곳**에 산다 — `verify.md §13` 은 D33~D38 을 적었는데 plan 의 `[검증자 기입] 파생 이슈` 표는 **D32 에서 끝나 있었다**. 표를 먼저 읽는 다음 라운드는 BLOCKING 둘을 못 본다 | ✅ **선조치** — verify r12 §13 원문을 그대로 전사해 6행을 잇고 `상태` 칸만 이번 관측으로 채웠다 | 삽입 전 `grep '^| D3[0-9]'` = D30·D31·D32 3행, 삽입 후 D30~D38 9행. 판정 원문의 정본은 `verify.md` 그대로다 |
+
+- **설계 대비 명시적 차이**: 없음. plan 이 지정한 메커니즘·프로덕션 코드·공개 계약·의존성 변경이 0이고, 세 오라클 전부 저장소가 이미 소유한 패턴을 썼다 — `installChatStoreHarness`(형제 `chatStore.extraDirs.test.ts`) · `renderToStaticMarkup`(같은 파일 r12) · `vi.hoisted` 목(같은 파일 기존 시드). 새 하네스·새 devDependency 0.
+- **구현 보고**
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규 1 — `renderer/…/chat/store/chatStore.worktreeIsolation.test.ts`(7케이스). 수정 2 — `renderer/…/chat/components/CwdPanel.isolation.test.ts`(칩 조각 추출 + 활성 방향 1케이스 추가) · `renderer/…/sessions/store/sessionsStore.test.ts`(`sessionApi.delete` 를 hoisted 목으로 + 보존/성공 2케이스). **프로덕션 0줄** |
+| 실행 명령 | `npm run typecheck` · `npm run lint` · `./node_modules/.bin/vitest run` · `node scripts/check-migrations-appendonly.mjs` · `node scripts/check-doc-inventory.mjs --check` · `node --test scripts/*.test.mjs` · `git diff --check` |
+| **관측한 게이트 산출** | typecheck exit 0 · `error TS` **0줄**(3구성) / lint exit 0 · **0 error · warning 1**(기존 `useTranscriptVirtualizer`), 실행 후 `git status --porcelain` 에 도구 변경분 0(내 3파일뿐) / vitest **270파일 · 2648케이스**, 269 pass 파일 · **3회 실행 전건 동일** / scripts **59/59** / migrations `sync ok: 18` · `append-only ok since v0.3.1` / doc-inventory generated·prose·links ok / `git diff --check` **0줄** |
+| 기준선 대비 | r12 는 **269파일 · 2638케이스**. 이번 +1파일 · **+10케이스**(신규 7 + CwdPanel 1 + sessionsStore 2) — 합이 분모 증가와 일치한다 |
+| 환경 기인 실패 분리 | **1파일 0건 수집** — `app/chat-turn.continuity.test.ts` `Electron failed to install correctly`(`app/AGENTS.md §제약 환경` 의 알려진 서명, r1 부터 동일). **간헐 1건** — `infra/git/mutation-queue.test.ts > serializes filesystem aliases` 를 변이 측정 중 전 스위트 1회에서 관측했다. **D11 로 이미 기록된 선재 결함**이고 이번 변경은 프로덕션 0줄이라 귀속되지 않는다 |
+| V-pair 자기확인 | `SELF_PASS 2`(VP-01 · VP-03) / 나머지 15는 r12 verify 판정 승계; 근거는 위 잠금 표 |
+| 강제 지점 전수 | **EP-01 3/3**(r12 verify 재측정 `2/3` → `store` 축 신설). EP-03 2/2 · EP-06 3/3 · EP-07 2/2 · EP-08 4/4 · EP-09 2/2 · EP-11 3/3 · EP-12 4/4 는 r11·r12 승계 |
+| **AC 자기보고**(`Criteria-Met`) | **AC2 를 ⚠️→✅ 로 올린다** — r12 verify 가 내린 유일한 행이고, 그것을 내린 근거(`CwdPanel → chatStore.send → SendChatMessageSchema` 의 중간 hop 잠금 0)가 V-2 red 2 로 닫혔다. AC20 은 기계 축(활성/비활성 양방향)이 닫혔으나 **Windows 시각 실기가 남아 ⚠️ 유지**다 |
+| **합계 검산** | `✅ 16 · ⚠️ 4 · ❌ 0 = 총 20` — ✅ = AC1·2·3·5·6·7·8·11·12·13·14·15·16·17·18·19 / ⚠️ = AC4(abort 주입, D32)·AC9(HEAD 이동 모사 미관측)·AC10(Windows 경로 표기, CI 러너)·AC20(Windows 시각 실기). 분모 변경 없음(20) |
+| 블로커 / 역질문 | 없음. 단 아래 Review Signals 의 A 2건은 `handoff-review APPLY` 승인이 있어야 지침에 반영된다 |
+| 대상 커밋 | `(r13 구현 — 좌표는 INDEX)` |
+
+- **Review Signals**
+  - 이번에 닫은 불변식은 r11·r12 와 **같은 축이 아니다**. r11 = cwd 종단 좌표, r12 = 단위↔호출부 배선, r13 = **선언된 path 의 중간 hop** 과 **상태 단언의 방향**. 세 라운드가 같은 상위 패턴("자기가 고른 좌표만 분모가 된다")의 서로 다른 표면이다.
+  - **A-1(instruction gap)**: impl §8 `분모 검산` 은 표의 행을 *선택 증거·인용 변이·새 oracle* 세 갈래로만 세게 한다. r12 구현자는 그 규칙을 **정확히 수행**해 13행을 만들었고 13행 전부 검증자 재측정에서 red 였다 — 그런데 결함은 그 세 갈래 어디에도 안 걸리는 **pair 가 §7-A 에 선언한 production path 의 hop** 에 있었다. 정상 수행으로 막히지 않으므로 B 가 아니라 A 다. verify r12 §14 가 같은 진단을 적었다. 후보 수정: 네 번째 갈래로 `SELF_PASS 로 올린 pair 의 선언된 path 를 hop 으로 잘라 hop 마다 잠금 행을 갖는다` 를 §8 검산과 §2 전수에 함께 넣는다.
+  - **A-2(instruction gap)**: impl §3 은 결함을 심어 민감도를 확인할 대상을 *구조적 proxy · 0건/전수 스윕 · 배선 oracle* 로 한정하고 "직접 행동 결과를 관측하는 oracle 까지 mutation 을 의무화하지 않는다" 고 명시한다. D34 는 **직접 oracle**(`renderToStaticMarkup` 산출을 본다)인데 `disabled` 를 한 방향만 단언해 죽어 있었다 — 면제 범위가 *오라클 종류* 로 잡혀 있어 *단언의 방향* 이라는 직교 축을 덮지 못한다. 후보 수정: 종류와 무관하게 `참/거짓 두 상태를 갖는 값은 두 방향을 단언한다` 를 §3 또는 §8 에 둔다.
+  - r12 가 올린 두 후보 중 **Windows 축**(POSIX 환경의 green 이 Windows green 이 아니다)은 이번 라운드에 발동하지 않았다 — 신규 단언에 경로·파일 핸들이 없다. 후보로 유지한다.
+  - 반복 환경 한계: `chat-turn.continuity.test.ts` 0건 수집(r1 부터) · D11 간헐(r4 부터) · Windows 축은 CI 러너 전용.
+  - 현재 라운드 수: **13**. 선행 review 는 round 25(`APPLY`), 이번 라운드는 round 26(`DIAGNOSE_ONLY` — 지침 파일 변경 0).
+
 
 ## [검증자 기입] 파생 이슈
 
@@ -709,6 +779,12 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 | D30 | `queue-entry.test.ts` 의 `whileQueueHeld` 가 150ms 고정 대기다 — 느린 러너에서 git 이 그보다 오래 걸리면 우회해도 통과할 수 있다(이 환경 10회 반복은 4/4 안정) | verify r11 · VP-12 oracle | 시간이 아니라 queue 진입 자체를 관측하는 형태로 좁힌다 | 기록 | open |
 | D31 | `send.worktree.test.ts` 가 모듈 10개를 mock 한다 — EP-08 좌표 3은 `buildTurnRequest` 의 **입력**이고 실제 `TurnRequest` 객체가 아니다. 이음매는 `turn-request.ts:93` 의 타입 spread 로 성립한다 | verify r11 · VP-11 범위 | 다음 라운드가 이 경계를 오해하지 않게 문서가 갖는다 | 기록 | open |
 | D32 | AC4 의 `abort` 주입 후 runtime 0회가 관측 0이다 | verify r11 · AC4 (D27 에서 분리) | `AbortController` 를 service 에 주입해 취소 경로를 단언한다 | NON_BLOCKING | open |
+| D33 | 격리 플래그가 `chat:send` 페이로드에서 빠져도 전 스위트 2638 green(`chatStore.ts:598`) — 형제 `extraDirs` red 3 · `cwd` red 1 | verify r12 · VP-01 · AC2 · §10 EP-01 store 축 | `installChatStoreHarness` 형제 패턴으로 `chat:send` 인자를 단언한다 | BLOCKING | **closed (r13 — V-2 red 2; 조립 5지점 전수 V-6·V-7·V-8·V-9 red)** |
+| D34 | 격리 칩이 영구 비활성이어도 전 스위트 green — AC20 이 명시한 `disabled state component test` 가 활성 방향을 안 본다 | verify r12 · VP-01 · AC20 | 칩 활성 방향을 단언한다 | BLOCKING | **closed (r13 — V-1 red 1; 형제 방향 V-1b·V-1c red, 스코프 V-1d red)** |
+| D35 | `sessionsStore.remove` 가 보존 결과를 무시해도 green — 세션이 목록에서 사라지고 사용자는 이유를 못 본다 | verify r12 · VP-03 소비자 hop | 결과 union 의 두 방향을 렌더러에서 단언한다 | NON_BLOCKING | **closed (r13 — V-5 red 1 · V-5b red 1)** |
+| D36 | 같은 페이로드의 `permissionMode` 도 잠금 0 — 이 handoff 계약 밖 | verify r12 · 범위 밖 | 해당 계약을 가진 handoff 가 닫는다 | 기록 | open (r13 재측정 — 제거해도 `src/renderer src/shared` 872 전건 green) |
+| D37 | AC13 `removeForSession` 스윕이 구조분해 호출(`const { removeForSession } = …`)을 못 본다 — 현재 1건 판정 자체는 옳다 | verify r12 · AC13 oracle | 술어를 호출 형태 전부로 넓힌다 | 기록 | open |
+| D38 | INDEX 비고가 5줄을 넘었다 | verify r12 · repository op(`docs/handoff/AGENTS.md §산출물 문장 규칙 3`) | 상세는 plan/verify 가 갖고 비고는 줄인다 | 기록 | open |
 
 ### r4 — verify/FAIL 보완
 
