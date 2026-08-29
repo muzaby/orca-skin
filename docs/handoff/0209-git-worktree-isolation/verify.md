@@ -10,13 +10,280 @@
 | slug | `0209-git-worktree-isolation` |
 | 검증자 | Claude Code |
 | 일자 | 2026-08-29 |
-| 대상 커밋/range | `04ab7ad..418dc1e` (구현 `aec9fe9`(r1) · `dd9f47c`(r2) · `418dc1e`(r3)) |
-| 구현 전 plan 기준 | `04ab7ad` |
+| 대상 커밋/range | `418dc1e..e798f27` (r4 구현 `e798f27`) — 이전 라운드는 `04ab7ad..418dc1e` |
+| 구현 전 plan 기준 | `04ab7ad` (r4에서도 규범 행 변경 없음) |
 | V mode / 유효 V | `Baseline V: V1` |
 | 검증 기준 plan revision | `04ab7ad:V1` |
-| 라운드 | 3 |
+| 라운드 | 4 |
 | 상태 | **FAIL** |
 | 자기 검증 여부 | 아니오 — 설계 Claude, 구현 Codex, 검증 Claude |
+
+> 이 문서는 라운드별로 누적한다. **아래 「라운드 4」가 현재 판정**이고, 「라운드 3」은 원문 보존이며 재서술하지 않는다.
+
+# 라운드 4 — 현재 판정 **FAIL**
+
+r4는 BLOCKING 3건 중 2건(D2·D3)을 닫고 4개 pair를 PASS로 올렸다. root `VP-05`는 손대지 않았고
+(구현자도 "닫지 않았다"고 적었다) `VP-14`는 등록 변이가 여전히 통과한다. D1 rollback은 코드가
+생겼으나 잠금이 없고 별칭 managed root에서 대상 식별에 실패한다.
+
+## 0. 기준선 / plan 변경 확인 (r4)
+
+- 기준선이 diff로 성립하는가: **예**. `git show e798f27 -- plan.md` hunk 1개가 파일 끝에 붙인 `### r4` 절 10줄뿐이다(붙인 위치는 §13 D16).
+- Decision Ledger·Product/UX·AC·V node/pair·§10·oracle 변경: **없음**. `git diff 04ab7ad..e798f27 -- plan.md`의 hunk가 `§19` 이후에만 있다.
+- 채점 기준: r3과 같은 `04ab7ad:V1` — §3 Decision · §7 AC1~AC20 · §7-A pair 17 · §10 EP-01~EP-12.
+- plan validity: r3 판정 유지(§라운드 3 「Plan validity」). r4가 규범 행을 바꾸지 않았으므로 재감사 대상이 없다. root `PLAN_GAP` **없음**.
+- `[구현자 기입]` 7필드: **7/7 존재**(설계 리뷰·강제 지점 전수와 V-pair 자기확인·이번 라운드 수정의 잠금·Product/UX 파생 검토·놓친 잠재 문제·구현 보고·Review Signals). r2·r3의 필드 소실은 회복됐다.
+
+## 1. ACTIVE Decision — r3 대비 변화만
+
+| Decision | r3 | r4 | 관측 |
+|---|---|---|---|
+| D-010 nullable row → bind | ❌ 유일성 없음 | ✅ | `queries.ts:787` `matches.length === 1`만 bind, 초과는 `managed-worktree.bind.ambiguous` 경고 후 보존. 되돌리면 red(M-E) |
+| D-011 이번 호출 산출물만 rollback | ❌ | ❌ | `service.ts:91-97`이 생겼으나 잠금 0(M-H)이고 별칭 root에서 대상 미식별(§4 probe) |
+| D-014 repo 단위 mutation queue | ❌ key 불일치 | ✅ | 정규화가 `withRepoMutation` 내부 한 곳(`mutation-queue.ts:125`)으로 모였다. checkout(`git-cli.ts:127`)·add/remove/branch 4진입이 같은 함수를 지난다. 되돌리면 red(M-D) |
+| D-008/D-009 naming 강등 | ⚠️ 잠금 0 | ✅ | `naming.test.ts` 2케이스 — sanitize+충돌 `work/fix-auth-2`, throw → `work/12345678`. catch 제거 시 red(M-G) |
+| D-006 base = 최초 full OID | ⚠️ 잠금 0 | ⚠️ | 변화 없음. `base: baseOid` → `'HEAD'` 변이가 **전 스위트 2591 green**(M-F) |
+| D-002 execFile 배열·shell 미경유 | ✅ 정적만 | ✅ 직접 | `runner.test.ts`가 주입 `execFile`로 file·args·env·`shell` 부재를 관측. `shell:true` 변이 red(M-N) |
+
+- 나머지 D-001·D-003~D-005·D-007·D-012·D-013·D-015는 r3 판정 그대로다(§라운드 3 §1).
+
+## 2. 구현 결과 비판적 검토 (r4 변경분)
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 실환경 실패 방식 | rollback이 대상을 못 찾는 경우가 남는다 | 별칭 managed root에서 git 보고 경로와 구성 경로가 다른 식별자다(§4 probe) |
+| false success 가능성 | 있다 | 격리 배선을 통째로 지워도 typecheck·lint·전 스위트가 green(M-A) — r3와 동일 |
+| partial failure/rollback | 잔여물이 남는다 | 취소 3회 후 `<managed>/<repoId>` 빈 버킷 3개 잔존(§13 D12) |
+| 새 표면의 동시성 | 등록 순서가 호출 순서가 아니다 | key 해석이 `await`라 등록이 비원자적 — 200회 중 18회 후행 호출이 먼저 진입(§13 D11). 상호배제 자체는 유지(150라운드×5동시, 최대 겹침 1) |
+| 출력/요청 worst-case 상한 | 변화 없음 | naming 충돌 루프 상한 `naming.ts:40` `suffix < 10_000` 그대로(§13 D9) |
+
+## 3. 역방향 탐색 (r4)
+
+```bash
+bash .agents/skills/handoff-verify/scripts/scan-surface.sh 418dc1e..e798f27   # 8 파일
+```
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| `mutation-queue.ts::canonicalRepoKey` | 테스트 전용 export | 프로덕션 외부 참조 0 — 내부에서 `withRepoMutation`이 호출한다. 테스트가 정규화 값을 직접 단언하려고 연 문 |
+| `infra/git/worktree.ts::listWorktrees` | **배선됨(잠금 0)** | r3의 "프로덕션 0"이 해소됐다 — `service.ts:91` 1곳. 그러나 그 블록을 통째로 지워도 전 스위트 green(M-H) |
+| `service.ts::PrepareWorktreeResult`·`DeleteManagedWorktreeResult`·`runner.ts::GitRunOptions` | 정상 | 정의 파일 시그니처용 타입 export |
+| 형제 파일 정책 비대칭 | 없음 | r3 결함(`repoRoot` raw ↔ `canonicalPath`)이 queue 내부 정규화로 해소 |
+
+## 4. 등록 적대 증거 / 소거 변이 재측정 (검증자 실행)
+
+모두 이번 라운드에 직접 실행했다. 구현자 보고와 무관하게 다시 셌다.
+
+| 변이 | 범위 | 결과 | 귀속 |
+|---|---|---|---|
+| M-A 격리 배선 전체 삭제(`send.ts` 블록 + `const` 복귀 + 미사용 import 정리) | typecheck 3구성 0 error · lint 0 error · 전 스위트 | **green 2591** | VP-05 root — r3와 동일 |
+| M-B `executionCwd = resolve(actualRoot, subpath)` → `actualRoot` | worktrees | **red 1** | AC10 하위 cwd 보존 — 잠김 |
+| M-L worktree 경로를 저장소 **안**(`<repoRoot>/.orca-wt/...`)으로 | worktrees | **green 7** | AC10 "repository 밖" — 잠금 0 |
+| M-L' 등록 변이 "repo name을 path에 쓴다"(잔여물 0까지 밀어 typecheck 0·lint 0 error) | worktrees+infra | **green 219 / 28파일** | VP-14 등록 변이 미검출 |
+| M-C `GIT_OPTIONAL_LOCKS` 제거 | infra/git+handlers | **red 1** | VP-04 등록 변이 — 검출 |
+| M-N `shell: true` 추가 | infra/git | **red 3** | VP-12 등록 변이(shell) — 검출 |
+| M-O `addWorktree`에서 queue 우회 | infra/git+worktrees | **green 39** | VP-12 등록 변이(queue bypass) — 미검출 |
+| M-D queue key를 `resolve()`만으로 | infra/git | **red 1** | D2 잠금 — 검출 |
+| M-E bind를 first-match로 되돌림 | infra/db | **red 1** | D3 잠금 — 검출 |
+| M-P session insert ↔ bind 순서 swap | infra/db | **red 1** | VP-10 등록 변이 — 검출 |
+| M-G naming try/catch 제거 | worktrees | **red 1** | VP-15 등록 변이 — 검출 |
+| M2 `--untracked-files=all` → `=no` | worktrees+infra/git | **red 2** | AC8 — 검출 |
+| M-F `base: baseOid` → `'HEAD'` | 전 스위트 | **green 2591** | AC9 — 미검출(r3와 동일) |
+| M-H D1 rollback 3줄 제거(미사용 import까지 치워 typecheck 0·lint 0 error) | 전 스위트 | **green 2591** | D1 잠금 0 |
+| M-I 격리 칩을 `CwdPanel`에서 삭제 | renderer 81파일 | **green 671** | VP-01 등록 변이 "chip 제거 시 red" 미성립 |
+| M-J `ariaPressed` → r3의 `className` 형태로 복귀 | renderer | **green 671** | D4 수정 잠금 0 |
+| M-K `fallback: undefined` 복귀 | app 23파일 | **green 209** | D7 수정 잠금 0 |
+
+- 소거 변이 잔여물 수렴: M-A·M-H·M-L'는 미사용 import/변수까지 치운 상태에서 **typecheck 0 error · lint 0 error**다. 잔여물에 걸린 red가 아니라 진짜 침묵이다.
+- 구조적 proxy 엄격화: `rg -n "createWorktree|addWorktree|removeWorktree" adapters sessions` = 0줄을 `rg -in "worktree"`로 넓혀 재측정 → 차집합 **1줄**(`adapters/hooks.ts:8`, SDK 훅 이름 주석). 0건은 전수다.
+- **D1 rollback 대상 식별 probe**(임시 스위트, 실행 후 삭제): 별칭 managed root(`<link>/managed` → `<real>`)에서 `worktree add` 후 git이 보고한 경로는 `/tmp/orca-id-real-…/repoid/wtid`, 서비스가 구성한 `worktreeRoot`는 `/tmp/orca-id-link-…/managed/repoid/wtid`다. `isWithinDir` 양방향 술어 결과 **NOT FOUND** — r2·r3가 두 라운드에 걸쳐 테스트에서 고친 canonical identity 축이 프로덕션 rollback에 그대로 남았다.
+- **취소 rollback 잔여물 probe**: `AbortController`로 add를 3회 취소한 뒤 managed root에 빈 버킷 3개(`[[],[],[]]`)가 남았다. `rm`이 `<repoId>/<worktreeId>`만 지우고 `mkdir(dirname(...))`이 만든 버킷은 남긴다.
+- **queue 등록 순서 probe**: 별칭 2개를 연달아 호출한 200라운드 중 **18회**에서 후행 호출이 먼저 큐에 진입했다. 상호배제 probe(별칭 5개 동시, 150라운드)의 최대 동시 실행은 **1**이다.
+
+## 5. V-pair closeout (r4) — `UT → IT → ST → AT`
+
+| Pair | 레벨 | req. | r3 | **r4** | 근거 |
+|---|---|---|---|---|---|
+| VP-17 | UT | REQUIRED | PASS | **PASS** | 별칭 직렬화 + 다른 repo 병렬 2케이스, M-D red. 상호배제 probe 최대 겹침 1 |
+| VP-16 | UT | REQUIRED | PAIR_FAIL | **PAIR_FAIL** | untracked만 닫힘(M2 red). managed/external 분류기 여전히 없음 — EP-11 2/3 |
+| VP-15 | UT | REQUIRED | PAIR_FAIL(root) | **PASS** | `naming.test.ts`가 normalize·collision·fallback을 최종 branch로 관측, M-G red. EP-10 4분기 |
+| VP-14 | UT | REQUIRED | PAIR_FAIL(root) | **PAIR_FAIL**(root) | 하위 cwd는 잠겼으나(M-B) 등록 변이 M-L'가 잔여물 0에서 green. `<userData>` 밖 배치 잠금 0(M-L) |
+| VP-13 | IT | REQUIRED | PASS | **PASS** | 실 SQLite insert(null)→bind→`ON DELETE SET NULL` + 모호 보존 케이스 |
+| VP-12 | IT | REQUIRED | PAIR_FAIL | **PAIR_FAIL** | exec seam 생겨 shell 변이 red(M-N). 등록 변이 둘 중 queue bypass는 green(M-O) |
+| VP-11 | IT | REQUIRED | PAIR_FAIL | **PAIR_FAIL** | 최종 query cwd·unchanged extraDirs 단언 0. M-A green |
+| VP-10 | IT | REQUIRED | PAIR_FAIL | **PAIR_FAIL** | 등록 변이(순서 swap)는 red(M-P). EP-06 3번째 지점(HistoryWriter/app callback) 없음 — bind가 `insertSession` 내부로 접혀 writer 층 관측 0 |
+| VP-09 | IT | REQUIRED | BLOCKED_BY:VP-05 | **BLOCKED_BY:VP-05** | IPC→service 통합 요청/args 테스트 부재 |
+| VP-08 | ST | REGRESSION | PAIR_FAIL | **PAIR_FAIL** | 음성 절반 전수 성립. 짝인 양성 resume 관측 0 |
+| VP-07 | ST | REQUIRED | PAIR_FAIL | **PAIR_FAIL** | 4상태 중 2(clean·dirty). has-commits·check-failed·호출 순서 관측 0 |
+| VP-06 | ST | REQUIRED | PAIR_FAIL | **PAIR_FAIL** | bind 유일성은 닫혔다(M-E). reopen/resume 관측 여전히 0 |
+| VP-05 | ST | REQUIRED | PAIR_FAIL(root) | **PAIR_FAIL**(root) | `prepare-worktree.ts` 미생성, M-A green, AC4 rollback 미잠금·별칭 미식별 |
+| VP-04 | AT | REGRESSION | PAIR_FAIL | **PASS** | 등록 변이(read env 상실) 검출(M-C red) + `git-cli.test.ts` 포함 회귀 green |
+| VP-03 | AT | REQUIRED | BLOCKED_BY:VP-07 | **BLOCKED_BY:VP-07** | handler 경로·결과 union 관측 0 |
+| VP-02 | AT | REQUIRED | PAIR_FAIL | **PAIR_FAIL** | ENOENT/non-repo fixture 없음. 오류 분류도 여전히 `schema_validation_error` |
+| VP-01 | AT | REQUIRED | PAIR_FAIL | **PAIR_FAIL** | 등록 변이 "chip 제거 시 red" 미성립(M-I green) |
+
+- root `PAIR_FAIL`: **VP-05** · **VP-14**. VP-15는 root에서 해제됐다.
+- 종속 `BLOCKED_BY`: VP-09 → VP-05 · VP-03 → VP-07.
+- 합계: **PASS 4 · PAIR_FAIL 11 · BLOCKED_BY 2 = 17** (r3: PASS 2 · 13 · 2). 구현자 자기보고 `SELF_PASS 3 / SELF_BLOCKED 14`와 대조하면 SELF_PASS 3(VP-14·VP-15·VP-17) 중 **VP-14는 미성립**이다.
+- 실행 범위: r4는 재검증이므로 root 실패 pair·종속 pair·이번 변경이 닿은 pair(VP-01·04·10·12·13·14·15·17)와 §15 gate 전건을 실행했다. 변경이 닿지 않은 이전 PAIR_FAIL(VP-02·06·07·08·09·11·16)은 증거 좌표를 참조해 상태만 승계한다.
+
+### AC 재측정
+
+r3에서 바뀐 행만 적는다. 나머지는 §라운드 3 「AT / AC 세부와 합계」가 정본이다.
+
+| AC | r3 | **r4** | 이번 라운드 관측 |
+|---|---|---|---|
+| AC1 | ✅ | ✅ | 정적 + `runner.test.ts` 직접 관측으로 승격. M-N red |
+| AC4 | ❌ | ❌ | 코드는 생겼으나 M-H green, 별칭 root NOT FOUND |
+| AC8 | ✅ | ✅ | M2 red 재확인 |
+| AC10 | ⚠️ | ⚠️ | 하위 cwd 보존 잠김(M-B red) · `<userData>` 밖 배치 잠금 0(M-L green) |
+| AC11 | ⚠️ | ✅ | `naming.test.ts` 2케이스 + M-G red. timeout·invalid 행과 `check-ref` 호출 단언은 여전히 없다(§13 D14) |
+| AC12 | ⚠️ | ✅ | 유일 조상만 bind, 모호는 보존 — M-E·M-P red |
+| AC17 | ❌ | ✅ | key 정규화 1곳 통합 + 별칭 직렬화 red(M-D). 등록 순서 비결정성은 §13 D11 |
+| AC20 | ⚠️ | ⚠️ | `aria-pressed` 배선되고 tone을 `chipSurface`가 소유한다. 칩 관측 0(M-I·M-J green) + Windows 실기 미수행 |
+
+- **합계 재측정**: **✅ 12 · ⚠️ 7 · ❌ 1 = 20**.
+  ✅ = AC1·2·5·6·7·8·11·12·16·17·18·19 / ⚠️ = AC3·9·10·13·14·15·20 / ❌ = AC4.
+- **자기보고 대조**: plan §19 r4 `✅16 · ⚠️3 · ❌1` ↔ 커밋 trailer `Criteria-Met: 16/20`·`Criteria-Pending: AC3, AC13, AC14, AC15` ↔ INDEX 비고 `✅16 · ⚠️3 · ❌1`. 자기보고 셋은 서로 일치하고 **재측정과 4행 불일치**(AC4는 pending 목록에 없는데 ❌, AC9·AC10·AC20이 ✅로 올라가 있다).
+
+### §10 강제 지점 재열거
+
+| EP | 지점 수 | 잠금 | 근거 |
+|---|---|---|---|
+| EP-01 renderer 3축 | 3/3 | 부분 | reducer만 red. 칩 삭제는 green(M-I) |
+| EP-02 IPC 4축 | 4/4 | — | r3 재열거 승계 |
+| EP-03 준비 순서 2곳 | **1/2** | 0 | `prepare-worktree.ts` 여전히 없음 |
+| EP-04 Git process 5곳 | 5/5 | 성립 | M-N·M-C red |
+| EP-05 migration 2곳 | 2/2 | 성립 | `sync ok: 18 migrations` |
+| EP-06 metadata 3곳 | **2/3** | 부분 | bind가 `queries.ts:479` 내부. writer 층 지점 없음 |
+| EP-07 lifecycle | 2/2 | 성립 | `removeWorktree` 프로덕션 참조 2건 전부 `service.ts` |
+| EP-08 cwd 종단 4좌표 | 4/4 | **0** | M-A green |
+| EP-09 path SSOT 2곳 | 2/2 | 부분 | subpath red(M-B) · 배치 green(M-L) |
+| EP-10 naming 4분기 | 4/4 | 성립 | M-G red + 충돌/정규화 단언 |
+| EP-11 분류 3종 | **2/3** | 부분 | managed/external 분류기 없음 |
+| EP-12 mutation 4진입 | 4/4 | 부분 | queue 헬퍼는 red(M-D) · 진입 배선은 green(M-O) |
+
+- 재열거 합계 **9군 지점 수 일치 · 3군 부분**(EP-03 1/2 · EP-06 2/3 · EP-11 2/3). 잠금 0인 군은 EP-08 하나, 부분 잠금 4군(EP-01·EP-09·EP-11·EP-12)이다.
+- 구현자 자기보고는 이번 라운드에 총계를 적지 않고 "EP-09·EP-10·EP-12를 신규 test로 관측"만 적었다 — 그 세 군은 재측정과 일치하고, EP-12는 **헬퍼만** 잠겼다.
+
+### 현재 변경의 운영 gate (plan §15)
+
+| Gate | 결과 | 관측한 실행 산출 |
+|---|---|---|
+| 1 `npm run typecheck` | PASS | node·web·test 3구성, 진단 0줄 |
+| 2 `npm run lint` + 트리 확인 | PASS | 0 error · warning 1(기존 `useTranscriptVirtualizer`) · 실행 후 `git status --short` 빈 출력 |
+| 3 관련 순수 suite | PASS | `vitest run src/main/features/worktrees src/main/infra/git src/main/infra/db` 등 — 아래 전 스위트에 포함 |
+| 4 DB suite | PASS(조건부) | `npm rebuild better-sqlite3`(Node ABI) 후 전 스위트 **258/259 파일 · 2591/2591 케이스**, 클린 트리 8회 반복 전건 green |
+| 5 `check-migrations-appendonly.mjs` | PASS | `sync ok: 18 migrations` · `no-copies ok: 810 files` |
+| 6 `check-doc-inventory.mjs --check` | PASS | `generated doc ok (9 items, 79 channels)` · prose ok · links ok |
+| 7 `git diff --check` | PASS | 출력 0줄 |
+| 8 architecture sweep | PASS | 엄격화 후 차집합 1줄(주석), 호출 0 |
+| 9 dependency sweep | PASS | `git diff 04ab7ad..e798f27 -- app/package*.json` 빈 diff · shell git 0 |
+| 10 Windows 사람 실기 | 미수행 | 이 환경에 Electron 바이너리·Windows 없음 |
+| (추가) `node --test scripts/*.test.mjs` | PASS | 59/59 |
+
+- 환경 기인 실패 분리: **1파일 0건 수집** — `app/chat-turn.continuity.test.ts`가 `Electron failed to install correctly`. `app/AGENTS.md §제약 환경`의 알려진 서명이며 이번 변경 무관(격리 코드 참조 0). r1부터 동일하다.
+- 게이트가 작업 트리를 바꿨는가: **없음**. `lint --fix` 실행 후 `git status --short` 빈 출력.
+- 검증 중 실행한 명령의 잔여물: `npm ci --ignore-scripts`+`npm rebuild better-sqlite3`가 만든 `app/node_modules`(`.gitignore` 대상) 뿐. 임시 probe 스위트 3개는 실행 후 삭제했고 최종 `git status --short`는 verify 산출물만 보여준다.
+- **변이 실행 중 관측한 간헐 red 1건**: `mutation-queue.test.ts > serializes filesystem aliases…`가 전 스위트 4회 중 2회 red였다(둘 다 queue와 무관한 파일을 변이한 트리). 클린 트리 8회·단독 22회는 green. 원인은 §13 D11.
+
+## 6. 외부 포트 / 문서 계약
+
+| 계약 | r4 변화 | 결과 |
+|---|---|---|
+| `orca:session:delete` → `DeleteSessionResult` | zod 실패 fallback이 union 값으로 바뀌었다(`session.ts:103-109`) | 부분 — 잠금 0(M-K), 이유가 `worktree-check-failed`다(§13 D13) |
+| `orca:chat:send.worktreeIsolation` | 변화 없음 | PASS |
+| `0018_managed_worktrees` | 변화 없음 | PASS |
+
+## 7. 숫자 / 상한 재측정
+
+- 신규 테스트 파일 재측정: r4가 **3개**(`naming.test.ts`·`repository.test.ts`·`runner.test.ts`) 추가 + 3개 보강(`service.test.ts`·`managed-worktrees.test.ts`·`mutation-queue.test.ts`). 누적 신규 9개다.
+- plan §14 신규 파일 중 **미생성 1종**: `app/chat-turn/prepare-worktree.ts`(+test). r3의 4종에서 3종이 해소됐다.
+- 케이스 수: 전 스위트 2584 → **2591**(+7).
+- 상한 재계산: naming 충돌 루프 `naming.ts:40` 상한 9999회 × Git read 2회 — r3와 같다.
+
+## 8. 남은 사람 실기
+
+r3 판정 유지 — **AC20의 Windows Electron 배치·포커스 시각 확인 하나뿐**이다. 나머지 표면(준비 순서·rollback·resume·오류 분류·칩 상태)은 이 환경에서 순수 seam으로 관측 가능하며, 이번 라운드도 그 seam들이 만들어지지 않아 미관측으로 남았다.
+
+## 9. 게이트 재실행
+
+실행 명령과 관측 산출은 §5 「현재 변경의 운영 gate」 표에 있다. 요약: lint 0 error · typecheck 진단 0줄 · vitest 258/259파일 2591케이스 · scripts 59/59 · 문서·마이그레이션·diff gate 전건 green.
+
+## 10. 검증 책임 분리 — 사람 vs 에이전트
+
+r3의 분담과 같다. 이번 라운드에 새로 사람에게 넘긴 항목은 없다.
+
+## 11. Repository operation checks (r4)
+
+- `AGENTS.md` 변경 없음 — 위생 검사 대상 아님.
+- INDEX: 단계 `impl`·상태 `IMPL_DONE (V1 r4)`·다음 주체 `Claude (r4 검증)`가 실제 상태와 맞았다. 비고 4줄(≤5). **대상 커밋 좌표는 이번 검증에서 `e798f27`로 기입**했다(`git cat-file -t e798f27` = commit).
+- trailer 허용값·파싱: ✅ `git log -1 --format='%(trailers:only=true)' e798f27`가 `Agent: codex`·`Handoff`·`Status: implemented`·`Criteria-Met`·`Criteria-Pending`·`Verified-By: pending` **6키를 그대로** 돌려준다.
+- 인용 해시 실재: `04ab7ad`·`aec9fe9`·`dd9f47c`·`418dc1e`·`a869613`·`e798f27` 전부 commit.
+- 이동/삭제한 reference·script: 없음.
+- 위반 2건은 §13 D15·D16에 적는다(커밋 언어 · plan 절 소유).
+
+## 12. 구현자 코멘트 대조
+
+| 구현자 r4 기술 | 검증자 판단 | 근거 |
+|---|---|---|
+| "D1은 porcelain 목록에서 이번 경로를 exact containment로 찾아 remove" | **미성립** | 별칭 managed root에서 NOT FOUND(§4 probe). 잠금도 0(M-H green) |
+| "D2는 모든 mutation key를 realpath+normalize" | 성립 | 4진입 전부 `withRepoMutation` 경유, M-D red |
+| "D3는 조상 후보가 정확히 하나일 때만 bind" | 성립 | M-E·M-P red |
+| "VP-14·VP-15·VP-17 `SELF_PASS`" | **2/3 성립** | VP-14는 등록 변이 M-L'가 green |
+| "containment 소거는 `executionCwd != worktreeRoot`와 정확 subpath 단언이 red로 만든다" | 성립 | M-B red |
+| "runner는 fake `execFile`로 executable·args·env·shell 부재를 직접 관측" | 성립 | M-C·M-N red |
+| "queue alias swap은 두 번째 mutation의 조기 시작을 검출" | 성립하되 비결정 | 등록 순서가 호출 순서가 아니라 같은 단언이 간헐 red다(§13 D11) |
+| "D5·D9·send 준비 순서 deferred seam은 닫지 않았다" | 성립 | 코드에서 그대로 확인 |
+
+## 13. Finding disposition / 파생 이슈 (r4)
+
+r3 이슈의 상태 변화와 신규만 적는다. 표 정본은 [`plan.md`](plan.md) `[검증자 기입] 파생 이슈`다.
+
+| # | 상태 | 근거 |
+|---|---|---|
+| D1 | **open (BLOCKING)** | 잠금 0(M-H) + 별칭 root 미식별(§4 probe) |
+| D2 | **closed** | M-D red |
+| D3 | **closed** | M-E·M-P red |
+| D4 | **closed (잠금 0)** | `aria-pressed` 배선·tone을 `chipSurface`가 소유. M-J green |
+| D5 | open | `send.ts:157` 그대로 |
+| D6 | open (NEXT_HANDOFF) | `listWorktrees`는 배선됐으나 부팅 reconciliation은 없음 |
+| D7 | **closed (잠금 0)** | union fallback 존재. 이유 값 문제는 D13 |
+| D8 | open (planner 기록) | 변화 없음 |
+| D9 | open | 변화 없음 |
+| D10 | open (NEXT_HANDOFF) | 변화 없음 |
+| D11 | **신규 NON_BLOCKING** | queue 등록이 비원자적 — 200회 중 18회 순서 역전, 새 단언이 간헐 red |
+| D12 | **신규 NON_BLOCKING** | 실패 rollback이 `<managed>/<repoId>` 빈 버킷을 남긴다(취소 3회 → 3개) |
+| D13 | **신규 NON_BLOCKING** | 스키마 실패 fallback 이유가 `worktree-check-failed` |
+| D14 | **신규 NON_BLOCKING** | AT-11이 열거한 timeout·invalid fixture와 `check-ref` 호출 단언이 없다 |
+| D15 | **신규 기록** | 구현 커밋 4건의 제목·본문이 영어다 — `docs/handoff/AGENTS.md §커밋·git 규약`은 한국어 메시지를 규정한다 |
+| D16 | **신규 기록** | plan의 `### r4` 구현자 절이 `## [검증자 기입] 파생 이슈` 안에 있다 — 절 소유가 섞였다 |
+
+- `PLAN_GAP`: **없음**. BLOCKING 1건과 pair 미달 13건은 전부 plan이 이미 지정한 계약·oracle을 구현이 만들지 않은 것이다.
+
+## 14. Review Signals — 사실만
+
+- 이전 라운드와 동일/유사 증상: **있다.** r2·r3가 테스트에서 두 라운드에 걸쳐 고친 canonical identity 축이 r4의 프로덕션 rollback(`service.ts:92-94`)에 같은 형태로 나타났다 — 한쪽만 canonical인 두 경로를 비교한다.
+- 관련 plan 지침/AC의 존재: **있었다.** `prepare-worktree.ts` seam(§9·§14·EP-03)은 r1부터 네 라운드 연속 미생성이고, r4 구현자는 "이번 수정에서 닫지 않았다"고 명시했다. root VP-05는 검증 두 라운드(r3·r4) 연속 같은 이유로 열려 있고, seam은 구현 r1부터 네 라운드 내내 없다.
+- 사용자 결정 변경 근거: 없음. SUPERSEDED 0.
+- 반복된 검증 환경 한계: `chat-turn.continuity.test.ts` 0건 수집(Electron 바이너리 부재)과 렌더 하네스 부재(`@testing-library` 0건)가 r1부터 동일하다.
+- 라운드 수: **4**(3 초과). r4 앞의 review는 `APPLY` 모드로 B/F 분류 후 지침을 유지했고, 그 뒤 라운드에서도 같은 root pair가 닫히지 않았다.
+
+## 15. 결론 (r4)
+
+- 상태: **FAIL**
+- pair: PASS 4(VP-04·13·15·17) · root PAIR_FAIL 2(VP-05·VP-14) · PAIR_FAIL 9 · BLOCKED_BY 2
+- PLAN_GAP: 없음 — 다음 주체는 **구현자**
+- ACTIVE Decision: D-011 미충족 1건(§13 D1). D-010·D-014는 이번 라운드에 충족됐다
+- AC: **✅12 · ⚠️7 · ❌1 = 20** (자기보고 `✅16 · ⚠️3 · ❌1`과 불일치)
+- 강제 지점: 9군 일치 · 3군 부분(EP-03·EP-06·EP-11)
+- 운영 gate: 10건 중 9건 PASS · 1건(Windows 사람 실기) 미수행. 환경 기인 red 1파일은 변경 무관
+- NON_BLOCKING: D5·D9·D11·D12·D13·D14 / NEXT_HANDOFF: D6·D10 / 기록: D8·D15·D16
+- 남은 사람 확인: AC20의 Windows Electron 배치·포커스 하나
+- 다음 단계: 라운드 5다. 라운드가 다시 3을 초과하므로 **재구현 전 `handoff-review`를 수행한다**. 그 뒤 구현자는 (1) `prepare-worktree.ts` seam으로 VP-05의 준비 순서·rollback oracle을 세우고, (2) D1의 rollback 대상 식별을 canonical 한 축으로 맞추고, (3) VP-14의 `<userData>` 밖 배치와 VP-12의 queue 진입 배선을 잠그고, (4) VP-11의 최종 query cwd·extraDirs 단언과 VP-01의 칩 관측을 만든다
+
+
+# 라운드 3 — 원문 보존
 
 ## 0. 기준선 / plan 변경 확인
 
