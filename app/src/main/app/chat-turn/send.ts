@@ -35,6 +35,7 @@ import { createApprovalRequester } from './approval'
 import { runTurnWithContinuations } from './post-turn'
 import type { ChatRuntimeDeps, NormalizedAttachments } from './deps'
 import { makeClassifiedError } from '../../infra/errors'
+import { prepareTurnWorktree } from './prepare-worktree'
 
 export async function handleChatSend(
   deps: ChatRuntimeDeps,
@@ -137,29 +138,25 @@ export async function handleChatSend(
     } = resolution.value
 
     let executionCwd = payload.cwd ?? ctx.getCwd(boundProjectId)
-    if (payload.worktreeIsolation) {
-      const prepared = await deps.worktrees.prepare({
-        sourceCwd: executionCwd,
-        firstPrompt: effectiveText,
-        signal: lease.controller.signal,
-        complete: (prompt, signal) =>
-          activeAdapter.complete({
-            prompt,
-            cwd: executionCwd,
-            signal,
-            providerSettings: resolved.prepared.providerSettings,
-            env: resolved.prepared.env
-          })
+    const preparedWorktree = await prepareTurnWorktree({
+      enabled: payload.worktreeIsolation === true,
+      ...(payload.sessionId ? { sessionId: payload.sessionId } : {}),
+      sourceCwd: executionCwd,
+      firstPrompt: effectiveText,
+      signal: lease.controller.signal,
+      adapter: activeAdapter,
+      providerSettings: resolved.prepared.providerSettings,
+      env: resolved.prepared.env,
+      worktrees: deps.worktrees
+    })
+    if (preparedWorktree.kind === 'rejected') {
+      sendChatEvent(event.sender, {
+        type: 'error',
+        error: makeClassifiedError('schema_validation_error', preparedWorktree.message)
       })
-      if (prepared.kind === 'rejected') {
-        sendChatEvent(event.sender, {
-          type: 'error',
-          error: makeClassifiedError('schema_validation_error', prepared.message)
-        })
-        return
-      }
-      executionCwd = prepared.executionCwd
+      return
     }
+    executionCwd = preparedWorktree.executionCwd
 
     // ── 6. TurnContext 조립 + 레지스트리 등록 (순수 조립 — turn-context.ts) ──
     const controller = lease.controller
