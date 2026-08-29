@@ -41,9 +41,20 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { createElement } from 'react'
 import { CwdPanel } from './CwdPanel'
 
-const markup = (isolation: boolean, inflight = false): string => {
+const markup = (isolation: boolean, inflight = false, cwd: string | null = '/repo'): string => {
   sessionState.value = { extraDirs: [], extraDirRejection: null, worktreeIsolation: isolation }
-  return renderToStaticMarkup(createElement(CwdPanel, { cwd: '/repo', inflight }))
+  return renderToStaticMarkup(createElement(CwdPanel, { cwd, inflight }))
+}
+
+// 격리 칩 **자신의** button 조각만 떼어낸다. 패널 전체를 보면 형제 `＋` 칩도 inflight 에
+// 비활성이라 `disabled=""` 가 마크업 어딘가에는 늘 있다 — 그 단언은 격리 칩이 활성으로 굳어도
+// 초록이다. 라벨 문자열은 이 칩의 label 과 title 에만 나온다(`＋` 칩은 extraDirAdd).
+const isolationChip = (panelMarkup: string): string => {
+  const chunk = panelMarkup
+    .split('<button')
+    .find((part) => part.includes('chat.composer.worktreeIsolation'))
+  expect(chunk, '격리 칩 button 이 마크업에 없다').toBeDefined()
+  return chunk!
 }
 
 describe('CwdPanel — 격리 칩 (AC2 · AC20)', () => {
@@ -56,12 +67,16 @@ describe('CwdPanel — 격리 칩 (AC2 · AC20)', () => {
     expect(markup(true)).toContain('aria-pressed="true"')
   })
 
+  // 비활성 방향만 단언하면 칩이 **영구 비활성**이어도 초록이다 — 사용자는 격리를 켤 수 없는데
+  // 아무도 안 본다(verify r12 D34). 두 방향을 같은 축에서 본다.
   it('inflight 이거나 cwd 가 없으면 비활성이다', () => {
-    expect(markup(false, true)).toContain('disabled=""')
-    sessionState.value = { extraDirs: [], extraDirRejection: null, worktreeIsolation: false }
-    expect(renderToStaticMarkup(createElement(CwdPanel, { cwd: null, inflight: false }))).toContain(
-      'disabled=""'
-    )
+    expect(isolationChip(markup(false, true))).toContain('disabled=""')
+    expect(isolationChip(markup(false, false, null))).toContain('disabled=""')
+  })
+
+  it('턴이 비진행이고 cwd 가 있으면 활성이다 — 이 방향이 없으면 영구 비활성도 초록이다', () => {
+    expect(isolationChip(markup(false))).not.toContain('disabled=""')
+    expect(isolationChip(markup(true))).not.toContain('disabled=""')
   })
 
   it('클릭은 현재 draft 를 뒤집는다', () => {
