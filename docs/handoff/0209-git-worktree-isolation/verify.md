@@ -10,17 +10,243 @@
 | slug | `0209-git-worktree-isolation` |
 | 검증자 | Claude Code |
 | 일자 | 2026-08-29 |
-| 대상 커밋/range | `8b2dc0d8..297f89b4` (r12 구현 `0c207d87` + Windows 후속 `297f89b4`) — 이전 라운드는 `d579068d..0ffad305` |
-| 구현 전 plan 기준 | `04ab7ad` (r12에서도 규범 행 변경 없음 — §3·§7·§7-A·§10 diff **0줄** 실측) |
+| 대상 커밋/range | `76e9a2cd..ec3ec1bc` (r13 구현 `ec3ec1bc`) — 이전 라운드는 `8b2dc0d8..297f89b4` |
+| 구현 전 plan 기준 | `04ab7ad` (r13에서도 규범 행 변경 없음 — §3·§7·§7-A·§10·§15 diff **0줄** 실측) |
 | V mode / 유효 V | `Baseline V: V1` |
 | 검증 기준 plan revision | `04ab7ad:V1` |
-| 라운드 | 12 |
-| 상태 | **FAIL** |
-| 자기 검증 여부 | **r11·r12 예** — 설계 Claude, r11·r12 구현 Claude, 검증 Claude. r1~r10 구현은 Codex |
+| 라운드 | 13 |
+| 상태 | **PASS** |
+| 자기 검증 여부 | **r11·r12·r13 예** — 설계 Claude, r11~r13 구현 Claude, 검증 Claude. r1~r10 구현은 Codex |
 
-> 이 문서는 라운드별로 누적한다. **아래 「라운드 12」가 현재 판정**이고, 「라운드 11」 이하는 원문 보존이며 재서술하지 않는다.
+> 이 문서는 라운드별로 누적한다. **아래 「라운드 13」이 현재 판정**이고, 「라운드 12」 이하는 원문 보존이며 재서술하지 않는다.
 
-# 라운드 12 — 현재 판정 **FAIL**
+# 라운드 13 — 현재 판정 **PASS**
+
+r12 가 root 로 지목한 **VP-01 이 닫혔다**. 세 번째 자기 검증 라운드라 skill §4 가 요구하는
+*구현 보고가 이름을 대지 않은 적대 축*을 다시 따로 만들었다 — 이번에는 **선언된 path 의 hop 을
+렌더러 밖까지 잇고**(api 래퍼 · 스키마 파싱 · main 소비), **분모를 코드에서 독립 재열거**했다.
+그 축에서 나온 9 변이(A1~A9)는 전부 red 다. BLOCKING **0건**.
+
+프로덕션은 이번에도 **0줄**이다 — 판정 축은 *오라클이 무엇을 잠그는가* 하나다.
+새로 관측한 것 둘: 조립 지점 분모가 6 hop 중 5 를 세었고(빠진 hop 도 잠겨 있다, D39),
+`queue-entry.test.ts` 가 전 스위트 12회 중 **2회 간헐 red** 다(D30 의 고정 대기 장치, D40).
+둘 다 이번 라운드 산출이 아니고 현재 pair·gate 에 귀속되지 않아 PASS 를 막지 않는다.
+
+## 0. 기준선 / plan 변경 확인 (r13)
+
+- 대상 range: `76e9a2cd..ec3ec1bc` — 구현 커밋 1개. 직전 검증 `76e9a2cd` 위에 fast-forward.
+- 기준선이 diff로 성립하는가: **예**. 코드 hunk는 전부 `*.test.ts`이고 `plan.md` hunk 2개는 §19 `### r13` 절과 파생 이슈 표의 D33~D38 6행 추가다.
+- 규범 행 무변경을 **기계로 확인**했다: `§3 Decision`·`§7 AC + §7-A pair`·`§10 EP`·`§15 gate` 네 절을 두 revision 에서 추출해 diff — **각각 0줄**(27·82·66·16행).
+- 채점 기준: r3~r12와 같은 `04ab7ad:V1`.
+- plan validity: r3 판정 유지. root `PLAN_GAP` **없음**.
+- `[구현자 기입]` 7필드: **7/7** — `설계 리뷰`·`강제 지점 전수와 V-pair 자기확인`·`이번 라운드 수정의 잠금`·`Product/UX 파생 검토`·`놓친 잠재 문제 + 대응`·`구현 보고`·`Review Signals` 헤딩 실재(추가 4절은 초과분).
+- 구현은 **프로덕션 0줄 변경**이다(`git diff --stat 76e9a2cd..ec3ec1bc` 상 코드 3파일 전부 `*.test.ts`).
+
+## 1. ACTIVE Decision — r12 대비 변화만
+
+| Decision | r12 | r13 | 관측 |
+|---|---|---|---|
+| D-004 격리는 신규 일반 세션 전용 | ✅ | ✅ | 음성 축 3개가 이번에 잠겼다 — V-6·V-7·V-8 각 red 1 |
+| D-006 base 는 준비 초기 HEAD OID | ✅(코드) | ✅(코드) | `service.ts:80` 단일 스냅샷 → `:102`·`:132` 재사용. HEAD 이동 모사 오라클은 여전히 없다(AC9 ⚠️) |
+| D-011·D-007·D-014·D-001 | 유지 | 유지 | 변경 무관. 프로덕션 0줄 |
+
+## 2. 구현 결과 비판적 검토 (r13 변경분)
+
+프로덕션이 0줄이라 실패 모드 질문은 이번 diff에 대상이 없다. **오라클 자신**을 같은 눈으로 읽었다.
+
+- `isolationChip()` 은 이번 라운드가 만든 **구조적 proxy** 다 — 마크업을 `<button` 으로 잘라 라벨을 가진 조각을 고른다. §8에서 엄격화 재측정했다.
+- `sentPayload()` 가 `undefined` 를 돌려주면 음성 축 4건이 공허 통과할 수 있다. **직접 probe 로 부정**: `expect(undefined).not.toHaveProperty(...)` 와 `toMatchObject` 둘 다 throw 한다(임시 스위트 1건, 측정 후 삭제).
+- `sessionsStore.test.ts` 는 `vi.stubGlobal('window', { alert })` 로 window 전체를 갈아끼운다. 같은 파일 앞 describe 3개는 영향 없다(스코프 밖) — 30케이스 전건 green 으로 실측.
+- `CwdPanel.isolation.test.ts` 는 오라클을 **교체**했다(패널 전체 → 칩 조각). 구 장치가 잡던 자리를 새 장치가 잡는지 §4에서 되돌려 실측했다.
+
+## 3. 역방향 탐색 (r13) — **선언된 path 를 렌더러 밖까지 잇는다**
+
+r12 는 path 를 렌더러 안에서 hop 으로 잘랐다. 이번 자기 검증 분모는 **같은 계약을 렌더러 밖
+seam 에서 깨는 것**과 **분모의 독립 재열거** 둘이다.
+
+| 축 | 내가 센 분모 | 관측 |
+|---|---|---|
+| `chat:send` 조립·통과 지점 | `.send(` 프로덕션 호출부 **2건**(`chatStore.ts:306`·`:706`) 에서 역산 — 조립 3(`:587`·`:706`·`:990`) + 시드 `continuityDraftSession` + 통과 2(`sendNewChatPayload`·`chatApi.send`) = **6 hop** | 6/6 잠김. 구현 보고는 **5** 를 세었다 — 빠진 것은 `renderer/src/shared/api/ipc.ts:68` 래퍼(D39) |
+| EP-01 3축 프로덕션 참조 | `worktreeIsolation` 프로덕션 출현 **12건** = reducer 4 · store 2 · CwdPanel 5 · (shared 계약 별도) | 3축 전부 잠김 — V-3 red 3 · V-2/A6 red 2 · M-I red 5 |
+| 계약을 **다른 seam** 에서 깨기 | api 래퍼(A1) · zod 파싱(A3) · main 소비(A2) | red 2 · red 2 · red 5 |
+| 상태 단언 방향 | `aria-pressed` 반전(A8) · 삭제 분기 무력화(A9) · 기본값 반전(A5) | red 1 · red 1 · red 3 |
+
+- **A2 (main seam)**: `send.ts:142` 의 `enabled: payload.worktreeIsolation === true` → `enabled: false`. `src/main` 1776케이스 중 **red 5**(`send.worktree.test.ts` 전건). 사용자 선택이 main 에서 버려지는 축은 잠겨 있다.
+- **A1 (api 래퍼)**: `ipc.ts:68` 이 플래그를 벗기게 하면 **red 2**. 하네스가 `window.orca.chat.send` 를 잡으므로 이 hop 이 자동으로 분모에 든다 — 보고가 세지 않았을 뿐 구멍은 아니다.
+- **A3 (스키마 파싱)**: `worktreeIsolation` 에 `.transform(() => undefined)` 를 걸어 파싱이 값을 지우게 하면 **red 2**(`protocol.worktree.test.ts` · `ipc-integration.test.ts`). 다만 red 를 만든 것은 **배타 절(AC7) 축**이고 "파싱 산출이 플래그를 보존한다" 는 양성 단언은 아니다 — 그 축은 A2 가 main 소비 지점에서 닫는다.
+- **A7 (형제 슬롯)**: `＋` 추가 칩의 `disabled={picking || inflight}` 를 `false` 로 바꿔도 **green** 이다. 구 오라클(패널 전체 마크업)로 되돌려 같은 변이를 심어도 **green** — 교체가 잃은 잠금이 아니라 처음부터 없던 잠금이고, extraDirs 계약이라 이 handoff 밖이다(D41).
+
+## 4. 등록 적대 증거 / 소거 변이 재측정 (검증자 실행)
+
+구현 보고와 무관하게 다시 심었다. 인용 변이 3(D33·D34·D35)이 핵심이다.
+
+| 변이 | 출처 | 구현 보고 | **검증 재측정** | 비고 |
+|---|---|---|---|---|
+| **V-2** 페이로드에서 플래그 제거 | **D33 인용** | red 2 | **red 2** | r12 는 green 2638 이었다 |
+| **V-1** 칩 영구 비활성 | **D34 인용** | red 1 | **red 1** | r12 는 green 2638 이었다 |
+| **V-5** renderer 가 보존 결과 무시 | **D35 인용** | red 1 | **red 1** | r12 는 green 2638 이었다 |
+| V-1b 칩 영구 활성 | 형제 방향 | red 1 | **red 1** | |
+| V-1c `cwd` 축만 제거 | 형제 방향 | red 1 | **red 1** | 구 장치도 잡던 축 |
+| V-1d `inflight` 축만 제거 | 새 proxy 자기 눈 | red 1 | **red 1** | 구 장치는 green — 하한 상승 |
+| V-5b 이유만 삼킴 | 형제 방향 | red 1 | **red 1** | |
+| V-6 fork draft 승계 | 음성 축 | red 1 | **red 1** | |
+| V-7 확정 세션이 실음 | 음성 축 | red 1 | **red 1** | |
+| V-8 핸드오프가 실음 | 음성 축 | red 1 | **red 1** | |
+| V-9 통과 지점이 벗김 | 배선 hop | red 2 | **red 2** | |
+| V-3 리듀서가 토글 무시 | EP-01 reducer 축 | red 3 | **red 3** | |
+| M-I 칩 삭제 | VP-01 등록 | red 5 | **red 5** | r12 red 1 에서 상승 |
+| M-AE handler 가 보존 이유 무시 | VP-03 등록 | red 1 | **red 1** | |
+| M-AM bootstrap 배선 제거 | EP-07 배선 | (r12) red 2 | **red 2** | 덮개 회귀 확인용 |
+
+- **덮개 회귀**: `red → green` **0건**. 이번 라운드가 오라클 하나를 교체했으므로 구 장치가 잡던 축을 되돌려 대조했다 — V-1c 는 구·신 모두 red, V-1d 는 구 green·신 red(상승), A7 은 구·신 모두 green(처음부터 없던 잠금). 잃은 자리 없음.
+- **분모 검산 대조**: 구현자 필수 표 6행(선택 증거 2 · 인용 변이 3 · 새 oracle 1)은 전건 성립한다. 나머지 9행도 전건 재현됐다.
+- 구현자가 세지 않은 축 9건(A1~A9)은 §3 표에 있고 **전건 red** 다.
+
+## 5. V-pair closeout (r13) — `UT → IT → ST → AT`
+
+프로덕션 0줄이라 r13 이 영향을 준 pair 는 VP-01(칩·store·페이로드)과 VP-03(소비자 hop) 둘이다.
+나머지 15는 r12 판정을 승계하되 대표 3개를 재심어 살아 있음을 확인했다.
+
+| pair | 레벨 | req | r12 | **r13** | 근거 |
+|---|---|---|---|---|---|
+| VP-01 | AT | REQUIRED | **PAIR_FAIL**(root) | **PASS** | 선언 path 6 hop 전건 잠김(§3). V-2·V-9·A1·A6 각 red 2 · V-1/1b/1c/1d red 1 · A8 red 1 · M-I red 5 · V-3 red 3 · A5 red 3 |
+| VP-03 | AT | REQUIRED | PASS | **PASS** | 소비자 hop 이 이번에 닫혔다 — V-5·V-5b·A9 각 red 1. 등록 변이 M-AE red 1 |
+| VP-02 | AT | REQUIRED | PASS | **PASS** | 변경 무관 — 승계 |
+| VP-04 | AT | REGRESSION | PASS | **PASS** | 변경 무관 — 승계 |
+| VP-05·VP-06·VP-07 | ST | REQUIRED | PASS | **PASS** | 변경 무관 — 승계 |
+| VP-08 | ST | REGRESSION | PASS | **PASS** | 종료 경로 배선 재확인 — M-AM red 2 |
+| VP-09~VP-13 | IT | REQUIRED | PASS | **PASS** | 변경 무관 — 승계. A2 red 5 로 `send → prepare` 계열 장치 생존 확인 |
+| VP-14~VP-17 | UT | REQUIRED | PASS | **PASS** | 변경 무관 — 승계 |
+
+- 합계: **PASS 17 · PAIR_FAIL 0 · BLOCKED_BY 0 = 17** (r12: 16 · 1 · 0).
+- 구현자 자기보고 `SELF_PASS 2`(VP-01·VP-03) 대조: **2/2 성립**.
+- 실행 범위: VP-01·VP-03 은 전건 재측정, 나머지는 이전 `PASS` 좌표 참조 + 대표 변이 3건(M-AM·M-AE·A2) 생존 확인.
+
+### AC 재측정
+
+| AC | 구현자 | **재측정** | 근거 |
+|---|---|---|---|
+| AC2 | ✅(⚠️에서 상승) | **✅** | r12 가 내린 근거(`store → schema` hop 잠금 0)가 V-2 red 2 로 닫혔고, 조립 6 hop 전수와 기본 off(A5 red 3)까지 성립 |
+| AC20 | ⚠️ | **⚠️** | 기계 축은 닫혔다(양방향 `disabled` · `aria-pressed` 반전 A8 red 1 · i18n `ko.ts:698`·`en.ts:693` 실재). Windows 시각 실기는 남는다 |
+| AC4·AC9·AC10 | ⚠️ | **⚠️** | 변화 없음 — abort 주입(D32) · HEAD 이동 모사 미관측 · Windows 경로 표기(CI 러너) |
+| 나머지 16 | ✅ | **✅** | 변경 무관 승계 |
+
+**합계 재측정 `✅16 · ⚠️4 · ❌0 = 20`** — 구현자 자기보고와 일치. 본문 ↔ trailer `Criteria-Met: 16/20` ↔ INDEX 비고 세 사본이 같은 값이다.
+
+### §10 강제 지점 재열거
+
+| EP | 구현자 | **재측정** | 근거 |
+|---|---|---|---|
+| EP-01 | 3/3 | **3/3** | 프로덕션 출현 12건을 3축으로 갈라 각 축에 red 변이 존재(§3). r12 의 `2/3` 에서 상승 확인 |
+| EP-03·06·07·08·09·11·12 | 승계 | **승계** | 프로덕션 0줄. EP-07 은 M-AM red 2 로 표본 확인 |
+
+### 현재 변경의 운영 gate (plan §15)
+
+| gate | 산출 |
+|---|---|
+| `npm run typecheck` | exit 0 · `error TS` **0줄**(3구성) |
+| `npm run lint` | exit 0 · **0 error · 1 warning**(기존 `useTranscriptVirtualizer:22`). 실행 후 `git status --porcelain` **0줄** |
+| `./node_modules/.bin/vitest run` | **270파일 · 2648케이스** · **12회 실행** — 10회 전건 green, 2회 간헐 red 1(D40) |
+| `node --test scripts/*.test.mjs` | **59/59** |
+| migrations append-only | `sync ok: 18` · `no-copies ok: 822 files` · `append-only ok since v0.3.1` |
+| doc-inventory `--check` | generated(9 items · 79 channels) · prose · links ok |
+| `git diff --check` | 0줄 |
+| §15.8 architecture sweep | `createWorktree\|addWorktree\|removeWorktree` in `adapters`+`features/sessions` = **0건** |
+| §15.9 dependency sweep | package.json Git 의존성 **0** · 프로덕션 `node:child_process` import **1건**(`infra/git/runner.ts`, `execFile`) · shell `exec(` 프로덕션 **0건**(41건 전부 테스트 로컬 헬퍼) |
+
+환경 기인 분리 — **1파일 0건 수집**(`chat-turn.continuity.test.ts`, `Electron failed to install correctly`, r1부터 동일).
+
+## 6. 외부 포트 / 문서 계약
+
+`SendChatMessageSchema` 를 shape·semantics 두 층으로 재확인했다 — A3(파싱이 값을 지움)에 red 2. i18n 두 키가 `ko`·`en` 양쪽에 있다. 변경 무관 영역은 r12 좌표 참조.
+
+## 7. 숫자 / 상한 재측정
+
+- vitest **270파일 · 2648케이스**. 구현 보고와 일치. r12 대비 **+1파일 · +10케이스**(신규 7 + CwdPanel 1 + sessionsStore 2) — 보고한 내역 합이 분모 증가와 같다.
+- 렌더러 스코프 `src/renderer src/shared` = **104파일 · 872케이스**. D36 재측정 근거와 일치.
+- 구현자 `조립 5지점` → **재측정 6 hop**. 6번째는 `renderer/src/shared/api/ipc.ts:68` 이고 **잠겨 있다**(A1 red 2) — 개수만 어긋나고 잠금 구멍은 아니다(D39).
+- 구현자 `잠금 표 15행 전건 red` → **15/15 재현**.
+- 구현자 `3회 실행 전건 동일` → **12회 중 10회 동일**. 나머지 2회는 D40.
+
+## 8. 구조적 proxy 엄격화 (skill §8)
+
+이번 라운드가 만든 proxy 는 `isolationChip()` 하나다. 판정 기준을 한 단계 올려 차집합을 봤다.
+
+- 현재 술어: 마크업을 `<button` 으로 split → 라벨 문자열을 가진 조각. **엄격판**: 라벨을 가진 조각의 **개수**와 조각 경계를 직접 출력.
+- 실측(임시 probe, 측정 후 삭제): 패널 마크업의 `<button` **2개**, 라벨을 가진 조각 **1개**, 그 조각은 `</button>` 에서 끝난다 — 다음 형제 버튼을 삼키지 않는다. 차집합 **[]**.
+- 방향 축은 소거가 아니라 **자기 눈**이 판정한다 — V-1b(영구 활성) · V-1d(스코프 이탈) 둘 다 red 1.
+
+## 9. 남은 사람 실기
+
+r3~r12 판정 유지 — AC20 의 Windows Electron 배치·포커스 시각 확인, AC10 의 Windows 경로 표기(CI 러너). r12 가 실측으로 그은 경계도 유지한다: **이 환경(POSIX)의 green 은 Windows green 의 증거가 아니다.** 이번 라운드 신규 단언에는 경로·파일 핸들이 없어 그 축이 발동하지 않았다.
+
+## 10. 검증 책임 분리 — 사람 vs 에이전트
+
+이번에 닫은 셋(D33·D34·D35)은 전부 기계 검증으로 닫혔다. 사람 몫은 AC20 Windows 시각 확인 하나로 유지한다. AC9 의 HEAD 이동 모사는 기계 가능하나 오라클이 없다 — 사람 몫이 아니라 미작성 증거다(D8).
+
+## 11. Repository operation checks (r13)
+
+- INDEX 상태·다음 주체: `impl/IMPL_DONE (V1 r13)` · Claude(검증) — 실제 상태와 일치. 라운드 칸 **13** = 상태 칸 라운드, r12 가 지적한 불일치는 해소됐다.
+- 대상 커밋 좌표: 구현자가 `(r13 구현 — 검증자 기입)` 로 두었다. **`ec3ec1bc`** 로 채운다(`git cat-file -t` = commit 실재 확인). plan §19 `대상 커밋` 은 `(좌표는 INDEX)` 자리표시자 — P40 대로 정본 1곳.
+- INDEX 비고 길이: 이번 턴 갱신분 **5문장** — 상한 내(D38 이 이번 갱신에서 해소).
+- commit trailer: `git log -1 --format='%(trailers:only=true)' ec3ec1bc` 가 **8키**를 그대로 돌려준다. `Agent: claude` · `Status: implemented` · `Criteria-Met: 16/20` · `Verified-By: pending` — 전부 허용값이다.
+- `[구현자 기입]` 7필드 충족(§0). 파생 이슈 표는 D33~D38 이 이어져 `verify.md §13` 과 사본이 갈리지 않는다.
+- 검증자 실행 잔여물: 임시 probe 2개(`__probe.isolation.test.ts`·`__probe.vacuous.test.ts`)를 만들고 측정 후 삭제했다. 최종 `git status --porcelain` **0줄**.
+
+## 12. 구현자 코멘트 대조
+
+| 구현자 주장 | 재측정 | 비고 |
+|---|---|---|
+| "프로덕션 0줄 변경" | **성립** | 코드 3파일 전부 `*.test.ts` |
+| "D33·D34·D35 closed" | **성립** | V-2 red 2 · V-1 red 1 · V-5 red 1 |
+| "잠금 표 15행 전건 red" | **성립** | 15/15 재현 |
+| "EP-01 3/3" | **성립** | 독립 재열거로 3축 전건 |
+| "AC ✅16 · ⚠️4" | **성립** | 세 사본 값 일치 |
+| "덮개 회귀 0건" | **성립** | 구 오라클 되돌림 대조 포함 |
+| "조립 5지점 전수" | **6 중 5** | 빠진 hop 도 잠겨 있다(D39) |
+| "vitest 3회 전건 동일" | **12회 중 10회** | 나머지 2회는 D40 |
+| "`not.toHaveProperty` 공허 통과 없음" | **성립** | 독립 probe 로 재현 |
+
+## 13. Finding disposition / 파생 이슈 (r13)
+
+| # | 판정 | 근거 |
+|---|---|---|
+| D33 | **closed** | V-2 red 2. 조립 6 hop 전수 잠김(V-6·V-7·V-8·V-9·A1 포함) |
+| D34 | **closed** | V-1 red 1. 형제 방향 V-1b·V-1c red 1 · 스코프 V-1d red 1 · 반전 A8 red 1 |
+| D35 | **closed** | V-5 red 1 · V-5b red 1 · A9 red 1 |
+| D39 | **신규 기록** | 조립 지점 분모가 `chatApi.send` 래퍼(`ipc.ts:68`)를 세지 않았다 — 6 중 5. 그 hop 도 잠겨 있어(A1 red 2) 구멍은 아니다 |
+| D40 | **신규 NON_BLOCKING** | `queue-entry.test.ts > removeWorktree` 가 전 스위트 **12회 중 2회 red**(단독 6/6 green). D30 이 기록한 150ms 고정 대기 장치가 이번엔 **false-red** 방향으로 났다 |
+| D41 | **신규 기록** | `＋` 추가 칩의 `disabled={picking \|\| inflight}` 잠금 0(A7 green). 구 오라클로도 green — 교체가 잃은 것이 아니고 extraDirs 계약이라 이 handoff 밖 |
+| D30 | **기록 → NON_BLOCKING** | 예측된 false-green 이 아니라 false-red 로 실제 관측됐다(D40) |
+| D11 | 유지 | 이번 12회 전 스위트에서 `mutation-queue > serializes filesystem aliases` 는 **재현 0** |
+| D5·D9·D12(부분)·D13·D14·D21·D29·D32 | 유지 | 이번 축과 독립. 프로덕션 0줄 |
+| D6·D10 | NEXT_HANDOFF | 유지 |
+| D8·D16·D28·D31·D36·D37 | 기록 | 유지. D8 은 AC9·AC20 이 pair 를 못 가진 planner 축이고 AC9 ⚠️ 의 근인이다 |
+| D38 | **closed** | 이번 턴 INDEX 비고 5문장 |
+
+## 14. Review Signals — 사실만
+
+- **이전 라운드와 같은 증상인가**: 아니다. r12 의 두 BLOCKING 은 오라클 결함이었고 이번 라운드가 지점이 아니라 **축**으로 닫았다 — 같은 축의 다음 좌표가 열려 있지 않다.
+- **자기 검증 분모가 세 라운드 연속으로 새 사실을 냈다**: r11 D29(라벨 술어) · r12 D33·D34(path hop) · r13 D39·D40(분모 개수·게이트 안정성). 다만 **r13 에서 처음으로 BLOCKING 0** 이다 — 세 축(다른 seam · 독립 재열거 · 형제 방향) 어디에서도 계약 위반이 나오지 않았다.
+- **관련 plan 지침/AC 의 존재**: 있었고 이번엔 작동했다. AC2 가 선언한 path 를 구현자가 hop 으로 잘라 분모로 썼고, 그 분모가 `2/3` 이던 EP-01 을 `3/3` 으로 올렸다.
+- **사용자 결정 변경 근거**: 없음. 규범 행 diff 0줄.
+- **반복된 검증 환경 한계**: `chat-turn.continuity.test.ts` 0건 수집(r1부터) · Windows 경로·파일 잠금은 CI 러너 전용 · 부하 의존 간헐 2건(D11 미재현 · D40 신규 관측).
+- 구현자가 올린 A-1·A-2 지침 후보 2건은 `handoff-review APPLY` 승인 사항이다. 라운드 수 **13**, 선행 review 는 round 26(`DIAGNOSE_ONLY`).
+
+## 15. 결론 (r13)
+
+- 상태: **PASS**
+- pair: **PASS 17 · PAIR_FAIL 0 · BLOCKED_BY 0 / 17**
+- PLAN_GAP: 없음 — 다음 주체는 **없음**(archive 이동)
+- ACTIVE Decision: D-001~D-015 전건 충족. 규범 행 변경 0줄
+- AC: **✅16 · ⚠️4 · ❌0 = 20** — 자기보고와 일치. ⚠️ 넷은 전부 pair 밖(AC4=D32 · AC9=D8 · AC10·AC20=Windows)
+- 강제 지점: **EP-01 3/3**(r12 `2/3` 에서 상승) · 나머지 승계
+- 운영 gate: 9건 전건 PASS(환경 기인 1건 · 간헐 1건 분리)
+- 닫힘: **D33·D34·D35·D38** / BLOCKING: **0** / NON_BLOCKING: D5·D9·D11·D12(부분)·D13·D14·D21·D29·D30·D32·D40 / NEXT_HANDOFF: D6·D10 / 기록: D8·D16·D28·D31·D36·D37·D39·D41
+- 남은 사람·CI 확인: AC20 Windows 시각 확인 · AC10 Windows 경로 표기(CI 러너)
+- 다음 단계: INDEX 행을 `verify/PASS` 로 옮기고 archive history 로 이동한다. 열린 NON_BLOCKING·NEXT_HANDOFF 는 후속 handoff 가 갖는다.
+
+# 라운드 12 — 원문 보존
 
 **두 번째 자기 검증 라운드다** — r12 구현을 이 검증자가 직접 했다. 그래서 skill §4가 요구하는
 *구현 보고가 이름을 대지 않은 적대 축*을 분모로 따로 만들었다: **pair 가 선언한 production path 를

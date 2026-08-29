@@ -776,15 +776,18 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 | D27 | AC4의 "add/DB insert/abort 각 실패 주입 후 runtime 0회"가 관측 0이다 — VP-05는 자기 oracle로 통과했으나 이 행은 열려 있다 | verify r10 · AC4 | 준비 거부·abort·DB insert 실패를 주입해 runtime 0회를 단언한다 | NON_BLOCKING | **closed (r11 — 거부 경로 0회 관측; abort 는 D32)** |
 | D28 | `### r10` 구현 보고와 INDEX 비고에 게이트 산출(파일/케이스/error 수)이 없다 — 거짓 주장은 없으나 impl §7이 요구한 관측값도 없다 | verify r10 · repository op | 게이트 결과를 관측값으로 적는다 | 기록 | open |
 | D29 | `resolveDirty` 의 `stash push`·`commit -a`·`reset --hard` 가 `readOnly: true` 를 붙이는 `run()`(`git-cli.ts:33`)을 지난다 — queue 계약은 지켜지나 같은 파일이 `checkout` 은 mutation 으로 부르는 형제 비대칭이다 | verify r11 · D-014 인접 · §10 EP-12 | 상태를 바꾸는 명령은 read 라벨을 붙이지 않는다 | NON_BLOCKING | open |
-| D30 | `queue-entry.test.ts` 의 `whileQueueHeld` 가 150ms 고정 대기다 — 느린 러너에서 git 이 그보다 오래 걸리면 우회해도 통과할 수 있다(이 환경 10회 반복은 4/4 안정) | verify r11 · VP-12 oracle | 시간이 아니라 queue 진입 자체를 관측하는 형태로 좁힌다 | 기록 | open |
+| D30 | `queue-entry.test.ts` 의 `whileQueueHeld` 가 150ms 고정 대기다 — 느린 러너에서 git 이 그보다 오래 걸리면 우회해도 통과할 수 있다(이 환경 10회 반복은 4/4 안정) | verify r11 · VP-12 oracle | 시간이 아니라 queue 진입 자체를 관측하는 형태로 좁힌다 | **NON_BLOCKING**(r13 승격) | open (r13 — 예측된 false-green 이 아니라 **false-red** 로 실제 관측, D40) |
 | D31 | `send.worktree.test.ts` 가 모듈 10개를 mock 한다 — EP-08 좌표 3은 `buildTurnRequest` 의 **입력**이고 실제 `TurnRequest` 객체가 아니다. 이음매는 `turn-request.ts:93` 의 타입 spread 로 성립한다 | verify r11 · VP-11 범위 | 다음 라운드가 이 경계를 오해하지 않게 문서가 갖는다 | 기록 | open |
 | D32 | AC4 의 `abort` 주입 후 runtime 0회가 관측 0이다 | verify r11 · AC4 (D27 에서 분리) | `AbortController` 를 service 에 주입해 취소 경로를 단언한다 | NON_BLOCKING | open |
-| D33 | 격리 플래그가 `chat:send` 페이로드에서 빠져도 전 스위트 2638 green(`chatStore.ts:598`) — 형제 `extraDirs` red 3 · `cwd` red 1 | verify r12 · VP-01 · AC2 · §10 EP-01 store 축 | `installChatStoreHarness` 형제 패턴으로 `chat:send` 인자를 단언한다 | BLOCKING | **closed (r13 — V-2 red 2; 조립 5지점 전수 V-6·V-7·V-8·V-9 red)** |
-| D34 | 격리 칩이 영구 비활성이어도 전 스위트 green — AC20 이 명시한 `disabled state component test` 가 활성 방향을 안 본다 | verify r12 · VP-01 · AC20 | 칩 활성 방향을 단언한다 | BLOCKING | **closed (r13 — V-1 red 1; 형제 방향 V-1b·V-1c red, 스코프 V-1d red)** |
-| D35 | `sessionsStore.remove` 가 보존 결과를 무시해도 green — 세션이 목록에서 사라지고 사용자는 이유를 못 본다 | verify r12 · VP-03 소비자 hop | 결과 union 의 두 방향을 렌더러에서 단언한다 | NON_BLOCKING | **closed (r13 — V-5 red 1 · V-5b red 1)** |
+| D33 | 격리 플래그가 `chat:send` 페이로드에서 빠져도 전 스위트 2638 green(`chatStore.ts:598`) — 형제 `extraDirs` red 3 · `cwd` red 1 | verify r12 · VP-01 · AC2 · §10 EP-01 store 축 | `installChatStoreHarness` 형제 패턴으로 `chat:send` 인자를 단언한다 | BLOCKING | **closed (r13 검증 — V-2 red 2; 조립 6 hop 전수, V-6·V-7·V-8·V-9·A1 red)** |
+| D34 | 격리 칩이 영구 비활성이어도 전 스위트 green — AC20 이 명시한 `disabled state component test` 가 활성 방향을 안 본다 | verify r12 · VP-01 · AC20 | 칩 활성 방향을 단언한다 | BLOCKING | **closed (r13 검증 — V-1 red 1; 형제 V-1b·V-1c red · 스코프 V-1d red · 반전 A8 red 1)** |
+| D35 | `sessionsStore.remove` 가 보존 결과를 무시해도 green — 세션이 목록에서 사라지고 사용자는 이유를 못 본다 | verify r12 · VP-03 소비자 hop | 결과 union 의 두 방향을 렌더러에서 단언한다 | NON_BLOCKING | **closed (r13 검증 — V-5 red 1 · V-5b red 1 · A9 red 1)** |
 | D36 | 같은 페이로드의 `permissionMode` 도 잠금 0 — 이 handoff 계약 밖 | verify r12 · 범위 밖 | 해당 계약을 가진 handoff 가 닫는다 | 기록 | open (r13 재측정 — 제거해도 `src/renderer src/shared` 872 전건 green) |
 | D37 | AC13 `removeForSession` 스윕이 구조분해 호출(`const { removeForSession } = …`)을 못 본다 — 현재 1건 판정 자체는 옳다 | verify r12 · AC13 oracle | 술어를 호출 형태 전부로 넓힌다 | 기록 | open |
-| D38 | INDEX 비고가 5줄을 넘었다 | verify r12 · repository op(`docs/handoff/AGENTS.md §산출물 문장 규칙 3`) | 상세는 plan/verify 가 갖고 비고는 줄인다 | 기록 | open |
+| D38 | INDEX 비고가 5줄을 넘었다 | verify r12 · repository op(`docs/handoff/AGENTS.md §산출물 문장 규칙 3`) | 상세는 plan/verify 가 갖고 비고는 줄인다 | 기록 | **closed (r13 — 갱신분 5문장)** |
+| D39 | 조립 지점 분모가 `chatApi.send` 래퍼(`renderer/src/shared/api/ipc.ts:68`)를 세지 않았다 — 선언 path 는 6 hop 인데 보고는 5 | verify r13 · VP-01 · §10 EP-01 | 통과 지점을 `.send(` 호출부에서 역산할 때 api 래퍼도 hop 으로 센다 | 기록 | open (r13 — 그 hop 도 잠겨 있다, A1 red 2) |
+| D40 | `queue-entry.test.ts > removeWorktree` 가 전 스위트 **12회 중 2회 red**(단독 6/6 green) — D30 의 150ms 고정 대기가 부하 의존으로 깨진다 | verify r13 · VP-12 · AC17 · plan §15 gate 3 | 시간이 아니라 queue 진입을 관측하는 형태로 좁힌다(D30 과 같은 수정) | NON_BLOCKING | open |
+| D41 | `＋` 추가 칩의 `disabled={picking \|\| inflight}` 잠금 0 — 지워도 렌더러 685 전건 green | verify r13 · 범위 밖(extraDirs 계약) | 그 계약을 가진 handoff 가 닫는다 | 기록 | open (r13 — 구 오라클로도 green, 교체가 잃은 잠금이 아니다) |
 
 ### r4 — verify/FAIL 보완
 
