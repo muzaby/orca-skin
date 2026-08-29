@@ -10,17 +10,225 @@
 | slug | `0209-git-worktree-isolation` |
 | 검증자 | Claude Code |
 | 일자 | 2026-08-29 |
-| 대상 커밋/range | `d579068d..0ffad305` (r11 구현 `0ffad305`) — 이전 라운드는 `a9641813..372803ce` |
-| 구현 전 plan 기준 | `04ab7ad` (r11에서도 규범 행 변경 없음) |
+| 대상 커밋/range | `8b2dc0d8..297f89b4` (r12 구현 `0c207d87` + Windows 후속 `297f89b4`) — 이전 라운드는 `d579068d..0ffad305` |
+| 구현 전 plan 기준 | `04ab7ad` (r12에서도 규범 행 변경 없음 — §3·§7·§7-A·§10 diff **0줄** 실측) |
 | V mode / 유효 V | `Baseline V: V1` |
 | 검증 기준 plan revision | `04ab7ad:V1` |
-| 라운드 | 11 |
+| 라운드 | 12 |
 | 상태 | **FAIL** |
-| 자기 검증 여부 | **r11만 예** — 설계 Claude, r11 구현 Claude, 검증 Claude. r1~r10 구현은 Codex |
+| 자기 검증 여부 | **r11·r12 예** — 설계 Claude, r11·r12 구현 Claude, 검증 Claude. r1~r10 구현은 Codex |
 
-> 이 문서는 라운드별로 누적한다. **아래 「라운드 11」이 현재 판정**이고, 「라운드 10」 이하는 원문 보존이며 재서술하지 않는다.
+> 이 문서는 라운드별로 누적한다. **아래 「라운드 12」가 현재 판정**이고, 「라운드 11」 이하는 원문 보존이며 재서술하지 않는다.
 
-# 라운드 11 — 현재 판정 **FAIL**
+# 라운드 12 — 현재 판정 **FAIL**
+
+**두 번째 자기 검증 라운드다** — r12 구현을 이 검증자가 직접 했다. 그래서 skill §4가 요구하는
+*구현 보고가 이름을 대지 않은 적대 축*을 분모로 따로 만들었다: **pair 가 선언한 production path 를
+hop 단위로 다시 걸어 각 hop 에 잠금이 있는지 세는 것**이다. 구현 보고는 자기가 고른 좌표에서만
+변이를 심었고 그 13행은 전부 red 로 재현됐다 — 그런데 이 축에서 **초록인 hop 셋**이 나왔다.
+
+가장 큰 것: **격리 플래그가 `chat:send` 페이로드에 실리지 않아도 전 스위트 2638 케이스가 초록이다**
+(V-2). 사용자가 칩을 켜고 리듀서가 그것을 기록해도 IPC 직전에 조용히 버려진다 — worktree 는 만들어
+지지 않고 오류도 없다. 이 handoff 가 존재하는 이유인 그 기능이 통째로 죽는 회귀인데 아무도 안 본다.
+바로 옆 형제 두 필드(`extraDirs` red 3 · `cwd` red 1)는 잠겨 있다.
+
+r12 자체는 크게 전진했다 — pair `PASS 8 → 16`, r11 이 부분이던 EP-06·EP-11 이 전수로 닫혔고,
+구현자가 EP-07 을 세다가 스스로 배선 구멍을 찾아 같은 라운드에 닫았다(M-AM red 2 재현). 덮개 회귀
+0건이다. 남은 것은 **VP-01 하나**이고 그것이 root 다.
+
+## 0. 기준선 / plan 변경 확인 (r12)
+
+- 대상 range: `8b2dc0d8..297f89b4` — 구현 커밋 2개(`0c207d87` 본체 · `297f89b4` Windows 후속). 직전 검증 `7e68c073`과 review 커밋 `8b2dc0d8` 위에 fast-forward.
+- 기준선이 diff로 성립하는가: **예**. `plan.md` hunk 2개가 §19 뒤 `### r12` 절과 파생 이슈 표의 D26 상태 칸뿐이다.
+- 규범 행 무변경을 **기계로 확인**했다: `§3 Decision`·`§7 AC + §7-A pair`·`§10 EP` 세 절을 두 revision 에서 추출해 diff — **각각 0줄**(27·84·66행).
+- 채점 기준: r3~r11과 같은 `04ab7ad:V1`.
+- plan validity: r3 판정 유지. root `PLAN_GAP` **없음**.
+- `[구현자 기입]` 7필드: **7/7**(기계 추출 — 11개 헤딩이 7 필드명을 모두 포함).
+- 구현은 **프로덕션 0줄 변경**이다(`git diff --stat` 실측: 변경 9파일 중 코드는 전부 `*.test.ts`). 따라서 이 라운드의 판정은 *오라클이 무엇을 잠그는가* 한 축이다.
+
+## 1. ACTIVE Decision — r11 대비 변화만
+
+| Decision | r11 | r12 | 관측 |
+|---|---|---|---|
+| D-011 이번 호출 산출물만 rollback | ⚠️ | ⚠️ | 변화 없음. D21(빈 bucket) 유지 |
+| D-007·D-014 | ✅ | ✅ | 변경 무관. 등록 변이 M-AK red 3 · M-O red 3 재확인 |
+| D-001 Agent/Runtime은 worktree를 모른다 | ✅ | ✅ | 변경 무관 |
+
+## 2. 구현 결과 비판적 검토 (r12 변경분)
+
+프로덕션이 0줄이라 §1의 실패 모드 질문(지연·부분 실패·동시 호출)은 이번 diff에 대상이 없다. 대신
+**오라클 자신**을 같은 눈으로 읽었다.
+
+- `CwdPanel.isolation.test.ts` 는 store 를 `vi.mock` 으로 갈아끼운다. 그래서 VP-01 path 네 hop 중 **CwdPanel 하나**만 지난다 — §3에서 그 나머지를 걸었다.
+- `ipc-integration.test.ts` 의 "renderer 가 실제로 보내는 형상 그대로" 는 **손으로 쓴 리터럴**이다. 실제 producer(`chatStore`)를 지나지 않으므로 producer 가 필드를 빼도 이 테스트는 통과한다(V-2).
+- `safe-delete.test.ts` 의 `order` 로그는 주입한 fake `operations` 가 만든다 — 잠기는 것은 service→operations 호출 순서이지 git 실재가 아니다. 그 축은 `service.test.ts`·`ipc-integration.test.ts` 가 따로 본다. 범위 표기로 충분하다.
+- Windows 후속(`297f89b4`)은 오라클을 교체했다. 교체 전 장치가 잡던 자리를 새 장치가 잡는지 §4에서 재측정했다.
+
+## 3. 역방향 탐색 (r12) — **pair path 를 hop 단위로 다시 걷는다**
+
+skill §4가 요구하는 *자기 검증 분모*를 여기서 만들었다. 구현 보고는 "심은 변이 13행"을 분모로 썼고
+그 분모는 **구현자가 본 좌표의 집합**이다. 대신 plan §7-A가 각 pair에 적어 둔 production path 를
+hop 으로 잘라 hop 마다 변이를 심었다.
+
+| pair | 선언된 path | hop 별 잠금 | 판정 |
+|---|---|---|---|
+| VP-01 | CwdPanel → store → **schema** → send | CwdPanel ✅(M-I red 1) · store 리듀서 ✅(V-3 red 1) · **store→payload ❌(V-2 green)** · send ✅ | **끊김** |
+| VP-01 (AC20 축) | 칩 disabled 상태 | 비활성 방향만 단언 · **활성 방향 ❌(V-1 green)** | **끊김** |
+| VP-03 | delete click → handler → proof → remove/db | handler~db ✅(M-AE red 1) · **click/renderer 소비 ❌(V-5 green)** | 등록 oracle 범위 밖 |
+| VP-09 | renderer payload → schema → service → runner | 첫 hop 은 합성 리터럴 · schema~git ✅ | 범위 표기 |
+
+- **V-2 (BLOCKING)**: `chatStore.ts:598`의 `...(cur.worktreeIsolation ? { worktreeIsolation: true } : {})`를 지워도 **전 스위트 2638 green**. 형제 대조 — 같은 객체의 `extraDirs` 제거는 **red 3**, `cwd` 무효화는 **red 1**. 즉 페이로드 조립이 통째로 미검증인 것이 아니라, **이 handoff 가 추가한 그 한 필드만** 잠금이 없다. `permissionMode`도 green이나 이 handoff 계약 밖이다(D36).
+- **V-1 (BLOCKING)**: `disabled={inflight || !cwd}` → `disabled={true}` 로 바꿔도 **전 스위트 green**. 칩이 영구 비활성이어도 아무도 안 본다 — 사용자는 격리를 켤 수 없다. r12가 만든 `CwdPanel.isolation.test.ts` 는 비활성 **두 경우**만 단언하고 활성 경우를 단언하지 않는다.
+- **V-5 (NON_BLOCKING)**: `sessionsStore.remove` 의 `if (!result.ok) { alert; return false }` 를 지워도 green. main 은 worktree 를 보존했는데 목록에서는 세션이 사라지고 사용자는 이유를 못 본다.
+- **장치가 이미 있다**: `chatStore.extraDirs.test.ts` 가 `installChatStoreHarness()` 로 실제 `window.orca.chat.send` 인자를 잡는다. 그 파일 헤더가 이번 결함을 그대로 서술한다 — "리듀서만 잠그면 상태는 옳은데 페이로드에 안 실리는 배선 회귀를 못 잡는다". V-2 는 같은 디렉토리의 형제 패턴 ~15줄이면 닫힌다.
+
+## 4. 등록 적대 증거 / 소거 변이 재측정 (검증자 실행)
+
+구현 보고와 무관하게 다시 심었다.
+
+| 변이 | 출처 | 구현 보고 | **검증 재측정** | 비고 |
+|---|---|---|---|---|
+| M-I 칩 삭제 | VP-01 등록 | red 1 | **red 1** | r5~r11 green 이던 덮개 회귀가 복구됐다 |
+| M6 검사 실패를 clean 취급 | VP-07 등록 | red 2 | **red 2** | |
+| M-AG bind 제거 | VP-06 등록 | red 2 | **red 3** | 전 스위트 기준이라 수가 더 크다 |
+| M-AL bind 를 insert 앞으로 | VP-10 등록 | red 2 | **red 4** | |
+| M-AJ features 가 execFile 직접 호출 | VP-09 등록 · D26 인용 | red 2 | **red 15** | |
+| M-AK untracked 무시 | VP-16 등록 | red 3 | **red 3** | |
+| M-AM bootstrap 배선 제거 | 새 oracle(EP-07) | red 1 | **red 2** | 구현자가 스스로 찾은 구멍 — 실재 확인 |
+| **V-1 칩 영구 비활성** | **검증자 신규** | 미실행 | **green 2638** | **잠금 0 — BLOCKING** |
+| **V-2 payload 에서 플래그 제거** | **검증자 신규** | 미실행 | **green 2638** | **잠금 0 — BLOCKING** |
+| V-2b 형제 `extraDirs` 제거 | 검증자 대조 | 미실행 | **red 3** | 형제는 잠겨 있다 |
+| V-2c 형제 `cwd` 무효화 | 검증자 대조 | 미실행 | **red 1** | 형제는 잠겨 있다 |
+| V-3 리듀서가 토글 무시 | 검증자 대조 | 미실행 | **red 1** | 리듀서 축은 잠겨 있다 |
+| V-5 renderer 가 보존 결과 무시 | 검증자 신규 | 미실행 | **green 2638** | NON_BLOCKING |
+
+- **덮개 회귀**: r11 이 red 로 적은 변이를 다시 심었다 — M-T **red 2** · M-U2 **red 2** · M-O **red 3**. `red → green` **0건**.
+- **§8 엄격화 재측정** — r12 가 만든 스윕 둘의 `0건`·`1건`이 전수인지 판정 기준을 한 단계 올려 차집합을 봤다.
+  - EP-04 features 스윕: 대상 **100파일**, 현재 판정 0건. 문자열 안까지 보는 엄격판도 **0건**, 차집합 **[]** → `0건`은 전수다.
+  - AC13 `removeForSession` 호출부 스윕: 현재 `.removeForSession(` **1건**(`app/bootstrap.ts`). 이름만 보는 엄격판은 2건이고 차집합은 `features/worktrees/service.ts` — **정의부**이지 호출부가 아니다. 판정은 옳다. 다만 구조분해 호출(`const { removeForSession } = …`)은 이 술어가 못 본다(D37).
+
+## 5. V-pair closeout (r12) — `UT → IT → ST → AT`
+
+| pair | 레벨 | req | r11 | **r12** | 근거 |
+|---|---|---|---|---|---|
+| VP-17 | UT | REQUIRED | PASS | **PASS** | 변경 무관 |
+| VP-16 | UT | REQUIRED | PAIR_FAIL | **PASS** | 등록 변이 M-AK red 3 — porcelain·HEAD/base·managed/external 3분류 |
+| VP-15 | UT | REQUIRED | PASS | **PASS** | 변경 무관 |
+| VP-14 | UT | REQUIRED | PASS | **PASS** | 변경 무관 |
+| VP-13 | IT | REQUIRED | PASS | **PASS** | 변경 무관 |
+| VP-12 | IT | REQUIRED | PASS | **PASS** | M-O red 3 재확인 |
+| VP-11 | IT | REQUIRED | PASS | **PASS** | M-T red 2 · M-U2 red 2 재확인 |
+| VP-10 | IT | REQUIRED | PAIR_FAIL | **PASS** | 등록 변이 M-AL(순서 swap) red 4 |
+| VP-09 | IT | REQUIRED | PAIR_FAIL | **PASS** | 등록 변이 M-AJ red 15. **범위**: 첫 hop(renderer payload)은 합성 리터럴이라 producer 를 지나지 않는다 — 그 hop 은 VP-01 에 귀속했다 |
+| VP-08 | ST | REGRESSION | PAIR_FAIL | **PASS** | 재개 cwd(M-AH2 red 1) + 종료 경로 remove 0회(호출부 전수 1건, M-AM red 2) |
+| VP-07 | ST | REQUIRED | PAIR_FAIL | **PASS** | 등록 변이 M6 red 2. 네 상태 + 호출 순서 |
+| VP-06 | ST | REQUIRED | PAIR_FAIL | **PASS** | 등록 변이 M-AG red 3 — writer 층이 EP-06 3번째 지점 |
+| VP-05 | ST | REQUIRED | PASS | **PASS** | 변경 무관 |
+| VP-04 | AT | REGRESSION | PASS | **PASS** | 변경 무관 |
+| VP-03 | AT | REQUIRED | BLOCKED_BY:VP-07 | **PASS** | VP-07 해제로 독립 판정. 등록 변이 M-AE red 1 — 결과 union·호출 순서. 소비자 hop 은 §13 D35 |
+| VP-02 | AT | REQUIRED | PAIR_FAIL | **PASS** | 세 거부 이유 직접 관측 + 거부 뒤 다음 send 성공. 등록 증거 `not selected` |
+| VP-01 | AT | REQUIRED | PAIR_FAIL | **PAIR_FAIL**(root) | 등록 변이(M-I)는 red 로 돌아섰으나 **선언된 path 의 `store→schema` hop 이 잠금 0**(V-2) 이고 AC20 이 명시한 disabled 축도 한 방향만 본다(V-1) |
+
+- 합계: **PASS 16 · PAIR_FAIL 1 · BLOCKED_BY 0 = 17** (r11: 8 · 8 · 1). root 는 **VP-01 하나**.
+- 구현자 자기보고 `SELF_PASS 9` 대조: **8/9 성립**, **VP-01 미성립**.
+- 실행 범위: 이번이 8 pair 신규 증거 라운드라 **17 pair 전건**을 실행했다.
+
+## 6. 외부 포트 / 문서 계약
+
+`SendChatMessageSchema` 는 shape(필수 필드)과 semantics(superRefine 배타 절) 두 층을 본다 — M-AH red 1 로 후자가 잠겼다. 변경 무관 영역은 r11 좌표 참조.
+
+## 7. 숫자 / 상한 재측정
+
+- vitest **269파일 · 2638케이스**. 구현 보고와 일치.
+- 구현자 `강제 지점 EP-01 3/3` → **재측정 2/3**. EP-01 은 `reducer·store·CwdPanel 3축`이고 실패 의미가 "사용자가 선택하거나 기본 off를 유지할 수 없음"이다. reducer ✅(V-3 red) · CwdPanel ✅(M-I red) · **store ❌(V-2 green)** — store 축의 페이로드 조립이 그 실패 의미를 정확히 실현한다.
+- EP-06 **3/3** · EP-07 **2/2** · EP-11 **3/3**: 재측정 일치.
+- AC 합계: 구현자 `✅16 · ⚠️4 · ❌0` → **재측정 `✅15 · ⚠️5 · ❌0`**. **AC2 를 ✅→⚠️ 로 내린다** — AC2 의 선언된 path 가 `CwdPanel → chatStore.send → SendChatMessageSchema` 이고 oracle 이 `reducer+schema+landing component test` 인데, 세 오라클이 전부 초록인 채로 중간 hop 이 끊긴다(V-2). AC13·14·15 상승은 재측정에서 성립한다.
+- 본문 ↔ trailer ↔ INDEX 세 사본 대조: 구현자 값 `16/20` 이 셋 다 같다(자기보고 내부 정합은 성립).
+
+## 8. 남은 사람 실기
+
+r3~r11 판정 유지 — AC20 의 Windows Electron 배치·포커스 시각 확인, AC10 의 Windows 경로 표기(CI 러너).
+**r12 가 그 경계를 실측으로 다시 그었다**: 이 환경 전건 green 이던 커밋이 windows 러너에서 3건 red 였다
+(열린 sqlite 핸들 `EBUSY` 2 · 경로 표기 1). 이 환경의 green 은 Windows green 의 증거가 아니다.
+
+## 9. 게이트 재실행
+
+| gate | 산출 |
+|---|---|
+| `npm run typecheck` | exit 0 · `error TS` **0줄**(3구성) |
+| `npm run lint` | exit 0 · **0 error · 1 warning**(기존 `useTranscriptVirtualizer`). 실행 후 `git status --porcelain` **0줄** — 검증자 실행분이 트리를 바꾸지 않았다 |
+| `./node_modules/.bin/vitest run` | **269파일 · 2638케이스** · 3회 실행 |
+| `node --test scripts/*.test.mjs` | **59/59** |
+| migrations append-only | `sync ok: 18` · `append-only ok since v0.3.1` |
+| doc-inventory `--check` | generated·prose·links ok |
+| `git diff --check` | 0줄 |
+
+환경 기인 분리 — **1파일 0건 수집**(`chat-turn.continuity.test.ts`, `Electron failed to install correctly`, r1부터 동일) · **간헐 1건**(`mutation-queue > serializes filesystem aliases`, 3회 중 1회 red). 후자는 **D11** 로 r4에 기록된 선재 결함이고 이번 변경은 프로덕션 0줄이라 귀속되지 않는다.
+
+## 10. 검증 책임 분리 — 사람 vs 에이전트
+
+V-1·V-2·V-5 는 전부 기계 검증 가능하다 — `installChatStoreHarness` 와 `renderToStaticMarkup` 이 이미 저장소에 있다. 사람 몫은 AC20 Windows 시각 확인 하나로 유지한다.
+
+## 11. Repository operation checks (r12)
+
+- INDEX 상태·다음 주체: `impl/IMPL_DONE (V1 r12)` · Claude(검증) — 실제 상태와 일치.
+- **라운드 칸 불일치**: 다른 행의 규약은 `상태 칸의 라운드 = 라운드 칸`이다(`0208` IMPL_DONE r3 → 3 · `0207` PASS r1 → 1). 0209 는 `r12` 인데 칸이 **13**이다 — 구현 턴이 잘못 올렸다. 이번 검증 커밋에서 교정한다(FAIL 이므로 다음 라운드 13으로 다시 올린다).
+- 대상 커밋 좌표: 구현자가 `(r12 구현 — 검증자 기입)` 로 두었다. `0c207d87`·`297f89b4` 로 채운다. 두 해시 `git cat-file -t` = commit 실재 확인.
+- INDEX 비고 길이: 구현자 갱신분이 5줄을 넘는다 — 상세 정본은 plan/verify 다(D38, 기록). 이번 검증 갱신에서 줄인다.
+- commit trailer: 두 커밋 모두 `git log -1 --format='%(trailers:only=true)'` 가 8키를 그대로 돌려준다. `Agent: claude` · `Status: implemented` · `Criteria-*` · `Verified-By: pending` — 허용값이다.
+- `[구현자 기입]` 7필드 충족(§0).
+
+## 12. 구현자 코멘트 대조
+
+| 구현자 주장 | 재측정 | 비고 |
+|---|---|---|
+| "프로덕션 0줄 변경" | **성립** | `git diff --stat` 상 코드 변경은 전부 `*.test.ts` |
+| "`SELF_PASS 9`" | **8/9 성립** | VP-01 미성립 |
+| "EP-01 3/3" | **2/3** | store 축 미잠금(V-2) |
+| "EP-06 3/3 · EP-07 2/2 · EP-11 3/3" | **성립** | M-AG·M-AM·M-AK 재현 |
+| "덮개 회귀 0건" | **성립** | M-T·M-U2·M-O 재심기 전건 red |
+| "AC ✅16" | **✅15** | AC2 하향 |
+| "D26 closed" | **성립** | M-AJ red 15 + 엄격화 차집합 0 |
+| "EP-07 배선 구멍을 찾아 닫았다" | **성립** | M-AM red 2. 구현자가 자기 턴에 찾은 실재 결함이다 |
+| "M-E 는 내 장치가 아니라 r4 장치가 잡는다" | **성립** | provenance 를 정직하게 적었다 |
+
+## 13. Finding disposition / 파생 이슈 (r12)
+
+| # | 판정 | 근거 |
+|---|---|---|
+| D33 | **신규 BLOCKING** | 격리 플래그가 `chat:send` 페이로드에서 빠져도 전 스위트 2638 green(`chatStore.ts:598`). 형제 `extraDirs` red 3 · `cwd` red 1. VP-01 · AC2 · §10 EP-01 store 축 |
+| D34 | **신규 BLOCKING** | 격리 칩이 영구 비활성이어도 전 스위트 green. AC20 이 명시한 `disabled state component test` 가 활성 방향을 안 본다. VP-01 · AC20 |
+| D35 | **신규 NON_BLOCKING** | `sessionsStore.remove` 가 보존 결과를 무시해도 green — 세션이 목록에서 사라지고 사용자는 이유를 못 본다. VP-03 소비자 hop |
+| D36 | **신규 기록** | 같은 페이로드의 `permissionMode` 도 잠금 0. 이 handoff 계약 밖이라 범위 밖 기록 |
+| D37 | **신규 기록** | AC13 `removeForSession` 스윕이 구조분해 호출을 못 본다. 현재 1건 판정은 옳다 |
+| D38 | **신규 기록** | INDEX 비고가 5줄을 넘었다(`docs/handoff/AGENTS.md §산출물 문장 규칙 3`) |
+| D26 | **closed** | M-AJ red 15 · 엄격화 차집합 0 |
+| D5·D9·D11·D12(부분)·D13·D14·D21·D29·D32 | 유지 | 이번 변경과 독립 |
+| D6·D10 | NEXT_HANDOFF | 유지 |
+| D8·D16·D28·D30·D31 | 기록 | 유지 |
+
+## 14. Review Signals — 사실만
+
+- **같은 메타 패턴이 한 라운드 안에서 두 번 났다**: 해법이 이미 형제 파일에 있는데 새 오라클이 그것을 쓰지 않았다. (1) Windows 경로 — `service.test.ts` 의 `realpath`+`isWithinDir` 이 r3부터 있었는데 r12 새 테스트가 문자열 비교를 썼다. (2) 페이로드 배선 — `chatStore.extraDirs.test.ts` 의 `installChatStoreHarness` 가 같은 이유("리듀서만 잠그면 페이로드 회귀를 못 잡는다")로 이미 있는데 VP-01 이 그것을 쓰지 않았다.
+- **자기 검증의 사각이 재현됐다**: r11·r12 모두 구현 보고의 변이는 전건 red 로 재현됐고, 결함은 **보고가 이름을 대지 않은 축**에서만 나왔다(r11 D29 = 라벨 술어, r12 D33·D34 = path hop). skill §4의 해당 규칙이 두 라운드 연속으로 실제 결함을 냈다.
+- 관련 plan 지침/AC 의 존재: **있었다.** AC2 가 path 를 `CwdPanel → chatStore.send → SendChatMessageSchema` 로, AC20 이 `disabled state component test` 를 명시한다. 구현자는 pair 별 *등록 변이*를 분모로 썼고 *선언된 path* 를 분모로 쓰지 않았다 — `분모 검산` 규칙이 세 갈래(선택 증거·인용 변이·새 oracle)만 세게 하고 path hop 을 세게 하지 않는다.
+- 반복된 검증 환경 한계: `chat-turn.continuity.test.ts` 0건 수집 · D11 간헐 · Windows 축은 CI 러너 전용.
+- 라운드 수: **12**. 선행 review 는 round 25.
+
+## 15. 결론 (r12)
+
+- 상태: **FAIL**
+- pair: **PASS 16 · PAIR_FAIL 1 · BLOCKED_BY 0 / 17**. root 는 **VP-01** 하나
+- PLAN_GAP: 없음 — 다음 주체는 **구현자**
+- ACTIVE Decision: r11 대비 변화 없음
+- AC: **✅15 · ⚠️5 · ❌0 = 20** — 자기보고 `✅16` 대비 **AC2 1행 하향**
+- 강제 지점: EP-06 3/3 · EP-07 2/2 · EP-11 3/3 신규 충족. **EP-01 은 2/3**(자기보고 3/3 대비 하향)
+- 운영 gate: 7건 전건 PASS(환경 기인 2건 분리)
+- 닫힘: **D26** / BLOCKING: **D33·D34** / NON_BLOCKING: D5·D9·D11·D12(부분)·D13·D14·D21·D29·D32·D35 / NEXT_HANDOFF: D6·D10 / 기록: D8·D16·D28·D30·D31·D36·D37·D38
+- 남은 사람·CI 확인: AC20 Windows 시각 확인 · AC10 Windows 경로 표기(CI 러너)
+- 다음 단계: 라운드 13이다. **BLOCKING 둘 다 오라클 결함이고 프로덕션은 옳다** — 구현자는 (1) `installChatStoreHarness` 형제 패턴으로 격리 플래그가 `chat:send` 인자에 실리는지 단언하고(D33), (2) 칩 활성 방향을 단언한다(D34). 둘 다 저장소에 이미 있는 패턴이라 새 하네스가 필요 없다. 라운드 3 초과가 이어지므로 재구현 전 `handoff-review` 수행 여부를 먼저 판단한다.
+
+# 라운드 11 — 원문 보존
 
 **이 라운드는 자기 검증이다** — r11 구현을 이 검증자가 직접 했다(사용자가 `/handoff-impl` 을 명시
 호출). r1~r10 의 `구현 Codex ↔ 검증 Claude` 분리가 이번 라운드에는 없다. 그래서 변이는 구현 보고를
