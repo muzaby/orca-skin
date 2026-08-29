@@ -566,10 +566,12 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 | D15 | 구현 커밋 4건의 제목·본문이 영어다 — `docs/handoff/AGENTS.md §커밋·git 규약`은 한국어 메시지를 규정한다 | verify r4 · repository op | 다음 라운드부터 한국어 메시지를 쓴다 | 기록 | **closed (r5 — 한국어 커밋)** |
 | D16 | plan의 `### r4` 구현자 절이 `## [검증자 기입] 파생 이슈` 안에 있다 | verify r4 · repository op | 다음 라운드 절은 `§19 [구현자 기입]` 아래에 붙인다 | 기록 | open |
 | D17 | `npm run typecheck`가 exit 2 · `error TS` 3건 — 전부 이번 라운드가 신설한 `prepare-worktree.test.ts`의 `providerSettings` 타입이다 | verify r5 · plan §15 gate 1 · `app/AGENTS.md` 기본 게이트 | 테스트 fixture를 `ResolvedHarnessSettings` 계약에 맞춘다 | BLOCKING | **closed (r7 — 실제 4필드 fixture, typecheck 3구성 진단 0)** |
-| D18 | 준비 seam의 결과를 버려도(`executionCwd` 미대입) lint 0 error·전 스위트 2595 green — worktree는 만들어지고 Agent는 원본 checkout에서 돈다 | verify r5 · VP-05 · VP-11 · AC3·AC5·AC18 · §10 EP-08 | 소스 텍스트가 아니라 runtime acquire 순서와 최종 `TurnRequest.cwd`를 관측하는 oracle을 만든다 | BLOCKING | **closed (r6 — source cwd 변이 1 red)** |
+| D18 | 준비 seam의 결과를 버려도(`executionCwd` 미대입) lint 0 error·전 스위트 2595 green — worktree는 만들어지고 Agent는 원본 checkout에서 돈다 | verify r5 · VP-05 · VP-11 · AC3·AC5·AC18 · §10 EP-08 | 소스 텍스트가 아니라 runtime acquire 순서와 최종 `TurnRequest.cwd`를 관측하는 oracle을 만든다 | BLOCKING | **open (r9 되돌림 — M-Q′ green, 새 oracle이 `send.ts`를 보지 않아 M-A′도 green)** |
 | D19 | `[구현자 기입]` r5 절이 impl §8 7필드 중 4개만 갖는다 — `이번 라운드 수정의 잠금`·`구현 보고`·`Review Signals`와 게이트 산출 보고가 없다 | verify r5 · repository op | 다음 라운드 절은 일곱 필드를 이름 그대로 채운다 | 기록 | **closed (r6 — 7/7 필드)** |
 | D20 | INDEX 비고가 "lint·typecheck … gate green"이라고 적었으나 `npm run typecheck`는 exit 2다 | verify r5 · repository op | 게이트 산출을 다시 읽어 적는다 | 기록 | **closed (r6 — INDEX에 r6 관측값 반영)** |
 | D21 | DB insert 실패 rollback이 `<managed>/<repoId>` 빈 bucket을 남긴다(3회 → 3개) — 같은 함수의 `!added.ok` 형제 분기와 정책이 다르다 | verify r5 · D-011 · AC4 | 두 rollback 분기의 bucket 정리를 한 경로로 모은다 | NON_BLOCKING | open |
+| D22 | `supervisor.startNew/startResume(turn)`은 `acquireRuntime` 콜백 안(`send.ts:182·187`)인데 `leaderTurn = turn`은 콜백 밖(213)이다 — 사이의 `await acquireTurnRuntime`(189)이 reject하면 finally의 `supervisor.release(leaderTurn)`(408)이 실행되지 않아 turn 등록이 남는다 | verify r9 · AC6 · VP-11 | turn 등록과 `leaderTurn` 대입을 한 지점에 두거나 콜백이 실패해도 핸들을 돌려준다 | BLOCKING | open |
+| D23 | `send.ts`의 단계 주석 `── 6. TurnContext 조립`·`── 7. 런타임 확보`와 `0188 D-019` 근거 주석이 삭제됐다 — `src/main/AGENTS.md`는 `send.ts`를 "이름 붙은 12단계 시퀀스"로 서술한다 | verify r9 · repository op | 재배치한 단계에 같은 이름의 주석을 복원한다 | 기록 | open |
 
 ### r4 — verify/FAIL 보완
 
