@@ -522,6 +522,16 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 - **구현 보고**: D17의 잘못된 r6 closeout을 r7 관측으로 교정했다. `typecheck:test`와 전체 typecheck 3구성은 진단 0, 대상 suite는 1파일 3케이스 green, lint는 0 error·기존 warning 1이다. AC 자기보고는 **✅13 · ⚠️7 · ❌0 = 20**이다.
 - **Review Signals**: r7이며 r6의 gate 축이 다시 열렸다. 반복 원인은 명시 타입을 읽지 않은 fixture 추정과 로컬 checkout·외부 CI 계약 차이를 커밋 전 재확인하지 않은 B다.
 
+### r8 — Windows 별칭 rollback oracle 보완
+
+- **설계 리뷰**: DIAGNOSE_ONLY로 외부 Windows red를 재현 경로와 대조했다. rollback 동작이 아니라 삭제 전 경로의 문자열 prefix를 filesystem identity로 간주한 oracle 결함 B이며 지침 변경은 필요 없다.
+- **강제 지점 전수와 V-pair 자기확인**: EP-09의 별칭 rollback 지점만 영향을 받는다. VP-04·05·11·13·15·17은 `SELF_PASS`, 나머지 11 pair는 독립 검증 전 `SELF_BLOCKED`다.
+- **이번 라운드 수정의 잠금**: remove spy가 삭제 전에 `realpath(input.path)`를 저장하고 `isWithinDir`로 physical root 포함을 판정한다. 텍스트 별칭·drive letter 표기가 달라도 같은 filesystem identity를 비교한다.
+- **Product/UX 파생 검토**: 테스트 oracle만 바뀌어 rollback 동작·사용자 문자열·상태 전이는 변하지 않는다.
+- **놓친 잠재 문제 + 대응**: production rollback과 기존 open 이슈는 변경하지 않았다. 신규 의존성·공개 계약·PLAN_GAP은 없다.
+- **구현 보고**: 사용자 보고의 `startsWith(realpath(physical))`를 path-aware identity 단언으로 교체했다. 대상 suite와 전체 typecheck·lint·test gate 결과를 다시 기록한다. AC 자기보고는 **✅13 · ⚠️7 · ❌0 = 20**이다.
+- **Review Signals**: r8이며 r2·r3과 같은 Windows path identity 축이다. 반복 원인은 경로 문자열과 filesystem identity를 섞은 B이고 이번 oracle은 삭제 전 양쪽을 canonicalize한다.
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.
