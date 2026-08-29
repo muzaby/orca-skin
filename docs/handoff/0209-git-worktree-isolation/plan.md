@@ -635,11 +635,15 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 | D21 | DB insert 실패 rollback이 `<managed>/<repoId>` 빈 bucket을 남긴다(3회 → 3개) — 같은 함수의 `!added.ok` 형제 분기와 정책이 다르다 | verify r5 · D-011 · AC4 | 두 rollback 분기의 bucket 정리를 한 경로로 모은다 | NON_BLOCKING | open |
 | D22 | `supervisor.startNew/startResume(turn)`은 `acquireRuntime` 콜백 안(`send.ts:182·187`)인데 `leaderTurn = turn`은 콜백 밖(213)이다 — 사이의 `await acquireTurnRuntime`(189)이 reject하면 finally의 `supervisor.release(leaderTurn)`(408)이 실행되지 않아 turn 등록이 남는다 | verify r9 · AC6 · VP-11 | turn 등록과 `leaderTurn` 대입을 한 지점에 두거나 콜백이 실패해도 핸들을 돌려준다 | BLOCKING | **closed (r10 확인 — M-S red 2)** |
 | D23 | `send.ts`의 단계 주석 `── 6. TurnContext 조립`·`── 7. 런타임 확보`와 `0188 D-019` 근거 주석이 삭제됐다 — `src/main/AGENTS.md`는 `send.ts`를 "이름 붙은 12단계 시퀀스"로 서술한다 | verify r9 · repository op | 재배치한 단계에 같은 이름의 주석을 복원한다 | 기록 | **closed (r10 — 세 주석 복원)** |
-| D24 | TurnRequest 조립(`send.ts:319`)이 `turn.cwd` 대신 source cwd를 써도 lint 0 · typecheck 0 · 전 스위트 2598 green — worktree는 만들어지고 Agent는 원본 checkout에서 돈다 | verify r10 · VP-11 · AC5 · §10 EP-08 4번째 좌표 | 같은 harness를 `acquireTurnRuntime` 성공으로 이어 TurnRequest의 `cwd`·`extraDirs`를 단언한다 | BLOCKING | open |
-| D25 | `leaderRuntime`이 `await` 뒤(`send.ts:221`)에만 대입돼 acquire가 throw하면 생성된 runtime 핸들이 닫히지 않는다 — D22의 형제 축이고 `ac622203:213`에도 같았던 선재 결함이다 | verify r10 · AC6 인접 | `leaderTurn`과 같은 축으로 맞춘다 | NON_BLOCKING | open |
+| D24 | TurnRequest 조립(`send.ts:319`)이 `turn.cwd` 대신 source cwd를 써도 lint 0 · typecheck 0 · 전 스위트 2598 green — worktree는 만들어지고 Agent는 원본 checkout에서 돈다 | verify r10 · VP-11 · AC5 · §10 EP-08 4번째 좌표 | 같은 harness를 `acquireTurnRuntime` 성공으로 이어 TurnRequest의 `cwd`·`extraDirs`를 단언한다 | BLOCKING | **closed (r11 — M-T red 2 · M-T2 · M-U2 red)** |
+| D25 | `leaderRuntime`이 `await` 뒤(`send.ts:221`)에만 대입돼 acquire가 throw하면 생성된 runtime 핸들이 닫히지 않는다 — D22의 형제 축이고 `ac622203:213`에도 같았던 선재 결함이다 | verify r10 · AC6 인접 | `leaderTurn`과 같은 축으로 맞춘다 | NON_BLOCKING | **closed (r11 — M-V red, 호출부 1/1 배선)** |
 | D26 | VP-09 등록 변이("raw command를 feature에 심으면 sweep red")를 강제하는 장치가 없다 — `rg -n "runGit" src/main/features` = 0줄은 사실이나 그것을 지키는 테스트가 없다 | verify r10 · VP-09 | `no-node-fetch.test.ts` 형태의 가드를 두거나 pair의 적대 증거를 직접 oracle로 바꾼다 | NON_BLOCKING | open |
-| D27 | AC4의 "add/DB insert/abort 각 실패 주입 후 runtime 0회"가 관측 0이다 — VP-05는 자기 oracle로 통과했으나 이 행은 열려 있다 | verify r10 · AC4 | 준비 거부·abort·DB insert 실패를 주입해 runtime 0회를 단언한다 | NON_BLOCKING | open |
+| D27 | AC4의 "add/DB insert/abort 각 실패 주입 후 runtime 0회"가 관측 0이다 — VP-05는 자기 oracle로 통과했으나 이 행은 열려 있다 | verify r10 · AC4 | 준비 거부·abort·DB insert 실패를 주입해 runtime 0회를 단언한다 | NON_BLOCKING | **closed (r11 — 거부 경로 0회 관측; abort 는 D32)** |
 | D28 | `### r10` 구현 보고와 INDEX 비고에 게이트 산출(파일/케이스/error 수)이 없다 — 거짓 주장은 없으나 impl §7이 요구한 관측값도 없다 | verify r10 · repository op | 게이트 결과를 관측값으로 적는다 | 기록 | open |
+| D29 | `resolveDirty` 의 `stash push`·`commit -a`·`reset --hard` 가 `readOnly: true` 를 붙이는 `run()`(`git-cli.ts:33`)을 지난다 — queue 계약은 지켜지나 같은 파일이 `checkout` 은 mutation 으로 부르는 형제 비대칭이다 | verify r11 · D-014 인접 · §10 EP-12 | 상태를 바꾸는 명령은 read 라벨을 붙이지 않는다 | NON_BLOCKING | open |
+| D30 | `queue-entry.test.ts` 의 `whileQueueHeld` 가 150ms 고정 대기다 — 느린 러너에서 git 이 그보다 오래 걸리면 우회해도 통과할 수 있다(이 환경 10회 반복은 4/4 안정) | verify r11 · VP-12 oracle | 시간이 아니라 queue 진입 자체를 관측하는 형태로 좁힌다 | 기록 | open |
+| D31 | `send.worktree.test.ts` 가 모듈 10개를 mock 한다 — EP-08 좌표 3은 `buildTurnRequest` 의 **입력**이고 실제 `TurnRequest` 객체가 아니다. 이음매는 `turn-request.ts:93` 의 타입 spread 로 성립한다 | verify r11 · VP-11 범위 | 다음 라운드가 이 경계를 오해하지 않게 문서가 갖는다 | 기록 | open |
+| D32 | AC4 의 `abort` 주입 후 runtime 0회가 관측 0이다 | verify r11 · AC4 (D27 에서 분리) | `AbortController` 를 service 에 주입해 취소 경로를 단언한다 | NON_BLOCKING | open |
 
 ### r4 — verify/FAIL 보완
 
