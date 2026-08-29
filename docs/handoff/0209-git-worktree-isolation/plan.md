@@ -532,6 +532,16 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 - **구현 보고**: 사용자 보고의 `startsWith(realpath(physical))`를 path-aware identity 단언으로 교체했다. 대상 suite와 전체 typecheck·lint·test gate 결과를 다시 기록한다. AC 자기보고는 **✅13 · ⚠️7 · ❌0 = 20**이다.
 - **Review Signals**: r8이며 r2·r3과 같은 Windows path identity 축이다. 반복 원인은 경로 문자열과 filesystem identity를 섞은 B이고 이번 oracle은 삭제 전 양쪽을 canonicalize한다.
 
+### r9 — Windows main worktree identity 보완
+
+- **설계 리뷰**: DIAGNOSE_ONLY로 외부 Windows red를 대조했다. r8이 remove 경로만 canonicalize하고 바로 다음 main worktree 단언의 raw `{ path: repo }` 비교를 남긴 B이며 지침 변경은 필요 없다.
+- **강제 지점 전수와 V-pair 자기확인**: EP-09의 별칭 rollback oracle만 영향을 받는다. VP-04·05·11·13·15·17은 `SELF_PASS`, 나머지 11 pair는 독립 검증 전 `SELF_BLOCKED`다.
+- **이번 라운드 수정의 잠금**: rollback 뒤 목록 1건·`master` branch를 별도 단언하고, Git path와 repo를 각각 `realpath`한 뒤 양방향 `isWithinDir`로 동일 identity를 판정한다. 관련 테스트 파일의 raw path 비교 차집합은 0줄이다.
+- **Product/UX 파생 검토**: 테스트 oracle만 바뀌어 rollback 동작·사용자 문자열·상태 전이는 변하지 않는다.
+- **놓친 잠재 문제 + 대응**: `parseWorktreeList`의 문자열 보존 계약과 production rollback은 변경하지 않았다. 신규 의존성·공개 계약·PLAN_GAP은 없다.
+- **구현 보고**: Windows 8.3 short path와 Git의 long path를 직접 비교하던 형제 단언을 filesystem identity 비교로 교체했다. 대상 반복 suite와 전체 typecheck·lint·test gate 결과를 기록한다. AC 자기보고는 **✅13 · ⚠️7 · ❌0 = 20**이다.
+- **Review Signals**: r9이며 r8과 같은 Windows identity 축이다. 반복 원인은 한 테스트의 형제 단언을 전수로 닫지 않은 B이고 이번에는 raw path 비교 검색 차집합을 확인했다.
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.

@@ -120,9 +120,16 @@ describe('WorktreeService', () => {
     ).resolves.toMatchObject({ kind: 'rejected', reason: 'create-failed' })
     expect(removeCalls).toHaveLength(1)
     expect(isWithinDir(removeCalls[0], await realpath(physical))).toBe(true)
-    expect(await listWorktrees(repo)).toEqual([
-      expect.objectContaining({ path: repo, branch: 'master' })
-    ])
+    const remaining = await listWorktrees(repo)
+    expect(remaining).toHaveLength(1)
+    const mainWorktree = remaining?.[0]
+    expect(mainWorktree).toBeDefined()
+    if (!mainWorktree) throw new Error('main worktree was not preserved')
+    const canonicalRepo = await realpath(repo)
+    const canonicalMain = await realpath(mainWorktree.path)
+    expect(isWithinDir(canonicalMain, canonicalRepo)).toBe(true)
+    expect(isWithinDir(canonicalRepo, canonicalMain)).toBe(true)
+    expect(mainWorktree.branch).toBe('master')
     expect(await import('node:fs/promises').then(({ readdir }) => readdir(physical))).toEqual([])
   })
 
