@@ -8,7 +8,7 @@
 
 import { execFile } from 'node:child_process'
 import { readFileSync } from 'node:fs'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -16,6 +16,8 @@ import { promisify } from 'node:util'
 import { afterEach, describe, expect, it } from 'vitest'
 import { SendChatMessageSchema } from '../../../shared/protocol'
 import type { DbQueries } from '../../infra/db'
+import { isWithinDir } from '../../infra/config/paths'
+import { listWorktrees } from '../../infra/git/worktree'
 import { sourceFiles, stripCommentsAndStrings } from '../../infra/source-scan'
 import { WorktreeService } from './service'
 
@@ -63,9 +65,18 @@ describe('renderer payload → schema → service → git (AC1 · AC2 · VP-09)'
 
     expect(result.kind).toBe('managed')
     // git 이 실제로 그 branch 를 그 경로에 만들었는지 — 서비스 반환값이 아니라 git 에게 묻는다.
-    const listed = (await exec('git', ['-C', repo, 'worktree', 'list', '--porcelain'])).stdout
-    expect(listed).toContain(rows[0].worktreeRoot)
-    expect(listed).toContain(`branch refs/heads/${rows[0].branch}`)
+    const listed = await listWorktrees(repo)
+    // **경로는 문자열로 비교하지 않는다.** Windows 에서 git 은 `C:/…`, Node 는 `C:\…` 로 같은
+    // 경로를 적고 temp 루트가 junction 일 수도 있다(r2·r3 가 같은 축에서 열렸다). 두 값을
+    // realpath 로 접은 뒤 양방향 containment 로 **동일성**을 본다 — `service.test.ts` 와 같은 형태다.
+    const recorded = await realpath(rows[0].worktreeRoot)
+    const entry = (
+      await Promise.all(
+        (listed ?? []).map(async (e) => ({ ...e, canonical: await realpath(e.path) }))
+      )
+    ).find((e) => isWithinDir(e.canonical, recorded) && isWithinDir(recorded, e.canonical))
+    expect(entry, 'git 목록에 managed worktree 가 없다').toBeDefined()
+    expect(entry?.branch).toBe(rows[0].branch)
     expect(rows[0].branch.startsWith('work/')).toBe(true)
     const head = (await exec('git', ['-C', repo, 'rev-parse', 'HEAD'])).stdout.trim()
     expect(rows[0].baseOid).toBe(head)
