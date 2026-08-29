@@ -199,7 +199,12 @@ export async function handleChatSend(
             adapter: activeAdapter,
             buildExtensions: () =>
               ctx.extensions.build(payload.sessionId, payload.sessionId ? null : boundProjectId),
-            settleDeadBackgroundTasks: deps.settleDeadBackgroundTasks
+            settleDeadBackgroundTasks: deps.settleDeadBackgroundTasks,
+            // turn 과 같은 축 — 인출 즉시 공개해야 이 다음 await 가 reject 해도
+            // 바깥 finally 가 핸들을 닫는다.
+            onRuntimeAcquired: (acquired) => {
+              leaderRuntime = acquired
+            }
           },
           turn,
           { sessionId: payload.sessionId, resolved, sessionProviderKey: sessionMeta?.provider_key }
