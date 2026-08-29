@@ -605,6 +605,67 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
   - 반복 환경 한계: `chat-turn.continuity.test.ts` 0건 수집(Electron 바이너리 부재)이 r1 부터 같다. 다만 이번 두 좌표는 그 스위트 없이 닫혔다.
   - 현재 라운드 수: **11**.
 
+### r12 — 남은 8 pair 의 증거를 만들고, 그 장치들의 눈을 확인한다
+
+- **설계 리뷰**: `PLAN_GAP` 없음. r11 verify 가 남긴 8 `PAIR_FAIL`(VP-01·02·06·07·08·09·10·16)과 `BLOCKED_BY` 1(VP-03)은 전부 "아직 만들지 않은 증거"였고 규범 행을 바꾸지 않고 닫았다. 프로덕션 코드는 **0줄 변경**이다 — 이번 라운드 산출은 전부 oracle 이다. 라운드 12지만 선행 `handoff-review`(round 25)가 r11 직후에 수행됐고 그 신설 규칙(분모 검산·덮개 회귀·라벨 술어 검증)이 이번 라운드에서 실제로 발동해 재수행하지 않았다.
+- **강제 지점 전수와 V-pair 자기확인**: EP-01 **3/3** · EP-06 **3/3** · EP-07 **2/2** · EP-11 **3/3** · EP-04 features 음성 축 신설. r11 verify 가 `부분` 으로 남긴 EP-06·EP-11 이 이번에 전수로 닫혔다. **EP-07 은 전수를 세다가 열려 있는 자리를 찾았다** — 두 지점 중 `session handler` 만 잠겨 있었고 `bootstrap` 배선은 지워도 전 스위트 2635 초록이었다(아래 §놓친 잠재 문제 1). VP-01·02·03·06·07·08·09·10·16 은 `SELF_PASS`, 나머지 8 pair 는 r11 verify 판정을 승계한다.
+- **이번 라운드 수정의 잠금**
+
+| 심은 결함 | 갈래 / 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M-I 격리 칩을 `CwdPanel` 에서 삭제 | `VP-01 선택 증거` | **green**(r5~r11) | `칩이 렌더되고 라벨을 단다` 1건 | 잠김 — **덮개 회귀 복구** |
+| M-AE handler 가 보존 이유를 무시하고 삭제 진행 | `VP-03 선택 증거` | 미실행 | `worktree 가 보존되면…` 1건 | 잠김 |
+| M-AG `insertSession` 이 bind 를 부르지 않음 | `VP-06 선택 증거` | 미실행 | 2건 | 잠김 |
+| M6 삭제 판정이 `isClean` null 을 clean 으로 취급 | `VP-07 선택 증거` | 미실행 | 2건 | 잠김 |
+| M-AJ features 프로덕션이 `execFile` 을 직접 부름 | `VP-09 선택 증거` · `D26 인용 변이` | 미실행(장치 부재) | 2건 | 잠김 |
+| M-AJ2 features 프로덕션이 `runGit` 을 직접 부름 | `VP-09 선택 증거`(형제 축) | 미실행 | 2건 | 잠김 |
+| M-AL bind 를 `insertSession` 앞으로(순서 swap) | `VP-10 선택 증거` | 미실행 | 2건 | 잠김 |
+| M-AK `isClean` 이 untracked 를 무시 | `VP-16 선택 증거` | 미실행 | 3건 | 잠김 |
+| M-AJ3 스윕의 주석·문자열 제거를 무력화 | `새 oracle 자기 눈`(EP-04 스윕) | 미실행 | 1건 | 잠김 |
+| M-AM `bootstrap` 의 `removeManagedWorktree` 배선 제거 | `새 oracle 배선`(EP-07) | 미실행 | 1건 | 잠김 |
+| M-AM2 배선은 있으나 무동작(`async () => ({ ok: true })`) | `새 oracle 배선`(EP-07) | 미실행 | 1건 | 잠김 |
+| M-AN2 다른 슬라이스가 `removeForSession` 을 부름 | `새 oracle 0건 스윕`(AC13 음성 축) | 미실행 | 1건 | 잠김 |
+| M-AN3 **같은 파일 안** 두 번째 호출부 | `새 oracle 분류 단위`(AC13) | 미실행 | 1건 | 잠김 |
+
+- **분모 검산**: `선택 증거 8 · 인용 변이 1(D26 — M-AJ 행과 동일) · 새 oracle 5 = 필수 표 행 13`. `SELF_PASS` 로 올린 9 pair 가 전부 행을 갖는다 — `not selected` 인 VP-02·VP-08 은 등록 증거가 없어 아래 직접 oracle 행이 그 자리다. 행이 없는 pair·이슈를 `SELF_PASS`·`closed` 로 적지 않았다.
+- **직접 oracle 민감도**(의무 아님 — 실측만 기록): M-K·M-J(VP-01 눌림·토글) red 1 / M-AB·M-AC·M-AD(VP-02 세 거부 이유) red 1 / M6b·M-Y·M-X(VP-07 HEAD·신규 commit·호출 순서) red 2·1·1 / M-Z2(VP-16 external 침범) red 1 / M-AF(VP-06 writer 가 cwd 미전달) red 2 / M-AH2(VP-08 재개가 요청 cwd 사용) red 1 / M-AI·M-AI2(VP-09 branch·baseOid 갈림) red 1 / M-AJ4(features 가 `node:child_process` import) red 1.
+- **덮개 회귀**: 이전 라운드에 red 였는데 이번에 green 인 행 **0건**. r11 의 M-T(red 2) · M-T2(red 1) · M-U2(red 2) · M-V(red 1) · M-O(red 3) 를 그대로 재실행해 전부 red 를 유지했다. 반대 방향으로 M-I 가 r5~r11 의 green 에서 red 로 돌아섰다.
+- **Product/UX 파생 검토**: 새 사용자 대면 문자열 0 — 프로덕션 변경이 0줄이다. 다만 **EP-07 배선 결함(§놓친 잠재 문제 1)은 제품 실패였다**: 그 한 줄이 없으면 `session:delete` 가 managed worktree 검사를 건너뛰고 `?? { ok: true }` 폴백으로 세션을 지운다 — 사용자는 커밋하지 않은 작업이 든 worktree 를 남긴 채 세션만 잃고, 화면에는 성공으로 보인다. Part I 상태 전이표의 `삭제 + dirty worktree` 행이 아무 경고 없이 `삭제 성공` 행으로 접히는 경우다.
+- **놓친 잠재 문제 + 대응**
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | EP-07 두 지점 중 `bootstrap.ts:863` 배선이 잠금 0 — 지워도 전 스위트 **2635 전건 green**. hook 이 optional 이라 typecheck 도 부재를 못 잡는다 | ✅ **선조치** — 배선 형태와 유일 호출부를 보는 oracle 신설 | M-AM·M-AM2·M-AN3 red 1. 단위(`session.delete.test.ts` 주입)만 잠그고 **그 단위를 부르는 배선**을 안 잠근 자리였다(impl §3) |
+| 2 | VP-06 의 **유일성 축**(M-E: `matches.length === 1` → `>= 1`)은 이번 신규 장치로는 green 이다 | ⚠️ 보고만 — provenance 정정 | r4 가 만든 `infra/db/` 장치가 red 1 로 잡는다. 내 writer 층 장치는 EP-06 의 *다른* 지점(3번째)이라 이 축을 대신하지 않는다. `SELF_PASS` 근거에서 M-E 를 내 잠금으로 세지 않았다 |
+| 3 | 첫 M-T 측정이 green 이었다 — `resolved.executionCwd ?? turn.cwd` 로 심어 테스트 스코프에서 **등가 변이**였다 | ✅ 선조치 — r11 좌표(`payload.cwd ?? ctx.getCwd(...)`)로 다시 심어 red 2 | 등가 변이의 green 을 덮개 회귀로 보고했다면 없는 회귀를 만들 뻔했다 |
+| 4 | 변이 측정 스크립트의 파서가 **전건 red** 를 `NO-CASES` 로 읽었다(`Tests N failed (N)` 에는 `passed` 절이 없다) | ✅ 선조치 — 파서 교정 후 전 행 재측정 | M-U2 가 실제로는 red 2 인데 `NO-CASES` 로 나왔다. 이 버그는 green 을 만들지는 않는다(green 판정은 `passed` 절을 요구) |
+| 5 | 첫 EP-04 스윕이 주석 속 `spawn(resume)` 을 호출로 셌고, 자체 `stripComments` 를 손으로 만들었다 | ✅ 선조치 — 저장소가 이미 소유한 `infra/source-scan` 의 `stripCommentsAndStrings`·`sourceFiles` 로 교체 | 같은 헬퍼를 `no-node-fetch.test.ts`·`no-cookie-token.test.ts` 가 쓴다. 사본을 세 번째로 만들 자리가 아니었다 |
+| 6 | D5·D9·D11·D12(부분)·D13·D14·D21·D29·D32 와 NEXT_HANDOFF D6·D10 | ⚠️ 유지 | 이번 축(증거 신설)과 독립이다. D11 은 이번 라운드에도 재현했다 — 아래 게이트 산출 |
+
+- **설계 대비 명시적 차이**: 없음. plan 이 지정한 메커니즘을 바꾸지 않았고 프로덕션 코드·신규 의존성·공개 계약 변경이 0이다. `worktree-bind.test.ts` 를 `features/history/` 가 아니라 `app/chat-turn/` 에 둔 것은 배치 선택이다 — 영속은 `features/history`, 재개는 `app/chat-turn` 이라 두 레이어의 합성이고, feature 안에 두면 `boundaries/dependencies` 가 features→app 을 error 로 막는다(실측 1건).
+- **구현 보고**
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규 6 — `features/worktrees/{safe-delete,reject-reasons,ipc-integration}.test.ts` · `app/handlers/session.delete.test.ts` · `app/chat-turn/worktree-bind.test.ts` · `renderer/…/CwdPanel.isolation.test.ts`. 수정 1 — `app/chat-turn/send.worktree.test.ts`(VP-02 send 층 케이스 + 하네스 `extraDirs ?? []` 교정). **프로덕션 0줄** |
+| 실행 명령 | `npm run typecheck` · `npm run lint` · `./node_modules/.bin/vitest run` · `node scripts/check-migrations-appendonly.mjs` · `node scripts/check-doc-inventory.mjs --check` · `node --test scripts/*.test.mjs` · `git diff --check` |
+| **관측한 게이트 산출** | typecheck exit 0 · `error TS` **0줄**(3구성) / lint exit 0 · **0 error · warning 1**(기존 `useTranscriptVirtualizer`), 실행 후 `git status --porcelain` 에 도구 변경분 0 / vitest **269파일 · 2638케이스**, 268 pass 파일 / scripts **59/59** / migrations `sync ok: 18` · `append-only ok since v0.3.1` / doc-inventory generated·prose·links ok / `git diff --check` 0줄 |
+| 환경 기인 실패 분리 | **1파일 0건 수집** — `app/chat-turn.continuity.test.ts` `Electron failed to install correctly`(`app/AGENTS.md §제약 환경` 의 알려진 서명, r1 부터 동일). **간헐 1건** — `infra/git/mutation-queue.test.ts > serializes filesystem aliases` 가 전 스위트 10회 중 **3회 red**, 단독 실행 8/8 green. 이것은 **D11 로 이미 기록된 선재 결함**이고(verify r4: 전 스위트 4회 중 2회 red) 이번 변경은 그 경로를 건드리지 않았다(프로덕션 0줄) |
+| V-pair 자기확인 | `SELF_PASS 9`(VP-01·02·03·06·07·08·09·10·16) / 나머지 8은 r11 verify 판정 승계; pair 별 근거는 위 잠금 표 |
+| 강제 지점 전수 | EP-01 3/3 · EP-06 3/3 · EP-07 2/2 · EP-11 3/3 (EP-03 2/2 · EP-08 4/4 · EP-09 2/2 · EP-12 4/4 는 r11 승계) |
+| **AC 자기보고**(`Criteria-Met`) | AC13·AC14·AC15 를 ⚠️→✅ 로 올렸다 — AC13 은 재시작 resume(M-AH2 red)과 종료 시 remove 0회(M-AN2·M-AN3 red) 두 축, AC14 는 세 거부 이유 + 후속 send 성공(service·send 두 층), AC15 는 네 상태 표 + 호출 순서·0/1회 + handler union |
+| **합계 검산** | `✅ 16 · ⚠️ 4 · ❌ 0 = 총 20` — ✅ = AC1·2·3·5·6·7·8·11·12·13·14·15·16·17·18·19 / ⚠️ = AC4(abort 주입, D32)·AC9(HEAD 이동 모사 미관측)·AC10(Windows 경로 표기, CI 러너)·AC20(Windows 시각 실기). 분모 변경 없음 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r12 구현 — 좌표는 INDEX)` |
+
+- **Review Signals**
+  - 이번에 닫은 것은 r5~r11 의 "같은 불변식의 다음 좌표" 축이 **아니다** — 8 pair 가 전부 미작성 증거였다. 대신 **같은 축이 한 단계 위에서 재발했다**: EP-07 에서 단위(핸들러)는 잠그고 그것을 부르는 배선은 안 잠근 자리를 찾았다. impl §3 이 0198 r5 사례로 서술하는 바로 그 패턴이고, 이번에는 전수를 세다가 구현 턴 안에서 걸렸다.
+  - 그것을 막았어야 할 지침은 있었고 **이번에는 작동했다** — §2 의 "지점 수만큼 닫고 개수를 보고한다" 가 EP-07 을 `2/2` 로 세게 했고, 두 번째 지점에 눈이 없다는 사실이 그 셈에서 나왔다.
+  - round 25 review 가 신설한 세 규칙이 전부 발동했다: 분모 검산(필수 13행 분리) · 덮개 회귀(M-I 의 green→red 와 r11 5변이 재실행) · 라벨 술어 검증(첫 스윕이 주석을 호출로 세던 것을 자기 눈 케이스가 잡았다).
+  - 반복 환경 한계: `chat-turn.continuity.test.ts` 0건 수집(Electron 바이너리 부재)이 r1 부터 같다. D11 간헐도 r4 부터 같은 비율이다. Windows 경로 표기·시각 확인은 CI 러너와 사람 몫이다.
+  - 현재 라운드 수: **12**. 선행 review 는 round 25.
+
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.
@@ -637,7 +698,7 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 | D23 | `send.ts`의 단계 주석 `── 6. TurnContext 조립`·`── 7. 런타임 확보`와 `0188 D-019` 근거 주석이 삭제됐다 — `src/main/AGENTS.md`는 `send.ts`를 "이름 붙은 12단계 시퀀스"로 서술한다 | verify r9 · repository op | 재배치한 단계에 같은 이름의 주석을 복원한다 | 기록 | **closed (r10 — 세 주석 복원)** |
 | D24 | TurnRequest 조립(`send.ts:319`)이 `turn.cwd` 대신 source cwd를 써도 lint 0 · typecheck 0 · 전 스위트 2598 green — worktree는 만들어지고 Agent는 원본 checkout에서 돈다 | verify r10 · VP-11 · AC5 · §10 EP-08 4번째 좌표 | 같은 harness를 `acquireTurnRuntime` 성공으로 이어 TurnRequest의 `cwd`·`extraDirs`를 단언한다 | BLOCKING | **closed (r11 — M-T red 2 · M-T2 · M-U2 red)** |
 | D25 | `leaderRuntime`이 `await` 뒤(`send.ts:221`)에만 대입돼 acquire가 throw하면 생성된 runtime 핸들이 닫히지 않는다 — D22의 형제 축이고 `ac622203:213`에도 같았던 선재 결함이다 | verify r10 · AC6 인접 | `leaderTurn`과 같은 축으로 맞춘다 | NON_BLOCKING | **closed (r11 — M-V red, 호출부 1/1 배선)** |
-| D26 | VP-09 등록 변이("raw command를 feature에 심으면 sweep red")를 강제하는 장치가 없다 — `rg -n "runGit" src/main/features` = 0줄은 사실이나 그것을 지키는 테스트가 없다 | verify r10 · VP-09 | `no-node-fetch.test.ts` 형태의 가드를 두거나 pair의 적대 증거를 직접 oracle로 바꾼다 | NON_BLOCKING | open |
+| D26 | VP-09 등록 변이("raw command를 feature에 심으면 sweep red")를 강제하는 장치가 없다 — `rg -n "runGit" src/main/features` = 0줄은 사실이나 그것을 지키는 테스트가 없다 | verify r10 · VP-09 | `no-node-fetch.test.ts` 형태의 가드를 두거나 pair의 적대 증거를 직접 oracle로 바꾼다 | NON_BLOCKING | **closed (r12 — `infra/source-scan` 기반 스윕, M-AJ·M-AJ2·M-AJ4 red, 자기 눈 M-AJ3 red)** |
 | D27 | AC4의 "add/DB insert/abort 각 실패 주입 후 runtime 0회"가 관측 0이다 — VP-05는 자기 oracle로 통과했으나 이 행은 열려 있다 | verify r10 · AC4 | 준비 거부·abort·DB insert 실패를 주입해 runtime 0회를 단언한다 | NON_BLOCKING | **closed (r11 — 거부 경로 0회 관측; abort 는 D32)** |
 | D28 | `### r10` 구현 보고와 INDEX 비고에 게이트 산출(파일/케이스/error 수)이 없다 — 거짓 주장은 없으나 impl §7이 요구한 관측값도 없다 | verify r10 · repository op | 게이트 결과를 관측값으로 적는다 | 기록 | open |
 | D29 | `resolveDirty` 의 `stash push`·`commit -a`·`reset --hard` 가 `readOnly: true` 를 붙이는 `run()`(`git-cli.ts:33`)을 지난다 — queue 계약은 지켜지나 같은 파일이 `checkout` 은 mutation 으로 부르는 형제 비대칭이다 | verify r11 · D-014 인접 · §10 EP-12 | 상태를 바꾸는 명령은 read 라벨을 붙이지 않는다 | NON_BLOCKING | open |

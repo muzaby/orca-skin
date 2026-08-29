@@ -76,7 +76,9 @@ function makeHarness(sessionId?: string) {
   }
   mocks.buildTurnContext.mockImplementation((input) => {
     turn.cwd = input.payload.cwd
-    turn.extraDirs = input.payload.extraDirs
+    // production `buildTurnContext` 는 `resolveTurnExtraDirs` 로 **항상 배열**을 만든다.
+    // 여기서 undefined 를 그대로 흘리면 하네스가 계약보다 느슨해진다.
+    turn.extraDirs = input.payload.extraDirs ?? []
     return turn
   })
 
@@ -258,6 +260,40 @@ describe('handleChatSend worktree production wiring', () => {
     expect(mocks.sendChatEvent).toHaveBeenCalledWith(
       harness.sender,
       expect.objectContaining({ type: 'error' })
+    )
+  })
+
+  it('격리 준비가 거부돼도 다음 비격리 send 는 그대로 진행한다 (AC14)', async () => {
+    const rejected = makeHarness()
+    rejected.deps.worktrees.prepare.mockResolvedValue({
+      kind: 'rejected',
+      reason: 'not-repo',
+      message: 'Git 저장소가 아닙니다.'
+    })
+    await handleChatSend(rejected.deps as never, { sender: rejected.sender } as never, {
+      text: 'work',
+      worktreeIsolation: true,
+      attachmentViews: []
+    })
+    expect(mocks.buildTurnRequest).not.toHaveBeenCalled()
+
+    // 같은 앱에서 이어지는 다음 턴 — 격리를 끄면 준비를 부르지도 않고 끝까지 간다.
+    const next = makeHarness()
+    const runtime = { close: vi.fn(), channelAlive: true, markAborted: vi.fn() }
+    mocks.acquireTurnRuntime.mockResolvedValue({
+      ok: true,
+      runtime,
+      extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+    })
+    await handleChatSend(next.deps as never, { sender: next.sender } as never, {
+      text: 'plain',
+      attachmentViews: []
+    })
+
+    expect(next.deps.worktrees.prepare).not.toHaveBeenCalled()
+    expect(mocks.buildTurnRequest).toHaveBeenCalledOnce()
+    expect(mocks.buildTurnRequest.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({ cwd: '/source/repo' })
     )
   })
 
