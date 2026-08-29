@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join, relative, sep } from 'node:path'
 import { promisify } from 'node:util'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { DbQueries } from '../../infra/db'
@@ -46,6 +46,34 @@ describe('WorktreeService', () => {
     const recorded = rows[0] as { worktreeRoot: string }
     if (result.kind === 'managed')
       expect(isWithinDir(result.executionCwd, recorded.worktreeRoot)).toBe(true)
+  })
+
+  it('managed 경로 세그먼트는 UUID뿐 — repo 이름도 프롬프트도 경로에 넣지 않는다', async () => {
+    // D-007: repo/branch 문자열은 세그먼트가 아니다. 값 자체가 안정적 내부 ID여야 이름이
+    // 바뀌어도 filesystem identity가 따라 움직이지 않는다. 존재 단언만으로는 이 계약이
+    // 안 잡힌다 — repo 이름을 세그먼트에 넣어도 containment는 그대로 참이다.
+    const repo = await repository()
+    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-uuid-'))
+    roots.push(managed)
+    const rows: Array<{ worktreeRoot: string }> = []
+    const db = {
+      insertManagedWorktree: (row: { worktreeRoot: string }) => rows.push(row)
+    } as unknown as DbQueries
+
+    const result = await new WorktreeService(db, managed).prepare({
+      sourceCwd: repo,
+      firstPrompt: 'fix auth redirect'
+    })
+
+    expect(result.kind).toBe('managed')
+    const canonicalManaged = await realpath(managed)
+    const segments = relative(canonicalManaged, rows[0].worktreeRoot).split(sep)
+    expect(segments).toHaveLength(2)
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+    for (const segment of segments) expect(segment).toMatch(uuid)
+    // 음성 축을 따로 센다 — 정규식이 느슨해져도 이 둘은 남는다.
+    expect(rows[0].worktreeRoot).not.toContain(basename(repo))
+    expect(rows[0].worktreeRoot).not.toContain('auth')
   })
 
   it('repository 하위 cwd를 managed worktree 안의 같은 subpath로 보존한다', async () => {

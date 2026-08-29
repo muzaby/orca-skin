@@ -552,6 +552,59 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 - **구현 보고**: `send.worktree.test.ts`가 실제 handler의 production callback을 통과해 managed cwd·extraDirs·prepared snapshot을 runtime 경계에서 관측한다. startNew/startResume 직후 `leaderTurn`을 공개해 acquire reject 두 경로에서 release 1회를 관측했고, 6·7단계와 0188 D-019 주석을 복원했다. AC 자기보고는 **✅13 · ⚠️7 · ❌0 = 20**이다.
 - **Review Signals**: r10이며 D18은 r5~r9와 같은 배선 oracle 축, D22는 r6 재배치가 만든 cleanup 축이다. plan/AC는 두 축을 이미 요구했지만 앞선 테스트가 production handler에 진입하지 않아 검출하지 못했다.
 
+### r11 — cwd 종단 4좌표와 queue 진입 4지점을 전수로 닫는다
+
+- **설계 리뷰**: `PLAN_GAP` 없음. r10 verify의 BLOCKING D24와 NON_BLOCKING D25·D27을 기존 VP-11·VP-12·VP-14·AC4·AC5·EP-08·EP-09·EP-12 안에서 닫았다. 규범 행은 건드리지 않았다. 라운드 11이지만 선행 `handoff-review`(round 24, `f823841`)가 r10 직전에 수행됐고 그 두 규칙이 r10·r11에서 실제로 발동해 이번 라운드에 재수행하지 않았다 — r10 verify 결론도 새 review를 요구하지 않았다.
+- **강제 지점 전수와 V-pair 자기확인**: EP-08 **4/4**(잠김) · EP-09 **2/2**(잠김) · EP-12 **4/4**(잠김) · EP-03 2/2(r10 승계, M-A′ red 재확인). EP-12 분모는 해법 이름이 아니라 불변식의 주어로 셌다 — `rg -n "runGit\(" src/main/infra/git --glob '!*.test.ts'` 12건 중 상태를 바꾸는 호출은 `git-cli.ts:142`(checkout) · `worktree.ts:18`(add) · `:30`(remove) · `:39`(branch -d) **4건**이고 나머지 8건은 `readOnly: true`다. `rg -n "withRepoMutation" …` 이 그 4건을 전부 감싼다. VP-05·11·12·14·17은 `SELF_PASS`, 나머지 12 pair는 독립 검증 전 `SELF_BLOCKED`다.
+- **이번 라운드 수정의 잠금**
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M-A′ `send.ts` 격리 배선 전체 삭제(import·`makeClassifiedError`·`getLogger` 잔여 정리) | `VP-05 선택 증거` | red | `준비 완료 전에는…` 외 4건 | 잠김 |
+| 정적 sweep `rg -n "createWorktree\|addWorktree\|removeWorktree" adapters sessions` | `VP-11 선택 증거` | 0줄 | `rg -in "worktree"` 엄격화 차집합 1줄(주석) | 잠김 — 0건은 전수 |
+| M-O `addWorktree` 가 `withRepoMutation` 우회 | `VP-12 선택 증거` | green | `queue-entry.test.ts > addWorktree` 1건 | 잠김 |
+| M-L′ repo 이름·프롬프트 slug 를 경로 세그먼트로 | `VP-14 선택 증거` | green | `managed 경로 세그먼트는 UUID뿐…` 1건 | 잠김 |
+| M-Q′ `buildTurn` 콜백이 준비된 `executionCwd` 를 버림 | `D18 인용 변이` | red | 3건 | 잠김 |
+| M-T `TurnRequest` 가 `turn.cwd` 대신 source cwd | `D24 인용 변이` | green | `…TurnRequest 조립까지 그대로 간다` 1건 | 잠김 |
+| M-T2 `TurnRequest` extraDirs 를 `payload` 에서 다시 읽음 | `새 oracle 형제 축` | 미실행 | `turn이 계승한 extraDirs…` 1건 | 잠김 |
+| M-U2 `claude.ts` `sendMessage` 가 `req.cwd` 대신 `process.cwd()` | `새 oracle 민감도` | 미실행 | `claude.cwd.test.ts` 2건 | 잠김 |
+| M-O2 `gitCheckout` 이 queue 우회(형제 진입점) | `새 oracle 민감도` | 미실행 | `queue-entry.test.ts > gitCheckout` 외 10건 | 잠김 |
+| M-V `onRuntimeAcquired` 배선 제거 | `새 oracle 민감도` | 미실행 | `runtime 인출 뒤 확보가 실패해도…` 1건 | 잠김 |
+
+- **분모 검산**: `선택 증거 4 · 인용 변이 2 · 새 oracle 4 = 표 행 10`. 행이 없는 pair·이슈를 `SELF_PASS`·`closed` 로 적지 않았다.
+- **덮개 회귀**: 이전 라운드에 red 였는데 이번에 green 인 행 **0건**. r10 의 M-A′·M-Q′·M-S 를 그대로 재실행해 셋 다 red 를 유지했다(M-S 는 `leaderTurn` 축, 이번 M-V 는 그 형제인 `leaderRuntime` 축이다).
+- **Product/UX 파생 검토**: 새 사용자 대면 문자열 0. 준비 거부는 기존 오류 이벤트 1건을 보내고 context·runtime·TurnRequest 를 하나도 만들지 않는다 — Part I 상태 전이표의 `격리 on + dirty source` 행이고 "아무 일도 안 일어남" 이 아니다. runtime 확보가 예외로 끝나도 turn 과 핸들을 각각 1회 반납하므로 세션이 `실행 중` 으로 남지 않는다.
+- **놓친 잠재 문제 + 대응**
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | r10 verify 가 EP-08 4번째 좌표를 `claude.ts:264` 로 적었으나 그 줄은 `complete()`(제목·naming 1-shot) 경로다 | ⚠️ 보고만 — 좌표 정정 | chat 경로는 `sendMessage` 의 `claude.ts:365` `cwd,` 이고 `:288` 에서 `req` 를 분해한다. 264 에 심은 변이(M-U)는 341케이스 green, 365 에 심자(M-U2) 2건 red |
+| 2 | D27 의 `abort` 주입 후 runtime 0회는 여전히 미관측 | ⚠️ 보고만 | 준비 **거부**(dirty·add 실패·DB insert 실패가 모두 이 union 으로 수렴) 경로는 닫았다. `AbortController` 를 service 에 주입하는 케이스는 이번 범위 밖 |
+| 3 | D26 — VP-09 등록 변이("raw command 를 feature 에 심으면 sweep red")를 강제하는 장치가 없다 | ⚠️ 보고만 | `rg -n "runGit" src/main/features --glob '!*.test.ts'` = 0줄이지만 지키는 테스트가 없다. VP-09 는 `SELF_BLOCKED` 로 둔다 |
+| 4 | D5·D9·D11·D13·D14·D21 과 NEXT_HANDOFF D6·D10 | ⚠️ 유지 | 이번 두 축(cwd 종단·queue 진입)과 독립이다 |
+
+- **설계 대비 명시적 차이**: 없음. plan 이 지정한 메커니즘을 바꾸지 않았고 신규 의존성·공개 계약 변경도 없다.
+- **구현 보고**
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/chat-turn/{send,runtime-entry}.ts` · `app/chat-turn/send.worktree.test.ts` · `features/worktrees/service.test.ts` · 신규 `adapters/claude.cwd.test.ts` · 신규 `infra/git/queue-entry.test.ts` |
+| 실행 명령 | `npm run typecheck` · `npm run lint` · `./node_modules/.bin/vitest run` · `node scripts/check-migrations-appendonly.mjs` · `node scripts/check-doc-inventory.mjs --check` · `node --test scripts/*.test.mjs` · `git diff --check` |
+| **관측한 게이트 산출** | typecheck exit 0 · `error TS` **0줄**(3구성) / lint exit 0 · **0 error · warning 1**(기존 `useTranscriptVirtualizer`), 실행 후 `git status --short` 에 도구 변경분 0 / vitest **263파일 중 262 pass · 2609/2609 케이스** / scripts **59/59** / migrations `sync ok: 18` · `append-only ok since v0.3.1` / doc-inventory generated·prose·links ok / `git diff --check` 0줄 |
+| 환경 기인 실패 분리 | **1파일 0건 수집** — `app/chat-turn.continuity.test.ts` `Electron failed to install correctly`. `app/AGENTS.md §제약 환경` 의 알려진 서명이고 r1 부터 동일하다 |
+| V-pair 자기확인 | `SELF_PASS 5 / SELF_BLOCKED 12`; pair 별 근거는 위 잠금 표 |
+| 강제 지점 전수 | EP-03 2/2 · EP-08 4/4 · EP-09 2/2 · EP-12 4/4 |
+| **AC 자기보고**(`Criteria-Met`) | AC5 를 ⚠️→✅ 로 올렸다 — `TurnRequest cwd 직접 단언`(M-T red) + adapter 옵션 cwd(M-U2 red) + 기존 정적 0건. 나머지는 r10 verify 재측정을 그대로 승계 |
+| **합계 검산** | `✅ 13 · ⚠️ 7 · ❌ 0 = 총 20` — ✅ = AC1·2·3·5·6·7·8·11·12·16·17·18·19 / ⚠️ = AC4·9·10·13·14·15·20. 분모 변경 없음 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r11 구현 — 좌표는 INDEX)` |
+
+- **Review Signals**
+  - 이번에 닫은 불변식은 r5~r10 과 **같은 축**이다 — "격리로 정한 cwd 는 준비 결과부터 어댑터 옵션까지 한 값으로 간다". 이번에는 좌표를 4개로 열거해 전수로 닫았고, 형제 축(`extraDirs`)도 두 출처가 구별되는 값으로 갈라 함께 잠갔다.
+  - 그것을 막았어야 할 지침은 있었다 — AC5 가 `TurnRequest cwd 직접 단언` 을, VP-11 이 `최종 query cwd` 를 명시한다. 열 라운드 동안 그 좌표에 단언이 0이었고, 앞선 라운드들이 매번 **그 라운드가 만든 장치가 보는 자리**에서 변이를 골랐기 때문이다.
+  - 반복 환경 한계: `chat-turn.continuity.test.ts` 0건 수집(Electron 바이너리 부재)이 r1 부터 같다. 다만 이번 두 좌표는 그 스위트 없이 닫혔다.
+  - 현재 라운드 수: **11**.
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.
