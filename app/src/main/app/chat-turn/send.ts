@@ -151,12 +151,14 @@ export async function handleChatSend(
       },
       extraDirs: payload.extraDirs,
       buildTurn: (executionCwd, extraDirs) => {
+        // ── 6. TurnContext 조립 ───────────────────────────────────────────
         const controller = lease.controller
         return buildTurnContext<WebContents>({
           controller,
           owner: event.sender,
           control: lease.control,
           titleAdapter: activeAdapter,
+          // 0188 D-019: 제목 생성과 chat은 같은 prepared settings/env snapshot을 써야 한다.
           titleSettings: resolved.prepared.providerSettings,
           titleEnv: resolved.prepared.env,
           resolved,
@@ -178,6 +180,7 @@ export async function handleChatSend(
         })
       },
       acquireRuntime: async (turn) => {
+        // ── 7. 런타임 확보 ─────────────────────────────────────────────
         if (payload.sessionId) {
           supervisor.startResume(payload.sessionId, turn)
           getLogger().child('session').info('session.resume.completed', {
@@ -186,6 +189,9 @@ export async function handleChatSend(
           })
         } else supervisor.startNew(event.sender, turn)
 
+        // start* 로 등록한 즉시 cleanup 핸들을 공개한다. 이 다음 await가 reject해도
+        // 바깥 finally가 등록된 turn을 정확히 한 번 release해야 한다.
+        leaderTurn = turn
         const entry = await acquireTurnRuntime(
           {
             supervisor,
@@ -210,6 +216,7 @@ export async function handleChatSend(
     }
     const { turn, entry } = preparedExecution
     const controller = lease.controller
+    // 성공 경로에서도 명시해 이후 요청 조립과 cleanup의 정적 narrowing을 유지한다.
     leaderTurn = turn
     leaderRuntime = entry.runtime
     if (!entry.ok) return
