@@ -37,3 +37,17 @@ export async function prepareTurnWorktree(input: {
       })
   })
 }
+
+export async function prepareTurnExecution<TTurn, TEntry>(input: {
+  worktree: Parameters<typeof prepareTurnWorktree>[0]
+  extraDirs: readonly string[] | undefined
+  buildTurn: (executionCwd: string, extraDirs: readonly string[] | undefined) => TTurn
+  acquireRuntime: (turn: TTurn) => Promise<TEntry>
+}): Promise<{ kind: 'rejected'; message: string } | { kind: 'ready'; turn: TTurn; entry: TEntry }> {
+  const prepared = await prepareTurnWorktree(input.worktree)
+  if (prepared.kind === 'rejected') return prepared
+
+  const turn = input.buildTurn(prepared.executionCwd, input.extraDirs)
+  const entry = await input.acquireRuntime(turn)
+  return { kind: 'ready', turn, entry }
+}

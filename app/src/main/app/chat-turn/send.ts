@@ -35,7 +35,7 @@ import { createApprovalRequester } from './approval'
 import { runTurnWithContinuations } from './post-turn'
 import type { ChatRuntimeDeps, NormalizedAttachments } from './deps'
 import { makeClassifiedError } from '../../infra/errors'
-import { prepareTurnWorktree } from './prepare-worktree'
+import { prepareTurnExecution } from './prepare-worktree'
 
 export async function handleChatSend(
   deps: ChatRuntimeDeps,
@@ -137,79 +137,80 @@ export async function handleChatSend(
       effectiveText
     } = resolution.value
 
-    let executionCwd = payload.cwd ?? ctx.getCwd(boundProjectId)
-    const preparedWorktree = await prepareTurnWorktree({
-      enabled: payload.worktreeIsolation === true,
-      ...(payload.sessionId ? { sessionId: payload.sessionId } : {}),
-      sourceCwd: executionCwd,
-      firstPrompt: effectiveText,
-      signal: lease.controller.signal,
-      adapter: activeAdapter,
-      providerSettings: resolved.prepared.providerSettings,
-      env: resolved.prepared.env,
-      worktrees: deps.worktrees
+    const preparedExecution = await prepareTurnExecution({
+      worktree: {
+        enabled: payload.worktreeIsolation === true,
+        ...(payload.sessionId ? { sessionId: payload.sessionId } : {}),
+        sourceCwd: payload.cwd ?? ctx.getCwd(boundProjectId),
+        firstPrompt: effectiveText,
+        signal: lease.controller.signal,
+        adapter: activeAdapter,
+        providerSettings: resolved.prepared.providerSettings,
+        env: resolved.prepared.env,
+        worktrees: deps.worktrees
+      },
+      extraDirs: payload.extraDirs,
+      buildTurn: (executionCwd, extraDirs) => {
+        const controller = lease.controller
+        return buildTurnContext<WebContents>({
+          controller,
+          owner: event.sender,
+          control: lease.control,
+          titleAdapter: activeAdapter,
+          titleSettings: resolved.prepared.providerSettings,
+          titleEnv: resolved.prepared.env,
+          resolved,
+          payload: {
+            sessionId: payload.sessionId,
+            cwd: executionCwd,
+            ...(extraDirs !== undefined ? { extraDirs: [...extraDirs] } : {}),
+            attachmentViews: payload.attachmentViews as AttachmentView[],
+            ...(payload.forkFrom !== undefined ? { forkFrom: payload.forkFrom } : {}),
+            ...(payload.handoffFrom !== undefined ? { handoffFrom: payload.handoffFrom } : {})
+          },
+          effectiveText,
+          boundProjectId,
+          sessionMeta,
+          continuityMeta,
+          continuityLang,
+          queueKey: provisionalKey,
+          getCwd: (projectId) => ctx.getCwd(projectId)
+        })
+      },
+      acquireRuntime: async (turn) => {
+        if (payload.sessionId) {
+          supervisor.startResume(payload.sessionId, turn)
+          getLogger().child('session').info('session.resume.completed', {
+            sessionId: payload.sessionId,
+            provider: activeAdapter.id
+          })
+        } else supervisor.startNew(event.sender, turn)
+
+        const entry = await acquireTurnRuntime(
+          {
+            supervisor,
+            lease,
+            adapter: activeAdapter,
+            buildExtensions: () =>
+              ctx.extensions.build(payload.sessionId, payload.sessionId ? null : boundProjectId),
+            settleDeadBackgroundTasks: deps.settleDeadBackgroundTasks
+          },
+          turn,
+          { sessionId: payload.sessionId, resolved, sessionProviderKey: sessionMeta?.provider_key }
+        )
+        return entry
+      }
     })
-    if (preparedWorktree.kind === 'rejected') {
+    if (preparedExecution.kind === 'rejected') {
       sendChatEvent(event.sender, {
         type: 'error',
-        error: makeClassifiedError('schema_validation_error', preparedWorktree.message)
+        error: makeClassifiedError('schema_validation_error', preparedExecution.message)
       })
       return
     }
-    executionCwd = preparedWorktree.executionCwd
-
-    // ── 6. TurnContext 조립 + 레지스트리 등록 (순수 조립 — turn-context.ts) ──
+    const { turn, entry } = preparedExecution
     const controller = lease.controller
-    const turn = buildTurnContext<WebContents>({
-      controller,
-      owner: event.sender,
-      control: lease.control,
-      titleAdapter: activeAdapter,
-      // 제목 생성과 chat 은 **같은 prepared snapshot** 을 쓴다 (0188 D-019). settings 와 env 를
-      // **함께** 넘긴다 — r10 이전에는 env 만 넘어가 `options.settings` 가 통째로 빠졌다.
-      titleSettings: resolved.prepared.providerSettings,
-      titleEnv: resolved.prepared.env,
-      resolved,
-      payload: {
-        sessionId: payload.sessionId,
-        cwd: executionCwd,
-        ...(payload.extraDirs !== undefined ? { extraDirs: payload.extraDirs } : {}),
-        attachmentViews: payload.attachmentViews as AttachmentView[],
-        ...(payload.forkFrom !== undefined ? { forkFrom: payload.forkFrom } : {}),
-        ...(payload.handoffFrom !== undefined ? { handoffFrom: payload.handoffFrom } : {})
-      },
-      effectiveText,
-      boundProjectId,
-      sessionMeta,
-      continuityMeta,
-      continuityLang,
-      queueKey: provisionalKey,
-      getCwd: (projectId) => ctx.getCwd(projectId)
-    })
     leaderTurn = turn
-    if (payload.sessionId) {
-      supervisor.startResume(payload.sessionId, turn)
-      // 세션 재개 경계(카탈로그) — 신규 세션의 대응 이벤트(session.create.completed)는 sessionId
-      // 발급 시점(HistoryWriter 의 session.updated persist)에 남는다.
-      getLogger().child('session').info('session.resume.completed', {
-        sessionId: payload.sessionId,
-        provider: activeAdapter.id
-      })
-    } else supervisor.startNew(event.sender, turn)
-
-    // ── 7. 런타임 확보 · respawn 판정 (runtime-entry.ts) ────────────────────
-    const entry = await acquireTurnRuntime(
-      {
-        supervisor,
-        lease,
-        adapter: activeAdapter,
-        buildExtensions: () =>
-          ctx.extensions.build(payload.sessionId, payload.sessionId ? null : boundProjectId),
-        settleDeadBackgroundTasks: deps.settleDeadBackgroundTasks
-      },
-      turn,
-      { sessionId: payload.sessionId, resolved, sessionProviderKey: sessionMeta?.provider_key }
-    )
     leaderRuntime = entry.runtime
     if (!entry.ok) return
     const { runtime, extensions } = entry
