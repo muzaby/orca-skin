@@ -512,6 +512,16 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 - **구현 보고**: D17은 `ResolvedHarnessSettings` fixture로 typecheck 3구성을 green으로 만들었다. D18은 source 읽기 oracle을 제거하고 준비→TurnContext→runtime acquire를 실행하는 seam으로 바꿔 managed cwd와 원래 extraDirs가 runtime 관측 request까지 도달함을 검증했다. AC 자기보고는 **✅13 · ⚠️7 · ❌0 = 20**이다.
 - **Review Signals**: r6이며 r5와 같은 증거 축이다. 반복 원인은 지침 부재가 아니라 r5에서 선택한 source proxy와 gate 재확인 누락이고, 이번에는 인용 변이 M-Q의 동작 동치 변형을 1 red로 관측했다.
 
+### r7 — 외부 CI typecheck 보완
+
+- **설계 리뷰**: DIAGNOSE_ONLY로 사용자 보고 `TS2353`을 현재 `ResolvedHarnessSettings` 선언과 대조했다. r6 fixture가 계약의 실제 필드를 읽지 않고 과거 형상을 추정한 B이며 지침은 이미 타입·gate 실측을 요구하므로 변경하지 않았다.
+- **강제 지점 전수와 V-pair 자기확인**: 제품 코드와 EP 분모는 불변이다. VP-04·05·11·13·15·17은 `SELF_PASS`, 나머지 11 pair는 독립 검증 전 `SELF_BLOCKED`다.
+- **이번 라운드 수정의 잠금**: fixture를 `providerKey`·`provider`·`settings`·`sourceRevision` 네 실제 필드로 구성했다. 사용자 실패 명령 `npm run typecheck:test`를 그대로 재실행해 진단 0을 관측했다.
+- **Product/UX 파생 검토**: 테스트 fixture만 바뀌어 사용자 대면 동작·문자열·상태 전이는 변하지 않는다.
+- **놓친 잠재 문제 + 대응**: r6 구현과 기존 D5·D9·D11·D13·D14·D21은 변경하지 않았다. 신규 의존성·공개 계약·PLAN_GAP은 없다.
+- **구현 보고**: D17의 잘못된 r6 closeout을 r7 관측으로 교정했다. `typecheck:test`와 전체 typecheck 3구성은 진단 0, 대상 suite는 1파일 3케이스 green, lint는 0 error·기존 warning 1이다. AC 자기보고는 **✅13 · ⚠️7 · ❌0 = 20**이다.
+- **Review Signals**: r7이며 r6의 gate 축이 다시 열렸다. 반복 원인은 명시 타입을 읽지 않은 fixture 추정과 로컬 checkout·외부 CI 계약 차이를 커밋 전 재확인하지 않은 B다.
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.
@@ -535,7 +545,7 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 | D14 | AT-11이 열거한 naming fixture 중 timeout·invalid와 `check-ref` 호출 단언이 없다 | verify r4 · VP-15 · AC11 | 남은 matrix 행을 채운다 | NON_BLOCKING | open |
 | D15 | 구현 커밋 4건의 제목·본문이 영어다 — `docs/handoff/AGENTS.md §커밋·git 규약`은 한국어 메시지를 규정한다 | verify r4 · repository op | 다음 라운드부터 한국어 메시지를 쓴다 | 기록 | **closed (r5 — 한국어 커밋)** |
 | D16 | plan의 `### r4` 구현자 절이 `## [검증자 기입] 파생 이슈` 안에 있다 | verify r4 · repository op | 다음 라운드 절은 `§19 [구현자 기입]` 아래에 붙인다 | 기록 | open |
-| D17 | `npm run typecheck`가 exit 2 · `error TS` 3건 — 전부 이번 라운드가 신설한 `prepare-worktree.test.ts`의 `providerSettings` 타입이다 | verify r5 · plan §15 gate 1 · `app/AGENTS.md` 기본 게이트 | 테스트 fixture를 `ResolvedHarnessSettings` 계약에 맞춘다 | BLOCKING | **closed (r6 — typecheck 3구성 진단 0)** |
+| D17 | `npm run typecheck`가 exit 2 · `error TS` 3건 — 전부 이번 라운드가 신설한 `prepare-worktree.test.ts`의 `providerSettings` 타입이다 | verify r5 · plan §15 gate 1 · `app/AGENTS.md` 기본 게이트 | 테스트 fixture를 `ResolvedHarnessSettings` 계약에 맞춘다 | BLOCKING | **closed (r7 — 실제 4필드 fixture, typecheck 3구성 진단 0)** |
 | D18 | 준비 seam의 결과를 버려도(`executionCwd` 미대입) lint 0 error·전 스위트 2595 green — worktree는 만들어지고 Agent는 원본 checkout에서 돈다 | verify r5 · VP-05 · VP-11 · AC3·AC5·AC18 · §10 EP-08 | 소스 텍스트가 아니라 runtime acquire 순서와 최종 `TurnRequest.cwd`를 관측하는 oracle을 만든다 | BLOCKING | **closed (r6 — source cwd 변이 1 red)** |
 | D19 | `[구현자 기입]` r5 절이 impl §8 7필드 중 4개만 갖는다 — `이번 라운드 수정의 잠금`·`구현 보고`·`Review Signals`와 게이트 산출 보고가 없다 | verify r5 · repository op | 다음 라운드 절은 일곱 필드를 이름 그대로 채운다 | 기록 | **closed (r6 — 7/7 필드)** |
 | D20 | INDEX 비고가 "lint·typecheck … gate green"이라고 적었으나 `npm run typecheck`는 exit 2다 | verify r5 · repository op | 게이트 산출을 다시 읽어 적는다 | 기록 | **closed (r6 — INDEX에 r6 관측값 반영)** |
