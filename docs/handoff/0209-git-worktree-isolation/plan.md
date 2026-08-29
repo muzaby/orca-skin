@@ -502,6 +502,16 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 - **자기확인**: VP-04·05·13·15·17은 SELF_PASS, 나머지 12 pair는 독립 검증 전 SELF_BLOCKED다. AC 자기보고는 ✅14 · ⚠️6 · ❌0 = 20이며 사람 실기는 AC20 Windows 시각 확인 1건이다.
 - **Product/UX·잠재 문제**: 실패 메시지와 화면 상태는 불변이고 새 문자열은 없다. D5·D9·D11·D13·D14와 NEXT_HANDOFF D6·D10은 범위 밖으로 유지하며 신규 의존성·PLAN_GAP은 없다.
 
+### r6 — verify/FAIL 보완
+
+- **설계 리뷰**: DIAGNOSE_ONLY로 r5의 D17~D20을 재현했다. gate 결과를 다시 읽지 않은 B와 production 결과 대신 source proxy를 둔 B가 원인이며 plan·impl 지침은 이미 두 축을 명시하므로 지침 변경은 하지 않았다.
+- **강제 지점 전수와 V-pair 자기확인**: EP-03 2/2와 EP-08 4/4를 `prepareTurnExecution`의 production 배선으로 묶었다. VP-04·05·11·13·15·17은 `SELF_PASS`, 나머지 11 pair는 독립 검증 전 `SELF_BLOCKED`다.
+- **이번 라운드 수정의 잠금**: 준비 promise 미완료 동안 build/runtime 호출은 각각 0회이고 완료 뒤 각 1회다. managed cwd를 source cwd로 되돌린 변이는 신규 suite 1 red이며 최종 request 관측값이 `/managed/repo`에서 `/repo`로 바뀐다.
+- **Product/UX 파생 검토**: 사용자 대면 문자열·실패 상태·extraDirs 값은 불변이다. 준비 실패는 callback 이전에 반환하므로 runtime과 TurnContext를 만들지 않는 기존 상태 전이도 유지한다.
+- **놓친 잠재 문제 + 대응**: D21의 DB insert 실패 빈 bucket과 기존 D5·D9·D11·D13·D14는 이번 BLOCKING 두 건과 독립이어서 유지한다. 신규 의존성·공개 계약·PLAN_GAP은 없다.
+- **구현 보고**: D17은 `ResolvedHarnessSettings` fixture로 typecheck 3구성을 green으로 만들었다. D18은 source 읽기 oracle을 제거하고 준비→TurnContext→runtime acquire를 실행하는 seam으로 바꿔 managed cwd와 원래 extraDirs가 runtime 관측 request까지 도달함을 검증했다. AC 자기보고는 **✅13 · ⚠️7 · ❌0 = 20**이다.
+- **Review Signals**: r6이며 r5와 같은 증거 축이다. 반복 원인은 지침 부재가 아니라 r5에서 선택한 source proxy와 gate 재확인 누락이고, 이번에는 인용 변이 M-Q의 동작 동치 변형을 1 red로 관측했다.
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.
@@ -525,10 +535,10 @@ CREATE INDEX idx_managed_worktrees_session ON managed_worktrees(session_id);
 | D14 | AT-11이 열거한 naming fixture 중 timeout·invalid와 `check-ref` 호출 단언이 없다 | verify r4 · VP-15 · AC11 | 남은 matrix 행을 채운다 | NON_BLOCKING | open |
 | D15 | 구현 커밋 4건의 제목·본문이 영어다 — `docs/handoff/AGENTS.md §커밋·git 규약`은 한국어 메시지를 규정한다 | verify r4 · repository op | 다음 라운드부터 한국어 메시지를 쓴다 | 기록 | **closed (r5 — 한국어 커밋)** |
 | D16 | plan의 `### r4` 구현자 절이 `## [검증자 기입] 파생 이슈` 안에 있다 | verify r4 · repository op | 다음 라운드 절은 `§19 [구현자 기입]` 아래에 붙인다 | 기록 | open |
-| D17 | `npm run typecheck`가 exit 2 · `error TS` 3건 — 전부 이번 라운드가 신설한 `prepare-worktree.test.ts`의 `providerSettings` 타입이다 | verify r5 · plan §15 gate 1 · `app/AGENTS.md` 기본 게이트 | 테스트 fixture를 `ResolvedHarnessSettings` 계약에 맞춘다 | BLOCKING | open |
-| D18 | 준비 seam의 결과를 버려도(`executionCwd` 미대입) lint 0 error·전 스위트 2595 green — worktree는 만들어지고 Agent는 원본 checkout에서 돈다 | verify r5 · VP-05 · VP-11 · AC3·AC5·AC18 · §10 EP-08 | 소스 텍스트가 아니라 runtime acquire 순서와 최종 `TurnRequest.cwd`를 관측하는 oracle을 만든다 | BLOCKING | open |
-| D19 | `[구현자 기입]` r5 절이 impl §8 7필드 중 4개만 갖는다 — `이번 라운드 수정의 잠금`·`구현 보고`·`Review Signals`와 게이트 산출 보고가 없다 | verify r5 · repository op | 다음 라운드 절은 일곱 필드를 이름 그대로 채운다 | 기록 | open |
-| D20 | INDEX 비고가 "lint·typecheck … gate green"이라고 적었으나 `npm run typecheck`는 exit 2다 | verify r5 · repository op | 게이트 산출을 다시 읽어 적는다 | 기록 | open |
+| D17 | `npm run typecheck`가 exit 2 · `error TS` 3건 — 전부 이번 라운드가 신설한 `prepare-worktree.test.ts`의 `providerSettings` 타입이다 | verify r5 · plan §15 gate 1 · `app/AGENTS.md` 기본 게이트 | 테스트 fixture를 `ResolvedHarnessSettings` 계약에 맞춘다 | BLOCKING | **closed (r6 — typecheck 3구성 진단 0)** |
+| D18 | 준비 seam의 결과를 버려도(`executionCwd` 미대입) lint 0 error·전 스위트 2595 green — worktree는 만들어지고 Agent는 원본 checkout에서 돈다 | verify r5 · VP-05 · VP-11 · AC3·AC5·AC18 · §10 EP-08 | 소스 텍스트가 아니라 runtime acquire 순서와 최종 `TurnRequest.cwd`를 관측하는 oracle을 만든다 | BLOCKING | **closed (r6 — source cwd 변이 1 red)** |
+| D19 | `[구현자 기입]` r5 절이 impl §8 7필드 중 4개만 갖는다 — `이번 라운드 수정의 잠금`·`구현 보고`·`Review Signals`와 게이트 산출 보고가 없다 | verify r5 · repository op | 다음 라운드 절은 일곱 필드를 이름 그대로 채운다 | 기록 | **closed (r6 — 7/7 필드)** |
+| D20 | INDEX 비고가 "lint·typecheck … gate green"이라고 적었으나 `npm run typecheck`는 exit 2다 | verify r5 · repository op | 게이트 산출을 다시 읽어 적는다 | 기록 | **closed (r6 — INDEX에 r6 관측값 반영)** |
 | D21 | DB insert 실패 rollback이 `<managed>/<repoId>` 빈 bucket을 남긴다(3회 → 3개) — 같은 함수의 `!added.ok` 형제 분기와 정책이 다르다 | verify r5 · D-011 · AC4 | 두 rollback 분기의 bucket 정리를 한 경로로 모은다 | NON_BLOCKING | open |
 
 ### r4 — verify/FAIL 보완
