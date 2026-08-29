@@ -107,7 +107,9 @@ describe('WorktreeService', () => {
       },
       list: listWorktrees,
       remove: async (input) => {
-        removeCalls.push(input.path)
+        // Git may report a symlink/junction target using a different textual path on Windows.
+        // Capture the filesystem identity before removeWorktree deletes that path.
+        removeCalls.push(await realpath(input.path))
         return removeWorktree(input)
       },
       deleteBranch
@@ -117,7 +119,7 @@ describe('WorktreeService', () => {
       service.prepare({ sourceCwd: repo, firstPrompt: 'rollback alias' })
     ).resolves.toMatchObject({ kind: 'rejected', reason: 'create-failed' })
     expect(removeCalls).toHaveLength(1)
-    expect(removeCalls[0].startsWith(await realpath(physical))).toBe(true)
+    expect(isWithinDir(removeCalls[0], await realpath(physical))).toBe(true)
     expect(await listWorktrees(repo)).toEqual([
       expect.objectContaining({ path: repo, branch: 'master' })
     ])
