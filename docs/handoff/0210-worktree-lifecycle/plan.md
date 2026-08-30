@@ -541,80 +541,125 @@ CwdPanel(격리) → BranchChip(유예) → chatStore draft → SendChatMessageS
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: Part I·II 전건. 유예·경로·폴백 셋이 서로 다른 파일이라 순서 충돌이 없었다.
+- 이견 / 현실성 문제: **없음**. 다만 §11 이 지정한 "`prepare-worktree.ts` 가 실행 cwd 의 단일 producer" 를 성립시키려면 `send.ts` 가 resume 준비 입력을 세션행에서 먼저 뽑아야 했다 — `payload.cwd` 를 그대로 넘기면 존재 확인이 엉뚱한 경로를 본다(선조치 #1).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| WP-… | … | … | … | … | … |
+| WP-08·WP-19 | EP-01 격리 상태 renderer 소비 | CwdPanel 배선 · BranchChip 분기 (2) | 2/2 | `CwdPanel.tsx:50-51`(deferTo·deferred) · `BranchChip.tsx:102`(유예 분기) | — |
+| WP-02·WP-20 | EP-09 worktree 루트 파생 | 정의 · 부팅 호출 (2) | 2/2 | `rg 'managedWorktreesDir' src` 비테스트 → `paths.ts:47` · `bootstrap.ts:836` (2건) | — |
+| WP-01·WP-21 | EP-11 `isClean` 소비처 | 준비(제거) · 삭제 증명(유지) (2) | 2/2 | `rg 'isClean\(' src/main` 비테스트 → `service.ts:201` 1건(삭제 증명만). 준비 경로 0건 = 제거 완료 | — |
+| WP-02 | EP-13 dev 분기 주입 | 부팅 1 | 1/1 | `bootstrap.ts:836` `managedWorktreesDir(import.meta.env.DEV)` | — |
+| WP-03·WP-19 | EP-14 작업 트리를 바꾸는 브랜치 진입 | onPick · dirty onConfirm (2) | 2/2 | `BranchChip.tsx:158`·`:188` — 둘 다 `checkout()` 한 곳으로 들어오고 그 입구가 `deferTo` 로 막힌다 | — |
+| WP-04·WP-13 | EP-15 base ref 좌표 | payload · schema · service (3) | 3/3 | `chatStore.ts:600` · `protocol.ts:113`(+`:137` refine) · `service.ts:94` | — |
+| WP-05·WP-06·WP-16·WP-18 | EP-16 소실 감지 + respawn 축 | 진입 판정 · respawn 축 (2) | 2/2 | `prepare-worktree.ts:34` · `respawn-inputs.ts:63` → `respawn-policy.ts:32` | — |
+| WP-07·WP-12·WP-17 | EP-17 폴백 3쓰기 | sessions.cwd · row 삭제 · 통지 (3) | 3/3 | `service.ts:193`·`:194` · `send.ts:167`(`session.updated{patch.cwd}`) | — |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+- 전수 합: **17/17** (2+2+2+1+2+3+2+3). 차집합 검산 — §10 이 적은 17지점과 위 관측 17좌표의 차집합 **0**.
+- §10에 없는데 같은 불변식이 필요했던 지점: 없음.
 
-**V-pair 자기확인**
+**V-pair 자기확인** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다.
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| WP-… | … | … | … | … |
+| WP-01 | REQUIRED | SELF_PASS | `service.test.ts` "tracked·untracked 변경이 있어도…" — 준비 전후 porcelain 동일 | not selected — 직접 행동(생성 성공·트리 불변) |
+| WP-02 | REQUIRED | SELF_PASS | `paths.test.ts` 3케이스 + `service.test.ts` 세그먼트 | M1 RED · M12 RED |
+| WP-03 | REQUIRED | SELF_PASS | `BranchChip.defer.test.ts` checkout 0회/1회 양방향 | M2 RED |
+| WP-04 | REQUIRED | SELF_PASS | `service.test.ts` worktree HEAD == feature OID | M9 RED · M11 RED |
+| WP-05 | REQUIRED | SELF_PASS | `prepare-worktree.test.ts` recovered 갈래·통지·판정 입력 | M6 RED |
+| WP-06 | REQUIRED | SELF_PASS | `respawn-policy.test.ts` 양방향 | M4 RED |
+| WP-07 | REQUIRED | **SELF_BLOCKED** | `worktree-recover.test.ts` 4케이스 작성, **환경 ABI 로 미실행** | 미측정 — 아래 잠금 표 참조 |
+| WP-08 | REQUIRED | SELF_PASS | `CwdPanel.isolation.test.ts` title 키 + ko/en 리소스 문구 | not selected — 문구 존재가 직접 결과 |
+| WP-09 | REGRESSION | SELF_PASS | `prepare-worktree.test.ts` passthrough 케이스 green | not selected |
+| WP-10 | REGRESSION | SELF_PASS | `reject-reasons.test.ts` "거부한 뒤에도 다음 준비는 성공한다" green | not selected |
+| WP-11 | REGRESSION | SELF_PASS | `safe-delete.test.ts` 전건 green | M8 RED |
+| WP-12 | REQUIRED | **SELF_BLOCKED** | 폴백→teardown→spawn 순서의 종단 관측 없음 — 축 전달까지만 잠갔다 | 미측정 |
+| WP-13 | REQUIRED | SELF_PASS | `service.test.ts` 종단 OID 일치 | M9 RED |
+| WP-14 | REGRESSION | SELF_PASS | `prepare-worktree.test.ts` deferred order 케이스 green | not selected |
+| WP-15 | REGRESSION | **SELF_BLOCKED** | `worktree-bind.test.ts` 미실행(ABI) | 미측정 |
+| WP-16 | REQUIRED | SELF_PASS | `send.worktree.test.ts` 8케이스 + `prepare-worktree.test.ts` | M6 RED |
+| WP-17 | REQUIRED | **SELF_BLOCKED** | `worktree-recover.test.ts` 미실행(ABI) | 미측정 |
+| WP-18 | REQUIRED | SELF_PASS | `respawn-inputs.test.ts` 양방향 | M5 RED |
+| WP-19 | REQUIRED | SELF_PASS | `CwdPanel.isolation.test.ts` deferTo 유무 양방향 | M3 RED |
+| WP-20 | REQUIRED | SELF_PASS | `service.test.ts` 결정성·형제 칸 | M1 RED · M10 RED |
+| WP-21 | REQUIRED | SELF_PASS | `service.test.ts`(준비 비소비) + `safe-delete.test.ts`(삭제 소비) | M7 RED · M8 RED |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | … | … | … |
+| `naming.ts:21` — 해시 입력을 `Math.random()` 으로 바꿔 비결정 복원 | `WP-02·WP-20 선택 증거` | 최초 | `managed 경로는 <repo>-<hash8>/<브랜치> 2단…` 1건 | 잠김 |
+| `BranchChip.tsx:102-106` — 유예 분기 삭제 | `WP-03 선택 증거` | 최초 | `격리 ON: 선택이 checkout 을 부르지 않고…` 1건 | 잠김 |
+| `CwdPanel.tsx:50` — `deferTo` 를 항상 `undefined` 로 | `WP-19 선택 증거` | 최초 | `격리 ON 이면 브랜치 칩이 유예 콜백을 받는다…` 1건 | 잠김 |
+| `respawn-policy.ts:32` — 폴백 항 삭제 | `WP-06 선택 증거` | 최초 | `respawns for a changed execution cwd recovery` 1건 | 잠김 |
+| `respawn-inputs.ts:63` — 축을 상수 `false` 로 | `WP-18 새 oracle 민감도` | 최초 | `입력의 폴백 여부를 그대로 싣는다 — 양방향` 1건 | 잠김 |
+| `prepare-worktree.ts:41` — `recovered` 갈래를 passthrough 로 접음 | `WP-05·WP-16 선택 증거` | 최초 | `worktree 가 사라지면…` · `폴백 여부를 runtime 확보에…` 2건 | 잠김 |
+| `service.ts:90` — dirty 거부 복원(D-105 역행) | `WP-01·WP-21 선택 증거` | 최초 | `tracked·untracked 변경이 있어도…` 1건 | 잠김 |
+| `service.ts:203` — 삭제 안전 증명이 dirty 무시 | `WP-21 형제 변이` | 최초 | `safe-delete` 1건 | 잠김 |
+| `service.ts:94` — 유예 base 무시하고 HEAD 사용 | `WP-04·WP-13 선택 증거` | 최초 | `유예된 기준 브랜치의…` · `없는 기준 브랜치는 거부한다` 2건 | 잠김 |
+| `service.ts:118` — repo 칸과 브랜치 칸을 맞바꿈 | `WP-20 형제 슬롯 변이` | 최초 | `managed 경로는 …2단…` 1건 | 잠김 |
+| `protocol.ts:137` — 격리 없는 base ref 를 통과 | `WP-04 형제 변이` | 최초 | `격리 없이 온 브랜치는 거부한다…` 1건 | 잠김 |
+| `paths.ts:48` — dev 분기 제거 | `WP-02 선택 증거` | 최초 | `dev 만 -dev 로 갈라진다` 1건 | 잠김 |
 
-- **분모 검산**: `선택 증거 N · 인용 변이 M · 새 oracle K = 표 행 T`
-- **덮개 회귀**: …
+- **분모 검산**: `선택 증거 9 · 인용 변이 0 · 새 oracle 3 = 표 행 12`. 새 oracle 3 은 `respawn-inputs.test.ts` · `BranchChip.defer.test.ts` · `worktree-recover.test.ts` 이고, 앞 둘은 각각 M5·M2 로 민감도를 확인했으며 형제 슬롯 변이 2건(M8·M10)이 같은 표에 있다. **`worktree-recover.test.ts` 는 ABI 로 실행되지 않아 민감도를 측정하지 못했다** — 그래서 WP-07·WP-17 을 `SELF_PASS` 로 올리지 않았다.
+- **덮개 회귀**: 이전 라운드에 red 였는데 이번에 green 인 행 **0건**. 0209 가 red 로 잡던 두 계약(dirty 거부 · UUID 세그먼트)은 사용자 결정(D-105·D-104)으로 SUPERSEDED 되어 **같은 파일 같은 자리에 새 단언을 세웠고**, 그 단언들이 역방향 변이(M7·M10)에 red 다 — 자리를 잃지 않았다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ✅ 툴팁(`CwdPanel.tsx:60`) · 유예 라벨(`BranchChip.tsx:139`) · 거부 문구 2종(`service.ts:88`·`:102`) · 폴백 불가 문구(`prepare-worktree.ts:44`) 모두 화면 경로가 있다 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | ✅ `acquireRuntime` 콜백에 인자 하나만 늘렸다 — `leaderTurn`·`leaderRuntime` 대입 위치 불변(0209 r6 회귀 축) | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | ⚠️ **표에 없음 1건** — "resume + worktree 소실 + **원본도 소실**" 은 §5 표에 행이 없다. `rejected` 로 접었다 | 파생 이슈 후보 |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | ✅ 폴백은 `session.updated` 로 경로가 눈에 띄게 바뀌고, 폴백 불가는 오류 이벤트다 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | ✅ 유예는 IPC 를 부르지 않아 늦은 응답 자체가 없다. `BranchChip` 의 기존 cwd-태그 스냅샷 규칙은 그대로 | — |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 선조치 / 📝 plan 수정 제안 / ⚠️ 보고만 | … |
+| 1 | resume 준비 입력이 `payload.cwd` 라 세션이 잠근 실행 경로를 보지 않는다 — 그대로면 소실 판정이 엉뚱한 경로를 본다 | ✅ 선조치 — `send.ts:145` 에서 `resolveTurnCwd` 로 먼저 확정하고, `buildTurnContext` 에 넘기는 `sessionMeta.cwd` 를 확정값으로 덮었다 | `turn-context.ts:63` 이 resume 에서 세션행을 우선한다 |
+| 2 | `git-unavailable` 이유가 producer 를 잃었다 — `isClean` 게이트가 유일한 발생원이었다 | ✅ 선조치 — `gitAvailable()` 을 추가해 `resolveRepoRoot` 의 `null` 두 원인을 가른다 | `repository.ts:9-14`(두 원인이 같은 `null`) · `reject-reasons.test.ts` 2케이스 |
+| 3 | `PrepareWorktreeResult` 의 `dirty` 를 타입에 남기면 죽은 분기가 정책을 오독시킨다 | ✅ 선조치 — union 에서 제거(D-105 와 같은 이유) | `service.ts:17-26` |
+| 4 | 브랜치 slug 디렉토리가 삭제 잔여물과 충돌하면 `worktree add` 가 실패한다 | ✅ 선조치 — `chooseBranchName` 충돌 루프에 `dirTaken` 조건을 더해 한 루프가 두 유일성을 겸한다 | `naming.ts:41`·`service.ts:113` |
+| 5 | `GitBranchNameSchema` 가 send 스키마보다 **뒤에** 선언돼 있어 재사용 시 TDZ 로 죽는다 | ✅ 선조치 — 선언을 위로 옮기고 이유를 주석에 남겼다 | `protocol.ts:63-73` |
+| 6 | 폴백 3쓰기 중 ③(통지)만 실패하면 DB 와 화면이 갈린다 | ⚠️ 보고만 — plan §13 이 "다음 턴·재진입이 맞춘다"로 이미 판정했고 그대로 구현했다 | `send.ts:167` |
+| 7 | 작업 트리에 사용자 잔여물 `app/a.txt`·`app/src/main/a.ts`(UTF-16) 가 있어 **lint·typecheck 가 각 1 error** 를 낸다 | ⚠️ 보고만 — 내 변경이 아니고 삭제는 사용자 결정이다 | `git status` `??` 2건 · `tsc` `src/main/a.ts(1,1) TS2304` · eslint `Parsing error: File appears to be binary` |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: **1건** — §11 은 `repository.ts` 에 `resolveRef(cwd, ref)` 를 적었으나 `resolveBranchOid(cwd, branch)` 로 좁혔다. 사용자가 고른 값이 그대로 첫 인자가 되면 `-` 로 시작하는 이름이 git 옵션으로 읽히므로 `refs/heads/` 접두사를 붙여 넘긴다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 두 형태 모두 호출 시점에 1회 읽고 캐시하지 않는다 | AC11 — `service.ts:94` 단일 읽기 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — 반환값은 지역 `baseOid` 뿐이고 공유 저장소에 두지 않는다 | EP-15 3좌표 재검색 |
+| 재진입 | 해당 없음 — 순수 조회이고 같은 인자로 여러 번 불러도 같은 값 | AC10 두 케이스 green |
+| 다른 무효화 축 | **있음** — 범위가 로컬 브랜치로 좁아져 tag·remote-tracking·raw OID 를 base 로 줄 수 없다 | AC9 가 `GitBranchNameSchema` 로 입력을 이미 브랜치 이름으로 좁혔고 브랜치 칩도 로컬 브랜치만 제시한다(`git-cli.ts:86-89`) — 도달 가능한 입력 집합이 줄지 않는다 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님) | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | N/17 |
-| **AC 자기보고**(`Criteria-Met`) | N/21 |
-| **합계 검산** | `✅ N · ⚠️ M · ❌ K = 총 21` |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `(r<N> 구현 — 좌표는 INDEX)` |
+| 변경 파일 | 프로덕션 19 · 테스트 8(신규 3). main: `paths.ts`·`bootstrap.ts`·`naming.ts`·`service.ts`·`repository.ts`·`prepare-worktree.ts`·`respawn-inputs.ts`·`respawn-policy.ts`·`runtime-entry.ts`·`send.ts`·`chat-turn-continuation.ts`·`queries.ts`. shared: `protocol.ts`. renderer: `chatReducer.ts`·`chatStore.ts`·`CwdPanel.tsx`·`BranchChip.tsx`·`ko.ts`·`en.ts` |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `npm test` · `node node_modules/vitest/vitest.mjs run <suite>`(변이 12회) |
+| **관측한 게이트 산출**(exit code 아님) | **lint** 1 error + 1 warning — 둘 다 변경 무관(error = `src/main/a.ts` 사용자 잔여물 binary parse, warning = 기존분). **typecheck** 1 error — `src/main/a.ts(1,1) TS2304`, 같은 잔여물. **npm test** 273파일 2678케이스 중 **8파일 57케이스 red**, 전부 단일 서명 `better_sqlite3.node … NODE_MODULE_VERSION 140 vs 127`(오류 인스턴스 12, 단언 실패 **0**). `npm rebuild better-sqlite3` 는 node-gyp 실패로 이 환경에서 Node ABI 복구 불가 |
+| V-pair 자기확인 | `SELF_PASS 17 / SELF_BLOCKED 4`(WP-07·WP-12·WP-15·WP-17); pair별 상세는 위 표 |
+| 강제 지점 전수 | **17/17** (차집합 0) |
+| **AC 자기보고**(`Criteria-Met`) | 18/21 — ✅ AC1·2(porcelain 전후 동일) · AC3·4(`paths.test` 3케이스) · AC5·6(세그먼트 결정성·브랜치 파생) · AC7·8(checkout 0회/1회) · AC9(schema 3케이스) · AC10(worktree HEAD == feature OID) · AC12·13(recovered 갈래·ready 반환) · AC14(policy·inputs·전달 3층 양방향) · AC17(onRecovered + reducer patch.cwd) · AC18(title 키 + ko/en 문구) · AC19(passthrough green) · AC20(후속 send 성공) · AC21(safe-delete 전건). ⚠️ **AC11** — base 를 "한 번만" 읽는 축을 baseRef 경로에서 재모사하지 않았다(0209 AT-09 의 HEAD 이동 모사가 HEAD 경로만 덮는다). ⚠️ **AC15·16** — oracle 작성 완료, ABI 로 미실행 |
+| **합계 검산** | `✅ 18 · ⚠️ 3 · ❌ 0 = 총 21` — 분모는 plan §7 의 21행을 다시 세어 확인했다(AC1~AC21, 이번 라운드 분할·추가 없음) |
+| 블로커 / 역질문 | 없음. AC15·16 은 CI(windows-latest, egress 열림)에서 판정된다 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드 수: N
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음 — r1 이다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 해당 없음.
+- 반복해서 부딪히는 환경 한계: **better-sqlite3 ABI**. `pretest` 의 Node ABI 복구가 node-gyp 실패로 동작하지 않아 DB 로드 8파일을 이 환경에서 판정할 수 없다(0208·0209 와 같은 축).
+- 현재 라운드 수: 1
 
 ---
 

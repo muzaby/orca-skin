@@ -72,7 +72,9 @@ export async function prepareAutomaticContinuation(input: {
         previousProviderKey: input.providerKey,
         nextProviderKey: resolved.providerKey,
         model,
-        runtimeToolsRevision: extensions.runtimeTools?.revision
+        runtimeToolsRevision: extensions.runtimeTools?.revision,
+        // 연속 턴은 최초 턴이 확정한 cwd 를 계승한다 — 폴백은 send 진입에서 한 번만 판정된다.
+        executionCwdRecovered: false
       })
     )
   }

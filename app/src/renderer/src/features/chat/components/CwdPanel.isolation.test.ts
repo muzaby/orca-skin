@@ -8,14 +8,29 @@
 
 import { describe, expect, it, vi } from 'vitest'
 
-const { setWorktreeIsolation, sessionState, chipProps } = vi.hoisted(() => ({
-  setWorktreeIsolation: vi.fn(),
-  sessionState: { value: { extraDirs: [], extraDirRejection: null, worktreeIsolation: false } },
-  chipProps: [] as Array<Record<string, unknown>>
-}))
+const { setWorktreeIsolation, setWorktreeBaseRef, sessionState, chipProps, branchProps } =
+  vi.hoisted(() => ({
+    setWorktreeIsolation: vi.fn(),
+    setWorktreeBaseRef: vi.fn(),
+    sessionState: {
+      value: {
+        extraDirs: [],
+        extraDirRejection: null,
+        worktreeIsolation: false,
+        worktreeBaseRef: null as string | null
+      }
+    },
+    chipProps: [] as Array<Record<string, unknown>>,
+    branchProps: [] as Array<Record<string, unknown>>
+  }))
 
 vi.mock('../store/chatStore', () => ({
-  chatActions: { setWorktreeIsolation, addExtraDir: vi.fn(), removeExtraDir: vi.fn() },
+  chatActions: {
+    setWorktreeIsolation,
+    setWorktreeBaseRef,
+    addExtraDir: vi.fn(),
+    removeExtraDir: vi.fn()
+  },
   useChatSession: (select: (s: unknown) => unknown) => select(sessionState.value)
 }))
 vi.mock('../../../shared/i18n', () => ({
@@ -24,7 +39,14 @@ vi.mock('../../../shared/i18n', () => ({
 vi.mock('../../../shared/api/ipc', () => ({ fileApi: { pickDirectory: vi.fn() } }))
 // cwd·브랜치 칩은 이 계약의 대상이 아니다 — 자기 IPC 를 물지 않게 형상만 남긴다.
 vi.mock('./CwdButton', () => ({ CwdButton: () => null }))
-vi.mock('./composer/BranchChip', () => ({ BranchChip: () => null }))
+// 브랜치 칩은 자기 IPC 를 물지 않게 형상만 남기되 **받은 props 는 본다** — 격리 상태가 여기까지
+// 오지 않으면 유예는 어디에서도 일어나지 않는다(EP-01 두 번째 지점).
+vi.mock('./composer/BranchChip', () => ({
+  BranchChip: (props: Record<string, unknown>) => {
+    branchProps.push(props)
+    return null
+  }
+}))
 // 진짜 칩을 그대로 렌더하되 props 만 흘려 본다 — 마크업 단언은 production 컴포넌트가 만든다.
 vi.mock('./composer/ComposerChip', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./composer/ComposerChip')>()
@@ -40,9 +62,22 @@ vi.mock('./composer/ComposerChip', async (importOriginal) => {
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createElement } from 'react'
 import { CwdPanel } from './CwdPanel'
+import { ko } from '../../../shared/i18n/resources/ko'
+import { en } from '../../../shared/i18n/resources/en'
 
-const markup = (isolation: boolean, inflight = false, cwd: string | null = '/repo'): string => {
-  sessionState.value = { extraDirs: [], extraDirRejection: null, worktreeIsolation: isolation }
+const markup = (
+  isolation: boolean,
+  inflight = false,
+  cwd: string | null = '/repo',
+  worktreeBaseRef: string | null = null
+): string => {
+  sessionState.value = {
+    extraDirs: [],
+    extraDirRejection: null,
+    worktreeIsolation: isolation,
+    worktreeBaseRef
+  }
+  branchProps.length = 0
   return renderToStaticMarkup(createElement(CwdPanel, { cwd, inflight }))
 }
 
@@ -88,5 +123,35 @@ describe('CwdPanel — 격리 칩 (AC2 · AC20)', () => {
     expect(chip).toBeDefined()
     ;(chip!.onClick as () => void)()
     expect(setWorktreeIsolation).toHaveBeenCalledWith(false)
+  })
+})
+
+// AC18 · AC7 배선 — 칩이 격리 상태를 브랜치 칩까지 옮기고, 툴팁이 dirty 거부 해제(D-105)를
+// 대신할 안내 문구를 갖는다.
+describe('CwdPanel — 유예 배선과 안내 문구 (AC7 · AC18)', () => {
+  it('격리 ON 이면 브랜치 칩이 유예 콜백을 받는다 — OFF 면 받지 않는다', () => {
+    markup(true)
+    expect(typeof branchProps.at(-1)?.deferTo).toBe('function')
+
+    markup(false)
+    expect(branchProps.at(-1)?.deferTo).toBeUndefined()
+  })
+
+  it('유예된 브랜치가 칩까지 내려간다', () => {
+    markup(true, false, '/repo', 'feature')
+    expect(branchProps.at(-1)?.deferred).toBe('feature')
+    // 격리를 끄면 그 값도 내려가지 않는다 — 꺼진 상태에서 남은 라벨은 거짓말이다.
+    markup(false, false, '/repo', 'feature')
+    expect(branchProps.at(-1)?.deferred).toBeNull()
+  })
+
+  it('격리 칩 툴팁이 미커밋 변경 안내를 단다 (AC18)', () => {
+    chipProps.length = 0
+    markup(false)
+    const chip = chipProps.find((p) => p.label === 'chat.composer.worktreeIsolation')
+    expect(chip?.title).toBe('chat.composer.worktreeIsolationHelp')
+    // 키만 보면 문구가 비어도 초록이다 — 실제 리소스의 내용을 함께 본다.
+    expect(ko.chat.composer.worktreeIsolationHelp).toContain('커밋되지 않은 변경')
+    expect(en.chat.composer.worktreeIsolationHelp).toContain('Uncommitted changes')
   })
 })

@@ -596,6 +596,10 @@ function send(
       attachmentViews: [...attachmentViews],
       cwd: cur.cwd,
       ...(cur.worktreeIsolation ? { worktreeIsolation: true } : {}),
+      // 유예된 기준 브랜치는 격리와 **함께만** 실린다 — schema 가 그 조합을 강제한다(0210).
+      ...(cur.worktreeIsolation && cur.worktreeBaseRef != null
+        ? { worktreeBaseRef: cur.worktreeBaseRef }
+        : {}),
       // 컴포저 참조 경로 칩(CLI `/add-dir` 대응) — cwd 와 함께 새 세션 출생 시 고정된다.
       ...(cur.extraDirs.length > 0 ? { extraDirs: [...cur.extraDirs] } : {}),
       // 0067 AC9 — draft 키를 main 의 세션-이전 큐 키로 전달(init 에서 실 id 로 rekey).
@@ -756,6 +760,11 @@ function setWorktreeIsolation(enabled: boolean): void {
   patchPendingSession((session) =>
     chatReducer(session, { type: 'SET_WORKTREE_ISOLATION', enabled })
   )
+}
+
+// 격리 중 브랜치 칩이 고른 값. checkout 을 부르지 않고 draft 만 옮긴다(0210 D-101).
+function setWorktreeBaseRef(branch: string | null): void {
+  patchPendingSession((session) => chatReducer(session, { type: 'SET_WORKTREE_BASE_REF', branch }))
 }
 
 // 구 steer() 는 send() 로 흡수(0067 AC5) — busy/idle 판정은 main 소관, renderer 는 단일 send.
@@ -1210,6 +1219,7 @@ export const chatActions = {
   discardContinuityDraft,
   setPendingCwd,
   setWorktreeIsolation,
+  setWorktreeBaseRef,
   addExtraDir,
   removeExtraDir,
   clearError: (): void => dispatchActive({ type: 'CLEAR_ERROR' }),

@@ -100,6 +100,8 @@ export interface ChatState {
   // main/DB 가 정본이고 renderer 는 이 값을 다시 읽지 않는다.
   extraDirs: string[]
   worktreeIsolation: boolean
+  // 0210 — 격리가 켜진 동안 브랜치 칩이 고른 **유예된** 기준 브랜치. `null` 이면 현재 브랜치다.
+  worktreeBaseRef: string | null
   // 마지막 참조 경로 추가가 **거부된 이유**. null = 거부 없음. 중복·cwd 자기 자신은 조용히
   // 무시하지만(사용자가 이미 가진 것을 다시 고른 것뿐) 루트는 사유를 남긴다 — 고른 폴더가
   // 칩으로 안 붙는데 아무 말도 없으면 사용자는 앱이 먹은 것으로 읽는다 (D-020).
@@ -232,6 +234,7 @@ export const initialChatState: ChatState = {
   cwd: null,
   extraDirs: [],
   worktreeIsolation: false,
+  worktreeBaseRef: null,
   extraDirRejection: null,
   messages: [],
   sendCount: 0,
@@ -329,6 +332,7 @@ export type ChatAction =
   | { type: 'CLEAR_ERROR' }
   | { type: 'SET_CWD'; cwd: string }
   | { type: 'SET_WORKTREE_ISOLATION'; enabled: boolean }
+  | { type: 'SET_WORKTREE_BASE_REF'; branch: string | null }
   // 참조 경로 칩 추가/제거 — 세션 확정 전에만 유효(리듀서가 가드하지 않고 호출부가 게이트한다).
   | { type: 'ADD_EXTRA_DIR'; dir: string }
   | { type: 'REMOVE_EXTRA_DIR'; dir: string }
@@ -705,10 +709,26 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       // 가드가 판정할 바깥이 아예 없어진다 — 참조 경로보다 오히려 직접적이다.
       if (isFilesystemRoot(action.cwd)) return { ...state, extraDirRejection: 'root' }
       // 작업 경로가 바뀌면 그 밑으로 들어온 참조 경로는 의미가 달라진다 — 같이 비운다.
-      return { ...state, cwd: action.cwd, extraDirs: [], extraDirRejection: null }
+      // 유예된 기준 브랜치도 같다: 다른 저장소의 브랜치 이름이 그대로 살아남으면 안 된다.
+      return {
+        ...state,
+        cwd: action.cwd,
+        extraDirs: [],
+        extraDirRejection: null,
+        worktreeBaseRef: null
+      }
 
     case 'SET_WORKTREE_ISOLATION':
-      return { ...state, worktreeIsolation: action.enabled }
+      // 격리를 끄면 유예된 기준 브랜치도 의미를 잃는다 — 남겨 두면 다음에 켤 때 사용자가
+      // 고른 적 없는 브랜치가 base 로 살아난다.
+      return {
+        ...state,
+        worktreeIsolation: action.enabled,
+        worktreeBaseRef: action.enabled ? state.worktreeBaseRef : null
+      }
+
+    case 'SET_WORKTREE_BASE_REF':
+      return { ...state, worktreeBaseRef: action.branch }
 
     case 'ADD_EXTRA_DIR':
       // **루트는 거부하고 사유를 남긴다** (D-019·D-020). 가드 루트로 오르면 0075 격리가

@@ -35,7 +35,12 @@ vi.mock('./resolve-turn', () => ({
     }
   }))
 }))
-vi.mock('./turn-context', () => ({ buildTurnContext: mocks.buildTurnContext }))
+// `resolveTurnCwd` 는 **진짜**를 쓴다 — 0210 이 resume 준비 입력을 이 함수로 정하므로 stub 으로
+// 대체하면 그 규칙이 하네스 안에서 사라진다. 조립부(`buildTurnContext`)만 spy 로 갈아 끼운다.
+vi.mock('./turn-context', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./turn-context')>()),
+  buildTurnContext: mocks.buildTurnContext
+}))
 vi.mock('./runtime-entry', () => ({ acquireTurnRuntime: mocks.acquireTurnRuntime }))
 vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: mocks.sendChatEvent }))
 vi.mock('../../infra/log', () => ({
@@ -128,7 +133,11 @@ function makeHarness(sessionId?: string) {
     isUpdateInstallPending: () => false,
     reserveOnBusySession: vi.fn(),
     settleDeadBackgroundTasks: vi.fn(),
-    worktrees: { prepare: vi.fn() }
+    // 0210 — resume 턴은 준비 전에 worktree 소실을 먼저 판정한다. 기본값은 '살아 있다'.
+    worktrees: {
+      prepare: vi.fn(),
+      recoverMissingWorktree: vi.fn(async () => ({ kind: 'none' as const }))
+    }
   }
 
   return { deps, sender, supervisor, turn }

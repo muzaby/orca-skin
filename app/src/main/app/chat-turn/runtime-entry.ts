@@ -46,6 +46,8 @@ export async function acquireTurnRuntime(
       model?: string
     }
     sessionProviderKey: string | null | undefined
+    // 0210 — worktree 소실 폴백으로 이번 턴의 실행 경로가 바뀌었는가.
+    executionCwdRecovered?: boolean
   }
 ): Promise<RuntimeEntry> {
   const { supervisor, lease } = deps
@@ -62,7 +64,8 @@ export async function acquireTurnRuntime(
 
   const extensions = deps.buildExtensions()
 
-  // 살아 있는 채널을 내려야 하는 다섯:
+  // 살아 있는 채널을 내려야 하는 여섯:
+  //  0210 worktree 소실 폴백 — cwd 는 spawn 인자라 살아 있는 프로세스를 새 경로로 돌릴 수 없다.
   //  0118 provider 경계 — pushTurn 은 env/providerSettings 를 재주입하지 않는다.
   //  0125 settings 제자리 수정(토큰 로테이션·base URL 교체) — spawn 시 주입본과 내용이 달라짐.
   //  0188 env 변경 — settings 는 같은데 `options.env` 의 토큰·URL·모델 변수만 바뀐 경우.
@@ -81,7 +84,8 @@ export async function acquireTurnRuntime(
         previousProviderKey: input.sessionProviderKey,
         nextProviderKey: input.resolved.providerKey,
         model: input.resolved.model,
-        runtimeToolsRevision: extensions.runtimeTools?.revision
+        runtimeToolsRevision: extensions.runtimeTools?.revision,
+        executionCwdRecovered: input.executionCwdRecovered === true
       })
     )
   ) {

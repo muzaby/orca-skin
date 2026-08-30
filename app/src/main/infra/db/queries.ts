@@ -53,6 +53,7 @@ export class DbQueries {
   private readonly findIncompleteAssistantTextPartsBySessionStmt: Database.Statement
   private readonly updateSessionPreviewStmt: Database.Statement
   private readonly updateSessionProviderKeyStmt: Database.Statement
+  private readonly updateSessionCwdStmt: Database.Statement
   private readonly updateSessionTitleStmt: Database.Statement
   private readonly getTitleSourceStmt: Database.Statement
   private readonly updateSessionTitleAutoStmt: Database.Statement
@@ -249,6 +250,11 @@ export class DbQueries {
     `)
     this.updateSessionProviderKeyStmt = db.prepare(`
       UPDATE sessions SET provider_key = @providerKey, updated_at = @updatedAt WHERE id = @id
+    `)
+    // 0210 — worktree 소실 폴백이 실행 경로를 원본으로 되돌릴 때 세션행을 함께 옮긴다.
+    // 이 UPDATE 가 없으면 폴백은 이번 턴만 살리고 다음 턴이 같은 죽은 경로를 다시 읽는다.
+    this.updateSessionCwdStmt = db.prepare(`
+      UPDATE sessions SET cwd = @cwd, updated_at = @updatedAt WHERE id = @id
     `)
     this.updateSessionTitleStmt = db.prepare(`
       UPDATE sessions SET title = @title WHERE id = @id AND title IS NULL
@@ -549,6 +555,10 @@ export class DbQueries {
 
   updateSessionPreview(id: string, preview: string, updatedAt: number): void {
     this.updateSessionPreviewStmt.run({ id, preview, updatedAt })
+  }
+
+  updateSessionCwd(id: string, cwd: string, updatedAt: number): void {
+    this.updateSessionCwdStmt.run({ id, cwd, updatedAt })
   }
 
   updateSessionProviderKey(id: string, providerKey: string | null, updatedAt: number): void {
