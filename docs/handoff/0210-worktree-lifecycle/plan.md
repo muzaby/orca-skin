@@ -748,6 +748,118 @@ r2가 닫은 것은 §10 행이 아니라 **현재 산출물의 필수 gate**(`t
 - 반복해서 부딪히는 환경 한계: better-sqlite3 ABI(r1과 동일) + **작업 트리 잔여물이 로컬 게이트 체인을 끊는다**.
 - 현재 라운드 수: 2
 
+---
+
+## [구현자 기입] 설계 리뷰 (r3)
+
+- 동의 / 그대로 진행: 규범 행 변경 없음. r2 verify 의 D1~D5 는 전부 plan 이 이미 적은 좌표라 새 계약을 만들 필요가 없었다.
+- 이견 / 현실성 문제: **없음**. 다섯 자리 모두 seam 이 이미 있었다 — `send.worktree.test.ts` 의 `sendChatEvent` spy · `chatStore.worktreeIsolation.test.ts` 의 `sentPayload()` · `acquireTurnRuntime` 의 deps 주입. "테스트하기 어려웠다"는 설명은 성립하지 않는다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r3)
+
+**이번 라운드는 프로덕션 코드를 한 줄도 바꾸지 않았다** — 변경은 테스트 2 수정 · 테스트 2 신규 · 문서 1이다. 그래서 분모는 그대로 17이고, 바뀐 것은 개수가 아니라 **강제 여부**다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| WP-04·13·19 | EP-15 base ref 좌표 | payload · schema · service (3) | **3/3** | payload = M-A red(`chatStore.worktreeIsolation.test.ts` 1건) · schema = M11 red · service = M9 red | — |
+| WP-07·12·15·17 | EP-17 폴백 3쓰기 | sessions.cwd · row 삭제 · 통지 (3) | **3/3** | ① M-J red 2건 · ② M-K red 1건 · ③ M-C red 1건 — **세 슬롯이 서로 다른 케이스를 깬다** | — |
+| WP-02·20 | EP-09 worktree 루트 파생 | 정의 · 부팅 호출 (2) | **2/2** | 정의 = M12 red · 부팅 호출 = M-H red(`worktree-root-wiring.test.ts` 차집합) | — |
+| WP-02 | EP-13 dev 분기 주입 | 부팅 (1) | **1/1** | M-G red · M-I(엄격화) red — 인자 텍스트를 실제로 읽는다 | — |
+| WP-05·06·16·18 | EP-16 소실 감지 + respawn 축 | 진입 판정 · respawn 축 (2) | **2/2** | 진입 = M6 red 2건 · 축 = M5 red(r1) | — |
+| WP-08·19 / WP-01·21 / WP-03·19 | EP-01 · EP-11 · EP-14 | 2 · 2 · 2 | **6/6** | M3 red(EP-01 재실행) · M7·M8 red(r1) · M2 red(r1) | — |
+
+- 전수 합: **17/17**. r2 대비 바뀐 축은 **강제 여부**다 — 적대 상태에서 red 인 좌표가 **13 → 17**이 됐다(무음이던 EP-09② · EP-13 · EP-15① · EP-17③ 넷을 닫았다).
+- **verify r2 의 수치와 갈리는 곳**: r2 는 EP-16 을 `1/2`, 무음을 3으로 적었다. 재측정하면 EP-16 의 두 좌표(진입 판정·respawn 축)는 **둘 다 M6·M5 로 red** 이고, 무음이던 것은 표 **밖** 두 홉이었다. 무음 좌표의 정확한 목록은 위 넷이다.
+- §10에 없는데 같은 불변식이 필요했던 지점: **2건** — `send.ts:145`(resume 준비 입력의 출처)와 `send.ts:200`(`sessionMeta.cwd` 덮어쓰기). 둘 다 AC12 가 production 에서 성립하려면 필수이고 이번 라운드에 oracle 을 세웠다(M-B·M-D red). **§10 EP-16 에 행을 늘리는 것은 규범 편집이라 이번 커밋에 넣지 않고 §[놓친 잠재 문제] 로 제안한다.**
+
+**V-pair 자기확인 (r3)** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| WP-04 | REQUIRED | SELF_PASS | `chatStore.worktreeIsolation.test.ts` 3케이스(실림·부재·격리 OFF) | 등록 `not selected` · D4 인용 M-A RED |
+| WP-07 | REQUIRED | SELF_PASS | `worktree-recover.test.ts` 4케이스 + `send.worktree.test.ts` ② | M-J·M-K·M-C 각 RED(형제 슬롯 3) |
+| WP-12 | REQUIRED | SELF_PASS | `runtime-entry.test.ts` 3케이스(폴백/비폴백/필드 부재) | M-F RED · M-E RED |
+| WP-16 | REQUIRED | SELF_PASS | `send.worktree.test.ts` ①③ + AC19 케이스 | M6 RED · D2 인용 M-B·M-D RED |
+| WP-19 | REQUIRED | SELF_PASS | `CwdPanel.isolation.test.ts` + payload 케이스 | M3 RED · M-A RED |
+| WP-02 | REQUIRED | SELF_PASS | `paths.test.ts` 3케이스 + `worktree-root-wiring.test.ts` 2케이스 | M1 RED · M12 RED · M-G·M-H·M-I RED |
+| 그 밖 15 pair | — | r1·r2 상태 유지 | 이번 변경에 프로덕션이 없어 경로에 닿지 않는다 | 재실행 없음 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r3)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M-A `chatStore.ts:600` payload 필드 삭제 | `D4 인용 변이` | **green**(verify r2) | `격리와 함께 고른 브랜치가 …` 1건 | 잠김 |
+| M-B `send.ts:145` 준비 입력을 `payload.cwd` 로 되돌림 | `D2 인용 변이` | **green**(verify r2) | `① 소실 판정 입력이 …` · `worktree 가 살아 있으면 …` 2건 | 잠김 |
+| M-C `send.ts:167` `session.updated` 방출 제거 | `D1 인용 변이` · `WP-07 형제 슬롯 ③` | **green**(verify r2) | `② 폴백이 session.updated 로 …` 1건 | 잠김 |
+| M-D `send.ts:200` `sessionMeta.cwd` 덮어쓰기 제거 | `D2 인용 변이` | **green**(verify r2) | `③ 재조립이 확정 경로를 쓴다 …` 1건 | 잠김 |
+| M-E `runtime-entry.ts:88` 축을 상수 `false` 로 | `D3 인용 변이` | **green**(verify r2) | `폴백 턴이면 teardownChannel 을 …` 1건 | 잠김 |
+| M-F `runtime-entry.ts:92` `teardownChannel()` 삭제 | `WP-12 선택 증거` · `D3 인용` | **green**(verify r2) | 같은 1건 | 잠김 |
+| M-G `bootstrap.ts:836` 인자를 `false` 로 | `새 oracle 민감도`(스윕 방향) | 최초 | `그 호출이 dev 분기를 주입한다 …` 1건 | 잠김 |
+| M-H `bootstrap.ts` 에 호출부를 하나 더 만듦 | `새 oracle 민감도`(분류 단위 = 호출부) | 최초 | `호출부는 컴포지션 루트 하나다 …` 1건 | 잠김 |
+| M-I `bootstrap.ts` 인자를 `import.meta.env.DEV === true` 로 | `새 oracle 엄격화` | 최초 | `그 호출이 dev 분기를 주입한다 …` 1건 | 잠김(주1) |
+| M-J `service.ts:193` `updateSessionCwd` 호출 제거 | `WP-07 형제 슬롯 ①` | 최초 | AC15 · AC16 2건 | 잠김 |
+| M-K `service.ts:194` `deleteManagedWorktree` 호출 제거 | `WP-07 형제 슬롯 ②` | 최초 | AC15 1건 | 잠김 |
+| M1 `naming.ts:21` 해시 → `Math.random()` | `WP-02 선택 증거` | red | `managed 경로는 …` 1건 | 잠김 |
+| M3 `CwdPanel.tsx:50` `deferTo`→undefined | `WP-19 선택 증거` | red | `격리 ON 이면 브랜치 칩이 …` 1건 | 잠김 |
+| M6 `prepare-worktree.ts:41` recovered→passthrough | `WP-16 선택 증거` | red | AC12·13·17 · AC14 2건 | 잠김 |
+
+- **분모 검산**: `선택 증거 7 · 인용 변이 4 · 새 oracle 3 = 표 행 14`. 선택 증거 7 = M1(WP-02) · M3(WP-19) · M6(WP-16) · M-J·M-K·M-C(WP-07 세 슬롯) · M-F(WP-12). 인용 변이 4 = M-B·M-D(D2) · M-E(D3) · M-A(D4) — M-C·M-F 는 선택 증거와 겹쳐 한 번만 센다. 새 oracle 3 = `worktree-root-wiring.test.ts` 스윕의 방향·분류 단위·엄격화. `runtime-entry.test.ts`·send·chatStore 신규 케이스는 **직접 행동 oracle** 이라 mutation 을 새로 발명하지 않았다.
+- **주1**: M-I 는 의미가 같은 표현(`=== true`)에도 red 다 — 인자를 **정확한 텍스트**로 본다는 뜻이고, 그래서 이 스윕의 `0건`은 부분 일치가 아니라 전수를 뜻한다. 배선 불변식이라 리팩터가 시끄럽게 깨지는 쪽을 택했다.
+- **덮개 회귀**: 이전 라운드에 red 였는데 이번에 green 인 행 **0건**. 이번 라운드는 장치를 **교체·삭제하지 않았다**(프로덕션 diff 0). r1 이 red 로 적은 12변이 중 M1·M3·M6 을 재실행해 red 를 확인했고, 나머지 9(M2·M4·M5·M7~M12)는 그 장치와 프로덕션이 **이번 diff 에 없다** — 변경 5파일은 `send.worktree.test.ts`·`chatStore.worktreeIsolation.test.ts`·`runtime-entry.test.ts`(신규)·`worktree-root-wiring.test.ts`(신규)·`docs/IPC_CONTRACT.md` 이고 그 9변이의 대상 파일과 차집합이 전부다.
+
+## [구현자 기입] Product/UX 파생 검토 (r3)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — 이번 변경에 사용자 대면 문자열이 없다(테스트·문서) | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 **없음** — production diff 0 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 새 실패 경로 0. 다만 잠근 계약은 §5 전이표의 `resume + worktree 소실` 두 행이다 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | ✅ 이제 그 반대를 **관측한다** — 폴백 턴의 `session.updated` 방출과 `error` 0회를 같은 케이스가 함께 단언한다 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 — 변경 없음 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r3)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | **§10 EP-16 에 지점이 둘 빠져 있다** — `send.ts:145`(준비 입력 출처)·`:200`(`sessionMeta.cwd` 덮어쓰기). 둘 다 AC12 의 필수 홉인데 표에 없어 r1·r2 의 `2/2` 가 참인 채로 무음이었다 | 📝 **plan 수정 제안** — EP-16 의 `언제 강제`를 4지점으로 늘린다(`prepareTurnExecution 진입 · respawnInputs 축 · resume 준비 입력 출처 · 재조립 세션행 덮어쓰기`). 규범 편집이라 이번 구현 커밋에 넣지 않았다 | oracle 은 이미 세웠다(M-B·M-D red) |
+| 2 | `send.worktree.test.ts` 하네스가 resume 정리 경로를 못 태웠다 — `pendingMessages.orphanUnconfirmed`·`supervisor.releaseRuntime` 부재로 `finally` 가 `TypeError` 를 내고 그것이 `error` 이벤트로 나갔다 | ✅ 선조치 — 하네스에 두 멤버를 추가. **프로덕션 결함이 아니라 하네스가 신규 세션 축만 태우던 공백**이다 | `send.ts:420`·`:424` 는 `finalSessionId` 가 있어야 도달한다 |
+| 3 | EP-17 ①②③ 의 순서(`§13` 계약)는 여전히 관측되지 않는다 — 세 슬롯의 **존재**는 잠겼지만 ①→②→③ 순서를 깨는 변이는 무음일 것이다 | ⚠️ 보고만 — 사이에서 죽는 상태는 §13 이 이미 "stale metadata 만 남고 다음 폴백이 다시 지운다"로 판정했다. 순서를 관측하려면 크래시 주입이 필요하다 | `service.ts:193-194` 는 동기 블록이다 |
+| 4 | `scripts/*.mjs` 6개의 CLI 가드가 Windows 에서 항상 거짓이라 `pretest`·`predev`·`prebuild`·`postinstall` 과 **CI 의 마이그레이션·doc 게이트가 무동작**이다 | ⚠️ 보고만 — 0210 범위 밖. 이번 라운드는 doc 게이트를 `runCli` 직접 import 로 실행해 관측했다 | `ensure-sqlite-abi.mjs:180` · `node scripts/check-migrations-appendonly.mjs` 출력 0줄 exit 0(성공 시 `[migrations] sync ok` 를 반드시 찍는다) |
+| 5 | AC11 의 "base 를 한 번만 읽는다"는 baseRef 갈래에서 여전히 재모사되지 않았다 | ⚠️ 보고만 — verify r2 가 D8 을 NON_BLOCKING 으로 판정했고 코드가 단일 표현식이다 | `service.ts:94-96` |
+
+### 설계 대비 명시적 차이 (r3)
+
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: **없음** — production diff 가 0이다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 대체물 없음 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — 대체물 없음 | — |
+| 재진입 | 해당 없음 — 대체물 없음 | — |
+| 다른 무효화 축 | 해당 없음 — 대체물 없음 | — |
+
+## [구현자 기입] 구현 보고 (r3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | **프로덕션 0 · 테스트 4 · 문서 1**. 수정 `send.worktree.test.ts`·`chatStore.worktreeIsolation.test.ts`, 신규 `runtime-entry.test.ts`·`worktree-root-wiring.test.ts`, 문서 `docs/IPC_CONTRACT.md` |
+| 실행 명령 | `npx tsc --noEmit -p tsconfig.{node,web,test}.json`(**각각**) · `npm run lint` · `node node_modules/vitest/vitest.mjs run` · `node --test scripts/*.test.mjs` · doc 게이트는 `runCli` 직접 import |
+| **관측한 게이트 산출**(exit code 아님) | **vitest 275파일 2692케이스 전건 green**(환경 기인 red **0** — `npm rebuild better-sqlite3` 로 Node ABI 확보) · **typecheck 3구성 진단 0줄** · **lint 0 error / 1 warning**(`useTranscriptVirtualizer.ts:22`, 변경 무관 기존분) · **scripts 59/59 pass** · **doc gate 3항목 ok**(생성물·prose·링크) |
+| V-pair 자기확인 | `SELF_PASS` 로 올린 6(WP-02·04·07·12·16·19) · 그 밖 15는 r1·r2 상태 유지 · **`SELF_BLOCKED` 0** |
+| 강제 지점 전수 | **17/17** — 적대 상태에서 red 인 좌표가 13 → **17** |
+| **AC 자기보고**(`Criteria-Met`) | **20/21** — r2 verify 재측정(✅15)에서 AC9·12·13·14·17 다섯을 ⚠️→✅ 로 올렸다. ⚠️ 는 **AC11** 하나(baseRef 갈래의 "1회" 축 미재모사, D8) |
+| **합계 검산** | `✅ 20 · ⚠️ 1 · ❌ 0 = 총 21` — 분모는 §7 의 AC1~AC21 을 다시 세어 21이다(이번 라운드 분할·추가 없음) |
+| 블로커 / 역질문 | 없음. §[놓친 잠재 문제] 1번(EP-16 행 신설)은 **설계 턴 몫**이라 제안으로 남겼다 |
+| 대상 커밋 | `(r3 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r3)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **예** — r2 가 스스로 진단한 "분모를 해법 이름으로 셌다"와 같은 축이다. r2 는 그 교정을 `RespawnDecisionInput` **한 행에만** 적용했고, 나머지 16좌표는 존재(`rg` 히트)로 닫혀 있었다. 이번 라운드가 그 술어를 **적대 상태에서의 red** 로 바꿨다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: 있었다. `handoff-impl` §2 의 "검색의 술어는 불변식의 주어로" 와 §8 의 "닫았다고 적는 모든 행에 재현한 관측값을 적는다" 둘이다. 안 걸린 이유는 `[구현자 기입]` 강제 지점 표의 `재현 명령 / 관측` 칸이 **`file:line` 로 채워도 형식을 만족**하기 때문이다 — 그 칸이 요구하는 것이 좌표인지 감도인지 문장에서 갈리지 않는다.
+- 반복해서 부딪히는 환경 한계: **없었다.** 0208·0209·0210 r1·r2 가 적은 better-sqlite3 ABI 한계는 `npm rebuild better-sqlite3` 한 줄로 풀렸고, 그 자가치유가 여태 안 돈 이유는 §[놓친 잠재 문제] 4번이다.
+- 현재 라운드 수: 3
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |

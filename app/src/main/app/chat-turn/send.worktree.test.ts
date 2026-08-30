@@ -7,7 +7,12 @@ const mocks = vi.hoisted(() => ({
   sendChatEvent: vi.fn(),
   startNew: vi.fn(),
   startResume: vi.fn(),
-  release: vi.fn()
+  release: vi.fn(),
+  // resume 턴의 세션행. `null` 이면 신규 세션 축이다. 0210 은 이 값이 `payload.cwd` 와 **다를 때**
+  // 어느 쪽을 읽는지가 계약이라, 두 출처가 같은 값이면 그 계약을 구별할 수 없다.
+  sessionMeta: {
+    value: null as { cwd: string | null; project_id: string | null; provider_key: null } | null
+  }
 }))
 
 vi.mock('../../features/chat/attachments', () => ({
@@ -29,7 +34,7 @@ vi.mock('./resolve-turn', () => ({
       resolved: {
         prepared: { providerSettings: { snapshot: true }, env: { SNAPSHOT: 'yes' } }
       },
-      sessionMeta: null,
+      sessionMeta: mocks.sessionMeta.value,
       boundProjectId: null,
       effectiveText: payload.text
     }
@@ -69,6 +74,13 @@ vi.mock('../../features/chat/turn-coordinator', () => ({
 
 import { handleChatSend } from './send'
 
+// `WorktreeService.recoverMissingWorktree` 의 반환 union. 하네스 기본값을 갈아끼우려면 넓은
+// 타입이어야 한다 — `{kind:'none'}` 으로 좁히면 `mockResolvedValue` 가 다른 갈래를 거부한다.
+type Recovery =
+  | { kind: 'none' }
+  | { kind: 'recovered'; executionCwd: string; lostWorktreeRoot: string }
+  | { kind: 'unrecoverable'; lostWorktreeRoot: string }
+
 // Test-only structural fixture is intentionally inferred so its spies retain their precise signatures.
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function makeHarness(sessionId?: string) {
@@ -101,7 +113,9 @@ function makeHarness(sessionId?: string) {
     startNew: mocks.startNew,
     startResume: mocks.startResume,
     release: mocks.release,
-    releaseChain: vi.fn()
+    releaseChain: vi.fn(),
+    // resume 축은 신규 축보다 정리 경로가 길다 — 세션 id 가 있어야 도달하는 반납이 둘 더 있다.
+    releaseRuntime: vi.fn()
   }
   const sender = {
     once: vi.fn(),
@@ -127,7 +141,13 @@ function makeHarness(sessionId?: string) {
     approvals: {},
     persistence: {},
     permissionModes: {},
-    pendingMessages: { cancelAllHeld: vi.fn(() => []), rollback: vi.fn() },
+    // `orphanUnconfirmed` 는 `finalSessionId` 가 있을 때만 도달하는 정리 지점이라(`send.ts:420`)
+    // 신규 세션 케이스만 있던 동안에는 부재가 드러나지 않았다.
+    pendingMessages: {
+      cancelAllHeld: vi.fn(() => []),
+      rollback: vi.fn(),
+      orphanUnconfirmed: vi.fn(() => [])
+    },
     backgroundTasks: {},
     activity: {},
     isUpdateInstallPending: () => false,
@@ -136,7 +156,7 @@ function makeHarness(sessionId?: string) {
     // 0210 — resume 턴은 준비 전에 worktree 소실을 먼저 판정한다. 기본값은 '살아 있다'.
     worktrees: {
       prepare: vi.fn(),
-      recoverMissingWorktree: vi.fn(async () => ({ kind: 'none' as const }))
+      recoverMissingWorktree: vi.fn(async (): Promise<Recovery> => ({ kind: 'none' }))
     }
   }
 
@@ -144,7 +164,10 @@ function makeHarness(sessionId?: string) {
 }
 
 describe('handleChatSend worktree production wiring', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.sessionMeta.value = null
+  })
 
   it('준비 완료 전에는 context/runtime을 만들지 않고 managed cwd와 extraDirs를 runtime까지 전달한다', async () => {
     const harness = makeHarness()
@@ -362,5 +385,127 @@ describe('handleChatSend worktree production wiring', () => {
     }
     expect(mocks.release).toHaveBeenCalledOnce()
     expect(mocks.release).toHaveBeenCalledWith(harness.turn)
+  })
+})
+
+// 0210 폴백의 **send 층 배선** — verify r2 D1·D2 가 연 자리다.
+//
+// `prepare-worktree.test.ts` 는 `prepareTurnWorktree` 안쪽(갈래 선택·통지 콜백 호출·respawn 전달)을,
+// `worktree-recover.test.ts` 는 DB 두 쓰기를 잠근다. 그 둘 사이에 **send.ts 가 소유한 홉 셋**이
+// 있고 r2 까지는 어느 것도 관측되지 않았다 — 지워도 스위트가 전건 green 이었다.
+//
+//  ① 판정 입력    `resolveTurnCwd` 로 확정한 세션행 경로 (payload.cwd 가 아니다)
+//  ② 통지         `session.updated{patch.cwd}` 방출 (EP-17 세 번째 쓰기)
+//  ③ 재조립 입력  `sessionMeta.cwd` 를 확정 경로로 덮기 (안 덮으면 죽은 경로가 되살아난다)
+//
+// 세 홉은 **세션행 cwd 와 payload.cwd 가 다를 때만** 구별된다. 하네스가 둘을 갈라 두는 이유다.
+describe('handleChatSend — worktree 소실 폴백의 send 층 배선 (AC12 · AC17)', () => {
+  const LOST = '/wt/repo-1234abcd/work-x'
+  const SOURCE = '/source/repo'
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.sessionMeta.value = { cwd: LOST, project_id: null, provider_key: null }
+    mocks.acquireTurnRuntime.mockResolvedValue({
+      ok: true,
+      runtime: { close: vi.fn(), channelAlive: true, markAborted: vi.fn() },
+      extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+    })
+  })
+
+  async function resumeSend(
+    harness: ReturnType<typeof makeHarness>,
+    recovery: Recovery
+  ): Promise<void> {
+    harness.deps.worktrees.recoverMissingWorktree.mockResolvedValue(recovery)
+    await handleChatSend(harness.deps as never, { sender: harness.sender } as never, {
+      text: 'work',
+      sessionId: 'session-1',
+      // 세션행과 **다른** 값을 일부러 싣는다. 이 값을 읽는 구현은 소실을 지나친다.
+      cwd: '/payload/elsewhere',
+      attachmentViews: []
+    })
+  }
+
+  it('① 소실 판정 입력이 세션행이 잠근 실행 경로다 — payload.cwd 가 아니다', async () => {
+    const harness = makeHarness('session-1')
+
+    await resumeSend(harness, { kind: 'recovered', executionCwd: SOURCE, lostWorktreeRoot: LOST })
+
+    expect(harness.deps.worktrees.recoverMissingWorktree).toHaveBeenCalledWith({
+      sessionId: 'session-1',
+      executionCwd: LOST
+    })
+  })
+
+  it('② 폴백이 session.updated 로 화면까지 나간다 — DB 두 쓰기 뒤의 세 번째 쓰기다', async () => {
+    const harness = makeHarness('session-1')
+
+    await resumeSend(harness, { kind: 'recovered', executionCwd: SOURCE, lostWorktreeRoot: LOST })
+
+    expect(mocks.sendChatEvent).toHaveBeenCalledWith(harness.sender, {
+      type: 'session.updated',
+      sessionId: 'session-1',
+      patch: { cwd: SOURCE }
+    })
+    // 폴백은 오류가 아니다 — 같은 턴에서 error 이벤트가 나가면 화면이 두 말을 한다(AC13).
+    for (const [, event] of mocks.sendChatEvent.mock.calls as Array<[unknown, { type: string }]>)
+      expect(event.type).not.toBe('error')
+  })
+
+  it('③ 재조립이 확정 경로를 쓴다 — 세션행 사본을 덮지 않으면 죽은 경로가 되살아난다', async () => {
+    const harness = makeHarness('session-1')
+
+    await resumeSend(harness, { kind: 'recovered', executionCwd: SOURCE, lostWorktreeRoot: LOST })
+
+    // `buildTurnContext` 의 `resolveTurnCwd` 는 resume 에서 세션행을 우선한다. 사본이 옛 경로면
+    // 조립 결과가 다시 LOST 가 되고, 그 값이 그대로 spawn 인자가 된다.
+    expect(mocks.buildTurnContext).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionMeta: expect.objectContaining({ cwd: SOURCE }) })
+    )
+    expect(mocks.buildTurnRequest.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({ cwd: SOURCE })
+    )
+  })
+
+  it('폴백 사실이 runtime 확보까지 간다 — 살아 있는 채널을 내리는 유일한 신호다 (AC14)', async () => {
+    const harness = makeHarness('session-1')
+
+    await resumeSend(harness, { kind: 'recovered', executionCwd: SOURCE, lostWorktreeRoot: LOST })
+
+    expect(mocks.acquireTurnRuntime).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ executionCwdRecovered: true })
+    )
+  })
+
+  it('worktree 가 살아 있으면 아무것도 통지하지 않고 세션행 경로를 그대로 쓴다 (AC19)', async () => {
+    const harness = makeHarness('session-1')
+
+    await resumeSend(harness, { kind: 'none' })
+
+    expect(mocks.sendChatEvent).not.toHaveBeenCalled()
+    expect(mocks.buildTurnContext).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionMeta: expect.objectContaining({ cwd: LOST }) })
+    )
+    expect(mocks.acquireTurnRuntime).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ executionCwdRecovered: false })
+    )
+  })
+
+  it('원본까지 사라지면 오류로 접고 턴을 만들지 않는다', async () => {
+    const harness = makeHarness('session-1')
+
+    await resumeSend(harness, { kind: 'unrecoverable', lostWorktreeRoot: LOST })
+
+    expect(mocks.buildTurnContext).not.toHaveBeenCalled()
+    expect(mocks.buildTurnRequest).not.toHaveBeenCalled()
+    expect(mocks.sendChatEvent).toHaveBeenCalledWith(
+      harness.sender,
+      expect.objectContaining({ type: 'error' })
+    )
   })
 })
