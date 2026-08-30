@@ -97,6 +97,44 @@ describe('chatStore — 격리 선택이 chat:send 페이로드로 나간다 (AC
   })
 })
 
+// 0210 AC9 · EP-15 첫 좌표 — 유예된 기준 브랜치도 같은 hop 을 지난다.
+//
+// 스키마(`protocol.worktree.test.ts`)와 리듀서(`chatReducer.worktree.test.ts`)와 칩
+// (`CwdPanel.isolation.test.ts`·`BranchChip.defer.test.ts`)이 각자 자기 축을 잠그는데, 그 사이의
+// **페이로드 조립**은 verify r2 까지 아무도 보지 않았다 — 이 세 줄을 지워도 렌더러 524 케이스가
+// 전건 green 이었다(변이 M-A). 조용히 버려지면 사용자가 고른 브랜치 대신 HEAD 가 base 가 된다.
+describe('chatStore — 유예된 기준 브랜치가 chat:send 페이로드로 나간다 (AC9)', () => {
+  beforeEach(seedLanding)
+
+  it('격리와 함께 고른 브랜치가 worktreeBaseRef 로 실린다', () => {
+    chatActions.setWorktreeIsolation(true)
+    chatActions.setWorktreeBaseRef('feature/login')
+
+    expect(chatActions.send('안녕')).toBe(true)
+    expect(sentPayload()).toMatchObject({
+      worktreeIsolation: true,
+      worktreeBaseRef: 'feature/login'
+    })
+  })
+
+  it('고르지 않았으면 키 자체가 없다 — main 은 부재를 현재 HEAD 로 읽는다', () => {
+    chatActions.setWorktreeIsolation(true)
+
+    expect(chatActions.send('안녕')).toBe(true)
+    expect(sentPayload().worktreeIsolation).toBe(true)
+    expect(sentPayload()).not.toHaveProperty('worktreeBaseRef')
+  })
+
+  it('격리가 꺼져 있으면 상태에 남아 있어도 싣지 않는다 — schema 가 그 조합을 거부한다', () => {
+    // 리듀서가 토글에서 비우지만(D-101), 조립 지점 자신도 조건을 갖는다. 리듀서만 믿으면
+    // 다른 경로로 들어온 상태가 그대로 나간다.
+    patchActiveSession({ worktreeIsolation: false, worktreeBaseRef: 'feature/login' })
+
+    expect(chatActions.send('안녕')).toBe(true)
+    expect(sentPayload()).not.toHaveProperty('worktreeBaseRef')
+  })
+})
+
 describe('chatStore — 격리는 신규 일반 세션 전용이다 (AC7 · D-004)', () => {
   it('확정 세션의 send 에는 실리지 않는다 — 상태에 남아 있어도', () => {
     // 확정 세션은 `patchPendingSession` 이 막아 칩으로는 켤 수 없다. 그래도 상태가 켜진 채로
