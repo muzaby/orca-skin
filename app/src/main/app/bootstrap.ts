@@ -832,7 +832,8 @@ export class Bootstrap {
       },
       emit: broadcastChatEvent
     }))
-    const worktrees = new WorktreeService(ctx.db, managedWorktreesDir(app.getPath('userData')))
+    // dev 분기는 여기 한 곳에서만 준다 — `paths.ts` 는 순수 함수로 남아 두 값을 다 단위 테스트한다.
+    const worktrees = new WorktreeService(ctx.db, managedWorktreesDir(import.meta.env.DEV))
     registerChatHandlers({
       ctx,
       supervisor,

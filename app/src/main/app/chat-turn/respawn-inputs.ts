@@ -38,6 +38,9 @@ export function respawnInputs(input: {
   nextProviderKey: string | null
   model: string | undefined
   runtimeToolsRevision: number | undefined
+  // 0210 — 이번 턴이 worktree 소실 폴백으로 실행 경로를 바꿨는가. 자동 연속 턴은 최초 턴이
+  // 확정한 cwd 를 계승하므로 언제나 false 다(폴백은 send 진입에서 한 번만 판정된다).
+  executionCwdRecovered: boolean
 }): RespawnDecisionInput {
   const { runtime, prepared } = input
   return {
@@ -57,6 +60,7 @@ export function respawnInputs(input: {
       runtime.spawnedRuntimeEnvFingerprint,
       prepared.runtimeEnvFingerprint
     ),
+    executionCwdRecovered: input.executionCwdRecovered,
     spawnedRuntimeToolsRevision: runtime.spawnedRuntimeToolsRevision,
     runtimeToolsRevision: input.runtimeToolsRevision
   }

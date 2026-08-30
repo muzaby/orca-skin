@@ -61,6 +61,19 @@ const NormalizedPermissionModeSchema = z.enum([
   'auto_classified'
 ])
 
+// branch 는 사용자가 목록에서 고른 값이지만 IPC 는 신뢰 경계다 — 옵션 주입(`--`·`-f`)과
+// refspec 문법을 문자셋으로 잘라낸다. main 의 실행부도 같은 규칙을 한 번 더 검사한다.
+//
+// **선언이 여기 있는 이유**: `SendChatMessageSchema` 의 `worktreeBaseRef`(0210)가 같은 규칙을
+// 쓰는데, 그 스키마가 이 파일에서 먼저 평가되므로 뒤에 두면 TDZ 로 죽는다.
+export const GitBranchNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(255)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._/-]*$/, 'branch 이름에 허용되지 않는 문자가 있습니다')
+  .refine((v) => !v.includes('..') && !v.endsWith('.lock'), 'branch 이름이 올바르지 않습니다')
+
 // 참조 경로 원소 — **절대 경로만** 받는다. 이 배열은 어댑터 `additionalDirectories` 와 0075
 // workspace 가드 루트로 **그대로** 흘러가므로(D-006), 상대경로가 통과하면 main 프로세스 cwd 기준
 // 으로 풀려 사용자가 지목한 적 없는 폴더가 read/write 루트로 올라간다. 판정은 플랫폼 독립이다
@@ -94,6 +107,10 @@ export const SendChatMessageSchema = z
     // CLI `/add-dir` 대응 — 작업 디렉토리 밖 추가 참조 경로(절대 경로). 새 세션 출생 시 고정.
     extraDirs: z.array(ExtraDirSchema).optional(),
     worktreeIsolation: z.boolean().optional(),
+    // 0210 — 컴포저에서 **유예된** 기준 브랜치. 격리가 켜져 있으면 브랜치 칩이 작업 트리를
+    // checkout 하지 않고 이 값만 싣고, main 이 그 브랜치의 커밋을 새 worktree 의 base 로 쓴다.
+    // 격리 없이 오면 아무 소비자도 없는 값이므로 아래 refine 이 거부한다.
+    worktreeBaseRef: GitBranchNameSchema.optional(),
     // 0064 continuity — 상호 배타·새 세션 전용(아래 refine).
     forkFrom: z.string().min(1).optional(),
     handoffFrom: z.string().min(1).optional(),
@@ -114,6 +131,11 @@ export const SendChatMessageSchema = z
       (v.sessionId !== null || v.forkFrom !== undefined || v.handoffFrom !== undefined)
     ) {
       ctx.addIssue({ code: 'custom', message: 'Worktree 격리는 신규 일반 세션 전용입니다.' })
+    }
+    // 기준 브랜치는 격리가 켜졌을 때만 소비된다. 격리 없이 실리면 사용자는 브랜치를 골랐다고
+    // 믿는데 아무 일도 일어나지 않으므로 조용히 무시하지 않고 거부한다.
+    if (v.worktreeBaseRef !== undefined && v.worktreeIsolation !== true) {
+      ctx.addIssue({ code: 'custom', message: '기준 브랜치는 Worktree 격리에서만 쓸 수 있습니다.' })
     }
     if (v.forkFrom !== undefined && v.handoffFrom !== undefined) {
       ctx.addIssue({ code: 'custom', message: 'forkFrom/handoffFrom 은 상호 배타다' })
@@ -210,16 +232,6 @@ export const OpenPathRequestSchema = z.object({ path: z.string().min(1) })
 export const GitPathRequestSchema = z.object({ cwd: z.string().min(1) })
 
 export const GitDirtyResolutionSchema = z.enum(['stash', 'commit-wip', 'discard'])
-
-// branch 는 사용자가 목록에서 고른 값이지만 IPC 는 신뢰 경계다 — 옵션 주입(`--`·`-f`)과
-// refspec 문법을 문자셋으로 잘라낸다. main 의 실행부도 같은 규칙을 한 번 더 검사한다.
-export const GitBranchNameSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .max(255)
-  .regex(/^[A-Za-z0-9][A-Za-z0-9._/-]*$/, 'branch 이름에 허용되지 않는 문자가 있습니다')
-  .refine((v) => !v.includes('..') && !v.endsWith('.lock'), 'branch 이름이 올바르지 않습니다')
 
 export const GitCheckoutRequestSchema = z.object({
   cwd: z.string().min(1),

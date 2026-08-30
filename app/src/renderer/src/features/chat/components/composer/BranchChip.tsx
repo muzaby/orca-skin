@@ -21,6 +21,11 @@ import {
 interface BranchChipProps {
   cwd: string | null
   disabled?: boolean
+  // 격리가 켜져 있으면 전환을 **유예**한다 (0210 D-101) — 선택은 다음 worktree 의 base ref 가
+  // 되고 사용자의 작업 트리는 그대로다. 부재하면 기존 동작(즉시 checkout).
+  deferTo?: ((branch: string) => void) | undefined
+  // 유예 중 사용자가 고른 값. 라벨이 선택을 따라가지 않으면 눌러도 아무 일 없어 보인다.
+  deferred?: string | null | undefined
 }
 
 const EMPTY_LIST: GitBranchList = { current: null, branches: [] }
@@ -30,7 +35,12 @@ const EMPTY_LIST: GitBranchList = { current: null, branches: [] }
 //
 // 전환은 두 단계다: 깨끗한 트리는 바로 checkout, 커밋되지 않은 변경이 있으면 main 이
 // `reason:'dirty'` 로 되돌려 주고 그때 처리 방식을 묻는 모달을 띄운다.
-export function BranchChip({ cwd, disabled = false }: BranchChipProps): React.JSX.Element | null {
+export function BranchChip({
+  cwd,
+  disabled = false,
+  deferTo,
+  deferred
+}: BranchChipProps): React.JSX.Element | null {
   const { tr } = useI18n()
   // 상태는 **어느 경로의 것인지와 함께** 들고 있는다. 폴더를 빠르게 바꾸면 늦게 도착한 응답이
   // 새 경로의 상태를 덮는데, 경로를 같이 저장하면 아래 한 줄 비교로 그 값을 무시할 수 있다
@@ -86,6 +96,14 @@ export function BranchChip({ cwd, disabled = false }: BranchChipProps): React.JS
   }
 
   const checkout = async (branch: string, resolution?: GitDirtyResolution): Promise<void> => {
+    // **유예 중에는 어떤 경로로도 작업 트리를 바꾸지 않는다** (0210 EP-14). 메뉴 선택과 dirty
+    // 모달의 확인이 둘 다 이 함수로 들어오므로 한 곳에서 막는다 — 메뉴만 막으면 모달 확인이
+    // 남고, 그 경로는 이미 dirty 인 트리를 stash/commit 하는 쪽이라 더 나쁘다.
+    if (deferTo) {
+      setDirty(null)
+      deferTo(branch)
+      return
+    }
     setBusy(true)
     try {
       const outcome = checkoutOutcome(
@@ -120,7 +138,7 @@ export function BranchChip({ cwd, disabled = false }: BranchChipProps): React.JS
       <ComposerChip
         ref={buttonRef}
         icon="fork"
-        label={view.branch ?? tr('chat.composer.branchDetached')}
+        label={deferred ?? view.branch ?? tr('chat.composer.branchDetached')}
         variant="outlined"
         // `claude/composer-branch-and-add-dir` 같은 이름은 그냥 두면 행을 통째로 밀어낸다.
         className="max-w-[16rem]"
@@ -132,12 +150,12 @@ export function BranchChip({ cwd, disabled = false }: BranchChipProps): React.JS
       />
       <Popover open={menuOpen} anchorRef={buttonRef} onClose={() => setMenuOpen(false)}>
         <BranchMenu
-          current={list.current ?? view.branch}
+          current={deferred ?? list.current ?? view.branch}
           branches={list.branches}
           loading={listLoading}
           onPick={(branch) => {
             setMenuOpen(false)
-            if (branch !== (list.current ?? view.branch)) void checkout(branch)
+            if (branch !== (deferred ?? list.current ?? view.branch)) void checkout(branch)
           }}
         />
       </Popover>

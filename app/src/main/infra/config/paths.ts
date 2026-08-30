@@ -38,8 +38,14 @@ export function devUserDataDir(appDataDir: string): string {
   return join(appDataDir, 'orca-dev')
 }
 
-export function managedWorktreesDir(userDataDir: string): string {
-  return join(userDataDir, 'worktrees')
+// 격리 worktree 루트. `<userData>` 가 아니라 `orcaConfigDir()` 하위다(0210 D-102) — 저장소
+// 내부에 두면 `status --untracked-files=all` 이 그 저장소를 영구 dirty 로 만들고, `<userData>`
+// 아래는 사용자가 찾아갈 경로가 아니다.
+//
+// **dev 는 이 디렉토리에만 `-dev` 를 붙인다**(D-103). `orcaConfigDir()` 자체를 가르면 dev 가
+// settings·plugins·projects 를 통째로 잃는다 — 그 격리는 `devUserDataDir` 이 DB 축에서 이미 한다.
+export function managedWorktreesDir(isDev: boolean): string {
+  return join(orcaConfigDir(), isDev ? 'worktrees-dev' : 'worktrees')
 }
 
 // 정규 소스 루트(사람 편집 SSOT).

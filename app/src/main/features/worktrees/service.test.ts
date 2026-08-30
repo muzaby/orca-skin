@@ -48,33 +48,42 @@ describe('WorktreeService', () => {
       expect(isWithinDir(result.executionCwd, recorded.worktreeRoot)).toBe(true)
   })
 
-  it('managed 경로 세그먼트는 UUID뿐 — repo 이름도 프롬프트도 경로에 넣지 않는다', async () => {
-    // D-007: repo/branch 문자열은 세그먼트가 아니다. 값 자체가 안정적 내부 ID여야 이름이
-    // 바뀌어도 filesystem identity가 따라 움직이지 않는다. 존재 단언만으로는 이 계약이
-    // 안 잡힌다 — repo 이름을 세그먼트에 넣어도 containment는 그대로 참이다.
+  // 0210 D-104 가 0209 D-007(UUID 세그먼트)을 대체한다. 첫 칸은 **저장소를 식별**해야 하고
+  // 둘째 칸은 브랜치와 **일치**해야 한다 — 무작위 UUID 두 겹은 둘 다 못 한다.
+  // 저장소 2개 + 준비 3회라 Windows 러너에서 기본 5초를 넘는다(실측 5.0s 초과).
+  it('managed 경로는 <repo>-<hash8>/<브랜치> 2단이고 같은 repo 는 늘 같은 첫 칸이다 (AC5 · AC6)', async () => {
     const repo = await repository()
-    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-uuid-'))
+    const other = await repository()
+    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-seg-'))
     roots.push(managed)
-    const rows: Array<{ worktreeRoot: string }> = []
+    const rows: Array<{ worktreeRoot: string; branch: string }> = []
     const db = {
-      insertManagedWorktree: (row: { worktreeRoot: string }) => rows.push(row)
+      insertManagedWorktree: (row: { worktreeRoot: string; branch: string }) => rows.push(row)
     } as unknown as DbQueries
+    const service = new WorktreeService(db, managed)
 
-    const result = await new WorktreeService(db, managed).prepare({
-      sourceCwd: repo,
-      firstPrompt: 'fix auth redirect'
-    })
+    await service.prepare({ sourceCwd: repo, firstPrompt: 'fix auth redirect' })
+    await service.prepare({ sourceCwd: repo, firstPrompt: 'second task' })
+    await service.prepare({ sourceCwd: other, firstPrompt: 'elsewhere' })
 
-    expect(result.kind).toBe('managed')
     const canonicalManaged = await realpath(managed)
-    const segments = relative(canonicalManaged, rows[0].worktreeRoot).split(sep)
-    expect(segments).toHaveLength(2)
-    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
-    for (const segment of segments) expect(segment).toMatch(uuid)
-    // 음성 축을 따로 센다 — 정규식이 느슨해져도 이 둘은 남는다.
-    expect(rows[0].worktreeRoot).not.toContain(basename(repo))
-    expect(rows[0].worktreeRoot).not.toContain('auth')
-  })
+    const segmentsOf = (row: { worktreeRoot: string }): string[] =>
+      relative(canonicalManaged, row.worktreeRoot).split(sep)
+    expect(rows).toHaveLength(3)
+    for (const row of rows) expect(segmentsOf(row)).toHaveLength(2)
+
+    // **결정성** — 같은 저장소의 두 준비가 같은 첫 칸을 쓴다. `randomUUID()` 로 되돌리면 red.
+    expect(segmentsOf(rows[0])[0]).toBe(segmentsOf(rows[1])[0])
+    // 다른 저장소는 다른 첫 칸이다 — 이름이 같아도 경로 해시가 가른다.
+    expect(segmentsOf(rows[2])[0]).not.toBe(segmentsOf(rows[0])[0])
+    // 첫 칸이 저장소를 사람에게 말해준다.
+    expect(segmentsOf(rows[0])[0]).toMatch(
+      new RegExp(`^${basename(repo).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}-[0-9a-f]{8}$`)
+    )
+    // 둘째 칸은 실제로 만들어진 브랜치에서 파생된다 — 두 준비의 브랜치가 다르면 칸도 다르다.
+    for (const row of rows) expect(segmentsOf(row)[1]).toBe(row.branch.replace(/\//g, '-'))
+    expect(segmentsOf(rows[0])[1]).not.toBe(segmentsOf(rows[1])[1])
+  }, 30_000)
 
   it('repository 하위 cwd를 managed worktree 안의 같은 subpath로 보존한다', async () => {
     const repo = await repository()
@@ -103,18 +112,83 @@ describe('WorktreeService', () => {
     }
   })
 
-  it('untracked 파일이 있으면 Git mutation 전에 거부한다', async () => {
+  // 0210 D-105 가 0209 R-08(dirty 거부)을 대체한다. `worktree add` 는 source 트리를 건드리지
+  // 않으므로 미커밋 변경은 격리를 막을 이유가 아니다 — 대신 그 변경이 **그 자리에 남는지**를 본다.
+  it('tracked·untracked 변경이 있어도 격리를 만들고 source 트리를 그대로 둔다 (AC1 · AC2)', async () => {
     const repo = await repository()
-    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-test-'))
+    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-dirty-'))
     roots.push(managed)
     await writeFile(join(repo, 'untracked.txt'), 'dirty')
+    await writeFile(join(repo, 'README.md'), 'modified\n')
+    const before = await exec('git', ['-C', repo, 'status', '--porcelain', '--untracked-files=all'])
     const rows: unknown[] = []
     const db = { insertManagedWorktree: (row: unknown) => rows.push(row) } as unknown as DbQueries
+
     const result = await new WorktreeService(db, managed).prepare({
       sourceCwd: repo,
       firstPrompt: 'work'
     })
-    expect(result).toMatchObject({ kind: 'rejected', reason: 'dirty' })
+
+    expect(result.kind).toBe('managed')
+    expect(rows).toHaveLength(1)
+    // 사용자 작업 트리는 손대지 않는다 — 이 단언이 없으면 stash/commit 을 몰래 하는 구현도 통과한다.
+    const after = await exec('git', ['-C', repo, 'status', '--porcelain', '--untracked-files=all'])
+    expect(after.stdout).toBe(before.stdout)
+    expect(before.stdout.trim()).not.toBe('')
+  })
+
+  // AC9 · AC10 · AC11 — 유예된 브랜치가 base 다. HEAD 를 그대로 쓰는 구현은 두 커밋이 갈린
+  // 저장소에서만 반증되므로 base 브랜치를 따로 만든다.
+  it('유예된 기준 브랜치의 커밋에서 worktree 를 만든다 (AC10)', async () => {
+    const repo = await repository()
+    const initial = (
+      await exec('git', ['-C', repo, 'rev-parse', '--abbrev-ref', 'HEAD'])
+    ).stdout.trim()
+    await exec('git', ['-C', repo, 'checkout', '-b', 'feature'])
+    await writeFile(join(repo, 'feature.txt'), 'feature\n')
+    await exec('git', ['-C', repo, 'add', '.'])
+    await exec('git', ['-C', repo, 'commit', '-m', 'feature commit'])
+    const featureOid = (await exec('git', ['-C', repo, 'rev-parse', 'feature'])).stdout.trim()
+    // HEAD 는 원래 브랜치로 되돌려 둔다 — 두 값이 다를 때만 이 단언이 의미를 갖는다.
+    await exec('git', ['-C', repo, 'checkout', initial])
+    const headOid = (await exec('git', ['-C', repo, 'rev-parse', 'HEAD'])).stdout.trim()
+    expect(headOid).not.toBe(featureOid)
+
+    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-base-'))
+    roots.push(managed)
+    const rows: Array<{ baseOid: string }> = []
+    const db = {
+      insertManagedWorktree: (row: { baseOid: string }) => rows.push(row)
+    } as unknown as DbQueries
+
+    const result = await new WorktreeService(db, managed).prepare({
+      sourceCwd: repo,
+      firstPrompt: 'work',
+      baseRef: 'feature'
+    })
+
+    expect(result.kind).toBe('managed')
+    expect(rows[0].baseOid).toBe(featureOid)
+    if (result.kind === 'managed') {
+      const head = await exec('git', ['-C', result.executionCwd, 'rev-parse', 'HEAD'])
+      expect(head.stdout.trim()).toBe(featureOid)
+    }
+  })
+
+  it('없는 기준 브랜치는 거부한다 — HEAD 로 조용히 대체하지 않는다 (AC10)', async () => {
+    const repo = await repository()
+    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-noref-'))
+    roots.push(managed)
+    const rows: unknown[] = []
+    const db = { insertManagedWorktree: (row: unknown) => rows.push(row) } as unknown as DbQueries
+
+    const result = await new WorktreeService(db, managed).prepare({
+      sourceCwd: repo,
+      firstPrompt: 'work',
+      baseRef: 'no-such-branch'
+    })
+
+    expect(result).toMatchObject({ kind: 'rejected', reason: 'create-failed' })
     expect(rows).toEqual([])
   })
 

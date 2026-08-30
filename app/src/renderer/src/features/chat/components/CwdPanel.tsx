@@ -21,6 +21,7 @@ export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
   const extraDirs = useChatSession((s) => s.extraDirs)
   const rejection = useChatSession((s) => s.extraDirRejection)
   const worktreeIsolation = useChatSession((s) => s.worktreeIsolation)
+  const worktreeBaseRef = useChatSession((s) => s.worktreeBaseRef)
   const [picking, setPicking] = useState(false)
 
   const addDir = async (): Promise<void> => {
@@ -41,12 +42,21 @@ export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
       data-state="landing"
     >
       <CwdButton cwd={cwd} sessionStarted={false} inflight={inflight} variant="outlined" />
-      <BranchChip cwd={cwd} disabled={inflight} />
+      {/* 격리가 켜져 있으면 브랜치 선택을 유예한다 — 작업 트리는 그대로 두고 다음 worktree 의
+          base ref 만 정한다(0210 D-101). 꺼져 있으면 `deferTo` 가 undefined 라 기존 즉시 checkout. */}
+      <BranchChip
+        cwd={cwd}
+        disabled={inflight}
+        deferTo={worktreeIsolation ? (branch) => chatActions.setWorktreeBaseRef(branch) : undefined}
+        deferred={worktreeIsolation ? worktreeBaseRef : null}
+      />
       <ComposerChip
         label={tr('chat.composer.worktreeIsolation')}
         variant="outlined"
         disabled={inflight || !cwd}
         onClick={() => chatActions.setWorktreeIsolation(!worktreeIsolation)}
+        // 커밋되지 않은 변경이 새 worktree 에 따라오지 않는다는 사실을 여기서 알린다(D-106) —
+        // 준비 단계가 dirty 를 더 이상 거부하지 않으므로 이 문구가 유일한 안내다.
         title={tr('chat.composer.worktreeIsolationHelp')}
         ariaPressed={worktreeIsolation}
       />

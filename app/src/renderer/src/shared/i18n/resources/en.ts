@@ -691,7 +691,8 @@ export const en: typeof ko = {
       extraDirRejectRoot: 'The root folder cannot be added as a reference path.',
       extraDirAdd: 'Add another folder',
       worktreeIsolation: 'Worktree isolation',
-      worktreeIsolationHelp: 'Start the new session in a separate Git worktree',
+      worktreeIsolationHelp:
+        'Start the new session in a separate Git worktree. Uncommitted changes are not carried into it',
       extraDirRemoveAria: 'Remove reference folder {{name}}'
     },
     status: {

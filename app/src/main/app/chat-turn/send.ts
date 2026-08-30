@@ -25,7 +25,7 @@ import { getLogger } from '../../infra/log'
 import { sendChatEvent } from '../../infra/ipc/send'
 import { prepareAutomaticContinuation } from '../chat-turn-continuation'
 import { admitChatSend, attachmentFailure, foreignPreparingLease, leaseKeyFor } from './admission'
-import { buildTurnContext } from './turn-context'
+import { buildTurnContext, resolveTurnCwd } from './turn-context'
 import { resolveTurn } from './resolve-turn'
 import { acquireTurnRuntime } from './runtime-entry'
 import { enqueueTurnPrompt } from './enqueue'
@@ -137,17 +137,39 @@ export async function handleChatSend(
       effectiveText
     } = resolution.value
 
+    // resume 턴의 준비 입력은 **세션행이 잠근 경로**여야 한다 — `payload.cwd` 는 새 세션의
+    // 요청값이라 그것으로 존재 확인을 하면 worktree 가 사라져도 다른 경로를 보고 지나간다.
+    // 신규 턴은 기존과 같은 요청값·프로젝트 파생을 쓴다.
+    const requestedCwd = payload.cwd ?? ctx.getCwd(boundProjectId)
+    const preparedSourceCwd = payload.sessionId
+      ? resolveTurnCwd(
+          { sessionId: payload.sessionId, projectId: boundProjectId, cwd: payload.cwd ?? null },
+          sessionMeta,
+          (projectId) => ctx.getCwd(projectId)
+        )
+      : requestedCwd
+
     const preparedExecution = await prepareTurnExecution({
       worktree: {
         enabled: payload.worktreeIsolation === true,
         ...(payload.sessionId ? { sessionId: payload.sessionId } : {}),
-        sourceCwd: payload.cwd ?? ctx.getCwd(boundProjectId),
+        sourceCwd: preparedSourceCwd,
+        ...(payload.worktreeBaseRef ? { baseRef: payload.worktreeBaseRef } : {}),
         firstPrompt: effectiveText,
         signal: lease.controller.signal,
         adapter: activeAdapter,
         providerSettings: resolved.prepared.providerSettings,
         env: resolved.prepared.env,
-        worktrees: deps.worktrees
+        worktrees: deps.worktrees,
+        // 세 번째 쓰기(§13) — DB 두 쓰기가 끝난 뒤에만 화면을 옮긴다. 렌더러는 `patch.cwd` 로
+        // 경로·브랜치·diff 를 원본으로 되돌린다. 버스가 아니라 forward 로 보낸다:
+        // `HistoryWriter` 의 `session.updated` 는 세션 **생성** 경로라 여기에 오면 안 된다.
+        onRecovered: ({ sessionId, executionCwd }) =>
+          sendChatEvent(event.sender, {
+            type: 'session.updated',
+            sessionId,
+            patch: { cwd: executionCwd }
+          })
       },
       extraDirs: payload.extraDirs,
       buildTurn: (executionCwd, extraDirs) => {
@@ -172,14 +194,17 @@ export async function handleChatSend(
           },
           effectiveText,
           boundProjectId,
-          sessionMeta,
+          // 폴백이 일어났으면 세션행 사본이 아직 옛 경로다 — `resolveTurnCwd` 는 resume 에서
+          // 세션행을 우선하므로 여기서 확정된 실행 경로로 덮지 않으면 죽은 경로가 되살아난다.
+          // 폴백이 없으면 두 값이 같아 무해하다(AC19).
+          sessionMeta: sessionMeta ? { ...sessionMeta, cwd: executionCwd } : sessionMeta,
           continuityMeta,
           continuityLang,
           queueKey: provisionalKey,
           getCwd: (projectId) => ctx.getCwd(projectId)
         })
       },
-      acquireRuntime: async (turn) => {
+      acquireRuntime: async (turn, executionCwdRecovered) => {
         // ── 7. 런타임 확보 ─────────────────────────────────────────────
         if (payload.sessionId) {
           supervisor.startResume(payload.sessionId, turn)
@@ -207,7 +232,12 @@ export async function handleChatSend(
             }
           },
           turn,
-          { sessionId: payload.sessionId, resolved, sessionProviderKey: sessionMeta?.provider_key }
+          {
+            sessionId: payload.sessionId,
+            resolved,
+            sessionProviderKey: sessionMeta?.provider_key,
+            executionCwdRecovered
+          }
         )
         return entry
       }

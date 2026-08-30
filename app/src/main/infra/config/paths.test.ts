@@ -5,6 +5,8 @@ import {
   devUserDataDir,
   getWorkspacePath,
   isWithinDir,
+  managedWorktreesDir,
+  orcaConfigDir,
   projectsDir,
   downloadsDir,
   safeProjectName,
@@ -103,5 +105,25 @@ describe('isWithinDir', () => {
 
   it('정규화로 중복 슬래시·trailing 슬래시를 흡수한다', () => {
     expect(isWithinDir('/repo/orca/sub/', '/repo//orca')).toBe(true)
+  })
+})
+
+// AC3 · AC4 — 격리 worktree 루트. 0210 D-102·D-103.
+describe('managedWorktreesDir', () => {
+  it('orcaConfigDir 하위다 — `<userData>` 도 저장소 내부도 아니다 (AC3)', () => {
+    expect(managedWorktreesDir(false)).toBe(join(orcaConfigDir(), 'worktrees'))
+  })
+
+  it('dev 만 `-dev` 로 갈라진다 (AC4)', () => {
+    expect(managedWorktreesDir(true)).toBe(join(orcaConfigDir(), 'worktrees-dev'))
+    expect(managedWorktreesDir(true)).not.toBe(managedWorktreesDir(false))
+  })
+
+  // D-103 의 조건절이 여기 산다. config 루트까지 갈랐다면 dev 가 settings·plugins·projects 를
+  // 통째로 잃는데, 그 회귀는 worktree 경로만 보는 단언으로는 보이지 않는다.
+  it('orcaConfigDir 자체는 dev 에서도 그대로다 (AC3)', () => {
+    expect(orcaConfigDir()).toBe(join(homedir(), '.config', 'orca'))
+    expect(projectsDir()).toBe(join(orcaConfigDir(), 'projects'))
+    expect(downloadsDir()).toBe(join(orcaConfigDir(), 'downloads'))
   })
 })

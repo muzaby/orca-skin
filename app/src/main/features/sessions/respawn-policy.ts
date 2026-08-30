@@ -13,6 +13,10 @@ export interface RespawnDecisionInput {
   // ⚠️ 두 축을 하나의 fingerprint 로 합치지 마라(r1 이 그렇게 했다가 되돌렸다) — settings 변화가
   // 두 입력에 동시에 나타나고, 0125 의 "해석 실패는 경계가 아니다" 가 조용히 뒤집힌다.
   runtimeEnvChanged: boolean
+  // 0210 — 이 턴이 실행 경로를 원본으로 되돌렸는가(worktree 소실 폴백). cwd 는 **spawn 시점에
+  // 박혀** 살아 있는 프로세스를 새 경로로 돌릴 방법이 없다. 다른 다섯 축과 달리 "값이 달라졌다"가
+  // 아니라 "이 턴이 경로를 바꿨다"를 싣는다 — 폴백은 그 턴에 한 번만 일어난다.
+  executionCwdRecovered: boolean
   spawnedRuntimeToolsRevision: number | undefined
   runtimeToolsRevision: number | undefined
 }
@@ -25,6 +29,7 @@ export function decideRespawn(input: RespawnDecisionInput): boolean {
     input.modelChanged ||
     input.providerSettingsChanged ||
     input.runtimeEnvChanged ||
+    input.executionCwdRecovered ||
     input.spawnedRuntimeToolsRevision !== input.runtimeToolsRevision
   )
 }

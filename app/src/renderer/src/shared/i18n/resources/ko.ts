@@ -696,7 +696,8 @@ export const ko = {
       extraDirRejectRoot: '루트 폴더는 참조 경로로 추가할 수 없습니다.',
       extraDirAdd: '다른 폴더 추가',
       worktreeIsolation: 'Worktree 격리',
-      worktreeIsolationHelp: '새 세션을 별도 Git worktree에서 시작합니다',
+      worktreeIsolationHelp:
+        '새 세션을 별도 Git worktree에서 시작합니다. 커밋되지 않은 변경은 새 worktree에 포함되지 않습니다',
       extraDirRemoveAria: '{{name}} 참조 경로 제거'
     },
     status: {

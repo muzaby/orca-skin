@@ -54,17 +54,33 @@ describe('준비 거부 이유는 send 단위다 (AC14 · VP-02)', () => {
     expect(rows).toEqual([])
   })
 
-  it('Git 이 상태를 못 돌려주면 `git-unavailable` 이다 — dirty 로 읽지 않는다', async () => {
+  // 0210: 준비 단계의 dirty 게이트가 사라져 이 이유의 producer 도 옮겨갔다. **두 원인은 여전히
+  // 갈라져야 한다** — git 이 없어서 root 를 못 읽은 것을 "저장소가 아닙니다" 로 말하면 사용자가
+  // 엉뚱한 곳을 고친다.
+  it('Git 이 답을 못 주면 `git-unavailable` 이다 — `not-repo` 로 읽지 않는다', async () => {
     const dir = await repo()
     const { svc, rows } = await service()
-    // runner ENOENT·권한 거부 등으로 `git status` 자체가 답을 못 주는 상태.
-    vi.spyOn(repository, 'isClean').mockResolvedValue(null)
+    // runner ENOENT·권한 거부 등으로 git 실행 자체가 실패하는 상태.
+    vi.spyOn(repository, 'resolveRepoRoot').mockResolvedValue(null)
+    vi.spyOn(repository, 'gitAvailable').mockResolvedValue(false)
 
     expect(await svc.prepare({ sourceCwd: dir, firstPrompt: 'work' })).toMatchObject({
       kind: 'rejected',
       reason: 'git-unavailable'
     })
     expect(rows).toEqual([])
+  })
+
+  it('git 은 도는데 저장소가 아니면 `not-repo` 다 — 두 이유가 같은 분기에서 갈린다', async () => {
+    const plain = await mkdtemp(join(tmpdir(), 'orca-not-a-repo-'))
+    roots.push(plain)
+    const { svc } = await service()
+    vi.spyOn(repository, 'gitAvailable').mockResolvedValue(true)
+
+    expect(await svc.prepare({ sourceCwd: plain, firstPrompt: 'work' })).toMatchObject({
+      kind: 'rejected',
+      reason: 'not-repo'
+    })
   })
 
   it('저장소 밖 하위 경로는 `invalid-path` 다', async () => {
