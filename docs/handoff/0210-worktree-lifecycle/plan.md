@@ -752,4 +752,14 @@ r2가 닫은 것은 §10 행이 아니라 **현재 산출물의 필수 gate**(`t
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | … | … | … | … | … |
+| D1 | 폴백 통지 방출(`send.ts:163`)을 아무 테스트도 보지 않는다 — 지워도 chat-turn 85케이스 green | EP-17 ③ · AC17 · WP-07 | `send.worktree.test.ts` 의 `sendChatEvent` spy 로 recovered 턴의 payload 단언 | BLOCKING | open (r2) |
+| D2 | resume 준비 입력(`send.ts:145`)과 `sessionMeta.cwd` 덮어쓰기(`:197`) 둘 다 지워도 green | EP-16 ① · AC12 · WP-16 | `sessionMeta.cwd ≠ payload.cwd` 하네스에서 recover 인자와 최종 `turn.cwd` 단언 | BLOCKING | open (r2) |
+| D3 | `runtime-entry.ts:88` 축 전달과 `:92` `teardownChannel()` 둘 다 지워도 src/main 1793케이스 green | AC14 · WP-12 등록 적대 증거 | fake runtime 으로 `executionCwdRecovered:true` 에서 teardown 1회 관측 | BLOCKING | open (r2) |
+| D4 | `chatStore.ts:600` payload 필드를 지워도 renderer chat 524케이스 green | EP-15 ① · AC9 · WP-04·WP-19 | `chatStore.worktreeIsolation.test.ts` 방식으로 payload 필드 단언 | BLOCKING | open (r2) |
+| D5 | `docs/IPC_CONTRACT.md:41` 이 `worktreeBaseRef` 를 빠뜨리고 "clean source HEAD" 문장을 유지 | 채널 계약 SSOT gate · plan §18 | §2.1 행의 필드 목록과 설명 문장을 D-101·D-105 에 맞춰 갱신 | BLOCKING | open (r2) |
+| D6 | `scripts/ensure-sqlite-abi.mjs` CLI 가드가 Windows 에서 항상 거짓 — `pretest`·`predev`·`prebuild` 무동작 | 비귀속 (0210 밖) | 새 handoff 후보. `npm rebuild better-sqlite3` 로 우회 가능 | NEXT_HANDOFF | open (r2) |
+| D7 | `teardownChannel()` 삭제가 respawn 여섯 축 전부에서 무음 — `runtime-entry` 테스트 파일 부재 | 비귀속 (기존 5축) | 기록 | NON_BLOCKING | open (r2) |
+| D8 | AC11 "base 를 한 번만" 축을 baseRef 갈래에서 재모사하지 않았다 | AC11 · WP-04 | 기록 — 코드가 단일 표현식이라 구조적으로는 1회 | NON_BLOCKING | open (r2) |
+| D9 | doc gate 가 `docs/handoff/<NNNN-slug>/` 링크를 검사하지 않는다(의도된 제외) | 비귀속 | 기록 — 그 exit 0 을 handoff 링크의 증거로 읽지 않는다 | NON_BLOCKING | open (r2) |
+
+> 판정 원문과 재현 명령은 [`verify.md`](verify.md) §Verify r2.
