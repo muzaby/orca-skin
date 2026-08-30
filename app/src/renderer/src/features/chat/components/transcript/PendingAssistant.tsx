@@ -45,6 +45,7 @@ function LiveStatus(): React.JSX.Element {
   // 구간의 앵커(listenStartedAt)로 폴백해 StatusLine 애니메이션이 끊기지 않는다.
   const listenStartedAt = useChatSession((s) => s.listenStartedAt)
   const activity = useChatActivity()
+  const prepareStep = useChatSession((s) => s.worktreePrepareStep)
   const text = useLiveText()
   // StatusLine 은 심볼 애니메이션 때문에 200ms 마다 다시 그려진다. 여기서 매번 새 객체를 만들면
   // 그 아래 라벨 파생·번역이 값이 그대로인데도 5회/초로 다시 돈다 — 값이 같으면 **같은 객체**를
@@ -72,6 +73,7 @@ function LiveStatus(): React.JSX.Element {
       turnStartedAt={turnStartedAt ?? listenStartedAt}
       outputApproxFromText={text}
       activity={activityView}
+      prepareStep={prepareStep}
     />
   )
 }

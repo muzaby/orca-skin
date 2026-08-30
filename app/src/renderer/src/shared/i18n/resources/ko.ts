@@ -453,6 +453,15 @@ export const ko = {
         '이미 전달된 메시지는 계속 실행될 수 있습니다. 완전히 멈추려면 세션 전체를 중단하세요. 실행 중인 백그라운드 작업도 함께 종료됩니다.',
       residualAction: '세션 전체 중단'
     },
+    // 0211 — 격리 준비의 다섯 단계. `StatusLine` 한 줄이 이 문구로 바뀐다(D-002).
+    // Orca 가 **실제로 하는 일**만 적는다(D-001) — origin fetch 는 하지 않으므로 없다.
+    worktreePrepare: {
+      repo: '저장소를 확인하는 중…',
+      base: '기준 커밋을 확인하는 중…',
+      branch: '브랜치 이름을 짓는 중…',
+      worktree: '워크트리를 만드는 중…',
+      session: '세션을 시작하는 중…'
+    },
     activity: {
       preparing: '응답 준비 중…',
       waiting: '남은 작업을 확인하는 중…',
@@ -764,9 +773,14 @@ export const ko = {
         task: '작업',
         diff: '변경사항'
       },
-      // 0206 — diff 타일은 배치 확인용 골격이다. 이 문구가 그 사실을 말하는 유일한 자리다(D-012).
-      diffMockNotice: '표시된 항목은 배치 확인용 예시입니다 — 실제 변경 내용이 아닙니다.',
       diffAllChanges: '전체 변경',
+      diffEmpty: '변경 사항이 없습니다.',
+      diffNotRepo: 'Git 저장소가 아닙니다.',
+      diffFileLoading: '내용을 불러오는 중…',
+      diffFileBinary: '바이너리 파일이라 미리보기를 표시할 수 없습니다.',
+      diffFileTooLarge: '파일이 너무 커서 미리보기를 표시할 수 없습니다.',
+      diffFileUnavailable: '미리보기를 표시할 수 없습니다.',
+      diffTruncated: '변경 파일이 많아 {{count}}개만 표시합니다.',
       diffFilesHide: '파일 목록 숨기기',
       diffFilesShow: '파일 목록 보기',
       closeTile: '{{label}} 닫기',

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { MOCK_TREE } from './diffTileMock'
+import { FIXTURE_TREE } from './diffTileFixtures.testlib'
 import { visibleTreeRows } from './diffTileTree'
 
 const keys = (collapsed: string[]): string[] =>
-  visibleTreeRows(MOCK_TREE, new Set(collapsed)).map((r) => r.key)
+  visibleTreeRows(FIXTURE_TREE, new Set(collapsed)).map((r) => r.key)
 
 describe('트리 접힘 파생 (AT-16)', () => {
   it('아무것도 접지 않으면 전건이 보인다 — 양성 기준선', () => {
-    expect(keys([])).toEqual(MOCK_TREE.map((r) => r.key))
+    expect(keys([])).toEqual(FIXTURE_TREE.map((r) => r.key))
   })
 
   it('디렉토리를 접으면 그 하위만 사라지고 형제 최상위는 남는다', () => {

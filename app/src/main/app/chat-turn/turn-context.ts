@@ -139,6 +139,8 @@ interface BuildTurnContextInput<W> {
   continuityMeta: ContinuitySourceMeta | undefined
   continuityLang: ContinuityLang
   queueKey: string
+  // 0211 — 세션 id 확정 훅. 컴포지션 루트만 채운다(격리 세션의 표시 정본 통지).
+  onSessionConfirmed?: (sessionId: string) => void
   getCwd: (projectId: string | null) => string
 }
 
@@ -200,7 +202,8 @@ export function buildTurnContext<W>(input: BuildTurnContextInput<W>): TurnContex
         }
       : {}),
     // 0067 AC9 — 세션 id 확정 전 큐 키. coordinator 가 session.updated 에서 실 id 로 rekey.
-    queueKey: input.queueKey
+    queueKey: input.queueKey,
+    ...(input.onSessionConfirmed ? { onSessionConfirmed: input.onSessionConfirmed } : {})
   }
 }
 

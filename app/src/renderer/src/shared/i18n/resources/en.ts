@@ -448,6 +448,13 @@ export const en: typeof ko = {
         'Already-delivered messages may still run. To stop everything, discard the session. Any running background tasks will end too.',
       residualAction: 'Discard session'
     },
+    worktreePrepare: {
+      repo: 'Checking the repository…',
+      base: 'Resolving the base commit…',
+      branch: 'Naming the branch…',
+      worktree: 'Creating the worktree…',
+      session: 'Starting the session…'
+    },
     activity: {
       preparing: 'Preparing the response…',
       waiting: 'Checking remaining work…',
@@ -760,8 +767,14 @@ export const en: typeof ko = {
         task: 'Tasks',
         diff: 'Changes'
       },
-      diffMockNotice: 'These entries are a layout preview — not real changes.',
       diffAllChanges: 'All changes',
+      diffEmpty: 'No changes yet.',
+      diffNotRepo: 'Not a Git repository.',
+      diffFileLoading: 'Loading contents…',
+      diffFileBinary: 'Binary file — no preview available.',
+      diffFileTooLarge: 'File is too large to preview.',
+      diffFileUnavailable: 'No preview available.',
+      diffTruncated: 'Too many changed files — showing {{count}}.',
       diffFilesHide: 'Hide file list',
       diffFilesShow: 'Show file list',
       closeTile: 'Close {{label}}',

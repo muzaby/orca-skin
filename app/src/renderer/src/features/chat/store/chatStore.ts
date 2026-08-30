@@ -397,8 +397,12 @@ function receive(ev: NormalizedEvent): void {
     // sessionId 없는 message.queued = 새 세션 send 의 pending 등록(0067 — 핸드오프 자동 메시지
     // 포함, 턴 시작 전 발행). startHandoff/send 가 방금 세운 pendingNewChatKey(draft)로
     // 라우팅해야 사용자가 그 사이 다른 세션으로 이동해도 활성 화면을 오염하지 않는다.
+    // 0211 — `worktree.preparing` 도 세션 발급 전 신호라 같은 규칙이다. 준비 중 사용자가
+    // 다른 세션으로 이동해도 그 화면을 오염시키지 않는다.
     key =
-      isTerminalWithoutSession(ev) || ev.type === 'message.queued'
+      isTerminalWithoutSession(ev) ||
+      ev.type === 'message.queued' ||
+      ev.type === 'worktree.preparing'
         ? (getState().pendingNewChatKey ?? getState().activeKey)
         : getState().activeKey
   }

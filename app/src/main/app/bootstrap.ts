@@ -871,7 +871,7 @@ export class Bootstrap {
     registerSettingsHandlers(ctx)
     registerSkillsHandlers(ctx)
     registerFilesHandlers(ctx)
-    registerGitHandlers()
+    registerGitHandlers(ctx.db)
     registerCostHandlers(ctx)
     registerMiscHandlers(ctx)
     registerLogHandlers()

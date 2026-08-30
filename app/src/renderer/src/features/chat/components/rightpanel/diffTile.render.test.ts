@@ -1,7 +1,10 @@
 // 0206 — diff 타일의 **3영역 배치와 버튼 구성**을 렌더 출력으로 잠근다.
 //
-// 내용은 전부 예시(`diffTileMock`)지만 *배치* 는 계약이다. 존재만 단언하면 좌우를 맞바꾼
-// 회귀가 통과하므로 영역 마커의 **출현 인덱스**로 순서까지 본다(AT-11).
+// 내용은 fixture 지만 *배치* 는 계약이다. 존재만 단언하면 좌우를 맞바꾼 회귀가 통과하므로
+// 영역 마커의 **출현 인덱스**로 순서까지 본다(AT-11).
+//
+// 0211: 데이터원이 mock 에서 실 IPC 로 바뀌었다. 입력은 `diffTileFixtures.testlib` 이 주고
+// 배치·접힘·펼침 계약은 그대로 남는다 — 바뀐 것은 어디서 오는가지 무엇을 그리는가가 아니다.
 //
 // props-only View 만 직접 렌더한다 — store 연결 래퍼는 SSR 스냅샷을 받아 시드가 반영되지
 // 않는다(0204 선례).
@@ -13,18 +16,42 @@ import { DiffCommitList, DiffFileHeaders, DiffFileTree, DiffTileContent } from '
 import { DiffBody } from '../transcript/tool-bodies/DiffBody'
 import type { ToolCall } from '../../reducer/chatReducer'
 import { DiffTileHeaderView } from './DiffTileHeader'
-import { MOCK_COMMITS, MOCK_FILES, MOCK_TREE } from './diffTileMock'
+import {
+  FIXTURE_COMMITS,
+  FIXTURE_CONTENT,
+  FIXTURE_FILES,
+  FIXTURE_TREE,
+  SAMPLE_PATH
+} from './diffTileFixtures.testlib'
 import { tileById } from './tileRegistry'
 
-const SAMPLE = 'src/renderer/src/features/sample/components/SampleView.tsx'
+const SAMPLE = SAMPLE_PATH
 const count = (html: string, needle: RegExp): number => html.match(needle)?.length ?? 0
 
+// 펼친 파일에는 본문이 도착해 있다 — 0211 은 본문을 펼칠 때 따로 조회하므로 그 도착분을
+// 여기서 주입한다. 조회 자체는 통합 테스트가 본다.
 const renderFiles = (expanded: string[]): string =>
   renderToStaticMarkup(
     createElement(DiffFileHeaders, {
-      files: MOCK_FILES,
+      files: FIXTURE_FILES,
       expanded: new Set(expanded),
+      contents: new Map(
+        expanded.map((path) => [
+          path,
+          { kind: 'text' as const, ...FIXTURE_CONTENT, truncated: false }
+        ])
+      ),
       onToggle: () => undefined
+    })
+  )
+
+const renderCommits = (selected: string | null): string =>
+  renderToStaticMarkup(
+    createElement(DiffCommitList, {
+      commits: FIXTURE_COMMITS,
+      selected,
+      onSelect: () => undefined,
+      formatWhen: () => '2026-08-30'
     })
   )
 
@@ -37,18 +64,12 @@ describe('diff 타일 — 3영역 배치 (AT-11)', () => {
   it('트리 → 커밋 → 파일 항목 순서로 온다', () => {
     const tree = renderToStaticMarkup(
       createElement(DiffFileTree, {
-        rows: MOCK_TREE,
+        rows: FIXTURE_TREE,
         collapsed: new Set<string>(),
         onToggleDir: () => undefined
       })
     )
-    const commits = renderToStaticMarkup(
-      createElement(DiffCommitList, {
-        commits: MOCK_COMMITS,
-        selected: null,
-        onSelect: () => undefined
-      })
-    )
+    const commits = renderCommits(null)
     const files = renderFiles([])
     // 세 영역이 각자 자기 마커를 갖는다 — 래퍼가 순서를 바꿔도 마커로 식별된다.
     expect(tree).toContain('data-diff-region="tree"')
@@ -62,7 +83,7 @@ describe('diff 타일 — 3영역 배치 (AT-11)', () => {
   it('파일 행은 chevron 자리에 스페이서를 둬 이름 시작점을 맞춘다', () => {
     const html = renderToStaticMarkup(
       createElement(DiffFileTree, {
-        rows: MOCK_TREE,
+        rows: FIXTURE_TREE,
         collapsed: new Set<string>(),
         onToggleDir: () => undefined
       })
@@ -78,14 +99,14 @@ describe('diff 타일 — 파일 항목 접기/펼치기 (AT-17)', () => {
     const html = renderFiles([])
     expect(count(html, /<table/g)).toBe(0)
     expect(count(html, /aria-expanded="true"/g)).toBe(0)
-    expect(count(html, /aria-expanded="false"/g)).toBe(MOCK_FILES.length)
+    expect(count(html, /aria-expanded="false"/g)).toBe(FIXTURE_FILES.length)
   })
 
   it('양성 짝 — 펼친 항목만 본문을 갖는다', () => {
     const html = renderFiles([SAMPLE])
     expect(count(html, /<table/g)).toBe(1)
     expect(count(html, /aria-expanded="true"/g)).toBe(1)
-    expect(count(html, /aria-expanded="false"/g)).toBe(MOCK_FILES.length - 1)
+    expect(count(html, /aria-expanded="false"/g)).toBe(FIXTURE_FILES.length - 1)
   })
 })
 
@@ -108,27 +129,18 @@ describe('diff 타일 — 펼친 본문이 diff 다 (AT-18)', () => {
 
 describe('diff 타일 — 커밋 선택 (AT-15)', () => {
   it('정확히 하나만 눌린 상태다', () => {
-    const html = renderToStaticMarkup(
-      createElement(DiffCommitList, {
-        commits: MOCK_COMMITS,
-        selected: MOCK_COMMITS[1].sha,
-        onSelect: () => undefined
-      })
-    )
+    const html = renderCommits(FIXTURE_COMMITS[1].sha)
     expect(count(html, /aria-pressed="true"/g)).toBe(1)
-    expect(count(html, /aria-pressed="false"/g)).toBe(MOCK_COMMITS.length)
-    expect(html).toContain(MOCK_COMMITS[1].sha)
+    expect(count(html, /aria-pressed="false"/g)).toBe(FIXTURE_COMMITS.length)
+    // 표시는 축약 sha 다 — 전체 40자를 좁은 목록에 그리지 않는다.
+    expect(html).toContain(FIXTURE_COMMITS[1].sha.slice(0, 7))
   })
 
   it('기본은 전체 변경이 눌린 상태다', () => {
-    const html = renderToStaticMarkup(
-      createElement(DiffCommitList, {
-        commits: MOCK_COMMITS,
-        selected: null,
-        onSelect: () => undefined
-      })
+    const html = renderCommits(null)
+    expect(html.indexOf('aria-pressed="true"')).toBeLessThan(
+      html.indexOf(FIXTURE_COMMITS[0].sha.slice(0, 7))
     )
-    expect(html.indexOf('aria-pressed="true"')).toBeLessThan(html.indexOf(MOCK_COMMITS[0].sha))
   })
 })
 
@@ -152,12 +164,19 @@ describe('diff 타일 헤더 — 그리지 않는 자리 (AT-13)', () => {
   })
 })
 
-describe('diff 타일 — 예시 표식 (AT-12)', () => {
-  it('본문 최상단이 예시임을 말한다 — 더미가 실제 변경으로 읽히지 않게 하는 유일한 자리다', () => {
+// 0206 AT-12(예시 표식)를 0211 D-018 이 끝냈다 — 말할 사실이 사라졌으므로 문구도 사라진다.
+// **0건 스윕 단독으로는 "실데이터가 붙었다" 를 증명하지 못하므로**(0211 AT-13) 위의 배치·
+// 접힘·펼침 양성 단언과 짝지어 둔다.
+describe('diff 타일 — 예시 표식 소멸 (0211 AT-13)', () => {
+  it('예시 안내 문구가 더 이상 렌더되지 않는다', () => {
     const html = renderToStaticMarkup(createElement(DiffTileContent))
-    expect(html).toContain('실제 변경 내용이 아닙니다')
-    // 표식이 본문 맨 앞이다 — 스크롤해야 보이면 그 역할을 못 한다.
-    expect(html.indexOf('실제 변경 내용이 아닙니다')).toBeLessThan(html.indexOf('data-diff-region'))
+    expect(html).not.toContain('실제 변경 내용이 아닙니다')
+    expect(html).not.toContain('배치 확인용 예시')
+  })
+
+  it('요약 도착 전에는 빈 상태 문구도 띄우지 않는다 — 변경 없음과 아직 안 왔음을 섞지 않는다', () => {
+    const html = renderToStaticMarkup(createElement(DiffTileContent))
+    expect(html).not.toContain('변경 사항이 없습니다')
   })
 })
 
@@ -219,11 +238,13 @@ describe('diff 타일 — 레지스트리 배선 (EP-02③④)', () => {
 
   // AT-17 은 View 에 `expanded` 를 주입하므로 **래퍼의 기본값**은 잠기지 않는다 — 래퍼가
   // 전부 펼친 채로 시작해도 초록이다. 기본 접힘은 여기서 본다(같은 구멍의 두 번째 자리).
-  it('래퍼는 전부 접힌 채로 시작한다 — 열려면 사용자가 눌러야 한다', () => {
+  //
+  // 0211: 요약이 IPC 로 오므로 SSR 첫 프레임에는 데이터가 없다. 그래서 이 자리가 잠그는 것은
+  // **본문을 미리 열지 않는다** 하나로 좁아졌다 — 데이터가 있는 상태의 기본 접힘은 위 AT-17
+  // 이 `expanded: new Set([])` 로 계속 본다. 좁아졌다는 사실을 적어 둔다.
+  it('래퍼는 본문을 미리 열지 않는다 — 열려면 사용자가 눌러야 한다', () => {
     const html = renderToStaticMarkup(createElement(tileById('diff').Content))
     expect(count(html, /<table/g)).toBe(0)
-    expect(count(html, /aria-expanded="true"/g)).toBe(
-      MOCK_TREE.filter((r) => r.kind === 'dir').length
-    )
+    expect(count(html, /aria-expanded="true"/g)).toBe(0)
   })
 })

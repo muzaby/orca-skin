@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
+import type { PrepareWorktreeResult } from '../../features/worktrees/service'
 import { prepareTurnExecution, prepareTurnWorktree } from './prepare-worktree'
 
 const adapter = { complete: vi.fn() }
@@ -135,10 +136,10 @@ describe('prepareTurnWorktree', () => {
   })
 
   it('준비가 끝날 때까지 기다린 뒤 managed cwd를 반환한다', async () => {
-    let finish!: (value: { kind: 'managed'; worktreeId: string; executionCwd: string }) => void
+    let finish!: (value: PrepareWorktreeResult & { kind: 'managed' }) => void
     const prepare = vi.fn(
       () =>
-        new Promise<{ kind: 'managed'; worktreeId: string; executionCwd: string }>((resolve) => {
+        new Promise<PrepareWorktreeResult & { kind: 'managed' }>((resolve) => {
           finish = resolve
         })
     )
@@ -159,11 +160,20 @@ describe('prepareTurnWorktree', () => {
 
     await Promise.resolve()
     expect(settled).toBe(false)
-    finish({ kind: 'managed', worktreeId: 'w1', executionCwd: '/managed/repo' })
+    finish({
+      kind: 'managed',
+      worktreeId: 'w1',
+      executionCwd: '/managed/repo',
+      // 0211 — 표시 정본이 결과에 함께 온다(이름은 원본, 실행은 worktree).
+      display: { sourceCwd: '/repo', repoRoot: '/repo' }
+    })
     await expect(result).resolves.toEqual({
       kind: 'managed',
       worktreeId: 'w1',
-      executionCwd: '/managed/repo'
+      executionCwd: '/managed/repo',
+      // 0211 — 표시 정본을 그대로 통과시킨다. `objectContaining` 이 아니라 전체 비교라
+      // 필드를 떨어뜨리는 회귀가 여기서 red 다.
+      display: { sourceCwd: '/repo', repoRoot: '/repo' }
     })
     expect(prepare).toHaveBeenCalledWith(
       expect.objectContaining({ sourceCwd: '/repo', firstPrompt: 'work', signal })
@@ -171,10 +181,10 @@ describe('prepareTurnWorktree', () => {
   })
 
   it('준비 완료 뒤에만 runtime을 확보하고 managed cwd와 원래 extraDirs를 전달한다', async () => {
-    let finish!: (value: { kind: 'managed'; worktreeId: string; executionCwd: string }) => void
+    let finish!: (value: PrepareWorktreeResult & { kind: 'managed' }) => void
     const prepare = vi.fn(
       () =>
-        new Promise<{ kind: 'managed'; worktreeId: string; executionCwd: string }>((resolve) => {
+        new Promise<PrepareWorktreeResult & { kind: 'managed' }>((resolve) => {
           finish = resolve
         })
     )
@@ -208,7 +218,13 @@ describe('prepareTurnWorktree', () => {
     expect(buildTurn).not.toHaveBeenCalled()
     expect(acquireRuntime).not.toHaveBeenCalled()
 
-    finish({ kind: 'managed', worktreeId: 'w1', executionCwd: '/managed/repo' })
+    finish({
+      kind: 'managed',
+      worktreeId: 'w1',
+      executionCwd: '/managed/repo',
+      // 0211 — 표시 정본이 결과에 함께 온다(이름은 원본, 실행은 worktree).
+      display: { sourceCwd: '/repo', repoRoot: '/repo' }
+    })
     await expect(result).resolves.toEqual({
       kind: 'ready',
       turn: { cwd: '/managed/repo', extraDirs: ['/shared'] },

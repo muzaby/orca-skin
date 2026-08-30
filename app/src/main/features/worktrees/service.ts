@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, realpath, rm, rmdir, stat } from 'node:fs/promises'
 import { basename, dirname, relative, resolve } from 'node:path'
+import type { WorktreeDisplay, WorktreePrepareStep } from '../../../shared/ipc'
 import type { DbQueries } from '../../infra/db'
 import { isWithinDir } from '../../infra/config/paths'
 import {
@@ -18,7 +19,14 @@ import { branchDirSegment, chooseBranchName, repoDirSegment } from './naming'
 // 않으므로 미커밋 변경은 격리를 막을 이유가 아니다 — 그 변경이 새 worktree 에 따라오지 않는다는
 // 사실은 칩 툴팁이 알린다. 죽은 분기를 타입에 남겨두면 다음 독자가 정책을 오독한다.
 export type PrepareWorktreeResult =
-  | { kind: 'managed'; worktreeId: string; executionCwd: string }
+  | {
+      kind: 'managed'
+      worktreeId: string
+      executionCwd: string
+      // 0211 — 사람이 읽는 이름의 정본. 실행 경로와 **다른 값**이라 결과에 함께 싣는다:
+      // 소비자가 `executionCwd` 에서 원본을 역산하지 않게 한다.
+      display: WorktreeDisplay
+    }
   | {
       kind: 'rejected'
       reason: 'git-unavailable' | 'not-repo' | 'invalid-path' | 'create-failed'
@@ -74,7 +82,12 @@ export class WorktreeService {
     baseRef?: string
     signal?: AbortSignal
     complete?: (prompt: string, signal: AbortSignal) => Promise<string>
+    // 준비 진행 통지 (0211 D-003). **일을 시작하기 직전**에 부른다 — 완료 시점에 부르면
+    // 사용자가 기다리는 동안 무엇을 기다리는지가 아니라 무엇이 끝났는지를 읽는다.
+    // electron 을 여기서 알지 않기 위해 콜백이다: renderer 발신은 컴포지션 루트가 한다.
+    onProgress?: (step: WorktreePrepareStep) => void
   }): Promise<PrepareWorktreeResult> {
+    input.onProgress?.('repo')
     const sourceCwd = await canonicalPath(input.sourceCwd).catch(() => null)
     if (!sourceCwd)
       return { kind: 'rejected', reason: 'invalid-path', message: '작업 경로를 찾을 수 없습니다.' }
@@ -90,6 +103,7 @@ export class WorktreeService {
     const subpath = relative(repoRoot, sourceCwd)
     if (subpath.startsWith('..'))
       return { kind: 'rejected', reason: 'invalid-path', message: '저장소 밖의 작업 경로입니다.' }
+    input.onProgress?.('base')
     // base 는 **한 번만** 읽는다. 유예된 브랜치가 있으면 그 브랜치의 커밋, 없으면 현재 HEAD.
     const baseOid = input.baseRef
       ? await resolveBranchOid(sourceCwd, input.baseRef)
@@ -102,6 +116,7 @@ export class WorktreeService {
           ? `기준 브랜치(${input.baseRef})를 확인하지 못했습니다.`
           : '현재 HEAD를 확인하지 못했습니다.'
       }
+    input.onProgress?.('branch')
     const worktreeId = randomUUID()
     const repoSegment = repoDirSegment(repoRoot)
     const branch = await chooseBranchName({
@@ -115,6 +130,7 @@ export class WorktreeService {
           .then(() => true)
           .catch(() => false)
     })
+    input.onProgress?.('worktree')
     const worktreeRoot = resolve(this.rootDir, repoSegment, branchDirSegment(branch))
     await mkdir(dirname(worktreeRoot), { recursive: true })
     const added = await this.operations.add({
@@ -154,7 +170,12 @@ export class WorktreeService {
         baseOid,
         createdAt: Date.now()
       })
-      return { kind: 'managed', worktreeId, executionCwd }
+      return {
+        kind: 'managed',
+        worktreeId,
+        executionCwd,
+        display: { sourceCwd, repoRoot }
+      }
     } catch {
       await this.operations.remove({ repoRoot, path: worktreeRoot })
       await this.operations.deleteBranch({ repoRoot, branch })

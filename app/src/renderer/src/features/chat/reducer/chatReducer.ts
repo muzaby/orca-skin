@@ -9,7 +9,9 @@ import type {
   ProviderReportedTelemetry,
   SubagentTaskMeta,
   Backend,
-  EffortLevel
+  EffortLevel,
+  WorktreeDisplay,
+  WorktreePrepareStep
 } from '../../../../../shared/ipc'
 import { subagentNoticePart } from '../../../../../shared/ipc'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
@@ -134,6 +136,13 @@ export interface ChatState {
   // 동안 true. ChatPane 이 인디케이터를 표시한다.
   loadingSession: boolean
   turnStartedAt: number | null
+  // 0211 — 격리 준비의 현재 단계. null = 준비 중이 아니다. **main 이 발신한 것만** 담는다:
+  // 경과 시간으로 단계를 추측하면 실제와 다른 진행을 말하게 된다(D-003).
+  // 비우는 지점은 셋이다 — BEGIN_TURN(새 턴 시작) · session.updated(준비 끝) · TURN_END_RESET.
+  worktreePrepareStep: WorktreePrepareStep | null
+  // 0211 — worktree 세션의 표시 정본(`managed_worktrees` row). null = 격리 세션이 아니거나
+  // row 가 없다(0210 D-107 폴백 후 포함) → 소비자는 `cwd` 파생으로 폴백한다.
+  worktree: WorktreeDisplay | null
   // 마지막 턴의 provider-reported 통계(model·토큰·캐시 분해). 컨텍스트 도넛 + UsagePanel(입력·
   // 캐시·윈도우·사용%)의 소스. 턴 종료(telemetry) 시 세팅, 세션 로드 시 turn_usage 최신 행에서
   // 복원, 새 대화에서만 비움. SEND 는 비우지 않아 턴 진행 중에도 도넛이 유지된다.
@@ -249,6 +258,8 @@ export const initialChatState: ChatState = {
   listenStartedAt: null,
   loadingSession: false,
   turnStartedAt: null,
+  worktreePrepareStep: null,
+  worktree: null,
   pendingAsks: [],
   permissionMode: DEFAULT_PERMISSION_MODE,
   pendingPlanReview: null,
@@ -284,13 +295,17 @@ export const PANEL_DEFAULT_ROW_SPLIT = 0.5
 // 턴 종료 공통 리셋 — inflight 와 턴 스냅샷(turnProviderKey 0119 · turnStartedAt)·재시도 배너를
 // 한 곳에서 내린다. 종료 경로(telemetry/turn.aborted/error/CANCEL_CHAT)가 늘거나 per-turn 필드가
 // 추가되면 여기만 갱신한다 — 경로별 개별 나열은 스냅샷 초기화 누락(스티어 영구 차단)을 부른다.
-const TURN_END_RESET: Pick<ChatState, 'inflight' | 'turnProviderKey' | 'turnStartedAt' | 'retry'> =
-  {
-    inflight: false,
-    turnProviderKey: null,
-    turnStartedAt: null,
-    retry: undefined
-  }
+const TURN_END_RESET: Pick<
+  ChatState,
+  'inflight' | 'turnProviderKey' | 'turnStartedAt' | 'retry' | 'worktreePrepareStep'
+> = {
+  inflight: false,
+  turnProviderKey: null,
+  turnStartedAt: null,
+  retry: undefined,
+  // 턴이 끝났는데 "워크트리를 만드는 중…" 이 남으면 거짓 상태다.
+  worktreePrepareStep: null
+}
 
 // 중단 요청 실패의 표시 재료. **번역하지 않은 채** 싣는다 — 카탈로그 키는 렌더에서 tr() 로
 // 풀어야 언어 전환이 표시 중인 문구까지 따라온다(0096/0097 stale-방지, `UiMessage` 와 같은 이유).
@@ -395,6 +410,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         // steer 게이트가 진행 턴의 provider 를 기억한다.
         turnProviderKey: state.providerKey,
         turnStartedAt: Date.now(),
+        // 이전 턴의 준비 단계가 새 턴 첫 프레임에 남지 않게 한다(§10 EP-04 첫 지점).
+        worktreePrepareStep: null,
         // lastTelemetry 는 비우지 않는다 — 컨텍스트 도넛이 턴 진행 중에도 직전 값을 유지.
         error: undefined,
         retry: undefined
@@ -445,10 +462,20 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             sessionId: ev.sessionId,
             backend: 'claude',
             cwd: ev.patch.cwd ?? state.cwd,
+            // 0211 — 표시 정본. **`patch.cwd` 만 온 갱신은 이 값을 지운다**: 0210 D-107 의
+            // worktree 소실 폴백이 그 형태로 오고, 그때 managed row 는 이미 삭제됐으므로
+            // 실행 경로가 곧 원본이다(D-020). 남겨 두면 사라진 worktree 의 이름이 계속 뜬다.
+            worktree: ev.patch.worktree ?? (ev.patch.cwd ? null : state.worktree),
+            // 준비가 끝났다 — 여기부터는 기존 진행 표시가 말한다(§10 EP-04 둘째 지점).
+            worktreePrepareStep: null,
             pendingProjectId: null,
             projectId: state.pendingProjectId ?? state.projectId,
             retry: undefined
           }
+
+        // 0211 — 격리 준비 진행. main 이 경계마다 보낸 것을 그대로 담는다.
+        case 'worktree.preparing':
+          return { ...state, worktreePrepareStep: ev.step }
 
         // message.delta · message.reasoning.delta 는 reducer 에 도달하지 않는다 —
         // chatStore.receive 가 live 슬라이스(transient)로 라우팅해 커밋 상태(이 reducer)는
@@ -801,6 +828,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...initialChatState,
         cwd: action.session.cwd ?? state.cwd,
+        // 0211 — 재시작 뒤에도 이름이 원본으로 복원되는 자리(§10 EP-06 둘째 지점).
+        worktree: action.session.worktree ?? null,
         sessionId: action.session.id,
         projectId: action.session.projectId ?? null,
         backend: action.session.backend,

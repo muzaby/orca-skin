@@ -137,7 +137,13 @@ export function GitRow({ cwd, sessionStarted }: GitRowProps): React.JSX.Element 
   useGitRowStatus(sessionStarted ? cwd : null)
   const snapshot = useChatSession((s) => s.gitStatus)
   const tiles = useChatSession((s) => s.rightPanelTiles)
-  const view = gitRowView(sessionStarted, cwd, snapshot ? statusForCwd(cwd, snapshot) : null)
+  const worktree = useChatSession((s) => s.worktree)
+  const view = gitRowView(
+    sessionStarted,
+    cwd,
+    snapshot ? statusForCwd(cwd, snapshot) : null,
+    worktree
+  )
   return (
     <GitRowView
       view={view}

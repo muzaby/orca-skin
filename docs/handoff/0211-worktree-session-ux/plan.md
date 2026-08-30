@@ -596,84 +596,123 @@ git CLI
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision 과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: Decision·AC·§10 을 계약으로 수행했다. 설계가 전제한 세 가지가 코드에서 그대로 성립했다 — `sendChatEvent` 의 sessionId 없는 발신(`message.queued` 선례) · `managed_worktrees` 의 네 값 · `DiffTable` 의 `{oldValue,newValue}` 계약.
+- 이견 / 현실성 문제: 없음.
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음. 다만 §11 의 전달 지점 하나가 레이어 규칙과 충돌했다(아래 §설계 대비 명시적 차이).
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | … | … | … | … |
+| VP-01·03·18 | 단계 5종 1회씩 | EP-01 `repo`·`base`·`branch`·`worktree`(service 4) + `session`(prepare-worktree 1) | 5/5 | `rg "onProgress\?\.\(" app/src/main` → `service.ts:90·106·119·133` + `prepare-worktree.ts:80` = 5건. 케이스 `다섯 단계가 이 순서로 정확히 1회씩 온다` → `['repo','base','branch','worktree','session']` | — |
+| VP-01 | 이벤트 라우팅 | EP-02 `chatStore.receive` sessionId 없는 분기 (1) | 1/1 | `rg "worktree.preparing" chatStore.ts` → 1건(`:399`) | — |
+| MD-01/VP-01 | 단계가 라벨을 이긴다 | EP-03 `deriveActivityLabel` 반환 조립 (1) | 1/1 | `activityLabel.ts:46` 조기 반환. 케이스 `활동 사실이 있어도 단계가 이긴다` → `status==='preparing'` · `facts===[]` | — |
+| VP-02 | 단계 상태 소멸 | EP-04 `BEGIN_TURN` · `session.updated` · `TURN_END_RESET` (3) | 3/3 | `rg "worktreePrepareStep: null" chatReducer.ts` → `:261`(초기값)·`:307`(TURN_END_RESET)·`:414`(BEGIN_TURN)·`:470`(session.updated). 소멸 케이스 3건이 지점마다 따로 단언 | — |
+| VP-04·05·06·07·19 | 이름=원본, 동작=실행 경로 | EP-05 `CwdButton` 라벨/클릭 · `gitRowView` repo (2) | 2/2 | `CwdButton.tsx:32` 라벨=`cwdDisplayName` · `:40` 클릭=`openPath({path: cwd})`. `gitRowState.ts:49` repo=`repoDisplayName(status.root, worktree)` | — |
+| VP-04·06·08 | 표시 정본 전달 | EP-06 `session:load` 조립 · `session.updated` patch (2) | 2/2 | `handlers/session.ts:88` row→`worktree` · `send.ts:206` `onSessionConfirmed`→`patch.worktree`. 케이스 `session.updated 의 worktree 를 담는다` green | resume 왕복(VP-08)은 ABI 차단 |
+| VP-09~12 | 범위 해석 SSOT | EP-07 요약 조회 · 본문 조회 (2) | 2/2 | `rg "await resolveDiffRange\(input\)" git-diff.ts` → `:112`(요약)·`:181`(본문) 2건이 같은 함수. 본문만 우회하는 변이 M5 가 red | — |
+| VP-09·14·15·16 | 상한과 잘림 표시 | EP-08 파일 200 · 커밋 100 · 본문 1 MiB (3) | 3/3 | `git-diff-parse.ts` 상수 3종. 경계 양쪽 케이스(200/201 · 100/101) + `too-large` | — |
+| VP-13·17 | 예시 표면 소멸 | EP-09 `diffTileMock.ts` 파일 · `diffMockNotice` ko/en (2) | 2/2 | 파일 부재(`ls rightpanel/ | grep -i mock` → `diffTileMockRemoved.test.ts` 하나). 스윕 5케이스: import 0건 · 카탈로그 2개를 집었고 그 안에 키 0건 · 호출부 0건 | — |
 
-- §10 에 없는데 같은 불변식이 필요했던 지점: …
+- §10 에 없는데 같은 불변식이 필요했던 지점: 없음. 다만 §11 이 지정하지 않은 **새 전달 홉**을 하나 만들었다 — `TurnContext.onSessionConfirmed`(아래 #1). 현재 pair·Decision·AC 로 닫히므로 `PLAN_GAP` 이 아니다.
 
-**V-pair 자기확인**
+**V-pair 자기확인** — 구현자의 `SELF_PASS` 는 독립 검증의 `PASS` 가 아니다.
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | 단계 배열 5건 순서 일치 | required — M1(`base`↔`branch` 맞바꿈) red · M2(`worktree` 제거) red |
+| VP-02 | REQUIRED | SELF_PASS | 거부 시 `['repo']`, 소멸 3케이스 | not selected — 발신된 이벤트를 직접 관측 |
+| VP-03 | REQUIRED | SELF_PASS | 비격리·resume 각 발신 0건 | not selected — 직접 0건 관측 |
+| VP-04 | REQUIRED | SELF_PASS | 하위/루트 두 입력에서 `app`·`orca-skin` | required — M3(라벨이 실행 경로) red |
+| VP-05 | REQUIRED | SELF_PASS | `CwdButton.tsx:40` 인자 = `cwd` | not selected — 인자값 직접 관측 |
+| VP-06 | REQUIRED | SELF_PASS | worktree 상태 입력에서 `orca-skin` | required — M4(worktree 루트 사용) red |
+| VP-07 | REGRESSION | SELF_PASS | `gitRowState.test.ts` 기존 케이스 green | not selected — 기존 oracle 재실행 |
+| VP-08 | REQUIRED | **SELF_BLOCKED** | 케이스 작성 완료, better-sqlite3 ABI 로 실행 불가 | not selected |
+| VP-09 | REQUIRED | SELF_PASS | 추적 1 + 미추적 1 = 2건, base kind 가 row 유무로 갈림 | not selected — 실제 저장소 상태와 직접 비교 |
+| VP-10 | REQUIRED | SELF_PASS | old/new 가 base 시점·작업 트리와 문자열 동일 | not selected |
+| VP-11 | REQUIRED | SELF_PASS | sha1 → `v0`→`v1`, 전체 범위 → `v0`→`v2-worktree` | required — M5 red (**초회 green, 아래 잠금 표**) |
+| VP-12 | REQUIRED | SELF_PASS | row 있으면 2건·subject 일치, 없으면 0건 | not selected — 양·음 두 입력 |
+| VP-13 | REQUIRED | SELF_PASS | import 0 · 키 0 · 호출부 0 (+분모 검사 2건) | required — M6(mock import 부활) red |
+| VP-14 | REQUIRED | SELF_PASS | `null`→loading, `{files:[]}`→empty 등 4분기 | not selected |
+| VP-15 | REQUIRED | SELF_PASS | 200/201 · 100/101 경계 양쪽 | not selected — 경계값 직접 산출 |
+| VP-16 | REQUIRED | SELF_PASS | depth·단독 디렉토리 압축·정렬 5케이스 | not selected |
+| VP-17 | REGRESSION | SELF_PASS | `diffTileTree.test.ts` 4케이스가 새 타입에서 그대로 green | not selected |
+| VP-18 | REGRESSION | SELF_PASS | `prepare-worktree.test.ts` 6케이스 green | not selected |
+| VP-19 | REGRESSION | SELF_PASS | 폴백 patch 뒤 `worktree === null` | not selected |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | … | … | … |
+| `service.ts:106·119` — `base`↔`branch` 발신 자리 **맞바꿈** | VP-01 선택 증거 | 최초 | `다섯 단계가 이 순서로 정확히 1회씩 온다` 1건 | 잠김 |
+| `service.ts:133` — `worktree` 발신 1건 제거 | VP-01 선택 증거 | 최초 | 같은 케이스 1건 | 잠김 |
+| `worktreeDisplay.ts:27` — 라벨이 `sourceCwd` 대신 `cwd` | VP-04 선택 증거 | 최초 | `저장소 루트를 고른 세션은 원본 저장소 이름을 그린다` 1건 | 잠김 |
+| `worktreeDisplay.ts:40` — 저장소 이름이 `repoRoot` 대신 `root` | VP-06 선택 증거 | 최초 | `worktree 루트가 아니라 원본 저장소 루트를 읽는다` 1건 | 잠김 |
+| `git-diff.ts:181` — 본문만 범위 해석 우회(working 복귀) | VP-11 선택 증거 | 최초 | **초회 0건(green)** → fixture 보강 뒤 `커밋 범위의 본문은 …` 1건 | 잠김(보강 후) |
+| `diffTileData.ts` — 삭제한 mock 을 되살려 import | 새 oracle(0건 스윕) 민감도 | 최초 | `예시 데이터 모듈을 import 하는 파일이 없다` 1건 | 잠김 |
 
-- **분모 검산**: `선택 증거 5 · 인용 변이 0 · 새 oracle K = 표 행 T`
-- **덮개 회귀**: …
+- **분모 검산**: `선택 증거 5(VP-01×2 · VP-04 · VP-06 · VP-11) · 인용 변이 0 · 새 oracle 1(VP-13 스윕) = 표 행 6`.
+- **덮개 회귀**: 라운드 1이라 이전 red→green 전이는 없다. 0206 이 잡던 자리가 **두 곳에서 좁아졌고 둘 다 적는다** — ① `diffTile.render.test.ts` 의 래퍼 기본 접힘 단언은 SSR 첫 프레임에 데이터가 없어 `<table> 0 · aria-expanded="true" 0` 으로 좁아졌다(데이터가 있는 상태의 기본 접힘은 AT-17 이 계속 본다). ② 0206 AT-12(예시 표식)는 D-018 이 끝냈고 그 자리에 소멸 단언 2건을 두었다.
+- **VP-11 초회 green 의 의미**: fixture 의 작업 트리가 마지막 커밋과 같아 두 범위가 같은 답을 냈다. plan 이 이 변이를 **등록해 두지 않았다면** 그 우연한 일치는 이 라운드에서 보이지 않았다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam 을 만들려고 production 을 재배치했는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있다 | 단계 5문구 → `StatusLine`(`PendingAssistant` 경유) · diff 문구 6종 → `DiffTileContent`. ko/en 양쪽 등록, `resources.test.ts` 패리티 green |
+| seam 을 만들려고 production 을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 있음 — 문제 없음 | `send.ts` 의 `worktreeDisplay` 는 `try` 블록의 `let` 이고 `buildTurn` 콜백이 읽는다. `prepareTurnExecution` 이 `buildTurn` 을 **prepare 이후**에 부르므로 대입 순서가 보장된다(`prepare-worktree.ts:87`). `leaderTurn`·`leaderRuntime` 정리 경로는 건드리지 않았다 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 대부분 있다 · **한 행은 없었다** | 준비 거부 4종·조회 실패·상한 초과·binary·펼침 상한은 §5 표에 있다. **요약 도착 전 우측 영역이 통째로 비는 상태는 표에 없었고**, 그것이 아래 #2다 |
+| 실패가 화면에서 "아무 일도 안 일어남" 으로 보이지 않는가 | 보이지 않는다 | 조회 실패는 loading 유지 → 다음 계기가 재시도 · 본문 실패는 사유 문구 3종 · 준비 거부는 기존 error 문구 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 되돌리지 않는다 | 요약은 `JSON.stringify([cwd,sessionId,commit])` 키로 옛 응답을 렌더에서 버린다. git 행은 기존 `statusForCwd` 그대로 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | 표시 정본을 **언제** renderer 로 보낼지 §11 이 지정하지 않았다. 준비 시점에는 sessionId 가 없고 `session.updated` 는 어댑터가 만드는 이벤트라 main 이 필드를 얹을 자리가 없었다. | ✅ 선조치 — `TurnContext.onSessionConfirmed` 훅을 신설하고 coordinator 가 `registry.promote` 와 같은 자리에서 부른다. | `turn-coordinator.ts:325` · `send.ts:206` |
+| 2 | 요약 도착 전 우측 파일 영역을 아예 그리지 않아 **영역 마커조차 없는 빈 칸**이 됐다. 0206 이 잠근 3영역 배치 계약 위반이고 사용자에게는 "아무 일도 안 일어남" 이다. | ✅ 선조치 — 항목 영역을 항상 그리고 상태 문구만 위에 얹는다. 0206 의 레지스트리 배선 케이스가 이것을 red 로 잡았다. | `DiffTileContent.tsx` · `diffTile.render.test.ts` 등록 배선 케이스 |
+| 3 | `DistributiveOmit<NormalizedEvent, 'sessionId'>` 의 제약이 유니온 **공통 키**만 허용해, `sessionId` 없는 variant 가 하나 생기자 mock 시나리오가 컴파일 실패했다. | ✅ 선조치 — 제약을 `PropertyKey` 로 낮췄다. `Omit` 자체는 키가 아닌 값도 받으므로 동작은 그대로다. | `mock-scenarios.ts:22` |
+| 4 | `registerGitHandlers()` 가 인자를 받지 않아 base 조회 포트를 넣을 자리가 없었다. optional 로 두면 배선을 잊었을 때 **모든 세션이 조용히 HEAD 범위**로 떨어진다. | ✅ 선조치 — 필수 인자로 만들어 컴파일이 배선을 강제한다. | `handlers/git.ts:29` · `bootstrap.ts:874` |
+| 5 | `scripts/check-doc-inventory.mjs` 의 진입 가드가 `import.meta.url === file://${process.argv[1]}` 라 **Windows 에서 참이 되지 않는다** — CLI 로 부르면 아무것도 하지 않고 exit 0 이라 생성물이 낡은 채로 넘어갈 수 있다. | ⚠️ 보고만 — 이번엔 `runCli` 를 직접 import 해 재생성했다. 스크립트 수정은 이 handoff 범위 밖이고, CI(windows-latest)의 `--check` 경로에도 같은 가드가 걸리는지 별도 확인이 필요하다. | `scripts/check-doc-inventory.mjs:439` |
+| 6 | 이 저장소의 작업 트리를 **다른 세션이 동시에 쓴다**. 구현 중 브랜치가 `handoff/0211…` → `main` 으로 외부에서 전환됐다. 커밋 전 변경은 이번엔 살아남았지만 다음에는 잃을 수 있다. | ⚠️ 보고만 — 작업 트리 분리 여부는 사용자 판단이다. | `git reflog` `HEAD@{0}`: `checkout: moving from handoff/0211-worktree-session-ux to main` |
 
 ### 설계 대비 명시적 차이
 
-- plan 이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan 이 지정한 것과 다르게 구현한 것과 그 이유: **1건**. §11 은 `session.updated` patch 동봉 지점을 `features/chat/turn-coordinator.ts` 로 적었으나, coordinator 가 worktree 를 알면 0209 D-001(“Adapter·SessionRuntime 은 worktree 를 모른다”)의 취지와 main 레이어 규칙(feature 는 컴포지션 루트를 모른다)을 깬다. 대신 **턴-국소 훅**을 신설해 coordinator 는 훅을 부르기만 하고 내용은 컴포지션 루트가 채운다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 훅의 수명이 `TurnContext` 와 같고 턴이 끝나면 함께 사라진다. 별도 만료 축이 없다. | EP-06 2지점 재확인: `send.ts:206`(live) · `handlers/session.ts:88`(resume) |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | **있다** — `makeContinuationTurn` 이 자동 연속 턴의 `TurnContext` 를 새로 만들며 훅을 계승하지 않아 연속 턴에서는 발화하지 않는다. 이번 요구에는 옳다(세션 id 확정은 첫 턴 1회이고 연속 턴은 이미 id 를 안다). | `turn-context.ts:206` 이 `onSessionConfirmed` 를 복사하지 않음을 확인. AT-04 는 첫 턴 경로만 요구한다 |
+| 재진입 | 해당 없음 — coordinator 가 `session.updated` 를 받는 자리는 새 세션당 1회이고 `registry.promote` 와 같은 지점이다(0067 AC9 가 이미 1회를 잠갔다). | `turn-coordinator.ts:323` 분기 안, promote 직후 |
+| 다른 무효화 축 | **있다** — worktree 소실 폴백(0210 D-107)이 `patch.cwd` 만 보내므로 표시 정본이 그때 무효화돼야 한다. 리듀서가 `patch.cwd` 단독 갱신에서 `worktree` 를 null 로 내린다(D-020). | 케이스 `worktree 소실 폴백(patch.cwd 만)은 표시 정본을 지운다` green · `chatReducer.ts:470` |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| 관측한 게이트 산출 | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| AC 자기보고 | … |
-| 합계 검산 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+| 변경 파일 | 수정 36 · 신규 13 · 삭제 1 = **50** (`git status --short` 50줄) |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `npx vitest run` · `node -e "import('./scripts/check-doc-inventory.mjs').then(m=>m.runCli([],process.cwd()))"` |
+| **관측한 게이트 산출**(exit code 아님) | **lint** 0 error / 1 warning(기존분 — `useTranscriptVirtualizer.ts:22` react-hooks/incompatible-library). **typecheck** 3구성 0줄. **vitest** 284파일 2772케이스 → **2713 pass · 52 fail · 7 skip**, 실패 **전건이 better-sqlite3 ABI**(`NODE_MODULE_VERSION 140 vs 127`) — 9파일 전부 DB 로드, 비-ABI 실패 **차집합 0건**. **doc gate** 재생성 후 `ipc-documentation.test.ts` 3케이스 · `handlers/git.test.ts` 4케이스 green |
+| V-pair 자기확인 | `SELF_PASS 18 · SELF_BLOCKED 1`(VP-08 — ABI); pair별 상세는 위 표 |
+| 강제 지점 전수 | **21/21** (EP-01 5 · EP-02 1 · EP-03 1 · EP-04 3 · EP-05 2 · EP-06 2 · EP-07 2 · EP-08 3 · EP-09 2) |
+| **AC 자기보고**(`Criteria-Met`) | **14/15** — ✅ AT-01(단계 배열 5건 일치) · AT-02(`['repo']` + “Git 저장소가 아닙니다.”) · AT-03(발신 0건 ×2) · AT-04(`app`·`orca-skin`) · AT-05(`openPath` 인자=cwd) · AT-06(`orca-skin`) · AT-07(기존 케이스 green) · AT-09(2건 · base kind 분기) · AT-10(old/new 문자열 일치) · AT-11(sha1 → `v0`→`v1`) · AT-12(2건 / 0건) · AT-13(import 0 · 키 0 · 호출부 0) · AT-14(4분기) · AT-15(200/201 · 100/101 · too-large). ⚠️ **AT-08** — 케이스는 있으나 ABI 로 미실행 |
+| **합계 검산** | `✅ 14 · ⚠️ 1 · ❌ 0 = 총 15` (AC 총수 재계수: §7 표 15행) |
+| 블로커 / 역질문 | 없음. AT-08 은 환경 제약이며 CI(windows-latest, egress 열림)에서 확인된다 |
+| 대상 커밋 | `(라운드 1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC 가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드 수: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 라운드 1이라 해당 없음.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가, 있었다면 왜 안 걸렸는가: **VP-11 초회 green** 은 plan 이 변이를 등록해 둔 덕에 드러났다 — 지침이 작동한 사례다. 반대로 §11 이 전달 지점을 coordinator 로 적은 것은 §16 이 “0209 D-001 유지” 라고 적어 두고도 잡지 못했다: 관계표가 *유지*만 선언하고 그 결정이 §11 의 어느 행을 제약하는지는 잇지 않았다.
+- 반복해서 부딪히는 환경 한계: ① better-sqlite3 ABI(Electron 140 vs Node 127) — `pretest` 재빌드가 실패해 DB 스위트 9파일이 항상 red. ② 실 git 을 쓰는 스위트가 전체 병렬 실행에서 간헐 실패 — `git-cli.test.ts` 2건이 한 번 red 였고, 격리 재실행 18/18 green · 기준선(origin/main) 도 18/18 green 이었다. 이번 변경이 git 프로세스 부하를 늘린 것이 배경으로 보인다.
+- 현재 라운드 수: 1
 
 ---
 
 ## [검증자 기입] 파생 이슈
+
+> `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다.
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|

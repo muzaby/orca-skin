@@ -1,31 +1,40 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type {
+  GitDiffCommit,
+  GitDiffFileContent,
+  GitDiffFileEntry,
+  GitDiffSummary
+} from '../../../../../../shared/ipc'
+import { gitApi } from '../../../../shared/api/ipc'
 import { useI18n } from '../../../../shared/i18n'
-import { useChatSession } from '../../store/chatStore'
+import { useChatSession, sessionBusy } from '../../store/chatStore'
+import { shouldRefetchGitStatus } from '../composer/gitRowState'
 import { DiffTable } from '../DiffTable'
 import {
-  MOCK_COMMITS,
-  MOCK_FILES,
-  MOCK_TREE,
-  type MockCommit,
-  type MockDiffFile,
-  type MockTreeRow
-} from './diffTileMock'
+  buildDiffTreeRows,
+  diffSummaryState,
+  splitFilePath,
+  type DiffTreeRow
+} from './diffTileData'
 import { visibleTreeRows } from './diffTileTree'
 
 // diff 타일 본문 — 좌측(파일트리 + 커밋 목록) · 우측(파일별 항목) 3영역(0206 D-010).
 //
-// **데이터는 전부 예시다**(`diffTileMock`). 배선할 IPC 가 없어 골격만 세우되, 조사한 배치를
-// 실물로 확인할 수 있어야 하므로 *데이터가 필요 없는 상호작용* — 디렉토리 접기 · 커밋 선택 ·
-// 파일 펼치기 — 은 실제로 동작한다(D-011).
+// **데이터는 실제 저장소 diff 다**(0211). 0206 이 골격만 세운 이유("배선할 IPC 가 없다")가
+// `orca:git:diffSummary`·`orca:git:diffFile` 로 끝났다. 비교 범위는 main 이 정한다 —
+// managed row 가 있으면 `base_oid` 대비, 없으면 `HEAD` 대비(D-010·D-021).
 //
-// 아래 View 셋은 **props 만 읽는다**. store 연결 컴포넌트를 `renderToStaticMarkup` 으로 돌리면
-// zustand 가 SSR 스냅샷을 돌려주어 시드가 반영되지 않기 때문이다(0204 선례).
+// 아래 View 셋은 **props 만 읽는다**(0206 D-019). store 연결 컴포넌트를 `renderToStaticMarkup`
+// 으로 돌리면 zustand 가 SSR 스냅샷을 돌려주어 시드가 반영되지 않기 때문이다(0204 선례).
 
 const ROW_BASE =
   'flex items-center gap-g3 h-base pr-p6 rounded-r4 text-body text-left w-full outline-none hide-focus-ring ring-focus'
 
+/** 동시에 본문을 들고 있을 수 있는 파일 수(0211 D-016). 넘으면 가장 오래 펼친 것을 접는다. */
+export const MAX_EXPANDED_FILES = 20
+
 interface DiffFileTreeProps {
-  rows: readonly MockTreeRow[]
+  rows: readonly DiffTreeRow[]
   collapsed: ReadonlySet<string>
   onToggleDir: (key: string) => void
 }
@@ -75,18 +84,22 @@ export function DiffFileTree({
 }
 
 interface DiffCommitListProps {
-  commits: readonly MockCommit[]
+  commits: readonly GitDiffCommit[]
   // null = `전체 변경` 선택. 그 외에는 sha.
   selected: string | null
   onSelect: (sha: string | null) => void
+  formatWhen: (committedAt: number) => string
 }
 
 // 선택은 라디오 그룹이 아니라 `aria-pressed` 토글 배열이다(조사: epitaxy 02 §2). 정확히
 // 하나만 참이라는 것이 계약이라 `전체 변경` 도 같은 축에 둔다.
+//
+// 목록이 비면 `전체 변경` 하나만 남는다 — 비격리 세션은 base 를 몰라 커밋을 셀 수 없다(D-013).
 export function DiffCommitList({
   commits,
   selected,
-  onSelect
+  onSelect,
+  formatWhen
 }: DiffCommitListProps): React.JSX.Element {
   const { tr } = useI18n()
   return (
@@ -116,11 +129,11 @@ export function DiffCommitList({
         >
           <span className="w-full truncate text-body">{commit.subject}</span>
           <span className="flex w-full items-center gap-g3 text-caption text-t5">
-            <span className="font-mono">{commit.sha}</span>
+            <span className="font-mono">{commit.sha.slice(0, 7)}</span>
             <span aria-hidden="true">·</span>
             <span className="truncate">{commit.author}</span>
             <span aria-hidden="true">·</span>
-            <span className="shrink-0">{commit.when}</span>
+            <span className="shrink-0">{formatWhen(commit.committedAt)}</span>
           </span>
         </button>
       ))}
@@ -129,22 +142,29 @@ export function DiffCommitList({
 }
 
 interface DiffFileHeadersProps {
-  files: readonly MockDiffFile[]
+  files: readonly GitDiffFileEntry[]
   expanded: ReadonlySet<string>
+  contents: ReadonlyMap<string, GitDiffFileContent>
   onToggle: (path: string) => void
 }
 
 // 파일 항목 — **기본 접힘**이고 펼치면 그 파일의 diff 가 그려진다(0206 D-017·D-018).
 // 헤더는 sticky 라 긴 diff 를 스크롤해도 "지금 어느 파일인가" 가 남는다.
+//
+// 본문은 펼칠 때만 조회한다(0211 D-014) — 요약에 실으면 타일을 여는 순간 저장소 전체를 읽는다.
 export function DiffFileHeaders({
   files,
   expanded,
+  contents,
   onToggle
 }: DiffFileHeadersProps): React.JSX.Element {
+  const { tr } = useI18n()
   return (
     <div data-diff-region="files" className="pb-2">
       {files.map((file) => {
         const open = expanded.has(file.path)
+        const content = contents.get(file.path)
+        const { name, dir } = splitFilePath(file.path)
         return (
           <div key={file.path} data-diff-file-path={file.path} className="relative">
             <button
@@ -157,8 +177,8 @@ export function DiffFileHeaders({
                 {open ? '⌄' : '›'}
               </span>
               <span className="flex min-w-0 items-baseline gap-g3">
-                <span className="shrink-0 truncate text-body text-t7">{file.name}</span>
-                <span className="min-w-0 truncate text-caption text-t5">{file.dir}</span>
+                <span className="shrink-0 truncate text-body text-t7">{name}</span>
+                <span className="min-w-0 truncate text-caption text-t5">{dir}</span>
               </span>
               <span className="ml-auto flex shrink-0 items-center gap-g1 text-body tabular-nums">
                 <span className="text-git-added">+{file.added}</span>
@@ -167,7 +187,23 @@ export function DiffFileHeaders({
             </button>
             {open && (
               <div className="overflow-auto">
-                <DiffTable oldValue={file.oldValue} newValue={file.newValue} />
+                {content === undefined ? (
+                  <p className="px-p5 py-1 text-caption text-t5">
+                    {tr('chat.rightpanel.diffFileLoading')}
+                  </p>
+                ) : content.kind === 'text' ? (
+                  <DiffTable oldValue={content.oldValue} newValue={content.newValue} />
+                ) : (
+                  <p className="px-p5 py-1 text-caption text-t5">
+                    {tr(
+                      content.kind === 'binary'
+                        ? 'chat.rightpanel.diffFileBinary'
+                        : content.reason === 'too-large'
+                          ? 'chat.rightpanel.diffFileTooLarge'
+                          : 'chat.rightpanel.diffFileUnavailable'
+                    )}
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -177,50 +213,163 @@ export function DiffFileHeaders({
   )
 }
 
+// 조회 수명주기 — 계기 **셋**이다(0211 D-017): 타일이 열릴 때(마운트) · cwd 변경 · 턴 종료 전이.
+// 뒤 둘은 git 행이 이미 쓰는 계기다(0206 D-004). 폴링은 만들지 않는다.
+//
+// 늦게 도착한 응답은 요청 세대(`seq`)로 버린다 — 사용자가 그 사이 커밋을 바꾸거나 cwd 를
+// 옮겼으면 옛 저장소의 diff 가 화면을 되돌린다.
+function useDiffSummary(
+  cwd: string | null,
+  sessionId: string | null,
+  commit: string | null
+): GitDiffSummary | null {
+  // 도착한 요약을 **어느 조회의 결과인지와 함께** 들고 있는다(0201 `statusForCwd` 선례).
+  // 조회 키가 바뀌면 렌더가 그것을 `loading` 으로 읽으므로, 효과 안에서 상태를 비울 필요가
+  // 없다 — 그 비우기가 곧 cascading render 이고, 늦게 도착한 옛 응답을 버리는 일도 같은
+  // 키 비교 하나로 끝난다.
+  const [received, setReceived] = useState<{ key: string; summary: GitDiffSummary } | null>(null)
+  const busy = useChatSession(sessionBusy)
+  const prevBusy = useRef(busy)
+
+  // 세 값을 JSON 배열로 접어 키를 만든다 — 구분자를 고르면 그 문자가 든 경로가 키를 갈라놓는다.
+  const key = JSON.stringify([cwd, sessionId, commit])
+
+  const fetchSummary = useCallback(() => {
+    if (!cwd) return
+    void gitApi
+      .diffSummary({
+        cwd,
+        ...(sessionId ? { sessionId } : {}),
+        ...(commit ? { commit } : {})
+      })
+      .then((summary) => setReceived({ key, summary }))
+      .catch(() => {
+        /* 조회 실패는 값으로 접힌다 — 다음 계기가 자연스러운 재시도다. */
+      })
+  }, [cwd, sessionId, commit, key])
+
+  // 마운트(타일 열림) + cwd/세션/커밋 변경.
+  useEffect(() => {
+    fetchSummary()
+  }, [fetchSummary])
+
+  // 턴 종료 전이 — 에이전트가 방금 만든 변경이 반영된다.
+  useEffect(() => {
+    const refetch = shouldRefetchGitStatus(prevBusy.current, busy)
+    prevBusy.current = busy
+    if (refetch) fetchSummary()
+  }, [busy, fetchSummary])
+
+  // 키가 다르면 옛 조회의 결과다 — 화면을 되돌리지 않는다.
+  return received?.key === key ? received.summary : null
+}
+
 export function DiffTileContent(): React.JSX.Element {
   const { tr } = useI18n()
   const filesVisible = useChatSession((s) => s.diffFilesVisible)
+  const cwd = useChatSession((s) => s.cwd)
+  const sessionId = useChatSession((s) => s.sessionId)
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
+  const [expanded, setExpanded] = useState<readonly string[]>([])
+  const [contents, setContents] = useState<ReadonlyMap<string, GitDiffFileContent>>(() => new Map())
   const [selectedCommit, setSelectedCommit] = useState<string | null>(null)
 
-  const toggleIn = useCallback((set: ReadonlySet<string>, key: string): ReadonlySet<string> => {
-    const next = new Set(set)
-    if (!next.delete(key)) next.add(key)
-    return next
+  const summary = useDiffSummary(cwd, sessionId, selectedCommit)
+  const state = diffSummaryState(summary)
+  const files = useMemo(() => summary?.files ?? [], [summary])
+  const rows = useMemo(() => buildDiffTreeRows(files), [files])
+  const expandedSet = useMemo(() => new Set(expanded), [expanded])
+
+  const toggleDir = useCallback((key: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(key)) next.add(key)
+      return next
+    })
   }, [])
 
-  const toggleDir = useCallback(
-    (key: string) => setCollapsed((prev) => toggleIn(prev, key)),
-    [toggleIn]
-  )
+  // 커밋을 바꾸면 펼침·본문을 버린다 — 다른 범위의 본문을 그대로 두면 파일 목록과 어긋난다.
+  const selectCommit = useCallback((sha: string | null) => {
+    setSelectedCommit(sha)
+    setExpanded([])
+    setContents(new Map())
+  }, [])
+
   const toggleFile = useCallback(
-    (path: string) => setExpanded((prev) => toggleIn(prev, path)),
-    [toggleIn]
+    (path: string) => {
+      setExpanded((prev) => {
+        if (prev.includes(path)) return prev.filter((p) => p !== path)
+        // 상한 도달 — 가장 오래 펼친 것을 접는다(D-016). 본문은 남겨 둔다: 다시 펼칠 때
+        // 재조회하지 않아도 되고, 요약이 새로 오면 통째로 버려진다.
+        const next = [...prev, path]
+        return next.length > MAX_EXPANDED_FILES
+          ? next.slice(next.length - MAX_EXPANDED_FILES)
+          : next
+      })
+      if (!cwd || contents.has(path)) return
+      void gitApi
+        .diffFile({
+          cwd,
+          path,
+          ...(sessionId ? { sessionId } : {}),
+          ...(selectedCommit ? { commit: selectedCommit } : {})
+        })
+        .then((content) => {
+          setContents((prev) => new Map(prev).set(path, content))
+        })
+        .catch(() => {
+          setContents((prev) => new Map(prev).set(path, { kind: 'unavailable', reason: 'error' }))
+        })
+    },
+    [cwd, sessionId, selectedCommit, contents]
+  )
+
+  const formatWhen = useCallback(
+    (committedAt: number) => new Date(committedAt).toLocaleDateString(),
+    []
   )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <p className="shrink-0 border-b border-t5 px-p5 py-1 text-caption text-t6">
-        {tr('chat.rightpanel.diffMockNotice')}
-      </p>
+      {summary?.filesTruncated === true && (
+        <p className="shrink-0 border-b border-t5 px-p5 py-1 text-caption text-t6">
+          {tr('chat.rightpanel.diffTruncated', { count: files.length })}
+        </p>
+      )}
       <div className="flex min-h-0 flex-1">
         {filesVisible && (
           <div className="flex w-[240px] shrink-0 flex-col border-r border-t5">
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <DiffFileTree rows={MOCK_TREE} collapsed={collapsed} onToggleDir={toggleDir} />
+              <DiffFileTree rows={rows} collapsed={collapsed} onToggleDir={toggleDir} />
             </div>
             <div className="max-h-[40%] shrink-0 overflow-y-auto border-t border-t5 px-p3">
               <DiffCommitList
-                commits={MOCK_COMMITS}
+                commits={summary?.commits ?? []}
                 selected={selectedCommit}
-                onSelect={setSelectedCommit}
+                onSelect={selectCommit}
+                formatWhen={formatWhen}
               />
             </div>
           </div>
         )}
         <div className="min-w-0 flex-1 overflow-y-auto">
-          <DiffFileHeaders files={MOCK_FILES} expanded={expanded} onToggle={toggleFile} />
+          {/* 빈 상태는 **요약이 도착한 뒤에만** 뜬다(§5 loading 규칙) — `loading` 에서 띄우면
+              사용자가 첫 프레임에 "변경 없음" 이라는 거짓을 읽는다. */}
+          {state.kind === 'empty' && (
+            <p className="px-p5 py-2 text-body text-t6">{tr('chat.rightpanel.diffEmpty')}</p>
+          )}
+          {state.kind === 'not-repo' && (
+            <p className="px-p5 py-2 text-body text-t6">{tr('chat.rightpanel.diffNotRepo')}</p>
+          )}
+          {/* 항목 영역은 **항상 그린다** — 세 영역의 존재가 0206 이 잠근 배치 계약이고,
+              요약 대기 중에 통째로 빼면 그 프레임의 우측이 영역조차 없는 빈 칸이 된다.
+              파일이 없으면 이 안이 비고, 무엇 때문에 비었는지는 위 문구가 말한다. */}
+          <DiffFileHeaders
+            files={files}
+            expanded={expandedSet}
+            contents={contents}
+            onToggle={toggleFile}
+          />
         </div>
       </div>
     </div>
