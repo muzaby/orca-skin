@@ -1255,6 +1255,8 @@ describe('SessionRuntime runtime tool revision (0158)', () => {
         modelChanged: false,
         providerSettingsChanged: false,
         runtimeEnvChanged: false,
+        // 이 케이스는 도구 revision 축만 본다 — worktree 폴백은 일어나지 않았다.
+        executionCwdRecovered: false,
         spawnedRuntimeToolsRevision: runtime.spawnedRuntimeToolsRevision,
         runtimeToolsRevision: continuationRequest.extensions.runtimeTools?.revision
       })
