@@ -12,7 +12,7 @@ import Database from 'better-sqlite3'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 // `HistoryWriter` → `infra/log` 가 `electron.app` 을 문다. 저장소에 이미 있는 패턴으로 끊는다
 // (`app/handlers/misc-split.test.ts` 와 같은 형태) — 로그는 이 계약의 대상이 아니다.
@@ -21,9 +21,13 @@ vi.mock('electron', () => ({
 }))
 import { applyMigrations } from '../../infra/db/migrate'
 import { DbQueries } from '../../infra/db/queries'
+import { warmFileSqlite } from '../../infra/db/warm-file-sqlite'
 import { resolveTurnCwd } from './turn-context'
 import { HistoryWriter } from '../../features/history/writer'
 import type { TurnContext } from '../../contracts/turn'
+
+// 프로세스 최초의 파일 sqlite 생성 비용을 케이스 예산 밖에서 치른다 — 근거는 헬퍼 헤더.
+beforeAll(warmFileSqlite)
 
 const dirs: string[] = []
 // 열어 둔 sqlite 핸들은 **지우기 전에** 전부 닫는다. Windows 는 열린 파일을 unlink 하지 못해
