@@ -12,11 +12,15 @@ import Database from 'better-sqlite3'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { applyMigrations } from '../../infra/db/migrate'
 import { DbQueries } from '../../infra/db/queries'
+import { warmFileSqlite } from '../../infra/db/warm-file-sqlite'
 import { resolveTurnCwd } from './turn-context'
 import { WorktreeService } from '../../features/worktrees/service'
+
+// 프로세스 최초의 파일 sqlite 생성 비용을 케이스 예산 밖에서 치른다 — 근거는 헬퍼 헤더.
+beforeAll(warmFileSqlite)
 
 const dirs: string[] = []
 const handles: Database.Database[] = []
