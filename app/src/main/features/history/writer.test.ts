@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import Database from 'better-sqlite3'
 
 // writer → infra/ipc/send → electron(webContents) 런타임 체인을 절단 — 이 스위트는
 // electron 바이너리 없이도 돈다(hermetic, 0104 선례). 테스트는 send 를 호출하지 않는다.
@@ -7,9 +8,10 @@ vi.mock('electron', () => ({
 }))
 
 import { HistoryWriter } from './writer'
-import type { DbQueries } from '../../infra/db'
+import { DbQueries } from '../../infra/db/queries'
 import type { AttachmentView, NormalizedEvent } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
+import { applyMigrations } from '../../infra/db/migrate'
 
 // persistUserMessage 만 검증 — appendMessage/appendPart 만 모의한다.
 function makePersistence(): {
@@ -89,6 +91,38 @@ describe('HistoryWriter — session baseline birth persistence', () => {
     expect(insertSession).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'new-session', baselineOid: 'a'.repeat(40) })
     )
+  })
+
+  it('resumed session.updated cannot replace the birth baseline in the database', () => {
+    const db = new Database(':memory:')
+    applyMigrations(db)
+    const queries = new DbQueries(db)
+    const persistence = new HistoryWriter(queries)
+    const turn = (sessionBaseline: string | null, isNewSession: boolean): TurnContext =>
+      ({
+        dbSessionId: null,
+        initialTitle: null,
+        pendingUserText: null,
+        pendingProjectId: null,
+        providerKey: null,
+        cwd: '/repo',
+        extraDirs: [],
+        sessionBaseline,
+        titleAdapter: { id: 'claude' },
+        isNewSession
+      }) as unknown as TurnContext
+
+    persistence.persist(
+      turn('a'.repeat(40), true),
+      { type: 'session.updated', sessionId: 'persisted-session' } as NormalizedEvent
+    )
+    persistence.persist(
+      turn('b'.repeat(40), false),
+      { type: 'session.updated', sessionId: 'persisted-session' } as NormalizedEvent
+    )
+
+    expect(queries.getSessionBaseline('persisted-session')).toBe('a'.repeat(40))
+    db.close()
   })
 })
 
