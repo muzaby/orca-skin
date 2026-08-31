@@ -1080,6 +1080,116 @@ git CLI
 
 ---
 
+
+---
+
+> **ΔV1 라운드 (라운드 1 유지)** — 사용자 피드백에 따른 설계 변경이라 라운드를 올리지 않는다.
+> 아래는 `[구현자 기입]` 일곱 필드를 ΔV1 범위로 **다시 채운 것**이다. V1 라운드 기록은 위에 그대로 둔다.
+
+## [구현자 기입] 설계 리뷰 (ΔV1)
+
+- 동의 / 그대로 진행: D-022~D-031 을 계약으로 수행했다. 설계가 전제한 셋이 코드에서 성립했다 — `claude-map.ts:185` 의 매 턴 `patch:{cwd}` · `writer.ts:192` 의 세션 메타 갱신 · `chatReducer.ts:189` 의 기존 `gitStatus` 슬라이스 자리.
+- 이견 / 현실성 문제: **1건**. §10 EP-13 ① 의 전수 술어가 0201 랜딩 칩을 분모에 넣어 성립할 수 없었다 → 규범 행을 별도 설계 커밋으로 정정했다(§ΔV1 규범 행 정정).
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음. 다만 **앞 라운드 구현물이 D-024 를 과하게 읽어** resume 의 `session.updated` 를 통째로 억제했고, 그것을 되돌렸다(아래 Δ1).
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (ΔV1)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-20·21 | 키 유무 판정 · 폴백 명시 발신 | EP-10 ① 리듀서 판정 ② `send.ts` `onRecovered` (2) | 2/2 | `chatReducer.ts:493` = `Object.hasOwn(ev.patch, 'worktree') ? … : state.worktree` · `send.ts:176` = `patch: { cwd: executionCwd, worktree: null }` | — |
+| VP-22·27 | 합계는 절단 전 · 미추적 0 | EP-11 ① 미추적 항목 조립 ② 합계 위치 (2) | 2/2 | `git-diff-parse.ts` 의 `merged.push({… added: 0, removed: 0 …})` · `const totals = merged.reduce(…)` 가 `merged.slice(…)` **앞**. 케이스 `합계는 **절단 전** 전체에서 센다` → 201/201 | — |
+| VP-22·23 | dirty 축의 단일 정본 | EP-12 ① `GitStatus.dirty` 제거 + `gitStatus()` 호출 제거 ② `gitRowView` 가 totals (2) | 2/2 | `grep -c "dirty: GitDirtyStat" src/shared/ipc.ts` → **0** · `gitStatus` 본문 `dirtyStat` 호출 **0** · `grep -c -- "--shortstat" git-cli.ts` → **1**(checkout 전용, 남아야 함) · `gitRowState.ts:57` = `totals?.added ?? 0` | — |
+| VP-24·25·26 | 조회 소유자 하나 · 마운트 비계기 | EP-13 ① 단일 호출부 ② `GitRow` effect 제거 ③ `DiffTileContent` 요약 effect 제거 (3) | 3/3 | 술어 전수(정정 후): `gitApi` 의 `status`/`diffSummary` 호출 프로덕션 히트 **2** = `useGitSnapshot.ts` + 열거된 예외 `BranchChip.tsx`. `grep -c useEffect GitRow.tsx` → **0** · `DiffTileContent` 의 `useDiffSummary`/`gitApi.diffSummary` → **0** | — |
+
+- **분모를 자기가 정하지 않았는지**: EP-13 의 술어는 불변식의 주어(`gitApi.status`/`diffSummary` 호출)로 세고 해법 이름(`useGitSnapshot`)으로 세지 않았다. 그 술어가 예외 1건을 드러냈고, 그것이 규범 행 정정의 근거다.
+- §10 에 없는데 같은 불변식이 필요했던 지점: **1건 — `handlers/git.ts:36` 의 `NOT_REPO` 폴백 리터럴**. EP-12 ① 의 "`GitStatus` DTO" 에 딸린 같은 형상이라 선조치했고, `handlers/git.test.ts` 가 그것을 red 로 잡았다.
+
+**V-pair 자기확인** — 구현자의 `SELF_PASS` 는 독립 검증의 `PASS` 가 아니다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-20 | REQUIRED | SELF_PASS | `{cwd}` → `{worktree:D}` → `{cwd}` 시퀀스 뒤 `worktree === D` | required — M7(`!= null` 형제 변이) **red** (1 failed / 10) |
+| VP-21 | REQUIRED | SELF_PASS | 폴백 patch 리터럴에 `worktree: null` 존재 + 수신 후 상태 null | required — M8(`worktree:null` 제거) **red** (1 failed / 14) |
+| VP-22 | REQUIRED | SELF_PASS | 추적 3줄 + 미추적 2줄 → `totals` 가 추적분과 일치 · base 위 커밋 뒤 `totals.added > 0` | required — M11(미추적을 합계에) **red** (3 failed / 34) · M12(`gitRowView` 가 totals 무시) **red** (1 failed / 11) |
+| VP-23 | REQUIRED | SELF_PASS | `GitStatus` 에 `dirty` own-key 없음 · checkout dirty 케이스 green | not selected — DTO·게이트 두 산출을 직접 관측 |
+| VP-24 | REQUIRED | SELF_PASS | 프로덕션 조회 파일 = 1(+예외 1) · `GitRow` effect 0 | required — M13(`GitRow` 에 status 호출 복귀) **red** (1 failed / 1) |
+| VP-25 | REQUIRED | SELF_PASS | 헤더 refresh 버튼이 `refreshGitSnapshot` 을 올린다(기존 `diffTile.render.test.ts` 케이스) | not selected — 클릭의 직접 행동 결과 |
+| VP-26 | REQUIRED | SELF_PASS | `gitSnapshotQueryReason` 판정 — identity/turn-end/무계기 3분기 | not selected — 순수 입출력 |
+| VP-27 | REQUIRED | SELF_PASS | 201건 입력 → `files` 200 · `totals` 201/201 | required — M10(합계를 `slice` 뒤로) **red** (1 failed / 18) |
+| VP-04·05·06·07 | REGRESSION | SELF_PASS | `gitRowState.test.ts`·`worktreeDisplay.test.ts` 기존 케이스 green | not selected — 기존 oracle 재실행 |
+| VP-09~12 · VP-14·16·17 | REGRESSION | SELF_PASS | `git-diff.test.ts` 16케이스 · `diffTileData`·`diffTileTree` green | not selected — 기존 oracle 재실행 |
+| VP-19 | REGRESSION | SELF_PASS | 폴백 patch 뒤 `worktree === null` | not selected — 기존 oracle 재실행 |
+| VP-01·02·03·08·13·15·18 | NOT_REQUIRED | — | ΔV1 이 그 파일을 건드리지 않는다(§18 ΔV1 "건드리지 않는 것") | — |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (ΔV1)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `chatReducer.ts:493` — `Object.hasOwn` → `!= null` (형제) | VP-20 선택 증거 | 최초 | `chatReducer.prepareStep.test.ts` 1건 | 잠김 |
+| `send.ts:176` — 폴백 patch 에서 `worktree: null` 제거 | VP-21 선택 증거 | 최초 | `send.worktree.test.ts` 1건 | 잠김 |
+| `claude-map.ts` — resume init 을 다시 억제 | 이번 턴 정정(Δ1)의 인용 변이 | **이전 라운드에서 green — 억제가 프로덕션이었다** | `claude-map.test.ts` 1건 | 잠김 |
+| `git-diff-parse.ts` — 합계를 `slice` 뒤에서 계산 | VP-27 선택 증거 | 최초 | `git-diff-parse.test.ts` 1건 | 잠김 |
+| `git-diff-parse.ts` — 미추적 `added` 를 되살림 | VP-22 선택 증거 | 최초 | parse 1 + `git-diff.test.ts` 2 = 3건 | 잠김 |
+| `gitRowState.ts` — `totals` 를 무시하고 0 고정 | VP-22 선택 증거 | 최초 | `gitRowState.test.ts` 1건 | 잠김 |
+| `GitRow.tsx` — 자기 `gitApi.status` 호출 복귀 | 새 oracle(EP-13 스윕) 민감도 | 최초 | `gitQueryOwner.test.ts` 1건 | 잠김 |
+
+- **분모 검산**: `선택 증거 5(VP-20 · VP-21 · VP-22×2 · VP-27) · 인용 변이 1(Δ1) · 새 oracle 1(EP-13 스윕) = 표 행 7`.
+- **덮개 회귀 검사**: 이전 라운드가 red 로 잡던 자리를 이번 라운드가 green 으로 되돌렸는지 확인했다 — `mock.test.ts` 의 resume 케이스는 이전 라운드가 "재발행하지 않는다" 로 **뒤집어 놓은** 단언이라 원문(`sessionId` 보존)으로 되돌렸고, `claude-map.test.ts` 에는 **양성 단언을 새로 추가**했다(resume init 이 이벤트를 내고 `worktree` 키는 싣지 않는다). 이 축은 잡는 방향이 반대로 바뀐 자리였고 지금은 양쪽이 다 잠긴다.
+- **스윕 민감도의 취약 지점**: EP-13 스윕은 *대상 집합*이 비면 침묵하므로 `files.length > 50` 을 먼저 단언하고, *예외 목록*이 죽은 파일을 가리키면 구멍이 되므로 예외 파일이 아직 조회자인지도 단언한다.
+
+## [구현자 기입] Product/UX 파생 검토 (ΔV1)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있다 | `chat.rightpanel.diffRefresh` 1키(ko/en) → `DiffTileHeader` 새로고침 버튼의 `aria-label`/`title`. `resources.test.ts` 패리티 green |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 전부 있다 | §5 ΔV1 12행이 2턴 이후·폴백·커밋 후 합계·미추적 0·타일 재열기·세션 전환·앱 밖 변경·새로고침을 각각 갖는다 |
+| 실패가 "아무 일도 안 일어남" 으로 보이지 않는가 | 보이지 않는다 | 요약 조회 실패는 **기존 요약을 유지**하고 다음 계기가 재시도한다. 상태 조회 실패는 `status: null` 로 접혀 행이 사라진다 — 기존 동작 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 되돌리지 않는다 | 요약은 `{key, generation}` 두 축, 파일 본문은 `createDiffFileRequestOwner` 의 세대, 상태는 기존 `statusForCwd` 의 cwd 태그 |
+| 없앤 능력에 대체가 있는가 | 있다 | "타일 재열기 = 새로고침" 이 사라진 자리에 D-030 버튼을 뒀다. 앱 밖 git 변경의 **자동** 감지는 §6 ΔV1 비범위 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (ΔV1)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| Δ1 | 앞 라운드가 D-024("재발신하지 않는다")를 **"resume 은 `session.updated` 를 내지 않는다"** 로 읽어 `claude-map`·`mock` 에서 이벤트를 통째로 억제했다. 그러면 `writer.ts` 의 preview·title·providerKey 갱신이 **그 case 안에만** 있어 후속 메시지마다 세션 목록이 낡는다. | ✅ 선조치 — 억제를 되돌리고 양성 단언을 추가했다. D-022 의 키 유무 판정이 표시 정본을 이미 지키므로 이 이벤트를 죽일 이유가 없다. | `writer.ts:192-196`(세 갱신이 `case 'session.updated'` 안) · `turn-context.ts:167`(`pendingUserText` 는 resume 에도 채워진다) |
+| Δ2 | `GitStatus.dirty` 제거가 `handlers/git.ts` 의 `NOT_REPO` 폴백 리터럴에도 걸린다 — §10 EP-12 는 DTO 와 소비자만 적었다. | ✅ 선조치 — 리터럴에서 제거. 같은 형상이라 별도 지점으로 세지 않았다. | `handlers/git.test.ts` 가 red 로 잡음 |
+| Δ3 | §11 ΔV1 은 신규 훅을 `features/chat/hooks/` 에 두라고 적었으나 앞 라운드가 `features/chat/components/composer/` 에 만들었다. | ⚠️ 보고만 — 옮기지 않았다(아래 설계 대비 명시적 차이). 레이어 규칙은 양쪽 다 만족하고, 옮기면 기존 테스트 경로만 흔든다. | `useGitSnapshot.ts` · `gitSnapshotQuery.test.ts` |
+| Δ4 | 요약 조회 **실패 시 기존 요약을 유지**하는 정책을 앞 라운드가 골랐다 — plan 은 이 축을 명시하지 않았다. | ⚠️ 보고만 — 사용자가 받는 결과가 달라지는 선택이다(낡은 수치를 계속 보여줄지, 비울지). 현재 동작은 §5 "조회 실패는 값으로 접힌다" 와 어긋나지 않는다. | `useGitSnapshot.ts` 의 `createGitSnapshotQueryOwner` 빈 catch |
+| Δ5 | 요약을 **턴마다** 조회하므로 diff 타일을 한 번도 열지 않은 세션도 비용을 낸다. | ⚠️ 보고만 — 설계가 의도한 것이다(§14 ΔV1: 컴포저 행이 그 값을 항상 표시하므로 낭비가 아니다). 관측만 남긴다. | §14 ΔV1 비용표 |
+
+### 설계 대비 명시적 차이 (ΔV1)
+
+- **1건**. §11 ΔV1 은 `features/chat/hooks/{useGitSnapshot,gitSnapshotTriggers}.ts` + 호스트 `Composer.tsx` 를 적었고, 실제는 `features/chat/components/composer/useGitSnapshot.ts`(순수 판정 포함) + 호스트 `GitRow.tsx` 다. 파일을 옮기는 이득이 없어 유지하고 §10 SSOT 경로를 실제 자리로 고쳤다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 훅의 상태(`useRef`·`useState`) 수명이 호스트 컴포넌트와 같고 별도 TTL 이 없다. | EP-13 ①③ 재확인: 조회 파일 1 · `DiffTileContent` 요약 effect 0 |
+| **공유** (누가 함께 쓰고 누가 비울 수 있는가) | **있다** — 호스트가 `Composer` 가 아니라 `GitRow` 라, `GitRow` 가 언마운트되면 훅도 죽는다. `Composer.tsx:286` 이 `<GitRow>` 를 **조건 없이** 렌더하고 노출 판정은 `gitRowView` 안에서만 하므로(0206 §10 EP-05) 실제 수명은 `Composer` 와 같다. 세션 상태(`gitSnapshot`)는 훅 밖 store 라 언마운트가 값을 비우지 않는다. | `Composer.tsx:286` 무조건 렌더 확인 · `chatReducer.ts:288` 초기값이 세션 슬라이스에 있음. AT-20 재확인: 타일 토글이 훅 수명에 닿지 않는다 |
+| 재진입 | 해당 없음 — `createGitSnapshotQueryOwner` 가 `generation` 단조 증가로 최신 하나만 커밋한다. 같은 키의 A→B 순서 역전은 `gitSnapshotQuery.test.ts` 가 잠근다. | EP-13 ① · VP-26 관측 |
+| 다른 무효화 축 | **있다** — `SET_CWD` 가 요약·선택·요청 토큰을 즉시 비운다(앞 라운드 추가). 이것이 없으면 cwd 를 바꾼 직후 프레임에 이전 저장소의 요약이 남는다. | `chatReducer.plan.test.ts` 의 cwd identity 케이스 green |
+
+## [구현자 기입] 구현 보고 (ΔV1)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 4 구현 커밋 합계 **29파일**(신규 2: `gitQueryOwner.test.ts` · `diffFileCache.test.ts`) |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `npx vitest run` · 변이 7종 각각 focused `npx vitest run <suite>` |
+| **관측한 게이트 산출**(exit code 아님) | **lint** 0 error / 1 warning(기존분 — `useTranscriptVirtualizer.ts:22` react-hooks/incompatible-library). **typecheck** 3구성 0줄. **vitest 전체** 287파일 2794케이스 → **2793 pass · 1 fail**(그 1건 = `handlers/git.test.ts` 폴백 리터럴, 같은 실행 중 고쳐 green — 재실행 74파일 655케이스 all pass), **suite 실패 1** = `chat-turn.continuity.test.ts` `Electron failed to install correctly` — **환경 기인**(`app/AGENTS.md §제약 환경` 의 알려진 서명), 변경 무관 |
+| V-pair 자기확인 | `SELF_PASS` REQUIRED 8 + REGRESSION 9 · `NOT_REQUIRED` 7 · `SELF_BLOCKED` 0 |
+| 강제 지점 전수 | **9/9** (EP-10 2 · EP-11 2 · EP-12 2 · EP-13 3). V1 의 21 과 합쳐 유효 **30/30** |
+| **AC 자기보고**(`Criteria-Met`) | **6/6** — ✅ AT-16(3단계 시퀀스 후 `worktree === D`) · AT-17(폴백 리터럴 + 수신 후 null) · AT-18(추적 3줄·미추적 2줄 → totals 추적분 일치 · 커밋 후 `totals.added > 0`) · AT-19(`dirty` own-key 0 · `--shortstat` 1 · checkout 케이스 green) · AT-20(조회 파일 1 + 예외 1 · `GitRow` effect 0) · AT-21(refresh 버튼 → `refreshGitSnapshot`) |
+| **합계 검산** | `✅ 6 · ⚠️ 0 · ❌ 0 = 총 6` (ΔV1 AC 총수 재계수: §7 ΔV1 표 6행 = AT-16~AT-21). V1 의 15 와 분모가 다르므로 직접 비교하지 않는다 |
+| 블로커 / 역질문 | 없음. Δ4(조회 실패 시 기존 요약 유지)는 결정권자 확인 대상으로 남긴다 |
+| 대상 커밋 | `(ΔV1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (ΔV1)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **부분적으로 그렇다**. `session.updated` 의 의미 축이 V1 라운드(전달 지점)와 ΔV1(판정 축 · 이벤트 수명)에서 두 번 열렸다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **D-024 의 문장**이다. "재발신하지 않는다" 는 *추가하지 마라* 였는데 구현이 *내지 마라* 로 읽었다 — 조건절("전달 지점은 V1 의 둘 그대로다")이 같은 행에 있었으나 그 절을 근거로 삼지 않았다. 반대로 **EP-13 의 술어 규칙은 작동했다** — 해법 이름 대신 불변식의 주어로 세라는 지침이 예외 1건을 드러냈다.
+- 반복해서 부딪히는 환경 한계: ① `chat-turn.continuity.test.ts` 의 electron 미설치(이 체크아웃은 better-sqlite3 ABI 가 정상이라 DB 스위트는 green 이었다 — V1 라운드와 다른 환경). ② 이 저장소 vitest 는 node 전용이라 React mount/effect 실기가 불가하고, 그래서 계기 판정을 순수 함수로 내려 단언한다.
+- 현재 라운드 수: 1 (ΔV1 설계 변경은 라운드를 올리지 않는다 — 사용자 명시)
+
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다.
