@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) |
-| 상태 | READY (ΔV2 r2 — PLAN_GAP G1~G8 정정 완료) |
+| 상태 | DRAFT — ΔV2 r2 재착수 중 PLAN_GAP 반환 |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) |
 | 이번 V revision | `ΔV2` |
@@ -1845,6 +1845,85 @@ git CLI
 - 그것을 막았어야 할 plan 지침·AC가 있었는가: §10은 EP-14~23을 전수라고 선언했지만 실제 call graph의 prepare 반환, queue/continuation, ack, fresh-body/reanchor 홉이 분모에 없었다. §10 worst-case는 IPC DTO 650 KB와 Git raw stdout 4 MiB를 같은 상한처럼 비교했다.
 - 반복해서 부딪히는 환경 한계: renderer Vitest가 node+SSR라 실제 click/scroll/focus를 직접 구동하지 못한다. 이번 DB ABI는 정상이라 query/migration 기준선 39케이스는 green이었다.
 - 현재 라운드 수: **1** — ΔV2는 verify 전 사용자 결정 변경이며 사용자가 라운드 유지라고 명시했다.
+
+---
+
+> **ΔV2 r2 구현 재착수 (라운드 1 유지)** — 원격의 G1~G8 정정을 전부 대조했다. 여덟 축은
+> 구현 가능해졌지만, 커밋 노드의 소비 값·overflow 폴백·scroll gate·AC 분모에 새 모순이 남아
+> 앱 코드는 시작하지 않고 다시 `PLAN_GAP`으로 반환한다.
+
+## [구현자 기입] 설계 리뷰 (ΔV2 r2 재착수 — PLAN_GAP)
+
+- 동의 / 그대로 진행 가능한 축: D-051의 exact base 운반, D-052의 `--raw --numstat -z`, D-054의 8파일 홉, D-055의 첨부와 같은 소비 신호, D-056·D-057의 peek 재anchor/타입 분리는 현재 코드 경로에 연결할 수 있다.
+- **판정: PLAN_GAP 4건(G9~G12).** D-038·D-040·D-044·D-053·D-058과 §19를 함께 만족하려면 사용자에게 보이는 fallback 값·검증 gate 또는 규범 분모를 구현자가 골라야 한다.
+- ACTIVE Decision·AC·V pair·§10은 구현자 권한으로 고치지 않았다. 아래에는 필요한 규범 정정 범위만 적는다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (ΔV2 r2 재착수 — PLAN_GAP)
+
+| Pair | 계약/필드 | §10 지점 | 닫은 지점 | 직접 관측 | 남긴 곳 |
+|---|---|---:|---:|---|---|
+| VP-28·29 | 세션 기준선 1회 기록 | EP-14 (5) | 0/5 | D-051로 운반 경로는 생겼으나 READY 전체가 유효하지 않아 부분 구현하지 않음 | G9~G12 정정 뒤 구현 |
+| VP-30 | 미추적 완전 제외 | EP-15 (3) | 0/3 | 계약·호출부는 명확함 | 정정 뒤 구현 |
+| VP-35 | 단일 diff 범위 | EP-16 (2) | 0/2 | 계약·제거 지점은 명확함 | 정정 뒤 구현 |
+| VP-31·33·34·39 | 커밋 파일·통계·overflow 폴백 | EP-17 (5) | 0/5 | 계획 DTO에 전체 파일 수·커밋 totals가 없고 numstat 없는 폴백 명령/값 의미가 미정 | G9·G10 |
+| VP-32·33·37·44 | 목록↔peek·세션 상태 | EP-18 (2) | 0/2 | `+N개 더`의 N을 운반할 값이 없음 | G9 |
+| VP-36·43 | hunk·줄 축·scroll 보정 | EP-19 (3) | 0/3 | 순수 행 불변식은 명확하지만 실제 scroll 보정은 gate가 없음 | G11 |
+| VP-38 | 요약 계기·단일 소유자 | EP-20 (2) | 0/2 | 계약은 명확함 | 정정 뒤 구현 |
+| VP-42·45 | 요구사항 계약·직렬화·8파일 홉 | EP-21 (3) | 0/3 | D-054로 생산 경로가 열거됨 | 정정 뒤 구현 |
+| VP-40 | 요구사항 소비 | EP-22 (3) | 0/3 | D-055로 첨부와 같은 조건이 확정됨 | 정정 뒤 구현 |
+| VP-41 | 10키 anchor·peek 재anchor | EP-23 (3) | 0/3 | D-056·D-057로 타입·시점·복수 일치가 확정됨 | 정정 뒤 구현 |
+
+- **강제 지점 합계**: `0/31` — EP-14~23의 `5+3+2+5+2+3+2+3+3+3=31`; READY 기준선이 유효해지기 전 부분 구현하지 않았다.
+- **V-pair 자기확인**: ΔV2 신규/변경 REQUIRED **18개 전부 `SELF_BLOCKED: PLAN_GAP`**. `SELF_PASS`·mutation 실행은 0건이다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (ΔV2 r2 재착수 — PLAN_GAP)
+
+| 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---:|---|
+| 해당 없음 — production·oracle 수정 미착수 | — | 0 | 규범 정정 전에 해법을 발명하지 않음 |
+
+- **분모 검산**: `SELF_PASS 선택 증거 0 · closed 이슈 인용 변이 0 · 새 oracle 0 = 표 행 0`.
+
+## [구현자 기입] Product/UX 파생 검토 (ΔV2 r2 재착수 — PLAN_GAP)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 파일 51개 커밋에서 `+N개 더`와 diffstat를 정확히 말할 수 있는가 | 현재 계약으로는 불가 | G9에서 전체 파일 수·totals의 wire 의미를 정한다 |
+| raw log overflow 뒤 본문 있는 커밋을 어떻게 보이는가 | 현재는 “본문 없음”과 “폴백에서 미수집”을 구분하지 못함 | G10에서 fallback command·body availability를 정한다 |
+| 위쪽 context 확장 뒤 사용자가 보던 줄이 유지되는가 | 구현 문장은 있으나 검증 gate가 없음 | G11에서 사람 실기 또는 자동 seam 중 하나를 정한다 |
+| queue/continuation의 요구사항이 사라지는가 | r2 정정으로 경로가 명확해짐 | D-054의 8파일과 VP-45를 그대로 구현한다 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (ΔV2 r2 재착수 — PLAN_GAP)
+
+| # | 문제 | 규범 정정 제안 | 코드/문서 근거 |
+|---|---|---|---|
+| G9 | D-038은 commit node의 **changed file count·diffstat·`+N개 더`**를 요구하지만 §11의 `GitDiffCommit` 가산 필드는 `files`·`filesTruncated`·`body`뿐이다. 50개 절단 뒤 전체 N과 totals를 복원할 수 없다 | `fileCount`·`totals` 또는 동등한 필드의 wire/renderer 의미와 정상·절단·fallback 값을 Decision·AT·EP-17에 확정 | plan D-038·D-040, §11 `shared/ipc.ts` 행 · 현재 `ipc.ts:1090-1096` |
+| G10 | D-053은 overflow 시 **numstat 없이 제목·통계**를 유지한다고 하지만 명령·파서·locale·body 의미가 없다. `body: undefined`는 D-044에서 “본문 없음”이므로 폴백 미수집에 재사용하면 거짓이다 | fallback 명령(예: locale 고정 shortstat), 통계 grammar, body 보존/availability, overflow와 일반 실패 구분 oracle을 확정 | plan D-044·D-053·AT-33 · `runner.ts:42-48`은 maxBuffer 오류를 일반 `code:null`로 접음 |
+| G11 | D-058은 실제 scroll 보정에 자동 oracle이 없다고 명시했지만 §19와 READY self-review는 사람 실기 0건이라고 한다 | scroll owner/보정 seam을 자동화하거나, 실제 위쪽 확장을 보는 사람 gate를 AT-30·§19에 추가 | plan D-058 · EP-19 실패 의미 · §19 “사람 실기 없음” |
+| G12 | r2가 R-37/AT-37/VP-45를 추가했지만 ΔV2 AC 총량은 여전히 **15**로 적혀 있다. 실제 행은 AT-22~36 + AT-37 = **16**이다 | §3·READY·구현/verify 분모를 16으로 정정하고 유효 AC 총량을 재계산 | plan §7 ΔV2 표 16행 · §3 “15건” · r2 정정은 pair 수만 18로 갱신 |
+
+- 비차단 사실 정정 제안: D-052의 “뒤 옵션이 이긴다”는 이 환경 Git 2.51.1에서 양 순서 모두 name-status만 출력됐다. `--raw --numstat` 채택 결론은 맞고 이유 문장만 실측에 맞춰야 한다.
+
+## [구현자 기입] 구현 보고 (ΔV2 r2 재착수 — PLAN_GAP)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 앱 production/test **0**. handoff 상태·증거만 `plan.md`·`INDEX.md`에 반영 |
+| 실행 명령 | `git pull --rebase origin handoff/0211-worktree-session-ux` · `npm.cmd run typecheck` · `npm.cmd run lint` · focused Vitest 16파일 · `git-diff.test.ts` 단독 재실행 · DB Vitest 2파일 · migration/doc gate |
+| 관측한 기준선 산출 | typecheck 3구성 0 error · lint 0 error/1 기존 warning · 비-Git 15파일 **195/195** · `git-diff.test.ts` 단독 **16/16**(병렬 초회 1건은 5s timeout) · DB 2파일 **39/39** · migration/doc gate exit 0 |
+| V-pair 자기확인 | ΔV2 REQUIRED 18 `SELF_BLOCKED: PLAN_GAP` · `SELF_PASS` 0. V1·ΔV1 기존 결과는 보존 |
+| 강제 지점 전수 | ΔV2 `0/31` (EP-14~23). production 미착수 |
+| AC 자기보고 (`Criteria-Met`) | `0/16` — AT-22~AT-36 + AT-37 전부 규범 정정 뒤 구현 필요 |
+| 합계 검산 | `✅ 0 · ⚠️ 16(PLAN_GAP) · ❌ 0 = 총 16` |
+| 블로커 / 역질문 | G9~G12의 wire 값·fallback 의미·scroll gate·분모를 Delta V 규범 행으로 확정해야 한다 |
+| 대상 커밋 | `(ΔV2 r2 PLAN_GAP 보고 — 좌표 없음)` |
+
+## [구현자 기입] Review Signals — 사실만 (ΔV2 r2 재착수 — PLAN_GAP)
+
+- 이번에 열린 축이 이전 반환과 같은가: **G9·G10은 G2·G3과 같은 커밋 요약 축**이다. r2는 status 출처와 raw 상한을 정했지만 D-038의 소비 값에서 역산한 DTO·fallback 의미까지 닫지 못했다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: D-038의 `changed file count`·`diffstat`와 D-040의 50 절단을 §11 DTO에 대조했으면 G9가, D-044의 `body=undefined` 의미를 D-053 폴백에 대조했으면 G10이 드러났다.
+- 반복해서 부딪히는 환경 한계: 병렬 임시 Git 스위트 1건이 5초 timeout이었고 단독 16/16 green이라 기준선 부하로 분리했다. DB ABI·문서 gate는 정상이다.
+- 현재 라운드 수: **1** — verify 전 사용자 결정 변경이며 사용자 지시대로 유지한다.
 
 ## [검증자 기입] 파생 이슈
 
