@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   GitDiffCommit,
   GitDiffFileContent,
@@ -14,7 +14,7 @@ import {
   splitFilePath,
   type DiffTreeRow
 } from './diffTileData'
-import { resetDiffFileCache } from './diffFileCache'
+import { createDiffFileRequestOwner, resetDiffFileCache } from './diffFileCache'
 import { visibleTreeRows } from './diffTileTree'
 
 // diff 타일 본문 — 좌측(파일트리 + 커밋 목록) · 우측(파일별 항목) 3영역(0206 D-010).
@@ -222,10 +222,18 @@ export function DiffTileContent(): React.JSX.Element {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
   const [expanded, setExpanded] = useState<readonly string[]>([])
   const [contents, setContents] = useState<ReadonlyMap<string, GitDiffFileContent>>(() => new Map())
+  const [fileRequestOwner] = useState(createDiffFileRequestOwner)
+  const cacheIdentityReady = useRef(false)
   const state = diffSummaryState(summary)
   const files = useMemo(() => summary?.files ?? [], [summary])
   const rows = useMemo(() => buildDiffTreeRows(files), [files])
   const expandedSet = useMemo(() => new Set(expanded), [expanded])
+
+  useEffect(() => {
+    if (cacheIdentityReady.current) resetDiffFileCache(setExpanded, setContents)
+    else cacheIdentityReady.current = true
+    return () => fileRequestOwner.invalidate()
+  }, [cwd, fileRequestOwner, selectedCommit, sessionId])
 
   const toggleDir = useCallback((key: string) => {
     setCollapsed((prev) => {
@@ -236,10 +244,14 @@ export function DiffTileContent(): React.JSX.Element {
   }, [])
 
   // 커밋을 바꾸면 펼침·본문을 버린다 — 다른 범위의 본문을 그대로 두면 파일 목록과 어긋난다.
-  const selectCommit = useCallback((sha: string | null) => {
-    chatActions.selectGitSnapshotCommit(sha)
-    resetDiffFileCache(setExpanded, setContents)
-  }, [])
+  const selectCommit = useCallback(
+    (sha: string | null) => {
+      fileRequestOwner.invalidate()
+      chatActions.selectGitSnapshotCommit(sha)
+      resetDiffFileCache(setExpanded, setContents)
+    },
+    [fileRequestOwner]
+  )
 
   const toggleFile = useCallback(
     (path: string) => {
@@ -253,21 +265,23 @@ export function DiffTileContent(): React.JSX.Element {
           : next
       })
       if (!cwd || contents.has(path)) return
-      void gitApi
-        .diffFile({
-          cwd,
-          path,
-          ...(sessionId ? { sessionId } : {}),
-          ...(selectedCommit ? { commit: selectedCommit } : {})
-        })
-        .then((content) => {
+      fileRequestOwner.run(
+        () =>
+          gitApi.diffFile({
+            cwd,
+            path,
+            ...(sessionId ? { sessionId } : {}),
+            ...(selectedCommit ? { commit: selectedCommit } : {})
+          }),
+        (content) => {
           setContents((prev) => new Map(prev).set(path, content))
-        })
-        .catch(() => {
+        },
+        () => {
           setContents((prev) => new Map(prev).set(path, { kind: 'unavailable', reason: 'error' }))
-        })
+        }
+      )
     },
-    [cwd, sessionId, selectedCommit, contents]
+    [contents, cwd, fileRequestOwner, selectedCommit, sessionId]
   )
 
   const formatWhen = useCallback(

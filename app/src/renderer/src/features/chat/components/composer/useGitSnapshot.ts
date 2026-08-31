@@ -3,7 +3,20 @@ import type { GitDiffSummary } from '../../../../../../shared/ipc'
 import { gitApi } from '../../../../shared/api/ipc'
 import type { GitSnapshotRequest } from '../../reducer/chatReducer'
 import { chatActions, sessionBusy, useChatSession } from '../../store/chatStore'
-import { shouldRefetchGitStatus } from './gitRowState'
+
+interface GitSnapshotQueryPoint {
+  identity: string
+  busy: boolean
+}
+
+export function gitSnapshotQueryReason(
+  previous: GitSnapshotQueryPoint | null,
+  next: GitSnapshotQueryPoint
+): 'initial' | 'identity' | 'turn-end' | null {
+  if (!previous) return 'initial'
+  if (previous.identity !== next.identity) return 'identity'
+  return previous.busy && !next.busy ? 'turn-end' : null
+}
 
 export function gitSnapshotRequestKey(
   cwd: string | null,
@@ -57,7 +70,7 @@ export function useGitSnapshot(cwd: string | null, sessionId: string | null): vo
   const busy = useChatSession(sessionBusy)
   const selectedCommit = useChatSession((s) => s.gitSnapshot.selectedCommit)
   const refreshGeneration = useChatSession((s) => s.gitSnapshot.refreshGeneration)
-  const prevBusy = useRef(busy)
+  const previousQueryPoint = useRef<GitSnapshotQueryPoint | null>(null)
   const [owner] = useState(createGitSnapshotQueryOwner)
 
   const runQuery = useCallback(() => {
@@ -77,12 +90,11 @@ export function useGitSnapshot(cwd: string | null, sessionId: string | null): vo
   }, [cwd, owner, selectedCommit, sessionId])
 
   const triggerKey = gitSnapshotTriggerKey(cwd, sessionId, selectedCommit, refreshGeneration)
-  useEffect(() => runQuery(), [runQuery, triggerKey])
-
   useEffect(() => {
-    const refetch = shouldRefetchGitStatus(prevBusy.current, busy)
-    prevBusy.current = busy
-    if (refetch) return runQuery()
+    const next = { identity: triggerKey, busy }
+    const reason = gitSnapshotQueryReason(previousQueryPoint.current, next)
+    previousQueryPoint.current = next
+    if (reason) return runQuery()
     return undefined
-  }, [busy, runQuery])
+  }, [busy, runQuery, triggerKey])
 }

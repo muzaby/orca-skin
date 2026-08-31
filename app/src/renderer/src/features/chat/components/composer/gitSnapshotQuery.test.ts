@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { GitDiffSummary } from '../../../../../../shared/ipc'
 import {
   createGitSnapshotQueryOwner,
+  gitSnapshotQueryReason,
   gitSnapshotRequestKey,
   gitSnapshotTriggerKey
 } from './useGitSnapshot'
@@ -31,6 +32,21 @@ interface QueryOwner {
 }
 
 describe('git snapshot query owner', () => {
+  it('busy session A에서 idle session B로 바뀌면 B identity 조회 한 번만 판정한다', () => {
+    expect(
+      gitSnapshotQueryReason(
+        { identity: '["/repo-a","session-a",null,0]', busy: true },
+        { identity: '["/repo-b","session-b",null,0]', busy: false }
+      )
+    ).toBe('identity')
+    expect(
+      gitSnapshotQueryReason(
+        { identity: '["/repo-b","session-b",null,0]', busy: true },
+        { identity: '["/repo-b","session-b",null,0]', busy: false }
+      )
+    ).toBe('turn-end')
+  })
+
   it('cwd/session/commit/refresh만 trigger key를 바꾸고 같은 입력의 remount는 바꾸지 않는다', () => {
     const base = gitSnapshotTriggerKey('/repo', 's1', null, 0)
     expect(gitSnapshotTriggerKey('/repo', 's1', null, 0)).toBe(base)
