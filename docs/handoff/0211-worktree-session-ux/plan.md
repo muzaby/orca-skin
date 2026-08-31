@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) |
-| 상태 | READY |
+| 상태 | DRAFT — ΔV2 구현 착수 중 PLAN_GAP 반환 |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) |
 | 이번 V revision | `ΔV2` |
@@ -1720,6 +1720,90 @@ git CLI
 - 반복해서 부딪히는 환경 한계: ① `chat-turn.continuity.test.ts` 의 electron 미설치(이 체크아웃은 better-sqlite3 ABI 가 정상이라 DB 스위트는 green 이었다 — V1 라운드와 다른 환경). ② 이 저장소 vitest 는 node 전용이라 React mount/effect 실기가 불가하고, 그래서 계기 판정을 순수 함수로 내려 단언한다.
 - 현재 라운드 수: 1 (ΔV1 설계 변경은 라운드를 올리지 않는다 — 사용자 명시)
 
+
+---
+
+> **ΔV2 구현 착수 (라운드 1 유지)** — 원격 ΔV2 설계로 rebase한 뒤 구현 전 production path를
+> 대조했고, 구현자가 고를 수 없는 계약·경로 모순을 확인했다. 앱 코드는 시작하지 않고
+> `handoff-impl`의 PLAN_GAP 절차로 설계자에게 돌린다.
+
+## [구현자 기입] 설계 리뷰 (ΔV2 착수 — PLAN_GAP)
+
+- 동의 / 그대로 진행 가능한 축: D-032의 세션 컬럼 정본, D-035의 미추적 완전 제외, D-036의 단일 파일 diff 범위, D-037의 두 화면, D-050의 main 직렬화 원칙은 제품 의도가 명확하다.
+- **판정: PLAN_GAP 8건.** D-033·D-040·D-047~D-050을 실제 call graph에 연결하려면 §10 production path·강제 지점·oracle을 추가하거나 서로 모순된 기준 중 하나를 골라야 한다.
+- ACTIVE Decision·AC·V node/pair·§10은 구현자 권한으로 고치지 않았다. 아래 G1~G8의 코드 증거와 규범 정정 범위만 남긴다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (ΔV2 착수 — PLAN_GAP)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 직접 관측 | 남긴 곳 |
+|---|---|---:|---:|---|---|
+| VP-28·29 | 세션 기준선 1회 기록 | EP-14 (4) | 0/4 | `service.ts`가 `baseOid`를 계산하지만 managed 반환에는 없다. §18은 그 파일을 비영향으로 둔다 | G1 |
+| VP-30 | 미추적 완전 제외 | EP-15 (3) | 0/3 | 계약은 명확하나 READY 기준선이 무효라 구현 미착수 | 설계 정정 뒤 구현 |
+| VP-35 | `commit` 요청·범위 제거 | EP-16 (2) | 0/2 | 계약은 명확하나 Git 요약 원자 변경이 G2·G3에 막힘 | G2·G3 뒤 구현 |
+| VP-31·33·34·39 | 커밋 파일·본문·미커밋·50 상한 | EP-17 (3) | 0/3 | `--numstat`에는 required `status`가 없고 50 절단은 raw stdout 제한 뒤에 실행된다 | G2·G3 |
+| VP-32·33·37·44 | 목록↔peek·세션 상태 | EP-18 (2) | 0/2 | 요약 DTO와 requirement 수명이 확정되지 않아 연결 경로 미착수 | G2~G7 뒤 구현 |
+| VP-36·43 | hunk·old/new 줄 축 | EP-19 (2) | 0/2 | add/delete 줄의 nullable 축과 실제 scroll 보존 oracle이 미정 | G7·G8 |
+| VP-38 | 요약 계기·단일 소유자 | EP-20 (2) | 0/2 | 계약은 명확하나 ΔV2 전체 구현 미착수 | 설계 정정 뒤 구현 |
+| VP-42 | 요구사항 계약·main 직렬화 | EP-21 (2) | 0/2 | EP는 DTO와 최종 formatter만 세고 모든 prompt의 queue/continuation 홉을 세지 않는다 | G4·G7 |
+| VP-40 | 성공 전송 뒤 소비 | EP-22 (2) | 0/2 | main 오류가 invoke resolve로 끝나 renderer가 성공을 판별할 수 없다 | G5 |
+| VP-41 | 10필드 생성·재anchor | EP-23 (2) | 0/2 | 새 요약에는 줄 본문이 없고 갱신 action·복수 일치 규칙도 없다 | G6·G7 |
+
+- **강제 지점 합계**: `0/24` — EP-14~23의 10행·24 세부 지점 전부 미착수. 구현자가 규범을 발명해 일부를 닫지 않았다.
+- §10 밖에서 같은 불변식에 필요한 지점: `features/worktrees/service.ts` 반환 1축(G1) · pending queue/turn DTO 전파 1축(G4) · admission ack/상관관계 1축(G5) · fresh-body/reanchor 반영 1축(G6). 지점 분모는 planner가 production path를 확정한 뒤 다시 전수 계산해야 한다.
+
+**V-pair 자기확인** — ΔV2 REQUIRED 17개는 모두 `SELF_BLOCKED: PLAN_GAP`이다. 새 oracle·mutation을 실행하지 않았고 `SELF_PASS` 주장은 0건이다. V1·ΔV1의 기존 구현자 자기결과는 그대로 보존하며 이번 착수에서 독립 검증 결과로 승격하지 않는다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (ΔV2 착수 — PLAN_GAP)
+
+| 심은 결함 | 출처 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---:|---|
+| 해당 없음 — production·oracle 수정 미착수 | — | 0 | PLAN_GAP 정정 전에는 등록 변이를 임의 구현하지 않음 |
+
+- **분모 검산**: `SELF_PASS 선택 증거 0 · closed 이슈 인용 변이 0 · 새 oracle 0 = 표 행 0`.
+
+## [구현자 기입] Product/UX 파생 검토 (ΔV2 착수 — PLAN_GAP)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| exact 격리 기준선을 운반하지 못하면 무엇이 보이는가 | 잘못된 기준선인데 정상 diff처럼 보인다 | G1에서 prepare의 동일 OID 전달 경로를 규범화 |
+| 대형 커밋 이력이 4 MiB를 넘으면 무엇이 보이는가 | 50개 잘림 대신 요약 조회 전체가 실패할 수 있다 | G3에서 raw Git 출력 상한 정책을 결정 |
+| busy/continuation 전송에 요구사항이 빠지면 무엇이 보이는가 | 칩은 소비됐지만 agent는 요구사항을 받지 못할 수 있다 | G4·G5에서 구조 전파와 ack를 함께 정의 |
+| 재anchor 입력이나 복수 일치 규칙이 없으면 무엇이 보이는가 | 요구사항이 낡은 줄 또는 임의 첫 일치 줄에 붙을 수 있다 | G6에서 fresh body·갱신 action·모호성 규칙을 결정 |
+| 위쪽 context 확장이 viewport를 보존하지 않으면 무엇이 보이는가 | 컨테이너는 같아도 사용자가 보던 줄이 밀린다 | G8에서 scroll anchor 동작과 oracle을 결정 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (ΔV2 착수 — PLAN_GAP)
+
+| # | 문제 | 대응 제안(규범 정정 범위) | 코드 근거 |
+|---|---|---|---|
+| G1 | D-033은 prepare가 계산한 **같은** base를 요구하지만 반환 타입에 OID가 없고 §18은 `service.ts`를 비영향으로 둔다 | managed 결과에 `baseOid`를 싣는 경로 또는 동등한 저장 조회 경로를 고르고 §10·§11·§18·pair를 갱신 | `features/worktrees/service.ts`의 계산/DB insert와 `PrepareWorktreeResult.managed` 형상 |
+| G2 | EP-17의 `log --numstat`만으로 `GitDiffCommit.files`의 required `status`를 만들 수 없다 | commit별 name-status 소스, status 없는 별도 DTO, optional status 중 하나를 결정하고 parser grammar/oracle을 갱신 | 현재 top-level은 numstat + name-status를 병합하고 `GitDiffFileEntry.status`는 필수 |
+| G3 | commit당 50개 절단은 parser 이후라 `runGit` 4 MiB raw stdout 초과를 막지 못한다 | streaming, bounded subprocess, buffer/error 정책 중 하나를 정하고 D-040의 실패 의미와 AT/VP를 갱신 | `runGit` maxBuffer가 parser보다 먼저 적용됨 |
+| G4 | 모든 prompt가 지나는 pending queue·batch·continuation·respawn DTO에 requirements가 없다 | 구조 데이터를 모든 중간 홉으로 운반하는 production path·EP 분모·회귀 oracle을 추가 | `pending-message-queue.ts`·`adapters/turn.ts`는 text/attachments만 보존 |
+| G5 | invoke resolve는 main admission 성공이 아니므로 성공 clear와 실패 retain을 구분할 수 없다 | `clientRequestId`와 연결된 ack 시점, snapshot item id, 신규/기존 세션의 동일 소비 규칙을 결정 | `send.ts` admission/attachment error는 error event 후 정상 return |
+| G6 | summary 갱신만으로 context 재anchor할 새 본문이 없고 결과 반영 action·복수 일치 규칙도 없다 | fresh-body 조회 시점, 세대 폐기, reducer action, 모호성·hunkHeader 규칙을 정한다 | D-046은 body를 local로 두고 summary DTO에는 줄 내용이 없음 |
+| G7 | wire exact 10 keys와 `located`가 충돌하고 base/old/new line nullability·comment/context cap이 미정이다 | wire anchor와 UI wrapper를 분리하고 nullable/sentinel·시간 형식·정확한 schema cap을 결정 | D-049·AT-35의 exact key set과 §10의 `DiffRequirement.located` 문장이 공존 |
+| G8 | D-041의 실제 viewport 보존을 AT-30의 컨테이너 identity와 node+SSR 환경이 관측하지 못한다 | DOM 의존 허용 또는 scroll-anchor seam/별도 gate를 정하고 oracle을 보강 | `vitest.config.ts`는 node, 기존 renderer render test는 SSR |
+
+## [구현자 기입] 구현 보고 (ΔV2 착수 — PLAN_GAP)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 앱 production/test **0**. handoff 상태·증거만 `plan.md`·`INDEX.md`에 반영 |
+| 실행 명령 | `git fetch --verbose origin` · `git rebase origin/handoff/0211-worktree-session-ux` · `npm.cmd run typecheck` · `npm.cmd run lint` · focused Vitest 15파일 · migration append-only · doc inventory check |
+| 관측한 기준선 산출 | typecheck 3구성 0 error · lint 0 error/1 기존 warning · 비-DB 13파일 134/134 · DB 2파일 39/39 · 문서 inventory 9항목/81채널 정상 · migration append-only 정상 |
+| V-pair 자기확인 | ΔV2 REQUIRED 17 `SELF_BLOCKED: PLAN_GAP` · `SELF_PASS` 0. V1·ΔV1 기존 결과는 보존 |
+| 강제 지점 전수 | ΔV2 `0/24` (EP-14~23). production 미착수 |
+| AC 자기보고 (`Criteria-Met`) | `0/15` — AT-22~AT-36 전부 PLAN_GAP 정정 뒤 구현·검증 필요 |
+| 합계 검산 | `✅ 0 · ⚠️ 15(PLAN_GAP) · ❌ 0 = 총 15` |
+| 블로커 / 역질문 | G1~G8의 production path·정책·oracle을 planner가 Delta V 규범 행으로 확정해야 한다. 제품 구현을 임의 부분 진행하지 않았다 |
+| 대상 커밋 | `(ΔV2 PLAN_GAP 보고 — 좌표 없음)` |
+
+## [구현자 기입] Review Signals — 사실만 (ΔV2 착수 — PLAN_GAP)
+
+- 이번에 열린 축이 이전 라운드와 같은가: **부분적으로 그렇다.** ΔV1도 조회 소유자·늦은 응답 경로를 정정했고, ΔV2는 그 위에 summary 세대와 requirement 소비 수명을 새로 얹으면서 production path가 다시 누락됐다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: §10은 EP-14~23을 전수라고 선언했지만 실제 call graph의 prepare 반환, queue/continuation, ack, fresh-body/reanchor 홉이 분모에 없었다. §10 worst-case는 IPC DTO 650 KB와 Git raw stdout 4 MiB를 같은 상한처럼 비교했다.
+- 반복해서 부딪히는 환경 한계: renderer Vitest가 node+SSR라 실제 click/scroll/focus를 직접 구동하지 못한다. 이번 DB ABI는 정상이라 query/migration 기준선 39케이스는 green이었다.
+- 현재 라운드 수: **1** — ΔV2는 verify 전 사용자 결정 변경이며 사용자가 라운드 유지라고 명시했다.
 
 ## [검증자 기입] 파생 이슈
 
