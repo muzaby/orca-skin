@@ -1,8 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import { PANEL_DEFAULT_WIDTH, chatReducer, initialChatState, type ChatState } from './chatReducer'
-import type { NormalizedEvent, PlanReviewRequest } from '../../../../../shared/ipc'
+import type { GitDiffSummary, NormalizedEvent, PlanReviewRequest } from '../../../../../shared/ipc'
 
 const REVIEW: PlanReviewRequest = { requestId: 'p1', plan: '# 계획\n- b.py 생성' }
+
+const DIFF_SUMMARY: GitDiffSummary = {
+  isRepo: true,
+  base: { kind: 'head' },
+  files: [{ path: 'src/a.ts', status: 'modified', added: 3, removed: 1, binary: false }],
+  filesTruncated: false,
+  commits: [],
+  commitsTruncated: false
+}
 
 // 열 id 는 비결정적이라 우측 패널 비교는 tiles 만 본다.
 const colTiles = (s: ChatState): string[][] => s.rightPanelTiles.map((c) => c.tiles)
@@ -297,5 +306,140 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
     const closed = chatReducer(hidden, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'diff' })
     expect(colTiles(closed)).toEqual([])
     expect(closed.diffFilesVisible).toBe(false)
+  })
+
+  it('diff 타일을 닫고 다시 열어도 요약과 선택 커밋이 살아 있다', () => {
+    const request = { key: JSON.stringify(['/repo', 'session-a', 'abc1234']), generation: 1 }
+    const selected = chatReducer(initialChatState, {
+      type: 'SELECT_GIT_SNAPSHOT_COMMIT',
+      commit: 'abc1234'
+    })
+    const started = chatReducer(selected, { type: 'BEGIN_GIT_SNAPSHOT_QUERY', request })
+    const withSummary = chatReducer(started, {
+      type: 'RECEIVE_GIT_SNAPSHOT_SUMMARY',
+      request,
+      summary: DIFF_SUMMARY
+    })
+    const opened = chatReducer(withSummary, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'diff' })
+    const closed = chatReducer(opened, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'diff' })
+    const reopened = chatReducer(closed, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'diff' })
+
+    expect(reopened.gitSnapshot).toMatchObject({
+      summary: DIFF_SUMMARY,
+      selectedCommit: 'abc1234'
+    })
+  })
+
+  it('새 대화와 다른 세션 로드 시작은 이전 요약·선택을 넘기지 않는다', () => {
+    const dirty = {
+      ...initialChatState,
+      sessionId: 'session-a',
+      gitSnapshot: {
+        summary: DIFF_SUMMARY,
+        selectedCommit: 'abc1234',
+        refreshGeneration: 2
+      }
+    } as ChatState
+
+    expect(chatReducer(dirty, { type: 'NEW_CHAT' }).gitSnapshot).toEqual({
+      summary: null,
+      selectedCommit: null,
+      refreshGeneration: 0
+    })
+    expect(
+      chatReducer(dirty, {
+        type: 'START_LOAD_SESSION',
+        sessionId: 'session-b',
+        title: 'B'
+      }).gitSnapshot
+    ).toEqual({ summary: null, selectedCommit: null, refreshGeneration: 0 })
+  })
+
+  it('cwd identity가 바뀌면 이전 저장소의 요약·커밋 선택을 즉시 비운다', () => {
+    const before = {
+      ...initialChatState,
+      cwd: '/repo-a',
+      gitSnapshot: {
+        summary: DIFF_SUMMARY,
+        selectedCommit: 'abc1234',
+        refreshGeneration: 0
+      },
+      gitSnapshotRequest: {
+        key: JSON.stringify(['/repo-a', 'session-a', 'abc1234']),
+        generation: 3
+      }
+    }
+
+    const moved = chatReducer(before, { type: 'SET_CWD', cwd: '/repo-b' })
+    expect(moved.gitSnapshot).toEqual({
+      summary: null,
+      selectedCommit: null,
+      refreshGeneration: 0
+    })
+    expect(moved.gitSnapshotRequest).toBeNull()
+  })
+
+  it('명시 refresh는 요약·선택을 보존하고 generation만 올린다', () => {
+    const before = {
+      ...initialChatState,
+      gitSnapshot: {
+        summary: DIFF_SUMMARY,
+        selectedCommit: 'abc1234',
+        refreshGeneration: 4
+      }
+    }
+    const refreshed = chatReducer(before, { type: 'REFRESH_GIT_SNAPSHOT' })
+
+    expect(refreshed.gitSnapshot).toEqual({
+      summary: DIFF_SUMMARY,
+      selectedCommit: 'abc1234',
+      refreshGeneration: 5
+    })
+  })
+
+  it('refresh 신호 뒤 새 요청 시작 전 도착한 이전 응답도 무시한다', () => {
+    const request = { key: JSON.stringify(['/repo', 'session-a', null]), generation: 1 }
+    const started = chatReducer(initialChatState, {
+      type: 'BEGIN_GIT_SNAPSHOT_QUERY',
+      request
+    })
+    const refreshed = chatReducer(started, { type: 'REFRESH_GIT_SNAPSHOT' })
+    const late = chatReducer(refreshed, {
+      type: 'RECEIVE_GIT_SNAPSHOT_SUMMARY',
+      request,
+      summary: DIFF_SUMMARY
+    })
+
+    expect(late.gitSnapshot.summary).toBeNull()
+    expect(late.gitSnapshotRequest?.generation).toBe(2)
+  })
+
+  it('같은 key의 늦은 요청 A가 더 최신 요청 B의 요약을 덮지 못한다', () => {
+    const key = JSON.stringify(['/repo', 'session-a', null])
+    const newerSummary = { ...DIFF_SUMMARY, files: [] }
+    const request = (generation: number): { key: string; generation: number } => ({
+      key,
+      generation
+    })
+    const startedA = chatReducer(initialChatState, {
+      type: 'BEGIN_GIT_SNAPSHOT_QUERY',
+      request: request(1)
+    })
+    const startedB = chatReducer(startedA, {
+      type: 'BEGIN_GIT_SNAPSHOT_QUERY',
+      request: request(2)
+    })
+    const resolvedB = chatReducer(startedB, {
+      type: 'RECEIVE_GIT_SNAPSHOT_SUMMARY',
+      request: request(2),
+      summary: newerSummary
+    })
+    const lateA = chatReducer(resolvedB, {
+      type: 'RECEIVE_GIT_SNAPSHOT_SUMMARY',
+      request: request(1),
+      summary: DIFF_SUMMARY
+    })
+
+    expect(lateA.gitSnapshot.summary).toBe(newerSummary)
   })
 })

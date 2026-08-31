@@ -9,10 +9,11 @@
 // props-only View 만 직접 렌더한다 — store 연결 래퍼는 SSR 스냅샷을 받아 시드가 반영되지
 // 않는다(0204 선례).
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { DiffCommitList, DiffFileHeaders, DiffFileTree, DiffTileContent } from './DiffTileContent'
+import { resetDiffFileCache } from './diffFileCache'
 import { DiffBody } from '../transcript/tool-bodies/DiffBody'
 import type { ToolCall } from '../../reducer/chatReducer'
 import { DiffTileHeaderView } from './DiffTileHeader'
@@ -57,7 +58,20 @@ const renderCommits = (selected: string | null): string =>
 
 const renderHeader = (filesVisible: boolean, branch: string | null = 'main'): string =>
   renderToStaticMarkup(
-    createElement(DiffTileHeaderView, { branch, filesVisible, onToggleFiles: () => undefined })
+    createElement(
+      DiffTileHeaderView as React.ComponentType<{
+        branch: string | null
+        filesVisible: boolean
+        onToggleFiles: () => void
+        onRefresh: () => void
+      }>,
+      {
+        branch,
+        filesVisible,
+        onToggleFiles: () => undefined,
+        onRefresh: () => undefined
+      }
+    )
   )
 
 describe('diff 타일 — 3영역 배치 (AT-11)', () => {
@@ -142,6 +156,17 @@ describe('diff 타일 — 커밋 선택 (AT-15)', () => {
       html.indexOf(FIXTURE_COMMITS[0].sha.slice(0, 7))
     )
   })
+
+  it('커밋 선택은 로컬 펼침·파일 본문 캐시를 함께 비운다', () => {
+    const setExpanded = vi.fn()
+    const setContents = vi.fn()
+
+    resetDiffFileCache(setExpanded, setContents)
+
+    expect(setExpanded).toHaveBeenCalledWith([])
+    expect(setContents).toHaveBeenCalledTimes(1)
+    expect(setContents.mock.calls[0][0]).toEqual(new Map())
+  })
 })
 
 describe('diff 타일 헤더 — 그리지 않는 자리 (AT-13)', () => {
@@ -152,10 +177,16 @@ describe('diff 타일 헤더 — 그리지 않는 자리 (AT-13)', () => {
     expect(html).not.toContain('tiles-drag-handle')
   })
 
-  it('양성 짝 — 파일 토글 버튼 하나와 현재 브랜치가 있다', () => {
+  it('양성 짝 — 파일 토글·새로고침 버튼과 현재 브랜치가 있다', () => {
     const html = renderHeader(true, 'claude/0206')
-    expect(count(html, /<button/g)).toBe(1)
+    expect(count(html, /<button/g)).toBe(2)
     expect(html).toContain('claude/0206')
+  })
+
+  it('명시 새로고침 버튼은 기존 i18n 방식의 접근 가능한 이름과 title을 갖는다', () => {
+    const html = renderHeader(true)
+    expect(html).toContain('aria-label="변경사항 새로고침"')
+    expect(html).toContain('title="변경사항 새로고침"')
   })
 
   it('토글은 눌림 상태를 표현한다 (AT-14 의 렌더 절)', () => {
@@ -226,7 +257,7 @@ describe('diff 타일 — 레지스트리 배선 (EP-02③④)', () => {
     expect(Header).toBeDefined()
     const html = renderToStaticMarkup(createElement(Header!))
     expect(html).toContain('파일 목록 숨기기')
-    expect(count(html, /<button/g)).toBe(1)
+    expect(count(html, /<button/g)).toBe(2)
   })
 
   it('등록된 본문이 3영역을 그린다', () => {

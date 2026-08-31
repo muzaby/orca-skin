@@ -10,6 +10,7 @@ import type {
   SubagentTaskMeta,
   Backend,
   EffortLevel,
+  GitDiffSummary,
   WorktreeDisplay,
   WorktreePrepareStep
 } from '../../../../../shared/ipc'
@@ -62,6 +63,17 @@ export interface PlanComment {
   end: number
   body: string
   createdAt: number
+}
+
+export interface GitSnapshotState {
+  summary: GitDiffSummary | null
+  selectedCommit: string | null
+  refreshGeneration: number
+}
+
+export interface GitSnapshotRequest {
+  key: string
+  generation: number
 }
 
 // 메시지 = 순서 보존 parts 목록(provider-runtime.md §7). text 는 lib/parts.ts 셀렉터로 합치고,
@@ -187,6 +199,10 @@ export interface ChatState {
   // 컴포저 git 행과 diff 타일 헤더 둘이 읽으므로 세션 상태가 소유한다(0206 D-020).
   // null = 아직 조회 전. `useGitRowStatus` 만 채운다.
   gitStatus: BranchSnapshot | null
+  // diff 요약·선택 범위·명시 refresh 신호는 타일이 아니라 세션 수명에 속한다(D-028~D-031).
+  // 파일 본문/펼침 캐시는 `DiffTileContent` 로컬 상태로 남는다.
+  gitSnapshot: GitSnapshotState
+  gitSnapshotRequest: GitSnapshotRequest | null
   // 우측 작업 타일에서 상세로 표시할 항목 키(`agent:<id>` | `bg:<toolUseId>`, taskBoard 가
   // 소유하는 네임스페이스). null 이면 목록 view.
   selectedTaskKey: string | null
@@ -269,6 +285,8 @@ export const initialChatState: ChatState = {
   rightPanelRowSplits: [],
   diffFilesVisible: true,
   gitStatus: null,
+  gitSnapshot: { summary: null, selectedCommit: null, refreshGeneration: 0 },
+  gitSnapshotRequest: null,
   selectedTaskKey: null,
   selectedSubagentTaskId: null,
   stoppingTaskIds: [],
@@ -374,6 +392,14 @@ export type ChatAction =
   | { type: 'REMOVE_RIGHT_PANEL_TILE'; id: RightPanelTileId }
   | { type: 'TOGGLE_DIFF_FILES' }
   | { type: 'SET_GIT_STATUS'; snapshot: BranchSnapshot }
+  | { type: 'SELECT_GIT_SNAPSHOT_COMMIT'; commit: string | null }
+  | { type: 'REFRESH_GIT_SNAPSHOT' }
+  | { type: 'BEGIN_GIT_SNAPSHOT_QUERY'; request: GitSnapshotRequest }
+  | {
+      type: 'RECEIVE_GIT_SNAPSHOT_SUMMARY'
+      request: GitSnapshotRequest
+      summary: GitDiffSummary
+    }
   | { type: 'SELECT_TASK'; key: string | null }
   | { type: 'OPEN_TASK'; key: string }
   | { type: 'SELECT_SUBAGENT_TASK'; toolRunId: string | null }
@@ -741,7 +767,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         cwd: action.cwd,
         extraDirs: [],
         extraDirRejection: null,
-        worktreeBaseRef: null
+        worktreeBaseRef: null,
+        gitSnapshot: { summary: null, selectedCommit: null, refreshGeneration: 0 },
+        gitSnapshotRequest: null
       }
 
     case 'SET_WORKTREE_ISOLATION':
@@ -994,6 +1022,54 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     case 'SET_GIT_STATUS':
       return { ...state, gitStatus: action.snapshot }
+
+    case 'SELECT_GIT_SNAPSHOT_COMMIT':
+      return {
+        ...state,
+        gitSnapshotRequest: null,
+        gitSnapshot: {
+          ...state.gitSnapshot,
+          summary: null,
+          selectedCommit: action.commit
+        }
+      }
+
+    case 'REFRESH_GIT_SNAPSHOT':
+      return {
+        ...state,
+        gitSnapshotRequest: state.gitSnapshotRequest
+          ? {
+              ...state.gitSnapshotRequest,
+              generation: state.gitSnapshotRequest.generation + 1
+            }
+          : null,
+        gitSnapshot: {
+          ...state.gitSnapshot,
+          refreshGeneration: state.gitSnapshot.refreshGeneration + 1
+        }
+      }
+
+    case 'BEGIN_GIT_SNAPSHOT_QUERY':
+      return {
+        ...state,
+        gitSnapshot:
+          state.gitSnapshotRequest?.key === action.request.key
+            ? state.gitSnapshot
+            : { ...state.gitSnapshot, summary: null },
+        gitSnapshotRequest: action.request
+      }
+
+    case 'RECEIVE_GIT_SNAPSHOT_SUMMARY':
+      if (
+        state.gitSnapshotRequest?.key !== action.request.key ||
+        state.gitSnapshotRequest.generation !== action.request.generation
+      ) {
+        return state
+      }
+      return {
+        ...state,
+        gitSnapshot: { ...state.gitSnapshot, summary: action.summary }
+      }
 
     case 'SELECT_TASK':
       // 목록/상세 어느 쪽이든 타일을 실제로 보고 있다 — 미확인 완료 표시를 해제한다.

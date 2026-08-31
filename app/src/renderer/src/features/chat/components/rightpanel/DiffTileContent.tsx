@@ -1,14 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type {
   GitDiffCommit,
   GitDiffFileContent,
-  GitDiffFileEntry,
-  GitDiffSummary
+  GitDiffFileEntry
 } from '../../../../../../shared/ipc'
 import { gitApi } from '../../../../shared/api/ipc'
 import { useI18n } from '../../../../shared/i18n'
-import { useChatSession, sessionBusy } from '../../store/chatStore'
-import { shouldRefetchGitStatus } from '../composer/gitRowState'
+import { chatActions, useChatSession } from '../../store/chatStore'
 import { DiffTable } from '../DiffTable'
 import {
   buildDiffTreeRows,
@@ -16,6 +14,7 @@ import {
   splitFilePath,
   type DiffTreeRow
 } from './diffTileData'
+import { resetDiffFileCache } from './diffFileCache'
 import { visibleTreeRows } from './diffTileTree'
 
 // diff 타일 본문 — 좌측(파일트리 + 커밋 목록) · 우측(파일별 항목) 3영역(0206 D-010).
@@ -213,68 +212,16 @@ export function DiffFileHeaders({
   )
 }
 
-// 조회 수명주기 — 계기 **셋**이다(0211 D-017): 타일이 열릴 때(마운트) · cwd 변경 · 턴 종료 전이.
-// 뒤 둘은 git 행이 이미 쓰는 계기다(0206 D-004). 폴링은 만들지 않는다.
-//
-// 늦게 도착한 응답은 요청 세대(`seq`)로 버린다 — 사용자가 그 사이 커밋을 바꾸거나 cwd 를
-// 옮겼으면 옛 저장소의 diff 가 화면을 되돌린다.
-function useDiffSummary(
-  cwd: string | null,
-  sessionId: string | null,
-  commit: string | null
-): GitDiffSummary | null {
-  // 도착한 요약을 **어느 조회의 결과인지와 함께** 들고 있는다(0201 `statusForCwd` 선례).
-  // 조회 키가 바뀌면 렌더가 그것을 `loading` 으로 읽으므로, 효과 안에서 상태를 비울 필요가
-  // 없다 — 그 비우기가 곧 cascading render 이고, 늦게 도착한 옛 응답을 버리는 일도 같은
-  // 키 비교 하나로 끝난다.
-  const [received, setReceived] = useState<{ key: string; summary: GitDiffSummary } | null>(null)
-  const busy = useChatSession(sessionBusy)
-  const prevBusy = useRef(busy)
-
-  // 세 값을 JSON 배열로 접어 키를 만든다 — 구분자를 고르면 그 문자가 든 경로가 키를 갈라놓는다.
-  const key = JSON.stringify([cwd, sessionId, commit])
-
-  const fetchSummary = useCallback(() => {
-    if (!cwd) return
-    void gitApi
-      .diffSummary({
-        cwd,
-        ...(sessionId ? { sessionId } : {}),
-        ...(commit ? { commit } : {})
-      })
-      .then((summary) => setReceived({ key, summary }))
-      .catch(() => {
-        /* 조회 실패는 값으로 접힌다 — 다음 계기가 자연스러운 재시도다. */
-      })
-  }, [cwd, sessionId, commit, key])
-
-  // 마운트(타일 열림) + cwd/세션/커밋 변경.
-  useEffect(() => {
-    fetchSummary()
-  }, [fetchSummary])
-
-  // 턴 종료 전이 — 에이전트가 방금 만든 변경이 반영된다.
-  useEffect(() => {
-    const refetch = shouldRefetchGitStatus(prevBusy.current, busy)
-    prevBusy.current = busy
-    if (refetch) fetchSummary()
-  }, [busy, fetchSummary])
-
-  // 키가 다르면 옛 조회의 결과다 — 화면을 되돌리지 않는다.
-  return received?.key === key ? received.summary : null
-}
-
 export function DiffTileContent(): React.JSX.Element {
   const { tr } = useI18n()
   const filesVisible = useChatSession((s) => s.diffFilesVisible)
   const cwd = useChatSession((s) => s.cwd)
   const sessionId = useChatSession((s) => s.sessionId)
+  const summary = useChatSession((s) => s.gitSnapshot.summary)
+  const selectedCommit = useChatSession((s) => s.gitSnapshot.selectedCommit)
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
   const [expanded, setExpanded] = useState<readonly string[]>([])
   const [contents, setContents] = useState<ReadonlyMap<string, GitDiffFileContent>>(() => new Map())
-  const [selectedCommit, setSelectedCommit] = useState<string | null>(null)
-
-  const summary = useDiffSummary(cwd, sessionId, selectedCommit)
   const state = diffSummaryState(summary)
   const files = useMemo(() => summary?.files ?? [], [summary])
   const rows = useMemo(() => buildDiffTreeRows(files), [files])
@@ -290,9 +237,8 @@ export function DiffTileContent(): React.JSX.Element {
 
   // 커밋을 바꾸면 펼침·본문을 버린다 — 다른 범위의 본문을 그대로 두면 파일 목록과 어긋난다.
   const selectCommit = useCallback((sha: string | null) => {
-    setSelectedCommit(sha)
-    setExpanded([])
-    setContents(new Map())
+    chatActions.selectGitSnapshotCommit(sha)
+    resetDiffFileCache(setExpanded, setContents)
   }, [])
 
   const toggleFile = useCallback(

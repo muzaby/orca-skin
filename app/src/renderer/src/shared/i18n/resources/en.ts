@@ -777,6 +777,7 @@ export const en: typeof ko = {
       diffTruncated: 'Too many changed files — showing {{count}}.',
       diffFilesHide: 'Hide file list',
       diffFilesShow: 'Show file list',
+      diffRefresh: 'Refresh changes',
       closeTile: 'Close {{label}}',
       panelResizeAria: 'Resize right panel',
       rowResizeAria: 'Resize panel row',

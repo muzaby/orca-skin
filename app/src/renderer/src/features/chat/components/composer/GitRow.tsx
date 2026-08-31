@@ -8,6 +8,7 @@ import { columnsContain } from '../../lib/rightPanelLayout'
 import { statusForCwd } from './branchChipState'
 import { COMPOSER_PANEL_ICON_SIZE, composerPanelSurface } from './composerPanel'
 import { gitRowView, shouldRefetchGitStatus, type GitRowView } from './gitRowState'
+import { useGitSnapshot } from './useGitSnapshot'
 
 // 컴포저 입력 **위**의 git 행 — `[저장소] [브랜치] ─ [+N −M]`(0206 D-005).
 //
@@ -135,6 +136,8 @@ interface GitRowProps {
 export function GitRow({ cwd, sessionStarted }: GitRowProps): React.JSX.Element | null {
   // 랜딩에서는 조회하지 않는다 — cwd 를 null 로 넘겨 두 effect 를 함께 끈다.
   useGitRowStatus(sessionStarted ? cwd : null)
+  const sessionId = useChatSession((s) => s.sessionId)
+  useGitSnapshot(sessionStarted ? cwd : null, sessionStarted ? sessionId : null)
   const snapshot = useChatSession((s) => s.gitStatus)
   const tiles = useChatSession((s) => s.rightPanelTiles)
   const worktree = useChatSession((s) => s.worktree)

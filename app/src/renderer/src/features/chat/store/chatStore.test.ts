@@ -145,6 +145,38 @@ describe('chatStore — 델타/커밋 라우팅', () => {
 })
 
 describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
+  it('git snapshot 선택·refresh 액션은 활성 세션 엔트리만 바꾼다', () => {
+    useChatStore.setState((st) => ({
+      sessions: {
+        ...st.sessions,
+        bg: {
+          session: { ...initialChatState, sessionId: 'bg' },
+          live: { text: '', reasoning: '' },
+          subagentMeta: {}
+        }
+      }
+    }))
+    const actions = chatActions as typeof chatActions & {
+      selectGitSnapshotCommit?: (commit: string | null) => void
+      refreshGitSnapshot?: () => void
+    }
+
+    expect(actions.selectGitSnapshotCommit).toBeTypeOf('function')
+    expect(actions.refreshGitSnapshot).toBeTypeOf('function')
+    actions.selectGitSnapshotCommit?.('abc1234')
+    actions.refreshGitSnapshot?.()
+
+    expect(entry('s').session.gitSnapshot).toMatchObject({
+      selectedCommit: 'abc1234',
+      refreshGeneration: 1
+    })
+    expect(entry('bg').session.gitSnapshot).toEqual({
+      summary: null,
+      selectedCommit: null,
+      refreshGeneration: 0
+    })
+  })
+
   it('비활성 세션의 이벤트는 그 엔트리에 백그라운드 누적되고 활성 엔트리는 불변', () => {
     useChatStore.setState((st) => ({
       sessions: {

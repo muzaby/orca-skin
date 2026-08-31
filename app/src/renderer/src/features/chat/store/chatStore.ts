@@ -5,6 +5,7 @@ import {
   chatReducer,
   initialChatState,
   type ChatAction,
+  type GitSnapshotRequest,
   type ChatState,
   type PlanComment
 } from '../reducer/chatReducer'
@@ -23,6 +24,7 @@ import type {
   AttachmentView,
   ComposerAttachment,
   EffortLevel,
+  GitDiffSummary,
   NormalizedEvent,
   SendChatMessage
 } from '../../../../../shared/ipc'
@@ -1261,6 +1263,13 @@ export const chatActions = {
   toggleDiffFiles: (): void => dispatchActive({ type: 'TOGGLE_DIFF_FILES' }),
   setGitStatus: (snapshot: BranchSnapshot): void =>
     dispatchActive({ type: 'SET_GIT_STATUS', snapshot }),
+  selectGitSnapshotCommit: (commit: string | null): void =>
+    dispatchActive({ type: 'SELECT_GIT_SNAPSHOT_COMMIT', commit }),
+  refreshGitSnapshot: (): void => dispatchActive({ type: 'REFRESH_GIT_SNAPSHOT' }),
+  beginGitSnapshotQuery: (request: GitSnapshotRequest): void =>
+    dispatchActive({ type: 'BEGIN_GIT_SNAPSHOT_QUERY', request }),
+  receiveGitSnapshotSummary: (request: GitSnapshotRequest, summary: GitDiffSummary): void =>
+    dispatchActive({ type: 'RECEIVE_GIT_SNAPSHOT_SUMMARY', request, summary }),
   selectTask: (key: string | null): void => dispatchActive({ type: 'SELECT_TASK', key }),
   openTask: (key: string): void => dispatchActive({ type: 'OPEN_TASK', key }),
   selectSubagentTask: (toolRunId: string | null): void =>

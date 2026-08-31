@@ -17,15 +17,18 @@ interface DiffTileHeaderViewProps {
   branch: string | null
   filesVisible: boolean
   onToggleFiles: () => void
+  onRefresh: () => void
 }
 
 export function DiffTileHeaderView({
   branch,
   filesVisible,
-  onToggleFiles
+  onToggleFiles,
+  onRefresh
 }: DiffTileHeaderViewProps): React.JSX.Element {
   const { tr } = useI18n()
   const label = tr(filesVisible ? 'chat.rightpanel.diffFilesHide' : 'chat.rightpanel.diffFilesShow')
+  const refreshLabel = tr('chat.rightpanel.diffRefresh')
   return (
     <span className="flex min-w-0 items-center gap-g3">
       <Button
@@ -37,6 +40,14 @@ export function DiffTileHeaderView({
         title={label}
         aria-label={label}
         aria-pressed={filesVisible}
+      />
+      <Button
+        iconOnly
+        size="small"
+        leadingIcon="refresh"
+        onClick={onRefresh}
+        title={refreshLabel}
+        aria-label={refreshLabel}
       />
       <span className="min-w-0 truncate font-serif text-[13px] font-semibold tracking-tight text-t9">
         {branch ?? tr('chat.rightpanel.tiles.diff')}
@@ -59,6 +70,7 @@ export function DiffTileHeader(): React.JSX.Element {
       branch={branch}
       filesVisible={filesVisible}
       onToggleFiles={chatActions.toggleDiffFiles}
+      onRefresh={chatActions.refreshGitSnapshot}
     />
   )
 }

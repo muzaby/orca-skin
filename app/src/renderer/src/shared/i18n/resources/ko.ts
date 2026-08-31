@@ -783,6 +783,7 @@ export const ko = {
       diffTruncated: '변경 파일이 많아 {{count}}개만 표시합니다.',
       diffFilesHide: '파일 목록 숨기기',
       diffFilesShow: '파일 목록 보기',
+      diffRefresh: '변경사항 새로고침',
       closeTile: '{{label}} 닫기',
       panelResizeAria: '우측 패널 크기 조절',
       rowResizeAria: '패널 행 크기 조절',
