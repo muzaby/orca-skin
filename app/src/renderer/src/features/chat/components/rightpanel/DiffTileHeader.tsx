@@ -63,7 +63,14 @@ export function DiffTileHeader(): React.JSX.Element {
   // 여기서는 그 결과에서 브랜치만 꺼낸다. 판정도 같은 `gitRowView` 를 거친다(§10 EP-05).
   const snapshot = useChatSession((s) => s.gitStatus)
   const worktree = useChatSession((s) => s.worktree)
-  const view = gitRowView(true, cwd, snapshot ? statusForCwd(cwd, snapshot) : null, worktree)
+  const totals = useChatSession((s) => s.gitSnapshot.summary?.totals ?? null)
+  const view = gitRowView(
+    true,
+    cwd,
+    snapshot ? statusForCwd(cwd, snapshot) : null,
+    worktree,
+    totals
+  )
   const branch = view.visible ? (view.detached ? null : view.branch) : null
   return (
     <DiffTileHeaderView

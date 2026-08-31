@@ -65,16 +65,41 @@ describe('diff 요약 — 범위와 목록 (VP-09)', () => {
     expect(summary.base).toEqual({ kind: 'head' })
   })
 
-  it('추적 수정 1 + 미추적 1 = 2건이고 미추적은 전량 추가다 (D-011)', async () => {
+  it('추적 수정 1 + 미추적 1 = 2건이고 미추적은 수치 0 이다 (D-026)', async () => {
     const summary = await gitDiffSummary({ cwd: repo, baseOid })
     const paths = summary.files.map((f) => f.path).sort()
     expect(paths).toEqual(['edited.ts', 'fresh.ts'])
     const fresh = summary.files.find((f) => f.path === 'fresh.ts')!
     expect(fresh.status).toBe('added')
-    expect(fresh.added).toBe(2)
-    expect(fresh.removed).toBe(0)
+    // 목록에는 남지만 수치에는 더하지 않는다 — 2줄짜리 파일인데 0 이다.
+    expect([fresh.added, fresh.removed]).toEqual([0, 0])
+    // 합계는 추적 파일 하나의 실측과 정확히 같다 — 미추적 2줄이 섞이지 않는다.
+    const edited = summary.files.find((f) => f.path === 'edited.ts')!
+    expect(summary.totals).toEqual({ added: edited.added, removed: edited.removed })
+    expect(summary.totals.added).toBeGreaterThan(0)
     // 바뀌지 않은 파일은 목록에 없다 — 음성 짝.
     expect(paths).not.toContain('kept.ts')
+  })
+
+  // AT-18 증상 반증 — 사용자가 본 `+0−0` 이 여기서 재현되면 안 된다.
+  it('base 위에 커밋하고 트리가 깨끗해도 합계가 0 이 아니다 (AT-18)', async () => {
+    const committed = await makeRepo()
+    await writeFile(join(committed, 'a.ts'), ['one', ''].join('\n'))
+    await git(committed, ['add', '.'])
+    await git(committed, ['commit', '-m', 'base'])
+    const base = await head(committed)
+    // 에이전트가 한 일 = 커밋. 작업 트리는 깨끗하다.
+    await writeFile(join(committed, 'a.ts'), ['one', 'two', 'three', ''].join('\n'))
+    await git(committed, ['add', '.'])
+    await git(committed, ['commit', '-m', 'work'])
+
+    // HEAD 대비(비격리)는 0 이다 — 그것이 사용자가 본 `+0−0` 의 정체다.
+    const headScope = await gitDiffSummary({ cwd: committed, baseOid: null })
+    expect(headScope.totals).toEqual({ added: 0, removed: 0 })
+    // base 대비(격리)는 그 커밋을 센다.
+    const baseScope = await gitDiffSummary({ cwd: committed, baseOid: base })
+    expect(baseScope.totals.added).toBeGreaterThan(0)
+    expect(baseScope.files.map((f) => f.path)).toEqual(['a.ts'])
   })
 
   it('저장소가 아니면 빈 요약이다 — 타일이 사라지지 않는다', async () => {
@@ -83,6 +108,8 @@ describe('diff 요약 — 범위와 목록 (VP-09)', () => {
     const summary = await gitDiffSummary({ cwd: outside, baseOid: null })
     expect(summary.isRepo).toBe(false)
     expect(summary.files).toEqual([])
+    // 필수 필드다 — optional 로 두면 소비자가 조용히 옛 dirty 로 폴백한다.
+    expect(summary.totals).toEqual({ added: 0, removed: 0 })
   })
 })
 

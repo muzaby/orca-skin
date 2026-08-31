@@ -26,6 +26,12 @@ export function gitSnapshotRequestKey(
   return JSON.stringify([cwd, sessionId, commit])
 }
 
+// 상태 조회의 identity — **선택 커밋을 보지 않는다**. 커밋을 고르는 것은 diff 범위 질의이지
+// 브랜치·저장소 루트가 바뀌는 사건이 아니다.
+export function gitStatusTriggerKey(cwd: string | null, refreshGeneration: number): string {
+  return JSON.stringify([cwd, refreshGeneration])
+}
+
 export function gitSnapshotTriggerKey(
   cwd: string | null,
   sessionId: string | null,
@@ -66,12 +72,34 @@ export function createGitSnapshotQueryOwner(): GitSnapshotQueryOwner {
 }
 
 // diff 타일과 독립적인 세션 수명 query owner. 타일 open/remount는 이 hook의 입력이 아니다.
+//
+// **`gitApi.status` 와 `gitApi.diffSummary` 를 함께 소유한다**(0211 ΔV1 D-031, §10 EP-13).
+// 소유자가 둘이면 계기를 줄여도 한쪽만 줄어든다 — 컴포저 행이 자기 effect 로 상태를 부르던
+// 자리가 그것이었다. 두 조회는 identity 가 다르므로(상태는 커밋을 보지 않는다) effect 를
+// 나누되 같은 순수 판정(`gitSnapshotQueryReason`)을 쓴다.
 export function useGitSnapshot(cwd: string | null, sessionId: string | null): void {
   const busy = useChatSession(sessionBusy)
   const selectedCommit = useChatSession((s) => s.gitSnapshot.selectedCommit)
   const refreshGeneration = useChatSession((s) => s.gitSnapshot.refreshGeneration)
   const previousQueryPoint = useRef<GitSnapshotQueryPoint | null>(null)
+  const previousStatusPoint = useRef<GitSnapshotQueryPoint | null>(null)
   const [owner] = useState(createGitSnapshotQueryOwner)
+
+  const runStatusQuery = useCallback(() => {
+    if (!cwd) return undefined
+    let live = true
+    void gitApi
+      .status(cwd)
+      .then((status) => {
+        if (live) chatActions.setGitStatus({ cwd, status })
+      })
+      .catch(() => {
+        if (live) chatActions.setGitStatus({ cwd, status: null })
+      })
+    return () => {
+      live = false
+    }
+  }, [cwd])
 
   const runQuery = useCallback(() => {
     if (!cwd) return undefined
@@ -97,4 +125,13 @@ export function useGitSnapshot(cwd: string | null, sessionId: string | null): vo
     if (reason) return runQuery()
     return undefined
   }, [busy, runQuery, triggerKey])
+
+  const statusKey = gitStatusTriggerKey(cwd, refreshGeneration)
+  useEffect(() => {
+    const next = { identity: statusKey, busy }
+    const reason = gitSnapshotQueryReason(previousStatusPoint.current, next)
+    previousStatusPoint.current = next
+    if (reason) return runStatusQuery()
+    return undefined
+  }, [busy, runStatusQuery, statusKey])
 }

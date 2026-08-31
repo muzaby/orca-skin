@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import type { GitStatus } from '../../../../../../shared/ipc'
+import type { GitDiffTotals, GitStatus } from '../../../../../../shared/ipc'
 import { gitRowView, repoNameFromRoot, shouldRefetchGitStatus } from './gitRowState'
 
 const repo = (over: Partial<GitStatus> = {}): GitStatus => ({
   isRepo: true,
   branch: 'main',
   detached: false,
-  dirty: null,
   root: '/home/u/proj/orca-skin',
   ...over
 })
@@ -52,19 +51,23 @@ describe('저장소 이름은 git 루트에서 읽는다 (AT-09)', () => {
   })
 })
 
-describe('변경량 접기 (AT-06·AT-08)', () => {
-  it('dirty 가 null 이면 0/0 이다 — 커밋 없음과 변경 없음을 구분하지 않는다', () => {
-    const view = gitRowView(true, '/repo', repo({ dirty: null }))
+// 0211 ΔV1 — 변경량의 출처가 `status.dirty` 에서 diff 요약 합계로 옮겼다(D-025).
+describe('변경량은 diff 요약 합계에서 읽는다 (AT-18 · EP-12)', () => {
+  const totals = (added: number, removed: number): GitDiffTotals => ({ added, removed })
+
+  it('요약이 아직 없으면 0/0 이다 — 도착 전과 변경 없음을 구분하지 않는다', () => {
+    const view = gitRowView(true, '/repo', repo(), null, null)
     expect(view.visible && [view.added, view.removed]).toEqual([0, 0])
   })
 
-  it('양성 짝 — dirty 가 있으면 그 수치를 그대로 읽는다', () => {
-    const view = gitRowView(
-      true,
-      '/repo',
-      repo({ dirty: { files: 2, insertions: 7, deletions: 2 } })
-    )
+  it('양성 짝 — 요약 합계를 그대로 읽는다', () => {
+    const view = gitRowView(true, '/repo', repo(), null, totals(7, 2))
     expect(view.visible && [view.added, view.removed]).toEqual([7, 2])
+  })
+
+  it('브랜치·저장소 이름은 여전히 status 에서 온다 — 두 출처가 각자 자리를 지킨다', () => {
+    const view = gitRowView(true, '/repo', repo({ branch: 'feat/x' }), null, totals(1, 0))
+    expect(view.visible && [view.repo, view.branch]).toEqual(['orca-skin', 'feat/x'])
   })
 
   it('detached HEAD 는 브랜치 null 과 함께 detached=true 로 온다', () => {

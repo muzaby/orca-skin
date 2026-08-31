@@ -8,6 +8,7 @@ const DIFF_SUMMARY: GitDiffSummary = {
   isRepo: true,
   base: { kind: 'head' },
   files: [{ path: 'src/a.ts', status: 'modified', added: 3, removed: 1, binary: false }],
+  totals: { added: 0, removed: 0 },
   filesTruncated: false,
   commits: [],
   commitsTruncated: false

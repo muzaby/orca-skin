@@ -33,7 +33,6 @@ const NOT_REPO: GitStatus = {
   isRepo: false,
   branch: null,
   detached: false,
-  dirty: null,
   root: null
 }
 const NO_BRANCHES: GitBranchList = { current: null, branches: [] }

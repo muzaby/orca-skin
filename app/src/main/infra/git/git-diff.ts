@@ -12,7 +12,8 @@ import type {
   GitDiffBase,
   GitDiffFileContent,
   GitDiffFileEntry,
-  GitDiffSummary
+  GitDiffSummary,
+  GitDiffTotals
 } from '../../../shared/ipc'
 import { runGit } from './runner'
 import {
@@ -35,10 +36,13 @@ function run(cwd: string, args: string[]): ReturnType<typeof runGit> {
   return runGit(cwd, args, { readOnly: true, timeoutMs: TIMEOUT_MS, maxBuffer: MAX_BUFFER })
 }
 
+const ZERO_TOTALS: GitDiffTotals = { added: 0, removed: 0 }
+
 export const EMPTY_DIFF_SUMMARY: GitDiffSummary = {
   isRepo: false,
   base: { kind: 'none' },
   files: [],
+  totals: ZERO_TOTALS,
   filesTruncated: false,
   commits: [],
   commitsTruncated: false
@@ -84,25 +88,6 @@ async function repoRoot(cwd: string): Promise<string | null> {
   return result.ok && path.length > 0 ? path : null
 }
 
-// 미추적 파일의 줄 수. `wc -l` 을 부르지 않고 직접 읽는다 — 상한을 넘는 파일은 세지 않고
-// binary 로 접는다(내용을 다 읽어 줄을 세는 비용이 목록 하나 때문에 생기지 않게).
-async function untrackedStat(
-  root: string,
-  path: string
-): Promise<{ path: string; added: number; binary: boolean }> {
-  const abs = resolve(root, path)
-  const info = await stat(abs).catch(() => null)
-  if (!info || !info.isFile() || info.size > MAX_DIFF_FILE_BYTES) {
-    return { path, added: 0, binary: true }
-  }
-  const buf = await readFile(abs).catch(() => null)
-  if (!buf) return { path, added: 0, binary: true }
-  if (buf.includes(0)) return { path, added: 0, binary: true }
-  const text = buf.toString('utf8')
-  const added = text.length === 0 ? 0 : text.split('\n').length - (text.endsWith('\n') ? 1 : 0)
-  return { path, added, binary: false }
-}
-
 export async function gitDiffSummary(input: {
   cwd: string
   commit?: string
@@ -112,8 +97,16 @@ export async function gitDiffSummary(input: {
   const range = await resolveDiffRange(input)
   const revArgs = diffRevArgs(range)
 
-  const numstat = await run(input.cwd, ['diff', '--numstat', '-z', ...revArgs])
-  const nameStatus = await run(input.cwd, ['diff', '--name-status', '-z', ...revArgs])
+  // 세 조회는 서로의 결과에 의존하지 않는다 — 전부 read-only 이고 `GIT_OPTIONAL_LOCKS=0`
+  // 이라 index.lock 을 잡지 않으므로 함께 낸다(폭 3, 늘리지 않는다).
+  const [numstat, nameStatus, others] = await Promise.all([
+    run(input.cwd, ['diff', '--numstat', '-z', ...revArgs]),
+    run(input.cwd, ['diff', '--name-status', '-z', ...revArgs]),
+    // 커밋 하나를 보는 중이면 작업 트리는 범위 밖이라 미추적을 섞지 않는다.
+    range.kind === 'working'
+      ? run(input.cwd, ['ls-files', '--others', '--exclude-standard', '-z'])
+      : null
+  ])
   const tracked: GitDiffFileEntry[] = numstat.ok
     ? applyNameStatus(
         parseNumstatZ(numstat.stdout),
@@ -121,16 +114,9 @@ export async function gitDiffSummary(input: {
       )
     : []
 
-  // 커밋 하나를 보는 중이면 작업 트리는 범위 밖이라 미추적을 섞지 않는다.
-  let untracked: { path: string; added: number; binary: boolean }[] = []
-  if (range.kind === 'working') {
-    const root = (await repoRoot(input.cwd)) ?? input.cwd
-    const others = await run(input.cwd, ['ls-files', '--others', '--exclude-standard', '-z'])
-    if (others.ok) {
-      const paths = parseNulPaths(others.stdout)
-      untracked = await Promise.all(paths.map((path) => untrackedStat(root, path)))
-    }
-  }
+  // 경로만 싣는다 — 줄 수를 세지 않으므로 파일을 읽지 않는다(D-026).
+  const untracked: { path: string }[] =
+    others?.ok === true ? parseNulPaths(others.stdout).map((path) => ({ path })) : []
 
   const merged = mergeDiffEntries(tracked, untracked)
 
@@ -156,6 +142,7 @@ export async function gitDiffSummary(input: {
     isRepo: true,
     base: range.kind === 'commit' ? { kind: 'head' } : range.base,
     files: merged.files,
+    totals: merged.totals,
     filesTruncated: merged.truncated,
     commits,
     commitsTruncated

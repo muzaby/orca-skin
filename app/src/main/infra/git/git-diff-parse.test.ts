@@ -102,22 +102,16 @@ describe('커밋 로그 파싱', () => {
 })
 
 describe('미추적 병합과 파일 상한 (VP-15)', () => {
-  it('미추적 파일이 전량 추가로 목록에 들어온다 (D-011)', () => {
-    const { files } = mergeDiffEntries(
-      [entry('src/a.ts', 2, 1)],
-      [{ path: 'src/new.ts', added: 7, binary: false }]
-    )
+  it('미추적 파일이 목록에 들어오고 수치는 0 이다 (D-026)', () => {
+    const { files } = mergeDiffEntries([entry('src/a.ts', 2, 1)], [{ path: 'src/new.ts' }])
     expect(files).toEqual([
       { path: 'src/a.ts', status: 'modified', added: 2, removed: 1, binary: false },
-      { path: 'src/new.ts', status: 'added', added: 7, removed: 0, binary: false }
+      { path: 'src/new.ts', status: 'added', added: 0, removed: 0, binary: false }
     ])
   })
 
   it('추적 목록에 이미 있는 경로는 중복으로 넣지 않는다 — 줄 수를 가진 쪽이 남는다', () => {
-    const { files } = mergeDiffEntries(
-      [entry('src/a.ts', 2, 1)],
-      [{ path: 'src/a.ts', added: 999, binary: false }]
-    )
+    const { files } = mergeDiffEntries([entry('src/a.ts', 2, 1)], [{ path: 'src/a.ts' }])
     expect(files).toHaveLength(1)
     expect(files[0].added).toBe(2)
   })
@@ -141,5 +135,40 @@ describe('NUL 경로 목록', () => {
   it('빈 조각을 버린다 — 마지막 NUL 뒤가 빈 항목이 되지 않는다', () => {
     expect(parseNulPaths('a.ts\x00b.ts\x00')).toEqual(['a.ts', 'b.ts'])
     expect(parseNulPaths('')).toEqual([])
+  })
+})
+
+// 0211 ΔV1 — 합계는 목록과 다른 축이다(D-025·D-026).
+describe('변경량 합계 (VP-27 · EP-11)', () => {
+  const tracked = (path: string, added: number, removed: number): GitDiffFileEntry => ({
+    path,
+    status: 'modified',
+    added,
+    removed,
+    binary: false
+  })
+
+  it('미추적은 목록에 남고 합계에는 0 을 더한다 (D-026)', () => {
+    const merged = mergeDiffEntries([tracked('a.ts', 3, 1)], [{ path: 'new.ts' }])
+    expect(merged.files.map((f) => f.path)).toEqual(['a.ts', 'new.ts'])
+    const fresh = merged.files.find((f) => f.path === 'new.ts')!
+    expect([fresh.added, fresh.removed]).toEqual([0, 0])
+    expect(fresh.status).toBe('added')
+    // 합계는 추적분 그대로다 — 미추적 항목이 섞이지 않는다.
+    expect(merged.totals).toEqual({ added: 3, removed: 1 })
+  })
+
+  it('합계는 **절단 전** 전체에서 센다 — 201번째 파일의 줄이 사라지지 않는다 (VP-27)', () => {
+    const many = Array.from({ length: 201 }, (_, i) =>
+      tracked(`f${String(i).padStart(3, '0')}.ts`, 1, 1)
+    )
+    const merged = mergeDiffEntries(many, [])
+    expect(merged.files).toHaveLength(200)
+    expect(merged.truncated).toBe(true)
+    expect(merged.totals).toEqual({ added: 201, removed: 201 })
+  })
+
+  it('빈 입력의 합계는 0/0 이다 — 필드가 비지 않는다', () => {
+    expect(mergeDiffEntries([], []).totals).toEqual({ added: 0, removed: 0 })
   })
 })

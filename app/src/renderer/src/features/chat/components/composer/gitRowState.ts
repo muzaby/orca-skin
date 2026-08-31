@@ -1,4 +1,4 @@
-import type { GitStatus, WorktreeDisplay } from '../../../../../../shared/ipc'
+import type { GitDiffTotals, GitStatus, WorktreeDisplay } from '../../../../../../shared/ipc'
 import { repoDisplayName } from '../../lib/worktreeDisplay'
 
 // 컴포저 git 행의 판정부 — **React 없이 돌아가는 순수 규칙**만 모은다(0201 `branchChipState` 선례).
@@ -34,15 +34,19 @@ export function repoNameFromRoot(root: string | null): string | null {
 // 저장소다. 저장소가 아니면 자리조차 잡지 않는다 — 누를 것이 없는 버튼을 두지 않는다는
 // 0201 D-002 를 같은 이유로 승계한다.
 //
-// `dirty: null` 은 **커밋 없음과 변경 없음 둘 다**이고, 행은 그 축을 갖지 않으므로 0/0 으로
-// 접는다(0206 §10 선택적 필드 의미).
+// `totals: null` 은 **요약 도착 전과 변경 없음 둘 다**이고, 행은 그 축을 갖지 않으므로
+// 0/0 으로 접는다(0206 §10 선택적 필드 의미).
 export function gitRowView(
   sessionStarted: boolean,
   cwd: string | null,
   status: GitStatus | null,
-  // 0211 — 격리 세션의 표시 정본. **저장소 이름만** 이 값을 쓴다: 브랜치와 변경량은
-  // worktree 실측 그대로여야 한다(D-009) — 그것이 이번 세션의 진짜 작업이다.
-  worktree: WorktreeDisplay | null = null
+  // 0211 — 격리 세션의 표시 정본. **저장소 이름만** 이 값을 쓴다: 브랜치는 worktree 실측
+  // 그대로여야 한다(D-009 → D-025 승계) — 그것이 이번 세션의 진짜 작업이다.
+  worktree: WorktreeDisplay | null = null,
+  // 0211 ΔV1 — 변경량은 **diff 요약 합계**다(D-025). `status` 는 더 이상 이 축을 갖지
+  // 않는다: 우측 패널과 다른 명령을 쓰면 두 표면의 수가 갈리고, HEAD 대비는 격리 세션에서
+  // 커밋된 작업을 세지 못해 `+0 −0` 이 된다.
+  totals: GitDiffTotals | null = null
 ): GitRowView {
   if (!sessionStarted || !cwd || !status?.isRepo) return { visible: false }
   return {
@@ -50,8 +54,8 @@ export function gitRowView(
     repo: repoDisplayName(status.root, worktree),
     branch: status.branch,
     detached: status.detached,
-    added: status.dirty?.insertions ?? 0,
-    removed: status.dirty?.deletions ?? 0
+    added: totals?.added ?? 0,
+    removed: totals?.removed ?? 0
   }
 }
 

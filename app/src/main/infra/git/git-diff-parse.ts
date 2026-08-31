@@ -5,7 +5,12 @@
 // `maxBuffer` 를 넘겨 **조회 자체가 실패**한다. 그리고 절단했다는 사실은 값으로 나가야 한다 —
 // 조용히 자르면 사용자가 diff 를 전부 본 것으로 읽는다.
 
-import type { GitDiffCommit, GitDiffFileEntry, GitDiffFileStatus } from '../../../shared/ipc'
+import type {
+  GitDiffCommit,
+  GitDiffFileEntry,
+  GitDiffFileStatus,
+  GitDiffTotals
+} from '../../../shared/ipc'
 
 /** 요약 1회가 실을 수 있는 최대 파일 수. 넘으면 잘라내고 `filesTruncated` 를 세운다. */
 export const MAX_DIFF_FILES = 200
@@ -102,27 +107,31 @@ export function parseNulPaths(out: string): string[] {
 //
 // **경로로 중복을 제거한다**: `git add` 된 새 파일은 numstat 에도 나오고, 그 사이 상태가
 // 바뀌면 ls-files 에도 나올 수 있다. numstat 쪽이 실제 줄 수를 가지므로 그쪽을 남긴다.
+// **미추적 항목은 경로만 받는다**(0211 D-026): 수치가 0 이라 줄을 셀 이유가 없고, 세지
+// 않으므로 요약이 파일 내용을 읽지 않는다. `binary` 는 요약 시점에 판정하지 않는다 —
+// 정본은 본문 조회의 NUL 검사이고 여기 값은 수치 표시에 쓰이지 않는다.
+//
+// **합계는 `slice` 앞에서 센다**: 목록은 200개에서 잘려도 합계는 저장소의 실제 변경량이다.
 export function mergeDiffEntries(
   tracked: readonly GitDiffFileEntry[],
-  untracked: readonly { path: string; added: number; binary: boolean }[]
-): { files: GitDiffFileEntry[]; truncated: boolean } {
+  untracked: readonly { path: string }[]
+): { files: GitDiffFileEntry[]; truncated: boolean; totals: GitDiffTotals } {
   const seen = new Set(tracked.map((entry) => entry.path))
   const merged: GitDiffFileEntry[] = [...tracked]
   for (const item of untracked) {
     if (seen.has(item.path)) continue
     seen.add(item.path)
-    merged.push({
-      path: item.path,
-      status: 'added',
-      added: item.binary ? 0 : item.added,
-      removed: 0,
-      binary: item.binary
-    })
+    merged.push({ path: item.path, status: 'added', added: 0, removed: 0, binary: false })
   }
   merged.sort((a, b) => a.path.localeCompare(b.path))
+  const totals = merged.reduce<GitDiffTotals>(
+    (acc, entry) => ({ added: acc.added + entry.added, removed: acc.removed + entry.removed }),
+    { added: 0, removed: 0 }
+  )
   return {
     files: merged.slice(0, MAX_DIFF_FILES),
-    truncated: merged.length > MAX_DIFF_FILES
+    truncated: merged.length > MAX_DIFF_FILES,
+    totals
   }
 }
 

@@ -1018,8 +1018,9 @@ export interface GitStatus {
   // 현재 브랜치명. detached HEAD 이거나 저장소가 아니면 null.
   branch: string | null
   detached: boolean
-  // 커밋되지 않은 변경 요약. null = 깨끗함.
-  dirty: GitDirtyStat | null
+  // **변경량 축은 여기 없다**(0211 D-027). 컴포저 행의 `+N −M` 은 diff 요약의 `totals` 를
+  // 읽는다 — `diff HEAD --shortstat` 은 격리 세션에서 커밋된 작업을 세지 못한다.
+  // checkout 의 dirty 게이트는 `git-cli.ts` 의 `dirtyStat` 을 자기가 부른다.
   // 저장소 루트의 절대 경로(`rev-parse --show-toplevel`). 저장소가 아니면 null.
   //
   // **cwd 에서 파생하지 않는 이유**: 작업 경로가 하위 폴더면(`~/proj/orca-skin/app`)
@@ -1094,10 +1095,21 @@ export interface GitDiffCommit {
   committedAt: number
 }
 
+// 변경량 합계 — **절단 전** 전체에서 센다(0211 D-025). `files` 는 200개에서 잘리므로
+// 목록의 합이 아니다: 201번째 파일의 줄이 합계에서 조용히 사라지면 안 된다.
+// 미추적 파일은 0 을 더한다(D-026) — 목록에는 남고 수치에만 빠진다.
+export interface GitDiffTotals {
+  added: number
+  removed: number
+}
+
 export interface GitDiffSummary {
   isRepo: boolean
   base: GitDiffBase
   files: GitDiffFileEntry[]
+  // **필수 필드다**. optional 로 두면 소비자가 값이 없을 때 조용히 옛 `GitStatus.dirty`
+  // 축으로 폴백하고, 그 폴백이 D-025 가 없앤 두 벌의 수치를 되살린다.
+  totals: GitDiffTotals
   // 상한(0211 D-016)에 걸려 잘렸는가. 조용히 자르면 사용자가 전부 본 것으로 읽는다.
   filesTruncated: boolean
   // managed row 가 없으면 항상 빈 배열이다 — base 를 모르면 "이 세션의 커밋"을 셀 수 없다.
