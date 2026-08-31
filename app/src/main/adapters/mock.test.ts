@@ -12,7 +12,7 @@ async function collect(events: AsyncIterable<ProviderMessageBatch>): Promise<Nor
 }
 
 describe('MockAdapter', () => {
-  it('새 채팅은 session.updated 를 발급하고 resume 은 재발행하지 않는다', async () => {
+  it('새 채팅은 sessionId 를 발급하고 resume 은 기존 sessionId 를 보존한다', async () => {
     const state: DebugMockState = {
       enabled: true,
       scenarioId: 'text_streaming',
@@ -30,7 +30,7 @@ describe('MockAdapter', () => {
     const resumed = await collect(
       adapter.sendMessage({ sessionId: 'existing', text: 'hi', cwd: '/w', extensions }).eventBatches
     )
-    expect(resumed.find((ev) => ev.type === 'session.updated')).toBeUndefined()
+    expect(resumed.find((ev) => ev.type === 'session.updated')?.sessionId).toBe('existing')
   })
 
   it('매 턴 getState 를 읽어 scenario/context 를 반영한다', async () => {

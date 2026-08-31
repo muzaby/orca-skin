@@ -51,11 +51,7 @@ export class MockAdapter implements SessionAdapter {
     return {
       eventBatches: (async function* () {
         let sequence = 0
-        for await (const event of events) {
-          // resume 는 이미 로드한 세션을 이어가므로 session.updated prelude 를 재발행하지 않는다.
-          if (req.sessionId !== null && event.type === 'session.updated') continue
-          yield { sequence: sequence++, events: [event] }
-        }
+        for await (const event of events) yield { sequence: sequence++, events: [event] }
       })(),
       close: () => internal.abort(),
       setPermissionMode: async () => {},
