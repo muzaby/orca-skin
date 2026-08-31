@@ -446,7 +446,7 @@ describe('handleChatSend — worktree 소실 폴백의 send 층 배선 (AC12 · 
     expect(mocks.sendChatEvent).toHaveBeenCalledWith(harness.sender, {
       type: 'session.updated',
       sessionId: 'session-1',
-      patch: { cwd: SOURCE }
+      patch: { cwd: SOURCE, worktree: null }
     })
     // 폴백은 오류가 아니다 — 같은 턴에서 error 이벤트가 나가면 화면이 두 말을 한다(AC13).
     for (const [, event] of mocks.sendChatEvent.mock.calls as Array<[unknown, { type: string }]>)

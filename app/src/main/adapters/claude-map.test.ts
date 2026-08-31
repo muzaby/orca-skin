@@ -22,6 +22,18 @@ describe('claudeToNormalized', () => {
     expect(c.sessionId).toBe('new1')
   })
 
+  it('resume system/init 은 context 를 갱신하지만 session.updated 를 재발행하지 않는다', () => {
+    const c: MapContext = { sessionId: 'existing', cwd: '/w', isResume: true }
+
+    expect(
+      claudeToNormalized(
+        sdk({ type: 'system', subtype: 'init', session_id: 'existing', model: 'opus' }),
+        c
+      )
+    ).toEqual([])
+    expect(c.sessionId).toBe('existing')
+  })
+
   it('session_id 없는 init 은 무시([])', () => {
     expect(claudeToNormalized(sdk({ type: 'system', subtype: 'init' }), ctx())).toEqual([])
   })

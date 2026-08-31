@@ -303,6 +303,7 @@ export class ClaudeAdapter implements SessionAdapter {
     const ctx: MapContext = {
       sessionId: sessionId ?? '',
       cwd,
+      isResume: sessionId !== null,
       ...(req.handoff === true ? { handoffArrival: true } : {})
     }
 

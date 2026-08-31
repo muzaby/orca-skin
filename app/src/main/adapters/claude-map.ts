@@ -27,6 +27,9 @@ import { errorEvent } from './error-classifier'
 export interface MapContext {
   sessionId: string
   cwd: string
+  // 요청이 기존 session id 로 시작했는지의 불변 lifecycle 표식. init 뒤 sessionId 가 바뀌므로
+  // 그 mutable 값으로 fresh/resume 을 판별하면 fork/handoff child 출생 이벤트가 사라질 수 있다.
+  isResume?: boolean
   // 마지막 assistant 메시지의 usage 스냅샷 — /context 상단 % 근사용. 턴 누적이 아니라 그 턴
   // *마지막* 요청에서 모델이 본 입력 컨텍스트다. 멀티스텝(도구 N회) 턴에서 result.usage 는
   // 단계별 입력이 합산돼 과대 집계되므로, result telemetry 의 컨텍스트 입력 3종을 이 값으로 덮는다.
@@ -173,11 +176,13 @@ function asyncLaunchReceipt(msg: unknown): Record<string, unknown> | undefined {
 }
 
 export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
-  // SDKSystemMessage(subtype:'init') → session.updated (+ ctx.sessionId 갱신)
+  // SDKSystemMessage(subtype:'init') → fresh session.updated (+ ctx.sessionId 갱신).
+  // resume 은 loaded session 의 표시 정본을 이미 가졌으므로 mapper context 만 동기화한다.
   if (msg.type === 'system' && (msg as { subtype?: string }).subtype === 'init') {
     const m = msg as unknown as { session_id?: string; model?: string }
     if (typeof m.session_id !== 'string') return []
     ctx.sessionId = m.session_id
+    if (ctx.isResume === true) return []
     return [
       {
         type: 'session.updated',

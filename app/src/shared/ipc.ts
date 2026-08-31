@@ -448,7 +448,7 @@ export type NormalizedEvent =
       sessionId: string
       // 0211 — `worktree` 는 표시 정본이다. 0210 D-109 가 폴백 통지를 `patch.cwd` 하나로
       // 고정했으므로 새 variant 를 만들지 않고 같은 patch 에 optional 로 얹는다.
-      patch: { model?: string; cwd?: string; worktree?: WorktreeDisplay }
+      patch: { model?: string; cwd?: string; worktree?: WorktreeDisplay | null }
     }
   // 0211 — worktree 격리 **신규 세션**의 준비 진행. 세션 id 발급 전이라 `sessionId` 가 없고
   // renderer 는 `message.queued` 와 같은 규칙으로 `pendingNewChatKey` 에 라우팅한다.

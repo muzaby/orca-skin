@@ -173,7 +173,7 @@ export async function handleChatSend(
           sendChatEvent(event.sender, {
             type: 'session.updated',
             sessionId,
-            patch: { cwd: executionCwd }
+            patch: { cwd: executionCwd, worktree: null }
           }),
         // 0211 — 준비 진행을 화면에 옮긴다. 이벤트에 `sessionId` 가 없다: 발급 전이라
         // renderer 가 `pendingNewChatKey` 로 라우팅한다(`message.queued` 와 같은 규칙).

@@ -462,10 +462,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             sessionId: ev.sessionId,
             backend: 'claude',
             cwd: ev.patch.cwd ?? state.cwd,
-            // 0211 — 표시 정본. **`patch.cwd` 만 온 갱신은 이 값을 지운다**: 0210 D-107 의
-            // worktree 소실 폴백이 그 형태로 오고, 그때 managed row 는 이미 삭제됐으므로
-            // 실행 경로가 곧 원본이다(D-020). 남겨 두면 사라진 worktree 의 이름이 계속 뜬다.
-            worktree: ev.patch.worktree ?? (ev.patch.cwd ? null : state.worktree),
+            // `worktree` 키가 있을 때만 표시 정본을 바꾼다. 생략은 cwd 같은 형제 patch 와
+            // 독립이고, 명시적 null 은 worktree 소실 폴백의 삭제 명령이다.
+            worktree: Object.hasOwn(ev.patch, 'worktree') ? ev.patch.worktree! : state.worktree,
             // 준비가 끝났다 — 여기부터는 기존 진행 표시가 말한다(§10 EP-04 둘째 지점).
             worktreePrepareStep: null,
             pendingProjectId: null,

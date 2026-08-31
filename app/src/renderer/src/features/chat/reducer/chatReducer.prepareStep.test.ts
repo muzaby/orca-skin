@@ -64,7 +64,7 @@ describe('표시 정본의 수명 (VP-04 · VP-19 · D-020)', () => {
     expect(next.worktree).toEqual({ sourceCwd: '/repo/orca', repoRoot: '/repo/orca' })
   })
 
-  it('worktree 소실 폴백(patch.cwd 만)은 표시 정본을 지운다 — 사라진 이름이 남지 않는다', () => {
+  it('cwd 만 든 patch 는 기존 표시 정본 객체를 그대로 보존한다', () => {
     const managed = recv(initialChatState, {
       type: 'session.updated',
       sessionId: 's1',
@@ -74,6 +74,21 @@ describe('표시 정본의 수명 (VP-04 · VP-19 · D-020)', () => {
       type: 'session.updated',
       sessionId: 's1',
       patch: { cwd: '/repo/orca' }
+    })
+    expect(recovered.worktree).toBe(managed.worktree)
+    expect(recovered.cwd).toBe('/repo/orca')
+  })
+
+  it('명시적 worktree:null 은 표시 정본을 지운다', () => {
+    const managed = recv(initialChatState, {
+      type: 'session.updated',
+      sessionId: 's1',
+      patch: { worktree: { sourceCwd: '/repo/orca', repoRoot: '/repo/orca' } }
+    })
+    const recovered = recv(managed, {
+      type: 'session.updated',
+      sessionId: 's1',
+      patch: { cwd: '/repo/orca', worktree: null }
     })
     expect(recovered.worktree).toBeNull()
     expect(recovered.cwd).toBe('/repo/orca')
