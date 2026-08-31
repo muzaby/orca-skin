@@ -23,6 +23,8 @@ export type PrepareWorktreeResult =
       kind: 'managed'
       worktreeId: string
       executionCwd: string
+      // 세션 출생 baseline의 단일 원본. managed_worktrees에 저장한 같은 값을 그대로 싣는다.
+      baseOid: string
       // 0211 — 사람이 읽는 이름의 정본. 실행 경로와 **다른 값**이라 결과에 함께 싣는다:
       // 소비자가 `executionCwd` 에서 원본을 역산하지 않게 한다.
       display: WorktreeDisplay
@@ -174,6 +176,7 @@ export class WorktreeService {
         kind: 'managed',
         worktreeId,
         executionCwd,
+        baseOid,
         display: { sourceCwd, repoRoot }
       }
     } catch {

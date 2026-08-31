@@ -169,6 +169,7 @@ describe('WorktreeService', () => {
 
     expect(result.kind).toBe('managed')
     expect(rows[0].baseOid).toBe(featureOid)
+    expect(result).toMatchObject({ kind: 'managed', baseOid: featureOid })
     if (result.kind === 'managed') {
       const head = await exec('git', ['-C', result.executionCwd, 'rev-parse', 'HEAD'])
       expect(head.stdout.trim()).toBe(featureOid)

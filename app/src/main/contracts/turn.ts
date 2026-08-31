@@ -18,6 +18,8 @@ export interface TurnContext<W = unknown> {
   dbSessionId: string | null
   pendingProjectId: string | null
   isNewSession: boolean
+  // 세션 출생 시 확정된 Git diff 기준. resume/continuation은 재계산하지 않는다.
+  sessionBaseline: string | null
   cwd: string
   // CLI `/add-dir` 대응 — cwd 밖 추가 참조 경로. 어댑터의 `additionalDirectories` + workspace
   // 가드 루트로 함께 흘러 r/w 스코프를 넓힌다. cwd 와 같은 수명(새 세션 출생 시 고정).

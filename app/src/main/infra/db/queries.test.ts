@@ -479,6 +479,29 @@ describe('DbQueries session cwd', () => {
   })
 })
 
+describe('DbQueries — session baseline', () => {
+  it('출생 시 전달된 baseline OID만 저장하고 레거시 NULL은 null로 읽는다', () => {
+    const db = dbWithMigrations()
+    const q = new DbQueries(db)
+
+    q.insertSession({
+      id: 'baseline-session',
+      backend: 'claude',
+      title: null,
+      projectId: null,
+      createdAt: 10,
+      baselineOid: 'a'.repeat(40)
+    })
+    insertSession(db, 'legacy-session')
+
+    expect(q.getSessionBaseline('baseline-session')).toBe('a'.repeat(40))
+    expect(q.getSessionBaseline('legacy-session')).toBeNull()
+
+    q.updateSessionCwd('baseline-session', '/another-cwd', 20)
+    expect(q.getSessionBaseline('baseline-session')).toBe('a'.repeat(40))
+  })
+})
+
 describe('DbQueries message complete', () => {
   it('assistant 메시지를 미완료로 만들고 완료 처리할 수 있다', () => {
     const db = dbWithMigrations()

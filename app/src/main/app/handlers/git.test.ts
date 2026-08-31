@@ -8,20 +8,30 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { handleMock } = vi.hoisted(() => ({ handleMock: vi.fn() }))
+const { handleMock, gitDiffSummaryMock, gitDiffFileMock } = vi.hoisted(() => ({
+  handleMock: vi.fn(),
+  gitDiffSummaryMock: vi.fn(async () => ({ kind: 'clean' })),
+  gitDiffFileMock: vi.fn(async () => ({ kind: 'unavailable', reason: 'error' }))
+}))
 vi.mock('../../infra/ipc/handle', () => ({ handle: handleMock }))
+vi.mock('../../infra/git/git-diff', () => ({
+  EMPTY_DIFF_SUMMARY: { kind: 'clean' },
+  gitDiffSummary: gitDiffSummaryMock,
+  gitDiffFile: gitDiffFileMock
+}))
 
 import { CHANNELS } from '../../../shared/ipc'
 import { registerGitHandlers } from './git'
 
 const IPC_DOCUMENT = fileURLToPath(new URL('../../../../../docs/IPC_CONTRACT.md', import.meta.url))
+const GIT_HANDLER_SOURCE = fileURLToPath(new URL('./git.ts', import.meta.url))
 
 // 등록부에서 채널 → 정책만 뽑는다.
 function registeredPolicies(): Map<string, 'reject' | 'fallback'> {
   handleMock.mockClear()
   // 0211 — base 조회 포트는 **필수 인자**다(배선을 잊으면 모든 세션이 조용히 HEAD 범위로
   // 떨어진다). 이 테스트는 정책만 보므로 row 없음 스텁으로 충분하다.
-  registerGitHandlers({ getManagedWorktreeBySession: () => null })
+  registerGitHandlers({ getSessionBaseline: () => null })
   return new Map(
     handleMock.mock.calls.map((call) => [
       call[0] as string,
@@ -41,7 +51,28 @@ function documentedRows(): Map<string, string> {
 }
 
 describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', () => {
-  beforeEach(() => handleMock.mockClear())
+  beforeEach(() => {
+    handleMock.mockClear()
+    gitDiffSummaryMock.mockClear()
+    gitDiffFileMock.mockClear()
+  })
+
+  it('session baseline lookup의 OID를 diff summary에 전달하고 managed-worktree lookup에 의존하지 않는다', async () => {
+    const getSessionBaseline = vi.fn(() => 'c'.repeat(40))
+    registerGitHandlers({ getSessionBaseline })
+    const summaryHandler = handleMock.mock.calls.find(
+      (call) => call[0] === CHANNELS.gitDiffSummary
+    )?.[3] as (request: { cwd: string; sessionId: string }) => Promise<unknown>
+
+    await summaryHandler({ cwd: '/repo', sessionId: 'session-1' })
+
+    expect(getSessionBaseline).toHaveBeenCalledWith('session-1')
+    expect(gitDiffSummaryMock).toHaveBeenCalledWith({
+      cwd: '/repo',
+      baseOid: 'c'.repeat(40)
+    })
+    expect(readFileSync(GIT_HANDLER_SOURCE, 'utf8')).not.toContain('getManagedWorktreeBySession')
+  })
 
   it('문서 §2.6-b 가 서술하는 채널 집합이 등록부와 같다', () => {
     const registered = [...registeredPolicies().keys()].sort()

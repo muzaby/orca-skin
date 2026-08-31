@@ -62,6 +62,36 @@ describe('HistoryWriter.persistUserMessage — 첨부 영속', () => {
   })
 })
 
+describe('HistoryWriter — session baseline birth persistence', () => {
+  it('session.updated는 turn의 출생 baseline을 insertSession에 한 번만 전달한다', () => {
+    const insertSession = vi.fn()
+    const db = {
+      insertSession,
+      updateSessionPreview: vi.fn(),
+      updateSessionProviderKey: vi.fn()
+    }
+    const persistence = new HistoryWriter(db as unknown as DbQueries)
+    const turn = {
+      dbSessionId: null,
+      initialTitle: null,
+      pendingUserText: null,
+      pendingProjectId: null,
+      providerKey: null,
+      cwd: '/repo',
+      extraDirs: [],
+      sessionBaseline: 'a'.repeat(40),
+      titleAdapter: { id: 'claude' },
+      isNewSession: true
+    } as unknown as TurnContext
+
+    persistence.persist(turn, { type: 'session.updated', sessionId: 'new-session' } as NormalizedEvent)
+
+    expect(insertSession).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'new-session', baselineOid: 'a'.repeat(40) })
+    )
+  })
+})
+
 // finalize 흐름(0107) — content(FTS 캐시) 기록은 스트리밍 중이 아니라 메시지 마감 시 1회.
 function makeFinalizeHarness(): {
   persistence: HistoryWriter

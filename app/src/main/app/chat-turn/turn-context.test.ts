@@ -39,6 +39,7 @@ function base(): Parameters<typeof buildTurnContext<string>>[0] {
     payload: { sessionId: null, cwd: null, attachmentViews: [] },
     effectiveText: '안녕',
     boundProjectId: null,
+    sessionBaseline: null,
     sessionMeta: undefined,
     continuityMeta: undefined,
     continuityLang: 'ko',
@@ -59,6 +60,14 @@ describe('buildTurnContext', () => {
     expect(turn.queueKey).toBe('q-1')
     expect(turn.pendingUserText).toBe('안녕')
     expect(turn.firstUserText).toBe('안녕')
+    expect(turn.sessionBaseline).toBeNull()
+  })
+
+  it('새 세션의 출생 baseline만 context에 보존하고 continuation은 재계산하지 않는다', () => {
+    const turn = buildTurnContext<string>({ ...base(), sessionBaseline: 'a'.repeat(40) })
+
+    expect(turn.sessionBaseline).toBe('a'.repeat(40))
+    expect(makeContinuationTurn(turn).sessionBaseline).toBeNull()
   })
 
   // ── r10 회귀 ─────────────────────────────────────────────────────────────

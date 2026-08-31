@@ -1,7 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
 import type { PrepareWorktreeResult } from '../../features/worktrees/service'
 import { prepareTurnExecution, prepareTurnWorktree } from './prepare-worktree'
+
+const { resolveHeadMock } = vi.hoisted(() => ({ resolveHeadMock: vi.fn() }))
+vi.mock('../../infra/git/repository', () => ({ resolveHead: resolveHeadMock }))
 
 const adapter = { complete: vi.fn() }
 const signal = new AbortController().signal
@@ -13,6 +16,57 @@ describe('prepareTurnWorktree', () => {
     settings: {},
     sourceRevision: 'test-revision'
   }
+
+  beforeEach(() => {
+    resolveHeadMock.mockReset()
+    resolveHeadMock.mockResolvedValue(null)
+  })
+
+  it('새 비격리 세션은 현재 HEAD를 birth baseline으로 한 번 읽고, Git 실패는 null로 접는다', async () => {
+    const worktrees = { prepare: vi.fn(), recoverMissingWorktree: vi.fn() }
+    resolveHeadMock.mockResolvedValueOnce('b'.repeat(40)).mockResolvedValueOnce(null)
+    const common = {
+      enabled: false,
+      sourceCwd: '/repo',
+      firstPrompt: 'work',
+      signal,
+      adapter,
+      providerSettings,
+      env: {},
+      worktrees
+    }
+
+    await expect(prepareTurnWorktree(common)).resolves.toMatchObject({
+      kind: 'passthrough',
+      sessionBaseline: 'b'.repeat(40)
+    })
+    await expect(prepareTurnWorktree({ ...common, sourceCwd: '/not-a-repo' })).resolves.toMatchObject({
+      kind: 'passthrough',
+      sessionBaseline: null
+    })
+    expect(resolveHeadMock).toHaveBeenNthCalledWith(1, '/repo')
+    expect(resolveHeadMock).toHaveBeenNthCalledWith(2, '/not-a-repo')
+  })
+
+  it('resume은 baseline을 다시 읽지 않는다', async () => {
+    const recoverMissingWorktree = vi.fn(async () => ({ kind: 'none' as const }))
+
+    await expect(
+      prepareTurnWorktree({
+        enabled: false,
+        sessionId: 'session-1',
+        sourceCwd: '/repo',
+        firstPrompt: 'work',
+        signal,
+        adapter,
+        providerSettings,
+        env: {},
+        worktrees: { prepare: vi.fn(), recoverMissingWorktree }
+      })
+    ).resolves.toMatchObject({ kind: 'passthrough', sessionBaseline: null })
+
+    expect(resolveHeadMock).not.toHaveBeenCalled()
+  })
 
   it('격리를 끈 요청과 worktree 가 살아 있는 재개 세션은 원래 cwd를 그대로 통과시킨다 (AC19)', async () => {
     const prepare = vi.fn()
@@ -29,11 +83,16 @@ describe('prepareTurnWorktree', () => {
 
     await expect(prepareTurnWorktree({ ...common, enabled: false })).resolves.toEqual({
       kind: 'passthrough',
-      executionCwd: '/repo/packages/web'
+      executionCwd: '/repo/packages/web',
+      sessionBaseline: null
     })
     await expect(
       prepareTurnWorktree({ ...common, enabled: true, sessionId: 'session-1' })
-    ).resolves.toEqual({ kind: 'passthrough', executionCwd: '/repo/packages/web' })
+    ).resolves.toEqual({
+      kind: 'passthrough',
+      executionCwd: '/repo/packages/web',
+      sessionBaseline: null
+    })
     expect(prepare).not.toHaveBeenCalled()
   })
 
@@ -64,7 +123,8 @@ describe('prepareTurnWorktree', () => {
     ).resolves.toEqual({
       kind: 'recovered',
       executionCwd: '/repo',
-      lostWorktreeRoot: '/wt/repo-1234abcd/work-x'
+      lostWorktreeRoot: '/wt/repo-1234abcd/work-x',
+      sessionBaseline: null
     })
     // 통지가 없으면 화면은 죽은 경로의 브랜치·diff 를 계속 보여준다.
     expect(onRecovered).toHaveBeenCalledWith({ sessionId: 'session-1', executionCwd: '/repo' })
@@ -164,6 +224,7 @@ describe('prepareTurnWorktree', () => {
       kind: 'managed',
       worktreeId: 'w1',
       executionCwd: '/managed/repo',
+      baseOid: 'a'.repeat(40),
       // 0211 — 표시 정본이 결과에 함께 온다(이름은 원본, 실행은 worktree).
       display: { sourceCwd: '/repo', repoRoot: '/repo' }
     })
@@ -171,6 +232,7 @@ describe('prepareTurnWorktree', () => {
       kind: 'managed',
       worktreeId: 'w1',
       executionCwd: '/managed/repo',
+      sessionBaseline: 'a'.repeat(40),
       // 0211 — 표시 정본을 그대로 통과시킨다. `objectContaining` 이 아니라 전체 비교라
       // 필드를 떨어뜨리는 회귀가 여기서 red 다.
       display: { sourceCwd: '/repo', repoRoot: '/repo' }
@@ -222,6 +284,7 @@ describe('prepareTurnWorktree', () => {
       kind: 'managed',
       worktreeId: 'w1',
       executionCwd: '/managed/repo',
+      baseOid: 'a'.repeat(40),
       // 0211 — 표시 정본이 결과에 함께 온다(이름은 원본, 실행은 worktree).
       display: { sourceCwd: '/repo', repoRoot: '/repo' }
     })
@@ -230,7 +293,7 @@ describe('prepareTurnWorktree', () => {
       turn: { cwd: '/managed/repo', extraDirs: ['/shared'] },
       entry: { request: { cwd: '/managed/repo', extraDirs: ['/shared'] } }
     })
-    expect(buildTurn).toHaveBeenCalledWith('/managed/repo', ['/shared'])
+    expect(buildTurn).toHaveBeenCalledWith('/managed/repo', ['/shared'], 'a'.repeat(40))
     expect(acquireRuntime).toHaveBeenCalledOnce()
   })
 })

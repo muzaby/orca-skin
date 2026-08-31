@@ -134,6 +134,7 @@ interface BuildTurnContextInput<W> {
   /** handoff 는 main 이 자동 메시지로 대체한 텍스트가 들어온다. */
   effectiveText: string
   boundProjectId: string | null
+  sessionBaseline: string | null
   sessionMeta:
     { cwd: string | null; project_id: string | null; extra_dirs?: string | null } | undefined
   continuityMeta: ContinuitySourceMeta | undefined
@@ -170,6 +171,7 @@ export function buildTurnContext<W>(input: BuildTurnContextInput<W>): TurnContex
     dbSessionId: payload.sessionId,
     pendingProjectId: payload.sessionId ? null : input.boundProjectId,
     isNewSession: payload.sessionId == null,
+    sessionBaseline: input.sessionBaseline,
     cwd: continuityMeta
       ? (continuityMeta.cwd ?? input.getCwd(continuityMeta.project_id))
       : resolveTurnCwd(
@@ -230,6 +232,7 @@ export function makeContinuationTurn<W>(prev: TurnContext<W>): TurnContext<W> {
     dbSessionId: prev.dbSessionId,
     pendingProjectId: null,
     isNewSession: false,
+    sessionBaseline: null,
     cwd: prev.cwd,
     extraDirs: prev.extraDirs,
     titleGenerationStarted: prev.titleGenerationStarted,

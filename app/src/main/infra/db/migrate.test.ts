@@ -37,7 +37,8 @@ const EXPECTED_MIGRATIONS = [
   '0015_pinned',
   '0016_turn_model_context_window',
   '0017_session_extra_dirs',
-  '0018_managed_worktrees'
+  '0018_managed_worktrees',
+  '0019_session_baseline'
 ]
 
 const APPLIED_SQL = [
@@ -106,6 +107,10 @@ describe('DB migrations hardening', () => {
   it('부분 적용된 오래된 DB를 최신까지 한 번에 전진시킨다', () => {
     const db = new Database(':memory:')
     applyFirstSix(db)
+    db.prepare(
+      `INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview)
+       VALUES ('legacy-session', 'claude', 'before', NULL, 1, 1, NULL)`
+    ).run()
 
     applyMigrations(db)
 
@@ -114,6 +119,10 @@ describe('DB migrations hardening', () => {
     expect(
       db.prepare(`SELECT name FROM sqlite_master WHERE name = 'schedule_runs'`).get()
     ).toBeTruthy()
+    expect(db.prepare(`SELECT title, baseline_oid FROM sessions WHERE id = 'legacy-session'`).get()).toEqual({
+      title: 'before',
+      baseline_oid: null
+    })
     db.close()
   })
 

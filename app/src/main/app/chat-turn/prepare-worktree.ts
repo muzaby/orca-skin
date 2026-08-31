@@ -7,14 +7,21 @@
 import type { WorktreeDisplay, WorktreePrepareStep } from '../../../shared/ipc'
 import type { SessionAdapter } from '../../adapters/types'
 import type { WorktreeService } from '../../features/worktrees/service'
+import { resolveHead } from '../../infra/git/repository'
 
 type CompletionInput = Parameters<SessionAdapter['complete']>[0]
 
 export type PrepareTurnWorktreeResult =
-  | { kind: 'passthrough'; executionCwd: string }
-  | { kind: 'managed'; worktreeId: string; executionCwd: string; display: WorktreeDisplay }
+  | { kind: 'passthrough'; executionCwd: string; sessionBaseline: string | null }
+  | {
+      kind: 'managed'
+      worktreeId: string
+      executionCwd: string
+      display: WorktreeDisplay
+      sessionBaseline: string
+    }
   // 원본 작업 경로로 되돌린 turn. `passthrough`와 합치면 통지·respawn 책임이 사라진다.
-  | { kind: 'recovered'; executionCwd: string; lostWorktreeRoot: string }
+  | { kind: 'recovered'; executionCwd: string; lostWorktreeRoot: string; sessionBaseline: null }
   | { kind: 'rejected'; message: string }
 
 export async function prepareTurnWorktree(input: {
@@ -53,13 +60,17 @@ export async function prepareTurnWorktree(input: {
       return {
         kind: 'recovered',
         executionCwd: recovery.executionCwd,
-        lostWorktreeRoot: recovery.lostWorktreeRoot
+        lostWorktreeRoot: recovery.lostWorktreeRoot,
+        sessionBaseline: null
       }
     }
-    return { kind: 'passthrough', executionCwd: input.sourceCwd }
+    return { kind: 'passthrough', executionCwd: input.sourceCwd, sessionBaseline: null }
   }
 
-  if (!input.enabled) return { kind: 'passthrough', executionCwd: input.sourceCwd }
+  if (!input.enabled) {
+    const sessionBaseline = await resolveHead(input.sourceCwd).catch(() => null)
+    return { kind: 'passthrough', executionCwd: input.sourceCwd, sessionBaseline }
+  }
 
   const prepared = await input.worktrees.prepare({
     sourceCwd: input.sourceCwd,
@@ -81,6 +92,13 @@ export async function prepareTurnWorktree(input: {
   if (prepared.kind === 'managed') {
     input.onManaged?.(prepared.display)
     input.onProgress?.('session')
+    return {
+      kind: 'managed',
+      worktreeId: prepared.worktreeId,
+      executionCwd: prepared.executionCwd,
+      display: prepared.display,
+      sessionBaseline: prepared.baseOid
+    }
   }
   return prepared
 }
@@ -88,7 +106,11 @@ export async function prepareTurnWorktree(input: {
 export async function prepareTurnExecution<TTurn, TEntry>(input: {
   worktree: Parameters<typeof prepareTurnWorktree>[0]
   extraDirs: readonly string[] | undefined
-  buildTurn: (executionCwd: string, extraDirs: readonly string[] | undefined) => TTurn
+  buildTurn: (
+    executionCwd: string,
+    extraDirs: readonly string[] | undefined,
+    sessionBaseline: string | null
+  ) => TTurn
   // `executionCwdRecovered` 는 respawn 판정으로 간다 — cwd 는 spawn 시점에 박히므로 살아 있는
   // 채널을 새 경로로 돌릴 방법이 없고, 내려야만 다음 spawn 이 원본 경로에서 뜬다(D-108).
   acquireRuntime: (turn: TTurn, executionCwdRecovered: boolean) => Promise<TEntry>
@@ -96,7 +118,7 @@ export async function prepareTurnExecution<TTurn, TEntry>(input: {
   const prepared = await prepareTurnWorktree(input.worktree)
   if (prepared.kind === 'rejected') return prepared
 
-  const turn = input.buildTurn(prepared.executionCwd, input.extraDirs)
+  const turn = input.buildTurn(prepared.executionCwd, input.extraDirs, prepared.sessionBaseline)
   const entry = await input.acquireRuntime(turn, prepared.kind === 'recovered')
   return { kind: 'ready', turn, entry }
 }
