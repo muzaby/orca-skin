@@ -634,7 +634,7 @@
 | AR-05 / VP-20 · VP-21 | 표시 정본은 **`worktree` 키의 유무**로 판정하고, 그 키를 실을 책임은 발신부에 있다 (**EP-10, 2지점**: ① `chatReducer` `session.updated` 의 판정식 ② `send.ts` 의 `onRecovered` patch 리터럴) | `NormalizedEvent` 의 `session.updated` variant 인라인 `patch`(`shared/ipc.ts:449`~) — `worktree?: WorktreeDisplay \| null` | 구현자 | 이벤트 수신 · 폴백 발신 | ①만 고치면 폴백이 키를 안 실어 소실된 worktree 의 이름이 영원히 남는다. ②만 고치면 2턴째 init 이 계속 이름을 지운다. **둘은 서로를 대신하지 못한다** |
 | AR-06 / VP-22 · VP-27 | 변경량 합계는 **절단 전** 전체에서 계산하고 미추적은 0 을 더한다 (**EP-11, 2지점**: ① `mergeDiffEntries` 의 미추적 항목 조립 ② 합계 계산 위치 = `slice` 이전) | `GitDiffSummary.totals`(`shared/ipc.ts`) · `git-diff-parse.ts` | 구현자 | 요약 정규화 | ①이 남으면 미추적 줄이 합계에 섞여 “수치에 추가하지 않는다”(D-026)가 깨진다. ②를 `slice` 뒤로 옮기면 201건 저장소에서 201번째 파일의 줄이 합계에서 조용히 사라진다 |
 | AR-06 / VP-22 · VP-23 | `dirty` 축의 단일 정본 (**EP-12, 2지점**: ① `GitStatus` DTO 에서 `dirty` 제거 + `gitStatus()` 의 `dirtyStat` 호출 제거 ② `gitRowView` 가 `totals` 를 읽음) | `shared/ipc.ts` `GitStatus` · `gitRowState.ts` | 구현자 | DTO 정의 · 행 파생 | ①만 하면 `gitRowView` 가 컴파일 실패로 드러나지만, ②만 하고 ①을 남기면 **두 값이 공존**해 다음 사람이 어느 것이 표시 정본인지 모른다 — 지금 갈라진 방식 그대로다. checkout 의 `dirtyStat`(`git-cli.ts:121`)은 **지우지 않는다** |
-| SD-06 / VP-24 · VP-25 · VP-26 | 조회 소유자는 하나이고 마운트는 계기가 아니다 (**EP-13, 3지점**: ① `useGitSnapshot` 이 유일한 `gitApi.status`/`diffSummary` 호출부 ② `GitRow` 의 두 effect 제거 ③ `DiffTileContent` 의 요약 effect·로컬 요약 상태 제거) | `features/chat/hooks/useGitSnapshot.ts` | 구현자 | 렌더 트리 조립 | 셋 중 하나만 남아도 그 표면이 마운트마다 계속 조회한다 — 사용자가 본 증상이 절반만 사라진다. **전수 술어는 “`gitApi.status`/`gitApi.diffSummary` 를 부르는 renderer 파일 수”** 이고 목표는 **1** 이다(해법 이름 `useGitSnapshot` 으로 세지 않는다 — 그러면 이미 고친 자리만 분모에 오른다) |
+| SD-06 / VP-24 · VP-25 · VP-26 | 조회 소유자는 하나이고 마운트는 계기가 아니다 (**EP-13, 3지점**: ① `useGitSnapshot` 이 유일한 `gitApi.status`/`diffSummary` 호출부 ② `GitRow` 의 두 effect 제거 ③ `DiffTileContent` 의 요약 effect·로컬 요약 상태 제거) | `features/chat/components/composer/useGitSnapshot.ts` | 구현자 | 렌더 트리 조립 | 셋 중 하나만 남아도 그 표면이 마운트마다 계속 조회한다 — 사용자가 본 증상이 절반만 사라진다. **전수 술어는 “`gitApi.status`/`gitApi.diffSummary` 를 부르는 **세션 표면** renderer 파일 수”** 이고 목표는 **1** 이다(해법 이름 `useGitSnapshot` 으로 세지 않는다 — 그러면 이미 고친 자리만 분모에 오른다). **허용 예외 1건을 술어에서 먼저 뺀다** — 랜딩 브랜치 칩(`composer/BranchChip.tsx`, 0201)은 `CwdPanel`(`data-state="landing"`) 안에만 살아 세션이 서면 사라지므로 D-031 이 말하는 표면이 아니다. 예외는 목록으로 열거하고 **그 파일이 아직 조회자인지도 함께 단언한다**(§5 음성 게이트 규칙) |
 
 - 같은/동일 규칙이 여러 레이어에 있는 것: diff 범위 해석 하나뿐이고 `resolveDiffRange` 를 SSOT 로 둔다. 정규식·경로 규칙 복붙은 만들지 않는다. **ΔV1 이 두 번째를 만든다** — 조회 계기 판정이고 `gitSnapshotTriggers` 하나를 SSOT 로 둔다(`shouldRefetchGitStatus` 는 그 안으로 흡수되거나 그것이 부르는 하위 규칙으로 남는다. 두 판정이 각자 계기를 갖지 않게 한다).
 - `실패 의미`에 “다른 게이트가 막는다”를 적은 행: 없음. 각 행의 실패 의미는 그 지점 자체의 관측 결과로 적었다.
@@ -951,6 +951,13 @@ git CLI
 - [x] 게이트가 대상 subtree `AGENTS.md` 와 충돌하지 않는다 — §7-A ΔV1 gate 차분(ABI 중립 둘 + 순수 vitest, DB 스위트 증가 0).
 - [x] 본문 완성 후 Decision Ledger 와 교차검증했다 — **ΔV1 ACTIVE 결정 ↔ AC 대조: 충돌 0**(§3 ΔV1 갱신 메모에 9쌍 기록). 대체된 3결정에 걸려 있던 AC 3건(AT-07·AT-09 문면, AT-09 계기 절)을 다시 유도해 §7 에서 고쳤다.
 - [x] 산출물 문장 규칙을 지켰다 — 판정 먼저, 한 줄 한 관측, 표 한 칸 3줄.
+
+### ΔV1 규범 행 정정 (2026-08-31, 구현 중 발견)
+
+- **§10 EP-13 ① 의 술어**를 고쳤다. 원문은 "`gitApi.status`/`diffSummary` 를 부르는 renderer 파일 = 1" 이었는데, 그 술어로 세면 **0201 의 랜딩 브랜치 칩이 분모에 들어와 성립할 수 없다** — `BranchChip.tsx:63` 이 `gitApi.status` 를 부르고 ΔV1 은 그 파일을 건드리지 않는다(실측: 프로덕션 호출 파일 **2**).
+- 정정 방향은 **예외 열거**다(§5 음성 게이트 규칙 — "허용 예외를 먼저 열거하고 술어에서 제외한다"). D-031 본문은 처음부터 소비 표면을 셋(`GitRow`·`DiffTileHeader`·`DiffTileContent`)으로 한정했으므로 **Decision 은 바뀌지 않는다** — 바뀐 것은 §10 의 재서술뿐이다.
+- 예외가 구멍이 되지 않도록 oracle 이 **예외 파일이 아직 조회자인지**도 단언한다(`gitQueryOwner.test.ts`) — 예외 목록이 사라진 파일을 가리키면 그 자리는 조용히 열린다.
+
 
 ---
 
