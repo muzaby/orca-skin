@@ -1,19 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { GitDiffFileContent } from '../../../../../../shared/ipc'
-import { createDiffFileRequestOwner } from './diffFileCache'
+import { createDiffPeekBodyRequestOwner, diffPeekBodyKey } from './diffFileCache'
 
-interface DiffFileRequestOwner {
-  run(
-    load: () => Promise<GitDiffFileContent>,
-    onResult: (content: GitDiffFileContent) => void,
-    onError: () => void
-  ): void
-  invalidate(): void
-}
-
-describe('diff file request owner', () => {
-  it('commit A의 늦은 같은-path 응답이 commit B cache를 채우거나 B 조회를 생략시키지 않는다', async () => {
-    const path = 'src/a.ts'
+describe('diff peek body request owner', () => {
+  it('A identity의 늦은 같은-path 응답은 B identity의 현재 body를 채우지 못한다', async () => {
+    const target = { group: { kind: 'uncommitted' as const }, path: 'src/a.ts' }
+    const keyA = diffPeekBodyKey('/repo-a', 'session-a', target)
+    const keyB = diffPeekBodyKey('/repo-b', 'session-b', target)
     const contentA: GitDiffFileContent = {
       kind: 'text',
       oldValue: 'A-old',
@@ -30,30 +23,29 @@ describe('diff file request owner', () => {
     let resolveB!: (content: GitDiffFileContent) => void
     const loadA = vi.fn(() => new Promise<GitDiffFileContent>((resolve) => (resolveA = resolve)))
     const loadB = vi.fn(() => new Promise<GitDiffFileContent>((resolve) => (resolveB = resolve)))
-    const cache = new Map<string, GitDiffFileContent>()
-    const owner: DiffFileRequestOwner = createDiffFileRequestOwner()
+    const received: Array<{ key: string; generation: number; content: GitDiffFileContent }> = []
+    const owner = createDiffPeekBodyRequestOwner()
 
     owner.run(
+      keyA,
       loadA,
-      (content) => cache.set(path, content),
+      (request, content) => received.push({ ...request, content }),
       () => undefined
     )
-    owner.invalidate()
-    cache.clear()
+    owner.run(
+      keyB,
+      loadB,
+      (request, content) => received.push({ ...request, content }),
+      () => undefined
+    )
     resolveA(contentA)
     await Promise.resolve()
 
-    expect(cache.has(path)).toBe(false)
-    if (!cache.has(path)) {
-      owner.run(
-        loadB,
-        (content) => cache.set(path, content),
-        () => undefined
-      )
-    }
-    expect(loadB).toHaveBeenCalledTimes(1)
+    expect(received).toEqual([])
     resolveB(contentB)
     await Promise.resolve()
-    expect(cache.get(path)).toEqual(contentB)
+    expect(received).toEqual([{ key: keyB, generation: 2, content: contentB }])
+    expect(loadA).toHaveBeenCalledTimes(1)
+    expect(loadB).toHaveBeenCalledTimes(1)
   })
 })

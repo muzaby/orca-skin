@@ -13,6 +13,11 @@ export interface DiffPair {
 
 export interface DiffLine {
   type: 'added' | 'removed' | 'unchanged'
+  /** 이전 파일 축의 줄번호. 새로 추가된 행은 이전 파일에 없으므로 null 이다. */
+  oldLine: number | null
+  /** 새 파일 축의 줄번호. 삭제된 행은 새 파일에 없으므로 null 이다. */
+  newLine: number | null
+  // 기존 도구 카드의 단일 거터 계약을 보존한다. removed=old, 그 외=new 축이다.
   lineNo: number
   text: string
 }
@@ -33,15 +38,17 @@ export function buildDiffLines(oldValue: string, newValue: string): DiffLine[] {
 
     if (hunk.removed) {
       for (const text of lines) {
-        result.push({ type: 'removed', lineNo: oldLine++, text })
+        result.push({ type: 'removed', oldLine, newLine: null, lineNo: oldLine, text })
+        oldLine++
       }
     } else if (hunk.added) {
       for (const text of lines) {
-        result.push({ type: 'added', lineNo: newLine++, text })
+        result.push({ type: 'added', oldLine: null, newLine, lineNo: newLine, text })
+        newLine++
       }
     } else {
       for (const text of lines) {
-        result.push({ type: 'unchanged', lineNo: newLine, text })
+        result.push({ type: 'unchanged', oldLine, newLine, lineNo: newLine, text })
         oldLine++
         newLine++
       }

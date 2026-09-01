@@ -65,9 +65,18 @@ export interface PlanComment {
   createdAt: number
 }
 
+export type GitPeekGroup = { kind: 'commit'; sha: string } | { kind: 'uncommitted' }
+
+/** 파일 본문은 언제나 session 범위로 읽고, 이 target은 사용자가 들어온 목록 그룹만 보존한다. */
+export interface GitPeekTarget {
+  group: GitPeekGroup
+  path: string
+}
+
 export interface GitSnapshotState {
   summary: GitDiffSummary | null
-  selectedCommit: string | null
+  peekTarget: GitPeekTarget | null
+  expandedCommitIds: readonly string[]
   refreshGeneration: number
 }
 
@@ -191,16 +200,12 @@ export interface ChatState {
   rightPanelColWidths: number[]
   // 우측 패널 열 내부의 상단 행 비율. 행 분리선 드래그로 조절, clamp 0.2–0.8.
   rightPanelRowSplits: number[]
-  // diff 타일의 좌측 컬럼(파일트리 + 커밋 목록) 표시 여부. 헤더 토글이 뒤집는다.
-  // **본문이 아니라 세션 상태가 갖는 이유**: 토글 버튼은 타일 헤더에, 감춰지는 컬럼은 본문에
-  // 있고 둘은 형제라 로컬 state 로 공유되지 않는다(0206 D-017 주변).
-  diffFilesVisible: boolean
   // 작업 경로의 git 스냅샷 — **어느 cwd 의 값인지와 함께** 들고 있다(`statusForCwd`).
   // 컴포저 git 행과 diff 타일 헤더 둘이 읽으므로 세션 상태가 소유한다(0206 D-020).
   // null = 아직 조회 전. `useGitRowStatus` 만 채운다.
   gitStatus: BranchSnapshot | null
-  // diff 요약·선택 범위·명시 refresh 신호는 타일이 아니라 세션 수명에 속한다(D-028~D-031).
-  // 파일 본문/펼침 캐시는 `DiffTileContent` 로컬 상태로 남는다.
+  // diff 요약·peek·commit 펼침·명시 refresh 신호는 타일이 아니라 세션 수명에 속한다.
+  // 파일 본문은 현재 identity+peek 세대에만 붙는 타일 로컬 캐시다.
   gitSnapshot: GitSnapshotState
   gitSnapshotRequest: GitSnapshotRequest | null
   // 우측 작업 타일에서 상세로 표시할 항목 키(`agent:<id>` | `bg:<toolUseId>`, taskBoard 가
@@ -283,9 +288,8 @@ export const initialChatState: ChatState = {
   rightPanelTileLabels: {},
   rightPanelColWidths: [],
   rightPanelRowSplits: [],
-  diffFilesVisible: true,
   gitStatus: null,
-  gitSnapshot: { summary: null, selectedCommit: null, refreshGeneration: 0 },
+  gitSnapshot: { summary: null, peekTarget: null, expandedCommitIds: [], refreshGeneration: 0 },
   gitSnapshotRequest: null,
   selectedTaskKey: null,
   selectedSubagentTaskId: null,
@@ -390,9 +394,10 @@ export type ChatAction =
   | { type: 'SET_RIGHT_PANEL_TILE_ACTIVE'; id: RightPanelTileId; active: boolean }
   | { type: 'RENAME_RIGHT_PANEL_TILE'; id: RightPanelTileId; label: string }
   | { type: 'REMOVE_RIGHT_PANEL_TILE'; id: RightPanelTileId }
-  | { type: 'TOGGLE_DIFF_FILES' }
   | { type: 'SET_GIT_STATUS'; snapshot: BranchSnapshot }
-  | { type: 'SELECT_GIT_SNAPSHOT_COMMIT'; commit: string | null }
+  | { type: 'OPEN_GIT_SNAPSHOT_PEEK'; target: GitPeekTarget }
+  | { type: 'CLOSE_GIT_SNAPSHOT_PEEK' }
+  | { type: 'TOGGLE_GIT_SNAPSHOT_COMMIT_EXPANDED'; sha: string }
   | { type: 'REFRESH_GIT_SNAPSHOT' }
   | { type: 'BEGIN_GIT_SNAPSHOT_QUERY'; request: GitSnapshotRequest }
   | {
@@ -768,7 +773,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         extraDirs: [],
         extraDirRejection: null,
         worktreeBaseRef: null,
-        gitSnapshot: { summary: null, selectedCommit: null, refreshGeneration: 0 },
+        gitSnapshot: {
+          summary: null,
+          peekTarget: null,
+          expandedCommitIds: [],
+          refreshGeneration: 0
+        },
         gitSnapshotRequest: null
       }
 
@@ -1017,22 +1027,36 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
     }
 
-    case 'TOGGLE_DIFF_FILES':
-      return { ...state, diffFilesVisible: !state.diffFilesVisible }
-
     case 'SET_GIT_STATUS':
       return { ...state, gitStatus: action.snapshot }
 
-    case 'SELECT_GIT_SNAPSHOT_COMMIT':
+    case 'OPEN_GIT_SNAPSHOT_PEEK':
       return {
         ...state,
-        gitSnapshotRequest: null,
         gitSnapshot: {
           ...state.gitSnapshot,
-          summary: null,
-          selectedCommit: action.commit
+          peekTarget: action.target
         }
       }
+
+    case 'CLOSE_GIT_SNAPSHOT_PEEK':
+      return {
+        ...state,
+        gitSnapshot: { ...state.gitSnapshot, peekTarget: null }
+      }
+
+    case 'TOGGLE_GIT_SNAPSHOT_COMMIT_EXPANDED': {
+      const expanded = state.gitSnapshot.expandedCommitIds
+      return {
+        ...state,
+        gitSnapshot: {
+          ...state.gitSnapshot,
+          expandedCommitIds: expanded.includes(action.sha)
+            ? expanded.filter((sha) => sha !== action.sha)
+            : [...expanded, action.sha]
+        }
+      }
+    }
 
     case 'REFRESH_GIT_SNAPSHOT':
       return {

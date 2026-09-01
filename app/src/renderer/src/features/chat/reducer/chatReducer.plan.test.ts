@@ -279,14 +279,6 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
     expect(colTiles(closed)).toEqual([])
   })
 
-  it('파일 목록 토글이 왕복한다 — 기본은 보임 (AT-14)', () => {
-    expect(initialChatState.diffFilesVisible).toBe(true)
-    const hidden = chatReducer(initialChatState, { type: 'TOGGLE_DIFF_FILES' })
-    expect(hidden.diffFilesVisible).toBe(false)
-    const shown = chatReducer(hidden, { type: 'TOGGLE_DIFF_FILES' })
-    expect(shown.diffFilesVisible).toBe(true)
-  })
-
   it('git 스냅샷은 cwd 와 함께 저장된다 — 늦은 응답을 버리는 근거다 (AT-20)', () => {
     expect(initialChatState.gitStatus).toBeNull()
     const snapshot = {
@@ -303,50 +295,40 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
     expect(failed.gitStatus).toEqual({ cwd: '/repo', status: null })
   })
 
-  it('diff 타일을 닫아도 파일 목록 상태와 git 스냅샷은 남는다 — 축이 다르다', () => {
-    const opened = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'diff' })
-    const hidden = chatReducer(opened, { type: 'TOGGLE_DIFF_FILES' })
-    const closed = chatReducer(hidden, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'diff' })
-    expect(colTiles(closed)).toEqual([])
-    expect(closed.diffFilesVisible).toBe(false)
+  it('peek와 commit 펼침은 타일을 닫고 열어도 살아 있고 Back은 peek만 비운다', () => {
+    const target = { group: { kind: 'commit' as const, sha: 'abc1234' }, path: 'src/a.ts' }
+    const opened = chatReducer(initialChatState, { type: 'OPEN_GIT_SNAPSHOT_PEEK', target })
+    const expanded = chatReducer(opened, {
+      type: 'TOGGLE_GIT_SNAPSHOT_COMMIT_EXPANDED',
+      sha: 'abc1234'
+    })
+    const tileOpen = chatReducer(expanded, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'diff' })
+    const tileClosed = chatReducer(tileOpen, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'diff' })
+    const reopened = chatReducer(tileClosed, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'diff' })
+    const back = chatReducer(reopened, { type: 'CLOSE_GIT_SNAPSHOT_PEEK' })
+
+    expect(reopened.gitSnapshot.peekTarget).toEqual(target)
+    expect(reopened.gitSnapshot.expandedCommitIds).toEqual(['abc1234'])
+    expect(back.gitSnapshot.peekTarget).toBeNull()
+    expect(back.gitSnapshot.expandedCommitIds).toEqual(['abc1234'])
   })
 
-  it('diff 타일을 닫고 다시 열어도 요약과 선택 커밋이 살아 있다', () => {
-    const request = { key: JSON.stringify(['/repo', 'session-a', 'abc1234']), generation: 1 }
-    const selected = chatReducer(initialChatState, {
-      type: 'SELECT_GIT_SNAPSHOT_COMMIT',
-      commit: 'abc1234'
-    })
-    const started = chatReducer(selected, { type: 'BEGIN_GIT_SNAPSHOT_QUERY', request })
-    const withSummary = chatReducer(started, {
-      type: 'RECEIVE_GIT_SNAPSHOT_SUMMARY',
-      request,
-      summary: DIFF_SUMMARY
-    })
-    const opened = chatReducer(withSummary, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'diff' })
-    const closed = chatReducer(opened, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'diff' })
-    const reopened = chatReducer(closed, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'diff' })
-
-    expect(reopened.gitSnapshot).toMatchObject({
-      summary: DIFF_SUMMARY,
-      selectedCommit: 'abc1234'
-    })
-  })
-
-  it('새 대화와 다른 세션 로드 시작은 이전 요약·선택을 넘기지 않는다', () => {
+  it('새 대화와 다른 세션 로드 시작은 이전 요약·peek·펼침을 넘기지 않는다', () => {
     const dirty = {
       ...initialChatState,
       sessionId: 'session-a',
       gitSnapshot: {
         summary: DIFF_SUMMARY,
-        selectedCommit: 'abc1234',
+        peekTarget: { group: { kind: 'commit' as const, sha: 'abc1234' }, path: 'src/a.ts' },
+        expandedCommitIds: ['abc1234'],
         refreshGeneration: 2
       }
     } as ChatState
 
     expect(chatReducer(dirty, { type: 'NEW_CHAT' }).gitSnapshot).toEqual({
       summary: null,
-      selectedCommit: null,
+      peekTarget: null,
+      expandedCommitIds: [],
       refreshGeneration: 0
     })
     expect(
@@ -355,20 +337,21 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
         sessionId: 'session-b',
         title: 'B'
       }).gitSnapshot
-    ).toEqual({ summary: null, selectedCommit: null, refreshGeneration: 0 })
+    ).toEqual({ summary: null, peekTarget: null, expandedCommitIds: [], refreshGeneration: 0 })
   })
 
-  it('cwd identity가 바뀌면 이전 저장소의 요약·커밋 선택을 즉시 비운다', () => {
+  it('cwd identity가 바뀌면 이전 저장소의 요약·peek·펼침을 즉시 비운다', () => {
     const before = {
       ...initialChatState,
       cwd: '/repo-a',
       gitSnapshot: {
         summary: DIFF_SUMMARY,
-        selectedCommit: 'abc1234',
+        peekTarget: { group: { kind: 'commit' as const, sha: 'abc1234' }, path: 'src/a.ts' },
+        expandedCommitIds: ['abc1234'],
         refreshGeneration: 0
       },
       gitSnapshotRequest: {
-        key: JSON.stringify(['/repo-a', 'session-a', 'abc1234']),
+        key: JSON.stringify(['/repo-a', 'session-a']),
         generation: 3
       }
     }
@@ -376,18 +359,20 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
     const moved = chatReducer(before, { type: 'SET_CWD', cwd: '/repo-b' })
     expect(moved.gitSnapshot).toEqual({
       summary: null,
-      selectedCommit: null,
+      peekTarget: null,
+      expandedCommitIds: [],
       refreshGeneration: 0
     })
     expect(moved.gitSnapshotRequest).toBeNull()
   })
 
-  it('명시 refresh는 요약·선택을 보존하고 generation만 올린다', () => {
+  it('명시 refresh는 요약·peek·펼침을 보존하고 generation만 올린다', () => {
     const before = {
       ...initialChatState,
       gitSnapshot: {
         summary: DIFF_SUMMARY,
-        selectedCommit: 'abc1234',
+        peekTarget: { group: { kind: 'uncommitted' as const }, path: 'src/a.ts' },
+        expandedCommitIds: ['abc1234'],
         refreshGeneration: 4
       }
     }
@@ -395,13 +380,41 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
 
     expect(refreshed.gitSnapshot).toEqual({
       summary: DIFF_SUMMARY,
-      selectedCommit: 'abc1234',
+      peekTarget: { group: { kind: 'uncommitted' }, path: 'src/a.ts' },
+      expandedCommitIds: ['abc1234'],
       refreshGeneration: 5
     })
   })
 
+  it('peek open/back과 commit 펼침은 요약 request·refresh generation을 건드리지 않는다', () => {
+    const before = {
+      ...initialChatState,
+      gitSnapshot: {
+        summary: DIFF_SUMMARY,
+        peekTarget: null,
+        expandedCommitIds: [],
+        refreshGeneration: 4
+      },
+      gitSnapshotRequest: { key: JSON.stringify(['/repo', 'session-a']), generation: 2 }
+    }
+
+    const peeked = chatReducer(before, {
+      type: 'OPEN_GIT_SNAPSHOT_PEEK',
+      target: { group: { kind: 'commit', sha: 'abc1234' }, path: 'src/a.ts' }
+    })
+    const expanded = chatReducer(peeked, {
+      type: 'TOGGLE_GIT_SNAPSHOT_COMMIT_EXPANDED',
+      sha: 'abc1234'
+    })
+    const backed = chatReducer(expanded, { type: 'CLOSE_GIT_SNAPSHOT_PEEK' })
+
+    expect(backed.gitSnapshotRequest).toEqual(before.gitSnapshotRequest)
+    expect(backed.gitSnapshot.refreshGeneration).toBe(4)
+    expect(backed.gitSnapshot.summary).toBe(DIFF_SUMMARY)
+  })
+
   it('refresh 신호 뒤 새 요청 시작 전 도착한 이전 응답도 무시한다', () => {
-    const request = { key: JSON.stringify(['/repo', 'session-a', null]), generation: 1 }
+    const request = { key: JSON.stringify(['/repo', 'session-a']), generation: 1 }
     const started = chatReducer(initialChatState, {
       type: 'BEGIN_GIT_SNAPSHOT_QUERY',
       request
@@ -418,7 +431,7 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
   })
 
   it('같은 key의 늦은 요청 A가 더 최신 요청 B의 요약을 덮지 못한다', () => {
-    const key = JSON.stringify(['/repo', 'session-a', null])
+    const key = JSON.stringify(['/repo', 'session-a'])
     const newerSummary = { ...DIFF_SUMMARY, files: [] }
     const request = (generation: number): { key: string; generation: number } => ({
       key,

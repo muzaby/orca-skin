@@ -145,7 +145,7 @@ describe('chatStore — 델타/커밋 라우팅', () => {
 })
 
 describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
-  it('git snapshot 선택·refresh 액션은 활성 세션 엔트리만 바꾼다', () => {
+  it('git snapshot peek·refresh 액션은 활성 세션 엔트리만 바꾼다', () => {
     useChatStore.setState((st) => ({
       sessions: {
         ...st.sessions,
@@ -157,22 +157,26 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
       }
     }))
     const actions = chatActions as typeof chatActions & {
-      selectGitSnapshotCommit?: (commit: string | null) => void
+      openGitSnapshotPeek?: (target: {
+        group: { kind: 'commit'; sha: string }
+        path: string
+      }) => void
       refreshGitSnapshot?: () => void
     }
 
-    expect(actions.selectGitSnapshotCommit).toBeTypeOf('function')
+    expect(actions.openGitSnapshotPeek).toBeTypeOf('function')
     expect(actions.refreshGitSnapshot).toBeTypeOf('function')
-    actions.selectGitSnapshotCommit?.('abc1234')
+    actions.openGitSnapshotPeek?.({ group: { kind: 'commit', sha: 'abc1234' }, path: 'src/a.ts' })
     actions.refreshGitSnapshot?.()
 
     expect(entry('s').session.gitSnapshot).toMatchObject({
-      selectedCommit: 'abc1234',
+      peekTarget: { group: { kind: 'commit', sha: 'abc1234' }, path: 'src/a.ts' },
       refreshGeneration: 1
     })
     expect(entry('bg').session.gitSnapshot).toEqual({
       summary: null,
-      selectedCommit: null,
+      peekTarget: null,
+      expandedCommitIds: [],
       refreshGeneration: 0
     })
   })

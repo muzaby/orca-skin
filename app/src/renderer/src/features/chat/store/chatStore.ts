@@ -5,6 +5,7 @@ import {
   chatReducer,
   initialChatState,
   type ChatAction,
+  type GitPeekTarget,
   type GitSnapshotRequest,
   type ChatState,
   type PlanComment
@@ -1260,11 +1261,13 @@ export const chatActions = {
     dispatchActive({ type: 'RENAME_RIGHT_PANEL_TILE', id, label }),
   removeRightPanelTile: (id: RightPanelTileId): void =>
     dispatchActive({ type: 'REMOVE_RIGHT_PANEL_TILE', id }),
-  toggleDiffFiles: (): void => dispatchActive({ type: 'TOGGLE_DIFF_FILES' }),
   setGitStatus: (snapshot: BranchSnapshot): void =>
     dispatchActive({ type: 'SET_GIT_STATUS', snapshot }),
-  selectGitSnapshotCommit: (commit: string | null): void =>
-    dispatchActive({ type: 'SELECT_GIT_SNAPSHOT_COMMIT', commit }),
+  openGitSnapshotPeek: (target: GitPeekTarget): void =>
+    dispatchActive({ type: 'OPEN_GIT_SNAPSHOT_PEEK', target }),
+  closeGitSnapshotPeek: (): void => dispatchActive({ type: 'CLOSE_GIT_SNAPSHOT_PEEK' }),
+  toggleGitSnapshotCommitExpanded: (sha: string): void =>
+    dispatchActive({ type: 'TOGGLE_GIT_SNAPSHOT_COMMIT_EXPANDED', sha }),
   refreshGitSnapshot: (): void => dispatchActive({ type: 'REFRESH_GIT_SNAPSHOT' }),
   beginGitSnapshotQuery: (request: GitSnapshotRequest): void =>
     dispatchActive({ type: 'BEGIN_GIT_SNAPSHOT_QUERY', request }),

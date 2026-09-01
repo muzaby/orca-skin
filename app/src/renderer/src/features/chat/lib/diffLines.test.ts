@@ -13,13 +13,22 @@ describe('줄 파생 (AT-18)', () => {
     const removed = lines.find((l) => l.type === 'removed')
     const kept = lines.filter((l) => l.type === 'unchanged')
     expect(removed?.lineNo).toBe(2)
+    expect(removed).toMatchObject({ oldLine: 2, newLine: null })
     expect(kept.map((l) => l.lineNo)).toEqual([1, 2])
+    expect(kept.map((l) => [l.oldLine, l.newLine])).toEqual([
+      [1, 1],
+      [3, 2]
+    ])
   })
 
   it('신규 파일(old 가 빈 문자열)은 전부 added 다', () => {
     const lines = buildDiffLines('', 'x\ny\n')
     expect(lines.map((l) => l.type)).toEqual(['added', 'added'])
     expect(lines.map((l) => l.lineNo)).toEqual([1, 2])
+    expect(lines.map((l) => [l.oldLine, l.newLine])).toEqual([
+      [null, 1],
+      [null, 2]
+    ])
   })
 
   it('변경이 없으면 전부 unchanged 다 — 빈 배열이 아니다', () => {

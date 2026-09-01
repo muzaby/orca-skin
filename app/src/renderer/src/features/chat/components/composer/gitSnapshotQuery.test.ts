@@ -35,17 +35,51 @@ interface QueryOwner {
 }
 
 describe('git snapshot query owner', () => {
+  it('summary query trigger count is limited to initial, identity, turn-end, and refresh inputs', () => {
+    const reasons: Array<Exclude<ReturnType<typeof gitSnapshotQueryReason>, null>> = []
+    let previous: Parameters<typeof gitSnapshotQueryReason>[0] = null
+    const step = (identity: string, busy: boolean): void => {
+      const reason = gitSnapshotQueryReason(previous, { identity, busy })
+      previous = { identity, busy }
+      if (reason) reasons.push(reason)
+    }
+    const base = gitSnapshotTriggerKey('/repo-a', 'session-a', 0)
+
+    step(base, false)
+    step(base, false) // tile mount/unmount or list↔peek without identity input changes
+    step(base, true)
+    step(base, false)
+    step(gitSnapshotTriggerKey('/repo-b', 'session-b', 0), false)
+    step(gitSnapshotTriggerKey('/repo-b', 'session-b', 1), false)
+
+    expect(reasons).toEqual(['initial', 'turn-end', 'identity', 'identity'])
+  })
+
   it('busy session A에서 idle session B로 바뀌면 B identity 조회 한 번만 판정한다', () => {
+    const reasons: Array<ReturnType<typeof gitSnapshotQueryReason>> = []
+    let previous: Parameters<typeof gitSnapshotQueryReason>[0] = {
+      identity: gitSnapshotTriggerKey('/repo-a', 'session-a', 0),
+      busy: true
+    }
+    for (const next of [
+      { identity: gitSnapshotTriggerKey('/repo-b', 'session-b', 0), busy: false },
+      { identity: gitSnapshotTriggerKey('/repo-b', 'session-b', 0), busy: false }
+    ]) {
+      reasons.push(gitSnapshotQueryReason(previous, next))
+      previous = next
+    }
+
+    expect(reasons).toEqual(['identity', null])
     expect(
       gitSnapshotQueryReason(
-        { identity: '["/repo-a","session-a",null,0]', busy: true },
-        { identity: '["/repo-b","session-b",null,0]', busy: false }
+        { identity: '["/repo-a","session-a",0]', busy: true },
+        { identity: '["/repo-b","session-b",0]', busy: false }
       )
     ).toBe('identity')
     expect(
       gitSnapshotQueryReason(
-        { identity: '["/repo-b","session-b",null,0]', busy: true },
-        { identity: '["/repo-b","session-b",null,0]', busy: false }
+        { identity: '["/repo-b","session-b",0]', busy: true },
+        { identity: '["/repo-b","session-b",0]', busy: false }
       )
     ).toBe('turn-end')
   })
