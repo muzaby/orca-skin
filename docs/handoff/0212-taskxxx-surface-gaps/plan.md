@@ -12,11 +12,11 @@
 | 일자 | 2026-09-01 |
 | 기준 브랜치 | `claude/taskxxx-handoff-212-5228f0` (`main` 기준 — **0211 산출물 미포함**) — §8 의 줄 좌표·필드 수는 이 베이스 실측이다 |
 | 매핑 | 없음 (PR 미개설) |
-| 상태 | DRAFT → **READY** |
-| V mode | `Baseline V` |
-| 기준 V | `none` — 근거는 §7-A |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 상태 | DRAFT → READY → (r1 `RETURN_TO_PLAN`) → **READY (ΔV1)** |
+| V mode | `Baseline V` + `Delta V` |
+| 기준 V | `0212:V1 @e38f545e` — Baseline V 근거는 §7-A |
+| 이번 V revision | `ΔV1` — r1 verify 의 `PLAN_GAP` D4 정정. 변경 행은 §7-A `ΔV1` 절 |
+| 유효 V | `V1 + ΔV1` |
 
 ---
 
@@ -68,9 +68,13 @@
 | D-023 | 할 일 목록 항목의 **직접 편집·개별 중단은 만들지 않는다** | SDK 에 경로가 없다 — `Query` 제어 API 에도 control request union 에도 없고 `TaskCreate`/`TaskUpdate` 는 모델 도구다(spec §5.3). 없는 것을 흉내 내면 GUI 와 실제 상태가 갈라진다 | SDK 실측 | ACTIVE | — |
 | D-024 | Task 도구를 **`RISKY_TOOLS` 에 넣지 않는다** | 상태를 바꾸는 도구가 아니라 할 일 목록만 바꾼다. 넣으면 할 일이 갱신될 때마다 승인 카드가 뜬다(`risky-tools.ts` 헤더 — "상태를 변경하는 도구만 승인 카드로 surface") | 설계자 판단 + 기존 주석 | ACTIVE | — |
 | D-025 | 대화록 전용 본문은 **할 일 목록 4종만** 받는다 — 이름 SSOT 는 `task-tool.ts` 가 새로 export 하는 **4종 부분집합**이고 렌더가 배열을 다시 적지 않는다 | `TASK_TOOL_NAMES` 는 **6종**이라(§8) 그대로 재사용하면 `TaskOutput`·`TaskStop` 에도 전용 본문이 붙는다. 둘은 구조화 출력이 없어(spec §3) 그릴 필드가 없고 0204 D-010 이 관측만으로 못박았다 — 기존 `KeyValueBody` 폴백을 유지한다 | 이번 세션 실측 (`task-tool.ts:16-27`) | ACTIVE | R-06·EP-11 의 "4종" ↔ "`TASK_TOOL_NAMES` 재사용" 모순을 닫는다 |
+| D-026 | 중단 정착이 나르는 **사유와 표시 문구는 서로 다른 키**다 — `cause` = SDK 가 준 원인(`task_updated.patch.error`), `message` = transcript 용 기본 문장. 소비자는 `reason:'aborted'` 면 `cause` 만 사유로 읽는다 | AC21 과 상속 표시 계약(0204 D-024 · AT-31)이 정착 `message` 한 자리를 두고 반대를 요구했다 — `killed` 는 사용자가 멈춘 것이 아니라 `patch.error` 가 유일한 원인 서술인데, 그것을 `message` 에 덮으면 **사용자 중단 행까지** 생산자 문장으로 바뀐다. 0204 D11 이 이 자리를 `open` 으로 두며 "D-024 가 `aborted` 분기를 정본으로 삼았으므로 **규범 정정이 선행**" 이라 적었다 | r1 verify D4 (`1f0c3da2`) · 0204 D11 | ACTIVE | 0204 D-024 를 **보완**(대체 아님) — `failed` 분기의 규칙은 그대로다 |
+| D-027 | 레벨 REPLACE 로 사라진 항목은 기존 `failed` status 로 정착시키고 **무슨 일이 있었는지 그대로 말한다** — 새 표시 상태를 만들지 않는다 | 채널 사망 정착의 선례와 같은 자리다. 새 status 를 늘리면 두 타일의 라벨·그룹·아이콘이 함께 갈라진다(D-015 와 같은 이유) | r1 구현 P3 → r1 verify D4 동반 | ACTIVE | — |
 
 ### 갱신 메모
 
+- **ΔV1 턴(r1 `RETURN_TO_PLAN` 후) 추가 결정: D-026 · D-027.** 둘 다 verify D4 가 연 자리다 — 중단 사유의 키 분리와 레벨 REPLACE 정착의 표시 규칙에 규범 행이 없었다. **SUPERSEDED 0건** — D-026 은 0204 D-024 를 보완하고 대체하지 않는다(`failed` 분기 규칙 불변, 렌더 테스트 두 케이스가 양쪽을 동시에 잠근다).
+- **ΔV1 턴 조사 누락 1건**: §16 이 0204 의 ACTIVE Decision 은 전수 대조했으나 **0204 의 `open` 파생 이슈는 읽지 않았다.** D11 이 바로 이 자리에 "규범 정정이 선행" 을 적은 채 열려 있었고, 그래서 AC21 ↔ 상속 표시 계약의 충돌이 설계 시점에 보이지 않았다.
 - 이번 턴에서 새로 추가된 결정: **D-001 ~ D-018** (신규 handoff) + **D-019 ~ D-024** (제어 축 반환) + **D-025** (정식화 턴 — 도구 이름 범위 모순 해소).
 - 변경된 결정: **D-022 가 같은 턴 초안을 정정한다** — "paused 는 중단 버튼 숨김"을 "유지"로 뒤집었다. 사용자가 제어 축을 명시 요구해 재검토한 결과이고, `paused` 에서 나갈 사용자 경로가 중단뿐이라는 SDK 사실(spec §5.3)이 근거다. **0204 의 ACTIVE 결정은 대체하지 않는다** — D-009 가 0204 D-028 의 *이유 문장*을 성립시키지만 "`blocks` 를 저장하지 않는다"는 결정 자체는 그대로다.
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: 0204 D-002(main 에 Task 스토어 없음) · D-005/D-006(`중단 중` 경유 + watchdog) · D-008(`TaskList` 전체 스냅샷) · D-010(`TaskOutput` 의존 금지) · D-013(`skip_transcript` 드롭) · D-018(id 오름차순 단일 목록) · D-031(순서는 의존이 아니다).
@@ -146,7 +150,9 @@
 | `background_tasks_changed` · 첫 payload | 집합 저장 + 유효 표시 | 변화 없음 (기준선 확립) |
 | `background_tasks_changed` · 2회차 이후 | 매핑 집합으로 REPLACE | 집합에 없는 진행 중 항목이 정착 상태로 |
 | `task_updated(paused)` | transient 집합에 추가 | 행 라벨 `일시정지` · **중단 버튼 유지**(D-022) |
-| `task_updated(killed)` | `stopped` 와 동형 정착 | 행이 `중단됨` |
+| `task_updated(killed)` · `patch.error` 있음 | `stopped` 동형 정착 + 사유를 `cause` 로 실음 | 행이 `중단됨` + **SDK 가 준 사유 문구**(D-026) |
+| `task_updated(killed)` · `patch.error` 없음 | `stopped` 동형 정착, `cause` 키 없음 | 행이 `중단됨` + `사용자에 의해 중단됨`(0204 AT-31 유지) |
+| 레벨 REPLACE 로 집합에서 사라짐 | 기존 `failed` status 로 정착(새 status 없음) | 행이 `실패` + `완료 통지 없이 백그라운드 작업 목록에서 사라졌습니다.`(D-027) |
 | CLI 프로세스 재기동 | 레벨 집합 리셋 + 무효화 | 다음 변화까지 레벨로 정착시키지 않음 |
 | `백그라운드로` 클릭 (foreground 행) | `backgroundTasks(toolUseId)` 요청 | 턴이 이어지고 그 행의 전환 버튼이 사라진다 |
 | `백그라운드로` 요청 실패 | 표식 되돌림 + reject | 버튼 복구 + 사유 표시 |
@@ -193,18 +199,19 @@
 | R-03 | AT-11 / AC11 | 대상이 없으면 항목을 만들지 않는다 | fold 단위 — Create(1) 만 있고 `Update(1, addBlocks:['9'])` → 목록 길이 1, id `9` 부재 | 같은 경로 |
 | R-03 | AT-12 / AC12 | 자기 자신을 막는 간선은 만들지 않는다 | fold 단위 — `Update(1, addBlocks:['1'])` → 항목 1 의 `blockedBy` 가 빈 배열 | 같은 경로 |
 | R-03 | AT-13 / AC13 | `TaskList` 스냅샷이 역방향 가산분을 교체한다 | fold 단위 — AT-10 상태에서 `blockedBy:[]` 인 스냅샷 → 항목 2 의 `blockedBy` 가 빈 배열 | 같은 경로 |
-| R-04 | AT-14 / AC14 | `background_tasks_changed` 의 집합에 없는 추적 항목이 정착한다 | tracker 통합 — 두 항목 추적 중 첫 payload → 둘째 payload(항목 1개) → 빠진 항목이 정착 상태 | SDK system → `claudeToNormalized` → `subagent.backgroundSet` → coordinator → tracker |
-| R-04 | AT-15 / AC15 | 첫 payload 는 아무것도 정착시키지 않는다 | tracker 통합 — 추적 2건 상태에서 빈 `tasks:[]` 첫 payload → 정착 0건 | 같은 경로 |
+| R-04 | AT-14 / AC14 **(ΔV1 정정)** | `background_tasks_changed` 의 집합에 없는 추적 항목이 **정착한다** | **관측 지점은 coordinator 가 내는 정착이다**(ΔV1) — `subagent.backgroundSet` 이벤트를 coordinator 에 2회 넣어 첫 payload 는 정착 0건, 둘째에서 빠진 항목이 `status:'failed'` · `stopLive:false` 로 정착하는지 단언한다. `applyLiveSet` 반환값만 읽는 단언은 이 AC 를 닫지 않는다 | SDK system → `claudeToNormalized` → `subagent.backgroundSet` → coordinator → `settleTaskSubset` |
+| R-04 | AT-15 / AC15 **(ΔV1 정정)** | 첫 payload 는 아무것도 정착시키지 않는다 | 두 층 — tracker 단위로 `applyLiveSet` 반환이 빈 배열이고, **coordinator 에서 정착 방출이 0건**이다(AT-14 의 음성 짝) | 같은 경로 |
 | R-04 | AT-16 / AC16 | 매핑 없는 `task_id` 는 무시한다 | 매핑 단위 — `taskToolUseById` 에 없는 `task_id` 만 든 payload → `toolUseIds` 빈 배열 | `claudeToNormalized` |
 | R-04 | AT-17 / AC17 | watchdog 정착 경로가 그대로 동작한다 (회귀) | 기존 `stop-subagent` 테스트가 green — 레벨 신호 없이 timeout 만으로 정착 | `stopSubagentTask` |
 | R-05 | AT-18 / AC18 | `paused` 행은 `일시정지` 라벨이고 **중단 버튼이 유지된다** | 렌더 테스트 — paused 집합에 든 background 행 → 라벨 일치 **+ 중단 버튼 존재** | `task_updated` → store transient → `backgroundBoardStatus` → 두 타일 |
 | R-05 | AT-19 / AC19 | `running` 으로 돌아오면 라벨이 `진행 중` 으로 복귀한다 | 렌더 테스트 — paused 해제 후 라벨 복귀 + 버튼 계속 존재 | 같은 경로 |
 | R-05 | AT-20 / AC20 | `killed` 는 `중단됨` 으로 정착한다 | 매핑 단위 — `patch.status:'killed'` → `status:'stopped'` 인 `subagent.task` | `claudeToNormalized` |
-| R-05 | AT-21 / AC21 | `patch.error` 가 정착 사유로 보인다 | fold + 렌더 — errorMessage 를 실은 정착 → 행이 그 문구를 보인다 | 같은 경로 |
-| R-06 | AT-22 / AC22 | 할 일 목록 4종(`TaskCreate`·`TaskGet`·`TaskUpdate`·`TaskList`)이 대화록에서 전용 본문으로 읽히고 실패 `error` 를 보인다. `TaskOutput`·`TaskStop` 은 **기존 폴백 그대로**다(D-025) | 렌더 테스트 — `TaskUpdate` 실패 카드가 `error` 문구를 보이고, 성공 카드는 `subject`·`status` 를 보인다. **6종 전량 대조** — `TaskOutput`·`TaskStop` 카드는 전용 본문을 갖지 않는다 | tool parts → `registry.ts` → 전용 Body |
+| R-05 | AT-21 / AC21 **(ΔV1 정정)** | `patch.error` 가 정착 사유로 보인다 — 사유는 `cause` 키가 나른다(D-026) | 생산자 단위 — `status:'stopped'` + `summary` 정착이 `result.cause` 를 만든다. 소비자 렌더 — `cause` 를 실은 정착 → 행이 그 문구를 보인다. **두 층을 각각 단언한다** | `task_updated` → `claudeToNormalized`(`summary`) → `subagent-settlement`(`cause`) → `parts.settlementMessageFromCall` → 행 |
+| R-93 | AT-27 / AC27 **(ΔV1 신설)** | 사유가 없는 중단 행은 UI 문구 `사용자에 의해 중단됨` 을 보인다 (0204 AT-31 회귀) | 렌더 — `cause` 없는 `reason:'aborted'` 정착 → UI 문구가 보이고 생산자 기본 문장(`서브에이전트가 중단되었습니다.`)은 보이지 않는다 | 같은 경로 — `cause` 부재 분기 |
+| R-06 | AT-22 / AC22 | 할 일 목록 4종(`TaskCreate`·`TaskGet`·`TaskUpdate`·`TaskList`)이 대화록에서 전용 본문으로 읽히고 실패 `error` 를 보인다. `TaskOutput`·`TaskStop` 은 **기존 폴백 그대로**다(D-025) | 렌더 테스트 — `TaskUpdate` 실패 카드가 `error` 문구를, 성공 카드가 `subject`·`status` 를 보인다. **관측 지점은 `toolRendererRegistry.resolve` 다**(ΔV1) — 6종 전량을 그것에 통과시켜 4종은 `task_list`, `TaskOutput`·`TaskStop` 은 폴백 kind 임을 단언한다. Body 를 직접 호출하는 단언은 이 AC 를 닫지 않는다 | tool parts → `registry.ts` match → 전용 Body |
 | R-07 | AT-23 / AC23 | foreground 서브에이전트 행에 `백그라운드로` 버튼이 뜬다 | 렌더 테스트 — `asyncLaunched:false` 인 진행 중 행 → 버튼 존재 (두 타일 각각) | store 의 background 관측 → `canBackgroundTask` → 두 타일 |
 | R-07 | AT-24 / AC24 | 이미 background 인 행에는 그 버튼이 없다 | 렌더 테스트 — `asyncLaunched:true` 행 → 버튼 부재. 중단 버튼은 그대로 존재 | 같은 경로 |
-| R-07 | AT-25 / AC25 | 클릭하면 그 `toolUseId` 로 전환이 요청된다 | 통합 — 클릭 → IPC → `backgroundTask(toolUseId)` 가 **그 id 로** 1회 호출 | renderer → `orca:chat:backgroundSubagent` → session-runtime → SDK |
+| R-07 | AT-25 / AC25 **(ΔV1 정정)** | 클릭하면 그 `toolUseId` 로 전환이 요청된다 | **관측 지점은 `turn.live.backgroundTask` 포트다**(ΔV1) — `registerChatHandlers` 를 실제로 등록해 `CHANNELS.chatBackgroundSubagent` 핸들러를 부르고, 그 포트가 **그 id 로 1회** 호출되는지와 `false` 반환이 reject 되는지를 단언한다. renderer 경계(`chatApi`)의 단언은 이 AC 를 닫지 않는다 | renderer → `orca:chat:backgroundSubagent` → session-runtime → SDK |
 | R-07 | AT-26 / AC26 | 요청이 실패하면 버튼이 복구되고 사유가 보인다 | 통합 — 포트가 reject → renderer 가 요청 표식을 되돌리고 오류 문구를 낸다 | 같은 경로 (중단 실패와 동일 규칙) |
 
 ### AC 검증 주의사항
@@ -215,7 +222,8 @@
 - N회/총량 기준: **없음.** 이번 AC 에 호출 횟수·총량 식이 없다.
 - 총량/0건 기준: **없음.** 음성 게이트를 AC 로 쓰지 않는다 — AT-03·AT-11·AT-12·AT-15·AT-24 는 "부재"를 단언하지만 각각 **같은 pair 안에 양성 짝**(AT-02·AT-10·AT-10·AT-14·AT-23)이 있어 장치가 침묵으로 통과하지 않는다. AT-24 는 부재 단언 안에 **양성 항도 함께** 든다(전환 버튼 부재 + 중단 버튼 존재) — 행 전체가 안 그려져도 실패한다.
 - 순서 기준: AT-15 가 순서를 단언한다(첫 payload vs 이후). 관측 지점은 tracker 의 정착 호출이며 payload 순번은 테스트가 직접 제어한다.
-- **AC 분모 26 — 상한 초과 1건.** SKILL §5 의 분할 검토 결과는 D-001 에 있다. R 별 분포는 R-01(4) · R-02(5) · R-03(4) · R-04(4) · R-05(4) · R-06(1) · R-07(4) 이고 합 = **26** (검산 일치).
+- **AC 분모 26 → 27 (ΔV1).** AC27 신설로 분모가 하나 늘었다 — **r1 의 26 과 직접 비교하지 않는다.** R 별 분포는 R-01(4) · R-02(5) · R-03(4) · R-04(4) · R-05(4) · R-06(1) · R-07(4) · **R-93(1)** 이고 합 = **27** (검산 일치). 분할 검토 결과는 D-001 에 있고 상한 초과는 2건이 된다 — R-93 은 상속 계약의 회귀 1행이라 분할 근거를 바꾸지 않는다.
+- **관측 지점 규칙 (ΔV1).** AC14·AC15·AC22·AC25 의 `검증 수단` 칸은 이제 **어디에 서서 관측하는지**를 함께 적는다. r1 은 네 AC 모두 값을 직접 읽고도 seam 한 홉 앞에서 통과했다 — path 와 oracle 을 따로 적으면 oracle 이 path 의 어디에 있어도 참이 된다(verify D1·D2·D3).
 - 인자 단언: AT-25 는 "호출됐다" 가 아니라 **"그 `toolUseId` 로 1회 호출됐다"** 를 단언한다 — 인자를 안 보면 아무 태스크나 백그라운드로 보내도 통과한다.
 
 ## 7-A. V / Trace Matrix
@@ -252,6 +260,8 @@
 | MD-04 | MD | §10·§11 — `canBackgroundTask` 술어(foreground 이고 진행 중일 때만) | NEW | — |
 | MD-90 | MD | 0204 — `TaskList` 전체 스냅샷 교체 | INHERITED | `0204:ΔV2 @7b45fa3 (r5 PASS)` · `taskBoard.test.ts` AT-34 케이스 |
 | R-92 | R | 0204 — 중단 요청 실패 시 `진행 중` 복구 + 사유 표시 | INHERITED | `0204:ΔV2 @7b45fa3 (r5 PASS)` · `stop-subagent.ts:82-86` 복구 경로 |
+| **AR-05** | AR | §10 EP-15 — 정착 tool_result 의 **사유 키 분리**(`cause` / `message`) | **NEW (ΔV1)** | — |
+| **R-93** | R | 0204 AT-31 — 사유 없는 중단 행은 UI 문구 `사용자에 의해 중단됨` | **INHERITED (ΔV1)** | `0204:ΔV2 @7b45fa3 (r5 PASS)` · 0204 plan §7 AT-31 행 · 0204 D11(`open`) |
 
 ### Pair registry
 
@@ -264,19 +274,39 @@
 | VP-05 | MD-01 ↔ AT-09 | REQUIRED | `tool_use.args` → `readTaskToolObservation` → patch | patch 의 `activeForm` 값 | not selected — 반환값을 직접 읽는다 | EP-03 (1) |
 | VP-06 | R-03 ↔ AT-10·11·12 | REQUIRED | `TaskUpdate` 결과 → fold → 대상 `blockedBy` | 대상 항목의 `blockedBy` 배열 | not selected — 배열 내용을 직접 읽고 AT-11·12 는 AT-10 을 양성 짝으로 갖는다 | EP-04 (1) |
 | VP-07 | MD-90 ↔ AT-13 | REGRESSION | `TaskList` 결과 → fold → 전체 교체 | 스냅샷 후 `blockedBy` 배열 | not selected — 직접 읽는다 | EP-04 (1) |
-| VP-08 | R-04 ↔ AT-14·15 | REQUIRED | SDK `background_tasks_changed` → `subagent.backgroundSet` → coordinator → `BackgroundTaskTracker` | 정착 호출 대상 id 집합 | not selected — 정착된 id 를 직접 관측한다 | EP-06·EP-07 (2) |
+| VP-08 | R-04 ↔ AT-14·15 **(ΔV1)** | REQUIRED | SDK `background_tasks_changed` → `subagent.backgroundSet` → coordinator → `settleTaskSubset` | **coordinator 가 낸 정착의 대상 id·status·`stopLive`** — `applyLiveSet` 반환값은 이 pair 를 닫지 않는다 | **required (ΔV1)** — 배선 존재가 계약이라 **coordinator 의 `subagent.backgroundSet` 분기를 통째로 지우는 변이**를 심어 red 를 확인한다(r1 은 이 변이에 2410케이스가 침묵했다) | EP-06·EP-07 (2) |
 | VP-09 | AR-02 ↔ AT-16 | REQUIRED | `task_id` → `taskToolUseById` → `toolUseIds` | 이벤트의 `toolUseIds` 배열 | not selected — 배열을 직접 읽는다 | EP-06 (1) |
 | VP-10 | R-91 ↔ AT-17 | REGRESSION | `stopSubagentTask` → timeout → 합성 정착 | 기존 스위트의 정착 단언 | not selected — 기존 직접 oracle | EP-08 (1) |
 | VP-11 | R-05 ↔ AT-18·19 | REQUIRED | `task_updated` → store transient → `backgroundBoardStatus` → 두 타일 | 라벨 문자열 + 중단 버튼 노드 유무 | not selected — 두 타일 산출을 각각 직접 관측한다 | EP-09·EP-10 (2) |
 | VP-12 | AR-03 ↔ AT-20·21 | REQUIRED | `task_updated` → `claudeToNormalized` → `subagent.task` | 정규화 이벤트의 `status`·`errorMessage` | not selected — 이벤트 필드를 직접 읽는다 | EP-09 (1) |
-| VP-13 | R-06 ↔ AT-22 | REQUIRED | tool parts → `registry.ts` match → 전용 Body | 렌더 산출의 필드 문구 | not selected — 문구를 직접 관측한다 | EP-11 (1) |
+| VP-13 | R-06 ↔ AT-22 **(ΔV1)** | REQUIRED | tool parts → `registry.ts` match → 전용 Body | **`toolRendererRegistry.resolve` 가 6종에 돌려주는 kind** + 그 Body 의 필드 문구 — Body 직접 호출은 이 pair 를 닫지 않는다 | **required (ΔV1)** — **등록 블록 삭제**와 **match 를 `TASK_TOOL_NAMES`(6종)로 확장** 두 변이를 심어 각각 red 를 확인한다(r1 은 둘 다 침묵했다) | EP-11 (1) |
 | VP-14 | R-90 ↔ 0204 기존 AT-10a | REGRESSION | 같은 fold 경로 | `taskBoard.test.ts` 의 순서 단언 | not selected — 기존 직접 oracle | EP-04 (1) |
 | VP-15 | SD-03 ↔ AT-18·19 | REQUIRED | `paused` 진입 → **중단 가용성 유지** → 이탈 | `canStopTask` 반환 + 렌더의 버튼 노드 | **required** — `paused` 를 `in_progress` 와 나란히 허용하는 술어라, `paused` 항만 **지우는 변이**를 심어 AT-18 이 red 가 되는지 확인한다(D-022 가 이번 턴 자체 정정이라 방향을 잠근다) | EP-10 (1) |
 | VP-16 | R-07 ↔ AT-23·24 | REQUIRED | background 관측(`asyncLaunched`) → `canBackgroundTask` → 두 타일 버튼 | 두 타일 산출의 전환 버튼 노드 유무 | not selected — AT-24 가 AT-23 의 양성 짝이고 중단 버튼 존재도 함께 단언한다 | EP-12·EP-13 (2) |
-| VP-17 | AR-04 ↔ AT-25 | REQUIRED | 클릭 → `orca:chat:backgroundSubagent` → session-runtime → `backgroundTask(toolUseId)` | 포트 호출의 **인자와 횟수** | not selected — 인자를 직접 관측한다 | EP-12·EP-14 (2) |
+| VP-17 | AR-04 ↔ AT-25 **(ΔV1)** | REQUIRED | 클릭 → `orca:chat:backgroundSubagent` → session-runtime → `backgroundTask(toolUseId)` | **`turn.live.backgroundTask` 포트 호출의 인자와 횟수** — `chatApi` 경계 관측은 이 pair 를 닫지 않는다 | **required (ΔV1)** — 핸들러의 `turn.live.backgroundTask` 호출을 지우거나 인자를 상수로 바꾸는 변이를 심어 red 를 확인한다 | EP-12·EP-14 (2) |
 | VP-18 | SD-04 ↔ AT-26 | REQUIRED | 포트 reject → IPC reject → renderer 복구 | 복구 후 버튼 노드 + 오류 문구 | not selected — 렌더 산출을 직접 읽는다 | EP-14 (1) |
 | VP-19 | R-92 ↔ 기존 중단 실패 복구 | REGRESSION | `stopSubagentTask` throw → 표식 되돌림 → renderer 복구 | `stop-subagent` 스위트의 복구 단언 | not selected — 기존 직접 oracle | EP-08 (1) |
 | VP-20 | MD-04 ↔ AT-23·24 | REQUIRED | `canBackgroundTask(item, asyncLaunched)` 반환 | 술어 반환값 (순수) | not selected — 반환을 직접 읽는다 | EP-13 (1) |
+| **VP-21** | AR-05 ↔ AT-21 **(ΔV1 신설)** | REQUIRED | `subagent.task(stopped, summary)` → `subagent-settlement` → `result.cause` → `parts.settlementMessageFromCall` → 행 | 생산자의 `result.cause` 값 + 소비자가 그것을 사유로 고르는지 — **두 층 각각** | not selected — 두 층 모두 값을 직접 읽고 AT-27 이 음성 짝이다 | EP-15 (3) |
+| **VP-22** | R-93 ↔ AT-27 **(ΔV1 신설)** | REGRESSION | 같은 경로의 `cause` 부재 분기 | 행이 보이는 문구 문자열 | **required (ΔV1)** — `cause`/`message` 형제 슬롯이 서로 다른 계약이라 **두 값을 맞바꾸는 변이**를 심는다(존재만 보는 단언은 두 문자열이 모두 남아 침묵한다) | EP-15 (3) |
+
+### ΔV1 — r1 `RETURN_TO_PLAN` 정정 (기준 `0212:V1 @e38f545e`)
+
+r1 verify(`1f0c3da2`)의 `PLAN_GAP` **D4** 를 닫고, 같은 라운드가 드러낸 **oracle 관측 지점 누락**을 규범 행으로 올린다. V1 의 나머지 행은 그대로다 — 아래가 증분 전부다.
+
+| 축 | 변경 | provenance |
+|---|---|---|
+| Decision | **D-026**(사유 키 분리) · **D-027**(레벨 REPLACE 정착 표시) 신설 | NEW — SUPERSEDED 0 |
+| Node | **AR-05** 신설 · **R-93** 상속 등록 | NEW / INHERITED |
+| Pair | **VP-21**(REQUIRED) · **VP-22**(REGRESSION) 신설 | NEW |
+| Pair | **VP-08 · VP-13 · VP-17** — oracle 에 관측 지점을 명시하고 배선 소거 변이를 적대 증거로 등록 | CHANGED |
+| AC | **AC27** 신설 · **AC14·AC15·AC21·AC22·AC25** 검증 수단 정정 | NEW / CHANGED |
+| §10 | **EP-15** 신설 (강제 지점 3) | NEW |
+| §5 | `killed` 행을 사유 유무 2행으로 분리 + 레벨 REPLACE 정착 행 추가 | CHANGED |
+
+- **왜 pair 3건의 oracle 을 고치는가**: r1 에서 VP-08·VP-13·VP-17 이 셋 다 oracle 문장을 참으로 만들고도 seam 한 홉 앞에서 통과했다. 배선을 통째로 지우는 변이에 게이트가 전건 초록이었다(verify §4 MV-1·MV-2·MV-3). 값을 "직접 관측한다" 는 것은 *값*에 대해 참이고 *배선*에 대해서는 아무 말도 하지 않는다.
+- **`NOT_REQUIRED` 0건** — V1 의 어떤 pair도 비영향으로 판정하지 않는다. ΔV1 은 기존 pair 를 줄이지 않는다.
+- **유효 V 재구성**: `0212:V1 @e38f545e` 의 20 pair + ΔV1 의 신설 2 pair = **22 pair**(REQUIRED 17 · REGRESSION 5), 그중 3 pair 의 oracle·적대 증거 칸이 ΔV1 로 갱신됐다.
 
 ### 현재 변경의 운영 gate
 
@@ -461,6 +491,7 @@ SDK stream
 | EP-12 · R-07·AR-04/VP-16·VP-17 | 전환 버튼은 **두 타일 모두**에 같은 술어로 붙는다 | `taskBoard.ts` `canBackgroundTask` | 두 타일 | 매 렌더 | 한 타일에만 넣으면 같은 항목이 화면마다 다른 제어를 갖는다 |
 | EP-13 · MD-04/VP-16·VP-20 | `canBackgroundTask` = background 종류 **AND** 진행 중 **AND** `asyncLaunched` 아님 | `taskBoard.ts` | 술어 | 매 렌더 | 이미 background 인 행에 붙으면 눌러도 `false` 만 돌아오는 죽은 버튼이 된다(D-021) |
 | EP-14 · AR-04·SD-04/VP-17·VP-18 | 전환 요청은 **`toolUseId` 단건**이고 실패는 삼키지 않는다 | 신규 IPC 핸들러 + `session-runtime` | main | 클릭 시 | 인자를 흘리면 다른 태스크가 백그라운드로 간다. 실패를 삼키면 화면이 "아무 일도 안 일어남" 이 된다 |
+| **EP-15 · AR-05·R-93/VP-21·VP-22 (ΔV1)** | 중단 정착의 **사유는 `cause`, 표시 기본값은 `message`** — 소비자는 `reason:'aborted'` 면 `cause` 만 사유로 읽는다(D-026) | 생산자 `subagent-settlement.ts` `stopped` 분기 · 소비자 `parts.ts` `settlementMessageFromCall` · 표시 `TaskTileContent` `backgroundMetaLine` 의 `aborted` 분기 — **지점 3** | main + renderer | 매 중단 정착 · 매 렌더 | 한 키에 둘을 담으면 `killed` 의 SDK 사유가 사용자 중단 행까지 덮어 원인을 거짓 진술한다(0204 D11 · r1 verify D4). 두 값을 맞바꾸면 두 문자열이 모두 남아 존재 단언은 침묵한다 |
 
 - 같은/동일 규칙이 여러 레이어에 있다면 SSOT 와 공유 방법: 도구 이름은 `TASK_TOOL_NAMES` 하나(EP-11) · 표시 상태 규칙은 `backgroundBoardStatus` 하나(EP-10, 호출부 2곳 실측).
 - `실패 의미` 에 "다른 게이트가 막는다" 를 적은 행: **없음** — 모든 행이 자기 실패 결과를 직접 서술한다.
@@ -489,6 +520,17 @@ SDK stream
 | `docs/IPC_CONTRACT.md` | 채널 계약 | patch 확장 + 신규 variant | 문서 게이트 |
 | `docs/generated/inventory.md` | 생성물 | **재생성** (variant 증가) | `check-doc-inventory.mjs --check` |
 | `docs/INDEX.md` | 라우팅 | `claude-taskxxx-spec.md` 행 추가 | — |
+
+### ΔV1 구현 범위 (r2)
+
+**프로덕션 코드 변경은 필요하지 않을 수 있다.** r1 의 세 finding 은 "동작이 틀렸다" 가 아니라 "그 지점을 보는 눈이 없다" 다 — r2 는 오라클을 만들고, 만드는 과정에서 계약 위반이 드러나면 그때 코드를 고친다.
+
+| 대상 | 만들 오라클 | seam |
+|---|---|---|
+| VP-13 / AC22 (D1) | `registry.test.ts` 에 6종을 `toolRendererRegistry.resolve` 에 통과시켜 4종=`task_list` · `TaskOutput`·`TaskStop`=폴백 kind 를 단언 | 순수 — 기존 파일에 케이스 추가 |
+| VP-08 / AC14·15 (D2) | `turn-coordinator.test.ts` 에 `subagent.backgroundSet` 2회 주입 → 첫 payload 정착 0건, 둘째에서 빠진 항목의 정착 대상·`status:'failed'`·`stopLive:false` 를 단언 | 기존 coordinator 하네스 |
+| VP-17 / AC25 (D3) | `vi.mock('electron')` 로 `ipcMain.handle` 을 포획해 `registerChatHandlers` 등록 후 `CHANNELS.chatBackgroundSubagent` 핸들러를 호출 — `turn.live.backgroundTask('use1')` 1회와 `false`→reject 를 단언 | **선례 7건**, 그중 `src/main/app/chat-turn.runtime-tools.test.ts` 가 같은 `registerChatHandlers` 를 이 방식으로 부른다 |
+| VP-21·22 / AC21·27 (D4) | 생산자·소비자 두 층 단언은 이미 있다 — **`cause`↔`message` 맞바꿈 변이**로 민감도를 확인하고 EP-15 의 세 지점을 전수로 센다 | 기존 `subagent-settlement.test.ts` · 렌더 테스트 |
 
 ### 테스트 가능성
 
@@ -556,6 +598,8 @@ SDK(producer) → claude-map(정규화) → bus → coordinator/tracker(상태) 
 | `TaskOutput` 의존 금지·polling 금지 | 0204 D-010·D-011 | §14 — 새 요청 0 | **유지** |
 | `중단 중` 경유 정착 + watchdog | 0204 D-005·D-006 | D-011 — watchdog 유지 | **유지** |
 | 중단 요청 실패 시 `진행 중` 복구 + 사유 | 0204 D-005 · `stop-subagent.ts:82-86` | §13 — 전환 실패가 **같은 규칙**을 따른다 | **유지·확장 적용** |
+| 중단 행은 `사용자에 의해 중단됨` 을 보인다 | 0204 D-024 · AT-31 | D-026 — 사유가 있으면 `cause` 를 보이고 없으면 그 문구로 떨어진다 | **보완** — R-93/VP-22 가 원 계약을 회귀로 잠근다 |
+| `aborted` 분기의 하드코딩 사유를 고치려면 규범 정정이 선행한다 | **0204 D11 (`open`)** | D-026 이 그 규범 행이다 | **닫는다** — 0204 는 `verify/PASS` 후 사람 대기라 그 문서는 건드리지 않고 여기서 계약을 만든다 |
 | 중단 버튼은 진행 중일 때만 | 0204 · `canStopBackgroundStatus` | D-022 — `paused` 도 허용하도록 **넓힌다** | **변경** — SDK 에 resume 이 없어 `paused` 의 유일한 탈출구다(spec §5.3) |
 | 위험 도구만 승인 카드로 surface | `risky-tools.ts` 헤더 | D-024 — Task 도구를 넣지 않는다 | **유지** |
 | 백그라운드 전환은 중단 앞의 내부 폴백 | `stop-subagent.ts:55` 주석 | R-07 — 사용자 진입점을 **추가**한다(내부 폴백은 그대로) | **유지·확장 적용** |
@@ -636,6 +680,20 @@ SDK(producer) → claude-map(정규화) → bus → coordinator/tracker(상태) 
 - [x] 게이트 명령이 `app/AGENTS.md` 와 충돌하지 않는다 — `npm test` 미사용, `vitest run` 직접 호출(§19).
 - [x] 본문 완성 후 교차검증했고 `ACTIVE 결정 ↔ AC` 대조를 §3 갱신 메모에 관측으로 적었다 — 충돌 0, 확인 쌍 13개 열거.
 - [x] 산출물 문장 규칙을 지켰다 — 판정 먼저, 표 한 칸 3줄 이내, Part I/II 사실 중복 없음(SDK 필드는 spec 인용으로 대체).
+
+### ΔV1 self-review (정정한 행만)
+
+> 고쳐 쓴 AC 행은 §5 AC 게이트와 self-review 를 **다시** 통과시킨다(SKILL 마무리). 아래는 ΔV1 이 만들거나 고친 행에 대한 재검이다.
+
+- [x] **정정한 AC 5행 + 신설 1행이 행동 단언·검증 수단·프로덕션 도달 경로를 갖는다** — AC14·15·21·22·25·27 전부 세 칸을 채웠고, 검증 수단 칸에 **관측 지점**을 추가로 명시했다.
+- [x] **"X 가 쓰인다" 의 검사 장치가 X 를 지웠을 때 실패한다** — VP-08·VP-13·VP-17 이 배선 소거 변이를 `required` 로 등록했다. r1 은 이 세 변이에 침묵했다는 것이 실측이다(verify §4).
+- [x] **자리를 말하는 불변식은 형제 맞바꿈에도 실패한다** — VP-22 가 `cause`↔`message` 맞바꿈 변이를 등록했다. 존재만 보는 단언은 두 문자열이 모두 남아 통과한다.
+- [x] **음성 단언에 양성 짝이 있다** — AC27(사유 없음 → UI 문구)은 AC21(사유 있음 → 그 문구)의 짝이고, AC15(정착 0건)는 AC14(정착 N건)의 짝이다. 새로 만든 부재 단언 중 짝 없는 것 0건.
+- [x] **ACTIVE Decision ↔ 정정 AC 대조: 충돌 0.** 확인 쌍 — D-026↔AC21·AC27(사유/기본 문구가 서로 다른 키라 둘이 동시에 참) · D-027↔§5 레벨 REPLACE 행(새 status 없음) · **0204 D-024↔AC27 비충돌**(`failed` 분기 규칙 불변) · D-015↔AC21(`killed` 정착은 그대로 `stopped`).
+- [x] **분모 변경을 적었다** — 26 → 27, r1 합계와 직접 비교하지 않는다(§7 주의사항).
+- [x] **EP-15 의 강제 지점을 전수로 셌다** — `grep -rn "cause" src/main src/renderer` 에서 이 계약의 지점은 **3**이다: 생산 `subagent-settlement.ts:33` · 소비 `parts.ts:387` · 표시 `TaskTileContent.tsx:147`. 나머지 `cause` 히트는 error-classifier·auth·`AbortCause` 로 다른 계약이다. 하나만 닫으면 나머지 둘이 조용히 갈라진다.
+- [x] **`NOT_REQUIRED` 를 만들지 않았다** — ΔV1 은 기존 pair 를 줄이지 않는다.
+- [x] **인용한 앵커가 실재한다** — 0204 `AT-31`(plan:371) · 0204 `D-024`(plan:68) · 0204 `D11`(plan:1226) · `vi.mock('electron')` 선례 7건(`chat-turn.runtime-tools.test.ts` 포함) 전부 grep 확인.
 
 ---
 
@@ -770,10 +828,10 @@ SDK(producer) → claude-map(정규화) → bus → coordinator/tracker(상태) 
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | 전용 본문이 **레지스트리를 경유해** 붙는지 보는 단언이 0건이다 — 등록 블록 전체 삭제(MV-1)와 match 를 6종으로 확장(MV-2) 둘 다 게이트 전건 초록이다. AC22 의 "6종 전량 대조" 단언이 없다 | VP-13 · AC22 · §10 EP-11 | `registry.test.ts` 에 4종 → `task_list` 와 `TaskOutput`/`TaskStop` → `generic` 을 넣는다 | **BLOCKING** | open |
-| D2 | 레벨 신호가 **정착을 일으키는지** 보는 단언이 0건이다 — `turn-coordinator.ts` 의 `subagent.backgroundSet` 블록 전체 삭제(MV-3)에 229파일 2410케이스가 침묵한다 | VP-08 · AC14 · §10 EP-06·EP-07 | `turn-coordinator.test.ts` 에 payload 2회 주입 후 정착 대상과 `stopLive:false` 를 단언 | **BLOCKING** | open |
-| D3 | 전환 요청이 **포트까지** 가는지 보는 단언이 0건이다 — 관측이 renderer 경계에서 끝난다. "`vi.mock('electron')` 선례 0건" 은 사실이 아니다(선례 7건, 그중 하나가 같은 `registerChatHandlers` 를 부른다) | VP-17 · AC25 · §10 EP-14 | 같은 하네스로 핸들러를 불러 `backgroundTask('use1')` 1회와 `false`→reject 를 단언 | **BLOCKING** | open |
-| D4 | 중단 정착의 사유를 어느 키가 나르는지에 **규범 행이 없다** — AC21 과 상속 계약 0204 AT-31 이 `message` 한 자리를 두고 반대를 요구했고 구현자가 `cause` 키를 발명해 둘을 세웠다. 0204 D11 이 같은 자리에 "규범 정정이 선행" 을 적어 두었다 | VP-12 · AC21 · 0204 D-024/D11 | **설계자** 가 Decision 신설 + §10 행(`cause`=SDK 사유 / `message`=UI 기본) + 레벨 REPLACE 문구를 §5 상태표에 추가 | **PLAN_GAP** | open |
+| D1 | 전용 본문이 **레지스트리를 경유해** 붙는지 보는 단언이 0건이다 — 등록 블록 전체 삭제(MV-1)와 match 를 6종으로 확장(MV-2) 둘 다 게이트 전건 초록이다. AC22 의 "6종 전량 대조" 단언이 없다 | VP-13 · AC22 · §10 EP-11 | `registry.test.ts` 에 4종 → `task_list` 와 `TaskOutput`/`TaskStop` → 폴백 kind 를 넣는다. **ΔV1 이 AC22 의 관측 지점을 `resolve` 로 못박고 VP-13 에 소거·확장 두 변이를 등록했다** | **BLOCKING** | open (r2) |
+| D2 | 레벨 신호가 **정착을 일으키는지** 보는 단언이 0건이다 — `turn-coordinator.ts` 의 `subagent.backgroundSet` 블록 전체 삭제(MV-3)에 229파일 2410케이스가 침묵한다 | VP-08 · AC14 · §10 EP-06·EP-07 | `turn-coordinator.test.ts` 에 payload 2회 주입 후 정착 대상과 `stopLive:false` 를 단언. **ΔV1 이 AC14·15 의 관측 지점을 coordinator 정착으로 못박고 VP-08 에 분기 소거 변이를 등록했다** | **BLOCKING** | open (r2) |
+| D3 | 전환 요청이 **포트까지** 가는지 보는 단언이 0건이다 — 관측이 renderer 경계에서 끝난다. "`vi.mock('electron')` 선례 0건" 은 사실이 아니다(선례 7건, 그중 하나가 같은 `registerChatHandlers` 를 부른다) | VP-17 · AC25 · §10 EP-14 | 같은 하네스로 핸들러를 불러 `backgroundTask('use1')` 1회와 `false`→reject 를 단언. **ΔV1 이 AC25 의 관측 지점을 포트로 못박고 VP-17 에 호출 소거·인자 고정 변이를 등록했다** | **BLOCKING** | open (r2) |
+| D4 | 중단 정착의 사유를 어느 키가 나르는지에 **규범 행이 없다** — AC21 과 상속 계약 0204 AT-31 이 `message` 한 자리를 두고 반대를 요구했고 구현자가 `cause` 키를 발명해 둘을 세웠다. 0204 D11 이 같은 자리에 "규범 정정이 선행" 을 적어 두었다 | VP-12 · AC21 · 0204 D-024/D11 | 설계자가 ΔV1 로 닫았다 — **D-026·D-027** 신설 · **AR-05·R-93** node · **VP-21·VP-22** pair · **AC21 정정 + AC27 신설** · **§10 EP-15**(지점 3) · §5 상태표 3행 | **PLAN_GAP** | **closed (ΔV1)** |
 | D5 | INDEX r1 비고가 924자(≈10줄)로 5줄 상한을 넘었다 | `AGENTS.md §산출물 문장 규칙 3` | 검증자가 이번 턴에 5줄로 교체 | NON_BLOCKING | **closed** |
 | D6 | 구현 보고 변경 파일 수 40 ↔ 실측 **41**. 내역도 main 8↔**10** · renderer 13↔**17** 이고 보고 내역 합 38 이 보고 총계 40 과도 다르다 | 구현 보고 정확도 | 다음 라운드 보고에서 정정 | NON_BLOCKING | open |
 | D7 | §10 대조표 EP-10 이 "도달 경로 2" 라 쓰고 같은 칸이 좌표 3개를 연다. 좌표도 변경 전 줄번호다(182·289·258 → 실제 227·364·313) | 구현 보고 정확도 | 다음 라운드 보고에서 정정 | NON_BLOCKING | open |
