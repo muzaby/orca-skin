@@ -240,14 +240,9 @@ export const GitCheckoutRequestSchema = z.object({
 })
 
 // ── git diff (변경사항 타일, 0211) ───────────────────────────────────────────
-// `commit` 은 **execFile 인자로 나간다**. `GitBranchNameSchema` 와 같은 이유로 문자셋을 여기서
-// 자른다 — 16진 sha 만 받으면 `--upload-pack=...` 같은 옵션 주입이 형태에서 불가능해진다.
-const GitCommitShaSchema = z.string().regex(/^[0-9a-fA-F]{4,64}$/, 'commit 은 16진 sha 여야 한다')
-
 export const GitDiffRequestSchema = z.object({
   cwd: z.string().min(1),
-  sessionId: z.string().min(1).optional(),
-  commit: GitCommitShaSchema.optional()
+  sessionId: z.string().min(1).optional()
 })
 
 // diff 경로는 **저장소 안**이어야 한다. git 이 준 값을 그대로 돌려받는 것이 정상 경로지만,

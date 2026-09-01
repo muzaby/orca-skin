@@ -39,13 +39,21 @@ export const FIXTURE_COMMITS: readonly GitDiffCommit[] = [
     sha: '9f1c2ab3d4e5f60718293a4b5c6d7e8f90123456',
     subject: 'feat(sample): 목록 필터를 붙인다',
     author: 'codex',
-    committedAt: Date.UTC(2026, 7, 30, 4, 0)
+    committedAt: Date.UTC(2026, 7, 30, 4, 0),
+    files: [],
+    filesTruncated: false,
+    fileCount: 0,
+    totals: { added: 0, removed: 0 }
   },
   {
     sha: '1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d',
     subject: 'test(sample): 필터 파생을 잠근다',
     author: 'claude',
-    committedAt: Date.UTC(2026, 7, 30, 6, 30)
+    committedAt: Date.UTC(2026, 7, 30, 6, 30),
+    files: [],
+    filesTruncated: false,
+    fileCount: 0,
+    totals: { added: 0, removed: 0 }
   }
 ]
 

@@ -18,37 +18,84 @@ export const MAX_DIFF_FILES = 200
 /** 요약 1회가 실을 수 있는 최대 커밋 수. */
 export const MAX_DIFF_COMMITS = 100
 
+/** 커밋 노드 하나가 실을 수 있는 최대 파일 수. */
+export const MAX_DIFF_COMMIT_FILES = 50
+
 /** 파일 본문 한 측(old 또는 new)의 최대 바이트. 넘으면 본문 대신 `too-large` 를 돌려준다. */
 export const MAX_DIFF_FILE_BYTES = 1024 * 1024
 
-// `git log --format=%H%x1f%s%x1f%an%x1f%ct%x1e` 출력.
-//
-// **구분자를 `\x1f`(unit separator)·`\x1e`(record separator)로 쓰는 이유**: 커밋 제목과 작성자
-// 이름에는 무엇이든 들어갈 수 있다. 탭·파이프·개행을 구분자로 쓰면 그것을 담은 제목 하나가
-// 목록 전체를 어긋나게 한다. 두 문자는 git ref/제목에 실질적으로 등장하지 않는다.
-export function parseCommitLog(out: string): { commits: GitDiffCommit[]; truncated: boolean } {
-  const records = out
-    .split('\x1e')
-    .map((r) => r.replace(/^\n/, ''))
-    .filter((r) => r.length > 0)
+// `git log -z --format=%x00orca-commit%x00%H%x00%s%x00%an%x00%ct%x00%b%x00`
+// 프레임. Git 커밋 메시지와 경로는 NUL을 담을 수 없으므로 제목·본문·개행·탭을
+// 손실 없이 싣는다. `withFiles=true`는 같은 프레임 뒤의 raw 블록과 numstat
+// 블록을 결합한다. false는 메타데이터 폴백이라 파일 값을 null로 낸다.
+export function parseCommitLog(
+  out: string,
+  withFiles = false
+): { commits: GitDiffCommit[]; truncated: boolean } {
+  const records = out.split('\0orca-commit\0').slice(1)
   const commits: GitDiffCommit[] = []
   for (const record of records) {
-    const [sha, subject, author, committed] = record.split('\x1f')
+    const tokens = record.split('\0')
+    const [sha, subject, author, committed, body] = tokens
     if (!sha || committed === undefined) continue
     const seconds = Number(committed)
     if (!Number.isFinite(seconds)) continue
+    const files = withFiles ? parseCommitFiles(tokens.slice(5)) : []
+    const totals = withFiles
+      ? files.reduce<GitDiffTotals>(
+          (sum, file) => ({ added: sum.added + file.added, removed: sum.removed + file.removed }),
+          { added: 0, removed: 0 }
+        )
+      : null
     commits.push({
       sha,
       subject: subject ?? '',
       author: author ?? '',
       // git 은 초, 화면은 ms 를 쓴다.
-      committedAt: seconds * 1000
+      committedAt: seconds * 1000,
+      ...(body ? { body } : {}),
+      files: files.slice(0, MAX_DIFF_COMMIT_FILES),
+      filesTruncated: files.length > MAX_DIFF_COMMIT_FILES,
+      fileCount: withFiles ? files.length : null,
+      totals
     })
   }
   return {
     commits: commits.slice(0, MAX_DIFF_COMMITS),
     truncated: commits.length > MAX_DIFF_COMMITS
   }
+}
+
+function parseCommitFiles(tokens: readonly string[]): GitDiffFileEntry[] {
+  const statusByPath = new Map<string, GitDiffFileStatus>()
+  let i = 0
+  let numstatStart = tokens.length
+  while (i < tokens.length) {
+    const token = tokens[i]
+    if (/^(?:-|\d+)\t(?:-|\d+)\t/.test(token)) {
+      numstatStart = i
+      break
+    }
+    const raw = token.replace(/^\n+/, '')
+    if (!raw.startsWith(':')) {
+      i += 1
+      continue
+    }
+    const code = raw.trim().split(/\s+/).at(-1) ?? 'M'
+    const letter = code[0]
+    if (letter === 'R' || letter === 'C') {
+      const newPath = tokens[i + 2]
+      if (newPath) statusByPath.set(newPath, 'renamed')
+      i += 3
+      continue
+    }
+    const path = tokens[i + 1]
+    if (path) {
+      statusByPath.set(path, letter === 'A' ? 'added' : letter === 'D' ? 'deleted' : 'modified')
+    }
+    i += 2
+  }
+  return applyNameStatus(parseNumstatZ(tokens.slice(numstatStart).join('\0')), statusByPath)
 }
 
 // `git diff --numstat -z <base>` 출력.
@@ -94,35 +141,11 @@ export function parseNumstatZ(out: string): GitDiffFileEntry[] {
   return entries
 }
 
-// `git ls-files --others --exclude-standard -z` 출력 → 미추적 경로 목록.
-//
-// 미추적 파일도 "브랜치에서 작업된 내용"이다(0211 D-011) — 에이전트가 만든 새 파일은 커밋
-// 전까지 untracked 라, 빼면 목록이 조용히 빈다. `--exclude-standard` 가 `.gitignore` 를
-// 존중하므로 `node_modules` 류는 들어오지 않는다.
-export function parseNulPaths(out: string): string[] {
-  return out.split('\0').filter((p) => p.length > 0)
-}
-
-// 추적 변경 + 미추적을 한 목록으로 접고 상한을 적용한다.
-//
-// **경로로 중복을 제거한다**: `git add` 된 새 파일은 numstat 에도 나오고, 그 사이 상태가
-// 바뀌면 ls-files 에도 나올 수 있다. numstat 쪽이 실제 줄 수를 가지므로 그쪽을 남긴다.
-// **미추적 항목은 경로만 받는다**(0211 D-026): 수치가 0 이라 줄을 셀 이유가 없고, 세지
-// 않으므로 요약이 파일 내용을 읽지 않는다. `binary` 는 요약 시점에 판정하지 않는다 —
-// 정본은 본문 조회의 NUL 검사이고 여기 값은 수치 표시에 쓰이지 않는다.
-//
 // **합계는 `slice` 앞에서 센다**: 목록은 200개에서 잘려도 합계는 저장소의 실제 변경량이다.
 export function mergeDiffEntries(
-  tracked: readonly GitDiffFileEntry[],
-  untracked: readonly { path: string }[]
+  tracked: readonly GitDiffFileEntry[]
 ): { files: GitDiffFileEntry[]; truncated: boolean; totals: GitDiffTotals } {
-  const seen = new Set(tracked.map((entry) => entry.path))
   const merged: GitDiffFileEntry[] = [...tracked]
-  for (const item of untracked) {
-    if (seen.has(item.path)) continue
-    seen.add(item.path)
-    merged.push({ path: item.path, status: 'added', added: 0, removed: 0, binary: false })
-  }
   merged.sort((a, b) => a.path.localeCompare(b.path))
   const totals = merged.reduce<GitDiffTotals>(
     (acc, entry) => ({ added: acc.added + entry.added, removed: acc.removed + entry.removed }),

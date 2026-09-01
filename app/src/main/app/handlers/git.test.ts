@@ -57,18 +57,39 @@ describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', 
     gitDiffFileMock.mockClear()
   })
 
-  it('session baseline lookup의 OID를 diff summary에 전달하고 managed-worktree lookup에 의존하지 않는다', async () => {
+  it('session baseline lookup의 OID를 summary·file 둘에 같이 전달하고 commit 범위를 넘기지 않는다', async () => {
     const getSessionBaseline = vi.fn(() => 'c'.repeat(40))
     registerGitHandlers({ getSessionBaseline })
     const summaryHandler = handleMock.mock.calls.find(
       (call) => call[0] === CHANNELS.gitDiffSummary
-    )?.[3] as (request: { cwd: string; sessionId: string }) => Promise<unknown>
+    )?.[3] as (request: { cwd: string; sessionId: string; commit?: string }) => Promise<unknown>
+    const fileHandler = handleMock.mock.calls.find(
+      (call) => call[0] === CHANNELS.gitDiffFile
+    )?.[3] as (request: {
+      cwd: string
+      sessionId: string
+      path: string
+      commit?: string
+    }) => Promise<unknown>
 
-    await summaryHandler({ cwd: '/repo', sessionId: 'session-1' })
+    await summaryHandler({ cwd: '/repo', sessionId: 'session-1', commit: 'a'.repeat(40) })
+    await fileHandler({
+      cwd: '/repo',
+      sessionId: 'session-1',
+      path: 'src/a.ts',
+      commit: 'a'.repeat(40)
+    })
 
-    expect(getSessionBaseline).toHaveBeenCalledWith('session-1')
+    expect(getSessionBaseline).toHaveBeenCalledTimes(2)
+    expect(getSessionBaseline).toHaveBeenNthCalledWith(1, 'session-1')
+    expect(getSessionBaseline).toHaveBeenNthCalledWith(2, 'session-1')
     expect(gitDiffSummaryMock).toHaveBeenCalledWith({
       cwd: '/repo',
+      baseOid: 'c'.repeat(40)
+    })
+    expect(gitDiffFileMock).toHaveBeenCalledWith({
+      cwd: '/repo',
+      path: 'src/a.ts',
       baseOid: 'c'.repeat(40)
     })
     expect(readFileSync(GIT_HANDLER_SOURCE, 'utf8')).not.toContain('getManagedWorktreeBySession')

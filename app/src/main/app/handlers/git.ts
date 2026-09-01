@@ -72,7 +72,6 @@ export function registerGitHandlers(sessions: SessionBaselineLookup): void {
     (req): Promise<GitDiffSummary> =>
       gitDiffSummary({
         cwd: req.cwd,
-        ...(req.commit ? { commit: req.commit } : {}),
         baseOid: baseOidFor(req.sessionId)
       })
   )
@@ -85,7 +84,6 @@ export function registerGitHandlers(sessions: SessionBaselineLookup): void {
       gitDiffFile({
         cwd: req.cwd,
         path: req.path,
-        ...(req.commit ? { commit: req.commit } : {}),
         baseOid: baseOidFor(req.sessionId)
       })
   )

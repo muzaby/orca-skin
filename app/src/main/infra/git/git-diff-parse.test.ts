@@ -11,7 +11,6 @@ import {
   mergeDiffEntries,
   parseCommitLog,
   parseNameStatusZ,
-  parseNulPaths,
   parseNumstatZ
 } from './git-diff-parse'
 import type { GitDiffFileEntry } from '../../../shared/ipc'
@@ -67,15 +66,27 @@ describe('name-status -z 파싱', () => {
 })
 
 describe('커밋 로그 파싱', () => {
-  const record = (sha: string, subject: string): string =>
-    `${sha}\x1f${subject}\x1fcodex\x1f1756500000\x1e`
+  const record = (sha: string, subject: string, body = ''): string =>
+    `\x00orca-commit\x00${sha}\x00${subject}\x00codex\x001756500000\x00${body}\x00`
 
-  it('레코드를 읽고 초를 ms 로 올린다', () => {
+  it('메타데이터 폴백은 본문을 보존하고 파일 값을 unavailable로 표현한다', () => {
     const { commits, truncated } = parseCommitLog(record('abc123', 'feat: 붙인다'))
     expect(truncated).toBe(false)
     expect(commits).toEqual([
-      { sha: 'abc123', subject: 'feat: 붙인다', author: 'codex', committedAt: 1756500000000 }
+      {
+        sha: 'abc123',
+        subject: 'feat: 붙인다',
+        author: 'codex',
+        committedAt: 1756500000000,
+        files: [],
+        filesTruncated: false,
+        fileCount: null,
+        totals: null
+      }
     ])
+
+    const withBody = parseCommitLog(record('def456', 'fix: 고친다', '실제 본문\n둘째 줄')).commits[0]
+    expect(withBody.body).toBe('실제 본문\n둘째 줄')
   })
 
   it('제목에 든 개행·탭·파이프가 목록을 어긋내지 않는다 — 구분자가 `\\x1f`/`\\x1e` 다', () => {
@@ -101,40 +112,105 @@ describe('커밋 로그 파싱', () => {
   })
 })
 
-describe('미추적 병합과 파일 상한 (VP-15)', () => {
-  it('미추적 파일이 목록에 들어오고 수치는 0 이다 (D-026)', () => {
-    const { files } = mergeDiffEntries([entry('src/a.ts', 2, 1)], [{ path: 'src/new.ts' }])
-    expect(files).toEqual([
-      { path: 'src/a.ts', status: 'modified', added: 2, removed: 1, binary: false },
-      { path: 'src/new.ts', status: 'added', added: 0, removed: 0, binary: false }
+describe('raw + numstat 커밋 파싱 (VP-31 · EP-17)', () => {
+  const header = (sha: string, subject: string, body = ''): string =>
+    `\x00orca-commit\x00${sha}\x00${subject}\x00tester\x001756500000\x00${body}\x00\x00`
+
+  it('두 커밋의 본문·순서를 유지하고 M/A/D/R/C·binary·NUL 경로를 함께 해석한다', () => {
+    const first =
+      header('newer', 'newer subject', '설명 \n둘째') +
+      ':100644 100644 aaaaaaa bbbbbbb M\0strange\n name.ts\0' +
+      ':000000 100644 0000000 ccccccc A\0added.ts\0' +
+      ':100644 000000 ddddddd 0000000 D\0deleted.ts\0' +
+      ':100644 100644 eeeeeee fffffff R100\0old.ts\0renamed.ts\0' +
+      ':100644 100644 1111111 2222222 C100\0source.ts\0copied.ts\0' +
+      ':100644 100644 3333333 4444444 M\0asset.bin\0' +
+      '2\t1\tstrange\n name.ts\0' +
+      '3\t0\tadded.ts\0' +
+      '0\t4\tdeleted.ts\0' +
+      '5\t6\t\0old.ts\0renamed.ts\0' +
+      '7\t8\t\0source.ts\0copied.ts\0' +
+      '-\t-\tasset.bin\0'
+    const second =
+      header('older', 'older subject') +
+      ':100644 100644 5555555 6666666 M\0only-old.ts\0' +
+      '1\t0\tonly-old.ts\0'
+
+    const parsed = parseCommitLog(first + second, true)
+
+    expect(parsed.commits.map((commit) => commit.sha)).toEqual(['newer', 'older'])
+    expect(parsed.commits[0]).toMatchObject({
+      body: '설명 \n둘째',
+      fileCount: 6,
+      totals: { added: 17, removed: 19 },
+      filesTruncated: false
+    })
+    expect(parsed.commits[0].files).toEqual([
+      { path: 'strange\n name.ts', status: 'modified', added: 2, removed: 1, binary: false },
+      { path: 'added.ts', status: 'added', added: 3, removed: 0, binary: false },
+      { path: 'deleted.ts', status: 'deleted', added: 0, removed: 4, binary: false },
+      { path: 'renamed.ts', status: 'renamed', added: 5, removed: 6, binary: false },
+      { path: 'copied.ts', status: 'renamed', added: 7, removed: 8, binary: false },
+      { path: 'asset.bin', status: 'modified', added: 0, removed: 0, binary: true }
     ])
+    expect(parsed.commits[1]).not.toHaveProperty('body')
+    expect(parsed.commits[1]).toMatchObject({
+      fileCount: 1,
+      totals: { added: 1, removed: 0 },
+      filesTruncated: false
+    })
+    expect(parsed.commits[1].files.map((file) => file.path)).toEqual(['only-old.ts'])
   })
 
-  it('추적 목록에 이미 있는 경로는 중복으로 넣지 않는다 — 줄 수를 가진 쪽이 남는다', () => {
-    const { files } = mergeDiffEntries([entry('src/a.ts', 2, 1)], [{ path: 'src/a.ts' }])
-    expect(files).toHaveLength(1)
-    expect(files[0].added).toBe(2)
+  it('50/51 경계에서 목록만 자르고 fileCount·totals는 절단 전 값을 유지한다', () => {
+    const output = (count: number): string => {
+      const raw = Array.from(
+        { length: count },
+        (_, i) => `:100644 100644 aaaaaaa bbbbbbb M\0f${i}.ts\0`
+      ).join('')
+      const numstat = Array.from({ length: count }, (_, i) => `${i + 1}\t1\tf${i}.ts\0`).join(
+        ''
+      )
+      return header(`sha-${count}`, `files ${count}`) + raw + numstat
+    }
+
+    const fifty = parseCommitLog(output(50), true).commits[0]
+    expect(fifty.files).toHaveLength(50)
+    expect(fifty.filesTruncated).toBe(false)
+    expect(fifty.fileCount).toBe(50)
+    expect(fifty.totals).toEqual({ added: 1275, removed: 50 })
+
+    const fiftyOne = parseCommitLog(output(51), true).commits[0]
+    expect(fiftyOne.files).toHaveLength(50)
+    expect(fiftyOne.filesTruncated).toBe(true)
+    expect(fiftyOne.fileCount).toBe(51)
+    expect(fiftyOne.totals).toEqual({ added: 1326, removed: 51 })
   })
 
+  it('실제 0과 파일 데이터 unavailable의 null을 다른 상태로 보존한다', () => {
+    const observedZero = parseCommitLog(header('zero', 'empty tree'), true).commits[0]
+    const unavailable = parseCommitLog(
+      `\x00orca-commit\x00fallback\x00metadata only\x00tester\x001756500000\x00\x00`
+    ).commits[0]
+
+    expect(observedZero).toMatchObject({ fileCount: 0, totals: { added: 0, removed: 0 } })
+    expect(unavailable).toMatchObject({ fileCount: null, totals: null })
+  })
+})
+
+describe('추적 파일 상한 (VP-15)', () => {
   it(`${MAX_DIFF_FILES}건까지는 자르지 않는다 — 음성 짝`, () => {
     const tracked = Array.from({ length: MAX_DIFF_FILES }, (_, i) => entry(`f${i}.ts`))
-    const { files, truncated } = mergeDiffEntries(tracked, [])
+    const { files, truncated } = mergeDiffEntries(tracked)
     expect(files).toHaveLength(MAX_DIFF_FILES)
     expect(truncated).toBe(false)
   })
 
   it(`${MAX_DIFF_FILES + 1}건이면 자르고 잘렸다고 말한다`, () => {
     const tracked = Array.from({ length: MAX_DIFF_FILES + 1 }, (_, i) => entry(`f${i}.ts`))
-    const { files, truncated } = mergeDiffEntries(tracked, [])
+    const { files, truncated } = mergeDiffEntries(tracked)
     expect(files).toHaveLength(MAX_DIFF_FILES)
     expect(truncated).toBe(true)
-  })
-})
-
-describe('NUL 경로 목록', () => {
-  it('빈 조각을 버린다 — 마지막 NUL 뒤가 빈 항목이 되지 않는다', () => {
-    expect(parseNulPaths('a.ts\x00b.ts\x00')).toEqual(['a.ts', 'b.ts'])
-    expect(parseNulPaths('')).toEqual([])
   })
 })
 
@@ -148,27 +224,17 @@ describe('변경량 합계 (VP-27 · EP-11)', () => {
     binary: false
   })
 
-  it('미추적은 목록에 남고 합계에는 0 을 더한다 (D-026)', () => {
-    const merged = mergeDiffEntries([tracked('a.ts', 3, 1)], [{ path: 'new.ts' }])
-    expect(merged.files.map((f) => f.path)).toEqual(['a.ts', 'new.ts'])
-    const fresh = merged.files.find((f) => f.path === 'new.ts')!
-    expect([fresh.added, fresh.removed]).toEqual([0, 0])
-    expect(fresh.status).toBe('added')
-    // 합계는 추적분 그대로다 — 미추적 항목이 섞이지 않는다.
-    expect(merged.totals).toEqual({ added: 3, removed: 1 })
-  })
-
   it('합계는 **절단 전** 전체에서 센다 — 201번째 파일의 줄이 사라지지 않는다 (VP-27)', () => {
     const many = Array.from({ length: 201 }, (_, i) =>
       tracked(`f${String(i).padStart(3, '0')}.ts`, 1, 1)
     )
-    const merged = mergeDiffEntries(many, [])
+    const merged = mergeDiffEntries(many)
     expect(merged.files).toHaveLength(200)
     expect(merged.truncated).toBe(true)
     expect(merged.totals).toEqual({ added: 201, removed: 201 })
   })
 
   it('빈 입력의 합계는 0/0 이다 — 필드가 비지 않는다', () => {
-    expect(mergeDiffEntries([], []).totals).toEqual({ added: 0, removed: 0 })
+    expect(mergeDiffEntries([]).totals).toEqual({ added: 0, removed: 0 })
   })
 })

@@ -20,13 +20,12 @@ export function gitSnapshotQueryReason(
 
 export function gitSnapshotRequestKey(
   cwd: string | null,
-  sessionId: string | null,
-  commit: string | null
+  sessionId: string | null
 ): string {
-  return JSON.stringify([cwd, sessionId, commit])
+  return JSON.stringify([cwd, sessionId])
 }
 
-// 상태 조회의 identity — **선택 커밋을 보지 않는다**. 커밋을 고르는 것은 diff 범위 질의이지
+// 상태 조회의 identity — 선택 커밋은 이미 받은 session summary 안에서만 고른다.
 // 브랜치·저장소 루트가 바뀌는 사건이 아니다.
 export function gitStatusTriggerKey(cwd: string | null, refreshGeneration: number): string {
   return JSON.stringify([cwd, refreshGeneration])
@@ -35,10 +34,9 @@ export function gitStatusTriggerKey(cwd: string | null, refreshGeneration: numbe
 export function gitSnapshotTriggerKey(
   cwd: string | null,
   sessionId: string | null,
-  commit: string | null,
   refreshGeneration: number
 ): string {
-  return JSON.stringify([cwd, sessionId, commit, refreshGeneration])
+  return JSON.stringify([cwd, sessionId, refreshGeneration])
 }
 
 interface GitSnapshotQueryOwner {
@@ -79,7 +77,6 @@ export function createGitSnapshotQueryOwner(): GitSnapshotQueryOwner {
 // 나누되 같은 순수 판정(`gitSnapshotQueryReason`)을 쓴다.
 export function useGitSnapshot(cwd: string | null, sessionId: string | null): void {
   const busy = useChatSession(sessionBusy)
-  const selectedCommit = useChatSession((s) => s.gitSnapshot.selectedCommit)
   const refreshGeneration = useChatSession((s) => s.gitSnapshot.refreshGeneration)
   const previousQueryPoint = useRef<GitSnapshotQueryPoint | null>(null)
   const previousStatusPoint = useRef<GitSnapshotQueryPoint | null>(null)
@@ -103,21 +100,20 @@ export function useGitSnapshot(cwd: string | null, sessionId: string | null): vo
 
   const runQuery = useCallback(() => {
     if (!cwd) return undefined
-    const key = gitSnapshotRequestKey(cwd, sessionId, selectedCommit)
+    const key = gitSnapshotRequestKey(cwd, sessionId)
     return owner.run(
       key,
       () =>
         gitApi.diffSummary({
           cwd,
-          ...(sessionId ? { sessionId } : {}),
-          ...(selectedCommit ? { commit: selectedCommit } : {})
+          ...(sessionId ? { sessionId } : {})
         }),
       chatActions.beginGitSnapshotQuery,
       chatActions.receiveGitSnapshotSummary
     )
-  }, [cwd, owner, selectedCommit, sessionId])
+  }, [cwd, owner, sessionId])
 
-  const triggerKey = gitSnapshotTriggerKey(cwd, sessionId, selectedCommit, refreshGeneration)
+  const triggerKey = gitSnapshotTriggerKey(cwd, sessionId, refreshGeneration)
   useEffect(() => {
     const next = { identity: triggerKey, busy }
     const reason = gitSnapshotQueryReason(previousQueryPoint.current, next)

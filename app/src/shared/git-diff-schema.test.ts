@@ -4,6 +4,8 @@
 // 간다. 그래서 형태에서 막는다: 절대경로·`..` 상승·비 16진 sha 는 여기서 끝난다.
 // `GitBranchNameSchema` 가 checkout 에 하는 일과 같은 축이다.
 
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { GitDiffFileRequestSchema, GitDiffRequestSchema } from './protocol'
 
@@ -37,23 +39,45 @@ describe('diff 파일 경로 게이트', () => {
   })
 })
 
-describe('commit sha 게이트', () => {
-  const commit = (value: string): { success: boolean } =>
-    GitDiffRequestSchema.safeParse({ cwd: '/repo', commit: value })
+describe('diff 요청은 세션 범위 하나만 허용한다', () => {
+  it('commit 필드를 입력해도 파싱된 요청에 노출하지 않는다', () => {
+    const parsed = GitDiffRequestSchema.parse({ cwd: '/repo', sessionId: 's1', commit: 'a1b2c3d' })
+    expect(parsed).toEqual({ cwd: '/repo', sessionId: 's1' })
 
-  it('16진 sha 는 통과한다 — 축약형 포함', () => {
-    expect(commit('a1b2c3d').success).toBe(true)
-    expect(commit('a'.repeat(40)).success).toBe(true)
+    const fileParsed = GitDiffFileRequestSchema.parse({
+      cwd: '/repo',
+      sessionId: 's1',
+      path: 'src/a.ts',
+      commit: 'a1b2c3d'
+    })
+    expect(fileParsed).toEqual({ cwd: '/repo', sessionId: 's1', path: 'src/a.ts' })
   })
 
-  it('옵션처럼 보이는 값을 막는다 — execFile 인자로 나가는 자리다', () => {
-    expect(commit('--upload-pack=evil').success).toBe(false)
-    expect(commit('-n').success).toBe(false)
-    expect(commit('HEAD~1').success).toBe(false)
-    expect(commit('main').success).toBe(false)
+  it('production 호출부에는 commit 전용 range 분기가 없다', () => {
+    const sources = [
+      '../main/app/handlers/git.ts',
+      '../main/infra/git/git-diff.ts',
+      '../renderer/src/features/chat/components/composer/useGitSnapshot.ts',
+      '../renderer/src/features/chat/components/rightpanel/DiffTileContent.tsx'
+    ].map((path) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8'))
+
+    for (const source of sources) {
+      expect(source).not.toMatch(/req\.commit\b/)
+      expect(source).not.toMatch(/commit:\s*(?:req|selectedCommit)\b/)
+    }
   })
 
-  it('생략하면 전체 변경이다', () => {
-    expect(GitDiffRequestSchema.safeParse({ cwd: '/repo' }).success).toBe(true)
+  it('IPC 문서는 세션 전체 범위와 commit 파일 availability를 설명한다', () => {
+    const document = readFileSync(
+      fileURLToPath(new URL('../../../docs/IPC_CONTRACT.md', import.meta.url)),
+      'utf8'
+    )
+    const section = document.slice(document.indexOf('| `orca:git:diffSummary`'))
+
+    expect(section).not.toContain('commit?: string')
+    expect(section).not.toContain('ls-files --others')
+    expect(section).toContain('commitFilesUnavailable')
+    expect(section).toContain('uncommitted')
+    expect(section).toContain('같은 세션 baseline')
   })
 })

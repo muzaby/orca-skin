@@ -225,7 +225,14 @@ export function DiffTileContent(): React.JSX.Element {
   const [fileRequestOwner] = useState(createDiffFileRequestOwner)
   const cacheIdentityReady = useRef(false)
   const state = diffSummaryState(summary)
-  const files = useMemo(() => summary?.files ?? [], [summary])
+  const selectedCommitSummary = useMemo(
+    () => summary?.commits.find((commit) => commit.sha === selectedCommit) ?? null,
+    [selectedCommit, summary]
+  )
+  const files = useMemo(
+    () => selectedCommitSummary?.files ?? summary?.files ?? [],
+    [selectedCommitSummary, summary]
+  )
   const rows = useMemo(() => buildDiffTreeRows(files), [files])
   const expandedSet = useMemo(() => new Set(expanded), [expanded])
 
@@ -233,7 +240,7 @@ export function DiffTileContent(): React.JSX.Element {
     if (cacheIdentityReady.current) resetDiffFileCache(setExpanded, setContents)
     else cacheIdentityReady.current = true
     return () => fileRequestOwner.invalidate()
-  }, [cwd, fileRequestOwner, selectedCommit, sessionId])
+  }, [cwd, fileRequestOwner, sessionId])
 
   const toggleDir = useCallback((key: string) => {
     setCollapsed((prev) => {
@@ -243,14 +250,13 @@ export function DiffTileContent(): React.JSX.Element {
     })
   }, [])
 
-  // 커밋을 바꾸면 펼침·본문을 버린다 — 다른 범위의 본문을 그대로 두면 파일 목록과 어긋난다.
+  // 커밋 선택은 이미 받은 timeline 안에서 파일 목록만 바꾼다. 본문은 항상 session baseline
+  // 대비 작업 트리라 선택에 무관하고, 같은 경로의 캐시도 그대로 재사용한다.
   const selectCommit = useCallback(
     (sha: string | null) => {
-      fileRequestOwner.invalidate()
       chatActions.selectGitSnapshotCommit(sha)
-      resetDiffFileCache(setExpanded, setContents)
     },
-    [fileRequestOwner]
+    []
   )
 
   const toggleFile = useCallback(
@@ -270,8 +276,7 @@ export function DiffTileContent(): React.JSX.Element {
           gitApi.diffFile({
             cwd,
             path,
-            ...(sessionId ? { sessionId } : {}),
-            ...(selectedCommit ? { commit: selectedCommit } : {})
+            ...(sessionId ? { sessionId } : {})
           }),
         (content) => {
           setContents((prev) => new Map(prev).set(path, content))
@@ -281,7 +286,7 @@ export function DiffTileContent(): React.JSX.Element {
         }
       )
     },
-    [contents, cwd, fileRequestOwner, selectedCommit, sessionId]
+    [contents, cwd, fileRequestOwner, sessionId]
   )
 
   const formatWhen = useCallback(

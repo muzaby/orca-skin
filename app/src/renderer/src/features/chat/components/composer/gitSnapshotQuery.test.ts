@@ -9,12 +9,14 @@ import {
 
 const SUMMARY_A: GitDiffSummary = {
   isRepo: true,
-  base: { kind: 'head' },
+  base: { kind: 'head', oid: 'head-oid' },
   files: [{ path: 'a.ts', status: 'modified', added: 1, removed: 0, binary: false }],
   totals: { added: 0, removed: 0 },
   filesTruncated: false,
   commits: [],
-  commitsTruncated: false
+  commitsTruncated: false,
+  commitFilesUnavailable: false,
+  uncommitted: { files: [], totals: { added: 0, removed: 0 }, filesTruncated: false }
 }
 const SUMMARY_B: GitDiffSummary = { ...SUMMARY_A, files: [] }
 
@@ -48,13 +50,12 @@ describe('git snapshot query owner', () => {
     ).toBe('turn-end')
   })
 
-  it('cwd/session/commit/refresh만 trigger key를 바꾸고 같은 입력의 remount는 바꾸지 않는다', () => {
-    const base = gitSnapshotTriggerKey('/repo', 's1', null, 0)
-    expect(gitSnapshotTriggerKey('/repo', 's1', null, 0)).toBe(base)
-    expect(gitSnapshotTriggerKey('/repo-2', 's1', null, 0)).not.toBe(base)
-    expect(gitSnapshotTriggerKey('/repo', 's2', null, 0)).not.toBe(base)
-    expect(gitSnapshotTriggerKey('/repo', 's1', 'abc1234', 0)).not.toBe(base)
-    expect(gitSnapshotTriggerKey('/repo', 's1', null, 1)).not.toBe(base)
+  it('cwd/session/refresh만 trigger key를 바꾸고 같은 입력의 remount는 바꾸지 않는다', () => {
+    const base = gitSnapshotTriggerKey('/repo', 's1', 0)
+    expect(gitSnapshotTriggerKey('/repo', 's1', 0)).toBe(base)
+    expect(gitSnapshotTriggerKey('/repo-2', 's1', 0)).not.toBe(base)
+    expect(gitSnapshotTriggerKey('/repo', 's2', 0)).not.toBe(base)
+    expect(gitSnapshotTriggerKey('/repo', 's1', 1)).not.toBe(base)
   })
 
   it('같은 request key의 B가 먼저 끝나면 늦은 A 결과를 버린다', async () => {
@@ -65,7 +66,7 @@ describe('git snapshot query owner', () => {
     const results: GitDiffSummary[] = []
     const starts: Request[] = []
     const owner: QueryOwner = createGitSnapshotQueryOwner()
-    const key = gitSnapshotRequestKey('/repo', 's1', null)
+    const key = gitSnapshotRequestKey('/repo', 's1')
 
     owner.run(
       key,

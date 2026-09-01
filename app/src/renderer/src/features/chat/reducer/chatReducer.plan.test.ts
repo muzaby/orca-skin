@@ -6,12 +6,14 @@ const REVIEW: PlanReviewRequest = { requestId: 'p1', plan: '# 계획\n- b.py 생
 
 const DIFF_SUMMARY: GitDiffSummary = {
   isRepo: true,
-  base: { kind: 'head' },
+  base: { kind: 'head', oid: 'head-oid' },
   files: [{ path: 'src/a.ts', status: 'modified', added: 3, removed: 1, binary: false }],
   totals: { added: 0, removed: 0 },
   filesTruncated: false,
   commits: [],
-  commitsTruncated: false
+  commitsTruncated: false,
+  commitFilesUnavailable: false,
+  uncommitted: { files: [], totals: { added: 0, removed: 0 }, filesTruncated: false }
 }
 
 // 열 id 는 비결정적이라 우측 패널 비교는 tiles 만 본다.

@@ -1055,13 +1055,10 @@ export type WorktreePrepareStep = (typeof WORKTREE_PREPARE_STEPS)[number]
 // ── git diff (변경사항 타일, 0211) ───────────────────────────────────────────
 // 비교 **범위**는 main 이 정한다 — renderer 는 무엇과 무엇을 비교할지 계산하지 않는다.
 // `sessionId` 의 managed row 가 있으면 그 `base_oid`, 없으면 `HEAD` 다(0211 D-010·D-021).
-// `commit` 이 있으면 그 커밋 하나(`<sha>^`→`<sha>`)로 범위를 바꾼다(D-012).
 export interface GitDiffRequest {
   cwd: string
   // 생략 = 세션 이전(랜딩) 또는 비격리 → `HEAD` 범위.
   sessionId?: string
-  // 생략 = `전체 변경`. 지정하면 그 커밋 하나의 변경.
-  commit?: string
 }
 
 export interface GitDiffFileRequest extends GitDiffRequest {
@@ -1072,7 +1069,7 @@ export interface GitDiffFileRequest extends GitDiffRequest {
 // 무엇과 비교했는가 — 화면이 "무엇 대비"를 말할 수 있어야 한다.
 export type GitDiffBase =
   | { kind: 'worktree-base'; oid: string }
-  | { kind: 'head' }
+  | { kind: 'head'; oid: string }
   // 커밋이 하나도 없는 저장소. 전부 추가로 보인다.
   | { kind: 'none' }
 
@@ -1093,6 +1090,13 @@ export interface GitDiffCommit {
   author: string
   // epoch ms. 표시 형식은 renderer 가 정한다.
   committedAt: number
+  // 커밋 메시지의 subject 아래 본문. 본문이 없으면 필드 자체가 없다.
+  body?: string
+  files: GitDiffFileEntry[]
+  filesTruncated: boolean
+  // null = raw/numstat 파일 데이터를 수집하지 못함, 0 = 실제 관측된 0.
+  fileCount: number | null
+  totals: GitDiffTotals | null
 }
 
 // 변경량 합계 — **절단 전** 전체에서 센다(0211 D-025). `files` 는 200개에서 잘리므로
@@ -1115,6 +1119,13 @@ export interface GitDiffSummary {
   // managed row 가 없으면 항상 빈 배열이다 — base 를 모르면 "이 세션의 커밋"을 셀 수 없다.
   commits: GitDiffCommit[]
   commitsTruncated: boolean
+  commitFilesUnavailable: boolean
+  // HEAD 대비 현재 추적 변경. 세션 전체 목록과 독립적으로 잘린다.
+  uncommitted: {
+    files: GitDiffFileEntry[]
+    totals: GitDiffTotals
+    filesTruncated: boolean
+  }
 }
 
 // 파일 본문은 old/new **전문 두 벌**이다 — 소비자 `DiffTable` 의 계약이 unified patch 가

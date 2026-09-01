@@ -62,18 +62,20 @@ describe('diff 요약 — 범위와 목록 (VP-09)', () => {
 
   it('row 가 없으면 HEAD 대비다 — 가짜 base 를 만들지 않는다', async () => {
     const summary = await gitDiffSummary({ cwd: repo, baseOid: null })
-    expect(summary.base).toEqual({ kind: 'head' })
+    expect(summary.base).toEqual({ kind: 'head', oid: await head(repo) })
+    expect(summary.commits).toEqual([])
+    expect(summary.uncommitted).toEqual({
+      files: summary.files,
+      totals: summary.totals,
+      filesTruncated: summary.filesTruncated
+    })
   })
 
-  it('추적 수정 1 + 미추적 1 = 2건이고 미추적은 수치 0 이다 (D-026)', async () => {
+  it('추적 + 미추적 fixture에서 추적 변경만 목록·합계에 남는다 (VP-30)', async () => {
     const summary = await gitDiffSummary({ cwd: repo, baseOid })
     const paths = summary.files.map((f) => f.path).sort()
-    expect(paths).toEqual(['edited.ts', 'fresh.ts'])
-    const fresh = summary.files.find((f) => f.path === 'fresh.ts')!
-    expect(fresh.status).toBe('added')
-    // 목록에는 남지만 수치에는 더하지 않는다 — 2줄짜리 파일인데 0 이다.
-    expect([fresh.added, fresh.removed]).toEqual([0, 0])
-    // 합계는 추적 파일 하나의 실측과 정확히 같다 — 미추적 2줄이 섞이지 않는다.
+    expect(paths).toEqual(['edited.ts'])
+    expect(paths).not.toContain('fresh.ts')
     const edited = summary.files.find((f) => f.path === 'edited.ts')!
     expect(summary.totals).toEqual({ added: edited.added, removed: edited.removed })
     expect(summary.totals.added).toBeGreaterThan(0)
@@ -124,7 +126,6 @@ describe('diff 파일 본문 (VP-10)', () => {
     await git(repo, ['commit', '-m', 'base'])
     baseOid = await head(repo)
     await writeFile(join(repo, 'edited.ts'), 'after\n')
-    await writeFile(join(repo, 'fresh.ts'), 'brand new\n')
   })
 
   it('old 는 base 시점, new 는 작업 트리다', async () => {
@@ -137,8 +138,10 @@ describe('diff 파일 본문 (VP-10)', () => {
     })
   })
 
-  it('미추적 파일은 old 가 빈 문자열이다 — base 에 없던 파일이다', async () => {
-    const content = await gitDiffFile({ cwd: repo, path: 'fresh.ts', baseOid })
+  it('base 에 없던 staged 파일은 old 가 빈 문자열이다', async () => {
+    await writeFile(join(repo, 'staged.ts'), 'brand new\n')
+    await git(repo, ['add', 'staged.ts'])
+    const content = await gitDiffFile({ cwd: repo, path: 'staged.ts', baseOid })
     expect(content).toEqual({
       kind: 'text',
       oldValue: '',
@@ -166,7 +169,7 @@ describe('diff 파일 본문 (VP-10)', () => {
   })
 })
 
-describe('커밋 선택과 커밋 목록 (VP-11 · VP-12)', () => {
+describe('커밋 grouping과 미커밋 블록 (VP-31 · VP-33)', () => {
   let repo: string
   let baseOid: string
   let sha1: string
@@ -180,7 +183,7 @@ describe('커밋 선택과 커밋 목록 (VP-11 · VP-12)', () => {
     baseOid = await head(repo)
 
     await writeFile(join(repo, 'a.ts'), 'v1\n')
-    await git(repo, ['commit', '-am', 'first change'])
+    await git(repo, ['commit', '-am', 'first change', '-m', 'first body'])
     sha1 = await head(repo)
 
     await writeFile(join(repo, 'b.ts'), 'only in second\n')
@@ -188,8 +191,7 @@ describe('커밋 선택과 커밋 목록 (VP-11 · VP-12)', () => {
     await git(repo, ['commit', '-m', 'second change'])
     sha2 = await head(repo)
 
-    // **작업 트리를 커밋과 다르게 둔다** — 이것이 없으면 `commit` 범위와 `working` 범위가
-    // 같은 답을 내서, 본문 조회가 범위 해석을 우회해도 초록이다(VP-11 등록 변이 M5 실측).
+    // 같은 파일이 커밋 노드와 미커밋 블록에 동시에 등장하는 정상 중복을 만든다.
     await writeFile(join(repo, 'a.ts'), 'v2-worktree\n')
   })
 
@@ -199,6 +201,17 @@ describe('커밋 선택과 커밋 목록 (VP-11 · VP-12)', () => {
     expect(summary.commits.map((c) => c.subject)).toEqual(['second change', 'first change'])
     expect(summary.commits[0].sha).toBe(sha2)
     expect(summary.commits[0].author).toBe('orca test')
+    expect(summary.commits[0]).not.toHaveProperty('body')
+    expect(summary.commits[0]).toMatchObject({
+      fileCount: 1,
+      totals: { added: 1, removed: 0 },
+      filesTruncated: false
+    })
+    expect(summary.commits[0].files.map((file) => [file.path, file.status])).toEqual([
+      ['b.ts', 'added']
+    ])
+    expect(summary.commits[1]).toMatchObject({ body: 'first body\n', fileCount: 1 })
+    expect(summary.commits[1].files.map((file) => file.path)).toEqual(['a.ts'])
   })
 
   it('row 가 없으면 커밋 목록이 비어 있다 — base 를 모르면 셀 수 없다 (D-013)', async () => {
@@ -206,27 +219,16 @@ describe('커밋 선택과 커밋 목록 (VP-11 · VP-12)', () => {
     expect(summary.commits).toEqual([])
   })
 
-  it('커밋을 고르면 그 커밋 하나의 파일만 나온다 (VP-11)', async () => {
-    const summary = await gitDiffSummary({ cwd: repo, baseOid, commit: sha2 })
-    expect(summary.files.map((f) => f.path)).toEqual(['b.ts'])
-    // 전체 범위였다면 a.ts 도 함께 나온다 — 범위가 실제로 좁아졌다는 음성 짝.
-    const all = await gitDiffSummary({ cwd: repo, baseOid })
-    expect(all.files.map((f) => f.path).sort()).toEqual(['a.ts', 'b.ts'])
+  it('커밋에도 있는 파일이 HEAD 뒤에 다시 바뀌면 uncommitted에도 따로 남는다', async () => {
+    const summary = await gitDiffSummary({ cwd: repo, baseOid })
+    expect(summary.commits.find((commit) => commit.sha === sha1)?.files.map((file) => file.path)).toEqual([
+      'a.ts'
+    ])
+    expect(summary.uncommitted.files.map((file) => file.path)).toEqual(['a.ts'])
+    expect(summary.files.map((file) => file.path).sort()).toEqual(['a.ts', 'b.ts'])
   })
 
-  it('커밋 범위의 본문은 그 커밋의 부모 대비다 — 두 채널이 같은 범위를 쓴다', async () => {
-    const content = await gitDiffFile({ cwd: repo, path: 'a.ts', baseOid, commit: sha1 })
-    expect(content).toEqual({
-      kind: 'text',
-      // 커밋 범위이므로 new 는 **그 커밋의 내용**이다 — 작업 트리(`v2-worktree`)가 아니다.
-      // 본문 조회가 범위 해석을 우회하면 여기가 red 다(VP-11 등록 변이).
-      oldValue: 'v0\n',
-      newValue: 'v1\n',
-      truncated: false
-    })
-  })
-
-  it('전체 범위의 본문은 작업 트리 대비다 — 같은 파일이 범위에 따라 다른 답을 준다', async () => {
+  it('파일 본문은 느 그룹에서 열었든 항상 baseline 대비 작업 트리다', async () => {
     const content = await gitDiffFile({ cwd: repo, path: 'a.ts', baseOid })
     expect(content).toEqual({
       kind: 'text',
@@ -237,19 +239,24 @@ describe('커밋 선택과 커밋 목록 (VP-11 · VP-12)', () => {
   })
 })
 
-describe('범위 해석 SSOT (VP-11 · EP-07)', () => {
-  it('commit 이 base_oid 를 이긴다 — 커밋을 고르면 작업 트리를 보지 않는다', async () => {
-    const repo = await makeRepo()
-    await writeFile(join(repo, 'a.ts'), 'x\n')
-    await git(repo, ['add', '.'])
-    await git(repo, ['commit', '-m', 'c'])
-    const range = await resolveDiffRange({ cwd: repo, commit: 'abc1234', baseOid: 'deadbeef' })
-    expect(range).toEqual({ kind: 'commit', sha: 'abc1234' })
-  })
-
+describe('범위 해석 SSOT (VP-35)', () => {
   it('커밋이 하나도 없는 저장소는 base 가 none 이다', async () => {
     const repo = await makeRepo()
     const range = await resolveDiffRange({ cwd: repo, baseOid: null })
     expect(range).toEqual({ kind: 'working', base: { kind: 'none' } })
+  })
+
+  it('HEAD와 baseline이 같아도 미커밋 변경은 별도 블록에 남는다', async () => {
+    const repo = await makeRepo()
+    await writeFile(join(repo, 'a.ts'), 'base\n')
+    await git(repo, ['add', '.'])
+    await git(repo, ['commit', '-m', 'base'])
+    const baseOid = await head(repo)
+    await writeFile(join(repo, 'a.ts'), 'working\n')
+
+    const summary = await gitDiffSummary({ cwd: repo, baseOid })
+    expect(summary.commits).toEqual([])
+    expect(summary.uncommitted.files.map((file) => file.path)).toEqual(['a.ts'])
+    expect(summary.uncommitted.totals).toEqual(summary.totals)
   })
 })
