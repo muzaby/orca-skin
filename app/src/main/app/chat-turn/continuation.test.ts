@@ -6,6 +6,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { buildFlushRequest, buildListenRequest } from './continuation'
 import type { SteerFlushBatch, TurnRequest } from '../../adapters/turn'
+import type { DiffRequirementAnchor } from '../../../shared/ipc'
 
 // 0188 — settings 와 env 가 **한 객체**로 온다. listen 과 flush 가 둘 다 같은 값을 실어야
 // 하므로 픽스처도 한 벌이다.
@@ -20,6 +21,20 @@ const continuation = {
   }
 }
 
+const requirement = (overrides: Partial<DiffRequirementAnchor> = {}): DiffRequirementAnchor => ({
+  sessionId: 'session-1',
+  baselineCommit: '3486398aecbc2b97e42d3dba1aae8d13b18d186c',
+  filePath: 'app/src/main/adapters/claude.ts',
+  oldLine: 5,
+  newLine: 8,
+  hunkHeader: '@@ -5,2 +8,3 @@',
+  contextBefore: ['before'],
+  contextAfter: ['after'],
+  comment: '요구사항',
+  createdAt: 1_725_000_000_000,
+  ...overrides
+})
+
 function baseRequest(): TurnRequest {
   return {
     sessionId: 's-1',
@@ -30,6 +45,7 @@ function baseRequest(): TurnRequest {
     extensions: { skills: ['old'] } as unknown as TurnRequest['extensions'],
     attachmentTexts: ['첨부 본문'],
     attachmentImages: [{ base64: 'AAAA', mediaType: 'image/png' }],
+    requirements: [requirement()],
     forkFrom: 'origin-session',
     handoff: true,
     preludes: [{ uuid: 'p-1', ids: ['m-1'], text: '프렐류드' } as unknown as SteerFlushBatch],
@@ -49,6 +65,7 @@ describe('buildListenRequest', () => {
     expect(request.text).toBe('')
     expect(request.attachmentTexts).toBeUndefined()
     expect(request.attachmentImages).toBeUndefined()
+    expect(request.requirements).toBeUndefined()
     expect(request.promptUuid).toBeUndefined()
     // 0166 D7 — 위임을 절반만 실으면 게이트 훅이 배치를 submitting 에 가둔다.
     expect(request.takeSteerFlush).toBe(base.takeSteerFlush)
@@ -67,7 +84,8 @@ describe('buildFlushRequest', () => {
     uuid: 'batch-1',
     ids: ['m-9'],
     text: '잔여 메시지',
-    attachmentTexts: ['잔여 첨부']
+    attachmentTexts: ['잔여 첨부'],
+    requirements: [requirement({ filePath: 'app/src/main/adapters/diff-requirements.ts' })]
   } as unknown as SteerFlushBatch
 
   it('batch 를 프롬프트로 싣고 continuity 표식을 떨어뜨린다', () => {
@@ -86,6 +104,7 @@ describe('buildFlushRequest', () => {
     expect(request.promptUuid).toBe('batch-1')
     expect(request.attachmentTexts).toEqual(['잔여 첨부'])
     expect(request.attachmentImages).toEqual([])
+    expect(request.requirements).toEqual(batch.requirements)
     // 승계하면 재분기(forkFrom)하고 telemetry 를 무효화(handoff)한다.
     expect('forkFrom' in request).toBe(false)
     expect('handoff' in request).toBe(false)

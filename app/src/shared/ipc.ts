@@ -692,6 +692,28 @@ export interface AttachmentView {
   sizeBytes?: number
 }
 
+// diff 파일 요구사항의 wire anchor — main 으로는 **정확히 이 10키만** 보낸다(0211 D-057).
+// 위치를 다시 못 찾아도 요구사항 자체는 사라지지 않으므로, UI 재anchor 상태(`located`)는
+// 별도 wrapper 타입에 둔다.
+export interface DiffRequirementAnchor {
+  sessionId: string
+  baselineCommit: string
+  filePath: string
+  oldLine: number | null
+  newLine: number | null
+  hunkHeader: string
+  contextBefore: string[]
+  contextAfter: string[]
+  comment: string
+  createdAt: number
+}
+
+export interface DiffRequirementItem {
+  id: string
+  anchor: DiffRequirementAnchor
+  located: boolean
+}
+
 export interface ReadAttachmentRequest {
   path: string
 }
@@ -721,6 +743,7 @@ export interface SendChatMessage {
   // 이 턴에 적용할 Claude Code thinking effort. per-turn 전송만 지원한다.
   effort?: EffortLevel
   attachments?: ComposerAttachment[]
+  requirements?: DiffRequirementAnchor[]
   // 영속·렌더 전용 첨부 뷰(다운스케일 썸네일 포함). attachments 가 모델 주입용이라면 이쪽은
   // user 메시지에 attachment 파트로 남겨 트랜스크립트에 보이게 한다.
   attachmentViews?: AttachmentView[]

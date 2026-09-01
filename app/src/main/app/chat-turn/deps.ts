@@ -5,7 +5,7 @@
 // 두 층을 가른 이유는 send 경로가 후자만 알면 되고, 전자는 배선의 관심사이기 때문이다.
 
 import type { IpcMainInvokeEvent, WebContents } from 'electron'
-import type { AttachmentView } from '../../../shared/ipc'
+import type { AttachmentView, DiffRequirementAnchor } from '../../../shared/ipc'
 import type { MainBus } from '../../contracts/bus-events'
 import type { TurnContext } from '../../contracts/turn'
 import type { ApprovalCoordinator } from '../../features/approvals/coordinator'
@@ -49,6 +49,7 @@ export interface ChatRuntimeDeps extends ChatDeps {
     lease: SessionChainLease<WebContents>,
     data: {
       text: string
+      requirements?: DiffRequirementAnchor[]
       attachmentViews?: AttachmentView[]
       clientRequestId?: string | undefined
       providerKey?: string | null | undefined

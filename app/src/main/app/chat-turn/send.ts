@@ -291,6 +291,7 @@ export async function handleChatSend(
       channelAlive: runtime.channelAlive,
       sessionId: payload.sessionId,
       text: effectiveText,
+      requirements: payload.requirements ?? [],
       attachments: normalizedAttachments,
       attachmentViews: payload.attachmentViews,
       admittedAt: leaderAdmittedAt,
@@ -389,7 +390,8 @@ export async function handleChatSend(
         ...(payload.permissionMode ? { permissionMode: payload.permissionMode } : {}),
         ...(payload.effort ? { effort: payload.effort } : {}),
         attachmentTexts: normalizedAttachments.attachmentTexts,
-        attachmentImages: normalizedAttachments.attachmentImages
+        attachmentImages: normalizedAttachments.attachmentImages,
+        requirements: payload.requirements ?? []
       }
     )
 

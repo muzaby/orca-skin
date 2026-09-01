@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { NormalizedEvent } from '../../../shared/ipc'
+import type { DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
 import { makeClassifiedError } from '../../infra/errors'
 import type { TurnRequest } from '../../adapters/turn'
 import type { AbortCause } from '../../contracts/session-state'
@@ -16,6 +16,20 @@ function req(): TurnRequest {
     extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
   }
 }
+
+const requirement = (overrides: Partial<DiffRequirementAnchor> = {}): DiffRequirementAnchor => ({
+  sessionId: 'session-1',
+  baselineCommit: '3486398aecbc2b97e42d3dba1aae8d13b18d186c',
+  filePath: 'app/src/main/adapters/claude.ts',
+  oldLine: 10,
+  newLine: 12,
+  hunkHeader: '@@ -10,2 +12,3 @@',
+  contextBefore: ['before'],
+  contextAfter: ['after'],
+  comment: '요구사항',
+  createdAt: 1_725_000_000_000,
+  ...overrides
+})
 
 function live(events: NormalizedEvent[], close = vi.fn()): LiveTurn {
   return {
@@ -110,7 +124,7 @@ function channelLive(): {
   emit: (ev: NormalizedEvent) => void
   emitBatch: (events: NormalizedEvent[]) => void
   close: ReturnType<typeof vi.fn>
-  pushed: Array<{ text: string; promptUuid?: string }>
+  pushed: Array<{ text: string; promptUuid?: string; requirements?: DiffRequirementAnchor[] }>
   interrupted: ReturnType<typeof vi.fn>
 } {
   const queue: ProviderMessageBatch[] = []
@@ -122,7 +136,11 @@ function channelLive(): {
     wake?.()
     wake = null
   })
-  const pushed: Array<{ text: string; promptUuid?: string }> = []
+  const pushed: Array<{
+    text: string
+    promptUuid?: string
+    requirements?: DiffRequirementAnchor[]
+  }> = []
   const interrupted = vi.fn()
   const liveTurn: LiveTurn = {
     eventBatches: (async function* () {
@@ -137,7 +155,11 @@ function channelLive(): {
     })(),
     close,
     pushTurn: async (next) => {
-      pushed.push({ text: next.text, ...(next.promptUuid ? { promptUuid: next.promptUuid } : {}) })
+      pushed.push({
+        text: next.text,
+        ...(next.promptUuid ? { promptUuid: next.promptUuid } : {}),
+        ...(next.requirements ? { requirements: next.requirements } : {})
+      })
       return { kind: 'accepted' }
     },
     setPermissionMode: async () => {},
@@ -206,6 +228,24 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
     const events2 = await f2
     expect(events2.map((e) => e.type)).toEqual(['telemetry'])
     expect(spawns).toBe(1)
+  })
+
+  it('후속 pushTurn 이 requirements 를 누락하지 않는다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const requirements = [requirement()]
+
+    const first = collect(runtime.send(req()))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await first
+
+    const second = collect(
+      runtime.send({ ...req(), text: 'next', promptUuid: 'batch-1', requirements })
+    )
+    await tick()
+    expect(ch.pushed).toEqual([{ text: 'next', promptUuid: 'batch-1', requirements }])
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await second
   })
 
   it('후속 제출은 queue fence를 먼저 통과하고 accepted 뒤에만 commit한다', async () => {
@@ -677,11 +717,13 @@ describe('SessionRuntime provider 경계 respawn(0118)', () => {
     // close() 와 달리 상태머신은 건드리지 않는다 — 다음 send 가 정상 진행.
     expect(runtime.state).toBe('live')
 
-    const f2 = collect(runtime.send({ ...req(), env: { ANTHROPIC_BASE_URL: 'new' } }))
+    const requirements = [requirement()]
+    const f2 = collect(runtime.send({ ...req(), env: { ANTHROPIC_BASE_URL: 'new' }, requirements }))
     second.emit({ type: 'telemetry', sessionId: 's1' })
     await f2
     expect(spawns).toBe(2)
     expect(requests[1]?.env).toEqual({ ANTHROPIC_BASE_URL: 'new' })
+    expect(requests[1]?.requirements).toBe(requirements)
   })
 
   it('teardownChannel() 은 unframed 백로그를 비운다 — respawn 후 프레임에 유출 금지', async () => {

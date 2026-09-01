@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DiffRequirementAnchor } from '../../../shared/ipc'
 
 const mocks = vi.hoisted(() => ({
   acquireTurnRuntime: vi.fn(),
@@ -73,6 +74,20 @@ vi.mock('../../features/chat/turn-coordinator', () => ({
 }))
 
 import { handleChatSend } from './send'
+
+const requirement = (overrides: Partial<DiffRequirementAnchor> = {}): DiffRequirementAnchor => ({
+  sessionId: 'session-1',
+  baselineCommit: '3486398aecbc2b97e42d3dba1aae8d13b18d186c',
+  filePath: 'app/src/main/adapters/claude.ts',
+  oldLine: 10,
+  newLine: 14,
+  hunkHeader: '@@ -10,2 +14,3 @@',
+  contextBefore: ['before'],
+  contextAfter: ['after'],
+  comment: '요구사항',
+  createdAt: 1_725_000_000_000,
+  ...overrides
+})
 
 // `WorktreeService.recoverMissingWorktree` 의 반환 union. 하네스 기본값을 갈아끼우려면 넓은
 // 타입이어야 한다 — `{kind:'none'}` 으로 좁히면 `mockResolvedValue` 가 다른 갈래를 거부한다.
@@ -234,6 +249,27 @@ describe('handleChatSend worktree production wiring', () => {
     expect(mocks.buildTurnRequest).toHaveBeenCalledOnce()
     expect(mocks.buildTurnRequest.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({ cwd: '/managed/repo', extraDirs: ['/shared'] })
+    )
+  })
+
+  it('requirements 가 직접 send 에서 TurnRequest 조립까지 그대로 간다', async () => {
+    const harness = makeHarness()
+    mocks.acquireTurnRuntime.mockResolvedValue({
+      ok: true,
+      runtime: { close: vi.fn(), channelAlive: true, markAborted: vi.fn() },
+      extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+    })
+    const requirements = [requirement()]
+
+    await handleChatSend(harness.deps as never, { sender: harness.sender } as never, {
+      text: 'work',
+      requirements,
+      attachmentViews: []
+    })
+
+    expect(mocks.buildTurnRequest).toHaveBeenCalledOnce()
+    expect(mocks.buildTurnRequest.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({ requirements })
     )
   })
 

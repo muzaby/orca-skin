@@ -305,6 +305,7 @@ export class SessionRuntime implements ManagedRuntime {
           text: req.text,
           ...(req.attachmentTexts ? { attachmentTexts: req.attachmentTexts } : {}),
           ...(req.attachmentImages ? { attachmentImages: req.attachmentImages } : {}),
+          ...(req.requirements ? { requirements: req.requirements } : {}),
           ...(req.promptUuid !== undefined ? { promptUuid: req.promptUuid } : {}),
           ...(req.model !== undefined ? { model: req.model } : {}),
           ...(req.permissionMode !== undefined ? { permissionMode: req.permissionMode } : {})
