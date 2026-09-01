@@ -389,9 +389,9 @@ export async function handleChatSend(
         requestApproval,
         ...(payload.permissionMode ? { permissionMode: payload.permissionMode } : {}),
         ...(payload.effort ? { effort: payload.effort } : {}),
-        attachmentTexts: normalizedAttachments.attachmentTexts,
-        attachmentImages: normalizedAttachments.attachmentImages,
-        requirements: payload.requirements ?? []
+        attachmentTexts: mainBatch.attachmentTexts ?? [],
+        attachmentImages: mainBatch.attachmentImages ?? [],
+        requirements: mainBatch.requirements ?? []
       }
     )
 

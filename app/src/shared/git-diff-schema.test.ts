@@ -23,6 +23,11 @@ describe('diff 파일 경로 게이트', () => {
     expect(file('C:\\Windows\\System32\\config').success).toBe(false)
   })
 
+  it('Windows root-relative 와 UNC 경로를 막는다', () => {
+    expect(file('\\repo\\file.ts').success).toBe(false)
+    expect(file('\\\\server\\share\\file.ts').success).toBe(false)
+  })
+
   it('상위 경로 참조를 막는다 — 두 구분자 모두에서', () => {
     expect(file('../../../etc/passwd').success).toBe(false)
     expect(file('src/../../secret').success).toBe(false)

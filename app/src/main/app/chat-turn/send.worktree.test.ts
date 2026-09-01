@@ -74,6 +74,8 @@ vi.mock('../../features/chat/turn-coordinator', () => ({
 }))
 
 import { handleChatSend } from './send'
+import { normalizeAttachments } from '../../features/chat/attachments'
+import { enqueueTurnPrompt } from './enqueue'
 
 const requirement = (overrides: Partial<DiffRequirementAnchor> = {}): DiffRequirementAnchor => ({
   sessionId: 'session-1',
@@ -182,6 +184,15 @@ describe('handleChatSend worktree production wiring', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.sessionMeta.value = null
+    vi.mocked(normalizeAttachments).mockResolvedValue({
+      attachmentTexts: [],
+      attachmentImages: []
+    })
+    vi.mocked(enqueueTurnPrompt).mockReturnValue({
+      preludes: [],
+      mainBatch: { text: 'work', uuid: 'batch-1', ids: ['req-1'], createdAt: 1 },
+      initialBatches: []
+    })
   })
 
   it('준비 완료 전에는 context/runtime을 만들지 않고 managed cwd와 extraDirs를 runtime까지 전달한다', async () => {
@@ -260,6 +271,17 @@ describe('handleChatSend worktree production wiring', () => {
       extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
     })
     const requirements = [requirement()]
+    vi.mocked(enqueueTurnPrompt).mockReturnValue({
+      preludes: [],
+      mainBatch: {
+        text: 'work',
+        uuid: 'batch-1',
+        ids: ['req-1'],
+        createdAt: 1,
+        requirements
+      },
+      initialBatches: []
+    })
 
     await handleChatSend(harness.deps as never, { sender: harness.sender } as never, {
       text: 'work',
@@ -270,6 +292,56 @@ describe('handleChatSend worktree production wiring', () => {
     expect(mocks.buildTurnRequest).toHaveBeenCalledOnce()
     expect(mocks.buildTurnRequest.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({ requirements })
+    )
+  })
+
+  it('turn-open 병합 배치가 prior held 구조 payload까지 TurnRequest에 실어 보낸다', async () => {
+    const harness = makeHarness()
+    mocks.acquireTurnRuntime.mockResolvedValue({
+      ok: true,
+      runtime: { close: vi.fn(), channelAlive: true, markAborted: vi.fn() },
+      extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+    })
+    const heldText = { id: 't-held', name: 'held.txt', text: 'A' } as never
+    const currentText = { id: 't-current', name: 'current.txt', text: 'B' } as never
+    const heldImage = { id: 'i-held', name: 'held.png', data: 'AAA' } as never
+    const currentImage = { id: 'i-current', name: 'current.png', data: 'BBB' } as never
+    const r1 = requirement({ filePath: 'a.ts', comment: 'A requirement' })
+    const r2 = requirement({ filePath: 'b.ts', comment: 'B requirement' })
+
+    vi.mocked(normalizeAttachments).mockResolvedValue({
+      attachmentTexts: [currentText],
+      attachmentImages: [currentImage]
+    })
+    vi.mocked(enqueueTurnPrompt).mockReturnValue({
+      preludes: [],
+      mainBatch: {
+        text: 'held\n\ncurrent',
+        uuid: 'batch-merged',
+        ids: ['held-1', 'current-1'],
+        createdAt: 1,
+        attachmentTexts: [heldText, currentText],
+        attachmentImages: [heldImage, currentImage],
+        requirements: [r1, r2]
+      },
+      initialBatches: []
+    })
+
+    await handleChatSend(harness.deps as never, { sender: harness.sender } as never, {
+      text: 'current',
+      requirements: [r2],
+      attachmentViews: []
+    })
+
+    expect(mocks.buildTurnRequest).toHaveBeenCalledOnce()
+    expect(mocks.buildTurnRequest.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        text: 'held\n\ncurrent',
+        promptUuid: 'batch-merged',
+        attachmentTexts: [heldText, currentText],
+        attachmentImages: [heldImage, currentImage],
+        requirements: [r1, r2]
+      })
     )
   })
 

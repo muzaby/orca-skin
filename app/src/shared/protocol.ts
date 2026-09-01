@@ -93,7 +93,7 @@ export const GitDiffPathSchema = z
   .string()
   .min(1)
   .max(4096)
-  .refine((v) => !v.startsWith('/') && !/^[a-zA-Z]:/.test(v), '절대 경로는 쓸 수 없다')
+  .refine((v) => !/^[\\/]/.test(v) && !/^[a-zA-Z]:/.test(v), '절대 경로는 쓸 수 없다')
   .refine((v) => !v.split(/[/\\]/).includes('..'), '상위 경로 참조는 쓸 수 없다')
 
 const DiffRequirementContextLineSchema = z.string().max(200)
