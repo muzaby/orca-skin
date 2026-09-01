@@ -82,7 +82,8 @@ function findCommitHeaders(tokens: readonly string[]): number[] {
     if (tokens[index] !== 'orca-commit' || tokens[index - 1] !== '') continue
     const sha = tokens[index + 1]
     const committed = tokens[index + 4]
-    if (!sha || !committed || !/^\d+$/.test(committed)) continue
+    // Git's %ct is a Unix epoch and may be negative for commits before 1970.
+    if (!sha || !committed || !/^-?\d+$/.test(committed)) continue
     headers.push(index)
   }
   return headers

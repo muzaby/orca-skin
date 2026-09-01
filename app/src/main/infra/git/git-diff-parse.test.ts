@@ -96,6 +96,21 @@ describe('커밋 로그 파싱', () => {
     expect(commits[0].subject).toBe('fix: a|b\tc 를 고친다')
   })
 
+  it('pre-1970의 음수 epoch도 유효한 formatted header로 읽는다', () => {
+    const { commits } = parseCommitLog(
+      '\x00orca-commit\x00pre1970\x00old commit\x00codex\x00-1\x00\x00'
+    )
+
+    expect(commits).toMatchObject([
+      {
+        sha: 'pre1970',
+        subject: 'old commit',
+        author: 'codex',
+        committedAt: -1000
+      }
+    ])
+  })
+
   it(`${MAX_DIFF_COMMITS}건까지는 자르지 않는다 — 음성 짝`, () => {
     const out = Array.from({ length: MAX_DIFF_COMMITS }, (_, i) => record(`s${i}`, 't')).join('')
     const { commits, truncated } = parseCommitLog(out)
