@@ -138,6 +138,21 @@ describe('diff requirement reanchor', () => {
     expect(next.anchor.comment).toBe(original.anchor.comment)
   })
 
+  it('keeps the first candidate when duplicate matches are equally distant', () => {
+    const next = reanchorDiffRequirementItem(original, [
+      line('unchanged', 1, 7, 'before'),
+      line('added', null, 8, 'first tied target'),
+      line('unchanged', 2, 9, 'after'),
+      line('unchanged', 3, 10, 'filler'),
+      line('unchanged', 4, 11, 'before'),
+      line('added', null, 12, 'second tied target'),
+      line('unchanged', 5, 13, 'after')
+    ])
+
+    expect(next.located).toBe(true)
+    expect(next.anchor.newLine).toBe(8)
+  })
+
   it('marks a missing match unlocated while retaining the item and comment', () => {
     const next = reanchorDiffRequirementItem(original, [
       line('unchanged', 1, 1, 'other before'),

@@ -175,3 +175,15 @@ git diff --check -> exit 0
 - No unresolved Task 5 blocker remains in the renderer/store surface.
 - Task 6 is still pending for effective-V closeout, manual viewport evidence, final handoff gates, and independent verification.
 - This report records implementation evidence only. It does not claim verify/PASS.
+
+## Fix round 1 — submit lifecycle and equal-distance reanchor oracles
+
+Fresh review found that the pure clear-gate/store tests did not drive the controller's real asynchronous submit lifecycle, and that equal-distance duplicate reanchor tie-breaking was implicit.
+
+- Test-first RED: adding the real submit-lifecycle cases before the production seam existed produced 3 failing cases (`submitComposerInput is not a function`); the equal-distance reanchor case was already green against the intended first-seen implementation.
+- Production path: `ComposerInputController.submit()` now delegates the complete async conversion → send → unchanged snapshot → coordinated clear lifecycle to `composerSubmit.ts`. A source oracle pins one delegation and rejects a direct clear-call bypass in the controller.
+- Submit lifecycle oracles: an accepted unchanged submit clears requirements/draft/attachments together; `onSend === false`, draft revision drift during delayed attachment-view creation, and attachment identity drift all retain requirements.
+- Premature-clear mutation: moving `onClearDiffRequirementsIfUnchanged(...)` ahead of the accepted/unchanged gate in the final `composerSubmit.ts` seam produced 3/5 RED; restoring the gate returned the suite to GREEN.
+- Equal-distance mutation: changing the winner comparison from `<` to `<=` produced 1/5 RED (`expected 8, received 12`); restoring `<` returned the first-seen tie contract to GREEN.
+- Final focused Task 5 sweep: 15/15 files, 129/129 tests GREEN.
+- Gates: `typecheck:web`, `typecheck:test`, strict lint for the four fix files, and `git diff --check` all exited 0. The initial in-component exported seam produced the expected Fast Refresh warning, so the orchestration moved to a non-component module without weakening the source oracle.

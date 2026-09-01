@@ -28,9 +28,8 @@ import { ComposerChip } from './ComposerChip'
 import { ComposerInputSurface, type ComposerInputSurfaceHandle } from './ComposerInputSurface'
 import { FileAutocomplete } from './FileAutocomplete'
 import { SkillAutocomplete } from './SkillAutocomplete'
-import { acceptedSubmitCanClearDraftAndRequirements } from './submitClearGate'
+import { submitComposerInput } from './composerSubmit'
 import {
-  clearDraftAfterAcceptedSubmit,
   createDraftSnapshot,
   replaceDraft,
   replaceDraftRange,
@@ -245,27 +244,18 @@ export function ComposerInputController({
     const submittedRequirements = diffRequirementSnapshot
     if (compositionActive() || submitted.text.trim() === '' || steerBlocked) return
     const items = attachments
-    void buildAttachmentViews(items).then((views) => {
-      const accepted = onSend(submitted.text, items, views, submittedRequirements.anchors)
-      // text 또는 attachment가 바뀌었으면 둘 다 보존한다. 오래된 async 완료가 최신 초안을
-      // 부분적으로 지우지 않도록 submit snapshot 전체를 하나의 clear 조건으로 취급한다.
-      if (compositionActive()) return
-      if (snapshotRef.current.revision !== submitted.revision) return
-      const attachmentsUnchanged = accepted ? resetAttachmentsIfUnchanged(items) : false
-      if (
-        !acceptedSubmitCanClearDraftAndRequirements({
-          accepted,
-          composing: compositionActive(),
-          currentDraftRevision: snapshotRef.current.revision,
-          submittedDraftRevision: submitted.revision,
-          attachmentsUnchanged
-        })
-      ) {
-        return
-      }
-      onClearDiffRequirementsIfUnchanged(submittedRequirements)
-      updateSnapshot((current) => clearDraftAfterAcceptedSubmit(current, submitted.revision))
-      focus(0)
+    void submitComposerInput({
+      submitted,
+      submittedRequirements,
+      items,
+      buildAttachmentViews,
+      onSend,
+      compositionActive,
+      currentDraft: () => snapshotRef.current,
+      resetAttachmentsIfUnchanged,
+      onClearDiffRequirementsIfUnchanged,
+      updateSnapshot,
+      focus
     })
   }
 
