@@ -327,7 +327,12 @@ describe('0212 — killed 의 patch.error 가 행에서 보인다 (AT-21)', () =
   it('사유가 없으면 UI 문구로 떨어진다 — 양성 짝 (0204 AT-31 유지)', () => {
     const html = renderProgress(
       messages([
-        { type: 'tool_call', toolRunId: 'bg1', toolName: 'Task', args: { description: '로그 조사' } },
+        {
+          type: 'tool_call',
+          toolRunId: 'bg1',
+          toolName: 'Task',
+          args: { description: '로그 조사' }
+        },
         {
           type: 'tool_result',
           toolRunId: 'bg1',
