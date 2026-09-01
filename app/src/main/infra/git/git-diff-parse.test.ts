@@ -85,7 +85,8 @@ describe('커밋 로그 파싱', () => {
       }
     ])
 
-    const withBody = parseCommitLog(record('def456', 'fix: 고친다', '실제 본문\n둘째 줄')).commits[0]
+    const withBody = parseCommitLog(record('def456', 'fix: 고친다', '실제 본문\n둘째 줄'))
+      .commits[0]
     expect(withBody.body).toBe('실제 본문\n둘째 줄')
   })
 
@@ -162,15 +163,29 @@ describe('raw + numstat 커밋 파싱 (VP-31 · EP-17)', () => {
     expect(parsed.commits[1].files.map((file) => file.path)).toEqual(['only-old.ts'])
   })
 
+  it('루트의 orca-commit 경로를 다음 commit header로 오인하지 않는다', () => {
+    const output =
+      header('root-path', 'root path') +
+      ':000000 100644 0000000 aaaaaaa A\0orca-commit\0' +
+      '2\t1\torca-commit\0'
+
+    expect(parseCommitLog(output, true).commits).toEqual([
+      expect.objectContaining({
+        sha: 'root-path',
+        fileCount: 1,
+        totals: { added: 2, removed: 1 },
+        files: [{ path: 'orca-commit', status: 'added', added: 2, removed: 1, binary: false }]
+      })
+    ])
+  })
+
   it('50/51 경계에서 목록만 자르고 fileCount·totals는 절단 전 값을 유지한다', () => {
     const output = (count: number): string => {
       const raw = Array.from(
         { length: count },
         (_, i) => `:100644 100644 aaaaaaa bbbbbbb M\0f${i}.ts\0`
       ).join('')
-      const numstat = Array.from({ length: count }, (_, i) => `${i + 1}\t1\tf${i}.ts\0`).join(
-        ''
-      )
+      const numstat = Array.from({ length: count }, (_, i) => `${i + 1}\t1\tf${i}.ts\0`).join('')
       return header(`sha-${count}`, `files ${count}`) + raw + numstat
     }
 

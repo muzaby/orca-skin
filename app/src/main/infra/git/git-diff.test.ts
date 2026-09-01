@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { gitDiffFile, gitDiffSummary, resolveDiffRange } from './git-diff'
+import { MAX_DIFF_FILE_BYTES } from './git-diff-parse'
 import { runGit } from './runner'
 
 const dirs: string[] = []
@@ -164,8 +165,53 @@ describe('diff 파일 본문 (VP-10)', () => {
 
   it('binary 는 본문 대신 종류를 돌려준다', async () => {
     await writeFile(join(repo, 'blob.bin'), Buffer.from([0x00, 0x01, 0x02, 0x00]))
+    await git(repo, ['add', 'blob.bin'])
     const content = await gitDiffFile({ cwd: repo, path: 'blob.bin', baseOid })
     expect(content).toEqual({ kind: 'binary' })
+  })
+
+  it('추적된 1 MiB 초과 파일은 too-large로 유지한다', async () => {
+    await writeFile(join(repo, 'large.txt'), 'x'.repeat(MAX_DIFF_FILE_BYTES + 1))
+    await git(repo, ['add', 'large.txt'])
+
+    await expect(gitDiffFile({ cwd: repo, path: 'large.txt', baseOid })).resolves.toEqual({
+      kind: 'unavailable',
+      reason: 'too-large'
+    })
+  })
+
+  it('baseline 범위 밖의 미추적 파일 본문은 돌려주지 않는다', async () => {
+    await writeFile(join(repo, 'untracked.ts'), 'private working copy\n')
+
+    await expect(gitDiffFile({ cwd: repo, path: 'untracked.ts', baseOid })).resolves.toEqual({
+      kind: 'unavailable',
+      reason: 'error'
+    })
+  })
+})
+
+describe('raw history delimiter safety (VP-31)', () => {
+  it('실제 Git의 루트 orca-commit 파일을 commit header로 오인하지 않는다', async () => {
+    const repo = await makeRepo()
+    await writeFile(join(repo, 'base.ts'), 'base\n')
+    await git(repo, ['add', '.'])
+    await git(repo, ['commit', '-m', 'base'])
+    const baseOid = await head(repo)
+
+    await writeFile(join(repo, 'orca-commit'), 'one\ntwo\n')
+    await git(repo, ['add', 'orca-commit'])
+    await git(repo, ['commit', '-m', 'root path'])
+
+    const summary = await gitDiffSummary({ cwd: repo, baseOid })
+    expect(summary.commits).toHaveLength(1)
+    expect(summary.commits[0]).toMatchObject({
+      subject: 'root path',
+      fileCount: 1,
+      totals: { added: 2, removed: 0 }
+    })
+    expect(summary.commits[0].files).toEqual([
+      { path: 'orca-commit', status: 'added', added: 2, removed: 0, binary: false }
+    ])
   })
 })
 
@@ -221,9 +267,9 @@ describe('커밋 grouping과 미커밋 블록 (VP-31 · VP-33)', () => {
 
   it('커밋에도 있는 파일이 HEAD 뒤에 다시 바뀌면 uncommitted에도 따로 남는다', async () => {
     const summary = await gitDiffSummary({ cwd: repo, baseOid })
-    expect(summary.commits.find((commit) => commit.sha === sha1)?.files.map((file) => file.path)).toEqual([
-      'a.ts'
-    ])
+    expect(
+      summary.commits.find((commit) => commit.sha === sha1)?.files.map((file) => file.path)
+    ).toEqual(['a.ts'])
     expect(summary.uncommitted.files.map((file) => file.path)).toEqual(['a.ts'])
     expect(summary.files.map((file) => file.path).sort()).toEqual(['a.ts', 'b.ts'])
   })

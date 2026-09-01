@@ -32,15 +32,22 @@ export function parseCommitLog(
   out: string,
   withFiles = false
 ): { commits: GitDiffCommit[]; truncated: boolean } {
-  const records = out.split('\0orca-commit\0').slice(1)
+  const tokens = out.split('\0')
+  const headers = findCommitHeaders(tokens)
   const commits: GitDiffCommit[] = []
-  for (const record of records) {
-    const tokens = record.split('\0')
-    const [sha, subject, author, committed, body] = tokens
+  for (let index = 0; index < headers.length; index += 1) {
+    const header = headers[index]
+    const [sha, subject, author, committed, body] = tokens.slice(header + 1, header + 6)
     if (!sha || committed === undefined) continue
     const seconds = Number(committed)
     if (!Number.isFinite(seconds)) continue
-    const files = withFiles ? parseCommitFiles(tokens.slice(5)) : []
+    const nextHeader = headers[index + 1]
+    // header 뒤의 body 종결 NUL부터 다음 header 앞의 framing NUL까지가 이 commit의 raw/numstat다.
+    const files = withFiles
+      ? parseCommitFiles(
+          tokens.slice(header + 6, nextHeader === undefined ? undefined : nextHeader - 1)
+        )
+      : []
     const totals = withFiles
       ? files.reduce<GitDiffTotals>(
           (sum, file) => ({ added: sum.added + file.added, removed: sum.removed + file.removed }),
@@ -64,6 +71,21 @@ export function parseCommitLog(
     commits: commits.slice(0, MAX_DIFF_COMMITS),
     truncated: commits.length > MAX_DIFF_COMMITS
   }
+}
+
+// `%x00orca-commit%x00` 자체만으로 stream을 자르면 루트 파일명 `orca-commit`의
+// `\0orca-commit\0`과 충돌한다. header는 format이 만든 선행 빈 token 뒤에만 있고,
+// 그 다음 다섯 metadata token이 완전해야 한다. 경로 token은 이 grammar를 만족하지 않는다.
+function findCommitHeaders(tokens: readonly string[]): number[] {
+  const headers: number[] = []
+  for (let index = 1; index + 5 < tokens.length; index += 1) {
+    if (tokens[index] !== 'orca-commit' || tokens[index - 1] !== '') continue
+    const sha = tokens[index + 1]
+    const committed = tokens[index + 4]
+    if (!sha || !committed || !/^\d+$/.test(committed)) continue
+    headers.push(index)
+  }
+  return headers
 }
 
 function parseCommitFiles(tokens: readonly string[]): GitDiffFileEntry[] {
@@ -142,9 +164,11 @@ export function parseNumstatZ(out: string): GitDiffFileEntry[] {
 }
 
 // **합계는 `slice` 앞에서 센다**: 목록은 200개에서 잘려도 합계는 저장소의 실제 변경량이다.
-export function mergeDiffEntries(
-  tracked: readonly GitDiffFileEntry[]
-): { files: GitDiffFileEntry[]; truncated: boolean; totals: GitDiffTotals } {
+export function mergeDiffEntries(tracked: readonly GitDiffFileEntry[]): {
+  files: GitDiffFileEntry[]
+  truncated: boolean
+  totals: GitDiffTotals
+} {
   const merged: GitDiffFileEntry[] = [...tracked]
   merged.sort((a, b) => a.path.localeCompare(b.path))
   const totals = merged.reduce<GitDiffTotals>(

@@ -166,11 +166,7 @@ export async function gitDiffSummary(
   let commits: GitDiffSummary['commits'] = []
   let commitsTruncated = false
   let commitFilesUnavailable = false
-  if (
-    base.kind === 'worktree-base' &&
-    currentHead != null &&
-    base.oid !== currentHead
-  ) {
+  if (base.kind === 'worktree-base' && currentHead != null && base.oid !== currentHead) {
     const history = await readCommitHistory(input.cwd, base.oid, runner)
     commits = history.commits
     commitsTruncated = history.truncated
@@ -211,12 +207,32 @@ async function showAt(
   return result.stdout
 }
 
+async function isTrackedDiffPath(
+  cwd: string,
+  path: string,
+  base: GitDiffBase,
+  runner: GitDiffRunner
+): Promise<boolean> {
+  const result = await run(runner, cwd, [
+    'diff',
+    '--numstat',
+    '-z',
+    ...diffRevArgs(base),
+    '--',
+    path
+  ])
+  return result.ok && parseNumstatZ(result.stdout).some((entry) => entry.path === path)
+}
+
 export async function gitDiffFile(
   input: { cwd: string; path: string; baseOid?: string | null },
   runner: GitDiffRunner = runGit
 ): Promise<GitDiffFileContent> {
   if (!(await insideWorkTree(input.cwd, runner))) return { kind: 'unavailable', reason: 'error' }
   const range = await resolveDiffRange(input, runner)
+  if (!(await isTrackedDiffPath(input.cwd, input.path, range.base, runner))) {
+    return { kind: 'unavailable', reason: 'error' }
+  }
   const baseRev = range.base.kind === 'none' ? null : range.base.oid
   const oldValue = baseRev ? await showAt(input.cwd, baseRev, input.path, runner) : ''
   if (oldValue == null) return { kind: 'unavailable', reason: 'too-large' }
