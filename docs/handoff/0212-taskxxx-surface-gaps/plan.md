@@ -766,6 +766,17 @@ SDK(producer) → claude-map(정규화) → bus → coordinator/tracker(상태) 
 
 ## [검증자 기입] 파생 이슈
 
+> r1 검증 = **FAIL + PLAN_GAP**. 판정 원문과 관측은 [`verify.md`](verify.md) — 아래는 이관 표다.
+
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| | | | | | |
+| D1 | 전용 본문이 **레지스트리를 경유해** 붙는지 보는 단언이 0건이다 — 등록 블록 전체 삭제(MV-1)와 match 를 6종으로 확장(MV-2) 둘 다 게이트 전건 초록이다. AC22 의 "6종 전량 대조" 단언이 없다 | VP-13 · AC22 · §10 EP-11 | `registry.test.ts` 에 4종 → `task_list` 와 `TaskOutput`/`TaskStop` → `generic` 을 넣는다 | **BLOCKING** | open |
+| D2 | 레벨 신호가 **정착을 일으키는지** 보는 단언이 0건이다 — `turn-coordinator.ts` 의 `subagent.backgroundSet` 블록 전체 삭제(MV-3)에 229파일 2410케이스가 침묵한다 | VP-08 · AC14 · §10 EP-06·EP-07 | `turn-coordinator.test.ts` 에 payload 2회 주입 후 정착 대상과 `stopLive:false` 를 단언 | **BLOCKING** | open |
+| D3 | 전환 요청이 **포트까지** 가는지 보는 단언이 0건이다 — 관측이 renderer 경계에서 끝난다. "`vi.mock('electron')` 선례 0건" 은 사실이 아니다(선례 7건, 그중 하나가 같은 `registerChatHandlers` 를 부른다) | VP-17 · AC25 · §10 EP-14 | 같은 하네스로 핸들러를 불러 `backgroundTask('use1')` 1회와 `false`→reject 를 단언 | **BLOCKING** | open |
+| D4 | 중단 정착의 사유를 어느 키가 나르는지에 **규범 행이 없다** — AC21 과 상속 계약 0204 AT-31 이 `message` 한 자리를 두고 반대를 요구했고 구현자가 `cause` 키를 발명해 둘을 세웠다. 0204 D11 이 같은 자리에 "규범 정정이 선행" 을 적어 두었다 | VP-12 · AC21 · 0204 D-024/D11 | **설계자** 가 Decision 신설 + §10 행(`cause`=SDK 사유 / `message`=UI 기본) + 레벨 REPLACE 문구를 §5 상태표에 추가 | **PLAN_GAP** | open |
+| D5 | INDEX r1 비고가 924자(≈10줄)로 5줄 상한을 넘었다 | `AGENTS.md §산출물 문장 규칙 3` | 검증자가 이번 턴에 5줄로 교체 | NON_BLOCKING | **closed** |
+| D6 | 구현 보고 변경 파일 수 40 ↔ 실측 **41**. 내역도 main 8↔**10** · renderer 13↔**17** 이고 보고 내역 합 38 이 보고 총계 40 과도 다르다 | 구현 보고 정확도 | 다음 라운드 보고에서 정정 | NON_BLOCKING | open |
+| D7 | §10 대조표 EP-10 이 "도달 경로 2" 라 쓰고 같은 칸이 좌표 3개를 연다. 좌표도 변경 전 줄번호다(182·289·258 → 실제 227·364·313) | 구현 보고 정확도 | 다음 라운드 보고에서 정정 | NON_BLOCKING | open |
+| D8 | `chat.taskTool.fetched`(ko·en)의 소비처가 0이다 — `KIND_KEY` 는 4키만 쓴다 | 죽은 표면 | 제거하거나 `TaskGet` 본문에 소비처를 만든다 | NON_BLOCKING | open |
+| D9 | P2 의 신설 oracle 이 "출력이 비어 있지 않다" 라, `ensure-sqlite-abi.mjs --check` 는 `parseArgs` throw 의 catch 만 관측한다(5중 1) | 이번 턴 신설 배선 oracle | 유효 인자를 주거나 기대 출력 접두를 단언 | NON_BLOCKING | open |
+| D10 | P2 가 0212 범위 밖 스크립트 4종을 함께 고쳤다 | 범위 | **존치** — 5개가 같은 한 줄의 사본이고 그중 하나가 이번 변경의 필수 gate 다 | NON_BLOCKING | **closed** |
