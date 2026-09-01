@@ -11,13 +11,14 @@ export interface DiffPeekBodyState extends DiffPeekBodyRequest {
   content: GitDiffFileContent | null
 }
 
-/** 현재 body의 identity는 cwd/session/peek group/path를 모두 포함한다. */
+/** 현재 body의 identity는 active summary generation까지 포함한다. */
 export function diffPeekBodyKey(
   cwd: string | null,
   sessionId: string | null,
-  target: GitPeekTarget
+  target: GitPeekTarget,
+  summaryGeneration: number
 ): string {
-  return JSON.stringify([cwd, sessionId, target.group, target.path])
+  return JSON.stringify([cwd, sessionId, summaryGeneration, target.group, target.path])
 }
 
 /** 본문 IPC는 entry group과 무관한 Task-2 session-wide file contract다. */

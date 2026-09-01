@@ -145,4 +145,29 @@ describe('Session Changes SSR', () => {
     expect(expanded).toContain('일부만 표시')
     expect(expanded).not.toContain('+1개 파일 더')
   })
+
+  it('top-level cap/unavailable flags는 per-commit notice와 다른 명시 label로 보인다', () => {
+    const flaggedSummary: GitDiffSummary = {
+      ...summary,
+      filesTruncated: true,
+      commits: [{ ...summary.commits[0], filesTruncated: false }],
+      commitsTruncated: true,
+      commitFilesUnavailable: true,
+      uncommitted: { ...summary.uncommitted, filesTruncated: false }
+    }
+    const html = renderToStaticMarkup(
+      createElement(SessionChangesList, {
+        summary: flaggedSummary,
+        expandedCommitIds: new Set<string>(),
+        onToggleCommit: () => undefined,
+        onOpenPeek: () => undefined
+      })
+    )
+
+    expect(html).toContain('세션 파일 목록 제한됨')
+    expect(html).toContain('세션 커밋 목록 제한됨')
+    expect(html).toContain('커밋별 파일 정보를 가져오지 못함')
+    expect(html).not.toContain('변경 파일 정보 없음')
+    expect(html).not.toContain('일부만 표시')
+  })
 })

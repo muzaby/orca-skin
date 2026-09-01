@@ -158,3 +158,70 @@
 - Independent verifier has not run yet.
 - Task 6 manual viewport gate remains required for real scroll behavior; this Task-3 Node/SSR coverage intentionally does not replace it.
 - Full 0211 work is still partial because later tasks own requirement UI and manual viewport validation.
+
+## Fix Round 1
+
+### inherited-state note
+
+- 재개 시점 HEAD는 `93798ba2334b76559d4ff5a7a02cd34ec5c1aa6d` (`handoff/0211-worktree-session-ux`)였다.
+- 재개 시점 dirty scope는 지시된 9파일만 있었다.
+  - `app/src/renderer/src/features/chat/components/rightpanel/DiffTileContent.tsx`
+  - `app/src/renderer/src/features/chat/components/rightpanel/SessionChangesList.tsx`
+  - `app/src/renderer/src/features/chat/components/rightpanel/diffFileCache.ts`
+  - `app/src/renderer/src/features/chat/components/rightpanel/diffFileCache.test.ts`
+  - `app/src/renderer/src/features/chat/components/rightpanel/sessionChangesData.ts`
+  - `app/src/renderer/src/features/chat/components/rightpanel/sessionChangesData.test.ts`
+  - `app/src/renderer/src/features/chat/components/rightpanel/sessionChangesList.render.test.ts`
+  - `app/src/renderer/src/shared/i18n/resources/en.ts`
+  - `app/src/renderer/src/shared/i18n/resources/ko.ts`
+- 기존 미커밋 diff는 전부 보존했고 reset/checkout/discard를 하지 않았다.
+- inherited 새 테스트를 old behavior에 직접 되돌려 RED로 재확인하지는 않았다. 현재 작업트리를 건드리지 않는 조건에서 안전한 기준은 현재 GREEN과 HEAD 대비 코드 비교였다.
+
+### audit result
+
+- Finding 1: 닫힘.
+  - `DiffTileContent`가 active `gitSnapshotRequest.generation`을 읽어 body key에 포함한다.
+  - `diffPeekBodyKey`는 이제 `cwd/sessionId/summaryGeneration/group/path`를 identity로 쓴다.
+  - 같은 path라도 refresh 또는 turn-end summary generation advance 뒤에는 body cache miss가 나고 새 body fetch 1회가 강제된다.
+  - 늦은 old completion은 `createDiffPeekBodyRequestOwner()` 세대 가드 때문에 현재 body를 덮지 못한다.
+  - local hunk expansion은 이 key나 request owner 입력을 건드리지 않으므로 body IPC 0회 계약을 유지한다.
+- Finding 2: 닫힘.
+  - `summaryNoticeKeys()`가 `summary.filesTruncated`, `summary.commitsTruncated`, `summary.commitFilesUnavailable`를 각각 별도 key로 노출한다.
+  - `SessionChangesList`는 top-level notice들을 per-commit `diffPartialFiles` 및 metadata-unavailable label과 분리 렌더링한다.
+  - ko/en 카탈로그에 대응 문구를 추가했다.
+- 추가 수정은 non-behavior cleanup 1건뿐이다.
+  - `diffFileCache.ts` 주석을 새 identity 계약(요약 generation 포함)에 맞게 정정했다.
+
+### verification log
+
+- `git status --short`
+  - output:
+    - ` M app/src/renderer/src/features/chat/components/rightpanel/DiffTileContent.tsx`
+    - ` M app/src/renderer/src/features/chat/components/rightpanel/SessionChangesList.tsx`
+    - ` M app/src/renderer/src/features/chat/components/rightpanel/diffFileCache.test.ts`
+    - ` M app/src/renderer/src/features/chat/components/rightpanel/diffFileCache.ts`
+    - ` M app/src/renderer/src/features/chat/components/rightpanel/sessionChangesData.test.ts`
+    - ` M app/src/renderer/src/features/chat/components/rightpanel/sessionChangesData.ts`
+    - ` M app/src/renderer/src/features/chat/components/rightpanel/sessionChangesList.render.test.ts`
+    - ` M app/src/renderer/src/shared/i18n/resources/en.ts`
+    - ` M app/src/renderer/src/shared/i18n/resources/ko.ts`
+- `git diff --stat`
+  - output: `9 files changed, 142 insertions(+), 9 deletions(-)`.
+- `npx.cmd vitest run src/renderer/src/features/chat/components/rightpanel/diffFileCache.test.ts src/renderer/src/features/chat/components/rightpanel/sessionChangesData.test.ts src/renderer/src/features/chat/components/rightpanel/sessionChangesList.render.test.ts src/renderer/src/features/chat/components/composer/gitSnapshotQuery.test.ts src/renderer/src/features/chat/reducer/chatReducer.plan.test.ts src/renderer/src/shared/i18n/resources/resources.test.ts`
+  - output: `Test Files 6 passed (6)`, `Tests 48 passed (48)`, `Duration 8.43s`.
+- `npx.cmd vitest run src/renderer/src/features/chat src/renderer/src/shared/i18n/resources src/shared/git-diff-schema.test.ts`
+  - output: `gitQueryOwner.test.ts` only timeout when combined with the full `features/chat` aggregate run; summary `Test Files 1 failed | 69 passed (70)`, `Tests 1 failed | 576 passed (577)`, `Duration 67.78s`.
+- `npx.cmd vitest run src/renderer/src/features/chat/components/composer/gitQueryOwner.test.ts`
+  - output: `Test Files 1 passed (1)`, `Tests 1 passed (1)`, `Duration 2.33s`.
+- `npx.cmd vitest run src/renderer/src/features/chat/components/rightpanel src/renderer/src/features/chat/components/composer src/renderer/src/features/chat/reducer src/renderer/src/features/chat/store src/renderer/src/shared/i18n/resources src/shared/git-diff-schema.test.ts`
+  - output: `Test Files 43 passed (43)`, `Tests 351 passed (351)`, `Duration 32.82s`.
+- `npm.cmd run typecheck:web`
+  - output: exit `0`.
+- `npm.cmd run typecheck:test`
+  - output: exit `0`.
+- `npx.cmd eslint src/renderer/src/features/chat/components/rightpanel/DiffTileContent.tsx src/renderer/src/features/chat/components/rightpanel/SessionChangesList.tsx src/renderer/src/features/chat/components/rightpanel/diffFileCache.ts src/renderer/src/features/chat/components/rightpanel/diffFileCache.test.ts src/renderer/src/features/chat/components/rightpanel/sessionChangesData.ts src/renderer/src/features/chat/components/rightpanel/sessionChangesData.test.ts src/renderer/src/features/chat/components/rightpanel/sessionChangesList.render.test.ts src/renderer/src/shared/i18n/resources/en.ts src/renderer/src/shared/i18n/resources/ko.ts`
+  - output: exit `0`.
+- `git diff --check`
+  - output: exit `0`.
+- `git diff --cached --check`
+  - output: exit `0`.

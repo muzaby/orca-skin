@@ -63,11 +63,13 @@ export function DiffTileContent(): React.JSX.Element {
   const summary = useChatSession((state) => state.gitSnapshot.summary)
   const peekTarget = useChatSession((state) => state.gitSnapshot.peekTarget)
   const expandedCommitIds = useChatSession((state) => state.gitSnapshot.expandedCommitIds)
+  const summaryGeneration = useChatSession((state) => state.gitSnapshotRequest?.generation ?? 0)
   const [bodyOwner] = useState(createDiffPeekBodyRequestOwner)
   const [body, setBody] = useState<DiffPeekBodyState | null>(null)
   const bodyKey = useMemo(
-    () => (cwd && peekTarget ? diffPeekBodyKey(cwd, sessionId, peekTarget) : null),
-    [cwd, peekTarget, sessionId]
+    () =>
+      cwd && peekTarget ? diffPeekBodyKey(cwd, sessionId, peekTarget, summaryGeneration) : null,
+    [cwd, peekTarget, sessionId, summaryGeneration]
   )
   // Same relative path in a new identity is never rendered from a retained body cache.
   const currentBody = bodyKey && body?.key === bodyKey ? body : null

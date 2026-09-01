@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { GitDiffCommit, GitDiffFileEntry, GitDiffSummary } from '../../../../../../shared/ipc'
-import { commitDisplayMeta, commitFileRows, sessionChangeGroups } from './sessionChangesData'
+import {
+  commitDisplayMeta,
+  commitFileRows,
+  sessionChangeGroups,
+  summaryNoticeKeys
+} from './sessionChangesData'
 
 const file = (path: string): GitDiffFileEntry => ({
   path,
@@ -100,5 +105,17 @@ describe('session changes data', () => {
       moreLoadedCount: 0,
       partial: true
     })
+  })
+
+  it('top-level summary cap/unavailable flags를 별도 notice key로 낸다', () => {
+    expect(summaryNoticeKeys({ ...summary([]), filesTruncated: true })).toEqual([
+      'chat.rightpanel.diffSessionFilesTruncated'
+    ])
+    expect(summaryNoticeKeys({ ...summary([]), commitsTruncated: true })).toEqual([
+      'chat.rightpanel.diffSessionCommitsTruncated'
+    ])
+    expect(summaryNoticeKeys({ ...summary([]), commitFilesUnavailable: true })).toEqual([
+      'chat.rightpanel.diffSessionCommitFilesUnavailable'
+    ])
   })
 })

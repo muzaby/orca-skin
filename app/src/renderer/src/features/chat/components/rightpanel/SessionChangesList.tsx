@@ -1,7 +1,12 @@
 import type { GitDiffFileEntry, GitDiffSummary } from '../../../../../../shared/ipc'
 import { useI18n } from '../../../../shared/i18n'
 import type { GitPeekGroup, GitPeekTarget } from '../../reducer/chatReducer'
-import { commitDisplayMeta, commitFileRows, summaryBaseLabel } from './sessionChangesData'
+import {
+  commitDisplayMeta,
+  commitFileRows,
+  summaryBaseLabel,
+  summaryNoticeKeys
+} from './sessionChangesData'
 
 interface SessionChangesListProps {
   summary: GitDiffSummary | null
@@ -60,6 +65,7 @@ export function SessionChangesList({
       </p>
     )
   }
+  const notices = summaryNoticeKeys(summary)
 
   return (
     <div data-session-changes-screen="list" className="min-h-0 flex-1 overflow-y-auto">
@@ -86,6 +92,13 @@ export function SessionChangesList({
             {tr('chat.rightpanel.diffUncommittedChip', { count: summary.uncommitted.files.length })}
           </span>
         </div>
+        {notices.length > 0 && (
+          <div className="flex flex-col gap-g1 text-caption text-t5">
+            {notices.map((notice) => (
+              <span key={notice}>{tr(notice)}</span>
+            ))}
+          </div>
+        )}
       </section>
 
       <div className="flex flex-col gap-g4 px-p5 py-p4">

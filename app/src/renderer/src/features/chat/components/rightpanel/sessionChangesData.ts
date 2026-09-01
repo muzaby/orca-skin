@@ -4,6 +4,7 @@ import type {
   GitDiffSummary,
   GitDiffTotals
 } from '../../../../../../shared/ipc'
+import type { MessageKey } from '../../../../shared/i18n'
 import type { GitPeekGroup } from '../../reducer/chatReducer'
 
 export interface SessionChangeGroup {
@@ -69,6 +70,16 @@ export function sessionChangeGroups(summary: GitDiffSummary): readonly SessionCh
       filesTruncated: summary.uncommitted.filesTruncated,
       commit: null
     }
+  ]
+}
+
+export function summaryNoticeKeys(summary: GitDiffSummary): readonly MessageKey[] {
+  return [
+    ...(summary.filesTruncated ? (['chat.rightpanel.diffSessionFilesTruncated'] as const) : []),
+    ...(summary.commitsTruncated ? (['chat.rightpanel.diffSessionCommitsTruncated'] as const) : []),
+    ...(summary.commitFilesUnavailable
+      ? (['chat.rightpanel.diffSessionCommitFilesUnavailable'] as const)
+      : [])
   ]
 }
 
