@@ -173,6 +173,15 @@ export const StopSubagentSchema = z.object({
   toolUseId: z.string().min(1)
 })
 
+// 서브에이전트(Task) foreground → background 전환 (orca:chat:backgroundSubagent, 0212 R-07).
+// 중단과 같은 좌표(sessionId + toolUseId)를 쓴다 — 대상이 같은 부모 Agent 도구 호출이다.
+// **단건만** 받는다: SDK 는 인자 없는 전량 전환도 지원하지만 그것은 Bash 까지 옮겨 TaskXXX
+// 범위를 벗어난다(D-020).
+export const BackgroundSubagentSchema = z.object({
+  sessionId: z.string().min(1),
+  toolUseId: z.string().min(1)
+})
+
 // 권한 모드 라이브 전환 (orca:permission:setMode).
 export const SetPermissionModeSchema = z.object({
   sessionId: z.string().min(1),

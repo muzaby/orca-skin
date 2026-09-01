@@ -11,6 +11,7 @@
 // **B(조용)** — 0013 은 새 테이블이라 아무도 안 죽었고, 픽스처 3곳이 실제 스키마와 갈라진 채로
 // 계속 초록이었다. lint·typecheck 에는 16개짜리 목록과 17개짜리 목록이 똑같이 유효하고,
 // (1) 은 `migrate.ts` 하나만 읽으므로 둘 다 이 가드 밖이었다.
+import { pathToFileURL } from 'node:url'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -214,7 +215,12 @@ export function runCli(argv = process.argv.slice(2), cwd = process.cwd()) {
   return 0
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// 직접 실행 판정 — `pathToFileURL` 로 비교한다. `file://${process.argv[1]}` 는 **Windows 에서
+// 절대 성립하지 않는다**: argv[1] 은 `C:.mjs` 라 `file://C:.mjs` 가 되고
+// `import.meta.url` 은 `file:///C:/a/b.mjs` 다. 그러면 CLI 본문이 실행되지 않은 채 exit 0 이 나가
+// 게이트가 무음으로 통과한다(CI 는 windows-latest 다). 선례: `analyze-composer-input-trace.mjs`.
+const invokedAs = process.argv[1]
+if (invokedAs && import.meta.url === pathToFileURL(invokedAs).href) {
   try {
     process.exitCode = runCli()
   } catch (error) {

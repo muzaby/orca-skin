@@ -43,6 +43,14 @@ export function TaskStatusIcon(props: TaskStatusIconProps): React.JSX.Element {
           <Icon name="stop" size={11} />
         </span>
       )
+    // `paused` 는 살아 있지만 진행하지 않는다(0212 D-014) — 회전하는 진행 표시를 쓰면 도는
+    // 중으로 보이고, 종단 아이콘을 쓰면 끝난 것으로 보인다. 정지한 일시정지 글리프가 그 사이다.
+    case 'paused':
+      return (
+        <span className={`${BASE} bg-fill-uncontained-hover text-t6`}>
+          <Icon name="pause" size={11} />
+        </span>
+      )
     case 'failed':
       return (
         <span

@@ -17,6 +17,8 @@ export interface BackgroundTaskPort {
   settled(sessionId: string, toolUseId: string): void
   markAsyncLaunched(sessionId: string, toolUseId: string): void
   isAsyncLaunched(sessionId: string, toolUseId: string): boolean
+  // 레벨 신호 적용 → 정착시켜야 할 id(0212). 판정만 하고 방출은 호출부가 한다.
+  applyLiveSet(sessionId: string, liveIds: readonly string[]): string[]
 }
 
 const EMPTY: ReadonlySet<string> = new Set()
@@ -28,6 +30,10 @@ interface TaskState {
 export class BackgroundTaskTracker implements BackgroundTaskPort {
   private readonly bySession = new Map<string, Map<string, TaskState>>()
   private readonly listeners = new Set<(sessionId: string) => void>()
+  // 레벨 신호(background_tasks_changed)의 기준선이 세워진 세션(0212 SD-02). 프로세스 단위
+  // 레벨이라 **시작 시점에는 아무것도 오지 않는다** — 첫 payload 를 받기 전에는 이 신호로
+  // 무엇도 정착시킬 수 없고, 첫 payload 조차 기준선일 뿐이다.
+  private readonly levelEstablished = new Set<string>()
 
   subscribe(listener: (sessionId: string) => void): () => void {
     this.listeners.add(listener)
@@ -73,6 +79,34 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
 
   isAsyncLaunched(sessionId: string, toolUseId: string): boolean {
     return this.bySession.get(sessionId)?.get(toolUseId)?.asyncLaunched === true
+  }
+
+  /**
+   * background_tasks_changed 레벨 신호를 적용하고 **정착시켜야 할 toolUseId 를 돌려준다**
+   * (0212 §10 EP-07). 정착 방출은 `settle.ts` 가 소유하므로 여기서는 판정만 한다 —
+   * 트래커는 electron·버스 비의존을 유지한다.
+   *
+   * 첫 payload 는 **기준선일 뿐 아무것도 정착시키지 않는다.** 프로세스 단위 레벨이라 이 세션의
+   * CLI 가 (재)기동한 직후 살아 있는 태스크가 payload 에 안 실릴 수 있고, 그것을 정착으로 읽으면
+   * 시작 직후 멀쩡히 도는 태스크가 죽는다.
+   *
+   * REPLACE 다 — edge 와 짝지어 읽지 않는다. 반환값은 `추적 중 − payload` 차집합이다.
+   */
+  applyLiveSet(sessionId: string, liveIds: readonly string[]): string[] {
+    const first = !this.levelEstablished.has(sessionId)
+    this.levelEstablished.add(sessionId)
+    if (first) return []
+    const live = new Set(liveIds)
+    const map = this.bySession.get(sessionId)
+    if (!map) return []
+    return [...map.keys()].filter((id) => !live.has(id))
+  }
+
+  // CLI 프로세스 (재)기동 경계 — 레벨을 미확립으로 되돌린다(0212 D-012). 그러지 않으면 구
+  // 프로세스의 집합이 새 프로세스의 태스크를 죽인다. `clear` 가 이 경계를 이미 지나므로
+  // (콜드 spawn 전 정리 · 채널 사망 정착) 거기서도 함께 부른다.
+  resetLevel(sessionId: string): void {
+    this.levelEstablished.delete(sessionId)
   }
 
   ids(sessionId: string): ReadonlySet<string> {
@@ -124,6 +158,7 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
   }
 
   clear(sessionId: string): void {
+    this.resetLevel(sessionId)
     if (this.bySession.delete(sessionId)) this.changed(sessionId)
   }
 

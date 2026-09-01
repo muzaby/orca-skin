@@ -171,6 +171,10 @@ export interface SubagentTaskSummary {
   // 종단 정착이 남긴 사람용 사유 문구(`result.output.message`) — 실패/중단 행이 "왜" 를 말한다
   // (0204 D-024). 진행 중이거나 성공이면 null. 생산자는 `subagent-settlement.ts:28`.
   settlementMessage: string | null
+  // 이 태스크가 **이미 background 로 돌고 있는가**(0212 R-07) — `async_launched` 런치 영수증
+  // 관측이 유일한 신호다(0136·0143). foreground → background 전환 버튼은 이 값이 `false` 일
+  // 때만 뜬다: 이미 background 면 SDK 가 `false` 를 돌려주므로 눌러도 아무 일이 없다(D-021).
+  asyncLaunched: boolean
   call: ToolCall
 }
 
@@ -308,6 +312,7 @@ export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSumm
         subagentType: subagentTypeFromCall(call),
         currentChildLabel: currentChild.get(call.toolUseId) ?? null,
         settlementMessage: settlementMessageFromCall(call),
+        asyncLaunched: isAsyncLaunchedResult(call.result),
         call
       })
     }
@@ -368,11 +373,20 @@ export function promptFromCall(call: ToolCall): string | null {
   return null
 }
 
-// 종단 정착의 사유 문구. 에러 결과의 `message` 만 사유다 — 성공 결과의 `summary` 는 답변이라
-// 사유 자리에 쓰지 않는다(0204 D-024).
+// 종단 정착의 사유 문구. 에러 결과만 사유를 갖는다 — 성공 결과의 `summary` 는 답변이라 사유
+// 자리에 쓰지 않는다(0204 D-024).
+//
+// **중단(`aborted`)과 실패(`failed`)가 읽는 키가 다르다.** 중단 행의 표시 문구는 UI 가 소유하고
+// (0204 AT-31 — "사용자에 의해 중단됨"), 정착의 `message` 는 transcript 용 기본 문장이다. 그래서
+// 중단은 SDK 가 실제로 준 사유(`cause` — 0212 의 `task_updated.patch.error`)만 사유로 읽는다:
+// `message` 를 읽으면 사용자 중단 행이 생산자 기본 문장으로 덮인다.
 function settlementMessageFromCall(call: ToolCall): string | null {
   if (!call.result?.isError) return null
-  return valueString(call.result.output, 'message')
+  const output = call.result.output
+  if (valueString(output, 'reason')?.toLowerCase() === 'aborted') {
+    return valueString(output, 'cause')
+  }
+  return valueString(output, 'message')
 }
 
 function valueNumber(input: unknown, key: string): number | null {

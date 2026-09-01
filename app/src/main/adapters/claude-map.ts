@@ -172,17 +172,115 @@ function asyncLaunchReceipt(msg: unknown): Record<string, unknown> | undefined {
   return structured as Record<string, unknown>
 }
 
+function asStringList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const out = value.filter((v): v is string => typeof v === 'string')
+  return out.length === value.length ? out : undefined
+}
+
+// SDK task_updated → subagent.task. **누락 필드는 무변경**이지 초기화가 아니다(SDK 주석 —
+// "Clients merge into their local task map").
+//
+// `patch.status` 6종을 두 갈래로 가른다.
+//   killed          → `stopped` 와 **동형 정착**(D-015). 사용자에게 둘은 같은 사건이다 —
+//                     "끝까지 못 갔다". 새 표시 상태를 늘리면 두 타일의 라벨이 함께 갈라진다.
+//   running·paused  → 정착이 아니라 **라이브 상태**(phase:'updated'). `paused` 를 정착으로 읽으면
+//                     재개된 태스크가 화면에서 돌아오지 않는다(§10 EP-09).
+//   completed·failed·pending → **여기서 정착시키지 않는다.** 그 셋의 권위는 `task_notification`
+//                     이고, 둘 다 정착시키면 같은 태스크가 두 번 마감돼 통지가 중복된다.
+//
+// 이 메시지에는 `tool_use_id` 필드가 **없다**(SDK 타입) — 앞선 task_* 가 남긴 매핑이 유일한
+// 좌표원이고, 매핑이 없으면 표시·중단 키를 만들 수 없어 드롭한다.
+function mapTaskUpdated(msg: Record<string, unknown>, ctx: MapContext): NormalizedEvent[] {
+  const taskId = typeof msg.task_id === 'string' ? msg.task_id : undefined
+  const toolUseId = taskId ? ctx.taskToolUseById?.get(taskId) : undefined
+  if (!toolUseId) return []
+  const patch = typeof msg.patch === 'object' && msg.patch !== null ? msg.patch : {}
+  const p = patch as Record<string, unknown>
+  const status = typeof p.status === 'string' ? p.status : undefined
+  const errorMessage = typeof p.error === 'string' && p.error !== '' ? p.error : undefined
+  const isBackgrounded = typeof p.is_backgrounded === 'boolean' ? p.is_backgrounded : undefined
+
+  if (status === 'killed') {
+    return [
+      {
+        type: 'subagent.task',
+        sessionId: ctx.sessionId,
+        toolUseId,
+        phase: 'settled',
+        ...(taskId !== undefined ? { taskId } : {}),
+        status: 'stopped',
+        // 사유 문구를 정착에 싣는다 — 중단 행이 원인을 말하는 유일한 경로다(AT-21).
+        ...(errorMessage !== undefined ? { summary: errorMessage } : {})
+      }
+    ]
+  }
+
+  const runState = status === 'paused' ? 'paused' : status === 'running' ? 'running' : undefined
+  // 아무 필드도 안 잡히면 소비자가 병합할 것이 없다 — 빈 이벤트를 흘리지 않는다. `patch.error`
+  // 는 정착(`killed`)에만 실린다: 라이브 표시에 소비처가 없어 계약에서 뺐다(`ipc.ts` 주석).
+  if (runState === undefined && isBackgrounded === undefined) return []
+  return [
+    {
+      type: 'subagent.task',
+      sessionId: ctx.sessionId,
+      toolUseId,
+      phase: 'updated',
+      ...(taskId !== undefined ? { taskId } : {}),
+      ...(runState !== undefined ? { runState } : {}),
+      ...(isBackgrounded !== undefined ? { isBackgrounded } : {})
+    }
+  ]
+}
+
+// SDK background_tasks_changed → subagent.backgroundSet. payload 는 `task_id` 만 싣고 Orca 의
+// 표시·중단 키는 `tool_use_id` 라 **매핑된 것만** 실어 보낸다(§10 EP-06) — 매핑 없는 항목은
+// 애초에 추적 대상이 아니므로 오정착 위험이 없다. `tasks` 가 배열이 아니면 레벨을 만들 수
+// 없으므로 드롭한다(빈 배열은 "살아 있는 것이 없다" 라는 유효한 레벨이다).
+function mapBackgroundTasksChanged(
+  msg: Record<string, unknown>,
+  ctx: MapContext
+): NormalizedEvent[] {
+  const tasks = msg.tasks
+  if (!Array.isArray(tasks)) return []
+  const toolUseIds: string[] = []
+  for (const entry of tasks) {
+    if (typeof entry !== 'object' || entry === null) continue
+    const taskId = (entry as Record<string, unknown>).task_id
+    if (typeof taskId !== 'string') continue
+    const toolUseId = ctx.taskToolUseById?.get(taskId)
+    if (toolUseId && !toolUseIds.includes(toolUseId)) toolUseIds.push(toolUseId)
+  }
+  return [{ type: 'subagent.backgroundSet', sessionId: ctx.sessionId, toolUseIds }]
+}
+
 export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
   // SDKSystemMessage(subtype:'init') → session.updated (+ ctx.sessionId 갱신)
   if (msg.type === 'system' && (msg as { subtype?: string }).subtype === 'init') {
-    const m = msg as unknown as { session_id?: string; model?: string }
+    const m = msg as unknown as {
+      session_id?: string
+      model?: string
+      tools?: unknown
+      claude_code_version?: unknown
+    }
     if (typeof m.session_id !== 'string') return []
     ctx.sessionId = m.session_id
+    // TaskXXX 기능 가용성 판정의 입력(0212 R-01). SDK 타입은 `tools` 를 required 로 선언하지만
+    // 실행 경로는 **사용자 설치본 CLI** 라(`claude-executable.ts` — PATH 우선) 형태를 신뢰하지
+    // 않는다. **부재는 키를 싣지 않는다**(§10 EP-01): 부재(판정 불가)와 미포함(기능 없음)은
+    // 다른 사실이고, 부재를 `[]` 로 실으면 멀쩡한 CLI 에 거짓 안내가 뜬다(D-005).
+    const agentTools = asStringList(m.tools)
+    const cliVersion = typeof m.claude_code_version === 'string' ? m.claude_code_version : undefined
     return [
       {
         type: 'session.updated',
         sessionId: m.session_id,
-        patch: { ...(m.model !== undefined ? { model: m.model } : {}), cwd: ctx.cwd }
+        patch: {
+          ...(m.model !== undefined ? { model: m.model } : {}),
+          cwd: ctx.cwd,
+          ...(agentTools !== undefined ? { agentTools } : {}),
+          ...(cliVersion !== undefined ? { cliVersion } : {})
+        }
       }
     ]
   }
@@ -197,6 +295,15 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       subtype === 'task_notification'
     ) {
       return mapTaskSystem(msg as unknown as Record<string, unknown>, subtype, ctx)
+    }
+    // SDK task_updated — TaskState 델타 패치(0212 AR-03). `killed`·`paused` 는 task_notification
+    // 의 3종 status 에 없어 **이 메시지로만 관측된다**.
+    if (subtype === 'task_updated') {
+      return mapTaskUpdated(msg as unknown as Record<string, unknown>, ctx)
+    }
+    // SDK background_tasks_changed — 살아 있는 background 태스크 전량의 **레벨 신호**(0212 AR-02).
+    if (subtype === 'background_tasks_changed') {
+      return mapBackgroundTasksChanged(msg as unknown as Record<string, unknown>, ctx)
     }
     // SDKCompactBoundaryMessage → session.compacted (0064 handoff). SDK 네이티브 /compact
     // 압축 완료 경계 — 도착 세션 transcript 의 압축 표시를 구동한다(구 Phase 3 드롭 해제).

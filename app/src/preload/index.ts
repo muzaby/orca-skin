@@ -96,6 +96,10 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.chatCancel, { sessionId }),
     stopSubagent: (sessionId: string, toolUseId: string): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.chatStopSubagent, { sessionId, toolUseId }),
+    // 서브에이전트 foreground → background 전환(0212). 중단과 같은 좌표를 쓰고 실패는 reject 로
+    // 그대로 올라간다 — renderer 가 요청 표식을 되돌리고 사유를 낸다.
+    backgroundSubagent: (sessionId: string, toolUseId: string): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.chatBackgroundSubagent, { sessionId, toolUseId }),
     // 세션 전체 중단(0151 r2) — Stop 잔여가 있을 때만 UI 가 제시한다. 런타임 폐기라
     // 백그라운드 서브에이전트도 함께 종료된다.
     discardSession: (sessionId: string): Promise<void> =>

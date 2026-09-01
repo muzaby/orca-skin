@@ -4,8 +4,8 @@
 // parts 가 **라이브 이벤트로도 같은 모양으로 만들어지는지**를 본다 — 둘이 갈라지면 목록이
 // 재로드 전까지 비어 보인다(AC18).
 import { describe, expect, it } from 'vitest'
-import { chatReducer, initialChatState, type ChatState } from './chatReducer'
-import { taskBoardFromMessages } from '../lib/taskBoard'
+import { chatReducer, initialChatState, type ChatAction, type ChatState } from './chatReducer'
+import { backgroundTaskKey, taskBoardFromMessages } from '../lib/taskBoard'
 import type { NormalizedEvent } from '../../../../../shared/ipc'
 
 const recv = (ev: NormalizedEvent): { type: 'RECV_EVENT'; event: NormalizedEvent } => ({
@@ -228,5 +228,117 @@ describe('chatReducer — 두 타일의 선택 상태 독립 (AT-30)', () => {
     const tiles2 = subagentOnly.rightPanelTiles.flatMap((c) => c.tiles)
     expect(tiles2).toContain('subagent')
     expect(tiles2).not.toContain('task')
+  })
+})
+
+// ── 0212 — 기능 게이트 보존 · 라이브 상태 표식 (AT-04·18·19·26) ────────────────
+
+describe('0212 — session.updated patch 병합 (AT-04 · §10 EP-02)', () => {
+  const sessionUpdated = (patch: Record<string, unknown>): NormalizedEvent =>
+    ({ type: 'session.updated', sessionId: 's', patch }) as NormalizedEvent
+
+  it('init 의 tools·버전을 세션 상태에 싣는다', () => {
+    const s = chatReducer(
+      initialChatState,
+      recv(sessionUpdated({ agentTools: ['TaskCreate'], cliVersion: '2.1.200', cwd: '/w' }))
+    )
+    expect(s.agentTools).toEqual(['TaskCreate'])
+    expect(s.cliVersion).toBe('2.1.200')
+  })
+
+  it('AT-04 — 뒤이은 session.updated 가 기능 게이트를 지우지 않는다', () => {
+    const first = chatReducer(
+      initialChatState,
+      recv(sessionUpdated({ agentTools: ['TaskCreate'], cliVersion: '2.1.200' }))
+    )
+    // model 만 든 두 번째 이벤트 — 누락은 무변경이다.
+    const second = chatReducer(first, recv(sessionUpdated({ model: 'opus' })))
+    expect(second.agentTools).toEqual(['TaskCreate'])
+    expect(second.cliVersion).toBe('2.1.200')
+  })
+
+  it('판정 불가는 null 로 남는다 — tools 를 실지 않은 init 이 게이트를 만들지 않는다', () => {
+    const s = chatReducer(initialChatState, recv(sessionUpdated({ cliVersion: '2.1.100' })))
+    expect(s.agentTools).toBeNull()
+    // 양성 짝 — 같은 이벤트의 버전은 실렸다.
+    expect(s.cliVersion).toBe('2.1.100')
+  })
+})
+
+describe('0212 — 라이브 상태 표식 (AT-18·19·26)', () => {
+  const runState = (
+    toolUseId: string,
+    patch: { runState?: 'running' | 'paused'; isBackgrounded?: boolean }
+  ): ChatAction => ({ type: 'SUBAGENT_RUN_STATE', toolUseId, ...patch })
+
+  it('paused 는 집합에 들고 running 은 빠진다', () => {
+    const paused = chatReducer(initialChatState, runState('a1', { runState: 'paused' }))
+    expect(paused.pausedTaskIds).toEqual(['a1'])
+    const resumed = chatReducer(paused, runState('a1', { runState: 'running' }))
+    expect(resumed.pausedTaskIds).toEqual([])
+  })
+
+  it('같은 값이 다시 오면 배열 identity 를 유지한다 — 파생 메모가 죽지 않는다', () => {
+    const paused = chatReducer(initialChatState, runState('a1', { runState: 'paused' }))
+    const again = chatReducer(paused, runState('a1', { runState: 'paused' }))
+    expect(again.pausedTaskIds).toBe(paused.pausedTaskIds)
+    expect(again).toBe(paused)
+  })
+
+  it('is_backgrounded 는 두 방향 모두 반영한다', () => {
+    const on = chatReducer(initialChatState, runState('a1', { isBackgrounded: true }))
+    expect(on.backgroundedTaskIds).toEqual(['a1'])
+    const off = chatReducer(on, runState('a1', { isBackgrounded: false }))
+    expect(off.backgroundedTaskIds).toEqual([])
+  })
+
+  it('전환 요청은 낙관 표식을 남기고 실패는 그것을 되돌린다 (AT-26)', () => {
+    const requested = chatReducer(initialChatState, {
+      type: 'TASK_BACKGROUND_REQUESTED',
+      toolUseId: 'a1'
+    })
+    expect(requested.backgroundingTaskIds).toEqual(['a1'])
+    expect(requested.taskStopErrors).toEqual({})
+
+    const failed = chatReducer(requested, {
+      type: 'TASK_BACKGROUND_FAILED',
+      toolUseId: 'a1',
+      detail: 'no foreground task'
+    })
+    // 버튼이 되살아나고(표식 제거) 사유가 그 행에 붙는다 — "아무 일도 안 일어남" 이 아니다.
+    expect(failed.backgroundingTaskIds).toEqual([])
+    expect(failed.taskStopErrors[backgroundTaskKey('a1')]).toEqual({
+      messageKey: 'chat.taskTile.backgroundFailed',
+      detail: 'no foreground task'
+    })
+  })
+
+  it('재요청은 앞선 실패 사유를 지운다 — 오래된 사유가 남지 않는다', () => {
+    const failed = chatReducer(
+      chatReducer(initialChatState, { type: 'TASK_BACKGROUND_REQUESTED', toolUseId: 'a1' }),
+      { type: 'TASK_BACKGROUND_FAILED', toolUseId: 'a1', detail: 'x' }
+    )
+    const retried = chatReducer(failed, { type: 'TASK_BACKGROUND_REQUESTED', toolUseId: 'a1' })
+    expect(retried.taskStopErrors[backgroundTaskKey('a1')]).toBeUndefined()
+  })
+
+  it('정착(부모 Task 권위 결과)이 오면 라이브 표식이 함께 끝난다', () => {
+    const live: ChatState = {
+      ...initialChatState,
+      pausedTaskIds: ['a1'],
+      backgroundingTaskIds: ['a1']
+    }
+    const settled = chatReducer(
+      live,
+      recv({
+        type: 'tool.call.completed',
+        sessionId: 's',
+        toolRunId: 'a1',
+        result: { reason: 'aborted' },
+        isError: true
+      })
+    )
+    expect(settled.pausedTaskIds).toEqual([])
+    expect(settled.backgroundingTaskIds).toEqual([])
   })
 })

@@ -643,80 +643,124 @@ SDK(producer) → claude-map(정규화) → bus → coordinator/tracker(상태) 
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: 
-- 이견 / 현실성 문제: 
-- ACTIVE Decision 과 충돌하는 설계 발견: 
+- 동의 / 그대로 진행: R-01~R-07 전부. plan 이 잡은 사실은 실측과 일치했다 — `SessionRuntime.backgroundTask` 가 `turn.live` 로 도달해 `chatStopSubagent` 와 대칭 배선이 가능하고(`ports.ts:33` — `SessionRuntime` 이 `GovernedLiveTurn` 을 구조적으로 만족), `TaskProgressList` 가 props-only 순수 View 라 AC1~AC3 이 렌더 테스트로 관측되고, `isAsyncLaunchedResult`(`parts.ts:331`)가 renderer 에 이미 있어 R-07 술어의 입력이 존재한다.
+- 이견 / 현실성 문제: **없다.** 차단 `PLAN_GAP` 0건.
+- ACTIVE Decision 과 충돌하는 설계 발견: **1건 — AC21 ↔ 0204 AT-31.** AC21 은 "중단 행이 `patch.error` 를 사유로 보인다" 를 요구하고, 0204 AT-31(REGRESSION 축)은 "중단 행이 UI 문구 `사용자에 의해 중단됨` 을 보인다" 를 잠갔다. 두 기준은 *중단 정착이 사유 문구를 실은 경우*에만 충돌한다. **한쪽을 고르지 않고** 정착 payload 의 키를 갈라 둘 다 성립시켰다(아래 §놓친 잠재 문제 P1) — 새 Decision 이 필요한 자리이므로 검증자에게 규범 승격 여부를 올린다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| | | | | | |
+| VP-01 | `init.tools` → `patch.agentTools`, 부재는 키 미포함 | EP-01 | `claude-map.ts` init 분기 1/1 | `vitest run src/main/adapters/claude-map.test.ts` — 4케이스. 변이 M7(부재를 `[]` 로) → **RED 3** | — |
+| VP-02 | patch 병합 = 누락은 보존 | EP-02 | `chatReducer.ts` `session.updated` 1/1 | `chatReducer.task.test.ts` AT-04. 변이 M8(무조건 대입) → **RED 1** | — |
+| VP-05 | `activeForm` 은 입력 전용 + `active_form` 별칭 | EP-03 | `task-tool.ts` `readCreate`·`readUpdate` 2/2 | `task-tool.test.ts` 4케이스. 변이 M9(별칭 제거) → **RED 1** | — |
+| VP-06·07·14 | 역방향 가산 = 대상 존재 시에만·자기 간선 배제·스냅샷 교체 | EP-04 | `taskBoard.ts` `applyReverseBlocks` + fold 호출 1지점 | `taskBoard.test.ts` AT-10·11·12·13. 변이 M5(호출 제거) → **RED 2** | — |
+| VP-03·04 | `title`=표시 파생 · `subject`=안정 · `aria-label`=`subject` | EP-05 | `taskBoard.ts` `agentItem` + `TaskTileContent` 행 aria 2/2 | `taskSurface0212.render.test.ts` AT-05·08. **형제 맞바꿈 변이 M1 → RED 3** | 헤더 제목도 `subject` 로 바꿨다(같은 계약, §10 밖) |
+| VP-08·09 | 매핑된 `task_id` 만 이벤트에 싣는다 | EP-06 | `claude-map.ts` `mapBackgroundTasksChanged` 1/1 | `claude-map.test.ts` AT-16 + 3케이스 | — |
+| VP-08 | 첫 payload 는 기준선 · 프로세스 (재)기동 시 리셋 | EP-07 | `background-tasks.ts` `applyLiveSet`·`resetLevel`·`clear` 3/3 | `background-tasks.test.ts` AT-15 외 6케이스. 변이 M3(기준선 제거) → **RED 4** | — |
+| VP-10 | watchdog 정착 경로 불변 | EP-08 | `stop-subagent.ts` **미변경**(0/0 — 지점을 건드리지 않는 것이 계약이다) | `stop-subagent.test.ts` 9케이스 green. AT-17 대상 = "확정이 없으면 합성 정착으로 마감한다" + 양성 짝 "확정이 오면 watchdog 은 발화하지 않는다" | — |
+| VP-11·12 | `killed`→`stopped` 동형 · `paused` 는 정착 아님 | EP-09 | `claude-map.ts` `mapTaskUpdated` 1/1 | `claude-map.test.ts` AT-20·21 외 5케이스. 변이 M4(매핑 제거) → **RED 2** | — |
+| VP-11·15 | `paused` 도 중단 가능 · **두 타일 모두** | EP-10 | `taskBoard.ts` `canStopBackgroundStatus` 1 + 도달 경로 2(`canStopTask`→`TaskTileContent:182,289` · `SubAgentTileContent:258`) | `taskSurface0212.render.test.ts` AT-18 두 타일 각각. **`paused` 항 제거 변이 M2 → RED 4** | — |
+| VP-13 | 레지스트리는 이름 사본을 만들지 않는다 | EP-11 | `task-tool.ts` `TASK_LIST_TOOL_NAMES` 1 + `registry.ts` match 1 = 2/2 | `task-tool.test.ts` 부분집합 케이스 + `registry.test.ts`. 변이 M10(6종 전량으로 넓힘) → **RED 2** | — |
+| VP-16·17 | 전환 버튼은 두 타일 모두 같은 술어로 | EP-12 | `TaskTileContent` 행+상세 2 · `SubAgentTileContent` 1 = 3/3 | `taskSurface0212.render.test.ts` AT-23·24 두 타일 각각 | — |
+| VP-16·20 | `canBackgroundStatus` = 진행 중 AND not asyncLaunched | EP-13 | `taskBoard.ts` 1/1 | `taskBoard.test.ts` AT-23·24. 변이 M6(`asyncLaunched` 항 제거) → **RED 5** | — |
+| VP-17·18 | 전환은 `toolUseId` 단건 · 실패를 삼키지 않는다 | EP-14 | 신규 IPC 핸들러 1 · store 액션 1 = 2/2 | `chatStore.subagentControl.test.ts` — "그 id 로 1회" + reject 복구 | **핸들러 본문은 단위 테스트 없음**(electron 의존) — 아래 AC25 |
 
-- §10 에 없는데 같은 불변식이 필요했던 지점: 
+- §10 에 없는데 같은 불변식이 필요했던 지점: **2건.** ① `subagent-settlement.ts` 의 `stopped` 분기가 `summary` 를 버렸다(중단 행이 사유를 말할 수 없었다). ② `TaskTileContent` `backgroundMetaLine` 의 `aborted` 분기가 `settlementMessage` 를 버렸다. 둘은 같은 불변식의 생산자·소비자 짝이다 — **"중단 행은 SDK 가 준 사유가 있으면 그것을 말한다"**. §10 EP-09 는 정규화까지만 적었다.
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| | | | | |
+| VP-01 | REQUIRED | SELF_PASS | 렌더 산출의 안내 문구·버전 유무(3갈래) | not selected |
+| VP-02 | REQUIRED | SELF_PASS | 병합 후 `agentTools` 값 | not selected |
+| VP-03 | REQUIRED | SELF_PASS | 상태별 `title` 값 | **M1 형제 맞바꿈 → RED 3** |
+| VP-04 | REQUIRED | SELF_PASS | `aria-label` 문자열 | **M1 형제 맞바꿈 → RED 3**(같은 변이가 두 pair 를 함께 잡는다) |
+| VP-05 | REQUIRED | SELF_PASS | patch 의 `activeForm` 값 | not selected |
+| VP-06 | REQUIRED | SELF_PASS | 대상 항목의 `blockedBy` 배열 | not selected |
+| VP-07 | REGRESSION | SELF_PASS | 스냅샷 후 `blockedBy` 배열 | not selected |
+| VP-08 | REQUIRED | SELF_PASS | `applyLiveSet` 반환 id 집합 | not selected |
+| VP-09 | REQUIRED | SELF_PASS | 이벤트의 `toolUseIds` 배열 | not selected |
+| VP-10 | REGRESSION | SELF_PASS | 기존 `stop-subagent` 스위트 9케이스 green | not selected |
+| VP-11 | REQUIRED | SELF_PASS | 두 타일 라벨 + 중단 버튼 노드 | **M2 `paused` 항 제거 → RED 4** |
+| VP-12 | REQUIRED | SELF_PASS | 정규화 이벤트의 `status`·`summary` | not selected |
+| VP-13 | REQUIRED | SELF_PASS | 렌더 산출의 필드 문구(4종 + 6종 대조) | not selected |
+| VP-14 | REGRESSION | SELF_PASS | `taskBoard.test.ts` AT-10a 순서 단언 | not selected |
+| VP-15 | REQUIRED | SELF_PASS | `canStopBackgroundStatus` 반환 + 버튼 노드 | **M2 → RED 4** |
+| VP-16 | REQUIRED | SELF_PASS | 두 타일 산출의 전환 버튼 유무 | not selected |
+| VP-17 | REQUIRED | SELF_PASS | 포트 호출의 인자와 횟수(store→IPC hop) | not selected |
+| VP-18 | REQUIRED | SELF_PASS | 복구 후 표식 + 오류 문구 | not selected |
+| VP-19 | REGRESSION | SELF_PASS | `stop-subagent` 복구 단언 2케이스 | not selected |
+| VP-20 | REQUIRED | SELF_PASS | 술어 반환값(순수) | not selected |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| | | | | |
+| M1 `agentItem` 의 `title`↔`subject` 맞바꿈 | VP-03·VP-04 선택 증거(형제 자리) | 해당 없음 (r1) | 3 failed | **RED** |
+| M2 `canStopBackgroundStatus` 의 `paused` 항 제거 | VP-15 선택 증거 | 해당 없음 (r1) | 4 failed | **RED** |
+| M11 CLI 진입 가드를 깨진 형태로 복원 | 이번 턴에 만든 **배선 존재 oracle** | 해당 없음 (r1) | 1 failed | **RED** |
+| M13 settle 의 `cause` 미포함 | 이번 턴에 만든 배선 oracle(1차 무음 → 보강) | 1차 **GREEN(무음)** | 보강 후 1 failed | **RED** |
 
-- 분모 검산: 
-- 덮개 회귀: 
+- 분모 검산: **선택 증거 3**(VP-03·VP-04·VP-15 — M1 이 앞 둘을 함께 잡아 변이 2개) · **인용 변이 0**(r1) · **새 oracle 2**(CLI 가드 spawn 테스트 · settle `cause` 생산자 테스트) = **표 행 4**. 표 행 4 ✅.
+- 덮개 회귀: **없다.** 장치를 교체·삭제한 곳이 0이다 — 기존 스위트에 케이스를 더했을 뿐이고 277파일 2779케이스가 전건 green 이다. 단 **M13 이 1차에 무음이었다**: 소비자 fixture 만 있고 생산자 배선을 보는 단언이 없었다 — 그 자리를 `subagent-settlement.test.ts` 3케이스로 메우고 재측정해 RED 를 확인했다.
+- 추가 측정(요구 밖, 참고): M3 레벨 기준선 제거 → RED 4 · M4 `killed` 매핑 제거 → RED 2 · M5 역방향 가산 호출 제거 → RED 2 · M6 전환 술어의 `asyncLaunched` 제거 → RED 5 · M7 `tools` 부재를 `[]` → RED 3 · M8 reducer 무조건 대입 → RED 1 · M9 `activeForm` 별칭 제거 → RED 1 · M10 레지스트리 6종 확장 → RED 2 · M12 `aborted` 사유를 `message` 로 되돌림 → RED 3. **심은 13종 전건 검출.**
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | | |
-| seam 을 만들려고 production 을 재배치했는가 | | |
-| 이번에 만든 실패 경로가 §5 상태 전이표의 어느 행인가 | | |
-| 실패가 화면에서 "아무 일도 안 일어남" 으로 보이지 않는가 | | |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | | |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | **있다 — 전수 확인.** 안내 2문구→`TaskProgressList` · `일시정지`→두 타일 · 전환 버튼 라벨/aria/툴팁→두 타일 · `backgroundFailed`→`TaskRow` 사유 줄 · Task 도구 본문 9키→`TaskToolBody` | — |
+| seam 을 만들려고 production 을 재배치했는가 | **아니다.** 새 파일은 `TaskToolBody.tsx` 하나(신규 기능)이고 기존 seam(`taskBoard` 순수 fold · tracker · props-only View)을 그대로 썼다 | — |
+| 이번에 만든 실패 경로가 §5 상태 전이표의 어느 행인가 | 전환 실패 = "`백그라운드로` 요청 실패 → 표식 되돌림 + reject" 행 ✅. **레벨 REPLACE 정착의 표시 문구는 표에 행이 없다** — 새로 만든 문구("완료 통지 없이 백그라운드 작업 목록에서 사라졌습니다")가 §5 어느 행에도 대응하지 않는다 | 아래 P3 |
+| 실패가 화면에서 "아무 일도 안 일어남" 으로 보이지 않는가 | 보이지 않는다. 전환 실패는 버튼 복구 + 사유 줄(`taskStopErrors`), `false` 반환도 reject 로 같은 경로를 탄다 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 되돌리지 않는다. 전환은 **비정착 연산**이라 성공 시 상태를 바꾸지 않고, 실패만 요청 표식을 지운다. 정착(부모 Task 권위 결과)이 오면 `pausedTaskIds`·`backgroundingTaskIds` 를 함께 비워 늦은 라이브 표식이 정착 행에 남지 않는다 | — |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| | | | |
+| P1 | **AC21 ↔ 0204 AT-31 충돌.** 중단 정착의 `message` 한 자리를 UI 문구와 SDK 사유가 함께 쓰려 해서, 한쪽을 만족시키면 다른 쪽이 red 가 된다(실측: 소비자를 `message` 로 바꾸자 AT-31 red) | **선조치 — 키를 갈랐다.** 정착 payload 에 `cause` 를 추가하고(`summary` 가 있을 때만) 소비자는 `aborted` 면 `cause`, `failed` 면 `message` 를 읽는다. 두 계약이 함께 성립한다(AT-31·AT-21 동시 green) | 검증자에게 **Decision 승격**을 올린다 — 지속 계약이므로 §10 에 행이 있어야 한다 |
+| P2 | **`check-doc-inventory.mjs` 등 5개 CLI 의 진입 가드가 Windows 에서 절대 성립하지 않는다.** `import.meta.url === \`file://${process.argv[1]}\`` 는 `file:///C:/…` vs `file://C:\…` 라 항상 거짓 → **본문 미실행 + exit 0**. CI 가 `windows-latest` 이므로 문서 인벤토리·마이그레이션 append-only·릴리스 버전·dist sha512·ABI 보장이 **전부 무음으로 통과**해 왔다 | **선조치 — 5개 전수 수정**(`pathToFileURL` + argv 미정의 가드, 선례 `analyze-composer-input-trace.mjs:151`). spawn 기반 테스트를 추가해 잠갔다(양성 짝: import 만으로는 본문이 돌지 않는다). 재측정 결과 인벤토리 실제 drift 는 이번 변경분뿐(79→80 채널 · 21→22 variant) | 이번 변경의 **필수 gate 가 그 스크립트**라 우회 불가. 0212 범위 밖이므로 검증자가 별도 handoff 로 뺄지 판단한다 |
+| P3 | 레벨 REPLACE 정착이 §5 상태 전이표에 없는 **새 사용자 문구**를 만든다 | 보고만. status 는 기존 `failed` 를 재사용했고(채널 사망 정착 선례) 문구는 무슨 일이 있었는지 그대로 말한다 | plan §5 에 행 추가 필요 |
+| P4 | `patch.error`·`is_backgrounded` 가 AR-03 에 선언됐으나 plan 의 AC 어디에도 소비처가 없다 — 그대로 실으면 `task-tool.ts` 헤더가 금지한 죽은 표면이 된다 | `errorMessage` 는 **wire 에서 뺐다**(정착 `summary` 경로가 AC21 을 만족한다). `is_backgrounded` 는 **소비자를 만들었다** — `backgroundedTaskIds` 로 흡수해 전환 버튼 술어를 즉시 끈다(런치 영수증보다 빠르다) | 아래 §설계 대비 명시적 차이 |
+| P5 | `paused` 와 `stopping` 이 겹칠 수 있다(paused 도 중단 가능하므로) | 중단 요청이 우선한다 — EP-10 의 "`stopping` 만 제외" 에서 파생. 케이스로 잠갔다 | — |
 
 ### 설계 대비 명시적 차이
 
-- plan 이 지정한 것과 다르게 구현한 것과 그 이유: 
+- plan 이 지정한 것과 다르게 구현한 것과 그 이유:
+  1. **`subagent.task` 확장에서 `errorMessage` 를 뺐다**(AR-03 은 4필드, 구현은 `runState`+`isBackgrounded` 2필드). 라이브 표시에 소비처가 없고 AC21 은 정착 경로가 만족한다.
+  2. **`canBackgroundTask(item, asyncLaunched)` → 규칙+래퍼 2함수**(`canBackgroundStatus(status, asyncLaunched)` + `canBackgroundTask(item)`). 두 타일의 입력 타입이 다르므로(`TaskBoardItem` vs `SubagentTaskSummary`) 단일 시그니처로는 EP-12 의 "두 타일 같은 술어" 를 만족할 수 없다. 기존 `canStopBackgroundStatus`/`canStopTask` 쌍과 동형이다.
+  3. **`RenderableKind` 에 `task_list` 를 신설**하고 `docs/arch/frontend/rendering.md §1.6`(정본 taxonomy 3자리)을 갱신했다. plan §18 에 이 문서가 없었다 — `agent_task` 재사용은 "서브에이전트 실행" 과 "할 일 목록 변경" 을 같은 의미로 접는다.
+  4. **정착 payload 에 `cause` 신설**(P1).
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | | |
-| 공유 | | |
-| 재진입 | | |
-| 다른 무효화 축 | | |
+| 만료 | **해당 없음.** 새 상태는 전부 프로세스 내 메모리이고 TTL 을 갖지 않는다. `backgroundedTaskIds`·`pausedTaskIds` 는 정착이 지우고 정착은 반드시 온다(watchdog 보장) | AC18·AC24 — 정착 후 표식 제거를 `chatReducer.task.test.ts` 마지막 케이스가 단언 |
+| **공유** | `backgroundedTaskIds` 는 **두 출처가 함께 쓴다** — SDK `is_backgrounded` 확정분과 사용자 요청 in-flight 분(`backgroundingTaskIds`). 한쪽이 비우면 다른 쪽 의미가 사라질 수 있다 | **두 배열을 분리해 유지**하고 합집합만 파생한다(`useBackgroundedTasks`) — 정착은 in-flight 만 지우고 확정분은 SDK `false`(foreground 복귀)만 지운다. AC24 + reducer 케이스 2개로 각각 관측 |
+| 재진입 | 전환 재클릭은 `backgroundingTaskIds` 가 막는다(버튼이 사라진다). 재요청 시 이전 실패 사유를 지운다 — 오래된 사유가 새 요청 위에 남지 않는다 | AC26 + `chatReducer.task.test.ts` "재요청은 앞선 실패 사유를 지운다" |
+| 다른 무효화 축 | **레벨 신호의 기준선**이 새 무효화 축이다 — `clear` 가 프로세스 경계이므로 채널 사망 정착·콜드 spawn 이 레벨을 미확립으로 되돌린다. 되돌리지 않으면 구 프로세스 집합이 새 태스크를 죽인다 | AC15 + `background-tasks.test.ts` "프로세스 (재)기동 경계" · "resetLevel" 2케이스 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | |
-| 실행 명령 | |
-| 관측한 게이트 산출 | |
-| V-pair 자기확인 | |
-| 강제 지점 전수 | |
-| AC 자기보고 | |
-| 합계 검산 | |
-| 블로커 / 역질문 | |
-| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+| 변경 파일 | **40** (수정 37 · 신규 3). shared 4 · main 8 · preload 1 · renderer 13 · scripts 6 · docs 3 · 신규 테스트/컴포넌트 3. 목록은 커밋 diff |
+| 실행 명령 | `npm run typecheck` · `./node_modules/.bin/vitest run src/shared src/renderer src/main` · `node --test "scripts/*.test.mjs"` · `node scripts/check-doc-inventory.mjs` → `--check` · `npm run lint` |
+| 관측한 게이트 산출 | **typecheck 3구성 exit 0 · 출력 0줄** / **vitest 277파일 2779케이스 전건 pass** / **scripts 61/61 pass** / **doc-inventory: generated ok(80 channels) · prose ok · links ok** / **lint 0 error · 1 warning**(기존분 `useTranscriptVirtualizer.ts:22`, 트리 쓰기 0) |
+| V-pair 자기확인 | REQUIRED 16 + REGRESSION 4 = **20 전건 SELF_PASS**, SELF_BLOCKED 0 |
+| 강제 지점 전수 | **14/14** (EP-01~EP-14). EP-08 은 "건드리지 않는 것" 이 계약이라 0/0 으로 센다. §10 밖 형제 지점 **2건 추가 발견·수정** |
+| AC 자기보고 | ✅25 · ⚠️1 · ❌0. ⚠️ = **AC25** — renderer→IPC hop 은 "그 `toolUseId` 로 1회" 로 잠갔으나 **main 핸들러 본문**(`turn.live.backgroundTask` 호출·`false`→throw)은 단위 테스트가 없다(electron 의존, 저장소에 `vi.mock('electron')` 선례 0건). 핸들러는 `chatStopSubagent` 와 5줄 대칭이다 |
+| 합계 검산 | ✅25 · ⚠️1 · ❌0 = **총 26** ✅ (분모 = plan §7 AC1~AC26, r1 에서 분할·추가 0) |
+| 블로커 / 역질문 | **없다.** 단 P1·P2 는 규범 승격 판단이 필요하다 — P1 은 §10 행(중단 사유의 키 분리), P2 는 별도 handoff 여부 |
+| 대상 커밋 | `(r1 구현 — 검증자 기입)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 
-- 그것을 막았어야 할 plan 지침·AC 가 있었는가: 
-- 반복해서 부딪히는 환경 한계: 
-- 현재 라운드 수: 
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: r1 이라 이전 라운드가 없다. 단 **0204 가 세운 불변식의 미적용 지점 2곳**을 이번에 닫았다 — "실패·중단 행이 원인을 말한다"(0204 D-024)가 `failed` 축에만 구현돼 있었고 `stopped`/`aborted` 축은 생산자·소비자 양쪽에서 사유를 버렸다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **있었다.** §10 EP-09 가 `killed`→`stopped` 매핑까지만 지점을 적고 **그 뒤의 표시 경로를 지점으로 세지 않았다** — AC21 은 "행이 그 문구를 보인다" 를 요구했으므로 지점이 정규화 1곳이 아니라 정규화·정착·표시 3곳이어야 했다. plan §10 의 `실패 의미` 칸은 정규화 실패만 서술한다.
+- 반복해서 부딪히는 환경 한계: ① bash heredoc 이 큰 비-ASCII 블록에서 `unexpected EOF` 로 실패해 파일 쓰기를 우회해야 했다. ② `META_GAP` 이 U+00A0 이라 렌더 단언에 리터럴 공백을 쓰면 조용히 어긋난다 — 상수를 import 해 조립했다. ③ `.bin/vitest` shim 은 Win32 실행 파일이 아니라 프로그램적 실행에 `node node_modules/vitest/vitest.mjs` 가 필요하다.
+- 현재 라운드 수: **1**
 
 ---
 

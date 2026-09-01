@@ -27,6 +27,20 @@ export const TASK_TOOL_NAMES = [
 
 export type TaskToolName = (typeof TASK_TOOL_NAMES)[number]
 
+// 세션 할 일 목록을 바꾸는 4종만. **`TASK_TOOL_NAMES`(6종)와 다르다**(0212 D-025) —
+// `TaskOutput`/`TaskStop` 은 구조화 출력 타입이 없어 그릴 필드가 없고 목록을 바꾸지도
+// 않는다(D-010). 전용 렌더 본문의 대상이 이 4종이고, 이름 리터럴은 여기 한 곳만 산다 —
+// 렌더 레지스트리가 배열을 다시 적으면 CLI 가 이름을 바꿀 때 두 곳이 갈라진다.
+export const TASK_LIST_TOOL_NAMES = ['TaskCreate', 'TaskGet', 'TaskList', 'TaskUpdate'] as const
+
+export type TaskListToolName = (typeof TASK_LIST_TOOL_NAMES)[number]
+
+const TASK_LIST_TOOL_NAME_SET: ReadonlySet<string> = new Set(TASK_LIST_TOOL_NAMES)
+
+export function isTaskListToolName(name: string): name is TaskListToolName {
+  return TASK_LIST_TOOL_NAME_SET.has(name)
+}
+
 const TASK_TOOL_NAME_SET: ReadonlySet<string> = new Set(TASK_TOOL_NAMES)
 
 export function isTaskToolName(name: string): name is TaskToolName {
@@ -46,6 +60,13 @@ function asStatus(value: unknown): AgentTaskStatus | undefined {
 
 function asText(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() !== '' ? value : undefined
+}
+
+// `activeForm` 두 이름을 함께 읽는다. Claude Code 는 실행 전에 `active_form` → `activeForm`
+// 으로 고쳐 주지만 **그 수정은 스트림에 반영되지 않는다**(spec §2.5) — `tool_use.input` 은 모델이
+// 낸 원형이다. `taskId` 는 출력이 정규화본을 실어 자동 해결되지만 이 필드는 출력에 없다.
+function asActiveForm(input: Record<string, unknown>): string | undefined {
+  return asText(input.activeForm) ?? asText(input.active_form)
 }
 
 function asIdList(value: unknown): string[] | undefined {
@@ -75,6 +96,14 @@ export interface AgentTaskPatch {
   blockedBy?: string[]
   // 가산 병합 — 기존 간선에 더한다(중복 id 는 한 번만).
   addBlockedBy?: string[]
+  // `in_progress` 인 동안 제목 자리에 보일 현재진행형(0212 D-006). SDK 주석이 용도를 못박는다 —
+  // "Present continuous form shown in spinner when in_progress". **입력에만 있다** —
+  // `TaskGetOutput`·`TaskListOutput` 에 이 필드가 없어 출력에서는 절대 못 읽는다(spec §2.2·§2.4).
+  activeForm?: string
+  // "내가 막는 것" 의 가산(0212 D-009). `blocks` 를 저장하지 않는다는 결정(D-028)을 지키면서
+  // 간선을 잃지 않는 유일한 방법이 **방향을 뒤집는 것**이다 — 소비자가 대상 항목의
+  // `blockedBy` 에 나를 더한다(§10 EP-04). 이 파일은 방향을 해석하지 않고 값만 나른다.
+  addBlocks?: string[]
 }
 
 // 도구 호출 1건이 목록에 지시하는 것. `null` 은 "이 호출은 목록을 바꾸지 않는다".
@@ -104,6 +133,8 @@ function readCreate(
   if (subject) patch.subject = subject
   const description = asText(input.description)
   if (description) patch.description = description
+  const activeForm = asActiveForm(input)
+  if (activeForm) patch.activeForm = activeForm
   return { kind: 'created', id, patch }
 }
 
@@ -140,6 +171,16 @@ function readUpdate(
   if (changed('addBlockedBy') || changed('blockedBy')) {
     const added = asIdList(input.addBlockedBy)
     if (added && added.length > 0) patch.addBlockedBy = added
+  }
+  // `activeForm` 은 출력에 없으므로 `updatedFields` 게이트를 걸지 않는다 — 입력에 실려 왔다면
+  // 그것이 이번 호출이 지시한 값이다. 별칭(`active_form`)도 함께 읽는다(D-008 · spec §2.5).
+  const activeForm = asActiveForm(input)
+  if (activeForm) patch.activeForm = activeForm
+  // 역방향 간선의 가산(D-009). `addBlockedBy` 와 같은 이유로 `updatedFields` 가 어느 이름을
+  // 싣는지 SDK 가 문서화하지 않아 두 이름을 모두 허용한다.
+  if (changed('addBlocks') || changed('blocks')) {
+    const blocks = asIdList(input.addBlocks)
+    if (blocks && blocks.length > 0) patch.addBlocks = blocks
   }
   // 필드가 하나도 안 잡히면 목록이 바뀔 것이 없다 — 빈 upsert 로 항목을 만들지 않는다.
   if (Object.keys(patch).length === 0) return null

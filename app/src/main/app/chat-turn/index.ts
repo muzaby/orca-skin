@@ -13,6 +13,7 @@ import type { WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { CHANNELS } from '../../../shared/ipc'
 import {
+  BackgroundSubagentSchema,
   CancelChatSchema,
   CancelSteerSchema,
   DiscardSessionSchema,
@@ -191,4 +192,26 @@ export function registerChatHandlers(deps: ChatDeps): void {
       onWatchdog: (info) => getLogger().child('chat').warn('chat.subagent.stop.watchdog', info)
     })
   })
+
+  // 서브에이전트(Task) foreground → background 전환(0212 R-07). 중단과 다른 축이다 — 작업은
+  // 계속 돌고 **턴이 기다리는 것만** 그만둔다. SDK 가 즉시 boolean 을 주므로 중단처럼 확정을
+  // 기다리지 않는다(정착·watchdog 없음).
+  //
+  // `SessionRuntime.backgroundTask` 는 이 핸들러가 생기기 전까지 **소비자 0인 죽은 표면**이었다 —
+  // 내부 폴백(stop-subagent·settle)만 `turn.live` 로 그것을 불렀고 사용자 진입점이 없었다.
+  //
+  // `false` 반환도 실패로 취급해 reject 한다(§10 EP-14): 대상 foreground 태스크가 없었다는
+  // 뜻이고, 조용히 성공으로 끝내면 화면이 "아무 일도 안 일어남" 이 된다.
+  handle(
+    CHANNELS.chatBackgroundSubagent,
+    BackgroundSubagentSchema,
+    'reject',
+    async (req): Promise<void> => {
+      const turn = supervisor.getBySession(req.sessionId)
+      if (!turn) throw new Error('subagent-background: no active turn for session')
+      if (!turn.live) throw new Error('subagent-background: no live runtime for session')
+      const moved = await turn.live.backgroundTask(req.toolUseId)
+      if (!moved) throw new Error('subagent-background: no foreground task for this tool use')
+    }
+  )
 }

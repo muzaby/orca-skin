@@ -21,7 +21,12 @@ import { turnPolicyFor, type TurnKind } from './turn-policy'
 import type { BackgroundTaskPort } from './background-tasks'
 import { isAsyncLaunchedPayload } from '../../../shared/subagent'
 import { coerceStoppedToolCompletion } from './subagent-settlement'
-import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from './settle'
+import {
+  settleOpenToolRuns,
+  settleSubagentTask,
+  settleTaskSubset,
+  stopLiveSubagent
+} from './settle'
 import type { TurnEventSink, TurnPersistSink } from './turn-sinks'
 import type { MainBus, TurnEmit } from '../../contracts/bus-events'
 import type { PendingMessageQueue } from './pending-message-queue'
@@ -342,6 +347,33 @@ export class TurnCoordinator<W = unknown> {
                 this.deps.backgroundTasks.started(turn.dbSessionId, ev.toolUseId)
               } else if (ev.phase === 'settled') {
                 this.deps.backgroundTasks.settled(turn.dbSessionId, ev.toolUseId)
+              }
+            }
+            // background_tasks_changed 레벨 신호(0212 R-04) — 살아 있는 전량으로 **집합을
+            // 교체**하고, 추적에는 있는데 payload 에 없는 항목을 정착시킨다. edge(started/
+            // settled)를 놓쳐도 "실행 중" 표시가 영구 고착되지 않게 하는 것이 이 신호의 목적이다.
+            // 첫 payload 는 기준선이라 아무것도 정착시키지 않는다(§10 EP-07).
+            //
+            // watchdog(STOP_SETTLE_TIMEOUT_MS)을 대체하지 않는다(D-011) — 레벨은 **채널이 살아
+            // 있을 때만** 오고 watchdog 은 채널이 죽는 축을 막는다. 둘은 직교한다.
+            if (ev.type === 'subagent.backgroundSet' && turn.dbSessionId) {
+              const sessionId = turn.dbSessionId
+              const stale = this.deps.backgroundTasks.applyLiveSet(sessionId, ev.toolUseIds)
+              if (stale.length > 0) {
+                void settleTaskSubset(
+                  turn,
+                  this.settleEmit,
+                  sessionId,
+                  this.deps.backgroundTasks,
+                  stale,
+                  {
+                    status: 'failed',
+                    summary: '완료 통지 없이 백그라운드 작업 목록에서 사라졌습니다.',
+                    // 이미 목록에 없다 = 멈출 대상이 없다. 여기서 stopTask 를 부르면 없는 태스크에
+                    // 제어 요청을 보낸다.
+                    stopLive: false
+                  }
+                )
               }
             }
             // 서브에이전트(Task) task_id 매핑 — stopSubagent 가 toolUseId 로 찾는다. 이미 중단
