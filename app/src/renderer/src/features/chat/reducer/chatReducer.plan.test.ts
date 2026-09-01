@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { PANEL_DEFAULT_WIDTH, chatReducer, initialChatState, type ChatState } from './chatReducer'
-import type { GitDiffSummary, NormalizedEvent, PlanReviewRequest } from '../../../../../shared/ipc'
+import type {
+  DiffRequirementItem,
+  GitDiffSummary,
+  NormalizedEvent,
+  PlanReviewRequest
+} from '../../../../../shared/ipc'
+import type { DiffLine } from '../lib/diffLines'
 
 const REVIEW: PlanReviewRequest = { requestId: 'p1', plan: '# 계획\n- b.py 생성' }
 
@@ -15,6 +21,36 @@ const DIFF_SUMMARY: GitDiffSummary = {
   commitFilesUnavailable: false,
   uncommitted: { files: [], totals: { added: 0, removed: 0 }, filesTruncated: false }
 }
+
+const requirement = (id: string, filePath = 'src/a.ts'): DiffRequirementItem => ({
+  id,
+  located: true,
+  anchor: {
+    sessionId: 'session-a',
+    baselineCommit: 'base-oid',
+    filePath,
+    oldLine: null,
+    newLine: 2,
+    hunkHeader: '@@ -1,2 +1,3 @@',
+    contextBefore: ['before'],
+    contextAfter: ['after'],
+    comment: `comment ${id}`,
+    createdAt: 10
+  }
+})
+
+const diffLine = (
+  type: DiffLine['type'],
+  oldLine: number | null,
+  newLine: number | null,
+  text: string
+): DiffLine => ({
+  type,
+  oldLine,
+  newLine,
+  lineNo: type === 'removed' ? (oldLine ?? 0) : (newLine ?? 0),
+  text
+})
 
 // 열 id 는 비결정적이라 우측 패널 비교는 tiles 만 본다.
 const colTiles = (s: ChatState): string[][] => s.rightPanelTiles.map((c) => c.tiles)
@@ -457,5 +493,184 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
     })
 
     expect(lateA.gitSnapshot.summary).toBe(newerSummary)
+  })
+})
+
+describe('0211 ΔV2 · diff 요구사항 세션 상태', () => {
+  it('추가와 삭제는 항목과 revision을 같은 reducer 슬라이스에서 갱신한다', () => {
+    const added = chatReducer(initialChatState, {
+      type: 'ADD_DIFF_REQUIREMENT',
+      item: requirement('req-1')
+    })
+    expect(added.diffRequirements).toEqual([requirement('req-1')])
+    expect(added.diffRequirementsRevision).toBe(1)
+
+    const removed = chatReducer(added, { type: 'REMOVE_DIFF_REQUIREMENT', id: 'req-1' })
+    expect(removed.diffRequirements).toEqual([])
+    expect(removed.diffRequirementsRevision).toBe(2)
+  })
+
+  it('peek 본문 재anchor는 세션과 path가 맞을 때만 적용하고 못 찾은 항목은 남긴다', () => {
+    const seeded = {
+      ...initialChatState,
+      sessionId: 'session-a',
+      diffRequirements: [requirement('req-1')],
+      diffRequirementBodyRequest: {
+        sessionId: 'session-a',
+        path: 'src/a.ts',
+        key: 'body-key',
+        generation: 7
+      }
+    } as ChatState
+    const staleSession = chatReducer(seeded, {
+      type: 'REANCHOR_DIFF_REQUIREMENTS',
+      sessionId: 'session-b',
+      path: 'src/a.ts',
+      request: { key: 'body-key', generation: 7 },
+      lines: [
+        diffLine('unchanged', 1, 1, 'before'),
+        diffLine('added', null, 2, 'target'),
+        diffLine('unchanged', 2, 3, 'after')
+      ]
+    })
+    expect(staleSession.diffRequirements[0].located).toBe(true)
+    expect(staleSession.diffRequirementsRevision).toBe(0)
+
+    const missing = chatReducer(seeded, {
+      type: 'REANCHOR_DIFF_REQUIREMENTS',
+      sessionId: 'session-a',
+      path: 'src/a.ts',
+      request: { key: 'body-key', generation: 7 },
+      lines: [
+        diffLine('unchanged', 1, 1, 'other before'),
+        diffLine('added', null, 2, 'target'),
+        diffLine('unchanged', 2, 3, 'other after')
+      ]
+    })
+    expect(missing.diffRequirements).toEqual([{ ...requirement('req-1'), located: false }])
+    expect(missing.diffRequirementsRevision).toBe(1)
+  })
+
+  it('peek 본문 재anchor는 등록된 body key/generation과 맞아야 적용된다', () => {
+    const registered = chatReducer(
+      {
+        ...initialChatState,
+        sessionId: 'session-a',
+        diffRequirements: [requirement('req-1')]
+      } as ChatState,
+      {
+        type: 'SET_DIFF_REQUIREMENT_BODY_REQUEST',
+        sessionId: 'session-a',
+        path: 'src/a.ts',
+        request: { key: 'body-key', generation: 7 }
+      }
+    )
+
+    const staleBody = chatReducer(registered, {
+      type: 'REANCHOR_DIFF_REQUIREMENTS',
+      sessionId: 'session-a',
+      path: 'src/a.ts',
+      request: { key: 'body-key', generation: 6 },
+      lines: [
+        diffLine('unchanged', 1, 1, 'other before'),
+        diffLine('added', null, 2, 'target'),
+        diffLine('unchanged', 2, 3, 'other after')
+      ]
+    })
+    expect(staleBody.diffRequirements[0].located).toBe(true)
+    expect(staleBody.diffRequirementsRevision).toBe(0)
+
+    const currentBody = chatReducer(registered, {
+      type: 'REANCHOR_DIFF_REQUIREMENTS',
+      sessionId: 'session-a',
+      path: 'src/a.ts',
+      request: { key: 'body-key', generation: 7 },
+      lines: [
+        diffLine('unchanged', 1, 1, 'other before'),
+        diffLine('added', null, 2, 'target'),
+        diffLine('unchanged', 2, 3, 'other after')
+      ]
+    })
+    expect(currentBody.diffRequirements[0].located).toBe(false)
+    expect(currentBody.diffRequirementsRevision).toBe(1)
+  })
+
+  it('성공 전송 clear는 제출 ids와 revision이 그대로일 때만 비운다', () => {
+    const seeded = {
+      ...initialChatState,
+      sessionId: 'session-a',
+      diffRequirements: [requirement('req-1'), requirement('req-2')],
+      diffRequirementsRevision: 2
+    } as ChatState
+    const unchanged = chatReducer(seeded, {
+      type: 'CLEAR_DIFF_REQUIREMENTS_IF_UNCHANGED',
+      sessionId: 'session-a',
+      ids: ['req-1', 'req-2'],
+      revision: 2
+    })
+    expect(unchanged.diffRequirements).toEqual([])
+    expect(unchanged.diffRequirementsRevision).toBe(3)
+
+    const editedInFlight = chatReducer(seeded, { type: 'REMOVE_DIFF_REQUIREMENT', id: 'req-2' })
+    const lateClear = chatReducer(editedInFlight, {
+      type: 'CLEAR_DIFF_REQUIREMENTS_IF_UNCHANGED',
+      sessionId: 'session-a',
+      ids: ['req-1', 'req-2'],
+      revision: 2
+    })
+    expect(lateClear.diffRequirements.map((item) => item.id)).toEqual(['req-1'])
+    expect(lateClear.diffRequirementsRevision).toBe(3)
+  })
+
+  it('작성 중 diff 요구사항 draft 편집도 revision을 올려 오래된 전송 clear를 막는다', () => {
+    const seeded = {
+      ...initialChatState,
+      sessionId: 'session-a',
+      diffRequirements: [requirement('req-1')]
+    } as ChatState
+    const withDraft = chatReducer(seeded, {
+      type: 'SET_DIFF_REQUIREMENT_DRAFT',
+      draft: {
+        key: 'src/a.ts:null:2',
+        filePath: 'src/a.ts',
+        oldLine: null,
+        newLine: 2,
+        body: 'draft'
+      }
+    })
+    expect(withDraft.diffRequirementsRevision).toBe(1)
+
+    const lateClear = chatReducer(withDraft, {
+      type: 'CLEAR_DIFF_REQUIREMENTS_IF_UNCHANGED',
+      sessionId: 'session-a',
+      ids: ['req-1'],
+      revision: 0
+    })
+    expect(lateClear.diffRequirements.map((item) => item.id)).toEqual(['req-1'])
+    expect(lateClear.diffRequirementDraft?.body).toBe('draft')
+  })
+
+  it('새 채팅·세션 로드 시작·cwd 변경은 요구사항과 작성 중 draft를 다른 identity로 넘기지 않는다', () => {
+    const dirty = {
+      ...initialChatState,
+      cwd: '/repo-a',
+      sessionId: 'session-a',
+      diffRequirements: [requirement('req-1')],
+      diffRequirementsRevision: 1,
+      diffRequirementDraft: {
+        key: 'src/a.ts:null:2',
+        filePath: 'src/a.ts',
+        oldLine: null,
+        newLine: 2,
+        body: 'draft'
+      }
+    } as ChatState
+
+    expect(chatReducer(dirty, { type: 'NEW_CHAT' }).diffRequirements).toEqual([])
+    expect(
+      chatReducer(dirty, { type: 'START_LOAD_SESSION', sessionId: 'session-b', title: 'B' })
+        .diffRequirementDraft
+    ).toBeNull()
+    expect(chatReducer(dirty, { type: 'SET_CWD', cwd: '/repo-b' }).diffRequirements).toEqual([])
   })
 })

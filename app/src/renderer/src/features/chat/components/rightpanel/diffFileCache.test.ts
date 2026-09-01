@@ -7,6 +7,18 @@ import {
 } from './diffFileCache'
 
 describe('diff peek body request owner', () => {
+  it('run returns the captured body request identity before async completion', () => {
+    const owner = createDiffPeekBodyRequestOwner()
+    const request = owner.run(
+      'body-key',
+      () => new Promise<GitDiffFileContent>(() => undefined),
+      () => undefined,
+      () => undefined
+    )
+
+    expect(request).toEqual({ key: 'body-key', generation: 1 })
+  })
+
   it('A identity의 늦은 같은-path 응답은 B identity의 현재 body를 채우지 못한다', async () => {
     const target = { group: { kind: 'uncommitted' as const }, path: 'src/a.ts' }
     const keyA = diffPeekBodyKey('/repo-a', 'session-a', target, 1)

@@ -21,12 +21,14 @@ import type {
   FileEntry,
   SkillInfo
 } from '../../../../../../shared/ipc'
+import type { DiffRequirementSubmitSnapshot } from '../../store/chatStore'
 import { AttachMenu } from './AttachMenu'
 import { AttachmentTray } from './AttachmentTray'
 import { ComposerChip } from './ComposerChip'
 import { ComposerInputSurface, type ComposerInputSurfaceHandle } from './ComposerInputSurface'
 import { FileAutocomplete } from './FileAutocomplete'
 import { SkillAutocomplete } from './SkillAutocomplete'
+import { acceptedSubmitCanClearDraftAndRequirements } from './submitClearGate'
 import {
   clearDraftAfterAcceptedSubmit,
   createDraftSnapshot,
@@ -52,8 +54,11 @@ interface ComposerInputControllerProps {
   onSend: (
     text: string,
     attachments: ComposerAttachment[],
-    attachmentViews: AttachmentView[]
+    attachmentViews: AttachmentView[],
+    requirements: DiffRequirementSubmitSnapshot['anchors']
   ) => boolean
+  diffRequirementSnapshot: DiffRequirementSubmitSnapshot
+  onClearDiffRequirementsIfUnchanged: (snapshot: DiffRequirementSubmitSnapshot) => void
   onCancel: () => void
   controlsStart: ReactNode
   controlsEnd: ReactNode
@@ -82,6 +87,8 @@ export function ComposerInputController({
   initialDraft,
   restoredDraft,
   onSend,
+  diffRequirementSnapshot,
+  onClearDiffRequirementsIfUnchanged,
   onCancel,
   controlsStart,
   controlsEnd
@@ -235,15 +242,28 @@ export function ComposerInputController({
 
   const submit = (): void => {
     const submitted = snapshotRef.current
+    const submittedRequirements = diffRequirementSnapshot
     if (compositionActive() || submitted.text.trim() === '' || steerBlocked) return
     const items = attachments
     void buildAttachmentViews(items).then((views) => {
-      if (!onSend(submitted.text, items, views)) return
+      const accepted = onSend(submitted.text, items, views, submittedRequirements.anchors)
       // text 또는 attachment가 바뀌었으면 둘 다 보존한다. 오래된 async 완료가 최신 초안을
       // 부분적으로 지우지 않도록 submit snapshot 전체를 하나의 clear 조건으로 취급한다.
       if (compositionActive()) return
       if (snapshotRef.current.revision !== submitted.revision) return
-      if (!resetAttachmentsIfUnchanged(items)) return
+      const attachmentsUnchanged = accepted ? resetAttachmentsIfUnchanged(items) : false
+      if (
+        !acceptedSubmitCanClearDraftAndRequirements({
+          accepted,
+          composing: compositionActive(),
+          currentDraftRevision: snapshotRef.current.revision,
+          submittedDraftRevision: submitted.revision,
+          attachmentsUnchanged
+        })
+      ) {
+        return
+      }
+      onClearDiffRequirementsIfUnchanged(submittedRequirements)
       updateSnapshot((current) => clearDraftAfterAcceptedSubmit(current, submitted.revision))
       focus(0)
     })

@@ -36,7 +36,7 @@ interface DiffPeekBodyRequestOwner {
     load: () => Promise<GitDiffFileContent>,
     onResult: (request: DiffPeekBodyRequest, content: GitDiffFileContent) => void,
     onError: (request: DiffPeekBodyRequest) => void
-  ): void
+  ): DiffPeekBodyRequest
   invalidate(): void
 }
 
@@ -56,6 +56,7 @@ export function createDiffPeekBodyRequestOwner(): DiffPeekBodyRequestOwner {
         .catch(() => {
           if (request.generation === generation) onError(request)
         })
+      return request
     },
     invalidate() {
       generation += 1

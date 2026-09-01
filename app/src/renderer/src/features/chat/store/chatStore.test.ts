@@ -12,7 +12,7 @@ import {
 import { flushRaf, installChatStoreHarness } from './chatStore.testHarness'
 import { initialChatState } from '../reducer/chatReducer'
 import { partsText } from '../lib/parts'
-import type { NormalizedEvent } from '../../../../../shared/ipc'
+import type { DiffRequirementItem, NormalizedEvent } from '../../../../../shared/ipc'
 
 let chatSend: ReturnType<typeof installChatStoreHarness>['chatSend']
 let settingsSet: ReturnType<typeof installChatStoreHarness>['settingsSet']
@@ -28,6 +28,23 @@ const reasoningDelta = (text: string, sessionId = 's'): NormalizedEvent => ({
   type: 'message.reasoning.delta',
   sessionId,
   delta: { text }
+})
+
+const requirement = (id: string, sessionId = 's'): DiffRequirementItem => ({
+  id,
+  located: true,
+  anchor: {
+    sessionId,
+    baselineCommit: 'base-oid',
+    filePath: 'src/a.ts',
+    oldLine: null,
+    newLine: 2,
+    hunkHeader: '@@ -1,2 +1,3 @@',
+    contextBefore: ['before'],
+    contextAfter: ['after'],
+    comment: `comment ${id}`,
+    createdAt: 10
+  }
 })
 
 // 활성 키 's' 에 진행 중 턴 엔트리 1개로 초기화(하네스는 chatStore.testHarness 공용, 0149).
@@ -497,6 +514,166 @@ describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
     expect(st.pendingNewChatKey).toBe('draft:a')
     expect(st.sessions['draft:a']).toBeDefined()
     expect(st.recentsEpoch).toBe(0)
+  })
+})
+
+describe('chatStore — diff 요구사항 전송 스냅샷', () => {
+  beforeEach(() => {
+    ;({ chatSend, settingsSet, permissionRespond } = installChatStoreHarness({
+      inflight: false,
+      turnStartedAt: null
+    }))
+  })
+
+  it('send payload에는 wrapper가 아니라 anchors만 들어간다', () => {
+    const dirtyRequirement = {
+      ...requirement('req-1'),
+      anchor: {
+        ...requirement('req-1').anchor,
+        located: true,
+        extra: 'must not cross the wire'
+      }
+    } as DiffRequirementItem
+    chatActions.addDiffRequirement(dirtyRequirement)
+    const snapshot = chatActions.captureDiffRequirementSnapshot()
+
+    expect(chatActions.send('요구사항 반영', [], [], snapshot.anchors)).toBe(true)
+
+    const payload = chatSend.mock.calls[0][0] as { requirements?: unknown[] }
+    expect(payload.requirements).toEqual([requirement('req-1').anchor])
+    expect(Object.keys(payload.requirements![0] as Record<string, unknown>)).toEqual([
+      'sessionId',
+      'baselineCommit',
+      'filePath',
+      'oldLine',
+      'newLine',
+      'hunkHeader',
+      'contextBefore',
+      'contextAfter',
+      'comment',
+      'createdAt'
+    ])
+    expect(payload.requirements![0]).not.toHaveProperty('located')
+    expect(payload.requirements![0]).not.toHaveProperty('extra')
+  })
+
+  it('async submit 뒤 active session이 바뀌었으면 이전 session anchor 전송을 거부한다', () => {
+    chatActions.addDiffRequirement(requirement('req-1', 's'))
+    const snapshot = chatActions.captureDiffRequirementSnapshot()
+    useChatStore.setState((state) => ({
+      sessions: {
+        ...state.sessions,
+        other: {
+          session: { ...initialChatState, sessionId: 'other', inflight: false },
+          live: { text: '', reasoning: '' },
+          subagentMeta: {}
+        }
+      },
+      activeKey: 'other'
+    }))
+
+    expect(chatActions.send('요구사항 반영', [], [], snapshot.anchors)).toBe(false)
+    expect(chatSend).not.toHaveBeenCalled()
+    expect(useChatStore.getState().sessions.other.session.messages).toEqual([])
+  })
+
+  it('성공한 submit snapshot만 그대로면 비우고 false submit은 보존한다', () => {
+    chatActions.addDiffRequirement(requirement('req-1'))
+    const snapshot = chatActions.captureDiffRequirementSnapshot()
+
+    chatActions.clearDiffRequirementsIfUnchanged(snapshot)
+    expect(entry().session.diffRequirements.map((item) => item.id)).toEqual([])
+
+    chatActions.addDiffRequirement(requirement('req-2'))
+    const rejected = chatActions.captureDiffRequirementSnapshot()
+    expect(chatActions.send('   ', [], [], rejected.anchors)).toBe(false)
+    expect(entry().session.diffRequirements.map((item) => item.id)).toEqual(['req-2'])
+  })
+
+  it('전송 중 추가·삭제·수정·재anchor가 revision을 바꾸면 late clear가 현재 stack을 지우지 못한다', () => {
+    chatActions.addDiffRequirement(requirement('req-1'))
+    const snapshot = chatActions.captureDiffRequirementSnapshot()
+
+    chatActions.addDiffRequirement(requirement('req-2'))
+    chatActions.clearDiffRequirementsIfUnchanged(snapshot)
+    expect(entry().session.diffRequirements.map((item) => item.id)).toEqual(['req-1', 'req-2'])
+
+    chatActions.removeDiffRequirement('req-2')
+    chatActions.setDiffRequirementBodyRequest('s', 's', 'src/a.ts', {
+      key: 'body-key',
+      generation: 2
+    })
+    chatActions.reanchorDiffRequirements('s', 's', 'src/a.ts', { key: 'body-key', generation: 2 }, [
+      {
+        type: 'added',
+        oldLine: null,
+        newLine: 2,
+        lineNo: 2,
+        text: 'target without saved context'
+      }
+    ])
+    chatActions.clearDiffRequirementsIfUnchanged({
+      ...snapshot,
+      revision: entry().session.diffRequirementsRevision - 1
+    })
+    expect(entry().session.diffRequirements).toHaveLength(1)
+    expect(entry().session.diffRequirements[0].located).toBe(false)
+
+    chatActions.setDiffRequirementDraft({
+      key: 'src/a.ts:null:2',
+      filePath: 'src/a.ts',
+      oldLine: null,
+      newLine: 2,
+      body: 'draft'
+    })
+    const afterDraft = chatActions.captureDiffRequirementSnapshot()
+    chatActions.setDiffRequirementDraft({
+      key: 'src/a.ts:null:2',
+      filePath: 'src/a.ts',
+      oldLine: null,
+      newLine: 2,
+      body: 'edited draft'
+    })
+    chatActions.clearDiffRequirementsIfUnchanged(afterDraft)
+    expect(entry().session.diffRequirementDraft?.body).toBe('edited draft')
+  })
+
+  it('clear helper routes by the captured session slot, not rediscovered current/session id', () => {
+    chatActions.addDiffRequirement(requirement('req-1', 's'))
+    const snapshot = chatActions.captureDiffRequirementSnapshot()
+    useChatStore.setState((state) => ({
+      sessions: {
+        ...state.sessions,
+        s: {
+          ...state.sessions.s,
+          session: {
+            ...state.sessions.s.session,
+            sessionId: 'renamed',
+            diffRequirements: [requirement('req-original', 'renamed')]
+          }
+        },
+        other: {
+          session: {
+            ...initialChatState,
+            sessionId: 's',
+            diffRequirements: [requirement('req-other', 's')],
+            diffRequirementsRevision: 1
+          },
+          live: { text: '', reasoning: '' },
+          subagentMeta: {}
+        }
+      },
+      activeKey: 'other'
+    }))
+
+    chatActions.clearDiffRequirementsIfUnchanged(snapshot)
+
+    expect(useChatStore.getState().sessions.s.session.diffRequirements).toEqual([
+      requirement('req-original', 'renamed')
+    ])
+    expect(useChatStore.getState().sessions.other.session.diffRequirements).toEqual([
+      requirement('req-other', 's')
+    ])
   })
 })
 

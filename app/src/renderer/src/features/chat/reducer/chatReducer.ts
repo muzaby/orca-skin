@@ -10,6 +10,7 @@ import type {
   SubagentTaskMeta,
   Backend,
   EffortLevel,
+  DiffRequirementItem,
   GitDiffSummary,
   WorktreeDisplay,
   WorktreePrepareStep
@@ -26,6 +27,8 @@ import { agentTaskKey, backgroundTaskKey } from '../lib/taskBoard'
 import { settleOrphanToolParts, settleStaleAsyncLaunchParts } from '../lib/parts'
 import { isRightPanelTileSuspended, type RightPanelTileId } from '../lib/rightPanelTiles'
 import type { BranchSnapshot } from '../components/composer/branchChipState'
+import { reanchorDiffRequirementItem } from '../components/rightpanel/diffRequirements'
+import type { DiffLine } from '../lib/diffLines'
 import {
   addTileColumnMajor,
   columnsContain,
@@ -81,6 +84,21 @@ export interface GitSnapshotState {
 }
 
 export interface GitSnapshotRequest {
+  key: string
+  generation: number
+}
+
+export interface DiffRequirementDraft {
+  key: string
+  filePath: string
+  oldLine: number | null
+  newLine: number | null
+  body: string
+}
+
+export interface DiffRequirementBodyRequest {
+  sessionId: string | null
+  path: string
   key: string
   generation: number
 }
@@ -208,6 +226,10 @@ export interface ChatState {
   // 파일 본문은 현재 identity+peek 세대에만 붙는 타일 로컬 캐시다.
   gitSnapshot: GitSnapshotState
   gitSnapshotRequest: GitSnapshotRequest | null
+  diffRequirements: DiffRequirementItem[]
+  diffRequirementsRevision: number
+  diffRequirementDraft: DiffRequirementDraft | null
+  diffRequirementBodyRequest: DiffRequirementBodyRequest | null
   // 우측 작업 타일에서 상세로 표시할 항목 키(`agent:<id>` | `bg:<toolUseId>`, taskBoard 가
   // 소유하는 네임스페이스). null 이면 목록 view.
   selectedTaskKey: string | null
@@ -291,6 +313,10 @@ export const initialChatState: ChatState = {
   gitStatus: null,
   gitSnapshot: { summary: null, peekTarget: null, expandedCommitIds: [], refreshGeneration: 0 },
   gitSnapshotRequest: null,
+  diffRequirements: [],
+  diffRequirementsRevision: 0,
+  diffRequirementDraft: null,
+  diffRequirementBodyRequest: null,
   selectedTaskKey: null,
   selectedSubagentTaskId: null,
   stoppingTaskIds: [],
@@ -405,6 +431,28 @@ export type ChatAction =
       request: GitSnapshotRequest
       summary: GitDiffSummary
     }
+  | { type: 'ADD_DIFF_REQUIREMENT'; item: DiffRequirementItem }
+  | { type: 'REMOVE_DIFF_REQUIREMENT'; id: string }
+  | { type: 'SET_DIFF_REQUIREMENT_DRAFT'; draft: DiffRequirementDraft | null }
+  | {
+      type: 'SET_DIFF_REQUIREMENT_BODY_REQUEST'
+      sessionId: string | null
+      path: string
+      request: GitSnapshotRequest
+    }
+  | {
+      type: 'REANCHOR_DIFF_REQUIREMENTS'
+      sessionId: string | null
+      path: string
+      request: GitSnapshotRequest
+      lines: readonly DiffLine[]
+    }
+  | {
+      type: 'CLEAR_DIFF_REQUIREMENTS_IF_UNCHANGED'
+      sessionId: string | null
+      ids: readonly string[]
+      revision: number
+    }
   | { type: 'SELECT_TASK'; key: string | null }
   | { type: 'OPEN_TASK'; key: string }
   | { type: 'SELECT_SUBAGENT_TASK'; toolRunId: string | null }
@@ -428,6 +476,21 @@ function appendAssistantPart(messages: Message[], part: AppMessagePart): Message
   const next = messages.slice()
   next[next.length - 1] = { ...last, parts: [...last.parts, part] }
   return next
+}
+
+function diffRequirementDraftsEqual(
+  a: DiffRequirementDraft | null,
+  b: DiffRequirementDraft | null
+): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  return (
+    a.key === b.key &&
+    a.filePath === b.filePath &&
+    a.oldLine === b.oldLine &&
+    a.newLine === b.newLine &&
+    a.body === b.body
+  )
 }
 
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
@@ -779,7 +842,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           expandedCommitIds: [],
           refreshGeneration: 0
         },
-        gitSnapshotRequest: null
+        gitSnapshotRequest: null,
+        diffRequirements: [],
+        diffRequirementsRevision: 0,
+        diffRequirementDraft: null,
+        diffRequirementBodyRequest: null
       }
 
     case 'SET_WORKTREE_ISOLATION':
@@ -1033,6 +1100,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'OPEN_GIT_SNAPSHOT_PEEK':
       return {
         ...state,
+        diffRequirementBodyRequest: null,
         gitSnapshot: {
           ...state.gitSnapshot,
           peekTarget: action.target
@@ -1042,6 +1110,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'CLOSE_GIT_SNAPSHOT_PEEK':
       return {
         ...state,
+        diffRequirementBodyRequest: null,
         gitSnapshot: { ...state.gitSnapshot, peekTarget: null }
       }
 
@@ -1061,6 +1130,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'REFRESH_GIT_SNAPSHOT':
       return {
         ...state,
+        diffRequirementBodyRequest: null,
         gitSnapshotRequest: state.gitSnapshotRequest
           ? {
               ...state.gitSnapshotRequest,
@@ -1076,6 +1146,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'BEGIN_GIT_SNAPSHOT_QUERY':
       return {
         ...state,
+        diffRequirementBodyRequest: null,
         gitSnapshot:
           state.gitSnapshotRequest?.key === action.request.key
             ? state.gitSnapshot
@@ -1094,6 +1165,87 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         gitSnapshot: { ...state.gitSnapshot, summary: action.summary }
       }
+
+    case 'ADD_DIFF_REQUIREMENT':
+      return {
+        ...state,
+        diffRequirements: [...state.diffRequirements, action.item],
+        diffRequirementsRevision: state.diffRequirementsRevision + 1,
+        diffRequirementDraft: null
+      }
+
+    case 'REMOVE_DIFF_REQUIREMENT': {
+      const next = state.diffRequirements.filter((item) => item.id !== action.id)
+      if (next.length === state.diffRequirements.length) return state
+      return {
+        ...state,
+        diffRequirements: next,
+        diffRequirementsRevision: state.diffRequirementsRevision + 1
+      }
+    }
+
+    case 'SET_DIFF_REQUIREMENT_DRAFT':
+      if (diffRequirementDraftsEqual(state.diffRequirementDraft, action.draft)) return state
+      return {
+        ...state,
+        diffRequirementDraft: action.draft,
+        diffRequirementsRevision: state.diffRequirementsRevision + 1
+      }
+
+    case 'SET_DIFF_REQUIREMENT_BODY_REQUEST':
+      if (state.sessionId !== action.sessionId) return state
+      return {
+        ...state,
+        diffRequirementBodyRequest: {
+          sessionId: action.sessionId,
+          path: action.path,
+          key: action.request.key,
+          generation: action.request.generation
+        }
+      }
+
+    case 'REANCHOR_DIFF_REQUIREMENTS': {
+      if (state.sessionId !== action.sessionId) return state
+      if (
+        state.diffRequirementBodyRequest?.sessionId !== action.sessionId ||
+        state.diffRequirementBodyRequest.path !== action.path ||
+        state.diffRequirementBodyRequest.key !== action.request.key ||
+        state.diffRequirementBodyRequest.generation !== action.request.generation
+      ) {
+        return state
+      }
+      let touched = false
+      const next = state.diffRequirements.map((item) => {
+        if (item.anchor.filePath !== action.path) return item
+        touched = true
+        const reanchored = reanchorDiffRequirementItem(item, action.lines)
+        return reanchored
+      })
+      if (!touched) return state
+      return {
+        ...state,
+        diffRequirements: next,
+        diffRequirementsRevision: state.diffRequirementsRevision + 1
+      }
+    }
+
+    case 'CLEAR_DIFF_REQUIREMENTS_IF_UNCHANGED': {
+      if (state.sessionId !== action.sessionId) return state
+      if (state.diffRequirementsRevision !== action.revision) return state
+      const currentIds = state.diffRequirements.map((item) => item.id)
+      if (
+        currentIds.length !== action.ids.length ||
+        currentIds.some((id, index) => id !== action.ids[index])
+      ) {
+        return state
+      }
+      if (currentIds.length === 0) return state
+      return {
+        ...state,
+        diffRequirements: [],
+        diffRequirementsRevision: state.diffRequirementsRevision + 1
+      }
+    }
 
     case 'SELECT_TASK':
       // 목록/상세 어느 쪽이든 타일을 실제로 보고 있다 — 미확인 완료 표시를 해제한다.

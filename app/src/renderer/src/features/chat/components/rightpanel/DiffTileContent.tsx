@@ -1,9 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { GitDiffSummary } from '../../../../../../shared/ipc'
 import { gitApi } from '../../../../shared/api/ipc'
+import type { DiffLine } from '../../lib/diffLines'
 import type { GitPeekTarget } from '../../reducer/chatReducer'
-import { chatActions, useChatSession } from '../../store/chatStore'
+import { chatActions, useChatSession, useChatStore } from '../../store/chatStore'
 import { DiffPeek } from './DiffPeek'
+import {
+  handleDiffPeekBodyResult,
+  registerDiffPeekBodyRequest,
+  type DiffPeekBodyBridge
+} from './diffRequirementBridge'
+import { createDiffRequirementItem } from './diffRequirements'
 import {
   createDiffPeekBodyRequestOwner,
   diffPeekBodyKey,
@@ -17,9 +24,14 @@ export interface DiffTileContentViewProps {
   peekTarget: GitPeekTarget | null
   expandedCommitIds: ReadonlySet<string>
   currentBody: DiffPeekBodyState | null
+  requirements?: Parameters<typeof DiffPeek>[0]['requirements']
+  draft?: Parameters<typeof DiffPeek>[0]['draft']
   onToggleCommit: (sha: string) => void
   onOpenPeek: (target: GitPeekTarget) => void
   onBack: () => void
+  onDraftChange?: Parameters<typeof DiffPeek>[0]['onDraftChange']
+  onAddRequirement?: Parameters<typeof DiffPeek>[0]['onAddRequirement']
+  onRemoveRequirement?: Parameters<typeof DiffPeek>[0]['onRemoveRequirement']
 }
 
 /** props-only view boundary. Store/IPC ownership remains in the container below. */
@@ -28,9 +40,14 @@ export function DiffTileContentView({
   peekTarget,
   expandedCommitIds,
   currentBody,
+  requirements = [],
+  draft = null,
   onToggleCommit,
   onOpenPeek,
-  onBack
+  onBack,
+  onDraftChange,
+  onAddRequirement,
+  onRemoveRequirement
 }: DiffTileContentViewProps): React.JSX.Element {
   if (summary && peekTarget) {
     return (
@@ -38,8 +55,13 @@ export function DiffTileContentView({
         summary={summary}
         target={peekTarget}
         currentBody={currentBody}
+        requirements={requirements}
+        draft={draft}
         onBack={onBack}
         onNavigate={onOpenPeek}
+        onDraftChange={onDraftChange}
+        onAddRequirement={onAddRequirement}
+        onRemoveRequirement={onRemoveRequirement}
       />
     )
   }
@@ -60,10 +82,13 @@ export function DiffTileContentView({
 export function DiffTileContent(): React.JSX.Element {
   const cwd = useChatSession((state) => state.cwd)
   const sessionId = useChatSession((state) => state.sessionId)
+  const sessionKey = useChatStore((state) => state.activeKey)
   const summary = useChatSession((state) => state.gitSnapshot.summary)
   const peekTarget = useChatSession((state) => state.gitSnapshot.peekTarget)
   const expandedCommitIds = useChatSession((state) => state.gitSnapshot.expandedCommitIds)
   const summaryGeneration = useChatSession((state) => state.gitSnapshotRequest?.generation ?? 0)
+  const requirements = useChatSession((state) => state.diffRequirements)
+  const draft = useChatSession((state) => state.diffRequirementDraft)
   const [bodyOwner] = useState(createDiffPeekBodyRequestOwner)
   const [body, setBody] = useState<DiffPeekBodyState | null>(null)
   const bodyKey = useMemo(
@@ -78,13 +103,63 @@ export function DiffTileContent(): React.JSX.Element {
 
   useEffect(() => {
     if (!cwd || !peekTarget || !bodyKey || body?.key === bodyKey) return
-    bodyOwner.run(
+    const capturedSessionKey = sessionKey
+    const capturedSessionId = sessionId
+    const capturedPath = peekTarget.path
+    const bridge: DiffPeekBodyBridge = {
+      setBody,
+      setDiffRequirementBodyRequest: chatActions.setDiffRequirementBodyRequest,
+      reanchorDiffRequirements: chatActions.reanchorDiffRequirements
+    }
+    const request = bodyOwner.run(
       bodyKey,
       () => gitApi.diffFile(diffPeekFileRequest(cwd, sessionId, peekTarget)),
-      (request, content) => setBody({ ...request, content }),
+      (request, content) =>
+        handleDiffPeekBodyResult({
+          bridge,
+          sessionKey: capturedSessionKey,
+          sessionId: capturedSessionId,
+          path: capturedPath,
+          request,
+          content
+        }),
       (request) => setBody({ ...request, content: { kind: 'unavailable', reason: 'error' } })
     )
-  }, [body?.key, bodyKey, bodyOwner, cwd, peekTarget, sessionId])
+    registerDiffPeekBodyRequest({
+      bridge,
+      sessionKey: capturedSessionKey,
+      sessionId: capturedSessionId,
+      path: capturedPath,
+      request
+    })
+  }, [body?.key, bodyKey, bodyOwner, cwd, peekTarget, sessionId, sessionKey])
+
+  const onAddRequirement = useCallback(
+    ({
+      lines,
+      lineIndex,
+      comment
+    }: {
+      lines: readonly DiffLine[]
+      lineIndex: number
+      comment: string
+    }) => {
+      if (!summary || !peekTarget || !sessionId) return
+      chatActions.addDiffRequirement(
+        createDiffRequirementItem({
+          id: crypto.randomUUID(),
+          sessionId,
+          base: summary.base,
+          filePath: peekTarget.path,
+          lines,
+          lineIndex,
+          comment,
+          createdAt: Date.now()
+        })
+      )
+    },
+    [peekTarget, sessionId, summary]
+  )
 
   return (
     <DiffTileContentView
@@ -92,9 +167,14 @@ export function DiffTileContent(): React.JSX.Element {
       peekTarget={peekTarget}
       expandedCommitIds={new Set(expandedCommitIds)}
       currentBody={currentBody}
+      requirements={requirements}
+      draft={draft}
       onToggleCommit={chatActions.toggleGitSnapshotCommitExpanded}
       onOpenPeek={chatActions.openGitSnapshotPeek}
       onBack={chatActions.closeGitSnapshotPeek}
+      onDraftChange={chatActions.setDiffRequirementDraft}
+      onAddRequirement={onAddRequirement}
+      onRemoveRequirement={chatActions.removeDiffRequirement}
     />
   )
 }
