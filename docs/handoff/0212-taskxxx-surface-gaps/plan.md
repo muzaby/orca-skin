@@ -822,6 +822,111 @@ SDK(producer) → claude-map(정규화) → bus → coordinator/tracker(상태) 
 
 ---
 
+## [구현자 기입] r2 — 설계 리뷰
+
+- 동의 / 그대로 진행: ΔV1 §11 의 4항목 전부. plan 이 지목한 seam 이 실측과 일치했다 — `registry.test.ts` 가 이미 `toolRendererRegistry.resolve` 를 부르고(기존 5케이스), `turn-coordinator.test.ts` 하네스가 이미 `forward` 스파이로 정착 이벤트를 읽으며(기존 4케이스), `chat-turn.runtime-tools.test.ts:11-19` 의 `vi.mock('electron')` 이 같은 `registerChatHandlers` 를 부른다.
+- 이견 / 현실성 문제: **없다.** 차단 `PLAN_GAP` 0건 — 네 오라클 전부 기존 seam 으로 닿았고 **프로덕션 코드 diff 0**(`git diff --stat` = 테스트 2파일 수정 + 1파일 신규).
+- ACTIVE Decision 과 충돌하는 설계 발견: **0건.** 프로덕션 표면을 바꾸지 않아 충돌할 자리가 없다. D-026·D-027 은 r1 구현이 이미 만족하고 있었고 ΔV1 이 규범 행을 붙였다.
+- 보고: ΔV1 self-review 의 EP-15 검색 술어가 재현되지 않는다(아래 P6). §10 EP-15 행 자체는 세 지점을 파일로 옳게 지목한다.
+
+## [구현자 기입] r2 — 강제 지점 전수 (§10 대조)
+
+이번 라운드가 여는 EP 만 적는다. 나머지 EP-01~EP-05·EP-08~EP-10·EP-12·EP-13 은 r1 이 닫았고 **프로덕션 diff 가 0**이라 재측정만 했다(전체 스위트 green, 아래 게이트).
+
+| Pair | 계약 | §10 지점 | r1 잠금 | r2 잠금 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-13 | 레지스트리 match 는 4종 부분집합 술어를 쓴다 | EP-11 — **지점 2** | 1/2 | **2/2** | 전수 검색 `grep -rn "isTaskListToolName\|TASK_LIST_TOOL_NAMES" src --include=*.ts --include=*.tsx \| grep -v '\.test\.'` → 프로덕션 2사이트(`task-tool.ts:34-40` SSOT · `registry.ts:93` match). MV-1 등록 삭제 → **RED 1** · MV-2 6종 확장 → **RED 1** | — |
+| VP-08 | 매핑분만 싣기 · 첫 payload 는 기준선 | EP-06·EP-07 (2) | 1/2 | **2/2** | MV-3 coordinator 의 `subagent.backgroundSet` 블록 삭제 → **RED 2**(`turn-coordinator.test.ts` 신규 2케이스) | — |
+| VP-17 | 전환은 `toolUseId` 단건 · 실패를 삼키지 않는다 | EP-14 — **지점 2** | 1/2 | **2/2** | MV-4 포트 호출 삭제 → **RED 2** · MV-5 인자 상수화(`'use1'` 고정) → **RED 1**(`chat-turn.background-subagent.test.ts` 신규) | — |
+| VP-21·22 | 중단 정착의 사유는 `cause`, 표시 기본값은 `message` | EP-15 (3) | — (ΔV1 신설) | **3/3** | 생산 `subagent-settlement.ts:33` → MV-7 맞바꿈 **RED 3** · 소비 `parts.ts:387` → MV-6 맞바꿈 **RED 4** · 표시 `TaskTileContent.tsx:148` → MV-8 `settlementMessage` 폐기 **RED 1** | — |
+
+- **EP-15 전수 검색의 술어를 고쳤다.** ΔV1 self-review 는 `grep -rn "cause" src/main src/renderer` 로 지점 3을 셌다고 적었지만, 표시 지점은 `cause` 를 담지 않는다 — `grep -c "cause" src/renderer/.../TaskTileContent.tsx` = **0**. 불변식의 주어가 두 이름에 걸쳐 있어서다: 생산·소비 축은 `cause`, 표시 축은 `settlementMessage`. 두 술어를 합친 전수는 생산 1 · 소비 1(`parts.ts:387`) · 표시 1(`:148`, `aborted` 분기) = **3** 으로 §10 행의 숫자와 일치한다. `:153` 의 `failed` 분기는 0204 D-024 소관이라 이 계약 밖이다.
+- **운반 홉 1건을 추가로 확인했다** — `taskBoard.ts:281` 이 `settlementMessage` 를 타일로 나른다. §10 밖이지만 같은 값의 경로라 MV-11(`null` 로 고정) 을 심었고 **RED 2** 다.
+- §10 에 없는데 같은 불변식이 필요했던 지점: **등록 범위 안 0건.** 범위 밖에서 같은 *부류*의 무잠금 지점 **4건**을 찾았다 — 아래 P7.
+
+**V-pair 자기확인 (r2)** — 유효 V = 22 pair(REQUIRED 17 · REGRESSION 5).
+
+| Pair | requiredness | r1 결과(검증자) | r2 자기 상태 | 이번 라운드 직접 관측 |
+|---|---|---|---|---|
+| VP-08 | REQUIRED | **PAIR_FAIL** | **SELF_PASS** | coordinator 가 낸 정착의 대상 id·`status:'failed'`·summary + `stopLive:false`(포트 미호출). MV-3 → RED 2 |
+| VP-13 | REQUIRED | **PAIR_FAIL** | **SELF_PASS** | `resolve` 가 6종에 돌려주는 kind — 4종 `task_list`+`TaskToolBody`, 2종 `generic`. MV-1·MV-2 각 → RED 1 |
+| VP-17 | REQUIRED | **PAIR_FAIL** | **SELF_PASS** | `turn.live.backgroundTask` 호출 목록 `[['use1'],['use2']]` + `false`→reject. MV-4 → RED 2 · MV-5 → RED 1 |
+| VP-21 | REQUIRED | — (ΔV1 신설) | **SELF_PASS** | 생산자 `result.cause` 값 + 소비자 렌더 문구, 두 층 각각. MV-7 → RED 3 · MV-6 → RED 4 |
+| VP-22 | REGRESSION | — (ΔV1 신설) | **SELF_PASS** | `cause` 부재 분기가 `사용자에 의해 중단됨` 을 보이고 생산자 기본 문장은 안 보인다. MV-6 맞바꿈 → RED 4 |
+| VP-03·VP-04 | REQUIRED | PASS | **SELF_PASS** | `title`/`subject` 형제 맞바꿈 M1 → **RED 3**(이번 턴 재측정) |
+| VP-15 | REQUIRED | PASS | **SELF_PASS** | `canStopBackgroundStatus` 의 `paused` 항 제거 M2 → **RED 4**(이번 턴 재측정) |
+| VP-01·02·05·06·07·09·10·11·12·14·16·18·19·20 (14) | REQUIRED 10 · REGRESSION 4 | PASS | **SELF_PASS(상속)** | 적대 증거 미선택 pair 다 — 프로덕션 diff 0 이고 전체 스위트 278파일 2790케이스 green |
+
+- `SELF_BLOCKED` 0 · `NOT_REQUIRED` 0.
+
+## [구현자 기입] r2 — 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| MV-1 `registry.ts` 의 `task_list` 등록 블록 전체 삭제 | VP-13 선택 증거(ΔV1) · D1 인용 | r1 verify **GREEN**(277파일 2779케이스) | 1 failed / 59파일 584케이스 | **RED** |
+| MV-2 같은 지점의 match 를 `isTaskToolName`(6종)으로 확장 | VP-13 선택 증거(ΔV1) · D1 인용 | r1 verify **GREEN**(6파일 87케이스) | 1 failed / 584케이스 | **RED** |
+| MV-3 `turn-coordinator.ts` 의 `subagent.backgroundSet` 블록 전체 삭제 | VP-08 선택 증거(ΔV1) · D2 인용 | r1 verify **GREEN**(229파일 2410케이스) | 2 failed / 15파일 182케이스 | **RED** |
+| MV-4 핸들러의 `turn.live.backgroundTask` 호출 제거 | VP-17 선택 증거(ΔV1) · D3 인용 | 미측정 | 2 failed / 32파일 255케이스 | **RED** |
+| MV-5 같은 호출의 인자를 상수 `'use1'` 로 고정 | VP-17 선택 증거(ΔV1) | 미측정 | 1 failed / 255케이스 | **RED** |
+| MV-6 소비자 `parts.ts` 의 `cause`↔`message` 맞바꿈 | VP-22 선택 증거(ΔV1) | 미측정(r1 M12 는 인접 축) | 4 failed / 584케이스 | **RED** |
+| MV-7 생산자 `subagent-settlement.ts` 의 `cause`↔`message` 맞바꿈 | EP-15 지점 1 전수 | 미측정(r1 M13 은 `cause` 누락 축) | 3 failed / 182케이스 | **RED** |
+| MV-8 표시 `backgroundMetaLine` 의 `aborted` 분기가 `settlementMessage` 폐기 | EP-15 지점 3 전수 | 미측정 | 1 failed / 584케이스 | **RED** |
+| MV-11 운반 `taskBoard.ts:281` 의 `settlementMessage` 를 `null` 고정 | EP-15 운반 홉(§10 밖) | 미측정 | 2 failed / 584케이스 | **RED** |
+| M1 `agentItem` 의 `title`↔`subject` 맞바꿈 | VP-03·VP-04 선택 증거 | r1 RED 3 | 3 failed / 584케이스 | **RED** |
+| M2 `canStopBackgroundStatus` 의 `paused` 항 제거 | VP-15 선택 증거 | r1 RED 4 | 4 failed / 584케이스 | **RED** |
+
+- 분모 검산: **선택 증거 8**(VP-03·04←M1 · VP-15←M2 · VP-08←MV-3 · VP-13←MV-1·MV-2 · VP-17←MV-4·MV-5 · VP-22←MV-6) · **인용 변이 0**(D1·D2·D3 이 인용한 변이가 위 선택 증거와 같은 변이다 — 중복 계상하지 않는다) · **EP-15 전수 확인 3**(MV-7 생산 · MV-8 표시 · MV-11 운반) = **표 행 11**. 표 행 11 ✅.
+- 새로 만든 oracle 3건(레지스트리 6종 대조 · coordinator 정착 · IPC 핸들러)은 전부 **직접 행동 oracle** 이라 자체 mutation 의무가 없고, 그 감도는 위 선택 증거 5건(MV-1~MV-5)이 잰다.
+- **덮개 회귀: 없다.** 장치를 교체·삭제한 곳이 0이다 — 기존 파일에 케이스를 더하고 파일 하나를 새로 만들었을 뿐이다. r1 이 RED 로 관측한 M1·M2 를 이번 턴에 다시 심어 **같은 RED 3·RED 4** 를 재현했다.
+
+## [구현자 기입] r2 — Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | **해당 없음** — 이번 라운드는 사용자 대면 표면을 만들지 않았다(프로덕션 diff 0) | — |
+| seam 을 만들려고 production 을 재배치했는가 | **아니다.** 네 오라클 전부 기존 seam 으로 닿았다 — `resolve`(순수) · coordinator `forward` 스파이(기존 하네스) · `vi.mock('electron')`(선례 7건) · 기존 렌더/생산자 테스트 | — |
+| 이번에 만든 실패 경로가 §5 상태 전이표의 어느 행인가 | 새 실패 경로 **0** | — |
+| 실패가 화면에서 "아무 일도 안 일어남" 으로 보이지 않는가 | 화면 변경 0. 다만 오라클이 그것을 **처음으로 관측**한다 — `false` → reject 가 이제 핸들러에서 단언된다(AC25) | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 이번 라운드 변경 없음 — r1 판정 유지 | — |
+| 사용자가 이 라운드 뒤 다르게 보는 것이 있는가 | **없다.** 잠금만 늘었다 | — |
+
+## [구현자 기입] r2 — 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| P6 | **ΔV1 self-review 의 EP-15 전수 검색 술어가 재현되지 않는다.** `grep -rn "cause"` 는 표시 지점을 잡지 못한다 — 그 파일에 `cause` 가 0회다. 술어 하나로 세면 분모가 3이 아니라 2로 조용히 줄어든다 | **선조치 — 술어를 고쳐 다시 셌다.** 생산·소비는 `cause`, 표시는 `settlementMessage` 두 술어의 합집합으로 3지점을 확정하고 각각 변이를 심었다(MV-6·MV-7·MV-8). §10 EP-15 **행 자체는 옳다** — 세 지점을 파일·함수로 지목한다 | 검증자에게 보고 — 규범 행 변경은 필요 없다(자기 검산 술어의 문제) |
+| P7 | **store → 순수 View 의 prop 홉이 무잠금이다 — 0212 가 만든 것만 4건.** `TaskTileContent` 의 `agentTools`·`cliVersion`, `SubAgentTileContent` 의 `pausedIds`·`backgroundedIds`. 네 줄을 **한꺼번에 지워도** `vitest run src/renderer` 가 86파일 755케이스 전건 green 이다(MV-10). D1·D2·D3 과 같은 부류 — 오라클이 seam 한 홉 앞(props-only View)에 선다 | **보고만.** plan §7 이 AC1~AC3·AC18·AC23 의 검증 수단을 *props 를 시드한 렌더 테스트*로 명시했고 §10 은 이 홉을 지점으로 세지 않는다 — 구현자가 단독으로 pair 의 관측 지점을 옮기지 않는다 | 검증자·설계자 판단: ΔV1 의 "관측 지점 규칙" 을 VP-01·VP-11·VP-16 까지 넓힐지. 넓힌다면 zustand 훅 모듈을 `vi.mock` 하는 새 oracle 이 필요하다(SSR 시드가 안 먹는 이유는 `TaskProgressList` 헤더 주석에 있다) |
+| P8 | r1 보고의 수치 2건이 실측과 갈렸다(검증자 D6·D7) | **정정한다.** 변경 파일 수 실측 **41**(main 10 · renderer 17 · shared 4 · preload 1 · scripts 6 · docs 3), EP-10 도달 경로는 **3**(`TaskTileContent:227,364` · `SubAgentTileContent:313`) — 보고의 182·289·258 은 변경 전 좌표였다 | D6·D7 `closed` |
+
+### r2 — 설계 대비 명시적 차이
+
+- **없다.** plan §11 `ΔV1 구현 범위 (r2)` 표의 4행을 그대로 수행했다 — seam·오라클·단언 대상이 전부 표와 일치한다. 대체한 메커니즘이 0건이므로 대체물 실패 모드(만료·공유·재진입·다른 무효화 축) **네 축 모두 `해당 없음`** 이고 근거는 같다: 이번 라운드에 새 상태·새 캐시·새 저장소가 0이다(프로덕션 diff 0).
+
+## [구현자 기입] r2 — 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | **3** — 수정 2(`registry.test.ts` +35줄 · `turn-coordinator.test.ts` +91줄) · 신규 1(`src/main/app/chat-turn.background-subagent.test.ts`). **프로덕션 코드 diff 0** |
+| 실행 명령 | `npm ci`(워크트리 `node_modules` 부재 — 아래) · `npm run typecheck` · `node node_modules/vitest/vitest.mjs run src/shared src/renderer src/main` · `node --test scripts/*.test.mjs` · `node scripts/check-doc-inventory.mjs --check` · `npm run lint` |
+| 관측한 게이트 산출 | **typecheck 3구성 exit 0 · 진단 출력 0줄** / **vitest 278파일 2790케이스 green**(3회 실행 중 2회에서 같은 2케이스가 red — 아래 분리) / **scripts 61 pass 0 fail(8 suites)** / **doc-inventory `generated ok (9 items, 80 channels)` · `prose ok` · `links ok`** / **lint 0 error · 1 warning**(기존분 `useTranscriptVirtualizer.ts:22`) |
+| 환경 기인 분리 | **워크트리에 `node_modules` 가 없었다** — plan §19 가 "이 워크트리는 설치 완료" 라 적었으나 그것은 다른 워크트리다. `npm ci` exit 0 으로 선행 조건을 만들었다. **전체 스위트 flaky 2케이스**: `features/worktrees/safe-delete.test.ts`(`Test timed out in 5000ms` + `EBUSY: rmdir`) · `infra/git/mutation-queue.test.ts`. plan §7-A 의 *알려진 기준선*과 실패 서명이 같고, 두 스위트를 따로 돌리면 **12파일 63케이스 green**(기본 5,000ms·`--testTimeout=60000` 양쪽). 이번 변경은 두 파일을 건드리지 않는다(diff 3파일 전부 0212 범위) |
+| V-pair 자기확인 | REQUIRED 17 + REGRESSION 5 = **22 전건 SELF_PASS**, SELF_BLOCKED 0. r1 의 root `PAIR_FAIL` 3건(VP-08·VP-13·VP-17)이 이번 라운드 대상이다 |
+| 강제 지점 전수 | 이번 라운드가 연 것 — EP-11 **2/2** · EP-06·EP-07 **2/2** · EP-14 **2/2** · EP-15 **3/3**. 나머지 EP 는 r1 잠금 유지(프로덕션 diff 0) |
+| AC 자기보고 | **✅27 · ⚠️0 · ❌0.** r1 검증자 재측정 ✅22 를 상속하고 **AC14(❌→✅) · AC15(⚠️→✅) · AC22(❌→✅) · AC25(❌→✅)** 를 닫았으며 **AC27(ΔV1 신설)** 을 렌더 2케이스 + MV-6 로 확인했다 |
+| 합계 검산 | ✅27 · ⚠️0 · ❌0 = **총 27** ✅ (분모 = §7 AC1~AC27). **r1 의 26 과 직접 비교하지 않는다** — ΔV1 이 AC27 을 더해 분모가 26→27 로 바뀌었다(§7 주의사항). 상속 22 + 닫은 4 + 신설 1 = 27 ✅ |
+| 파생 이슈 처리(자기보고) | **D1·D2·D3 닫음** — 각 이슈가 인용한 변이(MV-1·MV-2 / MV-3 / MV-4·MV-5)가 이제 전부 RED 다. **D6·D7 닫음** — P8 에 정정값. **D4·D5·D10 은 이미 closed**. **D8·D9 는 open 유지** — plan §11 의 r2 범위 4행 밖이고 둘 다 NON_BLOCKING 이다 |
+| 블로커 / 역질문 | **없다.** P7(store→View prop 홉 4건 무잠금)은 관측 지점을 넓힐지가 규범 판단이라 보고만 한다 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] r2 — Review Signals — 사실만
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **그렇다 — r1 이 연 축을 그대로 닫았다.** 불변식 한 문장은 **"값이 프로덕션 경로를 타고 도착한다는 주장은, 그 경로의 마지막 배선을 지웠을 때 red 가 되는 단언이 있어야 참이다."** 세 지점(VP-08·VP-13·VP-17)을 닫고, 같은 문장이 성립해야 할 자리를 전수로 훑어 **§10 등록 범위 안에서는 잔여 0**, 범위 밖에서 **4건**(P7)을 찾았다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **ΔV1 이 이미 만들었다** — AC14·15·22·25 의 `검증 수단` 칸에 관측 지점이 박혀 있어 이번 라운드는 그 문장을 그대로 코드로 옮겼다. r1 이 못 걸린 이유는 `production path` 와 `oracle` 이 따로 적혀 oracle 이 path 의 어디에 있어도 참이었기 때문이다(ΔV1 §7 주의사항이 그렇게 적는다).
+- 반복해서 부딪히는 환경 한계: ① **워크트리마다 `node_modules` 를 새로 설치해야 한다** — plan 이 "설치 완료" 라 적어도 그것은 그 워크트리의 사실이다. ② `.bin/vitest` shim 이 Win32 실행 파일이 아니라 `node node_modules/vitest/vitest.mjs` 로 부른다(r1 과 같은 한계). ③ 전체 스위트를 `| tail` 로 자르면 실패 **이름**이 사라진다 — 1차 실행에서 2 failed 를 얻고도 무엇인지 몰라 3차 실행으로 다시 잡았다.
+- 현재 라운드 수: **2**
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 > r1 검증 = **FAIL + PLAN_GAP**. 판정 원문과 관측은 [`verify.md`](verify.md) — 아래는 이관 표다.
