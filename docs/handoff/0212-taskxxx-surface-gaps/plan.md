@@ -209,7 +209,8 @@
 
 ### AC 검증 주의사항
 
-- 기존 테스트 재사용: AT-17 은 `src/main/features/chat/stop-subagent` 경로의 기존 스위트를 회귀로 쓴다 — **케이스 존재를 구현 턴에 확인하고 없으면 신설**한다(파일명을 계약으로 만들지 않는다).
+- 기존 테스트 재사용: AT-17 의 회귀 대상은 **행동 단언으로 확정했다** — "확정이 오지 않으면 합성 정착으로 마감한다"(watchdog 발화)와 그 양성 짝 "확정이 오면 watchdog 은 발화하지 않는다". 현재 두 단언은 `src/main/features/chat/stop-subagent.test.ts`(9케이스)에 있고 **정식화 턴에 케이스명까지 확인했다**. 파일명은 계약이 아니다 — 구현자가 옮기면 같은 두 단언이 어디 있든 회귀가 성립한다.
+- R-92(중단 실패 복구, VP-19)의 회귀 대상도 같다 — "채널이 죽었으면 throw 하고 중단 표식을 되돌린다" + "`stopTask` 가 거절하면 그대로 전파한다 — 삼키지 않는다". 같은 스위트에 실존한다.
 - 사람 실기 항목: **없음.** 안내 문구·라벨·버튼 유무는 전부 렌더 테스트로 관측 가능하다. 시각 실기가 필요한 신규 레이아웃이 없다(기존 행·빈 상태의 문구만 바뀐다).
 - N회/총량 기준: **없음.** 이번 AC 에 호출 횟수·총량 식이 없다.
 - 총량/0건 기준: **없음.** 음성 게이트를 AC 로 쓰지 않는다 — AT-03·AT-11·AT-12·AT-15·AT-24 는 "부재"를 단언하지만 각각 **같은 pair 안에 양성 짝**(AT-02·AT-10·AT-10·AT-14·AT-23)이 있어 장치가 침묵으로 통과하지 않는다. AT-24 는 부재 단언 안에 **양성 항도 함께** 든다(전환 버튼 부재 + 중단 버튼 존재) — 행 전체가 안 그려져도 실패한다.
@@ -281,13 +282,22 @@
 
 | Gate | 이번 변경 산출물에 적용되는 이유 | 증거 / 명령 | 실패 범위 |
 |---|---|---|---|
-| **선행 조건 — 의존성 설치** | 이 워크트리에 `app/node_modules` 가 없어(§8) 아래 명령이 하나도 실행되지 않는다 | `cd app && npm ci` | 미설치는 게이트 미실행 — 구현 턴의 첫 단계다 |
+| **선행 조건 — 의존성 설치** | 워크트리는 `node_modules` 를 물려받지 않는다 — 없으면 아래 게이트가 하나도 실행되지 않는다 | `cd app && npm ci`. **이 워크트리는 2026-09-01 설치 완료** — SDK `0.3.220` 이 `package.json:34` 고정값과 일치 | 미설치는 게이트 미실행 |
 | subtree — `app/**` 정적 | `app/src/{main,renderer,shared}` 를 바꾼다 | `npm run lint && npm run typecheck` | 이번 변경이 낸 error 만 blocking |
 | subtree — 관련 스위트 | 파서·fold·렌더·tracker 가 바뀐다 | `./node_modules/.bin/vitest run src/shared/task-tool.test.ts src/renderer/src/features/chat src/main/adapters src/main/features/chat` | 이번 변경이 깬 케이스만 blocking |
 | repository — 문서 인벤토리 | **추적 항목 둘이 늘어난다** — `subagent.backgroundSet`(NormalizedEvent variant) · `chatBackgroundSubagent`(IPC 채널·핸들러). 셋 다 `check-doc-inventory.mjs` 대상이다 | `node scripts/check-doc-inventory.mjs` 로 재생성 후 `--check` 통과 | 재생성 누락은 blocking |
 | repository — IPC 계약 | `session.updated.patch` 확장 + 신규 variant + **신규 채널 1개** | `docs/IPC_CONTRACT.md` 를 같은 커밋에서 갱신 (`docs/AGENTS.md §작성규칙 6`) | 미갱신은 blocking |
 
-> **알려진 기준선 후보(이번 변경과 무관 — blocking 아님)**: 전체 `vitest run` 시 `src/main/infra/git`·`src/main/features/worktrees` 에서 5,000ms 기본 타임아웃 실패가 난다 — 단언 실패 0건, `--testTimeout=60000` 재실행 시 전건 통과. **이 관측은 자매 브랜치(0211 작업본)에서 나왔고 이 베이스에서는 재측정하지 못했다** — `app/node_modules` 가 없어 실행 자체가 불가다(§8). 두 디렉토리는 이 베이스에도 존재하므로 같은 증상이 예상되지만, **구현 턴이 첫 게이트에서 직접 확인해 기준선으로 확정한다.** 이번 변경은 이 파일들을 건드리지 않는다.
+> **알려진 기준선(이번 변경과 무관 — blocking 아님) — 이 베이스에서 실측 확정, 2026-09-01.** `vitest run src/main/infra/git src/main/features/worktrees` 는 **12파일 63케이스**이고 기본 5,000ms 에서 **flaky** 하다 — 두 번 돌려 `3파일 10케이스` / `6파일 24케이스` 로 결과가 달랐다. 실패는 두 형태뿐이고 **단언 실패는 0건**이다: `timed out in 5000ms` **20건** + `EBUSY: rmdir` **17건**(`afterEach` 의 `rmSync` 가 아직 도는 git 프로세스와 경합한다 — 타임아웃의 2차 효과다). `--testTimeout=60000` 으로 재실행하면 **12파일 63케이스 전건 통과, 실패 0**. 이번 변경은 이 파일들을 건드리지 않는다.
+
+> **변경 전 초록 기준선 (정식화 턴 실측, 2026-09-01)** — 구현 턴이 "내가 깬 것"과 "원래 그랬던 것"을 가르는 분모다.
+>
+> | 게이트 | 결과 |
+> |---|---|
+> | `npm run typecheck` (node·web·test 3구성) | **exit 0 · 출력 0줄** |
+> | `npm run lint` | **0 error / 1 warning** — 기존분이다(`useTranscriptVirtualizer.ts:22` React Compiler `incompatible-library`). 트리 쓰기 0 |
+> | 이번 변경의 대상 스위트 (`task-tool` · `renderer/features/chat` · `main/adapters` · `main/features/chat`) | **103파일 1054케이스 전건 green** |
+> | `node scripts/check-doc-inventory.mjs --check` | **exit 0** — 현재 인벤토리가 코드와 동기 상태다 |
 
 ---
 
@@ -313,7 +323,7 @@
 | **`SessionRuntime.backgroundTask` 는 소비자가 0인 죽은 표면이다** — 상위 진입점이 있는데 IPC 핸들러가 없다 | `app/src/main/features/sessions/session-runtime.ts:651` + 전수 조사 |
 | `RISKY_TOOLS` 는 상태 변경 도구 5종만 담는다 — Task 도구는 승인 게이트를 지나지 않는다 | `app/src/main/adapters/risky-tools.ts` |
 | **`TASK_TOOL_NAMES` 는 6종이다** — 할 일 목록 4종 + `TaskOutput`·`TaskStop`. 후자는 구조화 출력이 없고 파일 헤더가 "관측 대상이 아니다"(0204 D-010)로 못박는다 | `app/src/shared/task-tool.ts:16-27` 주석 + 배열 |
-| 이 워크트리에 **`app/node_modules` 가 없다** — 어떤 게이트도 여기서 실행할 수 없다 | `ls app/node_modules` → 부재 (2026-09-01) |
+| 워크트리의 `app/node_modules` 는 설치해야 생긴다 — 설치 후 SDK 실측이 가능해졌다 | `npm ci` 후 `node_modules/@anthropic-ai/claude-agent-sdk` = `0.3.220` (2026-09-01) |
 | 외부 SDK 표면 정본 | [`docs/claude-taskxxx-spec.md`](../../claude-taskxxx-spec.md) §2·§4·§5·§6 |
 
 ### 전수 조사
@@ -338,8 +348,8 @@
 - 재측정 수치: SDK 표면 46개 = 할 일 목록 26 + background 15 + 교차 5. 내역 합 = 총계 ✅.
 - "유일한/항상/절대" 반례 검색: 본문에 전칭 표현 **0건** — `단일 소유`(§8 표)는 비테스트 참조 N=1 로 뒷받침된다(테스트 3건은 같은 파일의 스위트).
 - 문서 앵커 존재 확인: `docs/claude-taskxxx-spec.md` §2.1·§2.2·§2.4·§2.5·§4.4·§4.5·§6 — 이번 턴에 함께 작성해 전부 존재한다. `docs/AGENTS.md §작성규칙 6·7` 존재 확인 ✅.
-- 기존 테스트 케이스 존재 확인: `taskBoard.test.ts` 의 `AT-10a`·`AT-34` 케이스명 실존 ✅ (`rg "AT-10a\|AT-34"` → 4건). `stop-subagent` 는 **케이스명을 이번 턴에 확인하지 않았다** — AT-17 의 회귀 대상 확정은 구현 턴 몫이다(§7 주의사항).
-- 결손 재현: SDK 타입으로 선언한 페이로드를 `readTaskToolObservation` 에 통과시키는 프로브로 `activeForm` 드롭 · `addBlocks` 드롭 · `error` 소실 · `task_id` 별칭 구제를 재현했다(2026-09-01, 프로브는 확인 후 삭제).
+- 기존 테스트 케이스 존재 확인: `taskBoard.test.ts` 의 `AT-10a`·`AT-34` 케이스명 실존 ✅ (`rg "AT-10a\|AT-34"` → 4건). `stop-subagent.test.ts` **9케이스 전량 열거 확인** ✅ — AT-17 은 "확정이 없으면 합성 정착으로 마감한다"·"확정이 오면 watchdog 은 발화하지 않는다", R-92 는 "채널이 죽었으면 throw 하고 중단 표식을 되돌린다"·"`stopTask` 가 거절하면 그대로 전파한다" 에 귀속한다(§7 주의사항).
+- 결손 재현 — **이 베이스에서 재확인 (4/4 green)**: SDK 타입 페이로드로 ① `TaskCreate.activeForm` 이 관측에 남지 않는다 ② `addBlocks` 만 든 `TaskUpdate` 는 patch 가 비어 **`null`** 로 떨어진다 ③ 실패 갱신의 `error` 문구가 관측에 남지 않는다 ④ `in_progress` 갱신에서도 `activeForm` 이 사라진다. 프로브는 확인 후 삭제했다(트리 변화 0).
 - **정식화 턴 SDK 표면 재실측** (`node_modules/@anthropic-ai/claude-agent-sdk` **0.3.220**, `package.json:34` 고정값과 일치): `TaskCreateInput.activeForm?`(`sdk-tools.d.ts:2495`) · `TaskUpdateInput.{activeForm?,addBlocks?,addBlockedBy?,owner?,metadata?}` 및 `status` 의 `"deleted"`(`:2509-2547`) · `TaskUpdateOutput.{success,taskId,updatedFields,error?,statusChange?}`(`:3618-3623`) · `SDKTaskUpdatedMessage.patch.status` 의 `killed`·`paused` 와 `{description?,end_time?,total_paused_ms?,error?,is_backgrounded?}`(`sdk.d.ts:4522-4536`) · `SDKBackgroundTasksChangedMessage.tasks[]`(`:2913-2926`) · `Query.{stopTask(taskId),backgroundTasks(toolUseId?),interrupt()}` **3종이 전부**(`:2562`·`:2575`·`:2293`). 여섯 표면 전부 존재 ✅.
 - **`init.tools` 는 타입상 required 다** — `SDKSystemMessage.tools: string[]`(`sdk.d.ts:4420`), `claude_code_version: string`(`:4418`), `capabilities?: string[]`(`:4450`). 따라서 AC3 의 `tools` 부재 분기는 **타입이 아니라 실행 현실**(CLI 가 사용자 설치본이라는 spec §6)이 여는 방어 분기다 — spec 준수 CLI 로는 도달하지 않는다.
 - **좌표 재측정 (베이스 차이)**: 초안은 0211 작업 브랜치에서 작성됐다. 이 베이스에서 다시 세어 `ipc.ts:447→443-445`(0211 주석 부재) · `ipc.ts:552→539` · `parts.ts:153→151` · `chat-turn/index.ts:66→62` · `stop-subagent.ts:78-84→82-86` 을 정정하고, `session.updated.patch` 를 **3필드→2필드**로 고쳤다. 일치한 좌표: `claude-map.ts:54`·`:177` · `types.ts:46` · `session-runtime.ts:651` · `TaskTileContent.tsx:182,289` · `SubAgentTileContent.tsx:258` · `registry.ts:64,79` · `check-doc-inventory.mjs:28` · `app/AGENTS.md:124,127` · `taskBoard.test.ts` AT-10a·AT-34.
@@ -533,7 +543,7 @@ SDK(producer) → claude-map(정규화) → bus → coordinator/tracker(상태) 
 
 - 외부/배포가 구현할 port/schema/config: **없음.**
 - 구현 문서: [`docs/claude-taskxxx-spec.md`](../../claude-taskxxx-spec.md) 는 외부 계약의 *해설 미러* 이지 외부 구현자용 포트가 아니다.
-- **shape 검증**: spec §2·§4 의 필드 표가 설치본 `.d.ts` 와 일치하는지 — 구현 턴에 SDK 타입으로 선언한 페이로드를 파서에 대입해 `tsc` 를 통과시킨다(이번 세션 프로브와 같은 방법).
+- **shape 검증 — 정식화 턴에 완료.** `TaskCreateInput`·`TaskUpdateInput`·`TaskUpdateOutput` 으로 선언한 페이로드(`activeForm`·`addBlocks`·`error`·`statusChange` 포함)를 `readTaskToolObservation` 에 대입해 `tsc`·vitest 를 통과시켰다 — **4/4 green**, 프로브는 확인 후 삭제했다. 구현 턴은 같은 페이로드를 정식 케이스로 승격하면 된다.
 - **semantics 검증**: `undefined` vs `[]` vs `false` 의미(§10)를 AC3·AC11·AC15 가 각각 잠근다.
 
 ## 16. 기존 결정·규칙과의 관계
@@ -589,7 +599,7 @@ SDK(producer) → claude-map(정규화) → bus → coordinator/tracker(상태) 
 
 - 적용할 하위 가이드: [`app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드`](../../../app/AGENTS.md) · [`app/src/main/AGENTS.md`](../../../app/src/main/AGENTS.md)(레이어 DAG) · [`app/src/renderer/AGENTS.md`](../../../app/src/renderer/AGENTS.md)(4-layer 의존 방향)
 - ABI/네트워크 등 환경 제약: DB 스위트를 건드리지 않으므로 `npm test` 를 쓰지 않는다 — ABI 를 뒤집을 이유가 없다.
-- **선행: `cd app && npm ci`** — 이 워크트리에 `node_modules` 가 없다(§8).
+- **선행: `cd app && npm ci`** — 워크트리는 `node_modules` 를 물려받지 않는다. **이 워크트리는 설치 완료**(2026-09-01)이고 변경 전 초록 기준선은 §7-A 에 있다.
 - 기본 정적 게이트: `npm run lint && npm run typecheck`
 - 관련 테스트: `./node_modules/.bin/vitest run src/shared/task-tool.test.ts src/renderer/src/features/chat src/main/adapters src/main/features/chat src/main/app`
 - IPC 배선 위생: `app/src/main/AGENTS.md` 의 레이어 DAG 를 지킨다 — 신규 핸들러는 `app/handlers/` 에 두고 feature 교차 import 를 만들지 않는다(eslint-plugin-boundaries 강제)
@@ -606,7 +616,9 @@ SDK(producer) → claude-map(정규화) → bus → coordinator/tracker(상태) 
 - [x] AS-IS 와 TO-BE 가 모두 있고 같은 축/구체성이다 — §9 두 블록이 같은 파이프라인 표기를 쓴다.
 - [x] Delta 각 변경이 구현 파일 또는 AC 에 추적 가능하다 — §9 Delta 8행 전부 `V / 구현·검증 연결` 칸을 가진다.
 - [x] AS-IS 에서 사라진 책임 없음 — 순수 확장이라 삭제/이동 0건(§9 TO-BE 명시).
-- [x] 수치·전칭·외부 규약·앵커·기존 테스트 인용을 실측했다 — §8 검산 절. **정식화 턴에 이 베이스에서 전부 재측정**했다(SDK 0.3.220 표면 여섯 · 좌표 5건 정정 · patch 필드 수 정정). **단 `stop-subagent` 케이스명은 미확인**이고 그 사실을 명시했다.
+- [x] 수치·전칭·외부 규약·앵커·기존 테스트 인용을 실측했다 — §8 검산 절. **정식화 턴에 이 베이스에서 전부 재측정**했다(SDK 0.3.220 표면 여섯 · 좌표 5건 정정 · patch 필드 수 정정 · `stop-subagent.test.ts` 9케이스 열거). 미확인 인용 **0건**.
+- [x] **인용한 게이트를 직접 돌렸다** — typecheck 3구성 exit 0 · lint 0 error/1 warning(기존분) · 대상 스위트 103파일 1054케이스 green · doc-inventory `--check` exit 0 · 알려진 기준선의 flaky 성질과 두 실패 형태를 실측 확정. 인용만 한 게이트는 없다(§7-A).
+- [x] **결손을 프로덕션 코드에서 재현했다** — SDK 타입 페이로드 프로브 4/4 green 으로 네 결손을 관측하고 삭제했다(§8 · §15). AC 가 겨냥하는 실패가 실제로 존재한다.
 - [x] **베이스가 초안 작성 브랜치와 다르다는 사실을 규범에 반영했다** — 메타 `기준 브랜치` 행 · §8 좌표 재측정 · §7-A 기준선 후보의 미측정 표기 · §17 의 0211 충돌 행.
 - [x] **같은 사실을 여러 절이 서술하는 곳을 대조했다** — §4 "새 IPC 채널 0개" ↔ AR-04·§10 EP-14·§11 의 신규 채널 1개가 **정면 모순**이라 §4 를 정정했다(초안이 제어 축 반환 전 문장을 남겼다). R-06 "4종" ↔ EP-11 "`TASK_TOOL_NAMES` 재사용"(6종) 모순은 D-025 로 닫았다.
 - [x] 각 AC 가 행동 단언·검증 수단·프로덕션 도달 경로를 가진다 — §7 표 3개 칸.
