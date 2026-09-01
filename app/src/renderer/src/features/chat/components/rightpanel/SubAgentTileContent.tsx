@@ -10,16 +10,25 @@ import {
   type SubagentTaskStatus,
   type SubagentTaskSummary
 } from '../../lib/parts'
-import { backgroundBoardStatus, canStopBackgroundStatus } from '../../lib/taskBoard'
+import {
+  backgroundBoardStatus,
+  canBackgroundStatus,
+  canStopBackgroundStatus
+} from '../../lib/taskBoard'
 import { formatDurationLabel, formatTokenLabel, META_GAP } from '../../lib/toolMeta'
 import { formatTimeFull, formatTimeShort, useI18n, type MessageKey } from '../../../../shared/i18n'
 import {
   chatActions,
+  useBackgroundedTasks,
   useChatSession,
+  usePausedTasks,
   useStoppingTasks,
   useSubagentMeta
 } from '../../store/chatStore'
 import type { Message, ToolCall } from '../../reducer/chatReducer'
+
+// 기본 인자용 불변 빈 집합 — 매 렌더 새 Set 이면 하위 메모가 죽는다.
+const EMPTY_IDS: ReadonlySet<string> = new Set()
 
 // 상태 라벨 키 — 렌더에서 tr() 해석(0096 stale-방지 패턴).
 const STATUS_KEY: Record<SubagentTaskStatus, MessageKey> = {
@@ -95,6 +104,10 @@ export function SubAgentTileContent(): React.JSX.Element {
   const selectedId = useChatSession((s) => s.selectedSubagentTaskId)
   // 중단 요청을 보내고 SDK 확정을 기다리는 집합(D-005). 표시에만 쓰고 상태를 확정하지 않는다.
   const stopping = useStoppingTasks()
+  // 두 타일이 같은 라이브 표식을 본다(0212 §10 EP-10·EP-12) — 한쪽만 인자를 늘리면 같은 항목이
+  // 화면마다 다른 상태·다른 제어를 갖는다.
+  const paused = usePausedTasks()
+  const backgrounded = useBackgroundedTasks()
   // O(전체 parts) 파생이라 메모 — StatusLine 1s 틱 등 무관 재렌더마다 재계산하지 않는다.
   const tasks = useMemo(() => subagentTasksFromMessages(messages), [messages])
   const selected = selectedId ? tasks.find((task) => task.toolUseId === selectedId) : undefined
@@ -113,7 +126,14 @@ export function SubAgentTileContent(): React.JSX.Element {
     )
   }
 
-  return <SubAgentTaskList tasks={tasks} stoppingIds={stopping} />
+  return (
+    <SubAgentTaskList
+      tasks={tasks}
+      stoppingIds={stopping}
+      pausedIds={paused}
+      backgroundedIds={backgrounded}
+    />
+  )
 }
 
 // 상세 — Task 프롬프트(요청사항)는 사용자 메시지 버블처럼 우측 정렬, 그 아래 child
@@ -170,10 +190,16 @@ export function SubAgentTaskDetail({
 // **props 만 읽는 순수 View** — 위와 같은 이유.
 export function SubAgentTaskList({
   tasks,
-  stoppingIds: stopping
+  stoppingIds: stopping,
+  pausedIds: paused = EMPTY_IDS,
+  backgroundedIds: backgrounded = EMPTY_IDS
 }: {
   tasks: SubagentTaskSummary[]
   stoppingIds: ReadonlySet<string>
+  // 0212 — SDK 가 `paused` 로 말한 집합 / 이미(또는 전환 중) background 인 집합. 기본값을 둬서
+  // 기존 렌더 테스트가 인자를 늘리지 않고도 그대로 돈다.
+  pausedIds?: ReadonlySet<string>
+  backgroundedIds?: ReadonlySet<string>
 }): React.JSX.Element {
   const { tr, locale } = useI18n()
   if (tasks.length === 0) {
@@ -205,7 +231,12 @@ export function SubAgentTaskList({
               const open = (): void => chatActions.selectSubagentTask(task.toolUseId)
               // 중단 대기 → 표시 상태의 규칙은 `taskBoard` 가 소유한다(plan §3 갱신메모) —
               // 두 타일이 같은 수명주기를 각자의 인라인 조건으로 쓰면 한쪽만 따라간다.
-              const boardStatus = backgroundBoardStatus(task.status, task.toolUseId, stopping)
+              const boardStatus = backgroundBoardStatus(
+                task.status,
+                task.toolUseId,
+                stopping,
+                paused
+              )
               return (
                 // 카드 전체가 대화록 열기 트리거. 내부에 중단 버튼(중첩 버튼 불가)을 두기 위해
                 // <button> 대신 role="button" div 로 두고 키보드 동작을 유지한다.
@@ -235,7 +266,9 @@ export function SubAgentTaskList({
                     {`${tr('chat.toolMeta.agentFallback')}${META_GAP}${
                       boardStatus === 'stopping'
                         ? tr('chat.subagentTile.status.stopping')
-                        : tr(STATUS_KEY[task.status])
+                        : boardStatus === 'paused'
+                          ? tr('chat.subagentTile.status.paused')
+                          : tr(STATUS_KEY[task.status])
                     }`}
                     {formatDurationLabel(tr, task.durationMs)
                       ? `${META_GAP}${formatDurationLabel(tr, task.durationMs)}`
@@ -255,6 +288,28 @@ export function SubAgentTaskList({
                         {tr('chat.subagentTile.viewTranscript')}
                       </span>
                     </span>
+                    {canBackgroundStatus(
+                      boardStatus,
+                      task.asyncLaunched || backgrounded.has(task.toolUseId)
+                    ) && (
+                      // foreground → background 전환(0212 R-07) — 중단과 같은 자리에 나란히
+                      // 붙는다. `작업` 타일과 **같은 술어**를 쓴다(§10 EP-12).
+                      <Button
+                        iconOnly
+                        variant="uncontained"
+                        size="small"
+                        leadingIcon="arrowR"
+                        aria-label={tr('chat.taskTile.toBackgroundAria', {
+                          description: task.description
+                        })}
+                        title={tr('chat.taskTile.toBackgroundTitle')}
+                        className="ml-g2 shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          chatActions.backgroundTask(task.toolUseId)
+                        }}
+                      />
+                    )}
                     {canStopBackgroundStatus(boardStatus) && (
                       // 진행 중 서브에이전트 중단 — 네모·라운드·채움없음(stop 아이콘). 카드 열기와
                       // 버블링 분리(stopPropagation). turn 전체가 아니라 이 Task 만 멈춘다.

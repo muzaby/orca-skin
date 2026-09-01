@@ -14,6 +14,11 @@ export const CHANNELS = {
   chatEvent: 'orca:chat:event',
   chatCancel: 'orca:chat:cancel',
   chatStopSubagent: 'orca:chat:stopSubagent',
+  // 서브에이전트(Task) 단위 foreground → background 전환(0212 R-07). 중단과 다른 축이다 —
+  // 중단은 일을 없애고 이것은 **기다림만** 없앤다(turn 이 계속되고 태스크는 그대로 돈다).
+  // SDK `backgroundTasks(tool_use_id)` 로 내려가며, 인자 없는 전량 전환은 Bash 까지 옮기므로
+  // 채널에 담지 않는다(0212 D-020).
+  chatBackgroundSubagent: 'orca:chat:backgroundSubagent',
   // 세션 전체 중단(0151 r2) — Stop 이후에도 CLI 큐에 살아남은 우리 예약을 없애는 유일한 수단.
   // 공개 SDK 에 provider 큐 개별 취소가 없으므로 런타임(서브프로세스)을 폐기해 큐를 통째로
   // 소멸시킨다. 백그라운드 서브에이전트도 함께 죽으므로 **사용자가 명시적으로 고를 때만** 쓴다.
@@ -442,7 +447,12 @@ export type NormalizedEvent =
   | {
       type: 'session.updated'
       sessionId: string
-      patch: { model?: string; cwd?: string }
+      // 새 variant 를 만들지 않고 같은 patch 에 optional 로 얹는다 — **누락 = 무변경**이고
+      // 소비자(reducer)는 있는 키만 병합한다(0212 §10 EP-02).
+      //   agentTools  SDK init 의 `tools` 전량. **부재(undefined)와 빈/미포함은 다른 사실**이다 —
+      //               부재는 "판정 불가" 라 기능 안내를 띄우지 않는다(0212 D-005 · EP-01).
+      //   cliVersion  init 의 `claude_code_version`. 안내 문구가 실제 버전을 말하게 한다.
+      patch: { model?: string; cwd?: string; agentTools?: string[]; cliVersion?: string }
     }
   | { type: 'message.delta'; sessionId: string; delta: { text: string } }
   // pending message queue 간접 관찰 3종(0067 — 구 steer.* 일반화). 모든 사용자 프롬프트가
@@ -543,7 +553,9 @@ export type NormalizedEvent =
       sessionId: string
       // 부모 Agent(Task) 도구 호출 id (= child 들의 parentToolRunId). 표시·중단 키.
       toolUseId: string
-      phase: 'started' | 'progress' | 'settled'
+      // 'updated' 는 SDK `task_updated` 델타 패치(0212 AR-03) — 정착이 아니다. `paused` 처럼
+      // transcript 에 흔적이 없는 라이브 상태만 나른다.
+      phase: 'started' | 'progress' | 'settled' | 'updated'
       // SDK task_id — stopTask(taskId) 대상. started/progress/settled 에서 실린다.
       taskId?: string
       subagentType?: string
@@ -555,10 +567,34 @@ export type NormalizedEvent =
       lastToolName?: string
       status?: 'completed' | 'failed' | 'stopped'
       summary?: string
+      // 'updated' 한정(0212) — SDK task_updated 의 wire-safe 패치. **누락 = 무변경**이다.
+      //   runState       `paused` 는 살아 있는 일시정지(정착 아님), `killed` 는 `stopped` 와 동형으로
+      //                  접혀 `phase:'settled'` 로 온다 — 여기 오는 값은 정착이 아닌 것만이다.
+      //   isBackgrounded foreground → background 전환 확정(`false` = foreground 복귀).
+      //
+      // `patch.error` 는 여기 싣지 않는다 — 사용자에게 닿는 경로가 **정착 사유** 하나이고
+      // (`killed` 와 함께 오면 `summary` 로 실린다), 라이브 표시에는 소비처가 없다. 소비처 없는
+      // 필드를 계약에 두면 계약처럼 보이는 죽은 표면이 된다(`task-tool.ts` 헤더 규칙 · 0204).
+      runState?: 'running' | 'paused'
+      isBackgrounded?: boolean
       // settled 한정(0143) — main 권위 게이팅: async_launched 런치 영수증이 관측된(=실제로
       // 백그라운드로 돈) 태스크의 정착에만 true. renderer 완료 통지(subagent_notice 파트 커밋)와
       // history writer 영속의 유일한 신호 — renderer 는 스스로 background 를 추론하지 않는다.
       background?: boolean
+    }
+  // SDK `background_tasks_changed` 정규화(0212 AR-02) — **레벨 신호**다. edge(started/settled)
+  // 와 짝지어 읽지 않고 **매 payload 로 집합을 교체**한다: 놓친 bookend 가 "실행 중" 표시를
+  // 영구 고착시키지 못하게 하는 것이 이 신호의 존재 이유다(SDK 주석).
+  //
+  // 세 제약이 함께 온다. ① payload 는 `task_id` 만 싣고 Orca 의 표시·중단 키는 `tool_use_id` 라
+  // **매핑된 것만** 실어 보낸다(EP-06 — 매핑 없는 항목은 애초에 추적 대상이 아니다). ② 프로세스
+  // 단위 레벨이라 **시작 시점에는 아무것도 오지 않는다** → 첫 payload 는 기준선일 뿐 아무것도
+  // 정착시키지 않는다(EP-07). ③ edge 와의 순서가 미정의라 상관시키지 않는다.
+  | {
+      type: 'subagent.backgroundSet'
+      sessionId: string
+      // 변화 후 살아 있는 background 태스크 전량 중 `task_id → tool_use_id` 매핑이 있는 것.
+      toolUseIds: string[]
     }
   | {
       type: 'telemetry'

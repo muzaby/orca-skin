@@ -74,6 +74,23 @@ export async function settleTrackedTasks<W>(
 ): Promise<void> {
   const ids = [...tracker.ids(sessionId)]
   if (ids.length === 0) return
+  await settleTaskSubset(turn, emit, sessionId, tracker, ids, opts)
+  tracker.clear(sessionId)
+}
+
+/**
+ * 추적 중인 태스크 **일부**를 정착시킨다 — 나머지 추적은 그대로 남는다(0212 R-04 레벨 REPLACE).
+ * 전량 정착(`settleTrackedTasks`)과 방출 순서·쌍을 공유해야 두 경로가 갈라지지 않으므로 같은
+ * 루프를 쓴다. 차이는 마감 범위뿐이다 — 여기서는 `clear` 대신 id 별 `settled` 를 부른다.
+ */
+export async function settleTaskSubset<W>(
+  turn: TurnContext<W>,
+  emit: TurnEmit<W>,
+  sessionId: string,
+  tracker: SubsetSettleSource,
+  ids: readonly string[],
+  opts: { status: 'failed' | 'stopped'; summary: string; stopLive: boolean }
+): Promise<void> {
   for (const toolUseId of ids) {
     if (opts.stopLive) {
       await stopLiveSubagent(
@@ -95,14 +112,20 @@ export async function settleTrackedTasks<W>(
     } as const
     settleSubagentTask(turn, emit, settled)
     emit(turn, settled)
+    tracker.settled(sessionId, toolUseId)
   }
-  tracker.clear(sessionId)
 }
 
-// settleTrackedTasks 가 트래커에게 요구하는 최소 표면(구조적 포트 — 구현은 BackgroundTaskTracker).
-interface BackgroundTaskSettleSource {
-  ids(sessionId: string): ReadonlySet<string>
+// 부분집합 정착이 트래커에게 요구하는 최소 표면. 대상 id 를 호출부가 주므로 `ids`/`clear` 는
+// 필요 없다 — coordinator 의 `BackgroundTaskPort` 가 그대로 만족한다(구조적 포트).
+interface SubsetSettleSource {
   isAsyncLaunched(sessionId: string, toolUseId: string): boolean
+  settled(sessionId: string, toolUseId: string): void
+}
+
+// 전량 정착이 요구하는 표면(구현은 BackgroundTaskTracker).
+interface BackgroundTaskSettleSource extends SubsetSettleSource {
+  ids(sessionId: string): ReadonlySet<string>
   clear(sessionId: string): void
 }
 
