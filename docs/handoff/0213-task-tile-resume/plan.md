@@ -759,12 +759,17 @@ r1 표의 AC1~AC11·AC13~AC21 은 프로덕션 무변경이라 같은 케이스�
 
 ## [검증자 기입] 파생 이슈
 
-> r1 검증 판정 원문은 [`verify.md`](verify.md). 아래는 그 §13 의 이관본이다.
+> 판정 원문은 [`verify.md`](verify.md) — r1 은 §13, r2 는 §Verify r2 §13 이다. 아래는 그 이관본이다.
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | AC12 의 부재 방향이 잠기지 않는다 — `blockedRowText` 의 `blockedBy.length === 0` 가드를 지우면 미막힘 행마다 `# 완료 필요` 가 뜨는데 2997케이스 전건 green 이다 | `VP-06` · AC12 | 카운트 술어를 문구 전체로 넓히거나 미막힘 행의 둘째 줄 부재를 직접 단언한다. 검증자 실측 — `/완료 필요/g` 로 넓히면 그 변이가 red 다 | **BLOCKING** (`PAIR_FAIL`) | **closed (r2)** — 인용 변이 `blockedBy.length === 0` 가드 제거가 **2 red**(AT-11·12 · AT-13). 형제 축 `completed` 가드 제거도 **1 red** |
-| D2 | VP-08 path 의 마지막 홉(`→ 카드`)이 잠기지 않는다 — 래퍼가 `agentTools`·`cliVersion` 을 안 넘기면 안내가 프로덕션에서 영영 안 뜨는데 typecheck 0 · lint 0 · 2997 전건 green 이다 | `VP-08` · §12 producer→consumer | `vi.mock('../../store/chatStore')` 로 `TaskTileContent` 를 시드 렌더해 props 통과를 단언한다(선례 `ChatTitleBar.render.test.ts`) | **BLOCKING** (`PAIR_FAIL`) | **closed (r2)** — 인용 변이 `agentTools`·`cliVersion` 미전달이 **1 red**. 같은 불변식을 props **4개 전수**로 넓혀 `items`·`stopErrors`·`agentTools` 단독·`cliVersion` 단독도 각각 red |
+| D1 | AC12 의 부재 방향이 잠기지 않는다 — `blockedRowText` 의 `blockedBy.length === 0` 가드를 지우면 미막힘 행마다 `# 완료 필요` 가 뜨는데 2997케이스 전건 green 이다 | `VP-06` · AC12 | 카운트 술어를 문구 전체로 넓히거나 미막힘 행의 둘째 줄 부재를 직접 단언한다. 검증자 실측 — `/완료 필요/g` 로 넓히면 그 변이가 red 다 | **BLOCKING** (`PAIR_FAIL`) | **closed (r2 · 검증자 재측정)** — 인용 변이 N1 이 **red 2**, 형제 축 N1b 가 **red 1**, 새 장치 감도 DEV 가 **red 5** 다 |
+| D2 | VP-08 path 의 마지막 홉(`→ 카드`)이 잠기지 않는다 — 래퍼가 `agentTools`·`cliVersion` 을 안 넘기면 안내가 프로덕션에서 영영 안 뜨는데 typecheck 0 · lint 0 · 2997 전건 green 이다 | `VP-08` · §12 producer→consumer | `vi.mock('../../store/chatStore')` 로 `TaskTileContent` 를 시드 렌더해 props 통과를 단언한다(선례 `ChatTitleBar.render.test.ts`) | **BLOCKING** (`PAIR_FAIL`) | **closed (r2 · 검증자 재측정)** — 인용 변이 N2b 가 **red 1**, props 전수 4변이가 각각 red(`items` 3 · 나머지 각 1). 형제 지점 X2 도 **red 1** |
 | D3 | 다중 `blockedBy` 구분자(`', #'`)를 단언하는 곳이 없다 — 공유 헬퍼의 구분자를 바꿔도 전건 green | EP-04 (현재 V 에 해당 AC 없음) | 다중 의존 표시가 제품 요구가 되면 그때 AC 를 만든다 | NON_BLOCKING | 기록 |
 | D4 | INDEX r1 비고가 9문장이라 `AGENTS.md §산출물 문장 규칙 3`(5줄)을 넘는다 | repository operation | 이후 갱신분을 5줄 이내로 쓴다. 과거 행은 손대지 않는다 | NON_BLOCKING | 기록 |
 | D5 | 인용 커밋 좌표를 확인할 수 없다 — shallow clone(84 커밋)이라 0212·0204 좌표 7건이 전부 미해석 | 검증 환경 | 기록만. 같은 환경이면 다음 라운드도 확인 불가다 | NON_BLOCKING | 기록 |
+| D6 | **덮개 회귀** — AT-11·12·AT-14 에서 전체 카운트 단언이 사라져 **행 밖**으로 새는 막힘 문구를 못 본다. 같은 변이(X6)가 r1 장치에는 **red 2** 다 | 장치 감도 (AC11·12·14 위반 아님 — 부재 단언이 행 스코프다) | 행 단언 옆에 `html.match(BLOCKED_ANY)` 총계를 되살린다. 주석 `:170`·`:207` 이 없는 단언을 말하므로 함께 정정한다 | NON_BLOCKING | 기록 (r2) |
+| D7 | 막힘 문구가 실제 `blockedBy` 를 반영하는지 아무 데서도 단언되지 않는다 — `blockedByText(tr, ['2'])` 로 고정해도 전건 green | EP-04 SSOT 는 성립 · 현재 AC 에 id 충실도 조항 없음 | D3 과 같은 계열이다. 다중 의존 표시가 제품 요구가 되면 AC 를 함께 만든다 | NON_BLOCKING | 기록 (r2) |
+| D8 | D-007 의 "안내는 목록 **위에** 선다" 절에 오라클이 없다 — 안내를 목록 아래로 옮겨도 전건 green | ACTIVE Decision D-007 (구현은 충족) · AT-15 는 동시 존재만 요구 | 순서를 계약으로 올리려면 AT-15 에 순서 단언 한 줄 — 설계자 몫 | NON_BLOCKING | 기록 (r2) |
+| D9 | INDEX r2 구현자 비고가 **7문장**이라 `AGENTS.md §산출물 문장 규칙 3`(5줄)을 넘는다 | repository operation | 이후 갱신분을 5줄 이내로 쓴다. 과거 행은 손대지 않는다 | NON_BLOCKING | 기록 (r2 · D4 재발) |
+| I-05 | 0204 의 그룹 헤더 부재 술어(`'대기 중<'`·`'중단됨<'`)가 D1 과 같은 좁은 형태다 | 현재 계약(AC10/VP-12) 밖 · 좌표 실재 확인(`rightPanelTiles.render.test.ts:173-174`) | 넓히면 상태 라벨 텍스트와 충돌해 별도 설계가 필요하다 | NEXT_HANDOFF | 후속 handoff 후보 |

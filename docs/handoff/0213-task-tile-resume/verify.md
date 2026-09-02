@@ -342,3 +342,270 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh 0d00156..a7cbff4
 - repository operation checks: trailer 7키 파싱 정상 · `[구현자 기입]` 7필드 전수 · INDEX 좌표 기입 완료. 인용 커밋 실재만 **확인 불가**(D5).
 - 남은 사람 확인: 메뉴 `.map()` 최종 렌더 1홉 · I-01 간격 시각 · I-03·I-04 설계 재확인.
 - 다음 단계: **구현자가 D1·D2 를 닫고 r2 로 되돌린다.** 두 건 다 단언 추가이고 프로덕션 코드 변경이 필요하지 않다.
+
+---
+
+# Verify r2 (2026-09-02) — PASS
+
+> r1 판정 원문은 위 §0~§15 에 그대로 둔다. 이번 절은 **r2 가 바꾼 것과 그것을 다시 잰 결과**만 적는다.
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `de93022..30c08f0` (구현 커밋 `30c08f0` 단일) |
+| 구현 전 plan 기준 | `de93022` (r1 검증) · 규범 기준선은 `0d00156` 불변 |
+| V mode / 유효 V | `Baseline V` / `0213:V1` — 12 pair(REQUIRED 8 · REGRESSION 4) |
+| 검증 기준 plan revision | `0d00156:V1` (r1 과 동일 — r2 가 규범 행을 바꾸지 않았다) |
+| 라운드 | 2 |
+| 상태 | **PASS** |
+| 자기 검증 여부 | **설계·구현·검증이 모두 Claude 다.** §4 에 구현 보고가 이름을 대지 않은 적대 축 **6건**(X1·X2·X3·X5·X6·X7)과 §10 분모 독립 재열거를 넣었다 — **3건 미검출**이고 셋 다 현재 pair·AC·ACTIVE Decision 위반이 아니라 `NON_BLOCKING` 이다 |
+
+## 0. 기준선 / plan 변경 확인
+
+- 구현 커밋이 `plan.md` 를 변경했는가: **했다 — 삽입 88줄, 삭제 2줄.** 삭제 2줄은 `[검증자 기입] 파생 이슈` 의 D1·D2 상태 칸(`open (r2)` → `closed (r2)`)뿐이다.
+- **기준선이 diff 로 성립한다.** 설계(`0d00156`)·r1 산출(`a7cbff4`)·r1 검증(`de93022`)·r2 산출(`30c08f0`)이 전부 갈린 커밋이다.
+- Decision Ledger·Product/UX Contract·AC·V node/pair·§10·oracle 변경: **없다.** `git show 30c08f0 -- plan.md` 의 삭제 줄이 위 2줄이 전부라 규범 행이 손대지지 않았음을 diff 로 확인했다.
+- 채점에 사용할 원 기준: `0d00156` 의 §7 AC 표 · §7-A pair registry · §10 EP 표 — r1 과 같다.
+- plan validity: r1 §0 판정을 승계한다. r1 이 미흡으로 적은 두 행(VP-06 적대 증거 면제 · VP-08 path 마지막 홉)은 **계약이 아니라 증거의 문제**였고 이번 라운드가 증거를 채웠다 — 규범 정정이 없었으므로 `PLAN_GAP` 재검사 대상이 새로 생기지 않았다.
+- **root `PLAN_GAP`: 없다.**
+
+## 1. Product & UX / ACTIVE Decision
+
+**프로덕션 파일 변경 0.** `git diff --name-only de93022..30c08f0` = 테스트 1 · `plan.md` · `INDEX.md` 셋뿐이다. D-001~D-010 의 production path 는 r1 §1 표 그대로이고 이번에 좌표만 재확인했다 — `blockedRowText:125` · `TaskRow` 렌더 `:267` · `unsupported:302` · 래퍼 props `:427-431` · `SUSPENDED=[]:45`.
+
+## 2. 구현 결과 비판적 검토
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 새 실패 경로 | 0 | 테스트 파일만 바뀌었다. 프로덕션 분기·상태·요청 무변경 |
+| false success 가능성 | **줄었다 — 다만 한 축에서 새로 생겼다** | r1 의 두 침묵이 닫혔다(§4). 대신 전체 카운트 단언이 사라져 **행 밖 산출**을 못 본다(D6) |
+| Product/UX 의 A 가 아닌 B | 아니다 | 사용자가 관측하는 산출이 r1 과 동일하다 — 렌더 입력·출력 불변 |
+| 최적화가 잃은 관측 | 해당 없음 | 캐시·호출 축소 0 |
+| 출력/요청 worst-case | 무변경 | 렌더 경로 불변 |
+
+## 3. 역방향 탐색
+
+```bash
+bash .agents/skills/handoff-verify/scripts/scan-surface.sh de93022..30c08f0
+# → 변경된 소스 파일이 없습니다 (범위: de93022..30c08f0, 루트: app/src)
+```
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| 신규 프로덕션 표면 | **0건** | 스크립트가 비테스트 소스 변경 0을 낸다 — r2 는 잠금만 바꿨다 |
+| 신규 테스트 장치의 프로덕션 진입 | **진입한다** | `TaskTileContent` 시드 렌더가 `useTaskBoard`(`:63`) → `taskBoardFromMessages` → `TaskProgressList` 프로덕션 fold 를 그대로 지난다 |
+| 모킹이 가린 배선 | 없음 | 모킹 대상은 `store/chatStore` 하나이고 fold·View·행 조립은 전부 실물이다 |
+| 동일 규칙 중복 구현 | SSOT 유지 | 막힘 문구 조립은 `blockedByText` 1곳(`:119-120`) 그대로 |
+
+## 4. 적대 증거 재측정 — 24회
+
+- **선택된 적대 증거 재측정**: 등록·인용·신규 oracle 변이 **9건 중 9건 검출**. 일반 hunk 자동 확장 0.
+- **이전 라운드 대조**: r1 이 red 로 본 8변이 **8/8 재현**(M2b 대조군 green 도 재현). 등록 변이 축의 `red → green` **0건**.
+- **자기검증 분모**: 구현자 = 검증자다. 보고에 없던 축 **6건**을 만들었고 **3건 미검출**(X3·X5·X6)이다. X6 은 구 장치가 red 로 잡던 자리라 **덮개 회귀**로 판정한다(D6).
+- 범위 표기: `7스위트` = `taskTile0213`·`taskSurface0212`·`rightPanelTiles.render`·`rightPanelTiles`·`ChatTitleBar.render`·`chatReducer.plan`·`chatReducer.task` = **120케이스**(r1 116 + 신규 4).
+
+| 변이 | 범위 | 이전 라운드 | 이번 라운드 | 귀속 |
+|---|---|---|---|---|
+| **N1** `blockedBy.length === 0` 가드 제거 | 7스위트 | **green(미검출)** | **red 2** — `AT-11·AT-12` · `AT-13` | `D1 인용 변이` → 닫힘 |
+| **N1b** `completed` 가드 제거 | 7스위트 | 미실행 | **red 1** — `AT-13` | `D1 형제 축` |
+| **N2b** `agentTools`·`cliVersion` 미전달 + 잔여물 정리 | 7스위트 | **green(미검출)** | **red 1** — 래퍼 홉 케이스 | `D2 인용 변이` → 닫힘 |
+| **P-agentTools** 단독 미전달 | 7스위트 | 미실행 | **red 1** | `D2 전수 ①` |
+| **P-cliVersion** 단독 미전달 | 7스위트 | 미실행 | **red 1** | `D2 전수 ②` |
+| **P-items** `items={[]}` | 7스위트 | 미실행 | **red 3** | `D2 전수 ③` |
+| **P-stopErrors** 미전달 | 7스위트 | 미실행 | **red 1** | `D2 전수 ④` |
+| **DEV** `rowsBySubject` 추출 무력화 | 7스위트 | 미실행 | **red 5** | `새 oracle 민감도` |
+| **M6** 래퍼→목록 배선 소거 | 7스위트 | red 1 | **red 5** | `구 AT-29 승계` — 감도 증가 |
+| **M1** `SUSPENDED` 를 `['task']` 로 | 7스위트 | red 11 | **red 11** | `VP-02 등록 변이` |
+| **M2** SSOT 술어를 `tile.id !== 'task'` 로 | 7스위트 | red 2 | **red 2** | `VP-03 등록 변이` |
+| **M2b** 대조군 — 자기 필터 복귀 단독 | 7스위트 | green(불성립) | **green** | `C-01 근거 재현` |
+| **M2+M2b** 자기 필터 + SSOT 좁힘 | 7스위트 | red 2 | **red 2** | `VP-03 등록 변이(짝)` |
+| **M3** `showTaskBadge` 를 `false` 고정 | 7스위트 | red 1 | **red 1** | `VP-04 등록 변이` |
+| **M4** 둘째 줄 두 분기 맞바꿈 | 7스위트 | red 6 | **red 7** | `VP-07 등록 변이` — 감도 증가 |
+| **M5** 안내 분모를 `items.length === 0` 로 | 7스위트 | red 1 | **red 2** | `VP-08 등록 변이` — 감도 증가 |
+| **N4** 소비자가 SSOT 순서를 뒤집음 | 7스위트 | red 2 | **red 2** | `VP-03 보강 축` |
+| **N6** 배지의 정지 가드 소거 | 7스위트 | red 1 | **red 1** | `0205 축 생존` |
+| **X1** 행 `aria-label` 을 `subject`→`title` 로 | 7스위트 | 미실행 | **red 1** — 0212 `AT-05·AT-08` | **신규 축** · `VP-09` 회귀 잠김 |
+| **X2** `TaskRow` 의 `stopError` 렌더 블록 소거 | 7스위트 | 미실행 | **red 1** | **신규 축** · P-stopErrors 의 형제 지점 |
+| **X7** 목록에 `TileSection` 껍데기 재장착 | 7스위트 | 미실행 | **red 1** | **신규 축** · `VP-05` 부재 방향 |
+| **X3** `blockedRowText` 가 `item.blockedBy` 무시하고 `['2']` 고정 | 7스위트 | 미실행 | **green — 미검출** | **신규 축** → **D7** (`NON_BLOCKING`) |
+| **X5** 안내 블록을 목록 **아래로** 이동 | 7스위트 | 미실행 | **green — 미검출** | **신규 축** → **D8** (`NON_BLOCKING`) |
+| **X6** 막힘 문구를 **행 밖**(목록 레벨)에 한 번 더 흘림 | 7스위트 | — | **green — 미검출** | **신규 축** → **D6** 덮개 회귀 |
+| **X6′** 같은 변이를 **r1 테스트 파일**(`a7cbff4`)에 | `taskTile0213` | — | **red 2** — `AT-11·AT-12` · `AT-14` | 위 회귀의 대조 측정 |
+
+- 동작 보존 추출 라운드인가: **아니다** — 프로덕션은 불변이고 잠금이 바뀌는 라운드다. hunk 되돌림 논점은 적용되지 않는다.
+- 소거 변이의 잔여물 수렴: N2b·P-* 는 미사용 `const` 를 함께 치워 **진단 0** 상태로 밀었고, 그 상태에서 typecheck 0 · 7스위트 red 를 얻었다.
+- 형제 슬롯 맞바꿈: M4 로 수행 — **red 7**. 존재만 보는 단언이 아니다.
+- 순서 기준의 관측 훅: AT-01 은 N4(순서 반전)로 red. **안내↔목록의 순서는 관측 훅이 없다**(X5 → D8).
+
+## 5. V-pair closeout
+
+| Pair | left ↔ right / 레벨 | requiredness | 결과 | 직접 검증 증거 | §10 전수 |
+|---|---|---|---|---|---|
+| VP-01 | AR-02 ↔ AT-07 / AR | REQUIRED | **PASS** | `SUSPENDED` `[]` · M1 red 11 에 정지 술어 케이스 포함 | EP-01 3/3 |
+| VP-02 | R-01 ↔ AT-02·03·04 / R | REQUIRED | **PASS** | reducer 3케이스 + M1 red 11 | EP-01 3/3 |
+| VP-03 | AR-01 ↔ AT-01 / AR | REQUIRED | **PASS** | M2 red 2 · M2+M2b red 2 · N4 red 2 · M2b green(설계 정정대로) | EP-02 2/2 |
+| VP-04 | SD-01 ↔ AT-05·06 / SD | REQUIRED | **PASS** | 술어 2방향 + 렌더 3케이스 · M3 red 1 · N6 red 1 | EP-03 2/2 |
+| VP-05 | R-02 ↔ AT-08·09·10 / R | REQUIRED | **PASS** | M6 red 5 · **X7 red 1**(껍데기 재장착이 red) | EP-06 1/1 |
+| VP-06 | MD-01 ↔ AT-11·12·13 / MD | **PASS**(r1 `PAIR_FAIL` 닫힘) | **PASS** | N1 red 2 · N1b red 1 · DEV red 5 | EP-04 2/2 |
+| VP-07 | MD-01 ↔ AT-14 / MD | REQUIRED | **PASS** | M4 red 7 | EP-04 2/2 |
+| VP-08 | MD-02 ↔ AT-15·16·17·18 / MD·R | **PASS**(r1 `PAIR_FAIL` 닫힘) | **PASS** | N2b red 1 · props 전수 4변이 각 red · M5 red 2 · X2 red 1 | EP-05 1/1 |
+| VP-09 | R-90 ↔ AT-19 / R | REGRESSION | **PASS** | 0212 `AT-05·AT-08`·`AT-06` green · **X1 red 1** | EP-06 1/1 |
+| VP-10 | R-91 ↔ AT-20 / R | REGRESSION | **PASS** | 0212 `AT-23`·`AT-24` green | — |
+| VP-11 | R-92 ↔ AT-21 / R | REGRESSION | **PASS** | 0212 `AT-18`(2건)·`AT-19` green | — |
+| VP-12 | MD-90 ↔ AT-10 / MD | REGRESSION | **PASS** | `taskBoard.test.ts` `AT-10a` 2케이스 green · M4 가 그룹 헤더 케이스도 red | EP-06 1/1 |
+
+- **root `PAIR_FAIL`: 0건. `BLOCKED_BY`: 0건.** r1 의 두 root(VP-06·VP-08)가 각자 인용 변이로 닫혔다.
+- 이번 라운드 실행 범위: **재검증이지만 12 pair 전건을 다시 실행했다** — r2 가 바꾼 파일이 여러 pair 의 oracle 을 함께 담고 있어 영향 범위를 파일로 자를 수 없었다. 게이트도 5종 전건.
+- 하나의 증거가 함께 닫은 pair: M4 는 VP-07 을, DEV 는 VP-06 의 세 케이스를 함께 red 로 만든다 — 각 행에 판정 범위를 적었다.
+
+### AT / AC 세부와 합계
+
+| AT / AC | r1 | r2 | 검증 증거 (검증자 재실행) |
+|---|---|---|---|
+| **AC12** | ⚠️ | **✅** | `rows['선행 작업']`·`rows['그냥 대기']` 가 `/완료 필요/` 에 not.toMatch. **N1 에 red 2** — r1 에 green 이던 자리다 |
+| AC11·AC13 | ✅ | ✅ | 같은 케이스가 행 귀속으로 좁혀졌다. N1b red 1 |
+| AC14 | ✅ | ✅ | M4 red 7 |
+| AC15~AC18 | ✅ | ✅ | 신규 래퍼 홉 4케이스 추가. N2b·props 4변이 각 red · M5 red 2 |
+| AC1~AC10 | ✅ | ✅ | 프로덕션 무변경 · M1 11 · M2 2 · M3 1 · N4 2 · M6 5 · X7 1 |
+| AC19·AC20·AC21 | ✅ | ✅ | 0212 회귀 7케이스 green · X1 red 1 |
+
+- **합계 재측정: `✅ 21 · ⚠️ 0 · ❌ 0 = 총 21`.** 분모 21 을 §7 표에서 다시 세었다 — R-01(7)+R-02(3)+R-03(4)+R-04(4)+R-90·91·92(3) = 21.
+- 자기보고 값 `✅ 21/21` 과 **일치**한다. r1 의 1행 갈림(AC12)이 해소됐다.
+- **합계 사본 대조**: 본문 `21` ↔ 커밋 trailer `Criteria-Met: 21/21` ↔ INDEX 비고 `✅21/21` — **3곳 일치**.
+
+### pair별 plan §10 강제 지점 분모 (검증자 독립 재열거)
+
+| EP / Pair | 불변식의 주어 | plan 분모 | 검증자 재열거 | 결과 |
+|---|---|---|---|---|
+| EP-01 / VP-01·02 | 정지 정책을 읽는 프로덕션 지점 | 3 | **3** — `chatReducer.ts:1507` · `rightPanelTiles.ts:61` · `:79` | **3/3** |
+| EP-01 차집합 | 게이트를 우회하는 활성화 경로 | 0 | **0** — `addTileColumnMajor` 프로덕션 호출은 `activateTile:1507` 하나, `activateTile` 호출 5곳이 전부 그 게이트 경유 | 우회 0 |
+| EP-02 / VP-03 | 메뉴 목록을 만드는 지점 | 2 | **2** — 정의 `rightPanelTiles.ts:60` · 소비 `ChatTitleBar.tsx:30`. `:220` 최종 `.map()` 은 분모 밖 | **2/2** |
+| EP-03 / VP-04 | 배지 판정 결과를 쓰는 지점 | 2 | **2** — 호출 `ChatTitleBar.tsx:79` · 렌더 `:202` | **2/2** |
+| EP-04 / VP-06·07 | 의존 문구를 화면에 내는 지점 | 2 | **2** — 행 `:184`→`:267` · 상세 `:141`. 리터럴은 `:120` 1곳 | **2/2** |
+| EP-05 / VP-08 | 기능 부재 안내를 판정하는 지점 | 1 | **1** — `:302`. `agentTools` 전수 9줄 중 판정은 여기뿐(나머지는 선언·기본값·상태·전달) | **1/1** |
+| EP-06 / VP-05·09~12 | 섹션 껍데기를 두는 지점 | 1 | **1** — 프로덕션 호출 **0건**(남은 것은 정의 파일과 주석) | **1/1** |
+
+- **합계 검산: 3+2+2+2+1+1 = 11 · 닫음 11 → `11/11`.** 자기보고와 일치한다.
+- **라벨이 참인지 표본 확인**: 분모에서 뺀 `rightPanelTiles.ts:54`·`:77` 두 줄을 직접 읽었다 — 둘 다 `= SUSPENDED_RIGHT_PANEL_TILES` 기본인자 선언이 맞다. 라벨 참.
+- **표 밖에서 같은 불변식이 필요한 지점**: r1 이 지목한 **래퍼→View props** 하나. 이번 라운드가 4 props 전수로 잠갔다 — VP-08 의 path 칸이 이미 `→ 카드` 로 그 홉을 갖고 있으므로 **새 §10 행 없이 닫힌다**. `PLAN_GAP` 아님. 설계자가 분모에 얹고 싶으면 EP 신설은 선택이다.
+- `실패 의미` 에 "다른 게이트가 막는다" 를 적은 행: **0건**.
+
+### 현재 변경의 운영 gate
+
+| Gate | 적용 이유 | 결과 | 관측 산출 |
+|---|---|---|---|
+| subtree — `app/**` 타입 | renderer 테스트 변경(`tsconfig.test.json` 포함) | **PASS** | `npm run typecheck` 3구성 · `error TS` **0건** |
+| subtree — `app/**` lint | 같음 | **PASS** | `npm run lint` **0 error / 1 warning**(`useTranscriptVirtualizer.ts:22` 기존분). `--fix` 후 `git status --porcelain` **0줄** |
+| subtree — 관련 스위트 | 여러 pair 의 oracle 이 든 파일 | **PASS** | `./node_modules/.bin/vitest run`(필터 없음) — **309파일 3001케이스 전건 green**(exit 0) |
+| repository — 문서 인벤토리 | 문서 변경 | **PASS** | `generated ok (9 items, 82 channels)` · `prose ok` · `links ok` |
+| repository — 스크립트 | 저장소 위생 | **PASS** | `node --test "scripts/*.test.mjs"` — **67 pass / 0 fail** (8 suites) |
+| repository — IPC 계약 | 해당 없음 | — | 신규 채널·variant 0 (82 channels 불변) |
+
+## 6. 외부 포트 / 문서 계약
+
+해당 없음 — 신규 IPC 채널·`NormalizedEvent` variant·설정 키·외부 포트 0. `check-doc-inventory` 가 82 channels 불변을 함께 확인한다.
+
+## 7. 숫자 / 음성 기준 / 상한 재측정
+
+- 강제 지점 재측정: 3·2·2·2·1·1 → 합 11 = plan 총계 ✅ (위 표가 각 좌표를 갖는다).
+- AC 21 = 7+3+4+4+3 ✅ · pair 12 = 8+4 ✅ · 케이스 3001 = r1 2997 + 신규 4 ✅.
+- 0건 게이트의 정당한 예외 보존: `TileSection` 호출 0건 판정이 정의 파일·주석을 지우지 않았다(D-004 대상 생존 확인).
+- **음성 단언의 양성 짝**: 부재 단언 6건(AC7·8·9·12·13·17) 전부 짝이 있고, r1 이 "형태가 약하다" 고 적은 AC12 의 짝이 이번에 실측으로 강해졌다(N1 red 2).
+- 상한 재계산: 렌더 경로 무변경 — worst-case 증가 0.
+
+## 8. 테스트 가능한 핸들 탐색 후 남은 사람 실기
+
+| 항목 | 기계 검증한 범위 | 남은 사람 실기 |
+|---|---|---|
+| 메뉴 `.map()` 최종 렌더 | 앞 홉(파생 상수 id·순서) — M2·N4 red | **1홉** — `Popover` 를 열어 4항목이 DOM 에 뜨는가 |
+| 안내/목록 간격(I-01) | 문구 동시 존재 | 시각 — `gap-px` 로 한 덩어리로 읽히는가 |
+| 래퍼→View props | **닫혔다** — props 4개 전수 red | 없음 |
+
+> 사람 실기는 **2건**으로 r1 과 같고, r1 이 세 번째로 적었던 래퍼 홉은 이번에 기계 검증으로 내려왔다.
+
+## 9. 게이트 재실행
+
+- 실행 명령: `cd app && npm run typecheck` · `npm run lint` · `./node_modules/.bin/vitest run` · `node --test "scripts/*.test.mjs"` · `node scripts/check-doc-inventory.mjs --check`. `app/AGENTS.md` 대로 **`npm test` 를 쓰지 않았다**.
+- **관측한 실행 산출**(exit code 아님): typecheck `error TS` 0줄 / lint 0 error·1 warning / vitest **309파일 3001케이스** / scripts **67 pass·0 fail** / doc-inventory 3줄 ok.
+- ABI/egress 분리: 이 베이스의 `better-sqlite3` 는 이미 Node ABI 다(`require('better-sqlite3')` 성공) — DB 스위트 10파일이 green 이라 분리할 환경 실패가 **0건**이다.
+- **게이트가 작업 트리를 바꿨는가**: `npm run lint` 가 `--fix` 다. 실행 후 `git status --porcelain` **0줄**.
+- **검증 중 실행한 명령이 남긴 잔여물**: 변이 24회를 `git checkout`/`git reset --hard` 로 되돌렸고 매 회차 뒤 트리 0줄을 확인했다. 최종 트리 = `30c08f0` 그대로(`git log --oneline -1` 확인). 변이 스크립트는 저장소 밖 스크래치패드에 두었다.
+
+## 10. 검증 책임 분리
+
+| 항목 | 에이전트 | 사람 | 결과 |
+|---|---|---|---|
+| lint/typecheck/테스트 | 실행·산출 관측 | — | 5종 PASS |
+| AC ↔ production path | 21행 대조 + 변이 24회 | — | ✅21/21 |
+| 레이어/링크/문서 형식 | doc-inventory | — | PASS |
+| 제품 의도 / Open Question | 보조 | **결정** | I-03·I-04 |
+| UI 시각 품질 | 로직만 | **시각 확인** | I-01 간격 · 메뉴 최종 렌더 |
+| 신규 의존성 / PR merge | — | **승인** | 신규 의존성 0 |
+
+## 11. Repository operation checks
+
+### AGENTS.md 위생
+
+해당 없음 — 이번 구현이 `AGENTS.md` 를 건드리지 않았다.
+
+### INDEX 보드 정합성
+
+- 상태 / 다음 주체: 이번 턴에 `verify/PASS` · 다음 주체 **사람** 으로 갱신한다. 칸에 주체 하나만 둔다.
+- 대상 커밋 좌표: 자리표시자 `(r2 구현 — 검증자 기입)` 를 **`30c08f0`** 로 채웠다(`git cat-file -t` = `commit`). 정본은 INDEX 한 곳이고 plan 구현 보고에는 해시를 두지 않았다.
+- **비고 5줄 규칙 — r2 구현자 비고가 7문장이다**(D9, `NON_BLOCKING`). r1 D4 와 같은 축이라 이번 갱신분은 5줄 이내로 다시 쓴다.
+- PASS 시 archive 이동: **보류.** 사람 몫 3건(I-01 시각 · I-03·I-04 설계 재확인)이 남아 0212·0204 와 같은 관례를 따른다.
+
+### Commit / reference 정합성
+
+- trailer 허용값: `Agent: claude` · `Handoff: docs/handoff/0213-task-tile-resume/` · `Status: implemented` · `Criteria-Met: 21/21` · `Verified-By: pending` — root `AGENTS.md` 표와 일치. 구현 커밋에 `Next-Action` 이 없는 것도 규칙대로다.
+- **trailer 실제 파싱**: `git log -1 --format='%(trailers:only=true)' 30c08f0` 이 **7키를 그대로 반환**한다(세션 URL 포함, 파싱 0건 아님).
+- 인용 커밋 해시 실재: **확인 불가 — 환경 한계 지속**(D5). 이 클론은 shallow(86 커밋)라 `229a0e67`·`7b45fa3`·INDEX 의 0212 좌표가 전부 `Not a valid object name` 이다.
+- `[구현자 기입]` r2 7필드 전수: **7/7 존재** — 설계 리뷰 · 강제 지점 전수+V-pair 자기확인 · 이번 라운드 수정의 잠금(9행 표 + 검산 줄) · Product/UX 파생 검토 · 놓친 잠재 문제(I-05 표) · 구현 보고(AC·게이트 2표) · Review Signals.
+- 검산 줄 대조: 자기보고 `선택 증거 0 · 인용 변이 2 · 새 oracle 2 = 표 행 4 + 전수 5 = 9` ↔ 표 행 실측 **9** — 일치.
+- 이동/삭제한 reference·script: 없음.
+
+## 12. 구현자 코멘트 / 선조치 경계
+
+| 구현자 코멘트 | 검증자 판단 | 반영 |
+|---|---|---|
+| D1 은 3자리 중 1자리, D2 는 4 props 중 2개였다 → 불변식으로 올려 전수 적용 | **타당 · 실측 일치** | 좁은 술어 잔여 `grep '#2 완료 필요/g'` **0줄** 재확인 · props 4변이 각 red |
+| §10 분모는 불변, 래퍼 홉의 새 행 필요 여부는 검증자 판단에 남긴다 | **타당** | 신설 불필요로 판정했다(§5 분모 절) — VP-08 path 가 이미 그 홉을 갖는다 |
+| I-05 — 0204 의 좁은 부재 술어(`'대기 중<'`·`'중단됨<'`)는 현재 계약 밖 | **타당 · 좌표 실재 확인** | `rightPanelTiles.render.test.ts:173-174`. `NEXT_HANDOFF` 로 이관 |
+| **"덮개 회귀 0건"** | **정정한다** | 넓히기만 한 것이 아니라 AT-11·12·AT-14 의 전체 카운트 단언을 **삭제**했다 — X6/X6′ 가 r1 red ↔ r2 green 을 보인다(D6) |
+| 주석 "전체 1회"(`:170`) · "목록 전체로도 문구는 한 번뿐"(`:207`) | **산출과 어긋난다** | 두 케이스에 그런 단언이 없다. 전체 카운트는 `AT-13`(`:189`)에만 남았다 — D6 에 함께 적는다 |
+
+## 13. Finding disposition / 파생 이슈
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| **D6** | **덮개 회귀** — AT-11·12·AT-14 에서 전체 카운트 단언이 사라져 **행 밖**으로 새는 막힘 문구를 못 본다. 같은 변이가 r1 장치에는 red 2 다 | 장치 감도 · AC11/12/14 위반 아님(부재 단언은 행 스코프) | **NON_BLOCKING** | 다음 라운드가 행 단언 옆에 `html.match(BLOCKED_ANY)` 총계를 되살리면 닫힌다. 주석 2곳(`:170`·`:207`)도 함께 정정 |
+| **D7** | 막힘 문구가 **실제 `blockedBy` 를 반영하는지** 아무 데서도 단언되지 않는다 — `blockedByText(tr, ['2'])` 로 고정해도 전건 green | EP-04 SSOT 는 성립 · 현재 AC 에 id 충실도 조항 없음 | **NON_BLOCKING** | D3 과 같은 계열(문구 *내용* 무단언). 다중 의존 표시가 요구가 되면 AC 를 함께 만든다 |
+| **D8** | D-007 의 "안내는 목록 **위에** 선다" 절에 오라클이 없다 — 안내를 목록 아래로 옮겨도 전건 green | ACTIVE Decision D-007 (구현은 **충족**) · AT-15 는 동시 존재만 요구 | **NON_BLOCKING** | 설계자가 순서를 계약으로 올리려면 AT-15 에 순서 단언 한 줄 |
+| **D9** | INDEX r2 구현자 비고가 **7문장**이라 `AGENTS.md §산출물 문장 규칙 3`(5줄)을 넘는다 | repository operation | **NON_BLOCKING** | r1 D4 의 재발. 이번 검증 갱신분은 5줄 이내 |
+| D3·D5 | r1 이관분 유지 — 구분자 무단언 · shallow clone 좌표 확인 불가 | — | **NON_BLOCKING** | 기록 |
+| D4 | r1 비고 9문장 | repository operation | **NON_BLOCKING** | D9 로 재발 — 과거 행은 손대지 않는다 |
+| I-05 | 0204 의 그룹 헤더 부재 술어가 같은 좁은 형태 | 현재 계약(AC10/VP-12) 밖 | **NEXT_HANDOFF** | 넓히면 상태 라벨과 충돌해 별도 설계가 필요하다 |
+
+- **`BLOCKING` 0건 · `PLAN_GAP` 0건.** D1·D2 는 인용 변이가 각각 검출되므로 `closed` 를 유지한다.
+
+## 14. Review Signals — 사실만
+
+- **이전 라운드와 동일/유사 증상**: 부분적으로 그렇다. 이번 미검출 3건 중 **D6 은 "장치를 바꾸며 구 장치가 잡던 자리를 잃는다"**, D7·D8 은 r1 D3 과 같은 **"문구/배치의 내용에 오라클이 없다"** 계열이다. r1 의 두 축("oracle 이 한 홉 앞에 선다")은 재발하지 않았다.
+- **관련 plan 지침/AC 존재 여부**: D6 은 impl 계약(`구 장치가 red 로 만들던 변이를 새 장치도 red 로 만드는지 확인한다`)이 이미 명령하고 있었고, 구현자가 "넓히기만 했으므로 감도는 늘었다" 는 **추론으로 대체**해 실측하지 않았다. D8 은 D-007 본문에 "위에" 가 있으나 AC 로 내려오지 않았다.
+- **사용자 결정 변경 근거**: 이번 라운드에 없음.
+- **반복된 검증 환경 한계**: ① DOM 환경(`jsdom`·`happy-dom`) 부재 — 메뉴 `.map()` 최종 홉이 0212 P9 → 0213 r1 → r2 로 3연속 미잠금. ② shallow clone 좌표 확인 불가(0212 r2 → 0213 r1 → r2).
+- **자기 검증 라운드였다**: 구현·검증이 같은 에이전트다. 보고가 이름을 댄 9변이는 **9/9 재현**됐고, 이번 finding 3건은 **전부 보고에 없던 축**에서 나왔다 — r1 과 같은 형태다.
+
+## 15. 결론
+
+- 상태: **PASS**
+- pair 결과: **REQUIRED/REGRESSION 12 전건 PASS · root `PAIR_FAIL` 0 · `BLOCKED_BY` 0.** r1 의 두 root(VP-06·VP-08)가 인용 변이로 닫혔다.
+- `PLAN_GAP`: **없다.**
+- Product/UX 및 ACTIVE Decision 충족: **충족.** 프로덕션 무변경이라 r1 §1 의 10행 대조가 그대로 서고 좌표를 재확인했다.
+- AC 충족: **✅ 21 · ⚠️ 0 · ❌ 0 = 21.** 자기보고·trailer·INDEX 3사본과 일치.
+- 현재 변경 운영 gate: **5종 전건 PASS** — typecheck 0 · lint 0 error/1 warning(기존분, 트리 무변경) · vitest 309파일 3001케이스 · scripts 67/67 · doc-inventory 3줄 ok.
+- `NON_BLOCKING`: D6(덮개 회귀) · D7(id 충실도 무단언) · D8(안내 순서 무단언) · D9(INDEX 비고 7문장) · D3 · D4 · D5. `NEXT_HANDOFF`: I-05.
+- repository operation checks: trailer 7키 파싱 정상 · `[구현자 기입]` r2 7필드 전수 · 검산 줄 일치 · INDEX 좌표 기입 완료. 인용 커밋 실재만 **확인 불가**(D5).
+- 남은 사람 확인: 메뉴 `.map()` 최종 렌더 1홉 · I-01 간격 시각 · I-03·I-04 설계 재확인. **archive 이동은 그 셋까지 보류**한다.
+- 다음 단계: 사람 몫 3건. D6~D9 는 PASS 를 막지 않으므로 다음 handoff 또는 후속 정리에서 처리한다.
