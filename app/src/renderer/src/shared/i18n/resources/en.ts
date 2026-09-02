@@ -785,6 +785,7 @@ export const en: typeof ko = {
       diffSessionChanges: 'Session Changes',
       diffPeek: 'Diff Peek',
       diffBaselineCurrent: '{{base}} → current',
+      diffBaselineHead: 'current HEAD',
       diffTrackedFiles: '{{count}} tracked files',
       diffUntrackedExcluded: 'Untracked excluded',
       diffCommitChip: '{{count}} commits',

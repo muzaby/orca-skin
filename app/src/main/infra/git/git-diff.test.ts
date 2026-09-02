@@ -274,7 +274,7 @@ describe('커밋 grouping과 미커밋 블록 (VP-31 · VP-33)', () => {
     expect(summary.files.map((file) => file.path).sort()).toEqual(['a.ts', 'b.ts'])
   })
 
-  it('파일 본문은 느 그룹에서 열었든 항상 baseline 대비 작업 트리다', async () => {
+  it('파일 본문은 어느 그룹에서 열었든 항상 baseline 대비 작업 트리다', async () => {
     const content = await gitDiffFile({ cwd: repo, path: 'a.ts', baseOid })
     expect(content).toEqual({
       kind: 'text',

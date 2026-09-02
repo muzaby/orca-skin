@@ -791,6 +791,7 @@ export const ko = {
       diffSessionChanges: '세션 변경 사항',
       diffPeek: '변경 미리보기',
       diffBaselineCurrent: '{{base}} → 현재',
+      diffBaselineHead: '현재 HEAD',
       diffTrackedFiles: '추적 파일 {{count}}개',
       diffUntrackedExcluded: '미추적 제외',
       diffCommitChip: '커밋 {{count}}개',

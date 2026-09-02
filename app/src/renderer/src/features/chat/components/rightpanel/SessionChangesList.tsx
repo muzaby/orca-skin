@@ -4,7 +4,7 @@ import type { GitPeekGroup, GitPeekTarget } from '../../reducer/chatReducer'
 import {
   commitDisplayMeta,
   commitFileRows,
-  summaryBaseLabel,
+  summaryBaseText,
   summaryNoticeKeys
 } from './sessionChangesData'
 
@@ -74,7 +74,7 @@ export function SessionChangesList({
           {tr('chat.rightpanel.diffSessionChanges')}
         </span>
         <span className="text-caption text-t6">
-          {tr('chat.rightpanel.diffBaselineCurrent', { base: summaryBaseLabel(summary) })}
+          {tr('chat.rightpanel.diffBaselineCurrent', { base: summaryBaseText(summary, tr) })}
         </span>
         <div className="flex flex-wrap items-center gap-g2 text-caption text-t6">
           <Totals added={summary.totals.added} removed={summary.totals.removed} />
@@ -101,7 +101,7 @@ export function SessionChangesList({
         )}
       </section>
 
-      <div className="flex flex-col gap-g4 px-p5 py-p4">
+      <div data-session-timeline className="flex flex-col gap-g4 px-p5 py-p4">
         {summary.commits.map((commit) => {
           const group: GitPeekGroup = { kind: 'commit', sha: commit.sha }
           const expanded = expandedCommitIds.has(commit.sha)

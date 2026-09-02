@@ -17,7 +17,7 @@ import type { DiffRequirementDraft, GitPeekTarget } from '../../reducer/chatRedu
 import type { DiffPeekBodyState } from './diffFileCache'
 import { diffRequirementLineKey } from './diffRequirements'
 import { peekNavigation } from './peekNavigation'
-import { summaryBaseLabel } from './sessionChangesData'
+import { summaryBaseText } from './sessionChangesData'
 
 export interface DiffPeekProps {
   summary: GitDiffSummary
@@ -419,7 +419,7 @@ export function DiffPeek({
       </header>
       <div className="flex shrink-0 flex-wrap items-center gap-g2 border-b border-t5 px-p5 py-1 text-caption text-t6">
         <span>
-          {tr('chat.rightpanel.diffBaselineCurrent', { base: summaryBaseLabel(summary) })}
+          {tr('chat.rightpanel.diffBaselineCurrent', { base: summaryBaseText(summary, tr) })}
         </span>
         {target.group.kind === 'uncommitted' && (
           <span>{tr('chat.rightpanel.diffIncludesUncommitted')}</span>
