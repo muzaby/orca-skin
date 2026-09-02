@@ -194,7 +194,8 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
       summary: null,
       peekTarget: null,
       expandedCommitIds: [],
-      refreshGeneration: 0
+      refreshGeneration: 0,
+      bodyCache: []
     })
   })
 

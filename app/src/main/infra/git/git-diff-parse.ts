@@ -89,7 +89,9 @@ function findCommitHeaders(tokens: readonly string[]): number[] {
   return headers
 }
 
-function parseCommitFiles(tokens: readonly string[]): GitDiffFileEntry[] {
+// `--raw --numstat -z` 한 스트림의 파서 — 커밋 이력(`log --raw --numstat`)과 세션 diff
+// (`diff --raw --numstat`)가 **같은 형식**이라 한 곳이 읽는다(0211 D-052 · D-062).
+export function parseCommitFiles(tokens: readonly string[]): GitDiffFileEntry[] {
   const statusByPath = new Map<string, GitDiffFileStatus>()
   let i = 0
   let numstatStart = tokens.length

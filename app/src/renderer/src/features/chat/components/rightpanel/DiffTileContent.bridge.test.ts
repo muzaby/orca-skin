@@ -85,7 +85,13 @@ describe('DiffTileContent diff requirement body bridge', () => {
     })
 
     expect(source).toContain("from './diffRequirementBridge'")
-    expect(source.match(/registerDiffPeekBodyRequest\(/g)).toHaveLength(1)
-    expect(source.match(/handleDiffPeekBodyResult\(/g)).toHaveLength(1)
+    // 0211 ΔV3 — 본문이 오는 길이 **둘**이 됐다(캐시 적중 · 조회 응답). 둘 다 같은 production
+    // helper 를 지나야 한다 — 한쪽이 지역 재구현으로 갈라지면 다시 연 파일의 요구사항만
+    // 위치를 잃는다(§10 EP-23 ②). 개수를 못박지 않고 **두 경로가 모두 있다**를 센다.
+    expect(source.match(/registerDiffPeekBodyRequest\(/g)?.length ?? 0).toBeGreaterThanOrEqual(2)
+    expect(source.match(/handleDiffPeekBodyResult\(/g)?.length ?? 0).toBeGreaterThanOrEqual(2)
+    // 조회 경로는 응답을 캐시에 남기고, 캐시 경로는 조회를 부르지 않는다.
+    expect(source).toContain('chatActions.recordDiffBody(')
+    expect(source).toContain('if (cachedContent !== null) {')
   })
 })

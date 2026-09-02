@@ -13,7 +13,8 @@ import type {
   DiffRequirementItem,
   GitDiffSummary,
   WorktreeDisplay,
-  WorktreePrepareStep
+  WorktreePrepareStep,
+  GitDiffFileContent
 } from '../../../../../shared/ipc'
 import { subagentNoticePart } from '../../../../../shared/ipc'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
@@ -35,6 +36,13 @@ import {
   removeTileFromColumns,
   type RightPanelColumns
 } from '../lib/rightPanelLayout'
+import {
+  EMPTY_DIFF_BODY_CACHE,
+  putDiffBody,
+  touchDiffBody,
+  type DiffBodyCache
+} from '../components/rightpanel/diffBodyCache'
+import { diffPeekBodyKey } from '../components/rightpanel/diffFileCache'
 
 // transcript 렌더가 쓰는 도구 호출 view — parts 의 tool_call+tool_result 를 toolRunId 로
 // 페어링한 결과(lib/parts.ts partsToolCalls). 더 이상 Message 의 필드가 아니다.
@@ -81,6 +89,8 @@ export interface GitSnapshotState {
   peekTarget: GitPeekTarget | null
   expandedCommitIds: readonly string[]
   refreshGeneration: number
+  /** 열어 본 파일 본문의 사용순 LRU(0211 D-061). 키가 요약 세대를 담아 새로고침이 자연 무효화한다. */
+  bodyCache: DiffBodyCache
 }
 
 export interface GitSnapshotRequest {
@@ -330,7 +340,13 @@ export const initialChatState: ChatState = {
   rightPanelColWidths: [],
   rightPanelRowSplits: [],
   gitStatus: null,
-  gitSnapshot: { summary: null, peekTarget: null, expandedCommitIds: [], refreshGeneration: 0 },
+  gitSnapshot: {
+    summary: null,
+    peekTarget: null,
+    expandedCommitIds: [],
+    refreshGeneration: 0,
+    bodyCache: EMPTY_DIFF_BODY_CACHE
+  },
   gitSnapshotRequest: null,
   diffRequirements: [],
   diffRequirementsRevision: 0,
@@ -453,6 +469,7 @@ export type ChatAction =
   | { type: 'SET_GIT_STATUS'; snapshot: BranchSnapshot }
   | { type: 'OPEN_GIT_SNAPSHOT_PEEK'; target: GitPeekTarget }
   | { type: 'CLOSE_GIT_SNAPSHOT_PEEK' }
+  | { type: 'RECORD_DIFF_BODY'; key: string; content: GitDiffFileContent }
   | { type: 'TOGGLE_GIT_SNAPSHOT_COMMIT_EXPANDED'; sha: string }
   | { type: 'REFRESH_GIT_SNAPSHOT' }
   | { type: 'BEGIN_GIT_SNAPSHOT_QUERY'; request: GitSnapshotRequest }
@@ -885,7 +902,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           summary: null,
           peekTarget: null,
           expandedCommitIds: [],
-          refreshGeneration: 0
+          refreshGeneration: 0,
+          // 다른 저장소의 본문이 같은 상대 경로로 보이면 안 된다(AT-42).
+          bodyCache: EMPTY_DIFF_BODY_CACHE
         },
         gitSnapshotRequest: null,
         diffRequirements: [],
@@ -1143,12 +1162,24 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, gitStatus: action.snapshot }
 
     case 'OPEN_GIT_SNAPSHOT_PEEK':
+      // 진입이 곧 **사용**이다 — 사용순 LRU 라 여는 것만으로 순서가 바뀐다. 키는 리듀서가
+      // 직접 짓는다: 다섯 축이 전부 여기 상태에 있어서, 화면이 키를 만들어 넘기면 두 곳이
+      // 같은 규칙을 갖게 되고 조용히 갈라진다(0211 §10 EP-24 ①).
       return {
         ...state,
         diffRequirementBodyRequest: null,
         gitSnapshot: {
           ...state.gitSnapshot,
-          peekTarget: action.target
+          peekTarget: action.target,
+          bodyCache: touchDiffBody(
+            state.gitSnapshot.bodyCache,
+            diffPeekBodyKey(
+              state.cwd,
+              state.sessionId,
+              action.target,
+              state.gitSnapshotRequest?.generation ?? 0
+            )
+          )
         }
       }
 
@@ -1157,6 +1188,16 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         diffRequirementBodyRequest: null,
         gitSnapshot: { ...state.gitSnapshot, peekTarget: null }
+      }
+
+    // 조회가 끝난 본문을 캐시에 넣는다. 텍스트가 아니면 `putDiffBody` 가 걸러낸다.
+    case 'RECORD_DIFF_BODY':
+      return {
+        ...state,
+        gitSnapshot: {
+          ...state.gitSnapshot,
+          bodyCache: putDiffBody(state.gitSnapshot.bodyCache, action.key, action.content)
+        }
       }
 
     case 'TOGGLE_GIT_SNAPSHOT_COMMIT_EXPANDED': {

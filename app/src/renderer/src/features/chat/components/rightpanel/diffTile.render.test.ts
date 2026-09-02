@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { GitDiffFileEntry, GitDiffSummary } from '../../../../../../shared/ipc'
 import { DiffTileContentView } from './DiffTileContent'
+import type { GitPeekTarget } from '../../reducer/chatReducer'
 import { DiffTileHeaderView } from './DiffTileHeader'
 import { tileById } from './tileRegistry'
 
@@ -104,5 +105,32 @@ describe('diff tile header and registry', () => {
     const html = renderToStaticMarkup(createElement(tile.Content))
     expect(tile.HeaderContent).toBeDefined()
     expect(html).toContain('data-session-changes-screen="list"')
+  })
+})
+
+// 0211 ΔV3 AT-40 / §10 EP-26 — 두 화면이 **서로 다른 방향**의 연출을 갖는다.
+describe('diff tile — depth 전환 (AT-40)', () => {
+  const screen = (peekTarget: GitPeekTarget | null): string =>
+    renderToStaticMarkup(
+      createElement(DiffTileContentView, {
+        summary,
+        peekTarget,
+        expandedCommitIds: new Set<string>(),
+        currentBody: null,
+        onToggleCommit: () => undefined,
+        onOpenPeek: () => undefined,
+        onBack: () => undefined
+      })
+    )
+
+  it('목록과 peek 의 연출 클래스가 서로 다르다', () => {
+    const list = screen(null)
+    const peek = screen({ group: { kind: 'commit', sha: 'commit-a' }, path: 'src/a.ts' })
+
+    expect(list).toContain('animate-depth-out')
+    expect(peek).toContain('animate-depth-in')
+    // 같은 클래스를 양쪽에 붙이면 뒤로 갈 때도 앞으로 가는 것처럼 보인다.
+    expect(list).not.toContain('animate-depth-in')
+    expect(peek).not.toContain('animate-depth-out')
   })
 })

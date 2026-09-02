@@ -28,6 +28,7 @@ import type {
   DiffRequirementAnchor,
   DiffRequirementItem,
   EffortLevel,
+  GitDiffFileContent,
   GitDiffSummary,
   NormalizedEvent,
   SendChatMessage
@@ -1360,6 +1361,8 @@ export const chatActions = {
   toggleGitSnapshotCommitExpanded: (sha: string): void =>
     dispatchActive({ type: 'TOGGLE_GIT_SNAPSHOT_COMMIT_EXPANDED', sha }),
   refreshGitSnapshot: (): void => dispatchActive({ type: 'REFRESH_GIT_SNAPSHOT' }),
+  recordDiffBody: (key: string, content: GitDiffFileContent): void =>
+    dispatchActive({ type: 'RECORD_DIFF_BODY', key, content }),
   beginGitSnapshotQuery: (request: GitSnapshotRequest): void =>
     dispatchActive({ type: 'BEGIN_GIT_SNAPSHOT_QUERY', request }),
   receiveGitSnapshotSummary: (request: GitSnapshotRequest, summary: GitDiffSummary): void =>
