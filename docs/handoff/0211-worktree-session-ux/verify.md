@@ -9,13 +9,13 @@
 | slug | `0211-worktree-session-ux` |
 | 검증자 | Claude Code |
 | 일자 | 2026-09-02 |
-| 대상 커밋/range | `b85195e8cc14dd53c056b46c215a7797cc2bcf08` (`b85195e^..b85195e`) |
-| 구현 전 plan 기준 | `e776360`(ΔV4 설계) + `ee5d10d`(ΔV4 규범 정정) |
+| 대상 커밋/range | r1 `b85195e8cc14dd53c056b46c215a7797cc2bcf08` · **r2 `e62a2a074e80da04225eaa6a2746184c73cf5940` + `fe36194e2f062e4b7116d4919c06e053756aca43`** (`b85195e..fe36194`) |
+| 구현 전 plan 기준 | r1 `e776360`+`ee5d10d` · **r2 `3b472f7`**(ΔV4 규범 정정 — D10·D11·D12) |
 | V mode / 유효 V | `Baseline V + Delta V` / `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
-| 검증 기준 plan revision | `ee5d10d:ΔV4` |
-| 라운드 | 1 (ΔV4) |
-| 상태 | **FAIL** |
-| 자기 검증 여부 | **설계·구현·검증이 같은 에이전트다.** §4 에 구현 보고가 이름을 대지 않은 적대 축 **8건**을 넣었고 그중 **6건이 green** 이다 |
+| 검증 기준 plan revision | r1 `ee5d10d:ΔV4` · **r2 `3b472f7:ΔV4`** |
+| 라운드 | **2** (ΔV4) |
+| 상태 | **FAIL** (r1 FAIL · **r2 FAIL**) |
+| 자기 검증 여부 | **설계·구현·검증이 같은 에이전트다.** r1 은 적대 축 8건(6 green), **r2 는 구현 보고가 이름을 대지 않은 축 9건을 넣었고 그중 4건이 green** 이다 |
 
 ---
 
@@ -395,3 +395,287 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh b85195e^..b85195e   #
 - repository operation checks: trailer 7키 파싱 정상 · 좌표 기입 완료 · **비고 5줄 초과 1건(D13, 이번 갱신에서 축약)**.
 - 남은 사람 확인: §8 의 4건(파일 경계 가독성 · 사이드바 연출 · 형제 대비 이질감 · 위쪽 확장 시야 유지).
 - 다음 단계: **구현자**가 D1~D6 을 닫는다. 여섯은 전부 **테스트 추가**이며 프로덕션 코드 변경을 요구하지 않는다 — D7·D8·D9 를 같은 라운드에 함께 정리하면 죽은 표면도 사라진다.
+
+---
+
+## Verify r2 (ΔV4) — FAIL
+
+**판정: `FAIL`.** r1 이 차단으로 올린 여섯(D1~D6)은 **전건 닫혔다** — 그 자리를 깨는 변이 11건을 다시 심어 전건 RED 다. 남은 실패는 **하나**다: `VP-58` 이 AT-50 의 머리 동사를 관측하지 않는다. `scrollIntoView` 를 통째로 지워도 **3,071 케이스가 전건 green** 이다(C1) — 사이드바에서 파일을 골라도 화면이 움직이지 않는 회귀를 아무도 잡지 못한다. `PLAN_GAP` 은 없다: AT-50 이 그 오라클을 "스텁" 이라는 말까지 붙여 이미 적어 두었다. 다음 주체는 구현자다.
+
+r1 판정 원문은 위 `## Verify r1 (ΔV4) — FAIL` 절에 그대로 둔다 — 이 절은 이번 라운드의 재측정만 적는다.
+
+## 0. 기준선 / plan 변경 확인
+
+- **기준선이 diff 로 성립하는가**: **예.** 규범 정정이 `3b472f7`(`Status: designed`) 로 분리됐고 구현은 `e62a2a0`·`fe36194`(`Status: implemented`) 다.
+- 구현 커밋의 `plan.md` diff: **91 추가 / 10 삭제**. 삭제 10줄은 전부 `[검증자 기입] 파생 이슈` 표의 **상태 칸 갱신**(D1~D6·D7·D8·D9·D14 행 재작성)이고, 추가분은 `## [구현자 기입] … (ΔV4 r2)` 7절이다.
+- Decision Ledger · Product/UX Contract 변경: **없음**.
+- **AC 변경: 있다 — 설계 커밋 `3b472f7` 이 AT-47 과 EP-31 ③ 을 고쳤다.** r1 의 D10 이 "동작 유지 시 AC 문구 정정" 으로 낸 처방이고, 완화가 아니라 **관대한 실제 동작을 문구가 따라간 것**이다. 프로덕션은 `if (collect) totalLines += counted.total`(`git-diff-parse.ts:406`) 이라 예산을 수집한 파일만 소비한다 — 새 문구가 코드와 맞는다. 이 문구로 채점한다.
+- 그 밖의 규범 행 변경: EP-17 머리말 `5지점 → 6지점`(D11) · §18 ΔV4 파일 목록 재계수(D12). 둘 다 코드 대조로 확인했다(아래 §7).
+
+### Plan validity (r2 차분만)
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| 기준 커밋 실재 | 유효 | `git cat-file -t` — `46047ac`·`b85195e`·`e776360`·`ee5d10d`·`3b472f7`·`e7604eb` 전부 `commit` |
+| 정정된 AC ↔ 코드 | 유효 | AT-47 새 문구 = `git-diff-parse.ts:404~406` 의 실제 분기 |
+| §18 재계수 ↔ 커밋 | 유효 | `git show b85195e --name-status` = `A 18 · D 15 · M 45`. A 18 = 마이그레이션 1 + renderer 프로덕션 11 + renderer 테스트 6 |
+| EP-17 지점 수 | 유효 | 열거 ①~⑥ · pair registry `EP-17 (6)` · 머리말 6 — 세 자리가 일치 |
+| root `PLAN_GAP` | **없음** | 이번 라운드가 못 닫은 오라클(C1)을 AT-50 이 이미 이름으로 적었다 |
+
+## 1. 구현 결과 비판적 검토 — AC 전에
+
+- **프로덕션 로직 변경 0 을 직접 확인했다.** `e62a2a0` 의 프로덕션 hunk 는 둘뿐이다 — `diffComparison.ts` 의 죽은 export 삭제(D8), `sessionChangesData.ts` 의 `'∅' → tr('chat.rightpanel.diffBaselineNone')`(D14). 나머지 12파일은 테스트와 i18n 카탈로그다.
+- false success 가능성: 이번 diff 는 계기·상태·외부 쓰기를 만들지 않는다. `fe36194` 는 스윕 술어의 **분모 열거 방식**만 바꾸므로 분모가 줄어드는 쪽이 위험인데, 그것을 §4 C6 에서 집합 동등으로 확인했다.
+- 사용자에게 보이는 유일한 변화는 D14 다 — 커밋이 없는 저장소에서 라벨이 `∅` 대신 `기준 없음`/`no baseline`.
+- 동작 보존 라운드인가: **테스트 추가 라운드**다. hunk 되돌림은 아무것도 재지 못하므로 쓰지 않았다 — 전부 **프로덕션 소거·치환 변이**로 쟀다.
+
+## 2. 역방향 탐색
+
+`scan-surface.sh e62a2a0^..fe36194` 는 후보 2건을 냈고 둘 다 오탐이다.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| `sessionChangesData.ts :: summaryBaseLabel` — 프로덕션 참조 0 | 오탐 | 같은 파일 30행 `summaryBaseText` 가 부른다(파일 내 호출을 스크립트가 세지 않는다) |
+| `sessionChangesData.ts :: SummaryBaseLabel` (타입) | 오탐 | 같은 파일 시그니처용 |
+
+- 이번 라운드 신규 죽은 export: **0**. 미배선 신규 심볼: **0**(신규는 전부 `.test.ts`).
+- 형제 파일 정책 비대칭: **0**.
+- **테스트 신설이 프로덕션 계약을 잠그는가** — 신규 4파일 모두 프로덕션 심볼을 직접 부른다. `GitContextBar.render`·`.actions` 는 `await import('./GitContextBar')`, `diffReviewNavigation` 은 `./DiffReview`, `diffPatchLines` 는 `patchLinesToDiffLines` 다. 동명 로컬 재구현은 **없다** — 그 사실을 §4 의 프로덕션 변이가 red 로 증명한다.
+
+## 3. 재측정 표 — 구현 보고가 등록한 변이 (11/11 RED)
+
+보고를 대조의 출발점으로만 쓰고 11건을 **직접 다시 심어** 각 대상 스위트를 재실행했다.
+
+| 변이 | r1 | r2 재측정 | 관측 |
+|---|---|---|---|
+| I1 라벨에 `→ 현재 브랜치` 되살림 | green | **RED** | `GitContextBar.render`+`.actions` 17케이스 전건 실패 |
+| I2-coords 좌표 캐시 무력화 | green | **RED** | `git-diff.test.ts` 1/28 |
+| I3 log 폴백 삭제 | green | **RED** | `git-diff.test.ts` 2/28 |
+| I5 `patchLinesToDiffLines` 축 맞바꿈 | green | **RED** | `diffPatchLines`+`diffTile.render` 3/31 |
+| I6 `resolveHeadRef` 상수화 | green | **RED** | `repository`+`service` 6/16 |
+| I7 `service.ts` baseRef `null` | green | **RED** | `service.test.ts` 1/11 |
+| P29-2 `PATCH_MAX_BUFFER` 4 MiB | green | **RED** | `git-diff.test.ts` 1/28 |
+| P34-2 요약 수신 `patch:null` 제거 | green | **RED** | `chatReducer.plan` 1/37 |
+| P36-1 `⋮ › 파일 표시` no-op | green | **RED** | `GitContextBar.actions` 1/17 |
+| P36-2 `pickFile` 의 `onExpandFile` 제거 | green | **RED** | `diffReviewNavigation`+`diffTile.render` 2/31 |
+| P62 줄별 요구사항 마커 렌더 제거 | green | **RED** | `diffTile.render` 1/27 |
+
+### 재측정 표 — 이전 라운드가 red 로 본 변이 (덮개 회귀 없음)
+
+r2 가 프로덕션 로직을 바꾸지 않았으므로 **이번 diff 가 건드린 파일 주변**의 r1 red 를 표본으로 재실행했다.
+
+| 변이 | r1 | r2 재측정 | 비고 |
+|---|---|---|---|
+| M1 라벨에 `→ 현재` 되살림 | red(2) | **RED**(3) | `sessionChangesData.ts` 가 이번에 바뀐 파일이다 |
+| M7 세션 패치 무시 | red(2) | **RED**(2) | `diffComparison.ts` 가 이번에 바뀐 파일이다 |
+| M12 제거된 i18n 키 되살림 | red(1) | **RED**(1) | 카탈로그 2파일이 이번에 바뀌었다 |
+
+`red → green` 으로 뒤집힌 축은 **0** 이다.
+
+### 재측정 표 — 검증자 독립 축 (9건 중 4 green)
+
+구현자 = 검증자이므로 **구현 보고가 이름을 대지 않은 축**만 골랐다 — 같은 계약의 다른 지점 3(C1·C3·C12) · 형제 슬롯 맞바꿈 2(C8a·C8d) · 분모 독립 재열거 2(C5·C6) · §10 표 밖 형제 지점 1(C9) · 이번 라운드가 정정한 AC 절 1(C11).
+
+| 축 | 무엇을 깼나 | 결과 | 귀속 |
+|---|---|---|---|
+| **C1** | `DiffReview.pickFile` 의 `scrollIntoView` **만** 삭제(`onExpandFile` 은 남긴다) | **green**(전체 3,071 전건) | **VP-58 / AT-50 — D16** |
+| **C3** | `↗` 의 `aria-label` **만** 삭제(`title` 은 남긴다) | **green**(전체 3,071 전건) | VP-60 / AT-52 — D17 |
+| **C9** | `BEGIN_GIT_SNAPSHOT_QUERY` 의 `patch: null` 삭제 | **green**(전체 3,071 전건) | §10 EP-34 표 밖 형제 — D18 |
+| **C11** | 전체 줄 상한을 예산이 아닌 **커서**로(`if (collect)` 제거) | **green**(전체 3,071 전건) | AT-47·EP-31 ③ 새 문구 — D19 |
+| C5 | 좌표 캐시가 `cwd` 를 무시하고 한 칸만 쓴다 | red(2) | VP-48 / EP-25 ② — 잠겨 있다 |
+| C6 | `walkSourceFiles` ↔ `globSync` 분모 대조 | 동등 | VP-54 / EP-34 ③ — 아래 §5 |
+| C8a | 형제 메뉴 `highlight` ↔ `whitespace` 의 action 맞바꿈 | red(3) | VP-59 / EP-33 — 잠겨 있다 |
+| C8d | 형제 버퍼 8 MiB ↔ 16 MiB 맞바꿈 | red(1) | VP-31·VP-55 / EP-17 ④·EP-29 ② |
+| C12 | `prepare-worktree.ts` 의 `sessionBaselineRef: prepared.baseRef` 를 `null` 로 | red(2) | VP-52 / EP-28 ② 운반 링크 |
+
+- **C1 이 이번 라운드의 유일한 차단이다.** 프로덕션은 옳게 스크롤한다(`DiffReview.tsx:70`) — 없는 것은 그 호출을 보는 눈이다. r2 가 이 지점을 위해 만든 `diffReviewNavigation.test.ts` 는 `onExpandFile` 까지만 단언하고 한 줄 앞에서 멈췄다.
+- C3 은 라벨 **문자열**이 카탈로그를 지나는 것까지는 잠겼고(키가 새면 red) 그 문자열이 **어느 속성**에 실리는지만 못 가린다 — `title` 이 같은 값을 갖기 때문이다.
+
+### 0건/전수 스윕 엄격화 (§8)
+
+`fe36194` 가 스윕의 **열거 방식**을 바꿨으므로 그 스윕을 다시 엄격화했다.
+
+| 스윕 | 엄격화 기준 | 차집합 |
+|---|---|---|
+| `gitPatchQuery` 소유자(`walkSourceFiles` 로 교체) | 같은 루트를 `globSync('**/*.{ts,tsx}')` 로 다시 열거 | **0** — 양쪽 **436파일** 정확히 동일, glob-only·walk-only 각 0 |
+| 같은 스윕의 술어 | `gitApi\.diffPatch\(` → 수신자 무관 `\.diffPatch\(` | **+1** — `shared/api/ipc.ts` 정의부. r1 이 이미 계상한 그 1건이다 |
+| `diffPeekRemoved` i18n 6키 | 카탈로그 `<key>:` 부재 → `app/src` 전역 `<key>` 부재 | **0** — 6키 각각 1건, 전부 그 테스트 자신 |
+| `diffPeekRemoved` 삭제 모듈 7개 | `from '…<name>'` → 파일 전체 이름 부재 | **0** — 7모듈 각각 그 테스트 파일만 |
+
+경로 구분자 수정이 분모를 깎지 않았다 — `globSync` 가 Linux 에서 세던 436파일을 `walkSourceFiles` 도 그대로 센다. §8 의 경계대로 엄격화는 *전수인지* 만 재고, *불변식을 잠그는지* 는 위 소거 변이가 판정했다.
+
+## 4. V-pair closeout — 재검증 범위
+
+r1 의 root 실패 pair 8행 + 그 pair 의 §10 지점 + 이번 diff 가 영향을 준 pair 를 실행했다. 영향받지 않은 r1 `PASS` 는 r1 의 `§5 V-pair closeout` 증거 좌표를 참조하고 다시 세지 않는다.
+
+| Pair | 레벨 | r1 | r2 | 직접 검증 증거 |
+|---|---|---|---|---|
+| VP-51 | UT+AT | PAIR_FAIL | **PASS** | `GitContextBar.render.test.ts` 8케이스 — 현재 브랜치를 `feature-x` 로 **다르게** 주고 부재를 센다. I1·M1 red |
+| VP-52 | IT+ST | PAIR_FAIL | **PASS** | `repository.test.ts` 4(브랜치·unborn·detached·비저장소) · `service.test.ts` 2(임시 저장소 실기). I6·I7·C12 red |
+| VP-54 | ST | PAIR_FAIL | **PASS** | `chatReducer.plan.test.ts` — 요약 수신 후 `patch===null`, `collapsedFiles`·`sidebarVisible` 은 생존. P34-2 red |
+| **VP-58** | AT | PAIR_FAIL | **PAIR_FAIL** | ①두 진입점·선펼침·같은 컨테이너는 잠겼다(P36-1·P36-2 red). **②"이동" 자체가 미잠금 — C1 green** |
+| VP-60 | AT | PAIR_FAIL | **PASS** | `GitContextBar.actions.test.ts` — 첫 클릭 `(2, MAX)` · 둘째 `(2, DEFAULT)` · 열 인덱스까지 단언. C3 는 속성 축(D17) |
+| VP-62 | AT | PAIR_FAIL | **PASS** | `diffTile.render.test.ts` 4케이스 — 확정 마커 · draft 입력 · 줄별 `+` · 위치 상실. P62 red |
+| VP-48 | IT | PAIR_FAIL | **PASS** | `git-diff.test.ts` — 같은 runner 두 조회에 좌표 1건, runner 다르면 비공유. I2-coords·C5 red |
+| VP-31·VP-39 | IT | PAIR_FAIL | **PASS** | 같은 파일 — 폴백 인자 **차집합** + 2단계 실패의 `commitFilesUnavailable` + 버퍼 8/16/4 MiB 동시 단언. I3·C8d red |
+| VP-55 | UT+IT | PASS | **PASS** | EP-29 ② 의 16 MiB 반쪽이 이번에 닫혔다(P29-2·C8d red). 새 AC 절은 D19 |
+| VP-59 | UT | PASS | **PASS** | 형제 슬롯 맞바꿈 C8a red 로 보강 확인 |
+| VP-53·VP-61 | AT | PASS | **PASS** | 스윕 엄격화 차집합 0 유지(위 §3). M12 red |
+| VP-57 | UT | PASS | **PASS** | M7 red 재현 — `diffComparison.ts` 가 이번에 바뀐 파일이라 다시 쟀다 |
+| 그 밖의 r1 `PASS`·`NOT_REQUIRED` | — | — | **미영향** | 이번 diff 가 그 프로덕션 경로를 건드리지 않는다(프로덕션 hunk 2개) |
+
+- root `PAIR_FAIL`: **VP-58** 1행. 종속 `BLOCKED_BY`: **없음** — 나머지 상위 pair 를 전부 독립 관측했다.
+- REQUIRED **11 PASS · 1 PAIR_FAIL** · REGRESSION **12 PASS** · NOT_REQUIRED **15**.
+
+## 5. plan §10 강제 지점 — 검증자 재계수
+
+구현자는 r1 이 미잠금으로 본 지점만 다시 셌다. 검증자는 **ΔV4 신규 9 EP 의 26지점 전체**를 다시 세고, 회귀 EP 둘(EP-17·EP-25)의 문제 지점을 함께 봤다.
+
+| EP | 지점 | r1 | r2 재계수 | 미잠금 |
+|---|---|---|---|---|
+| EP-28 비교 기준 이름 | 3 | 2/3 | **3/3** | — (I6·I7·C12 red) |
+| EP-29 한 채널·한 호출 | 3 | 2.5/3 | **3/3** | — (P29-2·C8d red) |
+| EP-30 구 본문 경로 소멸 | 4 | 4/4 | **4/4** | — |
+| EP-31 상한 셋 | 3 | 3/3 | **3/3** | 값 자체는 잠김. 새 문구의 “예산” 절은 D19 |
+| EP-32 방향 값 | 2 | 2/2 | **2/2** | — |
+| EP-33 표시 옵션 넷 | 4 | 4/4 | **4/4** | — (C8a red) |
+| EP-34 세대당 1회 | 3 | 2/3 | **3/3** | — (P34-2 red · ③은 C6 로 분모 재확인) |
+| EP-35 목록만 좁힘 | 2 | 2/2 | **2/2** | — (M7 red) |
+| EP-36 사이드바·확대 | 2 | 0/2 | **2/2** | 표에 적힌 두 *실패 의미* 는 잠겼다 |
+| EP-17 요약 세 범위(회귀) | 6 | 4/6 | **6/6** | — (I3·C8d red) |
+| EP-25 합쳐서 한 번(회귀) | 3 | 2/3 | **3/3** | — (I2-coords·C5 red) |
+
+- **ΔV4 신규 26/26 잠김**(r1 21/26). 회귀 EP-17·EP-25 도 전수 복구됐다.
+- **EP-36 ② 는 §10 표 기준으로는 닫혔다** — 표의 실패 의미가 "화면 전환이면 두 번째 화면이 이름만 바꿔 돌아온다" 이고 그 축은 잠겼다(같은 스크롤 소유자·두 섹션 공존). 못 닫힌 것은 §10 이 아니라 **AT-50 이 별도로 이름 붙인 오라클**(`scrollIntoView` 스텁)이다 — 그래서 VP-58 의 실패이지 `PLAN_GAP` 이 아니다.
+- 라벨 진실성 표본: `resolveHeadRef` 의 `{ readOnly: true }` 는 실제로 `symbolic-ref` 한 호출이라 참이다. 구현 보고의 "신규 4파일 25 · 변경 6파일 17" 도 파일별로 다시 셌다(아래 §7).
+- 표 밖인데 같은 불변식이 필요한 지점: **1건** — `BEGIN_GIT_SNAPSHOT_QUERY` 의 `patch:null`(D18). ΔV4 가 새로 넣은 줄인데 EP-34 의 세 지점 어디에도 없다.
+
+## 6. 숫자 / 상한 재측정
+
+- **케이스 증가 +42**: 3,029(r1) → **3,071**(r2 실측). 파일별 자기보고를 다시 셌다 — 신규 `GitContextBar.render` **8** · `.actions` **9** · `diffReviewNavigation` **4** · `diffPatchLines` **4** = 25, 변경 `repository` **4** · `git-diff` **5** · `diffTile.render` **4** · `service` **2** · `chatReducer.plan` **1** · `sessionChangesData` **1** = 17. **25 + 17 = 42 ✓**, 자기보고와 전건 일치.
+- **§18 재계수(D12) 검산**: `git show b85195e --name-status` = `A 18 · D 15 · M 45`. A 18 = 마이그레이션 1 + renderer 신규 프로덕션 11 + renderer 신규 테스트 6 ✓. D 15 = renderer 14 + main 1 ✓.
+- **EP-17 지점 수(D11) 검산**: 머리말 6 = 열거 ①~⑥ = pair registry `EP-17 (6)` ✓.
+- 출력 상한: `MAX_PATCH_TOTAL_LINES = 200_000` 은 예산 의미에서도 **수집 총량의 상한**이라 worst-case 16 MB ≤ `PATCH_MAX_BUFFER` 16 MiB 관계가 그대로다 — D19 는 안전 축이 아니라 충실도 축이다.
+- 자기보고 합계 사본 대조: 본문 `12/12` ↔ trailer `Criteria-Met: 12/12` + `Criteria-Pending: D7` ↔ INDEX 비고 — **세 사본 일치**.
+
+### AT / AC 세부
+
+| AT | r1 | r2 | 근거 |
+|---|---|---|---|
+| AT-43 | ⚠️ | ✅ | 렌더 부재 단언 신설, 현재 브랜치를 다른 값으로 준다. I1 red |
+| AT-44 | ⚠️ | ✅ | 생산자 4 + 산출 2케이스. I6·I7·C12 red |
+| AT-45~AT-49 | ✅ | ✅ | 미영향 — 증거 좌표는 r1 §5 |
+| AT-47 | ✅ | ✅ | 값 상한 셋은 잠김. 정정된 “예산” 절은 미잠금(D19) |
+| **AT-50** | ⚠️ | **⚠️** | 두 구획·트리·선펼침·같은 컨테이너 잠김. **“이동” 미잠금 — C1 green** |
+| AT-51 | ✅ | ✅ | C8a 형제 맞바꿈 red 로 보강 |
+| AT-52 | ⚠️ | ✅ | 첫/둘째 클릭 인자 + 열 인덱스 단언. 속성 축은 D17 |
+| AT-53 | ✅ | ✅ | 엄격화 차집합 0 유지. M12 red |
+| AT-54 | ⚠️ | ✅ | 렌더 4케이스. P62 red |
+
+- **합계 재측정: `✅11 · ⚠️1 · ❌0 = 12`.** 분모는 §7 ΔV4 표의 AT-43~AT-54 를 직접 세어 12.
+- 자기보고 `12/12`. **불일치 1건** — AT-50 은 ⚠️ 다.
+
+## 7. 게이트 재실행 — 산출 관측
+
+exit code 가 아니라 실행 산출을 적는다.
+
+| Gate | 결과 | 관측한 산출 |
+|---|---|---|
+| `npm run lint` | **PASS** | `0 errors, 1 warning` — 기존분 `useTranscriptVirtualizer.ts:22`. 실행 후 `git status --porcelain` **빈 값**(`--fix` 가 트리를 바꾸지 않았다) |
+| `npm run typecheck` | **PASS** | 3구성(`node`·`web`·`test`) 진단 **0줄** |
+| `vitest run --maxWorkers=2` 전체 | **PASS(환경 1)** | **309파일 중 308 green · 3,071 케이스 전건 green**, 34.9s. red 1 = `chat-turn.continuity.test.ts` = `Electron failed to install correctly`, 이번 diff 에 없는 파일 |
+| `node --test "scripts/*.test.mjs"` | **PASS** | `# tests 67 # pass 67 # fail 0` |
+| `check-doc-inventory.mjs --check` | **PASS** | `9 items, 82 channels` · 산문 ok · 링크 ok · 차이 0 |
+| `check-migrations-appendonly.mjs` | **PASS** | exit 0 · `20 migrations, dir == migrate.ts imports` · `scanned 884 source files` |
+| IPC 계약 문서 | **PASS** | 변경 없음 — 이번 diff 에 `shared/ipc.ts`·`protocol.ts`·`IPC_CONTRACT.md` 가 **없다** |
+
+- `npm test` 를 쓰지 않았다 — `app/AGENTS.md` 대로 `pretest` 를 우회했고, DB 스위트(`queries`·`migrate`)는 이 컨테이너의 Node ABI 로 이미 green 이다.
+- **`--maxWorkers=2` 는 구현자 보고대로 필요하다** — 무제한이면 컨테이너가 워커를 OOM 으로 죽인다. 이번 검증 전건을 이 옵션으로 돌렸다.
+- **검증 중 트리 변화**: 변이 24회를 전부 `git checkout -- app/<file>` 로 되돌렸고, 마지막에 `git status --porcelain` 이 빈 값임을 확인했다. 잔여물 0.
+- CI(windows-latest): `fe36194` 가 r1 이후의 경로 구분자 red 를 고쳤다. 그 수정 자체는 로컬에서 관측할 수 없으므로 **PR #422 의 windows gate 가 실기 몫**이다(아래 §9).
+
+## 8. 테스트 가능한 핸들 — 이번 라운드에 줄어든 사람 실기
+
+r1 이 "UI 라서" 로 넘기지 않은 자리를 구현자가 SSR 렌더로 실제로 잡았다. 남는 사람 실기는 **4건 그대로**다(파일 경계 가독성 · 사이드바 연출 끊김 · 형제 타일 대비 · 위쪽 확장 시야 유지 — D-060·D-067).
+
+- **C1 은 사람 실기가 아니다.** `onPickFile` 을 잡는 double 이 이미 서 있으므로, 그 double 이 `scrollIntoView` 스파이를 단 노드를 돌려주면 자동 관측된다 — AT-50 이 "스텁" 이라 적은 것이 그 뜻이다.
+- 마운트 순서(effect) 자체는 이번에도 자동 oracle 이 없다 — `environment: 'node'` 의 한계이고 §8 사람 실기 표의 마지막 행이다.
+
+## 9. Repository operation checks
+
+- `AGENTS.md` 변경: **없음** — 위생 검사 해당 없음.
+- **trailer 파싱**: `git log -1 --format='%(trailers:only=true)'` 가 `e62a2a0` **8키**, `fe36194` **8키**를 그대로 돌려준다(`Criteria-Pending` 포함). 허용값도 root `AGENTS.md` 표와 일치한다 — `Agent: claude` · `Status: implemented` · `Verified-By: pending`.
+- 인용 커밋 실재: 위 §0 표의 6해시 + `da9c778d`·`0d8cf037`·`553da6a8`·`d23c5be` 전부 `commit`.
+- **대상 커밋 좌표**: 구현자가 남긴 `(r2 구현 — 검증자 기입)` 을 `e62a2a0`·`fe36194` 로 채웠다(INDEX). plan 의 구현 보고 행은 자리표시자로 둔다 — 좌표 정본은 INDEX 한 곳이다.
+- **`[구현자 기입]` 7필드**: **7/7 존재**(설계 리뷰 · 강제 지점 전수 · 이번 라운드 수정의 잠금 · Product/UX 파생 검토 · 놓친 잠재 문제 · 구현 보고 · Review Signals). 산문으로 접힌 필드 0 — `이번 라운드 수정의 잠금` 이 11행 표를 그대로 갖는다.
+- **INDEX 비고 5줄 초과**: r1 의 1,055자에서 809자로 줄었으나 **여전히 넘는다** → D21. 이번 검증 갱신에서 다시 줄인다.
+- 이동/삭제한 reference: **없음**. r1 의 D5·D6 이 지적한 `git-diff-service.test.ts` 3축은 `git-diff.test.ts` 로 재배치돼 살아 있는 소비처를 갖는다.
+- PR: [#422](https://github.com/muzaby/orca-skin/pull/422) (draft, open) head `fe36194` — 브랜치와 일치.
+
+## 10. 구현자 코멘트 / 선조치 경계
+
+| 구현자 코멘트 | 검증자 판단 | 반영 |
+|---|---|---|
+| "심은 결함 11건 전부 RED" | **타당** | 11/11 직접 재현. 근거를 `rg` 개수로 대신한 행 0 |
+| "r1 미검출 13 = 이번 11 + 이미 red 2" 검산 | **타당** | I4·I2-total 이 r1 에서 red 였음을 r1 §4 표에서 확인 |
+| 놓친 문제 1 — 렌더 테스트가 store 를 통째로 mock 한다 | **타당** | 마크업 계약만 잰다는 선언대로다. selector 배선은 C12 가 다른 층에서 red 로 잡는다 |
+| 놓친 문제 2 — 사이드바 double 로 배선을 본다 | **부분적으로만 타당** | 나눈 이유는 옳으나 **그 double 이 스크롤 대상 노드를 돌려주지 않아** AT-50 의 오라클이 남았다(C1) |
+| 놓친 문제 3 — D7 은 사용자 결정 | **타당** | `animate-depth-out` 프로덕션 소비처 실측 **0**(참조 4건 = CSS 정의 2 + 그 CSS 테스트 2) |
+| 놓친 문제 4 — D10 은 문구를 고쳤지 동작을 고치지 않았다 | **타당** | 코드가 예산 의미다. 다만 **새 문구의 오라클이 없다**(C11 green) → D19 |
+| 구현 보고 "강제 지점 전수" | **타당** | 검증 재계수도 ΔV4 26/26. 회귀 EP 둘도 복구 |
+| 자기보고 `Criteria-Met: 12/12` | **미달 1** | 검증 재판정 `✅11 ⚠️1` — AT-50 |
+
+## 11. Finding disposition / 파생 이슈
+
+r1 의 D1~D15 처리는 아래 §12 에, 이번 라운드 신규는 D16~D21 이다. 정본 표는 [`plan.md` §[검증자 기입] 파생 이슈](plan.md) 에 함께 반영한다.
+
+| # | finding | 귀속 | disposition |
+|---|---|---|---|
+| **D16** | `DiffReview.pickFile` 의 `scrollIntoView` 를 지워도 3,071 케이스 전건 green — AT-50 의 "이동" 을 보는 오라클이 없다 | VP-58 / AT-50 | **BLOCKING** — `diffReviewNavigation.test.ts` 의 사이드바 double 이 스크롤 스파이를 단 노드를 돌려주고, `pickFile` 이 그 노드의 `scrollIntoView` 를 부른다고 단언한다 |
+| D17 | `↗` 의 `aria-label` 을 지워도 green — 같은 문자열이 `title` 에도 실려 두 속성을 가리지 못한다. AT-52 는 `aria-label` 을 이름으로 적었다 | VP-60 / AT-52 | NON_BLOCKING — 속성을 지목해 단언하거나 `title` 을 뺀다 |
+| D18 | `BEGIN_GIT_SNAPSHOT_QUERY` 의 `patch: null`(ΔV4 신규, `b85195e`)이 미잠금 — 지워도 green. §10 EP-34 세 지점 밖이다 | 비귀속(§10 표 밖 형제) | NON_BLOCKING — 세션/cwd 전환에서 앞 세션 diff 가 남는 창을 잠근다 |
+| D19 | 정정된 AT-47·EP-31 ③ 의 "예산은 수집한 파일만 소비한다" 절에 오라클이 없다 — 커서 의미로 바꿔도 green | AT-47 · EP-31 ③(문구) | NON_BLOCKING — 상한 초과 파일 **뒤의 더 작은 파일이 다시 실린다**는 케이스 1건 |
+| D20 | §18 ΔV4 영향 파일 목록이 `b85195e` 만 담는다 — r2 가 더한 테스트 4 · 변경 6 이 빠져 있다 | plan §18 | NON_BLOCKING — 설계자가 revision 전체로 넓히거나 "r1 구현 기준" 이라 명시 |
+| D21 | INDEX 0211 비고가 **809자**로 5줄 상한을 여전히 넘는다(r1 1,055자에서 축소) | `docs/handoff/AGENTS.md §산출물 문장 규칙 3` | NON_BLOCKING — 이번 검증 갱신에서 축약(수행함) |
+
+**미검출 인용 변이**: **0**. D1~D6 이 인용한 변이(I1·I2-coords·I3·I6·I7·P29-2·P34-2·P36-1·P36-2)와 D9 가 인용한 I5 를 전부 다시 심어 RED 를 확인했다 — 구현자가 `closed` 로 적은 상태를 되돌릴 근거가 없다.
+
+## 12. r1 파생 이슈 처리 확인
+
+| # | r1 분류 | 구현자 상태 | 검증자 재판정 |
+|---|---|---|---|
+| D1 | BLOCKING | closed | **closed** — I1 red |
+| D2 | BLOCKING | closed | **closed** — I6·I7 red, C12 로 운반 링크까지 확인 |
+| D3 | BLOCKING | closed | **closed** — P34-2 red |
+| D4 | BLOCKING | closed | **부분 closed** — EP-36 ①②는 닫혔으나 AT-50 오라클이 남았다 → **D16 으로 이관** |
+| D5 | BLOCKING | closed | **closed** — I2-coords·C5 red |
+| D6 | BLOCKING | closed | **closed** — I3·C8d red |
+| D7 | NON_BLOCKING | open(사용자) | **open 유지** — 프로덕션 소비처 0 재확인 |
+| D8 | NON_BLOCKING | closed | **closed** — `comparisonKey` 참조 0, 정의 삭제 |
+| D9 | NON_BLOCKING | closed | **closed** — I5 red |
+| D10·D11·D12 | NON_BLOCKING | closed(설계) | **closed** — §0·§6 에서 코드 대조 |
+| D13 | NON_BLOCKING | closed(r1) | **재발** → D21 |
+| D14 | NON_BLOCKING | closed | **closed** — `'∅'` 참조 0 |
+| D15 | NEXT_HANDOFF | open | **open 유지** — 이번 라운드는 `--maxWorkers=2` 로 회피했고 간헐 실패를 보지 않았다 |
+
+## 13. Review Signals — 사실만
+
+- **이전 라운드와 동일 증상인가**: **부분적으로.** r1 의 뿌리는 "AC 가 이름 붙인 오라클이 없고 구조 스윕이 그 자리를 대신했다" 였다. r2 는 그 자리 여섯 중 다섯을 행동 oracle 로 닫았고, **남은 하나(AT-50 의 `scrollIntoView`)가 같은 형태**다 — 그 지점을 위해 만든 파일 안에서 한 줄 앞에 멈췄다.
+- **관련 plan 지침/AC 가 있었는가**: **있었다.** AT-50 원문이 "파일 클릭이 그 섹션의 `scrollIntoView` 를 부른다고 단언(스텁)" 이다. AT-52 의 `aria-label`(D17)도 같다.
+- **사용자 결정 변경 근거**: 해당 없음 — 이번 라운드에 Decision 변경 0. AC 정정 2건(AT-47·EP-31 ③)은 r1 검증이 낸 처방을 따른 문구 정정이고 동작을 바꾸지 않는다.
+- **반복된 검증 환경 한계**: **셋.** ① `environment: 'node'` — effect 는 관측 불가(SSR 마크업은 가능하고 이번 라운드가 그 경계를 실제로 넓혔다) ② electron 바이너리 미설치 — 1파일 red ③ 컨테이너 메모리 — `--maxWorkers=2` 필요.
+- **로컬 게이트가 보지 못하는 축**: 경로 구분자. `fe36194` 가 고친 축이고 그 수정의 확인은 windows CI 몫이다 — 로컬(Linux) 전건 green 은 이 축을 재지 못한다.
+- **삭제된 테스트 파일의 계약 이전**: r1 이 3건을 지적했고 r2 가 전부 재배치했다(좌표 캐시·log 폴백·전용 버퍼 → `git-diff.test.ts`, 요구사항 마커 → `diffTile.render.test.ts`). 이번 라운드 신규 유실 **0**.
+
+## 14. 결론 (r2)
+
+- 상태: **FAIL**
+- pair 결과: REQUIRED **11 PASS · 1 PAIR_FAIL**(VP-58) · REGRESSION **12 PASS** · BLOCKED_BY **0** · NOT_REQUIRED **15**
+- PLAN_GAP: **없음** — 남은 오라클을 AT-50 이 이미 이름으로 적었다. 다음 주체는 **구현자**다.
+- 등록·인용 변이: **11/11 RED** · 이전 라운드 red 재현 **3/3 RED**(덮개 회귀 0) · 검증자 독립 축 **9건 중 4 green**(C1 차단 · C3·C9·C11 비차단)
+- §10 강제 지점: ΔV4 신규 **26/26**(r1 21/26) · 회귀 EP-17 **6/6** · EP-25 **3/3**
+- AC 충족: `✅11 ⚠️1 ❌0 / 12`(자기보고 `12/12`)
+- 현재 변경 운영 gate: **7종 전건 PASS**(vitest 1파일 red 는 electron 미설치, 변경 무관). 검증 중 트리 변화·잔여물 **0**
+- NON_BLOCKING: D17·D18·D19·D20·D21 + r1 잔여 D7 · NEXT_HANDOFF: D15
+- 남은 사람 확인: 4건(파일 경계 가독성 · 사이드바 연출 · 형제 대비 · 위쪽 확장 시야) + windows CI 의 구분자 수정 확인
+- 다음 단계: **구현자가 D16 하나를 닫는다.** 테스트 한 파일의 double 을 스크롤 스파이 노드로 바꾸는 작업이며 프로덕션 변경을 요구하지 않는다. D17·D19 를 같은 라운드에 함께 닫으면 AC 가 이름 붙인 오라클이 전부 선다.

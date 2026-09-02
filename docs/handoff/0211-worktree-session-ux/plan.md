@@ -3296,7 +3296,7 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 | D1 | `GitContextBar` 를 렌더하는 테스트가 **0건**이라 AT-43 의 "`→`·현재 브랜치 부재" 와 AT-52 의 `setRightPanelColWidth` 인자·`aria-label` 단언이 없다 | VP-51 · VP-60 / AT-43 · AT-52 | SSR 렌더 테스트 **신설** — `GitContextBar.render.test.ts` 8케이스. 현재 브랜치를 기준선과 다른 값으로 주고 부재를 센다 | **BLOCKING** | **closed**(r2 · I1 RED) |
 | D2 | `resolveHeadRef` 와 `service.ts` 의 `baseRef` 계산에 행동 oracle 이 없다 — 상수로 바꿔도 924케이스 전건 green | VP-52 / AT-44 · §10 EP-28 ② | `repository.test.ts` **4케이스**(브랜치·detached·unborn·빈 출력) · `service.test.ts` **2케이스**(이름 산출·명시 baseRef) | **BLOCKING** | **closed**(r2 · I6·I7 RED) |
 | D3 | `RECEIVE_GIT_SNAPSHOT_SUMMARY` 의 `patch:null` 이 미잠금 — 지워도 727케이스 전건 green | VP-54 / §10 EP-34 ② | `chatReducer.plan.test.ts` 에 "요약이 새로 오면 패치가 버려진다" **1케이스** | **BLOCKING** | **closed**(r2 · P34-2 RED) |
-| D4 | §10 EP-36 두 지점이 **0/2** 잠김 — `⋮ › 파일 표시` no-op 화와 `pickFile` 의 선펼침 제거가 둘 다 green | VP-58 · VP-60 / §10 EP-36 | `GitContextBar.actions.test.ts`(두 진입점이 같은 액션) + `diffReviewNavigation.test.ts`(사이드바 double 이 `onExpandFile` 을 잡는다) | **BLOCKING** | **closed**(r2 · P36-1·P36-2 RED) |
+| D4 | §10 EP-36 두 지점이 **0/2** 잠김 — `⋮ › 파일 표시` no-op 화와 `pickFile` 의 선펼침 제거가 둘 다 green | VP-58 · VP-60 / §10 EP-36 | `GitContextBar.actions.test.ts`(두 진입점이 같은 액션) + `diffReviewNavigation.test.ts`(사이드바 double 이 `onExpandFile` 을 잡는다) | **BLOCKING** | **부분 closed**(r2 · P36-1·P36-2 RED) — AT-50 의 `scrollIntoView` 오라클은 **D16 으로 이관** |
 | D5 | `git-diff-service.test.ts` 삭제로 **EP-25 ② 좌표 캐시** oracle 소멸 — 이전 라운드 red 였던 축이 green | VP-48 / §10 EP-25 ② | `git-diff.test.ts` 로 재배치 — 같은 runner 두 조회에 좌표 1건, runner 가 다르면 비공유 | **BLOCKING** | **closed**(r2 · I2-coords RED) |
 | D6 | 같은 삭제로 **EP-17 ④⑤**(log 폴백 · `commitFilesUnavailable` · 8 MiB 버퍼) oracle 소멸 — 폴백을 통째로 지워도 green | VP-31 · VP-39 / §10 EP-17 ④⑤ | 같은 재배치 — 폴백 인자 차집합 + 2단계 실패의 `commitFilesUnavailable`, 버퍼 8/16/4 MiB 셋을 함께 단언 | **BLOCKING** | **closed**(r2 · I3·P29-2 RED) |
 | D7 | `animate-depth-out` 이 프로덕션 소비처 **0** — 참조 3건 전부 테스트다 | D-092 이유란("두 utility 재사용") | **사용자 결정 대기** — ① 닫기 연출 추가(언마운트 지연 타이머, node 환경에서 oracle 불가) ② utility·CSS 테스트 삭제(ACTIVE D-092 의 절반을 버림). ΔV3 이후 소비처가 한 번도 없었다 | NON_BLOCKING | open(사용자) |
@@ -3305,6 +3305,12 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 | D10 | 전체 줄 상한이 초과 파일 **뒤의 더 작은 파일을 다시 수집**한다 — AC 문구("넘긴 파일부터")보다 관대 | AT-47 문구 | 동작 유지 + AC 문구 정정 — AT-47·MD-18 두 자리를 “합계를 넘기는 그 파일”로 고쳤다(예산은 수집한 파일만 소비한다) | NON_BLOCKING | **closed**(r2 설계) |
 | D11 | §10 EP-17 머리말이 "5지점" 인데 항목은 ⑥까지이고 pair registry 는 `EP-17 (6)` | plan 내부 불일치 | §10 행 머리를 `EP-17, 6지점` 으로 정정 — 열거·pair registry·전수표가 이미 6이었다 | NON_BLOCKING | **closed**(r2 설계) |
 | D12 | §18 ΔV4 삭제 목록 **10** vs 실제 **13** — `DiffTileHeader.tsx` 를 *변경* 으로 분류했다 | plan §18 | §18 ΔV4 를 커밋 `b85195e` 의 name-status 로 다시 셌다 — 신규 프로덕션 11 · 신규 테스트 6 · 변경 7 · renderer 삭제 14(소스 7 + 테스트 7) · main 삭제 1 | NON_BLOCKING | **closed**(r2 설계) |
-| D13 | INDEX 0211 행 비고가 **1,055자**로 5줄 상한 초과 | `docs/handoff/AGENTS.md §산출물 문장 규칙 3` | 검증 갱신에서 축약 | NON_BLOCKING | closed(r1 검증) |
+| D13 | INDEX 0211 행 비고가 **1,055자**로 5줄 상한 초과 | `docs/handoff/AGENTS.md §산출물 문장 규칙 3` | 검증 갱신에서 축약 | NON_BLOCKING | closed(r1) — **r2 에서 재발, D21** |
 | D14 | `summaryBaseText` 의 `kind:'none'` 이 카탈로그 밖 문자 `'∅'` 를 낸다 | 비귀속 | `chat.rightpanel.diffBaselineNone` 신설(ko `기준 없음` · en `no baseline`) | NON_BLOCKING | **closed**(r2) |
 | D15 | 임시 저장소 통합 스위트가 부하에서 간헐 타임아웃 — 변이 40회 중 2회, 재실행 전부 green | 검증 환경 | 타임아웃 상향 또는 직렬화 검토 | NEXT_HANDOFF | open |
+| D16 | `DiffReview.pickFile` 의 `scrollIntoView` 를 지워도 **3,071 케이스 전건 green** — AT-50 의 "이동" 을 보는 오라클이 없다 | VP-58 / AT-50 | `diffReviewNavigation.test.ts` 의 사이드바 double 이 스크롤 스파이를 단 노드를 돌려주고, `pickFile` 이 그 노드의 `scrollIntoView` 를 부른다고 단언 | **BLOCKING** | open(r2) |
+| D17 | `↗` 의 `aria-label` 을 지워도 green — 같은 문자열이 `title` 에도 실려 두 속성을 가리지 못한다 | VP-60 / AT-52 | 속성을 지목해 단언하거나 `title` 을 뺀다 | NON_BLOCKING | open(r2) |
+| D18 | `BEGIN_GIT_SNAPSHOT_QUERY` 의 `patch: null`(ΔV4 신규)이 미잠금 — 지워도 green. §10 EP-34 세 지점 밖이다 | 비귀속(§10 표 밖 형제) | 세션/cwd 전환에서 앞 세션 diff 가 남는 창을 잠근다 | NON_BLOCKING | open(r2) |
+| D19 | 정정된 AT-47·EP-31 ③ 의 "예산은 수집한 파일만 소비한다" 절에 오라클이 없다 — 커서 의미로 바꿔도 green | AT-47 · EP-31 ③(문구) | 상한 초과 파일 **뒤의 더 작은 파일이 다시 실린다**는 케이스 1건 | NON_BLOCKING | open(r2) |
+| D20 | §18 ΔV4 영향 파일 목록이 `b85195e` 만 담는다 — r2 가 더한 테스트 4 · 변경 6 이 빠져 있다 | plan §18 | revision 전체로 넓히거나 "r1 구현 기준" 이라 명시 | NON_BLOCKING | open(r2) |
+| D21 | INDEX 0211 비고가 **809자**로 5줄 상한을 여전히 넘는다(r1 1,055자에서 축소) | `docs/handoff/AGENTS.md §산출물 문장 규칙 3` | 검증 갱신에서 축약 | NON_BLOCKING | **closed**(r2 검증) |
