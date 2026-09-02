@@ -1010,6 +1010,8 @@ SDK(producer) → claude-map(정규화) → bus → coordinator/tracker(상태) 
 | P9 | **클릭 홉 3사이트가 무잠금이다.** `TaskTileContent.tsx:223`·`:359` 와 `SubAgentTileContent.tsx:309` 의 `onClick` 인자를 상수 `'use1'` 로 굳혀도 2798케이스가 전건 초록이다. AC25 의 문장은 "**클릭하면** 그 `toolUseId` 로" 라 이 홉이 그 문장의 첫 글자다 | **보고만.** 닫으려면 DOM 환경이 필요한데 이 저장소는 `vitest.config.ts` 가 `environment: 'node'` · `include: ['src/**/*.test.ts']` 이고 `jsdom`·`happy-dom`·testing-library 가 **의존성에 없다**. 신규 의존성은 사용자 승인 사항이다(`app/AGENTS.md §의존성 정책`) | 설계·사용자 판단: DOM 환경을 들일지, 아니면 onClick 을 순수 함수로 떼어 잠글지 |
 | P10 | **이전 라운드들의 게이트 명령이 `src/preload` 를 건너뛴다.** plan §7-A·§19 와 r1·r2 가 쓴 `vitest run src/shared src/renderer src/main` 은 **279파일 2797케이스**이고, 인자 없는 `vitest run` 은 **280파일 2800케이스**다 — 차이가 정확히 이번에 만든 `src/preload/index.test.ts` 3케이스다 | **선조치 — 이번 보고의 게이트는 인자 없는 `vitest run` 으로 돌렸다.** plan §7-A 관련 스위트 행과 §19 의 명령에 `src/preload` 를 더하거나 경로 필터를 빼는 정정을 제안한다 | 규범 행(§7-A gate·§19)이라 설계자 몫 |
 | P11 | `infra/git/mutation-queue.test.ts` 가 전체 스위트 병렬 실행에서 **3회 red**, 단독 실행 **2회 green** 이다. 실패 형태가 `AssertionError: expected true to be false` 라 plan §7-A 가 적은 알려진 기준선(`timed out in 5000ms` · `EBUSY: rmdir`)과 **다르다** | **보고만** — 이번 변경과 인과가 없다(변이는 `session-runtime.ts`·`claude.ts` 한 줄). 최종 게이트 실행에서는 green 이었다 | 별도 handoff 후보 — §7-A 의 알려진 기준선 서술에 이 형태를 더할지 |
+| P12 | **win32 분기의 최종 확인은 CI 몫이다** — 검증 환경이 Linux 라 `commandForTarget` 이 내는 명세(`shell:true`)까지만 잠근다 | r3 후속 턴 · §7-A 선행 조건 gate | 다음 windows-latest 실행이 판정. 실패해도 로그가 사유를 말한다 | NON_BLOCKING | open (r3 제기) |
+| P13 | **`postinstall` 등 4개 훅이 Windows 에서 수명 내내 무음 no-op 이었다**(0212 r1 이 가드를 고치기 전까지). `app/AGENTS.md §ABI 가이드` 의 "4개 명령이 ABI 를 뒤집는다" 가 Windows 에서는 참이 아니었다 | `app/AGENTS.md` 서술 ↔ 코드 | 코드는 이 턴으로 서술과 일치. 문서 정정 여부는 설계자 판단 | NON_BLOCKING | open (r3 제기) |
 
 ### r3 — 설계 대비 명시적 차이
 
@@ -1038,6 +1040,79 @@ SDK(producer) → claude-map(정규화) → bus → coordinator/tracker(상태) 
 - 사용자 결정 변경 근거: 없음 — ACTIVE Decision 27건 전건 유지, SUPERSEDED 0.
 - 반복해서 부딪히는 환경 한계: ① 워크트리에 `node_modules` 부재 → `npm ci` 필요(r2 와 동일). ② `npm ci` 직후는 Electron ABI 라 DB 스위트 red — `npm rebuild better-sqlite3` 로 분리(r2 와 동일). ③ **경로 필터를 준 게이트 명령이 새 디렉토리의 테스트를 조용히 건너뛴다**(P10, 이번 라운드 신규). ④ DOM 환경·testing-library 부재로 클릭 홉을 잠글 수 없다(P9, 이번 라운드 신규).
 - 현재 라운드 수: **3**
+
+---
+
+## [구현자 기입] r3 — 후속 턴: CI red gate (windows-latest)
+
+> **라운드는 3 그대로다** — 같은 라운드의 둘째 턴이다(0210 선례: 턴 `r3` 오라클 → 턴 `r4` CI red gate).
+> 위 r3 절의 7필드 중 **설계 리뷰 · Product/UX 파생 검토 · 설계 대비 차이**는 이 턴에 변동이 없다(사용자 대면 표면 0 · 대체 메커니즘 0).
+
+### 사실 — 무엇이 red 였나
+
+사용자 보고(2026-09-02, windows-latest · Node 22):
+
+```text
+> node scripts/ensure-sqlite-abi.mjs electron
+[sqlite-abi] ensure failed for electron
+npm error code 1
+```
+
+- **자식 출력이 0줄이다.** `defaultRunner` 는 `stdio:'inherit'` 라 `electron-builder` 가 돌았다면 그 출력이 보여야 한다 — 안 보이므로 **자식이 뜨지 못했다**(spawn 자체 실패).
+- 원인: `commandForTarget` 이 win32 에서 **`electron-builder.cmd` 를 `shell:false` 로** 넘긴다. `spawn` 은 shell 없이 **실행 이미지(`.com`/`.exe`)만** 띄울 수 있다 — 이 저장소의 `node_modules/cross-spawn/lib/parse.js` 가 같은 규칙을 코드로 갖는다(`isExecutableRegExp = /\.(?:com|exe)$/i` → `needsShell`).
+- **이 handoff 가 드러냈다.** r1 의 P2 가 진입 가드를 `pathToFileURL` 비교로 고치기 전까지, Windows 에서는 `import.meta.url === \`file://${argv[1]}\`` 가 성립하지 않아 **CLI 본문이 한 번도 돈 적이 없다**(무음 exit 0). 가드가 고쳐지자 4개 훅(`postinstall`·`pretest`·`predev`·`prebuild`)이 Windows 에서 처음 실행됐고 그 아래 있던 결함이 나왔다. verify r2 **D14** 가 같은 사실을 반대쪽에서 관측했다(POSIX 에서는 깨진 형태가 우연히 참).
+
+### 수정 — 두 불변식
+
+| 불변식 | 지점 전수 | 닫음 | 차집합 |
+|---|---|---|---|
+| **Windows 에서 실행 이미지가 아닌 것은 shell 을 거친다** | `commandForTarget` 의 명령 2종(`npm.cmd`·`electron-builder.cmd`). 나머지 spawn 3곳은 `git`(→`git.exe`)·`process.execPath` 라 비대상 | 2/2 — 술어를 `/\.(?:cmd\|bat)$/i` 로 두어 **명령 이름 목록이 아니라 규칙**으로 판정 | **0** |
+| **spawn 실패 사유를 삼키지 않는다** | `defaultRunner`(error 반환) → `ensureSqliteAbi`(버림) → `runCli`(한 줄만 출력) = 3홉 | 3/3 — `describeRunFailure` 신설, `reason` 을 결과에 싣고 `runCli` 가 출력 | **0** — 형제 `check-migrations-appendonly.mjs:154` 는 이미 `result.error` 를 문장에 싣는다(선례) |
+
+- **`pretest` 도 같이 고쳐졌다** — node target 은 `npm.cmd` 라 같은 결함이었다. CI 는 `npm ci` 다음에 `npm test` 를 돌리므로 이 턴이 없었으면 다음 단계에서 같은 자리에 다시 걸린다.
+- 관측: `commandForTarget` 를 세 플랫폼 × 두 target 전수 실행 — win32 2종 `shell:true`, linux·darwin 4종 `shell:false`.
+- 출력이 실제로 달라졌다: `[sqlite-abi] check failed for electron: electron ABI marker is stale`(전: 사유 없음).
+
+### 이번 턴 수정의 잠금
+
+`commandForTarget` 의 플랫폼 분기는 **테스트가 0건**이었다(`rg commandForTarget scripts/ensure-sqlite-abi.test.mjs` → 0). 그래서 깨진 채 배포됐다.
+
+| 심은 결함 | 출처 | 실패한 케이스 | 결과 |
+|---|---|---|---|
+| M-A `shell` 을 항상 `false` 로 되돌림 (**이번 CI 회귀 그 자체**) | 새 oracle 감도 | 2 — win32 분기 · 전수 불변식 | **RED** |
+| M-B win32 에서 `.cmd` 를 떼고 `electron-builder` 로 | 새 oracle 감도 | 1 — win32 분기 | **RED** |
+| M-C `ensureSqliteAbi` 가 `shell` 을 runner 에 안 넘김 | 새 oracle 감도(배선) | 1 — 전달 단언 | **RED** |
+| M-D `reason` 을 상수 `'failed'` 로 | 새 oracle 감도 | 1 — 사유 단언 | **RED** |
+
+- 분모 검산: **선택 증거 0**(plan 이 이 축에 등록한 적대 증거 없음) · **인용 변이 0** · **새 oracle 감도 4** = **표 행 4**. 표 행 4 ✅.
+- **덮개 회귀: 없다.** 기존 7케이스는 그대로 두고 6케이스를 더했다(61 → **67**). 다만 기존 2케이스가 `ensureSqliteAbi` 결과 shape 을 `deepEqual` 로 고정하고 있어 `reason` 추가에 맞춰 갱신했다 — shape 이 실제로 늘어난 것이라 단언을 약화한 것이 아니다.
+- **전수 케이스를 목록이 아니라 규칙으로 썼다** — `모든 target × 플랫폼에서 .cmd/.bat 이면 shell 이 참이다` 는 차집합(`offenders`)이 빈 배열임을 단언하므로 새 target 이 늘어도 함께 걸린다.
+
+### 놓친 잠재 문제 + 대응 (이 턴)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| P12 | **최종 확인은 Windows CI 가 해야 한다.** 이 환경은 Linux 라 win32 분기를 *실행*할 수 없다 — 잠근 것은 `commandForTarget` 이 내는 **명세**(`shell:true`)이고, 그 명세로 `cmd.exe` 가 실제로 `electron-builder.cmd` 를 띄우는지는 windows-latest 에서만 관측된다 | 보고 — 다음 CI 실행이 판정이다. 실패해도 이제 로그가 사유를 말한다(`spawn '...' failed (CODE): ...`) | 사람/CI 몫 |
+| P13 | **`postinstall` 이 Windows 에서 수명 내내 무음 no-op 이었다** — 0212 r1 이 가드를 고치기 전까지 4개 훅 전부. 즉 Windows 개발자·CI 는 ABI 보장 없이 돌아왔고, `app/AGENTS.md §better-sqlite3 ABI 가이드` 의 서술("4개 명령이 ABI 를 뒤집는다")이 Windows 에서는 참이 아니었다 | 보고만 — 문서 정정 여부는 설계자 판단이다. 코드는 이 턴으로 서술과 일치하게 됐다 | `docs/` 규범 행이라 설계자 몫 |
+
+### 구현 보고 (이 턴)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | **2** — `app/scripts/ensure-sqlite-abi.mjs`(프로덕션 스크립트) · `app/scripts/ensure-sqlite-abi.test.mjs`(+6케이스). **`app/src` diff 0** |
+| 관측한 게이트 산출 | typecheck **`error TS` 0건** · vitest **280파일 2800케이스 green** · scripts **67 pass 0 fail(8 suites)** — 이번 턴 61→67 · doc-inventory **3줄 ok** · lint **0 error / 1 warning**(기존분), 트리 변경 0 |
+| AC 자기보고 | **✅27 · ⚠️0 · ❌0 / 27 — 불변.** 이 턴은 AC 축이 아니라 §7-A 의 **선행 조건 gate**(`npm ci`)를 고쳤다 |
+| 강제 지점 전수 | 이번 턴이 연 것 — win32 shell **2/2** · 실패 사유 전달 **3/3**. §10 EP 표에는 이 축의 행이 없다(P13 과 함께 설계자 판단) |
+| 블로커 / 역질문 | **없다.** P12 는 CI 관측 대기, P13 은 문서 정정 제안이다 |
+| 대상 커밋 | `(r3 후속 — 좌표는 INDEX)` |
+
+### Review Signals (이 턴)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **아니다 — 새 축이다.** r1~r3 는 "oracle 이 경로의 한 홉 앞에 선다" 였고, 이 턴은 **"플랫폼 분기가 한 번도 실행된 적 없다"** 다. 다만 뿌리는 같다: `commandForTarget` 의 win32 분기는 테스트가 0건이었고 Windows 진입 가드가 깨져 런타임에서도 안 돌았다 — **두 눈이 동시에 없었다**.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **없다.** 0212 의 V 는 이 스크립트를 계약으로 갖지 않는다(P2 가 범위 밖 선조치였고 verify r1 이 D10 으로 존치 판정했다). §7-A 의 `선행 조건 — 의존성 설치` 행이 이 gate 를 적지만 지점·oracle 은 없다.
+- 사용자 결정 변경 근거: 없음.
+- 반복해서 부딪히는 환경 한계: **검증 환경이 Linux 라 타겟 플랫폼(Windows)의 분기를 실행할 수 없다.** 이 턴은 그것을 *명세 단언*으로 우회했고(플랫폼을 인자로 받는 순수 함수), 실행 확인은 CI 몫이다.
+- 현재 라운드 수: **3** (둘째 턴)
 
 ---
 
