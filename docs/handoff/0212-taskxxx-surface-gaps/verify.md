@@ -652,3 +652,309 @@ r1 에서 ✅ 였고 이번 변경에 영향받지 않은 AC 는 r1 표의 증�
 - repository operation checks: trailer 파싱 6키/4키 정상 · `[구현자 기입] r2` 7필드 전수 · INDEX 비고 234자 · 대상 커밋 좌표 기입 완료 · 인용 해시 7/8 실재(1건은 shallow clone 한계).
 - 남은 사람 확인: `paused` 상태의 `stopTask` SDK 실거동 1건(plan §17 의 미검증 가정) · D12·D13 의 관측 지점 확대 여부(설계 판단).
 - 다음 단계: 구현자가 **D11 하나**를 닫는다 — `session-runtime.test.ts` 의 기존 fake 하네스로 `SessionRuntime.backgroundTask` 가 받은 인자를 단언하면 N8·N9 가 red 가 된다. 프로덕션 코드 변경은 필요하지 않다.
+
+---
+
+# Verify r3 (2026-09-02) — PASS
+
+## 메타 — r3
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 일자 | 2026-09-02 |
+| 대상 커밋/range | `8b0d65c3..db1509fd` — 두 턴(`62eb2c76` 오라클 · `db1509fd` CI red gate) |
+| 구현 전 plan 기준 | `229a0e67`(ΔV1 설계 커밋). **r2 절이 적은 `229a0e6c` 는 죽은 좌표다 — D20** |
+| V mode / 유효 V | `Baseline V: V1 @e38f545e` + `ΔV1 @229a0e67` = **22 pair**(REQUIRED 17 · REGRESSION 5) |
+| 검증 기준 plan revision | `229a0e67:ΔV1` |
+| 라운드 | 3 |
+| 상태 | **PASS** (`PLAN_GAP` 0 · BLOCKING 0) |
+| 자기 검증 여부 | **설계·구현·검증이 모두 Claude Code다.** 보고가 이름을 대지 않은 적대 축 **6건**(V-A·V-A2·V-B·V-C·V-E + 전수 오라클 엄격화)을 넣었고 **4건이 green** 이다(D15~D17). 넷 다 0212 의 V 밖이라 PASS 를 막지 않는다 |
+
+## 0. 기준선 / plan 변경 확인 (r3)
+
+- 구현 커밋이 `plan.md` 를 변경했는가: 했다 — `62eb2c76` hunk 3개(`@@ -927`·`-935`·`-943`), `db1509fd` hunk 2개(`@@ -1010`·`-1041`). **전부 `[구현자 기입]` 이후**(구 파일 925행이 `r2 — Review Signals` 헤더).
+- **기준선이 diff 로 성립하는가**: 예 — 설계 `229a0e67`(`Status: designed`) · 검증 `8b0d65c3`(`Status: verified`) · 구현 2건(`Status: implemented`)이 갈려 있다.
+- Decision Ledger · Product/UX Contract · AC · V node/pair · §10 변경: **전건 없음** — §3·§5·§6·§7·§7-A·§10 이 impl diff 밖이다. AC 분모 **27** 불변.
+- 채점에 사용할 원 기준: `229a0e67` 시점의 §3·§5·§7·§7-A·§10.
+- **`app/src` 프로덕션 diff 0 재측정**: `git diff --name-status 8b0d65c..db1509f` → 7파일 중 `app/src` 는 **3파일 전부 `.test.ts`**. 유일한 프로덕션 변경은 `app/scripts/ensure-sqlite-abi.mjs` 다.
+- 구현자가 `[검증자 기입] 파생 이슈` 표를 직접 편집했다 — D3·D11·D12 상태와 P9·P10·P11 행. 재측정 결과 세 상태는 참이라 되돌리지 않는다(§4 · D19).
+
+### Plan validity (r3)
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| Delta V mode·상속 기준 | 유효 | `e38f545e`·`229a0e67` 둘 다 `git cat-file -t` = `commit`. 20 + 2 = **22 pair** 재구성 |
+| NEW/CHANGED ↔ REQUIRED · INHERITED ↔ REGRESSION | 유효 | r2 §0 과 동일 — ΔV1 이후 V 변경 0 |
+| pair별 path·§10 전수·직접 oracle | 유효 | 22 pair 전건이 세 칸 보유 |
+| 현재 변경 산출물의 gate 범위 | **부분** | §7-A·§19 의 `vitest run src/shared src/renderer src/main` 이 `src/preload` 를 빠뜨린다(P10, 실측 279파일 2797 ↔ 280파일 2800). 규범 행 정정은 설계자 몫이고 이번 판정은 넓은 명령으로 했다 |
+| `PLAN_GAP` | **0건** | r2 의 FAIL 은 §10 EP-14 에 이미 있던 지점이 안 닫힌 것이었고, 이번에 닫혔다 |
+
+- turn ② 가 고친 `app/scripts/ensure-sqlite-abi.mjs` 는 0212 의 V·§10 에 행이 없다. §7-A 의 `선행 조건 — 의존성 설치` gate 가 이 스크립트를 통과하므로 **gate 축으로만** 판정한다.
+
+## 1. Product & UX / ACTIVE Decision (r3)
+
+`app/src` 프로덕션 diff 0 이므로 r1·r2 §1 의 경로 대조가 그대로 유효하다 — 재서술하지 않는다. r2 가 `부분` 으로 남긴 한 줄만 이번 대상이다.
+
+| r2 판정 | r3 재측정 |
+|---|---|
+| D-020·D-021 `핸들러 홉만 잠김`(D11) | **잠김** — `session-runtime` 홉이 N8 RED 2 · N9 RED 2. 어댑터 홉도 CA-1 RED 2 |
+| ACTIVE Decision D-001~D-027 | **충돌 0** — 사용자 대면 표면·계약 변경이 0이라 충돌할 자리가 없다 |
+
+## 2. 구현 결과 비판적 검토 — AC 전에 (r3)
+
+| 질문 | 판정 | 근거/후속 |
+|---|---|---|
+| 실환경 실패 방식 | **바뀌었다 — 좋은 방향** | `ensureSqliteAbi` 실패가 이제 사유를 싣는다. 실측: `[sqlite-abi] check failed for electron: electron ABI marker is stale`(전: 사유 없음) |
+| false success 가능성 | **줄었다** | 이번 CI red 의 실체가 "자식이 뜨지 못했는데 로그가 원인을 말하지 않음" 이었다. `shell` 판정을 규칙으로 바꿔 명령 이름 목록에 의존하지 않는다 |
+| `shell: true` 의 주입면 | **없다** | `commandForTarget` 의 args 는 전부 파일 내 리터럴(`['install-app-deps']`·`['rebuild','better-sqlite3']`)이고 외부 입력이 닿지 않는다 |
+| 비-win32 회귀 | **없다** | linux·darwin 은 `shell:false` 로 이전과 동일. 이 클론에서 `npm ci` 가 `postinstall → electron-builder` 를 실제로 돌려 `[sqlite-abi] electron: rebuilt` 를 냈다 |
+| Product/UX 의 A 가 아닌 B | 아니오 | 사용자 대면 표면 변경 0 |
+| 증상만 제거하고 상태가 남았는가 | 아니오 | 장치 교체 0 — 기존 7케이스 유지 + 6케이스 추가(61 → 67). 기존 2케이스의 `deepEqual` 은 `reason` 추가에 맞춰 **강화**됐다 |
+| 새 오라클이 production 을 재배치했는가 | **부분 — 정당하다** | `commandForTarget(target, platform = process.platform)` 로 두 번째 인자를 열었다. 기본값이 production 값이라 호출부 3곳은 무변경이고, 플랫폼 분기를 mock 없이 전수로 돌리는 유일한 seam 이다 |
+| 출력/요청 worst-case 상한 | 무증가 | 신규 요청 0 |
+
+## 3. 역방향 탐색 (r3)
+
+```bash
+bash .agents/skills/handoff-verify/scripts/scan-surface.sh 8b0d65c..db1509f
+# → 변경된 소스 파일이 없습니다 (범위: 8b0d65c..db1509f, 루트: app/src)
+```
+
+스크립트 분모가 비는 것은 `app/src` 변경이 테스트 전용이기 때문이다. `app/scripts` 는 스크립트 범위 밖이라 직접 대조로 대체했다.
+
+| 후보 | 판정 | 귀속 / 근거 |
+|---|---|---|
+| 미사용 export | 0건 | 신규 export `describeRunFailure` 는 같은 파일 `ensureSqliteAbi:171` 이 부른다 — 테스트 전용이 아니다 |
+| 테스트 전용 참조 | 0건 | 새 테스트 3파일이 전부 production symbol 을 부른다 — `import './index'`(preload) · `new SessionRuntime(...)` · `new ClaudeAdapter()` |
+| 동명 로컬 재구현 | **0건** | preload 는 `contextBridge.exposeInMainWorld` 가 받은 **production 객체**를 포획해 부른다(`index.test.ts:42-46`). 어댑터·runtime 도 production 클래스를 직접 `new` 한다 |
+| **형제 정책 비대칭 — spawn 지점 독립 전수** | **비대칭 0** | `scripts/*.mjs` 의 `spawnSync` 는 **3곳**뿐이다: `ensure-sqlite-abi.mjs:52`(이번 수정 대상) · `:69`(`process.execPath`) · `check-migrations-appendonly.mjs:153`(`'git'`). 뒤 둘은 확장자 없는 실행 이미지라 win32 EINVAL 대상이 아니다 — 구현자 주장과 일치 |
+| **형제 정책 비대칭 — 어댑터 위임** | **1건** | `ClaudeAdapter` 의 인자 전달 위임은 **4개**(`:489`·`:503`·`:505`·`:507`)인데 r3 는 3개만 잠갔다 → **D17** |
+| 신규 등록값의 기존 소비처 | 무영향 | 신규 채널·variant·설정 키 0 — `check-doc-inventory --check` exit 0 |
+| producer ↔ consumer 파생 불일치 | **1건** | `shell` 과 `reason` 은 생산 지점만 잠겼고 소비 지점(`defaultRunner`·`runCli`)은 무잠금 → **D15·D16** |
+| 죽은 i18n 키 | 1건 잔존 | `chat.taskTool.fetched` — D8 유지 |
+
+## 4. 적대 증거 재측정 · 자기검증 분모 (r3)
+
+- **등록·인용·신설 oracle 변이 재측정: 16/16 검출.** 구현 보고 두 표(turn ① 12행 · turn ② 4행)를 보고와 무관하게 다시 심었고 **실패 케이스 수까지 전건 일치**한다. 미검출 0 · 일반 hunk 자동 확장 0.
+- **이전 라운드 red 변이 대조: 4/4 재현, 덮개 회귀 0.** 장치 교체·삭제가 0이다(삽입 367 / 삭제 5, 그 5는 plan 3 · INDEX 1 · import 1줄).
+- **잔여물 수렴**: N9·SR-2·SR-3 는 미사용 파라미터를 `_` 로 치워 **`typecheck error TS` 0** 상태에서 red 를 다시 얻었다. 표의 모든 결과가 진단 0에서 나온 red 다.
+- **자기검증 분모**: 구현자 = 검증자다. 보고에 없던 축 **6건**을 만들었고 **4건이 green**(V-A·V-A2·V-B·V-C)이다. 축의 종류 — 같은 계약을 **다른 지점**에서 깨기(V-B·V-A·V-A2) · 보고가 세지 않은 **형제 지점**(V-C) · **분모 자체의 독립 재열거**(§7 AC25 경로 9사이트 · spawn 3지점) · 신설 전수 오라클 **엄격화**(§8).
+
+| 변이 | 게이트 | 이전 라운드 | 이번 라운드 | 귀속 |
+|---|---|---|---|---|
+| MV-4 핸들러의 `turn.live.backgroundTask` 호출 제거 | vitest 전체 | r2 RED 2 | **RED 2** | VP-17 등록 변이 · D3 인용 |
+| MV-5 같은 호출 인자를 상수 `'use1'` 로 | 〃 | r2 RED 1 | **RED 1** | VP-17 등록 변이 |
+| **N8** `SessionRuntime.backgroundTask` 인자 오염 | 〃 | **r2 GREEN 2790** | **RED 2** | D11 인용 변이 |
+| **N9** 같은 메서드 본문 폐기(`return false`) | 〃 | **r2 GREEN 2790** | **RED 2** | D11 인용 변이 |
+| **N2c** preload `{sessionId,toolUseId}` 맞바꿈 | 〃 | **r2 GREEN 2790** | **RED 1** | D12 인용 변이 |
+| SR-1 `SessionRuntime.stopTask` 인자 오염 | 〃 | 미측정 | **RED 1** | 신설 oracle 감도 |
+| SR-2 `SessionRuntime.setModel` 인자 상수화 | 〃 | 미측정 | **RED 1** | 신설 oracle 감도 |
+| SR-3 `SessionRuntime.setPermissionMode` 인자 상수화 | 〃 | 미측정 | **RED 1** | 신설 oracle 감도 |
+| PL-1 preload 채널 상수를 `chatStopSubagent` 로 | 〃 | 미측정 | **RED 1** | 신설 oracle 감도 |
+| PL-2 preload `stopSubagent` 인자 맞바꿈 | 〃 | 미측정 | **RED 1** | 신설 oracle 감도 |
+| CA-1 `claude.ts:507` `backgroundTasks` 인자 오염 | 〃 | 미측정 | **RED 2** | 신설 oracle 감도 |
+| CA-2 `claude.ts:505` `stopTask` 인자 오염 | 〃 | 미측정 | **RED 1** | 신설 oracle 감도 |
+| M-A `shell` 을 항상 `false` 로 | `node --test scripts` | 미측정 | **RED 2** | 신설 oracle 감도 |
+| M-B win32 에서 `.cmd` 제거 | 〃 | 미측정 | **RED 1** | 신설 oracle 감도 |
+| M-C `ensureSqliteAbi` 가 `shell` 미전달 | 〃 | 미측정 | **RED 1** | 신설 oracle 감도(배선) |
+| M-D `reason` 을 상수 `'failed'` 로 | 〃 | 미측정 | **RED 1** | 신설 oracle 감도 |
+| MV-3 coordinator `backgroundSet` 분기 차단 | vitest 전체 | r2 RED 2 | **RED 2** | 이전 라운드 대조 |
+| M1 `agentItem` `title`↔`subject` | 〃 | r1·r2 RED 3 | **RED 3** | 이전 라운드 대조 |
+| M2 `canStopBackgroundStatus` 의 `paused` 제거 | 〃 | r1·r2 RED 4 | **RED 4** | 이전 라운드 대조 |
+| N7 `shared/api/ipc.ts` 인자 맞바꿈 | 〃 | r2 RED 1 | **RED 1** | 이전 라운드 대조 |
+| **V-E** 핸들러의 `if (!moved) throw` 제거 | 〃 | — | **RED 1** | 검증자 신설 축 — EP-14 "실패 비삼킴" |
+| **V-B** `defaultRunner` 가 `shell` 을 버림(`{...options, shell:false}`) | `node --test scripts` | — | **GREEN 67/67 · typecheck 0** | 검증자 신설 축 → **D15** |
+| **V-A** `runCli` 가 `result.reason` 을 버림(수정 전 로그 문장) | 〃 | — | **GREEN 67/67** | 검증자 신설 축 → **D16** |
+| **V-A2** `defaultRunner` 가 `error` 를 버림 | 〃 | — | **GREEN 67/67** | 검증자 신설 축 → **D16** |
+| **V-C** `claude.ts:489` `setPermissionMode` 위임 상수화 | vitest 전체 | — | **GREEN 2800 · typecheck 0** | 검증자 신설 축 → **D17** |
+| P9 클릭 홉 `backgroundTask(item.id)` → `'use1'` | 〃 | 미측정 | **GREEN 2800** | 구현자 P9 재현 — 보고와 일치 |
+| ② `chatStore.ts:872` 인자 오염 | 〃 | r2 RED 1 | **RED 1** | 경로 홉 재측정 |
+
+- 동작 보존 추출 라운드인가: 아니오 — 오라클 추가 + 스크립트 결함 수정이다. hunk 되돌림의 초록을 판정 근거로 쓰지 않았다.
+- 형제 슬롯 맞바꿈 변이: `{sessionId,toolUseId}` 2쌍(N2c RED 1 · PL-2 RED 1) · 채널 상수(PL-1 RED 1) · `title`↔`subject`(M1 RED 3).
+- **`N회` 기준의 실제 관측 주체**: AT-25 의 "그 id 로 1회" 가 이제 세 층에서 각각 관측된다 — 핸들러(`mock.calls` = `[['use1'],['use2']]`) · `SessionRuntime`(같은 형태) · `ClaudeAdapter`(`control.backgroundTasks.mock.calls`). 셋 다 **두 번 서로 다른 값**으로 불러 상수 고정이 통과하지 못한다.
+
+## 5. V-pair closeout — `UT → IT → ST → AT` (r3)
+
+이번 라운드 실행 범위: **재검증** — r2 의 root `PAIR_FAIL` 1건과 그 인접 pair, 그리고 현재 변경의 운영 gate. 영향받지 않은 r2 `PASS` 는 증거 좌표를 참조한다(`app/src` 프로덕션 diff 0).
+
+| Pair | left ↔ right / 레벨 | requiredness | 결과 | 직접 검증 증거 | production path / §10 전수 |
+|---|---|---|---|---|---|
+| **VP-17** | AR-04 ↔ AT-25 / IT | REQUIRED | **PASS** (r2 PAIR_FAIL → 닫힘) | 핸들러 MV-4 RED 2 · MV-5 RED 1 / `session-runtime` N8 RED 2 · N9 RED 2 | 클릭 → IPC → session-runtime → SDK / EP-12 3/3 · **EP-14 2/2** |
+| VP-18 | SD-04 ↔ AT-26 / ST | REQUIRED | **PASS** | V-E RED 1(핸들러가 `false` 를 삼키면 red) + `live` 부재 시 포트 미호출·`false` 단언 | 포트 reject → IPC reject → renderer 복구 / EP-14 2/2 |
+| VP-10 · VP-19 | R-91·R-92 ↔ 중단 경로 / ST·AT | REGRESSION | **PASS** | `stop-subagent` 스위트 무변경 green + 전달 홉 2개 신규 잠금(SR-1 RED 1 · CA-2 RED 1) | / EP-08 1/1 |
+| VP-08 · VP-13 · VP-21 · VP-22 | / IT·AT | REQUIRED 3 · REGRESSION 1 | **PASS(참조 + 표본 재측정)** | r2 §5 증거 좌표. 표본 MV-3 RED 2 재현 | / EP-06·07·11·15 |
+| VP-03·04·11·15 | / UT·AT·ST | REQUIRED | **PASS(참조 + 표본 재측정)** | r2 §5 증거 좌표. 표본 M1 RED 3 · M2 RED 4 재현 | / EP-03·05·09·10 |
+| VP-01·02·05·06·07·09·12·14·16·20 (10) | | REQUIRED 7 · REGRESSION 3 | **PASS(참조)** | r1·r2 §5 의 증거 좌표. `app/src` diff 0 이고 전체 스위트 **280파일 2800케이스 green** | r1·r2 §5 |
+
+- root `PAIR_FAIL`: **0건**. 종속 `BLOCKED_BY`: **0건**. `NOT_REQUIRED`: 0건.
+- 합계: **REQUIRED/REGRESSION PASS 22 · PAIR_FAIL 0 · BLOCKED_BY 0 = 22**(유효 V 전건, 직접 셈).
+- 하나의 증거가 함께 닫은 pair: MV-4·MV-5·N8·N9 가 VP-17 을, V-E 가 VP-18 을 닫는다 — EP-14 의 두 반쪽("단건 인자" · "실패 비삼킴")을 각각 다른 oracle 로 봤다.
+
+### AT / AC 세부와 합계 (r3)
+
+r2 에서 ✅ 였고 이번 변경에 영향받지 않은 26 행은 r2 표의 증거 좌표를 참조한다. 이번 라운드가 여는 것은 **1행**이다.
+
+| AT / AC | r2 | r3 | 검증 증거 |
+|---|---|---|---|
+| AT-25 / AC25 | ⚠️ | **✅** | ΔV1 이 못박은 관측 지점(`turn.live.backgroundTask` 포트)에서 `[['use1'],['use2']]` 를 단언하고(MV-4·MV-5 RED), **그 포트의 production 구현**까지 같은 형태로 잠겼다(N8·N9 RED). §10 EP-14 두 지점 전수 |
+
+- **합계 재측정**: `✅ 27 · ⚠️ 0 · ❌ 0 = 총 27`(분모 = §7 AC1~AC27, 직접 셈). 자기보고 `✅27 · ⚠️0 · ❌0` — **일치**.
+- **합계 사본 대조 3곳**: 검증 재측정 27 ↔ 커밋 trailer `Criteria-Met: 27/27`(두 커밋 모두) ↔ INDEX 비고 `✅27/27` — **세 사본 일치**.
+- **분모 주의**: ΔV1 이후 27 로 불변이므로 r2 의 27 과 직접 비교한다(상속 26 + 닫은 1 = 27 ✅).
+- AC25 의 문장 첫 글자인 **클릭 홉은 여전히 무잠금**이다(P9, GREEN 2800 재현). ΔV1 이 이 AC 의 관측 지점을 포트로 못박았으므로 AC 판정은 ✅ 이고, 클릭 홉은 §10 분모 밖 NON_BLOCKING 으로 남는다.
+
+### pair별 plan §10 강제 지점 분모 (r3)
+
+이번 라운드가 여는 EP 만 다시 센다. 나머지는 r1·r2 분모표를 참조한다(`app/src` diff 0).
+
+| Pair | 계약 | plan 이 적은 지점 | 코드에서 확인 | 잠금 확인 | 결과 |
+|---|---|---|---|---|---|
+| **VP-17·18** | 단건 전환 · 실패 비삼킴 | **EP-14 (2)** | 2 — SSOT 칸이 `신규 IPC 핸들러` + `session-runtime`, `누가` 칸이 `main` | **2/2** — 핸들러 ✔(MV-4·MV-5·V-E) · `session-runtime` ✔(N8·N9) | **PASS** |
+
+- **EP-14 분모의 독립 재열거**: r2 와 같은 2다. 구현자가 이번에 심은 변이는 **두 지점에 각각** 있다(핸들러 MV-4·MV-5 / runtime N8·N9) — r2 의 "같은 지점에 둘" 문제가 해소됐다.
+- **§10 밖인데 같은 불변식이 필요한 지점** — AC25 경로 독립 재열거(§7): 잠긴 홉 6, 남은 홉 1(클릭 3사이트, P9). r3 가 새로 잠근 것은 ④preload · ⑥session-runtime · ⑦어댑터 셋이다.
+- `실패 의미` 가 "다른 게이트가 막는다" 인 행: **0건**.
+
+### 현재 변경의 운영 gate (r3)
+
+| Gate | 결과 | 관측한 실행 산출 |
+|---|---|---|
+| `npm run typecheck`(node·web·test 3구성) | **PASS** | exit 0 · 진단 출력 **0줄** |
+| `npm run lint` | **PASS** | **0 error / 1 warning**(기존분 `useTranscriptVirtualizer.ts:22`). 실행 후 `git status --porcelain` **0줄** — autofix 가 트리를 안 바꿨다 |
+| `./node_modules/.bin/vitest run`(경로 필터 없음) | **PASS** | **280파일 2800케이스 전건 pass** |
+| `node --test "scripts/*.test.mjs"` | **PASS** | **67 pass / 0 fail**(8 suites) — 이번 턴 61 → 67 |
+| `node scripts/check-doc-inventory.mjs --check` | **PASS** | `generated doc ok (9 items, 80 channels)` · `prose ok` · `links ok`(exit 0) |
+| **선행 조건 — `npm ci`(§7-A)** | **PASS** | 이 클론에서 실행 — `postinstall` 이 `electron-builder` 를 실제로 돌려 `[sqlite-abi] electron: rebuilt` 출력. 972 packages |
+| **windows-latest CI — 이번 턴이 고친 gate** | **PASS** | run [#462](https://github.com/muzaby/orca-skin/actions/runs/33579701559) @ `db1509fd` — **9스텝 전건 success**. 직전 run #461 @ `62eb2c76` 은 `Install dependencies` failure 후 전 스텝 skip |
+| `docs/IPC_CONTRACT.md` 동커밋 갱신 | **해당 없음** | 채널·variant 증감 0 |
+
+> **P12 는 이 표로 닫힌다.** 구현자가 "최종 확인은 CI 몫" 으로 남긴 win32 분기가 실제로 통과했다 — `Install dependencies`(postinstall → `electron-builder.cmd`)와 `Test`(pretest → `npm.cmd`) 두 `.cmd` 경로가 모두 실행됐다.
+
+## 6. 외부 포트 / 문서 계약 (r3)
+
+| 계약 | shape 검증 | semantics 검증 | 결과 |
+|---|---|---|---|
+| `SessionRuntime.backgroundTask` 포트 | `LiveTurn` fake 주입, 반환 `boolean` | 인자 그대로 전달 · `live` 부재 → 포트 미호출 + `false`(도달 후 거절과 구분) | **PASS** |
+| `ClaudeAdapter` → SDK `backgroundTasks(toolUseId)` | `vi.mock('@anthropic-ai/claude-agent-sdk')` 로 control 표면 대체 | 두 호출의 인자가 각각 실린다 · 반환 그대로 전파 | **PASS** |
+| preload `orca.chat` wire | `contextBridge` 포획으로 실제 노출 객체 | 채널 상수 + `{sessionId,toolUseId}` 필드 자리 | **PASS** |
+| `commandForTarget` 플랫폼 계약 | `{command,args,shell}` 3필드 | win32 → `.cmd` + `shell:true`, 그 외 → 실행 이미지 + `shell:false` | **PASS**(명세 층). 실행 층은 CI run #462 |
+
+## 7. 숫자 / 음성 기준 / 상한 재측정 (r3)
+
+- **AC25 경로 독립 재열거 — 9사이트 / 7홉**: ① 클릭 **3사이트**(`TaskTileContent:223`·`:359` · `SubAgentTileContent:309`, `grep` 실측) → ② `chatStore:872` → ③ `shared/api/ipc.ts:74` → ④ `preload/index.ts:102` → ⑤ `chat-turn/index.ts:213` → ⑥ `session-runtime.ts:652` → ⑦ `claude.ts:507`. 잠긴 홉 **6**(②③④⑤⑥⑦), 남은 홉 **1**(① 3사이트).
+- **구현자 수치 1건 불일치**: 보고가 "8사이트 중 잠긴 것 **5부류**(②③④⑤⑥⑦)" 라 적는다 — 괄호 안 라벨은 **6개**다. 사이트 단위로도 8이 아니라 9다(① 3 + 6) → **D18**.
+- **잠금 표 분모 검산 재확인**: turn ① = 선택 증거 2 + 인용 변이 3 + 새 oracle 7 = **12행**(실제 12 ✅). turn ② = 0 + 0 + 4 = **4행**(실제 4 ✅).
+- **scripts 케이스 증가 검산**: 61 + 6 = **67**(실측 67 ✅). 삭제 0 — 기존 2케이스의 `deepEqual` 은 `reason` 추가로 **강화**됐다.
+- **`0건` 게이트 엄격화(§8)**: 신설 전수 오라클(`offenders` 빈 배열)의 판정 분모를 `platform 3 × target 2 = 6` 에서 `platform 11 × target 2 = 22` 로 넓혀 재실행 → **offenders 0, 차집합 0**. 공허한 참도 아니다 — win32 에서 `shell:true` 인 target 이 **2개** 실재한다.
+  - 다만 그 테스트는 target 목록을 `['node','electron']` 리터럴로 갖는다(`VALID_TARGETS` 를 읽지 않는다). 주석의 "새 target 이 늘어도 함께 걸린다" 는 **현재 두 집합이 같아서** 참이다 — D18 에 함께 기록한다.
+- **P11 재현 실패**: `infra/git/mutation-queue.test.ts` 는 이번 라운드 전체 스위트 **20회 실행에서 red 0회**다. 구현자가 본 3회 red 를 재현하지 못했다 — open 유지.
+- 출력/요청 상한: 신규 요청 **0**.
+
+## 8. 테스트 가능한 핸들 탐색 후 남은 사람 실기 (r3)
+
+| 항목 | 기계 검증한 범위 | 남은 사람 실기 | 실행 방법 |
+|---|---|---|---|
+| win32 `.cmd` spawn | 명세(`commandForTarget` 전수 22조합) | **없다 — CI 가 실기했다** | run #462 가 windows-latest 에서 두 `.cmd` 경로를 모두 통과시켰다 |
+| `defaultRunner` 의 `shell`·`error` 전달 | **0** | **없다 — 사람 실기 대상이 아니다** | `spawnSync` 를 주입 가능하게 하거나 `process.execPath` 로 실제 자식을 띄우면 닫힌다(D15·D16) |
+| 클릭 홉 3사이트 | 0 | **사용자 결정 1건** | DOM 환경(`jsdom`/`happy-dom`)이 의존성에 없다. 신규 의존성은 `app/AGENTS.md §의존성 정책` 상 사용자 승인 사항(P9) |
+| `paused` 상태의 `stopTask` SDK 실거동 | 실패 경로만 | **SDK 실거동 1건** | plan §17 의 미검증 가정 — r1·r2 와 동일 |
+
+## 9. 게이트 재실행 (r3)
+
+- 실행 순서: `npm ci`(ELECTRON_SKIP_BINARY_DOWNLOAD=1) → `npm rebuild better-sqlite3`(Node ABI) → `node node_modules/electron/install.js` → typecheck → vitest → scripts → doc-inventory → lint.
+- **환경 기인 분리**: electron 바이너리 미설치 상태에서는 `chat-turn.continuity.test.ts` 1파일이 `Electron failed to install correctly` 로 red 였다(279/2798). 바이너리를 설치하자 **280파일 2800케이스 전건 green** — 코드 무관, `app/AGENTS.md` 의 알려진 서명이다.
+- `npm test` 는 쓰지 않았다(ABI 를 뒤집을 이유 없음). `npm ci` 의 `postinstall` 이 만든 Electron ABI 는 `npm rebuild better-sqlite3` 로 되돌렸다.
+- **자기 실행의 잔여물**: `git status --porcelain` **0줄**(변이 26건 전건 복원 확인). `node_modules/` 는 `.gitignore` 대상이다.
+- exit code 대신 산출을 관측했다 — 테스트는 파일 수·케이스 수, 정적 검사는 error/warning 수를 위 표에 적었다.
+
+## 10. 검증 책임 분리 — 사람 vs 에이전트 (r3)
+
+| 항목 | 주체 | 근거 |
+|---|---|---|
+| pair·gate·§10 분모·변이 감도 | 에이전트 | 전부 기계 판정했다(§4·§5) |
+| win32 실행 층 | **CI** | run #462 로 닫혔다 — 사람 몫이 아니었다 |
+| 클릭 홉 오라클을 위한 신규 의존성 | **사람** | `app/AGENTS.md §의존성 정책` |
+| `app/AGENTS.md` ABI 서술 정정(P13) | **설계자/사람** | Windows 에서 4개 훅이 수명 내내 no-op 이었다는 사실을 문서에 반영할지 |
+| `paused` + `stopTask` SDK 실거동 | 사람 | 외부 SDK 실행 |
+
+## 11. Repository operation checks (r3)
+
+### AGENTS.md 위생
+
+- `AGENTS.md` 변경 **0건** — 이번 range 에 없다. 부모↔자식 규칙 충돌 검사 해당 없음.
+
+### INDEX 보드 정합성
+
+- r3 구현 시점 상태 `impl/IMPL_DONE (r3)` · 다음 주체 `Claude` — 실제 상태와 일치했다.
+- **대상 커밋 좌표를 검증자가 기입한다** — 구현자가 `(r3 구현 2턴 — 검증자 기입)` 로 두었다(규약 준수). 이번 턴에 `62eb2c76`·`db1509fd` 로 채웠다.
+- 구현자가 남긴 r3 비고는 **516자(≈6줄)** 로 5줄 상한을 넘었다. 이번 턴 PASS 비고로 교체한다.
+
+### Commit / reference 정합성
+
+- **trailer 실제 파싱**: `git log -1 --format='%(trailers:only=true)'` → `62eb2c76` **7키** · `db1509fd` **7키**(0건 없음). 값도 허용값이다 — `Agent: claude`(비기능 작업은 Claude 구현, root `AGENTS.md`) · `Status: implemented` · `Criteria-Met: 27/27` · `Verified-By: pending`, `Next-Action` 없음(구현 커밋 규약 준수).
+- **인용 해시 실재**: `4a64a8ab`·`73e29690`·`638c5d76`·`e38f545e`·`1f0c3da2`·`8b0d65c3`·`62eb2c76`·`db1509fd` 전건 `commit`. **`229a0e6c` 는 `Not a valid object name`** — 실제는 `229a0e67`(D20). `7b45fa3`(0204)은 shallow clone 한계로 조회 불가.
+- **`[구현자 기입] r3` 7필드 전수**: 설계 리뷰 · 강제 지점 전수(+V-pair 자기확인) · 이번 라운드 수정의 잠금 · Product/UX 파생 검토 · 놓친 잠재 문제(+설계 대비 차이) · 구현 보고 · Review Signals = **7/7 전부 표 형태**. 산문으로 접힌 필드 0.
+- **`r3 후속 턴` 절은 6필드**다. 머리말이 생략한 셋(설계 리뷰 · Product/UX 파생 검토 · 설계 대비 차이)과 그 이유를 명시했고 0210 선례를 인용했다 — 같은 라운드의 둘째 턴 규약으로 받는다.
+- 자기 환경 해시를 좌표로 적지 않았다: 두 턴 모두 `대상 커밋` 칸이 `(… — 좌표는 INDEX)` 다.
+- 이동/삭제한 reference·script: **0건**.
+- **구현자가 `[검증자 기입] 파생 이슈` 표를 편집했다** — D3·D11·D12 상태 3행 + P9·P10·P11 신규 3행. 같은 사실이 `구현 보고`의 `파생 이슈 처리(자기보고)` 칸에도 있어 사본이 둘이다 → **D19**.
+
+## 12. 구현자 코멘트 / 선조치 경계 (r3)
+
+| 구현자 코멘트 | 검증자 판단 | 반영 |
+|---|---|---|
+| `강제 지점 전수: EP-14 2/2` | **사실이다** — 이번에는 변이가 두 지점에 각각 있다(MV-4·MV-5 / N8·N9). r2 의 지적이 해소됐다 | VP-17 **PASS** |
+| `AC 자기보고 ✅27/27` | **일치한다** — 재측정도 27 이고 사본 3곳이 같다 | §5 합계 |
+| `D11·D12·D3 닫음` | **셋 다 인용 변이가 red 다** — N8 RED 2 · N9 RED 2 · N2c RED 1 · MV-4 RED 2 · MV-5 RED 1 | **closed** 유지 |
+| P9 클릭 홉 무잠금, 보고만 | **타당하고 재현했다** — 상수화에 2800 green. 신규 의존성이 사용자 승인 사항이라는 판단도 옳다 | **P9** open — 사람 결정 |
+| P10 게이트 명령이 `src/preload` 를 건너뛴다, 선조치 | **타당하고 재현했다** — 279/2797 ↔ 280/2800, 차이가 정확히 신규 3케이스다 | **P10** open — §7-A·§19 정정은 설계자 |
+| P11 `mutation-queue` 병렬 flake | **재현 못 했다** — 20회 실행 red 0회 | **P11** open — 관측 부족 |
+| P12 win32 최종 확인은 CI 몫 | **CI 가 답했다** — run #462 9스텝 success | **P12 closed** |
+| `win32 shell 2/2 · 실패 사유 3/3 · 차집합 0` | **shell 2/2 는 사실**(그 행의 분모는 `commandForTarget` 의 명령 2종). **실패 사유는 3/3 이 아니라 1/3** — 행이 스스로 3홉을 열거했는데 `defaultRunner`·`runCli` 두 홉이 무잠금이다 | **D15·D16** — NON_BLOCKING |
+| `ClaudeAdapter 의 위임 3개 중 2` | **분모가 하나 짧다** — 인자 전달 위임은 `:489`·`:503`·`:505`·`:507` 로 **4개**다 | **D17** — NON_BLOCKING |
+| `덮개 회귀: 없다` | **옳다** — 삽입만(367/5, 삭제 5는 plan 3·INDEX 1·import 1). 재실행 4/4 가 이전 라운드 수치와 일치 | 확인 |
+
+## 13. Finding disposition / 파생 이슈 (r3)
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| D15 | **`defaultRunner` 가 `shell` 판정을 버려도 무음이다.** `{stdio,shell:false,...options}` 를 `{stdio,...options,shell:false}` 로 뒤집으면 win32 에서 이번 CI red 가 그대로 재발하는데 **scripts 67/67 green · typecheck 0** 이다. 모든 테스트가 fake runner 를 주입해 실제 runner 를 지나지 않는다 | §7-A 선행 조건 gate(0212 V·§10 밖) | NON_BLOCKING | `spawnSync` 를 주입 가능하게 하거나 `process.execPath` 로 실자식을 띄워 `shell` 이 전달되는지 본다 |
+| D16 | **"실패 사유 3홉 닫음 3/3" 은 재측정 1/3 이다.** `runCli` 가 `result.reason` 을 버려도(= 수정 전 로그 문장 그 자체) **67/67 green**, `defaultRunner` 가 `error` 를 버려도 **67/67 green**. 닫힌 것은 가운데 홉(`ensureSqliteAbi` 가 `reason` 을 싣는다)뿐이다 | 같은 gate · 구현 보고 정확도 | NON_BLOCKING | `runCli` 의 `console.error` 를 포획하는 케이스 1개면 hop 3 이 닫힌다. hop 1 은 D15 와 같은 수단 |
+| D17 | **`ClaudeAdapter` 의 인자 전달 위임은 4개인데 3개만 잠겼다.** `claude.ts:489` `setPermissionMode: (mode) => handle.setPermissionMode(mode)` 를 상수로 굳혀도 **2800 green · typecheck 0**. `:503`·`:505`·`:507` 과 같은 형상·같은 계약이다 | 구현자가 선언한 "§5 전수" 밖 · 0212 V 밖 | NON_BLOCKING | `claude.live-control.test.ts` 두 번째 케이스에 한 쌍 더한다 |
+| D18 | **보고 수치 2건.** ① "8사이트 중 잠긴 것 **5부류**(②③④⑤⑥⑦)" — 괄호 라벨은 6개이고 사이트 단위로는 9다(재열거 §7). ② 신설 전수 테스트가 target 을 `['node','electron']` 리터럴로 가져 "새 target 이 늘어도 함께 걸린다" 는 `VALID_TARGETS` 와 우연히 같아서 참이다 | 구현 보고 정확도 | NON_BLOCKING | 다음 보고에서 정정 · 테스트는 `VALID_TARGETS` 를 읽게 하면 주석이 참이 된다 |
+| D19 | **구현자가 `[검증자 기입] 파생 이슈` 표를 편집했다** — D3·D11·D12 상태와 P9·P10·P11 행. 같은 사실이 `구현 보고` 의 `파생 이슈 처리(자기보고)` 칸에도 있어 **사본이 둘**이다. 재측정 결과 세 상태는 참이라 되돌리지 않는다. 표가 impl 절과 어긋나 있었다 — P12·P13 이 빠져 있었다 | 산출물 경계 · `AGENTS.md §산출물 문장 규칙` | NON_BLOCKING | 검증자가 이번 턴에 P12·P13 을 표에 넣고 P12 를 닫는다. 구현자 보고는 `구현 보고` 칸 한 곳으로 |
+| D20 | **r2 verify 가 인용한 `229a0e6c` 는 죽은 좌표다** — 실제 `229a0e67`. r2 §11 이 "전건 `commit`" 이라 적었으나 `git cat-file -t 229a0e6c` = `Not a valid object name`. 검증자 자기 회귀(0190 D3 과 같은 형태) | 검증자 산출 정확도 | NON_BLOCKING | 이번 절 메타가 `229a0e67` 로 정본을 고정한다. r2 원문은 그 자리에 둔다 |
+| D11 · D12 · D3 | r2 의 root `PAIR_FAIL` 과 인접 2건 | VP-17 · AC25 · §10 EP-14 | — | **전건 closed** — 인용 변이 N8·N9·N2c·MV-4·MV-5 가 전부 red |
+| P12 | win32 분기의 실행 확인 | §7-A 선행 조건 gate | — | **closed** — windows-latest run #462 @ `db1509fd` 9스텝 success |
+| P9 | 클릭 홉 3사이트 무잠금 | AC25 경로 홉 ① · §10 밖 | NON_BLOCKING | **open** — 재현 확인(2800 green). DOM 의존성은 사용자 승인 사항 |
+| P10 | `vitest run src/shared src/renderer src/main` 이 `src/preload` 를 건너뛴다 | §7-A 운영 gate · §19 | NON_BLOCKING | **open** — 재현 확인(279/2797 ↔ 280/2800). 규범 행 정정은 설계자 |
+| P11 | `mutation-queue` 병렬 flake | §7-A 알려진 기준선 | NON_BLOCKING | **open** — 20회 실행 red 0회, 재현 못 함 |
+| P13 | Windows 에서 `postinstall` 등 4개 훅이 수명 내내 no-op 이었다 ↔ `app/AGENTS.md §ABI 가이드` 서술 | 문서 ↔ 코드 | NON_BLOCKING | **open** — 코드는 0212 r1 로 서술과 일치. 문서 정정 여부는 설계자 |
+| D8 · D9 · D13 · D14 | 죽은 i18n 키 · `--check` oracle 범위 · store→View prop 홉 · 플랫폼 조건부 oracle | 각 행 참조 | NON_BLOCKING | **open 유지**. D14 의 대응 방향(비교를 순수 함수로 떼어 플랫폼을 인자로 받는다)은 이번 턴 `commandForTarget(target, platform)` 이 같은 패턴을 실증했다 |
+| D1 · D2 · D4 · D5 · D6 · D7 · D10 | 이전 라운드 종결분 | — | — | **closed 유지** |
+
+## 14. Review Signals — 사실만 (r3)
+
+- **이전 라운드와 동일/유사 증상: turn ① 은 그렇다.** r1 D1·D2·D3, r2 D11·D12, r3 의 D15·D16·D17 이 전부 **"oracle 이 경로의 한 홉 앞에 선다"** 다 — 네 라운드 연속 같은 축이고, 이번에는 `app/src` 에서 닫힌 그 축이 **`app/scripts` 에서 새로 열렸다**.
+- **관련 plan 지침/AC 의 존재 여부: turn ① 은 있었다**(§10 EP-14 · ΔV1 관측 지점 규칙). **turn ② 는 없다** — `ensure-sqlite-abi.mjs` 는 0212 의 V·§10 에 행이 없고, §7-A 의 `선행 조건` gate 행이 이 스크립트를 통과하지만 지점도 oracle 도 적지 않는다.
+- **분모가 경로보다 짧으면 `N/N` 이 경로를 말하지 못한다** — 구현자 자신이 r3 Review Signals 에 적은 문장이고, turn ② 의 "3/3 · 차집합 0" 이 같은 형태로 어긋났다(D16). 스스로 세운 분모(3홉)를 스스로 넘지 못했다.
+- **구현자 = 검증자인 두 번째 라운드**: 등록·인용·신설 변이 16/16 이 재현됐고 그것만 보면 완결이었다. 새 finding 4건은 전부 보고에 없던 축에서 나왔다(r2 와 같은 패턴).
+- 사용자 결정 변경 근거: **없음** — ACTIVE Decision 27건 전건 유지, SUPERSEDED 0.
+- **반복된 검증 환경 한계**: ① 워크트리에 `node_modules` 부재 → `npm ci` 필요(r2·r3 구현자와 동일). ② `npm ci` 직후는 Electron ABI → `npm rebuild better-sqlite3` 로 분리(동일). ③ **electron 바이너리 미설치 시 1파일 red** — `node node_modules/electron/install.js` 로 해소했다(r2 에는 없던 관측). ④ 검증 환경이 Linux 라 win32 실행 층은 못 본다 — 이번에는 **CI 산출을 읽어** 우회했다.
+- 현재 라운드 수: **3**. `handoff-review` 트리거(3 초과)에는 닿지 않는다.
+
+## 15. 결론 (r3)
+
+- 상태: **PASS** (`PLAN_GAP` 0 · BLOCKING 0) → `verify/PASS`.
+- pair 결과: REQUIRED/REGRESSION **PASS 22** · `PAIR_FAIL` 0 · `BLOCKED_BY` 0 · `NOT_REQUIRED` 0 = **22**(유효 V 전건).
+- r2 root **VP-17 닫힘** — §10 EP-14 두 지점에 각각 변이가 있고 넷 다 red 다(MV-4 · MV-5 / N8 · N9).
+- AC 충족: **✅27 · ⚠️0 · ❌0 / 27**. 자기보고와 일치하고 사본 3곳(본문·trailer·INDEX)이 같다.
+- 강제 지점: **EP-14 2/2**. 나머지 EP 는 r1·r2 잠금 유지(`app/src` 프로덕션 diff 0).
+- 현재 변경 운영 gate: **7종 전건 PASS** — typecheck 0진단 · lint 0 error/트리 무변경 · vitest 280/2800 · scripts 67/67 · doc-inventory ok · `npm ci` 성공 · **windows-latest CI run #462 9스텝 success**.
+- 적대 증거: 등록·인용·신설 oracle 변이 **16/16 검출** · 이전 라운드 red 변이 **4/4 재현**(덮개 회귀 0) · 검증자 신설 축 **6건 중 4건 green**(D15~D17).
+- ACTIVE Decision: D-001~D-027 **충돌 0**, SUPERSEDED 0.
+- NON_BLOCKING: D15 · D16 · D17 · D18 · D19 · D20 · D8 · D9 · D13 · D14 · P9 · P10 · P11 · P13. NEXT_HANDOFF: 없음.
+- **남은 사람/설계자 몫 3건** — P9(클릭 홉 오라클용 DOM 의존성 승인) · P10(§7-A·§19 게이트 명령에 `src/preload` 추가) · P13(`app/AGENTS.md` ABI 서술 정정 여부). 셋 다 이번 PASS 를 막지 않는다.
+- **archive 이동은 위 3건이 정리된 뒤로 미룬다** — 0203·0206·0207 과 같은 처리다. 보드에는 `verify/PASS` 로 남긴다.
