@@ -17,6 +17,14 @@ import { DEFAULT_DIFF_VIEW } from '../../reducer/chatReducer'
 let onPickFile: ((path: string) => void) | null = null
 let sectionPaths: string[] = []
 
+// 이동은 `lib/fileSectionScroll` 이 한다. 여기서는 **부르는지**만 본다 — 그 함수가 실제로
+// `scrollIntoView` 를 부르는지는 `fileSectionScroll.test.ts` 가 잰다(둘로 갈라야 SSR 에서도
+// 양쪽이 잠긴다, r2 검증 D16).
+const revealFileSection = vi.fn()
+vi.mock('../../lib/fileSectionScroll', () => ({
+  revealFileSection: (...args: unknown[]) => revealFileSection(...args)
+}))
+
 vi.mock('./ChangedNavigationSidebar', () => ({
   ChangedNavigationSidebar: (props: {
     sections: readonly { path: string }[]
@@ -88,6 +96,7 @@ function render(collapsed: string[] = []): {
 beforeEach(() => {
   onPickFile = null
   sectionPaths = []
+  revealFileSection.mockClear()
 })
 
 describe('사이드바 파일 선택 (§10 EP-36 ②)', () => {
@@ -98,6 +107,22 @@ describe('사이드바 파일 선택 (§10 EP-36 ②)', () => {
 
     expect(onExpandFile).toHaveBeenCalledTimes(1)
     expect(onExpandFile).toHaveBeenCalledWith('src/b.ts')
+  })
+
+  it('펼친 다음 그 섹션으로 이동한다 — 펼치기만 하면 화면은 보던 자리에 남는다 (AT-50)', () => {
+    render(['src/b.ts'])
+
+    onPickFile?.('src/b.ts')
+
+    expect(revealFileSection).toHaveBeenCalledTimes(1)
+    // 두 번째 인자가 **고른 경로**다 — 첫 인자는 스크롤 소유자(SSR 이라 null)다.
+    expect(revealFileSection.mock.calls[0][1]).toBe('src/b.ts')
+  })
+
+  it('고르지 않았으면 이동도 없다 — 렌더만으로 화면이 움직이지 않는다', () => {
+    render()
+
+    expect(revealFileSection).not.toHaveBeenCalled()
   })
 
   it('이미 펼친 파일을 골라도 같은 경로로 알린다 — 판정은 상위가 한다', () => {

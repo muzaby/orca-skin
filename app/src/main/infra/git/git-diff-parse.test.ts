@@ -474,4 +474,32 @@ describe('parseUnifiedPatch 상한 셋 — 서로를 대신하지 못한다 (AT-
     expect(parsed.files[4].kind).toBe('too-large')
     expect(parsed.files[4].added).toBe(per)
   })
+
+  // 0211 ΔV4 r3 — 정정된 AT-47·EP-31 ③ 의 "예산은 **수집한 파일만** 소비한다" 절 (r2 검증 D19).
+  // 상한은 **예산이지 커서가 아니다**: 넘긴 파일 뒤라도 남은 여유에 들어가면 다시 싣는다.
+  // 커서 의미(한 번 넘기면 그 뒤 전부 too-large)로 바꾸면 여기가 갈린다.
+  it('예산을 넘긴 파일 뒤라도 남은 여유에 들어가는 더 작은 파일은 다시 싣는다', () => {
+    // 파일 상한 **아래** 로 잡는다 — 넘기면 그 축이 대신 잡아 이 케이스가 무의미해진다.
+    const per = MAX_PATCH_FILE_LINES - 1
+    const fits = Math.floor(MAX_PATCH_TOTAL_LINES / per)
+    const slack = MAX_PATCH_TOTAL_LINES - fits * per
+    expect(slack).toBeGreaterThan(0)
+
+    const parsed = parseUnifiedPatch(
+      [
+        ...Array.from({ length: fits }, (_, i) => fileBlock(`fit${i}.ts`, per)),
+        fileBlock('over.ts', per), // 남은 여유를 넘긴다 → too-large, **예산은 그대로**
+        fileBlock('small.ts', slack) // 그 여유에 들어가므로 다시 실린다
+      ].join('\n')
+    )
+
+    expect(parsed.files.map((file) => file.kind)).toEqual([
+      ...Array.from({ length: fits }, () => 'text'),
+      'too-large',
+      'text'
+    ])
+    // 넘긴 파일도 변경량은 남는다 — "변경이 없다" 와 "줄을 싣지 않았다" 는 다르다(D-077).
+    expect(parsed.files[fits]).toMatchObject({ added: per, lines: [] })
+    expect(parsed.files[fits + 1].lines).toHaveLength(slack)
+  })
 })

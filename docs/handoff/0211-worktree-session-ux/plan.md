@@ -3293,6 +3293,73 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 - **로컬 게이트가 보지 못한 축 1건**: 경로 구분자. 로컬(Linux) vitest 전건 green 이었지만 windows-latest 는 red 였다 — 경로를 값으로 비교하는 스윕은 `walkSourceFiles` 를 지나야 한다(0208 D-021 의 재발).
 - 반복되는 환경 한계: **셋.** ① vitest `environment: 'node'` — effect 는 관측 불가(SSR 마크업은 가능하고, 이번 라운드가 그 경계를 실제로 썼다). ② electron 바이너리 미설치 — 1파일 red. ③ **컨테이너 메모리** — 무제한 워커로 전체 스위트를 돌리면 OOM(exit 137)이라 `--maxWorkers=2` 가 필요하다(이번에 처음 관측).
 
+## [구현자 기입] 설계 리뷰 (ΔV4 r3)
+
+- r2 검증은 차단 **1건(D16)** 만 남겼다 — AT-50 의 "이동" 을 보는 오라클이 없다. r2 가 그 지점을 위해 만든 파일(`diffReviewNavigation.test.ts`) 안에서 **한 줄 앞에 멈췄다**: `onExpandFile` 은 잡았고 `scrollIntoView` 는 놓쳤다.
+- 놓친 이유가 환경이다. `pickFile` 이 `scrollOwnerRef.current` 를 읽는데 **SSR 은 ref 를 채우지 않는다** — 그 줄은 테스트에서 아예 실행되지 않았고, 지워도 아무 차이가 없었다. jsdom·happy-dom 은 설치돼 있지 않고 새 의존성은 사용자 승인 사항이라(TRD §2), DOM 을 들이지 않고 재는 길을 골랐다.
+- **축을 둘로 갈랐다**: 이동 자체를 `lib/fileSectionScroll.ts :: revealFileSection(owner, path)` 으로 떼어내면, 소유자가 **인자**라 DOM 없이 double 을 세울 수 있다. 위쪽 절반("고른 경로로 부른다")은 모듈 mock 으로, 아래쪽 절반("선택자로 찾아 `block:'start'` 로 부른다")은 순수 호출로 각각 잠긴다. 프로덕션 동작은 그대로다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (ΔV4 r3)
+
+| 지점 | r2 판정 | r3 의 자리 | 재현 |
+|---|---|---|---|
+| AT-50 이동(§10 EP-36 ②의 나머지 절반) | 미잠금(D16) | `fileSectionScroll.test.ts` 4케이스 + `diffReviewNavigation.test.ts` 2케이스 | `vitest run …/lib/fileSectionScroll.test.ts …/rightpanel/diffReviewNavigation.test.ts` |
+| AT-52 `aria-label` | `title` 과 구분 못 함(D17) | `GitContextBar.render.test.ts` — 속성을 지목해 단언하고 아이콘 버튼 **셋 전부**를 센다 | `vitest run …/rightpanel/GitContextBar.render.test.ts` |
+| EP-34 형제 — `BEGIN_GIT_SNAPSHOT_QUERY` 의 `patch:null` | 미잠금(D18) | `chatReducer.plan.test.ts` 2케이스(key 가 바뀌면 버리고, 같으면 둔다) | `vitest run …/reducer/chatReducer.plan.test.ts` |
+| AT-47 · EP-31 ③ "예산은 수집한 파일만 소비한다" | 문구만(D19) | `git-diff-parse.test.ts` 1케이스 — 넘긴 파일 **뒤**의 더 작은 파일이 다시 실린다 | `vitest run src/main/infra/git/git-diff-parse.test.ts` |
+
+**양성 짝을 함께 뒀다**: D18 은 "버린다" 뿐 아니라 **"같은 key 면 그대로 둔다"** 를 함께 센다 — 버리는 쪽만 세면 항상 비우는 구현이 통과하고, 그러면 새로고침마다 화면이 깜빡인다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (ΔV4 r3)
+
+| # | 심은 결함 | 결과 |
+|---|---|---|
+| M16a | `pickFile` 에서 `revealFileSection` 호출 제거 | **RED** |
+| M16b | `revealFileSection` 에서 `scrollIntoView` 제거 | **RED** |
+| M16c | `block: 'start'` → `'center'`(헤더가 화면 밖에 선다) | **RED** |
+| M16d | `CSS.escape` 우회 — 경로를 날것으로 선택자에 넣음 | **RED** |
+| M17 | `↗` 의 `aria-label` 제거(같은 문구가 `title` 에 **남는다**) | **RED** |
+| M18 | `BEGIN_GIT_SNAPSHOT_QUERY` 의 `patch: null` 제거 | **RED** |
+| M19 | 전체 줄 예산을 **커서** 로 — 수집 여부와 무관하게 소비 | **RED** |
+
+- **검산**: 신규 7 = D16 넷(호출·실행·정렬·이스케이프) + D17·D18·D19 각 1.
+- **덮개 회귀 0**: r2 가 등록한 변이 **11건을 그대로 다시 심어 전건 RED** 를 재확인했다(`I1`·`I2-coords`·`I3`·`I5`·`I6`·`I7`·`P29-2`·`P34-2`·`P36-1`·`P36-2`·`P62`). `DiffReview.pickFile` 을 건드린 라운드라 `P36-2`(선펼침 제거)가 특히 중요한 자리다.
+
+## [구현자 기입] Product/UX 파생 검토 (ΔV4 r3)
+
+- 화면 동작 변화 **0**. `revealFileSection` 은 `pickFile` 의 두 줄을 그대로 옮긴 것이고 선택자·정렬·널 처리가 전부 같다.
+- 다만 **반환값이 생겼다**(`boolean`). 지금 소비처는 없다 — 없는 파일을 골랐을 때 알릴 자리가 생기면 그때 쓴다. 죽은 표면을 늘리지 않으려 일부러 좁게 뒀다(r2 의 D8 이 같은 축이었다).
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (ΔV4 r3)
+
+1. **모듈 mock 은 "부른다" 만 잰다.** `diffReviewNavigation.test.ts` 는 `revealFileSection` 이 실제로 무엇을 하는지 보지 않는다 — 그쪽은 `fileSectionScroll.test.ts` 몫이다. 둘 중 **하나만** 있으면 반쪽이라, M16a 와 M16b 를 각각 심어 두 파일이 서로를 대신하지 못함을 확인했다.
+2. **SSR 에서 첫 인자는 항상 `null` 이다.** 그래서 `diffReviewNavigation.test.ts` 는 **두 번째 인자(경로)** 만 단언한다. 소유자 배선이 끊기는 회귀는 이 축이 못 잡는다 — 프로덕션에서 `scrollOwnerRef` 를 다른 ref 로 바꾸면 무음이다. `ref` 배선은 typecheck 와 `data-diff-scroll-owner` 렌더 단언이 받는다.
+3. **D7 은 이번에도 열려 있다.** `animate-depth-out` 소비처 0 — 두 길(닫기 연출 추가 / utility 삭제) 다 사용자 결정이 필요하다는 판단이 r2 와 같다.
+4. **`ScrollIntoViewOptions` 는 DOM 타입이다.** `lib/fileSectionScroll.ts` 는 renderer 전용이라 `tsconfig.web` 의 DOM lib 안에 있다 — main 에서 import 하면 typecheck 가 막는다(레이어 경계와 별개 축).
+
+## [구현자 기입] 구현 보고 (ΔV4 r3)
+
+- 대상 커밋: `(ΔV4 r3 구현 — 좌표는 INDEX)`. §18 정정(D20)은 **앞선 별도 설계 커밋**이다.
+- 변경 파일: 프로덕션 신규 **1**(`lib/fileSectionScroll.ts`) · 프로덕션 변경 **1**(`rightpanel/DiffReview.tsx` — 두 줄을 호출 한 줄로) · 테스트 신규 **1** · 테스트 변경 **4**.
+- 추가 케이스 **+9**: `fileSectionScroll`(4) · `diffReviewNavigation`(2) · `chatReducer.plan`(2) · `git-diff-parse`(1). `GitContextBar.render` 는 **±0** — 약한 단언 하나를 더 강한 것으로 **교체**했다(문구 포함 → 속성 지목 + 버튼 셋 전수). 총계 `3071 → 3080` 로 검산된다.
+- **파생 이슈 처리**: 차단 **D16 closed** · 비차단 **D17·D18·D19 closed**(D20 은 앞선 설계 커밋, D21 은 r2 검증이 닫음) · **D7 만 사용자 결정 대기로 open** · D15 는 NEXT_HANDOFF.
+- **게이트 산출**:
+  - `npm run lint` — **0 error / 1 warning**(기존분). 실행 후 트리 변화 0.
+  - `npm run typecheck` — 3구성 **0줄**.
+  - `vitest run --maxWorkers=2` — **310파일 중 309 green · 3,080케이스 전건 green**. red 1파일은 `chat-turn.continuity.test.ts` = electron 미설치(환경 기인, 이번 diff 무관).
+  - `node --test "scripts/*.test.mjs"` — **67/67**.
+  - `check-doc-inventory.mjs --check` — **차이 0**(9 items, 82 channels).
+  - `check-migrations-appendonly.mjs` — exit **0**.
+  - **windows CI 는 push 후 `gate` 가 판정한다** — 경로를 값으로 비교하는 축은 로컬(Linux)이 재지 못한다(r2 의 실측).
+
+## [구현자 기입] Review Signals — 사실만 (ΔV4 r3)
+
+- 현재 라운드: **3**. r2 검증의 `claude:fail` + `Next-Action: claude` 를 받았다. Decision 변경 0 · 새 AC 0.
+- 이전 라운드와 같은 축인가: **그렇다, 그리고 이번이 그 축의 마지막 한 자리였다.** r1 = "AC 가 이름 붙인 오라클이 없다" 6자리 → r2 가 5 닫음 → r3 이 남은 1(AT-50)을 닫았다. 세 라운드가 같은 형태를 좁혀 왔다.
+- 그것을 막았어야 할 plan 지침: **있었다.** AT-50 원문이 "`scrollIntoView` 를 부른다고 단언(스텁)" 이고, r2 는 그 문장을 읽고도 **스텁을 세울 자리를 만들지 않은 채** 파일을 닫았다. 이번 라운드가 한 일이 정확히 그 자리를 만든 것이다.
+- 반복되는 환경 한계: **셋 그대로** — ① `environment: 'node'`(DOM 패키지 미설치, 새 의존성은 사용자 승인) ② electron 바이너리 미설치 1파일 red ③ 컨테이너 메모리 → `--maxWorkers=2`.
+- **환경 한계를 설계로 우회한 첫 사례**: ①을 "사람 실기" 로 넘기지 않고 **인자로 받는 seam** 을 만들어 잠갔다. 같은 형태의 남은 자리(effect 기반 계기)도 이 방법이 닿는지는 다음 라운드의 질문이다.
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다.
@@ -3314,9 +3381,9 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 | D13 | INDEX 0211 행 비고가 **1,055자**로 5줄 상한 초과 | `docs/handoff/AGENTS.md §산출물 문장 규칙 3` | 검증 갱신에서 축약 | NON_BLOCKING | closed(r1) — **r2 에서 재발, D21** |
 | D14 | `summaryBaseText` 의 `kind:'none'` 이 카탈로그 밖 문자 `'∅'` 를 낸다 | 비귀속 | `chat.rightpanel.diffBaselineNone` 신설(ko `기준 없음` · en `no baseline`) | NON_BLOCKING | **closed**(r2) |
 | D15 | 임시 저장소 통합 스위트가 부하에서 간헐 타임아웃 — 변이 40회 중 2회, 재실행 전부 green | 검증 환경 | 타임아웃 상향 또는 직렬화 검토 | NEXT_HANDOFF | open |
-| D16 | `DiffReview.pickFile` 의 `scrollIntoView` 를 지워도 **3,071 케이스 전건 green** — AT-50 의 "이동" 을 보는 오라클이 없다 | VP-58 / AT-50 | `diffReviewNavigation.test.ts` 의 사이드바 double 이 스크롤 스파이를 단 노드를 돌려주고, `pickFile` 이 그 노드의 `scrollIntoView` 를 부른다고 단언 | **BLOCKING** | open(r2) |
-| D17 | `↗` 의 `aria-label` 을 지워도 green — 같은 문자열이 `title` 에도 실려 두 속성을 가리지 못한다 | VP-60 / AT-52 | 속성을 지목해 단언하거나 `title` 을 뺀다 | NON_BLOCKING | open(r2) |
-| D18 | `BEGIN_GIT_SNAPSHOT_QUERY` 의 `patch: null`(ΔV4 신규)이 미잠금 — 지워도 green. §10 EP-34 세 지점 밖이다 | 비귀속(§10 표 밖 형제) | 세션/cwd 전환에서 앞 세션 diff 가 남는 창을 잠근다 | NON_BLOCKING | open(r2) |
-| D19 | 정정된 AT-47·EP-31 ③ 의 "예산은 수집한 파일만 소비한다" 절에 오라클이 없다 — 커서 의미로 바꿔도 green | AT-47 · EP-31 ③(문구) | 상한 초과 파일 **뒤의 더 작은 파일이 다시 실린다**는 케이스 1건 | NON_BLOCKING | open(r2) |
-| D20 | §18 ΔV4 영향 파일 목록이 `b85195e` 만 담는다 — r2 가 더한 테스트 4 · 변경 6 이 빠져 있다 | plan §18 | revision 전체로 넓히거나 "r1 구현 기준" 이라 명시 | NON_BLOCKING | open(r2) |
+| D16 | `DiffReview.pickFile` 의 `scrollIntoView` 를 지워도 **3,071 케이스 전건 green** — AT-50 의 "이동" 을 보는 오라클이 없다 | VP-58 / AT-50 | `diffReviewNavigation.test.ts` 의 사이드바 double 이 스크롤 스파이를 단 노드를 돌려주고, `pickFile` 이 그 노드의 `scrollIntoView` 를 부른다고 단언 | **BLOCKING** | **closed**(r3 · M16a~M16d RED) |
+| D17 | `↗` 의 `aria-label` 을 지워도 green — 같은 문자열이 `title` 에도 실려 두 속성을 가리지 못한다 | VP-60 / AT-52 | 속성을 지목해 단언 — 아이콘 버튼 **셋 전부**의 `aria-label` 을 센다 | NON_BLOCKING | **closed**(r3 · M17 RED) |
+| D18 | `BEGIN_GIT_SNAPSHOT_QUERY` 의 `patch: null`(ΔV4 신규)이 미잠금 — 지워도 green. §10 EP-34 세 지점 밖이다 | 비귀속(§10 표 밖 형제) | key 가 바뀌면 버리고 같으면 둔다 — **양성 짝**을 함께 뒀다 | NON_BLOCKING | **closed**(r3 · M18 RED) |
+| D19 | 정정된 AT-47·EP-31 ③ 의 "예산은 수집한 파일만 소비한다" 절에 오라클이 없다 — 커서 의미로 바꿔도 green | AT-47 · EP-31 ③(문구) | 상한 초과 파일 **뒤의 더 작은 파일이 다시 실린다** 1케이스(상수에서 유도) | NON_BLOCKING | **closed**(r3 · M19 RED) |
+| D20 | §18 ΔV4 영향 파일 목록이 `b85195e` 만 담는다 — r2 가 더한 테스트 4 · 변경 6 이 빠져 있다 | plan §18 | §18 을 r1 기준 + r2·r3 추가 절로 나눴다 | NON_BLOCKING | **closed**(r3 설계) |
 | D21 | INDEX 0211 비고가 **809자**로 5줄 상한을 여전히 넘는다(r1 1,055자에서 축소) | `docs/handoff/AGENTS.md §산출물 문장 규칙 3` | 검증 갱신에서 축약 | NON_BLOCKING | **closed**(r2 검증) |
