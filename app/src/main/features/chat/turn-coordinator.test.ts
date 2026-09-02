@@ -144,6 +144,20 @@ const subagentSettled = (toolUseId: string): NormalizedEvent =>
     phase: 'settled',
     status: 'completed'
   }) as unknown as NormalizedEvent
+const backgroundSet = (toolUseIds: string[]): NormalizedEvent =>
+  ({
+    type: 'subagent.backgroundSet',
+    sessionId: 's1',
+    toolUseIds
+  }) as unknown as NormalizedEvent
+
+// forward 스파이가 받은 정착(subagent.task settled) 이벤트만 뽑는다 — 코디네이터가 버스로 낸
+// 것을 그대로 읽는 관측이라 `applyLiveSet` 반환값과 달리 배선을 건너뛸 수 없다.
+function settledForwards(deps: CoordDeps): NormalizedEvent[] {
+  return (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls
+    .map((c) => c[1] as NormalizedEvent)
+    .filter((ev) => ev.type === 'subagent.task' && ev.phase === 'settled')
+}
 
 describe('TurnCoordinator.run — consume → reduce → persist ∥ forward', () => {
   it('이벤트마다 persist 와 forward 를 모두 호출하고, terminal 관찰 시 합성하지 않는다', async () => {
@@ -773,6 +787,83 @@ describe('turnPolicyFor — 턴 종류별 정책 (0149, 구 0136 stallTimerFor)'
         pushesInput: true
       })
     }
+  })
+})
+
+// 0212 AC14·AC15(ΔV1) — **관측 지점은 coordinator 가 내는 정착이다.** `applyLiveSet` 반환값만
+// 읽는 tracker 단위 단언은 이 블록을 통째로 지워도 초록이라 두 AC 를 닫지 못한다(r1 verify D2:
+// MV-3 조인 삭제에 229파일 2410케이스가 침묵했다).
+describe('TurnCoordinator — background_tasks_changed 레벨 정착 (0212 R-04)', () => {
+  // stopLive:false 를 관측하는 자리 — 참이면 stopLiveSubagent 가 이 둘을 부른다.
+  function spiedRuntime(scripts: NormalizedEvent[][]): ReturnType<typeof fakeRuntime> & {
+    backgroundTask: ReturnType<typeof vi.fn>
+    stopTask: ReturnType<typeof vi.fn>
+  } {
+    const runtime = fakeRuntime(scripts)
+    return Object.assign(runtime, {
+      backgroundTask: vi.fn(async () => false),
+      stopTask: vi.fn(async () => {})
+    })
+  }
+
+  it('첫 payload 는 기준선이라 아무것도 정착시키지 않는다 (AT-15)', async () => {
+    // a1 은 추적 중이고 첫 payload 는 빈 집합이다 — 기준선이 아니면 여기서 정착한다.
+    const runtime = spiedRuntime([[subagentStarted('a1'), backgroundSet([]), telemetry]])
+    const tracker = new BackgroundTaskTracker()
+    const deps = makeDeps(runtime, { backgroundTasks: tracker })
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+
+    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+
+    expect(settledForwards(deps)).toHaveLength(0)
+    expect([...tracker.ids('s1')]).toEqual(['a1'])
+  })
+
+  it('둘째 payload 에서 빠진 추적 항목이 failed 로 정착한다 (AT-14 — AT-15 의 양성 짝)', async () => {
+    const runtime = spiedRuntime([
+      [
+        subagentStarted('a1'),
+        subagentStarted('a2'),
+        backgroundSet(['a1', 'a2']), // 기준선
+        backgroundSet(['a2']), // a1 이 살아 있는 집합에서 사라졌다
+        telemetry
+      ]
+    ])
+    const tracker = new BackgroundTaskTracker()
+    const deps = makeDeps(runtime, { backgroundTasks: tracker })
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+
+    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+
+    const settled = settledForwards(deps)
+    expect(settled).toHaveLength(1)
+    expect(settled[0]).toMatchObject({
+      toolUseId: 'a1',
+      status: 'failed',
+      summary: '완료 통지 없이 백그라운드 작업 목록에서 사라졌습니다.'
+    })
+    // 집합에 남은 a2 는 건드리지 않는다.
+    expect([...tracker.ids('s1')]).toEqual(['a2'])
+  })
+
+  it('레벨 정착은 stopLive:false — 이미 목록에 없는 태스크에 제어 요청을 보내지 않는다', async () => {
+    const runtime = spiedRuntime([
+      [subagentStarted('a1'), backgroundSet(['a1']), backgroundSet([]), telemetry]
+    ])
+    const tracker = new BackgroundTaskTracker()
+    const deps = makeDeps(runtime, { backgroundTasks: tracker })
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    // taskId 가 있어도 부르지 않는다 — 없어서 안 부른 것과 구분한다.
+    turn.subagentTaskIds.set('a1', 'task-1')
+
+    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+
+    expect(settledForwards(deps)).toHaveLength(1)
+    expect(runtime.backgroundTask).not.toHaveBeenCalled()
+    expect(runtime.stopTask).not.toHaveBeenCalled()
   })
 })
 

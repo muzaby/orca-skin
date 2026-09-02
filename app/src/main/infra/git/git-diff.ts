@@ -15,10 +15,9 @@ import { runGit, type GitRunOptions, type GitRunResult } from './runner'
 import {
   MAX_DIFF_COMMITS,
   MAX_DIFF_FILE_BYTES,
-  applyNameStatus,
   mergeDiffEntries,
+  parseCommitFiles,
   parseCommitLog,
-  parseNameStatusZ,
   parseNumstatZ
 } from './git-diff-parse'
 
@@ -33,13 +32,22 @@ export type GitDiffRunner = (
   options?: GitRunOptions
 ) => Promise<GitRunResult>
 
+// 읽기 조회는 **저장소를 잠그지 않는다**(0211 D-064). `--no-optional-locks` 를 여기서 한 번
+// 붙이는 이유: 호출부마다 붙이면 새 호출부가 조용히 빠진다. 이 함수가 유일한 관문이고
+// AT-39 가 "누락 0건" 을 차집합으로 센다.
+export const READ_ONLY_GIT_FLAG = '--no-optional-locks'
+
 function run(
   runner: GitDiffRunner,
   cwd: string,
   args: string[],
   maxBuffer = MAX_BUFFER
 ): Promise<GitRunResult> {
-  return runner(cwd, args, { readOnly: true, timeoutMs: TIMEOUT_MS, maxBuffer })
+  return runner(cwd, [READ_ONLY_GIT_FLAG, ...args], {
+    readOnly: true,
+    timeoutMs: TIMEOUT_MS,
+    maxBuffer
+  })
 }
 
 const ZERO_TOTALS: GitDiffTotals = { added: 0, removed: 0 }
@@ -85,36 +93,52 @@ function diffRevArgs(base: GitDiffBase): string[] {
   return []
 }
 
-async function insideWorkTree(cwd: string, runner: GitDiffRunner): Promise<boolean> {
+interface RepoCoords {
+  inside: boolean
+  root: string | null
+}
+
+// 저장소 좌표는 **좌표만** 담는다 — 파일 내용을 담지 않으므로 worktree 가 사라져도 낡은 본문을
+// 주지 않는다(0211 D-063). 소실 감지는 0210 D-107 이 이미 갖는다.
+//
+// runner 별로 나눠 담는 이유는 격리다: fake runner 를 쓰는 테스트가 서로의 캐시를 보지 않고,
+// 프로덕션은 `runGit` 하나라 프로세스 수명 동안 한 칸을 공유한다.
+const repoCoordsCache = new WeakMap<GitDiffRunner, Map<string, RepoCoords>>()
+
+async function repoCoords(cwd: string, runner: GitDiffRunner): Promise<RepoCoords> {
+  const byCwd = repoCoordsCache.get(runner) ?? new Map<string, RepoCoords>()
+  const cached = byCwd.get(cwd)
+  if (cached) return cached
+
   if (runner === runGit) {
     const dir = await stat(cwd).catch(() => null)
-    if (!dir?.isDirectory()) return false
+    if (!dir?.isDirectory()) return { inside: false, root: null }
   }
-  const result = await run(runner, cwd, ['rev-parse', '--is-inside-work-tree'])
-  return result.ok && result.stdout.trim() === 'true'
+  // 두 값이 한 호출로 나온다(실측) — 순서는 inside, toplevel 이다.
+  const result = await run(runner, cwd, ['rev-parse', '--is-inside-work-tree', '--show-toplevel'])
+  const [insideLine, rootLine] = result.stdout.split('\n')
+  const coords: RepoCoords = {
+    inside: result.ok && insideLine?.trim() === 'true',
+    root: result.ok && rootLine?.trim() ? rootLine.trim() : null
+  }
+  // 저장소가 아닌 경로는 캐시하지 않는다 — 나중에 clone/init 될 수 있다.
+  if (coords.inside) {
+    byCwd.set(cwd, coords)
+    repoCoordsCache.set(runner, byCwd)
+  }
+  return coords
 }
 
-async function repoRoot(cwd: string, runner: GitDiffRunner): Promise<string | null> {
-  const result = await run(runner, cwd, ['rev-parse', '--show-toplevel'])
-  const path = result.stdout.trim()
-  return result.ok && path.length > 0 ? path : null
-}
-
+// `--raw --numstat -z` **한 호출**이 status 와 줄 수를 함께 낸다(0211 D-062, 실측) — 예전의
+// `--numstat` + `--name-status` 두 호출을 대신한다. 파서는 신설하지 않는다: 커밋 경로가 이미
+// 같은 형식을 `parseCommitFiles` 로 읽고 있어, 새로 만들면 rename·binary 처리가 두 벌이 된다.
 async function readDiff(
   cwd: string,
   revArgs: readonly string[],
   runner: GitDiffRunner
 ): Promise<{ files: GitDiffFileEntry[]; truncated: boolean; totals: GitDiffTotals }> {
-  const [numstat, nameStatus] = await Promise.all([
-    run(runner, cwd, ['diff', '--numstat', '-z', ...revArgs]),
-    run(runner, cwd, ['diff', '--name-status', '-z', ...revArgs])
-  ])
-  const tracked = numstat.ok
-    ? applyNameStatus(
-        parseNumstatZ(numstat.stdout),
-        nameStatus.ok ? parseNameStatusZ(nameStatus.stdout) : new Map()
-      )
-    : []
+  const result = await run(runner, cwd, ['diff', '--raw', '--numstat', '-z', ...revArgs])
+  const tracked = result.ok ? parseCommitFiles(result.stdout.split('\0')) : []
   return mergeDiffEntries(tracked)
 }
 
@@ -157,7 +181,7 @@ export async function gitDiffSummary(
   input: { cwd: string; baseOid?: string | null },
   runner: GitDiffRunner = runGit
 ): Promise<GitDiffSummary> {
-  if (!(await insideWorkTree(input.cwd, runner))) return EMPTY_DIFF_SUMMARY
+  if (!(await repoCoords(input.cwd, runner)).inside) return EMPTY_DIFF_SUMMARY
   const range = await resolveDiffRange(input, runner)
   const base = range.base
   const overall = await readDiff(input.cwd, diffRevArgs(base), runner)
@@ -228,16 +252,20 @@ export async function gitDiffFile(
   input: { cwd: string; path: string; baseOid?: string | null },
   runner: GitDiffRunner = runGit
 ): Promise<GitDiffFileContent> {
-  if (!(await insideWorkTree(input.cwd, runner))) return { kind: 'unavailable', reason: 'error' }
+  const coords = await repoCoords(input.cwd, runner)
+  if (!coords.inside) return { kind: 'unavailable', reason: 'error' }
   const range = await resolveDiffRange(input, runner)
-  if (!(await isTrackedDiffPath(input.cwd, input.path, range.base, runner))) {
-    return { kind: 'unavailable', reason: 'error' }
-  }
   const baseRev = range.base.kind === 'none' ? null : range.base.oid
-  const oldValue = baseRev ? await showAt(input.cwd, baseRev, input.path, runner) : ''
+  // 추적 판정과 base 본문은 서로를 기다릴 이유가 없다 — 직렬 깊이를 줄인다(0211 §14 ΔV3).
+  // 추적이 아니면 읽은 본문은 버린다: 미추적 파일 본문이 새는 축은 판정이 막는다(D-035).
+  const [tracked, oldValue] = await Promise.all([
+    isTrackedDiffPath(input.cwd, input.path, range.base, runner),
+    baseRev ? showAt(input.cwd, baseRev, input.path, runner) : Promise.resolve<string | null>('')
+  ])
+  if (!tracked) return { kind: 'unavailable', reason: 'error' }
   if (oldValue == null) return { kind: 'unavailable', reason: 'too-large' }
 
-  const root = (await repoRoot(input.cwd, runner)) ?? input.cwd
+  const root = coords.root ?? input.cwd
   const abs = resolve(root, input.path)
   const info = await stat(abs).catch(() => null)
   if (!info) return { kind: 'text', oldValue, newValue: '', truncated: false }

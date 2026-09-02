@@ -28,6 +28,7 @@ import type {
   DiffRequirementAnchor,
   DiffRequirementItem,
   EffortLevel,
+  GitDiffFileContent,
   GitDiffSummary,
   NormalizedEvent,
   SendChatMessage
@@ -489,6 +490,20 @@ function receive(ev: NormalizedEvent): void {
       if (ev.phase === 'settled' && ev.background === true) {
         dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       }
+      // SDK task_updated(0212 AR-03) — `paused`·`is_backgrounded` 는 parts fold 로 만들 수 없는
+      // 라이브 상태다. transcript 파트를 오염시키지 않고 커밋 상태의 라이브 표식만 갱신한다
+      // (`stoppingTaskIds` 와 같은 자리 · D-014).
+      if (
+        ev.phase === 'updated' &&
+        (ev.runState !== undefined || ev.isBackgrounded !== undefined)
+      ) {
+        dispatchTo(key, {
+          type: 'SUBAGENT_RUN_STATE',
+          toolUseId: ev.toolUseId,
+          ...(ev.runState !== undefined ? { runState: ev.runState } : {}),
+          ...(ev.isBackgrounded !== undefined ? { isBackgrounded: ev.isBackgrounded } : {})
+        })
+      }
       return
 
     case 'message.queued':
@@ -591,6 +606,12 @@ function receive(ev: NormalizedEvent): void {
       if (key === getState().activeKey) {
         void settingsApi.set({ lastSessionId: ev.sessionId })
       }
+      return
+
+    // background 레벨 신호(0212 AR-02)는 **main 이 소비한다** — coordinator 가 집합을 교체하고
+    // 빠진 항목을 정착시키면, 그 정착이 기존 경로로 renderer 에 온다. 여기서 reducer 로 흘리면
+    // 레벨 payload 마다 상태 dispatch 가 한 번씩 헛돈다.
+    case 'subagent.backgroundSet':
       return
 
     default:
@@ -891,6 +912,26 @@ function stopTask(toolUseId: string): void {
     // 문구는 만들지 않는다 — 카탈로그 키 해석은 렌더의 몫이고, 여기서는 main 이 준 원문만 싣는다.
     const detail = err instanceof Error ? err.message : String(err ?? '')
     dispatchTo(target, { type: 'TASK_STOP_FAILED', toolUseId, ...(detail ? { detail } : {}) })
+  })
+}
+
+// 작업/백그라운드 타일의 foreground → background 전환(0212 R-07). 중단과 다른 축이다 — 작업은
+// 계속 돌고 **턴이 기다리는 것만** 그만둔다.
+//
+//   클릭 → 버튼 즉시 감춤(중복 클릭 차단) → main 이 backgroundTasks(toolUseId)
+//                                       ↘ 실패/false → 버튼 복구 + 사유 표시
+//
+// 중단과 달리 정착을 기다리지 않는다 — SDK 가 즉시 boolean 을 준다. 성공하면 blocking 도구가
+// 런치 영수증(async_launched)으로 즉시 회신하므로 그 관측이 버튼을 영구히 없앤다.
+function backgroundTask(toolUseId: string): void {
+  const sid = getActiveChatSession().sessionId
+  if (!sid) return
+  const target = getState().activeKey
+  dispatchTo(target, { type: 'TASK_BACKGROUND_REQUESTED', toolUseId })
+  void chatApi.backgroundSubagent(sid, toolUseId).catch((err: unknown) => {
+    // 문구는 만들지 않는다 — 카탈로그 키 해석은 렌더의 몫이고, 여기서는 main 이 준 원문만 싣는다.
+    const detail = err instanceof Error ? err.message : String(err ?? '')
+    dispatchTo(target, { type: 'TASK_BACKGROUND_FAILED', toolUseId, ...(detail ? { detail } : {}) })
   })
 }
 
@@ -1320,6 +1361,8 @@ export const chatActions = {
   toggleGitSnapshotCommitExpanded: (sha: string): void =>
     dispatchActive({ type: 'TOGGLE_GIT_SNAPSHOT_COMMIT_EXPANDED', sha }),
   refreshGitSnapshot: (): void => dispatchActive({ type: 'REFRESH_GIT_SNAPSHOT' }),
+  recordDiffBody: (key: string, content: GitDiffFileContent): void =>
+    dispatchActive({ type: 'RECORD_DIFF_BODY', key, content }),
   beginGitSnapshotQuery: (request: GitSnapshotRequest): void =>
     dispatchActive({ type: 'BEGIN_GIT_SNAPSHOT_QUERY', request }),
   receiveGitSnapshotSummary: (request: GitSnapshotRequest, summary: GitDiffSummary): void =>
@@ -1366,6 +1409,7 @@ export const chatActions = {
     dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId }),
   acknowledgeSettledTasks: (): void => dispatchActive({ type: 'ACKNOWLEDGE_SETTLED_TASKS' }),
   stopTask,
+  backgroundTask,
   setRightPanelColWidth: (col: number, width: number): void =>
     dispatchActive({ type: 'SET_RIGHT_PANEL_COL_WIDTH', col, width }),
   setRightPanelRowSplit: (col: number, frac: number): void =>
@@ -1484,6 +1528,22 @@ export function useSubagentMeta(toolUseId: string): SubagentMetaState | undefine
 export function useStoppingTasks(): ReadonlySet<string> {
   const ids = useChatSession((s) => s.stoppingTaskIds)
   return useMemo(() => new Set(ids), [ids])
+}
+
+// SDK 가 `paused` 로 말한 background tool_use id 집합(0212). `useStoppingTasks` 와 같은 이유로
+// 배열 identity 를 memo 키로 쓴다 — 매 렌더 새 Set 이면 작업 목록 파생 메모가 죽는다.
+export function usePausedTasks(): ReadonlySet<string> {
+  const ids = useChatSession((s) => s.pausedTaskIds)
+  return useMemo(() => new Set(ids), [ids])
+}
+
+// 전환 버튼을 띄우지 않아야 할 id — **확정분 + 요청 in-flight 분**의 합집합(0212 R-07).
+// 둘을 한 집합으로 합치는 것이 술어를 단순하게 유지한다: 이미 옮겨졌든 옮기는 중이든 그 행에
+// 전환 버튼은 의미가 없다.
+export function useBackgroundedTasks(): ReadonlySet<string> {
+  const confirmed = useChatSession((s) => s.backgroundedTaskIds)
+  const inFlight = useChatSession((s) => s.backgroundingTaskIds)
+  return useMemo(() => new Set([...confirmed, ...inFlight]), [confirmed, inFlight])
 }
 
 // 확인하지 않은 종단 작업 수 — 타일 칩 배지(0204 D-004).

@@ -10,6 +10,7 @@ import {
   registerDiffPeekBodyRequest,
   type DiffPeekBodyBridge
 } from './diffRequirementBridge'
+import { getDiffBody } from './diffBodyCache'
 import { createDiffRequirementItem } from './diffRequirements'
 import {
   createDiffPeekBodyRequestOwner,
@@ -96,8 +97,18 @@ export function DiffTileContent(): React.JSX.Element {
       cwd && peekTarget ? diffPeekBodyKey(cwd, sessionId, peekTarget, summaryGeneration) : null,
     [cwd, peekTarget, sessionId, summaryGeneration]
   )
+  // 0211 ΔV3 — 조회보다 **캐시가 먼저 선다**(§10 EP-24 ②). 키가 다섯 축이라 다른 저장소·다른
+  // 세대의 본문은 애초에 걸리지 않는다.
+  const bodyCache = useChatSession((state) => state.gitSnapshot.bodyCache)
+  const cachedContent = bodyKey ? getDiffBody(bodyCache, bodyKey) : null
   // Same relative path in a new identity is never rendered from a retained body cache.
-  const currentBody = bodyKey && body?.key === bodyKey ? body : null
+  const currentBody: DiffPeekBodyState | null = bodyKey
+    ? cachedContent !== null
+      ? { key: bodyKey, generation: 0, content: cachedContent }
+      : body?.key === bodyKey
+        ? body
+        : null
+    : null
 
   useEffect(() => () => bodyOwner.invalidate(), [bodyOwner])
 
@@ -111,10 +122,32 @@ export function DiffTileContent(): React.JSX.Element {
       setDiffRequirementBodyRequest: chatActions.setDiffRequirementBodyRequest,
       reanchorDiffRequirements: chatActions.reanchorDiffRequirements
     }
+    // 캐시 적중이면 **조회하지 않는다**. 다만 요구사항 재anchor 는 조회 경로와 **같이** 돈다 —
+    // 캐시가 그 부수효과를 건너뛰면 다시 연 파일의 요구사항이 위치를 잃는다(§10 EP-23 ②).
+    if (cachedContent !== null) {
+      const cachedRequest = { key: bodyKey, generation: 0 }
+      registerDiffPeekBodyRequest({
+        bridge,
+        sessionKey: capturedSessionKey,
+        sessionId: capturedSessionId,
+        path: capturedPath,
+        request: cachedRequest
+      })
+      handleDiffPeekBodyResult({
+        bridge,
+        sessionKey: capturedSessionKey,
+        sessionId: capturedSessionId,
+        path: capturedPath,
+        request: cachedRequest,
+        content: cachedContent
+      })
+      return
+    }
     const request = bodyOwner.run(
       bodyKey,
       () => gitApi.diffFile(diffPeekFileRequest(cwd, sessionId, peekTarget)),
-      (request, content) =>
+      (request, content) => {
+        chatActions.recordDiffBody(request.key, content)
         handleDiffPeekBodyResult({
           bridge,
           sessionKey: capturedSessionKey,
@@ -122,7 +155,8 @@ export function DiffTileContent(): React.JSX.Element {
           path: capturedPath,
           request,
           content
-        }),
+        })
+      },
       (request) => setBody({ ...request, content: { kind: 'unavailable', reason: 'error' } })
     )
     registerDiffPeekBodyRequest({
@@ -132,7 +166,7 @@ export function DiffTileContent(): React.JSX.Element {
       path: capturedPath,
       request
     })
-  }, [body?.key, bodyKey, bodyOwner, cwd, peekTarget, sessionId, sessionKey])
+  }, [body?.key, bodyKey, bodyOwner, cachedContent, cwd, peekTarget, sessionId, sessionKey])
 
   const onAddRequirement = useCallback(
     ({

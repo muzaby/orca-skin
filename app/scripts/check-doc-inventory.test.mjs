@@ -2,6 +2,7 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 
 import {
@@ -342,5 +343,51 @@ describe('CLI', () => {
     } finally {
       fx.cleanup()
     }
+  })
+})
+
+// 0212 — **CLI 로 실행됐을 때 본문이 실제로 도는지.** 이 스위트의 나머지는 함수를 직접 import
+// 해 테스트하므로 진입 가드를 한 번도 지나지 않았고, 그래서 가드가 깨진 것을 아무도 몰랐다.
+//
+// 깨진 형태: `import.meta.url === \`file://${process.argv[1]}\``. Windows 의 argv[1] 은
+// `C:\a\b.mjs` 라 `file://C:\a\b.mjs` 가 되고 `import.meta.url` 은 `file:///C:/a/b.mjs` 다 —
+// 절대 같지 않으므로 **본문이 실행되지 않은 채 exit 0** 이 나가고 게이트가 무음으로 통과한다.
+// CI 는 windows-latest 이므로 이 게이트는 그 형태로는 한 번도 돈 적이 없다.
+describe('CLI 진입 가드 (0212)', () => {
+  const SCRIPTS = [
+    'check-doc-inventory.mjs',
+    'check-migrations-appendonly.mjs',
+    'validate-release-version.mjs',
+    'validate-dist.mjs',
+    'ensure-sqlite-abi.mjs'
+  ]
+
+  test('스크립트를 직접 실행하면 CLI 본문이 돈다 — 무음 exit 0 이 아니다', () => {
+    const appDir = join(import.meta.dirname, '..')
+    for (const name of SCRIPTS) {
+      const run = spawnSync(process.execPath, [join('scripts', name), '--check'], {
+        cwd: appDir,
+        encoding: 'utf8'
+      })
+      const output = `${run.stdout ?? ''}${run.stderr ?? ''}`
+      // 본문이 돌면 무엇이든 말한다(성공 로그·실패 사유·usage). 아무 말도 없으면 가드가
+      // 막은 것이다 — 그 상태의 exit code 는 검증의 증거가 아니다.
+      assert.ok(
+        output.trim().length > 0,
+        `${name}: CLI 가 아무것도 출력하지 않았다 — 진입 가드가 본문을 막았을 수 있다`
+      )
+    }
+  })
+
+  test('모듈로 import 하면 CLI 본문이 돌지 않는다 — 양성 짝', () => {
+    const appDir = join(import.meta.dirname, '..')
+    const run = spawnSync(
+      process.execPath,
+      ['-e', "import('./scripts/check-doc-inventory.mjs').then(() => process.exit(0))"],
+      { cwd: appDir, encoding: 'utf8' }
+    )
+    // import 만으로는 게이트가 돌지 않아야 한다(부작용 없는 모듈). 출력이 비어 있는 것이 정상.
+    assert.equal(run.status, 0)
+    assert.equal(`${run.stdout ?? ''}${run.stderr ?? ''}`.trim(), '')
   })
 })

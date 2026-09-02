@@ -128,3 +128,75 @@ describe('BackgroundTaskTracker.waitForTask (0204)', () => {
     await expect(t.waitForTask('s1', 'a1', { timeoutMs: 5 })).resolves.toBe('settled')
   })
 })
+
+// ── 0212 — background_tasks_changed 레벨 신호 (AT-14·15 · §10 EP-07) ──────────
+//
+// 레벨은 REPLACE 다: 매 payload 로 집합을 교체하고 추적에는 있는데 payload 에 없는 항목을
+// 정착 대상으로 돌려준다. 정착 **방출**은 settle.ts 소유이므로 여기서는 판정만 본다.
+
+describe('BackgroundTaskTracker.applyLiveSet (0212)', () => {
+  it('AT-15 — 첫 payload 는 기준선일 뿐 아무것도 정착시키지 않는다', () => {
+    const t = new BackgroundTaskTracker()
+    t.started('s1', 'a1')
+    t.started('s1', 'a2')
+    // 빈 집합이 첫 payload 로 와도 살아 있는 둘을 죽이지 않는다 — 프로세스 단위 레벨이라
+    // 시작 직후에는 payload 가 실제 상태를 말하지 못한다.
+    expect(t.applyLiveSet('s1', [])).toEqual([])
+    expect([...t.ids('s1')].sort()).toEqual(['a1', 'a2'])
+  })
+
+  it('AT-14 — 2회차 이후에는 집합에 없는 추적 항목을 정착 대상으로 돌려준다', () => {
+    const t = new BackgroundTaskTracker()
+    t.started('s1', 'a1')
+    t.started('s1', 'a2')
+    t.applyLiveSet('s1', ['a1', 'a2'])
+    expect(t.applyLiveSet('s1', ['a1'])).toEqual(['a2'])
+  })
+
+  it('payload 에 있는 항목은 정착 대상이 아니다 — 양성 짝', () => {
+    const t = new BackgroundTaskTracker()
+    t.started('s1', 'a1')
+    t.applyLiveSet('s1', ['a1'])
+    expect(t.applyLiveSet('s1', ['a1'])).toEqual([])
+  })
+
+  it('추적에 없는 payload 항목은 무시한다 — 레벨은 추적을 늘리지 않는다', () => {
+    const t = new BackgroundTaskTracker()
+    t.started('s1', 'a1')
+    t.applyLiveSet('s1', ['a1'])
+    t.applyLiveSet('s1', ['a1', 'unknown'])
+    expect([...t.ids('s1')]).toEqual(['a1'])
+  })
+
+  it('세션마다 기준선이 따로 선다', () => {
+    const t = new BackgroundTaskTracker()
+    t.started('s1', 'a1')
+    t.started('s2', 'b1')
+    // s1 만 기준선을 세웠다 — s2 의 첫 payload 는 여전히 기준선이다.
+    t.applyLiveSet('s1', ['a1'])
+    expect(t.applyLiveSet('s1', [])).toEqual(['a1'])
+    expect(t.applyLiveSet('s2', [])).toEqual([])
+  })
+
+  it('프로세스 (재)기동 경계에서 레벨이 미확립으로 돌아간다 (D-012)', () => {
+    const t = new BackgroundTaskTracker()
+    t.started('s1', 'a1')
+    t.applyLiveSet('s1', ['a1'])
+    // clear 가 그 경계다 — 콜드 spawn 전 정리·채널 사망 정착이 여기를 지난다.
+    t.clear('s1')
+    t.started('s1', 'a2')
+    // 구 프로세스의 집합이 새 프로세스의 태스크를 죽이지 않는다.
+    expect(t.applyLiveSet('s1', [])).toEqual([])
+    expect([...t.ids('s1')]).toEqual(['a2'])
+  })
+
+  it('resetLevel 만으로도 미확립으로 돌아간다 — 추적은 유지된다', () => {
+    const t = new BackgroundTaskTracker()
+    t.started('s1', 'a1')
+    t.applyLiveSet('s1', ['a1'])
+    t.resetLevel('s1')
+    expect(t.applyLiveSet('s1', [])).toEqual([])
+    // 양성 짝 — 추적은 지워지지 않았으므로 다음 회차부터 다시 잰다.
+    expect(t.applyLiveSet('s1', [])).toEqual(['a1'])
+  })
+})

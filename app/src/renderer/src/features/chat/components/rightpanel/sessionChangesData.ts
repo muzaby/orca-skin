@@ -83,6 +83,22 @@ export function summaryNoticeKeys(summary: GitDiffSummary): readonly MessageKey[
   ]
 }
 
-export function summaryBaseLabel(summary: GitDiffSummary): string {
-  return summary.base.kind === 'none' ? '∅' : summary.base.oid.slice(0, 7)
+/**
+ * 기준선 자리에 무엇이 서는가. `head` 는 **세션 기준선을 모른다**는 뜻이라 sha 를 쓰면
+ * 그 sha 가 이 세션의 출발점인 것처럼 읽힌다 — 그 자리는 `HEAD` 문구가 갖는다(AT-28).
+ */
+export type SummaryBaseLabel = { kind: 'oid'; oid: string } | { kind: 'head' } | { kind: 'none' }
+
+export function summaryBaseLabel(summary: GitDiffSummary): SummaryBaseLabel {
+  if (summary.base.kind === 'none') return { kind: 'none' }
+  if (summary.base.kind === 'head') return { kind: 'head' }
+  return { kind: 'oid', oid: summary.base.oid.slice(0, 7) }
+}
+
+/** 위 판정을 화면 문자열로 옮긴다 — 두 표면이 같은 규칙을 쓰도록 한 자리에 둔다. */
+export function summaryBaseText(summary: GitDiffSummary, tr: (key: MessageKey) => string): string {
+  const label = summaryBaseLabel(summary)
+  if (label.kind === 'oid') return label.oid
+  if (label.kind === 'head') return tr('chat.rightpanel.diffBaselineHead')
+  return '∅'
 }

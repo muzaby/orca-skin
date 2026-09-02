@@ -1253,3 +1253,244 @@ describe('claudeToNormalized — handoffArrival (0127, 핸드오프 도착 턴)'
     expect(ev.usage?.cacheReadTokens).toBe(50_000)
   })
 })
+
+// ── 0212 — 기능 가용성 게이트 · task_updated · background_tasks_changed ────────
+
+describe('0212 — init 의 tools·claude_code_version (AT-01·02·03 · §10 EP-01)', () => {
+  it('tools 와 버전을 patch 에 싣는다 — TaskCreate 포함 여부가 곧 판정 입력이다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'init',
+        session_id: 's1',
+        model: 'opus',
+        tools: ['TaskCreate', 'Bash'],
+        claude_code_version: '2.1.200'
+      }),
+      ctx('')
+    )
+    expect(out).toEqual([
+      {
+        type: 'session.updated',
+        sessionId: 's1',
+        patch: {
+          model: 'opus',
+          cwd: '/w',
+          agentTools: ['TaskCreate', 'Bash'],
+          cliVersion: '2.1.200'
+        }
+      }
+    ])
+  })
+
+  it('AT-03 — tools 부재는 키를 싣지 않는다 (부재는 기능 없음과 다르다 · D-005)', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'init', session_id: 's1', claude_code_version: '2.1.100' }),
+      ctx('')
+    )
+    const patch = (out[0] as { patch: Record<string, unknown> }).patch
+    expect('agentTools' in patch).toBe(false)
+    // 양성 짝 — 같은 이벤트의 버전은 실린다(분기 자체가 죽지 않았다).
+    expect(patch.cliVersion).toBe('2.1.100')
+  })
+
+  it('AT-02 — TaskCreate 없는 tools 는 그대로 실린다 (판정은 소비자가 한다)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'init',
+        session_id: 's1',
+        tools: ['Bash', 'Read'],
+        claude_code_version: '2.1.100'
+      }),
+      ctx('')
+    )
+    const patch = (out[0] as { patch: Record<string, unknown> }).patch
+    expect(patch.agentTools).toEqual(['Bash', 'Read'])
+  })
+
+  it('문자열 아닌 원소가 섞이면 배열 전체를 버린다 — 반쪽 판정보다 미판정이 낫다', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'init', session_id: 's1', tools: ['Bash', 3] }),
+      ctx('')
+    )
+    const patch = (out[0] as { patch: Record<string, unknown> }).patch
+    expect('agentTools' in patch).toBe(false)
+  })
+})
+
+describe('0212 — task_updated (AT-18·20·21 · §10 EP-09)', () => {
+  // 매핑을 세워 두는 선행 이벤트 — task_updated 에는 tool_use_id 필드가 없다(SDK 타입).
+  const withMapping = (): MapContext => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'task_started',
+        task_id: 't1',
+        tool_use_id: 'use1',
+        description: '탐색'
+      }),
+      c
+    )
+    return c
+  }
+
+  it('AT-20 — killed 는 stopped 와 동형으로 정착한다', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'task_updated', task_id: 't1', patch: { status: 'killed' } }),
+      withMapping()
+    )
+    expect(out).toEqual([
+      {
+        type: 'subagent.task',
+        sessionId: 's1',
+        toolUseId: 'use1',
+        phase: 'settled',
+        taskId: 't1',
+        status: 'stopped'
+      }
+    ])
+  })
+
+  it('AT-21 — killed 와 함께 온 patch.error 가 정착 사유로 실린다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'task_updated',
+        task_id: 't1',
+        patch: { status: 'killed', error: '한도를 초과했습니다' }
+      }),
+      withMapping()
+    )
+    expect(out[0]).toMatchObject({ status: 'stopped', summary: '한도를 초과했습니다' })
+  })
+
+  it('paused 는 정착이 아니라 라이브 상태다 — 재개된 태스크가 돌아와야 한다', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'task_updated', task_id: 't1', patch: { status: 'paused' } }),
+      withMapping()
+    )
+    expect(out).toEqual([
+      {
+        type: 'subagent.task',
+        sessionId: 's1',
+        toolUseId: 'use1',
+        phase: 'updated',
+        taskId: 't1',
+        runState: 'paused'
+      }
+    ])
+  })
+
+  it('running 은 일시정지 해제로 온다', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'task_updated', task_id: 't1', patch: { status: 'running' } }),
+      withMapping()
+    )
+    expect(out[0]).toMatchObject({ phase: 'updated', runState: 'running' })
+  })
+
+  it('is_backgrounded 는 두 값 모두 나른다 — false 는 foreground 복귀다', () => {
+    for (const value of [true, false]) {
+      const out = claudeToNormalized(
+        sdk({
+          type: 'system',
+          subtype: 'task_updated',
+          task_id: 't1',
+          patch: { is_backgrounded: value }
+        }),
+        withMapping()
+      )
+      expect(out[0]).toMatchObject({ phase: 'updated', isBackgrounded: value })
+    }
+  })
+
+  it('completed·failed·pending 은 여기서 정착시키지 않는다 — 권위는 task_notification 이다', () => {
+    for (const status of ['completed', 'failed', 'pending']) {
+      const out = claudeToNormalized(
+        sdk({ type: 'system', subtype: 'task_updated', task_id: 't1', patch: { status } }),
+        withMapping()
+      )
+      expect(out).toEqual([])
+    }
+  })
+
+  it('매핑이 없으면 드롭한다 — 표시·중단 키를 만들 수 없다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'task_updated',
+        task_id: 'unknown',
+        patch: { status: 'paused' }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([])
+  })
+})
+
+describe('0212 — background_tasks_changed (AT-14·16 · §10 EP-06)', () => {
+  const mapped = (): MapContext => {
+    const c = ctx()
+    for (const [taskId, useId] of [
+      ['t1', 'use1'],
+      ['t2', 'use2']
+    ]) {
+      claudeToNormalized(
+        sdk({
+          type: 'system',
+          subtype: 'task_started',
+          task_id: taskId,
+          tool_use_id: useId,
+          description: 'd'
+        }),
+        c
+      )
+    }
+    return c
+  }
+
+  it('매핑된 task_id 만 toolUseIds 로 옮긴다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'background_tasks_changed',
+        tasks: [
+          { task_id: 't1', task_type: 'agent', description: 'd' },
+          { task_id: 't2', task_type: 'agent', description: 'd' }
+        ]
+      }),
+      mapped()
+    )
+    expect(out).toEqual([
+      { type: 'subagent.backgroundSet', sessionId: 's1', toolUseIds: ['use1', 'use2'] }
+    ])
+  })
+
+  it('AT-16 — 매핑 없는 task_id 는 무시한다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'background_tasks_changed',
+        tasks: [{ task_id: 'other', task_type: 'agent', description: 'd' }]
+      }),
+      mapped()
+    )
+    expect(out).toEqual([{ type: 'subagent.backgroundSet', sessionId: 's1', toolUseIds: [] }])
+  })
+
+  it('빈 배열은 유효한 레벨이다 — 살아 있는 것이 없다는 사실을 말한다', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'background_tasks_changed', tasks: [] }),
+      mapped()
+    )
+    expect(out).toEqual([{ type: 'subagent.backgroundSet', sessionId: 's1', toolUseIds: [] }])
+  })
+
+  it('tasks 가 배열이 아니면 드롭한다 — 레벨을 만들 수 없다', () => {
+    expect(
+      claudeToNormalized(sdk({ type: 'system', subtype: 'background_tasks_changed' }), mapped())
+    ).toEqual([])
+  })
+})

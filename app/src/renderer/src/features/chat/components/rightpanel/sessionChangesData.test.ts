@@ -4,6 +4,8 @@ import {
   commitDisplayMeta,
   commitFileRows,
   sessionChangeGroups,
+  summaryBaseLabel,
+  summaryBaseText,
   summaryNoticeKeys
 } from './sessionChangesData'
 
@@ -45,6 +47,28 @@ const summary = (commits: GitDiffCommit[]): GitDiffSummary => ({
 })
 
 describe('session changes data', () => {
+  // AT-28 — 기준선 자리는 **세 종류**를 구분한다. `head` 는 "세션 기준선을 모른다" 이고,
+  // 그 자리에 sha 를 쓰면 그 sha 가 이 세션의 출발점인 것처럼 읽힌다.
+  it('AT-28 — base 3종이 각각 다른 헤더 값을 낸다', () => {
+    const oidSummary = summary([])
+    const headSummary: GitDiffSummary = {
+      ...oidSummary,
+      base: { kind: 'head', oid: 'headoid1234' }
+    }
+    const noneSummary: GitDiffSummary = { ...oidSummary, base: { kind: 'none' } }
+
+    expect(summaryBaseLabel(oidSummary)).toEqual({ kind: 'oid', oid: 'base-oi' })
+    expect(summaryBaseLabel(headSummary)).toEqual({ kind: 'head' })
+    expect(summaryBaseLabel(noneSummary)).toEqual({ kind: 'none' })
+
+    const tr = ((key: string) => `tr:${key}`) as Parameters<typeof summaryBaseText>[1]
+    expect(summaryBaseText(oidSummary, tr)).toBe('base-oi')
+    // sha 자리가 sha 가 **아니어야** 한다 — 문구 키로 간다.
+    expect(summaryBaseText(headSummary, tr)).toBe('tr:chat.rightpanel.diffBaselineHead')
+    expect(summaryBaseText(headSummary, tr)).not.toContain('headoid')
+    expect(summaryBaseText(noneSummary, tr)).toBe('∅')
+  })
+
   it('commit과 uncommitted는 같은 path여도 별도 group으로 유지한다', () => {
     const groups = sessionChangeGroups(summary([commit()]))
 

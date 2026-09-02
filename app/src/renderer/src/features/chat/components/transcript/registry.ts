@@ -9,11 +9,13 @@
 import type { ToolCall } from '../../reducer/chatReducer'
 import { FILE_EDIT_TOOLS } from '../../lib/toolMeta'
 import { isAgentTaskName } from '../../lib/parts'
+import { isTaskListToolName } from '../../../../../../shared/task-tool'
 import { BashBody } from './tool-bodies/BashBody'
 import { DiffBody } from './tool-bodies/DiffBody'
 import { FileBody } from './tool-bodies/FileBody'
 import { AskBody } from './tool-bodies/AskBody'
 import { AgentTaskBody } from './tool-bodies/AgentTaskBody'
+import { TaskToolBody } from './tool-bodies/TaskToolBody'
 import { KeyValueBody } from './tool-bodies/KeyValueBody'
 
 // 렌더 카드의 시맨틱 종류 (rendering.md §1.6 정본 taxonomy). 도구 이름이 아니라 "무엇을
@@ -29,6 +31,10 @@ export type RenderableKind =
   | 'search'
   | 'approval'
   | 'agent_task'
+  // 세션 할 일 목록 도구(TaskCreate/TaskGet/TaskUpdate/TaskList)의 본문 — 0212 R-06.
+  // `agent_task`(서브에이전트 실행)와 **다른 의미**다: 저것은 프로세스를 띄우고 이것은 할 일
+  // 목록을 바꾼다. 같은 kind 로 접으면 두 카드가 같은 것을 보여준다고 말하게 된다.
+  | 'task_list'
   | 'session_graph'
   | 'context_injection'
   | 'structured_output'
@@ -78,5 +84,13 @@ export const toolRendererRegistry = new ToolRendererRegistry({
     kind: 'agent_task',
     match: (c) => isAgentTaskName(c.name),
     Body: AgentTaskBody
+  })
+  // 이름 배열의 소유자는 `shared/task-tool.ts` 하나다(0212 §10 EP-11) — 여기서 리터럴을 다시
+  // 적으면 CLI 가 이름을 바꿀 때 두 곳이 갈라진다. 6종 전량(`TASK_TOOL_NAMES`)이 아니라 **할 일
+  // 목록 4종**만 받는다(D-025).
+  .register({
+    kind: 'task_list',
+    match: (c) => isTaskListToolName(c.name),
+    Body: TaskToolBody
   })
   .register({ kind: 'ask', match: (c) => c.name === 'AskUserQuestion', Body: AskBody })

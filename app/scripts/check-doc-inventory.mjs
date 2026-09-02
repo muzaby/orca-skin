@@ -12,6 +12,7 @@
 //
 // 이 스크립트는 순수 Node 다 — electron·better-sqlite3·vitest 에 의존하지 않으므로
 // better-sqlite3 ABI 마찰(app/AGENTS.md)을 받지 않고 어느 게이트에서도 돌 수 있다.
+import { pathToFileURL } from 'node:url'
 import { readdirSync, readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname, resolve, relative, sep } from 'node:path'
 import process from 'node:process'
@@ -436,7 +437,12 @@ export function runCli(argv = process.argv.slice(2), cwd = process.cwd()) {
   return failed ? 1 : 0
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// 직접 실행 판정 — `pathToFileURL` 로 비교한다. `file://${process.argv[1]}` 는 **Windows 에서
+// 절대 성립하지 않는다**: argv[1] 은 `C:.mjs` 라 `file://C:.mjs` 가 되고
+// `import.meta.url` 은 `file:///C:/a/b.mjs` 다. 그러면 CLI 본문이 실행되지 않은 채 exit 0 이 나가
+// 게이트가 무음으로 통과한다(CI 는 windows-latest 다). 선례: `analyze-composer-input-trace.mjs`.
+const invokedAs = process.argv[1]
+if (invokedAs && import.meta.url === pathToFileURL(invokedAs).href) {
   try {
     process.exitCode = runCli()
   } catch (error) {

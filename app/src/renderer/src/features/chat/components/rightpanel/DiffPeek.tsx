@@ -4,6 +4,7 @@ import type {
   GitDiffFileContent,
   GitDiffSummary
 } from '../../../../../../shared/ipc'
+import { Icon } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
 import {
   buildDiffHunks,
@@ -17,7 +18,7 @@ import type { DiffRequirementDraft, GitPeekTarget } from '../../reducer/chatRedu
 import type { DiffPeekBodyState } from './diffFileCache'
 import { diffRequirementLineKey } from './diffRequirements'
 import { peekNavigation } from './peekNavigation'
-import { summaryBaseLabel } from './sessionChangesData'
+import { summaryBaseText } from './sessionChangesData'
 
 export interface DiffPeekProps {
   summary: GitDiffSummary
@@ -148,7 +149,7 @@ function DiffRequirementMarkerRow({
             <span
               key={item.id}
               data-diff-requirement-marker={item.id}
-              className="inline-flex min-w-0 max-w-full items-center gap-g2 rounded-r3 border border-accent bg-fill-contained px-p3 py-1 text-caption"
+              className="inline-flex min-w-0 max-w-full items-center gap-g2 rounded-r4 border border-accent bg-fill-contained px-p3 py-1 text-caption"
             >
               <span className="shrink-0 text-accent">
                 {tr('chat.rightpanel.diffRequirementMarkerLabel')}
@@ -160,9 +161,9 @@ function DiffRequirementMarkerRow({
                 aria-label={tr('chat.composer.diffRequirementRemoveAria', {
                   comment: item.anchor.comment
                 })}
-                className="shrink-0 text-t5 outline-none hide-focus-ring ring-focus"
+                className="shrink-0 rounded-r4 text-t5 outline-none transition-colors hide-focus-ring ring-focus hover:text-t7"
               >
-                ×
+                <Icon name="x" size={11} />
               </button>
             </span>
           ))}
@@ -211,13 +212,15 @@ function DiffLineRow({
     <Fragment>
       <tr
         data-diff-hunk-row-id={row.id}
-        className={
+        // 익명 `group` 은 상위의 다른 `.group` 까지 매칭돼 형제 줄이 함께 반응한다
+        // (`src/renderer/AGENTS.md §그룹 스코프 격리`). 이름을 붙여 이 줄로 가둔다.
+        className={`group/diffline ${
           isAdded
             ? 'bg-[color-mix(in_srgb,var(--color-good)_14%,transparent)]'
             : isRemoved
               ? 'bg-[color-mix(in_srgb,var(--color-bad)_14%,transparent)]'
               : ''
-        }
+        }`}
       >
         <td className="select-none px-2 text-right text-code text-t5">
           <button
@@ -235,9 +238,9 @@ function DiffLineRow({
             aria-label={tr('chat.rightpanel.diffRequirementAddAria', {
               line: lineAxisLabel(row.line)
             })}
-            className="rounded-r3 px-1 text-caption text-accent outline-none hide-focus-ring ring-focus"
+            className="rounded-r4 px-1 text-accent opacity-0 outline-none transition-opacity hide-focus-ring ring-focus group-hover/diffline:opacity-100 focus-visible:opacity-100 motion-reduce:transition-none"
           >
-            +
+            <Icon name="plus" size={11} />
           </button>
         </td>
         <td className="select-none px-2 text-right text-code text-t5">{row.line.oldLine ?? ''}</td>
@@ -353,8 +356,9 @@ function DiffPeekBody({
                     <button
                       type="button"
                       onClick={() => expand(row.id)}
-                      className="text-caption text-accent outline-none hide-focus-ring ring-focus"
+                      className="group/gap flex items-center gap-g2 rounded-r4 px-p2 py-1 text-caption text-accent outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
                     >
+                      <Icon name="chevU" size={11} />
                       {tr('chat.rightpanel.diffExpandGap', {
                         count: Math.min(5, row.end - row.start)
                       })}
@@ -400,14 +404,19 @@ export function DiffPeek({
   const navigation = useMemo(() => peekNavigation(summary, target), [summary, target])
 
   return (
-    <div data-session-changes-screen="peek" className="flex min-h-0 flex-1 flex-col">
+    <div
+      data-session-changes-screen="peek"
+      className="flex min-h-0 flex-1 animate-depth-in flex-col"
+    >
       <header className="flex shrink-0 items-center gap-g3 border-b border-t5 px-p5 py-2">
         <button
           type="button"
           onClick={onBack}
-          className="text-body text-accent outline-none hide-focus-ring ring-focus"
+          aria-label={tr('header.back')}
+          className="group/peekback flex items-center gap-g1 rounded-r4 px-p2 py-1 text-body text-accent outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
         >
-          ← {tr('header.back')}
+          <Icon name="arrowL" size={12} />
+          <span>{tr('header.back')}</span>
         </button>
         <span className="min-w-0 flex-1 truncate font-mono text-body text-t9">{target.path}</span>
         <span className="shrink-0 text-caption text-t5">
@@ -419,7 +428,7 @@ export function DiffPeek({
       </header>
       <div className="flex shrink-0 flex-wrap items-center gap-g2 border-b border-t5 px-p5 py-1 text-caption text-t6">
         <span>
-          {tr('chat.rightpanel.diffBaselineCurrent', { base: summaryBaseLabel(summary) })}
+          {tr('chat.rightpanel.diffBaselineCurrent', { base: summaryBaseText(summary, tr) })}
         </span>
         {target.group.kind === 'uncommitted' && (
           <span>{tr('chat.rightpanel.diffIncludesUncommitted')}</span>
@@ -430,17 +439,19 @@ export function DiffPeek({
           type="button"
           disabled={!navigation.previous}
           onClick={() => navigation.previous && onNavigate(navigation.previous)}
-          className="text-caption text-accent disabled:text-t5"
+          className="group/peekprev flex items-center gap-g1 rounded-r4 px-p2 py-1 text-caption text-accent outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover disabled:text-t5 disabled:hover:bg-transparent"
         >
-          {tr('chat.rightpanel.diffPreviousFile')}
+          <Icon name="chevU" size={11} />
+          <span>{tr('chat.rightpanel.diffPreviousFile')}</span>
         </button>
         <button
           type="button"
           disabled={!navigation.next}
           onClick={() => navigation.next && onNavigate(navigation.next)}
-          className="text-caption text-accent disabled:text-t5"
+          className="group/peeknext flex items-center gap-g1 rounded-r4 px-p2 py-1 text-caption text-accent outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover disabled:text-t5 disabled:hover:bg-transparent"
         >
-          {tr('chat.rightpanel.diffNextFile')}
+          <span>{tr('chat.rightpanel.diffNextFile')}</span>
+          <Icon name="chevD" size={11} />
         </button>
       </div>
       <DiffPeekBody

@@ -158,6 +158,45 @@
   }
 }
 
+/* 변경사항 패널의 **depth 전환**(0211 D-065) — 목록 ↔ peek 은 같은 타일 안의 두 화면이라,
+   방향이 있어야 "들어갔다/나왔다" 로 읽힌다. 두 연출이 **서로 다른 것**이 계약이다: 한
+   클래스를 양쪽에 붙이면 뒤로 갈 때도 앞으로 가는 것처럼 보인다.
+
+   시간축·이징은 `tile-in` 을 그대로 승계한다(180ms ease-out) — 새 값을 발명하면 타일 마운트와
+   화면 전환이 서로 다른 속도로 움직인다. `prefers-reduced-motion` 가드도 같은 형태다. */
+@keyframes depth-in {
+  0% {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@utility animate-depth-in {
+  animation: depth-in 180ms ease-out both;
+}
+@keyframes depth-out {
+  0% {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@utility animate-depth-out {
+  animation: depth-out 180ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-depth-in,
+  .animate-depth-out {
+    animation: none;
+  }
+}
+
 /* 대화 길이 안내 pill 의 경고등 펄스(0122) — currentColor halo 가 퍼졌다 사라진다.
    톤(warn=노랑/danger=빨강)은 부모의 text-warn/text-bad 가 currentColor 로 전파. */
 /* box-shadow 애니메이션이 ring 유틸(box-shadow 기반)을 대체하므로, 정적 halo(ring-4

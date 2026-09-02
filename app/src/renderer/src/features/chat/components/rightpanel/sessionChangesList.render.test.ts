@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { GitDiffFileEntry, GitDiffSummary } from '../../../../../../shared/ipc'
 import { SessionChangesList } from './SessionChangesList'
+import { regionContains } from '../../../../shared/ui/htmlRegion.testlib'
 
 const file = (path: string): GitDiffFileEntry => ({
   path,
@@ -63,12 +64,45 @@ describe('Session Changes SSR', () => {
     )
 
     expect(html).toContain('data-session-changes-screen="list"')
-    expect(html.indexOf('data-session-commit="commit-a"')).toBeLessThan(
+    // 영역 주장은 **중첩**으로 잰다. 문서 순서만 보면 미커밋 블록을 commit timeline 컨테이너
+    // 안으로 옮긴 변이(= 명세 §7 이 금지한 "timeline 의 새 node")가 그대로 통과한다.
+    expect(regionContains(html, 'data-session-timeline', 'data-session-commit="commit-a"')).toBe(
+      true
+    )
+    expect(regionContains(html, 'data-session-timeline', 'data-session-uncommitted')).toBe(false)
+    expect(html.indexOf('data-session-timeline')).toBeLessThan(
       html.indexOf('data-session-uncommitted')
     )
     expect(html).toContain('Keep this real body.')
     expect(html).toContain('Fallback still has body')
     expect((html.match(/data-session-change-file="shared.ts"/g) ?? []).length).toBe(2)
+  })
+
+  it('AT-28 — 상단 요약이 여섯 값을 말하고, 기준선을 모르면 sha 자리에 HEAD 문구가 선다', () => {
+    const render = (value: GitDiffSummary): string =>
+      renderToStaticMarkup(
+        createElement(SessionChangesList, {
+          summary: value,
+          expandedCommitIds: new Set<string>(),
+          onToggleCommit: () => undefined,
+          onOpenPeek: () => undefined
+        })
+      )
+
+    const html = render(summary)
+    expect(html).toContain('base-oi') // ① 기준선 7자
+    expect(html).toContain('+3') // ② 합계 added
+    expect(html).toContain('−1') // ②' 합계 removed
+    expect(html).toContain('추적 파일 2개') // ③ 추적 파일 수
+    expect(html).toContain('미추적 제외') // ④ 미추적 제외
+    expect(html).toContain('커밋 2개') // ⑤ 커밋 수
+    expect(html).toContain('미커밋 1개') // ⑥ 미커밋 파일 수
+
+    // 기준선을 모르는 요약(레거시 세션)은 sha 자리에 sha 를 쓰지 않는다 — 그 sha 가 이
+    // 세션의 출발점인 것처럼 읽힌다.
+    const headHtml = render({ ...summary, base: { kind: 'head', oid: 'deadbee1234' } })
+    expect(headHtml).toContain('현재 HEAD')
+    expect(headHtml).not.toContain('deadbee')
   })
 
   it('fallback null metadata는 0으로 그리지 않고 unavailable 상태를 낸다', () => {

@@ -274,7 +274,7 @@ describe('커밋 grouping과 미커밋 블록 (VP-31 · VP-33)', () => {
     expect(summary.files.map((file) => file.path).sort()).toEqual(['a.ts', 'b.ts'])
   })
 
-  it('파일 본문은 느 그룹에서 열었든 항상 baseline 대비 작업 트리다', async () => {
+  it('파일 본문은 어느 그룹에서 열었든 항상 baseline 대비 작업 트리다', async () => {
     const content = await gitDiffFile({ cwd: repo, path: 'a.ts', baseOid })
     expect(content).toEqual({
       kind: 'text',
@@ -304,5 +304,42 @@ describe('범위 해석 SSOT (VP-35)', () => {
     expect(summary.commits).toEqual([])
     expect(summary.uncommitted.files.map((file) => file.path)).toEqual(['a.ts'])
     expect(summary.uncommitted.totals).toEqual(summary.totals)
+  })
+})
+
+// 0211 ΔV3 — `readDiff` 가 두 호출에서 한 호출로 바뀌었다(D-062). **status 는 그 한 호출의
+// `--raw` 블록에서만 온다** — 그 플래그가 빠지면 모든 파일이 조용히 `modified` 가 된다.
+// 커밋 노드의 status 는 다른 케이스가 이미 잠갔고, 여기서는 **세션 파일 목록**을 센다.
+describe('세션 파일 목록의 status (AT-39 산출 동등 · EP-25 ①)', () => {
+  let repo: string
+
+  beforeAll(async () => {
+    repo = await makeRepo()
+    await writeFile(join(repo, 'keep.ts'), 'a\n')
+    await writeFile(join(repo, 'gone.ts'), 'b\n')
+    await writeFile(join(repo, 'old.ts'), 'same content stays identical for rename detection\n')
+    await git(repo, ['add', '.'])
+    await git(repo, ['commit', '-m', 'base'])
+    await writeFile(join(repo, 'keep.ts'), 'a\nb\n')
+    await rm(join(repo, 'gone.ts'))
+    await git(repo, ['mv', 'old.ts', 'new.ts'])
+    await writeFile(join(repo, 'fresh.ts'), 'c\n')
+    await git(repo, ['add', '-A'])
+  })
+
+  afterAll(async () => {
+    await rm(repo, { recursive: true, force: true })
+  })
+
+  it('추가·삭제·수정·이름변경이 각각 다른 status 로 온다', async () => {
+    const summary = await gitDiffSummary({ cwd: repo, baseOid: await head(repo) })
+    const byPath = new Map(summary.files.map((f) => [f.path, f.status]))
+
+    expect(byPath.get('fresh.ts')).toBe('added')
+    expect(byPath.get('gone.ts')).toBe('deleted')
+    expect(byPath.get('keep.ts')).toBe('modified')
+    // rename 은 새 경로에 표시된다 — 네 종류가 **서로 다른** 값이라야 계약이 잠긴다.
+    expect(byPath.get('new.ts')).toBe('renamed')
+    expect(new Set(byPath.values()).size).toBe(4)
   })
 })

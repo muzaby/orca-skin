@@ -13,7 +13,8 @@ import type {
   DiffRequirementItem,
   GitDiffSummary,
   WorktreeDisplay,
-  WorktreePrepareStep
+  WorktreePrepareStep,
+  GitDiffFileContent
 } from '../../../../../shared/ipc'
 import { subagentNoticePart } from '../../../../../shared/ipc'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
@@ -35,6 +36,13 @@ import {
   removeTileFromColumns,
   type RightPanelColumns
 } from '../lib/rightPanelLayout'
+import {
+  EMPTY_DIFF_BODY_CACHE,
+  putDiffBody,
+  touchDiffBody,
+  type DiffBodyCache
+} from '../components/rightpanel/diffBodyCache'
+import { diffPeekBodyKey } from '../components/rightpanel/diffFileCache'
 
 // transcript 렌더가 쓰는 도구 호출 view — parts 의 tool_call+tool_result 를 toolRunId 로
 // 페어링한 결과(lib/parts.ts partsToolCalls). 더 이상 Message 의 필드가 아니다.
@@ -81,6 +89,8 @@ export interface GitSnapshotState {
   peekTarget: GitPeekTarget | null
   expandedCommitIds: readonly string[]
   refreshGeneration: number
+  /** 열어 본 파일 본문의 사용순 LRU(0211 D-061). 키가 요약 세대를 담아 새로고침이 자연 무효화한다. */
+  bodyCache: DiffBodyCache
 }
 
 export interface GitSnapshotRequest {
@@ -136,6 +146,14 @@ export interface ChatState {
   // 어댑터가 발급한 세션의 working directory (`init` 이벤트). Composer 의 `@`
   // 파일 자동완성이 이 경로 기준으로 디렉토리를 리스팅한다.
   cwd: string | null
+  // SDK `init` 이 실은 노출 도구 이름 전량 + CLI 버전(0212 R-01). TaskXXX 기능 가용성 판정에만
+  // 쓴다 — `TaskCreate` 포함 여부가 곧 답이고, 버전 비교가 아니라 feature detection 이다(D-003).
+  //
+  // **`null` 과 "포함되지 않음" 은 다른 사실이다.** `null` = init 이 `tools` 를 안 실었다 =
+  // **판정 불가** → 안내하지 않는다(D-005). 거짓 안내는 빈 화면보다 나쁘다 — 사용자가 멀쩡한
+  // CLI 를 의심하게 된다.
+  agentTools: string[] | null
+  cliVersion: string | null
   // 컴포저 참조 경로 칩이 모으는 cwd 밖 추가 경로(CLI `/add-dir` 대응).
   // **세션 출생 전(랜딩)에만 의미가 있다** — 첫 전송에 실려 세션행에 고정된 뒤로는
   // main/DB 가 정본이고 renderer 는 이 값을 다시 읽지 않는다.
@@ -240,6 +258,15 @@ export interface ChatState {
   // 중단 요청을 보내고 SDK 확정을 기다리는 background tool_use id 집합(0204 D-005). 확정되면
   // 파생 상태가 스스로 진행 중을 벗어나므로 그때 비운다.
   stoppingTaskIds: string[]
+  // SDK `task_updated` 가 `paused` 로 말한 background tool_use id(0212 D-014). `stoppingTaskIds`
+  // 와 **같은 성질**이다 — transcript 에 흔적이 없는 라이브 상태라 parts fold 로는 못 만든다.
+  // 정착(부모 Task 권위 결과)이 오면 비운다.
+  pausedTaskIds: string[]
+  // background 로 확정된 tool_use id — `task_updated.patch.is_backgrounded` 확정분과 사용자
+  // 전환 요청 in-flight 분이 함께 산다(0212 R-07). 전환 버튼 노출 술어가 이 둘을 `asyncLaunched`
+  // 와 같은 축으로 읽는다: 이미 옮겨졌거나 옮기는 중이면 버튼을 띄우지 않는다.
+  backgroundedTaskIds: string[]
+  backgroundingTaskIds: string[]
   // 중단 요청이 실패한 항목의 사유(항목 키 → 실패 서술). 다음 요청/확정 시 지운다 —
   // 실패가 "아무 일도 안 일어남" 으로 보이지 않게 하는 유일한 소비자다(0204 AC14).
   taskStopErrors: Record<string, TaskStopError>
@@ -284,6 +311,8 @@ export const initialChatState: ChatState = {
   turnProviderKey: null,
   effort: 'high',
   cwd: null,
+  agentTools: null,
+  cliVersion: null,
   extraDirs: [],
   worktreeIsolation: false,
   worktreeBaseRef: null,
@@ -311,7 +340,13 @@ export const initialChatState: ChatState = {
   rightPanelColWidths: [],
   rightPanelRowSplits: [],
   gitStatus: null,
-  gitSnapshot: { summary: null, peekTarget: null, expandedCommitIds: [], refreshGeneration: 0 },
+  gitSnapshot: {
+    summary: null,
+    peekTarget: null,
+    expandedCommitIds: [],
+    refreshGeneration: 0,
+    bodyCache: EMPTY_DIFF_BODY_CACHE
+  },
   gitSnapshotRequest: null,
   diffRequirements: [],
   diffRequirementsRevision: 0,
@@ -320,6 +355,9 @@ export const initialChatState: ChatState = {
   selectedTaskKey: null,
   selectedSubagentTaskId: null,
   stoppingTaskIds: [],
+  pausedTaskIds: [],
+  backgroundedTaskIds: [],
+  backgroundingTaskIds: [],
   taskStopErrors: {},
   unseenSettledTaskKeys: [],
   planContent: null,
@@ -394,6 +432,14 @@ export type ChatAction =
   | { type: 'CANCEL_CHAT' }
   | { type: 'CLEAR_ERROR' }
   | { type: 'SET_CWD'; cwd: string }
+  | {
+      type: 'SUBAGENT_RUN_STATE'
+      toolUseId: string
+      runState?: 'running' | 'paused'
+      isBackgrounded?: boolean
+    }
+  | { type: 'TASK_BACKGROUND_REQUESTED'; toolUseId: string }
+  | { type: 'TASK_BACKGROUND_FAILED'; toolUseId: string; detail?: string }
   | { type: 'SET_WORKTREE_ISOLATION'; enabled: boolean }
   | { type: 'SET_WORKTREE_BASE_REF'; branch: string | null }
   // 참조 경로 칩 추가/제거 — 세션 확정 전에만 유효(리듀서가 가드하지 않고 호출부가 게이트한다).
@@ -423,6 +469,7 @@ export type ChatAction =
   | { type: 'SET_GIT_STATUS'; snapshot: BranchSnapshot }
   | { type: 'OPEN_GIT_SNAPSHOT_PEEK'; target: GitPeekTarget }
   | { type: 'CLOSE_GIT_SNAPSHOT_PEEK' }
+  | { type: 'RECORD_DIFF_BODY'; key: string; content: GitDiffFileContent }
   | { type: 'TOGGLE_GIT_SNAPSHOT_COMMIT_EXPANDED'; sha: string }
   | { type: 'REFRESH_GIT_SNAPSHOT' }
   | { type: 'BEGIN_GIT_SNAPSHOT_QUERY'; request: GitSnapshotRequest }
@@ -556,11 +603,16 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             sessionId: ev.sessionId,
             backend: 'claude',
             cwd: ev.patch.cwd ?? state.cwd,
-            // `worktree` 키가 있을 때만 표시 정본을 바꾼다. 생략은 cwd 같은 형제 patch 와
-            // 독립이고, 명시적 null 은 worktree 소실 폴백의 삭제 명령이다.
+            // patch 병합은 **누락 = 기존값 보존**이다(0212 §10 EP-02).
+            // `worktree` 는 세 상태를 구분해야 해서(부재 / `null` = 소실 폴백의 삭제 명령 /
+            // 객체 = 덮어쓰기) `undefined` 비교가 아니라 **키 유무**로 판정한다(0211 D-022).
             worktree: Object.hasOwn(ev.patch, 'worktree') ? ev.patch.worktree! : state.worktree,
-            // 준비가 끝났다 — 여기부터는 기존 진행 표시가 말한다(§10 EP-04 둘째 지점).
+            // 준비가 끝났다 — 여기부터는 기존 진행 표시가 말한다(0211 §10 EP-04 둘째 지점).
             worktreePrepareStep: null,
+            // 두 축은 `null` 이 값이 아니라 조건부 spread 로 충분하다 — 무조건 대입하면
+            // `model` 만 든 두 번째 session.updated 가 기능 게이트를 지운다.
+            ...(ev.patch.agentTools !== undefined ? { agentTools: ev.patch.agentTools } : {}),
+            ...(ev.patch.cliVersion !== undefined ? { cliVersion: ev.patch.cliVersion } : {}),
             pendingProjectId: null,
             projectId: state.pendingProjectId ?? state.projectId,
             retry: undefined
@@ -628,11 +680,21 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           const stoppingTaskIds = state.stoppingTaskIds.includes(ev.toolRunId)
             ? state.stoppingTaskIds.filter((id) => id !== ev.toolRunId)
             : state.stoppingTaskIds
+          // 라이브 상태 표식들도 같은 자리에서 끝난다(0212) — 정착한 태스크는 일시정지도
+          // 전환 중도 아니다. 배열 identity 는 내용이 안 바뀌면 유지한다(memo 보존).
+          const pausedTaskIds = state.pausedTaskIds.includes(ev.toolRunId)
+            ? state.pausedTaskIds.filter((id) => id !== ev.toolRunId)
+            : state.pausedTaskIds
+          const backgroundingTaskIds = state.backgroundingTaskIds.includes(ev.toolRunId)
+            ? state.backgroundingTaskIds.filter((id) => id !== ev.toolRunId)
+            : state.backgroundingTaskIds
           return {
             ...state,
             retry: undefined,
             messages,
             stoppingTaskIds,
+            pausedTaskIds,
+            backgroundingTaskIds,
             unseenSettledTaskKeys: markCompletedAgentTask(state, ev)
           }
         }
@@ -840,7 +902,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           summary: null,
           peekTarget: null,
           expandedCommitIds: [],
-          refreshGeneration: 0
+          refreshGeneration: 0,
+          // 다른 저장소의 본문이 같은 상대 경로로 보이면 안 된다(AT-42).
+          bodyCache: EMPTY_DIFF_BODY_CACHE
         },
         gitSnapshotRequest: null,
         diffRequirements: [],
@@ -1098,12 +1162,24 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, gitStatus: action.snapshot }
 
     case 'OPEN_GIT_SNAPSHOT_PEEK':
+      // 진입이 곧 **사용**이다 — 사용순 LRU 라 여는 것만으로 순서가 바뀐다. 키는 리듀서가
+      // 직접 짓는다: 다섯 축이 전부 여기 상태에 있어서, 화면이 키를 만들어 넘기면 두 곳이
+      // 같은 규칙을 갖게 되고 조용히 갈라진다(0211 §10 EP-24 ①).
       return {
         ...state,
         diffRequirementBodyRequest: null,
         gitSnapshot: {
           ...state.gitSnapshot,
-          peekTarget: action.target
+          peekTarget: action.target,
+          bodyCache: touchDiffBody(
+            state.gitSnapshot.bodyCache,
+            diffPeekBodyKey(
+              state.cwd,
+              state.sessionId,
+              action.target,
+              state.gitSnapshotRequest?.generation ?? 0
+            )
+          )
         }
       }
 
@@ -1112,6 +1188,16 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         diffRequirementBodyRequest: null,
         gitSnapshot: { ...state.gitSnapshot, peekTarget: null }
+      }
+
+    // 조회가 끝난 본문을 캐시에 넣는다. 텍스트가 아니면 `putDiffBody` 가 걸러낸다.
+    case 'RECORD_DIFF_BODY':
+      return {
+        ...state,
+        gitSnapshot: {
+          ...state.gitSnapshot,
+          bodyCache: putDiffBody(state.gitSnapshot.bodyCache, action.key, action.content)
+        }
       }
 
     case 'TOGGLE_GIT_SNAPSHOT_COMMIT_EXPANDED': {
@@ -1280,6 +1366,58 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         taskStopErrors
       }
     }
+
+    // SDK task_updated 델타(0212 AR-03) — **누락 = 무변경**이다. 두 축을 각각 병합한다.
+    case 'SUBAGENT_RUN_STATE': {
+      const { toolUseId } = action
+      let pausedTaskIds = state.pausedTaskIds
+      if (action.runState === 'paused' && !pausedTaskIds.includes(toolUseId)) {
+        pausedTaskIds = [...pausedTaskIds, toolUseId]
+      } else if (action.runState === 'running' && pausedTaskIds.includes(toolUseId)) {
+        pausedTaskIds = pausedTaskIds.filter((id) => id !== toolUseId)
+      }
+      let backgroundedTaskIds = state.backgroundedTaskIds
+      if (action.isBackgrounded === true && !backgroundedTaskIds.includes(toolUseId)) {
+        backgroundedTaskIds = [...backgroundedTaskIds, toolUseId]
+      } else if (action.isBackgrounded === false && backgroundedTaskIds.includes(toolUseId)) {
+        // foreground 복귀 — 전환 버튼이 다시 의미를 갖는다.
+        backgroundedTaskIds = backgroundedTaskIds.filter((id) => id !== toolUseId)
+      }
+      if (
+        pausedTaskIds === state.pausedTaskIds &&
+        backgroundedTaskIds === state.backgroundedTaskIds
+      )
+        return state
+      return { ...state, pausedTaskIds, backgroundedTaskIds }
+    }
+
+    // 전환 요청 낙관 표식(0212 SD-04) — 버튼을 즉시 감춰 중복 클릭을 막는다. 확정은 SDK 가
+    // 즉시 주는 boolean 이고, 실패면 아래에서 표식을 되돌린다.
+    case 'TASK_BACKGROUND_REQUESTED': {
+      if (state.backgroundingTaskIds.includes(action.toolUseId)) return state
+      const taskStopErrors = { ...state.taskStopErrors }
+      delete taskStopErrors[backgroundTaskKey(action.toolUseId)]
+      return {
+        ...state,
+        backgroundingTaskIds: [...state.backgroundingTaskIds, action.toolUseId],
+        taskStopErrors
+      }
+    }
+
+    // 실패는 삼키지 않는다(§10 EP-14) — 표식을 되돌려 버튼을 되살리고 사유를 같은 행에 낸다.
+    // 그러지 않으면 클릭이 "아무 일도 안 일어남" 으로 보인다.
+    case 'TASK_BACKGROUND_FAILED':
+      return {
+        ...state,
+        backgroundingTaskIds: state.backgroundingTaskIds.filter((id) => id !== action.toolUseId),
+        taskStopErrors: {
+          ...state.taskStopErrors,
+          [backgroundTaskKey(action.toolUseId)]: {
+            messageKey: 'chat.taskTile.backgroundFailed',
+            ...(action.detail ? { detail: action.detail } : {})
+          }
+        }
+      }
 
     case 'TASK_STOP_FAILED':
       return {

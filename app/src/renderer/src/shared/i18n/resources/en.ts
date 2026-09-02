@@ -554,6 +554,7 @@ export const en: typeof ko = {
       status: {
         running: 'In progress',
         stopping: 'Stopping…',
+        paused: 'Paused',
         completed: 'Completed',
         failed: 'Failed',
         aborted: 'Aborted'
@@ -570,6 +571,7 @@ export const en: typeof ko = {
       status: {
         in_progress: 'In progress',
         stopping: 'Stopping…',
+        paused: 'Paused',
         pending: 'Pending',
         completed: 'Completed',
         aborted: 'Stopped',
@@ -598,9 +600,26 @@ export const en: typeof ko = {
       stoppedReason: 'Stopped by you',
       failedReason: 'The execution session ended',
       stopFailed: 'Could not stop the task',
+      backgroundFailed: 'Could not move the task to the background',
+      toBackground: 'To background',
+      toBackgroundAria: 'Move {{description}} to the background',
+      toBackgroundTitle: 'Moves this to the background. The task keeps running.',
+      unsupported: 'The connected Claude Code does not support the task list tools.',
+      unsupportedVersion: 'Installed version: {{version}}',
       noChildActivity: 'No child activity recorded for this task.',
       emptyDesc: 'Tasks Claude creates and background work it starts will appear here.',
       openDetailAria: 'Open details for {{description}}'
+    },
+    taskTool: {
+      created: 'Created',
+      updated: 'Updated',
+      listed: 'Listed all',
+      fetched: 'Fetched',
+      removed: 'Removed',
+      failed: 'Failed',
+      subject: 'Subject',
+      status: 'Status',
+      count: '{{count}} items'
     },
     gitRow: {
       aria: 'Repository and changes',
@@ -785,6 +804,7 @@ export const en: typeof ko = {
       diffSessionChanges: 'Session Changes',
       diffPeek: 'Diff Peek',
       diffBaselineCurrent: '{{base}} → current',
+      diffBaselineHead: 'current HEAD',
       diffTrackedFiles: '{{count}} tracked files',
       diffUntrackedExcluded: 'Untracked excluded',
       diffCommitChip: '{{count}} commits',

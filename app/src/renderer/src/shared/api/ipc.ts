@@ -74,6 +74,8 @@ export const chatApi = {
   cancel: (sessionId: string): Promise<void> => window.orca.chat.cancel(sessionId),
   stopSubagent: (sessionId: string, toolUseId: string): Promise<void> =>
     window.orca.chat.stopSubagent(sessionId, toolUseId),
+  backgroundSubagent: (sessionId: string, toolUseId: string): Promise<void> =>
+    window.orca.chat.backgroundSubagent(sessionId, toolUseId),
   // 세션 전체 중단(0151 r2) — Stop 잔여가 있을 때만 UI 가 호출한다.
   discardSession: (sessionId: string): Promise<void> => window.orca.chat.discardSession(sessionId),
   onEvent: (handler: (ev: NormalizedEvent) => void): (() => void) =>

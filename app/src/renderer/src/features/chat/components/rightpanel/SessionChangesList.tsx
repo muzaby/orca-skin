@@ -1,10 +1,12 @@
 import type { GitDiffFileEntry, GitDiffSummary } from '../../../../../../shared/ipc'
+import { Icon } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
 import type { GitPeekGroup, GitPeekTarget } from '../../reducer/chatReducer'
 import {
+  COMMIT_FILE_PREVIEW_LIMIT,
   commitDisplayMeta,
   commitFileRows,
-  summaryBaseLabel,
+  summaryBaseText,
   summaryNoticeKeys
 } from './sessionChangesData'
 
@@ -29,8 +31,13 @@ function ChangeFileRow({
       type="button"
       data-session-change-file={file.path}
       onClick={() => onOpenPeek({ group, path: file.path })}
-      className="flex w-full items-center gap-g3 rounded-r3 px-p5 py-1 text-left text-body text-t7 outline-none hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
+      className="group/changefile flex w-full items-center gap-g3 rounded-r4 px-p5 py-1 text-left text-body text-t7 outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
     >
+      <Icon
+        name={file.status === 'deleted' ? 'trash' : file.status === 'added' ? 'plus' : 'edit'}
+        size={11}
+        className="shrink-0 text-t5 transition-colors group-hover/changefile:text-t7"
+      />
       <span className="min-w-0 flex-1 truncate font-mono text-caption">{file.path}</span>
       <span className="flex shrink-0 gap-g1 tabular-nums">
         <span className="text-git-added">+{file.added}</span>
@@ -68,13 +75,16 @@ export function SessionChangesList({
   const notices = summaryNoticeKeys(summary)
 
   return (
-    <div data-session-changes-screen="list" className="min-h-0 flex-1 overflow-y-auto">
+    <div
+      data-session-changes-screen="list"
+      className="min-h-0 flex-1 animate-depth-out overflow-y-auto"
+    >
       <section data-session-summary className="flex flex-col gap-g2 border-b border-t5 px-p5 py-p4">
-        <span className="font-serif text-body font-semibold text-t9">
+        <span className="text-footnote font-medium text-t9">
           {tr('chat.rightpanel.diffSessionChanges')}
         </span>
         <span className="text-caption text-t6">
-          {tr('chat.rightpanel.diffBaselineCurrent', { base: summaryBaseLabel(summary) })}
+          {tr('chat.rightpanel.diffBaselineCurrent', { base: summaryBaseText(summary, tr) })}
         </span>
         <div className="flex flex-wrap items-center gap-g2 text-caption text-t6">
           <Totals added={summary.totals.added} removed={summary.totals.removed} />
@@ -101,7 +111,7 @@ export function SessionChangesList({
         )}
       </section>
 
-      <div className="flex flex-col gap-g4 px-p5 py-p4">
+      <div data-session-timeline className="flex flex-col gap-g4 px-p5 py-p4">
         {summary.commits.map((commit) => {
           const group: GitPeekGroup = { kind: 'commit', sha: commit.sha }
           const expanded = expandedCommitIds.has(commit.sha)
@@ -151,22 +161,24 @@ export function SessionChangesList({
                   />
                 ))}
               </div>
-              {canToggle && (
+              {(canToggle || (expanded && commit.files.length > COMMIT_FILE_PREVIEW_LIMIT)) && (
                 <button
                   type="button"
                   onClick={() => onToggleCommit(commit.sha)}
-                  className="mt-2 text-caption text-accent outline-none hide-focus-ring ring-focus"
+                  aria-expanded={expanded}
+                  data-session-commit-toggle={commit.sha}
+                  className="group/commitfiles mt-2 flex items-center gap-g2 rounded-r4 px-p2 py-1 text-caption text-accent outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
                 >
-                  {tr('chat.rightpanel.diffMoreFiles', { count: rows.moreLoadedCount })}
-                </button>
-              )}
-              {expanded && commit.files.length > 2 && (
-                <button
-                  type="button"
-                  onClick={() => onToggleCommit(commit.sha)}
-                  className="mt-2 block text-caption text-accent outline-none hide-focus-ring ring-focus"
-                >
-                  {tr('chat.rightpanel.diffCollapseFiles')}
+                  <Icon
+                    name="chevD"
+                    size={11}
+                    className={`transition-transform ${expanded ? '' : '-rotate-90'} motion-reduce:transition-none`}
+                  />
+                  <span>
+                    {expanded
+                      ? tr('chat.rightpanel.diffCollapseFiles')
+                      : tr('chat.rightpanel.diffMoreFiles', { count: rows.moreLoadedCount })}
+                  </span>
                 </button>
               )}
               {rows.partial && (
@@ -181,7 +193,7 @@ export function SessionChangesList({
 
       <section data-session-uncommitted className="border-t border-t5 px-p5 py-p4">
         <div className="flex items-center justify-between gap-g3">
-          <h3 className="text-body font-medium text-t9">
+          <h3 className="text-footnote font-medium text-t9">
             {tr('chat.rightpanel.diffUncommittedBlock')}
           </h3>
           <Totals

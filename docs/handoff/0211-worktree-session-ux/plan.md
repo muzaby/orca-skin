@@ -6,13 +6,13 @@
 |---|---|
 | slug | `0211-worktree-session-ux` |
 | 작성자 | Claude Code |
-| 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) |
+| 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) · 2026-09-02 (ΔV3) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) |
-| 상태 | READY (ΔV2 r3 — PLAN_GAP G1~G12 정정 완료) |
+| 상태 | READY (ΔV3 — 구현 보완 4건 중 3건 설계 완료, 1건 사용자 철회) |
 | V mode | `Baseline V` + `Delta V` |
-| 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) |
-| 이번 V revision | `ΔV2` |
-| 유효 V | `V1 + ΔV1 + ΔV2` |
+| 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) · `V1 + ΔV1 + ΔV2` @ `d23c5be` (ΔV3 의 기준) |
+| 이번 V revision | `ΔV3` |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
 
 > **ΔV1 진입 사유**(2026-08-31). 라운드 1 구현물을 사용자가 실기하고 3건을 지적했다 — 그중 둘은
 > **사용자 결정 변경**(D-009·D-011·D-017 대체)이고 하나는 **계획 누락**(2턴 시퀀스를 보는 oracle 부재)이다.
@@ -25,6 +25,12 @@
 > 파일 diff 범위 단일화(§10)·context 확장(§12~13)·Prev/Next(§14)·인라인 요구사항(§15~16)이 각각
 > V1·ΔV1 또는 0206 의 ACTIVE 결정을 대체한다. **라운드는 그대로 1** 이다 — verify 이전 피드백이고
 > 사용자가 명시했다(“검증이전 사용자 피드백이라 라운드를 유지한다”). V1+ΔV1+ΔV2 를 한 번에 검증한다.
+
+> **ΔV3 진입 사유**(2026-09-02). ΔV2 r3 구현물을 사용자가 실기하고 보완 4건을 지적했다 — 전부
+> **사용자 결정 변경**이고 결함 보고가 아니다. 그중 1건(기준선 이전 커밋 열람)은 같은 턴에
+> 사용자가 철회해 범위 밖이다(D-068). 남은 셋은 성능·연출·시각 일관성이라 **무엇을 보여주는가**
+> (D-032~D-060)를 한 줄도 바꾸지 않는다. **라운드는 그대로 1** 이다 — 사용자 명시
+> (“이것은 현재 라운드에서 유지하며 라운드를 올리지 않는다”).
 
 # Part I — Product & UX Contract
 
@@ -97,6 +103,18 @@
 | 추론 의도 | 명세의 `Session start HEAD`·`current tracked state` 는 화면 문구의 예시이지 영어 UI 를 요구한 것이 아니다 — 라벨은 한국어 카탈로그다. | 저장소 규칙 (root AGENTS §8, `i18n/ko.ts`) |
 | 추론 의도 | 명세 §17 의 “agent description” 은 이번 범위에서 **커밋 메시지 본문**으로 충족된다 — 턴↔커밋 연결 자료가 저장소에 없다. | 조사: `messages`·`turns` 어디에도 커밋 sha 컬럼이 없다(§8 ΔV2) |
 
+### ΔV3 — 구현 보완 피드백 (2026-09-02)
+
+| 구분 | 내용 | 출처 |
+|---|---|---|
+| 명시 요구 | “diff 로드가 너무 느리다 매번 file read를 하는지? git의 경량화된 옵션, 명령이나 자원(캐시)를 충분히 활용하는 방법을 찾아라. 그리고 한 번 로드된 내용을 캐싱하라.” | 피드백 §2 |
+| 명시 요구 | “depth 이도요ㅣ 애니메이션 효과를 주어야 한다” (= depth 이동) | 피드백 §3 |
+| 명시 요구 | “그 외 제품의 디자인 룰에 맞춰 일관된 디자인을 보여야 한다. 현재는 orca제품이 구축한 미적 감각을 젘혀담지 못하며 통일성도 거의 없다 다른 패널을 침고하라 nav, 설정 등 다양하게 참고하라” | 피드백 §4 |
+| 명시 요구 | “이것은 현재 라운드에서 유지하며 라운드를 올리지 않는다.” | 피드백 머리말 |
+| 명시 요구 (철회) | “세션 시작사 head를 기준으로 변경사항을 추적하는게 맞지만, head 이전의 커밋도 볼 수 있어야 한다.” → **“정정한다. 이전 커밋확인은 제외하겠다”** | 피드백 §1 · 정정 |
+| 추론 의도 | “매번 file read를 하는지?” 는 조건절이 붙은 **가설**이다 — 원인 규명이 요구이고 file read 는 그 후보 하나다. 실측 결과 원인은 **캐시 부재 + 프로세스 수**였다(§8 ΔV3). | 조사 결과 |
+| 추론 의도 | “다른 패널을 참고하라” 의 대상은 같은 우측 패널의 형제 타일과 nav·설정이다 — 셋 다 같은 primitive 집합을 쓴다. | 실측: `Icon`·`transition-colors`·`group/`·`button+chevron` 이 네 표면에 공통 |
+
 ## 3. Decision Ledger
 
 | ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
@@ -164,6 +182,15 @@
 | D-059 | `GitDiffCommit` 이 **`fileCount`·`totals` 를 함께 싣는다** — 둘 다 **절단 전** 값이다. `+N개 더` 의 `N` 은 `fileCount − files.length` 로 파생한다. 세 상태의 값을 못박는다: **정상** = `fileCount` 실제 수 · `totals` 실제 합 · `files` 그 수만큼 / **절단**(파일 51+) = `fileCount` 51 · `totals` 51건 합 · `files` 50 · `filesTruncated:true` / **폴백**(D-053) = `fileCount` `null` · `totals` `null` · `files` `[]`. | G9. D-038 이 노드에 **파일 수 · diffstat · `+N개 더`** 를 요구하는데 `files`·`filesTruncated`·`body` 만으로는 절단 뒤 전체 수와 합을 복원할 수 없다 — 목록의 합은 50건까지의 합이라 다른 수다(ΔV1 D-025 가 세션 합계에서 이미 닫은 축과 같은 함정). `null` 과 `0` 을 구분한다: `0` 은 “바뀐 파일이 없다”, `null` 은 “세지 못했다”. | PLAN_GAP 정정 | ACTIVE | D-038·D-040 의 소비 값을 계약으로 확정 |
 | D-060 | 확장 후 **보던 줄이 유지되는가**는 이번 작업의 **유일한 사람 실기 1건**이다. 순수 축(D-058 ①)은 자동이고, 표시 축(D-058 ②)만 사람이 본다. | G11. §19 의 “사람 실기 없음” 과 D-058 ②의 “자동 oracle 없음” 이 동시에 참일 수 없다 — 둘 중 하나가 거짓이었다. jsdom 도입은 이번 요구에 없는 의존성·설정 변경이고, scroll 은 실제 레이아웃이 있어야 관측되는 **시각 축**이라 사람 실기의 정당한 대상이다(§5 규칙: 사람 실기는 시각·실제 외부환경에만). | PLAN_GAP 정정 | ACTIVE | §19 “사람 실기 없음” 을 철회 |
 
+| D-061 | 파일 본문은 **세션 상태의 LRU 캐시**에 남는다 — 같은 `(cwd, sessionId, 요약 세대, group, path)` 를 다시 열면 IPC 조회가 **0건**이다. 상한 **12항목**. | 사용자 명시 — “한 번 로드된 내용을 캐싱하라”. 지금은 캐시가 **없다**(실측: `DiffTileContent.tsx:93` 이 단일 슬롯 `useState`, `:105` 의 `body?.key === bodyKey` 가 막는 것은 **직전 하나**뿐) — Prev/Next 왕복이 매번 git 프로세스 4~5개를 다시 돈다. | 사용자 명시 | ACTIVE | — |
+| D-062 | 요약의 `readDiff` 는 `--numstat` + `--name-status` **두 호출**을 `--raw --numstat -z` **한 호출**로 합친다. 파서는 **신설하지 않고** 이미 그 형식의 SSOT 인 `parseCommitFiles`(`git-diff-parse.ts:92`)를 export 해 재사용한다. | 사용자 명시 — “git의 경량화된 옵션, 명령이나 자원(캐시)를 충분히 활용”. 실측: 한 명령이 status 와 줄 수를 함께 낸다. 파서를 새로 만들면 커밋 경로와 세션 경로가 두 벌이 되어 D-052 가 닫은 축이 다시 갈라진다. | 사용자 명시 + 파생 | ACTIVE | — |
+| D-063 | 저장소 좌표(`--is-inside-work-tree` + `--show-toplevel`)를 **한 `rev-parse`** 로 얻고 `cwd` 별로 프로세스 수명 동안 캐시한다. **캐시는 좌표만 담고 파일 내용을 담지 않는다.** | 실측: 두 값이 한 호출로 나온다(순서 = inside, toplevel). cwd 당 안정값인데 파일 열기가 매번 두 프로세스로 다시 물었다. 내용을 담지 않으므로 새 무효화 축이 생기지 않는다 — worktree 소실은 0210 D-107 이 이미 감지한다. | 파생 정책 | ACTIVE | — |
+| D-064 | 읽기 전용 git 조회 **전부**에 `--no-optional-locks` 를 붙인다. | 실측 지원 확인(git 2.43). 조회가 `.git/index` 를 refresh·잠그지 않아 사용자의 다른 git 작업과 경합하지 않는다. `runGit` 의 `readOnly: true` 가 이미 그 의도를 표시했으나 인자로 옮기지 않았다. | 파생 정책 | ACTIVE | — |
+| D-065 | 목록 ↔ peek 의 **depth 전환에 애니메이션**을 준다. 저장소의 기존 어휘를 승계한다 — `animate-tile-in`(`app.css:142`, **180ms ease-out**) 과 같은 시간·이징이고 **`motion-reduce` 에서 꺼진다**. | 사용자 명시 — “depth 이동 애니메이션 효과를 주어야 한다”. 저장소에 slide 선례가 **0건**이라 keyframe 은 새로 만들되 상수는 승계한다 — 새 시간축을 발명하면 타일 마운트(180ms)와 화면 전환이 서로 다른 속도로 움직인다. | 사용자 명시 | ACTIVE | — |
+| D-066 | 변경사항 패널은 **형제 패널의 primitive 를 쓴다** — `Icon`(chevron·뒤로·추가·제거) · hover 가능한 행마다 `group/<이름>` + `transition-colors hover:bg-fill-uncontained-hover` · 접기 컨트롤은 `<button>` + chevron + `aria-expanded`(`TaskTileSections`·`SidebarSection` 형태) · 섹션 제목 타이포를 형제와 맞춘다. | 사용자 명시 — “orca제품이 구축한 미적 감각을 전혀 담지 못하며 통일성도 거의 없다 … nav, 설정 등 다양하게 참고하라”. 실측: 두 컴포넌트의 `Icon` **0건** · `transition-*` **0건** · `group/` **0건**인데 형제 타일 4개(`TaskTileContent`·`TaskTileSections`·`SubAgentTileContent`·`PlanCommentOverlay`)는 전부 갖는다. | 사용자 명시 | ACTIVE | — |
+| D-067 | **디자인 일관성의 정본은 사람 실기**다. 자동 게이트는 “house primitive 를 쓴다” 는 **구조 단언**이고 “보기 좋다” 를 판정하지 않는다. | §5 규칙 — 시각 판정은 사람 실기 대상이다. 구조 단언만으로 통과시키면 primitive 를 형식적으로 붙인 화면이 초록이 된다. 그 차이를 §10 EP-27 `실패 의미` 에 적는다. | 파생 정책 | ACTIVE | §19 사람 실기 **1 → 2** |
+| D-068 | **기준선 이전 커밋 열람은 이번 범위에서 제외한다.** D-036(어디서 눌러도 세션 diff)·D-033(기준선 1회 기록)은 **ACTIVE 그대로**다. | 사용자가 요구했다가 같은 턴에 철회했다 — “정정한다. 이전 커밋확인은 제외하겠다”. 철회 **전**에 고른 두 답(그 커밋의 `A→B` diff · `이전 커밋 더 보기` 20개씩)은 적용하지 않는다 — 기록만 남긴다. | 사용자 명시 | ACTIVE | — |
+
 ### 갱신 메모
 
 - 이번 턴에서 D-001~D-021 을 신설했다. 이 handoff 의 첫 설계 턴이라 `SUPERSEDED`·`OPEN` 은 없다.
@@ -188,6 +215,7 @@
 - **ΔV2 ACTIVE 결정 ↔ AC 대조**: 충돌 0. D-032·D-033↔AT-22 · D-034↔AT-23 · D-035↔AT-24 · D-036↔AT-29 · D-037↔AT-25·AT-28 · D-038↔AT-26 · D-039↔AT-27 · D-040↔AT-33 · D-041↔AT-30 · D-042↔AT-31 · D-043↔AT-28 · D-044↔AT-25 · D-045↔AT-32 · D-046↔AT-31·AT-32 · D-047↔AT-34 · D-048↔AT-34 · D-049↔AT-35 · D-050↔AT-36.
 - **AC 총량을 사용자가 알고 골랐다.** ΔV2 만으로 AC **16건**(AT-22~AT-36 + r2 의 AT-37)이고 유효 AC 는 **37건**이 된다(r3 정정 — r2 가 pair 수만 18로 고치고 AC 분모를 두고 갔다) — §5 게이트의 25건 분할 검토선을 넘는다. 설계자가 “Requirement 를 후속 handoff 로 분리”를 제안했고 사용자가 “ΔV2 에 전부 포함”을 골랐다.
 - **한 결정의 가시적 결과를 여기 적어 둔다**(사용자 검토용). D-048 아래에서 **보내기 전에 앱을 닫으면 적어 둔 요구사항이 사라진다** — 컴포저 초안·계획 코멘트와 같은 수명이다. 재시작 후에도 남아야 한다면 D-048 을 갈라 DB 테이블 + 마이그레이션이 필요하다.
+- **ΔV3 갱신(2026-09-02)**: D-061~D-068 신설, `SUPERSEDED` **0건**. 사용자 보완 4건 중 셋을 설계했고 하나(기준선 이전 커밋 열람)는 사용자가 철회해 **D-068 로 제외**했다 — D-036·D-033 은 손대지 않는다. ΔV3 은 **무엇을 보여주는가를 한 줄도 바꾸지 않는다** — 성능(D-061~D-064) · 연출(D-065) · 시각 일관성(D-066·D-067)뿐이다. **ACTIVE 결정 ↔ AC 대조: 충돌 0**(대조표는 READY self-review — ΔV3).
 
 ## 4. 요구 비판적 검토
 
@@ -241,6 +269,20 @@
 
 - 사용자에게 올릴 결정: 없음. 네 갈래(기준선 범위·요구사항 범위·요구사항 수명·미추적 처리)를 이번 턴 질의로 닫았고 답이 §2 ΔV2 표에 원문으로 있다. **가시적 결과 2건은 §3 ΔV2 갱신 메모에 적어 검토를 남겼다**(미보낸 요구사항의 소멸 · AC 총량 36).
 - 코드 조사로 닫은 사실: 세션행 생성 지점은 `history/writer.ts:162`(`session.updated` = SDK `system/init`), 미추적 조회는 `git-diff.ts:107` 한 곳, 요약 소비자는 `useGitSnapshot.ts:110` 한 곳, 계획 코멘트 직렬화는 `adapters/plan-feedback.ts`, 턴 콘텐츠 조립은 `adapters/claude.ts:516`(`buildTurnContent`).
+
+### ΔV3 — 보완 요구의 비판적 검토 (2026-09-02)
+
+| 요구 | 증상↔원인 검토 | 판정 |
+|---|---|---|
+| “매번 file read를 하는지?” | **가설의 절반만 맞다.** 작업 트리 쪽은 실제로 매번 `readFile` 이지만 그것은 1회 fs 읽기다 — 지연의 몸통은 **git 프로세스 4~5개를 순차로 spawn** 하는 것과 **캐시가 아예 없다는 것**이다(§8 ΔV3 실측). 파일을 다시 열면 같은 4~5개를 처음부터 다시 돈다. | 요구는 유효하되 **원인은 다른 곳**이다. 캐시(D-061) + 호출 감축(D-062·D-063) + 잠금 회피(D-064) 셋으로 나눠 닫는다 |
+| “경량화된 옵션·명령” | 이미 있는 것을 안 쓰고 있었다 — `--raw --numstat` 한 호출이 status 와 줄 수를 **함께** 낸다(실측). 커밋 경로는 이미 그것을 쓰는데(`readCommitHistory`) 세션 경로만 두 호출이다. | **더 작은 해법이 있다.** 새 명령을 도입하지 않고 이미 저장소가 쓰는 형식·파서로 합친다 |
+| “한 번 로드된 내용을 캐싱하라” | 캐시가 **이미 있는가**를 먼저 봤다 — `createDiffPeekBodyRequestOwner` 는 이름과 달리 캐시가 아니라 **세대 가드**다(늦은 응답 폐기). 내용 보관은 0건. | 신규 능력이다. 다만 **캐시는 화면을 되돌릴 수 있다** — 키에 세션·cwd·요약 세대를 넣지 않으면 이전 저장소의 본문이 보인다(R-42 가 그 반증을 든다) |
+| “애니메이션 효과” | 저장소에 **화면 전환 애니메이션 선례가 0건**이다(`translate-x` 는 전부 정적 중앙정렬·토글 노브). 그러나 **시간축·이징·`motion-reduce` 가드는 이미 규약**이다(`animate-tile-in` 180ms ease-out). | 새 keyframe 이 필요하지만 **새 상수는 필요 없다**. 상수를 승계해 타일 마운트와 화면 전환이 같은 속도로 움직이게 한다(D-065) |
+| “디자인 일관성” | 주관이 아니라 **셀 수 있는 차이**가 있었다 — `Icon` 0 · `transition-*` 0 · `group/` 0 인데 형제 타일 4개는 전부 갖는다. 제목 타이포(`font-serif ... font-semibold`)도 형제(`text-footnote font-medium`)와 갈라져 있다. | 구조 축은 자동으로 닫히고 **시각 축은 사람 실기다**(D-067). 구조 단언만으로 통과시키면 primitive 를 형식적으로 붙인 화면이 초록이 된다 |
+| “이전 커밋도 볼 수 있어야” | 사용자가 같은 턴에 철회했다. 철회 전 응답은 D-036 을 부분 철회하는 것이었고, 그대로 갔으면 peek 이 **두 범위**를 갖고 AT-29 의 “깊은 동등”이 세션 커밋 영역으로 좁혀졌을 것이다. | **범위 밖**(D-068). D-036·D-033 은 손대지 않는다 |
+
+- **이미 충족됐는가**: 캐시·애니메이션·`Icon` 셋 다 실측 0건이라 중복 구현이 아니다. `--no-optional-locks` 도 `runGit` 인자에 0건이다.
+- **기존 결정과 충돌하는가**: 없다. D-061~D-067 은 전부 **어떻게 보이고 얼마나 빨리 오는가**만 바꾸고, 무엇을 보여주는가(D-032~D-060)는 건드리지 않는다. `readDiff` 교체(D-062)는 **산출이 같아야 하는 리팩토링**이라 기존 oracle 이 그대로 회귀 증거다.
 
 ## 5. 동작 / 사용자 흐름
 
@@ -370,6 +412,19 @@
 | 타일을 닫았다 다시 열기 (peek 중) | 요약 조회 0 · 본문 조회 1 | 같은 파일의 같은 위치가 다시 그려진다 (D-046) |
 | 앱을 껐다 켠다 (보내지 않은 요구사항) | 세션 상태라 복원하지 않는다 | 요구사항이 사라진다 (D-048 — 초안·계획 코멘트와 같다) |
 
+#### ΔV3 — peek 본문의 수명과 화면 깊이 (2026-09-02)
+
+| 사용자 행동 / 사건 | 시스템 | 사용자가 보는 것 |
+|---|---|---|
+| 파일을 **처음** 연다 | 캐시 `miss` → `diffFile` 1회 → 캐시에 넣는다 | 목록이 뒤로 물러나며 peek 이 앞으로 들어온다(180ms). 본문이 도착할 때까지 로딩 한 줄 |
+| `다음` 으로 옆 파일 → `이전` 으로 되돌아온다 | 되돌아온 파일은 캐시 `hit` | **조회 없이 즉시** 본문이 선다 |
+| `뒤로` 로 목록에 갔다가 같은 파일을 다시 연다 | 캐시 `hit` | 목록이 앞으로 나오고(복귀 연출), 다시 열면 즉시 |
+| 새로고침을 누른다 | 요약 세대 +1 → **키가 달라져** 전건 `miss` | 같은 파일도 다시 조회한다 — 새로고침이 의미를 갖는다 |
+| 세션을 바꾼다 / 작업 경로가 바뀐다 | 캐시를 **비운다** | 이전 저장소의 본문이 보이지 않는다 |
+| 본문 조회가 실패한다 | 실패는 **캐시에 넣지 않는다** | 다음 진입이 다시 시도한다 — 일시적 실패가 고착되지 않는다 |
+| 13번째 파일을 연다 | 가장 오래 **안 쓴** 항목이 빠진다(상한 12) | 최근에 오간 파일은 계속 즉시 뜬다 |
+| 모션을 줄이도록 설정한 사용자 | `prefers-reduced-motion` 에서 연출이 꺼진다 | 화면이 즉시 바뀐다 — 저장소의 다른 연출과 같은 규칙 |
+
 ### 파생 UX / 엣지케이스
 
 - loading: 타일을 처음 열면 요약이 도착할 때까지 파일 목록 자리가 비어 있다 — 빈 상태 문구는 요약 도착 후에만 뜬다(“변경 없음”과 “아직 안 왔음”을 섞지 않는다).
@@ -457,6 +512,25 @@
 | R-35 | AT-35 | 요구사항의 **wire anchor 가 명세 §16 의 10필드 정확히** 그것이고, peek 을 다시 열어 줄을 못 찾아도 칩과 문장이 남는다 | 순수: `DiffRequirementAnchor` 생성 함수의 결과 **키 집합이 10개와 정확히 동등**하다고 단언(`located` 는 그 타입에 **없다** — D-057). `oldLine` 이 추가 줄에서 `null` 이고 `contextBefore/After` 가 3줄·200자, `comment` 가 2000자에서 잘린다고 단언. 재anchor(peek 시점, 새 본문 입력): 같은 context 가 옮겨간 입력에서 새 줄을 찾고, **후보가 둘이면 저장된 줄 번호에 가까운 쪽**을 고르며, 사라진 입력에서는 `located:false` 이되 항목이 **남는다**고 단언 | `diffRequirements.ts`(순수) → 세션 상태 → peek 본문 도착 시 재anchor 액션 |
 | R-37 | AT-37 | 요구사항이 **큐를 지나는 전송에서도** 도달한다 — 턴 진행 중 보낸 메시지, 배치로 합쳐진 메시지, 연속 턴 모두 | 통합(main): 큐에 두 메시지를 넣고 각각 요구사항 1건씩을 실은 뒤 배치 병합 결과의 요구사항이 **2건**이라고 단언(첨부 병합과 같은 자리). continuation 경로로 flush 한 배치의 턴 콘텐츠에 두 블록이 모두 있다고 단언. 전수: `rg "requirements" app/src/main` 이 §10 EP-21 이 열거한 홉 **전부**에 나타난다고 단언 | `chatApi.send` → `send.ts` → `enqueue.ts` → `pending-message-queue.ts` 병합 → `busy-reserve.ts`/`continuation.ts` → `session-runtime.ts` → `adapters/turn.ts` → `claude.ts` |
 | R-36 | AT-36 | 요구사항이 모델에게 **구조화 블록**으로 전달되고, 사용자 문장이 블록 구조를 깨지 못한다 | 순수(main): 직렬화 결과가 sentinel 로 열고 닫히며 파일·줄이 속성으로 들어간다고 단언. 본문에 sentinel 문자열과 `</comment>` 를 넣은 입력이 **중화**된다고 단언. 통합: `send` 가 요구사항을 실으면 턴 콘텐츠 텍스트에 그 블록이 포함되고, 빈 목록이면 **한 글자도 더해지지 않는다**고 단언 | `chatApi.send` → `SendChatMessage.requirements` → `formatDiffRequirementsPrompt` → `buildTurnContent` |
+
+### ΔV3 — 추가 Requirements / Acceptance
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-38 | AT-38 | **한 번 연 파일은 다시 조회하지 않는다** — Prev/Next 왕복·목록↔peek 재진입에서 본문이 즉시 보이고 `diffFile` 호출이 늘지 않는다. 상한(12)을 넘으면 가장 오래 안 쓴 항목이 빠진다 | 순수: `putDiffBody`/`getDiffBody` 에 13개를 순서대로 넣고 **첫 항목이 `miss`, 나머지 12개가 `hit`** 이라고 단언. 한 항목을 다시 읽은 뒤 13번째를 넣으면 **그 항목은 살아 있고 두 번째로 오래된 것이 빠진다**고 단언(LRU 이 삽입순이 아니라 사용순이다). 렌더: `diffFile` 스텁을 세고 A→B→A 진입에서 총 호출 **2**, 네 번째(B 재진입)에서 증가 **0** 이라고 단언 | `DiffPeek` 진입 → `diffBodyCache` 조회 → miss 일 때만 `gitApi.diffFile` |
+| R-39 | AT-39 | **같은 결과를 더 적은 git 프로세스로** 얻는다 — 요약 1회와 파일 열기 1회가 각각 호출을 줄이고, 모든 읽기 조회가 저장소 index 를 잠그지 않는다 | 통합(인자 수집 runner): 요약 1회의 인자 배열 전수에서 `--name-status` **0건** · `--raw`+`--numstat` 동반 호출이 세션·미커밋 **각 1건**이라고 단언. 파일 열기 1회에서 `rev-parse` 호출 **1건**이고 그 인자에 `--is-inside-work-tree` 와 `--show-toplevel` 이 **함께** 있다고 단언. 같은 수집에서 **모든** 호출의 인자 0번이 `--no-optional-locks` 라고 단언(누락 0건). **산출 동등**: 기존 `git-diff.test.ts`·`git-diff-parse.test.ts` 케이스가 전건 green | `gitDiffSummary`·`gitDiffFile` → `run()` → `runGit` |
+| R-40 | AT-40 | **목록 ↔ peek 전환에 애니메이션이 보이고**, `prefers-reduced-motion` 에서는 꺼진다 | 렌더: peek 화면 루트에 진입 utility 클래스가, 목록 화면 루트에 복귀 utility 클래스가 있다고 단언(두 클래스가 **서로 다르다**고도 단언 — 한 클래스를 양쪽에 붙인 구현은 방향이 없다). CSS 파싱: 두 utility 가 `@media (prefers-reduced-motion: reduce)` 블록에서 `animation: none` 이고, **지속시간이 `animate-tile-in` 과 같은 180ms** 라고 단언(`sparkCss.test.ts` 의 CSS 파싱 선례). **사람 실기 1건**: 전환이 끊기거나 튀지 않는지 | `DiffTileContent` 화면 분기 → 두 화면 루트 |
+| R-41 | AT-41 | 패널이 **형제 패널과 같은 primitive** 로 보인다 — 아이콘·hover 반응·접기 컨트롤·제목 타이포 | 소스 스윕(두 컴포넌트): `Icon` import 와 사용이 각 **≥1**, `group/` 스코프가 hover 가능한 행 수만큼, `transition-colors` 가 그 행마다 있다고 단언. 렌더: 접기 컨트롤이 `<button>` 이고 `aria-expanded` 를 가지며 chevron 이 열림/닫힘에서 **회전 클래스가 갈린다**고 단언. 섹션 제목 클래스가 형제(`TaskTileSections`)와 같은 토큰 집합이라고 단언. **사람 실기 1건**: 형제 타일과 나란히 놓고 이질감이 없는지 — **구조 단언이 이것을 대신하지 않는다**(D-067) | `SessionChangesList`·`DiffPeek` 렌더 |
+| R-42 | AT-42 | **캐시가 화면을 되돌리지 않는다** — 세션·cwd·요약 세대가 바뀌면 이전 저장소의 본문이 보이지 않는다 | 순수: 캐시 키가 `(cwd, sessionId, 요약 세대, group, path)` **다섯 축**이고 축 하나만 달라도 `miss` 라고 단언(축마다 한 케이스 = 5케이스). 렌더: 새로고침(요약 세대 +1) 뒤 같은 파일 진입에서 `diffFile` 증가 **1**, 세션 전환 뒤 같은 상대 경로 진입에서 이전 본문 문자열이 화면에 **없다**고 단언 | `diffBodyCache` 키 파생 → `DiffTileContent` |
+
+#### ΔV3 주의사항
+
+- **AT-38 의 “증가 0” 은 소거에도 참이다**(AT-20·AT-32 와 같은 축). 왕복 증가 0 만 단언하면 조회를 통째로 없앤 구현이 통과한다 — **첫 진입의 증가 1** 과 **세대 증가 뒤의 증가 1**(AT-42)을 같은 스위트에서 짝짓는다.
+- **AT-39 의 분모는 “이번 조회가 낸 호출 전수”다.** 수집 runner 가 받은 인자 배열 전부를 세고, `--no-optional-locks` 는 **누락 0건**(차집합)으로 확인한다 — “있다” 를 몇 건 세는 방식은 새로 추가된 호출부를 놓친다.
+- **AT-39 는 감축과 동등을 함께 요구한다.** 호출 수만 세면 결과를 덜 내는 구현이 통과한다 — 기존 `git-diff.test.ts` 18케이스·`git-diff-parse.test.ts` 19케이스의 **산출 동등**이 그 짝이다.
+- **AT-40 은 두 클래스가 다르다는 것까지 단언한다.** “애니메이션 클래스가 있다” 만 보면 진입·복귀에 같은 것을 붙인 구현이 통과하는데, 그러면 뒤로 갈 때도 앞으로 가는 것처럼 보인다.
+- **AT-41 의 자동 축은 구조 proxy 다.** primitive 를 쓰는지만 세고 **보기 좋은지는 세지 않는다** — 그 차이가 사람 실기 1건이고 §10 EP-27 `실패 의미` 에 적혀 있다.
+- 사람 실기 항목: **ΔV3 에서 2건 추가**(AT-40 전환 부드러움 · AT-41 형제 대비 이질감). ΔV2 의 1건(D-060 scroll 보정)과 합쳐 **총 3건**.
 
 ### AC 검증 주의사항
 
@@ -713,6 +787,56 @@
 | 마이그레이션 append-only | **적용된다**(D-034) — 기존 0001~0018 을 수정하지 않고 0019 를 더한다 | `node scripts/check-migrations-appendonly.mjs` |
 | i18n 카탈로그 | 신규 키 다수(요약 헤더 6 · 타임라인 · 미커밋 · 확장 · peek 헤더/네비 · 요구사항 5) — ko/en 동시 | `resources.test.ts` |
 
+### ΔV3 — Delta V (기준 `V1 + ΔV1 + ΔV2` @ `d23c5be`)
+
+- Delta V 판정 근거: 기준이 같은 handoff 의 연속 revision 이고 공유 브랜치 커밋 하나로 고정된다(`d23c5be` = ΔV2 r3 구현 + `main` 병합). ΔV3 은 그 위에서 **무엇을 보여주는가는 그대로 두고 얼마나 빨리·어떻게 보이는가**만 바꾼다.
+- 변경이 시작되는 수준: **R** — 사용자가 관측하는 결과가 바뀐다(재진입 지연·전환 연출·시각 일관성). 아래로 `SD`·`AR`·`MD` 가 따라온다.
+- 영향 없는 pair 는 복사하지 않는다. 아래 표에 없는 노드·pair 는 그대로 유효하다.
+
+#### ΔV3 Node registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| R-38 · R-42 | R | §7 ΔV3 본문 캐시 2건 | NEW | — |
+| R-39 | R | §7 ΔV3 조회 감축 | NEW | — |
+| R-40 | R | §7 ΔV3 depth 전환 | NEW | — |
+| R-41 | R | §7 ΔV3 디자인 primitive | NEW | — |
+| R-30 | R | §7 확장이 조회를 부르지 않는다 | INHERITED | ΔV2 @ `d23c5be` — 캐시가 그 판정을 바꾸지 않는다 |
+| R-29 · R-32 | R | §7 범위 단일화 · 요약 계기 셋 | INHERITED | ΔV2 @ `d23c5be` |
+| R-25 · R-27 · R-28 · R-33 | R | §7 커밋 노드 · 미커밋 블록 · 요약 헤더 · 상한 | INHERITED | ΔV2 @ `d23c5be` — `readDiff` 교체의 **산출 동등**이 이 넷으로 측정된다 |
+| SD-09 | SD | §5 peek 본문 수명 — hit/miss·폐기 | NEW | — |
+| SD-07 | SD | §5 ΔV2 전이표 | CHANGED | ΔV2 — 전환 두 행에 연출이 붙는다 |
+| AR-12 | AR | §10 EP-25 `readDiff` 단일 호출 + 좌표 1회 + 잠금 회피 | CHANGED | **AR-09 의 조회 구성**(ΔV2) — 산출 계약은 불변, 호출 형태만 바뀐다 |
+| MD-16 | MD | §11 본문 LRU 캐시(순수) | NEW | — |
+| MD-17 | MD | §11 저장소 좌표 캐시(순수 + 수명) | NEW | — |
+| MD-04 | MD | §11 요약 정규화·절단 | INHERITED | V1 — 입력 형태만 바뀌고 규칙은 같다 |
+
+#### ΔV3 Pair registry
+
+| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §10 강제 지점 전수 |
+|---|---|---|---|---|---|---|
+| VP-46 | R-38 ↔ AT-38 | REQUIRED | `DiffPeek` 진입 → `diffBodyCache.get` → miss 시 `gitApi.diffFile` → `put` | 13항목 삽입에서 첫 항목만 `miss`; **사용순** LRU(다시 읽은 항목이 살아남는다); A→B→A→B 렌더에서 총 호출 2 · 이후 증가 0 | required — “증가 0” 은 **소거에도 참**이다(AT-20·AT-32 와 같은 축). ① 캐시를 항상 `miss` 로 만드는 변이(왕복 증가가 0이 아니게 되어 red) ② 조회를 통째로 지우는 변이(첫 진입 증가 1 이 깨져 red) 둘로 양방향을 잠근다 | EP-24 (3) |
+| VP-47 | R-42 ↔ AT-42 | REQUIRED | 키 파생 → `diffBodyCache` → `DiffTileContent` | 다섯 축 각각 하나만 바꾼 5케이스가 전부 `miss`; 세대 +1 뒤 증가 1; 세션 전환 뒤 이전 본문 문자열 부재 | required — 키 누락은 **개별 존재 단언에 둔감**하다. 축을 하나씩 키에서 빼는 변이 5종이 각각 red 인지 확인한다 | EP-24 (3) |
+| VP-48 | R-39 · AR-12 ↔ AT-39 | REQUIRED | `gitDiffSummary`/`gitDiffFile` → `run()` → `runGit` | 인자 전수에서 `--name-status` 0건 · `--raw`+`--numstat` 각 1건 · `rev-parse` 1건에 두 플래그 동반 · `--no-optional-locks` **누락 0건**(차집합); 기존 37케이스 산출 동등 | required — 호출 수만 세면 **결과를 덜 내는 구현**이 통과한다. ① `--raw` 를 뺀 변이(status 가 사라져 기존 케이스에서 red) ② 한 호출에만 `--no-optional-locks` 를 빠뜨리는 변이(차집합이 1이 되어 red) 둘을 심는다 | EP-25 (3) |
+| VP-49 | R-40 · SD-07 ↔ AT-40 | REQUIRED | 화면 분기 → 두 화면 루트의 utility 클래스 → `app.css` | 두 루트에 **서로 다른** utility; 두 utility 가 `prefers-reduced-motion` 블록에서 `animation: none`; 지속시간이 `animate-tile-in` 과 같은 180ms | required — “클래스가 있다” 는 **방향을 말하지 않는다**. 두 화면에 같은 클래스를 붙이는 변이가 “서로 다르다” 단언에서 red 인지, `motion-reduce` 블록을 지운 변이가 CSS 파싱에서 red 인지 확인한다 | EP-26 (2) |
+| VP-50 | R-41 ↔ AT-41 | REQUIRED | `SessionChangesList`·`DiffPeek` 렌더 | `Icon` 사용 각 ≥1; hover 행 수 == `group/` 수 == `transition-colors` 수; 접기 컨트롤이 `<button aria-expanded>` + 회전 갈림; 제목 토큰이 형제와 동일 | required — 이것은 **구조 proxy** 이고 시각 목표를 대신하지 못한다. `transition-colors` 를 한 행에서만 지우는 변이가 “행 수와 같다” 단언에서 red 인지 확인한다(총량이 아니라 대응이라야 한 자리 누락이 보인다) | EP-27 (3) |
+| VP-36 | R-30 ↔ AT-30 | REGRESSION | ΔV2 경로 | 확장 2회에서 `diffFile` 증가 0 — 캐시가 붙은 뒤에도 같다 | not selected — 기존 oracle 재실행 | EP-19 (3) |
+| VP-31 · VP-33 · VP-34 · VP-39 | R-25 · R-27 · R-28 · R-33 ↔ AT-25 · AT-27 · AT-28 · AT-33 | REGRESSION | ΔV2 경로 | `readDiff` 를 한 호출로 합친 뒤에도 커밋별 파일·미커밋 블록·헤더 여섯 값·상한 절단이 같은 값 | not selected — 기존 oracle 재실행(**이것이 D-062 의 산출 동등 측정이다**) | EP-17 (6) |
+| VP-35 · VP-38 | R-29 · R-32 ↔ AT-29 · AT-32 | REGRESSION | ΔV2 경로 | 두 진입의 깊은 동등과 요약 계기 셋이 캐시·연출 추가 후에도 같다 | not selected — 기존 oracle 재실행 | EP-16 (2) · EP-20 (2) |
+| VP-28~30 · VP-32 · VP-37 · VP-40~45 | ΔV2 나머지 | NOT_REQUIRED | — | ΔV2 @ `d23c5be` 의 기존 증거 그대로 | — | 비영향 근거: 기준선 기록·미추적 제외·요구사항 수명·직렬화·홉 전수를 ΔV3 이 한 줄도 건드리지 않는다(§18 ΔV3 목록에 없다) |
+
+#### ΔV3 gate 차분
+
+| Gate | ΔV3 에서 달라지는 점 | 증거 / 명령 |
+|---|---|---|
+| `app` 정적 게이트 | 동일 — `app/src/**` 를 바꾼다 | `npm run lint` · `npm run typecheck` |
+| `app` 테스트 | **DB 스위트는 늘지 않는다** — ΔV3 의 신규 pair 5건이 순수·임시 저장소·SSR 이다 | `./node_modules/.bin/vitest run` (전체는 `npm test`) |
+| 문서 인벤토리 | **불변** — 채널·이벤트·마이그레이션·settings 키를 만들지 않는다 | `node scripts/check-doc-inventory.mjs --check` 가 **차이 0** |
+| IPC 계약 문서 | **불변** — DTO·채널이 그대로다(호출 형태만 바뀐다) | 해당 없음 |
+| i18n 카탈로그 | 접기 컨트롤·뒤로의 `aria-label` 키가 는다 | `resources.test.ts` |
+| 마이그레이션 append-only | 변경 없음 | `check-migrations-appendonly.mjs` |
+| **사람 실기** | **1 → 3** (ΔV2 의 scroll 보정 + ΔV3 의 전환 부드러움·형제 대비 이질감) | §19 |
+
 ---
 
 # Part II — Technical Design
@@ -826,6 +950,39 @@
 - “요약 조회부는 하나” — `useGitSnapshot.ts:110` 1건. `BranchChip.tsx:63` 은 `gitApi.status` 이고 랜딩 전용이라 ΔV1 §10 EP-13 이 이미 허용 예외로 열거했다(세션 표면이 아니다).
 - “채널을 만들지 않는다” — `CHANNELS` 리터럴 81건, `orca:git:*` 5건이 ΔV2 후에도 같다. 새 계약은 기존 채널의 DTO 확장(`GitDiffSummary`)과 기존 `orca:chat:send` 페이로드 필드(`requirements`)뿐이다.
 - “마이그레이션은 하나만 는다” — 18 → 19. `check-doc-inventory.mjs` 의 `DB 마이그레이션` 행이 그 수를 센다.
+
+### ΔV3 전수 조사 (2026-09-02 실측)
+
+**① 한 동작이 내는 git 프로세스 수** — 헬퍼별 `run()` 호출을 세고 호출 그래프로 합산했다.
+
+| 동작 | 경로 | 프로세스 수 | 비고 |
+|---|---|---|---|
+| `gitDiffSummary` 1회 | `insideWorkTree` 1 + `resolveDiffRange` 0~1 + `readDiff`(세션) **2** + `headOid` 0~1 + `readCommitHistory` 1~2 + `readDiff`(미커밋) 0~**2** | **4 ~ 9** | `readDiff` 가 `--numstat` 과 `--name-status` 를 **따로** 부른다(`git-diff.ts:103`) |
+| `gitDiffFile` 1회 | `insideWorkTree` 1 + `resolveDiffRange` 0~1 + `isTrackedDiffPath` 1 + `showAt` 1 + `repoRoot` 1 | **4 ~ 5** | 전부 **순차 await**. `stat` + `readFile` 이 뒤에 붙는다 |
+
+**② 본문 캐시 — 0건.** `createDiffPeekBodyRequestOwner`(`diffFileCache.ts`)는 이름과 달리 **세대 가드**이고 내용을 보관하지 않는다. 보관은 `DiffTileContent.tsx:93` 의 단일 슬롯 `useState` 하나뿐이고, `:105` 의 `body?.key === bodyKey` 가 막는 것은 **직전 한 건**이다 → A→B→A 왕복이 A 를 다시 조회한다.
+
+**③ 한 호출로 합칠 수 있는가 — 임시 저장소에서 실행 확인.**
+
+| 대상 | 검증한 명령 | 관측 | 의미 |
+|---|---|---|---|
+| 저장소 좌표 | `git rev-parse --is-inside-work-tree --show-toplevel` | 두 줄(`true` / 절대경로) | `insideWorkTree` + `repoRoot` 를 **1 프로세스**로 |
+| status + 줄 수 | `git diff --raw --numstat -z <base>` | raw 블록(`:… M`/`A`/`D` + 경로) 뒤 numstat 블록 | `readDiff` 2 → **1**. **파서는 이미 있다** — `parseCommitFiles`(`git-diff-parse.ts:92`)가 정확히 이 형식을 읽는다 |
+| 잠금 회피 | `git --no-optional-locks diff --numstat <base>` | exit 0 (git 2.43) | 읽기 조회가 `.git/index` 를 refresh·잠그지 않는다 |
+
+**④ 애니메이션·디자인 어휘 — 저장소에 무엇이 있는가.**
+
+| 대상 | 검색 | N | 의미 |
+|---|---|---|---|
+| 화면 전환(slide) 선례 | `rg "translate-x\|slide\|depth" src/renderer` | **0** | 전환 애니메이션 선례가 없다 — keyframe 은 새로 만든다 |
+| 마운트 연출 상수 | `app.css:142` `@keyframes tile-in` · `:152` `@utility animate-tile-in` | 1 | **180ms ease-out** + `prefers-reduced-motion` 에서 `animation: none` — 이 상수를 승계한다 |
+| `motion-reduce` 가드 | `rg "motion-reduce" src/renderer` | 다수(`RightPanel`·`TaskStatusIcon`·`TaskTileSections`) | 규약이다 |
+| 0211 두 컴포넌트의 `Icon` | `rg "Icon" SessionChangesList.tsx DiffPeek.tsx` | **0 / 0** | 형제 타일 4개는 전부 쓴다 |
+| 0211 두 컴포넌트의 `transition-*` | 같은 두 파일 | **0** | 형제 타일 4개는 전부 갖는다 |
+| 0211 두 컴포넌트의 `group/` | 같은 두 파일 | **0** | `src/renderer/AGENTS.md §그룹 스코프 격리` 가 요구하는 규약 |
+| 반경 토큰 빈도 | `rg -o "rounded-r[0-9]" src/renderer` | `r4` 49 · `r6` 24 · `r5` 19 · `r3` 9 · `r7` 5 | 0211 이 쓰는 `r3` 가 저장소에서 가장 드물다 |
+| 접기 컨트롤 house 형태 | `TaskTileSections.tsx:31` · `SidebarSection.tsx` | 2 | `<button>` + `aria-expanded` + chevron(`chevD`/`chevR` 또는 `-rotate-90`) — 0211 은 bare `text-accent` 텍스트다 |
+| 섹션 제목 타이포 | `TaskTileSections` `text-footnote font-medium text-t9` · 설정 `text-[15px] font-semibold text-ink` · 0211 `font-serif text-body font-semibold text-t9` | 3종 | 0211 만 `font-serif` 를 쓴다 |
 
 ## 9. Architecture / Data & Control Flow — AS-IS → TO-BE
 
@@ -1030,6 +1187,11 @@ TO-BE  (기준선 하나 · 범위 하나 · 화면 둘)
 | R-34 / VP-40 | 요구사항은 **쌓이고 받아들여지면 비워진다** (**EP-22, 3지점**: ① 추가/삭제가 세션 상태와 diff 표시 **양쪽**에 반영 ② 소비 신호 = `send()` 가 `true` + 제출 스냅샷 불변(D-055, 첨부와 같은 규칙) ③ 거절(`false`)에서 스택 보존) | `chatReducer` 의 요구사항 슬라이스 · `ComposerInputController.submit` | 구현자 | 작성·삭제 · 전송 시도 | ①이 한쪽만 되면 지운 요구가 화면에 남거나 반대가 된다. ②가 빠지면 같은 요구가 매 턴 다시 전송된다. ③이 빠지면 거절된 전송에서 요구사항만 사라진다. **이 행이 세는 것과 목표의 차이**: `send()` 이후 main admission 이 실패하면 칩이 이미 비어 있다 — **첨부가 이미 갖는 한계**이고(`ComposerInputController.tsx:241`) ΔV2 가 넓히지 않는다 |
 | MD-11 / VP-41 | anchor 는 **10필드 전량**이고 위치를 잃어도 항목은 남는다 (**EP-23, 3지점**: ① `DiffRequirementAnchor` 가 정확히 10키(`located` 는 wrapper 에, D-057) ② 재anchor 는 **peek 본문 도착 시점**에 실행(D-056) ③ 복수 일치는 저장된 줄에 가장 가까운 것, 실패해도 항목 잔존) | `diffRequirements.ts`(신규, 순수) · `DiffRequirementAnchor`/`Item`(`shared/ipc.ts`) | 구현자 | 작성 시 · peek 본문 도착 시 | ①이 부분이면 명세 §16 의 재발견이 불가능하고, 반대로 `located` 를 anchor 에 넣으면 wire 계약이 10키가 아니게 된다. ②가 요약 갱신 시점이면 **재anchor 할 본문이 없다**(요약 DTO 에 줄 내용이 없다). ③이 없으면 구현자가 “첫 일치” 를 발명해 반복 코드에서 엉뚱한 줄에 붙는다 |
 
+| MD-16 · SD-09 / VP-46 · VP-47 | 본문 캐시는 **다섯 축 키**이고 조회보다 **앞**에 선다 (**EP-24, 3지점**: ① 키가 `(cwd, sessionId, 요약 세대, group, path)` 다섯 축 ② `gitApi.diffFile` 호출 **앞**에서 `get` 이 먼저 서고 miss 일 때만 조회한다 ③ 세션·cwd·요약 세대 경계에서 **폐기**된다 — `SET_CWD`·`NEW_CHAT`·`START_LOAD_SESSION`·refresh 세대 증가) | `lib/diffBodyCache.ts`(신규, 순수) · `chatReducer` 의 `gitSnapshot` 슬라이스 | 구현자 | 진입 · 화면 전환 · 세션/cwd 전환 | ①이 부분이면 다른 저장소·다른 세대의 본문이 같은 상대 경로로 보인다 — 사용자는 **틀린 diff 를 옳은 것으로 읽는다**. ②가 뒤에 서면 캐시가 채워지기만 하고 조회는 그대로라 요구가 하나도 닫히지 않는다. ③이 빠지면 새로고침이 낡은 본문을 계속 준다 — 새로고침의 의미가 사라진다 |
+| AR-12 / VP-48 | 읽기 조회는 **합쳐서 한 번, 잠그지 않고** 부른다 (**EP-25, 3지점**: ① `readDiff` 가 `--raw --numstat -z` **한 호출**이고 파서는 `parseCommitFiles` 재사용(신규 파서 0) ② 저장소 좌표는 `rev-parse --is-inside-work-tree --show-toplevel` **한 호출** + `cwd` 별 캐시 ③ **모든** 읽기 조회 인자에 `--no-optional-locks`) | `git-diff.ts` 의 `run()` · `git-diff-parse.ts` 의 `parseCommitFiles` export | 구현자 | 각 조회 구성 | ①에서 파서를 새로 만들면 커밋 경로와 세션 경로가 두 벌이 되어 D-052 가 닫은 축이 다시 갈라진다 — 한쪽만 고친 rename·binary 처리가 조용히 어긋난다. ②의 캐시가 **내용**까지 담으면 worktree 교체 후 죽은 경로를 준다(좌표만 담는다, D-063). ③이 한 호출이라도 빠지면 그 조회가 사용자의 다른 git 작업과 index 를 두고 경합한다 — **차집합 0 으로 세고 “있다” 를 세지 않는다** |
+| R-40 / VP-49 | depth 전환은 **방향이 있는 두 연출**이고 `motion-reduce` 에서 꺼진다 (**EP-26, 2지점**: ① 목록·peek 두 화면 루트가 **서로 다른** utility 를 갖는다 ② 두 utility 가 `@media (prefers-reduced-motion: reduce)` 에서 `animation: none`) | `app.css` 의 두 `@utility` · 두 화면 루트 | 구현자 | 화면 분기 렌더 · CSS 정의 | ①에 같은 클래스를 붙이면 뒤로 갈 때도 앞으로 가는 것처럼 보인다 — 연출이 **깊이를 말하지 않는다**. ②가 빠지면 모션 민감 사용자에게 저장소의 다른 모든 연출과 다르게 이것만 움직인다(`animate-tile-in`·`animate-status-beacon` 이 이미 갖는 가드) |
+| R-41 / VP-50 | 패널은 **형제의 primitive** 를 쓴다 (**EP-27, 3지점**: ① `Icon` 이 chevron·뒤로·추가·제거 자리에 ② hover 가능한 행마다 `group/<이름>` + `transition-colors hover:bg-fill-uncontained-hover` — **행 수와 대응**이지 총량이 아니다 ③ 접기 컨트롤이 `<button aria-expanded>` + chevron 회전) | `SessionChangesList.tsx` · `DiffPeek.tsx` · `shared/ui/Icon` | 구현자 | 렌더 트리 조립 | ①이 빠지면 같은 뜻의 컨트롤이 패널마다 다른 모양이라 사용자가 매번 다시 배운다. ②를 총량으로 세면 한 행만 빠진 것이 보이지 않는다 — 그 행만 hover 에 반응하지 않아 “죽은 줄” 로 읽힌다. ③의 `aria-expanded` 가 빠지면 스크린리더가 접힘을 말하지 못한다. **이 행이 세는 것과 목표의 차이**: 셋은 전부 **구조**이고 “형제와 나란히 놓았을 때 이질감이 없는가” 를 세지 않는다 — 그 축은 자동 oracle 이 없어 **사람 실기 1건**으로 §19 에 등록했다(D-067) |
+
 - 같은/동일 규칙이 여러 레이어에 있는 것: diff 범위 해석 하나뿐이고 `resolveDiffRange` 를 SSOT 로 둔다. 정규식·경로 규칙 복붙은 만들지 않는다. **ΔV1 이 두 번째를 만든다** — 조회 계기 판정이고 `gitSnapshotTriggers` 하나를 SSOT 로 둔다(`shouldRefetchGitStatus` 는 그 안으로 흡수되거나 그것이 부르는 하위 규칙으로 남는다. 두 판정이 각자 계기를 갖지 않게 한다).
 - `실패 의미`에 “다른 게이트가 막는다”를 적은 행: 없음. 각 행의 실패 의미는 그 지점 자체의 관측 결과로 적었다.
 - 선택적 필드의 의미. `LoadedSession.worktree` = `undefined` 는 “격리 세션이 아니거나 row 가 없다”이고 소비자는 실행 경로 파생으로 폴백한다(격리 여부를 별도 boolean 으로 두지 않는다 — 두 필드가 어긋날 수 있다). `GitDiffRequest.sessionId` = `undefined` 는 “세션 이전(랜딩)”이라 `HEAD` 범위다. `GitDiffRequest.commit` = `undefined` 는 `전체 변경`이다.
@@ -1139,6 +1301,25 @@ TO-BE  (기준선 하나 · 범위 하나 · 화면 둘)
 - **`SessionBaselineLookup` 은 필수 인자로 유지한다**(기존 `WorktreeBaseLookup` 과 같은 이유) — optional 로 두면 배선을 잊었을 때 모든 세션이 조용히 `HEAD` 로 접힌다.
 - **미커밋 범위 생략 조건**: `rev-parse HEAD` 결과가 기준선과 같으면 두 번째 numstat 쌍을 내지 않고 세션 목록·합계를 그대로 `uncommitted` 로 쓴다. 같지 않으면(세션 중 커밋했거나 체크아웃했다) 실제로 조회한다.
 - **`DiffLine` 확장은 가산이다**: `lineNo` 를 유지한 채 `oldLine`·`newLine` 을 더한다 — `DiffTable` 이 `lineNo` 를 쓰고 그것을 바꾸면 도구 카드(`DiffBody`)의 표시가 함께 바뀐다.
+
+### ΔV3 구현 설계
+
+| 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
+|---|---|---|---|
+| `app/src/renderer/src/features/chat/lib/diffBodyCache.ts` (신규) | **순수** | `diffBodyCacheKey(cwd, sessionId, summaryGeneration, group, path)` · `getDiffBody` · `putDiffBody` · `evictDiffBodies` — **사용순 LRU, 상한 12**. `Map` 의 삽입 순서를 쓰되 `get` 성공 시 재삽입해 사용순으로 만든다 | 순수 단위 (`diffBodyCache.test.ts`) |
+| `app/src/renderer/src/features/chat/reducer/chatReducer.ts` | 상태 | `gitSnapshot` 에 `bodyCache: DiffBodyCache` 추가. `SET_CWD`·`NEW_CHAT`·`START_LOAD_SESSION` 에서 비우고, refresh 세대 증가는 **키가 달라져 자연 무효화**된다(별도 비우기 불필요 — 다만 상한을 넘기지 않도록 세대 축이 키에 있다) | 순수 리듀서 단위 |
+| `app/src/renderer/src/features/chat/components/rightpanel/DiffTileContent.tsx` | 소비 | 조회 **앞**에 `getDiffBody` 를 세우고 miss 일 때만 `gitApi.diffFile`. 성공 응답을 `putDiffBody`. 단일 슬롯 `useState` 는 캐시 조회 결과의 뷰로 남는다 | 렌더(스텁 호출 수) |
+| `app/src/main/infra/git/git-diff-parse.ts` | 순수 | `parseCommitFiles` 를 **export** 한다(신규 파서 0). 본문 불변 | 기존 `git-diff-parse.test.ts` |
+| `app/src/main/infra/git/git-diff.ts` | 조회 | `readDiff` 를 `--raw --numstat -z` **한 호출**로 교체하고 `parseCommitFiles` 로 파싱. `insideWorkTree`+`repoRoot` → `repoCoords(cwd)` **한 호출** + `Map` 캐시. `run()` 이 인자 앞에 `--no-optional-locks` 를 항상 붙인다 | `git-diff.test.ts`(임시 저장소) + 인자 수집 runner |
+| `app/src/renderer/src/styles/app.css` | 연출 | `@keyframes depth-in`(뒤→앞: `opacity 0→1`, `translateX(8px)→0`) · `@keyframes depth-out`(앞→뒤: `translateX(-8px)→0`) + 두 `@utility` — **180ms ease-out**, `prefers-reduced-motion` 에서 `animation: none`(`animate-tile-in` 과 같은 블록 형태) | `depthCss.test.ts`(`sparkCss.test.ts` 의 CSS 파싱 선례) |
+| `app/src/renderer/src/features/chat/components/rightpanel/SessionChangesList.tsx` | 표시 | 루트에 `animate-depth-out`. 커밋 노드의 `border-l` 자체 레일 → 형제와 같은 `border-t border-t5 first:border-t-0` 섹션. 파일 행에 `group/changefile` + `transition-colors hover:bg-fill-uncontained-hover`. 접기 컨트롤을 `<button aria-expanded>` + `Icon chevD`(`-rotate-90` 회전)로. 제목 타이포를 `text-footnote font-medium text-t9` 로. `rounded-r3` → `rounded-r4` | 렌더 단언 + 소스 스윕 |
+| `app/src/renderer/src/features/chat/components/rightpanel/DiffPeek.tsx` | 표시 | 루트에 `animate-depth-in`. 뒤로 버튼에 `Icon arrowL`, 요구사항 `+` 에 `Icon plus`, 칩 제거에 `Icon x`, Prev/Next 에 `Icon chevU`/`chevD`. 줄 행에 `group/diffline` + `transition-colors` | 렌더 단언 + 소스 스윕 |
+| `app/src/renderer/src/shared/i18n/resources/{ko,en}.ts` | 문구 | 접기 컨트롤·뒤로의 `aria-label` 키 | `resources.test.ts` |
+
+- **레이어**: 캐시는 `features/chat/lib/`(순수)이고 `diffHunks`·`diffLines` 와 같은 자리다. 저장소 좌표 캐시는 main 의 `git-diff.ts` 모듈 지역이고 **프로세스 수명**이다 — 파일 내용을 담지 않으므로 소실·이동 축을 새로 만들지 않는다(D-063).
+- **`run()` 이 `--no-optional-locks` 를 붙이는 자리는 하나다** — 호출부마다 붙이면 새 호출부가 조용히 빠진다. `git-diff.ts:36` 의 `run()` 이 유일한 관문이고 AT-39 가 차집합 0 으로 그것을 센다.
+- **캐시가 `null` 을 담지 않는다** — 실패 응답(`unavailable`)은 넣지 않는다. 넣으면 일시적 실패가 세대가 바뀔 때까지 고착된다.
+- **연출 클래스는 화면 루트에만** 붙인다. 내부 행에 붙이면 목록이 길 때 매 행이 각각 움직여 산만해진다.
 
 ### 테스트 가능성
 
@@ -1282,6 +1463,18 @@ git CLI
 - **log 조회의 버퍼는 별도다**(r2). 기본 4 MiB 대신 **8 MiB** 를 주고, 그래도 넘치면 `--numstat` 없이 한 번 더 부른다 — 그 재조회는 커밋 수에만 비례하므로(제목·통계만) 상한이 예측 가능하다. 정상 경로에서는 재조회가 0 이다.
 - **미커밋 조회를 생략하는 조건이 최적화의 전부다**: 세션 중 커밋이 없으면(대다수) 두 범위가 같아 2 프로세스를 아낀다. 조건 판정용 `rev-parse HEAD` 1회가 그 대가이고, 그 값은 기준선 부재 폴백에도 쓰인다.
 
+### ΔV3 — 비용 재계산
+
+| 축 | 변경 전(실측) | 변경 후(설계) | 근거 |
+|---|---|---|---|
+| 요약 1회 git 프로세스 | **4 ~ 9** | **3 ~ 7** | `readDiff` 2→1 이 두 번(세션·미커밋) = **−2**. 좌표 캐시가 두 번째 요약부터 `insideWorkTree` **−1** |
+| 파일 열기 1회 git 프로세스 | **4 ~ 5** | **2 ~ 3**(첫 열기) · **0**(캐시 hit) | 좌표 1회 합침 **−1**, 캐시된 cwd 면 **−2**. 재진입은 조회 자체가 없다 |
+| 파일 열기 지연 | 순차 4~5 spawn | 좌표(캐시 hit 시 0) → `isTracked` ∥ `show` ∥ `stat` **병렬** | 프로세스 수뿐 아니라 **직렬 깊이**가 준다 |
+| 본문 메모리 | 0 | **최대 12항목** × 양측 1 MiB 상한 = **worst-case 24 MiB / 세션** | `MAX_DIFF_FILE_BYTES` 가 양측 각각을 이미 1 MiB 로 자른다. 실제 코드 파일은 수십 KB 라 관측값은 이보다 두 자릿수 작다. 상한을 12로 잡은 이유: peek 의 Prev/Next 가 한 group 안을 오가고 커밋당 파일 상한이 50 이라, 12 는 “최근에 오간 창”을 덮으면서 24 MiB 를 넘지 않는 값이다 |
+| 좌표 캐시 메모리 | 0 | cwd 당 `{inside: boolean, root: string}` — 수백 바이트 | 내용 미포함(D-063) |
+| CSS | — | `@keyframes` 2 + `@utility` 2 + `motion-reduce` 블록 2 | `animate-tile-in` 과 같은 형태 |
+
+
 ## 15. 외부 구현 포트 / 문서 계약
 
 해당 없음 — 외부/배포가 구현할 port·schema·config 를 만들지 않는다. 신규 계약은 전부 앱 내부 IPC 이고 그 정본은 `docs/IPC_CONTRACT.md` 다(§7-A 운영 gate).
@@ -1414,6 +1607,25 @@ git CLI
 
 > **건드리지 않는 것**(ΔV2 비영향 pair 의 근거): `lib/activityLabel.ts` · `components/StatusLine.tsx` · `CwdButton.tsx` · `lib/worktreeDisplay.ts` · `composer/{GitRow.tsx,gitRowState.ts}` · `app/handlers/session.ts` · `preload/index.ts` · `infra/git/git-cli.ts` · `components/DiffTable.tsx`.
 
+### ΔV3 영향 파일 (전수)
+
+| 파일 | 성격 |
+|---|---|
+| `app/src/renderer/src/features/chat/lib/diffBodyCache.ts` | 신규 (순수) |
+| `app/src/renderer/src/features/chat/lib/diffBodyCache.test.ts` | 신규 |
+| `app/src/renderer/src/features/chat/reducer/chatReducer.ts` | 캐시 슬라이스 + 경계 폐기 |
+| `app/src/renderer/src/features/chat/components/rightpanel/DiffTileContent.tsx` | 조회 앞 캐시 조회 · 화면 루트 연출 클래스 |
+| `app/src/renderer/src/features/chat/components/rightpanel/SessionChangesList.tsx` | primitive 정렬 + 연출 |
+| `app/src/renderer/src/features/chat/components/rightpanel/DiffPeek.tsx` | primitive 정렬 + 연출 |
+| `app/src/renderer/src/styles/app.css` | `depth-in`/`depth-out` keyframe·utility·`motion-reduce` |
+| `app/src/renderer/src/shared/ui/depthCss.test.ts` | 신규 (CSS 파싱) |
+| `app/src/renderer/src/shared/i18n/resources/{ko,en}.ts` | `aria-label` 키 |
+| `app/src/main/infra/git/git-diff.ts` | `readDiff` 단일 호출 · `repoCoords` · `--no-optional-locks` |
+| `app/src/main/infra/git/git-diff-parse.ts` | `parseCommitFiles` export (본문 불변) |
+| `app/src/main/infra/git/git-diff.test.ts` | 인자 수집 runner 케이스 추가 |
+
+**건드리지 않는 것**: `handlers/git.ts` · `shared/ipc.ts` · `shared/protocol.ts`(DTO·채널 불변) · `prepare-worktree.ts`·`writer.ts`·`queries.ts`(기준선 축) · `diffRequirements.ts`·`composerSubmit.ts`(요구사항 축) · `adapters/diff-requirements.ts`(직렬화) · 마이그레이션.
+
 ## 19. 게이트
 
 - 적용할 하위 가이드: `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드` · `app/src/main/AGENTS.md §feature 수직 슬라이스` · `app/src/renderer/AGENTS.md`.
@@ -1421,8 +1633,9 @@ git CLI
 - 기본 정적 게이트: `npm run lint` · `npm run typecheck` (ABI 중립).
 - 관련 테스트: `./node_modules/.bin/vitest run` 로 비-DB 스위트, DB 동작이 필요한 pair(VP-08)는 `npm test`.
 - 문서 게이트: `node scripts/check-doc-inventory.mjs` 재생성 후 `--check`.
-- 사람 실기: **1건**(r3 · D-060 · AT-30) — 200줄 파일의 hunk 에서 `위로 펼치기` 를 눌러 보던 줄이 화면에 남는지 확인한다. vitest 가 `environment: 'node'` 라 scroll 은 자동 게이트가 없다.
+- 사람 실기: **3건**. ① (r3 · D-060 · AT-30) 200줄 파일의 hunk 에서 `위로 펼치기` 를 눌러 보던 줄이 화면에 남는지. ② (**ΔV3** · D-065 · AT-40) 목록↔peek 을 오가며 전환이 끊기거나 튀지 않는지. ③ (**ΔV3** · D-067 · AT-41) 변경사항 패널을 형제 타일(`작업`·`백그라운드 작업`)과 나란히 놓고 이질감이 없는지 — **자동 게이트는 primitive 사용만 세고 이 축을 세지 않는다**. 셋 다 vitest 가 `environment: 'node'` 라 자동 oracle 이 없는 시각 축이다.
 - **ΔV2 추가**: 마이그레이션 게이트 `node scripts/check-migrations-appendonly.mjs` 가 이번에 적용된다(D-034). DB 스위트가 늘어난다 — VP-28·VP-29 가 임시 DB 를 쓰므로 `npm test` 경로이고, ABI 미준비 환경에서는 그 red 를 기준선으로 분리 보고한다. 인벤토리는 `DB 마이그레이션 18 → 19` 한 줄만 바뀐다.
+- **ΔV3 추가**: 게이트 집합은 불변이다 — 채널·이벤트·마이그레이션·DTO 를 만들지 않아 `check-doc-inventory.mjs --check` 는 **차이 0** 이어야 하고 `docs/IPC_CONTRACT.md` 는 손대지 않는다. 신규 pair 5건이 전부 순수·임시 저장소·SSR 이라 DB 스위트는 늘지 않는다. CSS 단언은 `sparkCss.test.ts` 와 같은 파일 파싱이라 브라우저가 필요 없다.
 
 ## READY self-review
 
@@ -1556,6 +1769,31 @@ git CLI
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은
 > [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
+
+## READY self-review — ΔV3 (2026-09-02)
+
+- [x] 여러 턴의 결정이 보존된다 — D-001~D-060 ACTIVE 그대로, D-061~D-068 신설, `SUPERSEDED` 0건. **ΔV3 은 아무 결정도 대체하지 않는다** — 성능·연출·시각 축만 더한다.
+- [x] 조건절·철회를 재해석하지 않았다 — 사용자가 요구했다가 철회한 “이전 커밋 열람” 을 **D-068 로 명시 제외**하고, 철회 전 응답 두 개(그 커밋의 `A→B` diff · 20개씩 더 보기)를 적용하지 않았다. 라운드 유지도 원문(“라운드를 올리지 않는다”)대로다.
+- [x] 사용자에게 물을 것과 조사로 닫을 것을 구분했다 — 물은 것은 이전 커밋 열람의 클릭 의미 하나(제품 결과가 갈린다)였고, 나머지 셋(캐시 상한·연출 상수·primitive 목록)은 코드 조사로 닫았다.
+- [x] 수치·전칭을 실측했다 — 프로세스 수(4~9 / 4~5) · 캐시 0건 · `Icon` 0건 · `transition-*` 0건 · `group/` 0건 · 반경 빈도 · slide 선례 0건. `--raw --numstat -z` 와 `rev-parse` 두 값 합침과 `--no-optional-locks` 는 **임시 저장소에서 실행**해 확인했다.
+- [x] 저장소 규칙을 설계 입력으로 확인했다 — `src/renderer/AGENTS.md §그룹 스코프 격리`(익명 `group-hover:` 금지 → `group/<이름>`) · 4-layer(캐시를 `features/chat/lib/` 순수로) · Tailwind 시맨틱 토큰(raw hex 0) · `motion-reduce` 규약.
+- [x] 각 AC 가 행동 단언·검증 수단·도달 경로를 갖는다 — AT-38~AT-42 다섯 행.
+- [x] Delta V 로 기록했고 유효 V 를 재구성할 수 있다 — 기준 `V1+ΔV1+ΔV2` @ `d23c5be`.
+- [x] `NEW`·`CHANGED` node 마다 같은 레벨 `REQUIRED` pair 가 있다 — R-38~R-42·MD-16·MD-17·AR-12·SD-09 ↔ VP-46~VP-50.
+- [x] 영향받은 `INHERITED` 는 `REGRESSION` — VP-36(확장 무조회) · VP-31·33·34·39(`readDiff` 산출 동등) · VP-35·38(범위·계기). 비영향 11 pair 만 `NOT_REQUIRED` 다.
+- [x] pair 마다 경로·강제 지점·직접 oracle 이 있고 **다섯 REQUIRED 전부 적대 증거를 선택**했다 — 셋이 “증가 0”·“클래스가 있다”·“primitive 를 쓴다” 처럼 **소거·방향·대응에 둔감한 형태**라 필수다.
+- [x] 현재 변경의 gate 를 열거했다 — 인벤토리·IPC 계약은 **불변**이고 그 사실 자체를 게이트로 적었다(차이 0).
+- [x] 사람 실기로 미룬 순수 로직이 없다 — LRU 규칙·키 축·호출 인자·CSS 정의는 전부 순수·파싱 단언이다. 사람이 보는 것은 **전환의 부드러움과 형제 대비 이질감** 둘뿐이다.
+- [x] semantic 목표를 structural proxy 만으로 검증하는 AC 가 없다 — AT-41 이 구조 proxy 임을 **명시하고** 그 차이를 EP-27 `실패 의미` 와 사람 실기 1건으로 뒀다(D-067).
+- [x] “X 가 쓰인다” 의 검사 장치가 X 를 지웠을 때 실패한다 — AT-39 의 `--no-optional-locks` 는 **차집합 0**(누락을 센다), AT-41 의 `transition-colors` 는 **행 수와 대응**(총량이 아니다), AT-40 은 **두 클래스가 다르다**(자리·방향).
+- [x] 정책 파라미터의 단위·범위가 명확하다 — 캐시 상한 **12항목**(개수), 연출 **180ms**(시간), 파일 상한은 기존 `MAX_DIFF_FILE_BYTES` 를 승계.
+- [x] 신규 모듈마다 레이어·강제 지점·seam 이 있다 — `diffBodyCache.ts`(`features/chat/lib/`, EP-24, 순수 단위) · `repoCoords`(main `git-diff.ts` 지역, EP-25, 인자 수집 runner) · `depth-in/out`(`app.css`, EP-26, CSS 파싱).
+- [x] end-to-end 로 닫혔다 — 캐시는 producer(`diffFile` 응답) → 보관 → consumer(`DiffPeek`)가 한 경로이고, 무효화 축 넷(cwd·세션·요약 세대·상한)을 §5 ΔV3 전이표가 행으로 갖는다.
+- [x] worst-case 를 계산했다 — 본문 캐시 **12 × 2 × 1 MiB = 24 MiB / 세션**(§14 ΔV3), 좌표 캐시는 수백 바이트.
+- [x] **ACTIVE 결정 ↔ AC 대조: 충돌 0.** D-061↔AT-38·AT-42 · D-062·D-063·D-064↔AT-39 · D-065↔AT-40 · D-066↔AT-41 · D-067↔AT-41 의 사람 실기 항 · D-068↔**의도적으로 AC 없음**(범위 제외라 관측 대상이 없다). ΔV2 결정과의 대조도 충돌 0 — D-062 는 D-052(한 호출로 커밋 파일)와 **같은 방향**이고, 캐시(D-061)는 D-045(요약 계기 셋)를 건드리지 않는다(본문 축이다).
+- [x] 산출물 문장 규칙 — 조사 결과를 `대상/검색/N/의미` 표로 적었고 Part I(관측 결과)과 Part II(경로·계약)에 같은 사실을 중복하지 않았다.
+
+**분모 검산**: ΔV3 AC **5**(AT-38~42) → 유효 **42**(V1 15 + ΔV1 6 + ΔV2 16 + ΔV3 5). ΔV3 강제 지점 **11**(EP-24 3 · EP-25 3 · EP-26 2 · EP-27 3) → 유효 **73**(V1 21 + ΔV1 9 + ΔV2 32 + ΔV3 11). ΔV3 pair **23**(REQUIRED 5 · REGRESSION 7 · NOT_REQUIRED 11) — ΔV2 의 REQUIRED 18 이 7+11 로 갈리고 신규 5 가 더해진다.
 
 ## [구현자 기입] 설계 리뷰
 
@@ -1945,6 +2183,328 @@ git CLI
 - 그것을 막았어야 할 plan 지침·AC가 있었는가: D-038의 `changed file count`·`diffstat`와 D-040의 50 절단을 §11 DTO에 대조했으면 G9가, D-044의 `body=undefined` 의미를 D-053 폴백에 대조했으면 G10이 드러났다.
 - 반복해서 부딪히는 환경 한계: 병렬 임시 Git 스위트 1건이 5초 timeout이었고 단독 16/16 green이라 기준선 부하로 분리했다. DB ABI·문서 gate는 정상이다.
 - 현재 라운드 수: **1** — verify 전 사용자 결정 변경이며 사용자 지시대로 유지한다.
+
+---
+
+> **ΔV2 r3 구현 (라운드 1 유지)** — r3 규범 정정 뒤 Task 1~6 을 수행했다. 앞선 구현자(codex)가
+> Task 1~5 를 남기고 중단했고, 이 턴이 Task 6(선택된 적대 증거 전수 · 유효 V 게이트 · 마감)을
+> 이어서 수행했다. 이어받은 작업 트리는 reset/checkout 없이 보존했다.
+
+## [구현자 기입] 설계 리뷰 (ΔV2 r3)
+
+- 동의 / 그대로 진행: D-032~D-060 을 계약으로 수행했다. r3 정정이 만든 세 축이 코드에서 성립했다 — D-051 의 `PrepareWorktreeResult.managed.baseOid` 운반(`service.ts:172` 가 결과에 싣는다), D-053 의 폴백 축(`--format` 유지 · `--raw`/`--numstat` 제거), D-059 의 절단 전 `fileCount`·`totals`.
+- 이견 / 현실성 문제: **1건 — §10 EP-17 의 지점 수 라벨이 열거와 어긋난다.** 행 머리는 `EP-17, 5지점` 인데 본문은 ①~⑥ **여섯**을 열거하고, ΔV2 Pair registry 의 `§10 강제 지점 전수` 칸(`EP-17 (6)`)과 INDEX 의 `강제 지점 31→32` 는 여섯을 전제한다. 열거·pair·보드 셋이 6 이므로 **6 으로 세어 닫았고**(전수표), 라벨 하나가 낡았다고 판정한다. 규범 행 수치라 구현자가 고치지 않고 남긴다 — 설계자가 `5지점` → `6지점` 으로 정정한다.
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음. 다만 **이어받은 구현물이 AT-28 의 한 축을 충족하지 않았고**(기준선을 모르는 요약이 sha 를 그린다), 그것을 선조치했다(아래 Δ2).
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (ΔV2 r3)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-28·29 | 세션 기준선은 한 컬럼 · 출생 시 1회 | EP-14 ① 마이그레이션 ② prepare 결과 운반 ③ 격리/비격리 계산 ④ `insertSession` ⑤ 조회가 세션 컬럼 (5) | 5/5 | ① `cat migrations/0019_session_baseline.sql` = `ALTER TABLE sessions ADD COLUMN baseline_oid TEXT;` + `migrate.ts:49` 등록 ② `service.ts:27` 이 `PrepareWorktreeResult.managed.baseOid` 를 타입에 두고 `:179` 가 insert(`:172`)와 **같은 값**을 결과에도 싣는다 (`service.test.ts:171-172` 가 두 자리를 함께 단언) ③ `prepare-worktree.ts:71`(비격리 `resolveHead`, 실패 `null`) · `:100`(격리 `prepared.baseOid`) · `:67`(resume `null`) ④ `writer.ts:172` `baselineOid: turn.sessionBaseline` → `queries.ts:117` `@baselineOid` ⑤ `handlers/git.ts:26,43` `SessionBaselineLookup.getSessionBaseline`; `grep -rn getManagedWorktreeBySession src/main` 의 프로덕션 히트 **3** = `session.ts:87`(표시 조립) · `service.ts:213,223`(복구) — diff 조회 경로 **0건** | — |
+| VP-30 | 미추적은 조회하지 않는다 | EP-15 ① `ls-files --others` 제거 ② `mergeDiffEntries` 인자 제거 ③ 헤더 문구 (3) | 3/3 | ① `grep -rc -- "--others" src/main` → **0** ② `git-diff-parse.ts:168` `mergeDiffEntries(tracked: readonly GitDiffFileEntry[])` — 인자 1개 ③ `ko.ts:795`/`en.ts:789` `diffUntrackedExcluded` + **소비자** `SessionChangesList.tsx:82` | — |
+| VP-35 | diff 범위는 하나다 | EP-16 ① DTO·zod 에서 `commit` 제거 ② `GitDiffRange` variant + 분기 제거 (2) | 2/2 | ① `ipc.ts:1081-1090` `GitDiffRequest`/`GitDiffFileRequest` 에 `commit` **0건** · `protocol.ts:270-277` 두 스키마에 **0건** ② `git-diff.ts:64` `GitDiffRange` 가 `kind:'working'` 단일 · `grep -rn "kind === 'commit'\|kind: 'commit'" src/main` → **0건** | — |
+| VP-31·33·34·39·45 | 요약이 세 범위를 한 번에 싣는다 | EP-17 ① `log --raw --numstat -z` 한 호출 ② 미커밋 범위(HEAD==기준선이면 생략) ③ 커밋당 50 절단 + 플래그 ④ 전용 8 MiB ⑤ 폴백 + `commitFilesUnavailable` ⑥ 절단 전 `fileCount`·`totals` (**6** — 행 머리의 `5지점` 라벨은 위 설계 리뷰 참조) | 6/6 | ① `git-diff.ts:143` `normalArgs` = `log · --max-count · FORMAT · --raw · --numstat · -z · base..HEAD` 한 번 (`git-diff-service.test.ts:33` 이 프로세스 **1건** 단언) ② `git-diff.ts:176-179` `base.oid === currentHead` 면 `overall` 재사용 (`git-diff.test.ts:295` HEAD==baseline 케이스) ③ `git-diff-parse.ts:64-65` `files.slice(0, MAX_DIFF_COMMIT_FILES)` + `filesTruncated`; `MAX_DIFF_COMMIT_FILES = 50`(`:22`) ④ `git-diff.ts:27` `HISTORY_MAX_BUFFER = 8 * 1024 * 1024` 를 `:144`·`:150` 두 호출에만 전달, 기본은 `runner.ts:38` 의 4 MiB ⑤ `git-diff.ts:149-152` 폴백 + `filesUnavailable` (`git-diff-service.test.ts:53,82`) ⑥ `git-diff-parse.ts:51-56,66` `totals`·`fileCount` 가 `slice` **앞** 의 `files` 에서 나온다 (`git-diff-parse.test.ts:197` 50/51 경계) | — |
+| VP-32·33·37·44 | 목록과 peek 은 다른 화면 · 상태는 세션이 갖는다 | EP-18 ① peek 대상·확장 집합이 세션 상태 ② 전환이 요약을 다시 부르지 않는다 (2) | 2/2 | ① `chatReducer.ts:314` `gitSnapshot: { summary, peekTarget, expandedCommitIds, refreshGeneration }` — 타일 로컬 아님 (`chatReducer.plan.test.ts:334` 타일 닫고 열어도 살아 있음) ② `gitQueryOwner.test.ts` 의 **(파일 × 조회 종류)** 스윕: `diffSummary` 소유자 1(`useGitSnapshot.ts`) · `diffFile` 소유자 1(`DiffTileContent.tsx`) · 서로의 조회 0 + `chatReducer.plan.test.ts:425`(peek open/back·확장이 request·generation 불변) | — |
+| VP-36·43 | context 확장은 순수 파생 | EP-19 ① `buildDiffHunks`/`expandGap` 순수 ② `buildDiffLines` 양축 ③ 키·순서 보존 + `insertedAbove` (3) | 3/3 | ① `diffHunks.ts:1` 의 유일한 import 가 `type { DiffLine }` — 런타임 의존 0 ② `diffLines.ts:41,46,51` 세 분기가 `oldLine`·`newLine`·`lineNo` 를 함께 낸다(`lineNo` 값 불변 — 기존 케이스 green) ③ `diffHunks.ts:41` `id: line:${sourceIndex}`(입력 index 기반 — 확장이 재부여하지 않는다) + `:123` `insertedAbove` (`diffHunks.test.ts:27` 부분수열 보존) | **D-060 의 scroll 보정 한 줄은 자동 게이트 밖** — §19 의 사람 실기 1건이고 이 환경에서 미수행(아래 AC 표 AT-30) |
+| VP-38 | 요약 조회 계기는 셋 | EP-20 ① 계기 입력에서 선택 커밋 제거 ② `useGitSnapshot` 이 유일 호출자 (2) | 2/2 | ① `grep -rc selectedCommit src/renderer` → **0**; `useGitSnapshot.ts:31` `gitSnapshotTriggerKey(cwd, sessionId, refreshGeneration)` 3입력 ② 위 (파일 × 조회 종류) 스윕 — `status`·`diffSummary` 소유자 = `useGitSnapshot.ts` 하나 + 열거된 예외 `BranchChip.tsx`(랜딩, `status` 축만) | — |
+| VP-42·45 | 요구사항 직렬화는 main 한 곳 · 중화 | EP-21 ① 계약 + zod ② 중화 후 `buildTurnContent` 합류 ③ 홉 8파일 전수 (3) | 3/3 | ① `ipc.ts:746` `requirements?: DiffRequirementAnchor[]` + `protocol.ts:101` `DiffRequirementAnchorSchema` ② `diff-requirements.ts` 의 `escapeAttribute`·`neutralize` → `claude.ts:540-542` 가 `mergedTextParts` 에 합류, **빈 목록이면 push 자체가 없다** ③ 8파일 `grep -c requirements` = `send.ts` 2 · `enqueue.ts` 2 · `pending-message-queue.ts` 6 · `busy-reserve.ts` 3 · `continuation.ts` 1 · `session-runtime.ts` 1 · `adapters/turn.ts` 3 · `adapters/claude.ts` 9 — **8/8 존재**, 병합은 `pending-message-queue.ts:66` `flatMap`. 같은 목록을 `diff-requirements.test.ts:51` 이 프로덕션 스윕으로 잠근다 | — |
+| VP-40 | 쌓이고 받아들여지면 비워진다 | EP-22 ① 추가/삭제가 세션 상태·diff 표시 양쪽 ② 소비 신호 = `send()` true + 스냅샷 불변 ③ 거절에서 보존 (3) | 3/3 | ① `DiffTileContent.tsx:90` 과 `Composer.tsx:144` 가 **같은** `state.diffRequirements` 를 읽는다 ② `composerSubmit.ts` 가 `acceptedSubmitCanClearDraftAndRequirements` 통과 뒤에만 `onClearDiffRequirementsIfUnchanged` 를 부른다 ③ `accepted === false` 면 그 게이트가 막는다(`ComposerInputController.test.ts` 거절 케이스) | — |
+| VP-41 | anchor 는 10필드 전량 | EP-23 ① 정확히 10키 ② 재anchor 는 peek 본문 도착 시점 ③ 가까운 것 + 실패해도 잔존 (3) | 3/3 | ① `diffRequirements.ts:112-125` 가 10키를 나열하고 `located` 는 `DiffRequirementItem` wrapper(`ipc.ts:711`) ② `diffRequirementBridge.ts` 의 `handleDiffPeekBodyResult` — `content.kind === 'text'` 일 때만 `reanchorDiffRequirements` ③ `diffRequirements.ts:200` `distance < bestDistance` · `:206` `bestIndex === null` → `{...item, located:false}` (항목 유지) | — |
+
+- **분모를 자기가 정하지 않았는지**: EP-17 은 설계자가 적은 라벨(`5지점`)이 아니라 **열거된 ①~⑥** 과 pair registry 의 `EP-17 (6)` 으로 셌다. EP-15 ①·EP-16 ②·EP-20 ① 의 0건 술어는 전부 **불변식의 주어**(`--others` 인자 · `kind === 'commit'` 분기 · `selectedCommit` 식별자)이고 해법 이름이 아니다. EP-18 ②·EP-20 ② 의 술어는 `gitQueryOwner.test.ts` 안에 있고, 이번 턴에 그 단위를 **파일 → (파일 × 조회 종류)** 로 좁혔다(아래 Δ5).
+- §10 에 없는데 같은 불변식이 필요했던 지점: **1건 — `docs/IPC_CONTRACT.md` 의 `orca:chat:send` 행**. EP-21 ①(계약 정의)의 문서 짝이고 ΔV2 gate 표가 "세 행 갱신" 으로 명시했는데 두 행만 갱신돼 있었다 → 선조치(Δ1).
+- 전수 32/32. EP-14 5 · EP-15 3 · EP-16 2 · EP-17 6 · EP-18 2 · EP-19 3 · EP-20 2 · EP-21 3 · EP-22 3 · EP-23 3 = **32**. V1 의 21 + ΔV1 의 9 와 합쳐 유효 **62/62**.
+
+**V-pair 자기확인** — 구현자의 `SELF_PASS` 는 독립 검증의 `PASS` 가 아니다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-28 | REQUIRED | SELF_PASS | 비격리 birth baseline = 전송 시점 HEAD · 격리는 prepare 결과값 · 커밋 1 + 미커밋 1 이 `commits` 1 과 합계에 함께 든다 | required — M1(비격리 기록 제거) **red** 1/454 · M2(`ON CONFLICT DO UPDATE` 로 매 턴 갱신) **red** 1/454 |
+| VP-29 | REQUIRED | SELF_PASS | `baseOid: null` → `base.kind==='head'` · `commits []` · 예외 없음; 0019 적용 후 레거시 행 `{title:'before', baseline_oid:null}` | not selected — 두 입력의 직접 산출 비교 |
+| VP-30 | REQUIRED | SELF_PASS | 추적 1 + 미추적 2 → `files` 길이 1 · `--others` 0건 · 헤더 문구 소비자 존재 | required — M3(`ls-files --others` 부활) **red** 1/454 — **양성 단언(길이 1)이 잡았다** |
+| VP-31 | REQUIRED | SELF_PASS | 커밋 2개의 `files`·status·`body` 유무 · `log` 프로세스 1건 | required — M4(형제 커밋 파일 맞바꿈) **red** 3/454 |
+| VP-32 | REQUIRED | SELF_PASS | 8-file 노드 2행 + `+6개 파일 더` → 8행 · 51-file 은 `+1개 파일 더` 가 아니라 잘림 표시 | not selected — 순수 파생 + SSR 산출의 직접 비교 |
+| VP-33 | REQUIRED | SELF_PASS | 같은 `a.ts` 가 커밋 `files` 와 `uncommitted.files` 양쪽 · **중첩 판정**으로 미커밋이 timeline **밖** | required — M5a(미커밋을 timeline 안으로, 마커 유지) **red** 1/454 · M5b(미커밋을 commit 노드로) **red** 1/454. **M5a 는 보강 전 green 이었다**(아래 Δ3) |
+| VP-34 | REQUIRED | SELF_PASS | 여섯 값 렌더 + `base` 3종 순수 파생 | not selected — 순수 입출력과 렌더 산출의 직접 비교. **보강 후** M22(HEAD 자리에 sha 복귀) **red** 2/458 |
+| VP-35 | REQUIRED | SELF_PASS | 두 진입 요청이 **깊은 동등** + 키 집합 `{cwd,path,sessionId}` · `commit` 0건 · `range.kind==='commit'` 0건 | required — M6(미커밋 진입만 HEAD 범위) **red** 1/456 · M7(커밋 진입에 `commit` 부활) **red** 3/456. **M6 는 보강 전 green 이었다**(아래 Δ4) |
+| VP-36 | REQUIRED | SELF_PASS | 200줄 2변경 → hunk 2 + gap 3 · 확장이 그 gap 만 5행 · `insertedAbove===5` · 기존 키 부분수열 보존 · 경계 gap 소멸 | required — M8(확장이 `diffFile` 재호출) **red** · M9(gap 전체 일괄 확장) **red** 1/456 · M10b(확장이 행 키를 자리 기준 재부여) **red** 1/456. **M8 은 소유자 스윕 보강 전 green 이었다**(Δ5) |
+| VP-37 | REQUIRED | SELF_PASS | commit group 안에서만 이동 · 같은 path 라도 uncommitted 는 별도 후보 집합 | not selected — 순수 함수 입출력 비교 |
+| VP-38 | REQUIRED | SELF_PASS | 계기 4종(initial·identity·turn-end·refresh) 판정 · remount 는 trigger key 불변 · `diffSummary` 소유자 1 | required — M11(peek 진입에 요약 재조회) **red** 1/456 · M12(턴 종료 계기 제거) **red** 2/456. **M11 은 보강 전 green 이었다**(Δ5) |
+| VP-39 | REQUIRED | SELF_PASS | 50/51 경계에서 목록만 잘리고 `fileCount`·`totals` 는 절단 전 | not selected — 경계값 입력의 직접 산출 |
+| VP-40 | REQUIRED | SELF_PASS | payload 에 anchors 만 · 수락 + 스냅샷 불변에서만 비움 · 거절·drift 에서 보존 | required — M13(수락 후에도 비우지 않음) **red** 1/456 · M14(반환값 무시하고 항상 비움) **red** 3/456 |
+| VP-41 | REQUIRED | SELF_PASS | 키 집합 10개 정확 동등 · nullable/상한 · 가까운 줄 선택 · 실패 시 항목 잔존 | required — M15(필드 1개 누락) **red** 1/456 · M16(`located` 를 anchor 에) **red** 1/456 · M17(못 찾은 항목의 본문 소실) **red** 2/456 · M18(첫 일치 선택) **red** 1/456 |
+| VP-42 | REQUIRED | SELF_PASS | sentinel 개폐·속성 escape · 본문의 sentinel·`</comment>` 중화 · 빈 목록에서 byte-identical | required — M19(중화 우회) **red** 1/456 |
+| VP-43 | REQUIRED | SELF_PASS | `lineNo` 기존 값 유지 + `oldLine`/`newLine` 이 각 축 | required — M20(두 축 맞바꿈) **red** 4/456 |
+| VP-44 | REQUIRED | SELF_PASS | 커밋/미커밋이 같은 path 여도 별도 group · fallback null 이 0 으로 접히지 않는다 | not selected — 순수 함수 입출력 비교 |
+| VP-45 | REQUIRED | SELF_PASS | 배치 병합 결과의 요구사항 이월 · 8홉 프로덕션 스윕 | required — M21(`flatMap` 병합에서 요구사항 제거) **red** 2/456 |
+| VP-22·27 · VP-24 · VP-25 · VP-14·15 · VP-09·10 · VP-12 | REGRESSION | SELF_PASS | ΔV1·V1 의 기존 oracle 재실행 — `git-diff.test.ts` 18케이스 · `git-diff-parse.test.ts` 19케이스 · `gitSnapshotQuery.test.ts` 5케이스 · `diffTile.render.test.ts` 5케이스 전부 green | not selected — 기존 oracle 재실행 |
+| VP-01~08 · VP-13 · VP-18 · VP-19 · VP-20 · VP-21 (**13**) | NOT_REQUIRED | — | §18 ΔV2 파일 목록 밖 — `chatReducer` 의 `session.updated` 분기 · `send.ts` 의 `onRecovered` · `worktree.preparing`·`StatusLine`·`activityLabel`·`CwdButton` 을 이번 변경이 건드리지 않는다 | — |
+| VP-11 · VP-16·17 | SUPERSEDED | — | VP-35 · VP-44 가 대체. `diffTileData.ts`·`diffTileTree.ts` 와 두 테스트가 삭제됐다(`git diff --name-status` 의 `D` 5건) | — |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (ΔV2 r3)
+
+기준선: 잠금 스위트 40파일 · 최종 **458케이스** green(보강 전 454). 각 변이는 그 스위트 전체를 다시 돌려 red 지점을 관측했다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `prepare-worktree.ts:71` — 비격리 분기의 `resolveHead` 제거 | VP-28 선택 증거 ① | 최초 | `prepare-worktree.test.ts` 1건 | 잠김 |
+| `queries.ts:118` — `ON CONFLICT DO NOTHING` → `DO UPDATE SET baseline_oid` | VP-28 선택 증거 ② | 최초 | `writer.test.ts` 1건 | 잠김 |
+| `git-diff.ts:readDiff` — `ls-files --others` 조회 부활 | VP-30 선택 증거 | 최초 | `git-diff.test.ts` 1건 | 잠김 |
+| `git-diff-parse.ts:70` — 형제 커밋 두 개의 `files` 맞바꿈 | VP-31 선택 증거 | 최초 | parse 1 + `git-diff.test.ts` 2 = 3건 | 잠김 |
+| `SessionChangesList.tsx` — 미커밋 `<section>` 을 timeline 컨테이너 **안**으로 이동(마커 유지) | VP-33 선택 증거 | **보강 전 green — 순서 단언은 중첩을 못 본다** | `sessionChangesList.render.test.ts` 1건 | 잠김 (Δ3 보강 후) |
+| `SessionChangesList.tsx` — 미커밋을 `data-session-commit` 노드로 | VP-33 선택 증거(형제 형태) | 최초 | `sessionChangesList.render.test.ts` 1건 | 잠김 |
+| `diffFileCache.ts:30` — 미커밋 진입만 `sessionId` 를 뺀 HEAD 범위 | VP-35 선택 증거 ① | **보강 전 green — 단일 진입만 단언했다** | `diffPeekRequest.test.ts` 1건 | 잠김 (Δ4 보강 후) |
+| `diffFileCache.ts:30` — 커밋 진입에 `commit: sha` 부활 | VP-35 선택 증거 ② | 최초 | `diffPeekRequest.test.ts` 3건 | 잠김 |
+| `DiffPeek.tsx:317` — 확장이 `gitApi.diffFile` 을 다시 부른다 | VP-36 선택 증거 ① | **보강 전 green — 스윕이 `diffFile` 축을 안 봤다** | `gitQueryOwner.test.ts` 1건 | 잠김 (Δ5 보강 후) |
+| `diffHunks.ts:117` — 요청 `n` 을 무시하고 gap 전체를 편다 | VP-36 선택 증거 ② | 최초 | `diffHunks.test.ts` 1건 | 잠김 |
+| `diffHunks.ts:121` — 확장이 행 키를 **자리 기준**으로 재부여 | VP-36 선택 증거 ③ | 최초 | `diffHunks.test.ts` 1건 | 잠김 |
+| `DiffTileContent.tsx:116` — peek 진입이 `gitApi.diffSummary` 를 부른다 | VP-38 선택 증거 ① | **보강 전 green — 스윕 단위가 파일이라 종류 추가에 둔감했다** | `gitQueryOwner.test.ts` 1건 | 잠김 (Δ5 보강 후) |
+| `useGitSnapshot.ts:18` — `turn-end` 판정을 `null` 로 | VP-38 선택 증거 ② | 최초 | `gitSnapshotQuery.test.ts` 2건 | 잠김 |
+| `composerSubmit.ts` — 수락 뒤에도 `onClearDiffRequirementsIfUnchanged` 미호출 | VP-40 선택 증거 ① | 최초 | `ComposerInputController.test.ts` 1건 | 잠김 |
+| `submitClearGate.ts` — `accepted` 를 보지 않고 항상 비움 | VP-40 선택 증거 ② | 최초 | `ComposerInputController.test.ts` 3건 | 잠김 |
+| `diffRequirements.ts:119` — wire anchor 에서 `hunkHeader` 제거 | VP-41 선택 증거 ① | 최초 | `chatStore.test.ts` 1건 | 잠김 |
+| `diffRequirements.ts:124` — `located: true` 를 anchor 에 포함 | VP-41 선택 증거 ② | 최초 | `chatStore.test.ts` 1건 | 잠김 |
+| `diffRequirements.ts:206` — 못 찾은 항목의 `comment` 소실 | VP-41 선택 증거 ③ | 최초 | `diffRequirements.test.ts` 1 + `chatReducer.plan.test.ts` 1 = 2건 | 잠김 |
+| `diffRequirements.ts:200` — 거리 무시하고 첫 일치 선택 | VP-41 선택 증거 ④ | 최초 | `diffRequirements.test.ts` 1건 | 잠김 |
+| `diff-requirements.ts:neutralize` — 중화 우회(입력 그대로 반환) | VP-42 선택 증거 | 최초 | `diff-requirements.test.ts` 1건 | 잠김 |
+| `diffLines.ts:41,46` — `oldLine`/`newLine` 두 축 맞바꿈 | VP-43 선택 증거 | 최초 | `diffLines.test.ts` 2 + `diffPeek.render` 1 + `DiffTileContent.bridge` 1 = 4건 | 잠김 |
+| `pending-message-queue.ts:66` — `flatMap` 병합에서 요구사항만 제거 | VP-45 선택 증거 | 최초 | `pending-message-queue.test.ts` 1 + `diff-requirements.test.ts`(8홉 스윕) 1 = 2건 | 잠김 |
+| `sessionChangesData.ts:summaryBaseText` — HEAD 자리에 sha 복귀 | **이번 턴 신설 oracle**(AT-28 · Δ2) 민감도 | 최초 | `sessionChangesData.test.ts` 1 + `sessionChangesList.render.test.ts` 1 = 2건 | 잠김 |
+| `gitQueryOwner.test.ts` 스윕의 양성 짝 — 소유자 2건이 분모에 **실제로** 잡히는지 | **이번 턴 보강 oracle**(EP-18 ②·EP-20 ②) 민감도 | 최초 | 스윕 안의 양성 단언 3개(`status`·`diffSummary`·`diffFile` 소유자 각 1) + 대상 집합 하한 `files.length > 50` | 잠김 |
+| `htmlRegion.testlib.ts` 의 중첩 스캐너 — timeline 이 `commit-a` 를 **담는다**는 양성 짝 | **이번 턴 신설 oracle**(AT-27 · Δ3) 민감도 | 최초 | 같은 케이스의 `regionContains(timeline, commit-a) === true`(스캐너가 눈이 없으면 이 단언이 먼저 깨진다) | 잠김 |
+
+- **분모 검산**: `선택 증거 22`(VP-28×2 · VP-30×1 · VP-31×1 · VP-33×2 · VP-35×2 · VP-36×3 · VP-38×2 · VP-40×2 · VP-41×4 · VP-42×1 · VP-43×1 · VP-45×1) `· 인용 변이 0`(r3 은 첫 구현 라운드라 파생 이슈가 없다) `· 새 oracle 3`(AT-28 base 3종 · (파일×조회 종류) 스윕 · 중첩 스캐너) `= 표 행 25`. 표를 다시 세어 **25행**임을 확인했다. VP-33 은 plan 이 등록한 변이 하나("미커밋 블록을 타임라인 노드로 되돌리기")를 **두 형태**로 심었다 — 중첩만 바꾼 것과 노드 종류까지 바꾼 것 — 이라 행이 둘이다. 초안은 이 줄을 `20 / 23` 으로 적었고 행을 다시 세어 고쳤다.
+- **`SELF_PASS`·`closed` 로 적은 것 중 행이 없는 claim**: 없다. `not selected` 로 표시한 6 pair(VP-29·32·34·37·39·44)는 직접 산출 비교라 이 표의 행을 요구하지 않으며, 그중 VP-34 는 이번 턴에 oracle 을 신설했으므로 M22 행을 갖는다.
+- **덮개 회귀 검사**: 이번 턴이 교체·확장한 장치는 둘이다. ① `gitQueryOwner.test.ts` — 이전 술어(`status|diffSummary` 파일 수)가 잡던 변이(`GitRow` 에 status 호출 복귀, ΔV1 M13)를 새 술어도 잡는지 확인했다: 새 술어는 그 파일을 `status` 소유자 2건으로 세어 `ownersOf('status')` 길이 단언에서 red 다. 하한(`files.length > 50`)과 예외 실재 단언은 그대로 남겼다. ② `sessionChangesList.render.test.ts` 의 AT-27 — 순서 단언(`indexOf` 비교)을 **지우지 않고** 중첩 단언 둘을 더했다. 순서가 잡던 자리(미커밋이 커밋보다 앞)는 그대로 하한이다.
+- **스윕 민감도의 취약 지점**: (파일 × 조회 종류) 스윕은 *대상 집합*(`files.length > 50`), *예외 목록*(`BranchChip.tsx` 가 아직 `status` 조회자인지), *양성 짝*(세 소유자가 실제로 잡히는지) 셋을 함께 단언한다. 남는 취약 지점은 **호출 형태**다 — 텍스트 스윕이라 `const f = gitApi.diffFile; f(...)` 같은 간접 호출은 분모 밖이다. 현재 코드에 그런 참조가 없음을 별도로 셌다: `grep -rn gitApi src/renderer` 의 프로덕션 히트 12건이 전부 `import` · `gitApi.<name>(` 직접 호출 · 주석이고, 간접 참조 **0건**이다.
+
+## [구현자 기입] Product/UX 파생 검토 (ΔV2 r3)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | **한 건이 없었다 → 만들었다** | `diffUntrackedExcluded`·`diffCommitChip`·`diffFileChip`·`diffUncommittedChip`·`diffMoreFiles`·`diffCollapseFiles`·`diffPartialFiles`·`diffFileMetadataUnavailable`·`diffIncludesUncommitted`·요구사항 5키는 전부 소비자가 있다(`SessionChangesList.tsx`·`DiffPeek.tsx`·`RequirementTray.tsx`). **기준선을 모르는 요약의 sha 자리**만 소비자가 값을 잘못 말하고 있었다 → `diffBaselineHead`(ko `현재 HEAD` / en `current HEAD`) 신설 + 두 표면 연결(Δ2) |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 전부 있다 | §5 ΔV2 20행이 기준선 부재 · 미추적 제외 · 커밋 파일 unavailable · 상한 절단 · peek 진입/이동 · 요구사항 추가/삭제/전송 거절을 각각 갖는다 |
+| 실패가 "아무 일도 안 일어남" 으로 보이지 않는가 | 보이지 않는다 | raw 조회 실패 → `commitFilesUnavailable` 로 타임라인은 살고 `커밋별 파일 정보를 가져오지 못함` 안내 · 폴백까지 실패 → 커밋 목록 빈 배열 + 기존 빈 상태 문구 · 전송 거절 → 칩이 **남는다**(사라지지 않는 것이 신호다) |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 되돌리지 않는다 | 요약은 `{key, generation}`, peek 본문은 `{sessionKey, sessionId, path, generation}` 4축(`diffFileCache.test.ts:22,68`), 요구사항 clear 는 `{ids, revision}` 제출 스냅샷(`chatStore.test.ts:593`) |
+| 없앤 능력에 대체가 있는가 | 있다 | 파일트리 토글(D-037 제거) → 커밋/미커밋 목록 + `+N개 파일 더` 인라인 확장. 커밋 범위 질의(D-036 제거) → 세션 전체 범위 단일화(어디서 눌러도 같은 diff) |
+| **미추적 완전 제외의 관측 결과** | 사용자가 명시 선택했다 | 에이전트가 만든 새 파일은 커밋 전까지 패널에 **보이지 않는다**. 사용자가 그 결과를 확인한 뒤 골랐고(§2 ΔV2 질의 응답 §미추적 처리), 헤더의 `미추적 제외` 문구가 "변경 없음" 과 "빠졌음" 을 구분한다 |
+| **기준선 `∅` 표기** | ⚠️ 파생 이슈로 남긴다 | 커밋이 하나도 없는 저장소(`base.kind === 'none'`)는 sha 자리에 `∅` 를 그린다. 기호라 언어 규칙(root AGENTS §8)을 어기진 않지만 한국어 라벨이 아니다. AT-28 이 명시한 것은 `head` 축뿐이라 이번에 바꾸지 않았다 — 결정권자 몫 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (ΔV2 r3)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| Δ1 | ΔV2 gate 표가 `docs/IPC_CONTRACT.md` **세 행** 갱신을 요구했는데 두 행(`orca:git:diffSummary`·`orca:git:diffFile`)만 갱신돼 있었다. `orca:chat:send` 행이 `requirements` 를 말하지 않아, 코드에는 있고 계약 문서에는 없는 필드가 됐다. | ✅ 선조치 — `SendChatMessage` 시그니처에 `requirements?: DiffRequirementAnchor[]` 를 넣고, 10키 목록·`located` 가 wire 를 건너지 않는다는 사실·중화·빈 목록 불변·첨부와 같은 홉을 본문에 적었다. | `ipc.ts:746` 이 필드를 갖는데 `IPC_CONTRACT.md:41` 에 `requirements` **0건** 이었다(실측) |
+| Δ2 | **AT-28 미충족.** `summaryBaseLabel` 이 `base.kind === 'head'` 를 `oid.slice(0,7)` 로 그렸다. `head` 는 "세션 기준선을 **모른다**" 는 뜻이라, 그 sha 가 이 세션의 출발점인 것처럼 읽힌다 — 레거시 세션(마이그레이션 이전 출생)이 정확히 이 경우다. AT-28 은 "기준선이 없는 요약에서는 sha 자리가 `HEAD` 문구" 를 명시했다. | ✅ 선조치 — `summaryBaseLabel` 을 `{kind:'oid'\|'head'\|'none'}` 판별 유니온으로 바꾸고 `summaryBaseText(summary, tr)` 를 SSOT 로 두 표면(`SessionChangesList`·`DiffPeek`)에 연결했다. ko/en `diffBaselineHead` 신설. 순수 3종 + 렌더 여섯 값 단언을 함께 추가하고 M22 로 민감도를 확인했다. | `sessionChangesData.ts:86`(변경 전) · AT-28 검증 수단 칸 · M22 red 2건 |
+| Δ3 | **AT-27 의 영역 단언이 순서만 봤다.** `html.indexOf(commit-a) < html.indexOf(uncommitted)` 는 "뒤에 있다" 만 말하고 "밖에 있다" 를 말하지 못한다 — 미커밋 블록을 timeline 컨테이너 **안**으로 옮긴 변이(명세 §7 이 금지한 "timeline 의 새 node")가 그대로 통과했다(M5a 보강 전 green). | ✅ 선조치 — 프로덕션에 `data-session-timeline` 마커를 붙이고, `shared/ui/htmlRegion.testlib.ts`(신규, 깊이 계수 기반 outerHTML 추출)로 **중첩**을 단언했다. 양성 짝(`timeline ⊃ commit-a`)을 같은 케이스에 두어 스캐너가 눈을 갖는지 함께 잠갔다. 기존 순서 단언은 지우지 않고 하한으로 남겼다. | plan §10 EP-18 ①·명세 §7 · AT-27 "타임라인 마커 **밖에**" · M5a 보강 전 green → 후 red |
+| Δ4 | **AT-29 의 "깊은 동등" 이 없었다.** `diffPeekRequest.test.ts` 가 커밋 진입 **한 쪽**만 단언해, 미커밋 진입에만 다른 범위를 주는 변이가 통과했다(M6 보강 전 green). plan 의 ΔV2 주의사항이 정확히 이것을 경고했다. | ✅ 선조치 — 두 진입의 요청을 모두 만들어 `toEqual` 깊은 동등 + 키 집합 `{cwd,path,sessionId}` 를 단언하고, 세션 이전(랜딩, `sessionId=null`) 케이스도 같은 축으로 추가했다. | AT-29 검증 수단 칸 · §7 ΔV2 주의사항 · M6 보강 전 green → 후 red |
+| Δ5 | **조회 소유자 스윕의 단위가 파일이라 두 축이 새어 나갔다.** ① `diffFile` 을 술어에 안 넣어 확장이 본문을 다시 부르는 변이가 안 보였다(M8 green). ② 단위가 *파일*이라, 이미 소유자 목록에 오른 파일 **안에서** 다른 조회 종류를 부르는 변이가 분모를 안 바꿨다(M11 green). | ✅ 선조치 — 술어를 `status\|diffSummary\|diffFile` 로 넓히고 단위를 **(파일 × 조회 종류)** 로 좁혔다. `ownersOf(api)` 로 종류마다 소유자 1건을 단언하고, 두 소유자가 서로의 조회를 부르지 않는 **음성 짝**도 함께 뒀다. 랜딩 예외는 "그 파일이 아직 조회자인가" + "그 파일의 조회 종류가 `status` 축뿐인가" 로 다시 잠갔다. | §10 EP-18 ②·EP-19 ①·EP-20 ② · M8·M11 보강 전 green → 후 red |
+| Δ6 | 이어받은 커밋 3개가 `.superpowers/sdd/plan/task-dv2r3-{3,4,5}-report.md` 를 저장소에 넣었다. 에이전트 도구의 작업 스크래치이고 §18 ΔV2 영향 파일 목록에 없다. 같은 라운드의 판정·증거가 `plan.md` 와 그 파일 양쪽에 살면 두 사본이 갈라진다(§3 "두 곳 쓰기"). 그 파일들은 **로컬 커밋 해시를 좌표로** 적기도 했다(공유 브랜치의 좌표가 아니다). | ✅ 선조치 — `git rm -r .superpowers` 로 저장소에서 뺐다. 그 안의 실질 증거(inherited 스냅샷·lint 완료 작업·fix round 1 변이 결과)는 이 절과 위 잠금 표로 옮겼다. | `git log --diff-filter=A -- .superpowers` = 구현 커밋 3개 · `docs/handoff/AGENTS.md §INDEX.md 운영`(좌표는 검증자가 기입) |
+| Δ7 | 이어받은 트리에서 `docs/generated/inventory.md` 가 재생성돼 있지 않았다 — ΔV2 gate 표의 "재생성 누락은 blocking" 에 걸린다. | ✅ 선조치 — `node scripts/check-doc-inventory.mjs` 재생성. 차이는 예측대로 **DB 마이그레이션 18 → 19 한 축**(3줄)뿐이고 채널 81·이벤트 수는 불변이다. | 재생성 전 `--check` exit **1** (`stale or hand-edited`) → 재생성 후 exit **0** (`9 items, 81 channels`) |
+| Δ8 | `git-diff.test.ts:277` 케이스 제목의 오타(`느 그룹에서` → `어느 그룹에서`). | ✅ 선조치 — 트리비얼 문자열 수정, 단언 불변. | — |
+| Δ9 | §10 EP-17 행 머리의 지점 수 라벨(`5지점`)이 본문 열거(①~⑥)·Pair registry(`EP-17 (6)`)·INDEX(`강제 지점 31→32`)와 어긋난다. | ⚠️ 보고만 — 규범 행 수치라 구현자가 고치지 않는다. 셋이 6 이므로 **6 으로 세어 닫았다**. 설계자가 라벨을 정정한다. | plan §10 EP-17 행 · §7-A ΔV2 Pair registry · `INDEX.md:22` |
+| Δ10 | AT-26·AT-30·AT-32 가 요구한 **클릭 기반 스텁 카운트**(확장·peek 왕복에서 조회 증가 0)를 이 저장소에서 실행할 수 없다 — `vitest.config.ts:7` 이 `environment: 'node'` 라 DOM 이 없고 렌더 테스트는 `renderToStaticMarkup` SSR 이다. | ⚠️ 보고만 + 대체 증거 명시 — 아래 "설계 대비 명시적 차이" A 참조. 계기 판정(순수) + (파일 × 조회 종류) 소유자 스윕 + props-only View 구조 셋으로 같은 주장을 잰다. | `vitest.config.ts:7` · ΔV1 Review Signals 가 이미 같은 한계를 기록했다 |
+| Δ11 | §19 의 **사람 실기 1건**(D-060 · AT-30 scroll 보정)을 수행하지 못했다 — 이 세션은 headless 원격 컨테이너라 GUI 실기가 없다. | ⚠️ 보고만 — AT-30 을 `⚠️`(자동 축 green · 사람 축 미수행)으로 남긴다. `planUpwardExpansionCompensation` 의 **계획 계산**은 `diffViewport.test.ts` 2케이스로 잠겨 있고, `useLayoutEffect` 의 실제 `scrollTop` 대입만 미검증이다. | `app/AGENTS.md §제약 환경`(dev/실기 요구 항목은 "사람 실기 대기" 로 명시) |
+| Δ13 | **`docs/IPC_CONTRACT.md` 에 0211 의 이벤트 계약 두 자리가 처음부터 없었다.** V1 gate 가 "신규 채널 2종 + 신규 이벤트 1종 = 신규 행 3건" 을 요구했는데 채널 2행만 있고 `worktree.preparing` **행 자체가 없었고**, `session.updated` 행의 patch 서명도 `{ model?; cwd? }` 그대로라 `worktree` 축을 말하지 않았다. main 병합이 같은 행을 0212 키 둘로 다시 쓰면서 "네 키를 다 적은 완전한 행" 처럼 읽히게 돼 드러났다. | ✅ 선조치 — `worktree.preparing` 행을 신설하고(단계 5종·`sessionId` 부재 라우팅·소멸 3지점·비격리 무발화), `session.updated` 행 서명에 `worktree?: WorktreeDisplay \| null` 을 넣고 **키 부재 / `null` / 객체 세 상태**를 본문에 적었다. | V1 gate 표 "신규 행 3건 존재 확인" · 병합 전 `grep -c "worktree.preparing" docs/IPC_CONTRACT.md` = **0** |
+| Δ12 | 게이트 실행 중 두 스위트가 red 였다가 재실행에서 green 이 됐다 — `loopback-callback.test.ts`(고정 포트 45214 EADDRINUSE) · `mutation-queue.test.ts`(10 ms 타이밍 경합). 둘 다 이 브랜치가 건드리지 않은 파일이다. | ⚠️ 보고만 — 환경 기인으로 분리한다. 45214 는 이 컨테이너의 다른 프로세스가 물고 있었고(`net.createServer().listen(45214)` 프로브가 `EADDRINUSE`), 최종 전체 실행에서 둘 다 green 이다. | `git diff --name-only a106d9b..HEAD` 에 두 파일 **없음** · 최종 `npm test` 299/299 green |
+
+### 설계 대비 명시적 차이 (ΔV2 r3)
+
+- **2건.** (A) AT-26·AT-30·AT-32 의 "스텁 호출 증가 0/1" 을 **런타임 클릭 카운트가 아니라 구조 증거 조합**으로 잰다. (B) §11 ΔV2 는 `parseCommitLogWithFiles` 신설 + `parseCommitLog` 유지를 적었고, 실제는 `parseCommitLog(out, withFiles = false)` **한 함수**의 두 모드다(`git-diff-parse.ts:31`). (B) 는 산출 계약이 같고(폴백 모드에서 `files: []`·`fileCount: null`·`totals: null`) 호출부가 둘뿐이라 그대로 두었다.
+
+(A) 의 축별 재유도 — 대체물(구조 증거)이 갖고 원본(런타임 카운트)이 갖지 않던 실패 모드:
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | **해당 없음** — 스윕은 매 실행마다 소스를 다시 읽는다. 캐시·TTL·기록된 스냅샷이 없다. | EP-18 ② · EP-20 ② 재확인: `gitQueryOwner.test.ts` 가 `readdir`/`readFile` 로 매번 스캔 |
+| **공유** (누가 함께 쓰고 누가 비울 수 있는가) | **있다** — 대상 집합이 `src/renderer` **전체**라, 다른 handoff 가 파일을 옮기거나 디렉토리를 갈아도 분모가 조용히 바뀐다. 런타임 카운트는 자기 컴포넌트 트리만 봤으므로 이 축이 없었다. | 하한 `expect(files.length).toBeGreaterThan(50)` + 소유자 3건의 **양성 단언**으로 닫았다. 관측: 보강 후 M8·M11 red, 정상 트리에서 green |
+| 재진입 | **해당 없음** — 순수 파일 스캔이고 상태가 없다. 원본에 있던 "같은 렌더에서 두 번 호출" 축은 계기 판정(`gitSnapshotQueryReason`, `gitSnapshotQuery.test.ts` 5케이스)이 대신 갖는다. | AT-32 재확인: 계기 4종 + remount 는 trigger key 불변(`:87`) |
+| 다른 무효화 축 | **있다** — 텍스트 스윕은 **호출 형태**만 본다. `const f = gitApi.diffFile; f(...)` 처럼 간접 참조로 부르면 분모 밖이다. 런타임 카운트는 그것도 셌다. | 별도 전수로 닫았다: `grep -rn gitApi src/renderer` 프로덕션 히트 **12건**이 전부 `import` · `gitApi.<name>(` 직접 호출 · 주석이고 간접 참조 **0건**이다 |
+
+## [구현자 기입] 구현 보고 (ΔV2 r3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | ΔV2 r3 구현 커밋 12개 합계 **88파일**(신규 27 · 삭제 5 — `diffTileData.{ts,test.ts}`·`diffTileTree.{ts,test.ts}`·`diffTileFixtures.testlib.ts`). 이 마감 턴이 더한 것: 신규 1(`shared/ui/htmlRegion.testlib.ts`) · 수정 10 · 저장소에서 제거 3(`.superpowers/**`) |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `npm test` · `node scripts/check-doc-inventory.mjs [--check]` · `node scripts/check-migrations-appendonly.mjs` · 변이 23종 각각 `./node_modules/.bin/vitest run <잠금 스위트 40파일>` |
+| **관측한 게이트 산출**(exit code 아님) | **lint** 0 error / 1 warning — 기존분(`useTranscriptVirtualizer.ts:22` `react-hooks/incompatible-library`), 이 브랜치가 건드리지 않은 파일. `--fix` 실행 후 작업 트리 변화 **0**. **typecheck** 3구성(`node`·`web`·`test`) 모두 출력 0줄. **npm test** 테스트 파일 **299/299 pass** · 케이스 **2846/2846 pass** · 스크립트 단위 `# pass 59 / # fail 0` · exit **0**. **doc-inventory** 재생성 전 `--check` exit 1(`stale or hand-edited`) → 재생성(`DB 마이그레이션 18 → 19` 한 축, 3줄) → `--check` exit 0 (`9 items, 81 channels`). **migrations append-only** `sync ok: 19 migrations, dir == migrate.ts imports` · `no-copies ok: 868 source files` · exit 0 (태그 대조는 이 체크아웃에 `v*` 태그가 0개라 스킵됐다 — `git tag \| wc -l` = 0) |
+| 환경 기인 분리 | **최종 실행에는 없다.** 중간 실행에서 `chat-turn.continuity.test.ts` 가 `Electron failed to install correctly`(설치 시 `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 사용) 로 red 였고, `node node_modules/electron/install.js` 로 바이너리를 받아 해소했다. `loopback-callback.test.ts`·`mutation-queue.test.ts` 의 일시 red 는 Δ12 |
+| V-pair 자기확인 | `SELF_PASS` REQUIRED **18**(VP-28~VP-45) + REGRESSION **9**(VP-09·10·12·14·15·22·24·25·27) · `NOT_REQUIRED` **13**(VP-01~08 · 13 · 18 · 19 · 20 · 21) · `SUPERSEDED` **3**(VP-11·16·17) · `SELF_BLOCKED` 0. 검산 `18 + 9 + 13 + 3 = 43` — ΔV2 Pair registry 가 열거한 pair 전수와 같다 |
+| 강제 지점 전수 | **32/32** (EP-14 5 · EP-15 3 · EP-16 2 · EP-17 6 · EP-18 2 · EP-19 3 · EP-20 2 · EP-21 3 · EP-22 3 · EP-23 3). V1 21 + ΔV1 9 와 합쳐 유효 **62/62** |
+| **AC 자기보고**(`Criteria-Met`) | **15/16** — 아래 표 |
+| **합계 검산** | `✅ 15 · ⚠️ 1 · ❌ 0 = 총 16` (§7 ΔV2 표 행 재계수: AT-22·23·24·25·26·27·28·29·30·31·32·33·34·35·36·37 = **16**, r3 이 AT-37 을 더해 15→16 이 된 분모 그대로다). V1 의 15 · ΔV1 의 6 과 분모가 다르므로 직접 비교하지 않는다 |
+| 블로커 / 역질문 | 없다. 미완 1건은 **사람 실기**(AT-30 scroll 보정)이고 이 환경에서 불가하다 — 네트워크·GUI 완전 환경의 사람 몫이다. Δ9(EP-17 라벨)는 설계자 정정 대상 |
+| 대상 커밋 | `(ΔV2 r3 구현 — 검증자 기입)` |
+| 기준 브랜치 병합 | **`main` 을 브랜치로 머지했다**(0212 11커밋). 충돌 **5파일**은 전부 *같은 자리에 두 handoff 가 나란히 추가*한 것이라 양쪽을 모두 남겼다 — `ipc.ts`·`chatReducer.ts` 의 `session.updated` patch(0211 `worktree` + 0212 `agentTools`·`cliVersion`) · `session-runtime.test.ts` import 한 줄 · `INDEX.md` 두 행 · `inventory.md` 는 손으로 합치지 않고 **재생성**(채널 80+2=**82** · git 5 · chat 7 · variant **23**). 채널·이벤트 집합이 서로소임을 먼저 확인했다(내 브랜치만 `orca:git:diffFile`·`diffSummary`·`worktree.preparing`, main 만 `orca:chat:backgroundSubagent`·`subagent.backgroundSet`). 병합 후 게이트 재실행: `npm test` **304파일 2954케이스 + scripts 67/67, exit 0** · typecheck 3구성 0줄 · lint 0 error/1 warning(기존분) · doc-inventory·append-only exit 0 |
+
+**AC 자기보고 상세** — 각 행에 이번 턴에 재현한 관측값을 함께 적는다.
+
+| AC | 판정 | 재현 명령 / 관측 |
+|---|---|---|
+| AT-22 | ✅ | `prepare-worktree.test.ts:25`(비격리 birth baseline = HEAD 1회 읽기 · Git 실패는 `null`) · `writer.test.ts:68`(`insertSession` 에 1회 전달) · `queries.test.ts:483`(저장·레거시 NULL) · `service.test.ts:172`(`result` 가 `{kind:'managed', baseOid}` — **DB 재조회 아님**, D-051) · `git-diff.test.ts:58,268`(커밋 `a.ts` + 미커밋 `a.ts` + 세션 `['a.ts','b.ts']`) |
+| AT-23 | ✅ | `git-diff.test.ts:64`(`base.kind==='head'` · `commits []` · 예외 없음) · `:263` · `migrate.test.ts:107`(0019 적용 후 레거시 행 `{title:'before', baseline_oid:null}`) · `node scripts/check-migrations-appendonly.mjs` exit 0 |
+| AT-24 | ✅ | `git-diff.test.ts:75`(추적 1 + 미추적 2 → `files` 길이 1, 경로가 추적 파일) · `grep -rc -- "--others" src/main` → **0** · `SessionChangesList.tsx:82` 가 `diffUntrackedExcluded` 를 그린다 + `resources.test.ts` ko/en 패리티 green |
+| AT-25 | ✅ | `git-diff-parse.test.ts:135`(두 커밋 본문·순서 · M/A/D/R/C · binary · NUL 경로) · `git-diff-service.test.ts:33`(`log` 프로세스 **1건** · 8 MiB) · `sessionChangesList.render.test.ts:55`(노드 2개 순서 · 본문 있는 커밋과 없는 커밋 구분) |
+| AT-26 | ✅ | `sessionChangesData.test.ts:72`(8-file → 2행/8행) · `:91`(51-file fallback 은 50까지만) · `sessionChangesList.render.test.ts:88`(`+6개 파일 더` → 8행 + collapse) · `:120`(`+48개 파일 더` 후 `+1개 파일 더` 가 **아니라** `일부만 표시`). 확장 전후 조회 증가 0 = 구조 증거(차이 A) |
+| AT-27 | ✅ | `git-diff.test.ts:268`(같은 `a.ts` 가 커밋 `files` 와 `uncommitted.files` 양쪽) · `sessionChangesList.render.test.ts:55`(`regionContains(timeline, 'data-session-uncommitted') === false` · `regionContains(timeline, 'data-session-commit="commit-a"') === true` · `data-session-change-file="shared.ts"` **2건**) |
+| AT-28 | ✅ | `sessionChangesData.test.ts:47`(base 3종 → `{kind:'oid',oid:'base-oi'}`·`{kind:'head'}`·`{kind:'none'}`; `summaryBaseText` 가 head 에서 sha 를 **안** 낸다) · `sessionChangesList.render.test.ts:74`(여섯 값 `base-oi`·`+3`·`−1`·`추적 파일 2개`·`미추적 제외`·`커밋 2개`·`미커밋 1개` + head 요약에서 `현재 HEAD` 이고 `deadbee` 미노출). **Δ2 선조치로 충족** |
+| AT-29 | ✅ | `diffPeekRequest.test.ts:15`(두 진입 `toEqual` 깊은 동등 + 키 집합 `['cwd','path','sessionId']`) · `:32`(랜딩도 동등) · `:5`(`commit` 프로퍼티 없음) · `ipc.ts:1081-1090` `GitDiffRequest` 에 `commit` 0건 · `grep -rn "kind === 'commit'" src/main` → **0** · `DiffPeek.tsx:424-425` 미커밋 진입에만 `diffIncludesUncommitted` |
+| AT-30 | ⚠️ | **자동 축 green** — `diffHunks.test.ts:20`(200줄 2변경 → hunk 2 · gap 3) · `:27`(그 gap 만 5행 · `insertedAbove===5` · 기존 키 부분수열 보존) · `:44`(경계 gap 소멸) · `:55`(꼬리 gap `insertedAbove===0`) · `diffViewport.test.ts` 2케이스(보정 **계획** 계산) · 조회 축은 `gitQueryOwner.test.ts` 의 `diffFile` 소유자 1건. **사람 실기 1건(D-060 · scroll 보정) 미수행** — headless 컨테이너 (Δ11) |
+| AT-31 | ✅ | `peekNavigation.test.ts:52`(commit group 안에서만 prev/next · 경계 `null` · `index/total`) · `:63`(uncommitted 는 같은 path 라도 별도 후보 집합 — 다른 커밋 파일이 후보에 **없다**) |
+| AT-32 | ✅ | `gitSnapshotQuery.test.ts:38`(계기가 initial·identity·turn-end·refresh **넷**뿐) · `:87`(같은 입력의 remount 는 trigger key 불변) · `:58`(busy A → idle B 는 1회) · `chatReducer.plan.test.ts:425`(peek open/back·커밋 확장이 request·generation 불변) · `gitQueryOwner.test.ts`(`diffSummary` 소유자 **1**). 증가 0/1 카운트는 구조 증거(차이 A) |
+| AT-33 | ✅ | `git-diff-parse.test.ts:197`(50/51 경계에서 목록만 잘리고 `fileCount`·`totals` 는 절단 전) · `:220`(실제 0 과 unavailable 의 null 구분) · `git-diff-service.test.ts:53`(폴백 인자에 `--raw`·`--numstat` **없고** `--format` **그대로**; `commits` 비지 않음 · `commitFilesUnavailable===true` · `files` 빈 배열 · `fileCount`/`totals` null · **본문 보존**) · `:82`(폴백까지 실패 → `commits` 빈 배열) · `sessionChangesList.render.test.ts:149`(`커밋별 파일 정보를 가져오지 못함` 안내) |
+| AT-34 | ✅ | `diffPeek.render.test.ts:66`(줄의 `+` · 열린 draft · 확정 마커 · 제거) · `RequirementTray.render.test.ts:30`(칩 + 제거 a11y) · `Composer.requirements.render.test.ts:32`(GitRow 아래 · 입력 위) · `chatStore.test.ts:528`(payload 에 anchors 만) · `:580`(성공 시 0 · `false` 시 **1 그대로**) · `ComposerInputController.test.ts`(실제 async submit 수명주기 — 수락/거절/draft drift/attachment drift) |
+| AT-35 | ✅ | `diffRequirements.test.ts:35`(**키 집합 10개 정확 동등** · `located` 없음 · context 3줄·200자 · comment 2000자 절단) · `:79`(삭제 축 `newLine: null`) · `:119`(후보 둘이면 저장된 줄에 **가까운** 쪽) · `:141`(동거리는 첫 일치) · `:156`(못 찾으면 `located:false` 이고 항목·본문 **잔존**) · `protocol.send.test.ts:140`(zod 가 UI 전용 키를 보존하지 않는다) · `:170`·`:185` |
+| AT-36 | ✅ | `diff-requirements.test.ts:21`(sentinel 개폐 + 속성 escape) · `:37`(본문의 sentinel 과 `</comment>` 중화) · `build-turn-content.test.ts:78`(**빈 목록이면 첨부-only 문자열과 byte-identical**) · `:85`·`:93`(합류 위치 — 이미지 경로에서도 첫 text 블록에만) |
+| AT-37 | ✅ | `pending-message-queue.test.ts:556`(배치 병합이 구조 payload 를 이월) · `continuation.test.ts:91,159`(flush/listen 이 같은 값을 싣는다) · `send.worktree.test.ts:266`(직접 send → TurnRequest) · `:298`(turn-open 병합 배치) · `diff-requirements.test.ts:51`(**8홉 프로덕션 스윕**) |
+
+## [구현자 기입] Review Signals — 사실만 (ΔV2 r3)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **그렇다 — "0건/구조 스윕은 자기가 세는 단위 안에서만 눈이 있다"** 가 세 번째로 열렸다. ΔV1 은 술어를 *해법 이름*에서 *불변식의 주어*로 바꿔 예외 1건을 드러냈고(EP-13 정정), r3 은 같은 스윕에서 **축**(`diffFile` 누락)과 **단위**(파일 vs 파일×조회 종류) 둘을 더 열었다(Δ5). 같은 축의 세 번째 표면이다. 0191 이 여섯 라운드에 걸쳐 연 grep 파이프라인의 *대상 집합 → 추출 → 분류 단위* 와 같은 계열이다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **있었고 둘 다 문장으로는 이미 존재했다.** ① AT-29 주의사항이 "커밋 진입과 미커밋 진입 **둘 다** 요청을 수집해 같은 객체라고 단언해야" 를 명시했는데 구현은 한 진입만 단언했다(Δ4) — 지침이 있었으나 그 문장을 테스트로 옮기지 않았다. ② AT-27 이 "타임라인 마커 **밖에** 있고" 를 적었는데 구현은 *뒤에* 로 옮겼다(Δ3) — "밖" 과 "뒤" 가 다른 축임을 테스트가 구분하지 않았다. 반대로 **§10 EP-13 의 술어 규칙은 세 번째로도 작동했다** — "해법 이름으로 세지 마라" 가 스윕을 다시 열어보게 만든 근거다.
+- 반복해서 부딪히는 환경 한계: ① `vitest.config.ts:7` 의 `environment: 'node'` — React mount/click 실기가 불가해 "조회 증가 0" 류 AC 가 매 라운드 구조 증거로 대체된다(ΔV1 Review Signals 와 같은 항목). ② GUI 사람 실기(D-060 scroll 보정)가 headless 원격 컨테이너에서 불가하다. ③ 고정 포트를 바인딩하는 스위트(`loopback-callback.test.ts`, 45211~)가 공유 컨테이너의 점유 포트와 충돌한다 — 이 저장소에서 처음 관측했다.
+- 현재 라운드 수: **1** — verify 이전 사용자 결정 변경(ΔV1·ΔV2)은 라운드를 올리지 않는다는 사용자 명시를 유지한다.
+
+---
+
+> **ΔV3 구현 (라운드 1 유지)** — 성능·연출·시각 일관성 셋을 규범대로 수행했다. 기준선 이전
+> 커밋 열람은 D-068 로 범위 밖이고 손대지 않았다.
+
+## [구현자 기입] 설계 리뷰 (ΔV3)
+
+- 동의 / 그대로 진행: D-061~D-067 을 계약으로 수행했다. 설계가 전제한 셋이 코드에서 성립했다 — `parseCommitFiles`(`git-diff-parse.ts:92`)가 실제로 `--raw --numstat` 형식의 SSOT 였고(export 만 하면 됐다), `diffPeekBodyKey`(`diffFileCache.ts:15`)가 이미 다섯 축을 갖고 있었으며, `animate-tile-in`(`app.css:152`)의 180ms·`motion-reduce` 형태를 그대로 승계할 수 있었다.
+- 이견 / 현실성 문제: **없다.** ΔV3 은 `PLAN_GAP` 없이 끝났다.
+- ACTIVE Decision 과 충돌하는 설계 발견: 없다. 캐시·호출 감축·연출은 **무엇을 보여주는가**를 바꾸지 않는다 — 그 사실 자체를 REGRESSION 7 pair 가 잰다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (ΔV3)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-46 · VP-47 | 캐시는 다섯 축 키이고 조회보다 앞에 선다 | EP-24 ① 다섯 축 키 ② 조회 앞 `get` ③ 경계 폐기 (3) | 3/3 | ① `grep -c "diffPeekBodyKey(" chatReducer.ts` → **1** — 키를 **리듀서가 짓는다**(화면이 만들어 넘기면 두 곳이 같은 규칙을 갖는다) ② `grep -c "if (cachedContent !== null) {" DiffTileContent.tsx` → **1**, 그 블록이 `return` 으로 끝나 `bodyOwner.run` 에 닿지 않는다 ③ `grep -c "bodyCache: EMPTY_DIFF_BODY_CACHE" chatReducer.ts` → **2** = `initialChatState`(NEW_CHAT·START_LOAD_SESSION·LOAD_SESSION 이 전부 이것을 spread) + `SET_CWD` 리터럴. 요약 세대는 **키가 달라져** 자연 무효화된다 | — |
+| VP-48 | 합쳐서 한 번, 잠그지 않고 | EP-25 ① `readDiff` 단일 호출 + 파서 재사용 ② 좌표 한 호출 + 캐시 ③ 전건 `--no-optional-locks` (3) | 3/3 | ① `grep -c "'diff', '--raw', '--numstat', '-z'" git-diff.ts` → **1**; 신규 파서 **0**(`parseCommitFiles` 를 export 만 했다 — 본문 diff 0줄) ② `grep -c "'--is-inside-work-tree', '--show-toplevel'" git-diff.ts` → **1**; `insideWorkTree`·`repoRoot` 두 함수는 사라졌다 ③ `grep -c "READ_ONLY_GIT_FLAG, ...args" git-diff.ts` → **1** — `run()` 이 유일 관문이고, 테스트가 **차집합 0** 으로 센다 | — |
+| VP-49 | 방향이 있는 두 연출 · `motion-reduce` | EP-26 ① 두 화면 루트가 서로 다른 utility ② 가드 (2) | 2/2 | ① `SessionChangesList.tsx` `animate-depth-out` 1건 · `DiffPeek.tsx` `animate-depth-in` 1건, **서로 다르다** ② `app.css:194` 의 `@media (prefers-reduced-motion: reduce)` 블록에 두 클래스가 함께 있다 | — |
+| VP-50 | 형제의 primitive | EP-27 ① `Icon` ② `group/` + `transition-colors` ③ 접기 = button+chevron (3) | 3/3 | ① `<Icon` = `SessionChangesList` **2** · `DiffPeek` **6** (변경 전 각 0) ② 이름 붙은 group **7종**(`changefile`·`commitfiles`·`diffline`·`gap`·`peekback`·`peekprev`·`peeknext`), 익명 `group-hover:` **0건**, `hover:` 를 가진 className 중 전이 없는 것 **차집합 0** ③ `grep -c "aria-expanded={expanded}"` → **1** + `expanded ? '' : '-rotate-90'` 회전 | **자동 축은 구조뿐이다** — 형제 대비 이질감은 사람 실기(D-067) |
+
+- **분모를 자기가 정하지 않았는지**: EP-25 ③ 의 술어는 불변식의 주어(`run()` 을 지나는 **모든** 인자 배열)이고 해법 이름이 아니다 — 테스트가 `args[0] !== '--no-optional-locks'` 인 것을 **빼서 `[]` 임을 보인다**. EP-27 ② 도 총량이 아니라 **대응**이다(hover 를 가진 className 집합 − 전이를 가진 집합 = 0).
+- §10 에 없는데 같은 불변식이 필요했던 지점: **1건 — 세션 파일 목록의 `status`**. `readDiff` 교체가 status 출처를 `--name-status` 에서 `--raw` 로 옮기는데, 저장소의 어떤 케이스도 **세션 목록의** status 를 단언하지 않았다(커밋 노드 쪽만 있었다). 선조치로 양성 oracle 을 만들었다 → 아래 Δ2.
+- 전수 **11/11**. EP-24 3 · EP-25 3 · EP-26 2 · EP-27 3. V1 21 + ΔV1 9 + ΔV2 32 와 합쳐 유효 **73/73**.
+
+**V-pair 자기확인** — 구현자의 `SELF_PASS` 는 독립 검증의 `PASS` 가 아니다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-46 | REQUIRED | SELF_PASS | 13항목에서 첫 항목만 `miss`(나머지 12 차집합 0) · 다시 읽은 항목이 살아남고 두 번째로 오래된 것이 빠진다 · A→B→A 뒤 두 파일 모두 `hit` | required — MA(항상 miss) **red** 8/195 · MB(저장 안 함) **red** 9/195 |
+| VP-47 | REQUIRED | SELF_PASS | 다섯 축 각각 하나만 바꾼 5케이스가 전부 `miss` · 세대 +1 뒤 `miss` · cwd/새 대화/세션 로드에서 `[]` | required — MC 5종(축을 하나씩 키에서 제거) **각각 red**, 매번 그 축의 케이스가 실패 |
+| VP-48 | REQUIRED | SELF_PASS | `--name-status` 0건 · `--raw`+`--numstat` 범위마다 1건 · `rev-parse` 1건에 두 플래그 · 두 번째 조회의 좌표 질의 증가 0 · `--no-optional-locks` 누락 차집합 `[]` | required — MD(`--raw` 제거) **red** 2/196(**호출 형태 + 산출 동등 양쪽**) · ME(한 호출만 관문 우회) **red** 1/196 |
+| VP-49 | REQUIRED | SELF_PASS | 두 루트의 클래스가 다르고 서로의 것을 갖지 않는다 · 두 utility 가 180ms·ease-out · 가드 블록에 둘 다 | required — MF(두 화면에 같은 연출) **red** 1/196 · MG(가드 삭제) **red** 1/196 |
+| VP-50 | REQUIRED | SELF_PASS | `Icon` 2·6 · 익명 group 0 · hover↔전이 차집합 0 · 접기 button + `aria-expanded` + 회전 갈림 · `font-serif` 0건 | required — MH(**한 행만** 전이 제거) **red** 1/196 — 총량이 아니라 대응이라 한 자리가 보인다 |
+| VP-36 | REGRESSION | SELF_PASS | 확장 2회에서 `diffFile` 호출부가 여전히 `DiffTileContent` 하나(소유자 스윕) · `diffHunks` 4케이스 green | not selected — 기존 oracle 재실행 |
+| VP-31 · VP-33 · VP-34 · VP-39 | REGRESSION | SELF_PASS | `readDiff` 교체 후에도 커밋별 파일·미커밋 블록·헤더 여섯 값·50/51 절단이 같은 값 — `git-diff.test.ts` 19케이스 · `git-diff-parse.test.ts` 19케이스 green | not selected — 기존 oracle 재실행(**D-062 의 산출 동등 측정**) |
+| VP-35 · VP-38 | REGRESSION | SELF_PASS | 두 진입 깊은 동등 3케이스 · 계기 판정 5케이스 · 소유자 스윕 green | not selected — 기존 oracle 재실행 |
+| VP-28·29·30·32·37·40~45 | NOT_REQUIRED | — | §18 ΔV3 목록 밖 — 기준선 기록·미추적 제외·요구사항 수명·직렬화·홉을 한 줄도 건드리지 않았다(`git diff --name-only` 로 확인) | — |
+## [구현자 기입] 이번 라운드 수정의 잠금 (ΔV3)
+
+기준선: 잠금 스위트 20파일 · **196케이스** green(oracle 보강 전 195). 각 변이는 그 스위트 전체를 다시 돌려 red 지점을 관측했다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `diffBodyCache.ts` — `getDiffBody` 가 항상 `null` | VP-46 선택 증거 ① | 최초 | `diffBodyCache.test.ts` 8건 | 잠김 |
+| `diffBodyCache.ts` — `putDiffBody` 가 아무것도 담지 않음 | VP-46 선택 증거 ② | 최초 | `diffBodyCache.test.ts` 9건 | 잠김 |
+| `diffFileCache.ts` — 키에서 `cwd` 제거 | VP-47 선택 증거 (5축 중 1) | 최초 | `diffBodyCache.test.ts` 1건 | 잠김 |
+| `diffFileCache.ts` — 키에서 `sessionId` 제거 | VP-47 선택 증거 (2) | 최초 | `diffBodyCache.test.ts` 1건 | 잠김 |
+| `diffFileCache.ts` — 키에서 `summaryGeneration` 제거 | VP-47 선택 증거 (3) | 최초 | cache 1 + `chatReducer.plan.test.ts` 1 = 2건 | 잠김 |
+| `diffFileCache.ts` — 키에서 `group` 제거 | VP-47 선택 증거 (4) | 최초 | `diffBodyCache.test.ts` 1건 | 잠김 |
+| `diffFileCache.ts` — 키에서 `path` 제거 | VP-47 선택 증거 (5) | 최초 | `diffBodyCache.test.ts` 1건 | 잠김 |
+| `git-diff.ts` — `readDiff` 에서 `--raw` 제거 | VP-48 선택 증거 ① | 최초 | 호출 형태 1 + **산출 동등 1** = 2건 | 잠김 (Δ2 보강 후) |
+| `git-diff.ts` — `showAt` 만 `run()` 관문 우회 | VP-48 선택 증거 ② | 최초 | `git-diff-service.test.ts` 1건 (차집합) | 잠김 |
+| `SessionChangesList.tsx` — 목록에도 `animate-depth-in` | VP-49 선택 증거 ① | 최초 | `diffTile.render.test.ts` 1건 | 잠김 |
+| `app.css` — `motion-reduce` 가드 블록 삭제 | VP-49 선택 증거 ② | 최초 | `depthCss.test.ts` 1건 | 잠김 |
+| `SessionChangesList.tsx` — **한 행에서만** `transition-colors` 제거 | VP-50 선택 증거 | 최초 | `diffPanelDesign.test.ts` 1건 | 잠김 |
+| `git-diff.ts` — 세션 목록 status 양성 oracle 의 민감도 | **이번 턴 신설 oracle**(Δ2) | 최초 | 위 `--raw` 제거 변이가 이 케이스를 red 로 만든다(네 status 가 서로 달라야 한다) | 잠김 |
+
+- **분모 검산**: `선택 증거 12`(VP-46×2 · VP-47×5 · VP-48×2 · VP-49×2 · VP-50×1) `· 인용 변이 0`(ΔV3 은 첫 구현 라운드라 파생 이슈가 없다) `· 새 oracle 1`(세션 목록 status) `= 표 행 13`. 표를 다시 세어 **13행**임을 확인했다.
+- **행이 없는 claim**: 없다. `not selected` 로 표시한 REGRESSION 7 pair 는 기존 oracle 재실행이라 이 표의 행을 요구하지 않는다.
+- **덮개 회귀 검사**: 이번 턴이 고친 장치는 셋이다. ① `git-diff-service.test.ts` 의 fake runner — 인덱스(`args[0] === 'log'`)를 **첫 비-플래그 인자**로 바꿨다. 구 술어가 잡던 것(“log 호출이 N건”)을 새 술어도 그대로 잡고, 읽기 플래그가 하나 더 붙어도 안 깨진다. ② `DiffTileContent.bridge.test.ts` 의 `toHaveLength(1)` — 본문이 오는 길이 둘이 돼 `>= 2` 로 바꿨는데, 그러면 “지역 재구현으로 갈라짐”을 못 잡을 수 있어 `recordDiffBody(`·`if (cachedContent !== null) {` **양성 단언 둘을 새로 추가**했다(구 장치보다 강하다). ③ `chatReducer.plan.test.ts`·`chatStore.test.ts` 의 `gitSnapshot` 전체 비교 — 필드가 늘어 fixture 에 `bodyCache: []` 를 더했을 뿐 단언 축은 그대로다.
+- **스윕 민감도의 취약 지점**: `diffPanelDesign.test.ts` 는 **className 리터럴만** 본다 — 클래스를 변수·헬퍼로 조립하면 분모 밖이다. 지금 두 파일에 그런 조립이 없음을 따로 셌다(`className=` 리터럴 밖의 클래스 문자열 0건). `depthCss.test.ts` 는 CSS **원문**을 읽으므로 Tailwind 빌드 결과를 보지 않는다 — utility 이름이 실제로 클래스가 되는지는 사람 실기가 본다.
+
+## [구현자 기입] Product/UX 파생 검토 (ΔV3)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | **신규 문구 0** | `aria-label` 은 기존 키(`header.back`)를 재사용했다 — 새 키를 만들지 않아 i18n 게이트 차분이 **불변**이다(설계는 “키가 는다” 로 적었다 → 아래 차이 B) |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 전부 있다 | §5 ΔV3 8행이 첫 열기·왕복·재진입·새로고침·세션 전환·조회 실패·상한 초과·모션 축소를 각각 갖는다 |
+| 실패가 “아무 일도 안 일어남” 으로 보이지 않는가 | 보이지 않는다 | 조회 실패는 **캐시에 담기지 않아** 다음 진입이 다시 시도한다(`putDiffBody` 가 `kind !== 'text'` 를 거른다). 캐시 적중은 로딩 문구 없이 즉시 본문이 서고, 그것이 “빨라졌다” 의 관측이다 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 되돌리지 않는다 | `bodyOwner` 의 세대 가드가 그대로 남아 있다 — 캐시는 그 **앞**에 서고 뒤를 바꾸지 않는다 |
+| **캐시가 건너뛴 부수효과가 있는가** | **있었다 → 막았다** | 조회 경로는 요구사항 **재anchor**(EP-23 ②)를 함께 돌렸다. 캐시 적중이 그것을 건너뛰면 다시 연 파일의 요구사항이 위치를 잃는다 — 캐시 분기에서도 `registerDiffPeekBodyRequest` + `handleDiffPeekBodyResult` 를 부른다(소스 oracle 이 둘 다 ≥2 로 센다) |
+| 없앤 능력에 대체가 있는가 | 해당 없음 — 능력을 없애지 않았다 | `--name-status` 조회가 사라졌지만 같은 값이 `--raw` 에서 온다(status 양성 oracle 이 넷을 구분해 잰다) |
+| 모션 민감 사용자 | 저장소 규칙대로 | `prefers-reduced-motion` 에서 두 연출이 꺼진다 — `animate-tile-in`·`animate-status-beacon` 과 같은 형태 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (ΔV3)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| Δ1 | **캐시 적중이 요구사항 재anchor 를 건너뛴다.** 조회 경로만 `handleDiffPeekBodyResult` 를 불렀는데, 캐시가 그 앞에 서면 다시 연 파일의 요구사항이 위치를 다시 찾지 못한다 — EP-23 ②(“재anchor 는 peek **본문 도착 시점**”)가 조용히 깨진다. plan §11 은 캐시를 “조회 앞에 세운다” 까지만 적었다. | ✅ 선조치 — 캐시 분기에서도 `registerDiffPeekBodyRequest` + `handleDiffPeekBodyResult` 를 부른다. 소스 oracle 을 `1건`에서 **`≥2` + 두 경로 표식**으로 강화해 한쪽이 갈라지면 red 다. | `DiffTileContent.tsx` 의 캐시 분기 · `DiffTileContent.bridge.test.ts` |
+| Δ2 | **세션 파일 목록의 `status` 에 양성 oracle 이 없었다.** `readDiff` 교체가 status 출처를 `--name-status` → `--raw` 로 옮기는데, 저장소의 어떤 케이스도 그 값을 단언하지 않았다(커밋 노드 쪽만 있었다). `--raw` 를 뺀 변이가 **호출 형태 테스트에만** 걸리고 산출 테스트는 전건 통과했다(실측). | ✅ 선조치 — 임시 저장소에서 추가·삭제·수정·이름변경 넷이 **서로 다른 status** 로 온다고 단언하는 케이스를 만들었다. 그 뒤 같은 변이가 2건 red 다. | `git-diff.test.ts` 신설 케이스 · MD 변이 재측정(1건 → 2건) |
+| Δ3 | **좌표 캐시가 테스트끼리 새어 나갈 수 있다.** cwd 만으로 키를 잡으면 fake runner 를 쓰는 스위트가 서로의 캐시를 본다 — 프로덕션은 옳게 동작하는데 테스트만 조용히 거짓 green 이 된다. | ✅ 선조치 — `WeakMap<runner, Map<cwd, coords>>` 로 **runner 별** 격리. 프로덕션은 `runGit` 하나라 D-063 의 “프로세스 수명” 이 그대로 성립하고, 테스트는 리셋 훅 없이 격리된다. | `git-diff.ts` 의 `repoCoordsCache` · 캐시 적중 케이스가 fake 로 관측 가능 |
+| Δ4 | **저장소가 아닌 경로를 캐시하면 나중에 `git init` 해도 계속 “저장소 아님”이다.** | ✅ 선조치 — `inside === true` 일 때만 담는다. | `git-diff.ts` 의 `if (coords.inside)` |
+| Δ5 | 설계는 캐시를 `features/chat/lib/` 에 두라고 적었으나 `components/rightpanel/` 에 두었다. | ⚠️ 보고만 — 아래 “설계 대비 명시적 차이 A”. 키 SSOT(`diffPeekBodyKey`)가 rightpanel 지역이라 `lib/` 에 두면 `lib → components` 역방향 import 가 생긴다. | `diffFileCache.ts:15` |
+| Δ6 | 설계는 “`aria-label` 키가 는다” 로 적었으나 신규 i18n 키가 **0** 이다. | ⚠️ 보고만 — 기존 `header.back` 등이 그대로 맞았다. **게이트 차분이 설계보다 작다**(i18n 불변). | `ko.ts:878` `back: '뒤로 가기'` |
+| Δ7 | **AT-38·AT-40·AT-41 이 요구한 사람 눈·클릭 축을 이 환경이 못 잰다.** `vitest.config.ts:7` 이 `environment: 'node'` 라 클릭 기반 스텁 카운트가 없고, headless 컨테이너라 GUI 실기가 없다. | ⚠️ 보고만 + 대체 증거 명시 — 아래 차이 C. ΔV2 Δ10·Δ11 과 **같은 한계**이고 새로 생긴 것이 아니다. | `vitest.config.ts:7` |
+| Δ8 | `diffPanelDesign.test.ts` 는 `className=` **리터럴만** 본다 — 클래스를 헬퍼로 조립하면 분모 밖이다. | ⚠️ 보고만 — 현재 두 파일에 그런 조립이 0건임을 따로 셌다. 조립이 생기면 이 스윕이 조용히 눈을 잃는다. | 두 파일의 className 전수 |
+
+### 설계 대비 명시적 차이 (ΔV3)
+
+- **3건.** (A) 캐시 모듈 위치가 `features/chat/lib/` → `components/rightpanel/` 이고 **키 함수를 신설하지 않고 `diffPeekBodyKey` 를 재사용**했다. (B) 신규 i18n 키 0(설계는 “는다”). (C) AT-38 의 “렌더 스텁 카운트”, AT-40·AT-41 의 시각 축을 **구조·순수 증거로 대체**했다.
+
+(A) 의 축별 재유도 — 키를 새로 만들지 않은 대체물이 갖고 원본이 갖지 않던 실패 모드:
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | **해당 없음** — 키에 TTL 이 없다. 무효화는 요약 세대(값)로만 일어난다. | AT-42 재확인: 세대 +1 뒤 `miss` |
+| **공유** | **있다** — `diffPeekBodyKey` 를 **두 소비자**(peek 본문 식별 · 캐시 키)가 함께 쓴다. 한쪽 요구로 축을 바꾸면 다른 쪽이 조용히 따라 바뀐다. 원본(전용 키)은 이 결합이 없었다. | 그래서 축 제거 변이 **5종을 전부** 심었다 — 어느 축이 빠져도 red 다(MC 5건). EP-24 ① 재확인 |
+| 재진입 | **해당 없음** — 키 파생은 순수하고 상태가 없다. 늦은 응답은 기존 `bodyOwner` 세대 가드가 계속 막는다. | AT-38 재확인: `bodyOwner.run` 이 캐시 뒤에 그대로 있다 |
+| 다른 무효화 축 | **있다** — 키가 세대를 담아 **자연 무효화**되므로 낡은 항목이 `bodyCache` 에 남는다(상한 12까지). 원본이 세대 경계에서 통째로 비웠다면 남지 않았을 것이다. 남아도 **읽히지 않는다**(키가 다르다). | AT-42 재확인: 세대 +1 뒤 `getDiffBody` 가 `null`. 메모리 상한은 §14 ΔV3(12 × 2 × 1 MiB) |
+
+(C) 의 대체 증거와 못 재는 것:
+
+| AC | 설계가 적은 수단 | 실제 수단 | 못 재는 것 |
+|---|---|---|---|
+| AT-38 | 렌더에서 `diffFile` 스텁 증가 2 → 0 | 리듀서로 A→B→A 를 실제로 흘려 두 파일이 `hit` 임을 **같은 production 함수**(`getDiffBody`)로 관측 + 화면의 조회 분기를 소스 oracle 로 고정 | 컴포넌트가 그 분기를 **실행**하는지. 소스 표식(`if (cachedContent !== null) {` + `return`)까지가 한계다 |
+| AT-40 | 전환이 끊기지 않는지 | CSS 정의(방향·시간축·가드) 3케이스 + 렌더 클래스 1케이스 | 실제 움직임. **사람 실기 미수행**(headless) |
+| AT-41 | 형제와 나란히 놓았을 때 이질감 | primitive 사용의 구조 단언 8케이스 | 보기 좋은지. **사람 실기 미수행**(headless) — D-067 이 이 차이를 미리 적었다 |
+
+## [구현자 기입] 구현 보고 (ΔV3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/**` **18파일**(신규 4: `diffBodyCache.ts`·`diffBodyCache.test.ts`·`diffPanelDesign.test.ts`·`depthCss.test.ts`) + `docs/` **1**(이 보고). **계약 문서·생성물 변경 0** — `docs/IPC_CONTRACT.md`·`docs/generated/inventory.md` 가 그대로다(DTO·채널을 만들지 않는다는 설계 예측 그대로). `git status --short -- docs` 로 재확인 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `npm test` · `node scripts/check-doc-inventory.mjs --check` · `node scripts/check-migrations-appendonly.mjs` · 변이 12종 각각 `./node_modules/.bin/vitest run <잠금 스위트 20파일>` |
+| **관측한 게이트 산출**(exit code 아님) | **lint** 0 error / 1 warning — 기존분(`useTranscriptVirtualizer.ts:22`), 이 브랜치가 안 건드린 파일. `--fix` 후 트리 변화 0. **typecheck** 3구성 출력 0줄. **npm test** 테스트 파일 **307/307 pass** · 케이스 **2983/2983 pass** · 스크립트 `# pass 67 / # fail 0` · exit **0**. **doc-inventory** `--check` exit **0**(재생성 불필요 — 차이 0). **append-only** exit 0 |
+| 환경 기인 분리 | **없다.** 이번 실행에 환경 기인 red 0건 |
+| V-pair 자기확인 | `SELF_PASS` REQUIRED **5** + REGRESSION **7** · `NOT_REQUIRED` 11 · `SELF_BLOCKED` 0 |
+| 강제 지점 전수 | **11/11** (EP-24 3 · EP-25 3 · EP-26 2 · EP-27 3). V1 21 + ΔV1 9 + ΔV2 32 와 합쳐 유효 **73/73** |
+| **AC 자기보고**(`Criteria-Met`) | **3/5** — 아래 표 |
+| **합계 검산** | `✅ 3 · ⚠️ 2 · ❌ 0 = 총 5` (§7 ΔV3 표 행 재계수: AT-38·39·40·41·42 = **5**). 유효 AC 42 중 ΔV3 분모가 5 다 — ΔV2 의 16 과 분모가 달라 직접 비교하지 않는다 |
+| 블로커 / 역질문 | 없다. 미완 2건은 **사람 실기**(AT-40 전환 부드러움 · AT-41 형제 대비 이질감)이고 headless 환경에서 불가하다 |
+| 대상 커밋 | `(ΔV3 구현 — 검증자 기입)` |
+
+**AC 자기보고 상세** — 각 행에 이번 턴에 재현한 관측값을 함께 적는다.
+
+| AC | 판정 | 재현 명령 / 관측 |
+|---|---|---|
+| AT-38 | ✅ | `diffBodyCache.test.ts` — 13항목에서 첫 항목만 `miss`(나머지 12 **차집합 0**) · 다시 읽은 항목이 살아남고 두 번째로 오래된 것이 빠진다 · 실패/binary 는 담기지 않는다. `chatReducer.plan.test.ts` — A→B→A 뒤 두 파일 모두 `hit` 이고 `a.ts` 가 가장 최근이다. 소스: 캐시 분기가 `return` 으로 조회에 닿지 않는다. **렌더 스텁 카운트는 대체됨**(차이 C) |
+| AT-39 | ✅ | `git-diff-service.test.ts` 4케이스 — `--name-status` **0건** · `--raw`+`--numstat` 범위마다 1건 · `rev-parse` 1건에 두 플래그 · 두 번째 조회의 좌표 질의 증가 **0** · `--no-optional-locks` 누락 **차집합 `[]`**. **산출 동등**: `git-diff.test.ts` 19 + `git-diff-parse.test.ts` 19 케이스 green, 그중 신설 status 케이스가 네 종류를 구분한다 |
+| AT-40 | ⚠️ | **자동 축 green** — `depthCss.test.ts` 3케이스(방향이 서로 다르다 · 180ms·ease-out 승계 · 가드 블록에 둘 다) · `diffTile.render.test.ts` 1케이스(두 루트가 서로의 클래스를 갖지 않는다). **사람 실기 미수행** — headless 컨테이너 |
+| AT-41 | ⚠️ | **자동 축 green** — `diffPanelDesign.test.ts` 8케이스(`Icon` 2·6 · hover↔전이 **차집합 0** · 익명 group 0 · 미선언 group 0 · 접기 `aria-expanded`+회전 갈림 · 제목 토큰이 `TaskTileSections` 와 동일 · `font-serif` 0건). **사람 실기 미수행** — headless 컨테이너 |
+| AT-42 | ✅ | `diffBodyCache.test.ts` — 다섯 축 각각 하나만 바꾼 5케이스가 전부 `miss`. `chatReducer.plan.test.ts` — 세대 +1 뒤 `miss` · `SET_CWD`·`NEW_CHAT`·`START_LOAD_SESSION` 이 각각 `[]` |
+
+## [구현자 기입] Review Signals — 사실만 (ΔV3)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **한 축이 같다** — “**대응으로 세지 총량으로 세지 않는다**”. ΔV2 r3 이 조회 소유자 스윕을 *파일* → *(파일 × 조회 종류)* 로 좁힌 것과, 이번에 hover↔전이를 *총량* 이 아니라 *차집합* 으로 센 것이 같은 계열이다. 나머지는 새 축이다(캐시 키 축·호출 형태·연출 방향).
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **있었고 이번엔 걸렸다** — §7 ΔV3 주의사항이 “AT-41 의 `transition-colors` 는 **행 수와 대응**”, “`--no-optional-locks` 는 **차집합 0**” 을 미리 적었고 구현이 그대로 따랐다. 반대로 **plan 이 못 적은 것이 둘 있었다**: 캐시가 재anchor 를 건너뛴다는 것(Δ1)과 세션 목록 status 에 oracle 이 없다는 것(Δ2) — 둘 다 코드를 만져야 보이는 자리다.
+- 반복해서 부딪히는 환경 한계: ① `vitest.config.ts:7` 의 `environment: 'node'` — 클릭·마운트 실기가 불가해 “조회 증가 0” 류가 매번 구조 증거로 대체된다(ΔV1·ΔV2 와 같은 항목, 세 번째). ② headless 원격 컨테이너라 GUI 사람 실기가 불가하다(ΔV2 와 같은 항목, 두 번째) — 이번엔 그 몫이 1건에서 3건으로 늘었다.
+- 현재 라운드 수: **1** — 사용자 명시(“라운드를 올리지 않는다”).
+
 
 ## [검증자 기입] 파생 이슈
 
