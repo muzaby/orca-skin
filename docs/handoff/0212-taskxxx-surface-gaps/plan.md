@@ -927,6 +927,120 @@ SDK(producer) → claude-map(정규화) → bus → coordinator/tracker(상태) 
 
 ---
 
+## [구현자 기입] r3 — 설계 리뷰
+
+- 동의 / 그대로 진행: verify r2 D11 의 대응 방향 그대로다 — `session-runtime.test.ts` 의 기존 `GovernedLiveTurn` fake 하네스가 실측과 일치했고(`:31`·`:150`·`:1119`) production `SessionRuntime` 을 직접 `new` 해 닿았다. **프로덕션 코드 diff 0**.
+- 이견 / 현실성 문제: **없다.** 차단 `PLAN_GAP` 0건 — D11 을 닫는 데 새 계약이 필요하지 않았다.
+- ACTIVE Decision 과 충돌하는 설계 발견: **0건.** 프로덕션 표면을 바꾸지 않아 충돌할 자리가 없다.
+- 보고 2건: 클릭 홉 3사이트는 DOM 환경·신규 의존성이 있어야 잠긴다(P9) · 이전 라운드들의 게이트 명령이 `src/preload` 를 건너뛴다(P10).
+
+## [구현자 기입] r3 — 강제 지점 전수 (§10 대조)
+
+이번 라운드가 여는 EP 만 적는다. 나머지는 r1·r2 가 닫았고 **프로덕션 diff 가 0**이라 재측정만 했다(전체 스위트 green, 아래 게이트).
+
+| Pair | 계약 | §10 지점 | r2 잠금 | r3 잠금 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-17·18 | 전환은 `toolUseId` 단건 · 실패를 삼키지 않는다 | EP-14 — **지점 2** | 1/2 | **2/2** | 핸들러 `chat-turn/index.ts:213` → MV-4 **RED 2** · MV-5 **RED 1**. `session-runtime.ts:651-652` → N8 인자 오염 **RED 2** · N9 본문 폐기 **RED 2**(둘 다 r2 에서 GREEN 2790) | — |
+
+**AC25 production path 8사이트 독립 재열거** — §10 은 이 중 2를 센다. `실패 의미`("인자를 흘리면 다른 태스크가 백그라운드로 간다")가 성립하는 지점 전수다.
+
+| # | 홉 | r3 이전 | r3 이후 |
+|---|---|---|---|
+| ① | `TaskTileContent.tsx:223`·`:359` onClick | GREEN | **미잠금 — P9** |
+| ① | `SubAgentTileContent.tsx:309` onClick | GREEN | **미잠금 — P9** |
+| ② | `chatStore.ts:872` store action | RED 1 | 잠김(재측정) |
+| ③ | `shared/api/ipc.ts:74` renderer api | RED 1 (r2 N7) | 잠김(r2 좌표 참조) |
+| ④ | `preload/index.ts:102` wire | **GREEN** | **RED 1** — 신설 `src/preload/index.test.ts` |
+| ⑤ | `chat-turn/index.ts:213` main 핸들러 | RED 2 | 잠김(재측정) |
+| ⑥ | `session-runtime.ts:652` 포트 구현 | **GREEN** | **RED 2** — `session-runtime.test.ts` 신설 5케이스 |
+| ⑦ | `claude.ts:507` 어댑터→SDK | **GREEN** | **RED 2** — 신설 `claude.live-control.test.ts` |
+
+- **차집합**: 8사이트 중 잠긴 것 **5부류**(②③④⑤⑥⑦), 남은 것 **① 클릭 3사이트**. 잔여 0이 아니다 — 남긴 곳은 P9 다.
+- **같은 형상의 형제 홉도 함께 닫았다**(§5 전수). `SessionRuntime` 의 `this.live?.X(arg)` forwarder는 **4개**(`setPermissionMode:636`·`setModel:644`·`stopTask:648`·`backgroundTask:652`)이고 r3 이전 **4/4 무잠금**이었다 — 넷 다 인자 변이가 이제 RED 다. `ClaudeAdapter` 의 위임 3개 중 2(`stopTask`·`setModel`)와 preload 형제 채널(`stopSubagent`)도 같이 잠갔다.
+- §10 에 없는데 같은 불변식이 필요한 지점: **① 클릭 3사이트**(P9) · ④⑦(이번에 닫음, 규범 행 없음). 셋 다 규범 분모 확대 여부는 설계 판단이다.
+
+**V-pair 자기확인 (r3)** — 유효 V = 22 pair(REQUIRED 17 · REGRESSION 5).
+
+| Pair | requiredness | r2 결과(검증자) | r3 자기 상태 | 이번 라운드 직접 관측 |
+|---|---|---|---|---|
+| VP-17 | REQUIRED | **PAIR_FAIL** | **SELF_PASS** | EP-14 2/2 — 핸들러(MV-4·MV-5)와 `session-runtime`(N8·N9) 양쪽이 RED |
+| VP-18 | REQUIRED | PASS | **SELF_PASS** | 실패 비삼킴 — `live` 부재 시 포트 미호출 + `false`, live 의 `false` 를 그대로 전파 |
+| VP-10·VP-19 | REGRESSION | PASS | **SELF_PASS** | `stopTask` 전달 홉 2개(runtime·adapter)가 이번에 RED — 기존 `stop-subagent` 스위트는 무변경 green |
+| VP-01·02·03·04·05·06·07·08·09·11·12·13·14·15·16·20·21·22 (18) | REQUIRED 14 · REGRESSION 4 | PASS | **SELF_PASS(상속)** | 프로덕션 diff 0 이고 전체 스위트 **280파일 2800케이스 green** |
+
+- `SELF_BLOCKED` 0 · `NOT_REQUIRED` 0.
+
+## [구현자 기입] r3 — 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| MV-4 핸들러의 `turn.live.backgroundTask` 호출 제거 | VP-17 선택 증거(ΔV1) | r2 RED 2 | 2 failed / 2798 | **RED** |
+| MV-5 같은 호출의 인자를 상수 `'use1'` 로 | VP-17 선택 증거(ΔV1) | r2 RED 1 | 1 failed / 2798 | **RED** |
+| N8 `SessionRuntime.backgroundTask` 인자 오염(`+ '-x'`) | **D11 인용 변이** | **r2 GREEN 2790** | 2 failed / 2798 | **RED** |
+| N9 `SessionRuntime.backgroundTask` 본문 폐기(`return false`) | **D11 인용 변이** | **r2 GREEN 2790** | 2 failed / 2798 | **RED** |
+| N2c preload `{ sessionId, toolUseId }` 맞바꿈 | **D12 인용 변이** | **r2 GREEN 2790** | 1 failed / 2798 | **RED** |
+| SR-1 `SessionRuntime.stopTask` 인자 오염 | 새 oracle 감도(형제 홉) | r3 사전 측정 GREEN 2790 | 1 failed / 2798 | **RED** |
+| SR-2 `SessionRuntime.setModel` 인자 상수화 | 새 oracle 감도(형제 홉) | r3 사전 측정 GREEN | 1 failed / 2798 (+무관 1, 아래) | **RED** |
+| SR-3 `SessionRuntime.setPermissionMode` 인자 상수화 | 새 oracle 감도(형제 홉) | r3 사전 측정 GREEN 2790 | 1 failed / 2798 | **RED** |
+| PL-1 preload 의 채널 상수를 `chatStopSubagent` 로 교체 | 새 oracle 감도(형제 슬롯) | 미측정 | 1 failed / 2798 | **RED** |
+| PL-2 preload `stopSubagent` 인자 맞바꿈 | 새 oracle 감도(형제 채널) | 미측정 | 1 failed / 2800 | **RED** |
+| CA-1 `claude.ts:507` `backgroundTasks` 인자 오염 | 새 oracle 감도 | **r3 사전 측정 GREEN 2798** | 2 failed / 2800 (+무관 1) | **RED** |
+| CA-2 `claude.ts:505` `stopTask` 인자 오염 | 새 oracle 감도(형제 위임) | 미측정 | 1 failed / 2800 | **RED** |
+
+- 분모 검산: **선택 증거 2**(VP-17 ← MV-4·MV-5) · **인용 변이 3**(D11 ← N8·N9 · D12 ← N2c) · **새 oracle 감도 7**(SR-1·2·3 · PL-1·2 · CA-1·2) = **표 행 12**. 표 행 12 ✅.
+- **덮개 회귀: 없다.** 장치를 교체·삭제한 곳이 0이다 — 기존 파일에 케이스를 더하고 파일 둘을 새로 만들었을 뿐이다(삽입만, 삭제 0). r2 가 RED 로 관측한 MV-4·MV-5 를 이번 턴에 다시 심어 **같은 RED 2·RED 1** 을 재현했다.
+- **잔여물 수렴**: 12행 중 SR-2·SR-3 만 `error TS 1`(변이가 만든 미사용 파라미터)이고, 두 행의 red 는 진단이 아니라 **단언 실패**다(`expected [['x'],['x']] to deeply equal [['opus'],['sonnet']]`). 나머지 10행은 `typecheck error TS 0` 에서 얻은 red 다.
+- **무관 실패 분리**: SR-2·CA-1 실행에서 `infra/git/mutation-queue.test.ts` 가 함께 red 였다(`AssertionError: expected true to be false`). 단독 실행 2회는 green 이고 변이는 각각 `session-runtime.ts`·`claude.ts` 한 줄이라 인과가 없다 — P11.
+
+## [구현자 기입] r3 — Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | **해당 없음** — 사용자 대면 표면을 만들지 않았다(프로덕션 diff 0) | — |
+| seam 을 만들려고 production 을 재배치했는가 | **아니다.** 세 오라클 전부 기존 seam 을 썼다 — `new SessionRuntime(adapter(live))`(기존 하네스) · `contextBridge.exposeInMainWorld` 포획 · `vi.mock('@anthropic-ai/claude-agent-sdk')`(선례 7파일) | — |
+| 이번에 만든 실패 경로가 §5 상태 전이표의 어느 행인가 | 새 실패 경로 **0** | — |
+| 실패가 화면에서 "아무 일도 안 일어남" 으로 보이지 않는가 | 화면 변경 0. 다만 `live` 부재 → `false` → 핸들러 reject 경로가 **처음으로 runtime 층에서** 단언됐다 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 이번 라운드 변경 없음 — r1 판정 유지 | — |
+| 사용자가 이 라운드 뒤 다르게 보는 것이 있는가 | **없다.** 잠금만 늘었다 | — |
+
+## [구현자 기입] r3 — 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| P9 | **클릭 홉 3사이트가 무잠금이다.** `TaskTileContent.tsx:223`·`:359` 와 `SubAgentTileContent.tsx:309` 의 `onClick` 인자를 상수 `'use1'` 로 굳혀도 2798케이스가 전건 초록이다. AC25 의 문장은 "**클릭하면** 그 `toolUseId` 로" 라 이 홉이 그 문장의 첫 글자다 | **보고만.** 닫으려면 DOM 환경이 필요한데 이 저장소는 `vitest.config.ts` 가 `environment: 'node'` · `include: ['src/**/*.test.ts']` 이고 `jsdom`·`happy-dom`·testing-library 가 **의존성에 없다**. 신규 의존성은 사용자 승인 사항이다(`app/AGENTS.md §의존성 정책`) | 설계·사용자 판단: DOM 환경을 들일지, 아니면 onClick 을 순수 함수로 떼어 잠글지 |
+| P10 | **이전 라운드들의 게이트 명령이 `src/preload` 를 건너뛴다.** plan §7-A·§19 와 r1·r2 가 쓴 `vitest run src/shared src/renderer src/main` 은 **279파일 2797케이스**이고, 인자 없는 `vitest run` 은 **280파일 2800케이스**다 — 차이가 정확히 이번에 만든 `src/preload/index.test.ts` 3케이스다 | **선조치 — 이번 보고의 게이트는 인자 없는 `vitest run` 으로 돌렸다.** plan §7-A 관련 스위트 행과 §19 의 명령에 `src/preload` 를 더하거나 경로 필터를 빼는 정정을 제안한다 | 규범 행(§7-A gate·§19)이라 설계자 몫 |
+| P11 | `infra/git/mutation-queue.test.ts` 가 전체 스위트 병렬 실행에서 **3회 red**, 단독 실행 **2회 green** 이다. 실패 형태가 `AssertionError: expected true to be false` 라 plan §7-A 가 적은 알려진 기준선(`timed out in 5000ms` · `EBUSY: rmdir`)과 **다르다** | **보고만** — 이번 변경과 인과가 없다(변이는 `session-runtime.ts`·`claude.ts` 한 줄). 최종 게이트 실행에서는 green 이었다 | 별도 handoff 후보 — §7-A 의 알려진 기준선 서술에 이 형태를 더할지 |
+
+### r3 — 설계 대비 명시적 차이
+
+- **없다.** plan ΔV1 §11 의 `r2 범위` 표는 r2 가 소진했고, r3 는 verify r2 의 파생 이슈(D11 BLOCKING · D12 선조치)와 §5 전수 확장을 수행했다. plan 이 지정한 메커니즘을 다른 것으로 **대체한 곳이 0건**이므로 대체물 실패 모드 네 축(만료·공유·재진입·다른 무효화)은 전부 `해당 없음` 이고 근거는 같다: 이번 라운드에 새 상태·새 캐시·새 저장소가 0이고 프로덕션 diff 가 0이다.
+
+## [구현자 기입] r3 — 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | **3** — 수정 1(`src/main/features/sessions/session-runtime.test.ts` +99줄) · 신규 2(`src/preload/index.test.ts` · `src/main/adapters/claude.live-control.test.ts`). **프로덕션 코드 diff 0** |
+| 실행 명령 | `npm ci` · `npm rebuild better-sqlite3` · `npm run typecheck` · `./node_modules/.bin/vitest run`(경로 필터 없음 — P10) · `node --test "scripts/*.test.mjs"` · `node scripts/check-doc-inventory.mjs --check` · `npm run lint` |
+| 관측한 게이트 산출 | **typecheck `error TS` 0건** / **vitest 280파일 2800케이스 green** / **scripts 61 pass 0 fail(8 suites)** / **doc-inventory `generated ok (9 items, 80 channels)` · `prose ok` · `links ok`** / **lint 0 error · 1 warning**(기존분 `useTranscriptVirtualizer.ts:22`). lint 실행 후 `git status --porcelain` 에 도구 변경분 0 |
+| 환경 기인 분리 | `npm ci` 는 `postinstall` 로 better-sqlite3 를 Electron ABI 로 만든다 — 그 상태의 DB 스위트 red 는 `Module did not self-register` 서명이고 `npm rebuild better-sqlite3`(exit 0) 로 분리했다. `npm test` 미사용. P11 의 `mutation-queue` 병렬 flake는 위에 따로 적었다 |
+| V-pair 자기확인 | REQUIRED 17 + REGRESSION 5 = **22 전건 SELF_PASS**, SELF_BLOCKED 0. r2 의 root `PAIR_FAIL` **VP-17** 이 이번 라운드 대상이다 |
+| 강제 지점 전수 | 이번 라운드가 연 것 — **EP-14 2/2**(핸들러 · `session-runtime`). 나머지 EP 는 r1·r2 잠금 유지(프로덕션 diff 0) |
+| AC 자기보고 | **✅27 · ⚠️0 · ❌0.** r2 **검증자 재측정** ✅26 을 상속하고 **AC25(⚠️→✅)** 를 닫았다 — ΔV1 이 지정한 관측 지점(`turn.live.backgroundTask` 포트, "그 id 로 1회")이 충족되고 그 포트의 production 구현(`session-runtime`)까지 잠겼다. 클릭 홉은 §10 분모 밖이라 P9 로 남긴다 |
+| 합계 검산 | ✅27 · ⚠️0 · ❌0 = **총 27** ✅ (분모 = §7 AC1~AC27). 분모는 ΔV1 이후 불변이라 r2 의 27 과 직접 비교한다 — 상속 26 + 닫은 1 = 27 ✅ |
+| 파생 이슈 처리(자기보고) | **D11 닫음** — 인용 변이 N8·N9 가 이제 전부 RED. **D12 닫음** — 인용 변이 N2c 가 RED. **D3 닫음** — 인용 변이 MV-4·MV-5 재현 RED 이고 같은 EP 의 두 번째 지점(D11)도 닫혔다. **D1·D2·D4·D5·D6·D7·D10 은 이미 closed**. **D8·D9·D13·D14 는 open 유지** — 이번 범위 밖이고 넷 다 NON_BLOCKING 이다 |
+| 블로커 / 역질문 | **없다.** P9(클릭 홉)는 신규 의존성이 필요해 보고만 하고, P10(게이트 명령 범위)은 규범 행 정정 제안이다 |
+| 대상 커밋 | `(r3 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] r3 — Review Signals — 사실만
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **그렇다 — 네 라운드째 같은 축이다.** r1 D1·D2·D3, r2 D11 이 전부 "oracle 이 경로의 한 홉 앞에 선다" 였다. 불변식 한 문장은 **"값이 여러 홉을 지나 도착한다는 주장은, 각 홉에서 그 값을 오염시켰을 때 red 가 되는 단언이 있어야 참이다."** 이번에는 그 문장을 지점 이름 없이 올려 **AC25 경로 8사이트를 전수로 재열거**했고, 잠긴 5부류와 남은 3사이트(P9)를 차집합으로 적었다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **부분적으로 있었다.** ΔV1 이 만든 "관측 지점 규칙" 은 AC14·15·22·25 **네 AC 에만** 걸렸고, §10 EP-14 의 분모는 경로 8사이트 중 **2**만 센다. 그 2를 다 닫아도 나머지 6사이트 중 3(④⑥⑦)이 무잠금이었다 — 분모가 경로보다 짧으면 `N/N` 이 경로를 말하지 못한다.
+- 사용자 결정 변경 근거: 없음 — ACTIVE Decision 27건 전건 유지, SUPERSEDED 0.
+- 반복해서 부딪히는 환경 한계: ① 워크트리에 `node_modules` 부재 → `npm ci` 필요(r2 와 동일). ② `npm ci` 직후는 Electron ABI 라 DB 스위트 red — `npm rebuild better-sqlite3` 로 분리(r2 와 동일). ③ **경로 필터를 준 게이트 명령이 새 디렉토리의 테스트를 조용히 건너뛴다**(P10, 이번 라운드 신규). ④ DOM 환경·testing-library 부재로 클릭 홉을 잠글 수 없다(P9, 이번 라운드 신규).
+- 현재 라운드 수: **3**
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 > r1 검증 = **FAIL + PLAN_GAP**, r2 검증 = **FAIL**(`PLAN_GAP` 0). 판정 원문과 관측은 [`verify.md`](verify.md) — 아래는 이관 표다.
@@ -935,7 +1049,7 @@ SDK(producer) → claude-map(정규화) → bus → coordinator/tracker(상태) 
 |---|---|---|---|---|---|
 | D1 | 전용 본문이 **레지스트리를 경유해** 붙는지 보는 단언이 0건이다 — 등록 블록 전체 삭제(MV-1)와 match 를 6종으로 확장(MV-2) 둘 다 게이트 전건 초록이다. AC22 의 "6종 전량 대조" 단언이 없다 | VP-13 · AC22 · §10 EP-11 | `registry.test.ts` 에 4종 → `task_list` 와 `TaskOutput`/`TaskStop` → 폴백 kind 를 넣는다. **ΔV1 이 AC22 의 관측 지점을 `resolve` 로 못박고 VP-13 에 소거·확장 두 변이를 등록했다** | **BLOCKING** | **closed (r2)** — MV-1·MV-2 각 RED 1 |
 | D2 | 레벨 신호가 **정착을 일으키는지** 보는 단언이 0건이다 — `turn-coordinator.ts` 의 `subagent.backgroundSet` 블록 전체 삭제(MV-3)에 229파일 2410케이스가 침묵한다 | VP-08 · AC14 · §10 EP-06·EP-07 | `turn-coordinator.test.ts` 에 payload 2회 주입 후 정착 대상과 `stopLive:false` 를 단언. **ΔV1 이 AC14·15 의 관측 지점을 coordinator 정착으로 못박고 VP-08 에 분기 소거 변이를 등록했다** | **BLOCKING** | **closed (r2)** — MV-3 RED 2 |
-| D3 | 전환 요청이 **포트까지** 가는지 보는 단언이 0건이다 — 관측이 renderer 경계에서 끝난다. "`vi.mock('electron')` 선례 0건" 은 사실이 아니다(선례 7건, 그중 하나가 같은 `registerChatHandlers` 를 부른다) | VP-17 · AC25 · §10 EP-14 | 같은 하네스로 핸들러를 불러 `backgroundTask('use1')` 1회와 `false`→reject 를 단언. **ΔV1 이 AC25 의 관측 지점을 포트로 못박고 VP-17 에 호출 소거·인자 고정 변이를 등록했다** | **BLOCKING** | **open (r3)** — 인용 변이 MV-4·MV-5 는 RED 지만 같은 EP-14 의 두 번째 지점이 남았다(D11) |
+| D3 | 전환 요청이 **포트까지** 가는지 보는 단언이 0건이다 — 관측이 renderer 경계에서 끝난다. "`vi.mock('electron')` 선례 0건" 은 사실이 아니다(선례 7건, 그중 하나가 같은 `registerChatHandlers` 를 부른다) | VP-17 · AC25 · §10 EP-14 | 같은 하네스로 핸들러를 불러 `backgroundTask('use1')` 1회와 `false`→reject 를 단언. **ΔV1 이 AC25 의 관측 지점을 포트로 못박고 VP-17 에 호출 소거·인자 고정 변이를 등록했다** | **BLOCKING** | **closed (r3)** — MV-4 RED 2 · MV-5 RED 1 재현, 두 번째 지점도 닫혔다(D11) |
 | D4 | 중단 정착의 사유를 어느 키가 나르는지에 **규범 행이 없다** — AC21 과 상속 계약 0204 AT-31 이 `message` 한 자리를 두고 반대를 요구했고 구현자가 `cause` 키를 발명해 둘을 세웠다. 0204 D11 이 같은 자리에 "규범 정정이 선행" 을 적어 두었다 | VP-12 · AC21 · 0204 D-024/D11 | 설계자가 ΔV1 로 닫았다 — **D-026·D-027** 신설 · **AR-05·R-93** node · **VP-21·VP-22** pair · **AC21 정정 + AC27 신설** · **§10 EP-15**(지점 3) · §5 상태표 3행 | **PLAN_GAP** | **closed (ΔV1)** |
 | D5 | INDEX r1 비고가 924자(≈10줄)로 5줄 상한을 넘었다 | `AGENTS.md §산출물 문장 규칙 3` | 검증자가 이번 턴에 5줄로 교체 | NON_BLOCKING | **closed** |
 | D6 | 구현 보고 변경 파일 수 40 ↔ 실측 **41**. 내역도 main 8↔**10** · renderer 13↔**17** 이고 보고 내역 합 38 이 보고 총계 40 과도 다르다 | 구현 보고 정확도 | 다음 라운드 보고에서 정정 | NON_BLOCKING | **closed (r2)** — P8 정정값이 실측과 일치 |
@@ -943,7 +1057,10 @@ SDK(producer) → claude-map(정규화) → bus → coordinator/tracker(상태) 
 | D8 | `chat.taskTool.fetched`(ko·en)의 소비처가 0이다 — `KIND_KEY` 는 4키만 쓴다 | 죽은 표면 | 제거하거나 `TaskGet` 본문에 소비처를 만든다 | NON_BLOCKING | open |
 | D9 | P2 의 신설 oracle 이 "출력이 비어 있지 않다" 라, `ensure-sqlite-abi.mjs --check` 는 `parseArgs` throw 의 catch 만 관측한다(5중 1) | 이번 턴 신설 배선 oracle | 유효 인자를 주거나 기대 출력 접두를 단언 | NON_BLOCKING | open |
 | D10 | P2 가 0212 범위 밖 스크립트 4종을 함께 고쳤다 | 범위 | **존치** — 5개가 같은 한 줄의 사본이고 그중 하나가 이번 변경의 필수 gate 다 | NON_BLOCKING | **closed** |
-| D11 | **§10 EP-14 가 적은 두 main 지점 중 `session-runtime` 이 무잠금이다.** 구현자가 핸들러 한 지점에 변이 둘(MV-4·MV-5)을 심고 `2/2` 로 보고했다. `SessionRuntime.backgroundTask` 의 인자를 오염시켜도(N8) 본문을 폐기해도(N9) **278파일 2790케이스 green · typecheck 0** 이다 | VP-17 · AC25 · §10 EP-14 (root VP-17) | 구현 — `session-runtime.test.ts` 의 기존 `GovernedLiveTurn` fake 하네스(`:31`·`:150`·`:1119`)로 `backgroundTask('use1')` 을 불러 인자·횟수와 `live` 부재 시 `false` 를 단언한다. electron 비의존 | **BLOCKING** | open (r3) |
-| D12 | **preload 홉이 무잠금이다.** `preload/index.ts:101-102` 의 `{ sessionId, toolUseId }` 를 맞바꿔도 2790케이스 green · typecheck 0(N2c). EP-14 의 `실패 의미` 가 바로 이 상태인데 §10 이 이 홉을 지점으로 세지 않는다 | AC25 경로 홉 4 · §10 밖 | 설계 판단 — EP-14 분모를 wire 홉까지 넓힐지. 넓히면 `ipcRenderer` 를 mock 해 invoke payload 를 단언하는 oracle 이 필요하다 | NON_BLOCKING | open |
+| D11 | **§10 EP-14 가 적은 두 main 지점 중 `session-runtime` 이 무잠금이다.** 구현자가 핸들러 한 지점에 변이 둘(MV-4·MV-5)을 심고 `2/2` 로 보고했다. `SessionRuntime.backgroundTask` 의 인자를 오염시켜도(N8) 본문을 폐기해도(N9) **278파일 2790케이스 green · typecheck 0** 이다 | VP-17 · AC25 · §10 EP-14 (root VP-17) | 구현 — `session-runtime.test.ts` 의 기존 `GovernedLiveTurn` fake 하네스(`:31`·`:150`·`:1119`)로 `backgroundTask('use1')` 을 불러 인자·횟수와 `live` 부재 시 `false` 를 단언한다. electron 비의존 | **BLOCKING** | **closed (r3)** — N8 인자 오염 **RED 2** · N9 본문 폐기 **RED 2**(둘 다 r2 GREEN 2790). EP-14 **2/2** |
+| D12 | **preload 홉이 무잠금이다.** `preload/index.ts:101-102` 의 `{ sessionId, toolUseId }` 를 맞바꿔도 2790케이스 green · typecheck 0(N2c). EP-14 의 `실패 의미` 가 바로 이 상태인데 §10 이 이 홉을 지점으로 세지 않는다 | AC25 경로 홉 4 · §10 밖 | **선조치 (r3)** — `src/preload/index.test.ts` 신설, `contextBridge.exposeInMainWorld` 가 받은 production 객체를 부른다 | NON_BLOCKING | **closed (r3)** — N2c 맞바꿈 **RED 1** · 채널 상수 교체 **RED 1** |
 | D13 | **store→View prop 홉 4건이 무잠금이다**(구현자 P7 재측정). 네 줄 + 잔여(지역변수 2 · import 2)를 치워도 2790케이스 green · typecheck 0(N6). plan §7 이 검증 수단을 *props 시드 렌더 테스트* 로 명시했으므로 구현자 위반은 아니다 | VP-01·VP-11·VP-16 의 oracle 지정 밖 | 설계 판단 — ΔV1 의 관측 지점 규칙을 세 pair 까지 넓힐지. 넓히면 zustand 훅 모듈을 `vi.mock` 하는 oracle 이 필요하다 | NON_BLOCKING | open |
 | D14 | **r1 의 M11(진입 가드) red 는 플랫폼 조건부다.** 깨진 형태 `` `file://${argv[1]}` `` 가 POSIX 절대경로에서 정상형과 문자열이 같아 Linux 에서 green 이다 — 이 오라클은 CI(windows-latest)에서만 감도를 갖는다 | r1 신설 oracle · D9 인접 | D9 와 함께 처리 — 비교를 순수 함수로 떼어 두 형태를 플랫폼 무관하게 단언한다 | NON_BLOCKING | open |
+| P9 | **클릭 홉 3사이트가 무잠금이다** — `TaskTileContent.tsx:223`·`:359` · `SubAgentTileContent.tsx:309` 의 `onClick` 인자를 상수로 굳혀도 2798케이스 전건 초록. AC25 의 "**클릭하면** 그 `toolUseId` 로" 가 이 홉이다 | AC25 경로 홉 ① · §10 밖 | 보고만 — DOM 환경(`jsdom`/`happy-dom`)이 의존성에 없고 `vitest.config.ts` 가 `environment: 'node'`·`include: src/**/*.test.ts` 다. 신규 의존성은 사용자 승인 사항 | NON_BLOCKING | open (r3 제기) |
+| P10 | **게이트 명령이 `src/preload` 를 건너뛴다** — plan §7-A·§19 의 `vitest run src/shared src/renderer src/main` 은 279파일 2797케이스, 인자 없는 `vitest run` 은 280파일 2800케이스다 | §7-A 운영 gate · §19 | **선조치 (r3)** — 이번 게이트는 경로 필터 없이 돌렸다. 규범 행(§7-A·§19)에 `src/preload` 를 더하는 정정은 설계자 몫 | NON_BLOCKING | open (r3 제기) |
+| P11 | `infra/git/mutation-queue.test.ts` 가 병렬 전체 실행에서 3회 red · 단독 2회 green. 실패 형태가 `AssertionError` 라 §7-A 의 알려진 기준선(`timed out` · `EBUSY`)과 다르다 | §7-A 알려진 기준선 | 보고만 — 이번 변경과 인과 없음(변이는 다른 파일 한 줄). 최종 게이트는 green | NON_BLOCKING | open (r3 제기) |
