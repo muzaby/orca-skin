@@ -3275,6 +3275,8 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
   - `node --test "scripts/*.test.mjs"` — **67/67 pass**.
   - `check-doc-inventory.mjs --check` — **차이 0**(9 items, 82 channels). 이번 라운드는 채널·마이그레이션을 만들지 않았다.
   - `check-migrations-appendonly.mjs` — exit **0**(`20 migrations, dir == migrate.ts imports`).
+- **CI(windows-latest) 후속 1건 — 로컬 게이트가 못 보는 축**: PR #422 의 `gate` 가 `gitPatchQuery.test.ts` 의 소유자 스윕 2케이스에서 red 였다. 경로를 **값으로 비교**하는데 `globSync` 가 Windows 에서 `src\features\…` 를 돌려주기 때문이다 — 회귀가 아니라 술어가 실행 OS 를 본 것이고, 0208 D-021 이 같은 자리에서 이미 겪어 `shared/ui/sourceScan.testlib.ts :: walkSourceFiles`(POSIX 구분자 고정)를 남겨 두었다. 그 헬퍼로 교체했다. **새 스윕을 쓸 때 이 헬퍼를 지나지 않은 것이 이번 라운드의 실수다.**
+- **CI 동시 red 1건은 이 PR 것이 아니다**: `infra/git/queue-entry.test.ts > removeWorktree`(`expected 1 to be 2`). 그 파일도 `queue-entry.ts` 도 이번 diff 에 **없고**, `main` 최신 CI(run #472)는 success 이며, 로컬 3회 연속 green 이다. `whileQueueHeld` 가 고정 150 ms 대기에 기대는 임시 저장소 통합이라 r1 검증의 D15(부하 시 간헐 실패)와 같은 축으로 본다. 구분자 수정 push 가 그 한 번의 재실행을 겸한다.
 
 ## [구현자 기입] Review Signals — 사실만 (ΔV4 r2)
 
@@ -3282,6 +3284,7 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 - 이전 라운드와 같은 축인가: **그렇다.** r1 의 뿌리는 "`0건`·구조 스윕으로 §10 을 닫았다" 였고, 이번 수정은 그 스윕들을 **행동 oracle 로 교체**하지 않고 **보강**했다 — 스윕은 전수를 재는 자기 몫이 있고, 잠금은 변이가 잰다.
 - 그것을 막았어야 할 plan 지침이 있었는가: **있었고 이번에는 걸렸다.** §8 이 "엄격화는 전수인지만 재고 불변식을 잠그는지는 재지 않는다" 를 이미 적어 두었다 — r1 이 그 문장을 스스로 인용하고도 스윕으로 §10 을 닫았다.
 - 삭제된 테스트 파일의 계약을 옮기지 않은 사례: r1 에서 **3건**. 이번에 `git-diff-service.test.ts` 의 세 축(좌표 캐시 · log 폴백 · 전용 버퍼)을 `git-diff.test.ts` 로 재배치해 닫았고, `diffPeek.render.test.ts` 의 요구사항 마커 축은 `diffTile.render.test.ts` 가 받았다.
+- **로컬 게이트가 보지 못한 축 1건**: 경로 구분자. 로컬(Linux) vitest 전건 green 이었지만 windows-latest 는 red 였다 — 경로를 값으로 비교하는 스윕은 `walkSourceFiles` 를 지나야 한다(0208 D-021 의 재발).
 - 반복되는 환경 한계: **셋.** ① vitest `environment: 'node'` — effect 는 관측 불가(SSR 마크업은 가능하고, 이번 라운드가 그 경계를 실제로 썼다). ② electron 바이너리 미설치 — 1파일 red. ③ **컨테이너 메모리** — 무제한 워커로 전체 스위트를 돌리면 OOM(exit 137)이라 `--maxWorkers=2` 가 필요하다(이번에 처음 관측).
 
 ## [검증자 기입] 파생 이슈

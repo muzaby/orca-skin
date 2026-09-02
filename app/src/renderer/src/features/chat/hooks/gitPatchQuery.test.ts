@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import type { GitDiffPatch } from '../../../../../shared/ipc'
+import { walkSourceFiles } from '../../../shared/ui/sourceScan.testlib'
 import { gitPatchRequest, shouldFetchGitPatch } from './useGitPatch'
 
 const request = { key: JSON.stringify(['/repo', 's1']), generation: 3 }
@@ -66,21 +67,23 @@ describe('조회 인자 — 파일 축도 커밋 축도 없다', () => {
 describe('소유자는 하나다 (EP-34 ③)', () => {
   const RENDERER = fileURLToPath(new URL('../../../..', import.meta.url))
 
-  it('gitApi.diffPatch 를 부르는 renderer 프로덕션 파일이 1개다', async () => {
-    const { globSync } = await import('node:fs')
-    const files = globSync('**/*.{ts,tsx}', { cwd: RENDERER })
-      .filter((file) => !file.includes('.test.'))
-      .filter((file) =>
-        /gitApi\s*\.\s*diffPatch\s*\(/.test(readFileSync(`${RENDERER}${file}`, 'utf8'))
-      )
+  // 전수는 `walkSourceFiles` 로 훑는다 — **경로를 값으로 비교**하는 술어라 구분자가 하나여야
+  // 한다(0208 D-021). `globSync` 는 Windows 에서 `src\features\…` 를 돌려줘 같은 코드가
+  // Linux 초록 · Windows 빨강이 됐다: 그 red 는 회귀가 아니라 술어가 실행 OS 를 본 것이다.
+  const sources = (): string[] =>
+    walkSourceFiles(RENDERER).filter((file) => !file.includes('.test.'))
+
+  it('gitApi.diffPatch 를 부르는 renderer 프로덕션 파일이 1개다', () => {
+    const files = sources().filter((file) =>
+      /gitApi\s*\.\s*diffPatch\s*\(/.test(readFileSync(`${RENDERER}${file}`, 'utf8'))
+    )
 
     expect(files).toEqual(['src/features/chat/hooks/useGitPatch.ts'])
   })
 
-  it('useGitPatch 를 부르는 곳은 타일 컨테이너 하나다 — 닫히면 조회가 0이다', async () => {
-    const { globSync } = await import('node:fs')
-    const files = globSync('**/*.{ts,tsx}', { cwd: RENDERER })
-      .filter((file) => !file.includes('.test.') && !file.endsWith('useGitPatch.ts'))
+  it('useGitPatch 를 부르는 곳은 타일 컨테이너 하나다 — 닫히면 조회가 0이다', () => {
+    const files = sources()
+      .filter((file) => !file.endsWith('useGitPatch.ts'))
       .filter((file) => /useGitPatch\s*\(/.test(readFileSync(`${RENDERER}${file}`, 'utf8')))
 
     expect(files).toEqual(['src/features/chat/components/rightpanel/DiffTileContent.tsx'])
