@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { gitDiffPatch, gitDiffSummary, resolveDiffRange, type GitDiffRunner } from './git-diff'
-import { runGit } from './runner'
+import { runGit, type GitRunResult } from './runner'
 import type { GitDiffPatchFile } from '../../../shared/ipc'
 
 /** 패치의 그 파일 — 없으면 undefined 라 테스트가 "목록에 없다" 도 단언할 수 있다. */
@@ -434,5 +434,132 @@ describe('세션 파일 목록의 status (AT-39 산출 동등 · EP-25 ①)', ()
     // rename 은 새 경로에 표시된다 — 네 종류가 **서로 다른** 값이라야 계약이 잠긴다.
     expect(byPath.get('new.ts')).toBe('renamed')
     expect(new Set(byPath.values()).size).toBe(4)
+  })
+})
+
+// 0211 ΔV4 r2 — **삭제된 `git-diff-service.test.ts` 가 잠그던 계약의 새 자리**(D5·D6).
+//
+// ΔV4 가 그 파일을 지우면서 9케이스가 함께 사라졌고, r1 검증은 그중 셋을 재측정해 green 을
+// 관측했다: 좌표 캐시를 무력화해도 · log 폴백을 통째로 지워도 · 전용 버퍼를 기본값으로 낮춰도
+// 전 스위트가 통과했다. 여기가 그 세 축의 새 자리다.
+//
+// 실제 저장소가 아니라 **인자·옵션 수집 runner** 를 쓴다: 재는 것이 git 출력 해석이 아니라
+// "몇 번 어떤 옵션으로 부르는가" 라 실기로는 관측 지점이 없다.
+describe('읽기 조회의 호출 형태 — 프로세스 수와 버퍼 (VP-48 · VP-31 회귀)', () => {
+  interface Call {
+    args: string[]
+    maxBuffer: number | undefined
+  }
+
+  /** 어떤 git 명령인가 = **첫 비-플래그 인자**다. 인덱스로 세면 읽기 플래그가 하나 붙을 때마다 전부 깨진다. */
+  const subcommand = (args: readonly string[]): string | undefined =>
+    args.find((arg) => !arg.startsWith('-'))
+
+  function collectingRunner(options: { failLogRaw?: boolean; failLogAll?: boolean } = {}): {
+    calls: Call[]
+    runner: GitDiffRunner
+  } {
+    const calls: Call[] = []
+    const ok = (stdout: string): GitRunResult => ({
+      ok: true,
+      stdout,
+      stderr: '',
+      code: 0,
+      aborted: false
+    })
+    const fail = (): GitRunResult => ({
+      ok: false,
+      stdout: '',
+      stderr: 'boom',
+      code: 1,
+      aborted: false
+    })
+    const runner: GitDiffRunner = async (_cwd, args, runOptions) => {
+      calls.push({ args: [...args], maxBuffer: runOptions?.maxBuffer })
+      if (args.includes('--is-inside-work-tree')) return ok('true\n/repo\n')
+      const cmd = subcommand(args)
+      if (cmd === 'rev-parse') return ok('h'.repeat(40) + '\n')
+      if (cmd === 'log') {
+        if (options.failLogAll) return fail()
+        if (options.failLogRaw && args.includes('--raw')) return fail()
+        return ok('')
+      }
+      return ok('')
+    }
+    return { calls, runner }
+  }
+
+  const base = 'b'.repeat(40)
+
+  it('저장소 좌표는 한 rev-parse 로 얻고 같은 runner 의 두 번째 조회는 다시 묻지 않는다 (EP-25 ②)', async () => {
+    const { calls, runner } = collectingRunner()
+
+    await gitDiffPatch({ cwd: '/repo', baseOid: base }, runner)
+    await gitDiffPatch({ cwd: '/repo', baseOid: base }, runner)
+
+    const coordCalls = calls.filter((call) => call.args.includes('--is-inside-work-tree'))
+    // 캐시가 없으면 2다 — 파일을 열 때마다 프로세스가 하나씩 더 뜬다(D-063).
+    expect(coordCalls).toHaveLength(1)
+    // 두 값이 **한 호출**로 온다 — 나눠 부르면 여기가 2가 된다.
+    expect(coordCalls[0].args).toEqual(
+      expect.arrayContaining(['--is-inside-work-tree', '--show-toplevel'])
+    )
+  })
+
+  it('runner 가 다르면 캐시를 공유하지 않는다 — 테스트끼리 서로의 좌표를 보지 않는다', async () => {
+    const first = collectingRunner()
+    const second = collectingRunner()
+
+    await gitDiffPatch({ cwd: '/repo', baseOid: base }, first.runner)
+    await gitDiffPatch({ cwd: '/repo', baseOid: base }, second.runner)
+
+    expect(second.calls.filter((call) => call.args.includes('--is-inside-work-tree'))).toHaveLength(
+      1
+    )
+  })
+
+  it('log 가 실패하면 --raw·--numstat 만 뺀 재조회를 한 번 하고 unavailable 을 남긴다 (EP-17 ⑤)', async () => {
+    const { calls, runner } = collectingRunner({ failLogRaw: true })
+
+    const summary = await gitDiffSummary({ cwd: '/repo', baseOid: base }, runner)
+
+    const logCalls = calls.filter((call) => subcommand(call.args) === 'log')
+    expect(logCalls).toHaveLength(2)
+    expect(logCalls[0].args).toEqual(expect.arrayContaining(['--raw', '--numstat']))
+    // **인자 차집합**으로 본다 — 폴백이 형식까지 바꾸면 커밋 메시지가 통째로 달라진다.
+    expect(logCalls[1].args).not.toContain('--raw')
+    expect(logCalls[1].args).not.toContain('--numstat')
+    expect(logCalls[1].args.filter((arg) => arg !== '--raw' && arg !== '--numstat')).toEqual(
+      logCalls[0].args.filter((arg) => arg !== '--raw' && arg !== '--numstat')
+    )
+    // 폴백은 **성공했지만 파일 목록이 없다** — 그 사실을 값으로 남긴다(D-053).
+    expect(summary.commitFilesUnavailable).toBe(true)
+  })
+
+  it('폴백까지 실패하면 커밋은 빈 목록이고 unavailable 을 유지한다 (EP-17 ⑤)', async () => {
+    const { calls, runner } = collectingRunner({ failLogAll: true })
+
+    const summary = await gitDiffSummary({ cwd: '/repo', baseOid: base }, runner)
+
+    expect(calls.filter((call) => subcommand(call.args) === 'log')).toHaveLength(2)
+    expect(summary.commits).toEqual([])
+    // 빈 목록만 주면 사용자는 "커밋이 없다" 로 읽는다 — 두 상태가 값으로 갈린다.
+    expect(summary.commitFilesUnavailable).toBe(true)
+  })
+
+  it('전용 버퍼가 조회마다 다르다 — 절단은 파서 단계라 이것을 대신하지 못한다 (EP-17 ④ · EP-29 ②)', async () => {
+    const summaryRun = collectingRunner()
+    await gitDiffSummary({ cwd: '/repo', baseOid: base }, summaryRun.runner)
+    const patchRun = collectingRunner()
+    await gitDiffPatch({ cwd: '/repo', baseOid: base }, patchRun.runner)
+
+    const logCall = summaryRun.calls.find((call) => subcommand(call.args) === 'log')
+    const patchCall = patchRun.calls.find((call) => call.args.includes('--unified=1000000'))
+    const plainCall = summaryRun.calls.find((call) => subcommand(call.args) === 'diff')
+
+    expect(logCall?.maxBuffer).toBe(8 * 1024 * 1024)
+    expect(patchCall?.maxBuffer).toBe(16 * 1024 * 1024)
+    // 기본 조회는 기본 버퍼다 — 셋이 같은 값이면 "전용" 이 아무 뜻도 없다.
+    expect(plainCall?.maxBuffer).toBe(4 * 1024 * 1024)
   })
 })

@@ -806,6 +806,7 @@ export const ko = {
       diffRefresh: '새로고침',
       diffSessionChanges: '변경사항',
       diffBaselineHead: '현재 HEAD',
+      diffBaselineNone: '기준 없음',
       diffSessionFilesTruncated: '세션 파일 목록 제한됨',
       diffUncommittedBlock: '미커밋 변경',
       diffComparisonTitle: '비교 기준',

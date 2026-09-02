@@ -8,8 +8,11 @@ import type { GitDiffBase, GitDiffSummary } from '../../../../../../shared/ipc'
 import type { MessageKey } from '../../../../shared/i18n'
 import { summaryBaseLabel, summaryBaseText } from './sessionChangesData'
 
-const tr = (key: MessageKey): string =>
-  key === 'chat.rightpanel.diffBaselineHead' ? '현재 HEAD' : String(key)
+const LABELS: Partial<Record<MessageKey, string>> = {
+  'chat.rightpanel.diffBaselineHead': '현재 HEAD',
+  'chat.rightpanel.diffBaselineNone': '기준 없음'
+}
+const tr = (key: MessageKey): string => LABELS[key] ?? String(key)
 
 function summaryWith(base: GitDiffBase): GitDiffSummary {
   return {
@@ -50,6 +53,13 @@ describe('비교 기준 라벨 4상태', () => {
   it('커밋이 하나도 없는 저장소와 요약 부재는 none 이다', () => {
     expect(summaryBaseLabel(summaryWith({ kind: 'none' }))).toEqual({ kind: 'none' })
     expect(summaryBaseLabel(null)).toEqual({ kind: 'none' })
+  })
+
+  // 0211 ΔV4 r2 (D14) — `none` 도 카탈로그를 지난다. 문자 기호를 그대로 두면 UI 라벨이
+  // 카탈로그 밖에 사는 자리가 하나 남는다(root AGENTS §8).
+  it('커밋이 하나도 없는 저장소도 카탈로그 문구다 — 기호를 화면에 흘리지 않는다', () => {
+    expect(summaryBaseText(summaryWith({ kind: 'none' }), tr)).toBe('기준 없음')
+    expect(summaryBaseText(null, tr)).toBe('기준 없음')
   })
 
   it('라벨은 현재 브랜치를 붙이지 않는다 — 화살표도 우측 값도 없다 (D-069)', () => {

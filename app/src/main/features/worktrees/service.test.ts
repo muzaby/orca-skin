@@ -303,4 +303,54 @@ describe('WorktreeService', () => {
     })
     expect(deleted).toBe(false)
   })
+
+  // 0211 ΔV4 r2 — §10 EP-28 ② 의 **커밋 옆자리 이름**. r1 검증에서 이 계산을 `null` 상수로
+  // 바꿔도 924케이스가 전건 green 이었다(D2): 기존 케이스는 `baseRef` 를 **입력으로만** 썼고
+  // 산출을 본 적이 없었다. 이름과 커밋이 같은 시점을 가리키는지가 D-072 의 계약이다.
+  it('managed 결과가 기준 커밋 옆에 그때의 브랜치 이름을 함께 싣는다 (AT-44 · D-072)', async () => {
+    const repo = await repository()
+    const initial = (
+      await exec('git', ['-C', repo, 'rev-parse', '--abbrev-ref', 'HEAD'])
+    ).stdout.trim()
+    await exec('git', ['-C', repo, 'checkout', '-b', 'feature'])
+    await writeFile(join(repo, 'feature.txt'), 'feature\n')
+    await exec('git', ['-C', repo, 'add', 'feature.txt'])
+    await exec('git', ['-C', repo, 'commit', '-m', 'feature commit'])
+    await exec('git', ['-C', repo, 'checkout', initial])
+
+    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-baseref-'))
+    roots.push(managed)
+    const db = { insertManagedWorktree: () => undefined } as unknown as DbQueries
+    const service = new WorktreeService(db, managed)
+
+    // ① 지정한 기준 브랜치가 있으면 그 이름이다 — 지금 체크아웃된 것이 아니다.
+    const picked = await service.prepare({
+      sourceCwd: repo,
+      firstPrompt: 'work',
+      baseRef: 'feature'
+    })
+    expect(picked).toMatchObject({ kind: 'managed', baseRef: 'feature' })
+
+    // ② 지정이 없으면 지금 체크아웃된 브랜치다. ①과 **다른 값**이라야 두 갈래가 갈린다.
+    const current = await service.prepare({ sourceCwd: repo, firstPrompt: 'work again' })
+    expect(current).toMatchObject({ kind: 'managed', baseRef: initial })
+    expect(initial).not.toBe('feature')
+  })
+
+  it('detached HEAD 에서 시작하면 이름은 null 이고 커밋은 남는다 (AT-44 · D-071)', async () => {
+    const repo = await repository()
+    const oid = (await exec('git', ['-C', repo, 'rev-parse', 'HEAD'])).stdout.trim()
+    await exec('git', ['-C', repo, 'checkout', '--detach', oid])
+
+    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-detached-'))
+    roots.push(managed)
+    const db = { insertManagedWorktree: () => undefined } as unknown as DbQueries
+
+    const result = await new WorktreeService(db, managed).prepare({
+      sourceCwd: repo,
+      firstPrompt: 'work'
+    })
+
+    expect(result).toMatchObject({ kind: 'managed', baseOid: oid, baseRef: null })
+  })
 })

@@ -495,6 +495,37 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
     expect(after.gitSnapshot.patch).toBe(DIFF_PATCH)
   })
 
+  // 0211 ΔV4 r2 — §10 EP-34 ② 의 **세대 경계**. r1 검증에서 이 `patch: null` 을 지워도
+  // 727케이스가 전건 green 이었다(D3): `REFRESH_GIT_SNAPSHOT` 쪽만 잠겨 있었고, 턴 종료로
+  // 새 요약이 오는 경로는 아무도 보지 않았다. 낡은 diff 가 남으면 새로고침의 의미가 사라진다.
+  it('새 요약이 도착하면 그 세대의 패치를 버린다 — 턴이 끝나도 낡은 diff 가 남지 않는다', () => {
+    const request = { key: JSON.stringify(['/repo', 'session-a']), generation: 3 }
+    const before = {
+      ...initialChatState,
+      gitSnapshot: {
+        ...initialChatState.gitSnapshot,
+        summary: DIFF_SUMMARY,
+        patch: DIFF_PATCH,
+        collapsedFiles: ['src/a.ts'],
+        sidebarVisible: true
+      },
+      gitSnapshotRequest: request
+    }
+
+    const after = chatReducer(before, {
+      type: 'RECEIVE_GIT_SNAPSHOT_SUMMARY',
+      request,
+      summary: DIFF_SUMMARY
+    })
+
+    expect(after.gitSnapshot.patch).toBeNull()
+    // 요약은 들어왔다 — "아무것도 안 받았다" 와 구분된다.
+    expect(after.gitSnapshot.summary).toBe(DIFF_SUMMARY)
+    // 사용자가 만든 화면 상태는 세대 경계에서 살아남는다 — 폐기 대상은 본문뿐이다.
+    expect(after.gitSnapshot.collapsedFiles).toEqual(['src/a.ts'])
+    expect(after.gitSnapshot.sidebarVisible).toBe(true)
+  })
+
   it('refresh 신호 뒤 새 요청 시작 전 도착한 이전 응답도 무시한다', () => {
     const request = { key: JSON.stringify(['/repo', 'session-a']), generation: 1 }
     const started = chatReducer(initialChatState, {

@@ -31,5 +31,6 @@ export function summaryBaseText(
   if (label.kind === 'ref') return label.ref
   if (label.kind === 'oid') return label.oid
   if (label.kind === 'head') return tr('chat.rightpanel.diffBaselineHead')
-  return '∅'
+  // 커밋이 하나도 없는 저장소. 문자 기호를 그대로 두면 카탈로그 밖 문자열이 화면에 남는다.
+  return tr('chat.rightpanel.diffBaselineNone')
 }

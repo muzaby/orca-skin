@@ -800,6 +800,7 @@ export const en: typeof ko = {
       diffRefresh: 'Refresh',
       diffSessionChanges: 'Changes',
       diffBaselineHead: 'current HEAD',
+      diffBaselineNone: 'no baseline',
       diffSessionFilesTruncated: 'Session file list limited',
       diffUncommittedBlock: 'Uncommitted changes',
       diffComparisonTitle: 'Compare against',
