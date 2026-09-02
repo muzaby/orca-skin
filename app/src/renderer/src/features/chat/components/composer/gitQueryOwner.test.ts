@@ -1,7 +1,7 @@
-// 0211 ΔV1 §10 EP-13 — **조회 소유자는 열거된 것뿐이다**(D-031). ΔV2 가 `diffFile` 축을 더한다
-// (§10 EP-18 ② · EP-19 ① — "확장은 navigation 이 아니다").
+// 0211 ΔV1 §10 EP-13 — **조회 소유자는 열거된 것뿐이다**(D-031). ΔV4 가 본문 축을
+// `diffPatch` 로 바꾼다(§10 EP-34 ③ — 패치는 요약 세대당 1회다).
 //
-// 술어는 불변식의 주어로 쓴다: "`gitApi.status`/`gitApi.diffSummary`/`gitApi.diffFile` 을 부르는
+// 술어는 불변식의 주어로 쓴다: "`gitApi.status`/`gitApi.diffSummary`/`gitApi.diffPatch` 를 부르는
 // renderer 파일"
 // 이고, 해법 이름(`useGitSnapshot`)으로 세지 않는다 — 해법 이름으로 세면 이미 고친 자리만
 // 분모에 오르고, 자기 effect 를 되살린 컴포넌트는 분모 밖에 남는다.
@@ -22,7 +22,7 @@ import { join, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const RENDERER_SRC = join(__dirname, '..', '..', '..', '..')
-const QUERY_CALL = /gitApi\s*\.\s*(status|diffSummary|diffFile)\s*\(/g
+const QUERY_CALL = /gitApi\s*\.\s*(status|diffSummary|diffPatch)\s*\(/g
 
 async function tsFiles(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true })
@@ -37,9 +37,10 @@ async function tsFiles(dir: string): Promise<string[]> {
 
 const LANDING_CHIP = 'features/chat/components/composer/BranchChip.tsx'
 
-// `diffFile` 소유자. peek 본문은 **타일 컨테이너 한 곳**만 가져온다 — gap 확장·이전/다음이
-// 자기 조회를 붙이면 여기 분모가 늘어난다(명세 §13 "context expansion 은 navigation 이 아니다").
-const BODY_OWNER = 'features/chat/components/rightpanel/DiffTileContent.tsx'
+// `diffPatch` 소유자. 비교 범위 전체의 본문은 **한 훅**만 가져온다 — 문맥 확장·비교 모드
+// 전환이 자기 조회를 붙이면 여기 분모가 늘어난다(제안서 §13 "context expansion 은 navigation 이
+// 아니다" · D-088 "표시 옵션은 순수 파생").
+const BODY_OWNER = 'features/chat/hooks/useGitPatch.ts'
 const SUMMARY_OWNER = 'features/chat/components/composer/useGitSnapshot.ts'
 
 describe('git 조회 소유자 (EP-13 · EP-18 · EP-19)', () => {
@@ -72,15 +73,15 @@ describe('git 조회 소유자 (EP-13 · EP-18 · EP-19)', () => {
     expect(ownersOf('status')[0]).toMatch(new RegExp(`${SUMMARY_OWNER}$`))
     expect(ownersOf('diffSummary')).toHaveLength(1)
     expect(ownersOf('diffSummary')[0]).toMatch(new RegExp(`${SUMMARY_OWNER}$`))
-    expect(ownersOf('diffFile')).toHaveLength(1)
-    expect(ownersOf('diffFile')[0]).toMatch(new RegExp(`${BODY_OWNER}$`))
+    expect(ownersOf('diffPatch')).toHaveLength(1)
+    expect(ownersOf('diffPatch')[0]).toMatch(new RegExp(`${BODY_OWNER}$`))
 
     // 음성 짝 — 두 소유자는 서로의 조회를 부르지 않는다.
     expect(
-      owned.filter((pair) => pair.file.endsWith(BODY_OWNER) && pair.api !== 'diffFile')
+      owned.filter((pair) => pair.file.endsWith(BODY_OWNER) && pair.api !== 'diffPatch')
     ).toEqual([])
     expect(
-      owned.filter((pair) => pair.file.endsWith(SUMMARY_OWNER) && pair.api === 'diffFile')
+      owned.filter((pair) => pair.file.endsWith(SUMMARY_OWNER) && pair.api === 'diffPatch')
     ).toEqual([])
   })
 })

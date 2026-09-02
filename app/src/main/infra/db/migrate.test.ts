@@ -38,7 +38,8 @@ const EXPECTED_MIGRATIONS = [
   '0016_turn_model_context_window',
   '0017_session_extra_dirs',
   '0018_managed_worktrees',
-  '0019_session_baseline'
+  '0019_session_baseline',
+  '0020_session_baseline_ref'
 ]
 
 const APPLIED_SQL = [

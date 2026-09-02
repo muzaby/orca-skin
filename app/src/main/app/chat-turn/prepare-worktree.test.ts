@@ -3,8 +3,14 @@ import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
 import type { PrepareWorktreeResult } from '../../features/worktrees/service'
 import { prepareTurnExecution, prepareTurnWorktree } from './prepare-worktree'
 
-const { resolveHeadMock } = vi.hoisted(() => ({ resolveHeadMock: vi.fn() }))
-vi.mock('../../infra/git/repository', () => ({ resolveHead: resolveHeadMock }))
+const { resolveHeadMock, resolveHeadRefMock } = vi.hoisted(() => ({
+  resolveHeadMock: vi.fn(),
+  resolveHeadRefMock: vi.fn()
+}))
+vi.mock('../../infra/git/repository', () => ({
+  resolveHead: resolveHeadMock,
+  resolveHeadRef: resolveHeadRefMock
+}))
 
 const adapter = { complete: vi.fn() }
 const signal = new AbortController().signal
@@ -20,11 +26,16 @@ describe('prepareTurnWorktree', () => {
   beforeEach(() => {
     resolveHeadMock.mockReset()
     resolveHeadMock.mockResolvedValue(null)
+    resolveHeadRefMock.mockReset()
+    resolveHeadRefMock.mockResolvedValue(null)
   })
 
   it('새 비격리 세션은 현재 HEAD를 birth baseline으로 한 번 읽고, Git 실패는 null로 접는다', async () => {
     const worktrees = { prepare: vi.fn(), recoverMissingWorktree: vi.fn() }
     resolveHeadMock.mockResolvedValueOnce('b'.repeat(40)).mockResolvedValueOnce(null)
+    // 0211 ΔV4 — 커밋과 이름을 **같은 시점에** 읽는다(D-070). 이름만 뒤늦게 읽으면 그 사이
+    // 사용자가 브랜치를 바꿨을 때 라벨이 다른 시점을 말한다.
+    resolveHeadRefMock.mockResolvedValueOnce('main').mockResolvedValueOnce(null)
     const common = {
       enabled: false,
       sourceCwd: '/repo',
@@ -38,7 +49,8 @@ describe('prepareTurnWorktree', () => {
 
     await expect(prepareTurnWorktree(common)).resolves.toMatchObject({
       kind: 'passthrough',
-      sessionBaseline: 'b'.repeat(40)
+      sessionBaseline: 'b'.repeat(40),
+      sessionBaselineRef: 'main'
     })
     await expect(
       prepareTurnWorktree({ ...common, sourceCwd: '/not-a-repo' })
@@ -86,14 +98,16 @@ describe('prepareTurnWorktree', () => {
     await expect(prepareTurnWorktree({ ...common, enabled: false })).resolves.toEqual({
       kind: 'passthrough',
       executionCwd: '/repo/packages/web',
-      sessionBaseline: null
+      sessionBaseline: null,
+      sessionBaselineRef: null
     })
     await expect(
       prepareTurnWorktree({ ...common, enabled: true, sessionId: 'session-1' })
     ).resolves.toEqual({
       kind: 'passthrough',
       executionCwd: '/repo/packages/web',
-      sessionBaseline: null
+      sessionBaseline: null,
+      sessionBaselineRef: null
     })
     expect(prepare).not.toHaveBeenCalled()
   })
@@ -126,7 +140,8 @@ describe('prepareTurnWorktree', () => {
       kind: 'recovered',
       executionCwd: '/repo',
       lostWorktreeRoot: '/wt/repo-1234abcd/work-x',
-      sessionBaseline: null
+      sessionBaseline: null,
+      sessionBaselineRef: null
     })
     // 통지가 없으면 화면은 죽은 경로의 브랜치·diff 를 계속 보여준다.
     expect(onRecovered).toHaveBeenCalledWith({ sessionId: 'session-1', executionCwd: '/repo' })
@@ -227,6 +242,8 @@ describe('prepareTurnWorktree', () => {
       worktreeId: 'w1',
       executionCwd: '/managed/repo',
       baseOid: 'a'.repeat(40),
+      // 0211 ΔV4 — 기준선의 브랜치 이름도 같은 결과에 실려 온다(D-072).
+      baseRef: 'main',
       // 0211 — 표시 정본이 결과에 함께 온다(이름은 원본, 실행은 worktree).
       display: { sourceCwd: '/repo', repoRoot: '/repo' }
     })
@@ -235,6 +252,8 @@ describe('prepareTurnWorktree', () => {
       worktreeId: 'w1',
       executionCwd: '/managed/repo',
       sessionBaseline: 'a'.repeat(40),
+      // 0211 ΔV4 — 기준선의 브랜치 이름도 같은 결과에 실린다(D-072).
+      sessionBaselineRef: 'main',
       // 0211 — 표시 정본을 그대로 통과시킨다. `objectContaining` 이 아니라 전체 비교라
       // 필드를 떨어뜨리는 회귀가 여기서 red 다.
       display: { sourceCwd: '/repo', repoRoot: '/repo' }
@@ -287,6 +306,8 @@ describe('prepareTurnWorktree', () => {
       worktreeId: 'w1',
       executionCwd: '/managed/repo',
       baseOid: 'a'.repeat(40),
+      // 0211 ΔV4 — 기준선의 브랜치 이름도 같은 결과에 실려 온다(D-072).
+      baseRef: 'main',
       // 0211 — 표시 정본이 결과에 함께 온다(이름은 원본, 실행은 worktree).
       display: { sourceCwd: '/repo', repoRoot: '/repo' }
     })
@@ -295,7 +316,7 @@ describe('prepareTurnWorktree', () => {
       turn: { cwd: '/managed/repo', extraDirs: ['/shared'] },
       entry: { request: { cwd: '/managed/repo', extraDirs: ['/shared'] } }
     })
-    expect(buildTurn).toHaveBeenCalledWith('/managed/repo', ['/shared'], 'a'.repeat(40))
+    expect(buildTurn).toHaveBeenCalledWith('/managed/repo', ['/shared'], 'a'.repeat(40), 'main')
     expect(acquireRuntime).toHaveBeenCalledOnce()
   })
 })

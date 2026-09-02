@@ -281,9 +281,9 @@ export const GitDiffRequestSchema = z.object({
   sessionId: z.string().min(1).optional()
 })
 
-export const GitDiffFileRequestSchema = GitDiffRequestSchema.extend({
-  path: GitDiffPathSchema
-})
+// 패치는 요약과 같은 인자다 — **커밋 범위 인자를 두지 않는다**(0211 D-036·ΔV4 D-079).
+// 인자를 남기면 두 번째 범위 해석이 살아 있어 다음 사람이 그것을 다시 배선한다.
+export const GitDiffPatchRequestSchema = GitDiffRequestSchema
 
 export const ReadAttachmentRequestSchema = z.object({ path: z.string().min(1) })
 
@@ -717,13 +717,15 @@ export type {
   FileEntry,
   GitPathRequest,
   GitDiffRequest,
-  GitDiffFileRequest,
+  GitDiffPatchRequest,
   GitDiffBase,
   GitDiffFileStatus,
   GitDiffFileEntry,
   GitDiffCommit,
   GitDiffSummary,
-  GitDiffFileContent,
+  GitDiffPatch,
+  GitDiffPatchFile,
+  GitDiffPatchLine,
   WorktreeDisplay,
   WorktreePrepareStep,
   GitDirtyStat,

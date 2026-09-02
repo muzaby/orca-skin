@@ -10,7 +10,7 @@ import {
   NEW_CHAT_KEY
 } from './chatStore'
 import { flushRaf, installChatStoreHarness } from './chatStore.testHarness'
-import { initialChatState } from '../reducer/chatReducer'
+import { DEFAULT_DIFF_VIEW, initialChatState } from '../reducer/chatReducer'
 import { partsText } from '../lib/parts'
 import type { DiffRequirementItem, NormalizedEvent } from '../../../../../shared/ipc'
 
@@ -173,29 +173,24 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
         }
       }
     }))
-    const actions = chatActions as typeof chatActions & {
-      openGitSnapshotPeek?: (target: {
-        group: { kind: 'commit'; sha: string }
-        path: string
-      }) => void
-      refreshGitSnapshot?: () => void
-    }
-
-    expect(actions.openGitSnapshotPeek).toBeTypeOf('function')
-    expect(actions.refreshGitSnapshot).toBeTypeOf('function')
-    actions.openGitSnapshotPeek?.({ group: { kind: 'commit', sha: 'abc1234' }, path: 'src/a.ts' })
-    actions.refreshGitSnapshot?.()
+    chatActions.setDiffComparison({ kind: 'commit', sha: 'abc1234' })
+    chatActions.toggleDiffFileCollapsed('src/a.ts')
+    chatActions.refreshGitSnapshot()
 
     expect(entry('s').session.gitSnapshot).toMatchObject({
-      peekTarget: { group: { kind: 'commit', sha: 'abc1234' }, path: 'src/a.ts' },
+      comparison: { kind: 'commit', sha: 'abc1234' },
+      collapsedFiles: ['src/a.ts'],
       refreshGeneration: 1
     })
+    // 다른 세션 엔트리는 손대지 않는다 — 활성 키만 바뀐다.
     expect(entry('bg').session.gitSnapshot).toEqual({
       summary: null,
-      peekTarget: null,
-      expandedCommitIds: [],
-      refreshGeneration: 0,
-      bodyCache: []
+      patch: null,
+      comparison: { kind: 'all' },
+      collapsedFiles: [],
+      sidebarVisible: false,
+      view: DEFAULT_DIFF_VIEW,
+      refreshGeneration: 0
     })
   })
 
@@ -600,19 +595,30 @@ describe('chatStore — diff 요구사항 전송 스냅샷', () => {
     expect(entry().session.diffRequirements.map((item) => item.id)).toEqual(['req-1', 'req-2'])
 
     chatActions.removeDiffRequirement('req-2')
-    chatActions.setDiffRequirementBodyRequest('s', 's', 'src/a.ts', {
-      key: 'body-key',
-      generation: 2
-    })
-    chatActions.reanchorDiffRequirements('s', 's', 'src/a.ts', { key: 'body-key', generation: 2 }, [
+    // 0211 ΔV4 — 재anchor 는 **패치 도착**이 계기다(D-093). 별도 body 요청 등록이 없다.
+    chatActions.beginGitSnapshotQuery({ key: 'k', generation: 2 })
+    chatActions.receiveGitPatch(
+      { key: 'k', generation: 2 },
       {
-        type: 'added',
-        oldLine: null,
-        newLine: 2,
-        lineNo: 2,
-        text: 'target without saved context'
+        isRepo: true,
+        base: { kind: 'worktree-base', oid: 'base-oid', ref: 'main' },
+        files: [
+          {
+            path: 'src/a.ts',
+            status: 'modified',
+            added: 1,
+            removed: 0,
+            kind: 'text',
+            lines: [
+              { type: 'added', oldLine: null, newLine: 2, text: 'target without saved context' }
+            ]
+          }
+        ],
+        filesTruncated: false,
+        contextLimited: false,
+        unavailable: false
       }
-    ])
+    )
     chatActions.clearDiffRequirementsIfUnchanged({
       ...snapshot,
       revision: entry().session.diffRequirementsRevision - 1

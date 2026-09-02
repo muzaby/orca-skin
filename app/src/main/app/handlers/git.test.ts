@@ -8,16 +8,17 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { handleMock, gitDiffSummaryMock, gitDiffFileMock } = vi.hoisted(() => ({
+const { handleMock, gitDiffSummaryMock, gitDiffPatchMock } = vi.hoisted(() => ({
   handleMock: vi.fn(),
   gitDiffSummaryMock: vi.fn(async () => ({ kind: 'clean' })),
-  gitDiffFileMock: vi.fn(async () => ({ kind: 'unavailable', reason: 'error' }))
+  gitDiffPatchMock: vi.fn(async () => ({ kind: 'empty-patch' }))
 }))
 vi.mock('../../infra/ipc/handle', () => ({ handle: handleMock }))
 vi.mock('../../infra/git/git-diff', () => ({
   EMPTY_DIFF_SUMMARY: { kind: 'clean' },
+  EMPTY_DIFF_PATCH: { kind: 'empty-patch' },
   gitDiffSummary: gitDiffSummaryMock,
-  gitDiffFile: gitDiffFileMock
+  gitDiffPatch: gitDiffPatchMock
 }))
 
 import { CHANNELS } from '../../../shared/ipc'
@@ -31,7 +32,7 @@ function registeredPolicies(): Map<string, 'reject' | 'fallback'> {
   handleMock.mockClear()
   // 0211 — base 조회 포트는 **필수 인자**다(배선을 잊으면 모든 세션이 조용히 HEAD 범위로
   // 떨어진다). 이 테스트는 정책만 보므로 row 없음 스텁으로 충분하다.
-  registerGitHandlers({ getSessionBaseline: () => null })
+  registerGitHandlers({ getSessionBaseline: () => ({ oid: null, ref: null }) })
   return new Map(
     handleMock.mock.calls.map((call) => [
       call[0] as string,
@@ -54,43 +55,35 @@ describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', 
   beforeEach(() => {
     handleMock.mockClear()
     gitDiffSummaryMock.mockClear()
-    gitDiffFileMock.mockClear()
+    gitDiffPatchMock.mockClear()
   })
 
-  it('session baseline lookup의 OID를 summary·file 둘에 같이 전달하고 commit 범위를 넘기지 않는다', async () => {
-    const getSessionBaseline = vi.fn(() => 'c'.repeat(40))
+  it('baseline 의 커밋과 브랜치 이름을 summary·patch 둘에 같이 전달하고 commit 범위를 넘기지 않는다', async () => {
+    const getSessionBaseline = vi.fn(() => ({ oid: 'c'.repeat(40), ref: 'main' }))
     registerGitHandlers({ getSessionBaseline })
     const summaryHandler = handleMock.mock.calls.find(
       (call) => call[0] === CHANNELS.gitDiffSummary
     )?.[3] as (request: { cwd: string; sessionId: string; commit?: string }) => Promise<unknown>
-    const fileHandler = handleMock.mock.calls.find(
-      (call) => call[0] === CHANNELS.gitDiffFile
-    )?.[3] as (request: {
-      cwd: string
-      sessionId: string
-      path: string
-      commit?: string
-    }) => Promise<unknown>
+    const patchHandler = handleMock.mock.calls.find(
+      (call) => call[0] === CHANNELS.gitDiffPatch
+    )?.[3] as (request: { cwd: string; sessionId: string; commit?: string }) => Promise<unknown>
 
     await summaryHandler({ cwd: '/repo', sessionId: 'session-1', commit: 'a'.repeat(40) })
-    await fileHandler({
-      cwd: '/repo',
-      sessionId: 'session-1',
-      path: 'src/a.ts',
-      commit: 'a'.repeat(40)
-    })
+    await patchHandler({ cwd: '/repo', sessionId: 'session-1', commit: 'a'.repeat(40) })
 
     expect(getSessionBaseline).toHaveBeenCalledTimes(2)
     expect(getSessionBaseline).toHaveBeenNthCalledWith(1, 'session-1')
     expect(getSessionBaseline).toHaveBeenNthCalledWith(2, 'session-1')
+    // 0211 ΔV4 — 이름(`baseRef`)이 커밋과 **함께** 간다. 한쪽만 가면 라벨이 다른 시점을 말한다.
     expect(gitDiffSummaryMock).toHaveBeenCalledWith({
       cwd: '/repo',
-      baseOid: 'c'.repeat(40)
+      baseOid: 'c'.repeat(40),
+      baseRef: 'main'
     })
-    expect(gitDiffFileMock).toHaveBeenCalledWith({
+    expect(gitDiffPatchMock).toHaveBeenCalledWith({
       cwd: '/repo',
-      path: 'src/a.ts',
-      baseOid: 'c'.repeat(40)
+      baseOid: 'c'.repeat(40),
+      baseRef: 'main'
     })
     expect(readFileSync(GIT_HANDLER_SOURCE, 'utf8')).not.toContain('getManagedWorktreeBySession')
   })
@@ -104,9 +97,9 @@ describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', 
         CHANNELS.gitBranches,
         CHANNELS.gitCheckout,
         CHANNELS.gitStatus,
-        // 0211 — 변경사항 타일의 읽기 2종.
+        // 0211 — 변경사항 타일의 읽기 2종(ΔV4 에서 본문 → 패치).
         CHANNELS.gitDiffSummary,
-        CHANNELS.gitDiffFile
+        CHANNELS.gitDiffPatch
       ].sort()
     )
     expect(documented).toEqual(registered)
@@ -120,7 +113,7 @@ describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', 
     // 0211 — diff 읽기도 같은 규칙이다: 저장소가 아니어도 타일은 떠야 하고 그 판정이
     // 곧 "볼 것이 없음" 이라는 UI 입력이다.
     expect(policies.get(CHANNELS.gitDiffSummary)).toBe('fallback')
-    expect(policies.get(CHANNELS.gitDiffFile)).toBe('fallback')
+    expect(policies.get(CHANNELS.gitDiffPatch)).toBe('fallback')
     expect(policies.get(CHANNELS.gitCheckout)).toBe('reject')
   })
 

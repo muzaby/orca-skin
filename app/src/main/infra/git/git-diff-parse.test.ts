@@ -8,8 +8,11 @@ import { describe, expect, it } from 'vitest'
 import {
   MAX_DIFF_COMMITS,
   MAX_DIFF_FILES,
+  MAX_PATCH_FILE_LINES,
+  MAX_PATCH_TOTAL_LINES,
   mergeDiffEntries,
   parseCommitLog,
+  parseUnifiedPatch,
   parseNameStatusZ,
   parseNumstatZ
 } from './git-diff-parse'
@@ -266,5 +269,209 @@ describe('변경량 합계 (VP-27 · EP-11)', () => {
 
   it('빈 입력의 합계는 0/0 이다 — 필드가 비지 않는다', () => {
     expect(mergeDiffEntries([]).totals).toEqual({ added: 0, removed: 0 })
+  })
+})
+
+// ── unified patch 파서 (0211 ΔV4 VP-55) ──────────────────────────────────────
+//
+// 입력은 `git diff --unified=<n> -M --no-color` 출력이다. 아래 fixture 는 git 2.43 실기에서
+// 그대로 떠 온 형태다 — 흉내가 틀린 만큼 조용히 초록이 되는 것을 막는다.
+
+describe('parseUnifiedPatch — git 출력 7종 (AT-47)', () => {
+  it('수정 파일의 줄이 두 축의 줄번호를 갖는다', () => {
+    const parsed = parseUnifiedPatch(
+      [
+        'diff --git a/a.ts b/a.ts',
+        'index 0000001..0000002 100644',
+        '--- a/a.ts',
+        '+++ b/a.ts',
+        '@@ -1,3 +1,3 @@',
+        ' one',
+        '-two',
+        '+TWO',
+        ' three',
+        ''
+      ].join('\n')
+    )
+
+    expect(parsed.files).toHaveLength(1)
+    expect(parsed.files[0]).toMatchObject({
+      path: 'a.ts',
+      status: 'modified',
+      added: 1,
+      removed: 1
+    })
+    expect(parsed.files[0].lines).toEqual([
+      { type: 'unchanged', oldLine: 1, newLine: 1, text: 'one' },
+      { type: 'removed', oldLine: 2, newLine: null, text: 'two' },
+      { type: 'added', oldLine: null, newLine: 2, text: 'TWO' },
+      { type: 'unchanged', oldLine: 3, newLine: 3, text: 'three' }
+    ])
+  })
+
+  it('추가·삭제는 한쪽 축이 /dev/null 이다', () => {
+    const parsed = parseUnifiedPatch(
+      [
+        'diff --git a/new.ts b/new.ts',
+        'new file mode 100644',
+        '--- /dev/null',
+        '+++ b/new.ts',
+        '@@ -0,0 +1,2 @@',
+        '+alpha',
+        '+beta',
+        'diff --git a/old.ts b/old.ts',
+        'deleted file mode 100644',
+        '--- a/old.ts',
+        '+++ /dev/null',
+        '@@ -1,1 +0,0 @@',
+        '-gone',
+        ''
+      ].join('\n')
+    )
+
+    expect(parsed.files.map((file) => [file.path, file.status])).toEqual([
+      ['new.ts', 'added'],
+      ['old.ts', 'deleted']
+    ])
+    expect(parsed.files[0]).toMatchObject({ added: 2, removed: 0 })
+    expect(parsed.files[1]).toMatchObject({ added: 0, removed: 1 })
+  })
+
+  it('rename 은 새 경로에 옛 경로를 함께 싣는다', () => {
+    const parsed = parseUnifiedPatch(
+      [
+        'diff --git a/src.txt b/dst.txt',
+        'similarity index 75%',
+        'rename from src.txt',
+        'rename to dst.txt',
+        'index 861b1fb..366472e 100644',
+        '--- a/src.txt',
+        '+++ b/dst.txt',
+        '@@ -1,2 +1,2 @@',
+        ' keep',
+        '-r8',
+        '+CHANGED',
+        ''
+      ].join('\n')
+    )
+
+    expect(parsed.files[0]).toMatchObject({
+      path: 'dst.txt',
+      oldPath: 'src.txt',
+      status: 'renamed'
+    })
+  })
+
+  it('binary 는 --- / +++ 가 없어 경로를 헤더에서 읽는다', () => {
+    const parsed = parseUnifiedPatch(
+      [
+        'diff --git a/blob.bin b/blob.bin',
+        'new file mode 100644',
+        'index 0000000..366fd40',
+        'Binary files /dev/null and b/blob.bin differ',
+        ''
+      ].join('\n')
+    )
+
+    expect(parsed.files[0]).toMatchObject({
+      path: 'blob.bin',
+      kind: 'binary',
+      added: 0,
+      removed: 0
+    })
+    expect(parsed.files[0].lines).toEqual([])
+  })
+
+  it('개행 없음 표식은 새 줄이 되지 않는다', () => {
+    const parsed = parseUnifiedPatch(
+      [
+        'diff --git a/tail.txt b/tail.txt',
+        '--- a/tail.txt',
+        '+++ b/tail.txt',
+        '@@ -1,1 +1,1 @@',
+        '-old',
+        '+new',
+        '\\ No newline at end of file',
+        ''
+      ].join('\n')
+    )
+
+    expect(parsed.files[0].lines).toHaveLength(2)
+    expect(parsed.files[0]).toMatchObject({ added: 1, removed: 1 })
+  })
+
+  it('모드만 바뀐 파일은 줄이 없고 변경량이 0 이다', () => {
+    const parsed = parseUnifiedPatch(
+      ['diff --git a/run.sh b/run.sh', 'old mode 100644', 'new mode 100755', ''].join('\n')
+    )
+
+    expect(parsed.files[0]).toMatchObject({
+      path: 'run.sh',
+      status: 'modified',
+      added: 0,
+      removed: 0,
+      kind: 'text'
+    })
+  })
+
+  it('공백이 든 경로는 --- 줄의 탭 앞까지가 경로다', () => {
+    const parsed = parseUnifiedPatch(
+      [
+        'diff --git a/한글 파일.txt b/한글 파일.txt',
+        '--- a/한글 파일.txt\t',
+        '+++ b/한글 파일.txt\t',
+        '@@ -1 +1 @@',
+        '-a',
+        '+b',
+        ''
+      ].join('\n')
+    )
+
+    expect(parsed.files[0].path).toBe('한글 파일.txt')
+  })
+})
+
+describe('parseUnifiedPatch 상한 셋 — 서로를 대신하지 못한다 (AT-47)', () => {
+  function fileBlock(path: string, lines: number): string {
+    return [
+      `diff --git a/${path} b/${path}`,
+      `--- a/${path}`,
+      `+++ b/${path}`,
+      `@@ -1,${lines} +1,${lines} @@`,
+      ...Array.from({ length: lines }, (_, i) => `+l${i}`)
+    ].join('\n')
+  }
+
+  it('파일 201건은 200건 + filesTruncated 다', () => {
+    const parsed = parseUnifiedPatch(
+      Array.from({ length: 201 }, (_, i) => fileBlock(`f${i}.ts`, 1)).join('\n')
+    )
+
+    expect(parsed.files).toHaveLength(MAX_DIFF_FILES)
+    expect(parsed.filesTruncated).toBe(true)
+  })
+
+  it('파일당 줄 상한을 넘으면 줄 없이 too-large 이고 변경량은 남는다', () => {
+    const lines = MAX_PATCH_FILE_LINES + 1
+    const parsed = parseUnifiedPatch(fileBlock('huge.ts', lines))
+
+    expect(parsed.files[0]).toMatchObject({ kind: 'too-large', added: lines, removed: 0 })
+    expect(parsed.files[0].lines).toEqual([])
+  })
+
+  it('전체 줄 상한을 넘긴 뒤의 파일이 too-large 다 — 파일 상한이 이것을 대신하지 못한다', () => {
+    const per = MAX_PATCH_TOTAL_LINES / 4
+    const parsed = parseUnifiedPatch(
+      [0, 1, 2, 3, 4].map((i) => fileBlock(`chunk${i}.ts`, per)).join('\n')
+    )
+
+    expect(parsed.files.slice(0, 4).map((file) => file.kind)).toEqual([
+      'text',
+      'text',
+      'text',
+      'text'
+    ])
+    expect(parsed.files[4].kind).toBe('too-large')
+    expect(parsed.files[4].added).toBe(per)
   })
 })

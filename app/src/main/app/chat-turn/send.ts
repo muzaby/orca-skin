@@ -183,7 +183,7 @@ export async function handleChatSend(
         }
       },
       extraDirs: payload.extraDirs,
-      buildTurn: (executionCwd, extraDirs, sessionBaseline) => {
+      buildTurn: (executionCwd, extraDirs, sessionBaseline, sessionBaselineRef) => {
         // ── 6. TurnContext 조립 ───────────────────────────────────────────
         const controller = lease.controller
         return buildTurnContext<WebContents>({
@@ -206,6 +206,7 @@ export async function handleChatSend(
           effectiveText,
           boundProjectId,
           sessionBaseline,
+          sessionBaselineRef,
           // 폴백이 일어났으면 세션행 사본이 아직 옛 경로다 — `resolveTurnCwd` 는 resume 에서
           // 세션행을 우선하므로 여기서 확정된 실행 경로로 덮지 않으면 죽은 경로가 되살아난다.
           // 폴백이 없으면 두 값이 같아 무해하다(AC19).

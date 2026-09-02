@@ -50,10 +50,12 @@ export const CHANNELS = {
   gitStatus: 'orca:git:status',
   gitBranches: 'orca:git:branches',
   gitCheckout: 'orca:git:checkout',
-  // 변경사항(diff) 타일의 읽기 2종 (0211). 요약은 타일이 열릴 때·cwd 변경·턴 종료에,
-  // 본문은 파일을 펼칠 때만 부른다 — 요약에 본문을 실으면 열자마자 저장소 전체를 읽는다.
+  // 변경사항(diff) 타일의 읽기 2종 (0211). 요약은 cwd/세션 변경·턴 종료·새로고침에 부르고
+  // 컴포저 git 행도 그 `totals` 를 읽는다 — 그래서 요약은 가볍게 둔다.
+  // 패치는 **타일이 열려 있을 때 요약 세대당 1회**다(ΔV4 D-078): 파일 수와 무관하게 한 번이라
+  // 파일마다 묻던 옛 `diffFile` 을 대신한다.
   gitDiffSummary: 'orca:git:diffSummary',
-  gitDiffFile: 'orca:git:diffFile',
+  gitDiffPatch: 'orca:git:diffPatch',
   sessionCwd: 'orca:session:cwd',
   sessionList: 'orca:session:list',
   sessionLoad: 'orca:session:load',
@@ -1127,14 +1129,15 @@ export interface GitDiffRequest {
   sessionId?: string
 }
 
-export interface GitDiffFileRequest extends GitDiffRequest {
-  // 저장소 루트 상대 경로, POSIX 구분자. git 이 주는 형태 그대로다.
-  path: string
-}
+// 패치도 같은 범위 인자를 쓴다 — **커밋 범위 인자는 없다**(0211 D-036·ΔV4 D-079).
+// 커밋을 고르는 것은 *표시할 목록*을 좁히는 renderer 축이고 조회 축이 아니다.
+export type GitDiffPatchRequest = GitDiffRequest
 
 // 무엇과 비교했는가 — 화면이 "무엇 대비"를 말할 수 있어야 한다.
 export type GitDiffBase =
-  | { kind: 'worktree-base'; oid: string }
+  // `ref` = 세션이 시작된 시점의 브랜치 이름(0211 ΔV4 D-069). 모르면 `null` 이고 화면은
+  // oid 7자로 접는다(D-071) — detached HEAD·이 변경 이전 세션이 그 상태다.
+  | { kind: 'worktree-base'; oid: string; ref: string | null }
   | { kind: 'head'; oid: string }
   // 커밋이 하나도 없는 저장소. 전부 추가로 보인다.
   | { kind: 'none' }
@@ -1194,12 +1197,46 @@ export interface GitDiffSummary {
   }
 }
 
-// 파일 본문은 old/new **전문 두 벌**이다 — 소비자 `DiffTable` 의 계약이 unified patch 가
-// 아니라 `{oldValue,newValue}` 라, patch 를 주면 renderer 에 파서를 새로 만들어야 한다.
-export type GitDiffFileContent =
-  | { kind: 'text'; oldValue: string; newValue: string; truncated: boolean }
-  | { kind: 'binary' }
-  | { kind: 'unavailable'; reason: 'not-found' | 'too-large' | 'error' }
+// ── git diff 패치 (변경사항 타일 본문, 0211 ΔV4) ─────────────────────────────
+// 비교 범위 **전체**의 파일별 diff 줄을 한 번에 싣는다. 파일마다 묻던 옛 `diffFile` 과 달리
+// 호출 수가 파일 수와 무관하다(D-074) — 사용자가 "전체 조회로 1회만 실행" 을 골랐다.
+//
+// **전문맥이다**(`--unified=1000000`, D-076). 변경 줄만 받으면 문맥 확장이 파일마다 재조회를
+// 낳고 그것이 D-074 가 없앤 축이다 — 전문맥이라 확장은 순수 파생으로 남는다.
+
+export interface GitDiffPatchLine {
+  type: 'added' | 'removed' | 'unchanged'
+  // 각 축의 줄번호. 추가 줄은 old 가, 삭제 줄은 new 가 없다.
+  oldLine: number | null
+  newLine: number | null
+  text: string
+}
+
+export interface GitDiffPatchFile {
+  path: string
+  // rename 원본. rename 이 아니면 필드 자체가 없다.
+  oldPath?: string
+  status: GitDiffFileStatus
+  added: number
+  removed: number
+  // `too-large` = 상한(D-077)을 넘겨 **줄을 싣지 않았다**. `added`/`removed` 는 그대로라
+  // 헤더의 `+N −M` 은 계속 맞다 — "변경이 없다" 와 구분된다.
+  kind: 'text' | 'binary' | 'too-large'
+  lines: GitDiffPatchLine[]
+}
+
+export interface GitDiffPatch {
+  isRepo: boolean
+  base: GitDiffBase
+  files: GitDiffPatchFile[]
+  // 파일 상한(200)에 걸려 잘렸는가.
+  filesTruncated: boolean
+  // true = `--unified=3` 폴백으로 받았다(D-077). 확장이 로드된 문맥까지만 선다.
+  contextLimited: boolean
+  // true = 두 조회가 모두 실패했다. `files` 는 빈 배열이고 화면이 사유를 말한다 —
+  // 빈 배열만 주면 사용자가 "변경 없음" 으로 읽는다.
+  unavailable: boolean
+}
 
 export interface GitBranchList {
   current: string | null

@@ -82,6 +82,7 @@ describe('HistoryWriter — session baseline birth persistence', () => {
       cwd: '/repo',
       extraDirs: [],
       sessionBaseline: 'a'.repeat(40),
+      sessionBaselineRef: 'main',
       titleAdapter: { id: 'claude' },
       isNewSession: true
     } as unknown as TurnContext
@@ -92,7 +93,12 @@ describe('HistoryWriter — session baseline birth persistence', () => {
     } as NormalizedEvent)
 
     expect(insertSession).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'new-session', baselineOid: 'a'.repeat(40) })
+      // 0211 ΔV4 — 커밋과 이름이 **한 insert** 로 간다(D-070).
+      expect.objectContaining({
+        id: 'new-session',
+        baselineOid: 'a'.repeat(40),
+        baselineRef: 'main'
+      })
     )
   })
 
@@ -101,7 +107,11 @@ describe('HistoryWriter — session baseline birth persistence', () => {
     applyMigrations(db)
     const queries = new DbQueries(db)
     const persistence = new HistoryWriter(queries)
-    const turn = (sessionBaseline: string | null, isNewSession: boolean): TurnContext =>
+    const turn = (
+      sessionBaseline: string | null,
+      isNewSession: boolean,
+      sessionBaselineRef: string | null = null
+    ): TurnContext =>
       ({
         dbSessionId: null,
         initialTitle: null,
@@ -111,20 +121,25 @@ describe('HistoryWriter — session baseline birth persistence', () => {
         cwd: '/repo',
         extraDirs: [],
         sessionBaseline,
+        sessionBaselineRef,
         titleAdapter: { id: 'claude' },
         isNewSession
       }) as unknown as TurnContext
 
-    persistence.persist(turn('a'.repeat(40), true), {
+    persistence.persist(turn('a'.repeat(40), true, 'main'), {
       type: 'session.updated',
       sessionId: 'persisted-session'
     } as NormalizedEvent)
-    persistence.persist(turn('b'.repeat(40), false), {
+    persistence.persist(turn('b'.repeat(40), false, 'feature'), {
       type: 'session.updated',
       sessionId: 'persisted-session'
     } as NormalizedEvent)
 
-    expect(queries.getSessionBaseline('persisted-session')).toBe('a'.repeat(40))
+    // 이후 턴이 브랜치를 바꿔 보내도 행은 **불변**이다 — 1회 기록이 D-070·D-033 의 계약이다.
+    expect(queries.getSessionBaseline('persisted-session')).toEqual({
+      oid: 'a'.repeat(40),
+      ref: 'main'
+    })
     db.close()
   })
 })

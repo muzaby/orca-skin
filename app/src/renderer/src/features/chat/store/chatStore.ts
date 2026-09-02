@@ -5,7 +5,7 @@ import {
   chatReducer,
   initialChatState,
   type ChatAction,
-  type GitPeekTarget,
+  type DiffViewOptions,
   type GitSnapshotRequest,
   type ChatState,
   type DiffRequirementDraft,
@@ -28,7 +28,7 @@ import type {
   DiffRequirementAnchor,
   DiffRequirementItem,
   EffortLevel,
-  GitDiffFileContent,
+  GitDiffPatch,
   GitDiffSummary,
   NormalizedEvent,
   SendChatMessage
@@ -40,8 +40,8 @@ import {
 import { continuityLangFor, continuityTitle } from '../../../../../shared/continuity-lang'
 import type { RightPanelTileId } from '../lib/rightPanelTiles'
 import type { BranchSnapshot } from '../components/composer/branchChipState'
-import type { DiffLine } from '../lib/diffLines'
 import { wireDiffRequirementAnchor } from '../components/rightpanel/diffRequirements'
+import type { DiffComparison } from '../components/rightpanel/diffComparison'
 
 // Zustand 단일 chat store — arch/frontend/state.md §1.4 채택안의 멀티세션 외피(handoff 0013).
 //
@@ -1355,14 +1355,18 @@ export const chatActions = {
     dispatchActive({ type: 'REMOVE_RIGHT_PANEL_TILE', id }),
   setGitStatus: (snapshot: BranchSnapshot): void =>
     dispatchActive({ type: 'SET_GIT_STATUS', snapshot }),
-  openGitSnapshotPeek: (target: GitPeekTarget): void =>
-    dispatchActive({ type: 'OPEN_GIT_SNAPSHOT_PEEK', target }),
-  closeGitSnapshotPeek: (): void => dispatchActive({ type: 'CLOSE_GIT_SNAPSHOT_PEEK' }),
-  toggleGitSnapshotCommitExpanded: (sha: string): void =>
-    dispatchActive({ type: 'TOGGLE_GIT_SNAPSHOT_COMMIT_EXPANDED', sha }),
   refreshGitSnapshot: (): void => dispatchActive({ type: 'REFRESH_GIT_SNAPSHOT' }),
-  recordDiffBody: (key: string, content: GitDiffFileContent): void =>
-    dispatchActive({ type: 'RECORD_DIFF_BODY', key, content }),
+  receiveGitPatch: (request: GitSnapshotRequest, patch: GitDiffPatch): void =>
+    dispatchActive({ type: 'RECEIVE_GIT_PATCH', request, patch }),
+  setDiffComparison: (comparison: DiffComparison): void =>
+    dispatchActive({ type: 'SET_DIFF_COMPARISON', comparison }),
+  toggleDiffFileCollapsed: (path: string): void =>
+    dispatchActive({ type: 'TOGGLE_DIFF_FILE_COLLAPSED', path }),
+  setAllDiffFilesCollapsed: (collapsed: boolean, paths: readonly string[]): void =>
+    dispatchActive({ type: 'SET_ALL_DIFF_FILES_COLLAPSED', collapsed, paths }),
+  toggleDiffSidebar: (): void => dispatchActive({ type: 'TOGGLE_DIFF_SIDEBAR' }),
+  setDiffViewOption: (patch: Partial<DiffViewOptions>): void =>
+    dispatchActive({ type: 'SET_DIFF_VIEW_OPTION', patch }),
   beginGitSnapshotQuery: (request: GitSnapshotRequest): void =>
     dispatchActive({ type: 'BEGIN_GIT_SNAPSHOT_QUERY', request }),
   receiveGitSnapshotSummary: (request: GitSnapshotRequest, summary: GitDiffSummary): void =>
@@ -1373,32 +1377,6 @@ export const chatActions = {
     dispatchActive({ type: 'REMOVE_DIFF_REQUIREMENT', id }),
   setDiffRequirementDraft: (draft: DiffRequirementDraft | null): void =>
     dispatchActive({ type: 'SET_DIFF_REQUIREMENT_DRAFT', draft }),
-  setDiffRequirementBodyRequest: (
-    sessionKey: string,
-    sessionId: string | null,
-    path: string,
-    request: GitSnapshotRequest
-  ): void =>
-    dispatchTo(sessionKey, {
-      type: 'SET_DIFF_REQUIREMENT_BODY_REQUEST',
-      sessionId,
-      path,
-      request
-    }),
-  reanchorDiffRequirements: (
-    sessionKey: string,
-    sessionId: string | null,
-    path: string,
-    request: GitSnapshotRequest,
-    lines: readonly DiffLine[]
-  ): void =>
-    dispatchTo(sessionKey, {
-      type: 'REANCHOR_DIFF_REQUIREMENTS',
-      sessionId,
-      path,
-      request,
-      lines
-    }),
   captureDiffRequirementSnapshot,
   clearDiffRequirementsIfUnchanged,
   selectTask: (key: string | null): void => dispatchActive({ type: 'SELECT_TASK', key }),

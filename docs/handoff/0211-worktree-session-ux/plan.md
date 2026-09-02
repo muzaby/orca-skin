@@ -3080,6 +3080,125 @@ git CLI
 - 현재 라운드 수: **1** — 사용자 명시(“라운드를 올리지 않는다”).
 
 
+## [구현자 기입] 설계 리뷰 (ΔV4)
+
+- 읽은 범위: Part I 전체(ΔV4 절 포함) · §7 ΔV4 AC 12건 · §7-A ΔV4 Delta V(node 27행 · pair 20행) · §8~§11 ΔV4 · §10 ΔV4 강제 지점 9행 · §16~§19 ΔV4.
+- 계약으로 읽은 것: ACTIVE Decision **26신설 + 유지분**, AT-43~AT-54, VP-51~VP-62(REQUIRED 12) + REGRESSION 7행, EP-28~EP-36(26지점).
+- `PLAN_GAP` **1건**(아래 §되먹임 D-038) — 규범 행이라 **별도 설계 커밋**으로 정정한 뒤 구현했다. 나머지 경로는 막히지 않았다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (ΔV4)
+
+| EP | 지점 수 | 닫음 | 재현 명령 / 관측값 |
+|---|---|---|---|
+| EP-28 | 3 | **3/3** | ① `ls app/src/main/infra/db/migrations/0020_session_baseline_ref.sql` 존재 · `check-migrations-appendonly` **20 migrations, dir == migrate.ts imports** ② `rg 'baseRef' app/src/main/features/worktrees/service.ts` = 3(타입·계산·반환) + `prepare-worktree.ts` 의 비격리 `resolveHeadRef` 1 ③ `summaryBaseLabel` 4분기 — `sessionChangesData.test.ts` 5케이스 green |
+| EP-29 | 3 | **3/3** | ① `rg 'gitDiffPatch\|diffPatch' app/src/{shared,preload,main/app/handlers,renderer/src/shared/api}` = 계약·zod·preload·handler 4자리 ② `git-diff.test.ts` “성공 경로는 전문맥 한 호출” — `patchCalls` 길이 **1** ③ 같은 파일 “실패하면 `--unified=3` 으로 한 번 더” — 길이 **2** · `contextLimited:true` |
+| EP-30 | 4 | **4/4** | `diffPeekRemoved.test.ts` — import 0건 · 채널 호출 0건(프로덕션) · i18n 키 0건 · peek 마커 0건. 삭제 파일 10개(§18 ΔV4 목록)가 `ls` 에서 부재 |
+| EP-31 | 3 | **3/3** | `git-diff-parse.test.ts` 3케이스 — 파일 201→200+truncated · 파일당 50,001줄→`too-large`(변경량 보존) · 전체 200,000 초과 뒤 파일이 `too-large` |
+| EP-32 | 2 | **2/2** | ① `expandGap(state,id,n,direction)` — `diffHunks.test.ts` 6케이스 ② `canUp`/`canDown` 이 gap 행의 값 — 선두/말미/중간 3케이스 |
+| EP-33 | 4 | **4/4** | ① 공백 접기 `diffDisplay.test.ts` 4 ② 단어 강조 4 ③ 나란히 2 ④ 줄바꿈 클래스 — `diffTile.render.test.ts` “자동 줄 바꿈을 끄면 가로 스크롤” |
+| EP-34 | 3 | **3/3** | ① `shouldFetchGitPatch` — `gitPatchQuery.test.ts` 5케이스 ② `RECEIVE_GIT_SNAPSHOT_SUMMARY`·`REFRESH_GIT_SNAPSHOT` 가 `patch: null` — `chatReducer.plan.test.ts` 2케이스 ③ **소유자 스윕**: `gitApi.diffPatch` 프로덕션 호출 파일 = `['src/features/chat/hooks/useGitPatch.ts']`, `useGitPatch` 호출 파일 = `['…/DiffTileContent.tsx']` |
+| EP-35 | 2 | **2/2** | ① `diffComparison.test.ts` “같은 파일의 patch 참조가 **같은 객체**” + `GitDiffPatchRequest` 에 `commit` 0건(`git-diff-schema.test.ts`) ② `세션 기준 변경 없음` — `diffTile.render.test.ts` 1케이스 |
+| EP-36 | 2 | **2/2** | ① 폴더 버튼과 `⋮ › 파일 표시` 가 **같은** `chatActions.toggleDiffSidebar` 를 부른다(`rg 'toggleDiffSidebar' GitContextBar.tsx` = 2 호출 · 액션 1) ② `DiffReview.pickFile` 이 `onExpandFile` **먼저** 부른 뒤 `scrollIntoView` |
+
+**합계 검산**: 3+3+4+3+2+4+3+2+2 = **26지점 / 26 닫음**. 남긴 곳 없음.
+
+### V-pair 자기확인 (ΔV4)
+
+| pair | 상태 | 이번 턴 관측값 |
+|---|---|---|
+| VP-51 | `SELF_PASS` | 라벨 4상태 5케이스 + 렌더에서 `main` 출력·현재 브랜치 문자열 부재 |
+| VP-52 | `SELF_PASS` | `queries.test.ts` 2케이스(커밋+이름 동시 저장 · detached 는 이름만 null) · `writer.test.ts` 불변 1 · `prepare-worktree.test.ts` 3 |
+| VP-53 | `SELF_PASS` | 한 컨테이너 순서 · 개별 접기가 그 파일만 · peek/이전·다음 부재 |
+| VP-54 | `SELF_PASS` | `shouldFetchGitPatch` 5 + 소유자 스윕 2 + 리듀서 세대 2 |
+| VP-55 | `SELF_PASS` | 파서 7종 + 상한 3 + 인자/폴백 3 + 임시 저장소 6 |
+| VP-56 | `SELF_PASS` | 방향 6케이스(`insertedAbove` 가 up=n · down=0) |
+| VP-57 | `SELF_PASS` | 목록만 좁힘 + **patch 참조 동일** + 되돌려진 파일 표시 |
+| VP-58 | `SELF_PASS` | 기본 부재 → 토글 후 두 구획 · 트리 3단 접기 5 · 커밋 카드 4값 · `animate-depth-in` |
+| VP-59 | `SELF_PASS` | 메뉴 8항목 배열 동등 + 체크 축 4 + 표시 옵션 렌더 5 |
+| VP-60 | `SELF_PASS` | `nextDiffPanelWidth` 3케이스 |
+| VP-61 | `SELF_PASS` | 0건 스윕 5 — AT-45·AT-46 양성과 같은 라운드에서 green |
+| VP-62 | `SELF_PASS` | 파일 경계 2케이스(A anchor 가 B 줄에 붙지 않음 · 미발견은 `located:false` 로 잔존) |
+| VP-29·VP-30·VP-31·VP-35·VP-39·VP-22·VP-48·VP-50·VP-40~42·VP-45 | `SELF_PASS`(REGRESSION) | 기존 oracle 재실행 — `git-diff.test.ts` 23 · `git-diff-parse.test.ts` 29 · `diffRequirements.test.ts` · `chatStore.test.ts` 50 전건 green |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (ΔV4)
+
+| # | pair / 출처 | 심은 결함 | 결과 |
+|---|---|---|---|
+| M1 | VP-51 선택 증거 | 라벨에 `→ 현재` 를 되살림 | **RED** |
+| M2 | VP-52 선택 증거 | `insertSession` 을 `ON CONFLICT DO UPDATE` 로 — 이후 턴이 덮어씀 | **RED** |
+| M3 | VP-53 선택 증거 | 개별 접기를 전체 접기로(`collapsedFiles.size > 0`) | **RED** |
+| M4a | VP-54 선택 증거 ① | 항상 재조회(`patch === null` 조건 제거) | **RED** |
+| M4b | VP-54 선택 증거 ② | 조회 소거(`return false`) | **RED** |
+| M5a | VP-55 선택 증거 ① | 파일당 줄 상한 제거(`overFile = false`) | **RED** |
+| M5b | VP-55 선택 증거 ② | 파일 수 상한 제거(`slice` 삭제) | **RED** |
+| M5c | VP-55 추가 | 폴백을 축소 문맥이 아니라 전문맥으로 | **RED** |
+| M6 | VP-56 선택 증거 | `up`↔`down` 구현 맞바꿈 | **RED** |
+| M7 | VP-57 선택 증거 | 세션 패치를 무시하고 목록만으로 섹션 구성 | **RED** |
+| M8a | VP-58 선택 증거 ① | 사이드바에서 커밋 목록 제거 | **RED** |
+| M8b | VP-58 선택 증거 ② | 사이드바 연출 utility 제거 | **RED** |
+| M9 | VP-59 선택 증거 | 메뉴 항목 하나(`모든 파일 펼치기`) 삭제 | **RED** |
+| M10 | VP-62 선택 증거 | 파일 경계 없이 재anchor(모든 파일의 줄을 합침) | **RED** |
+| M11 | VP-61 새 oracle | 삭제 모듈(`diffBodyCache`) import 되살림 | **RED** |
+| M12 | VP-61 새 oracle | 제거된 i18n 키(`diffUntrackedExcluded`) 되살림 | **RED** |
+| M13 | 새 oracle(단어 강조) | 강조 조건을 상수 `false` 로 | **RED** |
+| M14 | 새 oracle(줄바꿈) | `wrapLines` 를 무시하고 항상 wrap | **RED** |
+| M15 | 새 oracle(열 폭) | 토글을 항상 `MAX` 로 | **RED** |
+| M16 | 새 oracle(접기 aria) | `aria-expanded` 를 상수 `true` 로 | **RED** |
+
+**분모 검산**: 선택 증거 **12**(VP-51·52·53·54×2·55×2·56·57·58×2·59·61) · 인용 변이 **0**(첫 라운드, 파생 이슈 없음) · 새 oracle 민감도 **8**(M5c·M11·M12·M13·M14·M15·M16 + M8b) = **표 행 20**. 20/20 RED.
+
+## [구현자 기입] Product/UX 파생 검토 (ΔV4)
+
+- **만든 문구에 소비자가 있는가**: 신규 i18n 키 15종 전부 렌더 경로가 있다 — `diffPatchUnavailable`·`diffContextLimited`·`diffNoSessionChange` 는 `DiffReview`/`FileDiffSection` 의 분기가, 메뉴 8라벨은 `DIFF_VIEW_MENU_ITEMS` 가, `diffExpandPanel`/`diffShrinkPanel` 은 `↗` 의 `aria-label` 이 소비한다. 죽은 키 0.
+- **실패가 “아무 일도 안 일어남”으로 보이지 않는가**: ① 패치 두 조회가 모두 실패하면 `unavailable` 문구 + 새로고침 안내(빈 목록을 “변경 없음”으로 읽히게 두지 않는다) ② 축소 문맥은 그 사실을 한 줄로 말한다 ③ 상한 초과 파일은 헤더와 `+N −M` 을 남긴다 ④ **사이드바에서 접힌 파일을 고르면 먼저 펼친 뒤 스크롤**한다(EP-36 ②) — 이 넷이 §5 ΔV4 전이표의 네 행이다.
+- **늦게 도착한 응답이 화면을 되돌리지 않는가**: 패치는 리듀서의 세대 판정으로 버린다(테스트 1케이스). 훅의 `live` 플래그는 언마운트된 타일의 dispatch 만 막는다 — 두 겹이다.
+- **범위 밖이라 고치지 않은 것**: 없음.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (ΔV4)
+
+1. **`--unified=1000000` 은 이름 그대로 상한이 아니다.** 파서보다 앞선 `maxBuffer`(16 MiB)가 진짜 천장이고, 그것을 넘으면 파일 상한·줄 상한이 **아무것도 막지 못한다** — 조회 자체가 실패한다. 그래서 폴백을 값으로 두고(D-077) 인자 차집합으로 확인했다(M5c).
+2. **공백 숨기기가 파일을 “변경 없음”으로 만들 수 있다.** 공백만 다른 파일은 접은 뒤 hunk 가 0이 되어 `buildDiffHunks` 가 파일 전체를 한 gap 으로 낸다 — 화면에는 `변경 없는 N줄` 컨트롤만 남는다. 정상 동작이지만 처음엔 결함으로 읽혔다: 렌더 테스트 fixture 를 “공백 쌍 + 진짜 변경”으로 바꿔 그 구분을 남겼다.
+3. **`FileDiffSection` 의 문맥 확장 상태는 `ignoreWhitespace` 를 키로 갖는다**(`key={path}:{ignoreWhitespace}`). 그 옵션이 줄 배열 자체를 바꾸므로 상태를 이어받으면 확장 폭이 다른 줄 번호를 가리킨다 — 옵션 전환 시 기본 문맥으로 되돌리는 쪽을 골랐다(D-094 의 “로컬 상태” 규칙과 같은 이유).
+4. **`gitDiffFile` 제거가 `MAX_DIFF_FILE_BYTES` 를 죽은 상수로 남겼다** — 선조치로 지웠다(D-077 이 그 자리를 파일당 줄 상한으로 대체한다).
+5. **경로 인용**: `-z` 를 쓸 수 없는 patch 출력에서 한글 경로가 `"\355\225\234…"` 로 온다. `-c core.quotePath=false` 로 막고 임시 저장소 실기로 확인했다(그래도 남는 `"` 시작 경로는 파서가 C 이스케이프를 푼다).
+
+### 설계 대비 명시적 차이 (ΔV4)
+
+**차이 1 — AT-46·AT-51 의 “스텁 호출 수 세기”를 순수 판정 + 소유자 스윕으로 분해했다.**
+
+| 축 | 원본(스텁 렌더 카운트) | 대체(순수 판정 + 스윕) | 다시 확인한 AC·§10 |
+|---|---|---|---|
+| 만료 | 없음 | 없음 — `shouldFetchGitPatch` 는 시간 축이 없다 | 해당 없음 |
+| **공유** | 스텁은 컴포넌트 하나만 본다 | 스윕은 **renderer 전체**를 분모로 본다 — 다른 파일이 `gitApi.diffPatch` 를 부르면 그 자리에서 red | EP-34 ③ · AT-46 |
+| 재진입 | 마운트 왕복을 직접 관측 | `patch !== null` 판정 + 리듀서 세대 테스트 2개로 같은 축 | AT-46 ②③ · EP-34 ② |
+| 다른 무효화 | 없음 | 없음 | 해당 없음 |
+
+이유: vitest 가 `environment: 'node'` 단일 설정이라(`vitest.config.ts:7`) `useEffect` 가 돌지 않는다 — 렌더로 계기를 세면 그 축에 자동 oracle 이 없다. 대체물이 원본보다 넓은 분모를 갖지만(파일 하나 → renderer 전체) **마운트 순서 자체는 사람 실기가 아니면 관측되지 않는다** — 그 한계를 여기 적는다.
+
+**차이 2 — `⋮` 항목 목록을 컴포넌트에서 `diffViewMenuItems.ts` 로 뽑았다.** 원본 설계는 `ViewMenu` 안에 8개를 나열했다. 그러면 “항목 집합 동등”(AT-51)을 잴 대상이 JSX 뿐이라 항목 하나 삭제 변이를 배열 비교로 잡을 수 없다. 공유 축: 그 목록을 다른 화면이 쓰면 순서가 두 곳에서 갈릴 수 있으나 **현재 소비자는 `ViewMenu` 하나**다(`rg 'DIFF_VIEW_MENU_ITEMS' app/src --glob '!*.test.*'` = 1).
+
+## [구현자 기입] 구현 보고 (ΔV4)
+
+- 대상 커밋: `(ΔV4 구현 — 좌표는 INDEX)`. 규범 행 정정(D-038)은 **앞선 별도 설계 커밋**이다.
+- 변경 파일: main **13**(마이그레이션 1 신설 포함) · shared/preload **3** · renderer 신규 **12** · renderer 변경 **9** · 삭제 **13**(소스 5 + 테스트 8) · i18n **2** · 문서 **2**.
+- **AC 자기보고**: ✅**12** · ⚠️**0** · ❌**0** = 총 **12**(AT-43~AT-54). 회귀 AC(AT-18·AT-22~AT-25·AT-27·AT-29·AT-33~AT-37·AT-39·AT-41)는 기존 케이스 재실행으로 green.
+- **합계 검산**: ✅ 12 · ⚠️ 0 · ❌ 0 = **12** = ΔV4 AC 총수 12. 유효 AC 분모는 ΔV3 대비 바뀌었다 — AT-26·AT-28·AT-30·AT-31·AT-38·AT-40·AT-42 **7건이 폐기**되고 ΔV4 12건이 들어왔다(§3 ΔV4 갱신 메모의 재유도표).
+- **게이트 산출**:
+  - `npm run lint` — **0 error / 1 warning**(기존분: `useTranscriptVirtualizer.ts` 의 `react-hooks/incompatible-library`).
+  - `npm run typecheck` — 3구성 **0줄**.
+  - `vitest run` — **305파일 3029케이스**, **1파일 실패**: `src/main/app/chat-turn.continuity.test.ts` = `Error: Electron failed to install correctly` — **환경 기인**이다(`ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 로 설치한 컨테이너, `app/AGENTS.md §제약 환경` 의 알려진 서명). 변경 무관: 그 파일은 이번 diff 에 없다.
+  - `node --test "scripts/*.test.mjs"` — **67/67 pass**.
+  - `check-doc-inventory.mjs --check` — **차이 0**(9 items, 82 channels). 재생성 diff 는 예측대로 두 줄: 채널 `diffFile`→`diffPatch`(총계 82 불변) · 마이그레이션 **19 → 20**.
+  - `check-migrations-appendonly.mjs` — exit **0**(`20 migrations, dir == migrate.ts imports`).
+
+## [구현자 기입] Review Signals — 사실만 (ΔV4)
+
+- 현재 라운드: **1**(ΔV4). 사용자 명시로 라운드를 올리지 않았다.
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **부분적으로 그렇다.** “조회 계기” 축이 ΔV1(AT-20) → ΔV2(AT-32) → ΔV3(AT-38) → ΔV4(AT-46)로 네 번째다. 매번 대상이 달라졌지만(마운트 → 커밋 선택 → 본문 캐시 → 패치) 형태는 같다: *증가 0과 증가 1을 함께 센다*.
+- 그것을 막았어야 할 plan 지침이 있었는가: 있었고 걸렸다 — §7 주의사항의 “증가 0은 소거에도 참이다” 가 AT-46 에 그대로 적혀 있어 M4a/M4b 두 변이를 미리 등록했다.
+- 반복해 부딪히는 환경 한계: **두 가지.** ① vitest `environment: 'node'` — effect 기반 계기를 렌더로 셀 수 없다(ΔV2 D-060 · ΔV3 AT-40 · ΔV4 AT-46 이 같은 벽에 부딪혔다). ② electron 바이너리 다운로드 차단 — DB/electron 스위트가 환경 기인으로 red 다.
+- 설계 중 발견하지 못하고 **구현 중에야 보인 것 1건**: D-038(커밋 노드의 파일 목록)이 새 IA 에 설 자리가 없다는 것. 규범 행이라 별도 설계 커밋으로 정정했다.
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다.

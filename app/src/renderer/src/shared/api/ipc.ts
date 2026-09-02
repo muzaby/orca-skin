@@ -22,8 +22,8 @@ import type {
   GitBranchList,
   GitCheckoutRequest,
   GitCheckoutResult,
-  GitDiffFileContent,
-  GitDiffFileRequest,
+  GitDiffPatch,
+  GitDiffPatchRequest,
   GitDiffRequest,
   GitDiffSummary,
   GitStatus,
@@ -145,7 +145,7 @@ export const gitApi = {
   branches: (cwd: string): Promise<GitBranchList> => window.orca.git.branches(cwd),
   checkout: (req: GitCheckoutRequest): Promise<GitCheckoutResult> => window.orca.git.checkout(req),
   diffSummary: (req: GitDiffRequest): Promise<GitDiffSummary> => window.orca.git.diffSummary(req),
-  diffFile: (req: GitDiffFileRequest): Promise<GitDiffFileContent> => window.orca.git.diffFile(req)
+  diffPatch: (req: GitDiffPatchRequest): Promise<GitDiffPatch> => window.orca.git.diffPatch(req)
 }
 
 export const concurrencyApi = {

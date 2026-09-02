@@ -10,9 +10,21 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { gitDiffFile, gitDiffSummary, resolveDiffRange } from './git-diff'
-import { MAX_DIFF_FILE_BYTES } from './git-diff-parse'
+import { gitDiffPatch, gitDiffSummary, resolveDiffRange, type GitDiffRunner } from './git-diff'
 import { runGit } from './runner'
+import type { GitDiffPatchFile } from '../../../shared/ipc'
+
+/** 패치의 그 파일 — 없으면 undefined 라 테스트가 "목록에 없다" 도 단언할 수 있다. */
+function fileOf(files: readonly GitDiffPatchFile[], path: string): GitDiffPatchFile | undefined {
+  return files.find((file) => file.path === path)
+}
+
+/** 줄 배열을 `'+after' | '-before' | ' ctx'` 문자열로 눌러 비교를 읽기 쉽게 한다. */
+function shape(file: GitDiffPatchFile | undefined): string[] {
+  return (file?.lines ?? []).map(
+    (line) => `${line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '}${line.text}`
+  )
+}
 
 const dirs: string[] = []
 
@@ -58,7 +70,14 @@ describe('diff 요약 — 범위와 목록 (VP-09)', () => {
   it('managed row 가 있으면 base_oid 대비다 — 커밋된 것과 미커밋을 함께 본다', async () => {
     const summary = await gitDiffSummary({ cwd: repo, baseOid })
     expect(summary.isRepo).toBe(true)
-    expect(summary.base).toEqual({ kind: 'worktree-base', oid: baseOid })
+    // 0211 ΔV4 — 이름을 안 넘겼으면 `ref` 는 null 이다. 화면은 그때 oid 7자로 접는다(D-071).
+    expect(summary.base).toEqual({ kind: 'worktree-base', oid: baseOid, ref: null })
+  })
+
+  it('baseRef 를 넘기면 그 이름이 그대로 실린다 — 라벨의 유일한 출처다 (AT-43)', async () => {
+    const summary = await gitDiffSummary({ cwd: repo, baseOid, baseRef: 'main' })
+
+    expect(summary.base).toEqual({ kind: 'worktree-base', oid: baseOid, ref: 'main' })
   })
 
   it('row 가 없으면 HEAD 대비다 — 가짜 base 를 만들지 않는다', async () => {
@@ -116,77 +135,154 @@ describe('diff 요약 — 범위와 목록 (VP-09)', () => {
   })
 })
 
-describe('diff 파일 본문 (VP-10)', () => {
+describe('diff 패치 — 파일별 줄 (VP-55)', () => {
   let repo: string
   let baseOid: string
 
   beforeAll(async () => {
     repo = await makeRepo()
     await writeFile(join(repo, 'edited.ts'), 'before\n')
+    await writeFile(join(repo, 'gone.ts'), 'x\ny\n')
     await git(repo, ['add', '.'])
     await git(repo, ['commit', '-m', 'base'])
     baseOid = await head(repo)
     await writeFile(join(repo, 'edited.ts'), 'after\n')
   })
 
-  it('old 는 base 시점, new 는 작업 트리다', async () => {
-    const content = await gitDiffFile({ cwd: repo, path: 'edited.ts', baseOid })
-    expect(content).toEqual({
-      kind: 'text',
-      oldValue: 'before\n',
-      newValue: 'after\n',
-      truncated: false
-    })
-  })
-
-  it('base 에 없던 staged 파일은 old 가 빈 문자열이다', async () => {
+  it('한 호출이 수정·추가·삭제·binary 를 함께 싣는다 — 파일 수와 무관하다 (AT-47)', async () => {
     await writeFile(join(repo, 'staged.ts'), 'brand new\n')
-    await git(repo, ['add', 'staged.ts'])
-    const content = await gitDiffFile({ cwd: repo, path: 'staged.ts', baseOid })
-    expect(content).toEqual({
-      kind: 'text',
-      oldValue: '',
-      newValue: 'brand new\n',
-      truncated: false
-    })
-  })
-
-  it('삭제된 파일은 new 가 빈 문자열이다 — 작업 트리에 없는 것이 정상이다', async () => {
-    await rm(join(repo, 'edited.ts'))
-    const content = await gitDiffFile({ cwd: repo, path: 'edited.ts', baseOid })
-    expect(content).toEqual({
-      kind: 'text',
-      oldValue: 'before\n',
-      newValue: '',
-      truncated: false
-    })
-    await writeFile(join(repo, 'edited.ts'), 'after\n')
-  })
-
-  it('binary 는 본문 대신 종류를 돌려준다', async () => {
+    await rm(join(repo, 'gone.ts'))
     await writeFile(join(repo, 'blob.bin'), Buffer.from([0x00, 0x01, 0x02, 0x00]))
-    await git(repo, ['add', 'blob.bin'])
-    const content = await gitDiffFile({ cwd: repo, path: 'blob.bin', baseOid })
-    expect(content).toEqual({ kind: 'binary' })
+    await git(repo, ['add', '-A'])
+
+    const patch = await gitDiffPatch({ cwd: repo, baseOid })
+
+    expect(patch.isRepo).toBe(true)
+    expect(patch.contextLimited).toBe(false)
+    expect(patch.unavailable).toBe(false)
+    expect(shape(fileOf(patch.files, 'edited.ts'))).toEqual(['-before', '+after'])
+    expect(fileOf(patch.files, 'staged.ts')?.status).toBe('added')
+    expect(shape(fileOf(patch.files, 'staged.ts'))).toEqual(['+brand new'])
+    expect(fileOf(patch.files, 'gone.ts')?.status).toBe('deleted')
+    expect(shape(fileOf(patch.files, 'gone.ts'))).toEqual(['-x', '-y'])
+    const binary = fileOf(patch.files, 'blob.bin')
+    expect(binary?.kind).toBe('binary')
+    expect(binary?.lines).toEqual([])
   })
 
-  it('추적된 1 MiB 초과 파일은 too-large로 유지한다', async () => {
-    await writeFile(join(repo, 'large.txt'), 'x'.repeat(MAX_DIFF_FILE_BYTES + 1))
-    await git(repo, ['add', 'large.txt'])
+  it('전문맥이다 — 변경 주변이 아니라 파일 전체가 온다 (D-076)', async () => {
+    const wide = await makeRepo()
+    const body = Array.from({ length: 40 }, (_, i) => `line${i + 1}`).join('\n')
+    await writeFile(join(wide, 'wide.ts'), `${body}\n`)
+    await git(wide, ['add', '.'])
+    await git(wide, ['commit', '-m', 'base'])
+    const oid = await head(wide)
+    await writeFile(join(wide, 'wide.ts'), `${body.replace('line20', 'CHANGED')}\n`)
 
-    await expect(gitDiffFile({ cwd: repo, path: 'large.txt', baseOid })).resolves.toEqual({
-      kind: 'unavailable',
-      reason: 'too-large'
+    const patch = await gitDiffPatch({ cwd: wide, baseOid: oid })
+    const file = fileOf(patch.files, 'wide.ts')
+
+    // 변경 1쌍 + 문맥 39줄 = 41. `-U3` 이었다면 9줄이다.
+    expect(file?.lines).toHaveLength(41)
+    expect(file?.lines[0]).toMatchObject({ type: 'unchanged', text: 'line1' })
+  })
+
+  it('한글·공백 경로가 이스케이프되지 않는다 — core.quotePath=false (EP-29 ②)', async () => {
+    const repoKo = await makeRepo()
+    await writeFile(join(repoKo, '한글 파일.txt'), 'a\n')
+    await git(repoKo, ['add', '.'])
+    await git(repoKo, ['commit', '-m', 'base'])
+    const oid = await head(repoKo)
+    await writeFile(join(repoKo, '한글 파일.txt'), 'b\n')
+
+    const patch = await gitDiffPatch({ cwd: repoKo, baseOid: oid })
+
+    expect(patch.files.map((file) => file.path)).toEqual(['한글 파일.txt'])
+  })
+
+  it('rename 은 새 경로에 옛 경로를 함께 싣는다', async () => {
+    const repoRe = await makeRepo()
+    await writeFile(join(repoRe, 'src.txt'), 'a\nb\nc\nd\n')
+    await git(repoRe, ['add', '.'])
+    await git(repoRe, ['commit', '-m', 'base'])
+    const oid = await head(repoRe)
+    await git(repoRe, ['mv', 'src.txt', 'dst.txt'])
+
+    const patch = await gitDiffPatch({ cwd: repoRe, baseOid: oid })
+
+    expect(fileOf(patch.files, 'dst.txt')).toMatchObject({
+      status: 'renamed',
+      oldPath: 'src.txt'
     })
   })
 
-  it('baseline 범위 밖의 미추적 파일 본문은 돌려주지 않는다', async () => {
+  it('미추적 파일은 패치에 없다 — D-035 가 패치 축에서도 성립한다', async () => {
     await writeFile(join(repo, 'untracked.ts'), 'private working copy\n')
 
-    await expect(gitDiffFile({ cwd: repo, path: 'untracked.ts', baseOid })).resolves.toEqual({
-      kind: 'unavailable',
-      reason: 'error'
+    const patch = await gitDiffPatch({ cwd: repo, baseOid })
+
+    expect(fileOf(patch.files, 'untracked.ts')).toBeUndefined()
+  })
+
+  it('저장소가 아니면 빈 패치다 — 화면이 사라지지 않는다', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'orca-diff-none-'))
+    dirs.push(dir)
+
+    await expect(gitDiffPatch({ cwd: dir })).resolves.toMatchObject({
+      isRepo: false,
+      files: []
     })
+  })
+})
+
+describe('패치 조회 인자와 폴백 (VP-55 · VP-48 회귀)', () => {
+  function collectingRunner(fail: (args: readonly string[]) => boolean): {
+    calls: string[][]
+    runner: GitDiffRunner
+  } {
+    const calls: string[][] = []
+    const runner: GitDiffRunner = async (_cwd, args) => {
+      calls.push([...args])
+      if (args.includes('--is-inside-work-tree'))
+        return { ok: true, stdout: 'true\n/repo\n', stderr: '', code: 0, aborted: false }
+      if (fail(args)) return { ok: false, stdout: '', stderr: 'boom', code: null, aborted: false }
+      return { ok: true, stdout: '', stderr: '', code: 0, aborted: false }
+    }
+    return { calls, runner }
+  }
+
+  it('성공 경로는 전문맥 한 호출이고 모든 인자가 잠금을 피한다', async () => {
+    const { calls, runner } = collectingRunner(() => false)
+
+    await gitDiffPatch({ cwd: '/repo', baseOid: 'b'.repeat(40) }, runner)
+
+    const patchCalls = calls.filter((args) => args.includes('diff'))
+    expect(patchCalls).toHaveLength(1)
+    expect(patchCalls[0]).toContain('--unified=1000000')
+    expect(patchCalls[0]).toContain('core.quotePath=false')
+    // 누락 0건을 **차집합**으로 센다 — "있다" 를 몇 건 세면 새 호출부를 놓친다(AT-39).
+    expect(calls.filter((args) => args[0] !== '--no-optional-locks')).toEqual([])
+  })
+
+  it('전문맥 조회가 실패하면 --unified=3 으로 한 번 더 부르고 contextLimited 를 싣는다', async () => {
+    const { calls, runner } = collectingRunner((args) => args.includes('--unified=1000000'))
+
+    const patch = await gitDiffPatch({ cwd: '/repo', baseOid: 'b'.repeat(40) }, runner)
+
+    const patchCalls = calls.filter((args) => args.includes('diff'))
+    expect(patchCalls).toHaveLength(2)
+    expect(patchCalls[1]).toContain('--unified=3')
+    expect(patchCalls[1]).not.toContain('--unified=1000000')
+    expect(patch.contextLimited).toBe(true)
+    expect(patch.unavailable).toBe(false)
+  })
+
+  it('폴백까지 실패하면 unavailable 이다 — 빈 목록을 "변경 없음" 으로 읽히게 두지 않는다', async () => {
+    const { runner } = collectingRunner((args) => args.includes('diff'))
+
+    const patch = await gitDiffPatch({ cwd: '/repo', baseOid: 'b'.repeat(40) }, runner)
+
+    expect(patch).toMatchObject({ isRepo: true, files: [], unavailable: true })
   })
 })
 
@@ -274,14 +370,11 @@ describe('커밋 grouping과 미커밋 블록 (VP-31 · VP-33)', () => {
     expect(summary.files.map((file) => file.path).sort()).toEqual(['a.ts', 'b.ts'])
   })
 
-  it('파일 본문은 어느 그룹에서 열었든 항상 baseline 대비 작업 트리다', async () => {
-    const content = await gitDiffFile({ cwd: repo, path: 'a.ts', baseOid })
-    expect(content).toEqual({
-      kind: 'text',
-      oldValue: 'v0\n',
-      newValue: 'v2-worktree\n',
-      truncated: false
-    })
+  it('패치의 파일 줄은 커밋을 골라도 baseline 대비 작업 트리다 (D-036 회귀)', async () => {
+    const patch = await gitDiffPatch({ cwd: repo, baseOid })
+    const file = patch.files.find((entry) => entry.path === 'a.ts')
+
+    expect(shape(file)).toEqual(['-v0', '+v2-worktree'])
   })
 })
 
