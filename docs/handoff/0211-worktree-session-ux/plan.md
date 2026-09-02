@@ -3203,24 +3203,105 @@ git CLI
 - 반복해 부딪히는 환경 한계: **두 가지.** ① vitest `environment: 'node'` — effect 기반 계기를 렌더로 셀 수 없다(ΔV2 D-060 · ΔV3 AT-40 · ΔV4 AT-46 이 같은 벽에 부딪혔다). ② electron 바이너리 다운로드 차단 — DB/electron 스위트가 환경 기인으로 red 다.
 - 설계 중 발견하지 못하고 **구현 중에야 보인 것 1건**: D-038(커밋 노드의 파일 목록)이 새 IA 에 설 자리가 없다는 것. 규범 행이라 별도 설계 커밋으로 정정했다.
 
+## [구현자 기입] 설계 리뷰 (ΔV4 r2)
+
+- r1 검증은 **동작이 아니라 잠금**을 FAIL 로 판정했다 — 등록 변이 20/20 이 RED 였고, 검증자가 새로 심은 축 13건 중 **9건이 green** 이었다. 그래서 이 라운드는 프로덕션 로직을 고치지 않는다: 차단 6건(D1~D6)이 전부 "그 계약을 깨도 아무도 red 가 되지 않는다" 이고, 대응은 전부 테스트 추가다.
+- **plan 은 이미 그 자리를 이름으로 적어 두었다.** AT-43 "부재까지 단언한다" · AT-44 "detached HEAD 에서 `null`" · AT-50 "`scrollIntoView` 를 부른다고 단언(스텁)" · AT-52 "스텁을 주고 첫 클릭 인자" · §11 이 `GitContextBar` 의 seam 을 "SSR 렌더" 로 적었다. r1 이 그 문장들을 **코드 읽기와 구조 스윕으로 갈음**한 것이 실패의 형태다 — `PLAN_GAP` 이 아니라 구현자 미달이다.
+- 그래서 이번 라운드의 판단 기준을 하나로 잡았다: **"이 계약을 깨는 가장 값싼 변이를 심었을 때 red 인가"**. 스윕이 세는 `0건`·`N건` 은 전수를 뜻할 뿐 불변식을 잠그지 않는다(§8 이 이미 경계로 못박은 문장이다).
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (ΔV4 r2)
+
+r1 에서 **미잠금으로 판정된 지점만** 다시 센다. 나머지는 r1 검증이 `PASS` 로 닫았고 이번 diff 가 건드리지 않는다.
+
+| 지점 | r1 판정 | r2 의 자리 | 재현 |
+|---|---|---|---|
+| EP-25 ② 저장소 좌표 캐시 | 미잠금(삭제된 `git-diff-service.test.ts`) | `git-diff.test.ts` — 같은 runner 두 조회에 `--is-inside-work-tree` **1건**, runner 가 다르면 캐시 비공유 | `vitest run src/main/infra/git/git-diff.test.ts` |
+| EP-17 ④ log 전용 8 MiB · EP-29 ② 패치 16 MiB | 미잠금 | 같은 파일 — `log`=8 MiB · `--unified=1000000`=16 MiB · 기본 `diff`=4 MiB **셋을 함께** 단언 | 위와 같음 |
+| EP-17 ⑤ log 폴백 + `commitFilesUnavailable` | 미잠금 | 같은 파일 — 폴백 인자 **차집합**(`--raw`·`--numstat` 만 빠진다) + 실패 2단계 각각의 `commitFilesUnavailable` | 위와 같음 |
+| EP-28 ② `resolveHeadRef` · `service.baseRef` | 미잠금(`rg` 개수로 닫음) | `repository.test.ts` 4케이스(브랜치·detached·unborn·빈 출력) · `service.test.ts` 2케이스(이름 산출 · 명시 baseRef) | `vitest run src/main/infra/git/repository.test.ts src/main/features/worktrees/service.test.ts` |
+| EP-34 ② 새 요약이 패치를 버린다 | 미잠금 | `chatReducer.plan.test.ts` — 요약 수신 후 `gitSnapshot.patch === null` | `vitest run src/renderer/src/features/chat/reducer/chatReducer.plan.test.ts` |
+| EP-36 ① 사이드바 진입점 둘 | 0/2 | `GitContextBar.actions.test.ts` — 폴더 버튼과 `⋮ › 파일 표시` 가 **같은 액션**을 부르고 다른 축은 건드리지 않는다 | `vitest run src/renderer/src/features/chat/components/rightpanel/GitContextBar.actions.test.ts` |
+| EP-36 ② 고른 파일을 먼저 펼친다 | 0/2 | `diffReviewNavigation.test.ts` — 사이드바 double 이 프로덕션의 `onPickFile` 을 잡아 `onExpandFile(path)` 호출을 단언 | `vitest run src/renderer/src/features/chat/components/rightpanel/diffReviewNavigation.test.ts` |
+| AT-43 라벨 부재 · AT-52 `↗` | 렌더 oracle **0건** | `GitContextBar.render.test.ts` — 현재 브랜치를 기준선과 **다른 값**으로 store 에 넣고 그 부재를 센다 | `vitest run src/renderer/src/features/chat/components/rightpanel/GitContextBar.render.test.ts` |
+| AT-54 줄별 요구사항 마커 | 렌더 절반 미잠금 | `diffTile.render.test.ts` 4케이스 추가 | `vitest run src/renderer/src/features/chat/components/rightpanel/diffTile.render.test.ts` |
+
+**부재를 세는 단언의 전제**: `GitContextBar.render.test.ts` 는 세션 기준선을 `main`, 현재 체크아웃을 `feature-x` 로 **서로 다르게** 준다. 값을 주지 않고 부재를 세면 그 단언은 언제나 참이고, r1 이 green 이던 이유가 정확히 그것이다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (ΔV4 r2)
+
+r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다**. 전부 RED 다 — 검증자의 관측을 재현한 것이지 내가 고른 쉬운 변이가 아니다.
+
+| # | r1 판정 | 심은 결함 | 결과 |
+|---|---|---|---|
+| I1 | green | `GitContextBar` 라벨에 `→ 현재 브랜치` 를 되살림 | **RED** |
+| I2-coords | green | 저장소 좌표 캐시 무력화(`if (cached) return` 제거) | **RED** |
+| I3 | green | log 폴백 삭제 — `commitFilesUnavailable` 소멸 | **RED** |
+| I5 | green | `patchLinesToDiffLines` 의 old/new 축 맞바꿈 | **RED** |
+| I6 | green | `resolveHeadRef` 를 상수 `'HEAD'` 로 | **RED** |
+| I7 | green | `service.ts` 의 `baseRef` 를 `null` 로 | **RED** |
+| P29-2 | green | `PATCH_MAX_BUFFER` 를 4 MiB(기본값)로 | **RED** |
+| P34-2 | green | `RECEIVE_GIT_SNAPSHOT_SUMMARY` 의 `patch: null` 제거 | **RED** |
+| P36-1 | green | `⋮ › 파일 표시` 를 no-op 으로 | **RED** |
+| P36-2 | green | `pickFile` 에서 `onExpandFile` 제거 | **RED** |
+| P62 | green | 줄별 요구사항 마커 렌더 제거(항상 `null`) | **RED** |
+
+- **검산**: r1 미검출 13건 중 이번 대상은 11건이다. 나머지 둘(I4 `baselineOid`↔`baselineRef` 맞바꿈 · I2-total 전체 줄 상한 제거)은 r1 에서 이미 **red** 라 다시 심지 않았다. 11 + 2 = 13 = r1 의 독립 축 8 + §10 지점별 5.
+- 각 변이는 적용 → 대상 스위트 실행 → **되돌림** 을 한 프로세스에서 했고, 되돌린 뒤 `git status` 가 변이 전과 같음을 확인했다.
+
+## [구현자 기입] Product/UX 파생 검토 (ΔV4 r2)
+
+- 화면 동작은 **한 줄도 바뀌지 않는다** — 이번 diff 의 프로덕션 변경은 죽은 export 삭제(D8)와 카탈로그 밖 문자 → i18n 키(D14) 둘뿐이다.
+- D14 는 사용자가 볼 수 있는 유일한 변화다: 커밋이 하나도 없는 저장소에서 비교 기준 라벨이 `∅` 대신 `기준 없음`/`no baseline` 으로 나온다. 기호는 읽는 사람이 뜻을 모르고 번역도 되지 않았다.
+- D7(`animate-depth-out` 소비처 0)은 **닫지 않았다** — 아래 §놓친 잠재 문제 3 참조.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (ΔV4 r2)
+
+1. **`GitContextBar` 렌더 테스트가 store 를 통째로 mock 한다.** 실제 selector 배선이 바뀌면 이 테스트는 여전히 통과한다. 다만 이번 라운드가 잠그려던 것은 **마크업 계약**이고, selector 배선은 typecheck 가 받는다(`useChatSession` 의 상태 타입). 두 축을 한 테스트에 겹치지 않았다.
+2. **`diffReviewNavigation.test.ts` 는 `ChangedNavigationSidebar` 를 double 로 세운다.** 사이드바 자신의 마크업은 이 파일이 보지 않는다 — 그쪽은 `diffTile.render.test.ts` 가 이미 본다. 나눈 이유는 SSR 이 핸들러를 마크업에 남기지 않아 **호출을 보려면 컴포넌트 경계를 잡아야** 하기 때문이다.
+3. **D7 은 사람 결정이라 남긴다.** `animate-depth-out` 은 ΔV3 에서 들어온 뒤 **한 번도 프로덕션 소비처를 가진 적이 없다**(`DiffPeek.tsx` 도 `animate-depth-in` 만 썼다) — D-092 의 이유란 "두 utility 재사용" 은 D-065 에서 물려받은 틀린 전제다. 닫는 길이 둘인데 성격이 다르다: ① 닫기 연출을 실제로 붙인다 = 언마운트 지연 타이머 + 상태 하나를 새로 만드는 **프로덕션 동작 추가**이고, vitest `environment: 'node'` 에서 effect 가 돌지 않아 **oracle 을 만들 수 없다** — 잠금을 메우는 라운드에 검증 불가능한 동작을 더하는 셈이다. ② utility·keyframe·CSS 테스트를 함께 지운다 = **ACTIVE 인 D-092 의 절반(닫기 연출)을 버리는 제품 결정**이다. 둘 다 단독으로 정할 수 없어 사용자에게 올린다.
+4. **전체 줄 상한의 의미차(D10)는 문구를 고쳤지 동작을 고치지 않았다.** 예산을 넘긴 파일 뒤의 더 작은 파일이 다시 실리는 것은 상한을 어기지 않고(예산은 수집한 파일만 소비한다) 사용자에게 더 많은 diff 를 준다 — 규범 정정 커밋에서 AC 문구를 동작에 맞췄다.
+5. **부하에서 임시 저장소 스위트가 간헐 타임아웃(D15)** 하는 것은 이번에도 봤다 — `--maxWorkers=2` 로 낮추면 사라진다. 컨테이너 메모리 상한에 걸려 워커가 OOM 되는 축이라 코드 무관이고, NEXT_HANDOFF 로 남긴다.
+
+## [구현자 기입] 구현 보고 (ΔV4 r2)
+
+- 대상 커밋: `(ΔV4 r2 구현 — 좌표는 INDEX)`. 규범 행 정정(D10·D11·D12)은 **앞선 별도 설계 커밋**이다.
+- 변경 파일: **프로덕션 2**(`rightpanel/diffComparison.ts` 죽은 export 삭제 · `rightpanel/sessionChangesData.ts` i18n 키) · **i18n 2** · **테스트 신규 4** · **테스트 변경 6**. 프로덕션 **로직** 변경 0.
+- 추가 케이스 **42**: 신규 `GitContextBar.render`(8) · `GitContextBar.actions`(9) · `diffReviewNavigation`(4) · `diffPatchLines`(4) = 25, 변경 `repository`(4) · `git-diff`(5) · `diffTile.render`(4) · `service`(2) · `chatReducer.plan`(1) · `sessionChangesData`(1) = 17. 총계는 `3029 → 3071` 로 검산된다.
+- **파생 이슈 처리**: 차단 **D1~D6 전건 closed** · 비차단 **D8·D9·D14 closed**(설계 커밋에서 D10·D11·D12) · **D7 은 사용자 결정 대기로 open** · D13 은 r1 검증이 닫았다 · D15 는 NEXT_HANDOFF.
+- **게이트 산출**:
+  - `npm run lint` — **0 error / 1 warning**(기존분: `useTranscriptVirtualizer.ts` 의 `react-hooks/incompatible-library`). 실행 후 작업 트리 변화 **0**.
+  - `npm run typecheck` — 3구성 **0줄**.
+  - `vitest run --maxWorkers=2` — **309파일 중 308 green · 3071케이스 전건 green**. red 1파일은 `src/main/app/chat-turn.continuity.test.ts` = `Error: Electron failed to install correctly` — r1 과 **같은 환경 서명**이고 이번 diff 에 그 파일이 없다. (`--maxWorkers` 무제한이면 컨테이너가 OOM 으로 워커를 죽인다 — D15 와 같은 축.)
+  - `node --test "scripts/*.test.mjs"` — **67/67 pass**.
+  - `check-doc-inventory.mjs --check` — **차이 0**(9 items, 82 channels). 이번 라운드는 채널·마이그레이션을 만들지 않았다.
+  - `check-migrations-appendonly.mjs` — exit **0**(`20 migrations, dir == migrate.ts imports`).
+
+## [구현자 기입] Review Signals — 사실만 (ΔV4 r2)
+
+- 현재 라운드: **2**. r1 검증의 `claude:fail` + `Next-Action: claude` 를 받아 같은 V 를 다시 닫는다 — Decision 변경도 새 AC 도 없다.
+- 이전 라운드와 같은 축인가: **그렇다.** r1 의 뿌리는 "`0건`·구조 스윕으로 §10 을 닫았다" 였고, 이번 수정은 그 스윕들을 **행동 oracle 로 교체**하지 않고 **보강**했다 — 스윕은 전수를 재는 자기 몫이 있고, 잠금은 변이가 잰다.
+- 그것을 막았어야 할 plan 지침이 있었는가: **있었고 이번에는 걸렸다.** §8 이 "엄격화는 전수인지만 재고 불변식을 잠그는지는 재지 않는다" 를 이미 적어 두었다 — r1 이 그 문장을 스스로 인용하고도 스윕으로 §10 을 닫았다.
+- 삭제된 테스트 파일의 계약을 옮기지 않은 사례: r1 에서 **3건**. 이번에 `git-diff-service.test.ts` 의 세 축(좌표 캐시 · log 폴백 · 전용 버퍼)을 `git-diff.test.ts` 로 재배치해 닫았고, `diffPeek.render.test.ts` 의 요구사항 마커 축은 `diffTile.render.test.ts` 가 받았다.
+- 반복되는 환경 한계: **셋.** ① vitest `environment: 'node'` — effect 는 관측 불가(SSR 마크업은 가능하고, 이번 라운드가 그 경계를 실제로 썼다). ② electron 바이너리 미설치 — 1파일 red. ③ **컨테이너 메모리** — 무제한 워커로 전체 스위트를 돌리면 OOM(exit 137)이라 `--maxWorkers=2` 가 필요하다(이번에 처음 관측).
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다.
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | `GitContextBar` 를 렌더하는 테스트가 **0건**이라 AT-43 의 "`→`·현재 브랜치 부재" 와 AT-52 의 `setRightPanelColWidth` 인자·`aria-label` 단언이 없다 | VP-51 · VP-60 / AT-43 · AT-52 | SSR 렌더 테스트 신설 — `renderToStaticMarkup(createElement(GitContextBar))` 가 설정 없이 통과함을 검증 프로브로 확인했다 | **BLOCKING** | open |
-| D2 | `resolveHeadRef` 와 `service.ts` 의 `baseRef` 계산에 행동 oracle 이 없다 — 상수로 바꿔도 924케이스 전건 green | VP-52 / AT-44 · §10 EP-28 ② | `repository.test.ts` 에 detached·unborn 케이스, `service.test.ts` 에 `baseRef` 산출 단언 | **BLOCKING** | open |
-| D3 | `RECEIVE_GIT_SNAPSHOT_SUMMARY` 의 `patch:null` 이 미잠금 — 지워도 727케이스 전건 green | VP-54 / §10 EP-34 ② | `chatReducer.plan.test.ts` 에 "요약이 새로 오면 패치가 버려진다" 케이스 | **BLOCKING** | open |
-| D4 | §10 EP-36 두 지점이 **0/2** 잠김 — `⋮ › 파일 표시` no-op 화와 `pickFile` 의 선펼침 제거가 둘 다 green | VP-58 · VP-60 / §10 EP-36 | `onPickFile` 스텁 렌더 + 두 진입점이 같은 액션을 부른다는 단언 | **BLOCKING** | open |
-| D5 | `git-diff-service.test.ts` 삭제로 **EP-25 ② 좌표 캐시** oracle 소멸 — 이전 라운드 red 였던 축이 green | VP-48 / §10 EP-25 ② | 그 2케이스를 `git-diff.test.ts` 로 재배치 | **BLOCKING** | open |
-| D6 | 같은 삭제로 **EP-17 ④⑤**(log 폴백 · `commitFilesUnavailable` · 8 MiB 버퍼) oracle 소멸 — 폴백을 통째로 지워도 green | VP-31 · VP-39 / §10 EP-17 ④⑤ | 같은 재배치. 16 MiB 패치 버퍼(EP-29 ②)도 같은 자리에서 함께 단언 | **BLOCKING** | open |
-| D7 | `animate-depth-out` 이 프로덕션 소비처 **0** — 참조 3건 전부 테스트다 | D-092 이유란("두 utility 재사용") | 닫기 연출을 붙이거나 utility·테스트를 함께 정리 | NON_BLOCKING | open |
-| D8 | `diffComparison.ts :: comparisonKey` 가 참조 **0**(정의뿐) — 이번 라운드 신규 죽은 export | 비귀속 | 삭제 또는 소비처 배선 | NON_BLOCKING | open |
-| D9 | `lib/diffPatchLines.ts` 가 MD node·pair·테스트 없이 들어왔다 — old/new 축을 맞바꿔도 green | §11 ΔV4 "테스트 seam 신규" | `diffPatchLines.test.ts` 신설(축 계약 단언). 설계자는 ΔV5 에서 MD node 를 더할지 판단 | NON_BLOCKING | open |
+| D1 | `GitContextBar` 를 렌더하는 테스트가 **0건**이라 AT-43 의 "`→`·현재 브랜치 부재" 와 AT-52 의 `setRightPanelColWidth` 인자·`aria-label` 단언이 없다 | VP-51 · VP-60 / AT-43 · AT-52 | SSR 렌더 테스트 **신설** — `GitContextBar.render.test.ts` 8케이스. 현재 브랜치를 기준선과 다른 값으로 주고 부재를 센다 | **BLOCKING** | **closed**(r2 · I1 RED) |
+| D2 | `resolveHeadRef` 와 `service.ts` 의 `baseRef` 계산에 행동 oracle 이 없다 — 상수로 바꿔도 924케이스 전건 green | VP-52 / AT-44 · §10 EP-28 ② | `repository.test.ts` **4케이스**(브랜치·detached·unborn·빈 출력) · `service.test.ts` **2케이스**(이름 산출·명시 baseRef) | **BLOCKING** | **closed**(r2 · I6·I7 RED) |
+| D3 | `RECEIVE_GIT_SNAPSHOT_SUMMARY` 의 `patch:null` 이 미잠금 — 지워도 727케이스 전건 green | VP-54 / §10 EP-34 ② | `chatReducer.plan.test.ts` 에 "요약이 새로 오면 패치가 버려진다" **1케이스** | **BLOCKING** | **closed**(r2 · P34-2 RED) |
+| D4 | §10 EP-36 두 지점이 **0/2** 잠김 — `⋮ › 파일 표시` no-op 화와 `pickFile` 의 선펼침 제거가 둘 다 green | VP-58 · VP-60 / §10 EP-36 | `GitContextBar.actions.test.ts`(두 진입점이 같은 액션) + `diffReviewNavigation.test.ts`(사이드바 double 이 `onExpandFile` 을 잡는다) | **BLOCKING** | **closed**(r2 · P36-1·P36-2 RED) |
+| D5 | `git-diff-service.test.ts` 삭제로 **EP-25 ② 좌표 캐시** oracle 소멸 — 이전 라운드 red 였던 축이 green | VP-48 / §10 EP-25 ② | `git-diff.test.ts` 로 재배치 — 같은 runner 두 조회에 좌표 1건, runner 가 다르면 비공유 | **BLOCKING** | **closed**(r2 · I2-coords RED) |
+| D6 | 같은 삭제로 **EP-17 ④⑤**(log 폴백 · `commitFilesUnavailable` · 8 MiB 버퍼) oracle 소멸 — 폴백을 통째로 지워도 green | VP-31 · VP-39 / §10 EP-17 ④⑤ | 같은 재배치 — 폴백 인자 차집합 + 2단계 실패의 `commitFilesUnavailable`, 버퍼 8/16/4 MiB 셋을 함께 단언 | **BLOCKING** | **closed**(r2 · I3·P29-2 RED) |
+| D7 | `animate-depth-out` 이 프로덕션 소비처 **0** — 참조 3건 전부 테스트다 | D-092 이유란("두 utility 재사용") | **사용자 결정 대기** — ① 닫기 연출 추가(언마운트 지연 타이머, node 환경에서 oracle 불가) ② utility·CSS 테스트 삭제(ACTIVE D-092 의 절반을 버림). ΔV3 이후 소비처가 한 번도 없었다 | NON_BLOCKING | open(사용자) |
+| D8 | `diffComparison.ts :: comparisonKey` 가 참조 **0**(정의뿐) — 이번 라운드 신규 죽은 export | 비귀속 | 삭제 — 소비처가 생기면 그때 만든다 | NON_BLOCKING | **closed**(r2) |
+| D9 | `lib/diffPatchLines.ts` 가 MD node·pair·테스트 없이 들어왔다 — old/new 축을 맞바꿔도 green | §11 ΔV4 "테스트 seam 신규" | `diffPatchLines.test.ts` **신설 4케이스**(축 계약). MD node 승격 여부는 ΔV5 설계자 몫으로 남는다 | NON_BLOCKING | **closed**(r2 · I5 RED) |
 | D10 | 전체 줄 상한이 초과 파일 **뒤의 더 작은 파일을 다시 수집**한다 — AC 문구("넘긴 파일부터")보다 관대 | AT-47 문구 | 동작 유지 + AC 문구 정정 — AT-47·MD-18 두 자리를 “합계를 넘기는 그 파일”로 고쳤다(예산은 수집한 파일만 소비한다) | NON_BLOCKING | **closed**(r2 설계) |
 | D11 | §10 EP-17 머리말이 "5지점" 인데 항목은 ⑥까지이고 pair registry 는 `EP-17 (6)` | plan 내부 불일치 | §10 행 머리를 `EP-17, 6지점` 으로 정정 — 열거·pair registry·전수표가 이미 6이었다 | NON_BLOCKING | **closed**(r2 설계) |
 | D12 | §18 ΔV4 삭제 목록 **10** vs 실제 **13** — `DiffTileHeader.tsx` 를 *변경* 으로 분류했다 | plan §18 | §18 ΔV4 를 커밋 `b85195e` 의 name-status 로 다시 셌다 — 신규 프로덕션 11 · 신규 테스트 6 · 변경 7 · renderer 삭제 14(소스 7 + 테스트 7) · main 삭제 1 | NON_BLOCKING | **closed**(r2 설계) |
 | D13 | INDEX 0211 행 비고가 **1,055자**로 5줄 상한 초과 | `docs/handoff/AGENTS.md §산출물 문장 규칙 3` | 검증 갱신에서 축약 | NON_BLOCKING | closed(r1 검증) |
-| D14 | `summaryBaseText` 의 `kind:'none'` 이 카탈로그 밖 문자 `'∅'` 를 낸다 | 비귀속 | i18n 키로 옮길지 결정 | NON_BLOCKING | open |
+| D14 | `summaryBaseText` 의 `kind:'none'` 이 카탈로그 밖 문자 `'∅'` 를 낸다 | 비귀속 | `chat.rightpanel.diffBaselineNone` 신설(ko `기준 없음` · en `no baseline`) | NON_BLOCKING | **closed**(r2) |
 | D15 | 임시 저장소 통합 스위트가 부하에서 간헐 타임아웃 — 변이 40회 중 2회, 재실행 전부 green | 검증 환경 | 타임아웃 상향 또는 직렬화 검토 | NEXT_HANDOFF | open |

@@ -7,7 +7,12 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import type { GitDiffPatch, GitDiffPatchFile, GitDiffSummary } from '../../../../../../shared/ipc'
+import type {
+  DiffRequirementItem,
+  GitDiffPatch,
+  GitDiffPatchFile,
+  GitDiffSummary
+} from '../../../../../../shared/ipc'
 import { DEFAULT_DIFF_VIEW, PANEL_DEFAULT_WIDTH, PANEL_MAX_WIDTH } from '../../reducer/chatReducer'
 import { DiffReview } from './DiffReview'
 import { nextDiffPanelWidth } from './diffPanelWidth'
@@ -347,5 +352,61 @@ describe('타일 registry — 헤더는 컨텍스트 바다', () => {
 
     expect(tile.HeaderContent).toBeDefined()
     expect(tile.Content).toBeDefined()
+  })
+})
+
+// 0211 ΔV4 r2 — 요구사항이 **새 자리**에서 그려진다 (VP-62 / AT-54 렌더 절반).
+//
+// r1 검증에서 줄별 마커 렌더를 통째로 지워도 766케이스가 전건 green 이었다: 이 세 마커를
+// 잠그던 `diffPeek.render.test.ts` 가 ΔV4 에서 삭제되면서 그 단언이 함께 사라졌고, 새 자리
+// (`FileDiffSection`)에는 아무도 눈을 만들지 않았다. 재anchor(순수 축)만 잠겨 있었다.
+describe('요구사항이 파일 섹션 줄에 붙는다 (AT-54 · D-093)', () => {
+  const anchor: DiffRequirementItem['anchor'] = {
+    sessionId: 'session-a',
+    baselineCommit: 'base-oid',
+    filePath: 'docs/a.md',
+    oldLine: null,
+    newLine: 1,
+    hunkHeader: '@@ -1 +1 @@',
+    contextBefore: [],
+    contextAfter: [],
+    comment: '이 줄을 고쳐 주세요',
+    createdAt: 0
+  }
+
+  it('확정된 요구사항이 그 줄 아래 본문으로 선다', () => {
+    const html = render({ requirements: [{ id: 'req-1', anchor, located: true }] })
+
+    expect(html).toContain('data-diff-requirement-marker="req-1"')
+    expect(html).toContain('이 줄을 고쳐 주세요')
+  })
+
+  it('작성 중 draft 는 그 줄에 입력 자리를 연다', () => {
+    const html = render({
+      requirements: [],
+      draft: {
+        key: JSON.stringify(['docs/a.md', null, 1]),
+        filePath: 'docs/a.md',
+        oldLine: null,
+        newLine: 1,
+        body: '작성 중'
+      }
+    })
+
+    expect(html).toContain('data-diff-requirement-draft="true"')
+    expect(html).toContain('data-diff-requirement-draft-input="true"')
+  })
+
+  it('줄마다 추가 affordance 가 있다 — `+` 가 없으면 요구사항을 시작할 수 없다', () => {
+    expect(render()).toContain('data-diff-requirement-add')
+  })
+
+  it('위치를 잃은 항목은 줄에 붙지 않지만 사라지지도 않는다 (D-057)', () => {
+    const html = render({ requirements: [{ id: 'req-1', anchor, located: false }] })
+
+    // 마커는 줄에 붙지 않는다 — 어느 줄인지 모르기 때문이다.
+    expect(html).not.toContain('data-diff-requirement-marker="req-1"')
+    // 그래도 항목 자체는 세션 상태에 남는다(리듀서 축, `chatReducer.plan.test.ts`).
+    expect(html).toContain('data-diff-requirement-add')
   })
 })

@@ -72,7 +72,3 @@ export function reconcileComparison(
   if (comparison.kind !== 'commit') return comparison
   return summary?.commits.some((commit) => commit.sha === comparison.sha) ? comparison : ALL_CHANGES
 }
-
-export function comparisonKey(comparison: DiffComparison): string {
-  return comparison.kind === 'commit' ? `commit:${comparison.sha}` : comparison.kind
-}
