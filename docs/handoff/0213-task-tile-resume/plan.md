@@ -525,6 +525,152 @@ TaskTileContent (도달 가능)
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 
+## [구현자 기입] r1 — 설계 리뷰
+
+**판정: 규범 정정 5건 후 구현 가능.** 정정은 별도 설계 커밋으로 분리했다(§3 `설계 정정` 표 C-01~C-05) — 제품 의도·AC·ACTIVE Decision 은 바뀌지 않았다.
+
+| # | 성격 | 처리 |
+|---|---|---|
+| C-01 | **PLAN_GAP** — VP-03 의 선택된 적대 증거가 성립하지 않는다 | 설계 커밋에서 SSOT 술어 좁힘으로 교체. 실측 근거는 아래 M2b |
+| C-02 | **PLAN_GAP** — 전수 조사에 없던 반대 단언 1케이스 | 설계 커밋에서 §8 행 신설 · §11 · §18 |
+| C-03 | 사실 정정 — 기준선 분모가 이 베이스와 다르다 | 구현 베이스에서 재측정해 표 교체 |
+| C-04 | 사실 정정 — 인용 좌표 4건(+소소 4건) | §8·§10·§17 |
+| C-05 | 사실 정정 — 원복 분모 5 → 4 | §11 |
+| C-06 | 구현 세부 — 신규 테스트의 `Message` fixture 에 `createdAt` 필수 | 선조치. **vitest 는 통과하고 typecheck 만 잡았다** — 게이트를 exit code 로 판정했으면 놓쳤다 |
+
+**설계 대비 명시적 차이 1건 — 의존 문구 조립을 함수로 모았다.** plan §10 EP-04 는 SSOT 를 i18n 키(`blockedByValue`) 하나로 뒀고, 구현은 그 위에 `blockedByText(tr, ids)` 헬퍼를 신설해 행·상세 두 소비자가 **같은 조립**을 부르게 했다(키만 공유하면 구분자 하나로 두 화면이 갈라진다). 대체물이 갖고 원본이 갖지 않던 실패 모드를 축마다:
+
+| 축 | 새 실패 모드 | 다시 확인한 계약 |
+|---|---|---|
+| 만료 | **해당 없음** — 순수 함수, 상태 0 | — |
+| 공유 | 두 소비자가 한 함수를 쓴다 — 한쪽 요구가 갈리면 **함수를 갈라야** 한다. 지금은 두 요구가 같다(`', #'` 조인) | EP-04 2지점 전수(아래) · AC11 · 0212 상세 회귀 green |
+| 재진입 | **해당 없음** — 순수 | — |
+| 다른 무효화 축 | **해당 없음** — 캐시·구독·타이머 0 | — |
+
+**배치 차이 1건.** §11 은 AC8·AC9(껍데기 부재)를 신규 파일에 두라고 했으나 **형제 파일 `rightPanelTiles.render.test.ts` 의 대체 케이스**에서 닫았다. 이유: 그 파일의 구 AT-29 가 *래퍼 → 본문 View 배선* 을 잡던 장치이고, 같은 자리에서 승계해야 덮개 회귀가 없다(아래 M6 이 그 하한을 실측한다). 계약은 같은 곳에서 한 번 닫힌다.
+
+## [구현자 기입] r1 — 강제 지점 전수와 V-pair 자기확인
+
+### §10 강제 지점 — **11/11**
+
+| EP | 불변식의 주어 | 검색 명령 | 지점 | 닫음 | 관측값 |
+|---|---|---|---|---|---|
+| EP-01 | 정지 정책을 **읽는** 프로덕션 지점 | `rg -n "isRightPanelTileSuspended\(\|SUSPENDED_RIGHT_PANEL_TILES\|MENU_HIDDEN_RIGHT_PANEL_TILES" src --glob '!**/*.test.ts'` | 3 | **3/3** | 메뉴 필터 `rightPanelTiles.ts:61` · 활성화 게이트 `chatReducer.ts:1507` · 배지 판정 `rightPanelTiles.ts:79`. 나머지 2줄(`:54`·`:77`)은 함수 기본인자 seam 이지 소비가 아니다 |
+| EP-01 차집합 | 게이트를 **우회하는** 활성화 경로 | `rg -n "addTileColumnMajor" src --glob '!**/*.test.ts'` | — | **0줄** | 정의 `rightPanelLayout.ts:42` · import `chatReducer.ts:34` · 호출 `chatReducer.ts:1507`(게이트 내부). 게이트 밖 호출 **0** |
+| EP-02 | 타일 메뉴 목록을 **만드는** 지점 | `rg -n "visibleRightPanelTileDefinitions\|VISIBLE_TILE_REGISTRY" src --glob '!**/*.test.ts'` | 2 | **2/2** | 정의 `rightPanelTiles.ts:60` · 소비 `ChatTitleBar.tsx:30`. `ChatTitleBar.tsx:220` 최종 `.map()` 은 **미잠금**(§10 대로 분모에 넣지 않았다) |
+| EP-03 | 배지 판정 결과를 **쓰는** 지점 | `rg -n "showTaskBadge\|showsUnseenTaskBadge" ChatTitleBar.tsx` | 2 | **2/2** | 호출 `:79` · 렌더 `:202` |
+| EP-04 | 의존 문구를 **화면에 내는** 지점 | `rg -n "blockedByValue\|blockedByText\|blockedRowText\|blockedRow" src --glob '!**/*.test.ts' --glob '!**/i18n/**'` | 2 | **2/2** | 행 `TaskTileContent.tsx:184`→`:267` · 상세 `:141`. 문구 리터럴 `blockedByValue` 는 `:120` **1곳뿐** — 복사 0 |
+| EP-05 | 기능 부재 안내를 **판정하는** 지점 | `rg -n "taskTile.unsupported\|agentTools" src/renderer --glob '!**/*.test.ts'` | 1 | **1/1** | 판정 `TaskTileContent.tsx:302`. `chatReducer` 행은 상태 필드(생산자), `:410`·`:430` 은 전달 |
+| EP-06 | 타일 본문에 섹션 **껍데기를 두는** 지점 | `rg -n "TileSection\|SectionPlaceholder" src --glob '!**/*.test.ts' \| grep -v TaskTileSections.tsx` | 1 | **1/1** | 호출 **0건**(남은 1줄은 주석). 정의 파일은 보존 — D-004 |
+
+**합계 검산: EP-01(3) + EP-02(2) + EP-03(2) + EP-04(2) + EP-05(1) + EP-06(1) = 11 · 닫음 11 → `11/11`.** 미잠금 1지점(`ChatTitleBar.tsx:220`)은 분모 밖이다.
+
+### V-pair 자기확인 — 12 pair
+
+| Pair | 자기 상태 | 재현 명령 / 관측값 |
+|---|---|---|
+| VP-01 (AR-02↔AT-07) | `SELF_PASS` | `rightPanelTiles.test.ts` — `SUSPENDED` `[]` · 4종 술어 전부 false · seam 양성 짝 green |
+| VP-02 (R-01↔AT-02·03·04) | `SELF_PASS` | reducer 두 파일 60케이스 green. 적대 증거 **M1** 아래 |
+| VP-03 (AR-01↔AT-01) | `SELF_PASS`(제한 명시) | `ChatTitleBar.render.test.ts` 5케이스 green. 배선 관측은 **SSOT 변이와 짝지어야** 성립한다 — 아래 M2·M2b |
+| VP-04 (SD-01↔AT-05·06) | `SELF_PASS` | 술어 2방향 + 렌더 3케이스 green. 적대 증거 **M3** |
+| VP-05 (R-02↔AT-08·09·10) | `SELF_PASS` | `rightPanelTiles.render.test.ts` 12케이스 green |
+| VP-06 (MD-01↔AT-11·12·13) | `SELF_PASS` | `taskTile0213.render.test.ts` 막힘 3케이스 green |
+| VP-07 (MD-01↔AT-14) | `SELF_PASS` | 적대 증거 **M4** |
+| VP-08 (MD-02↔AT-15·16·17·18) | `SELF_PASS` | 안내 4케이스 green. 적대 증거 **M5** |
+| VP-09 (R-90↔AT-19) | `SELF_PASS` | `taskSurface0212.render.test.ts` AT-05·06·08 green |
+| VP-10 (R-91↔AT-20) | `SELF_PASS` | 같은 파일 AT-23·24 green |
+| VP-11 (R-92↔AT-21) | `SELF_PASS` | 같은 파일 AT-18·19 green |
+| VP-12 (MD-90↔AT-10) | `SELF_PASS` | `taskBoard.test.ts` AT-10a + 렌더 단일 목록 케이스 green |
+
+## [구현자 기입] r1 — 이번 라운드 수정의 잠금
+
+선택 증거 5(VP-02·03·04·07·08) · 인용 변이 0(파생 이슈 없음 — r1) · 새 oracle 1(구 AT-29 를 대체한 배선 케이스) = **표 행 6**. 대조군 M2b 는 C-01 의 근거라 한 줄 더 둔다.
+
+| 변이 | 심은 곳 | 기대 | 관측 |
+|---|---|---|---|
+| **M1** VP-02 — `SUSPENDED` 를 `['task']` 로 되돌림 | `rightPanelTiles.ts:45` | 세 액션 전부 red | **5 red** — `TOGGLE 이 작업 타일을 연다` · `SET_RIGHT_PANEL_TILE_ACTIVE(true) 도…` · `이미 열려 있는 타일 옆에 붙는다` · `background 완료 통지가 배지를…`(OPEN_TASK) · `각 타일 열기는 자기 타일만…` |
+| **M2** VP-03 — SSOT 술어를 `tile.id !== 'task'` 로 좁힘 | `rightPanelTiles.ts:60` | 소비자가 따라가 red | **1 red** — `메뉴가 정의 순서대로 4종을 담는다` |
+| **M2b** 대조군 — 구 등록 변이(자기 필터 복귀) **단독** | `ChatTitleBar.tsx:30` | (plan 은 red 를 기대했다) | **5 green — 성립하지 않는다.** C-01 의 실측 근거 |
+| **M2+M2b** 자기 필터 + SSOT 좁힘 | 두 곳 | 배선이 끊겼음이 보인다 | **1 red** — `목록·순서가 visibleRightPanelTileDefinitions 와 같고…` |
+| **M3** VP-04 — `showTaskBadge` 를 `false` 고정 | `ChatTitleBar.tsx:79` | 렌더 단언 red | **1 red** — `미확인이 있고 타일이 닫혀 있으면 배지 노드가 렌더된다`. **같은 실행에서 술어 스위트 10케이스는 전부 green** — "술어만 잠그면 배선이 안 잠긴다" 의 직접 증거 |
+| **M4** VP-07 — 둘째 줄 두 분기 산출 맞바꿈 | `TaskTileContent.tsx:262` | 형제 맞바꿈 red | **4 red** — `AT-11·AT-12` · `AT-14` · 0212 회귀 2건(`중단 행이 생산자가 실은 사유를…` · `사유가 없으면 UI 문구로…`) |
+| **M5** VP-08 — 안내 분모를 `items.length > 0` 로 되돌림 | `TaskTileContent.tsx:301` | AT-15 red | **1 red** — `AT-15 — 할 일 0 · 서브에이전트 진행 중이면 안내와 목록이 함께 선다` |
+| **M6** 새 oracle — 래퍼에서 `TaskProgressList` 호출 제거 | `TaskTileContent.tsx:427` | 구 AT-29 하한 승계 | **1 red** — `껍데기 없이 목록 View 만 그린다 — 래퍼→본문 배선은 그대로다` |
+
+**VP-03 의 제한을 그대로 적는다.** `SUSPENDED` 가 비면 `tileRegistry.filter(!MENU_HIDDEN)` 과 `visibleRightPanelTileDefinitions` 는 **같은 4종**을 낸다 — 두 구현이 행동으로 구별되지 않는다. 그래서 자기 필터 복귀 **단독** 변이는 어떤 단언으로도 red 가 되지 않는다(M2b 실측). 배선은 SSOT 를 함께 변이시켜야 보이고(M2+M2b), 그 짝이 이 pair 가 가진 감도의 전부다. 정지된 타일이 다시 생기면 단독 변이도 red 가 된다.
+
+## [구현자 기입] r1 — Product/UX 파생 검토
+
+- **새 사용자 대면 문자열 0.** 막힘 표시는 기존 `chat.taskTile.blockedByValue` 를 재사용한다(D-005) — 소비자는 행·상세 둘이고 둘 다 화면에 도달한다(EP-04 전수).
+- **이번에 만든 실패 경로 0.** 정지 해제는 분기 제거이고 막힘 표시·안내 조건은 순수 파생이다. Part I 상태 전이표 12행이 전부 구현에 대응한다 — 표에 없는 행 0.
+- **"아무 일도 안 일어남" 의 반대다.** 이전에는 메뉴에 항목 자체가 없어 사용자가 열 방법이 없었고, 0212 산출 3건이 도달 0이었다. 이번 변경이 그 침묵을 없앤다.
+- **늦게 도착한 응답 / 동시성**: 해당 없음 — 렌더 파생만 바뀌고 요청·구독·타이머를 만들지 않는다.
+- **빈 상태**: 세 갈래가 유지되고 분모만 좁아졌다. 안내는 목록을 대체하지 않는다.
+
+### 파생 이슈 (이번 범위 밖 — 결정권자 몫)
+
+| # | 이슈 | 근거 | 성격 |
+|---|---|---|---|
+| I-01 | 안내 블록과 목록 사이 간격이 `gap-px`(1px)라 한 덩어리로 읽힐 수 있다 | `TaskTileContent.tsx:306` 컨테이너가 `flex flex-col gap-px` 다 | **사람 실기** — 렌더 단언으로는 잡히지 않는 시각 사안 |
+| I-02 | `TaskTileSections.tsx` 가 참조 0인 파일이 됐다 | D-004 의 의도적 결과. 죽은 export 린트가 없어 게이트는 통과한다 | 다음 정리 handoff 가 "안 쓰는 파일" 로 오인해 지울 위험 — 헤더 주석이 복귀 조건을 적어 뒀다 |
+| I-03 | 타일 구성이 DB 영속이 아니라 앱 재시작 시 사라진다 | 기존 동작(§6 비범위). **정지가 풀려 사용자가 타일을 열게 되면서 처음 눈에 띈다** | 후속 handoff 후보 |
+| I-04 | `작업`·`백그라운드 작업` 두 타일이 서브에이전트를 겹쳐 보인다 | 0204 D-015·D-019 의 설계다 | 정지 해제로 그 중복이 **처음 사용자에게 보인다** — 설계 재확인 대상 |
+
+## [구현자 기입] r1 — 놓친 잠재 문제 + 대응
+
+- **게이트를 exit code 로 판정했으면 놓칠 뻔했다.** `vitest run` 은 신규 테스트 7건을 green 으로 통과시켰고 `npm run typecheck` 만 `TS2352`(`Message` fixture 의 `createdAt` 누락)를 잡았다. 두 게이트를 따로 관측해서 걸렸다 — 산출을 읽지 않고 exit 0 만 봤으면 타입 결함이 남았다.
+- **`--reporter=basic` 은 이 vitest 버전에 없다.** `Failed to load custom Reporter from basic` 으로 **한 케이스도 실행하지 않고** 죽는다(exit 1). 기준선을 그 명령으로 재면 0건을 green 으로 오독한다 — 기본 리포터로 다시 쟀다.
+- **`git checkout --` 로 변이를 되돌리면 미커밋 구현분까지 날아간다.** 첫 변이 회차에서 실제로 `rightPanelTiles.ts` 의 구현이 HEAD 로 되돌아갔다. 파일 백업 방식으로 하네스를 바꾸고 구현을 복원한 뒤 전 변이를 다시 측정했다 — 위 표는 재측정값이다.
+- **`npm ci` 직후 better-sqlite3 는 Electron ABI 다.** DB 로드 10파일 54케이스가 red 였고 전부 `src/main/**` 이다(renderer red 0). `npm rebuild better-sqlite3` 로 전건 green 분모를 잡았다.
+
+## [구현자 기입] r1 — 구현 보고
+
+### AC 전수 — `✅ 21 · ⚠️ 0 · ❌ 0 = 총 21` (검산 일치)
+
+| AC | 판정 | 재현 명령 — 관측한 케이스 |
+|---|---|---|
+| AC1 | ✅ | `ChatTitleBar.render.test.ts` — `메뉴가 정의 순서대로 4종을 담는다` |
+| AC2 | ✅ | `chatReducer.plan.test.ts` — `TOGGLE 이 작업 타일을 연다` |
+| AC3 | ✅ | 같은 파일 — `SET_RIGHT_PANEL_TILE_ACTIVE(true) 도 작업 타일을 붙인다` |
+| AC4 | ✅ | `chatReducer.task.test.ts` — `background 완료 통지가…`(`selectedTaskKey` + `toContain('task')`) · `각 타일 열기는 자기 타일만…` |
+| AC5 | ✅ | 술어 `프로덕션 기본값(인자 생략)으로도 배지가 뜬다` + 렌더 `미확인이 있고 타일이 닫혀 있으면 배지 노드가 렌더된다` |
+| AC6 | ✅ | 술어 `타일을 이미 보고 있으면 띄우지 않는다` + 렌더 `타일을 보고 있으면 배지 노드가 없다` |
+| AC7 | ✅ | `rightPanelTiles.test.ts` — `프로덕션 정지 목록이 비어 4종 어느 것도 활성화를 막지 않는다` |
+| AC8 | ✅ | `rightPanelTiles.render.test.ts` — `껍데기 없이 목록 View 만 그린다`(출력·컨텍스트 4문구 부재) |
+| AC9 | ✅ | 같은 케이스 — `진행 상황` 부재 · `aria-expanded` 부재 · `sectionBodies` 빈 객체 |
+| AC10 | ✅ | 같은 파일 — `목록에 상태 그룹 헤더가 없다 — 한 줄로 나열한다 (AC10)` (할 일 2 + background 1 동시) |
+| AC11 | ✅ | `taskTile0213.render.test.ts` — `AT-11·AT-12` 양성 |
+| AC12 | ✅ | 같은 케이스 음성 — `#2 완료 필요` 가 **1회만** |
+| AC13 | ✅ | 같은 파일 — `AT-13 — completed 행은 같은 의존을 갖고도 문구를 내지 않는다` |
+| AC14 | ✅ | 같은 파일 — `AT-14 — background 행은 자기 메타 줄을 그대로 낸다` |
+| AC15 | ✅ | 같은 파일 — `AT-15 — 할 일 0 · 서브에이전트 진행 중이면 안내와 목록이 함께 선다` |
+| AC16 | ✅ | 같은 파일 `AT-16` + `taskSurface0212.render.test.ts` `안내는 할 일이 있으면 뜨지 않는다` |
+| AC17 | ✅ | 같은 파일 `AT-17` + 0212 `AT-03 — tools 판정 불가(null)면 안내하지 않는다` |
+| AC18 | ✅ | 같은 파일 `AT-18` + 0212 `AT-01 — TaskCreate 가 있으면 안내가 뜨지 않는다` |
+| AC19 | ✅ | 0212 `AT-05·AT-08 — 제목은 현재진행형이고 aria-label 은 subject 다` · `AT-06` green |
+| AC20 | ✅ | 0212 `AT-23` · `AT-24` green |
+| AC21 | ✅ | 0212 `AT-18` · `AT-19` green |
+
+### 관측한 게이트 산출
+
+| 게이트 | 명령 | 관측값 |
+|---|---|---|
+| 정적 — 타입 | `npm run typecheck` | **exit 0 · `error TS` 0건** (node·web·test 3구성) |
+| 정적 — lint | `npm run lint` | **0 error / 1 warning** — 기존분 `useTranscriptVirtualizer.ts:22`. 실행 후 트리에 **내 편집분 11파일만** 남았다(autofix 추가분 0) |
+| 관련 스위트 | `./node_modules/.bin/vitest run` (필터 없음) | **exit 0 · 309파일 2997케이스 전건 green** (기준선 307/2983 대비 +2파일 +14케이스 = 신규 두 파일) |
+| 스크립트 | `node --test "scripts/*.test.mjs"` | **67 pass / 0 fail** (8 suites) |
+| 문서 | `node scripts/check-doc-inventory.mjs --check` | `generated ok (9 items, 82 channels)` · `prose ok` · `links ok` |
+| IPC 계약 | — | **해당 없음** — 신규 채널·variant 0 |
+
+## [구현자 기입] r1 — Review Signals
+
+- **이번에 닫은 불변식이 이전 라운드와 같은 축인가**: 그렇다. **"oracle 이 프로덕션 경로의 한 홉 앞에 선다"** 축이다 — 0212 가 네 라운드를 쓴 축이고, 이번 handoff 가 그 형태를 셋 발견했다(메뉴 상수·배지 술어·안내 조건). plan §7 `관측 지점 규칙` 이 그것을 미리 적었고 그대로 걸렸다.
+- **막았어야 할 plan 지침·AC 가 있었는가**: C-01 은 **plan 의 적대 증거 선택 단계**가 막았어야 했다. `READY self-review` 에 "X 가 쓰인다 의 검사 장치가 X 를 지웠을 때 실패한다" 체크가 있었고 체크됐는데, **그 변이를 실제로 심어 보지 않은 채** 체크됐다. 설계 단계가 변이를 *등록* 만 하고 *성립성* 은 보지 않는다는 것이 이 축의 형태다(0207 이 같은 이유로 두 행을 내렸다).
+- C-02 는 **§8 전수 조사의 술어 선택**이 막았어야 했다. 조사는 "정지를 단언하는 테스트" 를 셌고, 이번 변경이 뒤집는 것은 그것만이 아니었다 — **"이번 변경이 red 로 만들 기존 단언"** 이 술어여야 했다.
+- **반복해서 부딪히는 환경 한계**: ① DOM 환경(`jsdom`·`happy-dom`) 부재 — 메뉴 `.map()` 최종 홉이 0212 P9 에 이어 또 미잠금이다. ② `npm ci` 직후 better-sqlite3 ABI 가 Electron 이라 DB 스위트 10파일이 red 로 시작한다.
+- **현재 라운드 수**: **1**.
+
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |

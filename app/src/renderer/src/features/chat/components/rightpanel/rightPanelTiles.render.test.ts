@@ -1,7 +1,8 @@
 // 0204 ΔV1 — 두 타일이 서로 다른 책임을 갖는다(D-015·D-019)는 것을 렌더 출력으로 잠근다.
 //
 //   `백그라운드 작업`(subagent) = `72766d2` 복구 — 상태 그룹 · 3줄 카드 · 대화록 상세 (AT-28)
-//   `작업`(task)               = cowork 3섹션 · id 순 · 취소선 · 제목 직후 중단 (AT-26·27·29)
+//   `작업`(task)               = 목록 하나 · id 순 · 취소선 · 제목 직후 중단 (AT-26·27 · 0213 AC8·AC9
+//                                가 AT-29 의 3섹션을 대체했다)
 //
 // JSX 를 쓰지 않는 이유: vitest include 가 `src/**/*.test.ts` 라 `.tsx` 를 잡지 않는다.
 // jsdom·testing-library 없이 react-dom/server 로 돈다(신규 의존성 0).
@@ -134,24 +135,29 @@ beforeEach(() => {
   runSeq = 0
 })
 
-describe('작업 타일 — cowork 3섹션 (AT-29)', () => {
-  it('세 섹션이 순서대로 오고 각 본문이 자기 섹션에 담긴다', () => {
+// 0213 AC8·AC9 — 0204 AT-29(cowork 3섹션)를 **대체한다**. 사용자가 두 섹션을 숨기기로
+// 했고(D-002) 하나 남은 섹션의 껍데기도 벗겼다(D-003). 구 케이스가 잡던 것은 *래퍼 →
+// 본문 View 배선* 이라, 그 감도는 여기서 양성 단언으로 유지한다 — 래퍼에서 목록 View 를
+// 지우면 빈 상태 문구가 사라져 red 다.
+describe('작업 타일 — 목록 하나 (AC8·AC9 · §10 EP-06)', () => {
+  it('껍데기 없이 목록 View 만 그린다 — 래퍼→본문 배선은 그대로다', () => {
     const html = renderToStaticMarkup(createElement(TaskTileContent))
-    const bodies = sectionBodies(html)
-    // 양성 — 세 헤더가 cowork 순서(D-017)로 실제 렌더된다.
-    expect(Object.keys(bodies)).toEqual(['진행 상황', '출력', '컨텍스트'])
-    // 래퍼 → 각 섹션 View 배선을 **귀속까지** 지난다. 세 단언은 각각 그 View 를 래퍼에서
-    // 제거해도(verify r3 D10 / V1) 형제 섹션과 맞바꿔도(verify r4 D15 / M-S) 실패한다.
-    expect(bodies['진행 상황']).toContain(
+    // 양성 — 래퍼가 `TaskProgressList` 를 실제로 부른다(빈 상태 문구가 그 View 의 산출이다).
+    expect(html).toContain(
       'Claude 가 Task 를 만들거나 백그라운드 작업을 시작하면 여기에 표시됩니다.'
     )
-    expect(bodies['출력']).toContain('이 작업 중에 생성된 파일을 확인하고 열 수 있습니다.')
-    expect(bodies['컨텍스트']).toContain('이 작업에 사용된 도구와 참조된 파일을 추적합니다.')
-    // 섹션은 접힘 가능하다 — 기본 펼침.
-    expect(html.match(/aria-expanded="true"/g)).toHaveLength(3)
+    // 음성 ① — 섹션 껍데기가 없다. 헤더도 접기 컨트롤도 남지 않는다(D-003).
+    expect(sectionBodies(html)).toEqual({})
+    expect(html).not.toContain('aria-expanded')
+    expect(html).not.toContain('진행 상황')
+    // 음성 ② — 숨긴 두 섹션의 제목·설명 4문구가 전부 없다(D-002).
+    expect(html).not.toContain('출력')
+    expect(html).not.toContain('컨텍스트')
+    expect(html).not.toContain('이 작업 중에 생성된 파일을 확인하고 열 수 있습니다.')
+    expect(html).not.toContain('이 작업에 사용된 도구와 참조된 파일을 추적합니다.')
   })
 
-  it('진행 상황 섹션에 상태 그룹 헤더가 없다 — 단일 목록이다', () => {
+  it('목록에 상태 그룹 헤더가 없다 — 한 줄로 나열한다 (AC10)', () => {
     const html = renderProgress(
       messages(
         agentTask('완료된 일', '1', 'completed'),

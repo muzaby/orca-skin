@@ -16,7 +16,6 @@ import {
   type TaskBoardStatus,
   type TaskDetailValue
 } from '../../lib/taskBoard'
-import { SectionPlaceholder, TileSection } from './TaskTileSections'
 import { formatDurationLabel, formatTokenLabel, META_GAP } from '../../lib/toolMeta'
 import type { TFunction } from 'i18next'
 import type { TaskStopError } from '../../reducer/chatReducer'
@@ -115,6 +114,19 @@ export function TaskTileHeader(): React.JSX.Element {
   )
 }
 
+// 의존 문구 조립 — 목록 행과 상세가 **같은 함수**를 부른다(0213 D-005 · §10 EP-04). 키만
+// 공유하고 조립을 각자 하면 구분자 하나로 두 화면이 갈라진다.
+function blockedByText(tr: TFunction, ids: string[]): string {
+  return tr('chat.taskTile.blockedByValue', { ids: ids.join(', #') })
+}
+
+// 할 일 행의 둘째 줄 — 막혔을 때만 선다. `completed` 는 제외한다(D-006): 끝난 항목의 의존은
+// 이미 무의미하고, 취소선 옆의 `#2 완료 필요` 는 거짓으로 읽힌다.
+function blockedRowText(tr: TFunction, item: TaskBoardItem): string | null {
+  if (item.status === 'completed' || item.blockedBy.length === 0) return null
+  return blockedByText(tr, item.blockedBy)
+}
+
 function detailValueText(tr: TFunction, value: TaskDetailValue): string {
   switch (value.kind) {
     case 'statusLabel':
@@ -126,7 +138,7 @@ function detailValueText(tr: TFunction, value: TaskDetailValue): string {
     case 'count':
       return String(value.count)
     case 'taskIds':
-      return tr('chat.taskTile.blockedByValue', { ids: value.ids.join(', #') })
+      return blockedByText(tr, value.ids)
   }
 }
 
@@ -169,6 +181,7 @@ interface TaskRowProps {
 function TaskRow({ item, stopError }: TaskRowProps): React.JSX.Element {
   const { tr } = useI18n()
   const open = (): void => chatActions.selectTask(item.key)
+  const blockedRow = blockedRowText(tr, item)
   // 카드 전체가 상세 열기 트리거. 내부에 중단 버튼(중첩 버튼 불가)을 두기 위해 <button> 대신
   // role="button" div 로 두고 키보드 동작을 유지한다.
   return (
@@ -243,10 +256,17 @@ function TaskRow({ item, stopError }: TaskRowProps): React.JSX.Element {
           />
         )}
       </div>
-      {item.background && (
+      {/* 둘째 줄은 **한 슬롯을 두 분기가 나눠 쓴다** — background 행은 경과·토큰 메타를,
+          할 일 행은 막힘 표시를 낸다(§10 EP-04). 서브에이전트에는 `blockedBy` 개념이 없고
+          할 일에는 메타가 없어 두 분기가 겹치지 않는다. */}
+      {item.background ? (
         <div className="mt-0.5 truncate pl-6 text-footnote text-ink3">
           {backgroundMetaLine(tr, item)}
         </div>
+      ) : (
+        blockedRow && (
+          <div className="mt-0.5 truncate pl-6 text-footnote text-ink3">{blockedRow}</div>
+        )
       )}
       {stopError && (
         <div className="mt-0.5 pl-6 text-footnote text-bad">{stopErrorText(tr, stopError)}</div>
@@ -255,7 +275,7 @@ function TaskRow({ item, stopError }: TaskRowProps): React.JSX.Element {
   )
 }
 
-// `진행 상황` 섹션 본문 — **props 만 읽는 순수 View**. store 를 읽지 않으므로
+// `작업` 타일 본문 — **props 만 읽는 순수 View**. store 를 읽지 않으므로
 // `renderToStaticMarkup` 으로 직접 검증할 수 있다(zustand 는 SSR 에서 `getInitialState()` 를
 // 돌려주기 때문에 store 연결 컴포넌트는 시드가 반영되지 않는다). 0203 의 `...View` 선례와 동형.
 export function TaskProgressList({
@@ -272,24 +292,28 @@ export function TaskProgressList({
   cliVersion?: string | null
 }): React.JSX.Element {
   const { tr } = useI18n()
-  if (items.length === 0) {
-    // 빈 상태는 세 갈래다(§10 EP-01). 기능이 **없다고 판정된 경우에만** 원인을 말한다 —
-    // 판정 불가(agentTools === null)에 안내를 띄우면 멀쩡한 CLI 를 의심하게 된다.
-    const unsupported = agentTools !== null && !agentTools.includes('TaskCreate')
-    if (unsupported) {
-      return (
-        <div className="px-p2 text-caption text-ink3">
-          <p>{tr('chat.taskTile.unsupported')}</p>
-          {cliVersion && <p>{tr('chat.taskTile.unsupportedVersion', { version: cliVersion })}</p>}
-        </div>
-      )
-    }
-    return <p className="px-p2 text-caption text-ink3">{tr('chat.taskTile.emptyDesc')}</p>
-  }
+  // 기능이 **없다고 판정된 경우에만** 원인을 말한다 — 판정 불가(agentTools === null)에 안내를
+  // 띄우면 멀쩡한 CLI 를 의심하게 된다(0212 D-005).
+  //
+  // 분모는 `items` 전체가 아니라 **할 일(agent) 항목**이다(0213 D-007 · §10 EP-05). `items` 는
+  // 할 일 + 서브에이전트 합집합이라, 전체로 세면 서브에이전트가 하나만 돌아도 "이 CLI 에는 할 일
+  // 목록 도구가 없다" 는 사실이 침묵한다. 두 사실은 서로 독립이다.
+  const hasAgentItems = items.some((item) => item.kind === 'agent')
+  const unsupported = !hasAgentItems && agentTools !== null && !agentTools.includes('TaskCreate')
+  // 안내는 목록을 **대체하지 않고 그 위에 선다** — 감추면 돌고 있는 서브에이전트 행이 사라진다.
   // 상태 그룹 없이 한 줄로 나열한다(D-018) — 순서는 `taskBoardOrdered` 가 정하고 완료 항목은
   // 그룹으로 옮겨가지 않고 제자리에서 취소선으로 표시된다.
   return (
     <div className="flex flex-col gap-px">
+      {unsupported && (
+        <div className="px-p2 text-caption text-ink3">
+          <p>{tr('chat.taskTile.unsupported')}</p>
+          {cliVersion && <p>{tr('chat.taskTile.unsupportedVersion', { version: cliVersion })}</p>}
+        </div>
+      )}
+      {items.length === 0 && !unsupported && (
+        <p className="px-p2 text-caption text-ink3">{tr('chat.taskTile.emptyDesc')}</p>
+      )}
       {items.map((item) => (
         <TaskRow key={item.key} item={item} stopError={stopErrors[item.key]} />
       ))}
@@ -393,24 +417,19 @@ export function TaskTileContent(): React.JSX.Element {
 
   if (selected) return <TaskDetail item={selected} />
 
-  // cowork 우측 패널 양식(0204 D-017) — 한 카드 안에 접히는 세 섹션. `진행 상황` 만 데이터를
-  // 갖고, 나머지 둘은 이번 라운드에 빈 상태다(D-022).
+  // 목록 하나가 카드에 직접 붙는다(0213 D-003). `출력`·`컨텍스트` 는 채울 재료(아티팩트 도구·
+  // cowork 렌더링 모델)가 생길 때까지 숨긴다(D-002) — 섹션이 하나뿐이면 접기 헤더가 의미를
+  // 잃고, 접었을 때 타일 전체가 빈 카드로 보인다. 두 섹션이 돌아올 때 `TaskTileSections` 의
+  // 껍데기를 다시 씌운다: **파일도 i18n 키도 지우지 않았다**(D-004 — 0205 가 정지를 그렇게
+  // 남긴 덕에 이번 복귀가 배열 하나였다).
   return (
     <div className="min-h-0 flex-1 overflow-auto px-p3 py-p2">
-      <TileSection titleKey="chat.taskTile.sections.progress">
-        <TaskProgressList
-          items={items}
-          stopErrors={stopErrors}
-          agentTools={agentTools}
-          cliVersion={cliVersion}
-        />
-      </TileSection>
-      <TileSection titleKey="chat.taskTile.sections.output">
-        <SectionPlaceholder icon="chart" descKey="chat.taskTile.sections.outputDesc" />
-      </TileSection>
-      <TileSection titleKey="chat.taskTile.sections.context">
-        <SectionPlaceholder icon="board" descKey="chat.taskTile.sections.contextDesc" />
-      </TileSection>
+      <TaskProgressList
+        items={items}
+        stopErrors={stopErrors}
+        agentTools={agentTools}
+        cliVersion={cliVersion}
+      />
     </div>
   )
 }

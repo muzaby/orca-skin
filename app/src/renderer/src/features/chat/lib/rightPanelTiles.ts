@@ -29,18 +29,20 @@ export function defaultRightPanelTileLabelKey(id: RightPanelTileId): MessageKey 
   )
 }
 
-// ── 가시성 정책 (0205) ──────────────────────────────────────────────────────
+// ── 가시성 정책 (0205 · 0213) ───────────────────────────────────────────────
 //
 // 두 축이 있고 의미가 다르다. 한 상수로 합치면 "왜 안 보이는가" 가 하나로 뭉개진다.
 //
-//   정지(suspended)  — cowork 렌더링 모델을 도입하기 전까지 `작업` 타일의 사용자 진입점을
-//                      닫는다(0205 D-004). 타일 내용·테스트·i18n 은 그대로 두고 *열리는
-//                      경로*만 막는다. **해제는 이 배열을 비우는 것 하나다** — 메뉴·활성화·
-//                      배지 세 소비자가 함께 복귀한다.
+//   정지(suspended)  — 타일의 사용자 진입점을 닫는다. 타일 내용·테스트·i18n 은 그대로 두고
+//                      *열리는 경로*만 막는다. 0205 D-004 가 `작업` 을 여기 넣었고 **0213
+//                      D-001 이 뺐다** — 0212 가 만든 것(기능 존재 게이트·`activeForm`·
+//                      역방향 간선)의 유일한 소비처가 그 타일이라 정지가 곧 도달 0이었다.
+//                      지금은 비어 있다: **다시 정지하려면 그 id 를 이 배열에 넣는 것 하나다**
+//                      — 메뉴·활성화·배지 세 소비자가 함께 따라간다.
 //   메뉴 비노출      — 정지된 타일은 메뉴에 올리지 않는다. 예약 슬롯도 같았으나 0206 이
 //                      마지막 슬롯을 `diff` 로 소진해(D-009) 지금 이 축에 남는 것은
 //                      정지 목록뿐이다 — 0205 D-008 은 그래서 대체됐다.
-export const SUSPENDED_RIGHT_PANEL_TILES: readonly RightPanelTileId[] = ['task']
+export const SUSPENDED_RIGHT_PANEL_TILES: readonly RightPanelTileId[] = []
 
 export const MENU_HIDDEN_RIGHT_PANEL_TILES: readonly RightPanelTileId[] = [
   ...SUSPENDED_RIGHT_PANEL_TILES
@@ -64,10 +66,11 @@ export const visibleRightPanelTileDefinitions = rightPanelTileDefinitions.filter
 // 배지는 "확인하지 않은 완료가 있는데 그 타일을 보고 있지 않다" 를 뜻한다. `작업` 타일이
 // 정지되면 `activeTiles` 는 그것을 결코 담지 못하므로 두 번째 조건이 항상 참이 되어 배지가
 // 켜진 채 고착한다 — 끄는 3지점(`SELECT_TASK`·`OPEN_TASK`·`ACKNOWLEDGE_SETTLED_TASKS`)이
-// 모두 타일 도달을 전제하기 때문이다. 그래서 정지 여부를 함께 본다(0205 D-006).
+// 모두 타일 도달을 전제하기 때문이다. 그래서 정지 여부를 함께 본다(0205 D-006). 0213 이
+// 정지를 풀어 지금 이 가드는 통과하고, 배지는 다시 자기 일을 한다.
 //
-// `suspended` 는 테스트 seam 이다 — 정지 중에는 프로덕션 기본값으로 항상 false 라 양성
-// 방향을 만들 수 없다.
+// `suspended` 는 테스트 seam 이다 — 다시 정지된 타일에서 음성 방향을 만드는 유일한 수단이라
+// 남긴다(정지 중에는 반대로 양성 방향을 이것으로 만들었다).
 export function showsUnseenTaskBadge(
   unseenCount: number,
   activeTiles: readonly RightPanelTileId[],

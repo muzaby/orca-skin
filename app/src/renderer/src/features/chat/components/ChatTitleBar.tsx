@@ -14,19 +14,21 @@ import {
 import { partsText } from '../lib/parts'
 import type { ChatState } from '../reducer/chatReducer'
 import {
-  MENU_HIDDEN_RIGHT_PANEL_TILES,
   showsUnseenTaskBadge,
+  visibleRightPanelTileDefinitions,
   type RightPanelTileId
 } from '../lib/rightPanelTiles'
 import { flattenColumns } from '../lib/rightPanelLayout'
-import { tileRegistry } from './rightpanel/tileRegistry'
+import { tileById } from './rightpanel/tileRegistry'
 import { CwdButton } from './CwdButton'
 
-// 메뉴에 올릴 타일 — 어떤 id 를 숨길지는 `rightPanelTiles.ts` 가 소유한다(0205 §10 EP-02).
-// 예약 슬롯과 정지된 타일이 같은 배열에 있고 이유는 그쪽 주석이 갖는다. tileRegistry 는 모듈
-// 상수라 결과가 불변이므로 모듈 로드 시 1회만 계산한다(인스턴스별 useMemo 불필요).
-const VISIBLE_TILE_REGISTRY = tileRegistry.filter(
-  (tile) => !MENU_HIDDEN_RIGHT_PANEL_TILES.includes(tile.id)
+// 메뉴에 올릴 타일 — **목록도 순서도 `rightPanelTiles.ts` 가 소유한다**(0213 D-008 · §10 EP-02).
+// 여기서 같은 필터를 한 번 더 쓰면 정책이 두 벌이 되고, 프로덕션이 읽는 쪽만 조용히 갈라진다
+// (0205 AT-01 이 정확히 그렇게 프로덕션 참조 0인 상수를 단언하고 있었다). 이 상수는 그 목록을
+// registry 항목으로 바꾸기만 한다. tileRegistry 는 모듈 상수라 결과가 불변이므로 모듈 로드 시
+// 1회만 계산한다(인스턴스별 useMemo 불필요).
+export const VISIBLE_TILE_REGISTRY = visibleRightPanelTileDefinitions.map((tile) =>
+  tileById(tile.id)
 )
 
 // 사이드바 메타 (state.title) 가 즉시 채워지므로 사용자가 세션을 선택한 순간부터
@@ -72,7 +74,8 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   const tileColumns = useChatSession((s) => s.rightPanelTiles)
   const activeTiles = useMemo(() => flattenColumns(tileColumns), [tileColumns])
   const unseenSettledTasks = useUnseenSettledTaskCount()
-  // 정지된 타일을 가리키는 배지는 띄우지 않는다 — 판정은 SSOT 가 갖는다(0205 §10 EP-03).
+  // 배지 판정은 SSOT 가 갖고 여기는 결과만 그린다(§10 EP-03) — 정지된 타일을 가리키는
+  // 배지는 애초에 뜨지 않는다.
   const showTaskBadge = showsUnseenTaskBadge(unseenSettledTasks, activeTiles)
   const labels = useChatSession((s) => s.rightPanelTileLabels)
   const [open, setOpen] = useState(false)
@@ -229,8 +232,8 @@ export const ChatTitleBar = memo(function ChatTitleBar({
                 aria-checked={active}
               >
                 <span>{labels[tile.id as RightPanelTileId] ?? tr(tile.defaultLabelKey)}</span>
-                {/* `작업` 이 정지된 동안은 이 목록에 오지 않아 도달하지 않는다(0205 §10 EP-03).
-                    정지 해제 시 함께 돌아오도록 지우지 않는다. */}
+                {/* 0213 D-001 로 `작업` 이 목록에 돌아와 이 배지가 다시 도달한다 — 메뉴를 연
+                    채로도 미확인 완료 수가 보인다(0205 §10 EP-03 이 지우지 말라고 남긴 자리). */}
                 {tile.id === 'task' && unseenSettledTasks > 0 && (
                   <span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] px-1.5 text-[10px] font-medium text-accent">
                     {unseenSettledTasks}
