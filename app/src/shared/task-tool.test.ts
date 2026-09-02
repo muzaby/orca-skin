@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { isTaskToolName, readTaskToolObservation, TASK_TOOL_NAMES } from './task-tool'
+import {
+  isTaskListToolName,
+  isTaskToolName,
+  readTaskToolObservation,
+  TASK_LIST_TOOL_NAMES,
+  TASK_TOOL_NAMES
+} from './task-tool'
 
 const read = (
   toolName: string,
@@ -179,5 +185,103 @@ describe('readTaskToolObservation — 관측 대상이 아닌 도구', () => {
 
   it('Task 도구가 아닌 이름도 관측이 없다', () => {
     expect(read('TodoWrite', { todos: [] })).toBeNull()
+  })
+})
+
+// ── 0212 — SDK 표면 결손 6건 중 파서 축(MD-01) ─────────────────────────────────
+
+describe('0212 — activeForm (AT-05·AT-09 · §10 EP-03)', () => {
+  it('AT-09 — TaskCreate 의 activeForm 을 patch 에 싣는다', () => {
+    const obs = read(
+      'TaskCreate',
+      { task: { id: '3', subject: '테스트 작성' } },
+      { subject: '테스트 작성', description: 'API 테스트 추가', activeForm: '테스트 작성 중' }
+    )
+    expect(obs).toEqual({
+      kind: 'created',
+      id: '3',
+      patch: {
+        status: 'pending',
+        subject: '테스트 작성',
+        description: 'API 테스트 추가',
+        activeForm: '테스트 작성 중'
+      }
+    })
+  })
+
+  it('AT-09 — active_form 별칭도 읽는다 (스트림 입력은 정규화 전이다 · spec §2.5)', () => {
+    const obs = read(
+      'TaskUpdate',
+      { success: true, taskId: '1', updatedFields: ['status'] },
+      { taskId: '1', status: 'in_progress', active_form: '테스트 실행 중' }
+    )
+    expect(obs).toMatchObject({ kind: 'upserted', id: '1' })
+    expect(obs && 'patch' in obs ? obs.patch.activeForm : null).toBe('테스트 실행 중')
+  })
+
+  it('activeForm 은 updatedFields 게이트를 지나지 않는다 — 출력에 그 필드가 없다', () => {
+    // `updatedFields` 가 activeForm 을 안 실어도 입력에 왔다면 그것이 이번 호출의 지시다.
+    const obs = read(
+      'TaskUpdate',
+      { success: true, taskId: '1', updatedFields: ['status'] },
+      { taskId: '1', status: 'in_progress', activeForm: '실행 중' }
+    )
+    expect(obs && 'patch' in obs ? obs.patch.activeForm : null).toBe('실행 중')
+  })
+
+  it('activeForm 만 든 갱신도 관측이 된다 — 빈 patch 로 접히지 않는다', () => {
+    const obs = read(
+      'TaskUpdate',
+      { success: true, taskId: '1', updatedFields: [] },
+      { taskId: '1', activeForm: '실행 중' }
+    )
+    expect(obs).toEqual({ kind: 'upserted', id: '1', patch: { activeForm: '실행 중' } })
+  })
+})
+
+describe('0212 — addBlocks (AT-10 · §10 EP-04)', () => {
+  it('addBlocks 를 patch 에 싣는다 — 방향 해석은 소비자(fold) 몫이다', () => {
+    const obs = read(
+      'TaskUpdate',
+      { success: true, taskId: '1', updatedFields: ['blocks'] },
+      { taskId: '1', addBlocks: ['2', '3'] }
+    )
+    expect(obs).toEqual({ kind: 'upserted', id: '1', patch: { addBlocks: ['2', '3'] } })
+  })
+
+  it('updatedFields 가 addBlocks 라는 이름을 실어도 읽는다 (SDK 가 어느 이름을 쓰는지 미문서)', () => {
+    const obs = read(
+      'TaskUpdate',
+      { success: true, taskId: '1', updatedFields: ['addBlocks'] },
+      { taskId: '1', addBlocks: ['2'] }
+    )
+    expect(obs && 'patch' in obs ? obs.patch.addBlocks : null).toEqual(['2'])
+  })
+
+  it('빈 addBlocks 는 관측을 만들지 않는다 — 바뀔 간선이 없다', () => {
+    expect(
+      read(
+        'TaskUpdate',
+        { success: true, taskId: '1', updatedFields: ['blocks'] },
+        { taskId: '1', addBlocks: [] }
+      )
+    ).toBeNull()
+  })
+})
+
+describe('0212 — 이름 부분집합 (D-025 · §10 EP-11)', () => {
+  it('할 일 목록 4종만 부분집합이고 TaskOutput/TaskStop 은 아니다', () => {
+    expect(TASK_LIST_TOOL_NAMES).toHaveLength(4)
+    for (const name of TASK_LIST_TOOL_NAMES) {
+      expect(isTaskListToolName(name)).toBe(true)
+      // 부분집합은 전체 집합에 포함된다 — 두 배열이 갈라지면 여기서 red 다.
+      expect(isTaskToolName(name)).toBe(true)
+    }
+    for (const other of ['TaskOutput', 'TaskStop', 'Task', 'Agent', 'Bash']) {
+      expect(isTaskListToolName(other)).toBe(false)
+    }
+    // 양성 짝 — 두 이름은 전체 집합에는 여전히 있다(관측 대상이라서).
+    expect(isTaskToolName('TaskOutput')).toBe(true)
+    expect(isTaskToolName('TaskStop')).toBe(true)
   })
 })

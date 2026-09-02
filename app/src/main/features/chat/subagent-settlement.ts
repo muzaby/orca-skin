@@ -19,8 +19,19 @@ function subagentParentResult(
 ): { result: unknown; isError: boolean } | null {
   switch (ev.status) {
     case 'stopped':
+      // `message` 는 건드리지 않는다 — 사용자 중단 행의 표시 문구는 UI 가 소유하고(0204 AT-31
+      // 이 그것을 잠갔다) 여기 문장은 transcript 용 기본값이다.
+      //
+      // SDK 가 준 사유는 **별도 키**로 싣는다(0212 AT-21). `killed` 는 사용자가 멈춘 것이
+      // 아니라서 `patch.error` 가 유일한 원인 서술인데, 그것을 `message` 에 덮으면 사용자
+      // 중단 행까지 생산자 문장으로 바뀐다 — 두 사건이 같은 자리를 쓰면 하나가 다른 하나를
+      // 가린다. 키를 가르면 소비자가 "UI 문구가 기본, 사유가 있으면 사유" 를 표현할 수 있다.
       return {
-        result: { reason: 'aborted', message: '서브에이전트가 중단되었습니다.' },
+        result: {
+          reason: 'aborted',
+          message: '서브에이전트가 중단되었습니다.',
+          ...(ev.summary !== undefined ? { cause: ev.summary } : {})
+        },
         isError: true
       }
     case 'failed':

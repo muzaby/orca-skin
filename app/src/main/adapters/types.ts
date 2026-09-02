@@ -42,8 +42,13 @@ export interface LiveTurn {
   setModel(model?: string): Promise<void>
   // 서브에이전트(Task) 단위 중단 — SDK task_id 로 stopTask. 백엔드 미지원 시 no-op 가능.
   stopTask(taskId: string): Promise<void>
-  // foreground 서브에이전트를 백그라운드로 — stopTask 가 foreground 를 거부할 때의 fallback 경로.
-  backgroundTask(toolUseId: string): Promise<boolean>
+  // foreground 서브에이전트를 백그라운드로. 두 소비자가 있다 — stopTask 가 foreground 를 거부할
+  // 때의 내부 fallback, 그리고 사용자의 명시적 전환 요청(0212 R-07).
+  //
+  // `toolUseId` 를 optional 로 둔 것은 SDK 시그니처(`backgroundTasks(toolUseId?)`)를 그대로
+  // 반영해 **나중에 전량 전환을 열 수 있게** 남기는 것이다. 이번 범위는 단건뿐이다 — 전량은
+  // Bash 까지 옮겨 TaskXXX 경계를 벗어난다(0212 D-020).
+  backgroundTask(toolUseId?: string): Promise<boolean>
 }
 
 export interface CompleteRequest {

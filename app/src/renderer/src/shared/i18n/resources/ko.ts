@@ -561,6 +561,7 @@ export const ko = {
       status: {
         running: '진행 중',
         stopping: '중단 중…',
+        paused: '일시정지',
         completed: '완료',
         failed: '실패',
         aborted: '중단됨'
@@ -577,6 +578,7 @@ export const ko = {
       status: {
         in_progress: '진행 중',
         stopping: '중단 중…',
+        paused: '일시정지',
         pending: '대기 중',
         completed: '완료',
         aborted: '중단됨',
@@ -605,9 +607,26 @@ export const ko = {
       stoppedReason: '사용자에 의해 중단됨',
       failedReason: '실행 세션이 종료되었습니다',
       stopFailed: '중단하지 못했습니다',
+      backgroundFailed: '백그라운드로 보내지 못했습니다',
+      toBackground: '백그라운드로',
+      toBackgroundAria: '{{description}} 백그라운드로 보내기',
+      toBackgroundTitle: '백그라운드로 보냅니다. 작업은 계속 실행됩니다.',
+      unsupported: '연결된 Claude Code 가 할 일 목록 도구를 지원하지 않습니다.',
+      unsupportedVersion: '설치된 버전: {{version}}',
       noChildActivity: '이 작업에 기록된 하위 활동이 없습니다.',
       emptyDesc: 'Claude 가 Task 를 만들거나 백그라운드 작업을 시작하면 여기에 표시됩니다.',
       openDetailAria: '{{description}} 상세 보기'
+    },
+    taskTool: {
+      created: '생성',
+      updated: '갱신',
+      listed: '전체 조회',
+      fetched: '조회',
+      removed: '삭제',
+      failed: '실패',
+      subject: '제목',
+      status: '상태',
+      count: '{{count}}건'
     },
     gitRow: {
       aria: '저장소 및 변경 사항',

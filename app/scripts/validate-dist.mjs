@@ -4,6 +4,7 @@
 // 업데이트용 blockmap 이 존재하는지 확인한다. latest.yml 의 sha512 는 electron-updater
 // 가 다운로드 시 강제하는 무결성 앵커라(unsigned 배포의 무결성 근거) 빌드 시점에 고정한다.
 // electron-builder 26 의 평면 latest.yml 스키마 전용 미니 파서 — 신규 의존성 없이 처리한다.
+import { pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -133,7 +134,12 @@ export function runCli(argv = process.argv.slice(2), cwd = process.cwd()) {
   return 0
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// 직접 실행 판정 — `pathToFileURL` 로 비교한다. `file://${process.argv[1]}` 는 **Windows 에서
+// 절대 성립하지 않는다**: argv[1] 은 `C:.mjs` 라 `file://C:.mjs` 가 되고
+// `import.meta.url` 은 `file:///C:/a/b.mjs` 다. 그러면 CLI 본문이 실행되지 않은 채 exit 0 이 나가
+// 게이트가 무음으로 통과한다(CI 는 windows-latest 다). 선례: `analyze-composer-input-trace.mjs`.
+const invokedAs = process.argv[1]
+if (invokedAs && import.meta.url === pathToFileURL(invokedAs).href) {
   try {
     process.exitCode = runCli()
   } catch (error) {

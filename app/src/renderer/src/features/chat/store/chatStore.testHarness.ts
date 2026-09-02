@@ -27,6 +27,9 @@ export interface ChatStoreHarness {
   chatSend: ReturnType<typeof vi.fn>
   settingsSet: ReturnType<typeof vi.fn>
   permissionRespond: ReturnType<typeof vi.fn>
+  // 0212 — 서브에이전트 단위 제어 두 축. 중단은 확정을 기다리고 전환은 즉시 boolean 이다.
+  stopSubagent: ReturnType<typeof vi.fn>
+  backgroundSubagent: ReturnType<typeof vi.fn>
 }
 
 // beforeEach 에서 호출한다. 활성 키 's' 에 세션 엔트리 1개로 초기화하며, 턴 진행 여부 등
@@ -38,13 +41,17 @@ export function installChatStoreHarness(
   const chatSend = vi.fn().mockResolvedValue(undefined)
   const settingsSet = vi.fn().mockResolvedValue({})
   const permissionRespond = vi.fn().mockResolvedValue(undefined)
+  const stopSubagent = vi.fn().mockResolvedValue(undefined)
+  const backgroundSubagent = vi.fn().mockResolvedValue(undefined)
   vi.stubGlobal('window', {
     orca: {
       chat: {
         send: chatSend,
         cancel: vi.fn(),
         cancelSteer: vi.fn().mockResolvedValue(undefined),
-        onEvent: vi.fn()
+        onEvent: vi.fn(),
+        stopSubagent,
+        backgroundSubagent
       },
       settings: { set: settingsSet },
       permission: { respond: permissionRespond, setMode: vi.fn() }
@@ -68,7 +75,7 @@ export function installChatStoreHarness(
     },
     true
   )
-  return { chatSend, settingsSet, permissionRespond }
+  return { chatSend, settingsSet, permissionRespond, stopSubagent, backgroundSubagent }
 }
 
 // 활성 세션의 커밋 슬라이스 — 두 스위트가 같은 접근자를 쓴다.

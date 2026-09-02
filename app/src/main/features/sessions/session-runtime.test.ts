@@ -1,9 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, type Mock } from 'vitest'
 import type { DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
 import { makeClassifiedError } from '../../infra/errors'
 import type { TurnRequest } from '../../adapters/turn'
 import type { AbortCause } from '../../contracts/session-state'
 import type { GovernedLiveTurn, RuntimeSessionAdapter } from '../../contracts/ports'
+import type { ClaudePermissionMode } from '../../../shared/permission-mode'
 import type { LiveTurn, ProviderMessageBatch } from '../../adapters/types'
 import { SessionRuntime, pickFrameDelegates } from './session-runtime'
 import { decideRespawn } from './respawn-policy'
@@ -1311,5 +1312,104 @@ describe('SessionRuntime runtime tool revision (0158)', () => {
 
     expect(sent[1]?.extensions.runtimeTools).toBe(continuationRequest.extensions.runtimeTools)
     expect(sent[1]?.extensions.runtimeTools?.revision).toBe(4)
+  })
+})
+
+// 0212 r3 — **`turn.live` 전달 홉의 인자 충실도**(§10 EP-14 지점 2 · verify r2 D11).
+//
+// IPC 핸들러가 `turn.live.backgroundTask(req.toolUseId)` 를 부르는 것은 이미 잠겼다
+// (`app/chat-turn.background-subagent.test.ts`). 그러나 그 테스트는 포트를 mock 하므로
+// **production 에서 그 포트인 여기**를 지나지 않는다 — r2 검증에서 이 네 줄은 인자를
+// 오염시켜도(`toolUseId + '-x'`) 본문을 통째로 폐기해도(`return false`) 278파일 2790케이스가
+// 전건 초록이었다. 네 forwarder 는 같은 형상의 형제라 함께 잠근다.
+//
+// **인자를 두 번 서로 다른 값으로 넘긴다** — 한 번이면 상수로 굳힌 전달도 통과한다.
+describe('SessionRuntime — live 전달 홉 (0212 §10 EP-14)', () => {
+  type ForwardSpy = {
+    setPermissionMode: Mock<(mode: ClaudePermissionMode) => Promise<void>>
+    setModel: Mock<(model?: string) => Promise<void>>
+    stopTask: Mock<(taskId: string) => Promise<void>>
+    backgroundTask: Mock<(toolUseId?: string) => Promise<boolean>>
+  }
+
+  function spiedLive(moved: boolean): { turn: LiveTurn; spy: ForwardSpy } {
+    const spy: ForwardSpy = {
+      setPermissionMode: vi.fn(async () => {}),
+      setModel: vi.fn(async () => {}),
+      stopTask: vi.fn(async () => {}),
+      backgroundTask: vi.fn(async () => moved)
+    }
+    const turn: LiveTurn = {
+      // 소비를 멈춘 채로 두려면 스트림이 끝나면 안 된다 — terminal 을 내면 `consumeTurnScoped`
+      // 의 finally 가 `this.live = null` 로 홉을 끊는다.
+      eventBatches: (async function* () {
+        yield { sequence: 0, events: [{ type: 'assistant.delta', sessionId: 's1', text: 'a' }] }
+        await new Promise(() => {})
+      })() as AsyncIterable<ProviderMessageBatch>,
+      close: vi.fn(),
+      interrupt: async () => undefined,
+      ...spy
+    }
+    return { turn, spy }
+  }
+
+  // 턴을 첫 이벤트에서 멈춘 상태로 만든다 — 그 지점에서 `this.live` 가 채워져 있다(`:351`).
+  async function runtimeWithLive(
+    moved = true
+  ): Promise<{ runtime: SessionRuntime; spy: ForwardSpy; done: () => Promise<void> }> {
+    const { turn, spy } = spiedLive(moved)
+    const runtime = new SessionRuntime(adapter(turn))
+    const stream = runtime.send(req())[Symbol.asyncIterator]()
+    await stream.next()
+    return { runtime, spy, done: async () => void (await stream.return?.(undefined)) }
+  }
+
+  it('backgroundTask 는 받은 toolUseId 를 그대로 넘기고 반환을 그대로 돌려준다', async () => {
+    const { runtime, spy, done } = await runtimeWithLive(true)
+
+    expect(await runtime.backgroundTask('use1')).toBe(true)
+    expect(await runtime.backgroundTask('use2')).toBe(true)
+
+    expect(spy.backgroundTask.mock.calls).toEqual([['use1'], ['use2']])
+    await done()
+  })
+
+  it('backgroundTask 는 live 의 false 를 삼키지 않는다 — 핸들러가 그것으로 reject 한다', async () => {
+    const { runtime, spy, done } = await runtimeWithLive(false)
+
+    expect(await runtime.backgroundTask('use1')).toBe(false)
+    expect(spy.backgroundTask.mock.calls).toEqual([['use1']])
+    await done()
+  })
+
+  it('live 가 없으면 포트에 닿지 않고 false 다 — 도달 후 거절과 구분된다', async () => {
+    const { turn, spy } = spiedLive(true)
+    const runtime = new SessionRuntime(adapter(turn))
+
+    expect(await runtime.backgroundTask('use1')).toBe(false)
+    expect(spy.backgroundTask).not.toHaveBeenCalled()
+  })
+
+  it('stopTask 는 받은 taskId 를 그대로 넘긴다 (0204 중단 경로)', async () => {
+    const { runtime, spy, done } = await runtimeWithLive()
+
+    await runtime.stopTask('task-1')
+    await runtime.stopTask('task-2')
+
+    expect(spy.stopTask.mock.calls).toEqual([['task-1'], ['task-2']])
+    await done()
+  })
+
+  it('setModel·setPermissionMode 도 받은 값을 그대로 넘긴다 — 같은 형상의 형제 홉이다', async () => {
+    const { runtime, spy, done } = await runtimeWithLive()
+
+    await runtime.setModel('opus')
+    await runtime.setModel('sonnet')
+    await runtime.setPermissionMode('plan')
+    await runtime.setPermissionMode('acceptEdits')
+
+    expect(spy.setModel.mock.calls).toEqual([['opus'], ['sonnet']])
+    expect(spy.setPermissionMode.mock.calls).toEqual([['plan'], ['acceptEdits']])
+    await done()
   })
 })

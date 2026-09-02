@@ -2067,6 +2067,7 @@ git CLI
 | Δ9 | §10 EP-17 행 머리의 지점 수 라벨(`5지점`)이 본문 열거(①~⑥)·Pair registry(`EP-17 (6)`)·INDEX(`강제 지점 31→32`)와 어긋난다. | ⚠️ 보고만 — 규범 행 수치라 구현자가 고치지 않는다. 셋이 6 이므로 **6 으로 세어 닫았다**. 설계자가 라벨을 정정한다. | plan §10 EP-17 행 · §7-A ΔV2 Pair registry · `INDEX.md:22` |
 | Δ10 | AT-26·AT-30·AT-32 가 요구한 **클릭 기반 스텁 카운트**(확장·peek 왕복에서 조회 증가 0)를 이 저장소에서 실행할 수 없다 — `vitest.config.ts:7` 이 `environment: 'node'` 라 DOM 이 없고 렌더 테스트는 `renderToStaticMarkup` SSR 이다. | ⚠️ 보고만 + 대체 증거 명시 — 아래 "설계 대비 명시적 차이" A 참조. 계기 판정(순수) + (파일 × 조회 종류) 소유자 스윕 + props-only View 구조 셋으로 같은 주장을 잰다. | `vitest.config.ts:7` · ΔV1 Review Signals 가 이미 같은 한계를 기록했다 |
 | Δ11 | §19 의 **사람 실기 1건**(D-060 · AT-30 scroll 보정)을 수행하지 못했다 — 이 세션은 headless 원격 컨테이너라 GUI 실기가 없다. | ⚠️ 보고만 — AT-30 을 `⚠️`(자동 축 green · 사람 축 미수행)으로 남긴다. `planUpwardExpansionCompensation` 의 **계획 계산**은 `diffViewport.test.ts` 2케이스로 잠겨 있고, `useLayoutEffect` 의 실제 `scrollTop` 대입만 미검증이다. | `app/AGENTS.md §제약 환경`(dev/실기 요구 항목은 "사람 실기 대기" 로 명시) |
+| Δ13 | **`docs/IPC_CONTRACT.md` 에 0211 의 이벤트 계약 두 자리가 처음부터 없었다.** V1 gate 가 "신규 채널 2종 + 신규 이벤트 1종 = 신규 행 3건" 을 요구했는데 채널 2행만 있고 `worktree.preparing` **행 자체가 없었고**, `session.updated` 행의 patch 서명도 `{ model?; cwd? }` 그대로라 `worktree` 축을 말하지 않았다. main 병합이 같은 행을 0212 키 둘로 다시 쓰면서 "네 키를 다 적은 완전한 행" 처럼 읽히게 돼 드러났다. | ✅ 선조치 — `worktree.preparing` 행을 신설하고(단계 5종·`sessionId` 부재 라우팅·소멸 3지점·비격리 무발화), `session.updated` 행 서명에 `worktree?: WorktreeDisplay \| null` 을 넣고 **키 부재 / `null` / 객체 세 상태**를 본문에 적었다. | V1 gate 표 "신규 행 3건 존재 확인" · 병합 전 `grep -c "worktree.preparing" docs/IPC_CONTRACT.md` = **0** |
 | Δ12 | 게이트 실행 중 두 스위트가 red 였다가 재실행에서 green 이 됐다 — `loopback-callback.test.ts`(고정 포트 45214 EADDRINUSE) · `mutation-queue.test.ts`(10 ms 타이밍 경합). 둘 다 이 브랜치가 건드리지 않은 파일이다. | ⚠️ 보고만 — 환경 기인으로 분리한다. 45214 는 이 컨테이너의 다른 프로세스가 물고 있었고(`net.createServer().listen(45214)` 프로브가 `EADDRINUSE`), 최종 전체 실행에서 둘 다 green 이다. | `git diff --name-only a106d9b..HEAD` 에 두 파일 **없음** · 최종 `npm test` 299/299 green |
 
 ### 설계 대비 명시적 차이 (ΔV2 r3)
@@ -2096,6 +2097,7 @@ git CLI
 | **합계 검산** | `✅ 15 · ⚠️ 1 · ❌ 0 = 총 16` (§7 ΔV2 표 행 재계수: AT-22·23·24·25·26·27·28·29·30·31·32·33·34·35·36·37 = **16**, r3 이 AT-37 을 더해 15→16 이 된 분모 그대로다). V1 의 15 · ΔV1 의 6 과 분모가 다르므로 직접 비교하지 않는다 |
 | 블로커 / 역질문 | 없다. 미완 1건은 **사람 실기**(AT-30 scroll 보정)이고 이 환경에서 불가하다 — 네트워크·GUI 완전 환경의 사람 몫이다. Δ9(EP-17 라벨)는 설계자 정정 대상 |
 | 대상 커밋 | `(ΔV2 r3 구현 — 검증자 기입)` |
+| 기준 브랜치 병합 | **`main` 을 브랜치로 머지했다**(0212 11커밋). 충돌 **5파일**은 전부 *같은 자리에 두 handoff 가 나란히 추가*한 것이라 양쪽을 모두 남겼다 — `ipc.ts`·`chatReducer.ts` 의 `session.updated` patch(0211 `worktree` + 0212 `agentTools`·`cliVersion`) · `session-runtime.test.ts` import 한 줄 · `INDEX.md` 두 행 · `inventory.md` 는 손으로 합치지 않고 **재생성**(채널 80+2=**82** · git 5 · chat 7 · variant **23**). 채널·이벤트 집합이 서로소임을 먼저 확인했다(내 브랜치만 `orca:git:diffFile`·`diffSummary`·`worktree.preparing`, main 만 `orca:chat:backgroundSubagent`·`subagent.backgroundSet`). 병합 후 게이트 재실행: `npm test` **304파일 2954케이스 + scripts 67/67, exit 0** · typecheck 3구성 0줄 · lint 0 error/1 warning(기존분) · doc-inventory·append-only exit 0 |
 
 **AC 자기보고 상세** — 각 행에 이번 턴에 재현한 관측값을 함께 적는다.
 
