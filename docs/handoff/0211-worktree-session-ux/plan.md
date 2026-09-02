@@ -3205,4 +3205,18 @@ git CLI
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| D1 | `GitContextBar` 를 렌더하는 테스트가 **0건**이라 AT-43 의 "`→`·현재 브랜치 부재" 와 AT-52 의 `setRightPanelColWidth` 인자·`aria-label` 단언이 없다 | VP-51 · VP-60 / AT-43 · AT-52 | SSR 렌더 테스트 신설 — `renderToStaticMarkup(createElement(GitContextBar))` 가 설정 없이 통과함을 검증 프로브로 확인했다 | **BLOCKING** | open |
+| D2 | `resolveHeadRef` 와 `service.ts` 의 `baseRef` 계산에 행동 oracle 이 없다 — 상수로 바꿔도 924케이스 전건 green | VP-52 / AT-44 · §10 EP-28 ② | `repository.test.ts` 에 detached·unborn 케이스, `service.test.ts` 에 `baseRef` 산출 단언 | **BLOCKING** | open |
+| D3 | `RECEIVE_GIT_SNAPSHOT_SUMMARY` 의 `patch:null` 이 미잠금 — 지워도 727케이스 전건 green | VP-54 / §10 EP-34 ② | `chatReducer.plan.test.ts` 에 "요약이 새로 오면 패치가 버려진다" 케이스 | **BLOCKING** | open |
+| D4 | §10 EP-36 두 지점이 **0/2** 잠김 — `⋮ › 파일 표시` no-op 화와 `pickFile` 의 선펼침 제거가 둘 다 green | VP-58 · VP-60 / §10 EP-36 | `onPickFile` 스텁 렌더 + 두 진입점이 같은 액션을 부른다는 단언 | **BLOCKING** | open |
+| D5 | `git-diff-service.test.ts` 삭제로 **EP-25 ② 좌표 캐시** oracle 소멸 — 이전 라운드 red 였던 축이 green | VP-48 / §10 EP-25 ② | 그 2케이스를 `git-diff.test.ts` 로 재배치 | **BLOCKING** | open |
+| D6 | 같은 삭제로 **EP-17 ④⑤**(log 폴백 · `commitFilesUnavailable` · 8 MiB 버퍼) oracle 소멸 — 폴백을 통째로 지워도 green | VP-31 · VP-39 / §10 EP-17 ④⑤ | 같은 재배치. 16 MiB 패치 버퍼(EP-29 ②)도 같은 자리에서 함께 단언 | **BLOCKING** | open |
+| D7 | `animate-depth-out` 이 프로덕션 소비처 **0** — 참조 3건 전부 테스트다 | D-092 이유란("두 utility 재사용") | 닫기 연출을 붙이거나 utility·테스트를 함께 정리 | NON_BLOCKING | open |
+| D8 | `diffComparison.ts :: comparisonKey` 가 참조 **0**(정의뿐) — 이번 라운드 신규 죽은 export | 비귀속 | 삭제 또는 소비처 배선 | NON_BLOCKING | open |
+| D9 | `lib/diffPatchLines.ts` 가 MD node·pair·테스트 없이 들어왔다 — old/new 축을 맞바꿔도 green | §11 ΔV4 "테스트 seam 신규" | `diffPatchLines.test.ts` 신설(축 계약 단언). 설계자는 ΔV5 에서 MD node 를 더할지 판단 | NON_BLOCKING | open |
+| D10 | 전체 줄 상한이 초과 파일 **뒤의 더 작은 파일을 다시 수집**한다 — AC 문구("넘긴 파일부터")보다 관대 | AT-47 문구 | 동작 유지 시 AC 문구 정정 | NON_BLOCKING | open |
+| D11 | §10 EP-17 머리말이 "5지점" 인데 항목은 ⑥까지이고 pair registry 는 `EP-17 (6)` | plan 내부 불일치 | 설계자가 머리말을 6으로 | NON_BLOCKING | open |
+| D12 | §18 ΔV4 삭제 목록 **10** vs 실제 **13** — `DiffTileHeader.tsx` 를 *변경* 으로 분류했다 | plan §18 | 설계자가 목록 정정 | NON_BLOCKING | open |
+| D13 | INDEX 0211 행 비고가 **1,055자**로 5줄 상한 초과 | `docs/handoff/AGENTS.md §산출물 문장 규칙 3` | 검증 갱신에서 축약 | NON_BLOCKING | closed(r1 검증) |
+| D14 | `summaryBaseText` 의 `kind:'none'` 이 카탈로그 밖 문자 `'∅'` 를 낸다 | 비귀속 | i18n 키로 옮길지 결정 | NON_BLOCKING | open |
+| D15 | 임시 저장소 통합 스위트가 부하에서 간헐 타임아웃 — 변이 40회 중 2회, 재실행 전부 green | 검증 환경 | 타임아웃 상향 또는 직렬화 검토 | NEXT_HANDOFF | open |
