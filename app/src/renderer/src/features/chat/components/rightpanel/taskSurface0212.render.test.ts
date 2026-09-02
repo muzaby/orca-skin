@@ -165,7 +165,9 @@ describe('0212 R-01 — 빈 상태 세 갈래 (AT-01·02·03 · §10 EP-01)', ()
     expect(html).toContain(EMPTY)
   })
 
-  it('안내는 항목이 있으면 뜨지 않는다 — 빈 상태 전용이다', () => {
+  // 0213 D-007 이 분모를 `items` 전체 → **할 일(agent) 항목**으로 좁혔다. 이 방향은 그대로다:
+  // 할 일이 있으면 기능이 있다는 뜻이라 안내가 설 자리가 없다.
+  it('안내는 할 일이 있으면 뜨지 않는다', () => {
     const html = renderProgress(messages(agentTask('설계', '1')), { agentTools: ['Bash'] })
     expect(html).not.toContain(NOTICE)
     expect(html).toContain('설계')

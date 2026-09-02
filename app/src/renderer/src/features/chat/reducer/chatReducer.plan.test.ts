@@ -278,38 +278,47 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
   })
 })
 
-// 0205 V1 — 정지된 타일은 어느 활성화 경로로도 열리지 않는다 (AT-02 · AT-03).
+// 0213 V1 — 정지가 풀려 `작업` 타일이 **모든 활성화 경로로** 열린다 (AT-02 · AT-03 · AT-07).
 //
-// 세 액션 전부를 본다. `addTileColumnMajor` 를 부르는 reducer 지점이 5곳이라(§10 EP-01)
-// 대표 경로 하나만 막아도 그 하나의 테스트는 통과한다 — 통로가 실제로 하나인지 본다.
-describe('chatReducer — 정지된 타일의 활성화 차단 (0205)', () => {
-  it('TOGGLE 은 정지된 타일을 열지 않는다 — 상태 참조가 그대로다', () => {
+// 0205 가 차단을 잠근 자리를 그대로 되돌린 것이다(0213 D-010). 세 액션 전부를 본다:
+// `addTileColumnMajor` 를 부르는 reducer 지점이 5곳이라(§10 EP-01) 대표 경로 하나만 열려도
+// 그 하나의 테스트는 통과한다 — 통로가 실제로 하나인지 본다.
+describe('chatReducer — 정지 해제된 타일의 활성화 (0213)', () => {
+  it('TOGGLE 이 `작업` 타일을 연다', () => {
     const s = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'task' })
-    expect(colTiles(s)).toEqual([])
-    expect(s.rightPanelTiles).toBe(initialChatState.rightPanelTiles)
+    expect(colTiles(s)).toEqual([['task']])
   })
 
-  it('TOGGLE 은 정지되지 않은 타일을 연다 — 양성 짝', () => {
+  it('TOGGLE 은 다른 타일도 그대로 연다 — 형제 짝', () => {
     const s = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'subagent' })
     expect(colTiles(s)).toEqual([['subagent']])
   })
 
-  it('SET_RIGHT_PANEL_TILE_ACTIVE(true) 도 정지된 타일을 붙이지 않는다', () => {
+  it('SET_RIGHT_PANEL_TILE_ACTIVE(true) 도 `작업` 타일을 붙인다', () => {
     const s = chatReducer(initialChatState, {
       type: 'SET_RIGHT_PANEL_TILE_ACTIVE',
       id: 'task',
       active: true
     })
-    expect(colTiles(s)).toEqual([])
+    expect(colTiles(s)).toEqual([['task']])
   })
 
-  it('이미 열려 있는 다른 타일은 정지된 타일 요청에 영향받지 않는다', () => {
+  it('이미 열려 있는 타일 옆에 붙는다 — 열을 갈아엎지 않는다', () => {
     const plan = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'plan' })
     const after = chatReducer(plan, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'task' })
-    expect(colTiles(after)).toEqual([['plan']])
+    expect(colTiles(after)).toEqual([['plan', 'task']])
   })
 
-  it('계획 자동 활성화는 정지 대상이 아니라 그대로 열린다 — 다섯째 지점의 양성 짝', () => {
+  // 음성 짝 — 게이트가 상수 통과로 무너져도 위 넷은 통과한다. 정지 배열을 seam 없이 읽는
+  // 게이트라 여기서 직접 만들 수는 없고, 술어 단위(`rightPanelTiles.test.ts`)가 그 방향을
+  // 맡는다. 여기서는 **닫는 축**이 여전히 사는지를 본다.
+  it('TOGGLE 을 한 번 더 누르면 닫힌다 — 여는 것만 되고 닫히지 않는 회귀를 막는다', () => {
+    const opened = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'task' })
+    const closed = chatReducer(opened, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'task' })
+    expect(colTiles(closed)).toEqual([])
+  })
+
+  it('계획 자동 활성화도 그대로 열린다 — 다섯째 지점', () => {
     const s = chatReducer(initialChatState, recv(planEvent()))
     expect(colTiles(s)).toEqual([['plan']])
   })
