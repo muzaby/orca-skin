@@ -673,6 +673,12 @@ TaskTileContent (도달 가능)
 
 ## [검증자 기입] 파생 이슈
 
+> r1 검증 판정 원문은 [`verify.md`](verify.md). 아래는 그 §13 의 이관본이다.
+
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | (검증 턴에서 채운다) | | | | |
+| D1 | AC12 의 부재 방향이 잠기지 않는다 — `blockedRowText` 의 `blockedBy.length === 0` 가드를 지우면 미막힘 행마다 `# 완료 필요` 가 뜨는데 2997케이스 전건 green 이다 | `VP-06` · AC12 | 카운트 술어를 문구 전체로 넓히거나 미막힘 행의 둘째 줄 부재를 직접 단언한다. 검증자 실측 — `/완료 필요/g` 로 넓히면 그 변이가 red 다 | **BLOCKING** (`PAIR_FAIL`) | open (r2) |
+| D2 | VP-08 path 의 마지막 홉(`→ 카드`)이 잠기지 않는다 — 래퍼가 `agentTools`·`cliVersion` 을 안 넘기면 안내가 프로덕션에서 영영 안 뜨는데 typecheck 0 · lint 0 · 2997 전건 green 이다 | `VP-08` · §12 producer→consumer | `vi.mock('../../store/chatStore')` 로 `TaskTileContent` 를 시드 렌더해 props 통과를 단언한다(선례 `ChatTitleBar.render.test.ts`) | **BLOCKING** (`PAIR_FAIL`) | open (r2) |
+| D3 | 다중 `blockedBy` 구분자(`', #'`)를 단언하는 곳이 없다 — 공유 헬퍼의 구분자를 바꿔도 전건 green | EP-04 (현재 V 에 해당 AC 없음) | 다중 의존 표시가 제품 요구가 되면 그때 AC 를 만든다 | NON_BLOCKING | 기록 |
+| D4 | INDEX r1 비고가 9문장이라 `AGENTS.md §산출물 문장 규칙 3`(5줄)을 넘는다 | repository operation | 이후 갱신분을 5줄 이내로 쓴다. 과거 행은 손대지 않는다 | NON_BLOCKING | 기록 |
+| D5 | 인용 커밋 좌표를 확인할 수 없다 — shallow clone(84 커밋)이라 0212·0204 좌표 7건이 전부 미해석 | 검증 환경 | 기록만. 같은 환경이면 다음 라운드도 확인 불가다 | NON_BLOCKING | 기록 |
