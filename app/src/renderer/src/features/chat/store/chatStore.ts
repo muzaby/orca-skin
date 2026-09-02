@@ -5,7 +5,10 @@ import {
   chatReducer,
   initialChatState,
   type ChatAction,
+  type GitPeekTarget,
+  type GitSnapshotRequest,
   type ChatState,
+  type DiffRequirementDraft,
   type PlanComment
 } from '../reducer/chatReducer'
 import { toPlanFeedback } from '../lib/planComments'
@@ -22,7 +25,11 @@ import { createEventCoalescer, type DeltaEvent } from '../lib/eventCoalescer'
 import type {
   AttachmentView,
   ComposerAttachment,
+  DiffRequirementAnchor,
+  DiffRequirementItem,
   EffortLevel,
+  GitDiffFileContent,
+  GitDiffSummary,
   NormalizedEvent,
   SendChatMessage
 } from '../../../../../shared/ipc'
@@ -33,6 +40,8 @@ import {
 import { continuityLangFor, continuityTitle } from '../../../../../shared/continuity-lang'
 import type { RightPanelTileId } from '../lib/rightPanelTiles'
 import type { BranchSnapshot } from '../components/composer/branchChipState'
+import type { DiffLine } from '../lib/diffLines'
+import { wireDiffRequirementAnchor } from '../components/rightpanel/diffRequirements'
 
 // Zustand 단일 chat store — arch/frontend/state.md §1.4 채택안의 멀티세션 외피(handoff 0013).
 //
@@ -90,6 +99,14 @@ export interface SessionEntry {
 interface QueuedNewChat {
   key: string
   payload: SendChatMessage
+}
+
+export interface DiffRequirementSubmitSnapshot {
+  sessionKey: string
+  sessionId: string | null
+  ids: string[]
+  revision: number
+  anchors: DiffRequirementAnchor[]
 }
 
 export interface ChatStoreState {
@@ -159,6 +176,36 @@ function dispatchTo(key: string, action: ChatAction): void {
 
 function dispatchActive(action: ChatAction): void {
   dispatchTo(getState().activeKey, action)
+}
+
+function captureDiffRequirementSnapshot(): DiffRequirementSubmitSnapshot {
+  const state = getState()
+  const session = state.sessions[state.activeKey].session
+  return {
+    sessionKey: state.activeKey,
+    sessionId: session.sessionId,
+    ids: session.diffRequirements.map((item) => item.id),
+    revision: session.diffRequirementsRevision,
+    anchors: session.diffRequirements.map((item) => wireDiffRequirementAnchor(item.anchor))
+  }
+}
+
+function clearDiffRequirementsIfUnchanged(snapshot: DiffRequirementSubmitSnapshot): void {
+  dispatchTo(snapshot.sessionKey, {
+    type: 'CLEAR_DIFF_REQUIREMENTS_IF_UNCHANGED',
+    sessionId: snapshot.sessionId,
+    ids: snapshot.ids,
+    revision: snapshot.revision
+  })
+}
+
+function requirementsBelongToCurrentSession(
+  requirements: readonly DiffRequirementAnchor[],
+  sessionId: string | null
+): boolean {
+  if (requirements.length === 0) return true
+  if (sessionId == null) return false
+  return requirements.every((anchor) => anchor.sessionId === sessionId)
 }
 
 function patchLive(key: string, patch: (live: LiveTurnState) => LiveTurnState): void {
@@ -397,8 +444,12 @@ function receive(ev: NormalizedEvent): void {
     // sessionId 없는 message.queued = 새 세션 send 의 pending 등록(0067 — 핸드오프 자동 메시지
     // 포함, 턴 시작 전 발행). startHandoff/send 가 방금 세운 pendingNewChatKey(draft)로
     // 라우팅해야 사용자가 그 사이 다른 세션으로 이동해도 활성 화면을 오염하지 않는다.
+    // 0211 — `worktree.preparing` 도 세션 발급 전 신호라 같은 규칙이다. 준비 중 사용자가
+    // 다른 세션으로 이동해도 그 화면을 오염시키지 않는다.
     key =
-      isTerminalWithoutSession(ev) || ev.type === 'message.queued'
+      isTerminalWithoutSession(ev) ||
+      ev.type === 'message.queued' ||
+      ev.type === 'worktree.preparing'
         ? (getState().pendingNewChatKey ?? getState().activeKey)
         : getState().activeKey
   }
@@ -592,11 +643,13 @@ export function ingestChatEvent(ev: NormalizedEvent): void {
 function send(
   text: string,
   attachments: ComposerAttachment[] = [],
-  attachmentViews: AttachmentView[] = []
+  attachmentViews: AttachmentView[] = [],
+  requirements: DiffRequirementAnchor[] = []
 ): boolean {
   const trimmed = text.trim()
   const cur = getActiveChatSession()
   if (trimmed === '') return false
+  if (!requirementsBelongToCurrentSession(requirements, cur.sessionId)) return false
 
   if (cur.sessionId == null) {
     // 새 세션 첫 턴 진행 중(id 미발급)엔 예약 큐 키가 없다 — main 가드와 대칭으로 거부.
@@ -614,6 +667,9 @@ function send(
       effort: cur.effort,
       attachments: [...attachments],
       attachmentViews: [...attachmentViews],
+      ...(requirements.length > 0
+        ? { requirements: requirements.map((anchor) => wireDiffRequirementAnchor(anchor)) }
+        : {}),
       cwd: cur.cwd,
       ...(cur.worktreeIsolation ? { worktreeIsolation: true } : {}),
       // 유예된 기준 브랜치는 격리와 **함께만** 실린다 — schema 가 그 조합을 강제한다(0210).
@@ -737,6 +793,9 @@ function send(
       effort: cur.effort,
       attachments,
       attachmentViews,
+      ...(requirements.length > 0
+        ? { requirements: requirements.map((anchor) => wireDiffRequirementAnchor(anchor)) }
+        : {}),
       cwd: null,
       clientRequestId: requestId
     })
@@ -1294,9 +1353,54 @@ export const chatActions = {
     dispatchActive({ type: 'RENAME_RIGHT_PANEL_TILE', id, label }),
   removeRightPanelTile: (id: RightPanelTileId): void =>
     dispatchActive({ type: 'REMOVE_RIGHT_PANEL_TILE', id }),
-  toggleDiffFiles: (): void => dispatchActive({ type: 'TOGGLE_DIFF_FILES' }),
   setGitStatus: (snapshot: BranchSnapshot): void =>
     dispatchActive({ type: 'SET_GIT_STATUS', snapshot }),
+  openGitSnapshotPeek: (target: GitPeekTarget): void =>
+    dispatchActive({ type: 'OPEN_GIT_SNAPSHOT_PEEK', target }),
+  closeGitSnapshotPeek: (): void => dispatchActive({ type: 'CLOSE_GIT_SNAPSHOT_PEEK' }),
+  toggleGitSnapshotCommitExpanded: (sha: string): void =>
+    dispatchActive({ type: 'TOGGLE_GIT_SNAPSHOT_COMMIT_EXPANDED', sha }),
+  refreshGitSnapshot: (): void => dispatchActive({ type: 'REFRESH_GIT_SNAPSHOT' }),
+  recordDiffBody: (key: string, content: GitDiffFileContent): void =>
+    dispatchActive({ type: 'RECORD_DIFF_BODY', key, content }),
+  beginGitSnapshotQuery: (request: GitSnapshotRequest): void =>
+    dispatchActive({ type: 'BEGIN_GIT_SNAPSHOT_QUERY', request }),
+  receiveGitSnapshotSummary: (request: GitSnapshotRequest, summary: GitDiffSummary): void =>
+    dispatchActive({ type: 'RECEIVE_GIT_SNAPSHOT_SUMMARY', request, summary }),
+  addDiffRequirement: (item: DiffRequirementItem): void =>
+    dispatchActive({ type: 'ADD_DIFF_REQUIREMENT', item }),
+  removeDiffRequirement: (id: string): void =>
+    dispatchActive({ type: 'REMOVE_DIFF_REQUIREMENT', id }),
+  setDiffRequirementDraft: (draft: DiffRequirementDraft | null): void =>
+    dispatchActive({ type: 'SET_DIFF_REQUIREMENT_DRAFT', draft }),
+  setDiffRequirementBodyRequest: (
+    sessionKey: string,
+    sessionId: string | null,
+    path: string,
+    request: GitSnapshotRequest
+  ): void =>
+    dispatchTo(sessionKey, {
+      type: 'SET_DIFF_REQUIREMENT_BODY_REQUEST',
+      sessionId,
+      path,
+      request
+    }),
+  reanchorDiffRequirements: (
+    sessionKey: string,
+    sessionId: string | null,
+    path: string,
+    request: GitSnapshotRequest,
+    lines: readonly DiffLine[]
+  ): void =>
+    dispatchTo(sessionKey, {
+      type: 'REANCHOR_DIFF_REQUIREMENTS',
+      sessionId,
+      path,
+      request,
+      lines
+    }),
+  captureDiffRequirementSnapshot,
+  clearDiffRequirementsIfUnchanged,
   selectTask: (key: string | null): void => dispatchActive({ type: 'SELECT_TASK', key }),
   openTask: (key: string): void => dispatchActive({ type: 'OPEN_TASK', key }),
   selectSubagentTask: (toolRunId: string | null): void =>

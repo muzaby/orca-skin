@@ -22,6 +22,21 @@ describe('claudeToNormalized', () => {
     expect(c.sessionId).toBe('new1')
   })
 
+  // 0211 ΔV1 — resume 턴도 이 이벤트를 낸다. `writer.ts` 의 preview·providerKey·title 갱신이
+  // `session.updated` 안에만 있어(`writer.ts:192`~) 이것을 막으면 후속 메시지마다 세션 목록이
+  // 낡는다. D-022 의 키 유무 판정이 표시 정본을 이미 지키므로 이 이벤트를 죽일 이유가 없다.
+  it('resume 턴의 init 도 session.updated 를 낸다 — worktree 키는 싣지 않는다', () => {
+    const c = ctx('existing')
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'init', session_id: 'existing', model: 'opus' }),
+      c
+    )
+    expect(out).toEqual([
+      { type: 'session.updated', sessionId: 'existing', patch: { model: 'opus', cwd: '/w' } }
+    ])
+    expect(Object.hasOwn((out[0] as { patch: object }).patch, 'worktree')).toBe(false)
+  })
+
   it('session_id 없는 init 은 무시([])', () => {
     expect(claudeToNormalized(sdk({ type: 'system', subtype: 'init' }), ctx())).toEqual([])
   })

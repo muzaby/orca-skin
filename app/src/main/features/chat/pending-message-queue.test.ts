@@ -557,11 +557,14 @@ describe('PendingMessageQueue', () => {
     const q = new PendingMessageQueue()
     const at = { id: 't1', name: 'a.txt' } as never
     const img = { id: 'i1', name: 'b.png' } as never
-    q.enqueue('s', { text: 'one', attachmentTexts: [at] }, 1, 'a')
-    q.enqueue('s', { text: 'two', attachmentImages: [img] }, 2, 'b')
+    const r1 = { filePath: 'a.ts', comment: 'first' } as never
+    const r2 = { filePath: 'b.ts', comment: 'second' } as never
+    q.enqueue('s', { text: 'one', attachmentTexts: [at], requirements: [r1] }, 1, 'a')
+    q.enqueue('s', { text: 'two', attachmentImages: [img], requirements: [r2] }, 2, 'b')
     const batch = q.reserveHeld('s', 'steer', 'batch-1')
     expect(batch?.attachmentTexts).toHaveLength(1)
     expect(batch?.attachmentImages).toHaveLength(1)
+    expect(batch?.requirements).toEqual([r1, r2])
   })
 
   // ── 0151 AC8: 수명 정리 ─────────────────────────────────────────────────────
@@ -569,7 +572,16 @@ describe('PendingMessageQueue', () => {
     it('세션 전량을 제거하고 payload 를 스크럽한다 (첨부 base64 고착 해소)', () => {
       const q = new PendingMessageQueue()
       const img = { id: 'i1', name: 'b.png', data: 'BIGBASE64' } as never
-      q.enqueue('s', { text: 'held', attachmentImages: [img] }, 1, 'h')
+      q.enqueue(
+        's',
+        {
+          text: 'held',
+          attachmentImages: [img],
+          requirements: [{ filePath: 'a.ts', comment: 'must scrub' } as never]
+        },
+        1,
+        'h'
+      )
       q.enqueue('s', { text: 'reserved', attachmentImages: [img] }, 2, 'r')
       q.reserveItem('s', 'r', 'steer')
       // 큐가 붙들고 있는 실제 아이템 참조 — 이것이 세션 런타임 수명 내내 base64 를 pin 하던 것.
@@ -584,6 +596,7 @@ describe('PendingMessageQueue', () => {
       // 큐가 보유하던 아이템 내용은 덮어써진다(맵 제거만으로는 다른 참조가 살릴 수 있다).
       expect(heldItem.text).toBe('')
       expect(heldItem.attachmentImages).toEqual([])
+      expect(heldItem.requirements).toEqual([])
     })
 
     it('다른 세션은 건드리지 않는다', () => {

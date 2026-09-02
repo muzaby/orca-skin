@@ -18,7 +18,10 @@ export type MockStep =
     }
   | { kind: 'telemetry' }
 
-type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never
+// `K extends keyof T` 였다 — 유니온 전체의 **공통** 키만 허용하므로 `sessionId` 가 없는
+// variant 가 하나 생기면(0211 `worktree.preparing`) 제약이 깨진다. `Omit` 자체는 키가
+// 아닌 값도 받으므로 제약을 `PropertyKey` 로 낮춘다 — 동작은 그대로다.
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 type MockEventTemplate = DistributiveOmit<NormalizedEvent, 'sessionId'> & {
   sessionId?: string
 }

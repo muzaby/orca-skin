@@ -54,6 +54,9 @@ async function currentBranch(cwd: string): Promise<string | null> {
 
 // 커밋되지 않은 변경 = **추적 파일의 HEAD 대비 차이**. 미추적 파일은 체크아웃을 막지 않으므로
 // 경고에서도 해소(stash/commit/discard)에서도 일관되게 뺀다.
+//
+// **소비자는 `gitCheckout` 하나다**(0211 D-027). 표시용 변경량은 diff 요약의 `totals` 가
+// 갖는다 — HEAD 대비는 격리 세션에서 커밋된 작업을 세지 못해 `+0 −0` 을 만들었다.
 async function dirtyStat(cwd: string): Promise<GitDirtyStat | null> {
   const hasCommit = await run(cwd, ['rev-parse', '--verify', '-q', 'HEAD'])
   if (!hasCommit.ok) return null
@@ -70,14 +73,13 @@ async function repoRoot(cwd: string): Promise<string | null> {
 
 export async function gitStatus(cwd: string): Promise<GitStatus> {
   if (!(await insideWorkTree(cwd))) {
-    return { isRepo: false, branch: null, detached: false, dirty: null, root: null }
+    return { isRepo: false, branch: null, detached: false, root: null }
   }
   const branch = await currentBranch(cwd)
   return {
     isRepo: true,
     branch,
     detached: branch == null,
-    dirty: await dirtyStat(cwd),
     root: await repoRoot(cwd)
   }
 }

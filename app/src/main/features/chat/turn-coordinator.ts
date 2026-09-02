@@ -332,6 +332,9 @@ export class TurnCoordinator<W = unknown> {
                 this.deps.pendingMessages?.rekey(turn.queueKey, ev.sessionId)
               }
               registry.promote(turn, ev.sessionId)
+              // 턴-국소 훅 (0211) — promote 와 같은 자리다. 여기가 세션 id 를 처음 아는
+              // 지점이고, 무엇을 할지는 이 훅을 심은 컴포지션 루트가 안다.
+              turn.onSessionConfirmed?.(ev.sessionId)
             }
             // AskUserQuestion tool 호출 도착 → id 페어링 큐 적재 + 답변 매칭 시도(answers 는 SDK
             // 가 스트림으로 안 돌려주므로 합성). tool_use id 가 답변보다 먼저 올 수도 있다.

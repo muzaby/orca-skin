@@ -1,228 +1,214 @@
-import { useCallback, useMemo, useState } from 'react'
-import { useI18n } from '../../../../shared/i18n'
-import { useChatSession } from '../../store/chatStore'
-import { DiffTable } from '../DiffTable'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { GitDiffSummary } from '../../../../../../shared/ipc'
+import { gitApi } from '../../../../shared/api/ipc'
+import type { DiffLine } from '../../lib/diffLines'
+import type { GitPeekTarget } from '../../reducer/chatReducer'
+import { chatActions, useChatSession, useChatStore } from '../../store/chatStore'
+import { DiffPeek } from './DiffPeek'
 import {
-  MOCK_COMMITS,
-  MOCK_FILES,
-  MOCK_TREE,
-  type MockCommit,
-  type MockDiffFile,
-  type MockTreeRow
-} from './diffTileMock'
-import { visibleTreeRows } from './diffTileTree'
+  handleDiffPeekBodyResult,
+  registerDiffPeekBodyRequest,
+  type DiffPeekBodyBridge
+} from './diffRequirementBridge'
+import { getDiffBody } from './diffBodyCache'
+import { createDiffRequirementItem } from './diffRequirements'
+import {
+  createDiffPeekBodyRequestOwner,
+  diffPeekBodyKey,
+  diffPeekFileRequest,
+  type DiffPeekBodyState
+} from './diffFileCache'
+import { SessionChangesList } from './SessionChangesList'
 
-// diff 타일 본문 — 좌측(파일트리 + 커밋 목록) · 우측(파일별 항목) 3영역(0206 D-010).
-//
-// **데이터는 전부 예시다**(`diffTileMock`). 배선할 IPC 가 없어 골격만 세우되, 조사한 배치를
-// 실물로 확인할 수 있어야 하므로 *데이터가 필요 없는 상호작용* — 디렉토리 접기 · 커밋 선택 ·
-// 파일 펼치기 — 은 실제로 동작한다(D-011).
-//
-// 아래 View 셋은 **props 만 읽는다**. store 연결 컴포넌트를 `renderToStaticMarkup` 으로 돌리면
-// zustand 가 SSR 스냅샷을 돌려주어 시드가 반영되지 않기 때문이다(0204 선례).
-
-const ROW_BASE =
-  'flex items-center gap-g3 h-base pr-p6 rounded-r4 text-body text-left w-full outline-none hide-focus-ring ring-focus'
-
-interface DiffFileTreeProps {
-  rows: readonly MockTreeRow[]
-  collapsed: ReadonlySet<string>
-  onToggleDir: (key: string) => void
+export interface DiffTileContentViewProps {
+  summary: GitDiffSummary | null
+  peekTarget: GitPeekTarget | null
+  expandedCommitIds: ReadonlySet<string>
+  currentBody: DiffPeekBodyState | null
+  requirements?: Parameters<typeof DiffPeek>[0]['requirements']
+  draft?: Parameters<typeof DiffPeek>[0]['draft']
+  onToggleCommit: (sha: string) => void
+  onOpenPeek: (target: GitPeekTarget) => void
+  onBack: () => void
+  onDraftChange?: Parameters<typeof DiffPeek>[0]['onDraftChange']
+  onAddRequirement?: Parameters<typeof DiffPeek>[0]['onAddRequirement']
+  onRemoveRequirement?: Parameters<typeof DiffPeek>[0]['onRemoveRequirement']
 }
 
-// 평탄 버튼 목록 + 계산된 들여쓰기(8 + depth×12). 파일 행은 chevron 자리에 스페이서를 둬
-// 같은 깊이의 디렉토리와 이름 시작점이 어긋나지 않게 한다(조사: epitaxy 02 §2).
-export function DiffFileTree({
-  rows,
-  collapsed,
-  onToggleDir
-}: DiffFileTreeProps): React.JSX.Element {
-  const visible = useMemo(() => visibleTreeRows(rows, collapsed), [rows, collapsed])
+/** props-only view boundary. Store/IPC ownership remains in the container below. */
+export function DiffTileContentView({
+  summary,
+  peekTarget,
+  expandedCommitIds,
+  currentBody,
+  requirements = [],
+  draft = null,
+  onToggleCommit,
+  onOpenPeek,
+  onBack,
+  onDraftChange,
+  onAddRequirement,
+  onRemoveRequirement
+}: DiffTileContentViewProps): React.JSX.Element {
+  if (summary && peekTarget) {
+    return (
+      <DiffPeek
+        summary={summary}
+        target={peekTarget}
+        currentBody={currentBody}
+        requirements={requirements}
+        draft={draft}
+        onBack={onBack}
+        onNavigate={onOpenPeek}
+        onDraftChange={onDraftChange}
+        onAddRequirement={onAddRequirement}
+        onRemoveRequirement={onRemoveRequirement}
+      />
+    )
+  }
   return (
-    <div data-diff-region="tree" className="h-full overflow-y-auto px-p3 py-p3">
-      {visible.map((row) =>
-        row.kind === 'dir' ? (
-          <button
-            key={row.key}
-            type="button"
-            aria-expanded={!collapsed.has(row.key)}
-            onClick={() => onToggleDir(row.key)}
-            className={`${ROW_BASE} text-t6 hover:bg-fill-uncontained-hover hover:text-t7`}
-            style={{ paddingLeft: 8 + row.depth * 12 }}
-          >
-            <span aria-hidden="true" className="w-3 shrink-0 text-center text-t5">
-              {collapsed.has(row.key) ? '›' : '⌄'}
-            </span>
-            <span className="truncate">{row.label}</span>
-          </button>
-        ) : (
-          <div
-            key={row.key}
-            className={`${ROW_BASE} text-t6`}
-            style={{ paddingLeft: 8 + row.depth * 12 }}
-          >
-            <span aria-hidden="true" className="w-3 shrink-0" />
-            <span className="min-w-0 flex-1 truncate">{row.label}</span>
-            <span className="flex shrink-0 items-center gap-g1 text-caption tabular-nums">
-              <span className="text-git-added">+{row.added ?? 0}</span>
-              <span className="text-git-removed">−{row.removed ?? 0}</span>
-            </span>
-          </div>
-        )
-      )}
-    </div>
+    <SessionChangesList
+      summary={summary}
+      expandedCommitIds={expandedCommitIds}
+      onToggleCommit={onToggleCommit}
+      onOpenPeek={onOpenPeek}
+    />
   )
 }
 
-interface DiffCommitListProps {
-  commits: readonly MockCommit[]
-  // null = `전체 변경` 선택. 그 외에는 sha.
-  selected: string | null
-  onSelect: (sha: string | null) => void
-}
-
-// 선택은 라디오 그룹이 아니라 `aria-pressed` 토글 배열이다(조사: epitaxy 02 §2). 정확히
-// 하나만 참이라는 것이 계약이라 `전체 변경` 도 같은 축에 둔다.
-export function DiffCommitList({
-  commits,
-  selected,
-  onSelect
-}: DiffCommitListProps): React.JSX.Element {
-  const { tr } = useI18n()
-  return (
-    <div data-diff-region="commits" className="flex flex-col gap-[2px] py-p3">
-      <button
-        type="button"
-        aria-pressed={selected === null}
-        onClick={() => onSelect(null)}
-        className={`rounded-r4 px-p3 py-1 text-left text-body outline-none hide-focus-ring ring-focus ${
-          selected === null ? 'bg-fill-selected text-t9' : 'text-t6 hover:bg-fill-uncontained-hover'
-        }`}
-      >
-        {tr('chat.rightpanel.diffAllChanges')}
-      </button>
-      {commits.map((commit) => (
-        <button
-          key={commit.sha}
-          type="button"
-          aria-pressed={selected === commit.sha}
-          onClick={() => onSelect(commit.sha)}
-          title={commit.subject}
-          className={`flex w-full flex-col items-start gap-[2px] rounded-r3 px-p3 py-1 text-left outline-none hide-focus-ring ring-focus ${
-            selected === commit.sha
-              ? 'bg-fill-selected text-t9'
-              : 'text-t6 hover:bg-fill-uncontained-hover'
-          }`}
-        >
-          <span className="w-full truncate text-body">{commit.subject}</span>
-          <span className="flex w-full items-center gap-g3 text-caption text-t5">
-            <span className="font-mono">{commit.sha}</span>
-            <span aria-hidden="true">·</span>
-            <span className="truncate">{commit.author}</span>
-            <span aria-hidden="true">·</span>
-            <span className="shrink-0">{commit.when}</span>
-          </span>
-        </button>
-      ))}
-    </div>
-  )
-}
-
-interface DiffFileHeadersProps {
-  files: readonly MockDiffFile[]
-  expanded: ReadonlySet<string>
-  onToggle: (path: string) => void
-}
-
-// 파일 항목 — **기본 접힘**이고 펼치면 그 파일의 diff 가 그려진다(0206 D-017·D-018).
-// 헤더는 sticky 라 긴 diff 를 스크롤해도 "지금 어느 파일인가" 가 남는다.
-export function DiffFileHeaders({
-  files,
-  expanded,
-  onToggle
-}: DiffFileHeadersProps): React.JSX.Element {
-  return (
-    <div data-diff-region="files" className="pb-2">
-      {files.map((file) => {
-        const open = expanded.has(file.path)
-        return (
-          <div key={file.path} data-diff-file-path={file.path} className="relative">
-            <button
-              type="button"
-              aria-expanded={open}
-              onClick={() => onToggle(file.path)}
-              className="sticky top-0 z-[4] flex w-full items-center gap-g3 border-b border-t5 bg-panel px-p5 py-1 text-left outline-none hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
-            >
-              <span aria-hidden="true" className="w-3 shrink-0 text-center text-t5">
-                {open ? '⌄' : '›'}
-              </span>
-              <span className="flex min-w-0 items-baseline gap-g3">
-                <span className="shrink-0 truncate text-body text-t7">{file.name}</span>
-                <span className="min-w-0 truncate text-caption text-t5">{file.dir}</span>
-              </span>
-              <span className="ml-auto flex shrink-0 items-center gap-g1 text-body tabular-nums">
-                <span className="text-git-added">+{file.added}</span>
-                <span className="text-git-removed">−{file.removed}</span>
-              </span>
-            </button>
-            {open && (
-              <div className="overflow-auto">
-                <DiffTable oldValue={file.oldValue} newValue={file.newValue} />
-              </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
+/**
+ * Tile lifecycle owner. Summary is deliberately absent here: `useGitSnapshot` is the session-surface
+ * query owner. This container owns only the current peek body and guards it by identity+generation.
+ */
 export function DiffTileContent(): React.JSX.Element {
-  const { tr } = useI18n()
-  const filesVisible = useChatSession((s) => s.diffFilesVisible)
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
-  const [selectedCommit, setSelectedCommit] = useState<string | null>(null)
-
-  const toggleIn = useCallback((set: ReadonlySet<string>, key: string): ReadonlySet<string> => {
-    const next = new Set(set)
-    if (!next.delete(key)) next.add(key)
-    return next
-  }, [])
-
-  const toggleDir = useCallback(
-    (key: string) => setCollapsed((prev) => toggleIn(prev, key)),
-    [toggleIn]
+  const cwd = useChatSession((state) => state.cwd)
+  const sessionId = useChatSession((state) => state.sessionId)
+  const sessionKey = useChatStore((state) => state.activeKey)
+  const summary = useChatSession((state) => state.gitSnapshot.summary)
+  const peekTarget = useChatSession((state) => state.gitSnapshot.peekTarget)
+  const expandedCommitIds = useChatSession((state) => state.gitSnapshot.expandedCommitIds)
+  const summaryGeneration = useChatSession((state) => state.gitSnapshotRequest?.generation ?? 0)
+  const requirements = useChatSession((state) => state.diffRequirements)
+  const draft = useChatSession((state) => state.diffRequirementDraft)
+  const [bodyOwner] = useState(createDiffPeekBodyRequestOwner)
+  const [body, setBody] = useState<DiffPeekBodyState | null>(null)
+  const bodyKey = useMemo(
+    () =>
+      cwd && peekTarget ? diffPeekBodyKey(cwd, sessionId, peekTarget, summaryGeneration) : null,
+    [cwd, peekTarget, sessionId, summaryGeneration]
   )
-  const toggleFile = useCallback(
-    (path: string) => setExpanded((prev) => toggleIn(prev, path)),
-    [toggleIn]
+  // 0211 ΔV3 — 조회보다 **캐시가 먼저 선다**(§10 EP-24 ②). 키가 다섯 축이라 다른 저장소·다른
+  // 세대의 본문은 애초에 걸리지 않는다.
+  const bodyCache = useChatSession((state) => state.gitSnapshot.bodyCache)
+  const cachedContent = bodyKey ? getDiffBody(bodyCache, bodyKey) : null
+  // Same relative path in a new identity is never rendered from a retained body cache.
+  const currentBody: DiffPeekBodyState | null = bodyKey
+    ? cachedContent !== null
+      ? { key: bodyKey, generation: 0, content: cachedContent }
+      : body?.key === bodyKey
+        ? body
+        : null
+    : null
+
+  useEffect(() => () => bodyOwner.invalidate(), [bodyOwner])
+
+  useEffect(() => {
+    if (!cwd || !peekTarget || !bodyKey || body?.key === bodyKey) return
+    const capturedSessionKey = sessionKey
+    const capturedSessionId = sessionId
+    const capturedPath = peekTarget.path
+    const bridge: DiffPeekBodyBridge = {
+      setBody,
+      setDiffRequirementBodyRequest: chatActions.setDiffRequirementBodyRequest,
+      reanchorDiffRequirements: chatActions.reanchorDiffRequirements
+    }
+    // 캐시 적중이면 **조회하지 않는다**. 다만 요구사항 재anchor 는 조회 경로와 **같이** 돈다 —
+    // 캐시가 그 부수효과를 건너뛰면 다시 연 파일의 요구사항이 위치를 잃는다(§10 EP-23 ②).
+    if (cachedContent !== null) {
+      const cachedRequest = { key: bodyKey, generation: 0 }
+      registerDiffPeekBodyRequest({
+        bridge,
+        sessionKey: capturedSessionKey,
+        sessionId: capturedSessionId,
+        path: capturedPath,
+        request: cachedRequest
+      })
+      handleDiffPeekBodyResult({
+        bridge,
+        sessionKey: capturedSessionKey,
+        sessionId: capturedSessionId,
+        path: capturedPath,
+        request: cachedRequest,
+        content: cachedContent
+      })
+      return
+    }
+    const request = bodyOwner.run(
+      bodyKey,
+      () => gitApi.diffFile(diffPeekFileRequest(cwd, sessionId, peekTarget)),
+      (request, content) => {
+        chatActions.recordDiffBody(request.key, content)
+        handleDiffPeekBodyResult({
+          bridge,
+          sessionKey: capturedSessionKey,
+          sessionId: capturedSessionId,
+          path: capturedPath,
+          request,
+          content
+        })
+      },
+      (request) => setBody({ ...request, content: { kind: 'unavailable', reason: 'error' } })
+    )
+    registerDiffPeekBodyRequest({
+      bridge,
+      sessionKey: capturedSessionKey,
+      sessionId: capturedSessionId,
+      path: capturedPath,
+      request
+    })
+  }, [body?.key, bodyKey, bodyOwner, cachedContent, cwd, peekTarget, sessionId, sessionKey])
+
+  const onAddRequirement = useCallback(
+    ({
+      lines,
+      lineIndex,
+      comment
+    }: {
+      lines: readonly DiffLine[]
+      lineIndex: number
+      comment: string
+    }) => {
+      if (!summary || !peekTarget || !sessionId) return
+      chatActions.addDiffRequirement(
+        createDiffRequirementItem({
+          id: crypto.randomUUID(),
+          sessionId,
+          base: summary.base,
+          filePath: peekTarget.path,
+          lines,
+          lineIndex,
+          comment,
+          createdAt: Date.now()
+        })
+      )
+    },
+    [peekTarget, sessionId, summary]
   )
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <p className="shrink-0 border-b border-t5 px-p5 py-1 text-caption text-t6">
-        {tr('chat.rightpanel.diffMockNotice')}
-      </p>
-      <div className="flex min-h-0 flex-1">
-        {filesVisible && (
-          <div className="flex w-[240px] shrink-0 flex-col border-r border-t5">
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <DiffFileTree rows={MOCK_TREE} collapsed={collapsed} onToggleDir={toggleDir} />
-            </div>
-            <div className="max-h-[40%] shrink-0 overflow-y-auto border-t border-t5 px-p3">
-              <DiffCommitList
-                commits={MOCK_COMMITS}
-                selected={selectedCommit}
-                onSelect={setSelectedCommit}
-              />
-            </div>
-          </div>
-        )}
-        <div className="min-w-0 flex-1 overflow-y-auto">
-          <DiffFileHeaders files={MOCK_FILES} expanded={expanded} onToggle={toggleFile} />
-        </div>
-      </div>
-    </div>
+    <DiffTileContentView
+      summary={summary}
+      peekTarget={peekTarget}
+      expandedCommitIds={new Set(expandedCommitIds)}
+      currentBody={currentBody}
+      requirements={requirements}
+      draft={draft}
+      onToggleCommit={chatActions.toggleGitSnapshotCommitExpanded}
+      onOpenPeek={chatActions.openGitSnapshotPeek}
+      onBack={chatActions.closeGitSnapshotPeek}
+      onDraftChange={chatActions.setDiffRequirementDraft}
+      onAddRequirement={onAddRequirement}
+      onRemoveRequirement={chatActions.removeDiffRequirement}
+    />
   )
 }

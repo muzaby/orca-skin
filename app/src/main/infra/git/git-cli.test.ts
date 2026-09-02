@@ -53,10 +53,19 @@ describe('gitStatus / gitBranches', () => {
       isRepo: false,
       branch: null,
       detached: false,
-      dirty: null,
       root: null
     })
     expect(await gitBranches(plain)).toEqual({ current: null, branches: [] })
+  })
+
+  // 0211 ΔV1 D-027 — 표시 소비자가 사라졌고 checkout 은 자기 stat 을 부른다.
+  it('상태에 dirty 축이 없다 — 변경량 정본은 diff 요약이다 (AT-19)', async () => {
+    const repo = await makeRepo()
+    dirty(repo)
+    const status = await gitStatus(repo)
+    expect(Object.hasOwn(status, 'dirty')).toBe(false)
+    // 양성 짝 — 나머지 축은 그대로 산다.
+    expect(status).toMatchObject({ isRepo: true, branch: 'main', detached: false })
   })
 
   it('detached HEAD 면 branch=null · detached=true 다', async () => {

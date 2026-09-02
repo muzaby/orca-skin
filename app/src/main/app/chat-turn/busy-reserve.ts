@@ -5,7 +5,7 @@
 // 예약을 flush 할 주체가 사라진다("pending 인 채 답변완료").
 
 import type { IpcMainInvokeEvent, WebContents } from 'electron'
-import type { AttachmentView } from '../../../shared/ipc'
+import type { AttachmentView, DiffRequirementAnchor } from '../../../shared/ipc'
 import type { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import type { SessionChainLease } from '../../features/sessions/session-chain-lease'
 import { sendChatEvent } from '../../infra/ipc/send'
@@ -14,6 +14,7 @@ import type { NormalizedAttachments } from './deps'
 
 interface BusyReservePayload {
   text: string
+  requirements?: DiffRequirementAnchor[]
   attachmentViews?: AttachmentView[]
   clientRequestId?: string | undefined
   providerKey?: string | null | undefined
@@ -54,6 +55,9 @@ export function reserveOnBusySession(
       text: data.text,
       ...(na.attachmentTexts.length > 0 ? { attachmentTexts: na.attachmentTexts } : {}),
       ...(na.attachmentImages.length > 0 ? { attachmentImages: na.attachmentImages } : {}),
+      ...(data.requirements && data.requirements.length > 0
+        ? { requirements: data.requirements }
+        : {}),
       ...(data.attachmentViews && data.attachmentViews.length > 0
         ? { attachmentViews: data.attachmentViews }
         : {})

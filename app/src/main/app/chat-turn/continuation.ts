@@ -66,6 +66,7 @@ export function buildFlushRequest(input: {
     signal: input.signal,
     attachmentTexts: batch.attachmentTexts ?? [],
     attachmentImages: batch.attachmentImages ?? [],
+    requirements: batch.requirements ?? [],
     extensions: continuation.extensions,
     // 0126/0188: respawn 대비 **신선한 settings + env** 로 교체 — 해석 실패(undefined)면
     // 원본 유지(보수적).

@@ -8,18 +8,30 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { handleMock } = vi.hoisted(() => ({ handleMock: vi.fn() }))
+const { handleMock, gitDiffSummaryMock, gitDiffFileMock } = vi.hoisted(() => ({
+  handleMock: vi.fn(),
+  gitDiffSummaryMock: vi.fn(async () => ({ kind: 'clean' })),
+  gitDiffFileMock: vi.fn(async () => ({ kind: 'unavailable', reason: 'error' }))
+}))
 vi.mock('../../infra/ipc/handle', () => ({ handle: handleMock }))
+vi.mock('../../infra/git/git-diff', () => ({
+  EMPTY_DIFF_SUMMARY: { kind: 'clean' },
+  gitDiffSummary: gitDiffSummaryMock,
+  gitDiffFile: gitDiffFileMock
+}))
 
 import { CHANNELS } from '../../../shared/ipc'
 import { registerGitHandlers } from './git'
 
 const IPC_DOCUMENT = fileURLToPath(new URL('../../../../../docs/IPC_CONTRACT.md', import.meta.url))
+const GIT_HANDLER_SOURCE = fileURLToPath(new URL('./git.ts', import.meta.url))
 
 // 등록부에서 채널 → 정책만 뽑는다.
 function registeredPolicies(): Map<string, 'reject' | 'fallback'> {
   handleMock.mockClear()
-  registerGitHandlers()
+  // 0211 — base 조회 포트는 **필수 인자**다(배선을 잊으면 모든 세션이 조용히 HEAD 범위로
+  // 떨어진다). 이 테스트는 정책만 보므로 row 없음 스텁으로 충분하다.
+  registerGitHandlers({ getSessionBaseline: () => null })
   return new Map(
     handleMock.mock.calls.map((call) => [
       call[0] as string,
@@ -39,23 +51,76 @@ function documentedRows(): Map<string, string> {
 }
 
 describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', () => {
-  beforeEach(() => handleMock.mockClear())
+  beforeEach(() => {
+    handleMock.mockClear()
+    gitDiffSummaryMock.mockClear()
+    gitDiffFileMock.mockClear()
+  })
+
+  it('session baseline lookup의 OID를 summary·file 둘에 같이 전달하고 commit 범위를 넘기지 않는다', async () => {
+    const getSessionBaseline = vi.fn(() => 'c'.repeat(40))
+    registerGitHandlers({ getSessionBaseline })
+    const summaryHandler = handleMock.mock.calls.find(
+      (call) => call[0] === CHANNELS.gitDiffSummary
+    )?.[3] as (request: { cwd: string; sessionId: string; commit?: string }) => Promise<unknown>
+    const fileHandler = handleMock.mock.calls.find(
+      (call) => call[0] === CHANNELS.gitDiffFile
+    )?.[3] as (request: {
+      cwd: string
+      sessionId: string
+      path: string
+      commit?: string
+    }) => Promise<unknown>
+
+    await summaryHandler({ cwd: '/repo', sessionId: 'session-1', commit: 'a'.repeat(40) })
+    await fileHandler({
+      cwd: '/repo',
+      sessionId: 'session-1',
+      path: 'src/a.ts',
+      commit: 'a'.repeat(40)
+    })
+
+    expect(getSessionBaseline).toHaveBeenCalledTimes(2)
+    expect(getSessionBaseline).toHaveBeenNthCalledWith(1, 'session-1')
+    expect(getSessionBaseline).toHaveBeenNthCalledWith(2, 'session-1')
+    expect(gitDiffSummaryMock).toHaveBeenCalledWith({
+      cwd: '/repo',
+      baseOid: 'c'.repeat(40)
+    })
+    expect(gitDiffFileMock).toHaveBeenCalledWith({
+      cwd: '/repo',
+      path: 'src/a.ts',
+      baseOid: 'c'.repeat(40)
+    })
+    expect(readFileSync(GIT_HANDLER_SOURCE, 'utf8')).not.toContain('getManagedWorktreeBySession')
+  })
 
   it('문서 §2.6-b 가 서술하는 채널 집합이 등록부와 같다', () => {
     const registered = [...registeredPolicies().keys()].sort()
     const documented = [...documentedRows().keys()].sort()
 
     expect(registered).toEqual(
-      [CHANNELS.gitBranches, CHANNELS.gitCheckout, CHANNELS.gitStatus].sort()
+      [
+        CHANNELS.gitBranches,
+        CHANNELS.gitCheckout,
+        CHANNELS.gitStatus,
+        // 0211 — 변경사항 타일의 읽기 2종.
+        CHANNELS.gitDiffSummary,
+        CHANNELS.gitDiffFile
+      ].sort()
     )
     expect(documented).toEqual(registered)
   })
 
-  it('읽기 2종은 무해 폴백이고 전환만 reject 다', () => {
+  it('읽기 4종은 무해 폴백이고 전환만 reject 다', () => {
     const policies = registeredPolicies()
 
     expect(policies.get(CHANNELS.gitStatus)).toBe('fallback')
     expect(policies.get(CHANNELS.gitBranches)).toBe('fallback')
+    // 0211 — diff 읽기도 같은 규칙이다: 저장소가 아니어도 타일은 떠야 하고 그 판정이
+    // 곧 "볼 것이 없음" 이라는 UI 입력이다.
+    expect(policies.get(CHANNELS.gitDiffSummary)).toBe('fallback')
+    expect(policies.get(CHANNELS.gitDiffFile)).toBe('fallback')
     expect(policies.get(CHANNELS.gitCheckout)).toBe('reject')
   })
 
@@ -81,7 +146,7 @@ describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', 
     const byChannel = new Map(handleMock.mock.calls.map((call) => [call[0] as string, call[2]]))
 
     expect(byChannel.get(CHANNELS.gitStatus)).toEqual({
-      fallback: { isRepo: false, branch: null, detached: false, dirty: null, root: null }
+      fallback: { isRepo: false, branch: null, detached: false, root: null }
     })
     expect(byChannel.get(CHANNELS.gitBranches)).toEqual({
       fallback: { current: null, branches: [] }

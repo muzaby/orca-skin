@@ -22,6 +22,10 @@ import type {
   GitBranchList,
   GitCheckoutRequest,
   GitCheckoutResult,
+  GitDiffFileContent,
+  GitDiffFileRequest,
+  GitDiffRequest,
+  GitDiffSummary,
   GitStatus,
   PickedAttachment,
   OpenPathRequest,
@@ -139,7 +143,9 @@ export const fileApi = {
 export const gitApi = {
   status: (cwd: string): Promise<GitStatus> => window.orca.git.status(cwd),
   branches: (cwd: string): Promise<GitBranchList> => window.orca.git.branches(cwd),
-  checkout: (req: GitCheckoutRequest): Promise<GitCheckoutResult> => window.orca.git.checkout(req)
+  checkout: (req: GitCheckoutRequest): Promise<GitCheckoutResult> => window.orca.git.checkout(req),
+  diffSummary: (req: GitDiffRequest): Promise<GitDiffSummary> => window.orca.git.diffSummary(req),
+  diffFile: (req: GitDiffFileRequest): Promise<GitDiffFileContent> => window.orca.git.diffFile(req)
 }
 
 export const concurrencyApi = {

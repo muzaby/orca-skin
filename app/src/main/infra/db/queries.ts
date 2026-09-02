@@ -40,6 +40,7 @@ export class DbQueries {
   // 단건 메타 조회 — resolveTurnAgent(매 chat:send)·sessionLoad 가 사용. listSessions 전체
   // 로드 후 find 하던 N+1 패턴의 대체.
   private readonly getSessionByIdStmt: Database.Statement
+  private readonly getSessionBaselineStmt: Database.Statement
   private readonly loadPartsStmt: Database.Statement
   private readonly appendMessageStmt: Database.Statement
   private readonly updateMessageContentStmt: Database.Statement
@@ -112,8 +113,8 @@ export class DbQueries {
   constructor(db: Database.Database) {
     this.db = db
     this.insertSessionStmt = db.prepare(`
-      INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key, cwd, extra_dirs)
-      VALUES (@id, @backend, @title, @projectId, @createdAt, @createdAt, NULL, @providerKey, @cwd, @extraDirs)
+      INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key, cwd, extra_dirs, baseline_oid)
+      VALUES (@id, @backend, @title, @projectId, @createdAt, @createdAt, NULL, @providerKey, @cwd, @extraDirs, @baselineOid)
       ON CONFLICT(id) DO NOTHING
     `)
     this.insertManagedWorktreeStmt = db.prepare(`
@@ -142,6 +143,9 @@ export class DbQueries {
       FROM sessions
       WHERE id = @id
     `)
+    this.getSessionBaselineStmt = db.prepare(
+      'SELECT baseline_oid FROM sessions WHERE id = @sessionId'
+    )
     this.loadPartsStmt = db.prepare(`
       SELECT
         m.id AS message_id,
@@ -479,6 +483,7 @@ export class DbQueries {
         ...row,
         providerKey: row.providerKey ?? null,
         cwd: row.cwd ?? null,
+        baselineOid: row.baselineOid ?? null,
         // 빈 배열과 '없음' 을 같은 NULL 로 접는다 — 읽는 쪽이 두 표현을 구분할 이유가 없다.
         extraDirs: row.extraDirs && row.extraDirs.length > 0 ? JSON.stringify(row.extraDirs) : null
       })
@@ -492,6 +497,12 @@ export class DbQueries {
 
   getSessionById(id: string): SessionListRow | undefined {
     return this.getSessionByIdStmt.get({ id }) as SessionListRow | undefined
+  }
+
+  getSessionBaseline(sessionId: string): string | null {
+    const row = this.getSessionBaselineStmt.get({ sessionId }) as
+      { baseline_oid: string | null } | undefined
+    return row?.baseline_oid ?? null
   }
 
   // 주어진 cwd 를 작업 디렉토리로 가진 세션이 존재하는지 — files:openPath 화이트리스트.

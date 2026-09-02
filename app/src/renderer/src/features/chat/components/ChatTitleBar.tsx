@@ -64,6 +64,8 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   const { tr } = useI18n()
   const title = useChatSession(selectTitle) || tr('common.newChat')
   const cwd = useChatSession((s) => s.cwd)
+  // 0211 — 라벨용 표시 정본. null 이면 `cwd` 파생으로 폴백한다.
+  const worktree = useChatSession((s) => s.worktree)
   const sessionId = useChatSession((s) => s.sessionId)
   // 열 구조(stable ref)를 구독하고 평탄 뷰는 메모로 파생 — selector 가 새 배열을 반환하면
   // zustand Object.is 비교가 매번 깨져 불필요 재렌더가 난다.
@@ -158,7 +160,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
             {title}
           </div>
         )}
-        <CwdButton cwd={cwd} sessionStarted className="shrink-0" />
+        <CwdButton cwd={cwd} sessionStarted worktree={worktree} className="shrink-0" />
       </div>
       <div className="ml-auto flex gap-1">
         {canPinSession && (

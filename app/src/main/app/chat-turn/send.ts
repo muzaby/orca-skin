@@ -15,7 +15,7 @@
 
 import type { IpcMainInvokeEvent, WebContents } from 'electron'
 import { ifPresent } from '../../../shared/obj'
-import type { AttachmentView } from '../../../shared/ipc'
+import type { AttachmentView, WorktreeDisplay } from '../../../shared/ipc'
 import type { SteerFlushBatch, TurnRequest } from '../../adapters/turn'
 import type { TurnContext } from '../../contracts/turn'
 import { normalizeAttachments } from '../../features/chat/attachments'
@@ -149,6 +149,11 @@ export async function handleChatSend(
         )
       : requestedCwd
 
+    // 0211 — 격리 세션의 **표시 정본**. 준비가 성공한 순간 확정되고, 세션 id 가 확정되면
+    // 그때 renderer 로 간다(아래 `onSessionConfirmed`). 실행 경로(`cwd`)와 다른 값이라
+    // 둘을 한 자리에서 잡아 둔다: 이름은 원본, 동작은 실행 경로.
+    let worktreeDisplay: WorktreeDisplay | null = null
+
     const preparedExecution = await prepareTurnExecution({
       worktree: {
         enabled: payload.worktreeIsolation === true,
@@ -168,11 +173,17 @@ export async function handleChatSend(
           sendChatEvent(event.sender, {
             type: 'session.updated',
             sessionId,
-            patch: { cwd: executionCwd }
-          })
+            patch: { cwd: executionCwd, worktree: null }
+          }),
+        // 0211 — 준비 진행을 화면에 옮긴다. 이벤트에 `sessionId` 가 없다: 발급 전이라
+        // renderer 가 `pendingNewChatKey` 로 라우팅한다(`message.queued` 와 같은 규칙).
+        onProgress: (step) => sendChatEvent(event.sender, { type: 'worktree.preparing', step }),
+        onManaged: (display) => {
+          worktreeDisplay = display
+        }
       },
       extraDirs: payload.extraDirs,
-      buildTurn: (executionCwd, extraDirs) => {
+      buildTurn: (executionCwd, extraDirs, sessionBaseline) => {
         // ── 6. TurnContext 조립 ───────────────────────────────────────────
         const controller = lease.controller
         return buildTurnContext<WebContents>({
@@ -194,6 +205,7 @@ export async function handleChatSend(
           },
           effectiveText,
           boundProjectId,
+          sessionBaseline,
           // 폴백이 일어났으면 세션행 사본이 아직 옛 경로다 — `resolveTurnCwd` 는 resume 에서
           // 세션행을 우선하므로 여기서 확정된 실행 경로로 덮지 않으면 죽은 경로가 되살아난다.
           // 폴백이 없으면 두 값이 같아 무해하다(AC19).
@@ -201,6 +213,18 @@ export async function handleChatSend(
           continuityMeta,
           continuityLang,
           queueKey: provisionalKey,
+          // 세션 id 가 서면 표시 정본을 보낸다. 0210 D-109 와 같은 자리·같은 wire —
+          // 새 variant 없이 `session.updated` 의 patch 에 얹는다.
+          ...(worktreeDisplay
+            ? {
+                onSessionConfirmed: (sessionId: string): void =>
+                  sendChatEvent(event.sender, {
+                    type: 'session.updated',
+                    sessionId,
+                    patch: { worktree: worktreeDisplay! }
+                  })
+              }
+            : {}),
           getCwd: (projectId) => ctx.getCwd(projectId)
         })
       },
@@ -267,6 +291,7 @@ export async function handleChatSend(
       channelAlive: runtime.channelAlive,
       sessionId: payload.sessionId,
       text: effectiveText,
+      requirements: payload.requirements ?? [],
       attachments: normalizedAttachments,
       attachmentViews: payload.attachmentViews,
       admittedAt: leaderAdmittedAt,
@@ -364,8 +389,9 @@ export async function handleChatSend(
         requestApproval,
         ...(payload.permissionMode ? { permissionMode: payload.permissionMode } : {}),
         ...(payload.effort ? { effort: payload.effort } : {}),
-        attachmentTexts: normalizedAttachments.attachmentTexts,
-        attachmentImages: normalizedAttachments.attachmentImages
+        attachmentTexts: mainBatch.attachmentTexts ?? [],
+        attachmentImages: mainBatch.attachmentImages ?? [],
+        requirements: mainBatch.requirements ?? []
       }
     )
 

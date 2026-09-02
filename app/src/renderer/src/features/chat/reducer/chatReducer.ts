@@ -9,7 +9,12 @@ import type {
   ProviderReportedTelemetry,
   SubagentTaskMeta,
   Backend,
-  EffortLevel
+  EffortLevel,
+  DiffRequirementItem,
+  GitDiffSummary,
+  WorktreeDisplay,
+  WorktreePrepareStep,
+  GitDiffFileContent
 } from '../../../../../shared/ipc'
 import { subagentNoticePart } from '../../../../../shared/ipc'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
@@ -23,12 +28,21 @@ import { agentTaskKey, backgroundTaskKey } from '../lib/taskBoard'
 import { settleOrphanToolParts, settleStaleAsyncLaunchParts } from '../lib/parts'
 import { isRightPanelTileSuspended, type RightPanelTileId } from '../lib/rightPanelTiles'
 import type { BranchSnapshot } from '../components/composer/branchChipState'
+import { reanchorDiffRequirementItem } from '../components/rightpanel/diffRequirements'
+import type { DiffLine } from '../lib/diffLines'
 import {
   addTileColumnMajor,
   columnsContain,
   removeTileFromColumns,
   type RightPanelColumns
 } from '../lib/rightPanelLayout'
+import {
+  EMPTY_DIFF_BODY_CACHE,
+  putDiffBody,
+  touchDiffBody,
+  type DiffBodyCache
+} from '../components/rightpanel/diffBodyCache'
+import { diffPeekBodyKey } from '../components/rightpanel/diffFileCache'
 
 // transcript 렌더가 쓰는 도구 호출 view — parts 의 tool_call+tool_result 를 toolRunId 로
 // 페어링한 결과(lib/parts.ts partsToolCalls). 더 이상 Message 의 필드가 아니다.
@@ -60,6 +74,43 @@ export interface PlanComment {
   end: number
   body: string
   createdAt: number
+}
+
+export type GitPeekGroup = { kind: 'commit'; sha: string } | { kind: 'uncommitted' }
+
+/** 파일 본문은 언제나 session 범위로 읽고, 이 target은 사용자가 들어온 목록 그룹만 보존한다. */
+export interface GitPeekTarget {
+  group: GitPeekGroup
+  path: string
+}
+
+export interface GitSnapshotState {
+  summary: GitDiffSummary | null
+  peekTarget: GitPeekTarget | null
+  expandedCommitIds: readonly string[]
+  refreshGeneration: number
+  /** 열어 본 파일 본문의 사용순 LRU(0211 D-061). 키가 요약 세대를 담아 새로고침이 자연 무효화한다. */
+  bodyCache: DiffBodyCache
+}
+
+export interface GitSnapshotRequest {
+  key: string
+  generation: number
+}
+
+export interface DiffRequirementDraft {
+  key: string
+  filePath: string
+  oldLine: number | null
+  newLine: number | null
+  body: string
+}
+
+export interface DiffRequirementBodyRequest {
+  sessionId: string | null
+  path: string
+  key: string
+  generation: number
 }
 
 // 메시지 = 순서 보존 parts 목록(provider-runtime.md §7). text 는 lib/parts.ts 셀렉터로 합치고,
@@ -142,6 +193,13 @@ export interface ChatState {
   // 동안 true. ChatPane 이 인디케이터를 표시한다.
   loadingSession: boolean
   turnStartedAt: number | null
+  // 0211 — 격리 준비의 현재 단계. null = 준비 중이 아니다. **main 이 발신한 것만** 담는다:
+  // 경과 시간으로 단계를 추측하면 실제와 다른 진행을 말하게 된다(D-003).
+  // 비우는 지점은 셋이다 — BEGIN_TURN(새 턴 시작) · session.updated(준비 끝) · TURN_END_RESET.
+  worktreePrepareStep: WorktreePrepareStep | null
+  // 0211 — worktree 세션의 표시 정본(`managed_worktrees` row). null = 격리 세션이 아니거나
+  // row 가 없다(0210 D-107 폴백 후 포함) → 소비자는 `cwd` 파생으로 폴백한다.
+  worktree: WorktreeDisplay | null
   // 마지막 턴의 provider-reported 통계(model·토큰·캐시 분해). 컨텍스트 도넛 + UsagePanel(입력·
   // 캐시·윈도우·사용%)의 소스. 턴 종료(telemetry) 시 세팅, 세션 로드 시 turn_usage 최신 행에서
   // 복원, 새 대화에서만 비움. SEND 는 비우지 않아 턴 진행 중에도 도넛이 유지된다.
@@ -178,14 +236,18 @@ export interface ChatState {
   rightPanelColWidths: number[]
   // 우측 패널 열 내부의 상단 행 비율. 행 분리선 드래그로 조절, clamp 0.2–0.8.
   rightPanelRowSplits: number[]
-  // diff 타일의 좌측 컬럼(파일트리 + 커밋 목록) 표시 여부. 헤더 토글이 뒤집는다.
-  // **본문이 아니라 세션 상태가 갖는 이유**: 토글 버튼은 타일 헤더에, 감춰지는 컬럼은 본문에
-  // 있고 둘은 형제라 로컬 state 로 공유되지 않는다(0206 D-017 주변).
-  diffFilesVisible: boolean
   // 작업 경로의 git 스냅샷 — **어느 cwd 의 값인지와 함께** 들고 있다(`statusForCwd`).
   // 컴포저 git 행과 diff 타일 헤더 둘이 읽으므로 세션 상태가 소유한다(0206 D-020).
   // null = 아직 조회 전. `useGitRowStatus` 만 채운다.
   gitStatus: BranchSnapshot | null
+  // diff 요약·peek·commit 펼침·명시 refresh 신호는 타일이 아니라 세션 수명에 속한다.
+  // 파일 본문은 현재 identity+peek 세대에만 붙는 타일 로컬 캐시다.
+  gitSnapshot: GitSnapshotState
+  gitSnapshotRequest: GitSnapshotRequest | null
+  diffRequirements: DiffRequirementItem[]
+  diffRequirementsRevision: number
+  diffRequirementDraft: DiffRequirementDraft | null
+  diffRequirementBodyRequest: DiffRequirementBodyRequest | null
   // 우측 작업 타일에서 상세로 표시할 항목 키(`agent:<id>` | `bg:<toolUseId>`, taskBoard 가
   // 소유하는 네임스페이스). null 이면 목록 view.
   selectedTaskKey: string | null
@@ -268,6 +330,8 @@ export const initialChatState: ChatState = {
   listenStartedAt: null,
   loadingSession: false,
   turnStartedAt: null,
+  worktreePrepareStep: null,
+  worktree: null,
   pendingAsks: [],
   permissionMode: DEFAULT_PERMISSION_MODE,
   pendingPlanReview: null,
@@ -275,8 +339,19 @@ export const initialChatState: ChatState = {
   rightPanelTileLabels: {},
   rightPanelColWidths: [],
   rightPanelRowSplits: [],
-  diffFilesVisible: true,
   gitStatus: null,
+  gitSnapshot: {
+    summary: null,
+    peekTarget: null,
+    expandedCommitIds: [],
+    refreshGeneration: 0,
+    bodyCache: EMPTY_DIFF_BODY_CACHE
+  },
+  gitSnapshotRequest: null,
+  diffRequirements: [],
+  diffRequirementsRevision: 0,
+  diffRequirementDraft: null,
+  diffRequirementBodyRequest: null,
   selectedTaskKey: null,
   selectedSubagentTaskId: null,
   stoppingTaskIds: [],
@@ -306,13 +381,17 @@ export const PANEL_DEFAULT_ROW_SPLIT = 0.5
 // 턴 종료 공통 리셋 — inflight 와 턴 스냅샷(turnProviderKey 0119 · turnStartedAt)·재시도 배너를
 // 한 곳에서 내린다. 종료 경로(telemetry/turn.aborted/error/CANCEL_CHAT)가 늘거나 per-turn 필드가
 // 추가되면 여기만 갱신한다 — 경로별 개별 나열은 스냅샷 초기화 누락(스티어 영구 차단)을 부른다.
-const TURN_END_RESET: Pick<ChatState, 'inflight' | 'turnProviderKey' | 'turnStartedAt' | 'retry'> =
-  {
-    inflight: false,
-    turnProviderKey: null,
-    turnStartedAt: null,
-    retry: undefined
-  }
+const TURN_END_RESET: Pick<
+  ChatState,
+  'inflight' | 'turnProviderKey' | 'turnStartedAt' | 'retry' | 'worktreePrepareStep'
+> = {
+  inflight: false,
+  turnProviderKey: null,
+  turnStartedAt: null,
+  retry: undefined,
+  // 턴이 끝났는데 "워크트리를 만드는 중…" 이 남으면 거짓 상태다.
+  worktreePrepareStep: null
+}
 
 // 중단 요청 실패의 표시 재료. **번역하지 않은 채** 싣는다 — 카탈로그 키는 렌더에서 tr() 로
 // 풀어야 언어 전환이 표시 중인 문구까지 따라온다(0096/0097 stale-방지, `UiMessage` 와 같은 이유).
@@ -387,8 +466,40 @@ export type ChatAction =
   | { type: 'SET_RIGHT_PANEL_TILE_ACTIVE'; id: RightPanelTileId; active: boolean }
   | { type: 'RENAME_RIGHT_PANEL_TILE'; id: RightPanelTileId; label: string }
   | { type: 'REMOVE_RIGHT_PANEL_TILE'; id: RightPanelTileId }
-  | { type: 'TOGGLE_DIFF_FILES' }
   | { type: 'SET_GIT_STATUS'; snapshot: BranchSnapshot }
+  | { type: 'OPEN_GIT_SNAPSHOT_PEEK'; target: GitPeekTarget }
+  | { type: 'CLOSE_GIT_SNAPSHOT_PEEK' }
+  | { type: 'RECORD_DIFF_BODY'; key: string; content: GitDiffFileContent }
+  | { type: 'TOGGLE_GIT_SNAPSHOT_COMMIT_EXPANDED'; sha: string }
+  | { type: 'REFRESH_GIT_SNAPSHOT' }
+  | { type: 'BEGIN_GIT_SNAPSHOT_QUERY'; request: GitSnapshotRequest }
+  | {
+      type: 'RECEIVE_GIT_SNAPSHOT_SUMMARY'
+      request: GitSnapshotRequest
+      summary: GitDiffSummary
+    }
+  | { type: 'ADD_DIFF_REQUIREMENT'; item: DiffRequirementItem }
+  | { type: 'REMOVE_DIFF_REQUIREMENT'; id: string }
+  | { type: 'SET_DIFF_REQUIREMENT_DRAFT'; draft: DiffRequirementDraft | null }
+  | {
+      type: 'SET_DIFF_REQUIREMENT_BODY_REQUEST'
+      sessionId: string | null
+      path: string
+      request: GitSnapshotRequest
+    }
+  | {
+      type: 'REANCHOR_DIFF_REQUIREMENTS'
+      sessionId: string | null
+      path: string
+      request: GitSnapshotRequest
+      lines: readonly DiffLine[]
+    }
+  | {
+      type: 'CLEAR_DIFF_REQUIREMENTS_IF_UNCHANGED'
+      sessionId: string | null
+      ids: readonly string[]
+      revision: number
+    }
   | { type: 'SELECT_TASK'; key: string | null }
   | { type: 'OPEN_TASK'; key: string }
   | { type: 'SELECT_SUBAGENT_TASK'; toolRunId: string | null }
@@ -414,6 +525,21 @@ function appendAssistantPart(messages: Message[], part: AppMessagePart): Message
   return next
 }
 
+function diffRequirementDraftsEqual(
+  a: DiffRequirementDraft | null,
+  b: DiffRequirementDraft | null
+): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  return (
+    a.key === b.key &&
+    a.filePath === b.filePath &&
+    a.oldLine === b.oldLine &&
+    a.newLine === b.newLine &&
+    a.body === b.body
+  )
+}
+
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
     case 'BEGIN_TURN':
@@ -425,6 +551,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         // steer 게이트가 진행 턴의 provider 를 기억한다.
         turnProviderKey: state.providerKey,
         turnStartedAt: Date.now(),
+        // 이전 턴의 준비 단계가 새 턴 첫 프레임에 남지 않게 한다(§10 EP-04 첫 지점).
+        worktreePrepareStep: null,
         // lastTelemetry 는 비우지 않는다 — 컨텍스트 도넛이 턴 진행 중에도 직전 값을 유지.
         error: undefined,
         retry: undefined
@@ -475,14 +603,24 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             sessionId: ev.sessionId,
             backend: 'claude',
             cwd: ev.patch.cwd ?? state.cwd,
-            // patch 병합은 **누락 = 기존값 보존**이다(0212 §10 EP-02) — 조건부 spread 로 표현한다.
-            // 무조건 대입하면 `model` 만 든 두 번째 session.updated 가 기능 게이트를 지운다.
+            // patch 병합은 **누락 = 기존값 보존**이다(0212 §10 EP-02).
+            // `worktree` 는 세 상태를 구분해야 해서(부재 / `null` = 소실 폴백의 삭제 명령 /
+            // 객체 = 덮어쓰기) `undefined` 비교가 아니라 **키 유무**로 판정한다(0211 D-022).
+            worktree: Object.hasOwn(ev.patch, 'worktree') ? ev.patch.worktree! : state.worktree,
+            // 준비가 끝났다 — 여기부터는 기존 진행 표시가 말한다(0211 §10 EP-04 둘째 지점).
+            worktreePrepareStep: null,
+            // 두 축은 `null` 이 값이 아니라 조건부 spread 로 충분하다 — 무조건 대입하면
+            // `model` 만 든 두 번째 session.updated 가 기능 게이트를 지운다.
             ...(ev.patch.agentTools !== undefined ? { agentTools: ev.patch.agentTools } : {}),
             ...(ev.patch.cliVersion !== undefined ? { cliVersion: ev.patch.cliVersion } : {}),
             pendingProjectId: null,
             projectId: state.pendingProjectId ?? state.projectId,
             retry: undefined
           }
+
+        // 0211 — 격리 준비 진행. main 이 경계마다 보낸 것을 그대로 담는다.
+        case 'worktree.preparing':
+          return { ...state, worktreePrepareStep: ev.step }
 
         // message.delta · message.reasoning.delta 는 reducer 에 도달하지 않는다 —
         // chatStore.receive 가 live 슬라이스(transient)로 라우팅해 커밋 상태(이 reducer)는
@@ -759,7 +897,20 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         cwd: action.cwd,
         extraDirs: [],
         extraDirRejection: null,
-        worktreeBaseRef: null
+        worktreeBaseRef: null,
+        gitSnapshot: {
+          summary: null,
+          peekTarget: null,
+          expandedCommitIds: [],
+          refreshGeneration: 0,
+          // 다른 저장소의 본문이 같은 상대 경로로 보이면 안 된다(AT-42).
+          bodyCache: EMPTY_DIFF_BODY_CACHE
+        },
+        gitSnapshotRequest: null,
+        diffRequirements: [],
+        diffRequirementsRevision: 0,
+        diffRequirementDraft: null,
+        diffRequirementBodyRequest: null
       }
 
     case 'SET_WORKTREE_ISOLATION':
@@ -845,6 +996,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...initialChatState,
         cwd: action.session.cwd ?? state.cwd,
+        // 0211 — 재시작 뒤에도 이름이 원본으로 복원되는 자리(§10 EP-06 둘째 지점).
+        worktree: action.session.worktree ?? null,
         sessionId: action.session.id,
         projectId: action.session.projectId ?? null,
         backend: action.session.backend,
@@ -1005,11 +1158,180 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
     }
 
-    case 'TOGGLE_DIFF_FILES':
-      return { ...state, diffFilesVisible: !state.diffFilesVisible }
-
     case 'SET_GIT_STATUS':
       return { ...state, gitStatus: action.snapshot }
+
+    case 'OPEN_GIT_SNAPSHOT_PEEK':
+      // 진입이 곧 **사용**이다 — 사용순 LRU 라 여는 것만으로 순서가 바뀐다. 키는 리듀서가
+      // 직접 짓는다: 다섯 축이 전부 여기 상태에 있어서, 화면이 키를 만들어 넘기면 두 곳이
+      // 같은 규칙을 갖게 되고 조용히 갈라진다(0211 §10 EP-24 ①).
+      return {
+        ...state,
+        diffRequirementBodyRequest: null,
+        gitSnapshot: {
+          ...state.gitSnapshot,
+          peekTarget: action.target,
+          bodyCache: touchDiffBody(
+            state.gitSnapshot.bodyCache,
+            diffPeekBodyKey(
+              state.cwd,
+              state.sessionId,
+              action.target,
+              state.gitSnapshotRequest?.generation ?? 0
+            )
+          )
+        }
+      }
+
+    case 'CLOSE_GIT_SNAPSHOT_PEEK':
+      return {
+        ...state,
+        diffRequirementBodyRequest: null,
+        gitSnapshot: { ...state.gitSnapshot, peekTarget: null }
+      }
+
+    // 조회가 끝난 본문을 캐시에 넣는다. 텍스트가 아니면 `putDiffBody` 가 걸러낸다.
+    case 'RECORD_DIFF_BODY':
+      return {
+        ...state,
+        gitSnapshot: {
+          ...state.gitSnapshot,
+          bodyCache: putDiffBody(state.gitSnapshot.bodyCache, action.key, action.content)
+        }
+      }
+
+    case 'TOGGLE_GIT_SNAPSHOT_COMMIT_EXPANDED': {
+      const expanded = state.gitSnapshot.expandedCommitIds
+      return {
+        ...state,
+        gitSnapshot: {
+          ...state.gitSnapshot,
+          expandedCommitIds: expanded.includes(action.sha)
+            ? expanded.filter((sha) => sha !== action.sha)
+            : [...expanded, action.sha]
+        }
+      }
+    }
+
+    case 'REFRESH_GIT_SNAPSHOT':
+      return {
+        ...state,
+        diffRequirementBodyRequest: null,
+        gitSnapshotRequest: state.gitSnapshotRequest
+          ? {
+              ...state.gitSnapshotRequest,
+              generation: state.gitSnapshotRequest.generation + 1
+            }
+          : null,
+        gitSnapshot: {
+          ...state.gitSnapshot,
+          refreshGeneration: state.gitSnapshot.refreshGeneration + 1
+        }
+      }
+
+    case 'BEGIN_GIT_SNAPSHOT_QUERY':
+      return {
+        ...state,
+        diffRequirementBodyRequest: null,
+        gitSnapshot:
+          state.gitSnapshotRequest?.key === action.request.key
+            ? state.gitSnapshot
+            : { ...state.gitSnapshot, summary: null },
+        gitSnapshotRequest: action.request
+      }
+
+    case 'RECEIVE_GIT_SNAPSHOT_SUMMARY':
+      if (
+        state.gitSnapshotRequest?.key !== action.request.key ||
+        state.gitSnapshotRequest.generation !== action.request.generation
+      ) {
+        return state
+      }
+      return {
+        ...state,
+        gitSnapshot: { ...state.gitSnapshot, summary: action.summary }
+      }
+
+    case 'ADD_DIFF_REQUIREMENT':
+      return {
+        ...state,
+        diffRequirements: [...state.diffRequirements, action.item],
+        diffRequirementsRevision: state.diffRequirementsRevision + 1,
+        diffRequirementDraft: null
+      }
+
+    case 'REMOVE_DIFF_REQUIREMENT': {
+      const next = state.diffRequirements.filter((item) => item.id !== action.id)
+      if (next.length === state.diffRequirements.length) return state
+      return {
+        ...state,
+        diffRequirements: next,
+        diffRequirementsRevision: state.diffRequirementsRevision + 1
+      }
+    }
+
+    case 'SET_DIFF_REQUIREMENT_DRAFT':
+      if (diffRequirementDraftsEqual(state.diffRequirementDraft, action.draft)) return state
+      return {
+        ...state,
+        diffRequirementDraft: action.draft,
+        diffRequirementsRevision: state.diffRequirementsRevision + 1
+      }
+
+    case 'SET_DIFF_REQUIREMENT_BODY_REQUEST':
+      if (state.sessionId !== action.sessionId) return state
+      return {
+        ...state,
+        diffRequirementBodyRequest: {
+          sessionId: action.sessionId,
+          path: action.path,
+          key: action.request.key,
+          generation: action.request.generation
+        }
+      }
+
+    case 'REANCHOR_DIFF_REQUIREMENTS': {
+      if (state.sessionId !== action.sessionId) return state
+      if (
+        state.diffRequirementBodyRequest?.sessionId !== action.sessionId ||
+        state.diffRequirementBodyRequest.path !== action.path ||
+        state.diffRequirementBodyRequest.key !== action.request.key ||
+        state.diffRequirementBodyRequest.generation !== action.request.generation
+      ) {
+        return state
+      }
+      let touched = false
+      const next = state.diffRequirements.map((item) => {
+        if (item.anchor.filePath !== action.path) return item
+        touched = true
+        const reanchored = reanchorDiffRequirementItem(item, action.lines)
+        return reanchored
+      })
+      if (!touched) return state
+      return {
+        ...state,
+        diffRequirements: next,
+        diffRequirementsRevision: state.diffRequirementsRevision + 1
+      }
+    }
+
+    case 'CLEAR_DIFF_REQUIREMENTS_IF_UNCHANGED': {
+      if (state.sessionId !== action.sessionId) return state
+      if (state.diffRequirementsRevision !== action.revision) return state
+      const currentIds = state.diffRequirements.map((item) => item.id)
+      if (
+        currentIds.length !== action.ids.length ||
+        currentIds.some((id, index) => id !== action.ids[index])
+      ) {
+        return state
+      }
+      if (currentIds.length === 0) return state
+      return {
+        ...state,
+        diffRequirements: [],
+        diffRequirementsRevision: state.diffRequirementsRevision + 1
+      }
+    }
 
     case 'SELECT_TASK':
       // 목록/상세 어느 쪽이든 타일을 실제로 보고 있다 — 미확인 완료 표시를 해제한다.

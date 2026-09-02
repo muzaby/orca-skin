@@ -6,6 +6,7 @@ import { useMemo } from 'react'
 import { formatElapsed, useElapsed } from '../../../shared/ui/elapsed'
 import { SparkSpinner } from '../../../shared/ui/SparkSpinner'
 import { useI18n } from '../../../shared/i18n'
+import type { WorktreePrepareStep } from '../../../../../shared/ipc'
 import { deriveActivityLabel, MAX_VISIBLE_FACTS, type ActivityView } from '../lib/activityLabel'
 
 const VERBS = [
@@ -42,6 +43,8 @@ export interface StatusLineProps {
   thinkingActive?: boolean
   thoughtDurationMs?: number
   activity?: ActivityView
+  /** 0211 — 격리 준비 단계. 있으면 무작위 동사 대신 그 단계 문구 하나만 보인다. */
+  prepareStep?: WorktreePrepareStep | null
 }
 
 export function StatusLine({
@@ -49,7 +52,8 @@ export function StatusLine({
   outputApproxFromText,
   thinkingActive,
   thoughtDurationMs,
-  activity
+  activity,
+  prepareStep
 }: StatusLineProps): React.JSX.Element | null {
   const { tr } = useI18n()
   // verb 는 한 응답 내에서 고정, 새 응답 (turnStartedAt 변경) 마다 재선택.
@@ -69,8 +73,8 @@ export function StatusLine({
   // 재렌더는 경과 초(1s 틱)로만 온다 — 스피너는 CSS 트랙이라 리렌더를 부르지 않는다.
   // 조합 규칙은 순수 모듈이 소유한다(lib/activityLabel) — 여기서는 키를 문구로 옮기기만 한다.
   const label = useMemo(
-    () => deriveActivityLabel(activity, elapsedSec * 1000),
-    [activity, elapsedSec]
+    () => deriveActivityLabel(activity, elapsedSec * 1000, prepareStep),
+    [activity, elapsedSec, prepareStep]
   )
   // 번역도 한 번만 — tooltip(전체)과 인라인(상위 N개)이 같은 배열을 나눠 쓴다.
   const factTexts = useMemo(
@@ -95,8 +99,12 @@ export function StatusLine({
         : null
 
   const showCounter = elapsedSec >= 5
-  const statusLabel =
-    label.status === 'streaming' ? `${verb}…` : tr(`chat.activity.${label.status}`)
+  // 준비 단계가 있으면 그 문구다 — 무작위 동사(`verb`)도 일반 `preparing` 문구도 아니다.
+  const statusLabel = label.prepareStep
+    ? tr(`chat.worktreePrepare.${label.prepareStep}`)
+    : label.status === 'streaming'
+      ? `${verb}…`
+      : tr(`chat.activity.${label.status}`)
   const accessibleLabel = [statusLabel, factLabel, showCounter ? formatElapsed(elapsedSec) : null]
     .filter(Boolean)
     .join(', ')

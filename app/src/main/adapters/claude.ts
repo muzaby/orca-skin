@@ -14,6 +14,7 @@ import type {
   AskQuestion,
   ApprovalResolution,
   ClassifiedError,
+  DiffRequirementAnchor,
   NormalizedEvent,
   PermissionAction
 } from '../../shared/ipc'
@@ -23,6 +24,7 @@ import { claudeErrorClassifier, errorEvent } from './error-classifier'
 import { createSessionInputStream, type TurnInputContent } from './streaming-input'
 import type { Base64ImageSource } from '@anthropic-ai/sdk/resources/messages'
 import { formatAttachmentPromptBlock } from './attachment-prompt'
+import { formatDiffRequirementsPrompt } from './diff-requirements'
 import { formatPlanFeedbackPrompt } from './plan-feedback'
 import type { CompleteRequest, LiveTurn, ProviderMessageBatch, SessionAdapter } from './types'
 import type { TurnRequest } from './turn'
@@ -295,7 +297,8 @@ export class ClaudeAdapter implements SessionAdapter {
       effort,
       isSubagentBlocked,
       attachmentTexts = [],
-      attachmentImages = []
+      attachmentImages = [],
+      requirements = []
     } = req
 
     // 매퍼 컨텍스트 — sessionId 는 init(=session.updated)에서 갱신된다(resume 면 초기값이 그 id).
@@ -322,12 +325,18 @@ export class ClaudeAdapter implements SessionAdapter {
       text: string
       attachmentTexts?: typeof attachmentTexts
       attachmentImages?: typeof attachmentImages
+      requirements?: typeof requirements
     }): TurnInputContent =>
-      buildTurnContent(b.text, b.attachmentTexts ?? [], b.attachmentImages ?? [])
+      buildTurnContent(
+        b.text,
+        b.attachmentTexts ?? [],
+        b.attachmentImages ?? [],
+        b.requirements ?? []
+      )
     const input = createSessionInputStream([
       ...(req.preludes ?? []).map((b) => ({ content: batchContent(b), uuid: b.uuid })),
       {
-        content: buildTurnContent(text, attachmentTexts, attachmentImages),
+        content: buildTurnContent(text, attachmentTexts, attachmentImages, requirements),
         ...(req.promptUuid !== undefined ? { uuid: req.promptUuid } : {})
       }
     ])
@@ -479,7 +488,12 @@ export class ClaudeAdapter implements SessionAdapter {
           await handle.setPermissionMode(toClaudePermissionMode(next.permissionMode))
         }
         return input.push(
-          buildTurnContent(next.text, next.attachmentTexts ?? [], next.attachmentImages ?? []),
+          buildTurnContent(
+            next.text,
+            next.attachmentTexts ?? [],
+            next.attachmentImages ?? [],
+            next.requirements ?? []
+          ),
           next.promptUuid
         )
           ? { kind: 'accepted' as const }
@@ -516,12 +530,17 @@ export class ClaudeAdapter implements SessionAdapter {
 export function buildTurnContent(
   text: string,
   attachmentTexts: ExtractedAttachmentText[],
-  attachmentImages: ExtractedAttachmentImage[]
+  attachmentImages: ExtractedAttachmentImage[],
+  requirements: DiffRequirementAnchor[]
 ): TurnInputContent {
-  const mergedText =
-    attachmentTexts.length === 0
-      ? text
-      : [text, ...attachmentTexts.map((a) => formatAttachmentPromptBlock(a))].join('\n\n')
+  const mergedTextParts = [text]
+  if (attachmentTexts.length > 0) {
+    mergedTextParts.push(...attachmentTexts.map((a) => formatAttachmentPromptBlock(a)))
+  }
+  if (requirements.length > 0) {
+    mergedTextParts.push(formatDiffRequirementsPrompt(requirements))
+  }
+  const mergedText = mergedTextParts.join('\n\n')
   if (attachmentImages.length === 0) return mergedText
   return [
     { type: 'text', text: mergedText },

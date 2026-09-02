@@ -5,7 +5,7 @@
 // 소유한다. 여기서 하는 일은 적재와 예약, 그리고 pending-first 렌더 신호뿐이다.
 
 import type { WebContents } from 'electron'
-import type { AttachmentView } from '../../../shared/ipc'
+import type { AttachmentView, DiffRequirementAnchor } from '../../../shared/ipc'
 import type { SteerFlushBatch } from '../../adapters/turn'
 import type { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import { sendChatEvent } from '../../infra/ipc/send'
@@ -26,6 +26,7 @@ export function enqueueTurnPrompt(input: {
   /** renderer 라우팅용 — 새 세션은 id 미확정이라 생략한다. */
   sessionId: string | null
   text: string
+  requirements: DiffRequirementAnchor[]
   attachments: NormalizedAttachments
   attachmentViews: AttachmentView[]
   admittedAt: number
@@ -52,6 +53,7 @@ export function enqueueTurnPrompt(input: {
       ...(input.attachments.attachmentImages.length > 0
         ? { attachmentImages: input.attachments.attachmentImages }
         : {}),
+      ...(input.requirements.length > 0 ? { requirements: input.requirements } : {}),
       ...(input.attachmentViews.length > 0 ? { attachmentViews: input.attachmentViews } : {})
     },
     input.admittedAt,

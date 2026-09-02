@@ -1,4 +1,5 @@
-import type { GitStatus } from '../../../../../../shared/ipc'
+import type { GitDiffTotals, GitStatus, WorktreeDisplay } from '../../../../../../shared/ipc'
+import { repoDisplayName } from '../../lib/worktreeDisplay'
 
 // 컴포저 git 행의 판정부 — **React 없이 돌아가는 순수 규칙**만 모은다(0201 `branchChipState` 선례).
 //
@@ -21,10 +22,10 @@ export type GitRowView =
 // (`~/proj/orca-skin/app`) basename 이 `app` 이라 저장소 이름이 아니다(0206 D-008).
 // 구분자는 POSIX·Windows 둘 다 받는다: `--show-toplevel` 은 `/` 로 주지만 값이 어디서
 // 오든 이 함수의 계약은 "마지막 세그먼트" 하나다.
+// **worktree 세션에서는 그 루트가 원본 저장소가 아니다**(0211) — `--show-toplevel` 이
+// worktree 루트를 준다. 그래서 파생은 `repoDisplayName` 이 소유하고 여기서는 그것을 부른다.
 export function repoNameFromRoot(root: string | null): string | null {
-  if (!root) return null
-  const segments = root.split(/[\\/]/).filter((seg) => seg.length > 0)
-  return segments.length > 0 ? segments[segments.length - 1] : null
+  return repoDisplayName(root, null)
 }
 
 // 행을 그릴지, 그린다면 무엇을 읽을지.
@@ -33,21 +34,28 @@ export function repoNameFromRoot(root: string | null): string | null {
 // 저장소다. 저장소가 아니면 자리조차 잡지 않는다 — 누를 것이 없는 버튼을 두지 않는다는
 // 0201 D-002 를 같은 이유로 승계한다.
 //
-// `dirty: null` 은 **커밋 없음과 변경 없음 둘 다**이고, 행은 그 축을 갖지 않으므로 0/0 으로
-// 접는다(0206 §10 선택적 필드 의미).
+// `totals: null` 은 **요약 도착 전과 변경 없음 둘 다**이고, 행은 그 축을 갖지 않으므로
+// 0/0 으로 접는다(0206 §10 선택적 필드 의미).
 export function gitRowView(
   sessionStarted: boolean,
   cwd: string | null,
-  status: GitStatus | null
+  status: GitStatus | null,
+  // 0211 — 격리 세션의 표시 정본. **저장소 이름만** 이 값을 쓴다: 브랜치는 worktree 실측
+  // 그대로여야 한다(D-009 → D-025 승계) — 그것이 이번 세션의 진짜 작업이다.
+  worktree: WorktreeDisplay | null = null,
+  // 0211 ΔV1 — 변경량은 **diff 요약 합계**다(D-025). `status` 는 더 이상 이 축을 갖지
+  // 않는다: 우측 패널과 다른 명령을 쓰면 두 표면의 수가 갈리고, HEAD 대비는 격리 세션에서
+  // 커밋된 작업을 세지 못해 `+0 −0` 이 된다.
+  totals: GitDiffTotals | null = null
 ): GitRowView {
   if (!sessionStarted || !cwd || !status?.isRepo) return { visible: false }
   return {
     visible: true,
-    repo: repoNameFromRoot(status.root),
+    repo: repoDisplayName(status.root, worktree),
     branch: status.branch,
     detached: status.detached,
-    added: status.dirty?.insertions ?? 0,
-    removed: status.dirty?.deletions ?? 0
+    added: totals?.added ?? 0,
+    removed: totals?.removed ?? 0
   }
 }
 

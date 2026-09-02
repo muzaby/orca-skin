@@ -122,3 +122,36 @@ describe('deriveActivityLabel — 상태 (AC14 · AC21)', () => {
     })
   })
 })
+
+// ── 0211 VP-01(파생 절) · §10 EP-03 ─────────────────────────────────────────
+// 준비 단계가 **모든 것을 이긴다**. 이 분기가 없으면 아래 폴백이 `streaming` 을 돌려주고
+// 화면은 다시 무작위 동사를 그린다 — 준비 중 사용자는 아무 설명도 받지 못한다.
+describe('격리 준비 단계 우선 (EP-03)', () => {
+  const busy = {
+    foreground: 'streaming' as const,
+    queuedCount: 3,
+    deliveryPendingCount: 2,
+    residualCount: 0,
+    backgroundTaskCount: 1,
+    listening: true
+  }
+
+  it('단계가 있으면 status 는 preparing 이고 단계가 실린다', () => {
+    const label = deriveActivityLabel(undefined, 0, 'worktree')
+    expect(label.status).toBe('preparing')
+    expect(label.prepareStep).toBe('worktree')
+  })
+
+  it('활동 사실이 있어도 단계가 이긴다 — 준비 중에는 그 사실들이 참이 아니다', () => {
+    const label = deriveActivityLabel(busy, 60_000, 'branch')
+    expect(label.status).toBe('preparing')
+    expect(label.prepareStep).toBe('branch')
+    expect(label.facts).toEqual([])
+  })
+
+  it('단계가 없으면 기존 파생 그대로다 — 음성 짝', () => {
+    expect(deriveActivityLabel(undefined, 0).prepareStep).toBeUndefined()
+    expect(deriveActivityLabel(undefined, 0, null).status).toBe('streaming')
+    expect(deriveActivityLabel(busy, 0).status).toBe('streaming')
+  })
+})

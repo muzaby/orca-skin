@@ -15,6 +15,7 @@ import type {
   ApprovalResolution,
   AttachmentSourceKind,
   AttachmentView,
+  DiffRequirementAnchor,
   EffortLevel,
   PermissionAction,
   SkillInfo
@@ -32,6 +33,7 @@ export interface SteerFlush {
   createdAt: number
   attachmentTexts?: ExtractedAttachmentText[]
   attachmentImages?: ExtractedAttachmentImage[]
+  requirements?: DiffRequirementAnchor[]
   attachmentViews?: AttachmentView[]
 }
 export interface SteerFlushBatch extends SteerFlush {
@@ -112,6 +114,7 @@ export interface TurnContinuation {
   text: string
   attachmentTexts?: ExtractedAttachmentText[]
   attachmentImages?: ExtractedAttachmentImage[]
+  requirements?: DiffRequirementAnchor[]
   // 이 턴 프롬프트의 echo 상관키(pending queue 아이템/배치 uuid) — 커밋 판정(0067 AC6).
   promptUuid?: string
   model?: string
@@ -191,6 +194,7 @@ export interface TurnRequest {
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
   attachmentTexts?: ExtractedAttachmentText[]
   attachmentImages?: ExtractedAttachmentImage[]
+  requirements?: DiffRequirementAnchor[]
   // 스폰 턴 프롬프트의 소비 상관키(0067 AC6) — TurnContinuation.promptUuid 와 대칭.
   // 소비 확정 앵커는 응답 시작(첫 모델 출력, 0069 — echo 불요, coordinator 소유).
   promptUuid?: string

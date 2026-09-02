@@ -4,60 +4,55 @@ import { chatActions, useChatSession } from '../../store/chatStore'
 import { statusForCwd } from '../composer/branchChipState'
 import { gitRowView } from '../composer/gitRowState'
 
-// diff 타일 헤더 override — 좌측에 파일트리 토글 + 비교 대상 표시(0206).
-//
-// **설정 메뉴 · 펼치기 · 이동 핸들을 두지 않는다**(D-013). 셋 다 Orca 에 대응 동작이 없어
-// 조사 배치를 그대로 옮기면 누를 것이 없는 버튼이 된다 — 컴포저 행에 적용한 규칙과 같다.
-// 닫기는 `RightPanelTile` 이 이미 갖는다.
-//
-// 비교 대상은 **현재 브랜치만** 쓴다(D-014). base 를 알 채널이 없어 `main →` 을 붙이면
-// 그 `main` 이 가짜 값이 된다.
-
 interface DiffTileHeaderViewProps {
   branch: string | null
-  filesVisible: boolean
-  onToggleFiles: () => void
+  title: string
+  onRefresh: () => void
 }
 
+/** Header keeps only the branch context and the explicit refresh control. */
 export function DiffTileHeaderView({
   branch,
-  filesVisible,
-  onToggleFiles
+  title,
+  onRefresh
 }: DiffTileHeaderViewProps): React.JSX.Element {
   const { tr } = useI18n()
-  const label = tr(filesVisible ? 'chat.rightpanel.diffFilesHide' : 'chat.rightpanel.diffFilesShow')
+  const refreshLabel = tr('chat.rightpanel.diffRefresh')
   return (
     <span className="flex min-w-0 items-center gap-g3">
       <Button
         iconOnly
         size="small"
-        leadingIcon="folder"
-        pressed={filesVisible}
-        onClick={onToggleFiles}
-        title={label}
-        aria-label={label}
-        aria-pressed={filesVisible}
+        leadingIcon="refresh"
+        onClick={onRefresh}
+        title={refreshLabel}
+        aria-label={refreshLabel}
       />
-      <span className="min-w-0 truncate font-serif text-[13px] font-semibold tracking-tight text-t9">
-        {branch ?? tr('chat.rightpanel.tiles.diff')}
-      </span>
+      <span className="min-w-0 truncate font-serif text-[13px] font-semibold text-t9">{title}</span>
+      {branch && <span className="min-w-0 truncate text-caption text-t5">{branch}</span>}
     </span>
   )
 }
 
 export function DiffTileHeader(): React.JSX.Element {
-  const filesVisible = useChatSession((s) => s.diffFilesVisible)
-  const cwd = useChatSession((s) => s.cwd)
-  // 컴포저 git 행과 **같은 스냅샷**을 읽는다(0206 D-020) — 조회는 `useGitRowStatus` 한 곳뿐이고
-  // 여기서는 그 결과에서 브랜치만 꺼낸다. 판정도 같은 `gitRowView` 를 거친다(§10 EP-05).
-  const snapshot = useChatSession((s) => s.gitStatus)
-  const view = gitRowView(true, cwd, snapshot ? statusForCwd(cwd, snapshot) : null)
-  const branch = view.visible ? (view.detached ? null : view.branch) : null
+  const { tr } = useI18n()
+  const cwd = useChatSession((state) => state.cwd)
+  const snapshot = useChatSession((state) => state.gitStatus)
+  const worktree = useChatSession((state) => state.worktree)
+  const totals = useChatSession((state) => state.gitSnapshot.summary?.totals ?? null)
+  const peekTarget = useChatSession((state) => state.gitSnapshot.peekTarget)
+  const view = gitRowView(
+    true,
+    cwd,
+    snapshot ? statusForCwd(cwd, snapshot) : null,
+    worktree,
+    totals
+  )
   return (
     <DiffTileHeaderView
-      branch={branch}
-      filesVisible={filesVisible}
-      onToggleFiles={chatActions.toggleDiffFiles}
+      branch={view.visible && !view.detached ? view.branch : null}
+      title={tr(peekTarget ? 'chat.rightpanel.diffPeek' : 'chat.rightpanel.diffSessionChanges')}
+      onRefresh={chatActions.refreshGitSnapshot}
     />
   )
 }

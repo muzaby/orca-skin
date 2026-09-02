@@ -50,6 +50,10 @@ export const CHANNELS = {
   gitStatus: 'orca:git:status',
   gitBranches: 'orca:git:branches',
   gitCheckout: 'orca:git:checkout',
+  // 변경사항(diff) 타일의 읽기 2종 (0211). 요약은 타일이 열릴 때·cwd 변경·턴 종료에,
+  // 본문은 파일을 펼칠 때만 부른다 — 요약에 본문을 실으면 열자마자 저장소 전체를 읽는다.
+  gitDiffSummary: 'orca:git:diffSummary',
+  gitDiffFile: 'orca:git:diffFile',
   sessionCwd: 'orca:session:cwd',
   sessionList: 'orca:session:list',
   sessionLoad: 'orca:session:load',
@@ -449,11 +453,24 @@ export type NormalizedEvent =
       sessionId: string
       // 새 variant 를 만들지 않고 같은 patch 에 optional 로 얹는다 — **누락 = 무변경**이고
       // 소비자(reducer)는 있는 키만 병합한다(0212 §10 EP-02).
+      //   worktree    표시 정본(0211). 0210 D-109 가 폴백 통지를 `patch.cwd` 하나로 고정했으므로
+      //               같은 patch 에 얹는다. **키 부재 · `null` · 객체 셋이 다른 사실**이다 —
+      //               부재는 무변경, `null` 은 표시 정본 소실(폴백), 객체는 덮어쓰기다(0211 D-022).
       //   agentTools  SDK init 의 `tools` 전량. **부재(undefined)와 빈/미포함은 다른 사실**이다 —
       //               부재는 "판정 불가" 라 기능 안내를 띄우지 않는다(0212 D-005 · EP-01).
       //   cliVersion  init 의 `claude_code_version`. 안내 문구가 실제 버전을 말하게 한다.
-      patch: { model?: string; cwd?: string; agentTools?: string[]; cliVersion?: string }
+      patch: {
+        model?: string
+        cwd?: string
+        worktree?: WorktreeDisplay | null
+        agentTools?: string[]
+        cliVersion?: string
+      }
     }
+  // 0211 — worktree 격리 **신규 세션**의 준비 진행. 세션 id 발급 전이라 `sessionId` 가 없고
+  // renderer 는 `message.queued` 와 같은 규칙으로 `pendingNewChatKey` 에 라우팅한다.
+  // 미영속 UI 신호다(버스 미경유 — history/usage 미소비).
+  | { type: 'worktree.preparing'; step: WorktreePrepareStep }
   | { type: 'message.delta'; sessionId: string; delta: { text: string } }
   // pending message queue 간접 관찰 3종(0067 — 구 steer.* 일반화). 모든 사용자 프롬프트가
   // queued(pending 버블) → committed(echo 커밋, 정식 버블 승격) 로 흐르고, cancelled 는 held
@@ -718,6 +735,28 @@ export interface AttachmentView {
   sizeBytes?: number
 }
 
+// diff 파일 요구사항의 wire anchor — main 으로는 **정확히 이 10키만** 보낸다(0211 D-057).
+// 위치를 다시 못 찾아도 요구사항 자체는 사라지지 않으므로, UI 재anchor 상태(`located`)는
+// 별도 wrapper 타입에 둔다.
+export interface DiffRequirementAnchor {
+  sessionId: string
+  baselineCommit: string
+  filePath: string
+  oldLine: number | null
+  newLine: number | null
+  hunkHeader: string
+  contextBefore: string[]
+  contextAfter: string[]
+  comment: string
+  createdAt: number
+}
+
+export interface DiffRequirementItem {
+  id: string
+  anchor: DiffRequirementAnchor
+  located: boolean
+}
+
 export interface ReadAttachmentRequest {
   path: string
 }
@@ -747,6 +786,7 @@ export interface SendChatMessage {
   // 이 턴에 적용할 Claude Code thinking effort. per-turn 전송만 지원한다.
   effort?: EffortLevel
   attachments?: ComposerAttachment[]
+  requirements?: DiffRequirementAnchor[]
   // 영속·렌더 전용 첨부 뷰(다운스케일 썸네일 포함). attachments 가 모델 주입용이라면 이쪽은
   // user 메시지에 attachment 파트로 남겨 트랜스크립트에 보이게 한다.
   attachmentViews?: AttachmentView[]
@@ -1044,8 +1084,9 @@ export interface GitStatus {
   // 현재 브랜치명. detached HEAD 이거나 저장소가 아니면 null.
   branch: string | null
   detached: boolean
-  // 커밋되지 않은 변경 요약. null = 깨끗함.
-  dirty: GitDirtyStat | null
+  // **변경량 축은 여기 없다**(0211 D-027). 컴포저 행의 `+N −M` 은 diff 요약의 `totals` 를
+  // 읽는다 — `diff HEAD --shortstat` 은 격리 세션에서 커밋된 작업을 세지 못한다.
+  // checkout 의 dirty 게이트는 `git-cli.ts` 의 `dirtyStat` 을 자기가 부른다.
   // 저장소 루트의 절대 경로(`rev-parse --show-toplevel`). 저장소가 아니면 null.
   //
   // **cwd 에서 파생하지 않는 이유**: 작업 경로가 하위 폴더면(`~/proj/orca-skin/app`)
@@ -1054,6 +1095,111 @@ export interface GitStatus {
   // 브랜치·변경량은 산다.
   root: string | null
 }
+
+// ── worktree 준비 진행 (0211) ────────────────────────────────────────────────
+// 격리 준비가 **실제로 지나는 경계** 다섯. 시간이 아니라 경계에서 발신하므로 renderer 는
+// 순서·존재를 추론하지 않고 문구만 고른다.
+//
+// **`clean` 이 없는 이유**: 0210 D-105 가 dirty source 거부(`isClean` 게이트)를 걷어냈다.
+// **`worktree` 를 "추가"와 "체크아웃"으로 쪼개지 않는 이유**: `git worktree add` 한 명령이
+// 둘을 함께 하므로 경계를 관측할 수 없다 — 쪼개면 실제 단계가 아닌 것을 말하게 된다.
+export const WORKTREE_PREPARE_STEPS = [
+  // 저장소 루트 해석 + git 실행 가능 판정.
+  'repo',
+  // base 커밋 해석 — 유예 브랜치(0210 D-101)가 있으면 그 브랜치, 없으면 현재 HEAD.
+  'base',
+  // 브랜치 이름 결정 (LLM 제안 → sanitize → 충돌 suffix, 실패 시 fallback).
+  'branch',
+  // `git worktree add` — 디렉토리 생성 + 파일 체크아웃.
+  'worktree',
+  // worktree 확보 후 런타임 확보 전. 신규 격리 분기에서만 발신한다.
+  'session'
+] as const
+
+export type WorktreePrepareStep = (typeof WORKTREE_PREPARE_STEPS)[number]
+
+// ── git diff (변경사항 타일, 0211) ───────────────────────────────────────────
+// 비교 **범위**는 main 이 정한다 — renderer 는 무엇과 무엇을 비교할지 계산하지 않는다.
+// `sessionId` 의 managed row 가 있으면 그 `base_oid`, 없으면 `HEAD` 다(0211 D-010·D-021).
+export interface GitDiffRequest {
+  cwd: string
+  // 생략 = 세션 이전(랜딩) 또는 비격리 → `HEAD` 범위.
+  sessionId?: string
+}
+
+export interface GitDiffFileRequest extends GitDiffRequest {
+  // 저장소 루트 상대 경로, POSIX 구분자. git 이 주는 형태 그대로다.
+  path: string
+}
+
+// 무엇과 비교했는가 — 화면이 "무엇 대비"를 말할 수 있어야 한다.
+export type GitDiffBase =
+  | { kind: 'worktree-base'; oid: string }
+  | { kind: 'head'; oid: string }
+  // 커밋이 하나도 없는 저장소. 전부 추가로 보인다.
+  | { kind: 'none' }
+
+export type GitDiffFileStatus = 'added' | 'modified' | 'deleted' | 'renamed'
+
+export interface GitDiffFileEntry {
+  path: string
+  status: GitDiffFileStatus
+  // binary 면 둘 다 0 이다 — git numstat 이 `-`를 준다.
+  added: number
+  removed: number
+  binary: boolean
+}
+
+export interface GitDiffCommit {
+  sha: string
+  subject: string
+  author: string
+  // epoch ms. 표시 형식은 renderer 가 정한다.
+  committedAt: number
+  // 커밋 메시지의 subject 아래 본문. 본문이 없으면 필드 자체가 없다.
+  body?: string
+  files: GitDiffFileEntry[]
+  filesTruncated: boolean
+  // null = raw/numstat 파일 데이터를 수집하지 못함, 0 = 실제 관측된 0.
+  fileCount: number | null
+  totals: GitDiffTotals | null
+}
+
+// 변경량 합계 — **절단 전** 전체에서 센다(0211 D-025). `files` 는 200개에서 잘리므로
+// 목록의 합이 아니다: 201번째 파일의 줄이 합계에서 조용히 사라지면 안 된다.
+// 미추적 파일은 0 을 더한다(D-026) — 목록에는 남고 수치에만 빠진다.
+export interface GitDiffTotals {
+  added: number
+  removed: number
+}
+
+export interface GitDiffSummary {
+  isRepo: boolean
+  base: GitDiffBase
+  files: GitDiffFileEntry[]
+  // **필수 필드다**. optional 로 두면 소비자가 값이 없을 때 조용히 옛 `GitStatus.dirty`
+  // 축으로 폴백하고, 그 폴백이 D-025 가 없앤 두 벌의 수치를 되살린다.
+  totals: GitDiffTotals
+  // 상한(0211 D-016)에 걸려 잘렸는가. 조용히 자르면 사용자가 전부 본 것으로 읽는다.
+  filesTruncated: boolean
+  // managed row 가 없으면 항상 빈 배열이다 — base 를 모르면 "이 세션의 커밋"을 셀 수 없다.
+  commits: GitDiffCommit[]
+  commitsTruncated: boolean
+  commitFilesUnavailable: boolean
+  // HEAD 대비 현재 추적 변경. 세션 전체 목록과 독립적으로 잘린다.
+  uncommitted: {
+    files: GitDiffFileEntry[]
+    totals: GitDiffTotals
+    filesTruncated: boolean
+  }
+}
+
+// 파일 본문은 old/new **전문 두 벌**이다 — 소비자 `DiffTable` 의 계약이 unified patch 가
+// 아니라 `{oldValue,newValue}` 라, patch 를 주면 renderer 에 파서를 새로 만들어야 한다.
+export type GitDiffFileContent =
+  | { kind: 'text'; oldValue: string; newValue: string; truncated: boolean }
+  | { kind: 'binary' }
+  | { kind: 'unavailable'; reason: 'not-found' | 'too-large' | 'error' }
 
 export interface GitBranchList {
   current: string | null
@@ -1231,6 +1377,21 @@ export interface LoadedSession {
   // 렌더러가 출처 배너("원본 열기" 링크)를 복원하는 데 쓴다. parentTitle 은 표시용 스냅샷.
   lineage?: { parentSessionId: string; relation: 'fork' | 'handoff'; parentTitle: string | null }
   activity?: ChatActivitySnapshot
+  // 0211 — 이 세션이 앱 관리 worktree 에서 도는 경우의 **표시 정본**. `cwd` 는 실행 경로라
+  // 사람이 읽는 이름이 아니다(0210 D-104 의 경로는 basename 이 브랜치 slug 다).
+  // `undefined` = 격리 세션이 아니거나 managed row 가 없다(0210 D-107 폴백 후 포함) —
+  // 그때는 소비자가 `cwd` 파생으로 폴백하고, 폴백 경로가 곧 원본이라 그 값이 옳다.
+  worktree?: WorktreeDisplay
+}
+
+// worktree 세션의 표시 이름 정본 — `managed_worktrees` row 에서 온다. 동작(탐색기 열기·git
+// 조회·diff)은 이 값이 아니라 실행 경로(`cwd`)를 쓴다: 이름만 원본, 동작은 실행 경로다.
+export interface WorktreeDisplay {
+  // managed_worktrees.source_cwd — 사용자가 랜딩에서 고른 작업 경로.
+  sourceCwd: string
+  // managed_worktrees.repo_root — 원본 저장소 루트. worktree 의 `--show-toplevel` 은
+  // worktree 루트를 주므로 저장소 이름을 여기서 읽어야 한다.
+  repoRoot: string
 }
 
 // 세션 활동의 단일 main 권위 스냅샷. listen/residual 엣지 이벤트를 각각 갱신하지 않고 같은

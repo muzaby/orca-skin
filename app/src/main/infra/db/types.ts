@@ -38,6 +38,7 @@ export interface SessionRow {
   cwd: string | null
   // 0017 — 추가 참조 경로 JSON 배열 문자열. NULL = 없음.
   extra_dirs: string | null
+  baseline_oid: string | null
 }
 
 export interface SessionListRow {
@@ -233,6 +234,8 @@ export interface SessionInsert {
   cwd?: string | null
   // 추가 참조 경로. 빈 배열/미지정이면 NULL 로 저장한다.
   extraDirs?: string[] | null
+  // 세션 출생 시점의 diff 기준. 이후 metadata update는 이 값을 바꾸지 않는다.
+  baselineOid?: string | null
 }
 
 export interface ManagedWorktreeRow {

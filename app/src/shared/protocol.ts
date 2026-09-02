@@ -8,6 +8,7 @@ import type {
   AttachmentView,
   Backend,
   ComposerAttachment,
+  DiffRequirementAnchor,
   EffortLevel,
   ProviderAuthKind
 } from './ipc'
@@ -85,6 +86,31 @@ export const ExtraDirSchema = z
   // 루트는 모든 경로의 조상이라 가드 루트로 오르면 0075 격리가 no-op 이 된다 (D-019).
   .refine((v) => !isFilesystemRoot(v), '참조 경로로 루트 폴더를 쓸 수 없습니다')
 
+// diff 경로는 **저장소 안**이어야 한다. git 이 준 값을 그대로 돌려받는 것이 정상 경로지만,
+// renderer 가 보내는 값이므로 `..` 상승과 절대경로를 형태에서 막는다 — 통과하면 그 문자열이
+// `git show <base>:<path>` 와 작업 트리 파일 읽기 두 곳으로 그대로 간다.
+export const GitDiffPathSchema = z
+  .string()
+  .min(1)
+  .max(4096)
+  .refine((v) => !/^[\\/]/.test(v) && !/^[a-zA-Z]:/.test(v), '절대 경로는 쓸 수 없다')
+  .refine((v) => !v.split(/[/\\]/).includes('..'), '상위 경로 참조는 쓸 수 없다')
+
+const DiffRequirementContextLineSchema = z.string().max(200)
+const DiffRequirementContextSchema = z.array(DiffRequirementContextLineSchema).max(3)
+export const DiffRequirementAnchorSchema: z.ZodType<DiffRequirementAnchor> = z.object({
+  sessionId: z.string().min(1),
+  baselineCommit: z.string().min(1),
+  filePath: GitDiffPathSchema,
+  oldLine: z.number().int().nonnegative().nullable(),
+  newLine: z.number().int().nonnegative().nullable(),
+  hunkHeader: z.string().min(1),
+  contextBefore: DiffRequirementContextSchema,
+  contextAfter: DiffRequirementContextSchema,
+  comment: z.string().max(2000),
+  createdAt: z.number().int().nonnegative()
+})
+
 export const SendChatMessageSchema = z
   .object({
     sessionId: z.string().nullable(),
@@ -96,6 +122,7 @@ export const SendChatMessageSchema = z
     modelFamily: z.string().min(1).nullable().optional(),
     effort: EffortLevelSchema.optional(),
     attachments: z.array(ComposerAttachmentSchema).default([]),
+    requirements: z.array(DiffRequirementAnchorSchema).default([]),
     attachmentViews: z.array(AttachmentViewSchema).default([]),
     // 루트는 가드 ws 가 될 수 없다 (D-019). `extraDirs` 와 같은 SSOT 를 쓴다.
     cwd: z
@@ -246,6 +273,16 @@ export const GitCheckoutRequestSchema = z.object({
   cwd: z.string().min(1),
   branch: GitBranchNameSchema,
   resolution: GitDirtyResolutionSchema.optional()
+})
+
+// ── git diff (변경사항 타일, 0211) ───────────────────────────────────────────
+export const GitDiffRequestSchema = z.object({
+  cwd: z.string().min(1),
+  sessionId: z.string().min(1).optional()
+})
+
+export const GitDiffFileRequestSchema = GitDiffRequestSchema.extend({
+  path: GitDiffPathSchema
 })
 
 export const ReadAttachmentRequestSchema = z.object({ path: z.string().min(1) })
@@ -679,6 +716,16 @@ export type {
   ListFilesRequest,
   FileEntry,
   GitPathRequest,
+  GitDiffRequest,
+  GitDiffFileRequest,
+  GitDiffBase,
+  GitDiffFileStatus,
+  GitDiffFileEntry,
+  GitDiffCommit,
+  GitDiffSummary,
+  GitDiffFileContent,
+  WorktreeDisplay,
+  WorktreePrepareStep,
   GitDirtyStat,
   GitStatus,
   GitBranchList,

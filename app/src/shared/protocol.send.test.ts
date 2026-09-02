@@ -2,6 +2,19 @@ import { describe, it, expect } from 'vitest'
 import { OpenPathRequestSchema, SendChatMessageSchema, SetPermissionModeSchema } from './protocol'
 
 const base = { sessionId: null, projectId: null, text: 'hi' }
+const requirementAnchor = (overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
+  sessionId: 'session-1',
+  baselineCommit: '3486398aecbc2b97e42d3dba1aae8d13b18d186c',
+  filePath: 'app/src/main/adapters/claude.ts',
+  oldLine: 51,
+  newLine: 60,
+  hunkHeader: '@@ -51,2 +60,3 @@',
+  contextBefore: ['before 1', 'before 2'],
+  contextAfter: ['after 1'],
+  comment: '이 블록은 유지되어야 한다.',
+  createdAt: 1_725_000_000_000,
+  ...overrides
+})
 
 describe('SendChatMessageSchema — permissionMode (정규화 6종)', () => {
   it('permissionMode/model 선택 필드 부재를 허용', () => {
@@ -113,6 +126,99 @@ describe('SendChatMessageSchema — attachments', () => {
         ]
       }).success
     ).toBe(true)
+  })
+})
+
+describe('SendChatMessageSchema — requirements', () => {
+  const base = { sessionId: null, projectId: null, text: 'hello' }
+
+  it('defaults requirements to [] for legacy payloads', () => {
+    const parsed = SendChatMessageSchema.parse(base)
+    expect(parsed.requirements).toEqual([])
+  })
+
+  it('parses exact 10-key anchors and does not preserve UI-only keys', () => {
+    const parsed = SendChatMessageSchema.parse({
+      ...base,
+      requirements: [
+        {
+          ...requirementAnchor(),
+          id: 'ui-only',
+          located: false,
+          extra: 'drop-me'
+        }
+      ]
+    })
+
+    expect(parsed.requirements).toEqual([requirementAnchor()])
+    expect(Object.keys(parsed.requirements[0] ?? {}).sort()).toEqual(
+      [
+        'baselineCommit',
+        'comment',
+        'contextAfter',
+        'contextBefore',
+        'createdAt',
+        'filePath',
+        'hunkHeader',
+        'newLine',
+        'oldLine',
+        'sessionId'
+      ].sort()
+    )
+  })
+
+  it('accepts nullable old/new lines for added or deleted hunks', () => {
+    expect(
+      SendChatMessageSchema.safeParse({
+        ...base,
+        requirements: [requirementAnchor({ oldLine: null, newLine: 9 })]
+      }).success
+    ).toBe(true)
+    expect(
+      SendChatMessageSchema.safeParse({
+        ...base,
+        requirements: [requirementAnchor({ oldLine: 9, newLine: null })]
+      }).success
+    ).toBe(true)
+  })
+
+  it('rejects invalid path, cap, and epoch inputs', () => {
+    expect(
+      SendChatMessageSchema.safeParse({
+        ...base,
+        requirements: [requirementAnchor({ filePath: '../secret.txt' })]
+      }).success
+    ).toBe(false)
+    expect(
+      SendChatMessageSchema.safeParse({
+        ...base,
+        requirements: [requirementAnchor({ filePath: '/abs/path.txt' })]
+      }).success
+    ).toBe(false)
+    expect(
+      SendChatMessageSchema.safeParse({
+        ...base,
+        requirements: [requirementAnchor({ contextBefore: ['1', '2', '3', '4'] })]
+      }).success
+    ).toBe(false)
+    expect(
+      SendChatMessageSchema.safeParse({
+        ...base,
+        requirements: [requirementAnchor({ contextAfter: ['x'.repeat(201)] })]
+      }).success
+    ).toBe(false)
+    expect(
+      SendChatMessageSchema.safeParse({
+        ...base,
+        requirements: [requirementAnchor({ comment: 'x'.repeat(2001) })]
+      }).success
+    ).toBe(false)
+    expect(
+      SendChatMessageSchema.safeParse({
+        ...base,
+        requirements: [requirementAnchor({ createdAt: 1.5 })]
+      }).success
+    ).toBe(false)
   })
 })
 

@@ -81,6 +81,14 @@ export function registerSessionHandlers(ctx: RouterContext, hooks: SessionDispos
             }
           : undefined
 
+      // 0211 — 앱 관리 worktree 세션의 **표시 정본**. row 가 없으면(비격리·0210 D-107 폴백
+      // 후) 필드를 싣지 않고, 그때는 소비자가 `cwd` 파생으로 폴백한다 — 폴백 경로가 곧
+      // 원본이라 그 값이 옳다. 재시작 뒤 이름을 복원하는 자리가 여기다.
+      const worktreeRow = ctx.db.getManagedWorktreeBySession(req.sessionId)
+      const worktree = worktreeRow
+        ? { sourceCwd: worktreeRow.source_cwd, repoRoot: worktreeRow.repo_root }
+        : undefined
+
       return {
         id: meta.id,
         backend: meta.backend,
@@ -92,6 +100,7 @@ export function registerSessionHandlers(ctx: RouterContext, hooks: SessionDispos
         ...(lastTelemetry ? { lastTelemetry } : {}),
         ...(costUsd > 0 ? { costUsd } : {}),
         ...(lineage ? { lineage } : {}),
+        ...(worktree ? { worktree } : {}),
         ...(hooks.getActivity ? { activity: hooks.getActivity(req.sessionId) } : {})
       }
     }

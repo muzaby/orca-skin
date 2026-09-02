@@ -18,6 +18,8 @@ export interface TurnContext<W = unknown> {
   dbSessionId: string | null
   pendingProjectId: string | null
   isNewSession: boolean
+  // 세션 출생 시 확정된 Git diff 기준. resume/continuation은 재계산하지 않는다.
+  sessionBaseline: string | null
   cwd: string
   // CLI `/add-dir` 대응 — cwd 밖 추가 참조 경로. 어댑터의 `additionalDirectories` + workspace
   // 가드 루트로 함께 흘러 r/w 스코프를 넓힌다. cwd 와 같은 수명(새 세션 출생 시 고정).
@@ -42,4 +44,8 @@ export interface TurnContext<W = unknown> {
   // 0067 AC9 — 세션 id 확정 전 pending queue 키(renderer clientKey). session.updated 에서
   // coordinator 가 실 id 로 rekey 한다. 절대 영속 금지.
   queueKey?: string
+  // 0211 — 세션 id 확정 순간의 턴-국소 훅. coordinator 가 promote 와 같은 자리에서 정확히
+  // 한 번 부른다. **무엇을 할지는 컴포지션 루트가 정한다** — coordinator 는 worktree 를
+  // 모른 채로 남고, 세션 id 를 처음 아는 지점이 여기 하나뿐이라 이 자리여야 한다.
+  onSessionConfirmed?: (sessionId: string) => void
 }

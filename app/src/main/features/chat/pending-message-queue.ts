@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { AttachmentView } from '../../../shared/ipc'
+import type { AttachmentView, DiffRequirementAnchor } from '../../../shared/ipc'
 import type { SteerFlush, SteerFlushBatch } from '../../adapters/turn'
 import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../../adapters/turn'
 
@@ -9,6 +9,7 @@ interface PendingMessagePayload {
   text: string
   attachmentTexts?: ExtractedAttachmentText[]
   attachmentImages?: ExtractedAttachmentImage[]
+  requirements?: DiffRequirementAnchor[]
   attachmentViews?: AttachmentView[]
 }
 
@@ -62,6 +63,7 @@ interface TrackedBatch extends SteerFlushBatch {
 function toBatch(items: PendingMessage[], attemptId: string, chainId: string): SteerFlushBatch {
   const attachmentTexts = items.flatMap((item) => item.attachmentTexts ?? [])
   const attachmentImages = items.flatMap((item) => item.attachmentImages ?? [])
+  const requirements = items.flatMap((item) => item.requirements ?? [])
   const attachmentViews = items.flatMap((item) => item.attachmentViews ?? [])
   return {
     uuid: attemptId,
@@ -72,6 +74,7 @@ function toBatch(items: PendingMessage[], attemptId: string, chainId: string): S
     createdAt: items[0].createdAt,
     ...(attachmentTexts.length > 0 ? { attachmentTexts } : {}),
     ...(attachmentImages.length > 0 ? { attachmentImages } : {}),
+    ...(requirements.length > 0 ? { requirements } : {}),
     ...(attachmentViews.length > 0 ? { attachmentViews } : {})
   }
 }
@@ -87,6 +90,7 @@ function toPublic(batch: TrackedBatch): SteerFlushBatch {
     createdAt: batch.createdAt,
     ...(batch.attachmentTexts ? { attachmentTexts: batch.attachmentTexts } : {}),
     ...(batch.attachmentImages ? { attachmentImages: batch.attachmentImages } : {}),
+    ...(batch.requirements ? { requirements: batch.requirements } : {}),
     ...(batch.attachmentViews ? { attachmentViews: batch.attachmentViews } : {})
   }
 }
@@ -97,6 +101,7 @@ function scrubItem(item: PendingMessage): void {
   item.text = ''
   item.attachmentTexts = []
   item.attachmentImages = []
+  item.requirements = []
   item.attachmentViews = []
 }
 
@@ -104,6 +109,7 @@ function scrubBatch(batch: TrackedBatch): void {
   batch.text = ''
   batch.attachmentTexts = []
   batch.attachmentImages = []
+  batch.requirements = []
   batch.attachmentViews = []
   for (const item of batch.items) scrubItem(item)
   batch.items = []
