@@ -6,6 +6,7 @@ import type {
 } from '../../../../../../shared/ipc'
 import { useI18n } from '../../../../shared/i18n'
 import type { DiffLine } from '../../lib/diffLines'
+import { revealFileSection } from '../../lib/fileSectionScroll'
 import type { DiffRequirementDraft, DiffViewOptions } from '../../reducer/chatReducer'
 import { ChangedNavigationSidebar } from './ChangedNavigationSidebar'
 import { FileDiffSection } from './FileDiffSection'
@@ -65,9 +66,7 @@ export function DiffReview({
   const pickFile = useCallback(
     (path: string) => {
       onExpandFile(path)
-      const owner = scrollOwnerRef.current
-      const target = owner?.querySelector<HTMLElement>(`[data-diff-file="${CSS.escape(path)}"]`)
-      target?.scrollIntoView({ block: 'start' })
+      revealFileSection(scrollOwnerRef.current, path)
     },
     [onExpandFile]
   )

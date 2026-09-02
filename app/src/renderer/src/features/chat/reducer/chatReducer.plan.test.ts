@@ -526,6 +526,42 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
     expect(after.gitSnapshot.sidebarVisible).toBe(true)
   })
 
+  // 0211 ΔV4 r3 — **세션/저장소가 바뀌는 경계** (r2 검증 D18). 위 케이스가 같은 key 안의
+  // 세대 경계를 잠근다면 여기는 key 자체가 바뀌는 자리다: 앞 세션의 diff 를 남긴 채 새 요약을
+  // 기다리면 사용자는 **다른 저장소의 변경**을 자기 세션 것으로 읽는다.
+  it('key 가 바뀌면 요약과 패치를 함께 버린다 — 앞 세션 diff 가 남지 않는다', () => {
+    const before = {
+      ...initialChatState,
+      gitSnapshot: { ...initialChatState.gitSnapshot, summary: DIFF_SUMMARY, patch: DIFF_PATCH },
+      gitSnapshotRequest: { key: JSON.stringify(['/repo-a', 'session-a']), generation: 1 }
+    }
+
+    const after = chatReducer(before, {
+      type: 'BEGIN_GIT_SNAPSHOT_QUERY',
+      request: { key: JSON.stringify(['/repo-b', 'session-b']), generation: 1 }
+    })
+
+    expect(after.gitSnapshot.summary).toBeNull()
+    expect(after.gitSnapshot.patch).toBeNull()
+  })
+
+  it('같은 key 의 재조회는 이미 받은 것을 그대로 둔다 — 새로고침이 화면을 비우지 않는다', () => {
+    const request = { key: JSON.stringify(['/repo-a', 'session-a']), generation: 1 }
+    const before = {
+      ...initialChatState,
+      gitSnapshot: { ...initialChatState.gitSnapshot, summary: DIFF_SUMMARY, patch: DIFF_PATCH },
+      gitSnapshotRequest: request
+    }
+
+    const after = chatReducer(before, {
+      type: 'BEGIN_GIT_SNAPSHOT_QUERY',
+      request: { ...request, generation: 2 }
+    })
+
+    expect(after.gitSnapshot.summary).toBe(DIFF_SUMMARY)
+    expect(after.gitSnapshot.patch).toBe(DIFF_PATCH)
+  })
+
   it('refresh 신호 뒤 새 요청 시작 전 도착한 이전 응답도 무시한다', () => {
     const request = { key: JSON.stringify(['/repo', 'session-a']), generation: 1 }
     const started = chatReducer(initialChatState, {

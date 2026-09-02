@@ -166,6 +166,8 @@ describe('컨텍스트 바의 네 컨트롤 — `×` 는 타일이 그린다 (�
 })
 
 describe('`↗` 라벨은 카탈로그로 해석된다 (AT-52)', () => {
+  // **속성을 지목해 센다**(r2 검증 D17). 같은 문자열이 `title` 에도 실려 있어 문구만 찾으면
+  // `aria-label` 을 통째로 지운 변이가 green 이다 — AT-52 가 이름 붙인 것은 접근성 이름이다.
   it('기본 폭이면 넓히는 라벨, 최대 폭이면 되돌리는 라벨이다', () => {
     const wide = render({ colWidth: PANEL_DEFAULT_WIDTH })
     const narrow = render({ colWidth: PANEL_MAX_WIDTH })
@@ -173,11 +175,17 @@ describe('`↗` 라벨은 카탈로그로 해석된다 (AT-52)', () => {
     // 키가 그대로 새어 나오면 카탈로그를 지나지 않은 것이다.
     expect(wide).not.toContain('chat.rightpanel.diff')
     expect(narrow).not.toContain('chat.rightpanel.diff')
-    expect(wide).toContain('패널 확대')
-    expect(narrow).toContain('패널 폭 되돌리기')
+    expect(wide).toContain('aria-label="패널 확대"')
+    expect(narrow).toContain('aria-label="패널 폭 되돌리기"')
+    // 호버로 읽는 자리도 같은 문구다 — 둘 중 하나만 있으면 두 독자 중 하나가 잃는다.
+    expect(wide).toContain('title="패널 확대"')
+    expect(narrow).toContain('title="패널 폭 되돌리기"')
   })
 
-  it('폴더 버튼 라벨도 카탈로그 문구다 — 메뉴 항목과 같은 키를 쓴다', () => {
-    expect(render()).toContain('파일 표시')
+  it('컨텍스트 바의 아이콘 버튼 셋이 각자 접근성 이름을 갖는다 — 글리프만 남지 않는다', () => {
+    const html = render()
+
+    for (const name of ['파일 표시', 'diff 표시 설정', '패널 확대'])
+      expect(html).toContain(`aria-label="${name}"`)
   })
 })
