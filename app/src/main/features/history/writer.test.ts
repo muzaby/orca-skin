@@ -86,7 +86,10 @@ describe('HistoryWriter — session baseline birth persistence', () => {
       isNewSession: true
     } as unknown as TurnContext
 
-    persistence.persist(turn, { type: 'session.updated', sessionId: 'new-session' } as NormalizedEvent)
+    persistence.persist(turn, {
+      type: 'session.updated',
+      sessionId: 'new-session'
+    } as NormalizedEvent)
 
     expect(insertSession).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'new-session', baselineOid: 'a'.repeat(40) })
@@ -112,14 +115,14 @@ describe('HistoryWriter — session baseline birth persistence', () => {
         isNewSession
       }) as unknown as TurnContext
 
-    persistence.persist(
-      turn('a'.repeat(40), true),
-      { type: 'session.updated', sessionId: 'persisted-session' } as NormalizedEvent
-    )
-    persistence.persist(
-      turn('b'.repeat(40), false),
-      { type: 'session.updated', sessionId: 'persisted-session' } as NormalizedEvent
-    )
+    persistence.persist(turn('a'.repeat(40), true), {
+      type: 'session.updated',
+      sessionId: 'persisted-session'
+    } as NormalizedEvent)
+    persistence.persist(turn('b'.repeat(40), false), {
+      type: 'session.updated',
+      sessionId: 'persisted-session'
+    } as NormalizedEvent)
 
     expect(queries.getSessionBaseline('persisted-session')).toBe('a'.repeat(40))
     db.close()

@@ -500,7 +500,8 @@ export class DbQueries {
   }
 
   getSessionBaseline(sessionId: string): string | null {
-    const row = this.getSessionBaselineStmt.get({ sessionId }) as { baseline_oid: string | null } | undefined
+    const row = this.getSessionBaselineStmt.get({ sessionId }) as
+      { baseline_oid: string | null } | undefined
     return row?.baseline_oid ?? null
   }
 

@@ -119,7 +119,9 @@ describe('DB migrations hardening', () => {
     expect(
       db.prepare(`SELECT name FROM sqlite_master WHERE name = 'schedule_runs'`).get()
     ).toBeTruthy()
-    expect(db.prepare(`SELECT title, baseline_oid FROM sessions WHERE id = 'legacy-session'`).get()).toEqual({
+    expect(
+      db.prepare(`SELECT title, baseline_oid FROM sessions WHERE id = 'legacy-session'`).get()
+    ).toEqual({
       title: 'before',
       baseline_oid: null
     })

@@ -18,10 +18,7 @@ export function gitSnapshotQueryReason(
   return previous.busy && !next.busy ? 'turn-end' : null
 }
 
-export function gitSnapshotRequestKey(
-  cwd: string | null,
-  sessionId: string | null
-): string {
+export function gitSnapshotRequestKey(cwd: string | null, sessionId: string | null): string {
   return JSON.stringify([cwd, sessionId])
 }
 

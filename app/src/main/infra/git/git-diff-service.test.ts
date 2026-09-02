@@ -16,9 +16,7 @@ const metadata = (sha: string, body = ''): string =>
   `\x00orca-commit\x00${sha}\x00subject ${sha}\x00tester\x001756500000\x00${body}\x00`
 
 const withOneFile = (sha: string): string =>
-  metadata(sha, 'real body') +
-  '\x00:100644 100644 aaaaaaa bbbbbbb M\x00a.ts\x00' +
-  '2\t1\ta.ts\x00'
+  metadata(sha, 'real body') + '\x00:100644 100644 aaaaaaa bbbbbbb M\x00a.ts\x00' + '2\t1\ta.ts\x00'
 
 function fakeRunner(logResults: GitRunResult[]): ReturnType<typeof vi.fn<Runner>> {
   return vi.fn<Runner>(async (_cwd, args) => {

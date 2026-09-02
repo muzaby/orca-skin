@@ -40,7 +40,9 @@ describe('prepareTurnWorktree', () => {
       kind: 'passthrough',
       sessionBaseline: 'b'.repeat(40)
     })
-    await expect(prepareTurnWorktree({ ...common, sourceCwd: '/not-a-repo' })).resolves.toMatchObject({
+    await expect(
+      prepareTurnWorktree({ ...common, sourceCwd: '/not-a-repo' })
+    ).resolves.toMatchObject({
       kind: 'passthrough',
       sessionBaseline: null
     })

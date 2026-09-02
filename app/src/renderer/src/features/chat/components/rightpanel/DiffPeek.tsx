@@ -11,6 +11,7 @@ import {
   type DiffHunkLineRow,
   type DiffHunkState
 } from '../../lib/diffHunks'
+import { planUpwardExpansionCompensation } from '../../lib/diffViewport'
 import { buildDiffLines, type DiffLine } from '../../lib/diffLines'
 import type { DiffRequirementDraft, GitPeekTarget } from '../../reducer/chatReducer'
 import type { DiffPeekBodyState } from './diffFileCache'
@@ -280,6 +281,7 @@ function DiffPeekBody({
   const { tr } = useI18n()
   const [visibleHunks, setVisibleHunks] = useState(() => initialHunks(content))
   const scrollOwnerRef = useRef<HTMLDivElement>(null)
+  const tailSpacerRef = useRef<HTMLDivElement>(null)
   const pendingCompensationRef = useRef<PendingScrollCompensation | null>(null)
 
   useLayoutEffect(() => {
@@ -287,8 +289,18 @@ function DiffPeekBody({
     const owner = scrollOwnerRef.current
     if (!pending || !owner) return
     const anchor = owner.querySelector<HTMLElement>(`[data-diff-hunk-row-id="${pending.anchorId}"]`)
-    if (anchor && pending.insertedAbove > 0)
-      owner.scrollTop += anchor.getBoundingClientRect().top - pending.top
+    const spacer = tailSpacerRef.current
+    if (anchor && spacer && pending.insertedAbove > 0) {
+      const compensation = planUpwardExpansionCompensation({
+        scrollTop: owner.scrollTop,
+        scrollHeight: owner.scrollHeight,
+        clientHeight: owner.clientHeight,
+        anchorDelta: anchor.getBoundingClientRect().top - pending.top,
+        tailSpacerHeight: Number.parseFloat(spacer.style.height) || 0
+      })
+      spacer.style.height = `${compensation.tailSpacerHeight}px`
+      owner.scrollTop = compensation.scrollTop
+    }
     pendingCompensationRef.current = null
   }, [visibleHunks])
 
@@ -364,6 +376,7 @@ function DiffPeekBody({
           )}
         </p>
       )}
+      <div ref={tailSpacerRef} aria-hidden="true" className="pointer-events-none shrink-0" />
     </div>
   )
 }
