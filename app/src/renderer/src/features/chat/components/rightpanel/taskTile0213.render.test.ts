@@ -8,13 +8,44 @@
 // 껍데기 부재(AC8·AC9)는 형제 파일 `rightPanelTiles.render.test.ts` 가 래퍼를 직접 렌더해
 // 양성 짝과 함께 관측한다 — 여기서 다시 단언하지 않는다.
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { TaskProgressList } from './TaskTileContent'
-import { taskBoardFromMessages, taskBoardOrdered } from '../../lib/taskBoard'
+import { backgroundTaskKey, taskBoardFromMessages, taskBoardOrdered } from '../../lib/taskBoard'
 import type { Message } from '../../reducer/chatReducer'
 import type { AppMessagePart } from '../../../../../../shared/ipc'
+
+// 래퍼(`TaskTileContent`)는 store 를 읽는다 — `renderToStaticMarkup` 은 zustand 의 SSR
+// 스냅샷(`getInitialState()`)을 돌려주어 시드가 반영되지 않는다. 그래서 store 모듈을 통째로
+// 모킹해 **래퍼가 View 로 흘리는 props** 를 카드 산출로 관측한다(선례 `ChatTitleBar.render.test.ts`).
+const { tileState } = vi.hoisted(() => ({
+  tileState: {
+    value: {
+      messages: [] as unknown[],
+      selectedTaskKey: null as string | null,
+      taskStopErrors: {} as Record<string, unknown>,
+      agentTools: null as string[] | null,
+      cliVersion: null as string | null
+    }
+  }
+}))
+
+vi.mock('../../store/chatStore', () => ({
+  chatActions: {
+    acknowledgeSettledTasks: vi.fn(),
+    selectTask: vi.fn(),
+    stopTask: vi.fn(),
+    backgroundTask: vi.fn()
+  },
+  useChatSession: (select: (s: unknown) => unknown) => select(tileState.value),
+  useStoppingTasks: () => new Set<string>(),
+  usePausedTasks: () => new Set<string>(),
+  useBackgroundedTasks: () => new Set<string>(),
+  useSubagentMeta: () => undefined,
+  useUnseenSettledTaskCount: () => 0
+}))
+
+const { TaskProgressList, TaskTileContent } = await import('./TaskTileContent')
 
 let runSeq = 0
 const nextRun = (): string => `run${(runSeq += 1)}`
@@ -97,6 +128,22 @@ const renderProgress = (
     })
   )
 
+// 행 제목(= `aria-label` 의 안정 이름) → 그 **행** 의 HTML. 목록 전체에서 문구 유무만 보면
+// 어느 행이 냈는지 알 수 없고, 형제 행끼리 맞바뀐 회귀가 초록으로 통과한다 — 어디에 담겼는지까지
+// 본다(형제 파일 `sectionBodies` 와 같은 형태). 행이 없으면 `undefined` 라 fail-closed 다.
+function rowsBySubject(html: string): Record<string, string> {
+  const rows: Record<string, string> = {}
+  for (const chunk of html.split('<div role="button"').slice(1)) {
+    const subject = chunk.match(/aria-label="([^"]+) 상세 보기"/)?.[1]
+    if (subject !== undefined) rows[subject] = chunk
+  }
+  return rows
+}
+
+// **부재 술어는 부재가 깨질 때 나타날 산출 전체를 덮는다.** `#2 완료 필요` 로 세면 id 가 빠진
+// 같은 문구(`# 완료 필요`)를 못 본다 — 실제로 `blockedBy.length === 0` 가드를 지운 변이가 그
+// 좁은 술어를 통과했다(r1 verify D1). 그래서 세는 술어는 id 를 뺀 문구 자체다.
+const BLOCKED_ANY = /완료 필요/g
 const BLOCKED = '#2 완료 필요'
 const NOTICE = '연결된 Claude Code 가 할 일 목록 도구를 지원하지 않습니다.'
 const EMPTY = 'Claude 가 Task 를 만들거나 백그라운드 작업을 시작하면 여기에 표시됩니다.'
@@ -112,14 +159,16 @@ describe('0213 R-03 — 할 일 행의 막힘 표시 (AT-11·12·13 · §10 EP-0
         agentTask('그냥 대기', '4')
       )
     )
-    // 양성 — 막힌 행에 문구가 있다. 상세와 같은 키(`blockedByValue`)로 조립된다.
-    expect(html).toContain(BLOCKED)
+    const rows = rowsBySubject(html)
     // 세 행이 모두 살아 있다(음성 단언이 빈 출력으로 자동 통과하지 않는다).
-    expect(html).toContain('선행 작업')
-    expect(html).toContain('막힌 작업')
-    expect(html).toContain('그냥 대기')
-    // 음성 — 문구는 **한 번만** 난다. 세 행 전부에 붙는 회귀를 막는다.
-    expect(html.match(/#2 완료 필요/g)).toHaveLength(1)
+    expect(Object.keys(rows).sort()).toEqual(['그냥 대기', '막힌 작업', '선행 작업'])
+    // 양성 — **막힌 행에** 문구가 있다. 상세와 같은 키(`blockedByValue`)로 조립된다.
+    expect(rows['막힌 작업']).toContain(BLOCKED)
+    // 음성 — 미막힘 두 행에는 그 문구가 **행 안에** 없다. 목록 전체가 아니라 행마다 본다.
+    expect(rows['선행 작업']).not.toMatch(BLOCKED_ANY)
+    expect(rows['그냥 대기']).not.toMatch(BLOCKED_ANY)
+    // 음성 — id 를 뺀 문구까지 덮어 **전체 1회**다. `blockedBy` 빈 가드를 지우면 미막힘 행이
+    // `# 완료 필요` 를 내는데, 좁은 술어는 그것을 못 본다(r1 verify D1).
   })
 
   it('AT-13 — `completed` 행은 같은 의존을 갖고도 문구를 내지 않는다 (D-006)', () => {
@@ -132,10 +181,12 @@ describe('0213 R-03 — 할 일 행의 막힘 표시 (AT-11·12·13 · §10 EP-0
         })
       )
     )
+    const rows = rowsBySubject(html)
     // 양성 짝 — 행 자체는 있다. 사라진 것은 둘째 줄뿐이다.
-    expect(html).toContain('끝난 작업')
-    expect(html).toContain('line-through')
-    expect(html).not.toContain(BLOCKED)
+    expect(rows['끝난 작업']).toContain('line-through')
+    // 음성 — id 유무와 무관하게 그 행에 문구가 없다. 목록 전체로도 0회다.
+    expect(rows['끝난 작업']).not.toMatch(BLOCKED_ANY)
+    expect(html.match(BLOCKED_ANY)).toBeNull()
   })
 
   it('AT-14 — background 행은 자기 메타 줄을 그대로 낸다 — 형제 슬롯이 맞바뀌지 않는다', () => {
@@ -146,13 +197,14 @@ describe('0213 R-03 — 할 일 행의 막힘 표시 (AT-11·12·13 · §10 EP-0
         backgroundTask('bg1', '로그 파서 조사')
       )
     )
-    // 두 분기가 **같은 둘째 줄 슬롯**을 쓴다. 존재만 보면 맞바꿈이 침묵하므로 각각 자기
-    // 문구를 내는지 본다 — 맞바꾸면 background 행이 의존을, 할 일 행이 메타를 말한다.
-    expect(html).toContain('로그 파서 조사')
-    expect(html).toContain('background')
-    expect(html).toContain(BLOCKED)
-    // 막힘 문구는 할 일 행 쪽에만 있다 — background 항목은 `blockedBy` 가 항상 비어 있다.
-    expect(html.match(/#2 완료 필요/g)).toHaveLength(1)
+    const rows = rowsBySubject(html)
+    // 두 분기가 **같은 둘째 줄 슬롯**을 쓴다. 존재만 보면 맞바꿈이 침묵하므로 **어느 행이**
+    // 무엇을 냈는지까지 본다 — 맞바꾸면 background 행이 의존을, 할 일 행이 메타를 말한다.
+    expect(rows['로그 파서 조사']).toContain('background')
+    expect(rows['로그 파서 조사']).not.toMatch(BLOCKED_ANY)
+    expect(rows['막힌 작업']).toContain(BLOCKED)
+    expect(rows['막힌 작업']).not.toContain('background')
+    // 목록 전체로도 문구는 한 번뿐이다(id 를 뺀 폭으로 센다).
   })
 })
 
@@ -196,5 +248,67 @@ describe('0213 R-04 — 기능 부재 안내의 분모 (AT-15~18 · §10 EP-05)'
     const html = renderProgress(messages(), { agentTools: ['TaskCreate'], cliVersion: '2.1.100' })
     expect(html).toContain(EMPTY)
     expect(html).not.toContain(NOTICE)
+  })
+})
+
+// ── VP-08 path 의 마지막 홉 — 래퍼 → View props ───────────────────────────────
+
+describe('0213 — 래퍼가 View 로 흘리는 props (VP-08 path `→ 카드` · §12)', () => {
+  // 분기 자체는 위에서 잠갔다. 여기서 보는 것은 **그 판정의 입력이 어디서 오는가** 다 —
+  // 래퍼가 props 를 안 넘기면 기본값(`null`·`{}`)으로 떨어져 안내가 프로덕션에서 영영 안 뜨는데,
+  // View 를 고립 렌더하는 oracle 은 그것을 못 본다(r1 verify D2).
+  //
+  // 네 props 를 **전수로** 본다: `items` · `stopErrors` · `agentTools` · `cliVersion`.
+  // D2 는 뒤의 둘만 지목했으나 같은 불변식이 넷 모두에 성립한다.
+  const renderCard = (state: Partial<typeof tileState.value>): string => {
+    tileState.value = {
+      messages: [],
+      selectedTaskKey: null,
+      taskStopErrors: {},
+      agentTools: null,
+      cliVersion: null,
+      ...state
+    }
+    return renderToStaticMarkup(createElement(TaskTileContent))
+  }
+
+  it('`agentTools`·`cliVersion` 이 카드까지 흐른다 — 안내와 버전이 실제로 뜬다', () => {
+    const html = renderCard({
+      messages: messages(backgroundTask('bg1', '로그 파서 조사')),
+      agentTools: ['Bash', 'Read'],
+      cliVersion: '2.1.100'
+    })
+    expect(html).toContain(NOTICE)
+    expect(html).toContain('2.1.100')
+  })
+
+  it('`agentTools` 판정 불가면 카드도 안내하지 않는다 — 음성 짝', () => {
+    const html = renderCard({
+      messages: messages(backgroundTask('bg1', '로그 파서 조사')),
+      agentTools: null,
+      cliVersion: '2.1.100'
+    })
+    expect(html).not.toContain(NOTICE)
+    expect(html).toContain('로그 파서 조사')
+  })
+
+  it('`items` 가 카드까지 흐른다 — 세션 parts 가 행이 된다', () => {
+    const html = renderCard({
+      messages: messages(
+        agentTask('선행 작업', '2'),
+        agentTask('막힌 작업', '3', { blockedBy: ['2'] })
+      )
+    })
+    const rows = rowsBySubject(html)
+    expect(Object.keys(rows).sort()).toEqual(['막힌 작업', '선행 작업'])
+    expect(rows['막힌 작업']).toContain(BLOCKED)
+  })
+
+  it('`stopErrors` 가 카드까지 흐른다 — 중단 실패 문구가 그 행에 뜬다', () => {
+    const html = renderCard({
+      messages: messages(backgroundTask('bg1', '로그 파서 조사')),
+      taskStopErrors: { [backgroundTaskKey('bg1')]: { messageKey: 'chat.taskTile.stopFailed' } }
+    })
+    expect(rowsBySubject(html)['로그 파서 조사']).toContain('중단하지 못했습니다')
   })
 })
