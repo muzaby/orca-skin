@@ -682,3 +682,216 @@ r1 의 D1~D15 처리는 아래 §12 에, 이번 라운드 신규는 D16~D21 이�
 - NON_BLOCKING: D17·D18·D19·D20·D21 + r1 잔여 D7 · NEXT_HANDOFF: D15
 - 남은 사람 확인: **4건**(파일 경계 가독성 · 사이드바 연출 · 형제 대비 · 위쪽 확장 시야). windows CI 축은 `ae26806` 의 green gate 로 닫혔다
 - 다음 단계: **구현자가 D16 하나를 닫는다.** 테스트 한 파일의 double 을 스크롤 스파이 노드로 바꾸는 작업이며 프로덕션 변경을 요구하지 않는다. D17·D19 를 같은 라운드에 함께 닫으면 AC 가 이름 붙인 오라클이 전부 선다.
+
+## Verify r3 (ΔV4) — FAIL
+
+**판정: `FAIL`.** r2 가 남긴 차단 D16 의 **인용 변이 넷은 전부 닫혔다**(M16a~M16d RED). 그런데 구현자가 처방과 **다른 장치**를 골랐고, 그 대체물이 원본에 없던 실패 모드를 만들었다 — 이동의 **소유자 인자**가 무관측이다. `revealFileSection(null, path)` 로 바꾸면 프로덕션에서 어떤 파일을 골라도 화면이 움직이지 않는데 **typecheck 0 error · lint 0 error · 3,080 케이스 전건 green** 이다(D22). 사용자가 보는 증상은 D16 과 같다: 사이드바에서 파일을 눌러도 아무 일이 없고 아무도 red 가 아니다. `PLAN_GAP` 은 없다 — AT-50 이 그 오라클을 이미 이름으로 적었다. 다음 주체는 구현자다.
+
+r1·r2 판정 원문은 위 두 절에 그대로 둔다 — 이 절은 이번 라운드의 재측정만 적는다.
+
+## 0. 기준선 / plan 변경 확인
+
+- **기준선이 diff 로 성립하는가**: **예.** 설계 정정이 `9bf8c15`(`Status: designed`)로 분리됐고 구현은 `762db42`(`Status: implemented`) 다.
+- 구현 커밋의 `plan.md` diff: **77 추가 / 5 삭제**. 삭제 5줄은 전부 `[검증자 기입] 파생 이슈` 표의 **상태 칸 갱신**(D16~D20 행 재작성)이고, 추가분은 `## [구현자 기입] … (ΔV4 r3)` 7절이다.
+- Decision Ledger · Product/UX Contract · AC · V pair · §10 변경: **없음**. `git show 762db42 -- plan.md` 에 `| AT-` · `| VP-` · `| D-0` 로 시작하는 규범 행 변경 0.
+- 그 밖의 규범 행 변경: §18 을 라운드별 3절로 나눈 것(`9bf8c15`, D20 처방)뿐이다.
+
+### Plan validity (r3 차분만)
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| 기준 커밋 실재 | 유효 | `git cat-file -t` — `b85195e`·`e62a2a0`·`fe36194`·`762db42`·`9bf8c15`·`3b472f7`·`46047ac` 전부 `commit` |
+| §18 재계수 ↔ 커밋 | 유효 | r3 절의 열거(프로덕션 신규 1·변경 1·테스트 신규 1·변경 4) = `git show 762db42 --stat` 의 코드 7파일 |
+| root `PLAN_GAP` | **없음** | 남은 오라클(D22)을 AT-50 원문이 "그 섹션의 `scrollIntoView` 를 부른다고 단언(스텁)" 으로 이미 적었다 |
+
+## 1. 구현 결과 비판적 검토 — AC 전에
+
+- **프로덕션 hunk 는 둘이다.** `DiffReview.tsx` 의 세 줄 → 호출 한 줄, `lib/fileSectionScroll.ts` 신규 27줄. 선택자·정렬(`block:'start'`)·널 처리가 전부 같아 **화면 동작 변화 0** 이다.
+- **동작 보존 추출 라운드다.** hunk 되돌림은 동작이 같은 이전 코드로 돌아갈 뿐이라 아무것도 재지 못하므로 쓰지 않았다 — 전부 프로덕션 소거·치환·**형제 맞바꿈** 변이로 쟀다.
+- **추출이 새 실패 모드를 만든다.** 인라인일 때 `scrollOwnerRef.current` 는 호출 지점에서 직접 읽혀 틀릴 자리가 없었다. 인자가 된 지금은 **무엇을 넘기는가**가 새 축이고, 이 축을 보는 눈이 없다(§3 A1·A1b).
+- false success 가능성: 이번 diff 는 계기·상태·외부 쓰기를 만들지 않는다. 새 반환값(`boolean`)은 프로덕션 소비처 0 이다.
+
+## 2. 역방향 탐색
+
+`scan-surface.sh 762db42^..762db42` 는 후보 3건을 냈다.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| `DiffReview.tsx :: DiffReviewProps`(타입) | 오탐 | 같은 파일 시그니처용 |
+| `fileSectionScroll.ts :: FileSectionTarget`(타입) | 오탐 | `FileSectionOwner.querySelector` 반환 타입 |
+| `fileSectionScroll.ts :: FileSectionOwner`(타입, 테스트 참조 2·프로덕션 0) | 오탐 | 프로덕션은 구조적 호환으로 `HTMLDivElement` 를 넘긴다 — 이름을 안 쓸 뿐 계약은 지난다 |
+
+- 신규 죽은 export **0** · 미배선 신규 심볼 **0**: `revealFileSection` 은 `DiffReview.tsx:69` 가 부른다.
+- **동명 로컬 재구현 0**: `fileSectionScroll.test.ts` 는 `./fileSectionScroll` 을 직접 부르고, `diffReviewNavigation.test.ts` 는 `./DiffReview` 를 부른다. mock 대상 specifier(`../../lib/fileSectionScroll`)가 프로덕션 import 와 **같은 경로로 해석**된다.
+- 형제 파일 정책 비대칭 **0**.
+- 신규 구조적 proxy·0건/전수 스윕 **0** — 이번 라운드 신규 오라클은 전부 행동 단언이다(§8 엄격화 대상 없음).
+
+## 3. 재측정 표 — 구현 보고가 등록한 변이 (7/7 RED)
+
+보고를 대조의 출발점으로만 쓰고 7건을 **직접 다시 심어** 각 대상 스위트를 재실행했다.
+
+| 변이 | 무엇을 깼나 | r3 재측정 | 관측 |
+|---|---|---|---|
+| M16a | `pickFile` 에서 `revealFileSection` 호출 제거(+ 죽은 import 정리) | **RED** | `fileSectionScroll`+`diffReviewNavigation` 1/10 |
+| M16b | `revealFileSection` 에서 `scrollIntoView` 제거 | **RED** | 같은 두 파일 1/10 |
+| M16c | `block:'start'` → `'center'` | **RED** | 같은 두 파일 1/10 |
+| M16d | `CSS.escape` 우회 — 경로를 날것으로 | **RED** | 같은 두 파일 2/10 |
+| M17 | `↗` 의 `aria-label` 제거(`title` 은 남긴다) | **RED** | `GitContextBar.render` 2/8 |
+| M18 | `BEGIN_GIT_SNAPSHOT_QUERY` 의 `patch: null` 제거 | **RED** | `chatReducer.plan` 1/39 |
+| M19 | 전체 줄 예산을 커서로(`if (collect)` 제거) | **RED** | `git-diff-parse` 1/30 |
+
+> **검증자 자기 오측 1건, 교정함.** M16d 첫 실행은 GREEN 이었는데 원인은 코드가 아니라 **내 편집 스크립트가 no-op** 이었다(파이썬 `"\$"` 가 `${` 와 매치되지 않는다). 파일이 실제로 바뀌었는지 확인하고 다시 심자 RED 다 — exit code 를 관측으로 쓰지 않는다는 §8 이 검증자 자신에게도 걸린다.
+
+### 재측정 표 — 이전 라운드가 red 로 본 변이 (덮개 회귀 0)
+
+이번 diff 가 건드린 4파일 주변의 r1·r2 red 를 표본으로 재실행했다. **`red → green` 으로 뒤집힌 축 0.**
+
+| 변이 | 이전 | r3 재측정 | 이번 라운드에 바뀐 파일이라 다시 잰 이유 |
+|---|---|---|---|
+| P36-2 `pickFile` 의 `onExpandFile` 제거 | red(r2) | **RED**(2/33) | `DiffReview.pickFile` 이 이번 diff 의 프로덕션 hunk 다 |
+| P34-2 요약 수신 `patch:null` 제거 | red(r2) | **RED**(1/39) | `chatReducer.plan.test.ts` 가 이번에 바뀌었다 |
+| I1 계열 — `filesLabel` 을 카탈로그 대신 날것 키로 | red(r2) | **RED**(2/8) | `GitContextBar.render.test.ts` 는 단언을 **교체**한 파일이라 위험도가 가장 높다 |
+| EP-31 ② 파일당 줄 상한 소거 | red(r1) | **RED**(1/30) | `git-diff-parse.test.ts` 가 이번에 바뀌었다 |
+
+### 재측정 표 — 검증자 독립 축 (5건 중 3 green)
+
+**구현자 = 검증자인 라운드다**(둘 다 `Agent: claude`). 보고된 7변이를 다시 심는 것은 자기 목록의 재실행이라, 보고가 이름을 대지 않았거나 **이름은 댔으나 재지 않은** 축을 따로 만들었다 — 같은 계약을 seam 바깥에서 깨기 2(A1·A1b) · 형제 슬롯 맞바꿈 1(A7) · 순서 1(A2) · 반환 계약 1(A5).
+
+| 축 | 무엇을 깼나 | 결과 | 귀속 |
+|---|---|---|---|
+| **A1b** | `revealFileSection(null, path)` — 프로덕션이 **아무것도 스크롤하지 않는다** | **green**(typecheck 0 error · lint 0 error · 3,080 전건) | **VP-58 / AT-50 — D22** |
+| **A1** | 소유자를 형제 ref 로 맞바꿈(`scrollOwnerRef` → `tailSpacerRef`) | **green**(typecheck 0 error · 3,080 전건) | **VP-58 / AT-50 — D22** |
+| A7 | 형제 아이콘 버튼 둘의 접근성 이름 맞바꿈(폴더 ↔ `↗`) | green(`render`+`actions` 17 전건) | VP-60 / AT-52 — D23 |
+| A2 | `onExpandFile` 과 이동의 **순서** 뒤집기 | green(3,080 전건) | §10 EP-36 ② 문구 — D24 |
+| A5 | `return target !== null` → `return true` | red(2/4) | 반환 계약은 잠겨 있다 |
+
+- **A1b 가 이번 라운드의 유일한 차단이다.** 프로덕션은 옳은 ref 를 넘긴다(`DiffReview.tsx:69`) — 없는 것은 그 인자를 보는 눈이다. r3 이 만든 두 반쪽은 각각 **"고른 경로로 부른다"**(SSR 이라 첫 인자는 항상 `null`)와 **"주어진 소유자 안에서 찾아 스크롤한다"** 를 잰다. 둘을 잇는 **무엇을 소유자로 주는가**가 어느 쪽에도 없다.
+- **구현 보고의 대응 주장은 실측으로 반증된다.** 보고 `놓친 잠재 문제 (ΔV4 r3)` 2 는 "`ref` 배선은 typecheck 와 `data-diff-scroll-owner` 렌더 단언이 받는다" 고 적었다. 두 형제 ref 가 같은 `useRef<HTMLDivElement>` 라 typecheck 는 **0 error**(A1)이고, `data-diff-scroll-owner` 단언은 두 곳 다 `toContain('data-diff-scroll-owner')` 라 **속성 존재만** 본다(`diffReviewNavigation.test.ts:139`·`diffTile.render.test.ts:96`) — 그 노드가 `revealFileSection` 에 건네지는지는 어느 쪽도 보지 않는다.
+- A7 은 세 문자열이 마크업에 **모두 남아** 침묵한다. 새 단언이 세 이름을 돌며 `html` 전체에 `aria-label="<이름>"` 이 있는지만 보므로(`GitContextBar.render.test.ts:188~189`) 어느 버튼이 어느 이름을 갖는지는 세지 않는다 — 테스트 이름의 "**각자**" 를 단언이 따라가지 못한다.
+- A2 는 프로덕션 동작 차이가 없다. `onExpandFile` 은 React 상태 갱신이라 같은 동기 블록 안에서 DOM 이 바뀌지 않으므로 두 순서가 같은 결과를 낸다 — §10 EP-36 ② 문구("먼저 펼친 뒤 이동")와 코드의 관계만 어긋난 자리다.
+
+## 4. V-pair closeout — 재검증 범위
+
+r2 의 root 실패 pair + 그 §10 지점 + 이번 diff 가 영향을 준 pair 를 실행했다. 영향받지 않은 r2 `PASS` 는 r2 `§4` 의 증거 좌표를 참조하고 다시 세지 않는다.
+
+| Pair | 레벨 | r2 | r3 | 직접 검증 증거 |
+|---|---|---|---|---|
+| **VP-58** | AT | PAIR_FAIL | **PAIR_FAIL** | 호출·실행·정렬·이스케이프는 잠겼다(M16a~M16d red). **소유자 인자가 무관측 — A1b green** |
+| VP-60 | AT | PASS | **PASS** | 폭 토글 인자 `(2, MAX)`·`(2, DEFAULT)` 유지(`GitContextBar.actions` 17 green). `aria-label` 속성 축이 이번에 닫혔다(M17 red). 슬롯 귀속은 D23 |
+| VP-54 | ST | PASS | **PASS** | key 전환 폐기 + 같은 key 보존 양성 짝(M18 red · P34-2 red) |
+| VP-55 | UT+IT | PASS | **PASS** | 예산 의미가 오라클을 얻었다(M19 red) · 파일당 상한 회귀 red |
+| VP-51 | UT+AT | PASS | **PASS** | I1 계열 red 재현 — `GitContextBar.render.test.ts` 가 이번에 바뀐 파일이다 |
+| VP-62·VP-57 | AT·UT | PASS | **PASS** | `diffTile.render` 27케이스 green 유지(P36-2 가 이 파일에서도 red) |
+| 그 밖의 r2 `PASS`·`NOT_REQUIRED` | — | — | **미영향** | 이번 diff 의 프로덕션 hunk 둘이 그 경로를 건드리지 않는다 |
+
+- root `PAIR_FAIL`: **VP-58** 1행. 종속 `BLOCKED_BY`: **없음** — 나머지 상위 pair 를 전부 독립 관측했다.
+- REQUIRED **11 PASS · 1 PAIR_FAIL** · REGRESSION **12 PASS** · NOT_REQUIRED **15**.
+
+## 5. plan §10 강제 지점 — 검증자 재계수
+
+| 지점 | 분모 | 재계수 | 관측 |
+|---|---|---|---|
+| EP-36 ① 두 진입점이 같은 상태 | 2 | **2/2** | `toggleDiffSidebar` 프로덕션 호출 = `GitContextBar.tsx:173`(폴더)·`:246`(메뉴) 둘, 액션 정의 = `chatStore.ts:1367` 하나 |
+| EP-36 ② 선펼침 + 이동 | 2 | **1.5/2** | 선펼침 red(P36-2) · 이동은 **반쪽**(호출·스크롤 red, 소유자 green) |
+| EP-34 ③ 패치 조회 소유자 | 1 | **1/1** | `.diffPatch(` 프로덕션 = `useGitPatch.ts:55` 하나(`shared/api/ipc.ts:148` 은 정의부, r1 이 계상) |
+| EP-31 ①②③ 상한 셋 | 3 | **3/3** | `MAX_DIFF_FILES=200`·`MAX_PATCH_FILE_LINES=50_000`·`MAX_PATCH_TOTAL_LINES=200_000`, 예산 소비는 `git-diff-parse.ts:407` |
+
+**구현자가 센 라벨을 표본으로 확인했다.** AT-52 의 "아이콘 버튼 **셋**" 은 참이다 — `GitContextBar.tsx` 의 버튼은 넷이고(`:169`·`:179`·`:198`·`:210`), 그중 `:179` 는 기준선 이름을 **보이는 텍스트**로 갖는 비교 트리거라 접근성 이름이 따로 필요 없다. 나머지 셋이 `iconOnly` 이고 셋 다 `aria-label` 을 갖는다.
+
+## 6. 숫자 / 상한 재측정
+
+- 테스트 총계 **3,080**: 구현 보고의 `3,071 → 3,080`(+9) 이 내역과 맞는다 — `fileSectionScroll` 4(신규 파일 `it` 4개) · `diffReviewNavigation` +2 · `chatReducer.plan` +2 · `git-diff-parse` +1 = **9**. `GitContextBar.render` 는 ±0(단언 교체, 실측 8케이스).
+- 심은 결함 검산 **7 = D16 넷 + D17·D18·D19 각 1**: 맞다.
+- 자기보고 합계 대조: 본문 `12/12` ↔ trailer `Criteria-Met: 12/12` ↔ INDEX 비고 — **세 자리가 같은 값**이다(0190 r1 형태의 분기 없음). 다만 검증 재판정은 `✅11 ⚠️1`(AT-50).
+
+## 7. 게이트 재실행 — 산출 관측
+
+| 게이트 | 산출 | 판정 |
+|---|---|---|
+| `npm run typecheck` | 3구성(node·web·test) **0줄** | PASS |
+| `npm run lint` | **0 error · 1 warning**(`react-hooks/incompatible-library`, 기존분). 실행 후 `git status` **빈 출력** | PASS |
+| `vitest run --maxWorkers=2` | **310파일 중 309 green · 3,080 케이스 전건 green** | PASS |
+| 같은 실행의 red 1파일 | `chat-turn.continuity.test.ts` — `Electron failed to install correctly` | 환경 기인, 이번 diff 무관 |
+| `node --test "scripts/*.test.mjs"` | **67/67 pass · 8 suites · fail 0** | PASS |
+| `check-doc-inventory.mjs --check` | `ok (9 items, 82 channels)` · prose ok · links ok | PASS |
+| `check-migrations-appendonly.mjs` | `20 migrations, dir == migrate.ts imports` · exit 0 | PASS |
+
+- **검증 중 트리 변화 0**: 변이 7 + 독립 축 5 를 심을 때마다 `git checkout -- app/src` 로 되돌렸고, 마지막 `git status` 가 빈 출력이다. `lint` 는 `--fix` 라 파일을 쓸 수 있어 실행 직후 따로 확인했다 — 변화 없음.
+- **windows CI 축은 이 라운드에서 로컬이 재지 못한다**(r2 실측). 이번 diff 는 경로를 값으로 비교하는 스윕을 건드리지 않았다.
+
+## 8. 테스트 가능한 핸들 — D22 는 사람 실기가 아니다
+
+남는 사람 실기는 **4건 그대로**다(파일 경계 가독성 · 사이드바 연출 · 형제 타일 대비 · 위쪽 확장 시야, D-060·D-067).
+
+- **D22 는 자동 관측이 가능하다.** 두 길 중 하나면 닫힌다: ① `diffReviewNavigation.test.ts` 가 `DiffReview` 에 **스크롤 소유자를 주입**해 `revealFileSection.mock.calls[0][0]` 을 단언한다(D16 의 원래 처방이 이 길이다 — double 이 노드를 공급하면 소유자도 함께 잠긴다) ② 소스 스윕으로 `revealFileSection(` 의 첫 인자가 `scrollOwnerRef.current` 임을 고정한다(§10 EP-34 ③ 이 이미 쓰는 형태). DOM 패키지 추가는 필요 없다.
+- 마운트 순서(effect) 자체는 이번에도 자동 oracle 이 없다 — `environment: 'node'` 의 한계다.
+
+## 9. Repository operation checks
+
+- `AGENTS.md` 변경: **없음** — 위생 검사 해당 없음.
+- **trailer 파싱**: `git log -1 --format='%(trailers:only=true)' 762db42` 가 **8키**를 그대로 돌려준다. 허용값도 root `AGENTS.md` 표와 일치 — `Agent: claude` · `Status: implemented` · `Verified-By: pending`, `Criteria-*` 는 구현 커밋에만.
+- 인용 커밋 실재: 위 §0 표의 7해시 전부 `commit`.
+- **대상 커밋 좌표**: 구현자가 남긴 `(r3 구현 — 검증자 기입)` 을 **`762db42`** 로 채웠다(INDEX). plan 의 구현 보고 행은 자리표시자로 둔다 — 좌표 정본은 INDEX 한 곳이다.
+- **`[구현자 기입]` 7필드**: **7/7 존재**. 산문으로 접힌 필드 0 — `이번 라운드 수정의 잠금` 이 7행 표를, `강제 지점 전수` 가 4행 표를 갖는다.
+- INDEX 비고: 구현자 갱신분 **643자**(r2 809자에서 축소). 이번 검증 갱신에서 5줄 이내로 다시 쓴다.
+- 이동/삭제한 reference: **없음**. `DiffReview.pickFile` 의 두 줄은 삭제가 아니라 `lib/fileSectionScroll.ts` 로 이설됐고 살아 있는 소비처를 갖는다.
+
+## 10. 구현자 코멘트 / 선조치 경계
+
+| 구현자 코멘트 | 검증자 판단 | 반영 |
+|---|---|---|
+| "심은 결함 7/7 RED" | **타당** | 7/7 직접 재현 |
+| "r2 등록 변이 11/11 RED 재확인 · 덮개 회귀 0" | **표본에서 타당** | 이번 diff 가 건드린 4파일 주변 4건을 다시 심어 전건 RED. red→green 0 |
+| "축을 둘로 갈랐다 — 부르는지와 무엇을 부르는지" | **부분적으로만 타당** | 두 반쪽은 각각 잠겼다. **둘을 잇는 세 번째 축(무엇을 소유자로 주는가)** 이 남는다 → D22 |
+| "`ref` 배선은 typecheck 와 `data-diff-scroll-owner` 렌더 단언이 받는다" | **반증됨** | typecheck 0 error(A1) · 두 단언 모두 속성 존재만 확인 |
+| "반환값이 생겼다, 지금 소비처는 없다" | **타당** | 프로덕션 소비처 실측 0. 테스트는 값을 단언한다(A5 red) |
+| "D17 을 아이콘 버튼 셋 전부로 닫았다" | **타당하나 부분적** | 분모 셋은 참(§5). 속성 축은 닫혔고(M17 red) **슬롯 귀속**이 열려 있다 → D23 |
+| "D7 은 사용자 결정" | **타당** | r2 재확인과 같다 — 이번 라운드에 바뀐 것 없다 |
+| 자기보고 `Criteria-Met: 12/12` | **미달 1** | 검증 재판정 `✅11 ⚠️1` — AT-50 |
+
+## 11. Finding disposition / 파생 이슈
+
+이번 라운드 신규는 D22~D24 다. 정본 표는 [`plan.md` §[검증자 기입] 파생 이슈](plan.md) 에 함께 반영한다.
+
+| # | finding | 귀속 | disposition |
+|---|---|---|---|
+| **D22** | 이동의 **소유자 인자**가 무관측 — `revealFileSection(null, path)` 로 프로덕션이 아무것도 스크롤하지 않게 해도 typecheck·lint·3,080 케이스 전건 green | VP-58 / AT-50 | **BLOCKING** — 소유자를 주입해 첫 인자를 단언하거나(D16 원래 처방) 소스 스윕으로 `scrollOwnerRef.current` 를 고정한다 |
+| D23 | 아이콘 버튼 셋의 접근성 이름을 **서로 맞바꿔도** green — 세 문자열이 마크업에 모두 남아 존재 단언이 침묵한다 | VP-60 / AT-52 | NON_BLOCKING — 버튼을 지목해(`data-diff-sidebar-toggle` 등) 이름을 짝지어 단언한다 |
+| D24 | §10 EP-36 ② 는 "먼저 펼친 뒤 이동" 이라 적었는데 순서를 뒤집어도 green | §10 EP-36 ②(문구) | NON_BLOCKING — 프로덕션 동작 차이가 없다(React 상태 갱신은 동기 DOM 을 바꾸지 않는다). 문구를 코드에 맞추거나 순서 oracle 을 세운다 |
+
+**미검출 인용 변이**: **0**. D16 이 인용한 넷(M16a~M16d)과 D17·D18·D19 가 인용한 셋을 전부 다시 심어 RED 를 확인했다 — 구현자가 `closed` 로 적은 상태를 인용 변이 축에서 되돌릴 근거는 없다. **D16 만 예외로 `부분 closed`** 다: 인용 변이는 닫혔으나 구현자가 처방과 다른 장치를 골랐고 그 대체물의 새 실패 모드가 열려 있다(D22).
+
+## 12. r2 파생 이슈 처리 확인
+
+| # | r2 분류 | 구현자 상태 | 검증자 재판정 |
+|---|---|---|---|
+| **D16** | BLOCKING | closed | **부분 closed** — M16a~M16d red 로 인용 변이는 닫혔으나 소유자 축이 남았다 → **D22 로 이관** |
+| D17 | NON_BLOCKING | closed | **closed** — M17 red. 슬롯 귀속은 신규 D23 |
+| D18 | NON_BLOCKING | closed | **closed** — M18 red, 양성 짝(같은 key 보존)까지 있다 |
+| D19 | NON_BLOCKING | closed | **closed** — M19 red, 상수에서 유도한 케이스다 |
+| D20 | NON_BLOCKING | closed(설계) | **closed** — §18 이 r1 기준 + r2·r3 절로 갈렸고 열거가 `--stat` 과 맞는다 |
+| D21 | NON_BLOCKING | closed(r2 검증) | **재발 아님** — 643자로 더 줄었고 이번 갱신에서 5줄 이내로 쓴다 |
+| D7 | NON_BLOCKING | open(사용자) | **open 유지** — 이번 라운드에 바뀐 것 없다 |
+| D15 | NEXT_HANDOFF | open | **open 유지** — `--maxWorkers=2` 로 이번에도 간헐 실패를 보지 않았다 |
+
+## 13. Review Signals — 사실만
+
+- **이전 라운드와 동일 증상인가**: **그렇다 — 같은 pair 의 세 번째 라운드다.** r1 = AC 가 이름 붙인 오라클 6자리 부재 → r2 가 5 닫음 → r3 이 넷을 닫고 **한 축을 옆으로 옮겼다**. 사용자가 보는 증상은 세 라운드가 같다: 사이드바에서 파일을 눌러도 화면이 안 움직이는데 전건 green.
+- **관련 plan 지침/AC 가 있었는가**: **있었다.** AT-50 원문이 "파일 클릭이 그 섹션의 `scrollIntoView` 를 부른다고 단언(스텁)" 이고, D16 의 처방도 "double 이 스크롤 스파이를 단 **노드를 돌려주고**" 였다 — 처방을 따랐다면 소유자가 double 에서 나왔으므로 이 축이 함께 닫혔다.
+- **구현자 = 검증자였는가**: **그렇다**(양쪽 `Agent: claude`). §4 가 요구한 독립 축 5건 중 **3건이 green** 이고 그중 하나가 이번 차단이다. 보고된 7변이만 다시 심었다면 이 라운드는 PASS 로 닫혔을 것이다.
+- **사용자 결정 변경 근거**: 해당 없음 — Decision 변경 0 · 새 AC 0.
+- **반복된 검증 환경 한계**: **셋 그대로** — ① `environment: 'node'`(DOM 패키지 미설치) ② electron 바이너리 미설치 1파일 red ③ 컨테이너 메모리 → `--maxWorkers=2`.
+- **환경 한계 우회의 결과**: ①을 seam 으로 우회한 것 자체는 성립했다(이동의 **아래쪽 절반**은 DOM 없이 잠겼다). 다만 seam 을 만들면 **seam 자체가 새 분모**가 된다 — 이번 라운드가 그 값을 세지 않았다.
+
+## 14. 결론 (r3)
+
+- 상태: **FAIL**
+- pair 결과: REQUIRED **11 PASS · 1 PAIR_FAIL**(VP-58) · REGRESSION **12 PASS** · BLOCKED_BY **0** · NOT_REQUIRED **15**
+- PLAN_GAP: **없음** — AT-50 이 오라클을 이미 이름으로 적었다. 다음 주체는 **구현자**다.
+- 등록 변이 **7/7 RED** · 이전 라운드 red 재현 **4/4 RED**(덮개 회귀 0) · 검증자 독립 축 **5건 중 3 green**(A1b·A1 차단 · A7·A2 비차단)
+- §10 강제 지점: EP-36 **1.5/2** · EP-34 ③ **1/1** · EP-31 **3/3**. AT-52 분모 라벨("셋")은 표본 확인에서 참
+- AC 충족: `✅11 ⚠️1 ❌0 / 12`(자기보고 `12/12`)
+- 현재 변경 운영 gate: **6종 전건 PASS**. 로컬 vitest 의 1파일 red 는 electron 미설치. 검증 중 트리 변화·잔여물 **0**
+- NON_BLOCKING: D23·D24 + 잔여 D7 · NEXT_HANDOFF: D15
+- 남은 사람 확인: **4건 그대로**. D22 는 사람 실기가 아니다(§8)
+- **다음 라운드는 r4 로 3 을 넘는다** — `handoff-verify` 마무리 규칙에 따라 **재구현 전에 `handoff-review` 를 수행한다**. 같은 pair 가 세 라운드 연속 root 실패이고, 세 번 다 "AC 가 이름 붙인 오라클을 다른 장치로 대신했다" 는 같은 형태다

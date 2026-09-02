@@ -3381,9 +3381,12 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 | D13 | INDEX 0211 행 비고가 **1,055자**로 5줄 상한 초과 | `docs/handoff/AGENTS.md §산출물 문장 규칙 3` | 검증 갱신에서 축약 | NON_BLOCKING | closed(r1) — **r2 에서 재발, D21** |
 | D14 | `summaryBaseText` 의 `kind:'none'` 이 카탈로그 밖 문자 `'∅'` 를 낸다 | 비귀속 | `chat.rightpanel.diffBaselineNone` 신설(ko `기준 없음` · en `no baseline`) | NON_BLOCKING | **closed**(r2) |
 | D15 | 임시 저장소 통합 스위트가 부하에서 간헐 타임아웃 — 변이 40회 중 2회, 재실행 전부 green | 검증 환경 | 타임아웃 상향 또는 직렬화 검토 | NEXT_HANDOFF | open |
-| D16 | `DiffReview.pickFile` 의 `scrollIntoView` 를 지워도 **3,071 케이스 전건 green** — AT-50 의 "이동" 을 보는 오라클이 없다 | VP-58 / AT-50 | `diffReviewNavigation.test.ts` 의 사이드바 double 이 스크롤 스파이를 단 노드를 돌려주고, `pickFile` 이 그 노드의 `scrollIntoView` 를 부른다고 단언 | **BLOCKING** | **closed**(r3 · M16a~M16d RED) |
+| D16 | `DiffReview.pickFile` 의 `scrollIntoView` 를 지워도 **3,071 케이스 전건 green** — AT-50 의 "이동" 을 보는 오라클이 없다 | VP-58 / AT-50 | `diffReviewNavigation.test.ts` 의 사이드바 double 이 스크롤 스파이를 단 노드를 돌려주고, `pickFile` 이 그 노드의 `scrollIntoView` 를 부른다고 단언 | **BLOCKING** | **부분 closed**(r3) — 인용 변이 M16a~M16d 는 RED. 처방(double 이 노드를 공급)과 다른 장치를 골라 **소유자 축**이 남았다 → D22 |
 | D17 | `↗` 의 `aria-label` 을 지워도 green — 같은 문자열이 `title` 에도 실려 두 속성을 가리지 못한다 | VP-60 / AT-52 | 속성을 지목해 단언 — 아이콘 버튼 **셋 전부**의 `aria-label` 을 센다 | NON_BLOCKING | **closed**(r3 · M17 RED) |
 | D18 | `BEGIN_GIT_SNAPSHOT_QUERY` 의 `patch: null`(ΔV4 신규)이 미잠금 — 지워도 green. §10 EP-34 세 지점 밖이다 | 비귀속(§10 표 밖 형제) | key 가 바뀌면 버리고 같으면 둔다 — **양성 짝**을 함께 뒀다 | NON_BLOCKING | **closed**(r3 · M18 RED) |
 | D19 | 정정된 AT-47·EP-31 ③ 의 "예산은 수집한 파일만 소비한다" 절에 오라클이 없다 — 커서 의미로 바꿔도 green | AT-47 · EP-31 ③(문구) | 상한 초과 파일 **뒤의 더 작은 파일이 다시 실린다** 1케이스(상수에서 유도) | NON_BLOCKING | **closed**(r3 · M19 RED) |
 | D20 | §18 ΔV4 영향 파일 목록이 `b85195e` 만 담는다 — r2 가 더한 테스트 4 · 변경 6 이 빠져 있다 | plan §18 | §18 을 r1 기준 + r2·r3 추가 절로 나눴다 | NON_BLOCKING | **closed**(r3 설계) |
 | D21 | INDEX 0211 비고가 **809자**로 5줄 상한을 여전히 넘는다(r1 1,055자에서 축소) | `docs/handoff/AGENTS.md §산출물 문장 규칙 3` | 검증 갱신에서 축약 | NON_BLOCKING | **closed**(r2 검증) |
+| **D22** | 이동의 **소유자 인자**가 무관측 — `revealFileSection(null, path)` 로 프로덕션이 아무것도 스크롤하지 않게 해도 typecheck 0 error · lint 0 error · **3,080 케이스 전건 green** | VP-58 / AT-50 | 소유자를 주입해 첫 인자를 단언(D16 원래 처방)하거나 소스 스윕으로 `scrollOwnerRef.current` 를 고정한다 | **BLOCKING** | open(r3) |
+| D23 | 아이콘 버튼 셋의 접근성 이름을 **서로 맞바꿔도** green — 세 문자열이 마크업에 모두 남아 존재 단언이 침묵한다 | VP-60 / AT-52 | 버튼을 지목해(`data-diff-sidebar-toggle` 등) 이름을 짝지어 단언한다 | NON_BLOCKING | open(r3) |
+| D24 | §10 EP-36 ② 는 "먼저 펼친 뒤 이동" 이라 적었는데 순서를 뒤집어도 green — 다만 React 상태 갱신이라 프로덕션 동작 차이는 없다 | §10 EP-36 ②(문구) | 문구를 코드에 맞추거나 순서 oracle 을 세운다 | NON_BLOCKING | open(r3) |
