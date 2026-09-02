@@ -2168,6 +2168,12 @@ git CLI
 
 **문서** (2): `docs/IPC_CONTRACT.md` · `docs/generated/inventory.md`.
 
+> 위 목록은 **r1 구현 커밋 `b85195e` 기준**이다. 이후 라운드가 더한 것은 아래 두 절이 갖는다 — revision 전체를 한 목록에 접으면 어느 라운드가 무엇을 만들었는지 사라진다(r2 검증 D20).
+
+**ΔV4 r2 추가** — 프로덕션 **2**(`rightpanel/diffComparison.ts` 죽은 export 삭제 · `rightpanel/sessionChangesData.ts` i18n 키) · i18n **2** · 테스트 신규 **4**(`rightpanel/GitContextBar.render.test.ts` · `rightpanel/GitContextBar.actions.test.ts` · `rightpanel/diffReviewNavigation.test.ts` · `lib/diffPatchLines.test.ts`) · 테스트 변경 **7**(`infra/git/repository.test.ts` · `infra/git/git-diff.test.ts` · `features/worktrees/service.test.ts` · `reducer/chatReducer.plan.test.ts` · `rightpanel/diffTile.render.test.ts` · `rightpanel/sessionChangesData.test.ts` · `hooks/gitPatchQuery.test.ts`). 마지막 하나는 windows CI 가 잡은 경로 구분자 정정이다(`fe36194`).
+
+**ΔV4 r3 추가** — 프로덕션 신규 **1**(`lib/fileSectionScroll.ts` — `DiffReview.pickFile` 에서 떼어낸 이동 seam) · 프로덕션 변경 **1**(`rightpanel/DiffReview.tsx`) · 테스트 신규 **1**(`lib/fileSectionScroll.test.ts`) · 테스트 변경 **4**(`rightpanel/diffReviewNavigation.test.ts` · `rightpanel/GitContextBar.render.test.ts` · `infra/git/git-diff-parse.test.ts` · `reducer/chatReducer.plan.test.ts`).
+
 **비영향 선언**: `components/composer/useGitSnapshot.ts` 는 **바뀌지 않는다** — 패치 소유자는 별도 훅이고 요약 축은 그대로다(VP-24~VP-27 이 `NOT_REQUIRED` 인 근거). `lib/diffLines.ts`·`components/DiffTable.tsx` 도 그대로다 — 도구 카드(`DiffBody`)가 계속 쓴다. `lib/activityLabel.ts`·`CwdButton`·`gitRowState.ts` 도 그대로다.
 
 ## 19. 게이트
