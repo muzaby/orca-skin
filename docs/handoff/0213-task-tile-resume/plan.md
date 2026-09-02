@@ -671,14 +671,100 @@ TaskTileContent (도달 가능)
 - **현재 라운드 수**: **1**.
 
 
+## [구현자 기입] r2 — 설계 리뷰
+
+**판정: PLAN_GAP 0 · 프로덕션 코드 변경 0.** D1·D2 둘 다 계약(AC12 원문 · VP-08 path 원문)이 이미 있고 단언 보강으로 닫힌다 — r1 verify §0 의 `root PLAN_GAP 없다` 와 일치한다. 규범 행(Decision·AC·V node/pair·§10)을 이번 라운드에 손대지 않았다.
+
+**설계 대비 명시적 차이: 없음.** r1 의 차이 2건(`blockedByText` 헬퍼 · AC8·AC9 배치)은 그대로이고 새 차이를 만들지 않았다.
+
+## [구현자 기입] r2 — 강제 지점 전수와 V-pair 자기확인
+
+### §10 강제 지점 — **11/11** (분모 불변, r1 표 그대로 재열거해 일치)
+
+이번 라운드는 프로덕션을 바꾸지 않았으므로 지점 수·좌표가 r1 과 같다. `TaskTileContent.tsx` 의 줄만 밀리지 않았음을 재확인했다 — EP-04 `blockedByText:119`·`blockedRowText:125`·`TaskRow:184`·렌더 `:267` · EP-05 판정 `:302` · EP-06 껍데기 호출 **0건**.
+
+**표 밖에서 같은 불변식이 필요한 지점 1건을 r1 verify 가 지목했다**(래퍼→View props). 이번에 그것을 **props 4개 전수**로 닫았다 — 아래 잠금 표. §10 EP-05 는 판정 지점만 세므로 분모는 그대로 두고, 새 행이 필요한지는 검증자 판단에 남긴다.
+
+### V-pair 자기확인 — 12 pair (r1 `PAIR_FAIL` 2건 대상)
+
+| Pair | r1 | r2 자기 상태 | 관측값 |
+|---|---|---|---|
+| VP-06 (MD-01↔AT-11·12·13) | `PAIR_FAIL` | **`SELF_PASS`** | 부재 술어를 `/완료 필요/g` 로 넓히고 둘째 줄을 **행에 귀속**시켰다. N1 재현 **2 red** · 형제 축 N1b **1 red** |
+| VP-08 (MD-02↔AT-15·16·17·18) | `PAIR_FAIL` | **`SELF_PASS`** | path 의 `→ 카드` 홉을 래퍼 시드 렌더로 지난다. N2b 재현 **1 red** · props 전수 4개 각각 red |
+| 나머지 10 pair | `PASS` | **`SELF_PASS`**(불변) | 프로덕션 무변경 · 전체 309파일 **3001케이스** green |
+
+## [구현자 기입] r2 — 이번 라운드 수정의 잠금
+
+선택 증거 0(이번 라운드가 새로 `SELF_PASS` 로 올린 pair 의 등록 증거는 r1 에서 이미 심었다 — M4·M5) · 인용 변이 2(D1 의 `blockedBy` 가드 제거 · D2 의 props 미전달) · 새 oracle 2(`rowsBySubject` 행 귀속 장치 · 래퍼 시드 렌더) = **표 행 4**. 불변식 전수 적용분 5행을 더해 **9행**.
+
+| 변이 | 심은 곳 | 기대 | 관측 |
+|---|---|---|---|
+| **N1** (D1 인용) `blockedBy.length === 0` 가드 제거 | `TaskTileContent.tsx:126` | r1 에 green → r2 에 red | **2 red** — `AT-11·AT-12` · `AT-13` |
+| **N1b** 형제 축 — `completed` 가드 제거 | 같은 줄 | 같은 불변식의 다른 가드 | **1 red** — `AT-13` |
+| **N2b** (D2 인용) `agentTools`·`cliVersion` 미전달 | `TaskTileContent.tsx:429-430` | r1 에 green → r2 에 red | **1 red** — `agentTools·cliVersion 이 카드까지 흐른다` |
+| **P-agentTools** 단독 미전달 | `:429` | 전수 ① | **1 red** |
+| **P-cliVersion** 단독 미전달 | `:430` | 전수 ② | **1 red** |
+| **P-items** 미전달(`items={[]}`) | `:427` | 전수 ③ | **3 red** — 음성 짝까지 함께 무너진다 |
+| **P-stopErrors** 미전달 | `:428` | 전수 ④ | **1 red** |
+| **DEV** 새 장치의 눈 — `rowsBySubject` 추출 무력화 | 테스트 `:107` | 눈 없는 장치의 `0건` 금지 | **5 red** — 장치가 빈 객체를 내면 다섯 케이스가 함께 무너진다 |
+| **M6**(r1) 래퍼→목록 배선 소거 | `:426-431` | 덮개 회귀 확인 | r1 과 같은 **1 red** — 새 케이스가 구 장치의 하한을 낮추지 않았다 |
+
+**덮개 회귀 0건.** r1 이 red 로 관측한 8변이 중 이번 라운드가 건드린 장치와 겹치는 것은 M4(형제 슬롯 맞바꿈)·M5(안내 분모 복귀)·M6 이고, AT-11·12·13·14 의 단언을 넓히기만 했으므로 감도는 늘었다. M6 를 직접 재측정해 r1 과 같은 red 를 확인했다.
+
+## [구현자 기입] r2 — Product/UX 파생 검토
+
+**사용자가 관측하는 것이 이번 라운드에 달라지지 않았다** — 프로덕션 파일 변경 0, 테스트 1파일만 바뀌었다. 새 문자열·새 상태·새 실패 경로 0이고 Part I 상태 전이표 12행이 그대로 성립한다.
+
+r1 이 올린 파생 이슈 I-01~I-04 는 **그대로 열려 있다** — 이번 라운드가 닫지 않았고 닫을 대상도 아니다.
+
+## [구현자 기입] r2 — 놓친 잠재 문제 + 대응
+
+- **좁은 술어는 D1 이 지목한 한 줄만이 아니었다.** 같은 파일에 `/#2 완료 필요/g` 가 **2곳**, `not.toContain('#2 완료 필요')` 가 **1곳** 있었다. 불변식("부재 술어는 부재가 깨질 때 나타날 산출 전체를 덮는다")을 세 자리에 전부 적용하고 `grep '#2 완료 필요/g'` 로 **잔여 0줄**을 확인했다.
+- **D2 가 지목한 props 는 넷 중 둘이었다.** `items`·`stopErrors` 도 같은 불변식의 지점이라 함께 닫았다 — `stopErrors` 미전달은 중단 실패 문구가 사라지는데 r1 장치로는 green 이었다.
+- **`rowsBySubject` 는 이번 턴에 만든 추출 장치다.** 눈 없는 장치의 관측값은 전수의 증거가 아니므로 추출을 무력화하는 변이를 심어 **5 red** 를 확인한 뒤 그 산출을 근거로 썼다.
+- **표 밖 축 1건 — 0204 가 만든 좁은 술어**: `rightPanelTiles.render.test.ts:173-174` 의 `'대기 중<'`·`'중단됨<'` 이 같은 형태다. **이번 계약(D1·AC12)에 귀속되지 않아** 고치지 않고 별도 finding 으로만 적는다(아래 I-05).
+
+| # | 이슈 | 근거 | 성격 |
+|---|---|---|---|
+| I-05 | 0204 가 만든 그룹 헤더 부재 술어(`'대기 중<'`·`'중단됨<'`)가 D1 과 같은 좁은 형태다 | `rightPanelTiles.render.test.ts:173-174`. 넓히면 상태 라벨 텍스트와 충돌해 별도 설계가 필요하다 | 현재 계약(AC10/VP-12) 밖 — 후속 handoff 후보 |
+
+## [구현자 기입] r2 — 구현 보고
+
+### AC 전수 — `✅ 21 · ⚠️ 0 · ❌ 0 = 총 21` (검산 일치 · 분모 r1 과 동일)
+
+r1 표의 AC1~AC11·AC13~AC21 은 프로덕션 무변경이라 같은 케이스가 그대로 green 이다. **바뀐 행은 AC12 하나**이고 아래가 그 관측값이다.
+
+| AC | r1 | r2 | 재현 명령 — 관측한 케이스 |
+|---|---|---|---|
+| **AC12** | ⚠️ | **✅** | `AT-11·AT-12` — `rows['선행 작업']`·`rows['그냥 대기']` 가 `/완료 필요/` 에 not.toMatch · 전체 카운트 1회. **N1 변이에 2 red** |
+| AC15~18 | ✅ | ✅ (강화) | 위 4케이스 + 래퍼 홉 4케이스. **N2b·props 전수 4변이에 각각 red** |
+| 나머지 16 | ✅ | ✅ | 프로덕션 무변경 · 전체 3001케이스 green |
+
+### 관측한 게이트 산출
+
+| 게이트 | 명령 | 관측값 |
+|---|---|---|
+| 정적 — 타입 | `npm run typecheck` | **exit 0 · `error TS` 0건** |
+| 정적 — lint | `npm run lint` | **0 error / 1 warning** — 기존분 `useTranscriptVirtualizer.ts:22`. 실행 후 트리에 **테스트 1파일만** |
+| 관련 스위트 | `./node_modules/.bin/vitest run` (필터 없음) | **exit 0 · 309파일 3001케이스 전건 green** (r1 2997 대비 +4 = 래퍼 홉 4케이스) |
+| 스크립트 | `node --test "scripts/*.test.mjs"` | **67 pass / 0 fail** (8 suites) |
+| 문서 | `node scripts/check-doc-inventory.mjs --check` | `generated ok (9 items, 82 channels)` · `prose ok` · `links ok` |
+
+## [구현자 기입] r2 — Review Signals
+
+- **이번에 닫은 불변식이 이전 라운드와 같은 축인가**: 그렇다. **"oracle 이 프로덕션 경로의 한 홉 앞에 선다"** — r1 verify 가 이미 그렇게 이름 붙였고, 이번에 닫은 둘도 정확히 그 형태다(부재 술어가 실제 산출보다 좁다 · 판정만 잠그고 입력 배선을 안 잠근다).
+- **막았어야 할 plan 지침·AC 가 있었는가**: 있었다. r1 verify 가 적은 그대로다 — `READY self-review` 의 "음성 단언에 양성 짝이 있다" 는 **짝의 존재만** 세고 짝이 잠그는지는 재지 않았고, VP-08 의 `path` 칸(`→ 카드`)과 `oracle` 칸(View 고립)의 어긋남을 검사하는 항목이 없었다. **이번 라운드가 새로 관측한 것**: 지적된 지점은 각 불변식의 **일부**였다 — D1 은 3자리 중 1자리, D2 는 4 props 중 2개를 지목했다.
+- **반복해서 부딪히는 환경 한계**: ① DOM 환경 부재 — 메뉴 `.map()` 최종 홉이 여전히 미잠금(0212 P9 → 0213 r1 → r2). ② `npm ci` 직후 better-sqlite3 가 Electron ABI 라 DB 스위트 10파일이 red 로 시작한다.
+- **현재 라운드 수**: **2**.
+
 ## [검증자 기입] 파생 이슈
 
 > r1 검증 판정 원문은 [`verify.md`](verify.md). 아래는 그 §13 의 이관본이다.
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | AC12 의 부재 방향이 잠기지 않는다 — `blockedRowText` 의 `blockedBy.length === 0` 가드를 지우면 미막힘 행마다 `# 완료 필요` 가 뜨는데 2997케이스 전건 green 이다 | `VP-06` · AC12 | 카운트 술어를 문구 전체로 넓히거나 미막힘 행의 둘째 줄 부재를 직접 단언한다. 검증자 실측 — `/완료 필요/g` 로 넓히면 그 변이가 red 다 | **BLOCKING** (`PAIR_FAIL`) | open (r2) |
-| D2 | VP-08 path 의 마지막 홉(`→ 카드`)이 잠기지 않는다 — 래퍼가 `agentTools`·`cliVersion` 을 안 넘기면 안내가 프로덕션에서 영영 안 뜨는데 typecheck 0 · lint 0 · 2997 전건 green 이다 | `VP-08` · §12 producer→consumer | `vi.mock('../../store/chatStore')` 로 `TaskTileContent` 를 시드 렌더해 props 통과를 단언한다(선례 `ChatTitleBar.render.test.ts`) | **BLOCKING** (`PAIR_FAIL`) | open (r2) |
+| D1 | AC12 의 부재 방향이 잠기지 않는다 — `blockedRowText` 의 `blockedBy.length === 0` 가드를 지우면 미막힘 행마다 `# 완료 필요` 가 뜨는데 2997케이스 전건 green 이다 | `VP-06` · AC12 | 카운트 술어를 문구 전체로 넓히거나 미막힘 행의 둘째 줄 부재를 직접 단언한다. 검증자 실측 — `/완료 필요/g` 로 넓히면 그 변이가 red 다 | **BLOCKING** (`PAIR_FAIL`) | **closed (r2)** — 인용 변이 `blockedBy.length === 0` 가드 제거가 **2 red**(AT-11·12 · AT-13). 형제 축 `completed` 가드 제거도 **1 red** |
+| D2 | VP-08 path 의 마지막 홉(`→ 카드`)이 잠기지 않는다 — 래퍼가 `agentTools`·`cliVersion` 을 안 넘기면 안내가 프로덕션에서 영영 안 뜨는데 typecheck 0 · lint 0 · 2997 전건 green 이다 | `VP-08` · §12 producer→consumer | `vi.mock('../../store/chatStore')` 로 `TaskTileContent` 를 시드 렌더해 props 통과를 단언한다(선례 `ChatTitleBar.render.test.ts`) | **BLOCKING** (`PAIR_FAIL`) | **closed (r2)** — 인용 변이 `agentTools`·`cliVersion` 미전달이 **1 red**. 같은 불변식을 props **4개 전수**로 넓혀 `items`·`stopErrors`·`agentTools` 단독·`cliVersion` 단독도 각각 red |
 | D3 | 다중 `blockedBy` 구분자(`', #'`)를 단언하는 곳이 없다 — 공유 헬퍼의 구분자를 바꿔도 전건 green | EP-04 (현재 V 에 해당 AC 없음) | 다중 의존 표시가 제품 요구가 되면 그때 AC 를 만든다 | NON_BLOCKING | 기록 |
 | D4 | INDEX r1 비고가 9문장이라 `AGENTS.md §산출물 문장 규칙 3`(5줄)을 넘는다 | repository operation | 이후 갱신분을 5줄 이내로 쓴다. 과거 행은 손대지 않는다 | NON_BLOCKING | 기록 |
 | D5 | 인용 커밋 좌표를 확인할 수 없다 — shallow clone(84 커밋)이라 0212·0204 좌표 7건이 전부 미해석 | 검증 환경 | 기록만. 같은 환경이면 다음 라운드도 확인 불가다 | NON_BLOCKING | 기록 |
