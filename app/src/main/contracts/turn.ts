@@ -20,6 +20,9 @@ export interface TurnContext<W = unknown> {
   isNewSession: boolean
   // 세션 출생 시 확정된 Git diff 기준. resume/continuation은 재계산하지 않는다.
   sessionBaseline: string | null
+  // 그 기준 커밋이 놓여 있던 브랜치 이름 (0211 ΔV4 D-070). 화면의 비교 기준 라벨이 이것 하나다.
+  // `sessionBaseline` 과 **같은 시점에 결정돼 같은 insert 로** 간다 — 따로 흐르면 갈라진다.
+  sessionBaselineRef: string | null
   cwd: string
   // CLI `/add-dir` 대응 — cwd 밖 추가 참조 경로. 어댑터의 `additionalDirectories` + workspace
   // 가드 루트로 함께 흘러 r/w 스코프를 넓힌다. cwd 와 같은 수명(새 세션 출생 시 고정).

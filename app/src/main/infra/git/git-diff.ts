@@ -2,28 +2,31 @@
 // 요약과 본문은 모두 세션 baseline → 현재 추적 상태만 본다. baseline 이 없는 예전
 // 세션만 질의 시점 HEAD 로 접는다.
 
-import { readFile, stat } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { stat } from 'node:fs/promises'
 import type {
   GitDiffBase,
-  GitDiffFileContent,
   GitDiffFileEntry,
+  GitDiffPatch,
   GitDiffSummary,
   GitDiffTotals
 } from '../../../shared/ipc'
 import { runGit, type GitRunOptions, type GitRunResult } from './runner'
 import {
   MAX_DIFF_COMMITS,
-  MAX_DIFF_FILE_BYTES,
   mergeDiffEntries,
   parseCommitFiles,
   parseCommitLog,
-  parseNumstatZ
+  parseUnifiedPatch
 } from './git-diff-parse'
 
 const TIMEOUT_MS = 15_000
 const MAX_BUFFER = 4 * 1024 * 1024
 const HISTORY_MAX_BUFFER = 8 * 1024 * 1024
+// 패치는 **전문맥**이라(0211 ΔV4 D-076) 변경 파일의 내용을 통째로 싣는다. 파서보다 앞서는
+// `maxBuffer` 판정을 넉넉히 두고, 그래도 넘치면 `--unified=3` 로 한 번 더 부른다(D-077).
+const PATCH_MAX_BUFFER = 16 * 1024 * 1024
+// 전문맥을 요구하는 값. 실측(git 2.43) — 파일 전체가 한 hunk 로 나온다.
+const PATCH_CONTEXT = 1_000_000
 const COMMIT_FORMAT = '--format=%x00orca-commit%x00%H%x00%s%x00%an%x00%ct%x00%b%x00'
 
 export type GitDiffRunner = (
@@ -57,6 +60,15 @@ const EMPTY_GROUP: GitDiffSummary['uncommitted'] = {
   filesTruncated: false
 }
 
+export const EMPTY_DIFF_PATCH: GitDiffPatch = {
+  isRepo: false,
+  base: { kind: 'none' },
+  files: [],
+  filesTruncated: false,
+  contextLimited: false,
+  unavailable: false
+}
+
 export const EMPTY_DIFF_SUMMARY: GitDiffSummary = {
   isRepo: false,
   base: { kind: 'none' },
@@ -75,10 +87,16 @@ export interface GitDiffRange {
 }
 
 export async function resolveDiffRange(
-  input: { cwd: string; baseOid?: string | null },
+  input: { cwd: string; baseOid?: string | null; baseRef?: string | null },
   runner: GitDiffRunner = runGit
 ): Promise<GitDiffRange> {
-  if (input.baseOid) return { kind: 'working', base: { kind: 'worktree-base', oid: input.baseOid } }
+  // `ref` 는 화면의 유일한 비교 기준 라벨이다(0211 ΔV4 D-069). 여기서 다시 조회하지 않고
+  // 세션행이 준 값을 그대로 싣는다 — 지금 체크아웃된 브랜치를 읽으면 세션 시작 시점이 아니다.
+  if (input.baseOid)
+    return {
+      kind: 'working',
+      base: { kind: 'worktree-base', oid: input.baseOid, ref: input.baseRef ?? null }
+    }
   const head = await run(runner, input.cwd, ['rev-parse', '--verify', '-q', 'HEAD'])
   const oid = head.stdout.trim()
   return {
@@ -178,7 +196,7 @@ async function readCommitHistory(
 }
 
 export async function gitDiffSummary(
-  input: { cwd: string; baseOid?: string | null },
+  input: { cwd: string; baseOid?: string | null; baseRef?: string | null },
   runner: GitDiffRunner = runGit
 ): Promise<GitDiffSummary> {
   if (!(await repoCoords(input.cwd, runner)).inside) return EMPTY_DIFF_SUMMARY
@@ -219,61 +237,66 @@ export async function gitDiffSummary(
   }
 }
 
-async function showAt(
+// 비교 범위 **전체**의 파일별 diff 줄을 한 번에 얻는다 (0211 ΔV4 D-074·D-075).
+//
+// 세 가지가 이 한 호출에 걸려 있다.
+// ① **전문맥**(`--unified=1000000`) — 문맥 확장이 재조회 0 인 순수 파생으로 남는다(D-076).
+// ② **`core.quotePath=false`** — 한글·공백 경로가 `"\355\225\234…"` 로 오지 않는다. 그 문자열이
+//    그대로 화면과 요구사항 anchor 의 `filePath` 가 되므로 인용된 채로 두면 둘 다 깨진다.
+// ③ **실패 시 축소 재조회** — `maxBuffer` 판정은 파서보다 앞이라 파일 상한이 그것을 막지 못한다.
+//    폴백까지 실패하면 `unavailable:true` 로 알린다 — 빈 배열만 주면 "변경 없음" 으로 읽힌다.
+async function runPatch(
   cwd: string,
-  rev: string,
-  path: string,
+  context: number,
+  revArgs: readonly string[],
   runner: GitDiffRunner
-): Promise<string | null> {
-  const result = await run(runner, cwd, ['show', `${rev}:${path}`])
-  if (!result.ok) return ''
-  if (result.stdout.length > MAX_DIFF_FILE_BYTES) return null
-  return result.stdout
+): Promise<GitRunResult> {
+  return run(
+    runner,
+    cwd,
+    ['-c', 'core.quotePath=false', 'diff', `--unified=${context}`, '-M', '--no-color', ...revArgs],
+    PATCH_MAX_BUFFER
+  )
 }
 
-async function isTrackedDiffPath(
-  cwd: string,
-  path: string,
-  base: GitDiffBase,
-  runner: GitDiffRunner
-): Promise<boolean> {
-  const result = await run(runner, cwd, [
-    'diff',
-    '--numstat',
-    '-z',
-    ...diffRevArgs(base),
-    '--',
-    path
-  ])
-  return result.ok && parseNumstatZ(result.stdout).some((entry) => entry.path === path)
-}
-
-export async function gitDiffFile(
-  input: { cwd: string; path: string; baseOid?: string | null },
+export async function gitDiffPatch(
+  input: { cwd: string; baseOid?: string | null; baseRef?: string | null },
   runner: GitDiffRunner = runGit
-): Promise<GitDiffFileContent> {
-  const coords = await repoCoords(input.cwd, runner)
-  if (!coords.inside) return { kind: 'unavailable', reason: 'error' }
+): Promise<GitDiffPatch> {
+  if (!(await repoCoords(input.cwd, runner)).inside) return EMPTY_DIFF_PATCH
   const range = await resolveDiffRange(input, runner)
-  const baseRev = range.base.kind === 'none' ? null : range.base.oid
-  // 추적 판정과 base 본문은 서로를 기다릴 이유가 없다 — 직렬 깊이를 줄인다(0211 §14 ΔV3).
-  // 추적이 아니면 읽은 본문은 버린다: 미추적 파일 본문이 새는 축은 판정이 막는다(D-035).
-  const [tracked, oldValue] = await Promise.all([
-    isTrackedDiffPath(input.cwd, input.path, range.base, runner),
-    baseRev ? showAt(input.cwd, baseRev, input.path, runner) : Promise.resolve<string | null>('')
-  ])
-  if (!tracked) return { kind: 'unavailable', reason: 'error' }
-  if (oldValue == null) return { kind: 'unavailable', reason: 'too-large' }
+  const revArgs = diffRevArgs(range.base)
 
-  const root = coords.root ?? input.cwd
-  const abs = resolve(root, input.path)
-  const info = await stat(abs).catch(() => null)
-  if (!info) return { kind: 'text', oldValue, newValue: '', truncated: false }
-  if (!info.isFile()) return { kind: 'unavailable', reason: 'not-found' }
-  if (info.size > MAX_DIFF_FILE_BYTES) return { kind: 'unavailable', reason: 'too-large' }
+  const full = await runPatch(input.cwd, PATCH_CONTEXT, revArgs, runner)
+  if (full.ok) {
+    const parsed = parseUnifiedPatch(full.stdout)
+    return {
+      isRepo: true,
+      base: range.base,
+      files: parsed.files,
+      filesTruncated: parsed.filesTruncated,
+      contextLimited: false,
+      unavailable: false
+    }
+  }
 
-  const buf = await readFile(abs).catch(() => null)
-  if (!buf) return { kind: 'unavailable', reason: 'error' }
-  if (buf.includes(0)) return { kind: 'binary' }
-  return { kind: 'text', oldValue, newValue: buf.toString('utf8'), truncated: false }
+  const limited = await runPatch(input.cwd, 3, revArgs, runner)
+  if (!limited.ok)
+    return {
+      isRepo: true,
+      base: range.base,
+      files: [],
+      filesTruncated: false,
+      contextLimited: false,
+      unavailable: true
+    }
+  const parsed = parseUnifiedPatch(limited.stdout)
+  return {
+    isRepo: true,
+    base: range.base,
+    files: parsed.files,
+    filesTruncated: parsed.filesTruncated,
+    contextLimited: true,
+    unavailable: false
+  }
 }

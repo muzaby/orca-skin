@@ -14,7 +14,7 @@ import type {
   GitDiffSummary,
   WorktreeDisplay,
   WorktreePrepareStep,
-  GitDiffFileContent
+  GitDiffPatch
 } from '../../../../../shared/ipc'
 import { subagentNoticePart } from '../../../../../shared/ipc'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
@@ -29,7 +29,7 @@ import { settleOrphanToolParts, settleStaleAsyncLaunchParts } from '../lib/parts
 import { isRightPanelTileSuspended, type RightPanelTileId } from '../lib/rightPanelTiles'
 import type { BranchSnapshot } from '../components/composer/branchChipState'
 import { reanchorDiffRequirementItem } from '../components/rightpanel/diffRequirements'
-import type { DiffLine } from '../lib/diffLines'
+import { patchLinesToDiffLines } from '../lib/diffPatchLines'
 import {
   addTileColumnMajor,
   columnsContain,
@@ -37,12 +37,10 @@ import {
   type RightPanelColumns
 } from '../lib/rightPanelLayout'
 import {
-  EMPTY_DIFF_BODY_CACHE,
-  putDiffBody,
-  touchDiffBody,
-  type DiffBodyCache
-} from '../components/rightpanel/diffBodyCache'
-import { diffPeekBodyKey } from '../components/rightpanel/diffFileCache'
+  ALL_CHANGES,
+  reconcileComparison,
+  type DiffComparison
+} from '../components/rightpanel/diffComparison'
 
 // transcript 렌더가 쓰는 도구 호출 view — parts 의 tool_call+tool_result 를 toolRunId 로
 // 페어링한 결과(lib/parts.ts partsToolCalls). 더 이상 Message 의 필드가 아니다.
@@ -76,21 +74,37 @@ export interface PlanComment {
   createdAt: number
 }
 
-export type GitPeekGroup = { kind: 'commit'; sha: string } | { kind: 'uncommitted' }
+/** `⋮` 메뉴가 켜고 끄는 표시 옵션 넷 (0211 ΔV4 D-086·D-087). 전부 순수 파생이라 재조회가 없다. */
+export interface DiffViewOptions {
+  layout: 'inline' | 'side-by-side'
+  wrapLines: boolean
+  highlightWords: boolean
+  ignoreWhitespace: boolean
+}
 
-/** 파일 본문은 언제나 session 범위로 읽고, 이 target은 사용자가 들어온 목록 그룹만 보존한다. */
-export interface GitPeekTarget {
-  group: GitPeekGroup
-  path: string
+export const DEFAULT_DIFF_VIEW: DiffViewOptions = {
+  layout: 'inline',
+  // 좁은 우측 패널에서 가로 스크롤 없이 읽으려면 기본이 켜짐이어야 한다(제안서 §12).
+  wrapLines: true,
+  highlightWords: true,
+  ignoreWhitespace: false
 }
 
 export interface GitSnapshotState {
   summary: GitDiffSummary | null
-  peekTarget: GitPeekTarget | null
-  expandedCommitIds: readonly string[]
+  /**
+   * 비교 범위 전체의 파일별 diff 줄 (0211 ΔV4 D-074). **요약 세대당 1회** 받아 여기 둔다 —
+   * 타일은 조건 렌더라 닫으면 언마운트되므로 로컬에 두면 다시 열 때마다 조회가 난다(D-094).
+   */
+  patch: GitDiffPatch | null
+  /** 지금 보고 있는 비교 범위. 목록만 좁히고 diff 기준은 바꾸지 않는다(D-079). */
+  comparison: DiffComparison
+  /** **접힌** 파일 경로. 기본이 전부 펼침이라 여는 쪽이 아니라 닫는 쪽을 센다(D-074). */
+  collapsedFiles: readonly string[]
+  /** 탐색 사이드바 표시. 기본 숨김 — 파일 트리가 diff 폭을 침범한다(D-083). */
+  sidebarVisible: boolean
+  view: DiffViewOptions
   refreshGeneration: number
-  /** 열어 본 파일 본문의 사용순 LRU(0211 D-061). 키가 요약 세대를 담아 새로고침이 자연 무효화한다. */
-  bodyCache: DiffBodyCache
 }
 
 export interface GitSnapshotRequest {
@@ -106,11 +120,28 @@ export interface DiffRequirementDraft {
   body: string
 }
 
-export interface DiffRequirementBodyRequest {
-  sessionId: string | null
-  path: string
-  key: string
-  generation: number
+/**
+ * 패치가 도착하면 요구사항을 **파일별로** 다시 앉힌다 (0211 ΔV4 D-093).
+ *
+ * 파일 경계가 이 함수의 계약이다 — 한 요구사항은 자기 `filePath` 의 줄만 후보로 본다.
+ * 그 파일이 패치에 없으면 빈 배열로 돌아 `located:false` 가 되고 **항목은 남는다**:
+ * 위치를 잃은 것과 요구가 없어진 것은 다르다(D-057).
+ */
+function reanchoredRequirements(
+  state: ChatState,
+  patch: GitDiffPatch
+): { diffRequirements: DiffRequirementItem[]; diffRequirementsRevision: number } | undefined {
+  if (state.diffRequirements.length === 0) return undefined
+  const linesByPath = new Map(
+    patch.files.map((file) => [file.path, patchLinesToDiffLines(file.lines)])
+  )
+  const next = state.diffRequirements.map((item) =>
+    reanchorDiffRequirementItem(item, linesByPath.get(item.anchor.filePath) ?? [])
+  )
+  return {
+    diffRequirements: next,
+    diffRequirementsRevision: state.diffRequirementsRevision + 1
+  }
 }
 
 // 메시지 = 순서 보존 parts 목록(provider-runtime.md §7). text 는 lib/parts.ts 셀렉터로 합치고,
@@ -240,14 +271,13 @@ export interface ChatState {
   // 컴포저 git 행과 diff 타일 헤더 둘이 읽으므로 세션 상태가 소유한다(0206 D-020).
   // null = 아직 조회 전. `useGitRowStatus` 만 채운다.
   gitStatus: BranchSnapshot | null
-  // diff 요약·peek·commit 펼침·명시 refresh 신호는 타일이 아니라 세션 수명에 속한다.
-  // 파일 본문은 현재 identity+peek 세대에만 붙는 타일 로컬 캐시다.
+  // 요약·패치·비교 범위·접힌 파일·사이드바·표시 옵션은 타일이 아니라 **세션 수명**에 속한다
+  // (0211 ΔV4 D-094) — 타일은 조건 렌더라 닫으면 언마운트되고 로컬 상태가 소멸한다.
   gitSnapshot: GitSnapshotState
   gitSnapshotRequest: GitSnapshotRequest | null
   diffRequirements: DiffRequirementItem[]
   diffRequirementsRevision: number
   diffRequirementDraft: DiffRequirementDraft | null
-  diffRequirementBodyRequest: DiffRequirementBodyRequest | null
   // 우측 작업 타일에서 상세로 표시할 항목 키(`agent:<id>` | `bg:<toolUseId>`, taskBoard 가
   // 소유하는 네임스페이스). null 이면 목록 view.
   selectedTaskKey: string | null
@@ -342,16 +372,17 @@ export const initialChatState: ChatState = {
   gitStatus: null,
   gitSnapshot: {
     summary: null,
-    peekTarget: null,
-    expandedCommitIds: [],
-    refreshGeneration: 0,
-    bodyCache: EMPTY_DIFF_BODY_CACHE
+    patch: null,
+    comparison: ALL_CHANGES,
+    collapsedFiles: [],
+    sidebarVisible: false,
+    view: DEFAULT_DIFF_VIEW,
+    refreshGeneration: 0
   },
   gitSnapshotRequest: null,
   diffRequirements: [],
   diffRequirementsRevision: 0,
   diffRequirementDraft: null,
-  diffRequirementBodyRequest: null,
   selectedTaskKey: null,
   selectedSubagentTaskId: null,
   stoppingTaskIds: [],
@@ -467,10 +498,12 @@ export type ChatAction =
   | { type: 'RENAME_RIGHT_PANEL_TILE'; id: RightPanelTileId; label: string }
   | { type: 'REMOVE_RIGHT_PANEL_TILE'; id: RightPanelTileId }
   | { type: 'SET_GIT_STATUS'; snapshot: BranchSnapshot }
-  | { type: 'OPEN_GIT_SNAPSHOT_PEEK'; target: GitPeekTarget }
-  | { type: 'CLOSE_GIT_SNAPSHOT_PEEK' }
-  | { type: 'RECORD_DIFF_BODY'; key: string; content: GitDiffFileContent }
-  | { type: 'TOGGLE_GIT_SNAPSHOT_COMMIT_EXPANDED'; sha: string }
+  | { type: 'RECEIVE_GIT_PATCH'; request: GitSnapshotRequest; patch: GitDiffPatch }
+  | { type: 'SET_DIFF_COMPARISON'; comparison: DiffComparison }
+  | { type: 'TOGGLE_DIFF_FILE_COLLAPSED'; path: string }
+  | { type: 'SET_ALL_DIFF_FILES_COLLAPSED'; collapsed: boolean; paths: readonly string[] }
+  | { type: 'TOGGLE_DIFF_SIDEBAR' }
+  | { type: 'SET_DIFF_VIEW_OPTION'; patch: Partial<DiffViewOptions> }
   | { type: 'REFRESH_GIT_SNAPSHOT' }
   | { type: 'BEGIN_GIT_SNAPSHOT_QUERY'; request: GitSnapshotRequest }
   | {
@@ -481,19 +514,6 @@ export type ChatAction =
   | { type: 'ADD_DIFF_REQUIREMENT'; item: DiffRequirementItem }
   | { type: 'REMOVE_DIFF_REQUIREMENT'; id: string }
   | { type: 'SET_DIFF_REQUIREMENT_DRAFT'; draft: DiffRequirementDraft | null }
-  | {
-      type: 'SET_DIFF_REQUIREMENT_BODY_REQUEST'
-      sessionId: string | null
-      path: string
-      request: GitSnapshotRequest
-    }
-  | {
-      type: 'REANCHOR_DIFF_REQUIREMENTS'
-      sessionId: string | null
-      path: string
-      request: GitSnapshotRequest
-      lines: readonly DiffLine[]
-    }
   | {
       type: 'CLEAR_DIFF_REQUIREMENTS_IF_UNCHANGED'
       sessionId: string | null
@@ -898,19 +918,21 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         extraDirs: [],
         extraDirRejection: null,
         worktreeBaseRef: null,
+        // 저장소가 바뀌면 **패치도 함께 버린다** — 다른 저장소의 본문이 같은 상대 경로로
+        // 보이면 사용자는 틀린 diff 를 옳은 것으로 읽는다(0211 ΔV4 §10 EP-34 ②).
         gitSnapshot: {
           summary: null,
-          peekTarget: null,
-          expandedCommitIds: [],
-          refreshGeneration: 0,
-          // 다른 저장소의 본문이 같은 상대 경로로 보이면 안 된다(AT-42).
-          bodyCache: EMPTY_DIFF_BODY_CACHE
+          patch: null,
+          comparison: ALL_CHANGES,
+          collapsedFiles: [],
+          sidebarVisible: state.gitSnapshot.sidebarVisible,
+          view: state.gitSnapshot.view,
+          refreshGeneration: 0
         },
         gitSnapshotRequest: null,
         diffRequirements: [],
         diffRequirementsRevision: 0,
-        diffRequirementDraft: null,
-        diffRequirementBodyRequest: null
+        diffRequirementDraft: null
       }
 
     case 'SET_WORKTREE_ISOLATION':
@@ -1161,62 +1183,73 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'SET_GIT_STATUS':
       return { ...state, gitStatus: action.snapshot }
 
-    case 'OPEN_GIT_SNAPSHOT_PEEK':
-      // 진입이 곧 **사용**이다 — 사용순 LRU 라 여는 것만으로 순서가 바뀐다. 키는 리듀서가
-      // 직접 짓는다: 다섯 축이 전부 여기 상태에 있어서, 화면이 키를 만들어 넘기면 두 곳이
-      // 같은 규칙을 갖게 되고 조용히 갈라진다(0211 §10 EP-24 ①).
+    case 'RECEIVE_GIT_PATCH':
+      // 늦게 도착한 패치는 버린다 — 세션을 옮긴 뒤 도착한 이전 저장소의 본문이 새 화면에
+      // 닿으면 사용자는 **틀린 diff 를 옳은 것으로 읽는다**(0211 ΔV4 §10 EP-34).
+      if (
+        state.gitSnapshotRequest?.key !== action.request.key ||
+        state.gitSnapshotRequest.generation !== action.request.generation
+      ) {
+        return state
+      }
+      // 재anchor 는 **패치 도착 시점**이다(0211 ΔV4 D-093) — 본문이 있는 유일한 순간이고,
+      // 파일마다 자기 줄만 본다: A 의 anchor 를 B 의 본문에 맞추면 요구사항이 엉뚱한 줄에 붙는다.
+      // 줄을 못 찾아도 항목은 남는다(`located:false`) — 위치를 잃은 것과 요구가 없어진 것은 다르다.
       return {
         ...state,
-        diffRequirementBodyRequest: null,
-        gitSnapshot: {
-          ...state.gitSnapshot,
-          peekTarget: action.target,
-          bodyCache: touchDiffBody(
-            state.gitSnapshot.bodyCache,
-            diffPeekBodyKey(
-              state.cwd,
-              state.sessionId,
-              action.target,
-              state.gitSnapshotRequest?.generation ?? 0
-            )
-          )
-        }
+        gitSnapshot: { ...state.gitSnapshot, patch: action.patch },
+        ...reanchoredRequirements(state, action.patch)
       }
 
-    case 'CLOSE_GIT_SNAPSHOT_PEEK':
+    case 'SET_DIFF_COMPARISON':
       return {
         ...state,
-        diffRequirementBodyRequest: null,
-        gitSnapshot: { ...state.gitSnapshot, peekTarget: null }
+        gitSnapshot: { ...state.gitSnapshot, comparison: action.comparison }
       }
 
-    // 조회가 끝난 본문을 캐시에 넣는다. 텍스트가 아니면 `putDiffBody` 가 걸러낸다.
-    case 'RECORD_DIFF_BODY':
+    case 'TOGGLE_DIFF_FILE_COLLAPSED': {
+      const collapsed = state.gitSnapshot.collapsedFiles
       return {
         ...state,
         gitSnapshot: {
           ...state.gitSnapshot,
-          bodyCache: putDiffBody(state.gitSnapshot.bodyCache, action.key, action.content)
-        }
-      }
-
-    case 'TOGGLE_GIT_SNAPSHOT_COMMIT_EXPANDED': {
-      const expanded = state.gitSnapshot.expandedCommitIds
-      return {
-        ...state,
-        gitSnapshot: {
-          ...state.gitSnapshot,
-          expandedCommitIds: expanded.includes(action.sha)
-            ? expanded.filter((sha) => sha !== action.sha)
-            : [...expanded, action.sha]
+          collapsedFiles: collapsed.includes(action.path)
+            ? collapsed.filter((path) => path !== action.path)
+            : [...collapsed, action.path]
         }
       }
     }
 
+    case 'SET_ALL_DIFF_FILES_COLLAPSED':
+      return {
+        ...state,
+        gitSnapshot: {
+          ...state.gitSnapshot,
+          collapsedFiles: action.collapsed ? [...action.paths] : []
+        }
+      }
+
+    case 'TOGGLE_DIFF_SIDEBAR':
+      return {
+        ...state,
+        gitSnapshot: {
+          ...state.gitSnapshot,
+          sidebarVisible: !state.gitSnapshot.sidebarVisible
+        }
+      }
+
+    case 'SET_DIFF_VIEW_OPTION':
+      return {
+        ...state,
+        gitSnapshot: {
+          ...state.gitSnapshot,
+          view: { ...state.gitSnapshot.view, ...action.patch }
+        }
+      }
+
     case 'REFRESH_GIT_SNAPSHOT':
       return {
         ...state,
-        diffRequirementBodyRequest: null,
         gitSnapshotRequest: state.gitSnapshotRequest
           ? {
               ...state.gitSnapshotRequest,
@@ -1225,6 +1258,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           : null,
         gitSnapshot: {
           ...state.gitSnapshot,
+          patch: null,
           refreshGeneration: state.gitSnapshot.refreshGeneration + 1
         }
       }
@@ -1232,11 +1266,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'BEGIN_GIT_SNAPSHOT_QUERY':
       return {
         ...state,
-        diffRequirementBodyRequest: null,
         gitSnapshot:
           state.gitSnapshotRequest?.key === action.request.key
             ? state.gitSnapshot
-            : { ...state.gitSnapshot, summary: null },
+            : { ...state.gitSnapshot, summary: null, patch: null },
         gitSnapshotRequest: action.request
       }
 
@@ -1247,9 +1280,17 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       ) {
         return state
       }
+      // 새 요약은 **패치를 무효로 만든다**(0211 ΔV4 D-078). 타일이 열려 있으면 `useGitPatch`
+      // 가 곧바로 1회 다시 받고, 닫혀 있으면 다음에 열 때 1회다 — 낡은 diff 를 남기면
+      // 새로고침·턴 종료의 의미가 사라진다. 고른 커밋이 사라졌으면 전체로 접는다.
       return {
         ...state,
-        gitSnapshot: { ...state.gitSnapshot, summary: action.summary }
+        gitSnapshot: {
+          ...state.gitSnapshot,
+          summary: action.summary,
+          patch: null,
+          comparison: reconcileComparison(state.gitSnapshot.comparison, action.summary)
+        }
       }
 
     case 'ADD_DIFF_REQUIREMENT':
@@ -1277,43 +1318,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         diffRequirementDraft: action.draft,
         diffRequirementsRevision: state.diffRequirementsRevision + 1
       }
-
-    case 'SET_DIFF_REQUIREMENT_BODY_REQUEST':
-      if (state.sessionId !== action.sessionId) return state
-      return {
-        ...state,
-        diffRequirementBodyRequest: {
-          sessionId: action.sessionId,
-          path: action.path,
-          key: action.request.key,
-          generation: action.request.generation
-        }
-      }
-
-    case 'REANCHOR_DIFF_REQUIREMENTS': {
-      if (state.sessionId !== action.sessionId) return state
-      if (
-        state.diffRequirementBodyRequest?.sessionId !== action.sessionId ||
-        state.diffRequirementBodyRequest.path !== action.path ||
-        state.diffRequirementBodyRequest.key !== action.request.key ||
-        state.diffRequirementBodyRequest.generation !== action.request.generation
-      ) {
-        return state
-      }
-      let touched = false
-      const next = state.diffRequirements.map((item) => {
-        if (item.anchor.filePath !== action.path) return item
-        touched = true
-        const reanchored = reanchorDiffRequirementItem(item, action.lines)
-        return reanchored
-      })
-      if (!touched) return state
-      return {
-        ...state,
-        diffRequirements: next,
-        diffRequirementsRevision: state.diffRequirementsRevision + 1
-      }
-    }
 
     case 'CLEAR_DIFF_REQUIREMENTS_IF_UNCHANGED': {
       if (state.sessionId !== action.sessionId) return state

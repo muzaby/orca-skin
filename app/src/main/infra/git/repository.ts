@@ -27,6 +27,16 @@ export async function resolveHead(cwd: string): Promise<string | null> {
   return result.ok && /^[0-9a-fA-F]{40,64}$/.test(oid) ? oid : null
 }
 
+// 현재 HEAD 가 가리키는 **브랜치 이름**. detached HEAD 면 null (0211 ΔV4 D-070).
+//
+// **`symbolic-ref` 를 쓰는 이유**: 커밋이 하나도 없는 unborn 브랜치에서도 이름을 준다 —
+// `rev-parse --abbrev-ref HEAD` 는 거기서 실패한다(`git-cli.ts` 의 같은 판단).
+export async function resolveHeadRef(cwd: string): Promise<string | null> {
+  const result = await runGit(cwd, ['symbolic-ref', '--short', '-q', 'HEAD'], { readOnly: true })
+  const name = result.stdout.trim()
+  return result.ok && name.length > 0 ? name : null
+}
+
 // 로컬 브랜치 하나의 커밋 OID. **`refs/heads/` 를 붙여서** 넘긴다 — 사용자가 고른 값이 그대로
 // 첫 인자가 되면 `-` 로 시작하는 이름이 git 옵션으로 읽힌다. 접두사가 그 가능성을 없애고,
 // 동시에 조회 범위를 브랜치 칩이 실제로 제시하는 로컬 브랜치로 좁힌다.

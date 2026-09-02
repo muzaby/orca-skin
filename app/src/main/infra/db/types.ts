@@ -236,6 +236,10 @@ export interface SessionInsert {
   extraDirs?: string[] | null
   // 세션 출생 시점의 diff 기준. 이후 metadata update는 이 값을 바꾸지 않는다.
   baselineOid?: string | null
+  // 그 기준 커밋이 놓여 있던 **브랜치 이름**(0211 ΔV4 D-070). 컨텍스트 바가 그리는 유일한
+  // 비교 기준 라벨이다. detached HEAD·저장소 아님이면 null 이고 화면은 oid 로 접는다(D-071).
+  // `baselineOid` 와 **같은 insert 문장**에 실린다 — 따로 쓰면 이름과 커밋이 갈라진다.
+  baselineRef?: string | null
 }
 
 export interface ManagedWorktreeRow {

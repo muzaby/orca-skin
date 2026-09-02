@@ -113,8 +113,8 @@ export class DbQueries {
   constructor(db: Database.Database) {
     this.db = db
     this.insertSessionStmt = db.prepare(`
-      INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key, cwd, extra_dirs, baseline_oid)
-      VALUES (@id, @backend, @title, @projectId, @createdAt, @createdAt, NULL, @providerKey, @cwd, @extraDirs, @baselineOid)
+      INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key, cwd, extra_dirs, baseline_oid, baseline_ref)
+      VALUES (@id, @backend, @title, @projectId, @createdAt, @createdAt, NULL, @providerKey, @cwd, @extraDirs, @baselineOid, @baselineRef)
       ON CONFLICT(id) DO NOTHING
     `)
     this.insertManagedWorktreeStmt = db.prepare(`
@@ -144,7 +144,7 @@ export class DbQueries {
       WHERE id = @id
     `)
     this.getSessionBaselineStmt = db.prepare(
-      'SELECT baseline_oid FROM sessions WHERE id = @sessionId'
+      'SELECT baseline_oid, baseline_ref FROM sessions WHERE id = @sessionId'
     )
     this.loadPartsStmt = db.prepare(`
       SELECT
@@ -484,6 +484,7 @@ export class DbQueries {
         providerKey: row.providerKey ?? null,
         cwd: row.cwd ?? null,
         baselineOid: row.baselineOid ?? null,
+        baselineRef: row.baselineRef ?? null,
         // 빈 배열과 '없음' 을 같은 NULL 로 접는다 — 읽는 쪽이 두 표현을 구분할 이유가 없다.
         extraDirs: row.extraDirs && row.extraDirs.length > 0 ? JSON.stringify(row.extraDirs) : null
       })
@@ -499,10 +500,12 @@ export class DbQueries {
     return this.getSessionByIdStmt.get({ id }) as SessionListRow | undefined
   }
 
-  getSessionBaseline(sessionId: string): string | null {
+  // 기준 커밋과 그때의 브랜치 이름을 **함께** 돌려준다(0211 ΔV4 D-070). 둘을 따로 조회하면
+  // 두 시점의 값이 섞여 라벨이 다른 커밋의 브랜치를 말할 수 있다.
+  getSessionBaseline(sessionId: string): { oid: string | null; ref: string | null } {
     const row = this.getSessionBaselineStmt.get({ sessionId }) as
-      { baseline_oid: string | null } | undefined
-    return row?.baseline_oid ?? null
+      { baseline_oid: string | null; baseline_ref: string | null } | undefined
+    return { oid: row?.baseline_oid ?? null, ref: row?.baseline_ref ?? null }
   }
 
   // 주어진 cwd 를 작업 디렉토리로 가진 세션이 존재하는지 — files:openPath 화이트리스트.

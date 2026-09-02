@@ -10,6 +10,7 @@ import {
   isClean,
   resolveBranchOid,
   resolveHead,
+  resolveHeadRef,
   resolveRepoRoot
 } from '../../infra/git/repository'
 import { addWorktree, deleteBranch, listWorktrees, removeWorktree } from '../../infra/git/worktree'
@@ -25,6 +26,10 @@ export type PrepareWorktreeResult =
       executionCwd: string
       // 세션 출생 baseline의 단일 원본. managed_worktrees에 저장한 같은 값을 그대로 싣는다.
       baseOid: string
+      // 0211 ΔV4 — 그 baseline 커밋이 놓여 있던 **브랜치 이름**(D-072). `baseOid` 와 같은
+      // 자리에서 결정되므로 함께 싣는다: 소비자가 렌더 시점에 `symbolic-ref` 를 다시 부르는
+      // 역산을 발명하지 않게 한다. detached HEAD 면 null.
+      baseRef: string | null
       // 0211 — 사람이 읽는 이름의 정본. 실행 경로와 **다른 값**이라 결과에 함께 싣는다:
       // 소비자가 `executionCwd` 에서 원본을 역산하지 않게 한다.
       display: WorktreeDisplay
@@ -107,6 +112,11 @@ export class WorktreeService {
       return { kind: 'rejected', reason: 'invalid-path', message: '저장소 밖의 작업 경로입니다.' }
     input.onProgress?.('base')
     // base 는 **한 번만** 읽는다. 유예된 브랜치가 있으면 그 브랜치의 커밋, 없으면 현재 HEAD.
+    //
+    // 0211 ΔV4 — 이름도 **같은 자리에서** 결정한다(D-072). 유예 브랜치가 있으면 그 이름이 곧
+    // 기준 브랜치이고, 없으면 지금 체크아웃된 브랜치다. 이름을 나중에 다시 읽으면 그 사이
+    // 사용자가 브랜치를 바꿨을 때 커밋과 이름이 서로 다른 시점을 가리킨다.
+    const baseRef = input.baseRef ?? (await resolveHeadRef(sourceCwd))
     const baseOid = input.baseRef
       ? await resolveBranchOid(sourceCwd, input.baseRef)
       : await resolveHead(sourceCwd)
@@ -177,6 +187,7 @@ export class WorktreeService {
         worktreeId,
         executionCwd,
         baseOid,
+        baseRef,
         display: { sourceCwd, repoRoot }
       }
     } catch {

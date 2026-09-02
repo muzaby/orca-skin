@@ -14,7 +14,16 @@ export interface DiffHunkGapRow {
   id: `gap:${number}:${number}`
   start: number
   end: number
+  /**
+   * 이 gap 에서 **어느 방향으로 펼칠 수 있는가** (0211 ΔV4 D-090).
+   * `up` = 아래 hunk 쪽(끝쪽) 줄을 드러낸다 · `down` = 위 hunk 쪽(앞쪽) 줄을 드러낸다.
+   * 방향을 값으로 두지 않으면 파일 맨 위에서 "아래로 펼치기" 가 눌리고 아무 일도 안 일어난다.
+   */
+  canUp: boolean
+  canDown: boolean
 }
+
+export type GapDirection = 'up' | 'down'
 
 export type DiffHunkRow = DiffHunkLineRow | DiffHunkGapRow
 
@@ -31,7 +40,10 @@ export interface DiffHunkState {
 
 export interface GapExpansion {
   state: DiffHunkState
-  /** 현재 보이는 hunk 위에 삽입된 행 수. 스크롤 소유자가 viewport를 보정할 입력이다. */
+  /**
+   * 현재 보이는 hunk 위에 삽입된 행 수. 스크롤 소유자가 viewport를 보정할 입력이다.
+   * `down` 확장은 아래쪽에 넣으므로 언제나 0 이다 — 그 차이가 방향의 유일한 관측값이다.
+   */
   insertedAbove: number
 }
 
@@ -45,7 +57,24 @@ function lineRow(lines: readonly DiffLine[], sourceIndex: number): DiffHunkLineR
 }
 
 function gapRow(start: number, end: number): DiffHunkGapRow {
-  return { kind: 'gap', id: `gap:${start}:${end}`, start, end }
+  return { kind: 'gap', id: `gap:${start}:${end}`, start, end, canUp: false, canDown: false }
+}
+
+/**
+ * gap 마다 가능한 방향을 채운다. 위/아래에 실제 hunk 가 있어야 그쪽으로 "더 보기" 가 뜻을 갖는다.
+ * 양쪽 다 없으면(변경이 하나도 없는 본문) 아래 방향 하나는 남긴다 — 컨트롤이 0개면 사용자가
+ * 그 파일을 영영 펼칠 수 없다.
+ */
+function withGapDirections(rows: readonly DiffHunkRow[]): DiffHunkRow[] {
+  const lineIndexes = rows.flatMap((row, index) => (row.kind === 'line' ? [index] : []))
+  const first = lineIndexes[0]
+  const last = lineIndexes[lineIndexes.length - 1]
+  return rows.map((row, index) => {
+    if (row.kind !== 'gap') return row
+    const hasFollowing = last !== undefined && last > index
+    const hasPreceding = first !== undefined && first < index
+    return { ...row, canUp: hasFollowing, canDown: hasPreceding || !hasFollowing }
+  })
 }
 
 function deriveHunks(rows: readonly DiffHunkRow[]): readonly DiffHunk[] {
@@ -66,7 +95,8 @@ function deriveHunks(rows: readonly DiffHunkRow[]): readonly DiffHunk[] {
 }
 
 function withDerivedHunks(lines: readonly DiffLine[], rows: readonly DiffHunkRow[]): DiffHunkState {
-  return { lines, rows, hunks: deriveHunks(rows) }
+  const directed = withGapDirections(rows)
+  return { lines, rows: directed, hunks: deriveHunks(directed) }
 }
 
 /**
@@ -103,10 +133,21 @@ export function buildDiffHunks(lines: readonly DiffLine[], context: number): Dif
 }
 
 /**
- * Gap의 아래쪽 끝을 n행만 확장한다. 그래서 새 행은 다음 hunk 바로 위에 들어가며,
- * `insertedAbove`가 scrollTop 보정에 필요한 정확한 개수를 준다.
+ * gap 을 **한 방향으로** n행 확장한다 (0211 ΔV4 D-090).
+ *
+ * `up` 은 gap 의 **끝쪽**(아래 hunk 에 붙는 쪽)을 열어 새 행이 다음 hunk 바로 위에 들어가고,
+ * `insertedAbove` 가 scrollTop 보정에 필요한 정확한 개수를 준다. `down` 은 gap 의 **앞쪽**을
+ * 열어 위 hunk 바로 아래에 넣으므로 보정이 필요 없다(`insertedAbove === 0`).
+ *
+ * 어느 방향이든 **기존 행의 키와 순서는 보존된다** — 확장이 목록을 다시 만들면 React 가 전부
+ * 교체하고 사용자가 보던 위치가 사라진다(D-058 ①).
  */
-export function expandGap(state: DiffHunkState, id: string, n: number): GapExpansion {
+export function expandGap(
+  state: DiffHunkState,
+  id: string,
+  n: number,
+  direction: GapDirection = 'up'
+): GapExpansion {
   const rowIndex = state.rows.findIndex((row) => row.kind === 'gap' && row.id === id)
   const gap = state.rows[rowIndex]
   if (rowIndex < 0 || !gap || gap.kind !== 'gap') return { state, insertedAbove: 0 }
@@ -114,11 +155,22 @@ export function expandGap(state: DiffHunkState, id: string, n: number): GapExpan
   const count = Math.min(gap.end - gap.start, Math.max(0, Math.floor(n)))
   if (count === 0) return { state, insertedAbove: 0 }
 
-  const split = gap.end - count
+  const revealFrom = direction === 'up' ? gap.end - count : gap.start
+  const revealTo = revealFrom + count
   const replacement: DiffHunkRow[] = []
-  if (gap.start < split) replacement.push(gapRow(gap.start, split))
-  for (let index = split; index < gap.end; index += 1) replacement.push(lineRow(state.lines, index))
+  if (direction === 'down' && revealTo < gap.end) {
+    for (let index = revealFrom; index < revealTo; index += 1)
+      replacement.push(lineRow(state.lines, index))
+    replacement.push(gapRow(revealTo, gap.end))
+  } else {
+    if (gap.start < revealFrom) replacement.push(gapRow(gap.start, revealFrom))
+    for (let index = revealFrom; index < revealTo; index += 1)
+      replacement.push(lineRow(state.lines, index))
+  }
   const rows = [...state.rows.slice(0, rowIndex), ...replacement, ...state.rows.slice(rowIndex + 1)]
   const hasFollowingLine = state.rows.slice(rowIndex + 1).some((row) => row.kind === 'line')
-  return { state: withDerivedHunks(state.lines, rows), insertedAbove: hasFollowingLine ? count : 0 }
+  return {
+    state: withDerivedHunks(state.lines, rows),
+    insertedAbove: direction === 'up' && hasFollowingLine ? count : 0
+  }
 }

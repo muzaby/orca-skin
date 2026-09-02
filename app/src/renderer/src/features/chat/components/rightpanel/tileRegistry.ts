@@ -1,7 +1,7 @@
 import { rightPanelTileDefinitions, type RightPanelTileId } from '../../lib/rightPanelTiles'
 import { PlanTileContent, PlanTileHeaderActions } from './PlanTileContent'
 import { DiffTileContent } from './DiffTileContent'
-import { DiffTileHeader } from './DiffTileHeader'
+import { GitContextBar } from './GitContextBar'
 import { SubAgentTileContent, SubAgentTileHeader } from './SubAgentTileContent'
 import { TaskTileContent, TaskTileHeader } from './TaskTileContent'
 
@@ -26,7 +26,7 @@ const headerActionsById: Partial<Record<RightPanelTileId, React.ComponentType>> 
 const headerContentById: Partial<Record<RightPanelTileId, React.ComponentType>> = {
   subagent: SubAgentTileHeader,
   task: TaskTileHeader,
-  diff: DiffTileHeader
+  diff: GitContextBar
 }
 
 export const tileRegistry = rightPanelTileDefinitions.map((tile) => ({

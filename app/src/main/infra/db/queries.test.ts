@@ -480,7 +480,7 @@ describe('DbQueries session cwd', () => {
 })
 
 describe('DbQueries — session baseline', () => {
-  it('출생 시 전달된 baseline OID만 저장하고 레거시 NULL은 null로 읽는다', () => {
+  it('출생 시 전달된 커밋과 브랜치 이름을 함께 저장하고 레거시는 둘 다 null 이다', () => {
     const db = dbWithMigrations()
     const q = new DbQueries(db)
 
@@ -490,15 +490,40 @@ describe('DbQueries — session baseline', () => {
       title: null,
       projectId: null,
       createdAt: 10,
-      baselineOid: 'a'.repeat(40)
+      baselineOid: 'a'.repeat(40),
+      // 0211 ΔV4 — 이름은 커밋과 **같은 insert 문장**에 실린다(D-070). 따로 쓰면 그 사이에
+      // 죽었을 때 "커밋은 아는데 이름은 모르는" 행이 남는다.
+      baselineRef: 'main'
     })
     insertSession(db, 'legacy-session')
 
-    expect(q.getSessionBaseline('baseline-session')).toBe('a'.repeat(40))
-    expect(q.getSessionBaseline('legacy-session')).toBeNull()
+    expect(q.getSessionBaseline('baseline-session')).toEqual({
+      oid: 'a'.repeat(40),
+      ref: 'main'
+    })
+    expect(q.getSessionBaseline('legacy-session')).toEqual({ oid: null, ref: null })
 
     q.updateSessionCwd('baseline-session', '/another-cwd', 20)
-    expect(q.getSessionBaseline('baseline-session')).toBe('a'.repeat(40))
+    expect(q.getSessionBaseline('baseline-session')).toEqual({
+      oid: 'a'.repeat(40),
+      ref: 'main'
+    })
+  })
+
+  it('detached HEAD 는 커밋만 남고 이름이 null 이다 — 화면은 그때 sha 로 접는다 (D-071)', () => {
+    const db = dbWithMigrations()
+    const q = new DbQueries(db)
+
+    q.insertSession({
+      id: 'detached',
+      backend: 'claude',
+      title: null,
+      projectId: null,
+      createdAt: 10,
+      baselineOid: 'b'.repeat(40)
+    })
+
+    expect(q.getSessionBaseline('detached')).toEqual({ oid: 'b'.repeat(40), ref: null })
   })
 })
 

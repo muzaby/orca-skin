@@ -1,145 +1,60 @@
+// 0211 ΔV4 — 컨텍스트 바의 비교 기준 라벨 (VP-51 · AT-43).
+//
+// 네 상태가 서로를 대신하지 못한다: `ref` 는 브랜치 이름, `oid` 는 이름을 모를 때의 sha 7자,
+// `head` 는 기준선 자체를 모를 때의 문구, `none` 은 커밋이 하나도 없는 저장소다.
+
 import { describe, expect, it } from 'vitest'
-import type { GitDiffCommit, GitDiffFileEntry, GitDiffSummary } from '../../../../../../shared/ipc'
-import {
-  commitDisplayMeta,
-  commitFileRows,
-  sessionChangeGroups,
-  summaryBaseLabel,
-  summaryBaseText,
-  summaryNoticeKeys
-} from './sessionChangesData'
+import type { GitDiffBase, GitDiffSummary } from '../../../../../../shared/ipc'
+import type { MessageKey } from '../../../../shared/i18n'
+import { summaryBaseLabel, summaryBaseText } from './sessionChangesData'
 
-const file = (path: string): GitDiffFileEntry => ({
-  path,
-  status: 'modified',
-  added: 1,
-  removed: 0,
-  binary: false
-})
+const tr = (key: MessageKey): string =>
+  key === 'chat.rightpanel.diffBaselineHead' ? '현재 HEAD' : String(key)
 
-const commit = (overrides: Partial<GitDiffCommit> = {}): GitDiffCommit => ({
-  sha: 'commit-a',
-  subject: 'implement session changes',
-  author: 'codex',
-  committedAt: 0,
-  body: 'Retain the detail users wrote.',
-  files: [file('shared.ts')],
-  filesTruncated: true,
-  fileCount: 3,
-  totals: { added: 2, removed: 1 },
-  ...overrides
-})
-
-const summary = (commits: GitDiffCommit[]): GitDiffSummary => ({
-  isRepo: true,
-  base: { kind: 'worktree-base', oid: 'base-oid' },
-  files: [file('session.ts')],
-  totals: { added: 3, removed: 1 },
-  filesTruncated: false,
-  commits,
-  commitsTruncated: false,
-  commitFilesUnavailable: false,
-  uncommitted: {
-    files: [file('shared.ts')],
-    totals: { added: 1, removed: 0 },
-    filesTruncated: false
+function summaryWith(base: GitDiffBase): GitDiffSummary {
+  return {
+    isRepo: true,
+    base,
+    files: [],
+    totals: { added: 0, removed: 0 },
+    filesTruncated: false,
+    commits: [],
+    commitsTruncated: false,
+    commitFilesUnavailable: false,
+    uncommitted: { files: [], totals: { added: 0, removed: 0 }, filesTruncated: false }
   }
-})
+}
 
-describe('session changes data', () => {
-  // AT-28 — 기준선 자리는 **세 종류**를 구분한다. `head` 는 "세션 기준선을 모른다" 이고,
-  // 그 자리에 sha 를 쓰면 그 sha 가 이 세션의 출발점인 것처럼 읽힌다.
-  it('AT-28 — base 3종이 각각 다른 헤더 값을 낸다', () => {
-    const oidSummary = summary([])
-    const headSummary: GitDiffSummary = {
-      ...oidSummary,
-      base: { kind: 'head', oid: 'headoid1234' }
-    }
-    const noneSummary: GitDiffSummary = { ...oidSummary, base: { kind: 'none' } }
+describe('비교 기준 라벨 4상태', () => {
+  it('브랜치 이름을 알면 그 이름이 라벨이다', () => {
+    const base: GitDiffBase = { kind: 'worktree-base', oid: 'a'.repeat(40), ref: 'main' }
 
-    expect(summaryBaseLabel(oidSummary)).toEqual({ kind: 'oid', oid: 'base-oi' })
-    expect(summaryBaseLabel(headSummary)).toEqual({ kind: 'head' })
-    expect(summaryBaseLabel(noneSummary)).toEqual({ kind: 'none' })
-
-    const tr = ((key: string) => `tr:${key}`) as Parameters<typeof summaryBaseText>[1]
-    expect(summaryBaseText(oidSummary, tr)).toBe('base-oi')
-    // sha 자리가 sha 가 **아니어야** 한다 — 문구 키로 간다.
-    expect(summaryBaseText(headSummary, tr)).toBe('tr:chat.rightpanel.diffBaselineHead')
-    expect(summaryBaseText(headSummary, tr)).not.toContain('headoid')
-    expect(summaryBaseText(noneSummary, tr)).toBe('∅')
+    expect(summaryBaseLabel(summaryWith(base))).toEqual({ kind: 'ref', ref: 'main' })
+    expect(summaryBaseText(summaryWith(base), tr)).toBe('main')
   })
 
-  it('commit과 uncommitted는 같은 path여도 별도 group으로 유지한다', () => {
-    const groups = sessionChangeGroups(summary([commit()]))
+  it('이름을 모르면 sha 7자로 접는다 — 라벨 자리를 비우지 않는다', () => {
+    const base: GitDiffBase = { kind: 'worktree-base', oid: 'abcdef1234567890', ref: null }
 
-    expect(groups).toEqual([
-      expect.objectContaining({
-        group: { kind: 'commit', sha: 'commit-a' },
-        files: [file('shared.ts')]
-      }),
-      expect.objectContaining({ group: { kind: 'uncommitted' }, files: [file('shared.ts')] })
-    ])
+    expect(summaryBaseLabel(summaryWith(base))).toEqual({ kind: 'oid', oid: 'abcdef1' })
+    expect(summaryBaseText(summaryWith(base), tr)).toBe('abcdef1')
   })
 
-  it('commit fallback metadata의 null은 0으로 바꾸지 않고 unavailable로 표시한다', () => {
-    expect(commitDisplayMeta(commit({ fileCount: null, totals: null }))).toEqual({
-      kind: 'unavailable'
-    })
-    expect(commitDisplayMeta(commit({ fileCount: 0, totals: { added: 0, removed: 0 } }))).toEqual({
-      kind: 'available',
-      fileCount: 0,
-      totals: { added: 0, removed: 0 },
-      remainingFileCount: 0
-    })
+  it('기준선 자체를 모르면 sha 가 아니라 문구다 — 그 sha 는 출발점이 아니다', () => {
+    const base: GitDiffBase = { kind: 'head', oid: 'b'.repeat(40) }
+
+    expect(summaryBaseLabel(summaryWith(base))).toEqual({ kind: 'head' })
+    expect(summaryBaseText(summaryWith(base), tr)).toBe('현재 HEAD')
   })
 
-  it('AT-26 — 8-file commit은 처음 2행만 보이고 로컬 확장 뒤 8행을 모두 보인다', () => {
-    const eight = commit({
-      files: Array.from({ length: 8 }, (_, index) => file(`f${index}.ts`)),
-      filesTruncated: false,
-      fileCount: 8
-    })
-
-    expect(commitFileRows(eight, false)).toMatchObject({
-      loadedFiles: [file('f0.ts'), file('f1.ts')],
-      moreLoadedCount: 6,
-      partial: false
-    })
-    expect(commitFileRows(eight, true)).toMatchObject({
-      loadedFiles: eight.files,
-      moreLoadedCount: 0,
-      partial: false
-    })
+  it('커밋이 하나도 없는 저장소와 요약 부재는 none 이다', () => {
+    expect(summaryBaseLabel(summaryWith({ kind: 'none' }))).toEqual({ kind: 'none' })
+    expect(summaryBaseLabel(null)).toEqual({ kind: 'none' })
   })
 
-  it('AT-26 — 51-file fallback은 50 loaded rows까지만 확장하고 51번째를 더 가져올 수 있는 것처럼 보이지 않는다', () => {
-    const capped = commit({
-      files: Array.from({ length: 50 }, (_, index) => file(`f${index}.ts`)),
-      filesTruncated: true,
-      fileCount: 51
-    })
+  it('라벨은 현재 브랜치를 붙이지 않는다 — 화살표도 우측 값도 없다 (D-069)', () => {
+    const base: GitDiffBase = { kind: 'worktree-base', oid: 'a'.repeat(40), ref: 'main' }
 
-    expect(commitFileRows(capped, false)).toMatchObject({
-      loadedFiles: capped.files.slice(0, 2),
-      moreLoadedCount: 48,
-      partial: true
-    })
-    expect(commitFileRows(capped, true)).toMatchObject({
-      loadedFiles: capped.files,
-      moreLoadedCount: 0,
-      partial: true
-    })
-  })
-
-  it('top-level summary cap/unavailable flags를 별도 notice key로 낸다', () => {
-    expect(summaryNoticeKeys({ ...summary([]), filesTruncated: true })).toEqual([
-      'chat.rightpanel.diffSessionFilesTruncated'
-    ])
-    expect(summaryNoticeKeys({ ...summary([]), commitsTruncated: true })).toEqual([
-      'chat.rightpanel.diffSessionCommitsTruncated'
-    ])
-    expect(summaryNoticeKeys({ ...summary([]), commitFilesUnavailable: true })).toEqual([
-      'chat.rightpanel.diffSessionCommitFilesUnavailable'
-    ])
+    expect(summaryBaseText(summaryWith(base), tr)).toBe('main')
   })
 })

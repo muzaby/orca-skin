@@ -40,6 +40,7 @@ function base(): Parameters<typeof buildTurnContext<string>>[0] {
     effectiveText: '안녕',
     boundProjectId: null,
     sessionBaseline: null,
+    sessionBaselineRef: null,
     sessionMeta: undefined,
     continuityMeta: undefined,
     continuityLang: 'ko',

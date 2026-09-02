@@ -1,4 +1,5 @@
 // 0211 ΔV3 AT-41 / §10 EP-27 — 변경사항 패널이 **형제 패널의 primitive** 를 쓴다.
+// ΔV4 가 대상 집합을 새 컴포넌트 넷으로 넓힌다 — 화면이 바뀌어도 같은 불변식이 걸린다.
 //
 // 이 스윕은 **구조**만 센다. "형제와 나란히 놓았을 때 이질감이 없는가" 는 여기서 세지 못하고
 // §19 사람 실기 1건이 갖는다(D-067). 그 차이를 알고 쓴다.
@@ -14,7 +15,11 @@ import { describe, expect, it } from 'vitest'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const read = (name: string): string => readFileSync(join(HERE, name), 'utf8')
 
-const PANELS = ['SessionChangesList.tsx', 'DiffPeek.tsx'] as const
+// **상호작용 행을 그리는** 컴포넌트만 primitive 대응을 센다. `DiffReview` 는 배치와 상태
+// 분기만 가져 hover 행이 0이고, 그 파일에 hover 를 요구하면 장식을 붙이게 만든다 — 대신
+// 익명 group 금지는 넷 전부에 걸린다(아래 별도 describe).
+const PANELS = ['GitContextBar.tsx', 'ChangedNavigationSidebar.tsx', 'FileDiffSection.tsx'] as const
+const ALL_PANELS = [...PANELS, 'DiffReview.tsx'] as const
 const CLASS_LITERAL = /className=(?:"([^"]*)"|\{`([^`]*)`\})/g
 const TRANSITION = /transition-(colors|opacity|transform|\[)/
 
@@ -47,23 +52,31 @@ describe.each(PANELS)('%s — 형제 primitive (AT-41)', (file) => {
   })
 })
 
-describe('접기 컨트롤이 house 형태다 (AT-41 · EP-27 ③)', () => {
-  it('SessionChangesList 의 파일 접기가 button + aria-expanded + chevron 회전이다', () => {
-    const source = read('SessionChangesList.tsx')
+describe.each(ALL_PANELS)('%s — 익명 group 금지', (file) => {
+  it('상위의 다른 .group 까지 매칭되는 익명 group-hover 를 쓰지 않는다', () => {
+    // (`src/renderer/AGENTS.md §그룹 스코프 격리`) — 형제 인스턴스가 함께 반응하는 버그의 원인.
+    expect(read(file).match(/(?<!\/)\bgroup-hover:/g)).toBeNull()
+  })
+})
 
-    expect(source).toContain('aria-expanded={expanded}')
-    expect(source).toContain('name="chevD"')
-    // 열림/닫힘이 **회전으로 갈린다** — 붙였는지가 아니라 갈리는지가 계약이다.
-    expect(source).toContain("expanded ? '' : '-rotate-90'")
-    expect(source).toContain('motion-reduce:transition-none')
+describe('접기 컨트롤이 house 형태다 (AT-41 · EP-27 ③)', () => {
+  it('파일 섹션의 접기가 button + aria-expanded + 아이콘 갈림이다', () => {
+    const source = read('FileDiffSection.tsx')
+
+    expect(source).toContain('aria-expanded={!collapsed}')
+    // 열림/닫힘이 **아이콘으로 갈린다** — 붙였는지가 아니라 갈리는지가 계약이다.
+    expect(source).toContain("collapsed ? 'chevR' : 'chevD'")
   })
 
-  it('섹션 제목 타이포가 형제 타일(TaskTileSections)과 같다', () => {
-    const sibling = readFileSync(join(HERE, 'TaskTileSections.tsx'), 'utf8')
-    const token = /text-footnote font-medium text-t9/
-    expect(sibling).toMatch(token)
-    expect(read('SessionChangesList.tsx')).toMatch(token)
-    // 이 패널만 쓰던 표제 서체가 남아 있지 않다.
-    expect(read('SessionChangesList.tsx')).not.toContain('font-serif')
+  it('사이드바의 폴더 접기도 같은 형태다 — 두 접기가 서로 다른 모양이 되지 않는다', () => {
+    const source = read('ChangedNavigationSidebar.tsx')
+
+    expect(source).toContain('aria-expanded={!collapsed}')
+    expect(source).toContain("collapsed ? 'chevR' : 'chevD'")
+  })
+
+  it('연출은 저장소의 기존 상수를 승계한다 (D-092)', () => {
+    // 새 시간축을 만들지 않는다 — `animate-depth-in` 은 `app.css` 의 180ms utility 다.
+    expect(read('ChangedNavigationSidebar.tsx')).toContain('animate-depth-in')
   })
 })

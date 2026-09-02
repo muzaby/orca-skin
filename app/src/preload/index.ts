@@ -24,8 +24,8 @@ import {
   type GitBranchList,
   type GitCheckoutRequest,
   type GitCheckoutResult,
-  type GitDiffFileContent,
-  type GitDiffFileRequest,
+  type GitDiffPatch,
+  type GitDiffPatchRequest,
   type GitDiffRequest,
   type GitDiffSummary,
   type GitStatus,
@@ -174,8 +174,8 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.gitCheckout, req),
     diffSummary: (req: GitDiffRequest): Promise<GitDiffSummary> =>
       ipcRenderer.invoke(CHANNELS.gitDiffSummary, req),
-    diffFile: (req: GitDiffFileRequest): Promise<GitDiffFileContent> =>
-      ipcRenderer.invoke(CHANNELS.gitDiffFile, req)
+    diffPatch: (req: GitDiffPatchRequest): Promise<GitDiffPatch> =>
+      ipcRenderer.invoke(CHANNELS.gitDiffPatch, req)
   },
   session: {
     cwd: (): Promise<string> => ipcRenderer.invoke(CHANNELS.sessionCwd),
