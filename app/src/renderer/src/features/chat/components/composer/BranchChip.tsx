@@ -5,6 +5,7 @@ import { Button } from '../../../../shared/ui/Button'
 import { Modal } from '../../../../shared/ui/Modal'
 import { Popover } from '../../../../shared/ui/Popover'
 import { useI18n } from '../../../../shared/i18n'
+import { chipGroupDivider, type ChipVariant } from './chipSurface'
 import { ComposerChip } from './ComposerChip'
 import { BranchMenu } from './BranchMenu'
 import { BranchSwitchDialog } from './BranchSwitchDialog'
@@ -26,6 +27,11 @@ interface BranchChipProps {
   deferTo?: ((branch: string) => void) | undefined
   // 유예 중 사용자가 고른 값. 라벨이 선택을 따라가지 않으면 눌러도 아무 일 없어 보인다.
   deferred?: string | null | undefined
+  // 묶음(브랜치+워크트리) 안에 설 때의 외형. 기본은 낱개 outlined 칩이다.
+  variant?: ChipVariant
+  // 묶음에서 **자기 뒤의 구분선까지** 그린다. 저장소가 아니면 이 컴포넌트가 통째로 사라지는데,
+  // 줄을 묶음이 그리면 그때 세로선 하나만 덩그러니 남는다.
+  trailingDivider?: boolean
 }
 
 const EMPTY_LIST: GitBranchList = { current: null, branches: [] }
@@ -39,7 +45,9 @@ export function BranchChip({
   cwd,
   disabled = false,
   deferTo,
-  deferred
+  deferred,
+  variant = 'outlined',
+  trailingDivider = false
 }: BranchChipProps): React.JSX.Element | null {
   const { tr } = useI18n()
   // 상태는 **어느 경로의 것인지와 함께** 들고 있는다. 폴더를 빠르게 바꾸면 늦게 도착한 응답이
@@ -139,7 +147,7 @@ export function BranchChip({
         ref={buttonRef}
         icon="fork"
         label={deferred ?? view.branch ?? tr('chat.composer.branchDetached')}
-        variant="outlined"
+        variant={variant}
         // `claude/composer-branch-and-add-dir` 같은 이름은 그냥 두면 행을 통째로 밀어낸다.
         className="max-w-[16rem]"
         disabled={disabled || busy}
@@ -148,6 +156,7 @@ export function BranchChip({
         ariaExpanded={menuOpen}
         title={tr('chat.composer.branchTitle')}
       />
+      {trailingDivider && <span aria-hidden="true" className={chipGroupDivider} />}
       <Popover open={menuOpen} anchorRef={buttonRef} onClose={() => setMenuOpen(false)}>
         <BranchMenu
           current={deferred ?? list.current ?? view.branch}
