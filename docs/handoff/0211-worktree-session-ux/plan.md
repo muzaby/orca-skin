@@ -4398,9 +4398,19 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 | D19 | 정정된 AT-47·EP-31 ③ 의 "예산은 수집한 파일만 소비한다" 절에 오라클이 없다 — 커서 의미로 바꿔도 green | AT-47 · EP-31 ③(문구) | 상한 초과 파일 **뒤의 더 작은 파일이 다시 실린다** 1케이스(상수에서 유도) | NON_BLOCKING | **closed**(r3 · M19 RED) |
 | D20 | §18 ΔV4 영향 파일 목록이 `b85195e` 만 담는다 — r2 가 더한 테스트 4 · 변경 6 이 빠져 있다 | plan §18 | §18 을 r1 기준 + r2·r3 추가 절로 나눴다 | NON_BLOCKING | **closed**(r3 설계) |
 | D21 | INDEX 0211 비고가 **809자**로 5줄 상한을 여전히 넘는다(r1 1,055자에서 축소) | `docs/handoff/AGENTS.md §산출물 문장 규칙 3` | 검증 갱신에서 축약 | NON_BLOCKING | **closed**(r2 검증) |
-| **D22** | 이동의 **소유자 인자**가 무관측 — `revealFileSection(null, path)` 로 프로덕션이 아무것도 스크롤하지 않게 해도 typecheck 0 error · lint 0 error · **3,080 케이스 전건 green** | VP-58 / AT-50 | 소유자를 주입해 첫 인자를 단언(D16 원래 처방)하거나 소스 스윕으로 `scrollOwnerRef.current` 를 고정한다 | **BLOCKING** | open(r3) |
-| D23 | 아이콘 버튼 셋의 접근성 이름을 **서로 맞바꿔도** green — 세 문자열이 마크업에 모두 남아 존재 단언이 침묵한다 | VP-60 / AT-52 | 버튼을 지목해(`data-diff-sidebar-toggle` 등) 이름을 짝지어 단언한다 | NON_BLOCKING | open(r3) |
+| **D22** | 이동의 **소유자 인자**가 무관측 — `revealFileSection(null, path)` 로 프로덕션이 아무것도 스크롤하지 않게 해도 typecheck 0 error · lint 0 error · **3,080 케이스 전건 green** | VP-58 / AT-50 | 소유자를 주입해 첫 인자를 단언(D16 원래 처방)하거나 소스 스윕으로 `scrollOwnerRef.current` 를 고정한다 | **BLOCKING** | **closed**(ΔV5 · 인용 변이 V5-M8 `revealFileSection(null,…)` 가 red 1/6) |
+| D23 | 아이콘 버튼 셋의 접근성 이름을 **서로 맞바꿔도** green — 세 문자열이 마크업에 모두 남아 존재 단언이 침묵한다 | VP-60 / AT-52 | 버튼을 지목해(`data-diff-sidebar-toggle` 등) 이름을 짝지어 단언한다 | NON_BLOCKING | **open**(ΔV6 재측정) — 세그먼트 둘은 잠겼으나(N5 red) `⋮` ↔ `↗` 맞바꿈은 여전히 green |
 | D24 | §10 EP-36 ② 는 "먼저 펼친 뒤 이동" 이라 적었는데 순서를 뒤집어도 green — 다만 React 상태 갱신이라 프로덕션 동작 차이는 없다 | §10 EP-36 ②(문구) | 문구를 코드에 맞추거나 순서 oracle 을 세운다 | NON_BLOCKING | open(r3) |
+| **D25** | `claude.ts:406` 의 `makeTurnEndHook(…)` 호출을 지워도 **전건 green**(3,179/3,179 · baseline 동일) — 계기의 **시작점**이 무관측이다 | VP-72 / §10 EP-46 ① | fake SDK 메시지 스트림으로 `options.hooks` 에 `Stop` 매처가 실렸는지 단언한다(§11 이 이미 그 seam 을 적었다) | **BLOCKING** | open(ΔV6) |
+| **D26** | `drainTurnEnded()` 두 드레인을 지우고 잔여물(미사용 제너레이터·카운터)까지 밀어도 **green**(3,178/3,179 · 유일 실패는 무관 flaky) — 신호가 **이벤트가 되는 자리**가 무관측이다 | VP-72 / §10 EP-46 ② | 같은 fake 스트림에서 `Stop` 발화 뒤 `turn.ended` 가 배치에 실린다고 단언한다 | **BLOCKING** | open(ΔV6) |
+| **D27** | `chatStore.receive` 의 `case 'turn.ended'` 를 지워도 **green**(3,179/3,179 · baseline 동일) — 이벤트가 **리듀서에 닿는 자리**가 무관측이다 | VP-72 / §10 EP-46 ④ | `chatStore` 라우팅 테스트에 `turn.ended` 케이스를 더한다(형제 `turn.aborted` 가 이미 그 자리에 있다) | **BLOCKING** | open(ΔV6) |
+| **D28** | 헤더 활성 세그먼트가 `bg-fill-uncontained-active`(ink 14% 중립) + `text-t9` 를 그린다 — **D-118 이 지정한 값은 `bg-fill-selected`(rust-soft) + `text-accent`** 이고 사이드바 선택은 그 값을 쓴다. 같은 "선택" 문법이 둘로 갈렸다 | D-118 ACTIVE · AT-75 클래스 절 · AT-76 실측 9행 / VP-76 · VP-77 | 세그먼트에 `bg-fill-selected`/`text-accent` 를 주고 **그 클래스를 단언**한다 — `Button` 의 `pressed` 는 다른 토큰을 소유하므로 위임으로는 닫히지 않는다 | **BLOCKING** | open(ΔV6) |
+| **D29** | AT-76 오라클이 **소스 텍스트 스윕**이라 "어느 요소가 그 클래스를 갖는가" 를 보지 않는다 — `w-[25%]` 를 형제 안쪽 `<div>` 로 옮겨도 green. AC 검증 수단은 "대상 요소를 `data-*` 로 지목" 이었다 | VP-77 / AT-76 검증 수단 | 렌더 후 `data-*` 요소의 className 을 단언한다 | **BLOCKING** | open(ΔV6) |
+| D30 | `GitContextBar.render.test.ts:77` 에 프로덕션에 없는 `toggleDiffSidebar: vi.fn()` mock 키가 남았다 | 비귀속 | 삭제 | NON_BLOCKING | open(ΔV6) |
+| D31 | 구현 보고 두 수치가 재현되지 않는다 — `busy` 보고 `0` ↔ 실측 **2**(주석), `toggleDiffSidebar` 보고 `0` ↔ 실측 **3**(테스트·주석). 불변식(프로덕션 0)은 둘 다 성립한다 | 비귀속 | 보고 술어를 오라클과 같게 쓴다(주석 제거 후 프로덕션 한정) | NON_BLOCKING | open(ΔV6) |
+| D32 | `check-doc-inventory --check` 가 `.claude/worktrees/**`(git 제외 경로)를 스캔해 **1,940건**을 낸다. 추적 파일 위반은 **0** 이고 CI 는 신규 클론이라 영향이 없다 | 비귀속 — 스크립트 기존 동작 | 스크립트가 `.gitignore`·`.git/info/exclude` 를 존중하게 | NEXT_HANDOFF | open(ΔV6) |
+| D33 | `GitDiffSummary.uncommitted` 가 항상 `EMPTY_GROUP` 인 죽은 계약 필드다 | 비귀속 — §6 비범위 (구현자 I-06) | 계약 필드 제거 | NEXT_HANDOFF | open(ΔV6) |
+| D34 | `queue-entry.test.ts` 가 `release is not a function` → `EBUSY rmdir` 로 간헐 실패한다(단독 4회 중 1). 고정 `setTimeout(150)` 경합 | 비귀속 — 이번 변경 무관(`queue*` diff 0) | 기존 D15 · 구현자 I-08 과 같은 축 | NEXT_HANDOFF | open(ΔV6) |
 
 ## [설계 정정] ΔV4 r3 추가 범위 — 사용자 보고 3건 (라운드 유지)
 
