@@ -3877,8 +3877,9 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 - 유효 V: `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5`. 기준 `177def67`.
 - AC 자기보고: **8/8**(AT-62~AT-69). §10 강제 지점 **12/12**.
 - 변경 파일 **26** — main 2 · shared/preload 3 · renderer 프로덕션 13(신규 1 `lib/repoPath.ts`) · 테스트 신규 5 · 테스트 변경 9 · i18n 2 · 문서 1. 마이그레이션 **0**.
-- 게이트: `npm run lint` **0 errors**(1 warning = 기존 `useTranscriptVirtualizer` incompatible-library) · `typecheck` 3분할 **전건 통과** · `check-doc-inventory --check` **generated doc ok (9 items, 82 channels)**, `inventory.md` **diff 0**.
-- **환경 한계로 분리 보고**: 전체 vitest 에서 **13파일 red = better-sqlite3 ABI**(Electron 140 ↔ Node 127). 전부 DB 를 인스턴스화하는 스위트이고 ΔV5 는 DB 코드를 한 줄도 바꾸지 않는다(§18 비영향 선언). 그 밖 **3파일**(`gitQueryOwner`·`git-cli`·`git-diff`)은 병렬 부하에서만 간헐 red 이고 단독 실행 green — 기존 D15.
+- 게이트: `npm run lint` **0 problems** · `typecheck` 3분할 **전건 통과** · `check-doc-inventory --check` **generated doc ok (9 items, 82 channels)**, `inventory.md` **diff 0** · `check-migrations-appendonly` **exit 0**(20 migrations) · `node --test scripts/*.test.mjs` **67/67**.
+- **vitest 전건 green — Node ABI 로 재실행해 확인했다.** `npm rebuild better-sqlite3` 뒤 `vitest run --maxWorkers=1` = **317파일 3,135케이스 전건 통과**. 그 전 실행의 13파일 red 는 Electron ABI(140 ↔ 127) 하나였고, `gitQueryOwner`·`git-cli`·`git-diff` 3파일의 간헐 red 도 직렬 실행에서 사라졌다(기존 D15 와 같은 축).
+- **첫 푸시(`f174bdb7`)가 CI lint 에서 red 였다** — `diffOpenFile.test.ts` 의 미사용 파라미터 하나(`'_req' is defined but never used`, `@typescript-eslint/no-unused-vars`). 이 저장소의 규칙은 `_` 접두사를 예외로 두지 않는다. `vi.fn<T>` 제네릭으로 파라미터 자체를 없애 닫았다(`e4dd1ec` 계열 후속 커밋). **원인은 절차다**: 자기검증 중 `git checkout --` 로 변이를 되돌리다 미커밋 구현을 날려 다시 쓴 뒤, 그 뒤 편집한 세 파일에 lint 를 다시 돌리지 않고 커밋했다.
 
 ## [구현자 기입] Review Signals — 사실만 (ΔV5)
 

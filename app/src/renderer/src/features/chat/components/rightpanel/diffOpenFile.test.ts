@@ -10,7 +10,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { joinRepoPath } from '../../lib/repoPath'
 
 let onOpenFile: ((path: string) => void) | null = null
-const openPath = vi.fn(async (_req: { path: string; mode: string }) => undefined)
+const openPath = vi.fn<(req: { path: string; mode: string }) => Promise<void>>(
+  async () => undefined
+)
 
 vi.mock('../../../../shared/api/ipc', () => ({
   fileApi: { openPath: (req: { path: string; mode: string }) => openPath(req) },
