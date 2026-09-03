@@ -67,6 +67,7 @@
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-001 ~ D-017 (신규 handoff, 이전 ACTIVE 결정 없음). D-013~D-017 은 턴 중 도착한 요구⑨ 로 추가됐고 D-001~D-012 와 대상이 겹치지 않는다.
+- **r1 착수 전 정정(PLAN_GAP)**: D-008 의 dedupe 축이 성립해야 하는 지점을 §10 EP-05 가 1개로 셌으나 실측 2개다 — `model-parser.ts:79-81` 의 configured↔discovered 교차 필터가 `candidate.model === entry.model` 로만 비교해 env family `X` + availableModels `X[1m]` 조합에서 1M 변형을 버린다. EP-05 를 2사이트로, VP-08 을 `AT-08·AT-22` 로 넓히고 AT-22 를 신설했다. **Decision 은 바뀌지 않았다**(D-008 이 이미 그 규칙을 갖고 있었고 강제 지점만 덜 셌다).
 - 변경된 결정: 없음.
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: 0150 D④(계획 승인 = allow 의 `updatedPermissions`), 0026 파서 규약(노출 목록 내 default 정확히 1개). 둘 다 §16 에서 유지 판정.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0.
@@ -74,7 +75,7 @@
   - D-002("실패 표시") ↔ AC3("`pendingPlanReview` 가 있는데 본문이 없으면 실패 문구") → 일치.
   - D-004("경로 추측 금지") ↔ AC1·AC2 어디에도 `planFilePath` 독립 폴백 요구 없음 → 일치.
   - D-006("top-level `model` 은 default 전용") ↔ AC5·AC6·AC7 은 `ANTHROPIC_MODEL` 만 대상 → 일치.
-  - D-007·D-008("identity 에 1M 포함") ↔ AC8·AC9·AC10 → 노출·SDK 문자열·행 식별 세 축이 각각 대응 → 일치.
+  - D-007·D-008("identity 에 1M 포함") ↔ AC8·AC9·AC10·**AC22** → 노출(두 생산 경로)·SDK 문자열·행 식별 네 축이 각각 대응 → 일치.
   - D-009("alias 또는 이름") ↔ AC11(메뉴 노출 판정) → 일치. AC11 이 두 축을 모두 케이스로 갖는다.
   - D-010("메뉴 제거 + accept_edits 강등") ↔ AC11·AC12·AC13 → 강등 대상이 `accept_edits` 로 고정되어 있고 `default` 로 내리는 AC 는 없다 → 일치.
   - D-011("main=이름 기반 2차 방어") ↔ AC14(main 경로는 SDK 모델 문자열로 판정) → 일치. AC14 가 alias 판정을 main 에 요구하지 않는다.
@@ -179,6 +180,7 @@
 | R-05 | AT-19 / AC19 | background 중단 실패 문구가 `백그라운드 작업` 타일에서 보인다 | 렌더: `taskStopErrors['bg:<id>']` 가 있을 때 `SubAgentTileContent` 가 그 문구를 렌더 | `stopTask` 실패 → reducer `taskStopErrors` → `SubAgentTileContent` |
 | R-05 | AT-20 / AC20 | 서브에이전트 목록·중단·전환 능력이 `백그라운드 작업` 타일에 그대로 남는다(회귀) | 렌더: 기존 subagent 타일 테스트가 행·중단 버튼·전환 버튼을 계속 단언 | `SubAgentTileContent` |
 | R-01~R-05 | AT-21 / AC21 | 게이트: `npm run lint` 0 error · `npm run typecheck` 3종 0 · 영향 vitest 스위트 green | 명령 산출(파일 수/케이스 수)을 관측값으로 기록 | 저장소 게이트 |
+| R-03 | AT-22 / AC22 | env family `X` + availableModels `X[1m]` 조합에서도 **두 항목 모두** 노출된다 | 단위: `parseClaudeModels({env:{ANTHROPIC_DEFAULT_SONNET_MODEL:'X'}, availableModels:['X[1m]']})` 길이 2, `oneMillionContext` 가 각각 false/true | settings.json → `parseClaudeModels` → `orca:agent:list` → ModelMenu |
 
 ### AC 검증 주의사항
 
@@ -188,6 +190,7 @@
 - 사람 실기 항목: **AC3 의 실제 문구 시각**(폰트·간격)만 사람 몫. 판정 로직(`pendingPlanReview!=null && !planContent`)은 렌더 테스트로 내린다.
 - N회/총량 기준: AC13 은 "`setMode` 1회". sink(`permissionApi.setMode`) 의 프로덕션 호출부는 `rg "permissionApi.setMode" app/src` 로 전수(현재 1: `chatStore.ts:1240`)이고, 이번 변경이 `setModel` 안에 2번째를 만든다 → 식의 항 = {기존 setPermissionMode 경로, 신규 강등 경로}. 관측 지점은 강등 경로만 단언한다(기존 경로는 별도 케이스).
 - 총량/0건 기준: 음성 단언은 **AC16 하나**다(`작업` 목록의 background 행 0건). 제거 대상 = `kind:'background'` 항목, 허용 대상 = `kind:'agent'` 항목 — 형태가 `key` 접두사(`bg:`/`agent:`)로 갈려 섞이지 않는다. **양성 짝 AC20** 이 같은 항목들이 `백그라운드 작업` 타일에는 그대로 있음을 단언한다 — 0건만으로는 "둘 다 사라짐" 과 구분되지 않는다.
+- **AT-22 는 구현 턴 r1 착수 전 §10 대조에서 추가된 정정 행이다**(표 끝에 붙어 ID 순서와 표 순서가 다르다). AT-08 이 `normalizeAvailableModels` 만 보던 자리에서 `model-parser` 교차 필터를 빠뜨렸다.
 - 기존 테스트 재사용: `taskSurface0212.render.test.ts` · `taskTile0213.render.test.ts` 가 `작업` 타일의 background 행을 단언한다(파일 실재 확인). **AC16·AC17 은 이 단언들을 뒤집으므로 구현 턴이 해당 케이스를 갱신한다** — 삭제가 아니라 `백그라운드 작업` 타일 쪽 단언으로 옮기거나 agent 항목으로 바꾼다.
 
 ## 7-A. V / Trace Matrix
@@ -205,7 +208,7 @@
 | R-03 | R | §7 `[1m]` 양쪽 노출·개별 선택 | NEW | — |
 | R-04 | R | §7 haiku 자동권한 제거·강등 | NEW | — |
 | R-05 | R | §7 `작업` 타일 = TaskCreate 항목만 | NEW | — |
-| AT-01…AT-21 | AT | §7 표 | NEW | — |
+| AT-01…AT-22 | AT | §7 표 | NEW | — |
 | SD-01 | SD | §9 plan 본문 해소 end-to-end + 턴 경계 리셋 | NEW | — |
 | SD-02 | SD | §9·§12 모델 식별자 왕복(카탈로그→wire→선택→SDK) | NEW | — |
 | SD-03 | SD | §9 모델 전환 시 권한 모드 상태 전이(renderer+main) | NEW | — |
@@ -232,7 +235,7 @@
 | VP-05 | R-02 ↔ AT-05·AT-06 | REQUIRED | settings.json → `parseClaudeModels` → `listProviders` → `orca:agent:list` → ModelMenu | 반환 배열의 항목 존재/길이 | not selected | EP-10 (1) |
 | VP-06 | R-02 ↔ AT-07 | REQUIRED | runtime resolve → `runtime-catalog.ts` → 병합 → `orca:agent:list` | 반환 항목 존재 | not selected | EP-11 (1) |
 | VP-07 | AR-03 ↔ IT | REQUIRED | 두 경로가 `withExplicitModel` 동일 함수를 호출 | 두 경로 각각의 산출에 같은 규칙이 적용됨(AT-05·AT-07 동시 green) | **required** — "같은 함수를 쓴다"는 구조 주장이다. 변이: `withExplicitModel` 본문을 항등함수로 바꾸면 AT-05·AT-07 이 **둘 다** red | EP-10·EP-11 (2) |
-| VP-08 | R-03 ↔ AT-08 | REQUIRED | availableModels → `normalizeAvailableModels` → 목록 | 반환 길이 2 + 두 항목의 `oneMillionContext` | not selected | EP-05 (1) |
+| VP-08 | R-03 ↔ AT-08·AT-22 | REQUIRED | availableModels → `normalizeAvailableModels` → 목록 · env family + availableModels → `parseClaudeModels` 교차 필터 → 목록 | 두 경로 각각의 반환 길이 2 + 두 항목의 `oneMillionContext` | not selected — 반환 배열을 직접 관측한다 | EP-05 (2) |
 | VP-09 | R-03 ↔ AT-09·AT-10 | REQUIRED | 목록 → `modelIdentity` → ModelMenu 행/선택 → send `modelFamily` → `modelNameForFamily` → `options.model` | `modelNameForFamily` 반환 문자열 + 렌더 행 key/`aria-checked` 개수 | **required** — 형제 슬롯(1M/비1M)이 서로 다른 계약이라 *존재*만 보면 맞바꿔도 통과한다. 변이: 두 행의 `oneMillionContext` 를 맞바꾸면 AT-09 가 red | EP-05·EP-06·EP-07·EP-08·EP-09 (6 사이트) |
 | VP-10 | AR-02 ↔ IT | REQUIRED | main `models.ts#modelKey` · renderer `modelSelection.ts#modelKey` 가 `shared/model-identity.ts` 를 호출 | 두 파일이 shared 를 import 하고 자체 계산식을 갖지 않는다 | **required** — 배선/유일성 주장이다. 변이: renderer `modelKey` 만 옛 식으로 되돌리면 AT-10 이 red | EP-07 (2) |
 | VP-11 | MD-01·MD-02 ↔ UT | REQUIRED | — (순수) | dedupe 키·explicit 매칭 반환값 | not selected | EP-05·EP-06 (2) |
@@ -288,6 +291,7 @@
 | `planContent` 대입 지점 | `rg "planContent" app/src \| rg -v "\.test\."` | 1 (`chatReducer.ts:787`) | 본문 소스가 단일 → 폴백이 없으면 곧 빈 화면 |
 | `modelKey` 정의 | `rg "export function modelKey" app/src` | 2 | 같은 규칙이 main·renderer 에 복제됨 → SSOT 필요 |
 | `normalizeAvailableModels` 호출부 | `rg "normalizeAvailableModels" app/src \| rg -v "\.test\."` | 2 (`runtime-catalog.ts:115`·`model-parser.ts:74`) | dedupe 수정이 두 경로에 동시 적용 |
+| **모델 동일성 판정 사이트 전수**(D-008 축) | `available-models.ts`·`model-parser.ts`·`models.ts`·`modelSelection.ts`·`ModelMenu.tsx` 정독 | 6 | ① `normalizeAvailableModels` dedupe ② **`model-parser.ts:79-81` 교차 필터** ③ `markDefaultModel` explicit ④ `modelNameForFamily` ⑤ `selectionExists` ⑥ `ModelMenu` 활성. ②만 §10 최초본이 빠뜨렸다(r1 정정) · ⑤⑥은 EP-07 의 `modelKey` 위임으로 자동 충족 |
 | `parseClaudeModels` 호출부 | `rg "parseClaudeModels" app/src \| rg -v "\.test\."` | 4 (`settings-entries.ts` 4곳, 그중 3곳 `{}`) | 빈 설정 폴백 경로가 영향 없음 |
 | `modelNameForFamily` 호출부 | `rg "modelNameForFamily" app/src \| rg -v "\.test\."` | 2 (`turn-setup.ts:106`·`models.ts:50`) | 식별자 매칭 변경의 소비처 전수 |
 | `MODE_MENU_OPTIONS` 소비처 | `rg "MODE_MENU_OPTIONS" app/src` | 1 (`ModeMenu.tsx:23`) | 필터 함수화 시 단일 호출부 |
@@ -302,7 +306,7 @@
 ### 수치 / 전칭 표현 검산
 
 - 재측정 수치: `MODE_OPTIONS` 6종 중 `hidden` 1(`dont_ask`) → 메뉴 노출 5종. haiku 에서 4종. 우측 패널 타일 4종(`plan`·`subagent`·`task`·`diff`) — `tileRegistry.ts` 의 `contentById` 키 수.
-- 내역 합 = 총계: §10 강제 지점 EP-01~EP-19 의 사이트 합 = 2+1+1+1+1+2+1+1+2+1+1+1+1+1+2+1+4+1+1 = **25 사이트 / 19 EP 행**.
+- 내역 합 = 총계: §10 강제 지점 EP-01~EP-19 의 사이트 합 = 2+1+1+1+**2**+2+1+1+2+1+1+1+1+1+2+1+4+1+1 = **26 사이트 / 19 EP 행** (EP-05 가 r1 정정으로 1→2).
 - "유일한/항상" 반례 검색: "`planContent` 대입은 유일하다" → `rg "planContent"` 전수 4건 중 대입 1건, 나머지는 읽기(위 표). "`modelKey` 정의는 2곳뿐" → `rg "function modelKey"` 2건. "`taskBoardFromMessages` 소비자는 `작업` 타일뿐" → `rg` 2건 모두 같은 파일.
 - 문서 앵커 / 기존 테스트 케이스 존재 확인: `docs/TRD.md:344`(모델 파싱 규약) 실재 · `docs/IPC_CONTRACT.md:70`(AgentModelView) 실재 · `docs/arch/frontend/ux-domains.md:158` 실재. 테스트 파일 `taskSurface0212.render.test.ts`·`taskTile0213.render.test.ts` 실재(`rightpanel/` 목록). 테스트 케이스 3건(§7 주의사항) 모두 파일에서 행 번호로 확인.
 
@@ -421,7 +425,7 @@
 | R-01 / VP-01 | **EP-04** 승인 대기 중 본문 없음 = 실패 문구 | `PlanTileContent.tsx` | renderer | Plan 타일 렌더 시 | 실패가 "아무 일도 안 일어남"으로 보임 |
 | SD-01 / VP-02 | **EP-02** assistant text 캡처 | `claude-map.ts` `p.type==='text'` 분기(410행) | 매퍼 | assistant 콘텐츠 매핑 시 | 폴백 소스가 비어 AC1 이 무의미 |
 | SD-01 / VP-02 | **EP-03** 턴 경계 리셋 | `claude-map.ts` `msg.type==='result'` 분기(532행) | 매퍼 | 턴 종료 매핑 시 | 이전 턴 텍스트가 새 계획으로 샌다 |
-| MD-01 / VP-08·VP-11·VP-16 | **EP-05** dedupe 키 = (identity, 1M) | `available-models.ts#normalizeAvailableModels` | 파서 | 목록 정규화 시 | `[1m]` 변형 소실(요구③ 재발) |
+| MD-01 / VP-08·VP-11·VP-16 | **EP-05** dedupe 키 = (identity, 1M) (**2 사이트**: `normalizeAvailableModels` 내부 dedupe · `model-parser.ts` 의 configured↔discovered 교차 필터) | `shared/model-identity.ts#modelIdentity` 를 두 사이트가 함께 쓴다 | 파서 | 목록 정규화 시 · env family 와 discovery 병합 시 | `[1m]` 변형 소실(요구③ 재발). 교차 필터를 빼면 env family 가 있는 provider 에서만 재발한다 |
 | MD-02 / VP-09·VP-11·VP-16 | **EP-06** explicit 매칭이 1M 축 포함 | `available-models.ts#markDefaultModel` | 파서 | default 부여 시 | 1M 을 지정했는데 비-1M 이 default |
 | AR-02 / VP-09·VP-10 | **EP-07** 선택 식별자 SSOT (2 사이트: `features/harnesses/models.ts`·`composer/modelSelection.ts`) | `shared/model-identity.ts` | main·renderer | 목록/선택 계산 시 | 한쪽만 1M 을 실어 선택이 어긋난다 |
 | SD-02 / VP-09 | **EP-08** 식별자 → SDK 모델 문자열 매칭 | `features/harnesses/models.ts#modelNameForFamily` | 턴 조립 | 턴 조립 시 | 1M 을 골랐는데 비-1M 이 실행된다 |
@@ -452,7 +456,7 @@
 | `app/src/main/adapters/claude.ts` | 배선 | `makeCanUseTool` 에 `getPlanNarrative?: () => string \| undefined` 옵션 추가·주입 | 순수 단위(fake 주입) |
 | `app/src/main/adapters/claude-map.ts` | 서술 캡처·리셋 | `MapContext.lastAssistantText` 추가, text emit 시 대입·`result` 에서 `undefined` | 순수 단위(ctx 관측) |
 | `app/src/main/features/harnesses/claude/available-models.ts` | dedupe·explicit·default | dedupe 키 변경 · `withExplicitModel()` 추가 · `markDefaultModel(models, {value,oneMillion})` | 순수 단위 |
-| `app/src/main/features/harnesses/claude/model-parser.ts` | settings 경로 | `withExplicitModel` 호출 + explicit 전달 | 순수 단위 |
+| `app/src/main/features/harnesses/claude/model-parser.ts` | settings 경로 | `withExplicitModel` 호출 + explicit 전달 · **configured↔discovered 교차 필터를 `modelIdentity` 비교로 교체** | 순수 단위 |
 | `app/src/main/features/harnesses/runtime-catalog.ts` | runtime 경로 | `withExplicitModel(models, config.runtimeEnv?.ANTHROPIC_MODEL)` | 순수 단위 |
 | `app/src/main/features/harnesses/models.ts` | 식별자 위임 | `modelKey` → shared 위임 · `modelNameForFamily` identity 우선 매칭 | 순수 단위 |
 | `app/src/main/app/chat-turn/send.ts` | 턴 보정 | 두 지점이 `coerceAutoPermissionMode` 결과 지역변수를 읽는다 | 조립부 — 순수 함수 단위 + 코드 리뷰 |
@@ -589,7 +593,7 @@
 - [x] Decision Ledger 의 ACTIVE/SUPERSEDED/OPEN 이 여러 턴의 결정을 보존한다 — SUPERSEDED 0, OPEN 0, ACTIVE 17. 턴 중 도착한 요구⑨ 를 D-013~D-017 로 **추가**했고 기존 12건을 지우지 않았다.
 - [x] Part I 만 읽어도 사용자/제품 완료 상태가 이해된다.
 - [x] 조건절·이유절·제거/유지 요구를 임의 재해석하지 않았다 — 요구②④⑨와 답변⑤⑦⑧을 원문 인용으로 §2 에 보존. 요구⑨ 의 "제외" 를 §4 에서 **제거(중복 제거)** 로 판정했고 이동으로 바꾸지 않았다.
-- [x] Product/UX 의 각 핵심 동작이 AC 와 Technical Design 에 연결된다 — §5 상태표 11행이 AC1~AC20 로 매핑.
+- [x] Product/UX 의 각 핵심 동작이 AC 와 Technical Design 에 연결된다 — §5 상태표 11행이 AC1~AC20·AC22 로 매핑.
 - [x] Technical Design 에 AS-IS 와 TO-BE 가 모두 있고 같은 비교 축/구체성이다.
 - [x] AS-IS → TO-BE Delta 11행이 모두 §11 파일 또는 AC 로 추적된다.
 - [x] AS-IS 에서 사라진 책임 명시 — 두 곳의 `modelKey` 자체 계산식은 **이동**(shared 위임), `MODE_MENU_OPTIONS` 상수 소비는 **대체**(함수), `작업` 타일의 background 표면은 **삭제**(능력은 `백그라운드 작업` 타일에 이미 존재), background 중단 실패 문구는 **이동**(타일 간).
