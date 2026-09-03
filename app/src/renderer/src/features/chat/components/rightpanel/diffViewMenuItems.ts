@@ -28,7 +28,7 @@ export interface DiffViewMenuItem {
 export const DIFF_VIEW_MENU_ITEMS: readonly DiffViewMenuItem[] = [
   {
     id: 'files',
-    labelKey: 'chat.rightpanel.diffShowFiles',
+    labelKey: 'chat.rightpanel.diffFilesOn',
     action: { kind: 'sidebar' },
     checkable: true
   },

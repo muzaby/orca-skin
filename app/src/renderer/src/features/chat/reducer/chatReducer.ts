@@ -284,6 +284,19 @@ export interface ChatState {
   // (0211 ΔV4 D-094) — 타일은 조건 렌더라 닫으면 언마운트되고 로컬 상태가 소멸한다.
   gitSnapshot: GitSnapshotState
   gitSnapshotRequest: GitSnapshotRequest | null
+  /**
+   * 지금까지 관측한 **턴 종료 신호 수** (0211 ΔV6 D-115). 백엔드 Stop hook 이 낸
+   * `turn.ended` 마다 1 오른다 — git 변경 목록 조회의 유일한 계기다.
+   *
+   * `busy` 전이를 쓰지 않는 이유: 그 값은 `result` 메시지가 만드는 파생이라, 사용자가
+   * 지목한 "어시스턴트 메시지가 아니라 stop 훅" 을 표현하지 못한다.
+   */
+  turnEndTick: number
+  /**
+   * 컴포저 git 행을 닫은 시점의 `turnEndTick` (0211 ΔV6 D-114). `null` = 안 닫힘.
+   * **다음 턴 종료에 자동으로 풀린다** — 값이 현재 tick 과 같을 때만 숨긴다.
+   */
+  gitRowClosedAtTick: number | null
   diffRequirements: DiffRequirementItem[]
   diffRequirementsRevision: number
   diffRequirementDraft: DiffRequirementDraft | null
@@ -389,6 +402,8 @@ export const initialChatState: ChatState = {
     view: DEFAULT_DIFF_VIEW
   },
   gitSnapshotRequest: null,
+  turnEndTick: 0,
+  gitRowClosedAtTick: null,
   diffRequirements: [],
   diffRequirementsRevision: 0,
   diffRequirementDraft: null,
@@ -513,7 +528,10 @@ export type ChatAction =
   | { type: 'SET_DIFF_COMPARISON'; comparison: DiffComparison }
   | { type: 'TOGGLE_DIFF_FILE_EXPANDED'; path: string }
   | { type: 'SET_ALL_DIFF_FILES_EXPANDED'; expanded: boolean; paths: readonly string[] }
-  | { type: 'TOGGLE_DIFF_SIDEBAR' }
+  // 세그먼트 토글이라 **멱등이어야 한다** (0211 ΔV6 D-117 · §10 EP-51 ②) — 이미 선택된
+  // 쪽을 눌렀을 때 반대로 넘어가지 않도록 `toggle` 이 아니라 값을 싣는다.
+  | { type: 'SET_DIFF_SIDEBAR_VISIBLE'; visible: boolean }
+  | { type: 'CLOSE_GIT_ROW' }
   | { type: 'SET_DIFF_VIEW_OPTION'; patch: Partial<DiffViewOptions> }
   | { type: 'BEGIN_GIT_SNAPSHOT_QUERY'; request: GitSnapshotRequest }
   | {
@@ -870,6 +888,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             messages: appendAssistantPart(state.messages, subagentNoticePart(ev))
           }
         }
+
+        // 0211 ΔV6 D-115 · §10 EP-46 ④ — 백엔드 Stop hook 이 낸 턴 종료 신호. **terminal 이
+        // 아니다**: 턴을 닫는 것은 여전히 `telemetry` 이고 여기서는 계기 하나만 올린다.
+        case 'turn.ended':
+          return { ...state, turnEndTick: state.turnEndTick + 1 }
 
         case 'turn.aborted':
           return {
@@ -1248,14 +1271,16 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         }
       }
 
-    case 'TOGGLE_DIFF_SIDEBAR':
+    case 'SET_DIFF_SIDEBAR_VISIBLE':
       return {
         ...state,
-        gitSnapshot: {
-          ...state.gitSnapshot,
-          sidebarVisible: !state.gitSnapshot.sidebarVisible
-        }
+        gitSnapshot: { ...state.gitSnapshot, sidebarVisible: action.visible }
       }
+
+    // 0211 ΔV6 D-114 · §10 EP-48 ① — 닫은 시점의 tick 을 적는다. 다음 `turn.ended` 가
+    // tick 을 올리면 값이 달라져 노출 판정이 스스로 풀린다(별도 해제 액션이 없다).
+    case 'CLOSE_GIT_ROW':
+      return { ...state, gitRowClosedAtTick: state.turnEndTick }
 
     case 'SET_DIFF_VIEW_OPTION':
       return {

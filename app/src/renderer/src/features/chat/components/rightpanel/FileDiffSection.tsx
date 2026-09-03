@@ -86,7 +86,9 @@ export function FileDiffSection({
   const { parent, name } = splitPath(section.path)
   return (
     <section data-diff-file={section.path} className="border-b border-t5">
-      <div className="group/filehead flex w-full items-center gap-g2 px-p5 py-p3 transition-colors hover:bg-fill-uncontained-hover">
+      {/* 0211 ΔV6 실측 5행 — 참조의 파일 헤더는 폭 전체를 채우는 밴드다(`#f2f2f2`). 배경이
+          없으면 접힌 헤더들이 본문과 같은 평면이라 파일 경계가 읽히지 않는다. */}
+      <div className="group/filehead flex w-full items-center gap-g2 bg-bg2 px-p5 py-p3 transition-colors hover:bg-fill-uncontained-hover">
         <button
           type="button"
           data-diff-file-toggle={section.path}

@@ -43,7 +43,8 @@ describe('Composer requirements SSR order', () => {
             removed: 0
           },
           diffOpen: false,
-          onToggleDiff: () => undefined
+          onToggleDiff: () => undefined,
+          onClose: () => undefined
         }),
         requirementTray: createElement(RequirementTray, {
           requirements: [requirement],

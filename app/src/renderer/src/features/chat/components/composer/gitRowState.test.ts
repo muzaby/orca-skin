@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GitDiffTotals, GitStatus } from '../../../../../../shared/ipc'
-import { gitRowView, repoNameFromRoot, shouldRefetchGitStatus } from './gitRowState'
+import { gitRowView, repoNameFromRoot } from './gitRowState'
 
 const repo = (over: Partial<GitStatus> = {}): GitStatus => ({
   isRepo: true,
@@ -77,11 +77,26 @@ describe('변경량은 diff 요약 합계에서 읽는다 (AT-18 · EP-12)', () 
   })
 })
 
-describe('재조회 트리거 (AT-04)', () => {
-  it('턴이 끝나는 전이에서만 참이다 — 나머지 3조합은 거짓', () => {
-    expect(shouldRefetchGitStatus(true, false)).toBe(true)
-    expect(shouldRefetchGitStatus(false, false)).toBe(false)
-    expect(shouldRefetchGitStatus(false, true)).toBe(false)
-    expect(shouldRefetchGitStatus(true, true)).toBe(false)
+// 0211 ΔV6 AT-70 / VP-71 — 닫기의 **세 값**(§10 EP-48 ①).
+//
+// 셋을 한 케이스로 잰다. 둘째를 빼면 닫기가 전혀 안 먹는 구현이, 셋째를 빼면 **영영 안
+// 돌아오는 구현**이 통과한다 — 사용자가 고른 수명은 "다음 턴 종료 때 다시 뜸" 이다.
+describe('컴포저 행 닫기와 복귀 (AT-70)', () => {
+  const repo = { isRepo: true, root: '/x/orca', branch: 'main', detached: false } as const
+
+  it('닫으면 사라지고, 재렌더에도 닫혀 있고, tick 이 오르면 다시 선다', () => {
+    const at = (closedAtTick: number | null, tick: number): boolean =>
+      gitRowView(true, '/x/orca', repo, null, null, closedAtTick, tick).visible
+
+    expect(at(null, 3)).toBe(true)
+    expect(at(3, 3)).toBe(false)
+    // 같은 상태로 다시 그려도 닫힌 채다 — 한 프레임만 숨기는 구현이 여기서 red 다.
+    expect(at(3, 3)).toBe(false)
+    // 다음 턴 종료가 tick 을 올리면 판정이 스스로 풀린다.
+    expect(at(3, 4)).toBe(true)
+  })
+
+  it('닫힘은 다른 노출 조건을 덮어쓰지 않는다 — 랜딩은 여전히 안 뜬다', () => {
+    expect(gitRowView(false, '/x/orca', repo, null, null, null, 0).visible).toBe(false)
   })
 })

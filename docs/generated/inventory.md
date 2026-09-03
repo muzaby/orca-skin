@@ -12,7 +12,7 @@
 |---|---|---|
 | IPC 채널 | **82** | `app/src/shared/ipc.ts` |
 | IPC 도메인 | **23** | `app/src/shared/ipc.ts` |
-| NormalizedEvent variant | **23** | `app/src/shared/ipc.ts` |
+| NormalizedEvent variant | **24** | `app/src/shared/ipc.ts` |
 | settings 키 | **18** | `app/src/shared/protocol.ts` |
 | main 수직 슬라이스 | **13** | `app/src/main/features/` |
 | main contracts 모듈 | **5** | `app/src/main/contracts/` |
@@ -30,9 +30,9 @@
 
 `chat 7` · `session 7` · `skills 7` · `project 6` · `provider 6` · `update 6` · `cost 5` · `engine 5` · `files 5` · `git 5` · `mcp 4` · `window 3` · `boot 2` · `debug 2` · `install 2` · `permission 2` · `settings 2` · `agent 1` · `backend 1` · `concurrency 1` · `log 1` · `notify 1` · `search 1`
 
-### NormalizedEvent variant (23)
+### NormalizedEvent variant (24)
 
-`ChatActivitySnapshot` · `error` · `input.echo` · `message.cancelled` · `message.committed` · `message.completed` · `message.delta` · `message.queued` · `message.reasoning` · `message.reasoning.delta` · `message.submitted` · `permission.requested` · `permission.resolved` · `session.compacted` · `session.updated` · `subagent.backgroundSet` · `subagent.task` · `telemetry` · `tool.call.completed` · `tool.call.started` · `turn.aborted` · `turn.retrying` · `worktree.preparing`
+`ChatActivitySnapshot` · `error` · `input.echo` · `message.cancelled` · `message.committed` · `message.completed` · `message.delta` · `message.queued` · `message.reasoning` · `message.reasoning.delta` · `message.submitted` · `permission.requested` · `permission.resolved` · `session.compacted` · `session.updated` · `subagent.backgroundSet` · `subagent.task` · `telemetry` · `tool.call.completed` · `tool.call.started` · `turn.aborted` · `turn.ended` · `turn.retrying` · `worktree.preparing`
 
 ### settings 키 (18)
 

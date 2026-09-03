@@ -17,8 +17,13 @@ import {
 } from './diffViewMenuItems'
 import { summaryBaseText, summaryComparisonLabel } from './sessionChangesData'
 
-// 컨텍스트 바 (0211 ΔV4 §4). 다섯 요소 — 폴더 토글 · 비교 기준 `▾` · `⋮` · `↗` · `×`.
-// `×` 는 `RightPanelTile` 이 이미 그리므로 여기서는 앞의 넷만 만든다.
+// 컨텍스트 바 (0211 ΔV4 §4 · ΔV6 D-116·D-117). 요소 — **파일 목록 세그먼트 둘** · 비교 기준
+// `▾` · `⋮` · `↗` · `×`. `×` 는 `RightPanelTile` 이 이미 그리므로 여기서는 앞의 것만 만든다.
+//
+// ΔV6 이 바꾼 두 자리:
+//   ① 폴더 버튼 하나 → **세그먼트 둘**(목록 없음 / 목록 있음). 참조 헤더의 배치이고, 선택된
+//      쪽이 채움을 갖는다 — 지금 어느 화면인지가 눌리지 않아도 읽힌다.
+//   ② 라벨이 **모드별**이다 — 전체는 `기준 → 현재`, 커밋은 `<sha7> <제목>`.
 
 interface ComparisonMenuProps {
   comparison: DiffComparison
@@ -183,24 +188,45 @@ export function GitContextBar(): React.JSX.Element {
   const nextWidth = nextDiffPanelWidth(widths[col])
   const expanded = nextWidth === PANEL_DEFAULT_WIDTH
   // 0211 ΔV5 D-104 — 두 값 라벨. `head` 가 없으면 화살표도 그리지 않는다.
-  const label = summaryComparisonLabel(summary, snapshot ? statusForCwd(cwd, snapshot) : null, tr)
-  const filesLabel = tr('chat.rightpanel.diffShowFiles')
+  const label = summaryComparisonLabel(
+    summary,
+    snapshot ? statusForCwd(cwd, snapshot) : null,
+    comparison,
+    tr
+  )
+  const filesOffLabel = tr('chat.rightpanel.diffFilesOff')
+  const filesOnLabel = tr('chat.rightpanel.diffFilesOn')
   const expandLabel = tr(
     expanded ? 'chat.rightpanel.diffShrinkPanel' : 'chat.rightpanel.diffExpandPanel'
   )
 
   return (
     <span data-diff-context-bar className="flex min-w-0 flex-1 items-center gap-g2">
-      <Button
-        iconOnly
-        size="small"
-        leadingIcon="folder"
-        onClick={chatActions.toggleDiffSidebar}
-        title={filesLabel}
-        aria-label={filesLabel}
-        aria-expanded={sidebarVisible}
-        data-diff-sidebar-toggle
-      />
+      {/* 세그먼트 둘 (0211 ΔV6 D-117 · §10 EP-51) — **한 상태를 반대로 읽는다**. 두 개의
+          플래그를 따로 두면 둘 다 켜지거나 꺼진 불가능 조합이 생기고, `toggle` 액션을 쓰면
+          이미 선택된 쪽을 눌렀을 때 반대로 넘어간다(멱등이 깨진다). */}
+      <span className="flex shrink-0 items-center gap-g1">
+        <Button
+          iconOnly
+          size="small"
+          leadingIcon="panelR"
+          pressed={!sidebarVisible}
+          onClick={() => chatActions.setDiffSidebarVisible(false)}
+          title={filesOffLabel}
+          aria-label={filesOffLabel}
+          data-diff-sidebar-toggle="off"
+        />
+        <Button
+          iconOnly
+          size="small"
+          leadingIcon="panelL"
+          pressed={sidebarVisible}
+          onClick={() => chatActions.setDiffSidebarVisible(true)}
+          title={filesOnLabel}
+          aria-label={filesOnLabel}
+          data-diff-sidebar-toggle="on"
+        />
+      </span>
       <button
         ref={comparisonRef}
         type="button"
@@ -210,23 +236,36 @@ export function GitContextBar(): React.JSX.Element {
         data-diff-comparison-trigger
         className="group/diffscope flex min-w-0 items-center gap-g1 rounded-r4 px-p2 py-1 text-left outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
       >
-        <span
-          data-diff-base-label
-          className="min-w-0 truncate font-serif text-[13px] font-semibold text-t9"
-        >
-          {label.base}
-        </span>
-        {label.head !== null && (
+        {/* 서체는 **버튼 라벨**의 규칙을 따른다 (0211 ΔV6 실측 2·3행) — 참조의 이 자리는
+            타일 제목이 아니라 드롭다운 트리거이고, `Button` 이 이미 regular sans 로 정했다.
+            `font-serif font-semibold` 가 그 규칙에서 벗어나 있던 자리다. */}
+        {label.kind === 'commit' ? (
           <>
-            <span aria-hidden="true" className="shrink-0 text-[13px] text-t5">
-              →
-            </span>
             <span
-              data-diff-head-label
-              className="min-w-0 shrink truncate font-serif text-[13px] font-semibold text-t9"
+              data-diff-commit-sha-label
+              className="shrink-0 font-mono text-[13px] text-t7 tabular-nums"
             >
-              {label.head}
+              {label.sha}
             </span>
+            <span data-diff-commit-subject-label className="min-w-0 truncate text-[13px] text-t7">
+              {label.subject}
+            </span>
+          </>
+        ) : (
+          <>
+            <span data-diff-base-label className="min-w-0 truncate text-[13px] text-t7">
+              {label.base}
+            </span>
+            {label.head !== null && (
+              <>
+                <span aria-hidden="true" className="shrink-0 text-[13px] text-t5">
+                  →
+                </span>
+                <span data-diff-head-label className="min-w-0 shrink truncate text-[13px] text-t7">
+                  {label.head}
+                </span>
+              </>
+            )}
           </>
         )}
         <Icon
@@ -284,7 +323,7 @@ export function GitContextBar(): React.JSX.Element {
           sidebarVisible={sidebarVisible}
           onToggleSidebar={() => {
             setViewOpen(false)
-            chatActions.toggleDiffSidebar()
+            chatActions.setDiffSidebarVisible(!sidebarVisible)
           }}
           // 0211 ΔV5 D-105 — 방향이 반대다. 펼치기가 전 경로를 채우고 접기가 비운다.
           onCollapseAll={() => {

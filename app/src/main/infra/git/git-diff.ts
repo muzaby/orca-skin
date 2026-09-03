@@ -18,8 +18,7 @@ import {
   mergeDiffEntries,
   parseCommitFiles,
   parseCommitLog,
-  parseUnifiedPatch,
-  parseUntrackedPaths
+  parseUnifiedPatch
 } from './git-diff-parse'
 
 const TIMEOUT_MS = 15_000
@@ -142,10 +141,19 @@ export async function resolveDiffRange(
   }
 }
 
-function diffRevArgs(base: GitDiffBase): string[] {
-  if (base.kind === 'worktree-base') return [base.oid]
-  if (base.kind === 'head') return [base.oid]
-  return []
+// 비교 범위 — **커밋된 것만**이다 (0211 ΔV6 D-111, §10 EP-47 ①).
+//
+// 두 항(`<base> HEAD`)이라 작업 트리를 보지 않는다. 한 항으로 두면 `git diff <base>` 가
+// base → **작업 트리**를 내고, 그러면 커밋하지 않은 변경이 목록에 섞인다 — 사용자가
+// “미커밋 변경분을 항상 목록에서 제외” 를 골랐다.
+//
+// 커밋이 하나도 없는 저장소(`none`)는 HEAD 가 없어 어떤 범위도 만들 수 없다. 빈 배열을
+// 돌려주면 `git diff` 가 다시 작업 트리를 보므로 **`null`** 로 “범위 없음” 을 말한다 —
+// 호출부가 조회 자체를 건너뛴다.
+function diffRevArgs(base: GitDiffBase): string[] | null {
+  if (base.kind === 'worktree-base') return [base.oid, 'HEAD']
+  if (base.kind === 'head') return [base.oid, 'HEAD']
+  return null
 }
 
 interface RepoCoords {
@@ -190,35 +198,19 @@ async function repoCoords(cwd: string, runner: GitDiffRunner): Promise<RepoCoord
 async function readDiff(
   cwd: string,
   revArgs: readonly string[],
-  runner: GitDiffRunner,
-  untracked: readonly GitDiffFileEntry[] = []
+  runner: GitDiffRunner
 ): Promise<{ files: GitDiffFileEntry[]; truncated: boolean; totals: GitDiffTotals }> {
   const result = await run(runner, cwd, ['diff', '--raw', '--numstat', '-z', ...revArgs])
   const tracked = result.ok ? parseCommitFiles(result.stdout.split('\0')) : []
-  return mergeDiffEntries(tracked, untracked)
+  return mergeDiffEntries(tracked)
 }
 
-// 미추적 파일 조회 — **`git diff` 는 추적 파일만 본다**(실측). 이 한 호출이 없으면 사용자나
-// 에이전트가 방금 만든 새 파일이 커밋 전까지 목록·트리·패치 어디에도 뜨지 않고, 화면은
-// 그것을 "변경 없음" 과 구분하지 못한다(0211 D-026).
-//
-// 실패는 값으로 접는다 — 미추적을 못 읽었다고 추적 변경까지 못 보여 줄 이유가 없다.
-async function readUntracked(cwd: string, runner: GitDiffRunner): Promise<GitDiffFileEntry[]> {
-  const result = await run(runner, cwd, ['ls-files', '--others', '--exclude-standard', '-z'])
-  return result.ok ? parseUntrackedPaths(result.stdout) : []
-}
-
-// 패치 축의 미추적 항목. **본문은 비운다**(D-026) — 줄을 실으면 `+0 −0` 헤더와 본문이
-// 어긋나고, 그 순간 헤더가 거짓말이 된다. 목록·트리에 이름이 남는 것이 이 항목의 전부다.
-function untrackedPatchFiles(entries: readonly GitDiffFileEntry[]): GitDiffPatchFile[] {
-  return entries.map((entry) => ({
-    path: entry.path,
-    status: 'added' as const,
-    added: 0,
-    removed: 0,
-    kind: 'text' as const,
-    lines: []
-  }))
+// 범위가 없는 저장소(커밋 0개)의 빈 결과. `git diff` 를 인자 없이 부르면 작업 트리를 보므로
+// **조회 자체를 하지 않는다**(0211 ΔV6 D-111 · D-112).
+const EMPTY_DIFF_GROUP: { files: GitDiffFileEntry[]; truncated: boolean; totals: GitDiffTotals } = {
+  files: [],
+  truncated: false,
+  totals: ZERO_TOTALS
 }
 
 async function headOid(cwd: string, runner: GitDiffRunner): Promise<string | null> {
@@ -263,10 +255,10 @@ export async function gitDiffSummary(
   if (!(await repoCoords(input.cwd, runner)).inside) return EMPTY_DIFF_SUMMARY
   const range = await resolveDiffRange(input, runner)
   const base = range.base
-  // 미추적 집합은 범위와 무관하다 — 어떤 base 를 잡아도 "아직 git 이 모르는 파일" 은 같다.
-  // 그래서 한 번만 묻고 아래 두 목록(전체·미커밋)에 같은 값을 싣는다.
-  const untracked = await readUntracked(input.cwd, runner)
-  const overall = await readDiff(input.cwd, diffRevArgs(base), runner, untracked)
+  // 커밋된 것만 본다 (0211 ΔV6 D-111, §10 EP-47 ②) — 범위가 `<base> HEAD` 라 작업 트리가
+  // 들어오지 않고, 미추적 조회도 없다. 범위가 아예 없으면(커밋 0개) 조회를 건너뛴다.
+  const revArgs = diffRevArgs(base)
+  const overall = revArgs ? await readDiff(input.cwd, revArgs, runner) : EMPTY_DIFF_GROUP
   const currentHead = base.kind === 'head' ? base.oid : await headOid(input.cwd, runner)
 
   let commits: GitDiffSummary['commits'] = []
@@ -279,11 +271,6 @@ export async function gitDiffSummary(
     commitFilesUnavailable = history.filesUnavailable
   }
 
-  const uncommitted =
-    currentHead == null || base.kind !== 'worktree-base' || base.oid === currentHead
-      ? overall
-      : await readDiff(input.cwd, [currentHead], runner, untracked)
-
   return {
     isRepo: true,
     base,
@@ -293,11 +280,11 @@ export async function gitDiffSummary(
     commits,
     commitsTruncated,
     commitFilesUnavailable,
-    uncommitted: {
-      files: uncommitted.files,
-      totals: uncommitted.totals,
-      filesTruncated: uncommitted.truncated
-    }
+    // **항상 빈 값이다** (0211 ΔV6 D-111). 이 조회는 커밋된 것만 수집하므로 미커밋 집합을
+    // 만들 재료가 없다 — 채우려면 D-111 이 없앤 작업 트리 조회를 되살려야 하고, 그 값을
+    // 읽는 renderer 소비처는 ΔV5 D-107 이후 0건이다. 계약 필드 제거는 이번 범위 밖이라
+    // 형태만 남긴다(§18 ΔV6 파생 이슈 I-06).
+    uncommitted: EMPTY_GROUP
   }
 }
 
@@ -330,20 +317,26 @@ export async function gitDiffPatch(
   if (!(await repoCoords(input.cwd, runner)).inside) return EMPTY_DIFF_PATCH
   const range = await resolveDiffRange(input, runner)
   const revArgs = diffRevArgs(range.base)
-  const untracked = untrackedPatchFiles(await readUntracked(input.cwd, runner))
+  // 커밋된 것만 본다 (0211 ΔV6 D-111, §10 EP-47 ③) — 미추적 병합이 사라졌다. 범위가 없으면
+  // (커밋 0개) 조회하지 않고 빈 패치를 돌려준다: 인자 없는 `git diff` 는 작업 트리를 본다.
+  if (!revArgs)
+    return {
+      isRepo: true,
+      base: range.base,
+      files: [],
+      filesTruncated: false,
+      contextLimited: false,
+      unavailable: false
+    }
 
-  // 미추적 항목은 **꼬리에 붙인다** — 경로로 다시 정렬하면 추적 파일의 기존 순서(git 이 준
-  // 순서)가 바뀌어 본문 배치가 조용히 달라진다. 상한은 붙인 뒤에 다시 잰다.
-  const withUntracked = (
+  // 상한은 파싱 뒤에 다시 잰다 — 파서가 준 순서(git 순서)를 재정렬하지 않는다.
+  const capped = (
     files: readonly GitDiffPatchFile[],
     filesTruncated: boolean
-  ): { files: GitDiffPatchFile[]; filesTruncated: boolean } => {
-    const merged = [...files, ...untracked]
-    return {
-      files: merged.slice(0, MAX_DIFF_FILES),
-      filesTruncated: filesTruncated || merged.length > MAX_DIFF_FILES
-    }
-  }
+  ): { files: GitDiffPatchFile[]; filesTruncated: boolean } => ({
+    files: files.slice(0, MAX_DIFF_FILES),
+    filesTruncated: filesTruncated || files.length > MAX_DIFF_FILES
+  })
 
   const full = await runPatch(input.cwd, PATCH_CONTEXT, revArgs, runner)
   if (full.ok) {
@@ -351,7 +344,7 @@ export async function gitDiffPatch(
     return {
       isRepo: true,
       base: range.base,
-      ...withUntracked(parsed.files, parsed.filesTruncated),
+      ...capped(parsed.files, parsed.filesTruncated),
       contextLimited: false,
       unavailable: false
     }
@@ -371,7 +364,7 @@ export async function gitDiffPatch(
   return {
     isRepo: true,
     base: range.base,
-    ...withUntracked(parsed.files, parsed.filesTruncated),
+    ...capped(parsed.files, parsed.filesTruncated),
     contextLimited: true,
     unavailable: false
   }

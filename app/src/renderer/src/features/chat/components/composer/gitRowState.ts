@@ -46,9 +46,15 @@ export function gitRowView(
   // 0211 ΔV1 — 변경량은 **diff 요약 합계**다(D-025). `status` 는 더 이상 이 축을 갖지
   // 않는다: 우측 패널과 다른 명령을 쓰면 두 표면의 수가 갈리고, HEAD 대비는 격리 세션에서
   // 커밋된 작업을 세지 못해 `+0 −0` 이 된다.
-  totals: GitDiffTotals | null = null
+  totals: GitDiffTotals | null = null,
+  // 0211 ΔV6 D-114 — 사용자가 이 행을 닫은 시점의 턴 종료 tick. `null` 이면 안 닫혔다.
+  closedAtTick: number | null = null,
+  // 지금까지 관측한 턴 종료 수. `closedAtTick` 과 **같을 때만** 숨긴다 — 다음 턴이 끝나
+  // tick 이 오르면 판정이 스스로 풀린다(별도 해제 액션을 두지 않는다).
+  tick = 0
 ): GitRowView {
   if (!sessionStarted || !cwd || !status?.isRepo) return { visible: false }
+  if (closedAtTick !== null && closedAtTick === tick) return { visible: false }
   return {
     visible: true,
     repo: repoDisplayName(status.root, worktree),
@@ -59,10 +65,6 @@ export function gitRowView(
   }
 }
 
-// 턴이 끝나는 **전이에서만** 다시 조회한다(0206 D-004).
-//
-// 에이전트가 도구로 `git init` 하거나 커밋하는 것이 주 시나리오라 턴 경계가 가장 정확하고
-// 싸다. 값이 아니라 전이를 보는 이유는 busy=false 인 동안 매 렌더마다 조회하지 않기 위해서다.
-export function shouldRefetchGitStatus(prevBusy: boolean, nextBusy: boolean): boolean {
-  return prevBusy && !nextBusy
-}
+// 0211 ΔV6 D-115 — `shouldRefetchGitStatus(prevBusy, nextBusy)` 는 여기서 **사라졌다**.
+// 조회 계기의 정본은 `useGitSnapshot` 의 두 함수이고 그 입력은 `busy` 가 아니라 Stop hook 이
+// 낸 `turnEndTick` 이다. 옛 규칙을 남겨 두면 다음 구현자가 그것을 다시 배선한다.

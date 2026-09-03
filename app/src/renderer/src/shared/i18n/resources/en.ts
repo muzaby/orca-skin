@@ -625,7 +625,8 @@ export const en: typeof ko = {
       aria: 'Repository and changes',
       detached: 'detached HEAD',
       changesAria: '{{added}} lines added, {{removed}} lines removed',
-      diffTitle: 'Open changes panel'
+      diffTitle: 'Open changes panel',
+      close: 'Hide changes row'
     },
     composer: {
       modes: {
@@ -791,7 +792,7 @@ export const en: typeof ko = {
         diff: 'Changes'
       },
       diffAllChanges: 'All changes',
-      diffEmpty: 'No changes yet.',
+      diffEmpty: 'Nothing to show.',
       diffNotRepo: 'Not a Git repository.',
       diffFileLoading: 'Loading contents…',
       diffNotSynced: 'Shown when the turn finishes.',
@@ -809,7 +810,8 @@ export const en: typeof ko = {
       diffComparisonTitle: 'Compare against',
       diffComparedWith: 'against {{base}}',
       diffCommitScope: 'Commits',
-      diffShowFiles: 'Show files',
+      diffFilesOff: 'Hide file list',
+      diffFilesOn: 'Show file list',
       diffCollapseAll: 'Collapse all files',
       diffExpandAll: 'Expand all files',
       diffSideBySide: 'Side by side',

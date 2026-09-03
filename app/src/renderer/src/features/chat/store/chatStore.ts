@@ -584,6 +584,12 @@ function receive(ev: NormalizedEvent): void {
       return
     }
 
+    // 0211 ΔV6 D-115 — Stop hook 신호. terminal 이 아니므로 라이브 상태를 건드리지 않고
+    // 새-채팅 게이트도 풀지 않는다: 리듀서가 tick 하나만 올린다.
+    case 'turn.ended':
+      dispatchTo(key, { type: 'RECV_EVENT', event: ev })
+      return
+
     case 'turn.aborted':
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       resetLive(key)
@@ -1373,7 +1379,11 @@ export const chatActions = {
     dispatchActive({ type: 'TOGGLE_DIFF_FILE_EXPANDED', path }),
   setAllDiffFilesExpanded: (expanded: boolean, paths: readonly string[]): void =>
     dispatchActive({ type: 'SET_ALL_DIFF_FILES_EXPANDED', expanded, paths }),
-  toggleDiffSidebar: (): void => dispatchActive({ type: 'TOGGLE_DIFF_SIDEBAR' }),
+  // 0211 ΔV6 D-117 — 세그먼트 둘이 한 상태를 반대로 읽으므로 값을 싣는다(멱등).
+  setDiffSidebarVisible: (visible: boolean): void =>
+    dispatchActive({ type: 'SET_DIFF_SIDEBAR_VISIBLE', visible }),
+  // 0211 ΔV6 D-114 — 컴포저 git 행 닫기. 다음 턴 종료가 스스로 되돌린다.
+  closeGitRow: (): void => dispatchActive({ type: 'CLOSE_GIT_ROW' }),
   setDiffViewOption: (patch: Partial<DiffViewOptions>): void =>
     dispatchActive({ type: 'SET_DIFF_VIEW_OPTION', patch }),
   beginGitSnapshotQuery: (request: GitSnapshotRequest): void =>
@@ -1468,6 +1478,12 @@ export function useChatBusy(): boolean {
 
 export function sessionBusy(s: Pick<ChatState, 'inflight' | 'listening'>): boolean {
   return s.inflight || s.listening
+}
+
+// 턴 종료 신호 수 (0211 ΔV6 D-115). git 조회 계기의 유일한 입력이다 — `sessionBusy` 와 달리
+// 백엔드 Stop hook 이 낸 `turn.ended` 만 센다.
+export function turnEndTick(s: Pick<ChatState, 'turnEndTick'>): number {
+  return s.turnEndTick
 }
 
 // 중단 잔여 수(0151 r2) — >0 이면 컴포저가 "세션 전체 중단" 을 제시한다.
