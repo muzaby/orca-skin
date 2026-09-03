@@ -12,10 +12,10 @@
 | 일자 | 2026-09-03 |
 | 매핑 | 브랜치 `claude/plan-mode-bugs-f25i42` |
 | 상태 | DRAFT → READY |
-| V mode | `Baseline V` |
-| 기준 V | `none` |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| V mode | `Baseline V` + `Delta V` |
+| 기준 V | `0215:V1@ea983b1` (자기 handoff 의 Baseline) |
+| 이번 V revision | `ΔV1` — verify r1 `RETURN_TO_PLAN`(root D1) 정정 |
+| 유효 V | `V1 + ΔV1` |
 
 ---
 
@@ -63,6 +63,9 @@
 | D-015 | 그 결과 도달 불가가 된 `작업` 타일의 background 전용 코드(항목 생성·메타·중단/전환 버튼·상세 행)를 **삭제**한다 | 능력은 `백그라운드 작업` 타일에 이미 있다 — 이동이 아니라 **중복 제거**다. 남기면 죽은 형제 분기가 검사 장치를 침묵시킨다 | §8 F-15 | ACTIVE | — |
 | D-016 | `작업` 타일 미확인 배지도 **agent 작업만** 센다 | 타일이 더는 보이지 않는 항목을 배지가 광고하면 눌러도 아무것도 없다 | §8 F-16 | ACTIVE | — |
 | D-017 | background **중단 실패 문구**를 `백그라운드 작업` 타일로 옮긴다 | 현재 그 문구의 유일한 렌더 지점이 `작업` 타일이라, 옮기지 않으면 중단 실패가 화면에서 사라진다 | §8 F-17 | ACTIVE | — |
+| D-018 | 컨테이너→View **prop 배선**은 축마다 다른 oracle 로 잠근다 — `SubAgentTileContent` 는 **컨테이너 마운트**, `Composer` 는 **소스 배선 단언** | 두 컨테이너의 관측 가능성이 다르다. `Composer` 는 배선이 `Popover` 안에 있고 그것이 `createPortal(…, document.body)` 다 — 테스트 환경에 `document` 가 없어 마운트로 도달할 수 없다(§8 F-18·F-19 실측) | verify r1 D1 | ACTIVE | — |
+| D-019 | `ModeMenu.options`·`SubAgentTaskList.stopErrors` 의 **관대한 기본값을 없애고 필수 prop 으로** 바꾼다 | 침묵의 원인이 optional prop + 폴백이다 — 배선 누락이 컴파일 오류가 아니라 조용한 동작 복귀가 된다(verify r1 D1) | verify r1 D1 | ACTIVE | — |
+| D-020 | renderer 테스트에 **DOM 환경(jsdom 등)을 도입할지**는 미정 | 도입하면 `Composer` 도 마운트해 잠글 수 있어 D-018 의 소스 단언을 대체한다. 그러나 **신규 devDependency** 라 단독 결정 금지(`app/AGENTS.md §의존성 정책`) | §8 F-20 | **OPEN** | — |
 
 ### 갱신 메모
 
@@ -70,6 +73,10 @@
 - **r1 착수 전 정정(PLAN_GAP)**: D-008 의 dedupe 축이 성립해야 하는 지점을 §10 EP-05 가 1개로 셌으나 실측 2개다 — `model-parser.ts:79-81` 의 configured↔discovered 교차 필터가 `candidate.model === entry.model` 로만 비교해 env family `X` + availableModels `X[1m]` 조합에서 1M 변형을 버린다. EP-05 를 2사이트로, VP-08 을 `AT-08·AT-22` 로 넓히고 AT-22 를 신설했다. **Decision 은 바뀌지 않았다**(D-008 이 이미 그 규칙을 갖고 있었고 강제 지점만 덜 셌다).
 - 변경된 결정: 없음.
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: 0150 D④(계획 승인 = allow 의 `updatedPermissions`), 0026 파서 규약(노출 목록 내 default 정확히 1개). 둘 다 §16 에서 유지 판정.
+- **ΔV1(verify r1 `RETURN_TO_PLAN` 정정)**: root D1 은 "컨테이너 배선 4곳(M-B·M-F·M-G·M-H)이 삭제돼도
+  838/838 green" 이다. **Decision 은 바뀌지 않았다** — D-009·D-010·D-017 이 요구한 동작은 프로덕션에
+  그대로 있고(verify §5 20 pair PASS) 빠진 것은 그것을 지키는 oracle 이다. 그래서 D-018·D-019 를
+  **추가**하고 D-001~D-017 은 전건 ACTIVE 로 남긴다. SUPERSEDED 0.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0.
   - D-001("3단 체인") ↔ AC1·AC2·AC3 → 세 단계가 각각 하나의 AC 로 대응, 우선순위 역전 없음.
   - D-002("실패 표시") ↔ AC3("`pendingPlanReview` 가 있는데 본문이 없으면 실패 문구") → 일치.
@@ -84,6 +91,10 @@
   - D-015("삭제") ↔ AC17(`TaskBoardItem` 에 `background` 필드 부재를 타입·런타임으로 단언) → 일치. AC 가 "숨김"이 아니라 "없음"을 요구한다.
   - D-016 ↔ AC18(배지 카운트가 background 정착에 반응하지 않는다) → 일치.
   - D-017 ↔ AC19(중단 실패 문구가 `백그라운드 작업` 타일에서 렌더) → 일치. D-015 의 삭제 대상과 충돌하지 않는다 — 삭제는 `작업` 타일 쪽 렌더고 이 행은 **다른 타일에 신설**이다.
+  - D-018 ↔ AC23·AC24 → 일치. 두 AC 가 **서로 다른 검증 수단**(소스 단언 / 컨테이너 마운트)을 갖고,
+    그 차이의 이유가 D-018 의 조건절과 같다.
+  - D-019 ↔ AC23·AC24 → 일치. 두 AC 어디에도 "기본값으로 떨어진다"를 허용하는 문장이 없다.
+  - D-020(OPEN) ↔ AC 없음 → **의도한 부재**. OPEN 결정에 AC 를 달면 미정 사항이 완료 조건이 된다.
 
 ## 4. 요구 비판적 검토
 
@@ -147,7 +158,8 @@
 ## 6. 범위 / 비범위
 
 - **범위**: 계획 본문 해소 체인 + 실패 표시 · `ANTHROPIC_MODEL` 목록 편입(2경로) · `[1m]` 식별자/중복 · haiku 자동권한 제거·강등 · **`작업` 타일에서 background 제외 + 딸린 배지·중단 실패 문구 정리** · 관련 문서 4건.
-- **비범위**: `EnterPlanMode` 도구 처리(D-012) · plan 모드 진행 중 실시간 계획 파일 미러링 · `planFilePath` 로부터의 파일 읽기(D-004) · 권한 모드 6종 UI 확장 · CLI `oqe` 표 전체 미러링(D-009) · `백그라운드 작업` 타일의 목록/상세 재설계(중단 실패 문구 1건만 추가).
+- **ΔV1 추가 범위**(코드 동작 불변, 잠금만): 컨테이너 배선 oracle 2종 신설 · `ModeMenu.options`·`SubAgentTaskList.stopErrors` 필수화 + 그로 깨지는 테스트 호출부 8곳 인자 추가 · §10 EP-19 분모 2 반영. **선택적 정리**(verify D3): `classifyModel`·`matchesExplicit`·`AUTO_UNSUPPORTED_FALLBACK_MODE` 의 `export` 제거 — 파일 밖 참조 0건이라 동작 영향 없다.
+- **비범위**: DOM 테스트 환경(jsdom 등) 도입(D-020 OPEN) · `turn.aborted` 경로의 서술 리셋(verify D6 — 후속 handoff) · `EnterPlanMode` 도구 처리(D-012) · plan 모드 진행 중 실시간 계획 파일 미러링 · `planFilePath` 로부터의 파일 읽기(D-004) · 권한 모드 6종 UI 확장 · CLI `oqe` 표 전체 미러링(D-009) · `백그라운드 작업` 타일의 목록/상세 재설계(중단 실패 문구 1건만 추가).
 
 | 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
 |---|---|---|
@@ -181,6 +193,8 @@
 | R-05 | AT-20 / AC20 | 서브에이전트 목록·중단·전환 능력이 `백그라운드 작업` 타일에 그대로 남는다(회귀) | 렌더: 기존 subagent 타일 테스트가 행·중단 버튼·전환 버튼을 계속 단언 | `SubAgentTileContent` |
 | R-01~R-05 | AT-21 / AC21 | 게이트: `npm run lint` 0 error · `npm run typecheck` 3종 0 · 영향 vitest 스위트 green | 명령 산출(파일 수/케이스 수)을 관측값으로 기록 | 저장소 게이트 |
 | R-03 | AT-22 / AC22 | env family `X` + availableModels `X[1m]` 조합에서도 **두 항목 모두** 노출된다 | 단위: `parseClaudeModels({env:{ANTHROPIC_DEFAULT_SONNET_MODEL:'X'}, availableModels:['X[1m]']})` 길이 2, `oneMillionContext` 가 각각 false/true | settings.json → `parseClaudeModels` → `orca:agent:list` → ModelMenu |
+| R-04 | AT-23 / AC23 (ΔV1) | `Composer` 가 **선택 모델에서 파생한** 값을 메뉴로 흘린다 — ① `ModeMenu` 에 `modeMenuOptions(selectedModelShape(...))` 결과 ② `selectedModel` 이 `modelAlias` 를 실음 ③ `setModel` 호출 3곳이 alias 를 넘김 | 배선 단언: `Composer.tsx` 원문에서 세 축을 각각 단언. **세 축을 각각 지우거나 `null` 로 바꾸면 red**(M-B·M-F·M-H) | 사용자 모델 선택 → `Composer` → `ModeMenu`/`chatStore.setModel` |
+| R-05 | AT-24 / AC24 (ΔV1) | `SubAgentTileContent` 가 세션의 `taskStopErrors` 를 목록 View 로 흘린다 | 컨테이너 마운트: store 를 시드해 `SubAgentTileContent` 를 렌더 → 중단 실패 문구가 출력에 있다. **prop 전달을 지우면 red**(M-G) | `stopTask` 실패 → reducer → `SubAgentTileContent` → `SubAgentTaskList` |
 
 ### AC 검증 주의사항
 
@@ -190,6 +204,15 @@
 - 사람 실기 항목: **AC3 의 실제 문구 시각**(폰트·간격)만 사람 몫. 판정 로직(`pendingPlanReview!=null && !planContent`)은 렌더 테스트로 내린다.
 - N회/총량 기준: AC13 은 "`setMode` 1회". sink(`permissionApi.setMode`) 의 프로덕션 호출부는 `rg "permissionApi.setMode" app/src` 로 전수(현재 1: `chatStore.ts:1240`)이고, 이번 변경이 `setModel` 안에 2번째를 만든다 → 식의 항 = {기존 setPermissionMode 경로, 신규 강등 경로}. 관측 지점은 강등 경로만 단언한다(기존 경로는 별도 케이스).
 - 총량/0건 기준: 음성 단언은 **AC16 하나**다(`작업` 목록의 background 행 0건). 제거 대상 = `kind:'background'` 항목, 허용 대상 = `kind:'agent'` 항목 — 형태가 `key` 접두사(`bg:`/`agent:`)로 갈려 섞이지 않는다. **양성 짝 AC20** 이 같은 항목들이 `백그라운드 작업` 타일에는 그대로 있음을 단언한다 — 0건만으로는 "둘 다 사라짐" 과 구분되지 않는다.
+- **AT-23·AT-24 는 verify r1 `RETURN_TO_PLAN`(root D1) 정정 행이다**. AC11·AC19 의 *동작 기준*은 그대로 두고
+  **배선을 별도 요구로 신설**했다 — 두 AC 의 검증 수단이 순수 함수·View 출력이라 컨테이너가 그 값을
+  공급하는지는 묻지 않았다(verify §4 M-B·M-F·M-G·M-H green).
+- **AT-23 의 검증 수단이 소스 단언인 이유**: `Composer` 의 배선이 `Popover` 안이고 그것이
+  `createPortal(…, document.body)` 다. 테스트 환경은 `environment: 'node'` 라 `typeof document === 'undefined'`
+  이고 portal 은 `Target container is not a DOM element` 로 던진다(§8 F-18·F-19 실측) — **마운트 관측이
+  불가능하다**. 소스 단언은 식별자 rename 에 취약하다는 한계를 §10 EP-20 `실패 의미` 에 적었다.
+- **AT-24 는 마운트 관측이다** — `SubAgentTileContent` 는 `Popover` 를 타지 않고(`rg Popover` 0건) 이미
+  `rightPanelTiles.render.test.ts:208` 이 마운트하는 선례가 있다. 두 AC 의 수단이 다른 것은 D-018 이다.
 - **AT-22 는 구현 턴 r1 착수 전 §10 대조에서 추가된 정정 행이다**(표 끝에 붙어 ID 순서와 표 순서가 다르다). AT-08 이 `normalizeAvailableModels` 만 보던 자리에서 `model-parser` 교차 필터를 빠뜨렸다.
 - 기존 테스트 재사용: `taskSurface0212.render.test.ts` · `taskTile0213.render.test.ts` 가 `작업` 타일의 background 행을 단언한다(파일 실재 확인). **AC16·AC17 은 이 단언들을 뒤집으므로 구현 턴이 해당 케이스를 갱신한다** — 삭제가 아니라 `백그라운드 작업` 타일 쪽 단언으로 옮기거나 agent 항목으로 바꾼다.
 
@@ -249,6 +272,31 @@
 | VP-20 | MD-05 ↔ UT | REQUIRED | — (순수) | `taskBoardFromMessages` 반환 | not selected | EP-16 (1) |
 | VP-16 | SD-02 ↔ AT-15 | REQUIRED | 두 생산 경로 → 목록 → default | `filter(isDefault).length === 1` | not selected | EP-05·EP-06·EP-10·EP-11 (4) |
 
+### ΔV1 — verify r1 `RETURN_TO_PLAN` 정정 (root D1)
+
+> 기준 V `0215:V1@ea983b1` 에 대한 **증분**이다. 영향 없는 V1 행은 복사하지 않는다.
+> 변경이 시작되는 수준: **AR** — 두 AR node 에 같은 레벨 `AR↔IT` pair 가 없었다.
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| AR-04 | AR | §10 EP-12·13·14·15·**EP-20·EP-21** | **CHANGED** | `V1@ea983b1` — 배선 강제 지점을 더한다 |
+| AR-05 | AR | §10 EP-17·**EP-19(2)**·**EP-20·EP-21** | **CHANGED** | `V1@ea983b1` — 문구 2종 + 배선 |
+| AT-23 | AT | §7 AC23 | NEW | — |
+| AT-24 | AT | §7 AC24 | NEW | — |
+
+| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §10 강제 지점 전수 |
+|---|---|---|---|---|---|---|
+| VP-21 | AR-04 ↔ IT(컨테이너 배선) | REQUIRED | 사용자 선택 → `Composer` memo·`setModel`·`ModeMenu options` → reducer·메뉴 | `Composer.tsx` 원문의 세 배선 축 단언 | **required** — 소스 단언은 구조적 proxy 다. 변이 3종: ① `options` prop 미전달 ② `setModel(…, null, …)` ③ memo 가 `modelAlias: null` (verify M-B·M-F·M-H) | EP-20 (5) · EP-21 (1) |
+| VP-22 | AR-05 ↔ IT(타일 배선) | REQUIRED | `stopTask` 실패 → reducer `taskStopErrors` → `SubAgentTileContent` → `SubAgentTaskList` | 컨테이너 마운트 렌더 출력의 문구 | **required** — 배선 존재 oracle 이다. 변이: `stopErrors` prop 미전달 (verify M-G) | EP-20 (1) · EP-21 (1) |
+| VP-12 | R-04 ↔ AT-11 | **CHANGED** (REQUIRED 유지) | V1 그대로 | V1 그대로 — 순수 옵션 배열 | **not selected → VP-21 이 배선을 잠근다**. 이 pair 는 규칙(무엇을 거르는가)만 본다 | EP-12 (1) |
+| VP-19 | SD-04 ↔ AT-18·AT-19 | **CHANGED** (REQUIRED 유지) | V1 그대로 | V1 그대로 — 배지 값 + 문구 렌더 | **not selected → VP-22 가 배선을 잠근다** | EP-18 (1) · **EP-19 (2)** |
+
+- `NOT_REQUIRED` 로 판정한 inherited pair: **없음** — V1 의 나머지 18 pair 는 이번 정정 경로에 닿지
+  않는다(verify §5 에서 20 pair 전건 PASS, 그중 VP-12·VP-19 만 배선 미잠금으로 지목됐다).
+- ΔV1 이 만드는 회귀: `ModeMenu.options`·`SubAgentTaskList.stopErrors` 의 **필수화**(D-019)가 기존
+  테스트 호출부를 깬다 → `modelMenu0215.render.test.ts` 1곳 · `rightPanelTiles.render.test.ts` 5곳 ·
+  `taskSurface0212.render.test.ts` 2곳(§8 전수). 그 8곳은 **인자를 더해 고친다**(단언은 유지).
+
 ### 현재 변경의 운영 gate
 
 | Gate | 이번 변경 산출물에 적용되는 이유 | 증거 / 명령 | 실패 범위 |
@@ -283,6 +331,9 @@
 | F-15 서브에이전트 능력은 **별도 타일**에 이미 있다 — `백그라운드 작업` 타일이 `subagentTasksFromMessages` 를 직접 소비하고 중단·전환 버튼을 갖는다 | `tileRegistry.ts` `subagent: SubAgentTileContent` · `SubAgentTileContent.tsx:309`·`:328` |
 | F-16 `작업` 탭 배지는 background 정착에서도 켜진다 | `chatReducer.ts:858-864`(`backgroundTaskKey`) → `ChatTitleBar.tsx:237-239` |
 | F-17 background 중단 실패 문구의 유일한 렌더 지점이 `작업` 타일이다 | `TaskTileContent.tsx:409` 가 `taskStopErrors` 를 읽는 유일한 컴포넌트 |
+| F-18 테스트 환경에 **DOM 이 없다** — `typeof document === 'undefined'` | `vitest.config.ts` `environment: 'node'` · 프로브 실측 출력 `typeof document = undefined` |
+| F-19 `createPortal` 이 SSR 에서 던진다 — `Target container is not a DOM element` | 같은 프로브 실측. `Popover.tsx` 말미가 `createPortal(<div role="menu">…, document.body)` 이고 닫힘 상태는 `if (!open) return null` |
+| F-20 DOM 환경 패키지가 **설치돼 있지 않다**(jsdom·happy-dom·testing-library 0건) | `package.json` 스캔 0건 · `ls node_modules` 0건. 도입은 `app/AGENTS.md §의존성 정책` 상 사용자 승인 대상 |
 
 ### 전수 조사
 
@@ -302,11 +353,18 @@
 | `kind === 'background'` 소비처 | `rg "kind === 'background'\|kind !== 'background'" app/src/renderer \| rg -v "\.test\."` | 5 (`TaskTileContent.tsx:327·332·350` · `taskBoard.ts:375·396`) | D-015 삭제 대상 전수 |
 | `taskBoard` 에서 `백그라운드 작업` 타일이 쓰는 export | `SubAgentTileContent.tsx` import 절 | 3 (`backgroundBoardStatus`·`canBackgroundStatus`·`canStopBackgroundStatus`) | **이 셋은 삭제하지 않는다** — 삭제 대상은 `TaskBoardItem` 을 받는 래퍼(`canStopTask`·`canBackgroundTask`)와 `backgroundItem` |
 | `taskStopErrors` 렌더 소비처 | `rg "taskStopErrors" app/src/renderer \| rg -v "\.test\.\|chatReducer"` | 1 (`TaskTileContent.tsx:409`) | D-017 의 근거 — 옮기지 않으면 0곳이 된다 |
+| **컨테이너 배선 지점 전수**(ΔV1 EP-20 분모) | `rg "options=\{modeMenuOptions\|modelAlias,\|setModel\(\|stopErrors=\{" src/renderer --glob '!*.test.*'` | 6 | `Composer.tsx:466`·`:181`·`:193`·`:200`·`:498` · `SubAgentTileContent.tsx:147` |
+| **관대한 기본값 전수**(ΔV1 EP-21 분모) | `rg "options\?: ModeOption\[\]\|stopErrors\?: Record" src/renderer --glob '!*.test.*'` | 2 | `ModeMenu.tsx:11`(+`:25` 폴백) · `SubAgentTileContent.tsx:218`(+`:209` 기본값) |
+| **필수화가 깨뜨릴 테스트 호출부**(ΔV1 회귀 분모) | `<ModeMenu`·`SubAgentTaskList` 참조 파일별 집계 | 8 | `modelMenu0215` 1 · `rightPanelTiles` 5 · `taskSurface0212` 2 — 전부 인자 추가로 고친다 |
+| `SubAgentTileContent` 마운트 선례 | `rg "createElement\(SubAgentTileContent\)" src/renderer` | 1 (`rightPanelTiles.render.test.ts:208`) | AT-24 가 재사용할 패턴 — 이 컨테이너는 `Popover` 를 타지 않는다(`rg Popover` 0건) |
 
 ### 수치 / 전칭 표현 검산
 
 - 재측정 수치: `MODE_OPTIONS` 6종 중 `hidden` 1(`dont_ask`) → 메뉴 노출 5종. haiku 에서 4종. 우측 패널 타일 4종(`plan`·`subagent`·`task`·`diff`) — `tileRegistry.ts` 의 `contentById` 키 수.
-- 내역 합 = 총계: §10 강제 지점 EP-01~EP-19 의 사이트 합 = 2+1+1+1+**2**+2+1+1+2+1+1+1+1+1+2+1+4+1+1 = **26 사이트 / 19 EP 행** (EP-05 가 r1 정정으로 1→2).
+- 내역 합 = 총계 **(ΔV1 정정 — verify D4: 항 나열이 EP 순서와 어긋났다)**: EP-01~EP-21 을 순서대로
+  `1+1+1+1+2+1+2+1+2+1+1+1+1+1+2+1+4+1+2+6+2` = **35 사이트 / 21 EP 행**.
+  V1 구간(EP-01~EP-19)만 다시 세면 `1+1+1+1+2+1+2+1+2+1+1+1+1+1+2+1+4+1+2` = **27** —
+  V1 의 26 에서 EP-19 가 1→2 로 늘어난 값이다(verify D2).
 - "유일한/항상" 반례 검색: "`planContent` 대입은 유일하다" → `rg "planContent"` 전수 4건 중 대입 1건, 나머지는 읽기(위 표). "`modelKey` 정의는 2곳뿐" → `rg "function modelKey"` 2건. "`taskBoardFromMessages` 소비자는 `작업` 타일뿐" → `rg` 2건 모두 같은 파일.
 - 문서 앵커 / 기존 테스트 케이스 존재 확인: `docs/TRD.md:344`(모델 파싱 규약) 실재 · `docs/IPC_CONTRACT.md:70`(AgentModelView) 실재 · `docs/arch/frontend/ux-domains.md:158` 실재. 테스트 파일 `taskSurface0212.render.test.ts`·`taskTile0213.render.test.ts` 실재(`rightpanel/` 목록). 테스트 케이스 3건(§7 주의사항) 모두 파일에서 행 번호로 확인.
 
@@ -439,9 +497,14 @@
 | MD-05 / VP-17·VP-20 | **EP-16** 목록 파생이 agent 만 접는다 | `taskBoard.ts#taskBoardFromMessages` | renderer | `작업` 타일 렌더 시 | 서브에이전트가 다시 섞인다(요구⑨ 재발) |
 | AR-05 / VP-17·VP-18 | **EP-17** background 전용 표면 제거 (4 사이트: `backgroundItem` 생성 · `TaskBoardItem.background` 필드 · `canStopTask`/`canBackgroundTask` 래퍼 · `TaskTileContent` 의 `kind==='background'` 분기) | `taskBoard.ts` · `TaskTileContent.tsx` | renderer | 렌더/타입 검사 시 | 죽은 형제 분기가 남아 이후 검사 장치를 침묵시킨다 |
 | SD-04 / VP-19 | **EP-18** 배지 마킹이 agent 만 | `chatReducer.ts:858-864` | reducer | `subagent.task(settled, background)` 수신 시 | 배지가 보이지 않는 항목을 광고한다 |
-| SD-04 / VP-19 | **EP-19** 중단 실패 문구 렌더 | `SubAgentTileContent.tsx` | renderer | 백그라운드 타일 렌더 시 | 중단 실패가 화면에서 사라진다 |
+| SD-04 / VP-19 | **EP-19 (ΔV1: 1→2)** `작업` 타일이 유일 렌더 지점이던 문구를 백그라운드 타일이 낸다 — **2 사이트**: 중단 실패 · **정착 사유** | `SubAgentTileContent.tsx` | renderer | 백그라운드 타일 렌더 시 | 그 문구가 화면에서 사라진다. 정착 사유는 0204 D-024 가 요구한 문장이다 |
+| AR-04·AR-05 / VP-21·VP-22 | **EP-20 (ΔV1 신설)** 컨테이너가 View 로 값을 **공급**한다 — **6 사이트**: `Composer.tsx` options 1 · `selectedModel` memo 1 · `setModel` 호출 3 · `SubAgentTileContent` stopErrors 1 | 각 컨테이너 | 렌더/선택 시 | 규칙은 옳은데 그 값이 View 에 닿지 않는다. **소스 단언 축(Composer)은 식별자 rename 에 취약하다** — 그때는 단언이 깨져 red 가 되므로 침묵이 아니라 소음으로 드러난다 |
+| AR-04·AR-05 / VP-21·VP-22 | **EP-21 (ΔV1 신설)** 관대한 기본값 제거 — **2 사이트**: `ModeMenu.options` · `SubAgentTaskList.stopErrors` 를 필수 prop 으로 | 각 컴포넌트 타입 | typecheck 시 | prop 누락이 컴파일 오류가 아니라 조용한 동작 복귀가 된다(verify r1 D1 의 침묵 원인) |
 
 - 같은/동일 규칙이 여러 레이어에 있다면 SSOT 와 강제 방법: 식별자 규칙 = `shared/model-identity.ts`(EP-07 두 사이트가 위임만 한다); 자동권한 규칙 = `shared/permission-mode.ts`(EP-12·EP-13·EP-15 가 같은 함수를 호출); background 상태 규칙 = `taskBoard.ts` 의 status 3함수(백그라운드 타일 단독 소비, `작업` 타일 래퍼는 삭제). 정규식 복붙 금지.
+- **ΔV1 의 두 축이 서로 다른 oracle 을 쓰는 이유는 관측 가능성이다**(D-018) — `Composer` 배선은
+  `Popover`→`createPortal(…, document.body)` 안이고 테스트 환경에 `document` 가 없다(§8 F-18·F-19).
+  EP-21 은 그 한계를 **누락 축에서만** 메운다(타입) — 잘못된 값(`null`)은 EP-20 의 변이가 잡는다.
 - `실패 의미`에 "다른 게이트가 막는다"를 적었다면 그 범위를 이 턴에 측정한 근거: **해당 없음** — 어느 행도 다른 게이트에 위임하지 않는다. 단, EP-15 는 "renderer 가 애초에 못 만든다"에 기대지 않고 **독립적으로 보정**한다(D-011).
 - 선택적 필드의 `true/false/undefined` 의미: `ctx.lastAssistantText` — `undefined` = 이번 턴에 서술 없음(폴백 불가), `''` 는 저장하지 않는다(빈 텍스트 블록은 EP-02 에서 스킵). `input.plan` — `undefined`/`''`/공백만 = 모두 "없음"으로 취급(trim 후 판정). `TaskBoardItem.background` — **필드 자체를 없앤다**(`null` 로 남기면 "메타 없는 background" 라는 불가능 상태가 타입에 남는다).
 - 외부 SDK 경계의 실제 요구 타입/의미: `ExitPlanModeInput` 은 `[k:string]: unknown` 이므로 `plan` 은 **선언되지 않은 런타임 주입 필드**다 — 타입 단언 없이 `typeof === 'string'` 런타임 가드로만 읽는다(현행 유지).
@@ -473,6 +536,11 @@
 | `app/src/renderer/.../rightpanel/SubAgentTileContent.tsx` | 중단 실패 문구 | `taskStopErrors[bg:<id>]` 를 읽어 행 아래 렌더 | 렌더 테스트 |
 | `app/src/renderer/.../reducer/chatReducer.ts` | 배지 마킹 축소 | `subagent.task(settled,background)` 에서 `unseenSettledTaskKeys` 마킹 제거 | 순수 단위 |
 | `app/src/renderer/src/shared/i18n/resources/{ko,en}.ts` | 문구 | `planUnavailableTitle`·`planUnavailableDesc` 추가 | 타입(키 존재) |
+| **ΔV1** `composer/ModeMenu.tsx` | 관대한 기본값 제거 | `options?: ModeOption[]` → 필수 · `options ?? MODE_MENU_OPTIONS` 폴백 제거 | typecheck |
+| **ΔV1** `rightpanel/SubAgentTileContent.tsx` | 관대한 기본값 제거 | `stopErrors?` → 필수(기본값 `= {}` 제거) | typecheck + 컨테이너 마운트 |
+| **ΔV1** `composer/composerWiring.test.ts`(신규) | AT-23 배선 단언 | `Composer.tsx` 원문 3축 — options 공급 · memo alias · `setModel` alias 3곳 | 소스 읽기(순수) |
+| **ΔV1** `rightpanel/subagentWiring.render.test.ts`(신규) | AT-24 배선 관측 | store 시드 후 `SubAgentTileContent` 마운트 → 중단 실패 문구 | 컨테이너 마운트 |
+| **ΔV1** 기존 테스트 8곳 | 필수 prop 인자 추가 | `modelMenu0215` 1 · `rightPanelTiles` 5 · `taskSurface0212` 2 — 단언은 그대로 | — |
 
 ### 테스트 가능성
 
@@ -552,6 +620,8 @@
 | 0204 D-004 "완료 통지 파트와 같은 게이트로 작업 타일 미확인 배지" | `chatReducer.ts:856` 주석 | §10 EP-18 | **변경** — background 정착은 통지 파트만 남기고 배지는 켜지 않는다(D-016) |
 | 0212 D-021·D-022 (전환 버튼 조건 · `paused` 중단 허용) | `taskBoard.ts:369`·`:390` | §9 유지 목록 | 유지 — status 3함수는 그대로, `TaskBoardItem` 래퍼만 삭제 |
 | 0204 §10 EP-04 "둘째 줄 한 슬롯을 두 분기가 나눠 쓴다" | `TaskTileContent.tsx:259` 주석 | §10 EP-17 | **변경** — 분기가 하나(막힘 표시)만 남는다 |
+| 0213 D-007 "안내 분모 = `items` 전체가 아니라 할 일 항목" | `TaskTileContent.tsx` `unsupported` 술어 | §11 ΔV1 · verify D7 | **변경(소멸)** — `items` 자체가 할 일뿐이라 두 분모가 같아졌다. 술어가 `items.length === 0` 으로 단순화됐고 0213 의 구분은 더 이상 필요 없다 |
+| 0212 주석 "기본값을 둬서 기존 렌더 테스트가 인자를 늘리지 않고도 그대로 돈다"(`pausedIds`·`backgroundedIds`) | `SubAgentTileContent.tsx:213-216` | §10 EP-21 | **부분 변경** — `stopErrors` 만 필수로 올린다(D-019). `pausedIds`·`backgroundedIds` 의 기본값은 **유지**한다: 그 둘은 라이브 표식이라 부재가 곧 빈 집합이고, 배선 누락과 구분되지 않는 값이 아니다 |
 
 ## 17. 리스크 / 트레이드오프
 
@@ -564,6 +634,8 @@
 | `ANTHROPIC_MODEL` 편입으로 목록이 4행이 되는 조합 | 기존 "1~3개" 서술은 env-only 조건부 문장이라 §16 에서 문서 갱신으로 흡수 |
 | `작업` 타일에서 서브에이전트를 못 찾는 사용자 | `백그라운드 작업` 타일이 그대로 있고 AC20 이 그 능력을 회귀로 잠근다. 두 타일 이름이 이미 구분된다 |
 | background 정착 배지 상실로 완료를 놓친다 | transcript 의 완료 통지 파트(`subagent_notice`)는 그대로 남는다 — 알림 경로가 0이 되지 않는다 |
+| **AT-23 의 소스 단언이 리팩토링에 취약하다** | 식별자를 바꾸면 단언이 깨진다 — 그러나 **red 로 드러나므로 침묵이 아니다**(0209 r5 선례: 조악한 텍스트 단언이 배선 삭제를 잡았고, r6 이 그것을 지우자 같은 변이가 초록이 됐다). 대체 수단은 D-020(OPEN) |
+| 필수 prop 전환이 미래의 새 소비처를 막는다 | 그것이 목적이다 — 새 소비처가 값을 계산하도록 강제한다. 프로덕션 소비처는 각 1곳뿐이라 비용이 작다(§8 전수) |
 
 - 되돌리기 어려운 결정: **모델 선택 식별자 형식**(D-007). 지금 확정한다. `작업` 타일 범위 축소(D-013)는 파생 한 줄이라 되돌리기 쉽다.
 - 신규 의존성: **0건** — 사용자 승인 불필요.
@@ -586,6 +658,8 @@
 - ABI/네트워크 등 환경 제약: DB 를 건드리지 않으므로 `npm test` 를 쓸 이유가 없다 — `pretest` 를 우회해 순수 스위트만 돌린다.
 - 기본 정적 게이트: `npm run lint` · `npm run typecheck`
 - 관련 테스트: `./node_modules/.bin/vitest run src/main/features/harnesses src/main/adapters src/shared src/renderer/src/features/chat`
+- **ΔV1 추가 게이트**: 필수 prop 전환이 테스트 호출부 8곳을 깨므로 `npm run typecheck` 가 그 전수를
+  드러낸다 — 진단 0줄이 될 때까지 인자를 더한다. 변이 4종(M-B·M-F·M-G·M-H)을 심어 각각 red 를 확인한다.
 - 사람 실기: AC3 문구 시각 1건 · custom 모델 실환경에서 계획 본문 노출 1건 · 서브에이전트 실행 중 두 타일 대조 1건.
 
 ## READY self-review
@@ -799,3 +873,33 @@
 - 침묵의 메커니즘: `ModeMenu.options?`가 `options ?? MODE_MENU_OPTIONS`로, `SubAgentTaskList.stopErrors?`가 `= {}`로 폴백한다 — **optional prop + 관대한 기본값**이라 배선 누락이 컴파일 오류가 아니라 조용한 동작 복귀가 된다.
 - 현재 렌더 테스트가 못 잡는 이유: `modelMenu0215.render.test.ts:97`이 `options: modeMenuOptions(selectedModelShape(...))`로 **Composer가 하는 조립을 테스트가 다시 만든다**. presentational 컴포넌트는 잠기지만 컨테이너의 배선은 잠기지 않는다.
 - 필요한 정정: AR-04·AR-05에 `AR↔IT` REQUIRED pair를 신설하고, 각 pair에 배선 oracle(컨테이너를 마운트해 메뉴 항목·문구를 관측)과 선택 변이(M-B·M-G)를 등록한다. VP-12·VP-19의 `not selected` 판단도 함께 갱신한다.
+
+---
+
+## [검증자 기입] 파생 이슈
+
+> 판정 원문은 [`verify.md`](verify.md). `PLAN_GAP` 인 D1 은 **설계 턴(ΔV1)이 닫았다** — 아래 상태 열 참조.
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D1 | 컨테이너→presentational 배선 4곳이 삭제돼도 838/838 green (M-B·M-F·M-G·M-H) | AR-04·AR-05 의 `AR↔IT` pair 부재 · VP-12·VP-19 적대 증거 `not selected` | ΔV1 이 VP-21·VP-22 신설 + EP-20·EP-21 + AC23·AC24 + D-018·D-019 로 닫았다. **구현 턴은 그 oracle 을 만들고 변이 4종을 심는다** | PLAN_GAP | **설계 정정 완료 — 구현 대기** |
+| D2 | §10 EP-19 가 "유일 렌더 지점을 잃는 문구"를 1개로 셌으나 실측 2개 | §10 EP-19 | 분모를 2로 정정 | NON_BLOCKING | **해결**(ΔV1 §10) |
+| D3 | `classifyModel`·`matchesExplicit`·`AUTO_UNSUPPORTED_FALLBACK_MODE` 가 파일 밖 참조 0인데 export | 비귀속 | 구현 턴의 **선택적 정리**로 §6 범위에 넣었다 | NON_BLOCKING | open |
+| D4 | plan §8 검산 줄의 항 나열이 EP 순서와 어긋난다(합계 26은 정확) | plan §8 | 순서대로 재작성 + ΔV1 반영(27 / 35) | NON_BLOCKING | **해결**(ΔV1 §8) |
+| D5 | 구현 보고의 vitest "7 skipped"가 관측(0 skipped)과 어긋난다 | 구현 보고 | 기록만 — 케이스 수 3233 은 일치 | NON_BLOCKING | 기록 |
+| D6 | `turn.aborted` 로 `result` 가 안 오면 `ctx.lastAssistantText` 가 다음 턴으로 넘어간다 | 비귀속 | 제품 판단 — abort 경로 리셋 여부. §6 비범위에 명시 | NEXT_HANDOFF | open |
+| D7 | 0213 D-007 의 "안내 분모" 구분이 소멸 | 0213 D-007 | §16 에 supersede 행 추가 | NON_BLOCKING | **해결**(ΔV1 §16) |
+| D8 | `백그라운드 작업` 타일 상세에 `최근 작업`(`currentChildLabel`) 행이 없다 | 비귀속 | 기록 — 그 타일은 child transcript 를 통째로 보여 정보량이 더 많다 | NON_BLOCKING | 기록 |
+
+### ΔV1 READY self-review (정정 행만)
+
+- [x] `PLAN_GAP` 을 재구현 **전에** 닫았다 — 구현자에게 그대로 넘기지 않았다.
+- [x] 구 행을 덮어쓰지 않고 supersede 했다 — V1 의 VP-12·VP-19·EP-19 원문이 남아 있고 ΔV1 이 증분이다.
+- [x] 새로 쓴 AC 2행이 §5 게이트를 통과한다 — 행동 단언(무엇이 View 에 닿는가) · 검증 수단(소스 단언 / 컨테이너 마운트) · 프로덕션 도달 경로 3열을 모두 갖는다.
+- [x] **구조적 proxy 인 AT-23 에 적대 증거를 붙였다** — 변이 3종이 등록돼 있고 방향(지우면 red)이 명시적이다.
+- [x] 음성/배선 주장에 양성 짝이 있다 — AT-24 는 "문구가 있다"는 양성 단언이고 변이가 그 방향을 증명한다.
+- [x] 새 `NEW`·`CHANGED` node 4개(AR-04·AR-05·AT-23·AT-24)가 같은 레벨 `REQUIRED` pair 를 갖는다.
+- [x] 수치를 이번 턴에 다시 셌다 — EP-20 6 · EP-21 2 · 깨질 테스트 호출부 8 · 합계 35(V1 구간 27).
+- [x] 신규 의존성을 단독으로 채택하지 않았다 — D-020 을 OPEN 으로 남기고 의존성 0 인 수단을 골랐다.
+- [x] 저장소 규칙을 설계 입력으로 확인했다 — `vitest.config.ts environment: 'node'` · `app/AGENTS.md §의존성 정책`.
+- [x] `ACTIVE 결정 ↔ AC` 대조를 §3 갱신 메모에 관측으로 적었다 — 충돌 0, D-018·D-019·D-020 3행 추가.
