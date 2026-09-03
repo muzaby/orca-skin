@@ -23,7 +23,7 @@ export interface ChangedNavigationSidebarProps {
  *
  * 트리는 저장소 탐색기가 아니라 **현재 비교 범위의 변경 파일만** 담고, 파일을 고르면 우측
  * 본문의 그 섹션으로 이동한다(새 화면으로 가지 않는다). 하단 목록은 범위 선택 자리를 겸한다 —
- * `모든 변경사항` · `미커밋 변경` · 커밋 카드.
+ * `모든 변경사항` 행과 커밋 카드. 선택은 **채움**으로 말한다(0211 ΔV6 D-119).
  */
 export function ChangedNavigationSidebar({
   sections,
@@ -58,7 +58,7 @@ export function ChangedNavigationSidebar({
   return (
     <aside
       data-diff-sidebar
-      className="flex w-[38%] min-w-0 shrink-0 animate-depth-in flex-col border-r border-t5"
+      className="flex w-[25%] min-w-0 shrink-0 animate-depth-in flex-col border-r border-t5"
     >
       <div data-diff-file-tree className="min-h-0 flex-1 overflow-y-auto px-p3 py-p3">
         {rows.length === 0 ? (
@@ -80,8 +80,8 @@ export function ChangedNavigationSidebar({
         data-diff-commit-list
         className="max-h-[45%] overflow-y-auto border-t border-t5 px-p3 py-p3"
       >
-        {/* 0211 ΔV5 D-107 — `미커밋 변경` 행은 참조 배치에 없어 사라졌다. 미커밋 파일은
-            `모든 변경사항` 본문에 계속 섞여 나온다. */}
+        {/* 0211 ΔV5 D-107 — `미커밋 변경` 행은 참조 배치에 없어 사라졌고, ΔV6 D-111 이후
+            미커밋 파일 자체가 어느 목록에도 오지 않는다. `모든 변경사항` = 커밋된 것 전부. */}
         <ScopeRow
           label={tr('chat.rightpanel.diffAllChanges')}
           active={comparison.kind === 'all'}
@@ -95,8 +95,11 @@ export function ChangedNavigationSidebar({
             data-diff-commit-card={commit.sha}
             aria-pressed={comparison.kind === 'commit' && comparison.sha === commit.sha}
             onClick={() => onPickComparison({ kind: 'commit', sha: commit.sha })}
-            className={`group/commitcard mt-1 flex w-full flex-col gap-g1 rounded-r4 border border-t5 px-p3 py-p2 text-left outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover ${
-              comparison.kind === 'commit' && comparison.sha === commit.sha ? 'border-accent' : ''
+            // 0211 ΔV6 D-119 — 선택은 **채움**이고 비선택은 테두리도 배경도 없다(실측 6·7행).
+            className={`group/commitcard mt-1 flex w-full flex-col gap-g1 rounded-r4 px-p3 py-p2 text-left outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover ${
+              comparison.kind === 'commit' && comparison.sha === commit.sha
+                ? 'bg-fill-selected'
+                : ''
             }`}
           >
             <span className="truncate text-caption text-t9">{commit.subject}</span>
@@ -128,12 +131,13 @@ function ScopeRow({
       data-diff-scope={testKey}
       aria-pressed={active}
       onClick={onClick}
-      className={`group/scope flex w-full items-center gap-g2 rounded-r4 px-p2 py-1 text-left text-caption outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover ${
-        active ? 'text-accent' : 'text-t7'
+      // 0211 ΔV6 D-119 — 선택 표시는 채움이다. 체크 아이콘을 함께 두면 커밋 카드와 표시
+      // 문법이 갈린다(카드에는 체크 자리가 없다).
+      className={`group/scope flex w-full items-center gap-g2 rounded-r4 px-p2 py-1 text-left text-caption text-t7 outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover ${
+        active ? 'bg-fill-selected' : ''
       }`}
     >
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      {active && <Icon name="check" size={11} className="shrink-0" />}
     </button>
   )
 }

@@ -637,6 +637,14 @@ export type NormalizedEvent =
       sessionId?: string
       reason: 'user_cancelled' | 'timeout'
     }
+  // 턴이 **정상 종료**했다 — 백엔드의 Stop hook 이 낸다(0211 ΔV6 D-115). `turn.aborted` 와
+  // 달리 terminal 판정에 들어가지 않는다: 턴을 닫는 것은 여전히 `telemetry` 이고, 이 이벤트는
+  // "에이전트가 작업을 끝냈다" 는 **신호**다. 소비자는 git 변경 목록 싱크 하나이며 페이로드가
+  // 없다 — 결과를 실으면 hook 이 그 결과를 기다려야 하고, 그 대기가 D-115 가 없애는 지연이다.
+  | {
+      type: 'turn.ended'
+      sessionId?: string
+    }
   // 권한 요청/해소 1급 이벤트 — AskUserQuestion·ExitPlanMode·일반 도구 게이트를 단일 경로로 통합.
   // approvalId 로 요청↔응답을 라우팅한다(renderer 는 이 id 로 permissionRespond 회신).
   | {

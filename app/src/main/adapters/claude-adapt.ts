@@ -182,6 +182,23 @@ export function makeSteerGateHook(
   return { hooks: { PostToolBatch: [{ hooks: [callback] }] } }
 }
 
+/**
+ * 턴 종료 hook 조각 (0211 ΔV6 D-115 · §10 EP-46 ①).
+ *
+ * claude `Stop` 이 발화하면 `onTurnEnd()` 를 부르고 **즉시** 빈 결정을 돌려준다. SDK 는 hook
+ * 콜백의 Promise 를 await 하므로, 여기서 git 을 부르거나 renderer 왕복을 기다리면 그만큼 턴
+ * 종료가 늦어진다 — 사용자가 없애라고 한 지연이 정확히 그것이다("비동기로 변경").
+ *
+ * 그래서 이 콜백은 **신호만 적재**한다. 조회는 renderer 가 이벤트를 받은 뒤에 한다.
+ */
+export function makeTurnEndHook(onTurnEnd: () => void): object {
+  const callback: HookCallback = async () => {
+    onTurnEnd()
+    return {}
+  }
+  return { hooks: { Stop: [{ hooks: [callback] }] } }
+}
+
 // options.hooks 조각 병합 — adaptHooks 산출과 게이트 조각처럼 `{hooks?: …}` 조각 여럿을
 // 이벤트별 매처 배열 concat 으로 합친다. 조각이 하나 이하로만 hooks 를 가지면 그대로 통과.
 export function mergeHooks(...fragments: object[]): object {

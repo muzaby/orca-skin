@@ -469,7 +469,7 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
       type: 'SET_DIFF_COMPARISON',
       comparison: { kind: 'commit', sha: 'abc1234' }
     })
-    after = chatReducer(after, { type: 'TOGGLE_DIFF_SIDEBAR' })
+    after = chatReducer(after, { type: 'SET_DIFF_SIDEBAR_VISIBLE', visible: true })
     after = chatReducer(after, { type: 'SET_DIFF_VIEW_OPTION', patch: { wrapLines: false } })
 
     expect(after.gitSnapshotRequest).toEqual(before.gitSnapshotRequest)

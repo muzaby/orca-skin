@@ -77,8 +77,12 @@ describe('diff 요약 — 범위와 목록 (VP-09)', () => {
     await git(repo, ['add', '.'])
     await git(repo, ['commit', '-m', 'base'])
     baseOid = await head(repo)
-    // 추적 파일 수정 1 + 미추적 파일 생성 1.
+    // 기준선 뒤의 **커밋** 하나 — 이것만 패널에 온다(0211 ΔV6 D-111).
     await writeFile(join(repo, 'edited.ts'), 'line one\nline two changed\nline three\n')
+    await git(repo, ['add', '.'])
+    await git(repo, ['commit', '-m', 'work'])
+    // 그리고 커밋하지 않은 것 둘 — 추적 파일 수정 1 + 미추적 파일 생성 1.
+    await writeFile(join(repo, 'kept.ts'), 'const a = 2\n')
     await writeFile(join(repo, 'fresh.ts'), 'new file\nsecond\n')
   })
 
@@ -106,25 +110,43 @@ describe('diff 요약 — 범위와 목록 (VP-09)', () => {
     })
   })
 
-  it('미추적 파일은 목록에 남고 합계에는 0 을 더한다 (D-026)', async () => {
+  // AT-72 — 커밋된 것만 온다. **집합 동등**으로 센다: “커밋한 파일이 있다” 만 보면
+  // 세 파일이 다 오는 구현이 그대로 통과한다(범위를 안 좁힌 변이가 red 여야 한다).
+  it('커밋된 변경만 목록에 온다 — 미커밋 추적도 미추적도 없다 (D-111)', async () => {
     const summary = await gitDiffSummary({ cwd: repo, baseOid })
-    const paths = summary.files.map((f) => f.path).sort()
-    expect(paths).toEqual(['edited.ts', 'fresh.ts'])
-    // 목록에는 있다 — 커밋 전 새 파일이 화면에서 조용히 사라지지 않는다.
-    const fresh = summary.files.find((f) => f.path === 'fresh.ts')!
-    expect(fresh).toMatchObject({ status: 'added', added: 0, removed: 0, binary: false })
-    // 그러나 수치에는 기여하지 않는다 — 합계는 추적 변경 하나와 같다.
+
+    expect(summary.files.map((f) => f.path).sort()).toEqual(['edited.ts'])
     const edited = summary.files.find((f) => f.path === 'edited.ts')!
     expect(summary.totals).toEqual({ added: edited.added, removed: edited.removed })
     expect(summary.totals.added).toBeGreaterThan(0)
-    // 바뀌지 않은 파일은 목록에 없다 — 음성 짝.
-    expect(paths).not.toContain('kept.ts')
   })
 
-  it('미커밋 블록도 같은 미추적 항목을 싣는다 — 두 목록이 갈리지 않는다', async () => {
+  it('미커밋 블록은 항상 빈 값이다 — 이 조회는 그 재료를 모으지 않는다 (D-111)', async () => {
     const summary = await gitDiffSummary({ cwd: repo, baseOid })
-    expect(summary.uncommitted.files.map((f) => f.path)).toContain('fresh.ts')
-    expect(summary.uncommitted.totals).toEqual(summary.totals)
+
+    expect(summary.uncommitted).toEqual({
+      files: [],
+      totals: { added: 0, removed: 0 },
+      filesTruncated: false
+    })
+  })
+
+  // AT-73 — 기준선 이후 커밋이 0 이면 그릴 것이 없다(D-112). 이 저장소에는 미커밋 변경과
+  // 미추적 파일이 **있는데도** 목록·커밋이 함께 비어야 한다.
+  it('기준선 이후 커밋이 없으면 목록도 커밋도 비어 있다 (D-112)', async () => {
+    const clean = await makeRepo()
+    await writeFile(join(clean, 'a.ts'), 'base\n')
+    await git(clean, ['add', '.'])
+    await git(clean, ['commit', '-m', 'base'])
+    const oid = await head(clean)
+    await writeFile(join(clean, 'a.ts'), 'working copy\n')
+    await writeFile(join(clean, 'untracked.ts'), 'new\n')
+
+    const summary = await gitDiffSummary({ cwd: clean, baseOid: oid })
+
+    expect(summary.files).toEqual([])
+    expect(summary.commits).toEqual([])
+    expect(summary.totals).toEqual({ added: 0, removed: 0 })
   })
 
   // AT-18 증상 반증 — 사용자가 본 `+0−0` 이 여기서 재현되면 안 된다.
@@ -170,7 +192,10 @@ describe('diff 패치 — 파일별 줄 (VP-55)', () => {
     await git(repo, ['add', '.'])
     await git(repo, ['commit', '-m', 'base'])
     baseOid = await head(repo)
+    // 0211 ΔV6 D-111 — 범위가 `<base> HEAD` 라 **커밋해야** 패치에 온다.
     await writeFile(join(repo, 'edited.ts'), 'after\n')
+    await git(repo, ['add', '.'])
+    await git(repo, ['commit', '-m', 'edit'])
   })
 
   it('한 호출이 수정·추가·삭제·binary 를 함께 싣는다 — 파일 수와 무관하다 (AT-47)', async () => {
@@ -178,6 +203,7 @@ describe('diff 패치 — 파일별 줄 (VP-55)', () => {
     await rm(join(repo, 'gone.ts'))
     await writeFile(join(repo, 'blob.bin'), Buffer.from([0x00, 0x01, 0x02, 0x00]))
     await git(repo, ['add', '-A'])
+    await git(repo, ['commit', '-m', 'four kinds'])
 
     const patch = await gitDiffPatch({ cwd: repo, baseOid })
 
@@ -202,6 +228,8 @@ describe('diff 패치 — 파일별 줄 (VP-55)', () => {
     await git(wide, ['commit', '-m', 'base'])
     const oid = await head(wide)
     await writeFile(join(wide, 'wide.ts'), `${body.replace('line20', 'CHANGED')}\n`)
+    await git(wide, ['add', '.'])
+    await git(wide, ['commit', '-m', 'wide'])
 
     const patch = await gitDiffPatch({ cwd: wide, baseOid: oid })
     const file = fileOf(patch.files, 'wide.ts')
@@ -218,6 +246,8 @@ describe('diff 패치 — 파일별 줄 (VP-55)', () => {
     await git(repoKo, ['commit', '-m', 'base'])
     const oid = await head(repoKo)
     await writeFile(join(repoKo, '한글 파일.txt'), 'b\n')
+    await git(repoKo, ['add', '.'])
+    await git(repoKo, ['commit', '-m', 'ko'])
 
     const patch = await gitDiffPatch({ cwd: repoKo, baseOid: oid })
 
@@ -231,6 +261,7 @@ describe('diff 패치 — 파일별 줄 (VP-55)', () => {
     await git(repoRe, ['commit', '-m', 'base'])
     const oid = await head(repoRe)
     await git(repoRe, ['mv', 'src.txt', 'dst.txt'])
+    await git(repoRe, ['commit', '-m', 'rename'])
 
     const patch = await gitDiffPatch({ cwd: repoRe, baseOid: oid })
 
@@ -240,15 +271,16 @@ describe('diff 패치 — 파일별 줄 (VP-55)', () => {
     })
   })
 
-  it('미추적 파일은 패치에 이름만 실린다 — 본문은 비운다 (D-026)', async () => {
+  // AT-72 패치 축 — 요약만 좁히고 패치를 안 좁힌 변이가 여기서 red 다(§10 EP-47 ③).
+  it('커밋하지 않은 것은 패치에도 없다 — 미추적도 미커밋 추적도 (D-111)', async () => {
     await writeFile(join(repo, 'untracked.ts'), 'private working copy\n')
+    await writeFile(join(repo, 'edited.ts'), 'dirty working copy\n')
 
     const patch = await gitDiffPatch({ cwd: repo, baseOid })
 
-    const entry = fileOf(patch.files, 'untracked.ts')
-    expect(entry).toMatchObject({ status: 'added', added: 0, removed: 0, kind: 'text' })
-    // 줄을 실으면 `+0 −0` 헤더와 본문이 어긋난다 — 목록·트리에 이름이 남는 것이 전부다.
-    expect(entry?.lines).toEqual([])
+    expect(fileOf(patch.files, 'untracked.ts')).toBeUndefined()
+    // 커밋된 그 파일은 남되 **커밋 시점의 줄**이다 — 작업 트리 내용이 새어 들지 않는다.
+    expect(shape(fileOf(patch.files, 'edited.ts'))).toEqual(['-before', '+after'])
   })
 
   it('저장소가 아니면 빈 패치다 — 화면이 사라지지 않는다', async () => {
@@ -388,20 +420,22 @@ describe('커밋 grouping과 미커밋 블록 (VP-31 · VP-33)', () => {
     expect(summary.commits).toEqual([])
   })
 
-  it('커밋에도 있는 파일이 HEAD 뒤에 다시 바뀌면 uncommitted에도 따로 남는다', async () => {
+  it('커밋 노드의 파일과 세션 목록이 같은 커밋 집합에서 온다 (D-111)', async () => {
     const summary = await gitDiffSummary({ cwd: repo, baseOid })
     expect(
       summary.commits.find((commit) => commit.sha === sha1)?.files.map((file) => file.path)
     ).toEqual(['a.ts'])
-    expect(summary.uncommitted.files.map((file) => file.path)).toEqual(['a.ts'])
+    // 작업 트리의 `a.ts` 수정은 목록에 기여하지 않는다 — 커밋 둘이 만든 두 파일뿐이다.
     expect(summary.files.map((file) => file.path).sort()).toEqual(['a.ts', 'b.ts'])
+    expect(summary.uncommitted.files).toEqual([])
   })
 
-  it('패치의 파일 줄은 커밋을 골라도 baseline 대비 작업 트리다 (D-036 회귀)', async () => {
+  it('패치의 파일 줄은 커밋을 골라도 baseline → HEAD 다 (D-036 · D-111 회귀)', async () => {
     const patch = await gitDiffPatch({ cwd: repo, baseOid })
     const file = patch.files.find((entry) => entry.path === 'a.ts')
 
-    expect(shape(file)).toEqual(['-v0', '+v2-worktree'])
+    // 작업 트리의 `v2-worktree` 가 아니라 **커밋된** 값이다.
+    expect(shape(file)).toEqual(['-v0', '+v1'])
   })
 })
 
@@ -412,7 +446,7 @@ describe('범위 해석 SSOT (VP-35)', () => {
     expect(range).toEqual({ kind: 'working', base: { kind: 'none' } })
   })
 
-  it('HEAD와 baseline이 같아도 미커밋 변경은 별도 블록에 남는다', async () => {
+  it('HEAD와 baseline이 같으면 미커밋 변경이 있어도 전부 빈다 (D-111 · D-112)', async () => {
     const repo = await makeRepo()
     await writeFile(join(repo, 'a.ts'), 'base\n')
     await git(repo, ['add', '.'])
@@ -422,8 +456,8 @@ describe('범위 해석 SSOT (VP-35)', () => {
 
     const summary = await gitDiffSummary({ cwd: repo, baseOid })
     expect(summary.commits).toEqual([])
-    expect(summary.uncommitted.files.map((file) => file.path)).toEqual(['a.ts'])
-    expect(summary.uncommitted.totals).toEqual(summary.totals)
+    expect(summary.files).toEqual([])
+    expect(summary.uncommitted.files).toEqual([])
   })
 })
 
@@ -432,6 +466,7 @@ describe('범위 해석 SSOT (VP-35)', () => {
 // 커밋 노드의 status 는 다른 케이스가 이미 잠갔고, 여기서는 **세션 파일 목록**을 센다.
 describe('세션 파일 목록의 status (AT-39 산출 동등 · EP-25 ①)', () => {
   let repo: string
+  let baseOid: string
 
   beforeAll(async () => {
     repo = await makeRepo()
@@ -440,11 +475,14 @@ describe('세션 파일 목록의 status (AT-39 산출 동등 · EP-25 ①)', ()
     await writeFile(join(repo, 'old.ts'), 'same content stays identical for rename detection\n')
     await git(repo, ['add', '.'])
     await git(repo, ['commit', '-m', 'base'])
+    baseOid = await head(repo)
     await writeFile(join(repo, 'keep.ts'), 'a\nb\n')
     await rm(join(repo, 'gone.ts'))
     await git(repo, ['mv', 'old.ts', 'new.ts'])
     await writeFile(join(repo, 'fresh.ts'), 'c\n')
     await git(repo, ['add', '-A'])
+    // 0211 ΔV6 D-111 — status 는 **커밋된** 변경에서 온다.
+    await git(repo, ['commit', '-m', 'four statuses'])
   })
 
   afterAll(async () => {
@@ -452,7 +490,7 @@ describe('세션 파일 목록의 status (AT-39 산출 동등 · EP-25 ①)', ()
   })
 
   it('추가·삭제·수정·이름변경이 각각 다른 status 로 온다', async () => {
-    const summary = await gitDiffSummary({ cwd: repo, baseOid: await head(repo) })
+    const summary = await gitDiffSummary({ cwd: repo, baseOid })
     const byPath = new Map(summary.files.map((f) => [f.path, f.status]))
 
     expect(byPath.get('fresh.ts')).toBe('added')

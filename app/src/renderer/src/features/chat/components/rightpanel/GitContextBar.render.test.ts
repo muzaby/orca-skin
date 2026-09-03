@@ -152,12 +152,13 @@ describe('비교 기준 라벨 — `기준 → 현재` 두 값이다 (AT-65 · D
   })
 })
 
-describe('컨텍스트 바의 네 컨트롤 — `×` 는 타일이 그린다 (제안서 §4)', () => {
-  it('폴더 토글 · 비교 기준 · `⋮` · `↗` 가 함께 선다', () => {
+describe('컨텍스트 바의 컨트롤 — `×` 는 타일이 그린다 (제안서 §4 · ΔV6 D-117)', () => {
+  it('세그먼트 둘 · 비교 기준 · `⋮` · `↗` 가 함께 선다', () => {
     const html = render()
 
     for (const marker of [
-      'data-diff-sidebar-toggle',
+      'data-diff-sidebar-toggle="off"',
+      'data-diff-sidebar-toggle="on"',
       'data-diff-comparison-trigger',
       'data-diff-view-trigger',
       'data-diff-expand-panel'
@@ -165,9 +166,19 @@ describe('컨텍스트 바의 네 컨트롤 — `×` 는 타일이 그린다 (�
       expect(html).toContain(marker)
   })
 
-  it('폴더 버튼의 aria-expanded 가 사이드바 상태를 읽는다 (EP-36 ①)', () => {
-    expect(render({ sidebarVisible: false })).toContain('aria-expanded="false"')
-    expect(render({ sidebarVisible: true })).toContain('aria-expanded="true"')
+  // 0211 ΔV6 D-117 — 하나짜리 `aria-expanded` 가 **세그먼트 둘의 `aria-pressed`** 가 됐다.
+  // 두 상태를 한 케이스로 잰다: 하나만 보면 두 버튼이 늘 같은 값을 내는 구현이 통과한다.
+  it('세그먼트 둘의 aria-pressed 가 서로 반대다 (EP-51 ①)', () => {
+    const pressedOf = (html: string, marker: string): string | undefined => {
+      const at = html.indexOf(`data-diff-sidebar-toggle="${marker}"`)
+      const tag = html.slice(html.lastIndexOf('<', at), html.indexOf('>', at))
+      return /aria-pressed="(true|false)"/.exec(tag)?.[1] ?? 'false'
+    }
+    const hidden = render({ sidebarVisible: false })
+    const shown = render({ sidebarVisible: true })
+
+    expect([pressedOf(hidden, 'off'), pressedOf(hidden, 'on')]).toEqual(['true', 'false'])
+    expect([pressedOf(shown, 'off'), pressedOf(shown, 'on')]).toEqual(['false', 'true'])
   })
 
   it('기본 화면에서는 두 메뉴가 닫혀 있다 — 사이드바도 메뉴도 펼쳐 있지 않다 (D-083)', () => {
@@ -200,7 +211,8 @@ describe('`↗` 라벨은 카탈로그로 해석된다 (AT-52)', () => {
   it('아이콘 버튼 셋이 각자의 접근성 이름을 갖는다 — 서로 맞바꾸면 red 다', () => {
     const html = render()
     const pairs: [string, string][] = [
-      ['data-diff-sidebar-toggle', '파일 표시'],
+      ['data-diff-sidebar-toggle="off"', '파일 목록 숨기기'],
+      ['data-diff-sidebar-toggle="on"', '파일 목록 표시'],
       ['data-diff-view-trigger', 'diff 표시 설정'],
       ['data-diff-expand-panel', '패널 확대']
     ]

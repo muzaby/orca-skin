@@ -41,6 +41,7 @@ import {
   adaptSkills,
   adaptSystemPrompt,
   makeSteerGateHook,
+  makeTurnEndHook,
   mergeHooks,
   withPostCompactHook
 } from './claude-adapt'
@@ -346,6 +347,11 @@ export class ClaudeAdapter implements SessionAdapter {
     // 경계마다 드레인해 [compact 구분선 → 요약 메시지] 순서로 합류시킨다.
     const compactSummaries: string[] = []
 
+    // 턴 종료 신호 대기열 (0211 ΔV6 D-115). `Stop` hook 은 스트림 밖에서 도착하므로 압축 요약과
+    // 같은 형태로 적재하고 events() 가 SDK 메시지 경계마다 드레인한다. **개수만** 싣는다 —
+    // 페이로드가 없어야 hook 이 아무것도 기다리지 않는다.
+    let turnEndSignals = 0
+
     // Workspace 격리(0075) — 작업 폴더(cwd) 밖 r/w 를 PreToolUse 가드 훅으로 막는다. additionalDirectories
     // 는 옵션과 훅이 **같은 배열**을 공유해 드리프트를 막는다(가이드 §5). 값은 컴포저 참조 경로
     // 칩(CLI `/add-dir` 대응)이 세션 출생 시 고정한 것이 턴 요청에 실려 온다.
@@ -396,6 +402,10 @@ export class ClaudeAdapter implements SessionAdapter {
         ...withPostCompactHook(
           mergeHooks(
             adaptHooks(extensions.hooks),
+            // 턴 종료(Stop) — git 변경 목록 싱크의 유일한 계기다(0211 ΔV6 D-115, §10 EP-46 ①).
+            makeTurnEndHook(() => {
+              turnEndSignals += 1
+            }),
             // 격리 가드(PreToolUse) — 모든 툴·모든 모드보다 먼저 밖 경로를 자른다(0075). 안·예외는
             // pass-through 라 아래 canUseTool/permissionMode 흐름은 그대로 유지된다.
             makeWorkspaceGuardHook(cwd, additionalDirectories),
@@ -446,6 +456,16 @@ export class ClaudeAdapter implements SessionAdapter {
       }
     }
 
+    // 대기 중인 턴 종료 신호를 `turn.ended` 이벤트로 비운다 (0211 ΔV6 D-115, §10 EP-46 ②).
+    // `Stop` 은 SDK `result` 보다 먼저 완료되므로 메시지 뒤 드레인이 [결과 → 종료] 순서를
+    // 만든다 — 순서가 반대여도 renderer 의 tick 은 같은 값이라 계기는 성립한다.
+    function* drainTurnEnded(): Iterable<NormalizedEvent> {
+      while (turnEndSignals > 0) {
+        turnEndSignals -= 1
+        yield { type: 'turn.ended', sessionId: ctx.sessionId }
+      }
+    }
+
     async function* eventBatches(): AsyncIterable<ProviderMessageBatch> {
       let sequence = 0
       try {
@@ -454,9 +474,10 @@ export class ClaudeAdapter implements SessionAdapter {
           // hook 은 다음 SDK 메시지(compact_boundary/result)보다 먼저 완료되므로 메시지 뒤
           // 드레인이 [구분선 → 요약] 순서를 만든다.
           events.push(...drainCompactSummaries())
+          events.push(...drainTurnEnded())
           if (events.length > 0) yield { sequence: sequence++, events }
         }
-        const summaries = [...drainCompactSummaries(true)]
+        const summaries = [...drainCompactSummaries(true), ...drainTurnEnded()]
         if (summaries.length > 0) yield { sequence: sequence++, events: summaries }
       } catch (err) {
         // 의도적 중단(턴 취소 / 계획 거부)은 에러가 아니므로 error 이벤트를 내지 않는다

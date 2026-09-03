@@ -14,8 +14,7 @@ import {
   parseCommitLog,
   parseUnifiedPatch,
   parseNameStatusZ,
-  parseNumstatZ,
-  parseUntrackedPaths
+  parseNumstatZ
 } from './git-diff-parse'
 import type { GitDiffFileEntry } from '../../../shared/ipc'
 
@@ -505,49 +504,27 @@ describe('parseUnifiedPatch 상한 셋 — 서로를 대신하지 못한다 (AT-
   })
 })
 
-// 0211 ΔV4 r3 — 미추적 파일(D-026). `git diff` 는 이 파일들을 보지 못하므로 목록은
-// `ls-files --others` 가 따로 채운다. **합계는 그 항목을 세지 않는다.**
-describe('미추적 파일 (D-026)', () => {
-  it('-z 토큰을 경로로 읽고 변경량 0 인 추가 항목으로 만든다', () => {
-    // 마지막 NUL 뒤의 빈 토큰은 버리고, 경로 자체는 다듬지 않는다 — 끝 공백도 정상 경로다.
-    expect(parseUntrackedPaths('a.ts\0dir/b with space.ts\0한글.ts\0')).toEqual([
-      { path: 'a.ts', status: 'added', added: 0, removed: 0, binary: false },
-      { path: 'dir/b with space.ts', status: 'added', added: 0, removed: 0, binary: false },
-      { path: '한글.ts', status: 'added', added: 0, removed: 0, binary: false }
-    ])
+// 0211 ΔV6 D-111 — 미추적 파일은 **범위에서 사라졌다**. 비교 범위가 `<base> HEAD` 라
+// `git diff` 가 작업 트리를 보지 않고, `ls-files --others` 조회도 `mergeDiffEntries` 의
+// 미추적 인자도 없다. 여기서는 그 인자가 다시 생기지 않는지를 상한 축으로 확인한다.
+describe('커밋 전용 병합 (D-111)', () => {
+  it('추적 항목만 정렬해 합치고 합계를 절단 앞에서 센다', () => {
+    const merged = mergeDiffEntries([entry('z.ts', 1, 1), entry('a.ts', 3, 2)])
+
+    expect(merged.files.map((file) => file.path)).toEqual(['a.ts', 'z.ts'])
+    expect(merged.totals).toEqual({ added: 4, removed: 3 })
+    expect(merged.truncated).toBe(false)
   })
 
-  it('빈 출력은 빈 목록이다 — 미추적 없음이 조회 실패로 보이지 않는다', () => {
-    expect(parseUntrackedPaths('')).toEqual([])
-    expect(parseUntrackedPaths('\0')).toEqual([])
-  })
-
-  it('목록에는 섞이고 합계에는 0 을 더한다', () => {
-    const merged = mergeDiffEntries(
-      [entry('tracked.ts', 3, 2)],
-      parseUntrackedPaths('fresh.ts\0also-new.ts\0')
-    )
-
-    expect(merged.files.map((file) => file.path)).toEqual(['also-new.ts', 'fresh.ts', 'tracked.ts'])
-    // 미추적 둘이 목록에 있어도 합계는 추적 하나 그대로다.
-    expect(merged.totals).toEqual({ added: 3, removed: 2 })
-  })
-
-  it('인자를 생략하면 예전과 같다 — 추적만 넘기는 호출부가 바뀌지 않는다', () => {
-    expect(mergeDiffEntries([entry('a.ts', 1, 1)])).toEqual(
-      mergeDiffEntries([entry('a.ts', 1, 1)], [])
-    )
-  })
-
-  it('목록 상한은 미추적을 포함해 잰다 — 200 을 넘기면 잘렸다고 말한다', () => {
-    const tracked = Array.from({ length: MAX_DIFF_FILES }, (_, i) =>
+  it('목록 상한은 추적 항목만으로 잰다 — 200 을 넘기면 잘렸다고 말한다', () => {
+    const tracked = Array.from({ length: MAX_DIFF_FILES + 1 }, (_, i) =>
       entry(`t${String(i).padStart(4, '0')}.ts`)
     )
-    const merged = mergeDiffEntries(tracked, parseUntrackedPaths('zz-new.ts\0'))
+    const merged = mergeDiffEntries(tracked)
 
     expect(merged.files).toHaveLength(MAX_DIFF_FILES)
     expect(merged.truncated).toBe(true)
-    // 합계는 절단 앞에서 세므로 미추적이 잘려도 수치는 그대로다(0 을 더하므로 변화 없음).
-    expect(merged.totals).toEqual({ added: MAX_DIFF_FILES, removed: 0 })
+    // 합계는 절단 앞에서 세므로 201번째 파일의 줄도 수치에 남는다.
+    expect(merged.totals).toEqual({ added: MAX_DIFF_FILES + 1, removed: 0 })
   })
 })

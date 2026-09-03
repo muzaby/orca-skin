@@ -632,7 +632,8 @@ export const ko = {
       aria: '저장소 및 변경 사항',
       detached: '분리 헤드',
       changesAria: '{{added}}줄 추가 {{removed}}줄 삭제',
-      diffTitle: '변경사항 패널 열기'
+      diffTitle: '변경사항 패널 열기',
+      close: '변경사항 행 닫기'
     },
     composer: {
       modes: {
@@ -797,7 +798,7 @@ export const ko = {
         diff: '변경사항'
       },
       diffAllChanges: '모든 변경사항',
-      diffEmpty: '변경 사항이 없습니다.',
+      diffEmpty: '표시할 변경 사항이 없습니다.',
       diffNotRepo: 'Git 저장소가 아닙니다.',
       diffFileLoading: '내용을 불러오는 중…',
       diffNotSynced: '턴이 끝나면 표시됩니다.',
@@ -815,7 +816,8 @@ export const ko = {
       diffComparisonTitle: '비교 기준',
       diffComparedWith: '{{base}} 대비',
       diffCommitScope: '커밋',
-      diffShowFiles: '파일 표시',
+      diffFilesOff: '파일 목록 숨기기',
+      diffFilesOn: '파일 목록 표시',
       diffCollapseAll: '모든 파일 접기',
       diffExpandAll: '모든 파일 펼치기',
       diffSideBySide: '나란히',

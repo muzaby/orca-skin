@@ -4250,6 +4250,127 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 - **사용자 결정 변경 근거**: D-104·D-105·D-106·D-107·D-109 는 사용자 명시(질의 응답 3라운드). D-101 은 **설계자 판정이고 사용자 미확인**이다 — 이름 조회를 계기 축소에서 뺀 근거가 §3 D-101 행에 있다.
 - **반복된 검증 환경 한계**: 셋 그대로 — ① `environment: 'node'` ② better-sqlite3 ABI ③ 병렬 부하의 간헐 타임아웃.
 
+## [구현자 기입] 설계 리뷰 (ΔV6)
+
+- **plan 은 그대로 수행 가능했다.** `PLAN_GAP` 0건 — Decision·AC·V pair·§10 강제 지점이 코드 자리와 1:1로 붙었다.
+- 인용한 기존 테스트가 전부 실재했다: `gitRowState.test.ts`(`gitRowView` 케이스 5) · `gitQueryReason.test.ts`(두 함수 8케이스) · `git-diff.test.ts`(임시 저장소 34케이스) · `GitContextBar.{render,actions}.test.ts`.
+- **한 가지가 설계에 없었다** — `GitDiffSummary.uncommitted` 의 값. §6 비범위가 "필드는 남긴다" 고만 적었는데, D-111 이 그 값을 만들 재료(작업 트리 조회)를 없앤다. 파생 이슈 **I-06** 으로 올린다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (ΔV6)
+
+| V node / pair | 강제 지점 | 닫음 | 재현 관측값 |
+|---|---|---|---|
+| AR-16 · SD-13 / VP-72 | EP-46 (4) | **4/4** | ① `rg "Stop: \[\{ hooks" app/src/main/adapters/claude-adapt.ts` = **1**(`makeTurnEndHook`) ② `rg "drainTurnEnded" app/src/main/adapters/claude.ts` = **3**(정의 1 · 메시지 경계 1 · 종료 1) ③ `rg "type: 'turn.ended'" app/src/shared/ipc.ts` = **1** ④ `rg "case 'turn.ended'" app/src/renderer` = **2**(리듀서 · 스토어 스위치) |
+| R-64 / VP-72 | EP-42 ③ 갱신 (요약 effect deps 에서 `busy` 제거) | **1/1** | `rg "busy" app/src/renderer/.../useGitSnapshot.ts` = **0**. deps 두 줄이 `[tick, runQuery, triggerKey]`·`[tick, runStatusQuery, statusKey]` |
+| AR-17 · R-65 / VP-73 | EP-47 (3) | **3/3** | ① `diffRevArgs` 가 `[base.oid, 'HEAD']`(`git-diff.ts:154-155`) ② `rg "readUntracked" app/src/main` = **0** ③ `rg "untrackedPatchFiles\|parseUntrackedPaths" app/src` = **0** |
+| R-63 · SD-14 · MD-29 / VP-71 | EP-48 (2) | **2/2** | ① `gitRowState.ts:57` `closedAtTick !== null && closedAtTick === tick` ② `chatReducer.ts` `CLOSE_GIT_ROW` 가 `state.turnEndTick` 을 적고 해제 액션이 **없다**(`rg "OPEN_GIT_ROW\|REOPEN" app/src/renderer` = 0) |
+| R-66 / VP-74 | EP-49 (2) | **2/2** | ① `rg "diffEmpty: '표시할" app/src/renderer/src/shared/i18n/resources/ko.ts` = **1**, en = `Nothing to show.` ② 소비처 4곳이 같은 키를 읽는다(`diffPanel0211dv6.render.test.ts` 의 집합 동등) |
+| R-67 · MD-30 / VP-75 | EP-50 (2) | **2/2** | ① `ComparisonLabel` 이 `{kind:'range'} \| {kind:'commit'}` 판별 유니온 ② `GitContextBar` 가 `label.kind === 'commit' ? … : …` 로 갈라 그린다 |
+| R-68 / VP-76 | EP-51 (2) | **2/2** | ① `pressed={!sidebarVisible}` + `pressed={sidebarVisible}` 각 1건 ② `rg "toggleDiffSidebar" app/src` = **0**, `SET_DIFF_SIDEBAR_VISIBLE` 이 값을 싣는다 |
+| R-69 · MD-31 / VP-77 | EP-27 ④ (기존 3 + 1) | **4/4** | 실측 9행 중 코드가 소유한 6행(폭·서체·톤·밴드·채움·무테)이 전부 양성+부정 짝으로 잠겼다. 나머지 3행(메뉴 라벨 톤·hover 채움·활성 채움)은 이미 house 토큰이라 유지 확인 |
+
+**분모 검산**: EP 신설 6행(46~51)의 지점 수를 각각 전수 검색으로 세었다 — 4+3+2+2+2+2 = **15**, 기존 EP-27 에 편입한 1 을 더해 **16/16**. 검색 술어는 불변식의 주어(`Stop` 등록 · 범위 인자 · 노출 판정 · 카탈로그 키 · 라벨 갈래 · pressed 짝)이고 해법 이름이 아니다.
+
+### V-pair 자기확인 (ΔV6)
+
+| pair | 자기 상태 | 관측 |
+|---|---|---|
+| VP-71 | `SELF_PASS` | 노출 판정 세 값 · 클릭 후 행 부재 · DOM 순서 · **CSS order 축**까지 4단언 |
+| VP-72 | `SELF_PASS` | 순수 세 값 · `busy` 부재 · hook 등록 · 동기 발화 + 첫 마이크로태스크 · 리듀서 tick |
+| VP-73 | `SELF_PASS` | 임시 저장소 3파일 fixture 에서 요약·패치 **집합 동등 = {A}** · 미추적 식별자 전수 0 |
+| VP-74 | `SELF_PASS` | 커밋 0 저장소가 `files: []`·`commits: []` · 본문 문구 1 · 소비처 4 |
+| VP-75 | `SELF_PASS` | 두 모드 산출 대조 · 사라진 커밋 폴백 · `→` 갈래 위치 |
+| VP-76 | `SELF_PASS` | 두 `aria-pressed` 가 서로 반대(두 상태 모두) · 진입점 셋의 액션 값 |
+| VP-77 | `SELF_PASS` | 실측 6행의 양성 + 옛 클래스 부재 |
+| VP-63 · VP-66 | `SELF_PASS`(REGRESSION) | 이름 축 세 계기 유지 · `all` 모드 순서 유지 |
+| VP-64·65·67·68·69·70 · VP-53~56·61·62 · VP-22·48·50 | `SELF_PASS`(REGRESSION) | 기존 oracle 재실행 — 전 스위트 green |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (ΔV6)
+
+| # | 심은 결함 | 대상 | 결과 |
+|---|---|---|---|
+| M1 | 복귀 해제 제거(`closedAtTick !== null` 만 본다) | VP-71 선택 증거 | **red** 1/12 |
+| M2 | `order-first` 로 시각 순서 뒤집기 (CSS 축) | VP-71 선택 증거 | **red** 1/9 — **처음엔 green 이었다**(아래 회귀 메모) |
+| M2b | `×` 블록을 변경량 버튼 앞으로 (JSX 축) | VP-71 선택 증거 | **red** 1/9 |
+| M3 | 옛 `busy` 계기 부활 — tick 계기에 덧붙임 | VP-72 선택 증거 | **red** 2/9 |
+| M4 | `Stop` 등록 제거(조각이 `{}`) | VP-72 선택 증거 | **red** 4/4 |
+| M5 | hook 이 `await` 뒤에 발화 | 새 oracle 민감도 | **red** 1/4 |
+| M6 | 패치만 작업 트리로 되돌림 | VP-73 선택 증거 | **red** 5/34 |
+| M7 | 리듀서가 `turn.ended` 를 세지 않음 | VP-72 선택 증거 | **red** 3/5 |
+| M8 | 판별 유니온을 `range` 한 갈래로 접음 | VP-75 선택 증거 | **red** 1/14 |
+| M9 | 두 세그먼트에 같은 `pressed` | VP-76 선택 증거 | **red** 2/23 |
+| M10 | 옛 폭 클래스를 새 것과 함께 남김 | VP-77 선택 증거 | **red** 1/14 |
+| M11 | 새 스윕에서 주석 제거를 지움 | 새 oracle 민감도 | **red** 2/14 |
+
+**분모 검산**: 선택 증거 **9**(VP-71 두 축 · VP-72 셋 · VP-73 · VP-75 · VP-76 · VP-77) · 인용 변이 **0**(이번 라운드에 닫는 파생 이슈 없음) · 새 oracle **3**(Stop hook 동기 발화 · 주석 제거 스윕 · CSS order 부정) = 표 행 **12**. 전건 red.
+
+> **M2 의 첫 관측은 green 이었다.** 순서 oracle 이 DOM 인덱스만 봐서 `order-first` 로 **시각 순서만** 뒤집은 구현을 통과시켰다. 오라클에 CSS order 부정 단언을 더해 red 로 바꿨고, 그 뒤 정상 코드에서 green 을 다시 확인했다. 두 축(DOM·CSS)이 이제 함께 잠긴다.
+
+> **덮개 회귀 확인**: 이번 라운드가 교체한 장치는 셋이다 — `shouldRefetchGitStatus`(제거) · `aria-expanded` 단일 단언 → `aria-pressed` 쌍 · `diffEmpty` 옛 문구. 셋 중 구 장치가 red 로 만들던 변이는 "턴 종료 전이 판정" 하나이고, 그 자리는 M3 이 더 넓게(계기 부활 전체) 잡는다. 나머지 둘은 단언이 늘어난 방향이라 하한이 내려가지 않았다.
+
+## [구현자 기입] Product/UX 파생 검토 (ΔV6)
+
+- **새 문구에 소비자가 있다.** `chat.gitRow.close` 는 `×` 의 `title`+`aria-label` 둘, `diffFilesOff`/`diffFilesOn` 은 세그먼트 둘의 이름 + `⋮` 메뉴 항목이 읽는다. producer-only 문자열 0건.
+- **실패가 "아무 일도 안 일어남" 으로 보이는 자리 하나를 발견했다** — 커밋 없이 일하는 세션에서 패널이 계속 `표시할 변경 사항이 없습니다.` 다. 사용자가 그 계약을 골랐고(D-111·D-112) 문구가 "표시할" 을 포함해 *고장* 이 아니라 *보여줄 것이 없음* 으로 읽힌다. 시각 판정은 §19 실기 ② 다.
+- **닫은 뒤 되살릴 진입점이 없다.** 다음 턴 종료까지 기다려야 한다 — 사용자가 그 수명을 명시했다(D-114). 별도 진입점을 만들지 않았다.
+- **늦게 도착한 응답이 화면을 되돌리지 않는다** — 기존 세대 가드(`gitSnapshotRequest.generation`)를 그대로 지난다. 계기만 바뀌었고 소유자는 그대로다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (ΔV6)
+
+| # | 발견 | 처리 |
+|---|---|---|
+| I-06 | `GitDiffSummary.uncommitted` 가 **항상 빈 값**이 됐다. 채우려면 D-111 이 없앤 작업 트리 조회를 되살려야 한다. renderer 소비처는 ΔV5 D-107 이후 0건 | **보고만** — 계약 필드 제거는 §6 비범위다. 형태를 남기고 `EMPTY_GROUP` 을 싣고 코드에 이유를 적었다. 다음 라운드에 제거 후보 |
+| I-07 | `base.kind === 'head'` 세션(기준선도 출생 시각도 없는 옛 세션)은 `base..HEAD` 가 항상 비어 **영영 빈 패널**이다 | **선조치 없음, 보고** — D-112 의 화면과 같아 사용자가 사유를 읽을 수 있다. `bornAt` 폴백(ΔV4 r3)이 신규 세션 전부를 덮으므로 실사용 노출은 이 변경 이전 세션에 한정된다 |
+| I-08 | `queue-entry.test.ts > deleteBranch` 가 **전체 병렬 실행에서만** 간헐 실패했다. 단독 실행은 4/4 green | **환경 기인으로 분리** — git 임시 저장소 스위트가 길어지며 생긴 타이밍 흔들림이고 이번 변경과 무관하다. 최종 전건 실행에서는 3,179 케이스 전건 통과 |
+
+### 설계 대비 명시적 차이 (ΔV6)
+
+**차이 1 — `diffRevArgs` 의 반환이 `string[]` 이 아니라 `string[] | null` 이다.** plan §11 은 `[base, 'HEAD']` 만 적었는데, `base.kind === 'none'`(커밋 0개 저장소)에서 빈 배열을 돌려주면 `git diff` 가 **다시 작업 트리를 본다** — D-111 이 막으려던 바로 그 값이다. `null` 로 "범위 없음" 을 말하고 호출부가 조회를 건너뛴다.
+
+그 대체물의 실패 모드를 축마다 다시 유도했다.
+
+| 축 | `null` 반환이 갖고 빈 배열이 갖지 않던 것 | 다시 확인한 행 |
+|---|---|---|
+| 만료 | 없음 — 값이고 수명이 없다 | 해당 없음 |
+| 공유 | 두 소비자(요약·패치)가 같은 함수를 부르고 **각자** 분기한다. 한쪽만 분기하면 그쪽이 작업 트리를 본다 | AT-72 가 요약·패치 **둘 다** 집합 동등으로 센다(M6 이 그 축을 red 로 확인) |
+| 재진입 | 없음 — 순수 함수다 | 해당 없음 |
+| 무효화 | `EMPTY_DIFF_GROUP`·빈 패치가 `unavailable:false` 다. `true` 로 두면 "불러오지 못했다" 로 읽혀 D-112 의 문구가 안 나온다 | AT-73 이 커밋 0 저장소에서 `files: []` + 그 문구를 함께 센다 |
+
+**차이 2 — `mergeDiffEntries` 의 `untracked` 인자와 `parseUntrackedPaths` 를 함께 제거했다.** plan §11 은 호출부 2건 제거만 적었다. 인자를 optional 로 남기면 프로덕션 소비처 0인 파서가 남아 다음 구현자가 그것을 다시 배선한다 — `git-diff-parse.test.ts` 의 4케이스를 커밋 전용 병합 2케이스로 갈아 계약을 새 방향으로 다시 유도했다.
+
+## [구현자 기입] 구현 보고 (ΔV6)
+
+| AC | 상태 | 재현 관측값 |
+|---|---|---|
+| AT-70 | ✅ | `gitRowState.test.ts` 4케이스(세 값 + 랜딩 회귀) · `gitRow.render.test.ts` 9케이스 |
+| AT-71 | ✅ | `gitQueryReason.test.ts` 9케이스 · `turn-end-hook.test.ts` 4케이스 · `chatReducer.turnEnd.test.ts` 5케이스 |
+| AT-72 | ✅ | `git-diff.test.ts` 34케이스 — 커밋/미커밋/미추적 fixture 에서 요약·패치 모두 `{edited.ts}` |
+| AT-73 | ✅ | 커밋 0 저장소 통합 1 + 렌더 3(문구·카탈로그 값·소비처 4) |
+| AT-74 | ✅ | 순수 2 + 갈래 위치 1 |
+| AT-75 | ✅ | 렌더 3 + 액션 2 |
+| AT-76 | ✅ | 실측 6행 × (양성 + 부정) |
+
+**합계 검산**: ✅ **7** · ⚠️ 0 · ❌ 0 = 총 **7**(AT-70~AT-76). ΔV5 의 8 과 분모가 다르다 — ΔV6 이 신설한 AC 만 센다.
+
+**대상 커밋**: (r ΔV6 구현 — 좌표는 INDEX)
+
+### 게이트 (ΔV6)
+
+| 게이트 | 관측한 산출 |
+|---|---|
+| `npm run lint` | **0 error · 1 warning** — warning 은 `useTranscriptVirtualizer.ts` 의 react-compiler 라이브러리 비호환으로 이번 변경과 무관(기준선) |
+| `npm run typecheck` | **error 2** — 둘 다 `opencode-sdk.test.ts` 의 `Cannot find module '@opencode-ai/sdk'`. `package.json` 에 선언(0214)되어 있으나 `node_modules/@opencode-ai` 가 없다 → **환경 기인 기준선**, 이번 변경과 무관 |
+| `vitest run` (전건) | **323 파일 중 322 green · 3,179 케이스 전건 통과**. 실패 1파일 = 위와 같은 `opencode-sdk.test.ts` import 오류(0 케이스 실행) |
+| `check-doc-inventory.mjs` | exit 0 — `NormalizedEvent variant` **23 → 24**(`turn.ended` 신설). **IPC 채널 82 불변**으로 plan §7-A gate 차분과 일치 |
+| `check-migrations-appendonly.mjs` | exit 0 — `20 migrations` 불변 · append-only ok |
+
+## [구현자 기입] Review Signals — 사실만 (ΔV6)
+
+- 이번에 닫은 불변식(계기의 **출처**)은 ΔV5 가 닫은 축(계기의 **개수**)의 연속이다. 같은 자리가 두 라운드 연속으로 열렸으나 원인은 사용자 결정 변경이고 구현 실패가 아니다.
+- **plan 이 막았어야 할 것 하나가 걸리지 않았다**: AT-70 의 "형제 자리 맞바꿈" 이 DOM 축만 지정해, CSS 축(`order-*`) 변이가 처음 green 이었다. plan §7 주의사항이 "인덱스로 방향을 잠근다" 까지만 적고 *어느 순서인가* 를 말하지 않았다.
+- 반복 환경 한계: `@opencode-ai/sdk` 미설치로 typecheck 2건·vitest 1파일이 상시 red 다. 0214 가 설치한 의존이 이 워크스페이스에 없다.
+- 현재 라운드: **3** (유지).
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다.

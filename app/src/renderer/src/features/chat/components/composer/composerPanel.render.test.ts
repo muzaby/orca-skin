@@ -36,7 +36,12 @@ function rootClasses(html: string): string[] {
 
 const gitRow = (): string =>
   renderToStaticMarkup(
-    createElement(GitRowView, { view: VISIBLE, diffOpen: false, onToggleDiff: () => undefined })
+    createElement(GitRowView, {
+      view: VISIBLE,
+      diffOpen: false,
+      onToggleDiff: () => undefined,
+      onClose: () => undefined
+    })
   )
 
 const notice = (): string =>

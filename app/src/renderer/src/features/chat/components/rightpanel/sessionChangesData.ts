@@ -1,5 +1,6 @@
 import type { GitDiffSummary, GitStatus } from '../../../../../../shared/ipc'
 import type { MessageKey } from '../../../../shared/i18n'
+import type { DiffComparison } from './diffComparison'
 
 /**
  * 컨텍스트 바의 비교 기준 라벨 (0211 ΔV4 D-069·D-071).
@@ -45,18 +46,31 @@ export function summaryBaseText(
  * **`head` 가 없으면 화살표도 없다.** detached HEAD·저장소 아님에서 `main → ` 처럼 꼬리가
  * 빈 라벨을 그리면 사용자가 "무엇 대비" 를 읽지 못한다.
  */
-export interface ComparisonLabel {
-  base: string
-  head: string | null
-}
+/**
+ * 라벨은 **비교 모드별로 모양이 다르다** (0211 ΔV6 D-116 · §10 EP-50 ①).
+ *
+ * 참조 화면이 같은 자리에서 두 문자열을 보인다 — 전체 모드는 `main → feature`, 커밋 모드는
+ * `4ea4a51 feat: add hello.txt…`. 한 모양으로 두고 렌더에서만 갈랐다면 커밋 모드가
+ * `<sha> → <브랜치>` 라는 **없는 비교**를 그린다. 그래서 판별 유니온이다.
+ */
+export type ComparisonLabel =
+  | { kind: 'range'; base: string; head: string | null }
+  | { kind: 'commit'; sha: string; subject: string }
 
 export function summaryComparisonLabel(
   summary: GitDiffSummary | null,
   status: GitStatus | null,
+  comparison: DiffComparison,
   tr: (key: MessageKey) => string
 ): ComparisonLabel {
+  if (comparison.kind === 'commit') {
+    const commit = summary?.commits.find((entry) => entry.sha === comparison.sha)
+    // 고른 커밋이 목록에서 사라졌으면(요약 갱신) 범위 라벨로 접는다 — `reconcileComparison`
+    // 이 곧 모드도 되돌리지만, 그 사이 한 프레임에 빈 라벨을 그리지 않는다.
+    if (commit) return { kind: 'commit', sha: commit.sha.slice(0, 7), subject: commit.subject }
+  }
   const base = summaryBaseText(summary, tr)
   const head = status?.isRepo && !status.detached ? status.branch : null
   // 기준과 현재가 같은 이름이면 화살표가 아무것도 말하지 않는다 — 한 값으로 접는다.
-  return { base, head: head === base ? null : head }
+  return { kind: 'range', base, head: head === base ? null : head }
 }

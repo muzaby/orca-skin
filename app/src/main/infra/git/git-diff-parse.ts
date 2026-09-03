@@ -165,33 +165,16 @@ export function parseNumstatZ(out: string): GitDiffFileEntry[] {
   return entries
 }
 
-// `git ls-files --others --exclude-standard -z` → 미추적 파일 목록.
-//
-// **변경량은 0 이다**(0211 D-026). 목록·트리에는 남고 합계에는 기여하지 않는다 — 사용자가
-// "목록에는 보이되 수치에는 더하지 않는다" 를 골랐다.
-//
-// `-z` 라 경로가 인용되지 않으므로 한글·공백 경로도 그대로 온다. **경로를 trim 하지 않는다**:
-// 끝에 공백이 있는 경로도 git 에는 정상이라, 다듬으면 그 파일을 다시는 못 찾는다.
-export function parseUntrackedPaths(stdout: string): GitDiffFileEntry[] {
-  return stdout
-    .split('\0')
-    .filter((path) => path.length > 0)
-    .map((path) => ({ path, status: 'added' as const, added: 0, removed: 0, binary: false }))
-}
-
 // **합계는 `slice` 앞에서 센다**: 목록은 200개에서 잘려도 합계는 저장소의 실제 변경량이다.
-export function mergeDiffEntries(
-  tracked: readonly GitDiffFileEntry[],
-  // 미추적은 **인자를 따로 받는다**(D-026). 호출부에서 한 배열로 합쳐 넘기게 두면, 나중에
-  // 누군가 줄 수를 채운 미추적 항목이 합계로 조용히 새어 든다 — 여기서 갈라 두면 "0 을
-  // 더한다" 가 타입 자리에 남는다.
-  untracked: readonly GitDiffFileEntry[] = []
-): {
+//
+// 0211 ΔV6 D-111 — 미추적 인자가 사라졌다. 범위가 `<base> HEAD` 라 이 함수에 도착하는 것은
+// 전부 커밋된 변경이고, 미추적을 합칠 자리 자체가 없다.
+export function mergeDiffEntries(tracked: readonly GitDiffFileEntry[]): {
   files: GitDiffFileEntry[]
   truncated: boolean
   totals: GitDiffTotals
 } {
-  const merged: GitDiffFileEntry[] = [...tracked, ...untracked]
+  const merged: GitDiffFileEntry[] = [...tracked]
   merged.sort((a, b) => a.path.localeCompare(b.path))
   const totals = merged.reduce<GitDiffTotals>(
     (acc, entry) => ({ added: acc.added + entry.added, removed: acc.removed + entry.removed }),
