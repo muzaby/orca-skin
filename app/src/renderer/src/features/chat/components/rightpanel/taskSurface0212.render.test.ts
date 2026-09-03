@@ -110,13 +110,7 @@ const renderProgress = (
 ): string =>
   renderToStaticMarkup(
     createElement(TaskProgressList, {
-      items: taskBoardOrdered(
-        taskBoardFromMessages(msgs, {
-          stoppingBackgroundIds: new Set(opts.stoppingBackgroundIds ?? []),
-          pausedBackgroundIds: new Set(opts.pausedBackgroundIds ?? []),
-          backgroundedIds: new Set(opts.backgroundedIds ?? [])
-        })
-      ),
+      items: taskBoardOrdered(taskBoardFromMessages(msgs)),
       agentTools: opts.agentTools ?? null,
       cliVersion: opts.cliVersion ?? null
     })
@@ -208,20 +202,12 @@ describe('0212 R-02 — activeForm 제목 교체와 안정 라벨 (AT-05·06·08
 // ── R-05 일시정지 ─────────────────────────────────────────────────────────────
 
 describe('0212 R-05 — paused 라벨과 중단 가용성 (AT-18·19 · §10 EP-10)', () => {
-  it('AT-18 — `작업` 타일의 paused 행은 중단 버튼을 유지한다 (D-022)', () => {
+  it('0215 — `작업` 타일에는 그 행 자체가 없다 (제어도 상태 글리프도 오지 않는다)', () => {
     const html = renderProgress(messages(backgroundTask('bg1', '로그 조사')), {
       pausedBackgroundIds: ['bg1']
     })
-    // 살아 있는 일시정지 — 중단이 유일한 탈출구다(SDK 에 resume 이 없다).
-    expect(html).toContain('aria-label="중단"')
-    // 일시정지 글리프(정지)로 그린다 — 회전 진행 표시가 아니다.
-    expect(html).not.toContain('animate-spin')
-  })
-
-  it('AT-19 — 일시정지가 풀리면 진행 표시로 돌아오고 버튼은 그대로다', () => {
-    const html = renderProgress(messages(backgroundTask('bg1', '로그 조사')))
-    expect(html).toContain('animate-spin')
-    expect(html).toContain('aria-label="중단"')
+    expect(html).not.toContain('로그 조사')
+    expect(html).not.toContain('aria-label="중단"')
   })
 
   it('AT-18 — `백그라운드 작업` 타일도 일시정지 라벨을 보이고 버튼을 유지한다', () => {
@@ -236,19 +222,13 @@ describe('0212 R-05 — paused 라벨과 중단 가용성 (AT-18·19 · §10 EP-
     expect(html).not.toContain(`에이전트${META_GAP}진행 중`)
   })
 
-  it('중단 요청 중에는 두 타일 모두 버튼을 감춘다 — 중복 요청 차단은 그대로다', () => {
-    const task = renderProgress(messages(backgroundTask('bg1', '로그 조사')), {
-      stoppingBackgroundIds: ['bg1'],
-      pausedBackgroundIds: ['bg1']
-    })
+  it('중단 요청 중에는 버튼을 감춘다 — 중복 요청 차단은 그대로다', () => {
     const subagent = renderSubagentList(messages(backgroundTask('bg1', '로그 조사')), {
       stoppingIds: ['bg1'],
       pausedIds: ['bg1']
     })
-    expect(task).not.toContain('aria-label="중단"')
     expect(subagent).not.toContain('aria-label="중단"')
-    // 양성 짝 — 두 출력이 실제로 그 항목을 그렸다.
-    expect(task).toContain('로그 조사')
+    // 양성 짝 — 출력이 실제로 그 항목을 그렸다(행이 없어서 통과한 것이 아니다).
     expect(subagent).toContain('로그 조사')
   })
 })
@@ -258,30 +238,28 @@ describe('0212 R-05 — paused 라벨과 중단 가용성 (AT-18·19 · §10 EP-
 describe('0212 R-07 — 전환 버튼 (AT-23·24 · §10 EP-12)', () => {
   const ARIA = 'aria-label="로그 조사 백그라운드로 보내기"'
 
-  it('AT-23 — 두 타일 모두 foreground 행에 전환 버튼을 띄운다', () => {
-    const task = renderProgress(messages(backgroundTask('bg1', '로그 조사')))
+  it('AT-23 — foreground 행에 전환 버튼을 띄운다 (0215: `백그라운드 작업` 타일이 소유)', () => {
     const subagent = renderSubagentList(messages(backgroundTask('bg1', '로그 조사')))
-    expect(task).toContain(ARIA)
     expect(subagent).toContain(ARIA)
     // 중단 버튼과 **함께** 있다 — 두 제어가 같은 행에 나란히 붙는다.
-    expect(task).toContain('aria-label="중단"')
     expect(subagent).toContain('aria-label="중단"')
+    // 음성 짝 — `작업` 타일에는 두 제어가 오지 않는다.
+    const task = renderProgress(messages(backgroundTask('bg1', '로그 조사')))
+    expect(task).not.toContain(ARIA)
+    expect(task).not.toContain('aria-label="중단"')
   })
 
   it('AT-24 — 이미 background 인 행에는 전환 버튼이 없고 중단은 남는다', () => {
-    const task = renderProgress(messages(backgroundTask('bg1', '로그 조사', { launched: true })))
     const subagent = renderSubagentList(
       messages(backgroundTask('bg1', '로그 조사', { launched: true }))
     )
-    expect(task).not.toContain(ARIA)
     expect(subagent).not.toContain(ARIA)
     // 양성 항 — 행 자체가 안 그려져서 통과한 것이 아니다.
-    expect(task).toContain('aria-label="중단"')
     expect(subagent).toContain('aria-label="중단"')
   })
 
   it('전환 요청 in-flight 동안에는 버튼이 사라진다 — 중복 클릭 차단', () => {
-    const html = renderProgress(messages(backgroundTask('bg1', '로그 조사')), {
+    const html = renderSubagentList(messages(backgroundTask('bg1', '로그 조사')), {
       backgroundedIds: ['bg1']
     })
     expect(html).not.toContain(ARIA)
@@ -289,15 +267,15 @@ describe('0212 R-07 — 전환 버튼 (AT-23·24 · §10 EP-12)', () => {
   })
 
   it('paused 행에는 전환 버튼이 없다 — 옮길 기다림이 없다', () => {
-    const html = renderProgress(messages(backgroundTask('bg1', '로그 조사')), {
-      pausedBackgroundIds: ['bg1']
+    const html = renderSubagentList(messages(backgroundTask('bg1', '로그 조사')), {
+      pausedIds: ['bg1']
     })
     expect(html).not.toContain(ARIA)
     expect(html).toContain('aria-label="중단"')
   })
 
   it('전환 버튼 툴팁이 "작업은 계속 실행됩니다" 를 말한다 — 중단과 구분하는 유일한 수단이다', () => {
-    const html = renderProgress(messages(backgroundTask('bg1', '로그 조사')))
+    const html = renderSubagentList(messages(backgroundTask('bg1', '로그 조사')))
     expect(html).toContain('백그라운드로 보냅니다. 작업은 계속 실행됩니다.')
   })
 })
@@ -320,14 +298,14 @@ describe('0212 — killed 의 patch.error 가 행에서 보인다 (AT-21)', () =
   ]
 
   it('중단 행이 생산자가 실은 사유를 말한다 — 고정 문구가 아니다', () => {
-    const html = renderProgress(messages(settled('한도를 초과했습니다')))
+    const html = renderSubagentList(messages(settled('한도를 초과했습니다')))
     expect(html).toContain('한도를 초과했습니다')
     // 음성 짝 — 고정 문구로 덮이지 않는다.
     expect(html).not.toContain('사용자에 의해 중단됨')
   })
 
   it('사유가 없으면 UI 문구로 떨어진다 — 양성 짝 (0204 AT-31 유지)', () => {
-    const html = renderProgress(
+    const html = renderSubagentList(
       messages([
         {
           type: 'tool_call',

@@ -73,17 +73,33 @@ export function PlanTileContent(): React.JSX.Element {
   )
 
   if (!planContent) {
+    // **승인 대기 중인데 본문이 없으면 그것은 빈 계획이 아니라 해소 실패다**(0215 D-002).
+    // 같은 "아직 플랜이 없습니다" 를 내면 사용자는 카드가 왜 떠 있는지 알 수 없고, 실패가
+    // 화면에서 "아무 일도 안 일어남" 으로 보인다.
+    const unavailable = enabled
     return (
       <div
         className="flex flex-1 flex-col overflow-y-auto px-4 py-3"
         style={{ scrollbarGutter: 'stable' }}
       >
         <div className="m-auto flex max-w-[240px] flex-col items-center gap-g3 text-center text-t6">
-          <Icon name="board" size={28} style={{ color: 'var(--color-t6)' }} />
+          <Icon
+            name={unavailable ? 'alert' : 'board'}
+            size={28}
+            style={{ color: 'var(--color-t6)' }}
+          />
           <p className="text-footnote font-medium text-t6">
-            {tr('chat.rightpanel.planEmptyTitle')}
+            {tr(
+              unavailable
+                ? 'chat.rightpanel.planUnavailableTitle'
+                : 'chat.rightpanel.planEmptyTitle'
+            )}
           </p>
-          <p className="text-caption text-ink3">{tr('chat.rightpanel.planEmptyDesc')}</p>
+          <p className="text-caption text-ink3">
+            {tr(
+              unavailable ? 'chat.rightpanel.planUnavailableDesc' : 'chat.rightpanel.planEmptyDesc'
+            )}
+          </p>
         </div>
       </div>
     )

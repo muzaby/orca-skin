@@ -42,6 +42,9 @@ export function ModelMenu({
             {agent.key}
           </div>
           {agent.models.map((model) => {
+            // 행 식별자 = 선택 식별자(`modelKey`) — `[1m]` 을 실으므로 `X` 와 `X[1m]` 이 서로 다른
+            // key 를 갖고 활성 표시도 한 행에만 켜진다. base 이름으로 돌아가면 두 행이 한 항목이
+            // 되어 React key 가 충돌하고 체크가 둘 다 켜진다.
             const modelId = modelKey(model)
             const active = selection?.providerKey === agent.key && selection.modelFamily === modelId
             return (
@@ -50,7 +53,12 @@ export function ModelMenu({
                 role="menuitemradio"
                 aria-checked={active}
                 onClick={() =>
-                  onPick({ providerKey: agent.key, modelFamily: modelId, adapter: agent.adapter })
+                  onPick({
+                    providerKey: agent.key,
+                    modelFamily: modelId,
+                    modelAlias: model.alias,
+                    adapter: agent.adapter
+                  })
                 }
               >
                 <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">

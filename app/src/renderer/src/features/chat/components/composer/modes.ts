@@ -1,5 +1,6 @@
 import type { MessageKey } from '../../../../shared/i18n'
 import type { NormalizedPermissionMode } from '../../../../../../shared/permission-mode'
+import { isHaikuModel } from '../../../../../../shared/model-identity'
 
 // Composer 모드 버튼이 노출하는 권한 모드(정규화 6종). 라벨/설명은 **카탈로그 키**만 두고
 // 칩(Composer)과 메뉴(ModeMenu)가 렌더에서 tr() 해석한다(0096 stale-방지 패턴, 0097).
@@ -50,8 +51,18 @@ export const MODE_OPTIONS: ModeOption[] = [
   }
 ]
 
-// 메뉴에 실제로 걸리는 항목(표시 순서 = 배열 순서).
+// 메뉴에 실제로 걸리는 항목(표시 순서 = 배열 순서). 모델 제약을 받지 않는 기본 목록이다.
 export const MODE_MENU_OPTIONS = MODE_OPTIONS.filter((opt) => !opt.hidden)
+
+// 이 모델에서 실제로 고를 수 있는 항목 (0215 D-010). haiku 는 SDK `auto` 를 지원하지 않으므로
+// '자동' 을 목록에서 뺀다 — 고를 수 없는 모드를 내걸면 사용자는 그것이 적용됐다고 믿는다.
+// `model === null`(선택 전)이면 제약 없이 기본 목록을 돌려준다.
+export function modeMenuOptions(
+  model: { alias: string; model: string | null } | null
+): ModeOption[] {
+  if (!model || !isHaikuModel(model)) return MODE_MENU_OPTIONS
+  return MODE_MENU_OPTIONS.filter((opt) => opt.mode !== 'auto_classified')
+}
 
 // MODE_OPTIONS 의 labelKey 파생 — 라벨 키의 단일 진실원은 MODE_OPTIONS.
 export const MODE_LABEL_KEYS = Object.fromEntries(

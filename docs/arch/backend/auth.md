@@ -494,7 +494,9 @@ type RuntimeConfigAugmenters = Readonly<
 이다.
 
 augmenter 의 결과는 **전체 `runtimeEnv` overlay**와 선택적 `availableModels: string[]`이다. 후자는
-subprocess env로 직렬화하지 않고 runtime model catalog에만 투영한다. 두 credential 방식은
+subprocess env로 직렬화하지 않고 runtime model catalog에만 투영한다. **모델 목록은 그 배열만이
+아니다** — `runtimeEnv.ANTHROPIC_MODEL` 이 있으면 카탈로그가 그 모델을 목록에 더하고(이미 있으면
+더하지 않는다) default 로 표시한다. settings 경로와 같은 순수 함수를 쓴다(`withExplicitModel`). 두 credential 방식은
 **서로 다른 factory** 로 분리한다:
 
 ```text

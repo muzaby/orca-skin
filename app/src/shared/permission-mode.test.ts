@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
+  coerceAutoPermissionMode,
+  coerceAutoPermissionModeForModelName,
   DEFAULT_PERMISSION_MODE,
   NORMALIZED_MODES,
   PLAN_APPROVED_MODE,
@@ -80,5 +82,42 @@ describe('DEFAULT_PERMISSION_MODE — 렌더러·main 공용 기본값', () => {
 
   it('계획 승인 모드와는 다른 값이다 — 둘을 한 상수로 합치지 않는다', () => {
     expect(DEFAULT_PERMISSION_MODE).not.toBe(PLAN_APPROVED_MODE)
+  })
+})
+
+// 0215 VP-15 (MD-03 ↔ UT) — 지원하지 않는 모델에서의 '자동' 강등.
+describe('coerceAutoPermissionMode (AT-12·AT-14 · D-010)', () => {
+  it('haiku + auto_classified 는 accept_edits 로 내려앉는다', () => {
+    expect(coerceAutoPermissionMode('auto_classified', { alias: 'haiku', model: null })).toBe(
+      'accept_edits'
+    )
+    expect(
+      coerceAutoPermissionMode('auto_classified', { alias: 'custom', model: 'claude-haiku-4-5' })
+    ).toBe('accept_edits')
+  })
+
+  it('비-haiku 는 그대로다 — 양성 짝', () => {
+    expect(
+      coerceAutoPermissionMode('auto_classified', { alias: 'sonnet', model: 'claude-sonnet-4-6' })
+    ).toBe('auto_classified')
+  })
+
+  it('auto 가 아닌 모드는 haiku 에서도 손대지 않는다', () => {
+    for (const mode of ['default', 'accept_edits', 'plan', 'dont_ask', 'bypass'] as const) {
+      expect(coerceAutoPermissionMode(mode, { alias: 'haiku', model: null })).toBe(mode)
+    }
+  })
+
+  it('이름만 아는 호출부(main)는 이름 축으로만 판정한다 (D-011)', () => {
+    expect(coerceAutoPermissionModeForModelName('auto_classified', 'claude-haiku-4-5')).toBe(
+      'accept_edits'
+    )
+    expect(coerceAutoPermissionModeForModelName('auto_classified', 'claude-sonnet-4-6')).toBe(
+      'auto_classified'
+    )
+    // 모델 미해석(undefined)이면 손대지 않는다 — 판정 불가를 강등으로 바꾸지 않는다.
+    expect(coerceAutoPermissionModeForModelName('auto_classified', undefined)).toBe(
+      'auto_classified'
+    )
   })
 })

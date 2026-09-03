@@ -14,7 +14,13 @@ const recv = (ev: NormalizedEvent): { type: 'RECV_EVENT'; event: NormalizedEvent
 })
 
 const setModel = (s: ChatState, providerKey: string): ChatState =>
-  chatReducer(s, { type: 'SET_MODEL', providerKey, modelFamily: null, adapter: null })
+  chatReducer(s, {
+    type: 'SET_MODEL',
+    providerKey,
+    modelFamily: null,
+    modelAlias: null,
+    adapter: null
+  })
 
 // 컨텍스트 토큰이 0 이 아니어야 도넛 소스로 채택된다(로컬 슬래시 명령 스킵 규칙).
 const telemetry = (): NormalizedEvent =>

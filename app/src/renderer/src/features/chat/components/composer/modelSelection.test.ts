@@ -28,7 +28,8 @@ describe('runtime model selection', () => {
         providerKey: 'orca-corp',
         provider: 'corp',
         adapter: 'orca',
-        modelFamily: 'orca-private-v1'
+        modelFamily: 'orca-private-v1',
+        modelAlias: 'custom'
       })
     ).toBe('corp/orca-private-v1')
   })

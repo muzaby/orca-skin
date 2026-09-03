@@ -141,7 +141,7 @@ describe('parseClaudeModels — 노출 + default 불변식', () => {
     expect(defaults(models)).toEqual(['haiku'])
   })
 
-  it('명시 모델의 [1m] 접미사를 스트립한 base 로 매칭', () => {
+  it('명시 모델의 [1m] 은 별개 항목이다 — base 항목이 default 를 가져가지 않는다 (0215 D-008)', () => {
     const models = parseClaudeModels({
       env: {
         ANTHROPIC_MODEL: 'claude-opus-4-6[1m]',
@@ -150,6 +150,9 @@ describe('parseClaudeModels — 노출 + default 불변식', () => {
       }
     })
     expect(defaults(models)).toEqual(['opus'])
+    // 1M 을 지정했으므로 default 는 **1M 항목**이다. base 항목이 가져가면 1M 이 조용히 사라진다.
+    const chosen = models.find((m) => m.isDefault)
+    expect(chosen).toMatchObject({ model: 'claude-opus-4-6', oneMillionContext: true })
   })
 
   it('불변식 — env-only 노출 length 1~3, isDefault 정확히 1, family 설정은 model을 보존', () => {
@@ -165,5 +168,66 @@ describe('parseClaudeModels — 노출 + default 불변식', () => {
       expect(models.filter((m) => m.isDefault)).toHaveLength(1)
       expect(models.every((m) => m.alias !== 'custom')).toBe(true)
     }
+  })
+})
+
+// 0215 VP-05·VP-08 — settings 경로의 두 축: ANTHROPIC_MODEL 편입 · 교차 필터의 1M 축.
+describe('parseClaudeModels — ANTHROPIC_MODEL 편입 (AT-05·AT-06 · D-005·D-006)', () => {
+  it('AT-05 — env.ANTHROPIC_MODEL 이 노출 목록에 나타나고 default 가 된다', () => {
+    const models = parseClaudeModels({ env: { ANTHROPIC_MODEL: 'corp-x' } })
+    expect(models.map((m) => m.model)).toEqual([null, null, null, 'corp-x'])
+    expect(models.find((m) => m.isDefault)?.model).toBe('corp-x')
+  })
+
+  it('AT-06 — availableModels 와 중복이면 항목 수가 늘지 않는다', () => {
+    const models = parseClaudeModels({
+      availableModels: ['corp-a', 'corp-x'],
+      env: { ANTHROPIC_MODEL: 'corp-x' }
+    })
+    expect(models.map((m) => m.model)).toEqual(['corp-a', 'corp-x'])
+    expect(models.find((m) => m.isDefault)?.model).toBe('corp-x')
+  })
+
+  it('env family 와 중복이어도 늘지 않는다', () => {
+    const models = parseClaudeModels({
+      env: { ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-4-6', ANTHROPIC_MODEL: 'claude-opus-4-6' }
+    })
+    expect(models.map((m) => m.model)).toEqual(['claude-opus-4-6'])
+  })
+
+  it('D-006 — top-level `model` 은 목록에 넣지 않는다 (default 선정 전용)', () => {
+    const models = parseClaudeModels({ model: 'corp-y' })
+    expect(models.map((m) => m.model)).toEqual([null, null, null])
+    // 목록 안에서 매칭되지 않으므로 alias 폴백이 default 를 잡는다.
+    expect(defaults(models)).toEqual(['sonnet'])
+  })
+
+  it('AT-15 — 어떤 조합에서도 default 는 정확히 1개다', () => {
+    for (const settings of [
+      { env: { ANTHROPIC_MODEL: 'corp-x' } },
+      { availableModels: ['a', 'a[1m]'], env: { ANTHROPIC_MODEL: 'a[1m]' } },
+      { env: { ANTHROPIC_DEFAULT_HAIKU_MODEL: 'h', ANTHROPIC_MODEL: 'corp-x' } }
+    ]) {
+      expect(parseClaudeModels(settings).filter((m) => m.isDefault)).toHaveLength(1)
+    }
+  })
+})
+
+describe('parseClaudeModels — env family ↔ discovery 교차 필터 (AT-22 · D-008)', () => {
+  it('AT-22 — env family `X` + availableModels `X[1m]` 이면 두 항목 모두 노출된다', () => {
+    const models = parseClaudeModels({
+      env: { ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-6' },
+      availableModels: ['claude-sonnet-4-6[1m]']
+    })
+    expect(models).toHaveLength(2)
+    expect(models.map((m) => m.oneMillionContext)).toEqual([false, true])
+  })
+
+  it('음성 짝 — 1M 축까지 같으면 여전히 1개다', () => {
+    const models = parseClaudeModels({
+      env: { ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-6' },
+      availableModels: ['claude-sonnet-4-6']
+    })
+    expect(models).toHaveLength(1)
   })
 })

@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   agentTaskKey,
-  backgroundTaskKey,
+  backgroundBoardStatus,
   canBackgroundStatus,
-  canBackgroundTask,
   canStopBackgroundStatus,
-  canStopTask,
   taskBoardFromMessages,
   taskBoardOrdered,
   taskDetailRows,
@@ -102,8 +100,7 @@ describe('taskBoardFromMessages — TaskCreate (AC1·AC2)', () => {
       id: '3',
       title: '테스트 작성',
       description: 'API 테스트',
-      status: 'pending',
-      background: null
+      status: 'pending'
     })
   })
 
@@ -236,32 +233,35 @@ describe('taskBoardFromMessages — TaskList / TaskGet 보정 (AC7·AC8)', () =>
   })
 })
 
-describe('taskBoardFromMessages — background 항목 (AC9·AC10·AC12)', () => {
-  it('background 항목만 실행 메타를 갖고 일반 Task 는 갖지 않는다', () => {
+describe('0215 AT-16 — `작업` 목록은 TaskCreate 항목만 담는다', () => {
+  it('서브에이전트가 돌아도 목록에 background 행이 0건이다', () => {
     const items = taskBoardFromMessages(
       messages(
         call('TaskCreate', { subject: '문서 갱신' }, created('1', '문서 갱신')),
-        backgroundTask('bg1', '테스트 실행')
+        backgroundTask('bg1', '테스트 실행'),
+        backgroundTask('bg2', '린트 실행')
       )
     )
-    expect(byKey(items, agentTaskKey('1')).background).toBeNull()
-    const bg = byKey(items, backgroundTaskKey('bg1'))
-    expect(bg.kind).toBe('background')
-    expect(bg.background).toMatchObject({ toolUses: 0 })
-    expect(bg.status).toBe('in_progress')
+    // 차집합으로 본다 — 총계가 아니라 "agent 아닌 것이 없다" 가 주장이다.
+    expect(items.filter((item) => !item.key.startsWith('agent:'))).toEqual([])
+    expect(items.map((item) => item.key)).toEqual([agentTaskKey('1')])
   })
 
-  it('중단 요청 중인 background 는 stopping 이고 목록에서 사라지지 않는다', () => {
-    const items = taskBoardFromMessages(messages(backgroundTask('bg1', '테스트 실행')), {
-      stoppingBackgroundIds: new Set(['bg1'])
-    })
-    expect(items[0].status).toBe('stopping')
-    expect(taskBoardOrdered(items)).toHaveLength(1)
-    // 중단 중에는 버튼을 다시 누를 수 없다(중복 요청 차단).
-    expect(canStopTask(items[0])).toBe(false)
+  it('할 일이 하나도 없으면 서브에이전트만 있어도 빈 목록이다', () => {
+    const items = taskBoardFromMessages(messages(backgroundTask('bg1', '테스트 실행')))
+    expect(items).toEqual([])
   })
 
-  it('AT-10a — 그룹 없이 id 오름차순 단일 목록이고 background 는 관측 순으로 뒤에 온다', () => {
+  it('AT-17 — 항목에 background 실행 메타 필드가 없다', () => {
+    const items = taskBoardFromMessages(
+      messages(call('TaskCreate', { subject: '문서 갱신' }, created('1', '문서 갱신')))
+    )
+    expect(Object.keys(items[0])).not.toContain('background')
+  })
+})
+
+describe('taskBoardOrdered — 순서 (AT-10a)', () => {
+  it('AT-10a — 그룹 없이 id 오름차순 단일 목록이다', () => {
     const items = taskBoardFromMessages(
       messages(
         // 일부러 뒤섞어 넣는다 — 관측 순서가 아니라 id 순서가 정본임을 본다.
@@ -269,8 +269,7 @@ describe('taskBoardFromMessages — background 항목 (AC9·AC10·AC12)', () => 
         call('TaskCreate', { subject: 'two' }, created('2', 'two')),
         call('TaskCreate', { subject: 'one' }, created('1', 'one')),
         call('TaskUpdate', { taskId: '1', status: 'completed' }, updated('1', 'completed')),
-        backgroundTask('bgA', '먼저 뜬 백그라운드'),
-        backgroundTask('bgB', '나중에 뜬 백그라운드')
+        backgroundTask('bgA', '섞여 들어와도 목록에 오지 않는다')
       )
     )
     const ordered = taskBoardOrdered(items)
@@ -278,9 +277,7 @@ describe('taskBoardFromMessages — background 항목 (AC9·AC10·AC12)', () => 
     expect(ordered.map((i) => i.key)).toEqual([
       agentTaskKey('1'),
       agentTaskKey('2'),
-      agentTaskKey('10'),
-      backgroundTaskKey('bgA'),
-      backgroundTaskKey('bgB')
+      agentTaskKey('10')
     ])
     // 완료 항목이 뒤로 옮겨가지 않는다 — 제자리에서 취소선으로 표시된다(D-018).
     expect(ordered[0].status).toBe('completed')
@@ -373,29 +370,17 @@ describe('taskDetailRows (AC24)', () => {
       'chat.taskTile.detail.blockedBy'
     ])
   })
-
-  it('background Task 는 경과·최근 작업·도구 사용을 낸다 — 설명/의존성 행이 없다', () => {
-    const items = taskBoardFromMessages(messages(backgroundTask('bg1', '테스트 실행')))
-    const keys = taskDetailRows(items[0]).map((r) => r.labelKey)
-    expect(keys).toContain('chat.taskTile.detail.elapsed')
-    expect(keys).toContain('chat.taskTile.detail.toolUses')
-    expect(keys).not.toContain('chat.taskTile.detail.description')
-    expect(keys).not.toContain('chat.taskTile.detail.blockedBy')
-  })
 })
 
 describe('키 네임스페이스 (EP-04)', () => {
-  it('같은 문자열 id 를 가진 두 종류가 서로 덮어쓰지 않는다', () => {
+  it('할 일 키는 `agent:` 접두사를 유지한다 — 다른 상태가 `bg:` 를 계속 쓴다', () => {
     const items = taskBoardFromMessages(
       messages(
         call('TaskCreate', { subject: '일반' }, created('bg1', '일반')),
-        backgroundTask('bg1', '백그라운드')
+        backgroundTask('bg1', '같은 문자열 id 의 서브에이전트')
       )
     )
-    expect(items).toHaveLength(2)
-    expect(items.map((i) => i.key).sort()).toEqual(
-      [agentTaskKey('bg1'), backgroundTaskKey('bg1')].sort()
-    )
+    expect(items.map((i) => i.key)).toEqual([agentTaskKey('bg1')])
   })
 })
 
@@ -531,13 +516,6 @@ describe('0212 — 표시 제목과 안정 이름 (AT-05·06·07 · §10 EP-05)'
     expect(item('1', items).title).toBe('테스트 작성')
     expect(item('1', items).subject).toBe('테스트 작성')
   })
-
-  it('background 항목은 표시와 안정 이름이 같다 — activeForm 개념이 없다', () => {
-    const items = taskBoardFromMessages(messages(backgroundTask('bg1', '코드 탐색')))
-    const bg = byKey(items, backgroundTaskKey('bg1'))
-    expect(bg.title).toBe('코드 탐색')
-    expect(bg.subject).toBe('코드 탐색')
-  })
 })
 
 describe('0212 — 역방향 의존 간선 (AT-10·11·12·13 · §10 EP-04)', () => {
@@ -620,30 +598,27 @@ describe('0212 — 역방향 의존 간선 (AT-10·11·12·13 · §10 EP-04)', (
 })
 
 describe('0212 — 일시정지와 제어 술어 (AT-18·19·23·24 · §10 EP-10·EP-13)', () => {
-  // 런치 영수증의 형태는 `{ status: 'async_launched' }` 다(`shared/subagent.ts`) — `async_launched:
-  // true` 로 쓰면 성공 결과로 읽혀 status 가 completed 가 되고, 음성 단언이 **다른 이유로**
-  // 통과한다.
-  const running = { output: { status: 'async_launched' }, isError: false }
+  // 0215 이후 이 규칙들의 소비자는 `백그라운드 작업` 타일 하나이고, 입력은 `SubagentTaskSummary`
+  // 의 status + 라이브 집합이다. 그래서 `TaskBoardItem` 래퍼가 아니라 **status 함수 자체**를
+  // 직접 본다 — 래퍼를 지우면서 이 케이스들이 잡던 자리를 잃지 않는다.
+  const EMPTY: ReadonlySet<string> = new Set()
 
   it('paused 집합에 든 진행 중 항목은 paused 상태다', () => {
-    const items = taskBoardFromMessages(messages(backgroundTask('bg1', '탐색')), {
-      stoppingBackgroundIds: new Set(),
-      pausedBackgroundIds: new Set(['bg1'])
-    })
-    expect(byKey(items, backgroundTaskKey('bg1')).status).toBe('paused')
+    expect(backgroundBoardStatus('running', 'bg1', EMPTY, new Set(['bg1']))).toBe('paused')
     // 양성 짝 — 집합에 없으면 진행 중이다.
-    const plain = taskBoardFromMessages(messages(backgroundTask('bg1', '탐색')), {
-      stoppingBackgroundIds: new Set()
-    })
-    expect(byKey(plain, backgroundTaskKey('bg1')).status).toBe('in_progress')
+    expect(backgroundBoardStatus('running', 'bg1', EMPTY, EMPTY)).toBe('in_progress')
   })
 
   it('중단 요청이 일시정지보다 우선한다 — 사용자가 이미 없애기로 했다', () => {
-    const items = taskBoardFromMessages(messages(backgroundTask('bg1', '탐색')), {
-      stoppingBackgroundIds: new Set(['bg1']),
-      pausedBackgroundIds: new Set(['bg1'])
-    })
-    expect(byKey(items, backgroundTaskKey('bg1')).status).toBe('stopping')
+    expect(backgroundBoardStatus('running', 'bg1', new Set(['bg1']), new Set(['bg1']))).toBe(
+      'stopping'
+    )
+  })
+
+  it('종단 상태는 라이브 집합과 무관하게 그대로다', () => {
+    expect(backgroundBoardStatus('completed', 'bg1', new Set(['bg1']), new Set(['bg1']))).toBe(
+      'completed'
+    )
   })
 
   it('AT-18 — paused 행은 중단 가능하다 (SDK 에 resume 이 없다 · D-022)', () => {
@@ -665,29 +640,5 @@ describe('0212 — 일시정지와 제어 술어 (AT-18·19·23·24 · §10 EP-1
     expect(canBackgroundStatus('paused', false)).toBe(false)
     expect(canBackgroundStatus('stopping', false)).toBe(false)
     expect(canBackgroundStatus('completed', false)).toBe(false)
-  })
-
-  it('AT-24 — 런치 영수증이 관측된 항목에는 전환 술어가 거짓이다', () => {
-    const launched = taskBoardFromMessages(messages(backgroundTask('bg1', '탐색', running)))
-    expect(canBackgroundTask(byKey(launched, backgroundTaskKey('bg1')))).toBe(false)
-    // 양성 짝 — 영수증이 없으면(=foreground 대기 중) 참이다.
-    const foreground = taskBoardFromMessages(messages(backgroundTask('bg2', '탐색')))
-    expect(canBackgroundTask(byKey(foreground, backgroundTaskKey('bg2')))).toBe(true)
-  })
-
-  it('SDK is_backgrounded 확정분·전환 in-flight 분도 같은 축으로 술어를 끈다', () => {
-    const items = taskBoardFromMessages(messages(backgroundTask('bg1', '탐색')), {
-      stoppingBackgroundIds: new Set(),
-      backgroundedIds: new Set(['bg1'])
-    })
-    expect(canBackgroundTask(byKey(items, backgroundTaskKey('bg1')))).toBe(false)
-  })
-
-  it('agent 항목은 전환 대상이 아니다 — 실행 단위가 아니다', () => {
-    const items = taskBoardFromMessages(
-      messages(call('TaskCreate', { subject: '설계' }, created('1', '설계')))
-    )
-    expect(canBackgroundTask(byKey(items, agentTaskKey('1')))).toBe(false)
-    expect(canStopTask(byKey(items, agentTaskKey('1')))).toBe(false)
   })
 })

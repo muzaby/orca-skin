@@ -4,16 +4,21 @@
 //
 // 스펙 §0~§8 을 따르되, "항상 3개 alias" 는 프로젝트 결정으로 재정의했다(아래 2단계 필터링):
 //   커스텀(ANTHROPIC_DEFAULT_*_MODEL)이 하나라도 있으면 그 커스텀만 노출, 전무할 때만 3개 alias.
-// 명시 모델(ANTHROPIC_MODEL/model)은 필터링이 아니라 default 선정에만 쓴다.
+// 명시 모델 중 `env.ANTHROPIC_MODEL` 은 **노출 목록에도 더한다**(0215 D-005·D-006) — 사용자가
+// 실제로 쓰라고 지정한 모델이 선택지에 없던 자리다. top-level `model` 은 종전대로 default
+// 선정에만 쓴다(사용자 결정으로 목록 편입 대상에서 제외).
 //
 // 순수 함수 — fs 비의존, vitest 대상.
 
 import {
   availableModelsOf,
+  explicitModelOf,
   FAMILY_ORDER,
   markDefaultModel,
   normalizeAvailableModels,
-  stripOneMillion
+  sameParsedModel,
+  stripOneMillion,
+  withExplicitModel
 } from './available-models'
 
 // family 목록은 discovery 분류와 같은 사실이라 `available-models.ts` 가 SSOT 다 — 여기서
@@ -70,6 +75,8 @@ export function parseClaudeModels(settings: {
   })
 
   // 2단계 — env 기본 항목을 먼저 두고 discovery 항목을 모델 identity 기준으로 추가한다.
+  // **중복 판정은 base 이름이 아니라 identity(모델명 + 1M)다**(0215 D-008) — 이름으로만 비교하면
+  // env family `X` 와 availableModels `X[1m]` 중 뒤엣것이 버려져 1M 변형이 목록에서 사라진다.
   const configured = candidates.filter((candidate) => candidate.model !== null)
   const discovered = availableModels ? normalizeAvailableModels(availableModels) : []
   const visible =
@@ -77,18 +84,19 @@ export function parseClaudeModels(settings: {
       ? [
           ...configured,
           ...discovered.filter(
-            (entry) => !configured.some((candidate) => candidate.model === entry.model)
+            (entry) => !configured.some((candidate) => sameParsedModel(candidate, entry))
           )
         ]
       : configured.length > 0
         ? configured
         : candidates
 
-  // 3단계 — 노출 목록 내 default 정확히 1개.
-  const rawExplicit = modelValue(env.ANTHROPIC_MODEL) ?? modelValue(settings.model)
-  const explicit = rawExplicit ? stripOneMillion(rawExplicit).value : undefined
+  // 3단계 — `ANTHROPIC_MODEL` 을 노출 목록에 더하고(중복이면 그대로), 목록 내 default 정확히 1개.
+  const anthropicModel = explicitModelOf(env.ANTHROPIC_MODEL)
+  const explicit = anthropicModel ?? explicitModelOf(settings.model)
+  const listed = withExplicitModel(visible, anthropicModel)
 
-  markDefaultModel(visible, explicit)
+  markDefaultModel(listed, explicit)
 
-  return visible
+  return listed
 }

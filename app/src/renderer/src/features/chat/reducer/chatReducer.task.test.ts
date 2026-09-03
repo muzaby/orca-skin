@@ -138,8 +138,8 @@ describe('chatReducer — 미확인 완료 배지 (AC19)', () => {
     expect(s.unseenSettledTaskKeys).toEqual([])
   })
 
-  it('background 완료 통지가 배지를 켜고, 타일을 열면 비운다', () => {
-    let s = chatReducer(
+  it('0215 AT-18 — background 완료 통지는 배지를 켜지 않는다 (통지 파트는 그대로 남는다)', () => {
+    const s = chatReducer(
       initialChatState,
       recv({
         type: 'subagent.task',
@@ -150,14 +150,12 @@ describe('chatReducer — 미확인 완료 배지 (AC19)', () => {
         background: true
       })
     )
-    expect(s.unseenSettledTaskKeys).toEqual(['bg:a1'])
-    s = chatReducer(s, { type: 'OPEN_TASK', key: 'bg:a1' })
+    // `작업` 타일이 서브에이전트를 더는 보이지 않으므로 그 항목을 가리키는 배지도 없다(D-016).
     expect(s.unseenSettledTaskKeys).toEqual([])
-    // 0213 — 정지가 풀려 `OPEN_TASK` 이 선택과 함께 타일을 붙인다(0204 AT-30 의 원래 문장으로
-    // 복귀 · D-010). 배지를 끄는 3지점이 전부 타일 도달을 전제하므로 이 한 줄이 통지 사이클의
-    // 마지막 홉이다.
-    expect(s.selectedTaskKey).toBe('bg:a1')
-    expect(s.rightPanelTiles.flatMap((c) => c.tiles)).toContain('task')
+    // 양성 짝 — 알림 경로가 0이 되지는 않는다. 완료 통지 파트는 계속 붙는다.
+    expect(
+      s.messages.flatMap((m) => m.parts).filter((p) => p.type === 'subagent_notice')
+    ).toHaveLength(1)
   })
 
   it('사용자 중단(background 미부여)은 배지를 켜지 않는다 — 자기 행위는 소음', () => {

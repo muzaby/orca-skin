@@ -54,6 +54,10 @@ export interface MapContext {
   // SDK task_id → 부모 Agent/Task tool_use_id. 일부 task_notification 은 task_id 만 권위로 싣고
   // tool_use_id 가 비어 있을 수 있어, 앞선 task_started/progress 에서 본 매핑으로 복원한다.
   taskToolUseById?: Map<string, string>
+  // 이 턴에서 **메인 에이전트가** 마지막으로 낸 텍스트 블록(0215). `ExitPlanMode` 가 계획을
+  // 싣지 않고 오는 경우의 폴백 본문이다 — 서브에이전트 child 텍스트는 담지 않는다(계획의
+  // 저자가 아니다). `undefined` = 이번 턴에 서술 없음 = 폴백 불가.
+  lastAssistantText?: string
   // 구조화 출력을 실을 tool_use id 집합(0204). tool_result 는 도구 이름을 싣지 않는데 실을지는
   // **이름으로만** 판정되므로(TaskXXX 한정) 앞선 tool_use 에서 본 판정 결과를 여기 기억한다.
   // 이름이 아니라 멤버십만 담는다 — 소비처는 "이 run 이 Task 도구였나" 하나다.
@@ -410,6 +414,8 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       if (p.type === 'text' && typeof p.text === 'string') {
         // 빈 텍스트 블록은 스킵(과거 assembled !== '' 가드와 동등).
         if (p.text !== '') {
+          // 계획 폴백 본문 갱신(0215 EP-02) — 메인 에이전트의 텍스트만 담는다.
+          if (parentToolRunId === undefined) ctx.lastAssistantText = p.text
           events.push({
             type: 'message.completed',
             sessionId: ctx.sessionId,
@@ -530,6 +536,9 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
   // SDK 타입 직접 의존을 피해 좁히기로 읽는다. total_cost_usd/modelUsage 는 추정값(cost-tracking.md),
   // 각 필드 optional 가드 — 런타임 미제공 시 그냥 빠진다(graceful, 현행 빈 telemetry 동작 보존).
   if (msg.type === 'result') {
+    // 턴 경계 — 계획 폴백 본문을 비운다(0215 EP-03). 남겨두면 다음 턴의 `ExitPlanMode` 가
+    // **이전 턴의 서술**을 계획으로 싣는다.
+    ctx.lastAssistantText = undefined
     const r = msg as unknown as {
       total_cost_usd?: number
       duration_ms?: number

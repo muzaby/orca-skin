@@ -368,3 +368,56 @@ describe('runtime model catalog', () => {
     expect(catalog.list()).toEqual([])
   })
 })
+
+// 0215 VP-06 (R-02 ↔ AT-07) — runtime 경로도 settings 경로와 **같은 규칙**으로 편입한다.
+describe('runtime catalog — ANTHROPIC_MODEL 편입 (AT-07 · D-006)', () => {
+  const withEnv = (models: string[], env: Record<string, string>): HarnessRuntimeConfig => ({
+    ...config(models),
+    runtimeEnv: env
+  })
+
+  it('runtimeEnv.ANTHROPIC_MODEL 이 목록에 항목으로 나타난다', async () => {
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      snapshotOf: () => valid(),
+      runtime: {
+        resolve: vi.fn(async () => withEnv(['corp-model'], { ANTHROPIC_MODEL: 'corp-fast' })),
+        cached: vi.fn(),
+        invalidate: vi.fn()
+      }
+    })
+    await catalog.reconcile('gate', valid())
+    const models = catalog.list()[0].models
+    expect(models.map((m) => m.model)).toEqual(['corp-model', 'corp-fast'])
+    // 명시 모델이 default 다 — 배포가 지정한 실행 모델이 곧 기본 선택이다.
+    expect(models.filter((m) => m.isDefault).map((m) => m.model)).toEqual(['corp-fast'])
+  })
+
+  it('AT-06 — 이미 있는 항목이면 추가하지 않는다 (중복 1개 유지)', async () => {
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      snapshotOf: () => valid(),
+      runtime: {
+        resolve: vi.fn(async () => withEnv(['corp-model'], { ANTHROPIC_MODEL: 'corp-model' })),
+        cached: vi.fn(),
+        invalidate: vi.fn()
+      }
+    })
+    await catalog.reconcile('gate', valid())
+    expect(catalog.list()[0].models.map((m) => m.model)).toEqual(['corp-model'])
+  })
+
+  it('ANTHROPIC_MODEL 이 없으면 목록이 그대로다 — 음성 짝', async () => {
+    const catalog = createRuntimeModelCatalog({
+      contributions: [contribution],
+      snapshotOf: () => valid(),
+      runtime: {
+        resolve: vi.fn(async () => withEnv(['corp-model'], {})),
+        cached: vi.fn(),
+        invalidate: vi.fn()
+      }
+    })
+    await catalog.reconcile('gate', valid())
+    expect(catalog.list()[0].models.map((m) => m.model)).toEqual(['corp-model'])
+  })
+})

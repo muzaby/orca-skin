@@ -116,13 +116,7 @@ const renderProgress = (
 ): string =>
   renderToStaticMarkup(
     createElement(TaskProgressList, {
-      items: taskBoardOrdered(
-        taskBoardFromMessages(msgs, {
-          stoppingBackgroundIds: new Set<string>(),
-          pausedBackgroundIds: new Set<string>(),
-          backgroundedIds: new Set<string>()
-        })
-      ),
+      items: taskBoardOrdered(taskBoardFromMessages(msgs)),
       agentTools: opts.agentTools ?? null,
       cliVersion: opts.cliVersion ?? null
     })
@@ -189,7 +183,7 @@ describe('0213 R-03 — 할 일 행의 막힘 표시 (AT-11·12·13 · §10 EP-0
     expect(html.match(BLOCKED_ANY)).toBeNull()
   })
 
-  it('AT-14 — background 행은 자기 메타 줄을 그대로 낸다 — 형제 슬롯이 맞바뀌지 않는다', () => {
+  it('0215 AT-16 — 서브에이전트는 행 자체가 없고 막힘 표시는 그 행에만 붙는다', () => {
     const html = renderProgress(
       messages(
         agentTask('선행 작업', '2'),
@@ -198,29 +192,27 @@ describe('0213 R-03 — 할 일 행의 막힘 표시 (AT-11·12·13 · §10 EP-0
       )
     )
     const rows = rowsBySubject(html)
-    // 두 분기가 **같은 둘째 줄 슬롯**을 쓴다. 존재만 보면 맞바꿈이 침묵하므로 **어느 행이**
-    // 무엇을 냈는지까지 본다 — 맞바꾸면 background 행이 의존을, 할 일 행이 메타를 말한다.
-    expect(rows['로그 파서 조사']).toContain('background')
-    expect(rows['로그 파서 조사']).not.toMatch(BLOCKED_ANY)
+    // 차집합 — 두 할 일 말고는 아무 행도 없다.
+    expect(Object.keys(rows).sort()).toEqual(['막힌 작업', '선행 작업'])
+    // 둘째 줄 슬롯의 분기는 하나뿐이고, **막힌 행에만** 선다(형제 행으로 새지 않는다).
     expect(rows['막힌 작업']).toContain(BLOCKED)
-    expect(rows['막힌 작업']).not.toContain('background')
-    // 목록 전체로도 문구는 한 번뿐이다(id 를 뺀 폭으로 센다).
+    expect(rows['선행 작업']).not.toMatch(BLOCKED_ANY)
   })
 })
 
 // ── R-04 안내 조건 ────────────────────────────────────────────────────────────
 
 describe('0213 R-04 — 기능 부재 안내의 분모 (AT-15~18 · §10 EP-05)', () => {
-  it('AT-15 — 할 일 0 · 서브에이전트 진행 중이면 안내와 목록이 **함께** 선다', () => {
+  it('AT-15 — 할 일 0 · 서브에이전트 진행 중이면 안내가 선다 (서브에이전트 행은 없다)', () => {
     const html = renderProgress(messages(backgroundTask('bg1', '로그 파서 조사')), {
       agentTools: ['Bash', 'Read'],
       cliVersion: '2.1.100'
     })
-    // 안내가 침묵하지 않는다 — `items.length === 0` 으로 세면 여기서 사라진다.
+    // 안내가 침묵하지 않는다 — 이 CLI 에 할 일 도구가 없다는 사실은 여전히 참이다.
     expect(html).toContain(NOTICE)
     expect(html).toContain('2.1.100')
-    // 그리고 목록을 **대체하지 않는다** — 돌고 있는 행이 그대로 보인다.
-    expect(html).toContain('로그 파서 조사')
+    // 0215 — 서브에이전트는 이 타일에 오지 않는다.
+    expect(html).not.toContain('로그 파서 조사')
     // 안내가 떴으므로 기본 빈 문구로 되돌아가지 않는다.
     expect(html).not.toContain(EMPTY)
   })
@@ -232,16 +224,17 @@ describe('0213 R-04 — 기능 부재 안내의 분모 (AT-15~18 · §10 EP-05)'
     )
     expect(html).not.toContain(NOTICE)
     expect(html).toContain('설계')
-    expect(html).toContain('로그 파서 조사')
+    expect(html).not.toContain('로그 파서 조사')
   })
 
-  it('AT-17 — 판정 불가(null)면 서브에이전트가 돌아도 안내하지 않는다 (0212 D-005)', () => {
+  it('AT-17 — 판정 불가(null)면 안내하지 않는다 (0212 D-005)', () => {
     const html = renderProgress(messages(backgroundTask('bg1', '로그 파서 조사')), {
       agentTools: null,
       cliVersion: '2.1.100'
     })
     expect(html).not.toContain(NOTICE)
-    expect(html).toContain('로그 파서 조사')
+    // 양성 짝 — 안내 대신 기본 빈 문구가 선다(아무것도 안 그려진 것이 아니다).
+    expect(html).toContain(EMPTY)
   })
 
   it('AT-18 — 전부 비고 기능이 있으면 기존 빈 문구다 — 안내와 서로의 음성 짝이다', () => {
@@ -289,7 +282,8 @@ describe('0213 — 래퍼가 View 로 흘리는 props (VP-08 path `→ 카드` �
       cliVersion: '2.1.100'
     })
     expect(html).not.toContain(NOTICE)
-    expect(html).toContain('로그 파서 조사')
+    // 양성 짝 — 카드가 렌더되긴 했다(빈 문구가 그 증거).
+    expect(html).toContain(EMPTY)
   })
 
   it('`items` 가 카드까지 흐른다 — 세션 parts 가 행이 된다', () => {
@@ -304,11 +298,12 @@ describe('0213 — 래퍼가 View 로 흘리는 props (VP-08 path `→ 카드` �
     expect(rows['막힌 작업']).toContain(BLOCKED)
   })
 
-  it('`stopErrors` 가 카드까지 흐른다 — 중단 실패 문구가 그 행에 뜬다', () => {
+  it('0215 — `stopErrors` 는 이 카드로 흐르지 않는다 (문구의 자리가 옮겨졌다)', () => {
     const html = renderCard({
       messages: messages(backgroundTask('bg1', '로그 파서 조사')),
       taskStopErrors: { [backgroundTaskKey('bg1')]: { messageKey: 'chat.taskTile.stopFailed' } }
     })
-    expect(rowsBySubject(html)['로그 파서 조사']).toContain('중단하지 못했습니다')
+    expect(html).not.toContain('중단하지 못했습니다')
+    // 양성 짝은 `백그라운드 작업` 타일 쪽 케이스가 갖는다(0215 AT-19).
   })
 })

@@ -12,10 +12,12 @@ import {
 } from '../../lib/parts'
 import {
   backgroundBoardStatus,
+  backgroundTaskKey,
   canBackgroundStatus,
   canStopBackgroundStatus
 } from '../../lib/taskBoard'
 import { formatDurationLabel, formatTokenLabel, META_GAP } from '../../lib/toolMeta'
+import type { TFunction } from 'i18next'
 import { formatTimeFull, formatTimeShort, useI18n, type MessageKey } from '../../../../shared/i18n'
 import {
   chatActions,
@@ -25,7 +27,13 @@ import {
   useStoppingTasks,
   useSubagentMeta
 } from '../../store/chatStore'
-import type { Message, ToolCall } from '../../reducer/chatReducer'
+import type { Message, TaskStopError, ToolCall } from '../../reducer/chatReducer'
+
+// 중단 실패 문구 조립 — 상태에는 카탈로그 키와 원문만 산다(0096 stale-방지 패턴).
+function stopErrorText(tr: TFunction, err: TaskStopError): string {
+  const base = tr(err.messageKey)
+  return err.detail ? `${base} — ${err.detail}` : base
+}
 
 // 기본 인자용 불변 빈 집합 — 매 렌더 새 Set 이면 하위 메모가 죽는다.
 const EMPTY_IDS: ReadonlySet<string> = new Set()
@@ -108,6 +116,10 @@ export function SubAgentTileContent(): React.JSX.Element {
   // 화면마다 다른 상태·다른 제어를 갖는다.
   const paused = usePausedTasks()
   const backgrounded = useBackgroundedTasks()
+  // 중단 실패 문구(0215 D-017). 이 문구는 `작업` 타일이 그리던 것인데 그 타일에서 서브에이전트가
+  // 빠지면서 렌더 지점이 0곳이 됐다 — 중단을 누르는 자리로 함께 옮긴다. 옮기지 않으면 실패가
+  // 화면에서 "아무 일도 안 일어남" 으로 보인다.
+  const stopErrors = useChatSession((s) => s.taskStopErrors)
   // O(전체 parts) 파생이라 메모 — StatusLine 1s 틱 등 무관 재렌더마다 재계산하지 않는다.
   const tasks = useMemo(() => subagentTasksFromMessages(messages), [messages])
   const selected = selectedId ? tasks.find((task) => task.toolUseId === selectedId) : undefined
@@ -132,6 +144,7 @@ export function SubAgentTileContent(): React.JSX.Element {
       stoppingIds={stopping}
       pausedIds={paused}
       backgroundedIds={backgrounded}
+      stopErrors={stopErrors}
     />
   )
 }
@@ -192,7 +205,8 @@ export function SubAgentTaskList({
   tasks,
   stoppingIds: stopping,
   pausedIds: paused = EMPTY_IDS,
-  backgroundedIds: backgrounded = EMPTY_IDS
+  backgroundedIds: backgrounded = EMPTY_IDS,
+  stopErrors = {}
 }: {
   tasks: SubagentTaskSummary[]
   stoppingIds: ReadonlySet<string>
@@ -200,6 +214,8 @@ export function SubAgentTaskList({
   // 기존 렌더 테스트가 인자를 늘리지 않고도 그대로 돈다.
   pausedIds?: ReadonlySet<string>
   backgroundedIds?: ReadonlySet<string>
+  // 0215 D-017 — 중단 실패 문구. 키는 `bg:<toolUseId>`(reducer 가 그 형식으로 쓴다).
+  stopErrors?: Record<string, TaskStopError>
 }): React.JSX.Element {
   const { tr, locale } = useI18n()
   if (tasks.length === 0) {
@@ -273,6 +289,16 @@ export function SubAgentTaskList({
                     {formatDurationLabel(tr, task.durationMs)
                       ? `${META_GAP}${formatDurationLabel(tr, task.durationMs)}`
                       : ''}
+                    {/* 정착 사유 — 생산자가 실은 사람용 문장을 그대로 쓴다(0204 D-024). 0215
+                        이전에는 `작업` 타일이 유일 렌더 지점이었고, 그 타일에서 서브에이전트가
+                        빠지면서 소비자가 0곳이 됐다(D-017 과 같은 축). */}
+                    {task.settlementMessage
+                      ? `${META_GAP}${task.settlementMessage}`
+                      : task.status === 'aborted'
+                        ? `${META_GAP}${tr('chat.taskTile.stoppedReason')}`
+                        : task.status === 'failed'
+                          ? `${META_GAP}${tr('chat.taskTile.failedReason')}`
+                          : ''}
                     <span title={formatTimeFull(task.createdAtMs, locale)}>
                       {`${META_GAP}${formatTimeShort(task.createdAtMs, locale)}`}
                     </span>
@@ -330,6 +356,11 @@ export function SubAgentTaskList({
                       />
                     )}
                   </div>
+                  {stopErrors[backgroundTaskKey(task.toolUseId)] && (
+                    <div className="mt-0.5 text-footnote text-bad">
+                      {stopErrorText(tr, stopErrors[backgroundTaskKey(task.toolUseId)]!)}
+                    </div>
+                  )}
                 </div>
               )
             })}

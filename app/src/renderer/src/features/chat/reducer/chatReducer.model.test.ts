@@ -27,6 +27,7 @@ describe('chatReducer turnProviderKey 스냅샷(0119)', () => {
       type: 'SET_MODEL',
       providerKey: 'claude-zai',
       modelFamily: 'glm',
+      modelAlias: null,
       adapter: 'claude'
     })
     expect(next.providerKey).toBe('claude-zai')

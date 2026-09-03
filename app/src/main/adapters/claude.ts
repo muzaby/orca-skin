@@ -26,6 +26,7 @@ import type { Base64ImageSource } from '@anthropic-ai/sdk/resources/messages'
 import { formatAttachmentPromptBlock } from './attachment-prompt'
 import { formatDiffRequirementsPrompt } from './diff-requirements'
 import { formatPlanFeedbackPrompt } from './plan-feedback'
+import { resolvePlanText } from './plan-text'
 import type { CompleteRequest, LiveTurn, ProviderMessageBatch, SessionAdapter } from './types'
 import type { TurnRequest } from './turn'
 import type { ExtractedAttachmentImage, ExtractedAttachmentText } from './turn'
@@ -96,6 +97,9 @@ const SUBAGENT_BLOCKED_MESSAGE =
 interface CanUseToolOptions {
   // 중단된 서브에이전트 타입이면 재호출을 deny(가이드 §6-A). 미주입이면 차단 없음.
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
+  // 이번 턴 메인 에이전트의 마지막 서술(0215). `ExitPlanMode` 입력에 계획이 실려 오지 않는
+  // 모델에서 계획 본문의 2순위 출처다. 미주입이면 폴백 없이 현행대로 빈 본문이 된다.
+  getPlanNarrative?: () => string | undefined
   // readOnlyHint가 true가 아닌 runtime MCP 도구의 완전한 SDK 이름 집합. 미주입이면
   // 기존 위험 도구 정책만 적용한다.
   runtimeApprovalToolNames?: ReadonlySet<string>
@@ -147,10 +151,9 @@ export function makeCanUseTool(
       }
     }
     if (toolName === 'ExitPlanMode' && requestApproval) {
-      const plan =
-        typeof (input as { plan?: unknown }).plan === 'string'
-          ? (input as { plan: string }).plan
-          : ''
+      // 계획 본문은 **주입 필드 하나가 아니라 체인**으로 구한다(0215 D-001) — CLI 는 모델이
+      // 계획 파일을 썼을 때만 `plan` 을 싣고, 그 여부는 모델마다 다르다(plan-text.ts 주석).
+      const plan = resolvePlanText(input, opts.getPlanNarrative?.())
       const res = await requestApproval(
         { kind: 'plan_review', request: { requestId: '', plan } },
         signal
@@ -417,6 +420,9 @@ export class ClaudeAdapter implements SessionAdapter {
           ? {
               canUseTool: makeCanUseTool(requestApproval, {
                 runtimeApprovalToolNames: runtimeToolApprovalNames,
+                // 매퍼가 쓰는 **같은 ctx** 를 읽는다(0215 EP-01) — 이 인자를 빼면 계획을
+                // 입력에 싣지 않는 모델에서 우측 패널이 다시 빈다.
+                getPlanNarrative: () => ctx.lastAssistantText,
                 ...(isSubagentBlocked ? { isSubagentBlocked } : {})
               })
             }

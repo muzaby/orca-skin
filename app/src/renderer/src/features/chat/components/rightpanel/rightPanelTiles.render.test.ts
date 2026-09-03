@@ -100,13 +100,9 @@ const messages = (...parts: AppMessagePart[][]): Message[] => [
 ]
 
 // 세션 parts → `진행 상황` 섹션 본문 HTML. 프로덕션과 같은 파생을 통과시킨다.
-const renderProgress = (msgs: Message[], stoppingIds: string[] = []): string =>
+const renderProgress = (msgs: Message[]): string =>
   renderToStaticMarkup(
-    createElement(TaskProgressList, {
-      items: taskBoardOrdered(
-        taskBoardFromMessages(msgs, { stoppingBackgroundIds: new Set(stoppingIds) })
-      )
-    })
+    createElement(TaskProgressList, { items: taskBoardOrdered(taskBoardFromMessages(msgs)) })
   )
 
 // 세션 parts → `백그라운드 작업` 목록 HTML.
@@ -159,16 +155,11 @@ describe('작업 타일 — 목록 하나 (AC8·AC9 · §10 EP-06)', () => {
 
   it('목록에 상태 그룹 헤더가 없다 — 한 줄로 나열한다 (AC10)', () => {
     const html = renderProgress(
-      messages(
-        agentTask('완료된 일', '1', 'completed'),
-        agentTask('대기 중인 일', '2'),
-        backgroundTask('bg1', '로그 파서 조사')
-      )
+      messages(agentTask('완료된 일', '1', 'completed'), agentTask('대기 중인 일', '2'))
     )
-    // 양성 — 세 항목이 모두 한 목록에 있다(D-019: TaskXXX + background 함께).
+    // 양성 — 두 항목이 모두 한 목록에 있다(0215: 목록은 할 일만 담는다).
     expect(html).toContain('완료된 일')
     expect(html).toContain('대기 중인 일')
-    expect(html).toContain('로그 파서 조사')
     // 음성 — 그룹 헤더('대기 중'·'중단됨' 라벨)가 없다. '진행 상황' 섹션 제목과 구분된다.
     expect(html).not.toContain('대기 중<')
     expect(html).not.toContain('중단됨<')
@@ -191,23 +182,24 @@ describe('작업 타일 — 완료 항목 취소선 (AT-26)', () => {
   })
 })
 
-describe('작업 타일 — 중단 버튼 자리 (AT-27 · D-020)', () => {
-  it('중단 버튼이 제목 바로 뒤 형제이고 제목이 flex-1 을 갖지 않는다', () => {
+describe('0215 AT-16·AT-17 — `작업` 타일에는 서브에이전트가 오지 않는다', () => {
+  it('서브에이전트만 있으면 목록이 비고 중단·전환 버튼도 없다', () => {
     const html = renderProgress(messages(backgroundTask('bg1', '로그 파서 조사')))
-    // 양성 — 버튼이 실제로 렌더된다.
-    expect(html).toContain('aria-label="중단"')
-    // 제목 span 바로 다음이 버튼이다 — 사이에 다른 엘리먼트가 없다.
-    expect(html).toMatch(/로그 파서 조사<\/span><button/)
-    // flex-1 이면 제목이 남는 폭을 다 먹어 버튼이 행 우측 끝으로 밀린다(수정 전 동작).
+    expect(html).not.toContain('로그 파서 조사')
+    expect(html).not.toContain('aria-label="중단"')
+    expect(html).not.toContain('chat.taskTile.toBackgroundAria')
+  })
+
+  it('양성 짝 — 같은 세션의 할 일은 그대로 그려진다', () => {
+    const html = renderProgress(messages(agentTask('설계 정리', '1', 'in_progress')))
+    expect(html).toContain('설계 정리')
+  })
+
+  it('제목이 flex-1 을 갖지 않는다 (D-020 유지)', () => {
+    const html = renderProgress(messages(agentTask('로그 파서 조사', '1', 'in_progress')))
     const titleSpan = html.match(/<span class="([^"]*)">로그 파서 조사<\/span>/)
     expect(titleSpan?.[1]).not.toContain('flex-1')
     expect(titleSpan?.[1]).toContain('truncate')
-  })
-
-  it('중단 확정을 기다리는 동안에는 버튼을 다시 낼 수 없다', () => {
-    const html = renderProgress(messages(backgroundTask('bg1', '로그 파서 조사')), ['bg1'])
-    expect(html).toContain('로그 파서 조사')
-    expect(html).not.toContain('aria-label="중단"')
   })
 })
 
@@ -278,7 +270,7 @@ describe('백그라운드 작업 타일 — 복구 (AT-28 · D-016)', () => {
 })
 
 describe('두 타일의 파생이 다르다 (AT-09a)', () => {
-  it('백그라운드 파생은 background 만, 작업 파생은 두 종류를 낸다', () => {
+  it('0215 — 두 파생이 서로 겹치지 않는다 (한 항목을 두 타일이 그리지 않는다)', () => {
     const msgs = messages(agentTask('일반 할 일', '1'), backgroundTask('bg1', '백그라운드 작업'))
     const backgroundOnly = subagentTasksFromMessages(msgs).map((t) =>
       backgroundTaskKey(t.toolUseId)
@@ -286,19 +278,17 @@ describe('두 타일의 파생이 다르다 (AT-09a)', () => {
     const board = taskBoardFromMessages(msgs).map((i) => i.key)
 
     expect(backgroundOnly).toEqual([backgroundTaskKey('bg1')])
-    // 작업 파생이 백그라운드 파생을 포함한다(차집합 0).
-    expect(backgroundOnly.filter((k) => !board.includes(k))).toEqual([])
-    // 그리고 백그라운드 파생에는 없는 agent 항목을 더 갖는다.
-    expect(board).toContain(agentTaskKey('1'))
-    expect(backgroundOnly).not.toContain(agentTaskKey('1'))
+    expect(board).toEqual([agentTaskKey('1')])
+    // 교집합 0 — 차집합으로 본다(총계는 이 주장을 반증하지 못한다).
+    expect(board.filter((k) => backgroundOnly.includes(k))).toEqual([])
   })
 })
 
 // 0204 ΔV1 §4 — 새로 만든 사용자 대면 문구에 **소비자가 있는지**를 화면 출력으로 본다.
 // producer(파생)만 만들고 consumer(렌더)가 없으면 그 문구는 아무도 보지 못한다.
 describe('새 문구의 소비자 (AT-31 · D-016a)', () => {
-  it('작업 타일의 실패 행이 정착 사유를 그대로 보인다', () => {
-    const html = renderProgress(
+  it('0215 — 정착 사유는 `백그라운드 작업` 타일이 보인다 (문구의 소비자가 옮겨졌다)', () => {
+    const html = renderSubagentList(
       messages(
         backgroundTask('bg1', '실패한 작업', {
           output: { reason: 'failed', message: '채널이 종료되어 서브에이전트가 중단되었습니다.' },
@@ -307,8 +297,18 @@ describe('새 문구의 소비자 (AT-31 · D-016a)', () => {
       )
     )
     expect(html).toContain('채널이 종료되어 서브에이전트가 중단되었습니다.')
+    // 음성 짝 — `작업` 타일에는 그 행 자체가 없다.
+    const board = renderProgress(
+      messages(
+        backgroundTask('bg1', '실패한 작업', {
+          output: { reason: 'failed', message: '채널이 종료되어 서브에이전트가 중단되었습니다.' },
+          isError: true
+        })
+      )
+    )
+    expect(board).not.toContain('실패한 작업')
     // 양성 짝 — 중단 행의 기존 사유도 계속 나온다(대칭이지 대체가 아니다).
-    const aborted = renderProgress(
+    const aborted = renderSubagentList(
       messages(
         backgroundTask('bg2', '중단한 작업', {
           output: { reason: 'aborted', message: '서브에이전트가 중단되었습니다.' },
@@ -329,5 +329,40 @@ describe('새 문구의 소비자 (AT-31 · D-016a)', () => {
     const running = renderSubagentList(msgs)
     expect(running).toContain('진행 중')
     expect(running).toContain('aria-label="중단"')
+  })
+})
+
+// 0215 VP-19 (SD-04 ↔ AT-19 · §10 EP-19) — 중단 실패 문구의 자리가 옮겨졌다.
+describe('0215 AT-19 — 중단 실패 문구는 `백그라운드 작업` 타일이 낸다', () => {
+  const withStopError = (msgs: Message[]): string =>
+    renderToStaticMarkup(
+      createElement(SubAgentTaskList, {
+        tasks: subagentTasksFromMessages(msgs),
+        stoppingIds: new Set<string>(),
+        stopErrors: { [backgroundTaskKey('bg1')]: { messageKey: 'chat.taskTile.stopFailed' } }
+      })
+    )
+
+  it('그 행 아래에 실패 문구가 뜬다', () => {
+    const html = withStopError(messages(backgroundTask('bg1', '로그 파서 조사')))
+    expect(html).toContain('중단하지 못했습니다')
+    // 양성 짝 — 행 자체가 그려졌다.
+    expect(html).toContain('로그 파서 조사')
+  })
+
+  it('실패가 없으면 문구도 없다 — 음성 짝', () => {
+    const html = renderSubagentList(messages(backgroundTask('bg1', '로그 파서 조사')))
+    expect(html).not.toContain('중단하지 못했습니다')
+  })
+
+  it('다른 항목의 실패는 이 행에 새지 않는다', () => {
+    const html = renderToStaticMarkup(
+      createElement(SubAgentTaskList, {
+        tasks: subagentTasksFromMessages(messages(backgroundTask('bg1', '로그 파서 조사'))),
+        stoppingIds: new Set<string>(),
+        stopErrors: { [backgroundTaskKey('other')]: { messageKey: 'chat.taskTile.stopFailed' } }
+      })
+    )
+    expect(html).not.toContain('중단하지 못했습니다')
   })
 })
