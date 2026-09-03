@@ -12,7 +12,12 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-const SRC = fileURLToPath(new URL('../../../../../../', import.meta.url))
+// **분모는 `app/src` 전체가 아니라 두 subtree 다.** 여기서 세는 네 식별자는 전부 renderer 의
+// chat feature 와 i18n 카탈로그 안에서만 태어났고(0206·0211 이 만든 이름들), main·preload 는
+// 그 이름을 가진 적이 없다 — `rg` 로 확인한 뒤 좁혔다. 좁히는 이유는 정확도만이 아니다:
+// 이 스위트는 **동기 전수 읽기**라 CI 러너에서 다른 워커의 sqlite 초기화와 경합한다.
+const RENDERER_CHAT = fileURLToPath(new URL('../../', import.meta.url))
+const I18N = fileURLToPath(new URL('../../../../shared/i18n/resources/', import.meta.url))
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -23,7 +28,10 @@ function walk(dir: string, out: string[] = []): string[] {
   return out
 }
 
-const FILES = walk(SRC).map((path) => ({ path, source: readFileSync(path, 'utf8') }))
+const FILES = [...walk(RENDERER_CHAT), ...walk(I18N)].map((path) => ({
+  path,
+  source: readFileSync(path, 'utf8')
+}))
 const PRODUCTION = FILES.filter(
   ({ path }) => !/\.test\.tsx?$/.test(path) && !path.endsWith('gitSyncTriggersRemoved.ts')
 )
