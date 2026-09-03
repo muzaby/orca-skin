@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { Icon } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
 import type { NormalizedPermissionMode } from '../../../../../../shared/permission-mode'
-import { MODE_MENU_OPTIONS, type ModeOption } from './modes'
+import type { ModeOption } from './modes'
 import { MenuItem, MenuTitle } from '../../../../shared/ui/MenuItem'
 
 interface ModeMenuProps {
   mode: NormalizedPermissionMode
-  // 이 세션의 선택 모델에서 고를 수 있는 항목. 미전달이면 제약 없는 기본 목록(0215).
-  options?: ModeOption[]
+  // 이 세션의 선택 모델에서 고를 수 있는 항목(0215 D-019). 필수 — 기본값으로 떨어지면
+  // 배선 누락이 컴파일 오류가 아니라 조용한 동작 복귀가 된다.
+  options: ModeOption[]
   onPick: (mode: NormalizedPermissionMode) => void
 }
 
@@ -22,7 +23,7 @@ export function ModeMenu({ mode, options, onPick }: ModeMenuProps): React.JSX.El
   return (
     <div role="none" className="flex w-[260px] flex-col">
       <MenuTitle>{tr('chat.composer.modes.title')}</MenuTitle>
-      {(options ?? MODE_MENU_OPTIONS).map((opt) => {
+      {options.map((opt) => {
         const active = opt.mode === mode
         const isArmed = armed === opt.mode
         const handleClick = (): void => {

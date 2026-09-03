@@ -851,6 +851,138 @@
 
 ---
 
+## [구현자 기입] 설계 리뷰 (r2 — ΔV1)
+
+- 동의 / 그대로 진행: ΔV1 규범 행 전부 — D-018·D-019, AC23·AC24, VP-21·VP-22, EP-19(2)·EP-20·EP-21.
+  D-020 은 OPEN 그대로 두었다(신규 의존성 0).
+- **이견 / 현실성 문제: 1건 — AC24 의 *시드 수단*.** plan 은 "store 를 시드해 `SubAgentTileContent`
+  를 렌더" 라 적었으나 `useChatStore.setState` 시드는 SSR 렌더에 **보이지 않는다**. zustand v5 의
+  `useStore` 가 `getServerSnapshot = () => selector(api.getInitialState())` 이고
+  (`node_modules/zustand/react.js:8-12`) `setState` 는 새 객체를 만들어 초기 상태 객체를 갱신하지
+  않는다. 실측: `getState().…messages` 1건 / `getInitialState().…messages` 0건 / 렌더 출력에 시드
+  문자열 **미포함**. → 같은 oracle 에 도달하는 다른 시드 수단으로 대체했다(아래 §설계 대비 차이).
+- **이것을 `PLAN_GAP` 으로 올리지 않은 근거**: VP-22 의 pair·경로·requiredness·§10 강제 지점·직접
+  oracle(컨테이너 마운트 렌더 출력의 문구)·등록 변이(M-G)가 전부 그대로 성립한다. 바뀐 것은
+  oracle 에 도달하는 **시드 하위 수단** 하나이고, 새 node·pair·경로·강제 지점을 요구하지 않는다.
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음.
+- **§8 전수 행 1건이 과대였다**: `필수화가 깨뜨릴 테스트 호출부 8` 은 *참조* 를 셌다(import·주석·이미
+  준수하는 호출 포함). 실제로 필수 prop 이 빠진 호출부는 **2곳**이다 — 아래 잠재 문제 #2.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조 · r2 — ΔV1 신설 행)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-19 | EP-19 유일 렌더 지점을 잃는 문구 (2) | 2 | 2/2 | `SubAgentTileContent.tsx:361`(중단 실패) · `:295`(정착 사유) — r1 선조치를 r2 가 재관측 | — |
+| VP-21 | EP-20 `Composer` 가 값을 공급 (5) | 5 | 5/5 | 주어 검색 `rg 'setModel\(' src/renderer --glob '!*.test.*'` → 호출 3(`:193`·`:200`·`:498`) + 정의 1(`chatStore.ts:1220`, 호출 아님) · `rg '<ModeMenu' src/renderer` → 1(`:464`) · memo 축약 `Composer.tsx:181` | — |
+| VP-22 | EP-20 `SubAgentTileContent` 가 값을 공급 (1) | 1 | 1/1 | `rg '<SubAgentTaskList' src/renderer` → 1(`:142`), `stopErrors={stopErrors}` `:147` | — |
+| VP-21 | EP-21 관대한 기본값 제거 — `ModeMenu.options` (1) | 1 | 1/1 | `rg '^\s*[a-z]*\?:' ModeMenu.tsx` → **0건**(변경 전 1) · 폴백 `?? MODE_MENU_OPTIONS` 0건 | — |
+| VP-22 | EP-21 관대한 기본값 제거 — `SubAgentTaskList.stopErrors` (1) | 1 | 1/1 | `rg 'stopErrors\?:' SubAgentTileContent.tsx` → **0건** · 기본값 `stopErrors = {}` 0건 | — |
+
+- **EP-20 분모 검산**: `setModel` 호출 3 + `<ModeMenu options=` 1 + memo `modelAlias` 1 + `stopErrors=` 1
+  = **6** — plan §8 의 6 과 일치한다(주어로 다시 세도 같다).
+- **EP-21 잔여 optional prop 2건은 누락이 아니라 명시 면제다** — `pausedIds`·`backgroundedIds` 는
+  plan §16 이 "부재가 곧 빈 집합이라 배선 누락과 구분되지 않는 값이 아니다" 로 유지 판정했다.
+  실측: `SubAgentTileContent.tsx:215`·`:216` 두 줄만 남고 `ModeMenu` 는 0건.
+- **누적 강제 지점**: V1 구간 **27**(EP-19 의 2번째 지점 포함 — r1 이 선조치로 닫았고 위 표에서
+  재관측했다) + ΔV1 신설 **8**(EP-20 6 · EP-21 2) = **35/35**. r2 가 이번 턴에 닫은 것은 **8** 이다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| **M-B** `Composer` 가 `<ModeMenu options=…>` 미전달 | VP-21 선택 증거 · D1 인용 변이 | **green 838/838**(verify r1) | `축① ModeMenu 에 …options 를 넘긴다` 1건 (843/844) | **red — 잠김** |
+| **M-F** `setModel(…, null, …)` | VP-21 선택 증거 · D1 인용 변이 | **green 838/838** | `축③ setModel 호출 전건이 alias 를…` 1건 | **red — 잠김** |
+| **M-H** memo 가 `modelAlias: null` | VP-21 선택 증거 · D1 인용 변이 | **green 838/838** | `축② selectedModel memo 가 modelAlias 를 싣는다` 1건 | **red — 잠김** |
+| **M-G** `SubAgentTileContent` 가 `stopErrors` prop 미전달 | VP-22 선택 증거 · D1 인용 변이 | **green 838/838** | AT-24 3건 (841/844) | **red — 잠김** |
+| **S-1** 형제 맞바꿈 — `setModel` 의 `modelFamily` ↔ `modelAlias` | 새 oracle 민감도(소스 단언은 구조적 proxy) | 최초 | `축③` 1건 | **red — 잠김** |
+| **S-2** 형제 맞바꿈 — memo 의 `modelAlias` 슬롯에 형제 값(`modelFamily`) | 새 oracle 민감도 | 최초 | `축②` 1건 | **red — 잠김** |
+| **EP-21-B** `options` prop 누락 + 잔여물 제거 | 새 강제 지점(typecheck 축) | 최초 | `TS2741 Property 'options' is missing` · 잔여물 진단 **0** | **red — 잠김** |
+| **EP-21-G** `stopErrors` prop 누락 + 잔여물 제거 | 새 강제 지점(typecheck 축) | 최초 | `TS2741 Property 'stopErrors' is missing` · 잔여물 진단 **0** | **red — 잠김** |
+
+- **분모 검산**: `선택 증거 4(M-B·M-F·M-H·M-G) · 인용 변이 4(파생 이슈 D1 이 인용한 같은 4건 —
+  동일 집합이라 행을 겹쳐 쓴다) · 새 oracle 2(민감도 검사 4행: 형제 맞바꿈 2 · EP-21 typecheck 2)
+  = 표 행 8`.
+- **소거 변이의 잔여물 수렴**: M-B·M-G 는 필수화 이후 `TS6133` 잔여물을 낳으므로 미사용 import·
+  지역변수까지 밀어 **잔여물 진단 0** 상태에서 다시 쟀다 — 그 상태에서도 `TS2741` 이 남는다.
+  vitest 축은 잔여물과 무관하게 red 다(esbuild 는 타입을 보지 않는다).
+- **덮개 회귀 없음**: r1 이 red 로 관측한 변이 6종(`잠금(r1)` 표)은 이번 라운드가 장치를 교체하지
+  않았다 — 그 6개 oracle 을 그대로 두고 새 oracle 2개를 **더했다**. 전체 스위트가 3233 → 3239 로
+  늘고 줄지 않은 것이 그 관측값이다.
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ✅ **해당 없음** — 이번 라운드의 산출은 잠금(테스트 2 · 필수 prop 2)이고 사용자 대면 문구 0건 | — |
+| **기존** 문구가 소비자를 잃지 않았는가 | ✅ 프로덕션 동작 변경 0 — 필수화는 값 전달을 바꾸지 않는다. 기존 838케이스 전건 유지 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | ✅ **재배치 0건** — `export` 3건 제거는 모듈 공개면만 좁히고 호출부는 전부 같은 파일 안이다 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 해당 없음 — 새 실패 경로 0 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 해당 없음 — 화면 산출 불변 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 — 비동기 경로 미변경 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | AC24 가 적은 `setState` 시드가 SSR 렌더에 **도달하지 않는다** | ✅ 선조치 — 같은 oracle 에 도달하는 `getInitialState()` 제자리 시드로 대체. 축별 실패 모드는 아래 | 프로브 실측: `getState 1 / getInitialState 0 / 출력 미포함` |
+| 2 | plan §8 `깨질 테스트 호출부 8` 이 과대 — 실제 **2곳** | ✅ 보고 — 8은 *참조*(import 2·주석 1·이미 준수하는 호출 3 포함) | `npm run typecheck` 가 정확히 `rightPanelTiles:111`·`taskSurface0212:124` 2건만 냈다 |
+| 3 | 시드 도달 자체가 실패하면 AT-24 의 두 단언이 "아무것도 안 그려진 출력" 과 구분되지 않는다 | ✅ 선조치 — 세 번째 케이스로 **빈 상태 문구 소멸**을 양성 관측한다 | `subagentWiring.render.test.ts` `시드가 실제로 SSR 렌더에 도달한다` |
+| 4 | M-G 소거 시 `stopErrors[...]` 가 `undefined` 접근으로 **throw** 한다(assertion 실패가 아닌 crash) | 보고만 — red 라는 결론은 같고, 필수화(EP-21)가 typecheck 에서 먼저 막아 프로덕션에 도달하지 않는다 | M-G 실행에서 3케이스 red |
+
+### 설계 대비 명시적 차이 (r2)
+
+**차이**: AC24 의 시드 수단을 `useChatStore.setState` → `useChatStore.getInitialState()` **제자리 변형**
+으로 바꿨다. 이유는 위 §설계 리뷰의 실측이다. 대체물이 갖고 원본이 갖지 않던 실패 모드를 축마다 적는다.
+
+| 축 | 대체물의 실패 모드 | 다시 확인한 AC / §10 행 |
+|---|---|---|
+| 만료 | **해당 없음** — 초기 상태 객체는 모듈 수명 동안 교체되지 않는다(`createStore` 가 생성 시 1회 캡처) | AC24 — 3케이스 green |
+| **공유** | **있다** — 초기 상태 객체는 파일 내 모든 테스트가 공유하고 `setState` 와 달리 스스로 되돌아가지 않는다. `afterEach` 로 `messages`·`taskStopErrors` 두 필드를 원복한다. vitest 는 파일별 모듈 격리라 파일 간 누출은 없다 | AC24 — 단독 실행 3/3 · 전체 실행 3239/3239 둘 다 green(순서 무관) |
+| 재진입 | **해당 없음** — 시드→`renderToStaticMarkup` 사이에 비동기 경계가 없다(동기 렌더) | AC24 |
+| 다른 무효화 | **있다(잠재)** — 제자리 변형은 구독자를 깨우지 않는다. SSR 은 구독하지 않으므로 이 oracle 에는 무영향이나, 이 파일이 훗날 CSR 마운트로 바뀌면 시드가 반영되지 않는다 | plan D-020(OPEN) 이 열리는 자리 — §17 리스크로 기록 |
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | production 4(`ModeMenu.tsx`·`SubAgentTileContent.tsx` 필수화 · `available-models.ts`·`permission-mode.ts` export 정리) · 테스트 4(신규 2 · 인자 추가 2) |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run src/main/features/harnesses src/main/adapters src/shared src/renderer/src/features/chat` · `node scripts/ensure-sqlite-abi.mjs node` 후 `./node_modules/.bin/vitest run` |
+| **관측한 게이트 산출** | lint **0 error / 1 warning**(기존 `useTranscriptVirtualizer` react-compiler 경고, 변경 무관) · typecheck **3구성 0 error** · 지정 스위트 **169파일 1619케이스 green** · 전체 **329파일 3239케이스 green, 0 failed / 7 skipped**(r1 327/3233 → 신규 테스트 2파일 6케이스) |
+| ABI 주의 | 전체 실행 전 `node scripts/ensure-sqlite-abi.mjs node` 를 먼저 돌렸다 — r1 과 같은 축 |
+| V-pair 자기확인 | `SELF_PASS 22 / SELF_BLOCKED 0` — V1 20 pair 유지 + ΔV1 VP-21·VP-22 신규 |
+| 강제 지점 전수 | 이번 턴 **8/8**(EP-20 6 · EP-21 2) · 누적 **35/35** |
+| **합계 검산** | ✅ 22 · ⚠️ 2(사람 실기) · ❌ 0 = **총 24**. 분모가 r1 의 22 에서 24 로 늘었다(AC23·AC24 신설) — r1 합계와 직접 비교하지 않는다 |
+| 선택적 정리(verify D3) | 수행 — `classifyModel`·`matchesExplicit`·`AUTO_UNSUPPORTED_FALLBACK_MODE` 의 `export` 제거. 착수 전 `rg` 로 파일 밖 참조 **0건** 재확인 |
+| 블로커 / 역질문 | 없음. D-020(jsdom)은 OPEN 유지 — 신규 의존성이라 사용자 결정 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+### AC 행별 관측 (r2 신설분)
+
+`AC23`✅ `composerWiring.test.ts` 3케이스 — 축① `<ModeMenu options={modeMenuOptions(selectedModelShape(…))}`
+· 축② memo 축약 `modelAlias` + 의존성 배열 · 축③ `setModel` 호출 **정확히 3건**의 3번째 인자가 전부
+`…Alias` . 변이 M-B·M-F·M-H 및 형제 맞바꿈 S-1·S-2 가 각각 red.
+`AC24`✅ `subagentWiring.render.test.ts` 3케이스 — 컨테이너 마운트 출력에 `중단하지 못했습니다` 존재
+(양성 짝: 행 제목 `로그 파서 조사`), 실패 없으면 미존재(음성 짝), 시드 도달 양성 관측. 변이 M-G 가 red.
+`AC21`✅ 게이트 재관측 — 위 표.
+나머지 AC1~AC22 는 이번 라운드가 프로덕션 동작을 바꾸지 않았고 r1 관측이 전건 유지된다(838→838).
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **같은 축이다.** r1 이 닫은 것은 *규칙*
+  (`modeMenuOptions` 가 무엇을 거르는가 · `SubAgentTaskList` 가 문구를 어떻게 그리는가)이고
+  r2 가 닫은 것은 **그 규칙의 입력을 View 에 공급하는 배선**이다. verify r1 D1 이 지목한 축 그대로다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가, 있었다면 왜 안 걸렸는가: **있었다.**
+  `handoff-plan/SKILL.md §5` 의 "단위를 잠그고 **그 단위를 부르는 배선**을 잠그지 않으면 배선을
+  지운 회귀가 초록으로 통과한다" 가 정확히 이 경우다. r1 설계가 AC11·AC19 의 검증 수단을
+  *순수 함수* 와 *props View* 로 적는 순간 배선이 분모에서 빠졌고, 그 AC 들은 각자 축에서
+  전부 참이었다 — 그래서 게이트가 초록인 채로 결함이 남았다.
+- 반복해서 부딪히는 환경 한계: ① renderer 테스트에 DOM 이 없어 `Popover`→`createPortal` 안의
+  배선은 마운트로 관측할 수 없다(D-020 OPEN). ② zustand v5 의 SSR 스냅샷이 `setState` 시드를
+  무시한다 — 컨테이너 마운트 oracle 을 쓸 때마다 다시 부딪히는 자리다. ③ better-sqlite3 ABI 뒤집힘.
+- 현재 라운드 수: 2
+
+---
+
 > **[검증자 기입]** 이하는 검증 턴(r1)이 채운다. 판정 원문은 [`verify.md`](verify.md).
 
 ## [검증자 기입] 파생 이슈 (r1)

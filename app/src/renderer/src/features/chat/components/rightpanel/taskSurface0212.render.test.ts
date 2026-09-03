@@ -125,7 +125,8 @@ const renderSubagentList = (
       tasks: subagentTasksFromMessages(msgs),
       stoppingIds: new Set(opts.stoppingIds ?? []),
       pausedIds: new Set(opts.pausedIds ?? []),
-      backgroundedIds: new Set(opts.backgroundedIds ?? [])
+      backgroundedIds: new Set(opts.backgroundedIds ?? []),
+      stopErrors: {}
     })
   )
 

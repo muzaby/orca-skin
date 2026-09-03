@@ -206,7 +206,7 @@ export function SubAgentTaskList({
   stoppingIds: stopping,
   pausedIds: paused = EMPTY_IDS,
   backgroundedIds: backgrounded = EMPTY_IDS,
-  stopErrors = {}
+  stopErrors
 }: {
   tasks: SubagentTaskSummary[]
   stoppingIds: ReadonlySet<string>
@@ -215,7 +215,8 @@ export function SubAgentTaskList({
   pausedIds?: ReadonlySet<string>
   backgroundedIds?: ReadonlySet<string>
   // 0215 D-017 — 중단 실패 문구. 키는 `bg:<toolUseId>`(reducer 가 그 형식으로 쓴다).
-  stopErrors?: Record<string, TaskStopError>
+  // D-019 로 **필수** — 빈 객체 기본값은 배선 누락과 "실패 없음" 을 구분하지 못한다.
+  stopErrors: Record<string, TaskStopError>
 }): React.JSX.Element {
   const { tr, locale } = useI18n()
   if (tasks.length === 0) {

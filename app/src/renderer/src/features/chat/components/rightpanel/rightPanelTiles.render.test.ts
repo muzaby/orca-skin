@@ -110,7 +110,8 @@ const renderSubagentList = (msgs: Message[], stoppingIds: string[] = []): string
   renderToStaticMarkup(
     createElement(SubAgentTaskList, {
       tasks: subagentTasksFromMessages(msgs),
-      stoppingIds: new Set(stoppingIds)
+      stoppingIds: new Set(stoppingIds),
+      stopErrors: {}
     })
   )
 
