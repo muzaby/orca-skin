@@ -482,3 +482,153 @@ rg -n 'setModel\(' src/renderer --glob '!*.test.*' → 호출 3 (:193 :200 :498)
 - 등록된 계약은 전부 성립한다 — 변이 4종 red, VP-22 PASS, 게이트 3종 green, 프로덕션 동작 변경 0, 덮개 회귀 0.
 - 그러나 **VP-21 의 §10 분모가 전수가 아니고**, 범위 내 미계수 2지점 + 형제 슬롯 1이 green 이다. 셋 다 사용자에게 보이는 회귀(선택 표시 소멸·칩 라벨 소멸·선택 되돌림)다.
 - 구현자는 EP-20 열거와 AC23 문언을 늘리지 않고는 닫을 수 없다 → `PLAN_GAP`.
+
+---
+
+# Verify r3 — ΔV2 (배선 분모를 주어로 재산출)
+
+> r1·r2 판정 원문은 위에 그대로 둔다. 이 절은 r3 만 다룬다.
+
+## 메타 (r3)
+
+| 항목 | 값 |
+|---|---|
+| 검증 범위 | `0740eb0..ab3bd03` — 구현 `ab3bd03` (`git cat-file -t` = `commit`) |
+| 기준선 plan | `0740eb0` (ΔV2 설계 커밋, 구현과 **분리됨**) |
+| 유효 V | `V1 + ΔV1 + ΔV2` |
+| 판정 | **PASS** |
+| 자기 검증 여부 | 설계·구현·검증이 모두 Claude다. §4 분모 규칙대로 **구현 보고가 이름대지 않은 적대 축 3건**(A1~A3)을 만들었고 **1건이 green** 이다 |
+
+## 0. 기준선 / plan 변경 확인 (r3)
+
+✅ **기준선이 diff 로 성립한다.** `git show ab3bd03 -- plan.md` 는 삭제 줄 **0** 에 단일 hunk(`@@ -1028,6 +1028,129 @@`) — 전부 `[구현자 기입] … (r3)` H2 7개다. Decision·AC·V node/pair·§10 원문은 손대지 않았다.
+
+- 설계 커밋 `0740eb0` 의 `app/` 변경: **0 파일** — 규범 정정과 구현이 다른 커밋이다.
+- 구현 커밋 `ab3bd03` 의 production 변경: **0 파일** — 테스트 2 파일뿐(`composerWiring.test.ts` +56/-15 · `composerMount.render.test.ts` 신규 100줄).
+
+### Plan validity (r3)
+
+| 항목 | 판정 | 관측 |
+|---|---|---|
+| V mode / 상속 좌표 | ✅ | `V1@ea983b1 + ΔV1@1636ccc + ΔV2@0740eb0`, 셋 다 `git cat-file -t` = `commit` |
+| `CHANGED` 좌 node 의 같은 레벨 REQUIRED pair | ✅ | AR-04→VP-21 · AR-05→VP-22, 둘 다 `AR↔IT` REQUIRED |
+| pair 의 경로·강제 지점·oracle | ⚠️ | 셋 다 있다. **EP-20a 분모는 주어로 세면 4가 아니라 5** — D1(r3), 다만 5번째는 0215 계약 밖이다 |
+| 적대 증거 선택 이유 | ✅ | VP-21 변이 6종 등록, 방향 명시. 형제 슬롯 계약에 맞바꿈(S-1)·중복(V-5) 둘 다 있다 |
+| EP-22 버킷 서술 | ⚠️ NON_BLOCKING | 소스 단언 버킷의 실측은 5가 아니라 6이다(memo `:176` 포함) — D2(r3). 지점 자체는 잠겨 있다 |
+| 현재 변경 산출물의 운영 gate | ✅ | §19 ΔV2 가 잔여물 수렴(`TS6133` 0)까지 적었고 그대로 재현된다 |
+
+## 1~3. 비판적 읽기 · 역방향 탐색 (r3)
+
+✅ **프로덕션 동작 변경 0 을 재확인했다.** `git show ab3bd03 --stat -- app/` 에 production 파일이 없다 — 이번 라운드 산출은 oracle 뿐이다.
+
+- 신규 테스트가 production symbol 을 부르는가: `composerMount.render.test.ts` 는 `./Composer` 의 `Composer` 를 직접 `renderToStaticMarkup` 한다 — 동명 로컬 재구현 0.
+- `composerWiring.test.ts` 는 여전히 소스를 읽는 **구조적 proxy** 다. 읽는 대상이 실제 production 파일인지 확인: `new URL('../Composer.tsx', …)` → `components/Composer.tsx` 실재.
+- 소스 스캔의 미끼 가능성: `<ModeMenu` 1건 · `<ModelMenu` 1건 — `indexOf` 가 다른 태그를 집을 여지 0.
+- 시드가 전역 상태를 오염시키는가: `afterEach` 4필드 원복. 단독 3케이스 green, 전체 실행에서도 green — 순서 의존 0.
+
+## 4. 등록된 적대 증거 재측정 + 자기검증 분모 (r3)
+
+**등록 변이 7종 — 구현 보고와 무관하게 다시 심었다. 전부 red 로 재현된다.**
+
+| 변이 | r2 결과 | r3 재측정 | 판정 |
+|---|---|---|---|
+| M-B `<ModeMenu options=…>` 미전달 | red | **red** `축①` 1건 (6/7 pass) | 잠김 |
+| M-F `setModel(…, null, …)` | red | **red** `축③` 1건 | 잠김 |
+| M-G `stopErrors` prop 미전달 | red | **red** AT-24 3건 | 잠김 |
+| M-H memo `modelAlias: null` | red | **red** `축②` 1건 | 잠김 |
+| S-1 `modelFamily` ↔ `modelAlias` 맞바꿈 | red | **red** `축③` 1건 | 잠김 |
+| **V-1** `<ModelMenu selection={null}>` | **GREEN 844/844** | **red** `축④` 1건 | **새로 잠김** |
+| **V-2c** 칩 라벨 → 폴백 (미사용 import 까지 밀어 잔여물 0) | **GREEN 844/844** | **red** AT-26 **3건**, **typecheck 0 error** | **새로 잠김** |
+| **V-5** `setModel(pk, alias, alias, adapter)` 형제 슬롯 중복 | **GREEN 844/844** | **red** `축③` 1건 | **새로 잠김** |
+
+- **V-2c 는 잔여물 부산물이 아니다.** 미사용 `selectionLabel` import 를 함께 제거한 상태에서 `npm run typecheck` 3구성 **0 error**, 그럼에도 AT-26 3케이스 red — 마운트 oracle 이 **동작으로** 잡았다.
+- **덮개 회귀 0.** r2 가 red 로 관측한 5종(M-B·M-F·M-G·M-H·S-1)을 그대로 다시 실행해 전부 red 다. `red → green` **0건**.
+
+### 자기검증 분모 — 구현 보고가 이름대지 않은 축 3건
+
+구현자와 검증자가 같은 에이전트다. 보고된 7종의 재실행은 자기 목록의 재실행이므로 **§10 EP-20 분모를 다시 독립 재열거**하고 거기서 축을 만들었다.
+
+| 축 | 무엇을 깨는가 | 결과 |
+|---|---|---|
+| **A1** `onOpenUsageSettings?.(undefined)` — `:452` | 선택 상태(`providerKey`)가 소비자에 닿는 **5번째** 지점. memo 를 우회해 raw 필드를 읽어 `rg selectedModel` 에 안 걸린다 | **GREEN — 전체 330파일 3243케이스** |
+| **A2** 스토어 셀렉터 `s.modelFamily` ↔ `s.modelAlias` 맞바꿈 (`:139-140`) | 같은 계약을 등록 변이 전부보다 **상류(seam 바깥)** 에서 깬다 — memo 는 축약이라 소스 단언이 못 본다 | red — AT-26 **2건** |
+| **A3** 4번째 `setModel(` 호출 삽입 (슬롯 순서 위반) | 축③ 이 주장한 "호출부가 늘면 red" 의 분모 탄력성 | red — `축③` 1건 |
+
+- **A2 가 이번 라운드 마운트 oracle 의 값어치를 보인다.** memo 의 세 필드는 축약(`modelFamily,`)이라 소스가 바뀌지 않는데도 흘러가는 **값**이 바뀐다 — 소스 단언 4축은 전부 green 이고 마운트만 red 다.
+- **A1 은 green 이다.** 다만 그 지점의 계약은 0215 것이 아니다 — §13 D1(r3) 참조.
+
+## 5. V-pair closeout (r3)
+
+| Pair | 레벨 | 판정 | 증거 | §10 분모 |
+|---|---|---|---|---|
+| VP-21 | AR↔IT | **PASS** | `composerWiring` 4축 + `composerMount` 3케이스 = 7 green · 등록 변이 6종 + A2·A3 전부 red | EP-20a 3/3(+`:255` NOT_REQUIRED) · EP-20b 3/3 · EP-20c 1/1 · EP-21 1/1 · EP-22 2/2 |
+| VP-22 | AR↔IT | **PASS** | `subagentWiring.render.test.ts` 3케이스 · M-G red 3건 | EP-20d 1/1 · EP-21 1/1 |
+| VP-12 · VP-19 | AT / ST | **PASS** | 위임 성립 — 두 pair 가 배선을 맡긴 VP-21·VP-22 가 **이번에 둘 다 닫혔다**(r2 는 VP-21 이 열려 있었다) | EP-12 1/1 · EP-18·19 2/2 |
+| V1 나머지 18 pair | — | **PASS(승계)** | r1 §5 좌표 참조. r3 은 production 을 한 줄도 바꾸지 않았고 전체 330파일 3243케이스 green | 변동 없음 |
+
+**22 pair 전건 PASS · `PAIR_FAIL` 0 · `BLOCKED_BY` 0.**
+
+### AC / 합계 (r3)
+
+- 재측정한 AC 총수: §7 표의 distinct id **26**(AC1~AC26) — 구현 보고 `✅24 · ⚠️2 · ❌0 = 26` 과 일치.
+- 커밋 trailer `Criteria-Met: 24/26` ↔ 본문 24 ↔ INDEX 비고 — **세 사본이 같은 값**이다(0190 P40 축 재발 0).
+- ⚠️ 2건은 둘 다 사람 실기다 — AC3 문구 시각 · custom 모델 실환경 계획 노출. 판정 로직은 기계 검증으로 닫혔다.
+- 신설 3행 재관측: AC23 축③(V-5·S-1 red) · AC25 축④(V-1 red) · AC26 마운트 3케이스(V-2c red 3, typecheck 0).
+
+### 현재 변경의 운영 gate (r3)
+
+| Gate | 관측 산출 | 판정 |
+|---|---|---|
+| `npm run typecheck` | 3구성 전부 무출력 — **0 error** | ✅ |
+| `npm run lint` | **0 error / 1 warning**(`useTranscriptVirtualizer`, `react-hooks/incompatible-library`) · 실행 후 `git status` 변화 **0** | ✅ 변경 무관 |
+| `./node_modules/.bin/vitest run` | **330파일 3243케이스 green, 0 failed** | ✅ |
+| `node scripts/check-doc-inventory.mjs --check` | `generated doc ok (9 items, 82 channels)` · prose ok · links ok, exit 0 | ✅ |
+| 커밋 trailer 파싱 | `git log -1 --format='%(trailers:only=true)' ab3bd03` → **8키 전건 반환** | ✅ |
+
+## 7. 숫자 재측정 (r3)
+
+- **EP-20b 분모 3**: `grep -n 'setThe[M]odel(' ` 대신 `grep -n 'setModel(' Composer.tsx` → `:193`·`:200`·`:498`. 엄격화(주석 줄 제외) 후에도 **3** — 차집합 공집합.
+- **EP-20c 분모 1**: `const selectedModel = useMemo` 1건(`:176`).
+- **EP-20a 분모**: `rg selectedModel` 기준 4(`:255`·`:392`·`:466`·`:496`). **주어("선택 상태가 소비자에 닿는다") 기준으로 엄격화하면 5** — `:452` 가 더 나온다(D1(r3)). 차집합 1건.
+- **§8 검산 사이트 합계 40**: `1+1+1+1+2+1+2+1+2+1+1+1+1+1+2+1+4+1+2` = **27** 재계산 일치 · `27+9+2+2 = 40` 일치. 요구 39(=40−`:255`) / 닫힘 39 일치.
+- **§8 검산의 `24 EP 행`은 실측 25** 다 — EP-01~19(19) + EP-20a~d(4) + EP-21 + EP-22, superseded EP-20 제외. 사이트 합계는 정확하다(D3(r3)).
+
+## 9. Repository operation checks (r3)
+
+- **대상 커밋 좌표를 기입했다** — INDEX 의 `(r3 구현 — 검증자 기입)` 을 `ab3bd03` 으로 채웠다. plan 구현 보고 행은 자리표시자 그대로 둔다(좌표 정본은 INDEX 한 곳).
+- INDEX 비고: 527자 — r2 의 735자에서 줄어 **5줄 상한 이내**(D4(r2) 해결 확인).
+- `AGENTS.md` 변경 없음 — 위생 검사 대상 아님.
+- 인용 커밋 해시 실재: `ab3bd03`·`0740eb0`·`1636ccc`·`ea983b1` 전부 `git cat-file -t` = `commit`.
+- reference/script 이동·삭제 0건.
+
+## 13. Finding disposition / 파생 이슈 (r3)
+
+| # | finding | 귀속 | disposition | 후속 주체 |
+|---|---|---|---|---|
+| **D1(r3)** | `Composer.tsx:452` `onOpenUsageSettings?.(providerKey ?? undefined)` 가 선택 상태를 소비자에 넘기는 **5번째** 지점인데 EP-20a 분모(4)에 없다. 끊어도 3243케이스 green | **0215 계약 밖** — 사용량 설정 내비게이션이고 AC1~AC26 어디에도 없다. `:255`(0119)와 같은 계열이나 `:255` 는 분모에 넣고 제외했고 이것은 **세지 않았다** | **NEXT_HANDOFF** | 제품 판단 |
+| D2(r3) | EP-22 의 소스 단언 버킷 서술이 `5지점`인데 실측 6이다 — memo `:176` 은 `Popover`·`useEffect` 밖이라 **항상 실행**되는데 소스 버킷에 있다 | plan §10 EP-22 서술 | NON_BLOCKING | 설계자(문언) |
+| D3(r3) | §8 검산의 `24 EP 행` 이 실측 25 (사이트 합계 40 은 정확) | plan §8 | NON_BLOCKING | 설계자 |
+| D4(r3) | 구현 보고의 vitest `7 skipped` 가 재측정(skipped 0)과 어긋난다 — 330파일 3243케이스는 일치 | 구현 보고 | NON_BLOCKING | 기록 — r1 D5 와 동일 증상 |
+
+### D1(r3) 이 왜 이번 PASS 를 막지 않는가
+
+- **r2 D1 과 다른 점은 계약 귀속이다.** r2 의 미계수 2지점(`:496` 모델 메뉴 활성 행 · `:392` 칩 라벨)은 요구③·④ 가 직접 말하는 화면이라 0215 AC 로 닫아야 했다. `:452` 는 사용량 설정 서브탭을 여는 경로이고 0215 의 어떤 R·AC·ACTIVE Decision 도 그것을 말하지 않는다.
+- **구현자가 발명해야 닫히는 것이 아니다.** 0215 가 요구한 지점은 전부 닫혔다 — `:452` 를 REQUIRED 로 올리는 것은 정정이 아니라 **범위 확대**이고, plan 은 같은 상황(`:255`)에서 이미 확대하지 않기로 판정했다.
+- 다만 **분모 기재 방식은 `:255` 와 갈린다** — `:255` 는 분모에 넣고 `NOT_REQUIRED` 사유를 적었고 `:452` 는 술어(`rg selectedModel`)가 memo 를 경유하는 지점만 잡아 아예 오르지 않았다. 후속 handoff 가 이 축을 열 때의 시작점이다.
+
+## 14. Review Signals — 사실만 (r3)
+
+- 이전 라운드와 동일 증상인가: **분모 축이 3라운드 연속이다.** r1 D1 "배선이 안 잠김" → r2 D1 "잠근 6이 전수가 아님" → r3 D1 "주어로 세면 하나 더 있음(단, 계약 밖)". **r3 에서 처음으로 0215 계약 내부의 미계수 지점이 0 이다.**
+- 관련 지침이 있었는가: 있었다 — `handoff-impl §2` "검색의 술어는 불변식의 주어로 쓴다". r3 은 이 규칙을 적용했고(술어 `selectedModel`·`setModel(`·`stopErrors={`), 남은 차집합 1건은 그 술어가 **memo 경유 지점만** 잡기 때문이다.
+- 사용자 결정 변경 근거: 없음. D-020(jsdom)은 OPEN 유지 — ΔV2 로 필요 범위가 소스 단언 5지점으로 좁아졌다.
+- 반복된 검증 환경 한계: ① `Popover`·`useEffect` 내부는 SSR 미실행이라 소스 단언이 남는다 ② zustand v5 SSR 스냅샷이 `setState` 시드를 무시 ③ better-sqlite3 ABI ④ 변이 스크립트가 외부 timeout 으로 죽으면 트리에 변이가 남는다 — 이번 턴은 `trap` 으로 원복을 강제했고 매 변이 후 `git status` 로 확인했다(잔여 0).
+- 라운드 수: 3 (`> 3` 아님 — review 자동 트리거 조건 미달).
+
+## 15. 결론 (r3)
+
+**PASS.**
+
+- 22 pair 전건 PASS · `PLAN_GAP` 0 · 이번 변경 산출물의 필수 gate 5종 전부 green.
+- r2 가 green 으로 관측한 3지점(V-1·V-2c·V-5)이 전부 red 로 잠겼고, r2 가 red 로 잡던 5종은 그대로 red 다 — **덮개 회귀 0**.
+- 자기검증 축 3건 중 green 1건(A1)은 0215 계약 밖이라 `NEXT_HANDOFF` 다. 나머지 findings 3건은 문서 수치·문언으로 `NON_BLOCKING`.
+- production 코드는 이번 라운드에 한 줄도 바뀌지 않았다 — 잠금만 늘었다.
