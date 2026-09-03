@@ -37,7 +37,7 @@ export function CwdButton({
     setBusy(true)
     try {
       if (sessionStarted) {
-        if (cwd) await fileApi.openPath({ path: cwd })
+        if (cwd) await fileApi.openPath({ path: cwd, mode: 'directory' })
         return
       }
       const picked = await fileApi.pickDirectory()

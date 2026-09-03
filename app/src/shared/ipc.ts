@@ -1065,6 +1065,13 @@ export interface FileEntry {
 
 export interface OpenPathRequest {
   path: string
+  /**
+   * `directory` = 그 디렉토리를 연다(0201 이래의 동작). `reveal` = 그 **파일**을 탐색기에서
+   * 선택해 보여준다(0211 ΔV5 D-108).
+   *
+   * **필수다.** optional 로 두고 미지정을 파일 허용으로 접으면 기존 호출부가 조용히 넓어진다.
+   */
+  mode: 'directory' | 'reveal'
 }
 
 // ── git (컴포저 브랜치 칩) ──────────────────────────────────────────────────

@@ -29,6 +29,52 @@ export function gitPatchRequest(cwd: string, sessionId: string | null): GitDiffP
   return { cwd, ...(sessionId ? { sessionId } : {}) }
 }
 
+/** 진행 중 조회 하나를 기억하는 자리 (0211 ΔV5 MD-25). */
+export interface PatchQueryGuard {
+  inFlightKey: string | null
+}
+
+export const IDLE_PATCH_GUARD: PatchQueryGuard = { inFlightKey: null }
+
+export function patchQueryKey(sessionKey: string, request: GitSnapshotRequest): string {
+  return `${sessionKey}:${request.key}:${request.generation}`
+}
+
+/**
+ * 조회를 시작할지와 그 다음 가드 상태 (0211 ΔV5 D-103, §10 EP-34 ④).
+ *
+ * 같은 키가 이미 나가 있으면 `false` — 응답을 기다리는 동안의 재렌더가 두 번째 조회를
+ * 만들지 않게 한다.
+ */
+export function beginPatchQuery(
+  guard: PatchQueryGuard,
+  input: {
+    cwd: string | null
+    patch: GitDiffPatch | null
+    request: GitSnapshotRequest | null
+    sessionKey: string
+  }
+): { guard: PatchQueryGuard; fetch: boolean; key: string | null } {
+  if (!input.request || !shouldFetchGitPatch(input)) return { guard, fetch: false, key: null }
+  const key = patchQueryKey(input.sessionKey, input.request)
+  if (guard.inFlightKey === key) return { guard, fetch: false, key }
+  return { guard: { inFlightKey: key }, fetch: true, key }
+}
+
+/**
+ * 응답이 도달했다 — **성공·실패·폐기 공통** (0211 ΔV5 D-103).
+ *
+ * 성공에서 해제하지 않으면 교착이 난다: 패치가 먼저 도착해 저장된 뒤 같은 세대의 요약이
+ * 늦게 와서 `patch` 를 `null` 로 되돌리면, 요청 키가 그대로라 다음 렌더가 같은 키를 만들고
+ * 가드가 그것을 막아 화면이 **영원히 로딩 문구**에 갇힌다. 커밋이 생긴 뒤 요약 경로에
+ * `git log --raw --numstat` 이 붙어 요약이 패치보다 느려지는 것이 그 순서 역전의 원인이다.
+ *
+ * 키가 다르면 그대로 둔다 — 늦게 끝난 이전 조회가 방금 나간 새 조회의 가드를 풀지 않는다.
+ */
+export function settlePatchQuery(guard: PatchQueryGuard, key: string): PatchQueryGuard {
+  return guard.inFlightKey === key ? IDLE_PATCH_GUARD : guard
+}
+
 /**
  * 패치 조회 소유자 (§10 EP-34 ③ — `gitApi.diffPatch` 를 부르는 renderer 파일은 여기 하나다).
  *
@@ -42,26 +88,28 @@ export function useGitPatch(): void {
   const sessionKey = useChatStore((state) => state.activeKey)
   const patch = useChatSession((state) => state.gitSnapshot.patch)
   const request = useChatSession((state) => state.gitSnapshotRequest)
-  // 진행 중 요청 키. 응답을 기다리는 동안의 재렌더가 두 번째 조회를 만들지 않게 한다.
-  const inFlight = useRef<string | null>(null)
+  const guard = useRef<PatchQueryGuard>(IDLE_PATCH_GUARD)
 
   useEffect(() => {
-    if (!cwd || !request || !shouldFetchGitPatch({ cwd, patch, request })) return
-    const key = `${sessionKey}:${request.key}:${request.generation}`
-    if (inFlight.current === key) return
-    inFlight.current = key
+    const next = beginPatchQuery(guard.current, { cwd, patch, request, sessionKey })
+    guard.current = next.guard
+    if (!next.fetch || !cwd || !request || next.key === null) return
+    const key = next.key
     let live = true
     void gitApi
       .diffPatch(gitPatchRequest(cwd, sessionId))
       .then((result) => {
-        // 늦게 도착한 응답은 리듀서의 세대 판정이 한 번 더 거른다 — 여기서 버리는 것은
-        // 언마운트된 타일의 dispatch 뿐이다.
+        // 늦게 도착한 응답은 리듀서의 세대 판정이 한 번 더 거른다. 리듀서가 버리든 받든
+        // **가드는 반드시 풀린다** — 버려진 응답에서 풀지 않으면 그 세대가 영영 잠긴다.
+        // **dispatch 보다 먼저 푼다**: 상태 갱신이 곧바로 이 effect 를 다시 돌리면 아직
+        // 잠긴 가드가 재조회를 막아 같은 교착이 난다.
+        guard.current = settlePatchQuery(guard.current, key)
         if (live) chatActions.receiveGitPatch(request, result)
       })
       .catch(() => {
-        // 실패는 다음 계기(턴 종료·새로고침)가 재시도한다. `patch` 가 null 로 남아 화면은
-        // 로딩 문구를 유지하고, 조용히 "변경 없음" 으로 바뀌지 않는다.
-        if (live) inFlight.current = null
+        // 실패는 다음 계기(턴 종료)가 재시도한다. `patch` 가 null 로 남아 화면은 로딩 문구를
+        // 유지하고, 조용히 "변경 없음" 으로 바뀌지 않는다.
+        guard.current = settlePatchQuery(guard.current, key)
       })
     return () => {
       live = false

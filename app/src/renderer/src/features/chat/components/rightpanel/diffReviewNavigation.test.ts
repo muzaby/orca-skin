@@ -12,6 +12,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GitDiffPatch, GitDiffPatchFile, GitDiffSummary } from '../../../../../../shared/ipc'
+import type { FileSectionOwner } from '../../lib/fileSectionScroll'
 import { DEFAULT_DIFF_VIEW } from '../../reducer/chatReducer'
 
 let onPickFile: ((path: string) => void) | null = null
@@ -70,7 +71,12 @@ const summary: GitDiffSummary = {
   uncommitted: { files: [], totals: { added: 0, removed: 0 }, filesTruncated: false }
 }
 
-function render(collapsed: string[] = []): {
+// 0211 ΔV5 D-110 — 스크롤 소유자를 **주입**한다. SSR 은 ref 를 채우지 않아, 내부 ref 만
+// 쓰면 `revealFileSection(null, path)` 가 되고 소유자를 통째로 지운 변이가 전건 green 이다
+// (ΔV4 r3 검증 D22).
+const owner: FileSectionOwner = { querySelector: () => null }
+
+function render(expanded: string[] = ['docs/a.md', 'src/b.ts']): {
   html: string
   onExpandFile: ReturnType<typeof vi.fn>
 } {
@@ -79,14 +85,17 @@ function render(collapsed: string[] = []): {
     createElement(DiffReview, {
       summary,
       patch,
+      hasRequest: true,
       comparison: { kind: 'all' as const },
-      collapsedFiles: new Set(collapsed),
+      expandedFiles: new Set(expanded),
       sidebarVisible: true,
       view: DEFAULT_DIFF_VIEW,
       requirements: [],
       draft: null,
-      onToggleCollapsed: () => undefined,
+      scrollOwnerRef: { current: owner },
+      onToggleExpanded: () => undefined,
       onExpandFile,
+      onOpenFile: () => undefined,
       onPickComparison: () => undefined
     })
   )
@@ -101,7 +110,7 @@ beforeEach(() => {
 
 describe('사이드바 파일 선택 (§10 EP-36 ②)', () => {
   it('고른 파일을 먼저 펼친다 — 접힌 섹션으로 스크롤만 하면 아무 일도 안 일어난 것으로 보인다', () => {
-    const { onExpandFile } = render(['src/b.ts'])
+    const { onExpandFile } = render(['docs/a.md'])
 
     onPickFile?.('src/b.ts')
 
@@ -110,12 +119,13 @@ describe('사이드바 파일 선택 (§10 EP-36 ②)', () => {
   })
 
   it('펼친 다음 그 섹션으로 이동한다 — 펼치기만 하면 화면은 보던 자리에 남는다 (AT-50)', () => {
-    render(['src/b.ts'])
+    render(['docs/a.md'])
 
     onPickFile?.('src/b.ts')
 
     expect(revealFileSection).toHaveBeenCalledTimes(1)
-    // 두 번째 인자가 **고른 경로**다 — 첫 인자는 스크롤 소유자(SSR 이라 null)다.
+    // 두 인자를 **둘 다** 잰다 — 경로만 보면 소유자를 null 로 만든 변이가 통과한다(D22).
+    expect(revealFileSection.mock.calls[0][0]).toBe(owner)
     expect(revealFileSection.mock.calls[0][1]).toBe('src/b.ts')
   })
 

@@ -3805,6 +3805,89 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 - 반복되는 환경 한계: **셋 그대로** — ① `environment: 'node'`(DOM 패키지 미설치, 새 의존성은 사용자 승인) ② electron 바이너리 미설치 1파일 red ③ 컨테이너 메모리 → `--maxWorkers=2`.
 - **환경 한계를 설계로 우회한 첫 사례**: ①을 "사람 실기" 로 넘기지 않고 **인자로 받는 seam** 을 만들어 잠갔다. 같은 형태의 남은 자리(effect 기반 계기)도 이 방법이 닿는지는 다음 라운드의 질문이다.
 
+## [구현자 기입] 설계 리뷰 (ΔV5)
+
+- 동의 / 그대로 진행: Decision·AC·§10 을 계약으로 수행했다. 설계가 전제한 셋이 코드에서 그대로였다 — ① 요약 조회 소유자 **1건**(`useGitSnapshot.ts:126`) ② `state.gitStatus.branch` 가 이미 현재 브랜치를 갖는다 ③ `reconcileComparison` 이 `kind !== 'commit'` 조기 반환이라 `uncommitted` 멤버 제거로 깨지지 않는다.
+- 이견 / 현실성 문제: **하나**. §11-8 이 "부모 디렉토리로 기존 판정을 그대로 재사용" 이라 적었는데 `hasSessionWithCwd` 는 **동등 조회**라 `repo/src/a.ts` 의 부모 `repo/src` 가 걸리지 않는다 — 세션 cwd 는 저장소 루트고 변경 파일은 그 아래 어디든 있다. 조상까지 올라가는 유한 루프로 고쳤다(아래 §설계 대비 명시적 차이).
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (ΔV5)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-63 | 계기 두 함수 · 요약은 `turn-end` 만 | EP-42 ① `gitSummaryQueryReason` ② `gitStatusQueryReason` ③ 두 effect 배선 (3) | **3/3** | `rg 'QueryReason' useGitSnapshot.ts` = 정의 2 + 호출 2. `gitQueryReason.test.ts` 6케이스 | — |
+| VP-64 | 미싱크 ≠ 로딩 | EP-43 ① `DiffReview` 분기 ② 카탈로그 두 키 (2) | **2/2** | `DiffReview.tsx:105-112` 두 분기 · `ko.ts:802-803` 두 키. `diffSyncState.render.test.ts` 3케이스 | — |
+| VP-65 | 가드 해제 3경로 | EP-34 ④ (1, 기존 EP-34 3 + 1) | **1/1** | `useGitPatch.ts` `.then`·`.catch` 양쪽 `settlePatchQuery`. `gitPatchGuard.test.ts` 5케이스 | — |
+| VP-66 | `기준 → 현재` | EP-28 (3, 기존) | **3/3** | `summaryComparisonLabel` + `GitContextBar` 두 span. `GitContextBar.render.test.ts` 4케이스 | — |
+| VP-67 | 펼침 집합 한 방향 | EP-45 ① 리듀서 액션 쌍 ② 소비 컴포넌트 둘 (2) | **2/2** | `rg 'collapsedFiles' app/src --glob '!*.test.*'` = **0**. `gitSyncTriggersRemoved.test.ts` | — |
+| VP-68 | 2행 + 서브메뉴 · 7항목 | EP-33 (4) · EP-35 (2) | **6/6** | `DIFF_VIEW_MENU_ITEMS.length` = 7 · `data-diff-commit-submenu` 조건 렌더 · `rg "'uncommitted'" app/src/renderer --glob '!*.test.*'` = **0** | — |
+| VP-69 | reveal 화이트리스트 | EP-44 ① 스키마 모드 ② 핸들러 분기 ③ 판정 재사용 (3) | **3/3** | `OpenPathRequestSchema` 필수 유니온 · `files.ts:89-99` 두 분기 · `isInsideAllowedDir` 가 `isAllowedDir` 하나만 부른다. `files.openPath.test.ts` 8케이스 | — |
+| VP-70 | 이동 소유자 주입 | EP-36 ③ (1, 기존 EP-36 2 + 1) | **1/1** | `DiffReview` 의 `scrollOwnerRef?` prop · `diffReviewNavigation.test.ts` 가 `{current: owner}` 주입 후 **첫 인자** 단언 | — |
+
+**합계 12/12** (EP-42 3 · EP-43 2 · EP-34 ④ 1 · EP-45 2 · EP-44 3 · EP-36 ③ 1). EP-28·EP-33·EP-35 는 기존 지점의 재확인이다.
+
+- §10 에 없는데 같은 불변식이 필요했던 지점: 없음.
+
+### V-pair 자기확인 (ΔV5)
+
+구현자의 `SELF_PASS` 는 독립 검증의 `PASS` 가 아니다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-63 | REQUIRED | SELF_PASS | 두 함수가 같은 입력에서 다른 값 · 마운트/전환 0 · 턴 종료 1 | **M1**(항상 `'turn-end'`) 4 red · **M2**(마운트를 계기로 되살림) 3 red |
+| VP-64 | REQUIRED | SELF_PASS | 각 상태의 자기 문구 + 다른 문구 부재 | **M7**(두 문구를 같은 키로) 1 red |
+| VP-65 | REQUIRED | SELF_PASS | `fetch:true → false → (해제) → true` | **M3**(해제 삭제) 1 red · **M4**(가드 삭제) 2 red — **양방향** |
+| VP-66 | REQUIRED | SELF_PASS | 두 값 + 순서 인덱스 · detached 생략 · 동명 접힘 | **M5**(기준↔현재 맞바꿈) 2 red |
+| VP-67 | REQUIRED | SELF_PASS | 첫 출력 diff 줄 0 · 펼친 파일만 본문 · `collapsedFiles` 0건 | **M6**(기본 펼침 복귀) 1 red |
+| VP-68 | REQUIRED | SELF_PASS | 첫 화면 2행 · 서브메뉴 뒤 커밋 · 7항목 집합 동등 | **M9**(평면 복귀) 1 red · **M11**(항목 하나 삭제) 3 red |
+| VP-69 | REQUIRED | SELF_PASS | 허용 1 + 거부 3 + 디렉토리 회귀 3 | **M10**(화이트리스트 삭제) 2 red |
+| VP-70 | REQUIRED | SELF_PASS | `revealFileSection` **첫 인자 == 주입한 소유자** | **M8**(`null` 로 대체) 1 red — **D22 가 여기서 닫힌다** |
+| VP-53~VP-56 · VP-61 · VP-62 · VP-54 · VP-51 · VP-52 · VP-22 · VP-48 · VP-50 | REGRESSION | SELF_PASS | 기존 oracle 재실행 — `src/renderer/src/features/chat` **799/800** (1 은 간헐 타임아웃, 아래) | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (ΔV5)
+
+- **등록 변이 11개 중 11개 RED.** 다만 **M9 는 처음에 green 이었다** — `GitContextBar.actions.test.ts` 의 요약 fixture 가 `commits: []` 라 "첫 화면에 커밋이 없다" 가 어떤 구현에서도 참이었다. fixture 에 커밋 1건을 넣은 뒤 red 로 바뀌었다. **분모가 비면 부재 단언은 아무것도 말하지 않는다** — 이 자리를 자기검증이 아니었으면 놓쳤다.
+- **양방향을 심은 자리 둘**: VP-65(해제 삭제 ↔ 가드 삭제)와 VP-63(계기 확대 ↔ 계기 소거). 사용자 지시 §3 의 회귀 형태가 "장치가 없다" 가 아니라 "장치가 안 풀린다" 라 한 방향만으로는 잠기지 않는다.
+- **덮개 회귀 점검**: ΔV4 r3 이 red 로 보던 변이 중 이번에 장치를 교체한 것은 `revealFileSection` 축 하나다. 구 장치(경로 인자 단언)를 **지우지 않고** 소유자 단언을 더했으므로 하한이 유지된다 — `diffReviewNavigation.test.ts` 가 두 인자를 함께 센다.
+
+## [구현자 기입] Product/UX 파생 검토 (ΔV5)
+
+- **만든 문구에 소비자가 있는가**: `턴이 끝나면 표시됩니다.` 는 **다음에 무엇이 일어나는지**를 말한다 — "없음"·"실패" 로 읽히지 않게 시제를 미래로 두었다. 안내 문구는 `대량 diff의 경우…` 로 참조 원문을 그대로 썼다.
+- **실패가 화면에서 무엇으로 보이는가**: `↗` 거부는 화면 변화가 **없다**(catch 로 삼킨다). 삭제된 파일을 눌렀을 때 앱이 아무 말도 안 하는 것이 맞는지는 사람 실기 항목으로 남긴다 — 토스트를 새로 만들지 않았다(범위 밖).
+- **잃은 능력의 사용자 자리**: ① 앱 재시작 후 빈 목록 ② 터미널 변경의 지연 ③ 미커밋 전용 진입점 소멸. 셋 다 사용자가 문장으로 보고 골랐고 §3 갱신 메모에 남아 있다.
+- **새로 생긴 자리**: 기본 접힘이라 파일이 많으면 **헤더만 수백 줄**이다. 상한은 `MAX_DIFF_FILES` 200 이 이미 갖는다(D-076 승계) — 새 상한을 만들지 않았다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (ΔV5)
+
+- **가드 해제와 dispatch 의 순서**(선조치). `settlePatchQuery` 를 `chatActions.receiveGitPatch` **뒤에** 두면, 상태 갱신이 곧바로 effect 를 다시 돌리는 구현/버전에서 아직 잠긴 가드가 재조회를 막아 **같은 교착**이 난다. 해제를 dispatch 앞으로 옮기고 그 이유를 코드 주석에 남겼다(`useGitPatch.ts`).
+- **중첩 `Popover` 의 바깥 클릭**(선조치). 커밋 서브메뉴를 중첩 `Popover` 로 띄우면 portal 이라 바깥 패널 **밖의 클릭**이 되어, 항목을 누르는 순간 바깥 메뉴가 먼저 닫히고 클릭이 도달하지 못한다. 서브메뉴를 바깥 패널의 **자식**(absolute flyout)으로 두어 해결했다 — `Popover` 프리미티브는 건드리지 않았다(D-092 승계).
+- **중첩 버튼**(선조치). 파일 헤더가 `<button>` 하나였는데 `↗` 를 그 안에 넣으면 무효 HTML 이고 중첩 클릭이 두 동작을 함께 발화한다. 헤더를 `<div>` 로 바꾸고 토글과 `↗` 를 **형제 버튼**으로 두었다. 그 형제 관계를 `diffSyncState.render.test.ts` 가 닫는 태그 위치로 잰다.
+- **보고만**: `gitQueryOwner.test.ts`·`git-cli.test.ts`·`git-diff.test.ts` 가 전체 병렬 실행에서 간헐 실패하고 단독 실행에서는 통과한다(`--maxWorkers=2` 로도 재현). 기존 D15 와 같은 축이고 이번 변경과 무관하다.
+
+### 설계 대비 명시적 차이 (ΔV5)
+
+| # | 설계 | 구현 | 이유 |
+|---|---|---|---|
+| G1 | §11-8 — `reveal` 은 `dirname(path)` 로 기존 화이트리스트를 **그대로** 통과 | `isInsideAllowedDir` — 부모부터 **조상까지** 올리며 같은 술어(`isAllowedDir`)를 돈다 | `hasSessionWithCwd` 가 **동등 조회**라 세션 cwd 하위 디렉토리의 파일이 전부 거부됐다(실측: `files.openPath.test.ts` 첫 실행 red). 술어는 그대로 하나이고 반복만 더했다 |
+| G2 | §11-9 — `DiffReview` 가 `scrollOwnerRef` prop 을 받는다 | 같음. 단 `FileDiffSection` 에는 **내부 ref** 를 계속 넘긴다 | 문맥 확장 보정은 실제 DOM 컨테이너가 필요하고, 주입 대상은 *이동의 소유자* 한 축이다. 두 축을 같은 ref 로 묶으면 테스트가 보정 경로를 가짜 소유자로 오염시킨다 |
+| G3 | §7 AT-64 — `rg 'patch: null' reducer` = **4** | 같음(**4**: 초기 · cwd 리셋 · BEGIN 키불일치 · RECEIVE_SUMMARY). REFRESH 제거로 5 → 4 | 차이 없음. 실측으로 재확인했다 |
+
+## [구현자 기입] 구현 보고 (ΔV5)
+
+- 유효 V: `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5`. 기준 `177def67`.
+- AC 자기보고: **8/8**(AT-62~AT-69). §10 강제 지점 **12/12**.
+- 변경 파일 **26** — main 2 · shared/preload 3 · renderer 프로덕션 13(신규 1 `lib/repoPath.ts`) · 테스트 신규 5 · 테스트 변경 9 · i18n 2 · 문서 1. 마이그레이션 **0**.
+- 게이트: `npm run lint` **0 errors**(1 warning = 기존 `useTranscriptVirtualizer` incompatible-library) · `typecheck` 3분할 **전건 통과** · `check-doc-inventory --check` **generated doc ok (9 items, 82 channels)**, `inventory.md` **diff 0**.
+- **환경 한계로 분리 보고**: 전체 vitest 에서 **13파일 red = better-sqlite3 ABI**(Electron 140 ↔ Node 127). 전부 DB 를 인스턴스화하는 스위트이고 ΔV5 는 DB 코드를 한 줄도 바꾸지 않는다(§18 비영향 선언). 그 밖 **3파일**(`gitQueryOwner`·`git-cli`·`git-diff`)은 병렬 부하에서만 간헐 red 이고 단독 실행 green — 기존 D15.
+
+## [구현자 기입] Review Signals — 사실만 (ΔV5)
+
+- **이전 라운드와 동일 증상인가**: 아니다. ΔV4 r3 의 root 실패(VP-58 / D22)는 이번에 **주입으로 닫았고**(M8 red) 그 축의 변이가 처음으로 red 다.
+- **관련 plan 지침/AC 가 있었는가**: 있었다. AT-69 가 "첫 인자가 주입한 소유자와 같다" 를 이름으로 적었고 구현이 그대로 따랐다.
+- **구현자 = 검증자였는가**: 구현자는 Claude 다(설계도 같다). 자기검증에서 **변이 하나가 처음에 green**(M9)이었고 그것을 fixture 결함으로 추적해 고쳤다 — 검증자는 그 자리를 독립적으로 다시 봐야 한다.
+- **사용자 결정 변경 근거**: D-104·D-105·D-106·D-107·D-109 는 사용자 명시(질의 응답 3라운드). D-101 은 **설계자 판정이고 사용자 미확인**이다 — 이름 조회를 계기 축소에서 뺀 근거가 §3 D-101 행에 있다.
+- **반복된 검증 환경 한계**: 셋 그대로 — ① `environment: 'node'` ② better-sqlite3 ABI ③ 병렬 부하의 간헐 타임아웃.
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다.

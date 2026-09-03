@@ -36,6 +36,8 @@ export interface FileDiffSectionProps {
   scrollOwnerRef: React.RefObject<HTMLDivElement | null>
   tailSpacerRef: React.RefObject<HTMLDivElement | null>
   onToggleCollapsed: (path: string) => void
+  /** `↗` — 그 파일을 OS 탐색기에서 선택해 연다 (0211 ΔV5 D-108). */
+  onOpenFile: (path: string) => void
   onDraftChange?: (draft: DiffRequirementDraft | null) => void
   onAddRequirement?: (input: {
     lines: readonly DiffLine[]
@@ -59,8 +61,12 @@ function lineAxisLabel(line: DiffLine): string {
 }
 
 /**
- * 한 파일의 섹션 (0211 ΔV4 D-073). 헤더가 곧 목록 행이고 그 아래에 diff 가 이어진다 —
- * 별도 화면으로 가지 않는다. 기본은 펼침이고 헤더의 chevron 이 이 파일만 접는다(D-074).
+ * 한 파일의 섹션 (0211 ΔV4 D-073 · ΔV5 D-105·D-108). 헤더가 곧 목록 행이고 그 아래에 diff 가
+ * 이어진다 — 별도 화면으로 가지 않는다. **기본은 접힘**이고 헤더를 누르면 이 파일만 펼쳐진다.
+ *
+ * 헤더는 **한 줄**이다(참조 배치): chevron · 아이콘 · 이름 · 흐린 부모 경로 · `+N −M` · `↗`.
+ * 접기 토글과 `↗` 는 **형제 버튼**이다 — 버튼 안에 버튼을 넣으면 무효 HTML 이고 중첩 클릭이
+ * 두 동작을 함께 발화한다.
  */
 export function FileDiffSection({
   section,
@@ -71,6 +77,7 @@ export function FileDiffSection({
   scrollOwnerRef,
   tailSpacerRef,
   onToggleCollapsed,
+  onOpenFile,
   onDraftChange,
   onAddRequirement,
   onRemoveRequirement
@@ -79,30 +86,41 @@ export function FileDiffSection({
   const { parent, name } = splitPath(section.path)
   return (
     <section data-diff-file={section.path} className="border-b border-t5">
-      <button
-        type="button"
-        data-diff-file-toggle={section.path}
-        aria-expanded={!collapsed}
-        onClick={() => onToggleCollapsed(section.path)}
-        className="group/filehead flex w-full items-start gap-g2 px-p5 py-p3 text-left outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
-      >
-        <Icon
-          name={collapsed ? 'chevR' : 'chevD'}
-          size={12}
-          className="mt-[2px] shrink-0 text-t5 transition-colors group-hover/filehead:text-t7"
-        />
-        <Icon name="doc" size={12} className="mt-[2px] shrink-0 text-t5" />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-body font-medium text-t9">{name}</span>
+      <div className="group/filehead flex w-full items-center gap-g2 px-p5 py-p3 transition-colors hover:bg-fill-uncontained-hover">
+        <button
+          type="button"
+          data-diff-file-toggle={section.path}
+          aria-expanded={!collapsed}
+          aria-label={tr('chat.rightpanel.diffFileToggleAria', { path: section.path })}
+          onClick={() => onToggleCollapsed(section.path)}
+          className="flex min-w-0 flex-1 items-center gap-g2 text-left outline-none hide-focus-ring ring-focus"
+        >
+          <Icon
+            name={collapsed ? 'chevR' : 'chevD'}
+            size={12}
+            className="shrink-0 text-t5 transition-colors group-hover/filehead:text-t7"
+          />
+          <Icon name="doc" size={12} className="shrink-0 text-t5" />
+          <span className="shrink-0 truncate text-body font-medium text-t9">{name}</span>
           {parent.length > 0 && (
-            <span className="block truncate font-mono text-caption text-t5">{parent}</span>
+            <span className="min-w-0 shrink truncate font-mono text-caption text-t5">{parent}</span>
           )}
-        </span>
-        <span className="mt-[2px] flex shrink-0 gap-g1 text-caption tabular-nums">
-          <span className="text-git-added">+{section.added}</span>
-          <span className="text-git-removed">−{section.removed}</span>
-        </span>
-      </button>
+          <span className="ml-auto flex shrink-0 gap-g1 text-caption tabular-nums">
+            <span className="text-git-added">+{section.added}</span>
+            <span className="text-git-removed">−{section.removed}</span>
+          </span>
+        </button>
+        <button
+          type="button"
+          data-diff-file-open={section.path}
+          aria-label={tr('chat.rightpanel.diffOpenFileAria', { path: section.path })}
+          title={tr('chat.rightpanel.diffOpenFile')}
+          onClick={() => onOpenFile(section.path)}
+          className="shrink-0 rounded-r4 p-p1 text-t5 outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover hover:text-t7"
+        >
+          <Icon name="fileOpen" size={12} />
+        </button>
+      </div>
       {!collapsed &&
         (section.patch === null ? (
           <p className="px-p5 pb-p3 text-caption text-t5">

@@ -61,8 +61,20 @@ describe('SendChatMessageSchema — cwd', () => {
 
 describe('OpenPathRequestSchema', () => {
   it('열 경로를 검증한다', () => {
-    expect(OpenPathRequestSchema.safeParse({ path: '/repo/orca' }).success).toBe(true)
-    expect(OpenPathRequestSchema.safeParse({ path: '' }).success).toBe(false)
+    expect(OpenPathRequestSchema.safeParse({ path: '/repo/orca', mode: 'directory' }).success).toBe(
+      true
+    )
+    expect(OpenPathRequestSchema.safeParse({ path: '', mode: 'directory' }).success).toBe(false)
+  })
+
+  // 0211 ΔV5 D-108 — 모드는 **필수**다. optional 로 두고 미지정을 파일 허용으로 접으면
+  // 기존 호출부가 조용히 넓어진다(fail-open).
+  it('모드가 없거나 목록 밖이면 거절한다', () => {
+    expect(OpenPathRequestSchema.safeParse({ path: '/repo/orca' }).success).toBe(false)
+    expect(OpenPathRequestSchema.safeParse({ path: '/repo/orca', mode: 'any' }).success).toBe(false)
+    expect(OpenPathRequestSchema.safeParse({ path: '/repo/a.ts', mode: 'reveal' }).success).toBe(
+      true
+    )
   })
 })
 

@@ -60,6 +60,7 @@ interface Fixture {
   sidebarVisible: boolean
   view: DiffViewOptions
   colWidth: number
+  status: GitStatus | null
 }
 
 let fixture: Fixture = {
@@ -67,7 +68,8 @@ let fixture: Fixture = {
   comparison: ALL_CHANGES,
   sidebarVisible: false,
   view: DEFAULT_DIFF_VIEW,
-  colWidth: PANEL_DEFAULT_WIDTH
+  colWidth: PANEL_DEFAULT_WIDTH,
+  status: gitStatus
 }
 
 vi.mock('../../store/chatStore', () => ({
@@ -75,9 +77,8 @@ vi.mock('../../store/chatStore', () => ({
     toggleDiffSidebar: vi.fn(),
     setDiffComparison: vi.fn(),
     setDiffViewOption: vi.fn(),
-    setAllDiffFilesCollapsed: vi.fn(),
-    setRightPanelColWidth: vi.fn(),
-    refreshGitSnapshot: vi.fn()
+    setAllDiffFilesExpanded: vi.fn(),
+    setRightPanelColWidth: vi.fn()
   },
   useChatSession: (select: (state: unknown) => unknown) =>
     select({
@@ -85,12 +86,12 @@ vi.mock('../../store/chatStore', () => ({
         summary: fixture.summary,
         patch,
         comparison: fixture.comparison,
-        collapsedFiles: [],
+        expandedFiles: [],
         sidebarVisible: fixture.sidebarVisible,
-        view: fixture.view,
-        refreshGeneration: 0
+        view: fixture.view
       },
-      gitStatus,
+      cwd: '/repo',
+      gitStatus: { cwd: '/repo', status: fixture.status },
       rightPanelTiles: [
         { id: 'col-a', tiles: ['task'] },
         { id: 'col-b', tiles: ['diff'] }
@@ -108,25 +109,38 @@ function render(patchFixture: Partial<Fixture> = {}): string {
     sidebarVisible: false,
     view: DEFAULT_DIFF_VIEW,
     colWidth: PANEL_DEFAULT_WIDTH,
+    status: gitStatus,
     ...patchFixture
   }
   return renderToStaticMarkup(createElement(GitContextBar))
 }
 
-describe('비교 기준 라벨 — 이름 하나뿐이다 (AT-43 · D-069)', () => {
-  it('세션 시작 브랜치 이름을 그린다', () => {
+// 0211 ΔV5 D-104 — 사용자가 참조 화면을 다시 보고 D-069 의 금지를 뒤집었다. 이제 두 값이다.
+describe('비교 기준 라벨 — `기준 → 현재` 두 값이다 (AT-65 · D-104)', () => {
+  it('세션 시작 브랜치와 현재 브랜치를 **그 순서로** 그린다', () => {
     const html = render()
 
     expect(html).toContain('data-diff-context-bar')
     expect(html).toContain('main')
+    expect(html).toContain(CURRENT_BRANCH)
+    // **순서가 계약의 절반이다.** 존재만 세면 두 값을 맞바꾼 구현도 통과한다.
+    expect(html.indexOf('data-diff-base-label')).toBeLessThan(html.indexOf('data-diff-head-label'))
+    expect(html.indexOf('>main<')).toBeLessThan(html.indexOf(`>${CURRENT_BRANCH}<`))
   })
 
-  it('현재 브랜치와 화살표가 출력에 없다 — 둘 다 store 에서 읽을 수 있는데도 없다', () => {
-    const html = render()
+  it('현재 브랜치를 모르면 화살표와 우측 값을 함께 생략한다 — 꼬리가 빈 라벨을 만들지 않는다', () => {
+    const detached = render({ status: { ...gitStatus, branch: null, detached: true } })
 
-    expect(html).not.toContain(CURRENT_BRANCH)
-    expect(html).not.toContain('→')
-    expect(html).not.toContain('&#x2192;')
+    expect(detached).toContain('main')
+    expect(detached).not.toContain('data-diff-head-label')
+    expect(detached).not.toContain(CURRENT_BRANCH)
+  })
+
+  it('기준과 현재가 같은 이름이면 한 값으로 접는다 — 화살표가 아무것도 말하지 않는다', () => {
+    const same = render({ status: { ...gitStatus, branch: 'main' } })
+
+    expect(same).toContain('main')
+    expect(same).not.toContain('data-diff-head-label')
   })
 
   it('이름을 모르면 sha 7자로 접힌다 — 라벨 자리를 비우지 않는다 (D-071)', () => {
@@ -135,7 +149,6 @@ describe('비교 기준 라벨 — 이름 하나뿐이다 (AT-43 · D-069)', () 
     })
 
     expect(html).toContain('abcdef1')
-    expect(html).not.toContain(CURRENT_BRANCH)
   })
 })
 
@@ -182,10 +195,23 @@ describe('`↗` 라벨은 카탈로그로 해석된다 (AT-52)', () => {
     expect(narrow).toContain('title="패널 폭 되돌리기"')
   })
 
-  it('컨텍스트 바의 아이콘 버튼 셋이 각자 접근성 이름을 갖는다 — 글리프만 남지 않는다', () => {
+  // 0211 ΔV4 r3 검증 D23 — 세 이름이 마크업에 **모두** 있어 존재만 세면 서로 맞바꿔도 green
+  // 이었다. 버튼을 `data-*` 로 지목해 이름과 **짝지어** 단언한다.
+  it('아이콘 버튼 셋이 각자의 접근성 이름을 갖는다 — 서로 맞바꾸면 red 다', () => {
     const html = render()
+    const pairs: [string, string][] = [
+      ['data-diff-sidebar-toggle', '파일 표시'],
+      ['data-diff-view-trigger', 'diff 표시 설정'],
+      ['data-diff-expand-panel', '패널 확대']
+    ]
 
-    for (const name of ['파일 표시', 'diff 표시 설정', '패널 확대'])
-      expect(html).toContain(`aria-label="${name}"`)
+    for (const [marker, name] of pairs) {
+      // 같은 요소 안에서 마커와 이름이 함께 나오는지 — 태그 경계를 넘지 않는 범위로 자른다.
+      const start = html.indexOf(marker)
+      expect(start).toBeGreaterThanOrEqual(0)
+      const tagStart = html.lastIndexOf('<', start)
+      const tagEnd = html.indexOf('>', start)
+      expect(html.slice(tagStart, tagEnd)).toContain(`aria-label="${name}"`)
+    }
   })
 })

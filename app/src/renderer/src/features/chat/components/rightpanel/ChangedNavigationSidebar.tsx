@@ -80,17 +80,13 @@ export function ChangedNavigationSidebar({
         data-diff-commit-list
         className="max-h-[45%] overflow-y-auto border-t border-t5 px-p3 py-p3"
       >
+        {/* 0211 ΔV5 D-107 — `미커밋 변경` 행은 참조 배치에 없어 사라졌다. 미커밋 파일은
+            `모든 변경사항` 본문에 계속 섞여 나온다. */}
         <ScopeRow
           label={tr('chat.rightpanel.diffAllChanges')}
           active={comparison.kind === 'all'}
           testKey="all"
           onClick={() => onPickComparison(ALL_CHANGES)}
-        />
-        <ScopeRow
-          label={tr('chat.rightpanel.diffUncommittedBlock')}
-          active={comparison.kind === 'uncommitted'}
-          testKey="uncommitted"
-          onClick={() => onPickComparison({ kind: 'uncommitted' })}
         />
         {(summary?.commits ?? []).map((commit) => (
           <button

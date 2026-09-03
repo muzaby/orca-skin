@@ -46,9 +46,8 @@ const actions = {
   toggleDiffSidebar: vi.fn(),
   setDiffComparison: vi.fn(),
   setDiffViewOption: vi.fn(),
-  setAllDiffFilesCollapsed: vi.fn(),
-  setRightPanelColWidth: vi.fn(),
-  refreshGitSnapshot: vi.fn()
+  setAllDiffFilesExpanded: vi.fn(),
+  setRightPanelColWidth: vi.fn()
 }
 
 const summary: GitDiffSummary = {
@@ -57,7 +56,20 @@ const summary: GitDiffSummary = {
   files: [],
   totals: { added: 0, removed: 0 },
   filesTruncated: false,
-  commits: [],
+  // **커밋이 있어야 서브메뉴 단언이 뜻을 갖는다** — 빈 목록이면 "첫 화면에 커밋이 없다" 가
+  // 어떤 구현에서도 참이라 평면으로 되돌린 변이를 잡지 못한다(자기검증 M9 에서 실측).
+  commits: [
+    {
+      sha: 'commit-a',
+      subject: '첫 커밋',
+      author: 'codex',
+      committedAt: 0,
+      files: [],
+      filesTruncated: false,
+      fileCount: 0,
+      totals: { added: 1, removed: 0 }
+    }
+  ],
   commitsTruncated: false,
   commitFilesUnavailable: false,
   uncommitted: { files: [], totals: { added: 0, removed: 0 }, filesTruncated: false }
@@ -88,12 +100,15 @@ vi.mock('../../store/chatStore', () => ({
         summary,
         patch,
         comparison: ALL_CHANGES,
-        collapsedFiles: [],
+        expandedFiles: [],
         sidebarVisible: false,
-        view: DEFAULT_DIFF_VIEW,
-        refreshGeneration: 0
+        view: DEFAULT_DIFF_VIEW
       },
-      gitStatus: { isRepo: true, root: '/repo', branch: 'feature-x', detached: false },
+      cwd: '/repo',
+      gitStatus: {
+        cwd: '/repo',
+        status: { isRepo: true, root: '/repo', branch: 'feature-x', detached: false }
+      },
       rightPanelTiles: [
         { id: 'col-a', tiles: ['task'] },
         { id: 'col-b', tiles: ['plan'] },
@@ -166,8 +181,8 @@ describe('사이드바 진입점 둘이 같은 상태를 토글한다 (§10 EP-3
   })
 })
 
-describe('`⋮` 여덟 항목이 각자의 액션을 부른다 (AT-51 · §10 EP-33)', () => {
-  it('메뉴가 여덟 항목을 그 순서로 그린다', () => {
+describe('`⋮` 일곱 항목이 각자의 액션을 부른다 (AT-67 · §10 EP-33)', () => {
+  it('메뉴가 일곱 항목을 그 순서로 그린다 — `새로고침` 이 빠졌다 (0211 ΔV5 D-106)', () => {
     render()
 
     const ids = menuItems
@@ -181,21 +196,21 @@ describe('`⋮` 여덟 항목이 각자의 액션을 부른다 (AT-51 · §10 EP
       'side-by-side',
       'wrap',
       'highlight',
-      'whitespace',
-      'refresh'
+      'whitespace'
     ])
   })
 
-  it('모든 파일 접기는 지금 패치의 파일 전부를 접고, 펼치기는 집합을 비운다', () => {
+  // 0211 ΔV5 D-105 — 방향이 반대다. **펼치기가 채우고 접기가 비운다.**
+  it('모든 파일 펼치기는 지금 패치의 파일 전부를 담고, 접기는 집합을 비운다', () => {
     render()
     const item = (id: string): Props =>
       menuItems.filter((props) => props['data-diff-view-item'] === id)[0]
 
-    click(item('collapse-all'))
-    expect(actions.setAllDiffFilesCollapsed).toHaveBeenCalledWith(true, ['docs/a.md', 'src/b.ts'])
-
     click(item('expand-all'))
-    expect(actions.setAllDiffFilesCollapsed).toHaveBeenCalledWith(false, [])
+    expect(actions.setAllDiffFilesExpanded).toHaveBeenCalledWith(true, ['docs/a.md', 'src/b.ts'])
+
+    click(item('collapse-all'))
+    expect(actions.setAllDiffFilesExpanded).toHaveBeenCalledWith(false, [])
   })
 
   it('표시 옵션 넷은 각자의 축만 바꾸고 재조회를 부르지 않는다 (D-088)', () => {
@@ -214,31 +229,30 @@ describe('`⋮` 여덟 항목이 각자의 액션을 부른다 (AT-51 · §10 EP
       { highlightWords: false },
       { ignoreWhitespace: true }
     ])
-    expect(actions.refreshGitSnapshot).not.toHaveBeenCalled()
-  })
-
-  it('새로고침만 조회 세대를 올린다 — 표시 옵션과 다른 축이다', () => {
-    render()
-
-    click(menuItems.filter((props) => props['data-diff-view-item'] === 'refresh')[0])
-
-    expect(actions.refreshGitSnapshot).toHaveBeenCalledTimes(1)
-    expect(actions.setDiffViewOption).not.toHaveBeenCalled()
+    expect(actions.setAllDiffFilesExpanded).not.toHaveBeenCalled()
   })
 })
 
 describe('비교 기준 메뉴가 범위를 고른다 (AT-49)', () => {
-  it('`모든 변경사항`·`미커밋 변경` 두 항목이 각자의 범위를 보낸다', () => {
+  it('첫 화면은 `모든 변경사항` 하나이고 `미커밋 변경` 진입점이 없다 (D-107)', () => {
     render()
     const scope = (value: string): Props =>
       menuItems.filter((props) => props['data-diff-comparison'] === value)[0]
 
     click(scope('all'))
-    click(scope('uncommitted'))
 
-    expect(actions.setDiffComparison.mock.calls.map((call) => call[0])).toEqual([
-      { kind: 'all' },
-      { kind: 'uncommitted' }
-    ])
+    expect(actions.setDiffComparison.mock.calls.map((call) => call[0])).toEqual([{ kind: 'all' }])
+    expect(scope('uncommitted')).toBeUndefined()
+  })
+
+  it('커밋은 서브메뉴 뒤에 있다 — 첫 화면에 커밋 항목이 없다 (D-106)', () => {
+    render()
+
+    expect(menuItems.some((props) => props['data-diff-comparison-commits'] !== undefined)).toBe(
+      true
+    )
+    expect(
+      menuItems.some((props) => String(props['data-diff-comparison'] ?? '').startsWith('commit:'))
+    ).toBe(false)
   })
 })

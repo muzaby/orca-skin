@@ -74,10 +74,9 @@ describe('diffSections', () => {
     expect(scoped[1]).toMatchObject({ path: 'reverted.ts', patch: null, added: 4, removed: 4 })
   })
 
-  it('미커밋 모드는 HEAD 대비 파일만 남긴다', () => {
-    expect(diffSections(patch, summary, { kind: 'uncommitted' }).map((s) => s.path)).toEqual([
-      'b.ts'
-    ])
+  // 0211 ΔV5 D-107 — 미커밋 모드가 사라졌다. 미커밋 파일은 전체 목록에 계속 섞여 나온다.
+  it('전체 모드가 미커밋 파일도 함께 담는다', () => {
+    expect(diffSections(patch, summary, ALL_CHANGES).map((s) => s.path)).toContain('b.ts')
   })
 
   it('패치가 없으면 빈 목록이다 — 요약만으로 화면을 만들지 않는다', () => {
@@ -95,8 +94,7 @@ describe('reconcileComparison', () => {
     expect(reconcileComparison(kept, summary)).toBe(kept)
   })
 
-  it('전체·미커밋은 요약과 무관하게 유지한다', () => {
+  it('전체는 요약과 무관하게 유지한다', () => {
     expect(reconcileComparison(ALL_CHANGES, null)).toBe(ALL_CHANGES)
-    expect(reconcileComparison({ kind: 'uncommitted' }, null)).toEqual({ kind: 'uncommitted' })
   })
 })

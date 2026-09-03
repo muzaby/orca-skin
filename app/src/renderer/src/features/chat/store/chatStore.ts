@@ -1355,15 +1355,14 @@ export const chatActions = {
     dispatchActive({ type: 'REMOVE_RIGHT_PANEL_TILE', id }),
   setGitStatus: (snapshot: BranchSnapshot): void =>
     dispatchActive({ type: 'SET_GIT_STATUS', snapshot }),
-  refreshGitSnapshot: (): void => dispatchActive({ type: 'REFRESH_GIT_SNAPSHOT' }),
   receiveGitPatch: (request: GitSnapshotRequest, patch: GitDiffPatch): void =>
     dispatchActive({ type: 'RECEIVE_GIT_PATCH', request, patch }),
   setDiffComparison: (comparison: DiffComparison): void =>
     dispatchActive({ type: 'SET_DIFF_COMPARISON', comparison }),
-  toggleDiffFileCollapsed: (path: string): void =>
-    dispatchActive({ type: 'TOGGLE_DIFF_FILE_COLLAPSED', path }),
-  setAllDiffFilesCollapsed: (collapsed: boolean, paths: readonly string[]): void =>
-    dispatchActive({ type: 'SET_ALL_DIFF_FILES_COLLAPSED', collapsed, paths }),
+  toggleDiffFileExpanded: (path: string): void =>
+    dispatchActive({ type: 'TOGGLE_DIFF_FILE_EXPANDED', path }),
+  setAllDiffFilesExpanded: (expanded: boolean, paths: readonly string[]): void =>
+    dispatchActive({ type: 'SET_ALL_DIFF_FILES_EXPANDED', expanded, paths }),
   toggleDiffSidebar: (): void => dispatchActive({ type: 'TOGGLE_DIFF_SIDEBAR' }),
   setDiffViewOption: (patch: Partial<DiffViewOptions>): void =>
     dispatchActive({ type: 'SET_DIFF_VIEW_OPTION', patch }),
