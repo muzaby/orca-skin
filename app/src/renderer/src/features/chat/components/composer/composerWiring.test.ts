@@ -81,26 +81,52 @@ describe('0215 AT-23 — Composer 가 선택 모델 파생값을 메뉴/스토�
     expect(tag).toMatch(/modeMenuOptions\(\s*selectedModelShape\([^)]*selectedModel\s*\)/)
   })
 
-  it('축② selectedModel memo 가 modelAlias 를 싣는다', () => {
+  it('축② selectedModel memo 가 선택 상태 3필드를 싣는다 (§10 EP-20c)', () => {
     const memo = callArgs(SOURCE, 'useMemo').find((args) => args.includes('providerKey,'))
     expect(memo, 'selectedModel memo 를 찾지 못했다').toBeDefined()
-    // 배선 단언 — 축약 속성이 사라지거나 `null` 로 바뀌면 red 다(verify r1 M-H).
-    expect(memo!).toMatch(/(^|[\s{,])modelAlias\s*(,|$)/m)
-    expect(memo!).not.toMatch(/modelAlias\s*:\s*(null|undefined)/)
-    // memo 가 그 값에 반응한다 — 의존성 배열에서 빠지면 stale 이다.
-    expect(memo!).toMatch(/\[[^\]]*\bmodelAlias\b[^\]]*\]/)
+    // 세 필드 각각이 축약 속성으로 실려야 한다 — 하나만 봐도 나머지 축은 침묵한다.
+    for (const field of ['providerKey', 'modelFamily', 'modelAlias'] as const) {
+      // 배선 단언 — 축약이 사라지거나 `null` 로 바뀌면 red 다(verify r1 M-H).
+      expect(memo!, `memo 가 ${field} 를 축약 속성으로 싣지 않는다`).toMatch(
+        new RegExp(`(^|[\\s{,])${field}\\s*(,|$)`, 'm')
+      )
+      expect(memo!, `memo 의 ${field} 가 상수다`).not.toMatch(
+        new RegExp(`${field}\\s*:\\s*(null|undefined)`)
+      )
+      // memo 가 그 값에 반응한다 — 의존성 배열에서 빠지면 stale 이다.
+      expect(memo!, `의존성 배열에 ${field} 가 없다`).toMatch(
+        new RegExp(`\\[[^\\]]*\\b${field}\\b[^\\]]*\\]`)
+      )
+    }
   })
 
-  it('축③ setModel 호출 전건이 alias 를 3번째 인자로 넘긴다', () => {
+  // D-022 — `setModel` 은 4슬롯 **순서 계약**이다. 한 슬롯만 단언하면 형제 슬롯 오염이
+  // 침묵한다: arg3 을 alias 로 둔 채 arg2 만 alias 로 바꾸면 `selectionExists` 가 거짓이 되어
+  // 복구 effect 가 사용자 선택을 default 로 되돌린다(verify r2 V-5 · §8 F-23).
+  it('축③ setModel 호출 전건이 (providerKey, modelFamily, modelAlias, adapter) 를 그 순서로 넘긴다', () => {
     const calls = callArgs(SOURCE, 'setModel')
-    // 분모 고정 — 호출부가 늘면 이 줄이 red 가 되어 새 지점도 검사에 들어온다.
+    // 분모 고정(§10 EP-20b) — 호출부가 늘면 이 줄이 red 가 되어 새 지점도 검사에 들어온다.
     expect(calls).toHaveLength(3)
-    const thirdArgs = calls.map((c) => topLevelArgs(c)[2])
-    // 배선 단언 — 어느 하나라도 `null` 이 되면 red 다(verify r1 M-F).
-    expect(thirdArgs).toEqual([
-      expect.stringMatching(/[Aa]lias$/),
-      expect.stringMatching(/[Aa]lias$/),
-      expect.stringMatching(/[Aa]lias$/)
-    ])
+    const SLOTS = [
+      { name: 'providerKey', re: /providerKey$/ },
+      // 두 번째 슬롯은 **모델 식별자** 다 — `modelKey(model)` 도 같은 계약이다(0215 D-007).
+      { name: 'modelFamily', re: /(modelFamily$|^modelKey\()/ },
+      { name: 'modelAlias', re: /([Aa]lias$)/ },
+      { name: 'adapter', re: /adapter$/ }
+    ]
+    for (const [i, call] of calls.entries()) {
+      const args = topLevelArgs(call)
+      expect(args, `호출 ${i + 1} 의 인자 수`).toHaveLength(4)
+      for (const [slot, { name, re }] of SLOTS.entries()) {
+        expect(args[slot], `호출 ${i + 1} 의 ${slot + 1}번째 슬롯이 ${name} 이 아니다`).toMatch(re)
+      }
+    }
+  })
+
+  // AC25(ΔV2) — verify r2 V-1: 이 배선을 `null` 로 바꿔도 844/844 green 이었다.
+  // 끊기면 `ModelMenu.tsx:49` 의 활성 행 판정이 죽어 어느 모델이 선택됐는지 안 보인다.
+  it('축④ ModelMenu 에 선택 모델을 넘긴다 (§10 EP-20a)', () => {
+    const tag = openingTag(SOURCE, 'ModelMenu')
+    expect(tag).toMatch(/selection=\{\s*selectedModel\s*\}/)
   })
 })
