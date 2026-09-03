@@ -32,7 +32,7 @@ function registeredPolicies(): Map<string, 'reject' | 'fallback'> {
   handleMock.mockClear()
   // 0211 — base 조회 포트는 **필수 인자**다(배선을 잊으면 모든 세션이 조용히 HEAD 범위로
   // 떨어진다). 이 테스트는 정책만 보므로 row 없음 스텁으로 충분하다.
-  registerGitHandlers({ getSessionBaseline: () => ({ oid: null, ref: null }) })
+  registerGitHandlers({ getSessionBaseline: () => ({ oid: null, ref: null, bornAt: null }) })
   return new Map(
     handleMock.mock.calls.map((call) => [
       call[0] as string,
@@ -59,7 +59,11 @@ describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', 
   })
 
   it('baseline 의 커밋과 브랜치 이름을 summary·patch 둘에 같이 전달하고 commit 범위를 넘기지 않는다', async () => {
-    const getSessionBaseline = vi.fn(() => ({ oid: 'c'.repeat(40), ref: 'main' }))
+    const getSessionBaseline = vi.fn(() => ({
+      oid: 'c'.repeat(40),
+      ref: 'main',
+      bornAt: 1_700_000_000_000
+    }))
     registerGitHandlers({ getSessionBaseline })
     const summaryHandler = handleMock.mock.calls.find(
       (call) => call[0] === CHANNELS.gitDiffSummary
@@ -75,15 +79,19 @@ describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', 
     expect(getSessionBaseline).toHaveBeenNthCalledWith(1, 'session-1')
     expect(getSessionBaseline).toHaveBeenNthCalledWith(2, 'session-1')
     // 0211 ΔV4 — 이름(`baseRef`)이 커밋과 **함께** 간다. 한쪽만 가면 라벨이 다른 시점을 말한다.
+    // 0211 ΔV4 r3 — `bornAt` 도 함께 간다. 이것이 없으면 `oid` 가 없는 세션의 기준선이
+    // 질의 시점 HEAD 로 접혀 커밋할 때마다 따라 올라간다.
     expect(gitDiffSummaryMock).toHaveBeenCalledWith({
       cwd: '/repo',
       baseOid: 'c'.repeat(40),
-      baseRef: 'main'
+      baseRef: 'main',
+      bornAt: 1_700_000_000_000
     })
     expect(gitDiffPatchMock).toHaveBeenCalledWith({
       cwd: '/repo',
       baseOid: 'c'.repeat(40),
-      baseRef: 'main'
+      baseRef: 'main',
+      bornAt: 1_700_000_000_000
     })
     expect(readFileSync(GIT_HANDLER_SOURCE, 'utf8')).not.toContain('getManagedWorktreeBySession')
   })
