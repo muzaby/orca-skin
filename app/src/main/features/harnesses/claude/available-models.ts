@@ -30,7 +30,7 @@ export function explicitModelOf(raw: unknown): ExplicitModel | undefined {
 }
 
 // 모델명 → 노출 항목. family 이름이 부분문자열로 들어있으면 그 alias, 없으면 custom.
-export function classifyModel(model: string, oneMillion: boolean): ParsedModel {
+function classifyModel(model: string, oneMillion: boolean): ParsedModel {
   const lower = model.toLowerCase()
   const family = FAMILY_ORDER.find((candidate) => lower.includes(candidate))
   return {
@@ -44,7 +44,7 @@ export function classifyModel(model: string, oneMillion: boolean): ParsedModel {
 
 // 명시 모델이 노출 목록의 어느 항목인가 — alias 또는 모델명이 일치하고 **1M 축까지 같을 때**만.
 // default 부여와 `withExplicitModel` 의 중복 판정이 같은 술어를 쓴다(SSOT).
-export function matchesExplicit(model: ParsedModel, explicit: ExplicitModel): boolean {
+function matchesExplicit(model: ParsedModel, explicit: ExplicitModel): boolean {
   if (model.oneMillionContext !== explicit.oneMillion) return false
   return model.alias === explicit.value || model.model === explicit.value
 }

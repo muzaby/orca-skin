@@ -33,7 +33,7 @@ export const DEFAULT_PERMISSION_MODE: NormalizedPermissionMode = 'auto_classifie
 // '자동'(auto)을 지원하지 않는 모델에서 그것을 대신할 모드 (0215 D-010 — 사용자 결정).
 // `PLAN_APPROVED_MODE` 와 값은 같지만 **다른 규칙**이라 상수를 나눈다 — 하나로 묶으면 계획
 // 승인 목표 모드를 바꿀 때 이 강등까지 함께 끌려간다.
-export const AUTO_UNSUPPORTED_FALLBACK_MODE: NormalizedPermissionMode = 'accept_edits'
+const AUTO_UNSUPPORTED_FALLBACK_MODE: NormalizedPermissionMode = 'accept_edits'
 
 // 정규화 모드 전수 (UI 메뉴·검증 루프용 단일 출처).
 export const NORMALIZED_MODES: readonly NormalizedPermissionMode[] = [
