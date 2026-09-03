@@ -136,9 +136,12 @@ describe('HistoryWriter — session baseline birth persistence', () => {
     } as NormalizedEvent)
 
     // 이후 턴이 브랜치를 바꿔 보내도 행은 **불변**이다 — 1회 기록이 D-070·D-033 의 계약이다.
+    // `bornAt`(=`created_at`)은 세션 출생 시각이라 값을 고정할 수 없다. 다만 `toEqual` 로
+    // **정확한 형태**를 유지한다 — `toMatchObject` 로 느슨하게 두면 새 필드가 조용히 는다.
     expect(queries.getSessionBaseline('persisted-session')).toEqual({
       oid: 'a'.repeat(40),
-      ref: 'main'
+      ref: 'main',
+      bornAt: expect.any(Number)
     })
     db.close()
   })
