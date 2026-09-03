@@ -2586,6 +2586,8 @@ git CLI
 
 **문서** (2): `docs/IPC_CONTRACT.md`(openPath 행에 모드·허용 규칙) · `docs/generated/inventory.md`(재생성 — 수치 불변 예상).
 
+**테스트 인프라 — 범위 밖 1** (CI red 대응): `vitest.config.ts`(`testTimeout: 20_000`). 근거는 §[구현자 기입] 놓친 잠재 문제 D25.
+
 **비영향 선언**: `infra/git/*` · `app/handlers/git.ts` · `infra/db/*` 는 **한 줄도 바뀌지 않는다** — ΔV5 는 조회의 *시점*과 *표시*만 바꾸고 조회의 *내용*을 바꾸지 않는다. 마이그레이션 신규 **0**.
 
 ## 19. 게이트
@@ -3862,7 +3864,7 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 - **가드 해제와 dispatch 의 순서**(선조치). `settlePatchQuery` 를 `chatActions.receiveGitPatch` **뒤에** 두면, 상태 갱신이 곧바로 effect 를 다시 돌리는 구현/버전에서 아직 잠긴 가드가 재조회를 막아 **같은 교착**이 난다. 해제를 dispatch 앞으로 옮기고 그 이유를 코드 주석에 남겼다(`useGitPatch.ts`).
 - **중첩 `Popover` 의 바깥 클릭**(선조치). 커밋 서브메뉴를 중첩 `Popover` 로 띄우면 portal 이라 바깥 패널 **밖의 클릭**이 되어, 항목을 누르는 순간 바깥 메뉴가 먼저 닫히고 클릭이 도달하지 못한다. 서브메뉴를 바깥 패널의 **자식**(absolute flyout)으로 두어 해결했다 — `Popover` 프리미티브는 건드리지 않았다(D-092 승계).
 - **중첩 버튼**(선조치). 파일 헤더가 `<button>` 하나였는데 `↗` 를 그 안에 넣으면 무효 HTML 이고 중첩 클릭이 두 동작을 함께 발화한다. 헤더를 `<div>` 로 바꾸고 토글과 `↗` 를 **형제 버튼**으로 두었다. 그 형제 관계를 `diffSyncState.render.test.ts` 가 닫는 태그 위치로 잰다.
-- **보고만**: `gitQueryOwner.test.ts`·`git-cli.test.ts`·`git-diff.test.ts` 가 전체 병렬 실행에서 간헐 실패하고 단독 실행에서는 통과한다(`--maxWorkers=2` 로도 재현). 기존 D15 와 같은 축이고 이번 변경과 무관하다.
+- **D25 — 케이스 예산 5초가 windows 병렬 실행에서 일을 끊는다**(선조치, **범위 밖 파일**). CI 가 red 였고(`33718212925`) 원인은 `worktree-bind`·`worktree-recover` 의 **두-DB 케이스 넷**이 5초를 넘긴 것이다. 로컬 병렬 재현에서는 **다른 5파일 6케이스**가 같은 형태로 끊겼고(끊긴 케이스가 핸들을 연 채 죽어 `afterEach` 의 `rm` 이 EBUSY 로 한 번 더 실패 — 12 = 6 × 2), 직렬 실행에서는 **3,135 전건 green** 이다. 파일별 예산 조정은 이 분산 앞에서 두더지잡기라 `vitest.config.ts` 의 **전역 `testTimeout` 을 20초**로 올렸다. **멈춤 탐지는 유지된다** — 영영 resolve 되지 않는 promise 는 예산과 무관하게 걸리고 바뀌는 것은 보고까지의 시간뿐이다. 이것은 **저장소 전역 테스트 인프라 변경**이라 검증자·사용자 확인 대상으로 올린다. 기존 D15 가 이 축의 앞선 관측이다.
 
 ### 설계 대비 명시적 차이 (ΔV5)
 
@@ -3871,6 +3873,8 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 | G1 | §11-8 — `reveal` 은 `dirname(path)` 로 기존 화이트리스트를 **그대로** 통과 | `isInsideAllowedDir` — 부모부터 **조상까지** 올리며 같은 술어(`isAllowedDir`)를 돈다 | `hasSessionWithCwd` 가 **동등 조회**라 세션 cwd 하위 디렉토리의 파일이 전부 거부됐다(실측: `files.openPath.test.ts` 첫 실행 red). 술어는 그대로 하나이고 반복만 더했다 |
 | G2 | §11-9 — `DiffReview` 가 `scrollOwnerRef` prop 을 받는다 | 같음. 단 `FileDiffSection` 에는 **내부 ref** 를 계속 넘긴다 | 문맥 확장 보정은 실제 DOM 컨테이너가 필요하고, 주입 대상은 *이동의 소유자* 한 축이다. 두 축을 같은 ref 로 묶으면 테스트가 보정 경로를 가짜 소유자로 오염시킨다 |
 | G3 | §7 AT-64 — `rg 'patch: null' reducer` = **4** | 같음(**4**: 초기 · cwd 리셋 · BEGIN 키불일치 · RECEIVE_SUMMARY). REFRESH 제거로 5 → 4 | 차이 없음. 실측으로 재확인했다 |
+| G4 | §18 — 변경 파일에 `vitest.config.ts` **없음** | `testTimeout: 20_000` 을 더했다(범위 밖 파일) | CI 가 red 였고 원인이 **케이스 예산**이었다. 아래 D25 참조 — 범위 밖이지만 red gate 는 갈림길이 아니라 미완료다 |
+| G5 | §18 — `gitSyncTriggersRemoved.test.ts` 가 `app/src` 전체를 훑는다 | **두 subtree**(`features/chat` 235파일 + `i18n/resources` 3파일)로 좁혔다 | 네 식별자가 그 밖에 존재한 적이 **0건**임을 `rg` 로 확인했고(전수), 동기 전수 읽기가 CI 워커 경합의 한 축이었다 |
 
 ## [구현자 기입] 구현 보고 (ΔV5)
 
