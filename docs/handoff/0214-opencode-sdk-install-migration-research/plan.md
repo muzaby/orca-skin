@@ -8,9 +8,9 @@
 | 작성자 | Codex — 사용자 직접 요청에 따른 설계·구현 |
 | 일자 | 2026-09-03 |
 | 매핑 | OpenCode 도입 사전 조사; 실제 백엔드 활성화는 후속 |
-| 상태 | READY — 작성 문서 승인 완료 (사용자: “진행하라”) |
-| V mode / 기준 V | Baseline V / none |
-| 이번 V revision / 유효 V | V1 / V1 |
+| 상태 | READY — 공유 대상 변경·PR 생성 승인 (사용자: “Push하고 pr 만들어라”) |
+| V mode / 기준 V | Delta V / V1 (이 plan의 ee60bf76 기준) |
+| 이번 V revision / 유효 V | ΔV1 / V1 + ΔV1 (VP-07 → VP-09) |
 
 # Part I — Product & UX Contract
 
@@ -29,6 +29,7 @@
 | 명시 요구 | “3. 연구 결과를 정리하여 docs 경로에 업데이트”, “4. git push” | 현재 대화 |
 | 추가 조건 | “Sdk는 최신버전으로설치 (버전명명시할것)” | 후속 사용자 메시지 |
 | 범위 승인 | “제안 모두 수용” | 의존성 설치·분석·문서화, CLI/서버 및 런타임 구현 제외 제안에 대한 승인 |
+| 공유 재개·확장 | “Push하고 pr 만들어라” | 원격 codex-opencode 대안 제시 직후의 실행 지시; PR 생성까지 포함 |
 | 설계자 해석 | 최신 버전의 의미는 설치 직전 npm `dist-tags.latest` 조회 결과이며, 범위 연산자 없이 고정한다 | 변동하는 latest와 재현 가능한 분석 기준을 함께 충족 |
 
 ## 3. Decision Ledger
@@ -40,15 +41,16 @@
 | D-003 | 공식 원문, SDK 해설, Orca 연구/전략을 분리하고 관련 현재 문서를 정정 | 결과를 `docs`에서 탐색 가능하게 제공 | 사용자 문서화 요구·승인 | ACTIVE | — |
 | D-004 | CLI/서버 설치 및 실행, OpenCode 어댑터 구현·활성화는 하지 않음 | 이번 작업은 설치와 도입 연구이며 런타임 전환은 후속 | 제안 전체 승인 | ACTIVE | — |
 | D-005 | `SessionAdapter`, `NormalizedEvent`, Orca DB를 유지하는 단계적 전환을 권고안으로 작성 | 기존 대화·화면 경로 보존; 새 제품 정책 확정과 구별 | 제안 전체 승인 | ACTIVE | — |
-| D-006 | 게이트 후 설계와 구현을 별도 커밋하고 `origin/codex/opencode`에 일반 push | 원격 공유 요청; force push·PR·merge는 범위 밖 | 사용자 push 요구·승인 | ACTIVE | — |
+| D-006 | 게이트 후 설계와 구현을 별도 커밋하고 `origin/codex/opencode`에 일반 push | 원격 공유 요청; force push·PR·merge는 범위 밖 | 최초 사용자 push 요구·승인 | SUPERSEDED | D-008 |
 | D-007 | 기본 백엔드 정책·도구명 표준화·서버 배포/소유권 정책은 이번에 채택하지 않음 | PRD OQ7/OQ10 및 후속 런타임 설계의 결정 영역 | 기존 규칙·승인 범위 | ACTIVE | — |
+| D-008 | 로컬 codex/opencode를 원격 codex-opencode로 일반 push하고 main 대상 PR 생성 | 원격 codex는 보존. base main은 git remote HEAD/API로 확인. merge·force push는 하지 않음 | 대안 이름 제시 후 사용자 “Push하고 pr 만들어라” | ACTIVE | D-006 대체 |
 
 ### 갱신 메모
 
-- D-001~D-007 신규 기록. 대체·철회된 결정 없음.
+- 최초 D-001~D-007에 공유 재개 결정 D-008 추가. D-006만 SUPERSEDED이고 D-001~D-005·D-007 유지.
 - 작성 문서 검토 후 사용자 “진행하라”로 실행 승인. 범위·AC·V1 변경 없음.
 - 2026-09-03 npm 조회는 `1.18.27`; 설치 직전 재조회한 값을 실제 기준으로 삼는다. 선행 웹 조사 버전은 설치 기준이 아니다.
-- ACTIVE 결정 ↔ AC 대조: D-001→AC1·2, D-002→AC2~4, D-003→AC3~5, D-004→AC6, D-005·D-007→AC4·6, D-006→AC7; 충돌 없음.
+- ACTIVE 결정 ↔ AC 대조: D-001→AC1·2, D-002→AC2~4, D-003→AC3~5, D-004→AC6, D-005·D-007→AC4·6, D-008→AC7(ΔV1); 충돌 없음.
 
 ## 4. 요구 비판적 검토
 
@@ -66,7 +68,7 @@
 
 ```text
 승인된 설계 → latest 조회 → exact 설치 → 설치 코드/공식 문서/Orca 대조
-→ 연구 문서와 계약 검증 → 설계·구현 분리 커밋 → 승인된 브랜치 push
+→ 연구 문서와 계약 검증 → 설계·구현 분리 커밋 → 원격 codex-opencode push → main 대상 PR
 ```
 
 | 시작 상태/이벤트 | 작업 | 사용자/소비자에게 보이는 결과 |
@@ -82,8 +84,8 @@
 
 ## 6. 범위 / 비범위
 
-- 범위: SDK 의존성, 배포 소스 분석, test-only 계약 검증, 한국어 연구 문서, 관련 낡은 문서/라우팅 정정, commit/push.
-- 비범위: CLI/서버 설치·프로세스 기동, 모델 요청·실제 인증, DB/IPC/설정/UI 변경, production adapter와 converter 구현, 기존 대화 이전, PR/merge.
+- 범위: SDK 의존성, 배포 소스 분석, test-only 계약 검증, 한국어 연구 문서, 관련 낡은 문서/라우팅 정정, commit/push 및 PR 생성.
+- 비범위: CLI/서버 설치·프로세스 기동, 모델 요청·실제 모델 인증, DB/IPC/설정/UI 변경, production adapter와 converter 구현, 기존 대화 이전, merge·force push.
 
 | 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
 |---|---|---|
@@ -101,7 +103,7 @@
 | R-04 | AT-04 / AC4 | 레이어별 변경·보존 책임, 필드/이벤트 매핑, 단계별 gate·rollback·미결정을 식별할 수 있음 | 실제 Orca entry/contract/consumer와 가이드 대조 | 연구 index → 마이그레이션 가이드 → 코드·현재 arch |
 | R-05 | AT-05 / AC5 | 관련 현재 문서가 SDK 설치와 runtime 미구현을 구분하고 기존 추측 예제를 실제 근거로 교체 | TRD/arch의 대상 문장 대조, docs inventory·상대 링크 검사 | docs/INDEX → TRD/arch/spec/연구 자료 |
 | R-06 | AT-06 / AC6 | 기존 앱은 Claude 경로를 유지하며 새 SDK 호출은 테스트에만 있음 | production diff·import 검색과 기존 active descriptor 테스트 | AdapterRegistry → ClaudeAdapter → 기존 runtime/IPC |
-| R-07 | AT-07 / AC7 | 검증 결과와 미확인 범위가 보고되고 설계·구현 커밋이 원격 브랜치에 게시됨 | 실제 gate 출력, trailer 파싱, push 후 remote SHA 대조 | 작업 트리 → git commit → origin/codex/opencode |
+| R-07-v2 | AT-07-v2 / AC7 | 검증 결과·미확인 범위가 보고되고 원격 codex-opencode에 커밋이 게시되며 main 대상 PR이 생성됨 | gate/trailer, remote SHA=HEAD, PR OPEN·head/base/URL 확인 | 작업 트리 → commit → origin/codex-opencode → main 대상 PR |
 
 ### AC 검증 주의사항
 
@@ -146,6 +148,25 @@
 | SDK/Claude 계약 | public export와 기존 활성 경로 | 대상 `vitest run` (app cwd), §19 | 동일 |
 | docs | 문서·링크·원문 미러 추가 | inventory 검사·검사기 테스트·원문 hash 대조 | 새/수정 문서의 정합성과 원문 보존 |
 | repository/message-bus | 설계/구현 분리, 원격 공유 | diff check·trailer·remote SHA | 이번 산출물/커밋 |
+
+### ΔV1 — 공유 대상 변경과 PR 생성
+
+V1 기준은 이 plan의 ee60bf76이다. 위 V1 node/pair 기록 중 R-07·AT-07·VP-07은 아래 행으로 대체한다.
+V1의 AC7은 codex/opencode 게시만 요구했고 PR은 제외했으나, D-008은 대안 원격 이름과 PR을 승인한다.
+앱 구현·SDK·AC1~6의 계약은 바꾸지 않고 기존 증거를 유지한다. 실패나 PLAN_GAP으로 위장하지 않는 사용자 결정 변경이다.
+
+| Node | 레벨 | provenance | 대체 / 계약 |
+| --- | --- | --- | --- |
+| R-07-v2 | R | CHANGED | R-07 대체; §7 AC7의 원격 게시+PR |
+| AT-07-v2 | AT | CHANGED | AT-07 대체; HEAD/remote 및 PR head/base/OPEN 직접 확인 |
+
+| Pair | left ↔ right | requiredness | 경로 | 직접 oracle | 적대 증거 | 지점 |
+| --- | --- | --- | --- | --- | --- | --- |
+| VP-09 | R-07-v2 ↔ AT-07-v2 | REQUIRED | git commit → origin/codex-opencode → PR/main | remote SHA=HEAD, PR headRefName/baseRefName/state/url | not selected — 실제 외부 응답 | EP-07-v2 (4) |
+
+유효 V는 VP-01~06·VP-08과 VP-09다. 이번 공유 작업의 REQUIRED는 VP-09이며 기존 코드에 손대지 않는다.
+운영 gate는 docs inventory·링크·diff/trailer/원격·PR 검사다. PR 게시 전 기존 SDK/registry 대상 테스트와 typecheck/lint도 재확인한다.
+Git/API로 main 기본 branch와 codex-opencode의 기존 PR 부재를 확인했다. PR template은 없으며 범위·검증·미실기·handoff 포인터를 본문에 적는다.
 
 # Part II — Technical Design
 
@@ -207,7 +228,8 @@ SDK dependency는 없고, 일부 문서는 OpenCode의 미확인 예제를 예�
 | EP-04 / VP-04 | 권고와 현재 구현 분리 | Orca 코드·D-004~D-007 | migration 가이드, 연구 00-index (2) | 권고가 채택 계약처럼 읽히거나 작업 순서/위험 누락 |
 | EP-05 / VP-05 | 설치≠runtime 활성; 문서 탐색 가능 | manifest·registry·spec | TRD, backend overview/provider-runtime/standardization/adapters/security, docs INDEX (7) | 낡은 API 예제 또는 현재 상태 모순; 링크 검사만으로 내용 정합성은 보장 못함 |
 | EP-06 / VP-06 | production 경로 유지 | 기존 코드 | manifest 외 production diff/import, shared Backend/IPC, registry active (3) | 직접 SDK 참조와 계약/활성 경로 변경 검출; 앱 전체 실기는 아님 |
-| EP-07 / VP-07 | handoff 상태·trailer·원격 게시 일치 | INDEX와 git 원격 | plan 보고, INDEX 상태, commit trailer/remote (3 묶음) | 로컬 성공과 원격 성공 혼동 또는 독립 검증 가장 |
+| EP-07 / VP-07 (V1, 대체됨) | 원격 codex/opencode 게시 | V1 INDEX와 git 원격 | 원래 plan 보고, INDEX, commit/remote (3 묶음) | ΔV1에서는 EP-07-v2 적용 |
+| EP-07-v2 / VP-09 | handoff 상태·trailer·원격 게시·PR 일치 | INDEX, git 원격, GitHub PR | plan 보고, INDEX 상태, commit trailer/remote, PR head/base/state/url (4 묶음) | 잘못된 target·로컬만 성공·중복 PR·독립 검증 가장 |
 
 `throwOnError`·`responseStyle`·선택적 `undefined`의 의미는 설치 구현에서 확인한다. 문서에 단정하기 전에 성공·HTTP 실패·SSE fixture를 직접 관측한다.
 새 production port나 정책 파라미터는 만들지 않는다. 여러 API 표면의 이벤트를 같은 스트림으로 취급하지 않는다.
@@ -225,7 +247,7 @@ VP-06 변이는 신규 임시 `app/src/main/adapters/opencode-sdk-production-gua
 | T3. 공식/배포 분석 | `docs/opencode-sdk-spec.md`, `docs/spec/opencode/*` | raw mirror 확보·license/hash 기록 → 실제 dist와 root/v2/native 표면·타입·오류/stream 비교 |
 | T4. Orca 전략 | `docs/etc/study/opencode/orca-migration-guide.md` | 레이어별 AS-IS/권고·필드/이벤트 mapping·capability gap·단계별 gate/rollback·미결정 작성 |
 | T5. 문서 정렬 | §18의 기존 docs | stale SDK 상태/예제만 정정, SSOT 링크 및 탐색 경로 연결 |
-| T6. 검증·공유 | plan/INDEX·git | 정적/대상 테스트·문서 게이트 → 내용 리뷰 → 구현 보고 → 별도 커밋·push |
+| T6. 검증·공유 | plan/INDEX·git·PR | 게이트/리뷰 → 별도 커밋 → codex-opencode push → main PR → 보고/INDEX 갱신 커밋·push → 최종 remote/PR head 확인 |
 
 T2에서는 SDK 자체 구현을 복제하지 않는다. 요청을 받는 fake-fetch에서 URL·method·body를 직접 단언하고, 응답/HTTP 오류·SSE envelope를 실제 client가 소비하게 한다.
 취소 테스트를 추가한다면 request signal 전달·유한 스트림 종료까지만 잠그고 모델 턴 취소와 동치라고 주장하지 않는다.
@@ -251,6 +273,9 @@ T4의 레이어 표는 composition root/boot, adapter, runtime/coordinator, auth
 서버 생성·quit cleanup을 구현하지 않는다. SDK helper가 CLI 실행을 요구하는지, 연결 전용 client의 책임이 무엇인지는 연구 결과에 명시한다.
 설치 실패 시 manifest/lock/설치본을 대조하고 성공한 것으로 커밋하지 않는다; 일괄 reset이나 관계없는 dependency update로 복구하지 않는다.
 push 실패 시 로컬 커밋을 보존하고 일반 push 재개 조건만 보고한다.
+
+ΔV1은 push 성공 후 PR 생성이 실패하면 원격 branch를 보존하고 기존 PR부터 조회한다.
+PR 생성 응답이 불명확해도 조회 전 재생성하지 않는다. PR 확인 후 완료 보고·INDEX를 함께 commit/push하고 PR head SHA까지 재확인한다.
 
 다중 쓰기는 manifest/lock/설치본, 원문/해설/라우팅, plan 보고/INDEX/trailer다. 중단 시 사본들이 일시적으로 불일치할 수 있으므로 commit 직전에 EP-01·EP-03~EP-05·EP-07을 대조한다.
 설계 커밋에는 설계와 보드만 포함하고 구현 산출은 별도 커밋으로 묶는다. 다음 주체는 구현 완료 후 독립 검증자이며 `SELF_PASS`를 `verify/PASS`로 바꾸지 않는다.
@@ -319,7 +344,7 @@ node --test scripts/check-doc-inventory.test.mjs
 node scripts/check-doc-inventory.mjs --check
 ```
 
-repo cwd: `git diff --check`, staged diff check, 커밋 뒤 `git log -1 --format='%(trailers:only=true)'`, push 뒤 `git ls-remote --heads origin codex/opencode`와 HEAD 비교.
+repo cwd: `git diff --check`, staged diff check, 커밋 뒤 `git log -1 --format='%(trailers:only=true)'`, push 뒤 `git ls-remote --heads origin codex-opencode`와 HEAD 비교. PR은 `gh pr view --json url,state,baseRefName,headRefName,headRefOid`로 main/codex-opencode/OPEN 및 최종 HEAD를 확인한다.
 EP-06 production import 스윕은 위 §10 명령으로 실행하고 선택한 변이의 검출/제거 후 일치 없음까지 기록한다.
 문서 원문은 버전 고정 URL의 bytes와 hash 대조한다. lint가 수정한 파일은 별도로 검토해 무관한 변경을 섞지 않는다.
 `npm test`의 pretest는 ABI를 전환하므로 비-DB 대상 검사에서 쓰지 않는다; CLI/모델/Windows 패키징 실기는 실행하지 않은 범위로 보고한다.
