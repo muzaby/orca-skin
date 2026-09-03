@@ -2,11 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 import type { GitDiffSummary } from '../../../../../../shared/ipc'
 import {
   createGitSnapshotQueryOwner,
-  gitSnapshotQueryReason,
   gitSnapshotRequestKey,
   gitSnapshotTriggerKey,
-  subscribeGitExternalChange,
-  type GitExternalChangeTarget
+  gitStatusTriggerKey
 } from './useGitSnapshot'
 
 const SUMMARY_A: GitDiffSummary = {
@@ -37,61 +35,16 @@ interface QueryOwner {
 }
 
 describe('git snapshot query owner', () => {
-  it('summary query trigger count is limited to initial, identity, turn-end, and refresh inputs', () => {
-    const reasons: Array<Exclude<ReturnType<typeof gitSnapshotQueryReason>, null>> = []
-    let previous: Parameters<typeof gitSnapshotQueryReason>[0] = null
-    const step = (identity: string, busy: boolean): void => {
-      const reason = gitSnapshotQueryReason(previous, { identity, busy })
-      previous = { identity, busy }
-      if (reason) reasons.push(reason)
-    }
-    const base = gitSnapshotTriggerKey('/repo-a', 'session-a', 0)
-
-    step(base, false)
-    step(base, false) // tile mount/unmount or list↔peek without identity input changes
-    step(base, true)
-    step(base, false)
-    step(gitSnapshotTriggerKey('/repo-b', 'session-b', 0), false)
-    step(gitSnapshotTriggerKey('/repo-b', 'session-b', 1), false)
-
-    expect(reasons).toEqual(['initial', 'turn-end', 'identity', 'identity'])
-  })
-
-  it('busy session A에서 idle session B로 바뀌면 B identity 조회 한 번만 판정한다', () => {
-    const reasons: Array<ReturnType<typeof gitSnapshotQueryReason>> = []
-    let previous: Parameters<typeof gitSnapshotQueryReason>[0] = {
-      identity: gitSnapshotTriggerKey('/repo-a', 'session-a', 0),
-      busy: true
-    }
-    for (const next of [
-      { identity: gitSnapshotTriggerKey('/repo-b', 'session-b', 0), busy: false },
-      { identity: gitSnapshotTriggerKey('/repo-b', 'session-b', 0), busy: false }
-    ]) {
-      reasons.push(gitSnapshotQueryReason(previous, next))
-      previous = next
-    }
-
-    expect(reasons).toEqual(['identity', null])
-    expect(
-      gitSnapshotQueryReason(
-        { identity: '["/repo-a","session-a",0]', busy: true },
-        { identity: '["/repo-b","session-b",0]', busy: false }
-      )
-    ).toBe('identity')
-    expect(
-      gitSnapshotQueryReason(
-        { identity: '["/repo-b","session-b",0]', busy: true },
-        { identity: '["/repo-b","session-b",0]', busy: false }
-      )
-    ).toBe('turn-end')
-  })
-
-  it('cwd/session/refresh만 trigger key를 바꾸고 같은 입력의 remount는 바꾸지 않는다', () => {
-    const base = gitSnapshotTriggerKey('/repo', 's1', 0)
-    expect(gitSnapshotTriggerKey('/repo', 's1', 0)).toBe(base)
-    expect(gitSnapshotTriggerKey('/repo-2', 's1', 0)).not.toBe(base)
-    expect(gitSnapshotTriggerKey('/repo', 's2', 0)).not.toBe(base)
-    expect(gitSnapshotTriggerKey('/repo', 's1', 1)).not.toBe(base)
+  // 0211 ΔV5 D-099 — 키에서 `refreshGeneration` 이 빠졌다. 새로고침 계기가 사라져 그 축이
+  // 아무것도 세지 않는다.
+  it('cwd/session만 trigger key를 바꾸고 같은 입력의 remount는 바꾸지 않는다', () => {
+    const base = gitSnapshotTriggerKey('/repo', 's1')
+    expect(gitSnapshotTriggerKey('/repo', 's1')).toBe(base)
+    expect(gitSnapshotTriggerKey('/repo-2', 's1')).not.toBe(base)
+    expect(gitSnapshotTriggerKey('/repo', 's2')).not.toBe(base)
+    // 상태 키는 커밋도 세션도 보지 않는다 — 이름은 저장소 좌표만의 함수다.
+    expect(gitStatusTriggerKey('/repo')).toBe(gitStatusTriggerKey('/repo'))
+    expect(gitStatusTriggerKey('/repo-2')).not.toBe(gitStatusTriggerKey('/repo'))
   })
 
   it('같은 request key의 B가 먼저 끝나면 늦은 A 결과를 버린다', async () => {
@@ -141,59 +94,5 @@ describe('git snapshot query owner', () => {
     await Promise.resolve()
 
     expect(results).toEqual([])
-  })
-})
-
-// 0211 ΔV4 r3 — **넷째 계기**(앱 밖 저장소 변경). 앞의 셋(`initial`·`identity`·`turn-end`)은
-// 전부 앱 안의 사건이라, 사용자가 터미널에서 커밋하면 어느 것도 발화하지 않는다.
-//
-// 이 스위트가 잠그는 것은 판정이 아니라 **배선**이다: 등록·해제·전달 셋을 각각 본다.
-// 훅 안에 인라인으로 두면 `environment: 'node'` 에서 effect 가 돌지 않아 등록을 통째로
-// 지워도 전 스위트가 초록이다 — 그래서 구독을 함수로 뽑았다.
-describe('외부 변경 구독 (subscribeGitExternalChange)', () => {
-  function fakeTarget(): {
-    target: GitExternalChangeTarget
-    listeners: { type: string; fn: () => void }[]
-    removed: { type: string; fn: () => void }[]
-  } {
-    const listeners: { type: string; fn: () => void }[] = []
-    const removed: { type: string; fn: () => void }[] = []
-    return {
-      listeners,
-      removed,
-      target: {
-        addEventListener: (type, fn) => listeners.push({ type, fn }),
-        removeEventListener: (type, fn) => removed.push({ type, fn })
-      }
-    }
-  }
-
-  it('창이 다시 앞에 오는 사건 하나를 듣는다', () => {
-    const { target, listeners } = fakeTarget()
-
-    subscribeGitExternalChange(target, () => undefined)
-
-    expect(listeners.map((entry) => entry.type)).toEqual(['focus'])
-  })
-
-  it('그 사건이 오면 다시 묻는다 — 등록만 하고 흘리지 않는다', () => {
-    const { target, listeners } = fakeTarget()
-    const onChange = vi.fn()
-
-    subscribeGitExternalChange(target, onChange)
-    listeners[0]?.fn()
-
-    expect(onChange).toHaveBeenCalledTimes(1)
-  })
-
-  it('해제는 등록한 바로 그 함수를 뗀다 — 다른 참조를 떼면 구독이 영원히 남는다', () => {
-    const { target, listeners, removed } = fakeTarget()
-
-    const unsubscribe = subscribeGitExternalChange(target, () => undefined)
-    unsubscribe()
-
-    expect(removed).toHaveLength(1)
-    expect(removed[0]?.type).toBe('focus')
-    expect(removed[0]?.fn).toBe(listeners[0]?.fn)
   })
 })

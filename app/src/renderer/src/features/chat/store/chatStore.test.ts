@@ -162,7 +162,7 @@ describe('chatStore — 델타/커밋 라우팅', () => {
 })
 
 describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
-  it('git snapshot peek·refresh 액션은 활성 세션 엔트리만 바꾼다', () => {
+  it('git snapshot 액션은 활성 세션 엔트리만 바꾼다', () => {
     useChatStore.setState((st) => ({
       sessions: {
         ...st.sessions,
@@ -174,23 +174,20 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
       }
     }))
     chatActions.setDiffComparison({ kind: 'commit', sha: 'abc1234' })
-    chatActions.toggleDiffFileCollapsed('src/a.ts')
-    chatActions.refreshGitSnapshot()
+    chatActions.toggleDiffFileExpanded('src/a.ts')
 
     expect(entry('s').session.gitSnapshot).toMatchObject({
       comparison: { kind: 'commit', sha: 'abc1234' },
-      collapsedFiles: ['src/a.ts'],
-      refreshGeneration: 1
+      expandedFiles: ['src/a.ts']
     })
     // 다른 세션 엔트리는 손대지 않는다 — 활성 키만 바뀐다.
     expect(entry('bg').session.gitSnapshot).toEqual({
       summary: null,
       patch: null,
       comparison: { kind: 'all' },
-      collapsedFiles: [],
+      expandedFiles: [],
       sidebarVisible: false,
-      view: DEFAULT_DIFF_VIEW,
-      refreshGeneration: 0
+      view: DEFAULT_DIFF_VIEW
     })
   })
 

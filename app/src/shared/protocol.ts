@@ -262,7 +262,10 @@ export const ListFilesRequestSchema = z.object({
   relDir: z.string()
 })
 
-export const OpenPathRequestSchema = z.object({ path: z.string().min(1) })
+export const OpenPathRequestSchema = z.object({
+  path: z.string().min(1),
+  mode: z.enum(['directory', 'reveal'])
+})
 
 // ── git (컴포저 브랜치 칩) ──────────────────────────────────────────────────
 export const GitPathRequestSchema = z.object({ cwd: z.string().min(1) })

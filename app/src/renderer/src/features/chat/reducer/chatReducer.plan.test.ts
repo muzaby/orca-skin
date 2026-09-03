@@ -346,15 +346,18 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
     const request = { key: JSON.stringify(['/repo', null]), generation: 1 }
     let state = chatReducer(initialChatState, { type: 'BEGIN_GIT_SNAPSHOT_QUERY', request })
     state = chatReducer(state, { type: 'RECEIVE_GIT_PATCH', request, patch: DIFF_PATCH })
-    state = chatReducer(state, { type: 'TOGGLE_DIFF_FILE_COLLAPSED', path: 'src/a.ts' })
-    state = chatReducer(state, { type: 'SET_DIFF_COMPARISON', comparison: { kind: 'uncommitted' } })
+    state = chatReducer(state, { type: 'TOGGLE_DIFF_FILE_EXPANDED', path: 'src/a.ts' })
+    state = chatReducer(state, {
+      type: 'SET_DIFF_COMPARISON',
+      comparison: { kind: 'commit', sha: 'abc1234' }
+    })
     const tileOpen = chatReducer(state, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'diff' })
     const tileClosed = chatReducer(tileOpen, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'diff' })
     const reopened = chatReducer(tileClosed, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'diff' })
 
     expect(reopened.gitSnapshot.patch).toBe(DIFF_PATCH)
-    expect(reopened.gitSnapshot.collapsedFiles).toEqual(['src/a.ts'])
-    expect(reopened.gitSnapshot.comparison).toEqual({ kind: 'uncommitted' })
+    expect(reopened.gitSnapshot.expandedFiles).toEqual(['src/a.ts'])
+    expect(reopened.gitSnapshot.comparison).toEqual({ kind: 'commit', sha: 'abc1234' })
   })
 
   it('늦게 도착한 패치는 버린다 — 다른 세대의 본문이 새 화면에 닿지 않는다', () => {
@@ -377,10 +380,9 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
         summary: DIFF_SUMMARY,
         patch: DIFF_PATCH,
         comparison: { kind: 'commit' as const, sha: 'abc1234' },
-        collapsedFiles: ['src/a.ts'],
+        expandedFiles: ['src/a.ts'],
         sidebarVisible: false,
-        view: DEFAULT_DIFF_VIEW,
-        refreshGeneration: 2
+        view: DEFAULT_DIFF_VIEW
       }
     } as ChatState
 
@@ -388,10 +390,9 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
       summary: null,
       patch: null,
       comparison: { kind: 'all' },
-      collapsedFiles: [],
+      expandedFiles: [],
       sidebarVisible: false,
-      view: DEFAULT_DIFF_VIEW,
-      refreshGeneration: 0
+      view: DEFAULT_DIFF_VIEW
     })
     expect(
       chatReducer(dirty, {
@@ -403,10 +404,9 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
       summary: null,
       patch: null,
       comparison: { kind: 'all' },
-      collapsedFiles: [],
+      expandedFiles: [],
       sidebarVisible: false,
-      view: DEFAULT_DIFF_VIEW,
-      refreshGeneration: 0
+      view: DEFAULT_DIFF_VIEW
     })
   })
 
@@ -418,10 +418,9 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
         summary: DIFF_SUMMARY,
         patch: DIFF_PATCH,
         comparison: { kind: 'commit' as const, sha: 'abc1234' },
-        collapsedFiles: ['src/a.ts'],
+        expandedFiles: ['src/a.ts'],
         sidebarVisible: true,
-        view: { ...DEFAULT_DIFF_VIEW, layout: 'side-by-side' as const },
-        refreshGeneration: 0
+        view: { ...DEFAULT_DIFF_VIEW, layout: 'side-by-side' as const }
       },
       gitSnapshotRequest: {
         key: JSON.stringify(['/repo-a', 'session-a']),
@@ -434,69 +433,43 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
       summary: null,
       patch: null,
       comparison: { kind: 'all' },
-      collapsedFiles: [],
+      expandedFiles: [],
       // 표시 취향은 저장소가 아니라 사용자에게 속한다 — 옮겨도 유지한다.
       sidebarVisible: true,
-      view: { ...DEFAULT_DIFF_VIEW, layout: 'side-by-side' },
-      refreshGeneration: 0
+      view: { ...DEFAULT_DIFF_VIEW, layout: 'side-by-side' }
     })
     expect(moved.gitSnapshotRequest).toBeNull()
   })
 
-  it('명시 refresh는 패치를 버리고 generation만 올린다 — 새로고침의 의미가 그것이다', () => {
-    const before = {
-      ...initialChatState,
-      gitSnapshot: {
-        summary: DIFF_SUMMARY,
-        patch: DIFF_PATCH,
-        comparison: { kind: 'uncommitted' as const },
-        collapsedFiles: ['src/a.ts'],
-        sidebarVisible: false,
-        view: DEFAULT_DIFF_VIEW,
-        refreshGeneration: 4
-      }
-    }
-    const refreshed = chatReducer(before, { type: 'REFRESH_GIT_SNAPSHOT' })
-
-    expect(refreshed.gitSnapshot).toEqual({
-      summary: DIFF_SUMMARY,
-      patch: null,
-      comparison: { kind: 'uncommitted' },
-      collapsedFiles: ['src/a.ts'],
-      sidebarVisible: false,
-      view: DEFAULT_DIFF_VIEW,
-      refreshGeneration: 5
-    })
-  })
-
-  it('접힘·범위·표시 옵션 전환은 요약 request·refresh generation을 건드리지 않는다', () => {
+  it('펼침·범위·표시 옵션 전환은 요약 request 를 건드리지 않는다', () => {
     const before = {
       ...initialChatState,
       gitSnapshot: {
         summary: DIFF_SUMMARY,
         patch: DIFF_PATCH,
         comparison: { kind: 'all' as const },
-        collapsedFiles: [],
+        expandedFiles: [],
         sidebarVisible: false,
-        view: DEFAULT_DIFF_VIEW,
-        refreshGeneration: 4
+        view: DEFAULT_DIFF_VIEW
       },
       gitSnapshotRequest: { key: JSON.stringify(['/repo', 'session-a']), generation: 2 }
     }
 
-    let after = chatReducer(before, { type: 'TOGGLE_DIFF_FILE_COLLAPSED', path: 'src/a.ts' })
-    after = chatReducer(after, { type: 'SET_DIFF_COMPARISON', comparison: { kind: 'uncommitted' } })
+    let after = chatReducer(before, { type: 'TOGGLE_DIFF_FILE_EXPANDED', path: 'src/a.ts' })
+    after = chatReducer(after, {
+      type: 'SET_DIFF_COMPARISON',
+      comparison: { kind: 'commit', sha: 'abc1234' }
+    })
     after = chatReducer(after, { type: 'TOGGLE_DIFF_SIDEBAR' })
     after = chatReducer(after, { type: 'SET_DIFF_VIEW_OPTION', patch: { wrapLines: false } })
 
     expect(after.gitSnapshotRequest).toEqual(before.gitSnapshotRequest)
-    expect(after.gitSnapshot.refreshGeneration).toBe(4)
     expect(after.gitSnapshot.summary).toBe(DIFF_SUMMARY)
     expect(after.gitSnapshot.patch).toBe(DIFF_PATCH)
   })
 
   // 0211 ΔV4 r2 — §10 EP-34 ② 의 **세대 경계**. r1 검증에서 이 `patch: null` 을 지워도
-  // 727케이스가 전건 green 이었다(D3): `REFRESH_GIT_SNAPSHOT` 쪽만 잠겨 있었고, 턴 종료로
+  // 727케이스가 전건 green 이었다(D3): 명시 새로고침 쪽만 잠겨 있었고, 턴 종료로
   // 새 요약이 오는 경로는 아무도 보지 않았다. 낡은 diff 가 남으면 새로고침의 의미가 사라진다.
   it('새 요약이 도착하면 그 세대의 패치를 버린다 — 턴이 끝나도 낡은 diff 가 남지 않는다', () => {
     const request = { key: JSON.stringify(['/repo', 'session-a']), generation: 3 }
@@ -506,7 +479,7 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
         ...initialChatState.gitSnapshot,
         summary: DIFF_SUMMARY,
         patch: DIFF_PATCH,
-        collapsedFiles: ['src/a.ts'],
+        expandedFiles: ['src/a.ts'],
         sidebarVisible: true
       },
       gitSnapshotRequest: request
@@ -522,7 +495,7 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
     // 요약은 들어왔다 — "아무것도 안 받았다" 와 구분된다.
     expect(after.gitSnapshot.summary).toBe(DIFF_SUMMARY)
     // 사용자가 만든 화면 상태는 세대 경계에서 살아남는다 — 폐기 대상은 본문뿐이다.
-    expect(after.gitSnapshot.collapsedFiles).toEqual(['src/a.ts'])
+    expect(after.gitSnapshot.expandedFiles).toEqual(['src/a.ts'])
     expect(after.gitSnapshot.sidebarVisible).toBe(true)
   })
 
@@ -560,23 +533,6 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
 
     expect(after.gitSnapshot.summary).toBe(DIFF_SUMMARY)
     expect(after.gitSnapshot.patch).toBe(DIFF_PATCH)
-  })
-
-  it('refresh 신호 뒤 새 요청 시작 전 도착한 이전 응답도 무시한다', () => {
-    const request = { key: JSON.stringify(['/repo', 'session-a']), generation: 1 }
-    const started = chatReducer(initialChatState, {
-      type: 'BEGIN_GIT_SNAPSHOT_QUERY',
-      request
-    })
-    const refreshed = chatReducer(started, { type: 'REFRESH_GIT_SNAPSHOT' })
-    const late = chatReducer(refreshed, {
-      type: 'RECEIVE_GIT_SNAPSHOT_SUMMARY',
-      request,
-      summary: DIFF_SUMMARY
-    })
-
-    expect(late.gitSnapshot.summary).toBeNull()
-    expect(late.gitSnapshotRequest?.generation).toBe(2)
   })
 
   it('같은 key의 늦은 요청 A가 더 최신 요청 B의 요약을 덮지 못한다', () => {

@@ -99,12 +99,15 @@ export interface GitSnapshotState {
   patch: GitDiffPatch | null
   /** 지금 보고 있는 비교 범위. 목록만 좁히고 diff 기준은 바꾸지 않는다(D-079). */
   comparison: DiffComparison
-  /** **접힌** 파일 경로. 기본이 전부 펼침이라 여는 쪽이 아니라 닫는 쪽을 센다(D-074). */
-  collapsedFiles: readonly string[]
+  /**
+   * **펼친** 파일 경로 (0211 ΔV5 D-105). 기본이 전부 접힘이라 **여는 쪽**을 센다 —
+   * 닫는 쪽을 세면 패치가 올 때마다 전 경로를 채워 넣어야 하고, 그 채움이 빠지면 화면이
+   * 조용히 전부 펼쳐진다.
+   */
+  expandedFiles: readonly string[]
   /** 탐색 사이드바 표시. 기본 숨김 — 파일 트리가 diff 폭을 침범한다(D-083). */
   sidebarVisible: boolean
   view: DiffViewOptions
-  refreshGeneration: number
 }
 
 export interface GitSnapshotRequest {
@@ -374,10 +377,9 @@ export const initialChatState: ChatState = {
     summary: null,
     patch: null,
     comparison: ALL_CHANGES,
-    collapsedFiles: [],
+    expandedFiles: [],
     sidebarVisible: false,
-    view: DEFAULT_DIFF_VIEW,
-    refreshGeneration: 0
+    view: DEFAULT_DIFF_VIEW
   },
   gitSnapshotRequest: null,
   diffRequirements: [],
@@ -500,11 +502,10 @@ export type ChatAction =
   | { type: 'SET_GIT_STATUS'; snapshot: BranchSnapshot }
   | { type: 'RECEIVE_GIT_PATCH'; request: GitSnapshotRequest; patch: GitDiffPatch }
   | { type: 'SET_DIFF_COMPARISON'; comparison: DiffComparison }
-  | { type: 'TOGGLE_DIFF_FILE_COLLAPSED'; path: string }
-  | { type: 'SET_ALL_DIFF_FILES_COLLAPSED'; collapsed: boolean; paths: readonly string[] }
+  | { type: 'TOGGLE_DIFF_FILE_EXPANDED'; path: string }
+  | { type: 'SET_ALL_DIFF_FILES_EXPANDED'; expanded: boolean; paths: readonly string[] }
   | { type: 'TOGGLE_DIFF_SIDEBAR' }
   | { type: 'SET_DIFF_VIEW_OPTION'; patch: Partial<DiffViewOptions> }
-  | { type: 'REFRESH_GIT_SNAPSHOT' }
   | { type: 'BEGIN_GIT_SNAPSHOT_QUERY'; request: GitSnapshotRequest }
   | {
       type: 'RECEIVE_GIT_SNAPSHOT_SUMMARY'
@@ -924,10 +925,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           summary: null,
           patch: null,
           comparison: ALL_CHANGES,
-          collapsedFiles: [],
+          expandedFiles: [],
           sidebarVisible: state.gitSnapshot.sidebarVisible,
-          view: state.gitSnapshot.view,
-          refreshGeneration: 0
+          view: state.gitSnapshot.view
         },
         gitSnapshotRequest: null,
         diffRequirements: [],
@@ -1207,25 +1207,26 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         gitSnapshot: { ...state.gitSnapshot, comparison: action.comparison }
       }
 
-    case 'TOGGLE_DIFF_FILE_COLLAPSED': {
-      const collapsed = state.gitSnapshot.collapsedFiles
+    case 'TOGGLE_DIFF_FILE_EXPANDED': {
+      const expanded = state.gitSnapshot.expandedFiles
       return {
         ...state,
         gitSnapshot: {
           ...state.gitSnapshot,
-          collapsedFiles: collapsed.includes(action.path)
-            ? collapsed.filter((path) => path !== action.path)
-            : [...collapsed, action.path]
+          expandedFiles: expanded.includes(action.path)
+            ? expanded.filter((path) => path !== action.path)
+            : [...expanded, action.path]
         }
       }
     }
 
-    case 'SET_ALL_DIFF_FILES_COLLAPSED':
+    // 0211 ΔV5 D-105 — 방향이 ΔV4 와 반대다. **펼치기가 채우고 접기가 비운다.**
+    case 'SET_ALL_DIFF_FILES_EXPANDED':
       return {
         ...state,
         gitSnapshot: {
           ...state.gitSnapshot,
-          collapsedFiles: action.collapsed ? [...action.paths] : []
+          expandedFiles: action.expanded ? [...action.paths] : []
         }
       }
 
@@ -1244,22 +1245,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         gitSnapshot: {
           ...state.gitSnapshot,
           view: { ...state.gitSnapshot.view, ...action.patch }
-        }
-      }
-
-    case 'REFRESH_GIT_SNAPSHOT':
-      return {
-        ...state,
-        gitSnapshotRequest: state.gitSnapshotRequest
-          ? {
-              ...state.gitSnapshotRequest,
-              generation: state.gitSnapshotRequest.generation + 1
-            }
-          : null,
-        gitSnapshot: {
-          ...state.gitSnapshot,
-          patch: null,
-          refreshGeneration: state.gitSnapshot.refreshGeneration + 1
         }
       }
 

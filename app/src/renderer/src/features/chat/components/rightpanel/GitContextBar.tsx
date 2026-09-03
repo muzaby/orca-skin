@@ -7,6 +7,7 @@ import { useI18n } from '../../../../shared/i18n'
 import { formatRelativeTime } from '../../../../shared/i18n/datetime'
 import { PANEL_DEFAULT_WIDTH, type DiffViewOptions } from '../../reducer/chatReducer'
 import { chatActions, useChatSession } from '../../store/chatStore'
+import { statusForCwd } from '../composer/branchChipState'
 import { ALL_CHANGES, type DiffComparison } from './diffComparison'
 import { nextDiffPanelWidth } from './diffPanelWidth'
 import {
@@ -14,7 +15,7 @@ import {
   diffViewMenuChecked,
   type DiffViewMenuItem
 } from './diffViewMenuItems'
-import { summaryBaseText } from './sessionChangesData'
+import { summaryBaseText, summaryComparisonLabel } from './sessionChangesData'
 
 // 컨텍스트 바 (0211 ΔV4 §4). 다섯 요소 — 폴더 토글 · 비교 기준 `▾` · `⋮` · `↗` · `×`.
 // `×` 는 `RightPanelTile` 이 이미 그리므로 여기서는 앞의 넷만 만든다.
@@ -24,64 +25,87 @@ interface ComparisonMenuProps {
   onPick: (next: DiffComparison) => void
 }
 
+/**
+ * 비교 기준 메뉴 — **2행 + 커밋 서브메뉴** (0211 ΔV5 D-106·D-107).
+ *
+ * ΔV4 의 평면 목록에서 바뀐 자리다. 커밋을 첫 화면에 전부 펼치면 커밋이 많은 세션에서
+ * 메뉴가 화면을 넘고, 참조 배치가 그것을 서브메뉴로 접는다. `미커밋 변경` 행은 사라졌다.
+ */
 function ComparisonMenu({ comparison, onPick }: ComparisonMenuProps): React.JSX.Element {
   const { tr, locale } = useI18n()
   const summary = useChatSession((state) => state.gitSnapshot.summary)
   const base = summaryBaseText(summary, tr)
   const commits = summary?.commits ?? []
+  const [commitsOpen, setCommitsOpen] = useState(false)
+  const commitsRef = useRef<HTMLButtonElement>(null)
   return (
     <div role="none" className="flex w-[280px] flex-col">
       <MenuTitle>{tr('chat.rightpanel.diffComparisonTitle')}</MenuTitle>
       <MenuItem
         role="menuitemradio"
         aria-checked={comparison.kind === 'all'}
-        align="start"
         data-diff-comparison="all"
         onClick={() => onPick(ALL_CHANGES)}
       >
-        <span className="min-w-0 flex-1">
-          <span className="block text-[13px] font-medium text-ink">
-            {tr('chat.rightpanel.diffAllChanges')}
-          </span>
-          <span className="mt-0.5 block text-[11.5px] leading-snug text-ink2">
+        <span className="min-w-0 flex-1 text-[13px] font-medium text-ink">
+          {tr('chat.rightpanel.diffAllChanges')}
+        </span>
+        <span className="ml-auto flex shrink-0 items-center gap-g2">
+          <span className="truncate text-[11.5px] text-ink2">
             {tr('chat.rightpanel.diffComparedWith', { base })}
           </span>
+          {comparison.kind === 'all' && <Icon name="check" size={12} className="shrink-0" />}
         </span>
-        {comparison.kind === 'all' && <Icon name="check" size={12} className="mt-1 shrink-0" />}
       </MenuItem>
-      <MenuItem
-        role="menuitemradio"
-        aria-checked={comparison.kind === 'uncommitted'}
-        data-diff-comparison="uncommitted"
-        onClick={() => onPick({ kind: 'uncommitted' })}
-      >
-        <span className="min-w-0 flex-1 text-[13px] text-ink">
-          {tr('chat.rightpanel.diffUncommittedBlock')}
-        </span>
-        {comparison.kind === 'uncommitted' && <Icon name="check" size={12} className="shrink-0" />}
-      </MenuItem>
-      {commits.length > 0 && <MenuTitle>{tr('chat.rightpanel.diffCommitScope')}</MenuTitle>}
-      {commits.map((commit) => (
+      {/* 서브메뉴는 **바깥 패널의 자식**이다 — 중첩 `Popover` 로 띄우면 portal 이라 바깥
+          패널 밖의 클릭이 되어 바깥 메뉴가 먼저 닫히고 항목 클릭이 도달하지 못한다. */}
+      <div className="relative">
         <MenuItem
-          key={commit.sha}
-          role="menuitemradio"
-          aria-checked={comparison.kind === 'commit' && comparison.sha === commit.sha}
-          align="start"
-          data-diff-comparison={`commit:${commit.sha}`}
-          onClick={() => onPick({ kind: 'commit', sha: commit.sha })}
+          ref={commitsRef}
+          aria-haspopup="menu"
+          aria-expanded={commitsOpen}
+          data-diff-comparison-commits
+          onClick={() => setCommitsOpen((open) => !open)}
         >
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] text-ink">{commit.subject}</span>
-            <span className="mt-0.5 block text-[11.5px] leading-snug text-ink2">
-              {commit.sha.slice(0, 7)} · {commit.author} ·{' '}
-              {formatRelativeTime(commit.committedAt, locale)}
-            </span>
+          <span className="min-w-0 flex-1 text-[13px] text-ink">
+            {tr('chat.rightpanel.diffCommitScope')}
           </span>
-          {comparison.kind === 'commit' && comparison.sha === commit.sha && (
-            <Icon name="check" size={12} className="mt-1 shrink-0" />
-          )}
+          <Icon name="chevR" size={12} className="ml-auto shrink-0" />
         </MenuItem>
-      ))}
+        {commitsOpen && (
+          <div
+            role="menu"
+            data-diff-commit-submenu
+            className="app-frame-floating absolute left-full top-0 z-50 ml-1 flex max-h-[320px] w-[280px] flex-col overflow-y-auto rounded-lg border border-border bg-panel p-1 shadow-lg"
+          >
+            {commits.length === 0 ? (
+              <MenuTitle>{tr('chat.rightpanel.diffEmpty')}</MenuTitle>
+            ) : (
+              commits.map((commit) => (
+                <MenuItem
+                  key={commit.sha}
+                  role="menuitemradio"
+                  aria-checked={comparison.kind === 'commit' && comparison.sha === commit.sha}
+                  align="start"
+                  data-diff-comparison={`commit:${commit.sha}`}
+                  onClick={() => onPick({ kind: 'commit', sha: commit.sha })}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] text-ink">{commit.subject}</span>
+                    <span className="mt-0.5 block text-[11.5px] leading-snug text-ink2">
+                      {commit.sha.slice(0, 7)} · {commit.author} ·{' '}
+                      {formatRelativeTime(commit.committedAt, locale)}
+                    </span>
+                  </span>
+                  {comparison.kind === 'commit' && comparison.sha === commit.sha && (
+                    <Icon name="check" size={12} className="mt-1 shrink-0" />
+                  )}
+                </MenuItem>
+              ))
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -93,13 +117,13 @@ interface ViewMenuProps {
   onCollapseAll: () => void
   onExpandAll: () => void
   onSetView: (patch: Partial<DiffViewOptions>) => void
-  onRefresh: () => void
 }
 
 /**
- * `⋮` 메뉴 — 항목과 순서의 정본은 `diffViewMenuItems.ts` 다(D-086 · §10 EP-33). 여기서는
+ * `⋮` 메뉴 — 항목과 순서의 정본은 `diffViewMenuItems.ts` 다(D-106 · §10 EP-33). 여기서는
  * 그 목록을 그리고 행동만 붙인다: 목록을 컴포넌트 안에 두면 항목 하나를 지운 변이를
  * 배열 비교로 잡을 수 없다. Git 조작(stage·commit·push)은 없다 — 읽기 전용 review surface 다.
+ * `새로고침` 도 없다 — D-099 가 수동 계기를 없앴다.
  */
 function ViewMenu({
   view,
@@ -107,15 +131,13 @@ function ViewMenu({
   onToggleSidebar,
   onCollapseAll,
   onExpandAll,
-  onSetView,
-  onRefresh
+  onSetView
 }: ViewMenuProps): React.JSX.Element {
   const { tr } = useI18n()
   const run = (item: DiffViewMenuItem): void => {
     if (item.action.kind === 'sidebar') return onToggleSidebar()
     if (item.action.kind === 'collapse-all') return onCollapseAll()
     if (item.action.kind === 'expand-all') return onExpandAll()
-    if (item.action.kind === 'refresh') return onRefresh()
     if (item.action.option === 'layout')
       return onSetView({ layout: view.layout === 'side-by-side' ? 'inline' : 'side-by-side' })
     const option = item.action.option
@@ -144,6 +166,8 @@ function ViewMenu({
 export function GitContextBar(): React.JSX.Element {
   const { tr } = useI18n()
   const summary = useChatSession((state) => state.gitSnapshot.summary)
+  const snapshot = useChatSession((state) => state.gitStatus)
+  const cwd = useChatSession((state) => state.cwd)
   const comparison = useChatSession((state) => state.gitSnapshot.comparison)
   const patch = useChatSession((state) => state.gitSnapshot.patch)
   const sidebarVisible = useChatSession((state) => state.gitSnapshot.sidebarVisible)
@@ -158,7 +182,8 @@ export function GitContextBar(): React.JSX.Element {
   const col = columns.findIndex((column) => column.tiles.includes('diff'))
   const nextWidth = nextDiffPanelWidth(widths[col])
   const expanded = nextWidth === PANEL_DEFAULT_WIDTH
-  const label = summaryBaseText(summary, tr)
+  // 0211 ΔV5 D-104 — 두 값 라벨. `head` 가 없으면 화살표도 그리지 않는다.
+  const label = summaryComparisonLabel(summary, snapshot ? statusForCwd(cwd, snapshot) : null, tr)
   const filesLabel = tr('chat.rightpanel.diffShowFiles')
   const expandLabel = tr(
     expanded ? 'chat.rightpanel.diffShrinkPanel' : 'chat.rightpanel.diffExpandPanel'
@@ -185,9 +210,25 @@ export function GitContextBar(): React.JSX.Element {
         data-diff-comparison-trigger
         className="group/diffscope flex min-w-0 items-center gap-g1 rounded-r4 px-p2 py-1 text-left outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
       >
-        <span className="min-w-0 truncate font-serif text-[13px] font-semibold text-t9">
-          {label}
+        <span
+          data-diff-base-label
+          className="min-w-0 truncate font-serif text-[13px] font-semibold text-t9"
+        >
+          {label.base}
         </span>
+        {label.head !== null && (
+          <>
+            <span aria-hidden="true" className="shrink-0 text-[13px] text-t5">
+              →
+            </span>
+            <span
+              data-diff-head-label
+              className="min-w-0 shrink truncate font-serif text-[13px] font-semibold text-t9"
+            >
+              {label.head}
+            </span>
+          </>
+        )}
         <Icon
           name="chevD"
           size={11}
@@ -245,22 +286,19 @@ export function GitContextBar(): React.JSX.Element {
             setViewOpen(false)
             chatActions.toggleDiffSidebar()
           }}
+          // 0211 ΔV5 D-105 — 방향이 반대다. 펼치기가 전 경로를 채우고 접기가 비운다.
           onCollapseAll={() => {
             setViewOpen(false)
-            chatActions.setAllDiffFilesCollapsed(
+            chatActions.setAllDiffFilesExpanded(false, [])
+          }}
+          onExpandAll={() => {
+            setViewOpen(false)
+            chatActions.setAllDiffFilesExpanded(
               true,
               (patch?.files ?? []).map((file) => file.path)
             )
           }}
-          onExpandAll={() => {
-            setViewOpen(false)
-            chatActions.setAllDiffFilesCollapsed(false, [])
-          }}
           onSetView={(next) => chatActions.setDiffViewOption(next)}
-          onRefresh={() => {
-            setViewOpen(false)
-            chatActions.refreshGitSnapshot()
-          }}
         />
       </Popover>
     </span>

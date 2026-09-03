@@ -1,6 +1,8 @@
 import { useCallback } from 'react'
 import type { DiffLine } from '../../lib/diffLines'
 import { useGitPatch } from '../../hooks/useGitPatch'
+import { fileApi } from '../../../../shared/api/ipc'
+import { joinRepoPath } from '../../lib/repoPath'
 import { chatActions, useChatSession } from '../../store/chatStore'
 import { createDiffRequirementItem } from './diffRequirements'
 import { DiffReview } from './DiffReview'
@@ -15,11 +17,13 @@ export function DiffTileContent(): React.JSX.Element {
   useGitPatch()
   const summary = useChatSession((state) => state.gitSnapshot.summary)
   const patch = useChatSession((state) => state.gitSnapshot.patch)
+  const request = useChatSession((state) => state.gitSnapshotRequest)
   const comparison = useChatSession((state) => state.gitSnapshot.comparison)
-  const collapsedFiles = useChatSession((state) => state.gitSnapshot.collapsedFiles)
+  const expandedFiles = useChatSession((state) => state.gitSnapshot.expandedFiles)
   const sidebarVisible = useChatSession((state) => state.gitSnapshot.sidebarVisible)
   const view = useChatSession((state) => state.gitSnapshot.view)
   const sessionId = useChatSession((state) => state.sessionId)
+  const cwd = useChatSession((state) => state.cwd)
   const requirements = useChatSession((state) => state.diffRequirements)
   const draft = useChatSession((state) => state.diffRequirementDraft)
 
@@ -51,26 +55,38 @@ export function DiffTileContent(): React.JSX.Element {
     [draft?.filePath, sessionId, summary]
   )
 
-  // 트리 선택은 그 파일이 접혀 있으면 먼저 펼친다 — 접힘 집합에서 빼는 것이 곧 펼침이다.
+  // 트리 선택은 그 파일이 접혀 있으면 펼친다 — 기본이 접힘이라(D-105) 이것이 정상 경로다.
   const expandFile = useCallback(
     (path: string) => {
-      if (collapsedFiles.includes(path)) chatActions.toggleDiffFileCollapsed(path)
+      if (!expandedFiles.includes(path)) chatActions.toggleDiffFileExpanded(path)
     },
-    [collapsedFiles]
+    [expandedFiles]
+  )
+
+  // `↗` — 그 파일을 OS 탐색기에서 **선택해** 연다 (0211 ΔV5 D-108).
+  // 실패는 값으로 접는다: 삭제된 파일·범위 밖 경로는 main 이 거부하고 화면은 그대로 남는다.
+  const openFile = useCallback(
+    (path: string) => {
+      if (!cwd) return
+      void fileApi.openPath({ path: joinRepoPath(cwd, path), mode: 'reveal' }).catch(() => {})
+    },
+    [cwd]
   )
 
   return (
     <DiffReview
       summary={summary}
       patch={patch}
+      hasRequest={request !== null}
       comparison={comparison}
-      collapsedFiles={new Set(collapsedFiles)}
+      expandedFiles={new Set(expandedFiles)}
       sidebarVisible={sidebarVisible}
       view={view}
       requirements={requirements}
       draft={draft}
-      onToggleCollapsed={chatActions.toggleDiffFileCollapsed}
+      onToggleExpanded={chatActions.toggleDiffFileExpanded}
       onExpandFile={expandFile}
+      onOpenFile={openFile}
       onPickComparison={chatActions.setDiffComparison}
       onDraftChange={chatActions.setDiffRequirementDraft}
       onAddRequirement={onAddRequirement}

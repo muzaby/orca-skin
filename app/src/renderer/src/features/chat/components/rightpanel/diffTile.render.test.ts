@@ -76,13 +76,15 @@ function render(props: Partial<Parameters<typeof DiffReview>[0]> = {}): string {
       summary,
       patch,
       comparison: { kind: 'all' },
-      collapsedFiles: new Set<string>(),
+      hasRequest: true,
+      expandedFiles: new Set<string>(['docs/a.md', 'src/b.ts']),
       sidebarVisible: false,
       view: DEFAULT_DIFF_VIEW,
       requirements: [],
       draft: null,
-      onToggleCollapsed: () => undefined,
+      onToggleExpanded: () => undefined,
       onExpandFile: () => undefined,
+      onOpenFile: () => undefined,
       onPickComparison: () => undefined,
       ...props
     })
@@ -99,13 +101,13 @@ describe('연속 파일 섹션 — 화면이 하나다 (AT-45)', () => {
     )
     expect(html).toContain('data-diff-file-toggle="docs/a.md"')
     expect(html).toContain('aria-expanded="true"')
-    // 두 파일의 본문이 모두 기본 펼침이다(D-074).
+    // 펼친 집합에 든 두 파일의 본문이 나온다(0211 ΔV5 D-105 — 기본은 접힘이고 여는 쪽을 센다).
     expect(html).toContain('alpha')
     expect(html).toContain('beta')
   })
 
   it('한 파일을 접으면 그 파일의 줄만 사라진다 — 전체 접기와 구분된다', () => {
-    const html = render({ collapsedFiles: new Set(['docs/a.md']) })
+    const html = render({ expandedFiles: new Set(['src/b.ts']) })
 
     expect(html).not.toContain('alpha')
     expect(html).toContain('beta')
@@ -147,9 +149,9 @@ describe('사이드바 — 기본 숨김, 열면 두 구획 (AT-50)', () => {
     expect(html).toContain('첫 커밋')
     expect(html).toContain('commit-')
     expect(html).toContain('codex')
-    // 범위 항목 둘이 커밋 카드 위에 선다(D-082).
+    // 범위 항목은 **하나**다 — `미커밋 변경` 진입점이 사라졌다(0211 ΔV5 D-107).
     expect(html).toContain('data-diff-scope="all"')
-    expect(html).toContain('data-diff-scope="uncommitted"')
+    expect(html).not.toContain('data-diff-scope="uncommitted"')
   })
 
   it('사이드바가 깊이 연출 utility 를 쓴다 — 저장소의 기존 상수 승계 (D-092)', () => {
@@ -169,11 +171,11 @@ describe('비교 범위 — 목록만 좁힌다 (AT-49)', () => {
     expect(all).toContain('alpha')
   })
 
-  it('미커밋 범위는 HEAD 대비 파일만 남긴다', () => {
-    const html = render({ comparison: { kind: 'uncommitted' } })
+  it('미커밋 파일은 전체 범위 본문에 계속 섞여 나온다 — 진입점만 사라졌다 (D-107)', () => {
+    const html = render()
 
     expect(html).toContain('data-diff-file="src/b.ts"')
-    expect(html).not.toContain('data-diff-file="docs/a.md"')
+    expect(html).toContain('data-diff-file="docs/a.md"')
   })
 
   it('커밋 파일이 세션 패치에 없으면 헤더와 사유를 함께 그린다 (D-080)', () => {
@@ -188,6 +190,7 @@ describe('비교 범위 — 목록만 좁힌다 (AT-49)', () => {
     }
     const html = render({
       summary: revertedSummary,
+      expandedFiles: new Set(['gone.ts']),
       comparison: { kind: 'commit', sha: 'commit-a' }
     })
 
@@ -220,6 +223,7 @@ describe('패치 상태가 값으로 보인다 (AT-47)', () => {
 
   it('상한을 넘은 파일은 헤더와 변경량을 남기고 줄만 뺀다', () => {
     const html = render({
+      expandedFiles: new Set(['huge.ts']),
       patch: {
         ...patch,
         files: [{ ...textFile('huge.ts', []), kind: 'too-large', added: 90000, removed: 3 }]
@@ -251,19 +255,23 @@ describe('표시 옵션 넷이 화면을 바꾼다 (AT-51 · D-088)', () => {
   }
 
   it('모든 파일 접기/펼치기가 섹션 전체를 한 번에 바꾼다', () => {
-    const collapsedAll = render({ collapsedFiles: new Set(['docs/a.md', 'src/b.ts']) })
+    const collapsedAll = render({ expandedFiles: new Set<string>() })
 
     expect(collapsedAll).not.toContain('alpha')
     expect(collapsedAll).not.toContain('beta')
-    // 펼침으로 되돌리면 둘 다 돌아온다 — 접힘 집합이 비는 것이 곧 전체 펼침이다(D-074).
-    expect(render({ collapsedFiles: new Set() })).toContain('alpha')
+    // 펼침으로 되돌리면 둘 다 돌아온다 — **집합을 채우는 것**이 전체 펼침이다(ΔV5 D-105).
+    expect(render({ expandedFiles: new Set(['docs/a.md', 'src/b.ts']) })).toContain('alpha')
   })
 
   it('나란히는 한 행이 old·new 두 칸을 갖는다', () => {
     // 강조를 끄고 본다 — 켜져 있으면 바뀐 토큰이 `<mark>` 로 갈려 줄 문자열이 이어지지 않는다.
     const plain = { ...DEFAULT_DIFF_VIEW, highlightWords: false }
-    const inline = render({ patch: wide, view: plain })
-    const side = render({ patch: wide, view: { ...plain, layout: 'side-by-side' } })
+    const inline = render({ patch: wide, expandedFiles: new Set(['w.ts']), view: plain })
+    const side = render({
+      patch: wide,
+      expandedFiles: new Set(['w.ts']),
+      view: { ...plain, layout: 'side-by-side' }
+    })
 
     expect(inline).not.toContain('data-diff-side-by-side')
     expect(side).toContain('data-diff-side-by-side')
@@ -273,8 +281,12 @@ describe('표시 옵션 넷이 화면을 바꾼다 (AT-51 · D-088)', () => {
   })
 
   it('자동 줄 바꿈을 끄면 본문이 가로 스크롤로 바뀐다', () => {
-    const wrapped = render({ patch: wide })
-    const unwrapped = render({ patch: wide, view: { ...DEFAULT_DIFF_VIEW, wrapLines: false } })
+    const wrapped = render({ patch: wide, expandedFiles: new Set(['w.ts']) })
+    const unwrapped = render({
+      patch: wide,
+      expandedFiles: new Set(['w.ts']),
+      view: { ...DEFAULT_DIFF_VIEW, wrapLines: false }
+    })
 
     expect(wrapped).toContain('whitespace-pre-wrap')
     expect(unwrapped).toContain('overflow-x-auto')
@@ -282,8 +294,12 @@ describe('표시 옵션 넷이 화면을 바꾼다 (AT-51 · D-088)', () => {
   })
 
   it('변경된 단어 강조를 끄면 강조 요소가 0개다 — 항목이 뜻을 갖는다', () => {
-    const on = render({ patch: wide })
-    const off = render({ patch: wide, view: { ...DEFAULT_DIFF_VIEW, highlightWords: false } })
+    const on = render({ patch: wide, expandedFiles: new Set(['w.ts']) })
+    const off = render({
+      patch: wide,
+      expandedFiles: new Set(['w.ts']),
+      view: { ...DEFAULT_DIFF_VIEW, highlightWords: false }
+    })
 
     expect(on).toContain('data-diff-word-change')
     expect(off).not.toContain('data-diff-word-change')
@@ -318,8 +334,12 @@ describe('표시 옵션 넷이 화면을 바꾼다 (AT-51 · D-088)', () => {
       ]
     }
     const plain = { ...DEFAULT_DIFF_VIEW, highlightWords: false }
-    const shown = render({ patch: spaced, view: plain })
-    const hidden = render({ patch: spaced, view: { ...plain, ignoreWhitespace: true } })
+    const shown = render({ patch: spaced, expandedFiles: new Set(['s.ts']), view: plain })
+    const hidden = render({
+      patch: spaced,
+      expandedFiles: new Set(['s.ts']),
+      view: { ...plain, ignoreWhitespace: true }
+    })
 
     // 켜기 전에는 공백 쌍도 제거/추가로 갈려 있다.
     expect(shown).toContain('const a=1')

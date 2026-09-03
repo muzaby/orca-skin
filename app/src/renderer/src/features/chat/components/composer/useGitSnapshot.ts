@@ -9,12 +9,32 @@ interface GitSnapshotQueryPoint {
   busy: boolean
 }
 
-export function gitSnapshotQueryReason(
+// 저장소·브랜치 **이름** 조회의 계기 (0211 ΔV5 D-101, §10 EP-42).
+//
+// 이름은 세션의 식별이지 에이전트 작업의 산출이 아니다. 이것까지 턴 종료에 묶으면 앱을 다시
+// 켠 세션에서 `gitRowView` 가 `status?.isRepo` 를 못 읽어 컴포저 git 행이 **통째로 사라진다**.
+export function gitStatusQueryReason(
   previous: GitSnapshotQueryPoint | null,
   next: GitSnapshotQueryPoint
 ): 'initial' | 'identity' | 'turn-end' | null {
   if (!previous) return 'initial'
   if (previous.identity !== next.identity) return 'identity'
+  return previous.busy && !next.busy ? 'turn-end' : null
+}
+
+// 변경 **목록** 조회의 계기 — **턴 종료 하나** (0211 ΔV5 D-099, §10 EP-42).
+//
+// 사용자 결정: “외부 변경이 있더라도 실시간 동기화하지 않는다. 오직 에이전트 메시지 턴
+// 반환시 싱크한다.” 그래서 마운트도 세션 전환도 계기가 아니다 — `previous` 가 없으면 `null`
+// 이고, 그 세션에서 턴이 한 번 끝나야 목록이 선다(그 전 화면은 D-102 의 미싱크 문구다).
+//
+// 두 함수가 **서로 다른 값**을 낸다는 것이 D-101 의 oracle 이다. 하나로 합치면 이름 축이
+// 함께 늦어지거나 목록 축이 함께 빨라져 둘 중 하나의 계약이 조용히 깨진다.
+export function gitSummaryQueryReason(
+  previous: { busy: boolean } | null,
+  next: { busy: boolean }
+): 'turn-end' | null {
+  if (!previous) return null
   return previous.busy && !next.busy ? 'turn-end' : null
 }
 
@@ -24,38 +44,12 @@ export function gitSnapshotRequestKey(cwd: string | null, sessionId: string | nu
 
 // 상태 조회의 identity — 선택 커밋은 이미 받은 session summary 안에서만 고른다.
 // 브랜치·저장소 루트가 바뀌는 사건이 아니다.
-export function gitStatusTriggerKey(cwd: string | null, refreshGeneration: number): string {
-  return JSON.stringify([cwd, refreshGeneration])
+export function gitStatusTriggerKey(cwd: string | null): string {
+  return JSON.stringify([cwd])
 }
 
-export function gitSnapshotTriggerKey(
-  cwd: string | null,
-  sessionId: string | null,
-  refreshGeneration: number
-): string {
-  return JSON.stringify([cwd, sessionId, refreshGeneration])
-}
-
-// 창이 다시 앞에 오는 순간을 듣는 구독. **배선을 순수 함수로 뽑아 둔다** — vitest 가
-// `environment: 'node'` 라 effect 를 돌릴 수 없어, 훅 안에 인라인으로 두면 등록을 통째로
-// 지워도 전 스위트가 초록이다(0211 ΔV4 r3 의 같은 벽).
-export interface GitExternalChangeTarget {
-  addEventListener(type: 'focus', listener: () => void): void
-  removeEventListener(type: 'focus', listener: () => void): void
-}
-
-// 외부 변경의 계기 — **앱 밖에서 저장소가 바뀌는 경우**를 위한 넷째 계기다(0211 ΔV4 r3).
-//
-// 사용자가 터미널에서 커밋·stage·브랜치 전환을 하면 앱 안에서는 아무 사건도 일어나지 않아
-// `initial`·`identity`·`turn-end` 어느 것도 발화하지 않는다. 그래서 지금까지 그 변경을 보는
-// 유일한 길은 우측 패널 `⋮` 의 새로고침 하나였고, 그 메뉴는 타일을 열어야만 닿는다.
-// 창으로 돌아오는 순간이 그 변경을 관측할 수 있는 가장 이른 지점이라 여기서 한 번 다시 묻는다.
-export function subscribeGitExternalChange(
-  target: GitExternalChangeTarget,
-  onChange: () => void
-): () => void {
-  target.addEventListener('focus', onChange)
-  return () => target.removeEventListener('focus', onChange)
+export function gitSnapshotTriggerKey(cwd: string | null, sessionId: string | null): string {
+  return JSON.stringify([cwd, sessionId])
 }
 
 interface GitSnapshotQueryOwner {
@@ -92,12 +86,11 @@ export function createGitSnapshotQueryOwner(): GitSnapshotQueryOwner {
 //
 // **`gitApi.status` 와 `gitApi.diffSummary` 를 함께 소유한다**(0211 ΔV1 D-031, §10 EP-13).
 // 소유자가 둘이면 계기를 줄여도 한쪽만 줄어든다 — 컴포저 행이 자기 effect 로 상태를 부르던
-// 자리가 그것이었다. 두 조회는 identity 가 다르므로(상태는 커밋을 보지 않는다) effect 를
-// 나누되 같은 순수 판정(`gitSnapshotQueryReason`)을 쓴다.
+// 자리가 그것이었다. **소유자는 하나지만 계기는 둘로 갈린다**(0211 ΔV5 D-099·D-101): 이름은
+// 세 계기, 목록은 턴 종료 하나다.
 export function useGitSnapshot(cwd: string | null, sessionId: string | null): void {
   const busy = useChatSession(sessionBusy)
-  const refreshGeneration = useChatSession((s) => s.gitSnapshot.refreshGeneration)
-  const previousQueryPoint = useRef<GitSnapshotQueryPoint | null>(null)
+  const previousQueryPoint = useRef<{ busy: boolean } | null>(null)
   const previousStatusPoint = useRef<GitSnapshotQueryPoint | null>(null)
   const [owner] = useState(createGitSnapshotQueryOwner)
 
@@ -132,28 +125,23 @@ export function useGitSnapshot(cwd: string | null, sessionId: string | null): vo
     )
   }, [cwd, owner, sessionId])
 
-  const triggerKey = gitSnapshotTriggerKey(cwd, sessionId, refreshGeneration)
+  // 좌표가 바뀌면 다음 턴 종료가 **새 키로** 조회해야 하므로 deps 에 남긴다 — 계기 판정만
+  // `busy` 를 본다(키 변화 자체는 조회를 만들지 않는다).
+  const triggerKey = gitSnapshotTriggerKey(cwd, sessionId)
   useEffect(() => {
-    const next = { identity: triggerKey, busy }
-    const reason = gitSnapshotQueryReason(previousQueryPoint.current, next)
+    const next = { busy }
+    const reason = gitSummaryQueryReason(previousQueryPoint.current, next)
     previousQueryPoint.current = next
     if (reason) return runQuery()
     return undefined
   }, [busy, runQuery, triggerKey])
 
-  const statusKey = gitStatusTriggerKey(cwd, refreshGeneration)
+  const statusKey = gitStatusTriggerKey(cwd)
   useEffect(() => {
     const next = { identity: statusKey, busy }
-    const reason = gitSnapshotQueryReason(previousStatusPoint.current, next)
+    const reason = gitStatusQueryReason(previousStatusPoint.current, next)
     previousStatusPoint.current = next
     if (reason) return runStatusQuery()
     return undefined
   }, [busy, runStatusQuery, statusKey])
-
-  // 넷째 계기. `refreshGitSnapshot` 을 쓰는 이유는 패치다 — 두 조회만 다시 돌리면 요청 키가
-  // 같아 리듀서가 `patch` 를 보존하고, 우측 패널 본문만 옛 값에 머문다.
-  useEffect(() => {
-    if (!cwd) return undefined
-    return subscribeGitExternalChange(window, chatActions.refreshGitSnapshot)
-  }, [cwd])
 }

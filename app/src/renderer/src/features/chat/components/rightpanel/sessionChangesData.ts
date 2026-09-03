@@ -1,4 +1,4 @@
-import type { GitDiffSummary } from '../../../../../../shared/ipc'
+import type { GitDiffSummary, GitStatus } from '../../../../../../shared/ipc'
 import type { MessageKey } from '../../../../shared/i18n'
 
 /**
@@ -20,8 +20,8 @@ export function summaryBaseLabel(summary: GitDiffSummary | null): SummaryBaseLab
 }
 
 /**
- * 위 판정을 화면 문자열로 옮긴다. **여기서 현재 브랜치를 붙이지 않는다** — 사용자가
- * "우측화살표+우측값 표시하지 말것" 을 명시했다(D-069).
+ * 위 판정을 화면 문자열로 옮긴다. 비교 기준 **하나**를 말하는 자리이고, 메뉴의
+ * `{{base}} 대비` 가 이것을 쓴다. 컨텍스트 바의 두 값 라벨은 `summaryComparisonLabel` 이다.
  */
 export function summaryBaseText(
   summary: GitDiffSummary | null,
@@ -33,4 +33,30 @@ export function summaryBaseText(
   if (label.kind === 'head') return tr('chat.rightpanel.diffBaselineHead')
   // 커밋이 하나도 없는 저장소. 문자 기호를 그대로 두면 카탈로그 밖 문자열이 화면에 남는다.
   return tr('chat.rightpanel.diffBaselineNone')
+}
+
+/**
+ * 컨텍스트 바의 **두 값** 라벨 — `<기준> → <현재>` (0211 ΔV5 D-104).
+ *
+ * ΔV4 의 D-069 는 사용자 인용("우측화살표+우측값 표시하지 말것")으로 화살표를 금지했으나,
+ * 사용자가 참조 화면을 다시 보고 그 결정을 뒤집었다. `head` 는 지금 체크아웃된 브랜치이고
+ * 이미 세션 상태에 있다(`gitStatus.branch`) — 새 조회가 필요 없다.
+ *
+ * **`head` 가 없으면 화살표도 없다.** detached HEAD·저장소 아님에서 `main → ` 처럼 꼬리가
+ * 빈 라벨을 그리면 사용자가 "무엇 대비" 를 읽지 못한다.
+ */
+export interface ComparisonLabel {
+  base: string
+  head: string | null
+}
+
+export function summaryComparisonLabel(
+  summary: GitDiffSummary | null,
+  status: GitStatus | null,
+  tr: (key: MessageKey) => string
+): ComparisonLabel {
+  const base = summaryBaseText(summary, tr)
+  const head = status?.isRepo && !status.detached ? status.branch : null
+  // 기준과 현재가 같은 이름이면 화살표가 아무것도 말하지 않는다 — 한 값으로 접는다.
+  return { base, head: head === base ? null : head }
 }

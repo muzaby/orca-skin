@@ -6,8 +6,9 @@ import type { GitDiffPatch, GitDiffPatchFile, GitDiffSummary } from '../../../..
 // 그렇게 골랐고(질의 응답 §커밋 모드), 그래서 `GitDiffPatchRequest` 에 커밋 인자가 없다(D-036).
 // 모드 전환은 조회가 아니라 **이미 받은 패치에 대한 순수 파생**이다.
 
-export type DiffComparison =
-  { kind: 'all' } | { kind: 'uncommitted' } | { kind: 'commit'; sha: string }
+// 0211 ΔV5 D-107 — `uncommitted` 는 진입점과 함께 사라졌다(사용자가 첨부 배치를 골랐다).
+// `GitDiffSummary.uncommitted` 계약 필드는 남아 있고 renderer 소비처만 0이 된다.
+export type DiffComparison = { kind: 'all' } | { kind: 'commit'; sha: string }
 
 export const ALL_CHANGES: DiffComparison = { kind: 'all' }
 
@@ -55,8 +56,6 @@ export function diffSections(
       added: file.added,
       removed: file.removed
     }))
-  if (comparison.kind === 'uncommitted')
-    return sectionsFrom(summary?.uncommitted.files ?? [], byPath)
   const commit = summary?.commits.find((entry) => entry.sha === comparison.sha)
   return sectionsFrom(commit?.files ?? [], byPath)
 }
