@@ -21,6 +21,9 @@ export type IconName =
   | 'chevU'
   | 'panelL'
   | 'panelR'
+  | 'expand'
+  | 'collapse'
+  | 'arrowNE'
   | 'download'
   | 'copy'
   | 'pause'
@@ -59,6 +62,11 @@ export type IconName =
 // 단일 path 이며 Material 960 그리드(viewBox `0 -960 960 960`)를 쓴다. 주석 = 원본
 // Material glyph 이름. 갱신 시 fonts.gstatic.com Material Symbols Outlined 원본을 따른다.
 const ICONS: Record<IconName, string> = {
+  expand:
+    'M160-160v-240h80v104l168-168 56 56-168 168h104v80H160Zm400-640h240v240h-80v-104L552-496l-56-56 168-168H560v-80Z', // open_in_full
+  collapse:
+    'M400-560H160v-80h104L96-808l56-56 168 168v-104h80v240Zm160 160h240v80H696l168 168-56 56-168-168v104h-80v-240Z', // close_fullscreen
+  arrowNE: 'M200-200 640-640H320v-80h480v480h-80v-320L256-144l-56-56Z', // north_east
   chat: 'M240-400h320v-80H240v80Zm0-120h480v-80H240v80Zm0-120h480v-80H240v80ZM80-80v-720q0-33 23.5-56.5T160-880h640q33 0 56.5 23.5T880-800v480q0 33-23.5 56.5T800-240H240L80-80Zm126-240h594v-480H160v525l46-45Zm-46 0v-480 480Z', // chat
   plus: 'M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z', // add
   search:

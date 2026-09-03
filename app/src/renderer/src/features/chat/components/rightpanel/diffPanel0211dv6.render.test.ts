@@ -1,14 +1,11 @@
-// 0211 ΔV6 AT-73·AT-74·AT-75·AT-76 / VP-74·VP-75·VP-76·VP-77 —
-// 빈 커밋 문구 · 모드별 라벨 · 헤더 세그먼트 둘 · 참조 실측 토큰.
-//
-// 실측표(plan §8 ΔV6)가 이 파일의 계약이다. 각 행을 **양성 + 부정** 짝으로 센다 — "새 토큰이
-// 있다" 만 보면 옛 클래스가 함께 남아 Tailwind 규칙 순서가 결과를 정하는 구현이 통과하고,
-// 그때 화면은 맞아 보이는데 계약이 둘이 된다.
+// 0211 ΔV6 AT-73·AT-74 + ΔV7 AT-78: 빈 커밋·범위 라벨 회귀와 실제 DOM 배치.
+// 폭과 높이는 대상 노드를 직접 관측한다. 구 세그먼트·25% 폭 계약은 ΔV7에서 대체했다.
 
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createElement } from 'react'
+import { load } from 'cheerio'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { GitDiffPatch, GitDiffSummary, GitStatus } from '../../../../../../shared/ipc'
@@ -66,7 +63,11 @@ const STATUS: GitStatus = {
   detached: false
 }
 
-function renderReview(patch: GitDiffPatch | null, summary: GitDiffSummary | null): string {
+function renderReview(
+  patch: GitDiffPatch | null,
+  summary: GitDiffSummary | null,
+  sidebarVisible = false
+): string {
   return renderToStaticMarkup(
     createElement(DiffReview, {
       summary,
@@ -74,7 +75,7 @@ function renderReview(patch: GitDiffPatch | null, summary: GitDiffSummary | null
       hasRequest: true,
       comparison: ALL_CHANGES,
       expandedFiles: new Set<string>(),
-      sidebarVisible: false,
+      sidebarVisible,
       view: DEFAULT_DIFF_VIEW,
       requirements: [],
       draft: null,
@@ -156,60 +157,42 @@ describe('모드별 컨텍스트 라벨 (AT-74 · D-116)', () => {
   })
 })
 
-// ── AT-75 / VP-76 ────────────────────────────────────────────────────────────
-describe('헤더 세그먼트 둘 (AT-75 · D-117)', () => {
-  const source = read('GitContextBar.tsx')
+// ΔV7 replaces the two-segment and percentage-width contracts with the supplied DOM.
+// The element itself owns each assertion: moving a width to a child must fail (D29).
+describe('실제 DOM의 대상 요소 (ΔV7 AT-78)', () => {
+  const patch: GitDiffPatch = {
+    ...EMPTY_PATCH,
+    files: [
+      { path: 'docs/a.md', status: 'modified', added: 1, removed: 0, kind: 'text', lines: [] }
+    ]
+  }
 
-  it('토글이 둘이고 옛 폴더 버튼은 없다', () => {
-    expect(source.match(/data-diff-sidebar-toggle="(off|on)"/g)).toHaveLength(2)
-    expect(source).not.toContain('leadingIcon="folder"')
+  it('사이드바가 고정 폭과 좁은 화면 상한을 갖고 커밋 구획 높이를 제한한다', () => {
+    const $ = load(renderReview(patch, SUMMARY, true))
+    const sidebar = $('[data-diff-sidebar]')
+    expect(sidebar.attr('class')).toContain('w-[240px]')
+    expect(sidebar.attr('class')).toContain('max-w-[50%]')
+    expect(sidebar.attr('class')).not.toContain('w-[25%]')
+    expect(sidebar.attr('class')).not.toContain('w-[38%]')
+    expect($('[data-diff-commit-list]').attr('class')).toContain('max-h-[40%]')
+    const card = $('[data-diff-commit-card]')
+    expect(card.attr('class')).not.toContain('border')
+    expect(card.find('[title]').attr('class')).toContain('text-body')
+    expect($('[data-diff-scope="all"]').attr('class')).toContain('bg-fill-uncontained-active')
   })
 
-  it('두 버튼이 한 상태를 반대로 읽는다 — 같은 값을 준 변이가 red 다', () => {
-    expect(source).toContain('pressed={!sidebarVisible}')
-    expect(source).toContain('pressed={sidebarVisible}')
-  })
-
-  it('액션이 멱등이다 — `toggle` 이 아니라 값을 싣는다 (§10 EP-51 ②)', () => {
-    expect(source).toContain('setDiffSidebarVisible(false)')
-    expect(source).toContain('setDiffSidebarVisible(true)')
-    expect(source).not.toContain('toggleDiffSidebar')
-  })
-})
-
-// ── AT-76 / VP-77 ────────────────────────────────────────────────────────────
-describe('참조 실측 토큰 (AT-76 · D-118·D-119·D-120)', () => {
-  it('실측 1행 — 사이드바 폭이 참조의 24.8% 대다', () => {
-    const source = read('ChangedNavigationSidebar.tsx')
-
-    expect(source).toContain('w-[25%]')
-    expect(source).not.toContain('w-[38%]')
-  })
-
-  it('실측 2·3행 — 헤더 라벨이 regular sans 이고 톤이 t7 이다', () => {
-    const source = read('GitContextBar.tsx')
-    // 라벨 셋(`base`·`head`·`commit subject`)이 전부 serif·semibold 를 벗었다.
-    expect(source).not.toContain('font-serif')
-    expect(source).not.toContain('font-semibold')
-    expect(source).toContain('text-[13px] text-t7')
-  })
-
-  it('실측 5행 — 파일 헤더가 밴드 배경을 갖는다', () => {
-    expect(read('FileDiffSection.tsx')).toContain('bg-bg2')
-  })
-
-  it('실측 6·7행 — 선택은 채움이고 비선택 커밋 카드에는 테두리가 없다', () => {
-    const source = read('ChangedNavigationSidebar.tsx')
-
-    expect(source.match(/bg-fill-selected/g)).toHaveLength(2)
-    // 옛 표시 문법이 함께 남으면 두 계약이 된다.
-    expect(source).not.toContain('border-accent')
-    expect(source).not.toContain('text-accent')
-    expect(source).not.toContain('border border-t5')
-  })
-
-  it('실측 9행 — 헤더 활성 토글이 눌린 상태를 그린다', () => {
-    // `Button` 의 `pressed` 가 채움을 소유한다(squishClass). 세그먼트는 그것을 쓴다.
-    expect(read('GitContextBar.tsx')).toContain('pressed={sidebarVisible}')
+  it('파일 밴드가 sticky이고 변경량이 이름 바로 뒤에 있으며 본문 앞 안내가 없다', () => {
+    const $ = load(renderReview(patch, SUMMARY, true))
+    const header = $('[data-diff-file-header]')
+    expect(header.attr('class')).toContain('sticky top-0')
+    expect(header.attr('class')).toContain('h-[32px]')
+    expect(header.attr('class')).toContain('bg-bg2')
+    expect(header.find('[data-diff-file-counts]').attr('class')).not.toContain('ml-auto')
+    expect(header.find('[data-diff-file-open]').attr('class')).toContain(
+      'group-focus-within/filehead:opacity-100'
+    )
+    expect($('[data-diff-scroll-owner]').children().first().attr('data-diff-file')).toBe(
+      'docs/a.md'
+    )
   })
 })

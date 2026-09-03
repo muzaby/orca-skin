@@ -12,7 +12,7 @@ import { Icon, type IconName } from './Icon'
  */
 
 export type ButtonVariant = 'uncontained' | 'contained' | 'primary' | 'danger' | 'danger-ghost'
-export type ButtonSize = 'small' | 'base' | 'large'
+export type ButtonSize = 'compact' | 'small' | 'base' | 'large'
 
 export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
   variant?: ButtonVariant
@@ -36,12 +36,14 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
 }
 
 const SIZE: Record<ButtonSize, { box: string; text: string; icon: number; radius: string }> = {
+  compact: { box: 'h-[24px]', text: 'text-body', icon: 16, radius: 'rounded-[6px]' },
   small: { box: 'h-[1.7rem]', text: 'text-caption', icon: 13, radius: 'rounded-r3' },
   base: { box: 'h-[2rem]', text: 'text-footnote', icon: 14, radius: 'rounded-r4' },
   large: { box: 'h-[2.5rem]', text: 'text-body', icon: 16, radius: 'rounded-r4' }
 }
 
 const PAD: Record<ButtonSize, { icon: string; text: string }> = {
+  compact: { icon: 'px-0', text: 'px-[8px] gap-[4px]' },
   small: { icon: 'px-p3', text: 'px-p5 gap-g2' },
   base: { icon: 'px-p3', text: 'px-p6 gap-g3' },
   large: { icon: 'px-p4', text: 'px-p6 gap-g3' }

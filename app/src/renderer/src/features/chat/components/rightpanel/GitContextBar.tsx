@@ -17,13 +17,8 @@ import {
 } from './diffViewMenuItems'
 import { summaryBaseText, summaryComparisonLabel } from './sessionChangesData'
 
-// 컨텍스트 바 (0211 ΔV4 §4 · ΔV6 D-116·D-117). 요소 — **파일 목록 세그먼트 둘** · 비교 기준
-// `▾` · `⋮` · `↗` · `×`. `×` 는 `RightPanelTile` 이 이미 그리므로 여기서는 앞의 것만 만든다.
-//
-// ΔV6 이 바꾼 두 자리:
-//   ① 폴더 버튼 하나 → **세그먼트 둘**(목록 없음 / 목록 있음). 참조 헤더의 배치이고, 선택된
-//      쪽이 채움을 갖는다 — 지금 어느 화면인지가 눌리지 않아도 읽힌다.
-//   ② 라벨이 **모드별**이다 — 전체는 `기준 → 현재`, 커밋은 `<sha7> <제목>`.
+// 실제 DOM 기준 컨텍스트 바 (0211 ΔV7 D-122): 목록 토글 · 비교 범위 · 설정 · 확대/축소.
+// 닫기는 RightPanelTile이 그린다. 범위 라벨은 전체 `기준 → 현재`, 커밋 `<sha7> <제목>`이다.
 
 interface ComparisonMenuProps {
   comparison: DiffComparison
@@ -194,39 +189,31 @@ export function GitContextBar(): React.JSX.Element {
     comparison,
     tr
   )
-  const filesOffLabel = tr('chat.rightpanel.diffFilesOff')
-  const filesOnLabel = tr('chat.rightpanel.diffFilesOn')
+  const filesLabel = tr(
+    sidebarVisible ? 'chat.rightpanel.diffFilesOff' : 'chat.rightpanel.diffFilesOn'
+  )
   const expandLabel = tr(
     expanded ? 'chat.rightpanel.diffShrinkPanel' : 'chat.rightpanel.diffExpandPanel'
   )
 
   return (
-    <span data-diff-context-bar className="flex min-w-0 flex-1 items-center gap-g2">
-      {/* 세그먼트 둘 (0211 ΔV6 D-117 · §10 EP-51) — **한 상태를 반대로 읽는다**. 두 개의
-          플래그를 따로 두면 둘 다 켜지거나 꺼진 불가능 조합이 생기고, `toggle` 액션을 쓰면
-          이미 선택된 쪽을 눌렀을 때 반대로 넘어간다(멱등이 깨진다). */}
-      <span className="flex shrink-0 items-center gap-g1">
-        <Button
-          iconOnly
-          size="small"
-          leadingIcon="panelR"
-          pressed={!sidebarVisible}
-          onClick={() => chatActions.setDiffSidebarVisible(false)}
-          title={filesOffLabel}
-          aria-label={filesOffLabel}
-          data-diff-sidebar-toggle="off"
-        />
-        <Button
-          iconOnly
-          size="small"
-          leadingIcon="panelL"
-          pressed={sidebarVisible}
-          onClick={() => chatActions.setDiffSidebarVisible(true)}
-          title={filesOnLabel}
-          aria-label={filesOnLabel}
-          data-diff-sidebar-toggle="on"
-        />
-      </span>
+    <span
+      data-diff-context-bar
+      className="flex min-w-0 flex-1 items-center gap-[4px] font-sans text-body font-normal"
+    >
+      {/* ΔV7: 실제 DOM은 표시 상태를 뒤집는 단일 목록 버튼이다. */}
+      <Button
+        iconOnly
+        size="compact"
+        leadingIcon="panelL"
+        pressed={sidebarVisible}
+        aria-pressed={sidebarVisible}
+        onClick={() => chatActions.setDiffSidebarVisible(!sidebarVisible)}
+        title={filesLabel}
+        aria-label={filesLabel}
+        data-diff-sidebar-toggle
+        className="shrink-0 aria-pressed:text-accent [&[aria-pressed=true]>.btn-squish]:bg-fill-selected"
+      />
       <button
         ref={comparisonRef}
         type="button"
@@ -234,34 +221,31 @@ export function GitContextBar(): React.JSX.Element {
         aria-haspopup="menu"
         aria-expanded={comparisonOpen}
         data-diff-comparison-trigger
-        className="group/diffscope flex min-w-0 items-center gap-g1 rounded-r4 px-p2 py-1 text-left outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
+        className="group/diffscope flex h-[24px] min-w-0 items-center gap-[4px] rounded-[6px] px-[8px] text-left text-body font-normal text-ink2 outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
       >
         {/* 서체는 **버튼 라벨**의 규칙을 따른다 (0211 ΔV6 실측 2·3행) — 참조의 이 자리는
             타일 제목이 아니라 드롭다운 트리거이고, `Button` 이 이미 regular sans 로 정했다.
             `font-serif font-semibold` 가 그 규칙에서 벗어나 있던 자리다. */}
         {label.kind === 'commit' ? (
           <>
-            <span
-              data-diff-commit-sha-label
-              className="shrink-0 font-mono text-[13px] text-t7 tabular-nums"
-            >
+            <span data-diff-commit-sha-label className="shrink-0 text-body tabular-nums">
               {label.sha}
             </span>
-            <span data-diff-commit-subject-label className="min-w-0 truncate text-[13px] text-t7">
+            <span data-diff-commit-subject-label className="min-w-0 truncate text-body">
               {label.subject}
             </span>
           </>
         ) : (
           <>
-            <span data-diff-base-label className="min-w-0 truncate text-[13px] text-t7">
+            <span data-diff-base-label className="min-w-0 truncate text-body">
               {label.base}
             </span>
             {label.head !== null && (
               <>
-                <span aria-hidden="true" className="shrink-0 text-[13px] text-t5">
+                <span aria-hidden="true" className="shrink-0 text-body text-ink3">
                   →
                 </span>
-                <span data-diff-head-label className="min-w-0 shrink truncate text-[13px] text-t7">
+                <span data-diff-head-label className="min-w-0 shrink truncate text-body">
                   {label.head}
                 </span>
               </>
@@ -270,15 +254,15 @@ export function GitContextBar(): React.JSX.Element {
         )}
         <Icon
           name="chevD"
-          size={11}
-          className="shrink-0 text-t5 transition-colors group-hover/diffscope:text-t7"
+          size={12}
+          className="shrink-0 text-ink3 transition-colors group-hover/diffscope:text-ink2"
         />
       </button>
-      <span className="ml-auto flex shrink-0 items-center gap-g1">
+      <span className="ml-auto flex shrink-0 items-center gap-[2px]">
         <Button
           ref={viewRef}
           iconOnly
-          size="small"
+          size="compact"
           leadingIcon="kebab"
           onClick={() => setViewOpen((open) => !open)}
           title={tr('chat.rightpanel.diffViewSettings')}
@@ -289,8 +273,8 @@ export function GitContextBar(): React.JSX.Element {
         />
         <Button
           iconOnly
-          size="small"
-          leadingIcon="panelL"
+          size="compact"
+          leadingIcon={expanded ? 'collapse' : 'expand'}
           onClick={() => chatActions.setRightPanelColWidth(col, nextWidth)}
           title={expandLabel}
           aria-label={expandLabel}

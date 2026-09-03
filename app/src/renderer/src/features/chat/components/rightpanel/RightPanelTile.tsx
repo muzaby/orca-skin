@@ -26,6 +26,7 @@ export function RightPanelTile({
 }: RightPanelTileProps): React.JSX.Element {
   const { tr } = useI18n()
   const label = useChatSession((s) => s.rightPanelTileLabels[id]) ?? tr(defaultLabelKey)
+  const isDiff = id === 'diff'
 
   const remove = useCallback((): void => {
     chatActions.removeRightPanelTile(id)
@@ -36,17 +37,20 @@ export function RightPanelTile({
       className={`app-frame-tile effect-primary-elevated flex min-h-0 flex-1 flex-col overflow-hidden rounded-r6 border border-border bg-panel ${className}`}
       data-context={id}
     >
-      <div className="app-frame-tile-header flex items-center gap-2 border-b border-t5 px-3 py-2">
+      <div
+        data-diff-tile-header={isDiff || undefined}
+        className={`app-frame-tile-header flex shrink-0 items-center ${isDiff ? 'h-[32px] gap-[2px] px-[4px] font-sans' : 'gap-2 border-b border-t5 px-3 py-2'}`}
+      >
         {headerContent ?? (
           <span className="min-w-0 truncate font-serif text-[13px] font-semibold tracking-tight text-t9">
             {label}
           </span>
         )}
-        <div className="ml-auto flex items-center gap-g2">
+        <div className={`ml-auto flex shrink-0 items-center ${isDiff ? 'gap-[2px]' : 'gap-g2'}`}>
           {headerActions}
           <Button
             iconOnly
-            size="small"
+            size={isDiff ? 'compact' : 'small'}
             leadingIcon="x"
             onClick={remove}
             title={tr('chat.rightpanel.closeTile', { label })}

@@ -6,6 +6,7 @@
 
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { load } from 'cheerio'
 import { describe, expect, it } from 'vitest'
 import type {
   DiffRequirementItem,
@@ -92,6 +93,24 @@ function render(props: Partial<Parameters<typeof DiffReview>[0]> = {}): string {
 }
 
 describe('연속 파일 섹션 — 화면이 하나다 (AT-45)', () => {
+  it('인라인 번호는 삭제의 old 축과 추가·문맥의 new 축을 하나씩 표시한다 (ΔV7 AT-79)', () => {
+    const file = textFile('docs/a.md', [])
+    file.lines = [
+      { type: 'removed', oldLine: 42, newLine: null, text: 'old value' },
+      { type: 'added', oldLine: null, newLine: 73, text: 'new value' },
+      { type: 'unchanged', oldLine: 43, newLine: 74, text: 'context value' }
+    ]
+    const $ = load(render({ patch: { ...patch, files: [file] } }))
+    const rows = $('[data-diff-hunk-row-id]')
+    expect(rows.toArray().map((row) => $(row).find('[data-diff-line-number]').text())).toEqual([
+      '42',
+      '73',
+      '74'
+    ])
+    expect(rows.toArray().map((row) => $(row).children('td').length)).toEqual([3, 3, 3])
+    expect(rows.eq(0).find('[data-diff-requirement-add]').attr('aria-label')).toContain('-42')
+    expect(rows.eq(1).find('[data-diff-requirement-add]').attr('aria-label')).toContain('+73')
+  })
   it('파일들이 한 스크롤 컨테이너 안에 순서대로 서고 각각 접기 컨트롤을 갖는다', () => {
     const html = render()
 

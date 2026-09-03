@@ -65,6 +65,76 @@ DIAGNOSE_ONLY — 사용자가 요청한 것은 제품 구현이며 지침 수�
 
 READY — DOM에 실제 명시된 치수와 원본이 없는 토큰을 구분했고 사용자 fallback을 기록했다. 기존 토글·비율 폭·상시 안내 계약의 대체 관계를 위에 명시했으며, 범위 전환·파일 이동·요구사항은 회귀 pair로 남겼다. 메타와 INDEX는 ΔV7·같은 라운드 3으로 함께 갱신한다.
 
+## [구현자 기입] ΔV7 — 실제 DOM 반영, 라운드 3 유지
+
+### 설계 리뷰
+
+ΔV7 시각 구현 완료. 첨부 DOM의 명시 치수를 적용했고 정의가 없는 색·폰트·아이콘은 사용자 결정 D-124에 따라 Orca 자산을 사용했다. 이전 ΔV6 표의 두 세그먼트·25% 폭·모든 선택의 rust 채움·상시 안내는 위 대체 결정에 한해 효력이 없다.
+
+구현 세부 차이: diff 구문 색은 기존 Markdown의 Shiki 인스턴스를 공유한다(`shared/ui/markdown/syntax.ts`). 새 의존성 없이 펼친 파일만 비동기 토큰화하며 old/new 문법 상태를 별도로 보존한다. UI 라벨은 기존 한국어/영어 카탈로그를 유지한다.
+
+전체 0211 완료를 주장하지 않는다. 이번 자기확인은 AT-77~79와 영향받은 회귀에 한정하며, 기존 검증의 Stop hook 배선 BLOCKING D25~D27은 해결 대상으로 손대지 않았다. INDEX는 `impl/IN_PROGRESS`, 다음 주체는 구현자로 유지한다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+| EP | 관측한 대상 / 결과 |
+|---|---|
+| EP-52 | 2/2 — GitContextBar의 헤더 onClick과 ViewMenu onToggleSidebar가 같은 `sidebarVisible` 반대 값을 전달한다. `GitContextBar.actions`는 false/true 양방향을 직접 실행한다. 브라우저는 버튼 숨김 뒤 sidebar 0·pressed false, 메뉴 표시 뒤 sidebar 1·pressed true를 관측했다. |
+| EP-53 | 5/5 — RightPanelTile 헤더 32px, GitContextBar 버튼 24px, ChangedNavigationSidebar 240px, FileDiffSection 밴드 32px, DiffReview scroll owner의 첫 자식 파일 섹션을 관측했다. 최소 패널 280px에서 sidebar 139.2px, panel scrollWidth/clientWidth 280/280이다. |
+| EP-54 | 2/2 — InlineLineRow의 제거/추가/문맥 번호는 42/73/74, 각 행 td 3개이며 주석 anchor -42/+73을 유지한다. LineText는 added/removed 각각의 git 토큰으로 행·단어 강조를 그린다. 브라우저 단어 강조 off/on은 mark 0/2개다. |
+
+분모 재확인: `rg -n 'sidebarVisible|setDiffSidebarVisible|data-diff-file-header|data-diff-scroll-owner|data-diff-tile-header|function InlineLineRow|function LineText' app/src/renderer/src/features/chat/components/rightpanel -g '*.tsx'`로 상태의 두 조작 경로와 실제 표시 소유자를 확인하고 상위 타일·트리 구획을 직접 열었다. EP-52 2 + EP-53 5 + EP-54 2 = 9/9이다.
+
+| pair | 자기 상태 | 이번 관측 |
+|---|---|---|
+| VP-78 | SELF_PASS | GitContextBar render/actions 19케이스, 단일 버튼의 수·이름·aria-pressed와 버튼/메뉴의 실제 호출 인자 |
+| VP-79 | SELF_PASS | 실제 렌더된 sidebar/file header 대상 단언, 브라우저 32/24/240px 실측, 280px·580px·전체 폭과 light/dark 확인 |
+| VP-80 | SELF_PASS | 단일 gutter·주석 anchor 및 구문 토큰/word mark 원문 보존 테스트; 나란히 보기 old/new 축도 직접 렌더 단언 |
+| VP-58 / VP-59 / VP-60 / VP-64 / VP-66 | SELF_PASS | rightpanel과 diff lib 회귀에서 파일 이동·스크롤 보정·표시 메뉴·범위·요구사항 경로 통과. 브라우저 파일 접힘은 본문 0개, 재펼침과 inline↔side-by-side는 각 테이블 1개다. |
+
+### 이번 라운드 수정의 잠금
+
+| 구분 | 결함 / oracle | 이번 red 관측 |
+|---|---|---|
+| VP-78 선택 증거 | 기존 두 버튼 구현 / 새 단일 버튼 render/actions | 수정 전 4 failed · 15 passed, 수정 후 19 passed |
+| D29 인용 N4 | sidebar 폭을 aside에서 안쪽 div로 이동 / `사이드바가 고정 폭…` | 1 failed · 7 skipped, expected `w-[240px]`가 aside에 없음. finally에서 원문 복구 |
+| VP-79 새 대상 oracle | 같은 N4를 실제 `[data-diff-sidebar]` 대상으로 관측 | 위 실행에서 자식에 폭 문자열이 남아도 red. 전체 파일 문자열에 의존하지 않음 |
+
+선택 증거 1 + 인용 변이 1 + 새 구조 oracle 1 = 표 3행. N4 실행 하나가 뒤 두 행의 근거다. 직접 결과 oracle은 추가 mutation 대상이 아니다: gutter는 수정 전 1 failed · 27 passed, syntax는 plain 구현에서 2 failed · 1 passed를 확인했다. 리뷰에서 발견한 좌우 문맥 덮어쓰기는 새 회귀 1 failed 후 수정했고 최종 실행에서 통과했다.
+
+D29는 이번 구현자 기준으로 해소되었으며 독립 검증을 기다린다. D28의 활성 색은 새 사용자 결정 D-124가 기준이므로 예전 all-rust 기준으로 통과를 소급 주장하지 않는다.
+
+### Product/UX 파생 검토
+
+좁은 폭에서도 헤더 조작이 남고 이름·경로·커밋 정보가 잘린다. 280px/영어/1000 days ago 조건에서 커밋 목록 scrollWidth/clientWidth는 138/138이며, SHA를 보존하고 저자·시간은 말줄임한다. 파일 열기는 hover와 focus-within 모두 나타나고 터치 포인터에서도 표시한다. 원본 미제공 토큰을 사용한 픽셀 동일성은 주장하지 않는다.
+
+### 놓친 잠재 문제 + 대응
+
+| 문제 | 대응 / 남은 범위 |
+|---|---|
+| 커밋 메타의 고정 SHA·시간이 좁은 패널을 넘길 수 있음 | 메타 overflow 제한 + 저자/시간 말줄임; 위 영문 실측에서 가로 넘침 없음 |
+| 공통 줄도 old/new 주석 상태가 다름 | 줄별 양 축의 토큰을 보존하고 나란히 보기에서 축을 명시. 순수 토큰 테스트와 실제 FileDiffSection 렌더 테스트로 보정 |
+| 비동기 문법 로드가 늦거나 실패함 | 입력·테마 일치 여부와 effect 취소를 검사하고 plain text로 표시. 기존 singleton과 테마 구독을 공유 |
+| 기존 ΔV6 배선 검증 차단 | D25~D27을 미해결로 보존. 이번 시각 산출물 완료를 전체 handoff 완료와 분리 |
+
+### 구현 보고
+
+| AC | 자기 결과 | 관측 |
+|---|---|---|
+| AT-77 | ✅ | 단일 토글, 상태별 이름·채움·setter, 브라우저 버튼↔메뉴 왕복 |
+| AT-78 | ✅ | DOM 치수·파일 순서·중립 커밋 선택·hover/focus 열기; 기본 sans는 Inter/Segoe UI 계열, 본문 mono; 280px·580px·전체 폭과 두 테마 |
+| AT-79 | ✅ | 단일 상단 정렬 줄 번호, git 타입별 강조, 구문 색상, 접기·펼치기·나란히·주석 회귀 |
+
+✅ 3 · ⚠️ 0 · ❌ 0 = 이번 ΔV7 AC 3. 이 분모는 AT-77~79이며 예전 전체 V의 합계가 아니다. 구현 trailer는 `Criteria-Met: 3/3`, 전체 handoff의 미해결 사유는 `Criteria-Pending`과 INDEX에 남긴다.
+
+관측한 gate: `npx.cmd vitest run src/renderer/src/features/chat/components/rightpanel src/renderer/src/features/chat/lib/diff src/renderer/src/shared/ui/markdown` — 26파일/217케이스 통과. `npm.cmd run typecheck` — node/web/test 3구성 exit 0. 전체 eslint는 코드 오류 0, 기존 `useTranscriptVirtualizer`의 react-hooks/incompatible-library 경고 1; 이번 메타 수정의 formatting 경고는 prettier 후 대상 eslint 0 error/warning으로 확인했다. `node scripts/check-doc-inventory.mjs --check`는 generated/prose/links 모두 통과했고 `git diff --check`는 출력 0줄이다.
+
+브라우저는 실제 컴포넌트를 임시 Vite fixture에 렌더해 확인했다. HMR 중 생성된 옛 React 로그와 구분해 최종 새 탭의 오류 로그는 0건이었다. fixture는 제거하며 최종 화면은 로컬 산출물 `orca-diff-light.png`, `orca-diff-dark.png`로 저장했다. Electron 전체 앱·네이티브 ABI를 전환하는 빌드는 이번 UI 검증에 포함하지 않았다.
+
+### Review Signals
+
+라운드 3 유지. 사용자 DOM·fallback 결정이 이전 치수 추정보다 우선한다. 예전 소스 스윕은 폭을 소유한 요소를 보지 못했으며 새 렌더 oracle은 인용 N4를 검출했다. 공통 Button 기존 크기는 유지하고 compact 크기를 추가했다. 독립 코드 리뷰에서 발견한 커밋 메타 넘침과 좌우 구문 문맥을 보정했고 재검토에서 추가 지적은 없었다. handoff 지침 변경은 없다.
+
 > **ΔV1 진입 사유**(2026-08-31). 라운드 1 구현물을 사용자가 실기하고 3건을 지적했다 — 그중 둘은
 > **사용자 결정 변경**(D-009·D-011·D-017 대체)이고 하나는 **계획 누락**(2턴 시퀀스를 보는 oracle 부재)이다.
 > 라운드 1의 verify 는 아직 수행되지 않았다 — 이 갱신은 `verify/FAIL` 이 아니라 **설계 입력**이고
