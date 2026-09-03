@@ -1028,6 +1028,129 @@
 
 ---
 
+## [구현자 기입] 설계 리뷰 (r3 — ΔV2)
+
+- 동의 / 그대로 진행: ΔV2 규범 행 전부 — D-021·D-022, AC23(정정)·AC25·AC26, EP-20a~d·EP-22, VP-21 변이 6종.
+- 이견 / 현실성 문제: **없음.** D-021 의 전제(`Composer` 마운트 가능)를 구현 전에 직접 재현했다 —
+  props `{backendLabel, canAbort}` 만으로 throw 0 · HTML 3795자, 시드 후 4249자.
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음. D-020 은 OPEN 유지(신규 의존성 0).
+- **설계가 적지 않은 게이팅을 하나 찾았다** — 모델 칩은 `agents.some((a) => a.supported)` 로 가려진다
+  (`Composer.tsx:389`). `supported` 없이 시드하면 칩이 통째로 사라진다. AC26 은 `toContain` 이라
+  거짓 통과가 아니라 **실패**하지만, 그 실패 원인이 배선이 아니라 시드라 오독을 부른다 → 세 번째
+  케이스로 도달 자체를 양성 관측한다(아래 잠재 문제 #2).
+
+## [구현자 기입] 강제 지점 전수 (§10 대조 · r3 — ΔV2 신설 행)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-21 | EP-20a `Composer` 가 `selectedModel` 을 소비자에게 넘긴다 | 4 | **3/4** | `rg -n 'selectedModel' Composer.tsx`(memo 정의·import 제외) → `:255`·`:392`·`:466`·`:496` | **`:255` = NOT_REQUIRED**(0119 steerGate, ΔV2 §7-A 에 사유 기재) |
+| VP-21 | EP-20b `setModel` 4슬롯 순서 계약 | 3 | 3/3 | `rg -c 'setModel\(' Composer.tsx` → **3**. 축③ 이 호출마다 `args.length === 4` + 슬롯별 정규식 | — |
+| VP-21 | EP-20c memo 가 선택 3필드를 싣는다 | 1 | 1/1 | `rg -c 'const selectedModel = useMemo' Composer.tsx` → **1**. 축② 가 `providerKey`·`modelFamily`·`modelAlias` 각각 축약·비-null·의존성 3검사 | — |
+| VP-22 | EP-20d 타일 → 목록 View | 1 | 1/1 | `rg -n 'stopErrors={' SubAgentTileContent.tsx` → `:147`. ΔV1 AT-24 가 이미 닫았고 r3 이 재관측 | — |
+| VP-21·VP-22 | EP-21 관대한 기본값 제거 | 2 | 2/2 | ΔV1 에서 닫음. `rg '^\s*[a-z]*\?:' ModeMenu.tsx` → 0건 · `rg 'stopErrors\?:'` → 0건 | — |
+| VP-21 | EP-22 관측 수단을 **실행 여부**로 가른다(D-021) | 2 버킷 | 2/2 | 소스 단언 5지점 → `composer/composerWiring.test.ts` · 마운트 1지점(`:392`) → `composerMount.render.test.ts` | — |
+
+- **ΔV2 분모 검산**: `a4 + b3 + c1 + d1` = **9**, `EP-21 2` · `EP-22 2` → ΔV2 구간 **13 사이트**.
+  그중 `:255` 1건이 `NOT_REQUIRED` 이므로 **12/13 닫음 + 1 명시 제외**.
+- **누적**: V1 27 + ΔV2 13 = **40 사이트**(plan §8 검산과 일치), 요구 39 중 **39 닫음**.
+- **검색 술어는 불변식의 주어다** — `selectedModel`(넘기는 대상) · `setModel(`(되쓰는 동작) ·
+  `stopErrors={`(넘기는 값). ΔV1 이 쓴 해법 이름(`options=\{modeMenuOptions`)은 술어에서 뺐다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r3)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| **M-B** `<ModeMenu options=…>` 미전달 | VP-21 선택 증거 | r2 red | `축①` 1건 (847/848) · `TS2741` | red — 잠김 |
+| **M-F** `setModel(…, null, …)` | VP-21 선택 증거 | r2 red | `축③` 1건 | red — 잠김 |
+| **M-H** memo `modelAlias: null` | VP-21 선택 증거 | r2 red | `축②` 1건 | red — 잠김 |
+| **V-1** `<ModelMenu selection={null}>` | D1(r2) 인용 변이 | **r2 GREEN 844/844** | `축④` 1건 | **red — 새로 잠김** |
+| **V-2c** 칩 라벨 → 폴백(미사용 import 까지 밀어 **잔여물 진단 0**) | D1(r2) 인용 변이 | **r2 GREEN 844/844** | AT-26 **3건** (845/848), **typecheck 0** | **red — 새로 잠김** |
+| **V-5** `setModel(pk, alias, alias, adapter)` 형제 슬롯 중복 | D2(r2) 인용 변이 | **r2 GREEN 844/844** | `축③` 1건 | **red — 새로 잠김** |
+| **S-1** `modelFamily` ↔ `modelAlias` 맞바꿈 | 형제 슬롯 규칙(§3) | r2 red | `축③` 1건 | red — 잠김 |
+
+- **분모 검산**: `선택 증거 6(M-B·M-F·M-H·V-1·V-2c·V-5) · 인용 변이 3(D1(r2) V-1·V-2c · D2(r2) V-5
+  — 선택 증거와 **동일 집합**이라 행을 겹쳐 쓴다) · 새 oracle 4(축② 확장·축③ 확장·축④ 신설·
+  마운트 신설) → 민감도 검사에 형제 맞바꿈 S-1 을 더해 **= 표 행 7**`.
+- **V-2c 는 typecheck 0 상태에서 red 다** — 잔여물(`TS6133`)에 걸린 부산물이 아니라 **마운트
+  oracle 이 동작으로 잡은 것**이다. ΔV1 때 이 자리는 잔여물을 치우면 초록으로 수렴했다.
+- **덮개 회귀 0**: 이번 라운드는 장치를 **교체하지 않고 확장**했다. 축①은 원문 그대로, 축②·축③은
+  단언을 **더했다**(줄이지 않음). r2 가 red 로 잡던 M-B·M-F·M-H·S-1 이 전부 red 로 재현된다.
+
+## [구현자 기입] Product/UX 파생 검토 (r3)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ✅ **해당 없음** — 산출은 잠금(테스트 2파일)뿐, 사용자 대면 문구 0건 |— |
+| **기존** 문구가 소비자를 잃지 않았는가 | ✅ 프로덕션 코드 변경 **0줄** — `git diff --stat` 에 `Composer.tsx`·`ModeMenu.tsx` 등 production 파일이 없다 | — |
+| seam 을 만들려고 production 을 재배치했는가 | ✅ **0건** — 마운트 oracle 은 기존 컴포넌트를 그대로 렌더한다 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 해당 없음 — 새 실패 경로 0 | — |
+| 실패가 화면에서 "아무 일도 안 일어남" 으로 보이지 않는가 | 해당 없음 — 화면 산출 불변 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 — 비동기 경로 미변경 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r3)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | **§5 전수 적용** — "분모의 술어를 해법 이름으로 쓴다" 가 plan §8 의 **다른 행**에도 있는지 | ✅ 선조치(조사) — 검색 술어 33개를 분류해 위험 2건을 주어로 재측정. **추가 지점 0** | A: `.plan` 직접 읽기 = `plan-text.ts:22` 1곳(=`resolvePlanText` 내부) · B: `[1m]` 재부착 = `model-identity.ts:28` 1곳. 나머지 hit 는 전부 주석 |
+| 2 | 모델 칩이 `agents.some((a) => a.supported)` 로 게이팅돼 시드가 불완전하면 라벨이 사라진다 | ✅ 선조치 — `supported: true` 를 시드에 넣고, **세 번째 케이스로 도달을 양성 관측**(`supported:false` 면 `anthropic/` 가 사라진다) | 실측: `supported` 없이는 HTML 3795자·라벨 부재, 있으면 4249자·라벨 존재 |
+| 3 | 마운트 oracle 이 `agentStore`·`chatStore` **두 스토어**의 초기 상태를 제자리 변형한다 | ✅ 선조치 — `afterEach` 로 4필드 원복. 축별 실패 모드는 아래 | 단독 실행 3/3 · 전체 3243/3243 둘 다 green(순서 무관) |
+| 4 | 변이 스크립트가 외부 `timeout` 으로 죽으면 `finally` 가 실행되지 않아 트리에 변이가 남는다 | 보고 — 이번 라운드에 **2회** 발생. 매번 `git status` 로 확인하고 `git checkout` + `.bak` 삭제로 복원 | r2 검증에서도 같은 축을 겪었다(verify r2 §9) |
+
+### 설계 대비 명시적 차이 (r3)
+
+**차이 없음 — 설계가 지정한 메커니즘을 그대로 썼다.** AC26 의 마운트는 D-021 이 적은 그대로
+`renderToStaticMarkup(createElement(Composer, …))` 이고, 시드는 AT-24 와 같은 `getInitialState()`
+제자리 변형이다. 신규 의존성 0.
+
+다만 **AT-24 에서 이미 보고한 시드 수단의 축별 실패 모드가 이 파일에도 그대로 적용**되므로 다시 적는다.
+
+| 축 | 대체물의 실패 모드 | 다시 확인한 AC / §10 행 |
+|---|---|---|
+| 만료 | **해당 없음** — 초기 상태 객체는 모듈 수명 동안 교체되지 않는다 | AC26 — 3케이스 green |
+| **공유** | **있다** — 초기 상태 객체를 파일 내 모든 케이스가 공유한다. 이 파일은 **두 스토어**(`agentStore.agents` + 세션 3필드)를 건드리므로 `afterEach` 가 4필드를 원복한다 | AC26 — 단독 3/3 · 전체 3243/3243, 순서 무관 |
+| 재진입 | **해당 없음** — 시드→렌더가 동기이고 effect 가 SSR 에서 실행되지 않는다 | AC26 |
+| 다른 무효화 | **있다(잠재)** — 제자리 변형은 구독자를 깨우지 않는다. SSR 은 구독하지 않아 무영향이나 CSR 마운트로 바뀌면 시드가 죽는다 | D-020(OPEN) 이 열리는 자리 — §17 리스크에 기록됨 |
+
+## [구현자 기입] 구현 보고 (r3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | **production 0** · 테스트 2(`composerWiring.test.ts` 확장 · `composerMount.render.test.ts` 신규) |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run <지정 스위트>` · `node scripts/ensure-sqlite-abi.mjs node` 후 `./node_modules/.bin/vitest run` |
+| **관측한 게이트 산출** | lint **0 error / 1 warning**(기존 `useTranscriptVirtualizer`, 변경 무관) · typecheck **3구성 0 error** · 지정 스위트 **1623케이스 green** · 전체 **330파일 3243케이스 green, 0 failed / 7 skipped**(r2 329/3239 → 신규 1파일 4케이스) |
+| ABI 주의 | 전체 실행 전 `ensure-sqlite-abi.mjs node` 선행 — r1·r2 와 같은 축 |
+| V-pair 자기확인 | `SELF_PASS 22 / SELF_BLOCKED 0` — VP-21 이 ΔV2 분모로 재확인됨, VP-22 는 ΔV1 증거 승계 |
+| 강제 지점 전수 | ΔV2 구간 **12/13 + 1 NOT_REQUIRED** · 누적 요구 **39/39** |
+| **합계 검산** | ✅ **24** · ⚠️ **2**(사람 실기) · ❌ 0 = **총 26**. 분모가 r2 의 24 에서 26 으로 늘었다(AC25·AC26 신설) — r2 합계와 직접 비교하지 않는다 |
+| 블로커 / 역질문 | 없음. D-020(jsdom)은 OPEN 유지 — ΔV2 로 필요 범위가 소스 단언 5지점으로 좁아졌다 |
+| 대상 커밋 | `(r3 구현 — 좌표는 INDEX)` |
+
+### AC 행별 관측 (r3 신설·정정분)
+
+`AC23`✅ **정정분 닫힘** — 축③ 이 호출 3건 각각 `args.length === 4` 와 슬롯별 정규식
+(`providerKey$` / `modelFamily$|^modelKey\(` / `[Aa]lias$` / `adapter$`)을 단언한다. V-5(중복)·S-1(맞바꿈) 각각 red.
+`AC25`✅ `composerWiring` 축④ — `<ModelMenu selection={selectedModel}>`. 변이 V-1 red.
+`AC26`✅ `composerMount.render.test.ts` 3케이스 — 칩 라벨 `anthropic/claude-sonnet-4-6`,
+`[1m]` 변형 구분(`…-4-6[1m]`), 도달 양성 관측. 변이 V-2c red 3건(typecheck 0).
+`AC21`✅ 게이트 산출 위 표. 나머지 AC1~AC22·AC24 는 프로덕션 코드를 바꾸지 않았고 r1·r2 관측이 유지된다(844→848, 감소 0).
+
+## [구현자 기입] Review Signals — 사실만 (r3)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **같은 축의 3라운드째다.** r1 "규칙은 잠겼는데
+  배선이 안 잠겼다" → r2 "배선 6곳은 잠겼는데 그 6이 전수가 아니다" → r3 은 그 분모를 주어로
+  재산출해 닫았다. **세 라운드 모두 분모가 이미 고친 자리로만 이뤄져 있었다.**
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **있었다.** `handoff-impl §2` 의 "그 검색의 술어는
+  불변식의 주어로 쓴다 — 네가 쓴 해법의 이름이 아니다" 가 정확히 이 문장이다. r2 설계 턴에서
+  §8 검색어를 쓸 때 이 규칙을 적용하지 않았다.
+- 이번 라운드가 그 규칙을 **전수 적용했는가**: 예 — 잠재 문제 #1. plan §8 의 검색 술어 33개를
+  분류해 해법 이름으로 센 위험 2건을 주어로 재측정했고 추가 지점 0을 확인했다.
+- 반복해서 부딪히는 환경 한계: ① `Popover`·`useEffect` 내부는 SSR 에서 실행되지 않아 소스 단언이
+  남는다(D-020 OPEN) ② zustand v5 SSR 스냅샷이 `setState` 시드를 무시 ③ better-sqlite3 ABI
+  ④ 변이 스크립트가 외부 timeout 으로 죽으면 트리에 변이가 남는다(이번 2회).
+- 현재 라운드 수: 3
+
+---
+
 > **[검증자 기입]** 이하는 검증 턴(r1)이 채운다. 판정 원문은 [`verify.md`](verify.md).
 
 ## [검증자 기입] 파생 이슈 (r1)
