@@ -7,16 +7,19 @@ import type {
   GitDiffBase,
   GitDiffFileEntry,
   GitDiffPatch,
+  GitDiffPatchFile,
   GitDiffSummary,
   GitDiffTotals
 } from '../../../shared/ipc'
 import { runGit, type GitRunOptions, type GitRunResult } from './runner'
 import {
   MAX_DIFF_COMMITS,
+  MAX_DIFF_FILES,
   mergeDiffEntries,
   parseCommitFiles,
   parseCommitLog,
-  parseUnifiedPatch
+  parseUnifiedPatch,
+  parseUntrackedPaths
 } from './git-diff-parse'
 
 const TIMEOUT_MS = 15_000
@@ -153,11 +156,35 @@ async function repoCoords(cwd: string, runner: GitDiffRunner): Promise<RepoCoord
 async function readDiff(
   cwd: string,
   revArgs: readonly string[],
-  runner: GitDiffRunner
+  runner: GitDiffRunner,
+  untracked: readonly GitDiffFileEntry[] = []
 ): Promise<{ files: GitDiffFileEntry[]; truncated: boolean; totals: GitDiffTotals }> {
   const result = await run(runner, cwd, ['diff', '--raw', '--numstat', '-z', ...revArgs])
   const tracked = result.ok ? parseCommitFiles(result.stdout.split('\0')) : []
-  return mergeDiffEntries(tracked)
+  return mergeDiffEntries(tracked, untracked)
+}
+
+// 미추적 파일 조회 — **`git diff` 는 추적 파일만 본다**(실측). 이 한 호출이 없으면 사용자나
+// 에이전트가 방금 만든 새 파일이 커밋 전까지 목록·트리·패치 어디에도 뜨지 않고, 화면은
+// 그것을 "변경 없음" 과 구분하지 못한다(0211 D-026).
+//
+// 실패는 값으로 접는다 — 미추적을 못 읽었다고 추적 변경까지 못 보여 줄 이유가 없다.
+async function readUntracked(cwd: string, runner: GitDiffRunner): Promise<GitDiffFileEntry[]> {
+  const result = await run(runner, cwd, ['ls-files', '--others', '--exclude-standard', '-z'])
+  return result.ok ? parseUntrackedPaths(result.stdout) : []
+}
+
+// 패치 축의 미추적 항목. **본문은 비운다**(D-026) — 줄을 실으면 `+0 −0` 헤더와 본문이
+// 어긋나고, 그 순간 헤더가 거짓말이 된다. 목록·트리에 이름이 남는 것이 이 항목의 전부다.
+function untrackedPatchFiles(entries: readonly GitDiffFileEntry[]): GitDiffPatchFile[] {
+  return entries.map((entry) => ({
+    path: entry.path,
+    status: 'added' as const,
+    added: 0,
+    removed: 0,
+    kind: 'text' as const,
+    lines: []
+  }))
 }
 
 async function headOid(cwd: string, runner: GitDiffRunner): Promise<string | null> {
@@ -202,7 +229,10 @@ export async function gitDiffSummary(
   if (!(await repoCoords(input.cwd, runner)).inside) return EMPTY_DIFF_SUMMARY
   const range = await resolveDiffRange(input, runner)
   const base = range.base
-  const overall = await readDiff(input.cwd, diffRevArgs(base), runner)
+  // 미추적 집합은 범위와 무관하다 — 어떤 base 를 잡아도 "아직 git 이 모르는 파일" 은 같다.
+  // 그래서 한 번만 묻고 아래 두 목록(전체·미커밋)에 같은 값을 싣는다.
+  const untracked = await readUntracked(input.cwd, runner)
+  const overall = await readDiff(input.cwd, diffRevArgs(base), runner, untracked)
   const currentHead = base.kind === 'head' ? base.oid : await headOid(input.cwd, runner)
 
   let commits: GitDiffSummary['commits'] = []
@@ -218,7 +248,7 @@ export async function gitDiffSummary(
   const uncommitted =
     currentHead == null || base.kind !== 'worktree-base' || base.oid === currentHead
       ? overall
-      : await readDiff(input.cwd, [currentHead], runner)
+      : await readDiff(input.cwd, [currentHead], runner, untracked)
 
   return {
     isRepo: true,
@@ -266,6 +296,20 @@ export async function gitDiffPatch(
   if (!(await repoCoords(input.cwd, runner)).inside) return EMPTY_DIFF_PATCH
   const range = await resolveDiffRange(input, runner)
   const revArgs = diffRevArgs(range.base)
+  const untracked = untrackedPatchFiles(await readUntracked(input.cwd, runner))
+
+  // 미추적 항목은 **꼬리에 붙인다** — 경로로 다시 정렬하면 추적 파일의 기존 순서(git 이 준
+  // 순서)가 바뀌어 본문 배치가 조용히 달라진다. 상한은 붙인 뒤에 다시 잰다.
+  const withUntracked = (
+    files: readonly GitDiffPatchFile[],
+    filesTruncated: boolean
+  ): { files: GitDiffPatchFile[]; filesTruncated: boolean } => {
+    const merged = [...files, ...untracked]
+    return {
+      files: merged.slice(0, MAX_DIFF_FILES),
+      filesTruncated: filesTruncated || merged.length > MAX_DIFF_FILES
+    }
+  }
 
   const full = await runPatch(input.cwd, PATCH_CONTEXT, revArgs, runner)
   if (full.ok) {
@@ -273,8 +317,7 @@ export async function gitDiffPatch(
     return {
       isRepo: true,
       base: range.base,
-      files: parsed.files,
-      filesTruncated: parsed.filesTruncated,
+      ...withUntracked(parsed.files, parsed.filesTruncated),
       contextLimited: false,
       unavailable: false
     }
@@ -294,8 +337,7 @@ export async function gitDiffPatch(
   return {
     isRepo: true,
     base: range.base,
-    files: parsed.files,
-    filesTruncated: parsed.filesTruncated,
+    ...withUntracked(parsed.files, parsed.filesTruncated),
     contextLimited: true,
     unavailable: false
   }
