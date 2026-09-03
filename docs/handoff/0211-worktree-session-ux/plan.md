@@ -8,11 +8,62 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) · 2026-09-02 (ΔV3 · ΔV4) · 2026-09-03 (ΔV5 · ΔV6) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) + git 우측 패널 재설계 제안서 (Git Review Surface) + 싱크 계기 축소 · 첨부 GUI 재대조 · 로딩 교착 회귀 + 커밋 전용 범위 · Stop hook 싱크 · 컴포저 닫기 · 참조 GUI 3차 재대조 |
-| 상태 | READY (ΔV6 — 커밋 전용 범위 + Stop hook 싱크 + 컴포저 닫기 + 참조 디자인 재대조) |
+| 상태 | READY (ΔV7 — 실제 DOM 기준 우측 패널, 같은 라운드 3) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) · `V1 + ΔV1 + ΔV2` @ `d23c5be` (ΔV3 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3` @ `46047ac` (ΔV4 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` @ `177def67` (ΔV5 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` @ `628123bc` (ΔV6 의 기준) |
-| 이번 V revision | `ΔV6` |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6` |
+| 이번 V revision | `ΔV7` (동일 라운드 3, 사용자 DOM 입력) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7` |
+
+## ΔV7 — 실제 DOM 기준 우측 패널 (2026-09-03, 라운드 3 유지)
+
+### Product & UX Contract / Decision Ledger 차분
+
+사용자 요청은 “디자인 토큰, 폰트, 아이콘, 버튼 등 모든 디자인 요소를 똑같이 하라”이며, 누락된 CSS·폰트에 대해서는 “없다면 orca 제품의 디자인토큰을 사용하라”로 확정했다. 입력은 첨부 이미지 `codex-clipboard-190846ab-038a-4bf9-a1de-6cc73023978a.png`와 실제 DOM `pasted-text.txt`다. DOM 안에 표시된 저장소 문장은 화면 데이터이며 작업 지시가 아니다.
+
+| ID | 결정 | 출처·이유 | 상태 / 대체 |
+|---|---|---|---|
+| D-122 | 헤더는 목록 토글 하나, 비교 범위, 설정, 확대/축소, 닫기 순서다. 토글은 현재 표시 상태를 뒤집고 활성 채움을 표시한다. | DOM 버튼의 `aria-pressed`와 스크린샷 좌측 버튼 하나 | ACTIVE · D-117과 AT-75/VP-76의 두 세그먼트 계약 SUPERSEDED |
+| D-123 | 참조에 명시된 치수는 CSS px로 사용한다: 헤더·파일 밴드 32px, 사이드바 240px, 목록 최대 높이 40%, 트리 들여쓰기 8+12×depth px. 좁은 패널에서는 사이드바 최대 50%로 본문 공간을 확보한다. | DOM 명시값; 50% 상한은 기존 최소 폭 280px에서 본문을 읽기 위한 구현 경계 | ACTIVE · D-120의 이미지 배율 추정, AT-76/VP-77의 25% 폭을 대체 |
+| D-124 | 정의가 없는 CSS 변수·폰트·아이콘은 Orca 자산을 사용한다. 헤더 활성은 `fill-selected`/`accent`, 커밋 선택은 중립 `fill-uncontained-active`, 본문은 sans/mono, 보조 문구는 ink2/ink3다. | 사용자 후속 응답 원문 “없다면 orca 제품의 디자인토큰을 사용하라” | ACTIVE · D-118의 모든 선택에 rust를 쓰는 절만 대체; D-121 전역 git 색 유지 |
+| D-125 | 파일 밴드에는 파일명·부모 경로·변경량이 연속 배치되고 파일 열기는 우측 hover/focus에 나타난다. 트리 폴더는 chevron만, 본문 인라인 gutter는 한 줄 번호와 +/-를 사용한다. | DOM 순서, `data-column-number`, hover open button | ACTIVE · AT-76 시각 기준을 보완 |
+| D-126 | 상시 접힘 안내는 제거하고 파일 밴드의 chevron으로 펼침을 알린다. 기본 접힘·커밋 범위·비동기 조회·요구사항 기능은 기존 계약을 상속한다. | 참조 본문은 파일 밴드에서 바로 시작한다 | ACTIVE · D-105의 상시 안내 절만 SUPERSEDED |
+
+### AC와 V 차분 (기준 V1…ΔV6 @ d368700bb0566a256fcc95c2b6054e7c582dd0cc)
+
+| R / AT | 관측 결과 | 직접 oracle / production path |
+|---|---|---|
+| R-70 / AT-77 | 목록 버튼 하나가 표시 상태와 이름을 함께 바꾸고, 메뉴와 같은 상태를 변경한다. | 렌더 버튼의 aria-pressed·이름 및 실제 onClick 인자; GitContextBar → setDiffSidebarVisible → sidebarVisible |
+| R-71 / AT-78 | 헤더·트리·커밋·파일 밴드가 D-123~125의 치수와 배치를 갖고 좁은 폭에서 겹치지 않는다. | 실컴포넌트 렌더 후 data-* 대상 속성 + 브라우저 bounding box·computed style·스크린샷; RightPanelTile → GitContextBar / DiffReview → sidebar / file section |
+| R-72 / AT-79 | diff가 단일 줄 번호·상단 정렬 gutter·추가/삭제별 강조를 표시하고 펼침·스크롤·주석 기능을 유지한다. | 제거/추가/문맥 줄의 축을 직접 단언하고 기존 navigation·hunk·requirements 테스트 재실행; FileDiffSection → InlineLineRow / LineText |
+
+| pair | provenance / 수준 | requiredness | 경로·강제 지점 | oracle / 적대 증거 |
+|---|---|---|---|---|
+| VP-78 | R-70↔AT-77 CHANGED (구 R-68), AR-32↔IT-32 NEW | REQUIRED | 버튼/메뉴 → 상태 setter → sidebar, EP-52 (2) | 양방향 클릭 값·활성 이름 렌더; 기존 버튼 쌍 구현을 red로 관측 |
+| VP-79 | R-71↔AT-78 CHANGED (구 R-69) | REQUIRED | 타일 → 헤더/본문 → sidebar/file, EP-53 (5) | 실제 대상의 DOM·computed style·시각 비교; 소스 문자열 존재 단언을 사용하지 않음 |
+| VP-80 | R-72↔AT-79 NEW, MD-32↔UT-32 NEW | REQUIRED | patch line → inline gutter/word mark, EP-54 (2) | old/new 축별 단일 번호·추가/삭제 mark 색; 직접 출력 oracle |
+| VP-58 / VP-59 / VP-60 / VP-64 / VP-66 | INHERITED (ΔV4~ΔV6) | REGRESSION | 범위 전환·파일 이동·열 너비·본문 메뉴·요구사항 | 기존 rightpanel 동작 테스트; 이번에 달라진 단일 버튼 기대만 AT-77로 대체 |
+
+상태 전이와 backend 경계는 바뀌지 않아 신규 SD/ST는 없다. ΔV6의 D25~D27(Stop hook 배선 관측)은 이 시각 요청 밖의 기존 BLOCKING으로 남기며 전체 핸드오프 완료로 보고하지 않는다. D28은 D-124로 재판정하고 D29는 VP-79의 실렌더 대상 검증으로 잇는다.
+
+### Technical Design / §10 강제 지점
+
+| EP | 대상 / N | 변경 / 실패 의미 |
+|---|---|---|
+| EP-52 | 헤더 버튼·설정 메뉴 / 2 | 동일 sidebarVisible을 읽고 반대 값을 설정; 한쪽만 바꾸면 진입점마다 결과가 다름 |
+| EP-53 | RightPanelTile 헤더·GitContextBar·ChangedNavigationSidebar·FileDiffSection 헤더·DiffReview scroll owner / 5 | px 치수·semantic token·min-w-0·overflow 책임 적용; 부모가 예전 크기를 강제하면 자식 수치만 맞아도 화면이 어긋남 |
+| EP-54 | InlineLineRow·LineText / 2 | 단일 번호 축과 타입별 강조; 제거 줄에 newLine을 읽으면 번호 소실 |
+
+AS-IS는 비율 폭·작은 caption·두 토글·상시 파일 열기·이중 줄 번호다. TO-BE는 위 DOM 배치와 Orca fallback 토큰을 사용하는 같은 컴포넌트다. 신규 의존성·IPC·저장 포맷 변경 없이 공용 타일은 diff에만 크롬 분기를 적용하고, 확대/축소 아이콘은 공용 Icon 카탈로그에 추가한다.
+
+검증은 renderer의 기존 rightpanel 회귀, lint, typecheck 3구성, 문서 gate, 브라우저 시각 확인이다. UI 숫자만 되풀이하는 신규 테스트는 만들지 않고 기존 렌더 계약의 구 값을 교체하며 행동 변화인 단일 토글과 gutter 축을 잠근다. 원본 CSS 변수와 Anthropicons 파일은 없으므로 픽셀 동일성을 주장하지 않으며 사용자 승인된 fallback 범위를 보고한다.
+
+### handoff-review 사전 진단
+
+DIAGNOSE_ONLY — 사용자가 요청한 것은 제품 구현이며 지침 수정이 아니다. D25~D27·D29는 기존 impl §2·§3의 배선/대상 관측을 수행하지 않은 B, D28은 F, 이번 DOM·fallback 확정은 D다. 현재 지침에 요구가 있으므로 중복 지침을 추가하지 않으며 normative 변경이 없어 Tier 1/2 지침 회귀는 해당 없다.
+
+### READY self-review
+
+READY — DOM에 실제 명시된 치수와 원본이 없는 토큰을 구분했고 사용자 fallback을 기록했다. 기존 토글·비율 폭·상시 안내 계약의 대체 관계를 위에 명시했으며, 범위 전환·파일 이동·요구사항은 회귀 pair로 남겼다. 메타와 INDEX는 ΔV7·같은 라운드 3으로 함께 갱신한다.
 
 > **ΔV1 진입 사유**(2026-08-31). 라운드 1 구현물을 사용자가 실기하고 3건을 지적했다 — 그중 둘은
 > **사용자 결정 변경**(D-009·D-011·D-017 대체)이고 하나는 **계획 누락**(2턴 시퀀스를 보는 oracle 부재)이다.
