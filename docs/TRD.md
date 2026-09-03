@@ -11,7 +11,7 @@
 | 미정 항목 처리 | PRD §11 Open Questions 는 **여기서 결정하지 않는다.** "결정 후 결정값으로 대체" 표시만 둔다. |
 
 > **Phase 1 단일 백엔드 결정 (2026-05-13)**
-> Phase 1 MVP 는 **`claude` 단일 백엔드** 로 구현한다. `opencode` 어댑터는 `SessionAdapter` 인터페이스로만 자리를 남겨두고 **§10 future anchor** 로 이동했다. 따라서 §4 의 `@opencode-ai/sdk` 와 §7.2 (OpencodeAdapter) 는 *예약 사양* 으로 본다 — 코드에는 구현되어 있지 않다. AdapterRegistry 는 claude 만 등록한 상태에서 동작한다 (OQ7 는 자동으로 무관). 자세한 채택 표는 `docs/claude-code-spec.md §11` 도 함께 본다.
+> 앱은 **`claude` 단일 백엔드**로 동작한다. `@opencode-ai/sdk`는 배포 코드 분석·계약 검증을 위해 설치했으나 `OpencodeAdapter`는 미구현이며 AdapterRegistry에 등록하지 않았다. 설치 기준과 실제 API는 [OpenCode SDK 해설](opencode-sdk-spec.md), 전환 권고는 [마이그레이션 연구](etc/study/opencode/orca-migration-guide.md)를 따른다. SDK 설치는 OQ7의 기본 백엔드 결정이나 런타임 전환을 뜻하지 않는다.
 
 > **Preload 노출 표면 축소 결정 (2026-05-13)**
 > preload `window.orca` 는 **renderer 가 실제 호출하는 채널만** 노출한다 (principle of least privilege). Phase 2 활성 6채널: `chat:send`/`chat:event`/`chat:cancel`/`backend:list`/`install:start`/`install:status`. 이전 Q1 ("`backend:select` 유지") 결정은 본 정책 도입으로 **취소** — 단일 백엔드에서 사용처가 없으므로 main 핸들러까지 함께 제거했다. `settings:get`/`settings:set` 도 동일 사유로 Phase 2 범위 밖. 향후 사용처가 생기면 (멀티 백엔드 / 영속화) 한 PR 에서 preload+main+CHANNELS 를 함께 다시 등록한다. zod 스키마 (`shared/protocol.ts`) 는 main 전용이며, preload 는 zod 비종속의 `shared/ipc.ts` 만 import 한다 (`sandbox: true` 호환).
@@ -89,7 +89,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | 스타일링 | Tailwind CSS | **^4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme`) | 확정 (Phase 1 완료) | utility-first. `styles/tokens.css` 의 `@theme` 블록으로 시맨틱 디자인 토큰 정의 (`--color-{bg,sidebar,ink,...}`). `[data-theme]` 스코프로 **white/dark 2테마** 전환. 자세한 정책은 `app/AGENTS.md` "스타일링 정책" 참조 |
 | 마크다운 렌더링 | react-markdown + remark-gfm + shiki | `^9` / `^4` / `^1` | 확정 (Phase A `feat-pretty-ui` 도입) | GFM (표·체크박스) + 코드 블록 syntax highlighting. shiki 번들은 11개 언어 (ts/js/tsx/jsx/python/bash/json/yaml/html/css/markdown) 로 제한 |
 | LLM 백엔드 SDK (Claude) | `@anthropic-ai/claude-agent-sdk` | latest | 확정 (Phase 3 채택, 2026-05-18) | TypeScript SDK. 진입점 `query({ prompt, options })`. 플랫폼별 native binary 는 `optionalDependencies` 자동 처리. 최소 요구 Node.js 18+. API 명세 SSOT 는 `docs/spec/claude/agent-sdk/typescript.md` |
-| HTTP (opencode) | `@opencode-ai/sdk` | latest | 확정 | 공식 SDK 사용 |
+| HTTP (opencode) | `@opencode-ai/sdk` | 1.18.27 (exact) | 조사·계약 검증용 설치 | runtime 미채택; [기준/제약](opencode-sdk-spec.md) |
 | IPC | Electron 기본 ipcRenderer/ipcMain | — | 확정 | 별도 RPC 라이브러리 금지. main→renderer 는 Electron 가 ordered + lossless 보장 — 별도 메시지큐 미도입 (멀티 세션 도입 시 §11.3 anchor) |
 | IPC 보안 | `@electron-toolkit/preload` + contextBridge | ^3 | 확정 | preload 화이트리스트 |
 | 입력 검증 | zod | latest | 확정 | IPC 메시지 + SDK / SSE 응답 파싱 |
@@ -208,50 +208,21 @@ TS 타입 정의의 단일 출처. 구현은 `app/src/shared/ipc.ts` (zod-free) 
 ### 6.1 Backend (백엔드 선택)
 
 ```typescript
-type Backend = 'claude' | 'opencode';
+type Backend = 'claude';
 ```
 
-### 6.2 ChatEvent (어댑터→Renderer 정규화 스트림)
+### 6.2 NormalizedEvent (어댑터→Renderer 정규화 스트림)
 
-Discriminated union. 어댑터가 CLI/SDK의 다양한 형식을 이 하나의 타입으로 정규화.
+와이어 `orca:chat:event`의 현행 타입은 [shared/ipc.ts](../app/src/shared/ipc.ts)의 `NormalizedEvent`다. Claude 원본은 [claude-map.ts](../app/src/main/adapters/claude-map.ts)가 정규화하며, 원본 SDK 타입을 renderer에 직접 전달하지 않는다.
+멀티세션 이벤트는 `sessionId`로 라우팅한다. 동시성·큐는 [runtime-ipc.md](arch/backend/runtime-ipc.md), renderer 소비는 [state.md](arch/frontend/state.md)가 설명한다.
 
-| type | data 형태 | 발화자 | Renderer 처리 |
-|---|---|---|---|
-| `init` | `{ sessionId: string; model?: string; cwd: string; }` | 어댑터 (첫 응답) | sessionId 저장, UI 업데이트 |
-| `assistant_delta` | `{ text: string; }` | LLM 스트리밍 | chatStore `live.text` 누적, rAF 배치 렌더 |
-| `assistant_message` | `{ text: string; }` | LLM 턴 종료 | `live.text` → 최종 메시지로 교체 |
-| `tool_use` | `{ toolUseId: string; name: string; input: unknown; }` | LLM 도구 호출 | ToolCallCard 생성 |
-| `tool_result` | `{ toolUseId: string; output: string \| unknown; isError: boolean; durationMs?: number; }` | CLI/LLM | 해당 ToolCallCard 업데이트 |
-| `result` | `{ usage?: { inputTokens: number; outputTokens: number; }; }` | 어댑터 | 턴 완료, `inflight = false` |
-| `error` | `{ code: string; message: string; recoverable: boolean; }` | 어댑터 (언제든) | 에러 토스트 + 선택적 복구 UI |
-
-> **(멀티세션 — 구현됨)** 구 "단일 inflight" 모델은 폐기됐다. 멀티세션(세션별 SessionRuntime + 세션별 pending message queue)이 main 런타임에 구현됐고(handoff 0011·0051·0067), 이벤트는 `sessionId` 로 라우팅된다(renderer `chatStore` 가 비활성 세션을 백그라운드 누적). main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 활용한다. 동시성·프레임·큐 모델의 정본은 [arch/backend/runtime-ipc.md](arch/backend/runtime-ipc.md) §1, renderer 측은 [arch/frontend/state.md](arch/frontend/state.md) §2.
-
-> **(OQ10)** `tool_use.name` / `tool_use.input` 표준화 정책 미정 — PRD §11 OQ10 진실 원천. Phase 3 단일 백엔드 운영에서는 raw 전달 (분기 의미 없음). opencode 어댑터 활성화 PR 에서 결정.
-
-> **(정규화 계층 — 구현됨)** 위 `ChatEvent` 표는 구 claude 결합 형태로 **제거됨**. 와이어(`orca:chat:event`)는 provider 중립 **`NormalizedEvent`**(`session.updated`·`message.delta/completed`·`tool.call.started/completed`·`telemetry`·`error`·`permission.requested`/`permission.resolved`)이며 claude 어댑터가 `claudeToNormalized`(`adapters/claude-map.ts`)로 SDK 메시지를 직접 정규화한다. 정본은 [arch/backend/provider-runtime.md](arch/backend/provider-runtime.md) §2 + `app/src/shared/ipc.ts`. 본 §6.2 표는 변이명 매핑 참고용 히스토리로만 둔다(`init`→`session.updated`, `assistant_delta`→`message.delta`, `tool_use`→`tool.call.started` 등).
+도구 이름·입력의 백엔드 간 표준화는 PRD OQ10의 미결정이다. OpenCode mapping은 [연구 가이드](etc/study/opencode/orca-migration-guide.md)의 권고이며 아직 이 와이어에 연결하지 않았다.
 
 ### 6.3 SessionAdapter (공통 인터페이스)
 
-```typescript
-interface SessionAdapter {
-  readonly id: Backend;
-  isInstalled(): Promise<{ installed: boolean; version?: string; binPath?: string }>;
-  install(): AsyncIterable<{ step: string; log?: string; error?: string; done?: boolean }>;
-  sendMessage(
-    sessionId: string | null,
-    text: string,
-    cwd: string,
-    signal?: AbortSignal,
-  ): AsyncIterable<ChatEvent>;
-
-  // Phase 3+ (옵셔널, v1에서는 구현 안 함)
-  listSessions?(): Promise<SessionInfo[]>;
-  loadSession?(id: string): Promise<ChatEvent[]>;
-}
-```
-
-내부 구현 패턴 (SDKMessage→`NormalizedEvent` 정규화, AbortSignal 전파, 인증 만료 감지, 인스톨러 스트리밍) 의 SSOT 는 [arch/backend/adapters.md](arch/backend/adapters.md). 현재 코드는 이미 `sendMessage(req: TurnRequest)` 객체 시그니처를 채택했다([arch/backend/adapters.md](arch/backend/adapters.md) §1.3). provider 중립 정규화 계층은 [arch/backend/provider-runtime.md](arch/backend/provider-runtime.md) 가 소유한다 — 이름마다 구현 여부가 다르므로 절별 판정을 그쪽에서 읽는다.
+계약 정본은 [adapters/types.ts](../app/src/main/adapters/types.ts)의 `SessionAdapter`·`LiveTurn`·`ProviderMessageBatch`, 입력은 [adapters/turn.ts](../app/src/main/adapters/turn.ts)의 `TurnRequest`다.
+`sendMessage(req)`는 `LiveTurn`을 반환하고 소비자는 `eventBatches`를 읽는다. `describe`·`complete`·`classifyError`와 제어 메서드도 새 어댑터의 이식 범위이며, 단순 HTTP prompt 연결만으로 구현이 끝나지 않는다.
+현행 책임은 [adapters.md](arch/backend/adapters.md), OpenCode와의 차이는 [연구 가이드](etc/study/opencode/orca-migration-guide.md)를 참조한다.
 
 ### 6.4 SessionInfo
 
@@ -428,7 +399,7 @@ for await (const msg of query({
     // permissionMode / canUseTool / hooks: Phase 4 anchor (§10)
   }
 })) {
-  yield normalize(msg);  // SDKMessage → ChatEvent
+  yield normalize(msg);  // 설명용 축약. 현행 SDKMessage → NormalizedEvent[] 변환은 claude-map.ts 참조
 }
 ```
 
@@ -439,7 +410,7 @@ for await (const msg of query({
 
 **첫 응답에서 sessionId 추출**:
 - 첫 SDKMessage 가 `SDKSystemMessage(subtype: 'init')` — 그 `session_id` 필드 추출
-- `ChatEvent { type: 'init', sessionId, model?, cwd }` 로 정규화 (TRD §6.2)
+- 현행 구현은 `session.updated` 등 `NormalizedEvent`로 정규화한다 ([claude-map.ts](../app/src/main/adapters/claude-map.ts), TRD §6.2).
 - Renderer 가 받아서 `state.sessionId` 에 저장
 
 **인증 만료 감지**:
@@ -457,56 +428,16 @@ PATH 의존성 (npm 글로벌 bin) 은 폐기 — SDK 의 `optionalDependencies`
 
 ### 7.2 OpencodeAdapter
 
-**서버 라이프사이클**:
+**미구현.** SDK 설치와 실제 OpenCode 실행은 별개다. CLI/서버 설치·프로세스 소유권·포트·인증·재시작 정책은 후속 설계에서 확정한다.
 
-| 시점 | 동작 | 성공 기준 |
-|---|---|---|
-| 앱 시작 (opencode 활성) | `opencode serve --port 0` | 자유 포트 할당 |
-| 포트 발견 | 첫 stdout: `Listening on http://127.0.0.1:<port>` 파싱 | 정규식 매칭 |
-| 헬스체크 | `GET /health` 요청 | HTTP 200 응답 |
-| 앱 종료 | `child.kill('SIGTERM')` 후 5초 대기 | 정상 종료 또는 SIGKILL |
-| 비정상 종료 | 자동 재시작 1회 시도 | 재시도 후에도 실패 → 사용자 에러 |
-
-**SDK 호출**:
-
-```typescript
-import { OpencodeClient } from '@opencode-ai/sdk';
-const client = new OpencodeClient({ baseURL: `http://127.0.0.1:${port}` });
-
-// 새 세션 (매 턴 처음 또는 sessionId=null)
-const { id } = await client.session.create({ cwd });
-
-// 메시지 전송 + 스트림
-for await (const ev of client.session.send({ id, text, stream: true })) {
-  yield normalize(ev);  // ChatEvent로 정규화
-}
-```
-
-**SSE→ChatEvent 매핑**:
-
-| opencode 이벤트 | ChatEvent 타입 |
+| 항목 | 현행 근거 / 적용 상태 |
 |---|---|
-| `session.init` | `init` |
-| `assistant.delta` | `assistant_delta` |
-| `assistant.finish_message` | `assistant_message` |
-| `tool_use` | `tool_use` |
-| `tool_result` | `tool_result` |
-| `finish_reason` | `result` |
-| (HTTP/SSE 에러) | `error` |
-
-**설치 탐지**:
-
-| OS | 명령 |
-|---|---|
-| POSIX (macOS/Linux) | `which opencode` |
-| Windows | `where opencode` |
-
-**자동 설치**:
-
-| OS | 명령 |
-|---|---|
-| POSIX | `curl -fsSL https://opencode.ai/install \| bash` |
-| Windows | PowerShell 스크립트 (URL 확인 필요) |
+| 패키지 | [SDK 해설 §1](opencode-sdk-spec.md#1-조사-기준과-채택-상태)의 고정 버전; production import 없음 |
+| client 호출 | `createOpencodeClient({ baseUrl, fetch })`; root/v1·v2 legacy·native의 인자와 endpoint가 다름 |
+| 입력과 이벤트 | `session.prompt`와 SSE 구독은 별도 경로; native는 admission과 실행 완료도 구분 |
+| 전송 | root SSE는 주입 fetch를 우회하는 제약이 있어 `/v2` 경계 검증이 필요 |
+| 메시지·권한 | 실제 SDK 계약은 [해설](opencode-sdk-spec.md), Orca 정규화 권고는 [migration 연구](etc/study/opencode/orca-migration-guide.md) |
+| 검증 범위 | 패키지 타입/JS와 무네트워크 client 계약 검사; 실제 서버·모델·패키징 통합은 미실행 |
 
 ### 7.3 AdapterRegistry & Backend 선택
 
@@ -596,7 +527,7 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - ~~(anchor) electron-updater + GitHub Releases~~ — **구현 완료 (0084~0089, §9.2)**. 잔여 = 코드 서명/공증/staged rollout.
 - ~~(anchor) Auto-update 채널~~ — stable 단일 채널로 출발 (beta 채널 분리는 Future).
 - **(anchor) 하드웨어 어댑터 (BoardAdapter)** — USB/카메라 제어. `adapters/` 에 board 어댑터를 두는 자리를 예약(파일 미생성), 네이티브 모듈 (`orca-board.node`, libusb) Phase 2~3.
-- **(anchor) opencode 어댑터** — Phase 1 에서는 미구현. §7.2 의 사양 (서버 라이프사이클, SDK 호출, SSE 매핑) 그대로 살아있으나 코드는 인터페이스 후크만 남아있다. claude 단독 운영이 안정화되면 도입. **단, MCP 설정 변환기의 claude 축(`toClaudeConfig`)만 순수 함수로 구현돼 있고 opencode 변환기는 아직 없다** (어댑터·라이프사이클·백엔드 선택은 여전히 미구현, `Backend`=`'claude'` 유지). `toClaudeConfig` 와 **동형 대칭 변환기**(동일 시그니처, `Record<string, <Backend>Mcp>` 반환).
+- **(anchor) opencode 어댑터** — SDK는 설치됐으나 어댑터·서버 lifecycle·백엔드 선택·OpenCode MCP 변환기는 미구현이다(`Backend`=`'claude'`). [SDK 해설](opencode-sdk-spec.md)과 [마이그레이션 연구](etc/study/opencode/orca-migration-guide.md)를 후속 설계 입력으로 쓰며, OQ7/OQ10·권한·서버 소유권을 결정한 뒤 활성화한다. 기존 `toClaudeConfig`의 OpenCode 대응 변환기 목표는 유지하되 실제 SDK 설정 형상과 보안 경계는 별도 검증한다.
 - **(anchor) OpenAI Compatible 백엔드** — `SessionAdapter` 인터페이스 재활용 가능. 3번째 어댑터 구현체 추가.
 - **(anchor) Agent SDK 고급 기능** — `permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer` (in-process custom tools) / 외부 `mcpServers` / `forkSession` / `startup()` (사전 워밍) / `AsyncIterable<SDKUserMessage>` 스트리밍 입력. 채택 표는 [arch/backend/adapters.md](arch/backend/adapters.md) §1.7 의 ⏳ 행 참조. Phase 4+ — 도구 권한 정책(OQ9) 결정 후 진행.
 - **(anchor) 어댑터 도구명 정규화 (OQ10)** — claude vs opencode 의 `tool_use.name` / `tool_use.input` 차이 해소 정책. PRD §11 OQ10 결정 후 어댑터별 매핑 표 확정.

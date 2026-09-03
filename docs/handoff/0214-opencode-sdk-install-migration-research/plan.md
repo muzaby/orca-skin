@@ -345,36 +345,124 @@ EP-06 production import 스윕은 위 §10 명령으로 실행하고 선택한 �
 
 ## [구현자 기입] 설계 리뷰
 
-미실행 — 작성 문서 검토 대기.
+r1: READY의 D-001~D-007·AC1~7·V1을 유지했다. SDK 설치와 test-only 계약 검증·문서화만 수행했으며 production adapter/DB/IPC/UI 변경은 없다.
+작성 문서 승인 후 실행했고, 구현 중 규범 행 정정이나 PLAN_GAP은 발견하지 않았다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
-미실행. EP별 닫은 지점·실제 재현 명령·남긴 지점과 VP별 자기 상태/직접 관측을 기록한다.
+| EP | 닫은 지점 / 관측 | 상태 |
+| --- | --- | --- |
+| EP-01 (3) | manifest, lock root/SDK entry, 설치본 package 모두 1.18.27. npm ls도 동일; npm latest 설치 직전 조회 1.18.27 | 3/3 |
+| EP-02 (2) | opencode-sdk.test.ts의 실제 SDK 11 case; SDK 해설 §3·6의 호출·오류·SSE와 대조. typecheck:test 포함 전체 typecheck 통과 | 2/2 |
+| EP-03 (4 묶음) | SDK 해설 §1~10 생성. sdk.mdx/server.mdx/LICENSE의 SHA256이 원격 v1.18.27 bytes와 일치; mirror INDEX에 URL/hash/license 보존 | 4/4 |
+| EP-04 (2) | migration guide의 레이어·mapping·rollout/rollback·미결정 및 00-index 링크 확인. 실제 runtime/coordinator/IPC 코드와 리뷰 대조 | 2/2 |
+| EP-05 (7) | TRD·overview·provider-runtime·standardization·adapters·security·docs INDEX에 설치≠활성/API 사실 정정 확인. docs inventory/prose/상대 링크 모두 통과 | 7/7 |
+| EP-06 (3) | app/src/app scripts 기존 tracked diff 없음; production SDK 검색 무일치; shared Backend='claude'와 registry Claude 생성 유지; registry 2 case 통과 | 3/3 |
+| EP-07 (3 묶음) | 이 구현 보고와 INDEX impl/IN_PROGRESS 기록. 구현 commit trailer 및 원격 게시 관측은 다음 단계 | 2/3, 원격 공유 대기 |
+
+지점 합계: 23/24 확인, EP-07의 commit/remote 묶음은 아직 닫지 않았다.
+미러 해시는 spec/opencode/INDEX.md의 각 파일 행과 Get-FileHash 출력으로 대조했다.
+설치본 상세 심볼·경로는 SDK 해설 §2와 각 계약 절에 보존했으며 후속 server 실기와 혼동하지 않는다.
+
+| V pair | 자기 상태 | 직접 관측 |
+| --- | --- | --- |
+| VP-01 | SELF_PASS | npm ls 및 JSON 대조 manifest/lock/설치본 1.18.27 |
+| VP-02 | SELF_PASS | root/v2 legacy/native URL·method/body, 성공·HTTP 오류·responseStyle 결과를 실제 SDK로 단언 |
+| VP-03 | SELF_PASS | 해설의 Message/Part/SessionMessage/Event/V2Event·permission/question·HTTP/SSE/lifecycle 절을 설치 dist와 대조; 원문 해시 일치 |
+| VP-04 | SELF_PASS | guide의 layer 표·mapping 표·단계별 gate/rollback·OQ7/OQ10/server 미결정 확인; 리뷰 지적을 코드 근거로 정정 |
+| VP-05 | SELF_PASS | 대상 문서의 사실 정정 및 링크·inventory 검사 산출 확인 |
+| VP-06 | SELF_PASS | 임시 production import 검출→제거 뒤 무일치, 기존 production diff 없음, Claude descriptor 기대값 통과 |
+| VP-07 | SELF_BLOCKED | 공유 전 상태: 로컬 게이트만 완료, commit/push 관측 미완료 |
+| VP-08 | SELF_PASS | 실제 공개 import의 HTTP/SSE fixture 11 case, typecheck 3구성 통과 |
+
+독립 verify 결과가 아니다. VP-07은 외부 조율 블로커가 아니라 아직 실행하지 않은 공유 단계다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-미실행. 선택 증거·인용 변이·신규 구조적 oracle의 분모 검산과 덮개 회귀를 기록한다.
+| 대상 | 선택/이유 | 적대 입력과 관측 | 복구·덮개 |
+| --- | --- | --- | --- |
+| VP-06 / EP-06 | 계획에 지정된 production import 음성 스윕 | 없음을 먼저 확인한 opencode-sdk-production-guard-probe.ts에 root import 추가; rg가 파일:1을 반환(exit 0) | apply_patch로 해당 임시 파일만 제거. 동일 rg가 무일치(exit 1), production diff 없음, SDK/registry 13 case 통과 |
+
+선택 증거 1 · 이슈 인용 변이 0 · 새 구조적 oracle 0 = 표 행 1.
+새 SDK 테스트는 값·요청·응답의 직접 oracle이며 구조적 proxy가 아니다.
+production 음성 스윕은 계획의 선택 증거로 위 행에서 검증했고, 기존 docs 검사기는 자체 23개 테스트를 실행했다.
+그 외 pair는 해당 없음 — 직접 oracle. 이 변이 하나만으로 앱 전체 네트워크 안전성을 주장하지 않는다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
-미실행. 사용자 대면 문구, production 재배치, 실패 경로, 무응답/늦은 응답을 각각 판정한다.
+| 축 | 판정·근거 |
+| --- | --- |
+| 사용자 대면 문구 | 앱 UI 변경 없음. docs는 설치/미구현/권고/미검증을 구분 |
+| production 재배치 | 없음. SDK import는 새 test 파일 안에만 존재 |
+| 실패 경로 | root SSE fetch 우회·HTTP default error fields·SSE retry 한도 종료를 해설/fixture로 고정; 실제 adapter는 미구현 |
+| 무응답·늦은 응답 | guide에 response-start와 steer 소비 구분, batch 종료·retry 비terminal·late event/resync gate를 명시. 이번 앱 동작에는 새 상태 없음 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
-미실행.
+| 발견 | 대응·관측 |
+| --- | --- |
+| root SSE가 injected fetch를 무시 | 실제 public SDK로 global fetch를 mock한 한계 관측 테스트. production-safe가 아님을 명시; v2 legacy/native는 주입 fetch 확인 |
+| 공식 문서의 root format/global.health/오류 예제가 설치본과 다름 | 원문은 보존하고 해설 §9에서 배포 사실을 분리 |
+| guide 초안이 echo-only user commit·retry terminal을 권고 | turn-coordinator의 response-start, SessionRuntime.isTerminal, claude-map 실패 batch를 읽어 정정. 독립 리뷰에서 수정 확인 |
+| native text delta의 assistantMessageID 및 optional durable를 놓침 | 설치 d.ts와 대조해 키/없는 cursor의 후속 검증 정책 정정 |
+| npm 설치 경고 | 기존 undici@8.9.0의 Node>=22.19.0 요구 대비 host Node22.15.1 EBADENGINE 관측. 설치 exit 0·타입/대상 테스트 통과와 구별 |
+| npm audit 요약 | 설치 로그에 12 vulnerabilities(3 moderate, 9 high). 별도 audit fix/무관한 dependency update는 실행하지 않음; 신규 SDK 기인이라고 단정하지 않음 |
+| lint 경고 | useTranscriptVirtualizer.ts의 react-hooks/incompatible-library 1건, 오류 0. 파일 변경 없음 |
 
 ### 설계 대비 명시적 차이
 
-미실행. 차이가 있으면 만료·공유·재진입·기타 무효화 축과 관련 AC/EP 재확인 근거를 기록한다.
+메커니즘 대체 없음. 계획대로 SDK exact 설치·실제 SDK fixture·분리된 원문/해설/전략 자료를 만들었다.
+npx vitest 대신 설치된 node_modules/.bin/vitest.cmd를 직접 호출해 동일한 로컬 runner를 사용했다.
+
+| 무효화 축 | 대조 |
+| --- | --- |
+| 만료 | latest는 설치 직전 조회 기준으로 고정; 작업 중 최신 추적 업그레이드하지 않음 (AC1/EP-01) |
+| 공유 | manifest/lock/설치본 및 docs 사본 대조. registry/DB/IPC 공유 상태를 바꾸지 않음 (AC5·6/EP-05·06) |
+| 재진입 | server를 생성하지 않아 신규 process/session 수명 없음. test global fetch는 afterEach에서 복구 (AC2·6/EP-02·06) |
+| 기타 | npx의 외부 fetch 가능성을 피하고 로컬 설치 runner 사용; oracle·테스트 선택은 동일. 실제 Electron/CLI 실기는 비범위 |
 
 ## [구현자 기입] 구현 보고
 
-미실행. 변경 파일, 명령과 관측 산출, VP/EP/AC 합계, 블로커를 기록한다.
-대상 커밋은 `(r1 구현 — 좌표는 INDEX)`로 유지한다.
+대상 커밋: (r1 구현 — 좌표는 INDEX). 구현 산출과 승인된 설계 커밋은 분리한다.
+
+변경 묶음: app dependency/lock과 test-only SDK fixture; docs/opencode-sdk-spec.md;
+공식 원문 미러; Orca migration guide/연구 index; 관련 TRD·backend arch·라우팅/벤더 manifest;
+이 보고와 handoff board다. CLI/서버/모델 요청, production adapter, DB/IPC/UI 변경은 없다.
+
+| 실행 명령·검토 | 실제 관측 |
+| --- | --- |
+| npm.cmd install --save-exact @opencode-ai/sdk@1.18.27 | added 1 package, exit 0; lock diff는 SDK 추가 entry와 root dependency |
+| npm.cmd ls @opencode-ai/sdk --depth=0 및 manifest/lock/package JSON 대조 | 모두 1.18.27, integrity 동일 |
+| npm.cmd run lint | 오류 0, 기존 파일 경고 1; app tracked source/script diff 없음 |
+| npm.cmd run typecheck | node/web/test 3구성 오류 없음 |
+| .\node_modules\.bin\vitest.cmd run src/main/adapters/opencode-sdk.test.ts src/main/adapters/registry.test.ts | 2 files / 13 tests passed (SDK 11 + Claude registry 2) |
+| node --test scripts/check-doc-inventory.test.mjs | 23 passed, 0 failed |
+| node scripts/check-doc-inventory.mjs --check | generated/prose/상대 링크 검사 모두 성공 |
+| Get-FileHash 미러 3파일 | INDEX의 SHA256과 일치 |
+| git diff --check | 오류 없음 |
+| 읽기 전용 독립 리뷰 | 사실 오류·표면 차이·Orca 매핑 수정 후 미해결 지적 없음; 별도 verify/PASS가 아님 |
+
+| AC | 자기 결과 | 관측 |
+| --- | --- | --- |
+| AC1 | ✅ | 설치 직전 latest=1.18.27; manifest/lock/설치본/npm ls 동일 |
+| AC2 | ✅ | public import typed HTTP/SSE fixture 및 typecheck 통과 |
+| AC3 | ✅ | 버전·API·메시지·이벤트·권한·오류·수명주기 해설과 원문 hash 확인 |
+| AC4 | ✅ | layer/mapping/rollout/rollback/OQ 정책 표 확인, 실제 코드 대조 리뷰 반영 |
+| AC5 | ✅ | 관련 current docs 정정·라우팅과 docs 게이트 통과 |
+| AC6 | ✅ | production import 무일치/기존 source diff 없음/Claude registry 2 case |
+| AC7 | ⚠️ | gate 보고 완료; 구현 commit/push 및 원격 SHA 대조 예정 |
+
+검산: ✅ 6 · ⚠️ 1 · ❌ 0 = 총 7. VP SELF_PASS 7 · SELF_BLOCKED 1 = 8.
+EP 확인 23 · 공유 대기 1 = 24. 다음 단계는 일반 commit/push 후 AC7/EP-07/VP-07 갱신이다.
+실제 CLI/server/model, 권한 저장, durable replay, Electron proxy/TLS, Windows 패키징은 검증하지 않았다.
 
 ## [구현자 기입] Review Signals — 사실만
 
-구현 라운드 시작 전. 반복 결함 축과 환경 제약은 실제 관측 이후 기록한다.
+- 현재 r1. 규범 행/AC/V revision 변경 없음.
+- 초기 guide의 소비·terminal 권고가 현재 코드와 달랐으며 독립 리뷰의 코드 대조로 수정됐다. 새로운 제품 정책을 채택한 것은 아니다.
+- root/v2/native 표면 차이는 공식 문서만으로 닫히지 않아 설치 JS·타입·직접 fixture로 구분했다.
+- registry 네트워크와 git index 쓰기는 권한 상승이 필요했다. ABI 전환 pretest를 피하고 비-DB target만 실행했다.
+- 공유 전이라 AC7은 아직 충족으로 세지 않았다. 완료 보고가 원격 게시를 앞서지 않게 분리한다.
 
 ## [검증자 기입] 파생 이슈
 

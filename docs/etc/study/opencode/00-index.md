@@ -19,6 +19,7 @@ grep으로 찾아 해당 구간을 정독했으며, 어떤 파일에 집중했�
 
 | 챕터 | 파일 | 내용 |
 |---|---|---|
+| 연구 가이드 | [orca-migration-guide.md](orca-migration-guide.md) | Orca 현 경계와 OpenCode SDK 전환 시의 adapter·event·DB·rollout 연구. **현재 제품 계약이 아님** |
 | 1 | [01-overview.md](01-overview.md) | 개요 · 기술 스택 · 구현 형태 |
 | 2 | [02-architecture.md](02-architecture.md) | 전체 아키텍처 · 컴포넌트 다이어그램 · 멀티에이전트 토폴로지 |
 | 3 | [03-callstack.md](03-callstack.md) | 콜스택 · 실행 흐름 · 종료 조건 · 시퀀스 다이어그램 |

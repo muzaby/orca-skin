@@ -92,7 +92,7 @@ new BrowserWindow({
 >
 > **타입 모델**: 정규 컬렉션 타입은 `OrcaMcpConfig`(claude-code 스펙). Claude 형식은 이와 동일하므로 **별칭** `type ClaudeMcpConfig = OrcaMcpConfig` 로 못박는다. 단일 항목 타입 `ClaudeMcp` 의 http/sse 는 분리된 판별 멤버라 SDK `McpServerConfig`(stdio|http|sse) 유니온에 그대로 대입된다. **"IR(중간형)" 표현은 쓰지 않는다** — 정규형이 곧 claude-code 스펙.
 >
-> **양 백엔드 대칭 변환 파이프라인** (`src/main/features/extensions/mcp/`): `expandEnv`(순수) → `toClaudeConfig`(순수). opencode 짝은 **미구현**이며 도입 시 `to<Backend>Config(servers, resolve) → { config: <Backend>McpConfig; dropped }` 동형 시그니처를 목표로 한다. `OrcaMcpConfig == ClaudeMcpConfig` 이므로 `toClaudeConfig` 는 **구조적으로 항등**(${VAR} 확장만) — "변환 불필요 특례"로 두지 않고 어댑터 경계에서 값이 `ClaudeMcpConfig` 라는 이름으로 다뤄지는 명시적 지점으로 존재한다. SDK 가 sse 트랜스포트를 지원하므로 sse→http 강제는 하지 않는다. `allowedTools` 는 config 에 넣지 않고 어댑터 호출부(`adapters/claude.ts`)에서 파생. opencode 변환기는 **아직 없다**(어댑터·라이프사이클·백엔드 선택 미구현, `Backend`=`'claude-code'` 유지).
+> **양 백엔드 대칭 변환 파이프라인** (`src/main/features/extensions/mcp/`): `expandEnv`(순수) → `toClaudeConfig`(순수). opencode 짝은 **미구현**이며 도입 시 `to<Backend>Config(servers, resolve) → { config: <Backend>McpConfig; dropped }` 동형 시그니처를 목표로 한다. `OrcaMcpConfig == ClaudeMcpConfig` 이므로 `toClaudeConfig` 는 **구조적으로 항등**(${VAR} 확장만) — "변환 불필요 특례"로 두지 않고 어댑터 경계에서 값이 `ClaudeMcpConfig` 라는 이름으로 다뤄지는 명시적 지점으로 존재한다. SDK 가 sse 트랜스포트를 지원하므로 sse→http 강제는 하지 않는다. `allowedTools` 는 config 에 넣지 않고 어댑터 호출부(`adapters/claude.ts`)에서 파생. opencode 변환기는 **아직 없다**(어댑터·라이프사이클·백엔드 선택 미구현, `Backend`=`'claude'` 유지).
 >
 > **비밀 누출 불변식**: `writeMcpFile` 은 *미확장 정규 소스*(`OrcaMcpConfig`, `${VAR}`)만 받는다(타입 강제). `expandEnv` 의 확장 결과(평문)는 SDK 주입 타깃(`toClaudeConfig` 출력)으로만 흐르고 절대 파일에 기록되지 않는다.
 >
@@ -100,7 +100,7 @@ new BrowserWindow({
 >
 > - **정규 소스**(백엔드 중립): `~/.config/orca/{skills/<name>/SKILL.md, agents/<name>.md, commands/<name>.md}` + `mcp.json`. 비밀은 secret-store(safeStorage)에만.
 > - **Claude 어댑터 머티리얼라이즈**(인프로세스 `query()`, **0024 구현됨 / disallowedTools 보류**): ExtensionDeployer 가 호환 자산을 SDK 표준 경로 거울로 배포(skill→`dist/claude-code/.claude/skills/`, mcp→`dist/claude-code/.mcp.json`, ${VAR} 보존) = 설치 스테이징. skill 은 `settingSources` 경로(SDK 기본 user/project/local — 옵션 생략)로 발견하고(`skills:'all'`), MCP 는 `options.mcpServers` 로 주입(런타임 ${VAR} 확장), provider settings 는 `options.settings` flag 로 주입(거울 예외, TRD §6.8). agents·commands·full-plugin 은 engine-specific 이라 배포하지 않는다(추후 claude plugin 지원으로 연기 — adapters.md §3.1). (0024에서 구 `plugin/` 컨테이너 + `plugins:[{local}]` + `settingSources:[]` 경로를 제거했다.)
-> - **opencode 어댑터 머티리얼라이즈**(future anchor, 미구현): `opencode serve` + config-on-disk 모델이라 query 주입 불가 — `toOpencodeConfig(mcp.json)` 를 `opencode.json` `mcp` 키로 쓰고, skills 는 opencode 가 네이티브 글로빙하는 경로로 심링크/복사, agents/commands 는 변환기로 `~/.config/opencode/{agent,command}` 에 셰이핑.
+> - **opencode 어댑터 머티리얼라이즈**(future anchor, 미구현): 설정은 디스크 파일만 가능한 모델이 아니다. SDK server helper의 `config`는 `OPENCODE_CONFIG_CONTENT`로 전달되고 config API도 존재한다([SDK 해설](../../opencode-sdk-spec.md)). 어느 경로를 쓸지는 후속 설계 사항이며, 확장된 평문 비밀을 `opencode.json`에 쓰는 해법을 기본값으로 삼지 않는다. skill/agent/command 변환·배포도 아직 구현하지 않았다.
 >
 > **이식성 경계 (= 변환 가능성)**: **Skill(`SKILL.md`)** 은 변환 없이 양 백엔드 공통(opencode 가 `.claude/skills`·`~/.claude/skills` 네이티브 글로빙). **MCP/Agent/Command** 는 변환 가능(MCP 는 구현됨, agent/command 변환기는 anchor). **Hook·full-plugin 번들** 은 본질적으로 백엔드 종속(Claude=선언형 `hooks.json`+shell·manifest 디렉토리 / opencode=TS 코드 모듈; SDK 도 Claude=인프로세스 vs opencode=`serve` HTTP) → 정규화 대상이 아니며 향후 백엔드별 슬롯으로 둔다. `skill-creator` 같은 full Claude 플러그인은 정규 모델에 포함하지 않는다(필요 시 `SKILL.md` 만 `skills/` 로 추출).
 >

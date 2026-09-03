@@ -12,7 +12,7 @@
 >
 > **계층 위치 + 방법론 (짝 문서 [standardization.md](./standardization.md))**: 이 문서는 **런타임 정규화**(세션 *실행 중* 의 이벤트·권한·세션 흐름)를 다룬다. **배포 계층 표준화**(무엇을 배포·주입하는가 — AGENTS.md·MCP·SKILL.md)는 standardization.md 가 짝으로 다루며, 그 **ExtensionDeployer 산출물이 런타임 설정 입력이 되는 단방향** 연결이다. 또한 여기 정의한 정본 인터페이스는 *목표 카탈로그*다 — 구현은 **rule of three** 로 점진 추출하며, **v1 은 `permission.requested` 를 우선 정규화**하고 나머지 이벤트는 소비자가 생길 때 케이스를 추가한다(EventStream union 미완성 허용, standardization.md §1·§6 과 정합).
 >
-> **출처 신뢰 원칙**: 각 사실 옆에 출처 태그를 표기한다 — `[검증-타입]`(SDK 타입 시그니처로 확정, spec 문서 근거) / `[검증-런타임]`(현재 코드 구동/소비로 확인) / `[미확인-런타임]`(타입은 있으나 동작·형식 미검증) / `[N/A-claude]`(Claude SDK 에 대응 개념 없음 — OpenCode 전용) / `[미확인-opencode]`(OpenCode SDK 미설치로 미정). **교정(2026-06)**: Claude Agent SDK 는 `node_modules` 미설치라도 리포에 버전관리된 spec 문서(`docs/spec/claude/agent-sdk/typescript.md`)로 타입이 확정된다 — 따라서 Claude 축의 옛 `[미확인]` 은 spec 문서로 대조해 `[검증-타입]`/`[미확인-런타임]`/`[N/A-claude]` 로 분해했다(claude-probe.ts 정정 완료). **OpenCode SDK 만 여전히 미설치**라 그쪽 항목은 `[미확인-opencode]` 로 §13 절차를 거쳐 확정한다.
+> **출처 신뢰 원칙**: `[검증-타입]`은 SDK 선언/소스 확인, `[검증-런타임]`은 실제 코드 구동/소비 확인, `[미확인-런타임]`은 실제 서버 상호운용 미검증, `[N/A-claude]`는 Claude 대응 개념 없음, `[미확인-opencode]`는 OpenCode 적용 의미 미확정이다. OpenCode SDK는 조사·계약 검증용으로 설치되어 있으며 버전·API 표면·mock 관측은 [SDK 해설](../../opencode-sdk-spec.md)이 갖는다. 설치·mock 성공을 Orca adapter 활성화나 실제 서버 검증으로 승격하지 않는다.
 >
 > **rename 범위 밖**: 실제 코드 심볼(`SessionAdapter`·`makeCanUseTool` 등)은 이번 라운드에서 변경하지 않는다. 구 `ChatEvent` 는 예외로, 와이어 전환과 함께 이미 제거됐다(§2 ③·PR #47). 본 절의 *목표 타입명*(`NormalizedEvent` 등)과 현행 코드명의 대응은 §12 매핑표로만 둔다.
 
@@ -30,7 +30,7 @@ Phase 3++ 구현은 claude-code SDK 에 강하게 결합돼 있어, 범용(OpenC
 
 ## 2. NormalizedEvent — provider 중립 이벤트
 
-**① 설명.** OpenCode 는 `event.subscribe()` SSE 스트림(`event.type` + `event.properties`)을 `[검증]`, Claude 는 `query()`/`ClaudeSDKClient` 메시지 async iterator + `canUseTool` 콜백을 사용한다 `[검증]`. 이 둘을 단일 이벤트 union 으로 정규화한다. 모든 이벤트는 `sessionId` 를 갖고(멀티세션 라우팅), 권한 요청은 1급 이벤트다.
+**① 설명.** OpenCode legacy 이벤트는 `type/properties`, `/v2` import의 native `client.v2.event` 이벤트는 `type/data`와 추가 envelope 필드를 갖는다 `[검증-타입]` ([SDK 해설](../../opencode-sdk-spec.md)). Claude는 `query()` 메시지 async iterator와 `canUseTool` 콜백을 사용한다. Orca에 전달할 때만 session-scoped `NormalizedEvent`로 정규화하며, OpenCode의 전역 이벤트에도 세션 ID가 있다고 가정하지 않는다.
 
 **② 예시.** "Bash 한 줄 실행" 한 턴이 정규화 전에는 `tool_use` → `tool_result` 두 `ChatEvent` 로 흘렀다. 정규화 후엔 `sessionId`/`provider`/`toolRunId` 를 가진 `tool.call.started` → `tool.call.completed` 가 되어, 같은 `toolRunId` 로 start/complete 를 매칭하고 어느 provider/세션에서 왔는지 식별한다.
 
@@ -39,7 +39,7 @@ Phase 3++ 구현은 claude-code SDK 에 강하게 결합돼 있어, 범용(OpenC
 **④ 인터페이스 (정본).**
 
 ```ts
-type ProviderId = 'claude-code' | 'opencode'
+type ProviderId = 'claude' | 'opencode'
 
 type NormalizedEvent =
   | { type: 'message.delta';      sessionId: string; provider: ProviderId; messageId: string; delta: unknown }
@@ -74,7 +74,7 @@ type ProviderEventMapper = { provider: ProviderId; map(raw: unknown): Normalized
 | `ask_question` | `permission.requested`(`origin:'agent'`) | Claude `AskUserQuestion` 의 합성 — §3 |
 | `plan_review` | `permission.requested`(`origin:'agent'`) | Claude `ExitPlanMode` 의 합성 — §3 |
 
-> `[미확인]`: OpenCode `event.type` enum 전수와 Claude 메시지 타입 전수는 `types.gen.ts` / Claude SDK 타입에서 추출해 위 매핑을 완성한다(§13). 현재 union 은 골격이다.
+> OpenCode raw 이벤트 계약은 [SDK 해설](../../opencode-sdk-spec.md), Orca 투영 권고는 [migration 연구](../../etc/study/opencode/orca-migration-guide.md)에 있다. 이 절의 도식보다 [shared/ipc.ts](../../../app/src/shared/ipc.ts)의 현행 `NormalizedEvent`가 우선한다; OpenCode mapper는 미구현이다.
 
 **서브에이전트(Agent/Task) 백그라운드 라이프사이클** (CLI 2.1.198+ / SDK 0.3.215, handoff 0136·**0143 기본화** — 0135 foreground 주입·0138 기본 배제는 0143 에서 폐기):
 
@@ -103,7 +103,7 @@ type ProviderEventMapper = { provider: ProviderId; map(raw: unknown): Normalized
 type PermissionAction = { kind: string; label: string; input?: unknown; risk?: 'low' | 'medium' | 'high' }
 ```
 
-- **OpenCode (agent)**: event 스트림에서 permission request 감지 → `postSessionByIdPermissionsByPermissionId({path, body})` → `boolean` 회신 `[검증]`.
+- **OpenCode (agent, 미구현)**: permission 이벤트를 broker에 연결하고 선택한 API의 응답 객체를 전송한다. root는 `body: { response: 'once' | 'always' | 'reject' }`이며 boolean은 HTTP 성공 응답이지 승인 요청 body가 아니다 `[검증-타입]` ([SDK 해설](../../opencode-sdk-spec.md)).
 - **Claude (agent)**: `canUseTool` 콜백 지점에서 합성 `permission.requested` 발행 → UI 결정 후 콜백을 `PermissionResult` 로 resolve. `canUseTool` 은 권한 평가의 마지막 단계 `[검증]`.
 
 #### ApprovalResolution — 2분기 (4값 모델 폐기)
@@ -127,14 +127,14 @@ type PermissionUpdate =
   | { type: 'setMode'; mode: NormalizedPermissionMode }
 ```
 
-**Provider 별 downcast (OpenCode boolean 손실표)**:
+**Provider 별 응답 표현 (OpenCode 연결은 미구현)**:
 
 | Provider | allow | deny |
 |---|---|---|
-| OpenCode | `body:true` — `updatedInput`/`updatedPermissions` **표현 불가, 무시(손실)** | `body:false` |
+| OpenCode | 일회 허용은 `once`, 영속 허용은 별도 정책을 거친 `always`; 요청 객체와 method는 API 표면별로 다름 | `reject`; 턴 interrupt는 별도 계약 |
 | Claude | `{behavior:'allow', updatedInput, updatedPermissions}` | `{behavior:'deny', message, interrupt}` |
 
-> UI 는 OpenCode 세션에서 `updatedInput`/`updatedPermissions` 가 손실됨을 **명시**(provider capability 차이) — ../frontend/ux-domains.md §1.6 ApprovalCard 가 배지로 표시.
+> `updatedInput`·Claude의 `PermissionUpdate`를 OpenCode reply로 그대로 보낼 수 없다. 조용히 버리는 정책을 채택하지 않으며, 입력 수정·규칙 저장·질문 답변은 [migration 연구](../../etc/study/opencode/orca-migration-guide.md)의 별도 검증/제품 결정 대상이다. OpenCode 승인 UI는 아직 활성화하지 않았다.
 
 #### PendingApprovalStateMachine
 
@@ -150,7 +150,7 @@ type PendingApprovalState = 'requested' | 'resolving' | 'resolved' | 'timed_out'
 interface PermissionBridge {                          // agent-originated approval 만 담당
   request(ev: Extract<NormalizedEvent, { type: 'permission.requested' }>): Promise<ApprovalResolution>
   // Claude: resolved 도달 시 canUseTool Promise 를 PermissionResult 로 resolve
-  // OpenCode: resolved 도달 시 postSessionByIdPermissionsByPermissionId 호출(boolean downcast)
+  // OpenCode: 선택한 API의 reply 객체로 변환; 구현·정책은 후속
 }
 ```
 
@@ -195,7 +195,7 @@ type NormalizedPermissionMode =
 
 interface PermissionModeController {
   getCurrentMode(): NormalizedPermissionMode
-  setMode(mode: NormalizedPermissionMode): Promise<void>            // Claude: setPermissionMode / OpenCode: 앱 레벨 에뮬레이션 [미확인-opencode]
+  setMode(mode: NormalizedPermissionMode): Promise<void>            // Claude: setPermissionMode / OpenCode: rule·reply API와의 정책 매핑 미정
 }
 ```
 
@@ -204,7 +204,7 @@ interface PermissionModeController {
 | Provider | 처리 |
 |---|---|
 | Claude | `setPermissionMode` 런타임 전환. `auto`(TS)=모델 분류기 승인 |
-| OpenCode | 동일 런타임 mode setter 가 공식 문서에 없음 → 앱 레벨 "이후 같은 종류 자동 승인" 에뮬레이션 `[미확인]` |
+| OpenCode | reply와 saved-permission/config 표면은 존재하지만 Claude mode와의 동등성은 미정. 앱 자동승인 에뮬레이션을 확정하지 않음 `[미확인-opencode]` ([SDK 해설](../../opencode-sdk-spec.md)) |
 
 > **권한 평가 순서 불일치 `[부분 불확실]`**: 공식 문서에 두 서술이 병존한다 — (a) `Hooks → Deny → Mode → Allow → canUseTool`, (b) `PreToolUse Hook → Deny → Allow → Ask → Mode → canUseTool → PostToolUse Hook`. **둘 다 1차 출처이며 불일치.** 구현은 hooks 3분기(allow/deny/passthrough)·ask rules·Pre/PostToolUse hook 까지 포함한 완전 파이프라인으로 모델링하고, 대상 SDK 버전 기준으로 단일화한다(§13).
 
@@ -239,7 +239,7 @@ interface CapabilityProbe {
 
 | 기능 | OpenCode | Claude Code |
 |---|---|---|
-| continue/resume/fork | 동일 표면 없음 `[미확인-opencode]` | `continue`/`resume`/`forkSession` (typescript.md Options) `[검증-타입]` |
+| continue/resume/fork | legacy `session.fork`와 동일 session ID prompt 표면 존재 `[검증-타입]`; Claude resume/fork와 의미 동등성은 미확인 | `continue`/`resume`/`forkSession` (typescript.md Options) `[검증-타입]` |
 | children / summarize / share | `session.*` `[검증]` | Claude SDK 대응 함수 없음 `[N/A-claude]` |
 | abort / init | `session.*` `[검증]` | AbortController / system:init `[검증-런타임]` |
 | noReply context injection | `session.prompt({noReply:true})` `[검증]` | `systemPrompt.append` (typescript.md:484) — 형식 `[미확인-런타임]` |
@@ -355,7 +355,7 @@ type ClaudeAuthMode =
   | { kind: 'vertex'; project: string }
 
 type AuthInjection =
-  | { provider: 'opencode';        via: 'auth.set'; body: { id: string; type: 'api'; key: string } }     // 서버 API [검증]
+  | { provider: 'opencode'; via: 'auth.set'; path: { id: string }; body: { type: 'api'; key: string } } // root SDK 요청 형상; 모델 provider 인증
   | { provider: 'claude-code';     via: 'process_env_or_binary'; mode: ClaudeAuthMode }
   | { provider: 'openai_compatible'; via: 'baseURL+apiKey'; baseURL: string; apiKey: string }            // OpenCode provider 경유 [검증]
 
@@ -412,18 +412,18 @@ type ModelProviderConfig =
 
 ## 13. 구현 전 SDK 타입 확정 절차 (`[미확인]` 일괄)
 
-> **선결 제약 (교정 2026-06)**: **Claude SDK 타입은 리포의 spec 문서(`docs/spec/claude/agent-sdk/typescript.md`)로 확정 가능**하므로 Claude 축 항목은 아래 표에서 spec 대조로 해소했다. **OpenCode SDK 만 여전히 미설치**라 그쪽 항목은 실제 타입 파일을 받아 확정한 **뒤** 구현에 들어간다.
+> **현재 근거**: Claude SDK 타입은 저장소의 공식 spec, OpenCode는 설치된 배포 패키지의 `dist/gen`·`dist/v2/gen` 선언과 JS를 참조한다. OpenCode의 실제 서버/모델 상호운용은 미실행이며, 아래 타입 확인과 구별한다. 버전·소스 위치 정본은 [SDK 해설](../../opencode-sdk-spec.md)이다.
 
 | 항목 | 확인 위치 | 상태 |
 |---|---|---|
-| OpenCode `event.type` enum 전수 (§2 매핑 완성) | `packages/sdk/js/src/gen/types.gen.ts` | `[미확인-opencode]` |
+| OpenCode raw Event·V2Event·Message·Part | 배포 `dist/{gen,v2/gen}/types.gen.d.ts`; [SDK 해설](../../opencode-sdk-spec.md) | `[검증-타입]`; Orca mapper 미구현 |
 | Claude 권한 평가 순서 단일화(hooks/ask/Pre·PostToolUse 포함) | 대상 SDK 버전 permissions 문서 | `[부분 불확실]`(공식 문서 2서술 병존, §3) |
 | Claude usage/cost 노출 형식 (§8) | `result` 메시지 타입 (cost-tracking.md) | `[검증-타입]` 해소 — `total_cost_usd`·`modelUsage{costUSD,inputTokens,outputTokens,cacheReadInputTokens,cacheCreationInputTokens}`·`usage{cache_*_input_tokens}`·`duration_ms`·`num_turns` 로 §8 구현. 런타임 실측값 일치는 GUI 1회 확인 권장 |
-| OpenCode usage/cost 노출 형식 | `session.message` / `Message` 타입 | `[미확인-opencode]` |
-| OpenCode mode setter 부재 확정 (§3) | `types.gen.ts` / 서버 OpenAPI | `[미확인-opencode]` |
+| OpenCode usage/cost 노출 형식 | legacy AssistantMessage/StepFinishPart, native SessionMessageAssistant.tokens/cost·SessionNextStepEnded.data.tokens/cost | `[검증-타입]`; 누적/턴 합산과 실제 금액은 `[미확인-런타임]` |
+| OpenCode permission mode 동등성 (§3) | reply/saved/config 표면과 ClaudePermissionMode의 의미 비교 | `[미확인-opencode]`; 타입 존재만으로 mode 동등성을 확정하지 않음 |
 | Claude children/summarize/share 대응 (§4) | typescript.md (대응 함수 없음) | `[N/A-claude]` 확정 — abort/init 은 `[검증-런타임]` |
-| OpenCode file checkpoint 대응 (§5) | 서버 OpenAPI | `[미확인-opencode]` |
-| `session.summarize` side effect (§3 분류) | `types.gen.ts` / 서버 동작 | `[미확인-opencode]` |
+| OpenCode file checkpoint 대응 (§5) | legacy revert/unrevert, native revert stage/commit 계열 | `[검증-타입]`; 파일 복원과 Claude checkpoint의 의미 동등성은 `[미확인-런타임]` |
+| 요약·압축 side effect (§3 분류) | legacy `session.summarize`, native `session.compact` | `[검증-타입]`; 실제 컨텍스트/파일 영향은 `[미확인-런타임]` |
 | `forkSession`/`persistSession`/`includePartialMessages` 정확한 옵션명 | typescript.md:457/470/460 | `[검증-타입]` 확정 |
 | Claude `ToolPermissionContext.signal`(abort) 실사용 가능 여부 | typescript.md (canUseTool signal) | `[미확인-런타임]`(타입 존재, 실사용 구동검증) |
 | Claude structured output 형식 (FRONTEND `StructuredOutputState` 흡수 가능?) | typescript.md:465 `outputFormat` | `[검증-타입]` 형식 존재 — 출력 매핑 `[미확인-런타임]` |
@@ -433,16 +433,16 @@ type ModelProviderConfig =
 
 ## 14. Provider Event Mapping Table (구현 전 골격)
 
-§2 의 `NormalizedEvent` 는 구현 시 **provider 원본 → normalized 매핑표**가 있어야 한다. OpenCode 는 `event.subscribe()` SSE(`event.type`+`event.properties`), Claude 는 async iterator 메시지 + `canUseTool` 콜백이다 `[검증]`. 현재 골격(전수는 §13 절차로 확정):
+현행 Claude 매핑은 [claude-map.ts](../../../app/src/main/adapters/claude-map.ts)가 정본이다. OpenCode는 adapter 미구현이며 아래는 연결 대상의 개요다; 구체적인 원본별 투영·손실·중복 제거는 [migration 연구](../../etc/study/opencode/orca-migration-guide.md)를 따른다.
 
 | Provider | 원본 | → NormalizedEvent |
 |---|---|---|
-| OpenCode | `event.subscribe()` 스트림 | `message.delta` / `tool.call.*` / `permission.requested(origin:agent)` / `session.updated` |
+| OpenCode (미구현) | legacy `event.subscribe()` 또는 native `client.v2.event`/session events | raw envelope를 구분한 뒤 `message.*` / `tool.call.*` / `permission.*` / `session.updated`로 투영 검토 |
 | Claude | `query()`/`ClaudeSDKClient` 메시지 | `message.delta` / `message.completed` / `tool.call.*` / `session.updated` / `telemetry` |
 | Claude | `canUseTool` 콜백 | `permission.requested(origin:agent)` 합성 |
 | App | `session.shell`/`command` 등 직접 호출 직전 | `permission.requested(origin:app)` 합성 (§3 AppCommandPolicy) |
 
-> `ProviderEventMapper.map(raw)` 는 **1:N** 가능(한 원본이 delta+tool 로 분해). `[미확인]`: OpenCode `event.type` enum 전수 = `types.gen.ts`, Claude 메시지 타입 전수 = SDK 타입.
+> 원본 하나가 여러 normalized 이벤트를 만들 수 있다. snapshot을 delta처럼 append하거나 legacy/native 스트림을 함께 소비해 중복 투영하지 않도록 해야 하며, 실제 구현은 후속이다.
 
 ## 15. Capability Discovery — 런타임 probe + 사전 게이팅
 
@@ -453,19 +453,19 @@ type ModelProviderConfig =
 | Capability | 탐지 방법 |
 |---|---|
 | OpenCode direct API 존재 (`DirectBackendCapabilities` §17) | SDK client 메서드 존재 / `types.gen.ts` |
-| OpenCode provider 목록 / agents / health | `config.providers()` / `app.agents()` / `global.health()` `[검증]` |
+| OpenCode provider 목록 / agents / health | import 표면별 API는 [SDK 해설](../../opencode-sdk-spec.md) 참조 `[검증-타입]`; 서버 호환성·capability 활성은 `[미확인-런타임]` |
 | Claude session 기능 | SDK 타입 / options 지원 여부 `[미확인]` |
 | Claude permission modes | `setPermissionMode` 호출 가능 여부 |
 | Claude executable | `pathToClaudeCodeExecutable` 설정 가능 `[검증]` |
 
 ## 16. PermissionBridge 필수 경로 테스트 (구현 전 정의)
 
-§3 의 2분기 + OpenCode boolean downcast 손실이 의도대로 동작하는지 아래 경로를 검증한다:
+§3의 Orca 승인 결과와 OpenCode reply/질문 응답/interrupt 간 의미 차이를 아래 경로에서 검증해야 한다. OpenCode 경로는 아직 구현하지 않았다.
 
 ```text
 Claude canUseTool → permission.requested(agent) → allow          → callback resolve {behavior:'allow', updatedInput}
 Claude canUseTool → permission.requested(agent) → deny+interrupt → callback resolve {behavior:'deny', interrupt:true}
-OpenCode perm event → permission.requested(agent) → allow        → postSession...Permissions...(true)  // updatedInput/Permissions 손실
+OpenCode perm event → permission.requested(agent) → allow        → 선택한 API의 once reply 객체  // 입력 수정·규칙 저장은 별도 정책
 App session.shell  → permission.requested(app)   → allow         → 직접 호출 실행 + audit (§10)
 App file.read      → (read_only, policy 'pass')                  → 프롬프트 없이 실행 + (선택) audit
 ```

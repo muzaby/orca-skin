@@ -10,30 +10,17 @@
 
 ### 1.1 SessionAdapter 인터페이스 계약
 
-`app/src/main/adapters/types.ts:5-15` 그대로:
-
-```typescript
-export interface SessionAdapter {
-  readonly id: Backend
-  isInstalled(): Promise<{ installed: boolean; version?: string; binPath?: string }>
-  install(): AsyncIterable<{ step: string; log?: string; error?: string; done?: boolean }>
-  sendMessage(
-    sessionId: string | null,   // null = 새 세션
-    text: string,
-    cwd: string,
-    signal?: AbortSignal
-  ): AsyncIterable<ChatEvent>
-}
-```
+실행 계약 정본은 [adapters/types.ts](../../../app/src/main/adapters/types.ts)의 `SessionAdapter`·`LiveTurn`·`ProviderMessageBatch`다. `sendMessage(req: TurnRequest)`는 `LiveTurn`을 반환하고 `eventBatches`에 정규화 이벤트 묶음을 제공한다.
+설치 확인/안내 외에 `describe()`·`complete()`·`classifyError()`와 LiveTurn 제어도 어댑터 책임이다. 입력은 [adapters/turn.ts](../../../app/src/main/adapters/turn.ts), 와이어는 [shared/ipc.ts](../../../app/src/shared/ipc.ts)의 `NormalizedEvent`를 참조한다.
 
 ### 1.2 등록된 백엔드 (현재 — Phase 3 SDK)
 
 | Backend | 어댑터 파일 | 구현 방식 | 상태 |
 |---|---|---|---|
-| `claude-code` | `adapters/claude.ts` (+`claude-map.ts` 정규화, 구 claude-code.ts) | `@anthropic-ai/claude-agent-sdk` 의 `query()` 함수 직접 호출 | ✅ Phase 3 채택 (CLI spawn 폐기) |
-| `opencode` | (없음) | — | ⏳ Future (PRD OQ7) |
+| `claude` | `adapters/claude.ts` (+`claude-map.ts` 정규화) | `@anthropic-ai/claude-agent-sdk`의 `query()` 호출 | ✅ 활성 |
+| `opencode` | (없음) | SDK 조사·계약 검증용 설치만 | ⏳ adapter 미구현 (PRD OQ7); [SDK 해설](../../opencode-sdk-spec.md) |
 
-`AdapterRegistry` (`adapters/registry.ts`) 는 현재 `claude-code` 단일 어댑터만 등록. 활성 백엔드는 부팅 시 자동 결정 (`this.active = claudeCode.id`).
+`AdapterRegistry` (`adapters/registry.ts`)는 현재 `claude` 단일 어댑터만 등록하고 활성화한다. SDK 의존성 추가만으로 이 registry나 `Backend` union이 확장되지는 않는다.
 
 ### 1.3 ClaudeCodeAdapter 호출 패턴
 
@@ -146,13 +133,15 @@ opencode 등 다중 어댑터 환경 대비:
 ### 1.9 새 백엔드 추가 체크리스트
 
 1. `src/main/adapters/<id>.ts` 생성
-2. `SessionAdapter` 인터페이스 구현 + `normalize()` (해당 SDK/CLI 의 이벤트 → ChatEvent)
+2. 현행 `SessionAdapter`·`LiveTurn` 구현 + 해당 SDK 이벤트를 `NormalizedEvent[]`를 담은 `ProviderMessageBatch`로 변환
 3. `adapters/registry.ts` 에 등록
 4. `Backend` union 에 ID 추가 (`src/shared/ipc.ts`)
 5. (Future) 어댑터별 Skills 스캔 경로 / 자격증명 키 / 세션 동기화 메서드 정의
 6. 설치가 필요하면 `install()` AsyncIterable 구현, 인스톨러 UI 안내 추가
 7. preload 의 `backend:select` 채널 재노출 (현재 미노출)
 8. 통합 테스트 추가
+
+OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레이션 연구](../../etc/study/opencode/orca-migration-guide.md)를 참조한다. 위 목록은 실제 활성화 완료를 뜻하지 않는다.
 
 ---
 
@@ -344,4 +333,3 @@ Hook 은 정의상 도구 호출/세션 시점에 **임의 로직**을 실행한
 - 비밀은 security.md 의 불변식대로 hook 코드에 평문 인라인 금지(secret-store 경유).
 
 ---
-
