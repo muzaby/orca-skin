@@ -90,12 +90,12 @@ describe('싱크 전과 조회 중은 다른 화면이다 (AT-63 · D-102)', () 
   })
 })
 
-describe('파일은 기본 접힘이고 그 이유를 말한다 (AT-66 · D-105)', () => {
-  it('첫 출력에 diff 줄이 없고 안내와 헤더는 있다', () => {
+describe('파일은 기본 접힘이고 헤더에서 펼친다 (AT-66 · ΔV7 D-126)', () => {
+  it('첫 출력에 diff 줄이 없고 접힌 헤더부터 시작한다', () => {
     const html = render()
 
     expect(html).not.toContain('const alpha = 1')
-    expect(html).toContain('대량 diff의 경우 파일이 축소되어 있습니다')
+    expect(html).not.toContain('대량 diff의 경우 파일이 축소되어 있습니다')
     expect(html).toContain('data-diff-file="app/src/main/infra/db/queries.ts"')
     expect(html).toContain('aria-expanded="false"')
   })

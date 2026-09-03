@@ -1,4 +1,13 @@
-import { Fragment, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  Fragment,
+  useCallback,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react'
+import type { ThemedToken } from 'shiki'
 import type { DiffRequirementItem, GitDiffPatchLine } from '../../../../../../shared/ipc'
 import { Icon } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
@@ -18,6 +27,7 @@ import {
 import { patchLinesToDiffLines } from '../../lib/diffPatchLines'
 import { planUpwardExpansionCompensation } from '../../lib/diffViewport'
 import type { DiffLine } from '../../lib/diffLines'
+import { DiffSyntaxContext, useDiffSyntax } from '../../hooks/useDiffSyntax'
 import type { DiffRequirementDraft, DiffViewOptions } from '../../reducer/chatReducer'
 import { diffRequirementLineKey } from './diffRequirements'
 import type { DiffSection } from './diffComparison'
@@ -85,29 +95,36 @@ export function FileDiffSection({
   const { tr } = useI18n()
   const { parent, name } = splitPath(section.path)
   return (
-    <section data-diff-file={section.path} className="border-b border-t5">
+    <section data-diff-file={section.path} className="relative min-w-0">
       {/* 0211 ΔV6 실측 5행 — 참조의 파일 헤더는 폭 전체를 채우는 밴드다(`#f2f2f2`). 배경이
           없으면 접힌 헤더들이 본문과 같은 평면이라 파일 경계가 읽히지 않는다. */}
-      <div className="group/filehead flex w-full items-center gap-g2 bg-bg2 px-p5 py-p3 transition-colors hover:bg-fill-uncontained-hover">
+      <div
+        data-diff-file-header
+        className="group/filehead sticky top-0 z-[4] flex h-[32px] w-full items-center bg-bg2 font-sans"
+      >
         <button
           type="button"
           data-diff-file-toggle={section.path}
           aria-expanded={!collapsed}
           aria-label={tr('chat.rightpanel.diffFileToggleAria', { path: section.path })}
           onClick={() => onToggleCollapsed(section.path)}
-          className="flex min-w-0 flex-1 items-center gap-g2 text-left outline-none hide-focus-ring ring-focus"
+          className="flex h-full min-w-0 flex-1 items-center gap-[4px] pl-[8px] pr-[32px] text-left outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
         >
           <Icon
             name={collapsed ? 'chevR' : 'chevD'}
-            size={12}
-            className="shrink-0 text-t5 transition-colors group-hover/filehead:text-t7"
+            size={16}
+            className="shrink-0 text-ink3 transition-colors group-hover/filehead:text-ink2"
           />
-          <Icon name="doc" size={12} className="shrink-0 text-t5" />
-          <span className="shrink-0 truncate text-body font-medium text-t9">{name}</span>
-          {parent.length > 0 && (
-            <span className="min-w-0 shrink truncate font-mono text-caption text-t5">{parent}</span>
-          )}
-          <span className="ml-auto flex shrink-0 gap-g1 text-caption tabular-nums">
+          <Icon name="doc" size={12} className="shrink-0 text-ink3" />
+          <span className="flex min-w-0 items-baseline gap-[4px] overflow-hidden whitespace-nowrap text-body text-ink2">
+            <span className="max-w-full shrink-0 truncate font-normal">{name}</span>
+            {parent.length > 0 && (
+              <span className="min-w-0 truncate text-footnote text-ink3" title={parent}>
+                {parent}
+              </span>
+            )}
+          </span>
+          <span data-diff-file-counts className="flex shrink-0 gap-[2px] text-body tabular-nums">
             <span className="text-git-added">+{section.added}</span>
             <span className="text-git-removed">−{section.removed}</span>
           </span>
@@ -118,20 +135,22 @@ export function FileDiffSection({
           aria-label={tr('chat.rightpanel.diffOpenFileAria', { path: section.path })}
           title={tr('chat.rightpanel.diffOpenFile')}
           onClick={() => onOpenFile(section.path)}
-          className="shrink-0 rounded-r4 p-p1 text-t5 outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover hover:text-t7"
+          className="absolute right-[8px] flex size-[20px] shrink-0 items-center justify-center rounded-[4px] text-ink opacity-0 outline-none transition-opacity hide-focus-ring ring-focus hover:bg-fill-uncontained-hover group-hover/filehead:opacity-100 group-focus-within/filehead:opacity-100 [@media(pointer:coarse)]:opacity-100"
         >
-          <Icon name="fileOpen" size={12} />
+          <Icon name="arrowNE" size={12} />
         </button>
       </div>
       {!collapsed &&
         (section.patch === null ? (
-          <p className="px-p5 pb-p3 text-caption text-t5">
+          <p className="px-p5 pb-p3 text-caption text-ink3">
             {tr('chat.rightpanel.diffNoSessionChange')}
           </p>
         ) : section.patch.kind === 'binary' ? (
-          <p className="px-p5 pb-p3 text-caption text-t5">{tr('chat.rightpanel.diffFileBinary')}</p>
+          <p className="px-p5 pb-p3 text-caption text-ink3">
+            {tr('chat.rightpanel.diffFileBinary')}
+          </p>
         ) : section.patch.kind === 'too-large' ? (
-          <p className="px-p5 pb-p3 text-caption text-t5">
+          <p className="px-p5 pb-p3 text-caption text-ink3">
             {tr('chat.rightpanel.diffFileTooLarge')}
           </p>
         ) : (
@@ -194,6 +213,7 @@ function FileDiffBody({
   const [hunks, setHunks] = useState<DiffHunkState>(() =>
     buildDiffHunks(diffLines, INITIAL_CONTEXT)
   )
+  const syntax = useDiffSyntax(diffLines, filePath)
   const pending = useRef<PendingCompensation | null>(null)
 
   // 위쪽 확장은 보던 줄을 밀어낸다 — 삽입된 만큼 scrollTop 을 보정해 그 줄을 제자리에 둔다.
@@ -272,9 +292,9 @@ function FileDiffBody({
       className={view.wrapLines ? 'pb-p2' : 'overflow-x-auto pb-p2'}
     >
       {hunks.rows.length === 0 ? (
-        <p className="px-p5 pb-p3 text-caption text-t5">{tr('chat.rightpanel.diffEmpty')}</p>
+        <p className="px-p5 pb-p3 text-caption text-ink3">{tr('chat.rightpanel.diffEmpty')}</p>
       ) : (
-        body
+        <DiffSyntaxContext value={syntax}>{body}</DiffSyntaxContext>
       )}
     </div>
   )
@@ -294,14 +314,14 @@ function GapRow({
   const label = tr('chat.rightpanel.diffUnmodifiedLines', { count: hidden })
   return (
     <tr data-diff-gap={row.id}>
-      <td colSpan={colSpan} className="px-p5 py-1">
-        <span className="flex gap-g2">
+      <td colSpan={colSpan} className="px-[8px] py-[8px] font-sans">
+        <span className="flex items-center gap-[4px]">
           {row.canUp && (
             <button
               type="button"
               data-diff-gap-up={row.id}
               onClick={() => onExpand(row.id, 'up')}
-              className="group/gapup flex items-center gap-g2 rounded-r4 px-p2 py-1 text-caption text-accent outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
+              className="group/gapup flex items-center gap-[4px] rounded-[4px] text-footnote text-ink3 outline-none transition-colors hide-focus-ring ring-focus hover:text-ink2"
             >
               <Icon name="chevU" size={11} />
               <span>{label}</span>
@@ -312,7 +332,7 @@ function GapRow({
               type="button"
               data-diff-gap-down={row.id}
               onClick={() => onExpand(row.id, 'down')}
-              className="group/gapdown flex items-center gap-g2 rounded-r4 px-p2 py-1 text-caption text-accent outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
+              className="group/gapdown flex items-center gap-[4px] rounded-[4px] text-footnote text-ink3 outline-none transition-colors hide-focus-ring ring-focus hover:text-ink2"
             >
               <Icon name="chevD" size={11} />
               {!row.canUp && <span>{label}</span>}
@@ -325,8 +345,8 @@ function GapRow({
 }
 
 function rowTint(type: DiffLine['type']): string {
-  if (type === 'added') return 'bg-[color-mix(in_srgb,var(--color-good)_14%,transparent)]'
-  if (type === 'removed') return 'bg-[color-mix(in_srgb,var(--color-bad)_14%,transparent)]'
+  if (type === 'added') return 'bg-[color-mix(in_srgb,var(--color-git-added)_14%,transparent)]'
+  if (type === 'removed') return 'bg-[color-mix(in_srgb,var(--color-git-removed)_14%,transparent)]'
   return ''
 }
 
@@ -335,13 +355,16 @@ function LineText({
   line,
   counterpart,
   wrapClass,
-  highlight
+  highlight,
+  axis = line.type === 'removed' ? 'old' : 'new'
 }: {
   line: DiffLine
   counterpart: DiffLine | null
   wrapClass: string
   highlight: boolean
+  axis?: 'old' | 'new'
 }): React.JSX.Element {
+  const tokens = useContext(DiffSyntaxContext).get(line)?.[axis]
   const span =
     highlight && counterpart && (line.type === 'added' || line.type === 'removed')
       ? changedWordSpan(
@@ -350,19 +373,40 @@ function LineText({
         )[line.type === 'removed' ? 'old' : 'new']
       : null
   if (!span || span.end <= span.start)
-    return <pre className={`m-0 ${wrapClass} text-code text-t9`}>{line.text}</pre>
+    return <pre className={`m-0 ${wrapClass} text-code text-ink`}>{syntaxText(line, tokens)}</pre>
   return (
-    <pre className={`m-0 ${wrapClass} text-code text-t9`}>
-      {line.text.slice(0, span.start)}
+    <pre className={`m-0 ${wrapClass} text-code text-ink`}>
+      {syntaxText(line, tokens, 0, span.start)}
       <mark
         data-diff-word-change
-        className="rounded-[2px] bg-[color-mix(in_srgb,var(--color-accent)_22%,transparent)] text-t9"
+        className={`rounded-[2px] text-ink ${line.type === 'removed' ? 'bg-[color-mix(in_srgb,var(--color-git-removed)_22%,transparent)]' : 'bg-[color-mix(in_srgb,var(--color-git-added)_22%,transparent)]'}`}
       >
-        {line.text.slice(span.start, span.end)}
+        {syntaxText(line, tokens, span.start, span.end)}
       </mark>
-      {line.text.slice(span.end)}
+      {syntaxText(line, tokens, span.end)}
     </pre>
   )
+}
+
+/** 변경 강조가 문법 토큰 중간을 잘라도 원문과 각 토큰 색은 그대로 보존한다. */
+function syntaxText(
+  line: DiffLine,
+  tokens: readonly ThemedToken[] | undefined,
+  start = 0,
+  end = line.text.length
+): React.ReactNode {
+  if (!tokens) return line.text.slice(start, end)
+  let offset = 0
+  return tokens.map((token, index) => {
+    const tokenStart = offset
+    offset += token.content.length
+    const text = token.content.slice(Math.max(0, start - tokenStart), Math.max(0, end - tokenStart))
+    return text.length > 0 ? (
+      <span key={index} style={{ color: token.color }}>
+        {text}
+      </span>
+    ) : null
+  })
 }
 
 /** 연속된 removed/added 묶음에서 k 번째끼리 짝지어 단어 강조의 상대를 찾는다. */
@@ -419,11 +463,16 @@ function InlineBody({
   onRemoveRequirement?: (id: string) => void
 }): React.JSX.Element {
   return (
-    <table className="w-full border-collapse font-mono">
+    <table data-diff-inline className="w-full border-collapse font-mono text-code">
+      <colgroup>
+        <col className="w-[calc(4ch+16px)]" />
+        <col className="w-[12px]" />
+        <col />
+      </colgroup>
       <tbody>
         {rows.map((row) =>
           row.kind === 'gap' ? (
-            <GapRow key={row.id} row={row} colSpan={5} onExpand={onExpand} />
+            <GapRow key={row.id} row={row} colSpan={3} onExpand={onExpand} />
           ) : (
             <InlineLineRow
               key={row.id}
@@ -490,7 +539,7 @@ function InlineLineRow({
         // (`src/renderer/AGENTS.md §그룹 스코프 격리`). 이름을 붙여 이 줄로 가둔다.
         className={`group/diffline ${rowTint(row.line.type)}`}
       >
-        <td className="select-none px-2 text-right text-code text-t5">
+        <td className="relative select-none pl-[20px] pr-[4px] text-right align-top text-code text-ink2">
           <button
             type="button"
             data-diff-requirement-add={lineKey}
@@ -506,17 +555,20 @@ function InlineLineRow({
             aria-label={tr('chat.rightpanel.diffRequirementAddAria', {
               line: lineAxisLabel(row.line)
             })}
-            className="rounded-r4 px-1 text-accent opacity-0 outline-none transition-opacity hide-focus-ring ring-focus group-hover/diffline:opacity-100 focus-visible:opacity-100 motion-reduce:transition-none"
+            className="absolute left-[4px] top-[2px] flex size-[14px] items-center justify-center rounded-[3px] bg-fill-uncontained-hover text-ink opacity-0 outline-none transition-opacity hide-focus-ring ring-focus group-hover/diffline:opacity-100 focus-visible:opacity-100 motion-reduce:transition-none"
           >
             <Icon name="plus" size={11} />
           </button>
+          <span data-diff-line-number>
+            {row.line.type === 'removed' ? row.line.oldLine : row.line.newLine}
+          </span>
         </td>
-        <td className="select-none px-2 text-right text-code text-t5">{row.line.oldLine ?? ''}</td>
-        <td className="select-none px-2 text-right text-code text-t5">{row.line.newLine ?? ''}</td>
-        <td className="select-none px-1 text-center text-code text-t6">
+        <td
+          className={`select-none text-center align-top text-code ${row.line.type === 'added' ? 'text-git-added' : row.line.type === 'removed' ? 'text-git-removed' : 'text-ink3'}`}
+        >
           {row.line.type === 'added' ? '+' : row.line.type === 'removed' ? '-' : ' '}
         </td>
-        <td className="px-2">
+        <td className="px-[8px] align-top">
           <LineText
             line={row.line}
             counterpart={counterpartOf(lines, row.sourceIndex)}
@@ -527,7 +579,7 @@ function InlineLineRow({
       </tr>
       {lineDraft && (
         <DiffRequirementDraftRow
-          colSpan={5}
+          colSpan={3}
           draft={lineDraft}
           lines={lines}
           lineIndex={row.sourceIndex}
@@ -536,7 +588,7 @@ function InlineLineRow({
         />
       )}
       <DiffRequirementMarkerRow
-        colSpan={5}
+        colSpan={3}
         items={lineRequirements}
         onRemoveRequirement={onRemoveRequirement}
       />
@@ -584,7 +636,7 @@ function SideBySideBody({
                   key={`sbs:${chunkIndex}:${index}`}
                   data-diff-hunk-row-id={chunk.rows[index]?.id}
                 >
-                  <td className="w-[3em] select-none px-2 text-right text-code text-t5">
+                  <td className="w-[3em] select-none px-2 text-right align-top text-code text-ink2">
                     {pair.left?.oldLine ?? ''}
                   </td>
                   <td
@@ -593,13 +645,14 @@ function SideBySideBody({
                     {pair.left && (
                       <LineText
                         line={pair.left}
+                        axis="old"
                         counterpart={pair.right}
                         wrapClass={wrapClass}
                         highlight={view.highlightWords}
                       />
                     )}
                   </td>
-                  <td className="w-[3em] select-none px-2 text-right text-code text-t5">
+                  <td className="w-[3em] select-none px-2 text-right align-top text-code text-ink2">
                     {pair.right?.newLine ?? ''}
                   </td>
                   <td
@@ -608,6 +661,7 @@ function SideBySideBody({
                     {pair.right && (
                       <LineText
                         line={pair.right}
+                        axis="new"
                         counterpart={pair.left}
                         wrapClass={wrapClass}
                         highlight={view.highlightWords}
@@ -668,7 +722,7 @@ function DiffRequirementDraftRow({
               type="button"
               disabled={draft.body.trim() === ''}
               onClick={() => onAddRequirement?.({ lines, lineIndex, comment: draft.body })}
-              className="text-caption text-accent outline-none hide-focus-ring ring-focus disabled:text-t5"
+              className="text-caption text-accent outline-none hide-focus-ring ring-focus disabled:text-ink3"
             >
               {tr('chat.rightpanel.diffRequirementDraftSubmit')}
             </button>
@@ -710,7 +764,7 @@ function DiffRequirementMarkerRow({
                 aria-label={tr('chat.composer.diffRequirementRemoveAria', {
                   comment: item.anchor.comment
                 })}
-                className="shrink-0 rounded-r4 text-t5 outline-none transition-colors hide-focus-ring ring-focus hover:text-t7"
+                className="shrink-0 rounded-r4 text-ink3 outline-none transition-colors hide-focus-ring ring-focus hover:text-t7"
               >
                 <Icon name="x" size={11} />
               </button>

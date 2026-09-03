@@ -90,7 +90,7 @@ export function DiffReview({
   )
 
   return (
-    <div data-diff-review className="flex min-h-0 flex-1">
+    <div data-diff-review className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       {sidebarVisible && (
         <ChangedNavigationSidebar
           sections={sections}
@@ -100,7 +100,11 @@ export function DiffReview({
           onPickComparison={onPickComparison}
         />
       )}
-      <div ref={internalOwnerRef} data-diff-scroll-owner className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        ref={internalOwnerRef}
+        data-diff-scroll-owner
+        className="min-h-0 min-w-0 flex-1 overflow-y-auto"
+      >
         {!hasRequest ? (
           <p data-diff-not-synced className="px-p5 py-p4 text-body text-t6">
             {tr('chat.rightpanel.diffNotSynced')}
@@ -119,12 +123,8 @@ export function DiffReview({
           <p className="px-p5 py-p4 text-body text-t6">{tr('chat.rightpanel.diffEmpty')}</p>
         ) : (
           <>
-            {/* 기본이 접힘이라 왜 비어 보이는지를 먼저 말한다 (0211 ΔV5 D-105). */}
-            <p className="px-p5 py-p2 text-caption text-t5">
-              {tr('chat.rightpanel.diffCollapsedNotice')}
-            </p>
             {patch.contextLimited && (
-              <p className="px-p5 py-p2 text-caption text-t5">
+              <p className="px-p5 py-p2 text-caption text-ink3">
                 {tr('chat.rightpanel.diffContextLimited')}
               </p>
             )}
@@ -146,7 +146,7 @@ export function DiffReview({
               />
             ))}
             {patch.filesTruncated && (
-              <p className="px-p5 py-p3 text-caption text-t5">
+              <p className="px-p5 py-p3 text-caption text-ink3">
                 {tr('chat.rightpanel.diffSessionFilesTruncated')}
               </p>
             )}

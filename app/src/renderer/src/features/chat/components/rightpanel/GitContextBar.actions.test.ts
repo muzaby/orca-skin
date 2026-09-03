@@ -88,6 +88,7 @@ const patch: GitDiffPatch = {
 }
 
 let colWidth = PANEL_DEFAULT_WIDTH
+let sidebarVisible = false
 
 vi.mock('../../store/chatStore', () => ({
   chatActions: new Proxy(
@@ -101,7 +102,7 @@ vi.mock('../../store/chatStore', () => ({
         patch,
         comparison: ALL_CHANGES,
         expandedFiles: [],
-        sidebarVisible: false,
+        sidebarVisible,
         view: DEFAULT_DIFF_VIEW
       },
       cwd: '/repo',
@@ -123,10 +124,11 @@ const { GitContextBar } = await import('./GitContextBar')
 /** diff 타일이 세 번째 열에 있다 — 인덱스를 고정값으로 쓰면 열이 옮겨간 회귀가 보이지 않는다. */
 const DIFF_COL = 2
 
-function render(width = PANEL_DEFAULT_WIDTH): void {
+function render(width = PANEL_DEFAULT_WIDTH, visible = false): void {
   buttons.length = 0
   menuItems.length = 0
   colWidth = width
+  sidebarVisible = visible
   renderToStaticMarkup(createElement(GitContextBar))
 }
 
@@ -162,18 +164,14 @@ describe('`↗` 는 이 타일이 있는 열의 폭을 토글한다 (AT-52 · D-
 // 0211 ΔV6 D-117 · AT-75 — 진입점이 셋이다(세그먼트 둘 + `⋮ › 파일 목록 표시`). 셋 다 같은
 // 상태를 쓰되 세그먼트는 **값**을 싣는다: `toggle` 이면 이미 선택된 쪽을 눌렀을 때 반대로
 // 넘어가 세그먼트의 멱등이 깨진다.
-describe('사이드바 진입점 셋이 같은 상태를 쓴다 (§10 EP-36 ① · EP-51)', () => {
-  it('세그먼트 둘이 서로 반대 값을 싣고 메뉴는 현재 값을 뒤집는다', () => {
-    render()
-
-    click(byMarker(buttons, 'data-diff-sidebar-toggle'))
-    // 첫 세그먼트(`off`)는 언제나 false 다 — 이미 꺼져 있어도 켜지지 않는다(멱등).
-    expect(actions.setDiffSidebarVisible).toHaveBeenCalledWith(false)
-
+describe('사이드바 버튼과 메뉴가 같은 상태를 바꾼다 (ΔV7 EP-52)', () => {
+  it.each([false, true])('목록 표시 %s에서 두 진입점이 모두 반대 값을 설정한다', (visible) => {
+    render(PANEL_DEFAULT_WIDTH, visible)
+    const toggles = buttons.filter((props) => props['data-diff-sidebar-toggle'] !== undefined)
+    expect(toggles).toHaveLength(1)
+    click(toggles[0])
     click(menuItems.filter((props) => props['data-diff-view-item'] === 'files')[0])
-    // 메뉴는 켬/끔 체크 항목이라 현재 값을 뒤집는다 — 초기 상태가 숨김이므로 true 다.
-    expect(actions.setDiffSidebarVisible).toHaveBeenCalledWith(true)
-    expect(actions.setDiffSidebarVisible).toHaveBeenCalledTimes(2)
+    expect(actions.setDiffSidebarVisible.mock.calls).toEqual([[!visible], [!visible]])
   })
 
   it('사이드바를 켜는 자리 말고 다른 상태를 건드리지 않는다', () => {

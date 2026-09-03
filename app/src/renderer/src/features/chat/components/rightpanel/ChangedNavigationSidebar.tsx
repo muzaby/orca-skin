@@ -58,11 +58,11 @@ export function ChangedNavigationSidebar({
   return (
     <aside
       data-diff-sidebar
-      className="flex w-[25%] min-w-0 shrink-0 animate-depth-in flex-col border-r border-t5"
+      className="flex w-[240px] min-w-0 max-w-[50%] shrink-0 animate-depth-in flex-col border-r border-border font-sans text-body font-normal"
     >
-      <div data-diff-file-tree className="min-h-0 flex-1 overflow-y-auto px-p3 py-p3">
+      <div data-diff-file-tree className="min-h-0 flex-1 overflow-y-auto p-[8px]">
         {rows.length === 0 ? (
-          <p className="px-p2 text-caption text-t5">{tr('chat.rightpanel.diffEmpty')}</p>
+          <p className="px-[4px] text-footnote text-ink3">{tr('chat.rightpanel.diffEmpty')}</p>
         ) : (
           rows.map(({ node, depth }) => (
             <TreeRow
@@ -78,7 +78,7 @@ export function ChangedNavigationSidebar({
       </div>
       <div
         data-diff-commit-list
-        className="max-h-[45%] overflow-y-auto border-t border-t5 px-p3 py-p3"
+        className="flex max-h-[40%] shrink-0 flex-col gap-[2px] overflow-y-auto border-t border-border p-[8px]"
       >
         {/* 0211 ΔV5 D-107 — `미커밋 변경` 행은 참조 배치에 없어 사라졌고, ΔV6 D-111 이후
             미커밋 파일 자체가 어느 목록에도 오지 않는다. `모든 변경사항` = 커밋된 것 전부. */}
@@ -96,16 +96,23 @@ export function ChangedNavigationSidebar({
             aria-pressed={comparison.kind === 'commit' && comparison.sha === commit.sha}
             onClick={() => onPickComparison({ kind: 'commit', sha: commit.sha })}
             // 0211 ΔV6 D-119 — 선택은 **채움**이고 비선택은 테두리도 배경도 없다(실측 6·7행).
-            className={`group/commitcard mt-1 flex w-full flex-col gap-g1 rounded-r4 px-p3 py-p2 text-left outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover ${
+            className={`group/commitcard flex w-full shrink-0 flex-col items-start gap-[2px] rounded-[4px] px-[4px] py-[6px] text-left outline-none transition-colors hide-focus-ring ring-focus ${
               comparison.kind === 'commit' && comparison.sha === commit.sha
-                ? 'bg-fill-selected'
-                : ''
+                ? 'bg-fill-uncontained-active text-ink'
+                : 'text-ink2 hover:bg-fill-uncontained-hover'
             }`}
           >
-            <span className="truncate text-caption text-t9">{commit.subject}</span>
-            <span className="truncate text-caption text-t5">
-              {commit.sha.slice(0, 7)} · {commit.author} ·{' '}
-              {formatRelativeTime(commit.committedAt, locale)}
+            <span className="w-full truncate text-body" title={commit.subject}>
+              {commit.subject}
+            </span>
+            <span className="flex w-full items-center gap-[4px] overflow-hidden text-footnote text-ink3">
+              <span className="shrink-0 font-mono text-code">{commit.sha.slice(0, 7)}</span>
+              <span aria-hidden="true">·</span>
+              <span className="min-w-0 truncate">{commit.author}</span>
+              <span aria-hidden="true">·</span>
+              <span className="min-w-0 truncate">
+                {formatRelativeTime(commit.committedAt, locale)}
+              </span>
             </span>
           </button>
         ))}
@@ -133,8 +140,8 @@ function ScopeRow({
       onClick={onClick}
       // 0211 ΔV6 D-119 — 선택 표시는 채움이다. 체크 아이콘을 함께 두면 커밋 카드와 표시
       // 문법이 갈린다(카드에는 체크 자리가 없다).
-      className={`group/scope flex w-full items-center gap-g2 rounded-r4 px-p2 py-1 text-left text-caption text-t7 outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover ${
-        active ? 'bg-fill-selected' : ''
+      className={`group/scope flex w-full shrink-0 items-center rounded-[5px] px-[4px] py-[6px] text-left text-body outline-none transition-colors hide-focus-ring ring-focus ${
+        active ? 'bg-fill-uncontained-active text-ink' : 'text-ink2 hover:bg-fill-uncontained-hover'
       }`}
     >
       <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -155,7 +162,7 @@ function TreeRow({
   onToggleDir: (path: string) => void
   onPickFile: (path: string) => void
 }): React.JSX.Element {
-  const indent = { paddingLeft: `${depth * 10}px` }
+  const indent = { paddingLeft: `${8 + depth * 12}px` }
   if (node.kind === 'dir') {
     return (
       <button
@@ -164,14 +171,13 @@ function TreeRow({
         data-diff-tree-dir={node.path}
         aria-expanded={!collapsed}
         onClick={() => onToggleDir(node.path)}
-        className="group/treedir flex w-full items-center gap-g2 rounded-r4 px-p2 py-1 text-left text-caption text-t7 outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
+        className="group/treedir flex h-[24px] w-full items-center gap-[4px] rounded-[5px] pr-[8px] text-left text-body text-ink2 outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
       >
         <Icon
           name={collapsed ? 'chevR' : 'chevD'}
-          size={11}
-          className="shrink-0 text-t5 transition-colors group-hover/treedir:text-t7"
+          size={12}
+          className="shrink-0 text-ink3 transition-colors group-hover/treedir:text-ink2"
         />
-        <Icon name="folder" size={11} className="shrink-0 text-t5" />
         <span className="min-w-0 flex-1 truncate">{node.label}</span>
       </button>
     )
@@ -182,15 +188,15 @@ function TreeRow({
       style={indent}
       data-diff-tree-file={node.path}
       onClick={() => onPickFile(node.path)}
-      className="group/treefile flex w-full items-center gap-g2 rounded-r4 px-p2 py-1 text-left text-caption text-t7 outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
+      className="group/treefile flex h-[24px] w-full items-center gap-[4px] rounded-[5px] pr-[8px] text-left text-body text-ink2 outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
     >
       <Icon
         name="doc"
-        size={11}
-        className="ml-[13px] shrink-0 text-t5 transition-colors group-hover/treefile:text-t7"
+        size={12}
+        className="shrink-0 text-ink3 transition-colors group-hover/treefile:text-ink2"
       />
       <span className="min-w-0 flex-1 truncate">{node.label}</span>
-      <span className="flex shrink-0 gap-g1 tabular-nums">
+      <span className="flex shrink-0 gap-[2px] text-footnote tabular-nums">
         <span className="text-git-added">+{node.added}</span>
         <span className="text-git-removed">−{node.removed}</span>
       </span>

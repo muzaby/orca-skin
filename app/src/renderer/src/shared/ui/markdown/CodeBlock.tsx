@@ -1,41 +1,9 @@
 import { useContext, useEffect, useState, useSyncExternalStore } from 'react'
-import { createHighlighter, type Highlighter } from 'shiki'
 import { CopyIconButton } from '../CopyIconButton'
 import { useI18n } from '../../i18n'
 import { MarkdownStreamingContext } from './streamingContext'
 import { getThemeSnapshot, subscribeTheme, type ShikiThemeId } from './themeStore'
-
-const LANGUAGES = [
-  'typescript',
-  'javascript',
-  'tsx',
-  'jsx',
-  'python',
-  'bash',
-  'json',
-  'yaml',
-  'html',
-  'css',
-  'markdown'
-] as const
-
-const THEMES = ['github-light', 'github-dark'] as const
-
-// 싱글톤 highlighter — 첫 코드 블록 마운트 시 로드, 이후 동기 호출.
-let highlighterPromise: Promise<Highlighter> | null = null
-function getHighlighter(): Promise<Highlighter> {
-  if (!highlighterPromise) {
-    highlighterPromise = createHighlighter({
-      themes: [...THEMES],
-      langs: [...LANGUAGES]
-    })
-  }
-  return highlighterPromise
-}
-
-function isLang(s: string): s is (typeof LANGUAGES)[number] {
-  return (LANGUAGES as readonly string[]).includes(s)
-}
+import { getHighlighter, isLang } from './syntax'
 
 interface CodeBlockProps {
   code: string
