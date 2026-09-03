@@ -497,16 +497,25 @@ describe('DbQueries — session baseline', () => {
     })
     insertSession(db, 'legacy-session')
 
+    // 0211 ΔV4 r3 — 출생 시각도 함께 나온다. `oid` 가 없는 세션의 기준선을 그 시각으로
+    // 되짚는 데 쓰므로, 빠지면 조회가 질의 시점 HEAD 로 접혀 기준선이 커밋을 따라 움직인다.
     expect(q.getSessionBaseline('baseline-session')).toEqual({
       oid: 'a'.repeat(40),
-      ref: 'main'
+      ref: 'main',
+      bornAt: 10
     })
-    expect(q.getSessionBaseline('legacy-session')).toEqual({ oid: null, ref: null })
+    // 레거시 행은 기준 커밋이 없지만 **출생 시각은 있다** — 그것이 기준선을 되짚는 유일한 단서다.
+    expect(q.getSessionBaseline('legacy-session')).toEqual({
+      oid: null,
+      ref: null,
+      bornAt: 1
+    })
 
     q.updateSessionCwd('baseline-session', '/another-cwd', 20)
     expect(q.getSessionBaseline('baseline-session')).toEqual({
       oid: 'a'.repeat(40),
-      ref: 'main'
+      ref: 'main',
+      bornAt: 10
     })
   })
 
@@ -523,7 +532,11 @@ describe('DbQueries — session baseline', () => {
       baselineOid: 'b'.repeat(40)
     })
 
-    expect(q.getSessionBaseline('detached')).toEqual({ oid: 'b'.repeat(40), ref: null })
+    expect(q.getSessionBaseline('detached')).toEqual({
+      oid: 'b'.repeat(40),
+      ref: null,
+      bornAt: 10
+    })
   })
 })
 

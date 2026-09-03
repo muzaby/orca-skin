@@ -6,6 +6,7 @@
 // 경로는 **값으로 비교하지 않는다** — Windows 의 `\` 와 POSIX 의 `/` 가 갈린다(0208 AT-29).
 // git 이 주는 diff 경로는 항상 `/` 이므로 그것만 단언한다.
 
+import { execFile } from 'node:child_process'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -44,6 +45,20 @@ async function makeRepo(): Promise<string> {
   await git(dir, ['config', 'user.email', 'test@orca.local'])
   await git(dir, ['config', 'user.name', 'orca test'])
   return dir
+}
+
+// 커밋 시각을 못 박는 커밋. `runGit` 은 env 를 받지 않고 `--date` 는 author 만 바꾸는데,
+// `rev-list --before` 가 보는 것은 **committer** 시각이다. 벽시계에 기대면 두 커밋이 같은
+// 초에 걸려 경계가 흔들린다 — 실제로 그렇게 만든 첫 판이 한 번은 통과하고 한 번은 깨졌다.
+function commitAt(cwd: string, message: string, iso: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      'git',
+      ['commit', '-m', message],
+      { cwd, env: { ...process.env, GIT_COMMITTER_DATE: iso, GIT_AUTHOR_DATE: iso } },
+      (error) => (error ? reject(error) : resolve())
+    )
+  })
 }
 
 async function head(cwd: string): Promise<string> {
@@ -573,5 +588,69 @@ describe('읽기 조회의 호출 형태 — 프로세스 수와 버퍼 (VP-48 �
     expect(patchCall?.maxBuffer).toBe(16 * 1024 * 1024)
     // 기본 조회는 기본 버퍼다 — 셋이 같은 값이면 "전용" 이 아무 뜻도 없다.
     expect(plainCall?.maxBuffer).toBe(4 * 1024 * 1024)
+  })
+})
+
+// 0211 ΔV4 r3 — **기준선은 고정점이다.** `baseline_oid` 가 없는 세션에서 질의 시점 HEAD 를
+// 읽으면 기준이 커밋을 따라 움직여, 사용자가 커밋할수록 diff 가 비어 간다.
+//
+// 실사용에서 관측된 그대로를 재현한다: 세션이 서고 → 터미널에서 수동 커밋 → 양쪽 다 빈 화면.
+describe('기록된 기준선이 없는 세션 (D-098)', () => {
+  it('빈 저장소에서 시작했으면 이후 커밋이 전부 범위 안이다', async () => {
+    const repo = await makeRepo()
+    // 세션이 선 시점 — 커밋 0개(`git init` 직후). `resolveHead` 가 null 을 내던 그 상태다.
+    const bornAt = Date.parse('2020-06-01T00:00:00Z')
+    await writeFile(join(repo, 'a.ts'), 'one\ntwo\n')
+    await git(repo, ['add', '.'])
+    await commitAt(repo, '세션 시작 뒤 터미널에서 넣은 커밋', '2021-01-01T00:00:00Z')
+
+    const summary = await gitDiffSummary({ cwd: repo, bornAt })
+
+    // 커밋이 보인다 — 예전에는 `commits` 가 항상 빈 배열이었다.
+    expect(summary.commits.map((c) => c.subject)).toEqual(['세션 시작 뒤 터미널에서 넣은 커밋'])
+    // 그 커밋의 내용도 범위 안에 남는다 — 커밋했다고 변경이 사라지지 않는다.
+    expect(summary.files.map((f) => f.path)).toContain('a.ts')
+    expect(summary.totals.added).toBe(2)
+  })
+
+  it('커밋이 있던 저장소는 출생 시각의 커밋을 기준으로 잡는다 — 그 이전 이력은 범위 밖이다', async () => {
+    const repo = await makeRepo()
+    await writeFile(join(repo, 'before.ts'), 'old\n')
+    await git(repo, ['add', '.'])
+    await commitAt(repo, '세션 이전 커밋', '2020-01-01T00:00:00Z')
+    const beforeOid = await head(repo)
+    const bornAt = Date.parse('2020-06-01T00:00:00Z')
+    await writeFile(join(repo, 'after.ts'), 'new\n')
+    await git(repo, ['add', '.'])
+    await commitAt(repo, '세션 이후 커밋', '2021-01-01T00:00:00Z')
+
+    const summary = await gitDiffSummary({ cwd: repo, bornAt })
+
+    expect(summary.base).toMatchObject({ kind: 'worktree-base', oid: beforeOid })
+    expect(summary.commits.map((c) => c.subject)).toEqual(['세션 이후 커밋'])
+    expect(summary.files.map((f) => f.path)).toEqual(['after.ts'])
+  })
+
+  it('기록된 기준선이 있으면 출생 시각을 보지 않는다 — 고정점이 우선이다', async () => {
+    const repo = await makeRepo()
+    await writeFile(join(repo, 'a.ts'), 'one\n')
+    await git(repo, ['add', '.'])
+    await git(repo, ['commit', '-m', 'base'])
+    const baseOid = await head(repo)
+
+    const range = await resolveDiffRange({ cwd: repo, baseOid, baseRef: 'main', bornAt: 0 })
+
+    expect(range.base).toEqual({ kind: 'worktree-base', oid: baseOid, ref: 'main' })
+  })
+
+  it('출생 시각이 없으면 예전 동작 그대로다 — 회귀 짝', async () => {
+    const repo = await makeRepo()
+    await writeFile(join(repo, 'a.ts'), 'one\n')
+    await git(repo, ['add', '.'])
+    await git(repo, ['commit', '-m', 'base'])
+
+    const range = await resolveDiffRange({ cwd: repo })
+
+    expect(range.base.kind).toBe('head')
   })
 })
