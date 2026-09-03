@@ -36,7 +36,7 @@
 |---|---|
 | R-73 / AT-80 | 양 상태 아이콘이 같은 대각 축이며 목록 활성은 기존 파란 토큰이다. 본문 글자 크기는 좌측 nav의 text-footnote와 같다. 실제 버튼·본문 렌더와 SVG 경로·계산된 색/글자 크기를 확인한다. |
 | R-74 / AT-81 | 100줄/20줄의 실제 두 커밋을 만들고 각각 100/20줄, 전체 120줄을 표시한다. 그 뒤 추가 커밋·미커밋 편집이 과거 커밋 본문에 섞이지 않는다. root·merge 첫 부모·잘못된 SHA도 main 테스트로 확인한다. |
-| R-75 / AT-82 | A→B 빠른 전환의 늦은 A 응답과 이전 세대/세션 응답을 폐기한다. 범위 변경 직후 낡은 본문 0개, 같은 범위 재개방은 캐시 재사용이다. 실제 request builder·hook 배선·reducer를 관측한다. |
+| R-75 / AT-82 | A→B 빠른 전환의 늦은 A 응답과 이전 세대/세션 응답을 폐기한다. 범위 변경 직후 낡은 본문 0개, 같은 범위 재개방은 캐시 재사용이다. 실제 request builder·hook 배선·reducer를 관측한다. 화면 이탈 후 재마운트한 조회 소유자도 이전 세대 번호를 재사용하지 않는다. |
 | R-76 / AT-83 | 선택 줄 번호·단일 파란 경계·무테 textarea·댓글 추가 아이콘을 표시한다. 입력/제출/빈 값 비활성/Escape 동작을 실제 컴포넌트에서 확인한다. |
 | R-77 / AT-84 | 커밋 댓글은 실제 부모 baseline을 보존하며 범위 이동 후 다른 패치로 재anchor되지 않는다. 해당 범위에서만 표시하고 대기열 항목은 유지한다. |
 
@@ -55,17 +55,17 @@
 |---|---|---|
 | EP-55 | 목록 토글 채움·확대/복귀 아이콘·본문 글자 크기 / 3 | 텍스트색만 바꾸거나 한 상태만 돌리거나 자식 text-code가 크기를 덮으면 요청 불충족 |
 | EP-56 | SHA 스키마·handler 운반·부모 해석·patch 실행 / 4 | 어느 지점에서든 선택 커밋이 사라지면 누적 본문 복귀 |
-| EP-57 | request builder·query key·hook 전달/cleanup·RECEIVE_GIT_PATCH·SET_DIFF_COMPARISON·BEGIN_GIT_SNAPSHOT_QUERY·RECEIVE_GIT_SNAPSHOT_SUMMARY / 7 | 범위·세션·세대 중 하나를 잃으면 낡은 응답을 표시하거나 요청을 차단 |
+| EP-57 | request builder·query key·hook 전달/cleanup·RECEIVE_GIT_PATCH·SET_DIFF_COMPARISON·BEGIN_GIT_SNAPSHOT_QUERY·RECEIVE_GIT_SNAPSHOT_SUMMARY·요약 세대 발급 / 8 | 범위·세션·세대 중 하나를 잃으면 낡은 응답을 표시하거나 요청을 차단 |
 | EP-58 | 줄 라벨/입력 배치·빈 값 비활성·제출·Escape / 4 | 외형만 바꾸면서 입력 동작 또는 접근성 이름 손실 |
 | EP-59 | patch baseline 사용·범위 태그 생성·마커 필터·같은 범위 재anchor / 4 | 커밋 선택만으로 대기 중인 요구사항 내용이 다른 줄로 변형 |
 
 `GitDiffPatchRequest`에 선택 `commitSha`(40자리 hex)를 추가하고 main은 `cat-file commit` 헤더의 첫 부모를 사용한다. root는 기존 empty-tree OID, 객체/부모가 없으면 unavailable이며 누적 범위로 폴백하지 않는다. 전문맥/축소 폴백·파일 상한·읽기 전용 Git 관문은 그대로 사용한다. `GitDiffBase`에 `commit-parent`(oid, commitOid)를 추가해 실제 비교 좌표를 반환한다.
 
-renderer는 선택 범위를 query key와 수신 action에 운반한다. 범위 변경은 patch/draft를 지우고 범위별 무한 캐시 대신 현재 패치 하나만 유지한다. `DiffRequirementItem`의 선택 commitSha는 renderer 보관 정보이며 전송 anchor 형식은 유지한다. 새 IPC 채널·의존성·DB migration은 없다. 요약의 Stop hook 계기는 그대로이며, 사용자가 다른 커밋을 고르는 명시적 탐색만 패치 조회 계기로 추가된다.
+renderer는 선택 범위를 query key와 수신 action에 운반한다. 요약 세대는 renderer 모듈 수명의 단조 증가 번호로 발급하며, 각 query owner는 자기 최신 번호로 응답을 거른다. 화면 재마운트 후 저장된 패치와 새 요청의 번호가 충돌하는 경로를 owner+reducer 행동 테스트로 확인한다. 범위 변경은 patch/draft를 지우고 범위별 무한 캐시 대신 현재 패치 하나만 유지한다. `DiffRequirementItem`의 선택 commitSha는 renderer 보관 정보이며 전송 anchor 형식은 유지한다. 새 IPC 채널·의존성·DB migration은 없다. 요약의 Stop hook 계기는 그대로이며, 사용자가 다른 커밋을 고르는 명시적 탐색만 패치 조회 계기로 추가된다.
 
 최대 비용은 타일의 새 범위당 부모 헤더 1회+패치 1회(상한 초과 시 축소 1회)와 기존 저장소 좌표 조회다. 운영 gate는 관련 Git/IPC/renderer 테스트, 전체 lint, typecheck 3구성, 문서 gate다. UI 실기는 원본 미제공 자산에 대한 Orca fallback을 유지한다.
 
-READY 자기검토: D-127~132↔AT-80~84가 대응하고 충돌하는 기존 계약의 대체를 위에 명시했다. IPC→main→renderer와 댓글 저장/표시의 소비 경로를 확인했다. 기존 ΔV6 D25~D27 등 미해결 이슈는 소급 종료하지 않으며 라운드 3을 유지한다.
+READY 자기검토: D-127~133↔AT-80~84가 대응하고 충돌하는 기존 계약의 대체를 위에 명시했다. IPC→main→renderer와 댓글 저장/표시의 소비 경로를 확인했다. 기존 ΔV6 D25~D27 등 미해결 이슈는 소급 종료하지 않으며 라운드 3을 유지한다.
 
 ## ΔV7 — 실제 DOM 기준 우측 패널 (2026-09-03, 라운드 3 유지)
 
