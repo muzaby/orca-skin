@@ -370,8 +370,8 @@ EP-06 production import 스윕은 위 §10 명령으로 실행하고 선택한 �
 
 ## [구현자 기입] 설계 리뷰
 
-r1: READY의 D-001~D-007·AC1~7·V1을 유지했다. SDK 설치와 test-only 계약 검증·문서화만 수행했으며 production adapter/DB/IPC/UI 변경은 없다.
-작성 문서 승인 후 실행했고, 구현 중 규범 행 정정이나 PLAN_GAP은 발견하지 않았다.
+r1 + ΔV1 공유 재개: D-001~D-005·D-007을 유지하고, 승인된 D-008로 원격 이름 변경과 PR 생성을 수행했다.
+SDK 설치·test-only 계약 검증·연구 구현은 그대로다. ΔV1의 규범 정정은 별도 designed 커밋이며 production adapter/DB/IPC/UI 변경은 없다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
@@ -383,9 +383,10 @@ r1: READY의 D-001~D-007·AC1~7·V1을 유지했다. SDK 설치와 test-only 계
 | EP-04 (2) | migration guide의 레이어·mapping·rollout/rollback·미결정 및 00-index 링크 확인. 실제 runtime/coordinator/IPC 코드와 리뷰 대조 | 2/2 |
 | EP-05 (7) | TRD·overview·provider-runtime·standardization·adapters·security·docs INDEX에 설치≠활성/API 사실 정정 확인. docs inventory/prose/상대 링크 모두 통과 | 7/7 |
 | EP-06 (3) | app/src/app scripts 기존 tracked diff 없음; production SDK 검색 무일치; shared Backend='claude'와 registry Claude 생성 유지; registry 2 case 통과 | 3/3 |
-| EP-07 (3 묶음) | 이 구현 보고와 INDEX impl/IN_PROGRESS 기록. 구현 commit trailer 6개 키 파싱 성공; push는 directory file conflict로 거절됨 | 2/3, 원격 이름 결정 필요 |
+| EP-07-v2 (4 묶음) | 이 보고·INDEX를 impl/IMPL_DONE으로 갱신. trailer 파싱·codex-opencode 원격 SHA=당시 HEAD 확인; PR #423 OPEN, head codex-opencode/base main 확인 | 4/4 |
 
-지점 합계: 23/24 확인, EP-07의 commit/remote 묶음은 push 거절로 닫지 않았다.
+유효 지점 합계: 25/25. 기존 EP-01~06의 21지점은 유지, ΔV1은 EP-07의 3지점을 EP-07-v2의 4지점으로 대체했다.
+공유 직후 remote와 PR head는 당시 HEAD와 일치했다. 이 보고 커밋도 push 후 같은 방식으로 재확인한다.
 미러 해시는 spec/opencode/INDEX.md의 각 파일 행과 Get-FileHash 출력으로 대조했다.
 설치본 상세 심볼·경로는 SDK 해설 §2와 각 계약 절에 보존했으며 후속 server 실기와 혼동하지 않는다.
 
@@ -397,10 +398,10 @@ r1: READY의 D-001~D-007·AC1~7·V1을 유지했다. SDK 설치와 test-only 계
 | VP-04 | SELF_PASS | guide의 layer 표·mapping 표·단계별 gate/rollback·OQ7/OQ10/server 미결정 확인; 리뷰 지적을 코드 근거로 정정 |
 | VP-05 | SELF_PASS | 대상 문서의 사실 정정 및 링크·inventory 검사 산출 확인 |
 | VP-06 | SELF_PASS | 임시 production import 검출→제거 뒤 무일치, 기존 production diff 없음, Claude descriptor 기대값 통과 |
-| VP-07 | SELF_BLOCKED | 로컬 구현 commit·trailer 파싱 완료. origin의 refs/heads/codex 때문에 codex/opencode push가 directory file conflict로 거절됨 |
+| VP-09 | SELF_PASS | git push로 codex-opencode 생성; remote SHA=당시 HEAD. PR #423 OPEN, main ← codex-opencode 및 head SHA 일치 |
 | VP-08 | SELF_PASS | 실제 공개 import의 HTTP/SSE fixture 11 case, typecheck 3구성 통과 |
 
-독립 verify 결과가 아니다. VP-07은 원격 브랜치 경로 충돌로 막혔으며, D-006과 다른 push 이름은 사용자 결정이 필요하다.
+독립 verify 결과가 아니다. V1의 VP-07은 승인된 ΔV1 VP-09로 대체했다. 나머지 V1 결과는 구현 변경 없이 유지하고 SDK/registry·typecheck/lint·docs 게이트를 재실행했다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
@@ -413,6 +414,9 @@ r1: READY의 D-001~D-007·AC1~7·V1을 유지했다. SDK 설치와 test-only 계
 production 음성 스윕은 계획의 선택 증거로 위 행에서 검증했고, 기존 docs 검사기는 자체 23개 테스트를 실행했다.
 그 외 pair는 해당 없음 — 직접 oracle. 이 변이 하나만으로 앱 전체 네트워크 안전성을 주장하지 않는다.
 
+위 변이는 V1 구현 때의 관측을 보존한다. 이번 ΔV1은 VP-09의 실제 Git/PR 응답을 직접 확인하며 적대 증거를 선택하지 않았다.
+ΔV1 분모: 선택 0 · 인용 변이 0 · 새 구조적 oracle 0 = 새 잠금 행 0. 기존 장치 교체·삭제 없음.
+
 ## [구현자 기입] Product/UX 파생 검토
 
 | 축 | 판정·근거 |
@@ -421,6 +425,7 @@ production 음성 스윕은 계획의 선택 증거로 위 행에서 검증했�
 | production 재배치 | 없음. SDK import는 새 test 파일 안에만 존재 |
 | 실패 경로 | root SSE fetch 우회·HTTP default error fields·SSE retry 한도 종료를 해설/fixture로 고정; 실제 adapter는 미구현 |
 | 무응답·늦은 응답 | guide에 response-start와 steer 소비 구분, batch 종료·retry 비terminal·late event/resync gate를 명시. 이번 앱 동작에는 새 상태 없음 |
+| 공유 결과 | PR #423 URL과 main/codex-opencode를 직접 확인. 중복 PR 조회 후 생성했고 merge/force push 안 함 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
@@ -433,19 +438,21 @@ production 음성 스윕은 계획의 선택 증거로 위 행에서 검증했�
 | npm 설치 경고 | 기존 undici@8.9.0의 Node>=22.19.0 요구 대비 host Node22.15.1 EBADENGINE 관측. 설치 exit 0·타입/대상 테스트 통과와 구별 |
 | npm audit 요약 | 설치 로그에 12 vulnerabilities(3 moderate, 9 high). 별도 audit fix/무관한 dependency update는 실행하지 않음; 신규 SDK 기인이라고 단정하지 않음 |
 | lint 경고 | useTranscriptVirtualizer.ts의 react-hooks/incompatible-library 1건, 오류 0. 파일 변경 없음 |
-| 원격 브랜치 경로 충돌 | git push -u origin codex/opencode가 directory file conflict로 거절. ls-remote에서 refs/heads/codex 존재·codex/opencode 부재 확인. 기존 원격 branch 삭제/force push 안 함 |
+| 원격 브랜치 경로 충돌 | 이전 push는 거절됐으나 사용자 승인 D-008의 codex-opencode 생성으로 해결. 기존 codex 삭제/force push 안 함 |
+| GitHub CLI 별도 로그인 없음 | 기존 Git Credential Manager 인증을 호출 중에만 GH_TOKEN으로 전달. 인증값을 출력/파일 저장하지 않고 finally에서 환경 복구. 저장소 조회·PR 생성 성공 |
 
 ### 설계 대비 명시적 차이
 
 메커니즘 대체 없음. 계획대로 SDK exact 설치·실제 SDK fixture·분리된 원문/해설/전략 자료를 만들었다.
 npx vitest 대신 설치된 node_modules/.bin/vitest.cmd를 직접 호출해 동일한 로컬 runner를 사용했다.
+ΔV1은 승인된 원격 branch 변경과 PR 확장이며 앱 구현 대체는 없다. 서로 다른 로컬/원격 이름은 explicit refspec으로 push했다.
 
 | 무효화 축 | 대조 |
 | --- | --- |
 | 만료 | latest는 설치 직전 조회 기준으로 고정; 작업 중 최신 추적 업그레이드하지 않음 (AC1/EP-01) |
 | 공유 | manifest/lock/설치본 및 docs 사본 대조. registry/DB/IPC 공유 상태를 바꾸지 않음 (AC5·6/EP-05·06) |
 | 재진입 | server를 생성하지 않아 신규 process/session 수명 없음. test global fetch는 afterEach에서 복구 (AC2·6/EP-02·06) |
-| 기타 | npx의 외부 fetch 가능성을 피하고 로컬 설치 runner 사용; oracle·테스트 선택은 동일. 실제 Electron/CLI 실기는 비범위 |
+| 기타 | 로컬 runner의 oracle·테스트 선택은 동일. PR 기존 조회로 중복 생성 방지, main/codex-opencode/SHA 직접 대조. Electron/CLI 실기는 비범위 |
 
 ## [구현자 기입] 구현 보고
 
@@ -467,8 +474,9 @@ npx vitest 대신 설치된 node_modules/.bin/vitest.cmd를 직접 호출해 동
 | Get-FileHash 미러 3파일 | INDEX의 SHA256과 일치 |
 | git diff --check | 오류 없음 |
 | git log -1 --format='%(trailers:only=true)' | 구현 commit의 Agent/Handoff/Status/Criteria-Met/Criteria-Pending/Verified-By 파싱 성공 |
-| git push -u origin codex/opencode | remote rejected: directory file conflict; 게시되지 않음 |
-| git ls-remote --heads origin codex 'codex/*' | refs/heads/codex 존재, codex/opencode는 없음. 새 원격 이름 승인 필요 |
+| git push -u origin HEAD:refs/heads/codex-opencode | 새 원격 branch 생성 성공, 로컬 upstream 설정 |
+| git ls-remote --heads origin codex-opencode + git rev-parse HEAD | 공유 직후 두 SHA 일치 |
+| gh pr view 423 --json url,state,baseRefName,headRefName,headRefOid | PR #423 OPEN, main ← codex-opencode, 당시 HEAD 일치 |
 | 읽기 전용 독립 리뷰 | 사실 오류·표면 차이·Orca 매핑 수정 후 미해결 지적 없음; 별도 verify/PASS가 아님 |
 
 | AC | 자기 결과 | 관측 |
@@ -479,19 +487,21 @@ npx vitest 대신 설치된 node_modules/.bin/vitest.cmd를 직접 호출해 동
 | AC4 | ✅ | layer/mapping/rollout/rollback/OQ 정책 표 확인, 실제 코드 대조 리뷰 반영 |
 | AC5 | ✅ | 관련 current docs 정정·라우팅과 docs 게이트 통과 |
 | AC6 | ✅ | production import 무일치/기존 source diff 없음/Claude registry 2 case |
-| AC7 | ⚠️ | gate·구현 commit/trailer 완료. push가 원격 codex 브랜치와 경로 충돌해 게시 실패 |
+| AC7 | ✅ | ΔV1의 codex-opencode 게시·remote SHA 대조 및 main 대상 PR #423 OPEN 확인 |
 
-검산: ✅ 6 · ⚠️ 1 · ❌ 0 = 총 7. VP SELF_PASS 7 · SELF_BLOCKED 1 = 8.
-EP 확인 23 · 공유 차단 1 = 24. 다음 단계는 사용자의 push 대상 결정 후 D-006 정정·일반 push와 AC7/EP-07/VP-07 갱신이다.
+검산: ✅ 7 · ⚠️ 0 · ❌ 0 = 총 7. 유효 VP SELF_PASS 8 · SELF_BLOCKED 0 = 8 (VP-07 제외, VP-09 포함).
+유효 EP 25/25 = 기존 21 + ΔV1 공유 4. 이번 ΔV1의 별도 재측정은 VP-09/EP-07-v2와 운영 gate다.
+재실행 결과: SDK/registry 2 files/13 tests, docs 검사기 23 tests, typecheck 3구성, lint 0 errors/기존 1 warning, docs inventory/prose/links 및 diff check 통과.
+PR: https://github.com/muzaby/orca-skin/pull/423. 다음은 독립 검증자이며 merge는 하지 않았다.
 실제 CLI/server/model, 권한 저장, durable replay, Electron proxy/TLS, Windows 패키징은 검증하지 않았다.
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 현재 r1. 규범 행/AC/V revision 변경 없음.
+- 현재 r1의 공유 재개 ΔV1. 사용자 요청으로 D-006→D-008, VP-07→VP-09를 별도 설계 커밋에서 정정했다.
 - 초기 guide의 소비·terminal 권고가 현재 코드와 달랐으며 독립 리뷰의 코드 대조로 수정됐다. 새로운 제품 정책을 채택한 것은 아니다.
 - root/v2/native 표면 차이는 공식 문서만으로 닫히지 않아 설치 JS·타입·직접 fixture로 구분했다.
 - registry 네트워크와 git index 쓰기는 권한 상승이 필요했다. ABI 전환 pretest를 피하고 비-DB target만 실행했다.
-- 실제 push 거절 때문에 AC7은 충족으로 세지 않았다. 원격 codex branch를 삭제하거나 다른 대상에 임의로 게시하지 않았다.
+- 이전 push 거절은 보존된 이력이다. 승인된 원격 codex-opencode와 PR #423의 실제 생성 결과로 AC7을 닫았고 독립 verify/PASS를 선점하지 않는다.
 
 ## [검증자 기입] 파생 이슈
 
