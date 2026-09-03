@@ -89,13 +89,8 @@ export interface GitDiffRange {
   base: GitDiffBase
 }
 
-// 빈 저장소의 기준점. `git diff <이 sha>` 는 추적 파일 전체를 추가로 내고
-// `git log <이 sha>..HEAD` 는 루트부터의 커밋을 전부 낸다(실측) — 세션이 커밋 0개인 저장소에서
-// 시작했다면 그 이후 **전부**가 이 세션의 작업이므로 그것이 맞는 기준이다.
-export const EMPTY_TREE_OID = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
-
 export async function resolveDiffRange(
-  input: { cwd: string; baseOid?: string | null; baseRef?: string | null; bornAt?: number | null },
+  input: { cwd: string; baseOid?: string | null; baseRef?: string | null },
   runner: GitDiffRunner = runGit
 ): Promise<GitDiffRange> {
   // `ref` 는 화면의 유일한 비교 기준 라벨이다(0211 ΔV4 D-069). 여기서 다시 조회하지 않고
@@ -105,35 +100,6 @@ export async function resolveDiffRange(
       kind: 'working',
       base: { kind: 'worktree-base', oid: input.baseOid, ref: input.baseRef ?? null }
     }
-
-  // 기록된 기준선이 없으면 **출생 시각으로 되짚는다**(0211 ΔV4 r3).
-  //
-  // 여기서 질의 시점 HEAD 를 읽으면 기준선이 고정점이 아니라 **움직이는 값**이 된다 — 사용자가
-  // 커밋할 때마다 기준이 그 커밋으로 따라 올라가 diff 가 비고, 커밋 목록도 `worktree-base` 가
-  // 아니라 영영 빈다. 세션 시작 이후의 커밋은 보여야 한다는 것이 이 패널의 요구다.
-  if (input.bornAt != null) {
-    const born = await run(runner, input.cwd, [
-      'rev-list',
-      '-1',
-      `--before=${new Date(input.bornAt).toISOString()}`,
-      'HEAD'
-    ])
-    const bornOid = born.stdout.trim()
-    if (born.ok && bornOid.length > 0)
-      return {
-        kind: 'working',
-        base: { kind: 'worktree-base', oid: bornOid, ref: input.baseRef ?? null }
-      }
-    // 그 시각 이전 커밋이 없다 = 세션이 **빈 저장소**에서 시작했다. 저장소의 시작이 기준이다.
-    const anyCommit = await run(runner, input.cwd, ['rev-parse', '--verify', '-q', 'HEAD'])
-    if (anyCommit.ok && anyCommit.stdout.trim().length > 0)
-      return {
-        kind: 'working',
-        base: { kind: 'worktree-base', oid: EMPTY_TREE_OID, ref: input.baseRef ?? null }
-      }
-    return { kind: 'working', base: { kind: 'none' } }
-  }
-
   const head = await run(runner, input.cwd, ['rev-parse', '--verify', '-q', 'HEAD'])
   const oid = head.stdout.trim()
   return {
@@ -257,7 +223,7 @@ async function readCommitHistory(
 }
 
 export async function gitDiffSummary(
-  input: { cwd: string; baseOid?: string | null; baseRef?: string | null; bornAt?: number | null },
+  input: { cwd: string; baseOid?: string | null; baseRef?: string | null },
   runner: GitDiffRunner = runGit
 ): Promise<GitDiffSummary> {
   if (!(await repoCoords(input.cwd, runner)).inside) return EMPTY_DIFF_SUMMARY
@@ -324,7 +290,7 @@ async function runPatch(
 }
 
 export async function gitDiffPatch(
-  input: { cwd: string; baseOid?: string | null; baseRef?: string | null; bornAt?: number | null },
+  input: { cwd: string; baseOid?: string | null; baseRef?: string | null },
   runner: GitDiffRunner = runGit
 ): Promise<GitDiffPatch> {
   if (!(await repoCoords(input.cwd, runner)).inside) return EMPTY_DIFF_PATCH

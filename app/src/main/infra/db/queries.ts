@@ -144,7 +144,7 @@ export class DbQueries {
       WHERE id = @id
     `)
     this.getSessionBaselineStmt = db.prepare(
-      'SELECT baseline_oid, baseline_ref, created_at FROM sessions WHERE id = @sessionId'
+      'SELECT baseline_oid, baseline_ref FROM sessions WHERE id = @sessionId'
     )
     this.loadPartsStmt = db.prepare(`
       SELECT
@@ -502,22 +502,10 @@ export class DbQueries {
 
   // 기준 커밋과 그때의 브랜치 이름을 **함께** 돌려준다(0211 ΔV4 D-070). 둘을 따로 조회하면
   // 두 시점의 값이 섞여 라벨이 다른 커밋의 브랜치를 말할 수 있다.
-  // 출생 시각을 함께 주는 이유: `baseline_oid` 가 없는 세션(이 기능 도입 이전 행 · 세션 시작
-  // 시점에 커밋이 하나도 없던 저장소)의 기준선을 **그 시각으로 되짚기** 위해서다. 그것이 없으면
-  // 조회 쪽이 질의 시점 HEAD 로 접고, 그러면 기준선이 커밋할 때마다 따라 올라가 세션이 자기
-  // 커밋을 영영 보지 못한다.
-  getSessionBaseline(sessionId: string): {
-    oid: string | null
-    ref: string | null
-    bornAt: number | null
-  } {
+  getSessionBaseline(sessionId: string): { oid: string | null; ref: string | null } {
     const row = this.getSessionBaselineStmt.get({ sessionId }) as
-      { baseline_oid: string | null; baseline_ref: string | null; created_at: number } | undefined
-    return {
-      oid: row?.baseline_oid ?? null,
-      ref: row?.baseline_ref ?? null,
-      bornAt: row?.created_at ?? null
-    }
+      { baseline_oid: string | null; baseline_ref: string | null } | undefined
+    return { oid: row?.baseline_oid ?? null, ref: row?.baseline_ref ?? null }
   }
 
   // 주어진 cwd 를 작업 디렉토리로 가진 세션이 존재하는지 — files:openPath 화이트리스트.
