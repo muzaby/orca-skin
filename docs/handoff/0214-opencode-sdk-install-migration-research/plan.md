@@ -358,9 +358,9 @@ r1: READY의 D-001~D-007·AC1~7·V1을 유지했다. SDK 설치와 test-only 계
 | EP-04 (2) | migration guide의 레이어·mapping·rollout/rollback·미결정 및 00-index 링크 확인. 실제 runtime/coordinator/IPC 코드와 리뷰 대조 | 2/2 |
 | EP-05 (7) | TRD·overview·provider-runtime·standardization·adapters·security·docs INDEX에 설치≠활성/API 사실 정정 확인. docs inventory/prose/상대 링크 모두 통과 | 7/7 |
 | EP-06 (3) | app/src/app scripts 기존 tracked diff 없음; production SDK 검색 무일치; shared Backend='claude'와 registry Claude 생성 유지; registry 2 case 통과 | 3/3 |
-| EP-07 (3 묶음) | 이 구현 보고와 INDEX impl/IN_PROGRESS 기록. 구현 commit trailer 및 원격 게시 관측은 다음 단계 | 2/3, 원격 공유 대기 |
+| EP-07 (3 묶음) | 이 구현 보고와 INDEX impl/IN_PROGRESS 기록. 구현 commit trailer 6개 키 파싱 성공; push는 directory file conflict로 거절됨 | 2/3, 원격 이름 결정 필요 |
 
-지점 합계: 23/24 확인, EP-07의 commit/remote 묶음은 아직 닫지 않았다.
+지점 합계: 23/24 확인, EP-07의 commit/remote 묶음은 push 거절로 닫지 않았다.
 미러 해시는 spec/opencode/INDEX.md의 각 파일 행과 Get-FileHash 출력으로 대조했다.
 설치본 상세 심볼·경로는 SDK 해설 §2와 각 계약 절에 보존했으며 후속 server 실기와 혼동하지 않는다.
 
@@ -372,10 +372,10 @@ r1: READY의 D-001~D-007·AC1~7·V1을 유지했다. SDK 설치와 test-only 계
 | VP-04 | SELF_PASS | guide의 layer 표·mapping 표·단계별 gate/rollback·OQ7/OQ10/server 미결정 확인; 리뷰 지적을 코드 근거로 정정 |
 | VP-05 | SELF_PASS | 대상 문서의 사실 정정 및 링크·inventory 검사 산출 확인 |
 | VP-06 | SELF_PASS | 임시 production import 검출→제거 뒤 무일치, 기존 production diff 없음, Claude descriptor 기대값 통과 |
-| VP-07 | SELF_BLOCKED | 공유 전 상태: 로컬 게이트만 완료, commit/push 관측 미완료 |
+| VP-07 | SELF_BLOCKED | 로컬 구현 commit·trailer 파싱 완료. origin의 refs/heads/codex 때문에 codex/opencode push가 directory file conflict로 거절됨 |
 | VP-08 | SELF_PASS | 실제 공개 import의 HTTP/SSE fixture 11 case, typecheck 3구성 통과 |
 
-독립 verify 결과가 아니다. VP-07은 외부 조율 블로커가 아니라 아직 실행하지 않은 공유 단계다.
+독립 verify 결과가 아니다. VP-07은 원격 브랜치 경로 충돌로 막혔으며, D-006과 다른 push 이름은 사용자 결정이 필요하다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
@@ -408,6 +408,7 @@ production 음성 스윕은 계획의 선택 증거로 위 행에서 검증했�
 | npm 설치 경고 | 기존 undici@8.9.0의 Node>=22.19.0 요구 대비 host Node22.15.1 EBADENGINE 관측. 설치 exit 0·타입/대상 테스트 통과와 구별 |
 | npm audit 요약 | 설치 로그에 12 vulnerabilities(3 moderate, 9 high). 별도 audit fix/무관한 dependency update는 실행하지 않음; 신규 SDK 기인이라고 단정하지 않음 |
 | lint 경고 | useTranscriptVirtualizer.ts의 react-hooks/incompatible-library 1건, 오류 0. 파일 변경 없음 |
+| 원격 브랜치 경로 충돌 | git push -u origin codex/opencode가 directory file conflict로 거절. ls-remote에서 refs/heads/codex 존재·codex/opencode 부재 확인. 기존 원격 branch 삭제/force push 안 함 |
 
 ### 설계 대비 명시적 차이
 
@@ -440,6 +441,9 @@ npx vitest 대신 설치된 node_modules/.bin/vitest.cmd를 직접 호출해 동
 | node scripts/check-doc-inventory.mjs --check | generated/prose/상대 링크 검사 모두 성공 |
 | Get-FileHash 미러 3파일 | INDEX의 SHA256과 일치 |
 | git diff --check | 오류 없음 |
+| git log -1 --format='%(trailers:only=true)' | 구현 commit의 Agent/Handoff/Status/Criteria-Met/Criteria-Pending/Verified-By 파싱 성공 |
+| git push -u origin codex/opencode | remote rejected: directory file conflict; 게시되지 않음 |
+| git ls-remote --heads origin codex 'codex/*' | refs/heads/codex 존재, codex/opencode는 없음. 새 원격 이름 승인 필요 |
 | 읽기 전용 독립 리뷰 | 사실 오류·표면 차이·Orca 매핑 수정 후 미해결 지적 없음; 별도 verify/PASS가 아님 |
 
 | AC | 자기 결과 | 관측 |
@@ -450,10 +454,10 @@ npx vitest 대신 설치된 node_modules/.bin/vitest.cmd를 직접 호출해 동
 | AC4 | ✅ | layer/mapping/rollout/rollback/OQ 정책 표 확인, 실제 코드 대조 리뷰 반영 |
 | AC5 | ✅ | 관련 current docs 정정·라우팅과 docs 게이트 통과 |
 | AC6 | ✅ | production import 무일치/기존 source diff 없음/Claude registry 2 case |
-| AC7 | ⚠️ | gate 보고 완료; 구현 commit/push 및 원격 SHA 대조 예정 |
+| AC7 | ⚠️ | gate·구현 commit/trailer 완료. push가 원격 codex 브랜치와 경로 충돌해 게시 실패 |
 
 검산: ✅ 6 · ⚠️ 1 · ❌ 0 = 총 7. VP SELF_PASS 7 · SELF_BLOCKED 1 = 8.
-EP 확인 23 · 공유 대기 1 = 24. 다음 단계는 일반 commit/push 후 AC7/EP-07/VP-07 갱신이다.
+EP 확인 23 · 공유 차단 1 = 24. 다음 단계는 사용자의 push 대상 결정 후 D-006 정정·일반 push와 AC7/EP-07/VP-07 갱신이다.
 실제 CLI/server/model, 권한 저장, durable replay, Electron proxy/TLS, Windows 패키징은 검증하지 않았다.
 
 ## [구현자 기입] Review Signals — 사실만
@@ -462,7 +466,7 @@ EP 확인 23 · 공유 대기 1 = 24. 다음 단계는 일반 commit/push 후 AC
 - 초기 guide의 소비·terminal 권고가 현재 코드와 달랐으며 독립 리뷰의 코드 대조로 수정됐다. 새로운 제품 정책을 채택한 것은 아니다.
 - root/v2/native 표면 차이는 공식 문서만으로 닫히지 않아 설치 JS·타입·직접 fixture로 구분했다.
 - registry 네트워크와 git index 쓰기는 권한 상승이 필요했다. ABI 전환 pretest를 피하고 비-DB target만 실행했다.
-- 공유 전이라 AC7은 아직 충족으로 세지 않았다. 완료 보고가 원격 게시를 앞서지 않게 분리한다.
+- 실제 push 거절 때문에 AC7은 충족으로 세지 않았다. 원격 codex branch를 삭제하거나 다른 대상에 임의로 게시하지 않았다.
 
 ## [검증자 기입] 파생 이슈
 
