@@ -345,3 +345,47 @@ describe('HarnessSettingsService', () => {
     expect(svc.list('claude').map((e) => e.modelProviderId)).toEqual(['anthropic', 'bedrock'])
   })
 })
+
+// 0215 VP-09 (R-03 ↔ AT-09 · §10 EP-08) — 선택 식별자가 SDK 모델 문자열까지 그대로 간다.
+describe('modelNameForFamily — [1m] 변형 선택 (AT-09)', () => {
+  const both = [
+    {
+      alias: 'sonnet',
+      model: 'claude-sonnet-4-6',
+      isCustom: false,
+      oneMillionContext: false,
+      isDefault: true
+    },
+    {
+      alias: 'sonnet',
+      model: 'claude-sonnet-4-6',
+      isCustom: false,
+      oneMillionContext: true,
+      isDefault: false
+    }
+  ]
+
+  it('식별자로 두 변형을 구분해 해석한다', () => {
+    expect(modelNameForFamily(both, 'claude-sonnet-4-6')).toBe('claude-sonnet-4-6')
+    expect(modelNameForFamily(both, 'claude-sonnet-4-6[1m]')).toBe('claude-sonnet-4-6[1m]')
+  })
+
+  it('형제 슬롯을 맞바꾸면 결과도 바뀐다 — 존재만 보는 단언이 아니다', () => {
+    const swapped = [
+      { ...both[0], oneMillionContext: true },
+      { ...both[1], oneMillionContext: false }
+    ]
+    expect(modelNameForFamily(swapped, 'claude-sonnet-4-6')).toBe('claude-sonnet-4-6')
+    // 맞바꾼 목록에서도 요청한 식별자가 그대로 나온다 — 순서가 아니라 identity 로 찾는다.
+    expect(modelNameForFamily(swapped, 'claude-sonnet-4-6[1m]')).toBe('claude-sonnet-4-6[1m]')
+  })
+
+  it('구 형식 선택값(1M 없이 저장)은 폴백으로 이어진다', () => {
+    const onlyOneM = [both[1]]
+    expect(modelNameForFamily(onlyOneM, 'claude-sonnet-4-6')).toBe('claude-sonnet-4-6[1m]')
+  })
+
+  it('선택이 없으면 default → 첫 항목 순으로 떨어진다', () => {
+    expect(modelNameForFamily(both, null)).toBe('claude-sonnet-4-6')
+  })
+})

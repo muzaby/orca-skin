@@ -4,6 +4,7 @@
 // 페이로드 변환을 담당한다. 순수 함수 — vitest 대상.
 
 import type { AgentEnvironment, AgentModelView } from '../../../shared/ipc'
+import { modelIdentity } from '../../../shared/model-identity'
 import type { ParsedModel } from './claude/model-parser'
 
 export type { ParsedModel } from './claude/model-parser'
@@ -12,8 +13,10 @@ export function canonicalAgentKey(key: string): string {
   return key.trim().toLowerCase()
 }
 
+// 선택 식별자는 `shared/model-identity.ts` 하나가 정한다(0215 D-007) — renderer 의 동명 함수도
+// 같은 곳에 위임한다. 여기서 다시 계산하면 `[1m]` 축이 한쪽에만 반영될 수 있다.
 export function modelKey(model: ParsedModel): string {
-  return model.model ?? model.alias
+  return modelIdentity(model)
 }
 
 // 선택된 alias 를 SDK 에 넘길 model 문자열로 해석. model 이 null(커스텀 미구성)이면 bare alias
@@ -27,13 +30,18 @@ export function modelNameForFamily(
 ): string | undefined {
   if (models.length === 0) return undefined
   const wanted = alias?.trim()
-  const byAlias = wanted
-    ? models.find((model) => model.alias === wanted || model.model === wanted)
-    : undefined
-  const selected = byAlias ?? models.find((model) => model.isDefault) ?? models[0]
+  // identity 우선 — `X` 와 `X[1m]` 을 구분해야 사용자가 고른 쪽이 실행된다.
+  const byIdentity = wanted ? models.find((model) => modelIdentity(model) === wanted) : undefined
+  // 폴백은 identity 도입 **이전** 형식의 선택값(`[1m]` 없이 저장된 값)을 위한 것이다.
+  // 목록에 1M 항목만 있고 선택값이 base 이름이면 여기서 이어진다.
+  const byLegacy =
+    wanted && !byIdentity
+      ? models.find((model) => model.alias === wanted || model.model === wanted)
+      : undefined
+  const selected = byIdentity ?? byLegacy ?? models.find((model) => model.isDefault) ?? models[0]
   if (!selected) return undefined
-  const base = selected.model ?? selected.alias
-  return selected.oneMillionContext ? `${base}[1m]` : base
+  // 반환값 = 선택 식별자와 **같은 문자열**이다. 두 값이 갈라질 자리를 만들지 않는다.
+  return modelIdentity(selected)
 }
 
 export function defaultModelFamily(models: ParsedModel[]): string | null {

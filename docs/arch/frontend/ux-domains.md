@@ -155,5 +155,5 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 ## Agent/model UX (0010)
 
 - Composer 모델 칩은 `orca:agent:list` 의 supported agent × model family 를 보여준다. 세션 생성 전에는 전체 supported agent 를, 세션 생성 후에는 같은 adapter 의 provider/model 만 노출한다.
-- `availableModels`의 custom 항목은 실제 모델명을 Composer에 그대로 표시하고 선택값도 같은 이름을 쓴다.
+- `availableModels`의 custom 항목은 실제 모델명을 Composer에 그대로 표시하고 선택값도 같은 이름을 쓴다. 1M 변형은 선택값에 `[1m]` 이 붙어 기본 변형과 구분된다(`shared/model-identity.ts`).
 - Engine 화면의 runtime-derived Orca Harness는 `readOnly:true` 배지를 표시하며 편집·삭제 액션을 노출하지 않는다. Main IPC도 같은 provenance로 mutation을 거부한다.

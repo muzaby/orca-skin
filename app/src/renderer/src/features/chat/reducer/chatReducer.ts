@@ -18,7 +18,10 @@ import type {
 } from '../../../../../shared/ipc'
 import { subagentNoticePart } from '../../../../../shared/ipc'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
-import { DEFAULT_PERMISSION_MODE } from '../../../../../shared/permission-mode'
+import {
+  coerceAutoPermissionMode,
+  DEFAULT_PERMISSION_MODE
+} from '../../../../../shared/permission-mode'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 import type { ContinuityLang } from '../../../../../shared/continuity-lang'
 import { readTaskToolObservation } from '../../../../../shared/task-tool'
@@ -172,6 +175,9 @@ export interface ChatState {
   backend: Backend | null
   providerKey: string | null
   modelFamily: string | null
+  // 선택 모델의 계열(0215) — `modelFamily` 는 SDK 식별자라 alias 를 잃는다. `자동` 권한 강등이
+  // `ANTHROPIC_DEFAULT_HAIKU_MODEL` 로 선언한(이름에 haiku 가 없는) 계열까지 보려면 필요하다.
+  modelAlias: string | null
   // 0119: 진행 중 턴이 실제로 쓰는 provider 스냅샷 — BEGIN_TURN 에서 providerKey 를 고정,
   // 턴 종료(telemetry/turn.aborted/error/CANCEL_CHAT)에 초기화. SET_MODEL 이 providerKey 를
   // inflight 중에도 덮어쓰므로, steer 게이트(경계 판정)는 이 스냅샷과 선택값을 비교한다.
@@ -341,6 +347,7 @@ export const initialChatState: ChatState = {
   backend: null,
   providerKey: null,
   modelFamily: null,
+  modelAlias: null,
   turnProviderKey: null,
   effort: 'high',
   cwd: null,
@@ -454,6 +461,8 @@ export type ChatAction =
       type: 'SET_MODEL'
       providerKey: string | null
       modelFamily: string | null
+      // **선택 필드가 아니다**(0215) — 빠뜨리면 haiku 판정이 조용히 false 가 된다.
+      modelAlias: string | null
       adapter?: string | null
     }
   | { type: 'SET_EFFORT'; effort: EffortLevel }
@@ -853,15 +862,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             m.parts.some((p) => p.type === 'subagent_notice' && p.toolRunId === ev.toolUseId)
           )
           if (exists) return state
-          // 완료 통지 파트와 같은 게이트로 작업 타일 미확인 배지도 켠다(0204 D-004) — 사용자가
-          // 직접 중단한 태스크는 background 가 실리지 않으므로 여기 오지 않는다(자기 행위는 소음).
-          const key = backgroundTaskKey(ev.toolUseId)
+          // **배지는 켜지 않는다**(0215 D-016). `작업` 타일은 이제 `TaskCreate` 할 일만 보여주므로
+          // 서브에이전트 정착으로 배지를 켜면 눌러도 그 항목이 없다. 완료 통지 파트는 그대로
+          // 남으므로 알림 경로가 0이 되지는 않는다(0204 D-004 의 통지 절반은 유지).
           return {
             ...state,
-            messages: appendAssistantPart(state.messages, subagentNoticePart(ev)),
-            unseenSettledTaskKeys: state.unseenSettledTaskKeys.includes(key)
-              ? state.unseenSettledTaskKeys
-              : [...state.unseenSettledTaskKeys, key]
+            messages: appendAssistantPart(state.messages, subagentNoticePart(ev))
           }
         }
 
@@ -1093,11 +1099,23 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'SET_PERMISSION_MODE':
       return { ...state, permissionMode: action.mode }
 
-    case 'SET_MODEL':
+    case 'SET_MODEL': {
       if (state.sessionId && state.backend && action.adapter && action.adapter !== state.backend) {
         return state
       }
-      return { ...state, providerKey: action.providerKey, modelFamily: action.modelFamily }
+      // 지원하지 않는 권한 모드는 모델과 함께 내려앉는다(0215 D-010) — haiku 는 SDK 'auto' 를
+      // 받지 못한다. 규칙은 `shared/permission-mode.ts` 하나가 갖고 여기가 상태 정본이다.
+      return {
+        ...state,
+        providerKey: action.providerKey,
+        modelFamily: action.modelFamily,
+        modelAlias: action.modelAlias,
+        permissionMode: coerceAutoPermissionMode(state.permissionMode, {
+          alias: action.modelAlias ?? '',
+          model: action.modelFamily
+        })
+      }
+    }
 
     case 'SET_EFFORT':
       return { ...state, effort: action.effort }

@@ -835,6 +835,9 @@ export const en: typeof ko = {
       rowResizeAria: 'Resize panel row',
       colResizeAria: 'Resize panel column',
       planCopy: 'Copy plan',
+      planUnavailableTitle: 'Plan text unavailable',
+      planUnavailableDesc:
+        'The model did not send the plan. Review the conversation before approving.',
       planEmptyTitle: 'No plan yet',
       planEmptyDesc: 'It will appear here as Claude explores and builds a plan.',
       planSelectHint: 'Select text to leave feedback for Claude',

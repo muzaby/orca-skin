@@ -321,3 +321,43 @@ describe('makeCanUseTool — 서브에이전트 passthrough(0143) + 재호출 �
     expect(res).toEqual({ behavior: 'allow', updatedInput: input })
   })
 })
+
+// 0215 VP-01·VP-03 — 계획 본문의 출처가 주입 필드 하나가 아니다.
+//
+// SDK 0.3.220 의 `ExitPlanModeInput` 에는 `plan` 이 없다. CLI 가 계획 파일에서 읽어 주입하는데
+// 그 파일은 모델이 써야만 존재한다 — custom 모델은 계획을 본문 텍스트로만 낸다.
+describe('makeCanUseTool — ExitPlanMode 계획 본문 해소 (AT-01·AT-02)', () => {
+  const planOf = (calls: unknown[][]): string =>
+    (calls.at(-1)?.[0] as { request: { plan: string } }).request.plan
+
+  it('AT-01 — plan 이 없으면 이번 턴 서술이 본문이 된다', async () => {
+    const requestApproval = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'allow' })
+    const canUse = makeCanUseTool(requestApproval, {
+      getPlanNarrative: () => '## 계획\n1. 파서를 고친다'
+    })
+    await canUse('ExitPlanMode', {}, ctx)
+    expect(planOf(requestApproval.mock.calls)).toBe('## 계획\n1. 파서를 고친다')
+  })
+
+  it('AT-02 — 주입된 plan 이 서술을 이긴다', async () => {
+    const requestApproval = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'allow' })
+    const canUse = makeCanUseTool(requestApproval, { getPlanNarrative: () => '서술' })
+    await canUse('ExitPlanMode', { plan: '파일에서 온 계획' }, ctx)
+    expect(planOf(requestApproval.mock.calls)).toBe('파일에서 온 계획')
+  })
+
+  it('AT-03 — 둘 다 없으면 빈 본문이고 승인 흐름은 그대로다', async () => {
+    const requestApproval = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'allow' })
+    const canUse = makeCanUseTool(requestApproval, { getPlanNarrative: () => undefined })
+    const res = await canUse('ExitPlanMode', {}, ctx)
+    expect(planOf(requestApproval.mock.calls)).toBe('')
+    expect(res?.behavior).toBe('allow')
+  })
+
+  it('VP-03 — provider 미주입이면 폴백이 없다 (배선이 사라지면 본문이 빈다)', async () => {
+    const requestApproval = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'allow' })
+    const canUse = makeCanUseTool(requestApproval)
+    await canUse('ExitPlanMode', {}, ctx)
+    expect(planOf(requestApproval.mock.calls)).toBe('')
+  })
+})

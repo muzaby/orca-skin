@@ -341,7 +341,7 @@ interface OrcaConfig {
 ```
 
 - **열거 SSOT 는 디렉토리 목록**(`readdir`). 모델 목록은 파생 캐시 파일 없이 각 provider 의 `settings.json` 을 열거 시점에 `claude/model-parser.ts` 로 파싱해 얻는다(settings 부재/손상 시 기본 alias 목록으로 관용 열거).
-- **모델 파싱 규약**(`features/harnesses/claude/model-parser.ts`, 순수 함수): `env.ANTHROPIC_DEFAULT_{SONNET,OPUS,HAIKU}_MODEL` 키가 있으면 그 alias 만 노출(=`isCustom`), 전무하면 sonnet/opus/haiku 3개를 `model:null` 로 노출. `[1m]` 접미사는 분리해 `oneMillionContext` 로 보존. default 는 명시 모델(`env.ANTHROPIC_MODEL`>`model`)·alias 폴백(sonnet→haiku→opus)을 노출 목록 안에서 평가해 **정확히 1개** 부여한다. `model:null` 항목은 SDK 가 bare alias 를 해석한다(모델명 추측 금지).
+- **모델 파싱 규약**(`features/harnesses/claude/model-parser.ts`, 순수 함수): `env.ANTHROPIC_DEFAULT_{SONNET,OPUS,HAIKU}_MODEL` 키가 있으면 그 alias 만 노출(=`isCustom`), 전무하면 sonnet/opus/haiku 3개를 `model:null` 로 노출. `[1m]` 접미사는 분리해 `oneMillionContext` 로 보존하며 **모델 동일성 판정은 `(모델명, 1M)` 한 쌍**이다 — `X` 와 `X[1m]` 은 서로 다른 실행 대상이라 둘 다 노출된다. `env.ANTHROPIC_MODEL` 은 **노출 목록에도 더한다**(중복이면 추가하지 않는다); top-level `model` 은 default 선정에만 쓴다. default 는 그 명시 모델(`env.ANTHROPIC_MODEL`>`model`)·alias 폴백(sonnet→haiku→opus)을 노출 목록 안에서 평가해 **정확히 1개** 부여한다. `model:null` 항목은 SDK 가 bare alias 를 해석한다(모델명 추측 금지). 같은 규칙을 runtime 카탈로그(`runtime-catalog.ts`)가 `runtimeEnv.ANTHROPIC_MODEL` 로 공유한다.
 - provider key 는 `${adapter}-${provider}`(0010 규약 유지, 디렉토리 이름 = provider, `[A-Za-z0-9_-]` 제한). 중복은 디렉토리 구조상 불가능하다.
 - 최초 부팅 시 `anthropic/settings.json`(`{"env":{}}`)을 스캐폴드한다(`features/extensions/scaffold.ts`, 멱등 — 기존 파일 불가침).
 - provider settings.json 은 **dist 로 배포하지 않는다** — query flag(`options.settings`)로 주입한다(아래 "런타임 주입", standardization.md §5.1 거울 예외). skill 은 `dist/<engine>/.claude/skills/`, mcp 는 `dist/<engine>/.mcp.json` 로 배포한다(설치 스테이징 — standardization.md §5.2).
@@ -598,6 +598,6 @@ Playwright 는 아직 devDependency 로 설치되지 않았다(§4). 도입 시 
 ### 6.8.1 Agent/model 선택 (0010-agent-model-select → 0014 원천 교체)
 
 - provider 환경은 provider key(`${adapter}-${provider}`)로 식별한다. 원천은 0014 부터 orca.json agents[] 가 아니라 **`sources/settings/<adapter>/` 디렉토리 트리**다 (§6.8) — 중복 키는 구조상 불가능.
-- Composer 는 `orca:agent:list` DTO(`key`, `adapter`, `provider`, `models`, `supported`)로 `${providerKey}/${alias}` 모델 메뉴를 구성한다. `models` 항목은 `{alias, model, isCustom, oneMillionContext, isDefault}`(`AgentModelView`) 이며 settings.json 파싱 결과다. wire/state 는 표시 문자열이 아니라 `providerKey` 와 `modelFamily`(=alias 값 운반) 구조 필드를 사용한다.
+- Composer 는 `orca:agent:list` DTO(`key`, `adapter`, `provider`, `models`, `supported`)로 `${providerKey}/${alias}` 모델 메뉴를 구성한다. `models` 항목은 `{alias, model, isCustom, oneMillionContext, isDefault}`(`AgentModelView`) 이며 settings.json 파싱 결과다. wire/state 는 표시 문자열이 아니라 `providerKey` 와 `modelFamily` 구조 필드를 사용한다. **`modelFamily` = 모델 선택 식별자 = SDK 에 넘기는 모델 문자열**(`model ?? alias` + 1M 이면 `[1m]`)이고 규칙은 `shared/model-identity.ts` 하나가 갖는다 — main(`features/harnesses/models.ts`)과 renderer(`composer/modelSelection.ts`)가 위임한다.
 - 세션은 adapter(`sessions.backend`) 단위로 잠기며 같은 adapter 안에서는 provider/model family 를 턴 단위로 전환할 수 있다. `sessions.provider_key` 는 바인딩 제약이 아니라 마지막 사용 provider 기록이다. 턴 해석 폴백: payload providerKey(어댑터 일치 시) → 세션 provider_key → 기본 provider(anthropic 우선, 없으면 이름순 첫 디렉토리).
 - 앱 추가 provider 의 auth token 은 secret store `provider:${provider key}` 에만 저장한다. DB/renderer/agent list DTO 는 토큰·env 를 노출하지 않는다.

@@ -15,6 +15,7 @@
 
 import type { IpcMainInvokeEvent, WebContents } from 'electron'
 import { ifPresent } from '../../../shared/obj'
+import { coerceAutoPermissionModeForModelName } from '../../../shared/permission-mode'
 import type { AttachmentView, WorktreeDisplay } from '../../../shared/ipc'
 import type { SteerFlushBatch, TurnRequest } from '../../adapters/turn'
 import type { TurnContext } from '../../contracts/turn'
@@ -348,10 +349,18 @@ export async function handleChatSend(
       getActiveTurn
     })
 
+    // 지원하지 않는 권한 모드의 **2차 방어**(0215 D-011). renderer 가 alias 축까지 보고 이미
+    // 강등하지만, main 은 SDK 모델 문자열로 한 번 더 자른다 — 보정 없이 `auto` 가 나가면 CLI 는
+    // `accept_edits` 가 아니라 `default` 로 폴백해 사용자가 요구한 것과 다른 모드가 된다.
+    // controller 기록과 TurnRequest 가 **같은 값**을 읽도록 여기서 한 번만 계산한다.
+    const permissionMode = payload.permissionMode
+      ? coerceAutoPermissionModeForModelName(payload.permissionMode, resolved.model)
+      : payload.permissionMode
+
     // 세션 모드 SSOT 동기화 — resume 경로(sessionId 확정)에서 이번 턴 모드를 controller 에 기록.
     // 라이브 전환(setMode IPC)과 다음 턴이 같은 출처를 읽도록 한다.
-    if (payload.sessionId && payload.permissionMode) {
-      void permissionModes.setMode(payload.sessionId, payload.permissionMode)
+    if (payload.sessionId && permissionMode) {
+      void permissionModes.setMode(payload.sessionId, permissionMode)
     }
 
     // ── 11. TurnRequest 조립 ────────────────────────────────────────────────
@@ -388,7 +397,7 @@ export async function handleChatSend(
         ...ifPresent('providerSettings', resolved.prepared.providerSettings),
         ...(resolved.model !== undefined ? { model: resolved.model } : {}),
         requestApproval,
-        ...(payload.permissionMode ? { permissionMode: payload.permissionMode } : {}),
+        ...(permissionMode ? { permissionMode } : {}),
         ...(payload.effort ? { effort: payload.effort } : {}),
         attachmentTexts: mainBatch.attachmentTexts ?? [],
         attachmentImages: mainBatch.attachmentImages ?? [],

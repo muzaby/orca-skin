@@ -1024,6 +1024,7 @@ function continuityDraftSession(src: ChatState, kind: 'fork' | 'handoff'): ChatS
     projectId: src.projectId,
     providerKey: src.providerKey,
     modelFamily: src.modelFamily,
+    modelAlias: src.modelAlias,
     effort: src.effort,
     permissionMode: src.permissionMode,
     lineageParentTitle: src.title
@@ -1219,9 +1220,18 @@ function skipAsk(requestId: string): void {
 function setModel(
   providerKey: string | null,
   modelFamily: string | null,
+  modelAlias: string | null,
   adapter?: string | null
 ): void {
-  dispatchActive({ type: 'SET_MODEL', providerKey, modelFamily, adapter })
+  const before = getActiveChatSession().permissionMode
+  dispatchActive({ type: 'SET_MODEL', providerKey, modelFamily, modelAlias, adapter })
+  // 강등 판정의 정본은 reducer 다(0215 EP-13). 여기서 규칙을 다시 쓰지 않고 **결과가 바뀌었을
+  // 때만** main 으로 옮긴다 — 옮기지 않으면 controller 와 진행 중 턴이 '자동'을 계속 믿는다.
+  const after = getActiveChatSession()
+  if (after.permissionMode === before) return
+  if (after.sessionId) {
+    void permissionApi.setMode({ sessionId: after.sessionId, mode: after.permissionMode })
+  }
 }
 
 function setEffort(effort: EffortLevel): void {

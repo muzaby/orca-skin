@@ -44,6 +44,7 @@ describe('chatReducer — 모델 선택', () => {
       type: 'SET_MODEL',
       providerKey: 'claude-bedrock',
       modelFamily: 'sonnet',
+      modelAlias: null,
       adapter: 'claude'
     })
     expect(s.providerKey).toBe('claude-bedrock')
@@ -65,6 +66,7 @@ describe('chatReducer — 모델 선택', () => {
       type: 'SET_MODEL',
       providerKey: 'opencode-openai',
       modelFamily: 'gpt',
+      modelAlias: null,
       adapter: 'opencode'
     })
     expect(blocked.providerKey).toBe('claude')
@@ -73,6 +75,7 @@ describe('chatReducer — 모델 선택', () => {
       type: 'SET_MODEL',
       providerKey: 'claude-bedrock',
       modelFamily: 'sonnet',
+      modelAlias: null,
       adapter: 'claude'
     })
     expect(switched.providerKey).toBe('claude-bedrock')
@@ -84,6 +87,7 @@ describe('chatReducer — 모델 선택', () => {
       type: 'SET_MODEL',
       providerKey: 'claude-bedrock',
       modelFamily: 'sonnet',
+      modelAlias: null,
       adapter: 'claude'
     })
     expect(chatReducer(selected, { type: 'NEW_CHAT' }).providerKey).toBeNull()
@@ -108,5 +112,46 @@ describe('chatReducer — effort', () => {
     expect(initialChatState.effort).toBe('high')
     const s = chatReducer(initialChatState, { type: 'SET_EFFORT', effort: 'xhigh' })
     expect(s.effort).toBe('xhigh')
+  })
+})
+
+// 0215 VP-13 (R-04 ↔ AT-12 · §10 EP-13) — 모델 전환이 지원하지 않는 모드를 내려앉힌다.
+describe('SET_MODEL — 자동 권한 강등 (AT-12 · D-010)', () => {
+  const withMode = (mode: 'auto_classified' | 'plan'): ChatState => ({
+    ...initialChatState,
+    permissionMode: mode
+  })
+  const pick = (state: ChatState, modelFamily: string, modelAlias: string): ChatState =>
+    chatReducer(state, {
+      type: 'SET_MODEL',
+      providerKey: 'claude-anthropic',
+      modelFamily,
+      modelAlias
+    })
+
+  it('자동 상태에서 haiku 로 바꾸면 편집 자동 수락이 된다', () => {
+    expect(pick(withMode('auto_classified'), 'claude-haiku-4-5', 'haiku').permissionMode).toBe(
+      'accept_edits'
+    )
+  })
+
+  it('이름에 haiku 가 없어도 alias 가 haiku 면 강등된다 — alias 축', () => {
+    expect(pick(withMode('auto_classified'), 'corp-fast-1', 'haiku').permissionMode).toBe(
+      'accept_edits'
+    )
+  })
+
+  it('양성 짝 — 비-haiku 로 바꾸면 자동이 유지된다', () => {
+    expect(pick(withMode('auto_classified'), 'claude-sonnet-4-6', 'sonnet').permissionMode).toBe(
+      'auto_classified'
+    )
+  })
+
+  it('자동이 아닌 모드는 haiku 로 바꿔도 그대로다', () => {
+    expect(pick(withMode('plan'), 'claude-haiku-4-5', 'haiku').permissionMode).toBe('plan')
+  })
+
+  it('선택 alias 가 상태에 남는다 — 다음 판정의 입력이다', () => {
+    expect(pick(withMode('plan'), 'corp-fast-1', 'haiku').modelAlias).toBe('haiku')
   })
 })

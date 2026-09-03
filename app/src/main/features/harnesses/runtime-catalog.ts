@@ -1,7 +1,13 @@
 import type { AgentEnvironment } from '../../../shared/ipc'
 import type { AuthId, AuthSnapshot } from '../../contracts/auth'
 import type { HarnessRuntimeConfigService } from './runtime-config'
-import { availableModelsOf, normalizeAvailableModels } from './claude/available-models'
+import {
+  availableModelsOf,
+  explicitModelOf,
+  markDefaultModel,
+  normalizeAvailableModels,
+  withExplicitModel
+} from './claude/available-models'
 import { canonicalAgentKey, mergeAgentEnvironments, toAgentEnvironment } from './models'
 
 export interface RuntimeModelContribution {
@@ -112,7 +118,17 @@ export function createRuntimeModelCatalog(input: {
           try {
             const config = await input.runtime.resolve(contribution)
             if ((authGeneration.get(authId) ?? 0) !== generation) return
-            const models = normalizeAvailableModels(availableModelsOf(config) ?? [])
+            // `ANTHROPIC_MODEL` 은 settings 경로와 **같은 규칙**으로 목록에 더한다(0215 D-006).
+            // runtime 기여는 `availableModels` 만 실을 수도 있어, 배포가 지정한 실행 모델이
+            // 선택지에 없던 자리다. 중복이면 추가하지 않는다.
+            const explicit = explicitModelOf(config.runtimeEnv?.ANTHROPIC_MODEL)
+            const models = withExplicitModel(
+              normalizeAvailableModels(availableModelsOf(config) ?? []),
+              explicit
+            )
+            // 편입 후 default 를 **다시** 매긴다 — settings 경로와 같은 순서다. 목록만 늘리고
+            // 이 줄을 빼면 배포가 지정한 실행 모델이 목록에는 있는데 기본 선택은 다른 것이 된다.
+            markDefaultModel(models, explicit)
             const next =
               models.length === 0
                 ? undefined

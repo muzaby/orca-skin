@@ -1494,3 +1494,42 @@ describe('0212 — background_tasks_changed (AT-14·16 · §10 EP-06)', () => {
     ).toEqual([])
   })
 })
+
+// 0215 VP-02 (SD-01 ↔ AT-04 · §10 EP-02·EP-03) — 계획 폴백 본문의 수명은 한 턴이다.
+describe('lastAssistantText — 계획 폴백 본문 (AT-04)', () => {
+  const assistant = (content: unknown[], parentToolRunId?: string): SDKMessage =>
+    sdk({
+      type: 'assistant',
+      message: { content },
+      ...(parentToolRunId ? { parent_tool_use_id: parentToolRunId } : {})
+    })
+
+  it('메인 에이전트의 텍스트를 담는다 — 마지막 값이 남는다', () => {
+    const c = ctx()
+    claudeToNormalized(assistant([{ type: 'text', text: '첫 문단' }]), c)
+    expect(c.lastAssistantText).toBe('첫 문단')
+    claudeToNormalized(assistant([{ type: 'text', text: '## 계획' }]), c)
+    expect(c.lastAssistantText).toBe('## 계획')
+  })
+
+  it('서브에이전트 child 텍스트는 담지 않는다 — 계획의 저자가 아니다', () => {
+    const c = ctx()
+    claudeToNormalized(assistant([{ type: 'text', text: '메인' }]), c)
+    claudeToNormalized(assistant([{ type: 'text', text: '자식' }], 'run1'), c)
+    expect(c.lastAssistantText).toBe('메인')
+  })
+
+  it('AT-04 — 턴이 끝나면 비운다 (다음 턴 계획으로 새지 않는다)', () => {
+    const c = ctx()
+    claudeToNormalized(assistant([{ type: 'text', text: '지난 턴 서술' }]), c)
+    claudeToNormalized(sdk({ type: 'result', subtype: 'success' }), c)
+    expect(c.lastAssistantText).toBeUndefined()
+  })
+
+  it('빈 텍스트 블록은 담지 않는다 — 직전 값을 지우지도 않는다', () => {
+    const c = ctx()
+    claudeToNormalized(assistant([{ type: 'text', text: '계획' }]), c)
+    claudeToNormalized(assistant([{ type: 'text', text: '' }]), c)
+    expect(c.lastAssistantText).toBe('계획')
+  })
+})

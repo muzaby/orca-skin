@@ -14,6 +14,7 @@ import { EFFORT_LABEL_KEYS } from './composer/effort'
 import {
   defaultSelection,
   modelKey,
+  selectedModelShape,
   selectionExists,
   selectionLabel
 } from './composer/modelSelection'
@@ -25,7 +26,7 @@ import { GitRow } from './composer/GitRow'
 import { Notice } from './Notice'
 import { StatusPopover } from './composer/StatusPopover'
 import { conversationStatusModel as conversationStatusModelFactory } from './composer/statusViewModel'
-import { MODE_LABEL_KEYS } from './composer/modes'
+import { MODE_LABEL_KEYS, modeMenuOptions } from './composer/modes'
 import type { ConversationStatus } from './composer/statusCopy'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
 import { ApprovalCard, ToolApprovalBody } from './ApprovalCard'
@@ -136,6 +137,7 @@ export function Composer({
   const backend = useChatSession((s) => s.backend)
   const providerKey = useChatSession((s) => s.providerKey)
   const modelFamily = useChatSession((s) => s.modelFamily)
+  const modelAlias = useChatSession((s) => s.modelAlias)
   const turnProviderKey = useChatSession((s) => s.turnProviderKey)
   const effort = useChatSession((s) => s.effort)
   const pendingPlanReview = useChatSession((s) => s.pendingPlanReview)
@@ -176,25 +178,26 @@ export function Composer({
       return {
         providerKey,
         modelFamily,
+        modelAlias,
         adapter: agents.find((a) => a.key === providerKey)?.adapter ?? backend ?? 'claude',
         provider: agents.find((a) => a.key === providerKey)?.provider
       }
     return defaultSelection(agents, backend)
-  }, [agents, backend, providerKey, modelFamily])
+  }, [agents, backend, providerKey, modelFamily, modelAlias])
 
   useEffect(() => {
     if (agents.length === 0) return
     // 선택이 없거나 원천이 사라졌으면(런타임 contribution 회수 포함) default 로 되돌린다.
     if (!providerKey || !selectionExists(agents, providerKey, modelFamily)) {
       const next = defaultSelection(agents, backend)
-      if (next) setModel(next.providerKey, next.modelFamily, next.adapter)
+      if (next) setModel(next.providerKey, next.modelFamily, next.modelAlias, next.adapter)
       return
     }
     if (modelFamily != null) return
     // provider 만 복원된 상태 — 그 provider 의 default 모델로 채운다.
     const agent = agents.find((a) => a.key === providerKey)
     const model = agent?.models.find((m) => m.isDefault) ?? agent?.models[0]
-    if (agent && model) setModel(providerKey, modelKey(model), agent.adapter)
+    if (agent && model) setModel(providerKey, modelKey(model), model.alias, agent.adapter)
   }, [agents, backend, modelFamily, providerKey, setModel])
 
   const conversationStatusModel = useMemo(() => {
@@ -460,6 +463,7 @@ export function Composer({
       <Popover open={modeMenuOpen} anchorRef={modeButtonRef} onClose={() => setModeMenuOpen(false)}>
         <ModeMenu
           mode={permissionMode}
+          options={modeMenuOptions(selectedModelShape(agents, selectedModel))}
           onPick={(mode) => {
             setPermissionMode(mode)
             setModeMenuOpen(false)
@@ -491,7 +495,12 @@ export function Composer({
           sessionBackend={backend}
           selection={selectedModel}
           onPick={(selection) => {
-            setModel(selection.providerKey, selection.modelFamily, selection.adapter)
+            setModel(
+              selection.providerKey,
+              selection.modelFamily,
+              selection.modelAlias,
+              selection.adapter
+            )
             setModelMenuOpen(false)
           }}
         />

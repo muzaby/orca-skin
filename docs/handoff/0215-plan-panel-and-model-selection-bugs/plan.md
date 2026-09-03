@@ -613,3 +613,164 @@
 - [x] 게이트 명령이 `app/AGENTS.md` 현행과 충돌하지 않는다 — `npm test` 대신 순수 vitest.
 - [x] 본문 완성 후 Decision Ledger 와 기존 결정을 교차검증했고 결과를 §3 갱신 메모에 적었다.
 - [x] 산출물 문장 규칙을 지켰다.
+
+---
+
+> **[구현자 기입]** 이하는 구현 턴(r1)이 채운다. 절차 정본은
+> [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
+
+## [구현자 기입] 설계 리뷰
+
+- 동의 / 그대로 진행: Part I·Part II 전부. Decision 17건과 충돌 없이 구현했다.
+- 이견 / 현실성 문제: **없음**. 다만 §9 TO-BE 의 runtime 경로 의사코드가 `withExplicitModel` 만
+  적고 `markDefaultModel` 재호출을 빠뜨렸다(§11 `runtime-catalog.ts` 행도 같다) — 그대로 두면
+  목록에는 들어오고 default 는 갱신되지 않는다. 아래 잠재 문제 #2.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+- **착수 전 PLAN_GAP 1건을 설계자로 전환해 정정했다**(별도 커밋 `ea983b1`) — §10 EP-05 가 D-008 의
+  지점을 1개로 셌으나 실측 2개다. §3 갱신 메모에 기록.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-01·VP-03·VP-04 | EP-01 계획 본문 해소 체인 | canUseTool 진입 (1) | 1/1 | `rg "resolvePlanText\(" src/main --glob '!*.test.ts'` → 2건(정의 1·호출 1) · `claude.ts:156` | — |
+| VP-02 | EP-02·EP-03 서술 캡처·턴 리셋 | 2 | 2/2 | `rg "ctx.lastAssistantText = " claude-map.ts` → `:418`(캡처) `:541`(리셋) | — |
+| VP-01 | EP-04 승인 대기 중 실패 문구 | 1 | 1/1 | `rg "planUnavailableTitle" src/renderer --glob '!*.test.ts'` → 3건(ko·en·렌더 1) | — |
+| VP-08·VP-11·VP-16 | EP-05 dedupe 키 (2, r1 정정) | 2 | 2/2 | `available-models.ts:72` `modelIdentity(entry)` · `model-parser.ts:87` `sameParsedModel(...)` | — |
+| VP-09·VP-11·VP-16 | EP-06 explicit 매칭 1M 포함 | 1 | 1/1 | `available-models.ts:86` `markDefaultModel(models, explicit?: ExplicitModel)` | — |
+| VP-09·VP-10 | EP-07 식별자 SSOT | 2 | 2/2 | `rg "return modelIdentity\(model\)"` → `models.ts:19` · `modelSelection.ts:18` (둘 다 위임만) | — |
+| VP-09 | EP-08 식별자 → SDK 문자열 | 1 | 1/1 | `models.ts:34` `modelIdentity(model) === wanted` | — |
+| VP-09 | EP-09 행 key·활성 판정 | 2 | 2/2 | `ModelMenu.tsx:48`(key) `:49`(활성) | — |
+| VP-05·VP-07·VP-16 | EP-10 settings explicit 편입 | 1 | 1/1 | `model-parser.ts:97` `withExplicitModel(visible, anthropicModel)` | — |
+| VP-06·VP-07·VP-16 | EP-11 runtime explicit 편입 | 1 | 1/1 | `runtime-catalog.ts:125` + `markDefaultModel` 재호출(설계에 없던 줄, 잠재 문제 #2) | — |
+| VP-12·VP-15 | EP-12 모드 메뉴 필터 | 1 | 1/1 | `modes.ts:60` 정의 · `Composer.tsx:466` 유일 호출부 | — |
+| VP-13·VP-15 | EP-13 상태 강등 | 1 | 1/1 | `chatReducer.ts:1113` `coerceAutoPermissionMode(state.permissionMode, …)` | — |
+| VP-13 | EP-14 main 동기화 | 1 | 1/1 | `chatStore.ts:1233`(신규 강등 경로) — 기존 `:1246` 은 `setPermissionMode` 경로로 분리 | — |
+| VP-14·VP-15 | EP-15 턴 조립 보정 | 2 | 2/2 | `send.ts:356` 지역변수 1회 계산 → `:363`(controller) `:400`(TurnRequest) 두 지점이 같은 값 | — |
+| VP-17·VP-20 | EP-16 파생이 agent 만 | 1 | 1/1 | `taskBoard.ts:234-236` — 반환이 `agentItem` 매핑 하나 | — |
+| VP-17·VP-18 | EP-17 background 표면 제거 | 4 | 4/4 | **차집합 0**: `rg "function backgroundItem"`→0 · `item.background`→0 · `canStopTask\|canBackgroundTask`→0 · `kind === 'background'`→0 | — |
+| VP-19 | EP-18 배지 마킹 agent 만 | 1 | 1/1 | `chatReducer.ts:864-870` subagent settled 분기에 `unseenSettledTaskKeys` 없음 · agent 경로 `:728` 유지 | — |
+| VP-19 | EP-19 중단 실패 문구 렌더 | 1 | 1/1 | `SubAgentTileContent.tsx:361` | — |
+
+- 합계: **19행 / 26 사이트 = 26/26**.
+- §10에 없는데 같은 불변식이 필요했던 지점: **1건 — 정착 사유(`settlementMessage`)**. D-017("`작업`
+  타일이 유일 렌더 지점이던 문구는 옮긴다")과 **같은 축**인데 §10 EP-19 는 중단 실패 문구 하나만
+  셌다. `작업` 타일 제거로 0204 D-024 의 사유 문구도 소비자가 0곳이 됐다 — `SubAgentTileContent.tsx:295`
+  에 옮겨 닫았다(선조치). ACTIVE Decision(D-024)이 이미 규칙을 갖고 있어 새 결정이 필요하지 않았다.
+
+**V-pair 자기확인** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `claude.canusetool.test.ts` 3케이스 + `plan0215.render.test.ts` 3케이스 | not selected — 승인 인자·렌더 문구 직접 관측 |
+| VP-02 | REQUIRED | SELF_PASS | `claude-map.test.ts` 4케이스 (ctx 값 직접) | not selected |
+| VP-03 | REQUIRED | SELF_PASS | `claude.plan-narrative.test.ts` 2케이스 — production `options.canUseTool` 포획 | **required** — `claude.ts` 의 `getPlanNarrative` 인자 제거 → **1 red** |
+| VP-04 | REQUIRED | SELF_PASS | `plan-text.test.ts` 4케이스 | not selected |
+| VP-05 | REQUIRED | SELF_PASS | `model-parser.test.ts` AT-05·AT-06 | not selected |
+| VP-06 | REQUIRED | SELF_PASS | `runtime-catalog.test.ts` 3케이스 | not selected |
+| VP-07 | REQUIRED | SELF_PASS | 두 경로 테스트 동시 green | **required** — `withExplicitModel` 항등화 → **3 red**(settings 2 · runtime 1) |
+| VP-08 | REQUIRED | SELF_PASS | `available-models.test.ts` 3 + `model-parser.test.ts` AT-22 2 | not selected |
+| VP-09 | REQUIRED | SELF_PASS | `settings.test.ts` 4 + `modelMenu0215.render.test.ts` 4 | **required** — dedupe 키를 base 이름으로 되돌림 → **2 red** · 형제 맞바꿈 케이스 내장 |
+| VP-10 | REQUIRED | SELF_PASS | 두 `modelKey` 가 shared 위임(전수 grep 2/2) | **required** — renderer `modelKey` 만 옛 식 복귀 → **3 red** |
+| VP-11 | REQUIRED | SELF_PASS | dedupe·explicit 반환값 | not selected |
+| VP-12 | REQUIRED | SELF_PASS | `modes.test.ts` 3 + 렌더 2 | not selected |
+| VP-13 | REQUIRED | SELF_PASS | `chatReducer.permission.test.ts` 5 + `chatStore.modelPermission.test.ts` 3 | not selected |
+| VP-14 | REQUIRED | SELF_PASS | `send.permission-mode.test.ts` 4 — 두 지점 값 동시 관측 | **required** — TurnRequest 지점만 `payload.permissionMode` 로 복귀 → **1 red** |
+| VP-15 | REQUIRED | SELF_PASS | `permission-mode.test.ts` 4 + `model-identity.test.ts` 5 | not selected |
+| VP-16 | REQUIRED | SELF_PASS | `model-parser.test.ts` AT-15(3조합 전건 default 1개) | not selected |
+| VP-17 | REQUIRED | SELF_PASS | `taskBoard.test.ts` 3(차집합) + 렌더 3 | **required** — 파생에 background 복원 → **13 red** |
+| VP-18 | REQUIRED | SELF_PASS | `taskSurface0212`·`rightPanelTiles` 백그라운드 타일 케이스 전건 유지 | not selected — 존재 직접 관측 |
+| VP-19 | REQUIRED | SELF_PASS | `chatReducer.task.test.ts` AT-18 + `rightPanelTiles` AT-19 3케이스 | not selected |
+| VP-20 | REQUIRED | SELF_PASS | `taskBoard.test.ts` 반환 배열 | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `claude.ts:~430` — `getPlanNarrative` 인자 제거 | `VP-03 선택 증거` | 최초 | `계획 서술 배선` 1건 | 잠김 |
+| `available-models.ts:56-58` — `withExplicitModel` 본문을 항등함수로 | `VP-07 선택 증거` | 최초 | settings 2 · runtime 1 = 3건 | 잠김 |
+| `available-models.ts:72` — dedupe 키를 `entry.model ?? entry.alias` 로 | `VP-09 선택 증거` | 최초 | `[1m] 변형` 2건 | 잠김 |
+| `modelSelection.ts:18` — `modelKey` 를 옛 식(`model ?? alias`)으로 | `VP-10 선택 증거` | 최초 | ModelMenu 3건 | 잠김 |
+| `send.ts:400` — TurnRequest 지점만 `payload.permissionMode` 로(형제 분리) | `VP-14 선택 증거` | 최초 | `haiku 면 두 지점` 1건 | 잠김 |
+| `taskBoard.ts:234` — 파생에 background 항목 복원 | `VP-17 선택 증거` · 이번 턴 새 0건 oracle | 최초 | 13건(파생 3 · 렌더 10) | 잠김 |
+
+- **분모 검산**: `선택 증거 6 · 인용 변이 0 · 새 oracle 1(AT-16 차집합, VP-17 변이가 함께 검출) = 표 행 6`.
+- **덮개 회귀**: 이전 라운드 없음(r1). 다만 **장치를 옮긴 자리가 6곳**이라 하한을 확인했다 —
+  0212·0213 의 `작업` 타일 background 단언 13건을 지우지 않고 `백그라운드 작업` 타일 축으로
+  **옮겨** 같은 불변식을 계속 잠근다(paused 라벨·중단 가용성·전환 3조건·정착 사유·중단 실패 문구).
+  `taskBoard.test.ts` 의 제어 술어 5케이스도 래퍼(`canStopTask`) 대신 status 함수로 재작성했다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ✅ `planUnavailableTitle/Desc` 2건 — `PlanTileContent` 가 렌더하고 `plan0215.render.test.ts` 가 화면 출력으로 단언 | — |
+| **기존** 문구가 소비자를 잃지 않았는가 | ⚠️ **2건 잃을 뻔했다** — 중단 실패(설계가 잡음) + **정착 사유(설계가 못 잡음)**. 둘 다 백그라운드 타일로 이동 | §10 EP-19 분모 정정 제안 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 1건 — `send.ts` 가 `permissionMode` 지역변수를 도입했으나 `payload` 스코프 안이고 `finally` 경로가 읽는 변수는 건드리지 않았다 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | ✅ `plan_review 도착 · 둘 다 없음` 행 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | ✅ 승인 대기 중 본문 없음이 **경고 아이콘 + 실패 문구**로 보인다(기존엔 "아직 플랜이 없습니다") | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | ✅ 해당 없음 — 이번 변경에 비동기 응답 경로가 없다 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | `작업` 타일이 유일 렌더 지점이던 문구가 **둘**이었다(중단 실패 + 정착 사유). §10 EP-19 는 하나만 셌다 | ✅ 선조치 — `SubAgentTileContent.tsx:295` 에 정착 사유 추가 | `rightPanelTiles.render.test.ts` 의 기존 AT-31 케이스가 red 로 드러냈다 |
+| 2 | runtime 경로가 `withExplicitModel` 만 부르면 목록은 늘고 **default 는 안 바뀐다** | ✅ 선조치 — `markDefaultModel` 재호출 | `runtime-catalog.test.ts` AT-07 이 red 로 드러냈다 |
+| 3 | 0213 D-007 의 "안내 분모 = 할 일 항목" 구분이 이번 변경으로 **소멸**했다(`items` 자체가 할 일뿐) | 📝 plan 수정 제안 — §16 에 supersede 행 추가 | `TaskTileContent.tsx` 의 `unsupported` 술어가 `items.length === 0` 으로 단순화됨 |
+| 4 | 턴이 `result` 없이 중단되면 `ctx.lastAssistantText` 가 다음 턴으로 넘어간다. 다음 턴의 첫 assistant 텍스트가 덮으므로 창이 매우 좁지만 0은 아니다 | ⚠️ 보고만 — `turn.aborted` 경로에 리셋을 더할지는 제품 판단(계획 본문이 한 턴 낡을 수 있다) | `claude-map.ts` 는 `result` 분기에서만 비운다 |
+| 5 | `modelFamily` 형식 변경 후 **진행 중 세션의 옛 선택값**은 `selectionExists` 에서 탈락해 default 로 되돌아갈 수 있다 | ⚠️ 보고만 — 영속되지 않는 값이라 재시작 후엔 무관하고, `modelNameForFamily` 에 legacy 폴백을 뒀다 | `rg model_family src/main/infra/db` → 0건 |
+| 6 | `백그라운드 작업` 타일 상세에는 `최근 작업`(`currentChildLabel`) 행이 없다 — `작업` 타일 상세가 유일 소비자였다 | ⚠️ 보고만 — 그 타일은 child transcript 를 통째로 보여줘 정보량이 더 많다. 필요하면 후속 | `taskDetailRows` 의 `detail.lastTool` 행 제거 |
+
+### 설계 대비 명시적 차이
+
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: **1건** — §11 은 `ModeMenu` 가 `options` prop 을
+  받고 Composer 가 `modeMenuOptions(model)` 을 넘긴다고 적었다. 그대로 하되 **모델 형상을 뽑는
+  헬퍼를 `modelSelection.ts#selectedModelShape` 로 분리**했다(설계에 없던 함수). 이유: `modes.ts`
+  가 카탈로그 조회를 하면 `shared` 성격의 순수 모듈이 도메인 조회를 갖게 된다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 두 함수 모두 순수하고 시간 축이 없다 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | `selectedModelShape` 가 `agents`(agentStore)를 읽는다 — 카탈로그가 비면 `null` 이 아니라 **선택값 문자열로 폴백**한다. 폴백이 없으면 하이드레이션 지연 중 haiku 에서 '자동'이 잠깐 열린다 | AC11 / `modelMenuOptions` 의 `selection.modelAlias ?? ''` 경로 · `modes.test.ts` `modesOf(null)` 케이스가 미선택 축을 잡는다 |
+| 재진입 | 해당 없음 — 렌더마다 새로 계산하는 순수 파생이라 상태를 남기지 않는다 | — |
+| 다른 무효화 축 | provider 기여 회수 시 `agents` 에서 사라진다 → 위 폴백이 같은 자리를 덮는다 | AC11 / `selectedModelShape` 의 카탈로그 미스 분기 |
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | production 19 · 테스트 20 (신규 7: `shared/model-identity.ts`·`adapters/plan-text.ts` + 테스트 5) · 문서 3 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node scripts/check-doc-inventory.mjs --check` · `node scripts/check-migrations-appendonly.mjs` |
+| **관측한 게이트 산출** | lint **0 error / 1 warning**(기존 `useTranscriptVirtualizer` react-compiler 경고, 변경 무관) · typecheck **3구성 0** · vitest **327파일 3233케이스 전건 green, 0 failed / 7 skipped** · doc-inventory `9 items, 82 channels` + prose ok + links ok · migrations `20 migrations` sync ok |
+| ABI 주의 | 첫 전체 실행에서 DB 로드 10파일 55케이스가 `Module did not self-register: better_sqlite3.node` 로 red 였다 — `npm ci` 가 Electron ABI 를 남긴 상태였다. `node scripts/ensure-sqlite-abi.mjs node` 후 **전건 green**. 변경 무관한 환경 축이다 |
+| V-pair 자기확인 | `SELF_PASS 20 / SELF_BLOCKED 0`; pair별 상세는 위 표 |
+| 강제 지점 전수 | **26/26** (19행) |
+| **AC 자기보고**(`Criteria-Met`) | 아래 합계 검산 참조 |
+| **합계 검산** | ✅ 20 · ⚠️ 2(사람 실기) · ❌ 0 = 총 22. ⚠️ 2 = **AC3 문구 시각**(판정 로직은 렌더 테스트로 닫음) · **custom 모델 실환경 계획 노출**(모델 행동 의존이라 실기 필요). 분모는 r1 착수 전 정정으로 21→22 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+### AC 행별 관측
+
+`AC1`✅`claude.canusetool` AT-01 · `AC2`✅같은 파일 AT-02 · `AC3`⚠️로직 green(`plan0215.render` 3케이스), 시각 사람 ·
+`AC4`✅`claude-map.test` 턴 리셋 · `AC5`✅`model-parser` AT-05 · `AC6`✅AT-06 3케이스 · `AC7`✅`runtime-catalog` 3케이스 ·
+`AC8`✅`available-models` 3케이스 · `AC9`✅`settings.test` 4케이스 · `AC10`✅`modelMenu0215.render` 4케이스 ·
+`AC11`✅`modes.test` 3 + 렌더 2 · `AC12`✅`chatReducer.permission` 5 · `AC13`✅`chatStore.modelPermission` 3 ·
+`AC14`✅`send.permission-mode` 4 · `AC15`✅`model-parser` AT-15 · `AC16`✅`taskBoard.test` 차집합 0 ·
+`AC17`✅잔여 4축 전부 0건 · `AC18`✅`chatReducer.task` AT-18 · `AC19`✅`rightPanelTiles` AT-19 3케이스 ·
+`AC20`✅`taskSurface0212` 21케이스 전건 유지 · `AC21`✅게이트 산출 위 · `AC22`✅`model-parser` AT-22 2케이스.
+남은 ⚠️ 1건: **custom 모델 실환경 계획 노출**(AC1 의 프로덕션 도달 — 모델이 계획 파일을 쓰지 않는
+실제 조합은 실기로만 재현된다).
+
+## [구현자 기입] Review Signals — 사실만
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: r1 이라 이전 라운드 없음.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: **2건**. ① §10 EP-05 가
+  D-008 의 지점을 1개로 셌다 — 설계가 `normalizeAvailableModels` 만 보고 `model-parser` 의 교차
+  필터를 세지 않았다(착수 전 정정). ② §10 EP-19 가 "유일 렌더 지점을 잃는 문구"를 **중단 실패
+  하나로** 셌다 — 같은 축의 정착 사유가 §8 전수 조사(`taskStopErrors` 렌더 소비처 1곳)에는
+  잡혔지만 `settlementMessage` 는 그 검색의 술어에 없었다.
+- 반복해서 부딪히는 환경 한계: better-sqlite3 ABI 가 `npm ci`(Electron) ↔ vitest(Node) 사이에서
+  뒤집힌다 — `app/AGENTS.md` 가 문서화한 그대로다.
+- 현재 라운드 수: 1

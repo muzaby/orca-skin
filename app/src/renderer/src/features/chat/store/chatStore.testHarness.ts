@@ -27,6 +27,8 @@ export interface ChatStoreHarness {
   chatSend: ReturnType<typeof vi.fn>
   settingsSet: ReturnType<typeof vi.fn>
   permissionRespond: ReturnType<typeof vi.fn>
+  // 0215 — 권한 모드 라이브 전환 IPC. 모델 전환이 '자동'을 강등했을 때 main 이 같은 값을 읽는지.
+  permissionSetMode: ReturnType<typeof vi.fn>
   // 0212 — 서브에이전트 단위 제어 두 축. 중단은 확정을 기다리고 전환은 즉시 boolean 이다.
   stopSubagent: ReturnType<typeof vi.fn>
   backgroundSubagent: ReturnType<typeof vi.fn>
@@ -43,6 +45,7 @@ export function installChatStoreHarness(
   const permissionRespond = vi.fn().mockResolvedValue(undefined)
   const stopSubagent = vi.fn().mockResolvedValue(undefined)
   const backgroundSubagent = vi.fn().mockResolvedValue(undefined)
+  const permissionSetMode = vi.fn().mockResolvedValue(undefined)
   vi.stubGlobal('window', {
     orca: {
       chat: {
@@ -54,7 +57,7 @@ export function installChatStoreHarness(
         backgroundSubagent
       },
       settings: { set: settingsSet },
-      permission: { respond: permissionRespond, setMode: vi.fn() }
+      permission: { respond: permissionRespond, setMode: permissionSetMode }
     }
   })
   useChatStore.setState(
@@ -75,7 +78,14 @@ export function installChatStoreHarness(
     },
     true
   )
-  return { chatSend, settingsSet, permissionRespond, stopSubagent, backgroundSubagent }
+  return {
+    chatSend,
+    settingsSet,
+    permissionRespond,
+    permissionSetMode,
+    stopSubagent,
+    backgroundSubagent
+  }
 }
 
 // 활성 세션의 커밋 슬라이스 — 두 스위트가 같은 접근자를 쓴다.

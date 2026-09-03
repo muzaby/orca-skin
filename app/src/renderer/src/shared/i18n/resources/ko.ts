@@ -841,6 +841,9 @@ export const ko = {
       rowResizeAria: '패널 행 크기 조절',
       colResizeAria: '패널 열 크기 조절',
       planCopy: '플랜 복사',
+      planUnavailableTitle: '계획 본문을 가져오지 못했습니다',
+      planUnavailableDesc:
+        '모델이 계획을 전달하지 않았습니다. 대화 내용을 보고 승인 여부를 결정하세요.',
       planEmptyTitle: '아직 플랜이 없습니다',
       planEmptyDesc: 'Claude 가 탐색하며 계획을 세우면 여기에 표시됩니다.',
       planSelectHint: '텍스트를 선택해 Claude에게 의견을 남기세요',
