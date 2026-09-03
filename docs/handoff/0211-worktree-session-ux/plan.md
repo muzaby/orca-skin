@@ -8,11 +8,63 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) · 2026-09-02 (ΔV3 · ΔV4) · 2026-09-03 (ΔV5 · ΔV6) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) + git 우측 패널 재설계 제안서 (Git Review Surface) + 싱크 계기 축소 · 첨부 GUI 재대조 · 로딩 교착 회귀 + 커밋 전용 범위 · Stop hook 싱크 · 컴포저 닫기 · 참조 GUI 3차 재대조 |
-| 상태 | READY (ΔV7 — 실제 DOM 기준 우측 패널, 같은 라운드 3) |
+| 상태 | READY (ΔV8 — 커밋별 diff와 입력창 보정, 같은 라운드 3) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) · `V1 + ΔV1 + ΔV2` @ `d23c5be` (ΔV3 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3` @ `46047ac` (ΔV4 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` @ `177def67` (ΔV5 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` @ `628123bc` (ΔV6 의 기준) |
-| 이번 V revision | `ΔV7` (동일 라운드 3, 사용자 DOM 입력) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7` |
+| 이번 V revision | `ΔV8` (동일 라운드 3, 사용자 후속 입력) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8` |
+
+## ΔV8 — 커밋별 diff와 입력창 보정 (2026-09-04, 라운드 3 유지)
+
+### Product & UX Contract / Decision Ledger 차분
+
+사용자는 같은 라운드에서 ① 확대·되돌리기 아이콘 방향 통일 ② 목록 토글의 Orca 파란 활성색 ③ 100줄/20줄을 각각 커밋한 뒤 두 번째 커밋에는 20줄만 표시 ④ 첨부 이미지와 같은 코멘트 창을 요구했다. 첨부 이미지 `codex-clipboard-e4412e70-e9ad-461b-90fb-e660d2d8c6b8.png`의 코드는 화면 데이터다.
+
+| ID | 결정 | 대체 / 상태 |
+|---|---|---|
+| D-127 | 확대·되돌리기는 같은 우상향↔좌하향 축을 유지하고 화살촉만 외향/내향으로 바뀐다. | ACTIVE · ΔV7 아이콘 보완 |
+| D-128 | 목록 활성은 Orca `selected` 글리프와 `selected-soft` 배경을 쓴다. 댓글 입력 경계도 파란 선택 토큰을 쓴다. | ACTIVE · D-124의 헤더 rust 채움 절 SUPERSEDED |
+| D-129 | 커밋 선택은 해당 커밋의 첫 부모→선택 커밋 diff를 표시한다. root 커밋은 empty tree 대비다. 전체 모드는 세션 baseline→HEAD를 유지한다. | ACTIVE · D-036/D-079의 목록만 필터링·커밋 인자 없음 및 관련 구 AT 계약 SUPERSEDED |
+| D-130 | 패치의 요청·응답은 세션 좌표·요약 세대·선택 범위가 모두 일치할 때만 표시한다. 범위 전환은 기존 본문과 입력 중 댓글을 비우며 선택 범위 패치 하나만 보관한다. 같은 범위의 타일 재개방은 재사용한다. | ACTIVE · D-078의 세대당 1회는 동일 범위 내로 한정; 다중 커밋 본문 캐시는 만들지 않음 |
+| D-131 | 댓글은 코드 본문 시작에 정렬한 단일 파란 테두리 상자다. 위에 줄 번호, 아래에 무테 입력과 우측 댓글 추가 아이콘을 둔다. 빈 입력은 제출 불가, Escape는 취소하며 한글 조합 중에는 취소하지 않는다. | ACTIVE · 기존 텍스트 취소/추가 버튼과 이중 테두리 UI 대체 |
+| D-132 | 댓글은 작성한 비교 범위를 기억한다. 다른 커밋을 보아도 보관 중 댓글의 anchor를 덮어쓰지 않으며 해당 범위의 줄에만 마커를 표시한다. 작성 baseline은 실제 patch.base다. | ACTIVE · D-093의 재anchor를 같은 비교 범위에 한정 |
+
+### AC / 유효 V 차분 (기준 ΔV7 @ 7a6c04eb)
+
+| R / AT | 관측 결과 / oracle |
+|---|---|
+| R-73 / AT-80 | 양 상태 아이콘이 같은 대각 축이며 목록 활성은 기존 파란 토큰이다. 실제 버튼 렌더와 SVG 경로·계산된 색을 확인한다. |
+| R-74 / AT-81 | 100줄/20줄의 실제 두 커밋을 만들고 각각 100/20줄, 전체 120줄을 표시한다. 그 뒤 추가 커밋·미커밋 편집이 과거 커밋 본문에 섞이지 않는다. root·merge 첫 부모·잘못된 SHA도 main 테스트로 확인한다. |
+| R-75 / AT-82 | A→B 빠른 전환의 늦은 A 응답과 이전 세대/세션 응답을 폐기한다. 범위 변경 직후 낡은 본문 0개, 같은 범위 재개방은 캐시 재사용이다. 실제 request builder·hook 배선·reducer를 관측한다. |
+| R-76 / AT-83 | 선택 줄 번호·단일 파란 경계·무테 textarea·댓글 추가 아이콘을 표시한다. 입력/제출/빈 값 비활성/Escape 동작을 실제 컴포넌트에서 확인한다. |
+| R-77 / AT-84 | 커밋 댓글은 실제 부모 baseline을 보존하며 범위 이동 후 다른 패치로 재anchor되지 않는다. 해당 범위에서만 표시하고 대기열 항목은 유지한다. |
+
+| pair | 수준 / requiredness | 경로 / 강제 지점 / 증거 |
+|---|---|---|
+| VP-81 | R-73↔AT-80 CHANGED / REQUIRED | GitContextBar→Icon/Button, EP-55; 버튼 상태 렌더와 시각 대조 |
+| VP-82 | R-74↔AT-81, MD-33↔UT-33 NEW / REQUIRED | IPC schema→handler→commit parent→runPatch→parse, EP-56; 실제 Git 결과 직접 비교 |
+| VP-83 | R-75↔AT-82, AR-33↔IT-33 NEW / REQUIRED | comparison→request→hook→store/reducer→본문, EP-57; 순서 역전 행동 oracle. hook에서 comparison 운반을 빼는 변이 선택 |
+| VP-84 | R-76↔AT-83 CHANGED / REQUIRED | InlineLineRow→DiffRequirementDraftRow, EP-58; 입력·제출 callback과 이미지 비교 |
+| VP-85 | R-77↔AT-84, AR-34↔IT-34 NEW / REQUIRED | DiffTileContent→createDiffRequirementItem→reanchor/filter, EP-59; 두 범위 anchor·마커 직접 관측 |
+| VP-78~80 / VP-58~60 / VP-64 / VP-66 | INHERITED / REGRESSION | 단일 목록 토글·px 배치·gutter·파일 이동·문맥 확장·요구사항 보존. D-129와 충돌하는 구 목록-only 기대만 대체 |
+
+### Technical Design / §10 강제 지점
+
+| EP | 대상 / N | 실패 의미 |
+|---|---|---|
+| EP-55 | 목록 토글 채움·확대/복귀 아이콘 / 2 | 텍스트색만 바꾸거나 한 상태만 돌리면 요청 불충족 |
+| EP-56 | SHA 스키마·handler 운반·부모 해석·patch 실행 / 4 | 어느 지점에서든 선택 커밋이 사라지면 누적 본문 복귀 |
+| EP-57 | request builder·query key·hook 전달/cleanup·RECEIVE_GIT_PATCH·SET_DIFF_COMPARISON·BEGIN_GIT_SNAPSHOT_QUERY·RECEIVE_GIT_SNAPSHOT_SUMMARY / 7 | 범위·세션·세대 중 하나를 잃으면 낡은 응답을 표시하거나 요청을 차단 |
+| EP-58 | 줄 라벨/입력 배치·빈 값 비활성·제출·Escape / 4 | 외형만 바꾸면서 입력 동작 또는 접근성 이름 손실 |
+| EP-59 | patch baseline 사용·범위 태그 생성·마커 필터·같은 범위 재anchor / 4 | 커밋 선택만으로 대기 중인 요구사항 내용이 다른 줄로 변형 |
+
+`GitDiffPatchRequest`에 선택 `commitSha`(40자리 hex)를 추가하고 main은 `cat-file commit` 헤더의 첫 부모를 사용한다. root는 기존 empty-tree OID, 객체/부모가 없으면 unavailable이며 누적 범위로 폴백하지 않는다. 전문맥/축소 폴백·파일 상한·읽기 전용 Git 관문은 그대로 사용한다. `GitDiffBase`에 `commit-parent`(oid, commitOid)를 추가해 실제 비교 좌표를 반환한다.
+
+renderer는 선택 범위를 query key와 수신 action에 운반한다. 범위 변경은 patch/draft를 지우고 범위별 무한 캐시 대신 현재 패치 하나만 유지한다. `DiffRequirementItem`의 선택 commitSha는 renderer 보관 정보이며 전송 anchor 형식은 유지한다. 새 IPC 채널·의존성·DB migration은 없다. 요약의 Stop hook 계기는 그대로이며, 사용자가 다른 커밋을 고르는 명시적 탐색만 패치 조회 계기로 추가된다.
+
+최대 비용은 타일의 새 범위당 부모 헤더 1회+패치 1회(상한 초과 시 축소 1회)와 기존 저장소 좌표 조회다. 운영 gate는 관련 Git/IPC/renderer 테스트, 전체 lint, typecheck 3구성, 문서 gate다. UI 실기는 원본 미제공 자산에 대한 Orca fallback을 유지한다.
+
+READY 자기검토: D-127~132↔AT-80~84가 대응하고 충돌하는 기존 계약의 대체를 위에 명시했다. IPC→main→renderer와 댓글 저장/표시의 소비 경로를 확인했다. 기존 ΔV6 D25~D27 등 미해결 이슈는 소급 종료하지 않으며 라운드 3을 유지한다.
 
 ## ΔV7 — 실제 DOM 기준 우측 패널 (2026-09-03, 라운드 3 유지)
 
