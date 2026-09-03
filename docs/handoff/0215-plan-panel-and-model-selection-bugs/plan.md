@@ -774,3 +774,28 @@
 - 반복해서 부딪히는 환경 한계: better-sqlite3 ABI 가 `npm ci`(Electron) ↔ vitest(Node) 사이에서
   뒤집힌다 — `app/AGENTS.md` 가 문서화한 그대로다.
 - 현재 라운드 수: 1
+
+---
+
+> **[검증자 기입]** 이하는 검증 턴(r1)이 채운다. 판정 원문은 [`verify.md`](verify.md).
+
+## [검증자 기입] 파생 이슈 (r1)
+
+| # | finding | 귀속 | disposition | 후속 주체 |
+|---|---|---|---|---|
+| **D1** | 컨테이너→presentational 배선 4곳이 삭제돼도 스위트가 838/838 green이다 — Composer의 `<ModeMenu options=…>`(M-B) · `setModel(…, selection.modelAlias, …)`(M-F) · `selectedModel` memo의 `modelAlias`(M-H) · `SubAgentTileContent`의 `stopErrors` prop(M-G) | AR-04·AR-05에 같은 레벨 `AR↔IT` REQUIRED pair 부재 · VP-12·VP-19의 적대 증거 `not selected` | **PLAN_GAP** | **설계자** |
+| D2 | §10 EP-19가 "유일 렌더 지점을 잃는 문구"를 1개로 셌으나 실측 2개다(중단 실패 + 정착 사유) | §10 EP-19 분모 | NON_BLOCKING | 설계자(분모 2로 정정) |
+| D3 | `classifyModel`·`matchesExplicit`·`AUTO_UNSUPPORTED_FALLBACK_MODE`가 정의 파일 밖 참조 0인데 `export`다 | 비귀속 | NON_BLOCKING | 기록 |
+| D4 | §8 검산 줄의 항 나열이 EP-01~19 순서와 어긋난다(합계 26은 정확) | plan §8 | NON_BLOCKING | 설계자 |
+| D5 | 구현 보고의 vitest `7 skipped`가 재측정(0 skipped)과 어긋난다 — 파일 327·케이스 3233은 일치 | 구현 보고 | NON_BLOCKING | 기록 |
+| D6 | `turn.aborted`로 `result`가 오지 않으면 `ctx.lastAssistantText`가 다음 턴으로 넘어간다 | 비귀속(§13이 창을 인지·수용) | NEXT_HANDOFF | 제품 판단 |
+| D7 | 0213 D-007의 "안내 분모 = 할 일 항목" 구분이 `items.length === 0`으로 소멸했다 | 0213 D-007 | NON_BLOCKING | 설계자(supersede 행) |
+| D8 | `백그라운드 작업` 타일 상세에 `최근 작업`(`currentChildLabel`) 행이 없다 | 비귀속 | NON_BLOCKING | 기록 |
+
+### D1 — 설계자가 고칠 규범 행
+
+**코드는 고칠 것이 없다.** 네 배선 모두 프로덕션에 올바르게 존재하고 AC·§10을 충족한다. 빠진 것은 그 옳음을 잠그는 oracle이다.
+
+- 침묵의 메커니즘: `ModeMenu.options?`가 `options ?? MODE_MENU_OPTIONS`로, `SubAgentTaskList.stopErrors?`가 `= {}`로 폴백한다 — **optional prop + 관대한 기본값**이라 배선 누락이 컴파일 오류가 아니라 조용한 동작 복귀가 된다.
+- 현재 렌더 테스트가 못 잡는 이유: `modelMenu0215.render.test.ts:97`이 `options: modeMenuOptions(selectedModelShape(...))`로 **Composer가 하는 조립을 테스트가 다시 만든다**. presentational 컴포넌트는 잠기지만 컨테이너의 배선은 잠기지 않는다.
+- 필요한 정정: AR-04·AR-05에 `AR↔IT` REQUIRED pair를 신설하고, 각 pair에 배선 oracle(컨테이너를 마운트해 메뉴 항목·문구를 관측)과 선택 변이(M-B·M-G)를 등록한다. VP-12·VP-19의 `not selected` 판단도 함께 갱신한다.
