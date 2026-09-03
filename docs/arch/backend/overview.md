@@ -32,7 +32,7 @@
 | 언어 | TypeScript | ~5.x (strict, target ES2022) | tsconfig.node.json 분리 |
 | 빌드 도구 | electron-vite | ^5.0.0 | main + preload sub-config |
 | LLM SDK (claude-code) | @anthropic-ai/claude-agent-sdk | latest | `query()` 함수 직접 사용 (Phase 3 채택) |
-| LLM SDK (opencode) | @opencode-ai/sdk | — | **미설치** (Future, OQ7) |
+| LLM SDK (opencode) | @opencode-ai/sdk | 1.18.27 (exact) | **조사·계약 검증용 설치**; adapter 미등록·runtime 미활성 ([SDK 해설](../../opencode-sdk-spec.md)) |
 | 입력 검증 | zod | ^4.4.3 | `src/shared/protocol.ts` 스키마 |
 | 설정 저장 | electron-store | ^8.2.0 | 단일 객체 스토어 (`orca-settings`) |
 | 로컬 DB | **better-sqlite3** | ^12.x | ✅ Phase 3 도입 완료. 동기 API, Electron 호환. 직접 마이그레이션 (`db/migrations/`). WAL + foreign_keys pragma. |

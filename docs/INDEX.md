@@ -14,6 +14,8 @@
 | 세션 런타임 · 동시성 · IPC 핸들러 구조 | [`arch/backend/runtime-ipc.md`](arch/backend/runtime-ipc.md) |
 | chat turn · 어댑터 호출 · SDK→NormalizedEvent 정규화 | [`arch/backend/adapters.md`](arch/backend/adapters.md) |
 | **TaskXXX 도구군** (할 일 목록 · background 태스크 · 기능 가용성) | [`claude-taskxxx-spec.md`](claude-taskxxx-spec.md) — SDK 표면 정본 |
+| **OpenCode SDK** (설치 버전 · API 표면 · 메시지/이벤트 · 오류/전송 제약) | [`opencode-sdk-spec.md`](opencode-sdk-spec.md) · 공식 원문은 [`spec/opencode/INDEX.md`](spec/opencode/INDEX.md) |
+| **Orca → OpenCode 마이그레이션 연구** (레이어별 작업 · 매핑 · 단계별 gate) | [`etc/study/opencode/orca-migration-guide.md`](etc/study/opencode/orca-migration-guide.md) · 기존 연구 지도는 [`etc/study/opencode/00-index.md`](etc/study/opencode/00-index.md) |
 | 턴 이벤트 정규화 계층 (NormalizedEvent · 권한 브리지) | [`arch/backend/provider-runtime.md`](arch/backend/provider-runtime.md) |
 | **인증 provider** (로그인 게이트 · LLM 자격증명 · 사내 서비스) | [`arch/backend/auth.md`](arch/backend/auth.md) |
 | Electron 보안 경계 · 자격증명 · 원격 전송 스택 | [`arch/backend/security.md`](arch/backend/security.md) |
@@ -59,7 +61,7 @@
 | [`decisions/`](decisions/) | ADR — 왜 그렇게 결정했나 |
 | [`archive/`](archive/) | 완료된 페이즈·핸드오프 이력 (완료 이력의 정본은 `git log`) |
 | [`etc/`](etc/) | 전략 문서 · 라이프사이클/오케스트레이션 일반론 · 외부 프로젝트 사례 연구(`study/` — cowork 반환 메시지 렌더링은 [`etc/study/cowork/`](etc/study/cowork/README.md), Claude Code 컴포저 상단 행·diff 패널의 **버튼 구성**은 [`etc/study/epitaxy/`](etc/study/epitaxy/README.md)) |
-| [`spec/`](spec/) | 외부 공식 문서 **원문 미러** — 편집 금지 ([`claude-code-spec.md`](claude-code-spec.md) 가 라우터) |
+| [`spec/`](spec/) | 외부 공식 문서 **원문 미러** — 편집 금지 ([`claude-code-spec.md`](claude-code-spec.md) · [`opencode-sdk-spec.md`](opencode-sdk-spec.md) 해설 경유) |
 | `chats/` | 사용자 의도 트랜스크립트 (transcript ≠ 현재 요구·아키텍처·코딩 규칙) |
 | `project/` | 디자인 프로토타입 아카이브 (시각 기준) |
 

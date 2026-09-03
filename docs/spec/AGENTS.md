@@ -28,6 +28,7 @@
 |---|---|---|---|---|
 | Claude (Anthropic) — Claude Code CLI | `claude/{headless,cli-reference}.md` | [code.claude.com/docs/ko](https://code.claude.com/docs/ko/headless) | 2026-05-14 | [`../claude-code-spec.md`](../claude-code-spec.md) |
 | Claude (Anthropic) — Agent SDK | `claude/agent-sdk/` | [code.claude.com/docs/ko/agent-sdk](https://code.claude.com/docs/ko/agent-sdk/) | 2026-05-18 | [`claude/agent-sdk/INDEX.md`](claude/agent-sdk/INDEX.md) (파일별 인덱스) |
+| OpenCode — JS/TS SDK·HTTP Server | `opencode/` | [v1.18.27 문서 출처·해시](opencode/INDEX.md) | 2026-09-03 | [`../opencode-sdk-spec.md`](../opencode-sdk-spec.md) |
 
 > Orca 는 Claude Code 를 **Agent SDK 의 `query()`** 로 구동한다
 > (`app/src/main/adapters/claude.ts`). CLI 플래그 문서는 SDK 가 그 CLI 를 감싸므로 여전히

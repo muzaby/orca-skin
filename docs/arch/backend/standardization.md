@@ -74,13 +74,15 @@ class ClaudeEngine {
 class OpenCodeEngine {
   // SDK: createOpencode() / createOpencodeClient()
   // 이벤트: event.subscribe() SSE 스트림
-  // 권한: permission event → postSession...Permissions...(boolean)
+  // 권한: 선택한 API 표면의 permission request → 응답 객체 (boolean body 아님)
   // 되돌리기: session.revert / session.unrevert
   // 인증: auth.set / 서버 config
 }
 ```
 
 엔진별로 표현력이 다른 기능(Claude 의 권한 갱신, OpenCode 의 직접 파일·검색 API)은 정규화로 뭉개지 않고, 해당 엔진 클래스 안에 그대로 둔다. UI 는 capability 를 보고 없는 기능의 버튼을 숨긴다(provider-runtime.md §4 SessionCapability / §15 CapabilityProbe).
+
+위 `OpenCodeEngine`은 미구현 설계 예시다. 설치 SDK의 import별 호출·SSE 전송·권한 reply 차이는 [SDK 해설](../../opencode-sdk-spec.md)에 있으며, SDK 설치만으로 Engine 배선이나 배포 정책을 채택하지 않는다.
 
 > **현행 코드와의 관계**: `app/src/main/adapters/types.ts` 의 `SessionAdapter`(`isInstalled`/`install`/`sendMessage`)는 **이미 존재하는 인터페이스**지만 현재 **claude 단일 구체** 구현뿐이다([adapters.md §1.1](./adapters.md)). 본 설계는 이를 부정하지 않는다 — `SessionAdapter` 는 세션 실행의 얇은 계약으로 두고, *엔진 전체*(인증·되돌리기·직접 API 등)를 묶는 범용 `BackendAdapter` 추출은 **3번째 엔진까지 미룬다**([adapters.md §1.9](./adapters.md) 새 백엔드 체크리스트와 연계).
 
