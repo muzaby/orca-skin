@@ -318,3 +318,167 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh ea983b1..b273832
 - repository operation checks: **PASS** — trailer 8키 파싱 확인 · 인용 해시 3건 실재 · `[구현자 기입]` 7/7 · INDEX 대상 커밋을 `b273832`로 기입.
 - 남은 사람 확인: AC3 문구 시각 · custom 모델 실환경 계획 노출 · 두 타일 동시 대조.
 - **다음 단계: 설계자**. 코드는 고칠 것이 없다 — D1은 규범 행(pair·oracle·변이) 추가로 닫히고, 그 다음 구현 턴이 `Composer`·`SubAgentTileContent`를 마운트하는 배선 테스트를 더한다.
+
+---
+
+# Verify r2 — ΔV1 (컨테이너 배선 잠금)
+
+> r1 판정 원문은 위에 그대로 둔다. 이 절은 r2 만 다룬다.
+
+## 메타 (r2)
+
+| 항목 | 값 |
+|---|---|
+| 검증 범위 | `1636ccc..eebb9a5` — 구현 `a427764` · 보고 보강 `eebb9a5` |
+| 기준선 plan | `1636ccc` (ΔV1 설계 커밋, 구현과 **분리됨**) |
+| 유효 V | `V1 + ΔV1` |
+| 판정 | **RETURN_TO_PLAN** — root `PLAN_GAP` D1(r2) |
+| 자기 검증 여부 | 설계·구현·검증이 모두 Claude다. §4 분모 규칙대로 **구현 보고가 이름대지 않은 적대 축 5건**(V-1~V-5)을 만들었고 **3건이 green** 이다 |
+
+## 0. 기준선 / plan 변경 확인 (r2)
+
+✅ **기준선이 diff 로 성립한다.** `git diff 1636ccc..eebb9a5 -- plan.md` 의 삭제 줄 **0** — 단일 hunk(`@@ -851,6 +851,141 @@`)가 전부 `[구현자 기입]` H2 7개다. Decision·AC·V 노드/pair·§10 원문은 손대지 않았다.
+
+### Plan validity (r2)
+
+| 항목 | 판정 | 관측 |
+|---|---|---|
+| V mode / 상속 좌표 | ✅ | `Baseline V + Delta V`, 기준 `0215:V1@ea983b1` — `git cat-file -t ea983b1` = `commit` |
+| `CHANGED` 좌 node 의 같은 레벨 REQUIRED pair | ✅ | AR-04→VP-21 · AR-05→VP-22, 둘 다 `AR↔IT` REQUIRED |
+| pair 의 경로·강제 지점·oracle | ⚠️ | 셋 다 있으나 **EP-20 분모가 전수가 아니다** — §7 재열거 참조 |
+| 적대 증거 선택 이유 | ✅ | VP-21 `구조적 proxy` · VP-22 `배선 존재` — 둘 다 `required` 로 변이 등록 |
+| AT-23·AT-24 노드 명명 | ⚠️ NON_BLOCKING | ΔV1 노드표는 `AT-23`·`AT-24` 를 NEW 로 선언했는데 pair 표의 우 node 는 `IT(컨테이너 배선)`·`IT(타일 배선)` 이다. 같은 산출물에 라벨이 둘이다 — 계약 누락은 아니다 |
+
+## 1~3. 비판적 읽기 · 역방향 탐색 (r2)
+
+✅ **프로덕션 동작 변경 0** 을 확인했다. 코드 diff 는 ① optional→required prop 2 ② `export` 3건 제거 ③ 신규 테스트 2 ④ 기존 테스트 인자 추가 2 뿐이다. 값 전달 경로는 한 줄도 바뀌지 않았다.
+
+- `export` 제거 3건의 파일 밖 참조: `rg` 로 `classifyModel` · `matchesExplicit` · `AUTO_UNSUPPORTED_FALLBACK_MODE` 전부 **정의 파일 내부 참조만** — 미배선/죽은 코드 아님.
+- 신규 테스트 2개가 production symbol 을 부르는가: `subagentWiring` 은 `SubAgentTileContent` 를 직접 마운트(동명 재구현 없음). `composerWiring` 은 **소스를 읽는다** — production 을 실행하지 않는 구조적 proxy 이고, plan D-018 이 그 이유(포털·`document` 부재)를 적었다.
+
+## 4. 등록된 적대 증거 재측정 + 자기검증 분모 (r2)
+
+**등록 변이 4종 — 구현 보고와 무관하게 다시 심었다. 전부 red 로 재현된다.**
+
+| 변이 | r1 결과 | r2 재측정 | 판정 |
+|---|---|---|---|
+| M-B `<ModeMenu options=…>` 미전달 | green 838/838 | **red** `축①` 1건 (843/844) | 잠김 |
+| M-F `setModel(…, null, …)` | green 838/838 | **red** `축③` 1건 | 잠김 |
+| M-G `stopErrors` prop 미전달 | green 838/838 | **red** AT-24 3건 (841/844) | 잠김 |
+| M-H memo `modelAlias: null` | green 838/838 | **red** `축②` 1건 | 잠김 |
+
+**덮개 회귀 재실행**: r1 이 red 로 잡던 축 2개를 다시 심었다 — `taskBoard` 파생 복원 **red 45건** · `modelKey` 옛 식 **red 3건**. `red → green` 은 **0건**.
+
+### 자기검증 분모 — 구현 보고가 이름대지 않은 축 5건
+
+구현자와 검증자가 같은 에이전트다. 보고된 변이의 재실행은 자기 목록의 재실행이므로 **§10 EP-20 분모를 독립 재열거**하고 거기서 축을 만들었다.
+
+| 축 | 무엇을 깨는가 | 결과 |
+|---|---|---|
+| **V-1** `<ModelMenu selection={null}>` | 컨테이너가 선택 모델을 모델 메뉴에 공급하는 지점(`Composer.tsx:496`) | **GREEN 844/844 · typecheck 0** |
+| **V-2c** 칩 라벨을 `selectionLabel(selectedModel)` → 폴백 문자열 (미사용 import 까지 밀어 **잔여물 진단 0**) | 컨테이너가 선택 모델을 칩에 공급하는 지점(`:392`) | **GREEN 844/844 · TS 0** |
+| **V-5** `setModel(pk, selection.modelAlias, selection.modelAlias, adapter)` | 같은 호출의 **형제 슬롯** — arg3 은 alias 그대로 두고 arg2(`modelFamily`)만 오염 | **GREEN 844/844 · TS 0** |
+| V-4 `options` 없는 두 번째 `<ModeMenu>` 삽입 | 새 oracle 의 `indexOf` 민감도 | red — `축①` 1건 + `TS2741` |
+| V-3 `selectedProviderKey: undefined` | steer 게이트 입력(0119 축) | GREEN — 0215 유효 V 밖 |
+
+**제품 영향 — 셋 다 사용자에게 보인다.**
+
+- V-1 → `ModelMenu.tsx:49` 가 `selection?.providerKey === agent.key && selection.modelFamily === modelId` 로 활성 행을 정한다. `null` 이면 **어느 모델이 선택됐는지 체크 표시가 사라진다** — D-008 이 만든 `[1m]` 두 행 구분이 화면에서 무의미해진다.
+- V-2c → `selectionLabel` 은 `provider/modelFamily` 다. 폴백으로 바뀌면 **칩이 항상 기본 문구**를 보인다 — "지금 어떤 모델인가" 의 주 표시가 죽는다.
+- V-5 → `modelFamily` 에 alias 가 들어가면 `selectionExists(agents, providerKey, alias)` 가 거짓이 되어 `Composer.tsx:193` 의 복구 effect 가 **사용자 선택을 default 로 되돌린다**.
+
+## 5. V-pair closeout (r2)
+
+| Pair | 레벨 | 판정 | 증거 | §10 분모 |
+|---|---|---|---|---|
+| VP-22 | AR↔IT | **PASS** | `subagentWiring.render.test.ts` 3케이스 · M-G red 3 | EP-20(1) 1/1 · EP-21(1) 1/1 |
+| VP-21 | AR↔IT | **PAIR_FAIL** | 등록 변이 3종은 red 다. 그러나 EP-20 이 잠근다고 적은 "컨테이너가 값을 공급한다" 의 **분모가 5가 아니라 8** 이고 그중 2지점 + 형제 슬롯 1이 green | EP-20 **5/8** · EP-21 1/1 |
+| VP-12 · VP-19 | AT / ST | PASS(위임 성립) | VP-12 는 VP-21 에, VP-19 는 VP-22 에 배선을 위임했다. VP-22 는 닫혔고 **VP-12 의 위임 대상 VP-21 은 열려 있다** | EP-12 1/1 · EP-18·19 2/2 |
+| V1 나머지 18 pair | — | PASS(승계) | r1 §5 좌표 참조. r2 는 프로덕션 동작을 바꾸지 않았고 지정 스위트 169파일 1619케이스 green |
+
+### AC / 합계 (r2)
+
+- `AC24` ✅ — 컨테이너 마운트 출력에 `중단하지 못했습니다`, 양성 짝(`로그 파서 조사`)·음성 짝·시드 도달 관측 3케이스.
+- `AC23` ⚠️ **부분** — 세 축 전부 red 로 잠겼으나 축③ 이 `setModel` 호출의 **arg3 만** 본다. V-5 가 그 구멍이다.
+- 합계 재측정: ✅ **21** · ⚠️ **3**(AC3 시각 · custom 모델 실환경 · **AC23**) · ❌ 0 = **24**. 구현 자기보고는 `✅22 · ⚠️2`, 커밋 trailer 2개 모두 `Criteria-Met: 22/24`, INDEX 비고는 합계 미기재 — **본문↔trailer 는 일치**하고 검증 재측정과 1건(AC23) 갈린다.
+
+### 현재 변경의 운영 gate (r2)
+
+| gate | 관측 |
+|---|---|
+| `npm run lint` | **0 error / 1 warning** — `react-hooks/incompatible-library`(`useTranscriptVirtualizer`), 이번 변경과 무관 |
+| `npm run typecheck` | 3구성 **0 error** |
+| 지정 vitest 스위트 | **169파일 1619케이스 green** |
+| 게이트가 트리를 바꿨는가 | ❌ 아니다 — 실행 후 `git status --short` 빈 출력 |
+
+## 7. 숫자 재측정 — §10 EP-20 분모 (root)
+
+❌ **plan §8 의 EP-20 분모 6 은 전수가 아니다.**
+
+plan §8 의 검색어는 `rg "options=\{modeMenuOptions\|modelAlias,\|setModel\(\|stopErrors=\{"` 다 — 이것은 **해법의 이름**이지 불변식의 주어가 아니다. 이미 고쳐 놓은 6지점만 분모에 오르고, 그 집합에 결함을 심으니 당연히 전부 red 였다.
+
+불변식의 주어(`컨테이너가 선택 모델에서 파생한 값을 View 로 공급한다`)로 다시 세면:
+
+```
+rg -nE '<(ModeMenu|ModelMenu)' Composer.tsx      → 2   (:464 options · :496 selection)
+rg -n 'selectedModel' Composer.tsx               → :255 · :392 · :466 · :496 (+ memo :176)
+rg -n 'setModel\(' src/renderer --glob '!*.test.*' → 호출 3 (:193 :200 :498) + 정의 1
+```
+
+| 지점 | plan EP-20 이 셌는가 | 잠겼는가 |
+|---|---|---|
+| `:466` `options=` · `:181` memo alias · `:193`·`:200`·`:498` `setModel` | ✅ 6 중 5 | ✅ (M-B·M-F·M-H) |
+| `SubAgentTileContent.tsx:147` `stopErrors=` | ✅ 6 중 1 | ✅ (M-G) |
+| **`:496` `selection={selectedModel}`** | ❌ 미계수 | ❌ **green** (V-1) |
+| **`:392` `selectionLabel(selectedModel)`** | ❌ 미계수 | ❌ **green** (V-2c) |
+| `:255` `selectedProviderKey` | ❌ 미계수 | green — 0119 축, 0215 유효 V 밖 |
+
+**0215 범위 내 분모 = 8, 잠긴 것 = 5.** `:255` 는 범위 밖이라 제외했다.
+
+## 9. Repository operation checks (r2)
+
+| 검사 | 판정 | 관측 |
+|---|---|---|
+| trailer 파싱 | ✅ | `a427764` 9키 · `eebb9a5` 8키, 전부 허용값. `Agent: claude` · `Status: implemented` · `Verified-By: pending` |
+| 인용 커밋 실재 | ✅ | `ea983b1`·`1636ccc`·`a427764`·`eebb9a5`·`b273832` 전부 `git cat-file -t` = commit |
+| 구현자 7 필드 | ✅ | 854·871·889·915·926·947·972 = **7/7**. `설계 대비 명시적 차이` 도 H3 로 존재 |
+| 대상 커밋 좌표 | ⚠️ → 이번 턴에 기입 | 구현자가 `(r2 구현 — 검증자 기입)` 자리표시자를 남겼다. INDEX 를 `a427764` 로 채운다 |
+| INDEX 비고 길이 | ⚠️ NON_BLOCKING | 735자 ≈ 7줄 — `AGENTS.md §산출물 문장 규칙 3` 의 5줄 상한 초과 |
+| 검증 중 잔여물 | ✅ 정리함 | 변이 스크립트가 timeout 으로 죽어 `Composer.tsx:255` 에 변이가 남았다. `git checkout` 으로 복원하고 `.bak` 0건·`git status` clean 을 확인했다 |
+
+## 12. 구현자 코멘트 / 선조치 경계 (r2)
+
+- **설계 대비 차이(시드 수단) — 타당 판정으로 닫지 않고 재검증했다.** `useChatStore.setState` 가 SSR 에 안 보이는 것은 사실이다(zustand v5 `getServerSnapshot = getInitialState`). 대체물(`getInitialState()` 제자리 변형)이 갖는 **공유 축** 실패 모드를 구현자가 적었고, 실제로 `afterEach` 원복이 있으며 단독 실행 3/3 · 전체 실행에서도 green 이다. 그 축에 기댄 AC24 를 다시 단언했다 — 통과.
+- **선조치 범위 준수** ✅ — 규범 행을 고치지 않았고 `export` 정리는 plan §11 이 명시한 선택 항목이다.
+- **구현자가 스스로 보고한 §8 과대(8→2)** ✅ 재확인 — `npm run typecheck` 가 `rightPanelTiles:111`·`taskSurface0212:124` 2건만 낸다.
+
+## 13. Finding disposition / 파생 이슈 (r2)
+
+| # | finding | 귀속 | disposition | 후속 주체 |
+|---|---|---|---|---|
+| **D1(r2)** | §10 EP-20 분모가 **해법의 이름**으로 세어져 전수가 아니다 — 0215 범위 내 8지점 중 3이 미계수, 그중 `:496`(V-1) `:392`(V-2c) 가 green. 형제 슬롯 V-5 도 green | VP-21 · §10 EP-20 · AC23 축③ | **PLAN_GAP** | **설계자** |
+| D2(r2) | AC23 축③ 이 `setModel` 호출의 arg3 만 단언해 arg2 오염(V-5)에 침묵 | AC23 | PLAN_GAP(D1 종속) | 설계자 |
+| D3(r2) | ΔV1 노드표의 `AT-23`·`AT-24` 가 pair 표에서 `IT(…)` 로 다르게 불린다 | plan §7-A ΔV1 | NON_BLOCKING | 설계자(명명 통일) |
+| D4(r2) | INDEX 0215 비고 735자(≈7줄) — 5줄 상한 초과 | `AGENTS.md §산출물 문장 규칙 3` | NON_BLOCKING | 이번 턴에 줄인다 |
+| D5(r2) | `Composer.tsx:255` steer 게이트 입력이 배선 잠금 없이 green(V-3) | 0119 축 | NEXT_HANDOFF | — |
+
+### D1(r2) — 설계자가 고칠 규범 행
+
+- **왜 구현자가 못 닫는가**: EP-20 은 "6 사이트" 를 **열거**로 못박았고 AC23 축③ 은 "alias 를 3번째 인자로 넘김" 이라 적었다. 미계수 2지점과 arg2 를 잠그려면 **§10 분모와 AC 행 자체를 늘려야** 한다 — 구현자 권한 밖이다.
+- **필요한 정정**: ① EP-20 의 분모를 불변식의 주어로 재산출하고 검색 명령을 그 주어로 적는다 ② 미계수 2지점(`:496`·`:392`)을 EP-20 에 편입 ③ AC23 축③ 을 "호출 전건이 `(providerKey, modelFamily, modelAlias, adapter)` 를 그 순서로 넘긴다" 로 넓히고 V-5 를 등록 변이로 추가 ④ VP-21 의 `§10 강제 지점 전수` 를 5 → 8 로 고친다.
+- 코드 변경은 그다음이다 — 지금 코드는 **옳고**, 없는 것은 그것을 지키는 oracle 이다(r1 D1 과 같은 형태, 한 단계 더 안쪽).
+
+## 14. Review Signals — 사실만 (r2)
+
+- 이전 라운드와 동일 증상인가: **같은 형태다.** r1 D1 = "규칙은 잠겼는데 배선이 안 잠겼다". r2 D1 = "배선 6곳은 잠겼는데 **그 6이 전수가 아니다**". 두 번 다 분모가 이미 고친 자리로만 이뤄졌다.
+- 관련 지침이 있었는가: **있었다.** `handoff-impl §2` — "그 검색의 술어는 불변식의 주어로 쓴다 — 네가 쓴 해법의 이름이 아니다. 해법 이름으로 세면 이미 고친 지점만 분모에 오르고, 결함 심기는 그 집합의 감도만 증명한다." plan §8 의 EP-20 검색어가 정확히 해법 이름이다.
+- 사용자 결정 변경: 없음. D-020 은 OPEN 유지.
+- 반복된 검증 환경 한계: ① renderer 에 DOM 이 없어 포털 안 배선은 마운트 불가(D-020 OPEN) ② zustand v5 SSR 스냅샷이 `setState` 시드를 무시 ③ better-sqlite3 ABI ④ **변이 스크립트가 timeout 으로 죽으면 트리에 변이가 남는다** — 이번에 실제로 겪었고 복원했다.
+
+## 15. 결론 (r2)
+
+**RETURN_TO_PLAN.** 다음 주체는 **설계자**다.
+
+- 등록된 계약은 전부 성립한다 — 변이 4종 red, VP-22 PASS, 게이트 3종 green, 프로덕션 동작 변경 0, 덮개 회귀 0.
+- 그러나 **VP-21 의 §10 분모가 전수가 아니고**, 범위 내 미계수 2지점 + 형제 슬롯 1이 green 이다. 셋 다 사용자에게 보이는 회귀(선택 표시 소멸·칩 라벨 소멸·선택 되돌림)다.
+- 구현자는 EP-20 열거와 AC23 문언을 늘리지 않고는 닫을 수 없다 → `PLAN_GAP`.
