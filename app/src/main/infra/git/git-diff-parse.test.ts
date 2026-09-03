@@ -14,8 +14,7 @@ import {
   parseCommitLog,
   parseUnifiedPatch,
   parseNameStatusZ,
-  parseNumstatZ,
-  parseUntrackedPaths
+  parseNumstatZ
 } from './git-diff-parse'
 import type { GitDiffFileEntry } from '../../../shared/ipc'
 
@@ -502,52 +501,5 @@ describe('parseUnifiedPatch 상한 셋 — 서로를 대신하지 못한다 (AT-
     // 넘긴 파일도 변경량은 남는다 — "변경이 없다" 와 "줄을 싣지 않았다" 는 다르다(D-077).
     expect(parsed.files[fits]).toMatchObject({ added: per, lines: [] })
     expect(parsed.files[fits + 1].lines).toHaveLength(slack)
-  })
-})
-
-// 0211 ΔV4 r3 — 미추적 파일(D-026). `git diff` 는 이 파일들을 보지 못하므로 목록은
-// `ls-files --others` 가 따로 채운다. **합계는 그 항목을 세지 않는다.**
-describe('미추적 파일 (D-026)', () => {
-  it('-z 토큰을 경로로 읽고 변경량 0 인 추가 항목으로 만든다', () => {
-    // 마지막 NUL 뒤의 빈 토큰은 버리고, 경로 자체는 다듬지 않는다 — 끝 공백도 정상 경로다.
-    expect(parseUntrackedPaths('a.ts\0dir/b with space.ts\0한글.ts\0')).toEqual([
-      { path: 'a.ts', status: 'added', added: 0, removed: 0, binary: false },
-      { path: 'dir/b with space.ts', status: 'added', added: 0, removed: 0, binary: false },
-      { path: '한글.ts', status: 'added', added: 0, removed: 0, binary: false }
-    ])
-  })
-
-  it('빈 출력은 빈 목록이다 — 미추적 없음이 조회 실패로 보이지 않는다', () => {
-    expect(parseUntrackedPaths('')).toEqual([])
-    expect(parseUntrackedPaths('\0')).toEqual([])
-  })
-
-  it('목록에는 섞이고 합계에는 0 을 더한다', () => {
-    const merged = mergeDiffEntries(
-      [entry('tracked.ts', 3, 2)],
-      parseUntrackedPaths('fresh.ts\0also-new.ts\0')
-    )
-
-    expect(merged.files.map((file) => file.path)).toEqual(['also-new.ts', 'fresh.ts', 'tracked.ts'])
-    // 미추적 둘이 목록에 있어도 합계는 추적 하나 그대로다.
-    expect(merged.totals).toEqual({ added: 3, removed: 2 })
-  })
-
-  it('인자를 생략하면 예전과 같다 — 추적만 넘기는 호출부가 바뀌지 않는다', () => {
-    expect(mergeDiffEntries([entry('a.ts', 1, 1)])).toEqual(
-      mergeDiffEntries([entry('a.ts', 1, 1)], [])
-    )
-  })
-
-  it('목록 상한은 미추적을 포함해 잰다 — 200 을 넘기면 잘렸다고 말한다', () => {
-    const tracked = Array.from({ length: MAX_DIFF_FILES }, (_, i) =>
-      entry(`t${String(i).padStart(4, '0')}.ts`)
-    )
-    const merged = mergeDiffEntries(tracked, parseUntrackedPaths('zz-new.ts\0'))
-
-    expect(merged.files).toHaveLength(MAX_DIFF_FILES)
-    expect(merged.truncated).toBe(true)
-    // 합계는 절단 앞에서 세므로 미추적이 잘려도 수치는 그대로다(0 을 더하므로 변화 없음).
-    expect(merged.totals).toEqual({ added: MAX_DIFF_FILES, removed: 0 })
   })
 })

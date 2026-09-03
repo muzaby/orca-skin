@@ -91,25 +91,16 @@ describe('diff 요약 — 범위와 목록 (VP-09)', () => {
     })
   })
 
-  it('미추적 파일은 목록에 남고 합계에는 0 을 더한다 (D-026)', async () => {
+  it('추적 + 미추적 fixture에서 추적 변경만 목록·합계에 남는다 (VP-30)', async () => {
     const summary = await gitDiffSummary({ cwd: repo, baseOid })
     const paths = summary.files.map((f) => f.path).sort()
-    expect(paths).toEqual(['edited.ts', 'fresh.ts'])
-    // 목록에는 있다 — 커밋 전 새 파일이 화면에서 조용히 사라지지 않는다.
-    const fresh = summary.files.find((f) => f.path === 'fresh.ts')!
-    expect(fresh).toMatchObject({ status: 'added', added: 0, removed: 0, binary: false })
-    // 그러나 수치에는 기여하지 않는다 — 합계는 추적 변경 하나와 같다.
+    expect(paths).toEqual(['edited.ts'])
+    expect(paths).not.toContain('fresh.ts')
     const edited = summary.files.find((f) => f.path === 'edited.ts')!
     expect(summary.totals).toEqual({ added: edited.added, removed: edited.removed })
     expect(summary.totals.added).toBeGreaterThan(0)
     // 바뀌지 않은 파일은 목록에 없다 — 음성 짝.
     expect(paths).not.toContain('kept.ts')
-  })
-
-  it('미커밋 블록도 같은 미추적 항목을 싣는다 — 두 목록이 갈리지 않는다', async () => {
-    const summary = await gitDiffSummary({ cwd: repo, baseOid })
-    expect(summary.uncommitted.files.map((f) => f.path)).toContain('fresh.ts')
-    expect(summary.uncommitted.totals).toEqual(summary.totals)
   })
 
   // AT-18 증상 반증 — 사용자가 본 `+0−0` 이 여기서 재현되면 안 된다.
@@ -225,15 +216,12 @@ describe('diff 패치 — 파일별 줄 (VP-55)', () => {
     })
   })
 
-  it('미추적 파일은 패치에 이름만 실린다 — 본문은 비운다 (D-026)', async () => {
+  it('미추적 파일은 패치에 없다 — D-035 가 패치 축에서도 성립한다', async () => {
     await writeFile(join(repo, 'untracked.ts'), 'private working copy\n')
 
     const patch = await gitDiffPatch({ cwd: repo, baseOid })
 
-    const entry = fileOf(patch.files, 'untracked.ts')
-    expect(entry).toMatchObject({ status: 'added', added: 0, removed: 0, kind: 'text' })
-    // 줄을 실으면 `+0 −0` 헤더와 본문이 어긋난다 — 목록·트리에 이름이 남는 것이 전부다.
-    expect(entry?.lines).toEqual([])
+    expect(fileOf(patch.files, 'untracked.ts')).toBeUndefined()
   })
 
   it('저장소가 아니면 빈 패치다 — 화면이 사라지지 않는다', async () => {
