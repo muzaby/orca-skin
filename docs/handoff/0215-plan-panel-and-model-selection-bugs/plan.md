@@ -14,9 +14,9 @@
 | 상태 | DRAFT → READY |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `0215:V1@ea983b1` (자기 handoff 의 Baseline) |
-| 이번 V revision | `ΔV3` — 사용자 재보고 2건(모델 노출 폴백 · plan 모드) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
-| 라운드 | 4 (r3 `verify/PASS` 이후 사용자 재보고로 재개) |
+| 이번 V revision | `ΔV4` — 사용자 bisect(`3195d8ad`)로 plan 증상의 원인이 **spawn 되는 CLI 바이너리**로 좁혀졌다 |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
+| 라운드 | 4 (r3 `verify/PASS` 이후 사용자 재보고로 재개. ΔV3·ΔV4 를 같은 r4 구현이 받는다 — ΔV3 미구현 상태에서 ΔV4 가 얹혔다) |
 
 ---
 
@@ -46,6 +46,9 @@
 | 명시 요구 ⑪ (r4) | "plan 모드가 여전히 동작이 안된다. **테스트 결과 sdk 버전문제도 아니다.** pr 150 에서는 정상 동작되는 걸 확인했다. pr 150 이후에 plan 모드 동작에서 무슨 변화가 생겼는지 검토하고 어떤 로직이 변경됐는지 확인하라" | 라이브 세션 r4 |
 | 명시 결정 ⑫ (r4) | 증상 = "**카드는 뜨는데 우측 패널 본문이 여전히 빔.  Exitplanmode에 Plan text  filepath가 전달이 안되고 있다**" | AskUserQuestion 답변 r4 |
 | 명시 결정 ⑬ (r4) | plan 모드에서 `canUseTool` 이 쓰기를 승인 가능하게 만드는 **구조적 공백을 이번 라운드 범위에 넣는다** | AskUserQuestion 답변 r4 |
+| 명시 요구 ⑭ (r5) | "확인결과 plan 문제는 **3195d8ad 커밋에서부터 발생**하고 있다(이전 커밋에서는 plan 정상동작 확인). 해당 커밋은 app.asar 관련 문제인데 이러한 상황이 발생함. **테스트환경은 claude.exe 설치를 npm -g 가 아닌 install.ps1으로 설치**하였음." | 라이브 세션 r5 (bisect 보고) |
+| 명시 결정 ⑮ (r5) | "**app.asar.unpacked 경로에 설치된 claude.exe를 사용하도록 수정하자. 이경우 host에 설치된 exe은 참조하지 않도록 해야한다. 왜냐하면 앱패키지에 동봉되어있으니.**" | AskUserQuestion 답변 r5 |
+| 명시 요구 ⑯ (r5) | "구현 과정에서 사용되지 않는 코드를 제거해도 좋다." | 라이브 세션 r5(턴 중 추가) |
 
 ## 3. Decision Ledger
 
@@ -78,6 +81,9 @@
 | D-025 (r4) | plan 모드에서 CLI 가 올리는 `ask` 를 Orca 가 **deny 로 되돌린다** — `ExitPlanMode`·`AskUserQuestion` 을 제외한 비-읽기 도구는 승인 카드로 올리지 않는다 | CLI 는 plan 모드 쓰기를 deny 가 아니라 `behavior:"ask"` 로 낸다(§8 F-25). SDK 모드에서 ask 는 `canUseTool` 로 오고 Orca 가 승인/passthrough 하면 **plan 모드 중에 실제로 쓴다** | 결정⑬ + §8 F-25·F-26 | ACTIVE | — |
 | D-026 (r4) | 계획 파일 경로 추측 금지(**D-004 유지**). CLI 의 `get_plan` control request 도 쓰지 않는다 | `get_plan` 은 CLI·프로토콜에 있으나 SDK 0.3.220 의 `Query` 공개 인터페이스에 메서드가 **없다**(§8 F-29) — 사설 transport 접근이 필요하다 | §8 F-29 | ACTIVE | D-004 를 재확인, 대체 없음 |
 | D-027 (r4) | plan 모드 판정의 SSOT 는 **어댑터가 들고 있는 현재 permissionMode 셀** 이다 — `sendMessage`·`pushTurn`·`setPermissionMode` 세 지점이 같은 셀을 쓴다 | `canUseTool` options 에 `decisionReasonType` 이 없어(§8 F-26) ask 사유를 타입으로 구분할 수 없다. 문자열(`decisionReason`) 매칭은 CLI 문구에 묶인다 | §8 F-26 | ACTIVE | — |
+| D-028 (r5) | claude 실행 파일 해석은 **번들(asar-언팩) 단일 출처**다 — 호스트 설치본(PATH·`~/.local/bin`)을 **참조하지 않는다** | 사용자 결정⑮ 원문 "host에 설치된 exe은 참조하지 않도록 … 앱패키지에 동봉되어있으니". SDK 는 자기 버전에 잠긴 CLI 를 동봉하는데(§8 F-34) 호스트 설치본은 **혼자 자동 갱신**된다(§8 F-35) | 결정⑮ + §8 F-33~F-36 | ACTIVE | **0105 요구②·`resolveClaudeExecutable` 순서를 SUPERSEDE** (§16) |
+| D-029 (r5) | 그로 도달 불가가 된 `findOnPath`·`officialInstallPath` 와 그 테스트를 **삭제**한다 | 요구⑯ 원문 "사용되지 않는 코드를 제거해도 좋다". D-015 와 같은 규칙 — 죽은 형제 분기가 검사 장치를 침묵시킨다 | 요구⑯ + D-015 | ACTIVE | — |
+| D-030 (r5) | ΔV3 의 세 축(D-023·D-024·D-025)은 **그대로 유지**한다 | 셋 다 바이너리 선택과 독립인 공백이다 — D-023 은 다른 증상(요구⑩), D-024·D-025 는 CLI 버전이 무엇이든 성립하는 순서·권한 공백(§8 F-31a) | §8 F-31a·F-37 | ACTIVE | D-023~D-025 를 **재확인**, 대체 없음 |
 
 ### 갱신 메모
 
@@ -124,6 +130,18 @@
   - D-027("모드 셀 SSOT") ↔ AC34 → 세 갱신 지점이 같은 셀을 쓰는지를 §10 EP-27 전수로 잠근다 → 일치.
   - D-026(경로 추측 금지 재확인) ↔ AC 없음 → **의도한 부재**. 금지는 AC27~AC34 어디에도 `planFilePath`
     독립 폴백이 없다는 사실로 성립한다(D-004 와 같은 처리).
+- **ΔV4(r5 — 사용자 bisect)**: `3195d8ad` 가 방아쇠라는 관측이 도착했다. **SUPERSEDED 0(이 handoff 안에서)** —
+  D-001~D-027 은 전건 그대로 성립하고 ΔV4 는 **실행 파일 해석**이라는 새 축(D-028·D-029)을 더한다.
+  handoff **밖**의 0105 요구②(`공식/PATH 우선`)만 SUPERSEDE 된다(§16).
+- **원인 판정 정정(r5)**: 증상⑫("filepath 도 안 온다")의 원인을 §4(r4)가 "plan 파일이 디스크에 없다"까지
+  좁혔으나 **왜 없는가**는 열려 있었다. bisect 가 그 자리를 채웠다 — Orca 가 SDK 계약 밖 CLI 를 spawn 한다.
+  **D-001 은 ACTIVE 로 남는다** — bisect 는 방아쇠를 증명할 뿐 "custom 모델은 계획 파일을 안 쓴다"(요구⑤)를 반증하지 않는다.
+- **`ACTIVE 결정 ↔ AC` 대조 (r5 신설분)**: 충돌 0.
+  - D-028("번들 단일 출처") ↔ AC35·AC36·AC37 → AC35 가 **호스트 미참조**(음성)를, AC36 이 **asar 언팩 반환**(양성),
+    AC37 이 **dev 위임**(양성)을 잡는다. 양성 짝 둘이 있어 "아무것도 안 고른다"와 구분된다 → 일치.
+  - D-028 ↔ **0105 의 asar 우회 목적과 무충돌** — AC36 이 `app.asar` → `app.asar.unpacked` 리맵을 회귀로 잠근다.
+  - D-029("삭제") ↔ AC38(모듈 public surface 3개 · `rg` 0건) → 일치. AC 가 "미사용"이 아니라 "부재"를 요구한다.
+  - D-030("ΔV3 유지") ↔ AC27~AC34 전건 유지 → 일치. ΔV4 가 지우는 AC 는 **0건**이다.
 
 ## 4. 요구 비판적 검토
 
@@ -148,6 +166,13 @@
 | **(r4)** 그러면 r1 의 서술 폴백은 왜 안 먹는가 | **읽는 시점이 이르다** — `canUseTool` 은 전송 루프에서 즉시, `ctx.lastAssistantText` 는 소비자(매퍼)가 큐에서 뽑을 때 채워진다 | §8 F-27·F-28 |
 | **(r4)** r1~r3 의 AT-01 이 왜 이것을 못 봤는가 | **oracle 이 순서를 모형하지 않는다** — 서술 provider 를 직접 주입해 "값이 있으면 실린다"만 본다 | plan §7 AT-01 검증 수단 · `handoff-plan/SKILL.md §5`(순서를 요구하면 순서를 관측할 방법도 설계한다) |
 | **(r4)** plan 모드 read-only 공백이 PR 150 이후의 회귀인가 | **아니다 — 상시 공백이다.** PR#150 base 의 `makeCanUseTool` 도 같은 구조였다. 사용자 관측이 바뀐 것은 **기본 모드**다 | `git show 5bc40a1a:app/src/main/adapters/claude.ts` 137-157 · §8 F-31 |
+| **(r5)** 요구⑭ 의 bisect 가 겨냥한 커밋이 실제로 런타임을 바꾸는가 | **바꾼다 — 그 커밋의 유일한 런타임 변경이다.** `3195d8ad` diff 는 import 1 + 모듈 상수 1 + 옵션 스프레드 2뿐이고 뒤이은 `8dba40d1` 은 dedup(동작 무변경) | §8 F-33 · `git show 8dba40d1` |
+| **(r5)** 왜 npm -g 환경에서는 안 터졌는가 | **`claude.exe` 가 없기 때문.** npm -g 는 `claude`·`claude.cmd` 만 만들고 해석기는 win 에서 `claude.exe` 만 본다 → 전부 미해결 → 번들 폴백 | §8 F-36 (`where.exe claude` 실측) |
+| **(r5)** 버전 드리프트가 실재하는가, 이론상인가 | **실재한다.** 이 머신에서 SDK 동봉본 `2.1.220` ↔ 호스트 설치본 `2.1.251`, 그리고 호스트본은 2026-08-30 에 **자동 갱신**됐다 | §8 F-34·F-35 (`--version` · `.last-update-result.json`) |
+| **(r5)** 이 실패를 0105 가 몰랐는가 | **알고 수용했다.** 0105 plan 이 "제어 프로토콜 mismatch 이론상 가능 … 사용자 우선순위 결정 존중"으로 적었다 — 이론이 실측이 됐다 | `docs/handoff/0105-native-binary-executable-resolve/plan.md:89-90` |
+| **(r5)** 기존 테스트가 그 순서를 계약으로 잠갔는가 | **그렇다 — 테스트가 버그를 못박았다(AT-05 와 같은 형태)** | `claude-executable.test.ts` `describe('resolveClaudeExecutable 우선순위')` 3케이스가 "PATH 가 이긴다"를 단언 |
+| **(r5)** 호스트 폴백을 지우면 실행 파일이 없는 환경이 생기는가 | **생기지 않는다.** 패키징은 `asarUnpack` 으로 동봉하고(전수 1행), dev 는 `node_modules` 실디스크다. 둘 다 없으면 SDK 자신이 `Native CLI binary … not found` 로 실패 — 올바른 실패다 | `app/electron-builder.yml:17` · SDK `sdk.mjs` 의 미해결 throw |
+| **(r5)** ΔV4 가 ΔV3 를 불필요하게 만드는가 | **아니다.** D-024(순서)·D-025(권한 공백)는 PR#150 시점에도 있던 상시 공백이고 바이너리와 무관하다 | §8 F-31a · D-030 |
 
 - 사용자에게 올릴 결정: **없음** (요구⑤~⑧ 답변으로 4건 모두 닫힘).
 - 코드 조사로 닫은 사실: §8 F-01~F-13.
@@ -200,6 +225,9 @@
 - **ΔV1 추가 범위**(코드 동작 불변, 잠금만): 컨테이너 배선 oracle 2종 신설 · `ModeMenu.options`·`SubAgentTaskList.stopErrors` 필수화 + 그로 깨지는 테스트 호출부 8곳 인자 추가 · §10 EP-19 분모 2 반영. **선택적 정리**(verify D3): `classifyModel`·`matchesExplicit`·`AUTO_UNSUPPORTED_FALLBACK_MODE` 의 `export` 제거 — 파일 밖 참조 0건이라 동작 영향 없다.
 - **ΔV2 추가 범위**(코드 동작 불변, 잠금만): `composerWiring.test.ts` 확장 — 축③ 을 4슬롯 순서 계약으로 · `<ModelMenu selection>` 축 신설(AC25) · **`Composer` 마운트 테스트 신설**(AC26, 신규 의존성 0). 변이 6종(M-B·M-F·M-H·V-1·V-2c·V-5) 확인.
 - **ΔV3 추가 범위(r4 — 코드 동작 변경)**: ① `parseClaudeModels` 폴백 억제(D-023) + AT-05 정정 ② 계획 서술 폴백의 `toolUseID` 상관 대기(D-024) ③ plan 모드 `ask → deny` 게이트(D-025) + 모드 셀 SSOT(D-027).
+- **ΔV4 추가 범위(r5 — 코드 동작 변경)**: ① `resolveClaudeExecutable` 을 **번들 단일 출처**로 좁힌다(D-028) ② 도달 불가가 된 `findOnPath`·`officialInstallPath` 와 그 테스트 **삭제**(D-029) ③ `claude-executable.test.ts` 의 우선순위 describe 3케이스 정정 ④ `docs/claude-taskxxx-spec.md` §6 의 두 행 정정.
+- **ΔV4 비범위**: CLI 경로를 사용자 설정으로 여는 것(현재 그런 표면이 없고 결정⑮ 가 반대 방향이다 — `rg "executablePath|cliPath|claudePath" app/src` **0건**) · SDK/CLI 버전 업그레이드 · 호스트 CLI 버전을 읽어 호환성을 판정하는 것(사용자가 미선택) · `docs/etc/study/**` 갱신(evidence 계층, 현재 규칙 아님).
+
 - **ΔV3 비범위**: 기본 권한 모드를 `plan` 으로 되돌리는 것(§8 F-31 은 원인 서술이고 사용자 요구가 아니다 — 되돌리면 `a8ca38a8` 의 사용자 결정을 뒤집는다) · CLI `get_plan` 사용(D-026) · plan 모드에서 `auto` 를 고를 수 없게 막는 것(§8 F-32 는 관측일 뿐 이번 요구 밖) · plan 파일 읽기(D-004).
 
 - **비범위**: DOM 테스트 환경(jsdom 등) 도입(D-020 OPEN) · `turn.aborted` 경로의 서술 리셋(verify D6 — 후속 handoff) · `EnterPlanMode` 도구 처리(D-012) · plan 모드 진행 중 실시간 계획 파일 미러링 · `planFilePath` 로부터의 파일 읽기(D-004) · 권한 모드 6종 UI 확장 · CLI `oqe` 표 전체 미러링(D-009) · `백그라운드 작업` 타일의 목록/상세 재설계(중단 실패 문구 1건만 추가).
@@ -251,6 +279,11 @@
 | R-07 | AT-32 / **AC32 (ΔV3)** | plan 모드에서 비-읽기 도구는 **승인 카드 없이 deny** 된다 | 단위: 모드 셀 `plan` + `canUseTool('Write', …)` → `{behavior:'deny'}` 이고 `requestApproval` **호출 0회**. `Bash`·임의 MCP 도구 이름도 같다 | CLI `behavior:"ask"` → SDK → `makeCanUseTool` |
 | R-07 | AT-33 / **AC33 (ΔV3 — AC32 의 양성 짝)** | 같은 모드에서 `ExitPlanMode`·`AskUserQuestion`·읽기 도구(`Read`·`Glob`·`Grep`)는 **그대로 지나간다** | 단위: 모드 셀 `plan` 에서 `ExitPlanMode` → `requestApproval` 1회(계획 카드), `Read` → `{behavior:'allow'}`. 비-plan 모드에서 `Write` → 기존대로 `tool_approval` | 동일 |
 | AR-06 | AT-34 / **AC34 (ΔV3)** | 모드 셀이 세 갱신 지점에서 **같은 값**을 본다 | 단위: `sendMessage(permissionMode:'plan')` 후 셀 `plan` · `pushTurn({permissionMode:'accept_edits'})` 후 셀 `accept_edits` · `setPermissionMode('plan')` 후 셀 `plan`. **한 지점만 갱신을 지우면 red** | `send.ts` → `TurnRequest` → 어댑터 · `orca:permission:setMode` → `live.setPermissionMode` |
+| R-08 | AT-35 / **AC35 (ΔV4 — 음성)** | 호스트에 claude 실행 파일이 **PATH·`~/.local/bin` 양쪽에** 있어도 해석 결과가 그 경로가 **아니다** | 단위: `node:fs`(두 호스트 경로 존재) + `node:os`(home) + `require.resolve`(asar 경로) 를 주입 → `resolveClaudeExecutable()` 이 **언팩 경로**를 반환하고 두 호스트 문자열을 포함하지 않는다 | 부팅 1회 해석 → `claudeExecutableOption` → `query({pathToClaudeCodeExecutable})` → SDK spawn |
+| R-08 | AT-36 / **AC36 (ΔV4 — AC35 의 양성 짝 · 0105 회귀)** | 패키징(asar) 환경에서 `app.asar` → `app.asar.unpacked` 리맵 경로를 반환한다 | 단위: 기존 `resolveBundledExecutable` 3케이스(win·linux musl·미해결) 유지 + 합성 함수가 같은 값을 그대로 반환 | 동일 |
+| R-08 | AT-37 / **AC37 (ΔV4 — 양성 짝 2)** | 비패키징(dev) 에서는 `undefined` 를 반환해 SDK 기본 해석에 위임한다 — **호스트로 폴백하지 않는다** | 단위: `require.resolve` 가 비-asar 경로를 주고 **호스트 두 위치가 존재해도** `undefined`. 현행 코드에서는 이 케이스가 호스트 경로를 반환하므로 **정정 전에는 red** | 동일 |
+| AR-08 | AT-38 / **AC38 (ΔV4)** | 해석값이 **두 `query()` 호출 모두**에 실린다 | 단위: `vi.doMock('./claude-executable')` 로 sentinel 반환 → `sendMessage` · `complete` 각각의 `queryMock.mock.calls[0][0].options.pathToClaudeCodeExecutable` 가 sentinel. **한 스프레드만 지워도 red** | `claude.ts:265`(`runCompletion`) · `:382`(`sendMessage`) |
+| MD-08 | AT-39 / **AC39 (ΔV4 — 삭제)** | 모듈의 public surface 가 `toUnpackedPath`·`resolveBundledExecutable`·`resolveClaudeExecutable` **3개**이고 호스트 탐색 함수가 **부재**한다 | 전수: `rg "findOnPath\|officialInstallPath" app/src` **0건** + `npm run typecheck` 0 error | 해석 모듈 자체 |
 
 ### AC 검증 주의사항
 
@@ -278,6 +311,11 @@
 - **(ΔV3) AC32 가 계획 파일 생성을 막지 않는 근거는 이 턴에 실측했다**(§10 `실패 의미` 의 위임 금지 규칙): CLI 는 plan 파일 write 를 `oDt` 에서 `{behavior:"allow"}` 로 끊고 `canUseTool` 을 **부르지 않는다**(§8 F-30). 즉 deny 는 그 경로에 도달하지 않는다 — 다른 게이트에 기댄 문장이 아니라 도달 불가다.
 - **(ΔV3) AC34 는 structural proxy 가 아니다** — "세 지점이 셀을 갱신한다"가 아니라 **각 지점 뒤 셀의 값**을 관측한다. 지점 전수는 §10 EP-27 이 갖고, 한 지점의 갱신을 지우면 그 케이스가 red 다.
 - 기존 테스트 재사용: `taskSurface0212.render.test.ts` · `taskTile0213.render.test.ts` 가 `작업` 타일의 background 행을 단언한다(파일 실재 확인). **AC16·AC17 은 이 단언들을 뒤집으므로 구현 턴이 해당 케이스를 갱신한다** — 삭제가 아니라 `백그라운드 작업` 타일 쪽 단언으로 옮기거나 agent 항목으로 바꾼다.
+- **(ΔV4) AC35 는 음성 단언이다 — 허용 예외를 먼저 열거했다.** 술어는 "반환값이 호스트 경로다"이고, 그 형태가 나오는 **정당한 경로는 0건**이다(D-028 이 호스트를 전면 배제한다). **양성 짝 AC36·AC37** 이 각각 패키징·dev 반환값을 잠근다 — 음성만으로는 "아무것도 안 고른다"와 구분되지 않는다.
+- **(ΔV4) AC37 이 이번 회귀의 핵심 oracle 이다.** 사용자 환경(install.ps1)은 dev 실행이었고, 현행 코드는 이 케이스에서 호스트 경로를 반환한다 — **정정 전에 red 인 유일한 AC** 이므로 구현 전 red 를 먼저 관측한다.
+- **(ΔV4) 기존 테스트가 버그를 계약으로 못박았다.** `claude-executable.test.ts` 의 `describe('resolveClaudeExecutable 우선순위')` 3케이스(`PATH 가 이긴다` · `공식 위치로 폴백` · `둘 다 미해결이면 undefined`)가 D-028 과 정면 충돌한다 — **구현 턴이 이 describe 를 AC35·AC36·AC37 로 교체한다**(AT-05 정정과 같은 처리).
+- **(ΔV4) AC38 은 structural proxy 가 아니다** — "스프레드가 존재한다"가 아니라 **SDK 가 실제로 받은 `options` 객체의 필드값**을 관측한다. seam 은 `claude.cwd.test.ts:29` 의 `vi.mock('@anthropic-ai/claude-agent-sdk')` 선례를 그대로 쓴다(실재 확인).
+- **(ΔV4) AC39 는 `rg` 0건 음성 스윕이다 — 단독으로는 잠그지 못한다.** 함수를 지우면 자동으로 참이 되지만, 되살려도 AC35·AC37 이 red 가 되므로 **행동 축은 그 둘이 잠근다**. AC39 는 D-029 의 삭제 자체만 본다.
 
 ## 7-A. V / Trace Matrix
 
@@ -427,6 +465,37 @@
 - **영향받은 `INHERITED` 상위 node 는 `REGRESSION`** — VP-01(계획 본문 3분기)·VP-05·VP-16. 나머지는 위 표에서 `NOT_REQUIRED` 로 출처·증거·비영향 근거와 함께 판정했다.
 - **AT-34 의 좌 node 는 AR-06(NEW)** 이라 `AR↔IT` 레벨이다 — R 레벨 pair 로 올리지 않는다.
 
+### ΔV4 — r5 사용자 bisect 정정 (요구⑭ · 결정⑮ · 요구⑯)
+
+> 기준 V `0215:V1@ea983b1` + `ΔV1@1636ccc` + `ΔV2@0740eb0` + `ΔV3@3e16345c` 에 대한 **증분**이다.
+> 변경이 시작되는 수준: **R** — 사용자 관측 결과가 바뀐다(plan 본문이 실제로 온다).
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| R-08 | R | §7 AC35·AC36·AC37 — 앱이 동봉한 CLI 만 실행한다 | **NEW** | — |
+| AR-08 | AR | §10 EP-29 — 해석값이 두 `query()` 배선에 실린다 | **NEW** | — |
+| MD-08 | MD | §11 `resolveClaudeExecutable` 이 번들 단일 출처 | **NEW** | — |
+| AT-35·AT-36·AT-37 | AT | §7 AC35~AC37 | **NEW** | — |
+| AT-38 | AT | §7 AC38 | **NEW** | — |
+| AT-39 | AT | §7 AC39 | **NEW** | — |
+| R-01 | R | §7 AC1·AC2·AC3 + AC30·AC31 | **INHERITED** | `ΔV3@3e16345c` — 동작 기준·검증 수단 불변. ΔV4 는 그 앞단(어느 CLI 가 도는가)을 고친다 |
+
+| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §10 강제 지점 전수 |
+|---|---|---|---|---|---|---|
+| VP-32 | R-08 ↔ AT-35·AT-36·AT-37 | **REQUIRED** | 부팅 1회 해석 → `claudeExecutableOption` → `query({pathToClaudeCodeExecutable})` → SDK spawn → CLI | `resolveClaudeExecutable()` 반환값 실측(3 환경: asar · dev · 호스트만 존재) | not selected — 반환 문자열을 직접 관측하고 양성 짝 2개가 방향을 준다 | EP-28 (1) |
+| VP-33 | MD-08 ↔ UT | **REQUIRED** | — (순수 · 주입 fake) | `resolveBundledExecutable` 4분기 + 합성 함수 3분기 반환값 | not selected | EP-28 (1) |
+| VP-34 | AR-08 ↔ AT-38(IT) | **REQUIRED** | `claude-executable` → `claude.ts` 모듈 상수 → `runCompletion`·`sendMessage` 의 `options` | 두 `query` 호출의 `options.pathToClaudeCodeExecutable` 실값 | **required** — 형제 슬롯 2개가 같은 계약을 갖고 한쪽만 지우면 나머지가 침묵한다. 변이: `:265`·`:382` 스프레드를 **각각** 제거 → 각 1 red(2변이) | EP-29 (2) |
+| VP-01 | R-01 ↔ AT-01·AT-02·AT-03 | **REGRESSION** (REQUIRED 유지) | ΔV3 그대로 | ΔV3 그대로 | not selected | EP-01·EP-04·EP-24 (3) |
+| VP-25·VP-26·VP-27 | R-01·SD-01·MD-06 ↔ AT-30·AT-31 | **NOT_REQUIRED** | 출처 `ΔV3@3e16345c` · 기존 증거 = ΔV3 이 신설할 `plan-narrative` 스위트 | — | — | 비영향 근거: ΔV4 는 `plan-narrative.ts`·`claude-map.ts` 를 건드리지 않는다(§18 ΔV4 파일 전수에 없다). 두 축은 **같은 r4 구현이 함께 받지만** 서로의 코드 경로가 겹치지 않는다 |
+| VP-28·VP-29·VP-30·VP-31 | R-07·MD-07·AR-06·AR-07 ↔ … | **NOT_REQUIRED** | 출처 `ΔV3@3e16345c` | — | — | 비영향 근거: plan 모드 게이트·모드 셀은 `canUseTool` 사슬 안이고 실행 파일 해석은 `query` 옵션 조립이다. 공유 상태 0 |
+| VP-23·VP-24 | R-06·MD-01 ↔ AT-27~AT-29 | **NOT_REQUIRED** | 출처 `ΔV3@3e16345c` | — | — | 비영향 근거: `model-parser.ts` 는 ΔV4 파일 전수에 없다 |
+| VP-21·VP-22 | AR-04·AR-05 ↔ IT | **NOT_REQUIRED** | 출처 `ΔV2@0740eb0` | — | — | 비영향 근거: ΔV4 는 renderer 를 건드리지 않는다 |
+
+- **`NEW` 좌 node 전건에 같은 레벨 `REQUIRED` pair 가 있다**: R-08→VP-32 · AR-08→VP-34 · MD-08→VP-33.
+- **영향받은 `INHERITED` 상위 node 는 R-01 하나이고 `REGRESSION`(VP-01)** 이다 — ΔV4 가 고치는 것이
+  "계획 본문이 온다"의 **전제**라서 같은 사용자 결과에 닿는다. 나머지는 위 표에서 출처·비영향 근거와 함께 `NOT_REQUIRED`.
+- **AT-38 의 좌 node 는 AR-08(NEW)** 이라 `AR↔IT` 레벨이다 — R 레벨로 올리지 않는다.
+
 ### 현재 변경의 운영 gate
 
 | Gate | 이번 변경 산출물에 적용되는 이유 | 증거 / 명령 | 실패 범위 |
@@ -479,6 +548,14 @@
 | **F-31 (r4)** PR#150 시점엔 **모든 새 세션이 plan 모드로 태어났다**. 기본값이 바뀐 것이 사용자 관측 변화의 원인 | `git show 5bc40a1a:…/chatReducer.ts` **`:152 permissionMode: 'plan'`** → 현재 `DEFAULT_PERMISSION_MODE`(`auto_classified`). 커밋 `a8ca38a8`(2026-08-26, `Handoff: none`) |
 | **F-31a (r4)** `makeCanUseTool` 의 plan-mode 공백은 **PR#150 시점에도 같았다** — 회귀가 아니라 상시 공백 | `git show 5bc40a1a:…/claude.ts` 137-157 이 현재와 같은 구조(`ExitPlanMode` 분기 + `isRiskyTool` + allow passthrough) |
 | **F-32 (r4)** CLI 는 `set_permission_mode` 로 오는 `auto` 를 게이트가 꺼져 있으면 **거부**한다 | CLI `Ufe`: `if(e==="auto"&&!gk()){…return{ok:!1,error:`Cannot set permission mode to auto: ${ume(i)}`}}`. 사유 4종 = settings·circuit-breaker·provider·model. **이번 범위 밖**(§6 ΔV3 비범위) — 관측만 기록 |
+| **F-33 (r5)** `3195d8ad` 의 **유일한 런타임 변경**이 `pathToClaudeCodeExecutable` 전달이다 | 커밋 diff: `claude.ts` +import 1 · +모듈 상수 3줄 · +옵션 스프레드 2(`:265`·`:382`). 신규 `claude-executable.ts` 81줄 + `electron-builder.yml` `asarUnpack` 1행. 후속 `8dba40d1` 은 dedup(동작 무변경) |
+| **F-34 (r5)** SDK 는 **자기 버전에 잠긴 CLI 를 동봉**한다 — 옵션 미지정 시 그것을 `require.resolve` 한다 | `sdk.mjs`: `let Ly=d.pathToClaudeCodeExecutable; if(!Ly){…FU((Ts)=>Xr.resolve(Ts))…}`. 실측: `@anthropic-ai/claude-agent-sdk@0.3.220` 동봉 `claude.exe --version` = **`2.1.220`** |
+| **F-35 (r5)** 호스트 설치본은 **혼자 자동 갱신**돼 드리프트가 무한하다 | 실측: 호스트 CLI `--version` = **`2.1.251`**. `~/.claude/.last-update-result.json` = `{"version_from":"2.1.220","version_to":"2.1.251","timestamp":"2026-08-30…","outcome":"success"}` |
+| **F-36 (r5)** 설치 방식이 발동 조건을 가른다 — win 해석기는 **`claude.exe` 만** 본다 | `claude-executable.ts:25` `platform==='win32' ? 'claude.exe' : 'claude'`. 실측 `where.exe claude` = `…\npm\claude` · `…\npm\claude.cmd` **2건, `.exe` 0건** → npm -g 는 전부 미해결 → 번들 폴백. install.ps1 은 `~/.local/bin/claude.exe` 를 만든다(0105 §요구②) |
+| **F-37 (r5)** 그래서 "SDK 버전문제도 아니다"(요구⑪)가 **일관된다** | `3195d8ad` 이후 SDK 패키지 버전을 올려도 spawn 되는 바이너리가 호스트본이라 안 바뀐다 — F-33 + F-34 합성 |
+| **F-38 (r5)** 계획 파일이 실제로 안 써지고 있다 | `ls ~/.claude/plans` = **2 파일, 둘 다 2026-08-15**. `find ~/.claude -type d -name 'plan*'` = `./plans` 1곳(나머지는 plugin 캐시) — 다른 디렉토리로 새지도 않았다 |
+| **F-39 (r5)** 두 CLI 버전의 `ExitPlanMode` 주입 삼항은 **구조가 같다** | 2.1.220 `case qM:{let n=x4(r),o=JU(r);return Y9e(),n!==null?{...t,plan:n,planFilePath:o}:t}` ↔ 2.1.251 `case bu:{let u=zh(r);Df(u);let d=GO(r);return OC(o),d!==null?{...t,plan:d,planFilePath:u}:t}`. **어느 CLI 동작이 갈리는지는 미격리** — bisect 는 방아쇠만 증명한다(§17 리스크) |
+| **F-40 (r5)** 호스트 폴백을 지워도 실행 파일이 없어지지 않는다 | `electron-builder.yml:17` `asarUnpack: node_modules/@anthropic-ai/claude-agent-sdk-*/**`(패키징) · dev 는 `node_modules` 실디스크. 둘 다 없으면 SDK 자신이 `Native CLI binary for … not found` 로 throw |
 | **F-32a (r4)** 유효 모드 6종은 `["acceptEdits","auto","bypassPermissions","default","dontAsk","plan"]` — `plan` 은 항상 유효하다 | CLI `Yye=[…]` · `BK(e){let t=fL(e);return G5n.find(r=>r===t)}`. 즉 요구⑪ 은 모드 전달 실패가 아니다 |
 
 ### 전수 조사
@@ -513,6 +590,12 @@
 | **(r4) 서술 폴백 소비 지점** | `rg -n "getPlanNarrative" app/src --glob '!*.test.*'` | **3** (`claude.ts:102` 옵션 선언 · `:156` `resolvePlanText` 호출 · `:425` 주입) | EP-24 가 대기를 넣을 자리는 `:156` |
 | **(r4) 어댑터가 SDK 세션에 모드를 **적용**하는 지점 전수** | `rg -in "permissionmode" app/src/main/adapters/claude.ts` → 10행을 정독해 적용 지점만 남김 | **3** (`:431` query 옵션=최초 · `:494` `pushTurn` 라이브 setter · `:509` `setPermissionMode` 라이브 control) | EP-27 분모. 나머지 7행은 import(`:21`)·주석(`:163`·`:403`·`:430`)·`PLAN_APPROVED_MODE` 변환(`:172`)·구조분해(`:298`)·가드(`:493`) |
 | **(r4) `canUseTool` 이 도구를 가르는 술어 전수** | `claude.ts:118-205` 정독 | **4 분기 + 최종 allow** (`:119` `isSubagentTool` · `:126` `AskUserQuestion` · `:153` `ExitPlanMode` · `:190` `isRiskyTool\|runtimeApprovalToolNames` · `:205` allow) | EP-26 은 이 사슬의 **어디에** 게이트를 넣는지 고정한다(§11) |
+| **(r5) 해석 사슬 사이트** | `rg -n "findOnPath\|officialInstallPath\|resolveBundledExecutable" claude-executable.ts` 중 **합성부** | **1** (`claude-executable.ts:84`) | EP-28 분모 — 순서를 정하는 자리가 한 줄이다 |
+| **(r5) 해석값 소비 배선 전수** | `rg -n "claudeExecutableOption" app/src --glob '!*.test.*'` | **3** = 정의 1(`claude.ts:59`) + **스프레드 2**(`:265` `runCompletion` · `:382` `sendMessage`) | EP-29 분모 = 스프레드 **2** |
+| **(r5) 삭제 대상의 프로덕션 참조** | `rg -n "findOnPath\|officialInstallPath" app/src --glob '!*.test.*'` | **3** (`claude-executable.ts:30`·`:45` 정의 · `:84` 호출) — 외부 소비처 **0** | D-029 삭제가 파일 밖에 영향 0 |
+| **(r5) 삭제 대상의 테스트 참조** | `rg -n "findOnPath\|officialInstallPath" app/src --glob '*.test.*'` | **11행 / 2 describe + import 2** | 구현 턴이 함께 지울 케이스 전수 |
+| **(r5) 사용자 설정으로 CLI 경로를 여는 표면** | `rg -in "executablePath\|cliPath\|claudePath" app/src` | **0** | ΔV4 비범위 근거 — 없던 표면을 만들지 않는다 |
+| **(r5) 현재 동작을 서술한 문서** | `rg -rn "resolveClaudeExecutable\|claude-executable\|officialInstallPath" docs` 중 **현재 규칙 계층** | **1** (`docs/claude-taskxxx-spec.md:264`) | §16 갱신 대상. `docs/etc/study/**`·`docs/archive/**`·과거 handoff 는 evidence 계층이라 제외 |
 | **(r4) plan 모드 관련 SDK 버전 축** | `sdk-tools.d.ts` `ExitPlanModeInput` 필드 | `allowedPrompts?`(deprecated) + `[k:string]:unknown` | 0.3.220 에서도 `plan` **미선언** → 요구⑪ "sdk 버전문제 아니다" 와 일치 |
 | **(r4) PR#150 이후 plan 모드 로직 변경 커밋** | `git log 5bc40a1a..HEAD -- shared/permission-mode.ts adapters/claude.ts` + `-S`/`-G` 보강 | **5** | `a8ca38a8`(기본 모드) · `2e787fc3`(0150 승인 setMode) · `d124c05f`(0067 장수명 채널) · `344c1736`(가드 훅) · `0ca18b86`(0215 r1 폴백) |
 
@@ -665,6 +748,8 @@
 | MD-06 / VP-25·VP-27 | **EP-25 (ΔV3 신설)** 대기에 상한과 abort 가 있다 — **1 사이트**(같은 함수의 예산 인자) | `adapters/plan-narrative.ts` | 어댑터 | 같은 시점 | 상관 메시지가 안 오면 승인 요청이 영영 발화하지 않아 **계획 카드 자체가 안 뜬다**(현행보다 나쁘다) |
 | R-07·AR-07·MD-07 / VP-28·VP-29·VP-31 | **EP-26 (ΔV3 신설)** plan 모드 도구 게이트 — **1 사이트**(`claude.ts` canUseTool 사슬 `:126` `AskUserQuestion` 분기 **뒤**, `:153` `ExitPlanMode` 분기 **앞**) | `adapters/plan-mode-gate.ts`(신규 술어) + `claude.ts` 배선 | 어댑터 | 모든 `canUseTool` 진입 시 | 위치를 `isSubagentTool` 앞으로 올리면 서브에이전트 재호출 차단이 죽고, `ExitPlanMode` 뒤로 내리면 계획 제출 자체가 deny 된다. **계획 파일 write 는 이 지점에 도달하지 않는다**(§8 F-30 — CLI 가 `allow` 로 먼저 끊는다, 이 턴 실측) |
 | AR-06 / VP-30 | **EP-27 (ΔV3 신설)** 모드 셀 SSOT — **3 사이트**: `claude.ts:431`(query 옵션 = 최초) · `:494`(`pushTurn` 라이브 setter) · `:509`(`setPermissionMode` 라이브 control) | `claude.ts` `sendMessage` 스코프의 셀 | 어댑터 | 세 갱신 시점 각각 | 한 지점만 갱신하면 EP-26 이 **stale 모드**로 판정한다 — 예: `pushTurn` 을 빼면 계획→편집수락 전환 후에도 쓰기가 deny 된다(사용자가 승인해도 못 고친다) |
+| R-08·MD-08 / VP-32·VP-33 | **EP-28 (ΔV4 신설)** 실행 파일 해석 = 번들 단일 출처 — **1 사이트**(`claude-executable.ts:84` 의 합성 반환식). 검색: `rg -n "findOnPath\|officialInstallPath\|resolveBundledExecutable" claude-executable.ts` 중 합성부 | `claude-executable.ts#resolveClaudeExecutable` | 어댑터 | main 모듈 로드 1회 | 호스트 CLI 가 spawn 돼 **SDK 계약 밖 버전**이 돈다 — 증상은 CLI 버전에 따라 달라지고 자동 갱신으로 예고 없이 바뀐다(F-35). 반대로 번들까지 못 찾으면 SDK 가 `Native CLI binary … not found` 로 throw 한다(F-40 — 조용한 폴백보다 낫다) |
+| AR-08 / VP-34 | **EP-29 (ΔV4 신설)** 해석값이 두 `query()` 에 실린다 — **2 사이트**(`claude.ts:265` `runCompletion` · `:382` `sendMessage`). 검색: `rg -n "claudeExecutableOption" app/src --glob '!*.test.*'` = 3(정의 1 + 스프레드 2) | `claude.ts` 모듈 상수 | 어댑터 | 두 query 조립 시 | 빠진 쪽은 SDK 기본 해석으로 돌아간다 — dev 는 같은 바이너리라 **조용히 통과**하고 패키징에서만 asar spawn 실패로 터진다(0105 의 원래 버그). 형제 슬롯이라 하나만 지우면 나머지가 침묵한다 |
 | AR-04·AR-05 / VP-21·VP-22 | **EP-21 (ΔV1 신설)** 관대한 기본값 제거 — **2 사이트**: `ModeMenu.options` · `SubAgentTaskList.stopErrors` 를 필수 prop 으로 | 각 컴포넌트 타입 | typecheck 시 | prop 누락이 컴파일 오류가 아니라 조용한 동작 복귀가 된다(verify r1 D1 의 침묵 원인) |
 
 - 같은/동일 규칙이 여러 레이어에 있다면 SSOT 와 강제 방법: 식별자 규칙 = `shared/model-identity.ts`(EP-07 두 사이트가 위임만 한다); 자동권한 규칙 = `shared/permission-mode.ts`(EP-12·EP-13·EP-15 가 같은 함수를 호출); background 상태 규칙 = `taskBoard.ts` 의 status 3함수(백그라운드 타일 단독 소비, `작업` 타일 래퍼는 삭제). 정규식 복붙 금지.
@@ -677,6 +762,8 @@
 - **(ΔV3) 한 동작이 저장소를 둘 이상 쓰는가**: 쓰지 않는다. ΔV3 의 세 축은 **읽기·판정·메모리 셀**뿐이고 파일/DB/키체인 쓰기가 0이다 — 계획 파일은 CLI 가 쓰고 Orca 는 읽지도 않는다(D-004·D-026). 부분 실패로 남는 관측 상태가 없다.
 - **(ΔV3) `undefined` 의 의미**: 모드 셀 `undefined` = "모드 미지정"(SDK 기본 `default`) → **EP-26 게이트는 걸리지 않는다**. `plan` 일 때만 건다 — 미지정이 fail-open 이 아니라 **현행 동작 유지**다(plan 모드가 아닌 세션의 승인 카드를 없애면 안 된다).
 - **(ΔV3) `awaitNarrativeFor` 의 3분기**: `{kind:'arrived', text}` · `{kind:'timeout'}` · `{kind:'aborted'}`. 뒤 둘은 **모두 `resolvePlanText(input, undefined)`** 로 흘러 `''` → AC3 실패 문구가 된다 — 세 분기를 flat flag 두 개로 두면 `timeout && aborted` 라는 불가능 조합이 타입에 남으므로 **discriminated union** 으로 고정한다.
+- **(ΔV4) `undefined` 의 의미가 좁아진다**: 현행 `resolveClaudeExecutable() === undefined` 는 "호스트도 번들도 없음"이고, ΔV4 후에는 **"번들이 asar 밖에 있다(dev)"** 뿐이다. 둘 다 옵션을 생략하지만 **의미가 다르다** — 후자는 SDK 기본 해석이 *같은 번들 파일* 에 도달한다는 확신이 있고, 전자는 확신이 없었다. 이것이 fail-open 을 없애는 지점이다.
+- **(ΔV4) 한 동작이 저장소를 둘 이상 쓰는가**: 쓰지 않는다. 해석은 `existsSync`/`require.resolve` **읽기**뿐이고 부팅 1회다. 부분 실패로 남는 관측 상태가 없다.
 - **(ΔV3) EP-26 술어의 형태**: `isPlanModeBlockedTool(name)` 은 **허용 목록의 여집합**이다 — 차단 목록으로 두면 새 도구가 조용히 통과한다. 허용 = `READ_TOOLS` ∪ `{ExitPlanMode, AskUserQuestion}` ∪ 서브에이전트 도구(`Agent`·`Task`, 재호출 차단은 기존 분기가 계속 담당).
 
 ## 11. 구현 설계
@@ -697,6 +784,9 @@
 | **(ΔV3)** `app/src/main/adapters/plan-narrative.ts` (신규) | 서술 상관 대기 | `createPlanNarrativeGate({budgetMs})` → `{ noteAssistant(toolUseIds, text), awaitNarrativeFor(toolUseID, signal) }`. **electron/SDK 미의존 순수 모듈** — import graph 가 끊긴 별도 파일 seam | 순수 단위(VP-27, 3분기) |
 | **(ΔV3)** `app/src/main/adapters/claude-map.ts` | 상관 신호 | text 대입(`:418`) 옆에서 같은 assistant 메시지의 `tool_use` id 집합을 게이트에 통지 — `ctx` 에 게이트 핸들을 실어 매퍼는 **인터페이스만** 안다 | 순수 단위(ctx 관측) |
 | **(ΔV3)** `app/src/main/adapters/plan-mode-gate.ts` (신규) | plan 모드 술어 | `isPlanModeBlockedTool(name)` — 허용 목록의 여집합. `RISKY_TOOLS`·`READ_TOOLS` 를 `risky-tools.ts` 에서 재사용하고 목록을 복제하지 않는다 | 순수 단위(VP-29, 13 케이스) |
+| **(ΔV4)** `app/src/main/adapters/claude-executable.ts` | 해석 축소 + 삭제 | `resolveClaudeExecutable()` 본문을 `resolveBundledExecutable()` **단독**으로. `findOnPath`·`officialInstallPath` 삭제(D-029). 파일 헤더 주석의 "우선순위 (1)PATH → (2)공식 → (3)번들" 서술을 번들 단일 출처로 갱신 | 순수 단위(주입 fake `requireFn`) |
+| **(ΔV4)** `app/src/main/adapters/claude-executable.test.ts` | oracle 교체 | `describe('findOnPath')`·`describe('officialInstallPath')` 삭제 · `describe('resolveClaudeExecutable 우선순위')` 3케이스를 AC35~AC37 로 교체(호스트 두 위치를 **존재시킨 채** 반환값을 본다) | 자기 자신 |
+| **(ΔV4)** `app/src/main/adapters/claude.executable-option.test.ts`(신규) | 배선 oracle | `vi.doMock('./claude-executable')` sentinel → `sendMessage`·`complete` 두 경로의 `options.pathToClaudeCodeExecutable` 단언. mock 패턴은 `claude.cwd.test.ts:10-29` 를 그대로 따른다 | `vi.mock('@anthropic-ai/claude-agent-sdk')` |
 | **(ΔV3)** `app/src/main/adapters/claude.ts` | 셀 + 배선 | `sendMessage` 스코프에 `let currentMode = permissionMode` 셀 · `pushTurn`·`setPermissionMode` 가 같은 셀 갱신(EP-27 3지점) · `makeCanUseTool` 에 `getPermissionMode`·`planNarrative` 주입 · `ExitPlanMode` 분기가 `await gate.awaitNarrativeFor(options.toolUseID, signal)` 후 `resolvePlanText` | 순수 단위(fake 주입 · 호출자가 시점 제어) |
 | `app/src/renderer/.../composer/modelSelection.ts` | 식별자 위임 | `modelKey` → shared 위임 | 순수 단위 |
 | `app/src/renderer/.../composer/ModelMenu.tsx` | 행 식별 | key·활성 판정에 identity 사용 | 렌더 테스트 |
@@ -808,6 +898,11 @@
 | **(r4)** 0143 "서브에이전트 호출은 차단 판정만 하고 입력 passthrough" | `claude.ts:118-126` | §10 EP-26 | **유지** — 게이트를 그 분기 **뒤**에 둔다. 앞에 두면 재호출 차단이 죽는다 |
 | 0213 D-007 "안내 분모 = `items` 전체가 아니라 할 일 항목" | `TaskTileContent.tsx` `unsupported` 술어 | §11 ΔV1 · verify D7 | **변경(소멸)** — `items` 자체가 할 일뿐이라 두 분모가 같아졌다. 술어가 `items.length === 0` 으로 단순화됐고 0213 의 구분은 더 이상 필요 없다 |
 | 0212 주석 "기본값을 둬서 기존 렌더 테스트가 인자를 늘리지 않고도 그대로 돈다"(`pausedIds`·`backgroundedIds`) | `SubAgentTileContent.tsx:213-216` | §10 EP-21 | **부분 변경** — `stopErrors` 만 필수로 올린다(D-019). `pausedIds`·`backgroundedIds` 의 기본값은 **유지**한다: 그 둘은 라이브 표식이라 부재가 곧 빈 집합이고, 배선 누락과 구분되지 않는 값이 아니다 |
+| **(r5)** 0105 요구② "공식 인스톨러로 설치된 경로도 지원 — **공식/PATH 우선**" | `docs/handoff/0105-.../plan.md:20`·`:42-47` | §10 EP-28 | **SUPERSEDED → D-028** — 사용자 결정⑮ 가 명시적으로 뒤집었다("host에 설치된 exe은 참조하지 않도록"). 0105 의 **asar 우회 목적은 유지**(AC36 회귀) |
+| **(r5)** 0105 §리스크 "버전 상이 → 제어 프로토콜 mismatch **이론상 가능** … 사용자 우선순위 결정 존중" | `docs/handoff/0105-.../plan.md:89-90` | §8 F-34·F-35 | **변경(이론 → 실측)** — 수용했던 리스크가 발현했다. 드리프트 폭도 무한하다(호스트본 자동 갱신) |
+| **(r5)** `claude-executable.ts` 헤더 주석 "우선순위: (1) PATH … (2) 공식 … (3) 번들" | `claude-executable.ts:2-4` | §11 ΔV4 | **변경** — 번들 단일 출처로 다시 쓴다. `(공식 설치 우선, 사용자 결정)` 문구가 D-028 과 정면 충돌한다 |
+| **(r5)** `claude-executable.test.ts` `describe('resolveClaudeExecutable 우선순위')` 3케이스 | 같은 파일 | §7 AC35~AC37 | **변경(버그를 계약으로 못박음)** — "PATH 가 이긴다"가 D-028 의 반대다. AT-05 정정과 같은 처리 |
+| **(r5)** "Orca 는 `pathToClaudeCodeExecutable` 로 **PATH 의 사용자 설치본을 번들보다 먼저** 고른다" | `docs/claude-taskxxx-spec.md:264` | §18 | **변경** — 문장이 뒤집힌다. 같은 표 `:262` "SDK 버전은 이 축을 고정하지 못한다"도 함께 갱신한다: 번들 단일 출처가 되면 **SDK 버전이 CLI 버전을 고정한다** |
 
 ## 17. 리스크 / 트레이드오프
 
@@ -822,6 +917,10 @@
 | background 정착 배지 상실로 완료를 놓친다 | transcript 의 완료 통지 파트(`subagent_notice`)는 그대로 남는다 — 알림 경로가 0이 되지 않는다 |
 | **AT-23 의 소스 단언이 리팩토링에 취약하다** | 식별자를 바꾸면 단언이 깨진다 — 그러나 **red 로 드러나므로 침묵이 아니다**(0209 r5 선례: 조악한 텍스트 단언이 배선 삭제를 잡았고, r6 이 그것을 지우자 같은 변이가 초록이 됐다). 대체 수단은 D-020(OPEN) |
 | 필수 prop 전환이 미래의 새 소비처를 막는다 | 그것이 목적이다 — 새 소비처가 값을 계산하도록 강제한다. 프로덕션 소비처는 각 1곳뿐이라 비용이 작다(§8 전수) |
+
+| **(r5)** ΔV4 후에도 증상이 남는다 | **격리가 미완이라 남을 수 있다** — bisect 는 방아쇠를 증명하지만 2.1.220↔2.1.251 중 *어느 CLI 동작* 이 갈리는지는 못 좁혔다(F-39). 그래도 ΔV4 는 **SDK 계약 안으로 되돌리는** 변경이라 그 자체로 옳고, ΔV3 의 폴백·게이트가 남아 잔여 증상을 관측 가능하게 만든다(AC3 실패 문구) |
+| **(r5)** 폐쇄망/사내에서 커스텀 CLI 빌드를 쓰고 싶은 사용자 | 현재 그런 표면이 **없다**(전수 0건) — ΔV4 가 없애는 능력이 아니라 만든 적 없는 능력이다. 필요해지면 명시 설정 키로 여는 편이 PATH 암묵 우선보다 안전하다(별도 handoff) |
+| **(r5)** 호스트에만 CLI 가 있고 번들이 깨진 설치본 | SDK 가 `Native CLI binary … not found` 로 실패한다 — **조용한 버전 드리프트보다 관측 가능한 실패가 낫다**(D-028 의 이유). 패키징은 `asarUnpack` 이 동봉을 보장한다(F-40) |
 
 - 되돌리기 어려운 결정: **모델 선택 식별자 형식**(D-007). 지금 확정한다. `작업` 타일 범위 축소(D-013)는 파생 한 줄이라 되돌리기 쉽다.
 - 신규 의존성: **0건** — 사용자 승인 불필요.
@@ -845,6 +944,14 @@
 - `docs/arch/backend/` 의 plan 모드 서술 — plan 모드에서 비-읽기 도구가 deny 됨을 반영(대상 문서는 구현 턴이 `rg "plan 모드" docs/arch` 로 전수 확인)
 - **`Composer.tsx`·`SubAgentTileContent.tsx` 는 건드리지 않는다** — VP-21·VP-22 `NOT_REQUIRED` 의 근거
 
+**ΔV4(r5) 파일 전수** — 신규 1 + 수정 4:
+- `app/src/main/adapters/claude-executable.ts` (해석 축소 + 함수 2개 삭제 + 헤더 주석)
+- `app/src/main/adapters/claude-executable.test.ts` (describe 2개 삭제 + 우선순위 3케이스 → AC35~AC37)
+- `app/src/main/adapters/claude.executable-option.test.ts` (**신규** — AC38)
+- `app/src/main/adapters/claude.ts` **의 주석 2곳만** — `rg -n "공식/PATH 우선" claude.ts` = **2**(`:55`·`:381`). **코드는 무변경** — EP-29 두 스프레드는 그대로 둔다
+- `docs/claude-taskxxx-spec.md` §6 표 2행(`:262` SDK 버전 축 · `:264` 실행 경로)
+- **`plan-narrative.ts`·`plan-mode-gate.ts`·`claude-map.ts`·`model-parser.ts` 는 ΔV4 가 건드리지 않는다** — VP-23~VP-31 `NOT_REQUIRED` 의 근거(ΔV3 이 같은 r4 에서 따로 만든다)
+
 ## 19. 게이트
 
 - 적용할 하위 가이드: [`app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드`](../../../app/AGENTS.md) · [`app/src/main/AGENTS.md`](../../../app/src/main/AGENTS.md)(레이어 DAG) · [`app/src/renderer/AGENTS.md`](../../../app/src/renderer/AGENTS.md)
@@ -864,7 +971,17 @@
   **⑨⑩⑪ 은 형제 슬롯 변이다** — 세 지점이 같은 셀을 쓰므로 하나만 지워도 나머지 둘이 값을 덮어 침묵할 수 있다.
   검산: 등록 변이 = AC27~AC34 의 8 + VP-31 배선 1 + EP-27 형제 2(세 지점 중 AC34 대표 1을 위 8에 이미 셌다) = **11**.
 - **ΔV3 덮개 회귀 확인**: r3 이 red 로 잡던 변이 7종(M-B·M-F·M-H·V-1·V-2c·V-5·M-G)을 **다시 실행**해 red 가 유지되는지 나란히 적는다 — ΔV3 은 그 파일들을 건드리지 않으므로 red 여야 한다.
-- 사람 실기: AC3 문구 시각 1건 · custom 모델 실환경에서 계획 본문 노출 1건 · **(r4) custom 모델 + `ANTHROPIC_MODEL` 단독 env 에서 모델 메뉴 1행 확인** 1건 · **(r4) plan 모드에서 편집 요청 시 승인 카드가 뜨지 않고 계획으로 이어지는지** 1건 · 서브에이전트 실행 중 두 타일 대조 1건.
+- **ΔV4 추가 게이트**: 등록 변이 **5종**을 심어 각각 red 를 확인한다 —
+  ① `resolveClaudeExecutable` 을 `findOnPath() ?? officialInstallPath() ?? resolveBundledExecutable()` 로 되돌린다(AC35·AC37 red)
+  ② `resolveBundledExecutable` 의 `toUnpackedPath` 호출을 항등으로(AC36 red)
+  ③ 같은 함수의 asar 판정을 지워 dev 경로도 반환하게(AC37 red)
+  ④⑤ **EP-29 형제 슬롯** — `claude.ts:265`·`:381` 스프레드를 **각각** 제거(AC38 red ×2).
+  검산: 등록 변이 = AC35~AC38 의 4 + EP-29 형제 1(AC38 대표 1을 위 4에 이미 셌다) = **5**.
+- **ΔV4 덮개 회귀 확인**: `describe('resolveClaudeExecutable 우선순위')` 3케이스를 **교체하는** 변경이므로,
+  구 케이스가 red 로 잡던 자리를 새 케이스도 잡는지 나란히 적는다 — 구 3케이스는 *순서* 를 잡았고
+  새 3케이스는 *출처* 를 잡는다. **구 케이스가 잡던 회귀(번들 미해결 시 undefined)는 AC37 이 승계**한다.
+- **ΔV4 red-first**: AC37 은 현행 코드에서 **red 여야 한다** — 구현 전에 그 red 를 먼저 관측하고 기록한다(§7 주의사항).
+- 사람 실기: AC3 문구 시각 1건 · custom 모델 실환경에서 계획 본문 노출 1건 · **(r4) custom 모델 + `ANTHROPIC_MODEL` 단독 env 에서 모델 메뉴 1행 확인** 1건 · **(r4) plan 모드에서 편집 요청 시 승인 카드가 뜨지 않고 계획으로 이어지는지** 1건 · 서브에이전트 실행 중 두 타일 대조 1건 · **(r5) install.ps1 로 `~/.local/bin/claude.exe` 가 설치된 환경에서 plan 모드 실기** 1건 — 관측 지점은 `~/.claude/plans/` 에 **새 `.md` 가 생기는지**다(현재 최신이 2026-08-15, F-38).
 
 ## READY self-review
 
@@ -1473,3 +1590,58 @@ CLI 는 plan 파일이 없으면 두 필드를 **함께** 빼고(F-24a), 그때 
 - [x] 범위/비범위가 사람 실기를 막지 않는다 — §19 에 r4 실기 2건을 추가했다.
 - [x] `ACTIVE 결정 ↔ AC` 대조 결과를 §3 갱신 메모에 관측으로 적었다 — **충돌 0**, D-023↔AC27·AC28·AC29 / D-024↔AC30·AC31 / D-025↔AC32·AC33 / D-027↔AC34, 그리고 D-006·D-001·D-004 와의 무충돌 근거 3줄.
 - [x] Part I/II 에 같은 사실을 두 번 쓰지 않았다 — §4 는 **판정**, §8 은 **관측 근거**로 갈랐다.
+
+---
+
+## ΔV4 (r5) — 사용자 bisect 설계
+
+### 요구⑭ 조사 결론 — `3195d8ad` 가 무엇을 바꿨나
+
+`3195d8ad` 의 **유일한 런타임 변경은 SDK 가 spawn 할 CLI 바이너리를 바꾼 것**이다(F-33).
+그 커밋 전에는 SDK 가 자기 버전에 잠긴 동봉본을 `require.resolve` 로 찾았고(F-34), 후에는
+`findOnPath() ?? officialInstallPath() ?? resolveBundledExecutable()` 이 **호스트 설치본을 먼저** 고른다.
+
+```text
+[before 3195d8ad]  query() 옵션 미지정 → SDK require.resolve → 번들 claude.exe (SDK 0.3.220 ⇒ CLI 2.1.220)
+[after  3195d8ad]  findOnPath() 적중   → ~/.local/bin/claude.exe (install.ps1 산출물, 버전 무관·자동 갱신)
+                   ↘ npm -g 환경은 claude.exe 가 없어 미적중 → 번들 폴백 → 증상 없음  (F-36)
+```
+
+발동 조건이 설치 방식으로 갈린 것이 요구⑭ 의 "테스트환경은 install.ps1" 과 정확히 맞는다.
+드리프트는 이론이 아니라 실측이다 — 이 세션에서 동봉본 `2.1.220` ↔ 호스트본 `2.1.251`,
+그리고 호스트본은 2026-08-30 에 **혼자 갱신**됐다(F-35).
+
+### 요구⑪ 의 "sdk 버전문제도 아니다" 가 왜 일관되는가
+
+`3195d8ad` 이후 **SDK 패키지 버전은 spawn 되는 바이너리를 고정하지 못한다**(F-37).
+그래서 SDK 를 올려도 증상이 그대로였고, 사용자 실측과 모순되지 않는다.
+
+### ΔV4 가 고치지 않는 것 — 미격리 1건
+
+**어느 CLI 동작이 갈리는지는 좁히지 못했다.** 두 버전의 `ExitPlanMode` 주입 삼항은 구조가
+같다(F-39). bisect 는 *방아쇠* 를 증명하지 *메커니즘* 을 증명하지 않는다 — §17 리스크에 남겼고,
+잔여 증상은 ΔV3 의 AC3 실패 문구가 관측 가능하게 만든다.
+
+### ΔV4 READY self-review (신설 행만)
+
+- [x] 사용자 문장의 이유·조건절을 원문으로 인용했다 — 결정⑮ 의 "**왜냐하면 앱패키지에 동봉되어있으니**" 와 요구⑭ 의 "**npm -g 가 아닌 install.ps1**" 을 §2 에 그대로 뒀다.
+- [x] "제거"를 재해석하지 않았다 — 결정⑮ 의 "참조하지 않도록"을 *후순위로 내림* 이 아니라 **삭제**(D-029)로 읽었다. 요구⑯ 이 그것을 명시 허가했다.
+- [x] 사용자에게 물을 것과 코드로 닫을 것을 갈랐다 — 해석 **순서**는 0105 사용자 결정의 역전이라 `AskUserQuestion` 으로 물었고, "왜 npm -g 는 안 터지나"·"드리프트가 실재하나"는 **실측으로 닫았다**(F-35·F-36).
+- [x] 기존 ACTIVE 결정과 충돌을 먼저 diff 했다 — 이 handoff 안에서 SUPERSEDED **0**. 뒤집히는 것은 **0105 요구②** 하나이고 §16 에 SUPERSEDE 로 적었다.
+- [x] 수치·전칭 표현을 이번 세션에 실측했다 — 해석 사이트 1 · 소비 배선 2 · 삭제 대상 프로덕션 참조 3(외부 소비처 0) · 테스트 참조 11행 · 설정 표면 0 · 현재-규칙 문서 1.
+- [x] 외부 SDK/CLI 주장을 **벤더 1차 산출물**로 확인했다 — `sdk.mjs` 의 미지정 해석 분기, 동봉 `claude.exe --version`(2.1.220), 호스트 `claude.exe --version`(2.1.251), 두 바이너리의 `ExitPlanMode` 삼항을 이 세션에서 직접 읽었다.
+- [x] 각 AC 가 행동 단언·검증 수단·프로덕션 도달 경로를 갖는다 — AC35~AC39 전건 3칸.
+- [x] **음성 AC 마다 양성 짝이 있다** — AC35(호스트 미참조) ↔ **AC36·AC37 둘**. AC39(0건 스윕)는 단독으로 잠그지 못함을 §7 주의사항에 적고 행동 축을 AC35·AC37 에 귀속시켰다.
+- [x] **"X 가 쓰인다" 불변식의 장치가 X 를 지웠을 때 red 다** — AC36 은 `toUnpackedPath` 를 항등으로 바꾸면 red(변이 ②), AC38 은 두 스프레드를 **각각** 지우면 red(변이 ④⑤). **형제 자리**(EP-29 2지점)를 개별 변이로 등록했다.
+- [x] **structural proxy 로 semantic 목표를 대신하지 않았다** — AC38 은 "스프레드가 있다"가 아니라 SDK 가 받은 `options` 의 필드값을 본다. seam(`vi.mock('@anthropic-ai/claude-agent-sdk')`)의 선례를 `claude.cwd.test.ts:29` 로 실재 확인했다.
+- [x] **버그를 계약으로 못박은 기존 테스트를 찾아 정정 대상으로 올렸다** — `describe('resolveClaudeExecutable 우선순위')` 3케이스(§16). AT-05 정정과 같은 처리다.
+- [x] **덮개 회귀를 미리 판정했다** — 구 3케이스가 잡던 회귀(번들 미해결 시 `undefined`)를 AC37 이 승계한다(§19).
+- [x] **red-first 를 요구했다** — AC37 은 현행 코드에서 red 여야 하고 구현 전에 관측해 기록한다.
+- [x] 신규 계약의 레이어·강제 지점·테스트 seam 이 있다 — `claude-executable.ts` 는 adapters, EP-28, 주입 fake. 신규 파일 1개는 테스트뿐이라 레이어 영향 0.
+- [x] `NEW` 좌 node 전건에 같은 레벨 `REQUIRED` pair 가 있고(R-08→VP-32 · AR-08→VP-34 · MD-08→VP-33), 영향받은 `INHERITED` R-01 은 `REGRESSION`(VP-01), 나머지는 출처·비영향 근거와 함께 `NOT_REQUIRED` 다.
+- [x] **다중 저장소 쓰기 없음을 명시했다** — 해석은 읽기 2종뿐, 부팅 1회(§10 ΔV4 주석).
+- [x] `undefined` 의 fail-open 을 없앴다 — ΔV4 후 `undefined` 의 의미가 "번들이 asar 밖(dev)" 하나로 좁아진다(§10 ΔV4 주석).
+- [x] 신규 의존성 **0건** — 사용자 승인 불필요.
+- [x] 범위/비범위가 사람 실기를 막지 않는다 — §19 에 install.ps1 환경 실기 1건을 추가했고 관측 지점(`~/.claude/plans/` 신규 파일)을 지정했다.
+- [x] `ACTIVE 결정 ↔ AC` 대조 결과를 §3 갱신 메모에 관측으로 적었다 — **충돌 0**, D-028↔AC35·AC36·AC37 / D-029↔AC39 / D-030↔AC27~AC34 유지.
+- [x] Part I/II 에 같은 사실을 두 번 쓰지 않았다 — §4 는 **판정**, §8 은 **관측 근거**, 이 절은 **경로 서술**로 갈랐다.
