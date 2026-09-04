@@ -68,6 +68,19 @@
 
 관련 renderer/main 단위·통합·렌더 스위트, typecheck 3구성, lint, prettier, 문서 generated/prose/links와 diff check를 수행한다. DB가 필요하면 기존 writer fixture/실제 roundtrip을 우선하고 ABI 전환은 app 가이드를 따른다. 별도 mutation은 선택하지 않는다(실제 호출 수·상태·저장 파트·렌더 결과의 직접 oracle). READY 자기확인: ACTIVE D-146~149 ↔ AT-95~98 충돌 0, 네 경로와 강제 15지점 및 실패/경계 상태를 명시했다.
 
+### ΔV13 후속 입력 — 프로젝트 메뉴의 원격 주소 확인
+
+사용자가 `git remote -v`에 원격이 있는데 프로젝트 메뉴는 없다고 표시한다고 지적했다. 현재 구현은 세션 cwd에서 `git remote get-url origin`을 실행해 github.com의 HTTPS/SCP/SSH 주소만 정규화한다. 메뉴는 이전 `gitStatus.githubUrl`만 읽고 주소 누락·조회 실패·지원하지 않는 주소를 모두 부재 문구로 표시한다. 현 체크아웃의 origin 정규화는 정상이며 사용자의 실행 세션에서 어떤 경계가 실패했는지는 아직 확정되지 않았다.
+
+| ID | 결정 / 확인 경로 |
+|---|---|
+| D-150 | 저장소·브랜치 메뉴를 열 때 현재 cwd의 Git 상태를 새로 조회한다. 이전에 비어 있던 URL로 부재를 단정하지 않고 조회 중·조회 실패·GitHub 주소 미확인을 구분한다. 응답은 같은 메뉴 열기/cwd에만 반영한다. 브랜치 복사는 독립적으로 유지하며 원격 열기는 확인된 URL만 사용한다. raw 원격/자격증명은 renderer에 보내지 않고 기존 origin/github.com 범위는 유지한다. |
+| R-92 / AT-99 | 이전 snapshot URL이 null이어도 실제 origin이 있으면 클릭 후 GitHub 열기가 활성화된다. 재열기와 cwd 변경은 새 응답을 사용하고 늦은 응답은 이전 메뉴를 되살리지 않는다. 지원 주소를 확인하지 못한 경우 ‘원격이 없다’고 단정하지 않는다. |
+| VP-100 | NEW / REQUIRED — R-92↔AT-99, AR-43↔IT-43: GitRow cwd 전달→메뉴 열기→Git 상태 조회 hook→정규화 URL/상태 표시→실제 메뉴 동작. 기존 Git parser/CLI 원격 회귀와 브라우저 stale-null→fresh-url을 확인한다. |
+| EP-74 | cwd prop 전달·메뉴 수명 query/cancel·상태별 표시와 URL 실행 / 3. snapshot 누락을 부재로 오표시하거나 이전 경로로 여는 것이 실패다. |
+
+추가 후 READY 자기확인: ΔV13의 현재 범위는 AC 5개(VP-96~100), 강제 지점 18개(EP-70~74)다. 기술 경계·기존 GitHub URL 보안 정책은 상속한다. 독립 원격 조회는 diff 자동조회 정책을 바꾸지 않는다.
+
 ## ΔV12 — 랜딩 브랜치·워크트리 동시 표시 (2026-09-04, 라운드 3 유지)
 
 ### Product & UX Contract / Decision Ledger
