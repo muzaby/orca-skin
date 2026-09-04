@@ -1645,3 +1645,84 @@ CLI 는 plan 파일이 없으면 두 필드를 **함께** 빼고(F-24a), 그때 
 - [x] 범위/비범위가 사람 실기를 막지 않는다 — §19 에 install.ps1 환경 실기 1건을 추가했고 관측 지점(`~/.claude/plans/` 신규 파일)을 지정했다.
 - [x] `ACTIVE 결정 ↔ AC` 대조 결과를 §3 갱신 메모에 관측으로 적었다 — **충돌 0**, D-028↔AC35·AC36·AC37 / D-029↔AC39 / D-030↔AC27~AC34 유지.
 - [x] Part I/II 에 같은 사실을 두 번 쓰지 않았다 — §4 는 **판정**, §8 은 **관측 근거**, 이 절은 **경로 서술**로 갈랐다.
+
+---
+
+> **[구현자 기입]** 이하는 r4 구현 턴의 **ΔV4 부분**이다. ΔV3 축(AC5 정정·AC27~AC34)은
+> 손대지 않았고 보드의 다음 주체가 계속 그것을 받는다.
+
+## [구현자 기입] 설계 리뷰 (r4 — ΔV4)
+
+- ✅ ΔV4 의 Decision·AC·§10 이 구현 가능했다. `PLAN_GAP` **0건**.
+- ⚠️ **AC39 술어를 만족시키려 테스트 주석을 한 번 고쳤다.** 초안 주석이 삭제 대상 식별자를 그대로 인용해 `rg` 가 **1건**을 돌려줬다(`claude-executable.test.ts:69`). AC 를 느슨하게 하는 대신 주석을 "0105 의 호스트-우선 순서"로 바꿔 **0건**으로 만들었다.
+- ✅ §11 이 지정한 seam 이 실재했다 — `claude.cwd.test.ts:10-29` 의 `vi.hoisted` + `vi.mock('@anthropic-ai/claude-agent-sdk')` 패턴을 그대로 재사용했다.
+- ⚠️ **§11 이 적지 않은 조립 세부 2건을 선조치했다**: ① `vi.mock` 팩토리가 호이스팅되므로 sentinel 도 `vi.hoisted` 로 만들어야 한다(초회 `ReferenceError: Cannot access 'SENTINEL' before initialization`) ② `sendMessage` 는 `cwd` 없이는 `resolveGuardRoots` 가 `paths[0] … undefined` 로 던진다 → 최소 `TurnRequest` 에 `cwd` 를 넣었다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조 · r4 — ΔV4 신설 행)
+
+| EP | plan 분모 | 닫은 수 | 재현 명령 · 관측값 |
+|---|---|---|---|
+| EP-28 | 1 | **1/1** | `grep -n 'return resolveBundledExecutable()' claude-executable.ts` → `60:  return resolveBundledExecutable()` |
+| EP-29 | 2 | **2/2** | `grep -n '\.\.\.claudeExecutableOption,' claude.ts` → `266:`(runCompletion) · `383:`(sendMessage) |
+
+- 분모를 **불변식의 주어**로 재확인했다 — EP-29 의 주어는 "SDK 로 나가는 query 옵션 객체"이고, `rg -n "claudeExecutableOption" src --glob '!*.test.*'` = **3**(정의 1 + 스프레드 2)이다. 해법 이름(`pathToClaudeCodeExecutable`)으로 세면 `claude.ts` 에서 **1건**(모듈 상수 정의)만 나와 분모가 줄어든다.
+- 남긴 지점: **없음**.
+
+### V-pair 자기확인 (ΔV4)
+
+| pair | 자기 상태 | 관측값 |
+|---|---|---|
+| VP-32 (R-08 ↔ AT-35·36·37) | `SELF_PASS` | `claude-executable.test.ts` 4 케이스 green (AC35·AC36·AC37×2) |
+| VP-33 (MD-08 ↔ UT) | `SELF_PASS` | 같은 파일 `resolveBundledExecutable` 4 케이스 green |
+| VP-34 (AR-08 ↔ AT-38) | `SELF_PASS` | `claude.executable-option.test.ts` 2 케이스 green — `options.pathToClaudeCodeExecutable === SENTINEL` (sendMessage · complete) |
+| VP-01 (REGRESSION) | `SELF_PASS` | `vitest run src/main/adapters src/shared` → **68 파일 / 666 케이스 green**, `plan-text.test.ts`·`claude.canusetool.test.ts` 포함 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r4 — ΔV4)
+
+| 변이 | 심은 자리 | 결과 | 관측값 |
+|---|---|---|---|
+| ① 옛 호스트-우선 사슬 복원 | `claude-executable.ts` 합성부 + 두 함수 재삽입 | **red** | `4 failed / 7 passed` — AC35 · AC36 · AC37(2케이스) |
+| ② `toUnpackedPath` 항등 | `:22` → `return p` | **red** | `5 failed / 8 passed` — AC36 포함 |
+| ③ asar 판정 제거 | `:50` → `return toUnpackedPath(resolved)` | **red** | `2 failed / 11 passed` — AC37 (dev 위임) 포함 |
+| ④ EP-29 형제 ①(`:266`) 제거 | `claude.ts` runCompletion 스프레드 | **red** | `1 failed / 12 passed` — `complete` 케이스 |
+| ⑤ EP-29 형제 ②(`:383`) 제거 | `claude.ts` sendMessage 스프레드 | **red** | `1 failed / 12 passed` — `sendMessage` 케이스 |
+| AC39 0건 스윕 감도 | 두 함수 이름을 파일에 되살림 | **비-0** | `grep -c` → **2**(복원 후 전수 재측정 **0**) |
+
+- **분모 검산**: 선택 증거 **2**(VP-34 의 형제 변이 ④⑤) · 인용 변이 **0**(이번 라운드에 닫는 파생 이슈 없음) · 이번 턴에 만든 구조적/0건 oracle **1**(AC39) = 표의 필수 행 **3**. 나머지 3행(①②③)은 §19 ΔV4 가 등록한 게이트 변이라 추가로 실행해 함께 적었다. VP-32·VP-33 은 `not selected — 직접 oracle`(반환 문자열 직접 관측).
+- **덮개 회귀 확인**: 교체한 구 `describe('resolveClaudeExecutable 우선순위')` 3케이스가 잡던 자리 중 **"둘 다 미해결이면 undefined"** 는 신설 케이스 `AC37 — 번들 자체가 미해결이어도 호스트로 폴백하지 않는다` 가 승계했고, 변이① 하에서 red 임을 확인했다. 나머지 2케이스는 **호스트 우선 순서 자체를 단언**하던 것이라 D-028 이 그 계약을 없앴다 — 승계 대상이 아니다.
+
+## [구현자 기입] Product/UX 파생 검토 (r4 — ΔV4)
+
+- ✅ **새 사용자 대면 문구 0건.** ΔV4 는 부팅 1회 경로 선택이라 화면에 새 문자열을 만들지 않는다.
+- ⚠️ **실패가 조용하지 않은지 확인했다** — 번들까지 미해결이면 SDK 가 `Native CLI binary for <plat>-<arch> not found …` 로 **throw** 한다. Orca 의 기존 에러 정규화(`error-classifier.ts`)가 그것을 턴 오류로 표면화하므로 "아무 일도 안 일어남"이 되지 않는다. 이전 동작(호스트로 조용히 폴백)보다 관측 가능성이 **올라간다**.
+- ⚠️ **Part I 상태 전이표에 대응 행이 없다** — ΔV4 의 실패 모드("동봉 바이너리 미해결")는 §5 표 11행 어디에도 없다. 턴 시작 실패라 계획/모델 축과 다른 층이다. **파생 이슈로만 적고 이번에 표를 늘리지 않았다**(범위 밖 — 설계자 판단 대상).
+- ✅ 사용자가 관측하는 변화: **호스트 CLI 를 최신으로 업데이트해도 Orca 의 동작이 바뀌지 않는다.** 이것이 D-028 의 의도다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r4 — ΔV4)
+
+| 발견 | 처리 | 근거 |
+|---|---|---|
+| **ΔV4 가 증상을 실제로 없앴는지는 이 환경에서 확인 불가** | 보고만 | 이 저장소 클론에 install.ps1 설치본이 없다(`ls ~/.local/bin` → `python3.12.exe` 뿐). §19 사람 실기 항목이 그 자리다 |
+| CLI 버전 델타의 **메커니즘 미격리** | 보고만 | F-39 대로 두 바이너리의 주입 삼항이 동형이다. bisect 는 방아쇠만 증명한다 — verify 가 사람 실기 결과로 갈라야 한다 |
+| `docs/etc/study/claude/api/00-진입점-분류.md:58` 이 해석 경로를 서술한다 | 보고만 | evidence 계층이라 ΔV4 비범위(§6). 다만 그 문장은 `require.resolve` 만 적어 **이미 새 동작과 일치**한다 |
+| Part I §5 상태 전이표에 "실행 파일 미해결" 행이 없다 | **plan 수정 제안** | 위 Product/UX 검토 3번째 항목. 설계자가 행을 더할지 판단한다 |
+
+## [구현자 기입] 구현 보고 (r4 — ΔV4 부분)
+
+- 상태: **partial** — ΔV4 완료, ΔV3 미착수.
+- 대상 커밋: (r4 ΔV4 구현 — 좌표는 INDEX).
+- **AC 합계 검산**: r4 대상 AC = ΔV3 **9**(AC5 정정 · AC27~AC34) + ΔV4 **5**(AC35~AC39) = **14**. 이번 턴 ✅ **5** · ⚠️ 0 · ❌ 0 · 미착수 **9** → `Criteria-Met: 5/14`. 분모는 §7 표의 전체 39 AC 가 아니라 **r4 가 받은 미충족분**이다(AC1~AC22·AC24~AC26 은 r3 `verify/PASS` 로 닫혔다).
+- **AC 행별 관측**: AC35 ✅ / AC36 ✅ / AC37 ✅(2케이스) / AC38 ✅(2케이스) / AC39 ✅(`rg` **0건**, public export **3**: `toUnpackedPath`·`resolveBundledExecutable`·`resolveClaudeExecutable`).
+- **관측한 게이트 산출**: `npm run typecheck` **3구성 전건 무진단**(node·web·test) · `npm run lint` **0 error / 1 warning**(warning = `useTranscriptVirtualizer.ts:22` `react-hooks/incompatible-library`, 기존·변경 무관) · `vitest run src/main/adapters src/shared` **68 파일 / 666 케이스 green** · `node scripts/check-doc-inventory.mjs --check` **3검사 ok**.
+- `npm run lint` 이 `--fix` 로 `claude-executable.test.ts` 한 줄(함수 시그니처 줄바꿈)을 재포맷했다 — 자기 신규 파일이라 그대로 커밋한다.
+- 변경 파일 **5**: `claude-executable.ts` · `claude-executable.test.ts` · `claude.executable-option.test.ts`(신규) · `claude.ts`(주석 2줄) · `docs/claude-taskxxx-spec.md`(표 2행).
+- 신규 의존성 **0**.
+
+## [구현자 기입] Review Signals — 사실만 (r4 — ΔV4)
+
+- 이번에 닫은 불변식("실행 파일 출처는 앱 동봉본 하나")은 **이전 라운드들과 다른 축**이다. r1~r3 은 계획 본문·모델 목록·타일 배선이었다.
+- **같은 형태의 재발은 있다**: "기존 테스트가 버그를 계약으로 못박았다"가 ΔV3 의 AT-05 에 이어 ΔV4 의 `resolveClaudeExecutable 우선순위` describe 로 **두 번째**다. 둘 다 사용자 재보고가 와서야 발견됐다.
+- 그것을 막았어야 할 지침: `handoff-plan/SKILL.md §5`("기존 테스트를 검증 수단으로 인용하면 케이스가 실제 존재하는지 확인한다")는 **인용한** 테스트만 다룬다 — 이번 두 건은 plan 이 인용하지 않은 테스트가 반대 계약을 들고 있던 경우다.
+- 0105 가 이 실패 모드를 **plan §리스크에 적고 수용**했고 발현까지 약 7주 걸렸다(2026-07-15 → 09-04). 수용한 리스크의 재검토 트리거가 없다.
+- 반복 환경 한계: 이 클론에 `node_modules` 가 없어 게이트 전에 `npm ci` 가 필요했다(exit 0, 약 6분).
+- 현재 라운드: **4** (ΔV3 미착수분이 같은 라운드에 남아 있다).

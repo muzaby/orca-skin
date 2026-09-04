@@ -260,8 +260,8 @@ Orca 는 이 구분을 `async_launched` 영수증으로 이미 판별한다(0136
 |---|---|---|
 | CLI 버전 | v2.1.142 미만은 `TodoWrite` 를 쓴다 | Task 도구 호출이 **한 번도 오지 않는다** |
 | 환경 변수 | `CLAUDE_CODE_ENABLE_TASKS=0` 이면 Task 도구가 꺼진다 | 최신 CLI 에서도 같은 결과가 된다 |
-| SDK 버전 | `package.json` 의 SDK 버전은 **이 축을 고정하지 못한다** | SDK 와 CLI 는 별개 축이다 |
-| 실행 경로 | Orca 는 `pathToClaudeCodeExecutable` 로 **PATH 의 사용자 설치본을 번들보다 먼저** 고른다 (`app/src/main/adapters/claude-executable.ts`) | 사용자 머신의 CLI 버전이 실제 결정자다 |
+| SDK 버전 | `package.json` 의 SDK 버전이 **CLI 버전을 고정한다** — SDK 는 자기 버전에 잠긴 CLI 를 동봉한다 | SDK 를 올려야 CLI 가 올라간다 |
+| 실행 경로 | Orca 는 `pathToClaudeCodeExecutable` 로 **앱이 동봉한 번들 바이너리만** 고른다. 호스트 설치본(PATH·`~/.local/bin`)은 보지 않는다 (`app/src/main/adapters/claude-executable.ts`) | 사용자 머신의 CLI 버전은 결정자가 아니다 (0215 D-028 — 이전에는 호스트 우선이었고 자동 갱신으로 드리프트했다) |
 
 ### 6.1 판정 방법 — 버전 파싱이 아니라 feature detection
 
