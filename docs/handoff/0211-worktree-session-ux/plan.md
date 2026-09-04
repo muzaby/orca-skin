@@ -14,6 +14,45 @@
 | 이번 V revision | `ΔV11` (동일 라운드 3, 사용자 후속 입력) |
 | 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10 + ΔV11` |
 
+## ΔV12 — 랜딩 브랜치·워크트리 동시 표시 (2026-09-04, 라운드 3 유지)
+
+### Product & UX Contract / Decision Ledger
+
+사용자 요구: “Git 브랜치 버튼이 노출될 때 워크트리 버튼도 함께 노출”, “‘Worktree 격리’ 텍스트를 ‘[ ] 워크트리’로 변경”, “[ ]는 체크박스”, “버튼(전체) 클릭시 체크 표시(파란색계열)”. 기존 새 대화 작업 컨텍스트의 표시와 선택 표현을 보정한다.
+
+| ID | 결정 | 대체 / 상태 |
+|---|---|---|
+| D-143 | 현재 cwd의 Git 저장소 확인 전·실패·비저장소·cwd 없음에는 브랜치/워크트리 묶음 전체를 숨긴다. Git 확인으로 브랜치 버튼이 나타나는 렌더에서 워크트리도 함께 표시한다. 경로 변경 직후 이전 경로 응답으로 묶음을 표시하지 않는다. | ACTIVE · 브랜치만 비가용 시 숨기고 격리 칩은 남기던 표시 대체 |
+| D-144 | 라벨은 한국어 ‘워크트리’, 영어 ‘Worktree’다. 앞에 실제 체크박스를 두고 전체 라벨 영역 클릭과 키보드 Space로 토글한다. 선택 표시는 Orca selected 파란 토큰을 쓴다. | ACTIVE · Worktree 격리 텍스트/aria-pressed 칩 표현 대체 |
+
+초기 OFF, 전송 중 비활성, 미커밋 변경 안내 tooltip, 격리 ON의 base ref 선택 유예와 OFF의 즉시 checkout은 상속한다. 기존 BranchChip의 Git 조회를 공유하므로 별도 상태 조회·저장소·IPC 변경은 없다. ACTIVE 결정 ↔ AC 대조: D-143은 AT-93, D-144는 AT-94에 연결되며 상속 선택/전송 동작과 충돌하지 않는다.
+
+### AC / 유효 V 차분
+
+기준 ΔV11, 이번 revision ΔV12, 라운드 3 유지. 기존 ΔV6 D25~D27 차단은 유지한다.
+
+| R / AT | 사용자 결과 / oracle |
+|---|---|
+| R-86 / AT-93 | 초기 미확인·비저장소·조회 실패·cwd 없음에는 묶음이 없다. Git 응답 후 브랜치/워크트리가 함께 보이며 경로 전환 중에는 둘 다 숨긴다. 실제 CwdPanel/BranchChip 렌더와 지연 응답 브라우저 fixture로 확인한다. |
+| R-87 / AT-94 | ‘체크박스 워크트리’ 전체 영역을 클릭하면 OFF↔ON, 키보드 Space도 동일하다. ON은 파란 체크이며 전송 중 비활성이다. 두 테마·실제 checkbox·store 선택/전송 회귀로 확인한다. |
+
+| pair | requiredness / 경로 / 증거 |
+|---|---|
+| VP-94 | NEW / REQUIRED — R-86↔AT-93, AR-38↔IT-38: BranchChip statusForCwd/branchChipView→가시성 guard→CwdPanel의 trigger 묶음 렌더. 실제 렌더의 묶음/두 컨트롤 유무 및 지연 조회와 경로 변경을 관측한다. |
+| VP-95 | NEW / REQUIRED — R-87↔AT-94: label/input→setWorktreeIsolation→draft→checked. checkbox 상태와 실제 클릭·Space·계산된 accent 색을 관측한다. |
+| ΔV12-REG | INHERITED / REGRESSION — BranchChip.defer, branchChipState, chatReducer.worktree, chatStore.worktreeIsolation, CwdPanel.landing, chipGroup의 기존 선택 유예·전송·랜딩 범위·묶음 외형. 변경되는 구조 스윕은 실제 렌더 단언으로 대체한다. |
+
+### Technical Design / §10
+
+원인: CwdPanel의 워크트리 ComposerChip은 무조건 렌더되고 BranchChip만 내부 비동기 snapshot을 기다린다. BranchChip에 가시성 guard 이후에만 호출되는 renderTrigger 슬롯을 두어 CwdPanel이 두 컨트롤과 묶음 외형을 한 번에 조립한다. WorktreeToggle은 label/input으로 전체 클릭 영역을 만들고 기존 chipSurface의 segment 외형을 재사용한다.
+
+| EP | 대상 / N | 실패 의미 |
+|---|---|---|
+| EP-67 | BranchChip의 가시성 이후 trigger 슬롯·CwdPanel 묶음 조립 / 2 | Git 확인 전 워크트리 또는 빈 묶음 테두리가 먼저 보인다. |
+| EP-68 | WorktreeToggle의 label/input/selected 표현·CwdPanel의 checked/change/disabled 전달 / 2 | 라벨 클릭이 토글하지 않거나 draft와 체크가 어긋난다. |
+
+운영 gate: 관련 renderer 렌더·브랜치/격리 상태·전송 회귀, 전체 lint, typecheck 3구성, 문서 gate, diff check. 별도 mutation은 선택하지 않는다(실제 컨트롤·상태·동작을 관측하는 직접 oracle). READY 자기확인: 사용자 두 요구와 강제 4지점, 기존 cwd 세대 보호·격리 전송 계약의 회귀 경로를 확인했다.
+
 ## ΔV11 — composer 저장소·브랜치 메뉴 (2026-09-04, 라운드 3 유지)
 
 ### Product & UX Contract / Decision Ledger
