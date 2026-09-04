@@ -14,6 +14,60 @@
 | 이번 V revision | `ΔV12` (동일 라운드 3, 사용자 후속 입력) |
 | 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10 + ΔV11 + ΔV12` |
 
+## ΔV13 — 커밋 캐시·코멘트 참조·전송 첨부·수동 새로 고침 (2026-09-04, 라운드 3 유지)
+
+### Product & UX Contract / Decision Ledger
+
+사용자 지적 네 건: “각 커밋을 누를 때마다 매번 내용을 불러온다고 표기되며 지연”, composer에서 코멘트 클릭 시 diff의 같은 코멘트도 활성화, 보내기 후 사용자 메시지버블에 동봉한 코멘트 첨부 표시, 케밥 마지막 “새로 고침”으로 메시지 전송 없이 즉시 조회. 기존 ΔV12를 기준으로 같은 라운드에서 수행한다.
+
+| ID | 결정 | 대체 / 상태 |
+|---|---|---|
+| D-146 | 같은 세션/cwd/요약 세대에서 이미 받은 비교 범위 패치는 커밋 A→B→A 및 타일 재열기에서 즉시 재사용한다. 새 턴 종료 조회·수동 새로 고침·cwd 변경은 이전 캐시를 비우며 다른 범위/세대 응답이 현재 화면을 덮지 않는다. | ACTIVE · ΔV8의 단일 현재 패치만 유지하는 구현 대체 |
+| D-147 | 저장된 diff 코멘트와 composer 인용 타일은 세션별 선택 ID를 공유한다. 어느 쪽을 선택해도 같은 항목이 두 화면에서 파란 활성 경계를 갖는다. composer 선택은 diff 패널·해당 범위/파일/코멘트를 보여주며 DOM 포커스를 빼앗지 않는다. 삭제·전송 후 제거·cwd/새 대화는 선택을 비운다. 수동 비교 범위 전환도 선택을 해제한다. | ACTIVE · D-138의 저장 카드/타일 focus-within 전용 표현 대체; 작성 중 입력창의 focus 표현 유지 |
+| D-148 | 전송한 diff 코멘트는 사용자 메시지의 별도 인용 첨부로 파일·줄·본문을 확인할 수 있다. 낙관 메시지→queued/committed 이벤트→저장→세션 재로드에서 같은 첨부를 보존한다. 파일 첨부와 함께 표시하고 일반 메시지는 기존 모습이다. | ACTIVE · 기존 provider 요구사항 전송은 유지, 실제 파일 첨부로 위장하지 않음 |
+| D-149 | diff 케밥 마지막 항목은 ‘새로 고침’이다. 클릭하면 메뉴가 닫히고 현재 cwd/세션의 상태·요약 및 열린 diff의 선택 범위 패치를 즉시 조회한다. 앱 재시작/resume 전에도 가능하다. 실패는 재시도 가능한 안내로 표시한다. 자동 조회는 기존 턴 종료를 유지한다. | ACTIVE · D-099/D-106/D-115의 수동 조회 금지 절 대체; 최초 자동 조회/실시간 감시는 추가하지 않음 |
+
+기존 ΔV6 D25~D27 차단은 별도로 유지한다. 원래 저장되지 않은 과거 코멘트는 재구성하지 않으며 새 전송부터 첨부를 영속화한다. 코멘트 선택은 UI 상태만 바꾸고 전송 revision을 올리지 않는다; 위치를 다시 찾지 못하면 기존 위치 미확정 안내와 내용을 보존한다.
+
+### 코드 조사와 Technical Design
+
+| 대상 | 현재 원인 / 변경 경로 |
+|---|---|
+| useGitPatch / SET_DIFF_COMPARISON | 현재 범위만 저장하고 전환 시 patch:null. 세션 GitSnapshot에 범위별 LRU 캐시를 두고 캐시 hit를 같은 reducer 전이에서 현재 patch로 복원한다. 캐시는 최대 16범위·32MiB 추정 가중치(문자/줄/파일 메타 합)의 작은 쪽으로 제한하며 초과 단일 패치는 현재 화면에만 둔다. |
+| RequirementTray / FileDiffSection | 인용 버튼에 선택 callback이 없고 focus-within만 사용한다. activeDiffRequirementId를 store에서 전달하고 양방향 선택·파일 펼침·선택 코멘트 스크롤을 연결한다. 접힌 문맥과 나란히 보기에서도 선택 항목을 확인할 수 있게 한다. |
+| TurnCoordinator / HistoryWriter / UserMessage | provider 큐의 requirements는 살아 있으나 commitConsumed가 attachmentViews만 저장/이벤트로 보낸다. AppMessagePart에 diff_requirements 파트를 추가하고 기존 DiffRequirementAnchor 배열을 옮긴다. message_parts는 JSON 본문과 TEXT type이므로 migration 없이 기존 파트 파서를 재사용한다. |
+| useGitSnapshot / GitContextBar | 요약 계기가 turnEndTick 하나이며 메뉴에 refresh 없음. 세션 refresh tick과 요청 오류 상태를 추가하고 기존 단일 query owner로 명시 새 세대를 시작한다. 타일 patch owner는 새 세대의 선택 범위 패치를 조회한다. |
+
+캐시 비용은 새 패치 수신 때만 줄/문자 수를 합산하며 범위 전환은 제한된 항목 검색이다. 재사용 때도 해당 비교 범위 요구사항의 reanchor를 수행해 변경/삭제 정보를 잃지 않는다. selection cache/전송 snapshot의 소유자는 각각 세션 상태/요청 snapshot으로 구분한다. 미완료 요청은 기존 세대·비교 범위 guard를 유지한다.
+
+### AC / 유효 V 차분
+
+| R / AT | 사용자 결과 / 직접 oracle |
+|---|---|
+| R-88 / AT-95 | 커밋 A/B를 한 번 받은 후 A로 돌아갈 때 추가 IPC와 로딩 표시가 없다. 전송/refresh 새 세대는 재조회하며 다른 세대/범위의 늦은 응답은 현재 화면을 덮지 않는다. 실제 hook+reducer, LRU 한도와 브라우저 카운터로 확인한다. |
+| R-89 / AT-96 | 두 composer 타일과 diff 카드를 번갈아 클릭하면 같은 ID만 두 표면에서 활성화된다. 다른 범위·접힌 파일·문맥 안 코멘트도 보여주며 삭제/전송/세션 경계에서 이전 선택이 남지 않는다. 실제 store/렌더/브라우저로 확인한다. |
+| R-90 / AT-97 | 코멘트가 포함된 사용자 메시지에서 첨부의 파일·줄·본문을 확인한다. 낙관→commit 및 저장→로드 후에도 보존되고 원래 provider payload도 유지된다. 파일 첨부 병존·일반 메시지 회귀를 확인한다. |
+| R-91 / AT-98 | 케밥 마지막 ‘새로 고침’을 누르면 미싱크 상태에서도 status/summary/선택 patch를 조회해 표시한다. 메시지 send는 발생하지 않는다. 재시도와 기존 자동 턴 종료 조회를 확인한다. |
+
+| pair | requiredness / 경로 |
+|---|---|
+| VP-96 | NEW / REQUIRED — R-88↔AT-95, AR-39↔IT-39, MD-37↔UT-37: hook 조회→RECEIVE_GIT_PATCH 캐시→SET_DIFF_COMPARISON 복원→hook 무조회. cache 한도·새 세대·cwd/session 경계를 직접 관측한다. |
+| VP-97 | NEW / REQUIRED — R-89↔AT-96, AR-40↔IT-40: composer/card 선택→activeDiffRequirementId→비교/파일/표시 prop→양쪽 활성 및 reveal. |
+| VP-98 | NEW / REQUIRED — R-90↔AT-97, SD-13↔ST-13, AR-41↔IT-41: send anchors→queue/commit→writer JSON parts→session load→UserMessage 인용 첨부. |
+| VP-99 | NEW / REQUIRED — R-91↔AT-98, AR-42↔IT-42: 메뉴 마지막 refresh→세션 tick→기존 query owner→새 세대/선택 patch→성공 또는 실패 안내. |
+| ΔV13-REG | INHERITED / REGRESSION — 기존 커밋 첫 부모 범위·요약/패치 순서·코멘트 전송 revision 보호·기존 파일 첨부/텍스트·자동 조회 계기·diff 준비 전 버튼 숨김. |
+
+### §10 강제 지점 / 운영 gate
+
+| EP | 대상 / N | 실패 의미 |
+|---|---|---|
+| EP-70 | 캐시 수신·범위 hit 복원·세대/cwd 초기화 / 3 | 범위 전환 때 재조회하거나 다른 범위 패치를 보여준다. |
+| EP-71 | 선택 action/cleanup·composer 타일·diff prop 전달·카드/문맥 reveal / 4 | 두 표면의 선택이 어긋나거나 활성 코멘트가 안 보인다. |
+| EP-72 | 낙관/queued 사용자 파트·commitConsumed 이벤트·writer 파트 저장·로드/버블 표시 / 4 | 전송 내용이 빠지거나 재로드 시 첨부가 사라진다. |
+| EP-73 | 마지막 메뉴·refresh tick/조회 계기·새 세대 캐시 무효화·실패/재시도 안내 / 4 | 다시 메시지를 보내야 하거나 실패가 무한 로딩으로 남는다. |
+
+관련 renderer/main 단위·통합·렌더 스위트, typecheck 3구성, lint, prettier, 문서 generated/prose/links와 diff check를 수행한다. DB가 필요하면 기존 writer fixture/실제 roundtrip을 우선하고 ABI 전환은 app 가이드를 따른다. 별도 mutation은 선택하지 않는다(실제 호출 수·상태·저장 파트·렌더 결과의 직접 oracle). READY 자기확인: ACTIVE D-146~149 ↔ AT-95~98 충돌 0, 네 경로와 강제 15지점 및 실패/경계 상태를 명시했다.
+
 ## ΔV12 — 랜딩 브랜치·워크트리 동시 표시 (2026-09-04, 라운드 3 유지)
 
 ### Product & UX Contract / Decision Ledger
