@@ -183,6 +183,16 @@ describe('컨텍스트 바의 컨트롤 — `×` 는 타일이 그린다 (제안
     expect(tagOf(shown)).toContain('aria-label="파일 목록 숨기기"')
   })
 
+  it('활성 목록 토글은 Orca 파란 selected 토큰을 쓴다 (ΔV8 AT-80)', () => {
+    const html = render({ sidebarVisible: true })
+    const at = html.indexOf('data-diff-sidebar-toggle=')
+    const button = html.slice(html.lastIndexOf('<button', at), html.indexOf('</button>', at))
+
+    expect(button).toContain('aria-pressed:text-selected')
+    expect(button).toContain('[&amp;[aria-pressed=true]&gt;.btn-squish]:bg-selected-soft')
+    expect(button).not.toContain('bg-fill-selected')
+  })
+
   it('기본 화면에서는 두 메뉴가 닫혀 있다 — 사이드바도 메뉴도 펼쳐 있지 않다 (D-083)', () => {
     const html = render()
 
@@ -206,6 +216,21 @@ describe('`↗` 라벨은 카탈로그로 해석된다 (AT-52)', () => {
     // 호버로 읽는 자리도 같은 문구다 — 둘 중 하나만 있으면 두 독자 중 하나가 잃는다.
     expect(wide).toContain('title="패널 확대"')
     expect(narrow).toContain('title="패널 폭 되돌리기"')
+  })
+
+  it('확대와 되돌리기는 같은 NE/SW 축에서 외향/내향으로 갈린다 (ΔV8 D-127)', () => {
+    const iconPath = (html: string): string => {
+      const at = html.indexOf('data-diff-expand-panel=')
+      const button = html.slice(html.lastIndexOf('<button', at), html.indexOf('</button>', at))
+      return button.match(/<path d="([^"]+)"/)?.[1] ?? ''
+    }
+
+    expect(iconPath(render({ colWidth: PANEL_DEFAULT_WIDTH }))).toBe(
+      'M160-160v-240h80v104l168-168 56 56-168 168h104v80H160Zm400-640h240v240h-80v-104L552-496l-56-56 168-168H560v-80Z'
+    )
+    expect(iconPath(render({ colWidth: PANEL_MAX_WIDTH }))).toBe(
+      'M560-560H800v-80h-104L864-808l-56-56-168 168v-104h-80v240Zm-160 160H160v80h104L96-152l56 56 168-168v104h80v-240Z'
+    )
   })
 
   // 0211 ΔV4 r3 검증 D23 — 세 이름이 마크업에 **모두** 있어 존재만 세면 서로 맞바꿔도 green

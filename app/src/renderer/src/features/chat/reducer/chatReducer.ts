@@ -28,7 +28,10 @@ import { agentTaskKey, backgroundTaskKey } from '../lib/taskBoard'
 import { settleOrphanToolParts, settleStaleAsyncLaunchParts } from '../lib/parts'
 import { isRightPanelTileSuspended, type RightPanelTileId } from '../lib/rightPanelTiles'
 import type { BranchSnapshot } from '../components/composer/branchChipState'
-import { reanchorDiffRequirementItem } from '../components/rightpanel/diffRequirements'
+import {
+  reanchorDiffRequirementItem,
+  diffRequirementMatchesComparison
+} from '../components/rightpanel/diffRequirements'
 import { patchLinesToDiffLines } from '../lib/diffPatchLines'
 import {
   addTileColumnMajor,
@@ -38,6 +41,7 @@ import {
 } from '../lib/rightPanelLayout'
 import {
   ALL_CHANGES,
+  diffComparisonKey,
   reconcileComparison,
   type DiffComparison
 } from '../components/rightpanel/diffComparison'
@@ -93,11 +97,11 @@ export const DEFAULT_DIFF_VIEW: DiffViewOptions = {
 export interface GitSnapshotState {
   summary: GitDiffSummary | null
   /**
-   * 비교 범위 전체의 파일별 diff 줄 (0211 ΔV4 D-074). **요약 세대당 1회** 받아 여기 둔다 —
+   * 비교 범위 전체의 파일별 diff 줄 (0211 ΔV4 D-074). **요약 세대·선택 범위마다** 받아 여기 둔다 —
    * 타일은 조건 렌더라 닫으면 언마운트되므로 로컬에 두면 다시 열 때마다 조회가 난다(D-094).
    */
   patch: GitDiffPatch | null
-  /** 지금 보고 있는 비교 범위. 목록만 좁히고 diff 기준은 바꾸지 않는다(D-079). */
+  /** 지금 보고 있는 패치의 비교 범위. 커밋은 첫 부모와 비교한다. */
   comparison: DiffComparison
   /**
    * **펼친** 파일 경로 (0211 ΔV5 D-105). 기본이 전부 접힘이라 **여는 쪽**을 센다 —
@@ -134,12 +138,16 @@ function reanchoredRequirements(
   state: ChatState,
   patch: GitDiffPatch
 ): { diffRequirements: DiffRequirementItem[]; diffRequirementsRevision: number } | undefined {
-  if (state.diffRequirements.length === 0) return undefined
+  const matches = (item: DiffRequirementItem): boolean =>
+    diffRequirementMatchesComparison(item, state.gitSnapshot.comparison)
+  if (!state.diffRequirements.some(matches)) return undefined
   const linesByPath = new Map(
     patch.files.map((file) => [file.path, patchLinesToDiffLines(file.lines)])
   )
   const next = state.diffRequirements.map((item) =>
-    reanchorDiffRequirementItem(item, linesByPath.get(item.anchor.filePath) ?? [])
+    matches(item)
+      ? reanchorDiffRequirementItem(item, linesByPath.get(item.anchor.filePath) ?? [])
+      : item
   )
   return {
     diffRequirements: next,
@@ -515,7 +523,12 @@ export type ChatAction =
   | { type: 'RENAME_RIGHT_PANEL_TILE'; id: RightPanelTileId; label: string }
   | { type: 'REMOVE_RIGHT_PANEL_TILE'; id: RightPanelTileId }
   | { type: 'SET_GIT_STATUS'; snapshot: BranchSnapshot }
-  | { type: 'RECEIVE_GIT_PATCH'; request: GitSnapshotRequest; patch: GitDiffPatch }
+  | {
+      type: 'RECEIVE_GIT_PATCH'
+      request: GitSnapshotRequest
+      patch: GitDiffPatch
+      comparison: DiffComparison
+    }
   | { type: 'SET_DIFF_COMPARISON'; comparison: DiffComparison }
   | { type: 'TOGGLE_DIFF_FILE_EXPANDED'; path: string }
   | { type: 'SET_ALL_DIFF_FILES_EXPANDED'; expanded: boolean; paths: readonly string[] }
@@ -1211,7 +1224,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       // 닿으면 사용자는 **틀린 diff 를 옳은 것으로 읽는다**(0211 ΔV4 §10 EP-34).
       if (
         state.gitSnapshotRequest?.key !== action.request.key ||
-        state.gitSnapshotRequest.generation !== action.request.generation
+        state.gitSnapshotRequest.generation !== action.request.generation ||
+        diffComparisonKey(state.gitSnapshot.comparison) !== diffComparisonKey(action.comparison)
       ) {
         return state
       }
@@ -1225,9 +1239,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
 
     case 'SET_DIFF_COMPARISON':
+      if (diffComparisonKey(state.gitSnapshot.comparison) === diffComparisonKey(action.comparison))
+        return state
       return {
         ...state,
-        gitSnapshot: { ...state.gitSnapshot, comparison: action.comparison }
+        gitSnapshot: { ...state.gitSnapshot, comparison: action.comparison, patch: null },
+        diffRequirementDraft: null
       }
 
     case 'TOGGLE_DIFF_FILE_EXPANDED': {
@@ -1274,34 +1291,45 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
 
     case 'BEGIN_GIT_SNAPSHOT_QUERY':
+      if (
+        state.gitSnapshotRequest?.key === action.request.key &&
+        state.gitSnapshotRequest.generation === action.request.generation
+      )
+        return state
       return {
         ...state,
-        gitSnapshot:
-          state.gitSnapshotRequest?.key === action.request.key
-            ? state.gitSnapshot
-            : { ...state.gitSnapshot, summary: null, patch: null },
+        gitSnapshot: {
+          ...state.gitSnapshot,
+          summary:
+            state.gitSnapshotRequest?.key === action.request.key ? state.gitSnapshot.summary : null,
+          patch: null
+        },
+        diffRequirementDraft: null,
         gitSnapshotRequest: action.request
       }
 
-    case 'RECEIVE_GIT_SNAPSHOT_SUMMARY':
+    case 'RECEIVE_GIT_SNAPSHOT_SUMMARY': {
       if (
         state.gitSnapshotRequest?.key !== action.request.key ||
         state.gitSnapshotRequest.generation !== action.request.generation
       ) {
         return state
       }
-      // 새 요약은 **패치를 무효로 만든다**(0211 ΔV4 D-078). 타일이 열려 있으면 `useGitPatch`
-      // 가 곧바로 1회 다시 받고, 닫혀 있으면 다음에 열 때 1회다 — 낡은 diff 를 남기면
-      // 새로고침·턴 종료의 의미가 사라진다. 고른 커밋이 사라졌으면 전체로 접는다.
+      // 세대 시작 때 낡은 패치는 비웠다. 먼저 도착한 같은 세대·범위의 패치는 유지한다.
+      const comparison = reconcileComparison(state.gitSnapshot.comparison, action.summary)
+      const changed =
+        diffComparisonKey(comparison) !== diffComparisonKey(state.gitSnapshot.comparison)
       return {
         ...state,
+        ...(changed ? { diffRequirementDraft: null } : {}),
         gitSnapshot: {
           ...state.gitSnapshot,
           summary: action.summary,
-          patch: null,
-          comparison: reconcileComparison(state.gitSnapshot.comparison, action.summary)
+          patch: changed ? null : state.gitSnapshot.patch,
+          comparison
         }
       }
+    }
 
     case 'ADD_DIFF_REQUIREMENT':
       return {

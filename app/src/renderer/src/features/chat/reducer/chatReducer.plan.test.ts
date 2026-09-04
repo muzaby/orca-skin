@@ -354,11 +354,16 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
   it('패치·접힘·비교 범위는 타일을 닫고 열어도 살아 있다 (AT-46 · D-094)', () => {
     const request = { key: JSON.stringify(['/repo', null]), generation: 1 }
     let state = chatReducer(initialChatState, { type: 'BEGIN_GIT_SNAPSHOT_QUERY', request })
-    state = chatReducer(state, { type: 'RECEIVE_GIT_PATCH', request, patch: DIFF_PATCH })
     state = chatReducer(state, { type: 'TOGGLE_DIFF_FILE_EXPANDED', path: 'src/a.ts' })
     state = chatReducer(state, {
       type: 'SET_DIFF_COMPARISON',
       comparison: { kind: 'commit', sha: 'abc1234' }
+    })
+    state = chatReducer(state, {
+      type: 'RECEIVE_GIT_PATCH',
+      comparison: { kind: 'commit', sha: 'abc1234' },
+      request,
+      patch: DIFF_PATCH
     })
     const tileOpen = chatReducer(state, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'diff' })
     const tileClosed = chatReducer(tileOpen, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'diff' })
@@ -376,7 +381,12 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
       type: 'BEGIN_GIT_SNAPSHOT_QUERY',
       request: current
     })
-    state = chatReducer(state, { type: 'RECEIVE_GIT_PATCH', request: stale, patch: DIFF_PATCH })
+    state = chatReducer(state, {
+      type: 'RECEIVE_GIT_PATCH',
+      comparison: { kind: 'all' },
+      request: stale,
+      patch: DIFF_PATCH
+    })
 
     expect(state.gitSnapshot.patch).toBeNull()
   })
@@ -474,13 +484,13 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
 
     expect(after.gitSnapshotRequest).toEqual(before.gitSnapshotRequest)
     expect(after.gitSnapshot.summary).toBe(DIFF_SUMMARY)
-    expect(after.gitSnapshot.patch).toBe(DIFF_PATCH)
+    expect(after.gitSnapshot.patch).toBeNull()
   })
 
   // 0211 ΔV4 r2 — §10 EP-34 ② 의 **세대 경계**. r1 검증에서 이 `patch: null` 을 지워도
   // 727케이스가 전건 green 이었다(D3): 명시 새로고침 쪽만 잠겨 있었고, 턴 종료로
   // 새 요약이 오는 경로는 아무도 보지 않았다. 낡은 diff 가 남으면 새로고침의 의미가 사라진다.
-  it('새 요약이 도착하면 그 세대의 패치를 버린다 — 턴이 끝나도 낡은 diff 가 남지 않는다', () => {
+  it('늦게 도착한 요약은 먼저 받은 같은 세대 패치를 유지한다', () => {
     const request = { key: JSON.stringify(['/repo', 'session-a']), generation: 3 }
     const before = {
       ...initialChatState,
@@ -500,7 +510,7 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
       summary: DIFF_SUMMARY
     })
 
-    expect(after.gitSnapshot.patch).toBeNull()
+    expect(after.gitSnapshot.patch).toBe(DIFF_PATCH)
     // 요약은 들어왔다 — "아무것도 안 받았다" 와 구분된다.
     expect(after.gitSnapshot.summary).toBe(DIFF_SUMMARY)
     // 사용자가 만든 화면 상태는 세대 경계에서 살아남는다 — 폐기 대상은 본문뿐이다.
@@ -527,7 +537,7 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
     expect(after.gitSnapshot.patch).toBeNull()
   })
 
-  it('같은 key 의 재조회는 이미 받은 것을 그대로 둔다 — 새로고침이 화면을 비우지 않는다', () => {
+  it('같은 key의 새 세대는 요약을 유지하고 낡은 패치를 즉시 비운다', () => {
     const request = { key: JSON.stringify(['/repo-a', 'session-a']), generation: 1 }
     const before = {
       ...initialChatState,
@@ -541,7 +551,7 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
     })
 
     expect(after.gitSnapshot.summary).toBe(DIFF_SUMMARY)
-    expect(after.gitSnapshot.patch).toBe(DIFF_PATCH)
+    expect(after.gitSnapshot.patch).toBeNull()
   })
 
   it('같은 key의 늦은 요청 A가 더 최신 요청 B의 요약을 덮지 못한다', () => {
@@ -617,6 +627,7 @@ describe('0211 ΔV2 · diff 요구사항 세션 상태', () => {
     // 세대가 다른 응답은 통째로 무시된다 — 요구사항도 그대로다.
     const stale = chatReducer(seeded, {
       type: 'RECEIVE_GIT_PATCH',
+      comparison: { kind: 'all' },
       request: { key: 'k', generation: 9 },
       patch: patch(['before', 'target', 'after'])
     })
@@ -626,6 +637,7 @@ describe('0211 ΔV2 · diff 요구사항 세션 상태', () => {
     // 줄을 못 찾아도 항목은 남는다 — 위치를 잃은 것과 요구가 없어진 것은 다르다.
     const missing = chatReducer(seeded, {
       type: 'RECEIVE_GIT_PATCH',
+      comparison: { kind: 'all' },
       request: { key: 'k', generation: 1 },
       patch: patch(['other before', 'target', 'other after'])
     })
@@ -766,6 +778,7 @@ describe('0211 ΔV4 · 패치 도착 시점의 요구사항 재anchor (AT-54 · 
     const state = seeded([anchorItem('a.ts', 'A 요구'), anchorItem('b.ts', 'B 요구')])
     const next = chatReducer(state, {
       type: 'RECEIVE_GIT_PATCH',
+      comparison: { kind: 'all' },
       request: { key: 'k', generation: 1 },
       patch: patchWith([textFile('a.ts', ['moved']), textFile('b.ts', ['other'])])
     })
@@ -778,6 +791,7 @@ describe('0211 ΔV4 · 패치 도착 시점의 요구사항 재anchor (AT-54 · 
     const state = seeded([anchorItem('gone.ts', '사라진 파일의 요구')])
     const next = chatReducer(state, {
       type: 'RECEIVE_GIT_PATCH',
+      comparison: { kind: 'all' },
       request: { key: 'k', generation: 1 },
       patch: patchWith([textFile('a.ts', ['x'])])
     })

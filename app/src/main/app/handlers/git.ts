@@ -104,6 +104,7 @@ export function registerGitHandlers(sessions: SessionBaselineLookup): void {
       const baseline = baselineFor(req.sessionId)
       return gitDiffPatch({
         cwd: req.cwd,
+        ...(req.commitSha ? { commitSha: req.commitSha } : {}),
         baseOid: baseline.oid,
         baseRef: baseline.ref,
         bornAt: baseline.bornAt

@@ -3,6 +3,11 @@ import type { GitDiffPatch, GitDiffPatchRequest } from '../../../../../shared/ip
 import { gitApi } from '../../../shared/api/ipc'
 import type { GitSnapshotRequest } from '../reducer/chatReducer'
 import { chatActions, useChatSession, useChatStore } from '../store/chatStore'
+import {
+  ALL_CHANGES,
+  diffComparisonKey,
+  type DiffComparison
+} from '../components/rightpanel/diffComparison'
 
 /**
  * 패치를 지금 조회해야 하는가 — **순수 판정** (0211 ΔV4 D-078, §10 EP-34 ①).
@@ -23,10 +28,18 @@ export function shouldFetchGitPatch(input: {
 
 /**
  * 조회 인자 — **파일 축이 없다**(D-074). 그래서 호출 수가 파일 수와 무관하다.
- * 커밋 축도 없다(D-036·D-079): 커밋 선택은 표시 목록을 좁히는 renderer 축이다.
+ * 커밋 선택은 첫 부모 → 선택 커밋 비교를 요청한다.
  */
-export function gitPatchRequest(cwd: string, sessionId: string | null): GitDiffPatchRequest {
-  return { cwd, ...(sessionId ? { sessionId } : {}) }
+export function gitPatchRequest(
+  cwd: string,
+  sessionId: string | null,
+  comparison: DiffComparison = ALL_CHANGES
+): GitDiffPatchRequest {
+  return {
+    cwd,
+    ...(sessionId ? { sessionId } : {}),
+    ...(comparison.kind === 'commit' ? { commitSha: comparison.sha } : {})
+  }
 }
 
 /** 진행 중 조회 하나를 기억하는 자리 (0211 ΔV5 MD-25). */
@@ -36,8 +49,17 @@ export interface PatchQueryGuard {
 
 export const IDLE_PATCH_GUARD: PatchQueryGuard = { inFlightKey: null }
 
-export function patchQueryKey(sessionKey: string, request: GitSnapshotRequest): string {
-  return `${sessionKey}:${request.key}:${request.generation}`
+export function patchQueryKey(
+  sessionKey: string,
+  request: GitSnapshotRequest,
+  comparison: DiffComparison = ALL_CHANGES
+): string {
+  return JSON.stringify([
+    sessionKey,
+    request.key,
+    request.generation,
+    diffComparisonKey(comparison)
+  ])
 }
 
 /**
@@ -53,10 +75,11 @@ export function beginPatchQuery(
     patch: GitDiffPatch | null
     request: GitSnapshotRequest | null
     sessionKey: string
+    comparison?: DiffComparison
   }
 ): { guard: PatchQueryGuard; fetch: boolean; key: string | null } {
   if (!input.request || !shouldFetchGitPatch(input)) return { guard, fetch: false, key: null }
-  const key = patchQueryKey(input.sessionKey, input.request)
+  const key = patchQueryKey(input.sessionKey, input.request, input.comparison)
   if (guard.inFlightKey === key) return { guard, fetch: false, key }
   return { guard: { inFlightKey: key }, fetch: true, key }
 }
@@ -64,10 +87,7 @@ export function beginPatchQuery(
 /**
  * 응답이 도달했다 — **성공·실패·폐기 공통** (0211 ΔV5 D-103).
  *
- * 성공에서 해제하지 않으면 교착이 난다: 패치가 먼저 도착해 저장된 뒤 같은 세대의 요약이
- * 늦게 와서 `patch` 를 `null` 로 되돌리면, 요청 키가 그대로라 다음 렌더가 같은 키를 만들고
- * 가드가 그것을 막아 화면이 **영원히 로딩 문구**에 갇힌다. 커밋이 생긴 뒤 요약 경로에
- * `git log --raw --numstat` 이 붙어 요약이 패치보다 느려지는 것이 그 순서 역전의 원인이다.
+ * 완료와 effect cleanup에서 해제해 같은 범위 재진입이 이전 요청에 막히지 않게 한다.
  *
  * 키가 다르면 그대로 둔다 — 늦게 끝난 이전 조회가 방금 나간 새 조회의 가드를 풀지 않는다.
  */
@@ -88,23 +108,24 @@ export function useGitPatch(): void {
   const sessionKey = useChatStore((state) => state.activeKey)
   const patch = useChatSession((state) => state.gitSnapshot.patch)
   const request = useChatSession((state) => state.gitSnapshotRequest)
+  const comparison = useChatSession((state) => state.gitSnapshot.comparison)
   const guard = useRef<PatchQueryGuard>(IDLE_PATCH_GUARD)
 
   useEffect(() => {
-    const next = beginPatchQuery(guard.current, { cwd, patch, request, sessionKey })
+    const next = beginPatchQuery(guard.current, { cwd, patch, request, sessionKey, comparison })
     guard.current = next.guard
     if (!next.fetch || !cwd || !request || next.key === null) return
     const key = next.key
     let live = true
     void gitApi
-      .diffPatch(gitPatchRequest(cwd, sessionId))
+      .diffPatch(gitPatchRequest(cwd, sessionId, comparison))
       .then((result) => {
         // 늦게 도착한 응답은 리듀서의 세대 판정이 한 번 더 거른다. 리듀서가 버리든 받든
         // **가드는 반드시 풀린다** — 버려진 응답에서 풀지 않으면 그 세대가 영영 잠긴다.
         // **dispatch 보다 먼저 푼다**: 상태 갱신이 곧바로 이 effect 를 다시 돌리면 아직
         // 잠긴 가드가 재조회를 막아 같은 교착이 난다.
         guard.current = settlePatchQuery(guard.current, key)
-        if (live) chatActions.receiveGitPatch(request, result)
+        if (live) chatActions.receiveGitPatch(request, result, comparison)
       })
       .catch(() => {
         // 실패는 다음 계기(턴 종료)가 재시도한다. `patch` 가 null 로 남아 화면은 로딩 문구를
@@ -113,6 +134,7 @@ export function useGitPatch(): void {
       })
     return () => {
       live = false
+      guard.current = settlePatchQuery(guard.current, key)
     }
-  }, [cwd, patch, request, sessionId, sessionKey])
+  }, [cwd, patch, request, sessionId, sessionKey, comparison])
 }

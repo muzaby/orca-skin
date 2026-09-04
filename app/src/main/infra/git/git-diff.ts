@@ -3,6 +3,7 @@
 // 세션만 질의 시점 HEAD 로 접는다.
 
 import { stat } from 'node:fs/promises'
+import { GitCommitOidSchema } from '../../../shared/protocol'
 import type {
   GitDiffBase,
   GitDiffFileEntry,
@@ -151,9 +152,28 @@ export async function resolveDiffRange(
 // 돌려주면 `git diff` 가 다시 작업 트리를 보므로 **`null`** 로 “범위 없음” 을 말한다 —
 // 호출부가 조회 자체를 건너뛴다.
 function diffRevArgs(base: GitDiffBase): string[] | null {
+  if (base.kind === 'commit-parent') return [base.oid, base.commitOid]
   if (base.kind === 'worktree-base') return [base.oid, 'HEAD']
   if (base.kind === 'head') return [base.oid, 'HEAD']
   return null
+}
+
+async function resolveCommitPatchRange(
+  cwd: string,
+  sha: string,
+  runner: GitDiffRunner
+): Promise<GitDiffRange | null> {
+  if (!GitCommitOidSchema.safeParse(sha).success) return null
+  // raw 객체 헤더를 읽어 shallow 경계도 root로 오인하지 않는다. merge는 첫 parent다.
+  const commit = await run(runner, cwd, ['cat-file', 'commit', sha])
+  if (!commit.ok) return null
+  const headers = commit.stdout.split(/\r?\n\r?\n/, 1)[0].split(/\r?\n/)
+  const parent = headers.find((line) => line.startsWith('parent '))?.slice(7)
+  if (parent && !GitCommitOidSchema.safeParse(parent).success) return null
+  return {
+    kind: 'working',
+    base: { kind: 'commit-parent', oid: parent ?? EMPTY_TREE_OID, commitOid: sha }
+  }
 }
 
 interface RepoCoords {
@@ -311,11 +331,20 @@ async function runPatch(
 }
 
 export async function gitDiffPatch(
-  input: { cwd: string; baseOid?: string | null; baseRef?: string | null; bornAt?: number | null },
+  input: {
+    cwd: string
+    baseOid?: string | null
+    baseRef?: string | null
+    bornAt?: number | null
+    commitSha?: string
+  },
   runner: GitDiffRunner = runGit
 ): Promise<GitDiffPatch> {
   if (!(await repoCoords(input.cwd, runner)).inside) return EMPTY_DIFF_PATCH
-  const range = await resolveDiffRange(input, runner)
+  const range = input.commitSha
+    ? await resolveCommitPatchRange(input.cwd, input.commitSha, runner)
+    : await resolveDiffRange(input, runner)
+  if (!range) return { ...EMPTY_DIFF_PATCH, isRepo: true, unavailable: true }
   const revArgs = diffRevArgs(range.base)
   // 커밋된 것만 본다 (0211 ΔV6 D-111, §10 EP-47 ③) — 미추적 병합이 사라졌다. 범위가 없으면
   // (커밋 0개) 조회하지 않고 빈 패치를 돌려준다: 인자 없는 `git diff` 는 작업 트리를 본다.

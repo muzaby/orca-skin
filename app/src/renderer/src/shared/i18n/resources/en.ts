@@ -829,6 +829,7 @@ export const en: typeof ko = {
       diffRequirementAddAria: 'Add diff requirement: {{line}}',
       diffRequirementDraftPlaceholder: 'Requirement for this line…',
       diffRequirementDraftInputAria: 'Diff requirement content',
+      diffRequirementDraftLineLabel: 'Line {{line}}',
       diffRequirementDraftSubmit: 'Add',
       diffRequirementDraftCancel: 'Cancel',
       diffRequirementMarkerLabel: 'Requirement',

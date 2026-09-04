@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) · 2026-09-02 (ΔV3 · ΔV4) · 2026-09-03 (ΔV5 · ΔV6) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) + git 우측 패널 재설계 제안서 (Git Review Surface) + 싱크 계기 축소 · 첨부 GUI 재대조 · 로딩 교착 회귀 + 커밋 전용 범위 · Stop hook 싱크 · 컴포저 닫기 · 참조 GUI 3차 재대조 |
-| 상태 | READY (ΔV8 — 커밋별 diff와 입력창 보정, 같은 라운드 3) |
+| 상태 | IN_PROGRESS (ΔV8 구현 완료; 기존 ΔV6 차단 유지, 라운드 3) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) · `V1 + ΔV1 + ΔV2` @ `d23c5be` (ΔV3 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3` @ `46047ac` (ΔV4 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` @ `177def67` (ΔV5 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` @ `628123bc` (ΔV6 의 기준) |
 | 이번 V revision | `ΔV8` (동일 라운드 3, 사용자 후속 입력) |
@@ -66,6 +66,80 @@ renderer는 선택 범위를 query key와 수신 action에 운반한다. 요약 
 최대 비용은 타일의 새 범위당 부모 헤더 1회+패치 1회(상한 초과 시 축소 1회)와 기존 저장소 좌표 조회다. 운영 gate는 관련 Git/IPC/renderer 테스트, 전체 lint, typecheck 3구성, 문서 gate다. UI 실기는 원본 미제공 자산에 대한 Orca fallback을 유지한다.
 
 READY 자기검토: D-127~133↔AT-80~84가 대응하고 충돌하는 기존 계약의 대체를 위에 명시했다. IPC→main→renderer와 댓글 저장/표시의 소비 경로를 확인했다. 기존 ΔV6 D25~D27 등 미해결 이슈는 소급 종료하지 않으며 라운드 3을 유지한다.
+
+## [구현자 기입] ΔV8 — 커밋 범위·댓글·본문 크기 보정, 라운드 3 유지
+
+### 설계 리뷰
+
+이번 사용자 요청 AT-80~84 구현 완료. 커밋 누적 표시는 기존 D-036/D-079의 목록 필터 계약이 원인이었으며, D-129에 따라 첫 부모→선택 커밋으로 바꿨다. 사용자 최신 지시 D-133은 실제 Sidebar 메뉴의 `text-footnote`를 기준으로 적용했다.
+
+리뷰에서 query owner 재마운트 시 generation=1이 재사용되는 경로를 발견했다. 실제 owner+reducer 테스트에서 `expected 1 to be greater than 1`을 관측했고, EP-57의 세대 발급 지점을 별도 설계 커밋으로 보완한 뒤 renderer 수명의 번호를 적용했다. 최종 구현은 보완된 설계와 일치한다.
+
+기존 ΔV6 D25~D27 Stop hook 차단은 이번 요청 밖이며 미해결로 유지한다. 전체 handoff 완료와 이번 ΔV8 완료를 구분해 INDEX는 `impl/IN_PROGRESS`, 다음 주체 Codex를 유지한다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+| EP | 이번 관측 |
+|---|---|
+| EP-55 | 3/3 — GitContextBar의 toggle은 `aria-pressed=true`, 글리프 rgb(31,104,189), 배경 rgb(231,240,251). Icon expand/collapse가 같은 NE/SW 축이다. nav·코드·줄번호·입력 computed font-size는 모두 11.999px(기본 root 13px)이다. |
+| EP-56 | 4/4 — `git-diff-schema`가 full SHA와 잘못된 값 6종을 검사한다. handler가 선택 SHA를 넘긴다. 실제 Git 테스트가 부모/root/missing/merge 및 100·20·120 통계를 관측한다. 후속 HEAD와 dirty 수정 뒤에도 선택 패치가 같다. |
+| EP-57 | 8/8 — builder/key/hook-cleanup, patch 수신, comparison 전환, BEGIN, summary 수신, 세대 발급을 구현했다. `useGitPatch.commitScope` 3건이 실제 호출 SHA·역순 응답·A→B→A·재개방 조회 0을 검사한다. reducer 테스트가 이전 세션/세대/범위를 거르고 새 세대를 비운다. `gitSnapshotQuery` 4건 중 재마운트 사례가 새 세대와 patch=null을 관측한다. |
+| EP-58 | 4/4 — 실제 댓글 행에 471번 줄·무테 textarea·추가 아이콘이 있다. 빈 값 비활성, 입력/제출 callback, Escape/IME 케이스가 통과했다. 브라우저에서 textarea shadow/outline은 none, Escape 후 textarea 0개다. |
+| EP-59 | 4/4 — DiffTileContent가 summary 없이 patch.base의 실제 부모로 생성하며 commitSha를 보관한다. 다른 범위의 항목은 표식 전달과 재anchor에서 제외한다. `DiffTileContent.commitScope` 2건과 `chatReducer.commitScope`가 부모 기준선·목록 보존·다른 범위 항목의 객체 동일성을 관측한다. |
+
+분모 재확인 검색: `rg -n 'commitSha|GitDiffPatchRequest|nextGitSnapshotGeneration|reanchoredRequirements|RECEIVE_GIT_PATCH|SET_DIFF_COMPARISON|BEGIN_GIT_SNAPSHOT_QUERY|RECEIVE_GIT_SNAPSHOT_SUMMARY' app/src` 및 `rg -n 'data-diff|text-footnote|commentAdd' app/src/renderer/src/features/chat/components/rightpanel app/src/renderer/src/shared/ui/Icon.tsx`로 생산 코드의 요청·수신·저장·표시 지점을 대조했다. EP-55 3 + EP-56 4 + EP-57 8 + EP-58 4 + EP-59 4 = 23/23. EP-57 분모는 재마운트 발급 지점 추가로 7→8이다.
+
+| pair | 자기 상태 | 직접 증거 |
+|---|---|---|
+| VP-81 | SELF_PASS | GitContextBar/Icon 렌더 및 위 computed style·라이트/다크 화면 |
+| VP-82 | SELF_PASS | `git-diff-commit.test.ts` 실제 Git 3건, schema·handler 테스트 |
+| VP-83 | SELF_PASS | 실제 hook 3건, reducer 범위 테스트, query owner 재마운트 테스트, 아래 선택 변이 |
+| VP-84 | SELF_PASS | `diffTile.render.test.ts` 입력·빈 제출·Escape·IME 및 브라우저 단일 테두리 |
+| VP-85 | SELF_PASS | 실제 DiffTileContent 콜백/마커 전달과 reducer anchor 보존 |
+| VP-78~80 / VP-58~60 / VP-64 / VP-66 | SELF_PASS | rightpanel·diff lib·fileSectionScroll·store 회귀 통과. D-129로 대체된 목록-only 기대는 선택 커밋 patch fixture로 교체했다. |
+
+### 이번 라운드 수정의 잠금
+
+| 구분 | 결함 / oracle | 관측 |
+|---|---|---|
+| VP-83 선택 증거 | 실제 useGitPatch의 `gitPatchRequest(cwd, sessionId, comparison)`에서 comparison 제거 | `useGitPatch.commitScope` 2 failed / 1 passed. 실제 IPC 인자에 commitSha가 사라진 것으로 실패. finally에서 원문 바이트 복원 확인, 최종 350건 실행에 포함해 green. |
+
+선택 증거 1 + 기존 인용 변이 0 + 새 구조적 proxy 0 = 잠금 표 1행. 새 테스트들은 실제 요청 인자·상태·렌더 결과를 관측한다. 최초 실제 Git 테스트는 3 failed(20 대신 120 등), reducer 범위는 2 failed, 재마운트는 1 failed를 확인한 뒤 수정했다.
+
+### Product/UX 파생 검토
+
+460px 패널의 댓글 상자 왼쪽 x=243.79와 코드 본문 x=243.79가 일치했다. 입력은 코드와 같은 크기이며 mono 서체를 유지한다. 파일명·경로·트리·커밋 목록·안내 문구·저장한 댓글도 `text-footnote`를 쓴다. 공용 focus ring이 textarea에 추가 테두리를 그리는 문제는 실제 화면에서 발견해 제거했으며 바깥 파란 경계는 유지했다.
+
+전체/커밋 전환은 입력 중 초안을 비우되 대기 중인 댓글은 보존한다. 저장 댓글은 작성 범위에만 표시되고 wire anchor의 필드 형식은 그대로다. 누락 객체는 unavailable을 표시하며 누적 패치로 대체하지 않는다.
+
+### 놓친 잠재 문제 + 대응
+
+| 발견 | 대응 / 관측 |
+|---|---|
+| query owner 재마운트 세대 충돌 | EP-57 보완 후 module serial + owner별 응답 guard. 원래 구현 1 red, 수정 후 query owner 4 green, 리뷰 재확인에서 해당 결함 해결. |
+| JSX 검증만으로 발견하지 못한 이중 포커스 테두리 | 실제 브라우저에서 rust 안쪽 ring 관측 후 textarea ring 제거. 최종 shadow/outline none. |
+| 다수 검사 병행 시 Git 통합 테스트 시간 초과 | 최초 종합 실행에서 Git setup 2곳/케이스 1곳 timeout. 같은 코드로 해당 Git 2파일을 worker 1·hookTimeout 30초로 실행해 37/37 통과. 제품 timeout이나 테스트 파일의 기존 제한은 변경하지 않았다. |
+| 기존 전체 handoff 차단 | ΔV6 D25~D27 미해결 유지. Stop hook 어댑터 배선은 수정하지 않았다. |
+
+### 구현 보고
+
+| AC | 자기 결과 | 관측 |
+|---|---|---|
+| AT-80 | ✅ | 아이콘 축, 파란 활성색, nav와 동일 footnote 및 실제 computed style |
+| AT-81 | ✅ | 실제 Git의 선택 20 / 첫 커밋 100 / 전체 120, root·merge·누락·후속 HEAD/dirty |
+| AT-82 | ✅ | 범위/세대/세션 응답 차단, 재개방 재사용, 화면 재마운트 후 새로운 세대 |
+| AT-83 | ✅ | 줄 라벨·단일 경계·무테 입력·아이콘·빈 값·제출·Escape/IME |
+| AT-84 | ✅ | patch 부모 baseline·범위 태그·대기열 보존·범위별 마커/reanchor |
+
+✅ 5 · ⚠️ 0 · ❌ 0 = 이번 ΔV8 AC 5. 이전 전체 V와 별도 분모다. 구현 trailer `Criteria-Met: 5/5`이며 기존 차단은 `Criteria-Pending`에 남긴다.
+
+관측 gate(중복 없는 최종 실행): renderer/IPC/handler 36파일 350건 + 실제 Git 2파일 37건 + Git parser·조회 계기/owner 3파일 42건 = 41파일 429건 통과. `npm.cmd run typecheck`는 node/web/test 3구성 exit 0. 전체 eslint는 0 error, 기존 `useTranscriptVirtualizer` 경고 1 및 DiffReview 줄바꿈 경고 159를 출력했다. 후자는 formatter 적용 후 해당 파일 eslint 0 error/0 warning을 확인했다. 문서 gate는 generated/prose/links 통과, `git diff --check`는 whitespace 오류 0이다.
+
+브라우저는 실제 GitContextBar·DiffTileContent를 임시 Vite fixture에 렌더했다. 코드/줄/입력/nav 표본은 모두 11.999px, 입력 상자와 코드 시작선 일치, 활성색 및 light/dark, Escape 취소를 관측했다. nav 표본은 실제 Sidebar 메뉴와 같은 토큰을 사용했다. 전체 Electron 화면 실기는 아니며 원본 미제공 자산은 사용자 승인 Orca fallback이다. 스크린샷은 `orca-diff-dv8-light.png`, `orca-diff-dv8-dark.png`로 보관하고 임시 서버·fixture를 제거했다.
+
+### Review Signals
+
+라운드 3 유지. 누적 커밋 본문은 과거 선택 계약과 최신 사용자 요구의 차이이며 캐시 하나의 문제가 아니었다. 추가로 발견한 재마운트 세대 충돌은 기존 저장 상태와 새 query owner의 수명 차이였다. 해당 강제 지점을 설계에 추가한 뒤 실제 owner+reducer 테스트로 닫았다. 독립 코드 리뷰의 추가 결함 없음은 자기검증 보조이며 verify 판정을 선점하지 않는다. 지침 자체는 변경하지 않았다.
 
 ## ΔV7 — 실제 DOM 기준 우측 패널 (2026-09-03, 라운드 3 유지)
 

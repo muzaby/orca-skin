@@ -1361,8 +1361,11 @@ export const chatActions = {
     dispatchActive({ type: 'REMOVE_RIGHT_PANEL_TILE', id }),
   setGitStatus: (snapshot: BranchSnapshot): void =>
     dispatchActive({ type: 'SET_GIT_STATUS', snapshot }),
-  receiveGitPatch: (request: GitSnapshotRequest, patch: GitDiffPatch): void =>
-    dispatchActive({ type: 'RECEIVE_GIT_PATCH', request, patch }),
+  receiveGitPatch: (
+    request: GitSnapshotRequest,
+    patch: GitDiffPatch,
+    comparison: DiffComparison
+  ): void => dispatchActive({ type: 'RECEIVE_GIT_PATCH', request, patch, comparison }),
   setDiffComparison: (comparison: DiffComparison): void =>
     dispatchActive({ type: 'SET_DIFF_COMPARISON', comparison }),
   toggleDiffFileExpanded: (path: string): void =>

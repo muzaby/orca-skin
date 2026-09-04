@@ -177,8 +177,15 @@ describe('실제 DOM의 대상 요소 (ΔV7 AT-78)', () => {
     expect($('[data-diff-commit-list]').attr('class')).toContain('max-h-[40%]')
     const card = $('[data-diff-commit-card]')
     expect(card.attr('class')).not.toContain('border')
-    expect(card.find('[title]').attr('class')).toContain('text-body')
+    expect(card.find('[title]').attr('class')).toContain('text-footnote')
     expect($('[data-diff-scope="all"]').attr('class')).toContain('bg-fill-uncontained-active')
+  })
+
+  it('사이드바 본문은 좌측 nav와 같은 text-footnote이며 하위 text-body/text-code가 덮지 않는다', () => {
+    const source = read('ChangedNavigationSidebar.tsx')
+
+    expect(source).toContain('font-sans text-footnote font-normal')
+    expect(source).not.toMatch(/\btext-body\b|\btext-code\b/)
   })
 
   it('파일 밴드가 sticky이고 변경량이 이름 바로 뒤에 있으며 본문 앞 안내가 없다', () => {

@@ -763,6 +763,8 @@ export interface DiffRequirementAnchor {
 
 export interface DiffRequirementItem {
   id: string
+  /** Renderer 비교 범위. IPC anchor에는 포함하지 않는다. 없으면 전체 변경사항이다. */
+  commitSha?: string
   anchor: DiffRequirementAnchor
   located: boolean
 }
@@ -1144,9 +1146,10 @@ export interface GitDiffRequest {
   sessionId?: string
 }
 
-// 패치도 같은 범위 인자를 쓴다 — **커밋 범위 인자는 없다**(0211 D-036·ΔV4 D-079).
-// 커밋을 고르는 것은 *표시할 목록*을 좁히는 renderer 축이고 조회 축이 아니다.
-export type GitDiffPatchRequest = GitDiffRequest
+// 생략하면 세션 전체, 지정하면 해당 커밋의 첫 부모 대비 변경이다(0211 ΔV8).
+export interface GitDiffPatchRequest extends GitDiffRequest {
+  commitSha?: string
+}
 
 // 무엇과 비교했는가 — 화면이 "무엇 대비"를 말할 수 있어야 한다.
 export type GitDiffBase =
@@ -1154,6 +1157,7 @@ export type GitDiffBase =
   // oid 7자로 접는다(D-071) — detached HEAD·이 변경 이전 세션이 그 상태다.
   | { kind: 'worktree-base'; oid: string; ref: string | null }
   | { kind: 'head'; oid: string }
+  | { kind: 'commit-parent'; oid: string; commitOid: string }
   // 커밋이 하나도 없는 저장소. 전부 추가로 보인다.
   | { kind: 'none' }
 

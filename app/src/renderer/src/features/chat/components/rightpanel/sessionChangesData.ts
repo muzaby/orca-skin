@@ -16,7 +16,8 @@ export type SummaryBaseLabel =
 export function summaryBaseLabel(summary: GitDiffSummary | null): SummaryBaseLabel {
   if (!summary || summary.base.kind === 'none') return { kind: 'none' }
   if (summary.base.kind === 'head') return { kind: 'head' }
-  if (summary.base.ref) return { kind: 'ref', ref: summary.base.ref }
+  if (summary.base.kind === 'worktree-base' && summary.base.ref)
+    return { kind: 'ref', ref: summary.base.ref }
   return { kind: 'oid', oid: summary.base.oid.slice(0, 7) }
 }
 

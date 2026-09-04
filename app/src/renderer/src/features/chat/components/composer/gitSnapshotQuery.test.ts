@@ -1,3 +1,4 @@
+import { chatReducer, initialChatState } from '../../reducer/chatReducer'
 import { describe, expect, it, vi } from 'vitest'
 import type { GitDiffSummary } from '../../../../../../shared/ipc'
 import {
@@ -78,6 +79,35 @@ describe('git snapshot query owner', () => {
     expect(loadB).toHaveBeenCalledTimes(1)
     expect(starts.map((request) => request.generation)).toEqual([1, 2])
     expect(results).toEqual([SUMMARY_B])
+  })
+
+  it('화면 재마운트의 새 owner는 저장된 패치보다 새 세대를 발급한다', () => {
+    const key = gitSnapshotRequestKey('/repo', 's1')
+    let state = initialChatState
+    const start = (request: Request): void => {
+      state = chatReducer(state, { type: 'BEGIN_GIT_SNAPSHOT_QUERY', request })
+    }
+    const load = (): Promise<GitDiffSummary> => new Promise(() => {})
+    const cleanup = createGitSnapshotQueryOwner().run(key, load, start, () => {})
+    const previous = state.gitSnapshotRequest!
+    state = chatReducer(state, {
+      type: 'RECEIVE_GIT_PATCH',
+      request: previous,
+      comparison: { kind: 'all' },
+      patch: {
+        isRepo: true,
+        base: SUMMARY_A.base,
+        files: [],
+        filesTruncated: false,
+        contextLimited: false,
+        unavailable: false
+      }
+    })
+    expect(state.gitSnapshot.patch).not.toBeNull()
+    cleanup()
+    createGitSnapshotQueryOwner().run(key, load, start, () => {})
+    expect(state.gitSnapshotRequest!.generation).toBeGreaterThan(previous.generation)
+    expect(state.gitSnapshot.patch).toBeNull()
   })
 
   it('owner cleanup 뒤 도착한 결과는 commit하지 않는다', async () => {

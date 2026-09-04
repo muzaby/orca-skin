@@ -1,8 +1,3 @@
-// 0211 ΔV4 — 비교 범위 필터 (VP-57 · AT-49).
-//
-// 이 모듈의 계약은 하나다: **목록만 좁힌다**. 파일 줄은 언제나 세션 패치의 것이라, 커밋을 골라도
-// 그 파일의 diff 는 baseline → 현재 그대로다(D-036·D-079).
-
 import { describe, expect, it } from 'vitest'
 import type { GitDiffFileEntry, GitDiffPatch, GitDiffSummary } from '../../../../../../shared/ipc'
 import { ALL_CHANGES, diffSections, reconcileComparison } from './diffComparison'
@@ -56,31 +51,32 @@ const summary: GitDiffSummary = {
 
 describe('diffSections', () => {
   it('전체 모드는 패치 순서 그대로다', () => {
-    expect(diffSections(patch, summary, ALL_CHANGES).map((s) => s.path)).toEqual(['a.ts', 'b.ts'])
+    expect(diffSections(patch).map((s) => s.path)).toEqual(['a.ts', 'b.ts'])
   })
 
-  it('커밋 모드는 목록만 좁히고 같은 파일의 patch 참조는 그대로다', () => {
-    const all = diffSections(patch, summary, ALL_CHANGES)
-    const scoped = diffSections(patch, summary, { kind: 'commit', sha: 'c1' })
-
-    expect(scoped.map((s) => s.path)).toEqual(['a.ts', 'reverted.ts'])
-    // **같은 객체**다 — 커밋 범위로 다시 계산한 diff 가 아니다.
-    expect(scoped[0].patch).toBe(all[0].patch)
-  })
-
-  it('세션 패치에 없는 커밋 파일은 patch=null 이고 그 커밋의 변경량을 쓴다 (D-080)', () => {
-    const scoped = diffSections(patch, summary, { kind: 'commit', sha: 'c1' })
-
-    expect(scoped[1]).toMatchObject({ path: 'reverted.ts', patch: null, added: 4, removed: 4 })
+  it('커밋 패치의 본문과 통계를 그대로 사용하며 이후 되돌려진 파일도 표시한다', () => {
+    const selectedPatch: GitDiffPatch = {
+      ...patch,
+      base: { kind: 'commit-parent', oid: 'parent', commitOid: 'c1' },
+      files: [
+        { ...patch.files[0], added: 20, removed: 0 },
+        { ...patch.files[0], path: 'reverted.ts', added: 4, removed: 4 }
+      ]
+    }
+    const scoped = diffSections(selectedPatch)
+    expect(scoped.map((section) => section.path)).toEqual(['a.ts', 'reverted.ts'])
+    expect(scoped[0]).toMatchObject({ added: 20, removed: 0 })
+    expect(scoped[0].patch).toBe(selectedPatch.files[0])
+    expect(scoped[1].patch).toBe(selectedPatch.files[1])
   })
 
   // 0211 ΔV5 D-107 — 미커밋 모드가 사라졌다. 미커밋 파일은 전체 목록에 계속 섞여 나온다.
   it('전체 모드가 미커밋 파일도 함께 담는다', () => {
-    expect(diffSections(patch, summary, ALL_CHANGES).map((s) => s.path)).toContain('b.ts')
+    expect(diffSections(patch).map((s) => s.path)).toContain('b.ts')
   })
 
   it('패치가 없으면 빈 목록이다 — 요약만으로 화면을 만들지 않는다', () => {
-    expect(diffSections(null, summary, ALL_CHANGES)).toEqual([])
+    expect(diffSections(null)).toEqual([])
   })
 })
 

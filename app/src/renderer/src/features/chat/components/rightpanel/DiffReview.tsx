@@ -76,7 +76,7 @@ export function DiffReview({
   const { tr } = useI18n()
   const internalOwnerRef = useRef<HTMLDivElement>(null)
   const tailSpacerRef = useRef<HTMLDivElement>(null)
-  const sections = diffSections(patch, summary, comparison)
+  const sections = diffSections(patch)
 
   // 트리에서 고른 파일은 **먼저 펼친 뒤** 이동한다 — 접혀 있으면 스크롤만 하고 아무 변화가
   // 없어 클릭이 "아무 일도 안 일어남" 으로 보인다(0211 ΔV4 §10 EP-36 ②). 기본이 접힘이
@@ -106,25 +106,25 @@ export function DiffReview({
         className="min-h-0 min-w-0 flex-1 overflow-y-auto"
       >
         {!hasRequest ? (
-          <p data-diff-not-synced className="px-p5 py-p4 text-body text-t6">
+          <p data-diff-not-synced className="px-p5 py-p4 text-footnote text-t6">
             {tr('chat.rightpanel.diffNotSynced')}
           </p>
         ) : patch === null ? (
-          <p data-diff-loading className="px-p5 py-p4 text-body text-t6">
+          <p data-diff-loading className="px-p5 py-p4 text-footnote text-t6">
             {tr('chat.rightpanel.diffFileLoading')}
           </p>
         ) : !patch.isRepo ? (
-          <p className="px-p5 py-p4 text-body text-t6">{tr('chat.rightpanel.diffNotRepo')}</p>
+          <p className="px-p5 py-p4 text-footnote text-t6">{tr('chat.rightpanel.diffNotRepo')}</p>
         ) : patch.unavailable ? (
-          <p className="px-p5 py-p4 text-body text-t6">
+          <p className="px-p5 py-p4 text-footnote text-t6">
             {tr('chat.rightpanel.diffPatchUnavailable')}
           </p>
         ) : sections.length === 0 ? (
-          <p className="px-p5 py-p4 text-body text-t6">{tr('chat.rightpanel.diffEmpty')}</p>
+          <p className="px-p5 py-p4 text-footnote text-t6">{tr('chat.rightpanel.diffEmpty')}</p>
         ) : (
           <>
             {patch.contextLimited && (
-              <p className="px-p5 py-p2 text-caption text-ink3">
+              <p className="px-p5 py-p2 text-footnote text-ink3">
                 {tr('chat.rightpanel.diffContextLimited')}
               </p>
             )}
@@ -146,7 +146,7 @@ export function DiffReview({
               />
             ))}
             {patch.filesTruncated && (
-              <p className="px-p5 py-p3 text-caption text-ink3">
+              <p className="px-p5 py-p3 text-footnote text-ink3">
                 {tr('chat.rightpanel.diffSessionFilesTruncated')}
               </p>
             )}
