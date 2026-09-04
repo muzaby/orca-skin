@@ -14,6 +14,49 @@
 | 이번 V revision | `ΔV9` (동일 라운드 3, 사용자 후속 입력) |
 | 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9` |
 
+## ΔV10 — 코멘트 카드와 composer 인용 타일 (2026-09-04, 라운드 3 유지)
+
+### Product & UX Contract / Decision Ledger
+
+사용자 추가 이미지의 첫 화면은 줄 번호와 여러 줄 코멘트를 가진 카드, 둘째 화면은 composer 입력창 안의 인용 타일이다. 파란 경계는 클릭해 활성화한 항목에만 표시한다. 원본 자산이 없는 부분은 기존 사용자 결정대로 Orca 토큰과 아이콘 체계를 사용한다.
+
+| ID | 결정 | 대체 / 상태 |
+|---|---|---|
+| D-136 | 작성 중·추가된 코멘트를 코드 본문 시작에 정렬한 흰/테마 패널 카드로 표시한다. 상단 줄 번호와 하단 본문을 두고 여러 줄·빈 줄을 보존한다. 입력은 내용에 맞춰 자란다. | ACTIVE · D-131의 작성창 형식을 저장된 항목까지 확장, 작은 마커 배지 표현 대체 |
+| D-137 | composer 요구사항을 입력 표면 안, 텍스트 입력 위의 회색 정사각형 인용 타일로 표시한다. 파일·줄·본문은 접근성 이름과 tooltip으로 확인하고 위치 미확정 상태와 삭제 기능을 보존한다. | ACTIVE · 이전 Git 행 아래 독립 RequirementTray 패널 배치 대체 |
+| D-138 | 카드·타일 기본 경계는 중립색이며 마우스 클릭 또는 키보드 포커스가 해당 항목 안에 있는 동안에만 selected 파란 경계를 표시한다. 다른 항목/입력으로 이동하면 이전 경계는 중립으로 돌아간다. 타일 삭제 ×는 hover/focus에서 노출한다. | ACTIVE · D-128/D-131의 댓글 경계를 항상 파랗게 그리는 절 대체 |
+
+추론/구현 선택: 활성은 DOM focus-within으로 표현하며 전송 데이터에 선택 상태를 추가하지 않는다. 이번 요청은 표시 보완으로 저장된 본문 수정·타일 클릭에 따른 패널 이동 동작은 추가하지 않는다. 입력 취소·빈 값 제출 차단, 비교 범위 anchor, 전송 snapshot의 revision 보호는 상속한다.
+
+### AC / 유효 V 차분
+
+기준은 ΔV9 구현 `7fde817b`다. 이번 revision은 ΔV10이며 유효 V는 기존 V1~ΔV9에 ΔV10을 합성한다.
+
+| R / AT | 사용자 결과 / 직접 oracle |
+|---|---|
+| R-80 / AT-87 | 서로 다른 줄의 저장된 카드가 줄 번호와 여러 줄 본문을 온전히 표시하며 작성창은 긴 입력에 맞춰 자란다. 실제 DiffReview 렌더·브라우저에서 확인한다. |
+| R-81 / AT-88 | 두 요구사항이 composer 입력 표면 안에서 인용 타일로 표시된다. 제거 대상·접근성 내용·위치 미확정 안내를 보존한다. 실제 ComposerInputController 렌더와 클릭으로 확인한다. |
+| R-82 / AT-89 | 두 카드 및 두 타일을 차례로 클릭하면 현재 포커스 항목만 파란 경계다. 빈 공간/입력으로 포커스를 옮기면 이전 항목은 중립이다. 실제 브라우저의 계산된 경계색으로 확인한다. |
+
+| pair | requiredness / 경로 / 증거 |
+|---|---|
+| VP-88 | NEW / REQUIRED — R-80↔AT-87: DiffReview→FileDiffSection→draft/marker card, EP-61. 저장된 두 본문과 줄 번호 렌더, 긴 입력의 실제 높이를 관측한다. |
+| VP-89 | NEW / REQUIRED — R-81↔AT-88, AR-36↔IT-36: Composer→ComposerInputController→RequirementTray, EP-62. 실제 입력 표면 내부 귀속·타일 삭제 callback을 관측한다. |
+| VP-90 | NEW / REQUIRED — R-82↔AT-89: draft/card/tile의 DOM focus→계산된 경계색, EP-63. 실제 클릭 순서와 두 테마를 확인한다. |
+| VP-84 / VP-85 / VP-87 | INHERITED / REGRESSION — 입력 취소/제출·비교 범위 anchor·요약 준비 조건 및 전송 snapshot 보호 테스트를 수행한다. |
+
+### Technical Design / §10
+
+| EP | 대상 / N | 실패 의미 |
+|---|---|---|
+| EP-61 | draft 자동 높이·저장 카드의 줄 번호/본문/거터 / 2 | 긴 입력이 잘리거나 저장 시 배지로 축약된다. |
+| EP-62 | Composer 슬롯 전달·Controller 입력 내부 배치·RequirementTray 인용/내용/삭제 / 3 | 입력 밖 배치 또는 정보/삭제 기능 손실이다. |
+| EP-63 | draft 경계·저장 카드 경계·인용 타일 경계 / 3 | 비활성 항목에도 파란색이 남거나 형제 항목에 활성 표현이 전파된다. |
+
+Tailwind 시맨틱 색과 named group을 사용한다. 기존 Icon에 인용 glyph를 더한다. 기본 textarea는 무테, 외곽 카드만 focus-within:border-selected다. 저장 카드와 타일은 포커스 가능한 버튼과 별도 제거 버튼을 둔다. 전송·리듀서·IPC 수정은 필요 없다.
+
+운영 gate: 관련 렌더/전송/범위/미준비 버튼 테스트, typecheck 3구성, 전체 lint, 문서 gate 및 diff check. 시각/활성은 실제 컴포넌트를 브라우저에서 관측한다. 별도 mutation은 선택하지 않는다(직접 DOM 배치·계산된 색·동작 oracle). READY 자기확인: 사용자 이미지의 3결과·강제 8지점과 회귀 경로를 확인했다. 기존 ΔV6 D25~D27 차단을 유지하며 라운드 3에서 계속 구현한다.
+
 ## ΔV9 — 요약 준비 전 composer diff 버튼 숨김 (2026-09-04, 라운드 3 유지)
 
 ### Product & UX Contract / Decision Ledger
