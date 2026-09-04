@@ -8,11 +8,47 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) · 2026-09-02 (ΔV3 · ΔV4) · 2026-09-03 (ΔV5 · ΔV6) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) + git 우측 패널 재설계 제안서 (Git Review Surface) + 싱크 계기 축소 · 첨부 GUI 재대조 · 로딩 교착 회귀 + 커밋 전용 범위 · Stop hook 싱크 · 컴포저 닫기 · 참조 GUI 3차 재대조 |
-| 상태 | IN_PROGRESS (ΔV8 구현 완료; 기존 ΔV6 차단 유지, 라운드 3) |
+| 상태 | READY (ΔV9 — 미싱크 diff 버튼 숨김, 라운드 3 유지) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) · `V1 + ΔV1 + ΔV2` @ `d23c5be` (ΔV3 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3` @ `46047ac` (ΔV4 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` @ `177def67` (ΔV5 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` @ `628123bc` (ΔV6 의 기준) |
-| 이번 V revision | `ΔV8` (동일 라운드 3, 사용자 후속 입력) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8` |
+| 이번 V revision | `ΔV9` (동일 라운드 3, 사용자 후속 입력) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9` |
+
+## ΔV9 — 요약 준비 전 composer diff 버튼 숨김 (2026-09-04, 라운드 3 유지)
+
+### Product & UX Contract / Decision Ledger
+
+사용자는 앱 재시작 후 세션을 열었지만 resume 전이라 변경 내역이 없는 동안 composer Git 패널 스택에서 diff 버튼을 숨기도록 요청했다. 현재 `summary=null`을 `+0 −0`으로 바꾸는 표시가 미조회와 실제 0을 구별하지 못한다.
+
+| ID | 결정 | 대체 / 상태 |
+|---|---|---|
+| D-134 | composer Git 행의 diff 버튼은 현재 세션의 diff 요약 합계가 준비된 경우에만 표시한다. 최초 미조회·첫 조회 진행 중에는 버튼과 임시 +0 −0을 그리지 않는다. | ACTIVE · 기존 AT-18의 요약 없음→0/0 표시 절 대체 |
+| D-135 | 저장소·브랜치·행 닫기는 기존 판정을 유지한다. 요약을 받으면 실제 합계로 diff 버튼을 표시하며 실제 0/0도 정상 버튼이다. 이미 받은 요약은 기존 세션 캐시 정책대로 사용한다. | ACTIVE · 조회 계기 D-099/D-115 및 diff 타일 동작 상속 |
+
+상태 흐름: 복원된 세션의 summary=null → 저장소/브랜치만 있는 Git 행 → 기존 턴 종료 조회의 요약 도착 → 변경량 버튼 표시. 요약이 없는 채 조회 실패하면 숨김을 유지한다. 이 요청은 조회 시점을 앞당기거나 Git 데이터를 영속화하는 작업이 아니다.
+
+### AC / 유효 V 차분
+
+| R / AT | 사용자 결과 / 직접 oracle |
+|---|---|
+| R-78 / AT-85 | summary가 null이면 요청 시작 여부·diffOpen에 관계없이 diff 버튼은 없고 저장소·브랜치·닫기는 유지한다. 실제 GitRow 렌더로 확인한다. |
+| R-79 / AT-86 | 요약 수신 후 버튼에 실제 합계를 표시한다. 0/0도 표시하고 닫기·타일 활성 표현은 유지한다. 실제 GitRow와 기존 reducer/row 렌더 회귀로 확인한다. |
+
+| pair | requiredness / 경로 / 증거 |
+|---|---|
+| VP-86 | NEW / REQUIRED — R-78↔AT-85, MD-34↔UT-34: nullable totals→gitRowView→GitRowView. 순수 상태·실제 컴포넌트 렌더 결과를 관측한다. |
+| VP-87 | NEW / REQUIRED — R-79↔AT-86, AR-35↔IT-35: session summary 수신→GitRow→버튼. null/0/실제 합계 전환과 기존 row/스택 회귀를 관측한다. |
+| VP-71 / VP-83 | INHERITED / REGRESSION — 행 닫기·다음 tick 복귀, 요약 세대/세션 경계는 기존 테스트로 확인한다. |
+
+### Technical Design / §10
+
+| EP | 대상 / N | 실패 의미 |
+|---|---|---|
+| EP-60 | GitRow 요약 selector의 null 전달·gitRowView nullable totals 보존·GitRowView diff 버튼 조건 / 3 | 중간에서 null을 0으로 바꾸거나 버튼을 무조건 그리면 재시작 화면에 가짜 0/0이 남는다. |
+
+view의 added/removed 분리 필드 대신 `totals: GitDiffTotals | null`을 운반한다. 계산·캐시·IPC는 바꾸지 않는다. null은 미준비, `{added:0,removed:0}`는 준비된 빈 변경이다. 실제 GitRow 렌더 테스트는 store selector의 요약을 null→값으로 제공해 props 전용 테스트를 보완한다. 직접 행동 oracle이므로 별도 mutation은 선택하지 않는다.
+
+운영 gate: composer Git 행·패널 스택·조회 계기 및 snapshot/reducer 관련 테스트, 전체 lint, typecheck 3구성, 문서 gate. 기존 ΔV6 D25~D27 차단은 유지한다. READY 자기확인: 두 사용자 결과와 EP-60의 3지점을 확인했으며 기존 조회 계기를 새로 만들지 않는다.
 
 ## ΔV8 — 커밋별 diff와 입력창 보정 (2026-09-04, 라운드 3 유지)
 
