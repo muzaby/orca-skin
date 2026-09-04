@@ -57,6 +57,7 @@ interface ComposerInputControllerProps {
     requirements: DiffRequirementSubmitSnapshot['anchors']
   ) => boolean
   diffRequirementSnapshot: DiffRequirementSubmitSnapshot
+  requirementTray?: ReactNode
   onClearDiffRequirementsIfUnchanged: (snapshot: DiffRequirementSubmitSnapshot) => void
   onCancel: () => void
   controlsStart: ReactNode
@@ -87,6 +88,7 @@ export function ComposerInputController({
   restoredDraft,
   onSend,
   diffRequirementSnapshot,
+  requirementTray,
   onClearDiffRequirementsIfUnchanged,
   onCancel,
   controlsStart,
@@ -345,6 +347,7 @@ export function ComposerInputController({
               previews={attachmentPreviews}
               onRemove={removeAttachment}
             />
+            {requirementTray}
             <div className="flex items-end gap-2">
               <div
                 ref={surfaceWrapRef}

@@ -429,10 +429,20 @@ describe('요구사항이 파일 섹션 줄에 붙는다 (AT-54 · D-093)', () =
   }
 
   it('확정된 요구사항이 그 줄 아래 본문으로 선다', () => {
-    const html = render({ requirements: [{ id: 'req-1', anchor, located: true }] })
-
-    expect(html).toContain('data-diff-requirement-marker="req-1"')
-    expect(html).toContain('이 줄을 고쳐 주세요')
+    const $ = load(
+      render({
+        patch: { ...patch, files: [textFile('docs/a.md', ['alpha', 'beta'])] },
+        requirements: [
+          { id: 'req-1', anchor: { ...anchor, comment: '첫 줄\n\n셋째 줄' }, located: true },
+          { id: 'req-2', anchor: { ...anchor, newLine: 2, comment: '다른 줄' }, located: true }
+        ]
+      })
+    )
+    const first = $('[data-diff-requirement-marker="req-1"]')
+    expect(first.text()).toContain('1번 줄')
+    expect(first.find('[data-diff-requirement-body]').text()).toBe('첫 줄\n\n셋째 줄')
+    expect(first.closest('tr').children('td')).toHaveLength(2)
+    expect($('[data-diff-requirement-marker="req-2"]').text()).toContain('2번 줄')
   })
 
   it('작성 중 draft 는 그 줄에 입력 자리를 연다', () => {

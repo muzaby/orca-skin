@@ -8,11 +8,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) · 2026-09-02 (ΔV3 · ΔV4) · 2026-09-03 (ΔV5 · ΔV6) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) + git 우측 패널 재설계 제안서 (Git Review Surface) + 싱크 계기 축소 · 첨부 GUI 재대조 · 로딩 교착 회귀 + 커밋 전용 범위 · Stop hook 싱크 · 컴포저 닫기 · 참조 GUI 3차 재대조 |
-| 상태 | IN_PROGRESS (ΔV9 구현 완료; 기존 ΔV6 차단 유지, 라운드 3) |
+| 상태 | IN_PROGRESS (ΔV10 구현 완료; 기존 ΔV6 차단 유지, 라운드 3) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) · `V1 + ΔV1 + ΔV2` @ `d23c5be` (ΔV3 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3` @ `46047ac` (ΔV4 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` @ `177def67` (ΔV5 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` @ `628123bc` (ΔV6 의 기준) |
-| 이번 V revision | `ΔV9` (동일 라운드 3, 사용자 후속 입력) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9` |
+| 이번 V revision | `ΔV10` (동일 라운드 3, 사용자 후속 입력) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10` |
 
 ## ΔV10 — 코멘트 카드와 composer 인용 타일 (2026-09-04, 라운드 3 유지)
 
@@ -56,6 +56,50 @@
 Tailwind 시맨틱 색과 named group을 사용한다. 기존 Icon에 인용 glyph를 더한다. 기본 textarea는 무테, 외곽 카드만 focus-within:border-selected다. 저장 카드와 타일은 포커스 가능한 버튼과 별도 제거 버튼을 둔다. 전송·리듀서·IPC 수정은 필요 없다.
 
 운영 gate: 관련 렌더/전송/범위/미준비 버튼 테스트, typecheck 3구성, 전체 lint, 문서 gate 및 diff check. 시각/활성은 실제 컴포넌트를 브라우저에서 관측한다. 별도 mutation은 선택하지 않는다(직접 DOM 배치·계산된 색·동작 oracle). READY 자기확인: 사용자 이미지의 3결과·강제 8지점과 회귀 경로를 확인했다. 기존 ΔV6 D25~D27 차단을 유지하며 라운드 3에서 계속 구현한다.
+
+## [구현자 기입] ΔV10 — 카드·인용 타일·클릭 활성 경계
+
+### 설계 리뷰
+
+D-136~D-138 구현 완료. 저장된 요구사항 배지를 줄 번호와 여러 줄 본문 카드로 바꾸고, RequirementTray를 ComposerInputController의 prompt 내부로 옮겼다. 파일·줄·본문은 인용 타일의 접근성 이름과 tooltip에 보존한다. 활성은 DOM 포커스이며 세션 상태·IPC·전송 anchor는 변경하지 않았다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+| EP | 생산 지점 관측 | 자기 결과 |
+|---|---|---|
+| EP-61 | FileDiffSection의 draft는 field-sizing:content, 저장 카드는 줄 라벨과 whitespace-pre-wrap 본문 및 동일한 거터 셀을 갖는다. | 2/2 |
+| EP-62 | Composer가 requirementTray를 controller에 전달, controller가 prompt 안에서 렌더, RequirementTray가 quote·tooltip·삭제 버튼을 그린다. | 3/3 |
+| EP-63 | draft/card/tile의 경계에 각각 focus-within:border-selected를 적용한다. 카드와 타일의 named group은 형제 항목에 전파되지 않는다. | 3/3 |
+
+검색: `rg -n 'requirementTray|data-diff-requirement|field-sizing|focus-within:border-selected' app/src/renderer/src/features/chat/components/Composer.tsx app/src/renderer/src/features/chat/components/composer/ComposerInputController.tsx app/src/renderer/src/features/chat/components/composer/RequirementTray.tsx app/src/renderer/src/features/chat/components/rightpanel/FileDiffSection.tsx`. EP-61~63 총 8/8. VP-88/89/90 SELF_PASS, VP-84/85/87 회귀 SELF_PASS.
+
+### 이번 라운드 수정의 잠금
+
+수정 전 새 렌더 단언은 두 곳에서 실패했다: 저장 카드의 줄 번호 누락, controller 내부 tray 미출력. 수정 후 같은 단언 통과. 실제 브라우저에서 두 카드와 두 타일을 차례로 클릭하고 메시지 입력으로 이동해 활성 경계를 관측했다. 별도 mutation not selected: 선택 0·인용 0·신설 구조 proxy 0. 기존 색상 class 단언은 시각 검증을 대체하지 않는다.
+
+### Product/UX 파생 검토
+
+긴 본문은 빈 줄을 보존하고 자동 높이로 표시한다. 7줄 입력은 clientHeight/scrollHeight가 모두 122px로 내부 잘림 없이 보였고 추가 후 본문이 그대로 남았다. composer 타일은 52×52px, 라이트 배경 rgb(232,232,230), 다크 배경 rgb(52,52,47)이다. 위치 미확정은 경고 아이콘·색·tooltip으로 보존한다. plan review가 입력을 가리는 동안 타일도 같은 입력 표면에 속하며 데이터는 기존 store에 남는다.
+
+### 놓친 잠재 문제 + 대응
+
+기존 bg-fill-contained는 라이트에서 흰색이라 참조의 회색 타일이 사라졌다. 브라우저 계산색을 확인하고 테마별 회색 토큰 bg-t3로 보정했다. 무조건 파란 경계를 유지하면 저장된 카드가 모두 활성처럼 보이므로 세 표면 모두 포커스 조건으로 묶었다. 독립 코드 리뷰에서 추가 기능 결함은 발견하지 못했다. ΔV6 D25~D27은 이번 요청 밖의 기존 차단으로 유지한다.
+
+### 구현 보고
+
+| AC | 자기 결과 | 관측 |
+|---|---|---|
+| AT-87 | ✅ | 두 줄의 카드·번호·빈 줄 렌더, 7줄 입력 자동 높이 122/122px, 추가 후 3카드/3타일 |
+| AT-88 | ✅ | 실제 controller prompt 내부 tray 및 textarea, 52px 인용 타일과 접근성 정보, 타일 삭제 뒤 해당 카드/타일만 제거 |
+| AT-89 | ✅ | 라이트 활성 rgb(31,104,189), 다크 활성 rgb(142,193,255). 다른 카드/타일은 중립 경계, 메시지 입력 클릭 후 활성 항목 0 |
+
+✅ 3 · ⚠️ 0 · ❌ 0 = ΔV10 AC 3. 전체 V의 기존 차단과 별도 분모이며 trailer Criteria-Met은 3/3, Criteria-Pending에 ΔV6 차단을 남긴다.
+
+게이트: 렌더 3파일 36건 + controller 전송/미준비 버튼/비교 범위/요구사항/reducer 6파일 58건 = 9파일 94건 통과. typecheck node/web/test exit 0. 전체 eslint 0 error/1 warning(기존 useTranscriptVirtualizer). 문서 generated/prose/links 검사 및 git diff --check 통과. 실제 React 컴포넌트·제품 CSS의 임시 Vite fixture로 브라우저 시각 검증했으며 Electron 전체 앱 실기를 주장하지 않는다. 화면 증거는 로컬 시각화 폴더의 `orca-comments-dv10-light.png`, `orca-composer-dv10-light.png`, `orca-draft-dv10-light.png`, `orca-comments-dv10-dark.png`다.
+
+### Review Signals
+
+라운드 3 유지. 새 이미지가 저장 후 카드와 composer 위치를 구체화했다. 이전 ΔV8은 작성 중 상자만 규정했고 저장 마커와 composer tray는 기존 배치여서 이번 요청을 충족하지 않았다. 새 의존성·전송 포맷·지침 변경은 없다. 브라우저 계산된 토큰 값 확인으로 회색 타일의 시각 누락을 발견했다.
 
 ## ΔV9 — 요약 준비 전 composer diff 버튼 숨김 (2026-09-04, 라운드 3 유지)
 

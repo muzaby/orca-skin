@@ -1,7 +1,6 @@
 import type { DiffRequirementItem } from '../../../../../../shared/ipc'
 import { useI18n } from '../../../../shared/i18n'
-import { Button } from '../../../../shared/ui/Button'
-import { composerPanelSurface } from './composerPanel'
+import { Icon } from '../../../../shared/ui/Icon'
 
 interface RequirementTrayProps {
   requirements: readonly DiffRequirementItem[]
@@ -25,41 +24,44 @@ export function RequirementTray({
     <section
       data-diff-requirement-tray="true"
       aria-label={tr('chat.composer.diffRequirementTrayAria')}
-      className={`flex flex-wrap items-center gap-g2 ${composerPanelSurface}`}
+      className="mb-2 flex flex-wrap items-center gap-[6px] pt-[2px]"
     >
-      <span className="shrink-0 text-caption text-t5">
-        {tr('chat.composer.diffRequirementTrayLabel', { count: requirements.length })}
-      </span>
-      {requirements.map((item) => (
-        <span
-          key={item.id}
-          data-diff-requirement-chip={item.id}
-          className={`inline-flex min-w-0 max-w-full items-center gap-g2 rounded-r3 border px-p3 py-1 text-caption ${
-            item.located ? 'border-t5 bg-fill-contained' : 'border-rust bg-rust-soft text-rust'
-          }`}
-        >
-          <span className="min-w-0 truncate font-mono">
-            {item.anchor.filePath}:{lineLabel(item)}
+      {requirements.map((item) => {
+        const label = `${item.anchor.filePath}:${lineLabel(item)}\n${item.anchor.comment}${
+          item.located ? '' : `\n${tr('chat.composer.diffRequirementUnlocated')}`
+        }`
+        return (
+          <span
+            key={item.id}
+            data-diff-requirement-chip={item.id}
+            className="group/requirement-tile relative flex size-[52px] shrink-0 rounded-[6px] border border-transparent bg-t3 focus-within:border-selected"
+          >
+            <button
+              type="button"
+              aria-label={label}
+              title={label}
+              className={`flex size-full items-center justify-center rounded-[5px] outline-none ${item.located ? 'text-ink3' : 'text-rust'}`}
+            >
+              <Icon name="quote" size={20} />
+              {!item.located && (
+                <span className="absolute bottom-[2px] right-[2px]" aria-hidden="true">
+                  <Icon name="alert" size={12} />
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => onRemove(item.id)}
+              aria-label={tr('chat.composer.diffRequirementRemoveAria', {
+                comment: item.anchor.comment
+              })}
+              className="absolute -right-[7px] -top-[7px] flex size-[20px] items-center justify-center rounded-full border border-t5 bg-panel text-ink3 opacity-0 outline-none group-focus-within/requirement-tile:opacity-100 group-hover/requirement-tile:opacity-100 hover:text-ink focus-visible:border-selected"
+            >
+              <Icon name="x" size={12} />
+            </button>
           </span>
-          <span className="min-w-0 truncate text-t7">{item.anchor.comment}</span>
-          {!item.located && (
-            <span className="shrink-0 text-rust">
-              {tr('chat.composer.diffRequirementUnlocated')}
-            </span>
-          )}
-          <Button
-            iconOnly
-            size="small"
-            variant="uncontained"
-            leadingIcon="x"
-            onClick={() => onRemove(item.id)}
-            aria-label={tr('chat.composer.diffRequirementRemoveAria', {
-              comment: item.anchor.comment
-            })}
-            className="shrink-0"
-          />
-        </span>
-      ))}
+        )
+      })}
     </section>
   )
 }

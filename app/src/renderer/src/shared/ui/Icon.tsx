@@ -58,11 +58,14 @@ export type IconName =
   | 'globe'
   | 'chart'
   | 'commentAdd'
+  | 'quote'
 
 // Google Material Symbols (Outlined, weight 400) path 데이터. 각 아이콘은 fill 기반
 // 단일 path 이며 Material 960 그리드(viewBox `0 -960 960 960`)를 쓴다. 주석 = 원본
 // Material glyph 이름. 갱신 시 fonts.gstatic.com Material Symbols Outlined 원본을 따른다.
 const ICONS: Record<IconName, string> = {
+  quote:
+    'M160-280v-240l120-240h120L280-520h120v240H160Zm400 0v-240l120-240h120L680-520h120v240H560Z', // opening quotation marks
   expand:
     'M160-160v-240h80v104l168-168 56 56-168 168h104v80H160Zm400-640h240v240h-80v-104L552-496l-56-56 168-168H560v-80Z', // open_in_full
   collapse:
