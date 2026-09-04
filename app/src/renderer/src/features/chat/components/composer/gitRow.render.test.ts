@@ -10,6 +10,7 @@
 import { describe, expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { load } from 'cheerio'
 import { GitRowView } from './GitRow'
 import type { GitRowView as View } from './gitRowState'
 
@@ -42,11 +43,16 @@ describe('git 행 — 자리와 순서 (AT-01)', () => {
     expect(branch).toBeLessThan(changes)
   })
 
-  it('저장소·브랜치는 버튼이 아니다 — 표시 전용이다 (D-006)', () => {
-    const html = render(VISIBLE)
-    // 버튼은 정확히 둘(변경량 · 닫기)이고, 첫 버튼이 두 이름보다 뒤에 있다.
-    expect(html.match(/<button/g)).toHaveLength(2)
-    expect(html.indexOf('<button')).toBeGreaterThan(html.indexOf('claude/0206-composer-git-row'))
+  it('저장소·브랜치는 각각 이름 그대로 메뉴를 여는 버튼이다 (D-139)', () => {
+    const $ = load(render(VISIBLE))
+    const triggers = $('button[aria-haspopup="menu"]')
+    expect(triggers).toHaveLength(2)
+    expect(triggers.map((_, el) => $(el).text()).get()).toEqual([
+      'orca-skin',
+      'claude/0206-composer-git-row'
+    ])
+    expect(triggers.map((_, el) => $(el).attr('aria-expanded')).get()).toEqual(['false', 'false'])
+    expect($('[data-git-row-diff]')).toHaveLength(1)
   })
 
   // 0211 ΔV6 AT-70 / VP-71 — 닫기는 **변경량 버튼 뒤**다(D-114). 존재만 세면 형제와 자리를
@@ -77,7 +83,7 @@ describe('git 행 — 그리지 않는 자리 (AT-07)', () => {
 
   it('양성 짝 — 같은 출력에 변경량 버튼·두 수치·닫기가 있다', () => {
     const html = render(VISIBLE)
-    expect(html.match(/<button/g)).toHaveLength(2)
+    expect(load(html)('[data-git-row-diff]')).toHaveLength(1)
     expect(html).toContain('+1097')
     expect(html).toContain('−24')
     expect(html).toContain('data-git-row-close')

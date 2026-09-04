@@ -8,11 +8,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) · 2026-09-02 (ΔV3 · ΔV4) · 2026-09-03 (ΔV5 · ΔV6) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) + git 우측 패널 재설계 제안서 (Git Review Surface) + 싱크 계기 축소 · 첨부 GUI 재대조 · 로딩 교착 회귀 + 커밋 전용 범위 · Stop hook 싱크 · 컴포저 닫기 · 참조 GUI 3차 재대조 |
-| 상태 | IN_PROGRESS (ΔV10 구현 완료; 기존 ΔV6 차단 유지, 라운드 3) |
+| 상태 | IN_PROGRESS (ΔV11 구현 완료; 기존 ΔV6 차단 유지, 라운드 3) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) · `V1 + ΔV1 + ΔV2` @ `d23c5be` (ΔV3 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3` @ `46047ac` (ΔV4 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` @ `177def67` (ΔV5 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` @ `628123bc` (ΔV6 의 기준) |
-| 이번 V revision | `ΔV10` (동일 라운드 3, 사용자 후속 입력) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10` |
+| 이번 V revision | `ΔV11` (동일 라운드 3, 사용자 후속 입력) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10 + ΔV11` |
 
 ## ΔV11 — composer 저장소·브랜치 메뉴 (2026-09-04, 라운드 3 유지)
 
@@ -57,6 +57,50 @@ GitHub 기본 원격 이름과 HTTPS/SSH 형태 근거: [GitHub 공식 원격 �
 main infra/git에 순수 URL 정규화 모듈을 둔다. 기존 gitStatus 읽기에 origin URL을 포함하며 `GitStatus.githubUrl?: string | null`로 전달한다(이전 메모리 snapshot의 미지정은 URL 없음). 신규 IPC 채널·원격 네트워크 요청·Git 변경 명령은 필요 없다. 메뉴는 별도 composer 컴포넌트에서 Popover/MenuItem과 Orca 토큰을 사용한다. 기존 외부 URL 경로(window.open 또는 target=_blank→main setWindowOpenHandler)를 재사용하고 clipboard는 기존 navigator.clipboard 경로다.
 
 운영 gate: 실제 git-cli/정규화/handler 및 행 상태/렌더/메뉴/배치 테스트, typecheck 3구성, lint, IPC 계약 문서와 문서 gate, diff check. 별도 mutation은 선택하지 않는다(직접 반환값·서비스 대상·DOM 상태 oracle). READY 자기확인: 세 서비스와 비가용 상태·강제 11지점이 명시됐다. 기존 ΔV6 D25~D27 차단은 유지한다.
+
+## [구현자 기입] ΔV11 — 저장소·브랜치 팝업과 서비스
+
+### 설계 리뷰
+
+D-139~D-142 구현 완료. 현재 cwd의 origin을 기존 Git 상태 조회에서 읽고 GitHub 웹 주소로 정규화해 이름 메뉴에 전달한다. 저장소 열기·브랜치 이름 복사·브랜치 열기를 제공하며 기존 Popover/MenuItem과 Orca 활성·hover 토큰을 사용한다. 신규 IPC 채널·의존성·Git 변경 명령·네트워크 조회는 없다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+| EP | 생산 지점 관측 | 자기 결과 |
+|---|---|---|
+| EP-64 | gitStatus의 origin 읽기, githubRepositoryUrl 정규화, GitStatus.githubUrl 운반, gitRowView의 nullable URL 투영을 실제 Git·순수 함수·handler·상태 테스트로 확인했다. | 4/4 |
+| EP-65 | 저장소 URL 열기, 표시된 브랜치 원문 복사, 각 경로 구간을 인코딩한 브랜치 URL 열기를 메뉴 callback과 브라우저 목적지로 확인했다. | 3/3 |
+| EP-66 | 한 개의 active 상태로 메뉴 토글, 외부/Escape 닫기, 방향키/Home/End와 실행, session/cwd 및 이름/URL key에 의한 초기화를 구현했다. 브라우저에서 버튼 전환·외부 클릭·Escape·방향키/Enter·이름 변경을 확인했다. | 4/4 |
+
+검색: `rg -n 'githubUrl|githubRepositoryUrl|remote.*get-url|GitIdentityMenus|JSON.stringify|moveGitMenuFocus|epoch|onClose' app/src/main/infra/git app/src/main/app/handlers/git.ts app/src/shared/ipc.ts app/src/renderer/src/features/chat/components/composer`. EP-64~66 총 11/11. VP-91/92/93 SELF_PASS, VP-87/89 회귀 SELF_PASS. 세션/cwd 초기화는 생산 key 경로로 확인했으며 전체 Electron 세션 전환 실기를 주장하지 않는다.
+
+### 이번 라운드 수정의 잠금
+
+구현 전 실제 Git fixture의 githubUrl 단언은 undefined로 실패했고 정규화 테스트는 모듈 부재로 실패했다. 구현 후 원격 추가·변경·삭제와 linked worktree를 포함한 테스트가 통과했다. UI는 메뉴 항목·비활성 상태·서비스 대상과 실제 브라우저 동작을 직접 관측했다. 별도 mutation not selected: 선택 0·인용 0·신설 구조 proxy 0. 기존 버튼 총수 단언은 이름 버튼 추가와 충돌하므로 diff 버튼 자체의 준비 여부를 관측하도록 좁혔다.
+
+### Product/UX 파생 검토
+
+원격이 없으면 브랜치 복사는 유지하고 GitHub 열기에 비활성 이유를 표시한다. detached에서는 브랜치 동작 둘 다 이유와 함께 비활성이다. 복사 실패는 메뉴 안에 표시하며 재시도할 수 있다. 늦게 끝난 복사 결과는 epoch로 구분해 닫거나 새로 연 메뉴에 영향을 주지 않는다. 이름 변경 중 메뉴가 닫히는 것을 브라우저에서 확인했다. 키보드로 열린 메뉴는 측정이 끝난 뒤 첫 항목에 포커스하며 외부 클릭은 클릭한 입력의 포커스를 유지한다.
+
+### 놓친 잠재 문제 + 대응
+
+독립 리뷰가 SSH URL의 대문자 GitHub 호스트를 놓치는 경우를 찾아 호스트 비교와 테스트를 보완했다. Windows에서 대소문자만 다른 메뉴 파일명이 충돌해 순수 helper를 gitIdentityMenuActions.ts로 분리했다. 실제 브라우저에서 복사 실패 안내가 추가되면 메뉴 하단이 viewport 720px를 넘어 726.35px까지 내려가는 것을 발견했다. 오류 상태에 Popover를 다시 측정하게 해 상단으로 뒤집고 하단 606.86px, 복사 항목 포커스와 안내 노출을 확인했다. 공유 Popover는 변경하지 않았다. 기존 ΔV6 D25~D27 차단은 이번 요청 밖으로 유지한다.
+
+### 구현 보고
+
+| AC | 자기 결과 | 관측 |
+|---|---|---|
+| AT-90 | ✅ | 저장소 메뉴 1항목과 정확한 URL 열기; HTTPS/SCP/SSH, linked worktree, 원격 없음·변경·삭제, 자격증명 제거 |
+| AT-91 | ✅ | 브랜치 메뉴의 복사/열기 순서, 전체 이름 복사, 특수 문자 경로 인코딩, URL 없음·detached 비활성 이유, 복사 실패 안내 |
+| AT-92 | ✅ | 라이트/다크의 눌린 회색 배경·hover·팝업, 단일 메뉴·재클릭·외부/Escape 닫기, 키보드 실행과 이름 변경 초기화 |
+
+✅ 3 · ⚠️ 0 · ❌ 0 = ΔV11 AC 3. 전체 V의 기존 차단과 별도 분모이며 trailer Criteria-Met은 3/3, Criteria-Pending에 ΔV6 차단을 남긴다.
+
+게이트: main 3파일 47건 + renderer 7파일 53건 = 10파일 100건 통과. 마지막 UI 보정 후 메뉴 12건을 다시 통과했다. typecheck node/web/test exit 0, 전체 eslint 0 error/1 warning(기존 useTranscriptVirtualizer), 변경 파일 prettier 검사 통과. IPC 계약·frontend 상태 문서를 갱신하고 문서 generated/prose/links 및 git diff --check를 확인한다. 실제 GitRowView·ComposerInputController와 제품 CSS를 임시 Vite fixture에서 렌더했다. 브라우저/clipboard 서비스는 fixture가 기록한 호출 목적지와 결과를 관측했으며 OS 기본 브라우저 실행·실제 clipboard·전체 Electron 앱 실기를 주장하지 않는다. 로컬 시각화 증거: `orca-repo-menu-dv11-light.png`, `orca-branch-menu-dv11-light.png`, `orca-branch-menu-dv11-dark.png`.
+
+### Review Signals
+
+라운드 3 유지. 기존 표시 전용 이름에 사용자 이미지가 규정한 세 서비스를 추가했다. 실제 화면 검증이 Popover 내용 증가 시 위치 재계산 누락을 드러냈고 메뉴 소유 컴포넌트에서 해결했다. 현재 origin의 GitHub URL만 사용하며 원격 브랜치 존재 여부를 추가 조회하지 않는다. handoff 지침 변경은 없다.
 
 ## ΔV10 — 코멘트 카드와 composer 인용 타일 (2026-09-04, 라운드 3 유지)
 

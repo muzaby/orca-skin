@@ -19,6 +19,7 @@ import type {
 } from '../../../shared/ipc'
 import { GitBranchNameSchema } from '../../../shared/protocol'
 import { firstErrorLine, parseBranchList, parseShortstat } from './git-parse'
+import { githubRepositoryUrl } from './github-url'
 
 const TIMEOUT_MS = 10_000
 const MAX_BUFFER = 4 * 1024 * 1024
@@ -73,14 +74,19 @@ async function repoRoot(cwd: string): Promise<string | null> {
 
 export async function gitStatus(cwd: string): Promise<GitStatus> {
   if (!(await insideWorkTree(cwd))) {
-    return { isRepo: false, branch: null, detached: false, root: null }
+    return { isRepo: false, branch: null, detached: false, root: null, githubUrl: null }
   }
-  const branch = await currentBranch(cwd)
+  const [branch, root, origin] = await Promise.all([
+    currentBranch(cwd),
+    repoRoot(cwd),
+    run(cwd, ['remote', 'get-url', 'origin'])
+  ])
   return {
     isRepo: true,
     branch,
     detached: branch == null,
-    root: await repoRoot(cwd)
+    root,
+    githubUrl: origin.ok ? githubRepositoryUrl(origin.stdout) : null
   }
 }
 

@@ -633,6 +633,12 @@ export const ko = {
       detached: '분리 헤드',
       changesAria: '{{added}}줄 추가 {{removed}}줄 삭제',
       diffTitle: '변경사항 패널 열기',
+      openRepo: 'GitHub에서 리포지토리 열기',
+      copyBranch: '브랜치 이름 복사',
+      openBranch: 'GitHub에서 브랜치 열기',
+      noGithubRemote: 'GitHub 원격 저장소가 없습니다',
+      noBranch: '현재 브랜치가 없습니다',
+      copyFailed: '브랜치 이름을 복사하지 못했습니다. 다시 시도해 주세요.',
       close: '변경사항 행 닫기'
     },
     composer: {

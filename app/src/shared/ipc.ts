@@ -1100,6 +1100,9 @@ export interface GitDirtyStat {
 
 export interface GitStatus {
   isRepo: boolean
+  // origin에서 얻은 GitHub 웹 주소. main이 자격증명을 제거한 HTTPS 주소만 전달한다.
+  // 원격 없음/미지원은 null, 이전 메모리 snapshot의 미지정도 같은 의미다.
+  githubUrl?: string | null
   // 현재 브랜치명. detached HEAD 이거나 저장소가 아니면 null.
   branch: string | null
   detached: boolean

@@ -46,6 +46,23 @@ function dirty(cwd: string): void {
 }
 
 describe('gitStatus / gitBranches', () => {
+  it('origin 주소를 웹 URL로 정규화하고 원격 변경·worktree에서도 현재 값을 읽는다', async () => {
+    const repo = makeRepo()
+    expect((await gitStatus(repo)).githubUrl).toBeNull()
+    git(repo, 'remote', 'add', 'origin', 'git@github.com:owner/repo.git')
+    expect((await gitStatus(repo)).githubUrl).toBe('https://github.com/owner/repo')
+    const worktree = join(repo, 'review-worktree')
+    git(repo, 'worktree', 'add', '-b', 'review', worktree)
+    expect(await gitStatus(worktree)).toMatchObject({
+      branch: 'review',
+      githubUrl: 'https://github.com/owner/repo'
+    })
+    git(repo, 'remote', 'set-url', 'origin', 'https://user:password@github.com/owner/renamed.git')
+    expect((await gitStatus(repo)).githubUrl).toBe('https://github.com/owner/renamed')
+    git(repo, 'remote', 'remove', 'origin')
+    expect((await gitStatus(repo)).githubUrl).toBeNull()
+  }, 30000)
+
   it('저장소가 아니면 isRepo:false 이고 브랜치도 비운다', async () => {
     const plain = mkdtempSync(join(tmpdir(), 'orca-plain-'))
     roots.push(plain)
@@ -53,7 +70,8 @@ describe('gitStatus / gitBranches', () => {
       isRepo: false,
       branch: null,
       detached: false,
-      root: null
+      root: null,
+      githubUrl: null
     })
     expect(await gitBranches(plain)).toEqual({ current: null, branches: [] })
   })

@@ -626,6 +626,12 @@ export const en: typeof ko = {
       detached: 'detached HEAD',
       changesAria: '{{added}} lines added, {{removed}} lines removed',
       diffTitle: 'Open changes panel',
+      openRepo: 'Open repository on GitHub',
+      copyBranch: 'Copy branch name',
+      openBranch: 'Open branch on GitHub',
+      noGithubRemote: 'No GitHub remote is available',
+      noBranch: 'No current branch is available',
+      copyFailed: 'Could not copy the branch name. Please try again.',
       close: 'Hide changes row'
     },
     composer: {
