@@ -52,8 +52,9 @@ import type { ProviderDescriptor } from '../../shared/ipc'
 
 const requireFn = createRequire(import.meta.url)
 
-// SDK 가 spawn 할 claude 실행 파일 경로(공식/PATH 우선 → 번들 asar-언팩 폴백). 부팅 1회 해석.
-// undefined 면 옵션을 생략해 SDK 기본 해석에 위임(dev/비패키징). 패키징 배경은 claude-executable.ts.
+// SDK 가 spawn 할 claude 실행 파일 경로(**앱 동봉 번들 단일 출처** — 호스트 설치본은 안 본다,
+// 0215 D-028). 부팅 1회 해석. undefined 면 옵션을 생략해 SDK 기본 해석에 위임(dev/비패키징 —
+// 같은 번들 파일에 도달한다). 근거·패키징 배경은 claude-executable.ts.
 // query options 스프레드용으로 파생 옵션을 1회 만든다(runCompletion·sendMessage 공용).
 const claudeExecutable = resolveClaudeExecutable()
 const claudeExecutableOption = claudeExecutable
@@ -378,7 +379,7 @@ export class ClaudeAdapter implements SessionAdapter {
         // 작업 폴더 밖 파일툴 write 스코프를 넓히지 않도록 SDK 내장 스코프에도 동일 배열을 반영(가드 훅과 짝).
         additionalDirectories,
         abortController,
-        // claude 실행 파일 경로(공식/PATH 우선 → 번들 asar-언팩 폴백). undefined 면 생략해 SDK 기본 해석.
+        // claude 실행 파일 경로(앱 동봉 번들 단일 출처). undefined 면 생략해 SDK 기본 해석.
         ...claudeExecutableOption,
         ...adaptSystemPrompt(extensions.systemPromptAppend),
         // Orca plugin + 사용자 ~/.claude/skills 래퍼 plugin(0117) — user 소스 배제로 끊긴
