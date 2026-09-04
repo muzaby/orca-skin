@@ -48,6 +48,20 @@ interface SessionEntry {
 - 컴포넌트 접근은 selector 훅(`useChatSession`/`useLiveText`/`useLiveReasoning` — 활성 엔트리 구독)과 안정 액션 묶음 `chatActions`, imperative read 는 `getActiveChatSession()` — `UseChat` 객체 전달/Context 전파 모델 폐기.
 - 코얼레서는 단일 FIFO(세션 간 순서도 보존)이며 delta window를 `DeltaEvent[]`로 넘긴다. store는 batch 전체를 단일 `setState` transaction으로 반영해 flush당 notification을 1회로 제한한다. 세션 전환 시 dispose 하지 않는다(키 라우팅이 스테일 오염 방지).
 
+#### 1.2.1 Git 패치와 댓글 범위
+
+`gitSnapshot`과 `gitSnapshotRequest`는 세션 엔트리 안에서 현재 비교 범위와 조회 세대를 관리한다. 패치의 Git 비교 좌표와 요청 형식은 [IPC Git 계약](../../IPC_CONTRACT.md#26-b-git-컴포저-브랜치-칩)이 정본이다.
+
+| 경계 | 현재 동작 | 구현 위치 |
+|---|---|---|
+| 패치 조회·재사용 | 열린 변경사항 타일의 `useGitPatch`가 조회를 소유한다. 세션 키·저장소 좌표·요약 세대·비교 범위를 요청 키로 묶고 같은 키의 진행 중 조회를 중복 실행하지 않는다. 현재 범위의 패치만 보관하므로 같은 좌표·세대·범위에서 타일을 다시 열면 재사용한다. | `features/chat/hooks/useGitPatch.ts` |
+| 비교 범위 변경 | 다른 범위를 고르면 패치와 작성 중 댓글을 즉시 비운다. 같은 범위를 다시 고르는 것은 상태를 바꾸지 않는다. | `chatReducer.ts`의 `SET_DIFF_COMPARISON` |
+| 조회 세대 변경 | 새 좌표 또는 새 세대가 시작되면 기존 패치와 작성 중 댓글을 무효화한다. 같은 좌표·세대의 시작 알림은 멱등이다. | `chatReducer.ts`의 `BEGIN_GIT_SNAPSHOT_QUERY` |
+| 늦은 응답 | 훅의 cleanup과 reducer의 좌표·세대·범위 검사가 지난 요청을 폐기한다. 같은 세대의 요약이 패치보다 늦게 도착해도 현재 범위가 유지되면 먼저 받은 패치를 보존한다. 요약에서 선택 커밋이 사라져 범위가 조정되면 패치와 작성 중 댓글을 비운다. | `useGitPatch.ts`, `chatReducer.ts`의 `RECEIVE_GIT_PATCH`·`RECEIVE_GIT_SNAPSHOT_SUMMARY` |
+| 보관 중 댓글 | `DiffRequirementItem.commitSha`가 작성 범위를 기억하며 생략은 전체 모드다. 작성 기준은 실제 `patch.base`다. 같은 범위의 새 패치에만 재anchor하고 해당 범위의 줄에만 마커를 표시한다. 다른 범위로 이동해도 보관 중 항목과 anchor는 유지한다. UI wrapper와 wire anchor의 경계는 IPC 계약을 따른다. | `components/rightpanel/DiffTileContent.tsx`·`diffRequirements.ts`, `chatReducer.ts` |
+
+요약 조회 세대는 renderer 모듈 수명의 단조 증가 번호다. 화면을 나갔다 돌아와 query owner가 다시 만들어져도 저장된 패치의 세대 번호를 재사용하지 않는다. 각 owner는 자신의 최신 요청만 수신한다.
+
 ### 1.3 Anti-pattern (하지 말 것)
 
 - ❌ **입력창 텍스트를 전역 store 에 두기** — 매 키 입력마다 전역 리렌더 발생. draft snapshot은 persistent input controller의 로컬 state로 두고, shell·transcript에는 올리지 않는다.

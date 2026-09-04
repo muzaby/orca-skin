@@ -614,7 +614,8 @@ describe('chatStore — diff 요구사항 전송 스냅샷', () => {
         filesTruncated: false,
         contextLimited: false,
         unavailable: false
-      }
+      },
+      { kind: 'all' }
     )
     chatActions.clearDiffRequirementsIfUnchanged({
       ...snapshot,

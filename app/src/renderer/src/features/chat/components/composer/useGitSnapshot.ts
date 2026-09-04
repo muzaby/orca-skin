@@ -66,11 +66,15 @@ interface GitSnapshotQueryOwner {
   ): () => void
 }
 
+// 세션 store와 같은 renderer 수명으로 발급해 화면 재마운트의 번호 충돌을 막는다.
+let nextGitSnapshotGeneration = 0
+
 export function createGitSnapshotQueryOwner(): GitSnapshotQueryOwner {
   let generation = 0
   return {
     run(key, load, onStart, onResult) {
-      const request = { key, generation: ++generation }
+      const request = { key, generation: ++nextGitSnapshotGeneration }
+      generation = request.generation
       let live = true
       onStart(request)
       void load()

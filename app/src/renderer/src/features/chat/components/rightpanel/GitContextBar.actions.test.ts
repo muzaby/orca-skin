@@ -145,7 +145,9 @@ describe('`↗` 는 이 타일이 있는 열의 폭을 토글한다 (AT-52 · D-
   it('기본 폭에서 누르면 그 열을 최대로 넓힌다', () => {
     render(PANEL_DEFAULT_WIDTH)
 
-    click(byMarker(buttons, 'data-diff-expand-panel'))
+    const control = byMarker(buttons, 'data-diff-expand-panel')
+    expect(control.leadingIcon).toBe('expand')
+    click(control)
 
     expect(actions.setRightPanelColWidth).toHaveBeenCalledTimes(1)
     // 열 인덱스가 계약의 절반이다 — 폭만 맞고 열이 틀리면 남의 패널이 넓어진다.
@@ -155,7 +157,9 @@ describe('`↗` 는 이 타일이 있는 열의 폭을 토글한다 (AT-52 · D-
   it('최대 폭에서 누르면 같은 열을 기본으로 되돌린다 — 새 모드를 만들지 않는다', () => {
     render(PANEL_MAX_WIDTH)
 
-    click(byMarker(buttons, 'data-diff-expand-panel'))
+    const control = byMarker(buttons, 'data-diff-expand-panel')
+    expect(control.leadingIcon).toBe('collapse')
+    click(control)
 
     expect(actions.setRightPanelColWidth).toHaveBeenCalledWith(DIFF_COL, PANEL_DEFAULT_WIDTH)
   })

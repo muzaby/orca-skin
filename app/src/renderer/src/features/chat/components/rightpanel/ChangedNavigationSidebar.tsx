@@ -58,7 +58,7 @@ export function ChangedNavigationSidebar({
   return (
     <aside
       data-diff-sidebar
-      className="flex w-[240px] min-w-0 max-w-[50%] shrink-0 animate-depth-in flex-col border-r border-border font-sans text-body font-normal"
+      className="flex w-[240px] min-w-0 max-w-[50%] shrink-0 animate-depth-in flex-col border-r border-border font-sans text-footnote font-normal"
     >
       <div data-diff-file-tree className="min-h-0 flex-1 overflow-y-auto p-[8px]">
         {rows.length === 0 ? (
@@ -102,11 +102,11 @@ export function ChangedNavigationSidebar({
                 : 'text-ink2 hover:bg-fill-uncontained-hover'
             }`}
           >
-            <span className="w-full truncate text-body" title={commit.subject}>
+            <span className="w-full truncate text-footnote" title={commit.subject}>
               {commit.subject}
             </span>
             <span className="flex w-full items-center gap-[4px] overflow-hidden text-footnote text-ink3">
-              <span className="shrink-0 font-mono text-code">{commit.sha.slice(0, 7)}</span>
+              <span className="shrink-0 font-mono text-footnote">{commit.sha.slice(0, 7)}</span>
               <span aria-hidden="true">·</span>
               <span className="min-w-0 truncate">{commit.author}</span>
               <span aria-hidden="true">·</span>
@@ -140,7 +140,7 @@ function ScopeRow({
       onClick={onClick}
       // 0211 ΔV6 D-119 — 선택 표시는 채움이다. 체크 아이콘을 함께 두면 커밋 카드와 표시
       // 문법이 갈린다(카드에는 체크 자리가 없다).
-      className={`group/scope flex w-full shrink-0 items-center rounded-[5px] px-[4px] py-[6px] text-left text-body outline-none transition-colors hide-focus-ring ring-focus ${
+      className={`group/scope flex w-full shrink-0 items-center rounded-[5px] px-[4px] py-[6px] text-left text-footnote outline-none transition-colors hide-focus-ring ring-focus ${
         active ? 'bg-fill-uncontained-active text-ink' : 'text-ink2 hover:bg-fill-uncontained-hover'
       }`}
     >
@@ -171,7 +171,7 @@ function TreeRow({
         data-diff-tree-dir={node.path}
         aria-expanded={!collapsed}
         onClick={() => onToggleDir(node.path)}
-        className="group/treedir flex h-[24px] w-full items-center gap-[4px] rounded-[5px] pr-[8px] text-left text-body text-ink2 outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
+        className="group/treedir flex h-[24px] w-full items-center gap-[4px] rounded-[5px] pr-[8px] text-left text-footnote text-ink2 outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
       >
         <Icon
           name={collapsed ? 'chevR' : 'chevD'}
@@ -188,7 +188,7 @@ function TreeRow({
       style={indent}
       data-diff-tree-file={node.path}
       onClick={() => onPickFile(node.path)}
-      className="group/treefile flex h-[24px] w-full items-center gap-[4px] rounded-[5px] pr-[8px] text-left text-body text-ink2 outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
+      className="group/treefile flex h-[24px] w-full items-center gap-[4px] rounded-[5px] pr-[8px] text-left text-footnote text-ink2 outline-none transition-colors hide-focus-ring ring-focus hover:bg-fill-uncontained-hover"
     >
       <Icon
         name="doc"

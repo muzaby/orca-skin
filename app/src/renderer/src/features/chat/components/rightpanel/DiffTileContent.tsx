@@ -4,7 +4,7 @@ import { useGitPatch } from '../../hooks/useGitPatch'
 import { fileApi } from '../../../../shared/api/ipc'
 import { joinRepoPath } from '../../lib/repoPath'
 import { chatActions, useChatSession } from '../../store/chatStore'
-import { createDiffRequirementItem } from './diffRequirements'
+import { createDiffRequirementItem, diffRequirementMatchesComparison } from './diffRequirements'
 import { DiffReview } from './DiffReview'
 
 /**
@@ -37,13 +37,14 @@ export function DiffTileContent(): React.JSX.Element {
       lineIndex: number
       comment: string
     }) => {
-      if (!summary || !sessionId) return
+      if (!patch || !sessionId || !draft) return
       chatActions.addDiffRequirement(
         createDiffRequirementItem({
           id: crypto.randomUUID(),
           sessionId,
-          base: summary.base,
-          filePath: draft?.filePath ?? '',
+          base: patch.base,
+          ...(comparison.kind === 'commit' ? { commitSha: comparison.sha } : {}),
+          filePath: draft.filePath,
           lines,
           lineIndex,
           comment,
@@ -52,7 +53,7 @@ export function DiffTileContent(): React.JSX.Element {
       )
       chatActions.setDiffRequirementDraft(null)
     },
-    [draft?.filePath, sessionId, summary]
+    [draft, sessionId, patch, comparison]
   )
 
   // 트리 선택은 그 파일이 접혀 있으면 펼친다 — 기본이 접힘이라(D-105) 이것이 정상 경로다.
@@ -82,7 +83,9 @@ export function DiffTileContent(): React.JSX.Element {
       expandedFiles={new Set(expandedFiles)}
       sidebarVisible={sidebarVisible}
       view={view}
-      requirements={requirements}
+      requirements={requirements.filter((item) =>
+        diffRequirementMatchesComparison(item, comparison)
+      )}
       draft={draft}
       onToggleExpanded={chatActions.toggleDiffFileExpanded}
       onExpandFile={expandFile}

@@ -58,7 +58,7 @@ describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', 
     gitDiffPatchMock.mockClear()
   })
 
-  it('baseline 의 커밋과 브랜치 이름을 summary·patch 둘에 같이 전달하고 commit 범위를 넘기지 않는다', async () => {
+  it('baseline은 둘에 전달하고 선택 커밋은 patch에만 전달한다', async () => {
     const getSessionBaseline = vi.fn(() => ({
       oid: 'c'.repeat(40),
       ref: 'main',
@@ -67,13 +67,13 @@ describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', 
     registerGitHandlers({ getSessionBaseline })
     const summaryHandler = handleMock.mock.calls.find(
       (call) => call[0] === CHANNELS.gitDiffSummary
-    )?.[3] as (request: { cwd: string; sessionId: string; commit?: string }) => Promise<unknown>
+    )?.[3] as (request: { cwd: string; sessionId: string; commitSha?: string }) => Promise<unknown>
     const patchHandler = handleMock.mock.calls.find(
       (call) => call[0] === CHANNELS.gitDiffPatch
-    )?.[3] as (request: { cwd: string; sessionId: string; commit?: string }) => Promise<unknown>
+    )?.[3] as (request: { cwd: string; sessionId: string; commitSha?: string }) => Promise<unknown>
 
-    await summaryHandler({ cwd: '/repo', sessionId: 'session-1', commit: 'a'.repeat(40) })
-    await patchHandler({ cwd: '/repo', sessionId: 'session-1', commit: 'a'.repeat(40) })
+    await summaryHandler({ cwd: '/repo', sessionId: 'session-1', commitSha: 'a'.repeat(40) })
+    await patchHandler({ cwd: '/repo', sessionId: 'session-1', commitSha: 'a'.repeat(40) })
 
     expect(getSessionBaseline).toHaveBeenCalledTimes(2)
     expect(getSessionBaseline).toHaveBeenNthCalledWith(1, 'session-1')
@@ -88,6 +88,7 @@ describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', 
       bornAt: 1_700_000_000_000
     })
     expect(gitDiffPatchMock).toHaveBeenCalledWith({
+      commitSha: 'a'.repeat(40),
       cwd: '/repo',
       baseOid: 'c'.repeat(40),
       baseRef: 'main',

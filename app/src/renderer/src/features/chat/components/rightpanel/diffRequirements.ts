@@ -4,6 +4,7 @@ import type {
   GitDiffBase
 } from '../../../../../../shared/ipc'
 import type { DiffLine } from '../../lib/diffLines'
+import type { DiffComparison } from './diffComparison'
 
 const CONTEXT_LINE_LIMIT = 200
 const CONTEXT_LINE_COUNT = 3
@@ -13,11 +14,19 @@ export interface CreateDiffRequirementInput {
   id: string
   sessionId: string
   base: GitDiffBase
+  commitSha?: string
   filePath: string
   lines: readonly DiffLine[]
   lineIndex: number
   comment: string
   createdAt: number
+}
+
+export function diffRequirementMatchesComparison(
+  item: DiffRequirementItem,
+  comparison: DiffComparison
+): boolean {
+  return item.commitSha === (comparison.kind === 'commit' ? comparison.sha : undefined)
 }
 
 export function diffRequirementLineKey(
@@ -127,6 +136,7 @@ export function wireDiffRequirementAnchor(anchor: DiffRequirementAnchor): DiffRe
 export function createDiffRequirementItem(input: CreateDiffRequirementInput): DiffRequirementItem {
   return {
     id: input.id,
+    ...(input.commitSha ? { commitSha: input.commitSha } : {}),
     anchor: withLinePosition(
       {
         sessionId: input.sessionId,
@@ -205,7 +215,7 @@ export function reanchorDiffRequirementItem(
 
   if (bestIndex === null) return { ...item, located: false }
   return {
-    id: item.id,
+    ...item,
     anchor: withLinePosition(item.anchor, lines, bestIndex),
     located: true
   }

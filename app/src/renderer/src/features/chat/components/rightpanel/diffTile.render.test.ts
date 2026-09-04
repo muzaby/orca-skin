@@ -17,6 +17,7 @@ import type {
 import { DEFAULT_DIFF_VIEW, PANEL_DEFAULT_WIDTH, PANEL_MAX_WIDTH } from '../../reducer/chatReducer'
 import { DiffReview } from './DiffReview'
 import { nextDiffPanelWidth } from './diffPanelWidth'
+import { buildDiffRequirementSubmission, shouldCancelDiffRequirementDraft } from './FileDiffSection'
 import { tileById } from './tileRegistry'
 
 function textFile(path: string, texts: readonly string[]): GitDiffPatchFile {
@@ -178,16 +179,21 @@ describe('사이드바 — 기본 숨김, 열면 두 구획 (AT-50)', () => {
   })
 })
 
-describe('비교 범위 — 목록만 좁힌다 (AT-49)', () => {
-  it('커밋을 고르면 그 커밋의 파일만 남고 줄은 전체 모드와 같다', () => {
+describe('비교 범위 — 선택한 커밋의 patch 를 그린다 (ΔV8 D-129)', () => {
+  it('커밋을 고르면 그 커밋의 부모→선택 patch 만 남는다', () => {
     const all = render()
-    const scoped = render({ comparison: { kind: 'commit', sha: 'commit-a' } })
+    const scoped = render({
+      comparison: { kind: 'commit', sha: 'commit-a' },
+      patch: { ...patch, files: [textFile('docs/a.md', ['commit alpha'])] }
+    })
 
     expect(scoped).toContain('data-diff-file="docs/a.md"')
     expect(scoped).not.toContain('data-diff-file="src/b.ts"')
-    // **같은 파일의 줄이 두 모드에서 같다** — diff 기준이 커밋 단위로 바뀌지 않았다는 직접 부정.
-    expect(scoped).toContain('alpha')
+    expect(scoped).toContain('commit alpha')
+    expect(scoped).not.toContain('beta')
+    // 전체 모드는 세션 baseline→HEAD patch 를 계속 보인다 — 선택 커밋과 같은 데이터가 아니다.
     expect(all).toContain('alpha')
+    expect(all).toContain('beta')
   })
 
   it('미커밋 파일은 전체 범위 본문에 계속 섞여 나온다 — 진입점만 사라졌다 (D-107)', () => {
@@ -197,26 +203,35 @@ describe('비교 범위 — 목록만 좁힌다 (AT-49)', () => {
     expect(html).toContain('data-diff-file="docs/a.md"')
   })
 
-  it('커밋 파일이 세션 패치에 없으면 헤더와 사유를 함께 그린다 (D-080)', () => {
-    const revertedSummary: GitDiffSummary = {
-      ...summary,
-      commits: [
+  it('현재 세션 patch 에 없는 파일도 선택 커밋 당시 patch 를 정상 출력한다', () => {
+    const commitPatch: GitDiffPatch = {
+      ...patch,
+      files: [
         {
-          ...summary.commits[0],
-          files: [{ path: 'gone.ts', status: 'modified', added: 4, removed: 2, binary: false }]
+          path: 'gone.ts',
+          status: 'modified',
+          added: 4,
+          removed: 2,
+          kind: 'text',
+          lines: [
+            { type: 'removed', oldLine: 4, newLine: null, text: 'const wasHere = false' },
+            { type: 'added', oldLine: null, newLine: 4, text: 'const wasHere = true' }
+          ]
         }
       ]
     }
     const html = render({
-      summary: revertedSummary,
+      patch: commitPatch,
       expandedFiles: new Set(['gone.ts']),
-      comparison: { kind: 'commit', sha: 'commit-a' }
+      comparison: { kind: 'commit', sha: 'commit-a' },
+      view: { ...DEFAULT_DIFF_VIEW, highlightWords: false }
     })
 
     expect(html).toContain('data-diff-file="gone.ts"')
-    expect(html).toContain('세션 기준 변경 없음')
-    // 목록에서 조용히 빼지 않으므로 그 커밋의 변경량은 계속 보인다.
+    expect(html).toContain('const wasHere = true')
+    expect(html).not.toContain('세션 기준 변경 없음')
     expect(html).toContain('+4')
+    expect(html).toContain('−2')
   })
 })
 
@@ -436,8 +451,67 @@ describe('요구사항이 파일 섹션 줄에 붙는다 (AT-54 · D-093)', () =
     expect(html).toContain('data-diff-requirement-draft-input="true"')
   })
 
+  it('작성 상자는 선택한 줄의 코드 시작에 단일 파란 테두리와 추가 아이콘을 둔다 (AT-83)', () => {
+    const html = render({
+      requirements: [],
+      draft: {
+        key: JSON.stringify(['docs/a.md', null, 1]),
+        filePath: 'docs/a.md',
+        oldLine: null,
+        newLine: 1,
+        body: ''
+      }
+    })
+
+    const $ = load(html)
+    const row = $('[data-diff-requirement-draft="true"]')
+    const box = row.find('[data-diff-requirement-draft-box]')
+    const input = row.find('[data-diff-requirement-draft-input="true"]')
+    const submit = row.find('[data-diff-requirement-draft-submit]')
+
+    expect(row.children('td')).toHaveLength(2)
+    expect(box.attr('class')).toContain('border-selected')
+    expect(box.text()).toContain('1번 줄')
+    expect(input.attr('class')).not.toContain('border')
+    expect(input.attr('autofocus')).toBeDefined()
+    expect(submit.attr('aria-label')).toContain('추가')
+    expect(submit.attr('disabled')).toBeDefined()
+    expect(row.text()).not.toContain('취소')
+  })
+
+  it('파일 밴드와 diff 본문은 좌측 탐색과 같은 text-footnote 크기를 쓴다 (D-133)', () => {
+    const $ = load(render())
+
+    expect($('[data-diff-file-header] button span').first().attr('class')).toContain(
+      'text-footnote'
+    )
+    expect($('[data-diff-file-counts]').attr('class')).toContain('text-footnote')
+    expect($('[data-diff-inline]').attr('class')).toContain('text-footnote')
+    expect($('[data-diff-inline] [data-diff-line-number]').parent().attr('class')).toContain(
+      'text-footnote'
+    )
+    expect($('[data-diff-inline] pre').first().attr('class')).toContain('text-footnote')
+  })
+
   it('줄마다 추가 affordance 가 있다 — `+` 가 없으면 요구사항을 시작할 수 없다', () => {
     expect(render()).toContain('data-diff-requirement-add')
+  })
+
+  it('Escape 는 조합 입력 중이 아닐 때만 작성 상자를 닫는다 (AT-83)', () => {
+    expect(shouldCancelDiffRequirementDraft('Escape', false)).toBe(true)
+    expect(shouldCancelDiffRequirementDraft('Escape', true)).toBe(false)
+    expect(shouldCancelDiffRequirementDraft('Enter', false)).toBe(false)
+  })
+
+  it('공백뿐인 draft 는 제출하지 않고, 내용은 선택 줄과 함께 제출한다 (AT-83)', () => {
+    const lines = [{ type: 'added' as const, lineNo: 1, oldLine: null, newLine: 1, text: 'alpha' }]
+
+    expect(buildDiffRequirementSubmission(lines, 0, '  ')).toBeNull()
+    expect(buildDiffRequirementSubmission(lines, 0, '수정해 주세요')).toEqual({
+      lines,
+      lineIndex: 0,
+      comment: '수정해 주세요'
+    })
   })
 
   it('위치를 잃은 항목은 줄에 붙지 않지만 사라지지도 않는다 (D-057)', () => {

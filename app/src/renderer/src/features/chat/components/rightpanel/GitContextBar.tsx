@@ -212,7 +212,7 @@ export function GitContextBar(): React.JSX.Element {
         title={filesLabel}
         aria-label={filesLabel}
         data-diff-sidebar-toggle
-        className="shrink-0 aria-pressed:text-accent [&[aria-pressed=true]>.btn-squish]:bg-fill-selected"
+        className="shrink-0 aria-pressed:text-selected [&[aria-pressed=true]>.btn-squish]:bg-selected-soft"
       />
       <button
         ref={comparisonRef}

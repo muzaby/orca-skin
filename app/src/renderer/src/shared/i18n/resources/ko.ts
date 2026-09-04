@@ -835,6 +835,7 @@ export const ko = {
       diffRequirementAddAria: 'Diff 요구사항 추가: {{line}}',
       diffRequirementDraftPlaceholder: '이 줄에 전달할 요구사항…',
       diffRequirementDraftInputAria: 'Diff 요구사항 내용',
+      diffRequirementDraftLineLabel: '{{line}}번 줄',
       diffRequirementDraftSubmit: '추가',
       diffRequirementDraftCancel: '취소',
       diffRequirementMarkerLabel: '요구사항',

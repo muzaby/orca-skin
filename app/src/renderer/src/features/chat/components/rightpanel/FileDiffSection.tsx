@@ -70,6 +70,24 @@ function lineAxisLabel(line: DiffLine): string {
   return String(line.newLine ?? line.oldLine ?? '?')
 }
 
+function lineNumberLabel(line: DiffLine): string {
+  return String(line.newLine ?? line.oldLine ?? '?')
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- action seams share the component's draft contract.
+export function shouldCancelDiffRequirementDraft(key: string, isComposing: boolean): boolean {
+  return key === 'Escape' && !isComposing
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- action seams share the component's draft contract.
+export function buildDiffRequirementSubmission(
+  lines: readonly DiffLine[],
+  lineIndex: number,
+  comment: string
+): { lines: readonly DiffLine[]; lineIndex: number; comment: string } | null {
+  return comment.trim() === '' ? null : { lines, lineIndex, comment }
+}
+
 /**
  * 한 파일의 섹션 (0211 ΔV4 D-073 · ΔV5 D-105·D-108). 헤더가 곧 목록 행이고 그 아래에 diff 가
  * 이어진다 — 별도 화면으로 가지 않는다. **기본은 접힘**이고 헤더를 누르면 이 파일만 펼쳐진다.
@@ -116,7 +134,7 @@ export function FileDiffSection({
             className="shrink-0 text-ink3 transition-colors group-hover/filehead:text-ink2"
           />
           <Icon name="doc" size={12} className="shrink-0 text-ink3" />
-          <span className="flex min-w-0 items-baseline gap-[4px] overflow-hidden whitespace-nowrap text-body text-ink2">
+          <span className="flex min-w-0 items-baseline gap-[4px] overflow-hidden whitespace-nowrap text-footnote text-ink2">
             <span className="max-w-full shrink-0 truncate font-normal">{name}</span>
             {parent.length > 0 && (
               <span className="min-w-0 truncate text-footnote text-ink3" title={parent}>
@@ -124,7 +142,10 @@ export function FileDiffSection({
               </span>
             )}
           </span>
-          <span data-diff-file-counts className="flex shrink-0 gap-[2px] text-body tabular-nums">
+          <span
+            data-diff-file-counts
+            className="flex shrink-0 gap-[2px] text-footnote tabular-nums"
+          >
             <span className="text-git-added">+{section.added}</span>
             <span className="text-git-removed">−{section.removed}</span>
           </span>
@@ -142,15 +163,15 @@ export function FileDiffSection({
       </div>
       {!collapsed &&
         (section.patch === null ? (
-          <p className="px-p5 pb-p3 text-caption text-ink3">
+          <p className="px-p5 pb-p3 text-footnote text-ink3">
             {tr('chat.rightpanel.diffNoSessionChange')}
           </p>
         ) : section.patch.kind === 'binary' ? (
-          <p className="px-p5 pb-p3 text-caption text-ink3">
+          <p className="px-p5 pb-p3 text-footnote text-ink3">
             {tr('chat.rightpanel.diffFileBinary')}
           </p>
         ) : section.patch.kind === 'too-large' ? (
-          <p className="px-p5 pb-p3 text-caption text-ink3">
+          <p className="px-p5 pb-p3 text-footnote text-ink3">
             {tr('chat.rightpanel.diffFileTooLarge')}
           </p>
         ) : (
@@ -292,7 +313,7 @@ function FileDiffBody({
       className={view.wrapLines ? 'pb-p2' : 'overflow-x-auto pb-p2'}
     >
       {hunks.rows.length === 0 ? (
-        <p className="px-p5 pb-p3 text-caption text-ink3">{tr('chat.rightpanel.diffEmpty')}</p>
+        <p className="px-p5 pb-p3 text-footnote text-ink3">{tr('chat.rightpanel.diffEmpty')}</p>
       ) : (
         <DiffSyntaxContext value={syntax}>{body}</DiffSyntaxContext>
       )}
@@ -373,9 +394,11 @@ function LineText({
         )[line.type === 'removed' ? 'old' : 'new']
       : null
   if (!span || span.end <= span.start)
-    return <pre className={`m-0 ${wrapClass} text-code text-ink`}>{syntaxText(line, tokens)}</pre>
+    return (
+      <pre className={`m-0 ${wrapClass} text-footnote text-ink`}>{syntaxText(line, tokens)}</pre>
+    )
   return (
-    <pre className={`m-0 ${wrapClass} text-code text-ink`}>
+    <pre className={`m-0 ${wrapClass} text-footnote text-ink`}>
       {syntaxText(line, tokens, 0, span.start)}
       <mark
         data-diff-word-change
@@ -463,7 +486,7 @@ function InlineBody({
   onRemoveRequirement?: (id: string) => void
 }): React.JSX.Element {
   return (
-    <table data-diff-inline className="w-full border-collapse font-mono text-code">
+    <table data-diff-inline className="w-full border-collapse font-mono text-footnote">
       <colgroup>
         <col className="w-[calc(4ch+16px)]" />
         <col className="w-[12px]" />
@@ -539,7 +562,7 @@ function InlineLineRow({
         // (`src/renderer/AGENTS.md §그룹 스코프 격리`). 이름을 붙여 이 줄로 가둔다.
         className={`group/diffline ${rowTint(row.line.type)}`}
       >
-        <td className="relative select-none pl-[20px] pr-[4px] text-right align-top text-code text-ink2">
+        <td className="relative select-none pl-[20px] pr-[4px] text-right align-top text-footnote text-ink2">
           <button
             type="button"
             data-diff-requirement-add={lineKey}
@@ -564,7 +587,7 @@ function InlineLineRow({
           </span>
         </td>
         <td
-          className={`select-none text-center align-top text-code ${row.line.type === 'added' ? 'text-git-added' : row.line.type === 'removed' ? 'text-git-removed' : 'text-ink3'}`}
+          className={`select-none text-center align-top text-footnote ${row.line.type === 'added' ? 'text-git-added' : row.line.type === 'removed' ? 'text-git-removed' : 'text-ink3'}`}
         >
           {row.line.type === 'added' ? '+' : row.line.type === 'removed' ? '-' : ' '}
         </td>
@@ -624,7 +647,10 @@ function SideBySideBody({
     else chunks.push({ kind: 'lines', rows: [row] })
   }
   return (
-    <table data-diff-side-by-side className="w-full table-fixed border-collapse font-mono">
+    <table
+      data-diff-side-by-side
+      className="w-full table-fixed border-collapse font-mono text-footnote"
+    >
       <tbody>
         {chunks.map((chunk, chunkIndex) =>
           chunk.kind === 'gap' ? (
@@ -636,7 +662,7 @@ function SideBySideBody({
                   key={`sbs:${chunkIndex}:${index}`}
                   data-diff-hunk-row-id={chunk.rows[index]?.id}
                 >
-                  <td className="w-[3em] select-none px-2 text-right align-top text-code text-ink2">
+                  <td className="w-[3em] select-none px-2 text-right align-top text-footnote text-ink2">
                     {pair.left?.oldLine ?? ''}
                   </td>
                   <td
@@ -652,7 +678,7 @@ function SideBySideBody({
                       />
                     )}
                   </td>
-                  <td className="w-[3em] select-none px-2 text-right align-top text-code text-ink2">
+                  <td className="w-[3em] select-none px-2 text-right align-top text-footnote text-ink2">
                     {pair.right?.newLine ?? ''}
                   </td>
                   <td
@@ -698,35 +724,47 @@ function DiffRequirementDraftRow({
   }) => void
 }): React.JSX.Element {
   const { tr } = useI18n()
+  const submission = buildDiffRequirementSubmission(lines, lineIndex, draft.body)
   return (
     <tr data-diff-requirement-draft="true">
-      <td colSpan={colSpan} className="px-p5 py-2">
-        <div className="flex flex-col gap-g2 rounded-r4 border border-accent bg-fill-contained p-2">
-          <textarea
-            value={draft.body}
-            onChange={(event) => onDraftChange?.({ ...draft, body: event.currentTarget.value })}
-            placeholder={tr('chat.rightpanel.diffRequirementDraftPlaceholder')}
-            aria-label={tr('chat.rightpanel.diffRequirementDraftInputAria')}
-            data-diff-requirement-draft-input="true"
-            className="min-h-[3rem] resize-y rounded-r3 border border-t5 bg-panel px-2 py-1 text-body text-t9 outline-none hide-focus-ring ring-focus"
-          />
-          <span className="flex justify-end gap-g2">
-            <button
-              type="button"
-              onClick={() => onDraftChange?.(null)}
-              className="text-caption text-t6 outline-none hide-focus-ring ring-focus"
-            >
-              {tr('chat.rightpanel.diffRequirementDraftCancel')}
-            </button>
-            <button
-              type="button"
-              disabled={draft.body.trim() === ''}
-              onClick={() => onAddRequirement?.({ lines, lineIndex, comment: draft.body })}
-              className="text-caption text-accent outline-none hide-focus-ring ring-focus disabled:text-ink3"
-            >
-              {tr('chat.rightpanel.diffRequirementDraftSubmit')}
-            </button>
+      <td colSpan={colSpan - 1} />
+      <td className="px-[8px] py-[8px] align-top">
+        <div
+          data-diff-requirement-draft-box
+          className="flex flex-col rounded-[6px] border border-selected bg-panel px-[12px] py-[8px]"
+        >
+          <span className="text-footnote text-ink3">
+            {tr('chat.rightpanel.diffRequirementDraftLineLabel', {
+              line: lineNumberLabel(lines[lineIndex]!)
+            })}
           </span>
+          <div className="flex items-end gap-[8px]">
+            <textarea
+              autoFocus
+              value={draft.body}
+              onChange={(event) => onDraftChange?.({ ...draft, body: event.currentTarget.value })}
+              onKeyDown={(event) => {
+                if (shouldCancelDiffRequirementDraft(event.key, event.nativeEvent.isComposing)) {
+                  event.preventDefault()
+                  onDraftChange?.(null)
+                }
+              }}
+              placeholder={tr('chat.rightpanel.diffRequirementDraftPlaceholder')}
+              aria-label={tr('chat.rightpanel.diffRequirementDraftInputAria')}
+              data-diff-requirement-draft-input="true"
+              className="min-h-[2rem] w-full resize-none bg-transparent py-[2px] text-footnote text-ink outline-none"
+            />
+            <button
+              type="button"
+              disabled={submission === null}
+              onClick={() => submission && onAddRequirement?.(submission)}
+              aria-label={tr('chat.rightpanel.diffRequirementDraftSubmit')}
+              data-diff-requirement-draft-submit
+              className="mb-[2px] flex size-[20px] shrink-0 items-center justify-center rounded-[4px] text-selected outline-none transition-colors hide-focus-ring ring-focus hover:bg-selected-soft disabled:text-ink3 disabled:hover:bg-transparent"
+            >
+              <Icon name="commentAdd" size={16} />
+            </button>
+          </div>
         </div>
       </td>
     </tr>
@@ -752,7 +790,7 @@ function DiffRequirementMarkerRow({
             <span
               key={item.id}
               data-diff-requirement-marker={item.id}
-              className="inline-flex min-w-0 max-w-full items-center gap-g2 rounded-r4 border border-accent bg-fill-contained px-p3 py-1 text-caption"
+              className="inline-flex min-w-0 max-w-full items-center gap-g2 rounded-r4 border border-accent bg-fill-contained px-p3 py-1 text-footnote"
             >
               <span className="shrink-0 text-accent">
                 {tr('chat.rightpanel.diffRequirementMarkerLabel')}

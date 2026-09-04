@@ -284,9 +284,11 @@ export const GitDiffRequestSchema = z.object({
   sessionId: z.string().min(1).optional()
 })
 
-// 패치는 요약과 같은 인자다 — **커밋 범위 인자를 두지 않는다**(0211 D-036·ΔV4 D-079).
-// 인자를 남기면 두 번째 범위 해석이 살아 있어 다음 사람이 그것을 다시 배선한다.
-export const GitDiffPatchRequestSchema = GitDiffRequestSchema
+// 브랜치 이름·옵션·축약 SHA를 받지 않는다. 선택 목록이 제공한 완전한 커밋 OID만 허용한다.
+export const GitCommitOidSchema = z.string().regex(/^[0-9a-f]{40}$/i)
+export const GitDiffPatchRequestSchema = GitDiffRequestSchema.extend({
+  commitSha: GitCommitOidSchema.optional()
+})
 
 export const ReadAttachmentRequestSchema = z.object({ path: z.string().min(1) })
 
