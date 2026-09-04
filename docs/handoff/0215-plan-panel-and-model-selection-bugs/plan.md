@@ -14,8 +14,9 @@
 | 상태 | DRAFT → READY |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `0215:V1@ea983b1` (자기 handoff 의 Baseline) |
-| 이번 V revision | `ΔV2` — verify r2 `RETURN_TO_PLAN`(root D1(r2)·D2(r2)) 정정 |
-| 유효 V | `V1 + ΔV1 + ΔV2` |
+| 이번 V revision | `ΔV3` — 사용자 재보고 2건(모델 노출 폴백 · plan 모드) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
+| 라운드 | 4 (r3 `verify/PASS` 이후 사용자 재보고로 재개) |
 
 ---
 
@@ -41,6 +42,10 @@
 | 명시 결정 ⑧ | haiku 판정 = `alias='haiku'` **또는** 모델명에 `haiku` 포함 | AskUserQuestion 답변 |
 | 명시 요구 ⑨ | "우측 작업패널에서 백그라운드 작업은 제외하라. taskcreate로 생성된 것만 표현되어야 한다" | 라이브 세션(턴 중 추가) |
 | 추론 의도 | ⑤의 "구조적인 문제가 있는지 확인하라" 를 "원인을 진단하고 그 구조를 고쳐라"로 읽는다 (추론). 진단만 하고 끝내지 않는다. | — |
+| 명시 요구 ⑩ (r4) | "env에 다른옵션없이 anthropic_model을 커스텀 모델로만 부여된 경우, haiku,sonnet,opus,가 sdk 기본으로 노출되고 추가로 커스텀 모델이 노출되는 현상이 발생한다. **한 개라도 모델을 노출시키는 세팅이 있다면 sdk 기본 모델이 디폴트 노출 되면 안된다**" | 라이브 세션 r4 |
+| 명시 요구 ⑪ (r4) | "plan 모드가 여전히 동작이 안된다. **테스트 결과 sdk 버전문제도 아니다.** pr 150 에서는 정상 동작되는 걸 확인했다. pr 150 이후에 plan 모드 동작에서 무슨 변화가 생겼는지 검토하고 어떤 로직이 변경됐는지 확인하라" | 라이브 세션 r4 |
+| 명시 결정 ⑫ (r4) | 증상 = "**카드는 뜨는데 우측 패널 본문이 여전히 빔.  Exitplanmode에 Plan text  filepath가 전달이 안되고 있다**" | AskUserQuestion 답변 r4 |
+| 명시 결정 ⑬ (r4) | plan 모드에서 `canUseTool` 이 쓰기를 승인 가능하게 만드는 **구조적 공백을 이번 라운드 범위에 넣는다** | AskUserQuestion 답변 r4 |
 
 ## 3. Decision Ledger
 
@@ -68,6 +73,11 @@
 | D-022 | `setModel` 호출은 **4슬롯 전체의 순서 계약**이다 — `(providerKey, modelFamily, modelAlias, adapter)` | 한 슬롯만 단언하면 형제 슬롯 오염이 침묵한다. 실측: arg3 은 alias 로 두고 arg2 만 alias 로 바꾸면 844/844 green 이고, 제품에서는 `selectionExists` 실패로 **사용자 선택이 default 로 되돌아간다**(§8 F-23) | verify r2 D2 | ACTIVE | — |
 | D-019 | `ModeMenu.options`·`SubAgentTaskList.stopErrors` 의 **관대한 기본값을 없애고 필수 prop 으로** 바꾼다 | 침묵의 원인이 optional prop + 폴백이다 — 배선 누락이 컴파일 오류가 아니라 조용한 동작 복귀가 된다(verify r1 D1) | verify r1 D1 | ACTIVE | — |
 | D-020 | renderer 테스트에 **DOM 환경(jsdom 등)을 도입할지**는 미정 | 도입하면 **`Popover` 를 연 상태**까지 마운트해 잠글 수 있어 D-021 이 남긴 소스 단언 5지점을 대체한다(ΔV2 로 범위가 좁아졌다). 그러나 **신규 devDependency** 라 단독 결정 금지(`app/AGENTS.md §의존성 정책`) | §8 F-20 | **OPEN** | — |
+| D-023 (r4) | SDK 기본 3-alias 폴백은 **어떤 설정도 모델을 노출하지 않을 때만** 쓴다 — `ANTHROPIC_MODEL` 이 있으면 폴백하지 않는다 | 요구⑩ 원문 "한 개라도 모델을 노출시키는 세팅이 있다면 sdk 기본 모델이 디폴트 노출 되면 안된다" | 요구⑩ + §8 F-24 | ACTIVE | D-005 를 **보완**(대체 아님) — D-005 는 "추가", D-023 은 "폴백 억제" |
+| D-024 (r4) | 계획 본문 폴백의 서술은 **`toolUseID` 로 상관시켜 매퍼가 그 assistant 메시지를 소화한 뒤** 읽는다 | SDK 가 `can_use_tool` 을 전송 루프에서 **await 없이** 즉시 발화하고 assistant 메시지는 소비자 큐에 쌓는다 — 매퍼가 아직 안 뽑았으면 `ctx.lastAssistantText` 는 이전 턴의 리셋값(`undefined`)이다 | 결정⑫ + §8 F-27·F-28 | ACTIVE | D-001 의 **체인은 불변**, 2순위 소스를 읽는 *시점* 만 바꾼다 |
+| D-025 (r4) | plan 모드에서 CLI 가 올리는 `ask` 를 Orca 가 **deny 로 되돌린다** — `ExitPlanMode`·`AskUserQuestion` 을 제외한 비-읽기 도구는 승인 카드로 올리지 않는다 | CLI 는 plan 모드 쓰기를 deny 가 아니라 `behavior:"ask"` 로 낸다(§8 F-25). SDK 모드에서 ask 는 `canUseTool` 로 오고 Orca 가 승인/passthrough 하면 **plan 모드 중에 실제로 쓴다** | 결정⑬ + §8 F-25·F-26 | ACTIVE | — |
+| D-026 (r4) | 계획 파일 경로 추측 금지(**D-004 유지**). CLI 의 `get_plan` control request 도 쓰지 않는다 | `get_plan` 은 CLI·프로토콜에 있으나 SDK 0.3.220 의 `Query` 공개 인터페이스에 메서드가 **없다**(§8 F-29) — 사설 transport 접근이 필요하다 | §8 F-29 | ACTIVE | D-004 를 재확인, 대체 없음 |
+| D-027 (r4) | plan 모드 판정의 SSOT 는 **어댑터가 들고 있는 현재 permissionMode 셀** 이다 — `sendMessage`·`pushTurn`·`setPermissionMode` 세 지점이 같은 셀을 쓴다 | `canUseTool` options 에 `decisionReasonType` 이 없어(§8 F-26) ask 사유를 타입으로 구분할 수 없다. 문자열(`decisionReason`) 매칭은 CLI 문구에 묶인다 | §8 F-26 | ACTIVE | — |
 
 ### 갱신 메모
 
@@ -97,6 +107,23 @@
     그 차이의 이유가 D-018 의 조건절과 같다.
   - D-019 ↔ AC23·AC24 → 일치. 두 AC 어디에도 "기본값으로 떨어진다"를 허용하는 문장이 없다.
   - D-020(OPEN) ↔ AC 없음 → **의도한 부재**. OPEN 결정에 AC 를 달면 미정 사항이 완료 조건이 된다.
+- **ΔV3(r4 — 사용자 재보고)**: `verify/PASS`(r3) 이후 사용자가 두 건을 재보고했다. **SUPERSEDED 0** —
+  D-001~D-022 의 규칙은 전부 그대로 성립하고, r4 는 ① 폴백 억제(D-023) ② 폴백 소스를 읽는 *시점*(D-024)
+  ③ plan 모드 ask 처리(D-025) 세 축을 **추가**한다. D-004 는 D-026 으로 재확인했다.
+- **`ACTIVE 결정 ↔ AC` 대조 (r4 신설분)**: 충돌 0.
+  - D-023("폴백 억제") ↔ AC27·AC28 → AC27 이 억제를, AC28 이 **억제하지 않는 조건**(설정 전무 → 3-alias)을
+    각각 잡는다. 양성 짝이 있어 "둘 다 사라짐"과 구분된다 → 일치.
+  - D-023 ↔ **D-006 과 무충돌** — top-level `model` 은 목록을 늘리지 않으므로 "모델을 노출시키는 세팅"이
+    아니다. AC29 가 `{model:'corp-y'}` 단독에서 3-alias 가 **유지**됨을 잠근다 → D-006 그대로.
+  - D-024("toolUseID 상관") ↔ AC30·AC31 → AC1·AC2·AC3 의 *동작 기준*은 그대로 두고 **순서 요구만 신설**했다.
+    AC30 이 "매퍼가 아직 안 뽑은 상태"를, AC31 이 **상관 메시지가 끝내 안 올 때 막히지 않음**을 잡는다 → 일치.
+  - D-025("ask → deny") ↔ AC32·AC33 → AC32 가 deny 를, AC33 이 **`ExitPlanMode`·`AskUserQuestion`·읽기
+    도구는 그대로 통과**함을 잠근다. AC 어디에도 "plan 모드에서 쓰기를 승인 카드로 올린다"가 없다 → 일치.
+  - D-025 ↔ **D-001·AC1 과 무충돌** — 계획 **파일** write 는 CLI 가 `canUseTool` 에 올리지 않는다(§8 F-30:
+    `oDt` 가 `behavior:"allow"` 로 먼저 끊는다). deny 가 계획 파일 생성을 막지 않는다.
+  - D-027("모드 셀 SSOT") ↔ AC34 → 세 갱신 지점이 같은 셀을 쓰는지를 §10 EP-27 전수로 잠근다 → 일치.
+  - D-026(경로 추측 금지 재확인) ↔ AC 없음 → **의도한 부재**. 금지는 AC27~AC34 어디에도 `planFilePath`
+    독립 폴백이 없다는 사실로 성립한다(D-004 와 같은 처리).
 
 ## 4. 요구 비판적 검토
 
@@ -111,6 +138,16 @@
 | 요구⑨가 "제거"인가 "이동"인가 | **제거(중복 제거)** — 능력이 `백그라운드 작업` 타일에 **이미** 있다. 옮길 것이 없다 | `tileRegistry.ts` 의 `subagent` 타일 · `SubAgentTileContent` 가 `subagentTasksFromMessages` 직접 소비 |
 | 요구⑨가 능력 자체를 없애는가 | **아니오** — 서브에이전트 목록·중단·전환은 `백그라운드 작업` 타일에 남는다 | `SubAgentTileContent.tsx:309`(전환)·`:328`(중단) |
 | ACTIVE 결정·기존 계약과 충돌하는가 | 부분 충돌 2건 — TRD §6.8 의 "명시-only → 3개"(D-005), 0204 D-017 의 "두 종류가 한 목록에"(D-013) | `docs/TRD.md:344` · `taskBoard.ts:4-9` → §16 에서 변경 처리 |
+| **(r4)** 요구⑩ 이 증상이 아니라 원인을 겨냥하는가 | **원인 확정** — 티어 선택(`discovered > configured > candidates`)이 `ANTHROPIC_MODEL` 편입(3단계)**보다 먼저** 일어난다 | `model-parser.ts:82-92` 가 폴백을 고른 뒤 `:97` 이 항목을 더한다 |
+| **(r4)** 이미 기존 테스트가 그 동작을 계약으로 잠갔는가 | **그렇다 — 테스트가 버그를 못박았다** | `model-parser.test.ts` AT-05: `expect(models.map(m=>m.model)).toEqual([null,null,null,'corp-x'])`. AC5 정정 대상 |
+| **(r4)** 요구⑩ 이 runtime 경로에도 있는가 | **없다** — 그 경로엔 3-alias 폴백 자체가 없다 | `runtime-catalog.ts:125-126` 은 `normalizeAvailableModels([])` = `[]` 에서 시작한다 |
+| **(r4)** 요구⑪ "pr 150" 이 GitHub PR #150 인가 handoff 0150 인가 | **가르지 않아도 된다** — PR #150 base(`5bc40a1a`, 2026-06-29)가 handoff 0150(`2e787fc3`, 2026-07-27 = PR **#291**)보다 이르다. 이른 쪽을 조사 창으로 잡으면 양쪽을 덮는다 | `mcp__github pull_request_read #150` · `git log 5bc40a1a..HEAD` |
+| **(r4)** 요구⑪ 이 SDK 버전 문제인가 | **아니다(사용자 실측과 일치)** — `ExitPlanModeInput` 은 0.3.220 에서도 `plan` 을 선언하지 않고, 주입은 **파일 존재**에만 달렸다 | §8 F-03 재확인 + F-24a |
+| **(r4)** 증상⑫ "filepath 도 안 온다"가 무엇을 뜻하는가 | **plan 파일이 디스크에 없다는 뜻이다** — CLI 는 `plan` 과 `planFilePath` 를 한 객체에서 함께 붙이고, 파일이 없으면 입력을 **그대로** 돌려준다 | §8 F-24a (`case UP:` 삼항의 else 가지 = `t`) |
+| **(r4)** 그렇다면 파일이 왜 없는가 — Orca 가 막는가 | **막지 않는다(음성 확인)** — ① CLI 가 plan 파일 write 를 `allow` 로 먼저 끊고 ② Orca 가드도 `~/.claude` write 를 연다 | §8 F-30 · `workspace-guard.ts:26-31` `writeExceptionRoots` |
+| **(r4)** 그러면 r1 의 서술 폴백은 왜 안 먹는가 | **읽는 시점이 이르다** — `canUseTool` 은 전송 루프에서 즉시, `ctx.lastAssistantText` 는 소비자(매퍼)가 큐에서 뽑을 때 채워진다 | §8 F-27·F-28 |
+| **(r4)** r1~r3 의 AT-01 이 왜 이것을 못 봤는가 | **oracle 이 순서를 모형하지 않는다** — 서술 provider 를 직접 주입해 "값이 있으면 실린다"만 본다 | plan §7 AT-01 검증 수단 · `handoff-plan/SKILL.md §5`(순서를 요구하면 순서를 관측할 방법도 설계한다) |
+| **(r4)** plan 모드 read-only 공백이 PR 150 이후의 회귀인가 | **아니다 — 상시 공백이다.** PR#150 base 의 `makeCanUseTool` 도 같은 구조였다. 사용자 관측이 바뀐 것은 **기본 모드**다 | `git show 5bc40a1a:app/src/main/adapters/claude.ts` 137-157 · §8 F-31 |
 
 - 사용자에게 올릴 결정: **없음** (요구⑤~⑧ 답변으로 4건 모두 닫힘).
 - 코드 조사로 닫은 사실: §8 F-01~F-13.
@@ -162,6 +199,9 @@
 - **범위**: 계획 본문 해소 체인 + 실패 표시 · `ANTHROPIC_MODEL` 목록 편입(2경로) · `[1m]` 식별자/중복 · haiku 자동권한 제거·강등 · **`작업` 타일에서 background 제외 + 딸린 배지·중단 실패 문구 정리** · 관련 문서 4건.
 - **ΔV1 추가 범위**(코드 동작 불변, 잠금만): 컨테이너 배선 oracle 2종 신설 · `ModeMenu.options`·`SubAgentTaskList.stopErrors` 필수화 + 그로 깨지는 테스트 호출부 8곳 인자 추가 · §10 EP-19 분모 2 반영. **선택적 정리**(verify D3): `classifyModel`·`matchesExplicit`·`AUTO_UNSUPPORTED_FALLBACK_MODE` 의 `export` 제거 — 파일 밖 참조 0건이라 동작 영향 없다.
 - **ΔV2 추가 범위**(코드 동작 불변, 잠금만): `composerWiring.test.ts` 확장 — 축③ 을 4슬롯 순서 계약으로 · `<ModelMenu selection>` 축 신설(AC25) · **`Composer` 마운트 테스트 신설**(AC26, 신규 의존성 0). 변이 6종(M-B·M-F·M-H·V-1·V-2c·V-5) 확인.
+- **ΔV3 추가 범위(r4 — 코드 동작 변경)**: ① `parseClaudeModels` 폴백 억제(D-023) + AT-05 정정 ② 계획 서술 폴백의 `toolUseID` 상관 대기(D-024) ③ plan 모드 `ask → deny` 게이트(D-025) + 모드 셀 SSOT(D-027).
+- **ΔV3 비범위**: 기본 권한 모드를 `plan` 으로 되돌리는 것(§8 F-31 은 원인 서술이고 사용자 요구가 아니다 — 되돌리면 `a8ca38a8` 의 사용자 결정을 뒤집는다) · CLI `get_plan` 사용(D-026) · plan 모드에서 `auto` 를 고를 수 없게 막는 것(§8 F-32 는 관측일 뿐 이번 요구 밖) · plan 파일 읽기(D-004).
+
 - **비범위**: DOM 테스트 환경(jsdom 등) 도입(D-020 OPEN) · `turn.aborted` 경로의 서술 리셋(verify D6 — 후속 handoff) · `EnterPlanMode` 도구 처리(D-012) · plan 모드 진행 중 실시간 계획 파일 미러링 · `planFilePath` 로부터의 파일 읽기(D-004) · 권한 모드 6종 UI 확장 · CLI `oqe` 표 전체 미러링(D-009) · `백그라운드 작업` 타일의 목록/상세 재설계(중단 실패 문구 1건만 추가).
 
 | 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
@@ -201,6 +241,16 @@
 | R-04 | AT-25 / **AC25 (ΔV2 신설)** | `Composer` 가 선택 모델을 **모델 메뉴에** 넘긴다 — `<ModelMenu selection={selectedModel}>` | 소스 단언(D-021: `Popover` 내부). **`null` 로 바꾸면 red**(V-1) | 모델 메뉴 열기 → `ModelMenu.tsx:49` 활성 행 판정 |
 | R-04 | AT-26 / **AC26 (ΔV2 신설)** | `Composer` 가 선택 모델을 **칩 라벨로** 낸다 — 마운트 출력에 `provider/modelFamily` 가 있다 | **컨테이너 마운트**(D-021: 항상 렌더되는 부분). 두 스토어를 시드해 `Composer` 렌더 → `anthropic/claude-sonnet-4-6` 관측. **폴백으로 바꾸면 red**(V-2c) | 세션 선택 상태 → memo → `selectionLabel` → `ComposerChip` |
 | R-05 | AT-24 / AC24 (ΔV1) | `SubAgentTileContent` 가 세션의 `taskStopErrors` 를 목록 View 로 흘린다 | 컨테이너 마운트: store 를 시드해 `SubAgentTileContent` 를 렌더 → 중단 실패 문구가 출력에 있다. **prop 전달을 지우면 red**(M-G) | `stopTask` 실패 → reducer → `SubAgentTileContent` → `SubAgentTaskList` |
+| ~~R-02~~ | ~~AT-05 / AC5 (V1)~~ **SUPERSEDED → AC5(ΔV3)** — 검증 수단이 SDK 기본 3-alias 가 함께 노출되는 상태를 계약으로 못박았다(요구⑩) | ~~`parseClaudeModels({env:{ANTHROPIC_MODEL:'corp-x'}})` → `corp-x` 항목 존재 + `isDefault`~~ 기존 케이스의 단언이 `[null,null,null,'corp-x']` 였다 | — | — |
+| R-02 | AT-05 / **AC5 (ΔV3 정정)** | settings.json `env.ANTHROPIC_MODEL` 값이 노출 목록에 나타나고 **그것이 유일 항목**이다 | 단위: `parseClaudeModels({env:{ANTHROPIC_MODEL:'corp-x'}})` → `models.map(m=>m.model)` 이 `['corp-x']` · `isDefault` 1개 | `listProviders` → `orca:agent:list` → ModelMenu |
+| R-06 | AT-27 / **AC27 (ΔV3)** | `ANTHROPIC_MODEL` 만 있으면 sonnet/opus/haiku 기본 행이 **0건**이다 | 단위: 같은 입력에서 `models.filter(m=>m.model===null)` 이 `[]` (`length 0`) | 동일 |
+| R-06 | AT-28 / **AC28 (ΔV3 — AC27 의 양성 짝)** | 아무 설정도 모델을 노출하지 않으면 3-alias 가 **그대로** 나온다 | 단위: `parseClaudeModels({})` · `{env:{OTHER:'x'}}` 둘 다 `['sonnet','opus','haiku']` · 전건 `model===null` · `isDefault` 1개 | `settings-entries.ts` 의 파일 부재/손상 폴백 3곳 |
+| R-06 | AT-29 / **AC29 (ΔV3 — D-006 회귀)** | top-level `model` 단독은 폴백을 **억제하지 않는다** | 단위: `parseClaudeModels({model:'corp-y'})` → `models.map(m=>m.model)` 이 `[null,null,null]` (기존 케이스 유지) | 동일 |
+| R-01 | AT-30 / **AC30 (ΔV3)** | `ExitPlanMode` 승인 요청은 **이번 턴 서술이 매퍼에 도착한 뒤** 발화한다 — 매퍼가 아직 그 assistant 메시지를 소화하지 않은 상태에서 `canUseTool` 이 불려도 `request.plan` 이 그 서술이다 | 단위: assistant(text + `tool_use{id:'tu-1'}`)를 **큐에만 넣고** `canUseTool('ExitPlanMode', {}, {toolUseID:'tu-1'})` 를 먼저 호출 → 매퍼를 뒤늦게 돌려도 `request.plan` 이 그 텍스트. **대기를 제거하면 `''` 로 red** | CLI stdout 순서 → SDK `readMessages` → (큐) 매퍼 · (즉시) `canUseTool` |
+| R-01 | AT-31 / **AC31 (ΔV3 — 대기 상한)** | 상관 메시지가 끝내 오지 않으면 **막히지 않고** 실패 표시로 떨어진다 | 단위: 같은 호출을 상관 메시지 없이 → 상한 내 반환하고 `request.plan === ''` · 승인 요청 자체는 발화 | 동일 → AC3 실패 문구 |
+| R-07 | AT-32 / **AC32 (ΔV3)** | plan 모드에서 비-읽기 도구는 **승인 카드 없이 deny** 된다 | 단위: 모드 셀 `plan` + `canUseTool('Write', …)` → `{behavior:'deny'}` 이고 `requestApproval` **호출 0회**. `Bash`·임의 MCP 도구 이름도 같다 | CLI `behavior:"ask"` → SDK → `makeCanUseTool` |
+| R-07 | AT-33 / **AC33 (ΔV3 — AC32 의 양성 짝)** | 같은 모드에서 `ExitPlanMode`·`AskUserQuestion`·읽기 도구(`Read`·`Glob`·`Grep`)는 **그대로 지나간다** | 단위: 모드 셀 `plan` 에서 `ExitPlanMode` → `requestApproval` 1회(계획 카드), `Read` → `{behavior:'allow'}`. 비-plan 모드에서 `Write` → 기존대로 `tool_approval` | 동일 |
+| AR-06 | AT-34 / **AC34 (ΔV3)** | 모드 셀이 세 갱신 지점에서 **같은 값**을 본다 | 단위: `sendMessage(permissionMode:'plan')` 후 셀 `plan` · `pushTurn({permissionMode:'accept_edits'})` 후 셀 `accept_edits` · `setPermissionMode('plan')` 후 셀 `plan`. **한 지점만 갱신을 지우면 red** | `send.ts` → `TurnRequest` → 어댑터 · `orca:permission:setMode` → `live.setPermissionMode` |
 
 ### AC 검증 주의사항
 
@@ -220,6 +270,13 @@
 - **AT-24 는 마운트 관측이다** — `SubAgentTileContent` 는 `Popover` 를 타지 않고(`rg Popover` 0건) 이미
   `rightPanelTiles.render.test.ts:208` 이 마운트하는 선례가 있다. 두 AC 의 수단이 다른 것은 D-018 이다.
 - **AT-22 는 구현 턴 r1 착수 전 §10 대조에서 추가된 정정 행이다**(표 끝에 붙어 ID 순서와 표 순서가 다르다). AT-08 이 `normalizeAvailableModels` 만 보던 자리에서 `model-parser` 교차 필터를 빠뜨렸다.
+- **(ΔV3) AC5 는 정정 행이다 — §5 AC 게이트를 다시 통과시킨다.** 행동 단언(`['corp-x']`)·검증 수단(단위)·프로덕션 도달 경로(`listProviders` → `orca:agent:list`) 셋을 갖고, **부정형만으로 목적을 표현하지 않는다** — AC27(음성: 기본 행 0건)에 AC28(양성: 설정 전무면 3-alias 유지)과 AC29(D-006 회귀)를 짝지었다.
+- **(ΔV3) 음성 게이트의 허용 예외를 먼저 열거했다.** AC27 의 술어는 `model === null` 인 행이고, 그 형태가 나오는 **정당한 경로는 `settings-entries.ts` 의 `parseClaudeModels({})` 3곳(파일 부재·JSON 손상·비객체)** 이다 — AC28 이 그 경로를 양성으로 잠가 술어에서 제외한다.
+- **(ΔV3) AC30 은 순서 요구다 — 순서를 관측할 방법을 함께 설계했다.** `toolUseID` 가 상관키이고(SDK `CanUseTool` options 의 필수 필드 · §8 F-26), 매퍼는 같은 id 를 `p.type==='tool_use'` 의 `p.id` 로 본다(`claude-map.ts:437-438`). 테스트 seam = 매퍼 호출을 **호출자가 직접 시점 제어**하는 순수 함수 조합.
+- **(ΔV3) AC30 의 대기가 교착이 되지 않는 근거**: CLI stdout 은 assistant 메시지를 `can_use_tool` **앞에** 낸다(CLI 가 도구 실행 전에 메시지를 emit). SDK `readMessages` 가 그 순서대로 `enqueue` → `handleControlRequest` 하므로 **대기 대상은 이미 큐에 있다**. 그래도 AC31 이 상한을 계약으로 둔다 — 상한이 없으면 `abort`·스트림 절단에서 승인 요청이 영영 안 뜬다.
+- **(ΔV3) AC32 는 음성 단언이다 — 허용 대상과 섞이지 않는지 형태로 갈랐다.** 제거 대상 = plan 모드의 비-읽기 도구, 허용 대상 = `ExitPlanMode`·`AskUserQuestion`·`READ_TOOLS`·서브에이전트 도구. **양성 짝 AC33** 이 후자를 잠근다 — deny 만으로는 "plan 모드에서 아무것도 못 한다"와 구분되지 않는다.
+- **(ΔV3) AC32 가 계획 파일 생성을 막지 않는 근거는 이 턴에 실측했다**(§10 `실패 의미` 의 위임 금지 규칙): CLI 는 plan 파일 write 를 `oDt` 에서 `{behavior:"allow"}` 로 끊고 `canUseTool` 을 **부르지 않는다**(§8 F-30). 즉 deny 는 그 경로에 도달하지 않는다 — 다른 게이트에 기댄 문장이 아니라 도달 불가다.
+- **(ΔV3) AC34 는 structural proxy 가 아니다** — "세 지점이 셀을 갱신한다"가 아니라 **각 지점 뒤 셀의 값**을 관측한다. 지점 전수는 §10 EP-27 이 갖고, 한 지점의 갱신을 지우면 그 케이스가 red 다.
 - 기존 테스트 재사용: `taskSurface0212.render.test.ts` · `taskTile0213.render.test.ts` 가 `작업` 타일의 background 행을 단언한다(파일 실재 확인). **AC16·AC17 은 이 단언들을 뒤집으므로 구현 턴이 해당 케이스를 갱신한다** — 삭제가 아니라 `백그라운드 작업` 타일 쪽 단언으로 옮기거나 agent 항목으로 바꾼다.
 
 ## 7-A. V / Trace Matrix
@@ -325,6 +382,51 @@
 - **AT-23·AT-25·AT-26 의 좌 node 는 R-04(INHERITED)** 다. `NEW`·`CHANGED` 좌 node 는 AR-04·AR-05 이고 둘 다 같은 레벨 `REQUIRED` pair(VP-21·VP-22)를 갖는다.
 - **VP-12(R-04 ↔ AT-11) 의 위임 대상이 넓어졌다** — ΔV1 은 "배선은 VP-21 이 잠근다" 였고 ΔV2 가 그 VP-21 의 분모를 6→9 로 고쳤다. VP-12 자체 행은 변경 없다.
 
+### ΔV3 — r4 사용자 재보고 정정 (요구⑩⑪ · 결정⑫⑬)
+
+> 기준 V `0215:V1@ea983b1` + `ΔV1@1636ccc` + `ΔV2@0740eb0` 에 대한 **증분**이다. 영향 없는 행은 복사하지 않는다.
+> 변경이 시작되는 수준: **R** — 사용자 관측 결과 2건이 바뀐다(모델 목록 · 계획 본문).
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| R-06 | R | §7 AC27·AC28·AC29 — SDK 기본 폴백 억제 | **NEW** | — |
+| R-07 | R | §7 AC32·AC33 — plan 모드가 read-only 를 실제로 강제 | **NEW** | — |
+| R-01 | R | §7 AC1·AC2·AC3 + **AC30·AC31** | **CHANGED** | `V1@ea983b1` — 동작 기준 불변, 폴백을 읽는 *시점* 요구 추가 |
+| R-02 | R | §7 **AC5(정정)**·AC6·AC7 | **CHANGED** | `V1@ea983b1` — AC5 의 검증 수단이 버그를 계약으로 못박았다 |
+| AT-05 | AT | §7 AC5(ΔV3) | **CHANGED** | `V1@ea983b1` — `[null,null,null,'corp-x']` → `['corp-x']` |
+| AT-27·AT-28·AT-29 | AT | §7 AC27~AC29 | **NEW** | — |
+| AT-30·AT-31 | AT | §7 AC30·AC31 | **NEW** | — |
+| AT-32·AT-33 | AT | §7 AC32·AC33 | **NEW** | — |
+| AT-34 | AT | §7 AC34 | **NEW** | — |
+| SD-01 | SD | §9 plan 본문 해소 end-to-end + **생산자/소비자 순서** | **CHANGED** | `V1@ea983b1` — 큐 경계가 경로에 들어온다 |
+| AR-06 | AR | §10 EP-27 — 모드 셀 SSOT(3 갱신 지점) | **NEW** | — |
+| AR-07 | AR | §10 EP-26 — plan 모드 도구 게이트의 어댑터 경계 | **NEW** | — |
+| MD-01 | MD | §11 노출 티어 선택 술어 | **CHANGED** | `V1@ea983b1` — 폴백 조건에 explicit 축이 들어온다 |
+| MD-04 | MD | §11 `resolvePlanText` 순수 체인 | **INHERITED** | `V1@ea983b1` — 함수 자체는 불변(입력이 언제 준비되는가만 바뀐다) |
+| MD-06 | MD | §11 `awaitNarrativeFor(toolUseID, signal, budget)` 순수 seam | **NEW** | — |
+| MD-07 | MD | §11 `isPlanModeBlockedTool(toolName)` 순수 술어 | **NEW** | — |
+
+| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §10 강제 지점 전수 |
+|---|---|---|---|---|---|---|
+| VP-23 | R-06 ↔ AT-27·AT-28·AT-29 | **REQUIRED** | settings.json → `parseClaudeModels` 티어 선택 → `listProviders` → `orca:agent:list` → ModelMenu | 반환 배열의 `model` 값 목록(음성 AC27 + 양성 AC28 + 회귀 AC29) | not selected — 배열을 직접 관측하고 양성 짝이 방향을 준다 | EP-23 (1) |
+| VP-24 | MD-01 ↔ UT | **REQUIRED** | — (순수) | 티어 선택 술어의 분기 반환값 | not selected | EP-23 (1) |
+| VP-25 | R-01 ↔ AT-30·AT-31 | **REQUIRED** | CLI stdout(assistant → can_use_tool) → SDK `readMessages`(enqueue / 즉시 dispatch) → 매퍼 · `makeCanUseTool` → `requestApproval` | `request.plan` 실값 + 상한 내 반환 | **required** — 순서 계약이라 "값이 있으면 실린다"만 보는 oracle 은 자리를 바꿔도 통과한다. 변이: **대기를 제거**(즉시 `ctx.lastAssistantText` 읽기)하면 AT-30 이 red · **상한을 무한대로** 두면 AT-31 이 red | EP-24 (1) · EP-25 (1) |
+| VP-26 | SD-01 ↔ ST | **REQUIRED** | 같은 경로를 큐 지연을 넣고 종단 관측 | 지연을 넣어도 `permission.requested` 의 `plan` 이 서술 | **required** — 지연이 없으면 현행 코드도 우연히 통과한다. 변이: 지연을 0으로 되돌리면 이 pair 는 **현행 코드에서도 green** 이므로 지연 케이스가 필수다 | EP-24 (1) |
+| VP-27 | MD-06 ↔ UT | **REQUIRED** | — (순수) | `awaitNarrativeFor` 반환값 3분기(도착 · 상한 초과 · abort) | not selected | EP-24·EP-25 (2) |
+| VP-28 | R-07 ↔ AT-32·AT-33 | **REQUIRED** | CLI `behavior:"ask"` → SDK `can_use_tool` → `makeCanUseTool` → deny / 통과 | 반환 `behavior` + `requestApproval` 호출 횟수 | **required** — 음성 주장이라 방향이 뒤집힌다. 변이: 모드 셀을 항상 `undefined` 로 두면 AT-32 가 red · 게이트를 **모든** 도구에 걸면 AT-33 이 red | EP-26 (1) |
+| VP-29 | MD-07 ↔ UT | **REQUIRED** | — (순수) | 술어의 도구 이름별 반환. 분모 = `RISKY_TOOLS` 5 + `READ_TOOLS` 3 + `ExitPlanMode`·`AskUserQuestion`·`Agent`·`Task` + 미지 이름 1 = **13 케이스** | not selected | EP-26 (1) |
+| VP-30 | AR-06 ↔ AT-34(IT) | **REQUIRED** | `send.ts` → `TurnRequest.permissionMode` → `sendMessage` · `pushTurn` · `orca:permission:setMode` → `live.setPermissionMode` | 각 지점 뒤 셀의 값 | **required** — 배선 존재 oracle 이라 방향이 뒤집힌다. 변이: 세 지점을 **각각** 갱신 제거 → 각 1 red(3변이) | EP-27 (3) |
+| VP-31 | AR-07 ↔ IT | **REQUIRED** | 어댑터가 셀을 `makeCanUseTool` 에 주입 | 주입 인자를 뺐을 때 AT-32 가 red | **required** — 배선 존재 oracle | EP-26 (1) |
+| VP-01 | R-01 ↔ AT-01·AT-02·AT-03 | **REGRESSION** (REQUIRED 유지) | V1 그대로 | V1 그대로 | not selected | EP-01·EP-04 (2) |
+| VP-05 | R-02 ↔ AT-05(정정)·AT-06 | **REGRESSION** (REQUIRED 유지) | V1 그대로 | 정정된 AT-05 단언 | not selected | EP-10 (1) · **EP-23 (1)** |
+| VP-16 | SD-02 ↔ AT-15 | **REGRESSION** | V1 그대로 — `isDefault` 정확히 1개 | 폴백 억제 후에도 성립 | not selected | EP-05·EP-06·EP-10·EP-11 (4) |
+| VP-06·VP-07 | R-02 ↔ AT-07 · AR-03 ↔ IT | **NOT_REQUIRED** | 출처 `V1@ea983b1` · 기존 증거 `runtime-catalog.test.ts` | — | — | 비영향 근거: runtime 경로에는 3-alias 폴백이 **없다** — `normalizeAvailableModels([])` = `[]` 에서 시작한다(`runtime-catalog.ts:125-126`). D-023 이 바꾸는 술어가 그 경로에 존재하지 않는다 |
+| VP-21·VP-22 | AR-04·AR-05 ↔ IT | **NOT_REQUIRED** | 출처 `ΔV2@0740eb0` · 기존 증거 `composerWiring.test.ts` | — | — | 비영향 근거: ΔV3 은 `Composer`·`SubAgentTileContent` 를 건드리지 않는다(§18 ΔV3 파일 목록에 없다) |
+
+- **`NEW`·`CHANGED` 좌 node 전건에 같은 레벨 `REQUIRED` pair 가 있다**: R-06→VP-23 · R-07→VP-28 · R-01→VP-25 · R-02→VP-05(REGRESSION 으로 재확인) · SD-01→VP-26 · AR-06→VP-30 · AR-07→VP-31 · MD-01→VP-24 · MD-06→VP-27 · MD-07→VP-29.
+- **영향받은 `INHERITED` 상위 node 는 `REGRESSION`** — VP-01(계획 본문 3분기)·VP-05·VP-16. 나머지는 위 표에서 `NOT_REQUIRED` 로 출처·증거·비영향 근거와 함께 판정했다.
+- **AT-34 의 좌 node 는 AR-06(NEW)** 이라 `AR↔IT` 레벨이다 — R 레벨 pair 로 올리지 않는다.
+
 ### 현재 변경의 운영 gate
 
 | Gate | 이번 변경 산출물에 적용되는 이유 | 증거 / 명령 | 실패 범위 |
@@ -362,6 +464,22 @@
 | F-18 테스트 환경에 **DOM 이 없다** — `typeof document === 'undefined'` | `vitest.config.ts` `environment: 'node'` · 프로브 실측 출력 `typeof document = undefined` |
 | F-19 `createPortal` 이 SSR 에서 던진다 — `Target container is not a DOM element` | 같은 프로브 실측. `Popover.tsx` 말미가 `createPortal(<div role="menu">…, document.body)` 이고 닫힘 상태는 `if (!open) return null` |
 | F-20 DOM 환경 패키지가 **설치돼 있지 않다**(jsdom·happy-dom·testing-library 0건) | `package.json` 스캔 0건 · `ls node_modules` 0건. 도입은 `app/AGENTS.md §의존성 정책` 상 사용자 승인 대상 |
+| **F-24 (r4)** 노출 티어를 고르는 술어가 `ANTHROPIC_MODEL` 을 **모른다** — `discovered>0 ? … : configured>0 ? configured : candidates` 로 폴백을 정한 **뒤** 3단계에서 explicit 을 더한다 | `model-parser.ts:82-92`(티어) · `:95-97`(편입). `ANTHROPIC_MODEL` 만 있으면 `configured=[]`·`discovered=[]` → `candidates`(model:null ×3) + `corp-x` = **4행** |
+| **F-24a (r4)** CLI 는 `plan` 과 `planFilePath` 를 **한 객체에서 함께** 붙이고, plan 파일이 없으면 입력을 **그대로** 돌려준다 | CLI 0.3.220 바이너리: `case UP:{let n=v4(r),o=VB(r);return Kze(),n!==null?{...t,plan:n,planFilePath:o}:t}` (`UP="ExitPlanMode"`). 증상⑫ "둘 다 안 온다" = **파일 부재** |
+| **F-24b (r4)** plan 파일 경로 = `<CLAUDE_CONFIG_DIR ?? ~/.claude>/plans/<slug>.md` | CLI: `VB(e){…return G6.join(__(),`${r}.md`)}` · `Ysp(){return G6.join(fn(),"plans")}` · `d=u??aw.join(tSr.homedir(),".claude")`. Orca 는 `CLAUDE_CONFIG_DIR` 를 설정하지 않는다(`rg CLAUDE_CONFIG_DIR app/src` **0건**) |
+| **F-25 (r4)** CLI 는 plan 모드 쓰기를 **deny 가 아니라 `behavior:"ask"`** 로 낸다 | CLI: `if(r.mode==="plan")return{behavior:"ask",message:`Cannot write to ${o} while in plan mode.`,decisionReason:{type:"mode",mode:"plan"}}` · MCP 판: `` `Cannot call ${e.name} while in plan mode.` `` |
+| **F-26 (r4)** SDK 모드에서 그 ask 는 **`canUseTool` 로 온다**. 그리고 options 에 **`decisionReasonType` 이 없다** | SDK `XEe`: canUseTool 우회는 `bypassPermissions` 와 bare `allowedTools` 뿐. `sdk.mjs` 호출부가 넘기는 필드 11개에 `decision_reason_type` **불포함**(`sdk.d.ts:3610` 에는 있다 — 전달만 안 한다) |
+| **F-26a (r4)** Orca 는 그 ask 를 **승인 카드나 passthrough 로 바꾼다** | `claude.ts:190-205`: `isRiskyTool`(Bash·Write·Edit·MultiEdit·NotebookEdit) → `tool_approval` 카드, **그 외 전부** `return {behavior:'allow', updatedInput:input}` |
+| **F-27 (r4)** SDK 는 `control_request` 를 전송 루프에서 **await 없이 즉시** 발화하고, SDK 메시지는 소비자 큐에 **enqueue** 한다 | `sdk.mjs` `readMessages()`: `else if(e.type==="control_request"){this.handleControlRequest(e);continue}` ← 반환값 미대기 / 일반 메시지는 `this.inputStream.enqueue(e)` |
+| **F-28 (r4)** `ctx.lastAssistantText` 는 **소비자(매퍼)** 가 큐에서 뽑을 때 채워진다 — 소비자가 직전 배치 처리 중이면 아직 `undefined`(직전 `result` 에서 리셋됨) | `claude.ts:457-461` `for await (const msg of handle){ claudeToNormalized(msg, ctx) … }` · `claude-map.ts:418` 대입 · `:541` 리셋. 소비자는 배치마다 persist·IPC 로 await 한다 |
+| **F-28a (r4)** 그래서 r1 의 폴백은 **순서 의존**이다 — Anthropic 모델은 `input.plan` 이 있어 폴백에 도달하지 않고, custom 모델만 이 경로를 탄다 | F-24a + F-27 + F-28 합성. AT-01 은 서술 provider 를 직접 주입해 이 순서를 모형하지 않는다(plan §7 AT-01 검증 수단) |
+| **F-29 (r4)** CLI 에 `get_plan` control request 가 있으나 **SDK 0.3.220 의 `Query` 공개 인터페이스에 메서드가 없다** | `sdk.d.ts:3159` `subtype:'get_plan'`(선언, 미export) · `Query` 멤버 11개 열거에 `getPlan` 부재 · `rg "getPlan" sdk.mjs` **0건** → D-026 |
+| **F-30 (r4)** 계획 **파일** write 는 CLI 가 `allow` 로 먼저 끊어 `canUseTool` 에 **오지 않는다** | CLI `oDt`: `if(aap(o,{includeWorkshopDoc:…}))return W6(t,"Plan files for current session are allowed for writing")` · `W6(e,t){return{behavior:"allow",updatedInput:e,…}}`. 이 검사가 `if(r.mode==="plan")` **앞**이다 |
+| **F-30a (r4)** Orca 가드도 그 write 를 막지 않는다 | `workspace-guard.ts` `writeExceptionRoots()` = `[~/.claude]` → `isWithinDir(~/.claude/plans/x.md, ~/.claude)` = true |
+| **F-31 (r4)** PR#150 시점엔 **모든 새 세션이 plan 모드로 태어났다**. 기본값이 바뀐 것이 사용자 관측 변화의 원인 | `git show 5bc40a1a:…/chatReducer.ts` **`:152 permissionMode: 'plan'`** → 현재 `DEFAULT_PERMISSION_MODE`(`auto_classified`). 커밋 `a8ca38a8`(2026-08-26, `Handoff: none`) |
+| **F-31a (r4)** `makeCanUseTool` 의 plan-mode 공백은 **PR#150 시점에도 같았다** — 회귀가 아니라 상시 공백 | `git show 5bc40a1a:…/claude.ts` 137-157 이 현재와 같은 구조(`ExitPlanMode` 분기 + `isRiskyTool` + allow passthrough) |
+| **F-32 (r4)** CLI 는 `set_permission_mode` 로 오는 `auto` 를 게이트가 꺼져 있으면 **거부**한다 | CLI `Ufe`: `if(e==="auto"&&!gk()){…return{ok:!1,error:`Cannot set permission mode to auto: ${ume(i)}`}}`. 사유 4종 = settings·circuit-breaker·provider·model. **이번 범위 밖**(§6 ΔV3 비범위) — 관측만 기록 |
+| **F-32a (r4)** 유효 모드 6종은 `["acceptEdits","auto","bypassPermissions","default","dontAsk","plan"]` — `plan` 은 항상 유효하다 | CLI `Yye=[…]` · `BK(e){let t=fL(e);return G5n.find(r=>r===t)}`. 즉 요구⑪ 은 모드 전달 실패가 아니다 |
 
 ### 전수 조사
 
@@ -389,6 +507,14 @@
 | **관대한 기본값 전수**(ΔV1 EP-21 분모) | `rg "options\?: ModeOption\[\]\|stopErrors\?: Record" src/renderer --glob '!*.test.*'` | 2 | `ModeMenu.tsx:11`(+`:25` 폴백) · `SubAgentTileContent.tsx:218`(+`:209` 기본값) |
 | **필수화가 깨뜨릴 테스트 호출부**(ΔV1 회귀 분모) | `<ModeMenu`·`SubAgentTaskList` 참조 파일별 집계 | 8 | `modelMenu0215` 1 · `rightPanelTiles` 5 · `taskSurface0212` 2 — 전부 인자 추가로 고친다 |
 | `SubAgentTileContent` 마운트 선례 | `rg "createElement\(SubAgentTileContent\)" src/renderer` | 1 (`rightPanelTiles.render.test.ts:208`) | AT-24 가 재사용할 패턴 — 이 컨테이너는 `Popover` 를 타지 않는다(`rg Popover` 0건) |
+| **(r4) 3-alias 폴백 술어 사이트** | `rg -n "candidates$\|: candidates" model-parser.ts` | **1** (`model-parser.ts:92`) | D-023 의 강제 지점이 1곳 — EP-23 분모 |
+| **(r4) `model===null` 항목이 나오는 정당 경로** | `rg -n "parseClaudeModels\(\{\}\)" app/src --glob '!*.test.*'` | **3** (`settings-entries.ts:31·41·49`) | AC27 음성 술어의 **허용 예외 전수** — AC28 이 양성으로 잠근다 |
+| **(r4) `ANTHROPIC_MODEL` 편입 호출부** | `rg -n "withExplicitModel" app/src --glob '!*.test.*'` | **2** (`model-parser.ts:97` · `runtime-catalog.ts:125`) | 후자에 폴백이 없어 VP-06·VP-07 `NOT_REQUIRED` |
+| **(r4) 서술 폴백 소비 지점** | `rg -n "getPlanNarrative" app/src --glob '!*.test.*'` | **3** (`claude.ts:102` 옵션 선언 · `:156` `resolvePlanText` 호출 · `:425` 주입) | EP-24 가 대기를 넣을 자리는 `:156` |
+| **(r4) 어댑터가 SDK 세션에 모드를 **적용**하는 지점 전수** | `rg -in "permissionmode" app/src/main/adapters/claude.ts` → 10행을 정독해 적용 지점만 남김 | **3** (`:431` query 옵션=최초 · `:494` `pushTurn` 라이브 setter · `:509` `setPermissionMode` 라이브 control) | EP-27 분모. 나머지 7행은 import(`:21`)·주석(`:163`·`:403`·`:430`)·`PLAN_APPROVED_MODE` 변환(`:172`)·구조분해(`:298`)·가드(`:493`) |
+| **(r4) `canUseTool` 이 도구를 가르는 술어 전수** | `claude.ts:118-205` 정독 | **4 분기 + 최종 allow** (`:119` `isSubagentTool` · `:126` `AskUserQuestion` · `:153` `ExitPlanMode` · `:190` `isRiskyTool\|runtimeApprovalToolNames` · `:205` allow) | EP-26 은 이 사슬의 **어디에** 게이트를 넣는지 고정한다(§11) |
+| **(r4) plan 모드 관련 SDK 버전 축** | `sdk-tools.d.ts` `ExitPlanModeInput` 필드 | `allowedPrompts?`(deprecated) + `[k:string]:unknown` | 0.3.220 에서도 `plan` **미선언** → 요구⑪ "sdk 버전문제 아니다" 와 일치 |
+| **(r4) PR#150 이후 plan 모드 로직 변경 커밋** | `git log 5bc40a1a..HEAD -- shared/permission-mode.ts adapters/claude.ts` + `-S`/`-G` 보강 | **5** | `a8ca38a8`(기본 모드) · `2e787fc3`(0150 승인 setMode) · `d124c05f`(0067 장수명 채널) · `344c1736`(가드 훅) · `0ca18b86`(0215 r1 폴백) |
 
 ### 수치 / 전칭 표현 검산
 
@@ -534,6 +660,11 @@
 | AR-04 / VP-21 | **EP-20c (ΔV2)** memo 가 선택 상태 3필드를 싣는다 — **1 사이트**(`:176`), 필드 `providerKey`·`modelFamily`·`modelAlias` | `Composer.tsx` | 렌더 시 | 한 필드가 `null` 이면 그 축의 파생이 통째로 죽는다(D-009 의 두 축 중 절반) |
 | AR-05 / VP-22 | **EP-20d (ΔV2)** `SubAgentTileContent` 가 세션 상태를 목록 View 로 넘긴다 — **1 사이트**(`:147`) | `SubAgentTileContent.tsx` | 렌더 시 | ΔV1 EP-20 의 타일 몫을 그대로 승계한다(AT-24 가 이미 닫았다) |
 | AR-04 / VP-21 | **EP-22 (ΔV2 신설)** 관측 수단은 **실행 여부**로 가른다(D-021) — **2 버킷**: `Popover`·`useEffect` 내부 5지점은 소스 단언 · 항상 렌더되는 1지점(`:392`)은 컨테이너 마운트 | 테스트 배치 | 테스트 작성 시 | 마운트 가능한 자리를 소스 단언으로 두면 식별자 rename 에만 반응하고 **동작 회귀에는 침묵**한다 |
+| MD-01 / VP-23·VP-24 · R-02 / VP-05 | **EP-23 (ΔV3 신설)** 노출 티어 술어가 explicit 축을 본다 — **1 사이트**(`model-parser.ts:92` 의 폴백 가지) | `model-parser.ts#parseClaudeModels` | 파서 | settings.json 파싱 시 | SDK 기본 3-alias 가 커스텀 모델과 **함께** 노출된다(요구⑩ 재발). 반대로 조건을 넓히면 파일 부재 폴백 3곳(`settings-entries.ts:31·41·49`)에서 provider 가 **모델 0개**로 열거된다 |
+| MD-06·SD-01 / VP-25·VP-26·VP-27 | **EP-24 (ΔV3 신설)** 서술 폴백은 `toolUseID` 상관 후에 읽는다 — **1 사이트**(`claude.ts:156` 의 `resolvePlanText` 호출 앞) | `adapters/plan-narrative.ts`(신규) | 어댑터 | `canUseTool('ExitPlanMode')` 진입 시 | 매퍼가 그 메시지를 아직 안 뽑았으면 본문이 `''` — 증상⑫ 재발. **이 지점을 EP-01 과 나눈 이유**: EP-01 은 *무엇을 우선하는가*(체인), EP-24 는 *언제 읽는가*(시점)로 실패 모드가 다르다 |
+| MD-06 / VP-25·VP-27 | **EP-25 (ΔV3 신설)** 대기에 상한과 abort 가 있다 — **1 사이트**(같은 함수의 예산 인자) | `adapters/plan-narrative.ts` | 어댑터 | 같은 시점 | 상관 메시지가 안 오면 승인 요청이 영영 발화하지 않아 **계획 카드 자체가 안 뜬다**(현행보다 나쁘다) |
+| R-07·AR-07·MD-07 / VP-28·VP-29·VP-31 | **EP-26 (ΔV3 신설)** plan 모드 도구 게이트 — **1 사이트**(`claude.ts` canUseTool 사슬 `:126` `AskUserQuestion` 분기 **뒤**, `:153` `ExitPlanMode` 분기 **앞**) | `adapters/plan-mode-gate.ts`(신규 술어) + `claude.ts` 배선 | 어댑터 | 모든 `canUseTool` 진입 시 | 위치를 `isSubagentTool` 앞으로 올리면 서브에이전트 재호출 차단이 죽고, `ExitPlanMode` 뒤로 내리면 계획 제출 자체가 deny 된다. **계획 파일 write 는 이 지점에 도달하지 않는다**(§8 F-30 — CLI 가 `allow` 로 먼저 끊는다, 이 턴 실측) |
+| AR-06 / VP-30 | **EP-27 (ΔV3 신설)** 모드 셀 SSOT — **3 사이트**: `claude.ts:431`(query 옵션 = 최초) · `:494`(`pushTurn` 라이브 setter) · `:509`(`setPermissionMode` 라이브 control) | `claude.ts` `sendMessage` 스코프의 셀 | 어댑터 | 세 갱신 시점 각각 | 한 지점만 갱신하면 EP-26 이 **stale 모드**로 판정한다 — 예: `pushTurn` 을 빼면 계획→편집수락 전환 후에도 쓰기가 deny 된다(사용자가 승인해도 못 고친다) |
 | AR-04·AR-05 / VP-21·VP-22 | **EP-21 (ΔV1 신설)** 관대한 기본값 제거 — **2 사이트**: `ModeMenu.options` · `SubAgentTaskList.stopErrors` 를 필수 prop 으로 | 각 컴포넌트 타입 | typecheck 시 | prop 누락이 컴파일 오류가 아니라 조용한 동작 복귀가 된다(verify r1 D1 의 침묵 원인) |
 
 - 같은/동일 규칙이 여러 레이어에 있다면 SSOT 와 강제 방법: 식별자 규칙 = `shared/model-identity.ts`(EP-07 두 사이트가 위임만 한다); 자동권한 규칙 = `shared/permission-mode.ts`(EP-12·EP-13·EP-15 가 같은 함수를 호출); background 상태 규칙 = `taskBoard.ts` 의 status 3함수(백그라운드 타일 단독 소비, `작업` 타일 래퍼는 삭제). 정규식 복붙 금지.
@@ -543,6 +674,10 @@
 - `실패 의미`에 "다른 게이트가 막는다"를 적었다면 그 범위를 이 턴에 측정한 근거: **해당 없음** — 어느 행도 다른 게이트에 위임하지 않는다. 단, EP-15 는 "renderer 가 애초에 못 만든다"에 기대지 않고 **독립적으로 보정**한다(D-011).
 - 선택적 필드의 `true/false/undefined` 의미: `ctx.lastAssistantText` — `undefined` = 이번 턴에 서술 없음(폴백 불가), `''` 는 저장하지 않는다(빈 텍스트 블록은 EP-02 에서 스킵). `input.plan` — `undefined`/`''`/공백만 = 모두 "없음"으로 취급(trim 후 판정). `TaskBoardItem.background` — **필드 자체를 없앤다**(`null` 로 남기면 "메타 없는 background" 라는 불가능 상태가 타입에 남는다).
 - 외부 SDK 경계의 실제 요구 타입/의미: `ExitPlanModeInput` 은 `[k:string]: unknown` 이므로 `plan` 은 **선언되지 않은 런타임 주입 필드**다 — 타입 단언 없이 `typeof === 'string'` 런타임 가드로만 읽는다(현행 유지).
+- **(ΔV3) 한 동작이 저장소를 둘 이상 쓰는가**: 쓰지 않는다. ΔV3 의 세 축은 **읽기·판정·메모리 셀**뿐이고 파일/DB/키체인 쓰기가 0이다 — 계획 파일은 CLI 가 쓰고 Orca 는 읽지도 않는다(D-004·D-026). 부분 실패로 남는 관측 상태가 없다.
+- **(ΔV3) `undefined` 의 의미**: 모드 셀 `undefined` = "모드 미지정"(SDK 기본 `default`) → **EP-26 게이트는 걸리지 않는다**. `plan` 일 때만 건다 — 미지정이 fail-open 이 아니라 **현행 동작 유지**다(plan 모드가 아닌 세션의 승인 카드를 없애면 안 된다).
+- **(ΔV3) `awaitNarrativeFor` 의 3분기**: `{kind:'arrived', text}` · `{kind:'timeout'}` · `{kind:'aborted'}`. 뒤 둘은 **모두 `resolvePlanText(input, undefined)`** 로 흘러 `''` → AC3 실패 문구가 된다 — 세 분기를 flat flag 두 개로 두면 `timeout && aborted` 라는 불가능 조합이 타입에 남으므로 **discriminated union** 으로 고정한다.
+- **(ΔV3) EP-26 술어의 형태**: `isPlanModeBlockedTool(name)` 은 **허용 목록의 여집합**이다 — 차단 목록으로 두면 새 도구가 조용히 통과한다. 허용 = `READ_TOOLS` ∪ `{ExitPlanMode, AskUserQuestion}` ∪ 서브에이전트 도구(`Agent`·`Task`, 재호출 차단은 기존 분기가 계속 담당).
 
 ## 11. 구현 설계
 
@@ -558,6 +693,11 @@
 | `app/src/main/features/harnesses/runtime-catalog.ts` | runtime 경로 | `withExplicitModel(models, config.runtimeEnv?.ANTHROPIC_MODEL)` | 순수 단위 |
 | `app/src/main/features/harnesses/models.ts` | 식별자 위임 | `modelKey` → shared 위임 · `modelNameForFamily` identity 우선 매칭 | 순수 단위 |
 | `app/src/main/app/chat-turn/send.ts` | 턴 보정 | 두 지점이 `coerceAutoPermissionMode` 결과 지역변수를 읽는다 | 조립부 — 순수 함수 단위 + 코드 리뷰 |
+| **(ΔV3)** `.../claude/model-parser.ts` | 티어 선택 | 폴백 가지를 `configured.length>0 ? configured : (anthropicModel ? [] : candidates)` 로 — explicit 이 있으면 **빈 배열에서 시작**하고 3단계가 그것을 채운다 | 순수 단위(EP-23) |
+| **(ΔV3)** `app/src/main/adapters/plan-narrative.ts` (신규) | 서술 상관 대기 | `createPlanNarrativeGate({budgetMs})` → `{ noteAssistant(toolUseIds, text), awaitNarrativeFor(toolUseID, signal) }`. **electron/SDK 미의존 순수 모듈** — import graph 가 끊긴 별도 파일 seam | 순수 단위(VP-27, 3분기) |
+| **(ΔV3)** `app/src/main/adapters/claude-map.ts` | 상관 신호 | text 대입(`:418`) 옆에서 같은 assistant 메시지의 `tool_use` id 집합을 게이트에 통지 — `ctx` 에 게이트 핸들을 실어 매퍼는 **인터페이스만** 안다 | 순수 단위(ctx 관측) |
+| **(ΔV3)** `app/src/main/adapters/plan-mode-gate.ts` (신규) | plan 모드 술어 | `isPlanModeBlockedTool(name)` — 허용 목록의 여집합. `RISKY_TOOLS`·`READ_TOOLS` 를 `risky-tools.ts` 에서 재사용하고 목록을 복제하지 않는다 | 순수 단위(VP-29, 13 케이스) |
+| **(ΔV3)** `app/src/main/adapters/claude.ts` | 셀 + 배선 | `sendMessage` 스코프에 `let currentMode = permissionMode` 셀 · `pushTurn`·`setPermissionMode` 가 같은 셀 갱신(EP-27 3지점) · `makeCanUseTool` 에 `getPermissionMode`·`planNarrative` 주입 · `ExitPlanMode` 분기가 `await gate.awaitNarrativeFor(options.toolUseID, signal)` 후 `resolvePlanText` | 순수 단위(fake 주입 · 호출자가 시점 제어) |
 | `app/src/renderer/.../composer/modelSelection.ts` | 식별자 위임 | `modelKey` → shared 위임 | 순수 단위 |
 | `app/src/renderer/.../composer/ModelMenu.tsx` | 행 식별 | key·활성 판정에 identity 사용 | 렌더 테스트 |
 | `app/src/renderer/.../composer/modes.ts` | 옵션 필터 | `modeMenuOptions(model)` 추가(`MODE_MENU_OPTIONS` 는 인자 없는 기본으로 유지) | 순수 단위 |
@@ -659,6 +799,13 @@
 | 0204 §10 EP-04 "둘째 줄 한 슬롯을 두 분기가 나눠 쓴다" | `TaskTileContent.tsx:259` 주석 | §10 EP-17 | **변경** — 분기가 하나(막힘 표시)만 남는다 |
 | **ΔV1 D-018** "`Composer` 는 마운트로 도달할 수 없다" | plan §3 Decision Ledger | §8 F-21·F-22 | **변경(반증)** — `Popover` 가 닫히면 `createPortal` **앞에서** `null` 을 반환하고 SSR 은 effect 를 실행하지 않는다. `Composer` 자체는 마운트된다(3795자). D-021 이 경계를 *컴포넌트* 에서 *실행되지 않는 영역* 으로 옮긴다 |
 | **ΔV1 §10 EP-20** "6 사이트" | plan §10 | verify r2 D1 | **변경(분모 오류)** — 검색 술어가 해법의 이름이라 이미 고친 자리만 올랐다. 주어로 재산출하면 **9** 이고 그중 3이 미계수였다 |
+| **(r4)** 0215 D-005 "`ANTHROPIC_MODEL` 을 노출 목록에 **추가**한다" | plan §3 | §7 AC5(정정)·AC27 | **유지 + 보완** — 추가는 그대로고 D-023 이 **폴백 억제**를 더한다. 둘은 다른 단계(3단계 편입 vs 2단계 티어)라 충돌하지 않는다 |
+| **(r4)** 0215 D-006 "top-level `model` 은 default 선정 전용" | plan §3 | §7 AC29 | **유지** — AC29 가 `{model:'corp-y'}` 단독에서 3-alias 유지를 회귀로 잠근다 |
+| **(r4)** 0215 D-004 "계획 파일 경로 추측 금지" | plan §3 | §8 F-29 · D-026 | **유지(재확인)** — `get_plan` 이 대안 후보였으나 SDK 0.3.220 `Query` 에 메서드가 없다 |
+| **(r4)** 0215 §7 AT-05 검증 수단 `[null,null,null,'corp-x']` | plan §7 | §7 AC5(ΔV3) | **변경(버그를 계약으로 못박음)** — 요구⑩ 이 그 상태를 결함으로 지목했다. SUPERSEDED 표기로 남긴다 |
+| **(r4)** `DEFAULT_PERMISSION_MODE = 'auto_classified'` (`a8ca38a8`, `Handoff: none`) | `shared/permission-mode.ts:31` | §8 F-31 | **유지** — PR#150 대비 사용자 관측 변화의 원인이지만 사용자 결정이다. 되돌리는 것은 §6 ΔV3 **비범위** |
+| **(r4)** 0075 r2 "가드가 `~/.claude` write 를 연다(plan 아티팩트 기록)" | `workspace-guard.ts:26-31` | §8 F-30a | **유지 + 근거 보강** — 이번에 그 예외가 실제로 plan 파일 경로를 덮는 것을 확인했다(F-24b) |
+| **(r4)** 0143 "서브에이전트 호출은 차단 판정만 하고 입력 passthrough" | `claude.ts:118-126` | §10 EP-26 | **유지** — 게이트를 그 분기 **뒤**에 둔다. 앞에 두면 재호출 차단이 죽는다 |
 | 0213 D-007 "안내 분모 = `items` 전체가 아니라 할 일 항목" | `TaskTileContent.tsx` `unsupported` 술어 | §11 ΔV1 · verify D7 | **변경(소멸)** — `items` 자체가 할 일뿐이라 두 분모가 같아졌다. 술어가 `items.length === 0` 으로 단순화됐고 0213 의 구분은 더 이상 필요 없다 |
 | 0212 주석 "기본값을 둬서 기존 렌더 테스트가 인자를 늘리지 않고도 그대로 돈다"(`pausedIds`·`backgroundedIds`) | `SubAgentTileContent.tsx:213-216` | §10 EP-21 | **부분 변경** — `stopErrors` 만 필수로 올린다(D-019). `pausedIds`·`backgroundedIds` 의 기본값은 **유지**한다: 그 둘은 라이브 표식이라 부재가 곧 빈 집합이고, 배선 누락과 구분되지 않는 값이 아니다 |
 
@@ -691,6 +838,13 @@
 - `app/src/renderer/src/shared/i18n/resources/{ko,en}.ts`
 - `docs/TRD.md`(§6.8 모델 파싱 규약·§Composer 모델 메뉴) · `docs/arch/frontend/ux-domains.md`(158행 + 우측 패널 타일 책임) · `docs/arch/backend/auth.md`(runtime augmenter 절)
 
+**ΔV3(r4) 파일 전수** — 위 목록의 부분집합 + 신규 2:
+- `app/src/main/features/harnesses/claude/model-parser.ts`(+`model-parser.test.ts` AT-05 정정)
+- `app/src/main/adapters/plan-narrative.ts`(신규) · `plan-mode-gate.ts`(신규) · `claude.ts` · `claude-map.ts`
+- `docs/TRD.md` §6.8 — "명시 모델이 있으면 SDK 기본 alias 를 노출하지 않는다" 한 줄 추가
+- `docs/arch/backend/` 의 plan 모드 서술 — plan 모드에서 비-읽기 도구가 deny 됨을 반영(대상 문서는 구현 턴이 `rg "plan 모드" docs/arch` 로 전수 확인)
+- **`Composer.tsx`·`SubAgentTileContent.tsx` 는 건드리지 않는다** — VP-21·VP-22 `NOT_REQUIRED` 의 근거
+
 ## 19. 게이트
 
 - 적용할 하위 가이드: [`app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드`](../../../app/AGENTS.md) · [`app/src/main/AGENTS.md`](../../../app/src/main/AGENTS.md)(레이어 DAG) · [`app/src/renderer/AGENTS.md`](../../../app/src/renderer/AGENTS.md)
@@ -702,7 +856,15 @@
 - **ΔV2 추가 게이트**: 변이 **6종**(M-B·M-F·M-H·**V-1**·**V-2c**·**V-5**)을 심어 각각 red 를 확인한다.
   소거 변이 V-2c 는 **잔여물 진단(`TS6133`)이 0이 될 때까지** 밀고 그 상태로 판정한다 —
   ΔV1 때 미사용 import 가 red 를 만들어 잠금으로 오독될 뻔했다.
-- 사람 실기: AC3 문구 시각 1건 · custom 모델 실환경에서 계획 본문 노출 1건 · 서브에이전트 실행 중 두 타일 대조 1건.
+- **ΔV3 추가 게이트**: 등록 변이 **11종**을 심어 각각 red 를 확인한다 —
+  ① 폴백 억제 제거(AC27 red) ② 억제를 `{}` 에도 적용(AC28 red) ③ top-level `model` 도 억제 대상에 포함(AC29 red)
+  ④ `awaitNarrativeFor` 대기 제거(AC30 red) ⑤ 상한 제거(AC31 red) ⑥ 모드 셀을 항상 `undefined`(AC32 red)
+  ⑦ 게이트를 전 도구에 적용(AC33 red) ⑧ 셀 주입 인자 제거(VP-31 — AC32 red)
+  ⑨⑩⑪ **EP-27 세 지점**(`:431`·`:494`·`:509`) 갱신을 **각각** 제거(AC34 red ×3).
+  **⑨⑩⑪ 은 형제 슬롯 변이다** — 세 지점이 같은 셀을 쓰므로 하나만 지워도 나머지 둘이 값을 덮어 침묵할 수 있다.
+  검산: 등록 변이 = AC27~AC34 의 8 + VP-31 배선 1 + EP-27 형제 2(세 지점 중 AC34 대표 1을 위 8에 이미 셌다) = **11**.
+- **ΔV3 덮개 회귀 확인**: r3 이 red 로 잡던 변이 7종(M-B·M-F·M-H·V-1·V-2c·V-5·M-G)을 **다시 실행**해 red 가 유지되는지 나란히 적는다 — ΔV3 은 그 파일들을 건드리지 않으므로 red 여야 한다.
+- 사람 실기: AC3 문구 시각 1건 · custom 모델 실환경에서 계획 본문 노출 1건 · **(r4) custom 모델 + `ANTHROPIC_MODEL` 단독 env 에서 모델 메뉴 1행 확인** 1건 · **(r4) plan 모드에서 편집 요청 시 승인 카드가 뜨지 않고 계획으로 이어지는지** 1건 · 서브에이전트 실행 중 두 타일 대조 1건.
 
 ## READY self-review
 
@@ -1252,3 +1414,62 @@
 **닫힌 것**: r2 가 green 으로 관측한 3지점(V-1·V-2c·V-5)이 전부 red · 등록 변이 7종 전건 red · 덮개 회귀 0 · 22 pair 전건 PASS · 게이트 5종 green · production 변경 0.
 
 **남은 것**: 0215 계약 **내부**의 미계수 지점은 이번 라운드에 0 이다. D1(r3) 은 계약 밖이라 범위 확대 없이 후속으로 넘긴다.
+
+---
+
+## ΔV3 (r4) — 사용자 재보고 설계
+
+> `verify/PASS`(r3) 이후 사용자가 두 건을 재보고해 라운드를 4로 올린다. 규범 행은 위 본문에
+> 인라인으로 들어갔다(§3 D-023~D-027 · §7 AC5 정정·AC27~AC34 · §7-A ΔV3 · §10 EP-23~EP-27 · §11 · §16 · §18 · §19).
+
+### 왜 r3 이 PASS 였는데 증상이 남았나
+
+| 축 | r3 이 닫은 것 | r3 이 보지 않은 것 |
+|---|---|---|
+| 모델 노출 | `[1m]` 두 변형 · `ANTHROPIC_MODEL` 편입(AC5~AC10·AC22) | **폴백 억제** — AC5 의 단언 `[null,null,null,'corp-x']` 이 SDK 기본 3행 동거를 계약으로 못박았다(§4 r4 2행) |
+| 계획 본문 | 체인의 *우선순위*(AC1·AC2·AC3) | **읽는 시점** — AT-01 이 서술 provider 를 직접 주입해 생산자/소비자 순서를 모형하지 않았다(§8 F-28a) |
+| plan 모드 | — (V1~ΔV2 의 어느 node 도 아니다) | CLI 의 plan-mode `ask` 가 Orca 승인 카드가 되는 공백(§8 F-25·F-26a) — 상시 공백이고 회귀가 아니다(F-31a) |
+
+### 요구⑪ 조사 결론 — PR#150 이후 plan 모드에서 바뀐 로직
+
+| # | 커밋 / 일자 | 바뀐 로직 | 사용자 관측에 대한 영향 |
+|---|---|---|---|
+| 1 | `a8ca38a8` 2026-08-26 (`Handoff: none`) | 세션 기본 권한 모드 `'plan'` → `DEFAULT_PERMISSION_MODE`(`auto_classified`), 렌더러 초기값과 main 미설정 기본값 동시 이동 | **가장 큰 변화** — PR#150 시점엔 모든 새 세션이 plan 모드로 태어났다(§8 F-31) |
+| 2 | `2e787fc3` 2026-07-27 (0150 = PR **#291**) | 계획 승인 allow 에 `updatedPermissions setMode acceptEdits destination:'session'` 동봉 + 렌더러 칩 `accept_edits` | 승인 후 모드 복원의 writer 가 둘(Orca · CLI 의 `prePlanMode` 복원)이 됐다 |
+| 3 | `d124c05f` 2026-07-05 (0067) | 장수명 세션 채널 — `permissionMode` 는 query 생성 시점에만 옵션으로 가고 이후 턴은 `set_permission_mode` control request | ΔV3 의 **EP-27 3지점**이 여기서 생겼다 |
+| 4 | `344c1736` 2026-07-06 | workspace 격리 PreToolUse 가드 훅 | plan 파일 write 를 **막지 않는다**(§8 F-30a) — 음성 확인 |
+| 5 | `0ca18b86` 2026-09-03 (0215 r1) | `resolvePlanText` 3단 체인 + `ctx.lastAssistantText` | 폴백 자체는 생겼으나 **읽는 시점**이 이르다(F-27·F-28) |
+
+**결론**: 요구⑪ 의 증상(⑫ "카드는 뜨는데 본문이 빔, plan text·filepath 미전달")의 직접 원인은 **5** 다 —
+CLI 는 plan 파일이 없으면 두 필드를 **함께** 빼고(F-24a), 그때 쓰라고 만든 폴백이 순서 때문에 비어 있다(F-28a).
+**1** 은 "PR#150 에서는 됐다"를 설명하는 배경이고, **2·3** 은 ΔV3 이 건드리는 강제 지점의 출처다.
+`sdk` 버전은 원인이 아니다(F-32a: `plan` 은 항상 유효한 모드, `ExitPlanModeInput` 은 0.3.220 에서도 `plan` 미선언).
+
+### ΔV3 이 고치지 않는 관측 1건
+
+§10 의 **ΔV1·ΔV2 행 7개(EP-20·EP-20a~d·EP-21·EP-22)가 5칸이다** — 표 헤더는 6칸(`V node / pair · 계약/필드 · SSOT · 누가 · 언제 강제 · 실패 의미`)이라 `누가` 칸이 비어 렌더가 한 칸씩 밀린다. ΔV3 신설 행(EP-23~EP-27)은 6칸이다. **고치지 않는다** — 지난 revision 의 규범 행을 이번 revision 이 손대면 verify §0 의 기준선 diff 가 흐려진다. 구현자는 그 7행을 `SSOT → 언제 강제 → 실패 의미` 순으로 읽는다.
+
+### ΔV3 READY self-review (신설·정정 행만)
+
+- [x] 여러 턴의 결정이 보존됐다 — 실측(`grep -c "| ACTIVE |"` 등): **ACTIVE 25 · SUPERSEDED 1(D-018→D-021, ΔV1 때) · OPEN 1(D-020)**. r4 가 새로 SUPERSEDE 한 결정은 **0** 이고, r3 까지의 결정을 하나도 지우지 않았다.
+- [x] 사용자 문장의 이유·조건절을 원문으로 인용했다 — 요구⑩ 의 "**한 개라도 모델을 노출시키는 세팅이 있다면**", 요구⑪ 의 "**테스트 결과 sdk 버전문제도 아니다**", 결정⑫ 의 "**Exitplanmode에 Plan text filepath가 전달이 안되고 있다**" 를 §2 에 그대로 뒀다.
+- [x] "제거/유지"를 재해석하지 않았다 — 요구⑩ 은 *폴백 억제*지 *ANTHROPIC_MODEL 편입 취소*가 아니다. D-005 를 SUPERSEDE 하지 않고 D-023 으로 **보완**했다.
+- [x] 사용자에게 물을 것과 코드로 닫을 것을 갈랐다 — 증상 해석(⑫)과 범위(⑬)는 `AskUserQuestion` 으로 물었고, "PR 150 이 무엇인가"는 **코드로 닫았다**(§4 r4 4행: 이른 base 를 조사 창으로 잡으면 양쪽을 덮는다).
+- [x] 수치·전칭 표현을 이번 세션에 실측했다 — 폴백 술어 1 · `parseClaudeModels({})` 3 · `withExplicitModel` 2 · 모드 적용 지점 3(`:431`·`:494`·`:509`) · canUseTool 분기 4+allow · `getPlanNarrative` 3 · PR#150 이후 변경 5.
+- [x] 외부 SDK/CLI 주장을 **벤더 1차 산출물**로 확인했다 — `@anthropic-ai/claude-agent-sdk@0.3.220`(`sdk.mjs`·`sdk.d.ts`·`sdk-tools.d.ts`)과 `@anthropic-ai/claude-agent-sdk-linux-x64@0.3.220`(`claude` 바이너리) 를 이 세션에서 받아 읽었다. 저장소 내부 관찰(F-01~F-05)과 충돌하지 않았고 F-03 은 F-24a 로 재확인됐다.
+- [x] 각 AC 가 행동 단언·검증 수단·프로덕션 도달 경로를 갖는다 — AC5(정정)·AC27~AC34 전건 3칸.
+- [x] **음성 AC 마다 양성 짝이 있다** — AC27↔AC28 · AC32↔AC33. 0건 단언만으로 "둘 다 사라짐"과 구분되지 않는 자리를 남기지 않았다.
+- [x] **음성 게이트의 허용 예외를 술어에서 먼저 제외했다** — `model===null` 이 정당한 경로 3곳(`settings-entries.ts:31·41·49`)을 AC28 이 잠근다.
+- [x] **순서를 요구하는 AC 에 순서를 관측할 방법을 설계했다** — AC30 의 상관키 `toolUseID`(SDK 필수 필드 · 매퍼 `p.id`)와 시점 제어 seam.
+- [x] **structural proxy 로 semantic 목표를 대신하지 않았다** — AC34 는 "갱신 코드가 있다"가 아니라 **각 지점 뒤 셀의 값**을 본다.
+- [x] **"X 가 쓰인다" 불변식의 장치가 X 를 지웠을 때 red 다** — 대기 제거(AC30) · 셀 주입 제거(VP-31) · EP-27 세 지점(`:431`·`:494`·`:509`) 개별 제거(AC34 ×3, §19 변이 ⑨⑩⑪). **형제 자리**(EP-27 3지점)는 서로를 덮을 수 있어 **각각** 변이를 등록했다.
+- [x] **`실패 의미` 의 위임을 이 턴에 측정했다** — EP-26 이 "계획 파일 write 는 여기 도달하지 않는다"고 적은 근거를 CLI 바이너리에서 직접 읽었다(F-30: `oDt` → `W6` = `behavior:"allow"`, `mode==="plan"` 검사보다 앞). 다른 라운드의 관측 인용이 아니다.
+- [x] 상호배타 상태를 union 으로 고정했다 — `awaitNarrativeFor` 반환 3분기(§10 ΔV3 주석). flat flag 조합 불가.
+- [x] 정책 파라미터의 단위/범위가 명확하다 — `budgetMs`(밀리초, 어댑터 상수 1개). SSOT 는 `plan-narrative.ts`.
+- [x] 신규 모듈마다 레이어·강제 지점·테스트 seam 이 있다 — `plan-narrative.ts`(adapters · EP-24·EP-25 · 순수) · `plan-mode-gate.ts`(adapters · EP-26 · 순수). 둘 다 electron/SDK 미의존이라 import graph 가 끊긴 별도 파일이다.
+- [x] `NEW`·`CHANGED` 좌 node 전건에 같은 레벨 `REQUIRED` pair 가 있고, 비영향 pair 만 출처·증거와 함께 `NOT_REQUIRED` 다(§7-A ΔV3 두 행).
+- [x] **다중 저장소 쓰기 없음을 명시했다** — ΔV3 은 읽기·판정·메모리 셀뿐이다(§10 ΔV3 주석).
+- [x] 신규 의존성 **0건** — 사용자 승인 불필요. D-020 은 OPEN 유지.
+- [x] 범위/비범위가 사람 실기를 막지 않는다 — §19 에 r4 실기 2건을 추가했다.
+- [x] `ACTIVE 결정 ↔ AC` 대조 결과를 §3 갱신 메모에 관측으로 적었다 — **충돌 0**, D-023↔AC27·AC28·AC29 / D-024↔AC30·AC31 / D-025↔AC32·AC33 / D-027↔AC34, 그리고 D-006·D-001·D-004 와의 무충돌 근거 3줄.
+- [x] Part I/II 에 같은 사실을 두 번 쓰지 않았다 — §4 는 **판정**, §8 은 **관측 근거**로 갈랐다.
