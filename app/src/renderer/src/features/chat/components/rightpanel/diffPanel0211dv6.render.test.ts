@@ -4,12 +4,14 @@
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createElement } from 'react'
+import { createElement, type ComponentProps } from 'react'
 import { load } from 'cheerio'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { GitDiffPatch, GitDiffSummary, GitStatus } from '../../../../../../shared/ipc'
 import { DiffReview } from './DiffReview'
+import { RightPanelTile } from './RightPanelTile'
+import { defaultRightPanelTileLabelKey } from '../../lib/rightPanelTiles'
 import { ALL_CHANGES, type DiffComparison } from './diffComparison'
 import { summaryComparisonLabel } from './sessionChangesData'
 import { DEFAULT_DIFF_VIEW } from '../../reducer/chatReducer'
@@ -196,5 +198,67 @@ describe('실제 DOM의 대상 요소 (ΔV7 AT-78)', () => {
     expect($('[data-diff-scroll-owner]').children().first().attr('data-diff-file')).toBe(
       'docs/a.md'
     )
+  })
+})
+
+// ── ΔV14 AT-102 / VP-103 ─────────────────────────────────────────────────────
+// 라운드 4 verify D38: 안내의 **존재**(M23)·트리 0개(M6)·토글 숨김(M7)은 잠겼는데 **중앙 배치**만
+// 무관측이었다 — 중앙 클래스를 지워도 전건 green 이었다(M5). 형제 축(사이드바 240px·밴드 32px)이
+// 이미 같은 방식으로 잠겨 있으므로 여기에 같은 단언을 둔다.
+describe('빈 diff 본문의 중앙 배치 (AT-102 · D-153 · §10 EP-77 ①)', () => {
+  it('안내가 본문 가로·세로 중앙에 하나만 선다', () => {
+    const $ = load(renderReview(EMPTY_PATCH, { ...SUMMARY, commits: [] }))
+    const empty = $('[data-diff-empty]')
+
+    expect(empty).toHaveLength(1)
+    expect(empty.text()).toContain('표시할 변경 사항이 없습니다.')
+    // 세 축이 함께 있어야 중앙이다 — 하나만 지워도 위쪽 정렬로 돌아간다.
+    for (const token of ['h-full', 'items-center', 'justify-center', 'text-center']) {
+      expect(empty.attr('class')?.split(' ')).toContain(token)
+    }
+  })
+
+  it('파일이 있으면 그 안내를 그리지 않는다 — 음성 축의 양성 짝', () => {
+    const patch: GitDiffPatch = {
+      ...EMPTY_PATCH,
+      files: [
+        { path: 'docs/a.md', status: 'modified', added: 1, removed: 0, kind: 'text', lines: [] }
+      ]
+    }
+    const $ = load(renderReview(patch, SUMMARY))
+
+    expect($('[data-diff-empty]')).toHaveLength(0)
+    expect($('[data-diff-file]')).toHaveLength(1)
+  })
+})
+
+// ── ΔV7 AT-78 / VP-79 — EP-53 ① ──────────────────────────────────────────────
+// 라운드 4 verify D39: 사이드바 240px·커밋 목록 40%·파일 밴드 32px 는 위에서 잠겼는데 **헤더
+// 밴드**만 무관측이었다 — 48px 로 바꿔도 전건 green 이었다(M29). 같은 파일·같은 방식으로 닫는다.
+describe('타일 헤더 밴드 (AT-78 · D-123 · §10 EP-53 ①)', () => {
+  const tile = (id: 'diff' | 'plan'): string =>
+    renderToStaticMarkup(
+      createElement(
+        RightPanelTile,
+        { id, defaultLabelKey: defaultRightPanelTileLabelKey(id) } as ComponentProps<
+          typeof RightPanelTile
+        >,
+        null
+      )
+    )
+
+  it('diff 타일 헤더가 32px 밴드다', () => {
+    const header = load(tile('diff'))('[data-diff-tile-header]')
+
+    expect(header).toHaveLength(1)
+    expect(header.attr('class')?.split(' ')).toContain('h-[32px]')
+    expect(header.attr('class')).not.toContain('py-2')
+  })
+
+  it('다른 타일은 그 밴드를 쓰지 않는다 — 두 갈래를 한 모양으로 합친 변이가 red 다', () => {
+    const $ = load(tile('plan'))
+
+    expect($('[data-diff-tile-header]')).toHaveLength(0)
+    expect($('.app-frame-tile-header').attr('class')).not.toContain('h-[32px]')
   })
 })
