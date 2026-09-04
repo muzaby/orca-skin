@@ -24,6 +24,7 @@
 |---|---|---|
 | D-143 | 현재 cwd의 Git 저장소 확인 전·실패·비저장소·cwd 없음에는 브랜치/워크트리 묶음 전체를 숨긴다. Git 확인으로 브랜치 버튼이 나타나는 렌더에서 워크트리도 함께 표시한다. 경로 변경 직후 이전 경로 응답으로 묶음을 표시하지 않는다. | ACTIVE · 브랜치만 비가용 시 숨기고 격리 칩은 남기던 표시 대체 |
 | D-144 | 라벨은 한국어 ‘워크트리’, 영어 ‘Worktree’다. 앞에 실제 체크박스를 두고 전체 라벨 영역 클릭과 키보드 Space로 토글한다. 선택 표시는 Orca selected 파란 토큰을 쓴다. | ACTIVE · Worktree 격리 텍스트/aria-pressed 칩 표현 대체 |
+| D-145 | 작업 경로가 다른 유효 경로로 바뀌면 이전 격리 선택을 OFF로 초기화한다. 같은 경로 재선택과 거부된 루트 선택은 기존 체크 상태를 유지한다. | ACTIVE · 새 숨김 조건에서 비저장소로 옮긴 뒤 숨겨진 ON이 전송 실패를 일으키는 문제를 브라우저에서 관측; cwd 변경 시 격리 선택 유지 대체 |
 
 초기 OFF, 전송 중 비활성, 미커밋 변경 안내 tooltip, 격리 ON의 base ref 선택 유예와 OFF의 즉시 checkout은 상속한다. 기존 BranchChip의 Git 조회를 공유하므로 별도 상태 조회·저장소·IPC 변경은 없다. ACTIVE 결정 ↔ AC 대조: D-143은 AT-93, D-144는 AT-94에 연결되며 상속 선택/전송 동작과 충돌하지 않는다.
 
@@ -33,12 +34,12 @@
 
 | R / AT | 사용자 결과 / oracle |
 |---|---|
-| R-86 / AT-93 | 초기 미확인·비저장소·조회 실패·cwd 없음에는 묶음이 없다. Git 응답 후 브랜치/워크트리가 함께 보이며 경로 전환 중에는 둘 다 숨긴다. 실제 CwdPanel/BranchChip 렌더와 지연 응답 브라우저 fixture로 확인한다. |
+| R-86 / AT-93 | 초기 미확인·비저장소·조회 실패·cwd 없음에는 묶음이 없다. Git 응답 후 브랜치/워크트리가 함께 보이며 경로 전환 중에는 둘 다 숨기고 이전 격리 선택은 해제한다. 실제 CwdPanel/BranchChip 렌더·reducer·전송 payload와 지연 응답 브라우저 fixture로 확인한다. |
 | R-87 / AT-94 | ‘체크박스 워크트리’ 전체 영역을 클릭하면 OFF↔ON, 키보드 Space도 동일하다. ON은 파란 체크이며 전송 중 비활성이다. 두 테마·실제 checkbox·store 선택/전송 회귀로 확인한다. |
 
 | pair | requiredness / 경로 / 증거 |
 |---|---|
-| VP-94 | NEW / REQUIRED — R-86↔AT-93, AR-38↔IT-38: BranchChip statusForCwd/branchChipView→가시성 guard→CwdPanel의 trigger 묶음 렌더. 실제 렌더의 묶음/두 컨트롤 유무 및 지연 조회와 경로 변경을 관측한다. |
+| VP-94 | NEW / REQUIRED — R-86↔AT-93, AR-38↔IT-38, MD-36↔UT-36: BranchChip statusForCwd/branchChipView→가시성 guard→CwdPanel의 trigger 묶음 렌더. 실제 렌더의 묶음/두 컨트롤 유무 및 지연 조회와 경로 변경, SET_CWD→격리 OFF→send payload 생략을 관측한다. |
 | VP-95 | NEW / REQUIRED — R-87↔AT-94: label/input→setWorktreeIsolation→draft→checked. checkbox 상태와 실제 클릭·Space·계산된 accent 색을 관측한다. |
 | ΔV12-REG | INHERITED / REGRESSION — BranchChip.defer, branchChipState, chatReducer.worktree, chatStore.worktreeIsolation, CwdPanel.landing, chipGroup의 기존 선택 유예·전송·랜딩 범위·묶음 외형. 변경되는 구조 스윕은 실제 렌더 단언으로 대체한다. |
 
@@ -50,8 +51,9 @@
 |---|---|---|
 | EP-67 | BranchChip의 가시성 이후 trigger 슬롯·CwdPanel 묶음 조립 / 2 | Git 확인 전 워크트리 또는 빈 묶음 테두리가 먼저 보인다. |
 | EP-68 | WorktreeToggle의 label/input/selected 표현·CwdPanel의 checked/change/disabled 전달 / 2 | 라벨 클릭이 토글하지 않거나 draft와 체크가 어긋난다. |
+| EP-69 | SET_CWD의 실제 경로 변경 시 격리 선택 초기화 / 1 | 비저장소에서 숨겨진 격리 ON이 남아 사용자가 해제하지 못하고 전송이 실패한다. |
 
-운영 gate: 관련 renderer 렌더·브랜치/격리 상태·전송 회귀, 전체 lint, typecheck 3구성, 문서 gate, diff check. 별도 mutation은 선택하지 않는다(실제 컨트롤·상태·동작을 관측하는 직접 oracle). READY 자기확인: 사용자 두 요구와 강제 4지점, 기존 cwd 세대 보호·격리 전송 계약의 회귀 경로를 확인했다.
+운영 gate: 관련 renderer 렌더·브랜치/격리 상태·전송 회귀, 전체 lint, typecheck 3구성, 문서 gate, diff check. 별도 mutation은 선택하지 않는다(실제 컨트롤·상태·동작을 관측하는 직접 oracle). READY 자기확인: 사용자 두 요구와 강제 5지점, 기존 cwd 세대 보호·격리 전송 계약의 회귀 경로를 확인했다. D-145↔AT-93 보완은 관측된 숨김 부작용에 한정하며 같은 cwd·거부 경로의 양성 짝을 둔다.
 
 ## ΔV11 — composer 저장소·브랜치 메뉴 (2026-09-04, 라운드 3 유지)
 
