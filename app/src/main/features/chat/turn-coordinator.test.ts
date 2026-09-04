@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import type { ClassifiedError, NormalizedEvent } from '../../../shared/ipc'
+import type { ClassifiedError, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
 import type { TurnRequest } from '../../adapters/turn'
 import type { ProviderMessageBatch } from '../../adapters/types'
 import type { TurnContext } from '../../contracts/turn'
@@ -129,6 +129,67 @@ function makeDeps(
 
 const sessionUpdated = { type: 'session.updated', sessionId: 's1' } as unknown as NormalizedEvent
 const telemetry = { type: 'telemetry', sessionId: 's1' } as unknown as NormalizedEvent
+
+describe('TurnCoordinator requirement commit', () => {
+  it.each(['turn-open', 'steer'] as const)(
+    'preserves %s merged requirements in both persistence and renderer events',
+    async (origin) => {
+      const requirements: DiffRequirementAnchor[] = ['a.ts', 'b.ts'].map((filePath, index) => ({
+        sessionId: 's1',
+        baselineCommit: 'base',
+        filePath,
+        oldLine: null,
+        newLine: index + 1,
+        hunkHeader: '@@ -0,0 +1 @@',
+        contextBefore: [],
+        contextAfter: [],
+        comment: `comment ${index}`,
+        createdAt: index
+      }))
+      const pendingMessages = new PendingMessageQueue()
+      requirements.forEach((requirement, index) =>
+        pendingMessages.enqueue(
+          's1',
+          {
+            text: `message ${index}`,
+            requirements: [requirement]
+          },
+          index,
+          `req-${index}`
+        )
+      )
+      const batch = pendingMessages.reserveHeld('s1', origin)!
+      pendingMessages.commit('s1', batch.attemptId!, batch.chainId)
+      const runtime = fakeRuntime([
+        [{ type: 'input.echo', sessionId: 's1', text: batch.text, uuid: batch.uuid }, telemetry]
+      ])
+      const commitUserMessage = vi.fn(() => 42)
+      const deps = makeDeps(runtime, {
+        pendingMessages,
+        persist: { persist: vi.fn(), flushAskAnswers: vi.fn(), commitUserMessage }
+      })
+      const turn = makeTurn()
+      turn.dbSessionId = 's1'
+      await new TurnCoordinator(deps).run(
+        turn,
+        { ...REQUEST, sessionId: 's1', text: batch.text, promptUuid: batch.uuid },
+        { boundProjectId: null }
+      )
+      expect(commitUserMessage).toHaveBeenCalledWith(
+        turn,
+        expect.objectContaining({ requirements })
+      )
+      expect(deps.forward.forward).toHaveBeenCalledWith(
+        'owner',
+        expect.objectContaining({
+          type: 'message.committed',
+          ids: ['req-0', 'req-1'],
+          requirements
+        })
+      )
+    }
+  )
+})
 const subagentStarted = (toolUseId: string): NormalizedEvent =>
   ({
     type: 'subagent.task',

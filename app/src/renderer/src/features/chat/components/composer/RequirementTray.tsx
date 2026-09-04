@@ -4,6 +4,8 @@ import { Icon } from '../../../../shared/ui/Icon'
 
 interface RequirementTrayProps {
   requirements: readonly DiffRequirementItem[]
+  selectedId?: string | null
+  onSelect?: (id: string) => void
   onRemove: (id: string) => void
 }
 
@@ -15,6 +17,8 @@ function lineLabel(item: DiffRequirementItem): string {
 
 export function RequirementTray({
   requirements,
+  selectedId,
+  onSelect,
   onRemove
 }: RequirementTrayProps): React.JSX.Element | null {
   const { tr } = useI18n()
@@ -34,10 +38,12 @@ export function RequirementTray({
           <span
             key={item.id}
             data-diff-requirement-chip={item.id}
-            className="group/requirement-tile relative flex size-[52px] shrink-0 rounded-[6px] border border-transparent bg-t3 focus-within:border-selected"
+            className={`group/requirement-tile relative flex size-[52px] shrink-0 rounded-[6px] border bg-t3 ${item.id === selectedId ? 'border-selected' : 'border-transparent'}`}
           >
             <button
               type="button"
+              onClick={() => onSelect?.(item.id)}
+              aria-pressed={item.id === selectedId}
               aria-label={label}
               title={label}
               className={`flex size-full items-center justify-center rounded-[5px] outline-none ${item.located ? 'text-ink3' : 'text-rust'}`}

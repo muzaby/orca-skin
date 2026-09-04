@@ -10,7 +10,7 @@
 // 에 TurnContext 를 들이면 import/no-cycle 이 차단한다. sink 들은 TurnContext 를 참조하므로
 // 사이클 없는 별도 모듈에 둔다.
 
-import type { AttachmentView, NormalizedEvent } from '../../../shared/ipc'
+import type { AttachmentView, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
 
 // 영속 sink — DB 기록(가로축 좌측). renderer 비의존. L3 HistoryWriter 가 만족.
@@ -20,7 +20,12 @@ export interface TurnPersistSink<W = unknown> {
   // preview/provider_key 갱신. 구 persistSteerUserMessage 일반화.
   commitUserMessage?(
     turn: TurnContext<W>,
-    batch: { text: string; createdAt: number; attachmentViews?: AttachmentView[] }
+    batch: {
+      text: string
+      createdAt: number
+      attachmentViews?: AttachmentView[]
+      requirements?: DiffRequirementAnchor[]
+    }
   ): number | null
   // AskUserQuestion tool_result 합성도 영속 책임(persist.ts) — reduce 가 페어링 시 호출.
   flushAskAnswers(turn: TurnContext<W>, owner: W): void

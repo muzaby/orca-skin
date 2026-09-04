@@ -47,6 +47,7 @@ const actions = {
   setDiffComparison: vi.fn(),
   setDiffViewOption: vi.fn(),
   setAllDiffFilesExpanded: vi.fn(),
+  refreshGitSnapshot: vi.fn(),
   setRightPanelColWidth: vi.fn()
 }
 
@@ -188,8 +189,8 @@ describe('사이드바 버튼과 메뉴가 같은 상태를 바꾼다 (ΔV7 EP-5
   })
 })
 
-describe('`⋮` 일곱 항목이 각자의 액션을 부른다 (AT-67 · §10 EP-33)', () => {
-  it('메뉴가 일곱 항목을 그 순서로 그린다 — `새로고침` 이 빠졌다 (0211 ΔV5 D-106)', () => {
+describe('`⋮` 메뉴의 실제 동작', () => {
+  it('메뉴의 마지막 새로 고침이 세션 조회를 요청한다', () => {
     render()
 
     const ids = menuItems
@@ -203,8 +204,11 @@ describe('`⋮` 일곱 항목이 각자의 액션을 부른다 (AT-67 · §10 EP
       'side-by-side',
       'wrap',
       'highlight',
-      'whitespace'
+      'whitespace',
+      'refresh'
     ])
+    click(menuItems.find((props) => props['data-diff-view-item'] === 'refresh')!)
+    expect(actions.refreshGitSnapshot).toHaveBeenCalledExactlyOnceWith()
   })
 
   // 0211 ΔV5 D-105 — 방향이 반대다. **펼치기가 채우고 접기가 비운다.**

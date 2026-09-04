@@ -1,12 +1,14 @@
 import { useI18n } from '../../../../shared/i18n'
 import { MenuItem } from '../../../../shared/ui/MenuItem'
 import { githubBranchUrl } from './gitIdentityMenuActions'
+import type { GitIdentityRemote } from './useGitIdentityRemote'
 
 export type GitIdentityKind = 'repo' | 'branch'
 
 interface GitIdentityMenuProps {
   kind: GitIdentityKind
   githubUrl: string | null
+  remotePhase?: GitIdentityRemote['phase']
   branch: string | null
   detached: boolean
   copyFailed: boolean
@@ -17,6 +19,7 @@ interface GitIdentityMenuProps {
 export function GitIdentityMenu({
   kind,
   githubUrl,
+  remotePhase,
   branch,
   detached,
   copyFailed,
@@ -26,9 +29,15 @@ export function GitIdentityMenu({
   const { tr } = useI18n()
   const branchAvailable = !detached && !!branch
   const branchReason = branchAvailable ? null : tr('chat.gitRow.noBranch')
-  const openReason =
-    (kind === 'branch' ? branchReason : null) ??
-    (githubUrl ? null : tr('chat.gitRow.noGithubRemote'))
+  const remoteReason =
+    remotePhase === 'loading'
+      ? tr('chat.gitRow.checkingRemote')
+      : remotePhase === 'error'
+        ? tr('chat.gitRow.remoteCheckFailed')
+        : githubUrl
+          ? null
+          : tr('chat.gitRow.noGithubRemote')
+  const openReason = (kind === 'branch' ? branchReason : null) ?? remoteReason
   const destination = kind === 'repo' ? githubUrl : githubBranchUrl(githubUrl, branch)
 
   const copy = async (): Promise<void> => {

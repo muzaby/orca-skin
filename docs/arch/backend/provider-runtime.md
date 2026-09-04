@@ -292,6 +292,8 @@ interface ErrorClassifier { classify(error: unknown, ctx: { provider: ProviderId
 
 ## 7. 정규화 Persistence — AppMessagePart
 
+사용자가 전송한 diff 코멘트는 `diff_requirements` 파트의 `requirements: DiffRequirementAnchor[]`로 저장한다. `HistoryWriter.commitUserMessage`가 소비 확정 배치의 스냅샷을 파일 첨부와 별도로 기록하고, `message.queued`·`message.committed`와 세션 로드가 같은 코멘트를 사용자 메시지의 읽기 전용 인용 첨부로 표시한다. 표시 파트는 provider 요청 콘텐츠를 대체하지 않는다. 이벤트·anchor 계약은 [IPC 계약](../../IPC_CONTRACT.md)에 있다.
+
 **① 설명.** 이벤트 스트림과 별개로 대화 기록을 저장·재렌더링하는 내부 모델. OpenCode 가 messages 를 `{ info: Message, parts: Part[] }[]` 로 다루는 것을 반영해 **parts** 모델을 둔다. 무거운 페이로드(stdout/파일 본문)는 별도 blob store 로 분리해 메시지 행을 가볍게 유지.
 
 **③ 현재 코드.** ✅ **구현 완료** — `0004_message_parts.sql` 가 `message_parts(message_id FK, idx, type, tool_run_id, payload_json)` 를 신설하고 기존 `messages.content`/`tool_calls` 를 parts 로 backfill 후 `tool_calls` 를 DROP 한다(정식 배포 전이라 하위호환 불요). `messages.content` 는 **text/reasoning parts 의 concat 캐시**로 유지해 FTS5 contentless 트리거를 건드리지 않는다. `router.persist` 가 한 턴의 모든 파트(text/reasoning/tool_call/tool_result/error)를 같은 assistant 메시지에 순서대로 append 하고(`DbQueries.appendPart`/`upsertToolResultPart`), 세션 로드 핸들러(`app/handlers/session.ts`)가 `DbQueries.loadParts` 로 `LoadedMessage.parts: AppMessagePart[]` 를 재구성한다. **claude 가 채우는 종류**: text/tool_call/tool_result/error + **reasoning**(확장사고 — `claude-map` 이 `assistant` content 의 `thinking` block → `message.reasoning` 이벤트, signature opaque 보관). `file`/`diff`/`structured_output` 은 union 정의만 두고 OpenCode 어댑터 도입 시 채운다(seam). blob 분리(무거운 stdout/파일 본문)는 후속(Phase 4).

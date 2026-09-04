@@ -2,6 +2,7 @@ import {
   Fragment,
   useCallback,
   useContext,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -14,6 +15,7 @@ import { useI18n } from '../../../../shared/i18n'
 import {
   buildDiffHunks,
   expandGap,
+  revealDiffHunkLine,
   type DiffHunkGapRow,
   type DiffHunkLineRow,
   type DiffHunkState,
@@ -29,7 +31,8 @@ import { planUpwardExpansionCompensation } from '../../lib/diffViewport'
 import type { DiffLine } from '../../lib/diffLines'
 import { DiffSyntaxContext, useDiffSyntax } from '../../hooks/useDiffSyntax'
 import type { DiffRequirementDraft, DiffViewOptions } from '../../reducer/chatReducer'
-import { diffRequirementLineKey } from './diffRequirements'
+import { diffRequirementLineKey, diffRequirementMatchesLine } from './diffRequirements'
+import { revealDiffRequirement } from '../../lib/diffRequirementScroll'
 import type { DiffSection } from './diffComparison'
 
 /** 문맥을 한 번에 여는 폭. 남은 줄이 이보다 적으면 gap 자체가 사라진다(0211 ΔV4 D-090). */
@@ -43,6 +46,9 @@ export interface FileDiffSectionProps {
   view: DiffViewOptions
   requirements: readonly DiffRequirementItem[]
   draft: DiffRequirementDraft | null
+  activeRequirementId?: string | null
+  selectionVersion?: number
+  onSelectRequirement?: (id: string) => void
   scrollOwnerRef: React.RefObject<HTMLDivElement | null>
   tailSpacerRef: React.RefObject<HTMLDivElement | null>
   onToggleCollapsed: (path: string) => void
@@ -102,6 +108,9 @@ export function FileDiffSection({
   view,
   requirements,
   draft,
+  activeRequirementId,
+  selectionVersion,
+  onSelectRequirement,
   scrollOwnerRef,
   tailSpacerRef,
   onToggleCollapsed,
@@ -182,6 +191,7 @@ export function FileDiffSection({
             view={view}
             requirements={requirements}
             draft={draft}
+            selection={{ activeRequirementId, selectionVersion, onSelectRequirement }}
             scrollOwnerRef={scrollOwnerRef}
             tailSpacerRef={tailSpacerRef}
             onDraftChange={onDraftChange}
@@ -199,12 +209,19 @@ interface PendingCompensation {
   insertedAbove: number
 }
 
+interface RequirementSelection {
+  activeRequirementId?: string | null
+  selectionVersion?: number
+  onSelectRequirement?: (id: string) => void
+}
+
 function FileDiffBody({
   filePath,
   lines,
   view,
   requirements,
   draft,
+  selection,
   scrollOwnerRef,
   tailSpacerRef,
   onDraftChange,
@@ -216,6 +233,7 @@ function FileDiffBody({
   view: DiffViewOptions
   requirements: readonly DiffRequirementItem[]
   draft: DiffRequirementDraft | null
+  selection: RequirementSelection
   scrollOwnerRef: React.RefObject<HTMLDivElement | null>
   tailSpacerRef: React.RefObject<HTMLDivElement | null>
   onDraftChange?: (draft: DiffRequirementDraft | null) => void
@@ -231,11 +249,63 @@ function FileDiffBody({
     const converted = patchLinesToDiffLines(lines)
     return view.ignoreWhitespace ? collapseWhitespaceOnlyChanges(converted) : converted
   }, [lines, view.ignoreWhitespace])
-  const [hunks, setHunks] = useState<DiffHunkState>(() =>
-    buildDiffHunks(diffLines, INITIAL_CONTEXT)
-  )
+  const initialHunks = useMemo(() => buildDiffHunks(diffLines, INITIAL_CONTEXT), [diffLines])
+  const [expandedHunks, setHunks] = useState<DiffHunkState>(initialHunks)
+  const hunks = expandedHunks.lines === diffLines ? expandedHunks : initialHunks
   const syntax = useDiffSyntax(diffLines, filePath)
   const pending = useRef<PendingCompensation | null>(null)
+  const selectedRequirement = requirements.find(
+    (item) =>
+      item.id === selection.activeRequirementId && item.located && item.anchor.filePath === filePath
+  )
+  const selectedIndex = selectedRequirement
+    ? diffLines.findIndex((line) => diffRequirementMatchesLine(selectedRequirement, filePath, line))
+    : -1
+  const visibleHunks = useMemo(
+    () => revealDiffHunkLine(hunks, selectedIndex, INITIAL_CONTEXT),
+    [hunks, selectedIndex]
+  )
+  const lastReveal = useRef<{
+    id: string
+    version: number | undefined
+    lines: readonly GitDiffPatchLine[]
+    layout: DiffViewOptions['layout']
+  } | null>(null)
+
+  // 선택으로 연 문맥도 유지한다. 입력이 바뀐 렌더에서 조정해 effect 연쇄 렌더를 피한다.
+  if (visibleHunks !== hunks) setHunks(visibleHunks)
+
+  // 부모의 scroll owner ref가 부착된 뒤 실행해야 캐시로 타일을 재열 때도 이동한다.
+  useEffect(() => {
+    if (!selectedRequirement) {
+      lastReveal.current = null
+      return
+    }
+    const previous = lastReveal.current
+    if (
+      previous?.id === selectedRequirement.id &&
+      previous.version === selection.selectionVersion &&
+      previous.lines === lines &&
+      previous.layout === view.layout
+    )
+      return
+    if (revealDiffRequirement(scrollOwnerRef.current, selectedRequirement.id)) {
+      lastReveal.current = {
+        id: selectedRequirement.id,
+        version: selection.selectionVersion,
+        lines,
+        layout: view.layout
+      }
+    }
+  }, [
+    hunks,
+    visibleHunks,
+    selectedRequirement,
+    selection.selectionVersion,
+    lines,
+    view.layout,
+    scrollOwnerRef
+  ])
 
   // 위쪽 확장은 보던 줄을 밀어낸다 — 삽입된 만큼 scrollTop 을 보정해 그 줄을 제자리에 둔다.
   // 아래쪽 확장은 아래에 넣으므로 보정이 필요 없고 `insertedAbove` 가 0 이다(D-090).
@@ -290,16 +360,26 @@ function FileDiffBody({
   const wrapClass = view.wrapLines ? 'whitespace-pre-wrap break-all' : 'whitespace-pre'
   const body =
     view.layout === 'side-by-side' ? (
-      <SideBySideBody rows={hunks.rows} wrapClass={wrapClass} view={view} onExpand={expand} />
+      <SideBySideBody
+        rows={visibleHunks.rows}
+        wrapClass={wrapClass}
+        view={view}
+        onExpand={expand}
+        filePath={filePath}
+        requirements={requirements}
+        selection={selection}
+        onRemoveRequirement={onRemoveRequirement}
+      />
     ) : (
       <InlineBody
-        rows={hunks.rows}
+        rows={visibleHunks.rows}
         lines={hunks.lines}
         filePath={filePath}
         wrapClass={wrapClass}
         view={view}
         requirements={requirements}
         draft={draft}
+        selection={selection}
         onExpand={expand}
         onDraftChange={onDraftChange}
         onAddRequirement={onAddRequirement}
@@ -464,6 +544,7 @@ function InlineBody({
   view,
   requirements,
   draft,
+  selection,
   onExpand,
   onDraftChange,
   onAddRequirement,
@@ -476,6 +557,7 @@ function InlineBody({
   view: DiffViewOptions
   requirements: readonly DiffRequirementItem[]
   draft: DiffRequirementDraft | null
+  selection: RequirementSelection
   onExpand: (id: string, direction: GapDirection) => void
   onDraftChange?: (draft: DiffRequirementDraft | null) => void
   onAddRequirement?: (input: {
@@ -506,6 +588,7 @@ function InlineBody({
               view={view}
               requirements={requirements}
               draft={draft}
+              selection={selection}
               onDraftChange={onDraftChange}
               onAddRequirement={onAddRequirement}
               onRemoveRequirement={onRemoveRequirement}
@@ -525,6 +608,7 @@ function InlineLineRow({
   view,
   requirements,
   draft,
+  selection,
   onDraftChange,
   onAddRequirement,
   onRemoveRequirement
@@ -536,6 +620,7 @@ function InlineLineRow({
   view: DiffViewOptions
   requirements: readonly DiffRequirementItem[]
   draft: DiffRequirementDraft | null
+  selection: RequirementSelection
   onDraftChange?: (draft: DiffRequirementDraft | null) => void
   onAddRequirement?: (input: {
     lines: readonly DiffLine[]
@@ -546,12 +631,8 @@ function InlineLineRow({
 }): React.JSX.Element {
   const { tr } = useI18n()
   const lineKey = diffRequirementLineKey(filePath, row.line.oldLine, row.line.newLine)
-  const lineRequirements = requirements.filter(
-    (item) =>
-      item.located &&
-      item.anchor.filePath === filePath &&
-      item.anchor.oldLine === row.line.oldLine &&
-      item.anchor.newLine === row.line.newLine
+  const lineRequirements = requirements.filter((item) =>
+    diffRequirementMatchesLine(item, filePath, row.line)
   )
   const lineDraft = draft?.key === lineKey && draft.filePath === filePath ? draft : null
   return (
@@ -613,6 +694,7 @@ function InlineLineRow({
       <DiffRequirementMarkerRow
         colSpan={3}
         items={lineRequirements}
+        selection={selection}
         onRemoveRequirement={onRemoveRequirement}
       />
     </Fragment>
@@ -627,12 +709,20 @@ function SideBySideBody({
   rows,
   wrapClass,
   view,
-  onExpand
+  onExpand,
+  filePath,
+  requirements,
+  selection,
+  onRemoveRequirement
 }: {
   rows: DiffHunkState['rows']
   wrapClass: string
   view: DiffViewOptions
   onExpand: (id: string, direction: GapDirection) => void
+  filePath: string
+  requirements: readonly DiffRequirementItem[]
+  selection: RequirementSelection
+  onRemoveRequirement?: (id: string) => void
 }): React.JSX.Element {
   const chunks: Array<
     { kind: 'gap'; row: DiffHunkGapRow } | { kind: 'lines'; rows: DiffHunkLineRow[] }
@@ -658,43 +748,53 @@ function SideBySideBody({
           ) : (
             <Fragment key={`sbs:${chunkIndex}`}>
               {toSideBySideRows(chunk.rows.map((row) => row.line)).map((pair, index) => (
-                <tr
-                  key={`sbs:${chunkIndex}:${index}`}
-                  data-diff-hunk-row-id={chunk.rows[index]?.id}
-                >
-                  <td className="w-[3em] select-none px-2 text-right align-top text-footnote text-ink2">
-                    {pair.left?.oldLine ?? ''}
-                  </td>
-                  <td
-                    className={`w-1/2 px-2 align-top ${pair.left ? rowTint(pair.left.type) : ''}`}
-                  >
-                    {pair.left && (
-                      <LineText
-                        line={pair.left}
-                        axis="old"
-                        counterpart={pair.right}
-                        wrapClass={wrapClass}
-                        highlight={view.highlightWords}
-                      />
+                <Fragment key={`sbs:${chunkIndex}:${index}`}>
+                  <tr data-diff-hunk-row-id={chunk.rows[index]?.id}>
+                    <td className="w-[3em] select-none px-2 text-right align-top text-footnote text-ink2">
+                      {pair.left?.oldLine ?? ''}
+                    </td>
+                    <td
+                      className={`w-1/2 px-2 align-top ${pair.left ? rowTint(pair.left.type) : ''}`}
+                    >
+                      {pair.left && (
+                        <LineText
+                          line={pair.left}
+                          axis="old"
+                          counterpart={pair.right}
+                          wrapClass={wrapClass}
+                          highlight={view.highlightWords}
+                        />
+                      )}
+                    </td>
+                    <td className="w-[3em] select-none px-2 text-right align-top text-footnote text-ink2">
+                      {pair.right?.newLine ?? ''}
+                    </td>
+                    <td
+                      className={`w-1/2 px-2 align-top ${pair.right ? rowTint(pair.right.type) : ''}`}
+                    >
+                      {pair.right && (
+                        <LineText
+                          line={pair.right}
+                          axis="new"
+                          counterpart={pair.left}
+                          wrapClass={wrapClass}
+                          highlight={view.highlightWords}
+                        />
+                      )}
+                    </td>
+                  </tr>
+                  <DiffRequirementMarkerRow
+                    colSpan={4}
+                    leadingColumns={1}
+                    items={requirements.filter(
+                      (item) =>
+                        (pair.left && diffRequirementMatchesLine(item, filePath, pair.left)) ||
+                        (pair.right && diffRequirementMatchesLine(item, filePath, pair.right))
                     )}
-                  </td>
-                  <td className="w-[3em] select-none px-2 text-right align-top text-footnote text-ink2">
-                    {pair.right?.newLine ?? ''}
-                  </td>
-                  <td
-                    className={`w-1/2 px-2 align-top ${pair.right ? rowTint(pair.right.type) : ''}`}
-                  >
-                    {pair.right && (
-                      <LineText
-                        line={pair.right}
-                        axis="new"
-                        counterpart={pair.left}
-                        wrapClass={wrapClass}
-                        highlight={view.highlightWords}
-                      />
-                    )}
-                  </td>
-                </tr>
+                    selection={selection}
+                    onRemoveRequirement={onRemoveRequirement}
+                  />
+                </Fragment>
               ))}
             </Fragment>
           )
@@ -760,7 +860,7 @@ function DiffRequirementDraftRow({
               onClick={() => submission && onAddRequirement?.(submission)}
               aria-label={tr('chat.rightpanel.diffRequirementDraftSubmit')}
               data-diff-requirement-draft-submit
-              className="flex size-[20px] shrink-0 items-center justify-center rounded-[4px] text-ink3 outline-none hover:bg-selected-soft hover:text-selected focus-visible:bg-selected-soft disabled:hover:bg-transparent disabled:hover:text-ink3"
+              className="flex size-[20px] shrink-0 items-center justify-center rounded-[4px] text-ink3 outline-none transition-colors hover:bg-selected-soft hover:text-selected focus-visible:bg-selected-soft disabled:hover:bg-transparent disabled:hover:text-ink3"
             >
               <Icon name="commentAdd" size={16} />
             </button>
@@ -774,27 +874,33 @@ function DiffRequirementDraftRow({
 function DiffRequirementMarkerRow({
   colSpan,
   items,
+  leadingColumns = colSpan - 1,
+  selection,
   onRemoveRequirement
 }: {
   colSpan: number
   items: readonly DiffRequirementItem[]
+  leadingColumns?: number
+  selection: RequirementSelection
   onRemoveRequirement?: (id: string) => void
 }): React.JSX.Element | null {
   const { tr } = useI18n()
   if (items.length === 0) return null
   return (
     <tr>
-      <td colSpan={colSpan - 1} />
-      <td className="px-[8px] py-[4px] align-top">
+      <td colSpan={leadingColumns} />
+      <td colSpan={colSpan - leadingColumns} className="px-[8px] py-[4px] align-top">
         <div className="flex flex-col gap-[8px]">
           {items.map((item) => (
             <div
               key={item.id}
               data-diff-requirement-marker={item.id}
-              className="group/requirement-card relative rounded-[6px] border border-t5 bg-panel focus-within:border-selected"
+              className={`group/requirement-card relative rounded-[6px] border bg-panel ${item.id === selection.activeRequirementId ? 'border-selected' : 'border-t5'}`}
             >
               <button
                 type="button"
+                aria-pressed={item.id === selection.activeRequirementId}
+                onClick={() => selection.onSelectRequirement?.(item.id)}
                 className="flex min-h-[82px] w-full flex-col gap-[6px] rounded-[5px] px-[16px] py-[12px] text-left text-footnote outline-none"
               >
                 <span className="font-sans text-ink3">
@@ -815,7 +921,7 @@ function DiffRequirementMarkerRow({
                 aria-label={tr('chat.composer.diffRequirementRemoveAria', {
                   comment: item.anchor.comment
                 })}
-                className="absolute right-[12px] top-1/2 flex size-[20px] -translate-y-1/2 items-center justify-center rounded-[4px] text-ink3 opacity-0 outline-none group-focus-within/requirement-card:opacity-100 group-hover/requirement-card:opacity-100 hover:text-ink focus-visible:bg-selected-soft"
+                className="absolute right-[12px] top-1/2 flex size-[20px] -translate-y-1/2 items-center justify-center rounded-[4px] text-ink3 opacity-0 outline-none transition-colors group-focus-within/requirement-card:opacity-100 group-hover/requirement-card:opacity-100 hover:text-ink focus-visible:bg-selected-soft"
               >
                 <Icon name="x" size={11} />
               </button>

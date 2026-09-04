@@ -11,6 +11,7 @@ import type {
   Backend,
   EffortLevel,
   DiffRequirementItem,
+  DiffRequirementAnchor,
   GitDiffSummary,
   WorktreeDisplay,
   WorktreePrepareStep,
@@ -30,9 +31,11 @@ import { isRightPanelTileSuspended, type RightPanelTileId } from '../lib/rightPa
 import type { BranchSnapshot } from '../components/composer/branchChipState'
 import {
   reanchorDiffRequirementItem,
+  wireDiffRequirementAnchor,
   diffRequirementMatchesComparison
 } from '../components/rightpanel/diffRequirements'
 import { patchLinesToDiffLines } from '../lib/diffPatchLines'
+import { readGitPatchCache, writeGitPatchCache, type GitPatchCache } from '../lib/gitPatchCache'
 import {
   addTileColumnMajor,
   columnsContain,
@@ -101,6 +104,8 @@ export interface GitSnapshotState {
    * 타일은 조건 렌더라 닫으면 언마운트되므로 로컬에 두면 다시 열 때마다 조회가 난다(D-094).
    */
   patch: GitDiffPatch | null
+  patchCache?: GitPatchCache
+  error?: 'summary' | 'patch' | null
   /** 지금 보고 있는 패치의 비교 범위. 커밋은 첫 부모와 비교한다. */
   comparison: DiffComparison
   /**
@@ -149,6 +154,12 @@ function reanchoredRequirements(
       ? reanchorDiffRequirementItem(item, linesByPath.get(item.anchor.filePath) ?? [])
       : item
   )
+  if (
+    next.every(
+      (item, index) => JSON.stringify(item) === JSON.stringify(state.diffRequirements[index])
+    )
+  )
+    return undefined
   return {
     diffRequirements: next,
     diffRequirementsRevision: state.diffRequirementsRevision + 1
@@ -165,6 +176,39 @@ export interface Message {
   // 턴-시작 사용자 메시지의 낙관 커밋 ↔ main 이벤트(queued/committed) 합류 키(0068) —
   // 값 = clientRequestId(= 큐 아이템 id = echo 배치 ids[0]). 라이브 뷰 전용, DB 미영속.
   clientId?: string
+}
+
+function resetGitReview(
+  state: ChatState
+): Pick<
+  ChatState,
+  | 'gitSnapshot'
+  | 'gitSnapshotRequest'
+  | 'gitRefreshTick'
+  | 'diffRequirements'
+  | 'diffRequirementsRevision'
+  | 'activeDiffRequirementId'
+  | 'diffRequirementSelectionVersion'
+  | 'diffRequirementDraft'
+> {
+  return {
+    gitSnapshot: {
+      ...state.gitSnapshot,
+      summary: null,
+      patch: null,
+      patchCache: [],
+      error: null,
+      comparison: ALL_CHANGES,
+      expandedFiles: []
+    },
+    gitSnapshotRequest: null,
+    gitRefreshTick: 0,
+    diffRequirements: [],
+    diffRequirementsRevision: 0,
+    activeDiffRequirementId: null,
+    diffRequirementSelectionVersion: 0,
+    diffRequirementDraft: null
+  }
 }
 
 export interface ChatState {
@@ -286,9 +330,10 @@ export interface ChatState {
   // (0211 ΔV4 D-094) — 타일은 조건 렌더라 닫으면 언마운트되고 로컬 상태가 소멸한다.
   gitSnapshot: GitSnapshotState
   gitSnapshotRequest: GitSnapshotRequest | null
+  gitRefreshTick: number
   /**
    * 지금까지 관측한 **턴 종료 신호 수** (0211 ΔV6 D-115). 백엔드 Stop hook 이 낸
-   * `turn.ended` 마다 1 오른다 — git 변경 목록 조회의 유일한 계기다.
+   * `turn.ended` 마다 1 오른다 — git 변경 목록의 자동 조회 계기다.
    *
    * `busy` 전이를 쓰지 않는 이유: 그 값은 `result` 메시지가 만드는 파생이라, 사용자가
    * 지목한 "어시스턴트 메시지가 아니라 stop 훅" 을 표현하지 못한다.
@@ -301,6 +346,8 @@ export interface ChatState {
   gitRowClosedAtTick: number | null
   diffRequirements: DiffRequirementItem[]
   diffRequirementsRevision: number
+  activeDiffRequirementId: string | null
+  diffRequirementSelectionVersion: number
   diffRequirementDraft: DiffRequirementDraft | null
   // 우측 작업 타일에서 상세로 표시할 항목 키(`agent:<id>` | `bg:<toolUseId>`, taskBoard 가
   // 소유하는 네임스페이스). null 이면 목록 view.
@@ -403,10 +450,13 @@ export const initialChatState: ChatState = {
     view: DEFAULT_DIFF_VIEW
   },
   gitSnapshotRequest: null,
+  gitRefreshTick: 0,
   turnEndTick: 0,
   gitRowClosedAtTick: null,
   diffRequirements: [],
   diffRequirementsRevision: 0,
+  activeDiffRequirementId: null,
+  diffRequirementSelectionVersion: 0,
   diffRequirementDraft: null,
   selectedTaskKey: null,
   selectedSubagentTaskId: null,
@@ -469,6 +519,7 @@ export type ChatAction =
       text: string
       createdAt?: number
       attachmentViews?: AttachmentView[]
+      requirements?: DiffRequirementAnchor[]
       clientId?: string
     }
   // 낙관 커밋 롤백(0068) — send invoke 자체가 거부됐을 때만(큐 미적재 = echo 도 안 옴).
@@ -530,6 +581,14 @@ export type ChatAction =
       comparison: DiffComparison
     }
   | { type: 'SET_DIFF_COMPARISON'; comparison: DiffComparison }
+  | { type: 'SELECT_DIFF_REQUIREMENT'; id: string | null }
+  | { type: 'REFRESH_GIT_SNAPSHOT' }
+  | {
+      type: 'FAIL_GIT_SNAPSHOT_QUERY'
+      request: GitSnapshotRequest
+      source: 'summary' | 'patch'
+      comparison?: DiffComparison
+    }
   | { type: 'TOGGLE_DIFF_FILE_EXPANDED'; path: string }
   | { type: 'SET_ALL_DIFF_FILES_EXPANDED'; expanded: boolean; paths: readonly string[] }
   // 세그먼트 토글이라 **멱등이어야 한다** (0211 ΔV6 D-117 · §10 EP-51 ②) — 이미 선택된
@@ -623,6 +682,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       if (action.attachmentViews && action.attachmentViews.length > 0) {
         userParts.push({ type: 'attachment', attachments: action.attachmentViews })
       }
+      if (action.requirements?.length) {
+        userParts.push({
+          type: 'diff_requirements',
+          requirements: action.requirements.map(wireDiffRequirementAnchor)
+        })
+      }
       return {
         ...state,
         messages: [
@@ -655,6 +720,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             sessionId: ev.sessionId,
             backend: 'claude',
             cwd: ev.patch.cwd ?? state.cwd,
+            ...(ev.patch.cwd !== undefined && ev.patch.cwd !== state.cwd
+              ? resetGitReview(state)
+              : {}),
             // patch 병합은 **누락 = 기존값 보존**이다(0212 §10 EP-02).
             // `worktree` 는 세 상태를 구분해야 해서(부재 / `null` = 소실 폴백의 삭제 명령 /
             // 객체 = 덮어쓰기) `undefined` 비교가 아니라 **키 유무**로 판정한다(0211 D-022).
@@ -959,18 +1027,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         worktreeBaseRef: null,
         // 저장소가 바뀌면 **패치도 함께 버린다** — 다른 저장소의 본문이 같은 상대 경로로
         // 보이면 사용자는 틀린 diff 를 옳은 것으로 읽는다(0211 ΔV4 §10 EP-34 ②).
-        gitSnapshot: {
-          summary: null,
-          patch: null,
-          comparison: ALL_CHANGES,
-          expandedFiles: [],
-          sidebarVisible: state.gitSnapshot.sidebarVisible,
-          view: state.gitSnapshot.view
-        },
-        gitSnapshotRequest: null,
-        diffRequirements: [],
-        diffRequirementsRevision: 0,
-        diffRequirementDraft: null
+        ...resetGitReview(state)
       }
 
     case 'SET_WORKTREE_ISOLATION':
@@ -1236,18 +1293,73 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       // 줄을 못 찾아도 항목은 남는다(`located:false`) — 위치를 잃은 것과 요구가 없어진 것은 다르다.
       return {
         ...state,
-        gitSnapshot: { ...state.gitSnapshot, patch: action.patch },
+        gitSnapshot: {
+          ...state.gitSnapshot,
+          patch: action.patch,
+          patchCache: writeGitPatchCache(
+            state.gitSnapshot.patchCache ?? [],
+            action.comparison,
+            action.patch
+          ),
+          error: state.gitSnapshot.error === 'patch' ? null : state.gitSnapshot.error
+        },
         ...reanchoredRequirements(state, action.patch)
       }
 
-    case 'SET_DIFF_COMPARISON':
+    case 'SET_DIFF_COMPARISON': {
       if (diffComparisonKey(state.gitSnapshot.comparison) === diffComparisonKey(action.comparison))
         return state
-      return {
+      const cached = readGitPatchCache(state.gitSnapshot.patchCache ?? [], action.comparison)
+      const next = {
         ...state,
-        gitSnapshot: { ...state.gitSnapshot, comparison: action.comparison, patch: null },
+        gitSnapshot: {
+          ...state.gitSnapshot,
+          comparison: action.comparison,
+          patch: cached.patch,
+          patchCache: cached.cache,
+          error: state.gitSnapshot.error === 'summary' ? ('summary' as const) : null
+        },
+        activeDiffRequirementId: null,
         diffRequirementDraft: null
       }
+      return { ...next, ...(cached.patch ? reanchoredRequirements(next, cached.patch) : {}) }
+    }
+
+    case 'SELECT_DIFF_REQUIREMENT': {
+      if (action.id === null) return { ...state, activeDiffRequirementId: null }
+      const item = state.diffRequirements.find((candidate) => candidate.id === action.id)
+      if (!item) return state
+      const comparison: DiffComparison = item.commitSha
+        ? { kind: 'commit', sha: item.commitSha }
+        : ALL_CHANGES
+      const next = chatReducer(state, { type: 'SET_DIFF_COMPARISON', comparison })
+      const expandedFiles = next.gitSnapshot.expandedFiles
+      return {
+        ...next,
+        activeDiffRequirementId: item.id,
+        diffRequirementSelectionVersion: state.diffRequirementSelectionVersion + 1,
+        rightPanelTiles: activateTile(state.rightPanelTiles, 'diff'),
+        gitSnapshot: {
+          ...next.gitSnapshot,
+          expandedFiles: expandedFiles.includes(item.anchor.filePath)
+            ? expandedFiles
+            : [...expandedFiles, item.anchor.filePath]
+        }
+      }
+    }
+
+    case 'REFRESH_GIT_SNAPSHOT':
+      return { ...state, gitRefreshTick: state.gitRefreshTick + 1 }
+
+    case 'FAIL_GIT_SNAPSHOT_QUERY':
+      if (
+        state.gitSnapshotRequest?.key !== action.request.key ||
+        state.gitSnapshotRequest.generation !== action.request.generation ||
+        (action.comparison &&
+          diffComparisonKey(action.comparison) !== diffComparisonKey(state.gitSnapshot.comparison))
+      )
+        return state
+      return { ...state, gitSnapshot: { ...state.gitSnapshot, error: action.source } }
 
     case 'TOGGLE_DIFF_FILE_EXPANDED': {
       const expanded = state.gitSnapshot.expandedFiles
@@ -1304,7 +1416,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           ...state.gitSnapshot,
           summary:
             state.gitSnapshotRequest?.key === action.request.key ? state.gitSnapshot.summary : null,
-          patch: null
+          patch: null,
+          patchCache: [],
+          error: null
         },
         diffRequirementDraft: null,
         gitSnapshotRequest: action.request
@@ -1323,10 +1437,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         diffComparisonKey(comparison) !== diffComparisonKey(state.gitSnapshot.comparison)
       return {
         ...state,
-        ...(changed ? { diffRequirementDraft: null } : {}),
+        ...(changed ? { diffRequirementDraft: null, activeDiffRequirementId: null } : {}),
         gitSnapshot: {
           ...state.gitSnapshot,
           summary: action.summary,
+          error: state.gitSnapshot.error === 'summary' ? null : state.gitSnapshot.error,
           patch: changed ? null : state.gitSnapshot.patch,
           comparison
         }
@@ -1337,6 +1452,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         diffRequirements: [...state.diffRequirements, action.item],
+        activeDiffRequirementId: action.item.id,
+        diffRequirementSelectionVersion: state.diffRequirementSelectionVersion + 1,
         diffRequirementsRevision: state.diffRequirementsRevision + 1,
         diffRequirementDraft: null
       }
@@ -1347,6 +1464,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         diffRequirements: next,
+        activeDiffRequirementId:
+          state.activeDiffRequirementId === action.id ? null : state.activeDiffRequirementId,
         diffRequirementsRevision: state.diffRequirementsRevision + 1
       }
     }
@@ -1356,6 +1475,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         diffRequirementDraft: action.draft,
+        activeDiffRequirementId: action.draft ? null : state.activeDiffRequirementId,
         diffRequirementsRevision: state.diffRequirementsRevision + 1
       }
 
@@ -1373,7 +1493,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         diffRequirements: [],
-        diffRequirementsRevision: state.diffRequirementsRevision + 1
+        diffRequirementsRevision: state.diffRequirementsRevision + 1,
+        activeDiffRequirementId: null
       }
     }
 

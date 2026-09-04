@@ -485,6 +485,7 @@ export type NormalizedEvent =
       id: string
       text: string
       attachmentViews?: AttachmentView[]
+      requirements?: DiffRequirementAnchor[]
       createdAt: number
     }
   // main 내부 커밋 신호(renderer 미전달) — CLI 가 stdin 주입 입력을 흡수해 user 메시지로 echo 한
@@ -497,6 +498,7 @@ export type NormalizedEvent =
       ids: string[]
       text: string
       attachmentViews?: AttachmentView[]
+      requirements?: DiffRequirementAnchor[]
       messageId: number
       createdAt: number
     }
@@ -1368,6 +1370,8 @@ export type AppMessagePart =
   | { type: 'error'; error: unknown }
   // 컴포저 첨부(user 턴) — 트랜스크립트 버블에 썸네일로 렌더하고 DB 에 영속한다.
   | { type: 'attachment'; attachments: AttachmentView[] }
+  // 전송한 diff 코멘트의 불변 스냅샷. 파일 첨부와 별도로 표시하고 재로드에도 보존한다.
+  | { type: 'diff_requirements'; requirements: DiffRequirementAnchor[] }
   // 압축 경계 마커(0064 handoff) — session.compacted 를 영속해 재로드 후에도 경계를 표시한다.
   | {
       type: 'compact_boundary'

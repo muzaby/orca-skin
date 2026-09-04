@@ -51,6 +51,21 @@ afterEach(async () => {
 })
 
 describe('Git 이름 메뉴 서비스와 비가용 상태 (VP-92)', () => {
+  it.each([
+    ['loading', '원격 저장소 확인 중…'],
+    ['error', '원격 주소 조회에 실패했습니다. 메뉴를 다시 열어 주세요.']
+  ] as const)(
+    '원격 %s 상태는 부재와 구분하고 브랜치 복사는 유지한다',
+    async (remotePhase, reason) => {
+      const { $ } = render({ remotePhase })
+      expect($('[role="menuitem"][disabled]').text()).toContain(reason)
+      expect($('[role="menuitem"]').first().attr('disabled')).toBeUndefined()
+      await invoke(1)
+      expect(window.open).not.toHaveBeenCalled()
+      await invoke(0)
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(branch)
+    }
+  )
   it('저장소 메뉴는 한 항목으로 실제 GitHub 저장소를 연 뒤 닫는다', async () => {
     const { $, props } = render({ kind: 'repo' })
     expect(
@@ -95,7 +110,7 @@ describe('Git 이름 메뉴 서비스와 비가용 상태 (VP-92)', () => {
       const { $ } = render({ kind, githubUrl: null })
       const disabled = $('[role="menuitem"][disabled]')
       expect(disabled).toHaveLength(1)
-      expect(disabled.text()).toContain('GitHub 원격 저장소가 없습니다')
+      expect(disabled.text()).toContain('origin의 GitHub 주소를 확인할 수 없습니다')
       await invoke(kind === 'repo' ? 0 : 1)
       expect(window.open).not.toHaveBeenCalled()
       if (kind === 'branch') expect($('[role="menuitem"]').first().attr('disabled')).toBeUndefined()
@@ -134,7 +149,7 @@ describe('Git 이름 메뉴 서비스와 비가용 상태 (VP-92)', () => {
     const { $ } = render({ githubUrl: null, copyFailed: true })
     expect($.text()).toContain('Copy branch name')
     expect($.text()).toContain('Open branch on GitHub')
-    expect($.text()).toContain('No GitHub remote is available')
+    expect($.text()).toContain('Could not resolve a GitHub URL for origin')
     expect($('[role="alert"]').text()).toContain('Could not copy the branch name')
   })
 })

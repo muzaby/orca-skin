@@ -3,14 +3,14 @@
 // **집합 동등으로 센다.** 항목을 하나씩 확인하면 하나를 지운 변이가 나머지 여섯으로 통과한다
 // (AT-35 와 같은 축) — 배열 자체를 비교해야 누락과 순서 변경이 함께 red 다.
 //
-// ΔV4 의 여덟에서 `새로고침` 이 빠졌다 — D-099 가 수동 계기를 없앴다.
+// ΔV13: 마지막 수동 새로 고침을 포함해 순서를 확인한다.
 
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_DIFF_VIEW, type DiffViewOptions } from '../../reducer/chatReducer'
 import { DIFF_VIEW_MENU_ITEMS, diffViewMenuChecked } from './diffViewMenuItems'
 
 describe('메뉴 항목 목록', () => {
-  it('일곱 항목이 그 순서 그대로다 — `새로고침` 이 없다', () => {
+  it('마지막 항목은 새로 고침이다', () => {
     expect(DIFF_VIEW_MENU_ITEMS.map((item) => item.id)).toEqual([
       'files',
       'collapse-all',
@@ -18,7 +18,8 @@ describe('메뉴 항목 목록', () => {
       'side-by-side',
       'wrap',
       'highlight',
-      'whitespace'
+      'whitespace',
+      'refresh'
     ])
   })
 

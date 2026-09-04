@@ -9,7 +9,8 @@ vi.mock('electron', () => ({
 
 import { HistoryWriter } from './writer'
 import { DbQueries } from '../../infra/db/queries'
-import type { AttachmentView, NormalizedEvent } from '../../../shared/ipc'
+import type { AttachmentView, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
+import { partFromRow } from '../../infra/ipc/dto'
 import type { TurnContext } from '../../contracts/turn'
 import { applyMigrations } from '../../infra/db/migrate'
 
@@ -41,6 +42,53 @@ const fileView: AttachmentView = {
 }
 
 describe('HistoryWriter.persistUserMessage — 첨부 영속', () => {
+  it('committed requirements survive real message_parts storage and the session-load parser', () => {
+    const db = new Database(':memory:')
+    try {
+      applyMigrations(db)
+      db.prepare(
+        "INSERT INTO sessions (id, backend, created_at, updated_at) VALUES ('s1', 'claude', 1, 1)"
+      ).run()
+      const queries = new DbQueries(db)
+      const writer = new HistoryWriter(queries)
+      const requirements: DiffRequirementAnchor[] = [
+        {
+          sessionId: 's1',
+          baselineCommit: 'base',
+          filePath: 'src/a.ts',
+          oldLine: null,
+          newLine: 7,
+          hunkHeader: '@@ -1 +1,7 @@',
+          contextBefore: ['before'],
+          contextAfter: [],
+          comment: '첫 줄\n두 번째 줄 <tag>',
+          createdAt: 1
+        }
+      ]
+      const turn = {
+        dbSessionId: 's1',
+        currentAssistantMessageId: null,
+        assistantText: '',
+        providerKey: null
+      } as unknown as TurnContext
+      writer.commitUserMessage(turn, {
+        text: 'apply',
+        createdAt: 2,
+        attachmentViews: [fileView],
+        requirements
+      })
+      const parts = queries.loadParts('s1').map(partFromRow)
+      expect(parts).toEqual([
+        { type: 'text', text: 'apply' },
+        { type: 'attachment', attachments: [fileView] },
+        { type: 'diff_requirements', requirements }
+      ])
+      expect(queries.getSessionById('s1')?.last_message_preview).toBe('apply')
+    } finally {
+      db.close()
+    }
+  })
+
   it('첨부가 있으면 text 파트 + attachment 파트를 같은 메시지에 append 한다', () => {
     const { persistence, appendMessage, appendPart } = makePersistence()
     persistence.persistUserMessage('s1', '이거 봐', 100, [imageView, fileView])

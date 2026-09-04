@@ -132,6 +132,31 @@ export function buildDiffHunks(lines: readonly DiffLine[], context: number): Dif
   return withDerivedHunks(lines, rows)
 }
 
+/** 선택 줄 주변만 드러낸다. 큰 gap 전체를 열거나 기존 행 키를 바꾸지 않는다. */
+export function revealDiffHunkLine(
+  state: DiffHunkState,
+  sourceIndex: number,
+  context: number
+): DiffHunkState {
+  const gapIndex = state.rows.findIndex(
+    (row) => row.kind === 'gap' && row.start <= sourceIndex && sourceIndex < row.end
+  )
+  const gap = state.rows[gapIndex]
+  if (!gap || gap.kind !== 'gap') return state
+  const safeContext = Math.max(0, Math.floor(context))
+  const from = Math.max(gap.start, sourceIndex - safeContext)
+  const to = Math.min(gap.end, sourceIndex + safeContext + 1)
+  const replacement: DiffHunkRow[] = []
+  if (gap.start < from) replacement.push(gapRow(gap.start, from))
+  for (let index = from; index < to; index += 1) replacement.push(lineRow(state.lines, index))
+  if (to < gap.end) replacement.push(gapRow(to, gap.end))
+  return withDerivedHunks(state.lines, [
+    ...state.rows.slice(0, gapIndex),
+    ...replacement,
+    ...state.rows.slice(gapIndex + 1)
+  ])
+}
+
 /**
  * gap 을 **한 방향으로** n행 확장한다 (0211 ΔV4 D-090).
  *

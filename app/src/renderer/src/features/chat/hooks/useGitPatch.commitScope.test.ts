@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GitDiffPatch } from '../../../../../shared/ipc'
-import { initialChatState, type ChatState } from '../reducer/chatReducer'
+import { chatReducer, initialChatState, type ChatState } from '../reducer/chatReducer'
 
 const h = vi.hoisted(() => ({
   state: null as unknown as ChatState,
@@ -60,6 +60,34 @@ beforeEach(() => {
   h.receive.mockReset()
 })
 describe('실제 useGitPatch 비교 범위 배선', () => {
+  it('completed A→B→A and reopen reuse reducer cache; a new generation fetches again', async () => {
+    h.receive.mockImplementation((request, patch, comparison) => {
+      h.state = chatReducer(h.state, { type: 'RECEIVE_GIT_PATCH', request, patch, comparison })
+    })
+    h.diffPatch.mockResolvedValue(patch)
+    let cleanup: () => void = () => {}
+    for (const sha of [A, B, A]) {
+      cleanup()
+      h.state = chatReducer(h.state, {
+        type: 'SET_DIFF_COMPARISON',
+        comparison: { kind: 'commit', sha }
+      })
+      cleanup = HookProbe()
+      await Promise.resolve()
+    }
+    expect(h.diffPatch).toHaveBeenCalledTimes(2)
+    expect(h.state.gitSnapshot.patch).toBe(patch)
+    cleanup()
+    h.ref = null
+    HookProbe()()
+    expect(h.diffPatch).toHaveBeenCalledTimes(2)
+    h.state = chatReducer(h.state, {
+      type: 'BEGIN_GIT_SNAPSHOT_QUERY',
+      request: { ...request, generation: 2 }
+    })
+    HookProbe()
+    expect(h.diffPatch).toHaveBeenCalledTimes(3)
+  })
   it('선택한 SHA를 IPC로 보내고 이전 범위의 늦은 응답은 dispatch하지 않는다', async () => {
     const a = deferred()
     const b = deferred()

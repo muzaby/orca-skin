@@ -24,6 +24,7 @@ import { GitIdentityMenus } from './GitIdentityMenus'
 // 말하지 않고 누를 수 없으므로 D-005 의 네 금지에 걸리지 않는다.
 
 interface GitRowViewProps {
+  cwd?: string | null
   view: GitRowView
   diffOpen: boolean
   onToggleDiff: () => void
@@ -31,6 +32,7 @@ interface GitRowViewProps {
 }
 
 export function GitRowView({
+  cwd,
   view,
   diffOpen,
   onToggleDiff,
@@ -51,6 +53,7 @@ export function GitRowView({
       {/* 좌측 = 식별. `flex-1 min-w-0` 이 남는 공간을 먹고 그 안에서 브랜치가 먼저 줄어든다.
           저장소와 브랜치는 **같은 톤**이다 — 참조 실측에서 둘 다 #868681 한 단계였다. */}
       <GitIdentityMenus
+        cwd={cwd}
         key={JSON.stringify([view.repo, view.branch, view.detached, view.githubUrl ?? null])}
         repo={view.repo}
         branch={view.branch}
@@ -131,6 +134,7 @@ export function GitRow({ cwd, sessionStarted }: GitRowProps): React.JSX.Element 
   )
   return (
     <GitRowView
+      cwd={cwd}
       key={JSON.stringify([sessionId, cwd])}
       view={view}
       diffOpen={columnsContain(tiles, 'diff')}

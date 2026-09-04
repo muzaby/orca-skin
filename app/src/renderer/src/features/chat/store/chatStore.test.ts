@@ -548,6 +548,68 @@ describe('chatStore — diff 요구사항 전송 스냅샷', () => {
     ])
     expect(payload.requirements![0]).not.toHaveProperty('located')
     expect(payload.requirements![0]).not.toHaveProperty('extra')
+    expect(entry().session.messages.at(-1)?.parts).toContainEqual({
+      type: 'diff_requirements',
+      requirements: [requirement('req-1').anchor]
+    })
+  })
+
+  it('selection opens the matching scope/file without invalidating the submitted snapshot', () => {
+    const item = { ...requirement('selected'), commitSha: 'commit-a' }
+    chatActions.addDiffRequirement(item)
+    const snapshot = chatActions.captureDiffRequirementSnapshot()
+    chatActions.selectDiffRequirement(item.id)
+    expect(entry().session.activeDiffRequirementId).toBe(item.id)
+    expect(entry().session.gitSnapshot.comparison).toEqual({ kind: 'commit', sha: 'commit-a' })
+    expect(entry().session.gitSnapshot.expandedFiles).toContain(item.anchor.filePath)
+    expect(entry().session.rightPanelTiles.some((column) => column.tiles.includes('diff'))).toBe(
+      true
+    )
+    const version = entry().session.diffRequirementSelectionVersion
+    chatActions.selectDiffRequirement(item.id)
+    expect(entry().session.diffRequirementSelectionVersion).toBe(version + 1)
+    expect(entry().session.diffRequirementsRevision).toBe(snapshot.revision)
+    chatActions.clearDiffRequirementsIfUnchanged(snapshot)
+    expect(entry().session.activeDiffRequirementId).toBeNull()
+    expect(entry().session.diffRequirements).toEqual([])
+  })
+
+  it('pending and committed events preserve sent comments and deduplicate the bubble', () => {
+    const anchor = requirement('sent').anchor
+    ingestChatEvent({
+      type: 'message.queued',
+      sessionId: 's',
+      id: 'queued',
+      text: 'fix',
+      createdAt: 1,
+      requirements: [anchor]
+    })
+    expect(useChatStore.getState().sessions.s.pendingSteer?.[0].requirements).toEqual([anchor])
+    ingestChatEvent({
+      type: 'message.committed',
+      sessionId: 's',
+      ids: ['queued'],
+      text: 'fix',
+      createdAt: 1,
+      messageId: 1,
+      requirements: [anchor]
+    })
+    expect(useChatStore.getState().sessions.s.pendingSteer).toEqual([])
+    expect(entry().session.messages.at(-1)?.parts).toContainEqual({
+      type: 'diff_requirements',
+      requirements: [anchor]
+    })
+    const count = entry().session.messages.length
+    ingestChatEvent({
+      type: 'message.committed',
+      sessionId: 's',
+      ids: ['queued'],
+      text: 'fix',
+      createdAt: 1,
+      messageId: 1,
+      requirements: [anchor]
+    })
+    expect(entry().session.messages).toHaveLength(count)
   })
 
   it('async submit 뒤 active session이 바뀌었으면 이전 session anchor 전송을 거부한다', () => {

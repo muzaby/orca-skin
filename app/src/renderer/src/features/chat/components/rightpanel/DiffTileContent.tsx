@@ -17,6 +17,7 @@ export function DiffTileContent(): React.JSX.Element {
   useGitPatch()
   const summary = useChatSession((state) => state.gitSnapshot.summary)
   const patch = useChatSession((state) => state.gitSnapshot.patch)
+  const error = useChatSession((state) => state.gitSnapshot.error)
   const request = useChatSession((state) => state.gitSnapshotRequest)
   const comparison = useChatSession((state) => state.gitSnapshot.comparison)
   const expandedFiles = useChatSession((state) => state.gitSnapshot.expandedFiles)
@@ -26,6 +27,8 @@ export function DiffTileContent(): React.JSX.Element {
   const cwd = useChatSession((state) => state.cwd)
   const requirements = useChatSession((state) => state.diffRequirements)
   const draft = useChatSession((state) => state.diffRequirementDraft)
+  const activeRequirementId = useChatSession((state) => state.activeDiffRequirementId)
+  const selectionVersion = useChatSession((state) => state.diffRequirementSelectionVersion)
 
   const onAddRequirement = useCallback(
     ({
@@ -79,6 +82,8 @@ export function DiffTileContent(): React.JSX.Element {
       summary={summary}
       patch={patch}
       hasRequest={request !== null}
+      error={error}
+      onRefresh={chatActions.refreshGitSnapshot}
       comparison={comparison}
       expandedFiles={new Set(expandedFiles)}
       sidebarVisible={sidebarVisible}
@@ -87,6 +92,9 @@ export function DiffTileContent(): React.JSX.Element {
         diffRequirementMatchesComparison(item, comparison)
       )}
       draft={draft}
+      activeRequirementId={activeRequirementId}
+      selectionVersion={selectionVersion}
+      onSelectRequirement={chatActions.selectDiffRequirement}
       onToggleExpanded={chatActions.toggleDiffFileExpanded}
       onExpandFile={expandFile}
       onOpenFile={openFile}

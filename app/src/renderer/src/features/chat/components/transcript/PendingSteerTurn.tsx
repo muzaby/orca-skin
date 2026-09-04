@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { chatActions, type PendingSteerState } from '../../store/chatStore'
 import { useI18n } from '../../../../shared/i18n'
 import { UserBubbleText } from '../UserBubbleText'
+import { UserDiffRequirements } from './UserDiffRequirements'
 
 interface PendingSteerTurnProps {
   items: PendingSteerState[]
@@ -39,13 +40,20 @@ export const PendingSteerTurn = memo(function PendingSteerTurn({
               {tr('common.cancel')}
             </button>
           )}
-          <UserBubbleText
-            data-state={item.submitted ? 'submitted-steer' : 'pending-steer'}
-            className="rounded-r6 bg-bubble-user px-p7 py-p5 text-body italic text-ink3"
-            title={item.text}
-          >
-            {item.text}
-          </UserBubbleText>
+          <div className="flex min-w-0 flex-col items-end gap-1.5">
+            {item.requirements && item.requirements.length > 0 && (
+              <div className="flex flex-wrap justify-end gap-2">
+                <UserDiffRequirements requirements={item.requirements} />
+              </div>
+            )}
+            <UserBubbleText
+              data-state={item.submitted ? 'submitted-steer' : 'pending-steer'}
+              className="rounded-r6 bg-bubble-user px-p7 py-p5 text-body italic text-ink3"
+              title={item.text}
+            >
+              {item.text}
+            </UserBubbleText>
+          </div>
         </div>
       ))}
     </div>

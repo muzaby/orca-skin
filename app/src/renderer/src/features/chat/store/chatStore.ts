@@ -69,6 +69,7 @@ export interface LiveTurnState {
 // 진행 중 표시 값. reducer 미경유 transient(메인 transcript 파트 비오염), toolUseId 키.
 // 영속/재로드 복원은 부모 Task tool_result.subagentMeta 가 담당.
 export interface PendingSteerState {
+  requirements?: DiffRequirementAnchor[]
   id: string
   text: string
   createdAt: number
@@ -514,9 +515,28 @@ function receive(ev: NormalizedEvent): void {
       patchPendingSteer(key, (pending) =>
         pending.some((item) => item.id === ev.id)
           ? pending.map((item) =>
-              item.id === ev.id ? { id: ev.id, text: ev.text, createdAt: ev.createdAt } : item
+              item.id === ev.id
+                ? {
+                    ...item,
+                    text: ev.text,
+                    createdAt: ev.createdAt,
+                    ...(ev.requirements
+                      ? { requirements: ev.requirements.map(wireDiffRequirementAnchor) }
+                      : {})
+                  }
+                : item
             )
-          : [...pending, { id: ev.id, text: ev.text, createdAt: ev.createdAt }]
+          : [
+              ...pending,
+              {
+                id: ev.id,
+                text: ev.text,
+                createdAt: ev.createdAt,
+                ...(ev.requirements
+                  ? { requirements: ev.requirements.map(wireDiffRequirementAnchor) }
+                  : {})
+              }
+            ]
       )
       return
 
@@ -532,6 +552,7 @@ function receive(ev: NormalizedEvent): void {
         text: ev.text,
         createdAt: ev.createdAt,
         clientId: ev.ids[0],
+        requirements: ev.requirements,
         ...(ev.attachmentViews ? { attachmentViews: ev.attachmentViews } : {})
       })
       return
@@ -708,6 +729,7 @@ function send(
           type: 'APPEND_COMMITTED_USER_MESSAGE',
           text: trimmed,
           clientId: requestId,
+          requirements,
           ...(attachmentViews.length > 0 ? { attachmentViews: [...attachmentViews] } : {})
         }),
         live: EMPTY_LIVE,
@@ -777,13 +799,19 @@ function send(
       type: 'APPEND_COMMITTED_USER_MESSAGE',
       text: trimmed,
       clientId: requestId,
+      requirements,
       ...(attachmentViews.length > 0 ? { attachmentViews: [...attachmentViews] } : {})
     })
   } else {
     // 예약(steer) — pending 항목(연회색/기울임)으로 시작, 진행 중 턴 상태는 불변.
     patchPendingSteer(sendKey, (pending) => [
       ...pending,
-      { id: requestId, text: trimmed, createdAt: Date.now() }
+      {
+        id: requestId,
+        text: trimmed,
+        createdAt: Date.now(),
+        requirements: requirements.map(wireDiffRequirementAnchor)
+      }
     ])
   }
   // fire-and-forget — 정상 턴 에러는 main 이 chat:error 이벤트로 surface 한다. invoke 자체가
@@ -1368,6 +1396,14 @@ export const chatActions = {
   ): void => dispatchActive({ type: 'RECEIVE_GIT_PATCH', request, patch, comparison }),
   setDiffComparison: (comparison: DiffComparison): void =>
     dispatchActive({ type: 'SET_DIFF_COMPARISON', comparison }),
+  selectDiffRequirement: (id: string | null): void =>
+    dispatchActive({ type: 'SELECT_DIFF_REQUIREMENT', id }),
+  refreshGitSnapshot: (): void => dispatchActive({ type: 'REFRESH_GIT_SNAPSHOT' }),
+  failGitSnapshotQuery: (
+    request: GitSnapshotRequest,
+    source: 'summary' | 'patch',
+    comparison?: DiffComparison
+  ): void => dispatchActive({ type: 'FAIL_GIT_SNAPSHOT_QUERY', request, source, comparison }),
   toggleDiffFileExpanded: (path: string): void =>
     dispatchActive({ type: 'TOGGLE_DIFF_FILE_EXPANDED', path }),
   setAllDiffFilesExpanded: (expanded: boolean, paths: readonly string[]): void =>
