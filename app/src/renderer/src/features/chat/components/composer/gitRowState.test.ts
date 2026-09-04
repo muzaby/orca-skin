@@ -45,8 +45,7 @@ describe('저장소 이름은 git 루트에서 읽는다 (AT-09)', () => {
       repo: null,
       branch: 'feat/x',
       detached: false,
-      added: 0,
-      removed: 0
+      totals: null
     })
   })
 })
@@ -55,14 +54,14 @@ describe('저장소 이름은 git 루트에서 읽는다 (AT-09)', () => {
 describe('변경량은 diff 요약 합계에서 읽는다 (AT-18 · EP-12)', () => {
   const totals = (added: number, removed: number): GitDiffTotals => ({ added, removed })
 
-  it('요약이 아직 없으면 0/0 이다 — 도착 전과 변경 없음을 구분하지 않는다', () => {
+  it('요약 준비 전은 null을 유지해 실제 변경 없음과 구분한다', () => {
     const view = gitRowView(true, '/repo', repo(), null, null)
-    expect(view.visible && [view.added, view.removed]).toEqual([0, 0])
+    expect(view.visible && view.totals).toBeNull()
   })
 
   it('양성 짝 — 요약 합계를 그대로 읽는다', () => {
     const view = gitRowView(true, '/repo', repo(), null, totals(7, 2))
-    expect(view.visible && [view.added, view.removed]).toEqual([7, 2])
+    expect(view.visible && view.totals).toEqual({ added: 7, removed: 2 })
   })
 
   it('브랜치·저장소 이름은 여전히 status 에서 온다 — 두 출처가 각자 자리를 지킨다', () => {

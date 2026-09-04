@@ -14,8 +14,8 @@ export type GitRowView =
       repo: string | null
       branch: string | null
       detached: boolean
-      added: number
-      removed: number
+      // null은 요약 준비 전이다. 실제 변경 없음은 0/0 합계 객체로 구분한다.
+      totals: GitDiffTotals | null
     }
 
 // 저장소 이름은 **git 루트**에서 읽는다 — 작업 경로가 하위 폴더면
@@ -34,8 +34,8 @@ export function repoNameFromRoot(root: string | null): string | null {
 // 저장소다. 저장소가 아니면 자리조차 잡지 않는다 — 누를 것이 없는 버튼을 두지 않는다는
 // 0201 D-002 를 같은 이유로 승계한다.
 //
-// `totals: null` 은 **요약 도착 전과 변경 없음 둘 다**이고, 행은 그 축을 갖지 않으므로
-// 0/0 으로 접는다(0206 §10 선택적 필드 의미).
+// 요약 준비 전에는 저장소·브랜치만 표시하고 변경량 버튼은 숨긴다.
+// 준비된 0/0과 구분할 수 있도록 totals의 null을 그대로 전달한다.
 export function gitRowView(
   sessionStarted: boolean,
   cwd: string | null,
@@ -60,8 +60,7 @@ export function gitRowView(
     repo: repoDisplayName(status.root, worktree),
     branch: status.branch,
     detached: status.detached,
-    added: totals?.added ?? 0,
-    removed: totals?.removed ?? 0
+    totals
   }
 }
 

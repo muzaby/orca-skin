@@ -23,8 +23,7 @@ const VISIBLE: View = {
   repo: 'orca-skin',
   branch: 'claude/0206-composer-git-row',
   detached: false,
-  added: 1097,
-  removed: 24
+  totals: { added: 1097, removed: 24 }
 }
 
 // 루트 엘리먼트의 클래스 토큰. 문자열 `includes` 로 보면 `bg-bg2` 가 `bg-bg22` 에도

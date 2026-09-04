@@ -18,8 +18,7 @@ const VISIBLE: View = {
   repo: 'orca-skin',
   branch: 'claude/0206-composer-git-row',
   detached: false,
-  added: 1097,
-  removed: 24
+  totals: { added: 1097, removed: 24 }
 }
 
 const render = (view: View, diffOpen = false): string =>

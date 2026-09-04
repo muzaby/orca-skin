@@ -54,6 +54,7 @@ interface SessionEntry {
 
 | 경계 | 현재 동작 | 구현 위치 |
 |---|---|---|
+| composer diff 진입 | 현재 세션 요약이 없으면 변경량 버튼을 숨기고 저장소·브랜치·행 닫기를 유지한다. 요약이 준비되면 실제 0/0을 포함한 합계로 버튼을 표시한다. | `components/composer/GitRow.tsx`·`gitRowState.ts` |
 | 패치 조회·재사용 | 열린 변경사항 타일의 `useGitPatch`가 조회를 소유한다. 세션 키·저장소 좌표·요약 세대·비교 범위를 요청 키로 묶고 같은 키의 진행 중 조회를 중복 실행하지 않는다. 현재 범위의 패치만 보관하므로 같은 좌표·세대·범위에서 타일을 다시 열면 재사용한다. | `features/chat/hooks/useGitPatch.ts` |
 | 비교 범위 변경 | 다른 범위를 고르면 패치와 작성 중 댓글을 즉시 비운다. 같은 범위를 다시 고르는 것은 상태를 바꾸지 않는다. | `chatReducer.ts`의 `SET_DIFF_COMPARISON` |
 | 조회 세대 변경 | 새 좌표 또는 새 세대가 시작되면 기존 패치와 작성 중 댓글을 무효화한다. 같은 좌표·세대의 시작 알림은 멱등이다. | `chatReducer.ts`의 `BEGIN_GIT_SNAPSHOT_QUERY` |

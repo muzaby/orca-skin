@@ -39,8 +39,7 @@ describe('Composer requirements SSR order', () => {
             repo: 'orca-skin',
             branch: 'main',
             detached: false,
-            added: 1,
-            removed: 0
+            totals: { added: 1, removed: 0 }
           },
           diffOpen: false,
           onToggleDiff: () => undefined,
