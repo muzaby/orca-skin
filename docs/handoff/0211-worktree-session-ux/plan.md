@@ -8,11 +8,46 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) · 2026-09-02 (ΔV3 · ΔV4) · 2026-09-03 (ΔV5 · ΔV6) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) + git 우측 패널 재설계 제안서 (Git Review Surface) + 싱크 계기 축소 · 첨부 GUI 재대조 · 로딩 교착 회귀 + 커밋 전용 범위 · Stop hook 싱크 · 컴포저 닫기 · 참조 GUI 3차 재대조 |
-| 상태 | IN_PROGRESS (ΔV13 구현 완료; 기존 ΔV6 차단 유지, 라운드 3) |
+| 상태 | READY (ΔV14 설계 확정; 기존 ΔV6 차단 유지, 라운드 3) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) · `V1 + ΔV1 + ΔV2` @ `d23c5be` (ΔV3 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3` @ `46047ac` (ΔV4 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` @ `177def67` (ΔV5 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` @ `628123bc` (ΔV6 의 기준) |
-| 이번 V revision | `ΔV13` (동일 라운드 3, 사용자 후속 입력) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10 + ΔV11 + ΔV12 + ΔV13` |
+| 이번 V revision | `ΔV14` (동일 라운드 3, 사용자 Enterprise 호스트 요청) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10 + ΔV11 + ΔV12 + ΔV13 + ΔV14` |
+
+## ΔV14 — 사내 GitHub hostname 포함 판정 (2026-09-04, 라운드 3 유지)
+
+### Product & UX Contract / Decision Ledger
+
+사용자 요청: “이것은 사내망에서 엔터프라이즈로 활용하는 경우를 고려하지 않았다. 포함관계로 변경해야 한다”. 기준은 ΔV13이며 hostname에 `github`가 포함된 사내 원격을 메뉴에서 열 수 있게 한다.
+
+| ID | 결정 | 상태 / 대체 |
+|---|---|---|
+| D-151 | 파싱한 hostname을 소문자로 바꿔 `github` 포함 여부로 판정한다. HTTPS·SCP·SSH 모두 실제 hostname의 HTTPS 저장소 주소를 반환한다. origin 선택, 기존 프로토콜/포트/경로 검사와 자격증명·query·fragment 제거는 유지한다. | ACTIVE · D-140의 github.com 고정 및 D-150의 github.com 한정 절을 SUPERSEDED. 그 밖의 절은 상속. |
+
+메뉴 열기→현재 cwd의 origin 조회→정규화된 사내 주소→기존 저장소/브랜치 열기 흐름이다. 조회 중·실패·미지원 상태와 메뉴 재열기 정책은 D-150을 상속한다. 이 판정은 hostname 문자열에 대한 휴리스틱이며 서버 제품 조회를 추가하지 않는다; 임의 호스트 설정·SSH 별칭 해석·새 포트 정책은 변경하지 않는다.
+
+### AC / V 차분
+
+| AC / 노드 | 사용자 결과 / 직접 oracle |
+|---|---|
+| AT-100 / R-93 (NEW) | `https://github.company.com/owner/repo.git` 및 같은 서버의 SCP/SSH origin이 `https://github.company.com/owner/repo`로 전달된다. 공개 GitHub, 대소문자와 자격증명 제거 및 비지원 원격 회귀도 확인한다. |
+| UT-38 / MD-38 (NEW) | URL hostname과 SCP host에 같은 포함 판정을 적용하고 반환 hostname을 보존한다. host가 아닌 사용자명·경로에만 github가 있는 원격은 지원 대상으로 보지 않는다. |
+| AR-43↔IT-43 / R-92↔AT-99 (INHERITED) | 기존 원격 조회 경로에서 enterprise origin 변경 후 GitStatus에 새 주소가 도달하며 worktree도 같은 설정을 읽는다. |
+
+| pair | requiredness / 경로 / 강제 지점 |
+|---|---|
+| VP-101 | NEW / REQUIRED — R-93↔AT-100, MD-38↔UT-38: origin 문자열→URL/SCP 분해→hostname 포함 판정→정규화 URL. EP-75; literal 기대 주소와 null 직접 단언. |
+| VP-100 | INHERITED / REGRESSION (ΔV13) — origin 로컬 설정→gitStatus→GitStatus.githubUrl→기존 메뉴 서비스. EP-64/EP-74 중 원격 운반·실행 경로: 실제 Git fixture의 URL과 기존 메뉴 서비스 테스트를 확인한다. |
+
+### Technical Design / §10
+
+현재 `github-url.ts`는 SCP 정규식·URL hostname 검사·반환 주소에서 github.com을 고정한다. SCP host/path를 추출하고 URL 분기와 공통 hostname 검사를 거친 후 해당 hostname으로 HTTPS 주소를 조립한다. 신규 IPC/타입/의존성/저장 변경은 없으며 `IPC_CONTRACT.md`의 주소 의미를 동기화한다.
+
+| EP | 대상 / N | 실패 의미 / 증거 |
+|---|---|---|
+| EP-75 | githubRepositoryUrl의 SCP host 추출·URL host 추출·공통 판정/주소 조립 / 3 | 기업 원격을 null로 만들거나 공개 GitHub로 보내는 실패. URL 단위 테스트와 gitStatus의 실제 원격 설정/변경 직접 단언. |
+
+운영 gate: 관련 URL/Git CLI/메뉴 테스트, typecheck 3구성, 읽기 전용 lint, 변경 소스 prettier, 문서 generated/prose/links, diff check. 직접 반환값 oracle이므로 별도 mutation은 선택하지 않는다. READY 대조: D-151↔AT-100/UT-38 충돌 0; D-140/D-150의 대체 절을 표시했고 SCP·URL·출력 세 지점과 기존 메뉴 소비 경로를 코드에서 확인했다. 기존 ΔV6 차단은 이번 AC 분모와 별도다.
 
 ## ΔV13 — 커밋 캐시·코멘트 참조·전송 첨부·수동 새로 고침 (2026-09-04, 라운드 3 유지)
 
@@ -74,7 +109,7 @@
 
 | ID | 결정 / 확인 경로 |
 |---|---|
-| D-150 | 저장소·브랜치 메뉴를 열 때 현재 cwd의 Git 상태를 새로 조회한다. 이전에 비어 있던 URL로 부재를 단정하지 않고 조회 중·조회 실패·GitHub 주소 미확인을 구분한다. 응답은 같은 메뉴 열기/cwd에만 반영한다. 브랜치 복사는 독립적으로 유지하며 원격 열기는 확인된 URL만 사용한다. raw 원격/자격증명은 renderer에 보내지 않고 기존 origin/github.com 범위는 유지한다. |
+| D-150 | 저장소·브랜치 메뉴를 열 때 현재 cwd의 Git 상태를 새로 조회한다. 이전에 비어 있던 URL로 부재를 단정하지 않고 조회 중·조회 실패·GitHub 주소 미확인을 구분한다. 응답은 같은 메뉴 열기/cwd에만 반영한다. 브랜치 복사는 독립적으로 유지하며 원격 열기는 확인된 URL만 사용한다. raw 원격/자격증명은 renderer에 보내지 않고 origin을 사용한다. github.com 한정 절만 D-151로 SUPERSEDED, 나머지는 ACTIVE. |
 | R-92 / AT-99 | 이전 snapshot URL이 null이어도 실제 origin이 있으면 클릭 후 GitHub 열기가 활성화된다. 재열기와 cwd 변경은 새 응답을 사용하고 늦은 응답은 이전 메뉴를 되살리지 않는다. 지원 주소를 확인하지 못한 경우 ‘원격이 없다’고 단정하지 않는다. |
 | VP-100 | NEW / REQUIRED — R-92↔AT-99, AR-43↔IT-43: GitRow cwd 전달→메뉴 열기→Git 상태 조회 hook→정규화 URL/상태 표시→실제 메뉴 동작. 기존 Git parser/CLI 원격 회귀와 브라우저 stale-null→fresh-url을 확인한다. |
 | EP-74 | cwd prop 전달·메뉴 수명 query/cancel·상태별 표시와 URL 실행 / 3. snapshot 누락을 부재로 오표시하거나 이전 경로로 여는 것이 실패다. |
@@ -224,11 +259,11 @@ D-143~D-145 구현 완료. BranchChip의 현재 cwd Git 가시성 guard 이후�
 | ID | 결정 | 대체 / 상태 |
 |---|---|---|
 | D-139 | composer Git 행의 저장소·브랜치 이름은 각각 팝업 버튼이다. 저장소 메뉴 1항목, 브랜치 메뉴 2항목을 이미지의 순서·텍스트로 제공한다. | ACTIVE · 0206 D-006 표시 전용 절 대체; 브랜치 전환 금지는 상속 |
-| D-140 | 현재 cwd 저장소의 origin에서 GitHub 웹 주소를 얻는다. HTTPS·SSH 원격 형식을 https://github.com/owner/repo로 정규화하고 자격증명·.git·query/fragment를 전달하지 않는다. GitHub가 아닌 원격 또는 origin 없음은 URL 없음으로 처리한다. | ACTIVE · 원격 주소 선택은 기본 origin, 네트워크 조회 없이 로컬 Git 설정 사용 |
+| D-140 | 현재 cwd 저장소의 origin에서 GitHub 웹 주소를 얻는다. HTTPS·SSH 원격 형식을 웹 URL로 정규화하고 자격증명·.git·query/fragment를 전달하지 않는다. 미지원 원격 또는 origin 없음은 URL 없음으로 처리한다. | github.com 고정 절은 D-151로 SUPERSEDED · 나머지는 ACTIVE: 기본 origin, 네트워크 조회 없이 로컬 Git 설정 사용 |
 | D-141 | 저장소/브랜치 열기는 기본 브라우저에서 실행한다. 브랜치 이름은 표시된 실제 브랜치 그대로 복사하며 링크의 특수 문자는 인코딩한다. GitHub URL 없음은 열기 비활성+이유, detached는 브랜치 복사/열기 비활성+이유다. 복사 실패는 메뉴에서 알린다. | ACTIVE |
 | D-142 | 동시에 메뉴 하나만 열고 재클릭·외부 클릭·Escape·항목 실행으로 닫는다. 메뉴 열린 동안 이름 버튼의 회색 배경을 유지한다. 키보드로 열기/항목 이동/실행이 가능하며 세션·cwd 또는 표시 이름/URL 변경 시 열린 메뉴를 초기화한다. | ACTIVE |
 
-GitHub 기본 원격 이름과 HTTPS/SSH 형태 근거: [GitHub 공식 원격 저장소 문서](https://docs.github.com/en/get-started/git-basics/about-remote-repositories). 기존 조회 계기·미준비 diff 버튼 숨김·행 닫기·코멘트 동작을 상속한다. 아직 push하지 않은 브랜치의 원격 존재 여부는 조회하지 않으며 링크가 가리키는 GitHub 결과를 기본 브라우저에서 본다. GitHub Enterprise 호스트 추론과 다른 호스팅 서비스는 이번 첨부의 GitHub 서비스 범위 밖이다.
+GitHub 기본 원격 이름과 HTTPS/SSH 형태 근거: [GitHub 공식 원격 저장소 문서](https://docs.github.com/en/get-started/git-basics/about-remote-repositories). 기존 조회 계기·미준비 diff 버튼 숨김·행 닫기·코멘트 동작을 상속한다. 아직 push하지 않은 브랜치의 원격 존재 여부는 조회하지 않으며 링크가 가리키는 GitHub 결과를 기본 브라우저에서 본다. Enterprise 제외 절은 ΔV14 D-151로 대체되며 다른 호스팅 서비스는 범위 밖이다.
 
 ### AC / 유효 V 차분
 
