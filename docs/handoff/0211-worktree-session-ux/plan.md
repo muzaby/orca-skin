@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) · 2026-09-02 (ΔV3 · ΔV4) · 2026-09-03 (ΔV5 · ΔV6) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) + git 우측 패널 재설계 제안서 (Git Review Surface) + 싱크 계기 축소 · 첨부 GUI 재대조 · 로딩 교착 회귀 + 커밋 전용 범위 · Stop hook 싱크 · 컴포저 닫기 · 참조 GUI 3차 재대조 |
-| 상태 | READY (ΔV14 설계 확정; 기존 ΔV6 차단 유지, 라운드 3) |
+| 상태 | READY (ΔV14 Enterprise·메뉴 캐시·빈 패널 설계 확정; 기존 ΔV6 차단 유지, 라운드 3) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) · `V1 + ΔV1 + ΔV2` @ `d23c5be` (ΔV3 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3` @ `46047ac` (ΔV4 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` @ `177def67` (ΔV5 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` @ `628123bc` (ΔV6 의 기준) |
 | 이번 V revision | `ΔV14` (동일 라운드 3, 사용자 Enterprise 호스트 요청) |
@@ -23,8 +23,10 @@
 | ID | 결정 | 상태 / 대체 |
 |---|---|---|
 | D-151 | 파싱한 hostname을 소문자로 바꿔 `github` 포함 여부로 판정한다. HTTPS·SCP·SSH 모두 실제 hostname의 HTTPS 저장소 주소를 반환한다. origin 선택, 기존 프로토콜/포트/경로 검사와 자격증명·query·fragment 제거는 유지한다. | ACTIVE · D-140의 github.com 고정 및 D-150의 github.com 한정 절을 SUPERSEDED. 그 밖의 절은 상속. |
+| D-152 | 같은 세션/cwd/원격 갱신 세대의 메뉴 조회 결과를 저장소·브랜치 메뉴가 공유한다. 재클릭은 성공/미지원 결과를 즉시 재사용하고 진행 중 조회도 중복 실행하지 않는다. 실패는 다음 열기에서 재시도한다. 세션/cwd/표시 원격 변경·턴 종료·수동 새로 고침에서 갱신하며 이전 요청은 새 컨텍스트를 덮지 않는다. | ACTIVE · 사용자 “버튼을 클릭할때마다 git 명령을 수행하는데 이것도 캐싱이 필요하다”; D-150의 매 열기 재조회 절 SUPERSEDED. |
+| D-153 | 조회가 성공한 현재 비교 범위에 변경 파일이 없으면 ‘표시할 변경사항이 없습니다’를 diff 본문 가로·세로 중앙에 한 번 표시한다. 파일트리에는 같은 안내를 표시하지 않고 상단 좌측 파일 목록 토글을 숨긴다. 파일이 생기면 토글을 다시 표시한다. | ACTIVE · 사용자 추가 요구 세 항목. 사이드바 선호·커밋 탐색 및 로딩/실패/미싱크 구분은 유지. |
 
-메뉴 열기→현재 cwd의 origin 조회→정규화된 사내 주소→기존 저장소/브랜치 열기 흐름이다. 조회 중·실패·미지원 상태와 메뉴 재열기 정책은 D-150을 상속한다. 이 판정은 hostname 문자열에 대한 휴리스틱이며 서버 제품 조회를 추가하지 않는다; 임의 호스트 설정·SSH 별칭 해석·새 포트 정책은 변경하지 않는다.
+메뉴 열기→캐시 hit 또는 현재 cwd의 origin 조회→정규화된 사내 주소→기존 저장소/브랜치 열기 흐름이다. 조회 중·실패·미지원 상태는 D-150을 상속하고 재조회 계기는 D-152를 따른다. hostname 판정은 문자열 휴리스틱이며 서버 제품 조회·임의 호스트 설정·SSH 별칭 해석·새 포트 정책은 추가하지 않는다.
 
 ### AC / V 차분
 
@@ -33,11 +35,15 @@
 | AT-100 / R-93 (NEW) | `https://github.company.com/owner/repo.git` 및 같은 서버의 SCP/SSH origin이 `https://github.company.com/owner/repo`로 전달된다. 공개 GitHub, 대소문자와 자격증명 제거 및 비지원 원격 회귀도 확인한다. |
 | UT-38 / MD-38 (NEW) | URL hostname과 SCP host에 같은 포함 판정을 적용하고 반환 hostname을 보존한다. host가 아닌 사용자명·경로에만 github가 있는 원격은 지원 대상으로 보지 않는다. |
 | AR-43↔IT-43 / R-92↔AT-99 (INHERITED) | 기존 원격 조회 경로에서 enterprise origin 변경 후 GitStatus에 새 주소가 도달하며 worktree도 같은 설정을 읽는다. |
+| AT-101 / R-94, IT-44 / AR-44, UT-39 / MD-39 (NEW) | 저장소 열기→닫기→브랜치/저장소 재열기에서 성공/미지원 결과와 진행 중 Promise를 공유해 load 1회를 유지한다. 실패 재열기·갱신 세대 변경은 새 조회, 늦은 구 요청은 새 결과에 영향 없음. 실제 cache/hook 동작과 로딩 상태를 관측한다. |
+| AT-102 / R-95, UT-40 / MD-40 (NEW) | 성공한 빈 patch는 본문 중앙 안내 1개·파일트리 안내 0개·상단 토글 0개. populated patch에서는 파일과 토글, null/error/notRepo/unavailable에서는 기존 상태 안내를 유지한다. 실제 컴포넌트 렌더와 시각 확인. |
 
 | pair | requiredness / 경로 / 강제 지점 |
 |---|---|
 | VP-101 | NEW / REQUIRED — R-93↔AT-100, MD-38↔UT-38: origin 문자열→URL/SCP 분해→hostname 포함 판정→정규화 URL. EP-75; literal 기대 주소와 null 직접 단언. |
 | VP-100 | INHERITED / REGRESSION (ΔV13) — origin 로컬 설정→gitStatus→GitStatus.githubUrl→기존 메뉴 서비스. EP-64/EP-74 중 원격 운반·실행 경로: 실제 Git fixture의 URL과 기존 메뉴 서비스 테스트를 확인한다. |
+| VP-102 | NEW / REQUIRED — R-94↔AT-101, AR-44↔IT-44, MD-39↔UT-39: 메뉴 open→동일 owner의 원격 resource→load/구독→메뉴 상태. EP-76; 호출 횟수와 snapshot 값, 실패 재시도 및 세대 교체를 직접 관측한다. |
+| VP-103 | NEW / REQUIRED — R-95↔AT-102, MD-40↔UT-40: 현재 patch/error→DiffReview 본문·파일트리·GitContextBar 토글. EP-77; 실제 렌더 결과와 중앙 배치 확인. |
 
 ### Technical Design / §10
 
@@ -46,8 +52,12 @@
 | EP | 대상 / N | 실패 의미 / 증거 |
 |---|---|---|
 | EP-75 | githubRepositoryUrl의 SCP host 추출·URL host 추출·공통 판정/주소 조립 / 3 | 기업 원격을 null로 만들거나 공개 GitHub로 보내는 실패. URL 단위 테스트와 gitStatus의 실제 원격 설정/변경 직접 단언. |
+| EP-76 | 메뉴 owner의 결과/진행 중 캐시·열기/실패 재시도·GitRow 갱신 세대 전달 / 3 | 닫았다 열 때 재조회/로딩, 진행 중 중복 조회, 갱신 이후 stale 주소. resource는 owner 수명에 한정하고 세대 교체 시 이전 resource의 구독을 해제한다. |
+| EP-77 | DiffReview 빈 본문 중앙·ChangedNavigationSidebar 빈 트리·GitContextBar 토글 조건 / 3 | 동일 문구 중복 또는 상단 정렬, 빈 파일목록 버튼 잔류. !error && patch.isRepo && !patch.unavailable && files.length===0을 알려진 빈 상태로 본다. |
 
 운영 gate: 관련 URL/Git CLI/메뉴 테스트, typecheck 3구성, 읽기 전용 lint, 변경 소스 prettier, 문서 generated/prose/links, diff check. 직접 반환값 oracle이므로 별도 mutation은 선택하지 않는다. READY 대조: D-151↔AT-100/UT-38 충돌 0; D-140/D-150의 대체 절을 표시했고 SCP·URL·출력 세 지점과 기존 메뉴 소비 경로를 코드에서 확인했다. 기존 ΔV6 차단은 이번 AC 분모와 별도다.
+
+후속 입력 READY 대조: D-151~153↔AT-100~102 충돌 0. 캐시는 React 메뉴 owner의 resource로 격리하고 menuEpoch는 재시도 계기만 맡으며 cache key에는 넣지 않는다. GitRow의 turnEndTick/gitRefreshTick과 cwd/원격 identity로 새 resource를 만들고, 정상 null도 캐시하되 다음 명시 갱신에서 다시 확인한다. 로컬 git remote를 외부에서 바꾼 경우 다음 턴 종료 또는 ‘새로 고침’ 후 반영한다. 빈 패널은 현재 선택 patch를 기준으로 삼으며 파일이 있는 다른 비교 범위로 이동할 수 있도록 커밋 탐색을 보존한다. scoped AC는 3개, EP-75~77은 9지점이다.
 
 ## ΔV13 — 커밋 캐시·코멘트 참조·전송 첨부·수동 새로 고침 (2026-09-04, 라운드 3 유지)
 
@@ -109,7 +119,7 @@
 
 | ID | 결정 / 확인 경로 |
 |---|---|
-| D-150 | 저장소·브랜치 메뉴를 열 때 현재 cwd의 Git 상태를 새로 조회한다. 이전에 비어 있던 URL로 부재를 단정하지 않고 조회 중·조회 실패·GitHub 주소 미확인을 구분한다. 응답은 같은 메뉴 열기/cwd에만 반영한다. 브랜치 복사는 독립적으로 유지하며 원격 열기는 확인된 URL만 사용한다. raw 원격/자격증명은 renderer에 보내지 않고 origin을 사용한다. github.com 한정 절만 D-151로 SUPERSEDED, 나머지는 ACTIVE. |
+| D-150 | 저장소·브랜치 메뉴에서 현재 cwd의 Git 상태를 조회한다. 이전에 비어 있던 URL로 부재를 단정하지 않고 조회 중·조회 실패·GitHub 주소 미확인을 구분한다. 브랜치 복사는 독립적으로 유지하며 원격 열기는 확인된 URL만 사용한다. raw 원격/자격증명은 renderer에 보내지 않고 origin을 사용한다. github.com 한정은 D-151, 매 열기 재조회·응답 수명은 D-152로 SUPERSEDED; 나머지는 ACTIVE. |
 | R-92 / AT-99 | 이전 snapshot URL이 null이어도 실제 origin이 있으면 클릭 후 GitHub 열기가 활성화된다. 재열기와 cwd 변경은 새 응답을 사용하고 늦은 응답은 이전 메뉴를 되살리지 않는다. 지원 주소를 확인하지 못한 경우 ‘원격이 없다’고 단정하지 않는다. |
 | VP-100 | NEW / REQUIRED — R-92↔AT-99, AR-43↔IT-43: GitRow cwd 전달→메뉴 열기→Git 상태 조회 hook→정규화 URL/상태 표시→실제 메뉴 동작. 기존 Git parser/CLI 원격 회귀와 브라우저 stale-null→fresh-url을 확인한다. |
 | EP-74 | cwd prop 전달·메뉴 수명 query/cancel·상태별 표시와 URL 실행 / 3. snapshot 누락을 부재로 오표시하거나 이전 경로로 여는 것이 실패다. |
