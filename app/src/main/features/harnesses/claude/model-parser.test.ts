@@ -173,9 +173,10 @@ describe('parseClaudeModels — 노출 + default 불변식', () => {
 
 // 0215 VP-05·VP-08 — settings 경로의 두 축: ANTHROPIC_MODEL 편입 · 교차 필터의 1M 축.
 describe('parseClaudeModels — ANTHROPIC_MODEL 편입 (AT-05·AT-06 · D-005·D-006)', () => {
-  it('AT-05 — env.ANTHROPIC_MODEL 이 노출 목록에 나타나고 default 가 된다', () => {
+  it('AT-05 — env.ANTHROPIC_MODEL 이 노출 목록의 유일 항목이고 default 가 된다', () => {
     const models = parseClaudeModels({ env: { ANTHROPIC_MODEL: 'corp-x' } })
-    expect(models.map((m) => m.model)).toEqual([null, null, null, 'corp-x'])
+    expect(models.map((m) => m.model)).toEqual(['corp-x'])
+    expect(models.filter((m) => m.isDefault)).toHaveLength(1)
     expect(models.find((m) => m.isDefault)?.model).toBe('corp-x')
   })
 
@@ -195,7 +196,7 @@ describe('parseClaudeModels — ANTHROPIC_MODEL 편입 (AT-05·AT-06 · D-005·D
     expect(models.map((m) => m.model)).toEqual(['claude-opus-4-6'])
   })
 
-  it('D-006 — top-level `model` 은 목록에 넣지 않는다 (default 선정 전용)', () => {
+  it('AT-29 — D-006: top-level `model` 은 목록에 넣지 않고 폴백도 억제하지 않는다', () => {
     const models = parseClaudeModels({ model: 'corp-y' })
     expect(models.map((m) => m.model)).toEqual([null, null, null])
     // 목록 안에서 매칭되지 않으므로 alias 폴백이 default 를 잡는다.
@@ -209,6 +210,34 @@ describe('parseClaudeModels — ANTHROPIC_MODEL 편입 (AT-05·AT-06 · D-005·D
       { env: { ANTHROPIC_DEFAULT_HAIKU_MODEL: 'h', ANTHROPIC_MODEL: 'corp-x' } }
     ]) {
       expect(parseClaudeModels(settings).filter((m) => m.isDefault)).toHaveLength(1)
+    }
+  })
+})
+
+// 0215 VP-23·VP-24 — SDK 기본 3-alias 폴백은 노출할 모델이 하나도 없을 때만 쓴다(D-023).
+// 음성(AT-27)·양성(AT-28)·회귀(AT-29, 위 describe) 셋이 한 술어의 세 방향이다.
+describe('parseClaudeModels — 기본 alias 폴백 억제 (AT-27·AT-28 · D-023)', () => {
+  it('AT-27 — ANTHROPIC_MODEL 단독이면 model=null 인 기본 행이 0건이다', () => {
+    const models = parseClaudeModels({ env: { ANTHROPIC_MODEL: 'corp-x' } })
+    expect(models.filter((m) => m.model === null)).toEqual([])
+  })
+
+  it('AT-28 — 어떤 설정도 모델을 노출하지 않으면 3-alias 가 그대로 나온다', () => {
+    for (const settings of [{}, { env: { OTHER: 'x' } }]) {
+      const models = parseClaudeModels(settings)
+      expect(models.map((m) => m.alias)).toEqual(['sonnet', 'opus', 'haiku'])
+      expect(models.every((m) => m.model === null)).toBe(true)
+      expect(models.filter((m) => m.isDefault)).toHaveLength(1)
+    }
+  })
+
+  it('AT-28 양성 짝 — 커스텀·discovery 가 있을 때도 기본 행이 섞이지 않는다', () => {
+    for (const settings of [
+      { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-4-6' } },
+      { availableModels: ['corp-a'] },
+      { availableModels: ['corp-a'], env: { ANTHROPIC_MODEL: 'corp-x' } }
+    ]) {
+      expect(parseClaudeModels(settings).filter((m) => m.model === null)).toEqual([])
     }
   })
 })

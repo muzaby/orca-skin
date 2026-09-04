@@ -7,6 +7,9 @@
 // 명시 모델 중 `env.ANTHROPIC_MODEL` 은 **노출 목록에도 더한다**(0215 D-005·D-006) — 사용자가
 // 실제로 쓰라고 지정한 모델이 선택지에 없던 자리다. top-level `model` 은 종전대로 default
 // 선정에만 쓴다(사용자 결정으로 목록 편입 대상에서 제외).
+// 3개 alias 폴백은 **노출할 모델이 하나도 없을 때만** 쓴다(0215 D-023) — `ANTHROPIC_MODEL` 만
+// 있어도 그것이 목록을 채우므로 폴백하지 않는다. 목록에 들어가지 않는 top-level `model` 은
+// 폴백을 막지 못한다.
 //
 // 순수 함수 — fs 비의존, vitest 대상.
 
@@ -79,7 +82,7 @@ export function parseClaudeModels(settings: {
   // env family `X` 와 availableModels `X[1m]` 중 뒤엣것이 버려져 1M 변형이 목록에서 사라진다.
   const configured = candidates.filter((candidate) => candidate.model !== null)
   const discovered = availableModels ? normalizeAvailableModels(availableModels) : []
-  const visible =
+  const merged =
     discovered.length > 0
       ? [
           ...configured,
@@ -87,13 +90,17 @@ export function parseClaudeModels(settings: {
             (entry) => !configured.some((candidate) => sameParsedModel(candidate, entry))
           )
         ]
-      : configured.length > 0
-        ? configured
-        : candidates
+      : configured
 
   // 3단계 — `ANTHROPIC_MODEL` 을 노출 목록에 더하고(중복이면 그대로), 목록 내 default 정확히 1개.
   const anthropicModel = explicitModelOf(env.ANTHROPIC_MODEL)
   const explicit = anthropicModel ?? explicitModelOf(settings.model)
+
+  // 폴백 억제(0215 D-023) — 3개 alias 는 **노출 목록이 끝내 비는 경우에만** 쓴다. `anthropicModel`
+  // 은 아래 `withExplicitModel` 이 목록을 채우므로 여기서 이미 "노출할 모델이 있다"로 센다.
+  // 조건을 `explicit` 로 넓히면 목록에 들어가지 않는 top-level `model`(D-006) 이 폴백을 막아
+  // provider 가 모델 0개로 열거된다 — `settings-entries.ts` 의 파일 부재/손상 폴백이 그 자리다.
+  const visible = merged.length > 0 || anthropicModel ? merged : candidates
   const listed = withExplicitModel(visible, anthropicModel)
 
   markDefaultModel(listed, explicit)

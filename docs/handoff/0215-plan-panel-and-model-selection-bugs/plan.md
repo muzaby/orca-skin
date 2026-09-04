@@ -1726,3 +1726,141 @@ CLI 는 plan 파일이 없으면 두 필드를 **함께** 빼고(F-24a), 그때 
 - 0105 가 이 실패 모드를 **plan §리스크에 적고 수용**했고 발현까지 약 7주 걸렸다(2026-07-15 → 09-04). 수용한 리스크의 재검토 트리거가 없다.
 - 반복 환경 한계: 이 클론에 `node_modules` 가 없어 게이트 전에 `npm ci` 가 필요했다(exit 0, 약 6분).
 - 현재 라운드: **4** (ΔV3 미착수분이 같은 라운드에 남아 있다).
+
+---
+
+> **[구현자 기입]** 이하는 **같은 r4** 의 **ΔV3 모델 축**(AC5 정정·AC27~AC29)이다 — 라운드를 올리지
+> 않는다. ΔV3 의 나머지 두 축(계획 서술 순서 AC30·AC31 · plan 모드 게이트 AC32~AC34)은 손대지
+> 않았고 보드의 다음 주체가 계속 그것을 받는다.
+
+## [구현자 기입] 설계 리뷰 (r4 — ΔV3 모델 축)
+
+- ✅ D-023·AC5·AC27~AC29·EP-23 이 그대로 구현 가능했다. `PLAN_GAP` **0건**.
+- ⚠️ **§11 이 적은 식과 다른 형태로 썼다 — 조건의 의미는 같고 분기가 하나 줄었다.** §11 은
+  `configured.length>0 ? configured : (anthropicModel ? [] : candidates)` 인데, 그러면 `discovered` 축과
+  `configured` 축이 서로 다른 3중 삼항으로 남는다. 두 축을 `merged` 하나로 합치고 폴백 조건을
+  `merged.length > 0 || anthropicModel` 로 적었다 — **불변식("노출 목록이 끝내 빌 때만 폴백")이 조건식
+  그대로 읽힌다**. 네 입력 조합(`discovered>0` · `configured>0` · `anthropicModel` 단독 · 전무)에서
+  반환값은 §11 식과 동일하다.
+- ✅ §11 이 지정한 seam 이 실재했다 — `model-parser.test.ts` 는 순수 단위이고 fs·electron 비의존이다.
+- ✅ **`anthropicModel` 계산을 2단계 앞으로 끌어올리지 않았다.** 3단계 정의(`:96`)를 그대로 두고
+  폴백 판정(`:103`)을 그 **뒤**로 옮겼다 — `withExplicitModel` 바로 앞이라 "이 값이 목록을 채운다"는
+  근거와 판정이 세 줄 안에 붙어 있다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조 · r4 — ΔV3 모델 축)
+
+| EP | plan 분모 | 닫은 수 | 재현 명령 · 관측값 |
+|---|---|---|---|
+| EP-23 | 1 | **1/1** | `rg -n "candidates" model-parser.ts` → `71`(빌드) · `83`(null 제외 필터) · **`103`(노출 결정)**. 노출 목록으로 흘리는 지점은 `:103` 하나 |
+
+- 분모를 **불변식의 주어**로 다시 셌다 — 주어는 "노출 목록에 `model === null` 인 기본 alias 행이
+  들어가는 결정"이고, 해법 이름(`폴백 억제`·`anthropicModel`)으로 세지 않았다.
+  `rg -n "model: null" src --glob '!*.test.*'` → **1건**(`model-parser.ts:74`) 이라 그런 행의 생산자가
+  프로덕션에 하나뿐이고, 그 행을 목록으로 내보내는 결정도 `:103` 하나다.
+- **소비처 축도 셌다**: `rg -n "parseClaudeModels" src --glob '!*.test.*'` → **5**(정의 1 + 호출 4).
+  호출 4 중 3(`settings-entries.ts:31·41·49`)은 `parseClaudeModels({})` 로 **폴백이 정당한 경로**이고
+  AT-28 이 그것을 양성으로 잠근다. 나머지 1(`:51`)이 실제 settings 경로다.
+- 남긴 지점: **없음**.
+
+### V-pair 자기확인 (ΔV3 모델 축)
+
+| pair | 자기 상태 | 관측값 |
+|---|---|---|
+| VP-23 (R-06 ↔ AT-27·28·29) | `SELF_PASS` | `model-parser.test.ts` 25 케이스 green — AT-27(0건) · AT-28(2입력 + 양성 짝 3입력) · AT-29 |
+| VP-24 (MD-01 ↔ UT) | `SELF_PASS` | 같은 파일. 술어 분기 4조합(`discovered>0` · `configured>0` · `anthropicModel` 단독 · 전무) 전건 관측 |
+| VP-05 (REGRESSION · R-02 ↔ AT-05 정정·AT-06) | `SELF_PASS` | AT-05 `['corp-x']` · AT-06 `['corp-a','corp-x']` green |
+| VP-16 (REGRESSION · SD-02 ↔ AT-15) | `SELF_PASS` | AT-15 3조합 전건 `isDefault` 정확히 1개 green |
+| VP-06·VP-07 (NOT_REQUIRED) | 비영향 재확인 | `runtime-catalog.ts:125-126` 이 `normalizeAvailableModels(… ?? [])` 로 시작해 3-alias 폴백이 **없다** — 이번 변경이 건드리는 술어가 그 경로에 존재하지 않는다 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r4 — ΔV3 모델 축)
+
+| 변이 | 심은 자리 | 결과 | 관측값 |
+|---|---|---|---|
+| ① 폴백 억제 제거(`merged.length > 0 ? …`) | `model-parser.ts:103` | **red** | `2 failed / 23 passed` — AT-05 · AT-27 |
+| ② 억제를 `{}` 에도 적용(`const visible = merged`) | 같은 줄 | **red** | `6 failed / 19 passed` — AT-28 포함(+ V1 회귀 4) |
+| ③ top-level `model` 도 억제 대상(`… \|\| explicit ? …`) | 같은 줄 | **red** | `3 failed / 22 passed` — AT-29 포함(+ V1 회귀 2) |
+| 덮개 회귀 — `withExplicitModel` 편입 제거 | `:104` | **red** | `3 failed / 22 passed` — **정정된 AT-05** 포함 |
+
+- **분모 검산**: 선택 증거 **0**(VP-23·VP-24 는 plan 이 `not selected` — 반환 배열을 직접 관측하고
+  양성 짝 AT-28 이 방향을 준다) · 인용 변이 **0**(이번에 닫는 파생 이슈 없음) · 이번 턴에 만든
+  구조적/0건/배선 oracle **0**(AT-27 의 `0건`은 corpus 스윕이 아니라 4항 반환 배열의 직접 관측이다)
+  = 표의 **필수 행 0**. 위 4행은 **§19 ΔV3 이 등록한 게이트 변이 ①②③ + 덮개 회귀 1** 이라 필수가
+  아니어도 실행해 함께 적었다.
+- **덮개 회귀 확인**: 정정 전 AT-05 의 단언(`[null,null,null,'corp-x']`)이 잡던 자리는
+  **`withExplicitModel` 편입 누락**이다. 정정된 AT-05(`['corp-x']`)도 그 변이에서 red 이므로
+  **잡던 자리를 잃지 않았다** — 표 4행이 그 관측이다. 정정으로 사라진 것은 "기본 3행이 함께 있다"는
+  단언뿐이고, 그것은 D-023 이 없앤 계약이다.
+
+## [구현자 기입] Product/UX 파생 검토 (r4 — ΔV3 모델 축)
+
+- ✅ **새 사용자 대면 문구 0건.** 노출 목록의 행 수만 바뀐다.
+- ✅ **사용자가 관측하는 변화**: `env.ANTHROPIC_MODEL` 만 정의한 provider 의 모델 메뉴가
+  **4행(sonnet·opus·haiku·corp-x) → 1행(corp-x)** 이 된다. 요구⑩ 이 지목한 자리다.
+- ⚠️ **저장된 선택이 목록에서 사라지는 경우를 확인했다** — 이전에 `sonnet` 을 골라 둔 사용자는
+  그 행이 없어진다. `Composer.tsx:191` 의 `selectionExists(...)` 가 이미 그것을 보고
+  `defaultSelection(...)` 으로 되돌린다(기존 배선, 이번 변경 무관). 즉 "선택이 비어 보이는" 상태로
+  떨어지지 않고 `corp-x` 로 이동한다.
+- ✅ **provider 가 모델 0개로 열거되지 않는다** — `visible` 이 비는 유일한 경우는 `anthropicModel` 이
+  있을 때이고 바로 다음 줄의 `withExplicitModel` 이 그것을 채운다. `parseClaudeModels` 의 반환은
+  어떤 입력에서도 길이 ≥ 1 이다. 반대 방향(조건을 `explicit` 로 넓혀 0개가 되는 것)은 변이 ③ 이
+  red 로 잡는다.
+- ✅ **§5 Part I 상태 전이표에 새 행이 필요 없다** — 모델 목록의 행 수 변화는 상태 전이가 아니라
+  같은 상태의 내용 변화다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r4 — ΔV3 모델 축)
+
+| 발견 | 처리 | 근거 |
+|---|---|---|
+| `docs/TRD.md:344` 의 모델 파싱 규약이 폴백 조건을 적지 않았다 | **선조치** | §18 ΔV3 파일 전수가 지정한 갱신이다. "그 3개 폴백은 노출 목록이 끝내 빌 때만" 한 문장을 그 자리에 더했다 |
+| `settings-entries.ts:25` 주석("provider 가 여전히 기본 alias 목록으로 열거되게 한다")이 낡았는지 | **유지 — 낡지 않았다** | 그 세 경로는 `parseClaudeModels({})` 라 여전히 3-alias 다(AT-28 이 잠근다). 문장이 서술하는 사실이 그대로 참이다 |
+| `docs/arch/` 에 이 규칙을 재서술한 문서 | **없음(0건)** | `rg -n "3개 alias\|3-alias\|기본 alias" docs app`(handoff·archive·etc·chats·project 제외) → 코드 5 · 테스트 4 · `TRD.md` 1(위에서 갱신) · `settings-entries.ts` 1 |
+| ΔV3 의 나머지 두 축(AC30~AC34) | **미착수** | 사용자 지시가 모델 노출 축 한 건이다. 다음 주체가 받는다 |
+
+### 설계 대비 명시적 차이 (r4 — ΔV3 모델 축)
+
+**차이**: §11 의 `configured.length>0 ? configured : (anthropicModel ? [] : candidates)` 대신
+`merged` 를 먼저 합성하고 `merged.length > 0 || anthropicModel ? merged : candidates` 로 적었다.
+**이유**: §11 식은 `discovered` 축을 별도 삼항으로 남겨 폴백 조건이 두 곳에 갈린다.
+
+대체물이 갖고 원본이 갖지 않던 실패 모드를 축마다 확인했다:
+
+| 축 | 대체물의 실패 모드 | 재확인한 AC / §10 행 |
+|---|---|---|
+| 만료 | **해당 없음** — 순수 함수이고 캐시·TTL·시각 의존이 0이다. 매 호출이 입력만으로 결정된다 | — |
+| 공유 | **해당 없음** — `merged`·`visible` 은 함수 스코프 지역 배열이다. 모듈 상태·저장소 쓰기 0(§10 ΔV3 주석과 일치) | — |
+| 재진입 | **해당 없음** — 비동기 경계가 없다. `candidates` 는 매 호출 새로 map 되므로 반환 배열이 호출 간 공유되지 않는다 | — |
+| 다른 무효화 축 | **있다 — `merged` 가 빈 배열일 때의 의미가 둘로 갈린다.** 원본 식은 `configured` 축만 보고 폴백을 판정해 `discovered` 가 모두 중복 제거돼도 그 가지에 들어가지 않았다. 대체물은 `merged.length === 0` 하나로 판정하므로 `discovered` 가 있는데 전부 걸러지는 입력이 새 경로다 | **AT-06**(`availableModels:['corp-a','corp-x']` + `ANTHROPIC_MODEL:'corp-x'`) → `['corp-a','corp-x']` green · 음성 짝(`env family X` + `availableModels ['X']`) → 길이 1 green. 실제로 `discovered.length>0` 이면 `configured` 든 신규 discovery 든 최소 1개가 남아 `merged` 는 빌 수 없다 |
+
+## [구현자 기입] 구현 보고 (r4 — ΔV3 모델 축)
+
+- 상태: **partial** — ΔV4 완료(앞 절) + ΔV3 **모델 축** 완료. ΔV3 의 계획 서술 축·plan 모드 게이트 축 미착수.
+- 대상 커밋: (r4 ΔV3 모델 축 구현 — 좌표는 INDEX).
+- **AC 합계 검산**: r4 대상 AC = ΔV3 **9**(AC5 정정 · AC27~AC34) + ΔV4 **5**(AC35~AC39) = **14**.
+  누적 ✅ **9**(ΔV4 5 + 이번 4) · ⚠️ 0 · ❌ 0 · 미착수 **5**(AC30·AC31·AC32·AC33·AC34) → `Criteria-Met: 9/14`.
+  이번 턴 신규 ✅ 는 **4**(AC5·AC27·AC28·AC29)다.
+- **AC 행별 관측**:
+  - AC5 ✅ — `parseClaudeModels({env:{ANTHROPIC_MODEL:'corp-x'}})` → `['corp-x']` · `isDefault` 1개 (`model-parser.test.ts:176`)
+  - AC27 ✅ — 같은 입력에서 `models.filter(m=>m.model===null)` = `[]` (`:220`)
+  - AC28 ✅ — `{}` · `{env:{OTHER:'x'}}` 둘 다 `['sonnet','opus','haiku']` · 전건 `model===null` · `isDefault` 1개 (`:225`). 양성 짝 3입력(커스텀·discovery·discovery+ANTHROPIC_MODEL) 에서 기본 행 0건 (`:234`)
+  - AC29 ✅ — `parseClaudeModels({model:'corp-y'})` → `[null,null,null]` · default `sonnet` (`:199`)
+- **관측한 게이트 산출**: `npm run typecheck` **3구성 전건 무진단**(node·web·test) ·
+  `npm run lint` **0 error / 1 warning**(warning = `useTranscriptVirtualizer.ts:22` `react-hooks/incompatible-library`, 기존·변경 무관) ·
+  `./node_modules/.bin/vitest run src/main/features/harnesses src/main/adapters src/shared src/renderer/src/features/chat` **171 파일 / 1622 케이스 green** ·
+  `node scripts/check-doc-inventory.mjs --check` **3검사 ok**(generated 9 items/82 channels · prose · links).
+- `npm run lint` 이 `--fix` 로 바꾼 파일 **0건** — 실행 후 `git status --short` 가 자기 변경 3파일 그대로였다.
+- 변경 파일 **3**: `model-parser.ts` · `model-parser.test.ts` · `docs/TRD.md`(§6.8 한 문장).
+- 신규 의존성 **0**.
+
+## [구현자 기입] Review Signals — 사실만 (r4 — ΔV3 모델 축)
+
+- 이번에 닫은 불변식("기본 alias 폴백은 노출 목록이 끝내 빌 때만")은 **V1 이 이미 두 축에서 세웠던
+  규칙의 세 번째 축**이다 — V1 은 `configured`·`discovered` 두 축에서 폴백을 막았고 `anthropicModel`
+  축만 빠져 있었다. 같은 불변식의 형제 지점이 한 라운드 뒤에 올라온 형태다.
+- 그것을 막았어야 할 plan 지침·AC: V1 의 AT-05 가 **그 상태를 계약으로 못박고 있었다**
+  (`[null,null,null,'corp-x']`). 폴백 조건을 세 축으로 전수 세는 대신 두 축만 보고 세 번째 축을
+  기대 출력에 그대로 적었다.
+- 같은 형태의 재발: "기존 테스트가 버그를 계약으로 못박았다"가 ΔV4 의 `resolveClaudeExecutable 우선순위`
+  describe 와 함께 이 handoff 안에서 **두 번째**다(앞 절 Review Signals 와 같은 관측).
+- 반복 환경 한계: 이 클론에 `node_modules` 가 없어 게이트 전에 `npm ci` 가 필요했다(exit 0).
+  DB 를 건드리지 않아 `npm test` 대신 순수 vitest 를 썼고 better-sqlite3 ABI 마찰은 없었다.
+- 현재 라운드: **4** (사용자 지시로 라운드를 올리지 않았다. ΔV3 의 남은 두 축이 같은 라운드에 있다).
