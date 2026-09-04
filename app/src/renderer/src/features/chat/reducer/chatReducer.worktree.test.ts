@@ -8,6 +8,25 @@ describe('chatReducer worktree isolation', () => {
     expect(enabled.worktreeIsolation).toBe(true)
     expect(chatReducer(enabled, { type: 'NEW_CHAT' }).worktreeIsolation).toBe(false)
   })
+
+  it('다른 작업 경로를 고르면 숨겨질 수 있는 격리 선택도 해제한다', () => {
+    const enabled = {
+      ...initialChatState,
+      cwd: '/repo',
+      worktreeIsolation: true,
+      worktreeBaseRef: 'feature'
+    }
+    const next = chatReducer(enabled, { type: 'SET_CWD', cwd: '/plain-folder' })
+    expect(next.worktreeIsolation).toBe(false)
+    expect(next.worktreeBaseRef).toBeNull()
+  })
+
+  it.each(['/repo', '/'])('같은 경로 또는 거부된 루트 선택은 격리를 해제하지 않는다: %s', (cwd) => {
+    const enabled = { ...initialChatState, cwd: '/repo', worktreeIsolation: true }
+    const next = chatReducer(enabled, { type: 'SET_CWD', cwd })
+    expect(next.cwd).toBe('/repo')
+    expect(next.worktreeIsolation).toBe(true)
+  })
 })
 
 // AC17 소비자 쪽 — main 이 폴백을 알리는 유일한 경로가 `session.updated.patch.cwd` 다.

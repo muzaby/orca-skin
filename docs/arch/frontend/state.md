@@ -54,6 +54,7 @@ interface SessionEntry {
 
 | 경계 | 현재 동작 | 구현 위치 |
 |---|---|---|
+| 새 대화 브랜치·워크트리 | 현재 cwd의 Git 저장소 확인 후 브랜치와 워크트리 체크박스를 함께 표시한다. 미확인·실패·비저장소에서는 묶음 전체를 숨긴다. 체크박스와 라벨 전체를 눌러 선택하며, 다른 작업 경로를 고르면 이전 격리 선택을 해제한다. | `components/CwdPanel.tsx`·`composer/BranchChip.tsx`·`composer/WorktreeToggle.tsx`, `chatReducer.ts`의 `SET_CWD` |
 | composer diff 진입 | 현재 세션 요약이 없으면 변경량 버튼을 숨기고 저장소·브랜치·행 닫기를 유지한다. 요약이 준비되면 실제 0/0을 포함한 합계로 버튼을 표시한다. | `components/composer/GitRow.tsx`·`gitRowState.ts` |
 | composer 저장소·브랜치 메뉴 | 저장소 이름은 GitHub 저장소 열기, 브랜치 이름은 복사·GitHub 브랜치 열기를 제공한다. 메뉴는 한 곳만 열리며 세션/cwd 또는 표시 이름/URL이 바뀌면 닫힌다. 원격 URL 없음과 분리 헤드는 해당 동작을 비활성으로 표시한다. URL 계약은 IPC 정본을 따른다. | `components/composer/GitRow.tsx`·`GitIdentityMenus.tsx` |
 | 패치 조회·재사용 | 열린 변경사항 타일의 `useGitPatch`가 조회를 소유한다. 세션 키·저장소 좌표·요약 세대·비교 범위를 요청 키로 묶고 같은 키의 진행 중 조회를 중복 실행하지 않는다. 현재 범위의 패치만 보관하므로 같은 좌표·세대·범위에서 타일을 다시 열면 재사용한다. | `features/chat/hooks/useGitPatch.ts` |

@@ -7,6 +7,7 @@ import { BranchChip } from './composer/BranchChip'
 import { chipGroupSurface } from './composer/chipSurface'
 import { ComposerChip } from './composer/ComposerChip'
 import { ExtraDirChip } from './composer/ExtraDirChip'
+import { WorktreeToggle } from './composer/WorktreeToggle'
 
 interface CwdPanelProps {
   cwd: string | null
@@ -16,7 +17,7 @@ interface CwdPanelProps {
 // 컴포저 입력 위의 작업 컨텍스트 행 — [작업 경로] [브랜치] [참조 경로…] [＋].
 //
 // 세션이 확정되기 전(랜딩)에만 뜬다. cwd·브랜치·참조 경로는 새 세션 출생 시 고정되는 값이라
-// 편집 가능한 창이 여기뿐이다. 브랜치 칩은 git 저장소가 아니면 스스로 사라진다.
+// 편집 가능한 창이 여기뿐이다. 브랜치·워크트리 묶음은 Git 확인 후 함께 표시한다.
 export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
   const { tr } = useI18n()
   const extraDirs = useChatSession((s) => s.extraDirs)
@@ -43,34 +44,25 @@ export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
       data-state="landing"
     >
       <CwdButton cwd={cwd} sessionStarted={false} inflight={inflight} variant="outlined" />
-      {/* 브랜치와 워크트리는 **한 테두리 안**에 나란히 선다(참조 컴포저) — 둘은 "다음 세션을
-          어디서 시작하는가" 라는 한 결정의 두 축이라, 낱개 칩으로 흩어 두면 워크트리 토글이
-          옆의 참조 경로 칩과 같은 층으로 읽힌다. 버튼은 그대로 둘이고 사이의 실선이 경계를
-          긋는다(외형 정본은 `chipSurface.ts`). */}
-      <div className={chipGroupSurface} data-surface="branch-worktree-group">
-        {/* 격리가 켜져 있으면 브랜치 선택을 유예한다 — 작업 트리는 그대로 두고 다음 worktree 의
-            base ref 만 정한다(0210 D-101). 꺼져 있으면 `deferTo` 가 undefined 라 기존 즉시 checkout. */}
-        <BranchChip
-          cwd={cwd}
-          disabled={inflight}
-          variant="segment"
-          trailingDivider
-          deferTo={
-            worktreeIsolation ? (branch) => chatActions.setWorktreeBaseRef(branch) : undefined
-          }
-          deferred={worktreeIsolation ? worktreeBaseRef : null}
-        />
-        <ComposerChip
-          label={tr('chat.composer.worktreeIsolation')}
-          variant="segment"
-          disabled={inflight || !cwd}
-          onClick={() => chatActions.setWorktreeIsolation(!worktreeIsolation)}
-          // 커밋되지 않은 변경이 새 worktree 에 따라오지 않는다는 사실을 여기서 알린다(D-106) —
-          // 준비 단계가 dirty 를 더 이상 거부하지 않으므로 이 문구가 유일한 안내다.
-          title={tr('chat.composer.worktreeIsolationHelp')}
-          ariaPressed={worktreeIsolation}
-        />
-      </div>
+      {/* 같은 Git 응답으로 묶음 전체를 표시한다. 격리 ON이면 선택은 base ref로 유예된다. */}
+      <BranchChip
+        cwd={cwd}
+        disabled={inflight}
+        variant="segment"
+        trailingDivider
+        deferTo={worktreeIsolation ? (branch) => chatActions.setWorktreeBaseRef(branch) : undefined}
+        deferred={worktreeIsolation ? worktreeBaseRef : null}
+        renderTrigger={(branch) => (
+          <div className={chipGroupSurface} data-surface="branch-worktree-group">
+            {branch}
+            <WorktreeToggle
+              checked={worktreeIsolation}
+              disabled={inflight || !cwd}
+              onChange={chatActions.setWorktreeIsolation}
+            />
+          </div>
+        )}
+      />
       {extraDirs.map((dir) => (
         <ExtraDirChip
           key={dir}
