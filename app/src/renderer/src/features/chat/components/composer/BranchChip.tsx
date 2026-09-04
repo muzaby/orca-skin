@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { GitBranchList, GitDirtyResolution } from '../../../../../../shared/ipc'
 import { gitApi } from '../../../../shared/api/ipc'
 import { Button } from '../../../../shared/ui/Button'
@@ -32,6 +32,8 @@ interface BranchChipProps {
   // 묶음에서 **자기 뒤의 구분선까지** 그린다. 저장소가 아니면 이 컴포넌트가 통째로 사라지는데,
   // 줄을 묶음이 그리면 그때 세로선 하나만 덩그러니 남는다.
   trailingDivider?: boolean
+  // Only invoked after Git visibility resolves, so companion controls share this same snapshot.
+  renderTrigger?: (trigger: ReactNode) => ReactNode
 }
 
 const EMPTY_LIST: GitBranchList = { current: null, branches: [] }
@@ -47,7 +49,8 @@ export function BranchChip({
   deferTo,
   deferred,
   variant = 'outlined',
-  trailingDivider = false
+  trailingDivider = false,
+  renderTrigger
 }: BranchChipProps): React.JSX.Element | null {
   const { tr } = useI18n()
   // 상태는 **어느 경로의 것인지와 함께** 들고 있는다. 폴더를 빠르게 바꾸면 늦게 도착한 응답이
@@ -141,7 +144,7 @@ export function BranchChip({
     }
   }
 
-  return (
+  const trigger = (
     <>
       <ComposerChip
         ref={buttonRef}
@@ -157,6 +160,12 @@ export function BranchChip({
         title={tr('chat.composer.branchTitle')}
       />
       {trailingDivider && <span aria-hidden="true" className={chipGroupDivider} />}
+    </>
+  )
+
+  return (
+    <>
+      {renderTrigger ? renderTrigger(trigger) : trigger}
       <Popover open={menuOpen} anchorRef={buttonRef} onClose={() => setMenuOpen(false)}>
         <BranchMenu
           current={deferred ?? list.current ?? view.branch}

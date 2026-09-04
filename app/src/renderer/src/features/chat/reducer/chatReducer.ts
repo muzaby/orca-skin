@@ -960,6 +960,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         cwd: action.cwd,
         extraDirs: [],
         extraDirRejection: null,
+        // 새 경로에서 Git 컨트롤이 숨겨져도 이전 격리 선택이 전송에 남지 않게 한다.
+        worktreeIsolation: state.cwd === action.cwd && state.worktreeIsolation,
         worktreeBaseRef: null,
         // 저장소가 바뀌면 **패치도 함께 버린다** — 다른 저장소의 본문이 같은 상대 경로로
         // 보이면 사용자는 틀린 diff 를 옳은 것으로 읽는다(0211 ΔV4 §10 EP-34 ②).

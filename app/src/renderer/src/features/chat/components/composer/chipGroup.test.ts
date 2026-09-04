@@ -3,8 +3,8 @@
 // 이 스위트가 잠그는 것은 두 축이다.
 // ① 외형 SSOT — 묶음 안 칩은 자기 테두리·반경·높이를 갖지 않는다. 하나라도 남기면 테두리가
 //    두 겹이 되거나(안쪽 1px + 바깥 1px) 형제 outlined 칩보다 2px 커진다.
-// ② 배선 — 그 칩 둘이 실제로 묶음 안에 서고, 구분선의 주인이 **앞 칩**이다. 묶음이 줄을
-//    그리면 git 저장소가 아니어서 브랜치 칩이 사라졌을 때 세로선 하나만 남는다.
+// ② 구분선의 주인이 앞 칩임을 확인한다. 두 컨트롤의 묶음 귀속·segment 외형과
+//    미확인 시 묶음 전체 숨김은 CwdPanel.visibility.test.ts의 실제 렌더에서 확인한다.
 //
 // ②는 렌더 단언이 아니라 호출부 스윕이다 — 이 저장소에는 렌더 하네스가 없다(vitest node 환경,
 // `CwdPanel.landing.test.ts` 와 같은 형태).
@@ -66,19 +66,6 @@ describe('묶음 외형 (chipSurface)', () => {
 })
 
 describe('묶음 배선 (CwdPanel)', () => {
-  it('브랜치와 워크트리가 묶음 컨테이너 안에 함께 선다', () => {
-    const group = CWD_PANEL.match(/<div className=\{chipGroupSurface\}[\s\S]*?\n {6}<\/div>/)?.[0]
-    expect(group, '묶음 컨테이너가 없다').toBeDefined()
-    expect(group).toMatch(/<BranchChip\b/)
-    expect(group).toMatch(/chat\.composer\.worktreeIsolation'\)/)
-  })
-
-  it('묶음 안의 칩 둘 다 segment 다 — 한쪽만 남으면 테두리가 두 겹이 된다', () => {
-    expect([...CWD_PANEL.matchAll(/variant="segment"/g)]).toHaveLength(2)
-    // 묶음에 들어간 칩이 낱개 외형으로 되돌아가지 않았는지도 본다.
-    expect(CWD_PANEL).not.toMatch(/variant="outlined"[\s\S]{0,200}worktreeIsolation/)
-  })
-
   it('구분선의 주인은 앞 칩이다 — 묶음이 그리면 브랜치 칩이 사라졌을 때 줄만 남는다', () => {
     expect(CWD_PANEL).toMatch(/trailingDivider/)
     // 묶음 컨테이너 자신은 줄을 그리지 않는다.

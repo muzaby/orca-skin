@@ -77,6 +77,17 @@ describe('chatStore — 격리 선택이 chat:send 페이로드로 나간다 (AC
     expect(sentPayload()).not.toHaveProperty('worktreeIsolation')
   })
 
+  it('경로를 바꾼 뒤에는 숨겨진 이전 격리 선택이 전송되지 않는다', () => {
+    chatActions.setWorktreeIsolation(true)
+    chatActions.setWorktreeBaseRef('feature')
+    chatActions.setPendingCwd('/plain-folder')
+
+    expect(chatActions.send('안녕')).toBe(true)
+    expect(sentPayload().cwd).toBe('/plain-folder')
+    expect(sentPayload()).not.toHaveProperty('worktreeIsolation')
+    expect(sentPayload()).not.toHaveProperty('worktreeBaseRef')
+  })
+
   it('켰다 끄면 키가 없다 — 토글이 페이로드까지 왕복한다', () => {
     chatActions.setWorktreeIsolation(true)
     chatActions.setWorktreeIsolation(false)

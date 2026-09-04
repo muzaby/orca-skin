@@ -8,11 +8,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) · 2026-09-02 (ΔV3 · ΔV4) · 2026-09-03 (ΔV5 · ΔV6) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) + git 우측 패널 재설계 제안서 (Git Review Surface) + 싱크 계기 축소 · 첨부 GUI 재대조 · 로딩 교착 회귀 + 커밋 전용 범위 · Stop hook 싱크 · 컴포저 닫기 · 참조 GUI 3차 재대조 |
-| 상태 | IN_PROGRESS (ΔV11 구현 완료; 기존 ΔV6 차단 유지, 라운드 3) |
+| 상태 | IN_PROGRESS (ΔV12 구현 완료; 기존 ΔV6 차단 유지, 라운드 3) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) · `V1 + ΔV1 + ΔV2` @ `d23c5be` (ΔV3 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3` @ `46047ac` (ΔV4 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` @ `177def67` (ΔV5 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` @ `628123bc` (ΔV6 의 기준) |
-| 이번 V revision | `ΔV11` (동일 라운드 3, 사용자 후속 입력) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10 + ΔV11` |
+| 이번 V revision | `ΔV12` (동일 라운드 3, 사용자 후속 입력) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10 + ΔV11 + ΔV12` |
 
 ## ΔV12 — 랜딩 브랜치·워크트리 동시 표시 (2026-09-04, 라운드 3 유지)
 
@@ -54,6 +54,49 @@
 | EP-69 | SET_CWD의 실제 경로 변경 시 격리 선택 초기화 / 1 | 비저장소에서 숨겨진 격리 ON이 남아 사용자가 해제하지 못하고 전송이 실패한다. |
 
 운영 gate: 관련 renderer 렌더·브랜치/격리 상태·전송 회귀, 전체 lint, typecheck 3구성, 문서 gate, diff check. 별도 mutation은 선택하지 않는다(실제 컨트롤·상태·동작을 관측하는 직접 oracle). READY 자기확인: 사용자 두 요구와 강제 5지점, 기존 cwd 세대 보호·격리 전송 계약의 회귀 경로를 확인했다. D-145↔AT-93 보완은 관측된 숨김 부작용에 한정하며 같은 cwd·거부 경로의 양성 짝을 둔다.
+
+## [구현자 기입] ΔV12 — Git 확인 후 워크트리 체크박스 표시
+
+### 설계 리뷰
+
+D-143~D-145 구현 완료. BranchChip의 현재 cwd Git 가시성 guard 이후에만 renderTrigger를 호출해 CwdPanel의 브랜치/워크트리 묶음을 조립한다. WorktreeToggle은 실제 label/input을 사용하고, 다른 유효 cwd 선택 시 이전 격리 선택을 해제한다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+| EP | 생산 지점 관측 | 자기 결과 |
+|---|---|---|
+| EP-67 | BranchChip의 guard 뒤 renderTrigger와 CwdPanel의 묶음 슬롯. 미확인/비저장소/null cwd는 묶음 없음, 정상 응답 후 두 컨트롤을 같은 묶음 안에서 관측했다. | 2/2 |
+| EP-68 | WorktreeToggle의 label/input 및 accent-selected, CwdPanel의 checked/onChange/disabled 전달. 실제 label 텍스트와 좌측 여백 클릭, Space, 전송 중 비활성을 관측했다. | 2/2 |
+| EP-69 | SET_CWD의 다른 경로 분기에서 false. reducer의 true→false와 새 전송 payload에서 isolation/baseRef 생략, 같은 cwd/거부된 루트에서 true 보존을 관측했다. | 1/1 |
+
+검색: `rg -n 'renderTrigger|branch-worktree-group|checked=|onChange=|accent-selected|worktreeIsolation: state.cwd' app/src/renderer/src/features/chat/components/CwdPanel.tsx app/src/renderer/src/features/chat/components/composer/BranchChip.tsx app/src/renderer/src/features/chat/components/composer/WorktreeToggle.tsx app/src/renderer/src/features/chat/reducer/chatReducer.ts`. EP-67~69 총 5/5, VP-94/95 및 ΔV12-REG SELF_PASS.
+
+### 이번 라운드 수정의 잠금
+
+구현 전 신규 렌더 4건은 묶음이 먼저 남거나 checkbox가 없어 실패했고 수정 후 통과했다. 추가로 경로 변경 시 격리 해제 reducer 단언은 true 잔류로 실패한 뒤 수정 후 통과했다. 별도 mutation은 해당 없음 — 컨트롤/상태/동작의 직접 oracle; 선택 증거 0·인용 변이 0·신설 구조 proxy 0.
+
+### Product/UX 파생 검토
+
+전체 label 영역은 약 99×26px이고 체크박스는 14×14px이다. 텍스트와 label 왼쪽 여백 클릭 모두 체크를 전환하며 Space도 동일하다. 선택 색은 라이트 rgb(31,104,189), 다크 rgb(142,193,255)이고 미커밋 변경 안내 tooltip과 전송 중 비활성을 유지했다.
+
+### 놓친 잠재 문제 + 대응
+
+독립 리뷰에서 Git A의 격리를 켠 뒤 비저장소 B로 이동하면 숨겨진 ON이 전송에 남는 문제를 찾았고, 브라우저에서 체크박스 없음/선택 true를 재현했다. D-145를 별도 설계 커밋으로 확정한 뒤 실제 cwd 변경에만 선택을 초기화했다. 수정 후 B→C 사이 늦은 B 응답에는 계속 숨김/false, C 응답에는 두 컨트롤/false를 관측했고 후속 독립 리뷰도 원래 finding 해결을 확인했다.
+
+### 구현 보고
+
+| AC | 자기 결과 | 관측 |
+|---|---|---|
+| AT-93 | ✅ | 지연 응답 전 묶음 없음→현재 Git 응답 후 동시 표시. 경로 변경·늦은 이전 응답·실패·비저장소·null cwd에서도 숨김. 다른 cwd에서 이전 격리와 전송 필드 해제 |
+| AT-94 | ✅ | checkbox+워크트리 라벨, 텍스트/여백 클릭 및 Space의 OFF↔ON, 두 테마 파란 accent, 전송 중 클릭해도 상태 유지 |
+
+✅ 2 · ⚠️ 0 · ❌ 0 = ΔV12 AC 2. Criteria-Met 2/2이며 기존 ΔV6 D25~D27 차단은 별도 분모로 유지한다.
+
+게이트: 관련 renderer 8파일 66건 통과. typecheck node/web/test exit 0, 마지막 reducer 보완 뒤 web 재확인 exit 0. 전체 eslint 0 error/1 warning(기존 useTranscriptVirtualizer), 보완 파일 eslint 0/0, 변경 파일 prettier 검사 통과. frontend 상태 문서를 갱신하고 문서 generated/prose/links 및 diff check로 마무리한다. 브라우저 검증은 실제 CwdPanel/BranchChip/WorktreeToggle과 실제 chat store를 임시 Vite fixture에서 구동했으며 Git 응답만 수동 resolve/reject했다; 전체 Electron 앱 실기를 주장하지 않는다. 로컬 화면 증거는 `orca-worktree-dv12-light.png`, `orca-worktree-dv12-dark.png`다.
+
+### Review Signals
+
+라운드 3 유지. 이전 구현에서는 BranchChip 내부만 Git 확인을 기다려 바깥 워크트리 칩이 먼저 나타났다. 새 숨김 경계의 사용자 탈출 경로를 리뷰해 선택 잔류 문제까지 보완했으며 새로운 IPC·의존성·handoff 지침 변경은 없다.
 
 ## ΔV11 — composer 저장소·브랜치 메뉴 (2026-09-04, 라운드 3 유지)
 
