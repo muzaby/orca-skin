@@ -483,6 +483,10 @@ describe('요구사항이 파일 섹션 줄에 붙는다 (AT-54 · D-093)', () =
     expect(box.attr('class')).toContain('border-selected')
     expect(box.text()).toContain('1번 줄')
     expect(input.attr('class')).not.toContain('border')
+    // 라운드 4 verify D40 — 자동 높이가 무관측이었다(M50). 긴 입력이 한 줄에 갇히지 않는
+    // 유일한 근거가 이 클래스다(§10 EP-61 ①).
+    expect(input.attr('class')?.split(' ')).toContain('[field-sizing:content]')
+    expect(input.attr('class')?.split(' ')).toContain('overflow-hidden')
     expect(input.attr('autofocus')).toBeDefined()
     expect(submit.attr('aria-label')).toContain('추가')
     expect(submit.attr('disabled')).toBeDefined()

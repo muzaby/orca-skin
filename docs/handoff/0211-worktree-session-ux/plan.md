@@ -8,11 +8,158 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) · 2026-09-02 (ΔV3 · ΔV4) · 2026-09-03 (ΔV5 · ΔV6) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) + git 우측 패널 재설계 제안서 (Git Review Surface) + 싱크 계기 축소 · 첨부 GUI 재대조 · 로딩 교착 회귀 + 커밋 전용 범위 · Stop hook 싱크 · 컴포저 닫기 · 참조 GUI 3차 재대조 |
-| 상태 | verify/FAIL (라운드 4 — ΔV7~ΔV14 검증; D25~D27·D35~D40 차단) |
+| 상태 | impl/IMPL_DONE (라운드 5 — D25~D27·D35~D40 오라클 9행; 검증 대기) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) · `V1 + ΔV1 + ΔV2` @ `d23c5be` (ΔV3 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3` @ `46047ac` (ΔV4 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` @ `177def67` (ΔV5 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` @ `628123bc` (ΔV6 의 기준) |
 | 이번 V revision | `ΔV14` (동일 라운드 3, 사용자 Enterprise 호스트 요청) |
 | 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10 + ΔV11 + ΔV12 + ΔV13 + ΔV14` |
+
+## [구현자 기입] 라운드 5 — 배선·배치 오라클 6축 (D25~D27 · D35~D40)
+
+> 새 ΔV 가 아니다. 라운드 4 verify 가 남긴 **BLOCKING 9행**을 닫는 재구현 턴이고, 계약은
+> 그 행들이 인용한 V-pair · §10 지점 그대로다. 프로덕션 동작 변경은 마커 1개뿐이다.
+
+### 설계 리뷰
+
+계약 변경 0건. 아홉 행 전부 “배선·값은 이미 있는데 그것을 보는 오라클이 없다” 라 **plan 정정이
+필요 없다**(verify §0 도 `PLAN_GAP 없음` 으로 적었다). 라운드 3 이 지시한 `handoff-review` 를
+재구현 **전에** 수행했다(D44) — 모드·분류는 아래 Review Signals.
+
+선조치 1건: `DiffReview` 빈 안내 `<div>` 에 `data-diff-empty` 를 붙였다. 형제 상태 넷이 이미
+`data-diff-error`·`data-diff-not-synced`·`data-diff-loading` 을 갖는데 이 갈래만 없어 **대상 요소를
+지목할 수 없었다**(D-123 이 정한 “요소 자신이 단언을 소유한다” 를 이 자리에서만 지킬 수 없었다).
+
+### 강제 지점 전수 / V-pair 자기확인
+
+| EP / pair | 이번 라운드 관측 | 결과 |
+|---|---|---|
+| EP-46 (4) / VP-72 | ① `query` 옵션의 `Stop` 매처 — M-A1 red 4/4 ② 두 드레인 — M-A2·M-A3 각각 red 1/4 ③ 이벤트 형태 `{type:'turn.ended', sessionId:'s1'}` 직접 단언 ④ 리듀서 tick — M-A6 red 5/10 | **4/4**, SELF_PASS |
+| EP-53 (5) / VP-79 | ① 타일 헤더 32px — M29·M29b red ② 컨텍스트 바 트리거 24px — M-B1 red(**이번 라운드 신설**, 어느 라운드도 재지 않던 지점) ③ 사이드바 240px · ④ 파일 밴드 32px — M26·M28 재현 red ⑤ scroll owner 첫 자식 기존 단언 | **5/5**, SELF_PASS |
+| EP-61 (2) / VP-88 | ① draft 자동 높이 — M50 red 1/45 ② 저장 카드 줄 라벨·거터 기존 단언(이번 라운드 미측정) | 1/2 측정, SELF_PASS |
+| EP-71 (4) / VP-97 | ① 선택 액션 배선 — M13b red ③ `activeRequirementId` 전달 — M13 red 2/10. ②④ 기존 단언(미측정) | 2/4 측정, SELF_PASS |
+| EP-73 (4) / VP-99 | ① `onRefresh` 배선 — M43 red ② `gitRefreshTick` 전이 — M42 red 2/5. ③④ 기존 단언(미측정) | 2/4 측정, SELF_PASS |
+| EP-74 (3) / VP-100 | ① cwd 전달 → 그 경로로 조회 — M41 red 5/6 ② 메뉴 epoch 별 query/재시도 — 신규 6케이스. ③ 기존 `GitIdentityMenu.test.ts`(미측정) | 2/3 측정, SELF_PASS |
+| EP-76 (3) / VP-102 | ③ GitRow 갱신 세대 전달 — M8·M8b·M8c red. ①② resource 공유·재시도는 기존 팩토리 + 신규 훅 케이스 | 3/3, SELF_PASS |
+| EP-77 (3) / VP-103 | ① 빈 본문 중앙 — M5 red(마커 유지, 중앙 3토큰만 제거). ②③ 트리·토글 기존 red 좌표 | 1/3 측정, SELF_PASS |
+
+`측정` 표기가 이번 턴에 결함을 심어 본 범위다 — 미측정 지점을 SELF_PASS 근거로 쓰지 않았고, 그
+pair 의 자기판정은 측정한 지점의 red 에 근거한다.
+
+### 이번 라운드 수정의 잠금
+
+| 변이 | 분모 갈래 | 결과 | 검출 케이스 |
+|---|---|---|---|
+| M-A1 `claude.ts` 에서 `makeTurnEndHook(…)` 제거 | D25 인용 변이 | **red** | 신규 4/4 · `turn-end-hook.test.ts` 는 4/4 green |
+| M-A2 스트림 중 `drainTurnEnded()` 제거 | D26 인용 변이 | **red** | 1/4 |
+| M-A3 꼬리 `drainTurnEnded()` 제거 | D26 인용 변이 | **red** | 1/4 (다른 케이스) |
+| M-A4 `chatStore` 의 `case 'turn.ended'` 절 제거 | D27 인용 변이 | **green — 등가 변이** | `chatStore.ts:644` `default:` 가 같은 `dispatchTo(RECV_EVENT)` 를 한다 |
+| M-A5 스토어가 그 이벤트를 삼킨다 | D27 계약(대체 측정) | **red** | 2/10 |
+| M-A6 리듀서가 tick 을 세지 않는다 | D27 계약 · EP-46 ④ | **red** | 5/10 |
+| M-A7 `turn.ended` 가 형제 `turn.aborted` 의 일을 한다 | D27 형제 맞바꿈 | **red** | 1/10 |
+| M41 훅의 `void cache.ensure()` 제거 | D35 인용 변이 | **red** | 5/6 · 팩토리 테스트는 green |
+| M8 `identityGeneration` 상수 | D35 인용 변이 | **red** | 2/3 |
+| M8b 세대를 메뉴 owner key 에서 제거 | 새 oracle 민감도 | **red** | 1/3 |
+| M8c 새로 고침 축만 떨어뜨림 | 새 oracle 민감도 | **red** | 2/3 |
+| M13 `activeRequirementId` → `null` | D37 인용 변이 | **red** | 2/10 · 기존 선택 테스트는 green |
+| M13b 선택 액션 배선 제거 | 새 oracle 민감도 | **red** | 1/10 |
+| M43 `onRefresh` 배선 제거 | D36 인용 변이 | **red** | 1/10 |
+| M42 `REFRESH_GIT_SNAPSHOT` 무효화 | D36 인용 변이 | **red** | 2/5 |
+| M5 빈 안내 중앙 3토큰 제거 | D38 인용 변이 | **red** | 1/45 |
+| M29 헤더 밴드 32 → 48px | D39 인용 변이 | **red** | 1/45 |
+| M29b 두 밴드 갈래를 한 모양으로 합침 | 형제 맞바꿈 | **red** | 1/45 |
+| M50 `[field-sizing:content]` 제거 | D40 인용 변이 | **red** | 1/45 |
+| M-B1 컨텍스트 바 24px → 32px | 새 지점(EP-53 ②) oracle | **red** | 1/18 |
+| M26 사이드바 240 → 300px | r4 red 재현 | **red** | 1/13 |
+| M28 파일 밴드 32 → 48px | r4 red 재현 | **red** | 1/13 |
+| M23 빈 안내 문구 제거 | r4 red 재현 | **red** | 3/13 |
+
+**분모 검산**: 인용 변이 **11**(D25 1 · D26 2 · D27 1 · D35 2 · D36 2 · D37 1 · D38 1 · D39 1 · D40 1 — 합 12 중 D27 인용 1건이 등가) · 새 oracle 민감도 **6**(M-A5·M-A7·M8b·M8c·M13b·M-B1, M-A6 은 EP-46 ④ 인용축과 공유) · r4 red 재현 **3** = 표 행 **23**. **red 22 · green 1**.
+
+**덮개 회귀 0** — 장치를 교체·삭제하지 않았다(전부 추가). r4 가 red 로 본 M26·M28·M23 을 다시
+심어 셋 다 red 로 재현했다.
+
+**M-A4 를 `closed` 로 세지 않았다.** D27 이 인용한 변이가 검출되지 않으므로 그 행은 **부분
+closed** 로 남기고, 대신 그 계약(스토어→리듀서 도달 · tick · 형제 비대칭)을 M-A5·M-A6·M-A7 로
+닫았다. 등가인 근거는 `chatStore.ts:644` 한 줄이다 — 그 `default:` 가 삭제된 case 와 같은
+`dispatchTo(key, { type: 'RECV_EVENT', event: ev })` 를 한다.
+
+### Product/UX 파생 검토
+
+사용자가 관측하는 것은 **바뀌지 않는다** — 이번 변경은 테스트 8파일(신규 5 · 추가 3)과 마커
+1개다. `data-diff-empty` 는 DOM 속성이라 화면·문구·순서에 영향이 없다.
+
+닫은 아홉 축이 각각 사용자에게 무엇이었는지는 그대로다: 메뉴가 영영 `확인 중` 에 머무는 것(D35) ·
+‘새로 고침’ 이 아무 일도 안 하는 것(D36) · 코멘트를 눌러도 diff 가 반응하지 않는 것(D37) ·
+턴이 끝나도 변경 목록이 갱신되지 않는 것(D25~D27). 넷 다 **오류 없이 조용히** 나타나므로
+사용자에게는 “앱이 멈춘 것” 으로 보인다 — 그래서 게이트가 그것을 봐야 한다.
+
+### 놓친 잠재 문제 + 대응
+
+| 발견 | 대응 |
+|---|---|
+| D27 인용 변이가 **등가**다 — `default:` 절이 같은 일을 한다 | 보고에 그대로 적고 계약을 다른 변이로 닫았다. 프로덕션 case 절을 지우는 정리는 하지 않았다(문서 가치가 있고 동작 변경이 아니다) |
+| EP-53 ② (컨텍스트 바 24px) 는 **plan 이 센 5지점에 있는데 어느 라운드도 재지 않았다** | 같은 EP 를 닫는 김에 오라클을 만들었다(M-B1 red). 형제 지점만 고치고 넘어가면 다음 라운드가 이 자리를 연다 |
+| 훅 effect 를 node 환경에서 돌릴 DOM 이 없다 | 형제 `useGitPatch.commitScope.test.ts` 의 react 대역 패턴을 따라 슬롯 기반 하네스를 테스트 안에 뒀다 — 신규 의존성 0. **프로덕션 훅 자신**을 돌리므로 동명 재구현이 아니다 |
+| `git checkout --` 로 변이를 되돌리면 같은 파일의 **정당한 편집까지** 사라진다 | 실제로 `data-diff-empty` 마커를 한 번 잃었고 그 상태의 red 를 잘못 읽을 뻔했다. 이후 변이 스윕은 파일 백업 → 복원 → 바이트 동일성 확인으로 바꿨다 |
+| `mutation-queue.test.ts:35` 간헐 실패(D45) | 이번 라운드 전체 스위트 3회 중 1회 재현. 변경 무관이고 기존 D15·D34 와 같은 축이다 |
+
+### 구현 보고
+
+| 닫은 행 | 판정 | 이번 턴 증거 |
+|---|---|---|
+| D25 | ✅ | `src/main/adapters/claude.turnEnd.test.ts` 4케이스 · M-A1 red |
+| D26 | ✅ | 같은 파일 · M-A2·M-A3 각각 red |
+| D27 | ⚠️ | `chatStore.gitTriggers.test.ts` 3케이스 · M-A5·M-A6·M-A7 red. **인용 변이 M-A4 는 green(등가)** |
+| D35 | ✅ | `gitIdentityRemoteWiring.test.ts` 6 + `gitRowIdentityGeneration.test.ts` 3 · M41·M8·M8b·M8c red |
+| D36 | ✅ | `diffTileWiring.test.ts` 1 + `chatStore.gitTriggers.test.ts` 2 · M43·M42 red |
+| D37 | ✅ | `diffTileWiring.test.ts` 4 · M13·M13b red |
+| D38 | ✅ | `diffPanel0211dv6.render.test.ts` +2 · M5 red |
+| D39 | ✅ | 같은 파일 +2 · M29·M29b red |
+| D40 | ✅ | `diffTile.render.test.ts` 1행 추가 · M50 red |
+
+✅ 8 · ⚠️ 1 · ❌ 0 = 라운드 5 대상 **9**. (ΔV1~ΔV14 의 AC 분모는 이 라운드가 바꾸지 않았다 —
+이번 턴의 AC 변경 0건이다.)
+
+**관측한 게이트 산출**
+
+| Gate | 산출 |
+|---|---|
+| `npm run lint` (`--fix`) | **0 error · 1 warning** — 기존 `useTranscriptVirtualizer`. 실행 후 트리에 도구 변경분 0 |
+| `npm run typecheck` node/web/test | 3구성 **0 error** |
+| `vitest run` 전체 | **347파일 / 3,352케이스 / 실패 0 / skip 0** (r4 기준선 342파일 3,324케이스 → 파일 +5 · 케이스 +28) |
+| `node --test scripts/*.test.mjs` | **67/67** |
+| `check-doc-inventory --check` | generated(9 items · 82 channels) · prose · links 3종 ok |
+| `check-migrations-appendonly` | 마이그레이션 **20** · 소스 936파일 스캔 |
+| `prettier --check` 변경 8파일 | 전건 통과 |
+| `git diff --check` | **0건** |
+
+**케이스 증분 검산**: 신규 5파일 **23**(4+5+6+3+5) + 기존 파일 추가 **5**(diffPanel +4 · GitContextBar +1) = **28**. 3,324 + 28 = **3,352** — 실측과 일치.
+
+환경: `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 뒤 `npm test` 의 `pretest` 가 Node ABI 를 세우고,
+`node node_modules/electron/install.js` 로 바이너리를 받아 `chat-turn.continuity.test.ts` 까지
+수집됐다 — 라운드 4 가 적은 환경 한계(ABI·electron 미설치)는 이번 실행에서 **0** 이다.
+
+### Review Signals
+
+- **이번에 닫은 불변식은 라운드 3·4 와 같은 축이다** — “단위는 잠갔고 그 단위를 부르는 배선은
+  안 잠갔다”. ΔV4 r1 D1(컨텍스트 바 미렌더) → ΔV6 D25~D27 → ΔV14 D35~D37 로 **네 라운드 연속**이다.
+- **막았어야 할 지침은 셋 다 있었다**: `handoff-plan` §“적대 증거는 배선 존재처럼 방향·민감도를
+  별도로 입증해야 할 때 선택” · `handoff-impl` §3 “내가 만든 oracle 이 주장하는 production 경로에
+  실제로 진입하는가” · `handoff-verify` §0 “나머지는 직접 oracle 로 충분한 이유가 있는가”.
+- **`handoff-review` round 26 을 재구현 전에 수행했다(D44). 모드 `DIAGNOSE_ONLY`** — 사용자 요청은
+  “verify 지적사항 보완”(구현)이고 지침 변경 요청이 아니다. **지침 파일 변경 0건.**
+  - 위 세 축은 **B(실행 누락)** 로 판정했다 — 규칙이 있었고 정상 수행하면 막힌다. review §3-5 에
+    따라 같은 문장을 다시 넣지 않았다.
+  - **A 후보 2건은 적용하지 않고 사용자 판단으로 남긴다**(둘 다 Tier 1):
+    ① **증거의 지속성** — impl §8 은 “산출물에서 다시 찾은 표식” 을 요구하는데, ΔV14 는 `EP-76
+    3/3`·`EP-77 3/3` 을 **일회성 브라우저 실측**(`status=2 유지` · `x=-0.006px`)으로 닫았고 그
+    관측은 게이트에 남지 않았다. 규칙을 정상 수행해도 통과한다.
+    ② **열린 root 위에 신규 요청이 쌓이는 순서** — impl §0 의 질의 발동 조건은 “보드가 검증자
+    차례 + 외부 리뷰” 인데, 여기서는 “보드가 `verify/FAIL`(구현자 차례) + 사용자 신규 요청” 이라
+    발동하지 않았다. 라운드 3 의 root 3건이 8 revision 을 그대로 통과했다.
+- 반복 환경 한계: 없다. 라운드 4 가 적은 넷(ABI·electron·`rg`·effect 미실행) 중 앞의 셋은
+  이번 실행에서 해소됐고, effect 축은 react 대역 하네스로 기계화했다.
+- 현재 라운드 수: **5**.
 
 ## ΔV14 — 사내 GitHub hostname 포함 판정 (2026-09-04, 라운드 3 유지)
 
@@ -5200,9 +5347,9 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 | **D22** | 이동의 **소유자 인자**가 무관측 — `revealFileSection(null, path)` 로 프로덕션이 아무것도 스크롤하지 않게 해도 typecheck 0 error · lint 0 error · **3,080 케이스 전건 green** | VP-58 / AT-50 | 소유자를 주입해 첫 인자를 단언(D16 원래 처방)하거나 소스 스윕으로 `scrollOwnerRef.current` 를 고정한다 | **BLOCKING** | **closed**(ΔV5 · 인용 변이 V5-M8 `revealFileSection(null,…)` 가 red 1/6) |
 | D23 | 아이콘 버튼 셋의 접근성 이름을 **서로 맞바꿔도** green — 세 문자열이 마크업에 모두 남아 존재 단언이 침묵한다 | VP-60 / AT-52 | 버튼을 지목해(`data-diff-sidebar-toggle` 등) 이름을 짝지어 단언한다 | NON_BLOCKING | **open**(ΔV6 재측정) — 세그먼트 둘은 잠겼으나(N5 red) `⋮` ↔ `↗` 맞바꿈은 여전히 green |
 | D24 | §10 EP-36 ② 는 "먼저 펼친 뒤 이동" 이라 적었는데 순서를 뒤집어도 green — 다만 React 상태 갱신이라 프로덕션 동작 차이는 없다 | §10 EP-36 ②(문구) | 문구를 코드에 맞추거나 순서 oracle 을 세운다 | NON_BLOCKING | open(r3) |
-| **D25** | `claude.ts:406` 의 `makeTurnEndHook(…)` 호출을 지워도 **전건 green**(3,179/3,179 · baseline 동일) — 계기의 **시작점**이 무관측이다 | VP-72 / §10 EP-46 ① | fake SDK 메시지 스트림으로 `options.hooks` 에 `Stop` 매처가 실렸는지 단언한다(§11 이 이미 그 seam 을 적었다) | **BLOCKING** | open(ΔV6) |
-| **D26** | `drainTurnEnded()` 두 드레인을 지우고 잔여물(미사용 제너레이터·카운터)까지 밀어도 **green**(3,178/3,179 · 유일 실패는 무관 flaky) — 신호가 **이벤트가 되는 자리**가 무관측이다 | VP-72 / §10 EP-46 ② | 같은 fake 스트림에서 `Stop` 발화 뒤 `turn.ended` 가 배치에 실린다고 단언한다 | **BLOCKING** | open(ΔV6) |
-| **D27** | `chatStore.receive` 의 `case 'turn.ended'` 를 지워도 **green**(3,179/3,179 · baseline 동일) — 이벤트가 **리듀서에 닿는 자리**가 무관측이다 | VP-72 / §10 EP-46 ④ | `chatStore` 라우팅 테스트에 `turn.ended` 케이스를 더한다(형제 `turn.aborted` 가 이미 그 자리에 있다) | **BLOCKING** | open(ΔV6) |
+| **D25** | `claude.ts:406` 의 `makeTurnEndHook(…)` 호출을 지워도 **전건 green**(3,179/3,179 · baseline 동일) — 계기의 **시작점**이 무관측이다 | VP-72 / §10 EP-46 ① | fake SDK 메시지 스트림으로 `options.hooks` 에 `Stop` 매처가 실렸는지 단언한다(§11 이 이미 그 seam 을 적었다) | **BLOCKING** | **closed**(r5 · M-A1 red 4/4 — 같은 실행에서 `turn-end-hook.test.ts` 는 4/4 green) |
+| **D26** | `drainTurnEnded()` 두 드레인을 지우고 잔여물(미사용 제너레이터·카운터)까지 밀어도 **green**(3,178/3,179 · 유일 실패는 무관 flaky) — 신호가 **이벤트가 되는 자리**가 무관측이다 | VP-72 / §10 EP-46 ② | 같은 fake 스트림에서 `Stop` 발화 뒤 `turn.ended` 가 배치에 실린다고 단언한다 | **BLOCKING** | **closed**(r5 · 스트림 중 M-A2 red 1/4 · 꼬리 M-A3 red 1/4 — 두 드레인이 서로 다른 케이스를 연다) |
+| **D27** | `chatStore.receive` 의 `case 'turn.ended'` 를 지워도 **green**(3,179/3,179 · baseline 동일) — 이벤트가 **리듀서에 닿는 자리**가 무관측이다 | VP-72 / §10 EP-46 ④ | `chatStore` 라우팅 테스트에 `turn.ended` 케이스를 더한다(형제 `turn.aborted` 가 이미 그 자리에 있다) | **BLOCKING** | **부분 closed**(r5) — 계약(스토어→리듀서 도달·tick·형제 비대칭)은 M-A5·M-A6·M-A7 red. **인용 변이 M-A4 는 여전히 green: 등가 변이다** — `chatStore.ts:644` 의 `default:` 가 같은 `dispatchTo(RECV_EVENT)` 를 하므로 case 절 삭제는 동작을 바꾸지 않는다 |
 | **D28** | 헤더 활성 세그먼트가 `bg-fill-uncontained-active`(ink 14% 중립) + `text-t9` 를 그린다 — **D-118 이 지정한 값은 `bg-fill-selected`(rust-soft) + `text-accent`** 이고 사이드바 선택은 그 값을 쓴다. 같은 "선택" 문법이 둘로 갈렸다 | D-118 ACTIVE · AT-75 클래스 절 · AT-76 실측 9행 / VP-76 · VP-77 | 세그먼트에 `bg-fill-selected`/`text-accent` 를 주고 **그 클래스를 단언**한다 — `Button` 의 `pressed` 는 다른 토큰을 소유하므로 위임으로는 닫히지 않는다 | **BLOCKING** | **closed**(r4) — D-122·D-128 이 계약을 대체했고 현재 토큰은 M39 red |
 | **D29** | AT-76 오라클이 **소스 텍스트 스윕**이라 "어느 요소가 그 클래스를 갖는가" 를 보지 않는다 — `w-[25%]` 를 형제 안쪽 `<div>` 로 옮겨도 green. AC 검증 수단은 "대상 요소를 `data-*` 로 지목" 이었다 | VP-77 / AT-76 검증 수단 | 렌더 후 `data-*` 요소의 className 을 단언한다 | **BLOCKING** | **closed**(r4) — D-123 대체 + 렌더 className 단언으로 전환, M26~M28 red |
 | D30 | `GitContextBar.render.test.ts:77` 에 프로덕션에 없는 `toggleDiffSidebar: vi.fn()` mock 키가 남았다 | 비귀속 | 삭제 | NON_BLOCKING | open(ΔV6) |
@@ -5210,16 +5357,16 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 | D32 | `check-doc-inventory --check` 가 `.claude/worktrees/**`(git 제외 경로)를 스캔해 **1,940건**을 낸다. 추적 파일 위반은 **0** 이고 CI 는 신규 클론이라 영향이 없다 | 비귀속 — 스크립트 기존 동작 | 스크립트가 `.gitignore`·`.git/info/exclude` 를 존중하게 | NEXT_HANDOFF | open(ΔV6) |
 | D33 | `GitDiffSummary.uncommitted` 가 항상 `EMPTY_GROUP` 인 죽은 계약 필드다 | 비귀속 — §6 비범위 (구현자 I-06) | 계약 필드 제거 | NEXT_HANDOFF | open(ΔV6) |
 | D34 | `queue-entry.test.ts` 가 `release is not a function` → `EBUSY rmdir` 로 간헐 실패한다(단독 4회 중 1). 고정 `setTimeout(150)` 경합 | 비귀속 — 이번 변경 무관(`queue*` diff 0) | 기존 D15 · 구현자 I-08 과 같은 축 | NEXT_HANDOFF | open(ΔV6) |
-| **D35** | 메뉴 원격 조회 **배선**이 무관측 — 훅의 `void cache.ensure()` 를 지워도(M41), 갱신 세대를 상수로 만들어도(M8) **3,324/3,324 green**. 유일한 오라클은 팩토리 단위 테스트라 메뉴가 영영 `loading` 이어도 게이트가 조용하다 | VP-102 · VP-100 / §10 EP-76 ③ · EP-74 ① | `GitIdentityMenus` 를 렌더해 `gitApi.status` 호출 수와 턴 종료·새로 고침의 갱신 계기를 단언한다 | **BLOCKING** | open(r4) |
-| **D36** | 수동 새로 고침의 **효과**가 무관측 — `REFRESH_GIT_SNAPSHOT` 이 tick 을 안 올려도(M42), `DiffTileContent` 가 `onRefresh` 를 안 배선해도(M43) green. 메뉴 항목의 **존재**만 잠겨 있다(M17 red) | VP-99 / §10 EP-73 ①② | reducer 전이(`gitRefreshTick + 1`)와 `DiffTileContent` 의 배선을 각각 단언한다 | **BLOCKING** | open(r4) |
-| **D37** | composer↔diff 선택 연동 **배선**이 무관측 — `DiffTileContent.activeRequirementId` 를 `null` 로 고정해도 green(M13). 선택 테스트가 producer 를 건너뛰고 `DiffReview` 를 직접 렌더한다 | VP-97 / §10 EP-71 ③ | store 를 지나는 렌더(`DiffTileContent`)로 양쪽 활성을 단언한다 | **BLOCKING** | open(r4) |
-| **D38** | 빈 diff 안내의 **중앙 배치**가 무관측 — 중앙 클래스를 지워도 green(M5). 존재(M23)·트리 0개(M6)·토글 숨김(M7)은 잠겨 있다 | VP-103 / §10 EP-77 ① · D-153 | 렌더 후 해당 요소 className 을 단언한다(M26~M28 과 같은 방식) | **BLOCKING** | open(r4) |
-| **D39** | 헤더 밴드 `h-[32px]` 가 무관측 — 48px 로 바꿔도 green(M29). 파일 밴드·사이드바 240px·목록 40% 는 잠겨 있다 | VP-79 / §10 EP-53 ① · D-123 | `RightPanelTile` 헤더를 같은 render 테스트의 단언 대상에 넣는다 | **BLOCKING** | open(r4) |
-| **D40** | 작성 입력 자동 높이 `[field-sizing:content]` 가 무관측 — 지워도 green(M50) | VP-88 / §10 EP-61 ① · D-136 | 렌더 className 단언 | **BLOCKING** | open(r4) |
+| **D35** | 메뉴 원격 조회 **배선**이 무관측 — 훅의 `void cache.ensure()` 를 지워도(M41), 갱신 세대를 상수로 만들어도(M8) **3,324/3,324 green**. 유일한 오라클은 팩토리 단위 테스트라 메뉴가 영영 `loading` 이어도 게이트가 조용하다 | VP-102 · VP-100 / §10 EP-76 ③ · EP-74 ① | `GitIdentityMenus` 를 렌더해 `gitApi.status` 호출 수와 턴 종료·새로 고침의 갱신 계기를 단언한다 | **BLOCKING** | **closed**(r5 · M41 red 5/6 — 같은 실행에서 팩토리 테스트 `gitIdentityRemote.test.ts` 는 green · M8 red 2/3 · M8b red 1/3 · 새 축 M8c(새로 고침 축만 제거) red 2/3) |
+| **D36** | 수동 새로 고침의 **효과**가 무관측 — `REFRESH_GIT_SNAPSHOT` 이 tick 을 안 올려도(M42), `DiffTileContent` 가 `onRefresh` 를 안 배선해도(M43) green. 메뉴 항목의 **존재**만 잠겨 있다(M17 red) | VP-99 / §10 EP-73 ①② | reducer 전이(`gitRefreshTick + 1`)와 `DiffTileContent` 의 배선을 각각 단언한다 | **BLOCKING** | **closed**(r5 · M42 red 2/5 · M43 red 1/10) |
+| **D37** | composer↔diff 선택 연동 **배선**이 무관측 — `DiffTileContent.activeRequirementId` 를 `null` 로 고정해도 green(M13). 선택 테스트가 producer 를 건너뛰고 `DiffReview` 를 직접 렌더한다 | VP-97 / §10 EP-71 ③ | store 를 지나는 렌더(`DiffTileContent`)로 양쪽 활성을 단언한다 | **BLOCKING** | **closed**(r5 · M13 red 2/10 — 같은 실행에서 `diffRequirementSelection.render.test.ts` 는 green · 새 축 M13b(선택 액션 배선 제거) red 1/10) |
+| **D38** | 빈 diff 안내의 **중앙 배치**가 무관측 — 중앙 클래스를 지워도 green(M5). 존재(M23)·트리 0개(M6)·토글 숨김(M7)은 잠겨 있다 | VP-103 / §10 EP-77 ① · D-153 | 렌더 후 해당 요소 className 을 단언한다(M26~M28 과 같은 방식) | **BLOCKING** | **closed**(r5 · M5 red — `data-diff-empty` 마커는 유지한 채 중앙 3토큰만 제거해 재측정) |
+| **D39** | 헤더 밴드 `h-[32px]` 가 무관측 — 48px 로 바꿔도 green(M29). 파일 밴드·사이드바 240px·목록 40% 는 잠겨 있다 | VP-79 / §10 EP-53 ① · D-123 | `RightPanelTile` 헤더를 같은 render 테스트의 단언 대상에 넣는다 | **BLOCKING** | **closed**(r5 · M29 red · 새 축 M29b(두 갈래를 한 모양으로 합침) red) |
+| **D40** | 작성 입력 자동 높이 `[field-sizing:content]` 가 무관측 — 지워도 green(M50) | VP-88 / §10 EP-61 ① · D-136 | 렌더 className 단언 | **BLOCKING** | **closed**(r5 · M50 red 1/45) |
 | D41 | 체크박스의 `accent-selected` 파란 토큰이 무관측 — 지워도 green(M20) | §10 EP-68 · D-144(시각) | `src/renderer/AGENTS.md` 가 시각은 육안 검증으로 갈음한다 — 사람 확인 항목으로 남긴다 | NON_BLOCKING | open(r4) |
 | D42 | 초과 단일 패치 guard 제거가 green(M11). 단일 항목이면 `while` 루프가 같은 결과를 내는 **부분 등가 변이**이고, 다항목 캐시가 통째로 비워지는 차이만 무관측이다. LRU 상한 자체는 잠겨 있다(M12 red) | 비귀속 — D-146 에 미명시 | D-146 에 "초과 패치가 기존 캐시를 보존한다" 를 적을지 설계가 정한다 | NON_BLOCKING | open(r4) |
 | D43 | 설계 커밋 **12건**이 `Agent: codex` + `Status: designed` — root `AGENTS.md` 커밋 프로토콜은 설계 커밋을 `Agent: claude` 로 적는다. 값 자체는 허용값이고 파싱은 전건 정상이다 | 비귀속 — 협업 프로토콜 | 설계 주체 배분을 재확인한다 | NON_BLOCKING | open(r4) |
-| D44 | 라운드 3 verify 가 지시한 `handoff-review` 가 수행되지 않았다 — 저장소에 review 산출물·커밋 **0건**이고 ΔV7~ΔV14 가 라운드 3 을 유지했다 | 비귀속 — 프로세스 | 재구현 전 `handoff-review` 를 수행한다 | NON_BLOCKING | open(r4) |
+| D44 | 라운드 3 verify 가 지시한 `handoff-review` 가 수행되지 않았다 — 저장소에 review 산출물·커밋 **0건**이고 ΔV7~ΔV14 가 라운드 3 을 유지했다 | 비귀속 — 프로세스 | 재구현 전 `handoff-review` 를 수행한다 | NON_BLOCKING | **closed**(r5 · review round 26 수행 — `DIAGNOSE_ONLY`, 지침 변경 0건. 분류·A 후보 2건은 아래 Review Signals) |
 | D45 | `mutation-queue.test.ts:35` 가 고정 `setTimeout(10)` 경합으로 간헐 실패한다(변이 54회 중 2회). 변경 무관(`mutation-queue` diff 0) | 비귀속 | 기존 D15 · D34 와 같은 축 | NEXT_HANDOFF | open(r4) |
 
 ## [설계 정정] ΔV4 r3 추가 범위 — 사용자 보고 3건 (라운드 유지)
