@@ -106,13 +106,8 @@ describe('빈 커밋 문구 (AT-73 · D-112·D-113)', () => {
     expect(ko).not.toContain("diffEmpty: '변경 사항이 없습니다.'")
   })
 
-  it('이 키를 읽는 자리가 넷이다 — 자리마다 새 키를 만들지 않았다 (§10 EP-49 ②)', () => {
-    const consumers = [
-      'DiffReview.tsx',
-      'ChangedNavigationSidebar.tsx',
-      'FileDiffSection.tsx',
-      'GitContextBar.tsx'
-    ]
+  it('본문과 메뉴가 같은 빈 문구 키를 사용한다 (§10 EP-49 ② · D-153)', () => {
+    const consumers = ['DiffReview.tsx', 'FileDiffSection.tsx', 'GitContextBar.tsx']
     const hits = consumers.filter((file) => read(file).includes('chat.rightpanel.diffEmpty'))
 
     expect(hits).toEqual(consumers)

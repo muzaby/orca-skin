@@ -6,6 +6,7 @@
 
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { load } from 'cheerio'
 import { describe, expect, it } from 'vitest'
 import type { GitDiffPatch, GitDiffSummary } from '../../../../../../shared/ipc'
 import { DEFAULT_DIFF_VIEW } from '../../reducer/chatReducer'
@@ -63,6 +64,27 @@ function render(props: Partial<Parameters<typeof DiffReview>[0]> = {}): string {
 }
 
 describe('싱크 전과 조회 중은 다른 화면이다 (AT-63 · D-102)', () => {
+  it('빈 범위 안내는 본문에 한 번 나오고 파일트리에는 나오지 않는다 (AT-102)', () => {
+    const html = render({ patch: { ...patch, files: [] }, sidebarVisible: true })
+    const $ = load(html)
+    expect($('[data-diff-scroll-owner]').text()).toBe('표시할 변경 사항이 없습니다.')
+    expect($('[data-diff-file-tree]').text()).toBe('')
+    expect(html.match(/표시할 변경 사항이 없습니다./g)).toHaveLength(1)
+    expect($('[data-diff-sidebar]')).toHaveLength(1)
+    expect($('[data-diff-commit-list] [data-diff-scope="all"]')).toHaveLength(1)
+  })
+
+  it.each<Partial<Parameters<typeof DiffReview>[0]>>([
+    { hasRequest: false, patch: null },
+    { patch: null },
+    { patch: { ...patch, files: [], isRepo: false } },
+    { patch: { ...patch, files: [], unavailable: true } },
+    { patch: { ...patch, files: [] }, error: 'summary' },
+    { patch: { ...patch, files: [] }, error: 'patch' }
+  ])('미싱크·조회 중·실패는 빈 변경 안내를 표시하지 않는다: %j', (state) => {
+    expect(render({ sidebarVisible: true, ...state })).not.toContain('표시할 변경 사항이 없습니다.')
+  })
+
   it('한 번도 조회하지 않았으면 미싱크 문구이고 로딩 문구가 아니다', () => {
     const html = render({ hasRequest: false, patch: null })
 

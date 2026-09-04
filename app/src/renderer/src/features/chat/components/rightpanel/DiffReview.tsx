@@ -137,7 +137,9 @@ export function DiffReview({
             {tr('chat.rightpanel.diffPatchUnavailable')}
           </p>
         ) : sections.length === 0 ? (
-          <p className="px-p5 py-p4 text-footnote text-t6">{tr('chat.rightpanel.diffEmpty')}</p>
+          <div className="flex h-full items-center justify-center px-p5 py-p4 text-center text-footnote text-t6">
+            {tr('chat.rightpanel.diffEmpty')}
+          </div>
         ) : (
           <>
             {patch.contextLimited && (

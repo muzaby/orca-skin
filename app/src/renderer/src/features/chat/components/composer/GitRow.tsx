@@ -25,6 +25,7 @@ import { GitIdentityMenus } from './GitIdentityMenus'
 
 interface GitRowViewProps {
   cwd?: string | null
+  identityGeneration?: string
   view: GitRowView
   diffOpen: boolean
   onToggleDiff: () => void
@@ -33,6 +34,7 @@ interface GitRowViewProps {
 
 export function GitRowView({
   cwd,
+  identityGeneration,
   view,
   diffOpen,
   onToggleDiff,
@@ -54,7 +56,13 @@ export function GitRowView({
           저장소와 브랜치는 **같은 톤**이다 — 참조 실측에서 둘 다 #868681 한 단계였다. */}
       <GitIdentityMenus
         cwd={cwd}
-        key={JSON.stringify([view.repo, view.branch, view.detached, view.githubUrl ?? null])}
+        key={JSON.stringify([
+          view.repo,
+          view.branch,
+          view.detached,
+          view.githubUrl ?? null,
+          identityGeneration
+        ])}
         repo={view.repo}
         branch={view.branch}
         detached={view.detached}
@@ -123,6 +131,7 @@ export function GitRow({ cwd, sessionStarted }: GitRowProps): React.JSX.Element 
   const totals = useChatSession((s) => s.gitSnapshot.summary?.totals ?? null)
   const closedAtTick = useChatSession((s) => s.gitRowClosedAtTick)
   const tick = useChatSession((s) => s.turnEndTick)
+  const refreshTick = useChatSession((s) => s.gitRefreshTick)
   const view = gitRowView(
     sessionStarted,
     cwd,
@@ -135,6 +144,7 @@ export function GitRow({ cwd, sessionStarted }: GitRowProps): React.JSX.Element 
   return (
     <GitRowView
       cwd={cwd}
+      identityGeneration={JSON.stringify([tick, refreshTick])}
       key={JSON.stringify([sessionId, cwd])}
       view={view}
       diffOpen={columnsContain(tiles, 'diff')}

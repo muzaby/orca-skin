@@ -56,7 +56,7 @@ interface SessionEntry {
 |---|---|---|
 | 새 대화 브랜치·워크트리 | 현재 cwd의 Git 저장소 확인 후 브랜치와 워크트리 체크박스를 함께 표시한다. 미확인·실패·비저장소에서는 묶음 전체를 숨긴다. 체크박스와 라벨 전체를 눌러 선택하며, 다른 작업 경로를 고르면 이전 격리 선택을 해제한다. | `components/CwdPanel.tsx`·`composer/BranchChip.tsx`·`composer/WorktreeToggle.tsx`, `chatReducer.ts`의 `SET_CWD` |
 | composer diff 진입 | 현재 세션 요약이 없으면 변경량 버튼을 숨기고 저장소·브랜치·행 닫기를 유지한다. 요약이 준비되면 실제 0/0을 포함한 합계로 버튼을 표시한다. | `components/composer/GitRow.tsx`·`gitRowState.ts` |
-| composer 저장소·브랜치 메뉴 | 저장소 이름은 GitHub 저장소 열기, 브랜치 이름은 복사·GitHub 브랜치 열기를 제공한다. 메뉴를 열 때 현재 cwd의 상태를 다시 조회해 원격 주소를 확인한다. 조회 중·실패·GitHub 주소 미확인을 구분하며 확인된 URL만 연다. 메뉴는 한 곳만 열리며 세션/cwd 변경 후 늦은 응답을 버린다. 분리 헤드의 브랜치 동작은 비활성이다. URL 계약은 IPC 정본을 따른다. | `components/composer/GitRow.tsx`·`GitIdentityMenus.tsx`·`useGitIdentityRemote.ts` |
+| composer 저장소·브랜치 메뉴 | 저장소 이름은 GitHub 저장소 열기, 브랜치 이름은 복사·GitHub 브랜치 열기를 제공한다. 같은 메뉴 owner의 성공/미지원 결과와 진행 중 조회를 캐시해 두 메뉴의 재클릭에서 재사용하며 실패는 재열기에서 재시도한다. 세션/cwd/표시 원격 변경·턴 종료·수동 새로 고침은 owner를 교체하고 다음 열기에서 원격 주소를 갱신한다. 조회 중·실패·GitHub 주소 미확인을 구분하며 확인된 URL만 연다. 메뉴는 한 곳만 열리며 이전 owner의 늦은 응답은 새 메뉴에 전달하지 않는다. 분리 헤드의 브랜치 동작은 비활성이다. URL 계약은 IPC 정본을 따른다. | `components/composer/GitRow.tsx`·`GitIdentityMenus.tsx`·`useGitIdentityRemote.ts` |
 | 패치 조회·재사용 | 열린 변경사항 타일의 `useGitPatch`가 조회를 소유한다. 세션 키·저장소 좌표·요약 세대·비교 범위를 요청 키로 묶고 같은 키의 진행 중 조회를 중복 실행하지 않는다. 세션별 범위 캐시를 LRU·추정 메모리 한도로 제한해 커밋 재방문과 타일 재열기 때 즉시 복원한다. | `features/chat/hooks/useGitPatch.ts`·`lib/gitPatchCache.ts` |
 | 비교 범위 변경 | 다른 범위를 고르면 캐시 hit를 현재 패치로 복원하고 miss는 조회한다. 작성 중 댓글과 선택은 비운다. 같은 범위를 다시 고르는 것은 상태를 바꾸지 않는다. | `chatReducer.ts`의 `SET_DIFF_COMPARISON` |
 | 조회 세대 변경 | 새 좌표 또는 새 세대가 시작되면 현재 패치·범위 캐시·오류·작성 중 댓글을 무효화한다. 같은 좌표·세대의 시작 알림은 멱등이다. | `chatReducer.ts`의 `BEGIN_GIT_SNAPSHOT_QUERY` |

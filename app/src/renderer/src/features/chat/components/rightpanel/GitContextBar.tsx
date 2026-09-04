@@ -173,6 +173,8 @@ export function GitContextBar(): React.JSX.Element {
   const cwd = useChatSession((state) => state.cwd)
   const comparison = useChatSession((state) => state.gitSnapshot.comparison)
   const patch = useChatSession((state) => state.gitSnapshot.patch)
+  const error = useChatSession((state) => state.gitSnapshot.error)
+  const knownEmpty = !error && patch?.isRepo && !patch.unavailable && patch.files.length === 0
   const sidebarVisible = useChatSession((state) => state.gitSnapshot.sidebarVisible)
   const view = useChatSession((state) => state.gitSnapshot.view)
   const columns = useChatSession((state) => state.rightPanelTiles)
@@ -205,18 +207,20 @@ export function GitContextBar(): React.JSX.Element {
       className="flex min-w-0 flex-1 items-center gap-[4px] font-sans text-body font-normal"
     >
       {/* ΔV7: 실제 DOM은 표시 상태를 뒤집는 단일 목록 버튼이다. */}
-      <Button
-        iconOnly
-        size="compact"
-        leadingIcon="panelL"
-        pressed={sidebarVisible}
-        aria-pressed={sidebarVisible}
-        onClick={() => chatActions.setDiffSidebarVisible(!sidebarVisible)}
-        title={filesLabel}
-        aria-label={filesLabel}
-        data-diff-sidebar-toggle
-        className="shrink-0 aria-pressed:text-selected [&[aria-pressed=true]>.btn-squish]:bg-selected-soft"
-      />
+      {!knownEmpty && (
+        <Button
+          iconOnly
+          size="compact"
+          leadingIcon="panelL"
+          pressed={sidebarVisible}
+          aria-pressed={sidebarVisible}
+          onClick={() => chatActions.setDiffSidebarVisible(!sidebarVisible)}
+          title={filesLabel}
+          aria-label={filesLabel}
+          data-diff-sidebar-toggle
+          className="shrink-0 aria-pressed:text-selected [&[aria-pressed=true]>.btn-squish]:bg-selected-soft"
+        />
+      )}
       <button
         ref={comparisonRef}
         type="button"
