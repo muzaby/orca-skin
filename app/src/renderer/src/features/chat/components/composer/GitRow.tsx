@@ -38,7 +38,6 @@ export function GitRowView({
   const { tr } = useI18n()
   if (!view.visible) return null
 
-  const changesAria = tr('chat.gitRow.changesAria', { added: view.added, removed: view.removed })
   return (
     <nav
       aria-label={tr('chat.gitRow.aria')}
@@ -58,29 +57,34 @@ export function GitRowView({
           {view.detached ? tr('chat.gitRow.detached') : view.branch}
         </span>
       </span>
-      {/* 우측 = 조작. 유일한 채움이고 유일한 버튼이다 — 누르면 새 표면(diff 타일)이 열린다. */}
-      <Button
-        size="small"
-        variant="contained"
-        pressed={diffOpen}
-        onClick={onToggleDiff}
-        title={tr('chat.gitRow.diffTitle')}
-        aria-label={changesAria}
-        aria-pressed={diffOpen}
-      >
-        {/* 두 수 사이 간격은 **이 래퍼가 소유**한다. `contents` 로 두면 두 수가 Button 의
-            children 래퍼(`<span>`, display 미지정 = inline) 안에 직접 놓여 **gap 이 아예
-            적용되지 않는다** — 버튼의 `gap-g2` 는 두 단계 위라 닿지 않고 실측 간격은 0px 였다.
-            참조 실측은 5.93px 다(0206 verify D1 정정). */}
-        <span className="inline-flex items-center gap-g4 tabular-nums">
-          <span aria-hidden="true" className="text-git-added">
-            +{view.added}
+      {/* 요약이 준비된 경우에만 변경량 버튼을 표시한다. null을 임시 0/0으로 보이지 않는다. */}
+      {view.totals !== null && (
+        <Button
+          size="small"
+          variant="contained"
+          pressed={diffOpen}
+          onClick={onToggleDiff}
+          title={tr('chat.gitRow.diffTitle')}
+          aria-label={tr('chat.gitRow.changesAria', {
+            added: view.totals.added,
+            removed: view.totals.removed
+          })}
+          aria-pressed={diffOpen}
+        >
+          {/* 두 수 사이 간격은 **이 래퍼가 소유**한다. `contents` 로 두면 두 수가 Button 의
+              children 래퍼(`<span>`, display 미지정 = inline) 안에 직접 놓여 **gap 이 아예
+              적용되지 않는다** — 버튼의 `gap-g2` 는 두 단계 위라 닿지 않고 실측 간격은 0px 였다.
+              참조 실측은 5.93px 다(0206 verify D1 정정). */}
+          <span className="inline-flex items-center gap-g4 tabular-nums">
+            <span aria-hidden="true" className="text-git-added">
+              +{view.totals.added}
+            </span>
+            <span aria-hidden="true" className="text-git-removed">
+              −{view.totals.removed}
+            </span>
           </span>
-          <span aria-hidden="true" className="text-git-removed">
-            −{view.removed}
-          </span>
-        </span>
-      </Button>
+        </Button>
+      )}
       {/* 0211 ΔV6 D-114 — **변경량 버튼 뒤**가 계약이다(AT-70 이 인덱스로 센다). 앞에 두면
           누르려던 변경량 대신 닫기가 눌린다. `Notice` 의 닫기와 같은 primitive·크기다. */}
       <Button

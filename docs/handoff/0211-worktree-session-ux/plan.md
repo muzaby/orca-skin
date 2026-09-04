@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) · 2026-09-02 (ΔV3 · ΔV4) · 2026-09-03 (ΔV5 · ΔV6) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) + git 우측 패널 재설계 제안서 (Git Review Surface) + 싱크 계기 축소 · 첨부 GUI 재대조 · 로딩 교착 회귀 + 커밋 전용 범위 · Stop hook 싱크 · 컴포저 닫기 · 참조 GUI 3차 재대조 |
-| 상태 | READY (ΔV9 — 미싱크 diff 버튼 숨김, 라운드 3 유지) |
+| 상태 | IN_PROGRESS (ΔV9 구현 완료; 기존 ΔV6 차단 유지, 라운드 3) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) · `V1 + ΔV1 + ΔV2` @ `d23c5be` (ΔV3 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3` @ `46047ac` (ΔV4 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` @ `177def67` (ΔV5 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` @ `628123bc` (ΔV6 의 기준) |
 | 이번 V revision | `ΔV9` (동일 라운드 3, 사용자 후속 입력) |
@@ -49,6 +49,55 @@
 view의 added/removed 분리 필드 대신 `totals: GitDiffTotals | null`을 운반한다. 계산·캐시·IPC는 바꾸지 않는다. null은 미준비, `{added:0,removed:0}`는 준비된 빈 변경이다. 실제 GitRow 렌더 테스트는 store selector의 요약을 null→값으로 제공해 props 전용 테스트를 보완한다. 직접 행동 oracle이므로 별도 mutation은 선택하지 않는다.
 
 운영 gate: composer Git 행·패널 스택·조회 계기 및 snapshot/reducer 관련 테스트, 전체 lint, typecheck 3구성, 문서 gate. 기존 ΔV6 D25~D27 차단은 유지한다. READY 자기확인: 두 사용자 결과와 EP-60의 3지점을 확인했으며 기존 조회 계기를 새로 만들지 않는다.
+
+## [구현자 기입] ΔV9 — 미싱크 composer diff 버튼 숨김
+
+### 설계 리뷰
+
+D-134/D-135 구현 완료. `summary=null`을 0/0으로 접던 view 변환이 미조회 상태를 변경 없음으로 보이게 했다. nullable totals를 유지해 실제 합계가 있는 경우에만 변경량 버튼을 그린다. 이번 요청은 표시 기준 보완이며 조회 시점·캐시·IPC·타일 상태를 바꾸지 않았다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+| EP-60 지점 | 관측 |
+|---|---|
+| GitRow 요약 selector | `summary?.totals ?? null`을 gitRowView에 전달한다. 실제 GitRow 테스트가 summary 없음·조회 시작·요약 수신을 순서대로 렌더한다. |
+| gitRowView | `totals: GitDiffTotals \| null`을 그대로 보관한다. 순수 테스트에서 준비 전 null, 준비 후 7/2 합계를 관측한다. |
+| GitRowView | `view.totals !== null`인 경우에만 diff 버튼을 그린다. 미준비 버튼 1개(닫기), 준비 후 2개(diff/닫기), 실제 0/0 및 120/20 표시를 관측한다. |
+
+전수 검색: `rg -n 'totals|view\.visible|data-git-row-close' app/src/renderer/src/features/chat/components/composer/GitRow.tsx app/src/renderer/src/features/chat/components/composer/gitRowState.ts`. 생산 경로 3지점 확인, EP-60 3/3.
+
+| pair | 자기 상태 | 증거 |
+|---|---|---|
+| VP-86 | SELF_PASS | gitRow.availability의 미조회/조회 중 2건, gitRowState의 null 보존 |
+| VP-87 | SELF_PASS | 실제 reducer 요약 수신 뒤 실제 GitRow의 0/0·120/20 버튼 2건, 기존 행/스택 렌더 회귀 |
+| VP-71 / VP-83 | SELF_PASS | 행 닫기·tick 복귀, gitQueryReason/gitSnapshotQuery/chatReducer.plan/commitScope 회귀 |
+
+### 이번 라운드 수정의 잠금
+
+별도 mutation not selected. 실제 GitRow+reducer 결과를 관측하는 직접 행동 oracle을 사용했다. 수정 전 신규 4건이 모두 `expected button length 1, received 2`로 실패했고 수정 후 4건 통과했다. 선택 증거 0 + 인용 변이 0 + 새 구조적 proxy 0 = 변이 표 대상 0. 이전 ΔV8 변이는 이번 표시 변경의 선택 증거가 아니다.
+
+### Product/UX 파생 검토
+
+요약을 받은 실제 빈 변경(0/0)은 버튼을 유지한다. 버튼이 없어도 저장소·브랜치·닫기는 남으며 요청 시작만으로는 버튼을 만들지 않는다. 기존 캐시된 요약을 지우는 새 동작은 없다. 순수 UI 표시 변경이라 스타일·아이콘·추가 로딩 문구는 도입하지 않았다.
+
+### 놓친 잠재 문제 + 대응
+
+준비 여부를 숫자의 0 여부로 판정하면 실제 빈 변경 버튼도 숨겨진다. nullable totals와 0/0 양성 짝으로 구분했다. 요청 존재 여부만 읽으면 최초 조회 진행 중에 임시 버튼이 돌아오므로 null request와 시작된 request 두 경우를 검사했다. 독립 코드 리뷰에서 추가 기능 결함이나 필수 누락은 발견하지 못했다. 기존 ΔV6 D25~D27 차단은 이번 표시 요청 밖으로 유지한다.
+
+### 구현 보고
+
+| AC | 자기 결과 | 관측 |
+|---|---|---|
+| AT-85 | ✅ | 미조회·조회 중 diff 버튼 없음, 저장소·브랜치·닫기 유지; 열린 타일 상태에서도 동일 |
+| AT-86 | ✅ | 요약 수신 후 0/0 및 120/20 버튼 표시, aria-pressed 유지, 행/패널 스택 회귀 |
+
+✅ 2 · ⚠️ 0 · ❌ 0 = ΔV9 AC 2. 전체 V의 기존 차단과 별도 분모이며 구현 trailer는 2/2, Criteria-Pending에 ΔV6 D25~D27을 남긴다.
+
+게이트: composer 행/스택 5파일 31건 + 조회/리듀서 4파일 54건 = 9파일 85건 통과. typecheck node/web/test 3구성 exit 0. 전체 eslint 0 error/1 warning(기존 useTranscriptVirtualizer 경고)이다. 문서 generated/prose/links 검사 통과, git diff --check 출력 0줄. 검증은 실제 컴포넌트 SSR과 reducer 전이이며 Electron 앱 재시작 실기를 수행했다고 주장하지 않는다.
+
+### Review Signals
+
+라운드 3 유지. 사용자가 바꾼 것은 미싱크 상태의 진입 버튼 표시 기준이며 기존 데이터 조회 계기는 유지했다. 기존 null→0/0 변환과 무조건 버튼 렌더가 같은 의미 손실을 만들었고 두 지점을 함께 고쳤다. 조회 selector의 null 운반도 실제 GitRow에서 확인했다. handoff 지침 변경이나 새 의존성은 없다.
 
 ## ΔV8 — 커밋별 diff와 입력창 보정 (2026-09-04, 라운드 3 유지)
 
