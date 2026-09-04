@@ -451,6 +451,8 @@ describe('0206 · diff 타일 토글과 git 스냅샷', () => {
     expect(moved.gitSnapshot).toEqual({
       summary: null,
       patch: null,
+      patchCache: [],
+      error: null,
       comparison: { kind: 'all' },
       expandedFiles: [],
       // 표시 취향은 저장소가 아니라 사용자에게 속한다 — 옮겨도 유지한다.

@@ -141,6 +141,7 @@ export function Composer({
   const projectId = useChatSession((s) => s.projectId ?? s.pendingProjectId)
   const pendingToolApprovals = useChatSession((s) => s.pendingToolApprovals)
   const diffRequirements = useChatSession((s) => s.diffRequirements)
+  const activeDiffRequirementId = useChatSession((s) => s.activeDiffRequirementId)
   const diffRequirementSnapshot = chatActions.captureDiffRequirementSnapshot()
   // 큐의 맨 앞 질문만 렌더(canUseTool 이 query 를 막아 보통 1개). 응답 시 다음 질문이 노출.
   const activeAsk = useChatSession((s) => s.pendingAsks[0])
@@ -366,6 +367,8 @@ export function Composer({
               requirementTray={
                 <RequirementTray
                   requirements={diffRequirements}
+                  selectedId={activeDiffRequirementId}
+                  onSelect={chatActions.selectDiffRequirement}
                   onRemove={chatActions.removeDiffRequirement}
                 />
               }

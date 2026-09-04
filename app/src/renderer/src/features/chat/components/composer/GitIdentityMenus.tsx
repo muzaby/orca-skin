@@ -3,8 +3,10 @@ import { useI18n } from '../../../../shared/i18n'
 import { Popover } from '../../../../shared/ui/Popover'
 import { GitIdentityMenu, type GitIdentityKind } from './GitIdentityMenu'
 import { moveGitMenuFocus } from './gitIdentityMenuActions'
+import { useGitIdentityRemote } from './useGitIdentityRemote'
 
 interface GitIdentityMenusProps {
+  cwd?: string | null
   repo: string | null
   branch: string | null
   detached: boolean
@@ -13,6 +15,7 @@ interface GitIdentityMenusProps {
 
 // GitRow keys this owner by identity; session/cwd changes also remount the entire row.
 export function GitIdentityMenus({
+  cwd,
   repo,
   branch,
   detached,
@@ -30,6 +33,7 @@ export function GitIdentityMenus({
   const menuId = useId()
   const anchorRef = active === 'repo' ? repoRef : branchRef
   const menuEpoch = menu?.epoch
+  const remote = useGitIdentityRemote(cwd, menuEpoch, githubUrl)
 
   useEffect(
     () => () => {
@@ -131,7 +135,8 @@ export function GitIdentityMenus({
           >
             <GitIdentityMenu
               kind={active}
-              githubUrl={githubUrl}
+              githubUrl={remote.url}
+              remotePhase={remote.phase}
               branch={branch}
               detached={detached}
               copyFailed={copyFailed}

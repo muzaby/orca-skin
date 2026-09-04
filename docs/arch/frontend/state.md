@@ -56,12 +56,15 @@ interface SessionEntry {
 |---|---|---|
 | 새 대화 브랜치·워크트리 | 현재 cwd의 Git 저장소 확인 후 브랜치와 워크트리 체크박스를 함께 표시한다. 미확인·실패·비저장소에서는 묶음 전체를 숨긴다. 체크박스와 라벨 전체를 눌러 선택하며, 다른 작업 경로를 고르면 이전 격리 선택을 해제한다. | `components/CwdPanel.tsx`·`composer/BranchChip.tsx`·`composer/WorktreeToggle.tsx`, `chatReducer.ts`의 `SET_CWD` |
 | composer diff 진입 | 현재 세션 요약이 없으면 변경량 버튼을 숨기고 저장소·브랜치·행 닫기를 유지한다. 요약이 준비되면 실제 0/0을 포함한 합계로 버튼을 표시한다. | `components/composer/GitRow.tsx`·`gitRowState.ts` |
-| composer 저장소·브랜치 메뉴 | 저장소 이름은 GitHub 저장소 열기, 브랜치 이름은 복사·GitHub 브랜치 열기를 제공한다. 메뉴는 한 곳만 열리며 세션/cwd 또는 표시 이름/URL이 바뀌면 닫힌다. 원격 URL 없음과 분리 헤드는 해당 동작을 비활성으로 표시한다. URL 계약은 IPC 정본을 따른다. | `components/composer/GitRow.tsx`·`GitIdentityMenus.tsx` |
-| 패치 조회·재사용 | 열린 변경사항 타일의 `useGitPatch`가 조회를 소유한다. 세션 키·저장소 좌표·요약 세대·비교 범위를 요청 키로 묶고 같은 키의 진행 중 조회를 중복 실행하지 않는다. 현재 범위의 패치만 보관하므로 같은 좌표·세대·범위에서 타일을 다시 열면 재사용한다. | `features/chat/hooks/useGitPatch.ts` |
-| 비교 범위 변경 | 다른 범위를 고르면 패치와 작성 중 댓글을 즉시 비운다. 같은 범위를 다시 고르는 것은 상태를 바꾸지 않는다. | `chatReducer.ts`의 `SET_DIFF_COMPARISON` |
-| 조회 세대 변경 | 새 좌표 또는 새 세대가 시작되면 기존 패치와 작성 중 댓글을 무효화한다. 같은 좌표·세대의 시작 알림은 멱등이다. | `chatReducer.ts`의 `BEGIN_GIT_SNAPSHOT_QUERY` |
+| composer 저장소·브랜치 메뉴 | 저장소 이름은 GitHub 저장소 열기, 브랜치 이름은 복사·GitHub 브랜치 열기를 제공한다. 메뉴를 열 때 현재 cwd의 상태를 다시 조회해 원격 주소를 확인한다. 조회 중·실패·GitHub 주소 미확인을 구분하며 확인된 URL만 연다. 메뉴는 한 곳만 열리며 세션/cwd 변경 후 늦은 응답을 버린다. 분리 헤드의 브랜치 동작은 비활성이다. URL 계약은 IPC 정본을 따른다. | `components/composer/GitRow.tsx`·`GitIdentityMenus.tsx`·`useGitIdentityRemote.ts` |
+| 패치 조회·재사용 | 열린 변경사항 타일의 `useGitPatch`가 조회를 소유한다. 세션 키·저장소 좌표·요약 세대·비교 범위를 요청 키로 묶고 같은 키의 진행 중 조회를 중복 실행하지 않는다. 세션별 범위 캐시를 LRU·추정 메모리 한도로 제한해 커밋 재방문과 타일 재열기 때 즉시 복원한다. | `features/chat/hooks/useGitPatch.ts`·`lib/gitPatchCache.ts` |
+| 비교 범위 변경 | 다른 범위를 고르면 캐시 hit를 현재 패치로 복원하고 miss는 조회한다. 작성 중 댓글과 선택은 비운다. 같은 범위를 다시 고르는 것은 상태를 바꾸지 않는다. | `chatReducer.ts`의 `SET_DIFF_COMPARISON` |
+| 조회 세대 변경 | 새 좌표 또는 새 세대가 시작되면 현재 패치·범위 캐시·오류·작성 중 댓글을 무효화한다. 같은 좌표·세대의 시작 알림은 멱등이다. | `chatReducer.ts`의 `BEGIN_GIT_SNAPSHOT_QUERY` |
 | 늦은 응답 | 훅의 cleanup과 reducer의 좌표·세대·범위 검사가 지난 요청을 폐기한다. 같은 세대의 요약이 패치보다 늦게 도착해도 현재 범위가 유지되면 먼저 받은 패치를 보존한다. 요약에서 선택 커밋이 사라져 범위가 조정되면 패치와 작성 중 댓글을 비운다. | `useGitPatch.ts`, `chatReducer.ts`의 `RECEIVE_GIT_PATCH`·`RECEIVE_GIT_SNAPSHOT_SUMMARY` |
 | 보관 중 댓글 | `DiffRequirementItem.commitSha`가 작성 범위를 기억하며 생략은 전체 모드다. 작성 기준은 실제 `patch.base`다. 같은 범위의 새 패치에만 재anchor하고 해당 범위의 줄에만 마커를 표시한다. 다른 범위로 이동해도 보관 중 항목과 anchor는 유지한다. UI wrapper와 wire anchor의 경계는 IPC 계약을 따른다. | `components/rightpanel/DiffTileContent.tsx`·`diffRequirements.ts`, `chatReducer.ts` |
+| 댓글 선택 | composer 타일과 diff 카드는 세션의 `activeDiffRequirementId`를 공유한다. 선택은 대응 범위·파일·접힌 문맥을 열고 코멘트까지 이동하며 DOM 포커스는 클릭한 표면에 남긴다. 실제 anchor 변경 없이 선택만 바꾸면 전송 revision을 올리지 않는다. | `RequirementTray.tsx`·`FileDiffSection.tsx`·`chatReducer.ts` |
+| 전송한 댓글 | 사용자 메시지의 `diff_requirements` 파트에 anchor 스냅샷을 저장한다. 낙관·대기·확정 메시지에서 인용 첨부를 표시하고 재로드에도 유지한다. | `chatStore.ts`·`UserDiffRequirements.tsx`, [저장 경로](../backend/provider-runtime.md) |
+| 새로 고침 | diff 케밥 마지막 메뉴는 status/summary 및 열린 선택 패치를 즉시 조회한다. 실패 안내에서 재시도할 수 있다. 자동 목록 조회는 Stop hook의 턴 종료만 사용하며 마운트나 창 포커스는 계기가 아니다. | `GitContextBar.tsx`·`useGitSnapshot.ts`·`useGitPatch.ts` |
 
 요약 조회 세대는 renderer 모듈 수명의 단조 증가 번호다. 화면을 나갔다 돌아와 query owner가 다시 만들어져도 저장된 패치의 세대 번호를 재사용하지 않는다. 각 owner는 자신의 최신 요청만 수신한다.
 

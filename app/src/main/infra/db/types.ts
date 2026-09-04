@@ -19,6 +19,7 @@ type MessagePartType =
   | 'structured_output'
   | 'error'
   | 'attachment'
+  | 'diff_requirements'
   | 'compact_boundary'
   | 'fork_boundary'
   // 백그라운드 서브에이전트 완료 통지(0143) — payload 에 status/durationMs/summary, tool_run_id

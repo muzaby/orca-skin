@@ -128,9 +128,8 @@ export function useGitPatch(): void {
         if (live) chatActions.receiveGitPatch(request, result, comparison)
       })
       .catch(() => {
-        // 실패는 다음 계기(턴 종료)가 재시도한다. `patch` 가 null 로 남아 화면은 로딩 문구를
-        // 유지하고, 조용히 "변경 없음" 으로 바뀌지 않는다.
         guard.current = settlePatchQuery(guard.current, key)
+        if (live) chatActions.failGitSnapshotQuery(request, 'patch', comparison)
       })
     return () => {
       live = false

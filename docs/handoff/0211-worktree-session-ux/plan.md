@@ -8,11 +8,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) · 2026-09-02 (ΔV3 · ΔV4) · 2026-09-03 (ΔV5 · ΔV6) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) + git 우측 패널 재설계 제안서 (Git Review Surface) + 싱크 계기 축소 · 첨부 GUI 재대조 · 로딩 교착 회귀 + 커밋 전용 범위 · Stop hook 싱크 · 컴포저 닫기 · 참조 GUI 3차 재대조 |
-| 상태 | IN_PROGRESS (ΔV12 구현 완료; 기존 ΔV6 차단 유지, 라운드 3) |
+| 상태 | IN_PROGRESS (ΔV13 구현 완료; 기존 ΔV6 차단 유지, 라운드 3) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) · `V1 + ΔV1 + ΔV2` @ `d23c5be` (ΔV3 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3` @ `46047ac` (ΔV4 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` @ `177def67` (ΔV5 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` @ `628123bc` (ΔV6 의 기준) |
-| 이번 V revision | `ΔV12` (동일 라운드 3, 사용자 후속 입력) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10 + ΔV11 + ΔV12` |
+| 이번 V revision | `ΔV13` (동일 라운드 3, 사용자 후속 입력) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10 + ΔV11 + ΔV12 + ΔV13` |
 
 ## ΔV13 — 커밋 캐시·코멘트 참조·전송 첨부·수동 새로 고침 (2026-09-04, 라운드 3 유지)
 
@@ -80,6 +80,56 @@
 | EP-74 | cwd prop 전달·메뉴 수명 query/cancel·상태별 표시와 URL 실행 / 3. snapshot 누락을 부재로 오표시하거나 이전 경로로 여는 것이 실패다. |
 
 추가 후 READY 자기확인: ΔV13의 현재 범위는 AC 5개(VP-96~100), 강제 지점 18개(EP-70~74)다. 기술 경계·기존 GitHub URL 보안 정책은 상속한다. 독립 원격 조회는 diff 자동조회 정책을 바꾸지 않는다.
+
+## [구현자 기입] ΔV13 — 캐시·코멘트 참조·조회 복구
+
+### 설계 리뷰
+
+D-146~150을 구현했다. 설계 커밋 `6440799f`와 원격 주소 후속 설계 `32da7039`를 코드 변경과 분리했다. 기존 ΔV6 D25~D27은 이번 다섯 AC의 범위 밖이며 전체 handoff의 IN_PROGRESS 상태를 유지한다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+| EP | 생산 지점 관측 | 자기 결과 |
+|---|---|---|
+| EP-70 | RECEIVE_GIT_PATCH의 writeGitPatchCache, SET_DIFF_COMPARISON의 readGitPatchCache, BEGIN/resetGitReview의 캐시 초기화. hook+reducer에서 완료 A→B→A 2회 조회, 새 세대는 3회째 조회. 사용자 cwd 및 session.updated.cwd 변경 후 이전 request 응답은 폐기. LRU 16개/추정 32MiB 제한과 초과 패치 미보관 단언 통과. | 3/3 |
+| EP-71 | selectDiffRequirement action, Composer.selectedId/onSelect, DiffTileContent의 activeRequirementId, FileDiffSection의 카드/문맥 reveal. 브라우저 양쪽 selected border rgb(31,104,189), 비선택은 투명/중립 경계. 수동 범위 전환·삭제·성공 clear와 cwd 초기화를 reducer에서 확인. | 4/4 |
+| EP-72 | APPEND 낙관 파트와 queued upsert, commitConsumed의 sink/event requirements, HistoryWriter.diff_requirements, parts/UserMessage/PendingSteerTurn 표시. 실제 DB 저장→loadParts→partFromRow roundtrip 및 provider payload 보존 통과. | 4/4 |
+| EP-73 | 메뉴 refresh가 마지막, 세션 gitRefreshTick과 status/summary reason, 새 세대 캐시 초기화, guard된 실패 action과 재시도 버튼. 브라우저 미싱크→조회→실패→재시도에서 status 4/summary 3/patch 3/send 0, 최종 오류 없음·파일 표시. | 4/4 |
+| EP-74 | GitRow→GitIdentityMenus cwd, 메뉴 epoch/cwd query와 cancel, GitIdentityMenu remotePhase/URL 가드. 캐시 URL null인 실제 메뉴가 확인 중→GitHub 열기 활성으로 전환. 조회 실패/미확인 문구와 브랜치 복사 독립성을 렌더/서비스 테스트에서 확인. | 3/3 |
+
+관측 명령: `rg -n 'patchCache|resetGitReview|SELECT_DIFF_REQUIREMENT|REFRESH_GIT_SNAPSHOT|FAIL_GIT_SNAPSHOT_QUERY|diff_requirements|queryGitIdentityRemote|remotePhase'`를 해당 reducer/store/컴포넌트/writer에 실행했다. 실제 문서에서 추출한 계획/보고 EP 집합은 모두 EP-70~74이며 양방향 차집합 `[]`였다. VP-96~100도 누락/추가 `[]`, AC 체크 5개를 다시 셌다. N 합은 3+4+4+4+3=18이다.
+
+### 이번 라운드 수정의 잠금
+
+완료 커밋 재방문은 구현 전 patch:null로 실패, 수동 refresh reason/실패 callback도 실패했다. sent coordinator/UI와 실제 writer roundtrip은 requirements 누락으로 실패한 뒤 통과했다. session.updated의 실제 cwd 변경도 이전 패치 잔류를 재현한 뒤 resetGitReview로 닫았다. 별도 mutation은 선택하지 않았다. 기존 단일 범위·수동 조회 금지·부재 문구 테스트는 D-146/D-149/D-150의 변경된 계약으로 갱신했으며 창 포커스 자동 조회 금지는 유지했다.
+
+### Product/UX 파생 검토
+
+실제 store·useGitSnapshot·DiffTileContent·ComposerInputController·UserMessage를 임시 Vite fixture에서 구동하고 Git 응답만 대체했다. A→B→A와 패널 닫기/재열기에서 patch 카운터는 3(전체+A+B)으로 유지됐다. composer→diff와 diff→composer 선택, 접힌 파일·문맥, 나란히 보기, 두 첨부 전송 후 사용자 버블과 빈 composer를 확인했다. 최종 전송 카운터 1이며 인용 첨부 두 개의 파일/줄/본문이 aria-label/title에 보존됐다. 전체 Electron 앱 실기를 주장하지 않는다.
+
+원격 조회는 현재 세션 cwd의 `git remote get-url origin` 결과를 GitHub URL로 정규화하는 기존 main 경로다. 현재 저장소의 실제 origin은 정상 변환됐다. 사용자 실행 세션의 최초 실패 원인을 확정하지는 않았으며, 이전 빈 상태로 부재를 단정하던 경계를 fresh 조회와 상태 구분으로 수정했다. 비GitHub 호스트/다른 이름의 remote/SSH 별칭 해석 범위는 확장하지 않았다.
+
+### 놓친 잠재 문제 + 대응
+
+독립 코드 리뷰가 캐시된 패널 재열기에서 child layout effect가 부모 scroll ref보다 먼저 실행되는 문제를 발견했다. 150줄 fixture에서 재현 시 scrollTop=0, 선택 카드 top=2785.8, 화면 bottom=720이었다. 선택 reveal만 useEffect로 옮긴 뒤 scrollTop=2149.6, 카드 top=636.2/bottom=719.8로 화면 안에 들어오며 포커스는 composer 선택 버튼에 남았다. 위쪽 문맥 확장 보정은 기존 layout effect를 유지했다. 캐시·요약 세대·원격 query 경계의 추가 확정 P1/P2는 리뷰에서 발견되지 않았다.
+
+### 구현 보고
+
+| AC / pair | 자기 결과 | 관측 |
+|---|---|---|
+| AT-95 / VP-96 | ✅ | 완료 커밋·타일 재방문 무조회, 새 세대/cwd 무효화, 늦은 응답 폐기, LRU 한도 |
+| AT-96 / VP-97 | ✅ | 양방향 파란 선택·범위/파일/문맥 reveal·캐시 재열기 스크롤, 선택만 바꿀 때 submit revision 보존 |
+| AT-97 / VP-98 | ✅ | 낙관/queued/committed 인용 첨부, DB roundtrip, 파일 첨부 병존·일반 메시지·provider payload 회귀 |
+| AT-98 / VP-99 | ✅ | 마지막 새로 고침, resume/메시지 없이 조회, 실패 안내와 재시도, 기존 자동 턴 종료 조회 |
+| AT-99 / VP-100 | ✅ | stale-null 메뉴의 fresh 원격 확인, 부재 단정 제거, stale 응답 폐기와 복사/웹 열기 가드 |
+
+✅ 5 · ⚠️ 0 · ❌ 0 = ΔV13 AC 5. Criteria-Met 5/5이며 기존 ΔV6 D25~D27 차단은 별도 분모다. VP-96~100과 ΔV13-REG SELF_PASS.
+
+게이트: 최종 scoped Vitest 55파일 519건 통과. 실제 writer DB 테스트는 Electron RUN_AS_NODE로 11건 통과했으며 ABI 재빌드를 하지 않았다. Git CLI/URL 회귀 suite도 통과했다. typecheck node/web/test exit 0, 전체 eslint 0 error/기존 useTranscriptVirtualizer warning 1, 변경 source prettier 적용, diff check exit 0. IPC/provider-runtime/frontend 상태 문서를 갱신하고 doc-inventory generated/prose/links 세 게이트가 통과했다. 로컬 화면 증거는 `diff13-linked-comments.png`, `diff13-sent-attachments.png`, `diff13-remote-menu.png`, `diff13-cached-reopen.png`다.
+
+### Review Signals
+
+라운드 3 유지. 이전 단일 현재 패치 보관이 범위 전환 캐시를 잃었고, provider 전송만 검증하던 경로에서 사용자 메시지 첨부가 빠졌다. 이번에는 캐시 소비 화면·선택 포커스·전송 저장 경로·수동 조회 실패와 재열기까지 연결해 확인했다. 원격 확인은 캐시된 URL 누락을 원격 부재로 혼동하던 별도 상태 경계였다. 새 의존성·SQL 마이그레이션·handoff 지침 변경은 없다.
 
 ## ΔV12 — 랜딩 브랜치·워크트리 동시 표시 (2026-09-04, 라운드 3 유지)
 

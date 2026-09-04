@@ -42,9 +42,10 @@ const LANDING_CHIP = 'features/chat/components/composer/BranchChip.tsx'
 // 아니다" · D-088 "표시 옵션은 순수 파생").
 const BODY_OWNER = 'features/chat/hooks/useGitPatch.ts'
 const SUMMARY_OWNER = 'features/chat/components/composer/useGitSnapshot.ts'
+const IDENTITY_OWNER = 'features/chat/components/composer/useGitIdentityRemote.ts'
 
 describe('git 조회 소유자 (EP-13 · EP-18 · EP-19)', () => {
-  it('조회 종류마다 소유자가 정확히 하나다 — 열거된 예외 하나만 뺀다', async () => {
+  it('목록·본문 소유자는 하나이며 상태는 메뉴의 명시적 조회도 허용한다', async () => {
     const files = await tsFiles(RENDERER_SRC)
     // 대상 집합이 비면 스윕은 아무것도 보지 않는다 — 분모부터 세운다.
     expect(files.length).toBeGreaterThan(50)
@@ -69,14 +70,18 @@ describe('git 조회 소유자 (EP-13 · EP-18 · EP-19)', () => {
       [...new Set(owned.filter((pair) => pair.api === api).map((pair) => pair.file))].sort()
 
     // 양성 짝 — 세 조회가 **실제로** 분모에 잡혀야 스윕이 눈을 가진 것이다.
-    expect(ownersOf('status')).toHaveLength(1)
-    expect(ownersOf('status')[0]).toMatch(new RegExp(`${SUMMARY_OWNER}$`))
+    expect(ownersOf('status')).toHaveLength(2)
+    expect(ownersOf('status').some((file) => file.endsWith(SUMMARY_OWNER))).toBe(true)
+    expect(ownersOf('status').some((file) => file.endsWith(IDENTITY_OWNER))).toBe(true)
     expect(ownersOf('diffSummary')).toHaveLength(1)
     expect(ownersOf('diffSummary')[0]).toMatch(new RegExp(`${SUMMARY_OWNER}$`))
     expect(ownersOf('diffPatch')).toHaveLength(1)
     expect(ownersOf('diffPatch')[0]).toMatch(new RegExp(`${BODY_OWNER}$`))
 
     // 음성 짝 — 두 소유자는 서로의 조회를 부르지 않는다.
+    expect(
+      owned.filter((pair) => pair.file.endsWith(IDENTITY_OWNER) && pair.api !== 'status')
+    ).toEqual([])
     expect(
       owned.filter((pair) => pair.file.endsWith(BODY_OWNER) && pair.api !== 'diffPatch')
     ).toEqual([])

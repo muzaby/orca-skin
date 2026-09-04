@@ -1,7 +1,11 @@
 // AppMessagePart(provider-runtime.md §7) 셀렉터 — 순서 보존 parts 를 transcript 렌더가 쓰는
 // view 로 투영한다(순수). text/reasoning 추출, tool_call↔tool_result 페어링, error 추출.
 
-import type { AppMessagePart, AttachmentView } from '../../../../../shared/ipc'
+import type {
+  AppMessagePart,
+  AttachmentView,
+  DiffRequirementAnchor
+} from '../../../../../shared/ipc'
 import { isAsyncLaunchedPayload } from '../../../../../shared/subagent'
 import type { Message, ToolCall } from '../reducer/chatReducer'
 
@@ -56,6 +60,14 @@ export function partsAttachments(parts: AppMessagePart[]): AttachmentView[] {
   const out: AttachmentView[] = []
   for (const p of parts) if (p.type === 'attachment') out.push(...p.attachments)
   return out
+}
+
+export function partsDiffRequirements(parts: AppMessagePart[]): DiffRequirementAnchor[] {
+  const requirements: DiffRequirementAnchor[] = []
+  for (const part of parts) {
+    if (part.type === 'diff_requirements') requirements.push(...part.requirements)
+  }
+  return requirements
 }
 
 export interface ReasoningItem {

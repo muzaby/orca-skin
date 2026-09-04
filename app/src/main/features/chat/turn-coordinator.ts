@@ -177,6 +177,7 @@ export class TurnCoordinator<W = unknown> {
       const messageId = persist.commitUserMessage?.(turn, {
         text: batch.text,
         createdAt: batch.createdAt,
+        ...(batch.requirements ? { requirements: batch.requirements } : {}),
         ...(batch.attachmentViews ? { attachmentViews: batch.attachmentViews } : {})
       })
       if (messageId == null) continue
@@ -185,6 +186,7 @@ export class TurnCoordinator<W = unknown> {
         sessionId,
         ids: batch.ids,
         text: batch.text,
+        ...(batch.requirements ? { requirements: batch.requirements } : {}),
         ...(batch.attachmentViews ? { attachmentViews: batch.attachmentViews } : {}),
         messageId,
         createdAt: batch.createdAt

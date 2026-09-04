@@ -66,6 +66,7 @@ export function enqueueTurnPrompt(input: {
     ...(input.sessionId ? { sessionId: input.sessionId } : {}),
     id: queuedItem.id,
     text: queuedItem.text,
+    ...(queuedItem.requirements ? { requirements: queuedItem.requirements } : {}),
     ...(queuedItem.attachmentViews ? { attachmentViews: queuedItem.attachmentViews } : {}),
     createdAt: queuedItem.createdAt
   })

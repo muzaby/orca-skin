@@ -17,12 +17,17 @@ export interface DiffReviewProps {
   patch: GitDiffPatch | null
   /** 이 세션에서 **한 번이라도 조회가 나갔는가** (0211 ΔV5 D-102). 거짓이면 미싱크다. */
   hasRequest: boolean
+  error?: 'summary' | 'patch' | null
+  onRefresh?: () => void
   comparison: DiffComparison
   expandedFiles: ReadonlySet<string>
   sidebarVisible: boolean
   view: DiffViewOptions
   requirements: readonly DiffRequirementItem[]
   draft: DiffRequirementDraft | null
+  activeRequirementId?: string | null
+  selectionVersion?: number
+  onSelectRequirement?: (id: string) => void
   /**
    * 이동의 **소유자** (0211 ΔV5 D-110 · §10 EP-36 ③). 기본값은 아래 내부 ref 다.
    *
@@ -58,12 +63,17 @@ export function DiffReview({
   summary,
   patch,
   hasRequest,
+  error,
+  onRefresh,
   comparison,
   expandedFiles,
   sidebarVisible,
   view,
   requirements,
   draft,
+  activeRequirementId,
+  selectionVersion,
+  onSelectRequirement,
   scrollOwnerRef,
   onToggleExpanded,
   onExpandFile,
@@ -105,7 +115,14 @@ export function DiffReview({
         data-diff-scroll-owner
         className="min-h-0 min-w-0 flex-1 overflow-y-auto"
       >
-        {!hasRequest ? (
+        {error ? (
+          <div data-diff-error className="px-p5 py-p4 text-footnote text-t6">
+            <p>{tr('chat.rightpanel.diffLoadFailed')}</p>
+            <button type="button" onClick={onRefresh} className="mt-2 text-selected underline">
+              {tr('chat.rightpanel.diffRefresh')}
+            </button>
+          </div>
+        ) : !hasRequest ? (
           <p data-diff-not-synced className="px-p5 py-p4 text-footnote text-t6">
             {tr('chat.rightpanel.diffNotSynced')}
           </p>
@@ -136,6 +153,9 @@ export function DiffReview({
                 view={view}
                 requirements={requirements}
                 draft={draft}
+                activeRequirementId={activeRequirementId}
+                selectionVersion={selectionVersion}
+                onSelectRequirement={onSelectRequirement}
                 scrollOwnerRef={internalOwnerRef}
                 tailSpacerRef={tailSpacerRef}
                 onToggleCollapsed={onToggleExpanded}

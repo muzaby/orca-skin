@@ -4,7 +4,7 @@
 // 영속 책임이라 여기 둔다.
 
 import type { WebContents } from 'electron'
-import type { AttachmentView, NormalizedEvent } from '../../../shared/ipc'
+import type { AttachmentView, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
 import { subagentNoticePart } from '../../../shared/ipc'
 import type { DbQueries } from '../../infra/db'
 import type { LineageRelation } from '../../infra/db/types'
@@ -37,7 +37,8 @@ export class HistoryWriter {
     sessionId: string,
     text: string,
     createdAt: number,
-    attachmentViews?: AttachmentView[]
+    attachmentViews?: AttachmentView[],
+    requirements?: DiffRequirementAnchor[]
   ): number {
     const id = this.db.appendMessage({ sessionId, role: 'user', content: text, createdAt })
     this.db.appendPart({
@@ -54,6 +55,14 @@ export class HistoryWriter {
         payloadJson: JSON.stringify({ attachments: attachmentViews })
       })
     }
+    if (requirements && requirements.length > 0) {
+      this.db.appendPart({
+        messageId: id,
+        type: 'diff_requirements',
+        toolRunId: null,
+        payloadJson: JSON.stringify({ requirements })
+      })
+    }
     return id
   }
 
@@ -65,7 +74,12 @@ export class HistoryWriter {
   // 커밋 시점 소유(0067 — send 시점 선영속 제거).
   commitUserMessage(
     turn: TurnContext,
-    batch: { text: string; createdAt: number; attachmentViews?: AttachmentView[] }
+    batch: {
+      text: string
+      createdAt: number
+      attachmentViews?: AttachmentView[]
+      requirements?: DiffRequirementAnchor[]
+    }
   ): number | null {
     const sessionId = turn.dbSessionId
     if (!sessionId) return null
@@ -74,7 +88,8 @@ export class HistoryWriter {
       sessionId,
       batch.text,
       batch.createdAt,
-      batch.attachmentViews
+      batch.attachmentViews,
+      batch.requirements
     )
     this.db.updateSessionPreview(sessionId, previewOf(batch.text), batch.createdAt)
     this.db.updateSessionProviderKey(sessionId, turn.providerKey, batch.createdAt)

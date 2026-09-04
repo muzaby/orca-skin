@@ -47,19 +47,8 @@ describe('사라진 싱크 계기 (AT-62)', () => {
     expect(FILES.length).toBeGreaterThan(200)
   })
 
-  it('수동 새로고침·창 재포커스 계기가 프로덕션에 0건이다', () => {
-    expect(
-      hits([
-        'refreshGitSnapshot',
-        'REFRESH_GIT_SNAPSHOT',
-        'subscribeGitExternalChange',
-        'refreshGeneration'
-      ])
-    ).toEqual([])
-  })
-
-  it('`⋮` 메뉴의 새로고침 라벨 키가 카탈로그에서 사라졌다', () => {
-    expect(hits(['diffRefresh'])).toEqual([])
+  it('창 재포커스 실시간 동기화는 추가하지 않는다', () => {
+    expect(hits(['subscribeGitExternalChange', 'refreshGeneration'])).toEqual([])
   })
 })
 

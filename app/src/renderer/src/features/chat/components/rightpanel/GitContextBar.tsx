@@ -116,6 +116,7 @@ interface ViewMenuProps {
   onToggleSidebar: () => void
   onCollapseAll: () => void
   onExpandAll: () => void
+  onRefresh: () => void
   onSetView: (patch: Partial<DiffViewOptions>) => void
 }
 
@@ -123,7 +124,7 @@ interface ViewMenuProps {
  * `⋮` 메뉴 — 항목과 순서의 정본은 `diffViewMenuItems.ts` 다(D-106 · §10 EP-33). 여기서는
  * 그 목록을 그리고 행동만 붙인다: 목록을 컴포넌트 안에 두면 항목 하나를 지운 변이를
  * 배열 비교로 잡을 수 없다. Git 조작(stage·commit·push)은 없다 — 읽기 전용 review surface 다.
- * `새로고침` 도 없다 — D-099 가 수동 계기를 없앴다.
+ * 마지막 새로 고침은 상태·요약·선택 패치를 다시 조회한다.
  */
 function ViewMenu({
   view,
@@ -131,6 +132,7 @@ function ViewMenu({
   onToggleSidebar,
   onCollapseAll,
   onExpandAll,
+  onRefresh,
   onSetView
 }: ViewMenuProps): React.JSX.Element {
   const { tr } = useI18n()
@@ -138,6 +140,7 @@ function ViewMenu({
     if (item.action.kind === 'sidebar') return onToggleSidebar()
     if (item.action.kind === 'collapse-all') return onCollapseAll()
     if (item.action.kind === 'expand-all') return onExpandAll()
+    if (item.action.kind === 'refresh') return onRefresh()
     if (item.action.option === 'layout')
       return onSetView({ layout: view.layout === 'side-by-side' ? 'inline' : 'side-by-side' })
     const option = item.action.option
@@ -322,6 +325,10 @@ export function GitContextBar(): React.JSX.Element {
             )
           }}
           onSetView={(next) => chatActions.setDiffViewOption(next)}
+          onRefresh={() => {
+            setViewOpen(false)
+            chatActions.refreshGitSnapshot()
+          }}
         />
       </Popover>
     </span>

@@ -70,6 +70,7 @@ export function reserveOnBusySession(
     ...(sessionId ? { sessionId } : {}),
     id: item.id,
     text: item.text,
+    ...(item.requirements ? { requirements: item.requirements } : {}),
     ...(item.attachmentViews ? { attachmentViews: item.attachmentViews } : {}),
     createdAt: item.createdAt
   })

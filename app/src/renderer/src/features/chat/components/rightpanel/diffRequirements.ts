@@ -37,6 +37,21 @@ export function diffRequirementLineKey(
   return JSON.stringify([filePath, oldLine, newLine])
 }
 
+/** 표시에서 공백 쌍이 합쳐져도 원래 old/new 축으로 같은 줄을 찾는다. */
+export function diffRequirementMatchesLine(
+  item: DiffRequirementItem,
+  filePath: string,
+  line: DiffLine
+): boolean {
+  if (!item.located || item.anchor.filePath !== filePath) return false
+  const { oldLine, newLine } = item.anchor
+  return (
+    (oldLine !== null || newLine !== null) &&
+    (oldLine === null || oldLine === line.oldLine) &&
+    (newLine === null || newLine === line.newLine)
+  )
+}
+
 function cappedLine(text: string): string {
   return text.slice(0, CONTEXT_LINE_LIMIT)
 }
