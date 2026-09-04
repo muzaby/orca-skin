@@ -45,8 +45,22 @@ describe('저장소 이름은 git 루트에서 읽는다 (AT-09)', () => {
       repo: null,
       branch: 'feat/x',
       detached: false,
+      githubUrl: null,
       totals: null
     })
+  })
+})
+
+describe('GitHub 주소는 상태 snapshot에서 메뉴까지 전달한다 (VP-91)', () => {
+  it('origin의 정규화된 주소를 전달한다', () => {
+    const githubUrl = 'https://github.com/muzaby/orca-skin'
+    const view = gitRowView(true, '/repo', repo({ githubUrl }))
+    expect(view.visible && view.githubUrl).toBe(githubUrl)
+  })
+
+  it.each([undefined, null])('이전 snapshot 또는 원격 없음은 명시적 null이다 (%s)', (githubUrl) => {
+    const view = gitRowView(true, '/repo', repo({ githubUrl }))
+    expect(view.visible && view.githubUrl).toBeNull()
   })
 })
 

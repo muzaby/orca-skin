@@ -14,6 +14,7 @@ export type GitRowView =
       repo: string | null
       branch: string | null
       detached: boolean
+      githubUrl?: string | null
       // null은 요약 준비 전이다. 실제 변경 없음은 0/0 합계 객체로 구분한다.
       totals: GitDiffTotals | null
     }
@@ -60,6 +61,7 @@ export function gitRowView(
     repo: repoDisplayName(status.root, worktree),
     branch: status.branch,
     detached: status.detached,
+    githubUrl: status.githubUrl ?? null,
     totals
   }
 }

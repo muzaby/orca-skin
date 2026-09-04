@@ -148,7 +148,7 @@ describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', 
     const byChannel = new Map(handleMock.mock.calls.map((call) => [call[0] as string, call[2]]))
 
     expect(byChannel.get(CHANNELS.gitStatus)).toEqual({
-      fallback: { isRepo: false, branch: null, detached: false, root: null }
+      fallback: { isRepo: false, branch: null, detached: false, root: null, githubUrl: null }
     })
     expect(byChannel.get(CHANNELS.gitBranches)).toEqual({
       fallback: { current: null, branches: [] }

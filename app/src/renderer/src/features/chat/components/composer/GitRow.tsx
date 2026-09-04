@@ -7,11 +7,12 @@ import { statusForCwd } from './branchChipState'
 import { COMPOSER_PANEL_ICON_SIZE, composerPanelSurface } from './composerPanel'
 import { gitRowView, type GitRowView } from './gitRowState'
 import { useGitSnapshot } from './useGitSnapshot'
+import { GitIdentityMenus } from './GitIdentityMenus'
 
 // 컴포저 입력 **위**의 git 행 — `[저장소] [브랜치] ─ [+N −M]`(0206 D-005).
 //
-// 좌측 둘은 **표시 전용**이다(D-006): Orca 에 저장소 전환 개념이 없고, 세션 시작 후 브랜치
-// 전환은 0201 D-009 가 이미 닫았다. 버튼은 변경량 하나이고 diff 타일을 연다·닫는다(D-007).
+// 좌측 이름은 저장소/브랜치 메뉴를 연다(0211 ΔV11). 브랜치 전환은 하지 않고 복사·웹 열기만
+// 제공한다. 변경량 버튼은 diff 타일을 연다·닫는다(D-007).
 //
 // PR·CI·상태 글리프는 **그리지 않는다**(D-005) — 배선할 채널이 없고, 상시 보이는 좁은
 // 자리에 누를 것 없는 버튼을 두지 않는다. **닫기는 예외다**(0211 ΔV6 D-114): 사용자가
@@ -49,17 +50,17 @@ export function GitRowView({
       <Icon name="fork" size={COMPOSER_PANEL_ICON_SIZE} className="shrink-0 text-rust" />
       {/* 좌측 = 식별. `flex-1 min-w-0` 이 남는 공간을 먹고 그 안에서 브랜치가 먼저 줄어든다.
           저장소와 브랜치는 **같은 톤**이다 — 참조 실측에서 둘 다 #868681 한 단계였다. */}
-      <span className="flex min-w-0 flex-1 items-center gap-g6">
-        {view.repo && (
-          <span className="max-w-[160px] shrink truncate text-footnote text-t6">{view.repo}</span>
-        )}
-        <span className="min-w-0 shrink-[9999] truncate text-footnote text-t6">
-          {view.detached ? tr('chat.gitRow.detached') : view.branch}
-        </span>
-      </span>
+      <GitIdentityMenus
+        key={JSON.stringify([view.repo, view.branch, view.detached, view.githubUrl ?? null])}
+        repo={view.repo}
+        branch={view.branch}
+        detached={view.detached}
+        githubUrl={view.githubUrl ?? null}
+      />
       {/* 요약이 준비된 경우에만 변경량 버튼을 표시한다. null을 임시 0/0으로 보이지 않는다. */}
       {view.totals !== null && (
         <Button
+          data-git-row-diff
           size="small"
           variant="contained"
           pressed={diffOpen}
@@ -130,6 +131,7 @@ export function GitRow({ cwd, sessionStarted }: GitRowProps): React.JSX.Element 
   )
   return (
     <GitRowView
+      key={JSON.stringify([sessionId, cwd])}
       view={view}
       diffOpen={columnsContain(tiles, 'diff')}
       onToggleDiff={() => chatActions.toggleRightPanelTile('diff')}

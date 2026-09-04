@@ -49,7 +49,8 @@ describe('복원된 세션의 composer diff 버튼', () => {
       const row = $('[data-surface="git-row"]')
       expect(row.text()).toContain('repo')
       expect(row.text()).toContain('main')
-      expect(row.find('button')).toHaveLength(1)
+      expect(row.find('[data-git-row-diff]')).toHaveLength(0)
+      expect(row.find('button[aria-haspopup="menu"]')).toHaveLength(2)
       expect(row.find('[data-git-row-close]')).toHaveLength(1)
       expect(row.text()).not.toContain('+0')
       expect(h.query).toHaveBeenCalledWith('/repo', 'restored-session')
@@ -60,16 +61,15 @@ describe('복원된 세션의 composer diff 버튼', () => {
     [120, 20]
   ])('요약 수신 후 실제 +%i −%i 버튼이 나타난다', (added, removed) => {
     h.state = chatReducer(h.state, { type: 'BEGIN_GIT_SNAPSHOT_QUERY', request })
-    expect(render()('[data-surface="git-row"] button')).toHaveLength(1)
+    expect(render()('[data-git-row-diff]')).toHaveLength(0)
     h.state = chatReducer(h.state, {
       type: 'RECEIVE_GIT_SNAPSHOT_SUMMARY',
       request,
       summary: summary(added, removed)
     })
     const $ = render()
-    const buttons = $('[data-surface="git-row"] button')
-    expect(buttons).toHaveLength(2)
-    const diff = buttons.not('[data-git-row-close]')
+    const diff = $('[data-git-row-diff]')
+    expect(diff).toHaveLength(1)
     expect(diff.text()).toContain(`+${added}`)
     expect(diff.text()).toContain(`−${removed}`)
     expect(diff.attr('aria-pressed')).toBe('true')
