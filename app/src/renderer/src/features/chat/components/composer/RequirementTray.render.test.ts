@@ -27,7 +27,7 @@ describe('RequirementTray SSR', () => {
     await i18n.changeLanguage('ko')
   })
 
-  it('컴포저 스택용 tray markup과 제거 a11y를 렌더한다', () => {
+  it('컴포저 인용 타일의 파일·본문 정보와 제거 a11y를 렌더한다', () => {
     const html = renderToStaticMarkup(
       createElement(RequirementTray, {
         requirements: [requirement('req-1'), requirement('req-2', false)],
@@ -45,7 +45,7 @@ describe('RequirementTray SSR', () => {
     expect(html).toContain('aria-label="Diff 요구사항 제거: comment req-1"')
   })
 
-  it('비어 있으면 컴포저 스택에 빈 표면을 남기지 않는다', () => {
+  it('비어 있으면 컴포저 입력에 빈 표면을 남기지 않는다', () => {
     expect(
       renderToStaticMarkup(
         createElement(RequirementTray, { requirements: [], onRemove: () => undefined })

@@ -76,24 +76,21 @@ interface ComposerProps {
 interface ComposerPanelStackViewProps {
   beforeGitRow: ReactNode
   gitRow: ReactNode
-  requirementTray: ReactNode
-  afterRequirementTray: ReactNode
+  afterGitRow: ReactNode
   composerInput: ReactNode
 }
 
 export function ComposerPanelStackView({
   beforeGitRow,
   gitRow,
-  requirementTray,
-  afterRequirementTray,
+  afterGitRow,
   composerInput
 }: ComposerPanelStackViewProps): React.JSX.Element {
   return (
     <div className="flex flex-col gap-2">
       {beforeGitRow}
       {gitRow}
-      {requirementTray}
-      {afterRequirementTray}
+      {afterGitRow}
       {composerInput}
     </div>
   )
@@ -293,7 +290,7 @@ export function Composer({
             />
           </Popover>
         )}
-        {/* 패널 스택 — ask / 도구 승인 / git / diff 요구사항 / 안내 / 입력 패널을 일정 간격으로 쌓는다. */}
+        {/* 패널 스택 — ask / 도구 승인 / git / 안내 / 입력 패널. 요구사항은 입력 안에 둔다. */}
         <ComposerPanelStackView
           beforeGitRow={
             <>
@@ -319,13 +316,7 @@ export function Composer({
             </>
           }
           gitRow={<GitRow cwd={cwd} sessionStarted={showGitRow} />}
-          requirementTray={
-            <RequirementTray
-              requirements={diffRequirements}
-              onRemove={chatActions.removeDiffRequirement}
-            />
-          }
-          afterRequirementTray={
+          afterGitRow={
             <>
               {showConcurrencyNotice && (
                 <Notice
@@ -369,6 +360,12 @@ export function Composer({
               restoredDraft={restoredDraft}
               onSend={send}
               diffRequirementSnapshot={diffRequirementSnapshot}
+              requirementTray={
+                <RequirementTray
+                  requirements={diffRequirements}
+                  onRemove={chatActions.removeDiffRequirement}
+                />
+              }
               onClearDiffRequirementsIfUnchanged={chatActions.clearDiffRequirementsIfUnchanged}
               onCancel={cancel}
               controlsStart={

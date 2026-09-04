@@ -1,11 +1,13 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { load } from 'cheerio'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { DiffRequirementItem } from '../../../../../../shared/ipc'
 import { i18n } from '../../../../shared/i18n'
 import { ComposerPanelStackView } from '../Composer'
 import { GitRowView } from './GitRow'
 import { RequirementTray } from './RequirementTray'
+import { ComposerInputController } from './ComposerInputController'
 
 const requirement: DiffRequirementItem = {
   id: 'req-1',
@@ -29,7 +31,7 @@ describe('Composer requirements SSR order', () => {
     await i18n.changeLanguage('ko')
   })
 
-  it('RequirementTray sits below GitRow and above the input controller surface', () => {
+  it('RequirementTray belongs inside the input surface below GitRow and before text entry', () => {
     const html = renderToStaticMarkup(
       createElement(ComposerPanelStackView, {
         beforeGitRow: null,
@@ -45,12 +47,32 @@ describe('Composer requirements SSR order', () => {
           onToggleDiff: () => undefined,
           onClose: () => undefined
         }),
-        requirementTray: createElement(RequirementTray, {
-          requirements: [requirement],
-          onRemove: () => undefined
-        }),
-        afterRequirementTray: null,
-        composerInput: createElement('div', { 'data-surface': 'prompt' })
+        afterGitRow: null,
+        composerInput: createElement(ComposerInputController, {
+          active: true,
+          backendLabel: 'Claude',
+          canAbort: true,
+          inflight: false,
+          steerBlocked: false,
+          toolApprovalPending: false,
+          cwd: null,
+          onSend: () => true,
+          onCancel: () => undefined,
+          diffRequirementSnapshot: {
+            sessionKey: 's',
+            sessionId: 's',
+            ids: ['req-1'],
+            revision: 1,
+            anchors: [requirement.anchor]
+          },
+          onClearDiffRequirementsIfUnchanged: () => undefined,
+          controlsStart: null,
+          controlsEnd: null,
+          requirementTray: createElement(RequirementTray, {
+            requirements: [requirement],
+            onRemove: () => undefined
+          })
+        })
       })
     )
     const gitRow = html.indexOf('data-surface="git-row"')
@@ -59,7 +81,11 @@ describe('Composer requirements SSR order', () => {
 
     expect(gitRow).toBeGreaterThan(-1)
     expect(tray).toBeGreaterThan(gitRow)
-    expect(input).toBeGreaterThan(tray)
+    expect(input).toBeGreaterThan(gitRow)
+    expect(tray).toBeGreaterThan(input)
+    const $ = load(html)
+    expect($('[data-surface="prompt"] [data-diff-requirement-tray]')).toHaveLength(1)
+    expect($('[data-surface="prompt"]').find('textarea')).toHaveLength(1)
     expect(html).toContain('aria-label="Diff 요구사항"')
   })
 })

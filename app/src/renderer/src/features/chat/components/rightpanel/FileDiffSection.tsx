@@ -728,17 +728,17 @@ function DiffRequirementDraftRow({
   return (
     <tr data-diff-requirement-draft="true">
       <td colSpan={colSpan - 1} />
-      <td className="px-[8px] py-[8px] align-top">
+      <td className="px-[8px] py-[4px] align-top">
         <div
           data-diff-requirement-draft-box
-          className="flex flex-col rounded-[6px] border border-selected bg-panel px-[12px] py-[8px]"
+          className="flex min-h-[82px] flex-col gap-[6px] rounded-[6px] border border-t5 bg-panel px-[16px] py-[12px] focus-within:border-selected"
         >
-          <span className="text-footnote text-ink3">
+          <span className="font-sans text-footnote text-ink3">
             {tr('chat.rightpanel.diffRequirementDraftLineLabel', {
               line: lineNumberLabel(lines[lineIndex]!)
             })}
           </span>
-          <div className="flex items-end gap-[8px]">
+          <div className="flex items-center gap-[8px]">
             <textarea
               autoFocus
               value={draft.body}
@@ -752,7 +752,7 @@ function DiffRequirementDraftRow({
               placeholder={tr('chat.rightpanel.diffRequirementDraftPlaceholder')}
               aria-label={tr('chat.rightpanel.diffRequirementDraftInputAria')}
               data-diff-requirement-draft-input="true"
-              className="min-h-[2rem] w-full resize-none bg-transparent py-[2px] text-footnote text-ink outline-none"
+              className="min-h-[2rem] w-full min-w-0 resize-none overflow-hidden bg-transparent text-footnote text-ink outline-none [field-sizing:content]"
             />
             <button
               type="button"
@@ -760,7 +760,7 @@ function DiffRequirementDraftRow({
               onClick={() => submission && onAddRequirement?.(submission)}
               aria-label={tr('chat.rightpanel.diffRequirementDraftSubmit')}
               data-diff-requirement-draft-submit
-              className="mb-[2px] flex size-[20px] shrink-0 items-center justify-center rounded-[4px] text-selected outline-none transition-colors hide-focus-ring ring-focus hover:bg-selected-soft disabled:text-ink3 disabled:hover:bg-transparent"
+              className="flex size-[20px] shrink-0 items-center justify-center rounded-[4px] text-ink3 outline-none hover:bg-selected-soft hover:text-selected focus-visible:bg-selected-soft disabled:hover:bg-transparent disabled:hover:text-ink3"
             >
               <Icon name="commentAdd" size={16} />
             </button>
@@ -784,29 +784,42 @@ function DiffRequirementMarkerRow({
   if (items.length === 0) return null
   return (
     <tr>
-      <td colSpan={colSpan} className="px-p5 pb-2">
-        <div className="flex flex-wrap gap-g2">
+      <td colSpan={colSpan - 1} />
+      <td className="px-[8px] py-[4px] align-top">
+        <div className="flex flex-col gap-[8px]">
           {items.map((item) => (
-            <span
+            <div
               key={item.id}
               data-diff-requirement-marker={item.id}
-              className="inline-flex min-w-0 max-w-full items-center gap-g2 rounded-r4 border border-accent bg-fill-contained px-p3 py-1 text-footnote"
+              className="group/requirement-card relative rounded-[6px] border border-t5 bg-panel focus-within:border-selected"
             >
-              <span className="shrink-0 text-accent">
-                {tr('chat.rightpanel.diffRequirementMarkerLabel')}
-              </span>
-              <span className="min-w-0 truncate text-t7">{item.anchor.comment}</span>
+              <button
+                type="button"
+                className="flex min-h-[82px] w-full flex-col gap-[6px] rounded-[5px] px-[16px] py-[12px] text-left text-footnote outline-none"
+              >
+                <span className="font-sans text-ink3">
+                  {tr('chat.rightpanel.diffRequirementDraftLineLabel', {
+                    line: String(item.anchor.newLine ?? item.anchor.oldLine ?? '?')
+                  })}
+                </span>
+                <span
+                  data-diff-requirement-body
+                  className="w-full whitespace-pre-wrap break-words pr-[20px] text-ink [overflow-wrap:anywhere]"
+                >
+                  {item.anchor.comment}
+                </span>
+              </button>
               <button
                 type="button"
                 onClick={() => onRemoveRequirement?.(item.id)}
                 aria-label={tr('chat.composer.diffRequirementRemoveAria', {
                   comment: item.anchor.comment
                 })}
-                className="shrink-0 rounded-r4 text-ink3 outline-none transition-colors hide-focus-ring ring-focus hover:text-t7"
+                className="absolute right-[12px] top-1/2 flex size-[20px] -translate-y-1/2 items-center justify-center rounded-[4px] text-ink3 opacity-0 outline-none group-focus-within/requirement-card:opacity-100 group-hover/requirement-card:opacity-100 hover:text-ink focus-visible:bg-selected-soft"
               >
                 <Icon name="x" size={11} />
               </button>
-            </span>
+            </div>
           ))}
         </div>
       </td>
