@@ -3,10 +3,12 @@
 export function githubRepositoryUrl(remote: string): string | null {
   const value = remote.trim()
   if (!value || /\s/.test(value)) return null
-  const scp = /^(?:[^@/:]+@)?github\.com:(.+)$/i.exec(value)
+  const scp = /^(?:[^@/:]+@)?([a-zA-Z0-9.-]+):([^/].*)$/.exec(value)
+  let hostname: string
   let path: string
   if (scp) {
-    path = scp[1]!
+    hostname = scp[1]!
+    path = scp[2]!
   } else {
     let url: URL
     try {
@@ -14,7 +16,6 @@ export function githubRepositoryUrl(remote: string): string | null {
     } catch {
       return null
     }
-    if (url.hostname.toLowerCase() !== 'github.com') return null
     if (url.protocol === 'https:') {
       if (url.port !== '') return null
     } else if (url.protocol === 'ssh:') {
@@ -22,8 +23,11 @@ export function githubRepositoryUrl(remote: string): string | null {
     } else {
       return null
     }
+    hostname = url.hostname
     path = url.pathname.slice(1)
   }
+  hostname = hostname.toLowerCase()
+  if (!hostname.includes('github')) return null
   const parts = path
     .replace(/\/$/, '')
     .replace(/\.git$/, '')
@@ -33,5 +37,5 @@ export function githubRepositoryUrl(remote: string): string | null {
     parts.some((part) => !/^[a-zA-Z0-9_.-]+$/.test(part) || part === '.' || part === '..')
   )
     return null
-  return `https://github.com/${parts.join('/')}`
+  return `https://${hostname}/${parts.join('/')}`
 }

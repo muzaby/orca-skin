@@ -41,7 +41,7 @@ const summary: GitDiffSummary = {
 const patch: GitDiffPatch = {
   isRepo: true,
   base: summary.base,
-  files: [],
+  files: [{ path: 'a.ts', status: 'modified', added: 1, removed: 0, kind: 'text', lines: [] }],
   filesTruncated: false,
   contextLimited: false,
   unavailable: false
@@ -56,6 +56,8 @@ const gitStatus: GitStatus = {
 
 interface Fixture {
   summary: GitDiffSummary | null
+  patch: GitDiffPatch | null
+  error: 'summary' | 'patch' | null
   comparison: DiffComparison
   sidebarVisible: boolean
   view: DiffViewOptions
@@ -65,6 +67,8 @@ interface Fixture {
 
 let fixture: Fixture = {
   summary,
+  patch,
+  error: null,
   comparison: ALL_CHANGES,
   sidebarVisible: false,
   view: DEFAULT_DIFF_VIEW,
@@ -84,7 +88,8 @@ vi.mock('../../store/chatStore', () => ({
     select({
       gitSnapshot: {
         summary: fixture.summary,
-        patch,
+        patch: fixture.patch,
+        error: fixture.error,
         comparison: fixture.comparison,
         expandedFiles: [],
         sidebarVisible: fixture.sidebarVisible,
@@ -105,6 +110,8 @@ const { GitContextBar } = await import('./GitContextBar')
 function render(patchFixture: Partial<Fixture> = {}): string {
   fixture = {
     summary,
+    patch,
+    error: null,
     comparison: ALL_CHANGES,
     sidebarVisible: false,
     view: DEFAULT_DIFF_VIEW,
@@ -153,6 +160,21 @@ describe('비교 기준 라벨 — `기준 → 현재` 두 값이다 (AT-65 · D
 })
 
 describe('컨텍스트 바의 컨트롤 — `×` 는 타일이 그린다 (제안서 §4 · ΔV6 D-117)', () => {
+  it('성공한 빈 비교 범위에서는 토글이 없고 파일이 생기면 다시 표시한다 (AT-102)', () => {
+    expect(render({ patch: { ...patch, files: [] } })).not.toContain('data-diff-sidebar-toggle')
+    expect(render({ patch })).toContain('data-diff-sidebar-toggle')
+  })
+
+  it.each<Partial<Fixture>>([
+    { patch: null },
+    { patch: { ...patch, files: [], isRepo: false } },
+    { patch: { ...patch, files: [], unavailable: true } },
+    { patch: { ...patch, files: [] }, error: 'summary' },
+    { patch: { ...patch, files: [] }, error: 'patch' }
+  ])('미확정·실패 상태는 성공한 빈 범위로 처리하지 않는다: %j', (state) => {
+    expect(render(state)).toContain('data-diff-sidebar-toggle')
+  })
+
   it('목록 토글 하나 · 비교 기준 · 설정 · 확대가 함께 선다', () => {
     const html = render()
 

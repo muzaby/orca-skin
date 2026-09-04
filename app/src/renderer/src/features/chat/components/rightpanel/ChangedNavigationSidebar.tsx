@@ -61,20 +61,16 @@ export function ChangedNavigationSidebar({
       className="flex w-[240px] min-w-0 max-w-[50%] shrink-0 animate-depth-in flex-col border-r border-border font-sans text-footnote font-normal"
     >
       <div data-diff-file-tree className="min-h-0 flex-1 overflow-y-auto p-[8px]">
-        {rows.length === 0 ? (
-          <p className="px-[4px] text-footnote text-ink3">{tr('chat.rightpanel.diffEmpty')}</p>
-        ) : (
-          rows.map(({ node, depth }) => (
-            <TreeRow
-              key={`${node.kind}:${node.path}`}
-              node={node}
-              depth={depth}
-              collapsed={node.kind === 'dir' && collapsedDirs.has(node.path)}
-              onToggleDir={toggleDir}
-              onPickFile={onPickFile}
-            />
-          ))
-        )}
+        {rows.map(({ node, depth }) => (
+          <TreeRow
+            key={`${node.kind}:${node.path}`}
+            node={node}
+            depth={depth}
+            collapsed={node.kind === 'dir' && collapsedDirs.has(node.path)}
+            onToggleDir={toggleDir}
+            onPickFile={onPickFile}
+          />
+        ))}
       </div>
       <div
         data-diff-commit-list

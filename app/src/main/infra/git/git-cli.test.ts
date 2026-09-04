@@ -59,6 +59,18 @@ describe('gitStatus / gitBranches', () => {
     })
     git(repo, 'remote', 'set-url', 'origin', 'https://user:password@github.com/owner/renamed.git')
     expect((await gitStatus(repo)).githubUrl).toBe('https://github.com/owner/renamed')
+    git(repo, 'remote', 'set-url', 'origin', 'git@github.company.com:owner/enterprise.git')
+    expect((await gitStatus(worktree)).githubUrl).toBe(
+      'https://github.company.com/owner/enterprise'
+    )
+    git(
+      repo,
+      'remote',
+      'set-url',
+      'origin',
+      'https://user:password@github.company.com/owner/next.git'
+    )
+    expect((await gitStatus(repo)).githubUrl).toBe('https://github.company.com/owner/next')
     git(repo, 'remote', 'remove', 'origin')
     expect((await gitStatus(repo)).githubUrl).toBeNull()
   }, 30000)

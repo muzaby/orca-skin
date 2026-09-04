@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) · 2026-09-02 (ΔV3 · ΔV4) · 2026-09-03 (ΔV5 · ΔV6) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) + git 우측 패널 재설계 제안서 (Git Review Surface) + 싱크 계기 축소 · 첨부 GUI 재대조 · 로딩 교착 회귀 + 커밋 전용 범위 · Stop hook 싱크 · 컴포저 닫기 · 참조 GUI 3차 재대조 |
-| 상태 | READY (ΔV14 Enterprise·메뉴 캐시·빈 패널 설계 확정; 기존 ΔV6 차단 유지, 라운드 3) |
+| 상태 | IN_PROGRESS (ΔV14 구현 완료; 기존 ΔV6 차단 유지, 라운드 3) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) · `V1 + ΔV1 + ΔV2` @ `d23c5be` (ΔV3 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3` @ `46047ac` (ΔV4 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` @ `177def67` (ΔV5 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` @ `628123bc` (ΔV6 의 기준) |
 | 이번 V revision | `ΔV14` (동일 라운드 3, 사용자 Enterprise 호스트 요청) |
@@ -58,6 +58,51 @@
 운영 gate: 관련 URL/Git CLI/메뉴 테스트, typecheck 3구성, 읽기 전용 lint, 변경 소스 prettier, 문서 generated/prose/links, diff check. 직접 반환값 oracle이므로 별도 mutation은 선택하지 않는다. READY 대조: D-151↔AT-100/UT-38 충돌 0; D-140/D-150의 대체 절을 표시했고 SCP·URL·출력 세 지점과 기존 메뉴 소비 경로를 코드에서 확인했다. 기존 ΔV6 차단은 이번 AC 분모와 별도다.
 
 후속 입력 READY 대조: D-151~153↔AT-100~102 충돌 0. 캐시는 React 메뉴 owner의 resource로 격리하고 menuEpoch는 재시도 계기만 맡으며 cache key에는 넣지 않는다. GitRow의 turnEndTick/gitRefreshTick과 cwd/원격 identity로 새 resource를 만들고, 정상 null도 캐시하되 다음 명시 갱신에서 다시 확인한다. 로컬 git remote를 외부에서 바꾼 경우 다음 턴 종료 또는 ‘새로 고침’ 후 반영한다. 빈 패널은 현재 선택 patch를 기준으로 삼으며 파일이 있는 다른 비교 범위로 이동할 수 있도록 커밋 탐색을 보존한다. scoped AC는 3개, EP-75~77은 9지점이다.
+
+## [구현자 기입] ΔV14 — Enterprise 원격·메뉴 캐시·빈 패널
+
+### 설계 리뷰
+
+D-151~153의 scoped AC 3개를 구현했다. 사용자 후속 설명대로 `github.company.com`뿐 아니라 `company.github.com`도 판정하며, HTTPS/SCP/SSH에 같은 hostname 포함 규칙과 실제 호스트 보존을 적용한다. 계획 대비 차이 없음; 기존 ΔV6 차단과 독립 verify 대기는 유지한다.
+
+### 강제 지점 전수 / V-pair 자기확인
+
+| EP / pair | 관측 | 결과 |
+|---|---|---|
+| EP-75 / VP-101 | github-url의 SCP host·URL host·공통 판정/조립을 대조. URL 37케이스, 실제 gitStatus 원격 변경과 worktree 20케이스 통과. 기업 호스트 거부 8건과 실제 Git 1건을 수정 전 재현. | 3/3, SELF_PASS |
+| EP-76 / VP-102 | resource 결과/Promise 공유·epoch 재시도·GitRow session/cwd/identity/tick key를 대조. cache 5케이스와 실제 GitRow 브라우저에서 재열기 status=2 유지, 턴 종료 status=3→첫 메뉴=4→반복=4. refresh 후 대기 중 repo→branch도 status=6 유지. | 3/3, SELF_PASS |
+| EP-77 / VP-103 | 빈 본문·트리·상단 토글 대조. rightpanel 203케이스 통과. 브라우저 본문 중심 대비 텍스트 중심 x=-0.006px/y=-0.700px, treeText 빈 문자열, toggle=0; 파일 복귀 시 toggle=1. | 3/3, SELF_PASS |
+| VP-100 회귀 | 실제 origin→GitStatus 및 메뉴 서비스·상태 스위트 통과. 조회 실패/미지원 상태와 브랜치 복사를 유지하며 이전 owner는 새 메뉴를 덮지 않는다. | SELF_PASS |
+
+전수 대조 집합은 EP-75 {SCP host, URL host, 공통 판정/조립}, EP-76 {resource, menu epoch, GitRow generation}, EP-77 {DiffReview, ChangedNavigationSidebar, GitContextBar}다. 각 파일의 변경 지점과 표를 비교한 누락/초과 집합은 모두 `[]`이며 9/9다.
+
+### 이번 라운드 수정의 잠금
+
+수정 전 Enterprise URL은 null, 반복 메뉴 조회는 기대 1회 대신 2회로 실패했다. 빈 패널 테스트는 중복 안내 및 남은 토글을 재현한 뒤 통과했다. 이전 공개 GitHub 한정 음성 케이스는 D-151의 포함 정책으로 대체했고 사용자명/경로에만 github가 있는 URL 및 자격증명 제거 검사는 유지한다.
+
+직접 반환값·렌더 결과·실제 브라우저 호출 횟수 oracle이다. 선택 변이 0 · 인용 변이 0 · 신규 구조 proxy 0 = 별도 mutation 표 행 0; 기존 i18n 소비자 목록에서는 사용자 요청으로 제거한 트리 항목만 제외했다.
+
+### Product/UX 파생 검토
+
+성공한 미지원 결과도 재클릭에서 재사용하고 실패만 다음 열기에서 재시도한다. 원격 설정을 외부에서 바꾸면 턴 종료나 ‘새로 고침’ 후 다음 메뉴 열기에 반영된다. 빈 상태에서도 사이드바 선호와 커밋 탐색은 남으며 다른 비교 범위에 파일이 있으면 목록 토글이 다시 보인다.
+
+### 놓친 잠재 문제 + 대응
+
+hostname의 github 포함 여부는 문자열 휴리스틱이고 실제 GitHub 서버 인증이 아니다(D-151). 캐시는 owner당 결과/요청 하나이며 세션/cwd·표시 원격·갱신 tick으로 owner가 교체된다. 이전 Promise 완료는 구 resource에만 반영되고 구독이 해제된 새 화면을 갱신하지 않는다; 해당 단위 테스트와 읽기 전용 보조 리뷰로 확인했다.
+
+### 구현 보고
+
+| AC | 판정 | 이번 턴 증거 |
+|---|---|---|
+| AT-100 | ✅ | URL 37 및 실제 Git CLI 20; company.github.com HTTPS/SCP/SSH literal 기대 주소 포함 |
+| AT-101 | ✅ | 캐시 5케이스와 실제 메뉴 재열기·턴 종료·수동 refresh·진행 중 공유 브라우저 카운터 |
+| AT-102 | ✅ | rightpanel 21파일/203케이스, 실제 브라우저 중앙/트리/토글 관측 |
+
+✅ 3 · ⚠️ 0 · ❌ 0 = ΔV14 AC 3. 관련 두 실행 합계 47파일/403케이스 통과; typecheck node/web/test 모두 exit 0; lint 0 error/기존 useTranscriptVirtualizer warning 1; 문서 generated/prose/links와 diff check 통과. 임시 Vite fixture·탭·서버는 정리했고 시각 증거는 세션 visualization의 `git-dv14-empty.png`에 저장했다. 구현 좌표는 INDEX의 r3 자리표시자를 검증자가 기입한다.
+
+### Review Signals
+
+라운드 3 유지. ΔV13은 메뉴 매 열기 재조회와 공개 GitHub 한정을 계약으로 삼았으나, 이번 사용자 입력이 그 두 정책을 변경했다. 별도 원격 제품 탐지나 전역 캐시는 추가하지 않았고 보조 리뷰에서 D-151/D-152의 구체적 결함은 발견되지 않았다.
 
 ## ΔV13 — 커밋 캐시·코멘트 참조·전송 첨부·수동 새로 고침 (2026-09-04, 라운드 3 유지)
 
