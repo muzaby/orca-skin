@@ -13,6 +13,7 @@
 
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { load } from 'cheerio'
 import { describe, expect, it, vi } from 'vitest'
 import type { GitDiffPatch, GitDiffSummary, GitStatus } from '../../../../../../shared/ipc'
 import {
@@ -273,5 +274,20 @@ describe('`↗` 라벨은 카탈로그로 해석된다 (AT-52)', () => {
       const tagEnd = html.indexOf('>', start)
       expect(html.slice(tagStart, tagEnd)).toContain(`aria-label="${name}"`)
     }
+  })
+})
+
+// ── ΔV7 AT-78 / VP-79 — §10 EP-53 의 남은 지점 ───────────────────────────────
+// 라운드 4 verify 는 EP-53 을 3/4 만 쟀고(D39 가 헤더 밴드), 이 바의 **24px 트리거**는 어느
+// 라운드도 재지 않았다. 형제 지점(타일 헤더 32px·사이드바 240px·파일 밴드 32px)이 전부
+// 대상 요소에서 잠겼으므로 같은 방식으로 닫는다.
+describe('컨텍스트 바 트리거 높이 (AT-78 · D-123 · §10 EP-53)', () => {
+  it('비교 범위 트리거가 24px 밴드다', () => {
+    const trigger = load(render())('[data-diff-comparison-trigger]')
+
+    expect(trigger).toHaveLength(1)
+    expect(trigger.attr('class')?.split(' ')).toContain('h-[24px]')
+    // 타일 헤더(32px)와 다른 값이다 — 두 밴드를 한 값으로 합친 변이가 여기서 red 다.
+    expect(trigger.attr('class')).not.toContain('h-[32px]')
   })
 })
