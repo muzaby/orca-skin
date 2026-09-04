@@ -14,6 +14,50 @@
 | 이번 V revision | `ΔV10` (동일 라운드 3, 사용자 후속 입력) |
 | 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10` |
 
+## ΔV11 — composer 저장소·브랜치 메뉴 (2026-09-04, 라운드 3 유지)
+
+### Product & UX Contract / Decision Ledger
+
+사용자 추가 이미지의 저장소 메뉴는 `GitHub에서 리포지토리 열기`, 브랜치 메뉴는 `브랜치 이름 복사`와 `GitHub에서 브랜치 열기`다. 눌린 이름은 회색 둥근 배경이며 아래에 흰/테마 패널 메뉴가 열린다. 메뉴 항목 hover도 회색이다. 이미지의 PR/CI는 이번 이름 클릭 요청의 대상이 아니다.
+
+| ID | 결정 | 대체 / 상태 |
+|---|---|---|
+| D-139 | composer Git 행의 저장소·브랜치 이름은 각각 팝업 버튼이다. 저장소 메뉴 1항목, 브랜치 메뉴 2항목을 이미지의 순서·텍스트로 제공한다. | ACTIVE · 0206 D-006 표시 전용 절 대체; 브랜치 전환 금지는 상속 |
+| D-140 | 현재 cwd 저장소의 origin에서 GitHub 웹 주소를 얻는다. HTTPS·SSH 원격 형식을 https://github.com/owner/repo로 정규화하고 자격증명·.git·query/fragment를 전달하지 않는다. GitHub가 아닌 원격 또는 origin 없음은 URL 없음으로 처리한다. | ACTIVE · 원격 주소 선택은 기본 origin, 네트워크 조회 없이 로컬 Git 설정 사용 |
+| D-141 | 저장소/브랜치 열기는 기본 브라우저에서 실행한다. 브랜치 이름은 표시된 실제 브랜치 그대로 복사하며 링크의 특수 문자는 인코딩한다. GitHub URL 없음은 열기 비활성+이유, detached는 브랜치 복사/열기 비활성+이유다. 복사 실패는 메뉴에서 알린다. | ACTIVE |
+| D-142 | 동시에 메뉴 하나만 열고 재클릭·외부 클릭·Escape·항목 실행으로 닫는다. 메뉴 열린 동안 이름 버튼의 회색 배경을 유지한다. 키보드로 열기/항목 이동/실행이 가능하며 세션·cwd 또는 표시 이름/URL 변경 시 열린 메뉴를 초기화한다. | ACTIVE |
+
+GitHub 기본 원격 이름과 HTTPS/SSH 형태 근거: [GitHub 공식 원격 저장소 문서](https://docs.github.com/en/get-started/git-basics/about-remote-repositories). 기존 조회 계기·미준비 diff 버튼 숨김·행 닫기·코멘트 동작을 상속한다. 아직 push하지 않은 브랜치의 원격 존재 여부는 조회하지 않으며 링크가 가리키는 GitHub 결과를 기본 브라우저에서 본다. GitHub Enterprise 호스트 추론과 다른 호스팅 서비스는 이번 첨부의 GitHub 서비스 범위 밖이다.
+
+### AC / 유효 V 차분
+
+기준 ΔV10 구현 `6f22f473`, 이번 revision ΔV11, 라운드 3 유지.
+
+| R / AT | 사용자 결과 / oracle |
+|---|---|
+| R-83 / AT-90 | 저장소 클릭→1개 메뉴→해당 origin GitHub 저장소 열기. HTTPS/SSH·원격 없음·자격증명 제거를 실제 Git 상태와 URL 단위 테스트로 확인한다. |
+| R-84 / AT-91 | 브랜치 클릭→복사/브랜치 열기 2개 메뉴. 복사는 전체 이름, 링크는 정확한 브랜치 경로다. detached/URL 없음/복사 실패도 의미 있는 결과를 보인다. |
+| R-85 / AT-92 | 눌린 이름 배경·메뉴 위치·hover를 이미지와 대조한다. 두 메뉴 전환·닫기·키보드·세션/cwd 전환을 실제 컴포넌트/브라우저로 확인한다. |
+
+| pair | requiredness / 경로 / 증거 |
+|---|---|
+| VP-91 | NEW / REQUIRED — R-83↔AT-90, AR-37↔IT-37, MD-35↔UT-35: git remote get-url origin→정규화→GitStatus→gitRowView→저장소 메뉴. 실제 Git fixture와 순수 URL/상태 단언. |
+| VP-92 | NEW / REQUIRED — R-84↔AT-91: 브랜치 메뉴→clipboard / 외부 웹 링크. 콜백과 실제 렌더 href 또는 window.open 목적지를 확인한다. |
+| VP-93 | NEW / REQUIRED — R-85↔AT-92: 이름 버튼→Popover→선택/닫기→컨텍스트 전환. 렌더와 브라우저 클릭·키보드·계산색을 확인한다. |
+| VP-87 / VP-89 | INHERITED / REGRESSION — 미준비 diff 숨김·요구사항 입력 내부 배치 및 기존 git 행 순서. 버튼 총수에 의존하던 단언은 diff 버튼 자체를 대상으로 좁힌다. |
+
+### Technical Design / §10
+
+| EP | 대상 / N | 실패 의미 |
+|---|---|---|
+| EP-64 | origin 읽기·정규화·GitStatus 운반·gitRowView 투영 / 4 | 잘못된 저장소 또는 raw 자격증명이 링크에 포함되거나 UI까지 주소가 도달하지 않는다. |
+| EP-65 | 저장소 열기·브랜치 복사·브랜치 열기 / 3 | 메뉴 외형만 있고 서비스가 실행되지 않거나 이름이 잘린다. |
+| EP-66 | 팝업 토글/단일 활성·외부/Escape 닫기·키보드 항목 이동·세션/cwd/이름/URL 변경 초기화 / 4 | 눌린 표현이 남거나 이전 세션 대상 메뉴가 유지된다. |
+
+main infra/git에 순수 URL 정규화 모듈을 둔다. 기존 gitStatus 읽기에 origin URL을 포함하며 `GitStatus.githubUrl?: string | null`로 전달한다(이전 메모리 snapshot의 미지정은 URL 없음). 신규 IPC 채널·원격 네트워크 요청·Git 변경 명령은 필요 없다. 메뉴는 별도 composer 컴포넌트에서 Popover/MenuItem과 Orca 토큰을 사용한다. 기존 외부 URL 경로(window.open 또는 target=_blank→main setWindowOpenHandler)를 재사용하고 clipboard는 기존 navigator.clipboard 경로다.
+
+운영 gate: 실제 git-cli/정규화/handler 및 행 상태/렌더/메뉴/배치 테스트, typecheck 3구성, lint, IPC 계약 문서와 문서 gate, diff check. 별도 mutation은 선택하지 않는다(직접 반환값·서비스 대상·DOM 상태 oracle). READY 자기확인: 세 서비스와 비가용 상태·강제 11지점이 명시됐다. 기존 ΔV6 D25~D27 차단은 유지한다.
+
 ## ΔV10 — 코멘트 카드와 composer 인용 타일 (2026-09-04, 라운드 3 유지)
 
 ### Product & UX Contract / Decision Ledger
