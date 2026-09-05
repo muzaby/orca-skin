@@ -1795,3 +1795,305 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh 05c8da7..fc517d1   # 
 - NON_BLOCKING: D41·D42·D43 · NEXT_HANDOFF: D45·D32 · 해소: D27·D44
 - 남은 사람 확인: 두 테마 파란 accent 계산색(D41) + 라운드 3 이월 시각 실기 3건
 - 다음 단계: **구현자가 D46·D47·D48 세 오라클을 만든다.** 셋 다 `renderToStaticMarkup` + className/호출수 단언으로 기계화되며 사람 실기가 아니다. 라운드 6 은 `handoff-review` round 26 직후이므로 별도 review 를 다시 요구하지 않는다
+
+## Verify 라운드 6 (컨테이너 hop 오라클 D46·D47·D48) — FAIL
+
+> 라운드 5 가 남긴 차단 3행을 닫는 재구현 턴의 검증이다. 라운드 5 원문은 위에 그대로 둔다.
+> **차단 3행은 전부 닫혔다.** 그런데 같은 pair(VP-97)의 §10 지점 두 개가 여전히 열려 있다 —
+> 처방 밖의 형제 자리라 이번 라운드 분모에 오르지 않았다.
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| slug | `0211-worktree-session-ux` |
+| 검증자 | Claude Code |
+| 일자 | 2026-09-05 |
+| 대상 커밋/range | `788aff3` (`844b0ff..788aff3`) |
+| 구현 전 plan 기준 | ΔV14 `99ebb1c` — 그 뒤 규범 행 변경 0 (아래 §0) |
+| V mode / 유효 V | Delta V — `V1 + ΔV1 … + ΔV14` |
+| 검증 기준 plan revision | `91f0a16:ΔV14` (r5 verify 커밋의 파생 이슈 표가 이번 계약) |
+| 라운드 | **6** |
+| 상태 | **FAIL** |
+| 자기 검증 여부 | **그렇다** — `788aff3` 의 `Claude-Session` 이 이 검증 세션과 같다. §4 에 구현 보고가 이름을 대지 않은 적대 축 **9건**을 넣었고 그중 **4건이 green** 이다 |
+
+## 0. 기준선 / plan 변경 확인
+
+- 구현 커밋이 `plan.md` 를 변경했는가: **그렇다. 규범 행은 0건이다** — `git show 788aff3 --unified=0 -- plan.md | grep '^@@'` = hunk **3개**(`@@ -11 +11 @@` 메타 `상태` 1줄 · `@@ -16,0 +17,152 @@` `[구현자 기입] 라운드 6` 신설 · `@@ -5376,3 +5528,3 @@` 파생 이슈 D46~D48 의 `처리` 칸).
+- **기준선이 diff 로 성립한다** — 계약을 정한 커밋은 r5 verify `91f0a16`(`Status: verified`)이고 구현은 `788aff3`(`Status: implemented`)로 갈려 있다.
+- Decision Ledger·Product/UX Contract·AC·V node/pair·§10·oracle 변경: 구현 커밋 **0건**.
+- 채점 기준: r5 파생 이슈 D46·D47·D48 이 인용한 pair(VP-88·97·100·102)와 §10 지점(EP-61 ② · EP-71 ② · EP-74 ①③), 그리고 구현자가 스스로 범위에 넣은 EP-71 ④ · EP-73 ④.
+
+### Plan validity
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| Delta V mode·상속 기준 | 유효 | ΔV14 까지 각 revision 이 기준 커밋을 적었다 — r5 §0 판정 유지 |
+| NEW/CHANGED node ↔ REQUIRED pair | 유효 | 이번 라운드는 새 node 를 만들지 않는다(계약 변경 0) |
+| 영향 INHERITED ↔ REGRESSION pair | 유효 | VP-100 이 ΔV13 상속의 REGRESSION 으로 남아 있다 |
+| pair별 path·§10 전수·직접 oracle | 유효 | 이번 차단 3행이 전부 plan 이 **번호로 적은** 지점이다 |
+| 필요한 pair의 선택적 적대 증거 | 유효 | r5 파생 이슈 3행이 각 인용 변이를 지정했다 |
+| 현재 변경 산출물의 운영 gate·범위 | 유효 | 8종 전건 실행 가능했다(§8) |
+
+- root PLAN_GAP: **없음.** 아래 두 실패도 plan 이 번호로 적은 §10 지점(EP-71 ①④)이라 구현자가 새 계약을 발명할 필요가 없다. **다음 주체는 구현자다.**
+- **상속 좌표 3건이 죽었다**(§9) — plan validity 를 깨지는 않는다. 상속 기준이 handoff + revision 이름으로도 지시되기 때문이다.
+
+## 1. Product & UX / ACTIVE Decision — end-to-end
+
+| Decision | 기대 결과 | production path | 판정 |
+|---|---|---|---|
+| D-151·D-152 (Enterprise 원격·메뉴 캐시) | 사내 origin 이 **조회 결과로** 메뉴에 뜬다 | `GitRow:147` → `GitRowView:57` cwd → `GitIdentityMenus:36` → `useGitIdentityRemote` → `GitIdentityMenu:74` `window.open` | **충족 — 3지점 전건 잠김**(N1·N1b·V1 · S5 · N5·V4) |
+| D-147 (코멘트 선택 연동) | composer ↔ diff 같은 항목이 **함께** 활성이고 그 코멘트가 **보인다** | composer `Composer.tsx:367` · diff `DiffTileContent:95` · reveal `FileDiffSection:292` | **부분 충족** — 두 표면 활성은 잠겼고(N4a·N4b·N4c·M13), **reveal 대상 컨테이너와 선택 정리 3자리가 green**(V2·V3·V6·V8) → D49·D50 |
+| D-136 (작성 입력 자동 높이) | 긴 입력이 한 줄에 갇히지 않는다 | `FileDiffSection:855` draft · `:913` 저장 카드 본문 | **충족**(M50 red · N7 red · N7b red). 잔여는 §4 W1 |
+| D-149 (수동 새로 고침) | 케밥 마지막 항목이 즉시 조회하고 옛 실패가 새 조회를 덮지 않는다 | `GitContextBar:143` → `refreshGitSnapshot` → `REFRESH_GIT_SNAPSHOT` → `FAIL_GIT_SNAPSHOT_QUERY` 가드 | **충족 — EP-73 4/4**(M43·M42·S3·S4) |
+| D-153 (빈 diff) | 본문 중앙 안내 1개·트리 0개·토글 숨김 | `DiffReview:141` `data-diff-empty` / `GitContextBar:210` | **충족**(M5·M23·M7 red). ② 파일트리는 이번 라운드 미측정 |
+| D-115 · D-123 | r5 판정 유지 | — | **PASS 좌표 참조** — 이번 diff 가 그 경로를 건드리지 않는다 |
+
+## 2. 구현 결과 비판적 검토 — AC 전에
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| false success 가능성 | **있다** | `FileDiffSection:292` 의 `scrollOwnerRef.current` 를 `null` 리터럴로 굳혀도(V2) **3,369/3,369 green**. `revealDiffRequirement` 는 owner 가 null 이면 `false` 를 돌려주고 아무것도 하지 않는다 |
+| 실환경 실패 방식 | 양호 | 늦은 응답·닫힌 메뉴·다른 세션 응답은 잠겨 있다(S5·S4 red) |
+| partial failure/rollback | 해당 없음 | **프로덕션 변경 0** — 외부 쓰기·마이그레이션 0 |
+| A가 아닌 B를 구현했는가 | 아니다 | 세 처방이 지목한 컨테이너를 실제로 렌더한다. `GitIdentityMenus`·`Composer`·`FileDiffSection` 모두 **프로덕션 심볼 자신**을 돌리고 동명 재구현이 없다 |
+| 증상만 제거하고 상태가 남았는가 | 아니다 | 인용 변이 11건이 전건 red 다 |
+| 최적화가 잃은 재검증 관측 | 해당 없음 | 이번 라운드에 캐시·축약 변경 0 |
+| 출력/요청 worst-case 상한 | 유지 | 이번 diff 에 상한 변경 0 |
+
+- **오라클의 fixture 가 계약을 지운 자리가 있다.** `fileDiffRequirementReveal.test.ts:88` 이 `scrollOwnerRef: { current: null }` 을 넣어 첫 인자가 **항상 null** 이다. 그래서 `toHaveBeenCalledExactlyOnceWith(null, 'one')` 은 id 만 잠그고 대상 컨테이너는 잠그지 않는다.
+
+## 3. 역방향 탐색
+
+```bash
+bash .agents/skills/handoff-verify/scripts/scan-surface.sh 844b0ff..788aff3   # 대상 0 파일
+```
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| 스크립트 대상 | **0 파일** | 프로덕션 소스 변경이 없다(`app/src` 비-테스트 diff 0) |
+| 테스트 전용 참조 | 0건 | 신규 4파일이 전부 프로덕션 심볼을 import 해 실행한다 |
+| 동명 로컬 재구현 | **0건** | react 대역은 훅 디스패처만 갈아끼우고 컴포넌트 함수는 프로덕션 것이다 |
+| 형제 정책 비대칭 | **1건** | `fileDiffRequirementReveal` 은 fixture 로 인자를 지웠고 `gitIdentityMenusWiring` 은 `window.open` 인자를 실제로 단언한다 → D49 |
+| producer ↔ consumer 파생 불일치 | **3건** | EP-71 ① 의 reducer cleanup 4자리 중 3자리가 소비처 없이 남는다 → D50 |
+| 게이트가 바꾼 트리 | **0건** | eslint 를 `--fix` 없이 돌렸고 실행 후 `git status --porcelain` 이 비었다 |
+
+## 4. 적대 증거 재측정 — 31변이 · RED 27 · GREEN 4
+
+- **분모**: 인용·등록 11 + 이전 라운드 red 재현 11 + 검증자 독립 축 9 = **31**.
+- **덮개 회귀 0** — 이전 라운드가 red 로 본 11 변이가 전건 red 다. 그중 **M41 은 red 5(r5) → red 10** 으로 늘었다(새 컨테이너 오라클이 같은 변이를 함께 잡는다).
+- 동작 보존 추출 라운드인가: **아니다** — 프로덕션 변경 0 이라 hunk 되돌림 논점이 없다.
+- 복원 검증: 31회 전건 적용 전 `git diff --quiet` 확인 → 복원 후 재확인. 모든 행이 `restore:ok`.
+- 실행 분모는 `--exclude '**/loopback-callback.test.ts'` 기준 **350파일 3,369케이스**다(제외 사유는 §8).
+
+### 4-1. 구현 보고가 등록·인용한 변이 (11행 · red 11 · green 0)
+
+| 변이 | 자기보고 | 재측정 | 귀속 |
+|---|---|---|---|
+| N1 컨테이너가 `useGitIdentityRemote` 를 안 부른다 | red 6 | **red 6** | VP-100·102 · EP-74 ① |
+| N1b `menuEpoch` 를 `undefined` 로 굳힌다 | red 5 | **red 5** | 같은 축 |
+| N5 조회 결과 대신 옛 스냅샷 주소를 싣는다 | red 3 | **red 3** | VP-100 · EP-74 ③ |
+| N4a `selectedId` 를 `null` 로 굳힌다 | red 2 | **red 2** | VP-97 · EP-71 ② |
+| N4b `onSelect` 를 no-op 으로 | red 1 | **red 1** | VP-97 · EP-71 ② |
+| N4c `onSelect`↔`onRemove` 맞바꿈 | red 2 | **red 2** | 형제 슬롯 |
+| N7 본문 `whitespace-pre-wrap` → `truncate` | red 1 | **red 1** | VP-88 · EP-61 ② |
+| N7b 본문 줄바꿈 클래스 소거 | red 1 | **red 1** | 소거 변이 |
+| S5 늦은 복사 결과의 세대 가드 제거 | red 2 | **red 2** | VP-100 · EP-74 ② |
+| S1 reveal 인자를 상수 id 로 | red 2 | **red 2** | VP-97 · EP-71 ④ |
+| S4 `FAIL_GIT_SNAPSHOT_QUERY` 가드 전체 제거 | red 3 | **red 3** | VP-99 · EP-73 ④ |
+
+### 4-2. 이전 라운드 red 좌표 재현 (11행 · 덮개 회귀 0)
+
+| 변이 | r5 / 자기보고 | 재측정 | 비고 |
+|---|---|---|---|
+| M41 훅의 `void cache.ensure()` 제거 | 5 / 10 | **red 10** | 새 오라클이 함께 잡는다 |
+| M13 `activeRequirementId` → `null` | 2 / 2 | **red 2** | — |
+| M42 `REFRESH_GIT_SNAPSHOT` 무효화 | 2 / 2 | **red 2** | — |
+| M43 `onRefresh` 배선 제거 | 1 / 1 | **red 1** | — |
+| M5 빈 안내 중앙 3토큰 제거 | 1 / 1 | **red 1** | — |
+| M7 토글 조건 무력화 | — / 1 | **red 1** | — |
+| M50 `[field-sizing:content]` 제거 | 1 / 1 | **red 1** | — |
+| M23 빈 안내 문구 제거 | 4 / — | **red 4** | EP-77 ① 형제 축 |
+| S6 선택 액션 무력화 | — / 1 | **red 1** | EP-71 ① 액션 축 |
+| **M8** `identityGeneration` 상수 | 2 / **3** | **red 2** | 자기보고 **1 과다**. `''`·`'fixed'` 두 상수 모두 red 2 |
+| **S3** `patchCache: []` 제거 | — / **2** | **red 1** | 자기보고 **1 과다** |
+
+- 두 과다는 **행 관측이 아니라 개수**만 틀렸다. EP-76 ③ · EP-73 ③ 은 각각 red ≥ 1 로 여전히 잠긴다.
+
+### 4-3. 검증자 독립 축 (9건 중 4 green)
+
+| # | 변이 | 결과 | 귀속 |
+|---|---|---|---|
+| V1 | `GitRowView` 가 `cwd={null}` 을 건넨다 | red 1 | VP-100 · EP-74 ① — GitRow hop 은 잠겨 있다 |
+| V4 | `remotePhase={'ready'}` 로 굳힌다(형제 슬롯) | red 3 | VP-100 · EP-74 ③ |
+| V7 | 성공 clear(`CLEAR_DIFF_REQUIREMENTS_IF_UNCHANGED`)가 활성 id 를 안 지운다 | red 1 | VP-97 · EP-71 ① |
+| **V2** | `revealDiffRequirement(null, id)` — 대상 컨테이너를 지운다 | **GREEN** | VP-97 · EP-71 ④ → **D49** |
+| **V3** | 삭제(`REMOVE_DIFF_REQUIREMENT`)가 활성 id 를 안 지운다 | **GREEN** | VP-97 · EP-71 ① → **D50** |
+| **V6** | 수동 범위 전환(`SET_DIFF_COMPARISON`)이 활성 id 를 안 지운다 | **GREEN** | 같은 축 → D50 |
+| **V8** | cwd 초기화(`resetGitReview`)가 활성 id 를 안 지운다 | **GREEN** | 같은 축 → D50 |
+| V5 | draft 열기가 활성 id 를 안 지운다 | GREEN | §10 표 밖 — NON_BLOCKING(D51) |
+| W1 | 본문에 `line-clamp-1` 을 **더한다**(§8 엄격화) | GREEN | EP-61 ② 잔여 — NON_BLOCKING(D52) |
+
+- 네 green 은 **한 형태**다 — 이번 라운드가 만든 오라클이 배선의 **한 인자·한 사건**만 잠그고, 같은 §10 지점의 형제 인자·형제 사건은 그대로 열려 있다.
+- **V2 는 S1 과 같은 사용자 결과를 만든다** — 코멘트를 눌러도 화면이 그 자리로 가지 않는다. S1(잘못된 id)은 red 이고 V2(대상 컨테이너 없음)는 green 이다.
+- V3·V6·V8 은 EP-71 ① 이 적은 `cleanup` 의 네 자리 중 셋이다. 넷째(성공 clear, V7)만 잠겨 있다.
+
+### 4-4. §8 엄격화 — 이번 라운드가 만든 전수/0건 판정
+
+| 장치 | 엄격화 | 차집합 |
+|---|---|---|
+| `body.attr('class')?.split(' ')` 토큰 대조 | 이미 부분 문자열이 아니라 **토큰 일치**다. 한 단계 더: 금지 토큰을 `truncate` 외로 넓힌다 | **비지 않는다** — W1(`line-clamp-1` 추가)이 green |
+| `openItem(items, expected)` 정확 개수 | 소스 대조 — `GitIdentityMenu` 는 repo 1개·branch 2개(복사+열기)를 그린다 | 비어 있다 — 항목 가감이 red 로 온다 |
+| `expect(h.status).not.toHaveBeenCalled()` 0건 | 양성 짝(`toHaveBeenCalledExactlyOnceWith('/repo')`)이 같은 파일에 있다 | 비어 있다 |
+| `aria-pressed="true"` 0개 / `"false"` 2개 | 0건과 전수가 같은 단언에 쌍으로 있다 | 비어 있다 |
+
+## 5. V-pair closeout — 재검증 범위
+
+> 실행 범위: r5 의 root 4 pair + 이번 diff 가 닿은 §10 지점 + 현재 변경의 운영 gate. 영향 없는 r5 PASS 는 그 좌표를 참조한다.
+
+| Pair | 레벨 | requiredness | 결과 | 증거 |
+|---|---|---|---|---|
+| VP-88 | R↔AT | REQUIRED | **PASS** | EP-61 ① red(M50) · ② red(N7·N7b) |
+| VP-97 | R↔AT, AR↔IT | REQUIRED | **PAIR_FAIL** | ② red(N4a·N4b·N4c) · ③ red(M13) · **① cleanup 3/4 green**(V3·V6·V8) · **④ 컨테이너 인자 green**(V2) |
+| VP-99 | R↔AT, AR↔IT | REQUIRED | **PASS** | EP-73 ① red(M43) · ② red(M42) · ③ red(S3) · ④ red(S4) |
+| VP-100 | R↔AT, AR↔IT | REGRESSION | **PASS** | EP-74 ① red(N1·N1b·V1) · ② red(S5) · ③ red(N5·V4) |
+| VP-102 | R↔AT, AR↔IT, MD↔UT | REQUIRED | **PASS** | EP-76 ①② red(M41 10) · ③ red(M8 2) |
+| VP-103 | R↔AT, MD↔UT | REQUIRED | **PASS** | EP-77 ① red(M5·M23) · ③ red(M7) · ② 는 r5·r6 좌표 참조(미측정) |
+| VP-72 · VP-79 | — | — | **PASS 좌표 참조** | r5 §5 — 이번 diff 가 EP-46·EP-53 경로를 건드리지 않는다 |
+| 그 밖 REQUIRED·REGRESSION | — | — | **PASS** | 전체 스위트 350파일 3,369케이스 green |
+
+- root `PAIR_FAIL` **1**: VP-97.
+- 종속 `BLOCKED_BY`: **0** — 다른 pair 의 상위 행동을 전부 독립 관측했다.
+
+### 라운드 6 대상 5행 채점
+
+| 행 | 결과 | 이번 턴 증거 |
+|---|---|---|
+| D46 | ✅ | N1 red 6 · N1b red 5 · N5 red 3 · S5 red 2 · 검증자 축 V1 red 1 · V4 red 3 |
+| D47 | ✅ | N4a red 2 · N4b red 1 · N4c red 2 |
+| D48 | ✅ | N7 red 1 · N7b red 1 |
+| EP-71 ④ | ❌ | S1 red 2 이나 **대상 컨테이너 인자가 green**(V2) — 반만 잠겼다 |
+| EP-73 ④ | ✅ | S4 red 3 — 세 축(요청 key·세대·비교 범위) 음성 대조 |
+
+- **합계 재측정**: `✅ 4 · ❌ 1 = 총 5`. 자기보고 `✅5 ❌0` 과 **개수가 다르다** — EP-71 ④ 를 닫힌 것으로 셌다.
+- **합계 사본 대조**: 본문 `5/5` ↔ trailer `Criteria-Met: 5/5` ↔ INDEX 비고 — 세 사본은 서로 일치한다. 틀린 것은 사본이 아니라 값이다.
+- ΔV1~ΔV14 의 AC 분모는 이번 라운드가 바꾸지 않았다(AC 변경 0건).
+
+### pair별 plan §10 강제 지점 분모 — 검증자 재계수
+
+| EP | plan N | 검증자 확인 | 결과 |
+|---|---|---|---|
+| EP-61 | 2 | **2/2** — ① M50 ② N7·N7b | PASS |
+| EP-71 | 4 | **2/4** — ② N4a·N4b·N4c ③ M13. **① cleanup 4자리 중 V7 만 red** · **④ 인자 절반 green** | PAIR_FAIL |
+| EP-73 | 4 | **4/4** — ① M43 ② M42 ③ S3 ④ S4 | PASS |
+| EP-74 | 3 | **3/3** — ① N1·N1b·V1 ② S5 ③ N5·V4 | PASS |
+| EP-76 | 3 | **3/3** — ①② M41 ③ M8 | PASS |
+| EP-77 | 3 | **2/3 측정** — ① M5·M23 ③ M7 · ② 미측정 | PASS |
+
+- 이번 라운드 합계: **16/19 확인 · 1 미측정(EP-77 ②) · 2 실패(EP-71 ①④)**. 자기보고 **19/19** 와 **EP-71 에서 갈린다**.
+- **분모를 라벨이 아니라 코드에서 다시 셌다.** EP-71 ① 의 `cleanup` 이 걸리는 reducer 자리를 전수로 찾으면 넷이다 — `SET_DIFF_COMPARISON`(V6) · `REMOVE_DIFF_REQUIREMENT`(V3) · `CLEAR_DIFF_REQUIREMENTS_IF_UNCHANGED`(V7) · `resetGitReview`(V8). 구현 보고는 이 지점을 `선택 액션 — S6 red 1` 한 줄로 접었다.
+- 못 본 것: **EP-77 ② 는 측정하지 않았다**(구현 보고는 S7 red 7 로 적었다). 미측정을 PASS 근거로 쓰지 않았다 — VP-103 은 ①③ 의 직접 red 로 PASS 다.
+- 표 밖인데 같은 불변식이 필요한 지점: **없음** — 두 실패가 전부 표 안의 번호다(PLAN_GAP 아님).
+
+### 현재 변경의 운영 gate
+
+| Gate | 결과 | 관측 산출 |
+|---|---|---|
+| `tsc --noEmit` node/web/test | **PASS** | 3구성 오류 **0** |
+| `eslint ./src ./scripts` (`--fix` 없이) | **PASS** | **0 error · 1 warning**(기존 `useTranscriptVirtualizer:22`) |
+| `vitest run` (전체) | **PASS + 환경 실패 1** | **351파일 / 3,375케이스 / 실패 1** — 실패는 `src/main/infra/loopback-callback.test.ts` 뿐(§8) |
+| `vitest run --exclude loopback` | **PASS** | **350파일 / 3,369케이스 / 실패 0 / skip 0** — 연속 4회 동일 |
+| `node --test scripts/*.test.mjs` | **PASS** | **67/67** (suites 8) |
+| `check-migrations-appendonly` | PASS | 마이그레이션 **20** · 소스 **940파일** 스캔 |
+| `check-doc-inventory --check` | PASS | generated(9 items · **82 channels**) · prose · links |
+| `prettier --check` 변경 5파일 | PASS | 전건 통과 |
+| `git diff --check` | PASS | 0건 |
+
+## 6. 숫자 / 상한 재측정
+
+- 전체 스위트 **351파일 3,375케이스** — 자기보고와 일치. r5 기준선 347/3,352 대비 파일 +4 · 케이스 +23.
+- 케이스 증분 검산: 신규 4파일 = `gitIdentityMenusWiring` 9 + `composerRequirementWiring` 5 + `fileDiffRequirementReveal` 4 + `chatReducer.gitSnapshotFail` 5 = **23**. `diffTile.render.test.ts` 는 기존 케이스에 단언 3줄만 더해 케이스 수 불변. 실측과 일치.
+- IPC 채널 **82** · 마이그레이션 **20** — 이번 변경으로 불변.
+- **자기보고 "삭제 hunk 가 없다 · 전부 추가" 는 부정확하다** — `diffTile.render.test.ts` 에 삭제 1줄이 있다(`first.find(...).text()` → 지역 변수 `body` 로 추출). 표현만 바뀌고 단언은 같아 잃은 커버리지는 0 이다.
+- **D45 재측정**: 전체 스위트 **28회 실행 중 `mutation-queue` 재현 0회**. 다만 N4b 실행 1회에서 **정체 미확인 추가 실패 1건**을 봤고, 같은 변이를 단독 재실행하니 red 1(보고와 일치)이었다. 그 1회 외 27회는 깨끗하다.
+
+## 7. 테스트 가능한 핸들 탐색 후 남은 사람 실기
+
+| 항목 | 기계 검증한 범위 | 남은 사람 실기 |
+|---|---|---|
+| 메뉴 원격 조회 | 컨테이너 렌더 9케이스 + 훅 6 + GitRow 세대 3 | **없음 — 닫혔다** |
+| composer 선택 표시·액션 | 컴포저 렌더 5케이스 | **없음 — 닫혔다** |
+| 코멘트 reveal | id 축 4케이스 | **없음 — 결손이다.** `scrollOwnerRef` 에 `{ querySelector: () => null }` 센티널을 넣고 그 값으로 단언하면 V2 가 red 가 된다. DOM 불필요 |
+| 선택 cleanup 3자리 | 없음 | **없음 — 결손이다.** 순수 reducer 3케이스면 V3·V6·V8 이 red 가 된다 |
+| 저장 카드 본문이 **실제로** 여러 줄로 서는지 | 클래스 토큰 대조 | **남는다**(D52) — 레이아웃 실측이라 `src/renderer/AGENTS.md` 의 시각 검증 몫 |
+| 두 테마 파란 accent 계산색 | — | **남는다**(D41) |
+
+## 8. 게이트 재실행 — 산출 관측
+
+- 실행 명령: `cd app && npm run typecheck` · `./node_modules/.bin/eslint ./src ./scripts`(**`--fix` 없이**) · `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs` · `node scripts/check-doc-inventory.mjs --check` · `node scripts/check-migrations-appendonly.mjs` · `prettier --check` · `git diff --check`.
+- `npm test` 는 쓰지 않았다 — DB 동작 검증이 필요 없고 `pretest` 가 ABI 를 뒤집기 때문이다(`app/AGENTS.md`).
+- **환경 기인 실패 1건 — 변경 무관으로 분리한다.** `loopback-callback.test.ts` 의 `타임아웃은 LoopbackCancelledError 로 끝난다` 가 `EADDRINUSE 127.0.0.1:45214` 로 실패한다. 근거 셋: ① 그 파일은 기준 커밋 `844b0ff` 와 **바이트 동일**하고 이번 diff 에 `src/main/**` 변경이 0 이다 ② 저장소와 무관한 `net.createServer().listen(45214)` 프로브가 같은 컨테이너에서 `EADDRINUSE` 를 내고 45211~45213·45215~45216 은 비어 있다 ③ 포트를 문 프로세스는 컨테이너 서비스(`environment-man`)다. 테스트가 포트를 45211 부터 **고정 증가**로 잡으므로 네 번째 케이스가 45214 를 만난다.
+- **게이트가 작업 트리를 바꿨는가: 없음** — `eslint` 를 `--fix` 없이 돌렸고 실행 후 `git status --porcelain` 이 비었다. 변이 31회도 전건 복원 후 `git diff --quiet` 로 확인했다.
+- **검증 중 잔여물: 1건, 저장소 내용 밖이다.** 인용 해시를 실제로 확인하려고 `git fetch --unshallow --filter=blob:none` 를 돌려 로컬 clone 을 54커밋 → 1,372커밋으로 깊게 했다. 작업 트리·인덱스 변화 0. 스크래치는 저장소 밖이다.
+- **exit code 를 통과 증거로 쓰지 않았다** — 각 행에 파일 수·케이스 수·error/warning 수를 적었다.
+
+## 9. Repository operation checks
+
+- **AGENTS.md 변경**: 이번 범위에 없다 — 위생 스캔 대상 0.
+- **INDEX 보드**: `impl/IMPL_DONE (r6)` → 이번 검증으로 `verify/FAIL`·다음 주체 Claude(구현)·라운드 6 으로 갱신한다. 비고는 5줄 이내로 다시 쓴다.
+- **대상 커밋 좌표**: 자리표시자 `(r6 구현 — 검증자 기입)` 를 `788aff3` 로 기입했다. `git cat-file -t 788aff3` = `commit`.
+- **trailer 파싱**: `git log -1 --format='%(trailers:only=true)' 788aff3` 이 **7키를 그대로** 돌려준다. 값도 전부 허용값이다(`Agent: claude` · `Status: implemented` · `Criteria-Met: 5/5` · `Verified-By: pending`).
+- **인용 해시 실재 — 재계수**: plan·verify 가 인용한 해시꼴 토큰 **68개** 중 **62개가 commit** 이다. 3개는 애초에 커밋이 아니다(`33718212925` CI run id · `deadbee` fixture · `f1b46a0` 사용자의 다른 저장소). **3개가 죽은 좌표다** — `62eeefb`(0206 r2, 실제는 `0eee6fbd`) · `ec3ec1bc`(0209 AR 상속 기준) · `e4dd1ec`. 셋 다 **이번 라운드가 만든 것이 아니다**. r5 의 `죽은 좌표 0` 은 25개 부분집합 + shallow clone 관측이었다 → D53.
+- **`[구현자 기입]` 7필드**: 설계 리뷰 · 강제 지점 전수/V-pair 자기확인 · 이번 라운드 수정의 잠금 · Product/UX 파생 검토 · 놓친 잠재 문제 + 대응 · 구현 보고 · Review Signals = **7/7 존재**. 산문으로 접힌 필드 0.
+- **reference/script**: 이동·삭제 0.
+
+## 10. 구현자 코멘트 / 선조치 경계
+
+| 구현자 코멘트 | 검증자 판단 | 반영 |
+|---|---|---|
+| "처방 3자리를 닫는 김에 전수로 밀어 형제 2지점을 더 찾았다" | **타당하고 실제로 그랬다.** 다만 스윕이 EP 의 **번호** 단위에서 멈췄다 — 번호 안의 자리(EP-71 ① 4자리 · ④ 2인자)까지 내려가지 않았다 | §5 §10 표 |
+| "EP-71 4/4 SELF_PASS" | **재계수 2/4** — ① 은 cleanup 4자리 중 1, ④ 는 2인자 중 1 만 잠겼다 | D49·D50 |
+| "§10 19/19" | **16/19 확인 · 1 미측정 · 2 실패** | §5 §10 표 |
+| "M8 red 3 · S3 red 2" | **재측정 red 2 · red 1** — 개수만 과다하고 잠금은 유지된다 | §4-2 |
+| "삭제 hunk 가 없다 — 전부 추가" | **부정확** — 삭제 1줄이 있다. 등가 추출이라 잃은 커버리지 0 | §6 |
+| "D46 처방의 '메뉴에 실린 주소' 는 문자 그대로 성립하지 않는다 → `window.open` 인자로 관측" | **타당** — 소스 대조로 확인했다(`GitIdentityMenu:74`). 대체물이 원본보다 강하다 | 유지 |
+| "jsdom/happy-dom 은 신규 의존성이라 단독 도입하지 않았다" | **타당** — `app/AGENTS.md` 의존성 정책 그대로다 | 사람 판단 대기 |
+| 선조치 | **0건** — 프로덕션 파일 변경이 0 이다 | 확인 |
+
+## 11. Finding disposition / 파생 이슈
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| **D49** | 코멘트 reveal 의 **대상 컨테이너**가 무관측 — `FileDiffSection:292` 의 `scrollOwnerRef.current` 를 `null` 로 굳혀도 3,369 green(V2). 오라클 fixture 가 그 값을 항상 `null` 로 넣어 인자가 지워졌다. 사용자에게는 S1 과 같은 결과다 | VP-97 · §10 EP-71 ④ · D-147 | **BLOCKING** | `scrollOwnerRef` 에 센티널 객체를 넣고 `toHaveBeenCalledExactlyOnceWith(sentinel, id)` 로 단언한다 |
+| **D50** | 선택 **cleanup** 4자리 중 3자리가 무관측 — 삭제(V3)·수동 범위 전환(V6)·cwd 초기화(V8)가 활성 id 를 안 지워도 green. 성공 clear(V7)만 잠겨 있다 | VP-97 · §10 EP-71 ① · D-147 | **BLOCKING** | 순수 reducer 3케이스를 더한다 — DOM·렌더 불필요 |
+| D51 | draft 를 열 때의 활성 id 정리가 무관측(V5 green) | 비귀속 — §10 EP-71 ① 이 열거하지 않은 자리 | NON_BLOCKING | D50 을 닫을 때 같은 파일에 함께 넣으면 값이 싸다 |
+| D52 | 저장 카드 본문에 `line-clamp-1` 을 **더하면** 한 줄로 접히는데 green(W1). 클래스 토큰 단언은 존재만 보고 억제 토큰을 못 본다 | VP-88 · EP-61 ② 잔여 | NON_BLOCKING | 레이아웃 실측은 시각 검증 몫이다(`src/renderer/AGENTS.md`) |
+| D53 | plan·verify 인용 해시 68개 중 **3개가 죽은 좌표**(`62eeefb`·`ec3ec1bc`·`e4dd1ec`). 상속 기준 좌표 2개가 포함된다 | 비귀속 — 이번 라운드 산출 아님 | NON_BLOCKING | 상속 기준을 현재 히스토리의 해시로 정정한다 |
+| D54 | 검증 환경의 `loopback-callback.test.ts` 가 고정 포트 45214 점유로 red. 테스트가 포트를 하드코딩한다 | 비귀속 — 변경 무관(§8) | NEXT_HANDOFF | 포트를 런타임 탐색으로 바꾸거나 충돌 시 건너뛴다 |
+| D46·D47·D48 | 라운드 5 차단 3행 | — | 해소 | **closed**(§4-1) |
+| D41 · D42 · D43 | r5 원문 유지 | 비귀속 | NON_BLOCKING | 사람/설계 판단 대기 |
+| D45 · D32 | r5 원문 유지 | 비귀속 | NEXT_HANDOFF | D45 는 28회 중 0회 재현 |
+
+## 12. Review Signals — 사실만
+
+- **이전 라운드와 동일 증상: 형태가 한 단계 좁아졌다.** 라운드 3·4·5 는 "컨테이너를 아무도 렌더하지 않는다" 였고, 이번은 "컨테이너는 렌더하는데 **그 배선의 형제 인자·형제 사건**을 안 본다" 다. 같은 §10 번호 안에서 반복된다 — **여섯 라운드 연속** 같은 pair(VP-97)가 열려 있다.
+- **관련 plan 지침은 둘 다 있었다** — EP-71 ① 의 `cleanup`, EP-71 ④ 의 `카드/문맥 reveal`. 번호와 실패 의미까지 적혀 있다.
+- **구현자가 스스로 전수 스윕을 수행했고 그 스윕이 EP 번호에서 멈췄다.** 보고는 `EP-71 (4)` 를 네 항목으로 세었고 각 항목 안의 자리 수(① 4자리 · ④ 2인자)를 세지 않았다.
+- **자기검증이 두 라운드 연속 새 green 을 냈다** — r5 는 보고 밖 10축 중 5 green, r6 은 9축 중 4 green. 두 번 다 blocking 이 그 축에서만 나왔다.
+- **사용자 결정 변경 근거**: 이번 라운드 Decision 변경 0건.
+- **반복된 검증 환경 한계 2건**: DOM 없음(jsdom/happy-dom 미설치) · 하드코딩 포트 충돌(D54, 이번에 처음 관측).
+- **라운드 수 6 > 3 이나 `handoff-review` round 26 이 r5 직전에 수행됐다.** r5 §13 이 라운드 6 을 면제했다. **라운드 7 은 그 면제 범위 밖이므로 재구현 전에 `handoff-review` 를 수행한다.**
+
+## 13. 결론 (라운드 6)
+
+- 상태: **FAIL**
+- pair 결과: **PASS 6**(VP-88·99·100·102·103 + r5 좌표 VP-72·79) · **root PAIR_FAIL 1**(VP-97) · BLOCKED_BY 0
+- PLAN_GAP: **없음** — 두 실패가 전부 plan 이 번호로 적은 §10 지점이다(EP-71 ①④). **다음 주체는 구현자다**
+- 라운드 6 대상 5행: **✅4 ❌1** — D46·D47·D48 은 닫혔고 **EP-71 ④ 가 반만 닫혔다**(자기보고는 ✅5)
+- 변이: **31건 · RED 27 · GREEN 4** · 인용 변이 11행 전건 red · **덮개 회귀 0**(이전 red 11/11 재현, M41 은 5 → 10)
+- 자기검증 분모: 구현자 = 검증자이므로 보고에 없던 축 **9건**을 넣었고 **4건이 green** 이다(D49·D50·D51·D52)
+- §10 강제 지점: **EP-61 2/2 · EP-71 2/4 · EP-73 4/4 · EP-74 3/3 · EP-76 3/3 · EP-77 2/3 측정** = 16/19 확인 · 1 미측정 · 2 실패
+- 현재 변경 운영 gate: **8종 PASS** — typecheck 3구성 0 · eslint 0 error/1 warning · vitest **351파일 3,375케이스**(환경 기인 1 제외 시 350/3,369 green) · scripts 67/67 · migrations 20 · doc-inventory 3종 · prettier · diff check. 검증 중 트리 변화 **0**
+- NON_BLOCKING: D51·D52·D53 · D41·D42·D43 · NEXT_HANDOFF: D54·D45·D32 · 해소: D46·D47·D48
+- 남은 사람 확인: 본문 실제 줄바꿈 레이아웃(D52) · 두 테마 파란 accent(D41) · 라운드 3 이월 시각 실기 3건
+- 다음 단계: **구현자가 D49·D50 두 오라클을 만든다.** 둘 다 순수 reducer 케이스와 fixture 센티널이라 신규 의존성·DOM·사람 실기가 필요 없다. **라운드 7 착수 전 `handoff-review` 를 수행한다**(라운드 3 초과, r5 의 면제는 라운드 6 한정)
