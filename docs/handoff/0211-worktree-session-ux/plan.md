@@ -157,6 +157,11 @@ closed** 로 남기고, 대신 그 계약(스토어→리듀서 도달 · tick �
     ② **열린 root 위에 신규 요청이 쌓이는 순서** — impl §0 의 질의 발동 조건은 “보드가 검증자
     차례 + 외부 리뷰” 인데, 여기서는 “보드가 `verify/FAIL`(구현자 차례) + 사용자 신규 요청” 이라
     발동하지 않았다. 라운드 3 의 root 3건이 8 revision 을 그대로 통과했다.
+  - **후속 정정(review round 26)**: ②를 **C 로 내리고 지침 후보에서 제외했다** — ΔV7~ΔV14 8건 전부가
+    본문에 차단 유지를 공개했고, 발동 조건을 넓히면 모든 사용자 요청 앞에 질문이 붙는다. ①은 유지하되
+    증거가 더 강해졌다(차단 9행 중 6행이 브라우저 실측을 닫힘 증거로 인용한 지점이다). 새 발견 1건
+    (검증자가 인용한 등가 변이의 처리)이 더해졌다. 정본은
+    [`regression-coverage.md` § review round 26](../../../.agents/skills/handoff-review/references/regression-coverage.md).
 - 반복 환경 한계: 없다. 라운드 4 가 적은 넷(ABI·electron·`rg`·effect 미실행) 중 앞의 셋은
   이번 실행에서 해소됐고, effect 축은 react 대역 하네스로 기계화했다.
 - 현재 라운드 수: **5**.
@@ -5366,7 +5371,7 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 | D41 | 체크박스의 `accent-selected` 파란 토큰이 무관측 — 지워도 green(M20) | §10 EP-68 · D-144(시각) | `src/renderer/AGENTS.md` 가 시각은 육안 검증으로 갈음한다 — 사람 확인 항목으로 남긴다 | NON_BLOCKING | open(r4) |
 | D42 | 초과 단일 패치 guard 제거가 green(M11). 단일 항목이면 `while` 루프가 같은 결과를 내는 **부분 등가 변이**이고, 다항목 캐시가 통째로 비워지는 차이만 무관측이다. LRU 상한 자체는 잠겨 있다(M12 red) | 비귀속 — D-146 에 미명시 | D-146 에 "초과 패치가 기존 캐시를 보존한다" 를 적을지 설계가 정한다 | NON_BLOCKING | open(r4) |
 | D43 | 설계 커밋 **12건**이 `Agent: codex` + `Status: designed` — root `AGENTS.md` 커밋 프로토콜은 설계 커밋을 `Agent: claude` 로 적는다. 값 자체는 허용값이고 파싱은 전건 정상이다 | 비귀속 — 협업 프로토콜 | 설계 주체 배분을 재확인한다 | NON_BLOCKING | open(r4) |
-| D44 | 라운드 3 verify 가 지시한 `handoff-review` 가 수행되지 않았다 — 저장소에 review 산출물·커밋 **0건**이고 ΔV7~ΔV14 가 라운드 3 을 유지했다 | 비귀속 — 프로세스 | 재구현 전 `handoff-review` 를 수행한다 | NON_BLOCKING | **closed**(r5 · review round 26 수행 — `DIAGNOSE_ONLY`, 지침 변경 0건. 분류·A 후보 2건은 아래 Review Signals) |
+| D44 | 라운드 3 verify 가 지시한 `handoff-review` 가 수행되지 않았다 — 저장소에 review 산출물·커밋 **0건**이고 ΔV7~ΔV14 가 라운드 3 을 유지했다 | 비귀속 — 프로세스 | 재구현 전 `handoff-review` 를 수행한다 | NON_BLOCKING | **closed**(r5 · review round 26 수행 — `DIAGNOSE_ONLY`, 지침 변경 0건. **판정 정본은 [`regression-coverage.md` § review round 26](../../../.agents/skills/handoff-review/references/regression-coverage.md)**) |
 | D45 | `mutation-queue.test.ts:35` 가 고정 `setTimeout(10)` 경합으로 간헐 실패한다(r4 변이 54회 중 2회) | 비귀속 | 기존 D15 · D34 와 같은 축 | NEXT_HANDOFF | open — **r5 검증의 전체 스위트 13회 실행에서 재현 0회**. 빈도가 라운드마다 다르다 |
 | **D46** | `GitIdentityMenus` 를 렌더하는 테스트가 **0개**다 — 훅 미호출(N1)·`menuEpoch` 미전달(N1b)·조회 결과 대신 옛 스냅샷 주소 표시(N5) 셋 다 전체 스위트 green 이다 | VP-100 · VP-102 / §10 EP-74 ①③ · D-151 · D-152 | `GitIdentityMenus` 를 `renderToStaticMarkup` 으로 그려 `gitApi.status` 호출 수와 `data-git-identity-menu` 안에 실린 주소를 단언한다 | **BLOCKING** | open(r5) |
 | **D47** | composer 쪽 선택 배선이 무관측 — `Composer.tsx:367` `selectedId` 를 `null` 로 굳혀도(N4a), `:368` `onSelect` 를 no-op 으로 해도(N4b) 3,352 green. D-147 의 “양방향” 중 diff 쪽만 잠겼다 | VP-97 / §10 EP-71 ② · D-147 | `Composer` 를 store 와 함께 렌더해 인용 타일의 활성 표시와 클릭 액션을 단언한다 | **BLOCKING** | open(r5) |
