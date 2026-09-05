@@ -439,8 +439,14 @@ describe('요구사항이 파일 섹션 줄에 붙는다 (AT-54 · D-093)', () =
       })
     )
     const first = $('[data-diff-requirement-marker="req-1"]')
+    const body = first.find('[data-diff-requirement-body]')
     expect(first.text()).toContain('1번 줄')
-    expect(first.find('[data-diff-requirement-body]').text()).toBe('첫 줄\n\n셋째 줄')
+    expect(body.text()).toBe('첫 줄\n\n셋째 줄')
+    // 라운드 5 verify D48 — 본문 줄바꿈이 무관측이었다(N7). `.text()` 는 축약해도 같은 문자열을
+    // 돌려주므로 저장된 여러 줄이 실제로 여러 줄로 서는 근거는 이 클래스뿐이다(§10 EP-61 ②).
+    expect(body.attr('class')?.split(' ')).toContain('whitespace-pre-wrap')
+    expect(body.attr('class')?.split(' ')).toContain('break-words')
+    expect(body.attr('class')?.split(' ')).not.toContain('truncate')
     expect(first.closest('tr').children('td')).toHaveLength(2)
     expect($('[data-diff-requirement-marker="req-2"]').text()).toContain('2번 줄')
   })
