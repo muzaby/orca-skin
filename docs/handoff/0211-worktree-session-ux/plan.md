@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) · 2026-09-02 (ΔV3 · ΔV4) · 2026-09-03 (ΔV5 · ΔV6) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) + git 우측 패널 재설계 제안서 (Git Review Surface) + 싱크 계기 축소 · 첨부 GUI 재대조 · 로딩 교착 회귀 + 커밋 전용 범위 · Stop hook 싱크 · 컴포저 닫기 · 참조 GUI 3차 재대조 |
-| 상태 | impl/IMPL_DONE (라운드 7 — D49·D50·D51 오라클; 검증 대기) |
+| 상태 | **verify/PASS** (라운드 7 — D49·D50·D51 closed · VP-97 PASS; 사람 몫 시각 3건 잔여) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) · `V1 + ΔV1 + ΔV2` @ `d23c5be` (ΔV3 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3` @ `46047ac` (ΔV4 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` @ `177def67` (ΔV5 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` @ `628123bc` (ΔV6 의 기준) |
 | 이번 V revision | `ΔV14` (동일 라운드 3, 사용자 Enterprise 호스트 요청) |
@@ -5638,12 +5638,14 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 | **D46** | `GitIdentityMenus` 를 렌더하는 테스트가 **0개**다 — 훅 미호출(N1)·`menuEpoch` 미전달(N1b)·조회 결과 대신 옛 스냅샷 주소 표시(N5) 셋 다 전체 스위트 green 이다 | VP-100 · VP-102 / §10 EP-74 ①③ · D-151 · D-152 | `GitIdentityMenus` 를 `renderToStaticMarkup` 으로 그려 `gitApi.status` 호출 수와 `data-git-identity-menu` 안에 실린 주소를 단언한다 | **BLOCKING** | **closed**(r6 · `gitIdentityMenusWiring.test.ts` 9케이스 — N1 red 6 · N1b red 5 · N5 red 3 · 형제 축 S5 red 2). 주소는 마크업에 없어 ‘열기’ 항목의 `window.open` 인자로 관측했다. **r6 검증 확인** — 4변이 재현 일치 + 검증자 축 V1·V4 red |
 | **D47** | composer 쪽 선택 배선이 무관측 — `Composer.tsx:367` `selectedId` 를 `null` 로 굳혀도(N4a), `:368` `onSelect` 를 no-op 으로 해도(N4b) 3,352 green. D-147 의 “양방향” 중 diff 쪽만 잠겼다 | VP-97 / §10 EP-71 ② · D-147 | `Composer` 를 store 와 함께 렌더해 인용 타일의 활성 표시와 클릭 액션을 단언한다 | **BLOCKING** | **closed**(r6 · `composerRequirementWiring.test.ts` 5케이스 — N4a red 2 · N4b red 1 · 형제 슬롯 맞바꿈 N4c red 2). **r6 검증 확인** — 3변이 재현 일치 |
 | **D48** | 저장 카드 본문의 줄바꿈이 무관측 — `FileDiffSection:913` 의 `whitespace-pre-wrap` 을 `truncate` 로 바꿔도 green(N7). draft 자동 높이만 잠겨 있다 | VP-88 / §10 EP-61 ② · D-136 | `data-diff-requirement-body` className 단언을 기존 render 테스트에 더한다 | **BLOCKING** | **closed**(r6 · `diffTile.render.test.ts` 3행 추가 — N7 red 1 · 소거 변이 N7b red 1). **r6 검증 확인** — 2변이 재현 일치. 잔여는 D52 |
-| **D49** | 코멘트 reveal 의 **대상 컨테이너**가 무관측 — `FileDiffSection:292` 의 `scrollOwnerRef.current` 를 `null` 로 굳혀도 3,369 green(V2). 오라클 fixture 가 그 값을 항상 `null` 로 넣어 인자가 지워졌다 | VP-97 · §10 EP-71 ④ · D-147 | `scrollOwnerRef` 에 센티널 객체를 넣고 `toHaveBeenCalledExactlyOnceWith(sentinel, id)` 로 단언한다 | **BLOCKING** | **closed**(r7 · V2 red 3/5 · 형제 인자 V2b red 2/5 — fixture 의 `{ current: null }` 을 센티널로 바꿨다) |
-| **D50** | 선택 **cleanup** 4자리 중 3자리가 무관측 — 삭제(V3)·수동 범위 전환(V6)·cwd 초기화(V8)가 활성 id 를 안 지워도 green. 성공 clear(V7)만 잠겨 있다 | VP-97 · §10 EP-71 ① · D-147 | 순수 reducer 3케이스를 더한다 — DOM·렌더 불필요 | **BLOCKING** | **closed**(r7 · V3·V6·V8 red). **처방 3자리 대신 계약의 cleanup 8자리 전수**를 닫았고 차집합 3자리(N-a·N-b·N-c)도 red 다 |
-| D51 | draft 를 열 때의 활성 id 정리가 무관측(V5 green) | 비귀속 — §10 EP-71 ① 이 열거하지 않은 자리 | D50 을 닫을 때 같은 파일에 함께 넣으면 값이 싸다 | NON_BLOCKING | **closed**(r7 · ⑤ V5 red 1/61) |
+| **D49** | 코멘트 reveal 의 **대상 컨테이너**가 무관측 — `FileDiffSection:292` 의 `scrollOwnerRef.current` 를 `null` 로 굳혀도 3,369 green(V2). 오라클 fixture 가 그 값을 항상 `null` 로 넣어 인자가 지워졌다 | VP-97 · §10 EP-71 ④ · D-147 | `scrollOwnerRef` 에 센티널 객체를 넣고 `toHaveBeenCalledExactlyOnceWith(sentinel, id)` 로 단언한다 | **BLOCKING** | **closed**(r7 · V2 red 3 · 형제 인자 V2b red 2 — fixture 의 `{ current: null }` 을 센티널로 바꿨다). **r7 검증 확인** — 2변이 재현 일치 + 검증자 축 A4(형제 ref 맞바꿈) red 3 · A5(중복 호출) red 2 |
+| **D50** | 선택 **cleanup** 4자리 중 3자리가 무관측 — 삭제(V3)·수동 범위 전환(V6)·cwd 초기화(V8)가 활성 id 를 안 지워도 green. 성공 clear(V7)만 잠겨 있다 | VP-97 · §10 EP-71 ① · D-147 | 순수 reducer 3케이스를 더한다 — DOM·렌더 불필요 | **BLOCKING** | **closed**(r7 · V3·V6·V8 red). **처방 3자리 대신 계약의 cleanup 8자리 전수**를 닫았고 차집합 3자리(N-a·N-b·N-c)도 red 다. **r7 검증 확인** — 8자리를 코드에서 재열거해 일치, `resetGitReview` 두 호출부를 갈라 V8a·V8b 각각 red 1 |
+| D51 | draft 를 열 때의 활성 id 정리가 무관측(V5 green) | 비귀속 — §10 EP-71 ① 이 열거하지 않은 자리 | D50 을 닫을 때 같은 파일에 함께 넣으면 값이 싸다 | NON_BLOCKING | **closed**(r7 · ⑤ V5 red 1). **r7 검증 확인** — 재현 일치 |
 | D52 | 저장 카드 본문에 `line-clamp-1` 을 **더하면** 한 줄로 접히는데 green(W1). 클래스 토큰 단언은 존재만 보고 억제 토큰을 못 본다 | VP-88 · EP-61 ② 잔여 | 레이아웃 실측은 시각 검증 몫이다(`src/renderer/AGENTS.md`) | NON_BLOCKING | open(r6) |
 | D53 | plan·verify 인용 해시 68개 중 **3개가 죽은 좌표** — `62eeefb`(0206 r2, 실제 `0eee6fbd`) · `ec3ec1bc`(0209 AR 상속 기준) · `e4dd1ec` | 비귀속 — 이번 라운드 산출 아님 | 상속 기준 좌표를 현재 히스토리 해시로 정정한다 | NON_BLOCKING | open(r6) |
-| D54 | `loopback-callback.test.ts` 가 포트 45211~45216 을 하드코딩해 컨테이너가 45214 를 물면 red 다 | 비귀속 — 변경 무관(verify r6 §8) | 포트를 런타임 탐색으로 바꾸거나 충돌 시 건너뛴다 | NEXT_HANDOFF | open(r6) |
+| D54 | `loopback-callback.test.ts` 가 포트 45211~45216 을 하드코딩해 컨테이너가 45214 를 물면 red 다 | 비귀속 — 변경 무관(verify r6 §8) | 포트를 런타임 탐색으로 바꾸거나 충돌 시 건너뛴다 | NEXT_HANDOFF | open — **r7 검증의 전체 스위트 31회에서 재현 0회**(이 컨테이너는 포트가 비어 있다) |
+| D55 | 세션 경계 **3자리**(`NEW_CHAT`·`START_LOAD_SESSION`·`LOAD_SESSION`)의 활성 id 정리가 무관측 — 활성만 물려줘도 3,385 green(A3a·A1a·A2). `...initialChatState` 스프레드라 **명시 write 스윕에 안 잡힌다** | VP-97 인접 — AT-96 “세션 경계” 절은 목록 비움(`chatReducer.plan.test.ts:705`)·store 격리(`chatStore.test.ts:709`)·`chatStore.ts:1185` 의 새 state 적용으로 이미 닫혀 있다 | 값이 싼 reducer 케이스 3개면 닫힌다 — 남는 것은 소비처 없는 dangling id 다 | NON_BLOCKING | open(r7) |
+| D56 | 구현 보고 “이번 라운드 수정의 잠금” 검산 줄이 `인용 4 · 새 oracle 6` 인데 같은 표의 갈래 칸은 인용을 **5행**으로 적었다. 총계 10 과 행별 red 는 전건 정확하다 | 비귀속 — 보고 서술 | 다음 라운드에 갈래를 표와 같게 적는다 | NON_BLOCKING | open(r7) |
 
 ## [설계 정정] ΔV4 r3 추가 범위 — 사용자 보고 3건 (라운드 유지)
 
