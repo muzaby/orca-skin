@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) · 2026-09-02 (ΔV3 · ΔV4) · 2026-09-03 (ΔV5 · ΔV6) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) + git 우측 패널 재설계 제안서 (Git Review Surface) + 싱크 계기 축소 · 첨부 GUI 재대조 · 로딩 교착 회귀 + 커밋 전용 범위 · Stop hook 싱크 · 컴포저 닫기 · 참조 GUI 3차 재대조 |
-| 상태 | impl/IMPL_DONE (라운드 6 — D46·D47·D48 closed + 전수 스윕이 찾은 EP-71 ④·EP-73 ④ 동봉) |
+| 상태 | verify/FAIL (라운드 6 — 차단 3행 closed, **EP-71 ①④ 미해소**; 새 차단 D49·D50) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) · `V1 + ΔV1 + ΔV2` @ `d23c5be` (ΔV3 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3` @ `46047ac` (ΔV4 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` @ `177def67` (ΔV5 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` @ `628123bc` (ΔV6 의 기준) |
 | 이번 V revision | `ΔV14` (동일 라운드 3, 사용자 Enterprise 호스트 요청) |
@@ -5525,9 +5525,15 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 | D43 | 설계 커밋 **12건**이 `Agent: codex` + `Status: designed` — root `AGENTS.md` 커밋 프로토콜은 설계 커밋을 `Agent: claude` 로 적는다. 값 자체는 허용값이고 파싱은 전건 정상이다 | 비귀속 — 협업 프로토콜 | 설계 주체 배분을 재확인한다 | NON_BLOCKING | open(r4) |
 | D44 | 라운드 3 verify 가 지시한 `handoff-review` 가 수행되지 않았다 — 저장소에 review 산출물·커밋 **0건**이고 ΔV7~ΔV14 가 라운드 3 을 유지했다 | 비귀속 — 프로세스 | 재구현 전 `handoff-review` 를 수행한다 | NON_BLOCKING | **closed**(r5 · review round 26 수행 — `DIAGNOSE_ONLY`, 지침 변경 0건. **판정 정본은 [`regression-coverage.md` § review round 26](../../../.agents/skills/handoff-review/references/regression-coverage.md)**) |
 | D45 | `mutation-queue.test.ts:35` 가 고정 `setTimeout(10)` 경합으로 간헐 실패한다(r4 변이 54회 중 2회) | 비귀속 | 기존 D15 · D34 와 같은 축 | NEXT_HANDOFF | open — **r5 검증의 전체 스위트 13회 실행에서 재현 0회**. 빈도가 라운드마다 다르다 |
-| **D46** | `GitIdentityMenus` 를 렌더하는 테스트가 **0개**다 — 훅 미호출(N1)·`menuEpoch` 미전달(N1b)·조회 결과 대신 옛 스냅샷 주소 표시(N5) 셋 다 전체 스위트 green 이다 | VP-100 · VP-102 / §10 EP-74 ①③ · D-151 · D-152 | `GitIdentityMenus` 를 `renderToStaticMarkup` 으로 그려 `gitApi.status` 호출 수와 `data-git-identity-menu` 안에 실린 주소를 단언한다 | **BLOCKING** | **closed**(r6 · `gitIdentityMenusWiring.test.ts` 9케이스 — N1 red 6 · N1b red 5 · N5 red 3 · 형제 축 S5 red 2). 주소는 마크업에 없어 ‘열기’ 항목의 `window.open` 인자로 관측했다 |
-| **D47** | composer 쪽 선택 배선이 무관측 — `Composer.tsx:367` `selectedId` 를 `null` 로 굳혀도(N4a), `:368` `onSelect` 를 no-op 으로 해도(N4b) 3,352 green. D-147 의 “양방향” 중 diff 쪽만 잠겼다 | VP-97 / §10 EP-71 ② · D-147 | `Composer` 를 store 와 함께 렌더해 인용 타일의 활성 표시와 클릭 액션을 단언한다 | **BLOCKING** | **closed**(r6 · `composerRequirementWiring.test.ts` 5케이스 — N4a red 2 · N4b red 1 · 형제 슬롯 맞바꿈 N4c red 2) |
-| **D48** | 저장 카드 본문의 줄바꿈이 무관측 — `FileDiffSection:913` 의 `whitespace-pre-wrap` 을 `truncate` 로 바꿔도 green(N7). draft 자동 높이만 잠겨 있다 | VP-88 / §10 EP-61 ② · D-136 | `data-diff-requirement-body` className 단언을 기존 render 테스트에 더한다 | **BLOCKING** | **closed**(r6 · `diffTile.render.test.ts` 3행 추가 — N7 red 1 · 소거 변이 N7b red 1) |
+| **D46** | `GitIdentityMenus` 를 렌더하는 테스트가 **0개**다 — 훅 미호출(N1)·`menuEpoch` 미전달(N1b)·조회 결과 대신 옛 스냅샷 주소 표시(N5) 셋 다 전체 스위트 green 이다 | VP-100 · VP-102 / §10 EP-74 ①③ · D-151 · D-152 | `GitIdentityMenus` 를 `renderToStaticMarkup` 으로 그려 `gitApi.status` 호출 수와 `data-git-identity-menu` 안에 실린 주소를 단언한다 | **BLOCKING** | **closed**(r6 · `gitIdentityMenusWiring.test.ts` 9케이스 — N1 red 6 · N1b red 5 · N5 red 3 · 형제 축 S5 red 2). 주소는 마크업에 없어 ‘열기’ 항목의 `window.open` 인자로 관측했다. **r6 검증 확인** — 4변이 재현 일치 + 검증자 축 V1·V4 red |
+| **D47** | composer 쪽 선택 배선이 무관측 — `Composer.tsx:367` `selectedId` 를 `null` 로 굳혀도(N4a), `:368` `onSelect` 를 no-op 으로 해도(N4b) 3,352 green. D-147 의 “양방향” 중 diff 쪽만 잠겼다 | VP-97 / §10 EP-71 ② · D-147 | `Composer` 를 store 와 함께 렌더해 인용 타일의 활성 표시와 클릭 액션을 단언한다 | **BLOCKING** | **closed**(r6 · `composerRequirementWiring.test.ts` 5케이스 — N4a red 2 · N4b red 1 · 형제 슬롯 맞바꿈 N4c red 2). **r6 검증 확인** — 3변이 재현 일치 |
+| **D48** | 저장 카드 본문의 줄바꿈이 무관측 — `FileDiffSection:913` 의 `whitespace-pre-wrap` 을 `truncate` 로 바꿔도 green(N7). draft 자동 높이만 잠겨 있다 | VP-88 / §10 EP-61 ② · D-136 | `data-diff-requirement-body` className 단언을 기존 render 테스트에 더한다 | **BLOCKING** | **closed**(r6 · `diffTile.render.test.ts` 3행 추가 — N7 red 1 · 소거 변이 N7b red 1). **r6 검증 확인** — 2변이 재현 일치. 잔여는 D52 |
+| **D49** | 코멘트 reveal 의 **대상 컨테이너**가 무관측 — `FileDiffSection:292` 의 `scrollOwnerRef.current` 를 `null` 로 굳혀도 3,369 green(V2). 오라클 fixture 가 그 값을 항상 `null` 로 넣어 인자가 지워졌다 | VP-97 · §10 EP-71 ④ · D-147 | `scrollOwnerRef` 에 센티널 객체를 넣고 `toHaveBeenCalledExactlyOnceWith(sentinel, id)` 로 단언한다 | **BLOCKING** | open(r6) |
+| **D50** | 선택 **cleanup** 4자리 중 3자리가 무관측 — 삭제(V3)·수동 범위 전환(V6)·cwd 초기화(V8)가 활성 id 를 안 지워도 green. 성공 clear(V7)만 잠겨 있다 | VP-97 · §10 EP-71 ① · D-147 | 순수 reducer 3케이스를 더한다 — DOM·렌더 불필요 | **BLOCKING** | open(r6) |
+| D51 | draft 를 열 때의 활성 id 정리가 무관측(V5 green) | 비귀속 — §10 EP-71 ① 이 열거하지 않은 자리 | D50 을 닫을 때 같은 파일에 함께 넣으면 값이 싸다 | NON_BLOCKING | open(r6) |
+| D52 | 저장 카드 본문에 `line-clamp-1` 을 **더하면** 한 줄로 접히는데 green(W1). 클래스 토큰 단언은 존재만 보고 억제 토큰을 못 본다 | VP-88 · EP-61 ② 잔여 | 레이아웃 실측은 시각 검증 몫이다(`src/renderer/AGENTS.md`) | NON_BLOCKING | open(r6) |
+| D53 | plan·verify 인용 해시 68개 중 **3개가 죽은 좌표** — `62eeefb`(0206 r2, 실제 `0eee6fbd`) · `ec3ec1bc`(0209 AR 상속 기준) · `e4dd1ec` | 비귀속 — 이번 라운드 산출 아님 | 상속 기준 좌표를 현재 히스토리 해시로 정정한다 | NON_BLOCKING | open(r6) |
+| D54 | `loopback-callback.test.ts` 가 포트 45211~45216 을 하드코딩해 컨테이너가 45214 를 물면 red 다 | 비귀속 — 변경 무관(verify r6 §8) | 포트를 런타임 탐색으로 바꾸거나 충돌 시 건너뛴다 | NEXT_HANDOFF | open(r6) |
 
 ## [설계 정정] ΔV4 r3 추가 범위 — 사용자 보고 3건 (라운드 유지)
 
