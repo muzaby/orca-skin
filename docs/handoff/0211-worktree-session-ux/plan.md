@@ -8,11 +8,163 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-30 (V1) · 2026-08-31 (ΔV1 · ΔV2) · 2026-09-02 (ΔV3 · ΔV4) · 2026-09-03 (ΔV5 · ΔV6) |
 | 매핑 | 0209·0210 격리 기능의 사용자 대면 잔여 3건 (준비 안내 · 표시 이름 · diff 실데이터) + 라운드 1 사용자 피드백 3건 (표시 정본 소멸 · 변경량 출처 · 조회 계기) + 변경사항 패널 UI/UX 명세 (Session Git Panel) + git 우측 패널 재설계 제안서 (Git Review Surface) + 싱크 계기 축소 · 첨부 GUI 재대조 · 로딩 교착 회귀 + 커밋 전용 범위 · Stop hook 싱크 · 컴포저 닫기 · 참조 GUI 3차 재대조 |
-| 상태 | verify/FAIL (라운드 5 — 9행 중 8행 closed, **D35 미해소**; 새 차단 D46~D48) |
+| 상태 | impl/IMPL_DONE (라운드 6 — D46·D47·D48 closed + 전수 스윕이 찾은 EP-71 ④·EP-73 ④ 동봉) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `V1` @ `0d8cf037` (ΔV1 의 기준) · `V1 + ΔV1` @ `553da6a8` (ΔV2 의 기준) · `V1 + ΔV1 + ΔV2` @ `d23c5be` (ΔV3 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3` @ `46047ac` (ΔV4 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` @ `177def67` (ΔV5 의 기준) · `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` @ `628123bc` (ΔV6 의 기준) |
 | 이번 V revision | `ΔV14` (동일 라운드 3, 사용자 Enterprise 호스트 요청) |
 | 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8 + ΔV9 + ΔV10 + ΔV11 + ΔV12 + ΔV13 + ΔV14` |
+
+## [구현자 기입] 라운드 6 — 컨테이너 hop 오라클 (D46 · D47 · D48)
+
+> 새 ΔV 가 아니다. 라운드 5 verify 가 남긴 **BLOCKING 3행**을 닫는 재구현 턴이고, 계약은 그
+> 행들이 인용한 V-pair · §10 지점 그대로다. **프로덕션 변경 0건** — 셋 다 “배선·값은 이미 있는데
+> 그것을 보는 눈이 없다” 라 산출물은 오라클뿐이다.
+
+### 설계 리뷰
+
+계약 변경 0건. 세 차단이 전부 plan 이 **번호로 적은** §10 지점이고(EP-74 ①③ · EP-71 ② · EP-61 ②)
+verify §0 도 `PLAN_GAP 없음` 으로 적었다 — 구현자가 새 계약을 발명할 자리가 없다. 라운드 5 가
+재구현 직전에 `handoff-review` round 26 을 수행했고 verify §13 이 “라운드 6 은 그 직후이므로 별도
+review 를 다시 요구하지 않는다” 로 적었다 — 이번 턴에 review 를 다시 돌리지 않았다.
+
+선조치 0건. 프로덕션 파일을 한 줄도 바꾸지 않았다.
+
+### 강제 지점 전수 / V-pair 자기확인
+
+이번 라운드가 손대는 여섯 EP 를 **전수로 다시 세고 각 지점에 결함을 심었다.** 이전 라운드가
+“기존 단언(미측정)” 으로 남긴 지점도 이번 턴에 직접 측정했다 — 미측정을 SELF_PASS 근거로 쓰지 않는다.
+
+| EP / pair | 지점별 이번 턴 관측 | 결과 |
+|---|---|---|
+| EP-61 (2) / VP-88 | ① draft 자동 높이 — M50 red 1 ② 저장 카드 본문 줄바꿈 — N7 red 1 · N7b red 1 | **2/2**, SELF_PASS |
+| EP-71 (4) / VP-97 | ① 선택 액션 — S6 red 1 ② composer 타일 — N4a red 2 · N4b red 1 · N4c red 2 ③ diff prop — M13 red 2 ④ 카드 reveal — S1 red 2 | **4/4**, SELF_PASS |
+| EP-73 (4) / VP-99 | ① `onRefresh` 배선 — M43 red 1 ② `gitRefreshTick` 전이 — M42 red 2 ③ 새 세대 캐시 무효화 — S3 red 2 ④ 실패 가드 — S4 red 3 | **4/4**, SELF_PASS |
+| EP-74 (3) / VP-100 | ① cwd 전달→조회 — N1 red 6 · N1b red 5 · M41 red 10 ② 메뉴 수명 query/cancel — S5 red 2 ③ 상태별 표시·URL 실행 — N5 red 3 | **3/3**, SELF_PASS |
+| EP-76 (3) / VP-102 | ①② resource 공유·재시도 — M41 red 10 ③ GitRow 갱신 세대 — M8 red 3 | **3/3**, SELF_PASS |
+| EP-77 (3) / VP-103 | ① 빈 본문 중앙 — M5 red 1 ② 파일트리 빈 트리 — S7 red 7 ③ 토글 조건 — M7 red 1 | **3/3**, SELF_PASS |
+
+- 이번 라운드 측정 합계: **2+4+4+3+3+3 = 19/19**.
+- **EP-46(4) · EP-53(5) 는 이번 라운드 미측정이다** — VP-72·VP-79 는 r5 가 PASS 로 닫았고 이번
+  diff 가 그 경로를 건드리지 않는다. r5 좌표를 그대로 두고 SELF_PASS 수에 더하지 않았다.
+- **S1·S4 는 이번 턴 이전에 green 이었다.** 아래 §이번 라운드 수정의 잠금 참조 — 처방이 지목한
+  세 자리를 닫는 김에 같은 불변식의 형제 지점을 전수로 밀어 찾은 것이다.
+
+### 이번 라운드 수정의 잠금
+
+**검산: 선택 증거 0 · 인용 변이 6 · 새 oracle 5 = 표 행 11.** plan 은 ΔV13·ΔV14 에 “별도 mutation
+은 선택하지 않는다(직접 oracle)” 로 적었으므로 선택 증거는 0 이다. 아래 표는 그 11 행이다.
+
+| 변이 | 분모 갈래 | 결과 | 검출 |
+|---|---|---|---|
+| N1 컨테이너가 `useGitIdentityRemote` 를 부르지 않는다 | D46 인용 변이 | **red** | 6/3,375 |
+| N1b `menuEpoch` 를 `undefined` 로 굳힌다 | D46 인용 변이 | **red** | 5/3,375 |
+| N5 조회 결과 대신 옛 스냅샷 주소를 메뉴에 싣는다 | D46 인용 변이 | **red** | 3/3,375 |
+| N4a `selectedId` 를 `null` 로 굳힌다 | D47 인용 변이 | **red** | 2/3,375 |
+| N4b `onSelect` 를 no-op 으로 바꾼다 | D47 인용 변이 | **red** | 1/3,375 |
+| N7 본문 `whitespace-pre-wrap` → `truncate` | D48 인용 변이 | **red** | 1/3,375 |
+| N4c `onSelect`↔`onRemove` 맞바꿈 | 새 oracle — 형제 슬롯 | **red** | 2/3,375 |
+| N7b 본문 줄바꿈 클래스 **소거**(잔여물 0) | 새 oracle — 구조적 proxy | **red** | 1/3,375 |
+| S5 늦은 복사 결과의 세대 가드 제거 | 새 oracle — 메뉴 수명 배선 | **red** | 2/3,375 |
+| S1 reveal 인자를 상수 id 로 | 새 oracle — 배선 존재 | **red** | 2/3,375 |
+| S4 `FAIL_GIT_SNAPSHOT_QUERY` 가드 전체 제거 | 새 oracle — 직접 상태 oracle | **red** | 3/3,375 |
+
+**그 밖 이번 턴 실행 12회**(표 행 아님 — §5 전수 축과 덮개 회귀 재현):
+
+| 변이 | 성격 | 결과 |
+|---|---|---|
+| S2 문맥 reveal 인덱스 −1 · S3 `patchCache: []` 제거 | §5 전수 축 — **이미 잠겨 있었다** | red 3 · red 2 |
+| S6 선택 액션 무력화 · S7 파일트리 빈 안내 복원(M6 재현) | §5 전수 축 | red 1 · red 7 |
+| M5 · M7 · M8 · M13 · M41 · M42 · M43 · M50 | r4·r5 red 좌표 재현 — **덮개 회귀 0** | red 1·1·3·2·10·2·1·1 |
+
+- **덮개 회귀 0.** 이번 diff 는 신규 4파일 + 기존 render 테스트 3줄 추가로 **전부 추가**이고 삭제
+  hunk 가 없다. r5 가 red 로 본 M41 은 이번 실행에서 red **10**(r5 5) 으로 늘었다 — 새 컨테이너
+  오라클이 같은 변이를 함께 잡는다.
+- **소거 변이의 잔여물 수렴**: N7b·S5 는 지운 자리에 unused import/local 을 남기지 않는 형태다.
+  전 변이가 typecheck 를 깨지 않는다(N1 은 `as 'ready'` 로 타입을 맞춰 심었다).
+- **동작 보존 추출 라운드인가: 아니다** — 프로덕션 변경 0 이라 hunk 되돌림 논점이 없다.
+- 복원 검증: 변이 **23회 전건** 백업 → 복원 후 `git diff --quiet` 로 바이트 동일성을 확인했다.
+
+### Product/UX 파생 검토
+
+**사용자가 관측하는 것은 바뀌지 않는다** — 프로덕션 변경 0건이다.
+
+닫은 다섯 축이 각각 사용자에게 무엇이었는지:
+
+| 축 | 깨졌을 때 사용자가 보는 것 |
+|---|---|
+| D46 (EP-74 ①③) | 프로젝트 메뉴가 영영 `원격 저장소 확인 중…` 이거나 **옛 주소를 연다** |
+| D47 (EP-71 ②) | diff 에서 코멘트를 눌러도 컴포저 인용 타일은 그대로 — 어느 것이 활성인지 두 표면이 갈린다 |
+| D48 (EP-61 ②) | 여러 줄로 적은 코멘트가 저장 카드에서 한 줄로 잘린다 |
+| S1 (EP-71 ④) | 코멘트를 눌러도 화면이 그 자리로 가지 않는다 — **오류 없이 아무 일도 안 일어난다** |
+| S4 (EP-73 ④) | ‘새로 고침’ 으로 새 조회가 도는 중에 **취소된 옛 조회의 실패 안내**가 뜬다 |
+
+뒤의 둘은 **현재 코드에 결함이 있다는 뜻이 아니다** — 가드와 배선은 정상이고, 그것을 보는 눈이
+없었다. 다섯 다 오류 없이 조용히 나타나므로 사용자에게는 “앱이 멈춘 것” 으로 보인다.
+
+### 놓친 잠재 문제 + 대응
+
+| 발견 | 대응 |
+|---|---|
+| **D46 처방의 “`data-git-identity-menu` 안에 실린 주소” 는 문자 그대로 성립하지 않는다** — `GitIdentityMenu` 는 주소를 마크업에 적지 않고 ‘열기’ 항목의 `onClick` 에만 싣는다 | 마크업으로는 `data-git-identity-menu` 존재와 상태 문구를, 주소는 그 항목을 눌러 `window.open` 이 받는 값으로 관측했다. 계약(“조회 결과로 연다”)이 닫히는 자리는 후자다 |
+| **처방 3자리를 닫는 김에 같은 불변식을 전수로 밀자 형제 2지점이 더 green 이었다** — EP-71 ④(카드 reveal) · EP-73 ④(실패 가드) | 이번 턴에 함께 닫았다(S1·S4 red). 세 자리만 고치고 넘어가면 다음 라운드가 이 둘을 연다 — 다섯 라운드 연속 그렇게 왔다 |
+| `FAIL_GIT_SNAPSHOT_QUERY` 는 저장소 전체에서 **테스트 참조 0건**이었다 | 리듀서 오라클 5케이스를 세 축(요청 key · 갱신 세대 · 비교 범위) 음성 대조로 만들었다 |
+| vitest `environment: 'node'` 라 클릭·상태 전이·effect 를 돌릴 DOM 이 없다 | 형제 `gitIdentityRemoteWiring.test.ts` 의 react 대역 패턴을 확장해 **슬롯 기반 훅 하네스**를 테스트 안에 뒀다. 중첩 SSR 구간은 실제 훅에 위임한다 — 신규 의존성 0, 프로덕션 컴포넌트 자신을 돌리므로 동명 재구현이 아니다 |
+| jsdom·happy-dom 은 devDependency 에 없다 | **신규 의존성이라 단독 도입하지 않았다**(§6 보고만). 도입하면 위 하네스 3곳이 표준 렌더로 단순해진다 — 설계 판단 대기 |
+| `mutation-queue.test.ts:35` 간헐 실패(D45) | 이번 라운드 **전체 스위트 28회 실행에서 재현 0회**. r5(13회 0) 와 같고 r4(54회 2) 와 다르다 |
+
+### 구현 보고
+
+| 닫은 행 | 판정 | 이번 턴 증거 |
+|---|---|---|
+| D46 | ✅ | `gitIdentityMenusWiring.test.ts` 9케이스 · N1 red 6 · N1b red 5 · N5 red 3 · S5 red 2 |
+| D47 | ✅ | `composerRequirementWiring.test.ts` 5케이스 · N4a red 2 · N4b red 1 · N4c red 2 |
+| D48 | ✅ | `diffTile.render.test.ts` 3행 추가 · N7 red 1 · N7b red 1 |
+| EP-71 ④ (신규 발견) | ✅ | `fileDiffRequirementReveal.test.ts` 4케이스 · S1 green → **red 2** |
+| EP-73 ④ (신규 발견) | ✅ | `chatReducer.gitSnapshotFail.test.ts` 5케이스 · S4 green → **red 3** |
+
+✅ 5 · ⚠️ 0 · ❌ 0 = 이번 라운드 대상 **5**(차단 3 + 전수 스윕이 찾은 2). 라운드 5 대상 9행 중
+D35 는 D46 으로 좁혀 이었으므로 여기서 닫힌다. **ΔV1~ΔV14 의 AC 분모는 이 라운드가 바꾸지 않았다
+— 이번 턴의 AC 변경 0건이다.**
+
+**관측한 게이트 산출**
+
+| Gate | 산출 |
+|---|---|
+| `eslint ./src ./scripts` (**`--fix` 없이**) | **0 error · 1 warning** — 기존 `useTranscriptVirtualizer` |
+| `npm run typecheck` node/web/test | 3구성 **0 error** |
+| `vitest run` 전체 | **351파일 / 3,375케이스 / 실패 0 / skip 0** |
+| `node --test scripts/*.test.mjs` | **67/67** (suites 8) |
+| `check-doc-inventory --check` | generated(9 items · 82 channels) · prose · links 3종 ok |
+| `check-migrations-appendonly` | 마이그레이션 **20** · 소스 **940파일** 스캔 |
+| `prettier --check` 변경 5파일 | 전건 통과 |
+| `git diff --check` | **0건** |
+
+**케이스 증분 검산**: 신규 4파일 **23**(9+5+4+5) + 기존 파일 추가 **0**(diffTile 은 기존 케이스에
+단언 3줄 추가라 케이스 수 불변) = **23**. r5 기준선 3,352 + 23 = **3,375** — 실측과 일치.
+파일 347 + 4 = **351** — 실측과 일치.
+
+**게이트가 작업 트리를 바꿨는가**: `eslint` 를 `--fix` 없이 돌렸다. `prettier --write` 는 **자기
+신규 파일 1개**(`gitIdentityMenusWiring.test.ts`)에만 의도적으로 실행했고 그 뒤 모든 변이 측정을
+다시 돌렸다 — 위 표의 수치는 포맷 이후 최종 트리의 값이다. 검증 중 잔여물 0(스크래치는 저장소 밖).
+
+환경 기인 실패: **0** — ABI·electron·`rg` 전부 정상이다.
+
+### Review Signals
+
+- **이번에 닫은 불변식은 라운드 3·4·5 와 같은 축이다** — “단위는 잠갔고 그 단위를 **부르는 컨테이너**는
+  안 잠갔다”. ΔV4 r1 D1 → ΔV6 D25~D27 → ΔV14 D35~D37 → r5 D46~D48 로 **다섯 라운드 연속**이다.
+- **막았어야 할 지침은 있었다** — `handoff-impl` §3 “내가 만든 oracle 이 주장하는 production 경로에
+  실제로 진입하는가” · §5-2 “불변식이 성립해야 하는 지점을 전수로 찾아 함께 닫는다”. r5 는 훅을
+  단독으로 돌려 배선을 쟀고 그 훅을 **부르는 자리**를 분모에 올리지 않았다.
+- **이번 턴은 §5-2 를 실제로 수행했고 그 자리에서 형제 2지점을 더 찾았다**(EP-71 ④ · EP-73 ④).
+  둘 다 plan 이 번호로 적은 지점이고 어느 라운드도 재지 않았다 — 처방 3자리만 닫았으면 라운드 7 이
+  이 둘을 열었을 것이다.
+- **`handoff-review` 는 이번 라운드에 수행하지 않았다** — r5 verify §13 이 round 26 직후임을 근거로
+  면제했다. 라운드 수는 3을 넘지만 그 판단은 r5 검증자가 명시했다.
+- **사용자 결정 변경 근거**: 이번 라운드 Decision 변경 0건.
+- 반복 환경 한계: **DOM 없음** 하나다. jsdom/happy-dom 미설치라 상태 전이·effect 오라클은 react
+  대역 하네스로 만든다 — 세 파일이 같은 패턴을 반복한다(신규 의존성은 사용자 판단).
+- 현재 라운드 수: **6**.
 
 ## [구현자 기입] 라운드 5 — 배선·배치 오라클 6축 (D25~D27 · D35~D40)
 
@@ -5373,9 +5525,9 @@ r1 검증이 **green 으로 관측한 변이 11건을 그대로 다시 심었다
 | D43 | 설계 커밋 **12건**이 `Agent: codex` + `Status: designed` — root `AGENTS.md` 커밋 프로토콜은 설계 커밋을 `Agent: claude` 로 적는다. 값 자체는 허용값이고 파싱은 전건 정상이다 | 비귀속 — 협업 프로토콜 | 설계 주체 배분을 재확인한다 | NON_BLOCKING | open(r4) |
 | D44 | 라운드 3 verify 가 지시한 `handoff-review` 가 수행되지 않았다 — 저장소에 review 산출물·커밋 **0건**이고 ΔV7~ΔV14 가 라운드 3 을 유지했다 | 비귀속 — 프로세스 | 재구현 전 `handoff-review` 를 수행한다 | NON_BLOCKING | **closed**(r5 · review round 26 수행 — `DIAGNOSE_ONLY`, 지침 변경 0건. **판정 정본은 [`regression-coverage.md` § review round 26](../../../.agents/skills/handoff-review/references/regression-coverage.md)**) |
 | D45 | `mutation-queue.test.ts:35` 가 고정 `setTimeout(10)` 경합으로 간헐 실패한다(r4 변이 54회 중 2회) | 비귀속 | 기존 D15 · D34 와 같은 축 | NEXT_HANDOFF | open — **r5 검증의 전체 스위트 13회 실행에서 재현 0회**. 빈도가 라운드마다 다르다 |
-| **D46** | `GitIdentityMenus` 를 렌더하는 테스트가 **0개**다 — 훅 미호출(N1)·`menuEpoch` 미전달(N1b)·조회 결과 대신 옛 스냅샷 주소 표시(N5) 셋 다 전체 스위트 green 이다 | VP-100 · VP-102 / §10 EP-74 ①③ · D-151 · D-152 | `GitIdentityMenus` 를 `renderToStaticMarkup` 으로 그려 `gitApi.status` 호출 수와 `data-git-identity-menu` 안에 실린 주소를 단언한다 | **BLOCKING** | open(r5) |
-| **D47** | composer 쪽 선택 배선이 무관측 — `Composer.tsx:367` `selectedId` 를 `null` 로 굳혀도(N4a), `:368` `onSelect` 를 no-op 으로 해도(N4b) 3,352 green. D-147 의 “양방향” 중 diff 쪽만 잠겼다 | VP-97 / §10 EP-71 ② · D-147 | `Composer` 를 store 와 함께 렌더해 인용 타일의 활성 표시와 클릭 액션을 단언한다 | **BLOCKING** | open(r5) |
-| **D48** | 저장 카드 본문의 줄바꿈이 무관측 — `FileDiffSection:913` 의 `whitespace-pre-wrap` 을 `truncate` 로 바꿔도 green(N7). draft 자동 높이만 잠겨 있다 | VP-88 / §10 EP-61 ② · D-136 | `data-diff-requirement-body` className 단언을 기존 render 테스트에 더한다 | **BLOCKING** | open(r5) |
+| **D46** | `GitIdentityMenus` 를 렌더하는 테스트가 **0개**다 — 훅 미호출(N1)·`menuEpoch` 미전달(N1b)·조회 결과 대신 옛 스냅샷 주소 표시(N5) 셋 다 전체 스위트 green 이다 | VP-100 · VP-102 / §10 EP-74 ①③ · D-151 · D-152 | `GitIdentityMenus` 를 `renderToStaticMarkup` 으로 그려 `gitApi.status` 호출 수와 `data-git-identity-menu` 안에 실린 주소를 단언한다 | **BLOCKING** | **closed**(r6 · `gitIdentityMenusWiring.test.ts` 9케이스 — N1 red 6 · N1b red 5 · N5 red 3 · 형제 축 S5 red 2). 주소는 마크업에 없어 ‘열기’ 항목의 `window.open` 인자로 관측했다 |
+| **D47** | composer 쪽 선택 배선이 무관측 — `Composer.tsx:367` `selectedId` 를 `null` 로 굳혀도(N4a), `:368` `onSelect` 를 no-op 으로 해도(N4b) 3,352 green. D-147 의 “양방향” 중 diff 쪽만 잠겼다 | VP-97 / §10 EP-71 ② · D-147 | `Composer` 를 store 와 함께 렌더해 인용 타일의 활성 표시와 클릭 액션을 단언한다 | **BLOCKING** | **closed**(r6 · `composerRequirementWiring.test.ts` 5케이스 — N4a red 2 · N4b red 1 · 형제 슬롯 맞바꿈 N4c red 2) |
+| **D48** | 저장 카드 본문의 줄바꿈이 무관측 — `FileDiffSection:913` 의 `whitespace-pre-wrap` 을 `truncate` 로 바꿔도 green(N7). draft 자동 높이만 잠겨 있다 | VP-88 / §10 EP-61 ② · D-136 | `data-diff-requirement-body` className 단언을 기존 render 테스트에 더한다 | **BLOCKING** | **closed**(r6 · `diffTile.render.test.ts` 3행 추가 — N7 red 1 · 소거 변이 N7b red 1) |
 
 ## [설계 정정] ΔV4 r3 추가 범위 — 사용자 보고 3건 (라운드 유지)
 
