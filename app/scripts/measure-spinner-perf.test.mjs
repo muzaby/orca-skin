@@ -13,8 +13,11 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import {
+  BUDGET_MS_PER_SEC,
+  STABILITY_MS_PER_SEC,
   MODES,
   INSTANCES,
+  excessByRep,
   buildPage,
   buildPages,
   buildSpinnerMarkup,
@@ -138,6 +141,9 @@ const rowsOf = (perMode) =>
 
 const BASE = { recalcCount: 0, recalcMs: 0, layoutCount: 0, layoutMs: 0 }
 
+/** verdict 는 요약과 원본 행을 함께 본다 — 평균만으로는 rep 산포가 보이지 않는다. */
+const judge = (rows) => verdict(summarize(rows), rows)
+
 test('요약이 none 기준선 대비 순증가를 ms/s 로 낸다', () => {
   const s = summarize(
     rowsOf({
@@ -152,44 +158,121 @@ test('요약이 none 기준선 대비 순증가를 ms/s 로 낸다', () => {
   assert.equal(s.find((r) => r.mode === 'new').reps, 3)
 })
 
-test('판정이 신 ≤ 구 를 본다 — 신이 비싸면 FAIL 이다', () => {
-  const worse = verdict(
-    summarize(
-      rowsOf({
-        none: { ...BASE, taskMs: 90 },
-        old: { ...BASE, taskMs: 240 },
-        new: { ...BASE, taskMs: 300 }
-      })
-    )
+test('판정이 예산을 본다 — 초과하면 FAIL, 이내면 PASS', () => {
+  // 예산 축이 방향을 잃으면(초과인데 PASS) 측정은 계속 돌고 숫자도 그럴듯한데 결론만 뒤집힌다.
+  const over = judge(
+    rowsOf({
+      none: { ...BASE, taskMs: 90 },
+      old: { ...BASE, taskMs: 240 },
+      // 구 30 ms/s · 신 42 ms/s → 초과분 12 > 예산 5
+      new: { ...BASE, taskMs: 300 }
+    })
   )
-  assert.equal(worse.pass, false)
-  assert.ok(worse.reasons.some((r) => r.includes('main-thread 순증가')))
+  assert.equal(over.pass, false)
+  assert.equal(over.excess, 12)
+  assert.ok(over.reasons.some((r) => r.includes('예산')))
 
-  const better = verdict(
-    summarize(
-      rowsOf({
-        none: { ...BASE, taskMs: 90 },
-        old: { ...BASE, taskMs: 300 },
-        new: { ...BASE, taskMs: 240 }
-      })
-    )
+  const within = judge(
+    rowsOf({
+      none: { ...BASE, taskMs: 90 },
+      old: { ...BASE, taskMs: 240 },
+      // 구 30 ms/s · 신 33 ms/s → 초과분 3 ≤ 예산 5 (30Hz 실측이 이 자리다)
+      new: { ...BASE, taskMs: 255 }
+    })
   )
-  assert.equal(better.pass, true)
-  assert.deepEqual(better.reasons, [])
+  assert.equal(within.pass, true)
+  assert.equal(within.excess, 3)
+  assert.deepEqual(within.reasons, [])
 })
 
-test('layout 축도 따로 본다 — task 가 같아도 layout 이 늘면 FAIL 이다', () => {
-  const v = verdict(
-    summarize(
+test('예산 경계에서 갈린다 — 같으면 통과, 0.1 넘으면 실패', () => {
+  const at = (newTaskMs) =>
+    judge(
       rowsOf({
         none: { ...BASE, taskMs: 90 },
         old: { ...BASE, taskMs: 240 },
-        new: { ...BASE, layoutCount: 144, layoutMs: 11, recalcCount: 0, recalcMs: 0, taskMs: 240 }
+        new: { ...BASE, taskMs: newTaskMs }
       })
     )
+  // 구 순증가 30 ms/s. 예산 5.0 → 신 35.0 까지 통과.
+  assert.equal(BUDGET_MS_PER_SEC, 5)
+  assert.equal(at(265).excess, 5)
+  assert.equal(at(265).pass, true)
+  assert.equal(at(265.5).excess, 5.1)
+  assert.equal(at(265.5).pass, false)
+})
+
+test('신이 구보다 싸도 통과한다 — 예산은 상한이지 하한이 아니다', () => {
+  const better = judge(
+    rowsOf({
+      none: { ...BASE, taskMs: 90 },
+      old: { ...BASE, taskMs: 300 },
+      new: { ...BASE, taskMs: 240 }
+    })
   )
+  assert.equal(better.pass, true)
+  assert.equal(better.excess, -12)
+})
+
+test('layout 이 늘어도 예산 안이면 통과한다 — rev.4 에서 layout 단독 축을 뺐다', () => {
+  // 구 구현은 꺼진 마크를 visibility 로 빼내 layout 이 0 이다. `신 ≤ 구` 를 layout 에 걸면
+  // 구조상 영원히 통과할 수 없으므로 예산 한 축으로 합쳤다(D-211).
+  const v = judge(
+    rowsOf({
+      none: { ...BASE, taskMs: 90 },
+      old: { ...BASE, taskMs: 240 },
+      new: { ...BASE, layoutCount: 66, layoutMs: 5.3, taskMs: 255 }
+    })
+  )
+  assert.equal(v.pass, true)
+  assert.deepEqual(v.reasons, [])
+})
+
+test('rep 사이 초과분을 rep 안에서만 뺀다 — 기준선 드리프트에 흔들리지 않는다', () => {
+  // none 은 두 항에서 상쇄된다. rep 마다 기준선이 달라도 같은 rep 의 구/신 차이는 공정하다.
+  const rows = [
+    { mode: 'none', rep: 0, taskMs: 90, valid: true },
+    { mode: 'old', rep: 0, taskMs: 240, valid: true },
+    { mode: 'new', rep: 0, taskMs: 255, valid: true },
+    { mode: 'none', rep: 1, taskMs: 180, valid: true },
+    { mode: 'old', rep: 1, taskMs: 480, valid: true },
+    { mode: 'new', rep: 1, taskMs: 495, valid: true }
+  ]
+  // 두 rep 의 기준선이 2배 차이인데 초과분은 둘 다 3.0 이다.
+  assert.deepEqual(excessByRep(rows), [3, 3])
+})
+
+test('rep 산포가 크면 평균이 좋아도 판정하지 않는다', () => {
+  // 실측 사례 — 기계가 바빠 세 조건이 60fps 를 지키면서 rep2 에서 구/신 순서가 뒤집혔다.
+  // 평균만 보면 이 실행도 숫자를 하나 내놓는다.
+  const observed = [
+    { none: 144.1, old: 362.1, new: 608.0 },
+    { none: 143.3, old: 510.6, new: 665.7 },
+    { none: 261.3, old: 595.9, new: 567.8 }
+  ]
+  const rows = observed.flatMap((r, rep) =>
+    MODES.map((mode) => ({ mode, rep, fps: 60, valid: true, ...BASE, taskMs: r[mode] }))
+  )
+  const v = judge(rows)
+  assert.deepEqual(v.perRep, [49.2, 31, -5.6])
+  assert.equal(v.spread, 54.8)
   assert.equal(v.pass, false)
-  assert.ok(v.reasons.some((r) => r.includes('layout')))
+  assert.ok(v.reasons.some((r) => r.includes('rep 산포')))
+})
+
+test('조용한 실행의 산포는 임계 안이다 — 가드가 정상 실행을 막지 않는다', () => {
+  // 관측된 조용한 실행 4회의 산포는 2.5·3.5·4.3·5.8 이었다. 임계 12 는 그 위다.
+  assert.equal(STABILITY_MS_PER_SEC, 12)
+  const rows = [
+    { none: 90, old: 240, new: 250.5 },
+    { none: 92, old: 245, new: 262 },
+    { none: 91, old: 242, new: 253 }
+  ].flatMap((r, rep) =>
+    MODES.map((mode) => ({ mode, rep, fps: 60, valid: true, ...BASE, taskMs: r[mode] }))
+  )
+  const v = judge(rows)
+  assert.ok(v.spread <= STABILITY_MS_PER_SEC, `산포 ${v.spread}`)
+  assert.equal(v.pass, true)
 })
 
 test('무효 행이 있으면 수치가 좋아도 판정하지 않는다', () => {
@@ -199,7 +282,7 @@ test('무효 행이 있으면 수치가 좋아도 판정하지 않는다', () =>
     new: { ...BASE, taskMs: 240 }
   })
   rows[4].valid = false
-  const v = verdict(summarize(rows))
+  const v = judge(rows)
   assert.equal(v.pass, false)
   assert.ok(v.reasons.some((r) => r.includes('무효 행')))
 })
@@ -211,7 +294,7 @@ test('fps 가 60 에 못 미치면 FAIL 이다', () => {
     new: { ...BASE, taskMs: 240 }
   })
   for (const r of rows) if (r.mode === 'new') r.fps = 52
-  const v = verdict(summarize(rows))
+  const v = judge(rows)
   assert.equal(v.pass, false)
   assert.ok(v.reasons.some((r) => r.includes('fps')))
 })

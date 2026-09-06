@@ -241,6 +241,7 @@
   0.000% {
     transform: scale(0.26);
     opacity: 0.0;
+    animation-timing-function: steps(3, end);
   }
   2.083% {
     transform: scale(1.0);
@@ -249,6 +250,7 @@
   8.750% {
     transform: scale(1.0);
     opacity: 1.0;
+    animation-timing-function: steps(5, end);
   }
   12.500% {
     transform: scale(0.26);
@@ -278,6 +280,7 @@
   11.042% {
     transform: scale(0.26);
     opacity: 0.0;
+    animation-timing-function: steps(5, end);
   }
   14.583% {
     transform: scale(1.0);
@@ -286,6 +289,7 @@
   21.250% {
     transform: scale(1.0);
     opacity: 1.0;
+    animation-timing-function: steps(5, end);
   }
   25.000% {
     transform: scale(0.26);
@@ -294,6 +298,7 @@
   36.042% {
     transform: scale(0.26);
     opacity: 0.0;
+    animation-timing-function: steps(5, end);
   }
   39.583% {
     transform: scale(1.0);
@@ -302,6 +307,7 @@
   46.250% {
     transform: scale(1.0);
     opacity: 1.0;
+    animation-timing-function: steps(5, end);
   }
   50.000% {
     transform: scale(0.26);
@@ -310,6 +316,7 @@
   61.042% {
     transform: scale(0.26);
     opacity: 0.0;
+    animation-timing-function: steps(5, end);
   }
   64.583% {
     transform: scale(1.0);
@@ -318,6 +325,7 @@
   71.250% {
     transform: scale(1.0);
     opacity: 1.0;
+    animation-timing-function: steps(5, end);
   }
   75.000% {
     transform: scale(0.26);
@@ -326,6 +334,7 @@
   86.042% {
     transform: scale(0.26);
     opacity: 0.0;
+    animation-timing-function: steps(5, end);
   }
   89.583% {
     transform: scale(1.0);
@@ -334,6 +343,7 @@
   96.250% {
     transform: scale(1.0);
     opacity: 1.0;
+    animation-timing-function: steps(5, end);
   }
   100.000% {
     transform: scale(0.26);
@@ -355,6 +365,7 @@
   23.542% {
     transform: scale(0.26);
     opacity: 0.0;
+    animation-timing-function: steps(5, end);
   }
   27.083% {
     transform: scale(1.0);
@@ -363,6 +374,7 @@
   33.750% {
     transform: scale(1.0);
     opacity: 1.0;
+    animation-timing-function: steps(5, end);
   }
   37.500% {
     transform: scale(0.26);
@@ -388,6 +400,7 @@
   48.542% {
     transform: scale(0.26);
     opacity: 0.0;
+    animation-timing-function: steps(5, end);
   }
   52.083% {
     transform: scale(1.0);
@@ -396,6 +409,7 @@
   58.750% {
     transform: scale(1.0);
     opacity: 1.0;
+    animation-timing-function: steps(5, end);
   }
   62.500% {
     transform: scale(0.26);
@@ -421,6 +435,7 @@
   73.542% {
     transform: scale(0.26);
     opacity: 0.0;
+    animation-timing-function: steps(5, end);
   }
   77.083% {
     transform: scale(1.0);
@@ -429,6 +444,7 @@
   83.750% {
     transform: scale(1.0);
     opacity: 1.0;
+    animation-timing-function: steps(5, end);
   }
   87.500% {
     transform: scale(0.26);
