@@ -401,43 +401,68 @@ McpDetail(onRemove) → ExtensionsCatalogView → useMcpServers.remove → mcpAp
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: (구현 턴 기입)
-- 이견 / 현실성 문제: (구현 턴 기입)
-- ACTIVE Decision 과 충돌하는 설계 발견: (구현 턴 기입)
+- 동의 / 그대로 진행: 설계대로다. IPC 4단이 이미 있다는 §8 관측을 코드에서 다시 확인했다 — `useMcpServers.remove` (`hooks/useMcpServers.ts` `remove`) 가 `mcpApi.delete` 후 `refresh()` 를 부른다.
+- 이견 / 현실성 문제: 없음. `SkillDetail` 의 헤더·모달 구조를 그대로 따르면 되는 형상이었다.
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음. D-306 의 공용 `MenuItem` 은 `McpDetail.tsx:3` import 로 지켰고 로컬 사본을 새로 만들지 않았다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| (구현 턴 기입) | | | | | |
+| VP-301 | 제거 도달성 | 3 | **2/3** | `vitest run …/mcpDetail.render.test.ts` → 4케이스 green(모달 닫힌 시작) · `ExtensionsCatalogView.tsx:137` `onRemove={() => mcp.remove(selectedMcp.id)}` | 메뉴 **항목** 축 — DOM 없는 환경이라 AT-307 실기 |
+| VP-302 | 활성 상태 소유 | 3 | **3/3** | 같은 스위트 — `role="switch" aria-checked="true|false"` 두 상태 · `>활성화<`·`>비활성화<` 0건 | — |
+| VP-303 | 케밥 트리거 | 2 | **2/2** | 같은 스위트 — `aria-haspopup="menu"` · `aria-expanded="false"` | — |
+| VP-304 | 편집 배선 | 4 | **4/4** | `rg 'AddMcpServerModal'` 프로덕션 소비자 1(`ExtensionsCatalogView.tsx:19,185`, 변경 전 0) · `:191` `id: editingMcp.id` · `:200` `...(values.auth !== undefined ? …)` · `:205` `openDetail(state, values.name)` | rename 의 **화면 결과**는 AT-307 실기 |
+| VP-305 | 배치·컴포넌트 표준 | 2 | **2/2** | `McpDetail.tsx:63` Toggle → `:71` 케밥(같은 `ml-auto flex` 컨테이너) · `:3` 공용 `MenuItem` import, 로컬 `MenuRow` 신설 0건 | — |
+| VP-306 | 문구 패리티 | 2 | **2/2** | `vitest run shared/i18n/resources/resources.test.ts` → 3케이스 green · `rg 'mcpDetail.enable|mcpDetail.disable'` 0건 | — |
+
+- 합계: **15/16**. 남긴 1 지점은 EP-301 의 메뉴 항목 축이고 §17·AT-307 이 이미 그 경계를 선언한 자리다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| (구현 턴 기입) | | | | |
+| Toggle 을 옛 텍스트 버튼(`활성화`/`비활성화`)으로 되돌림 | VP-302 등록 변이 | 없음(r1) | `mcpDetail.render.test.ts` 2 failed / 4 | RED ✅ |
+| 케밥 트리거의 `aria-haspopup`·`aria-expanded` 제거 | VP-303 등록 변이 | 없음(r1) | 같은 스위트 1 failed / 4 | RED ✅ |
+
+- 검산: 선택 증거 **2**(VP-302·VP-303) · 인용 변이 **0**(닫은 파생 이슈 없음) · 새 oracle **0**(이번 턴의 `mcpDetail.render.test.ts` 는 직접 행동 oracle 이고 구조적 proxy·0건 스윕이 아니다) = 표 행 **2**.
+- 적대 증거를 고르지 않은 pair(VP-301·VP-304·VP-305·VP-306)는 직접 oracle(렌더 출력·소스 전수·기존 위생 테스트)로 확인했다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| (구현 턴 기입) | | |
+| 새 문구 6키에 소비자가 있는가 | ✅ 6/6 — `toggleAria`·`edit`·`remove`·`removing`·`removeTitle`·`removeConfirmBody` 가 전부 `McpDetail.tsx` 에서 `tr()` 로 불린다 | — |
+| 제거 실패가 "아무 일도 안 일어남" 으로 보이는가 | ⚠️ 그렇다 — `remove()` 의 `finally` 가 `removing` 을 풀어 버튼은 살아나지만 **오류 문구가 없다** | `SkillDetail` 도 같다(형제 동형). 범위 밖이라 파생 이슈 D3 |
+| 늦게 온 응답이 화면을 되돌리는가 | ✅ 아니다 — 상세는 서버 객체를 복사하지 않고 `mcp.list` 에서 `id` 로 찾는다 | — |
+| 이름 변경 후 화면이 어디로 가는가 | ✅ 새 id 를 따라간다(`:205`) — 안 따라가면 목록으로 튕긴다(D-308) | 화면 확인은 AT-307 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| (구현 턴 기입) | | | |
+| 1 | rename 저장 중 편집 모달이 **자기 밑에서 언마운트**된다 — `editingMcp` 가 옛 id 로 찾으므로 `refresh()` 직후 `undefined` 가 된다 | 보고만 — React 18 에서 언마운트 후 `setBusy(false)`·`onClose()` 는 no-op 이고 관측 가능한 증상이 없다 | `ExtensionsCatalogView.tsx:44` · `AddMcpServerModal.tsx` `save()` 의 `finally` |
+| 2 | 확인 모달 확인 버튼이 `danger` 톤이 아니다 | 선조치 안 함 — `SkillDetail` 의 제거 모달과 **같은** 형상이다(둘 다 `ModalActions` 기본 primary). 한쪽만 바꾸면 D-303 의 "같은 배치" 가 깨진다 | `SkillDetail.tsx:212` ↔ `McpDetail.tsx:142` — 둘 다 `ModalActions` 를 `danger` 없이 부른다 |
+| 3 | 목록 행에는 제거 경로가 여전히 없다 | 비범위(§6) — skills 목록 행도 같다 | `CustomizeList.tsx` `kebab` 0건 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| (구현 턴 기입) | |
+| 대상 커밋 | (r1 구현 — 좌표는 INDEX) |
+| 변경 파일 | 5 — `McpDetail.tsx` · `ExtensionsCatalogView.tsx` · `ko.ts` · `en.ts` · `mcpDetail.render.test.ts`(신규) |
+| 관측한 게이트 산출 | `lint` 0 error / 1 warning(`useTranscriptVirtualizer.ts` 기존, 변경 무관) · `typecheck` node·web 0 error, test 2 error(`@opencode-ai/sdk` 미설치 — 알려진 베이스라인) · `vitest run src/renderer` **151파일 1174케이스 green** · `check-doc-inventory --check` ok |
+| AC 검산 | ✅ 5(AT-302·303·304·305·306) · ⚠️ 1(AT-301 — 메뉴 항목 축이 실기) · ⏸ 1(AT-307 사람 실기) = 총 **7** |
+| 설계 대비 차이 | 없음 — plan §11 의 파일·형상 그대로다 |
+
+- `Criteria-Met: 5/7` · `Criteria-Pending: AT-301(메뉴 항목 축)·AT-307(사람 실기)`.
 
 ## [구현자 기입] Review Signals — 사실만
 
-- (구현 턴 기입)
+- 이전 라운드와 같은 축인가: 해당 없음 — r1 이다.
+- 막았어야 할 plan 지침이 있었는가: 해당 없음 — 이번 턴에 새로 연 계약 위반이 없다.
+- 반복해 부딪히는 환경 한계: vitest `environment: 'node'` 라 포털(`Popover`·`Modal` 열림 상태)을 렌더할 수 없다. 0204 이후 같은 자리에서 반복된다.
+- 현재 라운드 수: 1.
 
 ---
 

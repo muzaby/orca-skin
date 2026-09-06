@@ -213,8 +213,13 @@ export const ko = {
     mcpDetail: {
       active: '활성',
       inactive: '비활성',
-      enable: '활성화',
-      disable: '비활성화',
+      toggleAria: '{{name}} 활성화',
+      edit: '편집',
+      remove: '제거',
+      removing: '제거 중…',
+      removeTitle: 'MCP 서버 제거',
+      removeConfirmBody:
+        '이 작업은 Orca sources mcp.json에서 다음 서버를 제거합니다. 계속하려면 한 번 더 확인하세요.',
       configSummary: '설정 요약'
     },
     addServer: {

@@ -210,8 +210,13 @@ export const en: typeof ko = {
     mcpDetail: {
       active: 'Active',
       inactive: 'Inactive',
-      enable: 'Enable',
-      disable: 'Disable',
+      toggleAria: 'Enable {{name}}',
+      edit: 'Edit',
+      remove: 'Remove',
+      removing: 'Removing…',
+      removeTitle: 'Remove MCP server',
+      removeConfirmBody:
+        'This removes the following server from the Orca sources mcp.json. Confirm once more to continue.',
       configSummary: 'Configuration summary'
     },
     addServer: {
