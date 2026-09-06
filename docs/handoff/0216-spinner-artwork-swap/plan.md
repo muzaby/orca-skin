@@ -653,5 +653,6 @@ app.css(spark-a~e) → @utility 리터럴 → SparkSpinner 그룹 5개 → 브�
 | D1 | AT-211·AT-212 를 커밋된 테스트가 잠그지 않는다 — 재현 명령뿐이다 | §17 · ΔVP-209·ΔVP-210 | 빌드 산출 검사를 테스트로 승격할지 판단 | NEXT_HANDOFF | open |
 | D2 | `SPARK_PERIOD_MS`·`SPARK_REDUCED_MOTION_MARK`·`SPARK_MARKS` 의 프로덕션 참조가 0 이다 | 비귀속(§11 이 소비자를 테스트로 명시) | 원본 대조용 상수로 남길지 판단 | NON_BLOCKING | open |
 | D3 | **재측정에서 신 > 구** — main-thread task 순증가 30.2 → 41.9ms/s · layout 0 → 144회. 원인은 `opacity: 0` 마크가 레이아웃에 남는 것 | ΔVP-209 · AT-211 · D-205 | `visibility` 로 되돌리거나 AT-211 을 재정의하거나 하네스를 고정한다 — 제품 결정 | **BLOCKING** | open |
-| D4 | AT-211 의 재현 절차가 산출을 결정하지 못한다 — 하네스가 저장소에 없어 §14 수치와 갈린다 | ΔVP-209 oracle | 하네스 커밋 또는 AT-211 재정의 | **PLAN_GAP** | open |
+| D4 | AT-211 의 재현 절차가 산출을 결정하지 못한다 | ΔVP-209 oracle | 하네스 커밋(사용자 선택 ③) | ~~PLAN_GAP~~ | **closed (r2)** — `npm run measure:spinner-perf` · 두 실행 오차 ≤2.4% · fixture provenance 바이트 동일 |
 | D5 | 빌드 산출의 stop 을 `%` 로만 세면 36 이다 — lightningcss 가 `100%` 를 `to` 로 최소화한다 | AT-212 술어 | 승격 시 술어에 반영 | NON_BLOCKING | open |
+| D7 | 동결 fixture 의 **값** 변조를 아무 게이트도 잡지 않는다 — 형상(개수·치수) 변조는 companion 이 red 로 잡는다 | EP-209 지점 ④ | fixture 해시를 companion 에 박을지 판단 | NON_BLOCKING | open |
