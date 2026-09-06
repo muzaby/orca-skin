@@ -23,6 +23,8 @@ import {
 import { SPARK_MARKS, SPARK_TRACK_CLASS } from '../../../shared/ui/sparkTracks'
 import { codeOf, walkSourceFiles } from '../../../shared/ui/sourceScan.testlib'
 import { StatusLine } from './StatusLine'
+import { SparkSpinner } from '../../../shared/ui/SparkSpinner'
+import { buildSpinnerMarkup } from '../../../../../../scripts/measure-spinner-perf.mjs'
 
 const REF = parseSpinnerReference(readSpinnerReferenceText())
 const RENDERER_SRC = fileURLToPath(new URL('../../../', import.meta.url))
@@ -50,6 +52,14 @@ function renderedMark(cls: string): { tag: string; attrs: Record<string, string>
     tag: m[1],
     attrs: attrsOf(m[0])
   }))
+}
+
+/** 마크업 → `[태그, 속성맵]` 목록. 속성 순서·자기닫기 표기에 좌우되지 않게 만든다. */
+function shapeOf(markup: string): [string, Record<string, string>][] {
+  return [...markup.matchAll(/<(svg|g|line|circle|path)\b([^>]*?)\/?>/g)].map((m) => [
+    m[1],
+    attrsOf(m[0])
+  ])
 }
 
 describe('StatusLine — 스피너가 원본 아트워크다', () => {
@@ -138,6 +148,18 @@ describe('StatusLine — 스피너가 상태문구보다 크다', () => {
     expect(statusLine).toContain('text-[12px]')
     expect(statusLine).not.toContain('text-[14px]')
     expect(bubble).toContain('text-[14px]')
+  })
+})
+
+describe('StatusLine — 성능 하네스가 프로덕션과 같은 스피너를 잰다', () => {
+  it('measure-spinner-perf 의 신 마크업이 컴포넌트 렌더 출력과 같다', () => {
+    // AT-211 의 오라클은 저장소 밖 하네스였고, 그래서 두 재구성이 반대 방향을 냈다(0216 r1).
+    // 하네스는 이제 커밋돼 있지만 **프로덕션이 아닌 것을 재면** 여전히 같은 실패다.
+    // 여기서 그 등가를 잠근다 — 하네스가 컴포넌트와 갈라지면 이 케이스가 red 다.
+    const harness = buildSpinnerMarkup(readSpinnerReferenceText())
+    const component = renderToStaticMarkup(createElement(SparkSpinner, {}))
+    // 속성 순서·자기닫기 표기는 직렬화기 차이라 태그·속성 맵으로 비교한다.
+    expect(shapeOf(harness)).toEqual(shapeOf(component))
   })
 })
 

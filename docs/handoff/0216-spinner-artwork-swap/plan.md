@@ -498,6 +498,8 @@ app.css(spark-a~e) → @utility 리터럴 → SparkSpinner 그룹 5개 → 브�
 > D-209 로 구현이 먼저 끝나 있으므로, 구현 턴은 **이미 존재하는 작업 트리 산출**을 이 문서의
 > Decision·AC·§10 에 대조해 필드를 채운다. 필드를 줄이지 않는다.
 
+<details><summary>r1 구현 보고 (2026-09-06 · 접힘)</summary>
+
 ## [구현자 기입] 설계 리뷰
 
 - 동의 / 그대로 진행: 아트워크·트랙·토큰·삭제는 설계대로다. 작업 트리 산출을 §7·§10 에 한 줄씩 대조했다.
@@ -574,6 +576,73 @@ app.css(spark-a~e) → @utility 리터럴 → SparkSpinner 그룹 5개 → 브�
 - 막았어야 할 plan 지침이 있었는가: EP-206 분모 오류는 §8 전수표의 술어가 **문자열**이라 이름이 겹치는 심볼을 함께 셌다. `handoff-impl §2`("검색의 술어는 불변식의 주어로 쓴다")가 가리키는 자리다.
 - 반복해 부딪히는 환경 한계: vitest `environment: 'node'` — DOM 이 없어 렌더 검증이 `renderToStaticMarkup` 로 제한된다. 런타임 성능은 별도 Electron 하네스가 필요하고 그 하네스는 저장소에 없다.
 - 현재 라운드 수: 1.
+
+</details>
+
+## [구현자 기입] 설계 리뷰 — r2
+
+- 동의 / 그대로 진행: ΔV2 rev.3 대로 하네스를 `app/scripts/` 에 커밋하고 같은 조건으로 다시 쟀다. 판정 기준(신 ≤ 구)은 건드리지 않았다.
+- 이견 / 현실성 문제: **없음**. 다만 §11 이 신규 3파일을 적었는데 실제는 **4파일**이다 — 아래 선조치.
+- **선조치 1(구현 세부)**: Electron 진입점을 `measure-spinner-perf.electron.cjs` 로 분리했다. Electron 39 의 **ESM 진입점에서는 `app.whenReady()` 가 돌아오지 않는다** — 최소 프로브로 확인했다(`import('electron')` 까지 도달, `whenReady()` 에서 멈춤, 30s 타임아웃). 측정 로직은 `runMeasurement({ app, BrowserWindow })` 로 `.mjs` 에 남겨 companion 테스트가 계속 읽는다.
+- **선조치 2(구현 세부)**: 그 `.cjs` 의 `require('electron')` 에 `@typescript-eslint/no-require-imports` 인라인 disable 을 이유와 함께 달았다. 동기 로드가 이 파일의 존재 이유라 규칙을 우회하는 것이 아니라 충족할 수 없다.
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r2
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| ΔVP-209 | 런타임 비용 | 4 | **4/4 실행 · 1 불충족** | `npm run measure:spinner-perf` — ① rAF 298~301프레임/5s = 60fps, 무효 행 0 ✅ ② **신 46.7 > 구 31.1 ms/s ❌** ③ 하네스↔컴포넌트 등가 green(변이 M-H1 red) ✅ ④ fixture 재생성 차집합 **빈 문자열** ✅ | 지점 ②는 코드가 아니라 **제품 결정**이다 |
+| ΔVP-201~208·210 | (변경 없음) | 27 | **27/27** | r1 과 같은 좌표 — 이번 라운드가 건드리지 않았다. 전 스위트 재실행으로 회귀 0 확인 | — |
+
+- 합계: **31/31 실행 · 30 충족 · 1 불충족(EP-209 지점 ②)**. r1 의 `29/31`(2 미실행)에서 분모는 같고 미실행이 0 이 됐다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r2
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M-H1 하네스의 신 마크업을 14→16px 로 바꿈 | 이번 턴 신설 oracle(EP-209 지점 ③) 민감도 | 없음(r1 에 장치 없음) | `statusLine.render.test.ts` 1 failed / 10 | RED ✅ |
+| M-H2 구 fixture 재생성 차집합 | EP-209 지점 ④ | 없음 | 재생성 CSS 14,528 bytes · 마크업 2,192 bytes — 커밋본과 **바이트 동일** | 차집합 빈 문자열 ✅ |
+| M-H3 판정 함수의 방향(신이 비싼 입력 → FAIL, 싼 입력 → PASS) | 이번 턴 신설 oracle(판정부) 민감도 | 없음 | `measure-spinner-perf.test.mjs` 의 `판정이 신 ≤ 구 를 본다`·`layout 축도 따로 본다`·`무효 행이 있으면…`·`fps 가 60 에…` 4케이스 | 양방향 green ✅ |
+| r1 등록 변이 9종 | ΔVP-201~208 | 전부 red | 이번 라운드에 코드를 건드리지 않아 재실행 생략 — 대신 전 스위트 151파일 1176케이스 green | 회귀 0 |
+
+- 검산: 선택 증거 **0**(이번 라운드는 등록 변이가 있는 pair 의 코드를 건드리지 않았다) · 인용 변이 **0** · 새 oracle **3**(마크업 등가 · fixture provenance · 판정 방향) = 표 행 **3**(+ 회귀 확인 1행).
+
+## [구현자 기입] Product/UX 파생 검토 — r2
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 이번 라운드가 사용자 화면을 바꾸는가 | ✅ 아니오 — 렌더러 코드 변경 0. 하네스·fixture·테스트뿐이다 | — |
+| 측정 결과가 사용자에게 무엇을 뜻하는가 | ⚠️ 3개 동시 기준 프레임당 **0.26ms**(16.7ms 예산의 1.6%) 증가다. fps 는 두 조건 모두 60 | D-205 수용 여부는 사용자 결정 |
+| 하네스가 앱 동작에 끼어드는가 | ✅ 아니오 — `npm test` 는 companion(순수 16케이스)만 돌고 Electron 을 띄우지 않는다 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r2
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | Electron ESM 진입점에서 `whenReady()` 가 돌아오지 않는다 | 선조치 — CJS 셸 분리. 이유를 두 파일 헤더에 적었다 | 최소 프로브: `module-evaluated`·`electron-imported` 까지 기록, `ready` 없음 |
+| 2 | 구 fixture 는 삭제된 코드의 스냅샷이라 **되살릴 수 없다** | 재생성 명령을 fixture 헤더에 적고 provenance 를 이번 턴에 실제로 재현했다(차집합 빈 문자열) | `spinner-legacy-0208.html` 헤더 |
+| 3 | 격리 페이지는 앱 전체가 아니다 | 보고만 — 구/신을 같은 조건에서 비교한 값이라 **비교는 유효**하고 절대값은 아니다 | §14 rev.3 |
+| 4 | `npm test` 가 16케이스 늘었다 | 보고만 — 순수 테스트라 4.9s 안에 든다(`node --test scripts/*.test.mjs` 83 pass) | 게이트 산출 |
+
+## [구현자 기입] 구현 보고 — r2
+
+| 항목 | 내용 |
+|---|---|
+| 대상 커밋 | (r2 구현 — 좌표는 INDEX) |
+| 변경 파일 | 6 — `scripts/measure-spinner-perf.mjs`(신규) · `scripts/measure-spinner-perf.electron.cjs`(신규) · `scripts/measure-spinner-perf.test.mjs`(신규) · `scripts/fixtures/spinner-legacy-0208.html`(신규) · `package.json`(별칭) · `statusLine.render.test.ts`(등가 케이스) |
+| 관측한 게이트 산출 | `lint` **0 error** / 1 warning(`useTranscriptVirtualizer.ts:22` 기존) · `typecheck` node·web 0 error, test 2 error(`@opencode-ai/sdk` 베이스라인) · `vitest run src/renderer` **151파일 1176케이스 green** · `node --test scripts/*.test.mjs` **83 pass** · `check-doc-inventory --check` ok |
+| **측정 결과** | 3회 평균 — `none` 92.5ms · `old` 248.2ms(순증가 **31.1ms/s**, layout 0회) · `new` 325.8ms(순증가 **46.7ms/s**, layout 144.3회 / 11.9ms). fps 60.1~60.2, 무효 행 0 |
+| AC 검산 | ✅ 10(AT-201~209·212) · ❌ 1(AT-211) · ⏸ 1(AT-210 사람 실기) = 총 **12** |
+| 설계 대비 차이 | 신규 파일 3 → **4**(ESM 진입점 제약, 위 선조치 1). 그 차이의 실패 모드: CJS 셸이 `.mjs` 를 동적 import 하므로 **두 파일이 갈라질 수 있다** — 셸은 5줄이고 로직이 없으며, `runMeasurement` 시그니처가 바뀌면 즉시 런타임 실패다. 만료·공유·재진입 축: 해당 없음(상태를 갖지 않는다) |
+
+- `Criteria-Met: 10/12` · `Criteria-Pending: AT-210(사람 실기)` · `Criteria-Failed: AT-211(신 > 구 — 제품 결정)`.
+
+## [구현자 기입] Review Signals — 사실만 — r2
+
+- 이전 라운드와 같은 축인가: **예** — r1 verify 의 D3(신 > 구)가 고정된 오라클에서 **같은 방향으로 재현**됐다. 세 번째 독립 측정이고 세 번 모두 신이 비싸다.
+- 막았어야 할 plan 지침이 있었는가: §17 이 "보간이 페인트가 잦다" 를 리스크로 적었지만 실제 원인은 보간이 아니라 `visibility`→`opacity` 축이었다. §9 Delta 표가 그 축을 적고도 비용을 재지 않았다.
+- 반복해 부딪히는 환경 한계: Electron 진입점의 ESM 제약(이번에 처음 관측). vitest `environment: 'node'` 는 이번 라운드에 무관하다.
+- 현재 라운드 수: 2.
 
 ---
 
