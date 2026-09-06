@@ -472,3 +472,7 @@ McpDetail(onRemove) → ExtensionsCatalogView → useMcpServers.remove → mcpAp
 |---|---|---|---|---|---|
 | D1 | `SkillDetail` 이 아직 로컬 `MenuRow` 를 쓴다 — 같은 화면의 두 메뉴가 미세하게 다르다 | D-307 · VP-305 | 공용 `MenuItem` 으로 이설 | NEXT_HANDOFF | open |
 | D2 | 케밥 메뉴 항목이 자동 검증 밖이다(포털 + `node` 환경) | §17 · EP-301 | jsdom 도입 또는 메뉴 본문 분리 렌더 검토 | NEXT_HANDOFF | open |
+| D3 | 제거 실패에 사용자 문구가 없다 — 버튼만 되살아난다 | 비귀속(§5 error 행) | `SkillDetail` 과 함께 오류 표시 경로 | NON_BLOCKING | open |
+| D4 | `SkillDetail` 케밥에 `aria-haspopup`·`aria-expanded` 가 없다 | 비귀속 | D1 과 같은 파일에서 함께 | NON_BLOCKING | open |
+| D5 | AT-304 의 oracle 이 사람의 grep 이다 — 배선을 지우고 `onEdit` 을 no-op 으로 두면 전 게이트가 초록(verify §4 M-E1c) | VP-304(적대 증거 `not selected`) | 소비자 전수를 커밋된 스윕으로 올릴지 판단 | NON_BLOCKING | open |
+| D6 | rename 저장 중 편집 모달이 자기 밑에서 언마운트된다 | 비귀속 | 관측 증상 없음 — 기록만 | NON_BLOCKING | open |
