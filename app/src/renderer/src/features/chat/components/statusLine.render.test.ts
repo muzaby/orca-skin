@@ -1,16 +1,17 @@
-// 0208 — 대기 표시의 스피너를 **렌더 출력**으로 잠근다. 원본과 같은가(AT-22)와 값이 싼가
-// (AT-24)를 같은 출력에서 함께 본다.
+// 대기 표시의 스피너를 **렌더 출력**으로 잠근다. 원본과 같은가와 값이 싼가를 같은 출력에서
+// 함께 본다.
 //
 // 소스 문자열이 아니라 렌더 출력을 보는 이유: 계약은 "StatusLine 이 세우는 스피너"이고,
 // SparkSpinner 를 따로 렌더하면 소비자까지의 배선을 잠그지 못한다. 세 소비자가 분기 없이 같은
-// StatusLine 을 부르므로(D-002) 여기 출력이 곧 세 곳의 출력이다.
+// StatusLine 을 부르므로 여기 출력이 곧 세 곳의 출력이다.
 //
-// 기하·글리프 기대값은 커밋된 원본 SVG 를 파싱해 얻는다 — 손으로 옮긴 값을 두지 않는다.
+// 기하 기대값은 커밋된 원본 SVG 를 파싱해 얻는다 — 손으로 옮긴 값을 두지 않는다.
 //
 // JSX 를 쓰지 않는 이유: vitest include 가 `src/**/*.test.ts` 라 `.tsx` 를 잡지 않는다(0204 선례).
 // useI18n 은 모듈 임포트 시 동기 초기화라 Provider 없이 렌더된다(shared/i18n/index.ts).
 
 import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -19,10 +20,12 @@ import {
   parseSpinnerReference,
   readSpinnerReferenceText
 } from '../../../shared/ui/sparkReference.testlib'
-import { codeOf } from '../../../shared/ui/sourceScan.testlib'
+import { SPARK_MARKS, SPARK_TRACK_CLASS } from '../../../shared/ui/sparkTracks'
+import { codeOf, walkSourceFiles } from '../../../shared/ui/sourceScan.testlib'
 import { StatusLine } from './StatusLine'
 
 const REF = parseSpinnerReference(readSpinnerReferenceText())
+const RENDERER_SRC = fileURLToPath(new URL('../../../', import.meta.url))
 
 const render = (turnStartedAt: number | null): string =>
   renderToStaticMarkup(createElement(StatusLine, { turnStartedAt }))
@@ -30,15 +33,29 @@ const render = (turnStartedAt: number | null): string =>
 const count = (html: string, tag: string): number =>
   html.match(new RegExp(`<${tag}[ />]`, 'g'))?.length ?? 0
 
-/** 렌더 출력의 속성 값 — React 가 `"` 를 `&quot;` 로 이스케이프하므로 되돌린다. */
-const unescape = (s: string): string => s.replace(/&quot;/g, '"')
-
 const HTML = render(Date.now())
 
-describe('StatusLine — 스피너 교체 (AT-01)', () => {
-  it('턴 진행 중 SVG 스피너 하나가 서고 옛 전용 글리프는 없다', () => {
+/** 태그 원문 → 속성 맵. 속성 순서에 좌우되지 않게 맵으로 읽는다. */
+function attrsOf(tag: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const m of tag.matchAll(/([a-zA-Z-]+)="([^"]*)"/g)) out[m[1]] = m[2]
+  return out
+}
+
+/** 렌더 출력에서 트랙 클래스 하나가 감싼 마크 자식 전수. */
+function renderedMark(cls: string): { tag: string; attrs: Record<string, string> }[] {
+  const group = new RegExp(`<g class="${cls}">([\\s\\S]*?)</g>`).exec(HTML)?.[1]
+  expect(group, `${cls} 그룹이 렌더 출력에 없다`).toBeDefined()
+  return [...(group ?? '').matchAll(/<(line|circle|path)\b([^>]*?)\/?>/g)].map((m) => ({
+    tag: m[1],
+    attrs: attrsOf(m[0])
+  }))
+}
+
+describe('StatusLine — 스피너가 원본 아트워크다', () => {
+  it('턴 진행 중 SVG 스피너 하나가 서고 옛 글리프는 없다', () => {
     expect(count(HTML, 'svg')).toBe(1)
-    for (const glyph of ['✣', '✦', '✧', '★']) {
+    for (const glyph of ['✢', '✳︎', '✶', '✻', '✽']) {
       expect(HTML, glyph).not.toContain(glyph)
     }
     // 양성 짝 — 같은 출력에 상태 문구가 함께 있다(음성 술어만으로는 빈 출력도 통과한다).
@@ -49,71 +66,93 @@ describe('StatusLine — 스피너 교체 (AT-01)', () => {
     expect(render(null)).toBe('')
     expect(HTML).not.toBe('')
   })
-})
 
-describe('StatusLine — 스피너 기하가 원본과 같다 (AT-22)', () => {
-  it('바깥 svg 의 크기·viewBox 가 원본 값이다', () => {
-    expect(HTML).toContain(`<svg width="${REF.width}" height="${REF.height}"`)
+  it('마크 5종의 자식 태그·속성이 원본과 같다', () => {
+    expect(REF.marks.map((m) => m.id)).toEqual([...SPARK_MARKS])
+    for (const mark of REF.marks) {
+      const actual = renderedMark(SPARK_TRACK_CLASS[mark.id])
+      expect(actual, mark.id).toEqual(
+        mark.nodes.map((n) => ({ tag: n.tag, attrs: { ...n.attrs } }))
+      )
+    }
+    // 내역 합 = 총계. 스트립 회귀는 이 셋을 동시에 부풀린다.
+    expect(count(HTML, 'line')).toBe(16)
+    expect(count(HTML, 'circle')).toBe(3)
+    expect(count(HTML, 'path')).toBe(13)
+  })
+
+  it('viewBox·색 배선은 원본을 따르고 크기만 14×14 다', () => {
     expect(HTML).toContain(`viewBox="${REF.viewBox}"`)
-    expect(REF.width).toBe(18)
-  })
-
-  it('spoke 10개의 좌표·회전각·stroke 가 원본 #ten-spoked 와 같다', () => {
-    const { spoke } = REF
-    expect(HTML).toContain(`stroke-width="${spoke.strokeWidth}"`)
-    expect(HTML).toContain(`stroke-linecap="${spoke.strokeLinecap}"`)
-    // 마크 고유 배율 0.74 는 슬롯 배율과 별개라 마크에 그대로 남는다.
-    expect(HTML).toContain(`transform="${spoke.transform}"`)
-    const lines = [...HTML.matchAll(/<line\b[^>]*>/g)].map((m) => m[0])
-    expect(lines).toHaveLength(spoke.angles.length)
-    const angles = lines.map((l) => Number(/rotate\((\d+)/.exec(l)?.[1] ?? 0))
-    expect(angles).toEqual([...spoke.angles])
-    for (const l of lines) {
-      expect(l).toContain(`x1="${spoke.x1}" y1="${spoke.y1}" x2="${spoke.x2}" y2="${spoke.y2}"`)
-    }
-  })
-
-  it('dot 과 글리프 5종의 기하·문자가 원본과 같다', () => {
-    expect(HTML).toContain(`cx="${REF.dot.cx}" cy="${REF.dot.cy}" r="${REF.dot.r}"`)
-    const texts = [...HTML.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)]
-    expect(texts.map((m) => m[2])).toEqual([...REF.glyphs])
-    for (const [, attrs] of texts) {
-      expect(attrs).toContain(`x="${REF.text.x}" y="${REF.text.y}"`)
-      expect(`${/font-size="(\d+)"/.exec(attrs)?.[1]}px`).toBe(REF.text.fontSize)
-      expect(unescape(/font-family="([^"]*)"/.exec(attrs)?.[1] ?? '')).toBe(REF.text.fontFamily)
-      expect(attrs).toContain(`text-anchor="${REF.text.textAnchor}"`)
-      expect(attrs).toContain(`dominant-baseline="${REF.text.dominantBaseline}"`)
-    }
-  })
-
-  it('색이 원본 고정색 토큰으로 오고 raw hex 가 없다', () => {
-    // 원본은 두 테마 구분 없이 #d97757 이다. rust 토큰은 light 에서 #c96442 라 다른 색이 된다.
+    // 원본은 100×100 이지만 스피너는 버블 본문(text-[14px])과 같은 치수로 선다.
+    expect(HTML).toContain('<svg width="14" height="14"')
+    expect(REF.width).toBe(100)
+    // 색은 토큰이 준다 — 컴포넌트는 currentColor 만 상속한다.
     expect(HTML).toContain('text-spinner')
     expect(HTML).not.toContain('text-rust')
     expect(HTML).not.toMatch(/#[0-9a-fA-F]{6}/)
-    expect(HTML).toContain('currentColor')
+    expect(HTML).toContain('fill="currentColor" stroke="currentColor"')
   })
 })
 
-describe('StatusLine — 정확도를 올려도 값이 싸다 (AT-24)', () => {
-  it('스트립을 펼치지 않는다 — 마크 7개 규모로 고정', () => {
-    // 원본을 1:1 인라인하면 <line> 1160 · <text> 115 · <circle> 10 이다. 등호로 쓰는 이유는
-    // 스트립 회귀가 이 셋을 동시에 100배로 만들기 때문이다.
-    expect(count(HTML, 'line')).toBe(10)
-    expect(count(HTML, 'text')).toBe(5)
-    expect(count(HTML, 'circle')).toBe(1)
-    // 인스턴스당 SVG 노드 상한 — 19 개(svg 1 · g 2 · line 10 · circle 1 · text 5).
-    const nodes = ['svg', 'g', 'line', 'circle', 'text'].reduce((a, t) => a + count(HTML, t), 0)
-    expect(nodes).toBe(19)
+describe('StatusLine — 세 표면이 분기 없이 같은 스피너를 받는다', () => {
+  it('JSX 렌더 지점 2 곳과 SparkSpinner 소비자 1 곳이 전수다', () => {
+    // 술어를 문자열로만 재면 `<StatusLineModel` 2건이 분모에 섞인다 — 여는 태그의 다음 글자가
+    // 식별자가 아닌 것만 센다. 작업 타일은 세 번째 지점이 아니라 PendingAssistant 를 재사용하는
+    // 세 번째 **표면**이다(plan §5).
+    // 술어를 리터럴로 적으면 이 파일 자신이 분모에 오른다 — 조각으로 조립해 자기 제외
+    // 예외를 만들지 않는다. 그 예외는 이 파일의 실제 회귀도 함께 가린다.
+    const site = new RegExp(`<Status${'Line'}(?![A-Za-z0-9_])`, 'g')
+    const consumer = new RegExp(`<Spark${'Spinner'}`)
+    const files = walkSourceFiles(RENDERER_SRC)
+    const sites = files.flatMap((f) => {
+      const code = codeOf(readFileSync(join(RENDERER_SRC, f), 'utf8'))
+      return [...code.matchAll(site)].map(() => f)
+    })
+    expect(sites.sort()).toEqual([
+      'features/chat/components/rightpanel/SubAgentTileContent.tsx',
+      'features/chat/components/transcript/PendingAssistant.tsx'
+    ])
+    // 그 지점들이 분기 없이 같은 컴포넌트를 받는다 — 소비자가 둘이면 variant 가 생긴 것이다.
+    // 분모는 프로덕션 파일이다 — 테스트가 스피너를 렌더하는 것은 variant 가 아니다.
+    const consumers = files
+      .filter((f) => !f.endsWith('.test.ts') && !f.endsWith('.testlib.ts'))
+      .filter((f) => consumer.test(codeOf(readFileSync(join(RENDERER_SRC, f), 'utf8'))))
+    expect(consumers).toEqual(['features/chat/components/StatusLine.tsx'])
+  })
+})
+
+describe('StatusLine — 스피너가 상태문구보다 크다', () => {
+  it('스피너 14 · 상태문구 12 · 버블 14 가 각 자리에 그대로 있다', () => {
+    // 자리를 말하는 불변식이라 세 값을 함께 단언한다 — 12 와 14 를 맞바꾼 회귀가
+    // "두 문자열이 모두 남아 있다" 로 통과하지 않게 한다.
+    const statusLine = codeOf(
+      readFileSync(fileURLToPath(new URL('./StatusLine.tsx', import.meta.url)), 'utf8')
+    )
+    const bubble = codeOf(
+      readFileSync(
+        fileURLToPath(new URL('./transcript/AssistantMessage.tsx', import.meta.url)),
+        'utf8'
+      )
+    )
+    expect(HTML).toContain('<svg width="14" height="14"')
+    expect(statusLine).toContain('text-[12px]')
+    expect(statusLine).not.toContain('text-[14px]')
+    expect(bubble).toContain('text-[14px]')
+  })
+})
+
+describe('StatusLine — 실시간 출력 경로를 건드리지 않는다', () => {
+  it('인스턴스당 애니메이션이 마크 5개다', () => {
+    // 아트워크가 바뀌어도 인스턴스 비용은 늘지 않아야 한다 — 이전 구현은 8개였다.
+    const tracks = HTML.match(/animate-spark-[a-z0-9]+/g) ?? []
+    expect(tracks).toHaveLength(5)
+    expect(new Set(tracks).size).toBe(5)
+    expect(tracks).toContain(SPARK_TRACK_CLASS.a)
   })
 
-  it('인스턴스당 애니메이션이 scale 1 + visibility 7 = 8 개다', () => {
-    // 241 슬롯으로 정확도를 올린 대가가 인스턴스 비용이면 D-003 이 깨진다. 늘어난 것은
-    // 전역 CSS stop 뿐이어야 한다 — 출력의 트랙 수는 r1 과 같은 8 이다.
-    const tracks = HTML.match(/animate-spark-[a-z0-9]+/g) ?? []
-    expect(tracks).toHaveLength(8)
-    expect(new Set(tracks).size).toBe(8)
-    expect(tracks).toContain('animate-spark-scale')
+  it('인스턴스당 SVG 노드가 38개다', () => {
+    const nodes = ['svg', 'g', 'line', 'circle', 'path'].reduce((a, t) => a + count(HTML, t), 0)
+    expect(nodes).toBe(38)
   })
 
   it('프레임 진행에 React 상태·타이머가 없다', () => {

@@ -481,43 +481,80 @@ app.css(spark-a~e) → @utility 리터럴 → SparkSpinner 그룹 5개 → 브�
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: (구현 턴 기입)
-- 이견 / 현실성 문제: (구현 턴 기입)
-- ACTIVE Decision 과 충돌하는 설계 발견: (구현 턴 기입)
+- 동의 / 그대로 진행: 아트워크·트랙·토큰·삭제는 설계대로다. 작업 트리 산출을 §7·§10 에 한 줄씩 대조했다.
+- 이견 / 현실성 문제: 없음.
+- ACTIVE Decision 과 충돌하는 설계 발견: **1건 — `PLAN_GAP`**. AT-206·ΔVP-206·EP-206·§8 이 렌더 지점 분모를 `3` 으로 적었는데 재측정은 **2** 다(`rg '<StatusLine' --include=*.tsx` 4건 중 `<StatusLineModel` 오탐 2). 규범 행이라 구현 커밋과 분리해 설계 커밋으로 먼저 정정했다(ΔV2 rev.2) — 제품 계약(무분기·단일 컴포넌트)은 그대로다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| (구현 턴 기입) | | | | | |
+| ΔVP-201 | 원본 바이트 | 4 | **4/4** | `vitest run …/sparkCss.test.ts` — sha256 `f94d5f7b…3d7b` · 14,401 bytes · `` 0 · `.gitattributes:19` `…/0216-…/spinner-reference.svg text eol=lf` | — |
+| ΔVP-202 | 기하·주기·타이밍 | 5 | **5/5** | `line` 16 · `circle` 3 · `path` 13(`statusLine.render.test.ts`) · stop 41 · `4800ms`+`cubic-bezier(0.35,0,0.25,1)`(`sparkCss.test.ts`) | — |
+| ΔVP-203 | 14 ↔ 12 ↔ 14 | 3 | **3/3** | `<svg width="14" height="14"` · `StatusLine.tsx` `text-[12px]` 보유·`text-[14px]` 0 · `AssistantMessage.tsx` `text-[14px]` 보유 | — |
+| ΔVP-204 | 고정색 | 4 | **4/4** | `--color-spinner` 정의 1건 = 원본 `#C15F3C` · `[data-theme='dark']` 이후 0건 · `SparkSpinner` raw hex 0 | — |
+| ΔVP-205 | 241슬롯 부재 | 2 | **2/2** | 구 심볼 6종 × 렌더러 소스 전수 = offenders `[]` · 양성 짝(`animate-spark-a` 실재) | — |
+| ΔVP-206 | 소비자 무분기 | 2 | **2/2** | **이번 턴 신설** — JSX 지점 전수 `['…/SubAgentTileContent.tsx','…/PendingAssistant.tsx']` · `<SparkSpinner` 프로덕션 소비자 `['features/chat/components/StatusLine.tsx']` · 출력 `<svg>` 1 | — |
+| ΔVP-207 | 인스턴스 비용 | 5 | **5/5** | `animate-spark-*` 5(중복 0) · 노드 38 · stop 41 · 속성 차집합 `[]` · `@keyframes` 전역 각 1 | — |
+| ΔVP-208 | 실시간 경로 | 3 | **3/3** | `StatusLine.tsx` 코드 줄에 `setInterval`·`useState`·`style={` 0, `useElapsed`·`<SparkSpinner` 보유 · 프로덕션 파일 151중 leak `[]` | — |
+| ΔVP-209 | 런타임 비용 | 2 | **0/2** | 이번 구현 턴은 §14 측정을 **다시 돌리지 않았다** — §14 수치는 이전 턴의 기록이다 | 두 지점 모두 검증자 재측정 |
+| ΔVP-210 | 빌드 도달 | 1 | **1/1** | `@tailwindcss/vite` 로 `styles/app.css` 만 빌드 → `.animate-spark-a~e` 5 · `@keyframes spark-a~e` 5 · stop 41(`100%` 는 `to` 로 최소화됨) · 구 트랙 0건 · `--color-spinner:#c15f3c` | — |
+
+- 합계: **29/31**. 남긴 2 지점은 전부 ΔVP-209(런타임 실측)이고 검증자가 재측정한다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| (구현 턴 기입) | | | | |
+| 원본 XML 1byte(`r="15.91"`→`15.92"`) | ΔVP-201 등록 변이 | 없음(r1) | `sparkCss` 1 failed / 14 | RED ✅ |
+| 원본 `r="3.33"`→`3.34` | ΔVP-202 등록 변이 | 없음 | `statusLine.render` 1 failed / 8 | RED ✅ |
+| `app.css` `spark-c` 27.083% `scale(1.0)`→`scale(0.9)` | ΔVP-202 등록 변이 | 없음 | `sparkCss` 1 failed / 14 | RED ✅ |
+| `StatusLine.tsx` `text-[12px]`→`text-[14px]`(형제 값 교환) | ΔVP-203 등록 변이 | 없음 | `statusLine.render` 1 failed / 8 | RED ✅ |
+| `tokens.css` `#C15F3C`→`#d97757` | ΔVP-204 등록 변이 | 없음 | `sparkCss` 1 failed / 14 | RED ✅ |
+| `sparkTracks.ts` 에 `animate-spark-scale` 리터럴 복원 | ΔVP-205 등록 변이 | 없음 | `sparkCss` 2 failed / 14 | RED ✅ |
+| `spark-a` 키프레임에 `width: 100px` stop 추가 | ΔVP-207 등록 변이 | 없음 | `sparkCss` 1 failed / 14 | RED ✅ |
+| 감속 블록에서 `.animate-spark-d` 한 줄 삭제 | ΔVP-207 등록 변이 | 없음 | `sparkCss` 1 failed / 14 | RED ✅ |
+| 트랙 클래스를 템플릿으로 조립(`` `animate-spark-${'a'}` ``) | ΔVP-208 등록 변이 | 없음 | `sparkCss` 2 failed / 14 | RED ✅ |
+| `ChatTile.tsx` 에 세 번째 `<StatusLine` 등장 | 이번 턴 신설 oracle(EP-206 전수 스윕)의 민감도 | 없음 | `statusLine.render` 1 failed / 9 | RED ✅ |
+
+- 검산: 선택 증거 **9**(ΔVP-201 1 · 202 2 · 203 1 · 204 1 · 205 1 · 207 2 · 208 1) · 인용 변이 **0** · 새 oracle **1**(EP-206 전수 스윕) = 표 행 **10**.
+- ΔVP-209 의 "전제 검사"(rAF > 0)는 변이가 아니라 측정 유효성 조건이라 이 표에 없다 — 위 전수표에서 `0/2` 로 남겼다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| (구현 턴 기입) | | |
+| 새 스피너에 소비자가 있는가 | ✅ 2 지점 → 1 `StatusLine` → 1 컴포넌트. 동시에 살 수 있는 표면은 3(§5) | — |
+| 실패가 "아무 일도 안 일어남" 으로 보이는가 | ⚠️ 트랙 클래스가 방출되지 않으면 마크 5개가 **동시에 정지 표시**된다 — 빈 화면이 아니라 눈에 띄는 실패다 | AT-212 재현 명령이 방출을 확인한다(§17) |
+| 감속 모션에서 무엇이 보이는가 | ✅ 마크 `b` 하나가 정지 상태로 남는다(원본과 같은 마크) | — |
+| 크기가 상태문구보다 큰가 | ✅ 수치로는 14 > 12. 시각은 AT-210 실기 | 사람 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| (구현 턴 기입) | | | |
+| 1 | 애니메이션 속성이 `visibility` → `opacity` 로 바뀌었다 | 보고만 — `opacity: 0` 인 마크는 `visibility: hidden` 과 달리 **레이아웃에서 빠지지 않는다**. §14 는 이 축을 비용 중립으로 적었다 | §9 Delta 표 "애니메이션 속성" 행 · 검증자 재측정 필요 |
+| 2 | `sparkFrames.ts` 삭제로 `sparkReference.testlib` 만 원본을 읽는다 | 선조치 — 파서가 구조 불일치에 **던지도록** 유지했다. 조용히 빈 값을 주면 변조 fixture 가 통과한다 | `sparkReference.testlib.ts` `required()` |
+| 3 | AT-211·AT-212 를 커밋된 테스트가 잠그지 않는다 | 보고만 — §17 이 이미 선언한 경계다 | §17 · 파생 이슈 D1 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| (구현 턴 기입) | |
+| 대상 커밋 | (r1 구현 — 좌표는 INDEX) |
+| 변경 파일 | 10 — `SparkSpinner.tsx` · `sparkTracks.ts`(신규) · `sparkFrames.ts`·`sparkFrames.test.ts`(삭제) · `sparkReference.testlib.ts` · `sparkCss.test.ts` · `statusLine.render.test.ts` · `app.css` · `tokens.css` · `.gitattributes` |
+| 관측한 게이트 산출 | `lint` 0 error / 1 warning(`useTranscriptVirtualizer.ts` 기존) · `typecheck` node·web 0 error, test 2 error(`@opencode-ai/sdk` 미설치 베이스라인) · `vitest run src/renderer` **151파일 1174케이스 green**(EP-206 신설 후 재실행 포함) · `check-doc-inventory --check` ok |
+| AC 검산 | ✅ 10(AT-201~209·212) · ⏸ 2(AT-210 사람 실기 · AT-211 검증자 재측정) · ❌ 0 = 총 **12** |
+| 설계 대비 차이 | 없음 — plan §11 의 파일·형상 그대로다. 다만 §10 EP-206 의 술어는 이번 턴 정정본(ΔV2 rev.2)을 따른다 |
+
+- `Criteria-Met: 10/12` · `Criteria-Pending: AT-210(사람 실기)·AT-211(런타임 실측 미재현)`.
 
 ## [구현자 기입] Review Signals — 사실만
 
-- (구현 턴 기입)
+- 이전 라운드와 같은 축인가: 해당 없음 — r1 이다.
+- 막았어야 할 plan 지침이 있었는가: EP-206 분모 오류는 §8 전수표의 술어가 **문자열**이라 이름이 겹치는 심볼을 함께 셌다. `handoff-impl §2`("검색의 술어는 불변식의 주어로 쓴다")가 가리키는 자리다.
+- 반복해 부딪히는 환경 한계: vitest `environment: 'node'` — DOM 이 없어 렌더 검증이 `renderToStaticMarkup` 로 제한된다. 런타임 성능은 별도 Electron 하네스가 필요하고 그 하네스는 저장소에 없다.
+- 현재 라운드 수: 1.
 
 ---
 
