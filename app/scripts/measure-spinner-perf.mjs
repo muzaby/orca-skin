@@ -40,6 +40,28 @@ export const REPS = 3
 /** rAF 프레임이 이보다 적으면 창이 가려진 것으로 보고 그 행을 무효로 둔다. */
 export const MIN_FPS = 50
 
+/**
+ * 구 대비 허용 순증가(ms/s, 동시 3개). 0216 D-211 에서 사용자가 합의한 예산이다.
+ *
+ * `신 ≤ 구` 를 버린 이유: 새 아트워크는 꺼진 마크를 `opacity: 0` 으로 두어 레이아웃에 남기고
+ * 구 구현은 `visibility: hidden` 으로 빼냈다. 그 구조 차이는 30Hz 계단으로 줄일 수는 있어도
+ * 0 으로 만들 수는 없다. 30Hz 실측이 +3.5·+2.9 ms/s 였고 구 조건의 실행 간 편차가 ±1.1 이라
+ * 5.0 으로 잡았다 — 프레임당 0.083ms, 16.7ms 예산의 0.5%.
+ */
+export const BUDGET_MS_PER_SEC = 5.0
+
+/**
+ * rep 사이 초과분(신 − 구)의 허용 산포(ms/s). 넘으면 그 실행은 **판정하지 않는다**.
+ *
+ * fps 60 만으로는 부족하다는 것이 실측으로 드러났다 — 기계가 바쁘면 세 조건이 모두 60fps 를
+ * 지키면서 절대값만 2배가 되고, 그때 rep 사이에서 구/신 순서가 뒤집힌다(rep별 초과분
+ * `[49.2, 31.0, -5.6]`). 평균만 보면 그 실행도 숫자를 하나 내놓는다.
+ *
+ * 임계는 관측으로 잡았다 — 조용한 실행 4회의 산포가 2.5·3.5·4.3·5.8 이고 오염된 실행이 54.8
+ * 이라 그 사이를 넉넉히 가르는 12 다. `none` 은 두 항에서 상쇄되므로 기준선 드리프트와 무관하다.
+ */
+export const STABILITY_MS_PER_SEC = 12
+
 /** `@utility X { … }` → `.X { … }`. Tailwind 빌드 없이 브라우저가 읽게 한다. */
 export function deutility(css) {
   return css.replace(/@utility ([a-z0-9-]+) \{/g, '.$1 {')
@@ -129,6 +151,22 @@ export function diffMetrics(m0, m1, frames, windowMs = WINDOW_MS) {
 
 const KEYS = ['fps', 'recalcCount', 'recalcMs', 'layoutCount', 'layoutMs', 'taskMs']
 
+/**
+ * rep 마다의 초과분(신 − 구, ms/s). `none` 은 두 항에서 상쇄되므로 빼지 않는다.
+ * 같은 rep 안에서 잰 두 조건만 비교하므로 실행 중 기계 부하가 바뀌어도 rep 내부는 공정하다.
+ */
+export function excessByRep(rows, windowMs = WINDOW_MS) {
+  const byRep = new Map()
+  for (const r of rows) {
+    if (!byRep.has(r.rep)) byRep.set(r.rep, {})
+    byRep.get(r.rep)[r.mode] = r
+  }
+  return [...byRep.entries()]
+    .sort(([a], [b]) => a - b)
+    .filter(([, m]) => m.old && m.new)
+    .map(([, m]) => +((m.new.taskMs - m.old.taskMs) / (windowMs / 1000)).toFixed(1))
+}
+
 /** 모드별 평균 + `none` 기준선 대비 순증가(ms/s). 무효 행이 있으면 그 사실을 남긴다. */
 export function summarize(rows) {
   const byMode = MODES.map((mode) => {
@@ -148,23 +186,36 @@ export function summarize(rows) {
 }
 
 /**
- * AT-211 판정 — 신이 구보다 싸야 하고 두 조건 모두 60fps 를 지켜야 한다.
- * 무효 행이 하나라도 있으면 판정하지 않는다(가려진 창의 0 을 통과시키지 않는다).
+ * AT-211 판정 — 네 축이다(0216 rev.4).
+ *   ① 무효 행 0                가려진 창의 0 을 "비용 없음" 으로 읽지 않는다
+ *   ② rep 사이 산포 ≤ 임계      기계가 바쁘면 평균은 나와도 그 값이 무엇의 평균인지 모른다
+ *   ③ 모든 조건 fps ≥ 59
+ *   ④ 신 − 구 ≤ 예산
+ * 초과분과 산포를 함께 돌려준다 — 통과해도 여유가 얼마인지 보여야 다음 변경이 예산을
+ * 조용히 먹는 것을 안다.
  */
-export function verdict(summary) {
+export function verdict(summary, rows) {
   const get = (m) => summary.find((r) => r.mode === m)
   const [old_, new_] = [get('old'), get('new')]
   const invalid = summary.reduce((a, r) => a + r.invalid, 0)
+  const excess = +(new_.netMsPerSec - old_.netMsPerSec).toFixed(1)
+  const perRep = excessByRep(rows)
+  const spread = perRep.length > 1 ? +(Math.max(...perRep) - Math.min(...perRep)).toFixed(1) : 0
   const reasons = []
   if (invalid > 0) reasons.push(`무효 행 ${invalid}개 — rAF < ${MIN_FPS}fps`)
-  if (new_.netMsPerSec > old_.netMsPerSec)
-    reasons.push(`main-thread 순증가 신 ${new_.netMsPerSec} > 구 ${old_.netMsPerSec} ms/s`)
-  if (new_.layoutMs > old_.layoutMs)
-    reasons.push(`layout 신 ${new_.layoutMs} > 구 ${old_.layoutMs} ms`)
+  if (spread > STABILITY_MS_PER_SEC)
+    reasons.push(
+      `rep 산포 ${spread} ms/s > ${STABILITY_MS_PER_SEC} — 기계가 바빠 판정 불가 (${perRep.join(', ')})`
+    )
+  if (excess > BUDGET_MS_PER_SEC)
+    reasons.push(`구 대비 순증가 ${excess} ms/s > 예산 ${BUDGET_MS_PER_SEC}`)
   if (old_.fps < 59 || new_.fps < 59)
     reasons.push(`fps 60 미유지 (구 ${old_.fps} · 신 ${new_.fps})`)
-  return { pass: invalid === 0 && reasons.length === 0, reasons }
+  return { pass: invalid === 0 && reasons.length === 0, excess, spread, perRep, reasons }
 }
+
+/** 부호를 항상 붙인다 — `+-0.9` 처럼 읽히지 않게. */
+export const signed = (n) => `${n >= 0 ? '+' : ''}${n}`
 
 export function formatTable(summary) {
   const head = '| mode | fps | recalc | recalc ms | layout | layout ms | task ms | 순증가 ms/s |'
@@ -211,7 +262,7 @@ export async function runMeasurement({ app, BrowserWindow }, out = process.stdou
   }
 
   const summary = summarize(rows)
-  const result = verdict(summary)
+  const result = verdict(summary, rows)
   const reason = result.reasons.length ? ` — ${result.reasons.join(' · ')}` : ''
   out.write(
     [
@@ -220,7 +271,7 @@ export async function runMeasurement({ app, BrowserWindow }, out = process.stdou
       '',
       formatTable(summary),
       '',
-      `AT-211: ${result.pass ? 'PASS' : 'FAIL'}${reason}`,
+      `AT-211: ${result.pass ? 'PASS' : 'FAIL'} — 구 대비 ${signed(result.excess)} ms/s (예산 ${BUDGET_MS_PER_SEC}) · rep 산포 ${result.spread} (${result.perRep.map(signed).join(', ')})${reason}`,
       '',
       'raw:',
       ...rows.map((r) => JSON.stringify(r)),

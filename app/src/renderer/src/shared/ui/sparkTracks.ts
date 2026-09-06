@@ -31,5 +31,17 @@ export const SPARK_TRACK_CLASS: Readonly<Record<SparkMark, string>> = {
   e: 'animate-spark-e'
 }
 
+/**
+ * 마크 전환이 나아가는 주파수 — 원본의 연속 보간을 **의도적으로 이탈**한다(D-211).
+ *
+ * `steps()` 는 브라우저의 애니메이션 틱을 늦추지 않는다. style recalc 는 계단 전후 모두
+ * 초당 60회로 같고, 값이 이전 프레임과 같아진 절반의 프레임에서 layout·paint 가 사라진다 —
+ * 그래서 30 이 "절반만 그린다" 가 아니라 "절반의 프레임에서 할 일이 없다" 는 뜻이다.
+ *
+ * 이 값은 `styles/app.css` 의 stop 별 `steps(N, end)` 를 파생하는 SSOT 이고
+ * `sparkCss.test.ts` 가 구간 길이에서 N 을 다시 계산해 대조한다.
+ */
+export const SPARK_STEP_HZ = 30
+
 /** 감속 모션에서 홀로 남는 마크 — 원본의 `.sB { opacity: 1 }`. */
 export const SPARK_REDUCED_MOTION_MARK: SparkMark = 'b'

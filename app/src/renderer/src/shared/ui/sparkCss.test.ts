@@ -16,6 +16,7 @@ import {
   SPARK_MARKS,
   SPARK_PERIOD_MS,
   SPARK_REDUCED_MOTION_MARK,
+  SPARK_STEP_HZ,
   SPARK_TRACK_CLASS
 } from './sparkTracks'
 import {
@@ -51,6 +52,38 @@ function keyframeStops(name: string): [string, string, string][] {
   const block = css.slice(at, css.indexOf('\n}', at))
   const re = /([\d.]+)% \{\s*transform: ([^;]+);\s*opacity: ([^;]+);/g
   return [...block.matchAll(re)].map((m) => [m[1], m[2], m[3]])
+}
+
+/** `@keyframes <name>` 에서 stop 별 `animation-timing-function` — 없는 stop 은 담지 않는다. */
+function keyframeTimings(name: string): Map<string, string> {
+  const at = css.indexOf(`@keyframes ${name} {`)
+  expect(at, `${name} 키프레임이 app.css 에 없다`).toBeGreaterThan(-1)
+  const block = css.slice(at, css.indexOf('\n}', at))
+  const re = /([\d.]+)% \{([^}]*)\}/g
+  const out = new Map<string, string>()
+  for (const [, at2, body] of block.matchAll(re)) {
+    const fn = /animation-timing-function:\s*([^;]+);/.exec(body)?.[1]
+    if (fn) out.set(at2, fn.trim())
+  }
+  return out
+}
+
+/**
+ * 원본에서 파생한 "계단이 필요한 구간" — 값이 **바뀌는** 구간만이다(D-211).
+ *
+ * 기대 단계 수를 손으로 적지 않는다. 구간 길이를 원본 키타임에서 재고 30Hz 로 나눈다 —
+ * 원본이 바뀌면 기대값도 따라 움직여야 하고, 전사한 상수는 그러지 못한다.
+ */
+function expectedSteps(mark: (typeof REF.marks)[number]): Map<string, number> {
+  const out = new Map<string, number>()
+  for (let i = 0; i < mark.stops.length - 1; i++) {
+    const from = mark.stops[i]
+    const to = mark.stops[i + 1]
+    if (from.transform === to.transform && from.opacity === to.opacity) continue
+    const spanMs = ((Number(to.at) - Number(from.at)) / 100) * REF.periodMs
+    out.set(from.at, Math.max(1, Math.round(spanMs / (1000 / SPARK_STEP_HZ))))
+  }
+  return out
 }
 
 describe('spark 원본 — 바이트 자체가 계약이다', () => {
@@ -99,6 +132,24 @@ describe('spark CSS — 원본 kA~kE 가 CSS 트랙에 그대로 있다', () => 
       // 음수 delay 로 주기를 접으면 마크끼리 위상이 어긋난다.
       expect(block, cls).not.toMatch(/-\d+ms/)
     }
+  })
+
+  it('값이 바뀌는 구간 전수에 30Hz 계단이 걸려 있다', () => {
+    // D-211 — 여기만 원본의 연속 보간을 이탈한다. 이 단언이 없으면 `steps()` 가 통째로
+    // 사라져도 위 stop 비교가 green 이다(transform·opacity 만 읽으므로). r2 실측이 그랬다.
+    let total = 0
+    for (const mark of REF.marks) {
+      const name = SPARK_TRACK_CLASS[mark.id].replace(/^animate-/, '')
+      const expectedMap = expectedSteps(mark)
+      const actual = keyframeTimings(name)
+      const expected = new Map([...expectedMap].map(([at, n]) => [at, `steps(${n}, end)`] as const))
+      // 차집합으로 센다 — 빠진 구간과 남는 구간을 함께 본다.
+      expect(new Map(actual), `${mark.id} 의 계단 구간`).toEqual(expected)
+      total += expectedMap.size
+    }
+    // 내역 합 = 총계. 원본이 바뀌면 이 수도 함께 움직인다.
+    expect(total, '계단이 걸린 구간 전수').toBe(16)
+    expect(SPARK_STEP_HZ).toBe(30)
   })
 
   it('트랙마다 같은 이름의 @keyframes 가 전역에 하나씩 있다', () => {
@@ -173,16 +224,23 @@ describe('spark — 241슬롯 인코딩이 저장소에서 사라졌다', () => 
 })
 
 describe('spark 성능 — 아트워크를 바꿔도 런타임 비용이 늘지 않는다', () => {
-  it('애니메이션 속성이 transform·opacity 뿐이다', () => {
+  it('애니메이션되는 속성이 transform·opacity 뿐이고 타이밍 선언은 steps() 뿐이다', () => {
     // layout 속성(width/height/top/…)이 끼면 매 프레임 리플로우가 난다. 그래서 allowlist 를
     // 총계가 아니라 차집합으로 센다.
+    //
+    // `animation-timing-function` 은 예외지만 **구멍이 아니다**: 값이 `steps()` 일 때만
+    // 허용한다. cubic-bezier 를 stop 에 적으면 그 구간이 다시 매 프레임 값을 만들어
+    // D-211 이 조용히 풀린다 — 속성 이름만 통과시키면 그것을 보지 못한다.
     const blocks = [...css.matchAll(/@keyframes (spark-[a-z0-9]+) \{([\s\S]*?)\n\}/g)]
     expect(blocks).toHaveLength(5)
     const offenders = blocks.flatMap(([, name, bodyText]) =>
-      [...bodyText.matchAll(/^\s+([a-z-]+):/gm)]
-        .map((m) => m[1])
-        .filter((prop) => prop !== 'transform' && prop !== 'opacity')
-        .map((prop) => `${name}:${prop}`)
+      [...bodyText.matchAll(/^\s+([a-z-]+):\s*([^;]+);/gm)]
+        .filter(([, prop, value]) => {
+          if (prop === 'transform' || prop === 'opacity') return false
+          if (prop === 'animation-timing-function') return !/^steps\(\d+, end\)$/.test(value.trim())
+          return true
+        })
+        .map(([, prop]) => `${name}:${prop}`)
     )
     expect(offenders).toEqual([])
   })
