@@ -15,7 +15,7 @@
 | V mode | `Delta V` |
 | 기준 V | `0208-spinner-instructions-usage-tooltip:ΔV1@4e1a412f` |
 | 이번 V revision | `ΔV2` — 0208 ΔV1 의 "원본 = 241슬롯 스트립" 동일성 계약을 새 원본으로 대체 |
-| 유효 V | `V1 + ΔV1 + ΔV2` (rev.3 — r1 verify 의 `PLAN_GAP` D4 로 AT-211·ΔVP-209·EP-209 의 oracle 을 커밋된 하네스로 고정, §3 갱신 메모) |
+| 유효 V | `V1 + ΔV1 + ΔV2` (rev.4 — 사용자 결정으로 모션을 30Hz 계단으로 채택하고 D-201 의 타이밍 등가 축을 예외 처리, AT-202·AT-208·AT-211 정정. §3 갱신 메모) |
 
 > **이 plan 은 구현 뒤에 쓰였다.** 사용자가 턴 중간에 "plan 작업을 하지마라 / 이것외에 몇개의
 > 요구사항을 만족후 plan 및 verify 작성하겠다" 로 순서를 지정했다(D-209). 아래 관측값은
@@ -59,6 +59,7 @@
 | D-208 | 241슬롯 프레임 인코딩(`sparkFrames.ts`·`spark-scale`·마크 7종 트랙)은 **삭제**한다 — 이동이 아니다 | 새 원본에 프레임 스트립이 없다. 남기면 두 사본이 서로 다른 스피너를 서술한다 | 설계자 판단 | ACTIVE | 0208 AR-05·MD-01 대체 |
 | D-209 | 이번 작업은 **구현 → plan 순서**로 진행한다 | 사용자 "plan 작업을 하지마라" · "이것외에 몇개의 요구사항을 만족후 plan 및 verify 작성하겠다" | 사용자 턴 | ACTIVE | 이 handoff 한정. 기본값(설계 우선)을 바꾸지 않는다 |
 | D-210 | AT-211 의 오라클은 **저장소에 커밋된 하네스**다. 구 스피너는 git 블롭에서 기계적으로 렌더한 고정 fixture 로 둔다 | r1 verify 의 D4 — 산문 절차가 산출을 결정하지 못했다. 사용자가 ③(하네스 커밋 후 재측정)을 선택했다 | 사용자 턴(2026-09-06) | ACTIVE | — |
+| D-211 | 모션을 **30Hz 계단**으로 바꾸고 남은 초과분을 **수용**한다 — 예산은 `신 − 구 ≤ 5.0 ms/s`(동시 3개) | r2 가 고정된 오라클로 신 > 구를 확정했고, 사용자가 실기 후 "30fps로 마무리"로 결정했다. 값이 바뀌는 구간만 `steps()` 로 계단화하면 layout 이 144.7 → 66회로 준다(실측) | 사용자 턴(2026-09-06) | ACTIVE | **D-201 의 타이밍 등가 축만 대체** — 그림·주기·색·감속 마크는 그대로다 |
 
 ### 갱신 메모
 
@@ -68,6 +69,8 @@
 - **ΔV2 rev.2 (구현 턴 `PLAN_GAP` 정정)**: AT-206·ΔVP-206·EP-206·§8 의 렌더 지점 분모가 `3` 이었으나 재측정은 **2**다 — `rg '<StatusLine' --include=*.tsx` 는 4건을 돌려주고 그중 2건이 `<StatusLineModel` 오탐이다. 제품 계약(무분기·단일 컴포넌트)은 그대로이고 **세는 술어만** 바뀐다.
 - **ΔV2 rev.3 (r1 verify 의 `PLAN_GAP` D4 정정, 사용자 선택 ③)**: AT-211 의 oracle 이 산문 재현 절차였고 두 재구성이 반대 방향을 냈다([`verify.md`](verify.md) §5). 하네스를 `app/scripts/measure-spinner-perf.mjs` 로 커밋해 오라클을 고정하고, EP-209 의 지점을 2 → **4** 로 늘린다(하네스↔컴포넌트 등가 · 구 fixture provenance). **판정 기준(신 ≤ 구)은 바꾸지 않는다** — 고정된 오라클로 다시 재고 그 결과로 D-205 를 판정한다.
 - **D-210(신설)**: 구 스피너 fixture 는 `a8d2d642^`(=`0954242d`)의 블롭에서 **기계적으로 렌더해** 만들고 그 재생성 명령을 남긴다. 손으로 옮겨 적으면 하네스가 내 재구성을 재는 것이 된다 — r1 verify 가 자기 재구성을 근거로 삼은 자리다.
+- **ΔV2 rev.4 (사용자 결정 — 30fps 채택)**: D-211 신설. AT-202 에 계단 전수 단언을 더하고, AT-208 의 allowlist 가 `animation-timing-function`(값은 `steps()` 한정)을 허용하도록 정정하며, AT-211 의 판정을 `신 ≤ 구` 에서 **예산 `신 − 구 ≤ 5.0 ms/s`** 로 바꾼다. EP-202 는 5 → **6** 지점, EP-209 지점 ②의 기준이 바뀐다.
+- **예산 5.0 ms/s 의 출처**: 30Hz 실측이 `신 34.7·35.0` 대 `구 31.2·32.1` 이라 초과분이 **+3.5·+2.9 ms/s** 다. 여기에 측정 편차(구 조건 4회 실행에서 ±1.1)를 얹어 5.0 으로 잡았다. 프레임당 0.083ms · 16.7ms 예산의 **0.5%**.
 - **`ACTIVE 결정 ↔ AC` 대조: 충돌 0.** D-201↔AT-201·AT-202 · D-202↔AT-206 · D-203↔AT-203 · D-204↔AT-204 · D-205↔AT-207~AT-209·AT-211 · D-206↔AT-209 · D-207↔AT-208 · D-208↔AT-205 · D-209↔해당 AC 없음(절차 결정).
 
 ## 4. 요구 비판적 검토
@@ -126,15 +129,15 @@
 | R | AT | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
 | R-201 | AT-201 | 원본이 저장소에 바이트 그대로 산다 | `sha256 = f94d5f7b40db6183de9eef999dface8153090cace9e3f802cba029d1cb753d7b` · 14,401 bytes · CR 0 · `.gitattributes` 에 `eol=lf` 행 | upload → `.gitattributes` → reference → 파서 |
-| R-201 | AT-202 | 렌더 출력의 마크 기하가 원본과 같다 | 원본을 파싱한 마크 5종의 자식 태그·속성 전수(`line 16`·`circle 3`·`path 13`)와 렌더 출력이 등호. 주기 4800ms · `cubic-bezier(.35,0,.25,1)` · 감속 마크 `b` | `StatusLine` → `SparkSpinner` → DOM |
+| R-201 | AT-202 | 렌더 출력의 마크 기하가 원본과 같고, **모션만 30Hz 계단으로 명시 이탈**한다 | 원본을 파싱한 마크 5종의 자식 태그·속성 전수(`line 16`·`circle 3`·`path 13`)와 렌더 출력이 등호. 주기 4800ms · 기본 `cubic-bezier(.35,0,.25,1)` · 감속 마크 `b`. **더해서 값이 바뀌는 구간 전수 16곳에 `steps(N, end)` 가 있고 N 이 그 구간 길이에서 파생된 30Hz 값과 등호**(D-211) | `StatusLine` → `SparkSpinner` → DOM |
 | R-202 | AT-203 | 스피너 박스가 14×14 다 | 렌더 출력 `width="14" height="14"` · `viewBox` 는 원본값. 상태문구는 `text-[12px]`, 버블은 `text-[14px]` — **세 값 동시 단언** | 동일 |
 | R-203 | AT-204 | 고정색이 `#C15F3C` 로 한 곳에 정의된다 | `--color-spinner` 정의 1건 + 값이 원본 색과 등호 + `[data-theme='dark']` 재정의 0 + 컴포넌트 raw hex 0 · `currentColor` 보유 · 소비자 `text-spinner` | `tokens.css` → `text-spinner` → `currentColor` |
 | R-204 | AT-205 | 241슬롯 인코딩이 저장소에서 사라진다 | 렌더러 소스 전수에서 구 심볼 6종 검색 0건 + 양성 짝(새 트랙 리터럴 존재 · `@keyframes spark-scale` 부재) | 해당 없음(삭제) |
 | R-205 | AT-206 | 세 표면이 분기 없이 같은 스피너를 받는다 | JSX 렌더 지점 전수 **2**(`PendingAssistant`·`SubAgentTileContent`) · `SparkSpinner` 소비자 1 · 렌더 출력 `<svg>` 1 · variant prop 0 | 2 렌더 지점 → 1 `StatusLine` → 1 컴포넌트 |
 | R-206 | AT-207 | 인스턴스 비용이 현행보다 늘지 않는다 | 인스턴스당 애니메이션 = 5(현행 8 이하) · SVG 노드 = 38 · 전역 keyframe stop = 41(현행 288 이하) | 렌더 출력 + `app.css` 원문 |
-| R-206 | AT-208 | 애니메이션이 레이아웃을 건드리지 않고 전역 1회만 파싱된다 | `spark-*` keyframe 의 애니메이션 속성 차집합이 `{transform, opacity}` 밖에서 0 · 트랙마다 `@keyframes` 전역 **정확히 1개** · 컴포넌트 인라인 `<style>`·`style=` 0 | `app.css` 전역 → 유틸리티 |
+| R-206 | AT-208 | 애니메이션이 레이아웃을 건드리지 않고 전역 1회만 파싱된다 | keyframe 의 **애니메이션되는 속성** 차집합이 `{transform, opacity}` 밖에서 0 · 허용되는 비-애니메이션 선언은 `animation-timing-function` 하나이고 그 값은 **반드시 `steps(...)`** 다(타이밍 선언은 매 프레임 값을 만들지 않는다) · 트랙마다 `@keyframes` 전역 **정확히 1개** · 컴포넌트 인라인 `<style>`·`style=` 0 | `app.css` 전역 → 유틸리티 |
 | R-206 | AT-209 | 실시간 출력 경로가 스피너 때문에 재렌더되지 않는다 | `StatusLine.tsx` 코드 줄에 `setInterval`·`useState`·`style={` 0 + `useElapsed`·`<SparkSpinner` 보유. 원본 asset·`.testlib` 이 프로덕션 소스 그래프에 0건(차집합) | 델타 → `LiveText` 만 재렌더 |
-| R-206 | AT-211 | 런타임 비용이 교체 전보다 **줄어든다** | **커밋된 하네스** `app/scripts/measure-spinner-perf.mjs` 한 명령으로 재현한다 — 동시 3개 · 5s 창 · 3회 평균 · `none`/`old`/`new` 교차. 판정은 신 ≤ 구(layout·main-thread task 순증가), fps 60 유지 | 실행 중 Chromium |
+| R-206 | AT-211 | 런타임 비용이 **합의된 예산 안**이다 | **커밋된 하네스** `npm run measure:spinner-perf` — 동시 3개 · 5s 창 · 3회 평균 · `none`/`old`/`new` 교차. 판정 3축: ① 무효 행 0(rAF ≥ 50fps) ② 모든 조건 fps ≥ 59 ③ **신 순증가 − 구 순증가 ≤ 5.0 ms/s**(동시 3개 = 프레임당 0.083ms = 16.7ms 예산의 0.5%) | 실행 중 Chromium |
 | R-207 | AT-210 | 실행 앱에서 새 스피너가 상태문구보다 크게 보이고 스트리밍이 끊기지 않는다 | 사람 실기 | 앱 실행 |
 | R-208 | AT-212 | 트랙이 Tailwind 빌드 산출까지 도달한다 | 렌더러 CSS 빌드 산출에 `.animate-spark-a`~`e` 5개 + `@keyframes spark-a`~`e` 5개 + stop 41 + 구 트랙 0건 | `app.css` → Tailwind → 번들 CSS |
 
@@ -178,7 +181,7 @@
 | Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §10 강제 지점 전수 |
 |---|---|---|---|---|---|---|
 | ΔVP-201 | R-201 ↔ AT-201 | REQUIRED | upload → `.gitattributes` → `spinner-reference.svg` → 파서 | SHA-256 · byte 수 · CR 0 · `.gitattributes` 행 | required — 바이트/0건 주장이라 방향 입증 필요. 변이: XML 1byte 변경 | EP-201 (4) |
-| ΔVP-202 | R-201·AR-201 ↔ AT-202·IT-201 | REQUIRED | reference → 파서 → `sparkTracks.ts`/`app.css` → `SparkSpinner` → 3 StatusLine | 마크 5종 자식 태그·속성 전수 등호 + 주기·타이밍·감속 마크 | required — 파서 oracle 민감도. 변이: 원본 `r` 1곳·`app.css` stop 배율 1곳 | EP-202 (5) |
+| ΔVP-202 | R-201·AR-201 ↔ AT-202·IT-201 | REQUIRED | reference → 파서 → `sparkTracks.ts`/`app.css` → `SparkSpinner` → 3 StatusLine | 마크 5종 자식 태그·속성 전수 등호 + 주기·타이밍·감속 마크 + 30Hz 계단 전수 16 | required — 파서 oracle 민감도. 변이: 원본 `r` 1곳 · `app.css` stop 배율 1곳 · **`steps()` 1곳 제거** | EP-202 (6) |
 | ΔVP-203 | R-202 ↔ AT-203 | REQUIRED | `SparkSpinner` → DOM → StatusLine 줄 | `width/height="14"` + 12px/14px 동시 단언 | required — 자리를 말하는 불변식이라 **형제 값 교환**에도 실패해야 한다. 변이: 12↔14 맞바꿈 | EP-203 (3) |
 | ΔVP-204 | R-203 ↔ AT-204 | REQUIRED | `tokens.css` → `text-spinner` → `currentColor` | 토큰 정의 1건 등호 + 테마 스코프 0 + raw hex 0 | required — 0건 주장. 변이: 고정색 되돌림 | EP-204 (4) |
 | ΔVP-205 | R-204 ↔ AT-205 | REQUIRED | 해당 없음(삭제) | 전 소스 음성 스윕 + 새 트랙 리터럴 양성 짝 | required — 음성 게이트. 변이: `spark-scale` 문자열 1곳 복원 | EP-205 (2) |
@@ -297,14 +300,14 @@
 | V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 | 실패 의미 |
 |---|---|---|---|---|---|
 | R-201 / ΔVP-201 (**EP-201**) | 원본 바이트 | `spinner-reference.svg` | `sparkCss.test.ts` + `.gitattributes` | 테스트 실행 · 체크아웃 | 4 지점: SHA · byte 수 · CR 0 · `.gitattributes` 행. 하나라도 빠지면 oracle 이 다른 파일을 읽는다 |
-| AR-201 / ΔVP-202 (**EP-202**) | 마크 기하·주기·타이밍·감속 마크 | 원본 → 파서 | `sparkCss.test.ts` · `statusLine.render.test.ts` | 테스트 실행 | 5 지점: `line`(16) · `circle`(3) · `path`(13) · keyframe stop(41) · 주기/타이밍. 한 지점만 닫으면 나머지 축이 조용히 갈라진다 |
+| AR-201 / ΔVP-202 (**EP-202**) | 마크 기하·주기·타이밍·감속 마크·30Hz 계단 | 원본 → 파서 | `sparkCss.test.ts` · `statusLine.render.test.ts` | 테스트 실행 | 6 지점: `line`(16) · `circle`(3) · `path`(13) · keyframe stop(41) · 주기/기본 타이밍 · **값이 바뀌는 구간 16곳의 `steps(N)`**. 마지막 지점이 없으면 계단이 사라져도 앞 다섯이 전부 green 이다(r2 실측) |
 | R-202 / ΔVP-203 (**EP-203**) | 14 ↔ 12 ↔ 14 | 렌더 출력 + 소스 | `statusLine.render.test.ts` | 테스트 실행 | 3 지점: 스피너 `width`·`height` · 상태문구 `text-[12px]` · 버블 `text-[14px]`. 형제 값 교환이 통과하지 않게 함께 단언한다 |
 | R-203 / ΔVP-204 (**EP-204**) | 고정색 | `tokens.css` 1행 | `sparkCss.test.ts` | 테스트 실행 | 4 지점: 정의 1건 · 값 등호 · dark 스코프 0 · 컴포넌트 raw hex 0 |
 | R-204 / ΔVP-205 (**EP-205**) | 241슬롯 부재 | 렌더러 소스 전수 | `sparkCss.test.ts` | 테스트 실행 | 2 지점: 음성 스윕(구 심볼 6종) + 양성 짝. 음성만 두면 파일을 통째로 비워도 통과한다 |
 | R-205 / ΔVP-206 (**EP-206**) | 소비자 무분기 | 렌더 지점 | `statusLine.render.test.ts` | 테스트 실행 | 2 지점: JSX 렌더 지점 2 + `SparkSpinner` 소비자 1 전수 · 출력 `<svg>` 1 |
-| R-206 / ΔVP-207 (**EP-207**) | 인스턴스 비용 | 렌더 출력 + `app.css` | `statusLine.render.test.ts` · `sparkCss.test.ts` | 테스트 실행 | 5 지점: 애니메이션 5 · 노드 38 · stop 41 · property 차집합 0 · keyframe 전역 1개 |
+| R-206 / ΔVP-207 (**EP-207**) | 인스턴스 비용 | 렌더 출력 + `app.css` | `statusLine.render.test.ts` · `sparkCss.test.ts` | 테스트 실행 | 5 지점: 애니메이션 5 · 노드 38 · stop 41 · **애니메이션되는 속성 차집합 0 + 타이밍 선언은 `steps()` 만** · keyframe 전역 1개 |
 | R-206 / ΔVP-208 (**EP-208**) | 실시간 경로 비회귀 | `StatusLine.tsx` + 소스 그래프 | `statusLine.render.test.ts` · `sparkCss.test.ts` | 테스트 실행 | 3 지점: timer/state 0 · 인라인 style 0 · 원본/`.testlib` leak 0 |
-| R-206 / ΔVP-209 (**EP-209**) | 런타임 비용 | `app/scripts/measure-spinner-perf.mjs` | 하네스 + `measure-spinner-perf.test.mjs` + `statusLine.render.test.ts` | 측정 시 · 테스트 실행 | 4 지점: rAF 프레임 > 0(측정 유효성) · 신 ≤ 구 · **하네스의 신 마크업 = 컴포넌트 렌더 출력**(드리프트 금지) · **구 fixture 의 provenance 가 git 블롭으로 재생성 가능**. 유효성 검사를 빼면 가려진 창의 0 을 "비용 없음" 으로 읽고, 뒤 두 지점을 빼면 하네스가 프로덕션이 아닌 것을 잰다 |
+| R-206 / ΔVP-209 (**EP-209**) | 런타임 비용 | `app/scripts/measure-spinner-perf.mjs` | 하네스 + `measure-spinner-perf.test.mjs` + `statusLine.render.test.ts` | 측정 시 · 테스트 실행 | 4 지점: rAF 프레임 > 0(측정 유효성) · **신 − 구 ≤ 5.0 ms/s 예산**(D-211) · **하네스의 신 마크업 = 컴포넌트 렌더 출력**(드리프트 금지) · **구 fixture 의 provenance 가 git 블롭으로 재생성 가능**. 예산 상수는 하네스가 갖고 companion 이 양방향(초과 FAIL · 이내 PASS)을 잠근다 |
 | R-208 / ΔVP-210 (**EP-210**) | 빌드 도달 | 번들 CSS | 사람/에이전트 재현 | 측정 시 | 1 지점: 유틸리티 5 + keyframe 5 + stop 41 + 구 트랙 0 |
 
 - SSOT 공유 방법: 트랙 클래스 이름은 `sparkTracks.ts` 의 **따옴표 리터럴**이 SSOT 다. `app.css` 는 사본이고 `sparkCss.test.ts` 가 이름 일치와 리터럴성을 함께 잠근다 — 조립하면 Tailwind 가 유틸리티를 방출하지 않아 스피너만 조용히 멈춘다.
@@ -402,6 +405,13 @@ app.css(spark-a~e) → @utility 리터럴 → SparkSpinner 그룹 5개 → 브�
 - 구 스피너는 `app/scripts/fixtures/spinner-legacy-0208.html` — `a8d2d642^` 블롭에서 기계적으로 렌더한 **동결 스냅샷**이다. 코드가 삭제됐으므로 이 파일이 "구" 의 유일한 정본이고, 갱신 대상이 아니다(D-210).
 - 신 스피너 마크업은 커밋된 원본 SVG 에서 파생하고, `statusLine.render.test.ts` 가 **그 파생물과 컴포넌트 렌더 출력의 등가**를 잠근다 — 하네스가 프로덕션과 갈라지면 테스트가 red 다.
 - 측정 결과와 판정은 `[구현자 기입]` 과 `verify.md` 가 갖는다 — 같은 수치를 세 곳에 적지 않는다.
+
+### 30Hz 계단 채택 (rev.4 · D-211)
+
+- 무엇을 바꿨나: 값이 **바뀌는** keyframe 구간 전수 16곳에 `animation-timing-function: steps(N, end)` 를 넣는다. N 은 그 구간 길이에서 파생한다(`round(구간ms / (1000/30))`) — 상승 170ms·하강 180ms → 5, 마크 `a` 의 100ms → 3. 값이 그대로인 구간은 건드리지 않는다(계단을 넣어도 관측이 같다).
+- 왜 그것이 비용을 줄이나: `steps()` 는 **틱 주기를 바꾸지 않는다**. style recalc 는 계단 전후 모두 ~60회/s 로 같고, 값이 이전 프레임과 같아진 절반의 프레임에서 **layout·paint 가 사라진다**.
+- transcript flush 와의 관계: flush 는 `eventCoalescer` 가 rAF 한 틱마다 도는 **JS 콜백 큐**이고 스피너는 그 큐에 없다. 둘은 같은 프레임 예산을 나눠 쓰므로 스피너 몫이 줄면 flush 의 여유가 **늘어난다** — 위상 간섭 항은 없다.
+- 재지 않은 축: 스트리밍과 스피너를 **동시에** 돌린 절대값. 하네스는 스피너만 있는 격리 페이지다.
 
 ### 빌드 산출 도달 (AT-212 · ΔVP-210)
 
