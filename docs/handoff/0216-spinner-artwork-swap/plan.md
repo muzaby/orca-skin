@@ -15,7 +15,7 @@
 | V mode | `Delta V` |
 | 기준 V | `0208-spinner-instructions-usage-tooltip:ΔV1@4e1a412f` |
 | 이번 V revision | `ΔV2` — 0208 ΔV1 의 "원본 = 241슬롯 스트립" 동일성 계약을 새 원본으로 대체 |
-| 유효 V | `V1 + ΔV1 + ΔV2` |
+| 유효 V | `V1 + ΔV1 + ΔV2` (ΔV2 rev.2 — 구현 턴이 찾은 `PLAN_GAP` 으로 AT-206·EP-206 의 분모를 정정, §3 갱신 메모) |
 
 > **이 plan 은 구현 뒤에 쓰였다.** 사용자가 턴 중간에 "plan 작업을 하지마라 / 이것외에 몇개의
 > 요구사항을 만족후 plan 및 verify 작성하겠다" 로 순서를 지정했다(D-209). 아래 관측값은
@@ -64,6 +64,7 @@
 - 새로 추가된 결정: D-201~D-209.
 - 변경된 결정: 0208 D-016 이 축별로 갈라진다 — 그림·주기는 D-201, 크기는 D-203, 색은 D-204. D-002→D-202 · D-003→D-205 · D-017→D-206 은 승계다.
 - 유지되는 기존 ACTIVE: 0208 D-006(감속 모션 동작) · D-008~D-011(지침 카드) · D-018~D-020(사용량 안내) · D-021(원본 줄바꿈 LF). 지침 카드·사용량 안내는 이번 변경 경로에 없다.
+- **ΔV2 rev.2 (구현 턴 `PLAN_GAP` 정정)**: AT-206·ΔVP-206·EP-206·§8 의 렌더 지점 분모가 `3` 이었으나 재측정은 **2**다 — `rg '<StatusLine' --include=*.tsx` 는 4건을 돌려주고 그중 2건이 `<StatusLineModel` 오탐이다. 제품 계약(무분기·단일 컴포넌트)은 그대로이고 **세는 술어만** 바뀐다.
 - **`ACTIVE 결정 ↔ AC` 대조: 충돌 0.** D-201↔AT-201·AT-202 · D-202↔AT-206 · D-203↔AT-203 · D-204↔AT-204 · D-205↔AT-207~AT-209·AT-211 · D-206↔AT-209 · D-207↔AT-208 · D-208↔AT-205 · D-209↔해당 AC 없음(절차 결정).
 
 ## 4. 요구 비판적 검토
@@ -126,7 +127,7 @@
 | R-202 | AT-203 | 스피너 박스가 14×14 다 | 렌더 출력 `width="14" height="14"` · `viewBox` 는 원본값. 상태문구는 `text-[12px]`, 버블은 `text-[14px]` — **세 값 동시 단언** | 동일 |
 | R-203 | AT-204 | 고정색이 `#C15F3C` 로 한 곳에 정의된다 | `--color-spinner` 정의 1건 + 값이 원본 색과 등호 + `[data-theme='dark']` 재정의 0 + 컴포넌트 raw hex 0 · `currentColor` 보유 · 소비자 `text-spinner` | `tokens.css` → `text-spinner` → `currentColor` |
 | R-204 | AT-205 | 241슬롯 인코딩이 저장소에서 사라진다 | 렌더러 소스 전수에서 구 심볼 6종 검색 0건 + 양성 짝(새 트랙 리터럴 존재 · `@keyframes spark-scale` 부재) | 해당 없음(삭제) |
-| R-205 | AT-206 | 세 소비자가 분기 없이 같은 스피너를 받는다 | `rg '<StatusLine' --include=*.tsx` = 3 · 렌더 출력 `<svg>` 1 · variant prop 0 | 3 렌더 지점 → 1 컴포넌트 |
+| R-205 | AT-206 | 세 표면이 분기 없이 같은 스피너를 받는다 | JSX 렌더 지점 전수 **2**(`PendingAssistant`·`SubAgentTileContent`) · `SparkSpinner` 소비자 1 · 렌더 출력 `<svg>` 1 · variant prop 0 | 2 렌더 지점 → 1 `StatusLine` → 1 컴포넌트 |
 | R-206 | AT-207 | 인스턴스 비용이 현행보다 늘지 않는다 | 인스턴스당 애니메이션 = 5(현행 8 이하) · SVG 노드 = 38 · 전역 keyframe stop = 41(현행 288 이하) | 렌더 출력 + `app.css` 원문 |
 | R-206 | AT-208 | 애니메이션이 레이아웃을 건드리지 않고 전역 1회만 파싱된다 | `spark-*` keyframe 의 애니메이션 속성 차집합이 `{transform, opacity}` 밖에서 0 · 트랙마다 `@keyframes` 전역 **정확히 1개** · 컴포넌트 인라인 `<style>`·`style=` 0 | `app.css` 전역 → 유틸리티 |
 | R-206 | AT-209 | 실시간 출력 경로가 스피너 때문에 재렌더되지 않는다 | `StatusLine.tsx` 코드 줄에 `setInterval`·`useState`·`style={` 0 + `useElapsed`·`<SparkSpinner` 보유. 원본 asset·`.testlib` 이 프로덕션 소스 그래프에 0건(차집합) | 델타 → `LiveText` 만 재렌더 |
@@ -178,7 +179,7 @@
 | ΔVP-203 | R-202 ↔ AT-203 | REQUIRED | `SparkSpinner` → DOM → StatusLine 줄 | `width/height="14"` + 12px/14px 동시 단언 | required — 자리를 말하는 불변식이라 **형제 값 교환**에도 실패해야 한다. 변이: 12↔14 맞바꿈 | EP-203 (3) |
 | ΔVP-204 | R-203 ↔ AT-204 | REQUIRED | `tokens.css` → `text-spinner` → `currentColor` | 토큰 정의 1건 등호 + 테마 스코프 0 + raw hex 0 | required — 0건 주장. 변이: 고정색 되돌림 | EP-204 (4) |
 | ΔVP-205 | R-204 ↔ AT-205 | REQUIRED | 해당 없음(삭제) | 전 소스 음성 스윕 + 새 트랙 리터럴 양성 짝 | required — 음성 게이트. 변이: `spark-scale` 문자열 1곳 복원 | EP-205 (2) |
-| ΔVP-206 | R-205 ↔ AT-206 | REGRESSION | 3 렌더 지점 → 1 컴포넌트 | `<StatusLine` 전수 3 + 출력 `<svg>` 1 | not selected — 렌더 출력과 전수 grep 이 곧 계약이다 | EP-206 (2) |
+| ΔVP-206 | R-205 ↔ AT-206 | REGRESSION | 2 렌더 지점 → 1 `StatusLine` → 1 컴포넌트 | JSX 렌더 지점 2 + `SparkSpinner` 소비자 1 + 출력 `<svg>` 1 | not selected — 렌더 출력과 전수 스윕이 곧 계약이다 | EP-206 (2) |
 | ΔVP-207 | R-206·SD-201 ↔ AT-207·AT-208·ST-201 | REQUIRED | turn start → 1 mount → 전역 CSS → unmount | 애니메이션 5 · 노드 38 · stop 41 · property 차집합 0 · keyframe 전역 1개 | required — allowlist/차집합 oracle. 변이: keyframe 에 `width` stop 추가 · 감속 블록에서 트랙 1개 누락 | EP-207 (5) |
 | ΔVP-208 | R-206 ↔ AT-209·UT-201 | REGRESSION | 델타 → `LiveText` 만 재렌더 | timer/state 0 + leak 차집합 0 + 양성 짝 | required — 0건/전수. 변이: 트랙 클래스 리터럴 조립(Tailwind 방출 파괴) | EP-207·EP-208 (3) |
 | ΔVP-209 | R-206 ↔ AT-211 | REQUIRED | 실행 Chromium → 합성 → main thread | 교체 전/후/없음 3조건의 recalc·layout·task 차분 | required — 측정 유효성 자체가 조건. 변이 아닌 **전제 검사**: rAF 프레임 수 > 0 | EP-209 (2) |
@@ -217,7 +218,7 @@
 
 | 대상 | 검색/방법 | N | 의미 |
 |---|---|---:|---|
-| `StatusLine` 렌더 지점 | `rg '<StatusLine' --include=*.tsx` | 3 | D-202 의 분모(`PendingAssistant`·`SubAgentTileContent`·작업 타일 경유) |
+| `StatusLine` JSX 렌더 지점 | `rg '<StatusLine' --include=*.tsx` 4건 중 `<StatusLineModel` 오탐 2 제외 | 2 | D-202 의 분모 — `PendingAssistant`·`SubAgentTileContent`. 작업 타일은 `ChatTile`→`TranscriptView`→`PendingAssistant` 로 **같은 지점을 재사용**한다 |
 | `SparkSpinner` 소비자 | `rg 'SparkSpinner' --include=*.tsx` | 1 | `StatusLine.tsx` 하나 |
 | 교체 전 인스턴스 SVG 노드 | 렌더 출력 `svg 1·g 2·line 10·circle 1·text 5` | 19 | AT-207 의 비교 기준 |
 | 교체 전 전역 `spark-*` stop | keyframe 별 stop 합 `241+11+21+3×5` | 288 | AT-207 의 비교 기준 |
@@ -229,7 +230,7 @@
 ### 수치 / 전칭 표현 검산
 
 - 내역 합 = 총계: 노드 `1+5+16+3+13 = 38` · stop `6+17+6+6+6 = 41`.
-- "세 소비자" 전칭: `<StatusLine` 3건 전수. `ConversationStatusLine`·`StatusPopover` 는 이름만 겹치는 별개이고 `rg 'SparkSpinner'` 1건이 반례 부재를 보인다.
+- "세 표면" 전칭: 코드 지점은 **2**, 동시에 살 수 있는 표면은 3 이다(§5) — 작업 타일이 `PendingAssistant` 를 재사용한다. 술어를 문자열로 세면 `<StatusLineModel` 2건이 분모에 섞인다(`ConversationStatusLine`·`StatusPopover` 는 이름만 겹치는 별개). `rg 'SparkSpinner' --include=*.tsx` 1건이 분기 부재를 보인다.
 - 문서 앵커 / 기존 테스트 케이스 존재 확인: `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드` 실재 · 교체 전 `sparkCss.test.ts` describe 6개 · `statusLine.render.test.ts` describe 3개 실재.
 
 ## 9. Architecture / Data & Control Flow — AS-IS → TO-BE
@@ -297,7 +298,7 @@
 | R-202 / ΔVP-203 (**EP-203**) | 14 ↔ 12 ↔ 14 | 렌더 출력 + 소스 | `statusLine.render.test.ts` | 테스트 실행 | 3 지점: 스피너 `width`·`height` · 상태문구 `text-[12px]` · 버블 `text-[14px]`. 형제 값 교환이 통과하지 않게 함께 단언한다 |
 | R-203 / ΔVP-204 (**EP-204**) | 고정색 | `tokens.css` 1행 | `sparkCss.test.ts` | 테스트 실행 | 4 지점: 정의 1건 · 값 등호 · dark 스코프 0 · 컴포넌트 raw hex 0 |
 | R-204 / ΔVP-205 (**EP-205**) | 241슬롯 부재 | 렌더러 소스 전수 | `sparkCss.test.ts` | 테스트 실행 | 2 지점: 음성 스윕(구 심볼 6종) + 양성 짝. 음성만 두면 파일을 통째로 비워도 통과한다 |
-| R-205 / ΔVP-206 (**EP-206**) | 3 소비자 무분기 | 렌더 지점 | `statusLine.render.test.ts` | 테스트 실행 | 2 지점: `<StatusLine` 전수 3 · 출력 `<svg>` 1 |
+| R-205 / ΔVP-206 (**EP-206**) | 소비자 무분기 | 렌더 지점 | `statusLine.render.test.ts` | 테스트 실행 | 2 지점: JSX 렌더 지점 2 + `SparkSpinner` 소비자 1 전수 · 출력 `<svg>` 1 |
 | R-206 / ΔVP-207 (**EP-207**) | 인스턴스 비용 | 렌더 출력 + `app.css` | `statusLine.render.test.ts` · `sparkCss.test.ts` | 테스트 실행 | 5 지점: 애니메이션 5 · 노드 38 · stop 41 · property 차집합 0 · keyframe 전역 1개 |
 | R-206 / ΔVP-208 (**EP-208**) | 실시간 경로 비회귀 | `StatusLine.tsx` + 소스 그래프 | `statusLine.render.test.ts` · `sparkCss.test.ts` | 테스트 실행 | 3 지점: timer/state 0 · 인라인 style 0 · 원본/`.testlib` leak 0 |
 | R-206 / ΔVP-209 (**EP-209**) | 런타임 비용 | 실행 Chromium | 사람/에이전트 재현 | 측정 시 | 2 지점: rAF 프레임 > 0(측정 유효성) · 신 ≤ 구. 유효성 검사를 빼면 가려진 창의 0 을 "비용 없음" 으로 읽는다 |
