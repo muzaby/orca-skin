@@ -16,6 +16,7 @@ import { SkillAddMenu } from './SkillAddMenu'
 import { SkillAuthorModal } from './SkillAuthorModal'
 import { SkillUploadModal } from './SkillUploadModal'
 import { CustomMcpModal } from './CustomMcpModal'
+import { AddMcpServerModal } from '../AddMcpServerModal'
 
 const skillKey = (sourceId: string, name: string): string => `${sourceId}/${name}`
 
@@ -33,11 +34,14 @@ export function ExtensionsCatalogView(): React.JSX.Element {
   const [authorOpen, setAuthorOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [mcpModalOpen, setMcpModalOpen] = useState(false)
+  // 편집 대상은 id 로 들고 목록에서 되찾는다 — 서버 객체를 복사해 두면 갱신 후 낡은 값이 남는다.
+  const [mcpEditId, setMcpEditId] = useState<string | null>(null)
   const addRef = useRef<HTMLButtonElement>(null)
   const selectedSkill = skills.list.find(
     (item) => skillKey(item.sourceId, item.name) === selection.selectedId
   )
   const selectedMcp = mcp.list.find((item) => item.id === selection.selectedId)
+  const editingMcp = mcp.list.find((item) => item.id === mcpEditId)
   const selectedProvider = providers.list.find((item) => item.id === selection.selectedId)
   const detail = selectedSkill ?? selectedMcp ?? selectedProvider
   const title = tr(
@@ -129,6 +133,8 @@ export function ExtensionsCatalogView(): React.JSX.Element {
           <McpDetail
             server={selectedMcp}
             onToggle={() => void mcp.toggle(selectedMcp.id, !selectedMcp.enabled)}
+            onEdit={() => setMcpEditId(selectedMcp.id)}
+            onRemove={() => mcp.remove(selectedMcp.id)}
           />
         ) : selectedProvider ? (
           <ProviderDetail
@@ -175,6 +181,33 @@ export function ExtensionsCatalogView(): React.JSX.Element {
         onUpload={skills.upload}
       />
       <CustomMcpModal open={mcpModalOpen} onClose={() => setMcpModalOpen(false)} onAdd={mcp.add} />
+      {editingMcp && (
+        <AddMcpServerModal
+          open
+          initial={editingMcp}
+          onClose={() => setMcpEditId(null)}
+          onSave={async (values) => {
+            await mcp.update({
+              id: editingMcp.id,
+              name: values.name,
+              description: values.description,
+              transport: values.transport,
+              command: values.command,
+              args: values.args,
+              authEnvKey: values.authEnvKey,
+              url: values.url,
+              // undefined = 비밀 미변경. 키를 넣으면 '' 이 "비밀 제거"로 읽힌다.
+              ...(values.auth !== undefined ? { auth: values.auth } : {})
+            })
+            // id 는 서버 이름이라 rename 이 곧 재키잉이다 — 상세 선택을 새 id 로 옮기지 않으면
+            // 저장 직후 상세가 사라지고 목록으로 튕긴다.
+            if (values.name !== editingMcp.id) {
+              setSelection((state) => openDetail(state, values.name))
+            }
+            setMcpEditId(null)
+          }}
+        />
+      )}
     </section>
   )
 }
