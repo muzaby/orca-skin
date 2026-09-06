@@ -2361,6 +2361,7 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh 01a0237..9137791   # 
 |---|---|---|---|---|
 | D55 | 세션 경계 3자리(`NEW_CHAT`·`START_LOAD_SESSION`·`LOAD_SESSION`)의 **활성 id 정리가 무관측** — 활성만 물려줘도 3,385 green(A3a·A1a·A2). `...initialChatState` 스프레드라 명시 write 스윕에 안 잡힌다 | VP-97 인접 — AT-96 "세션 경계" 절은 목록 비움(`chatReducer.plan.test.ts:705`)·store 격리(`chatStore.test.ts:709`)·`chatStore.ts:1185` 의 새 state 적용으로 닫혀 있다 | **NON_BLOCKING** | 남는 것은 소비처 없는 dangling id 다. 값이 싼 reducer 케이스 3개면 닫힌다 |
 | D56 | 구현 보고 §"이번 라운드 수정의 잠금" 검산 줄이 `인용 4 · 새 oracle 6` 인데 같은 표의 갈래 칸은 인용 **5행**이다. 총계 10 과 행별 red 는 전건 정확하다 | 비귀속 — 보고 서술 | **NON_BLOCKING** | 다음 라운드에 갈래를 표와 같게 적는다 |
+| **D57** | reveal **중복 가드**가 무관측 — `FileDiffSection` 의 `lastReveal.current` 대조를 지워 매 렌더 재실행이 되게 해도 **3,385 전건 green**. 위 25변이 분모 밖의 축이다(병행 검증 세션이 추가 측정) | 비귀속 — §10 EP-71 ④ 는 `카드/문맥 reveal` 만 열거하고 재실행 억제는 적지 않는다 | **NON_BLOCKING** | 깜빡임·성능 계약을 세울지 설계가 정한다 |
 | D49 · D50 · D51 | 라운드 6 차단 2행 + 동반 1행 | — | 해소 | **closed**(§4-1 · §5) |
 | D52 · D53 · D41 · D42 · D43 · D23 · D24 · D30 · D31 | r4~r6 원문 유지 | 비귀속 | NON_BLOCKING | 사람/설계 판단 대기 |
 | D54 · D45 · D32 · D33 · D34 | r4~r6 원문 유지 | 비귀속 | NEXT_HANDOFF | D54 는 31회 중 0회 · D45 는 31회 중 1회 재현 |
