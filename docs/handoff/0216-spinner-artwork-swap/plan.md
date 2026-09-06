@@ -15,7 +15,7 @@
 | V mode | `Delta V` |
 | 기준 V | `0208-spinner-instructions-usage-tooltip:ΔV1@4e1a412f` |
 | 이번 V revision | `ΔV2` — 0208 ΔV1 의 "원본 = 241슬롯 스트립" 동일성 계약을 새 원본으로 대체 |
-| 유효 V | `V1 + ΔV1 + ΔV2` (ΔV2 rev.2 — 구현 턴이 찾은 `PLAN_GAP` 으로 AT-206·EP-206 의 분모를 정정, §3 갱신 메모) |
+| 유효 V | `V1 + ΔV1 + ΔV2` (rev.3 — r1 verify 의 `PLAN_GAP` D4 로 AT-211·ΔVP-209·EP-209 의 oracle 을 커밋된 하네스로 고정, §3 갱신 메모) |
 
 > **이 plan 은 구현 뒤에 쓰였다.** 사용자가 턴 중간에 "plan 작업을 하지마라 / 이것외에 몇개의
 > 요구사항을 만족후 plan 및 verify 작성하겠다" 로 순서를 지정했다(D-209). 아래 관측값은
@@ -58,6 +58,7 @@
 | D-207 | 애니메이션은 **전역 CSS 트랙**이 소유한다 — 원본의 인라인 `<style>` 을 컴포넌트로 옮기지 않는다 | 인라인이면 인스턴스마다 규칙 사본이 생긴다 | 0208 D-003 + 저장소 규칙 | ACTIVE | — |
 | D-208 | 241슬롯 프레임 인코딩(`sparkFrames.ts`·`spark-scale`·마크 7종 트랙)은 **삭제**한다 — 이동이 아니다 | 새 원본에 프레임 스트립이 없다. 남기면 두 사본이 서로 다른 스피너를 서술한다 | 설계자 판단 | ACTIVE | 0208 AR-05·MD-01 대체 |
 | D-209 | 이번 작업은 **구현 → plan 순서**로 진행한다 | 사용자 "plan 작업을 하지마라" · "이것외에 몇개의 요구사항을 만족후 plan 및 verify 작성하겠다" | 사용자 턴 | ACTIVE | 이 handoff 한정. 기본값(설계 우선)을 바꾸지 않는다 |
+| D-210 | AT-211 의 오라클은 **저장소에 커밋된 하네스**다. 구 스피너는 git 블롭에서 기계적으로 렌더한 고정 fixture 로 둔다 | r1 verify 의 D4 — 산문 절차가 산출을 결정하지 못했다. 사용자가 ③(하네스 커밋 후 재측정)을 선택했다 | 사용자 턴(2026-09-06) | ACTIVE | — |
 
 ### 갱신 메모
 
@@ -65,6 +66,8 @@
 - 변경된 결정: 0208 D-016 이 축별로 갈라진다 — 그림·주기는 D-201, 크기는 D-203, 색은 D-204. D-002→D-202 · D-003→D-205 · D-017→D-206 은 승계다.
 - 유지되는 기존 ACTIVE: 0208 D-006(감속 모션 동작) · D-008~D-011(지침 카드) · D-018~D-020(사용량 안내) · D-021(원본 줄바꿈 LF). 지침 카드·사용량 안내는 이번 변경 경로에 없다.
 - **ΔV2 rev.2 (구현 턴 `PLAN_GAP` 정정)**: AT-206·ΔVP-206·EP-206·§8 의 렌더 지점 분모가 `3` 이었으나 재측정은 **2**다 — `rg '<StatusLine' --include=*.tsx` 는 4건을 돌려주고 그중 2건이 `<StatusLineModel` 오탐이다. 제품 계약(무분기·단일 컴포넌트)은 그대로이고 **세는 술어만** 바뀐다.
+- **ΔV2 rev.3 (r1 verify 의 `PLAN_GAP` D4 정정, 사용자 선택 ③)**: AT-211 의 oracle 이 산문 재현 절차였고 두 재구성이 반대 방향을 냈다([`verify.md`](verify.md) §5). 하네스를 `app/scripts/measure-spinner-perf.mjs` 로 커밋해 오라클을 고정하고, EP-209 의 지점을 2 → **4** 로 늘린다(하네스↔컴포넌트 등가 · 구 fixture provenance). **판정 기준(신 ≤ 구)은 바꾸지 않는다** — 고정된 오라클로 다시 재고 그 결과로 D-205 를 판정한다.
+- **D-210(신설)**: 구 스피너 fixture 는 `a8d2d642^`(=`0954242d`)의 블롭에서 **기계적으로 렌더해** 만들고 그 재생성 명령을 남긴다. 손으로 옮겨 적으면 하네스가 내 재구성을 재는 것이 된다 — r1 verify 가 자기 재구성을 근거로 삼은 자리다.
 - **`ACTIVE 결정 ↔ AC` 대조: 충돌 0.** D-201↔AT-201·AT-202 · D-202↔AT-206 · D-203↔AT-203 · D-204↔AT-204 · D-205↔AT-207~AT-209·AT-211 · D-206↔AT-209 · D-207↔AT-208 · D-208↔AT-205 · D-209↔해당 AC 없음(절차 결정).
 
 ## 4. 요구 비판적 검토
@@ -131,7 +134,7 @@
 | R-206 | AT-207 | 인스턴스 비용이 현행보다 늘지 않는다 | 인스턴스당 애니메이션 = 5(현행 8 이하) · SVG 노드 = 38 · 전역 keyframe stop = 41(현행 288 이하) | 렌더 출력 + `app.css` 원문 |
 | R-206 | AT-208 | 애니메이션이 레이아웃을 건드리지 않고 전역 1회만 파싱된다 | `spark-*` keyframe 의 애니메이션 속성 차집합이 `{transform, opacity}` 밖에서 0 · 트랙마다 `@keyframes` 전역 **정확히 1개** · 컴포넌트 인라인 `<style>`·`style=` 0 | `app.css` 전역 → 유틸리티 |
 | R-206 | AT-209 | 실시간 출력 경로가 스피너 때문에 재렌더되지 않는다 | `StatusLine.tsx` 코드 줄에 `setInterval`·`useState`·`style={` 0 + `useElapsed`·`<SparkSpinner` 보유. 원본 asset·`.testlib` 이 프로덕션 소스 그래프에 0건(차집합) | 델타 → `LiveText` 만 재렌더 |
-| R-206 | AT-211 | 런타임 비용이 교체 전보다 **줄어든다** | 동시 3개 · 5s 창 · 3회 평균으로 style recalc·layout·main-thread task 를 교체 전/후/없음 3조건 비교. 신 ≤ 구, fps 60 유지 | 실행 중 Chromium |
+| R-206 | AT-211 | 런타임 비용이 교체 전보다 **줄어든다** | **커밋된 하네스** `app/scripts/measure-spinner-perf.mjs` 한 명령으로 재현한다 — 동시 3개 · 5s 창 · 3회 평균 · `none`/`old`/`new` 교차. 판정은 신 ≤ 구(layout·main-thread task 순증가), fps 60 유지 | 실행 중 Chromium |
 | R-207 | AT-210 | 실행 앱에서 새 스피너가 상태문구보다 크게 보이고 스트리밍이 끊기지 않는다 | 사람 실기 | 앱 실행 |
 | R-208 | AT-212 | 트랙이 Tailwind 빌드 산출까지 도달한다 | 렌더러 CSS 빌드 산출에 `.animate-spark-a`~`e` 5개 + `@keyframes spark-a`~`e` 5개 + stop 41 + 구 트랙 0건 | `app.css` → Tailwind → 번들 CSS |
 
@@ -182,7 +185,7 @@
 | ΔVP-206 | R-205 ↔ AT-206 | REGRESSION | 2 렌더 지점 → 1 `StatusLine` → 1 컴포넌트 | JSX 렌더 지점 2 + `SparkSpinner` 소비자 1 + 출력 `<svg>` 1 | not selected — 렌더 출력과 전수 스윕이 곧 계약이다 | EP-206 (2) |
 | ΔVP-207 | R-206·SD-201 ↔ AT-207·AT-208·ST-201 | REQUIRED | turn start → 1 mount → 전역 CSS → unmount | 애니메이션 5 · 노드 38 · stop 41 · property 차집합 0 · keyframe 전역 1개 | required — allowlist/차집합 oracle. 변이: keyframe 에 `width` stop 추가 · 감속 블록에서 트랙 1개 누락 | EP-207 (5) |
 | ΔVP-208 | R-206 ↔ AT-209·UT-201 | REGRESSION | 델타 → `LiveText` 만 재렌더 | timer/state 0 + leak 차집합 0 + 양성 짝 | required — 0건/전수. 변이: 트랙 클래스 리터럴 조립(Tailwind 방출 파괴) | EP-207·EP-208 (3) |
-| ΔVP-209 | R-206 ↔ AT-211 | REQUIRED | 실행 Chromium → 합성 → main thread | 교체 전/후/없음 3조건의 recalc·layout·task 차분 | required — 측정 유효성 자체가 조건. 변이 아닌 **전제 검사**: rAF 프레임 수 > 0 | EP-209 (2) |
+| ΔVP-209 | R-206 ↔ AT-211 | REQUIRED | `measure-spinner-perf.mjs` → Electron → CDP `Performance` → 3조건 차분 | 커밋된 하네스의 출력 표 | required — 측정 유효성 자체가 조건. 변이 아닌 **전제 검사**: rAF 프레임 수 > 0 | EP-209 (4) |
 | ΔVP-210 | R-208 ↔ AT-212 | REQUIRED | `app.css` → Tailwind → 번들 CSS | 빌드 산출의 유틸리티·keyframe·stop 수와 구 트랙 0건 | not selected — 산출물 직접 관측이 곧 계약이다 | EP-210 (1) |
 | ΔVP-211 | R-207 ↔ AT-210 | REGRESSION | 실행 앱 transcript | 사람 실기 | not selected — 시각·DPI 의존 | 0 |
 
@@ -301,7 +304,7 @@
 | R-205 / ΔVP-206 (**EP-206**) | 소비자 무분기 | 렌더 지점 | `statusLine.render.test.ts` | 테스트 실행 | 2 지점: JSX 렌더 지점 2 + `SparkSpinner` 소비자 1 전수 · 출력 `<svg>` 1 |
 | R-206 / ΔVP-207 (**EP-207**) | 인스턴스 비용 | 렌더 출력 + `app.css` | `statusLine.render.test.ts` · `sparkCss.test.ts` | 테스트 실행 | 5 지점: 애니메이션 5 · 노드 38 · stop 41 · property 차집합 0 · keyframe 전역 1개 |
 | R-206 / ΔVP-208 (**EP-208**) | 실시간 경로 비회귀 | `StatusLine.tsx` + 소스 그래프 | `statusLine.render.test.ts` · `sparkCss.test.ts` | 테스트 실행 | 3 지점: timer/state 0 · 인라인 style 0 · 원본/`.testlib` leak 0 |
-| R-206 / ΔVP-209 (**EP-209**) | 런타임 비용 | 실행 Chromium | 사람/에이전트 재현 | 측정 시 | 2 지점: rAF 프레임 > 0(측정 유효성) · 신 ≤ 구. 유효성 검사를 빼면 가려진 창의 0 을 "비용 없음" 으로 읽는다 |
+| R-206 / ΔVP-209 (**EP-209**) | 런타임 비용 | `app/scripts/measure-spinner-perf.mjs` | 하네스 + `measure-spinner-perf.test.mjs` + `statusLine.render.test.ts` | 측정 시 · 테스트 실행 | 4 지점: rAF 프레임 > 0(측정 유효성) · 신 ≤ 구 · **하네스의 신 마크업 = 컴포넌트 렌더 출력**(드리프트 금지) · **구 fixture 의 provenance 가 git 블롭으로 재생성 가능**. 유효성 검사를 빼면 가려진 창의 0 을 "비용 없음" 으로 읽고, 뒤 두 지점을 빼면 하네스가 프로덕션이 아닌 것을 잰다 |
 | R-208 / ΔVP-210 (**EP-210**) | 빌드 도달 | 번들 CSS | 사람/에이전트 재현 | 측정 시 | 1 지점: 유틸리티 5 + keyframe 5 + stop 41 + 구 트랙 0 |
 
 - SSOT 공유 방법: 트랙 클래스 이름은 `sparkTracks.ts` 의 **따옴표 리터럴**이 SSOT 다. `app.css` 는 사본이고 `sparkCss.test.ts` 가 이름 일치와 리터럴성을 함께 잠근다 — 조립하면 Tailwind 가 유틸리티를 방출하지 않아 스피너만 조용히 멈춘다.
@@ -323,6 +326,9 @@
 | `styles/tokens.css` | 고정색 | `--color-spinner: #C15F3C` | CSS 원문 |
 | `.gitattributes` | 줄바꿈 고정 | 새 원본 경로에 `text eol=lf` 행 추가 | `git check-attr` |
 | `docs/handoff/0216-.../{plan.md,spinner-reference.svg}` · `INDEX.md` | 설계·원본·보드 | 신규 | — |
+| `app/scripts/measure-spinner-perf.mjs` (신규, rev.3) | AT-211 오라클 | 페이지 생성 + Electron/CDP 측정 + CLI. `npm run measure:spinner-perf` | 순수 부분은 `.test.mjs` |
+| `app/scripts/measure-spinner-perf.test.mjs` (신규, rev.3) | 하네스의 순수 부분 | 페이지 생성·차분·요약. **Electron 을 띄우지 않는다**(`npm test` 가 돌린다) | `node --test` |
+| `app/scripts/fixtures/spinner-legacy-0208.html` (신규, rev.3) | 구 스피너 동결 스냅샷 | `a8d2d642^` 블롭에서 기계 렌더. 갱신 금지(D-210) | — |
 
 ### CSS 이식 규칙 (원본 → `app.css`)
 
@@ -387,7 +393,15 @@ app.css(spark-a~e) → @utility 리터럴 → SparkSpinner 그룹 5개 → 브�
 - layout 시간이 80.3 → 10.4ms(−87%)로 준 이유는 구 구현의 `<text>` 글리프 5개가 사라졌기 때문이다 — SVG 텍스트 레이아웃이 비용의 주범이었다.
 - 우려했던 축(step-end → cubic-bezier 보간)은 실측에서 **recalc 횟수가 두 구현 모두 초당 60회로 같다**. 구 구현도 이미 프레임마다 스타일을 재계산하고 있었고 보간으로 늘어난 항은 없다.
 - **측정 유효성 전제**: 창이 가려지면 rAF 가 멈춰 모든 수치가 0 이 된다. rAF 프레임 수를 먼저 재서 60fps 를 확인한 뒤 측정한다(§10 EP-209). 이 전제를 빠뜨린 1차 측정은 전 모드 recalc 0 을 냈고 폐기했다.
-- **측정의 한계**: 전체 앱이 아니라 격리 페이지다. 구/신을 같은 조건에서 비교한 값이라 비교는 유효하지만, 스트리밍 마크다운과 동시에 돌 때의 절대값은 아니다. 측정 하네스는 저장소에 커밋하지 않았다 — 재현은 위 방법 서술을 따른다.
+- **측정의 한계**: 전체 앱이 아니라 격리 페이지다. 구/신을 같은 조건에서 비교한 값이라 비교는 유효하지만, 스트리밍 마크다운과 동시에 돌 때의 절대값은 아니다.
+- **위 표는 폐기된 1차 기록이다(rev.3).** 하네스가 커밋되지 않아 재현되지 않았고, r1 verify 의 독립 재측정은 layout·main-thread task 에서 **반대 방향**을 냈다([`verify.md`](verify.md) §5). 판정 정본은 아래 rev.3 절이다.
+
+### 런타임 실측 — rev.3 (커밋된 하네스)
+
+- 오라클: `app/scripts/measure-spinner-perf.mjs`. 재현은 `cd app && npm run measure:spinner-perf` 한 줄이다.
+- 구 스피너는 `app/scripts/fixtures/spinner-legacy-0208.html` — `a8d2d642^` 블롭에서 기계적으로 렌더한 **동결 스냅샷**이다. 코드가 삭제됐으므로 이 파일이 "구" 의 유일한 정본이고, 갱신 대상이 아니다(D-210).
+- 신 스피너 마크업은 커밋된 원본 SVG 에서 파생하고, `statusLine.render.test.ts` 가 **그 파생물과 컴포넌트 렌더 출력의 등가**를 잠근다 — 하네스가 프로덕션과 갈라지면 테스트가 red 다.
+- 측정 결과와 판정은 `[구현자 기입]` 과 `verify.md` 가 갖는다 — 같은 수치를 세 곳에 적지 않는다.
 
 ### 빌드 산출 도달 (AT-212 · ΔVP-210)
 
@@ -439,6 +453,10 @@ app.css(spark-a~e) → @utility 리터럴 → SparkSpinner 그룹 5개 → 브�
 - `.gitattributes`
 - `docs/handoff/0216-spinner-artwork-swap/plan.md`
 - `docs/handoff/0216-spinner-artwork-swap/spinner-reference.svg`
+- `app/scripts/measure-spinner-perf.mjs` (신규, rev.3)
+- `app/scripts/measure-spinner-perf.test.mjs` (신규, rev.3)
+- `app/scripts/fixtures/spinner-legacy-0208.html` (신규, rev.3)
+- `app/package.json` (`measure:spinner-perf` 별칭, rev.3)
 - `docs/handoff/INDEX.md`
 
 ## 19. 게이트
@@ -448,7 +466,8 @@ app.css(spark-a~e) → @utility 리터럴 → SparkSpinner 그룹 5개 → 브�
 - 기본 정적 게이트: `cd app && npm run lint && npm run typecheck`.
 - 관련 테스트: `cd app && ./node_modules/.bin/vitest run src/renderer`.
 - 문서 게이트: `cd app && node scripts/check-doc-inventory.mjs --check`.
-- 재현 측정: §14 의 런타임 실측(AT-211) · 빌드 산출(AT-212).
+- 재현 측정: `cd app && npm run measure:spinner-perf`(AT-211) · §14 빌드 산출(AT-212).
+- 하네스를 추가하므로 `npm test` 의 `node --test scripts/*.test.mjs` 가 새 companion 을 함께 돈다 — 그 테스트는 Electron 을 띄우지 않는다.
 - 사람 실기: AT-210.
 - 커밋: 설계 커밋(`Status: designed`)과 구현 커밋(`Status: implemented`)을 **분리한다**. D-209 가 순서를 바꿨을 뿐 분리 규칙은 그대로다.
 
