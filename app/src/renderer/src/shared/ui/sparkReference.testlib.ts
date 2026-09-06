@@ -1,181 +1,161 @@
-// 0208 — 첨부 원본 SVG(`docs/handoff/0208-.../spinner-reference.svg`)를 읽는 **테스트 전용**
-// 파서. 프로덕션은 이 파일도 원본도 import 하지 않는다(D-017 — 원본은 54,552 bytes·~1,767
-// 노드라 번들에 들어가면 성능 계약이 깨진다). `sparkCss.test.ts` 가 그 0건을 센다.
+// 첨부 원본 SVG(`docs/handoff/0216-.../spinner-reference.svg`)를 읽는 **테스트 전용** 파서.
+// 프로덕션은 이 파일도 원본도 import 하지 않는다 — 원본은 c2pa manifest 를 포함한 14,401 bytes
+// 라 번들에 들어가면 성능 계약이 깨진다. `sparkCss.test.ts` 가 그 0건을 센다.
 //
-// 이 파서의 존재 이유: r1 은 기대값 240행을 테스트 파일에 **손으로 전사**했다. 그러면 oracle
-// 이 자기 전사본을 검증하는 허수아비가 되고 원본이 바뀌어도 테스트가 반응하지 않는다.
-// 여기서는 원본 XML 에서 직접 읽는다 — 특히 **key time 은 계산하지 않고 파일의 `%` 문자열을
-// 그대로 가져온다**(계산하면 런타임 쪽 공식과 같아져 대조가 순환이 된다).
+// 이 파서의 존재 이유: 기대값을 테스트 파일에 손으로 전사하면 oracle 이 자기 전사본을 검증하는
+// 허수아비가 되고, 원본이 바뀌어도 테스트가 반응하지 않는다. 여기서는 원본 XML 에서 직접
+// 읽는다 — 특히 **key time 은 계산하지 않고 파일의 `%` 문자열을 그대로 가져온다**.
 //
 // 구조가 예상과 다르면 **던진다**. 조용히 빈 값을 돌려주면 변조 fixture 가 통과한다.
 
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import type { SparkShape } from './sparkFrames'
+import type { SparkMark } from './sparkTracks'
 
-/** plan.md 와 같은 디렉터리에 사는 원본. 이 경로 문자열은 테스트에만 존재한다. */
+/** 원본이 사는 곳. 이 경로 문자열은 테스트에만 존재한다. */
 const REFERENCE_URL = new URL(
-  '../../../../../../docs/handoff/0208-spinner-instructions-usage-tooltip/spinner-reference.svg',
+  '../../../../../../docs/handoff/0216-spinner-artwork-swap/spinner-reference.svg',
   import.meta.url
 )
 
-export interface SpinnerReferenceFrame {
-  /** 이 슬롯에 보이는 마크. */
-  shape: SparkShape
-  /** 이 슬롯의 마크 배율 — 프레임 그룹의 `scale(...)`, 없으면 1. */
-  scale: number
+/** 마크 그룹의 자식 하나 — 태그 이름과 속성 맵. 속성 순서에 좌우되지 않게 맵으로 읽는다. */
+export interface SpinnerReferenceNode {
+  tag: 'line' | 'circle' | 'path'
+  attrs: Readonly<Record<string, string>>
+}
+
+/** `@keyframes kA` 한 stop — `%` 문자열은 파일 원문 그대로다. */
+export interface SpinnerReferenceStop {
+  at: string
+  transform: string
+  opacity: string
+}
+
+export interface SpinnerReferenceMark {
+  /** `.sA` → `'a'`. */
+  id: SparkMark
+  nodes: readonly SpinnerReferenceNode[]
+  stops: readonly SpinnerReferenceStop[]
 }
 
 export interface SpinnerReference {
-  /** 프레임 그룹 순서대로 — 원본의 시간 슬롯 전수. */
-  frames: readonly SpinnerReferenceFrame[]
-  /** `@keyframes spark-frames` 의 stop 문자열 전수(`'0.4149'` 꼴). 계산값이 아니다. */
-  keyTimesPct: readonly string[]
-  /** 바깥 `<svg style="color:…">` 의 고정색. */
+  /** 루트 `<svg fill=… stroke=…>` 의 고정색. */
   color: string
-  /** 애니메이션 한 바퀴(ms). */
-  periodMs: number
-  /** 계단 타이밍 함수 — 원본은 `steps(1, end)`. */
-  timingFunction: string
   width: number
   height: number
   viewBox: string
-  /** `<defs>` 의 `#ten-spoked` 기하. */
-  spoke: {
-    strokeWidth: string
-    strokeLinecap: string
-    transform: string
-    /** 살 10개의 회전각(0 은 transform 없음 → 0 으로 읽는다). */
-    angles: readonly number[]
-    x1: string
-    y1: string
-    x2: string
-    y2: string
-  }
-  dot: { cx: string; cy: string; r: string }
-  text: {
-    x: string
-    y: string
-    fontSize: string
-    fontFamily: string
-    textAnchor: string
-    dominantBaseline: string
-  }
-  /** 글리프 5종 — 원본 등장 순서. */
-  glyphs: readonly string[]
+  /** `.s` 의 `animation-duration` 을 ms 로 환산한 값. */
+  periodMs: number
+  /** `.s` 의 `animation-timing-function` — 공백·선행 0 을 정규화한 문자열. */
+  timingFunction: string
+  transformBox: string
+  transformOrigin: string
+  /** `.s` 의 기본 불투명도 — 마크는 꺼진 채로 시작한다. */
+  baseOpacity: string
+  /** 원본 등장 순서대로 마크 5종. */
+  marks: readonly SpinnerReferenceMark[]
+  /** 감속 모션에서 홀로 남는 마크. */
+  reducedMotionMark: SparkMark
   /** 원본이 감속 모션에서 애니메이션을 끄는가. */
   reducedMotionStops: boolean
 }
 
-function required(value: string | null | undefined, what: string): string {
+function required<T>(value: T | null | undefined, what: string): T {
   if (value == null || value === '') throw new Error(`spinner-reference: ${what} 를 찾지 못했다`)
   return value
 }
 
-function attr(tag: string, name: string): string | undefined {
-  return new RegExp(`\\b${name}="([^"]*)"`).exec(tag)?.[1]
+/** `cubic-bezier(.35,0,.25,1)` 과 `cubic-bezier(0.35, 0, 0.25, 1)` 을 같은 문자열로 만든다. */
+export function normalizeTimingFunction(value: string): string {
+  return value.replace(/\s+/g, '').replace(/(^|[(,])\./g, '$10.')
 }
 
-/** 스타일 블록의 선언 값 — `.spark-text { font-size: 58px }` 같은 한 줄. */
-function decl(css: string, selector: string, property: string): string {
-  const block = new RegExp(`\\.${selector}\\s*\\{([^}]*)\\}`).exec(css)?.[1]
-  const value = new RegExp(`\\b${property}\\s*:\\s*([^;]+);`).exec(required(block, selector))?.[1]
-  return required(value, `${selector} 의 ${property}`).trim()
+/** 스타일 블록의 선언 값 — `.s { … }` 같은 규칙 하나에서 한 속성을 읽는다. */
+function decl(rule: string, property: string, what: string): string {
+  return required(
+    new RegExp(`(?:^|[;{\\s])${property}\\s*:\\s*([^;}]+)`).exec(rule)?.[1],
+    what
+  ).trim()
+}
+
+/** 태그 원문 → 속성 맵. */
+function attrsOf(tag: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const m of tag.matchAll(/([a-zA-Z-]+)="([^"]*)"/g)) out[m[1]] = m[2]
+  return out
 }
 
 export function parseSpinnerReference(svg: string): SpinnerReference {
-  const rootTag = required(/<svg\b[\s\S]*?>/.exec(svg)?.[0], '루트 <svg>')
-  const style = required(attr(rootTag, 'style'), '루트 svg 의 style')
-  const color = required(/color:\s*(#[0-9a-f]{6})/i.exec(style)?.[1], '고정색')
+  // c2pa manifest 는 base64 덩어리라 아래 정규식들이 그 안에서 오탐할 수 있다 — 먼저 잘라낸다.
+  const body = svg.replace(/<metadata>[\s\S]*?<\/metadata>/, '')
 
-  // --- 프레임 그룹 전수 ---
-  const stripAt = svg.indexOf('<g class="spark-strip">')
-  if (stripAt < 0) throw new Error('spinner-reference: spark-strip 그룹이 없다')
-  const chunks = svg
-    .slice(stripAt)
-    .split(/<g transform="translate\(0 (\d+)\)">/)
-    .slice(1)
-  const frames: SpinnerReferenceFrame[] = []
-  for (let i = 0; i < chunks.length; i += 2) {
-    const offsetY = Number(chunks[i])
-    const body = chunks[i + 1]
-    if (offsetY !== frames.length * 100) {
-      throw new Error(`spinner-reference: 프레임 ${frames.length} 의 translateY 가 ${offsetY} 다`)
-    }
-    const scale = Number(/scale\(([\d.]+)\)/.exec(body)?.[1] ?? 1)
-    let shape: SparkShape
-    if (body.includes('<use href="#ten-spoked"/>')) shape = 'spoke'
-    else if (body.includes('<circle')) shape = 'dot'
-    else {
-      const glyph = /<text[^>]*>([^<]+)<\/text>/.exec(body)?.[1]
-      shape = required(glyph, `프레임 ${frames.length} 의 마크`) as SparkShape
-    }
-    frames.push({ shape, scale })
+  const rootTag = required(/<svg\b[\s\S]*?>/.exec(body)?.[0], '루트 <svg>')
+  const root = attrsOf(rootTag)
+  const color = required(root.fill, '루트 svg 의 fill')
+  if (root.stroke !== color) {
+    throw new Error(`spinner-reference: fill(${color}) 과 stroke(${root.stroke}) 가 다르다`)
   }
-  if (frames.length === 0) throw new Error('spinner-reference: 프레임이 하나도 없다')
 
-  // --- key time: 파일의 문자열을 그대로 (계산 금지) ---
-  const keyframesBlock = required(
-    /@keyframes spark-frames \{([\s\S]*?)\n {4}\}/.exec(svg)?.[1],
-    '@keyframes spark-frames'
+  const style = required(/<style>([\s\S]*?)<\/style>/.exec(body)?.[1], '<style> 블록')
+
+  // --- `.s` 공통 선언 ---
+  const baseRule = required(/\.s\s*\{([^}]*)\}/.exec(style)?.[1], '.s 규칙')
+  const duration = decl(baseRule, 'animation-duration', '.s 의 animation-duration')
+  const seconds = Number(required(/^([\d.]+)s$/.exec(duration)?.[1], `duration ${duration}`))
+
+  // --- 감속 모션 ---
+  const reduced = required(
+    /@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n {4}\}/.exec(style)?.[1],
+    'prefers-reduced-motion 블록'
   )
-  const keyTimesPct = [
-    ...keyframesBlock.matchAll(/([\d.]+)% \{ transform: translateY\(-\d+px\); \}/g)
-  ].map((m) => m[1])
+  const reducedMark = required(
+    /\.s([A-E])\s*\{\s*opacity:\s*1\s*\}/.exec(reduced)?.[1],
+    '감속 모션에서 남는 마크'
+  ).toLowerCase() as SparkMark
 
-  // --- 애니메이션 선언 ---
-  const animation = decl(svg, 'spark-strip', 'animation')
-  const periodMs = Number(required(/(\d+)ms/.exec(animation)?.[1], 'animation duration'))
-  const timingFunction = required(/(steps\([^)]*\))/.exec(animation)?.[1], 'timing function')
+  // --- 마크 그룹 전수 (문서 순서) ---
+  const marks: SpinnerReferenceMark[] = []
+  for (const group of body.matchAll(/<g class="s s([A-E])">([\s\S]*?)<\/g>/g)) {
+    const id = group[1].toLowerCase() as SparkMark
+    const nodes = [...group[2].matchAll(/<(line|circle|path)\b([^>]*?)\/>/g)].map((m) => ({
+      tag: m[1] as SpinnerReferenceNode['tag'],
+      attrs: attrsOf(m[0])
+    }))
+    if (nodes.length === 0) throw new Error(`spinner-reference: 마크 ${id} 에 자식이 없다`)
 
-  // --- 기하 ---
-  const defs = required(/<g id="ten-spoked"[\s\S]*?<\/g>/.exec(svg)?.[0], '#ten-spoked')
-  const spokeTag = required(/<g id="ten-spoked"[^>]*>/.exec(defs)?.[0], '#ten-spoked 여는 태그')
-  const lines = [...defs.matchAll(/<line\b[^>]*\/>/g)].map((m) => m[0])
-  if (lines.length === 0) throw new Error('spinner-reference: spoke <line> 이 없다')
-  const angles = lines.map((l) => Number(/rotate\((\d+)/.exec(l)?.[1] ?? 0))
-  const circleTag = required(/<circle\b[^>]*\/>/.exec(svg)?.[0], '<circle>')
-  const textTag = required(/<text\b[^>]*>/.exec(svg)?.[0], '<text>')
+    // `.sA{animation-name:kA}` — 마크와 키프레임의 연결도 파일에서 읽는다.
+    const keyframeName = required(
+      new RegExp(`\\.s${group[1]}\\s*\\{\\s*animation-name\\s*:\\s*(\\w+)\\s*\\}`).exec(style)?.[1],
+      `마크 ${id} 의 animation-name`
+    )
+    const block = required(
+      new RegExp(`@keyframes ${keyframeName} \\{([\\s\\S]*?)\\n {4}\\}`).exec(style)?.[1],
+      `@keyframes ${keyframeName}`
+    )
+    const stops = [
+      ...block.matchAll(/([\d.]+)% \{ transform: (scale\([\d.]+\)); opacity: ([\d.]+); \}/g)
+    ].map((m) => ({ at: m[1], transform: m[2], opacity: m[3] }))
+    if (stops.length === 0) throw new Error(`spinner-reference: ${keyframeName} 의 stop 이 없다`)
 
-  const glyphs: string[] = []
-  for (const { shape } of frames) {
-    if (shape !== 'spoke' && shape !== 'dot' && !glyphs.includes(shape)) glyphs.push(shape)
+    marks.push({ id, nodes, stops })
   }
+  if (marks.length === 0) throw new Error('spinner-reference: 마크 그룹이 하나도 없다')
 
   return {
-    frames,
-    keyTimesPct,
     color,
-    periodMs,
-    timingFunction,
-    width: Number(required(attr(rootTag, 'width'), 'svg width')),
-    height: Number(required(attr(rootTag, 'height'), 'svg height')),
-    viewBox: required(attr(rootTag, 'viewBox'), 'viewBox'),
-    spoke: {
-      strokeWidth: required(attr(spokeTag, 'stroke-width'), 'stroke-width'),
-      strokeLinecap: required(attr(spokeTag, 'stroke-linecap'), 'stroke-linecap'),
-      transform: required(attr(spokeTag, 'transform'), 'spoke transform'),
-      angles,
-      x1: required(attr(lines[0], 'x1'), 'line x1'),
-      y1: required(attr(lines[0], 'y1'), 'line y1'),
-      x2: required(attr(lines[0], 'x2'), 'line x2'),
-      y2: required(attr(lines[0], 'y2'), 'line y2')
-    },
-    dot: {
-      cx: required(attr(circleTag, 'cx'), 'circle cx'),
-      cy: required(attr(circleTag, 'cy'), 'circle cy'),
-      r: required(attr(circleTag, 'r'), 'circle r')
-    },
-    text: {
-      x: required(attr(textTag, 'x'), 'text x'),
-      y: required(attr(textTag, 'y'), 'text y'),
-      fontSize: decl(svg, 'spark-text', 'font-size'),
-      fontFamily: decl(svg, 'spark-text', 'font-family'),
-      textAnchor: decl(svg, 'spark-text', 'text-anchor'),
-      dominantBaseline: decl(svg, 'spark-text', 'dominant-baseline')
-    },
-    glyphs,
-    reducedMotionStops: /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation: none/.test(svg)
+    width: Number(required(root.width, 'svg width')),
+    height: Number(required(root.height, 'svg height')),
+    viewBox: required(root.viewBox, 'viewBox'),
+    periodMs: seconds * 1000,
+    timingFunction: normalizeTimingFunction(
+      decl(baseRule, 'animation-timing-function', '.s 의 animation-timing-function')
+    ),
+    transformBox: decl(baseRule, 'transform-box', '.s 의 transform-box'),
+    transformOrigin: decl(baseRule, 'transform-origin', '.s 의 transform-origin'),
+    baseOpacity: decl(baseRule, 'opacity', '.s 의 opacity'),
+    marks,
+    reducedMotionMark: reducedMark,
+    reducedMotionStops: /\.s\s*\{\s*animation:\s*none\s*\}/.test(reduced)
   }
 }
 
