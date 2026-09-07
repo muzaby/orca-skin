@@ -1,16 +1,21 @@
-import { execFile } from 'node:child_process'
-import { mkdtemp, mkdir, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, realpath, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { promisify } from 'node:util'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { execGit as exec, removeTempRoots } from './temp-repo.testfixture'
 import { resolveHead, resolveHeadRef, resolveRepoRoot } from './repository'
 
-const exec = promisify(execFile)
+// **파일 예산 72s** — 최악 케이스(detached HEAD)는 실제 git 을 직렬로 8회 띄운다
+// (`repo()` 3 + `commit()` 3 + checkout 1 + `resolveHead*` 1). self-hosted windows 러너의 실측 spawn 은 약 6s 로
+// 레포 기준(약 2s)의 3배라, 상한을 8 × 6s × 1.5(여유) = 72s 로 잡는다. 글로벌 20s
+// (`vitest.config.ts`)는 그대로 두고 **이 파일만** 넓힌다. 훅도 같은 값이다 — 기본 10s 는
+// 실제 저장소를 만드는 훅을 담지 못하고, 끊긴 훅은 고아를 남겨 정리까지 함께 무너뜨린다.
+vi.setConfig({ testTimeout: 72_000, hookTimeout: 72_000 })
+
 const roots: string[] = []
-afterEach(async () =>
-  Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
-)
+// 정리는 `removeTempRoots` 하나로 모은다 — `rm` 을 직접 부르면 끊긴 케이스가 남긴 고아 git
+// 자식을 그대로 밟아 EBUSY/EPERM 이 난다(픽스처 주석 참고).
+afterEach(() => removeTempRoots(roots.splice(0)))
 
 describe('resolveRepoRoot', () => {
   it('canonicalizes the root returned from a nested repository cwd', async () => {

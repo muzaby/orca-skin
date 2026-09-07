@@ -55,6 +55,11 @@ jobs:
       - name: Doc inventory guard (counts + prose + links)
         run: node scripts/check-doc-inventory.mjs --check
 
+      # 실-git 스위트가 파일 레벨 시간 예산(`vi.setConfig`)과 고아 정리 경로
+      # (`removeTempRoots`)를 지키는지. 0218 러너 12건이 이 계약이 없어 났다. 순수 Node.
+      - name: Test budget guard (real-git suites)
+        run: node scripts/check-test-budgets.mjs
+
       - name: Lint
         run: npm run lint
 

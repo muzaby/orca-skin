@@ -6,17 +6,30 @@
 // 에서 그대로 돈다.
 
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { removeTempRoots } from './temp-repo.testfixture'
 import { gitBranches, gitCheckout, gitStatus } from './git-cli'
+
+// **파일 예산 369s** — 최악 케이스(origin 주소 정규화)는 실제 git 을 41회 띄운다
+// (`makeRepo` 7 + `gitStatus` 7회 28 + remote·worktree 조작 6). `gitStatus` 는 한 번에 4개를
+// 띄우고 그중 셋만 병렬이라, 러너 부하에서는 병렬분도 결국 같은 CPU 를 나눠 쓴다 — 그래서
+// **직렬 가정으로 센다**. self-hosted windows 러너의 실측 spawn 은 약 6s 로 레포 기준(약 2s)의
+// 3배라, 상한을 41 × 6s × 1.5(여유) = 369s 로 잡는다. 글로벌 20s(`vitest.config.ts`)는 그대로
+// 두고 **이 파일만** 넓힌다.
+//
+// 케이스별 인라인 캡(옛 30s)은 두지 않는다 — 인라인 값이 더 작으면 파일 예산을 조용히 이겨
+// 예산을 건 의미가 사라진다(0218 에서 `service.test.ts` 가 198s 예산에 30s 캡으로 죽었다).
+// `scripts/check-test-budgets.mjs` 가 이 두 규칙을 게이트로 잡는다.
+vi.setConfig({ testTimeout: 369_000, hookTimeout: 369_000 })
 
 const roots: string[] = []
 
-afterEach(() => {
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
-})
+// 정리는 `removeTempRoots` 하나로 모은다 — `rm` 을 직접 부르면 끊긴 케이스가 남긴 고아 git
+// 자식을 그대로 밟아 EBUSY/EPERM 이 난다(픽스처 주석 참고).
+afterEach(() => removeTempRoots(roots.splice(0)))
 
 function git(cwd: string, ...args: string[]): string {
   return String(execFileSync('git', args, { cwd, encoding: 'utf8' }))
@@ -77,7 +90,7 @@ describe('gitStatus / gitBranches', () => {
     expect((await gitStatus(repo)).githubUrl).toBe('https://github.company.com/owner/next')
     git(repo, 'remote', 'remove', 'origin')
     expect((await gitStatus(repo)).githubUrl).toBeNull()
-  }, 30000)
+  })
 
   it('저장소가 아니면 isRepo:false 이고 브랜치도 비운다', async () => {
     const plain = mkdtempSync(join(tmpdir(), 'orca-plain-'))

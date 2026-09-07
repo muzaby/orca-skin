@@ -1,15 +1,13 @@
-import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join, relative, sep } from 'node:path'
-import { promisify } from 'node:util'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { execGit as exec, removeTempRoots } from '../../infra/git/temp-repo.testfixture'
 import type { DbQueries } from '../../infra/db'
 import { isWithinDir } from '../../infra/config/paths'
 import { WorktreeService } from './service'
 import { addWorktree, deleteBranch, listWorktrees, removeWorktree } from '../../infra/git/worktree'
 
-const exec = promisify(execFile)
 // **파일 예산 198s** — 최악 케이스(AT-44 · D-072)는 실제 git 을 직렬로 22회 띄운다
 // (`repository()` 5 + 기준 브랜치 준비 5 + `prepare()` 2회 12). self-hosted windows 러너의
 // 실측 spawn 은 약 6s 로 레포 기준(약 2s)의 3배라, 상한을 22 × 6s × 1.5(여유) = 198s 로 잡는다.
@@ -17,13 +15,16 @@ const exec = promisify(execFile)
 // 쓰지 않는 3천여 케이스의 멈춤 보고까지 함께 늦어진다. 훅도 같은 값이다: 예산이 끊긴
 // 케이스는 git 핸들을 연 채 죽고, 남은 고아가 정리 `rm` 을 EBUSY 로 밀어 케이스 하나의
 // 실패가 스위트 전체로 번진다.
+// 케이스별 인라인 캡은 두지 않는다 — 더 작은 인라인 값이 파일 예산을 조용히 이긴다.
+// 0218 러너에서 이 파일이 정확히 그렇게 죽었다: 예산은 198s 인데 한 케이스에 30s 캡이 남아
+// 있어 그 캡이 이겼다. `scripts/check-test-budgets.mjs` 가 재발을 잡는다.
 vi.setConfig({ testTimeout: 198_000, hookTimeout: 198_000 })
 
 const roots: string[] = []
 
-afterEach(async () => {
-  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
-})
+// 정리는 `removeTempRoots` 하나로 모은다 — `rm` 을 직접 부르면 끊긴 케이스가 남긴 고아 git
+// 자식을 그대로 밟아 EBUSY/EPERM 이 난다(픽스처 주석 참고).
+afterEach(() => removeTempRoots(roots.splice(0)))
 
 async function repository(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'orca-worktree-test-'))
@@ -92,7 +93,7 @@ describe('WorktreeService', () => {
     // 둘째 칸은 실제로 만들어진 브랜치에서 파생된다 — 두 준비의 브랜치가 다르면 칸도 다르다.
     for (const row of rows) expect(segmentsOf(row)[1]).toBe(row.branch.replace(/\//g, '-'))
     expect(segmentsOf(rows[0])[1]).not.toBe(segmentsOf(rows[1])[1])
-  }, 30_000)
+  })
 
   it('repository 하위 cwd를 managed worktree 안의 같은 subpath로 보존한다', async () => {
     const repo = await repository()

@@ -19,21 +19,30 @@ describe('repository mutation queue', () => {
     await symlink(repo, alias, process.platform === 'win32' ? 'junction' : 'dir')
     expect(await canonicalRepoKey(alias)).toBe(await realpath(repo))
 
-    // 게이트는 **호출 전에** 만든다. `withRepoMutation` 은 콜백을 부르기 전에 `realpath` 로
-    // 저장소 키를 canonical 화하고, 그 한 칸이 아래 대기보다 길면 콜백이 아직 돌지 않아
-    // `release` 가 미할당인 채로 불린다 — 잠금이 아니라 픽스처가 무너지는 자리다(느린 러너
-    // 에서 실측). 여기서 만들면 executor 가 동기라 `release` 는 첫 호출 전에 이미 있다.
+    // **획득을 시간이 아니라 사실로 기다린다** (`queue-entry.test.ts` 와 같은 형태, 0218 I-05).
+    // `withRepoMutation` 은 큐 슬롯을 잡기 **전에** `canonicalRepoKey`(realpath)를 await 한다.
+    // 두 호출을 연달아 띄우면 둘은 realpath 완료 순서를 두고 경쟁하고, alias 쪽이 먼저 끝나면
+    // 그쪽이 슬롯을 잡아 즉시 실행된다 — "먼저 띄운 쪽이 이겼겠지" 를 고정 대기로 가정하면
+    // 부하가 걸린 병렬 실행에서 그대로 뒤집힌다(실측).
     let release!: () => void
-    const gate = new Promise<void>((resolve) => {
-      release = resolve
+    let acquired!: () => void
+    const acquisition = new Promise<void>((resolve) => {
+      acquired = resolve
     })
-    const first = withRepoMutation(repo, () => gate)
+    const first = withRepoMutation(repo, () => {
+      acquired()
+      return new Promise<void>((resolve) => {
+        release = resolve
+      })
+    })
+    // 여기를 지나면 tail 이 이미 등록돼 있어 alias 쪽은 반드시 뒤에 줄 선다.
+    await acquisition
     let secondStarted = false
     const second = withRepoMutation(alias, async () => {
       secondStarted = true
     })
-    // 음성 단언이라 늦어져도 뒤집히지 않는다 — 느려서 안 돈 것과 잠겨서 못 돈 것을 가르는
-    // 것은 아래 `release()` 뒤의 양성 단언이다.
+    // 잠금이 성립하면 이 창에서 아무것도 일어나지 않는다. 늦어서 안 돈 것과 잠겨서 못 돈 것을
+    // 가르는 것은 아래 `release()` 뒤의 양성 단언이다.
     await new Promise((resolve) => setTimeout(resolve, 10))
     expect(secondStarted).toBe(false)
     release()

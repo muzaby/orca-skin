@@ -11,6 +11,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { removeTempRoots } from './temp-repo.testfixture'
 import { gitDiffPatch, gitDiffSummary, resolveDiffRange, type GitDiffRunner } from './git-diff'
 import { runGit, type GitRunResult } from './runner'
 import type { GitDiffPatchFile } from '../../../shared/ipc'
@@ -40,9 +41,9 @@ vi.setConfig({ testTimeout: 135_000, hookTimeout: 135_000 })
 
 const dirs: string[] = []
 
-afterAll(async () => {
-  await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })))
-})
+// 정리는 `removeTempRoots` 하나로 모은다 — `rm` 을 직접 부르면 끊긴 케이스가 남긴 고아 git
+// 자식을 그대로 밟아 EBUSY/EPERM 이 난다(픽스처 주석 참고).
+afterAll(() => removeTempRoots(dirs.splice(0)))
 
 async function git(cwd: string, args: string[]): Promise<void> {
   const result = await runGit(cwd, args)
@@ -500,12 +501,11 @@ describe('세션 파일 목록의 status (AT-39 산출 동등 · EP-25 ①)', ()
     await git(repo, ['commit', '-m', 'four statuses'])
   })
 
-  afterAll(async () => {
-    // `beforeAll` 이 예산 초과나 git 실패로 중간에 끊기면 `repo` 는 할당되기 전이다. 그때
-    // `rm(undefined)` 는 TypeError 를 던져, 원인(훅 실패) 위에 정리 실패를 한 겹 더 쌓는다.
-    if (!repo) return
-    await rm(repo, { recursive: true, force: true })
-  })
+  afterAll(() =>
+    // `beforeAll` 이 예산 초과나 git 실패로 중간에 끊기면 `repo` 는 할당되기 전이다. 빈 목록을
+    // 넘기는 것이 곧 no-op 이라, 원인(훅 실패) 위에 정리 실패를 한 겹 더 쌓지 않는다.
+    removeTempRoots(repo ? [repo] : [])
+  )
 
   it('추가·삭제·수정·이름변경이 각각 다른 status 로 온다', async () => {
     const summary = await gitDiffSummary({ cwd: repo, baseOid })

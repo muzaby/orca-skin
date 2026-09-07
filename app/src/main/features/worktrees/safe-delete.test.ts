@@ -7,17 +7,15 @@
 // AC16 · VP-16 — porcelain 목록에 외부 worktree 가 섞여 있어도 remove 대상은 managed row 뿐이다.
 // 분류가 목록 순서나 개수에 기대면 외부 작업이 지워진다.
 
-import { execFile } from 'node:child_process'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { promisify } from 'node:util'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { execGit as exec, removeTempRoots } from '../../infra/git/temp-repo.testfixture'
 import type { DbQueries } from '../../infra/db'
 import { addWorktree, deleteBranch, listWorktrees, removeWorktree } from '../../infra/git/worktree'
 import { WorktreeService } from './service'
 
-const exec = promisify(execFile)
 // **파일 예산 171s** — 최악 케이스(AC16 · VP-16)는 실제 git 을 직렬로 19회 띄운다
 // (`repository()` 5 + `managedSession()` 의 `prepare()` 6 + 외부 worktree 3 + `removeForSession()` 4
 // + 목록 확인 1). self-hosted windows 러너의 실측 spawn 은 약 6s 로 레포 기준(약 2s)의 3배라,
@@ -29,9 +27,9 @@ const exec = promisify(execFile)
 vi.setConfig({ testTimeout: 171_000, hookTimeout: 171_000 })
 
 const roots: string[] = []
-afterEach(async () =>
-  Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
-)
+// 정리는 `removeTempRoots` 하나로 모은다 — `rm` 을 직접 부르면 끊긴 케이스가 남긴 고아 git
+// 자식을 그대로 밟아 EBUSY/EPERM 이 난다(픽스처 주석 참고).
+afterEach(() => removeTempRoots(roots.splice(0)))
 
 async function repository(): Promise<string> {
   const repo = await mkdtemp(join(tmpdir(), 'orca-safe-delete-'))
