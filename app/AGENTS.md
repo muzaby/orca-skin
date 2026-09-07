@@ -146,6 +146,7 @@ Tailwind 시맨틱 토큰 · 그룹 스코프 격리(`group/<이름>`) · 단일
 - `check-migrations-appendonly.mjs` — 머지된 마이그레이션 파일 수정 금지(아래 DB 정책)를 **기계 강제** (CI·release 게이트).
 - `check-doc-inventory.mjs` — 문서가 코드 수치를 재서술하지 않는지 + 상대 링크가 해석되는지 **기계 강제**. `docs/generated/inventory.md` 를 재생성하고 `--check` 로 커밋본과 대조한다. 순수 Node 라 ABI 무관.
 - `validate-release-version.mjs` — `v*` 태그 ↔ `package.json` 버전 일치 검증 (release.yml fail-fast).
+- `check-test-budgets.mjs` — **실-git 스위트의 파일 레벨 시간 예산**을 기계 강제 (CI 게이트 + `npm test`). 실제 git 을 띄우는 `*.test.ts` 는 최상위 `vi.setConfig({ testTimeout, hookTimeout })` 을 갖고, 케이스별 인라인 타임아웃을 두지 않으며(더 작은 값이 파일 예산을 조용히 이긴다), 정리는 `infra/git/temp-repo.testfixture` 의 `removeTempRoots` 를 지나야 한다(끊긴 케이스가 남긴 고아 git 자식 때문에 `rm` 이 EBUSY/EPERM 으로 재실패하는 연쇄를 막는다). 순수 Node 라 ABI 무관.
 - `validate-dist.mjs` — 릴리스 산출물(installer/latest.yml/blockmap) sha512 재계산 검증.
 - `analyze-composer-input-trace.mjs` — Composer 입력 트레이스 분석 (0145 진단 도구).
 

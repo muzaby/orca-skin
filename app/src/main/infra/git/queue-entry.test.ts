@@ -5,21 +5,26 @@
 // 채 각 API 를 부르고 **git 부작용이 아직 일어나지 않았음**을 본다. 시간이 아니라 상태를
 // 관측하므로 느린 러너에서도 판정이 뒤집히지 않는다.
 
-import { execFile } from 'node:child_process'
-import { access, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { access, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { promisify } from 'node:util'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { execGit as exec, removeTempRoots } from './temp-repo.testfixture'
 import { withRepoMutation } from './mutation-queue'
 import { addWorktree, deleteBranch, listWorktrees, removeWorktree } from './worktree'
 import { gitCheckout } from './git-cli'
 
-const exec = promisify(execFile)
+// **파일 예산 117s** — 최악 케이스(`gitCheckout`)는 실제 git 을 직렬로 13회 띄운다
+// (`repository()` 6 + 브랜치·조회 3 + `gitCheckout` 4). self-hosted windows 러너의 실측 spawn 은 약 6s 로
+// 레포 기준(약 2s)의 3배라, 상한을 13 × 6s × 1.5(여유) = 117s 로 잡는다. 글로벌 20s
+// (`vitest.config.ts`)는 그대로 두고 **이 파일만** 넓힌다. 훅도 같은 값이다 — 기본 10s 는
+// 실제 저장소를 만드는 훅을 담지 못하고, 끊긴 훅은 고아를 남겨 정리까지 함께 무너뜨린다.
+vi.setConfig({ testTimeout: 117_000, hookTimeout: 117_000 })
+
 const roots: string[] = []
-afterEach(async () =>
-  Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
-)
+// 정리는 `removeTempRoots` 하나로 모은다 — `rm` 을 직접 부르면 끊긴 케이스가 남긴 고아 git
+// 자식을 그대로 밟아 EBUSY/EPERM 이 난다(픽스처 주석 참고).
+afterEach(() => removeTempRoots(roots.splice(0)))
 
 async function repository(): Promise<{ repo: string; head: string }> {
   const repo = await mkdtemp(join(tmpdir(), 'orca-queue-entry-'))

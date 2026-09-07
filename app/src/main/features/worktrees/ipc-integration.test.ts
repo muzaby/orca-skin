@@ -6,14 +6,13 @@
 //
 // 곁들여 EP-04 의 음성 축을 장치로 만든다 — feature 는 git 명령을 직접 만들지 않는다.
 
-import { execFile } from 'node:child_process'
 import { readFileSync } from 'node:fs'
-import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, realpath, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { promisify } from 'node:util'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { execGit as exec, removeTempRoots } from '../../infra/git/temp-repo.testfixture'
 import { SendChatMessageSchema } from '../../../shared/protocol'
 import type { DbQueries } from '../../infra/db'
 import { isWithinDir } from '../../infra/config/paths'
@@ -21,7 +20,6 @@ import { listWorktrees } from '../../infra/git/worktree'
 import { sourceFiles, stripCommentsAndStrings } from '../../infra/source-scan'
 import { WorktreeService } from './service'
 
-const exec = promisify(execFile)
 // **파일 예산 117s** — 최악 케이스(AC1 · AC2)는 실제 git 을 직렬로 13회 띄운다(저장소 준비 5 +
 // `prepare()` 6 + `worktree list` 1 + `rev-parse` 1). self-hosted windows 러너의 실측 spawn 은
 // 약 6s 로 레포 기준(약 2s)의 3배라, 상한을 13 × 6s × 1.5(여유) = 117s 로 잡는다.
@@ -32,9 +30,9 @@ const exec = promisify(execFile)
 vi.setConfig({ testTimeout: 117_000, hookTimeout: 117_000 })
 
 const roots: string[] = []
-afterEach(async () =>
-  Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
-)
+// 정리는 `removeTempRoots` 하나로 모은다 — `rm` 을 직접 부르면 끊긴 케이스가 남긴 고아 git
+// 자식을 그대로 밟아 EBUSY/EPERM 이 난다(픽스처 주석 참고).
+afterEach(() => removeTempRoots(roots.splice(0)))
 
 describe('renderer payload → schema → service → git (AC1 · AC2 · VP-09)', () => {
   it('renderer 가 보낸 격리 요청이 실제 worktree 와 branch 로 도착한다', async () => {

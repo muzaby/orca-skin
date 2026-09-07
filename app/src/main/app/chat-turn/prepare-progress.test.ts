@@ -11,10 +11,11 @@
 // git operations 만 fake 다. `onProgress` 호출부는 **프로덕션 코드 그대로** 지나므로 이
 // 배열이 AT-01 의 분모(5)를 실제로 센다.
 
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
+import { removeTempRoots } from '../../infra/git/temp-repo.testfixture'
 import type { WorktreePrepareStep } from '../../../shared/ipc'
 import { runGit } from '../../infra/git/runner'
 import { prepareTurnWorktree } from './prepare-worktree'
@@ -29,9 +30,9 @@ import { WorktreeService } from '../../features/worktrees/service'
 vi.setConfig({ testTimeout: 99_000, hookTimeout: 99_000 })
 
 const dirs: string[] = []
-afterAll(async () => {
-  await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })))
-})
+// 정리는 `removeTempRoots` 하나로 모은다 — `rm` 을 직접 부르면 끊긴 케이스가 남긴 고아 git
+// 자식을 그대로 밟아 EBUSY/EPERM 이 난다(픽스처 주석 참고).
+afterAll(() => removeTempRoots(dirs.splice(0)))
 
 async function git(cwd: string, args: string[]): Promise<void> {
   const result = await runGit(cwd, args)

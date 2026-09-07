@@ -4,17 +4,15 @@
 // 오염시키지 않는다**는 것을 본다 — 준비가 실패한 뒤 서비스가 내부 상태를 남기면 다음 세션이
 // 같은 이유로 계속 거부된다.
 
-import { execFile } from 'node:child_process'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { promisify } from 'node:util'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { execGit as exec, removeTempRoots } from '../../infra/git/temp-repo.testfixture'
 import type { DbQueries } from '../../infra/db'
 import * as repository from '../../infra/git/repository'
 import { WorktreeService } from './service'
 
-const exec = promisify(execFile)
 // **파일 예산 117s** — 최악 케이스(거부 뒤 재시도)는 실제 git 을 직렬로 13회 띄운다
 // (`repo()` 5 + 거부되는 `prepare()` 2 + 성공하는 `prepare()` 6). self-hosted windows 러너의
 // 실측 spawn 은 약 6s 로 레포 기준(약 2s)의 3배라, 상한을 13 × 6s × 1.5(여유) = 117s 로 잡는다.
@@ -25,9 +23,11 @@ const exec = promisify(execFile)
 vi.setConfig({ testTimeout: 117_000, hookTimeout: 117_000 })
 
 const roots: string[] = []
+// 정리는 `removeTempRoots` 하나로 모은다 — `rm` 을 직접 부르면 끊긴 케이스가 남긴 고아 git
+// 자식을 그대로 밟아 EBUSY/EPERM 이 난다(픽스처 주석 참고).
 afterEach(async () => {
   vi.restoreAllMocks()
-  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
+  await removeTempRoots(roots.splice(0))
 })
 
 async function repo(): Promise<string> {
