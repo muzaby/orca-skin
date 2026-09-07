@@ -1,10 +1,13 @@
 # Orca Windows SRT 도입 제안
 
+> **사용자 결정: Windows 지원이 성숙할 때까지 SRT 도입 보류 (2026-09-08).** 핸드오프 작성·구현을 종료했다.
+> 현재 결론과 모든 실행 결과는 [실행 보고서](execution-report.md), 보존한 실험은 [study 안내](README.md)에 둔다. 아래 내용은 당시 설계·실증 기록이며 재개 지시가 아니다.
+
 작성일: 2026-09-07. 상태: **검토용 제안**. 구현 READY plan이나 현재 아키텍처가 아니다.
 작성 시점에는 앱 구현·의존성 설치·SRT provisioning·OS 정책 변경을 수행하지 않았다.
-이후 P0 실행 전달 검증은 [0219 plan](../../../handoff/0219-srt-windows-preflight/plan.md)으로
-구체화했다. 현재 진행·실증 상태는 [handoff 보드](../../../handoff/INDEX.md), 재현 절차는
-[Windows SRT 사전 검증](../../../guides/windows-srt.md)을 따른다. P0는 일반 앱의 SRT 연결을 포함하지 않는다.
+이후 P0 실행 전달 검증은 [0219 plan](plans/0219-srt-windows-preflight.md)으로
+구체화했다. 보류 결정과 실증 결과는 [실행 보고서](execution-report.md), 재현 절차는
+[Windows SRT 사전 검증](windows-preflight-guide.md)을 따른다. P0는 일반 앱의 SRT 연결을 포함하지 않는다.
 
 **2026-09-08 실증 정정:** 공식 Windows binary에서 호출자의 stdin이 대상에 전달되지 않았다.
 아래 stdin bootstrap 연결은 필요한 상류 보완을 포함한 설계 조건으로 읽어야 한다.
@@ -184,7 +187,7 @@ SRT의 object형 `WindowsBinShell`로 이를 연결하는 방식을 1차 후보�
 실제 argv 결과까지 P0에서 확인해야 한다. [S3]
 
 bootstrap의 최초 후보는 Rust였으나, P0는 기존 MSVC·Windows SDK를 사용하는 **C++17/Win32**로
-구체화했다([0219 D-005](../../../handoff/0219-srt-windows-preflight/plan.md#3-decision-ledger)).
+구체화했다([0219 D-005](plans/0219-srt-windows-preflight.md#3-decision-ledger)).
 OS sandbox를 재구현하지 않으며 사용자 설치 Node/Python을 bootstrap 의존성으로 삼지 않는다.
 native 빌드·CI와 배포 artifact를 관리하는 비용은 남는다.
 향후 SRT가 정확한 argv와 child env를 안전한 입력 채널로 지원하면 이 내부 bootstrap을 제거할 수 있다.

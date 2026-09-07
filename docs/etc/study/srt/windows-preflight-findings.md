@@ -1,5 +1,8 @@
 # Windows SRT 실증 결과와 입력 전달 보완안
 
+> **사용자 결정: Windows 지원이 성숙할 때까지 SRT 도입 보류 (2026-09-08).** 핸드오프 작성·구현을 종료했다.
+> 현재 결론과 모든 실행 결과는 [실행 보고서](execution-report.md), 보존한 실험은 [study 안내](README.md)에 둔다. 아래 내용은 당시 설계·실증 기록이며 재개 지시가 아니다.
+
 **제품 연결 보류.** 이 PC의 공식 SRT 설치는 완료했지만, 설치된 Windows 실행기가 호출자의
 stdin을 대상에 전달하지 않아 bootstrap을 통한 실행이 실패했다. Claude 지속 입력과 stdio
 MCP가 필요한 현재 요구를 공식 바이너리 그대로 충족했다고 판정할 수 없다.
@@ -34,9 +37,9 @@ MCP가 필요한 현재 요구를 공식 바이너리 그대로 충족했다고 
 
 각 실험의 실패와 정리는 별도로 관측했다. 일반 bootstrap smoke와 직접 진단은 실행 경로가
 다르므로 직접 진단의 성공 항목으로 bootstrap 전달 실패를 덮지 않는다.
-재현 명령과 최신 기계 결과는 [0219 구현 보고](../../../handoff/0219-srt-windows-preflight/plan.md)에 둔다.
-원본 결과: [bootstrap smoke](../../../handoff/0219-srt-windows-preflight/evidence/windows-smoke.json),
-[직접 진단](../../../handoff/0219-srt-windows-preflight/evidence/windows-diagnostic.json).
+재현 명령과 기계 결과는 [실행 보고서](execution-report.md)에 정리하고, [0219 계획·구현 보고](plans/0219-srt-windows-preflight.md)는 역사적 기록으로 보존한다.
+원본 결과: [bootstrap smoke](evidence/windows-smoke.json),
+[직접 진단](evidence/windows-diagnostic.json).
 
 ## 상류 소스와 확인 한계
 

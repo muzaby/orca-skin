@@ -15,12 +15,12 @@
 - **다음 주체**: `Claude` (설계/검증) · `Codex` (구현) · `—` (종료)
 - `RETURN_TO_PLAN`은 verify에서 발견한 `PLAN_GAP` 상태다. pair별 `PAIR_FAIL`·`BLOCKED_BY`는 `verify.md`에 두고 보드 상태로 늘리지 않는다.
 
+사용자 지시로 0219·0220의 SRT 핸드오프를 종료하고 Windows 지원 성숙까지 도입을 보류했다. 구현 완료·검증 PASS 처리가 아니며, 기록은 [SRT 실행 보고서](../etc/study/srt/execution-report.md)로 이관했다.
+
 ## 미완료 작업
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0220-srt-execution-integration`](0220-srt-execution-integration/plan.md) | plan | DRAFT | Claude | (설계 초안) | 0 | 공통 실행 기반과 Claude 연결 설계. 0219의 실제 stdin 실패 및 SRT 수정 빌드 선택이 선행하며 구현 미착수. |
-| [`0219-srt-windows-preflight`](0219-srt-windows-preflight/plan.md) | impl | IN_PROGRESS | Codex | (7/8 부분 구현 — stdin 차단) | 1 | 공식 설치·직접 파일/네트워크/자손/ACL 실증 완료. 공식 SRT stdin0으로 bootstrap 연결 차단, 수정 빌드 선택 대기. 앱 미연결. |
 | [`0218-simplify-200-217-cleanup`](0218-simplify-200-217-cleanup/plan.md) | verify | **PASS** (r2) | **사람** (PR #436 머지 판단) | `5d0806e0`(설계) · `90096390`(r1) · `380d9f25`(r1 검증) · `6c2c6659`(r2) | 2 | **r2 검증 = PASS** — 판정 원문은 [`verify.md`](0218-simplify-200-217-cleanup/verify.md). r2 범위 5건(D9·A3·A4·A5·I-05) 전부 닫힘, 차집합 **새 red 0**. I-05(테스트 하네스 경쟁) 해소로 게이트가 결정적이 됐다(5회 연속 green). 광택 7건·`needs_decision` 6건은 `NEXT_HANDOFF`. |
 | [`0217-mcp-detail-toggle-and-kebab`](0217-mcp-detail-toggle-and-kebab/plan.md) | verify | **PASS** (V1) | **사람** (AT-307 실기) | `ffa7b559`(설계) · `ff7b9038`(r1) | 1 | **r1 검증 = PASS** — 판정 원문은 [`verify.md`](0217-mcp-detail-toggle-and-kebab/verify.md). pair **6 PASS**(VP-301 은 §10 2/3) · VP-307 실기 대기 · AC **✅5/7** · 강제 지점 **15/16** 독립 재열거 일치 · 등록 변이 2/2 red. 자기검증이라 보고에 없던 축 2건을 더했고, 그중 M-E1 이 **편집 배선을 지우고 `onEdit` 을 no-op 으로 두면 전 게이트가 초록**임을 보였다(D5, 비차단 — plan 이 `not selected` 로 선언한 축). 비차단 6(D1~D6). **archive 이동은 AT-307 실기 뒤**. |
 | [`0216-spinner-artwork-swap`](0216-spinner-artwork-swap/plan.md) | verify | **PASS** (r3 · ΔV2 rev.4) | **사람** (AT-210 실기 + D9 조용할 때 측정 1회) | `ef2da91c` · `a8d2d642`(r1) · `bae8190a` · `c6b0e00f` · `f3944d57`(r2) · `e93b2754` · `17d95799`(rev.4) · `4af38eaf`(r3) · `476f977e` | 3 | **r3 검증 = PASS** — 판정 원문은 [`verify.md`](0216-spinner-artwork-swap/verify.md) §Verify r3. pair **11 PASS** · AC **✅11/12** · 강제 지점 **31/31** 독립 재열거 일치 · 변이 7종 red(계단 3 · 상수 2 · 형제 자리 1 · 산포 1). D3(신 > 구) **closed** — 30Hz 계단으로 초과분 +15.2 → **+3.0~3.5**(예산 5.0), layout 144.7 → 66회. **남은 사람 몫 2건** — AT-210 시각, 그리고 조용한 기계에서 라이브 측정 1회(D9: 가드가 4회 거부, 기계 CPU 44~59%). |

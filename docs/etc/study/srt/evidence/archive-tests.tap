@@ -1,0 +1,286 @@
+TAP version 13
+# Subtest: smoke signal scope aborts without exiting and removes only its own listeners after settlement
+ok 1 - smoke signal scope aborts without exiting and removes only its own listeners after settlement
+  ---
+  duration_ms: 7.0401
+  type: 'test'
+  ...
+# Subtest: smoke command forwards the same cancellation signal to its cleanup owner
+ok 2 - smoke command forwards the same cancellation signal to its cleanup owner
+  ---
+  duration_ms: 1.8329
+  type: 'test'
+  ...
+# Subtest: diagnostics preserve only fixed local and SRT error codes without exposing payloads
+ok 3 - diagnostics preserve only fixed local and SRT error codes without exposing payloads
+  ---
+  duration_ms: 0.7014
+  type: 'test'
+  ...
+# Subtest: CLI accepts only an explicit known command
+ok 4 - CLI accepts only an explicit known command
+  ---
+  duration_ms: 0.5304
+  type: 'test'
+  ...
+# Subtest: missing provisioning fails without ever installing or running a host fallback
+ok 5 - missing provisioning fails without ever installing or running a host fallback
+  ---
+  duration_ms: 0.8031
+  type: 'test'
+  ...
+# Subtest: direct diagnostic is explicit, cancellable and cannot be reported as full smoke success
+ok 6 - direct diagnostic is explicit, cancellable and cannot be reported as full smoke success
+  ---
+  duration_ms: 0.8793
+  type: 'test'
+  ...
+# Subtest: cannot-read WFP is unverified, not a fabricated installed or missing result
+ok 7 - cannot-read WFP is unverified, not a fabricated installed or missing result
+  ---
+  duration_ms: 1.1917
+  type: 'test'
+  ...
+# Subtest: explicit install cancellation fails and never claims provisioning succeeded
+ok 8 - explicit install cancellation fails and never claims provisioning succeeded
+  ---
+  duration_ms: 0.6477
+  type: 'test'
+  ...
+# Subtest: already provisioned install avoids password rotation, including non-elevated WFP query
+ok 9 - already provisioned install avoids password rotation, including non-elevated WFP query
+  ---
+  duration_ms: 0.7935
+  type: 'test'
+  ...
+# Subtest: version, platform, binary and build prerequisites fail before restricted execution
+ok 10 - version, platform, binary and build prerequisites fail before restricted execution
+  ---
+  duration_ms: 2.227
+  type: 'test'
+  ...
+# Subtest: smoke failure and cleanup evidence remain visible and nonzero
+ok 11 - smoke failure and cleanup evidence remain visible and nonzero
+  ---
+  duration_ms: 0.7553
+  type: 'test'
+  ...
+# Subtest: frame producer exists and writes the versioned bounded wire contract
+ok 12 - frame producer exists and writes the versioned bounded wire contract
+  ---
+  duration_ms: 18.3518
+  type: 'test'
+  ...
+# Subtest: producer rejects invalid paths, NUL, surrogate, excessive counts and reserved/duplicate env
+ok 13 - producer rejects invalid paths, NUL, surrogate, excessive counts and reserved/duplicate env
+  ---
+  duration_ms: 15.8804
+  type: 'test'
+  ...
+# Subtest: stdin probe measures binary chunks and EOF without disclosing input
+ok 14 - stdin probe measures binary chunks and EOF without disclosing input
+  ---
+  duration_ms: 515.409
+  type: 'test'
+  ...
+# Subtest: stdin probe distinguishes empty EOF and bounds the bytes it consumes
+ok 15 - stdin probe distinguishes empty EOF and bounds the bytes it consumes
+  ---
+  duration_ms: 5.0037
+  type: 'test'
+  ...
+# Subtest: CLI echo preserves explicit argv and prints only the fake env key
+ok 16 - CLI echo preserves explicit argv and prints only the fake env key
+  ---
+  duration_ms: 438.1449
+  type: 'test'
+  ...
+# Subtest: argument parsing rejects malformed and excess input without echoing payloads
+ok 17 - argument parsing rejects malformed and excess input without echoing payloads
+  ---
+  duration_ms: 1.2729
+  type: 'test'
+  ...
+# Subtest: filesystem probe reports actual access, never assumes deny labels mean blocked
+ok 18 - filesystem probe reports actual access, never assumes deny labels mean blocked
+  ---
+  duration_ms: 30.0555
+  type: 'test'
+  ...
+# Subtest: network probe uses the real HTTP proxy and observes both direct IP families
+ok 19 - network probe uses the real HTTP proxy and observes both direct IP families
+  ---
+  duration_ms: 493.8218
+  type: 'test'
+  ...
+# Subtest: network mode refuses a missing proxy instead of trying direct HTTP
+ok 20 - network mode refuses a missing proxy instead of trying direct HTTP
+  ---
+  duration_ms: 541.6758
+  type: 'test'
+  ...
+# Subtest: SRT proxy URL credentials become only Proxy-Authorization and never output
+ok 21 - SRT proxy URL credentials become only Proxy-Authorization and never output
+  ---
+  duration_ms: 486.7704
+  type: 'test'
+  ...
+# Subtest: network timeout is a distinct observation and never hangs on a stalled proxy
+ok 22 - network timeout is a distinct observation and never hangs on a stalled proxy
+  ---
+  duration_ms: 622.8784
+  type: 'test'
+  ...
+# Subtest: imported child probe stop closes its entire nested fixture before lifetime expires
+ok 23 - imported child probe stop closes its entire nested fixture before lifetime expires
+  ---
+  duration_ms: 949.3381
+  type: 'test'
+  ...
+# Subtest: child mode emits a live nested PID chain, then all levels expire
+ok 24 - child mode emits a live nested PID chain, then all levels expire
+  ---
+  duration_ms: 1682.7822
+  type: 'test'
+  ...
+# Subtest: independent descendants survive killing only their probe root
+ok 25 - independent descendants survive killing only their probe root
+  ---
+  duration_ms: 1289.361
+  type: 'test'
+  ...
+# Subtest: child lifetime/depth and control booleans reject malformed options before spawning
+ok 26 - child lifetime/depth and control booleans reject malformed options before spawning
+  ---
+  duration_ms: 1.5197
+  type: 'test'
+  ...
+# Subtest: observes an actual child identity and excludes it after exit
+ok 27 - observes an actual child identity and excludes it after exit
+  ---
+  duration_ms: 4503.9479
+  type: 'test'
+  ...
+# Subtest: identity comparison rejects PID reuse with a different creation epoch
+ok 28 - identity comparison rejects PID reuse with a different creation epoch
+  ---
+  duration_ms: 0.5055
+  type: 'test'
+  ...
+# Subtest: rejects invalid PID collections before observing processes
+ok 29 - rejects invalid PID collections before observing processes
+  ---
+  duration_ms: 2.4852
+  type: 'test'
+  ...
+# Subtest: cleanup never terminates a process by a sampled PID
+ok 30 - cleanup never terminates a process by a sampled PID
+  ---
+  duration_ms: 10032.8685
+  type: 'test'
+  ...
+# Subtest: a failed process identity observation retains the fixture instead of inferring child exit
+ok 31 - a failed process identity observation retains the fixture instead of inferring child exit
+  ---
+  duration_ms: 2792.4818
+  type: 'test'
+  ...
+# Subtest: an explicit fixture parent confines the owned root and cleanup to that directory
+ok 32 - an explicit fixture parent confines the owned root and cleanup to that directory
+  ---
+  duration_ms: 14.6724
+  type: 'test'
+  ...
+# Subtest: direct diagnostics continue after missing stdin and cannot claim bootstrap success
+ok 33 - direct diagnostics continue after missing stdin and cannot claim bootstrap success
+  ---
+  duration_ms: 3113.3517
+  type: 'test'
+  ...
+# Subtest: direct diagnostic sends the fake stdin bytes to an ordinary process in the chosen fixture parent
+ok 34 - direct diagnostic sends the fake stdin bytes to an ordinary process in the chosen fixture parent
+  ---
+  duration_ms: 2230.8155
+  type: 'test'
+  ...
+# Subtest: ordinary failing runner uses the requested cwd and reports only fixed diagnostic codes
+ok 35 - ordinary failing runner uses the requested cwd and reports only fixed diagnostic codes
+  ---
+  duration_ms: 3903.845
+  type: 'test'
+  ...
+# Subtest: a child runner that exits before reporting PIDs leaves descendant cleanup unknown
+ok 36 - a child runner that exits before reporting PIDs leaves descendant cleanup unknown
+  ---
+  duration_ms: 2891.8268
+  type: 'test'
+  ...
+# Subtest: observed filesystem, network, child and ACL results close the smoke report
+ok 37 - observed filesystem, network, child and ACL results close the smoke report
+  ---
+  duration_ms: 0.5902
+  type: 'test'
+  ...
+# Subtest: missing evidence, ordinary filesystem errors and proxy authentication failure cannot pass
+ok 38 - missing evidence, ordinary filesystem errors and proxy authentication failure cannot pass
+  ---
+  duration_ms: 1.5319
+  type: 'test'
+  ...
+# Subtest: check results stay safe and never serialize arbitrary input payloads
+ok 39 - check results stay safe and never serialize arbitrary input payloads
+  ---
+  duration_ms: 1.0385
+  type: 'test'
+  ...
+# Subtest: owned fixture cleanup refuses a replaced ownership marker and preserves unrelated files
+ok 40 - owned fixture cleanup refuses a replaced ownership marker and preserves unrelated files
+  ---
+  duration_ms: 24.857
+  type: 'test'
+  ...
+# Subtest: network fixtures serve real loopback requests and fully close their listeners
+ok 41 - network fixtures serve real loopback requests and fully close their listeners
+  ---
+  duration_ms: 21.925
+  type: 'test'
+  ...
+# Subtest: failed SRT initialize never launches a probe and reset is still attempted
+ok 42 - failed SRT initialize never launches a probe and reset is still attempted
+  ---
+  duration_ms: 2348.9519
+  type: 'test'
+  ...
+# Subtest: unknown uppercase error codes are redacted and a failed reset preserves its owned fixture
+ok 43 - unknown uppercase error codes are redacted and a failed reset preserves its owned fixture
+  ---
+  duration_ms: 2393.1303
+  type: 'test'
+  ...
+# Subtest: an already cancelled smoke never initializes SRT
+ok 44 - an already cancelled smoke never initializes SRT
+  ---
+  duration_ms: 1.0017
+  type: 'test'
+  ...
+# Subtest: cancelling an active ordinary runner closes it before smoke cleanup returns
+ok 45 - cancelling an active ordinary runner closes it before smoke cleanup returns
+  ---
+  duration_ms: 2654.9267
+  type: 'test'
+  ...
+# Subtest: reset timeout retains the fixture while the reset promise remains unresolved
+ok 46 - reset timeout retains the fixture while the reset promise remains unresolved
+  ---
+  duration_ms: 2382.8643
+  type: 'test'
+  ...
+1..46
+# tests 46
+# suites 0
+# pass 46
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 35591.5209

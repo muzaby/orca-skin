@@ -1,0 +1,3 @@
+# Preserve archived bytes and SHA-256 across core.autocrlf settings and checkouts.
+* -text
+**/* -text
