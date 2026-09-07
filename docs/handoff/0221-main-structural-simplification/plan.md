@@ -8,8 +8,8 @@
 | 일자 | 2026-09-08 |
 | 상태 | READY |
 | 기준 코드 | `054ede9b` |
-| V mode / 기준 V / revision | Baseline V / none / V1 |
-| 유효 V | V1 |
+| V mode / 기준 V / revision | Delta V / V1 (`eeb95e4a`) / ΔV1 |
+| 유효 V | V1 + ΔV1 |
 
 # Part I — Product & UX Contract
 
@@ -34,6 +34,7 @@
 | D-04 | SRT·cowork·OpenCode 런타임 구현은 하지 않는다 | 미래 구조 준비라는 범위. 앞선 SRT 도입 보류 결정 유지 | ACTIVE |
 | D-05 | 테스트 환경의 ABI·사용자 폴더 격리를 코드 실패와 구분한다 | 현재 baseline에서 Node 127 / 설치 SQLite 140 불일치와 profile EPERM 확인 | ACTIVE |
 | D-06 | 성능 저하를 유발하는 hot path의 중복 작업·동기 I/O·전체 재처리·버퍼링도 진단한다 | 사용자 추가 요청. 실측과 잠재 위험을 구분하며 근거 없는 cache·상주 서비스 추가 금지 | ACTIVE |
+| D-07 | 개별 결함 보완에 한정하지 않고 책임·모듈 경계·중복을 재편하는 리팩토링을 수행한다 | 사용자 정정: “리팩토링 수준으로 요구한 것임”. r1 수정은 유지하고 파편화된 제출·설정·사용량 책임을 통합 | ACTIVE |
 
 갱신 메모: 새 작업 Baseline V이며 SRT 계획을 상속하지 않는다. 추가 사용자 요구 D-06은 기존 경량화 범위를 보완한다. D-01~06 ↔ AC1~11 대조에서 충돌 없음. 사용자에게 추가로 결정받을 제품 정책·의존성은 없다.
 
@@ -184,6 +185,89 @@ REQUIRED 총량은 VP-01~17의 개별 pair다. 상속 V가 없으므로 REGRESSI
 - 참조 소비/등록/타입: §8의 전수 검색과 타입 검사로 닫으며 생산 기능은 테스트를 위해 제거하지 않는다.
 - 순수/배선 테스트: 실제 callback을 실행하고 TitleGenerator shutdown·network 상한 전달의 배선 제거를 검출한다.
 - 범위/비범위: 기존 Claude와 도구 동작 유지가 범위이며 미래 adapter·SRT 도입을 선행 조건으로 삼지 않는다.
+
+## ΔV1 — 동작을 보존하는 Main 책임 재편
+
+### 요구 해석과 선택
+
+사용자 정정에 따라 완료 범위를 확장한다. V1의 오류 경로 보완만으로 Main 구조 리팩토링이 완료됐다고 판정하지 않는다. 공개 동작을 유지하면서 함께 변경돼야 하는 코드·상태·변환의 소유자를 맞춘다. 새로운 제품 기능·범용 실행 플랫폼은 만들지 않는다.
+
+단순 파일 축소, 큰 파일의 기계적 분할, 새로운 공통 서비스 플랫폼을 검토하고 제외했다. 선택은 기존 소유자에 중복·전달 wrapper를 흡수하고, 큰 DB 클래스에서는 독립적인 사용량 SQL 책임만 고정 구성 객체로 분리하는 것이다. 큰 auth lifecycle·SDK 메시지 매핑·mock 시나리오는 길이만으로 분할하지 않는다. 서로 다른 cache 만료·오류·경로 정규화 정책도 합치지 않는다.
+
+### AS-IS → TO-BE
+
+| 책임 | AS-IS | TO-BE·구조 효과 |
+|---|---|---|
+| 채팅 제출 | 신규/busy 적재가 payload·queued 이벤트를 각각 조립하고 index/deps callback으로 우회 | enqueue가 두 흐름의 적재·발신을 소유. 공통 payload/queued 발신 공유, send가 직접 호출. busy-reserve 파일·중간 callback 계약 제거 |
+| 턴 해석 | turn-setup에 provider/env 해석과 renderer 발신이 함께 있어 큐·취소 코드도 설정 모듈에 의존 | 해석은 resolve-turn, submitted는 enqueue, forward는 send의 coordinator 조립으로 이동. turn-setup 제거 |
+| 설정 소스 | settings 서비스와 별도 디렉토리 열거 파일, runtime 입력을 models:[]로 보정 | 열거·entry 타입은 settings, 기본 provider 선택은 models. resolve가 실제 사용하는 key/harnessId/modelProviderId만 요구. settings-entries 및 bootstrap 보정 wrapper 제거 |
+| Claude 모델 | parser와 available-models가 타입/알고리즘을 나눠 갖고 catalog가 파서 내부 순서를 조립 | model-parser가 settings/runtime 진입을 구분해 최종 모델 목록을 반환. available-models 제거, 최종 default 결정 중복 제거 |
+| 사용량 영속 | DbQueries가 session/history/project/scheduler와 사용량 SQL을 함께 소유 | 같은 DB 연결의 고정 usage 속성이 UsageQueries 소유. 사용량 메서드 forwarding·registry 없이 소비자가 해당 포트를 사용 |
+| 사용량 기록/복원 | subscriber가 DB·tracker를 함께 조작, usage-map이 기록 판정과 IPC 변환을 함께 소유 | 원장 기록·재집계·방송은 UsageTracker, DB→wire 변환은 기존 dto. subscriber/usage-map 제거 |
+| 이력 읽기 | session IPC callback이 파트·usage·비용·lineage·worktree 조립을 직접 소유 | history reader가 같은 조회/조립을 수행. handler는 입력 검증·읽기 호출·activity 부착 담당 |
+| MCP 구성 | convert가 expand 결과의 속성명만 바꾸는 중간 계층 | convert가 확장·서버별 제외·target 반환을 직접 소유. expand 파일/중간 result wrapper 제거 |
+
+불변식: busy admission과 적재 사이에 await를 넣지 않는다. 활성 턴은 getter로 읽는다. usage→history→title→relay 구독 순서, 원장 messageId 연결, DB SQL·준비 정책·스키마, settings/cache 무효화·runtime 빈 모델 의미, MCP 미해결 서버 전체 제외를 보존한다. 새로운 실행 registry·CRUD framework·공개 IPC·새 의존성은 없다.
+
+### 추가 인수 기준
+
+| R / AT / AC | 관측 계약 | 직접 검증·도달 경로 |
+|---|---|---|
+| R-12 / AT-12 / AC12 | 신규·busy 제출이 하나의 적재 모듈에서 같은 첨부/요구사항/표시 메타·queued/submitted wire를 만들며 동기 admission과 listen 해제를 유지한다 | 실제 send→busy/new→queue→event 및 기존 queued-requirements/pending queue 테스트 |
+| R-13 / AT-13 / AC13 | provider/env 해석과 renderer 발신이 분리되며 신규·resume·continuation의 준비 값·await 순서·게터 의미가 유지된다 | resolve-turn/provider 구성 테스트, 실제 send/continuation/runtime tools/권한 회귀 |
+| R-14 / AT-14 / AC14 | 설정 서비스가 소스 열거·캐시를 소유하고 SDK용 settings/runtime 모델 파서는 각자의 빈 목록/default 의미를 보존한다 | 실제 설정 파일·mtime/invalidate 테스트와 parser/runtime catalog 사례; bootstrap은 타입 보정 없이 서비스 주입 |
+| R-15 / AT-15 / AC15 | 사용량 SQL과 기록 수명이 각자의 소유자로 모이며 원장·집계·방송 결과가 동일하다 | 동일 SQLite 연결의 usage queries·session 삭제·기간/remote 보고서·모델별 원장·tracker/구독 순서 회귀 |
+| R-16 / AT-16 / AC16 | 이력 reader가 기존 LoadedSession 내용을 동일하게 복원하며 handler는 activity와 IPC 경계만 덧붙인다 | 실제 DB→reader→handler: 없는 세션·parts 순서/완료·telemetry/비용·lineage·worktree/cwd |
+| R-17 / AT-17 / AC17 | MCP 구성 변환이 한 모듈에서 수행되고 정상 값·입력 불변성·서버별 제외·이유가 유지된다 | toClaudeConfig를 통한 stdio/http/sse·빈 소스·복수 변수·미해결 서버 및 resolver 테스트 |
+| R-18 / AT-18 / AC18 | 모델 목록 소유권은 고정 선언의 canonical key를 한 번 구성해 판정하며 기본 모델은 최종 목록에서 결정한다 | canonical 충돌·빈 cache에서도 read-only 유지·settings/runtime default/alias 테스트. 새 캐시 서비스 없이 반복 정규화 감소 |
+
+### ΔV 추적
+
+R/AT-12~18, AR/IT-03~06, MD/UT-03~05는 NEW다. V1 노드의 정상/실패 의미는 변경하지 않는다.
+
+| Pair | 노드 / requiredness | production 경로·oracle | 강제 지점 |
+|---|---|---|---|
+| DP-01 | R-12↔AT-12 / REQUIRED | send→enqueue의 신규/busy 실경로→queue·wire 결과 | EP-11 |
+| DP-02 | R-13↔AT-13 / REQUIRED | resolve-turn→runtime request→coordinator/continuation 입력·이벤트 | EP-12 |
+| DP-03 | R-14↔AT-14 / REQUIRED | 소스 열거→resolve, settings/runtime 입력→각 parser→catalog | EP-13·14 |
+| DP-04 | R-15↔AT-15 / REQUIRED | telemetry→tracker→db.usage→delta, 동일 연결 SQL 회귀 | EP-15·16 |
+| DP-05 | R-16↔AT-16 / REQUIRED | DB→history reader→sessionLoad callback의 완전 DTO | EP-17 |
+| DP-06 | R-17↔AT-17 / REQUIRED | MCP source→convert→config/dropped, resolver 동작 | EP-18 |
+| DP-07 | R-18↔AT-18 / REQUIRED | 선언→canonical membership, 최종 모델 목록→default | EP-14 |
+| DP-08 | AR-03↔IT-03 / REQUIRED | 제출·해석 소유 분리 후 실제 send의 신규/취소/continuation | EP-11·12 |
+| DP-09 | AR-04↔IT-04 / REQUIRED | 설정 서비스 직접 주입→runtime 구성→모델 목록 | EP-13·14 |
+| DP-10 | AR-05↔IT-05 / REQUIRED | tracker와reader가 db.usage 포트 사용, bootstrap 구독 순서 | EP-15~17 |
+| DP-11 | AR-06↔IT-06 / REQUIRED | bootstrap→toClaudeConfig→deployer의 실제 확장 구성 | EP-18 |
+| DP-12 | MD-03↔UT-03 / REQUIRED | 공통 queued payload 조립·동기 적재와 기존 이벤트 구분 | EP-11 |
+| DP-13 | MD-04↔UT-04 / REQUIRED | parser 정책 차이·default·canonical membership | EP-14 |
+| DP-14 | MD-05↔UT-05 / REQUIRED | 같은 SQL의 row/기간/원격값 및 DB→DTO 변환 | EP-15~17 |
+
+상속 회귀: V1 VP-01~17을 REGRESSION으로 재실행한다. 변경하지 않는 auth·권한·remote 보안 정책도 기존 Main 전체 테스트와 레이어 gate로 확인한다.
+기존 행동 oracle은 새 소유자/포트에서 유지한다. 경로 이동 때문에 기존 테스트를 지우고 카운트만 맞추지 않는다. 구조 효과는 실제 삭제/신규 모듈·import·호출자 diff로 기록하며 새 줄 수/파일 수 gate를 만들지 않는다.
+새 배선 oracle의 선택 증거는 EP-11 busy 직접 호출 삭제, EP-16 bootstrap의 tracker 기록 호출 삭제다. 둘 다 관련 실제 callback 결과가 실패해야 한다. V1의 선택 증거는 변경된 소유 경로에서도 같은 결함을 검출해야 한다.
+
+### §10 추가 강제 지점
+
+| EP | 소유 경계·전수 지점 | 보존·실패 의미 |
+|---|---|---|
+| EP-11 | send 신규/busy 분기, enqueue, index의 cancel submitted, turn-request의 submitted | 동기 실행·큐 순서·첨부/requirements·held/listen·wire를 유지. 중간 callback/중복 payload 계약 제거 |
+| EP-12 | resolveTurnProvider 생산, send/resolve-turn/continuation의 해석 소비, 기존 turn-setup import 소비자 | 준비/검증 시점 불변. 취소·큐 코드가 해석 모듈을 의존하지 않음 |
+| EP-13 | settings source 열거·entry/defaultProvider 소비, Service.resolve, bootstrap settings 포트 주입 | mtime/list cache·기본 provider·손상 파일 의미 유지, models:[] 보정 제거 |
+| EP-14 | settings parser/runtime parser 진입, available-models helper 소비, catalog ownership/list | 빈 runtime 목록은 제거, settings alias 폴백 유지. canonical/default/중복 의미 불변 |
+| EP-15 | DbQueries 사용량 statement/method와 모든 소비자·fixture | UsageQueries가 같은 연결·같은 SQL·동일 lazy/eager 정책을 소유. 기존 facade 사본 없음 |
+| EP-16 | bootstrap telemetry subscriber, UsageTracker, usage-map의 기록 판정 | 원장·model row·messageId·context값·해당 provider만 방송·사용량 구독 순서 보존 |
+| EP-17 | session load IPC, 기존 loadParts/usage/lineage/worktree 조립, usage DTO 변환 | 완전한 LoadedSession·정렬/오류/cwd/activity 의미 보존. 페이지네이션·새 캐시 없음 |
+| EP-18 | convert→expand 생산 경로, bootstrap·테스트·현재 문서 소비 | 단일 target 변환 모듈에서 확장. 미해결 env는 서버 전체 제외, 입력 불변 |
+
+### 구현 순서·게이트
+
+1. ΔV1 설계만 별도 커밋하고 r1의 기준선/증거를 유지한다.
+2. 독립 범위 병렬: 채팅 제출·해석 / 설정·모델 / 사용량 DB·기록·이력. bootstrap·MCP 통합·문서는 root가 소유한다.
+3. 각 이동에서 기존 테스트를 새 소유 경계로 옮기고, 부족한 실제 callback·DB→reader 테스트를 먼저 확보한다. 구조적 이동에 불필요한 새 테스트 프레임워크는 만들지 않는다.
+4. 영향 테스트·타입 3구성·Main 전체·Main/shared lint·문서/링크·diff gate. 실행은 기존 Electron Node ABI140와 시험용 USERPROFILE을 유지한다.
+5. 동일 코드 변경 전/후의 실제 모듈/의존/중복 경계 변화와 유지한 책임을 진단 보고서에 기록한다. 속도 향상률은 실측 없이는 쓰지 않는다.
+
+준비 판정: READY. 사용자 제품 선택·신규 의존성·외부 SDK 변경이 필요한 항목은 없다. 구현 중 새 불확실성이 생기면 해당 계약만 되먹인다.
 
 ## [구현자 기입]
 
