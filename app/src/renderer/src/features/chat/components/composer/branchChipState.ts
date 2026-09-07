@@ -23,6 +23,19 @@ export function statusForCwd(cwd: string | null, snapshot: BranchSnapshot): GitS
   return snapshot.cwd === cwd ? snapshot.status : null
 }
 
+// 세션 상태에서 **cwd 가 확인된** git 상태를 꺼내는 selector. `state.gitStatus` 를 직접 읽으면
+// cwd 를 바꾼 직후 **이전 저장소의 브랜치**를 받는다 — 스냅샷이 자기 cwd 를 함께 들고 있는
+// 이유가 그것이고, 그 대조를 소비자마다 손으로 적으면 새 소비자가 빠뜨린다(0218 r2).
+//
+// 스토어가 아니라 여기 두는 이유: 규칙이 순수하고, 스토어에 두면 `chatStore` 를 목킹하는
+// 렌더 스위트마다 이 selector 를 다시 stub 해야 해서 규칙 사본이 테스트로 번진다.
+export function gitStatusForCwd(state: {
+  cwd: string | null
+  gitStatus: BranchSnapshot | null
+}): GitStatus | null {
+  return state.gitStatus ? statusForCwd(state.cwd, state.gitStatus) : null
+}
+
 // 칩을 그릴지, 그린다면 라벨을 무엇으로 읽을지. `branch: null` = detached HEAD.
 export type BranchChipView = { visible: false } | { visible: true; branch: string | null }
 

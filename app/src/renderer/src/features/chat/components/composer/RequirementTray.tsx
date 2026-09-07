@@ -1,18 +1,13 @@
 import type { DiffRequirementItem } from '../../../../../../shared/ipc'
 import { useI18n } from '../../../../shared/i18n'
 import { Icon } from '../../../../shared/ui/Icon'
+import { lineAxisLabel } from '../../lib/diffLines'
 
 interface RequirementTrayProps {
   requirements: readonly DiffRequirementItem[]
   selectedId?: string | null
   onSelect?: (id: string) => void
   onRemove: (id: string) => void
-}
-
-function lineLabel(item: DiffRequirementItem): string {
-  if (item.anchor.oldLine === null && item.anchor.newLine !== null) return `+${item.anchor.newLine}`
-  if (item.anchor.newLine === null && item.anchor.oldLine !== null) return `-${item.anchor.oldLine}`
-  return String(item.anchor.newLine ?? item.anchor.oldLine ?? '?')
 }
 
 export function RequirementTray({
@@ -31,7 +26,7 @@ export function RequirementTray({
       className="mb-2 flex flex-wrap items-center gap-[6px] pt-[2px]"
     >
       {requirements.map((item) => {
-        const label = `${item.anchor.filePath}:${lineLabel(item)}\n${item.anchor.comment}${
+        const label = `${item.anchor.filePath}:${lineAxisLabel(item.anchor)}\n${item.anchor.comment}${
           item.located ? '' : `\n${tr('chat.composer.diffRequirementUnlocated')}`
         }`
         return (

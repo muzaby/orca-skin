@@ -7,7 +7,9 @@ import { useI18n } from '../../../../shared/i18n'
 import { formatRelativeTime } from '../../../../shared/i18n/datetime'
 import { PANEL_DEFAULT_WIDTH, type DiffViewOptions } from '../../reducer/chatReducer'
 import { chatActions, useChatSession } from '../../store/chatStore'
-import { statusForCwd } from '../composer/branchChipState'
+import { gitStatusForCwd } from '../composer/branchChipState'
+import { columnIndexOfTile } from '../../lib/rightPanelLayout'
+
 import { ALL_CHANGES, type DiffComparison } from './diffComparison'
 import { nextDiffPanelWidth } from './diffPanelWidth'
 import {
@@ -169,8 +171,7 @@ function ViewMenu({
 export function GitContextBar(): React.JSX.Element {
   const { tr } = useI18n()
   const summary = useChatSession((state) => state.gitSnapshot.summary)
-  const snapshot = useChatSession((state) => state.gitStatus)
-  const cwd = useChatSession((state) => state.cwd)
+  const status = useChatSession(gitStatusForCwd)
   const comparison = useChatSession((state) => state.gitSnapshot.comparison)
   const patch = useChatSession((state) => state.gitSnapshot.patch)
   const error = useChatSession((state) => state.gitSnapshot.error)
@@ -184,16 +185,11 @@ export function GitContextBar(): React.JSX.Element {
   const comparisonRef = useRef<HTMLButtonElement>(null)
   const viewRef = useRef<HTMLButtonElement>(null)
 
-  const col = columns.findIndex((column) => column.tiles.includes('diff'))
+  const col = columnIndexOfTile(columns, 'diff')
   const nextWidth = nextDiffPanelWidth(widths[col])
   const expanded = nextWidth === PANEL_DEFAULT_WIDTH
   // 0211 ΔV5 D-104 — 두 값 라벨. `head` 가 없으면 화살표도 그리지 않는다.
-  const label = summaryComparisonLabel(
-    summary,
-    snapshot ? statusForCwd(cwd, snapshot) : null,
-    comparison,
-    tr
-  )
+  const label = summaryComparisonLabel(summary, status, comparison, tr)
   const filesLabel = tr(
     sidebarVisible ? 'chat.rightpanel.diffFilesOff' : 'chat.rightpanel.diffFilesOn'
   )

@@ -2,8 +2,9 @@ import { Button } from '../../../../shared/ui/Button'
 import { Icon } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
 import { chatActions, useChatSession } from '../../store/chatStore'
+import { gitStatusForCwd } from './branchChipState'
 import { columnsContain } from '../../lib/rightPanelLayout'
-import { statusForCwd } from './branchChipState'
+
 import { COMPOSER_PANEL_ICON_SIZE, composerPanelSurface } from './composerPanel'
 import { gitRowView, type GitRowView } from './gitRowState'
 import { useGitSnapshot } from './useGitSnapshot'
@@ -124,7 +125,7 @@ export function GitRow({ cwd, sessionStarted }: GitRowProps): React.JSX.Element 
   // 랜딩에서는 조회하지 않는다 — cwd 를 null 로 넘겨 훅 전체를 끈다.
   const sessionId = useChatSession((s) => s.sessionId)
   useGitSnapshot(sessionStarted ? cwd : null, sessionStarted ? sessionId : null)
-  const snapshot = useChatSession((s) => s.gitStatus)
+  const status = useChatSession(gitStatusForCwd)
   const tiles = useChatSession((s) => s.rightPanelTiles)
   const worktree = useChatSession((s) => s.worktree)
   // 변경량은 diff 요약 합계다(ΔV1 D-025) — 우측 패널과 같은 값을 읽는다.
@@ -132,15 +133,7 @@ export function GitRow({ cwd, sessionStarted }: GitRowProps): React.JSX.Element 
   const closedAtTick = useChatSession((s) => s.gitRowClosedAtTick)
   const tick = useChatSession((s) => s.turnEndTick)
   const refreshTick = useChatSession((s) => s.gitRefreshTick)
-  const view = gitRowView(
-    sessionStarted,
-    cwd,
-    snapshot ? statusForCwd(cwd, snapshot) : null,
-    worktree,
-    totals,
-    closedAtTick,
-    tick
-  )
+  const view = gitRowView(sessionStarted, cwd, status, worktree, totals, closedAtTick, tick)
   return (
     <GitRowView
       cwd={cwd}

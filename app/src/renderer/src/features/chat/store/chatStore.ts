@@ -677,6 +677,10 @@ function send(
   const cur = getActiveChatSession()
   if (trimmed === '') return false
   if (!requirementsBelongToCurrentSession(requirements, cur.sessionId)) return false
+  // 발신 앵커 정규화는 **진입에서 한 번**이다 — 아래 세 발신 지점(새 세션 payload · 예약
+  // 항목 · resume payload)이 각자 `.map` 을 걸고 있었고, 새 발신 경로가 하나 빠뜨리면 앵커가
+  // 들고 온 여분 필드가 그대로 나간다(0218 r2).
+  const anchors = requirements.map(wireDiffRequirementAnchor)
 
   if (cur.sessionId == null) {
     // 새 세션 첫 턴 진행 중(id 미발급)엔 예약 큐 키가 없다 — main 가드와 대칭으로 거부.
@@ -694,9 +698,7 @@ function send(
       effort: cur.effort,
       attachments: [...attachments],
       attachmentViews: [...attachmentViews],
-      ...(requirements.length > 0
-        ? { requirements: requirements.map((anchor) => wireDiffRequirementAnchor(anchor)) }
-        : {}),
+      ...(anchors.length > 0 ? { requirements: anchors } : {}),
       cwd: cur.cwd,
       ...(cur.worktreeIsolation ? { worktreeIsolation: true } : {}),
       // 유예된 기준 브랜치는 격리와 **함께만** 실린다 — schema 가 그 조합을 강제한다(0210).
@@ -810,7 +812,7 @@ function send(
         id: requestId,
         text: trimmed,
         createdAt: Date.now(),
-        requirements: requirements.map(wireDiffRequirementAnchor)
+        requirements: anchors
       }
     ])
   }
@@ -827,9 +829,7 @@ function send(
       effort: cur.effort,
       attachments,
       attachmentViews,
-      ...(requirements.length > 0
-        ? { requirements: requirements.map((anchor) => wireDiffRequirementAnchor(anchor)) }
-        : {}),
+      ...(anchors.length > 0 ? { requirements: anchors } : {}),
       cwd: null,
       clientRequestId: requestId
     })

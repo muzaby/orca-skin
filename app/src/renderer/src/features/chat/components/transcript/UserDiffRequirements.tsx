@@ -1,5 +1,6 @@
 import type { DiffRequirementAnchor } from '../../../../../../shared/ipc'
 import { Icon } from '../../../../shared/ui/Icon'
+import { lineAxisLabel } from '../../lib/diffLines'
 
 export function UserDiffRequirements({
   requirements
@@ -9,13 +10,7 @@ export function UserDiffRequirements({
   return (
     <>
       {requirements.map((anchor, index) => {
-        const line =
-          anchor.oldLine === null && anchor.newLine !== null
-            ? `+${anchor.newLine}`
-            : anchor.newLine === null && anchor.oldLine !== null
-              ? `-${anchor.oldLine}`
-              : String(anchor.newLine ?? anchor.oldLine ?? '?')
-        const label = `${anchor.filePath}:${line}\n${anchor.comment}`
+        const label = `${anchor.filePath}:${lineAxisLabel(anchor)}\n${anchor.comment}`
         return (
           <span
             key={index}
