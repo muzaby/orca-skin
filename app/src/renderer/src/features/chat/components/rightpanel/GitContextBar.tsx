@@ -15,7 +15,7 @@ import {
   diffViewMenuChecked,
   type DiffViewMenuItem
 } from './diffViewMenuItems'
-import { summaryBaseText, summaryComparisonLabel } from './sessionChangesData'
+import { shortSha, summaryBaseText, summaryComparisonLabel } from './sessionChangesData'
 
 // 실제 DOM 기준 컨텍스트 바 (0211 ΔV7 D-122): 목록 토글 · 비교 범위 · 설정 · 확대/축소.
 // 닫기는 RightPanelTile이 그린다. 범위 라벨은 전체 `기준 → 현재`, 커밋 `<sha7> <제목>`이다.
@@ -93,7 +93,7 @@ function ComparisonMenu({ comparison, onPick }: ComparisonMenuProps): React.JSX.
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13px] text-ink">{commit.subject}</span>
                     <span className="mt-0.5 block text-[11.5px] leading-snug text-ink2">
-                      {commit.sha.slice(0, 7)} · {commit.author} ·{' '}
+                      {shortSha(commit.sha)} · {commit.author} ·{' '}
                       {formatRelativeTime(commit.committedAt, locale)}
                     </span>
                   </span>

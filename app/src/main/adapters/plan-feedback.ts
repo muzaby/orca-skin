@@ -1,8 +1,10 @@
 import type { PlanFeedback, PlanFeedbackComment } from '../../shared/ipc'
+import { escapeAttribute } from './prompt-escape'
 
 // 계획 검토(plan_review) revise 의 구조화 코멘트를 ExitPlanMode deny message 로 직렬화한다.
 // prompts/attachment.ts 와 동일 규율: 영문 instruction(모델 입력 안정성, handoff 0039) +
 // sentinel 블록 + attribute escaping + content 태그 + sentinel/닫는태그 neutralize.
+// 이 중 escaping 은 **주장이 아니라 강제**다 — `prompt-escape.ts` 한 함수를 셋이 부른다(0218).
 
 const START_SENTINEL = 'ORCA_PLAN_FEEDBACK_START'
 const END_SENTINEL = 'ORCA_PLAN_FEEDBACK_END'
@@ -18,14 +20,6 @@ const INSTRUCTION =
 // 인용문 직렬화 상한 — 긴 선택은 앞부분만 남기고 절삭(range 속성이 전체 구간을 가리키므로
 // 모델이 위치를 특정하는 데 충분). 패널 하이라이트는 원본 오프셋을 쓰므로 영향 없다.
 const MAX_QUOTE_CHARS = 200
-
-function escapeAttribute(value: string | number | boolean): string {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-}
 
 // 사용자 콘텐츠가 sentinel/닫는 태그를 흉내내 블록 구조를 깨거나 인젝션하는 것을 차단한다.
 function neutralize(text: string): string {

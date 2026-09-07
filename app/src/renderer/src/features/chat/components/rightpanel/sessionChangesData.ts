@@ -13,12 +13,18 @@ import type { DiffComparison } from './diffComparison'
 export type SummaryBaseLabel =
   { kind: 'ref'; ref: string } | { kind: 'oid'; oid: string } | { kind: 'head' } | { kind: 'none' }
 
+// 화면에 거는 짧은 sha. **자르는 길이는 여기 한 곳이 정한다** — 네 자리에 흩어져 있었고
+// (0218) 길이를 바꾸거나 `--short` 의 가변 길이로 옮길 때 넷을 다 찾아야 했다.
+export function shortSha(sha: string): string {
+  return sha.slice(0, 7)
+}
+
 export function summaryBaseLabel(summary: GitDiffSummary | null): SummaryBaseLabel {
   if (!summary || summary.base.kind === 'none') return { kind: 'none' }
   if (summary.base.kind === 'head') return { kind: 'head' }
   if (summary.base.kind === 'worktree-base' && summary.base.ref)
     return { kind: 'ref', ref: summary.base.ref }
-  return { kind: 'oid', oid: summary.base.oid.slice(0, 7) }
+  return { kind: 'oid', oid: shortSha(summary.base.oid) }
 }
 
 /**
@@ -68,7 +74,7 @@ export function summaryComparisonLabel(
     const commit = summary?.commits.find((entry) => entry.sha === comparison.sha)
     // 고른 커밋이 목록에서 사라졌으면(요약 갱신) 범위 라벨로 접는다 — `reconcileComparison`
     // 이 곧 모드도 되돌리지만, 그 사이 한 프레임에 빈 라벨을 그리지 않는다.
-    if (commit) return { kind: 'commit', sha: commit.sha.slice(0, 7), subject: commit.subject }
+    if (commit) return { kind: 'commit', sha: shortSha(commit.sha), subject: commit.subject }
   }
   const base = summaryBaseText(summary, tr)
   const head = status?.isRepo && !status.detached ? status.branch : null

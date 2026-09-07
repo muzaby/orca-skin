@@ -46,8 +46,10 @@ export function gitStatusTriggerKey(cwd: string | null): string {
   return JSON.stringify([cwd])
 }
 
+// 역할은 요청 identity 와 다르지만(이쪽은 effect 트리거) **좌표는 같다** — 계산을 두 벌로
+// 두면 한쪽만 바뀌었을 때 두 테스트가 각자 green 인 채로 갈린다.
 export function gitSnapshotTriggerKey(cwd: string | null, sessionId: string | null): string {
-  return JSON.stringify([cwd, sessionId])
+  return gitSnapshotRequestKey(cwd, sessionId)
 }
 
 interface GitSnapshotQueryOwner {

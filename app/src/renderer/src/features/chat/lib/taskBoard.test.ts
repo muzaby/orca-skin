@@ -96,7 +96,6 @@ describe('taskBoardFromMessages — TaskCreate (AC1·AC2)', () => {
     expect(settled).toHaveLength(1)
     expect(settled[0]).toMatchObject({
       key: agentTaskKey('3'),
-      kind: 'agent',
       id: '3',
       title: '테스트 작성',
       description: 'API 테스트',

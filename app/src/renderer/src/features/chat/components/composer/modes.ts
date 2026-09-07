@@ -1,6 +1,8 @@
 import type { MessageKey } from '../../../../shared/i18n'
-import type { NormalizedPermissionMode } from '../../../../../../shared/permission-mode'
-import { isHaikuModel } from '../../../../../../shared/model-identity'
+import {
+  coerceAutoPermissionMode,
+  type NormalizedPermissionMode
+} from '../../../../../../shared/permission-mode'
 
 // Composer 모드 버튼이 노출하는 권한 모드(정규화 6종). 라벨/설명은 **카탈로그 키**만 두고
 // 칩(Composer)과 메뉴(ModeMenu)가 렌더에서 tr() 해석한다(0096 stale-방지 패턴, 0097).
@@ -57,11 +59,14 @@ export const MODE_MENU_OPTIONS = MODE_OPTIONS.filter((opt) => !opt.hidden)
 // 이 모델에서 실제로 고를 수 있는 항목 (0215 D-010). haiku 는 SDK `auto` 를 지원하지 않으므로
 // '자동' 을 목록에서 뺀다 — 고를 수 없는 모드를 내걸면 사용자는 그것이 적용됐다고 믿는다.
 // `model === null`(선택 전)이면 제약 없이 기본 목록을 돌려준다.
+// 조건을 여기 다시 적지 않고 **규칙 소유자에게 묻는다** — "이 모델이 눌러 없앨 모드는 내걸지
+// 않는다". `coerceAutoPermissionMode` 의 주석이 메뉴·reducer·main 셋이 자기를 부른다고 적었지만
+// 메뉴만 조건을 복붙하고 있었다(0218). 다음 (모드, 모델) 제약이 생겨도 여기는 그대로다.
 export function modeMenuOptions(
   model: { alias: string; model: string | null } | null
 ): ModeOption[] {
-  if (!model || !isHaikuModel(model)) return MODE_MENU_OPTIONS
-  return MODE_MENU_OPTIONS.filter((opt) => opt.mode !== 'auto_classified')
+  if (!model) return MODE_MENU_OPTIONS
+  return MODE_MENU_OPTIONS.filter((opt) => coerceAutoPermissionMode(opt.mode, model) === opt.mode)
 }
 
 // MODE_OPTIONS 의 labelKey 파생 — 라벨 키의 단일 진실원은 MODE_OPTIONS.

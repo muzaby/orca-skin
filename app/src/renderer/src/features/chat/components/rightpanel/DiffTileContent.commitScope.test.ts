@@ -4,9 +4,12 @@ import { initialChatState, type ChatState } from '../../reducer/chatReducer'
 import type { DiffReview } from './DiffReview'
 import { createDiffRequirementItem } from './diffRequirements'
 const h = vi.hoisted(() => ({ state: null as unknown as ChatState, add: vi.fn(), draft: vi.fn() }))
+// 이 스위트는 컴포넌트를 **렌더 없이 함수로** 불러 props 를 꺼낸다 — 그래서 훅은 여기서 각각
+// 한 번의 렌더에 해당하는 값으로 대체한다. 컴포넌트가 훅을 하나 더 쓰면 이 목록도 늘어난다.
 vi.mock('react', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react')>()),
-  useCallback: (fn: unknown) => fn
+  useCallback: (fn: unknown) => fn,
+  useMemo: (fn: () => unknown) => fn()
 }))
 vi.mock('../../hooks/useGitPatch', () => ({ useGitPatch: () => {} }))
 vi.mock('../../store/chatStore', () => ({

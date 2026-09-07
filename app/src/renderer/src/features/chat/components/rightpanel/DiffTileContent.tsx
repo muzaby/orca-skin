@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import type { DiffLine } from '../../lib/diffLines'
 import { useGitPatch } from '../../hooks/useGitPatch'
 import { fileApi } from '../../../../shared/api/ipc'
@@ -67,6 +67,13 @@ export function DiffTileContent(): React.JSX.Element {
     [expandedFiles]
   )
 
+  // 두 파생은 타이핑 경로에 있다 — 메모하지 않으면 키 입력마다 새 참조가 나 하류 메모를 깬다.
+  const expandedFileSet = useMemo(() => new Set(expandedFiles), [expandedFiles])
+  const visibleRequirements = useMemo(
+    () => requirements.filter((item) => diffRequirementMatchesComparison(item, comparison)),
+    [requirements, comparison]
+  )
+
   // `↗` — 그 파일을 OS 탐색기에서 **선택해** 연다 (0211 ΔV5 D-108).
   // 실패는 값으로 접는다: 삭제된 파일·범위 밖 경로는 main 이 거부하고 화면은 그대로 남는다.
   const openFile = useCallback(
@@ -85,12 +92,10 @@ export function DiffTileContent(): React.JSX.Element {
       error={error}
       onRefresh={chatActions.refreshGitSnapshot}
       comparison={comparison}
-      expandedFiles={new Set(expandedFiles)}
+      expandedFiles={expandedFileSet}
       sidebarVisible={sidebarVisible}
       view={view}
-      requirements={requirements.filter((item) =>
-        diffRequirementMatchesComparison(item, comparison)
-      )}
+      requirements={visibleRequirements}
       draft={draft}
       activeRequirementId={activeRequirementId}
       selectionVersion={selectionVersion}

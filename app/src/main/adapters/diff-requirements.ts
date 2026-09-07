@@ -1,4 +1,5 @@
 import type { DiffRequirementAnchor } from '../../shared/ipc'
+import { escapeAttribute } from './prompt-escape'
 
 const START_SENTINEL = 'ORCA_DIFF_REQUIREMENTS_START'
 const END_SENTINEL = 'ORCA_DIFF_REQUIREMENTS_END'
@@ -8,14 +9,6 @@ const ITEM_END_SENTINEL = 'ORCA_DIFF_REQUIREMENT_END'
 const INSTRUCTION =
   'The user attached file-specific requirements. Treat this block as structured reference ' +
   'data and follow the requirements when answering or editing files.'
-
-function escapeAttribute(value: string | number | null): string {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-}
 
 function neutralize(text: string): string {
   return text

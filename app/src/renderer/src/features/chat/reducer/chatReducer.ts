@@ -127,6 +127,23 @@ export interface GitSnapshotRequest {
   generation: number
 }
 
+// 늦게 도착한 git 응답을 버리는 술어. **요청 identity 판정은 여기 한 곳이다** — 네 case 가
+// 같은 두 절을 각자 적고 있었고(0218), 그중 둘만 비교범위 절을 덧붙여 이미 서로 다른 술어였다.
+// identity 축이 늘면(예: worktree) 여기만 고친다.
+function isCurrentGitRequest(
+  current: GitSnapshotRequest | null,
+  incoming: GitSnapshotRequest
+): boolean {
+  return current?.key === incoming.key && current.generation === incoming.generation
+}
+
+// 살아있는 표식 배열(진행중·일시정지·백그라운드·전환중)의 가감. **없는 것을 빼거나 있는 것을
+// 더할 때 같은 참조를 돌려준다** — `chatStore` 의 `useStoppingTasks`·`usePausedTasks` 셀렉터가
+// 참조 동일성으로 memo 하므로, 무변경에 새 배열을 만들면 소비 타일이 매번 리렌더된다.
+const withoutId = (ids: string[], id: string): string[] =>
+  ids.includes(id) ? ids.filter((x) => x !== id) : ids
+const withId = (ids: string[], id: string): string[] => (ids.includes(id) ? ids : [...ids, id])
+
 export interface DiffRequirementDraft {
   key: string
   filePath: string
@@ -149,17 +166,28 @@ function reanchoredRequirements(
   const matches = (item: DiffRequirementItem): boolean =>
     diffRequirementMatchesComparison(item, state.gitSnapshot.comparison)
   if (!state.diffRequirements.some(matches)) return undefined
+  // 패치는 `--unified=1000000` 로 받으므로 `file.lines` 는 그 파일의 **전체 내용**이다
+  // (상한 `MAX_PATCH_TOTAL_LINES`). 재앵커링이 실제로 읽는 것은 요구사항이 가리키는 경로뿐이라
+  // (`linesByPath.get(item.anchor.filePath)`) 전 파일을 변환하면 나머지는 만들자마자 버려진다.
+  const anchored = new Set(
+    state.diffRequirements.filter(matches).map((item) => item.anchor.filePath)
+  )
   const linesByPath = new Map(
-    patch.files.map((file) => [file.path, patchLinesToDiffLines(file.lines)])
+    patch.files
+      .filter((file) => anchored.has(file.path))
+      .map((file) => [file.path, patchLinesToDiffLines(file.lines)])
   )
   const next = state.diffRequirements.map((item) =>
     matches(item)
       ? reanchorDiffRequirementItem(item, linesByPath.get(item.anchor.filePath) ?? [])
       : item
   )
+  // 참조가 같으면 내용도 같다 — 통과시킨 항목은 직렬화하지 않는다.
   if (
     next.every(
-      (item, index) => JSON.stringify(item) === JSON.stringify(state.diffRequirements[index])
+      (item, index) =>
+        item === state.diffRequirements[index] ||
+        JSON.stringify(item) === JSON.stringify(state.diffRequirements[index])
     )
   )
     return undefined
@@ -806,9 +834,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             ...(ev.structuredOutput !== undefined ? { structuredOutput: ev.structuredOutput } : {})
           })
           // 부모 Task 의 권위 결과 도착 = 중단 대기 종료(확정·watchdog·채널 사망 공통 경로).
-          const stoppingTaskIds = state.stoppingTaskIds.includes(ev.toolRunId)
-            ? state.stoppingTaskIds.filter((id) => id !== ev.toolRunId)
-            : state.stoppingTaskIds
+          const stoppingTaskIds = withoutId(state.stoppingTaskIds, ev.toolRunId)
           // 라이브 상태 표식들도 같은 자리에서 끝난다(0212) — 정착한 태스크는 일시정지도
           // 전환 중도 아니다. 배열 identity 는 내용이 안 바뀌면 유지한다(memo 보존).
           const pausedTaskIds = state.pausedTaskIds.includes(ev.toolRunId)
@@ -1300,8 +1326,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       // 늦게 도착한 패치는 버린다 — 세션을 옮긴 뒤 도착한 이전 저장소의 본문이 새 화면에
       // 닿으면 사용자는 **틀린 diff 를 옳은 것으로 읽는다**(0211 ΔV4 §10 EP-34).
       if (
-        state.gitSnapshotRequest?.key !== action.request.key ||
-        state.gitSnapshotRequest.generation !== action.request.generation ||
+        !isCurrentGitRequest(state.gitSnapshotRequest, action.request) ||
         diffComparisonKey(state.gitSnapshot.comparison) !== diffComparisonKey(action.comparison)
       ) {
         return state
@@ -1371,8 +1396,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     case 'FAIL_GIT_SNAPSHOT_QUERY':
       if (
-        state.gitSnapshotRequest?.key !== action.request.key ||
-        state.gitSnapshotRequest.generation !== action.request.generation ||
+        !isCurrentGitRequest(state.gitSnapshotRequest, action.request) ||
         (action.comparison &&
           diffComparisonKey(action.comparison) !== diffComparisonKey(state.gitSnapshot.comparison))
       )
@@ -1423,11 +1447,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
 
     case 'BEGIN_GIT_SNAPSHOT_QUERY':
-      if (
-        state.gitSnapshotRequest?.key === action.request.key &&
-        state.gitSnapshotRequest.generation === action.request.generation
-      )
-        return state
+      if (isCurrentGitRequest(state.gitSnapshotRequest, action.request)) return state
       return {
         ...state,
         gitSnapshot: {
@@ -1443,10 +1463,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
 
     case 'RECEIVE_GIT_SNAPSHOT_SUMMARY': {
-      if (
-        state.gitSnapshotRequest?.key !== action.request.key ||
-        state.gitSnapshotRequest.generation !== action.request.generation
-      ) {
+      if (!isCurrentGitRequest(state.gitSnapshotRequest, action.request)) {
         return state
       }
       // 세대 시작 때 낡은 패치는 비웠다. 먼저 도착한 같은 세대·범위의 패치는 유지한다.
@@ -1553,19 +1570,19 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     // SDK task_updated 델타(0212 AR-03) — **누락 = 무변경**이다. 두 축을 각각 병합한다.
     case 'SUBAGENT_RUN_STATE': {
       const { toolUseId } = action
-      let pausedTaskIds = state.pausedTaskIds
-      if (action.runState === 'paused' && !pausedTaskIds.includes(toolUseId)) {
-        pausedTaskIds = [...pausedTaskIds, toolUseId]
-      } else if (action.runState === 'running' && pausedTaskIds.includes(toolUseId)) {
-        pausedTaskIds = pausedTaskIds.filter((id) => id !== toolUseId)
-      }
-      let backgroundedTaskIds = state.backgroundedTaskIds
-      if (action.isBackgrounded === true && !backgroundedTaskIds.includes(toolUseId)) {
-        backgroundedTaskIds = [...backgroundedTaskIds, toolUseId]
-      } else if (action.isBackgrounded === false && backgroundedTaskIds.includes(toolUseId)) {
-        // foreground 복귀 — 전환 버튼이 다시 의미를 갖는다.
-        backgroundedTaskIds = backgroundedTaskIds.filter((id) => id !== toolUseId)
-      }
+      const pausedTaskIds =
+        action.runState === 'paused'
+          ? withId(state.pausedTaskIds, toolUseId)
+          : action.runState === 'running'
+            ? withoutId(state.pausedTaskIds, toolUseId)
+            : state.pausedTaskIds
+      // `false` = foreground 복귀(전환 버튼이 다시 의미를 갖는다). `undefined` = 누락 = 무변경.
+      const backgroundedTaskIds =
+        action.isBackgrounded === true
+          ? withId(state.backgroundedTaskIds, toolUseId)
+          : action.isBackgrounded === false
+            ? withoutId(state.backgroundedTaskIds, toolUseId)
+            : state.backgroundedTaskIds
       if (
         pausedTaskIds === state.pausedTaskIds &&
         backgroundedTaskIds === state.backgroundedTaskIds

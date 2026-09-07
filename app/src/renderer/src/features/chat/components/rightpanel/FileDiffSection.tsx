@@ -40,6 +40,9 @@ export const CONTEXT_EXPAND_STEP = 20
 /** 처음 보여줄 변경 주변 문맥. */
 const INITIAL_CONTEXT = 3
 
+// 줄마다 만들던 빈 배열을 하나로 접는다 — 요구사항 없는 파일이 일반적인 상태다.
+const NO_REQUIREMENTS: readonly DiffRequirementItem[] = Object.freeze([])
+
 export interface FileDiffSectionProps {
   section: DiffSection
   collapsed: boolean
@@ -631,9 +634,11 @@ function InlineLineRow({
 }): React.JSX.Element {
   const { tr } = useI18n()
   const lineKey = diffRequirementLineKey(filePath, row.line.oldLine, row.line.newLine)
-  const lineRequirements = requirements.filter((item) =>
-    diffRequirementMatchesLine(item, filePath, row.line)
-  )
+  // 요구사항이 없는 것이 일반적인 상태다 — 그때 줄마다 빈 배열을 만들지 않는다.
+  const lineRequirements =
+    requirements.length === 0
+      ? NO_REQUIREMENTS
+      : requirements.filter((item) => diffRequirementMatchesLine(item, filePath, row.line))
   const lineDraft = draft?.key === lineKey && draft.filePath === filePath ? draft : null
   return (
     <Fragment>
@@ -691,12 +696,14 @@ function InlineLineRow({
           onAddRequirement={onAddRequirement}
         />
       )}
-      <DiffRequirementMarkerRow
-        colSpan={3}
-        items={lineRequirements}
-        selection={selection}
-        onRemoveRequirement={onRemoveRequirement}
-      />
+      {lineRequirements.length > 0 && (
+        <DiffRequirementMarkerRow
+          colSpan={3}
+          items={lineRequirements}
+          selection={selection}
+          onRemoveRequirement={onRemoveRequirement}
+        />
+      )}
     </Fragment>
   )
 }
@@ -786,11 +793,16 @@ function SideBySideBody({
                   <DiffRequirementMarkerRow
                     colSpan={4}
                     leadingColumns={1}
-                    items={requirements.filter(
-                      (item) =>
-                        (pair.left && diffRequirementMatchesLine(item, filePath, pair.left)) ||
-                        (pair.right && diffRequirementMatchesLine(item, filePath, pair.right))
-                    )}
+                    items={
+                      requirements.length === 0
+                        ? NO_REQUIREMENTS
+                        : requirements.filter(
+                            (item) =>
+                              (pair.left &&
+                                diffRequirementMatchesLine(item, filePath, pair.left)) ||
+                              (pair.right && diffRequirementMatchesLine(item, filePath, pair.right))
+                          )
+                    }
                     selection={selection}
                     onRemoveRequirement={onRemoveRequirement}
                   />

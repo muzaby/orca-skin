@@ -46,7 +46,6 @@ export interface ParsedModel {
 
 interface AliasCandidate extends ParsedModel {}
 
-// [1m] 접미사 분리 — trim 후 정확한 브래킷 토큰만. 구 includes('1m') 부분문자열 매칭 금지.
 function asRecord(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
   return value as Record<string, unknown>

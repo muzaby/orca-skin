@@ -116,10 +116,11 @@ export class WorktreeService {
     // 0211 ΔV4 — 이름도 **같은 자리에서** 결정한다(D-072). 유예 브랜치가 있으면 그 이름이 곧
     // 기준 브랜치이고, 없으면 지금 체크아웃된 브랜치다. 이름을 나중에 다시 읽으면 그 사이
     // 사용자가 브랜치를 바꿨을 때 커밋과 이름이 서로 다른 시점을 가리킨다.
-    const baseRef = input.baseRef ?? (await resolveHeadRef(sourceCwd))
-    const baseOid = input.baseRef
-      ? await resolveBranchOid(sourceCwd, input.baseRef)
-      : await resolveHead(sourceCwd)
+    // 두 읽기는 서로 독립이라 나란히 돈다 — 직렬로 두면 사용자가 스피너를 보는 시간이
+    // spawn 한 번만큼 늘고, 두 값 사이의 시간차(위 D-072 가 좁히려는 그 창)도 넓어진다.
+    const [baseRef, baseOid] = input.baseRef
+      ? ([input.baseRef, await resolveBranchOid(sourceCwd, input.baseRef)] as const)
+      : await Promise.all([resolveHeadRef(sourceCwd), resolveHead(sourceCwd)])
     if (!baseOid)
       return {
         kind: 'rejected',
@@ -137,10 +138,8 @@ export class WorktreeService {
       firstPrompt: input.firstPrompt,
       ...(input.complete ? { complete: input.complete } : {}),
       ...(input.signal ? { signal: input.signal } : {}),
-      dirTaken: async (candidate) =>
-        await stat(resolve(this.rootDir, repoSegment, branchDirSegment(candidate)))
-          .then(() => true)
-          .catch(() => false)
+      dirTaken: (candidate) =>
+        pathExists(resolve(this.rootDir, repoSegment, branchDirSegment(candidate)))
     })
     input.onProgress?.('worktree')
     const worktreeRoot = resolve(this.rootDir, repoSegment, branchDirSegment(branch))
@@ -162,10 +161,7 @@ export class WorktreeService {
         (entry) =>
           isWithinDir(entry.path, canonicalCandidate) && isWithinDir(canonicalCandidate, entry.path)
       )
-      if (created) await this.operations.remove({ repoRoot, path: created.path })
-      await this.operations.deleteBranch({ repoRoot, branch })
-      await rm(worktreeRoot, { recursive: true, force: true }).catch(() => undefined)
-      await rmdir(dirname(worktreeRoot)).catch(() => undefined)
+      await this.rollbackPrepare({ repoRoot, branch, worktreeRoot, removePath: created?.path })
       return { kind: 'rejected', reason: 'create-failed', message: 'Worktree를 만들지 못했습니다.' }
     }
     try {
@@ -191,15 +187,30 @@ export class WorktreeService {
         display: { sourceCwd, repoRoot }
       }
     } catch {
-      await this.operations.remove({ repoRoot, path: worktreeRoot })
-      await this.operations.deleteBranch({ repoRoot, branch })
-      await rm(worktreeRoot, { recursive: true, force: true }).catch(() => undefined)
+      await this.rollbackPrepare({ repoRoot, branch, worktreeRoot, removePath: worktreeRoot })
       return {
         kind: 'rejected',
         reason: 'create-failed',
         message: 'Worktree 정보를 저장하지 못했습니다.'
       }
     }
+  }
+
+  // `prepare` 의 두 실패 경로가 되돌리는 절차. 사본이 둘이면 정리 단계를 하나 더할 때 한쪽만
+  // 따라가고, 실제로 그렇게 갈라져 있었다 — `catch` 경로가 `rmdir` 을 빠뜨려 repo 세그먼트
+  // 디렉토리를 남겼다(0218). `removePath` 가 없으면 git 에 worktree 가 등록되지 않은 것이라
+  // `remove` 를 부르지 않는다(없는 경로로 부르면 없던 git 호출이 는다).
+  private async rollbackPrepare(input: {
+    repoRoot: string
+    branch: string
+    worktreeRoot: string
+    removePath?: string
+  }): Promise<void> {
+    if (input.removePath)
+      await this.operations.remove({ repoRoot: input.repoRoot, path: input.removePath })
+    await this.operations.deleteBranch({ repoRoot: input.repoRoot, branch: input.branch })
+    await rm(input.worktreeRoot, { recursive: true, force: true }).catch(() => undefined)
+    await rmdir(dirname(input.worktreeRoot)).catch(() => undefined)
   }
 
   // 실행 경로가 사라진 세션을 원본 작업 경로로 되돌린다 (0210 D-107).

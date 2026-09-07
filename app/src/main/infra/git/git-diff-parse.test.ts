@@ -13,7 +13,6 @@ import {
   mergeDiffEntries,
   parseCommitLog,
   parseUnifiedPatch,
-  parseNameStatusZ,
   parseNumstatZ
 } from './git-diff-parse'
 import type { GitDiffFileEntry } from '../../../shared/ipc'
@@ -50,21 +49,6 @@ describe('numstat -z 파싱', () => {
 
   it('공백·한글이 든 경로가 깨지지 않는다 — `-z` 라 인용되지 않는다', () => {
     expect(parseNumstatZ('1\t0\tdocs/한글 문서.md\x00')[0].path).toBe('docs/한글 문서.md')
-  })
-})
-
-describe('name-status -z 파싱', () => {
-  it('추가·삭제·수정을 구분한다', () => {
-    const map = parseNameStatusZ('A\x00new.ts\x00D\x00gone.ts\x00M\x00edit.ts\x00')
-    expect(map.get('new.ts')).toBe('added')
-    expect(map.get('gone.ts')).toBe('deleted')
-    expect(map.get('edit.ts')).toBe('modified')
-  })
-
-  it('rename 은 유사도 숫자가 붙고 경로가 둘이다 — 새 경로에 표시한다', () => {
-    const map = parseNameStatusZ('R100\x00old.ts\x00new.ts\x00')
-    expect(map.get('new.ts')).toBe('renamed')
-    expect(map.has('old.ts')).toBe(false)
   })
 })
 

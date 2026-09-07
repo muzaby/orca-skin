@@ -94,6 +94,14 @@ export interface GitDiffRange {
 // 시작했다면 그 이후 **전부**가 이 세션의 작업이므로 그것이 맞는 기준이다.
 export const EMPTY_TREE_OID = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
+// HEAD 커밋 OID. 없으면(빈 저장소) null — `resolveDiffRange` 의 두 분기와 요약 조립이
+// 모두 이것을 부른다. HEAD 존재 판정이 세 벌이면 프로브가 바뀔 때 갈린다.
+async function headOid(cwd: string, runner: GitDiffRunner): Promise<string | null> {
+  const head = await run(runner, cwd, ['rev-parse', '--verify', '-q', 'HEAD'])
+  const oid = head.stdout.trim()
+  return head.ok && oid.length > 0 ? oid : null
+}
+
 export async function resolveDiffRange(
   input: { cwd: string; baseOid?: string | null; baseRef?: string | null; bornAt?: number | null },
   runner: GitDiffRunner = runGit
@@ -125,8 +133,7 @@ export async function resolveDiffRange(
         base: { kind: 'worktree-base', oid: bornOid, ref: input.baseRef ?? null }
       }
     // 그 시각 이전 커밋이 없다 = 세션이 **빈 저장소**에서 시작했다. 저장소의 시작이 기준이다.
-    const anyCommit = await run(runner, input.cwd, ['rev-parse', '--verify', '-q', 'HEAD'])
-    if (anyCommit.ok && anyCommit.stdout.trim().length > 0)
+    if ((await headOid(input.cwd, runner)) !== null)
       return {
         kind: 'working',
         base: { kind: 'worktree-base', oid: EMPTY_TREE_OID, ref: input.baseRef ?? null }
@@ -134,12 +141,8 @@ export async function resolveDiffRange(
     return { kind: 'working', base: { kind: 'none' } }
   }
 
-  const head = await run(runner, input.cwd, ['rev-parse', '--verify', '-q', 'HEAD'])
-  const oid = head.stdout.trim()
-  return {
-    kind: 'working',
-    base: head.ok && oid.length > 0 ? { kind: 'head', oid } : { kind: 'none' }
-  }
+  const oid = await headOid(input.cwd, runner)
+  return { kind: 'working', base: oid !== null ? { kind: 'head', oid } : { kind: 'none' } }
 }
 
 // 비교 범위 — **커밋된 것만**이다 (0211 ΔV6 D-111, §10 EP-47 ①).
@@ -233,12 +236,6 @@ const EMPTY_DIFF_GROUP: { files: GitDiffFileEntry[]; truncated: boolean; totals:
   totals: ZERO_TOTALS
 }
 
-async function headOid(cwd: string, runner: GitDiffRunner): Promise<string | null> {
-  const head = await run(runner, cwd, ['rev-parse', '--verify', '-q', 'HEAD'])
-  const oid = head.stdout.trim()
-  return head.ok && oid.length > 0 ? oid : null
-}
-
 async function readCommitHistory(
   cwd: string,
   baseOid: string,
@@ -278,8 +275,11 @@ export async function gitDiffSummary(
   // 커밋된 것만 본다 (0211 ΔV6 D-111, §10 EP-47 ②) — 범위가 `<base> HEAD` 라 작업 트리가
   // 들어오지 않고, 미추적 조회도 없다. 범위가 아예 없으면(커밋 0개) 조회를 건너뛴다.
   const revArgs = diffRevArgs(base)
-  const overall = revArgs ? await readDiff(input.cwd, revArgs, runner) : EMPTY_DIFF_GROUP
-  const currentHead = base.kind === 'head' ? base.oid : await headOid(input.cwd, runner)
+  // 두 조회는 서로 독립이라 나란히 돈다 — 턴 종료마다 도는 경로에서 직렬 왕복 하나를 없앤다.
+  const [overall, currentHead] = await Promise.all([
+    revArgs ? readDiff(input.cwd, revArgs, runner) : Promise.resolve(EMPTY_DIFF_GROUP),
+    base.kind === 'head' ? Promise.resolve(base.oid) : headOid(input.cwd, runner)
+  ])
 
   let commits: GitDiffSummary['commits'] = []
   let commitsTruncated = false

@@ -24,6 +24,7 @@ import { githubRepositoryUrl } from './github-url'
 const TIMEOUT_MS = 10_000
 const MAX_BUFFER = 4 * 1024 * 1024
 
+import { resolveHeadRef } from './repository'
 import { runGit } from './runner'
 import { withRepoMutation } from './mutation-queue'
 type RunResult = Awaited<ReturnType<typeof runGit>>
@@ -43,14 +44,6 @@ async function insideWorkTree(cwd: string): Promise<boolean> {
   if (!(await isDirectory(cwd))) return false
   const result = await run(cwd, ['rev-parse', '--is-inside-work-tree'])
   return result.ok && result.stdout.trim() === 'true'
-}
-
-// 현재 브랜치. detached HEAD 면 null. **`symbolic-ref` 를 쓰는 이유**: 커밋이 하나도 없는
-// unborn 브랜치에서도 이름을 준다(`rev-parse --abbrev-ref HEAD` 는 거기서 실패한다).
-async function currentBranch(cwd: string): Promise<string | null> {
-  const result = await run(cwd, ['symbolic-ref', '--short', '-q', 'HEAD'])
-  const name = result.stdout.trim()
-  return result.ok && name.length > 0 ? name : null
 }
 
 // 커밋되지 않은 변경 = **추적 파일의 HEAD 대비 차이**. 미추적 파일은 체크아웃을 막지 않으므로
@@ -77,7 +70,7 @@ export async function gitStatus(cwd: string): Promise<GitStatus> {
     return { isRepo: false, branch: null, detached: false, root: null, githubUrl: null }
   }
   const [branch, root, origin] = await Promise.all([
-    currentBranch(cwd),
+    resolveHeadRef(cwd),
     repoRoot(cwd),
     run(cwd, ['remote', 'get-url', 'origin'])
   ])
@@ -92,8 +85,11 @@ export async function gitStatus(cwd: string): Promise<GitStatus> {
 
 export async function gitBranches(cwd: string): Promise<GitBranchList> {
   if (!(await insideWorkTree(cwd))) return { current: null, branches: [] }
-  const current = await currentBranch(cwd)
-  const result = await run(cwd, ['for-each-ref', '--format=%(refname:short)', 'refs/heads/'])
+  // 두 읽기는 서로 독립이라 나란히 돈다.
+  const [current, result] = await Promise.all([
+    resolveHeadRef(cwd),
+    run(cwd, ['for-each-ref', '--format=%(refname:short)', 'refs/heads/'])
+  ])
   return { current, branches: result.ok ? parseBranchList(result.stdout, current) : [] }
 }
 
@@ -129,7 +125,7 @@ export async function gitCheckout(
   const dirty = await dirtyStat(cwd)
   if (dirty && resolution === undefined) {
     // 아직 아무것도 하지 않았다 — 무엇을 할지는 사용자가 모달에서 고른다.
-    return { ok: false, reason: 'dirty', from: await currentBranch(cwd), stat: dirty }
+    return { ok: false, reason: 'dirty', from: await resolveHeadRef(cwd), stat: dirty }
   }
   const root = (await repoRoot(cwd)) ?? cwd
   return withRepoMutation(root, async () => {

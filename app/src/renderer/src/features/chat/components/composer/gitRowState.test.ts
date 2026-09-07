@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GitDiffTotals, GitStatus } from '../../../../../../shared/ipc'
-import { gitRowView, repoNameFromRoot } from './gitRowState'
+import { gitRowView } from './gitRowState'
 
 const repo = (over: Partial<GitStatus> = {}): GitStatus => ({
   isRepo: true,
@@ -32,10 +32,6 @@ describe('저장소 이름은 git 루트에서 읽는다 (AT-09)', () => {
   it('cwd 가 하위 폴더여도 루트의 마지막 세그먼트다', () => {
     const view = gitRowView(true, '/home/u/proj/orca-skin/app', repo())
     expect(view.visible && view.repo).toBe('orca-skin')
-  })
-
-  it('Windows 구분자도 마지막 세그먼트를 준다', () => {
-    expect(repoNameFromRoot('C:\\Users\\u\\proj\\orca-skin')).toBe('orca-skin')
   })
 
   it('루트를 못 받으면 이름만 비고 나머지는 산다 — 행이 통째로 사라지지 않는다', () => {

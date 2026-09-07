@@ -189,7 +189,7 @@ export function mergeDiffEntries(tracked: readonly GitDiffFileEntry[]): {
 
 // `git diff --name-status -z <range>` 로 얻은 상태 문자를 목록에 입힌다.
 // numstat 은 삭제/추가를 구분하지 않으므로(둘 다 숫자만 준다) 상태는 여기서 온다.
-export function applyNameStatus(
+function applyNameStatus(
   entries: readonly GitDiffFileEntry[],
   statusByPath: ReadonlyMap<string, GitDiffFileStatus>
 ): GitDiffFileEntry[] {
@@ -197,30 +197,6 @@ export function applyNameStatus(
     const status = statusByPath.get(entry.path)
     return status ? { ...entry, status } : entry
   })
-}
-
-// `git diff --name-status -z` 출력 → 경로별 상태.
-// rename(`R100`)·copy(`C100`)는 뒤에 유사도 숫자가 붙고 경로가 둘이다.
-export function parseNameStatusZ(out: string): Map<string, GitDiffFileStatus> {
-  const tokens = out.split('\0').filter((t) => t.length > 0)
-  const map = new Map<string, GitDiffFileStatus>()
-  let i = 0
-  while (i < tokens.length) {
-    const code = tokens[i]
-    const letter = code[0]
-    if (letter === 'R' || letter === 'C') {
-      const newPath = tokens[i + 2]
-      if (newPath) map.set(newPath, 'renamed')
-      i += 3
-      continue
-    }
-    const path = tokens[i + 1]
-    if (path) {
-      map.set(path, letter === 'A' ? 'added' : letter === 'D' ? 'deleted' : 'modified')
-    }
-    i += 2
-  }
-  return map
 }
 
 // ── unified patch 파서 (0211 ΔV4) ────────────────────────────────────────────

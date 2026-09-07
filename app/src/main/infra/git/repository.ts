@@ -21,16 +21,24 @@ export async function gitAvailable(cwd: string): Promise<boolean> {
   return (await runGit(cwd, ['--version'], { readOnly: true })).ok
 }
 
-export async function resolveHead(cwd: string): Promise<string | null> {
-  const result = await runGit(cwd, ['rev-parse', '--verify', 'HEAD'], { readOnly: true })
+// `rev-parse --verify` 의 결과를 OID 로 받는 판정. **OID 유효성 규칙은 여기 한 곳이다** —
+// 두 벌이면 SHA-256 확장 같은 변경이 한쪽만 따라간다. (`shared/protocol.ts` 의
+// `GitCommitOidSchema` 는 정확히 40자라 의도적으로 다르다 — 함께 접지 않는다.)
+async function revParseOid(cwd: string, rev: string): Promise<string | null> {
+  const result = await runGit(cwd, ['rev-parse', '--verify', rev], { readOnly: true })
   const oid = result.stdout.trim()
   return result.ok && /^[0-9a-fA-F]{40,64}$/.test(oid) ? oid : null
+}
+
+export async function resolveHead(cwd: string): Promise<string | null> {
+  return revParseOid(cwd, 'HEAD')
 }
 
 // 현재 HEAD 가 가리키는 **브랜치 이름**. detached HEAD 면 null (0211 ΔV4 D-070).
 //
 // **`symbolic-ref` 를 쓰는 이유**: 커밋이 하나도 없는 unborn 브랜치에서도 이름을 준다 —
-// `rev-parse --abbrev-ref HEAD` 는 거기서 실패한다(`git-cli.ts` 의 같은 판단).
+// `rev-parse --abbrev-ref HEAD` 는 거기서 실패한다. `git-cli.ts` 가 같은 판단을 사본으로
+// 갖고 있었고 0218 에서 이 함수 하나로 접었다 — HEAD 브랜치 이름 판정은 여기가 소유한다.
 export async function resolveHeadRef(cwd: string): Promise<string | null> {
   const result = await runGit(cwd, ['symbolic-ref', '--short', '-q', 'HEAD'], { readOnly: true })
   const name = result.stdout.trim()
@@ -41,11 +49,7 @@ export async function resolveHeadRef(cwd: string): Promise<string | null> {
 // 첫 인자가 되면 `-` 로 시작하는 이름이 git 옵션으로 읽힌다. 접두사가 그 가능성을 없애고,
 // 동시에 조회 범위를 브랜치 칩이 실제로 제시하는 로컬 브랜치로 좁힌다.
 export async function resolveBranchOid(cwd: string, branch: string): Promise<string | null> {
-  const result = await runGit(cwd, ['rev-parse', '--verify', `refs/heads/${branch}^{commit}`], {
-    readOnly: true
-  })
-  const oid = result.stdout.trim()
-  return result.ok && /^[0-9a-fA-F]{40,64}$/.test(oid) ? oid : null
+  return revParseOid(cwd, `refs/heads/${branch}^{commit}`)
 }
 
 export async function isClean(cwd: string): Promise<boolean | null> {
