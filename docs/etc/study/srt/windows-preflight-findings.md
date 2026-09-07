@@ -29,10 +29,14 @@ MCP가 필요한 현재 요구를 공식 바이너리 그대로 충족했다고 
 | 네트워크 | 허용 proxy 200, 거부 proxy 403, 직접 IPv4·IPv6 EACCES | 시험 endpoint 범위에서 차단 확인 |
 | 시험 자산 위치 | 사용자 TEMP 아래 `.mjs`는 상위 프로필 lstat EPERM, 작업공간 산출 폴더에서는 실행 | 사용자 홈 권한을 넓히지 않고 시험 자산 위치 수정 |
 | 자손 생존 oracle | `process.kill(pid,0)`의 권한 부족을 생존으로 셌음 | 이전 자손 실패 관측은 확정 증거에서 제외. PID+생성 시각 관측으로 재검증 |
+| 보정 후 자손 종료 | 직접 진단에서 시작한 세 PID의 identity를 확인한 뒤 SRT runner 강제 종료, 같은 identity 소멸 | SRT 자손 회수 확인. PID 기반 보조 종료 없음 |
+| 최종 정리 | 실제 smoke·직접 진단 모두 ACL 전후 일치, runner·listener 종료, fixture 삭제 | 해당 시험의 정리 확인 |
 
 각 실험의 실패와 정리는 별도로 관측했다. 일반 bootstrap smoke와 직접 진단은 실행 경로가
 다르므로 직접 진단의 성공 항목으로 bootstrap 전달 실패를 덮지 않는다.
 재현 명령과 최신 기계 결과는 [0219 구현 보고](../../../handoff/0219-srt-windows-preflight/plan.md)에 둔다.
+원본 결과: [bootstrap smoke](../../../handoff/0219-srt-windows-preflight/evidence/windows-smoke.json),
+[직접 진단](../../../handoff/0219-srt-windows-preflight/evidence/windows-diagnostic.json).
 
 ## 상류 소스와 확인 한계
 

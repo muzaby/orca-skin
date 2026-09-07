@@ -28,6 +28,7 @@
     "sandbox:check": "node scripts/check-sandbox.mjs check",
     "sandbox:install": "node scripts/check-sandbox.mjs install",
     "sandbox:smoke": "node scripts/check-sandbox.mjs smoke",
+    "sandbox:diagnose": "node scripts/check-sandbox.mjs diagnose",
     "typecheck:test": "tsc --noEmit -p tsconfig.test.json",
     "pretest": "node scripts/ensure-sqlite-abi.mjs node",
     "predev": "node scripts/ensure-sqlite-abi.mjs electron",

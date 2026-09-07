@@ -4,8 +4,280 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import http from 'node:http'
+import { createHash } from 'node:crypto'
 
 const smoke = await import('./sandbox-smoke.mjs')
+
+test('cleanup never terminates a process by a sampled PID', { timeout: 20_000 }, async (t) => {
+  const kill = t.mock.method(process, 'kill', () => true)
+  const pids = [4000000000, 4000000001, 4000000002]
+  const identities = pids.map((pid) => ({ pid, createdAt: '639243000000000000' }))
+  let cleanupStarted = false
+  let cleanupReads = 0
+  const manager = {
+    initialize: async () => {},
+    reset: async () => {
+      cleanupStarted = true
+    },
+    wrapWithSandboxArgv: async (_command, shell) => ({
+      argv: [
+        process.execPath,
+        '-e',
+        shell.args[1] === 'child'
+          ? `console.log(JSON.stringify({mode:'child',pids:${JSON.stringify(pids)}}));setInterval(()=>{},1000)`
+          : "process.stdin.resume();process.stdin.on('end',()=>console.log('{}'))"
+      ],
+      env: { ...process.env }
+    })
+  }
+  const report = await smoke.runSandboxSmoke(
+    { srtWinPath: process.execPath, diagnosticDirect: true },
+    {
+      manager,
+      observeProcesses: async () => (cleanupStarted && ++cleanupReads > 1 ? [] : identities)
+    }
+  )
+  assert.equal(report.observations.child.deadAfterRunnerExit, false)
+  assert.equal(report.cleanup.residualChildren, false)
+  assert.equal(report.cleanup.fixtureRemoved, true)
+  assert.equal(kill.mock.callCount(), 0, 'CIM snapshot grants no stable termination handle')
+})
+
+test(
+  'a failed process identity observation retains the fixture instead of inferring child exit',
+  { skip: process.platform !== 'win32' },
+  async () => {
+    const manager = {
+      initialize: async () => {},
+      reset: async () => {},
+      wrapWithSandboxArgv: async (_command, shell) => {
+        const mode = shell.args[1]
+        const source =
+          mode === 'child'
+            ? "const spawn=require('node:child_process').spawn;const kids=[1,2].map(()=>spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore',windowsHide:true}));process.stdin.resume();console.log(JSON.stringify({mode:'child',pids:[process.pid,...kids.map(c=>c.pid)]}));setInterval(()=>{},1000)"
+            : "process.stdin.resume();process.stdin.on('end',()=>console.log('{}'))"
+        return { argv: [process.execPath, '-e', source], env: { ...process.env } }
+      }
+    }
+    const report = await smoke.runSandboxSmoke(
+      { srtWinPath: process.execPath, launcherPath: process.execPath, diagnosticDirect: true },
+      {
+        manager,
+        observeProcesses: async () => {
+          throw Object.assign(new Error('private details'), { code: 'PROCESS_OBSERVATION_FAILED' })
+        }
+      }
+    )
+    try {
+      assert.equal(
+        report.failures.some((failure) => failure.code === 'PROCESS_OBSERVATION_FAILED'),
+        true
+      )
+      assert.equal(report.success, false)
+      assert.equal(report.cleanup.childrenObservationComplete, false)
+      assert.equal(report.cleanup.residualChildren, null)
+      assert.equal(report.cleanup.fixtureRemoved, false)
+      assert.equal(typeof report.retainedFixture, 'string')
+    } finally {
+      if (report.retainedFixture) {
+        const root = report.retainedFixture
+        const ownerFile = path.join(root, '.orca-smoke-owner')
+        await smoke.removeSmokeFixture({
+          root,
+          parent: await import('node:fs/promises').then((fs) => fs.realpath(tmpdir())),
+          ownerFile,
+          token: await readFile(ownerFile, 'utf8')
+        })
+      }
+    }
+  }
+)
+
+test('an explicit fixture parent confines the owned root and cleanup to that directory', async () => {
+  const parent = await mkdtemp(path.join(tmpdir(), 'smoke-parent-test-'))
+  let fixture
+  try {
+    fixture = await smoke.createSmokeFixture(parent)
+    assert.equal(path.dirname(fixture.root), parent)
+    await smoke.removeSmokeFixture(fixture)
+    fixture = undefined
+  } finally {
+    if (fixture) await smoke.removeSmokeFixture(fixture)
+    await rm(parent, { recursive: true, force: true })
+  }
+})
+
+test(
+  'direct diagnostics continue after missing stdin and cannot claim bootstrap success',
+  { skip: process.platform !== 'win32' },
+  async () => {
+    const modes = []
+    const manager = {
+      initialize: async (config) => {
+        assert.equal(config.filesystem.denyRead.length, 1)
+        assert.deepEqual(config.filesystem.denyWrite, [])
+      },
+      reset: async () => {},
+      wrapWithSandboxArgv: async (command, shell, _config, _signal, cwd) => {
+        const options = JSON.parse(command)
+        const mode = shell.args[1]
+        assert.equal(path.basename(shell.exe), 'node.exe')
+        assert.equal(path.basename(shell.args[0]), 'sandbox-probe.mjs')
+        modes.push(mode)
+        const result =
+          mode === 'stdin'
+            ? { mode, bytes: 0, sha256: createHash('sha256').update('').digest('hex') }
+            : mode === 'echo'
+              ? {
+                  mode,
+                  marker: 'orca-srt-probe-v1',
+                  argv: options.args,
+                  cwd,
+                  env: { ORCA_SANDBOX_TEST: 'fake-p0-key' }
+                }
+              : mode === 'child'
+                ? { mode, pids: [] }
+                : { mode }
+        return {
+          argv: [
+            process.execPath,
+            '-e',
+            "process.stdin.resume();process.stdin.on('end',()=>console.log(process.argv[1]))",
+            JSON.stringify(result)
+          ],
+          env: { ...process.env }
+        }
+      }
+    }
+    const report = await smoke.runSandboxSmoke(
+      { srtWinPath: process.execPath, launcherPath: process.execPath, diagnosticDirect: true },
+      { manager }
+    )
+    try {
+      assert.deepEqual(modes, ['stdin', 'echo', 'fs', 'network', 'child'])
+      assert.equal(report.executionPath, 'diagnostic-direct')
+      assert.equal(report.success, false)
+      assert.equal(report.checks.find((check) => check.id === 'transport.srt-frame').passed, false)
+      assert.equal(
+        report.checks.find((check) => check.id === 'transport.stdin-bytes').passed,
+        false
+      )
+      assert.deepEqual(report.observations.stdin, { bytes: 0, hashMatches: false })
+      assert.deepEqual(report.observations.observedPids, [])
+      assert.equal(report.observations.runnerTermination.requested, false)
+      assert.equal(report.cleanup.childrenObservationComplete, false)
+      assert.equal(report.cleanup.residualChildren, null)
+      assert.equal(report.cleanup.fixtureRemoved, false)
+      assert.equal(typeof report.retainedFixture, 'string')
+    } finally {
+      if (report.retainedFixture) {
+        const root = report.retainedFixture
+        const ownerFile = path.join(root, '.orca-smoke-owner')
+        await smoke.removeSmokeFixture({
+          root,
+          parent: await import('node:fs/promises').then((fs) => fs.realpath(tmpdir())),
+          ownerFile,
+          token: await readFile(ownerFile, 'utf8')
+        })
+      }
+    }
+  }
+)
+
+test(
+  'direct diagnostic sends the fake stdin bytes to an ordinary process in the chosen fixture parent',
+  { skip: process.platform !== 'win32' },
+  async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), 'smoke-direct-parent-'))
+    const modes = []
+    const manager = {
+      initialize: async () => {},
+      reset: async () => {},
+      wrapWithSandboxArgv: async (command, shell, _config, _signal, cwd) => {
+        assert.equal(path.dirname(path.dirname(cwd)), parent)
+        const mode = shell.args[1]
+        modes.push(mode)
+        if (mode !== 'stdin')
+          throw Object.assign(new Error('stop after observing transport'), { code: 'EACCES' })
+        assert.equal(command, '{}')
+        return {
+          argv: [
+            process.execPath,
+            '-e',
+            "const chunks=[];process.stdin.on('data',b=>chunks.push(b));process.stdin.on('end',()=>{const b=Buffer.concat(chunks);console.log(JSON.stringify({mode:'stdin',bytes:b.length,sha256:require('node:crypto').createHash('sha256').update(b).digest('hex')}))})"
+          ],
+          env: { ...process.env }
+        }
+      }
+    }
+    try {
+      const report = await smoke.runSandboxSmoke(
+        { srtWinPath: process.execPath, diagnosticDirect: true, fixtureParent: parent },
+        { manager }
+      )
+      assert.deepEqual(modes, ['stdin', 'echo'])
+      assert.deepEqual(report.observations.stdin, {
+        bytes: Buffer.byteLength('orca-srt-stdin-v1\0후속입력\n'),
+        hashMatches: true
+      })
+      assert.equal(report.checks.find((check) => check.id === 'transport.stdin-bytes').passed, true)
+      assert.equal(report.checks.find((check) => check.id === 'transport.srt-frame').passed, false)
+      assert.equal(report.success, false)
+      assert.equal(report.cleanup.fixtureRemoved, true)
+    } finally {
+      await rm(parent, { recursive: true, force: true })
+    }
+  }
+)
+
+test(
+  'ordinary failing runner uses the requested cwd and reports only fixed diagnostic codes',
+  { skip: process.platform !== 'win32' },
+  async () => {
+    const stderr =
+      [
+        'orca-launcher: CREATE_FAILED 5',
+        'orca-launcher: PRIVATE_TOKEN_VALUE 123',
+        JSON.stringify({
+          code: 'mapped_drive_cwd',
+          message: 'PRIVATE_MESSAGE',
+          drive: 'PRIVATE_PATH'
+        }),
+        JSON.stringify({ code: 'private_code', env: 'PRIVATE_ENV' }),
+        'https://private-user:PRIVATE_PASSWORD@localhost'
+      ].join('\n') + '\n'
+    const manager = {
+      initialize: async () => {},
+      reset: async () => {},
+      wrapWithSandboxArgv: async (_marker, _shell, _config, _signal, cwd) => ({
+        argv: [
+          process.execPath,
+          '-e',
+          "process.stdin.resume(); process.stdin.on('end',()=>{const message=process.cwd()===process.argv[2]?process.argv[1]:'orca-launcher: INVALID_CWD\\n';process.stderr.write(message,()=>{process.exitCode=125})})",
+          stderr,
+          cwd
+        ],
+        env: { ...process.env }
+      })
+    }
+    const report = await smoke.runSandboxSmoke(
+      { srtWinPath: process.execPath, launcherPath: process.execPath },
+      { manager }
+    )
+    assert.equal(report.success, false)
+    assert.deepEqual(report.diagnostics, [
+      {
+        mode: 'echo',
+        exitCode: 125,
+        stderrBytes: Buffer.byteLength(stderr),
+        bootstrapErrors: [{ code: 'CREATE_FAILED', win32Error: 5 }],
+        srtErrorCodes: ['mapped_drive_cwd']
+      }
+    ])
+    assert.equal(JSON.stringify(report).includes('PRIVATE'), false)
+    assert.equal(report.cleanup.fixtureRemoved, true)
+  }
+)
 const good = () => ({
   echo: { markerMatches: true, argsMatch: true, cwdMatches: true, fakeEnvMatches: true },
   fs: {
@@ -84,6 +356,7 @@ test('missing evidence, ordinary filesystem errors and proxy authentication fail
   assert.equal(typeof smoke.assessSmoke, 'function')
   const cases = [
     {},
+    { ...good(), diagnosticDirect: true },
     { ...good(), echo: undefined },
     { ...good(), echo: { ...good().echo, fakeEnvMatches: false } },
     { ...good(), fs: { ...good().fs, denyRead: { ok: false, errorCode: 'ENOENT' } } },

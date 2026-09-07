@@ -1,7 +1,7 @@
 // SRT P0 fixture. This observes real access; it never declares a sandbox policy passed.
-// CLI: node sandbox-probe.mjs <echo|fs|network|child> '<JSON options>'
+// CLI: node sandbox-probe.mjs <stdin|echo|fs|network|child> '<JSON options>'
 import { spawn } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { once } from 'node:events'
 import { readFile, writeFile } from 'node:fs/promises'
 import http from 'node:http'
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 
 const marker = 'orca-srt-probe-v1'
 const scriptPath = fileURLToPath(import.meta.url)
-const modes = new Set(['echo', 'fs', 'network', 'child'])
+const modes = new Set(['stdin', 'echo', 'fs', 'network', 'child'])
 
 function fail(code) {
   throw new Error(code)
@@ -58,6 +58,18 @@ export function parseProbeArgs(argv) {
     fail('invalid_json')
   }
   return { mode, options: object(options) }
+}
+
+// Dedicated fake-input probe: byte count/hash only, never echo input. The host owns cancellation.
+export async function stdinProbe(input = process.stdin) {
+  const hash = createHash('sha256')
+  let bytes = 0
+  for await (const chunk of input) {
+    bytes += chunk.length
+    if (bytes > 1024 * 1024) fail('stdin_limit')
+    hash.update(chunk)
+  }
+  return { mode: 'stdin', bytes, sha256: hash.digest('hex') }
 }
 
 export function echoProbe(options = {}) {
@@ -319,6 +331,7 @@ export async function startChildProbe(options = {}) {
 
 export async function runProbe(mode, options = {}) {
   object(options)
+  if (mode === 'stdin') return stdinProbe()
   if (mode === 'echo') return echoProbe(options)
   if (mode === 'fs') return filesystemProbe(options)
   if (mode === 'network') return networkProbe(options)

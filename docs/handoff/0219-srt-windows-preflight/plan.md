@@ -228,103 +228,119 @@ vendored Windows binary만 준비했다. npm 의존성 설치와 Windows provisi
 
 ## [구현자 기입] 강제 지점 전수 / V-pair 자기확인
 
+**P0 미완료.** 실제 SRT stdin 전달 실패를 확인했다. 단위·일반 실행 테스트와 직접 SRT 진단은
+완료했지만 bootstrap 종단 전달은 통과하지 못했다. 기준 V1과 인수 조건은 낮추지 않았다.
+
 | EP | 현재 관측 | 자기 상태 |
 |---|---|---|
-| EP-01 | 실제 native 테스트에서 malformed 20종의 child marker 미생성, 형식 진단 확인 | SELF_PASS |
-| EP-02 | native probe의 argv·cwd·binary stdin·stderr·exit 37 일치. HANDLE allowlist 사용 | SELF_PASS — 전달 범위; 실제 SRT job 관측은 EP-06에 남음 |
-| EP-03 | 예약 proxy/profile/CA 키·중복 env 거부, 기존 env 보존 실측 | SELF_PASS |
-| EP-04 | dependency 0.0.75 고정, MSVC native build, CLI 미설치 응답 확인. 제한 wrapper 실제 실행 미수행 | SELF_BLOCKED |
-| EP-05 | 미설치 check/smoke는 `srt_install_required`. 실제 allow/deny fixture 실행은 설치 결정 대기 | SELF_BLOCKED |
-| EP-06 | reset 실패/시간 초과·취소·PID 미관측 시 보존 tests. 실제 SRT 자손 종료·ACL 복구는 미관측 | SELF_BLOCKED |
-| EP-07 | package의 build/test/check/install/smoke 명령·운영 문서·앱 미연결 표기 대조. 문서 링크 검사 통과 | SELF_PASS |
+| EP-01 | native malformed 20종의 child marker 미생성·진단 확인 | SELF_PASS |
+| EP-02 | native argv·cwd·binary stdin·stderr·exit 37 일치. current token·HANDLE allowlist·no breakaway 유지 | SELF_PASS — 일반 전달 범위 |
+| EP-03 | 예약 proxy/profile/CA 키·중복 env 거부, 기존 env 보존 | SELF_PASS |
+| EP-04 | 0.0.75 고정·MSVC build·public wrapper 실제 호출. SRT→bootstrap stdin이 0 bytes | SELF_BLOCKED — AR-02 전달 실패 |
+| EP-05 | 설치 후 실제 SRT 직접 probe에서 허용/거부 파일·proxy·직접 IP 차단 관측 | SELF_PASS — bootstrap 전달과 구분 |
+| EP-06 | 실제 자손 identity 소멸·reset·fixture ACL 일치·fixture 삭제. unknown이면 보존 | SELF_PASS — 직접 제한 실행의 정리 |
+| EP-07 | build/test/check/install/smoke/diagnose 명령·운영 문서·미연결 상태 대조 | SELF_PASS |
 
 | Pair | 자기 상태 | 근거 / 남은 조건 |
 |---|---|---|
 | VP-01 | SELF_PASS | native argv/stdio/exit 직접 비교 |
-| VP-02 | SELF_PASS | malformed frame의 실제 실행 전 거부 |
-| VP-03 | SELF_BLOCKED | 미설치 경로만 관측; 설치 후 public wrapper 실행 필요 |
-| VP-04 | SELF_BLOCKED | 실제 filesystem/network/child/ACL 실증 필요 |
-| VP-05 | SELF_PASS | 운영 문서의 명령·실패 판정·x64 범위·미연결 상태 대조 |
-| VP-06 | SELF_BLOCKED | 실패 경로 테스트와 별도로 실제 SRT cleanup 증거 필요 |
+| VP-02 | SELF_PASS | malformed frame의 실행 전 거부 |
+| VP-03 | SELF_BLOCKED | 미설치 거부·설치·제한 실행은 확인. bootstrap stdin은 VP-08과 같은 미충족 조건 |
+| VP-04 | SELF_PASS | 실제 직접 SRT probe의 filesystem/network/독립 자손/ACL 관측 |
+| VP-05 | SELF_PASS | 운영 명령·P0 범위·실패 의미와 코드 대조 |
+| VP-06 | SELF_BLOCKED | 성공 종단은 VP-08 의존. 실패 뒤 정리와 직접 진단 정리는 통과 |
 | VP-07 | SELF_PASS | encoder→실제 exe→Node probe |
-| VP-08 | SELF_BLOCKED | 실제 SRT→bootstrap 미실행 |
-| VP-09 | SELF_PASS | native parser/quote/env 유효·무효 입력 실행 |
-| VP-10 | SELF_PASS | 실제 MSVC build 및 version/binary/launcher 실패 경로 tests |
+| VP-08 | SELF_BLOCKED | 실제 SRT→bootstrap exit125 READ_FAILED109, 직접 Node stdin0 |
+| VP-09 | SELF_PASS | parser/quote/env 유효·무효 입력 실행 |
+| VP-10 | SELF_PASS | 실제 MSVC build와 version/binary/launcher 실패 테스트 |
+
+전수: EP 6/7 관측 완료, 1개 전달 차단. V-pair 7 SELF_PASS·3 SELF_BLOCKED이며 root 실패는 VP-08이다.
+실제 원본 결과는 [windows-smoke.json](evidence/windows-smoke.json)과
+[windows-diagnostic.json](evidence/windows-diagnostic.json)에 보존한다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-선택된 적대 증거는 `not selected`이며 실제 실행 결과를 직접 비교한다.
-구조적 스윕·0건 proxy oracle을 새로 만들지 않았다.
-선택 증거 0 · 인용 변이 0 · 새 구조적 oracle 0 = 잠금 표 행 0.
+선택된 적대 증거는 `not selected`이며 결과를 직접 비교한다. 선택 증거 0 · 인용 변이 0 ·
+새 구조적 oracle 0 = 잠금 표 행 0. 이번 검증기 보정은 아래 실제 행동 대조로 확인했다.
 
-별도 검증기 결함: 원래 nested probe에는 부모 stdin EOF 정리와 libuv 자체 child job 정리가
-있었다. SRT 없이 root Node만 종료해도 세 PID가 모두 종료되는 것을 재현했다.
-실증용 descendants에서 두 경로를 제외한 뒤, root만 종료해도 자손 2개가 살아남는 실제
-Node 테스트가 통과했다. 이것을 실제 SRT job 회수의 사전 조건으로 삼는다.
-현재 Node의 [libuv 1.49.2 소스](https://github.com/libuv/libuv/blob/v1.49.2/src/win/process.c#L979-L1026)는
-detached 경로에서 `CREATE_BREAKAWAY_FROM_JOB`를 설정하지 않는다. 실제 SRT job 상속·회수는 미검증이다.
+| 발견 / 보정 | RED → GREEN / 실제 관측 |
+|---|---|
+| nested 자발 종료 | 일반 root Node만 종료해도 자손이 죽던 oracle을 수정. 독립 자손은 root 종료 후 실제 생존 |
+| runner cwd 누락 | 실제 ordinary runner의 잘못된 cwd를 검출하고 wrapper에 넘긴 cwd와 spawn cwd 일치 |
+| stdin 진단 부재 | 가짜 binary stdin의 byte count/hash·빈 EOF·상한 테스트 실패→통과 |
+| PID liveness 권한 혼동 | kill(pid,0)의 EPERM을 생존으로 가정하지 않고 CIM PID+생성 시각으로 변경 |
+| PS5 JSON 배열 중첩 | 실제 child observer가 invalid_ids로 실패. ConvertFrom-Json 직접 대입 후 동일 child 시작/종료 통과 |
+| PID 재사용 시 종료 위험 | sampled PID에 대한 fallback kill 3회 검출→0회. 종료 권한은 보유 runner handle만 사용 |
+| 중복 read/write deny | 동일 경로 두 deny에서 read 성공. 더 강한 read-deny만 전달한 대조에서 read/write 모두 EPERM |
+
+Node의 [libuv 1.49.2 detached 구현](https://github.com/libuv/libuv/blob/v1.49.2/src/win/process.c#L979-L1026)은
+CREATE_BREAKAWAY_FROM_JOB를 설정하지 않는다. 실제 SRT 자손 회수도 최종 직접 진단에서 별도로 확인했다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
-일반 앱 query·제목 생성은 아직 SRT 연결 전이다. 운영 문서와 CLI는 P0 사전 검증 범위를
-명시한다. `check` 성공은 provisioning 존재 여부이며 실제 격리 성공을 뜻하지 않는다.
-비관리자 WFP `cannot-read`를 미설치나 검증 완료로 바꾸지 않고 `unverified`로 보존한다.
+앱 chat·제목·worktree completion은 SRT 연결 전이다. `check`는 provisioning 확인이고,
+`diagnose`는 직접 진단이며 항상 success=false/exit1이다. 진단 통과 항목으로 bootstrap 실패를 가리지 않는다.
 
-설치 취소는 성공으로 표시하지 않는다. 이미 provisioning된 환경의 `install`은 공식
-installer를 다시 호출해 공유 계정 암호를 불필요하게 회전시키지 않는다.
+설치는 D-010 승인 뒤 공식 installer로 완료했다. 이미 설치된 환경에서 installer를 재호출하거나
+암호를 회전시키지 않았다. 제품 부팅 자동 설치·자가 승격은 추가하지 않았다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | 항목 | 분류 / 대응 |
 |---|---|
-| SRT proxy URL 인증값 | 구현 내 해결. 실제 proxy 인증 시험으로 `Proxy-Authorization` 전달 및 origin `Authorization` 미전달 확인 |
-| PowerShell 7의 PSModulePath 상속 | 구현 내 해결. Windows PowerShell의 Get-Acl 관측에 해당 shell의 Modules 경로 지정 |
-| nested 자발 종료 | 구현 내 해결. root만 종료 시 자손 생존 실측으로 SRT 없는 green을 배제하는 조건 확인 |
-| reset timeout 뒤 fixture 삭제 | 구현 내 해결. reset 실패·미완료·ACL 불일치면 보존. 실패/timeout 테스트에서 retainedFixture 확인 |
-| CLI Ctrl+C가 finally를 건너뜀 | 구현 내 해결. smoke 전용 signal을 전달하고 실제 ordinary runner 종료 후 cleanup 반환을 확인 |
-| 자손 PID 없는 상태의 cleanup | 구현 내 해결. child 실행 후 PID 미관측이면 residualChildren=null로 남기고 fixture 보존; 실패 runner 경로 test |
-| 후속 policy 비교 시점 | NEXT_HANDOFF. `enqueue.ts`·`post-turn.ts`는 runtime 진입 전에 channelAlive로 pending 이월을 결정한다. policy 비교는 그 전에, async lease 획득만 cold runtime에서 수행 |
-| 후속 continuation lease 승계 | NEXT_HANDOFF. TurnRequest의 장기 descriptor에는 불변 scope/policy만 저장하고 lease는 runtime-local로 소유. listen 명시 필드와 flush spread 경로 모두 검사 |
-| 후속 종료·상태 보존 | NEXT_HANDOFF. 제목 실행도 추적해 async quit 장벽 안에서 정리하고, CLI 영속 config/history는 helper/policy revision과 별도 수명으로 유지 |
+| 공식 Windows stdin 부재 | 수정 제안. [실증과 보완안](../../etc/study/srt/windows-preflight-findings.md)의 SRT 관리 빌드 선택 필요. 공식 binary 교체는 미수행 |
+| SRT proxy 인증 | 해결. Proxy-Authorization만 전달하고 origin Authorization·진단에 비밀 미전달 |
+| Node fixture의 프로필 상위 lstat | 해결. CLI fixture를 빌드 산출 폴더에 생성. 사용자 홈 read 권한 확대 없음 |
+| 같은 경로 deny mask 교체 | P0 해결. read-deny가 전체 접근 거부이므로 중복 write-deny 제외. 후속 일반 정책 compiler의 canonical 중복 처리 필요 |
+| 취소/reset/관측 실패 | 해결. unknown은 residualChildren=null·retainedFixture. 호출 완료만으로 ACL 복구 성공 주장 안 함 |
+| 프로세스 재사용 | 해결. identity 비교와 owned runner handle 종료; 조회된 PID를 별도로 kill하지 않음 |
+| 후속 policy 비교·continuation | NEXT_HANDOFF. 배치 예약 전 불변 descriptor 비교, lease는 runtime-local. 0220 DRAFT에 반영 |
+| 후속 state·completion·확장 | NEXT_HANDOFF. 두 completion producer·quit·영속 CLI 이력·기존 도구 호환은 전체 요청의 남은 필수 작업 |
 
 ## [구현자 기입] 구현 보고
 
-부분 구현이며 전체 도입 완료가 아니다. 실제 SRT가 필요한 AC는 보류한다.
+**차단 / 부분 구현.** 승인된 Windows 설치와 직접 격리 실증은 완료했다. 공식 SRT의
+stdin 경로 때문에 bootstrap 기반 전달이 미완료이며 앱 통합을 활성화하지 않았다.
 
-| AC | 상태 | 이번 턴 관측 |
+| AC | 상태 | 관측 |
 |---|---|---|
-| AC1 | ✅ | native argv의 빈 인수·인용·한글·역슬래시 직접 비교 |
-| AC2 | ✅ | frame+후속 binary stdin 한 write, stderr 원형, exit 37 |
-| AC3 | ✅ | malformed 20종의 stdout 빈 값·child marker 미생성 |
-| AC4 | ⚠️ | version/public API 배선은 고정했으나 실제 SRT wrapper 미실행 |
-| AC5 | ⚠️ | 미설치 실패는 확인; 설치된 제한 실행은 미확인 |
-| AC6 | ⚠️ | 실제 SRT filesystem allow/deny 실증 대기 |
-| AC7 | ⚠️ | 실제 SRT network·자손·reset ACL 실증 대기 |
-| AC8 | ✅ | 운영 명령·실증 한계·P0/후속 범위와 실제 코드 대조 |
+| AC1 | ✅ | native 빈 argv·인용·한글·역슬래시 비교 |
+| AC2 | ✅ | native frame+후속 binary bytes·stderr 원형·exit37 |
+| AC3 | ✅ | malformed 20종의 실행 전 거부 |
+| AC4 | ❌ | 고정 public wrapper가 bootstrap을 시작하지만 stdin 미전달로 exit125 |
+| AC5 | ✅ | 미설치 fail-closed, 승인 설치 후 실제 SRT 초기화·제한 probe 실행 |
+| AC6 | ✅ | 직접 SRT probe의 allowed read/write 성공·denied read/write EPERM, host 내용 대조 |
+| AC7 | ✅ | proxy200/403·직접 IPv4/IPv6 EACCES·자손 identity 소멸·ACL 복구 |
+| AC8 | ✅ | 명령·한계·P0 실패·앱 미연결 상태 일치 |
 
-✅ 4 · ⚠️ 4 · ❌ 0 = 총 8. Criteria-Met은 4/8이다.
+✅ 7 · ⚠️ 0 · ❌ 1 = 총 8. Criteria-Met은 7/8이며 AC4는 제품 통합의 필수 선행 조건이다.
+AC6·7은 `diagnostic-direct` 경로의 OS 관측이고 bootstrap 종단 통과가 아니다.
 
-| 운영 gate | 관측 |
+| 운영 gate / 명령 | 관측 |
 |---|---|
-| `npm run sandbox:test` | MSVC 빌드 후 실제 native 6/6, skip 0 |
-| Node scripts tests: check-sandbox / sandbox-launcher / sandbox-probe / sandbox-smoke (파일명 개별 지정) | 마감 33/33, PID 미관측 보강 후 smoke 11/11. 최종 파일별 10/2/11/11, skip 0 |
+| `npm run sandbox:test` | 이전 전달 구현에서 MSVC build/native 6/6, skip0. 이후 native·encoder 변경 없음 |
+| `node --test scripts/check-sandbox.test.mjs scripts/sandbox-launcher.test.mjs scripts/sandbox-probe.test.mjs scripts/sandbox-smoke.test.mjs scripts/sandbox-process-observer.test.mjs` | 최종 46/46, skip0. 실제 CIM 시험을 위해 Codex 도구 제한 밖의 일반 사용자 실행 |
 | 변경 scripts ESLint | 0 error / 0 warning |
-| `npm run typecheck` | node/web/test 3구성 통과, ABI 변경 없음 |
-| `node scripts/check-doc-inventory.mjs --check` | generated/prose/links 통과 |
-| `git diff --check` | whitespace 오류 없음 |
+| `npm run typecheck` | 앞선 구현의 3구성 통과. 이후 TypeScript·앱 배선 변경 없음 |
+| `node scripts/check-doc-inventory.mjs --check` / `git diff --check` | 문서·링크·whitespace 확인 |
+| `npm run sandbox:install` | exit0, userProvisioned/credentialPresent=true. WFP cannot-read는 unverified 유지 |
+| `node scripts/check-sandbox.mjs smoke` | exit1, bootstrap READ_FAILED109, cleanup true·잔존 없음 |
+| `node scripts/check-sandbox.mjs diagnose` | 의도된 exit1. stdin0, filesystem/network/자손/ACL 실제 통과, fixtureRemoved=true |
 
-실제 `sandbox:check` 결과는 userProvisioned=false, credentialPresent=false,
-wfp=cannot-read, enforcement=unverified, code=srt_install_required였다.
-설치 승인 답변 전 실제 제한 실행 결과를 통과로 기록하지 않는다.
-전체 SRT 도입은 P0 이후에도 공통 실행 계층·Claude·확장·배포가 남는다.
+초기 실패로 보존된 fixture 두 개는 후속 검사에서 시험 Node 부재·소유 표식·경계·reparse 부재·
+기록된 ACL hash 일치를 확인한 뒤 해당 폴더만 삭제했다. 다른 SRT 계정 프로세스의 일괄 종료나
+사용자 디렉터리 ACL 재설정은 하지 않았다.
 
 ## [구현자 기입] Review Signals
 
-첫 구현 라운드. native 전달, probe, CLI, smoke를 분리해 구현하고 별도 담당자가
-CLI/smoke의 실패·정리 경로를 검토했다. 검증기 자체의 nested 종료 false positive,
-signal 정리 누락, PID 미관측의 낙관적 정리를 이번 라운드에서 보정했다.
-환경 한계는 실제 Windows provisioning 미완료이며 테스트 실패와 구분한다.
+같은 첫 구현 라운드의 실증 후속이다. CLI/probe·smoke·프로세스 observer를 분담하고
+상류 소스와 실제 대조로 입력 부재·deny 중복·생존 oracle의 문제를 분리했다.
+공식 소스 tag의 Rust 본문은 미확보이며 main 소스와 고정 binary의 동일성을 주장하지 않는다.
+
+제약은 더 이상 설치 승인 부재가 아니다. 수정 SRT binary의 채택·빌드·업데이트 책임에 대한
+새 선택과 실제 stdin 통과가 필요하다. 후속 공통 계층·Claude·확장·배포는 0220 DRAFT와
+전체 도입 제안에 남아 있다.
 
 ## [검증자 기입] 파생 이슈
 
-없음.
+미검증.

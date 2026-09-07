@@ -17,11 +17,100 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { encodeLaunchFrame, LAUNCH_MARKER } from './sandbox-launch-frame.mjs'
+import { observeSmokeProcesses, processSnapshotIsAlive } from './sandbox-process-observer.mjs'
 
 const execFileAsync = promisify(execFile)
 const fixtureMarker = 'orca-denied-fixture'
 const probeMarker = 'orca-srt-probe-v1'
+const diagnosticStdin = Buffer.from('orca-srt-stdin-v1\0후속입력\n')
 const probeSource = fileURLToPath(new URL('./sandbox-probe.mjs', import.meta.url))
+// Fixed diagnostics emitted by native/sandbox-launcher/main.cpp. Never serialize stderr text.
+const bootstrapErrorCodes = new Set([
+  'READ_FAILED',
+  'TRUNCATED_FRAME',
+  'TRUNCATED_FIELD',
+  'EXCESSIVE_COUNT',
+  'TRUNCATED_STRING',
+  'NUL_STRING',
+  'INVALID_UTF8',
+  'ENV_COMPARE_FAILED',
+  'INVALID_MAGIC',
+  'UNSUPPORTED_VERSION',
+  'FRAME_TOO_LARGE',
+  'INVALID_EXECUTABLE',
+  'INVALID_CWD',
+  'COMMAND_TOO_LONG',
+  'ENV_READ_FAILED',
+  'INVALID_ENV_KEY',
+  'DUPLICATE_ENV_KEY',
+  'TRAILING_PAYLOAD',
+  'INVALID_STD_HANDLE',
+  'STD_HANDLE_FAILED',
+  'ATTR_SIZE_FAILED',
+  'ATTR_INIT_FAILED',
+  'ATTR_HANDLES_FAILED',
+  'CREATE_FAILED',
+  'WAIT_FAILED',
+  'EXIT_FAILED',
+  'INVALID_INVOCATION',
+  'INTERNAL_ERROR'
+])
+const srtDiagnosticCodes = new Set([
+  'srt_win_not_found',
+  'spawn_failed',
+  'srt_win_timeout',
+  'srt_win_nonzero',
+  'srt_win_bad_json',
+  'bin_shell_invalid',
+  'wfp_verify_bind_failed',
+  'wfp_verify_unparseable',
+  'wfp_fence_inactive',
+  'wfp_verify_inconclusive',
+  'trust_ca_failed',
+  'trust_ca_not_installed',
+  'trust_ca_thumbprint_mismatch',
+  'install_wfp_failed',
+  'install_user_failed',
+  'install_config_conflict',
+  'install_ambient_failed',
+  'install_timeout',
+  'install_failed',
+  'uninstall_failed',
+  'acl_stamp_failed',
+  'acl_grant_failed',
+  'argv_too_long',
+  'not_provisioned',
+  'mapped_drive_cwd'
+])
+
+function stderrDiagnostics(bytes) {
+  const bootstrapErrors = []
+  const srtErrorCodes = []
+  for (const line of bytes.toString('utf8').split(/\r?\n/)) {
+    const native = /^orca-launcher: ([A-Z_]+)(?: ([0-9]{1,10}))?$/.exec(line)
+    if (native && bootstrapErrorCodes.has(native[1]) && bootstrapErrors.length < 8) {
+      const win32Error = native[2] === undefined ? undefined : Number(native[2])
+      if (win32Error === undefined || win32Error <= 0xffffffff) {
+        bootstrapErrors.push({
+          code: native[1],
+          ...(win32Error === undefined ? {} : { win32Error })
+        })
+      }
+    }
+    try {
+      const value = JSON.parse(line)
+      if (
+        srtDiagnosticCodes.has(value?.code) &&
+        !srtErrorCodes.includes(value.code) &&
+        srtErrorCodes.length < 8
+      )
+        srtErrorCodes.push(value.code)
+    } catch {
+      /* Non-JSON diagnostics are intentionally not retained. */
+    }
+  }
+  return { bootstrapErrors, srtErrorCodes }
+}
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const safeCodes = new Set([
   'EACCES',
@@ -42,6 +131,7 @@ const safeCodes = new Set([
   'PROBE_INVALID_JSON',
   'PROBE_NO_RESULT',
   'PROBE_EXIT_FAILED',
+  'PROCESS_OBSERVATION_FAILED',
   'srt_win_not_found',
   'spawn_failed',
   'srt_win_timeout',
@@ -68,11 +158,20 @@ export function assessSmoke(evidence = {}) {
   const checks = [
     [
       'transport.srt-frame',
-      echo?.markerMatches === true &&
+      evidence.diagnosticDirect !== true &&
+        echo?.markerMatches === true &&
         echo.argsMatch === true &&
         echo.cwdMatches === true &&
         echo.fakeEnvMatches === true
     ],
+    ...(evidence.diagnosticDirect === true
+      ? [
+          [
+            'transport.stdin-bytes',
+            evidence.stdin?.bytes === diagnosticStdin.length && evidence.stdin.hashMatches === true
+          ]
+        ]
+      : []),
     [
       'filesystem.allowed',
       fs?.allowWrite?.ok === true &&
@@ -120,8 +219,10 @@ export function assessSmoke(evidence = {}) {
   return { success: checks.every((check) => check.passed), checks }
 }
 
-export async function createSmokeFixture() {
-  const parent = await realpath(tmpdir())
+export async function createSmokeFixture(fixtureParent = tmpdir()) {
+  if (typeof fixtureParent !== 'string' || !path.isAbsolute(fixtureParent))
+    throw new Error('ABSOLUTE_FIXTURE_PARENT_REQUIRED')
+  const parent = await realpath(fixtureParent)
   const root = await mkdtemp(path.join(parent, 'orca-srt-smoke-'))
   const token = randomUUID()
   const ownerFile = path.join(root, '.orca-smoke-owner')
@@ -261,20 +362,15 @@ export async function captureFixtureAcl(paths) {
   return values
 }
 
-const alive = (pid) => {
-  if (!Number.isInteger(pid) || pid <= 0) return false
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch (error) {
-    return error.code !== 'ESRCH'
-  }
-}
-
-async function waitDead(pids, timeoutMs = 5000) {
+async function waitDead(identities, observe, timeoutMs = 5000) {
+  if (identities.length === 0) return true
   const deadline = Date.now() + timeoutMs
-  while (pids.some(alive) && Date.now() < deadline) await pause(50)
-  return pids.every((pid) => !alive(pid))
+  for (;;) {
+    const current = await observe(identities.map((entry) => entry.pid))
+    if (identities.every((entry) => !processSnapshotIsAlive(entry, current))) return true
+    if (Date.now() >= deadline) return false
+    await pause(50)
+  }
 }
 
 function bounded(promise, timeoutMs, code) {
@@ -287,11 +383,12 @@ function bounded(promise, timeoutMs, code) {
   ]).finally(() => clearTimeout(timer))
 }
 
-function startWrappedProbe(wrapped, frame, runners) {
+function startWrappedProbe(wrapped, frame, runners, mode, cwd) {
   if (!Array.isArray(wrapped.argv) || !path.isAbsolute(wrapped.argv[0]) || !wrapped.env)
     throw new Error('INVALID_SRT_WRAPPER')
   const child = spawn(wrapped.argv[0], wrapped.argv.slice(1), {
     env: wrapped.env,
+    cwd,
     shell: false,
     windowsHide: true,
     stdio: ['pipe', 'pipe', 'pipe']
@@ -299,6 +396,8 @@ function startWrappedProbe(wrapped, frame, runners) {
   let settled = false
   let output = Buffer.alloc(0)
   let stderrBytes = 0
+  let stderrPrefix = Buffer.alloc(0)
+  let exitCode = null
   let resolveResult
   let rejectResult
   const result = new Promise((resolve, reject) => {
@@ -319,6 +418,7 @@ function startWrappedProbe(wrapped, frame, runners) {
       resolve({ closed: true, code: null })
     })
     child.once('close', (code) => {
+      exitCode = code
       if (!settled) fail('PROBE_NO_RESULT')
       resolve({ closed: true, code })
     })
@@ -327,14 +427,22 @@ function startWrappedProbe(wrapped, frame, runners) {
     child,
     closed,
     result,
-    get stderrBytes() {
-      return stderrBytes
+    get diagnostics() {
+      return {
+        mode,
+        exitCode,
+        stderrBytes,
+        ...stderrDiagnostics(stderrPrefix),
+        ...(stderrBytes > stderrPrefix.length ? { stderrDiagnosticsTruncated: true } : {})
+      }
     }
   }
   runners.push(running)
   child.stdin.on('error', () => fail('RUNNER_INPUT_FAILED'))
   child.stderr.on('data', (bytes) => {
     stderrBytes += bytes.length
+    const remaining = 16 * 1024 - stderrPrefix.length
+    if (remaining > 0) stderrPrefix = Buffer.concat([stderrPrefix, bytes.subarray(0, remaining)])
   })
   child.stdout.on('data', (bytes) => {
     if (settled) return
@@ -362,12 +470,16 @@ function startWrappedProbe(wrapped, frame, runners) {
 // The optional manager is a narrow test seam for initialization/cleanup failures; normal callers
 // use the pinned public SRT manager. Tests never replace process/ACL results with a sandbox claim.
 export async function runSandboxSmoke(
-  { srtWinPath, launcherPath, signal },
-  { manager: injectedManager, resetTimeoutMs = 20_000 } = {}
+  { srtWinPath, launcherPath, signal, diagnosticDirect = false, fixtureParent },
+  {
+    manager: injectedManager,
+    resetTimeoutMs = 20_000,
+    observeProcesses = observeSmokeProcesses
+  } = {}
 ) {
   if (process.platform !== 'win32') throw new Error('WINDOWS_REQUIRED')
   if (
-    ![srtWinPath, launcherPath].every(
+    !(diagnosticDirect ? [srtWinPath] : [srtWinPath, launcherPath]).every(
       (value) => typeof value === 'string' && path.isAbsolute(value)
     )
   )
@@ -386,6 +498,7 @@ export async function runSandboxSmoke(
   if (signal?.aborted) controller.abort()
   const failures = []
   const evidence = {
+    diagnosticDirect,
     cleanup: { resetCompleted: false, listenersClosed: false, runnerClosed: false }
   }
   let fixture
@@ -394,17 +507,29 @@ export async function runSandboxSmoke(
   let initialized = false
   let stage = 'fixture'
   let childPids = []
+  let childIdentities = []
+  let childIdentitiesObserved = false
   let childExecutionStarted = false
+  const runnerTermination = { requested: false, killAccepted: false, closed: false, exitCode: null }
   const record = (at, error) => failures.push({ stage: at, code: codeOf(error) })
+  const observe = async (pids) => {
+    try {
+      return await observeProcesses(pids)
+    } catch {
+      throw Object.assign(new Error('PROCESS_OBSERVATION_FAILED'), {
+        code: 'PROCESS_OBSERVATION_FAILED'
+      })
+    }
+  }
   try {
     throwIfAborted()
-    fixture = await createSmokeFixture()
+    fixture = await createSmokeFixture(fixtureParent)
     const node = path.join(fixture.assets, 'node.exe')
     const launcher = path.join(fixture.assets, 'launcher.exe')
     const probe = path.join(fixture.assets, 'sandbox-probe.mjs')
     // Copies avoid granting read access to the developer's runtime/repository trees.
     await copyFile(process.execPath, node)
-    await copyFile(launcherPath, launcher)
+    if (!diagnosticDirect) await copyFile(launcherPath, launcher)
     await copyFile(probeSource, probe)
     stage = 'listeners'
     listeners = await createSmokeListeners()
@@ -415,7 +540,7 @@ export async function runSandboxSmoke(
       fixture.denyReadFile,
       fixture.assets,
       node,
-      launcher,
+      ...(!diagnosticDirect ? [launcher] : []),
       probe
     ]
     stage = 'acl-before'
@@ -428,7 +553,9 @@ export async function runSandboxSmoke(
         allowRead: [fixture.assets, fixture.allowed],
         allowWrite: [fixture.allowed],
         denyRead: [fixture.denied],
-        denyWrite: [fixture.denied]
+        // SRT 0.0.75 read-deny stamps full access denial, including writes. A second
+        // same-holder write-deny on this path replaces that mask and reopens reads.
+        denyWrite: []
       },
       network: {
         allowedDomains: [listeners.allowedHost],
@@ -440,21 +567,25 @@ export async function runSandboxSmoke(
     const launch = async (mode, options) => {
       throwIfAborted()
       const wrapped = await manager.wrapWithSandboxArgv(
-        LAUNCH_MARKER,
-        { exe: launcher, args: [] },
+        diagnosticDirect ? JSON.stringify(options) : LAUNCH_MARKER,
+        diagnosticDirect ? { exe: node, args: [probe, mode] } : { exe: launcher, args: [] },
         undefined,
         controller.signal,
         fixture.allowed
       )
       throwIfAborted()
-      const frame = encodeLaunchFrame({
-        executable: node,
-        cwd: fixture.allowed,
-        args: [probe, mode, JSON.stringify(options)],
-        env: { ORCA_SANDBOX_TEST: 'fake-p0-key' }
-      })
+      const frame = diagnosticDirect
+        ? mode === 'stdin'
+          ? diagnosticStdin
+          : Buffer.alloc(0)
+        : encodeLaunchFrame({
+            executable: node,
+            cwd: fixture.allowed,
+            args: [probe, mode, JSON.stringify(options)],
+            env: { ORCA_SANDBOX_TEST: 'fake-p0-key' }
+          })
       if (mode === 'child') childExecutionStarted = true
-      return startWrappedProbe(wrapped, frame, runners)
+      return startWrappedProbe(wrapped, frame, runners, mode, fixture.allowed)
     }
     const run = async (mode, options) => {
       const running = await launch(mode, options)
@@ -463,6 +594,16 @@ export async function runSandboxSmoke(
       if (exit.code !== 0)
         throw Object.assign(new Error('PROBE_EXIT_FAILED'), { code: 'PROBE_EXIT_FAILED' })
       return result
+    }
+    if (diagnosticDirect) {
+      stage = 'stdin'
+      const stdin = await run('stdin', {})
+      evidence.stdin = {
+        bytes: Number.isSafeInteger(stdin.bytes) && stdin.bytes >= 0 ? stdin.bytes : null,
+        hashMatches:
+          stdin.mode === 'stdin' &&
+          stdin.sha256 === createHash('sha256').update(diagnosticStdin).digest('hex')
+      }
     }
     stage = 'echo'
     const trickyArgs = ['', '한글 공백', 'quote"inside', 'C:\\trailing\\', '&|<>^%!']
@@ -517,15 +658,20 @@ export async function runSandboxSmoke(
     )
       throw new Error('CHILD_OBSERVATION_INVALID')
     childPids = observation.pids
+    childIdentities = await observe(childPids)
+    childIdentitiesObserved = true
     evidence.child = {
-      observedAlive: childPids.every(alive),
+      observedAlive: childPids.every((pid) => childIdentities.some((entry) => entry.pid === pid)),
       descendantCount: childPids.length - 1,
       deadAfterRunnerExit: false
     }
     // Terminate the SRT runner, not the probe: job ownership must kill its descendants.
-    running.child.kill('SIGKILL')
-    await bounded(running.closed, 5000, 'CHILD_RUNNER_EXIT_TIMEOUT')
-    evidence.child.deadAfterRunnerExit = await waitDead(childPids)
+    runnerTermination.requested = true
+    runnerTermination.killAccepted = running.child.kill('SIGKILL')
+    const childExit = await bounded(running.closed, 5000, 'CHILD_RUNNER_EXIT_TIMEOUT')
+    runnerTermination.closed = childExit.closed
+    runnerTermination.exitCode = childExit.code
+    evidence.child.deadAfterRunnerExit = await waitDead(childIdentities, observe)
   } catch (error) {
     record(stage, controller.signal.aborted ? { code: 'ABORTED' } : error)
   } finally {
@@ -564,20 +710,23 @@ export async function runSandboxSmoke(
         record('listener-cleanup', error)
       }
     }
-    // Residual PID cleanup is distinct from the earlier job-kill observation and cannot fix it.
-    const remaining = childPids.filter(alive)
-    for (const pid of remaining) {
+    // Only the owned runner handle authorizes termination. A PID can be reused after a CIM
+    // snapshot; observe residual descendants without issuing an unsafe PID-based fallback kill.
+    evidence.cleanup.childrenObservationComplete =
+      !childExecutionStarted || (childPids.length === 3 && childIdentitiesObserved)
+    evidence.cleanup.residualChildren = null
+    if (evidence.cleanup.childrenObservationComplete) {
       try {
-        process.kill(pid)
-      } catch {
-        /* reported below */
+        const current = childIdentities.length
+          ? await observe(childIdentities.map((entry) => entry.pid))
+          : []
+        const remaining = childIdentities.filter((entry) => processSnapshotIsAlive(entry, current))
+        evidence.cleanup.residualChildren = !(await waitDead(remaining, observe))
+      } catch (error) {
+        evidence.cleanup.childrenObservationComplete = false
+        record('process-cleanup', error)
       }
     }
-    evidence.cleanup.childrenObservationComplete = !childExecutionStarted || childPids.length === 3
-    const observedChildrenDead = await waitDead(remaining)
-    evidence.cleanup.residualChildren = evidence.cleanup.childrenObservationComplete
-      ? !observedChildrenDead
-      : null
     if (fixture) {
       const aclRestored =
         evidence.acl?.before?.length > 0 &&
@@ -604,14 +753,20 @@ export async function runSandboxSmoke(
   return {
     ...result,
     success:
+      !diagnosticDirect &&
       result.success &&
       failures.length === 0 &&
       evidence.cleanup.fixtureRemoved === true &&
       evidence.cleanup.residualChildren === false,
     failures,
+    executionPath: diagnosticDirect ? 'diagnostic-direct' : 'bootstrap',
+    diagnostics: runners.map((running) => running.diagnostics),
     ...(!evidence.cleanup.fixtureRemoved && fixture ? { retainedFixture: fixture.root } : {}),
     cleanup: evidence.cleanup,
     observations: {
+      ...(diagnosticDirect
+        ? { stdin: evidence.stdin ?? null, observedPids: childPids, runnerTermination }
+        : {}),
       echo: evidence.echo ?? null,
       filesystem: evidence.fs
         ? {

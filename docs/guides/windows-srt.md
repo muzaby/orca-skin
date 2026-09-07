@@ -117,6 +117,34 @@ Ctrl+C는 취소를 요청하고 스크립트의 정리를 기다린다. SRT 초
 진행 중 reset이 종료되었는지 및 ACL 복구 결과를 먼저 확인한 뒤 그 fixture만 정리한다.
 상류 reset은 일부 내부 실패를 삼킬 수 있으므로 호출 완료와 ACL 복구 관측을 함께 확인한다.
 
+## 입력 실패를 분리하는 진단
+
+```powershell
+npm run sandbox:diagnose
+```
+
+이 명령은 **SRT 안에서 시험용 Node를 직접 실행**한다. bootstrap frame이 도달하지 않아도
+stdin byte count·filesystem·network·자손 관측을 분리할 수 있다. 결과의 `executionPath`는
+`diagnostic-direct`이며 `success=false`, exit 1을 유지하므로 전체 도입 gate로 사용하지 않는다.
+
+`smoke`와 `diagnose`의 fixture는 빌드 산출 폴더에 만든다. 사용자 TEMP 아래 Node 모듈을
+실행하려면 상위 사용자 프로필의 lstat가 필요할 수 있어, 프로필 read 권한을 넓히는 대신
+시험 자산을 사용자 프로필 밖에 둔다. 저장소 자체가 보호된 사용자 프로필 아래면 해당 실패를 별도로 확인한다.
+
+| 진단 필드 | 해석 |
+|---|---|
+| `observations.stdin` | 가짜 입력의 byte count와 hash 일치 여부. 입력 본문은 출력하지 않음 |
+| `diagnostics` | 실행별 exit와 고정 오류 코드. stderr·argv·env 원문은 출력하지 않음 |
+| `observedPids` / `runnerTermination` | 진단에서만 출력하는 시험 PID와 종료 요청 결과 |
+| `childrenObservationComplete=false` | 자손이 없다는 뜻이 아님. CIM 관측 실패·PID 누락은 unknown으로 유지 |
+
+자손 관측은 PID와 생성 시각을 함께 비교한다. `process.kill(pid,0)`의 권한 부족을 생존으로
+해석하지 않는다. CIM 접근이 제한된 환경에서는 시험 fixture를 보존하고 정리 성공으로 판정하지 않는다.
+
+고정 SRT의 동일 경로 read/write deny 충돌을 피하려고, 시험의 거부 디렉터리에는 더 강한
+read-deny만 전달한다. 읽기와 쓰기 거부 결과는 둘 다 실제 실행으로 검사한다.
+실증에서 발견한 제약과 수정 빌드 선택은 [실증 결과와 보완안](../etc/study/srt/windows-preflight-findings.md)을 따른다.
+
 ## 결과를 해석하는 범위
 
 | 제한 | 운영 판정 |

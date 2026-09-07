@@ -9,11 +9,52 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
+import { createHash } from 'node:crypto'
+import { Readable } from 'node:stream'
 import { parseProbeArgs, runProbe } from './sandbox-probe.mjs'
 
 const probePath = fileURLToPath(new URL('./sandbox-probe.mjs', import.meta.url))
 const exec = promisify(execFile)
 const budget = { timeout: 15_000 }
+
+test('stdin probe measures binary chunks and EOF without disclosing input', budget, async () => {
+  const data = Buffer.concat([Buffer.from('fake-stdin-only\0한글'), Buffer.alloc(70_000, 255)])
+  const child = spawn(process.execPath, [probePath, 'stdin'], {
+    windowsHide: true,
+    stdio: ['pipe', 'pipe', 'pipe']
+  })
+  let stdout = ''
+  let stderr = ''
+  child.stdout.on('data', (chunk) => {
+    stdout += chunk
+  })
+  child.stderr.on('data', (chunk) => {
+    stderr += chunk
+  })
+  child.stdin.on('error', () => {})
+  const closed = once(child, 'close')
+  child.stdin.write(data.subarray(0, 3))
+  child.stdin.end(data.subarray(3))
+  const [code] = await closed
+  assert.equal(code, 0, stderr)
+  assert.deepEqual(JSON.parse(stdout), {
+    mode: 'stdin',
+    bytes: data.length,
+    sha256: createHash('sha256').update(data).digest('hex')
+  })
+  assert.doesNotMatch(stdout + stderr, /fake-stdin-only/)
+})
+
+test('stdin probe distinguishes empty EOF and bounds the bytes it consumes', async () => {
+  const { stdinProbe } = await import('./sandbox-probe.mjs')
+  assert.equal(typeof stdinProbe, 'function')
+  assert.deepEqual(await stdinProbe(Readable.from([])), {
+    mode: 'stdin',
+    bytes: 0,
+    sha256: createHash('sha256').digest('hex')
+  })
+  await assert.rejects(stdinProbe(Readable.from([Buffer.alloc(1024 * 1024 + 1)])), /stdin_limit/)
+})
 
 async function listen(server, host = '127.0.0.1') {
   server.listen(0, host)

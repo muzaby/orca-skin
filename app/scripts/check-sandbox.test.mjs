@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { EventEmitter } from 'node:events'
+import path from 'node:path'
 import { parseCommand, runCommand } from './check-sandbox.mjs'
 
 test('smoke signal scope aborts without exiting and removes only its own listeners after settlement', async () => {
@@ -125,20 +126,42 @@ function harness(
 
 test('CLI accepts only an explicit known command', () => {
   assert.equal(parseCommand([]), 'check')
-  for (const command of ['check', 'install', 'smoke'])
+  for (const command of ['check', 'install', 'smoke', 'diagnose'])
     assert.equal(parseCommand([command]), command)
   assert.throws(() => parseCommand(['check', '--install']), /invalid_command/)
   assert.throws(() => parseCommand(['uninstall']), /invalid_command/)
 })
 
 test('missing provisioning fails without ever installing or running a host fallback', async () => {
-  for (const command of ['check', 'smoke']) {
+  for (const command of ['check', 'smoke', 'diagnose']) {
     const { deps, calls } = harness()
     const result = await runCommand(command, deps)
     assert.equal(result.exitCode, 2)
     assert.equal(result.report.code, 'srt_install_required')
     assert.deepEqual(calls, ['check'])
   }
+})
+
+test('direct diagnostic is explicit, cancellable and cannot be reported as full smoke success', async () => {
+  const { deps, calls } = harness({
+    user: { provisioned: true, credPresent: true },
+    wfp: { state: 'installed' }
+  })
+  const controller = new AbortController()
+  deps.signal = controller.signal
+  let observed
+  deps.smoke = async (options) => {
+    observed = options
+    return { success: true }
+  }
+  const result = await runCommand('diagnose', deps)
+  assert.equal(observed.diagnosticDirect, true)
+  assert.equal(observed.fixtureParent, path.dirname(deps.launcherPath))
+  assert.equal(observed.signal, controller.signal)
+  assert.equal(result.exitCode, 1)
+  assert.equal(result.report.smoke.success, false)
+  assert.equal(result.report.code, 'srt_diagnostic_only')
+  assert.deepEqual(calls, ['check'])
 })
 
 test('cannot-read WFP is unverified, not a fabricated installed or missing result', async () => {

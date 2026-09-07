@@ -67,7 +67,7 @@ export async function withSmokeSignalScope(operation, source = process) {
 
 export function parseCommand(args) {
   const command = args[0] ?? 'check'
-  if (args.length > 1 || !['check', 'install', 'smoke'].includes(command)) {
+  if (args.length > 1 || !['check', 'install', 'smoke', 'diagnose'].includes(command)) {
     throw new Error('invalid_command')
   }
   return command
@@ -139,8 +139,18 @@ export async function runCommand(command, deps) {
   const smoke = await deps.smoke({
     srtWinPath: deps.srtWinPath,
     launcherPath: deps.launcherPath,
-    signal: deps.signal
+    signal: deps.signal,
+    // Developer fixtures sit beside the built asset; Node module resolution otherwise lstat()s
+    // the real user's protected profile above %TEMP%. Never widen that profile's read policy.
+    fixtureParent: path.dirname(deps.launcherPath),
+    ...(command === 'diagnose' ? { diagnosticDirect: true } : {})
   })
+  if (command === 'diagnose') {
+    return {
+      exitCode: 1,
+      report: { ...report, code: 'srt_diagnostic_only', smoke: { ...smoke, success: false } }
+    }
+  }
   return { exitCode: smoke.success ? 0 : 1, report: { ...report, smoke } }
 }
 
@@ -167,7 +177,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === scriptPath) {
       smoke: async (options) => (await import('./sandbox-smoke.mjs')).runSandboxSmoke(options)
     }
     const result =
-      command === 'smoke'
+      command === 'smoke' || command === 'diagnose'
         ? await withSmokeSignalScope((signal) => runCommand(command, { ...deps, signal }))
         : await runCommand(command, deps)
     process.stdout.write(`${JSON.stringify(result.report, null, 2)}\n`)
