@@ -3,13 +3,22 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { basename, join, relative, sep } from 'node:path'
 import { promisify } from 'node:util'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { DbQueries } from '../../infra/db'
 import { isWithinDir } from '../../infra/config/paths'
 import { WorktreeService } from './service'
 import { addWorktree, deleteBranch, listWorktrees, removeWorktree } from '../../infra/git/worktree'
 
 const exec = promisify(execFile)
+// **파일 예산 198s** — 최악 케이스(AT-44 · D-072)는 실제 git 을 직렬로 22회 띄운다
+// (`repository()` 5 + 기준 브랜치 준비 5 + `prepare()` 2회 12). self-hosted windows 러너의
+// 실측 spawn 은 약 6s 로 레포 기준(약 2s)의 3배라, 상한을 22 × 6s × 1.5(여유) = 198s 로 잡는다.
+// 글로벌 20s(`vitest.config.ts`)는 그대로 두고 **이 파일만** 넓힌다 — 전역을 올리면 git 을
+// 쓰지 않는 3천여 케이스의 멈춤 보고까지 함께 늦어진다. 훅도 같은 값이다: 예산이 끊긴
+// 케이스는 git 핸들을 연 채 죽고, 남은 고아가 정리 `rm` 을 EBUSY 로 밀어 케이스 하나의
+// 실패가 스위트 전체로 번진다.
+vi.setConfig({ testTimeout: 198_000, hookTimeout: 198_000 })
+
 const roots: string[] = []
 
 afterEach(async () => {

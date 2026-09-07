@@ -20,6 +20,14 @@ import { runGit } from '../../infra/git/runner'
 import { prepareTurnWorktree } from './prepare-worktree'
 import { WorktreeService } from '../../features/worktrees/service'
 
+// **파일 예산 99s** — 최악 케이스(다섯 단계)는 실제 git 을 직렬로 11회 띄운다(`makeRepo` 5 +
+// `prepare` 의 좌표·이름·add 6). self-hosted windows 러너의 실측 spawn 은 약 6s 로 레포
+// 기준(약 2s)의 3배라, 상한을 11 × 6s × 1.5(여유) = 99s 로 잡는다. 글로벌 20s
+// (`vitest.config.ts`)는 그대로 두고 **이 파일만** 넓힌다 — 전역을 올리면 git 을 쓰지 않는
+// 3천여 케이스의 멈춤 보고까지 함께 늦어진다. 훅도 같은 값이다: 예산이 끊긴 케이스는 git
+// 핸들을 연 채 죽고, 남은 고아가 정리 `rm` 을 EBUSY 로 밀어 실패가 스위트 전체로 번진다.
+vi.setConfig({ testTimeout: 99_000, hookTimeout: 99_000 })
+
 const dirs: string[] = []
 afterAll(async () => {
   await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })))
@@ -36,6 +44,10 @@ async function makeRepo(): Promise<string> {
   await git(dir, ['init', '--initial-branch=main'])
   await git(dir, ['config', 'user.email', 't@orca.local'])
   await git(dir, ['config', 'user.name', 'orca test'])
+  // 러너의 전역 `core.autocrlf=true` 를 이 저장소에서만 끈다. 켜져 있으면 LF 로 쓴 픽스처가
+  // 커밋될 때 CRLF 로 바뀌어 내용·줄 수가 기대와 어긋나고, 매 `add` 마다 "LF will be replaced
+  // by CRLF" 경고가 출력을 덮는다. 테스트가 보는 것은 개행 정책이 아니다.
+  await git(dir, ['config', 'core.autocrlf', 'false'])
   await writeFile(join(dir, 'a.ts'), 'x\n')
   await git(dir, ['add', '.'])
   await git(dir, ['commit', '-m', 'base'])

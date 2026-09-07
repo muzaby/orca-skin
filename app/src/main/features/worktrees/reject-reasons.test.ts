@@ -15,6 +15,15 @@ import * as repository from '../../infra/git/repository'
 import { WorktreeService } from './service'
 
 const exec = promisify(execFile)
+// **파일 예산 117s** — 최악 케이스(거부 뒤 재시도)는 실제 git 을 직렬로 13회 띄운다
+// (`repo()` 5 + 거부되는 `prepare()` 2 + 성공하는 `prepare()` 6). self-hosted windows 러너의
+// 실측 spawn 은 약 6s 로 레포 기준(약 2s)의 3배라, 상한을 13 × 6s × 1.5(여유) = 117s 로 잡는다.
+// 글로벌 20s(`vitest.config.ts`)는 그대로 두고 **이 파일만** 넓힌다 — 전역을 올리면 git 을
+// 쓰지 않는 3천여 케이스의 멈춤 보고까지 함께 늦어진다. 훅도 같은 값이다: 예산이 끊긴
+// 케이스는 git 핸들을 연 채 죽고, 남은 고아가 정리 `rm` 을 EBUSY 로 밀어 케이스 하나의
+// 실패가 스위트 전체로 번진다.
+vi.setConfig({ testTimeout: 117_000, hookTimeout: 117_000 })
+
 const roots: string[] = []
 afterEach(async () => {
   vi.restoreAllMocks()
