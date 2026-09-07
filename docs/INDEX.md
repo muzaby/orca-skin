@@ -34,6 +34,7 @@
 | **폐쇄망 확장·로그인 게이트 추가** ("플러그인 추가" 요청 포함) | [`guides/closed-network-extensions.md`](guides/closed-network-extensions.md) |
 | 도구 권한 · 작업 디렉토리 스코프 | [`guides/workspace-isolation-permissions.md`](guides/workspace-isolation-permissions.md) |
 | **Windows SRT 도입 검토** (공통 실행 계층 · 확장 호환 · 후속 OpenCode/cowork 연결) | [`etc/study/srt/orca-adoption-proposal.md`](etc/study/srt/orca-adoption-proposal.md) — 검토용 제안, 현재 아키텍처 아님 |
+| **Windows SRT 사전 검증 실행** (native 빌드 · 설치 상태 · 명시 provisioning · fixture 실증) | [`guides/windows-srt.md`](guides/windows-srt.md) — P0 개발 절차, 일반 앱 SRT 연결은 후속 |
 | **용어** 정의 | [`GLOSSARY.md`](GLOSSARY.md) · 쉬운 해설은 [`arch/frontend/terms.md`](arch/frontend/terms.md) · [`arch/backend/terms.md`](arch/backend/terms.md) |
 | **왜 이 구조인가** (결정 근거) | [`decisions/`](decisions/) — ADR |
 | 커밋 trailer 작성·파싱 | [`git-template.md`](git-template.md) |

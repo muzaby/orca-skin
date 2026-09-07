@@ -1,7 +1,10 @@
 # Orca Windows SRT 도입 제안
 
 작성일: 2026-09-07. 상태: **검토용 제안**. 구현 READY plan이나 현재 아키텍처가 아니다.
-앱 구현·의존성 설치·SRT provisioning·OS 정책 변경은 수행하지 않았다.
+작성 시점에는 앱 구현·의존성 설치·SRT provisioning·OS 정책 변경을 수행하지 않았다.
+이후 P0 실행 전달 검증은 [0219 plan](../../../handoff/0219-srt-windows-preflight/plan.md)으로
+구체화했다. 현재 진행·실증 상태는 [handoff 보드](../../../handoff/INDEX.md), 재현 절차는
+[Windows SRT 사전 검증](../../../guides/windows-srt.md)을 따른다. P0는 일반 앱의 SRT 연결을 포함하지 않는다.
 
 ## 1. 요구와 권고
 
@@ -176,9 +179,10 @@ SRT의 object형 `WindowsBinShell`로 이를 연결하는 방식을 1차 후보�
 이 객체형의 일반 executable 전달은 `0.0.75` 상류 코드에서 확인했으며, 채택할 npm 배포본과 native helper의
 실제 argv 결과까지 P0에서 확인해야 한다. [S3]
 
-bootstrap의 구현은 Rust 기반의 작은 Windows 실행 파일을 제안한다. OS sandbox를 재구현하는
-Rust 계층은 만들지 않는다. 이는 **새 빌드 언어·CI와 배포 artifact를 추가하는 비용**이며 별도 채택 사항이다.
-그 비용을 숨기기 위해 사용자 설치 Node/Python을 bootstrap 의존성으로 삼지 않는다.
+bootstrap의 최초 후보는 Rust였으나, P0는 기존 MSVC·Windows SDK를 사용하는 **C++17/Win32**로
+구체화했다([0219 D-005](../../../handoff/0219-srt-windows-preflight/plan.md#3-decision-ledger)).
+OS sandbox를 재구현하지 않으며 사용자 설치 Node/Python을 bootstrap 의존성으로 삼지 않는다.
+native 빌드·CI와 배포 artifact를 관리하는 비용은 남는다.
 향후 SRT가 정확한 argv와 child env를 안전한 입력 채널로 지원하면 이 내부 bootstrap을 제거할 수 있다.
 
 대안인 `srt-win exec --env` 직접 전달은 비밀값이 argv에 추가로 남을 수 있고,
