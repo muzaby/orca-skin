@@ -19,6 +19,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
+| [`0220-srt-execution-integration`](0220-srt-execution-integration/plan.md) | plan | DRAFT | Claude | (설계 초안) | 0 | 공통 실행 기반과 Claude 연결 설계. 0219의 실제 stdin 실패 및 SRT 수정 빌드 선택이 선행하며 구현 미착수. |
 | [`0219-srt-windows-preflight`](0219-srt-windows-preflight/plan.md) | plan | READY | Codex | (D-010 설치 승인 정정 — 검증자 기입) | 1 | 사용자가 이 PC의 SRT 설치·실증 진행을 승인했다. V1 기준은 유지한다. 실제 실증 후 공통 실행 계층·Claude·확장 연결을 계속한다. |
 | [`0218-simplify-200-217-cleanup`](0218-simplify-200-217-cleanup/plan.md) | verify | **PASS** (r2) | **사람** (PR #436 머지 판단) | `5d0806e0`(설계) · `90096390`(r1) · `380d9f25`(r1 검증) · `6c2c6659`(r2) | 2 | **r2 검증 = PASS** — 판정 원문은 [`verify.md`](0218-simplify-200-217-cleanup/verify.md). r2 범위 5건(D9·A3·A4·A5·I-05) 전부 닫힘, 차집합 **새 red 0**. I-05(테스트 하네스 경쟁) 해소로 게이트가 결정적이 됐다(5회 연속 green). 광택 7건·`needs_decision` 6건은 `NEXT_HANDOFF`. |
 | [`0217-mcp-detail-toggle-and-kebab`](0217-mcp-detail-toggle-and-kebab/plan.md) | verify | **PASS** (V1) | **사람** (AT-307 실기) | `ffa7b559`(설계) · `ff7b9038`(r1) | 1 | **r1 검증 = PASS** — 판정 원문은 [`verify.md`](0217-mcp-detail-toggle-and-kebab/verify.md). pair **6 PASS**(VP-301 은 §10 2/3) · VP-307 실기 대기 · AC **✅5/7** · 강제 지점 **15/16** 독립 재열거 일치 · 등록 변이 2/2 red. 자기검증이라 보고에 없던 축 2건을 더했고, 그중 M-E1 이 **편집 배선을 지우고 `onEdit` 을 no-op 으로 두면 전 게이트가 초록**임을 보였다(D5, 비차단 — plan 이 `not selected` 로 선언한 축). 비차단 6(D1~D6). **archive 이동은 AT-307 실기 뒤**. |
