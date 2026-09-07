@@ -67,6 +67,14 @@ export function removeTileFromColumns(
   }
 }
 
+// 타일이 앉은 **열 번호**. `deriveRightPanelLayout` 과 **같은 인덱싱**(빈 열을 거른 뒤의 번호)을
+// 쓴다 — `rightPanelColWidths`·`rightPanelRowSplits` 가 그 축으로 색인되기 때문이다. 소비자가
+// `state.rightPanelTiles` 를 직접 `findIndex` 하면 두 축이 갈릴 수 있어 여기가 소유한다(0218 r2).
+// 없으면 `-1`.
+export function columnIndexOfTile(cols: RightPanelColumns, id: RightPanelTileId): number {
+  return cols.filter((col) => col.tiles.length > 0).findIndex((col) => col.tiles.includes(id))
+}
+
 export function deriveRightPanelLayout(cols: RightPanelColumns): RightPanelLayout {
   const columns: RightPanelColumn[] = cols
     .filter((col) => col.tiles.length > 0)

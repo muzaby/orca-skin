@@ -43,22 +43,35 @@ const exists = (path: string): Promise<boolean> =>
 const branches = async (repo: string): Promise<string> =>
   (await exec('git', ['-C', repo, 'branch', '--list'])).stdout
 
-/** queue 를 잡은 채 `run()` 을 시작하고, 붙잡힌 동안 `observe()` 를 확인한 뒤 놓아준다. */
+/**
+ * queue 를 잡은 채 `run()` 을 시작하고, 붙잡힌 동안 `observe()` 를 확인한 뒤 놓아준다.
+ *
+ * **획득을 시간이 아니라 사실로 기다린다.** `withRepoMutation` 은 큐 슬롯을 잡기 **전에**
+ * `canonicalRepoKey`(realpath)를 await 하므로, 이것과 `run()` 을 연달아 띄우면 둘은 realpath
+ * 완료 순서를 두고 경쟁한다. 고정 대기로 "먼저 띄운 쪽이 이겼겠지" 를 가정하면 부하가 걸린
+ * 병렬 실행에서 뒤집혀 — `run()` 이 먼저 큐를 잡아 즉시 실행되고, `observe()` 의 "아직
+ * 아무것도 안 일어났다" 가 깨지며, `release` 는 대입되지도 않아 `TypeError` 가 난다(0218 I-05).
+ */
 async function whileQueueHeld<T>(
   repo: string,
   run: () => Promise<T>,
   observe: () => Promise<void>
 ): Promise<T> {
   let release!: () => void
-  const held = withRepoMutation(
-    repo,
-    () =>
-      new Promise<void>((resolve) => {
-        release = resolve
-      })
-  )
+  let acquired!: () => void
+  const acquisition = new Promise<void>((resolve) => {
+    acquired = resolve
+  })
+  const held = withRepoMutation(repo, () => {
+    acquired()
+    return new Promise<void>((resolve) => {
+      release = resolve
+    })
+  })
+  // 큐를 **실제로 잡은 뒤에** 경쟁 대상을 띄운다 — 이 시점엔 tail 이 이미 등록돼 있어
+  // `run()` 은 반드시 뒤에 줄 선다.
+  await acquisition
   const pending = run()
-  await new Promise((resolve) => setTimeout(resolve, 150))
   await observe()
   release()
   const [result] = await Promise.all([pending, held])

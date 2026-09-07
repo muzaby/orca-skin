@@ -98,3 +98,59 @@ after − before = ∅
 - 4관점 병렬 리뷰가 낸 55건 중 **14건을 2개 이상 에이전트가 독립 지목**했고, 그 14건은 전부 실재로 확인됐다.
 - 리뷰 간 1건 충돌: reuse 는 `currentBranch ≡ resolveHeadRef` 를 "`readOnly:true` 까지 동일" 로, simplification 은 그 축을 언급하지 않고 timeout/maxBuffer 만 대조했다. 실측 결과 **reuse 가 옳다** — `git-cli.ts:33` 의 로컬 `run()` 이 `readOnly: true` 를 싣고 `TIMEOUT_MS`·`MAX_BUFFER` 는 `runner.ts:37-38` 기본값과 같다.
 - efficiency 리뷰가 스피너(0208/0216)·`harness-config` env 레이어링·0202 카탈로그 무효화를 **clean 으로 판정**했다 — 낭비가 구간 전체가 아니라 diff 패널에 몰려 있다는 뜻이고, 실제 수정도 거기에 몰렸다.
+
+---
+
+# Verify — r2
+
+## 판정
+
+**PASS** — r2 범위 5건(D9·A3·A4·A5·I-05)이 전부 닫혔고 차집합 새 red 0 이다.
+
+| 축 | 결과 | 관측 |
+|---|---|---|
+| lint | ✅ | 0 errors (사전 warning 1, 미변경 파일) |
+| typecheck | ✅ | exit 0 |
+| 차집합 | ✅ | `after − before = ∅` (before = baseline 10 파일·56 테스트) |
+| EP-19~23 재열거 | ✅ | 아래 §r2-2 |
+| AC-r2-4 (I-05) | ✅ | 같은 스위트 5회 연속 4/4 green |
+
+## r2-1. 적용
+
+| 항목 | 변경 | 관측 |
+|---|---|---|
+| D9 | 줄 축 표기 3벌 → `lib/diffLines.ts` 1벌 | 그 파일 헤더가 이미 소유를 선언했으나 강제하지 않았다 |
+| A3 | diff 열 번호를 `columnIndexOfTile` 로 | `rightPanelColWidths` 와 같은 인덱싱(빈 열 제외 후)을 레이아웃 소유자가 정한다 |
+| A4 | `gitStatusForCwd` selector | `branchChipState.ts` 소유 — 아래 §r2-3 참조 |
+| A5 | 발신 앵커 정규화를 `send()` 진입 1회로 | 세 발신 지점이 각자 `.map` 하던 것 |
+| I-05 | `whileQueueHeld` 가 고정 150ms 대신 **획득 사실**을 기다린다 | 고정 대기 4×150ms 도 함께 사라졌다 |
+
+## r2-2. §10 강제 지점 재열거
+
+| EP | 검색 | 결과 |
+|---|---|---|
+| EP-19 | `` `+${ `` + `newLine` | **1** (`diffLines.ts:21`) |
+| EP-20 | `tiles.includes('diff')` | **0** raw findIndex — 소유자 경유 |
+| EP-21 | `statusForCwd(` | selector 1 + 소유 모듈 선언 1 + `BranchChip:60`(자기 로컬 스냅샷, 스토어 `gitStatus` 미사용) |
+| EP-22 | `send()` 내부 `wireDiffRequirementAnchor` | **1** |
+| EP-23 | `whileQueueHeld` 내부 `setTimeout` | **0** |
+
+## r2-3. 설계 정정 1건 — A4 의 소유 모듈을 옮겼다
+
+**처음 구현은 `chatStore.ts` 에 selector 를 export 했고 그것이 틀렸다.** 렌더 스위트 4개가 `vi.mock('../../store/chatStore')` 로 스토어 표면을 명시 열거하고 있어, export 하나가 늘자 **35 테스트가 red** 가 됐다(`No "gitStatusForCwd" export is defined on the mock`).
+
+- **택하지 않은 수선**: mock 4곳에 selector 를 stub 하는 것. 그러면 A4 가 없애려던 규칙 사본을 **테스트 4벌로 되살린다** — 고치려던 문제를 다른 층에 옮겨 심는 것이라 기각했다.
+- **택한 수선**: selector 를 `components/composer/branchChipState.ts`(이미 `statusForCwd` 를 소유한 **순수** 모듈)로 옮겼다. 규칙이 순수하므로 순수 모듈이 맞고, 그 모듈은 목킹 대상이 아니라 mock 을 하나도 건드리지 않는다. 구조적 타입(`{cwd, gitStatus}`)이라 `ChatState` 와 fixture 가 모두 만족한다.
+- 재확인: 영향 스위트 **89 파일 · 673 테스트 green**.
+
+## r2-4. 이전 판정 정정
+
+`plan.md` r2 §D-008 이 A3 를 "관측된 실패 모드" 로 적었으나 **오늘 도달 가능한 결함은 없다**.
+
+- `removeTile`(`chatReducer.ts:1710-1719`)이 빈 열을 제거 시점에 압축하고 width/split 항목도 함께 스플라이스한다 → 상태에 빈 열이 남지 않는다.
+- `SET_RIGHT_PANEL_COL_WIDTH`(`:1641`)가 `col < 0` 을 이미 막는다.
+- 따라서 A3 의 근거는 버그가 아니라 **altitude**(열 인덱싱 지식이 두 모듈에 있었다)다. 수정은 유지하되 근거를 정정한다.
+
+## r2-5. 범위에서 내린 것
+
+광택 7건(D13·D14·D15·A2·A6·P7·X5)은 `NEXT_HANDOFF` 다 — 관측된 실패 모드가 없어 독립 라운드 비용이 이득보다 크다. `needs_decision` 6건은 §17 그대로 사용자 결정 대기다.

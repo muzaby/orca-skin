@@ -28,7 +28,7 @@ import {
 } from '../../lib/diffDisplay'
 import { patchLinesToDiffLines } from '../../lib/diffPatchLines'
 import { planUpwardExpansionCompensation } from '../../lib/diffViewport'
-import type { DiffLine } from '../../lib/diffLines'
+import { lineAxisLabel, lineNumberLabel, type DiffLine } from '../../lib/diffLines'
 import { DiffSyntaxContext, useDiffSyntax } from '../../hooks/useDiffSyntax'
 import type { DiffRequirementDraft, DiffViewOptions } from '../../reducer/chatReducer'
 import { diffRequirementLineKey, diffRequirementMatchesLine } from './diffRequirements'
@@ -71,16 +71,6 @@ function splitPath(path: string): { parent: string; name: string } {
   return cut < 0
     ? { parent: '', name: path }
     : { parent: path.slice(0, cut), name: path.slice(cut + 1) }
-}
-
-function lineAxisLabel(line: DiffLine): string {
-  if (line.oldLine === null && line.newLine !== null) return `+${line.newLine}`
-  if (line.newLine === null && line.oldLine !== null) return `-${line.oldLine}`
-  return String(line.newLine ?? line.oldLine ?? '?')
-}
-
-function lineNumberLabel(line: DiffLine): string {
-  return String(line.newLine ?? line.oldLine ?? '?')
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- action seams share the component's draft contract.
