@@ -46,15 +46,14 @@ shared     →  shared                                   (순수 타입/상수/z
 | `admission.ts` | **순수** | 진입 게이트 3종·lease 키 파생·continuity 검증·busy 예약 판정 |
 | `turn-context.ts` | **순수** | `TurnContext` 조립·cwd 해석·연속 턴 계승 |
 | `continuation.ts` | **순수** | listen/flush 연속 턴 `TurnRequest` 조립 |
-| `resolve-turn.ts` | I/O | continuity 검증 + provider·env·세션 메타·실제 텍스트 해석 |
+| `resolve-turn.ts` | I/O | continuity 검증 + Harness·ModelProvider·Model·env·세션 메타·텍스트 해석. 실행 구성은 한 번 resolve |
 | `runtime-entry.ts` | I/O | 런타임 확보·체인 활성화·respawn 판정 |
 | `respawn-inputs.ts` | 조립 | 최초 턴과 자동 연속 턴이 공유하는 respawn 입력 한 벌 (양쪽이 손으로 적던 필드를 컴포지션 루트로 모음) |
-| `enqueue.ts` | 상태 | 프렐류드/본 배치 적재 + `message.queued` |
+| `enqueue.ts` | 상태 | 신규·busy·프렐류드 배치 적재 + queued/submitted 이벤트 구성 |
 | `turn-request.ts` | 조립 | 게이트 콜백 6종 + 중단 영수증 화해 |
 | `approval.ts` | 배선 | `requestApproval` 클로저 |
 | `post-turn.ts` | 실행 | `coordinator.run` + 자동 연속 턴 루프(listen/flush/break) |
-| `busy-reserve.ts` | 상태 | busy 세션 send → held 예약 |
-| `turn-setup.ts`·`deps.ts` | 조각·타입 | Harness+ModelProvider·Model 해석 · 실행 구성 1회 resolve → `PreparedHarnessConfig`(계약은 `adapters/harness-config.ts`) / 의존 묶음 2층 |
+| `deps.ts` | 타입 | 채팅 조립 루트와 단계별 실제 의존 계약 |
 
 **작업 규칙 3가지** (깨지면 회귀가 조용히 난다 — 각 파일 헤더에 근거가 있다):
 

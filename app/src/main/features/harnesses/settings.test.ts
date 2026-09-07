@@ -4,21 +4,18 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { HarnessSettingsService } from './settings'
 import { expandEnvRecord } from './env'
+import { createHarnessRuntimeConfigService } from './runtime-config'
 import {
   canonicalAgentKey,
   defaultModelFamily,
+  defaultProvider,
   mergeAgentEnvironments,
   modelNameForFamily,
   resolveTitleModel,
   toAgentEnvironments,
   type ParsedModel
 } from './models'
-import {
-  defaultProvider,
-  listAdapters,
-  listProviders,
-  type HarnessModelProviderEntry
-} from './settings-entries'
+import { listAdapters, listProviders, type HarnessModelProviderEntry } from './settings'
 
 let root: string
 const settingsDir = (): string => join(root, 'sources', 'settings', 'claude')
@@ -281,6 +278,25 @@ describe('env 유틸', () => {
 })
 
 describe('HarnessSettingsService', () => {
+  it('모델 목록 보정 없이 최소 설정 좌표를 runtime 서비스에 직접 주입한다', async () => {
+    seedSource('anthropic', '{}')
+    const loader = vi.fn(async () => ({ settings: { model: 'configured-model' } }))
+    const settings = new HarnessSettingsService({ claude: loader }, root)
+    const runtime = createHarnessRuntimeConfigService({ settings })
+    const target = {
+      key: 'claude-anthropic',
+      harnessId: 'claude',
+      modelProviderId: 'anthropic'
+    } satisfies Parameters<HarnessSettingsService['resolve']>[0]
+
+    expect(await runtime.resolve(target)).toMatchObject({
+      ...target,
+      settings: { providerKey: target.key, settings: { model: 'configured-model' } },
+      runtimeEnv: {}
+    })
+    expect(loader).toHaveBeenCalledOnce()
+  })
+
   function seedSource(modelProviderId: string, settings: string): string {
     const file = join(root, 'sources', 'settings', 'claude', modelProviderId, 'settings.json')
     writeFile(file, settings)
@@ -343,8 +359,7 @@ describe('HarnessSettingsService', () => {
       await svc.resolve({
         key: 'opencode-local',
         harnessId: 'opencode',
-        modelProviderId: 'local',
-        models: []
+        modelProviderId: 'local'
       })
     ).toBeUndefined()
     expect(await svc.resolve(entryOf('anthropic'))).toBeUndefined()

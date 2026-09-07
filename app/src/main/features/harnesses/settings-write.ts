@@ -1,7 +1,7 @@
 // Harness settings.json 쓰기 (0017 → 0188 이설, 구 `engine-write.ts`).
 //
 // `sources/settings/<harness>/<modelProvider>/settings.json` 을 원자적으로 기록한다. 모델 목록은
-// 캐시(구 meta.json)에 박지 않고 열거 시점(`settings-entries.listProviders`)에 settings.json 을
+// 캐시(구 meta.json)에 박지 않고 열거 시점(`settings.listProviders`)에 settings.json 을
 // 파싱해 얻는다.
 //
 // **`engine` 은 wire 호환 필드다** (0188 D-005) — IPC `orca:engine:*` 채널과 `shared/protocol` 의

@@ -27,6 +27,7 @@ vi.mock('./admission', () => ({
   leaseKeyFor: vi.fn(() => ({ provisionalKey: 'new:1', logicalKey: 'new:1' }))
 }))
 vi.mock('./resolve-turn', () => ({
+  resolveTurnProvider: vi.fn(),
   resolveTurn: vi.fn(async (_ctx, _supervisor, _adapter, payload) => ({
     ok: true,
     value: {
@@ -65,7 +66,6 @@ vi.mock('./enqueue', () => ({
 vi.mock('./turn-request', () => ({ buildTurnRequest: mocks.buildTurnRequest }))
 vi.mock('./approval', () => ({ createApprovalRequester: vi.fn(() => vi.fn()) }))
 vi.mock('./post-turn', () => ({ runTurnWithContinuations: vi.fn(async () => undefined) }))
-vi.mock('./turn-setup', () => ({ chatForward: vi.fn(), resolveTurnProvider: vi.fn() }))
 vi.mock('../chat-turn-continuation', () => ({ prepareAutomaticContinuation: vi.fn() }))
 vi.mock('../../features/chat/turn-coordinator', () => ({
   TurnCoordinator: class {
@@ -167,7 +167,7 @@ function makeHarness(sessionId?: string) {
     backgroundTasks: {},
     activity: {},
     isUpdateInstallPending: () => false,
-    reserveOnBusySession: vi.fn(),
+    listenRelease: new Map(),
     settleDeadBackgroundTasks: vi.fn(),
     // 0210 — resume 턴은 준비 전에 worktree 소실을 먼저 판정한다. 기본값은 '살아 있다'.
     worktrees: {

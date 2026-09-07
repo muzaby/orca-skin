@@ -5,12 +5,12 @@
 // 이라, 앱 프로세스 환경에 있는 임의의 값이 이름만 맞으면 MCP 설정으로 새어 들어갔다
 // (도입 보고서 위험 #3). 이제 해석 순서는:
 //
-//   1. `${BINDING:<대상>}` → **`ProviderApi.token(providerId)`** (0181 이 복구). 소스가
+//   1. `${BINDING:<대상>}` → 주입된 `tokens(providerId)` (0181 이 복구). 소스가
 //      미주입이거나 그 대상이 미인증이면 undefined 로 남는다.
 //   2. `${VAR}`          → vault(safeStorage) 에 봉인된 비밀
 //   3. `${VAR}`          → **명시 allowlist 에 있는 경우에만** process.env
 //
-// 미해결이면 undefined 를 돌려주고, expand.ts 가 해당 **서버 전체를 드롭**한다(fail-closed 유지).
+// 미해결이면 undefined 를 돌려주고, convert.ts 가 해당 **서버 전체를 드롭**한다(fail-closed 유지).
 //
 // ── 남는 노출 (문서화된 예외) ────────────────────────────────────────────────
 // 해석된 값은 여전히 `dist/plugins/orca/.mcp.json` 에 평문으로 렌더된다 — claude CLI 가 그
@@ -27,7 +27,7 @@ interface ResolverOptions {
   // orca.json 의 `secrets.envAllowlist`. **정확한 이름 일치만** 허용한다(패턴·접두사 없음).
   envAllowlist?: readonly string[]
   // `${BINDING:<대상>}` 의 토큰 소스 (0181). **미주입이면 모든 대상 참조가 미해결**이다 —
-  // 조용히 빈 값으로 채우지 않는다(expand.ts 가 그 서버를 통째로 드롭한다).
+  // 조용히 빈 값으로 채우지 않는다(convert.ts 가 그 서버를 통째로 드롭한다).
   tokens?: (providerId: string) => string | null
 }
 
@@ -36,7 +36,7 @@ export function makeResolver(opts: ResolverOptions): Resolver {
   return (name: string) => {
     if (name.startsWith(BINDING_PREFIX)) {
       // 대상 참조는 provider id 다. 미인증이면 null → undefined 로 접혀 미해결로 남고
-      // expand.ts 가 그 서버를 드롭한다(fail-closed 유지).
+      // convert.ts 가 그 서버를 드롭한다(fail-closed 유지).
       return opts.tokens?.(name.slice(BINDING_PREFIX.length)) ?? undefined
     }
     const sealed = opts.secrets.get(name)

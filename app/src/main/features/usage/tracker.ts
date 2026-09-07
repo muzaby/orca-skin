@@ -10,6 +10,8 @@
 import type {
   CostPeriodSummary,
   CostSummary,
+  NormalizedEvent,
+  ProviderReportedTelemetry,
   UsageStats,
   UsageStatsRange
 } from '../../../shared/ipc'
@@ -19,7 +21,8 @@ import {
   type UsageDelta,
   type UsageLimitsView
 } from '../../../shared/usage/limits'
-import type { DbQueries } from '../../infra/db'
+import type { UsageQueries } from '../../infra/db/usage-queries'
+import type { TurnContext } from '../../contracts/turn'
 import type { DailyUsageRow, ModelUsageSumRow, UsageSumRow } from '../../infra/db/types'
 import { boundaries } from '../../../shared/time/clock'
 import { composeProviderUsage } from './usage-compose'
@@ -38,10 +41,56 @@ export class UsageTracker {
   // broadcast 는 컴포지션 루트(bootstrap)가 주입한다 — IPC 송출 배선을 분리해 이 클래스를
   // electron 비의존으로 유지한다(테스트 시 스파이로 검증 가능). 기본 no-op.
   constructor(
-    private readonly db: DbQueries,
+    private readonly db: UsageQueries,
     private readonly broadcast: (delta: UsageDelta) => void = () => {},
     private readonly deps: UsageTrackerDeps = { spendingLimitUsd: () => null }
   ) {}
+
+  // history가 assistant messageId를 reset하기 전에 원장에 연결한다.
+  // bootstrap의 critical 구독 순서(usage → history)가 이 계약을 보장한다.
+  recordTurnUsage(turn: TurnContext, ev: Extract<NormalizedEvent, { type: 'telemetry' }>): void {
+    const u = ev.usage
+    if (!turn.dbSessionId || !u || !hasContextTokens(u)) return
+    const now = Date.now()
+    const turnUsageId = this.db.insertTurnUsage({
+      sessionId: turn.dbSessionId,
+      messageId: turn.currentAssistantMessageId,
+      createdAt: now,
+      inputTokens: u.inputTokens ?? null,
+      outputTokens: u.outputTokens ?? null,
+      cacheCreationInputTokens: u.cacheCreationTokens ?? null,
+      cacheReadInputTokens: u.cacheReadTokens ?? null,
+      totalCostUsd: u.costUsd ?? null
+    })
+    const modelEntries = Object.entries(u.modelUsage ?? {})
+    if (modelEntries.length > 0) {
+      for (const [model, mu] of modelEntries) {
+        this.db.insertTurnModelUsage({
+          turnUsageId,
+          model,
+          inputTokens: mu.inputTokens ?? null,
+          outputTokens: mu.outputTokens ?? null,
+          cacheCreationInputTokens: mu.cacheCreationTokens ?? null,
+          cacheReadInputTokens: mu.cacheReadTokens ?? null,
+          costUsd: mu.costUsd ?? null,
+          contextWindow: mu.contextWindow ?? null
+        })
+      }
+    } else if (u.model) {
+      this.db.insertTurnModelUsage({
+        turnUsageId,
+        model: u.model,
+        inputTokens: u.inputTokens ?? null,
+        outputTokens: u.outputTokens ?? null,
+        cacheCreationInputTokens: u.cacheCreationTokens ?? null,
+        cacheReadInputTokens: u.cacheReadTokens ?? null,
+        costUsd: u.costUsd ?? null,
+        // 단일 모델 턴은 top-level 승격값이 실측 컨텍스트 윈도(0134).
+        contextWindow: u.contextWindow ?? null
+      })
+    }
+    this.recordAndBroadcast(turn.providerKey)
+  }
 
   recompute(now = Date.now()): CostSummary {
     const sums = this.db.sumUsageByBoundaries(boundaries(now))
@@ -242,4 +291,13 @@ function emptySummary(): CostSummary {
     cacheReadInputTokens: 0
   }
   return { day: empty, week: empty, month: empty, updatedAt: 0 }
+}
+
+// 컨텍스트 점유(input + cache_read + cache_creation)가 1 이상인지 — turn_usage 적재 가드.
+// /context 등 로컬 슬래시 명령은 모델을 호출하지 않아 컨텍스트도 비용도 없는 빈 행을 만든다.
+// 이런 행을 적재하면 getLatestTurnUsage 가 복원 시 직전 도넛 값을 0으로 덮어쓴다 → 적재 자체를 스킵.
+function hasContextTokens(usage: ProviderReportedTelemetry): boolean {
+  return (
+    (usage.inputTokens ?? 0) + (usage.cacheReadTokens ?? 0) + (usage.cacheCreationTokens ?? 0) > 0
+  )
 }

@@ -369,3 +369,80 @@ PLAN_GAP·신규 제품 결정·신규 의존성은 없다. SRT·cowork·OpenCod
 - EP-08에서 기존 선취소 분기와 오류 리스너 등록 순서가 누락되어 있었다. 독립 재현 후 같은 요청 소유자 안에서 수정했다.
 - 반복 환경 한계는 SQLite ABI와 Electron fork 종료 경고다. 프로덕션 코드를 우회하거나 실패 테스트를 skip하여 통과시키지 않았다.
 - 구현 자기판정과 독립 handoff verify 판정은 구분한다. INDEX는 구현 완료 후 검증자에게 넘긴다.
+
+## [구현자 기입] r2 — ΔV1 책임 재편
+
+### 설계 리뷰
+
+사용자 정정 D-07에 맞춰 국소 오류 보완에서 기존 Main의 책임·모듈 경계 리팩토링으로 범위를 바로잡았다. r1 결과는 유지했다. 함께 변경되는 제출·해석·설정·모델·사용량·이력·MCP의 코드를 각 소유자에 모으고, 호출 전달만 하던 모듈을 제거했다.
+
+[진단 보고서](../../etc/study/main-structure/diagnosis.md) §2 r2에 before/after와 유지한 경계를 기록했다. auth·runtime/pool·admission·continuation·권한·Git root·HTTP header 정책처럼 의미가 다른 경계는 합치지 않았다. 신규 의존성·실행 플랫폼·공개 IPC·DB 스키마·UI 변경은 없다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+| AC / pair | §10 전수 경로와 관측 | 자기결과 |
+|---|---|---|
+| AC12 / DP-01·08·12 | EP-11: send의 신규/busy 입력→enqueue, index 취소와 turn-request submitted 소비까지 이동. 공통 payload·queued 이벤트의 요구사항·첨부·ID·시각 보존. 실제 busy send/held/listen과 기존 신규 큐 사례 통과 | SELF_PASS |
+| AC13 / DP-02·08 | EP-12: provider/env 생산 함수와 private helper를 resolve-turn으로 이설. send·resolve-turn의 실행 구성 주입, respawn·continuation·활성 getter 유지. 해석과 발신이 분리되고 삭제 모듈 import 없음 | SELF_PASS |
+| AC14 / DP-03·09 | EP-13·14: settings 소스 열거·mtime/list 캐시·invalidate·파일 부재/손상 정책 유지. 기본 provider 선택은 models, bootstrap은 settings 서비스를 직접 주입. 실제 settings→runtime resolve와 parser 사례 통과 | SELF_PASS |
+| AC15 / DP-04·10·14 | EP-15·16: 사용량 SQL의 생산·소비를 db.usage로 전환. tracker가 telemetry 원장/모델행·집계·방송을 소유. 실제 동일 연결 rollback, 빈 컨텍스트·messageId·실패 전파 및 bootstrap 순서 통과 | SELF_PASS |
+| AC16 / DP-05·10·14 | EP-17: reader가 parts·usage·비용·lineage·worktree·cwd를 복원, handler가 유효 입력/현재 activity를 결합. 실제 SQLite→reader→IPC callback 정상/빈 세션·미완료/정렬 사례 통과 | SELF_PASS |
+| AC17 / DP-06·11 | EP-18: convert가 target 구성까지 수행. stdio/http/sse·빈 입력·복수/반복 변수·입력 불변·서버별 제외와 정확한 이유 검증. 실제 bootstrap→converter→배포 큐의 deploy 인자까지 확인 | SELF_PASS |
+| AC18 / DP-07·13 | EP-14: canonical 선언 key는 catalog 생성 시 한 번 구성. cache가 비어 있어도 소유권 유지. settings alias 폴백/runtime 빈 목록 구분과 최종 기본 모델 유지 | SELF_PASS |
+
+ΔV1 검산: AC12~18은 SELF_PASS 7개, DP-01~14는 SELF_PASS 14개다. V1의 AC1~11/VP-01~17은 이번 Main 전체 실행의 상속 회귀 대상으로 유지한다. 이는 구현 자기검증이며 독립 handoff verify의 PASS가 아니다.
+
+전수 검색은 소유 불변식을 기준으로 수행했다. `message.queued|message.submitted|pendingMessages.enqueue|checkBusyReservation`으로 제출·발신, `PreparedHarnessConfig|prepareHarnessConfig|resolveTurnProvider`로 실행 입력, `insertTurnUsage|insertTurnModelUsage|getLatestTurnUsage|sumSessionCostUsd|recordTurnUsage`로 원장 생산·소비, `loadParts|partFromRow|sessionLoad`로 복원, `toClaudeConfig|mcpConfig`로 배포 도달을 확인했다. 삭제 경로 import·현재 문서 참조도 검색했다. 대상은 `app/src/main`, `app/src/shared`, `docs/arch`이며 과거 handoff 증거의 옛 경로는 이력으로 남겼다.
+
+### 이번 라운드 수정의 잠금
+
+| 선택 증거 / oracle | 실제 재현 | 결과 |
+|---|---|---|
+| EP-11 busy 직접 호출 삭제 | 실제 handleChatSend의 busy 분기에서 예약 호출 제거 | 실제 큐와 listen 결과 1개 RED |
+| 공통 requirements 전달 삭제 | enqueue의 공유 payload에서 requirements spread 제거 | 신규·busy·실제 send·기존 carrier guard 4개 RED |
+| 실행 env 주입 호출 삭제 | resolve-turn의 실제 injector 호출 두 곳을 각각 제거 | 각 guard 1개 RED. 옛 turn-setup 위치에서 옮긴 잠금 유지 |
+| EP-16 tracker 기록 호출 삭제 | bootstrap의 telemetry callback에서 recordTurnUsage 제거 | 실제 순서/실패 전파 2개 RED |
+| 새 구독 등록 연결 삭제 | Bootstrap.register의 registerTurnEvents 호출 제거 | 실제 진입의 등록 배선 guard 1개 RED |
+| EP-18 변환 결과 전달 우회 | bootstrap의 mcpConfig 인자를 미확장 소스로 변경 | 실제 deploy 인자 oracle 1개 RED |
+
+모든 디스크 변이는 원문 보관과 finally 복원 후 영향 테스트를 재실행했다. 모델의 선언 getter 관측은 변경 전 반복 읽기 RED, 변경 후 생성 시 한 번 GREEN이다. settings/runtime parser의 서로 다른 빈 목록 정책도 기존 테스트와 직접 runtime 진입 테스트로 잠갔다.
+
+### Product/UX 파생 검토
+
+- 신규·busy·취소·continuation 입력의 wire·첨부·요구사항·승인·listen 정책을 유지했다. 동기 admission과 큐 적재 사이 await를 추가하지 않았다.
+- DB 읽기·기록·집계는 동기이며 같은 연결과 transaction을 쓴다. 사용량→history→title→relay의 순서와 critical 실패 전파는 Bootstrap 안의 한 등록 메서드가 계속 소유한다.
+- 캐시 무효화·기본 모델·빈 목록 의미, MCP 미해결 서버 전체 제외를 유지했다. 새 페이지 로딩·상주 캐시·배경 서비스는 없다.
+- 기존 MCP 배포는 확장한 설정을 plugin의 `.mcp.json`으로 렌더한다. 현재 security 문서 일부가 이를 “평문 파일 없음”으로 서술해 실제 bootstrap/deployer 경로에 맞게 정정했다. 이번 리팩토링으로 비밀 저장 정책을 바꾼 것은 아니다.
+
+### 놓친 잠재 문제 + 대응
+
+| 관측 | 대응·판정 |
+|---|---|
+| r1의 국소 보완을 구조 리팩토링 완료로 설명한 범위 불일치 | 사용자 D-07을 ΔV1에 반영해 별도 설계 커밋 후 책임 재편 구현 |
+| 좁힌 settings 입력을 테스트 fixture가 models 속성으로 보정 | fixture의 불필요한 속성 제거. 공개 계약/기능 변경 없음 |
+| MCP 기존 테스트가 입력 불변과 정확한 다중 누락 사유를 직접 확인하지 않음 | frozen env/header·반복 변수·정상 이웃 보존 oracle 보강 |
+| 새 bootstrap 테스트의 타입 표기 누락 | 명시 반환 타입 보완 후 test 타입/lint 재검사 |
+| 성능 후보를 추론만으로 과도하게 바꿀 위험 | 모델의 반복 정규화만 줄이고 대형 세션·자동완성·월 집계는 실제 비용과 측정 조건을 보고서에 기록. 새 최적화 플랫폼을 만들지 않음 |
+
+PLAN_GAP·추가 제품 결정은 없다. 미래 SRT·cowork·OpenCode의 종단 실행 호환성 검증은 해당 기능을 실제 도입하는 후속 범위다.
+
+### 구현 보고
+
+- 책임 이동 영향 시험: 채팅 64개, harnesses 113개, 사용량/DB/reader/DTO 118개, MCP/vars 28개, bootstrap 6개 통과. 파일·사례가 일부 겹치므로 이를 더해 전체 시험 수로 쓰지 않는다.
+- SQL 대조: 이동 SQL과 eager/lazy 준비 정책, 원래 생성자 내 준비 순서가 동일하다. 독립 검토에서 이동 메서드·SQL·tracker 기록·DTO 본문도 receiver 변경 외 동일함을 확인했다.
+- 독립 행동 비교: settings parser 350개/runtime parser 70개 입력에 대해 기준 구현과 결과·입력 불변성이 동일했다. 실사용 성능 벤치마크로 해석하지 않는다.
+| 통합 게이트 | 결과 |
+|---|---|
+| r2 Main 전체 | Electron Node·시험 USERPROFILE: 193파일 2,116개 통과, 실패/skip 0, exit 0 |
+| V1 상속 회귀 | VP-01~17 관련 기존 Main 테스트 전부 재실행. V1+ΔV1 자기검산 AC 18/18, pair 31/31 SELF_PASS |
+| 이전 시험 대조 | r1 2,093개 대비 순증 23개. 파일 이동을 반영한 case 대조에서 남은 차이는 carrier guard 제목 변경과 private hasContextTokens의 두 직접 검사를 실제 tracker 기록·방송 검사로 대체한 것이다. 원래 보호 동작은 유지 |
+| 타입 | npm run typecheck의 node/web/test 전부 진단 0. 마지막 테스트의 반환 타입 표기 후 test config 재검사 |
+| lint | Main/shared 전체 검사에서 새 bootstrap 테스트 표기 누락만 발견. 해당 파일 정정 후 error 0 / warning 0 |
+| 문서·시간 예산 | doc inventory/generated/prose/상대링크 검사, 실제 git 시험 budget 검사 통과 |
+| diff | git diff --check 통과 |
+
+원래 SQLite ABI 140을 유지한 Electron Node 실행이며 설치/rebuild는 하지 않았다. r2 실행에 Vitest fork 종료 timeout 경고 39건이 있었으나 시험 실패는 없고 프로세스도 정상 종료했다. r1에도 있던 실행 환경 관측이며, 앱의 처리 속도나 회귀 수치로 해석하지 않는다. 실제 GUI·사내망·대형 입력 성능 측정은 수행하지 않았다.
+
+### Review Signals
+
+r2의 원인은 사용자 요구 범위를 r1에서 좁게 해석한 것이다. 이를 단순 설명 수정으로 닫지 않고 책임/모듈 재편과 실제 경로 oracle을 추가했다. independent reviewer를 구현 영역과 바꿔 채팅/설정, 사용량/이력, MCP/Bootstrap을 검토했다. 재현된 생산 회귀는 없었고 부족한 oracle과 fixture/type 표기를 보완했다. 기존 동작 보존과 미래 기능의 실제 호환성 보장은 구분한다.

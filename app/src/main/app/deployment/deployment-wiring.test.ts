@@ -547,21 +547,21 @@ describe('폐쇄망 spawn env 주입점 (0207)', () => {
 
 // ── 배선 잠금 (0207 VP-21) ───────────────────────────────────────────────────
 //
-// `turn-setup.ts` 는 electron 을 물어 vitest 가 import 하지 못한다. 그렇다고 배선을 안 보면
+// provider 해석은 `resolve-turn.ts`가 소유한다. 실제 조립 경로의 배선을 보지 않으면
 // **두 호출부에서 인자를 지워도 위 테스트가 전부 통과한다** — 조립부는 injector 없이도 정상
 // 동작하기 때문이다. 그래서 소스를 문자열로 읽어 잠근다(`no-node-fetch.test.ts` 와 같은 방식).
 //
 // 개수를 `2` 로 박지 않는다. **모든 조립 호출부가 injector 를 넘긴다**가 불변식이므로, 호출부가
 // 늘면 분모도 함께 늘어야 한다 — 상수로 박으면 세 번째 호출부가 조용히 배선 없이 추가된다.
-const TURN_SETUP = join(__dirname, '..', 'chat-turn', 'turn-setup.ts')
+const TURN_RESOLUTION = join(__dirname, '..', 'chat-turn', 'resolve-turn.ts')
 const PREPARE_CALL = /prepare(?:Unresolved)?HarnessConfig\s*\(/g
 const INJECTOR_ARG = /customEnv:\s*SPAWN_ENV_INJECTOR\b/g
 
 const countOf = (source: string, pattern: RegExp): number => source.match(pattern)?.length ?? 0
 
-describe('turn-setup 이 배포 injector 를 두 조립 경로에 넘긴다 (0207)', () => {
+describe('resolve-turn 이 배포 injector 를 두 조립 경로에 넘긴다 (0207)', () => {
   it('조립 호출부 수와 injector 인자 수가 같다', () => {
-    const source = stripCommentsAndStrings(readFileSync(TURN_SETUP, 'utf8'))
+    const source = stripCommentsAndStrings(readFileSync(TURN_RESOLUTION, 'utf8'))
     const calls = countOf(source, PREPARE_CALL)
 
     expect(calls).toBeGreaterThan(0)

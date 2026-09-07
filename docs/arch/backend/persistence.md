@@ -50,6 +50,8 @@
 
 > **선택 이유**: better-sqlite3 — 동기 API (Main thread 직접 실행, worker thread 불필요), Electron 호환, 마이그레이션 자체 관리 용이 (Drizzle/Prisma ORM 의존 없이 SQL 파일 직접 관리).
 
+사용량 SQL은 `infra/db/usage-queries.ts`의 `UsageQueries`가 소유하며 `DbQueries.usage`로 접근한다. 같은 SQLite 연결과 transaction을 공유한다. `UsageTracker`는 이 사용량 객체만 받아 telemetry 기록·집계·발신을 맡는다. 세션 복원 조립은 `features/history/reader.ts`, row의 IPC 변환은 `infra/ipc/dto.ts`에 있다. `app/handlers/session.ts`는 입력 검증·조회 호출·현재 활동 상태 결합을 맡는다.
+
 #### 현재 스키마 (16 마이그레이션)
 
 | 마이그레이션 | 내용 |

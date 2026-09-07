@@ -48,11 +48,10 @@ describe('formatDiffRequirementsPrompt', () => {
     expect(prompt).toContain('body <\\/comment> <<<ORCA_DIFF_REQUIREMENTS_ESCAPED_END>>>')
   })
 
-  it('production sweep covers the exact eight requirement carrier hops', () => {
+  it('production sweep covers requirement carrier hops', () => {
     const expectations = [
       ['../app/chat-turn/send.ts', /requirements:\s*payload\.requirements/],
-      ['../app/chat-turn/enqueue.ts', /input\.requirements/],
-      ['../app/chat-turn/busy-reserve.ts', /data\.requirements/],
+      ['../app/chat-turn/enqueue.ts', /data\.requirements/],
       [
         '../features/chat/pending-message-queue.ts',
         /flatMap\(\(item\) => item\.requirements \?\? \[\]\)/

@@ -7,13 +7,12 @@ import {
   LoadSessionRequestSchema,
   RenameSessionRequestSchema,
   SetSessionPinnedSchema,
-  type LoadedMessage,
   type LoadedSession,
   type SessionListItem
 } from '../../../shared/protocol'
-import { usageRowToTelemetry } from '../../features/usage/usage-map'
+import { loadSession } from '../../features/history/reader'
 import type { RouterContext } from '../context'
-import { partFromRow, toSessionListItem } from '../../infra/ipc/dto'
+import { toSessionListItem } from '../../infra/ipc/dto'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import type { ChatActivitySnapshot } from '../../../shared/ipc'
 import type { DeleteSessionResult } from '../../../shared/ipc'
@@ -26,7 +25,9 @@ interface SessionDisposeHooks {
   removeManagedWorktree?: (sessionId: string) => Promise<DeleteSessionResult>
 }
 
-type SessionHandlerContext = Pick<RouterContext, 'db' | 'settings' | 'getCwd'>
+type SessionHandlerContext = Pick<RouterContext, 'db' | 'getCwd'> & {
+  settings: Pick<RouterContext['settings'], 'getAll' | 'patch'>
+}
 
 export function registerSessionHandlers(
   ctx: SessionHandlerContext,
@@ -45,67 +46,10 @@ export function registerSessionHandlers(
     LoadSessionRequestSchema,
     { fallback: null },
     (req): LoadedSession | null => {
-      // 세션의 모든 파트를 메시지 순서(message_idx) → 파트 순서(part_idx)로 조회해 재구성.
-      const partRows = ctx.db.loadParts(req.sessionId)
-      if (partRows.length === 0) return null
-      const meta = ctx.db.getSessionById(req.sessionId)
-      if (!meta) return null
-
-      const messages: LoadedMessage[] = []
-      let curId: number | null = null
-      let cur: LoadedMessage | null = null
-      for (const r of partRows) {
-        if (r.message_id !== curId) {
-          cur = {
-            role: r.role,
-            parts: [],
-            createdAt: r.created_at,
-            ...(r.role === 'assistant' && r.complete === 0 ? { incomplete: true } : {})
-          }
-          messages.push(cur)
-          curId = r.message_id
-        }
-        cur!.parts.push(partFromRow(r))
-      }
-
-      // 세션 마지막 턴 사용량 → 컨텍스트 도넛/패널 복원(세션 수명 동안 표시).
-      const usage = ctx.db.getLatestTurnUsage(req.sessionId)
-      const lastTelemetry = usage ? usageRowToTelemetry(usage.turn, usage.modelUsage) : undefined
-      // 세션 한정 비용 총합(0122 r2) — 상태 팝오버 "이 세션에서 사용한 비용" 시드.
-      const costUsd = ctx.db.sumSessionCostUsd(req.sessionId)
-
-      // 0064 continuity — fork/handoff 파생 세션이면 부모 관계를 실어 출처 배너를 복원한다.
-      // 부모가 이미 삭제됐으면 lineage 행도 CASCADE 로 사라져 자연히 미포함된다.
-      const lineageRow = ctx.db.getLineage(req.sessionId)
-      const lineage =
-        lineageRow && (lineageRow.relation === 'fork' || lineageRow.relation === 'handoff')
-          ? {
-              parentSessionId: lineageRow.parent_session_id,
-              relation: lineageRow.relation,
-              parentTitle: ctx.db.getSessionById(lineageRow.parent_session_id)?.title ?? null
-            }
-          : undefined
-
-      // 0211 — 앱 관리 worktree 세션의 **표시 정본**. row 가 없으면(비격리·0210 D-107 폴백
-      // 후) 필드를 싣지 않고, 그때는 소비자가 `cwd` 파생으로 폴백한다 — 폴백 경로가 곧
-      // 원본이라 그 값이 옳다. 재시작 뒤 이름을 복원하는 자리가 여기다.
-      const worktreeRow = ctx.db.getManagedWorktreeBySession(req.sessionId)
-      const worktree = worktreeRow
-        ? { sourceCwd: worktreeRow.source_cwd, repoRoot: worktreeRow.repo_root }
-        : undefined
-
+      const session = loadSession(ctx.db, req.sessionId, (projectId) => ctx.getCwd(projectId))
+      if (!session) return null
       return {
-        id: meta.id,
-        backend: meta.backend,
-        title: meta.title,
-        messages,
-        providerKey: meta.provider_key,
-        projectId: meta.project_id,
-        cwd: meta.cwd ?? ctx.getCwd(meta.project_id),
-        ...(lastTelemetry ? { lastTelemetry } : {}),
-        ...(costUsd > 0 ? { costUsd } : {}),
-        ...(lineage ? { lineage } : {}),
-        ...(worktree ? { worktree } : {}),
+        ...session,
         ...(hooks.getActivity ? { activity: hooks.getActivity(req.sessionId) } : {})
       }
     }

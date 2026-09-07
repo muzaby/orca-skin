@@ -23,7 +23,7 @@ type ContinuityArrivalHook = (arrival: {
   createdAt: number
 }) => void
 
-// 턴 영속(history) — 사용량 집계(usage/subscriber)·제목 생성(TitleGenerator)은 별개 버스 구독자로
+// 턴 영속(history) — 사용량 집계(UsageTracker)·제목 생성(TitleGenerator)은 별개 버스 구독자로
 // 분리됐다(0062). 여기 telemetry 처리는 assistant 메시지 마감 + 다음 턴 대비 reset 만 담당한다.
 export class HistoryWriter {
   constructor(

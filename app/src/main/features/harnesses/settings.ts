@@ -1,25 +1,25 @@
 // Harness native settings 해석 서비스 (0014 → 0017 D2 → 0188 이설).
-// `sources/settings/<harness>/<modelProvider>/` 트리(열거는 `settings-entries.ts`)의
+// `sources/settings/<harness>/<modelProvider>/` 트리의
 // Harness-네이티브 settings 를 로더로 해석해 캐시한다.
 //
-// Harness 일반화 시점: 본 모듈은 Harness-중립이다. 실제 settings 해석(SDK resolveSettings 등
-// Harness 종속 어휘)은 주입된 `HarnessSettingsLoader` 가 담당한다 — claude 로더는
-// `adapters/claude-settings.ts`, 미래 opencode 로더는 자기 포맷을 그대로 해석해 같은 blob 으로
-// 돌려주면 된다 (정규화 0 — settings 스키마는 Harness-네이티브 그대로 흐른다).
+// settings blob 해석은 주입된 `HarnessSettingsLoader` 가 담당한다. 소스 열거의 모델 목록은
+// 현재 Claude 파서를 사용하며, blob 자체는 Harness-네이티브 스키마 그대로 흐른다.
 //
 // 캐시: key → {settings, mtimeMs}. sources 파일 mtime 변화 시 재해석, deploy 후
 // `invalidateAll()`. 비밀 확장은 로더 내부(해석 시점)에서만 — 디스크/캐시 외부로 평문이
 // 새지 않게 caller 는 blob 을 query 옵션 주입에만 쓴다.
 //
-// **배럴 re-export 를 두지 않는다 (0188).** 0017 이 분해하며 남긴 re-export 는 "이 파일이
-// Harness 설정의 모든 것" 이라는 착시를 만들었다 — 소비처는 `models.ts`·`env.ts`·
-// `settings-entries.ts`·`runtime-boundary.ts`·`adapters/harness-config.ts` 를 직접 import 한다.
+// 소스 열거와 해석 캐시는 이 모듈이 소유한다. 모델 선택·env·spawn 경계 판정은 각각의
+// 순수 모듈이 소유하며 여기서 re-export하지 않는다.
 
 import { stat } from 'node:fs/promises'
+import { readdirSync, readFileSync, type Dirent } from 'node:fs'
 import { join } from 'node:path'
+import { isRecord } from '../../../shared/obj'
+import { providerKeyOf, PROVIDER_NAME_RE } from '../../infra/config/provider-key'
+import { parseClaudeModels, type ParsedModel } from './claude/model-parser'
 import { orcaConfigDir } from '../../infra/config/paths'
 import { getLogger } from '../../infra/log/registry'
-import { listAdapters, listProviders, type HarnessModelProviderEntry } from './settings-entries'
 import type {
   HarnessNativeSettings,
   ResolvedHarnessSettings,
@@ -69,7 +69,9 @@ export class HarnessSettingsService {
 
   // entry 의 settings 를 해석해 blob 으로 반환. 로더 미등록 어댑터(미래 opencode 전 단계)는
   // undefined — caller 는 settings 없이 진행한다. 해석 실패도 동일(경고 후).
-  async resolve(entry: HarnessModelProviderEntry): Promise<ResolvedHarnessSettings | undefined> {
+  async resolve(
+    entry: Pick<HarnessModelProviderEntry, 'key' | 'harnessId' | 'modelProviderId'>
+  ): Promise<ResolvedHarnessSettings | undefined> {
     const loader = this.loaders[entry.harnessId]
     if (!loader) return undefined
 
@@ -129,4 +131,83 @@ async function statMtime(path: string): Promise<number> {
   } catch {
     return 0
   }
+}
+
+// 열거된 Harness + ModelProvider 1건 (디렉토리 = SSOT, 모델은 settings.json 파싱 결과).
+//
+// **별도 definition 배열이 아니다** (0188 D-013) — 이 타입은 디렉터리 열거 결과의 형상일 뿐이고,
+// 선택 가능한 목록의 SSOT 는 계속 파일시스템이다.
+export interface HarnessModelProviderEntry {
+  key: string // `${harnessId}-${modelProviderId}`
+  harnessId: string
+  modelProviderId: string
+  models: ParsedModel[]
+}
+
+// provider 의 settings.json 을 관용 파싱 → 모델 목록. 파일 부재/손상/비객체는 빈 설정({})으로
+// 취급해 provider 가 여전히 기본 alias 목록으로 열거되게 한다(디렉토리 = 열거 SSOT 불변식).
+function modelsForProvider(settingsFile: string): ParsedModel[] {
+  let raw: string
+  try {
+    raw = readFileSync(settingsFile, 'utf8')
+  } catch {
+    return parseClaudeModels({})
+  }
+  let json: unknown
+  try {
+    json = JSON.parse(raw)
+  } catch {
+    getLogger().child('providers').warn('providers.settings.parse-failed', {
+      path: settingsFile,
+      fallback: 'default models'
+    })
+    return parseClaudeModels({})
+  }
+  if (!isRecord(json)) {
+    getLogger().child('providers').warn('providers.settings.invalid', {
+      path: settingsFile,
+      reason: 'top-level value must be an object',
+      fallback: 'default models'
+    })
+    return parseClaudeModels({})
+  }
+  return parseClaudeModels(json)
+}
+
+// sources/settings/ 의 어댑터 디렉토리 열거 — agent:list 가 미지원 어댑터(supported:false)도
+// 노출할 수 있게 registry 가 아닌 디렉토리를 원천으로 한다.
+export function listAdapters(root: string = orcaConfigDir()): string[] {
+  try {
+    return readdirSync(join(root, 'sources', 'settings'), { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .sort()
+  } catch {
+    return []
+  }
+}
+
+// sources/settings/<adapter>/ 의 provider 디렉토리 열거 (이름순 정렬 — 결정적 기본 선택).
+// 각 provider 의 settings.json 을 파싱해 모델 목록을 채운다.
+export function listProviders(
+  adapter: string,
+  root: string = orcaConfigDir()
+): HarnessModelProviderEntry[] {
+  const settingsDir = join(root, 'sources', 'settings', adapter)
+  let entries: Dirent[]
+  try {
+    entries = readdirSync(settingsDir, { withFileTypes: true })
+  } catch {
+    return []
+  }
+  return entries
+    .filter((e) => e.isDirectory() && PROVIDER_NAME_RE.test(e.name))
+    .map((e) => e.name)
+    .sort()
+    .map((provider) => ({
+      key: providerKeyOf(adapter, provider),
+      harnessId: adapter,
+      modelProviderId: provider,
+      models: modelsForProvider(join(settingsDir, provider, 'settings.json'))
+    }))
 }

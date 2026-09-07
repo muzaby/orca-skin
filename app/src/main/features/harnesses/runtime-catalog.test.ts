@@ -26,6 +26,32 @@ const valid = (revision = 1): AuthSnapshot => ({
 })
 
 describe('runtime model catalog', () => {
+  it('불변 contribution key는 한 번만 읽고 목록 병합마다 다시 순회하지 않는다', () => {
+    let keyReads = 0
+    const declared = Object.freeze({
+      ...contribution,
+      get key(): string {
+        keyReads += 1
+        return ' ORCA-CORP '
+      }
+    })
+    const catalog = createRuntimeModelCatalog({
+      contributions: Object.freeze([declared]),
+      snapshotOf: () => valid(),
+      runtime: { resolve: vi.fn(), cached: vi.fn(), invalidate: vi.fn() }
+    })
+    expect(catalog.isReadOnly('orca-corp')).toBe(true)
+    expect(catalog.isReadOnly(' ORCA-CORP ')).toBe(true)
+    expect(catalog.isReadOnly('orca-other')).toBe(false)
+    expect(
+      catalog.merge([
+        { key: 'orca-corp', adapter: 'orca', models: [], supported: true },
+        { key: 'orca-local', adapter: 'orca', models: [], supported: true }
+      ])
+    ).toEqual([{ key: 'orca-local', adapter: 'orca', models: [], supported: true }])
+    expect(keyReads).toBe(1)
+  })
+
   it('filters both settings and runtime rows to the requested adapter', () => {
     const catalog = createRuntimeModelCatalog({
       contributions: [],

@@ -234,7 +234,7 @@ const EMPTY_ENV: Readonly<Record<string, string>> = Object.freeze({})
 // Harness+ModelProvider 에 걸려야 한다(D-002).
 //
 // **왜 조립부가 부르는가**: `adapters` 는 `app` 을 import 할 수 없다(eslint boundaries). 그래서
-// 배포 모듈을 물지 않고 함수를 **인자로 받는다** — 컴포지션 루트(`app/chat-turn/turn-setup.ts`)가
+// 배포 모듈을 물지 않고 함수를 **인자로 받는다** — 컴포지션 루트(`app/chat-turn/resolve-turn.ts`)가
 // 배포 상수를 넘긴다.
 
 // injector 가 대상을 좁히는 데 쓰는 식별자. `resolved` 로 갈린 **discriminated union** 인 이유는
@@ -367,7 +367,7 @@ export function prepareHarnessConfig(input: PrepareHarnessConfigInput): Prepared
 
 // Harness+ModelProvider entry 를 **못 고른** 턴의 spawn 입력.
 //
-// 조립 규칙을 호출부(`app/chat-turn/turn-setup.ts`)에 인라인으로 두지 않는 이유: 그 파일은
+// 조립 규칙을 호출부(`app/chat-turn/resolve-turn.ts`)에 인라인으로 두지 않는 이유: 그 파일은
 // electron 을 물어 vitest 가 import 하지 못한다. 규칙이 거기 있으면 이 경로는 **테스트가 닿지
 // 않는 자리**가 되고, 실제로 0188 r9 가 그렇게 두 가지를 놓쳤다 —
 //

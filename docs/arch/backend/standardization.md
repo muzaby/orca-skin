@@ -147,7 +147,7 @@ function deploy(engine: EngineId, opts: DeployOptions): DeployResult {
 
 > **구현 상태 (0024 구현됨)**: [`features/extensions/deployer.ts`](../../../app/src/main/features/extensions/deployer.ts) 는 신 레이아웃으로 정렬됐다 — skill→`.claude/skills`, mcp→`.mcp.json` 배포, manifest·agents·commands·hooks·settings dist 복사 제거. `deployer.test.ts` 가 같은 레이아웃을 검증한다. (⚠️ 이전 판이 인용하던 `conformance.ts` 는 **코드에 존재하지 않는다** — `StandardConformance` 는 아직 설계 단계이고 구현체가 없다. 아래 §StandardConformance 를 구현 완료로 읽지 말 것.) `disallowedTools` 는 D1 사용자 확정 전이라 코드 주입 보류. 최초 부팅 스캐폴드 [`features/extensions/scaffold.ts`](../../../app/src/main/features/extensions/scaffold.ts) 는 provider settings 만 시드한다 — skill/agents/commands/hooks 의 번들 first-party 콘텐츠는 없다(전부 사용자 제공). **claude-only — `engine` 파라미터·settings 로더 주입(`ProviderSettingsLoader`)이 OpenCode seam.**
 
-> **현행 선례 재사용**: "render sources → engine config" 는 이미 MCP 축에서 구현돼 있다 — `mcp/convert.ts` 의 순수 함수 `toClaudeConfig`(opencode 짝은 미구현), `mcp/resolver.ts` 의 `${VAR}` resolver(safeStorage → process.env 2단계), `mcp/expand.ts` 의 `expandEnv`([security.md §1.4](./security.md), [adapters.md §3.1](./adapters.md)). ExtensionDeployer 의 mcp 축은 이 함수들을 *호출*하면 되고 새로 발명하지 않는다.
+> **현행 선례 재사용**: MCP 소스의 `${VAR}` 확장과 서버별 미해결 제외는 `mcp/convert.ts`의 순수 함수 `toClaudeConfig`가 함께 소유한다. 문자열 치환은 `infra/vars.ts`, 토큰·비밀·허용된 환경변수 해석은 `mcp/resolver.ts`가 맡는다. Bootstrap이 변환 결과를 기존 ExtensionDeployer에 전달한다([security.md §1.4](./security.md)). OpenCode 변환기는 미구현이다.
 
 ### 5.3 StandardConformance
 

@@ -60,7 +60,7 @@ Electron App
 │   │   ├── chat-turn/          # 턴 셋업 (0179 분해, 목록은 디렉토리가 진실) — index(배럴·IPC 등록) ·
 │   │   │                       #   send(순서) · admission/turn-context/continuation(순수 판정·조립) ·
 │   │   │                       #   resolve-turn · runtime-entry · respawn-inputs(최초/연속 턴 공용 respawn 입력) ·
-│   │   │                       #   enqueue · turn-request · approval · post-turn · busy-reserve · turn-setup · deps
+│   │   │                       #   enqueue · turn-request · approval · post-turn · deps
 │   │   ├── context.ts          # RouterContext (핸들러 공유 의존성)
 │   │   ├── boot-report.ts      # 부팅 진단 계측 (0077) — 각 부팅 단계 step 래핑 · orca:boot:report
 │   │   ├── builtin-resources.ts # 번들 스킬 리소스 해석 (0078)
@@ -77,8 +77,8 @@ Electron App
 │   │   ├── chat/               # 턴 오케스트레이션 — turn-coordinator · pending-message-queue · settle · timers · title
 │   │   ├── sessions/           # 런타임 거버넌스 — supervisor · session-runtime · runtime-pool · eviction/cap-policy · active-turn-tracker
 │   │   ├── approvals/          # ApprovalCoordinator(도구 승인 broker) · permission-mode-controller
-│   │   ├── usage/              # UsageTracker — turn_usage 집계(일/주/월 SUM) + provider별 한도(0080~0082)
-│   │   ├── history/            # HistoryWriter — NormalizedEvent → DB parts 영속
+│   │   ├── usage/              # UsageTracker — telemetry 원장 기록·집계·provider별 한도
+│   │   ├── history/            # HistoryWriter — 이벤트 영속 / reader — 저장된 세션 복원
 │   │   ├── auth/               # 인증 lifecycle (0181 → 0188 독립) — runtime · registry · store ·
 │   │   │                       #   login · oauth · authenticated-request · secret-access · policy ·
 │   │   │                       #   present · session-policies · specs/ · browser-session/
@@ -111,7 +111,7 @@ Electron App
 │   └── infra/                  # 얇은 인프라 (feature/어댑터 비의존)
 │       ├── ipc/                # handle(safeParse+실패정책) · send(push 헬퍼·wire-log) · dto
 │       ├── bus/                # TypedBus
-│       ├── db/                 # better-sqlite3 싱글턴 + migrate + queries (WAL + foreign_keys)
+│       ├── db/                 # 같은 SQLite 연결 + migrate + queries / usage-queries (WAL + foreign_keys)
 │       ├── config/             # orca-config · secret-store · paths · crypto · mcp-file
 │       ├── net/               # 원격 전송 스택 — net-fetch(net.fetch) · net-request(net.request) · net-response(순수) ·
 │       │                       #   transport(인증 요청 조각·상한, 0181). 전역 fetch( 호출은 net-fetch.ts 에만 허용

@@ -111,7 +111,6 @@ import { ActiveTurnTracker } from '../features/sessions/active-turn-tracker'
 import { TypedBus } from '../infra/bus'
 import type { MainBus, OrcaBusEvents } from '../contracts/bus-events'
 import { settleOpenToolRuns } from '../features/chat/settle'
-import { recordTurnUsage } from '../features/usage/subscriber'
 import { ApprovalCoordinator } from '../features/approvals/coordinator'
 import { HistoryWriter } from '../features/history/writer'
 import { materializeContinuityArrival } from '../features/orchestration/fork'
@@ -450,15 +449,7 @@ export class Bootstrap {
     // 으로 나가는 값은 사용자가 직접 적은 것만 남는다(0028 결정 유지).
     const harnessSettings = new HarnessSettingsService({ claude: loadClaudeProviderSettings })
     const harnessRuntime = createHarnessRuntimeConfigService({
-      settings: {
-        resolve: (entry) =>
-          harnessSettings.resolve({
-            ...entry,
-            // 열거 캐시가 이미 들고 있는 모델 목록을 다시 만들지 않는다 — runtime config 는
-            // 모델 목록을 쓰지 않으므로 빈 배열로 충분하다.
-            models: []
-          })
-      },
+      settings: harnessSettings,
       augmenters: createRuntimeConfigAugmenters({
         auth,
         // **배포가 선언한 AuthId 에 대해서만 닫힌 closure 를 만든다** — selector 를 넘기면
@@ -502,7 +493,7 @@ export class Bootstrap {
     // 사용량 delta 송출 배선 — domain(UsageTracker)은 electron 비의존, 송출은 여기(컴포지션 루트)서.
     // 0186 — 전체 provider map 이 아니라 **변경된 scope 만** 나간다.
     const cost = new UsageTracker(
-      db,
+      db.usage,
       (delta) => {
         for (const wc of webContents.getAllWebContents()) {
           if (!wc.isDestroyed()) wc.send(CHANNELS.costUsageEvent, delta)
@@ -770,24 +761,14 @@ export class Bootstrap {
     this.activity?.dispose()
   }
 
-  private register(ctx: RouterContext): void {
-    // chat 턴 파이프라인 조립 — 레지스트리(세션 키잉) · persist · 제목 생성 · 승인 조정.
-    const supervisor = (this.supervisor = new RuntimeSupervisor<Electron.WebContents>({
-      activeTurns: new ActiveTurnTracker((projectId, count) => {
-        broadcastConcurrency({ projectId, count })
-        this.updateStateChanged()
-      }),
-      // 0067: 장수명 채널 거버넌스 — 동시 생존 런타임 cap 5(사용자 확정), 초과 시 idle LRU 축출.
-      // 세션 수명 = 프로그램 종료(shutdown→closeIdleRuntimes) or 이 축출뿐(IdleCloseTimer 폐기).
-      capPolicy: new BoundedRuntimeCapPolicy(),
-      capacity: 5
-    }))
-    supervisor.subscribeLeases(() => this.updateStateChanged())
+  private registerTurnEvents(
+    ctx: Pick<RouterContext, 'db' | 'cost'>,
+    bus: MainBus<Electron.WebContents>
+  ): HistoryWriter {
     // turn.event 단일 파이프라인(스펙 §4.2). **구독 순서 = SSOT**: usage(집계) → history(영속) →
     // title(제목) → relay(renderer 중계). usage 가 history 의 currentAssistantMessageId reset *전* 에
     // 그 messageId 를 읽고, title 이 relay 전에 트리거되는 순서 불변식을 이 등록 순서 한 곳이 소유한다.
     // usage·history 는 critical(throw=턴 실패 전파), title·relay 는 격리(실패가 파이프라인을 안 죽임).
-    const bus = (this.bus = new TypedBus<OrcaBusEvents<Electron.WebContents>>())
     const titles = (this.titles = new TitleGenerator(ctx.db))
     // continuity 도착 물질화(0064 fork/handoff)는 orchestration 슬라이스 구현을 여기서 주입
     // — history↔orchestration 교차 import 차단.
@@ -797,7 +778,7 @@ export class Bootstrap {
     bus.on(
       'turn.event',
       ({ turn, ev }) => {
-        if (ev.type === 'telemetry') recordTurnUsage(ctx.db, ctx.cost, turn, ev)
+        if (ev.type === 'telemetry') ctx.cost.recordTurnUsage(turn, ev)
       },
       { critical: true }
     )
@@ -806,6 +787,23 @@ export class Bootstrap {
       if (ev.type === 'session.updated' || ev.type === 'telemetry') titles.maybeStart(turn)
     })
     bus.on('turn.event', ({ turn, ev }) => sendChatEvent(turn.owner, ev))
+    return persistence
+  }
+
+  private register(ctx: RouterContext): void {
+    // chat 턴 파이프라인 조립 — 레지스트리(세션 키잉) · persist · 제목 생성 · 승인 조정.
+    const supervisor = (this.supervisor = new RuntimeSupervisor<Electron.WebContents>({
+      activeTurns: new ActiveTurnTracker((projectId, count) => {
+        broadcastConcurrency({ projectId, count })
+        this.updateStateChanged()
+      }),
+      // 장수명 채널 cap과 idle LRU 축출은 supervisor가 소유한다.
+      capPolicy: new BoundedRuntimeCapPolicy(),
+      capacity: 5
+    }))
+    supervisor.subscribeLeases(() => this.updateStateChanged())
+    const bus = (this.bus = new TypedBus<OrcaBusEvents<Electron.WebContents>>())
+    const persistence = this.registerTurnEvents(ctx, bus)
 
     const approvals = new ApprovalCoordinator()
     const permissionModes = new PermissionModeController()

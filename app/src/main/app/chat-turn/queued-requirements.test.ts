@@ -4,8 +4,7 @@ import type { DiffRequirementAnchor } from '../../../shared/ipc'
 import { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import { SessionChainLeaseRegistry } from '../../features/sessions/session-chain-lease'
 import { sendChatEvent } from '../../infra/ipc/send'
-import { enqueueTurnPrompt } from './enqueue'
-import { reserveOnBusySession } from './busy-reserve'
+import { enqueueTurnPrompt, reserveOnBusySession } from './enqueue'
 
 vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 

@@ -4,7 +4,7 @@
 // telemetry.model 은 그중 **실사용량이 가장 큰 모델**에 귀속한다 — 소량만 쓰는 제목 haiku 가
 // 자동 배제된다(0141: 입력 매칭 폐기, SDK 출력만으로 선택).
 //
-// 0149: 라이브 경로(adapters/claude-map)와 복원 경로(features/usage/usage-map)가 각자 구현을
+// 0149: 라이브 경로(adapters/claude-map)와 복원 경로(infra/ipc/dto)가 각자 구현을
 // 갖고 있었고 점수식이 실제로 달랐다(라이브=input+cacheRead+cacheCreation, 복원=input only).
 // 같은 턴이 라이브일 때와 재로드 후에 다른 주 모델로 귀속되면 도넛 분모가 1M↔200k 로 뒤집힌다.
 // adapters 는 features 를 import 할 수 없으므로 공통 지점은 shared 다.

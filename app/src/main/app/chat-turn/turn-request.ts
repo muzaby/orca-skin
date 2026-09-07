@@ -11,7 +11,7 @@ import type { PendingMessageQueue } from '../../features/chat/pending-message-qu
 import type { SessionActivityProjector } from '../../features/chat/session-activity-projector'
 import { reconcileInterruptReceipt } from '../../features/chat/interrupt-reconcile'
 import { getLogger } from '../../infra/log'
-import { sendSubmitted } from './turn-setup'
+import { sendSubmitted } from './enqueue'
 
 interface TurnRequestDeps {
   wc: WebContents

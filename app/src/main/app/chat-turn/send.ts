@@ -27,10 +27,9 @@ import { sendChatEvent } from '../../infra/ipc/send'
 import { prepareAutomaticContinuation } from '../chat-turn-continuation'
 import { admitChatSend, attachmentFailure, foreignPreparingLease, leaseKeyFor } from './admission'
 import { buildTurnContext, resolveTurnCwd } from './turn-context'
-import { resolveTurn } from './resolve-turn'
+import { resolveTurn, resolveTurnProvider } from './resolve-turn'
 import { acquireTurnRuntime } from './runtime-entry'
-import { enqueueTurnPrompt } from './enqueue'
-import { chatForward, resolveTurnProvider } from './turn-setup'
+import { enqueueTurnPrompt, reserveOnBusySession } from './enqueue'
 import { buildTurnRequest } from './turn-request'
 import { createApprovalRequester } from './approval'
 import { runTurnWithContinuations } from './post-turn'
@@ -100,7 +99,8 @@ export async function handleChatSend(
       sendChatEvent(event.sender, { type: 'error', error: foreignPreparingLease() })
       return
     }
-    deps.reserveOnBusySession(
+    reserveOnBusySession(
+      { pendingMessages, listenRelease: deps.listenRelease },
       event,
       payload.sessionId ?? provisionalKey,
       payload.sessionId ?? undefined,
@@ -331,7 +331,7 @@ export async function handleChatSend(
       runtime,
       bus,
       persist: persistence,
-      forward: chatForward,
+      forward: { forward: (owner, ev) => sendChatEvent(owner, ev) },
       registry: supervisor,
       classifyError: (err, phase) => activeAdapter.classifyError(err, phase),
       activeTurns: supervisor.activeTurns,

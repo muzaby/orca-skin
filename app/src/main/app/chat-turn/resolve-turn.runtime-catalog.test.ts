@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createHarnessRuntimeConfigService } from '../../features/harnesses/runtime-config'
 import { createRuntimeModelCatalog } from '../../features/harnesses/runtime-catalog'
-import { resolveTurnProvider } from './turn-setup'
+import { resolveTurnProvider } from './resolve-turn'
 
 vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 vi.mock('../../infra/log', () => ({

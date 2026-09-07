@@ -8,7 +8,7 @@
 //
 // ── 하지만 두 번째 플랫폼을 만들지 않는다 ────────────────────────────────────
 // 선택 가능한 Harness+ModelProvider 목록과 Model 목록의 SSOT 는 **여전히
-// `sources/settings/<harness>/<modelProvider>/` 디렉터리**다(`settings-entries.ts`).
+// `sources/settings/<harness>/<modelProvider>/` 디렉터리**다(`settings.ts`).
 // `RuntimeConfigAugmenters` 는 catalog 가 아니다 — entry 를 열거하지도 선택하지도 않고,
 // **이미 선택된 key 에 동적 보강 코드가 있는지만** 조회한다. 매핑에 key 가 없으면 기존
 // settings 와 app env 만으로 동작하며 network 는 0이다.

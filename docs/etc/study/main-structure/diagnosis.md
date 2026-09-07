@@ -20,6 +20,8 @@ SRT, cowork 실행기, OpenCode adapter는 이번에 도입하지 않는다. 이
 
 ## 2. 코드에 반영한 구조 개선
 
+### r1 — 중복 경로와 자원 소유 보완
+
 | 발견 | 반영한 최소 변경 | 유지한 계약·근거 |
 |---|---|---|
 | 엔진 설정 변경만 확장 배포 구성이 별도로 존재 | engine handler도 기존 `deployExtensions` 큐를 호출. 엔진은 실패를 reject하고 기존 MCP·스킬은 경고 후 계속하는 의미 유지 | 실패 시 설정/runtime/catalog 무효화는 `finally` 유지. [engine](../../../../app/src/main/app/handlers/engine.ts), [배포 서비스](../../../../app/src/main/features/extensions/extension-deployment-service.ts), [bootstrap](../../../../app/src/main/app/bootstrap.ts) |
@@ -35,12 +37,32 @@ SRT, cowork 실행기, OpenCode adapter는 이번에 도입하지 않는다. 이
 동일한 미해결 환경변수가 여러 값에 등장하면 뒤의 키가 누락 판정을 피하던 문제도 수정했다.
 값별 실패 판정과 보고용 중복 제거를 분리하며, 입력 객체와 정상 환경값은 보존한다. [env](../../../../app/src/main/features/harnesses/env.ts)
 
+### r2 — 책임과 모듈 경계 재편
+
+r1은 국소 보완에 치우쳤다. 사용자의 “리팩토링 수준” 정정에 따라, 기존 동작을 유지하면서 함께 변하는 코드의 소유자를 다시 정했다.
+
+| 영역 | 이전 구조의 취약점 | 현재 책임과 변화 |
+|---|---|---|
+| 제출·대기열 | 신규/busy 경로가 payload와 queued 이벤트를 중복 조립하고 index callback을 경유 | [enqueue](../../../../app/src/main/app/chat-turn/enqueue.ts)가 적재·발신을 함께 소유. send가 직접 호출하며 busy-reserve와 중간 callback 계약 제거 |
+| 턴 해석 | turn-setup이 provider/env 해석과 renderer 발신을 함께 보유해 취소·대기열에도 설정 의존 전파 | [resolve-turn](../../../../app/src/main/app/chat-turn/resolve-turn.ts)에 해석, enqueue에 submitted, send에 coordinator 발신 결집. turn-setup 제거 |
+| 설정 | 서비스와 단일 소비자인 디렉토리 열거 모듈로 파편화. runtime 주입 시 models 빈 배열로 입력 보정 | [settings](../../../../app/src/main/features/harnesses/settings.ts)에 열거·캐시 결집, 기본 provider 선택은 models. 실제 입력만 받으므로 bootstrap이 서비스를 직접 주입 |
+| 모델 해석 | parser와 available-models가 알고리즘을 나누고 catalog가 내부 호출 순서를 조립 | [model-parser](../../../../app/src/main/features/harnesses/claude/model-parser.ts)가 settings/runtime 진입별 완성된 목록 반환. 빈 목록 의미는 각 진입에서 유지, 최종 default 결정 중복 제거 |
+| 사용량 DB | 집계기가 세션·프로젝트 등 전체 DB API에 의존 | [UsageQueries](../../../../app/src/main/infra/db/usage-queries.ts)를 DbQueries.usage에 고정 구성. 같은 연결·SQL·준비 정책을 유지하며 forwarding facade는 두지 않음 |
+| 사용량 기록·복원 | subscriber가 tracker와 DB를 동시에 조작하고 usage-map에 기록 판정과 wire 변환 혼재 | [tracker](../../../../app/src/main/features/usage/tracker.ts)가 기록·집계·방송 소유, 기존 dto가 row 변환 소유. subscriber·usage-map 제거 |
+| 이력 조회 | session IPC callback이 메시지·usage·비용·lineage·worktree 복원을 직접 조립 | [history reader](../../../../app/src/main/features/history/reader.ts)가 복원 담당. handler는 검증·조회 호출·현재 activity 결합만 수행 |
+| MCP 변환 | convert가 expand의 결과 속성명만 바꾸는 중간 wrapper | [convert](../../../../app/src/main/features/extensions/mcp/convert.ts)가 확장·서버별 제외·target 반환을 함께 소유. 문자열 치환과 secret resolver 경계 유지 |
+
+삭제된 생산 모듈은 busy-reserve, turn-setup, settings-entries, available-models, subscriber, usage-map, expand다. 새 생산 모듈은 usage-queries와 history/reader이며, 기존 계층 안에서 책임을 분리한 것이다. 새로운 registry·DI container·백그라운드 서비스·의존성은 없다.
+
+전수 import 조사와 큰 파일·작은 단일 소비자 모듈 검토도 수행했다. auth lifecycle, adapter 이벤트 매핑, SessionRuntime과 pool, admission/continuation, runtime model startup은 독립 불변식·수명·정책이 있어 유지했다. Git root 해석의 realpath/오류 처리와 HTTP header의 set-cookie/빈 값 정책은 서로 달라 이름만 보고 통합하지 않았다. 파일 길이만을 기준으로 한 분할이나 병합은 하지 않았다.
+
 ## 3. 반영한 성능·자원 개선의 정확한 범위
 
 | 경로 | 줄이거나 제한한 작업 | 주장하지 않는 것 |
 |---|---|---|
 | 턴 확장 조립 | 소비되지 않던 MCP 설정 조회·변환·전달 제거 | 프로젝트 지침 조회까지 없애거나 settings 신선도를 캐시로 대체한 것은 아님 |
 | 인증된 본문 수신 | `createSender → netFetch → sendOnce`와 cookie session 경로가 `maxBytes`를 수신 시 적용. 초과 chunk를 보관하고 전체 `Buffer.concat`을 수행하기 전에 abort | 허용 크기 본문은 여전히 모아서 반환. 후속 `Response` 변환·본문 읽기까지 무복사로 바뀐 것은 아님 |
+| 모델 목록 | 불변 선언의 canonical key 집합을 catalog 생성 시 구성해 조회마다 반복 정규화하지 않음. 최종 목록의 기본 모델 결정 중복 제거 | 전체 앱 지연의 감소율을 측정한 것은 아님 |
 | 제목 생성·owner listener | 앱 종료 시 요청·timer 정리, 실패한 send 뒤 불필요한 owner callback 잔존 제거 | 일반 요청의 처리시간이 줄었다는 측정 결과는 아님 |
 
 수신 구현과 경계 테스트: [net-request](../../../../app/src/main/infra/net/net-request.ts), [net-request.test](../../../../app/src/main/infra/net/net-request.test.ts), [transport](../../../../app/src/main/infra/net/transport.ts), [browser-session](../../../../app/src/main/infra/browser-session.ts).
@@ -51,9 +73,8 @@ SRT, cowork 실행기, OpenCode adapter는 이번에 도입하지 않는다. 이
 | 후보·실제 경로 | 입력량으로 확인한 비용 가능성 | 측정 후 가능한 최소 변경 |
 |---|---|---|
 | 파일 자동완성: [useFileAutocomplete](../../../../app/src/renderer/src/features/chat/hooks/useFileAutocomplete.ts) → [files handler](../../../../app/src/main/app/handlers/files.ts) → [scan](../../../../app/src/main/features/chat/scan.ts) | effect가 `match` 객체 전체에 의존. 첫 listing 응답 전 같은 dir에서 `@s → @sr`로 입력하면 캐시가 비어 있어 재요청 가능. cleanup은 응답 적용만 막고 이미 시작한 `readdir`를 중단하지 않음. 각 요청은 직속 항목 전체를 읽고 필터·정렬 | 지연된 listing 동안 동일 cwd/dir 호출 수와 디렉토리 항목 수를 측정. 문제가 확인되면 effect 의존을 실제 경로 키로 좁히거나 컴포넌트 내 진행 요청만 공유. 전역 파일 캐시는 만들지 않음 |
-| 세션 로드: [queries](../../../../app/src/main/infra/db/queries.ts)의 `loadParts().all()` → [session handler](../../../../app/src/main/app/handlers/session.ts) → [DTO](../../../../app/src/main/infra/ipc/dto.ts) | 해당 세션의 모든 part row를 배열로 받은 뒤 payload를 해석해 메시지 객체를 조립. 원본 JSON과 파싱 결과, IPC 직렬화 비용이 겹칠 수 있음. renderer 가상화는 이 Main 작업을 줄이지 않음 | part 수·payload 총량별 조회/해석 시간과 메모리 최고치를 분리 측정. 부담이 확인되면 동일 결과를 만드는 row 순회부터 검토. 페이지 로딩·공개 IPC 변경은 별도 설계 |
-| 사용량: [subscriber](../../../../app/src/main/features/usage/subscriber.ts) → [tracker](../../../../app/src/main/features/usage/tracker.ts) → [기간 SUM](../../../../app/src/main/infra/db/queries.ts) | 유효한 telemetry마다 `recordAndBroadcast`가 전역 월 범위와 해당 provider 범위를 다시 집계. 월 원장 행이 늘면 집계 비용도 증가 가능. 전체 provider를 매번 순회하는 구현은 아님 | 월 범위 행 수별 SQL 시간과 이벤트 처리 지연 측정, `EXPLAIN QUERY PLAN`으로 전역/provider 쿼리 확인. 측정 없이 증분 집계 캐시·상주 집계 서비스를 추가하지 않음 |
-| 모델 목록: [models](../../../../app/src/main/features/harnesses/models.ts)의 `mergeAgentEnvironments` → [runtime-catalog](../../../../app/src/main/features/harnesses/runtime-catalog.ts)의 `isReadOnly` | settings 각 행마다 contributions의 `.some()`으로 canonical key 소유 여부 확인. settings 수 S, contribution 수 C에 따라 비교가 O(S×C)로 증가 가능. runtime 목록 정렬도 별도로 수행 | 목록 조회 빈도·S·C와 비교 횟수를 먼저 확인. 규모가 커지면 동일 catalog 내부 canonical key 집합으로 membership 판정. 새 registry 계층은 불필요 |
+| 세션 로드: [queries](../../../../app/src/main/infra/db/queries.ts)의 `loadParts().all()` → [history reader](../../../../app/src/main/features/history/reader.ts) → [DTO](../../../../app/src/main/infra/ipc/dto.ts) | 해당 세션의 모든 part row를 배열로 받은 뒤 payload를 해석해 메시지 객체를 조립. 원본 JSON과 파싱 결과, IPC 직렬화 비용이 겹칠 수 있음. renderer 가상화는 이 Main 작업을 줄이지 않음 | part 수·payload 총량별 조회/해석 시간과 메모리 최고치를 분리 측정. 부담이 확인되면 동일 결과를 만드는 row 순회부터 검토. 페이지 로딩·공개 IPC 변경은 별도 설계 |
+| 사용량: [tracker](../../../../app/src/main/features/usage/tracker.ts) → [기간 SUM](../../../../app/src/main/infra/db/usage-queries.ts) | 유효한 telemetry마다 `recordAndBroadcast`가 전역 월 범위와 해당 provider 범위를 다시 집계. 월 원장 행이 늘면 집계 비용도 증가 가능. 전체 provider를 매번 순회하는 구현은 아님 | 월 범위 행 수별 SQL 시간과 이벤트 처리 지연 측정, `EXPLAIN QUERY PLAN`으로 전역/provider 쿼리 확인. 측정 없이 증분 집계 캐시·상주 집계 서비스를 추가하지 않음 |
 
 자동완성은 **이미 완료된 listing 결과의 dir별 캐시가 있다**. 문제 후보는 캐시가 채워지기 전의 중복 요청이며, 모든 키 입력이 항상 디스크를 읽는다는 뜻이 아니다.
 사용량 SQL은 day/week/month를 조건부 SUM으로 묶고 월 시작을 WHERE 하한으로 사용한다. 날짜 인덱스도 있으므로 전체 과거 원장을 무조건 스캔한다고 표현해서는 안 된다. [usage migration](../../../../app/src/main/infra/db/migrations/0006_turn_usage.sql)
@@ -72,7 +93,7 @@ SRT, cowork 실행기, OpenCode adapter는 이번에 도입하지 않는다. 이
 
 ## 6. 후속 작업의 진입 조건
 
-후속 성능 변경은 대형 입력에서 실제 지연이나 메모리 부담이 관측될 때 시작한다.
+구조 리팩토링은 위 r2에 반영했다. 남은 성능 후보는 대형 입력에서 실제 지연이나 메모리 부담이 관측될 때 별도로 변경한다.
 먼저 호출 수·입력량·조회/변환/전송 단계를 나눠 측정하고, 현재 소비자 안에서 중복 작업만 줄이는 변경을 선택한다.
 
 | 변경 후보 | 함께 보존할 회귀 |
@@ -80,7 +101,13 @@ SRT, cowork 실행기, OpenCode adapter는 이번에 도입하지 않는다. 이
 | 자동완성 진행 요청 공유 | cwd 전환, stale 응답 차단, hidden 파일·경로 선택, 취소 뒤 재진입 |
 | 세션 row 순회·로딩 개선 | 메시지/part 순서, 미완료 assistant 표시, lineage·usage·worktree 복원 |
 | 사용량 집계 개선 | 자정/기간 경계, provider 분리, 원격 기준선 이후 월 증분, 로컬 원장 정합성 |
-| 모델 소유권 membership 개선 | canonical key 충돌, runtime cache가 비어 있어도 read-only 소유권 유지, invalidate 뒤 재조회 |
 
 SRT·cowork·OpenCode를 실제 구현할 때는 해당 실행·권한·종료 계약을 별도 검토한다.
 이번 정리가 미래 기능의 호환성을 실증한 것은 아니며, 현재 정리된 소유권 경계를 그 작업의 출발점으로 사용한다.
+
+
+## 7. r2 검증 결과
+
+Main 전체 테스트, node/web/test 타입 검사, Main/shared lint, 문서 링크·인벤토리, 실-git 시험 시간 예산을 확인했다. 실제 busy 제출·사용량 이벤트 순서·MCP 배포 인자를 우회시키는 변이도 실패를 검출했다. 이동 전후 SQL·준비 순서와 모델 해석 결과를 별도 대조했다. 수치와 실행 조건은 [0221 구현 보고](../../../handoff/0221-main-structural-simplification/plan.md)에 기록한다.
+
+현재 리팩토링은 구현 자기검증을 마쳤으며 독립 handoff verify는 대기 중이다. 실제 GUI·대형 입력의 체감 성능 및 미구현 adapter의 종단 호환성은 측정하지 않았다.
