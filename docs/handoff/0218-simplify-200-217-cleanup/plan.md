@@ -292,3 +292,36 @@ worktree rollback 통합(D7)이 **두 번째 경로의 `rmdir` 누락을 함께 
 - [x] §10 강제 지점 18건이 **불변식 주어**로 서술됨 (해법 이름 아님)
 - [x] baseline red 가 수치와 파일 목록으로 고정됨 (차집합 분모)
 - [x] needs_decision 6건이 §17 로 이관됨
+
+---
+
+## [설계자 기입] r2 규범 정정
+
+r1 은 계획 28 중 23 을 적용했다. r2 는 **잔여 중 실패 모드가 있는 4건 + verify 파생 I-05** 만 닫고, 순수 광택 7건(D13·D14·D15·A2·A6·P7·X5)은 범위에서 뺀다 — 독립 라운드를 세울 근거가 없고 그 파일을 다음에 건드리는 핸드오프에 얹는 편이 싸다.
+
+### r2 Decision
+
+| ID | 상태 | 결정 | 근거 |
+|---|---|---|---|
+| D-008 | ACTIVE | r2 범위 = D9 · A3 · A4 · A5 + I-05 | 각각 관측된 실패 모드를 갖는다(아래 §10 추가 행) |
+| D-009 | ACTIVE | 광택 7건은 `NEXT_HANDOFF` 로 내린다 | 실패 모드가 없다. 라운드 비용이 이득보다 크다 |
+| D-010 | ACTIVE | I-05(테스트 하네스 경쟁)를 r2 에 넣는다 | 게이트가 간헐 red 면 **이후 모든 라운드의 차집합 판정**이 같은 잡음을 안는다 — 측정 도구의 결함이라 코드 품질과 우선순위가 다르다 |
+
+### r2 §10 강제 지점 추가
+
+| EP | 불변식 (주어 = 불변식) | 소유 모듈 | 검색 술어 |
+|---|---|---|---|
+| EP-19 | 줄 축 표기(`+`/`-`)는 한 함수가 소유한다 | `lib/diffLines.ts` | `` `+${ `` + `newLine` |
+| EP-20 | diff 타일의 소유 열 번호는 레이아웃 소유자가 정한다 | `lib/rightPanelLayout.ts` | `tiles.includes('diff')` |
+| EP-21 | cwd 검증된 git 상태 읽기는 selector 가 소유한다 | `store/chatStore.ts` | `statusForCwd(` |
+| EP-22 | 발신 앵커 정규화는 `send()` 진입에서 1회 한다 | `store/chatStore.ts` | `wireDiffRequirementAnchor` (`send` 내부) |
+| EP-23 | 큐 획득 대기는 고정 시간이 아니라 획득 사실로 판정한다 | `infra/git/queue-entry.test.ts` | `setTimeout` (`whileQueueHeld` 내부) |
+
+### r2 AC
+
+| ID | 요구 | 인수 조건 |
+|---|---|---|
+| AC-r2-1 | 동작 보존 | lint 0 error + typecheck green |
+| AC-r2-2 | 회귀 없음 | 차집합 새 red 0 (분모 = r1 이 고정한 baseline 10 파일) |
+| AC-r2-3 | EP-19~23 각 1곳 | 전수 검색 재열거 |
+| AC-r2-4 | I-05 해소 | `whileQueueHeld` 가 고정 대기를 쓰지 않는다 + 해당 스위트 반복 실행 green |
