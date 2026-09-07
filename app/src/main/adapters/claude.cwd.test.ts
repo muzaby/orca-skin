@@ -37,7 +37,7 @@ function optionsFor(cwd: string): { cwd?: string } {
     sessionId: null,
     text: 'hello',
     cwd,
-    extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+    extensions: { skills: [], hooks: { normalized: {} } }
   }
   new ClaudeAdapter().sendMessage(req)
   return (queryMock.mock.calls[0]?.[0] as { options: { cwd?: string } }).options

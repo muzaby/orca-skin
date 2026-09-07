@@ -117,6 +117,7 @@ export async function handleChatSend(
   let leaderRuntime: SessionRuntime | null = null
   let cleanupDone = false
   let initialBatches: SteerFlushBatch[] = []
+  let onOwnerGone: (() => void) | null = null
   const abortPreparing = (): void => lease.controller.abort()
   event.sender.once('destroyed', abortPreparing)
   event.sender.once('render-process-gone', abortPreparing)
@@ -315,7 +316,7 @@ export async function handleChatSend(
     // 타이머가 아닌 이벤트로 대체한다. 여기는 abortTurn(turn) 이 아니라 runtime 을 직접 mark
     // 한다 — coordinator.run 이 turn.live=runtime 을 세우기 *전* 에 owner 가 사라질 수 있어,
     // 그 창에서도 런타임 상태(cancelled)를 확실히 남긴다.
-    const onOwnerGone = (): void => {
+    onOwnerGone = (): void => {
       runtime.markAborted('user_cancelled')
       controller.abort()
       // 창이 사라지면 in-process 백그라운드 태스크도 함께 죽는다 — 추적을 남기면 그 세션에
@@ -447,8 +448,6 @@ export async function handleChatSend(
         boundProjectId
       )
     } finally {
-      wc.removeListener('destroyed', onOwnerGone)
-      wc.removeListener('render-process-gone', onOwnerGone)
       const finalSessionId = activeTurn.dbSessionId ?? turn.dbSessionId
       // 제출 수용 전 예외가 재시도 한도를 소진한 경우에만 submitting 예약을 held 로 복구한다.
       // 이미 submitted/confirmed/orphaned 인 배치는 rollback fence 가 거부하므로 이중 전달되지 않는다.
@@ -468,6 +467,11 @@ export async function handleChatSend(
       error: activeAdapter.classifyError(err, 'prepareTurn')
     })
   } finally {
+    // 등록 뒤 요청 조립이 실패해 실행 try에 못 들어가도 체인 스코프에서 회수한다.
+    if (onOwnerGone) {
+      event.sender.removeListener('destroyed', onOwnerGone)
+      event.sender.removeListener('render-process-gone', onOwnerGone)
+    }
     event.sender.removeListener('destroyed', abortPreparing)
     event.sender.removeListener('render-process-gone', abortPreparing)
     if (!cleanupDone) {

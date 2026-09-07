@@ -24,56 +24,25 @@
 
 ### 1.3 ClaudeCodeAdapter 호출 패턴
 
-`claude-adapt.ts` 의 순수 변환 함수들이 `TurnExtensions`(§1.4) → claude `query()` 옵션 조각(object)으로 변환하며, `...spread` 로 합성된다.
+공통 실행 설정은 `claude-adapt.ts`의 `adaptExecutionConfig`가 SDK `Options` 타입에 맞춰 조립한다. `complete`와 `sendMessage`는 이를 함께 사용하며, 실행별 도구·hook·plugin 정책은 각 호출부가 소유한다.
 
-```typescript
-import { query } from '@anthropic-ai/claude-agent-sdk'
-import { adaptMcp, adaptSystemPrompt, adaptSettings, adaptSkills, adaptHooks } from './claude-adapt'
+| 입력 | SDK 전달 | 책임 |
+|---|---|---|
+| provider settings | `settings`에 인라인 JSON 문자열 | `adaptSettings`; SDK argv 직렬화 경계 |
+| 설정 탐색 범위 | `settingSources: ['project', 'local']` | `adaptSettingSources`; 사용자 전역 설정과 provider 설정 분리 |
+| 턴 실행 env | 비어 있지 않으면 `Options.env` | `adaptEnv`; provider settings의 env와 별도 입력 |
+| 파일 기반 MCP·스킬 | 로컬 plugin 경로 | 배포가 산출물을 만들고 `adaptPlugins`가 매니페스트 확인 |
+| 인프로세스 도구 | `mcpServers`와 `allowedTools` | `claude-runtime-tools.ts`의 `adaptRuntimeTools` |
+| 시스템 지침·스킬 선택·hook | 대화 query 옵션 조각 | `adaptSystemPrompt`·`adaptSkills`·`adaptHooks` |
 
-async function* sendMessage(sessionId, text, cwd, caps, resolvedMcp, signal) {
-  try {
-    const opts = {
-      resume: sessionId ?? undefined,
-      includePartialMessages: true,
-      cwd,
-      ...adaptMcp(resolvedMcp),            // mcpServers + allowedTools (빈 config면 생략)
-      ...adaptSystemPrompt(caps.systemPromptAppend), // systemPrompt preset:claude_code + append
-      ...adaptSkills(),                    // skills:'all' — settingSources 경로(SDK 기본 user/project/local)로 발견
-      ...adaptSettings(req.providerSettings), // settings(flag 레이어) + disallowedTools 게이팅, settingSources 옵션 생략 (TRD §6.8)
-      ...adaptHooks(caps.hooks),           // PreToolUse / PostToolUse / UserPromptSubmit hook 콜백
-    }
-    for await (const msg of query({ prompt: text, options: opts })) {
-      yield normalize(msg)  // SDKMessage → ChatEvent
-    }
-  } catch (err) {
-    yield { type: 'error', data: detectError(err) }
-  }
-}
-```
+제목용 `complete`는 도구 없는 단발 실행이고, 대화는 plugin·runtime tool·권한 hook을 사용한다. `~/.claude/skills`는 사용자 스킬 래퍼 plugin으로 전달한다. 정확한 호출 옵션은 [claude.ts](../../../app/src/main/adapters/claude.ts)가 정본이다.
 
-`adaptRuntimeTools`(`adapters/claude-runtime-tools.ts`)는 활성 서버가 없으면 옵션 자체를 빈 객체로 반환(생략). `allowedTools` 는 `mcp__<name>__*` 와일드카드로 서버 전체 도구 자동 허용 — `canUseTool` 미도입(Phase 4 anchor) 환경에서 도구 호출 차단 방지. **신 설계(0024 구현됨 / disallowedTools 보류)**: `adaptSettings` 는 `settingSources` 옵션을 주입하지 않아 SDK 기본 소스(user/project/local)가 활성화되며(격리 해제 — handoff 0014/0015 폐기), Orca 가 막아야 할 도구는 `disallowedTools` 로 차단한다(해석은 `adapters/claude-settings.ts` 의 `loadClaudeProviderSettings` — SDK `resolveSettings` + escalating `defaultMode` 필터(SDK `filterEscalatingDefaultMode` 를 부르지 않고 `ESCALATING_MODES` 로 동등 적용) + env `${VAR}` 확장·secret 주입, 캐시는 `features/harnesses/settings.ts` 의 `HarnessSettingsService`). `claude-adapt.ts` 는 0024에서 `settingSources`·`plugins` 주입 제거까지 정렬됐다. `disallowedTools` 는 D1 사용자 결정 전이라 보류.
+### 1.4 ExtensionBuilder (턴 확장 입력 조립)
 
-### 1.4 ExtensionBuilder (백엔드 중립 확장 조립)
+`features/extensions/builder.ts`의 `ExtensionBuilder`는 프로젝트 지침·앱 설정·스킬·plugin 경로·runtime tool snapshot으로 `TurnExtensions`를 조립한다. 실제 필드는 [adapters/turn.ts](../../../app/src/main/adapters/turn.ts)가 정본이다.
+파일 기반 MCP의 설정 조회·변수 해석·배포는 bootstrap의 배포 closure가 소유하며, 턴 builder는 MCP store를 읽지 않는다. 인프로세스 runtime tool snapshot은 별도 입력으로 유지한다.
 
-> 구 `CapabilityBuilder`/`OrcaCapabilities` 개명(handoff 0062) — 현재 이름은 `ExtensionBuilder`/`TurnExtensions`.
-
-`features/extensions/builder.ts` 의 `ExtensionBuilder` 는 DB / McpStore / Skills 를 읽어 **백엔드 중립** `TurnExtensions` 를 조립한다. 어댑터를 전혀 모른다 — 어댑트(claude 타깃 변환 + `${VAR}` 확장)는 `claude-adapt.ts` 와 `mcp/resolver.ts` 의 책임.
-
-```typescript
-// 정확한 필드 SSOT 는 `adapters/turn.ts` 의 TurnExtensions
-interface TurnExtensions {
-  mcpConfig: OrcaMcpConfig          // 확장 전 정규 소스 (${VAR} 미확장)
-  systemPromptAppend?: string       // 프로젝트 지침 (DB)
-  skills: SkillInfo[]               // 가시화 메타 (어댑트는 항상-on)
-  hooks: NormalizedHookSet                // before-tool / after-tool / prompt-submit 핸들러 집합
-}
-```
-
-`build(sessionId, projectId)` 동작:
-- resume 경로 (`sessionId !== null`): 세션 바인딩으로 프로젝트 지침 조회
-- 새 채팅 경로 (`sessionId === null`): `projectId` 로 직접 조회
-- `systemPromptAppend` = 구조화 시스템 프롬프트 헤더 (프로젝트 지침은 `# Project` 섹션 안). 정본 [system-prompt.md](./system-prompt.md) §2A
-- 매 턴 DB 1회 조회 — 캐시 없음 (지침 편집이 다음 메시지부터 즉시 반영)
+`build(sessionId, projectId)`는 resume이면 세션에 연결된 프로젝트를, 새 채팅이면 전달된 프로젝트를 읽는다. 프로젝트 지침은 구조화 시스템 프롬프트의 `# Project` 섹션으로 합성한다([system-prompt.md](./system-prompt.md) §2A). 지침은 매 턴 조회하므로 편집을 다음 메시지에 반영하며, 스킬 목록은 bootstrap의 스캔 캐시를 읽는다.
 
 ### 1.5 SDKMessage → ChatEvent 정규화
 

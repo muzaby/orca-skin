@@ -4,8 +4,6 @@ export class SessionRuntimeRegistry<W = unknown, T extends TurnContext<W> = Turn
   private readonly bySession = new Map<string, T>()
   private readonly pendingByOwner = new Map<W, T>()
 
-  constructor(private readonly maxIdleRuntimes: number | null = null) {}
-
   getBySession(sessionId: string): T | undefined {
     return this.bySession.get(sessionId)
   }
@@ -43,11 +41,6 @@ export class SessionRuntimeRegistry<W = unknown, T extends TurnContext<W> = Turn
 
   all(): T[] {
     return [...this.bySession.values(), ...this.pendingByOwner.values()]
-  }
-
-  evictIdle(): T[] {
-    void this.maxIdleRuntimes
-    return []
   }
 
   get size(): number {

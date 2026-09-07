@@ -5,7 +5,11 @@ import { CHANNELS, DeleteMcpServerSchema, type McpServer } from '../../../shared
 import type { RouterContext } from '../context'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 
-export function registerMcpHandlers(ctx: RouterContext): void {
+interface McpHandlerContext extends Pick<RouterContext, 'deployExtensions'> {
+  mcp: Pick<RouterContext['mcp'], 'list' | 'add' | 'update' | 'remove'>
+}
+
+export function registerMcpHandlers(ctx: McpHandlerContext): void {
   handlePlain(CHANNELS.mcpList, (): McpServer[] => ctx.mcp.list())
 
   handlePlain(CHANNELS.mcpAdd, async (raw): Promise<McpServer> => {

@@ -27,7 +27,11 @@ import { isWithinDir, projectsDir } from '../../infra/config/paths'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import type { RouterContext } from '../context'
 
-export function registerFilesHandlers(ctx: RouterContext): void {
+interface FilesHandlerContext extends Pick<RouterContext, 'getCwd'> {
+  db: Pick<RouterContext['db'], 'hasSessionWithCwd' | 'searchMessages'>
+}
+
+export function registerFilesHandlers(ctx: FilesHandlerContext): void {
   // 경로 화이트리스트 — projects 루트 하위이거나 실재 세션 cwd (0211 ΔV5 §10 EP-44).
   //
   // **`reveal` 은 조상까지 올라간다.** `hasSessionWithCwd` 는 동등 조회라 `repo/src/a.ts` 의

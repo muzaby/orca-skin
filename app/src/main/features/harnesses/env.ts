@@ -5,7 +5,7 @@ import type { Resolver } from '../../infra/vars'
 import { expandVars } from '../../infra/vars'
 
 // env 레코드의 각 값에서 ${VAR} 확장. 미해결 변수가 있는 키는 **드롭** + missing 으로 보고
-// (조용한 빈 문자열 치환 금지 — mcp/expand.ts 와 동일 정책).
+// (조용한 빈 문자열 치환 금지 — MCP는 서버 전체, 여기서는 해당 env 키만 제외한다).
 export function expandEnvRecord(
   env: Record<string, string>,
   resolve: Resolver
@@ -13,10 +13,10 @@ export function expandEnvRecord(
   const out: Record<string, string> = {}
   const missing = new Set<string>()
   for (const [key, value] of Object.entries(env)) {
-    const before = new Set(missing)
-    const expanded = expandVars(value, resolve, missing)
-    const unresolved = [...missing].some((name) => !before.has(name))
-    if (!unresolved) out[key] = expanded
+    const valueMissing = new Set<string>()
+    const expanded = expandVars(value, resolve, valueMissing)
+    for (const name of valueMissing) missing.add(name)
+    if (valueMissing.size === 0) out[key] = expanded
   }
   return { env: out, missing: [...missing] }
 }

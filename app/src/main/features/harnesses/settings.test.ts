@@ -252,6 +252,25 @@ describe('mergeAgentEnvironments', () => {
 })
 
 describe('env 유틸', () => {
+  it('같은 미해결 변수와 binding이 반복된 모든 값을 제외하고 입력을 보존한다', () => {
+    const input = Object.freeze({
+      A: '${MISSING}',
+      B: '${MISSING}',
+      C: 'prefix-${OK}-${MISSING}',
+      D: '${BINDING:key}',
+      E: '${BINDING:key}-${MISSING}',
+      F: '${OK}',
+      G: 'plain',
+      H: ''
+    })
+    const result = expandEnvRecord(input, (name) => (name === 'OK' ? 'resolved' : undefined))
+    expect(result).toEqual({
+      env: { F: 'resolved', G: 'plain', H: '' },
+      missing: ['MISSING', 'BINDING:key']
+    })
+    expect(input.C).toBe('prefix-${OK}-${MISSING}')
+  })
+
   it('expandEnvRecord 는 미해결 변수가 있는 키만 드롭한다', () => {
     const { env, missing } = expandEnvRecord({ A: '${OK}', B: '${MISSING}', C: 'plain' }, (name) =>
       name === 'OK' ? 'v' : undefined

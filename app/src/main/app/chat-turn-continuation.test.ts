@@ -14,7 +14,6 @@ function preparedConfig(fingerprint = 'fp-1'): PreparedHarnessConfig {
 
 function extensions(revision: number): TurnExtensions {
   return {
-    mcp: {},
     skills: [],
     hooks: { normalized: {} },
     runtimeTools: { revision, servers: new Map() }

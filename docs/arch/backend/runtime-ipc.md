@@ -24,6 +24,8 @@
 
 - 서로 다른 세션은 **동시 턴**을 돌린다(멀티세션). `chat:cancel` 은 해당 세션의 턴만 중단(장수명 채널은 `interrupt` 로 채널을 살린 채 현재 턴만 멈춤 — 0067).
 - 구독 순서·팬아웃 배선의 SSOT 는 `app/bootstrap.ts` 한 곳(§2.4).
+- 각 IPC handler는 `RouterContext`에서 실제 쓰는 속성만 받는다. 연결 인증·gate는 연결 handler에 따로 주입하며 일반 context에 포함하지 않는다.
+- `Bootstrap`은 `TitleGenerator`를 소유하고 DB 종료 전에 `dispose()`한다. 진행 요청·타이머를 회수하며 취소를 무시하고 끝난 completion도 DB를 갱신하지 않는다.
 
 ### 1.2 SessionRuntime 상태 (`contracts/session-state.ts`)
 

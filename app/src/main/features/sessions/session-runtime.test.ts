@@ -14,7 +14,7 @@ function req(): TurnRequest {
     sessionId: 's1',
     text: 'hi',
     cwd: '/w',
-    extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+    extensions: { skills: [], hooks: { normalized: {} } }
   }
 }
 

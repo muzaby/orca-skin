@@ -5,7 +5,7 @@ import { handlePlain } from '../../infra/ipc/handle'
 import { getLogger } from '../../infra/log'
 import type { RouterContext } from '../context'
 
-export function registerSettingsHandlers(ctx: RouterContext): void {
+export function registerSettingsHandlers(ctx: Pick<RouterContext, 'settings' | 'scheduler'>): void {
   handlePlain(CHANNELS.settingsGet, (): Settings => ctx.settings.getAll())
 
   // 파생 상태(게이트 판정·사용량 뷰)를 다시 미는 일은 **이 핸들러의 몫이 아니다** —

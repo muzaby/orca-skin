@@ -110,9 +110,4 @@ describe('SessionRuntimeRegistry', () => {
     expect(reg.hasPending(owner)).toBe(false)
     expect(reg.size).toBe(0)
   })
-
-  it('P0 에서 idle eviction hook 은 예약만 하고 no-op 이다', () => {
-    const reg = new SessionRuntimeRegistry<object>(1)
-    expect(reg.evictIdle()).toEqual([])
-  })
 })

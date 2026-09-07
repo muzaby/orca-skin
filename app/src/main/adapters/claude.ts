@@ -34,11 +34,9 @@ import { isRiskyTool } from './risky-tools'
 import { adaptRuntimeTools } from './claude-runtime-tools'
 import { runtimeApprovalToolNames } from './runtime-tool-policy'
 import {
-  adaptEnv,
+  adaptExecutionConfig,
   adaptHooks,
   adaptPlugins,
-  adaptSettings,
-  adaptSettingSources,
   adaptSkills,
   adaptSystemPrompt,
   makeSteerGateHook,
@@ -265,9 +263,7 @@ export class ClaudeAdapter implements SessionAdapter {
       // plugin 로딩은 chat sendMessage 경로에만 적용한다.
       persistSession: false,
       ...claudeExecutableOption,
-      ...adaptSettingSources(),
-      ...adaptSettings(req.providerSettings?.settings),
-      ...adaptEnv(req.env),
+      ...adaptExecutionConfig(req.providerSettings?.settings, req.env),
       ...(req.cwd ? { cwd: req.cwd } : {}),
       ...(req.model ? { model: req.model } : {})
     }
@@ -397,9 +393,7 @@ export class ClaudeAdapter implements SessionAdapter {
         // 0028 의 "생략=기본 소스 상속" supersede). provider settings 가 사용자 전역
         // ~/.claude/settings.json 개입 없이 적용된다.
         // options.env(adaptEnv)에는 시스템(턴) env 만 — orca.json 앱 env.
-        ...adaptSettingSources(),
-        ...adaptSettings(req.providerSettings?.settings),
-        ...adaptEnv(env),
+        ...adaptExecutionConfig(req.providerSettings?.settings, env),
         ...adaptRuntimeTools(extensions.runtimeTools),
         // hooks = 중립 정규화 훅 + steer 게이트(PostToolBatch, 메인 루프 한정 flush) 병합 위에
         // 어댑터 내부 PostCompact(압축 요약 수집, manual 만·0064) 를 덧씌운다.

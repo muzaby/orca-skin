@@ -6,7 +6,7 @@
 >
 > **가로축 구동체 (TurnCoordinator, 2026-06-29 정제 0051):** 본 문서의 `NormalizedEvent`·`PermissionBridge` 가 흐르는 *턴 실행 파이프라인*(stream → reduce → **persist ∥ forward** + 권한 재진입 콜백)을 구동하는 1급 컴포넌트는 **TurnCoordinator**(`features/chat/turn-coordinator.ts`, handoff 0052)다. 원칙: **DB 영속(persist)은 main-side·renderer 생존 무관**, renderer forwarding 은 별도 best-effort fan-out, 권한은 단계가 아니라 `canUseTool` 재진입 콜백이다. 개념 정본은 `etc/orca_lifecycle_orchestration_design_draft_ko.md` §A(용어 3분리 + 2축 모델).
 >
-> **세로축 자원 supervision (RuntimeSupervisor, handoff 0053):** SessionRuntime 집합의 소유자(§A 세로축 unit #3)는 **`RuntimeSupervisor`**(`features/sessions/supervisor.ts`)다 — `SessionRuntimeRegistry` 를 소유하고 턴 핸들 teardown(`release`, 멱등)과 abort 프리미티브(`abortTurn` = `markAborted`+`controller.abort`)를 **단일 경로**로 모은다. 현재는 **척추**만 안착(정책 0); cap admission·LRU/idle eviction·IdleCloseTimer·Persistent runtime 은 0054 에서 이 소유자에 plug-in 한다.
+> **세로축 자원 supervision:** **`RuntimeSupervisor`**(`features/sessions/supervisor.ts`)가 활성 턴 registry와 장수명 runtime pool을 소유한다. 턴 release와 runtime close를 구분하며 cap admission·LRU 축출을 수행한다. 시간 기반 idle eviction은 사용하지 않는다. 실제 수명 정책은 [runtime-ipc.md §1](./runtime-ipc.md)에 서술한다.
 
 > **상태**: 절마다 다르다 — **절별 판정은 각 절의 "③ 현재 코드 갭" 이 갖고, 요약은 §12 매핑표·§13 이다.** 와이어(`orca:chat:event`)는 `NormalizedEvent` 로 전면 전환됐고 PermissionBridge·PermissionModeController·ErrorClassifier·Telemetry 는 구현돼 있다. `RevertManager`(§5) 는 구현 없음, `provider` 축은 claude 고정(opencode 미구현)이다. 여기 정의한 타입은 **정본(SSOT)** 이며, ../frontend/ 의 렌더링·UX 문서(rendering.md·ux-domains.md)은 이 타입들을 *참조만* 한다(중복 정의 금지).
 >

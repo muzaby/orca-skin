@@ -3,12 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { DbQueries } from '../../infra/db/queries'
 import { applyMigrations } from '../../infra/db/migrate'
 import { ExtensionBuilder } from './builder'
-import type { McpStore } from './mcp/store'
-import type { Settings } from '../../../shared/ipc'
+import type { Settings, SkillInfo } from '../../../shared/ipc'
 import type { RuntimeToolSource } from '../../adapters/runtime-tools'
-
-// builder 는 mcp.enabledConfig() 만 호출하고 skills getter 결과를 패스스루한다. 구조적 최소 fake.
-const fakeMcp = { enabledConfig: () => ({}) } as unknown as McpStore
 
 function makeSettings(over: Partial<Settings> = {}): Settings {
   return { language: '한국어', accountInstructions: '', ...over } as Settings
@@ -36,7 +32,6 @@ describe('ExtensionBuilder.systemPromptAppend', () => {
 
     const builder = new ExtensionBuilder(
       db,
-      fakeMcp,
       () => [],
       () => makeSettings({ accountInstructions: '간결하게' }),
       '1.0.0'
@@ -61,7 +56,6 @@ describe('ExtensionBuilder.systemPromptAppend', () => {
 
     const builder = new ExtensionBuilder(
       db,
-      fakeMcp,
       () => [],
       () => makeSettings(),
       '2.0.0'
@@ -78,7 +72,6 @@ describe('ExtensionBuilder.systemPromptAppend', () => {
 
     const builder = new ExtensionBuilder(
       db,
-      fakeMcp,
       () => [],
       () => makeSettings(),
       '1.0.0'
@@ -92,14 +85,40 @@ describe('ExtensionBuilder.systemPromptAppend', () => {
 })
 
 describe('ExtensionBuilder.runtimeTools', () => {
+  it('build는 plugin·skill·지침을 보존하면서 배포용 MCP 데이터를 만들지 않는다', () => {
+    const skill: SkillInfo = {
+      name: 'review',
+      description: 'Review a result',
+      sourceId: 'fixture',
+      sourceLabel: 'Fixture',
+      enabled: true,
+      sourceKind: 'orca',
+      canToggle: true,
+      canRemove: true,
+      skillPath: '/skills/review/SKILL.md',
+      skillDir: '/skills/review'
+    }
+    const builder = new ExtensionBuilder(
+      seedDb(),
+      () => [skill],
+      () => makeSettings(),
+      '1.0.0',
+      () => ['/plugins/orca', '/plugins/user']
+    )
+    const extensions = builder.build(null, null)
+    expect(extensions).not.toHaveProperty('mcp')
+    expect(extensions.pluginRoots).toEqual(['/plugins/orca', '/plugins/user'])
+    expect(extensions.skills).toEqual([skill])
+    expect(extensions.hooks).toEqual({ normalized: {} })
+    expect(extensions.systemPromptAppend).toContain('Orca version: 1.0.0')
+  })
+
   it('forwards the injected empty registry snapshot with revision zero', () => {
     const source: RuntimeToolSource = {
       snapshot: () => ({ revision: 0, servers: new Map() })
     }
-    const Builder = ExtensionBuilder as unknown as new (...args: unknown[]) => ExtensionBuilder
-    const builder = new Builder(
+    const builder = new ExtensionBuilder(
       seedDb(),
-      fakeMcp,
       () => [],
       () => makeSettings(),
       '1.0.0',

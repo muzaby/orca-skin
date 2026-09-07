@@ -19,6 +19,10 @@ export interface SendOptions {
   maxBytes?: number
 }
 
+// Main's Chromium manual-request path consumes this optional receive budget.
+// It remains structurally compatible with the required standard fetch port.
+export type MainRequestInit = RequestInit & Pick<SendOptions, 'maxBytes'>
+
 export interface SendResult {
   status: number
   headers: Record<string, string>
@@ -46,7 +50,7 @@ export class ResponseTooLargeError extends Error {
 export function createSender(fetchImpl: typeof fetch): AuthenticatedFetchDeps {
   return {
     async send(req, signal, options) {
-      const res = await fetchImpl(req.url, {
+      const init: MainRequestInit = {
         method: req.method,
         headers: req.headers,
         ...(req.body !== undefined ? { body: req.body } : {}),
@@ -56,8 +60,10 @@ export function createSender(fetchImpl: typeof fetch): AuthenticatedFetchDeps {
         // 요청이 나간다. 여기서 멈추고 **호출부(broker)가 policy 로 재검사한 뒤** 다음 홉을
         // 보낸다 (0160 이전에는 재검사 호출자가 없어 302 가 빈 본문으로 반환됐다).
         redirect: 'manual',
-        ...(signal ? { signal } : {})
-      })
+        ...(signal ? { signal } : {}),
+        ...(options?.maxBytes !== undefined ? { maxBytes: options.maxBytes } : {})
+      }
+      const res = await fetchImpl(req.url, init)
       const headers = Object.fromEntries(res.headers.entries())
       const limit = options?.maxBytes
       assertDeclaredLength(headers['content-length'], limit)

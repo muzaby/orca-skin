@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EventEmitter } from 'node:events'
 import type { DiffRequirementAnchor } from '../../../shared/ipc'
 
 const mocks = vi.hoisted(() => ({
@@ -76,6 +77,7 @@ vi.mock('../../features/chat/turn-coordinator', () => ({
 import { handleChatSend } from './send'
 import { normalizeAttachments } from '../../features/chat/attachments'
 import { enqueueTurnPrompt } from './enqueue'
+import { runTurnWithContinuations } from './post-turn'
 
 const requirement = (overrides: Partial<DiffRequirementAnchor> = {}): DiffRequirementAnchor => ({
   sessionId: 'session-1',
@@ -134,10 +136,7 @@ function makeHarness(sessionId?: string) {
     // resume 축은 신규 축보다 정리 경로가 길다 — 세션 id 가 있어야 도달하는 반납이 둘 더 있다.
     releaseRuntime: vi.fn()
   }
-  const sender = {
-    once: vi.fn(),
-    removeListener: vi.fn()
-  }
+  const sender = new EventEmitter()
   const deps = {
     ctx: {
       mockAdapter: null,
@@ -151,7 +150,7 @@ function makeHarness(sessionId?: string) {
       },
       getCwd: () => '/source/repo',
       ensureExtensionsDeployedForTurn: vi.fn(async () => undefined),
-      extensions: { build: vi.fn(() => ({ mcp: {}, skills: [], hooks: { normalized: {} } })) }
+      extensions: { build: vi.fn(() => ({ skills: [], hooks: { normalized: {} } })) }
     },
     supervisor,
     bus: {},
@@ -245,7 +244,7 @@ describe('handleChatSend worktree production wiring', () => {
     mocks.acquireTurnRuntime.mockResolvedValue({
       ok: true,
       runtime,
-      extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+      extensions: { skills: [], hooks: { normalized: {} } }
     })
 
     await handleChatSend(harness.deps as never, { sender: harness.sender } as never, {
@@ -268,7 +267,7 @@ describe('handleChatSend worktree production wiring', () => {
     mocks.acquireTurnRuntime.mockResolvedValue({
       ok: true,
       runtime: { close: vi.fn(), channelAlive: true, markAborted: vi.fn() },
-      extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+      extensions: { skills: [], hooks: { normalized: {} } }
     })
     const requirements = [requirement()]
     vi.mocked(enqueueTurnPrompt).mockReturnValue({
@@ -300,7 +299,7 @@ describe('handleChatSend worktree production wiring', () => {
     mocks.acquireTurnRuntime.mockResolvedValue({
       ok: true,
       runtime: { close: vi.fn(), channelAlive: true, markAborted: vi.fn() },
-      extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+      extensions: { skills: [], hooks: { normalized: {} } }
     })
     const heldText = { id: 't-held', name: 'held.txt', text: 'A' } as never
     const currentText = { id: 't-current', name: 'current.txt', text: 'B' } as never
@@ -364,7 +363,7 @@ describe('handleChatSend worktree production wiring', () => {
     mocks.acquireTurnRuntime.mockResolvedValue({
       ok: true,
       runtime,
-      extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+      extensions: { skills: [], hooks: { normalized: {} } }
     })
 
     await handleChatSend(harness.deps as never, { sender: harness.sender } as never, {
@@ -423,7 +422,7 @@ describe('handleChatSend worktree production wiring', () => {
     mocks.acquireTurnRuntime.mockResolvedValue({
       ok: true,
       runtime,
-      extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+      extensions: { skills: [], hooks: { normalized: {} } }
     })
     await handleChatSend(next.deps as never, { sender: next.sender } as never, {
       text: 'plain',
@@ -462,6 +461,105 @@ describe('handleChatSend worktree production wiring', () => {
 
     expect(runtime.close).toHaveBeenCalledOnce()
     expect(mocks.release).toHaveBeenCalledOnce()
+  })
+
+  it.each(['assemble', 'execute'] as const)(
+    '%s 실패 뒤 owner listener와 turn/runtime/lease를 모두 회수한다',
+    async (phase) => {
+      const harness = makeHarness('session-1')
+      const runtime = { close: vi.fn(), channelAlive: true, markAborted: vi.fn() }
+      mocks.acquireTurnRuntime.mockResolvedValue({
+        ok: true,
+        runtime,
+        extensions: { skills: [], hooks: { normalized: {} } }
+      })
+      const fail = (): never => {
+        expect(harness.sender.listenerCount('destroyed')).toBe(1)
+        expect(harness.sender.listenerCount('render-process-gone')).toBe(1)
+        throw new Error('request failed')
+      }
+      if (phase === 'assemble') mocks.buildTurnRequest.mockImplementationOnce(fail)
+      else vi.mocked(runTurnWithContinuations).mockImplementationOnce(fail)
+
+      await handleChatSend(harness.deps as never, { sender: harness.sender } as never, {
+        sessionId: 'session-1',
+        text: 'work',
+        attachmentViews: []
+      })
+
+      expect(harness.sender.listenerCount('destroyed')).toBe(0)
+      expect(harness.sender.listenerCount('render-process-gone')).toBe(0)
+      expect(harness.supervisor.release).toHaveBeenCalledExactlyOnceWith(harness.turn)
+      expect(harness.supervisor.releaseChain).toHaveBeenCalledExactlyOnceWith('lease-1')
+      if (phase === 'assemble') {
+        expect(runtime.close).toHaveBeenCalledOnce()
+        expect(harness.supervisor.releaseRuntime).not.toHaveBeenCalled()
+      } else {
+        expect(harness.supervisor.releaseRuntime).toHaveBeenCalledExactlyOnceWith(
+          'session-1',
+          runtime
+        )
+        expect(runtime.close).not.toHaveBeenCalled()
+      }
+    }
+  )
+
+  it.each(['destroyed', 'render-process-gone'] as const)(
+    'owner %s는 실행을 중단하고 최종 반납 뒤 listener가 남지 않는다',
+    async (eventName) => {
+      const harness = makeHarness('session-1')
+      const clear = vi.fn()
+      harness.deps.backgroundTasks = { clear }
+      const runtime = { close: vi.fn(), channelAlive: true, markAborted: vi.fn() }
+      mocks.acquireTurnRuntime.mockResolvedValue({
+        ok: true,
+        runtime,
+        extensions: { skills: [], hooks: { normalized: {} } }
+      })
+      vi.mocked(runTurnWithContinuations).mockImplementationOnce(async () => {
+        harness.sender.emit(eventName)
+        expect(
+          harness.supervisor.acquireChain.mock.results[0].value.lease.controller.signal.aborted
+        ).toBe(true)
+      })
+
+      await handleChatSend(harness.deps as never, { sender: harness.sender } as never, {
+        sessionId: 'session-1',
+        text: 'work',
+        attachmentViews: []
+      })
+
+      expect(runtime.markAborted).toHaveBeenCalledExactlyOnceWith('user_cancelled')
+      expect(clear).toHaveBeenCalledExactlyOnceWith('session-1')
+      expect(harness.supervisor.releaseRuntime).toHaveBeenCalledExactlyOnceWith(
+        'session-1',
+        runtime
+      )
+      expect(harness.supervisor.releaseChain).toHaveBeenCalledOnce()
+      expect(harness.sender.eventNames()).toEqual([])
+    }
+  )
+
+  it('정상 완료는 runtime을 idle 정책에 반납하고 owner listener를 회수한다', async () => {
+    const harness = makeHarness('session-1')
+    const runtime = { close: vi.fn(), channelAlive: true, markAborted: vi.fn() }
+    mocks.acquireTurnRuntime.mockResolvedValue({
+      ok: true,
+      runtime,
+      extensions: { skills: [], hooks: { normalized: {} } }
+    })
+
+    await handleChatSend(harness.deps as never, { sender: harness.sender } as never, {
+      sessionId: 'session-1',
+      text: 'work',
+      attachmentViews: []
+    })
+
+    expect(harness.supervisor.releaseRuntime).toHaveBeenCalledExactlyOnceWith('session-1', runtime)
+    expect(harness.supervisor.release).toHaveBeenCalledExactlyOnceWith(harness.turn)
+    expect(harness.supervisor.releaseChain).toHaveBeenCalledExactlyOnceWith('lease-1')
+    expect(runtime.close).not.toHaveBeenCalled()
+    expect(harness.sender.eventNames()).toEqual([])
   })
 
   it.each([
@@ -517,7 +615,7 @@ describe('handleChatSend — worktree 소실 폴백의 send 층 배선 (AC12 · 
     mocks.acquireTurnRuntime.mockResolvedValue({
       ok: true,
       runtime: { close: vi.fn(), channelAlive: true, markAborted: vi.fn() },
-      extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+      extensions: { skills: [], hooks: { normalized: {} } }
     })
   })
 

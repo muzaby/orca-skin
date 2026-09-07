@@ -48,7 +48,6 @@ const baseReq = (): TurnRequest => ({
   text: 'hello',
   cwd: '/tmp',
   extensions: {
-    mcp: {},
     skills: [],
     hooks: { normalized: {} }
   }

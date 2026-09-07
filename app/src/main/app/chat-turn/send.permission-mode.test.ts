@@ -139,7 +139,7 @@ function makeHarness(sessionId?: string) {
       },
       getCwd: () => '/source/repo',
       ensureExtensionsDeployedForTurn: vi.fn(async () => undefined),
-      extensions: { build: vi.fn(() => ({ mcp: {}, skills: [], hooks: { normalized: {} } })) }
+      extensions: { build: vi.fn(() => ({ skills: [], hooks: { normalized: {} } })) }
     },
     supervisor,
     bus: {},
@@ -200,7 +200,7 @@ describe('handleChatSend — 지원하지 않는 권한 모드 보정 (AT-14)', 
     mocks.acquireTurnRuntime.mockResolvedValue({
       ok: true,
       runtime: { close: vi.fn(), channelAlive: true, markAborted: vi.fn() },
-      extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+      extensions: { skills: [], hooks: { normalized: {} } }
     })
 
     await handleChatSend(harness.deps as never, { sender: harness.sender } as never, {

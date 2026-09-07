@@ -384,12 +384,7 @@ export class SessionRuntime implements ManagedRuntime {
       if (!this.cancelled && !this.timedOut) this.status.markError(null)
       throw err
     } finally {
-      live.close()
-      if (this.live === live) {
-        this.notifyChannelRetired()
-        this.live = null
-        this.clearSpawnedMetadata()
-      }
+      this.retireChannel(live)
     }
   }
 
@@ -485,7 +480,6 @@ export class SessionRuntime implements ManagedRuntime {
   // 하고 채널을 내린다. 다음 send 는 spawn(resume) 콜드 패스.
   private finishPump(err: unknown): void {
     this.pumpRunning = false
-    this.notifyChannelRetired()
     this.draining = false
     this.cliBusy = false
     const frame = this.frame
@@ -502,9 +496,7 @@ export class SessionRuntime implements ManagedRuntime {
           message: String(err)
         })
     }
-    this.live?.close()
-    this.live = null
-    this.clearSpawnedMetadata()
+    this.retireChannel()
     getLogger()
       .child('engine')
       .info('engine.channel.teardown', { provider: this.adapter.id, reason: 'stream-ended' })
@@ -554,13 +546,15 @@ export class SessionRuntime implements ManagedRuntime {
     this.cliBusy = false
     this.unframed = []
     this.pumpRunning = false
-    this.notifyChannelRetired()
-    this.live?.close()
-    this.live = null
-    this.clearSpawnedMetadata()
+    this.retireChannel()
   }
 
-  private clearSpawnedMetadata(): void {
+  // frame/drain/backlog 전이는 각 종료 경로가 소유한다. 여기서는 현재 채널의 자원만 회수한다.
+  private retireChannel(live = this.live): void {
+    if (live !== this.live) return
+    this.notifyChannelRetired()
+    live?.close()
+    this.live = null
     this.spawnedSettings = undefined
     this.spawnedFingerprint = undefined
     this.spawnedModelValue = undefined

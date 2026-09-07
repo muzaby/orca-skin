@@ -22,7 +22,12 @@ import { handle, handlePlain } from '../../infra/ipc/handle'
 import { getLogger, setConsoleMirror } from '../../infra/log'
 import { getOrcaConfig } from '../../infra/config/orca-config'
 
-export function registerMiscHandlers(ctx: RouterContext): void {
+type MiscHandlerContext = Pick<
+  RouterContext,
+  'registry' | 'harnessSettings' | 'runtimeModelCatalog' | 'debugMock'
+>
+
+export function registerMiscHandlers(ctx: MiscHandlerContext): void {
   handlePlain(CHANNELS.backendList, (): BackendListResult => {
     // 능력 서술자를 computed-on-the-fly 로 각 엔트리에 부착(DB 미관여 — §4). capabilities 는
     // 백엔드의 함수(세션별 데이터 아님)라 영속하지 않고 매 응답에 다시 계산해 붙인다.

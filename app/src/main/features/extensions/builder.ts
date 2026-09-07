@@ -1,6 +1,6 @@
-// ExtensionBuilder — Extension 계층 조립기. 정규 소스(DB 지침 · McpStore · 스킬 스캔)를 읽어 백엔드
-// 중립 TurnExtensions 로 조립한다. 어댑터/백엔드를 전혀 모른다 — 어댑트(claude 타깃 변환·
-// ${VAR} 확장)는 전적으로 어댑터 책임. router 에 흩어져 있던 지침 조회를 이리로 이주해
+// ExtensionBuilder — DB 지침 · 스킬 메타 · plugin 경로 · runtime tool snapshot을 읽어 백엔드
+// 중립 TurnExtensions 로 조립한다. MCP 설정은 별도 plugin 배포 경로가 소유한다.
+// 어댑터/백엔드를 전혀 모른다. router 에 흩어져 있던 지침 조회를 이리로 이주해
 // "이 확장 리소스는 어디서 조립하지?"를 단일 위치로 모은다 (설계검토 §9 1단계).
 //
 // systemPromptAppend = 구조화 헤더(# Orca/# User/# Project). 프로젝트 name·지침은 '# Project'
@@ -9,7 +9,6 @@
 //
 
 import type { DbQueries } from '../../infra/db'
-import type { McpStore } from './mcp/store'
 import type { Settings, SkillInfo } from '../../../shared/ipc'
 import type { TurnExtensions } from '../../adapters/turn'
 import type { RuntimeToolSource } from '../../adapters/runtime-tools'
@@ -18,7 +17,6 @@ import { buildSystemHeader } from './system-header'
 export class ExtensionBuilder {
   constructor(
     private readonly db: DbQueries,
-    private readonly mcp: McpStore,
     private readonly skills: () => SkillInfo[],
     private readonly settings: () => Settings,
     private readonly orcaVersion: string,
@@ -63,8 +61,6 @@ export class ExtensionBuilder {
     const pluginRoots = this.pluginRoots?.() ?? []
 
     return {
-      // 미확장 정규형 — Claude 는 plugin .mcp.json 렌더 경로로 소비한다.
-      mcp: this.mcp.enabledConfig(),
       ...(this.runtimeTools ? { runtimeTools: this.runtimeTools.snapshot() } : {}),
       ...(pluginRoots.length > 0 ? { pluginRoots } : {}),
       // 가시화 메타 (어댑트는 어댑터의 항상-on skills 경로가 구동).

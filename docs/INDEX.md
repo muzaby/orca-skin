@@ -11,6 +11,7 @@
 | **어떤 기술로** 만드는지 (기능·스택·API 사양) | [`TRD.md`](TRD.md) |
 | **아키텍처 문서 전체 지도** (backend/frontend 파일 맵) | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | 부트 시퀀스 · main 프로세스 구조 | [`arch/backend/overview.md`](arch/backend/overview.md) |
+| Main 구조·성능 진단 및 경량화 결과 | [`etc/study/main-structure/diagnosis.md`](etc/study/main-structure/diagnosis.md) |
 | 세션 런타임 · 동시성 · IPC 핸들러 구조 | [`arch/backend/runtime-ipc.md`](arch/backend/runtime-ipc.md) |
 | chat turn · 어댑터 호출 · SDK→NormalizedEvent 정규화 | [`arch/backend/adapters.md`](arch/backend/adapters.md) |
 | **TaskXXX 도구군** (할 일 목록 · background 태스크 · 기능 가용성) | [`claude-taskxxx-spec.md`](claude-taskxxx-spec.md) — SDK 표면 정본 |

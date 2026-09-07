@@ -60,8 +60,8 @@ beforeEach(() => {
   shellCalls.reveal = []
   registerFilesHandlers({
     getCwd: () => SESSION_CWD,
-    db: { hasSessionWithCwd: (cwd: string) => cwd === SESSION_CWD }
-  } as never)
+    db: { hasSessionWithCwd: (cwd: string) => cwd === SESSION_CWD, searchMessages: () => [] }
+  })
 })
 
 describe('reveal 모드 — 세션 cwd 안의 파일만', () => {

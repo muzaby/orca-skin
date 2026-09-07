@@ -144,9 +144,10 @@ main 프로세스의 모든 원격 요청은 **Chromium 네트워크 스택**으
 | 규칙 | 구현 | 강제 |
 |---|---|---|
 | **전역 `fetch(` 를 호출할 수 있는 파일은 `infra/net/net-fetch.ts` 하나뿐** | 가드가 `src/main/**` 전 `.ts` 를 훑어 `net-fetch.ts` 밖의 전역 `fetch(` 호출을 0건으로 고정한다. 메서드 호출(`ses.fetch(`·`ctx.fetch(`·`this.deps.fetchImpl(`)과 주석·문자열 안의 `fetch(` 는 위반이 아니다 — 가드가 **자기 정규식의 오탐/미탐을 스스로 고정**한다(측정력 0인 위생 테스트 방지) | `infra/net/no-node-fetch.test.ts` |
-| **Chromium 스택을 무는 파일은 3개** (0181) — `net-fetch.ts`(`net.fetch`) · `net-request.ts`(`net.request`) · `infra/browser-session.ts`(Electron `Session`·`BrowserWindow`,) | 셋 다 `electron` 을 import 하므로 **테스트가 직접 import 하면 즉시 죽는다**(`vitest.config.ts` 에 electron alias 없음 — P29). 그래서 판정·변환은 순수 모듈(`net-response.ts`·`browser-session-policy.ts`)로 떼어 두고 이 파일들은 **배선만** 한다 | `infra/net/net-response.test.ts`(순수부) |
+| **Chromium 요청·세션은 infra에서 소유한다** — `net-fetch.ts`·`net-request.ts`·`infra/browser-session.ts` | 판정·변환은 순수 모듈로 분리하고, 요청 수명·수신 제한은 `sendOnce`가 소유한다. Electron을 대체한 emitter 테스트가 실제 배선에 진입한다 | `infra/net/net-request.test.ts`·`net-response.test.ts` |
 | 소비자는 `typeof fetch` **포트로 주입받는다** — `ProviderApiImpl.fetchImpl`(0181) · `createSender(fetchImpl)` | **기본값을 두지 않는다** — 기본값은 곧 조용한 Node 스택 복귀다 | 위와 동일 |
 | **`redirect:'manual'` 은 Electron 에서 의미가 다르다** — 웹 fetch 는 3xx 를 돌려주지만 Electron 은 **요청을 취소한다**(`followRedirect()` 를 동기 호출해야 이어진다) | 3xx 를 직접 받아야 하면 `infra/net/net-request.ts` 의 `sendOnce`(`net.request` 의 `'redirect'` 이벤트로 3xx 재구성). `netFetch` 가 manual 요청을 그리로 우회한다. **추종은 호출자가** 한다(홉마다 정책을 검사해야 하므로) | `infra/net/net-response.test.ts` |
+| **선택한 `maxBytes`는 수신 중 적용한다** | credential sender는 Main 내부 `RequestInit` 확장으로, cookie sender는 직접 `sendOnce`에 전달한다. 선언 길이 또는 누적 bytes가 상한을 넘으면 초과 chunk를 보관하기 전에 abort한다. 성공·오류·취소 후 signal 리스너를 회수한다 | `infra/net/net-request.test.ts` |
 
 > 이 규칙은 보안 경계이자 *동작* 경계다. 위반해도 로컬·개방망에서는 통과하고 **사내망에서만 실패**하므로, 리뷰가 아니라 테스트로 잡는다.
 
@@ -159,7 +160,7 @@ main 프로세스의 모든 원격 요청은 **Chromium 네트워크 스택**으
 | 모듈 | 책임 | electron |
 |---|---|---|
 | `net/net-fetch.ts` | Chromium `net.fetch` — **전역 `fetch(` 를 부를 수 있는 유일한 파일** (§1.8) | ✓ |
-| `net/net-request.ts` | `net.request` 기반 전송. `redirect:'manual'` 로 3xx 를 직접 받아야 할 때 (§1.8) | ✓ |
+| `net/net-request.ts` | `net.request` 기반 단일 홉 전송·수신 중 상한 검사·취소 정리. manual 3xx를 호출자에게 반환 (§1.8) | ✓ |
 | `net/net-response.ts` | 응답 판정·변환 **순수부** — electron 미의존이라 테스트가 직접 import 한다 | — |
 | `net/transport.ts` (0181) | 인증된 요청의 전송 조각 — `PreparedRequest`·상한 검사·`createSender(fetchImpl)`. **도메인 타입을 모른다**(infra → contracts 는 DAG 역방향) | — |
 | `browser-session.ts` | session group → Electron `Session` 매핑 · 통제된 로그인 창 · 세션 쿠키로 보내는 요청 | ✓ |

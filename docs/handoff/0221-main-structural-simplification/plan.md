@@ -187,4 +187,101 @@ REQUIRED 총량은 VP-01~17의 개별 pair다. 상속 V가 없으므로 REGRESSI
 
 ## [구현자 기입]
 
-구현 전. 완료/미충족 pair와 gate, 구조 변화·실행 결과·추가 발견을 여기에 기록한다.
+### r1 — 설계 리뷰
+
+구현 자기판정은 SELF_PASS다. 공개 IPC·DB 형식·UI·의존성 변경 없이 기존 소유자 안에서 책임을 모았다. 구조·성능 진단은 [진단 보고서](../../etc/study/main-structure/diagnosis.md)에 보존한다.
+
+설계의 범용 플랫폼 금지와 optional runtime 의미를 유지했다. 제목 작업은 controller와 timeout을 같은 Map에서 관리해 dispose가 둘을 회수한다. 새 공유 캐시·만료 정책·재진입 계층은 없다.
+EP-01 구현 중 독립 검토에서 큐의 기존 warn/null 처리가 엔진의 reject까지 삼키는 회귀를 발견했다. 같은 서비스에 호출별 `throwOnFailure` 옵션을 추가해 엔진의 실패 전달과 기존 MCP·스킬의 관용 처리를 함께 보존했다. D-03의 구현 보완이며 새 제품 결정은 없다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+| AC / pair | 강제 지점·관측 | 자기결과 |
+|---|---|---|
+| AC1 / VP-01 | EP-01: engine add/update/delete 모두 같은 큐 호출. 실제 service+IPC 테스트 8개, service 6개 통과. 동시 배포·실패 원본 전달·finally 무효화 확인 | ✅ SELF_PASS |
+| AC2 / VP-02 | EP-02: TurnExtensions·builder·bootstrap 생성자에서 MCP 필드/인자 제거. builder 5개와 실제 plugin/SDK runtime tool query 소비 테스트 통과 | ✅ SELF_PASS |
+| AC3 / VP-03 | EP-03: 값별 missing Set으로 반복 변수의 후속 키도 제외. 정상 값·보고 이름 중복 제거·입력 불변성 확인 | ✅ SELF_PASS |
+| AC4 / VP-04 | EP-04: complete/sendMessage의 공통 settings/source/env 조립. `claude.executable-option.test.ts` 6개와 SDK Options 타입 검사 통과 | ✅ SELF_PASS |
+| AC5 / VP-05 | EP-05: owner 리스너 등록 뒤 요청 조립 실패에서 잔존 1개를 재현하고 바깥 finally로 회수. 정상 idle 반납·owner 소멸·실행 실패 테스트 통과 | ✅ SELF_PASS |
+| AC6 / VP-06 | EP-06: one-shot/pump/teardown이 같은 retireChannel 사용. SessionRuntime 기존 행동 테스트 54개 통과 | ✅ SELF_PASS |
+| AC7 / VP-07 | EP-07: bootstrap 보관·shutdown dispose·생성/완료/종료 후 경로. 제목 생성 4개와 bootstrap 배선/종료 테스트 통과 | ✅ SELF_PASS |
+| AC8 / VP-08 | EP-08: credential 및 cookie sender의 실제 sendOnce 도달. 네트워크 12개에서 정상 bytes·3xx·선언/누적 초과·선취소·최초/늦은 오류 확인 | ✅ SELF_PASS |
+| AC9 / VP-09 | EP-09: 전체 RouterContext를 받던 handler 11개의 공개 인자를 필요한 속성으로 제한. context 계약 타입 검사·실제 IPC callback 테스트 통과 | ✅ SELF_PASS |
+| AC10 / VP-10 | EP-10: no-op registry API와 미사용 tool 타입 제거·runtime 대상 타입 rename. registry 8개·pool/supervisor·runtime config/tool 회귀 통과 | ✅ SELF_PASS |
+| AC11 / VP-17 | EP-02·08: 소비 없는 MCP 조립 제거와 초과 첫 chunk에서 abort를 직접 확인. 자동완성·세션 로딩·월 집계·모델 목록의 비용 후보를 별도 기록 | ✅ SELF_PASS |
+
+AC 검산: ✅ 11 · ⚠️ 0 · ❌ 0 = 11. 독립 verify의 PASS를 선점하는 표가 아니다.
+
+| 추가 pair | 관측 | 자기결과 |
+|---|---|---|
+| VP-11 | send 준비 실패 정리, title dispose 뒤 abort 무시 resolve의 DB 쓰기 차단, shutdown 호출 삭제 검출 | SELF_PASS |
+| VP-12 | 실제 engine/MCP callback 동시 호출 maxActive=1, 양쪽 네트워크 maxBytes 전달 삭제 검출 | SELF_PASS |
+| VP-13 | builder 실제 산출과 plugin 매니페스트·SDK 메모리 MCP 서버의 query 옵션 소비 확인 | SELF_PASS |
+| VP-14 | 최소 handler fixture 타입 검사, bootstrap 실제 prototype의 종료·배포 전달 실행 | SELF_PASS |
+| VP-15 | 동일 missing 반복 RED→GREEN, 단발/대화 공통 옵션 직접 비교 | SELF_PASS |
+| VP-16 | 기존 runtime frame/drain/backlog/구세대·pool/LRU·도구·runtime config 행동 회귀 통과 | SELF_PASS |
+
+유효 pair 검산: VP-01~10·VP-17의 11개 + VP-11~16의 6개 = SELF_PASS 17 / SELF_BLOCKED 0.
+강제 지점은 §10 EP-01~10 그대로이며, 추가된 service의 실패 전달은 EP-01의 동시/실패 계약을 구현한다. 새로운 feature 간 import나 production 모듈은 없다.
+
+### 이번 라운드 수정의 잠금
+
+| 구분 | 실제 결함 주입·재현 | 관측 |
+|---|---|---|
+| 선택 증거 — VP-01·12 | 기존 engine direct deploy 상태에서 신규 IPC/service 테스트 실행 | 행동 실패 7개 RED, 큐 통합 후 GREEN |
+| 선택 증거 — VP-07·11 | bootstrap의 `this.titles?.dispose()` 삭제 | bootstrap 테스트 1개 RED |
+| 선택 증거 — VP-08·12 | netFetch manual → sendOnce의 maxBytes 전달 삭제 | credential text/binary 2개 RED |
+| 선택 증거 — VP-08·12 | BrowserSessionStore → sendOnce의 maxBytes 전달 삭제 | cookie 경로 1개 RED |
+| 선택 증거 — VP-09·14 | TypeScript compiler host에서 boot handler Pick을 전체 RouterContext로 확대 | test config의 TS2344 1건 RED. 디스크 원본 불변 |
+| 보강 선택 증거 — VP-01·14 | bootstrap wrapper의 deployNow 옵션 전달 삭제 | 실제 prototype+service 테스트 1개 RED |
+| 새 배선 oracle — EP-07 | TitleGenerator 생성 시 bootstrap 소유 필드 대입 삭제 | 소유 배선 검사 1개 RED |
+| 새 배선 oracle — EP-07 | 이벤트 구독의 titles.maybeStart 호출 제거 | 구독 배선 검사 1개 RED |
+
+잠금 검산: 선택 증거 6 · 인용 변이 0 · 새 배선 oracle 2 = 8행. 일부 행은 여러 pair가 같은 경계를 공유한다.
+모든 디스크 변이는 원문 보관 후 finally에서 복원했다. 복원 뒤 bootstrap/network 2파일 15개 통과. 그 밖의 변경은 직접 행동 oracle이며 추가 변이 대상이 아니다.
+
+### Product/UX 파생 검토
+
+- 채팅·권한·MCP·스킬·설정의 공개 IPC와 정상 결과를 유지했다. 추가된 UI 문자열·화면·영속 포맷은 없다.
+- 엔진 source 저장 후 배포 실패는 기존처럼 호출자에게 전달하고, 캐시 무효화는 실패 때도 실행한다. MCP/스킬의 기존 경고 후 진행 동작은 유지한다.
+- 네트워크 크기 초과는 기존 ResponseTooLargeError를 더 이른 수신 시점에 반환한다. 허용 본문·cookie jar·홉별 정책은 유지한다.
+- 종료한 제목 생성은 새 DB/renderer 작업을 하지 않는다. 정상 제목 자동 생성은 양성 테스트로 확인했다.
+
+### 놓친 잠재 문제 + 대응
+
+| 발견 | 대응·관측 | 상태 |
+|---|---|---|
+| service의 warn/null을 엔진에 그대로 적용하면 실패가 성공으로 보임 | 실제 service/IPC에서 5개 RED 후 호출별 오류 전달로 보완. 영향 3파일 23개 GREEN, 별도 독립 재검토에서 추가 결함 없음 | 해결 |
+| 이미 취소된 signal은 request 오류 리스너 등록 전에 반환 | 실제 emitter에서 선취소 오류를 재현. 오류 리스너를 먼저 등록하고 최초/늦은 오류·signal 회수 테스트 추가. 네트워크 12개 GREEN | 해결 |
+| Electron IncomingMessage의 end-before-data 등록 요구 | 설치된 electron.d.ts의 요구에 맞춰 등록 순서 정정. 실제 Electron 장애를 실측한 것으로 보고하지 않음 | 코드 정렬 |
+| 대형 listing·세션 payload·월 원장·모델 기여 목록의 비용 증가 | [진단 보고서 §4](../../etc/study/main-structure/diagnosis.md#4-후속-측정-후보--이번에는-변경하지-않음)에 실제 경로·입력량·최소 개선·회귀 조건 기록 | 측정 후보 |
+| 현재 Claude 모델 해석이 미래 adapter에도 통용될지 미정 | 새 adapter 구현 시 해당 경계를 검토. 사용하지 않는 모델/실행 registry를 미리 만들지 않음 | 후속 범위 |
+
+PLAN_GAP·신규 제품 결정·신규 의존성은 없다. SRT·cowork·OpenCode의 실제 종단 호환성은 미검증이며 이번 구현의 완료 기준에 포함하지 않았다.
+
+### 구현 보고
+
+| 게이트 | 관측 결과 |
+|---|---|
+| 변경 전 Main 기준선 | Electron Node 모드·시험 전용 USERPROFILE에서 188파일 2,052개 통과, 실패/skip 0 |
+| 변경 후 Main 전체 | 같은 실행 환경에서 193파일 2,093개 통과, 실패/skip 0, 프로세스 exit 0 |
+| 기준선 대비 테스트 집합 | 파일+fullName 차집합: 삭제는 폐기한 registry idle no-op 검사 1개뿐. 추가 42개 |
+| 타입 | `npm run typecheck`: node/web/test 3구성 진단 0. 추가 bootstrap 테스트 이후 test config 재검사도 진단 0 |
+| lint | `node node_modules/eslint/bin/eslint.js src/main src/shared`: error 0 / warning 0. 마지막 테스트·주석 변경 파일 재검사도 0/0, autofix 없음 |
+| 문서 | `node scripts/check-doc-inventory.mjs --check`: generated/prose/상대링크 검사 통과 |
+| diff | `git diff --check`: 공백 오류 0 |
+| 독립 검토 | 담당 범위를 바꾼 별도 에이전트가 adapter/확장, 수명주기, 네트워크, 배포 큐를 검토. 위 오류 전달·선취소 결함을 보완한 뒤 추가 재현 결함 없음 |
+
+실행 방법: `app`에서 설치된 `node_modules/electron/dist/electron.exe`를 자식 프로세스로 실행하며 `ELECTRON_RUN_AS_NODE=1`, `USERPROFILE=<app>/node_modules/.cache/orca/main-structure-check/home`을 해당 자식에게만 전달했다. 인자는 `node_modules/vitest/vitest.mjs run src/main --maxWorkers=2 --reporter=json`이다. SQLite ABI 140을 그대로 사용했고 npm rebuild·의존성 설치는 하지 않았다.
+
+환경 기록: 최초 plain Node 실행은 SQLite ABI 127/140 불일치와 실제 profile 파일 권한 오류로 실패했다. 동일 코드를 위 환경에서 재실행해 기준선을 확보했다. Electron fork 종료 경고는 기준선 10건/최종 96건 관측했으나 두 실행 모두 테스트 실패 0·exit 0이었다. 이것을 앱 성능 저하 또는 성능 개선 수치로 해석하지 않는다. 실제 GUI·사내망·대형 입력 벤치마크는 시행하지 않았다.
+
+변경 규모는 기존 모듈 안에서 제한했다. 새 production 파일·계층·의존성·IPC·DB 스키마 추가 없음. 테스트와 문서의 증가를 production 구조의 비대화로 혼합해 세지 않았다.
+
+### Review Signals
+
+- 현재 라운드: r1. 외부 verify FAIL을 재구현한 작업이 아니다.
+- D-03은 실패 의미 보존을 요구했지만 초기 service 연결이 하위의 오류 흡수를 놓쳤다. 실제 큐/IPC 경로의 실패 테스트를 reject oracle로 정정했다.
+- EP-08에서 기존 선취소 분기와 오류 리스너 등록 순서가 누락되어 있었다. 독립 재현 후 같은 요청 소유자 안에서 수정했다.
+- 반복 환경 한계는 SQLite ABI와 Electron fork 종료 경고다. 프로덕션 코드를 우회하거나 실패 테스트를 skip하여 통과시키지 않았다.
+- 구현 자기판정과 독립 handoff verify 판정은 구분한다. INDEX는 구현 완료 후 검증자에게 넘긴다.

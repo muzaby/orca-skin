@@ -15,8 +15,6 @@ import type { HarnessRuntimeConfigService } from '../features/harnesses/runtime-
 import type { RuntimeModelCatalog } from '../features/harnesses/runtime-catalog'
 import type { Scheduler } from '../features/scheduler'
 import type { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
-import type { AuthRuntime } from '../contracts/auth'
-import type { Gate } from '../features/gate'
 import type { UpdateController } from './updater'
 
 export interface RouterContext {
@@ -32,7 +30,7 @@ export interface RouterContext {
   getSkills(): SkillInfo[]
   refreshSkills(): Promise<SkillInfo[]>
   // 비동기 배포(0109) — invoke 핸들러가 await 해도 재귀 복사가 이벤트 루프를 막지 않는다.
-  deployExtensions(): Promise<void>
+  deployExtensions(options?: { throwOnFailure?: boolean }): Promise<void>
   // 턴 시작 게이트 — query 호출 전 sources→dist plugin 배포 최신성을 멱등 보장한다.
   ensureExtensionsDeployedForTurn(): Promise<void>
   // chat send · files list · session cwd 가 공유하는 단일 cwd. 프로젝트 미소속이면
@@ -45,20 +43,14 @@ export interface RouterContext {
   mockAdapter: MockAdapter | null
   updates: UpdateController
   scheduler: Scheduler
-  // 런타임 도구 레지스트리. 0180 에서 인증·커넥터 스택이 사라져 **기여자가 0** 이지만
-  // 포트와 어댑터 배선(`adapters/claude-runtime-tools.ts`)은 그대로다 — 0181 의
-  // `Provider.tools` 가 이 자리를 다시 채운다.
+  // 연결 상태에 따라 활성 plugin 도구를 반영하고, 턴에는 현재 snapshot을 전달한다.
   runtimeTools: RuntimeToolRegistry
-  // ── 0188 — 인증·게이트·Harness 실행 구성 ─────────────────────────────────────
+  // Harness 실행 구성. 인증·게이트는 연결 핸들러에 별도 주입한다.
   //
   // **`secretReader` 는 여기 없다.** raw credential 은 컴포지션 루트에 머물고 MCP·Harness
   // augmenter 에만 AuthId 를 닫은 closure 로 간다(D-010).
   //
-  // 셋 다 **optional 이다**: 부팅 초기에 조립되지만 테스트 하네스가 이 필드 없이 ctx 를 만드는
-  // 경로가 있어, 없으면 "인증 없음/게이트 없음/동적 구성 없음" 으로 동작한다(조용한 성공이
-  // 아니라 조용한 미인증 — fail-closed).
-  auth?: AuthRuntime
-  gate?: Gate
+  // 동적 구성이 없는 하네스의 기존 동작을 유지한다.
   harnessRuntime?: HarnessRuntimeConfigService
   runtimeModelCatalog?: RuntimeModelCatalog
 }

@@ -98,7 +98,6 @@ function installHarness(options: {
     build: vi.fn(() => {
       const revision = options.extensionRevisions.shift()
       const snapshot = {
-        mcp: {},
         skills: [],
         hooks: { normalized: {} },
         runtimeTools: { revision, servers: new Map() }

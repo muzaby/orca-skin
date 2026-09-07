@@ -10,9 +10,13 @@ import { getLogger } from '../../infra/log/registry'
 import type { TurnContext } from '../../contracts/turn'
 
 export class TitleGenerator {
+  private disposed = false
+  private readonly pending = new Map<AbortController, ReturnType<typeof setTimeout>>()
+
   constructor(private readonly db: DbQueries) {}
 
   maybeStart(turn: TurnContext): void {
+    if (this.disposed) return
     const titleSource = turn.dbSessionId ? this.db.getTitleSource(turn.dbSessionId) : null
     if (
       !shouldGenerateTitle({
@@ -37,6 +41,15 @@ export class TitleGenerator {
     })
   }
 
+  dispose(): void {
+    this.disposed = true
+    for (const [controller, timeout] of this.pending) {
+      clearTimeout(timeout)
+      controller.abort()
+    }
+    this.pending.clear()
+  }
+
   private async generate(req: {
     sessionId: string
     firstUserText: string
@@ -48,6 +61,7 @@ export class TitleGenerator {
   }): Promise<void> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 30_000)
+    this.pending.set(controller, timeout)
     try {
       if (this.db.getTitleSource(req.sessionId) === 'user') return
       const raw = await req.adapter.complete({
@@ -58,16 +72,20 @@ export class TitleGenerator {
         env: req.env,
         ...(req.model ? { model: req.model } : {})
       })
+      // 종료 시 abort를 무시하고 resolve하는 adapter도 닫힌 DB/renderer에 쓰면 안 된다.
+      if (this.disposed) return
       const title = normalizeTitle(raw)
       if (!title) return
       const updated = this.db.updateSessionTitleAuto(req.sessionId, title, Date.now())
       if (updated) broadcastSessionTitle({ sessionId: req.sessionId, title })
     } catch (err) {
+      if (this.disposed) return
       getLogger()
         .child('chat')
         .warn('chat.title.generation-failed', { sessionId: req.sessionId, message: String(err) })
     } finally {
       clearTimeout(timeout)
+      this.pending.delete(controller)
     }
   }
 }

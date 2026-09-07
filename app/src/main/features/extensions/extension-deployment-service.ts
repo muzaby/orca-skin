@@ -12,33 +12,38 @@ export class ExtensionDeploymentService {
   private deployedOnce = false
   // 비동기 전환(0109)에 따른 in-flight 직렬화 — dist 는 backup-then-write 라 동시 실행이
   // 겹치면 서로의 산출물을 지운다. 진행 중 deployNow 는 "완주 후 1회 재실행" 으로 코얼레스
-  // 되고(연타 CRUD 안전), 모든 호출자는 마지막(최신 소스 반영) 결과로 resolve 된다.
-  private inflight: Promise<DeployResult | null> | null = null
+  // 되고(연타 CRUD 안전), 모든 호출자는 마지막(최신 소스 반영) 결과를 받는다.
+  private inflight: Promise<DeployResult> | null = null
   private rerun = false
 
   constructor(private readonly opts: ExtensionDeploymentServiceOptions) {}
 
-  deployNow(): Promise<DeployResult | null> {
+  deployNow(options?: { throwOnFailure?: boolean }): Promise<DeployResult | null> {
     if (this.inflight) {
       this.rerun = true
-      return this.inflight
+    } else {
+      this.inflight = this.runSerialized().finally(() => {
+        this.inflight = null
+      })
     }
-    this.inflight = this.runSerialized().finally(() => {
-      this.inflight = null
-    })
-    return this.inflight
+    // 배포 큐는 하나다. 기본 호출의 관용 처리가 엔진 CRUD의 기존 오류 전달까지 삼키지 않는다.
+    return options?.throwOnFailure ? this.inflight : this.inflight.catch(() => null)
   }
 
-  private async runSerialized(): Promise<DeployResult | null> {
-    let result = await this.attempt()
-    while (this.rerun) {
+  private async runSerialized(): Promise<DeployResult> {
+    for (;;) {
       this.rerun = false
-      result = await this.attempt()
+      try {
+        const result = await this.attempt()
+        if (!this.rerun) return result
+      } catch (error) {
+        // 실패한 시도 뒤에도 최신 source를 반영할 예약은 실행한다. 마지막 결과만 호출자에게 준다.
+        if (!this.rerun) throw error
+      }
     }
-    return result
   }
 
-  private async attempt(): Promise<DeployResult | null> {
+  private async attempt(): Promise<DeployResult> {
     try {
       const result = await this.opts.deploy()
       this.deployedOnce = true
@@ -49,12 +54,12 @@ export class ExtensionDeploymentService {
       }
       return result
     } catch (e) {
-      // 배포 실패는 부팅/CRUD 를 막지 않는다(비-critical) — warn 으로 기록하고 skip.
+      // 모든 실패는 기록한다. 기본 호출의 warn/null과 엔진의 reject는 deployNow에서 구분한다.
       getLogger()
         .child('extensions')
         .warn('extensions.deploy.failed', { standard: 'claude', message: String(e) })
       this.opts.onWarning?.(`[deploy] skipped extension deploy: ${String(e)}`)
-      return null
+      throw e
     }
   }
 

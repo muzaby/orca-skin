@@ -14,14 +14,14 @@
 // 보내도록 설계돼 있다(0160) — 그대로 두면 첨부 다운로드가 끊긴다. 그래서 manual 요청만
 // `net.request` 기반 `sendOnceAsResponse` 로 우회한다(그쪽은 redirect 이벤트를 받아 3xx 를 만든다).
 //
-// ── 이 파일을 테스트가 import 하지 않는다 (P29) ──────────────────────────────
-// electron 을 무는 파일이므로 컴포지션 루트(`app/bootstrap.ts`)만 import 한다. 소비자는
-// `typeof fetch` 포트로 주입받는다.
+// 컴포지션 루트(`app/bootstrap.ts`)가 소비자에 `typeof fetch` 포트로 주입한다.
+// 테스트는 Electron을 대체해 manual 요청의 수신 상한 전달까지 확인한다.
 
 import { net } from 'electron'
 import { sendOnceAsResponse } from './net-request'
+import type { MainRequestInit } from './transport'
 
-export const netFetch: typeof fetch = (input, init) => {
+export const netFetch: typeof fetch = (input, init?: MainRequestInit) => {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
 
   // manual 은 "3xx 를 그대로 돌려달라" 는 뜻이다 — net.fetch 는 그걸 못 하므로 우회한다.
@@ -32,6 +32,7 @@ export const netFetch: typeof fetch = (input, init) => {
       ...(init.headers !== undefined ? { headers: toHeaderRecord(init.headers) } : {}),
       ...(typeof init.body === 'string' ? { body: init.body } : {}),
       ...(init.credentials !== undefined ? { credentials: init.credentials } : {}),
+      ...(init.maxBytes !== undefined ? { maxBytes: init.maxBytes } : {}),
       ...(init.signal !== null && init.signal !== undefined ? { signal: init.signal } : {})
     })
   }

@@ -159,6 +159,7 @@ export class Bootstrap {
   // 0151 — 종료 시 admission freeze + payload 스크럽을 위해 루트가 참조를 보관한다.
   private pendingMessages?: PendingMessageQueue
   private activity?: SessionActivityProjector
+  private titles?: TitleGenerator
 
   private builtinSkillsDir(): string {
     return resolveBuiltinSkillsDir({
@@ -217,8 +218,8 @@ export class Bootstrap {
     })
   }
 
-  private async deployExtensions(): Promise<void> {
-    await this.deployment?.deployNow()
+  private async deployExtensions(options?: { throwOnFailure?: boolean }): Promise<void> {
+    await this.deployment?.deployNow(options)
   }
 
   private async ensureExtensionsDeployedForTurn(): Promise<void> {
@@ -564,7 +565,6 @@ export class Bootstrap {
 
     const extensions = new ExtensionBuilder(
       db,
-      this.mcp,
       () => this.skillsCache,
       () => this.settings.getAll(),
       app.getVersion(),
@@ -674,7 +674,7 @@ export class Bootstrap {
       harnessSettings,
       getSkills: () => this.skillsCache,
       refreshSkills: () => this.refreshSkills(),
-      deployExtensions: () => this.deployExtensions(),
+      deployExtensions: (options) => this.deployExtensions(options),
       ensureExtensionsDeployedForTurn: () => this.ensureExtensionsDeployedForTurn(),
       getCwd: (projectId) => getWorkspacePath(projectId ? db.getProject(projectId) : null),
       getBootReport: () => this.bootReport.getReport(),
@@ -683,8 +683,6 @@ export class Bootstrap {
       updates: this.createUpdateController(),
       scheduler,
       runtimeTools,
-      auth,
-      gate,
       harnessRuntime,
       runtimeModelCatalog
     }
@@ -739,6 +737,7 @@ export class Bootstrap {
     // admission freeze 를 **가장 먼저**(0151 AC9) — 이후 send/steer 예약을 거부해, 종료 중
     // 게이트 flush·자동 연속 턴이 큐 폐기와 경합하며 메시지를 뒤늦게 제출하는 것을 막는다.
     this.pendingMessages?.freeze()
+    this.titles?.dispose()
     this.scheduler?.stopAll()
     if (!this.supervisor || !this.bus) {
       // 조기 반환 경로에서도 미커밋 payload 는 반드시 스크럽한다.
@@ -789,7 +788,7 @@ export class Bootstrap {
     // 그 messageId 를 읽고, title 이 relay 전에 트리거되는 순서 불변식을 이 등록 순서 한 곳이 소유한다.
     // usage·history 는 critical(throw=턴 실패 전파), title·relay 는 격리(실패가 파이프라인을 안 죽임).
     const bus = (this.bus = new TypedBus<OrcaBusEvents<Electron.WebContents>>())
-    const titles = new TitleGenerator(ctx.db)
+    const titles = (this.titles = new TitleGenerator(ctx.db))
     // continuity 도착 물질화(0064 fork/handoff)는 orchestration 슬라이스 구현을 여기서 주입
     // — history↔orchestration 교차 import 차단.
     const persistence = new HistoryWriter(ctx.db, (arrival) =>

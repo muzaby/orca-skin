@@ -44,7 +44,7 @@ const baseReq = (): TurnRequest => ({
   sessionId: null,
   text: 'hello',
   cwd: '/tmp/work',
-  extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+  extensions: { skills: [], hooks: { normalized: {} } }
 })
 
 function capture(req: TurnRequest): { option: unknown; guardArg: unknown } {
