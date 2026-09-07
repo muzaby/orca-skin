@@ -27,6 +27,7 @@ SDK host를 이전하기 전에 작은 bootstrap과 재현 가능한 실증 명�
 | 명시 | “구조적이며 체계적인 모듈화, 경량화” | 사용자 대화 |
 | 구현 승인 | “구현하라” | 2026-09-08 사용자 요청, 직전 최종 제안에 대한 후속 |
 | 미정 | 최초 관리자 설치 허용 여부 “아직 정하지 않음” | 이전 사용자 답변 |
+| 로컬 실증 승인 | 이 PC에 SRT 전용 계정·자격 증명·WFP 규칙 설치를 묻는 질문에 “진행하라” | 2026-09-08 사용자 답변; 제품 배포 전체의 자동 설치 승인은 아님 |
 
 ## 3. Decision Ledger
 
@@ -38,12 +39,13 @@ SDK host를 이전하기 전에 작은 bootstrap과 재현 가능한 실증 명�
 | D-004 | npm SRT 0.0.75를 정확히 고정한다 | 조사한 API와 binary를 같이 검증 | ACTIVE |
 | D-005 | bootstrap은 C++17/Win32, MSVC로 빌드한다 | 이미 설치된 VS2019·SDK 사용; 추가 런타임·외부 native 라이브러리 없음 | ACTIVE |
 | D-006 | bootstrap은 전달·실행·대기만 담당한다 | ACL/WFP/계정/권한 판단은 SRT 소유 | ACTIVE |
-| D-007 | 실제 기계의 초기 provisioning은 환경 승인 절차를 거친다 | 기존 관리자 허용 미정; 자동 설치·자가 승격을 앱 부트에 넣지 않음 | OPEN |
+| D-007 | 실제 기계의 초기 provisioning은 환경 승인 절차를 거친다 | 기존 관리자 허용 미정; D-010으로 이 PC의 실증 설치 승인 확정 | SUPERSEDED → D-010 |
 | D-008 | 테스트에는 가짜 키와 새 fixture만 쓴다 | 실제 사용자 비밀 읽기·전송 불필요 | ACTIVE |
 | D-009 | 미설치·정책 실패는 명시 오류다 | 비격리 실행 fallback 금지 | ACTIVE |
+| D-010 | 이 PC의 공식 SRT installer 실행과 후속 실증을 허용한다. 앱 시작 시 자동 설치·자가 승격은 추가하지 않는다 | 사용자의 “진행하라”. 제품 배포 전체의 관리자 설치 정책으로 확대하지 않음 | ACTIVE |
 
 ACTIVE 결정 ↔ AC 대조: D-001/004/009→AC4·5, D-002/003→AC8, D-005/006→AC1·2·3, D-008→AC6·7. 충돌 0.
-D-007은 코드·로컬 bootstrap 검증을 막지 않지만 기계 provisioning을 한 것으로 간주할 근거도 아니다.
+D-010→AC4·5: 이 PC의 설치 승인 전제가 해소됐다. V 노드·pair·검증 oracle은 V1 그대로이며 실제 설치·제한 실행 성공 여부는 구현 관측으로 판정한다.
 
 ## 4. 요구 비판적 검토
 
@@ -214,8 +216,8 @@ READY 대조: ACTIVE↔AC 충돌 0, R/SD/AR/MD에 REQUIRED pair 존재, EP-01~07
 ## [구현자 기입] 설계 리뷰
 
 P0 구현을 진행했다. D-001~006·008·009와 실제 산출의 방향은 동일하다.
-D-007은 여전히 OPEN이다. 설치 스크립트와 취소·실패 처리를 준비한 뒤 사용자에게 이 PC의
-공식 installer 실행 허용을 요청했다. 답변 전에는 계정·자격 증명·WFP를 provisioning하지 않는다.
+최초 부분 구현 때 D-007은 OPEN이었다. 검토 가능한 설치 스크립트와 취소·실패 처리를 준비한 뒤
+공식 installer 실행을 물었고, 후속 “진행하라”로 이 PC의 승인 전제가 해소됐다(D-010).
 
 `npm install --save-exact @anthropic-ai/sandbox-runtime@0.0.75 --ignore-scripts`로 패키지와
 vendored Windows binary만 준비했다. npm 의존성 설치와 Windows provisioning은 별개다.
