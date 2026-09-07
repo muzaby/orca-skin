@@ -19,16 +19,6 @@ export type GitRowView =
       totals: GitDiffTotals | null
     }
 
-// 저장소 이름은 **git 루트**에서 읽는다 — 작업 경로가 하위 폴더면
-// (`~/proj/orca-skin/app`) basename 이 `app` 이라 저장소 이름이 아니다(0206 D-008).
-// 구분자는 POSIX·Windows 둘 다 받는다: `--show-toplevel` 은 `/` 로 주지만 값이 어디서
-// 오든 이 함수의 계약은 "마지막 세그먼트" 하나다.
-// **worktree 세션에서는 그 루트가 원본 저장소가 아니다**(0211) — `--show-toplevel` 이
-// worktree 루트를 준다. 그래서 파생은 `repoDisplayName` 이 소유하고 여기서는 그것을 부른다.
-export function repoNameFromRoot(root: string | null): string | null {
-  return repoDisplayName(root, null)
-}
-
 // 행을 그릴지, 그린다면 무엇을 읽을지.
 //
 // **두 조건이 모두 참일 때만 그린다**(0206 D-002): 세션이 시작됐고(랜딩이 아니고) git

@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { Button } from '../../../../shared/ui/Button'
 import { TaskStatusIcon } from './TaskStatusIcon'
 import {
-  taskBoardFromMessages,
+  taskBoardForMessages,
   taskBoardItemByKey,
   taskBoardOrdered,
   taskDetailRows,
@@ -30,7 +30,7 @@ const STATUS_KEY: Record<TaskBoardStatus, MessageKey> = {
 function useTaskBoard(): TaskBoardItem[] {
   const messages = useChatSession((s) => s.messages)
   // 순서는 `taskBoardOrdered` 하나가 정한다(§10 EP-14) — 컴포넌트가 다시 정렬하지 않는다.
-  return useMemo(() => taskBoardOrdered(taskBoardFromMessages(messages)), [messages])
+  return useMemo(() => taskBoardOrdered(taskBoardForMessages(messages)), [messages])
 }
 
 // 헤더 전용 — 선택이 없으면 **접지 않는다**. 헤더는 그때 고정 문자열만 그리므로 전체 fold 가
@@ -40,7 +40,7 @@ function useSelectedTaskForHeader(): TaskBoardItem | undefined {
   const selectedKey = useChatSession((s) => s.selectedTaskKey)
   return useMemo(
     () =>
-      selectedKey ? taskBoardItemByKey(taskBoardFromMessages(messages), selectedKey) : undefined,
+      selectedKey ? taskBoardItemByKey(taskBoardForMessages(messages), selectedKey) : undefined,
     [messages, selectedKey]
   )
 }

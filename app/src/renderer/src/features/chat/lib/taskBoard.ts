@@ -34,13 +34,10 @@ import { resultMap, type SubagentTaskSummary } from './parts'
 export type TaskBoardStatus =
   'in_progress' | 'stopping' | 'paused' | 'pending' | 'completed' | 'aborted' | 'failed'
 
-export type TaskBoardKind = 'agent'
-
 export interface TaskBoardItem {
   // 목록/선택 키. `agent:` 접두사를 유지한다 — `taskStopErrors` 등 다른 상태가 여전히
   // `bg:<toolUseId>` 를 쓰므로 두 네임스페이스는 계속 공존한다(0215 이후에도 키는 갈린다).
   key: string
-  kind: TaskBoardKind
   id: string
   // **표시** 제목. `in_progress` 인 동안은 `activeForm`(현재진행형)으로 교체된다(0212 D-006).
   title: string
@@ -84,6 +81,22 @@ export function taskBoardItemByKey(
   key: string | null
 ): TaskBoardItem | undefined {
   return key ? items.find((item) => item.key === key) : undefined
+}
+
+// 한 타일이 컴포넌트 둘(헤더·본문)로 서고 **둘 다 같은 messages 를 접는다** — 그대로 두면
+// 렌더 패스마다 전체 transcript fold 가 두 번 돈다. 입력 참조가 같으면 결과도 같으므로
+// 1-entry 캐시로 두 번째 호출을 없앤다. 무효화 축은 `messages` 참조 하나 — part 가 하나라도
+// 붙으면 새 배열이 오고 캐시는 그때 버려진다. 소비자는 결과를 변형하지 않는다
+// (`taskBoardOrdered` 는 `[...items]` 로 복사하고 `taskBoardItemByKey` 는 읽기만 한다).
+let cachedMessages: Message[] | null = null
+let cachedBoard: TaskBoardItem[] | null = null
+
+export function taskBoardForMessages(messages: Message[]): TaskBoardItem[] {
+  if (cachedMessages === messages && cachedBoard !== null) return cachedBoard
+  const board = taskBoardFromMessages(messages)
+  cachedMessages = messages
+  cachedBoard = board
+  return board
 }
 
 const AGENT_STATUS_FALLBACK: AgentTaskStatus = 'pending'
@@ -196,7 +209,6 @@ function agentItem(entry: AgentEntry): TaskBoardItem {
   const subject = entry.subject ?? entry.id
   return {
     key: agentTaskKey(entry.id),
-    kind: 'agent',
     id: entry.id,
     // 진행 중일 때만 현재진행형으로 교체한다(0212 D-006 — SDK 주석이 용도를 못박는다:
     // "shown in spinner when in_progress"). 완료되면 `subject` 로 돌아온다.

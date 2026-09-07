@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import type {
   DiffRequirementItem,
   GitDiffPatch,
@@ -86,7 +86,11 @@ export function DiffReview({
   const { tr } = useI18n()
   const internalOwnerRef = useRef<HTMLDivElement>(null)
   const tailSpacerRef = useRef<HTMLDivElement>(null)
-  const sections = diffSections(patch)
+  // 요구사항 draft 는 키 입력마다 store 를 갱신하므로 이 컴포넌트는 타이핑 중 계속 리렌더된다.
+  // 파생을 메모하지 않으면 `sections` 참조가 매번 새로 나고, 그것을 deps 로 쓰는 하류
+  // `ChangedNavigationSidebar` 의 트리 재구축 메모가 **영구히 미스**한다. 무효화 축은 `patch`
+  // 참조 하나 — `receiveGitPatch` 가 새 generation 을 실을 때만 바뀐다.
+  const sections = useMemo(() => diffSections(patch), [patch])
 
   // 트리에서 고른 파일은 **먼저 펼친 뒤** 이동한다 — 접혀 있으면 스크롤만 하고 아무 변화가
   // 없어 클릭이 "아무 일도 안 일어남" 으로 보인다(0211 ΔV4 §10 EP-36 ②). 기본이 접힘이

@@ -39,6 +39,7 @@ export function repoDisplayName(
 ): string | null {
   const source = worktree?.repoRoot ?? root
   if (!source) return null
-  const segments = source.split(/[\\/]/).filter((seg) => seg.length > 0)
-  return segments.length > 0 ? segments[segments.length - 1] : null
+  // 마지막 세그먼트 규칙은 `shared/path-basename` 이 소유한다 — 위 `cwdDisplayName` 이 이미
+  // 그것을 부르는데 여기만 손으로 다시 갈랐고, 그 사본은 `.trim()` 이 빠져 있었다.
+  return basenameForDisplay(source, '') || null
 }

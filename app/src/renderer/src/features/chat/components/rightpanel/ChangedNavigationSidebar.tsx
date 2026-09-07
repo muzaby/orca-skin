@@ -9,6 +9,7 @@ import {
 } from '../../lib/changedFileTree'
 import { ALL_CHANGES, type DiffComparison, type DiffSection } from './diffComparison'
 import type { GitDiffSummary } from '../../../../../../shared/ipc'
+import { shortSha } from './sessionChangesData'
 
 export interface ChangedNavigationSidebarProps {
   sections: readonly DiffSection[]
@@ -102,7 +103,7 @@ export function ChangedNavigationSidebar({
               {commit.subject}
             </span>
             <span className="flex w-full items-center gap-[4px] overflow-hidden text-footnote text-ink3">
-              <span className="shrink-0 font-mono text-footnote">{commit.sha.slice(0, 7)}</span>
+              <span className="shrink-0 font-mono text-footnote">{shortSha(commit.sha)}</span>
               <span aria-hidden="true">·</span>
               <span className="min-w-0 truncate">{commit.author}</span>
               <span aria-hidden="true">·</span>
