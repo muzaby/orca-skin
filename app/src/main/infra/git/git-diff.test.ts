@@ -10,7 +10,7 @@ import { execFile } from 'node:child_process'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { gitDiffPatch, gitDiffSummary, resolveDiffRange, type GitDiffRunner } from './git-diff'
 import { runGit, type GitRunResult } from './runner'
 import type { GitDiffPatchFile } from '../../../shared/ipc'
@@ -26,6 +26,17 @@ function shape(file: GitDiffPatchFile | undefined): string[] {
     (line) => `${line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '}${line.text}`
   )
 }
+
+// **파일 예산 135s** — 이 스위트의 최악 케이스(AT-18)는 실제 git 을 직렬로 15회 띄운다
+// (`makeRepo` 3 + 준비 커밋 5 + `gitDiffSummary` 2회 7). self-hosted windows 러너의 실측
+// spawn 은 약 6s 로 레포 기준(약 2s)의 3배라, 상한을 15 × 6s × 1.5(여유) = 135s 로 잡는다.
+// 글로벌 20s(`vitest.config.ts`)는 그대로 두고 **이 파일만** 넓힌다 — 전역을 올리면 git 을
+// 쓰지 않는 3천여 케이스의 멈춤 보고까지 함께 늦어진다.
+//
+// hookTimeout 을 같은 값으로 함께 못 박는 이유: 기본값 10s 는 여기 `beforeAll` 의 spawn
+// 11회(6s × 11 = 66s)를 애초에 담지 못한다. 예산이 끊긴 훅/케이스는 git 핸들을 연 채 죽고,
+// 남은 고아가 정리 `rm` 을 EBUSY 로 밀어 케이스 하나의 실패가 스위트 전체로 번진다.
+vi.setConfig({ testTimeout: 135_000, hookTimeout: 135_000 })
 
 const dirs: string[] = []
 
@@ -44,6 +55,10 @@ async function makeRepo(): Promise<string> {
   await git(dir, ['init', '--initial-branch=main'])
   await git(dir, ['config', 'user.email', 'test@orca.local'])
   await git(dir, ['config', 'user.name', 'orca test'])
+  // 러너의 전역 `core.autocrlf=true` 를 이 저장소에서만 끈다. 켜져 있으면 LF 로 쓴 픽스처가
+  // 커밋될 때 CRLF 로 바뀌어 diff 의 줄 내용과 줄 수가 기대와 어긋나고, 매 `add` 마다
+  // "LF will be replaced by CRLF" 경고가 출력을 덮는다. 테스트가 보는 것은 개행 정책이 아니다.
+  await git(dir, ['config', 'core.autocrlf', 'false'])
   return dir
 }
 
@@ -486,6 +501,9 @@ describe('세션 파일 목록의 status (AT-39 산출 동등 · EP-25 ①)', ()
   })
 
   afterAll(async () => {
+    // `beforeAll` 이 예산 초과나 git 실패로 중간에 끊기면 `repo` 는 할당되기 전이다. 그때
+    // `rm(undefined)` 는 TypeError 를 던져, 원인(훅 실패) 위에 정리 실패를 한 겹 더 쌓는다.
+    if (!repo) return
     await rm(repo, { recursive: true, force: true })
   })
 

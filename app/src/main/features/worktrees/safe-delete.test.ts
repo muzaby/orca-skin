@@ -18,6 +18,16 @@ import { addWorktree, deleteBranch, listWorktrees, removeWorktree } from '../../
 import { WorktreeService } from './service'
 
 const exec = promisify(execFile)
+// **파일 예산 171s** — 최악 케이스(AC16 · VP-16)는 실제 git 을 직렬로 19회 띄운다
+// (`repository()` 5 + `managedSession()` 의 `prepare()` 6 + 외부 worktree 3 + `removeForSession()` 4
+// + 목록 확인 1). self-hosted windows 러너의 실측 spawn 은 약 6s 로 레포 기준(약 2s)의 3배라,
+// 상한을 19 × 6s × 1.5(여유) = 171s 로 잡는다.
+// 글로벌 20s(`vitest.config.ts`)는 그대로 두고 **이 파일만** 넓힌다 — 전역을 올리면 git 을
+// 쓰지 않는 3천여 케이스의 멈춤 보고까지 함께 늦어진다. 훅도 같은 값이다: 예산이 끊긴
+// 케이스는 git 핸들을 연 채 죽고, 남은 고아가 정리 `rm` 을 EBUSY 로 밀어 케이스 하나의
+// 실패가 스위트 전체로 번진다.
+vi.setConfig({ testTimeout: 171_000, hookTimeout: 171_000 })
+
 const roots: string[] = []
 afterEach(async () =>
   Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))

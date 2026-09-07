@@ -30,6 +30,10 @@ function makeRepo(): string {
   git(root, 'init', '-b', 'main')
   git(root, 'config', 'user.email', 'test@orca.local')
   git(root, 'config', 'user.name', 'Orca Test')
+  // 러너의 전역 `core.autocrlf=true` 를 이 저장소에서만 끈다. 켜져 있으면 LF 로 쓴 픽스처가
+  // 커밋될 때 CRLF 로 바뀌어 내용·줄 수가 기대와 어긋나고, 매 `add` 마다 "LF will be replaced
+  // by CRLF" 경고가 출력을 덮는다. 테스트가 보는 것은 개행 정책이 아니다.
+  git(root, 'config', 'core.autocrlf', 'false')
   writeFileSync(join(root, 'tracked.txt'), 'v1\n')
   git(root, 'add', 'tracked.txt')
   git(root, 'commit', '-m', 'init')
