@@ -34,6 +34,8 @@ publisher 성공은 출력 목록을 갱신하고 원래 호출 턴에 카드가
 | 목록 재조회 실패 | 출력 안에서 오류와 재시도 제공 |
 | 닫기 / 세션 전환 | 기존 artifactStore의 요청 세대·소유 세션 검사를 유지 |
 
+출력 섹션만 접으면 카드와 파일 상태 구독을 정리하고 목록 메타 구독은 유지해 헤더 개수를 갱신한다. 작업 타일 닫기·작업 상세 진입·세션 전환은 목록 구독도 해제하며, 늦은 목록 응답이 닫힌 본문이나 이전 세션 화면을 복원하지 않는다.
+
 뷰어·HTML 실행·컨텍스트 수집·일반 생성물 수집 기준의 임의 결정은 이번 확정 UI 범위 밖이다. 파일 저장 루트·DB·IPC·publisher 입력은 변경하지 않는다.
 
 ### 3. AC와 기존 기준 대체
@@ -66,7 +68,7 @@ Q-04는 아직 AC로 확정하지 않았으므로 위 UI 완료가 사용자 전
 | VP-U1 | R-17 ↔ AT-17 | REQUIRED | 메뉴 → 작업 → 세 섹션의 순서·각 본문 | EP-U1(3). 섹션 본문 맞교환/출력 제거 변이 선택: 자리 귀속 검증 |
 | VP-U2 | R-18 ↔ AT-18 | REQUIRED | 작업 → 컨텍스트 → 미수집 안내 | EP-U1-c(1). 직접 렌더, 변이 미선택 |
 | VP-U3 | R-19 ↔ AT-19 | REQUIRED | transcript/출력 → 카드/행 → 다운로드·메뉴 | EP-U2(3). 직접 렌더/브라우저, 변이 미선택 |
-| VP-U4 | SD-05 ↔ ST-05 | REQUIRED | 작업 열기 → 목록 acquire/list → 접기/전환 → cleanup | EP-U3(2). lifecycle 순서 관측, 변이 미선택 |
+| VP-U4 | SD-05 ↔ ST-05 | REQUIRED | 작업 열기 → 목록 acquire/list → 섹션 접기 시 카드 cleanup·헤더 count 유지 → 타일 닫기/상세/세션 전환 시 list cleanup | EP-U3(2). lifecycle 순서 관측, 변이 미선택 |
 | VP-U5 | AR-04 ↔ IT-04 | REQUIRED | catalog → registry → TaskTileContent → 출력 목록 | EP-U1(3)+EP-U3-a(1). U1의 제거/교환 변이 공유 |
 | VP-42 | MD-03 ↔ UT-03 | REQUIRED, 기준 행의 UI 경로 정정 | live/reload part → 기존 store → 카드/행의 상태·ID | EP-U2(3)+EP-U3(2). 직접 lifecycle/상태표, 변이 미선택 |
 | VP-11/14/15/90 | 기준의 동일 좌우 노드 | REGRESSION | 기존 artifactStore/lifecycle/작업 상세/타일 배치 행동 시험 | EP-U3-b(1)+EP-U2(3)+EP-U1(3), 기존 직접 oracle. 기준 native 한계 유지 |
