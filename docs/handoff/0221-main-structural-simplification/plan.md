@@ -446,3 +446,16 @@ PLAN_GAP·추가 제품 결정은 없다. 미래 SRT·cowork·OpenCode의 종단
 ### Review Signals
 
 r2의 원인은 사용자 요구 범위를 r1에서 좁게 해석한 것이다. 이를 단순 설명 수정으로 닫지 않고 책임/모듈 재편과 실제 경로 oracle을 추가했다. independent reviewer를 구현 영역과 바꿔 채팅/설정, 사용량/이력, MCP/Bootstrap을 검토했다. 재현된 생산 회귀는 없었고 부족한 oracle과 fixture/type 표기를 보완했다. 기존 동작 보존과 미래 기능의 실제 호환성 보장은 구분한다.
+
+## [검증자 기입] 파생 이슈
+
+독립 검증 r1 = **PASS**. 판정 원문과 증거는 [`verify.md`](verify.md). 아래는 현재 pair·ACTIVE Decision·필수 gate에 귀속되지 않아 PASS를 막지 않는 항목이다.
+
+| # | finding | disposition | 후속 |
+|---|---|---|---|
+| D1 | `settings.ts:listProviders`의 `.sort()`(결정적 기본 provider 선택)를 제거해도 `src/main` 2,116케이스 전건 green — 정렬 결정성을 잠그는 oracle이 없다 | NON_BLOCKING | 축자 이동이라 이번 회귀가 아니다. provider 2개 이상 fixture로 정렬 케이스 1개 추가 |
+| D2 | `docs/arch/backend/security.md` §1.4 재작성이 “디스크 평문 0” 서술을 제거했다. 같은 문서 §1.4-b 예외표 1번·`standardization.md` §5와 대조해 **정정이 옳다**고 판정했다 | NON_BLOCKING | 세부 정본이 `standardization.md` §5로 옮겨졌으므로 그쪽 현재성 유지 |
+| D3 | `scan-surface`의 test-only 후보 10건 | NON_BLOCKING | 전부 정의 파일 내부 production 소비자 있음. 기록만 |
+| D4 | `ExtensionDeploymentService`의 `inflight = null`이 `.finally` 마이크로태스크라 그 창의 `deployNow`가 이미 끝난 실행에 코얼레스될 수 있다 | NON_BLOCKING | r1 이전과 동일 구조. 실사용 트리거 확인 후 별도 handoff 후보 |
+| D5 | `deployNow` 기본 호출이 `this.inflight.catch(() => null)`을 매번 새로 붙인다 | NON_BLOCKING | unhandled rejection 없음. 기록만 |
+| D6 | `bootstrap.shutdown.test.ts:114`의 `this.registerTurnEvents\(ctx,\s*bus\)` 정규식은 삭제는 잡고 **죽은 배선은 못 잡는다**(검증자 변이 S1 green). 같은 파일의 `titles.maybeStart`는 행동 oracle이 받쳐 S2에서 red | NON_BLOCKING | plan이 선정한 배선 oracle 2건(EP-11·EP-16)은 행동 red로 닫혔다. `register()` 진입의 행동 oracle 1개 추가 |
