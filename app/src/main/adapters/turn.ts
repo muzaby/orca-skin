@@ -7,7 +7,7 @@
 // 전달하며, MCP 서버 구성이나 비밀 해석 책임을 중복해서 갖지 않는다.
 
 import type { ResolvedHarnessSettings } from './harness-config'
-import type { RuntimeToolSnapshot } from './runtime-tools'
+import type { RuntimeToolContext, RuntimeToolSnapshot } from './runtime-tools'
 import type {
   ApprovalResolution,
   AttachmentSourceKind,
@@ -117,6 +117,8 @@ export interface TurnContinuation {
 
 // 한 턴 실행 요청. sendMessage 의 인자 증식(7개)을 단일 객체로 통합한다 (설계검토 §9 1단계).
 export interface TurnRequest {
+  // Runtime이 cold spawn에만 주입하는 채널 소유 문맥. frame delegate가 아니다.
+  runtimeToolContext?: RuntimeToolContext
   sessionId: string | null
   // 0064 continuity — 이 턴이 분기 출발점으로 삼을 세션 id (fork/handoff 공통). sessionId
   // (resume=이어쓰기)와 달리 원본은 불변이고 백엔드가 **새 session id 를 발급**한다

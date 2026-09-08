@@ -79,6 +79,7 @@ export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
 // `interrupt` 는 ManagedRuntime 과 같은 이유로 좁힌다(0151) — 런타임 거버넌스의 중단은 "턴 중단
 // 표시" 이고, SDK 영수증(still_queued)은 captureInterruptReceipt 위임으로 별도 전달된다.
 export interface CoordinatorRuntime extends GovernedLiveTurn {
+  confirmRuntimeToolSession?(sessionId: string): void
   send(req: TurnRequest): AsyncIterable<NormalizedEvent>
   // listen 턴(0136) — 입력을 push 하지 않고 살아있는 채널의 프레임만 열어 CLI 가 스스로 여는
   // 자동 턴(백그라운드 서브에이전트 진행·task_notification·완료 알림 턴)을 소비한다. 어댑터
@@ -334,6 +335,7 @@ export class TurnCoordinator<W = unknown> {
                 this.deps.pendingMessages?.rekey(turn.queueKey, ev.sessionId)
               }
               registry.promote(turn, ev.sessionId)
+              runtime.confirmRuntimeToolSession?.(ev.sessionId)
               // 턴-국소 훅 (0211) — promote 와 같은 자리다. 여기가 세션 id 를 처음 아는
               // 지점이고, 무엇을 할지는 이 훅을 심은 컴포지션 루트가 안다.
               turn.onSessionConfirmed?.(ev.sessionId)

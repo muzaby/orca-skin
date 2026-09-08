@@ -19,6 +19,7 @@ type MessagePartType =
   | 'structured_output'
   | 'error'
   | 'attachment'
+  | 'artifact'
   | 'diff_requirements'
   | 'compact_boundary'
   | 'fork_boundary'

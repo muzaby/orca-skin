@@ -18,17 +18,18 @@ import {
 describe('우측 패널 타일 가시성 — 메뉴 목록 (AT-01)', () => {
   // 0213 D-001 — 정지가 풀려 넷이 됐다. 음성만 두면 아무것도 그리지 않는 회귀가 통과하므로
   // 양성 4종을 순서까지 단언한다.
-  it('메뉴 목록은 `계획`·`백그라운드 작업`·`작업`·`변경사항` 넷이고 정의 순서를 지킨다', () => {
+  it('기존 메뉴 순서를 보존하고 산출물을 마지막에 추가한다', () => {
     expect(visibleRightPanelTileDefinitions.map((tile) => tile.id)).toEqual([
       'plan',
       'subagent',
       'task',
-      'diff'
+      'diff',
+      'artifacts'
     ])
   })
 
-  it('타일 정의 자체는 4종 그대로다 — 정지는 제거가 아니었다 (0204 D-021)', () => {
-    expect(rightPanelTileIds).toEqual(['plan', 'subagent', 'task', 'diff'])
+  it('기존 타일 정의를 유지하고 산출물을 등록한다', () => {
+    expect(rightPanelTileIds).toEqual(['plan', 'subagent', 'task', 'diff', 'artifacts'])
   })
 
   it('메뉴에서 빠지는 타일이 없다 — 정지 목록이 비었고 예약 슬롯은 0206 이 diff 로 소진했다', () => {

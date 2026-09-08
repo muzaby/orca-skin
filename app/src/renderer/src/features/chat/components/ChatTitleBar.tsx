@@ -274,7 +274,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
               setOpen(false)
               openConfirmDialog({
                 title: tr('sessions.deleteDialogTitle'),
-                message: tr('sessions.deleteDialogMessage'),
+                message: `${tr('sessions.deleteDialogMessage')} ${tr('chat.artifacts.retainedOnSessionDelete')}`,
                 confirmLabel: tr('common.delete'),
                 danger: true,
                 onConfirm: () => onDeleteSession(sessionId)

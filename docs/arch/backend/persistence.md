@@ -15,7 +15,7 @@
 | **로컬 SQLite DB** (`db/`) | `<userData>/orca.db` (better-sqlite3, WAL + foreign_keys) | ✅ Phase 3 완료 |
 | **FTS5 전문 검색** | `messages_fts` 가상 테이블 (3 트리거로 `messages` 와 동기 유지) | ✅ Phase 3++ 완료 |
 | **MCP 인증 비밀** | `orca-secrets` (electron-store) + safeStorage 암호화 | ✅ Phase 3++ 완료 |
-| **첨부 / 산출물 디렉토리** | — | ❌ 미구현 (Future) |
+| **게시 원본 파일** | `~/.config/orca/artifacts` (개발 profile은 `.dev` 하위) | 명시적 publisher의 HTML/Markdown 보관 |
 
 ### 1.2 electron-store 키 카탈로그
 
@@ -104,15 +104,18 @@
 - **`messages.content`(FTS5 text-cache) 는 메시지 마감 시 1회 기록** — 스트리밍 중 블록마다 누적 전체를 재기록하면 `messages_au` 트리거가 매번 전체 재색인(응답 길이에 초선형). 마감 경계 = telemetry persist · `commitUserMessage` · chatCancel(`finalizeTurn`). 트랜스크립트 복원은 `message_parts` 만 쓰므로(loadParts) 화면 영향 없음.
 - **finalize 이전 비정상 종료(크래시·adapter error·stall timeout)의 FTS 공백**은 `rebuildIncompleteMessageContent`(features/chat/recovery)가 복구 — 부팅(chat-recovery 스텝) + 해당 세션 다음 `chat:send` 초입, 둘 다 `recoverDanglingToolCalls` **이전** 실행(complete=0 이 대상 식별자).
 
-#### 1.4 계층 2 — 파일 시스템 (Future)
+#### 1.4 계층 2 — 게시 원본 파일
 
-| 저장 대상 | 경로 패턴 |
-|---|---|
-| 큰 산출물 (첨부 파일, 모델 생성 md / 코드 / 이미지) | `<userData>/artifacts/<sessionId>/<uuid>.<ext>` |
+`features/artifacts`가 게시 파일 검증·보관·상태·휴지통을 소유한다. 본문은 `~/.config/orca/artifacts/<artifactFileId>/<filename>`, 개발 profile은 같은 루트의 `.dev/<artifactFileId>/<filename>`에 둔다. DB의 `artifact_files`는 profile 상대 경로·초기 hash/크기·휴지통 이동 이력을 저장하며 세션 FK를 갖지 않는다. `session_artifacts`는 세션별 게시 참조이고 같은 SQLite 연결의 `DbQueries.artifacts`가 transaction을 소유한다.
 
-- `app.getPath('userData')` 기준
-- DB 에는 경로·해시·크기만 저장 (Blob 직접 저장 금지)
-- 메시지/세션 삭제 시 DB CASCADE + 후처리로 파일 삭제 (GC 전략 — 신규 OQ)
+- 도구는 완성된 로컬 HTML/HTM/MD 파일을 읽어 게시 원본으로 복사한다. 입력 workspace 파일을 이동하거나 삭제하지 않는다. 일반 readRoots의 앱 설정/런타임 경로는 게시 입력 권한에 포함하지 않는다.
+- 게시 성공은 파일과 세션 publication 확정이다. 실제 publisher tool_result 영수증과 원래 tool_call을 검증한 뒤 그 메시지에 artifact part를 연결한다. 중간 종료로 연결이 없더라도 우측 목록에 게시를 보존한다.
+- 파일은 외부에서 수정·삭제될 수 있다. missing/unavailable은 실제 상태 조회 결과이며 영속 삭제 플래그가 아니다. 게시 당시 hash를 불변 백업 보장이나 현재 소실 판정에 사용하지 않는다.
+- fork는 기존 메시지 복사 transaction 안에서 자식 publication과 part ID를 복제하고 같은 artifactFileId를 참조한다. 대화 삭제는 해당 참조만 제거하며 마지막 참조가 없어도 파일을 자동 삭제하지 않는다.
+- 사용자 삭제는 OS 휴지통 이동이다. 게시 기록은 보존하며 `lastTrashedAt`는 과거 행위일 뿐 현재 파일 없음의 원인을 단정하지 않는다. 이동 후 DB 기록 실패는 별도로 보고한다.
+- 새 요청이 만든 임시/실패 파일만 정리한다. 전역 orphan scan·자동 GC는 없다. 종료는 신규 commit을 차단하며 강제 프로세스 종료 때 미등록 파일이 남을 수 있다.
+
+공개 계약은 [IPC_CONTRACT.md](../../IPC_CONTRACT.md#26-a-산출물-게시-파일), 설계 근거와 검증 기준은 [게시 도구 계획](../../handoff/0223-artifact-publisher/plan.md)에 있다.
 
 #### 어댑터 외부 저장과의 관계
 
@@ -121,7 +124,7 @@
 
 #### 백업 전략
 
-- DB 파일 1개 + `<userData>/artifacts/` 디렉토리 = 단일 export/import 단위
+- 앱 데이터 전체 백업은 해당 profile의 DB와 게시 원본 폴더를 함께 보존해야 한다. 현재 앱 내 전체 백업/복원 기능은 없다.
 - export 형식: TBD (zip / tar.gz / DB dump)
 
 ---

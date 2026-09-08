@@ -20,11 +20,13 @@ import type {
   ManagedWorktreeRow
 } from './types'
 import { UsageQueries } from './usage-queries'
+import { ArtifactQueries } from './artifact-queries'
 import { isWithinDir } from '../config/paths'
 import { getLogger } from '../log/registry'
 
 export class DbQueries {
   readonly usage: UsageQueries
+  readonly artifacts: ArtifactQueries
   private readonly db: Database.Database
   private readonly insertSessionStmt: Database.Statement
   private readonly listSessionsStmt: Database.Statement
@@ -246,6 +248,7 @@ export class DbQueries {
       WHERE id = @id AND title_source != 'user'
     `)
     this.usage = new UsageQueries(db)
+    this.artifacts = new ArtifactQueries(db)
     this.renameSessionStmt = db.prepare(`
       UPDATE sessions
       SET title = @title, title_source = 'user', updated_at = @updatedAt
@@ -342,6 +345,7 @@ export class DbQueries {
       WHERE message_id = @srcMessageId
     `)
     this.copyMessagesTx = db.transaction((src: string, dst: string): number => {
+      const messageCopies = new Map<number, number>()
       const rows = this.listMessagesBySessionStmt.all({ sessionId: src }) as Array<{
         id: number
         role: string
@@ -363,7 +367,9 @@ export class DbQueries {
           dstMessageId: Number(info.lastInsertRowid),
           srcMessageId: m.id
         })
+        messageCopies.set(m.id, Number(info.lastInsertRowid))
       }
+      this.artifacts.copyForFork(src, dst, messageCopies)
       return rows.length
     })
   }

@@ -130,6 +130,40 @@ function makeDeps(
 const sessionUpdated = { type: 'session.updated', sessionId: 's1' } as unknown as NormalizedEvent
 const telemetry = { type: 'telemetry', sessionId: 's1' } as unknown as NormalizedEvent
 
+describe('runtime tool session confirmation', () => {
+  it('confirms only after history and promotion have completed', async () => {
+    const order: string[] = []
+    const runtime = fakeRuntime([[sessionUpdated, telemetry]])
+    runtime.confirmRuntimeToolSession = (id) => order.push(`confirmed:${id}`)
+    const deps = makeDeps(runtime, {
+      persist: {
+        persist: (_turn, event) => {
+          if (event.type === 'session.updated') order.push('persisted')
+        },
+        flushAskAnswers: vi.fn()
+      },
+      registry: { promote: () => order.push('promoted') }
+    })
+    await new TurnCoordinator(deps).run(makeTurn(), REQUEST, { boundProjectId: null })
+    expect(order).toEqual(['persisted', 'promoted', 'confirmed:s1'])
+  })
+
+  it('does not confirm when the history subscriber fails', async () => {
+    const runtime = fakeRuntime([[sessionUpdated]])
+    runtime.confirmRuntimeToolSession = vi.fn()
+    const deps = makeDeps(runtime, {
+      persist: {
+        persist: (_turn, event) => {
+          if (event.type === 'session.updated') throw new Error('insert session failed')
+        },
+        flushAskAnswers: vi.fn()
+      }
+    })
+    await new TurnCoordinator(deps).run(makeTurn(), REQUEST, { boundProjectId: null })
+    expect(runtime.confirmRuntimeToolSession).not.toHaveBeenCalled()
+  })
+})
+
 describe('TurnCoordinator requirement commit', () => {
   it.each(['turn-open', 'steer'] as const)(
     'preserves %s merged requirements in both persistence and renderer events',

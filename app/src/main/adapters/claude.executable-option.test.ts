@@ -11,6 +11,8 @@ import { join } from 'node:path'
 import type { Options } from '@anthropic-ai/claude-agent-sdk'
 import type { ResolvedHarnessSettings } from './harness-config'
 import type { RuntimeToolSnapshot } from './runtime-tools'
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 
 // vi.mock 팩토리는 호이스팅되므로 sentinel 도 vi.hoisted 로 만든다.
 const { SENTINEL, queryMock } = vi.hoisted(() => ({
@@ -72,6 +74,65 @@ describe('claudeExecutableOption 배선', () => {
 })
 
 describe('Claude 공통 실행 옵션', () => {
+  it('the query SDK server receives the channel context and returns its receipt', async () => {
+    queryMock.mockClear()
+    const channelSignal = new AbortController().signal
+    const runtimeTools: RuntimeToolSnapshot = {
+      revision: 1,
+      servers: new Map([
+        [
+          'records',
+          {
+            descriptor: {
+              id: 'records',
+              connectorId: 'fixture',
+              tools: [{ name: 'lookup', description: 'lookup' }]
+            },
+            implementations: [
+              {
+                name: 'lookup',
+                inputSchema: {},
+                handler: async (_input, context) => ({
+                  content: [
+                    {
+                      type: 'text',
+                      text: context ? await context.waitForSession(context.getSignal()) : 'missing'
+                    }
+                  ]
+                })
+              }
+            ]
+          }
+        ]
+      ])
+    }
+    const live = new ClaudeAdapter().sendMessage({
+      sessionId: null,
+      text: 'hello',
+      cwd: '/ws/project',
+      extensions: { skills: [], hooks: { normalized: {} }, runtimeTools },
+      runtimeToolContext: {
+        cwd: '/ws/project',
+        extraDirs: [],
+        getSignal: () => channelSignal,
+        waitForSession: async () => 'confirmed-session'
+      }
+    })
+    const config = optionsOfFirstCall().mcpServers!.records
+    if (config.type !== 'sdk') throw new Error('expected SDK server')
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
+    await config.instance.connect(serverTransport)
+    const client = new Client({ name: 'query-fixture', version: '1' })
+    try {
+      await client.connect(clientTransport)
+      const result = await client.callTool({ name: 'lookup', arguments: {} })
+      expect(result.content).toEqual([{ type: 'text', text: 'confirmed-session' }])
+    } finally {
+      await client.close()
+      live.close()
+    }
+  })
+
   it('대화 query는 plugin과 메모리 도구를 계속 소비한다', () => {
     const pluginRoot = mkdtempSync(join(tmpdir(), 'orca-query-plugin-'))
     try {

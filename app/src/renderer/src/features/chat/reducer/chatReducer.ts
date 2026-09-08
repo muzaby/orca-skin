@@ -822,7 +822,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           }
 
         case 'tool.call.completed': {
-          const messages = appendAssistantPart(state.messages, {
+          let messages = appendAssistantPart(state.messages, {
             type: 'tool_result',
             toolRunId: ev.toolRunId,
             result: ev.result,
@@ -833,6 +833,40 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             // 전까지 비어 보인다(writer 영속과 같은 필드를 실어야 한다).
             ...(ev.structuredOutput !== undefined ? { structuredOutput: ev.structuredOutput } : {})
           })
+          // 게시 성공은 원래 호출 메시지에만 연결한다. 늦은 결과를 마지막 턴으로 추정하지 않는다.
+          const artifact = ev.isError ? undefined : ev.artifact
+          if (artifact) {
+            const owner = messages.findIndex(
+              (message) =>
+                message.role === 'assistant' &&
+                message.parts.some(
+                  (part) => part.type === 'tool_call' && part.toolRunId === ev.toolRunId
+                )
+            )
+            if (
+              owner >= 0 &&
+              !messages[owner].parts.some(
+                (part) =>
+                  part.type === 'artifact' && part.artifact.publicationId === artifact.publicationId
+              )
+            ) {
+              messages = messages.map((message, index) =>
+                index === owner
+                  ? {
+                      ...message,
+                      parts: [
+                        ...message.parts,
+                        {
+                          type: 'artifact' as const,
+                          artifact,
+                          ...(ev.parentToolRunId ? { parentToolRunId: ev.parentToolRunId } : {})
+                        }
+                      ]
+                    }
+                  : message
+              )
+            }
+          }
           // 부모 Task 의 권위 결과 도착 = 중단 대기 종료(확정·watchdog·채널 사망 공통 경로).
           const stoppingTaskIds = withoutId(state.stoppingTaskIds, ev.toolRunId)
           // 라이브 상태 표식들도 같은 자리에서 끝난다(0212) — 정착한 태스크는 일시정지도

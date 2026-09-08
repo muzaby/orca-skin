@@ -41,6 +41,7 @@ import type { RightPanelTileId } from '../lib/rightPanelTiles'
 import type { BranchSnapshot } from '../components/composer/branchChipState'
 import { wireDiffRequirementAnchor } from '../components/rightpanel/diffRequirements'
 import type { DiffComparison } from '../components/rightpanel/diffComparison'
+import { forgetArtifacts, refreshArtifactList } from './artifactStore'
 
 // Zustand 단일 chat store — arch/frontend/state.md §1.4 채택안의 멀티세션 외피(handoff 0013).
 //
@@ -94,6 +95,7 @@ export interface SessionEntry {
   live: LiveTurnState
   subagentMeta: Record<string, SubagentMetaState>
   pendingSteer?: PendingSteerState[]
+  panelReveal?: { id: RightPanelTileId }
 }
 
 interface QueuedNewChat {
@@ -179,6 +181,14 @@ function dispatchTo(key: string, action: ChatAction): void {
 
 function dispatchActive(action: ChatAction): void {
   dispatchTo(getState().activeKey, action)
+}
+
+function revealRightPanelTile(id: RightPanelTileId): void {
+  patchEntry(getState().activeKey, (entry) =>
+    entry.session.rightPanelTiles.some((column) => column.tiles.includes(id))
+      ? { ...entry, panelReveal: { id } }
+      : entry
+  )
 }
 
 function captureDiffRequirementSnapshot(): DiffRequirementSubmitSnapshot {
@@ -392,6 +402,7 @@ function promotePendingNewChat(sessionId: string): void {
 
 // 엔트리 제거. 활성 엔트리였다면 깨끗한 새 채팅으로 전환한다.
 function dropSession(sessionId: string, fallbackProjectId: string | null = null): void {
+  forgetArtifacts(sessionId)
   setState((s) => {
     if (!s.sessions[sessionId]) return s
     const rest = { ...s.sessions }
@@ -409,6 +420,11 @@ function dropSession(sessionId: string, fallbackProjectId: string | null = null)
 // 델타 2종은 그 엔트리의 live 슬라이스로만 흐른다. sessionId 가 없는 이벤트(일부 error)는
 // 활성 엔트리 폴백, 미지 sessionId(엔트리 삭제 후 늦게 도착)는 폐기한다.
 function receive(ev: NormalizedEvent): void {
+  if (ev.type === 'artifact.published') {
+    // 목록 알림은 pending draft로 폴백하거나 transcript part를 만들지 않는다.
+    if (getState().sessions[ev.sessionId]) void refreshArtifactList(ev.sessionId)
+    return
+  }
   const evSessionId = 'sessionId' in ev ? ev.sessionId || null : null
 
   // session.updated = sessionId 발급/확정 시점 — main 에 진입한 pending draft 를 sessionId 키로 승격.
@@ -1386,10 +1402,14 @@ export const chatActions = {
   approveTool,
   approveToolForSession,
   denyTool,
-  toggleRightPanelTile: (id: RightPanelTileId): void =>
-    dispatchActive({ type: 'TOGGLE_RIGHT_PANEL_TILE', id }),
-  setRightPanelTileActive: (id: RightPanelTileId, active: boolean): void =>
-    dispatchActive({ type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id, active }),
+  toggleRightPanelTile: (id: RightPanelTileId): void => {
+    dispatchActive({ type: 'TOGGLE_RIGHT_PANEL_TILE', id })
+    revealRightPanelTile(id)
+  },
+  setRightPanelTileActive: (id: RightPanelTileId, active: boolean): void => {
+    dispatchActive({ type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id, active })
+    if (active) revealRightPanelTile(id)
+  },
   renameRightPanelTile: (id: RightPanelTileId, label: string): void =>
     dispatchActive({ type: 'RENAME_RIGHT_PANEL_TILE', id, label }),
   removeRightPanelTile: (id: RightPanelTileId): void =>
@@ -1435,11 +1455,16 @@ export const chatActions = {
   captureDiffRequirementSnapshot,
   clearDiffRequirementsIfUnchanged,
   selectTask: (key: string | null): void => dispatchActive({ type: 'SELECT_TASK', key }),
-  openTask: (key: string): void => dispatchActive({ type: 'OPEN_TASK', key }),
+  openTask: (key: string): void => {
+    dispatchActive({ type: 'OPEN_TASK', key })
+    revealRightPanelTile('task')
+  },
   selectSubagentTask: (toolRunId: string | null): void =>
     dispatchActive({ type: 'SELECT_SUBAGENT_TASK', toolRunId }),
-  openSubagentTask: (toolRunId: string): void =>
-    dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId }),
+  openSubagentTask: (toolRunId: string): void => {
+    dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId })
+    revealRightPanelTile('subagent')
+  },
   acknowledgeSettledTasks: (): void => dispatchActive({ type: 'ACKNOWLEDGE_SETTLED_TASKS' }),
   stopTask,
   backgroundTask,

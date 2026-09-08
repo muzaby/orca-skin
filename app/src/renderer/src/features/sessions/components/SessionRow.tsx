@@ -171,7 +171,7 @@ export const SessionRow = memo(function SessionRow({
                     setMenuOpen(false)
                     openConfirmDialog({
                       title: tr('sessions.deleteDialogTitle'),
-                      message: tr('sessions.deleteDialogMessage'),
+                      message: `${tr('sessions.deleteDialogMessage')} ${tr('chat.artifacts.retainedOnSessionDelete')}`,
                       confirmLabel: tr('common.delete'),
                       danger: true,
                       onConfirm: () => onDelete(session.id)

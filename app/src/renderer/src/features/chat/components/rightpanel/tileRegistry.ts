@@ -4,12 +4,14 @@ import { DiffTileContent } from './DiffTileContent'
 import { GitContextBar } from './GitContextBar'
 import { SubAgentTileContent, SubAgentTileHeader } from './SubAgentTileContent'
 import { TaskTileContent, TaskTileHeader } from './TaskTileContent'
+import { ArtifactTileContent } from './ArtifactTileContent'
 
 const contentById: Record<RightPanelTileId, React.ComponentType> = {
   plan: PlanTileContent,
   subagent: SubAgentTileContent,
   task: TaskTileContent,
-  diff: DiffTileContent
+  diff: DiffTileContent,
+  artifacts: ArtifactTileContent
 }
 
 // 타일별 헤더 액션(닫기 버튼 앞에 놓이는 추가 조작). 계획 타일만 복사 버튼을 갖고,

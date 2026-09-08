@@ -5,6 +5,7 @@
 import type { NormalizedPermissionMode } from './permission-mode'
 // continuity 언어 스냅샷(0127) — type-only.
 import type { ContinuityLang } from './continuity-lang'
+import type { ArtifactRef } from './artifacts'
 
 // Phase 2 활성 채널 (preload 노출 대상). 미사용 채널은 의도적으로 누락.
 export const CHANNELS = {
@@ -45,6 +46,12 @@ export const CHANNELS = {
   filesPickDirectory: 'orca:files:pickDirectory',
   filesOpenPath: 'orca:files:openPath',
   filesReadAttachment: 'orca:files:readAttachment',
+  artifactList: 'orca:artifact:list',
+  artifactStatus: 'orca:artifact:status',
+  artifactSave: 'orca:artifact:save',
+  artifactReveal: 'orca:artifact:reveal',
+  artifactTrash: 'orca:artifact:trash',
+  artifactOpenFolder: 'orca:artifact:openFolder',
   // 컴포저 브랜치 칩(작업 경로의 git 상태·브랜치 목록·전환). 작업 경로가 git 저장소가 아니면
   // status 가 `isRepo:false` 를 돌려주고 renderer 는 칩 자체를 렌더하지 않는다.
   gitStatus: 'orca:git:status',
@@ -565,7 +572,10 @@ export type NormalizedEvent =
       // 모델용 wire content 라 TaskCreate 의 task.id 같은 필드를 담지 않는다. 다른 도구까지
       // 실으면 큰 출력이 그대로 영속되므로 `isTaskToolName` 이 유일한 게이트다.
       structuredOutput?: unknown
+      // HistoryWriter만 원래 publisher 호출·게시 소유권 확인 후 보강한다.
+      artifact?: ArtifactRef
     }
+  | { type: 'artifact.published'; sessionId: string; artifact: ArtifactRef }
   // 서브에이전트(Task) 라이브 메타 — SDK task_started/task_progress/task_notification 정규화.
   // reducer 미경유(메인 transcript 파트 비오염): store 가 toolUseId 키 transient 맵으로 흡수해
   // 우측 패널·AgentTaskRow 의 모델/경과시간/현재도구/도구수 표시를 구동한다.
@@ -1340,6 +1350,7 @@ export interface SubagentTaskMeta {
 // claude 가 실제로 채우는 종류: text / reasoning / tool_call / tool_result / error.
 // file / diff / structured_output 은 모델 정의만 두고 OpenCode 어댑터 도입 시 채운다(seam).
 export type AppMessagePart =
+  | { type: 'artifact'; artifact: ArtifactRef; parentToolRunId?: string }
   // parentToolRunId: 서브에이전트(Task) child 의 텍스트/사고면 부모 Task toolRunId. 최상위면 생략.
   // 메인 트랜스크립트는 이 필드가 있는 파트를 제외하고, 우측 패널 child 트랜스크립트만 모은다.
   | { type: 'text'; text: string; parentToolRunId?: string }

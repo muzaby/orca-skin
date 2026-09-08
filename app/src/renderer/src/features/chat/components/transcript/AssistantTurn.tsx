@@ -1,7 +1,9 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { AssistantMessage } from './AssistantMessage'
 import { MessageMeta } from './MessageMeta'
 import { turnCopyText, turnEquals, type Turn } from '../../lib/turns'
+import { partsArtifacts } from '../../lib/parts'
+import { ArtifactCards } from '../ArtifactCard'
 
 interface AssistantTurnProps {
   turn: Turn
@@ -20,11 +22,16 @@ interface AssistantTurnProps {
 export const AssistantTurn = memo(
   function AssistantTurn({ turn, pending, forkable }: AssistantTurnProps): React.JSX.Element {
     const last = turn.messages[turn.messages.length - 1]
+    const artifacts = useMemo(
+      () => partsArtifacts(turn.messages.flatMap((message) => message.parts)),
+      [turn.messages]
+    )
     return (
       <div className="group/msg relative flex flex-col gap-[var(--chat-item-gap)]">
         {turn.messages.map((m, i) => (
           <AssistantMessage key={i} message={m} />
         ))}
+        {artifacts.length > 0 && <ArtifactCards artifacts={artifacts} />}
         {!pending && (
           <MessageMeta
             text={turnCopyText(turn)}

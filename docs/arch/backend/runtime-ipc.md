@@ -27,6 +27,12 @@
 - 각 IPC handler는 `RouterContext`에서 실제 쓰는 속성만 받는다. 연결 인증·gate는 연결 handler에 따로 주입하며 일반 context에 포함하지 않는다.
 - `Bootstrap`은 `TitleGenerator`를 소유하고 DB 종료 전에 `dispose()`한다. 진행 요청·타이머를 회수하며 취소를 무시하고 끝난 completion도 DB를 갱신하지 않는다.
 
+### 게시 도구의 실행 문맥
+
+`orca_artifacts`는 기존 RuntimeToolRegistry와 ExtensionBuilder snapshot을 통해 모델에게 `publish_artifact`와 사용 지침을 제공한다. `SessionRuntime`은 query마다 고정 작업 경로·추가 경로, 확정 세션 대기, 취소 신호를 도구 문맥으로 전달한다. 세션은 TurnCoordinator의 history 저장과 registry 승격 뒤 확정된다. warm 채널은 문맥을 유지하며 interrupt는 진행 준비를 취소하고 다음 호출용 신호를 만든다. close/respawn은 이전 문맥을 종료한다.
+
+게시 서비스는 파일과 세션 참조를 먼저 확정하고 작은 게시 ID 영수증을 반환한다. `artifact.published` 알림은 목록만 갱신한다. HistoryWriter가 실제 도구 결과의 toolRunId·영수증 소유권·원래 tool_call을 확인한 뒤 해당 메시지에 part를 붙이고 `tool.call.completed.artifact`를 relay한다. 연결 전에 종료된 게시도 목록에는 남으며 최신 assistant 메시지로 추정 연결하지 않는다. 저장 수명은 [persistence.md](persistence.md), IPC 형상은 [IPC_CONTRACT](../../IPC_CONTRACT.md)를 따른다.
+
 ### 1.2 SessionRuntime 상태 (`contracts/session-state.ts`)
 
 | 상태 | 의미 |

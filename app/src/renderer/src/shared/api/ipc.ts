@@ -1,4 +1,15 @@
 import type {
+  ArtifactRef,
+  ArtifactListRequest,
+  ArtifactTargetRequest,
+  ArtifactStatusRequest,
+  ArtifactStatusItem,
+  ArtifactSaveRequest,
+  ArtifactSaveResult,
+  ArtifactTrashResult,
+  ArtifactActionResult
+} from '../../../../shared/artifacts'
+import type {
   PermissionRespond,
   BootReport,
   SetPermissionMode,
@@ -252,4 +263,16 @@ export const mcpApi = {
 export function getPlatform(): 'darwin' | 'win32' | 'linux' | undefined {
   if (typeof window === 'undefined') return undefined
   return window.orca?.platform
+}
+
+export const artifactApi = {
+  list: (req: ArtifactListRequest): Promise<ArtifactRef[]> => window.orca.artifacts.list(req),
+  status: (req: ArtifactStatusRequest): Promise<ArtifactStatusItem[]> =>
+    window.orca.artifacts.status(req),
+  save: (req: ArtifactSaveRequest): Promise<ArtifactSaveResult> => window.orca.artifacts.save(req),
+  reveal: (req: ArtifactTargetRequest): Promise<ArtifactActionResult> =>
+    window.orca.artifacts.reveal(req),
+  trash: (req: ArtifactTargetRequest): Promise<ArtifactTrashResult> =>
+    window.orca.artifacts.trash(req),
+  openFolder: (): Promise<ArtifactActionResult> => window.orca.artifacts.openFolder()
 }

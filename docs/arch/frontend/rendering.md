@@ -148,3 +148,11 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 **⑤ 빈 reasoning 카드 스킵 (구현 완료).** 빈/공백 "사고 과정" 카드가 뜨던 문제 해소 — `claude-map`(빈 `thinking` emit 안 함)·`messageSegments`(빈 reasoning 파트 스킵)·`ReasoningBlock`(합친 텍스트 공백이면 `null`) 3층 가드. 라이브 경로 `PendingAssistant` 는 기존 `{pendingReasoning && …}` 로 이미 가드됨.
 
 ---
+
+## 산출물 게시 카드
+
+`artifact` part는 `ArtifactCard` 공통 컴포넌트로 transcript와 산출물 타일에 표시한다. 카드에는 게시 메타데이터와 현재 파일 상태, 저장·탐색기 보기·휴지통 이동·다시 확인 액션을 둔다. 파일 없음과 접근 오류를 구분하며 휴지통 이동 시각은 과거 이력으로 표시한다. 본문 미리보기와 파일뷰어는 제공하지 않는다.
+
+검증된 `tool.call.completed.artifact`는 원래 toolRunId가 속한 메시지만 교체한다. 목록 갱신 이벤트는 transcript에 새 카드를 추정 추가하거나 패널을 자동 선택하지 않는다. `artifactStore`는 mount된 세션의 알려진 ID를 대상으로 상태 조회를 병합하고 세션/파일별 요청 세대로 지각 응답을 폐기한다. transcript 묶음 저장은 해당 메시지의 게시 집합, 타일은 Main이 반환한 최신 목록을 사용한다.
+
+우측 패널은 기존 타일 registry·메뉴·행/열 배치를 사용한다. viewport 폭은 가용 영역의 절반 이내이며 넘치는 열은 가로 스크롤한다. 명시적으로 타일을 열면 이미 열린 화면 밖 열도 보여 주고, 열 리사이즈는 스크롤된 실제 DOM 좌표를 기준으로 계산한다. 카드와 액션은 기존 시맨틱 토큰·Button·DropdownMenu·확인창·번역 리소스를 공유한다.

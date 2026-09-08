@@ -11,7 +11,7 @@
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인: `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `git`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `provider`
+- 도메인: `artifact` · `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `git`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `provider`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -160,6 +160,21 @@ interface Settings {
 | `orca:files:pickDirectory` | R→M (invoke) | —                                                      | `string \| null`                                      | 컴포저 cwd 버튼용 디렉토리 선택 다이얼로그. 기본 시작 위치는 Orca 기본 작업 경로(`projects/default`)이며, 취소/빈 선택은 `null`. |
 | `orca:files:openPath` | R→M (invoke) | `OpenPathRequest` = `{ path: string; mode: 'directory' \| 'reveal' }` | `Promise<void>` | 두 모드 하나의 채널. `directory` = 세션 cwd 를 OS 파일 탐색기로 연다(`shell.openPath`). `reveal` = 그 **파일**을 탐색기에서 선택해 보여준다(`shell.showItemInFolder`, 0211 ΔV5). **경로 화이트리스트**는 두 모드가 같은 술어를 쓴다 — `projects/` 루트 하위이거나 실재 세션 cwd 인 디렉토리. `directory` 는 그 경로 자체를, `reveal` 은 파일의 부모부터 조상까지 올라가며 판정한다. 실체가 모드와 다르면(파일을 `directory` 로·디렉토리를 `reveal` 로) reject. `mode` 는 **필수**다 — optional 이면 미지정이 넓은 쪽으로 접힌다. |
 | `orca:files:readAttachment`  | R→M (invoke) | `ReadAttachmentRequest` = `{ path: string }`           | `ReadAttachmentResult` = `{ data: string; mimeType: string }` | 이미지 첨부 썸네일용 base64 읽기. main path allowlist 검증 후 image 파일만 반환한다. |
+
+### 2.6-a 산출물 게시 파일
+
+모델의 `publish_artifact` 호출만 게시를 생성한다. 아래 IPC는 저장된 게시 ID의 파일 관리용이며 임의 경로·파일 본문을 renderer에 반환하지 않는다. 타입 정본은 `app/src/shared/artifacts.ts`, 입력 검증은 `shared/protocol.ts`, 실행은 `main/app/handlers/artifacts.ts`다. 입력 스키마 실패는 모두 **reject**이며 알 수 없는 키·상한 초과 목록을 조용히 버리지 않는다.
+
+| 채널 | 방향 | 요청 | 응답 | 의미 |
+|---|---|---|---|---|
+| `orca:artifact:list` | R→M (invoke) | `ArtifactListRequest` | `ArtifactRef[]` | 해당 세션의 입력 실체별 최신 게시. 미연결 게시·파일 없음도 포함. 조회 실패 reject. |
+| `orca:artifact:status` | R→M (invoke) | `ArtifactStatusRequest` | `ArtifactStatusItem[]` | 알려진 게시 ID의 현재 파일 상태. missing과 unavailable 구분. 최대 100개, stat 병렬 4. |
+| `orca:artifact:save` | R→M (invoke) | `ArtifactSaveRequest` | `ArtifactSaveResult` | 시작 시 고정한 최대 50개 ID. 하나면 저장 창, 여러 개면 폴더 선택. 동명 묶음은 suffix를 붙여 기존 파일 보존. 취소·항목별 저장/건너뜀/실패 구분. 원본 보관 루트 덮어쓰기 금지. |
+| `orca:artifact:reveal` | R→M (invoke) | `ArtifactTargetRequest` | `ArtifactActionResult` | 원래 게시 ID의 현 파일 실체를 확인하고 탐색기에 표시. |
+| `orca:artifact:trash` | R→M (invoke) | `ArtifactTargetRequest` | `ArtifactTrashResult` | 확인 UI 이후 현재 파일을 OS 휴지통으로 이동. 성공과 DB 이력 기록 성공을 분리. 영구 삭제 폴백 없음. |
+| `orca:artifact:openFolder` | R→M (invoke) | — | `ArtifactActionResult` | 앱이 정한 profile 보관 폴더만 탐색기로 열기. |
+
+`ArtifactRef`는 게시/파일 ID·제목·파일명·형식·게시 당시 크기/시각만 포함한다. 현재 파일은 외부에서 수정·삭제할 수 있으며 저장은 동작 시점의 바이트를 사용한다. 상태는 진입·사용자 재확인·액션 시 조회하고 watcher/polling은 없다. 파일뷰어·본문 읽기 채널은 제공하지 않는다. 보관과 세션 수명은 [영속성 문서](arch/backend/persistence.md#14-계층-2--게시-원본-파일) 참조.
 
 ### 2.6-b Git (컴포저 브랜치 칩)
 
@@ -440,6 +455,7 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 
 | `type`                    | 필드(공통: `sessionId`)                                                                                   | 발생 시점                                                                                      | Renderer 처리 (`chatReducer.ts`)                                                                                                                                       |
 | ------------------------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `artifact.published` | `artifact: ArtifactRef` | 파일과 세션 게시 기록 commit 이후 host가 발신 | 해당 세션 목록을 갱신. 이 이벤트만으로 transcript part를 만들지 않음. |
 | `session.updated`         | `patch: { model?; cwd?; worktree?: WorktreeDisplay \| null; agentTools?: string[]; cliVersion?: string }`                                                                                 | 어댑터의 첫 메시지 (SDK `SDKSystemMessage.init`)                                               | `state.sessionId` 저장, `state.cwd` 갱신. **patch 는 전부 누락 = 무변경**이다. `worktree`(0211 AR-02)만 **세 상태**를 구분한다 — 키 부재 = 이 갱신은 표시 정본에 관해 말하지 않는다 · `null` = 표시 정본 소실(0210 D-107 폴백) · 객체 = 덮어쓰기. 그래서 소비자는 `undefined` 비교가 아니라 **키 유무**(`Object.hasOwn`)로 판정하고, 발신부는 키를 넣거나 빼거나 둘 중 하나만 한다(0211 D-022). `agentTools`·`cliVersion`(0212 R-01)은 **누락 = 무변경**으로 병합한다 — TaskXXX 기능 가용성을 `tools` 에 `TaskCreate` 가 있는지로 판정하고(버전 비교 아님, D-003), **부재(`undefined`)와 미포함은 다른 사실**이라 부재에는 안내하지 않는다(D-005)                                                                                                                               |
 | `message.queued`          | `id; text; attachmentViews?; requirements?: DiffRequirementAnchor[]; createdAt` (`sessionId` optional — 새 세션 send 는 미확정) | 사용자 프롬프트가 pending message queue 에 접수됨(0067 — 일반 send·busy 예약·handoff 자동 메시지 공통) | pending user 버블(연회색/기울임) 표시 — renderer 낙관 항목과 `id` 로 합류(idempotent upsert). `requirements`는 읽기 전용 인용 첨부로 표시한다. sessionId 없으면 `clientKey`/`pendingNewChatKey` draft 라우팅 |
 | `input.echo`              | `text; uuid?` | CLI 가 stdin 주입 입력을 흡수해 user 메시지로 echo(`SDKUserMessageReplay`)한 순간 — pending 소비 확정의 정밀 신호(0060 D1) | **main 내부 전용 — renderer 로 forward 되지 않는다.** TurnCoordinator 가 uuid(1차)/text(폴백) 매칭으로 pending 을 소비 표시하고 스트림에서 흡수 |
@@ -470,6 +486,8 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 **권한 응답 채널 단일화.** ask/plan/tool 세 종류의 승인 응답은 모두 단일 `permissionRespond`(`orca:permission:respond`, renderer→main invoke) 채널로 흐른다(구 `askRespond`/`planRespond` 2채널 통합). 페이로드 = `{approvalId, resolution: ApprovalResolution}`. main(`ApprovalBroker<ApprovalResolution>`, `features/approvals/broker.ts`)이 `approvalId` 로 보류 중인 `canUseTool` Promise 를 해소한다. 부수효과: ① `allow.updatedPermissions{scope:'session'}` → 해당 세션의 자동 허용 도구 집합 갱신(같은 세션 이후 턴 카드 미surface), ② `deny.interrupt` → 해당 턴 abort(plan reject). **위험 도구 게이트**: 어댑터의 `canUseTool` 이 화이트리스트(`adapters/risky-tools.ts` 의 `RISKY_TOOLS`·`isRiskyTool`)에 든 도구만 `tool_approval` 로 surface 하고, 안전 도구는 자동 통과한다.
 
 **권한 모드 라이브 전환 (PR③).** `permissionSetMode`(`orca:permission:setMode`, renderer→main invoke). 페이로드 = `{sessionId, mode: NormalizedPermissionMode}`(정규화 6종 — `default`·`accept_edits`·`plan`·`dont_ask`·`bypass`·`auto_classified`). main 은 두 경로로 적용한다: ① `PermissionModeController`(세션 SSOT) 갱신 → 다음 턴 send 페이로드에 반영, ② 같은 세션의 진행 중 턴이 있으면 그 턴의 라이브 핸들로 즉시 `Query.setPermissionMode`(`toClaudePermissionMode` 변환) — 그 턴의 이후 도구부터 적용. 턴-스코프 스트리밍 입력(`prompt: AsyncIterable<SDKUserMessage>`)에서만 control 메서드가 열린다(resume-from-DB 모델 유지). 위험 모드(`bypass`·`dont_ask`)는 렌더러 `ModeMenu` 가 2-스텝 확인으로 가드한다.
+
+`tool.call.completed.artifact?: ArtifactRef`는 HistoryWriter가 실제 publisher 원래 호출과 영수증 소유권을 검증한 뒤 보강한다. renderer는 해당 toolRunId를 가진 메시지에만 artifact part를 합류하고 마지막 assistant 메시지로 추정하지 않는다. DB에는 같은 artifact part가 저장되므로 세션 재조회도 동일하다.
 
 ## 4. 에러 분류 (ErrorCategory)
 

@@ -2,6 +2,7 @@ import type { NormalizedEvent } from '../../../shared/ipc'
 import type { ClaudePermissionMode } from '../../../shared/permission-mode'
 import { harnessEnvFingerprint, type ResolvedHarnessSettings } from '../../adapters/harness-config'
 import type { TurnRequest } from '../../adapters/turn'
+import type { RuntimeToolContext } from '../../adapters/runtime-tools'
 import type { LiveTurn, ProviderMessageBatch } from '../../adapters/types'
 import type { ManagedRuntime, RuntimeSessionAdapter } from '../../contracts/ports'
 import { getLogger } from '../../infra/log/registry'
@@ -50,6 +51,68 @@ export function pickFrameDelegates(req: TurnRequest): FrameDelegate {
 // respawn 경계·에러) 동안 살아남아 후속 턴을 이어받는다. 'oneshot' 또는 pushTurn 미구현
 // 어댑터(mock)는 턴-스코프(매 턴 fresh)로 동작한다.
 export type ClosePolicy = 'oneshot' | 'persistent'
+
+class ChannelToolContext implements RuntimeToolContext {
+  readonly cwd: string
+  readonly extraDirs: readonly string[]
+  private controller = new AbortController()
+  private closed = false
+  private confirmedSession: string | null = null
+  private readonly ready: Promise<string | null>
+  private resolveReady!: (sessionId: string | null) => void
+
+  constructor(private readonly request: Pick<TurnRequest, 'sessionId' | 'cwd' | 'extraDirs'>) {
+    this.cwd = request.cwd
+    this.extraDirs = Object.freeze([...(request.extraDirs ?? [])])
+    this.ready = new Promise((resolve) => {
+      this.resolveReady = resolve
+    })
+  }
+
+  getSignal(): AbortSignal {
+    return this.controller.signal
+  }
+
+  waitForSession(signal: AbortSignal): Promise<string> {
+    if (this.closed || signal.aborted)
+      return Promise.reject(new Error('runtime tool context closed'))
+    return new Promise((resolve, reject) => {
+      const abort = (): void => reject(new Error('runtime tool preparation cancelled'))
+      signal.addEventListener('abort', abort, { once: true })
+      void this.ready.then((sessionId) => {
+        signal.removeEventListener('abort', abort)
+        if (this.closed || signal.aborted || !sessionId) {
+          reject(new Error('runtime tool context closed'))
+        } else {
+          resolve(sessionId)
+        }
+      })
+    })
+  }
+
+  confirm(sessionId: string): void {
+    if (this.closed || !sessionId || this.confirmedSession !== null) return
+    if (this.request.sessionId && this.request.sessionId !== sessionId) return
+    this.confirmedSession = sessionId
+    this.resolveReady(sessionId)
+  }
+
+  interrupt(): void {
+    if (this.closed) return
+    this.controller.abort()
+    this.controller = new AbortController()
+  }
+
+  cancelUnconfirmed(): void {
+    if (this.confirmedSession === null) this.close()
+  }
+
+  close(): void {
+    this.closed = true
+    this.controller.abort()
+    this.resolveReady(null)
+  }
+}
 
 const EMPTY_BATCHES: AsyncIterable<ProviderMessageBatch> = {
   [Symbol.asyncIterator](): AsyncIterator<ProviderMessageBatch> {
@@ -139,6 +202,7 @@ export class SessionRuntime implements ManagedRuntime {
   // 채널 신호 — spawn 시 어댑터에 넘기는 유일한 abort 신호(턴 신호와 분리, 0067). 채널 폐기
   // (close/teardown)에서만 abort 된다. 턴 취소는 interrupt() 경로(markAborted)로 채널을 살린다.
   private channelController = new AbortController()
+  private runtimeToolContext: ChannelToolContext | null = null
   private pumpRunning = false
   private nextChannelToken = 0
   private channelTokenValue: number | null = null
@@ -334,6 +398,12 @@ export class SessionRuntime implements ManagedRuntime {
     const log = getLogger().child('engine')
     log.info('engine.spawn.started', { provider: this.adapter.id })
     let spawned: LiveTurn
+    const toolContext = new ChannelToolContext({
+      sessionId: req.sessionId,
+      cwd: req.cwd,
+      extraDirs: req.extraDirs
+    })
+    this.runtimeToolContext = toolContext
     try {
       if (req.canSubmitInitial && !req.canSubmitInitial()) {
         throw new Error('submission_stale:before-spawn')
@@ -344,6 +414,8 @@ export class SessionRuntime implements ManagedRuntime {
         throw new Error('submission_stale:initial')
       }
     } catch (err) {
+      toolContext.close()
+      if (this.runtimeToolContext === toolContext) this.runtimeToolContext = null
       req.rollbackInitialSubmission?.()
       log.error('engine.spawn.failed', err, { provider: this.adapter.id })
       throw err
@@ -392,6 +464,7 @@ export class SessionRuntime implements ManagedRuntime {
   // 넘긴다 — 다음 terminal 까지 드랍(routeEvent). 에러 시 상태 전이는 pump(finishPump)가 아니라
   // 소비 측에서 판정한다(cancelled/timedOut 우선).
   private async *consumeFrame(frame: Frame): AsyncIterable<NormalizedEvent> {
+    const toolContext = this.runtimeToolContext
     this.consumingFrame = frame
     try {
       yield* frame.iterate()
@@ -399,6 +472,7 @@ export class SessionRuntime implements ManagedRuntime {
       if (!this.cancelled && !this.timedOut) this.status.markError(null)
       throw err
     } finally {
+      toolContext?.cancelUnconfirmed()
       if (this.consumingFrame === frame) this.consumingFrame = null
       if (this.frame === frame) {
         this.frame = null
@@ -552,6 +626,8 @@ export class SessionRuntime implements ManagedRuntime {
   // frame/drain/backlog 전이는 각 종료 경로가 소유한다. 여기서는 현재 채널의 자원만 회수한다.
   private retireChannel(live = this.live): void {
     if (live !== this.live) return
+    this.runtimeToolContext?.close()
+    this.runtimeToolContext = null
     this.notifyChannelRetired()
     live?.close()
     this.live = null
@@ -585,7 +661,16 @@ export class SessionRuntime implements ManagedRuntime {
     for (const key of ADAPTER_DELEGATE_KEYS) {
       if (req[key] !== undefined) wrapped[key] = forward[key]
     }
-    return { ...req, signal: this.channelController.signal, ...wrapped }
+    return {
+      ...req,
+      signal: this.channelController.signal,
+      ...wrapped,
+      runtimeToolContext: this.runtimeToolContext ?? undefined
+    }
+  }
+
+  confirmRuntimeToolSession(sessionId: string): void {
+    this.runtimeToolContext?.confirm(sessionId)
   }
 
   close(): void {
@@ -597,6 +682,7 @@ export class SessionRuntime implements ManagedRuntime {
   // 닫는다(잔여는 draining 이 terminal 까지 흡수). 턴-스코프(mock/oneshot)는 채널 신호 abort 로
   // 서브프로세스를 죽인다(현행 취소 의미 보존).
   markAborted(cause: Exclude<AbortCause, null>): void {
+    this.runtimeToolContext?.interrupt()
     this.status.markInterrupting(cause)
     if (this.pumpRunning && this.live) {
       // 0151 — interrupt 영수증(still_queued)을 폐기하지 않고 위임으로 올린다. 시그니처는 동기를

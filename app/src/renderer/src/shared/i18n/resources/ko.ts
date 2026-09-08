@@ -450,6 +450,42 @@ export const ko = {
     completeBody: '응답이 완료되었습니다.'
   },
   chat: {
+    artifacts: {
+      forbidden: '이 대화에서 파일을 사용할 수 없습니다',
+      unsafe: '안전한 파일 위치를 확인할 수 없습니다',
+      tooLarge: '파일이 허용 크기를 초과했습니다',
+      title: '산출물',
+      actions: '파일 작업',
+      bytes: '{{count}} 바이트',
+      working: '처리 중',
+      checking: '확인 중',
+      available: '파일 있음',
+      missing: '파일 없음 — 삭제되었거나 이동되었습니다',
+      unavailable: '파일에 접근할 수 없음',
+      trashedAt: '휴지통으로 이동한 시각: {{time}}',
+      save: '다른 이름으로 저장',
+      saveAll: '모두 저장',
+      reveal: '탐색기에서 보기',
+      refresh: '다시 확인',
+      openFolder: '보관 폴더 열기',
+      trash: '휴지통으로 이동',
+      trashTitle: '파일을 휴지통으로 이동할까요?',
+      trashMessage:
+        '게시 기록은 남습니다. 이 파일을 참조하는 다른 대화에서도 파일을 사용할 수 없게 됩니다.',
+      cancelled: '저장을 취소했습니다',
+      failed: '파일 작업을 완료하지 못했습니다. 다시 확인해 주세요.',
+      saveComplete: '저장 결과',
+      tooMany: '한 번에 50개까지 저장할 수 있습니다. 개별 저장을 이용해 주세요.',
+      saved: '저장됨',
+      skipped: '건너뜀 — 파일 상태를 확인해 주세요',
+      done: '완료했습니다',
+      trashed: '휴지통으로 이동했습니다',
+      trashedUnrecorded: '휴지통으로 이동했습니다. 이동 이력을 저장하지 못했습니다.',
+      empty: '게시된 산출물이 없습니다',
+      loading: '산출물을 불러오는 중',
+      listFailed: '산출물을 불러오지 못했습니다',
+      retainedOnSessionDelete: '저장된 산출물 파일은 유지됩니다.'
+    },
     // 예약 steer 가 stdin 으로 넘어가 취소 불가가 된 상태 표시(0151).
     steer: {
       submitted: '전달됨',
@@ -808,7 +844,8 @@ export const ko = {
         plan: '계획',
         subagent: '백그라운드 작업',
         task: '작업',
-        diff: '변경사항'
+        diff: '변경사항',
+        artifacts: '산출물'
       },
       diffAllChanges: '모든 변경사항',
       diffEmpty: '표시할 변경 사항이 없습니다.',

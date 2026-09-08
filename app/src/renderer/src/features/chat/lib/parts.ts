@@ -8,6 +8,16 @@ import type {
 } from '../../../../../shared/ipc'
 import { isAsyncLaunchedPayload } from '../../../../../shared/subagent'
 import type { Message, ToolCall } from '../reducer/chatReducer'
+import type { ArtifactRef } from '../../../../../shared/artifacts'
+
+export function partsArtifacts(parts: readonly AppMessagePart[]): ArtifactRef[] {
+  const seen = new Set<string>()
+  return parts.flatMap((part) => {
+    if (part.type !== 'artifact' || seen.has(part.artifact.publicationId)) return []
+    seen.add(part.artifact.publicationId)
+    return [part.artifact]
+  })
+}
 
 // 파트의 parentToolRunId(서브에이전트 child 표식) 조회 — 4종 파트가 옵션 필드로 가질 수 있다.
 function partParentToolRunId(p: AppMessagePart): string | undefined {

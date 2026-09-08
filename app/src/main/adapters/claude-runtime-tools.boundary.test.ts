@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { adaptRuntimeTools } from './claude-runtime-tools'
-import type { RuntimeToolResult, RuntimeToolSnapshot } from './runtime-tools'
+import type {
+  RuntimeToolContext,
+  RuntimeToolImplementation,
+  RuntimeToolSnapshot
+} from './runtime-tools'
 
 // 형제 파일 `claude-runtime-tools.test.ts` 는 createSdkMcpServer 를 mock 해 **옵션 조립**만 본다.
 // 여기서는 mock 없이 실제 SDK 서버 인스턴스를 in-memory transport 로 물려 **경계 통과 후의
@@ -14,7 +18,8 @@ import type { RuntimeToolResult, RuntimeToolSnapshot } from './runtime-tools'
 // in-memory transport 로 왕복시켜 그 지점을 고정한다.
 describe('runtime tool 결과가 실제 MCP 경계를 지난 뒤', () => {
   async function callTool(
-    handler: () => Promise<RuntimeToolResult>
+    handler: RuntimeToolImplementation['handler'],
+    context?: RuntimeToolContext
   ): Promise<{ content: unknown[]; isError?: boolean }> {
     const snapshot: RuntimeToolSnapshot = {
       revision: 1,
@@ -34,7 +39,7 @@ describe('runtime tool 결과가 실제 MCP 경계를 지난 뒤', () => {
         ]
       ])
     }
-    const adapted = adaptRuntimeTools(snapshot) as {
+    const adapted = adaptRuntimeTools(snapshot, context) as {
       mcpServers: Record<string, { instance: { connect(t: unknown): Promise<void> } }>
     }
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
@@ -56,6 +61,29 @@ describe('runtime tool 결과가 실제 MCP 경계를 지난 뒤', () => {
 
     expect(res.content).toEqual([{ type: 'text', text: 'ORCA-1' }])
     expect(res.isError).toBeFalsy()
+  })
+
+  it('the same handler receives each query context through real MCP without a global replacement', async () => {
+    const makeContext = (sessionId: string): RuntimeToolContext => ({
+      cwd: `/work/${sessionId}`,
+      extraDirs: [],
+      getSignal: () => new AbortController().signal,
+      waitForSession: async () => sessionId
+    })
+    const handler: RuntimeToolImplementation['handler'] = async (_input, context) => ({
+      content: [
+        {
+          type: 'text',
+          text: context ? await context.waitForSession(context.getSignal()) : 'missing-context'
+        }
+      ]
+    })
+    const [a, b] = await Promise.all([
+      callTool(handler, makeContext('session-a')),
+      callTool(handler, makeContext('session-b'))
+    ])
+    expect(a.content).toEqual([{ type: 'text', text: 'session-a' }])
+    expect(b.content).toEqual([{ type: 'text', text: 'session-b' }])
   })
 
   it('플러그인이 isError 를 세우면 그대로 실패로 전달한다', async () => {

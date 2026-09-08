@@ -3,6 +3,18 @@
 // 타입과 CHANNELS 만 필요한 곳은 ./ipc 에서 import.
 
 import { z } from 'zod'
+
+const artifactId = z.string().min(1).max(256)
+export const ArtifactListRequestSchema = z.object({ sessionId: artifactId }).strict()
+export const ArtifactTargetRequestSchema = ArtifactListRequestSchema.extend({
+  publicationId: artifactId
+}).strict()
+export const ArtifactStatusRequestSchema = ArtifactListRequestSchema.extend({
+  publicationIds: z.array(artifactId).max(100)
+}).strict()
+export const ArtifactSaveRequestSchema = ArtifactListRequestSchema.extend({
+  publicationIds: z.array(artifactId).min(1).max(50)
+}).strict()
 import { DEFAULT_UPDATE_CHECK, MOCK_SCENARIO_IDS, UPDATE_CHECK_INTERVAL_HOURS } from './ipc'
 import type {
   AttachmentView,

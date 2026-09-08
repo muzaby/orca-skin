@@ -16,7 +16,8 @@ import {
   PANEL_MIN_ROW_SPLIT,
   PANEL_MIN_WIDTH
 } from '../../reducer/chatReducer'
-import { chatActions, useChatSession } from '../../store/chatStore'
+import { chatActions, useChatSession, useChatStore } from '../../store/chatStore'
+import type { RightPanelTileId } from '../../lib/rightPanelTiles'
 import { deriveRightPanelLayout } from '../../lib/rightPanelLayout'
 import { tileById } from './tileRegistry'
 import { RightPanelTile } from './RightPanelTile'
@@ -208,11 +209,29 @@ function RightPanelColumn({
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- 기존 DOM 스크롤 좌표 보정을 직접 시험한다.
+export function adjustPanelViewport(viewport: HTMLDivElement, tile?: RightPanelTileId): void {
+  let left = viewport.scrollLeft
+  if (tile) {
+    const column = viewport.querySelector<HTMLElement>(`[data-panel-tiles~="${tile}"]`)
+    if (column) {
+      const bounds = viewport.getBoundingClientRect()
+      const target = column.getBoundingClientRect()
+      if (target.left < bounds.left || target.right - target.left > viewport.clientWidth)
+        left += target.left - bounds.left
+      else if (target.right > bounds.right) left += target.right - bounds.right
+    }
+  }
+  viewport.scrollLeft = Math.max(0, Math.min(left, viewport.scrollWidth - viewport.clientWidth))
+}
+
 export function RightPanel({ className = '' }: { className?: string }): React.JSX.Element | null {
   const { tr } = useI18n()
   const activeTiles = useChatSession((s) => s.rightPanelTiles)
   const widths = useChatSession((s) => s.rightPanelColWidths)
   const splits = useChatSession((s) => s.rightPanelRowSplits)
+  const reveal = useChatStore((state) => state.sessions[state.activeKey]?.panelReveal)
+  const viewportRef = useRef<HTMLDivElement>(null)
   const layout = useMemo(() => deriveRightPanelLayout(activeTiles), [activeTiles])
   // 열 래퍼 ref(리사이즈 기준점) + 열 제거 시 남은 열을 빈 자리로 슬라이드(FLIP). 래퍼는 (있다면)
   // 왼쪽 분리자 + 열로 구성돼 래퍼의 오른쪽 모서리 = 열의 오른쪽 모서리(우측 도킹 리사이즈 기준).
@@ -221,26 +240,43 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
   const columnKeys = useMemo(() => layout.columns.map((c) => c.id), [layout])
   const { registerColumn, columnRightOf } = useColumnSlideOnReflow(columnKeys)
 
+  useLayoutEffect(() => {
+    if (viewportRef.current && reveal) adjustPanelViewport(viewportRef.current, reveal.id)
+  }, [reveal])
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+    const clamp = (): void => adjustPanelViewport(viewport)
+    clamp()
+    const observer = new ResizeObserver(clamp)
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [layout, widths])
+
   if (layout.columns.length === 0) return null
 
   return (
-    <>
-      <ColumnResizeSeparator
-        colIndex={0}
-        columnRightOf={columnRightOf}
-        label={tr('chat.rightpanel.panelResizeAria')}
-      />
-      <div className={`my-2 mr-2 flex min-h-0 shrink-0 ${className}`}>
+    <div
+      ref={viewportRef}
+      className={`my-2 mr-2 min-h-0 min-w-0 shrink-0 overflow-x-auto ${className}`}
+      style={{ maxWidth: 'calc(50% - 0.5rem)', width: 'max-content' }}
+    >
+      <div className="flex h-full min-h-0 w-max">
         {layout.columns.map((column, index) => (
-          <div key={column.id} ref={registerColumn(index)} className="flex min-h-0 shrink-0">
-            {index > 0 && (
-              <ColumnResizeSeparator
-                colIndex={index}
-                columnRightOf={columnRightOf}
-                label={tr('chat.rightpanel.colResizeAria')}
-                widthClass="w-2"
-              />
-            )}
+          <div
+            key={column.id}
+            ref={registerColumn(index)}
+            data-panel-tiles={column.tiles.join(' ')}
+            className="flex min-h-0 shrink-0"
+          >
+            <ColumnResizeSeparator
+              colIndex={index}
+              columnRightOf={columnRightOf}
+              label={tr(
+                index === 0 ? 'chat.rightpanel.panelResizeAria' : 'chat.rightpanel.colResizeAria'
+              )}
+              widthClass="w-2"
+            />
             <RightPanelColumn
               col={column.col}
               tiles={column.tiles}
@@ -250,6 +286,6 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
           </div>
         ))}
       </div>
-    </>
+    </div>
   )
 }

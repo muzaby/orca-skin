@@ -1,6 +1,6 @@
-# Publisher 모델 선택 평가 — V1 초안 rev.3
+# Publisher 모델 선택 평가 — V1 rev.4 실행 기록
 
-> [plan.md](plan.md) AC13·VP-13·VP-43·EP-12의 평가 설계다. **미실행**이며 기대 결과와 실제 관측을 혼합하지 않는다.
+> [plan.md](plan.md) AC13·VP-13·VP-43·EP-12의 평가 설계다. **부분 실행·판정 보류**이며 기대 결과와 실제 관측을 혼합하지 않는다. 작성자: Codex.
 > 제품에는 감지 hook·watcher·scan·별도 분류 모델을 넣지 않는다. 합성 fixture의 파일을 읽는 시험용 관찰은 제품의 자동 감지 기능과 구분한다.
 
 ## 1. 평가 조건
@@ -11,13 +11,13 @@
 | 모델 노출 | 고정된 publisher description/instructions/schema. 매 요청에서 도구 이름을 직접 지시하지 않음 |
 | 기대 집합 | 실행 전에 필수 게시·게시 금지·허용 결과를 fixture 단위로 확정 |
 | 반복 | 시나리오당 3회로 시작하는 안. 모델·SDK·지침 revision을 고정하고 첫 시도/재시도 모두 기록 |
-| 외부 실행 | 실제 모델 시험은 구현 후 지원되는 세션 경로로 수행. 이 문서 작성 중 API 호출 없음 |
+| 외부 실행 | P02는 실제 SDK/CLI와 production runtime/mapper/writer/service를 조립한 fixture로 실행. 전체 ClaudeAdapter 설정·Electron renderer 종단은 미실행 |
 | 비교 | 설명을 수정하면 새 revision으로 같은 과업표를 다시 실행. 좋은 결과만 선택하지 않음 |
 | 결정 | 작은 표의 비율을 제품 전체 정확도로 일반화하지 않음. 후속 hook/watcher 도입은 사용자 판단 |
 
 ## 2. 고정 과업표
 
-프롬프트 문구는 fixture 작성 시 아래 의미를 유지하며 확정한다. D-015~018의 저장·삭제·뷰어 후속 계약과 T-01의 확정 결과를 성공·버전·중단 oracle에 반영한 뒤 실행한다. 이번 ‘결과를 보여 달라’는 과업의 게시 UI는 카드·파일 액션으로 판정하며 본문 미리보기는 후속 평가다.
+P02의 고정 입력·프롬프트는 `app/src/main/app/artifact-sdk-live.test.ts`에 보관했다. 나머지 과업은 의미 수준에서만 고정됐으며 아직 실행하지 않았다. D-015~018과 확정된 2단계 게시 계약을 성공·버전·중단 oracle에 적용한다. 이번 ‘결과를 보여 달라’는 과업의 게시 UI는 카드·파일 액션으로 판정하며 본문 미리보기는 후속 평가다.
 
 | ID | 과업·상황 | 필수/금지/허용 결과 | 관찰 목적 |
 |---|---|---|---|
@@ -94,13 +94,35 @@ API 키·토큰·사용자 환경 전체 덤프는 기록하지 않는다. 합�
 
 사용자에게 실패 종류·반복성·실제 사례를 보고한다. “빈번함”에 대한 합격률을 임의로 만들어 감지 기능을 자동 활성화하지 않는다.
 
-## 6. 실행 결과 — 구현 후 기입
+## 6. 실행 결과 — 2026-09-08
 
-| 항목 | 현재 상태 |
+작성자: Codex. **모델 선택 품질은 아직 판정할 수 없다.** 실행 완료가 없으므로 누락률·오게시율을 0%로 보고하지 않는다. 과업 전체 3회 반복은 미완료다.
+
+| 시도 | 입력/실행 | 실제 관측 | 판정 |
+|---|---|---|---|
+| P02-1 | SDK string prompt, 실행 좌표 61362 | init model `claude-sonnet-5`, 90초 timeout/cancelled, 총 약97.4초. publisher call/게시 알림/연결 이벤트 수집 0건 | 실행 중단, 품질 평가 보류 |
+| P02-retry-approval | 같은 실기의 별도 권한 요청 | 승인 대기 후 취소. 실행 시작/결과 확인 불가, 활성 실행 ID 없음 | 실제 모델 실행 횟수에 포함하지 않음 |
+| P02-2 | 생산 `createSessionInputStream`, 실행 좌표 44194 | 같은 init model, 90초 timeout/cancelled, 총 약97.72초. publisher call/게시 알림/연결 이벤트 수집 0건 | 실행 중단, string 입력이 원인이라는 가설을 지지하지 않음 |
+
+**관측 정정:** 두 완료 로그의 `generated=false`, `stored=0`, `cards=0`은 timeout catch 뒤 FS/DB 조회가 실행되지 않아 남은 초기값이었다. 실제 파일/행 부재 증거로 사용하지 않는다. 해당 칸은 미확인(`null`)으로 정정했다. 도구 호출·게시 알림·연결 이벤트의 빈 배열은 스트림 수집 관측이다. fixture는 cleanup 전에 실패 경로에서도 조회하도록 고쳤고, 조회 불능을 null/observationFailure로 구분한다. 이 마지막 관측 수정 뒤 모델 재실행은 하지 않았다.
+
+| 구성/집계 | 값 |
 |---|---|
-| 실행 수·구성 | 미실행 |
-| 누락/오게시/생성/저장/표시 실패 | 미측정 |
-| 첫 시도와 재시도 비교 | 미측정 |
-| 사용자 수용·후속 보완 결정 | 미결정 |
+| Node / SDK / bundled CLI | 22.15.1 / 0.3.220 / 2.1.220 |
+| provider/model | 기존 Claude 로그인 상태에서 init의 model만 관측. 세부 provider 환경·자격증명은 기록하지 않음 |
+| 도구 지침 원본 SHA-256 | `fbf167d4c4279af130355dae35a8f09804db237f6c9444c6ce9a009849627828` (`features/artifacts/tool.ts` 전체) |
+| 입력 fixture | 실제 업무 정보가 없는 회의 메모, `meeting-summary.md` 제공 요청. 도구명 직접 지시 없음 |
+| 권한·범위 | 임시 workspace의 Read/Write와 publisher, maxTurns8, persistSession=false. 실제 사용자 artifacts 폴더 미사용 |
+| 실제 모델 실행 / 정상 완료 | 2 / 0 |
+| 품질 판정 가능한 실행 | 0 |
+| 게시 누락 유효 분모 / 누락률 | 0 / 산출 불가 |
+| 생성·검증·저장·표시 실패율 | 판정 불가. 중단과 미관측을 프로그램 실패율로 배분하지 않음 |
+| 사용자 수용·후속 감지 결정 | 미결정. watcher/hook 도입 근거 없음 |
 
-평가 문서 작성 완료는 모델 선택 품질의 PASS가 아니다. 프로그램의 결정적 오류는 해당 plan pair로 수정하고, 모델 선택 품질은 관측 자료와 사용자 판단을 함께 남긴다.
+실행 좌표와 보정된 관측은 [model-attempts.json](model-attempts.json)에 보관했다. [평가 oracle](evaluation-oracle.mjs)과 [합성 시험](evaluation-oracle.test.mjs)은 사전 기대/생성/시도/검증/저장/연결 집합을 구분하며 6개 예제가 통과했다. 이것은 모델 정확도의 실증 자료가 아니다.
+
+## 7. 재실행 방법과 남은 범위
+
+`app`에서 Node SQLite ABI를 준비한 뒤 `ORCA_ARTIFACT_LIVE=1`인 자식 환경으로 `node node_modules/vitest/vitest.mjs run src/main/app/artifact-sdk-live.test.ts`를 실행한다. 일반 `npm test`에서는 모델 시험이 skip되며 비용을 발생시키지 않는다. 이 live fixture는 실제 SDK MCP·mapper·runtime·history·DB/FS를 조립하지만 전체 Electron 앱과 생산 ClaudeAdapter 옵션을 대신하지 않는다.
+
+먼저 P02가 정상 종료하는 환경에서 게시 결과와 실제 original toolRunId 연결을 확인한다. 이어 나머지 고정 과업·반복·프로그램 실패 분류를 실행하고 미평가 결과를 선택 품질로 보고하지 않는다. native 파일 액션과 긴 transcript/키보드 인수는 [impl.md](impl.md)의 남은 항목이다. 후속 뷰어는 별도 계획으로 다룬다.

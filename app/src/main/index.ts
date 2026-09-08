@@ -6,6 +6,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import iconIco from '../../resources/icon.ico?asset'
 import { Bootstrap } from './app/bootstrap'
+import { createArtifactSenderCheck } from './app/artifact-sender'
 import { closeDb } from './infra/db'
 import { closeLog, flushLogSync, getLogger, initLog } from './infra/log'
 import { devUserDataDir } from './infra/config/paths'
@@ -30,6 +31,10 @@ let routerRef: Bootstrap | null = null
 
 // second-instance 핸들러가 포커스할 메인 창 참조. createWindow 에서 채우고 closed 에서 비운다.
 let mainWindowRef: BrowserWindow | null = null
+const rendererUrl =
+  is.dev && process.env['ELECTRON_RENDERER_URL']
+    ? process.env['ELECTRON_RENDERER_URL']
+    : 'app://renderer/'
 
 // 단일 인스턴스 강제 — 패키징 빌드 한정. 이미 실행 중인 인스턴스가 있으면 락 획득에 실패하고
 // 두 번째 프로세스는 아래 app.quit() 으로 즉시 종료된다. dev(electron-vite HMR 재시작)에서는
@@ -215,11 +220,7 @@ function createWindow(settings: SettingsStore): void {
   // dev: Vite dev server (http://localhost:…) — BrowserRouter 가 history API 로 동작.
   // prod: app:// 커스텀 스킴 — 위에 등록한 protocol.handle 이 SPA fallback 을 수행해
   // BrowserRouter 의 deep URL 새로고침을 받쳐준다.
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    mainWindow.loadURL('app://renderer/')
-  }
+  mainWindow.loadURL(rendererUrl)
 }
 
 // This method will be called when Electron has finished
@@ -238,7 +239,9 @@ app.whenReady().then(async () => {
   // 윈도우 생성 이전에 app:// 핸들러를 부착해 renderer 로딩이 바로 받쳐지도록.
   registerAppProtocol()
 
-  const router = new Bootstrap()
+  const router = new Bootstrap(
+    createArtifactSenderCheck(() => mainWindowRef?.webContents ?? null, rendererUrl)
+  )
   routerRef = router
   // 창 먼저(0109) — start() 의 DB 마이그레이션/스킬 시드/확장 배포를 기다리지 않고 셸을
   // 띄운다. renderer 부트 오케스트레이터의 첫 스텝(main-ready)이 이 게이트 invoke 로 완료를

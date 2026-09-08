@@ -446,6 +446,42 @@ export const en: typeof ko = {
     completeBody: 'The response is complete.'
   },
   chat: {
+    artifacts: {
+      forbidden: 'This file is not available in this conversation',
+      unsafe: 'Could not verify a safe file location',
+      tooLarge: 'The file exceeds the size limit',
+      title: 'Artifacts',
+      actions: 'File actions',
+      bytes: '{{count}} bytes',
+      working: 'Working',
+      checking: 'Checking',
+      available: 'File available',
+      missing: 'File missing — it may have been deleted or moved',
+      unavailable: 'Cannot access file',
+      trashedAt: 'Moved to Recycle Bin at: {{time}}',
+      save: 'Save as',
+      saveAll: 'Save all',
+      reveal: 'Show in Explorer',
+      refresh: 'Check again',
+      openFolder: 'Open storage folder',
+      trash: 'Move to Recycle Bin',
+      trashTitle: 'Move this file to the Recycle Bin?',
+      trashMessage:
+        'The publication record will remain. Other conversations referencing this file will also lose access to it.',
+      cancelled: 'Save cancelled',
+      failed: 'Could not complete the file action. Please check again.',
+      saveComplete: 'Save results',
+      tooMany: 'Save up to 50 files at once. Please save files individually.',
+      saved: 'Saved',
+      skipped: 'Skipped — please check file status',
+      done: 'Done',
+      trashed: 'Moved to Recycle Bin',
+      trashedUnrecorded: 'Moved to Recycle Bin, but could not save the action history.',
+      empty: 'No published artifacts',
+      loading: 'Loading artifacts',
+      listFailed: 'Could not load artifacts',
+      retainedOnSessionDelete: 'Stored artifact files will be kept.'
+    },
     steer: {
       submitted: 'Sent',
       residualTitle: 'Response stopped · {{count}} awaiting delivery',
@@ -802,7 +838,8 @@ export const en: typeof ko = {
         plan: 'Plan',
         subagent: 'Background tasks',
         task: 'Tasks',
-        diff: 'Changes'
+        diff: 'Changes',
+        artifacts: 'Artifacts'
       },
       diffAllChanges: 'All changes',
       diffEmpty: 'Nothing to show.',

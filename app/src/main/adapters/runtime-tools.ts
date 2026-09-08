@@ -45,7 +45,16 @@ export interface RuntimeToolResult {
 export interface RuntimeToolImplementation {
   name: string
   inputSchema: z.ZodRawShape
-  handler(input: Record<string, unknown>): Promise<RuntimeToolResult>
+  handler(input: Record<string, unknown>, context?: RuntimeToolContext): Promise<RuntimeToolResult>
+}
+
+// 채널의 실행 범위만 전달한다. 도구의 원래 메시지는 실제 결과의 toolRunId로 연결한다.
+export interface RuntimeToolContext {
+  readonly cwd: string
+  readonly extraDirs: readonly string[]
+  // 호출 진입 시 한 번 캡처한다. interrupt 이후 새 호출은 새 신호를 받는다.
+  getSignal(): AbortSignal
+  waitForSession(signal: AbortSignal): Promise<string>
 }
 
 // 실행형 server는 정적 descriptor(정책 SSOT)와 connection별 factory 구현을 합친다.

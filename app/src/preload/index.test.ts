@@ -43,6 +43,27 @@ Object.defineProperty(process, 'contextIsolated', { value: true, configurable: t
 
 await import('./index')
 
+it('artifact actions preserve session and publication IDs on dedicated channels', async () => {
+  const api = harness.exposed.get('orca') as OrcaApi
+  harness.invoke.mockClear()
+  const target = { sessionId: 'original-session', publicationId: 'older-publication' }
+  const batch = { sessionId: 'original-session', publicationIds: ['old', 'new'] }
+  await api.artifacts.list({ sessionId: target.sessionId })
+  await api.artifacts.status(batch)
+  await api.artifacts.save(batch)
+  await api.artifacts.reveal(target)
+  await api.artifacts.trash(target)
+  await api.artifacts.openFolder()
+  expect(harness.invoke.mock.calls).toEqual([
+    [CHANNELS.artifactList, { sessionId: target.sessionId }],
+    [CHANNELS.artifactStatus, batch],
+    [CHANNELS.artifactSave, batch],
+    [CHANNELS.artifactReveal, target],
+    [CHANNELS.artifactTrash, target],
+    [CHANNELS.artifactOpenFolder]
+  ])
+})
+
 type ChatApi = {
   backgroundSubagent: (sessionId: string, toolUseId: string) => Promise<void>
   stopSubagent: (sessionId: string, toolUseId: string) => Promise<void>

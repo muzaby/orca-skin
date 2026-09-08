@@ -3,6 +3,7 @@
 // features/{chat,history,approvals,sessions,usage} 참조 (handoff 0062 수직 슬라이스 재구성).
 
 import { app, shell, webContents } from 'electron'
+import type { IpcMainInvokeEvent } from 'electron'
 import { mkdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -55,6 +56,9 @@ import { registerMiscHandlers } from './handlers/misc'
 import { registerSettingsHandlers } from './handlers/settings'
 import { registerSkillsHandlers } from './handlers/skills'
 import { registerFilesHandlers } from './handlers/files'
+import { registerArtifactHandlers } from './handlers/artifacts'
+import { ArtifactService } from '../features/artifacts/service'
+import { createArtifactToolServer } from '../features/artifacts/tool'
 import { registerGitHandlers } from './handlers/git'
 import { registerCostHandlers } from './handlers/cost'
 import { registerBootHandlers } from './handlers/boot'
@@ -153,12 +157,15 @@ export class Bootstrap {
   private bus?: MainBus<Electron.WebContents>
   private activeDbWriteCount = 0
   private isIndexing = false
+  private artifacts?: ArtifactService
   private updates: UpdateController | null = null
   private scheduler?: Scheduler
   // 0151 — 종료 시 admission freeze + payload 스크럽을 위해 루트가 참조를 보관한다.
   private pendingMessages?: PendingMessageQueue
   private activity?: SessionActivityProjector
   private titles?: TitleGenerator
+
+  constructor(private readonly isTrustedArtifactSender: (event: IpcMainInvokeEvent) => boolean) {}
 
   private builtinSkillsDir(): string {
     return resolveBuiltinSkillsDir({
@@ -728,6 +735,7 @@ export class Bootstrap {
     // admission freeze 를 **가장 먼저**(0151 AC9) — 이후 send/steer 예약을 거부해, 종료 중
     // 게이트 flush·자동 연속 턴이 큐 폐기와 경합하며 메시지를 뒤늦게 제출하는 것을 막는다.
     this.pendingMessages?.freeze()
+    void this.artifacts?.close()
     this.titles?.dispose()
     this.scheduler?.stopAll()
     if (!this.supervisor || !this.bus) {
@@ -772,8 +780,10 @@ export class Bootstrap {
     const titles = (this.titles = new TitleGenerator(ctx.db))
     // continuity 도착 물질화(0064 fork/handoff)는 orchestration 슬라이스 구현을 여기서 주입
     // — history↔orchestration 교차 import 차단.
-    const persistence = new HistoryWriter(ctx.db, (arrival) =>
-      materializeContinuityArrival(ctx.db, arrival)
+    const persistence = new HistoryWriter(
+      ctx.db,
+      (arrival) => materializeContinuityArrival(ctx.db, arrival),
+      ctx.db.artifacts
     )
     bus.on(
       'turn.event',
@@ -790,7 +800,22 @@ export class Bootstrap {
     return persistence
   }
 
+  private registerArtifacts(ctx: Pick<RouterContext, 'db' | 'runtimeTools'>): void {
+    const artifacts = (this.artifacts = new ArtifactService({
+      queries: ctx.db.artifacts,
+      rootDir: join(orcaConfigDir(), 'artifacts', ...(import.meta.env.DEV ? ['.dev'] : [])),
+      trashItem: (path) => shell.trashItem(path)
+    }))
+    ctx.runtimeTools.add(
+      createArtifactToolServer(artifacts, (sessionId, artifact) =>
+        broadcastChatEvent({ type: 'artifact.published', sessionId, artifact })
+      )
+    )
+    registerArtifactHandlers(artifacts, this.isTrustedArtifactSender)
+  }
+
   private register(ctx: RouterContext): void {
+    this.registerArtifacts(ctx)
     // chat 턴 파이프라인 조립 — 레지스트리(세션 키잉) · persist · 제목 생성 · 승인 조정.
     const supervisor = (this.supervisor = new RuntimeSupervisor<Electron.WebContents>({
       activeTurns: new ActiveTurnTracker((projectId, count) => {

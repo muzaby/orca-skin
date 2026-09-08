@@ -13,7 +13,8 @@
 | V mode / 기준 V | Baseline V / none — 산출물 게시의 기존 구현 V 없음 |
 | 이번 revision / 유효 V | V1 rev.4 / Baseline 확정 — 게시 선행, 뷰어 후속 |
 | 매핑 | [선행 검토](../../etc/study/cowork/artifact-publisher-review.md), 기존 리팩토링 PR과 별도 기능 |
-| 실행 범위 | 사용자 구현 승인. 이 설계 커밋 후 게시 기능 구현·검증 수행 |
+| 실행 범위 | 사용자 구현 승인. 게시 코드 구현, 남은 인수 검증은 [impl.md](impl.md) 참조 |
+| 구현 상태 | **IN_PROGRESS** — 코드와 자동 게이트 완료, 모델/native 인수 검증 일부 미완료 |
 
 # Part I — Product & UX Contract
 
@@ -643,7 +644,7 @@ OpenCode용 포트 구현과 실제 도구 노출은 후속 범위다. 이 단�
 
 | 기존 결정/규칙 | 출처 | 본문 연결 | 결과 |
 |---|---|---|---|
-| 사용자 요청 전 구현 금지 | 최초 사용자 | §메타·D-006 | 유지 — 문서만 작성 |
+| 사용자 승인 뒤 구현 | 최초 승인 조건·최신 구현 지시 | §메타·D-006 | 유지 — rev.4에서 구현 승인 확인 |
 | Main 하향 의존·feature 교차 금지 | main AGENTS | §11 모듈·Bootstrap 포트 주입 | 유지 |
 | Renderer 4-layer·시맨틱 토큰·named group | renderer AGENTS | §5·§11 | 유지 |
 | FS 본문·DB 메타데이터 | persistence §1.4·TRD | D-007·015~017·§11·§13 | 본문/메타 분리 유지. 과거 경로·자동 정리 권고는 최신 사용자 결정으로 대체 |
@@ -671,7 +672,7 @@ OpenCode용 포트 구현과 실제 도구 노출은 후속 범위다. 이 단�
 
 앱 변경 위치는 §11 표를 따른다. 실제 구현 후 IPC_CONTRACT, backend runtime/persistence/security, frontend rendering/UX 문서 및 generated inventory를 현재 코드와 동기화한다.
 
-이번 문서 산출물은 `plan.md`, `evaluation.md`, handoff INDEX, docs INDEX, 선행 study의 결정 변경 안내다. 앱 코드와 기존 리팩토링 handoff 상태는 수정하지 않는다.
+설계 산출물은 `plan.md`, `evaluation.md`, handoff INDEX, docs INDEX, 선행 study의 결정 변경 안내다. rev.4 승인 이후 앱 구현 산출물과 결과는 [impl.md](impl.md)에 기록한다. 기존 리팩토링 handoff 상태는 변경하지 않는다.
 
 ## 19. 게이트
 
@@ -704,35 +705,35 @@ OpenCode용 포트 구현과 실제 도구 노출은 후속 범위다. 이 단�
 
 ## [구현자 기입] 설계 리뷰
 
-작성자: Codex. rev.4 설계 확정 뒤 구현 착수. 실행 결과는 이 절에 기록한다.
+작성자: Codex. rev.4의 hook 없는 2단계 게시·연결, 세션과 파일 수명 분리, 뷰어 후속 계약을 구현했다. 제품 결정을 추가로 바꾸지 않았다. 단계별 실행 결과의 정본은 [impl.md](impl.md)다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
-미착수. EP별 전체 위치·자기 관측·V-pair SELF_PASS/SELF_BLOCKED를 기입한다.
+[impl.md 강제 지점 전수](impl.md#강제-지점-전수-대조)에 모든 EP 위치를 대조했다. EP-08-h의 키보드 실기, EP-12-b/d의 전체 모델 반복/사용자 수용 판단과 모델/native 종단 gate는 미완료다. 전건 완료로 보고하지 않는다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-미착수. pair가 선택한 적대 증거와 새 구조 oracle의 민감도를 기록한다.
+선택 VP-01/02/05/10 변이 red와 원복 green을 확인했다. hardlink와 미신뢰 sender 실패도 재현 후 수정했다. 상세는 [impl.md](impl.md#선택-변이구현-중-발견과-대응)에 있다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
-미착수. 실패/취소/지연 응답·상태 소비자·화면 접근성을 검토한다.
+파일 소실/접근 오류/복원/과거 휴지통 이력, 원래 ID 액션, 지각 응답, 미연결 게시의 목록 유지와 파일 단독 보관 비용을 검토했다. [impl.md](impl.md#productux-파생-검토와-제한)를 따른다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
-미착수. 선조치/plan 수정 제안/보고만으로 구분한다.
+공통 IPC helper의 sender 미검사, 단일 export의 hardlink 원본 덮기, live fixture의 취소 후 관측 누락을 선조치했다. 모델 무응답 원인은 미확정이며 SRT/감지 hook의 문제로 단정하지 않는다.
 
 ### 설계 대비 명시적 차이
 
-미착수. 대체물의 만료·공유·재진입·무효화 축과 재검증 AC/EP를 기록한다.
+경로 생성은 새 paths helper 없이 Bootstrap에서 기존 orcaConfigDir를 재사용한다. viewport 좌표 계산은 기존 RightPanel 안에 유지한다. 테스트가 사용하는 in-memory MCP·합성 UI·native shell·실제 모델 경로의 증거 범위를 구분했으며 해당 대체물만으로 전체 인수를 닫지 않는다.
 
 ## [구현자 기입] 구현 보고
 
-미착수. 변경 파일·명령·관측 산출·pair·EP·AC 합계·블로커를 기록한다. 대상 커밋은 INDEX의 검증자 기입 좌표를 따른다.
+[impl.md](impl.md), [evaluation.md](evaluation.md). AC 9/15 자기 통과, 6개 부분 검증. V 20/27 자기 통과, 나머지는 인수 증거가 부족하다. `Status: partial`로 커밋하고 INDEX의 IN_PROGRESS를 유지한다.
 
 ## [구현자 기입] Review Signals — 사실만
 
-미착수.
+새 dependency·자동 감지·뷰어 없이 기존 registry/SQLite/preload/renderer 패턴을 확장했다. 공유 production 변경은 전체 자동 회귀 통과 후 동결했다. 독립 verify는 미착수다.
 
 ## [검증자 기입] 파생 이슈
 

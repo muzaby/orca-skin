@@ -1,0 +1,53 @@
+{
+  "author": "Codex",
+  "date": "2026-09-08",
+  "sdk": "0.3.220",
+  "cli": "2.1.220",
+  "observedModel": "claude-sonnet-5",
+  "toolSourceSha256": "fbf167d4c4279af130355dae35a8f09804db237f6c9444c6ce9a009849627828",
+  "attempts": [
+    {
+      "scenario": "P02",
+      "attempt": 1,
+      "execSessionId": 61362,
+      "inputMode": "string",
+      "finished": false,
+      "timedOut": true,
+      "timeoutSeconds": 90,
+      "durationSecondsApprox": 97.4,
+      "failure": "cancelled",
+      "publisherCalls": [],
+      "publishedNotifications": [],
+      "linkedEvents": [],
+      "generated": null,
+      "stored": null,
+      "cards": null
+    },
+    {
+      "scenario": "P02",
+      "attempt": 2,
+      "execSessionId": 44194,
+      "inputMode": "production-session-stream",
+      "finished": false,
+      "timedOut": true,
+      "timeoutSeconds": 90,
+      "durationSecondsApprox": 97.72,
+      "failure": "cancelled",
+      "publisherCalls": [],
+      "publishedNotifications": [],
+      "linkedEvents": [],
+      "generated": null,
+      "stored": null,
+      "cards": null
+    }
+  ],
+  "excludedApprovalAttempt": {
+    "executionConfirmed": false,
+    "reason": "approval request cancelled without a confirmed execution result"
+  },
+  "observationCorrection": "Original generated=false/stored=0/cards=0 were unobserved defaults on timeout. They are null here. The fixture now observes after cancellation before cleanup; that revision has not called a model.",
+  "validCompletedRuns": 0,
+  "omissionDenominator": 0,
+  "omissionRate": null,
+  "qualityDecision": "unassessable"
+}

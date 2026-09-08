@@ -538,7 +538,7 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - ~~(anchor) 재시작 재개~~ — **구현 완료** (`lastSessionId` 부트 복원 — BootRedirector).
 - ~~(anchor) Zustand 전환~~ — **구현 완료 (0008/0013)** — feature별 store + chat `sessions: Record` 외피 + 외부 dispatch(`receive(ev)`). 상세 [arch/frontend/state.md](arch/frontend/state.md) §1.
 - ~~(anchor) 로컬 DB (Phase 3+)~~ — **구현 완료** (better-sqlite3, `infra/db/migrations/`, DB=SSOT). 상세 [arch/backend/persistence.md](arch/backend/persistence.md).
-- **(anchor) Artifact FS 저장 (Phase 3+)** — `<userData>/artifacts/<sessionId>/<uuid>.<ext>`. DB 에는 경로·해시·크기만. 클라우드 동기화 없음 (export/import 만). `GLOSSARY.md` "Artifact" / [arch/backend/persistence.md](arch/backend/persistence.md).
+- **Artifact 게시·보관** — 모델의 `publish_artifact` 호출로 HTML/Markdown을 `~/.config/orca/artifacts/<fileId>/<filename>`에 보관한다. 개발 파일은 `.dev` 하위에 분리한다. DB는 파일 메타데이터와 세션별 게시 참조를 가지며 대화 삭제로 파일을 지우지 않는다. 파일 소실 시 게시 기록을 유지하고 파일 없음으로 표시한다. 파일뷰어는 후속 범위다. 상세 [arch/backend/persistence.md](arch/backend/persistence.md).
 - **(anchor) safeStorage 자격증명** — MCP 인증 비밀은 **구현 완료**(secret-store). 어댑터별 base URL + API key 저장은 잔여. [arch/backend/security.md](arch/backend/security.md) §1.4.
 - ~~(anchor) 추가 IPC 도메인 (Phase 3+/Future)~~ — `session`·`project`·`search`·`mcp`·`cost`·`update` 등 대부분 도입 완료(IPC_CONTRACT §2). 잔여 예약은 IPC_CONTRACT §2.14.
 - **PRD §11 OQ** — 미정 항목은 여기서 결정하지 않음. 결정값 도착 시 본 문서 갱신. (OQ1 React 19·OQ3 패키징/자동업데이트는 해소 — PRD §11 표기 참조.)

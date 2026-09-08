@@ -1,3 +1,14 @@
+import type {
+  ArtifactRef,
+  ArtifactListRequest,
+  ArtifactTargetRequest,
+  ArtifactStatusRequest,
+  ArtifactStatusItem,
+  ArtifactSaveRequest,
+  ArtifactSaveResult,
+  ArtifactTrashResult,
+  ArtifactActionResult
+} from '../shared/artifacts'
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import {
   CHANNELS,
@@ -153,6 +164,19 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.skillsShowInFolder, req),
     remove: (req: SkillTargetRequest): Promise<SkillInfo[]> =>
       ipcRenderer.invoke(CHANNELS.skillsRemove, req)
+  },
+  artifacts: {
+    list: (req: ArtifactListRequest): Promise<ArtifactRef[]> =>
+      ipcRenderer.invoke(CHANNELS.artifactList, req),
+    status: (req: ArtifactStatusRequest): Promise<ArtifactStatusItem[]> =>
+      ipcRenderer.invoke(CHANNELS.artifactStatus, req),
+    save: (req: ArtifactSaveRequest): Promise<ArtifactSaveResult> =>
+      ipcRenderer.invoke(CHANNELS.artifactSave, req),
+    reveal: (req: ArtifactTargetRequest): Promise<ArtifactActionResult> =>
+      ipcRenderer.invoke(CHANNELS.artifactReveal, req),
+    trash: (req: ArtifactTargetRequest): Promise<ArtifactTrashResult> =>
+      ipcRenderer.invoke(CHANNELS.artifactTrash, req),
+    openFolder: (): Promise<ArtifactActionResult> => ipcRenderer.invoke(CHANNELS.artifactOpenFolder)
   },
   files: {
     list: (cwd: string, relDir: string): Promise<FileEntry[]> =>

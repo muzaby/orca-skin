@@ -179,3 +179,11 @@ provider `settings.json`(`sources/settings/<adapter>/<provider>/`)은 `~/.claude
 **env→`options.settings` 주입 (handoff 0028 — 0015/0018 "env↛argv" 불변식 폐기)**: provider settings 는 `query()` 의 flag 레이어(`options.settings` → CLI `--settings`)로 주입된다. `settingSources` 를 생략해 상속한 사용자 `~/.claude/settings.json` 위에 이 flag settings 가 얹혀 **덮어쓰므로**, 앱 환경구성(env 포함)이 사용자 전역 env 를 이기려면 env 가 settings 레이어에 있어야 한다. 따라서 env 를 settings 안에 그대로 실어 주입한다. 이 값은 SDK 가 직렬화 없이 CLI argv 에 push 하므로 env(auth key 포함)가 **process list(같은 사용자에게 가시)에 노출**되는데, 이는 "앱 환경구성으로 ~/.claude 를 덮어쓴다"는 요구를 위한 **수용된 트레이드오프**다(same-user 한정 — Claude Code 의 `--settings` 와 동일 노출 특성). `options.env` 에는 시스템(턴) env(uv 런타임 + orca.json 앱 env)만 싣는다.
 
 > **이력**: 0015/0018 은 평문 비밀의 argv 노출을 막고자 env 를 settings 에서 떼어(`splitProviderSettings`) subprocess env 로만 흘리고, 이를 branded 타입(`ArgvSafeSettings`/`SubprocessEnv`) + 음성 타입 테스트로 컴파일타임 강제했다. 그러나 그 방식으로는 `options.env` 가 settingSources 의 `~/.claude/settings.json` env 를 덮어쓰지 못해 앱 환경구성이 무력화됐다. 0028 이 이 split·branded·음성 테스트를 제거(supersede)한다. 0015/0018 문서는 historical 로 보존한다.
+
+## 산출물 파일 액션 경계
+
+게시 입력은 채널의 cwd/extraDirs 안에 있는 로컬 일반 파일만 허용한다. 경로 실체, UTF-8 형식, 크기 상한, 읽기 전후 상태를 검사한다. 이 파일 검증은 OS 샌드박스가 아니며 악의적인 모든 경로 교체 경쟁의 원자적 차단을 보장하지 않는다.
+
+artifact IPC는 현재 Orca 메인 창의 최상위 frame과 renderer URL의 protocol/host를 확인한다. renderer는 session/publication ID만 전달하고 Main이 세션 참조와 보관 루트 실체를 다시 검사한다. 개별 내보내기는 임시 파일을 작성하고 rename으로 교체하여 외부 하드링크를 통한 보관 원본 덮어쓰기를 피한다. 묶음 저장은 exclusive create와 접미사로 기존 파일을 보존한다. 파일 reveal은 탐색기 선택만 하며 HTML을 실행하지 않는다.
+
+휴지통 이동은 사용자 확인 후 등록된 파일만 대상으로 하고 영구 삭제로 대체하지 않는다. 모델에는 삭제 도구를 노출하지 않는다. 게시 UI로 파일 본문을 보내거나 렌더링하는 IPC는 없다. 보관·소실·복원 규칙은 [persistence.md](persistence.md)에 있다.
