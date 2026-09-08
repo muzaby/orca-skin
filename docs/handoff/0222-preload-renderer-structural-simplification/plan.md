@@ -236,3 +236,15 @@ AC 검산: ✅ 9 · ⚠️ 0 · ❌ 0 = 9. 이는 구현 자기판정이다.
 - 반복 실패 이슈는 없다. 동률 정렬 회귀 위험은 AC5의 순서 보존 조건에 따라 구현 중 발견·보완했다.
 - 새 시험의 계층 위반과 Settings fixture 타입 오류는 기존 gate가 검출했고 해당 시험만 정정했다.
 - hook/SSR fixture와 실제 GUI 검증의 경계를 명시했다. 기존 가상화 라이브러리 lint 경고는 이번 변경과 별개다.
+
+## [검증자 기입] 파생 이슈
+
+독립 검증 r1 = **PASS**. 판정 원문과 증거는 [`verify.md`](verify.md). 아래는 현재 pair·ACTIVE Decision·필수 gate에 귀속되지 않아 PASS를 막지 않는 항목이다.
+
+| # | finding | disposition | 후속 |
+|---|---|---|---|
+| D1 | `sessionsStore.mergeItems`의 `delete next[id]` GC 루프가 아래 재정렬 재구성과 **중복**이다. 지울 대상이 있으면 `sameIds(currentIds, orderedIds)`가 반드시 거짓이라 `Object.fromEntries(orderedIds…)`가 같은 GC를 수행한다. 제거해도 184파일 1,443케이스 전건 green | NON_BLOCKING | GC 동작 자체는 검증자가 실제 store로 직접 관측해 정상. 중복 루프 제거 또는 재정렬 블록에 GC 의도 명시 |
+| D2 | `TweakProvider.tsx`가 `createTweakStore`를 export하고 `react-refresh/only-export-components` 예외 1줄을 남겼다 | NON_BLOCKING | 새 store 파일·전역 singleton 없음. 기록만 |
+| D3 | `scan-surface`의 미사용 export 3건(`SIDEBAR_*`)과 test-only 후보 10건 | NON_BLOCKING | 선행 존재·오탐. 기록만 |
+| D4 | `patchPendingSession`이 `getState().activeKey`를 `setState` 밖에서 읽는다(이전엔 updater 안) | NON_BLOCKING | zustand `setState`가 동기라 현재 관측 차이 0. 비동기 배칭 도입 시 재검토 |
+| D5 | `spendingLimitUsd`가 `Tweaks`에 있으나 6 소비자 어디도 selector로 읽지 않는다 | NEXT_HANDOFF | base에서도 읽는 곳이 없다. projection 제거 여부는 별도 판단 |
