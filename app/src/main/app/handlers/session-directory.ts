@@ -45,10 +45,7 @@ export async function addSessionDirectory(
       return { ok: false, reason: 'invalid-directory' }
     }
     // 이전 버전이 저장한 junction/별칭도 중복으로 처리한다. 사라진 기존 폴더는 그대로 보존한다.
-    const previous = [
-      ...parseStoredExtraDirectories(initial.extra_dirs),
-      ...(initial.cwd ? [initial.cwd] : [])
-    ]
+    const previous = parseStoredExtraDirectories(initial.extra_dirs)
     await Promise.all(
       previous.map(async (directory) => {
         try {
@@ -71,9 +68,9 @@ export async function addSessionDirectory(
   if (current.agent_kind !== 'work') return { ok: false, reason: 'not-work' }
   const extraDirs = parseStoredExtraDirectories(current.extra_dirs)
   const key = directoryIdentity(canonical)
-  const existing = [...extraDirs, ...(current.cwd ? [current.cwd] : [])]
+  // cwd도 명시적으로 선택하면 Context에 남긴다. 이미 추가한 폴더만 중복이다.
   if (
-    existing.some((directory) => {
+    extraDirs.some((directory) => {
       const identity = directoryIdentity(directory)
       return identity === key || aliases.get(identity) === key
     })

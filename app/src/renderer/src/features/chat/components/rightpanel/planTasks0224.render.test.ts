@@ -97,7 +97,7 @@ beforeEach(() => {
   state.agentTools = ['TaskCreate']
 })
 
-describe('0224 r2 — Coding 계획 상단·작업 하단 (VP-R2-01/07 · EP-R2-3)', () => {
+describe('0224 r3 — Coding 콘텐츠 존재·진행 표시 (VP-R3-01/07 · EP1)', () => {
   it('계획 다음에 작업 section을 두고 id 순서와 세 상태를 실제 행에 표시한다', () => {
     const html = render()
     const planAt = html.indexOf('이 문장만 계획 댓글 범위입니다.')
@@ -111,25 +111,49 @@ describe('0224 r2 — Coding 계획 상단·작업 하단 (VP-R2-01/07 · EP-R2-
     const rows = rowsBySubject(taskSection)
     expect(Object.keys(rows)).toEqual(['진행 작업', '완료 작업', '대기 작업'])
     expect(rows['진행 작업']).toContain('구현 진행 중')
-    expect(rows['진행 작업']).toContain('border-solid')
-    expect(rows['진행 작업']).not.toContain('animate-spin')
+    expect(rows['진행 작업']).toContain('animate-spin')
+    expect(rows['진행 작업']).toContain('motion-reduce:animate-none')
     expect(rows['완료 작업']).toContain('line-through')
     expect(rows['완료 작업']).toContain(
       renderToStaticMarkup(createElement(Icon, { name: 'check', size: 17 }))
     )
     expect(rows['완료 작업']).not.toContain('완료 필요')
+    expect(rows['완료 작업']).not.toContain('animate-spin')
     expect(rows['대기 작업']).toContain('border-dashed')
     expect(rows['대기 작업']).toContain('#2 완료 필요')
+    expect(rows['대기 작업']).not.toContain('animate-spin')
   })
 
-  it.each([false, true])('계획 본문이 없어도 작업을 유지한다 (승인 대기=%s)', (pending) => {
+  it('작업만 있으면 빈 계획 표시 없이 작업만 표시한다', () => {
     state.planContent = null
-    state.pendingPlanReview = pending ? { requestId: 'r1', plan: '' } : null
     const html = render()
-    const emptyText = pending ? '계획 본문을 가져오지 못했습니다' : '아직 플랜이 없습니다'
-    expect(html).toContain(emptyText)
+    expect(html).not.toContain('아직 플랜이 없습니다')
+    expect(html).not.toContain('계획 본문을 가져오지 못했습니다')
+    expect(html).not.toContain('계획 댓글 범위')
     expect(Object.keys(rowsBySubject(html))).toEqual(['진행 작업', '완료 작업', '대기 작업'])
-    expect(html.indexOf('<section aria-label="작업"')).toBeGreaterThan(html.indexOf(emptyText))
+    expect(html).toContain('<section aria-label="작업"')
+  })
+
+  it('계획만 있으면 작업 구역과 빈 목록을 표시하지 않는다', () => {
+    state.messages = []
+    state.agentTools = ['Read']
+    const html = render()
+    expect(html).toContain('이 문장만 계획 댓글 범위입니다.')
+    expect(html).not.toContain('<section aria-label="작업"')
+    expect(html).not.toContain('할 일 목록 도구를 지원하지 않습니다.')
+    expect(html).not.toContain('Claude 가 Task 를 만들거나')
+  })
+
+  it('작업이 있어도 승인 대기의 본문 해소 실패는 숨기지 않는다', () => {
+    state.planContent = null
+    state.pendingPlanReview = { requestId: 'r1', plan: '' }
+    const html = render()
+    expect(html).toContain('계획 본문을 가져오지 못했습니다')
+    expect(html).not.toContain('아직 플랜이 없습니다')
+    expect(Object.keys(rowsBySubject(html))).toEqual(['진행 작업', '완료 작업', '대기 작업'])
+    expect(html.indexOf('<section aria-label="작업"')).toBeGreaterThan(
+      html.indexOf('계획 본문을 가져오지 못했습니다')
+    )
   })
 
   it('선택한 작업 상세와 뒤로가기는 하단에만 있고 상단 계획을 대체하지 않는다', () => {
@@ -143,14 +167,30 @@ describe('0224 r2 — Coding 계획 상단·작업 하단 (VP-R2-01/07 · EP-R2-
     expect(rowsBySubject(html)).toEqual({})
   })
 
-  it('계획과 작업이 모두 비면 실제 도구 미지원 안내와 CLI 버전도 하단에 유지한다', () => {
+  it('둘 다 비면 단일 빈 영역에 실제 도구 미지원 안내와 CLI 버전을 보존한다', () => {
     state.planContent = null
     state.messages = []
     state.agentTools = ['Read']
     const html = render()
-    const tasksAt = html.indexOf('<section aria-label="작업"')
-    expect(html.slice(0, tasksAt)).toContain('아직 플랜이 없습니다')
-    expect(html.slice(tasksAt)).toContain('할 일 목록 도구를 지원하지 않습니다.')
-    expect(html.slice(tasksAt)).toContain('2.1.100')
+    expect(html).not.toContain('<section')
+    expect(html).toContain('아직 플랜이 없습니다')
+    expect(html).toContain('할 일 목록 도구를 지원하지 않습니다.')
+    expect(html).toContain('2.1.100')
+    expect(html).not.toContain('Claude 가 Task 를 만들거나')
+    expect(html.match(/아직 플랜이 없습니다/g)).toHaveLength(1)
   })
+
+  it.each([{ tools: null }, { tools: ['TaskCreate'] }])(
+    '둘 다 비고 미지원이 아니면 단일 일반 빈 상태다 (tools=$tools)',
+    ({ tools }) => {
+      state.planContent = null
+      state.messages = []
+      state.agentTools = tools
+      const html = render()
+      expect(html).toContain('아직 플랜이 없습니다')
+      expect(html).not.toContain('<section')
+      expect(html).not.toContain('할 일 목록 도구를 지원하지 않습니다.')
+      expect(html).not.toContain('Claude 가 Task 를 만들거나')
+    }
+  )
 })

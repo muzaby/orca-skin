@@ -1,8 +1,7 @@
-import { useEffect } from 'react'
 import type { TFunction } from 'i18next'
 import { Button } from '../../../../shared/ui/Button'
 import { useI18n, type MessageKey } from '../../../../shared/i18n'
-import { chatActions, useChatSession, useUnseenSettledTaskCount } from '../../store/chatStore'
+import { chatActions, useChatSession } from '../../store/chatStore'
 import {
   taskBoardItemByKey,
   taskDetailRows,
@@ -11,7 +10,6 @@ import {
   type TaskDetailValue
 } from '../../lib/taskBoard'
 import { TaskStatusIcon } from './TaskStatusIcon'
-import { useTaskBoard } from '../../hooks/useTaskBoard'
 
 const STATUS_KEY: Record<TaskBoardStatus, MessageKey> = {
   in_progress: 'chat.taskTile.status.in_progress',
@@ -143,17 +141,12 @@ export function TaskDetail({ item }: { item: TaskBoardItem }): React.JSX.Element
 }
 
 // Coding 계획 하단의 목록/상세만 전환한다. 상단 계획과 댓글 선택 컨테이너는 유지된다.
-export function TaskProgressContent(): React.JSX.Element {
+export function TaskProgressContent({ items }: { items: TaskBoardItem[] }): React.JSX.Element {
   const { tr } = useI18n()
-  const items = useTaskBoard()
   const selectedKey = useChatSession((s) => s.selectedTaskKey)
   const selected = taskBoardItemByKey(items, selectedKey)
   const agentTools = useChatSession((s) => s.agentTools)
   const cliVersion = useChatSession((s) => s.cliVersion)
-  const unseen = useUnseenSettledTaskCount()
-  useEffect(() => {
-    if (unseen > 0) chatActions.acknowledgeSettledTasks()
-  }, [unseen])
 
   if (selected) {
     return (

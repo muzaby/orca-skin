@@ -636,6 +636,7 @@ export const ko = {
       viewTranscript: '대화록 보기'
     },
     taskTile: {
+      askAboutTask: '질문하거나 변경 사항 제안하기',
       addDirectory: '폴더 추가',
       allowedDirectory: '사용자가 추가한 폴더: {{path}}',
       directoryBusy: '작업이 끝난 뒤 폴더를 추가할 수 있습니다.',
@@ -870,7 +871,6 @@ export const ko = {
     rightpanel: {
       expandTile: '{{label}} 넓게 보기',
       restoreTile: '{{label}} 원래 크기로',
-      fixedTile: '항상 표시됨',
       tiles: {
         plan: '계획',
         subagent: '백그라운드 작업',

@@ -12,6 +12,8 @@
 
 전송·busy 후속·fork/handoff는 같은 세션 종류를 전달한다. 저장 세션 로드는 DB 값을 쓰고, 종류가 없는 구형 payload는 Coding으로 복원한다. 역할은 backend·provider·permissionMode와 독립적이다. `response.boundary`도 다른 세션 이벤트처럼 소유 sessionId에만 라우팅하며 삭제된 세션을 되살리지 않는다.
 
+`agentPanelInitialized`는 Work 작업 패널의 최초 열기와 이후 사용자 선택을 구분한다. 표시 필터는 닫힌 배치를 보존하며, 첫 전송/처음 로드에서만 기본 작업 타일을 추가한다. 기존 캐시 복귀·다음 턴은 닫은 패널을 다시 열지 않는다. 입력 복원 신호는 대상 세션과 단조 순번을 갖고, 기본 교체와 작업 질문의 추가 모드를 구분한다. 실제 초안·첨부는 기존 입력 controller가 소유한다.
+
 > **현재**: chat은 `features/chat/store/chatStore.ts`의 `sessions: Record<key, { session, live }>` + `activeKey` 외피를 갖는다(키 = sessionId, 새 채팅 = `NEW_CHAT_KEY` 슬롯 → `session.updated` 시 승격). Backend/Sessions/Projects/Cost는 feature별 Zustand store가 소유하고, projects 초기 조회는 `app/boot/steps`가 수행한다. Tweaks는 `TweakProvider` 인스턴스의 store와 필드 selector로 연결하며 Skills/Agents는 기존 hook 진입점을 유지한다.
 > **채택된 결정(이행 완료)**: 단일 root 대신 **feature 별 store + chat 의 sessions Record** 로 수렴 — `chatReducer` 는 세션-단위 순수 함수로 유지하고 **store 가 `ev.sessionId` 키 라우팅을 담당**한다(reducer 테스트·불변식 보존, "액션에 sessionId 인자" 안의 대체 — 사용자 결정 2026-06-11, handoff 0013). 동시 스트리밍 *UX*(사이드바 배지·탭)는 후속 기능.
 

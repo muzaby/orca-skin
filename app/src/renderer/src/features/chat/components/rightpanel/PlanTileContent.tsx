@@ -1,14 +1,15 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../../../../shared/ui/Icon'
 import { CopyIconButton } from '../../../../shared/ui/CopyIconButton'
 import { Markdown } from '../../../../shared/ui/markdown/Markdown'
-import { chatActions, useChatSession } from '../../store/chatStore'
+import { chatActions, useChatSession, useUnseenSettledTaskCount } from '../../store/chatStore'
 import { usePlanCommentSelection } from '../../hooks/usePlanCommentSelection'
 import { rangeFromOffsets, rectsForRange } from '../../lib/planCommentDom'
 import { PlanCommentOverlay } from './PlanCommentOverlay'
 import { PlanCommentPopover, type PopoverAnchorPoint } from './PlanCommentPopover'
 import { useI18n } from '../../../../shared/i18n'
-import { TaskProgressContent } from './TaskProgressList'
+import { TaskProgressContent, TaskProgressList } from './TaskProgressList'
+import { useTaskBoard } from '../../hooks/useTaskBoard'
 
 // 계획 타일 헤더 액션 — 본문이 아닌 타일 헤더(RightPanelTile)에서 렌더된다.
 // planContent 를 직접 구독하므로 RightPanelTile 은 타일별 액션을 모른 채 슬롯만 받는다.
@@ -20,23 +21,50 @@ export function PlanTileHeaderActions(): React.JSX.Element {
 
 export function PlanTileContent(): React.JSX.Element {
   const { tr } = useI18n()
+  const items = useTaskBoard()
+  const planContent = useChatSession((s) => s.planContent)
+  const pendingPlanReview = useChatSession((s) => s.pendingPlanReview)
+  const agentTools = useChatSession((s) => s.agentTools)
+  const cliVersion = useChatSession((s) => s.cliVersion)
+  const unseen = useUnseenSettledTaskCount()
+  // 목록 유무와 무관하게 열린 타일에서 완료 알림을 확인한다.
+  useEffect(() => {
+    if (unseen > 0) chatActions.acknowledgeSettledTasks()
+  }, [unseen])
+  const hasTasks = items.length > 0
+  // 승인 대기의 본문 해소 실패는 빈 계획과 다르므로 작업만 있어도 감추지 않는다.
+  const showPlan = Boolean(planContent) || pendingPlanReview != null || !hasTasks
+  const unsupported = !hasTasks && agentTools != null && !agentTools.includes('TaskCreate')
   return (
     <div className="flex flex-1 flex-col overflow-y-auto px-p5 py-p4 [scrollbar-gutter:stable]">
       <div className="mx-auto w-full max-w-[68ch] text-[13px] text-ink">
-        <PlanDocument />
-        <section aria-label={tr('chat.taskTile.headerTitle')} className="mt-5">
-          <h3 className="mb-g2 text-caption font-normal text-t6">
-            {tr('chat.taskTile.headerTitle')}
-          </h3>
-          <TaskProgressContent />
-        </section>
+        {showPlan && (
+          <PlanDocument
+            emptySupplement={
+              unsupported ? (
+                <TaskProgressList items={items} agentTools={agentTools} cliVersion={cliVersion} />
+              ) : null
+            }
+          />
+        )}
+        {hasTasks && (
+          <section
+            aria-label={tr('chat.taskTile.headerTitle')}
+            className={showPlan ? 'mt-5' : undefined}
+          >
+            <h3 className="mb-g2 text-caption font-normal text-t6">
+              {tr('chat.taskTile.headerTitle')}
+            </h3>
+            <TaskProgressContent items={items} />
+          </section>
+        )}
       </div>
     </div>
   )
 }
 
 // 댓글 오프셋은 이 문서 본문만 기준으로 삼는다. 아래 작업 목록·상세는 ref 밖의 형제다.
-function PlanDocument(): React.JSX.Element {
+function PlanDocument({ emptySupplement }: { emptySupplement: ReactNode }): React.JSX.Element {
   const { tr } = useI18n()
   const planContent = useChatSession((s) => s.planContent)
   // 계획 검토 중일 때만 드래그→코멘트 활성(전송 가능한 상태와 일치).
@@ -116,6 +144,7 @@ function PlanDocument(): React.JSX.Element {
               unavailable ? 'chat.rightpanel.planUnavailableDesc' : 'chat.rightpanel.planEmptyDesc'
             )}
           </p>
+          {emptySupplement}
         </div>
       </div>
     )

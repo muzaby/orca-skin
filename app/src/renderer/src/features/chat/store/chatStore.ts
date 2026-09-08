@@ -12,6 +12,7 @@ import {
   type PlanComment
 } from '../reducer/chatReducer'
 import { toPlanFeedback } from '../lib/planComments'
+import { nextComposerDraftSequence, type ComposerDraftUpdate } from '../lib/composerDraft'
 import { steerBlockedByProviderBoundary, shouldQueueAsPending } from '../lib/sendAdmission'
 import {
   chatApi,
@@ -121,7 +122,12 @@ export interface ChatStoreState {
   concurrencyByProjectId: Record<string, number>
   // 중단 버튼의 held 전량 취소(0067 확정 5) — main 의 message.cancelled 에서 잔존 항목 텍스트를
   // 모아 여기 실으면 ChatTile 이 구독해 Composer draft 로 복원한다(편집 가능). seq 로 중복 소비 방지.
-  draftRestore: { key: string; seq: number; text: string } | null
+  draftRestore: {
+    key: string
+    seq: number
+    text: string
+    mode?: ComposerDraftUpdate['mode']
+  } | null
 }
 
 // 새-채팅(아직 sessionId 미발급) 엔트리의 예약 키. 창당 1개 — main 의 pending 슬롯과 대칭.
@@ -602,7 +608,7 @@ function receive(ev: NormalizedEvent): void {
         setState({
           draftRestore: {
             key,
-            seq: Date.now(),
+            seq: nextComposerDraftSequence(),
             text: present.map((item) => item.text).join('\n\n')
           }
         })
@@ -1494,6 +1500,15 @@ export const chatActions = {
   captureDiffRequirementSnapshot,
   clearDiffRequirementsIfUnchanged,
   selectTask: (key: string | null): void => dispatchActive({ type: 'SELECT_TASK', key }),
+  restoreComposerDraft: (
+    key: string,
+    text: string,
+    mode: ComposerDraftUpdate['mode'] = 'replace'
+  ): void => {
+    const state = getState()
+    if (state.activeKey !== key || !state.sessions[key]) return
+    setState({ draftRestore: { key, seq: nextComposerDraftSequence(), text, mode } })
+  },
   openTask: (key: string): void => {
     dispatchActive({ type: 'OPEN_TASK', key })
     revealRightPanelTile('task')

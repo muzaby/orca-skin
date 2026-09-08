@@ -95,7 +95,6 @@ export function showsUnseenTaskBadge(
   suspended: readonly RightPanelTileId[] = SUSPENDED_RIGHT_PANEL_TILES,
   kind: AgentKind = 'coding'
 ): boolean {
-  if (kind === 'work') return false
   if (isRightPanelTileSuspended('task', suspended)) return false
-  return unseenCount > 0 && !activeTiles.includes('plan')
+  return unseenCount > 0 && !activeTiles.includes(kind === 'work' ? 'task' : 'plan')
 }

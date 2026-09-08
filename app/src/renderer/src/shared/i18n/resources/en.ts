@@ -629,6 +629,7 @@ export const en: typeof ko = {
       viewTranscript: 'View transcript'
     },
     taskTile: {
+      askAboutTask: 'Ask a question or suggest changes',
       addDirectory: 'Add folder',
       allowedDirectory: 'User-added folder: {{path}}',
       directoryBusy: 'Add a folder after the current work finishes.',
@@ -864,7 +865,6 @@ export const en: typeof ko = {
     rightpanel: {
       expandTile: 'Expand {{label}}',
       restoreTile: 'Restore {{label}} width',
-      fixedTile: 'Always visible',
       tiles: {
         plan: 'Plan',
         subagent: 'Background tasks',

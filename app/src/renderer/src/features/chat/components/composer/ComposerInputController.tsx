@@ -13,6 +13,7 @@ import { Popover } from '../../../../shared/ui/Popover'
 import { useI18n } from '../../../../shared/i18n'
 import { useChatSession } from '../../store/chatStore'
 import { agentPresentation } from '../../lib/agentPresentation'
+import type { ComposerDraftUpdate } from '../../lib/composerDraft'
 import { useSkills } from '../../../../shared/hooks/useSkills'
 import { useAttachments } from '../../hooks/useAttachments'
 import { useFileAutocomplete } from '../../hooks/useFileAutocomplete'
@@ -33,6 +34,7 @@ import { SkillAutocomplete } from './SkillAutocomplete'
 import { submitComposerInput } from './composerSubmit'
 import {
   createDraftSnapshot,
+  applyDraftUpdate,
   replaceDraft,
   replaceDraftRange,
   setDraftComposition,
@@ -51,7 +53,7 @@ interface ComposerInputControllerProps {
   toolApprovalPending: boolean
   cwd: string | null
   initialDraft?: string
-  restoredDraft?: { id: number; text: string }
+  restoredDraft?: ComposerDraftUpdate
   onSend: (
     text: string,
     attachments: ComposerAttachment[],
@@ -159,9 +161,10 @@ export function ComposerInputController({
   useEffect(() => {
     if (compositionActive()) return
     if (!restoredDraft || restoredRef.current === restoredDraft.id) return
+    if (restoredDraft.mode === 'append' && !active) return
     restoredRef.current = restoredDraft.id
-    updateSnapshot((current) => replaceDraft(current, restoredDraft.text))
-    if (active) focus(restoredDraft.text.length)
+    updateSnapshot((current) => applyDraftUpdate(current, restoredDraft))
+    if (active) focus(snapshotRef.current.text.length)
   }, [active, compositionActive, focus, restoredDraft, snapshot.composing, updateSnapshot])
 
   useEffect(() => {

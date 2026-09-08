@@ -4,7 +4,6 @@ import {
   agentPresentation,
   ChatTile,
   Composer,
-  RightPanel,
   useChatSession
 } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
@@ -60,7 +59,6 @@ export function NewChatLandingPage(): React.JSX.Element {
             />
           </div>
         </div>
-        {agentKind === 'work' && <RightPanel />}
       </section>
     )
   }

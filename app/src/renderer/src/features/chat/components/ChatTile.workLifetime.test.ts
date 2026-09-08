@@ -5,7 +5,17 @@ import { TranscriptView } from './transcript/TranscriptView'
 import { Composer } from './Composer'
 import { initialChatState } from '../reducer/chatReducer'
 
-const harness = vi.hoisted(() => ({ activeKey: 'first', kind: 'work' as 'work' | 'coding' }))
+const harness = vi.hoisted(() => ({
+  activeKey: 'first',
+  kind: 'work' as 'work' | 'coding',
+  draftRestore: null as {
+    key: string
+    seq: number
+    text: string
+    mode?: 'append' | 'replace'
+  } | null,
+  restoreComposerDraft: vi.fn()
+}))
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
   useState: () => [undefined, vi.fn()]
@@ -14,7 +24,8 @@ vi.mock('../store/chatStore', () => ({
   useChatSession: (selector: (state: typeof initialChatState) => unknown) =>
     selector({ ...initialChatState, agentKind: harness.kind, sessionId: harness.activeKey }),
   useChatStore: (selector: (state: unknown) => unknown) =>
-    selector({ activeKey: harness.activeKey, draftRestore: null }),
+    selector({ activeKey: harness.activeKey, draftRestore: harness.draftRestore }),
+  chatActions: { restoreComposerDraft: harness.restoreComposerDraft },
   useChatBusy: () => false,
   usePendingSteer: () => []
 }))
@@ -58,5 +69,30 @@ describe('actual ChatTile Work session lifetime wiring', () => {
     expect(
       find(ChatTile({ backendLabel: 'Claude', canAbort: true }), TranscriptView)?.key
     ).toBeNull()
+  })
+})
+
+describe('actual ChatTile draft update forwarding', () => {
+  it('forwards append mode only to the targeted active session', () => {
+    harness.activeKey = 'first'
+    harness.draftRestore = { key: 'first', seq: 9, text: '> task\n\n', mode: 'append' }
+    const ownComposer = find(ChatTile({ backendLabel: 'Claude', canAbort: true }), Composer)
+    expect((ownComposer?.props as { restoredDraft?: unknown }).restoredDraft).toEqual({
+      id: 9,
+      text: '> task\n\n',
+      mode: 'append'
+    })
+    harness.activeKey = 'other'
+    const otherComposer = find(ChatTile({ backendLabel: 'Claude', canAbort: true }), Composer)
+    expect((otherComposer?.props as { restoredDraft?: unknown }).restoredDraft).toBeUndefined()
+    harness.draftRestore = null
+  })
+  it('routes cancelled feedback through the same scoped producer without append mode', () => {
+    harness.activeKey = 'first'
+    const transcript = find(ChatTile({ backendLabel: 'Claude', canAbort: true }), TranscriptView)
+    ;(transcript?.props as { onRestoreSteerDraft: (text: string) => void }).onRestoreSteerDraft(
+      'cancelled'
+    )
+    expect(harness.restoreComposerDraft).toHaveBeenLastCalledWith('first', 'cancelled')
   })
 })

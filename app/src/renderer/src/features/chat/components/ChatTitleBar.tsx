@@ -221,17 +221,11 @@ export const ChatTitleBar = memo(function ChatTitleBar({
                 }}
                 role="menuitemcheckbox"
                 aria-checked={active}
-                disabled={agentKind === 'work'}
               >
                 <span>{labels[tile.id as RightPanelTileId] ?? tr(tile.defaultLabelKey)}</span>
-                {agentKind === 'work' && (
-                  <span className="ml-auto text-[11px] text-t6">
-                    {tr('chat.rightpanel.fixedTile')}
-                  </span>
-                )}
                 {/* 0213 D-001 로 `작업` 이 목록에 돌아와 이 배지가 다시 도달한다 — 메뉴를 연
                     채로도 미확인 완료 수가 보인다(0205 §10 EP-03 이 지우지 말라고 남긴 자리). */}
-                {tile.id === 'plan' && showTaskBadge && (
+                {tile.id === (agentKind === 'work' ? 'task' : 'plan') && showTaskBadge && (
                   <span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] px-1.5 text-[10px] font-medium text-accent">
                     {unseenSettledTasks}
                   </span>

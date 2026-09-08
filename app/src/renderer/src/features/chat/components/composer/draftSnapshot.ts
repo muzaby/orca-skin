@@ -1,3 +1,5 @@
+import type { ComposerDraftUpdate } from '../../lib/composerDraft'
+
 export interface DraftSnapshot {
   revision: number
   text: string
@@ -96,6 +98,20 @@ export function replaceDraftRange(
 export function replaceDraft(snapshot: DraftSnapshot, text: string): DraftSnapshot {
   if (snapshot.composing) return snapshot
   return updateDraftText(snapshot, text, text.length, text.length)
+}
+
+export function applyDraftUpdate(
+  snapshot: DraftSnapshot,
+  update: ComposerDraftUpdate
+): DraftSnapshot {
+  if (update.mode !== 'append') return replaceDraft(snapshot, update.text)
+  const separator =
+    snapshot.text === '' || snapshot.text.endsWith('\n\n')
+      ? ''
+      : snapshot.text.endsWith('\n')
+        ? '\n'
+        : '\n\n'
+  return replaceDraft(snapshot, `${snapshot.text}${separator}${update.text}`)
 }
 
 export function clearDraftAfterAcceptedSubmit(

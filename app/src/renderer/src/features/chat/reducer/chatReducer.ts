@@ -19,6 +19,7 @@ import type {
 } from '../../../../../shared/ipc'
 import { subagentNoticePart } from '../../../../../shared/ipc'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
+import { directoryIdentity } from '../../../../../shared/extra-directories'
 import { responseBoundaryPart } from '../../../../../shared/response-boundary'
 import {
   coerceAutoPermissionMode,
@@ -714,7 +715,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         agentKindLocked: true,
         agentPanelInitialized: true,
-        rightPanelTiles: rightPanelColumnsForAgent(state.rightPanelTiles, state.agentKind),
+        rightPanelTiles:
+          state.agentKind === 'work' && !state.agentPanelInitialized
+            ? activateTile(state, 'task')
+            : rightPanelColumnsForAgent(state.rightPanelTiles, state.agentKind),
         sendCount: state.sendCount + 1,
         inflight: true,
         // 0119: 이 턴이 쓰는 provider 고정 — 이후 SET_MODEL 이 providerKey 를 바꿔도
@@ -1149,8 +1153,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       // 판정할 바깥이 없어지므로 스키마·가드·세션행 3지점이 뒤에서 또 자르지만, 여기서
       // 막지 않으면 칩은 붙고 전송만 `schema_validation_error` 로 죽어 원인이 안 보인다.
       if (isFilesystemRoot(action.dir)) return { ...state, extraDirRejection: 'root' }
-      // 중복·cwd 자기 자신은 조용히 무시한다 — 사용자가 이미 가진 것을 다시 고른 것뿐이다.
-      if (state.extraDirs.includes(action.dir) || action.dir === state.cwd) return state
+      // Work는 직접 선택한 cwd도 컨텍스트에 남긴다. Coding의 기존 cwd 제외 정책은 유지한다.
+      if (
+        state.agentKind === 'work'
+          ? state.extraDirs.some((dir) => directoryIdentity(dir) === directoryIdentity(action.dir))
+          : state.extraDirs.includes(action.dir) || action.dir === state.cwd
+      )
+        return state
       return {
         ...state,
         extraDirs: [...state.extraDirs, action.dir],
@@ -1220,7 +1229,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         rightPanelTiles: rightPanelColumnsForAgent(
           state.agentPanelInitialized && state.sessionId === action.session.id
             ? state.rightPanelTiles
-            : [],
+            : action.session.agentKind === 'work'
+              ? activateTile({ ...state, agentKind: 'work', rightPanelTiles: [] }, 'task')
+              : [],
           action.session.agentKind ?? 'coding'
         ),
         cwd: action.session.cwd ?? state.cwd,
@@ -1369,7 +1380,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     case 'TOGGLE_RIGHT_PANEL_TILE': {
       const target = rightPanelTarget(action.id, state.agentKind)
-      if (!target || state.agentKind === 'work') return state
+      if (!target) return state
       return columnsContain(state.rightPanelTiles, target)
         ? removeTile(state, target)
         : { ...state, rightPanelTiles: activateTile(state, target) }
@@ -1389,7 +1400,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     }
 
     case 'REMOVE_RIGHT_PANEL_TILE': {
-      if (state.agentKind === 'work') return state
       const nextLabels = { ...state.rightPanelTileLabels }
       delete nextLabels[action.id]
       const removed = removeTile(state, action.id)
@@ -1794,7 +1804,6 @@ function activateTile(state: ChatState, id: RightPanelTileId): RightPanelColumns
 }
 
 function removeTile(state: ChatState, id: RightPanelTileId): ChatState {
-  if (state.agentKind === 'work') return state
   const { columns, removedCol } = removeTileFromColumns(state.rightPanelTiles, id)
   if (columns === state.rightPanelTiles) return state
   if (removedCol === null) return { ...state, rightPanelTiles: columns }

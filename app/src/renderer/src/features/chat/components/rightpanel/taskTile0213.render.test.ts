@@ -263,7 +263,11 @@ describe('0213 — 래퍼가 View 로 흘리는 props (VP-08 path `→ 카드` �
       cliVersion: null,
       ...state
     }
-    return renderToStaticMarkup(createElement(TaskTileContent))
+    return renderToStaticMarkup(
+      createElement(TaskTileContent, {
+        items: taskBoardOrdered(taskBoardFromMessages(tileState.value.messages as Message[]))
+      })
+    )
   }
 
   it('`agentTools`·`cliVersion` 이 카드까지 흐른다 — 안내와 버전이 실제로 뜬다', () => {

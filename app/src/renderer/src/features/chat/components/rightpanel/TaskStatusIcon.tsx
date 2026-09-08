@@ -15,7 +15,7 @@ export type TaskStatusIconProps = (
 const BASE = 'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full mt-px'
 
 export function TaskStatusIcon(props: TaskStatusIconProps): React.JSX.Element {
-  // 계획 하단의 세 상태는 원·체크·점선 원으로 구별한다. 실제 id와 상태는 작업 데이터 및
+  // 계획 하단의 세 상태는 회전 표시·체크·점선 원으로 구별한다. 실제 id와 상태는 작업 데이터 및
   // 상세에 남기며, Work의 기존 상태 표현을 Coding의 모양으로 덮어쓰지 않는다.
   if (props.variant === 'plan') {
     if (props.status === 'completed') {
@@ -25,13 +25,15 @@ export function TaskStatusIcon(props: TaskStatusIconProps): React.JSX.Element {
         </span>
       )
     }
-    if (props.status === 'in_progress' || props.status === 'pending') {
+    if (props.status === 'in_progress') {
       return (
-        <span
-          aria-hidden
-          className={`${BASE} border border-t6 ${props.status === 'pending' ? 'border-dashed' : 'border-solid'}`}
-        />
+        <span aria-hidden className={`${BASE} text-t6`}>
+          <Icon name="refresh" size={17} className="animate-spin motion-reduce:animate-none" />
+        </span>
       )
+    }
+    if (props.status === 'pending') {
+      return <span aria-hidden className={`${BASE} border border-dashed border-t6`} />
     }
   }
 

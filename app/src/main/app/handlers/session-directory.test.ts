@@ -112,14 +112,60 @@ describe('Work session:addDirectory — production registration, filesystem and 
       realpathSync(directory)
     ])
   })
-  it('keeps duplicate and cwd selections idempotent without a DB write', async () => {
+  it('keeps an already added directory idempotent without a DB write', async () => {
     await invoke(request())
     const update = vi.spyOn(queries, 'updateSessionExtraDirs')
     expect(await invoke(request())).toEqual({ ok: true, extraDirs: [realpathSync(directory)] })
+    expect(update).not.toHaveBeenCalled()
+  })
+  it('persists an explicitly selected cwd for Context and reload without changing cwd', async () => {
+    expect(loadSession(queries, 'work', () => root)?.extraDirs).toEqual([])
     expect(await invoke({ ...request(), directory: root })).toEqual({
+      ok: true,
+      extraDirs: [realpathSync(root)]
+    })
+    const meta = queries.getSessionById('work')!
+    expect(meta.cwd).toBe(root)
+    expect(loadSession(queries, 'work', () => root)?.extraDirs).toEqual([realpathSync(root)])
+    expect(resolveTurnExtraDirs({ sessionId: 'work', extraDirs: ['C:/forged'] }, meta)).toEqual([
+      realpathSync(root)
+    ])
+    const update = vi.spyOn(queries, 'updateSessionExtraDirs')
+    expect(await invoke({ ...request(), directory: root })).toEqual({
+      ok: true,
+      extraDirs: [realpathSync(root)]
+    })
+    expect(update).not.toHaveBeenCalled()
+  })
+  it('canonicalizes a selected cwd alias and keeps repeat aliases idempotent', async () => {
+    const alias = join(root, 'reference-alias')
+    symlinkSync(directory, alias, process.platform === 'win32' ? 'junction' : 'dir')
+    queries.insertSession({
+      id: 'aliased-work',
+      backend: 'claude',
+      title: 'Aliased Work',
+      projectId: null,
+      createdAt: 1,
+      cwd: alias,
+      agentKind: 'work'
+    })
+    const selected = { sessionId: 'aliased-work', directory: alias }
+    expect(await invoke(selected)).toEqual({ ok: true, extraDirs: [realpathSync(directory)] })
+    const update = vi.spyOn(queries, 'updateSessionExtraDirs')
+    expect(await invoke({ ...selected, directory })).toEqual({
       ok: true,
       extraDirs: [realpathSync(directory)]
     })
+    expect(await invoke(selected)).toEqual({ ok: true, extraDirs: [realpathSync(directory)] })
+    expect(queries.getSessionById('aliased-work')!.cwd).toBe(alias)
+    expect(update).not.toHaveBeenCalled()
+  })
+  it('preserves a stored legacy alias when its canonical directory is selected again', async () => {
+    const alias = join(root, 'stored-alias')
+    symlinkSync(directory, alias, process.platform === 'win32' ? 'junction' : 'dir')
+    queries.updateSessionExtraDirs('work', [alias])
+    const update = vi.spyOn(queries, 'updateSessionExtraDirs')
+    expect(await invoke(request())).toEqual({ ok: true, extraDirs: [alias] })
     expect(update).not.toHaveBeenCalled()
   })
   it('rejects raw root, relative, missing directory and a file', async () => {

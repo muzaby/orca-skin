@@ -32,7 +32,7 @@ describe('product agent kind', () => {
     expect(chatActions.startForkDraft()).toBe(true)
     expect(getActiveChatSession()).toMatchObject({ agentKind: 'work', agentKindLocked: true })
   })
-  it('loads legacy as coding and keeps the Work task visible across removal and the next turn', () => {
+  it('loads legacy as coding and keeps a closed Work task hidden on the next turn', () => {
     const loaded = chatReducer(initialChatState, {
       type: 'LOAD_SESSION',
       session: {
@@ -47,8 +47,8 @@ describe('product agent kind', () => {
     expect(flattenColumns(loaded.rightPanelTiles)).toContain('task')
     const closed = chatReducer(loaded, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'task' })
     const next = chatReducer(closed, { type: 'BEGIN_TURN' })
-    expect(closed).toBe(loaded)
-    expect(flattenColumns(next.rightPanelTiles)).toEqual(['task'])
+    expect(flattenColumns(closed.rightPanelTiles)).toEqual([])
+    expect(flattenColumns(next.rightPanelTiles)).toEqual([])
     expect(
       chatReducer(initialChatState, {
         type: 'LOAD_SESSION',

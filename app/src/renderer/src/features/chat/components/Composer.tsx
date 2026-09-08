@@ -43,6 +43,7 @@ import {
 import { contextTokens } from '../lib/telemetry'
 import { contextWindowOf, nearCompaction } from '../lib/contextWindow'
 import { useAgents } from '../../../shared/hooks/useAgents'
+import type { ComposerDraftUpdate } from '../lib/composerDraft'
 
 interface ComposerProps {
   backendLabel: string
@@ -62,7 +63,7 @@ interface ComposerProps {
   // 컴포저 초기 입력 시드 — Skills "채팅에서 사용해보기" 가 nav state → page 를 거쳐 주입한다.
   // 마운트/값 변경 시 1회 draft 에 채우고 포커스한다(사용자 입력 중에는 덮어쓰지 않음).
   initialDraft?: string
-  restoredDraft?: { id: number; text: string }
+  restoredDraft?: ComposerDraftUpdate
   // 리딩-거터/최대폭(ReadingColumn)을 제거해 컴포저를 부모 컬럼 폭에 꽉 채운다.
   // 프로젝트 랜딩처럼 이미 컬럼이 폭을 제한하는 곳에서 hero/세션 목록과 좌우 라인을 맞춘다.
   // 채팅 뷰(ChatTile)는 transcript 와 폭을 공유해야 하므로 미전달(기본 ReadingColumn).
