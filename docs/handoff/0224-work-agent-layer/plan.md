@@ -7,7 +7,7 @@
 | slug | `0224-work-agent-layer` |
 | 작성자 | **Codex** |
 | 일자 | 2026-09-08 |
-| 상태 | **impl/IMPL_DONE — Codex r1 구현, 독립 검증 대기; 미완료 인수는 impl.md 참조** |
+| 상태 | **impl/IMPL_DONE — Codex r1 실제 모델 인수 포함 16/16 자기확인, 독립 검증 대기** |
 | 코드 조사 기준 | `04953cf781b8c967d4aaef3255752bb721bafeb0` |
 | V mode / revision | Baseline V / V1 — 중앙 토글·모드별 UI/UX, 구현 전 확정 |
 | 기준 V / 유효 V | none / 이 문서 V1 (구현 전 설계 커밋) |
@@ -555,7 +555,7 @@ Work projection은 전체 세션을 다시 평탄화하지 않고 기존 virtual
 
 ## [구현자 기입]
 
-**Codex r1 구현**. 유효 V는 구현 전 확정한 V1이다. [구현 보고](impl.md)에 설계 리뷰·강제 지점/V-pair·수정 잠금·Product/UX 파생 검토·잠재 문제·게이트/AC·Review Signals를 기록했다. 실제 Claude 모델 시험은 자동 승인 검토 거부로 미실행이며, mock 결과를 인수 성공으로 대체하지 않았다.
+**Codex r1 구현·인수 보완**. 유효 V는 구현 전 확정한 V1이다. [구현 보고](impl.md)에 설계 리뷰·강제 지점/V-pair·수정 잠금·Product/UX 파생 검토·잠재 문제·게이트/AC·Review Signals를 기록했다. 최초 자동 승인 거부 후 사용자 명시 승인으로 실제 Claude 생성·게시·동시 Coding·앱 재시작 시험을 완료했다. AC 16/16·V-pair 27 SELF_PASS는 구현자 자기확인이며 독립 verify를 대신하지 않는다.
 
 ## [검증자 기입] 파생 이슈
 

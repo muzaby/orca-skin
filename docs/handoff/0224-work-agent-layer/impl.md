@@ -47,6 +47,7 @@ Work/Coding을 세션 출생 속성으로 추가했다. Main의 고정 프로필
 - **U**: [native UI 결과](evidence/native-ui.json)·[밝은 테마](evidence/work-light.png)·[어두운 테마](evidence/work-dark.png)·[좁은 창](evidence/work-narrow.png).
 - **P**: [Coding React 성능 원자료](evidence/coding-performance.json), [Work selector 관측](evidence/selector-performance.log). 구체 범위는 §6.
 - **W**: [Work DOM 수명 결과](evidence/work-dom-lifetime.json). 실제 Exchange/WorkActivity/ToolCard/useScrollAnchor, production CSS, Chromium offscreen에서 합성 응답 갱신·늦은 결과를 관측했다. virtualizer·전체 앱 이동·실제 모델 시험은 포함하지 않는다.
+- **L**: 사용자 명시 승인 후 [실제 Claude 생성·게시](evidence/live-run.json), [동시 Work/Coding](evidence/live-concurrent.json), [새 프로세스 재시작](evidence/live-reopen.json), [복원 화면](evidence/live-work-reopened.png), [게시 원본](evidence/live-meeting-summary.md), [실제 저장 세션](evidence/live-loaded-session.json).
 
 | Pair | 자기 상태 | 직접 관측 / 남은 한계 |
 |---|---|---|
@@ -64,9 +65,9 @@ Work/Coding을 세션 출생 속성으로 추가했다. Main의 고정 프로필
 | VP-12 | SELF_PASS | G 게시 카드/삭제/구독 수명 + B 사용자 닫음 존중. 0223의 기존 실제 모델 인수는 별도 미완료. |
 | VP-13 | SELF_PASS | G Coding·copy/fork·라우팅 회귀 + B 기존 renderer branch, 선택 변이 RED. |
 | VP-14 | SELF_PASS | P의 Coding 비교·과거 재계산 없음, W의 열린 카드·과거 DOM·스크롤 유지. |
-| VP-15 | SELF_BLOCKED | 실제 Claude 호출 자동 승인 검토 거부. mock을 AT-15 대체 증거로 쓰지 않았다. |
-| VP-16 | SELF_PASS | A/B 최초 준비·빠른 후속·DB reopen·fork 상태 전이 통합. OS 앱 재시작을 포함한 실제 모델 시나리오는 VP-15에 남김. |
-| VP-17 | SELF_PASS | A 세션별 profile·tool context·취소 경계, U 모드 안내, B 세션별 표시·패널. 실제 모델 동시 실행은 미측정. |
+| VP-15 | SELF_PASS | L의 실제 Write→publish_artifact, 544 bytes·DB·양쪽 카드·프로세스 재시작 복원. mock 대체 없음. |
+| VP-16 | SELF_PASS | A/B 최초 준비·빠른 후속·DB reopen·fork 상태 전이 통합, L의 실제 앱 재시작 후 Work 종류·이력 복원. |
+| VP-17 | SELF_PASS | A 세션별 profile·tool context·취소 경계, U/B 표시·패널, L 실제 Work/Coding streaming 중첩·종류/응답 분리. |
 | VP-18 | SELF_PASS | B 경계·중단·late·재로드 및 접기 unmount, W late append 중 펼침·스크롤 유지. 재시작 후 접기 상태 영속을 약속하지 않는다. |
 | VP-19 | SELF_PASS | A의 실제 IPC schema·SQLite·profile·builder→SDK query 옵션과 B store load. |
 | VP-20 | SELF_PASS | A preparing/resume 거부·spawn key 기록/정리·listen/flush. |
@@ -115,10 +116,10 @@ Work/Coding을 세션 출생 속성으로 추가했다. Main의 고정 프로필
 | I-04 | 완료 part 재탐색·wrapper 교체, 구현 세부 | 메시지/결과 cache와 세션 수명 key. 과거 part 반복 읽기 증가 0. |
 | I-05 | 자식 알림뿐인 listen·reasoning만 있는 구간, 구현 세부 | child-only 출력으로 boundary 생성하지 않음. 빈 활동 요약 생성하지 않음. |
 | I-06 | 기존 exact DTO 기대값 누락, 시험 정정 | session.load 두 기대값에 Coding 종류 명시, 해당 5/5 GREEN. |
-| I-07 | 모델 게시율·실제 파일/재시작 인수, 미확인 | AC15 보류. 명시 승인 후 가상 회의 메모 시험; watcher 우회 없음. |
+| I-07 | 실제 파일/재시작 인수, 관측 완료 | 사용자 승인 후 L 실제 시험 성공. 모델 게시 누락률은 단일 성공 사례로 일반화하지 않음. |
 | I-08 | 실제 DOM 스크롤 인수, 관측 완료 | W의 20회 tail 갱신·late result에서 펼침/DOM 보존, scrollTop·anchorTop 차이 0. 숨은 창 rAF 정지는 offscreen fixture로 해소; 생산 코드 변경 없음. |
 
-현재 구현 계약을 바꿔야 하는 PLAN_GAP은 발견하지 않았다. I-07의 외부 호출 승인은 남아 있다. 컨텍스트·뷰어·미구현 adapter는 후속 핸드오프 범위다.
+현재 구현 계약을 바꿔야 하는 PLAN_GAP은 발견하지 않았다. I-07은 사용자 승인 후 실제 인수로 닫았다. 컨텍스트·뷰어·미구현 adapter는 후속 핸드오프 범위다.
 
 ## 6. 구현 보고
 
@@ -138,10 +139,10 @@ Work/Coding을 세션 출생 속성으로 추가했다. Main의 고정 프로필
 | AC12 | ✅ | 기존 패널·게시 카드 수명 회귀, 사용자 닫기 보존(B/G). |
 | AC13 | ✅ | Coding 기존 렌더·라우팅·copy/fork·권한 회귀(G). |
 | AC14 | ✅ | Coding 성능 비교·Work 캐시 및 실제 DOM 펼침/스크롤 유지(P/W). |
-| AC15 | ⚠️ | 실제 Claude 호출 미실행: 자동 승인 검토 거부. |
+| AC15 | ✅ | L 실제 Write·명시 게시·bytes/hash/DB·카드/출력·새 앱 프로세스 복원. |
 | AC16 | ✅ | native 모드별 안내·같은 Composer, store send/load·본문/패널 조립(B/U). |
 
-검산: **✅ 15 · ⚠️ 1 · ❌ 0 = 16**. 자기보고이며 AC15를 포함한 Cowork 전체 인수 완료로 표현하지 않는다.
+검산: **✅ 16 · ⚠️ 0 · ❌ 0 = 16**. V-pair 자기확인 **27 SELF_PASS / 0 SELF_BLOCKED**. 독립 verify는 아직 수행하지 않았다.
 
 | Gate | 실제 실행 결과 |
 |---|---|
@@ -153,7 +154,7 @@ Work/Coding을 세션 출생 속성으로 추가했다. Main의 고정 프로필
 | 문서·패치 | `check-doc-inventory.mjs --check`: generated/prose/link 통과. `git diff --check` 통과. |
 | native UI | 모델 호출 없는 실제 production app. U의 5 checks true, errors 없음. 이미지 직접 확인. |
 | Work DOM 수명 | W success=true, errors 없음. 펼친 활동/도구와 과거 DOM·결론 유지, 늦은 결과 실제 표시·root unmount 확인. |
-| 실제 모델 | AC15 미실행. 자동 승인 검토 거부를 다른 경로로 우회하지 않음. |
+| 실제 모델 | 사용자 승인 후 L의 생성·게시 및 Work/Coding 동시 실행, 새 앱 프로세스 복원 통과. |
 
 전체 Electron Vitest 시도의 fork 종료 timeout과 JSON 없는 종료는 통과 근거에서 제외했다. 실제 SQLite 시험은 Electron RunAsNode로 실행하고 나머지는 Node로 실행하여 설치 ABI를 바꾸지 않았다. 숨은 native 창 시험은 sandbox의 GPU child 로드 제약 때문에 승인된 프로세스 실행으로 수행했다.
 
@@ -170,7 +171,17 @@ Work selector 시험은 과거/완료 parts 반복 읽기 증가 0을 관측했�
 
 W는 actual useScrollAnchor와 실제 클릭으로 읽기 위치를 바닥에서 분리한 후 검사했다. scrollTop 3409.6001px, 활동 anchorTop 80.1750px가 20회 tail 갱신과 원래 도구의 늦은 결과 반영까지 변하지 않았다. 동일 tool DOM·열림 상태에서 새 결과가 표시됐고 종료 시 root가 비었다. 일반 숨은 창의 45초 timeout은 통과 근거에서 제외하고 offscreen 결과만 사용했다. 저장된 생산 파일 SHA256도 최종 소스와 일치했다.
 
-재현 fixture와 제한은 [실행 안내](fixtures/README.md)에 기록한다. plan·INDEX는 `impl/IMPL_DONE`, 다음 검증자로 맞추되 미완료 AC를 남기며 커밋은 `Status: partial`, `Verified-By: pending`으로 기록한다.
+실제 모델 인수 보완은 같은 r1이다. 최초 실행은 가상 회의 메모를 실제 production UI에서 전송했다. 모델이 `Write`와 `mcp__orca_artifacts__publish_artifact`를 호출하여 `meeting-summary.md`를 생성·게시했다. UI 전송부터 수신 경계 마감까지 19,108ms였고, SDK telemetry의 duration은 13,884ms, numTurns는 3, costUsd는 0.3667654였다. 이 값들은 SDK 보고값이며 수동 환산한 청구 금액이 아니다.
+
+게시 참조 `29f3e415-7688-400a-99a7-3eb7394f0dac`는 원래 도구 ID와 메시지 ID에 연결되고 `card_attached=1`이다. 544 bytes의 생성 원본과 게시 원본이 동일하며 SHA-256은 `e9339ba49f33d2b6510c061d4d2e805fddfdb335bf6187bec8d46f73096cd6b8`이다. 파일에는 화요일 재실행·3% 초과 실패 기준·민수/지연의 담당 항목이 포함됐다.
+
+최초 Electron 프로세스를 종료한 뒤 같은 격리 home/userData로 새 production 프로세스를 실행했다. 실제 `/chat/<sessionId>` 화면에서 Work 종류, 종료 경계, 활성 다운로드 카드, 우측 출력의 같은 게시 항목을 확인했다. 동시 실행 뒤에도 새 프로세스로 다시 열어 동일 bytes와 게시 ID, 두 Work 응답 경계 복원을 확인했다. 창 reload만으로 재시작을 대체하지 않았다.
+
+동시 실행은 같은 가상 메모의 한 문장 요약(기존 Work 세션)과 `2 + 3` 합성 Coding 질문(신규 Coding 세션)이다. 실제 streaming 시간이 겹쳤고 오류 없이 각각 종료됐다. Coding에는 Work 경계 part가 없었으며 숫자 `5` 응답을 확인했다. 기존 Work 게시 목록은 변경되지 않았다. 두 추가 요청의 SDK costUsd 합은 0.40958, 이번 실제 시험 전체 합은 0.7763454다. 환경/단일 합성 사례의 결과로, 임의 작업의 게시 정확도나 미래 adapter 지원을 증명하지 않는다.
+
+직전 턴의 자동 승인 거부 이후 이번 사용자 “하라”를 명시 승인으로 받아 진행했다. 중간 검사 실패 두 건은 fixture의 잘못된 `ended` 상태 기대값과 복제 불가능한 이벤트 구독 함수 반환값이었다. 실제 관측 계약에 맞춰 fixture만 수정했으며 앱 생산 코드는 변경하지 않았다. 본 인수 보완에서는 새 fixture 구문·문서/패치 검사를 수행하고 이전 코드 게이트를 다시 실행했다고 주장하지 않는다.
+
+재현 fixture와 제한은 [실행 안내](fixtures/README.md)에 기록한다. plan·INDEX는 `impl/IMPL_DONE`, 다음 검증자로 맞추며 인수 보완 커밋은 `Status: implemented`, `Criteria-Met: 16/16`, `Verified-By: pending`으로 기록한다.
 
 ## 7. Review Signals
 
@@ -178,4 +189,4 @@ W는 actual useScrollAnchor와 실제 클릭으로 읽기 위치를 바닥에서
 - V1의 preparing 종류 고정·stream/reload 동등성·과거 identity 요구가 실제 수정의 기준이었다.
 - 전체 회귀에서 새 DTO 기대값과 migration 시험 owner를 바로잡았으며 guard를 약화하지 않았다.
 - Node/Electron ABI 혼용, 사용자 홈의 sandbox realpath 제한, native 창 수명, child 에이전트 승인 대기가 검사 지연의 원인이었다. 미관측 실행을 exit code만으로 통과 처리하지 않았다.
-- 다음 검증자는 위 SELF 상태를 독립 확인하고 실제 모델 게시·파일 bytes·DB 참조·출력 카드·재시작 인수를 마무리해야 한다.
+- 사용자 승인 후 실제 모델 인수까지 보완했다. 다음 검증자는 코드와 위 SELF 상태·보존한 실제 모델 증거를 독립 확인한다.

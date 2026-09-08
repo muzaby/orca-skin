@@ -12,7 +12,9 @@
 
 격리한 config와 DB, 숨은 production 창에서 좌우 선택·초안/textarea 보존·Enter/Space·테마·좁은 창을 확인한다. Enter는 keyDown→char→keyUp 전체 입력열을 보낸다. `report.json`의 `errors`와 checks를 확인한다. 종료 코드만으로 판정하지 않는다.
 
-`--live`는 **실제 Claude 호출**을 추가한다. 이번 구현 턴에는 자동 승인 검토에서 거부되어 실행하지 않았다. 허용될 때만 사용하며 호스트의 표준 Claude 인증 저장소를 참조한다. 전송할 데이터는 실제 고객 정보가 없는 가상 회의 메모이고, 파일 작성·게시를 요청한다. 현재 fixture는 최초 게시 part와 세션 종류를 확인하는 출발점이다. AC15를 닫으려면 게시 원본 bytes·DB 참조·우측 출력·앱 재시작 결과·동시 Coding까지 추가 관측해야 한다.
+`--live`는 **실제 Claude 호출**을 추가하며 호스트의 표준 Claude 인증 저장소를 참조한다. 최초 자동 승인 거부 후 사용자 명시 승인을 받아 실행했다. 전송 데이터는 실제 고객 정보가 없는 가상 회의 메모이고 파일 작성·게시를 요청한다. 최초 fixture는 게시 part·세션 종류와 SDK usage를 기록한다. 이때 캡처는 종료 직후 paint일 수 있으므로 최종 화면은 아래 재시작 fixture에서 확인한다.
+
+`work-live-inspect.cjs <최초 root>`를 **별도 Electron 프로세스**로 실행하면 실제 게시 bytes/SHA-256·DB 연결·세션 로드·트랜스크립트/출력 UI를 확인한다. `--compare`를 추가하면 같은 가상 메모 한 문장 요약(Work)과 합성 `2 + 3` 답변(Coding)을 실제로 동시에 요청한다. 실제 모델 시험 승인 범위에서만 실행한다. 사용자 데이터를 전송하거나 파일 도구 응답을 mock하지 않는다. 기록된 root의 DB/config를 유지해야 하며, 최종 `reopen-report.json`·`compare-report.json`의 checks/errors를 확인한다.
 
 ## Coding 렌더 비교
 
@@ -32,7 +34,7 @@ production profiling React와 실제 transcript 구성요소를 쓴다. 전체 �
 
 순수 시험은 직접 Vitest로 실행한다. Electron ABI가 설치된 SQLite 시험은 `ELECTRON_RUN_AS_NODE=1`에서 Electron으로 Vitest를 실행한다. `npm test`의 pretest로 ABI를 교체하지 않는다. 홈/temp sandbox 제한이 생기는 fixture는 workspace cache에 격리한 `USERPROFILE`, `TEMP`, `TMP`를 사용한다.
 
-[파일별 결과](../evidence/regression.json)는 전체 Node 수집 후 각 실패 파일의 최종 재실행을 교체한 결과다. [질문 IPC 결과](../evidence/question-ipc.json)는 후속 신규 시험이며 회귀 집계에 한 번 포함했다. 승인 거부된 live 시험은 skip과 별도로 AC15 미완료로 보고했다.
+[파일별 결과](../evidence/regression.json)는 전체 Node 수집 후 각 실패 파일의 최종 재실행을 교체한 결과다. [질문 IPC 결과](../evidence/question-ipc.json)는 후속 신규 시험이며 회귀 집계에 한 번 포함했다. 해당 집계의 기존 live suite skip은 그대로 보존한다. 이후 실제 production 앱으로 수행한 AC15 증거는 [실제 생성·게시](../evidence/live-run.json)·[동시 실행](../evidence/live-concurrent.json)·[재시작](../evidence/live-reopen.json)이며 mock/건너뛴 시험을 통과로 바꾼 것이 아니다.
 
 ## Work DOM 수명
 

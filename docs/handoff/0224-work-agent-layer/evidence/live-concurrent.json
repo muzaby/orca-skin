@@ -1,0 +1,335 @@
+{
+  "author": "Codex",
+  "root": "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orca-work-native-GIF3XL",
+  "compare": true,
+  "originalSessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1",
+  "startedAt": "2026-09-08T10:17:40.846Z",
+  "checks": {
+    "reopenedWorkAndPublication": true,
+    "fileBytesAndDatabaseLink": true,
+    "reopenedEndedBoundary": true,
+    "reopenedTranscriptAndOutput": true,
+    "concurrentCodingAndWork": true
+  },
+  "errors": [],
+  "artifact": {
+    "publicationId": "29f3e415-7688-400a-99a7-3eb7394f0dac",
+    "artifactFileId": "d7b4f295-5591-457a-9b07-1cdb9fcae6bb",
+    "title": "회의 메모 요약 — Alpha 시험 재실행",
+    "filename": "meeting-summary.md",
+    "kind": "markdown",
+    "sizeBytes": 544,
+    "publishedAt": 1788862181405
+  },
+  "file": {
+    "source": "c:\\users\\rlaeo\\appdata\\local\\temp\\orca-work-native-gif3xl\\home\\.config\\orca\\projects\\default\\meeting-summary.md",
+    "publishedPath": "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orca-work-native-GIF3XL\\home\\.config\\orca\\artifacts\\d7b4f295-5591-457a-9b07-1cdb9fcae6bb\\meeting-summary.md",
+    "sizeBytes": 544,
+    "sha256": "e9339ba49f33d2b6510c061d4d2e805fddfdb335bf6187bec8d46f73096cd6b8",
+    "messageId": 2,
+    "toolRunId": "toolu_014DEiNoFmL2TDAbSDC3m9Yj"
+  },
+  "toolNames": [
+    "Write",
+    "mcp__orca_artifacts__publish_artifact"
+  ],
+  "ui": {
+    "route": "/chat/9c186297-63a2-4a5d-8aae-a1ae763b49c1",
+    "cards": [
+      {
+        "title": "회의 메모 요약 — Alpha 시험 재실행",
+        "inTask": false
+      },
+      {
+        "title": "회의 메모 요약 — Alpha 시험 재실행",
+        "inTask": true
+      }
+    ],
+    "sections": [
+      {
+        "text": "진행 상황",
+        "expanded": "true"
+      },
+      {
+        "text": "출력1",
+        "expanded": "true"
+      },
+      {
+        "text": "컨텍스트",
+        "expanded": "true"
+      }
+    ],
+    "responseStates": [
+      "ended"
+    ]
+  },
+  "compareResult": {
+    "codingId": "b2291652-a2f5-473b-8c26-4e9cdac850b2",
+    "overlap": true,
+    "events": [
+      {
+        "at": 1788862666966,
+        "type": "chat.activity",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1",
+        "foreground": "preparing"
+      },
+      {
+        "at": 1788862666966,
+        "type": "chat.activity",
+        "sessionId": "coding-test-13695a99-7816-437b-ba99-6fd3e2e5cd0a",
+        "foreground": "preparing"
+      },
+      {
+        "at": 1788862667013,
+        "type": "chat.activity",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1",
+        "foreground": "streaming"
+      },
+      {
+        "at": 1788862667014,
+        "type": "message.queued",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862667046,
+        "type": "chat.activity",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1",
+        "foreground": "streaming"
+      },
+      {
+        "at": 1788862667072,
+        "type": "message.submitted",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862667255,
+        "type": "chat.activity",
+        "sessionId": "coding-test-13695a99-7816-437b-ba99-6fd3e2e5cd0a",
+        "foreground": "streaming"
+      },
+      {
+        "at": 1788862667255,
+        "type": "message.queued"
+      },
+      {
+        "at": 1788862667266,
+        "type": "chat.activity",
+        "sessionId": "coding-test-13695a99-7816-437b-ba99-6fd3e2e5cd0a",
+        "foreground": "streaming"
+      },
+      {
+        "at": 1788862672072,
+        "type": "session.updated",
+        "sessionId": "b2291652-a2f5-473b-8c26-4e9cdac850b2"
+      },
+      {
+        "at": 1788862672073,
+        "type": "chat.activity",
+        "sessionId": "b2291652-a2f5-473b-8c26-4e9cdac850b2",
+        "foreground": "streaming"
+      },
+      {
+        "at": 1788862672165,
+        "type": "session.updated",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862673925,
+        "type": "message.committed",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862673963,
+        "type": "response.boundary",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862673972,
+        "type": "message.delta",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862673973,
+        "type": "chat.activity",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1",
+        "foreground": "streaming"
+      },
+      {
+        "at": 1788862674010,
+        "type": "message.delta",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862674052,
+        "type": "message.delta",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862674055,
+        "type": "message.delta",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862674115,
+        "type": "message.delta",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862674163,
+        "type": "message.delta",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862674214,
+        "type": "message.delta",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862674241,
+        "type": "message.delta",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862674251,
+        "type": "message.committed",
+        "sessionId": "b2291652-a2f5-473b-8c26-4e9cdac850b2"
+      },
+      {
+        "at": 1788862674253,
+        "type": "message.delta",
+        "sessionId": "b2291652-a2f5-473b-8c26-4e9cdac850b2"
+      },
+      {
+        "at": 1788862674253,
+        "type": "chat.activity",
+        "sessionId": "b2291652-a2f5-473b-8c26-4e9cdac850b2",
+        "foreground": "streaming"
+      },
+      {
+        "at": 1788862674325,
+        "type": "message.completed",
+        "sessionId": "b2291652-a2f5-473b-8c26-4e9cdac850b2"
+      },
+      {
+        "at": 1788862674385,
+        "type": "message.delta",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862674388,
+        "type": "message.delta",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862674413,
+        "type": "telemetry",
+        "sessionId": "b2291652-a2f5-473b-8c26-4e9cdac850b2"
+      },
+      {
+        "at": 1788862674415,
+        "type": "turn.ended",
+        "sessionId": "b2291652-a2f5-473b-8c26-4e9cdac850b2"
+      },
+      {
+        "at": 1788862674415,
+        "type": "chat.activity",
+        "sessionId": "b2291652-a2f5-473b-8c26-4e9cdac850b2",
+        "foreground": "idle"
+      },
+      {
+        "at": 1788862674417,
+        "type": "message.delta",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862674436,
+        "type": "message.delta",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862674515,
+        "type": "message.delta",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862674524,
+        "type": "message.completed",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862674646,
+        "type": "telemetry",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862674662,
+        "type": "turn.ended",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862674664,
+        "type": "response.boundary",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1"
+      },
+      {
+        "at": 1788862674670,
+        "type": "chat.activity",
+        "sessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1",
+        "foreground": "idle"
+      }
+    ],
+    "usage": [
+      {
+        "inputTokens": 2,
+        "outputTokens": 3,
+        "cacheReadTokens": 0,
+        "cacheCreationTokens": 32502,
+        "costUsd": 0.195728,
+        "durationMs": 2455,
+        "numTurns": 1,
+        "modelUsage": {
+          "claude-haiku-4-5-20251001": {
+            "costUsd": 0.000665,
+            "inputTokens": 570,
+            "outputTokens": 19,
+            "cacheReadTokens": 0,
+            "cacheCreationTokens": 0,
+            "contextWindow": 200000
+          },
+          "claude-sonnet-5": {
+            "costUsd": 0.19506300000000001,
+            "inputTokens": 2,
+            "outputTokens": 3,
+            "cacheReadTokens": 0,
+            "cacheCreationTokens": 32502,
+            "contextWindow": 1000000
+          }
+        },
+        "model": "claude-sonnet-5",
+        "contextWindow": 1000000
+      },
+      {
+        "inputTokens": 2,
+        "outputTokens": 70,
+        "cacheReadTokens": 0,
+        "cacheCreationTokens": 35466,
+        "costUsd": 0.213852,
+        "durationMs": 2884,
+        "numTurns": 1,
+        "modelUsage": {
+          "claude-sonnet-5": {
+            "costUsd": 0.213852,
+            "inputTokens": 2,
+            "outputTokens": 70,
+            "cacheReadTokens": 0,
+            "cacheCreationTokens": 35466,
+            "contextWindow": 1000000
+          }
+        },
+        "model": "claude-sonnet-5",
+        "contextWindow": 1000000
+      }
+    ]
+  },
+  "finishedAt": "2026-09-08T10:17:54.719Z"
+}
