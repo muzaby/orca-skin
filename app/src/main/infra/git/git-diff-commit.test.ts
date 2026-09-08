@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve, sep } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
-import { removeTempRoots } from './temp-repo.testfixture'
+import { FIXTURE_GIT_TIMEOUT_MS, removeTempRoots } from './temp-repo.testfixture'
 import { gitDiffPatch } from './git-diff'
 import { runGit } from './runner'
 
@@ -15,7 +15,7 @@ vi.setConfig({ testTimeout: 225_000, hookTimeout: 225_000 })
 
 const repos: string[] = []
 async function git(cwd: string, args: string[]): Promise<string> {
-  const result = await runGit(cwd, args)
+  const result = await runGit(cwd, args, { timeoutMs: FIXTURE_GIT_TIMEOUT_MS })
   if (!result.ok) throw new Error(result.stderr)
   return result.stdout.trim()
 }

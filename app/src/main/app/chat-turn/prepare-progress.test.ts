@@ -15,27 +15,32 @@ import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
-import { removeTempRoots } from '../../infra/git/temp-repo.testfixture'
+import { FIXTURE_GIT_TIMEOUT_MS, removeTempRoots } from '../../infra/git/temp-repo.testfixture'
 import type { WorktreePrepareStep } from '../../../shared/ipc'
 import { runGit } from '../../infra/git/runner'
 import { prepareTurnWorktree } from './prepare-worktree'
 import { WorktreeService } from '../../features/worktrees/service'
 
-// **파일 예산 99s** — 최악 케이스(다섯 단계)는 실제 git 을 직렬로 11회 띄운다(`makeRepo` 5 +
+// **파일 예산 180s** — 최악 케이스(다섯 단계)는 실제 git 을 직렬로 11회 띄운다(`makeRepo` 5 +
 // `prepare` 의 좌표·이름·add 6). self-hosted windows 러너의 실측 spawn 은 약 6s 로 레포
-// 기준(약 2s)의 3배라, 상한을 11 × 6s × 1.5(여유) = 99s 로 잡는다. 글로벌 20s
-// (`vitest.config.ts`)는 그대로 두고 **이 파일만** 넓힌다 — 전역을 올리면 git 을 쓰지 않는
-// 3천여 케이스의 멈춤 보고까지 함께 늦어진다. 훅도 같은 값이다: 예산이 끊긴 케이스는 git
+// 기준(약 2s)의 3배다. 다만 **그 11회를 같은 무게로 세지 않는다** — 하나는 `worktree add`,
+// 풀 체크아웃이라 가장 무겁고 실제로 병렬 부하에서 10s 를 넘겼다. 넘겼다는 것만 관측했고
+// 얼마나 걸렸는지는 모르므로 그 하한의 여섯 배를 한 항으로 둔다: (10 × 6s + 60s) × 1.5(여유)
+// = 180s. git 의 속도는 호스트 몫이라 여유는 크게 잡는 쪽이 싸다 — 예산이 끊긴 케이스는 git
 // 핸들을 연 채 죽고, 남은 고아가 정리 `rm` 을 EBUSY 로 밀어 실패가 스위트 전체로 번진다.
-vi.setConfig({ testTimeout: 99_000, hookTimeout: 99_000 })
+// 글로벌 20s(`vitest.config.ts`)는 그대로 두고 **이 파일만** 넓힌다 — 전역을 올리면 git 을
+// 쓰지 않는 3천여 케이스의 멈춤 보고까지 함께 늦어진다. 훅도 같은 값이다.
+vi.setConfig({ testTimeout: 180_000, hookTimeout: 180_000 })
 
 const dirs: string[] = []
 // 정리는 `removeTempRoots` 하나로 모은다 — `rm` 을 직접 부르면 끊긴 케이스가 남긴 고아 git
 // 자식을 그대로 밟아 EBUSY/EPERM 이 난다(픽스처 주석 참고).
 afterAll(() => removeTempRoots(dirs.splice(0)))
 
+// 프로세스 상한은 픽스처 상수로 넘긴다 — `runGit` 의 기본 10s 를 상속하면 위 파일 예산이
+// 아니라 그 캡이 판정을 쥔다(이 파일이 그렇게 죽었다, 픽스처 주석 참고).
 async function git(cwd: string, args: string[]): Promise<void> {
-  const result = await runGit(cwd, args)
+  const result = await runGit(cwd, args, { timeoutMs: FIXTURE_GIT_TIMEOUT_MS })
   if (!result.ok) throw new Error(`git ${args.join(' ')} → ${result.stderr}`)
 }
 
