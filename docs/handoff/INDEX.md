@@ -21,7 +21,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0224-work-agent-layer`](0224-work-agent-layer/plan.md) | plan | **DRAFT** | **Codex** (결정 반영) | `04953cf7` (코드 조사 기준) · `16862e68` (초안) | 1 | Codex 작성, V1 초안 rev.2. 새 대화 중앙 큰 토글(좌 Todo=Work / 우 Terminal=Coding)과 모드 종속 UI/UX 반영. 세션 시작 후 전환·첫 범위는 미확정 유지. 기존 runtime/도구/부품 공유, 코드 미착수. |
+| [`0224-work-agent-layer`](0224-work-agent-layer/plan.md) | plan | **READY** | **Codex** (구현) | `04953cf7` (코드 조사 기준) · `16b2a605` (UI 초안) | 1 | Codex 작성. 사용자 구현 지시로 V1 확정: 중앙 토글·세션 종류 고정·프로필·Work 표시·기존 패널. 컨텍스트/뷰어 후속. 설계 커밋 후 구현 착수. |
 | [`0223-artifact-publisher`](0223-artifact-publisher/plan.md) | plan | **DRAFT** (일반 생성물 Q-04) | **Codex** | `e520d1f6` (V1 설계) · `(r2 구현 — 검증자 기입)` | 2 | Codex 작성. 세 섹션 복원·독립 산출물 타일 제거·카드 정리 완료. [UI 보고](0223-artifact-publisher/ui-impl.md): 영향 129개·타입·린트·빌드 통과. 일반 생성물 등록 기준 답변 대기, 기존 모델/native 인수 미완료 유지. |
 | [`0218-simplify-200-217-cleanup`](0218-simplify-200-217-cleanup/plan.md) | verify | **PASS** (r2) | **사람** (PR #436 머지 판단) | `5d0806e0`(설계) · `90096390`(r1) · `380d9f25`(r1 검증) · `6c2c6659`(r2) | 2 | **r2 검증 = PASS** — 판정 원문은 [`verify.md`](0218-simplify-200-217-cleanup/verify.md). r2 범위 5건(D9·A3·A4·A5·I-05) 전부 닫힘, 차집합 **새 red 0**. I-05(테스트 하네스 경쟁) 해소로 게이트가 결정적이 됐다(5회 연속 green). 광택 7건·`needs_decision` 6건은 `NEXT_HANDOFF`. |
 | [`0217-mcp-detail-toggle-and-kebab`](0217-mcp-detail-toggle-and-kebab/plan.md) | verify | **PASS** (V1) | **사람** (AT-307 실기) | `ffa7b559`(설계) · `ff7b9038`(r1) | 1 | **r1 검증 = PASS** — 판정 원문은 [`verify.md`](0217-mcp-detail-toggle-and-kebab/verify.md). pair **6 PASS**(VP-301 은 §10 2/3) · VP-307 실기 대기 · AC **✅5/7** · 강제 지점 **15/16** 독립 재열거 일치 · 등록 변이 2/2 red. 자기검증이라 보고에 없던 축 2건을 더했고, 그중 M-E1 이 **편집 배선을 지우고 `onEdit` 을 no-op 으로 두면 전 게이트가 초록**임을 보였다(D5, 비차단 — plan 이 `not selected` 로 선언한 축). 비차단 6(D1~D6). **archive 이동은 AT-307 실기 뒤**. |
@@ -79,3 +79,4 @@
 > **구현자 = Claude**(환경에 Codex 부재, 사용자 지시). verify r1 의 FAIL 사유를 코드로 닫았다.
 >
 >
+
