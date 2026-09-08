@@ -9,7 +9,7 @@
 | 일자 | 2026-09-08 |
 | 상태 | **DRAFT — 세션 전환 방식·첫 구현 범위 답변 대기** |
 | 코드 조사 기준 | `04953cf781b8c967d4aaef3255752bb721bafeb0` |
-| V mode / revision | Baseline V / V1 초안 |
+| V mode / revision | Baseline V / V1 초안 rev.2 — 중앙 토글·모드별 UI/UX 반영 |
 | 기준 V / 유효 V | none / 이 문서 V1. READY 전까지 제안 계약 |
 | 관련 작업 | 0205 Cowork 연구, 0223 게시 도구·작업 패널, 0214 OpenCode 연구 |
 
@@ -21,6 +21,8 @@
 
 사용자가 새 대화에서 **코딩** 또는 **작업(Work)**을 선택하고, 두 종류가 같은 앱의 세션·도구·승인·확장 기능을 이용하게 한다. Work는 문서 작성·자료 정리·분석처럼 결과물 중심의 작업 지침과 표현을 제공한다.
 
+선택 진입점은 **새 대화 랜딩 중앙의 큰 아이콘 토글**이다. 왼쪽 Todo는 Work, 오른쪽 Terminal은 Coding이며, 선택값이 해당 모드의 UI/UX와 실행 프로필을 함께 결정한다.
+
 새 계층은 **제품 에이전트의 역할**을 소유한다. Claude/OpenCode 실행 백엔드, 모델 공급자, 권한 모드, SDK 서브에이전트는 각각 기존 책임을 유지한다.
 
 ## 2. 사용자 의도 / 요구 출처
@@ -28,6 +30,8 @@
 | 구분 | 내용 | 출처 |
 |---|---|---|
 | 명시 요구 | “새로운 핸드오프로 진행”, “Cowork(work) 도입”, “cowork 에이전트와 coding 에이전트를 놓는 레이어가 신설” | 현재 사용자 요청 |
+| 명시 UX | “화면 새 대화 랜딩 페이지 중앙에 커다란 토글 버튼”, “좌: todo icon, 우: terminal icon” | 후속 사용자 결정 (2026-09-08) |
+| 명시 전략 | “토글에 따라 uiux 또한 트리거”, “코딩, 코워크 종속적인 uiux” | 후속 사용자 결정 (2026-09-08) |
 | 명시 조건 | “구조적이며 체계적인 모듈화, 경량화”, “단 해결을 위해 플랫폼화(비대화) 하는 것은 안되며 회귀 또한 안된다.” | 앞선 구조 개선 요청 |
 | 유지 결정 | OpenCode는 후속 구현. SRT는 Windows 지원 성숙까지 보류 | 앞선 사용자 결정·[SRT 보고](../../etc/study/srt/execution-report.md) |
 | 유지 결정 | 게시 도구는 모델이 맥락에 따라 직접 호출. 누락·오게시가 빈번할 때 hook/watcher 보완 검토 | 앞선 사용자 결정·[0223 계획](../0223-artifact-publisher/plan.md) |
@@ -51,11 +55,14 @@
 | D-007 | 새 대화에서 선택하고 첫 전송부터 종류 고정. 재개·분기·핸드오프는 상속 | 실행 도중 지침/도구 변경과 과거 이력 재해석 방지 | **Q-01 권고안** | OPEN |
 | D-008 | 이번 범위는 종류·지침 계층과 Work 타임라인·기존 패널 연결 | 추적/뷰어를 더할지는 **Q-02 답변**으로 확정 | **Q-02 권고안** | OPEN |
 | D-009 | 정밀 Work 타임라인은 Main 수신 구간의 작은 경계 part를 영속하여 구성 | 현재 데이터로 완료 경계를 복원할 수 없음. 새 실행 엔진 대신 기존 parts 활용 | §9-B 기술 제안, D-008 채택 시 함께 확정 | OPEN |
+| D-010 | 새 대화 랜딩 중앙에 큰 아이콘 토글. **좌 Todo=Work / 우 Terminal=Coding** | 사용자가 지정한 진입 위치·크기·순서·아이콘 | 후속 사용자 결정 | ACTIVE |
+| D-011 | 토글 선택을 모드 종속 UI/UX와 실행 프로필의 공통 입력으로 사용 | 화면과 실제 에이전트 종류의 불일치 방지 | 후속 사용자 결정 | ACTIVE |
 
 - Q-01: 새 대화 선택 후 고정 / 같은 대화 안 전환 지원 중 답변 대기.
 - Q-02: Work 계층·타임라인·패널 / 컨텍스트 포함 / 컨텍스트·뷰어 포함 중 답변 대기.
-- 이하 §5~§19는 Q-01·Q-02의 **권고안을 기준으로 한 제안**이다. 답변이 다른 경우 해당 Decision·AC·V·강제 지점을 함께 정정한다.
-- ACTIVE 결정 ↔ AC 대조: D-001→AC1·5·9, D-002→AC6·7·13·14, D-003→AC6·8, D-004→AC12·15, D-005→AC12, D-006→문서·커밋 gate. 충돌 없음. 미결정을 ACTIVE로 바꾸지 않았다.
+- D-010·D-011은 확정이며, 모드별 UI의 구체 매핑은 §5의 제안으로 구분한다. 랜딩 토글 결정만으로 시작 후 전환·컨텍스트/뷰어의 범위까지 승인된 것으로 해석하지 않는다.
+- 이번 수정은 READY 전 V1 초안의 구체화다. 이전 초안은 `16862e68`에 보존되며, 미확정 기본값·세션 고정 정책을 사용자 결정으로 승격하지 않는다.
+- ACTIVE 결정 ↔ AC 대조: D-001→AC1·5·9, D-002→AC6·7·13·14, D-003→AC6·8, D-004→AC12·15, D-005→AC12, D-006→문서·커밋 gate, D-010→AC1, D-011→AC16. 충돌 없음.
 
 ## 4. 요구와 연구의 비판적 검토
 
@@ -68,21 +75,27 @@
 | 연구의 타임라인 분류 | 유효한 UX 방향. 문체 기반 판단은 채택하지 않음 | 실제 `AppMessagePart.type`, `parentToolRunId`, tool ID로 분류 가능 |
 | 최종 텍스트 판정 | 단순히 메시지별 마지막 text를 선택하면 틀림 | `groupTurns`는 여러 assistant 메시지를 묶고 자동 알림도 추가됨 |
 | `/agent`를 Work/Coding 목록으로 변경 | 제안하지 않음 | 현재 `/agent`는 실행 환경·모델 공급자 설정 화면 |
+| 랜딩 모드 선택 부품 | 중앙 큰 선택기는 chat feature에서 조립. 기존 작은 Toggle을 확대 재사용하지 않음 | `NewChatLandingPage` 중앙 블록, shared `Button/Icon/Toggle` 계약 확인 |
 | 계정/프로젝트 지침 변경 즉시 적용 | 문서와 코드가 어긋남. Work 설계를 낡은 설명에 의존시키지 않음 | persistent 채널은 spawn 시 append 적용, 현재 respawn 축에 append 없음 |
 
 ## 5. 사용자 흐름과 상태
 
-권고 UI는 기존 새 대화와 프로젝트 랜딩의 Composer 위에 **코딩 / 작업** 선택을 추가한다. 별도 `/work` 라우트·대화 저장소·설정 페이지를 만들지 않는다. 기존 진입은 코딩을 기본으로 하고, 시작한 대화에는 종류 라벨을 표시한다.
+새 대화 랜딩은 중앙 콘텐츠 블록의 주된 선택 요소로 **큰 2분할 아이콘 토글**을 배치한다. 인사말과 Composer 사이에서 수평 중앙에 놓고, **좌 Todo=Work / 우 Terminal=Coding** 순서를 고정한다. 기존 진입의 Coding 기본값과 시작 후 종류 라벨은 기존 권고를 유지하며, 왼쪽 배치가 Work 기본 선택을 뜻하지는 않는다.
+
+토글은 동일 폭의 큰 두 선택 영역과 선택된 영역의 배경/테두리로 표현한다. 시각 제안은 각 영역 높이 최소 56px·아이콘 24px이며 실제 창에서 비례를 검증한다. 버튼 본체는 아이콘으로 표현하고, 한국어 접근성 이름·hover/focus 툴팁과 인접 모드 안내로 뜻을 전달한다.
+
+프로젝트 랜딩에 같은 토글을 재사용하는 것은 기존 제안 범위다. 프로젝트 정보·세션 목록의 레이아웃을 유지하며 새 대화 중앙 배치를 그대로 강요하지 않는다. 별도 `/work` 라우트·대화 저장소·설정 페이지는 만들지 않는다.
 
 ```text
-새 대화 / 프로젝트 → 코딩·작업 선택 → 입력·폴더 선택 → 첫 전송(종류 잠금)
-  → 기존 실행·승인·질문 → Work 활동 표시 → 결과 답변·명시적 게시 카드
+새 대화 중앙 [Todo: Work | Terminal: Coding] → 선택 모드의 랜딩·입력 안내
+  → 입력·폴더 선택 → 첫 전송(종류 잠금 권고)
+  → 선택 모드의 트랜스크립트·패널 → 결과 답변·명시적 게시 카드
   → 세션 목록 / 재시작 / 분기에서도 종류 복원
 ```
 
 | 상태/이벤트 | 동작 | 관측 결과 |
 |---|---|---|
-| 전송 전 선택 변경 | 동일 초안의 종류만 변경. 입력·첨부·cwd 보존 | 작성 중 자료가 사라지지 않음 |
+| 전송 전 선택 변경 | 같은 `agentKind`로 선택 표시·랜딩/입력 안내를 즉시 갱신. 입력·첨부·cwd 보존 | 모드 변화가 보이며 작성 중 자료는 유지 |
 | 첫 전송 준비 중 | 종류 잠금. SDK ID 전에도 같은 초안의 후속 입력은 같은 종류 | 빠른 연속 입력이 다른 프로필에 합류하지 않음 |
 | 기존 대화 로드 | 저장값 우선, 이전 버전 대화는 코딩 | 화면과 실제 실행 종류 일치 |
 | 종류가 다른 변조/오래된 요청 | 예약·spawn·사용자 메시지 영속 전에 명시 오류 | 기존 세션/큐는 그대로, 새 대화에서 선택 안내 |
@@ -92,6 +105,18 @@
 | 중단·오류·질문/승인 대기 | 기존 제어 UI와 원문 유지 | 접힌 활동 때문에 필요한 행동/실패가 가려지지 않음 |
 | SDK init 전 실패 | 같은 초안에서 재시도, 종류 잠금 유지. 새 대화로 돌아가면 변경 가능 | 실패 후 다른 종류로 같은 준비 큐를 재사용하지 않음 |
 | 오프라인/백엔드 불가 | 기존 가용성·오류 UI 적용 | 다른 백엔드나 종류로 조용히 대체하지 않음 |
+
+### 모드별 UI/UX 매핑 — 구현 제안
+
+| 표면 | Work (좌 Todo) | Coding (우 Terminal) | 공통으로 유지 |
+|---|---|---|---|
+| 새 대화 랜딩 | 작업 중심 인사말·모드 안내 | 코딩 중심 인사말·모드 안내 | 중앙 선택기·기존 랜딩 셸 |
+| Composer | 문서/분석/정리 요청에 맞춘 placeholder·안내 | 개발 요청에 맞춘 placeholder·안내 | 입력 엔진·첨부·cwd·모델/권한 선택 |
+| 전송 이후 본문 | §9-B Work 활동·산출물 표현 | 기존 Coding 트랜스크립트 | 원문·Markdown·도구/승인·파일 액션 |
+| 우측 영역 기본 동선 | 기존 작업 타일의 진행/출력/컨텍스트로 진입 | 기존 Coding 배치와 진입 동선 | 패널 셸·타일·사용자의 닫기/배치 선택 |
+| 세션 이동/복원 | 저장된 Work 종류에서 같은 UI 선택 | 저장된 Coding 종류에서 같은 UI 선택 | 현재 세션의 `agentKind` |
+
+모드 전용 화면 조립은 분리하되 해당 모드가 사용하는 공통 컴포넌트는 공유한다. 이번 토글 결정에 없는 Git/도구 기능의 숨김·삭제·권한 변경은 추가하지 않는다. 공유 입력기를 `key={agentKind}`로 재생성하거나, 선택 시 자동 전송·프로세스 시작을 일으키지 않는다.
 
 ### Work 지침
 
@@ -103,13 +128,15 @@
 
 ### 테마·접근성
 
-선택기·상태 라벨은 기존 시맨틱 토큰과 i18n을 쓴다. 기존 Tooltip/Button/Popover, Markdown, ToolCard, ReasoningBlock, ArtifactCard, TileSection을 재사용한다. 키보드 선택·포커스·펼침 상태·라이트/다크·좁은 창을 확인하고 별도 Work 색상 체계를 만들지 않는다.
+선택기·상태 라벨은 기존 시맨틱 토큰과 i18n을 쓴다. 기존 Button의 pressed 표현·가변 크기 Icon·Tooltip을 재사용하고 Todo/Terminal 글리프는 현재 Material 아이콘 체계에 추가한다. 기존 작은 on/off `Toggle` atom과 별도로 chat feature의 `AgentModeToggle`이 상호 배타 선택을 맡는다.
+
+접근성은 이름 있는 버튼 그룹 안의 `aria-pressed` 버튼으로 구성하고, 클릭·Enter/Space 모두 같은 action으로 한 종류만 선택한다. Tab 포커스·선택 상태·툴팁·라이트/다크·좁은 창을 검증한다. 색상만으로 선택을 구별하지 않고 큰 토글이 Composer를 가리거나 가로 스크롤을 만들지 않게 한다.
 
 ## 6. 범위와 구현 순서
 
 | 단계 | 결과 | 다음 단계 진입 조건 |
 |---|---|---|
-| A — 제품 계층 | 종류 선택·저장·복원·불일치 거부·프로필 조립·같은 런타임 사용 | 세션/큐/확장 회귀 통과 |
+| A — 제품 계층 | 중앙 토글·모드별 랜딩/입력 안내·종류 저장/복원·프로필 조립 | 세션/큐/확장 회귀 통과 |
 | B — Work 표현 | 작은 영속 표시 경계·순수 활동 투영·타임라인, 공통 작업 패널 연결 | 경계 기록과 라이브/재로드 동등성 검증 |
 | C — 통합 인수 | 실제 Claude Work 작업·게시·재시작·동시 Coding 검증 | 문서·게이트·인수 결과 보고 |
 
@@ -130,7 +157,7 @@ A/B를 각각 검토 가능한 구현 커밋으로 분리한다. B가 해결되�
 
 | R | AT / AC | 관측 가능한 동작 | 직접 검증 수단 | 경로 |
 |---|---|---|---|---|
-| R-01 | AT-01 / AC1 | 신규/프로젝트에서 두 종류 선택, 전송 전 자료 유지, 시작 후 잠금 | 실제 store+랜딩 상호작용, 첫 send payload·라벨 단언 | P-01 |
+| R-01 | AT-01 / AC1 | 새 대화 중앙의 큰 토글은 좌 Todo=Work/우 Terminal=Coding이며 선택·아이콘·접근성 이름 일치. 전송 전 자료 보존 | 실제 랜딩 클릭/Enter/Space→store→첫 send·승격, DOM 순서와 white/dark·좁은 창 실기 | P-01 |
 | R-02 | AT-02 / AC2 | 신규 Work와 기존 Coding이 DB 재열기·목록·검색 후 로드에서 같은 종류 | 이전 스키마 fixture migration→insert→close/open→IPC→store | P-02 |
 | R-03 | AT-03 / AC3 | 존재 세션·준비 중 동일 초안의 명시적 종류 불일치가 큐/기록/실행을 바꾸지 않음 | 실제 send/lease 경로, 예약 sink와 DB diff 및 오류 단언 | P-03 |
 | R-04 | AT-04 / AC4 | 분기·핸드오프·실패 재시도·백그라운드 연속 실행에서 종류 상속 | draft→send→init→reload, 원본 DB와 실행 입력 비교 | P-02·04 |
@@ -145,6 +172,7 @@ A/B를 각각 검토 가능한 구현 커밋으로 분리한다. B가 해결되�
 | R-13 | AT-13 / AC13 | 기존 Coding 렌더·초안·경로 승격·copy/fork·모델/권한 선택 유지 | 기준 fixture와 기존 관련 suite를 production branch에서 재현 | P-01·07·08 |
 | R-14 | AT-14 / AC14 | 종류 선택/표현만으로 모델 호출·프로세스·타이머가 늘지 않고 과거 턴을 재계산하지 않음 | query/spawn 등록 경로 조사+호출 spy, selector/render 횟수, §14 측정 | P-05·07·08 |
 | R-15 | AT-15 / AC15 | 실제 Work 요청이 도구로 파일을 만들고 명시 게시하여 카드/출력·재시작에서 확인됨 | 실제 Windows 앱+설치된 Claude SDK, 게시파일 bytes·DB 참조·UI 동시 관측 | P-01→05→06→08 |
+| R-16 | AT-16 / AC16 | 토글 즉시 해당 모드의 랜딩/입력 안내가 바뀌고, 첫 전송·세션 복원 후 본문/패널도 같은 종류를 사용 | 실제 토글→안내/placeholder→send→ChatTile→세션 이동/로드, 입력 보존·Composer/패널 단일 마운트 | P-01→07→08 |
 
 AC15는 정해진 정답을 반환하는 mock으로 대체하지 않는다. 0223의 실제 모델 호출 미완료를 전제하며, 환경 실패와 모델 누락·오게시를 나누어 기록한다. 프롬프트만으로 임의 플러그인·미구현 OpenCode의 호환성을 보증하지 않는다.
 
@@ -156,7 +184,7 @@ AC15는 정해진 정답을 반환하는 mock으로 대체하지 않는다. 0223
 
 | Node | 레벨 | 계약 / 출처 | provenance |
 |---|---|---|---|
-| R-01…R-07, R-09…R-11, R-14…R-15 / AT-동일 번호 | R / AT | §7의 개별 행이 각각 독립 node | NEW |
+| R-01…R-07, R-09…R-11, R-14…R-16 / AT-동일 번호 | R / AT | §7의 개별 행이 각각 독립 node | NEW |
 | R-08 / AT-08 | R / AT | 승인/workspace/worktree 계약, 기준 커밋의 관련 시험 | INHERITED |
 | R-12 / AT-12 | R / AT | 0223 V1+UI V1의 패널·게시 동작, 기준 커밋 | INHERITED |
 | R-13 / AT-13 | R / AT | 기존 Coding 흐름·`turns.test.ts`와 현재 `useChatRouteSync` 코드, 기준 커밋 | INHERITED |
@@ -170,6 +198,7 @@ AC15는 정해진 정답을 반환하는 mock으로 대체하지 않는다. 0223
 | MD-02 / UT-02 | MD / UT | respawn 입력·listen/flush 전달 (§10·11) | NEW |
 | MD-03 / UT-03 | MD / UT | 순서/part 분류·identity 보존 (§9-B·14) | NEW |
 | MD-04 / UT-04 | MD / UT | 수신 구간 표시 경계의 시작/마감·중단/오류 분류 (§9-B) | NEW |
+| MD-05 / UT-05 | MD / UT | `agentKind`에서 모드별 UI 표현을 파생하는 순수 매핑 (§9-C) | NEW |
 
 ### Pair registry
 
@@ -177,7 +206,7 @@ AT oracle은 §7의 직접 검증 수단을 포함한다. EP의 괄호 수는 §
 
 | Pair | left ↔ right | requiredness | production path | 직접 oracle / 선택적 적대 증거 | 강제 지점 |
 |---|---|---|---|---|---|
-| VP-01 | R-01 ↔ AT-01 | REQUIRED | P-01 | 선택→send payload·자료 보존 / 직접 행동 | EP-01·02 (4) |
+| VP-01 | R-01 ↔ AT-01 | REQUIRED | P-01 | 중앙 토글·좌/우 배치→send·자료 보존 / Todo·Terminal 매핑 맞교환 변이 선택 | EP-01·02·14 (7) |
 | VP-02 | R-02 ↔ AT-02 | REQUIRED | P-02 | 실제 DB 재열기+로드 종류 / 직접 행동 | EP-04·05 (6) |
 | VP-03 | R-03 ↔ AT-03 | REQUIRED | P-03 | 오류+큐·DB 무변경 / preparing 비교 제거 변이 선택 | EP-01·03 (5) |
 | VP-04 | R-04 ↔ AT-04 | REQUIRED | P-02·04 | 종류/원본/분기값 비교 / 직접 행동 | EP-02·03·04·08 (14) |
@@ -193,15 +222,17 @@ AT oracle은 §7의 직접 검증 수단을 포함한다. EP의 괄호 수는 §
 | VP-14 | R-14 ↔ AT-14 | REQUIRED | P-05·07·08 | 요청/spawn·렌더·시간 관측 / selector 과거 identity 파괴 변이 선택 | EP-06·10·11·12 (11) |
 | VP-15 | R-15 ↔ AT-15 | REQUIRED | P-01→05→06→08 | 실제 모델의 파일/DB/UI / 변이 미선택, 실기 | EP-02·06·09·12 (11) |
 | VP-16 | SD-01 ↔ ST-01 | REQUIRED | P-01→03→02→04 | 시작·빠른 후속·restart·fork 상태 표 일치 | EP-02·03·04·05·08 (17) |
-| VP-17 | SD-02 ↔ ST-02 | REQUIRED | P-05→06→08 | 두 종류 동시실행·취소, 도구 결과 session ID 일치 | EP-06·07·09·12 (11) |
+| VP-17 | SD-02 ↔ ST-02 | REQUIRED | P-01→05→06→08 | 모드별 화면·실행 종류 일치, 동시실행·취소 session ID 일치 | EP-06·07·09·12·14 (14) |
 | VP-18 | SD-03 ↔ ST-03 | REQUIRED | P-04→07→08 | stream·완료·중단·late 알림 순서·접힘·재로드 | EP-10·11·12·13 (12) |
 | VP-19 | AR-01 ↔ IT-01 | REQUIRED | P-01→02→05 | production IPC→DB→profile→adapter 계약 | EP-01·04·05·06 (11) |
 | VP-20 | AR-02 ↔ IT-02 | REQUIRED | P-03→04→05 | preparing/live 양쪽 종류 거부·채널 기록·연속 요청 | EP-03·06·07·08 (15) |
-| VP-21 | AR-03 ↔ IT-03 | REQUIRED | P-07→08 | 실제 공유 ToolCard/ArtifactCard 액션 호출 | EP-10·11·12 (7) |
+| VP-21 | AR-03 ↔ IT-03 | REQUIRED | P-01→07→08 | 모드별 조립에서 공유 Composer/ToolCard/ArtifactCard 동작 유지 | EP-10·11·12·14 (10) |
 | VP-22 | MD-01 ↔ UT-01 | REQUIRED | P-03→05 | undefined/enum/mismatch 표와 bytes 대조 | EP-01·03·06 (9) |
 | VP-23 | MD-02 ↔ UT-02 | REQUIRED | P-04→05 | 같은 key/변경 key·listen/flush 인자 비교 | EP-07·08 (7) |
 | VP-24 | MD-03 ↔ UT-03 | REQUIRED | P-07 | 모든 part 사례, 안정 key/참조, 마지막 text 반례 | EP-11 (3) |
 | VP-25 | MD-04 ↔ UT-04 | REQUIRED | P-04→07 | begin/end의 DB·live 동일성, 중단/오류를 ended로 바꾸는 변이 선택 | EP-13 (5) |
+| VP-26 | R-16 ↔ AT-16 | REQUIRED | P-01→07→08 | 실제 토글로 화면/요청/복원 대조 / 소비처의 종류를 Coding 상수로 고정하는 변이 선택 | EP-02·10·12·14 (10) |
+| VP-27 | MD-05 ↔ UT-05 | REQUIRED | P-01→07→08 | Work/Coding의 문구·본문·패널 기본값 매핑 직접 비교 | EP-14 (3) |
 
 나머지 pair는 직접 행동 oracle이 있어 변이를 별도로 선택하지 않는다. 새 구조 스캔/배선 검사로 행동 증거를 대체하는 경우에는 그 장치가 결함을 검출하는지 추가 확인한다.
 
@@ -219,7 +250,7 @@ AT oracle은 §7의 직접 검증 수단을 포함한다. EP의 괄호 수는 §
 
 | ID | 실제 entry → 경유 → consumer | 기준 코드 |
 |---|---|---|
-| P-01 | NewChatLandingPage/ProjectLandingPage → Composer → chatStore send → chat:send → init 승격 → route sync | `pages/`, `features/chat/store/chatStore.ts`, `app/hooks/useChatRouteSync.ts` |
+| P-01 | 중앙 AgentModeToggle → draft agentKind·UI 표현 → 기존 랜딩/Composer → chatStore send → chat:send → init 승격 → route sync | `pages/`, `features/chat/store/chatStore.ts`, `app/hooks/useChatRouteSync.ts`; 토글/매핑은 신규 제안 |
 | P-02 | SDK session.updated → TurnCoordinator/HistoryWriter → insertSession → 목록/HistoryReader → session load → chatStore | `main/features/history/{writer,reader}.ts`, `infra/db/queries.ts`, `app/handlers/session.ts` |
 | P-03 | chat:send → admission → attachments → lease acquire → busy reserve 또는 resolveTurn → TurnContext | `main/app/chat-turn/{send,admission,enqueue,resolve-turn,turn-context}.ts` |
 | P-04 | 최초 request → runtime/retry → post-turn → automatic continuation → listen/flush → runtime | `main/features/chat/turn-coordinator.ts`, `app/chat-turn-continuation.ts`, `app/chat-turn/{post-turn,continuation}.ts` |
@@ -253,14 +284,15 @@ AT oracle은 §7의 직접 검증 수단을 포함한다. EP의 괄호 수는 §
 | Main 책임 | app이 extensions·runtime·history 조립 | app이 순수 프로필 해석 결과도 주입, 기존 실행 경로 유지 | AR-01·02·AC5~8 |
 | 상태 | cwd/extraDirs 등 출생 속성 + 준비 lease | 같은 출생 수명에 종류 추가, DB 전에는 lease가 권위 | SD-01·AC3·4 |
 | 지침 | 기존 Orca/Tools/User/Project append | Work만 Agent 지침 추가, Coding append bytes 유지 | MD-01·AC5 |
-| 표시 | assistant 메시지별 segments, 수신 완료 경계 미영속 | Coding 유지, Work는 작은 경계 part와 원문을 활동 단위로 투영 | AR-03·MD-04·AC9~13 |
+| 표시 | 공통 랜딩·assistant 메시지별 segments, 수신 완료 경계 미영속 | 중앙 토글→모드별 랜딩·본문·패널 조립, Work 경계/활동 투영 | AR-03·MD-04·05·AC1·9~13·16 |
 | 오류/정리 | 기존 큐·승인·중단·채널 종료·패널 구독 | 해당 owner 유지, 종류 불일치는 예약 전 차단 | SD-01·02·AC3·7·12 |
 | 성능/시험 | 기존 warm runtime·memo/virtualizer | 프로필 해석 O(1), 활동 투영은 영향받은 부분만 | MD-02·03·AC14 |
 
 ### 9-A. 제품 프로필 계층
 
 ```text
-Renderer: 새 대화의 코딩 / 작업 선택
+Renderer: 새 대화 중앙 [Todo: Work | Terminal: Coding]
+    ├─ agentKind → 모드별 랜딩·본문·우측 패널 표현
     ↓ 기존 IPC · 세션 draft/DB (AgentKind)
 Main app/chat-turn: 종류 해석·출생 잠금·실행 합성
     ├─ features/agents: 고정 프로필 + 순수 resolver
@@ -278,7 +310,7 @@ Main app/chat-turn: 종류 해석·출생 잠금·실행 합성
 | 출생값 | `agentKind`, DB `agent_kind NOT NULL DEFAULT 'coding'` + 허용값 CHECK | lease/TurnContext → sessions row |
 | 실행 조립 | builder에 `agentInstructions?`, extensions에 `agentProfileKey?` | app이 profiles→extensions를 연결. feature 교차 import 없음 |
 | SDK 입력 | 기존 append·plugin·runtimeTools | adapter는 제품 UI 이름을 해석하지 않음 |
-| 화면 | `agentKind`를 현재 세션 selector로 읽고 renderer 분기 | 기존 chat feature. 별도 전역 WorkStore 없음 |
+| 화면 | 현재 draft/세션 `agentKind`→순수 UI 매핑→선택 모드의 부품 조립 | 기존 chat feature. 별도 전역 WorkStore 없음 |
 
 `key`는 호스트가 제공하는 불투명한 spawn 구성 식별자다. Coding은 추가 instructions/key를 생략해 기존 요청을 보존하고, Work는 정적 지침 변경에 맞춘 key를 제공한다. Renderer가 instructions나 key를 지정하는 IPC는 만들지 않는다.
 
@@ -341,6 +373,25 @@ type ResponseBoundary =
 
 한 턴의 정상 활동 구간은 합치되 질문·오류·경계 등 기존 독립 표면을 넘어 강제 병합하지 않는다. 요약의 도구 종류는 distinct 이름, 메모 수는 text note 기준이며 reasoning을 더하지 않는다. 기존 Task 카드 라벨 개선은 실제 공유 `toolMeta`/task helper의 부족한 분기만 보완한다.
 
+### 9-C. 모드 종속 UI/UX의 소유권
+
+```text
+AgentModeToggle → chat draft/session.agentKind
+                      ├─ Main: 실행 프로필 해석
+                      └─ Renderer: agentPresentation(kind)
+                           ├─ 랜딩·Composer의 안내
+                           ├─ Coding/Work 트랜스크립트 조립
+                           └─ 기존 우측 패널의 첫 진입 동선
+```
+
+Renderer의 `features/chat/lib/agentPresentation.ts`는 정적 `Record<AgentKind, ...>`로 §5의 모드별 표시만 매핑한다. label/i18n key·표현 종류·패널 기본 진입값을 돌려주며, JSX factory·플러그인 등록·실행 권한을 소유하지 않는다. Main profile 모듈을 renderer가 import하거나 UI 구성을 위한 새 IPC를 만들지 않는다.
+
+`AgentModeToggle`은 현재 draft의 `agentKind`를 읽고 동일 store action으로 변경한다. 랜딩과 ChatTile은 같은 종류를 소비하며 별도 `isWork` 전역 상태·토글 local state 사본을 두지 않는다. 과거/비활성 세션의 UI도 해당 세션 종류를 읽어 현재 새 대화 선택에 휩쓸리지 않게 한다.
+
+page는 토글과 chat feature 부품의 배치만 맡는다. Composer는 같은 인스턴스에 안내 props를 전달하고, 모드 변경으로 작성 내용·첨부·cwd·프로젝트 소속을 reset하지 않는다. Work/Coding 분기는 랜딩 표현·AssistantTurn·패널 기본 진입의 조립 지점에 모으고, 공유 ToolCard/ArtifactCard에 불필요한 모드 조건을 퍼뜨리지 않는다.
+
+우측 패널의 모드 기본값은 새 세션 첫 진입에만 적용한다. 사용자의 열기/닫기 상태를 토큰·안내 props 변경·재로드 effect가 덮어쓰지 않게 하며 기존 소유권과 §13 수명주기를 유지한다.
+
 ## 10. 계약 / 강제 지점
 
 ### 종류 해석 SSOT
@@ -371,6 +422,7 @@ type ResponseBoundary =
 | EP-11 | Work 투영 | 영속 경계별 구간; part projection/reconcile; 카드·요약 producer/consumer (3) | 순서/내용 손실 |
 | EP-12 | 공유 패널/카드 | Work 최초 활성화·사용자 닫기; TaskOutputContent/ArtifactCard 수명주기 (2) | 패널 재개방·구독 누수·액션 회귀 |
 | EP-13 | 표시 경계 | coordinator begin; run·steer 사용자 경계 마감; writer 지정 메시지 영속; session 라우팅/reducer; reader/fork 복원 (5) | late 알림·재로드 시 과거 결론 재분류 |
+| EP-14 | 종류별 UI 매핑 | 순수 presentation 매핑; 랜딩 토글/Composer 안내; ChatTile의 본문/패널 조립 (3) | 토글·화면·실행 종류 불일치 또는 중복 셸 |
 | EP-D | 문서 상태 | plan 메타; handoff INDEX 행 (2) | 설계와 보드의 READY/DRAFT 불일치 |
 
 EP는 파일 수가 아니라 같은 계약을 강제할 책임 지점 목록이다. 구현자는 각 그룹 내부 실제 소비처를 다시 열거하고, 특히 EP-04의 context 양 경로와 EP-09의 기존 승인 경로를 대표 하나로 갈음하지 않는다.
@@ -388,6 +440,8 @@ EP는 파일 수가 아니라 같은 계약을 강제할 책임 지점 목록이
 | `main/infra/db/`, `features/history/`, shared IPC/protocol | agent_kind migration·insert·읽기·DTO | 실제 DB migration/reopen, legacy fixture |
 | `main/features/chat/turn-coordinator.ts`, 순수 경계 helper·shared event→part | Work 수신 구간 begin/end, 기존 bus 전달 | 무출력 listen·retry·abort/error·crash, DB/live 비교 |
 | `renderer/.../features/chat/` | 세션 속성, 공유 선택기, `lib/workActivity.ts`·`WorkActivity.tsx` | pure projection, 실제 store/component 통합 |
+| `renderer/.../features/chat/components/AgentModeToggle.tsx`, `lib/agentPresentation.ts` (신규) | 큰 아이콘 토글, 종류별 UI 매핑과 기존 부품 조립 | 좌/우·선택·표현 일치, 입력기 단일 인스턴스 |
+| `renderer/.../shared/ui/Icon.tsx`, shared i18n | 기존 Material 체계에 Todo/Terminal 추가, 접근성/안내 문자열 | 아이콘 매핑·접근성 이름·시각 검증 |
 | `renderer/.../pages/`, `app/hooks/` | 기존 랜딩 선택기 조립·경로 승격 유지 | 신규/프로젝트/분기 라우팅 |
 
 profile과 Work projection 순수 파일은 Electron·DB·Zustand를 import하지 않는다. 기존 모델 공급자 설정·title 생성·worktree 이름 생성에는 Work 지침을 넣지 않는다. preload는 기존 typed bridge를 사용하고 새 범용 invoke/file API를 만들지 않는다.
@@ -397,11 +451,12 @@ profile과 Work projection 순수 파일은 Electron·DB·Zustand를 import하�
 | 소비처 | 변화 | 회귀 |
 |---|---|---|
 | 세션 목록·프로젝트·검색 후 로드 | DB 종류를 복원. backend 배지와 별도 label | AC2·13 |
-| 새 대화·skill 프리필·fork/handoff | 새 초안 선택 또는 출발 세션 상속 | AC1·4 |
+| 새 대화·skill 프리필·fork/handoff | 중앙 토글의 초안 종류 또는 출발 세션 상속. 프리필 보존 | AC1·4·16 |
 | provider/model selector·`/agent` 환경 설정 | 의미/정체성 유지 | AC6·13 |
 | 승인·Task 도구·MCP·skills·plugins | 기존 실행 경로 공유, Work 지침만 추가 | AC6·8 |
 | ArtifactCard·TaskOutputContent | Work/Coding 둘 다 기존 참조·액션 공유 | AC12·15 |
 | title/worktree 보조 completion·debug/mock | 보조 지침 불변, debug는 동일 send/DB 경로 | AC5·6·14 |
+| 랜딩·Composer·ChatTile | 같은 draft/세션 종류로 UI를 선택하고 공통 인스턴스 유지 | AC1·13·16 |
 
 현재 지원 조합은 Coding×Claude와 Work×Claude로 계획한다. OpenCode를 등록하지 않으며, 미래에는 같은 프로필의 지침/확장 입력을 새 SessionAdapter가 해석한다. 호환성은 설치된 Claude SDK 옵션과 mock adapter 계약으로 검증하고 미래 SDK 동작을 미리 통과 처리하지 않는다.
 
@@ -442,6 +497,7 @@ Work projection은 전체 세션을 다시 평탄화하지 않고 기존 virtual
 |---|---|---|
 | Main DAG·feature 교차 import 금지 | §9-A app에서 프로필과 extensions 합성 | 유지 |
 | Renderer 4-layer·토큰·memo | §5·9-B·14 공유 부품과 selector | 유지 |
+| 중앙 큰 토글·좌 Todo/우 Terminal·모드 종속 UX | §5·9-C·AC1·16 | 새 사용자 결정 반영 |
 | 직접 게시·파일 부재/삭제 | §6·7 AC12·15 | 유지, 0223 인수 미완료 별도 |
 | SRT 보류·OpenCode 후속 | §6·12 | 유지 |
 | 컨텍스트는 실제 참조 자료 | §6 허용 폴더를 참조로 가장하지 않음 | 유지 |
@@ -466,16 +522,16 @@ Work projection은 전체 세션을 다시 평탄화하지 않고 기존 virtual
 
 - shared: `app/src/shared/{agent-kind.ts,ipc.ts,protocol.ts}`.
 - Main: `app/src/main/features/agents/`(신규), `app/chat-turn/`, `app/chat-turn-continuation.ts`, `contracts/turn.ts`, `adapters/turn.ts`, `features/{sessions,extensions,history}/`, `features/chat/turn-coordinator.ts`, `infra/db/`, `app/handlers/session.ts` 및 관련 시험.
-- Renderer: `app/src/renderer/src/features/chat/{store,reducer,lib,components}/`, `pages/{NewChatLandingPage,ProjectLandingPage}.tsx`, `app/hooks/useChatRouteSync.ts`, shared i18n 및 관련 시험.
+- Renderer: `app/src/renderer/src/features/chat/{store,reducer,lib,components}/`, `pages/{NewChatLandingPage,ProjectLandingPage}.tsx`, `app/hooks/useChatRouteSync.ts`, `shared/ui/Icon.tsx`, shared i18n 및 관련 시험.
 - 문서: `docs/IPC_CONTRACT.md`, `docs/arch/backend/{persistence,adapters,system-prompt}.md`, `docs/arch/frontend/{state,rendering}.md`, `docs/generated/inventory.md`(필요 시 생성), `docs/handoff/INDEX.md`.
-- 이번 **설계 턴** 수정은 이 plan과 `docs/INDEX.md`, `docs/handoff/INDEX.md`뿐이다.
+- 설계 문서는 이 plan과 인덱스에 한정한다. rev.2는 이 plan·handoff INDEX만 갱신하고 앱 코드는 변경하지 않는다.
 
 ## 19. 구현·검증 gate
 
 기준은 `app/AGENTS.md`, Main/Renderer AGENTS와 handoff gate다. 미래 구현에서는 코드/테스트와 함께 현재 문서를 갱신한다.
 
-1. 순수 UT: profiles/header, respawn/continuation, Work projection·union·identity.
-2. 통합 IT: send/lease/예약·fork/handoff·실제 DB migration/reopen·SDK 옵션·renderer store/panel.
+1. 순수 UT: profiles/header, respawn/continuation, Work projection·union·identity, agentPresentation의 모드별 매핑.
+2. 통합 IT: send/lease/예약·fork/handoff·실제 DB migration/reopen·SDK 옵션·중앙 토글→renderer store/Composer/panel.
 3. ST: Windows 앱에서 새 선택→첫 입력→작업/게시→중단/재시도→세션 이동/재시작. 라이브·재로드 비교와 Coding 동시 실행.
 4. AT: §7의 결과 단언. 실제 모델/native 파일 액션·키보드·테마·좁은 창은 실제 앱에서 수행한다.
 5. 정적/빌드: cwd `app`에서 `npm run lint`, `npm run typecheck`, `npm run build`; 문서 inventory gate와 `git diff --check`.
@@ -489,8 +545,10 @@ Work projection은 전체 세션을 다시 평탄화하지 않고 기존 virtual
 - D-007·D-008은 사용자 답변 전 OPEN이며, 메타와 보드 모두 DRAFT를 유지한다.
 - §10 undefined의 의미와 §5 준비 중 잠금을 대조했다. 최초 출생의 기본값과 이미 준비 중인 초안의 상속값을 구분했다.
 - §9-B는 현재 영속 경계 부재를 확인하여 D-009의 작은 수신 구간 part를 제안했다. AC11·VP-11/18/25·EP-13이 live/reload·중단·늦은 알림을 검증하며, D-008의 타임라인 범위와 함께 확정한다.
-- §7 요구 15행과 AT pair 15행, SD/AR/MD의 pair 10행을 대조했다. EP 합계 3곳을 정정한 뒤 전체 pair 25행의 분모 불일치 0건, 문서 상대 링크 누락 0건을 확인했다.
+- rev.1에서는 요구/AT 15행과 하위 pair 10행을 대조해 분모·상대 링크 누락 0건을 확인했다. rev.2는 요구/AT 16행·하위 pair 11행을 대조했고, 전체 pair 27행의 EP 분모 불일치·상대 링크 누락은 각각 0건이다.
 - 독립 읽기 검토에서 preparing lease·steer의 user 경계·telemetry 후 end 저장·session ID 라우팅을 대조하고 §9-B에 반영했다. 본문과 보드의 DRAFT 일치, 문서 inventory gate의 generated/prose/link 검사 통과를 확인했다.
+- rev.2 코드 대조: 새 대화 중앙 블록은 `NewChatLandingPage`, 프로젝트 랜딩은 별도 구조다. `Button.pressed`·`Icon.size`를 재사용할 수 있고 정확한 Todo/Terminal 글리프는 추가가 필요하다. 기존 on/off `Toggle`의 17×30px 형상을 큰 모드 선택기로 취급하지 않았다.
+- rev.2 독립 문서 검토에서 D-010·D-011↔AC1·AC16·§9-C·EP-14의 연결과 미확정 결정 보존을 확인했다. 문서 inventory gate의 generated/prose/link 검사가 통과했고 이번 변경은 문서뿐이므로 앱 실행 시험은 수행하지 않았다.
 - 구현자 보고·독립 검증 결과는 아직 없다. 계획 승인/결정 정리 후 `handoff-impl`로 A→B→C를 진행한다.
 
 ## [구현자 기입]
