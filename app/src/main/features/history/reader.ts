@@ -1,4 +1,5 @@
 import type { LoadedMessage, LoadedSession } from '../../../shared/protocol'
+import { parseStoredExtraDirectories } from '../../../shared/extra-directories'
 import type { DbQueries } from '../../infra/db'
 import { partFromRow, usageRowToTelemetry } from '../../infra/ipc/dto'
 
@@ -66,6 +67,7 @@ export function loadSession(
     providerKey: meta.provider_key,
     projectId: meta.project_id,
     cwd: meta.cwd ?? getCwd(meta.project_id),
+    extraDirs: parseStoredExtraDirectories(meta.extra_dirs),
     ...(lastTelemetry ? { lastTelemetry } : {}),
     ...(costUsd > 0 ? { costUsd } : {}),
     ...(lineage ? { lineage } : {}),

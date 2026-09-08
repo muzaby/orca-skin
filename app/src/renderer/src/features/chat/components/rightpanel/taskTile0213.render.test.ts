@@ -45,7 +45,8 @@ vi.mock('../../store/chatStore', () => ({
   useUnseenSettledTaskCount: () => 0
 }))
 
-const { TaskProgressList, TaskTileContent } = await import('./TaskTileContent')
+const { TaskProgressList, TaskProgressContent: TaskTileContent } =
+  await import('./TaskProgressList')
 
 let runSeq = 0
 const nextRun = (): string => `run${(runSeq += 1)}`

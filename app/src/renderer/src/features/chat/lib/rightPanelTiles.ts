@@ -1,3 +1,4 @@
+import type { AgentKind } from '../../../../../shared/agent-kind'
 import type { MessageKey } from '../../../shared/i18n'
 
 // 타일 기본 라벨은 카탈로그 키만 두고 소비자(RightPanelTile/ChatTitleBar)가 렌더에서
@@ -61,6 +62,23 @@ export const visibleRightPanelTileDefinitions = rightPanelTileDefinitions.filter
   (tile) => !MENU_HIDDEN_RIGHT_PANEL_TILES.includes(tile.id)
 )
 
+// 제품 종류는 표시 정책만 소유한다. 도구·계획 승인 데이터는 숨긴 타일과 함께 버리지 않는다.
+export function isRightPanelTileVisible(id: RightPanelTileId, kind: AgentKind): boolean {
+  return !isRightPanelTileSuspended(id) && (kind === 'work' ? id === 'task' : id !== 'task')
+}
+
+export function rightPanelTileDefinitionsForAgent(
+  kind: AgentKind
+): (typeof rightPanelTileDefinitions)[number][] {
+  return visibleRightPanelTileDefinitions.filter((tile) => isRightPanelTileVisible(tile.id, kind))
+}
+
+// 기존 작업 카드 진입은 Coding의 통합 계획 영역을 연다.
+export function rightPanelTarget(id: RightPanelTileId, kind: AgentKind): RightPanelTileId | null {
+  const target = kind === 'coding' && id === 'task' ? 'plan' : id
+  return isRightPanelTileVisible(target, kind) ? target : null
+}
+
 // 타일 버튼의 미확인 완료 배지를 띄우는가.
 //
 // 배지는 "확인하지 않은 완료가 있는데 그 타일을 보고 있지 않다" 를 뜻한다. `작업` 타일이
@@ -74,8 +92,10 @@ export const visibleRightPanelTileDefinitions = rightPanelTileDefinitions.filter
 export function showsUnseenTaskBadge(
   unseenCount: number,
   activeTiles: readonly RightPanelTileId[],
-  suspended: readonly RightPanelTileId[] = SUSPENDED_RIGHT_PANEL_TILES
+  suspended: readonly RightPanelTileId[] = SUSPENDED_RIGHT_PANEL_TILES,
+  kind: AgentKind = 'coding'
 ): boolean {
+  if (kind === 'work') return false
   if (isRightPanelTileSuspended('task', suspended)) return false
-  return unseenCount > 0 && !activeTiles.includes('task')
+  return unseenCount > 0 && !activeTiles.includes('plan')
 }

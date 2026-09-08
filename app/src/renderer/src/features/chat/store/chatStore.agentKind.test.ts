@@ -32,7 +32,7 @@ describe('product agent kind', () => {
     expect(chatActions.startForkDraft()).toBe(true)
     expect(getActiveChatSession()).toMatchObject({ agentKind: 'work', agentKindLocked: true })
   })
-  it('loads legacy as coding and opens work task once without reopening after user closes it', () => {
+  it('loads legacy as coding and keeps the Work task visible across removal and the next turn', () => {
     const loaded = chatReducer(initialChatState, {
       type: 'LOAD_SESSION',
       session: {
@@ -47,7 +47,8 @@ describe('product agent kind', () => {
     expect(flattenColumns(loaded.rightPanelTiles)).toContain('task')
     const closed = chatReducer(loaded, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'task' })
     const next = chatReducer(closed, { type: 'BEGIN_TURN' })
-    expect(flattenColumns(next.rightPanelTiles)).not.toContain('task')
+    expect(closed).toBe(loaded)
+    expect(flattenColumns(next.rightPanelTiles)).toEqual(['task'])
     expect(
       chatReducer(initialChatState, {
         type: 'LOAD_SESSION',

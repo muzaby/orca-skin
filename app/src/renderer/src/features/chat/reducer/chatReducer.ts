@@ -31,7 +31,7 @@ import type { MessageKey } from '../../../shared/i18n'
 import { contextTokens } from '../lib/telemetry'
 import { agentTaskKey, backgroundTaskKey } from '../lib/taskBoard'
 import { settleOrphanToolParts, settleStaleAsyncLaunchParts } from '../lib/parts'
-import { isRightPanelTileSuspended, type RightPanelTileId } from '../lib/rightPanelTiles'
+import { rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
 import type { BranchSnapshot } from '../components/composer/branchChipState'
 import {
   reanchorDiffRequirementItem,
@@ -44,6 +44,7 @@ import {
   addTileColumnMajor,
   columnsContain,
   removeTileFromColumns,
+  rightPanelColumnsForAgent,
   type RightPanelColumns
 } from '../lib/rightPanelLayout'
 import {
@@ -596,6 +597,7 @@ export type ChatAction =
   | { type: 'SET_WORKTREE_BASE_REF'; branch: string | null }
   // 참조 경로 칩 추가/제거 — 세션 확정 전에만 유효(리듀서가 가드하지 않고 호출부가 게이트한다).
   | { type: 'ADD_EXTRA_DIR'; dir: string }
+  | { type: 'SYNC_SESSION_EXTRA_DIRS'; sessionId: string; extraDirs: string[] }
   | { type: 'REMOVE_EXTRA_DIR'; dir: string }
   | { type: 'START_LOAD_SESSION'; sessionId: string; title: string | null }
   | { type: 'LOAD_SESSION'; session: LoadedSession }
@@ -700,16 +702,19 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
     case 'SET_AGENT_KIND':
       if (state.agentKindLocked || state.sessionId || state.agentKind === action.kind) return state
-      return { ...state, agentKind: action.kind }
+      return {
+        ...state,
+        agentKind: action.kind,
+        rightPanelTiles: rightPanelColumnsForAgent(state.rightPanelTiles, action.kind),
+        rightPanelColWidths: [],
+        rightPanelRowSplits: []
+      }
     case 'BEGIN_TURN':
       return {
         ...state,
         agentKindLocked: true,
         agentPanelInitialized: true,
-        rightPanelTiles:
-          !state.agentPanelInitialized && state.agentKind === 'work'
-            ? addTileColumnMajor(state.rightPanelTiles, 'task')
-            : state.rightPanelTiles,
+        rightPanelTiles: rightPanelColumnsForAgent(state.rightPanelTiles, state.agentKind),
         sendCount: state.sendCount + 1,
         inflight: true,
         // 0119: 이 턴이 쓰는 provider 고정 — 이후 SET_MODEL 이 providerKey 를 바꿔도
@@ -978,7 +983,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               retry: undefined,
               pendingPlanReview: ev.action.request,
               planContent: ev.action.request.plan,
-              rightPanelTiles: activateTile(state.rightPanelTiles, 'plan')
+              rightPanelTiles: activateTile(state, 'plan')
             }
           }
           // tool_approval — 위험 도구 실행 승인 게이트. approvalId 로 응답을 라우팅한다.
@@ -1133,6 +1138,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'SET_WORKTREE_BASE_REF':
       return { ...state, worktreeBaseRef: action.branch }
 
+    case 'SYNC_SESSION_EXTRA_DIRS': {
+      if (state.sessionId !== action.sessionId || state.agentKind !== 'work') return state
+      const extraDirs = [...new Set([...state.extraDirs, ...action.extraDirs])]
+      return { ...state, extraDirs, extraDirRejection: null }
+    }
+
     case 'ADD_EXTRA_DIR':
       // **루트는 거부하고 사유를 남긴다** (D-019·D-020). 가드 루트로 오르면 0075 격리가
       // 판정할 바깥이 없어지므로 스키마·가드·세션행 3지점이 뒤에서 또 자르지만, 여기서
@@ -1206,13 +1217,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         agentKind: action.session.agentKind ?? 'coding',
         agentKindLocked: true,
         agentPanelInitialized: true,
-        rightPanelTiles:
+        rightPanelTiles: rightPanelColumnsForAgent(
           state.agentPanelInitialized && state.sessionId === action.session.id
             ? state.rightPanelTiles
-            : action.session.agentKind === 'work'
-              ? addTileColumnMajor([], 'task')
-              : [],
+            : [],
+          action.session.agentKind ?? 'coding'
+        ),
         cwd: action.session.cwd ?? state.cwd,
+        extraDirs: action.session.extraDirs ?? [],
         // 0211 — 재시작 뒤에도 이름이 원본으로 복원되는 자리(§10 EP-06 둘째 지점).
         worktree: action.session.worktree ?? null,
         sessionId: action.session.id,
@@ -1355,15 +1367,18 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         )
       }
 
-    case 'TOGGLE_RIGHT_PANEL_TILE':
-      return columnsContain(state.rightPanelTiles, action.id)
-        ? removeTile(state, action.id)
-        : { ...state, rightPanelTiles: activateTile(state.rightPanelTiles, action.id) }
+    case 'TOGGLE_RIGHT_PANEL_TILE': {
+      const target = rightPanelTarget(action.id, state.agentKind)
+      if (!target || state.agentKind === 'work') return state
+      return columnsContain(state.rightPanelTiles, target)
+        ? removeTile(state, target)
+        : { ...state, rightPanelTiles: activateTile(state, target) }
+    }
 
     case 'SET_RIGHT_PANEL_TILE_ACTIVE':
       return action.active
-        ? { ...state, rightPanelTiles: activateTile(state.rightPanelTiles, action.id) }
-        : removeTile(state, action.id)
+        ? { ...state, rightPanelTiles: activateTile(state, action.id) }
+        : removeTile(state, rightPanelTarget(action.id, state.agentKind) ?? action.id)
 
     case 'RENAME_RIGHT_PANEL_TILE': {
       const label = action.label.trim()
@@ -1374,6 +1389,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     }
 
     case 'REMOVE_RIGHT_PANEL_TILE': {
+      if (state.agentKind === 'work') return state
       const nextLabels = { ...state.rightPanelTileLabels }
       delete nextLabels[action.id]
       const removed = removeTile(state, action.id)
@@ -1382,7 +1398,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...removed,
         rightPanelTileLabels: nextLabels,
-        ...(action.id === 'task' ? { selectedTaskKey: null } : {}),
+        ...(['task', 'plan'].includes(action.id) ? { selectedTaskKey: null } : {}),
         ...(action.id === 'subagent' ? { selectedSubagentTaskId: null } : {})
       }
     }
@@ -1449,7 +1465,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...next,
         activeDiffRequirementId: item.id,
         diffRequirementSelectionVersion: state.diffRequirementSelectionVersion + 1,
-        rightPanelTiles: activateTile(state.rightPanelTiles, 'diff'),
+        rightPanelTiles: activateTile(state, 'diff'),
         gitSnapshot: {
           ...next.gitSnapshot,
           expandedFiles: expandedFiles.includes(item.anchor.filePath)
@@ -1610,7 +1626,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         selectedTaskKey: action.key,
         unseenSettledTaskKeys: [],
-        rightPanelTiles: activateTile(state.rightPanelTiles, 'task')
+        rightPanelTiles: activateTile(state, 'task')
       }
 
     // 백그라운드 작업 타일의 선택 — `selectedTaskKey` 를 건드리지 않는다(EP-12).
@@ -1621,7 +1637,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         selectedSubagentTaskId: action.toolRunId,
-        rightPanelTiles: activateTile(state.rightPanelTiles, 'subagent')
+        rightPanelTiles: activateTile(state, 'subagent')
       }
 
     case 'TASK_STOP_REQUESTED': {
@@ -1771,11 +1787,14 @@ function findToolCallPart(
 //
 // **reducer 가 `addTileColumnMajor` 를 직접 부르지 않는다**: 지점이 5곳이라 한 곳만 막으면
 // 나머지로 정지가 뚫리고, 대표 경로 테스트는 그대로 통과한다. 게이트는 여기 하나다.
-function activateTile(cols: RightPanelColumns, id: RightPanelTileId): RightPanelColumns {
-  return isRightPanelTileSuspended(id) ? cols : addTileColumnMajor(cols, id)
+function activateTile(state: ChatState, id: RightPanelTileId): RightPanelColumns {
+  const cols = rightPanelColumnsForAgent(state.rightPanelTiles, state.agentKind)
+  const target = rightPanelTarget(id, state.agentKind)
+  return target ? addTileColumnMajor(cols, target) : cols
 }
 
 function removeTile(state: ChatState, id: RightPanelTileId): ChatState {
+  if (state.agentKind === 'work') return state
   const { columns, removedCol } = removeTileFromColumns(state.rightPanelTiles, id)
   if (columns === state.rightPanelTiles) return state
   if (removedCol === null) return { ...state, rightPanelTiles: columns }

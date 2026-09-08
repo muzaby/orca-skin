@@ -18,7 +18,7 @@ import {
 } from '../../reducer/chatReducer'
 import { chatActions, useChatSession, useChatStore } from '../../store/chatStore'
 import type { RightPanelTileId } from '../../lib/rightPanelTiles'
-import { deriveRightPanelLayout } from '../../lib/rightPanelLayout'
+import { deriveRightPanelLayout, rightPanelColumnsForAgent } from '../../lib/rightPanelLayout'
 import { tileById } from './tileRegistry'
 import { RightPanelTile } from './RightPanelTile'
 import { useColumnSlideOnReflow } from '../../hooks/useColumnSlideOnReflow'
@@ -132,15 +132,21 @@ function RowSeparator({
 }
 
 function RightPanelColumn({
+  sessionKey,
   col,
   tiles,
   width,
-  split
+  split,
+  expandedTile,
+  onToggleExpand
 }: {
+  sessionKey: string
   col: number
   tiles: ReturnType<typeof deriveRightPanelLayout>['columns'][number]['tiles']
   width: number
   split: number
+  expandedTile: RightPanelTileId | null
+  onToggleExpand: (id: RightPanelTileId) => void
 }): React.JSX.Element {
   const columnRef = useRef<HTMLDivElement>(null)
   // 2행→1행 제거 시 남은 행이 자라는 방향을 잡는다. 위(0번) 행이 제거되면 남은 행을 바닥에
@@ -191,8 +197,10 @@ function RightPanelColumn({
           defaultLabelKey={tile.defaultLabelKey}
           headerActions={HeaderActions ? <HeaderActions /> : undefined}
           headerContent={HeaderContent ? <HeaderContent /> : undefined}
+          expanded={expandedTile === id}
+          onToggleExpand={() => onToggleExpand(id)}
         >
-          <Content />
+          <Content key={sessionKey} />
         </RightPanelTile>
       </div>
     )
@@ -228,11 +236,23 @@ export function adjustPanelViewport(viewport: HTMLDivElement, tile?: RightPanelT
 export function RightPanel({ className = '' }: { className?: string }): React.JSX.Element | null {
   const { tr } = useI18n()
   const activeTiles = useChatSession((s) => s.rightPanelTiles)
+  const agentKind = useChatSession((s) => s.agentKind)
+  const activeKey = useChatStore((s) => s.activeKey)
+  const [expansion, setExpansion] = useState<{ key: string; id: RightPanelTileId } | null>(null)
   const widths = useChatSession((s) => s.rightPanelColWidths)
   const splits = useChatSession((s) => s.rightPanelRowSplits)
   const reveal = useChatStore((state) => state.sessions[state.activeKey]?.panelReveal)
   const viewportRef = useRef<HTMLDivElement>(null)
-  const layout = useMemo(() => deriveRightPanelLayout(activeTiles), [activeTiles])
+  const layout = useMemo(
+    () => deriveRightPanelLayout(rightPanelColumnsForAgent(activeTiles, agentKind)),
+    [activeTiles, agentKind]
+  )
+  const expandedTile =
+    expansion?.key === activeKey && layout.columns.some((col) => col.tiles.includes(expansion.id))
+      ? expansion.id
+      : null
+  const toggleExpand = (id: RightPanelTileId): void =>
+    setExpansion(expandedTile === id ? null : { key: activeKey, id })
   // 열 래퍼 ref(리사이즈 기준점) + 열 제거 시 남은 열을 빈 자리로 슬라이드(FLIP). 래퍼는 (있다면)
   // 왼쪽 분리자 + 열로 구성돼 래퍼의 오른쪽 모서리 = 열의 오른쪽 모서리(우측 도킹 리사이즈 기준).
   // 슬라이드 추적 키는 *열 id*(안정) — 열은 id 로 keyed 라 좌측 열 제거 시 우측 열 엘리먼트가
@@ -258,8 +278,8 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
   return (
     <div
       ref={viewportRef}
-      className={`my-2 mr-2 min-h-0 min-w-0 shrink-0 overflow-x-auto ${className}`}
-      style={{ maxWidth: 'calc(50% - 0.5rem)', width: 'max-content' }}
+      data-panel-expanded={expandedTile ?? undefined}
+      className={`my-2 mr-2 min-h-0 min-w-0 w-max shrink-0 overflow-x-auto ${expandedTile ? 'max-w-[calc(75%-0.5rem)]' : 'max-w-[calc(50%-0.5rem)]'} ${className}`}
     >
       <div className="flex h-full min-h-0 w-max">
         {layout.columns.map((column, index) => (
@@ -278,10 +298,17 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
               widthClass="w-2"
             />
             <RightPanelColumn
+              sessionKey={activeKey}
               col={column.col}
               tiles={column.tiles}
-              width={widths[column.col] ?? PANEL_DEFAULT_WIDTH}
+              width={
+                expandedTile && column.tiles.includes(expandedTile)
+                  ? Math.max(560, (widths[column.col] ?? PANEL_DEFAULT_WIDTH) + 200)
+                  : (widths[column.col] ?? PANEL_DEFAULT_WIDTH)
+              }
               split={splits[column.col] ?? PANEL_DEFAULT_ROW_SPLIT}
+              expandedTile={expandedTile}
+              onToggleExpand={toggleExpand}
             />
           </div>
         ))}

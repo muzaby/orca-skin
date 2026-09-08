@@ -10,6 +10,7 @@
 // 것을 막는다(0203 ΔV2 에서 실제로 겪은 형태다).
 
 import { beforeEach, describe, expect, it } from 'vitest'
+import { load } from 'cheerio'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { SubAgentTaskDetail, SubAgentTaskList, SubAgentTileContent } from './SubAgentTileContent'
@@ -118,13 +119,12 @@ const renderSubagentList = (msgs: Message[], stoppingIds: string[] = []): string
 // 회귀가 초록으로 통과한다(verify r4 D15 / 변이 M-S) — 어느 섹션에 담겼는지까지 본다.
 // 섹션이 없으면 `undefined` 라 단언이 실패한다(fail-closed).
 function sectionBodies(html: string): Record<string, string> {
-  const bodies: Record<string, string> = {}
-  for (const chunk of html.split('<section').slice(1)) {
-    const title = chunk.match(/<span[^>]*>([^<]+)<\/span>/)?.[1]
-    const body = chunk.match(/<div class="pb-3">([\s\S]*)$/)?.[1]
-    if (title !== undefined && body !== undefined) bodies[title] = body
-  }
-  return bodies
+  const $ = load(html)
+  return Object.fromEntries(
+    $('section[aria-label]')
+      .toArray()
+      .map((node) => [$(node).attr('aria-label')!, $(node).children('div').last().html() ?? ''])
+  )
 }
 
 beforeEach(() => {
@@ -135,18 +135,16 @@ beforeEach(() => {
 describe('작업 타일 — 진행 상황 / 출력 / 컨텍스트 (0223 AC17·18)', () => {
   it('세 섹션이 순서대로 있고 각 본문은 자신의 섹션에만 있다', () => {
     const html = renderToStaticMarkup(createElement(TaskTileContent))
-    // 양성 — 래퍼가 `TaskProgressList` 를 실제로 부른다(빈 상태 문구가 그 View 의 산출이다).
-    expect(html).toContain(
-      'Claude 가 Task 를 만들거나 백그라운드 작업을 시작하면 여기에 표시됩니다.'
-    )
+    // Work 빈 진행과 출력·컨텍스트가 각자 지정된 슬롯에 들어간다(0224 ΔV2).
+    expect(html).toContain('오래 걸리는 작업의 진행 상황을 확인하세요.')
     const bodies = sectionBodies(html)
     expect(Object.keys(bodies)).toEqual(['진행 상황', '출력', '컨텍스트'])
-    expect(bodies['진행 상황']).toContain('Claude 가 Task 를 만들거나')
-    expect(bodies['출력']).toContain('게시된 산출물이 없습니다')
-    expect(bodies['컨텍스트']).toContain('참조 리소스는 아직 수집하지 않습니다.')
-    expect(bodies['진행 상황']).not.toContain('게시된 산출물이 없습니다')
-    expect(bodies['출력']).not.toContain('Claude 가 Task 를 만들거나')
-    expect(bodies['컨텍스트']).not.toContain('게시된 산출물이 없습니다')
+    expect(bodies['진행 상황']).toContain('오래 걸리는 작업의 진행 상황')
+    expect(bodies['출력']).toContain('이 작업 중에 생성된 파일')
+    expect(bodies['컨텍스트']).toContain('이 작업에 사용할 폴더를 추가하세요.')
+    expect(bodies['진행 상황']).not.toContain('이 작업 중에 생성된 파일')
+    expect(bodies['출력']).not.toContain('오래 걸리는 작업의 진행 상황')
+    expect(bodies['컨텍스트']).not.toContain('이 작업 중에 생성된 파일')
     expect(html.match(/aria-expanded="true"/g)).toHaveLength(3)
   })
 

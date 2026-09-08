@@ -153,3 +153,7 @@ describe('CwdPanel — 유예 배선과 안내 문구 (AC7 · AC18)', () => {
     expect(en.chat.composer.worktreeIsolationHelp).toContain('Uncommitted changes')
   })
 })
+
+vi.mock('../hooks/useDirectoryPicker', () => ({
+  useDirectoryPicker: () => ({ pick: vi.fn(), picking: false, disabled: false, errorKey: null })
+}))

@@ -291,6 +291,9 @@ export class SessionRuntime implements ManagedRuntime {
   get spawnedRuntimeToolsRevision(): number | undefined {
     return this.spawnedRuntimeToolsRevisionValue
   }
+  get spawnedExtraDirs(): readonly string[] | undefined {
+    return this.runtimeToolContext?.extraDirs
+  }
   get spawnedAgentProfileKey(): string | undefined {
     return this.spawnedAgentProfileKeyValue
   }

@@ -1,6 +1,6 @@
 import { Button } from '../../../../../shared/ui/Button'
 import { useI18n } from '../../../../../shared/i18n'
-import { chatActions } from '../../../store/chatStore'
+import { chatActions, useChatSession } from '../../../store/chatStore'
 import { stringify } from '../../../format'
 import type { ToolCall } from '../../../reducer/chatReducer'
 
@@ -15,6 +15,7 @@ function stringField(rec: Record<string, unknown>, key: string): string | null {
 
 export function AgentTaskBody({ call }: { call: ToolCall }): React.JSX.Element {
   const { tr } = useI18n()
+  const agentKind = useChatSession((s) => s.agentKind)
   const input = asRecord(call.input)
   const subagentType =
     stringField(input, 'subagent_type') ?? stringField(input, 'agent') ?? 'default'
@@ -36,11 +37,13 @@ export function AgentTaskBody({ call }: { call: ToolCall }): React.JSX.Element {
           {typeof result === 'string' ? result : stringify(result)}
         </pre>
       )}
-      <div>
-        <Button size="small" onClick={() => chatActions.openSubagentTask(call.toolUseId)}>
-          {tr('chat.toolMeta.openSubagentPanel')}
-        </Button>
-      </div>
+      {agentKind !== 'work' && (
+        <div>
+          <Button size="small" onClick={() => chatActions.openSubagentTask(call.toolUseId)}>
+            {tr('chat.toolMeta.openSubagentPanel')}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

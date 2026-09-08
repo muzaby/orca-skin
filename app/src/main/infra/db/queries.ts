@@ -49,6 +49,7 @@ export class DbQueries {
   private readonly updateSessionPreviewStmt: Database.Statement
   private readonly updateSessionProviderKeyStmt: Database.Statement
   private readonly updateSessionCwdStmt: Database.Statement
+  private readonly updateSessionExtraDirsStmt: Database.Statement
   private readonly updateSessionTitleStmt: Database.Statement
   private readonly getTitleSourceStmt: Database.Statement
   private readonly updateSessionTitleAutoStmt: Database.Statement
@@ -237,6 +238,9 @@ export class DbQueries {
     this.updateSessionCwdStmt = db.prepare(`
       UPDATE sessions SET cwd = @cwd, updated_at = @updatedAt WHERE id = @id
     `)
+    this.updateSessionExtraDirsStmt = db.prepare(
+      'UPDATE sessions SET extra_dirs = @extraDirs WHERE id = @id'
+    )
     this.updateSessionTitleStmt = db.prepare(`
       UPDATE sessions SET title = @title WHERE id = @id AND title IS NULL
     `)
@@ -484,6 +488,10 @@ export class DbQueries {
 
   updateSessionCwd(id: string, cwd: string, updatedAt: number): void {
     this.updateSessionCwdStmt.run({ id, cwd, updatedAt })
+  }
+
+  updateSessionExtraDirs(id: string, extraDirs: readonly string[]): void {
+    this.updateSessionExtraDirsStmt.run({ id, extraDirs: JSON.stringify(extraDirs) })
   }
 
   updateSessionProviderKey(id: string, providerKey: string | null, updatedAt: number): void {

@@ -609,6 +609,9 @@ export const en: typeof ko = {
       took: 'took {{duration}}'
     },
     subagentTile: {
+      loadingDetail: 'Loading the child conversation…',
+      loadDetailFailed: 'Could not load the child conversation.',
+      retryDetail: 'Try again',
       status: {
         running: 'In progress',
         stopping: 'Stopping…',
@@ -626,6 +629,13 @@ export const en: typeof ko = {
       viewTranscript: 'View transcript'
     },
     taskTile: {
+      addDirectory: 'Add folder',
+      allowedDirectory: 'User-added folder: {{path}}',
+      directoryBusy: 'Add a folder after the current work finishes.',
+      directoryPicking: 'Choosing a folder…',
+      directoryFailed: 'Could not add the folder. Please try again.',
+      directoryInvalid: 'Check that this is an accessible folder.',
+      directoryLimit: 'The folder limit has been reached.',
       status: {
         in_progress: 'In progress',
         stopping: 'Stopping…',
@@ -645,10 +655,11 @@ export const en: typeof ko = {
       },
       sections: {
         progress: 'Progress',
+        progressDesc: 'Follow the progress of longer tasks.',
         output: 'Output',
-        outputDesc: 'View and open files created during this work.',
+        outputDesc: 'Find and save the files created during this task.',
         context: 'Context',
-        contextDesc: 'Referenced resources are not collected yet.'
+        contextDesc: 'Add folders to use for this task.'
       },
       backToList: 'Back to list',
       headerTitle: 'Tasks',
@@ -851,6 +862,9 @@ export const en: typeof ko = {
       next: 'Next'
     },
     rightpanel: {
+      expandTile: 'Expand {{label}}',
+      restoreTile: 'Restore {{label}} width',
+      fixedTile: 'Always visible',
       tiles: {
         plan: 'Plan',
         subagent: 'Background tasks',

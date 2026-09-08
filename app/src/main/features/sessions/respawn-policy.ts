@@ -21,6 +21,7 @@ export interface RespawnDecisionInput {
   runtimeToolsRevision: number | undefined
   spawnedAgentProfileKey?: string
   agentProfileKey?: string
+  extraDirectoriesChanged?: boolean
 }
 
 export function decideRespawn(input: RespawnDecisionInput): boolean {
@@ -32,6 +33,7 @@ export function decideRespawn(input: RespawnDecisionInput): boolean {
     input.providerSettingsChanged ||
     input.runtimeEnvChanged ||
     input.executionCwdRecovered ||
+    input.extraDirectoriesChanged === true ||
     input.spawnedRuntimeToolsRevision !== input.runtimeToolsRevision ||
     input.spawnedAgentProfileKey !== input.agentProfileKey
   )

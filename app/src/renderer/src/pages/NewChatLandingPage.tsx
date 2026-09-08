@@ -4,6 +4,7 @@ import {
   agentPresentation,
   ChatTile,
   Composer,
+  RightPanel,
   useChatSession
 } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
@@ -42,21 +43,24 @@ export function NewChatLandingPage(): React.JSX.Element {
 
   if (isEmpty) {
     return (
-      <section className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-bg">
-        <div className="w-full max-w-[720px]">
-          <div className="mb-3 text-center font-serif text-[24px] font-semibold tracking-tight text-ink">
-            {tr(agentPresentation[agentKind].greeting)}
+      <section className="flex min-h-0 min-w-0 flex-1 bg-bg">
+        <div className="flex min-w-0 flex-1 items-center justify-center px-4">
+          <div className="w-full max-w-[720px]">
+            <div className="mb-3 text-center font-serif text-[24px] font-semibold tracking-tight text-ink">
+              {tr(agentPresentation[agentKind].greeting)}
+            </div>
+            <AgentModeToggle />
+            <Composer
+              backendLabel={backendLabel}
+              canAbort={canAbort}
+              usageLimits={usageLimits}
+              onOpenUsageSettings={onOpenUsageSettings}
+              initialDraft={composerDraft}
+              showLandingCwdPanel
+            />
           </div>
-          <AgentModeToggle />
-          <Composer
-            backendLabel={backendLabel}
-            canAbort={canAbort}
-            usageLimits={usageLimits}
-            onOpenUsageSettings={onOpenUsageSettings}
-            initialDraft={composerDraft}
-            showLandingCwdPanel
-          />
         </div>
+        {agentKind === 'work' && <RightPanel />}
       </section>
     )
   }

@@ -81,3 +81,8 @@ describe('landing branch and worktree visibility', () => {
     expect(ko.chat.composer.worktreeIsolation).toBe('워크트리')
   })
 })
+
+// 폴더 선택의 비동기 동작은 실제 renderer 인수에서 별도로 검사한다.
+vi.mock('../hooks/useDirectoryPicker', () => ({
+  useDirectoryPicker: () => ({ pick: vi.fn(), picking: false, disabled: false, errorKey: null })
+}))

@@ -1,6 +1,7 @@
 export { ChatProvider } from './providers/ChatProvider'
 export { ChatView } from './components/ChatView'
 export { ChatTile } from './components/ChatTile'
+export { RightPanel } from './components/rightpanel/RightPanel'
 export { Composer } from './components/Composer'
 export { AgentModeToggle } from './components/AgentModeToggle'
 export { agentPresentation } from './lib/agentPresentation'

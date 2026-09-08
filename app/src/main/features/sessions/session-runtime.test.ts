@@ -1581,3 +1581,37 @@ describe('SessionRuntime — live 전달 홉 (0212 §10 EP-14)', () => {
     await done()
   })
 })
+
+describe('SessionRuntime extra directory scope snapshot', () => {
+  it('uses the same new scope for the adapter request and host tool context after respawn', async () => {
+    const first = channelLive()
+    const second = channelLive()
+    const sent: TurnRequest[] = []
+    const runtime = new SessionRuntime({
+      id: 'claude',
+      complete: async () => '',
+      sendMessage: (request) => {
+        sent.push(request)
+        return sent.length === 1 ? first.liveTurn : second.liveTurn
+      },
+      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+    })
+    const firstAttempt = collect(runtime.send({ ...req(), extraDirs: ['C:/old'] }))
+    first.emit({ type: 'telemetry', sessionId: 's1' })
+    await firstAttempt
+    expect(runtime.spawnedExtraDirs).toEqual(['C:/old'])
+    expect(sent[0].runtimeToolContext?.extraDirs).toEqual(sent[0].extraDirs)
+    runtime.teardownChannel()
+    expect(runtime.spawnedExtraDirs).toBeUndefined()
+    const next = ['C:/old', 'C:/new']
+    const secondAttempt = collect(runtime.send({ ...req(), extraDirs: next }))
+    second.emit({ type: 'telemetry', sessionId: 's1' })
+    await secondAttempt
+    expect(sent[1].extraDirs).toEqual(next)
+    expect(sent[1].runtimeToolContext?.extraDirs).toEqual(next)
+    expect(runtime.spawnedExtraDirs).toEqual(next)
+    next.push('C:/uncommitted')
+    expect(runtime.spawnedExtraDirs).toEqual(['C:/old', 'C:/new'])
+    runtime.close()
+  })
+})

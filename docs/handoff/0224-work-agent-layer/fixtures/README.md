@@ -41,3 +41,11 @@ production profiling React와 실제 transcript 구성요소를 쓴다. 전체 �
 루트에서 `node docs/handoff/0224-work-agent-layer/fixtures/work-react-lifetime.mjs`로 준비한 후 출력된 Electron runner/cache를 실행한다. [결과](../evidence/work-dom-lifetime.json)의 success·errors·samples를 함께 확인한다.
 
 실제 Exchange/WorkActivity/ToolCard와 useScrollAnchor, production CSS를 사용한다. 카드 클릭 후 스크롤을 바닥에서 떼어 놓고 tail 20회 갱신·원래 도구의 늦은 결과에서 펼침·DOM·스크롤 위치를 확인한다. Windows 숨은 창은 rAF가 정지할 수 있어 Chromium offscreen으로 실행한다. JS rAF나 scroll hook을 mock하지 않으며 renderer sandbox/contextIsolation은 유지한다. 합성 도구 이름·결과는 표시만 하고 실행하지 않는다. virtualizer·앱 전체 라우팅·SDK·paint/FPS 시험은 아니다.
+
+## r2 모드별 패널
+
+루트에서 `node docs/handoff/0224-work-agent-layer/fixtures/panel-native.mjs`를 실행하면 최신 production CSS와 실제 패널·메뉴·store/actions를 묶은 cache 경로가 출력된다. `ELECTRON_RUN_AS_NODE`를 해제하고 출력된 Electron runner/cache를 숨긴 창으로 실행한다. Windows에서는 `Start-Process -WindowStyle Hidden -Wait -PassThru`를 사용한다.
+
+`result.json`의 success/errors, screens, interactions.checks를 확인한다. 합성 작업/게시와 IPC 응답으로 표시·확장/복귀·메뉴·폴더 선택 경계·Work 계획 승인/하위 대화·Coding 복사/댓글 선택 범위를 관측한다. Clipboard는 메모리 mock이므로 사용자 클립보드를 바꾸지 않는다. 실제 DB/파일시스템 범위는 `app/src/main/app/handlers/session-directory.test.ts`와 runtime/turn 시험이 담당한다. 화면 fixture가 SDK나 전체 앱의 실행을 검증했다고 해석하지 않는다.
+
+최종 결과는 [r2-native-ui.json](../evidence/r2-native-ui.json), renderer/Main/protocol의 결과는 [r2 구현 보고](../impl-r2.md)에 연결했다. 이전 r1 live 결과와 합산하지 않는다.

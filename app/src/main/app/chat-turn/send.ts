@@ -460,6 +460,7 @@ export async function handleChatSend(
               providerKey: getActiveTurn().providerKey,
               modelFamily: payload.modelFamily ?? null,
               fallbackModel: request.model,
+              extraDirs: getActiveTurn().extraDirs,
               resolveProvider: ({ providerKey, modelFamily }) =>
                 resolveTurnProvider(ctx, {
                   adapter: activeAdapter,

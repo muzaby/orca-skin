@@ -8,12 +8,33 @@ import type { TaskBoardStatus } from '../../lib/taskBoard'
 // agent Task 만 가질 수 있고(background 는 진행/종단만 있다) 배지에 들어가는 값은 그 Task 의
 // id 다. flat `{ status, badge }` 로 두면 background 의 tool_use id(불투명 긴 문자열)를 18px
 // 원에 넣는 조합을 타입이 허용한다 — 여기서는 그 조합이 컴파일되지 않는다.
-export type TaskStatusIconProps =
+export type TaskStatusIconProps = (
   { status: 'pending'; badge: string } | { status: Exclude<TaskBoardStatus, 'pending'> }
+) & { variant?: 'default' | 'plan' }
 
 const BASE = 'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full mt-px'
 
 export function TaskStatusIcon(props: TaskStatusIconProps): React.JSX.Element {
+  // 계획 하단의 세 상태는 원·체크·점선 원으로 구별한다. 실제 id와 상태는 작업 데이터 및
+  // 상세에 남기며, Work의 기존 상태 표현을 Coding의 모양으로 덮어쓰지 않는다.
+  if (props.variant === 'plan') {
+    if (props.status === 'completed') {
+      return (
+        <span aria-hidden className={`${BASE} text-t6`}>
+          <Icon name="check" size={17} />
+        </span>
+      )
+    }
+    if (props.status === 'in_progress' || props.status === 'pending') {
+      return (
+        <span
+          aria-hidden
+          className={`${BASE} border border-t6 ${props.status === 'pending' ? 'border-dashed' : 'border-solid'}`}
+        />
+      )
+    }
+  }
+
   switch (props.status) {
     case 'completed':
       return (

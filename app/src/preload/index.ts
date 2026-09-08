@@ -45,6 +45,8 @@ import {
   type ReadAttachmentResult,
   type InstallStatus,
   type LoadedSession,
+  type AddSessionDirectoryRequest,
+  type AddSessionDirectoryResult,
   type McpServer,
   type Project,
   type SearchHit,
@@ -202,6 +204,8 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.gitDiffPatch, req)
   },
   session: {
+    addDirectory: (request: AddSessionDirectoryRequest): Promise<AddSessionDirectoryResult> =>
+      ipcRenderer.invoke(CHANNELS.sessionAddDirectory, request),
     cwd: (): Promise<string> => ipcRenderer.invoke(CHANNELS.sessionCwd),
     list: (): Promise<SessionListItem[]> => ipcRenderer.invoke(CHANNELS.sessionList),
     load: (sessionId: string): Promise<LoadedSession | null> =>

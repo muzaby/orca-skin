@@ -1,8 +1,7 @@
-import { useState } from 'react'
-import { fileApi } from '../../../shared/api/ipc'
 import { useI18n } from '../../../shared/i18n'
 import { chatActions, useChatSession } from '../store/chatStore'
 import { CwdButton } from './CwdButton'
+import { useDirectoryPicker } from '../hooks/useDirectoryPicker'
 import { BranchChip } from './composer/BranchChip'
 import { chipGroupSurface } from './composer/chipSurface'
 import { ComposerChip } from './composer/ComposerChip'
@@ -24,18 +23,7 @@ export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
   const rejection = useChatSession((s) => s.extraDirRejection)
   const worktreeIsolation = useChatSession((s) => s.worktreeIsolation)
   const worktreeBaseRef = useChatSession((s) => s.worktreeBaseRef)
-  const [picking, setPicking] = useState(false)
-
-  const addDir = async (): Promise<void> => {
-    if (picking) return
-    setPicking(true)
-    try {
-      const picked = await fileApi.pickDirectory()
-      if (picked) chatActions.addExtraDir(picked)
-    } finally {
-      setPicking(false)
-    }
-  }
+  const { pick, picking, errorKey } = useDirectoryPicker()
 
   return (
     <div
@@ -75,11 +63,16 @@ export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
         icon="plus"
         variant="outlined"
         disabled={picking || inflight}
-        onClick={() => void addDir()}
+        onClick={() => void pick()}
         title={tr('chat.composer.extraDirAdd')}
       />
       {/* 거부 사유 — 고른 폴더가 칩으로 안 붙었는데 아무 말도 없으면 사용자는 앱이 먹은
           것으로 읽는다(D-020). 다음 추가·제거·작업 경로 변경에서 리듀서가 지운다. */}
+      {errorKey && (
+        <span role="alert" className="w-full px-1 text-footnote text-rust">
+          {tr(errorKey)}
+        </span>
+      )}
       {rejection === 'root' && (
         <span data-surface="extra-dir-rejection" className="w-full px-1 text-footnote text-rust">
           {tr('chat.composer.extraDirRejectRoot')}

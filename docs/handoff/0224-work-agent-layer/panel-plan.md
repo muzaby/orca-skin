@@ -1,6 +1,6 @@
 # Plan r2 — 모드별 우측 패널과 Work 폴더 추가
 
-작성: **Codex**, 2026-09-08. 상태: **plan/READY**. 같은 0224 핸드오프의 사용자 피드백을 구현한다. 독립 검증은 아직 수행하지 않았으며 사용자가 이번 피드백의 우선 반영을 지시했다.
+작성: **Codex**, 2026-09-08. 상태: **impl/IMPL_DONE — Codex r2 자기확인 완료, Claude 독립 검증 대기**. 같은 0224 핸드오프의 사용자 피드백을 구현한다. 독립 검증은 아직 수행하지 않았으며 사용자가 이번 피드백의 우선 반영을 지시했다.
 
 | 항목 | 기준 |
 |---|---|
@@ -73,13 +73,13 @@ V1 D-001/002/003/006/007/009/010/011은 유지한다. D-004의 게시 원본·�
 | 대상 | 현재 코드 사실 | 변경 |
 |---|---|---|
 | 메뉴/패널 | `rightPanelTiles.ts` 전역 정의, `ChatTitleBar` 고정 메뉴, `RightPanel` columns 그대로 소비 | agentKind별 순수 표시 정책을 같은 모듈에서 소비. renderer 최종 필터도 적용 |
-| 활성화 | reducer 일반 toggle/set/remove·BEGIN_TURN·LOAD_SESSION·plan_review·OPEN_TASK·OPEN_SUBAGENT_TASK·OPEN_DIFF_COMMIT | 모드 정책 전수 적용. Coding task→plan, Work 고정 task |
+| 활성화 | reducer 일반 toggle/set/remove·BEGIN_TURN·LOAD_SESSION·plan_review·OPEN_TASK·OPEN_SUBAGENT_TASK·SELECT_DIFF_REQUIREMENT | 모드 정책 전수 적용. Coding task→plan, Work 고정 task |
 | 계획 | `PlanTileContent`의 planContent와 댓글 containerRef | 기존 본문을 상단에, 공통 작업 목록/상세를 하단에. 빈 본문 early return 제거 |
 | 작업 | `taskBoardForMessages` 캐시·`taskBoardOrdered`·TaskProgressList | 목록/상세 최소 추출·재사용. Work 진행 요약도 같은 items에서 파생 |
 | 출력 | TaskOutputContent→artifactStore→ArtifactCards(list) | 같은 수명 유지. 기본 refresh 행은 오류 재시도로 정리·빈 그림 제공. 액션은 기존 메뉴 보존 |
 | 폴더 | CwdPanel picker→addExtraDir는 확정 세션 무시. Main `selectTurnExtraDirs`는 DB 우선 | Work 전용 명시 폴더 추가 명령. 일반 chat.send override는 계속 무시 |
 
-검색 기준: `rg -n 'rightPanelTiles|activateTile|OPEN_TASK|OPEN_SUBAGENT_TASK|OPEN_DIFF_COMMIT|plan_review' app/src/renderer/src/features/chat`와 `rg -n 'extraDirs|extra_dirs|addExtraDir|pickDirectory' app/src/main/app app/src/main/features/sessions app/src/renderer/src/features/chat`.
+검색 기준: `rg -n 'rightPanelTiles|activateTile|OPEN_TASK|OPEN_SUBAGENT_TASK|SELECT_DIFF_REQUIREMENT|plan_review' app/src/renderer/src/features/chat`와 `rg -n 'extraDirs|extra_dirs|addExtraDir|pickDirectory' app/src/main/app app/src/main/features/sessions app/src/renderer/src/features/chat`.
 
 레이어 방향은 기존 DAG를 유지한다. 페이지는 Work 랜딩 패널 조립만 담당하고 로직은 chat feature에 둔다. 새 실행 엔진·범용 패널 레지스트리·watcher·의존성은 추가하지 않는다.
 
@@ -136,3 +136,7 @@ V1의 프로필 문구·경계 part 기록·게시 모델 판단 자체는 바�
 ## 11. READY 검토
 
 사용자 정정과 add-dir 선택을 반영했으며 외부 제품 결정은 남지 않았다. ACTIVE 결정 대조: D-012→AC1/2, D-013→AC3, D-014/017→AC4, D-015→AC5/6, D-016→AC4/5, 기존 게시/권한/입력→AC7/8, 충돌 0. `supervisor.hasSession`의 준비 lease 포함, Runtime의 immutable host scope, 재개 DB 우선 해석을 코드에서 확인했다. 상단/하단 직접 oracle과 swap 변이를 선택했으며 READY 설계 커밋을 구현과 분리한다.
+
+## [구현자 기입] 조사 사실 정정
+
+§5의 diff 직접 진입 action 이름은 `SELECT_DIFF_REQUIREMENT`다. 최초 조사 표의 존재하지 않는 이름을 정정했다. §10의 diff 직접 열기 책임과 제품 결정·AC·V-pair는 그대로다. 구현 중 파생 문제와 자기확인은 [r2 구현 보고](impl-r2.md)에 기록한다.

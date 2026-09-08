@@ -3,6 +3,7 @@
 
 import {
   CHANNELS,
+  AddSessionDirectorySchema,
   DeleteSessionRequestSchema,
   LoadSessionRequestSchema,
   RenameSessionRequestSchema,
@@ -12,6 +13,7 @@ import {
 } from '../../../shared/protocol'
 import { loadSession } from '../../features/history/reader'
 import type { RouterContext } from '../context'
+import { addSessionDirectory } from './session-directory'
 import { toSessionListItem } from '../../infra/ipc/dto'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import type { ChatActivitySnapshot } from '../../../shared/ipc'
@@ -20,6 +22,7 @@ import type { DeleteSessionResult } from '../../../shared/ipc'
 // 세션 폐기 시 정리할 in-memory 소유자들(0151 AC8) — 컴포지션 루트가 주입한다. 세션 슬라이스가
 // chat 슬라이스를 직접 참조하지 않기 위한 구조적 포트(main/AGENTS.md 해소책 ③).
 interface SessionDisposeHooks {
+  isSessionBusy?: (sessionId: string) => boolean
   onSessionDisposed?: (sessionId: string) => void
   getActivity?: (sessionId: string) => ChatActivitySnapshot
   removeManagedWorktree?: (sessionId: string) => Promise<DeleteSessionResult>
@@ -33,6 +36,20 @@ export function registerSessionHandlers(
   ctx: SessionHandlerContext,
   hooks: SessionDisposeHooks = {}
 ): void {
+  handle(
+    CHANNELS.sessionAddDirectory,
+    AddSessionDirectorySchema,
+    { fallback: { ok: false as const, reason: 'invalid-directory' as const } },
+    (request) =>
+      addSessionDirectory(
+        {
+          db: ctx.db,
+          isSessionBusy: hooks.isSessionBusy ?? (() => true)
+        },
+        request
+      )
+  )
+
   // Renderer 가 세션 init 이벤트 전에도 cwd 를 알 수 있도록 노출. chat send 와
   // 동일한 cwd 단일 소스 — 인자 없는 호출은 비-프로젝트 기본(projects/default).
   handlePlain(CHANNELS.sessionCwd, (): string => ctx.getCwd())

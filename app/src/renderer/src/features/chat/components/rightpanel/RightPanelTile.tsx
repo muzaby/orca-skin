@@ -14,6 +14,8 @@ interface RightPanelTileProps {
   // 미지정 시 기본 라벨 span 을 렌더한다. registry 가 주입한다.
   headerContent?: ReactNode
   className?: string
+  expanded?: boolean
+  onToggleExpand?: () => void
 }
 
 export function RightPanelTile({
@@ -22,11 +24,29 @@ export function RightPanelTile({
   children,
   headerActions,
   headerContent,
+  expanded = false,
+  onToggleExpand,
   className = ''
 }: RightPanelTileProps): React.JSX.Element {
   const { tr } = useI18n()
   const label = useChatSession((s) => s.rightPanelTileLabels[id]) ?? tr(defaultLabelKey)
   const isDiff = id === 'diff'
+  const agentKind = useChatSession((s) => s.agentKind)
+  const isWorkTask = agentKind === 'work' && id === 'task'
+  const expandButton = (isWorkTask || id === 'plan') && onToggleExpand && (
+    <Button
+      iconOnly
+      size="small"
+      leadingIcon={expanded ? 'collapse' : 'expand'}
+      pressed={expanded}
+      aria-pressed={expanded}
+      onClick={onToggleExpand}
+      title={tr(expanded ? 'chat.rightpanel.restoreTile' : 'chat.rightpanel.expandTile', { label })}
+      aria-label={tr(expanded ? 'chat.rightpanel.restoreTile' : 'chat.rightpanel.expandTile', {
+        label
+      })}
+    />
+  )
 
   const remove = useCallback((): void => {
     chatActions.removeRightPanelTile(id)
@@ -34,30 +54,35 @@ export function RightPanelTile({
 
   return (
     <div
-      className={`app-frame-tile effect-primary-elevated flex min-h-0 flex-1 flex-col overflow-hidden rounded-r6 border border-border bg-panel ${className}`}
+      className={`app-frame-tile effect-primary-elevated relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-r6 border border-border bg-panel ${className}`}
       data-context={id}
     >
-      <div
-        data-diff-tile-header={isDiff || undefined}
-        className={`app-frame-tile-header flex shrink-0 items-center ${isDiff ? 'h-[32px] gap-[2px] px-[4px] font-sans' : 'gap-2 border-b border-t5 px-3 py-2'}`}
-      >
-        {headerContent ?? (
-          <span className="min-w-0 truncate font-serif text-[13px] font-semibold tracking-tight text-t9">
-            {label}
-          </span>
-        )}
-        <div className={`ml-auto flex shrink-0 items-center ${isDiff ? 'gap-[2px]' : 'gap-g2'}`}>
-          {headerActions}
-          <Button
-            iconOnly
-            size={isDiff ? 'compact' : 'small'}
-            leadingIcon="x"
-            onClick={remove}
-            title={tr('chat.rightpanel.closeTile', { label })}
-            aria-label={tr('chat.rightpanel.closeTile', { label })}
-          />
+      {isWorkTask ? (
+        <div className="absolute right-3 top-3 z-10">{expandButton}</div>
+      ) : (
+        <div
+          data-diff-tile-header={isDiff || undefined}
+          className={`app-frame-tile-header flex shrink-0 items-center ${isDiff ? 'h-[32px] gap-[2px] px-[4px] font-sans' : 'gap-2 border-b border-t5 px-3 py-2'}`}
+        >
+          {headerContent ?? (
+            <span className="min-w-0 truncate font-serif text-[13px] font-semibold tracking-tight text-t9">
+              {label}
+            </span>
+          )}
+          <div className={`ml-auto flex shrink-0 items-center ${isDiff ? 'gap-[2px]' : 'gap-g2'}`}>
+            {headerActions}
+            {expandButton}
+            <Button
+              iconOnly
+              size={isDiff ? 'compact' : 'small'}
+              leadingIcon="x"
+              onClick={remove}
+              title={tr('chat.rightpanel.closeTile', { label })}
+              aria-label={tr('chat.rightpanel.closeTile', { label })}
+            />
+          </div>
         </div>
-      </div>
+      )}
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </div>
   )

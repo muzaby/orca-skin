@@ -43,6 +43,8 @@ import type {
   ReadAttachmentResult,
   InstallStatus,
   LoadedSession,
+  AddSessionDirectoryRequest,
+  AddSessionDirectoryResult,
   McpServer,
   Project,
   SearchHit,
@@ -165,6 +167,8 @@ export const concurrencyApi = {
 }
 
 export const sessionApi = {
+  addDirectory: (request: AddSessionDirectoryRequest): Promise<AddSessionDirectoryResult> =>
+    window.orca.session.addDirectory(request),
   cwd: (): Promise<string> => window.orca.session.cwd(),
   list: (): Promise<SessionListItem[]> => window.orca.session.list(),
   load: (sessionId: string): Promise<LoadedSession | null> => window.orca.session.load(sessionId),

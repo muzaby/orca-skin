@@ -5,7 +5,7 @@ import { ArtifactCards } from '../ArtifactCard'
 import { useI18n } from '../../../../shared/i18n'
 import { Button } from '../../../../shared/ui/Button'
 import type { ArtifactRef } from '../../../../../../shared/artifacts'
-import { TileSection } from './TaskTileSections'
+import { SectionPlaceholder, TileSection } from './TaskTileSections'
 
 const EMPTY: ArtifactRef[] = []
 export function TaskOutputContent(): React.JSX.Element {
@@ -27,33 +27,37 @@ export function TaskOutputContent(): React.JSX.Element {
     return release
   }, [sessionId])
   return (
-    <TileSection titleKey="chat.taskTile.sections.output" count={list.length}>
-      <div className="flex flex-col gap-2 px-p2">
-        <div className="flex justify-end">
-          <Button
-            size="small"
-            disabled={!sessionId || entry?.listLoading}
-            onClick={() => {
-              if (sessionId) void refreshArtifactList(sessionId)
-            }}
-          >
-            {tr('chat.artifacts.refresh')}
-          </Button>
-        </div>
+    <TileSection titleKey="chat.taskTile.sections.output" count={list.length || undefined}>
+      <div className="flex flex-col gap-2">
+        {entry?.listError && (
+          <div className="flex justify-end px-4">
+            <Button
+              size="small"
+              disabled={!sessionId || entry?.listLoading}
+              onClick={() => {
+                if (sessionId) void refreshArtifactList(sessionId)
+              }}
+            >
+              {tr('chat.artifacts.refresh')}
+            </Button>
+          </div>
+        )}
         {entry?.listLoading && (
-          <p role="status" className="text-caption text-ink2">
+          <p role="status" className="px-4 text-caption text-ink2">
             {tr('chat.artifacts.loading')}
           </p>
         )}
         {entry?.listError && (
-          <p role="status" className="text-caption text-ink2">
+          <p role="status" className="px-4 text-caption text-ink2">
             {tr('chat.artifacts.listFailed')}
           </p>
         )}
         {!entry?.listLoading && !entry?.listError && list.length === 0 && (
-          <p className="text-caption text-ink2">{tr('chat.artifacts.empty')}</p>
+          <SectionPlaceholder icon="chart" descKey="chat.taskTile.sections.outputDesc" />
         )}
-        <ArtifactCards artifacts={visible} saveArtifacts={list} variant="list" />
+        <div className="px-2">
+          <ArtifactCards artifacts={visible} saveArtifacts={list} variant="list" />
+        </div>
         {limit < list.length && (
           <Button size="small" onClick={() => setLimit((count) => count + 50)}>
             {tr('common.more')}

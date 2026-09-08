@@ -616,6 +616,9 @@ export const ko = {
       took: '{{duration}} 소요됨'
     },
     subagentTile: {
+      loadingDetail: '하위 대화를 불러오는 중…',
+      loadDetailFailed: '하위 대화를 불러오지 못했습니다.',
+      retryDetail: '다시 불러오기',
       status: {
         running: '진행 중',
         stopping: '중단 중…',
@@ -633,6 +636,13 @@ export const ko = {
       viewTranscript: '대화록 보기'
     },
     taskTile: {
+      addDirectory: '폴더 추가',
+      allowedDirectory: '사용자가 추가한 폴더: {{path}}',
+      directoryBusy: '작업이 끝난 뒤 폴더를 추가할 수 있습니다.',
+      directoryPicking: '폴더 선택 중…',
+      directoryFailed: '폴더를 추가하지 못했습니다. 다시 시도해 주세요.',
+      directoryInvalid: '추가할 수 있는 폴더인지 확인해 주세요.',
+      directoryLimit: '추가할 수 있는 폴더 수를 초과했습니다.',
       status: {
         in_progress: '진행 중',
         stopping: '중단 중…',
@@ -652,10 +662,11 @@ export const ko = {
       },
       sections: {
         progress: '진행 상황',
+        progressDesc: '오래 걸리는 작업의 진행 상황을 확인하세요.',
         output: '출력',
-        outputDesc: '이 작업 중에 생성된 파일을 확인하고 열 수 있습니다.',
+        outputDesc: '이 작업 중에 생성된 파일을 확인하고 저장할 수 있습니다.',
         context: '컨텍스트',
-        contextDesc: '참조 리소스는 아직 수집하지 않습니다.'
+        contextDesc: '이 작업에 사용할 폴더를 추가하세요.'
       },
       backToList: '목록으로',
       headerTitle: '작업',
@@ -857,6 +868,9 @@ export const ko = {
       next: '다음'
     },
     rightpanel: {
+      expandTile: '{{label}} 넓게 보기',
+      restoreTile: '{{label}} 원래 크기로',
+      fixedTile: '항상 표시됨',
       tiles: {
         plan: '계획',
         subagent: '백그라운드 작업',

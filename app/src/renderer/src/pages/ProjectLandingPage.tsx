@@ -1,5 +1,12 @@
 import { useNavigate, useParams } from 'react-router-dom'
-import { AgentModeToggle, ChatTile, Composer, useChatBusy, useChatSession } from '../features/chat'
+import {
+  AgentModeToggle,
+  ChatTile,
+  Composer,
+  RightPanel,
+  useChatBusy,
+  useChatSession
+} from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { useUsageForTelemetryProvider } from '../features/chat'
 import { useOpenSettings, providerTabId } from '../features/settings'
@@ -27,6 +34,7 @@ export function ProjectLandingPage(): React.JSX.Element {
   const { projectId = '' } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const sessionId = useChatSession((s) => s.sessionId)
+  const agentKind = useChatSession((s) => s.agentKind)
   const messages = useChatSession((s) => s.messages)
   const loadingSession = useChatSession((s) => s.loadingSession)
   // 0149 — listen 대기(백그라운드 서브에이전트)도 busy(useChatBusy 단일 정의).
@@ -65,33 +73,36 @@ export function ProjectLandingPage(): React.JSX.Element {
   }
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col bg-bg">
-      <ProjectLandingHeader onBack={() => navigate('/projects')} />
-      <div className="mx-auto grid w-full max-w-[1200px] min-w-0 flex-1 grid-cols-1 gap-y-6 px-6 py-8 xl:grid-cols-5 xl:gap-x-10">
-        <main className="flex min-w-0 flex-col space-y-6 xl:col-span-3">
-          <ProjectInfoHero projectId={projectId} />
-          <AgentModeToggle />
-          <Composer
-            backendLabel={backendLabel}
-            canAbort={canAbort}
-            usageLimits={usageLimits}
-            onOpenUsageSettings={onOpenUsageSettings}
-            flush
-            showLandingCwdPanel
-          />
-          <ProjectSessionsPanel
-            projectId={projectId}
-            currentSessionId={sessionId}
-            refreshOnTurnEnd={inflight}
-            onSessionSelected={(id) => navigate(`/chat/${id}`)}
-            onDeleteSession={sessionActions.onDeleteSession}
-            onRenameSession={sessionActions.onRenameSession}
-          />
-        </main>
-        <aside className="min-w-0 xl:col-span-2">
-          <ProjectInstructionsSidebar projectId={projectId} />
-        </aside>
+    <section className="flex min-h-0 min-w-0 flex-1 bg-bg">
+      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+        <ProjectLandingHeader onBack={() => navigate('/projects')} />
+        <div className="mx-auto grid w-full max-w-[1200px] min-w-0 flex-1 grid-cols-1 gap-y-6 px-6 py-8 xl:grid-cols-5 xl:gap-x-10">
+          <main className="flex min-w-0 flex-col space-y-6 xl:col-span-3">
+            <ProjectInfoHero projectId={projectId} />
+            <AgentModeToggle />
+            <Composer
+              backendLabel={backendLabel}
+              canAbort={canAbort}
+              usageLimits={usageLimits}
+              onOpenUsageSettings={onOpenUsageSettings}
+              flush
+              showLandingCwdPanel
+            />
+            <ProjectSessionsPanel
+              projectId={projectId}
+              currentSessionId={sessionId}
+              refreshOnTurnEnd={inflight}
+              onSessionSelected={(id) => navigate(`/chat/${id}`)}
+              onDeleteSession={sessionActions.onDeleteSession}
+              onRenameSession={sessionActions.onRenameSession}
+            />
+          </main>
+          <aside className="min-w-0 xl:col-span-2">
+            <ProjectInstructionsSidebar projectId={projectId} />
+          </aside>
+        </div>
       </div>
+      {agentKind === 'work' && <RightPanel />}
     </section>
   )
 }

@@ -101,6 +101,10 @@ export const ExtraDirSchema = z
   // 루트는 모든 경로의 조상이라 가드 루트로 오르면 0075 격리가 no-op 이 된다 (D-019).
   .refine((v) => !isFilesystemRoot(v), '참조 경로로 루트 폴더를 쓸 수 없습니다')
 
+export const AddSessionDirectorySchema = z
+  .object({ sessionId: z.string().min(1).max(256), directory: ExtraDirSchema })
+  .strict()
+
 // diff 경로는 **저장소 안**이어야 한다. git 이 준 값을 그대로 돌려받는 것이 정상 경로지만,
 // renderer 가 보내는 값이므로 `..` 상승과 절대경로를 형태에서 막는다 — 통과하면 그 문자열이
 // `git show <base>:<path>` 와 작업 트리 파일 읽기 두 곳으로 그대로 간다.
@@ -147,7 +151,7 @@ export const SendChatMessageSchema = z
       .refine((v) => !isFilesystemRoot(v), '작업 경로로 루트 폴더를 쓸 수 없습니다')
       .nullable()
       .optional(),
-    // CLI `/add-dir` 대응 — 작업 디렉토리 밖 추가 참조 경로(절대 경로). 새 세션 출생 시 고정.
+    // 신규 세션의 추가 허용 폴더. 재개는 DB를 읽고 Work의 명시 addDirectory로만 확대한다.
     extraDirs: z.array(ExtraDirSchema).optional(),
     worktreeIsolation: z.boolean().optional(),
     // 0210 — 컴포저에서 **유예된** 기준 브랜치. 격리가 켜져 있으면 브랜치 칩이 작업 트리를

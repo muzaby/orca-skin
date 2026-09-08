@@ -67,7 +67,7 @@ describe('미확인 완료 배지 (AT-04)', () => {
   })
 
   it('타일을 이미 보고 있으면 띄우지 않는다', () => {
-    expect(showsUnseenTaskBadge(2, ['task'], [])).toBe(false)
+    expect(showsUnseenTaskBadge(2, ['plan'], [])).toBe(false)
   })
 
   it('프로덕션 기본값(인자 생략)으로도 배지가 뜬다 — 정지 해제 결선 확인 (AT-05)', () => {

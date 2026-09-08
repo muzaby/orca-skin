@@ -1,4 +1,8 @@
-import { rightPanelTileDefinitions, type RightPanelTileId } from '../../lib/rightPanelTiles'
+import {
+  rightPanelTileDefinitions,
+  rightPanelTileDefinitionsForAgent,
+  type RightPanelTileId
+} from '../../lib/rightPanelTiles'
 import { PlanTileContent, PlanTileHeaderActions } from './PlanTileContent'
 import { DiffTileContent } from './DiffTileContent'
 import { GitContextBar } from './GitContextBar'
@@ -38,4 +42,10 @@ export const tileRegistry = rightPanelTileDefinitions.map((tile) => ({
 
 export function tileById(id: RightPanelTileId): (typeof tileRegistry)[number] {
   return tileRegistry.find((tile) => tile.id === id) ?? tileRegistry[0]
+}
+
+// 같은 모드 정책으로 메뉴 목록을 모듈 로드 시 한 번 조립한다.
+export const VISIBLE_TILE_REGISTRY = {
+  coding: rightPanelTileDefinitionsForAgent('coding').map((tile) => tileById(tile.id)),
+  work: rightPanelTileDefinitionsForAgent('work').map((tile) => tileById(tile.id))
 }

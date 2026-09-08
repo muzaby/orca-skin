@@ -7,7 +7,7 @@
 | slug | `0224-work-agent-layer` |
 | 작성자 | **Codex** |
 | 일자 | 2026-09-08 |
-| 상태 | **plan/READY — Codex r2 패널 피드백·Work 폴더 추가, 구현 대기** |
+| 상태 | **impl/IMPL_DONE — Codex r2 패널·Work 폴더 추가 구현, Claude 독립 검증 대기** |
 | 코드 조사 기준 | `04953cf781b8c967d4aaef3255752bb721bafeb0` |
 | V mode / revision | Delta V / ΔV2 — [r2 패널 계획](panel-plan.md) |
 | 기준 V / 유효 V | V1 `51268488` / 이 문서 V1 + [ΔV2](panel-plan.md) |
@@ -556,6 +556,8 @@ Work projection은 전체 세션을 다시 평탄화하지 않고 기존 virtual
 ## [구현자 기입]
 
 **Codex r1 구현·인수 보완**. 유효 V는 구현 전 확정한 V1이다. [구현 보고](impl.md)에 설계 리뷰·강제 지점/V-pair·수정 잠금·Product/UX 파생 검토·잠재 문제·게이트/AC·Review Signals를 기록했다. 최초 자동 승인 거부 후 사용자 명시 승인으로 실제 Claude 생성·게시·동시 Coding·앱 재시작 시험을 완료했다. AC 16/16·V-pair 27 SELF_PASS는 구현자 자기확인이며 독립 verify를 대신하지 않는다.
+
+**Codex r2 구현**. 유효 계약은 V1 + [패널 ΔV2](panel-plan.md)다. [r2 구현 보고](impl-r2.md)에 같은 일곱 필드와 ΔV2 AC 8/8 자기확인을 기록했다. r1 결과는 위에 보존하며 독립 verify는 pending이다.
 
 ## [검증자 기입] 파생 이슈
 

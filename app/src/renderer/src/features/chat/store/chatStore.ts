@@ -30,14 +30,15 @@ import type {
   GitDiffPatch,
   GitDiffSummary,
   NormalizedEvent,
-  SendChatMessage
+  SendChatMessage,
+  AddSessionDirectoryResult
 } from '../../../../../shared/ipc'
 import {
   PLAN_APPROVED_MODE,
   type NormalizedPermissionMode
 } from '../../../../../shared/permission-mode'
 import { continuityLangFor, continuityTitle } from '../../../../../shared/continuity-lang'
-import type { RightPanelTileId } from '../lib/rightPanelTiles'
+import { rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
 import type { BranchSnapshot } from '../components/composer/branchChipState'
 import { wireDiffRequirementAnchor } from '../components/rightpanel/diffRequirements'
 import type { DiffComparison } from '../components/rightpanel/diffComparison'
@@ -184,11 +185,12 @@ function dispatchActive(action: ChatAction): void {
 }
 
 function revealRightPanelTile(id: RightPanelTileId): void {
-  patchEntry(getState().activeKey, (entry) =>
-    entry.session.rightPanelTiles.some((column) => column.tiles.includes(id))
-      ? { ...entry, panelReveal: { id } }
+  patchEntry(getState().activeKey, (entry) => {
+    const target = rightPanelTarget(id, entry.session.agentKind)
+    return target && entry.session.rightPanelTiles.some((column) => column.tiles.includes(target))
+      ? { ...entry, panelReveal: { id: target } }
       : entry
-  )
+  })
 }
 
 function captureDiffRequirementSnapshot(): DiffRequirementSubmitSnapshot {
@@ -866,7 +868,32 @@ function send(
   return true
 }
 
-// 참조 경로 칩(CLI `/add-dir`) — cwd 와 같은 게이트: 세션이 확정되기 전에만 편집할 수 있다.
+// 확정된 Work 세션의 추가 폴더는 명시 IPC로 저장하고 캡처한 대상에만 반영한다.
+async function addSessionDirectory(
+  target: { key: string; sessionId: string },
+  directory: string
+): Promise<AddSessionDirectoryResult> {
+  const state = getState()
+  const session = state.sessions[target.key]?.session
+  if (!session || session.sessionId !== target.sessionId) return { ok: false, reason: 'not-found' }
+  if (state.activeKey !== target.key) return { ok: false, reason: 'not-found' }
+  if (session.agentKind !== 'work') return { ok: false, reason: 'not-work' }
+  if (session.inflight || session.listening || session.loadingSession)
+    return { ok: false, reason: 'busy' }
+  try {
+    const result = await sessionApi.addDirectory({ sessionId: target.sessionId, directory })
+    if (result.ok)
+      dispatchTo(target.key, {
+        type: 'SYNC_SESSION_EXTRA_DIRS',
+        sessionId: target.sessionId,
+        extraDirs: result.extraDirs
+      })
+    return result
+  } catch {
+    return { ok: false, reason: 'failed' }
+  }
+}
+
 function addExtraDir(dir: string): void {
   patchPendingSession((session) => chatReducer(session, { type: 'ADD_EXTRA_DIR', dir }))
 }
@@ -1388,6 +1415,7 @@ export const chatActions = {
   setWorktreeIsolation,
   setWorktreeBaseRef,
   addExtraDir,
+  addSessionDirectory,
   removeExtraDir,
   clearError: (): void => dispatchActive({ type: 'CLEAR_ERROR' }),
   loadSession,

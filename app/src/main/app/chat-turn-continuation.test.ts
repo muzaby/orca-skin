@@ -164,3 +164,29 @@ describe('chat turn automatic continuation — runtime config fingerprint (0188)
     expect(result.shouldRespawn).toBe(false)
   })
 })
+
+describe('automatic continuation keeps the selected extra directory scope', () => {
+  it.each([
+    [['C:/old'], false],
+    [['c:\\OLD'], false],
+    [['C:/old', 'C:/new'], true]
+  ] as const)(
+    'compares next directories %j with the channel snapshot',
+    async (extraDirs, changed) => {
+      const prepared = await prepareAutomaticContinuation({
+        runtime: { ...runtime(2, 'opus'), spawnedExtraDirs: ['C:/old'] },
+        providerKey: 'team-a',
+        modelFamily: 'high',
+        fallbackModel: 'opus',
+        extraDirs,
+        resolveProvider: async () => ({
+          providerKey: 'team-a',
+          model: 'opus',
+          prepared: preparedConfig()
+        }),
+        buildExtensions: () => extensions(2)
+      })
+      expect(prepared.shouldRespawn).toBe(changed)
+    }
+  )
+})

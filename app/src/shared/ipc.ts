@@ -74,6 +74,7 @@ export const CHANNELS = {
   sessionDelete: 'orca:session:delete',
   sessionRename: 'orca:session:rename',
   sessionSetPinned: 'orca:session:setPinned',
+  sessionAddDirectory: 'orca:session:addDirectory',
   sessionTitleEvent: 'orca:session:titleEvent',
   projectList: 'orca:project:list',
   projectCreate: 'orca:project:create',
@@ -1460,6 +1461,7 @@ export interface LoadedSession {
   providerKey?: string | null
   projectId?: string | null
   cwd?: string | null
+  extraDirs?: string[]
   // 0064 continuity — 이 세션이 fork/handoff 로 파생된 경우의 부모 관계(session_lineage).
   // 렌더러가 출처 배너("원본 열기" 링크)를 복원하는 데 쓴다. parentTitle 은 표시용 스냅샷.
   lineage?: { parentSessionId: string; relation: 'fork' | 'handoff'; parentTitle: string | null }
@@ -1470,6 +1472,18 @@ export interface LoadedSession {
   // 그때는 소비자가 `cwd` 파생으로 폴백하고, 폴백 경로가 곧 원본이라 그 값이 옳다.
   worktree?: WorktreeDisplay
 }
+
+export interface AddSessionDirectoryRequest {
+  sessionId: string
+  directory: string
+}
+
+export type AddSessionDirectoryResult =
+  | { ok: true; extraDirs: string[] }
+  | {
+      ok: false
+      reason: 'busy' | 'not-found' | 'invalid-directory' | 'not-work' | 'limit' | 'failed'
+    }
 
 // worktree 세션의 표시 이름 정본 — `managed_worktrees` row 에서 온다. 동작(탐색기 열기·git
 // 조회·diff)은 이 값이 아니라 실행 경로(`cwd`)를 쓴다: 이름만 원본, 동작은 실행 경로다.

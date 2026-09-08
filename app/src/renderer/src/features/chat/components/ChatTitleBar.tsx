@@ -13,23 +13,10 @@ import {
 } from '../store/chatStore'
 import { partsText } from '../lib/parts'
 import type { ChatState } from '../reducer/chatReducer'
-import {
-  showsUnseenTaskBadge,
-  visibleRightPanelTileDefinitions,
-  type RightPanelTileId
-} from '../lib/rightPanelTiles'
-import { flattenColumns } from '../lib/rightPanelLayout'
-import { tileById } from './rightpanel/tileRegistry'
+import { showsUnseenTaskBadge, type RightPanelTileId } from '../lib/rightPanelTiles'
+import { flattenColumns, rightPanelColumnsForAgent } from '../lib/rightPanelLayout'
+import { VISIBLE_TILE_REGISTRY } from './rightpanel/tileRegistry'
 import { CwdButton } from './CwdButton'
-
-// 메뉴에 올릴 타일 — **목록도 순서도 `rightPanelTiles.ts` 가 소유한다**(0213 D-008 · §10 EP-02).
-// 여기서 같은 필터를 한 번 더 쓰면 정책이 두 벌이 되고, 프로덕션이 읽는 쪽만 조용히 갈라진다
-// (0205 AT-01 이 정확히 그렇게 프로덕션 참조 0인 상수를 단언하고 있었다). 이 상수는 그 목록을
-// registry 항목으로 바꾸기만 한다. tileRegistry 는 모듈 상수라 결과가 불변이므로 모듈 로드 시
-// 1회만 계산한다(인스턴스별 useMemo 불필요).
-export const VISIBLE_TILE_REGISTRY = visibleRightPanelTileDefinitions.map((tile) =>
-  tileById(tile.id)
-)
 
 // 사이드바 메타 (state.title) 가 즉시 채워지므로 사용자가 세션을 선택한 순간부터
 // 헤더에 정확한 제목 표시. 메타가 없는 부팅 자동 복원 1회만 첫 user 메시지에서 fallback.
@@ -69,14 +56,18 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   // 0211 — 라벨용 표시 정본. null 이면 `cwd` 파생으로 폴백한다.
   const worktree = useChatSession((s) => s.worktree)
   const sessionId = useChatSession((s) => s.sessionId)
+  const agentKind = useChatSession((s) => s.agentKind)
   // 열 구조(stable ref)를 구독하고 평탄 뷰는 메모로 파생 — selector 가 새 배열을 반환하면
   // zustand Object.is 비교가 매번 깨져 불필요 재렌더가 난다.
   const tileColumns = useChatSession((s) => s.rightPanelTiles)
-  const activeTiles = useMemo(() => flattenColumns(tileColumns), [tileColumns])
+  const activeTiles = useMemo(
+    () => flattenColumns(rightPanelColumnsForAgent(tileColumns, agentKind)),
+    [tileColumns, agentKind]
+  )
   const unseenSettledTasks = useUnseenSettledTaskCount()
   // 배지 판정은 SSOT 가 갖고 여기는 결과만 그린다(§10 EP-03) — 정지된 타일을 가리키는
   // 배지는 애초에 뜨지 않는다.
-  const showTaskBadge = showsUnseenTaskBadge(unseenSettledTasks, activeTiles)
+  const showTaskBadge = showsUnseenTaskBadge(unseenSettledTasks, activeTiles, undefined, agentKind)
   const labels = useChatSession((s) => s.rightPanelTileLabels)
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -217,7 +208,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
           <div className="px-2 py-1 text-[11px] font-medium text-t6">
             {tr('chat.titleBar.tilesHeader')}
           </div>
-          {VISIBLE_TILE_REGISTRY.map((tile) => {
+          {VISIBLE_TILE_REGISTRY[agentKind].map((tile) => {
             const active = activeTiles.includes(tile.id)
             return (
               <MenuItem
@@ -230,11 +221,17 @@ export const ChatTitleBar = memo(function ChatTitleBar({
                 }}
                 role="menuitemcheckbox"
                 aria-checked={active}
+                disabled={agentKind === 'work'}
               >
                 <span>{labels[tile.id as RightPanelTileId] ?? tr(tile.defaultLabelKey)}</span>
+                {agentKind === 'work' && (
+                  <span className="ml-auto text-[11px] text-t6">
+                    {tr('chat.rightpanel.fixedTile')}
+                  </span>
+                )}
                 {/* 0213 D-001 로 `작업` 이 목록에 돌아와 이 배지가 다시 도달한다 — 메뉴를 연
                     채로도 미확인 완료 수가 보인다(0205 §10 EP-03 이 지우지 말라고 남긴 자리). */}
-                {tile.id === 'task' && unseenSettledTasks > 0 && (
+                {tile.id === 'plan' && showTaskBadge && (
                   <span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] px-1.5 text-[10px] font-medium text-accent">
                     {unseenSettledTasks}
                   </span>

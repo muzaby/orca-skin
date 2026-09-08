@@ -80,10 +80,10 @@ export function ArtifactCard({
           className={
             transcript
               ? 'flex h-10 w-10 shrink-0 items-center justify-center rounded-r4 border border-t5 bg-bg2 text-ink2'
-              : 'shrink-0 text-ink2'
+              : 'flex h-7 w-7 shrink-0 items-center justify-center rounded-r4 bg-bg2 text-ink3'
           }
         >
-          <Icon name="doc" size={transcript ? 20 : 16} />
+          <Icon name={transcript ? 'doc' : 'layers'} size={transcript ? 20 : 17} />
         </span>
         <div className="min-w-0 flex-1">
           <div
@@ -120,7 +120,11 @@ export function ArtifactCard({
           ref={menuRef}
           size="small"
           iconOnly
-          className="shrink-0"
+          className={
+            transcript
+              ? 'shrink-0'
+              : 'shrink-0 opacity-0 group-hover/artifact:opacity-100 focus:opacity-100'
+          }
           aria-label={tr('chat.artifacts.actions')}
           expanded={menuOpen}
           onClick={() => setMenuOpen(!menuOpen)}

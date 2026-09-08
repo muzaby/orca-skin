@@ -137,3 +137,26 @@ describe('acquireTurnRuntime — worktree 소실 폴백은 살아 있는 채널�
     expect(runtime.teardownChannel).not.toHaveBeenCalled()
   })
 })
+
+describe('acquireTurnRuntime — saved extra directory scope', () => {
+  it.each([
+    [['C:/old'], ['C:/old'], false],
+    [['C:/old'], ['c:\\OLD'], false],
+    [['C:/old'], ['C:/old', 'C:/new'], true],
+    [[], ['C:/new'], true]
+  ] as const)(
+    'compares spawned %j and next %j before reusing the actual runtime',
+    async (spawned, next, changed) => {
+      const runtime = Object.assign(makeRuntime(), { spawnedExtraDirs: spawned })
+      const deps = makeDeps(runtime)
+      const scopedTurn = { extraDirs: next } as unknown as TurnContext<never>
+      await acquireTurnRuntime(deps as never, scopedTurn, {
+        sessionId: 'session-1',
+        resolved: { providerKey: PROVIDER, prepared, model: MODEL },
+        sessionProviderKey: PROVIDER
+      })
+      expect(runtime.teardownChannel).toHaveBeenCalledTimes(changed ? 1 : 0)
+      expect(deps.settleDeadBackgroundTasks).toHaveBeenCalledTimes(changed ? 1 : 0)
+    }
+  )
+})

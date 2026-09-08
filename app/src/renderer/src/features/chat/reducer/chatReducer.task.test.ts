@@ -203,7 +203,7 @@ describe('chatReducer — 두 타일의 선택 상태 독립 (AT-30)', () => {
   it('타일을 닫으면 그 타일의 선택만 비워진다', () => {
     const s = bothSelected()
 
-    const taskClosed = chatReducer(s, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'task' })
+    const taskClosed = chatReducer(s, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'plan' })
     expect(taskClosed.selectedTaskKey).toBeNull()
     expect(taskClosed.selectedSubagentTaskId).toBe('bg1')
 
@@ -218,7 +218,7 @@ describe('chatReducer — 두 타일의 선택 상태 독립 (AT-30)', () => {
     // 0213 — `작업` 이 자기 타일을 붙인다(0204 AT-30 복귀). **형제 타일은 붙지 않는다** —
     // 두 타일이 서로를 열지 않는 것이 D-015 의 요지다.
     expect(taskOnly.selectedTaskKey).toBe('agent:1')
-    expect(tiles).toContain('task')
+    expect(tiles).toContain('plan')
     expect(tiles).not.toContain('subagent')
 
     const subagentOnly = chatReducer(initialChatState, {
