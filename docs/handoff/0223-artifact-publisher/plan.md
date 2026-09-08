@@ -1,5 +1,7 @@
 # Plan — artifact-publisher
 
+> 현재 UI 설계는 [ΔV1 — 작업 패널 출력 통합](ui-plan.md)이 정본이다. 아래 V1의 독립 산출물 타일·공통 카드 배치는 ΔV1로 대체한다. 일반 생성물 수집 기준 Q-04는 사용자 답변 대기이며 확정 UI와 분리한다.
+
 ## 메타
 
 | 항목 | 값 |
@@ -11,7 +13,7 @@
 | 상태 | **READY** — 사용자 구현 지시를 반영하고 Q-03·T-01을 확정 |
 | 코드 기준 | `e475c62af8c553a7b1789d33aa99c99497d88726` |
 | V mode / 기준 V | Baseline V / none — 산출물 게시의 기존 구현 V 없음 |
-| 이번 revision / 유효 V | V1 rev.4 / Baseline 확정 — 게시 선행, 뷰어 후속 |
+| 이번 revision / 유효 V | V1 rev.4 + ΔV1 — 작업 패널 출력 통합. 확정 UI READY, 일반 생성물 Q-04 OPEN |
 | 매핑 | [선행 검토](../../etc/study/cowork/artifact-publisher-review.md), 기존 리팩토링 PR과 별도 기능 |
 | 실행 범위 | 사용자 구현 승인. 게시 코드 구현, 남은 인수 검증은 [impl.md](impl.md) 참조 |
 | 구현 상태 | **IN_PROGRESS** — 코드와 자동 게이트 완료, 모델/native 인수 검증 일부 미완료 |
@@ -48,7 +50,7 @@
 | D-001 | 모델이 직접 호출하는 커스텀 publisher를 첫 구현의 유일한 게시 진입점으로 둠 | 사용방법을 모델에게 노출 | 이번 사용자 원문 | ACTIVE | — |
 | D-002 | 감지용 hook·watcher·workspace scan·후보 자동 주입을 첫 구현에서 제외 | 테스트 후 필요성 판단 | 이번 사용자 원문 | ACTIVE | 선행 검토의 B/C 필수 단계 해석을 대체 |
 | D-003 | 누락·오게시 평가 후 사용자가 필요하다고 판단하면 후속 hook/watcher 보완 설계 | 조건절을 무조건 도입 일정으로 바꾸지 않음 | 이번 사용자 원문 | ACTIVE | — |
-| D-004 | HTML·Markdown 우선, 트랜스크립트 카드와 우측 산출물 타일 제공 | 첨부 이미지의 결과 제공 흐름 | 최초 사용자 요청 | ACTIVE | — |
+| D-004 | HTML·Markdown 우선, 트랜스크립트 카드와 우측 산출물 타일 제공 | 첨부 이미지의 결과 제공 흐름 | 최초 사용자 요청 | SUPERSEDED | ΔV1 D-020·021. 지원 형식과 transcript 게시 유지, 우측 배치 변경 |
 | D-005 | 경량 모듈화, 기존 runtime tool·DB·IPC·타일·시맨틱 토큰 재사용 | 후속 계층 추가 대비, 플랫폼 비대화 방지 | 사용자 누적 요구 | ACTIVE | — |
 | D-006 | 이번 턴은 plan만 작성. 구현 착수로 해석하지 않음 | “허가하면 그때 구현시작” | 이전 사용자 요청 범위 | SUPERSEDED | D-019 |
 | D-007 | 본문 FS·메타데이터 DB의 기존 저장 방향 유지 | DB Blob 금지 결정 승계 | persistence §1·TRD Artifact FS | ACTIVE | — |
