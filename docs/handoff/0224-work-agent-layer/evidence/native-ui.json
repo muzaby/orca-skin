@@ -1,0 +1,30 @@
+{
+  "author": "Codex",
+  "live": false,
+  "root": "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orca-work-native-3Jxe5l",
+  "checks": {
+    "defaultCodingAndOrder": true,
+    "modeKeepsComposerAndChangesHint": true,
+    "keyboardSpace": true,
+    "keyboardEnter": true,
+    "narrowNoHorizontalOverflow": true
+  },
+  "errors": [],
+  "keyboardEvents": [
+    {
+      "type": "keydown",
+      "key": "Enter",
+      "target": "작업"
+    },
+    {
+      "type": "keypress",
+      "key": "Enter",
+      "target": "작업"
+    },
+    {
+      "type": "keyup",
+      "key": "Enter",
+      "target": "작업"
+    }
+  ]
+}

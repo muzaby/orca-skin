@@ -9,6 +9,7 @@ vi.mock('../../infra/ipc/send', () => ({ broadcastSessionTitle: vi.fn() }))
 
 function turn(adapter: RuntimeTitleAdapter, sessionId = 's1'): TurnContext {
   return {
+    agentKind: 'coding',
     controller: new AbortController(),
     owner: {},
     live: null,

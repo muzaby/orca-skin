@@ -19,6 +19,7 @@ type W = string
 
 function makeTurn(): TurnContext<W> {
   return {
+    agentKind: 'coding',
     controller: new AbortController(),
     owner: 'owner',
     live: null,
@@ -129,6 +130,216 @@ function makeDeps(
 
 const sessionUpdated = { type: 'session.updated', sessionId: 's1' } as unknown as NormalizedEvent
 const telemetry = { type: 'telemetry', sessionId: 's1' } as unknown as NormalizedEvent
+
+describe('Work response boundaries', () => {
+  const text: NormalizedEvent = {
+    type: 'message.completed',
+    sessionId: 's1',
+    message: { text: 'answer' }
+  }
+  const forwarded = (deps: CoordDeps): NormalizedEvent[] =>
+    vi.mocked(deps.forward.forward).mock.calls.map((call) => call[1])
+
+  it.each([
+    ['ended', [text, telemetry]],
+    ['unknown', [text]],
+    [
+      'failed',
+      [
+        text,
+        {
+          type: 'error',
+          sessionId: 's1',
+          error: { category: 'stream_error', message: 'failed', retryable: false }
+        }
+      ]
+    ],
+    ['aborted', [text, { type: 'turn.aborted', sessionId: 's1' }, telemetry]]
+  ] as const)(
+    'closes %s once without treating synthetic telemetry as completion',
+    async (outcome, script) => {
+      const deps = makeDeps(fakeRuntime([[...script] as NormalizedEvent[]]))
+      const turn = makeTurn()
+      turn.agentKind = 'work'
+      turn.dbSessionId = 's1'
+      await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+      const events = forwarded(deps)
+      const boundaries = events.filter((ev) => ev.type === 'response.boundary')
+      expect(boundaries).toHaveLength(2)
+      expect(boundaries[0]).toEqual({
+        type: 'response.boundary',
+        sessionId: 's1',
+        boundary: { phase: 'begin', id: expect.any(String) }
+      })
+      expect(boundaries[1]).toEqual({
+        type: 'response.boundary',
+        sessionId: 's1',
+        boundary: { phase: 'end', id: boundaries[0]!.boundary.id, outcome }
+      })
+      expect(events.indexOf(boundaries[0]!)).toBeLessThan(events.indexOf(text))
+      expect(events.at(-1)).toBe(boundaries[1])
+    }
+  )
+
+  it.each(['coding', 'work'] as const)(
+    'does not create an empty %s listen segment',
+    async (agentKind) => {
+      const deps = makeDeps(fakeRuntime([[telemetry]]))
+      const turn = makeTurn()
+      turn.agentKind = agentKind
+      turn.dbSessionId = 's1'
+      await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null, kind: 'listen' })
+      expect(forwarded(deps).filter((ev) => ev.type === 'response.boundary')).toEqual([])
+    }
+  )
+
+  it('leaves Coding display events unchanged', async () => {
+    const deps = makeDeps(fakeRuntime([[text, telemetry]]))
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    expect(forwarded(deps)).toEqual([text, telemetry])
+  })
+
+  it('does not open a main response for a child-only listen frame', async () => {
+    const childText: NormalizedEvent = { ...text, parentToolRunId: 'parent' }
+    const childTool: NormalizedEvent = {
+      type: 'tool.call.started',
+      sessionId: 's1',
+      toolRunId: 'child',
+      toolName: 'Read',
+      args: {},
+      parentToolRunId: 'parent'
+    }
+    const childResult: NormalizedEvent = {
+      type: 'tool.call.completed',
+      sessionId: 's1',
+      toolRunId: 'child',
+      result: 'done',
+      isError: false,
+      parentToolRunId: 'parent'
+    }
+    const deps = makeDeps(fakeRuntime([[childText, childTool, childResult, telemetry]]))
+    const turn = makeTurn()
+    turn.agentKind = 'work'
+    turn.dbSessionId = 's1'
+    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null, kind: 'listen' })
+    expect(forwarded(deps)).toEqual([childText, childTool, childResult, telemetry])
+  })
+
+  it.each(['failed', 'aborted'] as const)(
+    'closes a thrown %s stream after settlement',
+    async (outcome) => {
+      const turn = makeTurn()
+      turn.agentKind = 'work'
+      turn.dbSessionId = 's1'
+      const runtime = fakeRuntime([[text]])
+      runtime.send = async function* () {
+        yield text
+        if (outcome === 'aborted') turn.controller.abort()
+        throw new Error('stream failed')
+      }
+      const deps = makeDeps(runtime)
+      await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+      const boundaries = forwarded(deps).filter((ev) => ev.type === 'response.boundary')
+      expect(boundaries).toHaveLength(2)
+      expect(boundaries.at(-1)).toMatchObject({ boundary: { phase: 'end', outcome } })
+    }
+  )
+
+  it('does not create additional segments for an internal retry before output', async () => {
+    vi.useFakeTimers()
+    try {
+      const turn = makeTurn()
+      turn.agentKind = 'work'
+      turn.dbSessionId = 's1'
+      const runtime = fakeRuntime([
+        () => {
+          throw new Error('retry')
+        },
+        [text, telemetry]
+      ])
+      const deps = makeDeps(runtime, {
+        classifyError: () => ({ category: 'stream_error', message: 'retry', retryable: true })
+      })
+      const run = new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+      await vi.advanceTimersByTimeAsync(1000)
+      await run
+      expect(runtime.sendCount).toBe(2)
+      expect(forwarded(deps).filter((ev) => ev.type === 'response.boundary')).toHaveLength(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('reports a critical end persistence failure without claiming an emitted end', async () => {
+    const turn = makeTurn()
+    turn.agentKind = 'work'
+    turn.dbSessionId = 's1'
+    const deps = makeDeps(fakeRuntime([[text, telemetry]]), {
+      persist: {
+        persist: (_turn, event) => {
+          if (event.type === 'response.boundary' && event.boundary.phase === 'end')
+            throw new Error('disk full')
+        },
+        flushAskAnswers: vi.fn()
+      }
+    })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    expect(forwarded(deps).filter((ev) => ev.type === 'response.boundary')).toHaveLength(1)
+    expect(forwarded(deps).at(-1)).toMatchObject({ type: 'error' })
+  })
+
+  it('closes the old segment before the confirmed steer user row and opens a fresh segment', async () => {
+    const queue = new PendingMessageQueue()
+    queue.enqueue('s1', { text: 'next' }, 1, 'steer')
+    const batch = queue.reserveHeld('s1', 'steer', 'steer')!
+    queue.commit('s1', batch.attemptId!, batch.chainId)
+    const deps = makeDeps(
+      fakeRuntime([
+        [
+          text,
+          { type: 'input.echo', sessionId: 's1', text: batch.text, uuid: batch.uuid },
+          text,
+          telemetry
+        ]
+      ]),
+      { pendingMessages: queue }
+    )
+    deps.persist.commitUserMessage = vi.fn(() => {
+      expect(forwarded(deps).at(-1)).toMatchObject({
+        type: 'response.boundary',
+        boundary: { phase: 'end', outcome: 'unknown' }
+      })
+      return 42
+    })
+    const turn = makeTurn()
+    turn.agentKind = 'work'
+    turn.dbSessionId = 's1'
+    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    const events = forwarded(deps)
+    const boundaries = events.filter((ev) => ev.type === 'response.boundary')
+    expect(boundaries.map((ev) => ev.boundary.phase)).toEqual(['begin', 'end', 'begin', 'end'])
+    expect(boundaries[2]!.boundary.id).not.toBe(boundaries[0]!.boundary.id)
+    expect(events.findIndex((ev) => ev.type === 'message.committed')).toBeGreaterThan(
+      events.indexOf(boundaries[1]!)
+    )
+  })
+
+  it('supplies the host kind on session confirmation without mutating the adapter event', async () => {
+    const raw: NormalizedEvent = {
+      type: 'session.updated',
+      sessionId: 's1',
+      patch: { agentKind: 'coding' }
+    }
+    const deps = makeDeps(fakeRuntime([[raw]]))
+    const turn = makeTurn()
+    turn.agentKind = 'work'
+    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    expect(forwarded(deps)[0]).toMatchObject({ patch: { agentKind: 'work' } })
+    expect(raw.patch?.agentKind).toBe('coding')
+  })
+})
 
 describe('runtime tool session confirmation', () => {
   it('confirms only after history and promotion have completed', async () => {

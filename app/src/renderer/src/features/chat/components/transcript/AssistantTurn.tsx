@@ -4,8 +4,13 @@ import { MessageMeta } from './MessageMeta'
 import { turnCopyText, turnEquals, type Turn } from '../../lib/turns'
 import { partsArtifacts } from '../../lib/parts'
 import { ArtifactCards } from '../ArtifactCard'
+import { WorkActivity } from './WorkActivity'
+import type { AgentKind } from '../../../../../../shared/agent-kind'
+import type { WorkToolResults } from '../../lib/workToolResults'
 
 interface AssistantTurnProps {
+  toolResults?: WorkToolResults
+  agentKind?: AgentKind
   turn: Turn
   // 이 턴이 아직 진행 중(스트리밍)이면 메타를 숨긴다 — "답변이 모두 종료됐을 때 하나의 턴".
   pending?: boolean
@@ -20,7 +25,13 @@ interface AssistantTurnProps {
 // memo(turnEquals ∧ pending): 스트리밍 중 변하지 않는 과거 턴의 재렌더(마크다운 재파싱
 // 포함)를 차단한다 (0007-transcript-render-memo).
 export const AssistantTurn = memo(
-  function AssistantTurn({ turn, pending, forkable }: AssistantTurnProps): React.JSX.Element {
+  function AssistantTurn({
+    turn,
+    pending,
+    forkable,
+    agentKind = 'coding',
+    toolResults
+  }: AssistantTurnProps): React.JSX.Element {
     const last = turn.messages[turn.messages.length - 1]
     const artifacts = useMemo(
       () => partsArtifacts(turn.messages.flatMap((message) => message.parts)),
@@ -28,9 +39,11 @@ export const AssistantTurn = memo(
     )
     return (
       <div className="group/msg relative flex flex-col gap-[var(--chat-item-gap)]">
-        {turn.messages.map((m, i) => (
-          <AssistantMessage key={i} message={m} />
-        ))}
+        {agentKind === 'work' ? (
+          <WorkActivity messages={turn.messages} toolResults={toolResults} />
+        ) : (
+          turn.messages.map((m, i) => <AssistantMessage key={i} message={m} />)
+        )}
         {artifacts.length > 0 && <ArtifactCards artifacts={artifacts} />}
         {!pending && (
           <MessageMeta
@@ -45,6 +58,8 @@ export const AssistantTurn = memo(
   },
   (prev, next) =>
     prev.pending === next.pending &&
+    prev.agentKind === next.agentKind &&
+    prev.toolResults === next.toolResults &&
     prev.forkable === next.forkable &&
     turnEquals(prev.turn, next.turn)
 )

@@ -7,8 +7,7 @@
 >
 > 출처: Opus 4.8 작성 "시스템 프롬프트 관리 가이드 ver2"(`@anthropic-ai/claude-agent-sdk` 일반론)를
 > Orca 실제 코드·확정 핸드오프 결정과 1:1 대조해 교정한 결과 (handoff `0030-system-prompt-policy-structure`).
-> 가이드의 SDK 일반 원리(stateless `query()`·`resume`=히스토리·prefix 캐시·단일 문자열 append)는
-> 그대로 유효하므로 여기 재서술하지 않고, **Orca 적용분과 차이점**만 기록한다.
+> 아래 설명은 현재 Orca의 세션 스코프 query와 warm 재사용을 기준으로 한다.
 
 ## 1. 현 구현 (Orca 가 이미 하는 것)
 
@@ -18,7 +17,8 @@
 |---|---|---|
 | `claude_code` preset + `append` | `adaptSystemPrompt()` 가 `{type:'preset', preset:'claude_code', append}` 반환 | `app/src/main/adapters/claude-adapt.ts` |
 | `append` 는 **단일 문자열** | 빌더가 구조화 헤더(지침 포함) 단일 string 조립(다중 블록 4-블록 버그 회피) | `app/src/main/features/extensions/builder.ts` |
-| 매 턴 `query()` + `resume` | per-turn 새 `query({resume})`, streaming-input 으로 턴 격리 | `app/src/main/adapters/claude.ts` |
+| 세션 스코프 `query()` + 입력 스트림 | spawn에서 query를 만들고 후속 입력은 같은 LiveTurn으로 전달한다. 재생성이 필요하면 `resume`한다 | `app/src/main/adapters/claude.ts` · `features/sessions/session-runtime.ts` |
+| 제품 에이전트 프로필 | Work만 `# Agent` 지침을 추가한다. Coding은 기존 append와 동일하다 | `features/agents/profiles.ts` · `system-header.ts` |
 | `excludeDynamicSections` 생략(=false) | 미사용 → cwd/플랫폼/메모리 경로 동적섹션을 시스템 프롬프트에 유지 | grep 0건 |
 | 출력 스타일 미사용 | 정책은 전부 `append` 로 주입 | — |
 
@@ -28,7 +28,7 @@
 
 ## 2A. 구조화 시스템 프롬프트 헤더 (`features/extensions/system-header.ts`, handoff 0073)
 
-**현행 append 조립의 정본.** 사용자 정보 + 실행환경 구성을 `# Orca / # User / # Project` 마크다운
+**현행 append 조립의 정본.** 역할·사용자 정보 + 실행환경 구성을 `# Orca / # Agent / # Tools / # User / # Project` 마크다운
 섹션으로 구조화해 프로젝트 지침 **앞**에 붙인다. study/opencode·hermes 의 "정체성/실행환경 framing 을
 프롬프트 앞에 구조화" 교훈을 Orca 경량판으로 적용한 것.
 
@@ -39,6 +39,9 @@
 You are running inside Orca — a Windows desktop app for engineers and AI beginners,
 not a terminal CLI. Responses render as rich markdown in a GUI transcript.
 Orca version: <app.getVersion()>
+
+# Agent
+<Work 프로필 지침 — Coding이면 섹션 전체 생략>
 
 # Tools
 Prefer dedicated file tools over shell commands (Read/Edit/Write, not cat/sed/echo);
@@ -60,6 +63,7 @@ Project instructions:
 | 섹션 | 필드 | 소스 | 조건 |
 |---|---|---|---|
 | `# Orca` | 정체성 framing + version | 상수 + `app.getVersion()`(bootstrap 주입) | 항상 |
+| `# Agent` | 문서·자료 정리·분석 역할과 완성 산출물 게시 지침 | `features/agents/profiles.ts`를 app에서 해석해 builder에 전달 | Work만 |
 | `# Tools` | 도구-사용 정책(전용툴 우선 + workspace 스코프) | 상수 `TOOLS_SECTION`(opencode `anthropic.txt` 적용, handoff 0075 r3) | 항상 |
 | `# User` | Preferred language | `settings.language`(default `한국어`) | 값 있을 때 |
 | `# User` | Account instructions | `settings.accountInstructions` | trim 후 비지 않을 때 |
@@ -86,16 +90,14 @@ Decision rationale: [ADR-002 feature slice boundaries](../../decisions/002-featu
 | tier | 내용 | Orca 위치 |
 |---|---|---|
 | STABLE | Orca 정체성 framing + version | `# Orca` 헤더 (`system-header.ts`, version=프로세스 고정) |
-| CONTEXT — 커스텀 지시 | 선호 언어·계정 지침·프로젝트 지침(DB/설정) | `# User`·`# Project` 헤더 + 지침 본문 (빌더가 매 턴 조회, **무캐시**) |
+| STABLE — 역할 | 세션 출생 때 고정한 Work/Coding | Work의 `# Agent`와 `agentProfileKey`; Coding은 둘 다 생략 |
+| CONTEXT — 커스텀 지시 | 선호 언어·계정 지침·프로젝트 지침(DB/설정) | 빌더가 매 턴 재조회하되 SDK append는 query 생성 시 적용 |
 | CONTEXT — cwd/작업공간 | 실행 환경 | preset 동적 섹션 (SDK 자동, `excludeDynamicSections:false`) |
 | VOLATILE | 날짜·메모리 스냅샷 | **현재 없음** (§4 참조) |
 
-> **순서**: append = 구조화 헤더 단일 문자열(변동성 낮은 Orca→User→Project 순 조립, 프로젝트 지침은
-> `# Project` 섹션 안).
-> 가이드 7장 STABLE-first 와 정합하나, `excludeDynamicSections:false` 로 cross-대화 캐시가 preset
-> 동적섹션에서 이미 깨지므로 append 내부 순서는 캐시상 무의미하다. 세션 내(resume) 헤더는
-> version/언어/계정/프로젝트가 안 바뀌면 턴 간 byte-stable. 계정 지침·프로젝트 지침 편집은 **무캐시**라
-> 같은 세션 다음 메시지부터 즉시 반영된다.
+append는 Orca→Agent(Work만)→Tools→User→Project 순서의 단일 문자열이다. 같은 입력이면 동일한 문자열을 만든다. 공급자의 실제 캐시 적중은 별도 관측이 필요하다.
+
+**조립과 실행 적용은 다르다.** 빌더가 최신 지침을 읽어도 살아 있는 query의 시스템 프롬프트가 교체되지는 않는다. SDK 옵션은 spawn/respawn에서 적용된다. 프로필 key는 최초 전송·자동 연속 전송 모두 기존 respawn 판정에 포함되어, 같은 key는 warm 재사용하고 변경된 key는 다음 실행에 반영한다. 계정·프로젝트 지침 편집 자체의 즉시 반영 정책은 별도로 확장하지 않는다.
 
 ## 4. 전제 차이 (가이드가 Orca 와 다른 부분)
 
@@ -113,14 +115,14 @@ Decision rationale: [ADR-002 feature slice boundaries](../../decisions/002-featu
 **자동 기각도 자동 변경도 아니며 재검토 대상으로 등재**한다. 아래는 분석 + 권고일 뿐, **실제 변경은
 사용자 결정 후 별도 핸드오프**에서만 한다 (root `AGENTS.md` "확정 결정 임의 변경 금지").
 
-### OQ-A. `settingSources` 에서 `"local"` 제외?
+### A. 설정 탐색 범위
 
 | | 내용 |
 |---|---|
 | 가이드 처방 | `settingSources:["user","project"]` — env 충돌 회피 위해 `local` 제외 |
-| Orca 확정 | `settingSources` **옵션 생략**(SDK 기본 user/project/**local** 상속). handoff 0023/0024 (0014/0015 격리모드 폐기) |
+| Orca 현재 | `adaptSettingSources()`가 `['project','local']`을 명시한다. 사용자 전역 설정은 제외하며 사용자 스킬은 별도 wrapper plugin으로 제공한다 |
 | 분석 | 가이드는 env 를 `options.settings.env` 로 주입한다고 가정 → `local` 이 그보다 우선이라 충돌. **Orca 는 다른 메커니즘**(OQ-B): provider env 를 `options.settings`(=`--settings` flag)에 실으며, 이는 우선순위 체인 `managed>CLI flags>local>project>user` 에서 `local` 보다 **위**다 → `local` 제외 불필요 |
-| 권고 | **현행 유지**(생략). 가이드의 충돌은 Orca 에서 발생하지 않음 |
+| 범위 | 현재 명시적 탐색 범위를 유지한다. 추가 변경은 별도 결정이 필요하다 |
 
 ### OQ-B. env 를 `settings:{env}` 단일 주입?
 
@@ -131,11 +133,11 @@ Decision rationale: [ADR-002 feature slice boundaries](../../decisions/002-featu
 | 분석 | Orca 분리 모델이 더 정밀(어떤 env 가 어느 레이어로 가는지 타입으로 고정). 가이드의 단일 주입은 이 구분을 잃음 |
 | 권고 | **현행 유지**(분리) |
 
-### OQ-C. 세션당 옵션 1회 빌드 + 캐시?
+### C. 지침 조회와 warm 실행
 
 | | 내용 |
 |---|---|
 | 가이드 처방 | 8장 — 옵션을 세션당 1회 빌드 후 캐시, "설정 변경" 시에만 무효화 |
-| Orca 확정 | `ExtensionBuilder` 가 매 턴 DB 지침 조회 — **의도적 무캐시**(지침 편집이 다음 메시지부터 즉시 반영). `extensions/builder.ts` |
-| 분석 | STABLE 정책은 0030 에서 이미 startup 1회 조립(캐시 효과). 남는 건 **DB 지침**인데, 이를 캐시하면 "편집 즉시 반영" UX 가 깨진다. 캐시 이득(매 턴 prepared statement 1회)은 미미 |
-| 권고 | **현행 유지**(무캐시). STABLE 만 startup 캐시, 지침은 매 턴 조회 |
+| Orca 현재 | `ExtensionBuilder`는 매 턴 DB 지침을 읽는다. `SessionRuntime`은 살아 있는 query를 재사용하며 append를 hot-update하지 않는다 |
+| 역할 변경 | host가 만든 `agentProfileKey`를 spawn 당시 값과 비교한다. 프로필 지침 변경 시 key도 갱신해야 한다 |
+| 범위 | 별도 옵션 캐시·지침 편집 전용 respawn 정책을 추가하지 않는다 |

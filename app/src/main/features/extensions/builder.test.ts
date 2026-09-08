@@ -85,6 +85,32 @@ describe('ExtensionBuilder.systemPromptAppend', () => {
 })
 
 describe('ExtensionBuilder.runtimeTools', () => {
+  it('adds only the profile header/key and preserves the exact tool snapshot, plugins and skills', () => {
+    const snapshot = { revision: 17, servers: new Map() }
+    const skills: SkillInfo[] = []
+    const builder = new ExtensionBuilder(
+      seedDb(),
+      () => skills,
+      () => makeSettings(),
+      '1',
+      () => ['/plugins/existing'],
+      { snapshot: () => snapshot }
+    )
+    const coding = builder.build(null, null)
+    const work = builder.build(null, null, {
+      agentInstructions: 'Work fixture',
+      agentProfileKey: 'work:1'
+    })
+    expect(work.agentProfileKey).toBe('work:1')
+    expect(coding).not.toHaveProperty('agentProfileKey')
+    expect(work.runtimeTools).toBe(snapshot)
+    expect(work.skills).toBe(skills)
+    expect(work.pluginRoots).toEqual(coding.pluginRoots)
+    expect(work.hooks).toEqual(coding.hooks)
+    expect(work.systemPromptAppend?.replace('# Agent\nWork fixture\n\n', '')).toBe(
+      coding.systemPromptAppend
+    )
+  })
   it('build는 plugin·skill·지침을 보존하면서 배포용 MCP 데이터를 만들지 않는다', () => {
     const skill: SkillInfo = {
       name: 'review',

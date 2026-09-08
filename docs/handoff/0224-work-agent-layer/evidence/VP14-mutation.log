@@ -1,0 +1,32 @@
+
+ RUN  v4.1.10 C:/workspace/github/codex/orca-skin/app
+
+ ❯ src/renderer/src/features/chat/lib/workActivity.test.ts (11 tests | 1 failed) 356ms
+     × does not parse unchanged completed messages over 100 current-message updates 310ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 passed (11)
+   Start at  18:01:00
+   Duration  1.76s (transform 412ms, setup 0ms, import 493ms, tests 356ms, environment 0ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/renderer/src/features/chat/lib/workActivity.test.ts > Work response projection > does not parse unchanged completed messages over 100 current-message updates
+AssertionError: expected 10100 to be 100 // Object.is equality
+
+- Expected
++ Received
+
+- 100
++ 10100
+
+ ❯ src/renderer/src/features/chat/lib/workActivity.test.ts:157:19
+    155|     for (let i = 0; i < 100; i++)
+    156|       project([...previous, message(begin('live'), tool, text(String(i…
+    157|     expect(reads).toBe(initial)
+       |                   ^
+    158|   })
+    159| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯

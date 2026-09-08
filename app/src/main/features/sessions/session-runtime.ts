@@ -239,6 +239,7 @@ export class SessionRuntime implements ManagedRuntime {
   private spawnedModelValue: string | undefined
   private spawnedFingerprint: string | undefined
   private spawnedRuntimeToolsRevisionValue: number | undefined
+  private spawnedAgentProfileKeyValue: string | undefined
 
   constructor(
     private readonly adapter: RuntimeSessionAdapter,
@@ -289,6 +290,9 @@ export class SessionRuntime implements ManagedRuntime {
 
   get spawnedRuntimeToolsRevision(): number | undefined {
     return this.spawnedRuntimeToolsRevisionValue
+  }
+  get spawnedAgentProfileKey(): string | undefined {
+    return this.spawnedAgentProfileKeyValue
   }
 
   get eventBatches(): AsyncIterable<ProviderMessageBatch> {
@@ -430,6 +434,7 @@ export class SessionRuntime implements ManagedRuntime {
     this.spawnedFingerprint = req.envFingerprint ?? harnessEnvFingerprint(req.env)
     this.spawnedModelValue = req.model
     this.spawnedRuntimeToolsRevisionValue = req.extensions.runtimeTools?.revision
+    this.spawnedAgentProfileKeyValue = req.extensions.agentProfileKey
     if (spawned.pushTurn && this.closePolicy === 'persistent') {
       const frame = this.openFrame(false)
       this.startPump(spawned, channelToken)
@@ -635,6 +640,7 @@ export class SessionRuntime implements ManagedRuntime {
     this.spawnedFingerprint = undefined
     this.spawnedModelValue = undefined
     this.spawnedRuntimeToolsRevisionValue = undefined
+    this.spawnedAgentProfileKeyValue = undefined
   }
 
   private notifyChannelRetired(): void {

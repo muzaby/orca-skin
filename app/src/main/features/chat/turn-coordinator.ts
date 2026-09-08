@@ -9,7 +9,10 @@
 // concrete 를 배선한다. 0050 까지 ipc/chat/send.ts:handleChatSend 에 인라인이던 가로축을 동작
 // 보존(behavior-preserving)으로 추출했다 — 0051 §A staging P1, handoff 0052.
 
+import { randomUUID } from 'node:crypto'
 import type { ClassifiedError, NormalizedEvent } from '../../../shared/ipc'
+import type { ResponseBoundary } from '../../../shared/response-boundary'
+import { isResponseDisplayEvent, responseBoundaryOutcome } from './response-boundary'
 import type { TurnRequest } from '../../adapters/turn'
 import { makeClassifiedError } from '../../infra/errors'
 import { wireLog } from '../../infra/ipc/wire-log'
@@ -170,11 +173,12 @@ export class TurnCoordinator<W = unknown> {
   // 턴 프롬프트·프렐류드·steer 게이트 배치가 전부 이 단일 경로로 user row 영속 + renderer
   // 승격(message.committed)된다(0067 AC6). 미소비 pending 은 남긴다(D2: 모델이 못 본 텍스트를
   // committed 로 굳히지 않는다).
-  private commitConsumed(turn: TurnContext<W>): void {
+  private commitConsumed(turn: TurnContext<W>, beforeCommit?: () => void): void {
     const sessionId = turn.dbSessionId
     const { pendingMessages, persist, forward } = this.deps
     if (!sessionId || !pendingMessages) return
     for (const batch of pendingMessages.drainConfirmed(sessionId)) {
+      beforeCommit?.()
       const messageId = persist.commitUserMessage?.(turn, {
         text: batch.text,
         createdAt: batch.createdAt,
@@ -243,6 +247,39 @@ export class TurnCoordinator<W = unknown> {
     ]
     let turnOpenConsumed = turnOpenUuids.length === 0
 
+    let boundaryId: string | undefined
+    let boundaryFailed = false
+    let boundaryAborted = false
+    let boundaryTerminal = false
+    const closeBoundary = (
+      forced?: Extract<ResponseBoundary, { phase: 'end' }>['outcome']
+    ): void => {
+      if (!boundaryId || !turn.dbSessionId) return
+      const id = boundaryId
+      boundaryId = undefined
+      const outcome =
+        forced ??
+        responseBoundaryOutcome({
+          aborted: boundaryAborted || turn.controller.signal.aborted,
+          failed: boundaryFailed,
+          terminal: boundaryTerminal
+        })
+      this.emit(turn, {
+        type: 'response.boundary',
+        sessionId: turn.dbSessionId,
+        boundary: { phase: 'end', id, outcome }
+      })
+    }
+    const closeBeforeUser = (): void => closeBoundary('unknown')
+    const closeAfterFailure = (): void => {
+      // 정착 중의 저장 오류는 원래 실행/저장 실패를 덮지 않는다.
+      try {
+        closeBoundary()
+      } catch (err) {
+        log.warn('chat.response-boundary.close-failed', { message: String(err) })
+      }
+    }
+
     for (let attempt = 0; ; attempt += 1) {
       let eventsReceived = 0
       let sawTerminal = false
@@ -261,9 +298,11 @@ export class TurnCoordinator<W = unknown> {
           idle.reset()
           for await (const rawEv of events) {
             const coerced =
-              rawEv.type === 'tool.call.completed'
-                ? coerceStoppedToolCompletion(turn.stoppedSubagents, rawEv)
-                : rawEv
+              rawEv.type === 'session.updated'
+                ? { ...rawEv, patch: { ...rawEv.patch, agentKind: turn.agentKind } }
+                : rawEv.type === 'tool.call.completed'
+                  ? coerceStoppedToolCompletion(turn.stoppedSubagents, rawEv)
+                  : rawEv
             // settled background enrich(0143) — async_launched 영수증이 관측된 태스크의 권위
             // 정착에 background:true 를 실어 renderer 완료 통지·writer 영속(subagent_notice)의
             // 권위 신호로 삼는다. 트래커 해제(아래)보다 먼저 판정해야 하며, 해제 후 지각 도착한
@@ -306,7 +345,29 @@ export class TurnCoordinator<W = unknown> {
             // [응답-전][steer user][응답-후] 를 보존한다(persistSteerUserMessage 가 진행 중
             // assistant 를 마감·리셋). telemetry 만 예외로 persist 후 flush — usage messageId
             // 링크·assistant 마감이 끝난 뒤여야 한다(0060).
-            if (ev.type !== 'telemetry') this.commitConsumed(turn)
+            if (ev.type !== 'telemetry') this.commitConsumed(turn, closeBeforeUser)
+            if (
+              turn.agentKind === 'work' &&
+              turn.dbSessionId &&
+              turnOpenConsumed &&
+              !boundaryId &&
+              isResponseDisplayEvent(ev)
+            ) {
+              boundaryId = randomUUID()
+              boundaryFailed = false
+              boundaryAborted = false
+              boundaryTerminal = false
+              this.emit(turn, {
+                type: 'response.boundary',
+                sessionId: turn.dbSessionId,
+                boundary: { phase: 'begin', id: boundaryId }
+              })
+            }
+            if (boundaryId) {
+              if (ev.type === 'error') boundaryFailed = true
+              if (ev.type === 'turn.aborted') boundaryAborted = true
+              if (ev.type === 'telemetry') boundaryTerminal = true
+            }
             if (ev.type === 'telemetry' || ev.type === 'error' || ev.type === 'turn.aborted') {
               sawTerminal = true
             }
@@ -433,7 +494,7 @@ export class TurnCoordinator<W = unknown> {
             }
             // telemetry(턴 종료)는 persist 이후에 소비 확정분을 flush — usage messageId 링크와
             // assistant 마감을 보존한다. 미소비 pending 은 여기서도 flush 하지 않는다(D2).
-            if (ev.type === 'telemetry') this.commitConsumed(turn)
+            if (ev.type === 'telemetry') this.commitConsumed(turn, closeBeforeUser)
           }
         } finally {
           if (policy.countsAsActive) activeTurns.decrement(boundProjectId)
@@ -447,17 +508,20 @@ export class TurnCoordinator<W = unknown> {
           this.emit(turn, ev)
           // 스트림이 경계 없이 끝났어도 *소비 확정분* 은 flush 한다. 미소비 pending 은 큐에
           // 남긴다 — 모델이 못 본 텍스트를 committed 로 굳히지 않고 다음 chat:send 로 이월(D2).
-          this.commitConsumed(turn)
+          this.commitConsumed(turn, closeBeforeUser)
         }
+        closeBoundary()
         if (turn.controller.signal.aborted) log.info('chat.turn.cancelled', turnMeta())
         else log.info('chat.turn.completed', { ...turnMeta(), ...lastUsage })
         return
       } catch (err) {
         if (runtime.cancelled === true && turn.controller.signal.aborted) {
+          closeAfterFailure()
           log.info('chat.turn.cancelled', turnMeta())
           return
         }
         if (runtime.timedOut === true) {
+          boundaryFailed = true
           sawTerminal = true
           settleOpenToolRuns(turn, this.settleEmit, 'aborted')
           log.error('chat.turn.failed', undefined, { ...turnMeta(), reason: 'stall' })
@@ -468,6 +532,7 @@ export class TurnCoordinator<W = unknown> {
               retryable: true
             })
           })
+          closeAfterFailure()
           return
         }
         const error = classifyError(err, 'sendMessage')
@@ -489,12 +554,14 @@ export class TurnCoordinator<W = unknown> {
           try {
             await abortableDelay(RETRY_BACKOFF_MS[attempt] ?? 2_000, turn.controller.signal)
           } catch {
+            closeAfterFailure()
             return
           }
           continue
         }
         // 어댑터 소유 분류기(0016) — provider 는 어댑터가 자기 id 로 채운다. 표시용, 분기 미사용.
         sawTerminal = true
+        boundaryFailed = true
         settleOpenToolRuns(turn, this.settleEmit, 'failed')
         // ClassifiedError 의 category/message 만 — 원문 cause 는 serializeError 경유(redaction 통과).
         log.error('chat.turn.failed', err, { ...turnMeta(), category: error.category })
@@ -503,6 +570,7 @@ export class TurnCoordinator<W = unknown> {
           ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
           error
         })
+        closeAfterFailure()
         return
       } finally {
         idle.clear()

@@ -1,0 +1,9 @@
+
+ RUN  v4.1.10 C:/workspace/github/codex/orca-skin/app
+
+{"scope":"Work selectors only; not React commit time","previousExchanges":100,"currentCompletedMessages":100,"updates":100,"repeatedCompletedPartReads":0,"medianMs":1.2879000000002634,"p95Ms":25.8140999999996}
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  18:09:18
+   Duration  5.71s (transform 1.57s, setup 0ms, import 1.68s, tests 410ms, environment 1ms)

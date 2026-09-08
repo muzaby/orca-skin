@@ -19,6 +19,7 @@ import type {
 } from '../../../../../shared/ipc'
 import { subagentNoticePart } from '../../../../../shared/ipc'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
+import { responseBoundaryPart } from '../../../../../shared/response-boundary'
 import {
   coerceAutoPermissionMode,
   DEFAULT_PERMISSION_MODE
@@ -243,6 +244,9 @@ function resetGitReview(
 }
 
 export interface ChatState {
+  agentKind: import('../../../../../shared/agent-kind').AgentKind
+  agentKindLocked: boolean
+  agentPanelInitialized: boolean
   sessionId: string | null
   // 사이드바 메타 (또는 LoadedSession.title) 에서 즉시 채워지는 세션 제목. 사용자가
   // 세션을 클릭한 순간부터 헤더에 표시되며, 메시지 도착 시점에 한 번 더 reconcile.
@@ -436,6 +440,9 @@ export interface ChatState {
 }
 
 export const initialChatState: ChatState = {
+  agentKind: 'coding',
+  agentKindLocked: false,
+  agentPanelInitialized: false,
   sessionId: null,
   title: null,
   pendingProjectId: null,
@@ -546,6 +553,7 @@ export type ChatAction =
   // 턴 시작 전이 — user 버블은 붙이지 않는다(버블은 낙관 커밋 또는 echo 커밋이 별도로).
   // 자동 연속 턴(send 없는 턴)도 store 가 활동 이벤트에서 같은 액션으로 전이시킨다.
   | { type: 'BEGIN_TURN' }
+  | { type: 'SET_AGENT_KIND'; kind: import('../../../../../shared/agent-kind').AgentKind }
   // 사용자 메시지 커밋 버블. 턴-시작 send 는 낙관 커밋(clientId=clientRequestId, 0068)으로
   // 즉시 붙고, steer 예약·핸드오프 자동 메시지는 echo 커밋(message.committed)으로 붙는다 —
   // clientId 멱등 가드가 두 경로의 이중 append 를 차단한다.
@@ -690,9 +698,18 @@ function diffRequirementDraftsEqual(
 
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
+    case 'SET_AGENT_KIND':
+      if (state.agentKindLocked || state.sessionId || state.agentKind === action.kind) return state
+      return { ...state, agentKind: action.kind }
     case 'BEGIN_TURN':
       return {
         ...state,
+        agentKindLocked: true,
+        agentPanelInitialized: true,
+        rightPanelTiles:
+          !state.agentPanelInitialized && state.agentKind === 'work'
+            ? addTileColumnMajor(state.rightPanelTiles, 'task')
+            : state.rightPanelTiles,
         sendCount: state.sendCount + 1,
         inflight: true,
         // 0119: 이 턴이 쓰는 provider 고정 — 이후 SET_MODEL 이 providerKey 를 바꿔도
@@ -754,6 +771,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           // sessionId 발급 시점(claude init) → pendingProjectId 역할 종료(binding 완료). cwd 갱신.
           return {
             ...state,
+            agentKind: ev.patch.agentKind ?? state.agentKind,
+            agentKindLocked: true,
             sessionId: ev.sessionId,
             backend: 'claude',
             cwd: ev.patch.cwd ?? state.cwd,
@@ -793,6 +812,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               text: ev.text,
               ...(ev.signature !== undefined ? { signature: ev.signature } : {})
             })
+          }
+
+        case 'response.boundary':
+          return {
+            ...state,
+            messages: appendAssistantPart(state.messages, responseBoundaryPart(ev.boundary))
           }
 
         case 'message.completed':
@@ -1178,6 +1203,15 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         state.sessionId === action.session.id && state.activityRevision > (activity?.revision ?? 0)
       return {
         ...initialChatState,
+        agentKind: action.session.agentKind ?? 'coding',
+        agentKindLocked: true,
+        agentPanelInitialized: true,
+        rightPanelTiles:
+          state.agentPanelInitialized && state.sessionId === action.session.id
+            ? state.rightPanelTiles
+            : action.session.agentKind === 'work'
+              ? addTileColumnMajor([], 'task')
+              : [],
         cwd: action.session.cwd ?? state.cwd,
         // 0211 — 재시작 뒤에도 이름이 원본으로 복원되는 자리(§10 EP-06 둘째 지점).
         worktree: action.session.worktree ?? null,

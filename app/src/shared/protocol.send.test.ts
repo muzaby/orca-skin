@@ -2,6 +2,53 @@ import { describe, it, expect } from 'vitest'
 import { OpenPathRequestSchema, SendChatMessageSchema, SetPermissionModeSchema } from './protocol'
 
 const base = { sessionId: null, projectId: null, text: 'hi' }
+
+describe('SendChatMessageSchema — 제품 에이전트 종류', () => {
+  it.each(['coding', 'work'])('종류 %s를 모델·권한 선택과 별도로 전달한다', (agentKind) => {
+    const parsed = SendChatMessageSchema.parse({
+      ...base,
+      agentKind,
+      providerKey: 'claude-bedrock',
+      modelFamily: 'sonnet',
+      permissionMode: 'plan'
+    })
+    expect(parsed).toMatchObject({
+      agentKind,
+      providerKey: 'claude-bedrock',
+      modelFamily: 'sonnet',
+      permissionMode: 'plan'
+    })
+  })
+
+  it('생략값을 파서에서 coding으로 덮지 않아 기존 세션·lease의 상속을 보존한다', () => {
+    expect(SendChatMessageSchema.parse(base).agentKind).toBeUndefined()
+    expect(
+      SendChatMessageSchema.parse({ ...base, sessionId: 'existing-work' }).agentKind
+    ).toBeUndefined()
+    expect(
+      SendChatMessageSchema.parse({ ...base, forkFrom: 'existing-work' }).agentKind
+    ).toBeUndefined()
+  })
+
+  it.each(['claude', 'opencode', 'bypass', 'cowork', '', null, true])(
+    '다른 축이나 미등록 값 %s는 종류로 수용하지 않는다',
+    (agentKind) => {
+      expect(SendChatMessageSchema.safeParse({ ...base, agentKind }).success).toBe(false)
+    }
+  )
+
+  it('클라이언트의 프로필 지침·키는 실행 입력으로 통과시키지 않는다', () => {
+    const parsed = SendChatMessageSchema.parse({
+      ...base,
+      agentKind: 'work',
+      agentInstructions: 'untrusted client instructions',
+      agentProfileKey: 'client-chosen-key'
+    })
+    expect(parsed).not.toHaveProperty('agentInstructions')
+    expect(parsed).not.toHaveProperty('agentProfileKey')
+  })
+})
+
 const requirementAnchor = (overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
   sessionId: 'session-1',
   baselineCommit: '3486398aecbc2b97e42d3dba1aae8d13b18d186c',

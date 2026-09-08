@@ -1,6 +1,8 @@
 import type { CSSProperties } from 'react'
 
 export type IconName =
+  | 'todo'
+  | 'terminal'
   | 'chat'
   | 'plus'
   | 'search'
@@ -64,6 +66,10 @@ export type IconName =
 // 단일 path 이며 Material 960 그리드(viewBox `0 -960 960 960`)를 쓴다. 주석 = 원본
 // Material glyph 이름. 갱신 시 fonts.gstatic.com Material Symbols Outlined 원본을 따른다.
 const ICONS: Record<IconName, string> = {
+  // 제품 모드 선택용 단순 기하 도형. 기존 아이콘과 같은 960 좌표계를 쓴다.
+  todo: 'M100-660l60-60 70 70 130-130 60 60-190 190-130-130ZM460-720h400v80H460v-80ZM100-300l60-60 70 70 130-130 60 60-190 190-130-130ZM460-360h400v80H460v-80Z',
+  terminal:
+    'M80-800h800v640H80v-640Zm80 80v480h640v-480H160Zm80 100 140 140-140 140-56-56 84-84-84-84 56-56Zm220 200h200v80H460v-80Z',
   quote:
     'M160-280v-240l120-240h120L280-520h120v240H160Zm400 0v-240l120-240h120L680-520h120v240H560Z', // opening quotation marks
   expand:

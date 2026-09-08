@@ -446,6 +446,20 @@ export const en: typeof ko = {
     completeBody: 'The response is complete.'
   },
   chat: {
+    agent: {
+      choose: 'Choose a mode',
+      work: 'Work',
+      coding: 'Coding',
+      workGreeting: 'What would you like to work on?',
+      workDescription: 'Work · Write documents, analyze and organize information',
+      codingDescription: 'Coding · Write code, solve problems and build software',
+      workPlaceholder: 'Describe a document, analysis, or task to work on',
+      activity: '{{tools}} tool types · {{notes}} notes',
+      ended: 'Response received',
+      aborted: 'Response interrupted',
+      failed: 'Response error',
+      unknown: 'Response unconfirmed'
+    },
     artifacts: {
       forbidden: 'This file is not available in this conversation',
       unsafe: 'Could not verify a safe file location',

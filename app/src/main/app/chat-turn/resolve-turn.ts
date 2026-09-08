@@ -28,6 +28,8 @@ import {
 } from '../../features/harnesses/models'
 import { SPAWN_ENV_INJECTOR } from '../deployment/spawn-env'
 import { getLogger } from '../../infra/log'
+import { makeClassifiedError } from '../../infra/errors'
+import { resolveAgentKind } from '../../features/agents/profiles'
 import type { SendChatPayload } from './admission'
 import type { RouterContext } from '../context'
 import type { ContinuitySourceMeta } from './turn-context'
@@ -57,7 +59,19 @@ export async function resolveTurn(
   payload: SendChatPayload
 ): Promise<{ ok: true; value: ResolvedTurn } | { ok: false; error: ClassifiedError }> {
   const continuitySource = payload.forkFrom ?? payload.handoffFrom
-  const continuityMeta = continuitySource ? ctx.db.getSessionById(continuitySource) : undefined
+  let continuityMeta = continuitySource ? ctx.db.getSessionById(continuitySource) : undefined
+  const sourceId = payload.sessionId ?? continuitySource
+  const source = payload.sessionId ? ctx.db.getSessionById(payload.sessionId) : continuityMeta
+  const identity = resolveAgentKind(payload.agentKind, source?.agent_kind)
+  if ((sourceId && !source) || !identity.ok) {
+    return {
+      ok: false,
+      error: makeClassifiedError(
+        'schema_validation_error',
+        '원본 대화가 없거나 대화의 작업 종류가 일치하지 않습니다.'
+      )
+    }
+  }
   const continuityError = checkContinuitySource({
     source: continuitySource,
     sourceExists: continuityMeta != null,
@@ -75,7 +89,22 @@ export async function resolveTurn(
     providerKey: payload.providerKey ?? continuityMeta?.provider_key ?? null,
     modelFamily: payload.modelFamily ?? null
   })
-  const sessionMeta = payload.sessionId ? ctx.db.getSessionById(payload.sessionId) : undefined
+  // provider 준비가 await한 사이 세션이 삭제/변경되면 오래된 출생 속성으로 실행하지 않는다.
+  const currentSource = sourceId ? ctx.db.getSessionById(sourceId) : undefined
+  if (
+    sourceId &&
+    (!currentSource || !resolveAgentKind(identity.kind, currentSource.agent_kind).ok)
+  ) {
+    return {
+      ok: false,
+      error: makeClassifiedError(
+        'schema_validation_error',
+        '준비 중 원본 대화가 삭제되었거나 작업 종류가 변경되었습니다.'
+      )
+    }
+  }
+  const sessionMeta = payload.sessionId ? currentSource : undefined
+  if (continuitySource) continuityMeta = currentSource
 
   // 0127 — continuity 산출물(제목 마커·자동 메시지) 언어: renderer draft 생성 시점 스냅샷
   // (payload continuityLang) 우선, 부재 시 settings.language(선호 언어) 파생 폴백.

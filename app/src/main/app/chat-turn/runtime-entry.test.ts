@@ -83,6 +83,30 @@ async function acquire(
 }
 
 describe('acquireTurnRuntime — worktree 소실 폴백은 살아 있는 채널을 내린다 (AC14 · WP-12)', () => {
+  it.each([
+    ['work:1', false],
+    ['work:2', true],
+    [undefined, true]
+  ] as const)(
+    'uses the profile spawn identity for the actual channel teardown (%s)',
+    async (key, teardown) => {
+      const runtime = makeRuntime()
+      Object.assign(runtime, { spawnedAgentProfileKey: 'work:1' })
+      const deps = makeDeps(runtime)
+      deps.buildExtensions.mockReturnValue({
+        skills: [],
+        hooks: { normalized: {} },
+        runtimeTools: { revision: TOOLS_REVISION, servers: new Map() },
+        agentProfileKey: key
+      })
+      await acquireTurnRuntime(deps as never, turn, {
+        sessionId: 'session-1',
+        resolved: { providerKey: PROVIDER, prepared, model: MODEL },
+        sessionProviderKey: PROVIDER
+      })
+      expect(runtime.teardownChannel).toHaveBeenCalledTimes(teardown ? 1 : 0)
+    }
+  )
   it('폴백 턴이면 teardownChannel 을 정확히 한 번 부른다', async () => {
     const runtime = makeRuntime()
 

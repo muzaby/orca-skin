@@ -52,7 +52,7 @@
 
 사용량 SQL은 `infra/db/usage-queries.ts`의 `UsageQueries`가 소유하며 `DbQueries.usage`로 접근한다. 같은 SQLite 연결과 transaction을 공유한다. `UsageTracker`는 이 사용량 객체만 받아 telemetry 기록·집계·발신을 맡는다. 세션 복원 조립은 `features/history/reader.ts`, row의 IPC 변환은 `infra/ipc/dto.ts`에 있다. `app/handlers/session.ts`는 입력 검증·조회 호출·현재 활동 상태 결합을 맡는다.
 
-#### 현재 스키마 (16 마이그레이션)
+#### 현재 스키마
 
 | 마이그레이션 | 내용 |
 |---|---|
@@ -82,9 +82,13 @@
 
 #### 저장 대상 (현재 구현)
 
+`0022_session_agent_kind.sql`의 `sessions.agent_kind`는 `coding|work` 출생값이다. 기존 행과 종류를 생략한 신규 insert의 기본값은 Coding이다. 재개는 DB 값을 읽고 fork/handoff는 원본 종류를 계승한다. 준비 중에는 live lease가 같은 역할을 맡으며, 종류 충돌은 큐 적재 전에 거부한다. 해제된 lease를 보존하는 별도 초안 레지스트리는 없다.
+
+Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저장한다. `begin`과 `end`는 수신 구간 ID를 공유하고 `end.outcome`은 `ended|aborted|failed|unknown`이다. `ended`는 수신 구간 종료를 뜻하며 작업 성공 판정이 아니다. writer는 begin이 속한 메시지 주소에 end를 추가하므로 telemetry 이후에도 marker만 있는 새 메시지를 만들지 않는다. 이 part는 FTS 본문·모델 컨텍스트·복사 텍스트에 합류하지 않는다. crash로 end가 없으면 불완전 구간으로 복원한다.
+
 | 테이블 | 저장 내용 |
 |---|---|
-| `sessions` | sessionId, title, title_source, backend, provider_key, cwd, projectId, createdAt, updatedAt, lastMessagePreview |
+| `sessions` | sessionId, title, title_source, backend, agent_kind, provider_key, cwd, projectId, createdAt, updatedAt, lastMessagePreview |
 | `messages` | sessionId FK, role, content(text — FTS5 text-cache), complete, createdAt, metadata(JSON) |
 | `message_parts` | messageId FK, 순서 보존 parts (text/tool/reasoning …, provider-runtime.md §7) |
 | `projects` | id, name, instructions, createdAt, updatedAt |

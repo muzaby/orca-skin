@@ -1,7 +1,7 @@
 import type { TurnModelUsageRow, TurnUsageRow } from '../db/types'
 import { describe, expect, it } from 'vitest'
-import { partFromRow, usageRowToTelemetry } from './dto'
-import type { LoadedPartRow } from '../db/types'
+import { partFromRow, toSessionListItem, usageRowToTelemetry } from './dto'
+import type { LoadedPartRow, SessionListRow } from '../db/types'
 
 const row = (over: Partial<LoadedPartRow>): LoadedPartRow => ({
   message_id: 1,
@@ -27,6 +27,43 @@ describe('partFromRow — attachment 파트', () => {
     )
     expect(part).toEqual({ type: 'attachment', attachments })
   })
+})
+
+describe('session presentation DTO', () => {
+  it.each(['coding', 'work'] as const)(
+    'keeps %s independent from the execution backend',
+    (kind) => {
+      const session: SessionListRow = {
+        id: 'session',
+        backend: 'claude',
+        agent_kind: kind,
+        title: null,
+        updated_at: 1,
+        last_message_preview: null,
+        project_id: null,
+        title_source: 'auto',
+        provider_key: null,
+        cwd: 'C:/workspace',
+        extra_dirs: null,
+        pinned_at: null
+      }
+      expect(toSessionListItem(session)).toMatchObject({
+        id: 'session',
+        backend: 'claude',
+        agentKind: kind
+      })
+    }
+  )
+
+  it.each(['ended', 'aborted', 'failed', 'unknown'] as const)(
+    'restores the %s boundary without adding prose',
+    (outcome) => {
+      const boundary = { phase: 'end', id: 'fragment', outcome }
+      expect(
+        partFromRow(row({ type: 'response_boundary', payload_json: JSON.stringify({ boundary }) }))
+      ).toEqual({ type: 'response_boundary', boundary })
+    }
+  )
 })
 
 const turn = (over: Partial<TurnUsageRow>): TurnUsageRow => ({

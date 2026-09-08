@@ -420,6 +420,11 @@ function dropSession(sessionId: string, fallbackProjectId: string | null = null)
 // 델타 2종은 그 엔트리의 live 슬라이스로만 흐른다. sessionId 가 없는 이벤트(일부 error)는
 // 활성 엔트리 폴백, 미지 sessionId(엔트리 삭제 후 늦게 도착)는 폐기한다.
 function receive(ev: NormalizedEvent): void {
+  if (ev.type === 'response.boundary') {
+    if (getState().sessions[ev.sessionId])
+      dispatchTo(ev.sessionId, { type: 'RECV_EVENT', event: ev })
+    return
+  }
   if (ev.type === 'artifact.published') {
     // 목록 알림은 pending draft로 폴백하거나 transcript part를 만들지 않는다.
     if (getState().sessions[ev.sessionId]) void refreshArtifactList(ev.sessionId)
@@ -704,6 +709,7 @@ function send(
     const draftKey = `draft:${crypto.randomUUID()}`
     const requestId = crypto.randomUUID()
     const payload: SendChatMessage = {
+      agentKind: cur.agentKind,
       sessionId: null,
       projectId: cur.pendingProjectId,
       text: trimmed,
@@ -835,6 +841,7 @@ function send(
   // 거부되면(큐 미적재 = echo 없음) 낙관 버블/pending 항목을 되물려 유령 버블을 막는다.
   void chatApi
     .send({
+      agentKind: cur.agentKind,
       sessionId: cur.sessionId,
       projectId: null,
       text: trimmed,
@@ -1064,6 +1071,8 @@ function continuityDraftSession(src: ChatState, kind: 'fork' | 'handoff'): ChatS
   const lang = continuityLangFor(languageCache ?? undefined)
   return {
     ...initialChatState,
+    agentKind: src.agentKind,
+    agentKindLocked: true,
     title: continuityTitle(kind, lang, src.title?.trim() || src.sessionId!.slice(0, 8)),
     continuityLang: lang,
     cwd: src.cwd,
@@ -1364,6 +1373,8 @@ function denyTool(approvalId: string): void {
 // 안정 액션 묶음 — 모듈 상수라 컴포넌트가 deps/메모 걱정 없이 직접 import 하거나 props 로
 // 전달할 수 있다(컴포넌트는 selector / action 만 사용, state.md §1.3).
 export const chatActions = {
+  setAgentKind: (kind: import('../../../../../shared/agent-kind').AgentKind): void =>
+    dispatchActive({ type: 'SET_AGENT_KIND', kind }),
   send,
   cancelSteer,
   cancel,
@@ -1629,6 +1640,7 @@ const isNewChatRowVisible = (s: ChatStoreState): boolean =>
   s.pendingNewChatKey === NEW_CHAT_KEY || s.newChatQueue.some((q) => q.key === NEW_CHAT_KEY)
 
 export interface DraftRow {
+  agentKind: import('../../../../../shared/agent-kind').AgentKind
   key: string
   title: string | null
   projectId: string | null
@@ -1645,13 +1657,16 @@ export function useDraftSessionRows(): DraftRow[] {
             key,
             e.session.title ?? '',
             e.session.projectId ?? '',
-            e.session.forkFrom ?? e.session.handoffFrom ?? ''
+            e.session.forkFrom ?? e.session.handoffFrom ?? '',
+            e.session.agentKind
           ].join(DRAFT_ROW_SEP)
         )
         .reverse()
       if (isNewChatRowVisible(s)) {
         const cur = s.sessions[NEW_CHAT_KEY].session
-        rows.unshift([NEW_CHAT_KEY, '', cur.pendingProjectId ?? '', ''].join(DRAFT_ROW_SEP))
+        rows.unshift(
+          [NEW_CHAT_KEY, '', cur.pendingProjectId ?? '', '', cur.agentKind].join(DRAFT_ROW_SEP)
+        )
       }
       return rows
     })
@@ -1659,9 +1674,10 @@ export function useDraftSessionRows(): DraftRow[] {
   return useMemo(
     () =>
       encoded.map((row) => {
-        const [key, title, projectId, parentSessionId] = row.split(DRAFT_ROW_SEP)
+        const [key, title, projectId, parentSessionId, kind] = row.split(DRAFT_ROW_SEP)
         return {
           key,
+          agentKind: kind === 'work' ? ('work' as const) : ('coding' as const),
           title: title || null,
           projectId: projectId || null,
           parentSessionId: parentSessionId || null

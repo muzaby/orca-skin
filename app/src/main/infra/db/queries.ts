@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3'
+import { DEFAULT_AGENT_KIND } from '../../../shared/agent-kind'
 import type {
   DanglingToolCallRow,
   IncompleteAssistantTextPartRow,
@@ -89,8 +90,8 @@ export class DbQueries {
   constructor(db: Database.Database) {
     this.db = db
     this.insertSessionStmt = db.prepare(`
-      INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key, cwd, extra_dirs, baseline_oid, baseline_ref)
-      VALUES (@id, @backend, @title, @projectId, @createdAt, @createdAt, NULL, @providerKey, @cwd, @extraDirs, @baselineOid, @baselineRef)
+      INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key, cwd, extra_dirs, baseline_oid, baseline_ref, agent_kind)
+      VALUES (@id, @backend, @title, @projectId, @createdAt, @createdAt, NULL, @providerKey, @cwd, @extraDirs, @baselineOid, @baselineRef, @agentKind)
       ON CONFLICT(id) DO NOTHING
     `)
     this.insertManagedWorktreeStmt = db.prepare(`
@@ -109,13 +110,13 @@ export class DbQueries {
     )
     this.deleteManagedWorktreeStmt = db.prepare('DELETE FROM managed_worktrees WHERE id = @id')
     this.listSessionsStmt = db.prepare(`
-      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd, extra_dirs, pinned_at
+      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd, extra_dirs, pinned_at, agent_kind
       FROM sessions
       ORDER BY updated_at DESC
       LIMIT @limit
     `)
     this.getSessionByIdStmt = db.prepare(`
-      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd, extra_dirs
+      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd, extra_dirs, agent_kind
       FROM sessions
       WHERE id = @id
     `)
@@ -285,7 +286,7 @@ export class DbQueries {
     `)
     this.deleteProjectStmt = db.prepare(`DELETE FROM projects WHERE id = @id`)
     this.listSessionsByProjectStmt = db.prepare(`
-      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd, pinned_at
+      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd, pinned_at, agent_kind
       FROM sessions
       WHERE project_id = @projectId
       ORDER BY updated_at DESC
@@ -378,6 +379,7 @@ export class DbQueries {
     this.db.transaction(() => {
       this.insertSessionStmt.run({
         ...row,
+        agentKind: row.agentKind ?? DEFAULT_AGENT_KIND,
         providerKey: row.providerKey ?? null,
         cwd: row.cwd ?? null,
         baselineOid: row.baselineOid ?? null,

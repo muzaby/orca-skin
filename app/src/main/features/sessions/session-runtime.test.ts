@@ -1406,7 +1406,11 @@ describe('SessionRuntime runtime tool revision (0158)', () => {
     })
     const withRevision = (revision: number): TurnRequest => ({
       ...req(),
-      extensions: { ...req().extensions, runtimeTools: { revision, servers: new Map() } }
+      extensions: {
+        ...req().extensions,
+        agentProfileKey: `work:${revision}`,
+        runtimeTools: { revision, servers: new Map() }
+      }
     })
     const recorded = runtime as unknown as { spawnedRuntimeToolsRevision?: number }
 
@@ -1414,14 +1418,17 @@ describe('SessionRuntime runtime tool revision (0158)', () => {
     first.emit({ type: 'telemetry', sessionId: 's1' })
     await firstAttempt
     expect(recorded.spawnedRuntimeToolsRevision).toBe(3)
+    expect(runtime.spawnedAgentProfileKey).toBe('work:3')
 
     runtime.teardownChannel()
     expect(recorded.spawnedRuntimeToolsRevision).toBeUndefined()
+    expect(runtime.spawnedAgentProfileKey).toBeUndefined()
 
     const secondAttempt = collect(runtime.send(withRevision(4)))
     second.liveTurn.close()
     await secondAttempt
     expect(recorded.spawnedRuntimeToolsRevision).toBeUndefined()
+    expect(runtime.spawnedAgentProfileKey).toBeUndefined()
   })
 
   it('uses the fresh automatic-continuation snapshot for both stale detection and respawn request', async () => {

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { DEFAULT_AGENT_KIND, type AgentKind } from '../../../shared/agent-kind'
 import type { ManagedRuntime } from '../../contracts/ports'
 import type { TurnContext } from '../../contracts/turn'
 // 논리 키 형식의 정본은 shared 다 — 읽는 쪽(features/chat)이 같은 코덱을 쓴다.
@@ -15,6 +16,7 @@ export interface SessionControl {
 }
 
 interface LeaseBase<W> {
+  readonly agentKind: AgentKind
   leaseId: string
   chainId: string
   // 최초 요청이 논리 체인을 선점한 시각. 준비 await 중 합류한 입력이 같은 millisecond에
@@ -45,6 +47,7 @@ export type SessionChainLease<W> =
     })
 
 export interface AcquireLeaseInput<W> {
+  agentKind?: AgentKind
   logicalKey: string
   sessionId: string | null
   owner: W
@@ -59,6 +62,7 @@ export class SessionChainLeaseRegistry<W> {
     const existing = this.byKey.get(input.logicalKey)
     if (existing) return { lease: existing, acquired: false }
     const lease: SessionChainLease<W> = {
+      agentKind: input.agentKind ?? DEFAULT_AGENT_KIND,
       kind: 'preparing',
       leaseId: randomUUID(),
       chainId: randomUUID(),

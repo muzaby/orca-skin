@@ -7,6 +7,7 @@ import type { WebContents } from 'electron'
 import type { ArtifactRef } from '../../../shared/artifacts'
 import type { AttachmentView, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
 import { subagentNoticePart } from '../../../shared/ipc'
+import { responseBoundaryPart } from '../../../shared/response-boundary'
 import type { DbQueries } from '../../infra/db'
 import type { LineageRelation } from '../../infra/db/types'
 import { previewOf } from '../../infra/ipc/dto'
@@ -164,6 +165,9 @@ export class HistoryWriter {
       })
       turn.assistantText = ''
     }
+    if (turn.responseBoundary) {
+      turn.responseBoundary.messageId = turn.currentAssistantMessageId
+    }
     return turn.currentAssistantMessageId
   }
 
@@ -204,6 +208,29 @@ export class HistoryWriter {
   persist(turn: TurnContext, ev: NormalizedEvent): void {
     const now = Date.now()
     switch (ev.type) {
+      case 'response.boundary': {
+        if (turn.agentKind !== 'work' || !turn.dbSessionId || ev.sessionId !== turn.dbSessionId)
+          break
+        const { boundary } = ev
+        let messageId: number
+        if (boundary.phase === 'begin') {
+          if (turn.responseBoundary) break
+          messageId = this.ensureAssistantMessage(turn, turn.dbSessionId)
+        } else {
+          if (turn.responseBoundary?.id !== boundary.id) break
+          messageId = turn.responseBoundary.messageId
+        }
+        const { type, ...payload } = responseBoundaryPart(boundary)
+        this.db.appendPart({
+          messageId,
+          type,
+          toolRunId: null,
+          payloadJson: JSON.stringify(payload)
+        })
+        if (boundary.phase === 'begin') turn.responseBoundary = { id: boundary.id, messageId }
+        else delete turn.responseBoundary
+        break
+      }
       case 'session.updated': {
         // claude 의 system/init — sessionId 발급 시점. sessions row 생성 + 대기 user 메시지 기록.
         const sessionId = ev.sessionId
@@ -215,6 +242,7 @@ export class HistoryWriter {
           id: sessionId,
           // backend 출처는 이 턴이 잠긴 어댑터(0010 세션-어댑터 바인딩) — 리터럴 금지(0016).
           backend: turn.titleAdapter.id,
+          agentKind: turn.agentKind,
           title,
           projectId: turn.pendingProjectId,
           createdAt: now,

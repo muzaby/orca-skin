@@ -508,9 +508,10 @@ export type MessageSegment =
 // parts 를 순회하며 순서 보존 세그먼트 배열로 투영한다(순수). tool_result 는 toolRunId 로
 // 선구축한 맵에서 페어링되며(partsToolCalls 와 동일 규칙) 순회 중에는 흡수(스킵)한다.
 // file/diff(claude 미생성 seam)는 현재 미렌더 — OpenCode 어댑터 도입 시 채운다.
-export function messageSegments(parts: AppMessagePart[]): MessageSegment[] {
-  const resultByRun = resultMap(parts)
-
+export function messageSegments(
+  parts: AppMessagePart[],
+  resultByRun: ReadonlyMap<string, NonNullable<ToolCall['result']>> = resultMap(parts)
+): MessageSegment[] {
   const segments: MessageSegment[] = []
   let current: MessageSegment | null = null
 

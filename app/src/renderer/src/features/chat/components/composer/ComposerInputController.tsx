@@ -11,6 +11,8 @@ import {
 import { Button } from '../../../../shared/ui/Button'
 import { Popover } from '../../../../shared/ui/Popover'
 import { useI18n } from '../../../../shared/i18n'
+import { useChatSession } from '../../store/chatStore'
+import { agentPresentation } from '../../lib/agentPresentation'
 import { useSkills } from '../../../../shared/hooks/useSkills'
 import { useAttachments } from '../../hooks/useAttachments'
 import { useFileAutocomplete } from '../../hooks/useFileAutocomplete'
@@ -95,6 +97,7 @@ export function ComposerInputController({
   controlsEnd
 }: ComposerInputControllerProps): React.JSX.Element {
   const { tr } = useI18n()
+  const agentKind = useChatSession((session) => session.agentKind)
   const [snapshot, setSnapshotState] = useState(createDraftSnapshot)
   const snapshotRef = useRef(snapshot)
   const updateSnapshot = useCallback((update: (current: DraftSnapshot) => DraftSnapshot): void => {
@@ -380,7 +383,7 @@ export function ComposerInputController({
                       ? steerBlocked
                         ? tr('chat.composer.placeholderProviderBoundary')
                         : tr('chat.composer.placeholderFeedback')
-                      : tr('chat.composer.placeholderIdle')
+                      : tr(agentPresentation[agentKind].placeholder)
                   }
                   ariaLabel={tr('chat.composer.inputAria')}
                 />

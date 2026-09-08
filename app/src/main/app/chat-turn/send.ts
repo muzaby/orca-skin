@@ -36,6 +36,7 @@ import { runTurnWithContinuations } from './post-turn'
 import type { ChatRuntimeDeps, NormalizedAttachments } from './deps'
 import { makeClassifiedError } from '../../infra/errors'
 import { prepareTurnExecution } from './prepare-worktree'
+import { resolveAgentKind, resolveAgentProfile } from '../../features/agents/profiles'
 
 export async function handleChatSend(
   deps: ChatRuntimeDeps,
@@ -85,7 +86,37 @@ export async function handleChatSend(
 
   // ── 3. lease 획득 · busy 면 예약으로 수용 ──────────────────────────────────
   const { provisionalKey, logicalKey } = leaseKeyFor(payload)
+  // 출생 속성 비교는 lease 획득과 busy 예약보다 앞, 둘 사이 await 없이 끝낸다.
+  const sourceId = payload.sessionId ?? payload.forkFrom ?? payload.handoffFrom
+  const source = sourceId ? ctx.db.getSessionById(sourceId) : undefined
+  if (sourceId && !source) {
+    sendChatEvent(event.sender, {
+      type: 'error',
+      error: makeClassifiedError('schema_validation_error', '계속할 원본 대화를 찾을 수 없습니다.')
+    })
+    return
+  }
+  const existingLease = supervisor.getChainByKey(logicalKey)
+  const identity = resolveAgentKind(
+    payload.agentKind,
+    source ? source.agent_kind : existingLease?.agentKind
+  )
+  if (!identity.ok || (existingLease && existingLease.agentKind !== identity.kind)) {
+    sendChatEvent(event.sender, {
+      type: 'error',
+      ...(payload.sessionId ? { sessionId: payload.sessionId } : {}),
+      error: makeClassifiedError(
+        'schema_validation_error',
+        '대화의 작업 종류가 올바르지 않거나 시작 후 변경되었습니다. 새 대화에서 선택해 주세요.'
+      )
+    })
+    return
+  }
+  const agentKind = identity.kind
+  const profile = resolveAgentProfile(agentKind)
+  const extensionProfile = { agentInstructions: profile.instructions, agentProfileKey: profile.key }
   const acquired = supervisor.acquireChain({
+    agentKind,
     logicalKey,
     sessionId: payload.sessionId,
     owner: event.sender,
@@ -124,7 +155,7 @@ export async function handleChatSend(
 
   try {
     // ── 4·5. continuity 검증 + provider·env·메타·텍스트 해석 (resolve-turn.ts) ─
-    const resolution = await resolveTurn(ctx, supervisor, activeAdapter, payload)
+    const resolution = await resolveTurn(ctx, supervisor, activeAdapter, { ...payload, agentKind })
     if (!resolution.ok) {
       sendChatEvent(event.sender, { type: 'error', error: resolution.error })
       return
@@ -189,6 +220,7 @@ export async function handleChatSend(
         // ── 6. TurnContext 조립 ───────────────────────────────────────────
         const controller = lease.controller
         return buildTurnContext<WebContents>({
+          agentKind,
           controller,
           owner: event.sender,
           control: lease.control,
@@ -250,7 +282,11 @@ export async function handleChatSend(
             lease,
             adapter: activeAdapter,
             buildExtensions: () =>
-              ctx.extensions.build(payload.sessionId, payload.sessionId ? null : boundProjectId),
+              ctx.extensions.build(
+                payload.sessionId,
+                payload.sessionId ? null : boundProjectId,
+                extensionProfile
+              ),
             settleDeadBackgroundTasks: deps.settleDeadBackgroundTasks,
             // turn 과 같은 축 — 인출 즉시 공개해야 이 다음 await 가 reject 해도
             // 바깥 finally 가 핸들을 닫는다.
@@ -431,7 +467,7 @@ export async function handleChatSend(
                   providerKey,
                   modelFamily
                 }),
-              buildExtensions: () => ctx.extensions.build(sessionId, null)
+              buildExtensions: () => ctx.extensions.build(sessionId, null, extensionProfile)
             }),
           settleDeadBackgroundTasks: deps.settleDeadBackgroundTasks,
           stopAndSettleAbortedTasks: deps.stopAndSettleAbortedTasks,

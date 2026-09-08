@@ -7,13 +7,13 @@
 | slug | `0224-work-agent-layer` |
 | 작성자 | **Codex** |
 | 일자 | 2026-09-08 |
-| 상태 | **READY — 사용자 구현 지시로 권고안 확정 (2026-09-08)** |
+| 상태 | **impl/IMPL_DONE — Codex r1 구현, 독립 검증 대기; 미완료 인수는 impl.md 참조** |
 | 코드 조사 기준 | `04953cf781b8c967d4aaef3255752bb721bafeb0` |
 | V mode / revision | Baseline V / V1 — 중앙 토글·모드별 UI/UX, 구현 전 확정 |
 | 기준 V / 유효 V | none / 이 문서 V1 (구현 전 설계 커밋) |
 | 관련 작업 | 0205 Cowork 연구, 0223 게시 도구·작업 패널, 0214 OpenCode 연구 |
 
-이번 산출물은 설계다. 아래 권고안을 검토 가능한 수준으로 구체화했으며 앱 코드는 변경하지 않는다. 0223의 일반 생성물 기준과 모델/native 인수 미완료 상태는 이 핸드오프로 닫지 않는다.
+이 문서는 확정된 V1 설계 계약이다. Codex 구현·자기확인 결과는 [구현 보고](impl.md)에 기록한다. 0223의 일반 생성물 기준과 모델/native 인수 미완료 상태는 이 핸드오프로 닫지 않는다.
 
 # Part I — Product & UX Contract
 
@@ -518,7 +518,7 @@ Work projection은 전체 세션을 다시 평탄화하지 않고 기존 virtual
 | 모델이 게시하지 않음 | AC15 실측. 실패를 watcher 자동 도입으로 우회하지 않음 |
 | 범위 비대화 | 고정 프로필·기존 stores/runtime만, 후속 기능의 빈 추상화 없음 |
 
-신규 의존성은 제안하지 않는다. `agent_kind`는 저장 형식 결정이므로 Q-01 답변을 받고 잠근다. Work 기본 패널 열림은 최초 진입만 적용하는 UI 제안이며 사용자 배치 선택을 덮어쓰지 않는다.
+신규 의존성은 제안하지 않는다. `agent_kind`는 확정된 Q-01·D-007의 저장 형식이다. Work 기본 패널 열림은 최초 진입만 적용하며 사용자 배치 선택을 덮어쓰지 않는다.
 
 ## 18. 영향 파일과 문서
 
@@ -551,13 +551,12 @@ Work projection은 전체 세션을 다시 평탄화하지 않고 기존 virtual
 - 독립 읽기 검토에서 preparing lease·steer의 user 경계·telemetry 후 end 저장·session ID 라우팅을 대조하고 §9-B에 반영했다. 본문과 보드의 DRAFT 일치, 문서 inventory gate의 generated/prose/link 검사 통과를 확인했다.
 - rev.2 코드 대조: 새 대화 중앙 블록은 `NewChatLandingPage`, 프로젝트 랜딩은 별도 구조다. `Button.pressed`·`Icon.size`를 재사용할 수 있고 정확한 Todo/Terminal 글리프는 추가가 필요하다. 기존 on/off `Toggle`의 17×30px 형상을 큰 모드 선택기로 취급하지 않았다.
 - rev.2 독립 문서 검토에서 D-010·D-011↔AC1·AC16·§9-C·EP-14의 연결과 미확정 결정 보존을 확인했다. 문서 inventory gate의 generated/prose/link 검사가 통과했고 이번 변경은 문서뿐이므로 앱 실행 시험은 수행하지 않았다.
-- 구현자 보고·독립 검증 결과는 아직 없다. 계획 승인/결정 정리 후 `handoff-impl`로 A→B→C를 진행한다.
+- 설계 이력의 DRAFT·문서 전용 표기는 당시 단계의 관측이다. 현재 Codex r1 구현과 자기확인은 [impl.md](impl.md), 현재 디스패치는 INDEX 행이 정본이다. 독립 검증은 아직 수행하지 않았다.
 
 ## [구현자 기입]
 
-미착수. 구현 턴에는 `handoff-impl`이 요구하는 설계 리뷰·강제 지점 전수·pair 자기확인·Product/UX 파생 이슈·변이 잠금·보고를 기록한다.
+**Codex r1 구현**. 유효 V는 구현 전 확정한 V1이다. [구현 보고](impl.md)에 설계 리뷰·강제 지점/V-pair·수정 잠금·Product/UX 파생 검토·잠재 문제·게이트/AC·Review Signals를 기록했다. 실제 Claude 모델 시험은 자동 승인 검토 거부로 미실행이며, mock 결과를 인수 성공으로 대체하지 않았다.
 
 ## [검증자 기입] 파생 이슈
 
-아직 없음. 현재 DRAFT 검토는 구현 완료에 대한 독립 verify가 아니다.
-
+아직 없음. Codex 자기확인은 독립 verify가 아니다.

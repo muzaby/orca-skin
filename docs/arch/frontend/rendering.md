@@ -6,6 +6,16 @@
 
 ## 1. 컴포넌트 렌더링 전략
 
+### Work/Coding 표현
+
+새 대화와 프로젝트 랜딩의 `AgentModeToggle`은 중앙의 큰 선택기로 왼쪽 Todo(작업), 오른쪽 Terminal(코딩)을 표시한다. 기존 Button·Icon·시맨틱 토큰을 사용한다. `agentPresentation`은 선택에 따른 인사말·설명·Composer 안내 문구를 제공하며, 토글로 Composer 인스턴스를 교체하지 않는다.
+
+세션 종류는 ChatTile→TranscriptView→Exchange→AssistantTurn으로 전달되고 memo 비교에도 포함된다. Coding은 기존 AssistantMessage를 사용한다. Work는 `createWorkProjector`로 원문 parts를 보존한 채 도입·접을 수 있는 도구/중간 메모·마무리를 조립한다. reasoning·질문·오류·구조화 결과는 기존 전용 표현을 유지하고 ArtifactCards도 공통 경로를 사용한다. 표시 경계가 없는 이력은 기존 렌더러로 폴백한다.
+
+Main의 `response_boundary` 구간 안에서 실제 종료된 구간의 마지막 본문만 마무리로 분리한다. 중단·실패·불명확한 끝은 그 상태를 표시한다. 후속 자동 응답은 별도 구간이며 늦은 도구 결과는 ID로 원래 호출에 결합해 이미 정한 마무리의 위치를 바꾸지 않는다. 완료 메시지의 part 해석을 캐시하고 접힌 활동의 본문은 mount하지 않는다.
+
+Work의 작업 패널은 세션 최초 진입에서 기본으로 연다. 사용자가 닫은 뒤 다음 턴마다 재개방하지 않는다. 진행 상황·출력·컨텍스트 구조를 공유하며, 출력은 명시 게시된 산출물이다. 일반 생성물 자동 수집·컨텍스트 추적·파일 뷰어는 현재 제공하지 않는다.
+
 ### 1.1 메시지 리스트 가상화
 
 - **현재: 미사용.** `features/chat/components/ChatTile.tsx` 의 메시지 리스트는 일반 `messages.map(...)` 렌더링.

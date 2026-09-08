@@ -5,6 +5,7 @@
 // "fork 턴은 initialTitle 을 갖는가" 같은 질문에 코드로 답할 수 없었다.
 
 import type { AttachmentView } from '../../../shared/ipc'
+import type { AgentKind } from '../../../shared/agent-kind'
 import { continuityTitle, type ContinuityLang } from '../../../shared/continuity-lang'
 import type { TurnContext } from '../../contracts/turn'
 import type { RuntimeTitleAdapter } from '../../contracts/ports'
@@ -103,6 +104,7 @@ export interface ContinuitySourceMeta {
 }
 
 interface BuildTurnContextInput<W> {
+  agentKind: AgentKind
   controller: AbortController
   owner: W
   control: SessionControl
@@ -159,6 +161,7 @@ export function buildTurnContext<W>(input: BuildTurnContextInput<W>): TurnContex
 
   return {
     ...freshTurnLocalState<W>(input.control),
+    agentKind: input.agentKind,
     controller: input.controller,
     owner: input.owner,
     titleAdapter: input.titleAdapter,
@@ -223,6 +226,7 @@ export function makeContinuationTurn<W>(prev: TurnContext<W>): TurnContext<W> {
     }),
     controller: new AbortController(),
     owner: prev.owner,
+    agentKind: prev.agentKind,
     titleAdapter: prev.titleAdapter,
     ...(prev.titleSettings ? { titleSettings: prev.titleSettings } : {}),
     ...(prev.titleEnv ? { titleEnv: prev.titleEnv } : {}),

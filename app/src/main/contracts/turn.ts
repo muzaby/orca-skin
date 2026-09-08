@@ -1,9 +1,11 @@
 import type { AttachmentView } from '../../shared/ipc'
+import type { AgentKind } from '../../shared/agent-kind'
 import type { ResolvedHarnessSettings } from '../adapters/harness-config'
 import type { LineageRelation } from '../infra/db/types'
 import type { GovernedLiveTurn, RuntimeTitleAdapter } from './ports'
 
 export interface TurnContext<W = unknown> {
+  agentKind: AgentKind
   controller: AbortController
   owner: W
   live: GovernedLiveTurn | null
@@ -29,6 +31,9 @@ export interface TurnContext<W = unknown> {
   extraDirs: string[]
   titleGenerationStarted: boolean
   currentAssistantMessageId: number | null
+  // writer의 현재 표시 구간 주소. telemetry가 currentAssistantMessageId를 비워도 end의
+  // 대상 메시지를 보존하며, 새/연속 턴에는 상속하지 않는다.
+  responseBoundary?: { id: string; messageId: number }
   assistantText: string
   pendingAskAnswers: Array<{ answers: Record<string, string | string[]>; response?: string }>
   askPendingIds: string[]

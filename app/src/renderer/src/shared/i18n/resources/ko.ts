@@ -450,6 +450,20 @@ export const ko = {
     completeBody: '응답이 완료되었습니다.'
   },
   chat: {
+    agent: {
+      choose: '작업 종류 선택',
+      work: '작업',
+      coding: '코딩',
+      workGreeting: '어떤 작업을 도와드릴까요?',
+      workDescription: '작업 · 문서 작성, 자료 분석과 정리',
+      codingDescription: '코딩 · 코드 작성, 문제 해결과 개발',
+      workPlaceholder: '작성할 문서나 분석할 자료, 정리할 작업을 알려주세요',
+      activity: '도구 {{tools}}종 · 메모 {{notes}}개',
+      ended: '응답 수신 마감',
+      aborted: '응답 중단',
+      failed: '응답 오류',
+      unknown: '응답 미확정'
+    },
     artifacts: {
       forbidden: '이 대화에서 파일을 사용할 수 없습니다',
       unsafe: '안전한 파일 위치를 확인할 수 없습니다',

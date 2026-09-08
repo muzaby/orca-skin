@@ -6,6 +6,12 @@
 
 ## 1. 상태 관리
 
+### 제품 에이전트 종류
+
+`ChatState.agentKind`는 `coding|work`, `agentKindLocked`는 초안의 첫 전송 이후 변경 방지 상태다. 새 대화는 Coding으로 시작하며 첫 전송 전 토글은 종류만 바꾼다. 입력·첨부·cwd·추가 폴더·Git 선택은 유지한다. 준비 실패 후 같은 초안을 다시 보내도 잠금은 유지한다. Main은 별도로 DB와 live lease의 출생값을 검사한다.
+
+전송·busy 후속·fork/handoff는 같은 세션 종류를 전달한다. 저장 세션 로드는 DB 값을 쓰고, 종류가 없는 구형 payload는 Coding으로 복원한다. 역할은 backend·provider·permissionMode와 독립적이다. `response.boundary`도 다른 세션 이벤트처럼 소유 sessionId에만 라우팅하며 삭제된 세션을 되살리지 않는다.
+
 > **현재**: chat은 `features/chat/store/chatStore.ts`의 `sessions: Record<key, { session, live }>` + `activeKey` 외피를 갖는다(키 = sessionId, 새 채팅 = `NEW_CHAT_KEY` 슬롯 → `session.updated` 시 승격). Backend/Sessions/Projects/Cost는 feature별 Zustand store가 소유하고, projects 초기 조회는 `app/boot/steps`가 수행한다. Tweaks는 `TweakProvider` 인스턴스의 store와 필드 selector로 연결하며 Skills/Agents는 기존 hook 진입점을 유지한다.
 > **채택된 결정(이행 완료)**: 단일 root 대신 **feature 별 store + chat 의 sessions Record** 로 수렴 — `chatReducer` 는 세션-단위 순수 함수로 유지하고 **store 가 `ev.sessionId` 키 라우팅을 담당**한다(reducer 테스트·불변식 보존, "액션에 sessionId 인자" 안의 대체 — 사용자 결정 2026-06-11, handoff 0013). 동시 스트리밍 *UX*(사이드바 배지·탭)는 후속 기능.
 

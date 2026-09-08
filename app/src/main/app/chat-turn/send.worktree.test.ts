@@ -119,6 +119,7 @@ function makeHarness(sessionId?: string) {
   })
 
   const supervisor = {
+    getChainByKey: vi.fn(),
     acquireChain: vi.fn(() => ({
       acquired: true,
       lease: {
@@ -139,6 +140,14 @@ function makeHarness(sessionId?: string) {
   const sender = new EventEmitter()
   const deps = {
     ctx: {
+      db: {
+        getSessionById: () => ({
+          cwd: null,
+          project_id: null,
+          ...mocks.sessionMeta.value,
+          agent_kind: 'coding'
+        })
+      },
       mockAdapter: null,
       debugMock: { enabled: false },
       registry: {

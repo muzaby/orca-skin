@@ -37,44 +37,9 @@ export const AssistantMessage = memo(function AssistantMessage({
   prevRef.current = segments
   return (
     <div className="flex flex-col gap-[var(--chat-item-gap)] text-[14px] leading-[1.7] text-ink">
-      {segments.map((seg, i) => {
-        // 세그먼트는 append-only(연속 동종 병합) 라 index key 가 안정적이다.
-        switch (seg.kind) {
-          case 'reasoning':
-            return <ReasoningBlock key={i} items={seg.items} />
-          case 'tools':
-            return <ToolGroup key={i} calls={seg.calls} />
-          case 'ask':
-            return <AskExchange key={i} call={seg.call} />
-          case 'structured':
-            return <StructuredOutputCard key={i} value={seg.value} />
-          case 'text':
-            return <Markdown key={i} source={seg.text} />
-          case 'error':
-            return <ErrorCard key={i} error={seg.error} />
-          case 'compact':
-            return (
-              <CompactBoundaryMarker
-                key={i}
-                trigger={seg.trigger}
-                preTokens={seg.preTokens}
-                postTokens={seg.postTokens}
-              />
-            )
-          case 'fork':
-            return <ForkBoundaryMarker key={i} />
-          case 'subagent_notice':
-            return (
-              <SubagentNoticeRow
-                key={i}
-                toolRunId={seg.toolRunId}
-                status={seg.status}
-                durationMs={seg.durationMs}
-                summary={seg.summary}
-              />
-            )
-        }
-      })}
+      {segments.map((segment, index) => (
+        <AssistantSegment key={index} segment={segment} />
+      ))}
       {message.incomplete && (
         <div className="inline-flex w-fit rounded-full border border-border bg-bg2 px-2 py-1 text-xs leading-none text-ink3">
           {tr('chat.transcript.incompleteResponse')}
@@ -82,4 +47,45 @@ export const AssistantMessage = memo(function AssistantMessage({
       )}
     </div>
   )
+})
+
+// Coding과 Work가 동일 도구/질문/오류 렌더러를 사용한다.
+export const AssistantSegment = memo(function AssistantSegment({
+  segment: seg
+}: {
+  segment: MessageSegment
+}): React.JSX.Element {
+  switch (seg.kind) {
+    case 'reasoning':
+      return <ReasoningBlock items={seg.items} />
+    case 'tools':
+      return <ToolGroup calls={seg.calls} />
+    case 'ask':
+      return <AskExchange call={seg.call} />
+    case 'structured':
+      return <StructuredOutputCard value={seg.value} />
+    case 'text':
+      return <Markdown source={seg.text} />
+    case 'error':
+      return <ErrorCard error={seg.error} />
+    case 'compact':
+      return (
+        <CompactBoundaryMarker
+          trigger={seg.trigger}
+          preTokens={seg.preTokens}
+          postTokens={seg.postTokens}
+        />
+      )
+    case 'fork':
+      return <ForkBoundaryMarker />
+    case 'subagent_notice':
+      return (
+        <SubagentNoticeRow
+          toolRunId={seg.toolRunId}
+          status={seg.status}
+          durationMs={seg.durationMs}
+          summary={seg.summary}
+        />
+      )
+  }
 })

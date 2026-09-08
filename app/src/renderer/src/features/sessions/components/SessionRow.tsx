@@ -119,6 +119,9 @@ export const SessionRow = memo(function SessionRow({
       <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
         {label}
       </span>
+      <span className="shrink-0 text-[10px] text-ink3">
+        {tr(session.agentKind === 'work' ? 'chat.agent.work' : 'chat.agent.coding')}
+      </span>
       {hasMenu && (
         <>
           <KebabButton

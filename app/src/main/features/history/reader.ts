@@ -60,6 +60,7 @@ export function loadSession(
   return {
     id: meta.id,
     backend: meta.backend,
+    agentKind: meta.agent_kind,
     title: meta.title,
     messages,
     providerKey: meta.provider_key,

@@ -3,6 +3,9 @@
 // 타입과 CHANNELS 만 필요한 곳은 ./ipc 에서 import.
 
 import { z } from 'zod'
+import { AGENT_KINDS } from './agent-kind'
+
+export const AgentKindSchema = z.enum(AGENT_KINDS)
 
 const artifactId = z.string().min(1).max(256)
 export const ArtifactListRequestSchema = z.object({ sessionId: artifactId }).strict()
@@ -126,6 +129,7 @@ export const DiffRequirementAnchorSchema: z.ZodType<DiffRequirementAnchor> = z.o
 export const SendChatMessageSchema = z
   .object({
     sessionId: z.string().nullable(),
+    agentKind: AgentKindSchema.optional(),
     projectId: z.string().nullable(),
     // handoffFrom 이 있으면 main 이 자동 메시지로 대체하므로 빈 문자열을 허용한다(아래 refine).
     text: z.string(),

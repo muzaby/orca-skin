@@ -31,6 +31,25 @@ function runtime(revision: number, model: string): AutomaticContinuationRuntime 
 }
 
 describe('chat turn automatic continuation (0158)', () => {
+  it('compares the same fresh profile key used by automatic requests', async () => {
+    const previous = { ...runtime(1, 'opus'), spawnedAgentProfileKey: 'work:1' }
+    const prepare = (key: string | undefined): ReturnType<typeof prepareAutomaticContinuation> =>
+      prepareAutomaticContinuation({
+        runtime: previous,
+        providerKey: 'team-a',
+        modelFamily: 'high',
+        fallbackModel: 'opus',
+        resolveProvider: async () => ({
+          providerKey: 'team-a',
+          model: 'opus',
+          prepared: preparedConfig()
+        }),
+        buildExtensions: () => ({ ...extensions(1), agentProfileKey: key })
+      })
+    expect((await prepare('work:1')).shouldRespawn).toBe(false)
+    expect((await prepare('work:2')).shouldRespawn).toBe(true)
+    expect((await prepare(undefined)).shouldRespawn).toBe(true)
+  })
   it('uses one fresh listen snapshot for both stale detection and the request', async () => {
     const fresh = extensions(2)
     const buildExtensions = vi.fn(() => fresh)

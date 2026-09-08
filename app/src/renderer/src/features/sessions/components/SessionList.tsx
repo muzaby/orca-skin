@@ -10,6 +10,7 @@ import type { RecentSessions } from '../lib/navSections'
 // DraftRow 와 구조적으로 호환 — cross-feature import 대신 셸(app/)이 매핑해 props 로
 // 내린다(4-layer 경계). '새 대화' 행은 deletable=false(삭제 개념 없음 — kebab 숨김).
 export interface DraftSessionRow {
+  agentKind?: import('../../../../../shared/agent-kind').AgentKind
   key: string
   title: string | null
   projectId: string | null
@@ -106,6 +107,7 @@ function draftAsListItem(d: DraftSessionRow): SessionListItem {
   return {
     id: d.key,
     backend: 'claude',
+    agentKind: d.agentKind ?? 'coding',
     title: d.title,
     updatedAt: 0,
     preview: null,

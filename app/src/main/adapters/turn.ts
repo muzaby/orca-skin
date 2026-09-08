@@ -84,6 +84,8 @@ type NormalizedSkillRef = SkillInfo
 
 // 한 턴에 적용할 백엔드 중립 보조기능 묶음. 어댑터가 이를 받아 자기 query 옵션으로 굽는다.
 export interface TurnExtensions {
+  // 앱의 고정 제품 프로필 구성 키. 어댑터는 의미를 해석하지 않고 runtime이 spawn 경계를 비교한다.
+  agentProfileKey?: string
   // 인증된 내장 도구의 현재 메모리 snapshot. extensions feature가 조립하며, adapters는
   // backend별 SDK 옵션으로만 변환한다. 미주입은 기존 MCP 배포 경로를 그대로 유지한다.
   runtimeTools?: RuntimeToolSnapshot

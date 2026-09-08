@@ -12,12 +12,12 @@
 |---|---|---|
 | IPC 채널 | **88** | `app/src/shared/ipc.ts` |
 | IPC 도메인 | **24** | `app/src/shared/ipc.ts` |
-| NormalizedEvent variant | **25** | `app/src/shared/ipc.ts` |
+| NormalizedEvent variant | **26** | `app/src/shared/ipc.ts` |
 | settings 키 | **18** | `app/src/shared/protocol.ts` |
-| main 수직 슬라이스 | **14** | `app/src/main/features/` |
+| main 수직 슬라이스 | **15** | `app/src/main/features/` |
 | main contracts 모듈 | **5** | `app/src/main/contracts/` |
 | IPC 핸들러 | **15** | `app/src/main/app/handlers/` |
-| DB 마이그레이션 | **21** | `app/src/main/infra/db/migrations/` |
+| DB 마이그레이션 | **22** | `app/src/main/infra/db/migrations/` |
 | renderer feature | **13** | `app/src/renderer/src/features/` |
 
 ## 내역
@@ -30,17 +30,17 @@
 
 `chat 7` · `session 7` · `skills 7` · `artifact 6` · `project 6` · `provider 6` · `update 6` · `cost 5` · `engine 5` · `files 5` · `git 5` · `mcp 4` · `window 3` · `boot 2` · `debug 2` · `install 2` · `permission 2` · `settings 2` · `agent 1` · `backend 1` · `concurrency 1` · `log 1` · `notify 1` · `search 1`
 
-### NormalizedEvent variant (25)
+### NormalizedEvent variant (26)
 
-`ChatActivitySnapshot` · `artifact.published` · `error` · `input.echo` · `message.cancelled` · `message.committed` · `message.completed` · `message.delta` · `message.queued` · `message.reasoning` · `message.reasoning.delta` · `message.submitted` · `permission.requested` · `permission.resolved` · `session.compacted` · `session.updated` · `subagent.backgroundSet` · `subagent.task` · `telemetry` · `tool.call.completed` · `tool.call.started` · `turn.aborted` · `turn.ended` · `turn.retrying` · `worktree.preparing`
+`ChatActivitySnapshot` · `artifact.published` · `error` · `input.echo` · `message.cancelled` · `message.committed` · `message.completed` · `message.delta` · `message.queued` · `message.reasoning` · `message.reasoning.delta` · `message.submitted` · `permission.requested` · `permission.resolved` · `response.boundary` · `session.compacted` · `session.updated` · `subagent.backgroundSet` · `subagent.task` · `telemetry` · `tool.call.completed` · `tool.call.started` · `turn.aborted` · `turn.ended` · `turn.retrying` · `worktree.preparing`
 
 ### settings 키 (18)
 
 `accountInstructions` · `appFont` · `authBypass` · `density` · `language` · `lastBackend` · `lastSessionId` · `mcpEnabled` · `mcpMeta` · `notifyOnComplete` · `scheduler` · `sidebarCollapsed` · `sidebarWidth` · `skillEnabled` · `spendingLimitUsd` · `theme` · `uiLocale` · `windowBounds`
 
-### main 수직 슬라이스 (14)
+### main 수직 슬라이스 (15)
 
-`approvals` · `artifacts` · `auth` · `chat` · `extensions` · `gate` · `harnesses` · `history` · `orchestration` · `plugins` · `scheduler` · `sessions` · `usage` · `worktrees`
+`agents` · `approvals` · `artifacts` · `auth` · `chat` · `extensions` · `gate` · `harnesses` · `history` · `orchestration` · `plugins` · `scheduler` · `sessions` · `usage` · `worktrees`
 
 ### main contracts 모듈 (5)
 
@@ -50,9 +50,9 @@
 
 `artifacts` · `boot` · `cost` · `engine` · `files` · `git` · `log` · `mcp` · `misc` · `project` · `providers` · `session` · `settings` · `skills` · `update`
 
-### DB 마이그레이션 (21)
+### DB 마이그레이션 (22)
 
-`0001_initial` · `0002_projects` · `0003_messages_fts` · `0004_message_parts` · `0005_usage_events` · `0006_turn_usage` · `0007_title_source` · `0008_provider_key` · `0009_message_complete` · `0010_session_cwd` · `0011_session_lineage` · `0012_provider_limits` · `0013_schedules` · `0014_provider_usage_report_cache` · `0015_pinned` · `0016_turn_model_context_window` · `0017_session_extra_dirs` · `0018_managed_worktrees` · `0019_session_baseline` · `0020_session_baseline_ref` · `0021_artifacts`
+`0001_initial` · `0002_projects` · `0003_messages_fts` · `0004_message_parts` · `0005_usage_events` · `0006_turn_usage` · `0007_title_source` · `0008_provider_key` · `0009_message_complete` · `0010_session_cwd` · `0011_session_lineage` · `0012_provider_limits` · `0013_schedules` · `0014_provider_usage_report_cache` · `0015_pinned` · `0016_turn_model_context_window` · `0017_session_extra_dirs` · `0018_managed_worktrees` · `0019_session_baseline` · `0020_session_baseline_ref` · `0021_artifacts` · `0022_session_agent_kind`
 
 ### renderer feature (13)
 

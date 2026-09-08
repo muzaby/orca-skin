@@ -85,6 +85,7 @@ export async function acquireTurnRuntime(
         nextProviderKey: input.resolved.providerKey,
         model: input.resolved.model,
         runtimeToolsRevision: extensions.runtimeTools?.revision,
+        agentProfileKey: extensions.agentProfileKey,
         executionCwdRecovered: input.executionCwdRecovered === true
       })
     )

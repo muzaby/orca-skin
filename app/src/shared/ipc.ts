@@ -6,6 +6,11 @@ import type { NormalizedPermissionMode } from './permission-mode'
 // continuity 언어 스냅샷(0127) — type-only.
 import type { ContinuityLang } from './continuity-lang'
 import type { ArtifactRef } from './artifacts'
+import type { AgentKind } from './agent-kind'
+import type { ResponseBoundary, ResponseBoundaryPart } from './response-boundary'
+
+export type { AgentKind } from './agent-kind'
+export type { ResponseBoundary } from './response-boundary'
 
 // Phase 2 활성 채널 (preload 노출 대상). 미사용 채널은 의도적으로 누락.
 export const CHANNELS = {
@@ -457,6 +462,7 @@ export interface ProviderReportedTelemetry {
 // provider 는 어떤 소비자도 읽지 않는 write-only 메타였고 session.backend(0010 세션-어댑터
 // 잠금)와 중복된 이중 진실원이었다. "어느 백엔드인지" 는 sessionId → session.backend 로 파생한다.
 export type NormalizedEvent =
+  | { type: 'response.boundary'; sessionId: string; boundary: ResponseBoundary }
   | {
       type: 'session.updated'
       sessionId: string
@@ -469,6 +475,7 @@ export type NormalizedEvent =
       //               부재는 "판정 불가" 라 기능 안내를 띄우지 않는다(0212 D-005 · EP-01).
       //   cliVersion  init 의 `claude_code_version`. 안내 문구가 실제 버전을 말하게 한다.
       patch: {
+        agentKind?: AgentKind
         model?: string
         cwd?: string
         worktree?: WorktreeDisplay | null
@@ -798,6 +805,8 @@ export interface ConcurrencyEvent {
 // IPC payloads (TRD §5.2 의 활성 부분)
 export interface SendChatMessage {
   sessionId: string | null
+  // 신규의 생략은 coding, 기존/준비/파생 요청의 생략은 소유 세션 종류 상속.
+  agentKind?: AgentKind
   // 새 채팅 첫 메시지의 소속 프로젝트. resume(sessionId != null) 의 경우는 무시되고,
   // main 이 sessionId → project_id → instructions 를 DB 에서 직접 조회한다.
   projectId: string | null
@@ -1304,6 +1313,8 @@ export type GitCheckoutResult =
 export interface SessionListItem {
   id: string
   backend: Backend
+  // 이전 IPC fixture/호스트의 생략값은 coding. 현재 Main은 저장된 값을 항상 제공한다.
+  agentKind?: AgentKind
   title: string | null
   updatedAt: number
   preview: string | null
@@ -1350,6 +1361,7 @@ export interface SubagentTaskMeta {
 // claude 가 실제로 채우는 종류: text / reasoning / tool_call / tool_result / error.
 // file / diff / structured_output 은 모델 정의만 두고 OpenCode 어댑터 도입 시 채운다(seam).
 export type AppMessagePart =
+  | ResponseBoundaryPart
   | { type: 'artifact'; artifact: ArtifactRef; parentToolRunId?: string }
   // parentToolRunId: 서브에이전트(Task) child 의 텍스트/사고면 부모 Task toolRunId. 최상위면 생략.
   // 메인 트랜스크립트는 이 필드가 있는 파트를 제외하고, 우측 패널 child 트랜스크립트만 모은다.
@@ -1435,6 +1447,7 @@ export interface LoadedMessage {
 export interface LoadedSession {
   id: string
   backend: Backend
+  agentKind?: AgentKind
   title: string | null
   messages: LoadedMessage[]
   // 세션 마지막 턴의 provider-reported 통계 — 컨텍스트 도넛/UsagePanel 을 세션 수명 동안

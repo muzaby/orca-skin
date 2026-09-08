@@ -1,0 +1,29 @@
+
+ RUN  v4.1.10 C:/workspace/github/codex/orca-skin/app
+
+ ❯ src/renderer/src/features/chat/components/transcript/WorkActivity.render.test.ts (3 tests | 1 failed) 126ms
+     × passes mode through the actual Exchange consumer and observes mode in both memo comparators 47ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  18:01:08
+   Duration  6.18s (transform 3.66s, setup 0ms, import 4.73s, tests 126ms, environment 0ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/renderer/src/features/chat/components/transcript/WorkActivity.render.test.ts > actual Work transcript branch > passes mode through the actual Exchange consumer and observes mode in both memo comparators
+AssertionError: expected '<div class="flex flex-col gap-[var(--…' to contain 'data-agent="work"'
+
+Expected: "data-agent="work""
+Received: "<div class="flex flex-col gap-[var(--chat-turn-gap)] " data-app-exchange="true"><div class="group/msg relative flex flex-col gap-[var(--chat-item-gap)]"><div class="flex flex-col gap-[var(--chat-item-gap)] text-[14px] leading-[1.7] text-ink"><p>introduction</p><div class="flex w-full flex-col"><div role="button" tabindex="0" aria-expanded="false" class="group/tool flex max-w-full cursor-pointer items-center gap-g2 self-start text-left text-body text-t6 outline-none hide-focus-ring ring-focus"><span class="shrink-0 epitaxy-text-shine">읽는 중</span><span class="sr-only">실행 중</span><span class="min-w-0 truncate group-hover/tool:text-t9">private-tool-body</span><span aria-hidden="true" class="shrink-0 transition-transform "><svg width="12" height="12" viewBox="0 -960 960 960" fill="currentColor"><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z"></path></svg></span></div><div class="grid transition-[grid-template-rows,opacity] duration-200 ease-[cubic-bezier(0.215,0.61,0.355,1)] motion-reduce:transition-none grid-rows-[0fr] opacity-0"><div class="min-h-0 overflow-hidden"></div></div></div><p>conclusion</p></div></div></div>"
+
+ ❯ src/renderer/src/features/chat/components/transcript/WorkActivity.render.test.ts:70:18
+     68|       createElement(Exchange, { exchange, reserve: false, pending: fal…
+     69|     )
+     70|     expect(html).toContain('data-agent="work"')
+       |                  ^
+     71|     const compareTurn = (
+     72|       AssistantTurn as unknown as { compare: (a: unknown, b: unknown) …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯

@@ -10,6 +10,8 @@
 
 ### 1.1 SessionAdapter 인터페이스 계약
 
+Work/Coding은 실행 backend와 별개인 제품 에이전트 종류다. `features/agents/profiles.ts`의 고정 프로필을 app 컴포지션 루트가 선택하고 `ExtensionBuilder`에 지침·key만 전달한다. 어댑터는 제품 종류를 해석하지 않고 기존 `TurnExtensions`의 prompt·도구·plugin 입력을 실행한다. 별도 플러그인 인터페이스나 에이전트 등록 플랫폼은 없다.
+
 실행 계약 정본은 [adapters/types.ts](../../../app/src/main/adapters/types.ts)의 `SessionAdapter`·`LiveTurn`·`ProviderMessageBatch`다. `sendMessage(req: TurnRequest)`는 `LiveTurn`을 반환하고 `eventBatches`에 정규화 이벤트 묶음을 제공한다.
 설치 확인/안내 외에 `describe()`·`complete()`·`classifyError()`와 LiveTurn 제어도 어댑터 책임이다. 입력은 [adapters/turn.ts](../../../app/src/main/adapters/turn.ts), 와이어는 [shared/ipc.ts](../../../app/src/shared/ipc.ts)의 `NormalizedEvent`를 참조한다.
 
@@ -42,7 +44,7 @@
 `features/extensions/builder.ts`의 `ExtensionBuilder`는 프로젝트 지침·앱 설정·스킬·plugin 경로·runtime tool snapshot으로 `TurnExtensions`를 조립한다. 실제 필드는 [adapters/turn.ts](../../../app/src/main/adapters/turn.ts)가 정본이다.
 파일 기반 MCP의 설정 조회·변수 해석·배포는 bootstrap의 배포 closure가 소유하며, 턴 builder는 MCP store를 읽지 않는다. 인프로세스 runtime tool snapshot은 별도 입력으로 유지한다.
 
-`build(sessionId, projectId)`는 resume이면 세션에 연결된 프로젝트를, 새 채팅이면 전달된 프로젝트를 읽는다. 프로젝트 지침은 구조화 시스템 프롬프트의 `# Project` 섹션으로 합성한다([system-prompt.md](./system-prompt.md) §2A). 지침은 매 턴 조회하므로 편집을 다음 메시지에 반영하며, 스킬 목록은 bootstrap의 스캔 캐시를 읽는다.
+`build(sessionId, projectId, profile?)`는 resume이면 세션에 연결된 프로젝트를, 새 채팅이면 전달된 프로젝트를 읽는다. 프로젝트 지침은 `# Project`, Work 프로필은 `# Agent` 섹션으로 합성한다([system-prompt.md](./system-prompt.md) §2A). 지침은 매 턴 재조회하지만 SDK append는 query 생성 시 적용된다. `agentProfileKey` 변경은 최초·자동 연속 실행의 공통 respawn 판정을 거치고, 같은 key는 기존 warm 채널을 유지한다. 스킬 목록은 bootstrap의 스캔 캐시를 읽는다.
 
 ### 1.5 SDKMessage → ChatEvent 정규화
 

@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import Database from 'better-sqlite3'
+import { DbQueries } from './queries'
 import { afterEach, describe, expect, it } from 'vitest'
 import migration0001 from './migrations/0001_initial.sql?raw'
 import migration0002 from './migrations/0002_projects.sql?raw'
@@ -40,7 +41,8 @@ const EXPECTED_MIGRATIONS = [
   '0018_managed_worktrees',
   '0019_session_baseline',
   '0020_session_baseline_ref',
-  '0021_artifacts'
+  '0021_artifacts',
+  '0022_session_agent_kind'
 ]
 
 const APPLIED_SQL = [
@@ -308,4 +310,31 @@ describe('0009_message_complete migration', () => {
 
     expect(db.prepare('SELECT complete FROM messages').get()).toEqual({ complete: 1 })
   })
+})
+
+it('upgrades an existing pre-kind session to Coding without changing messages or metadata', () => {
+  const db = new Database(':memory:')
+  try {
+    db.exec(migration0001)
+    db.exec('CREATE TABLE _migrations (name TEXT PRIMARY KEY, applied_at INTEGER NOT NULL)')
+    db.prepare('INSERT INTO _migrations VALUES (?, ?)').run('0001_initial', 1)
+    db.prepare(
+      'INSERT INTO sessions (id, backend, title, created_at, updated_at, last_message_preview) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run('old', 'claude', 'keep title', 1, 2, 'keep preview')
+    db.prepare(
+      'INSERT INTO messages (session_id, role, content, created_at, idx) VALUES (?, ?, ?, ?, ?)'
+    ).run('old', 'user', 'keep body', 3, 0)
+    applyMigrations(db)
+    expect(new DbQueries(db).getSessionById('old')).toMatchObject({
+      agent_kind: 'coding',
+      title: 'keep title',
+      last_message_preview: 'keep preview',
+      updated_at: 2
+    })
+    expect(db.prepare('SELECT content FROM messages WHERE session_id=?').get('old')).toEqual({
+      content: 'keep body'
+    })
+  } finally {
+    db.close()
+  }
 })

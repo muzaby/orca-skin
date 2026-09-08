@@ -3,6 +3,7 @@
 // types would leak into renderer via IPC and force a second mapping anyway.
 
 import type { Backend } from '../../../shared/ipc'
+import type { AgentKind } from '../../../shared/agent-kind'
 
 type MessageRole = 'user' | 'assistant'
 export type SessionTitleSource = 'auto' | 'user'
@@ -23,11 +24,13 @@ type MessagePartType =
   | 'diff_requirements'
   | 'compact_boundary'
   | 'fork_boundary'
+  | 'response_boundary'
   // 백그라운드 서브에이전트 완료 통지(0143) — payload 에 status/durationMs/summary, tool_run_id
   // 컬럼 = 부모 Task toolRunId(렌더 시 tool_call args 와 조인 키).
   | 'subagent_notice'
 
 export interface SessionRow {
+  agent_kind: AgentKind
   id: string
   backend: Backend
   title: string | null
@@ -44,6 +47,7 @@ export interface SessionRow {
 }
 
 export interface SessionListRow {
+  agent_kind: AgentKind
   id: string
   backend: Backend
   title: string | null
@@ -227,6 +231,7 @@ export interface SessionLineageRow {
 }
 
 export interface SessionInsert {
+  agentKind?: AgentKind
   id: string
   backend: Backend
   title: string | null

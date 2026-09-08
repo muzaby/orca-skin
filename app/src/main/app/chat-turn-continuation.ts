@@ -25,6 +25,7 @@ export interface AutomaticContinuationRuntime {
   readonly spawnedRuntimeEnvFingerprint: string | undefined
   readonly spawnedModel: string | undefined
   readonly spawnedRuntimeToolsRevision: number | undefined
+  readonly spawnedAgentProfileKey?: string
 }
 
 interface AutomaticContinuationResolution {
@@ -73,6 +74,7 @@ export async function prepareAutomaticContinuation(input: {
         nextProviderKey: resolved.providerKey,
         model,
         runtimeToolsRevision: extensions.runtimeTools?.revision,
+        agentProfileKey: extensions.agentProfileKey,
         // 연속 턴은 최초 턴이 확정한 cwd 를 계승한다 — 폴백은 send 진입에서 한 번만 판정된다.
         executionCwdRecovered: false
       })
