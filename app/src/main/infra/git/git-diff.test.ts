@@ -11,7 +11,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { removeTempRoots } from './temp-repo.testfixture'
+import { FIXTURE_GIT_TIMEOUT_MS, removeTempRoots } from './temp-repo.testfixture'
 import { gitDiffPatch, gitDiffSummary, resolveDiffRange, type GitDiffRunner } from './git-diff'
 import { runGit, type GitRunResult } from './runner'
 import type { GitDiffPatchFile } from '../../../shared/ipc'
@@ -46,7 +46,7 @@ const dirs: string[] = []
 afterAll(() => removeTempRoots(dirs.splice(0)))
 
 async function git(cwd: string, args: string[]): Promise<void> {
-  const result = await runGit(cwd, args)
+  const result = await runGit(cwd, args, { timeoutMs: FIXTURE_GIT_TIMEOUT_MS })
   if (!result.ok) throw new Error(`git ${args.join(' ')} → ${result.stderr}`)
 }
 
@@ -78,7 +78,10 @@ function commitAt(cwd: string, message: string, iso: string): Promise<void> {
 }
 
 async function head(cwd: string): Promise<string> {
-  const result = await runGit(cwd, ['rev-parse', 'HEAD'], { readOnly: true })
+  const result = await runGit(cwd, ['rev-parse', 'HEAD'], {
+    readOnly: true,
+    timeoutMs: FIXTURE_GIT_TIMEOUT_MS
+  })
   return result.stdout.trim()
 }
 

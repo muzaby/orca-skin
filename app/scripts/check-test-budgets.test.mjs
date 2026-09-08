@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import {
   analyze,
   findInlineTimeouts,
+  findUncappedRunGit,
   isRealGitSuite,
   listTestFiles,
   parseBudget,
@@ -157,6 +158,62 @@ describe('규칙 — 0218 러너에서 실제로 터진 두 형태', () => {
 
   test('전부 갖추면 통과한다', () => {
     assert.deepEqual(analyze('a.test.ts', GOOD).errors, [])
+  })
+})
+
+describe('프로세스 상한 탐지 (E)', () => {
+  test('상한을 안 넘기는 호출을 잡는다 — 프로덕션 기본 10s 를 상속한다', () => {
+    assert.deepEqual(findUncappedRunGit(`const r = await runGit(cwd, args)`), ['runGit(cwd, args)'])
+  })
+
+  test('픽스처 상수를 넘기면 통과한다', () => {
+    assert.deepEqual(
+      findUncappedRunGit(`await runGit(cwd, args, { timeoutMs: FIXTURE_GIT_TIMEOUT_MS })`),
+      []
+    )
+  })
+
+  test('숫자를 직접 적으면 잡는다 — 근거는 픽스처 한 곳이 갖는다', () => {
+    assert.equal(findUncappedRunGit(`runGit(cwd, args, { timeoutMs: 30_000 })`).length, 1)
+  })
+
+  test('정규식 리터럴 본문은 호출이 아니다 — ipc-integration 이 그 형태를 값으로 든다', () => {
+    assert.deepEqual(findUncappedRunGit(String.raw`const AXIS = /\brunGit\s*\(|\bspawn\s*\(/`), [])
+  })
+
+  test('문자열 안의 괄호를 깊이로 세지 않는다', () => {
+    // 이 자리가 실제 위험이다 — 인자에 `join(' ')` 같은 괄호가 흔해서, 짝을 잘못 닫으면
+    // 뒤따르는 옵션 객체를 못 보고 통과한 호출을 위반으로 부른다(또는 그 반대).
+    assert.deepEqual(
+      findUncappedRunGit(
+        `runGit(cwd, [\`--format=(${'x'})\`], { timeoutMs: FIXTURE_GIT_TIMEOUT_MS })`
+      ),
+      []
+    )
+  })
+})
+
+describe('규칙 (E) — 캡이 파일 예산을 이기던 자리가 한 층 아래에 남아 있었다', () => {
+  // `prepare-progress` 의 픽스처 `worktree add`(풀 체크아웃)가 병렬 부하에서 `runGit` 기본
+  // 10s 를 넘겨 죽었다. stderr 에는 `Preparing worktree` 한 줄뿐 fatal 이 없었고 99s 파일
+  // 예산은 닿지도 않았다 — 예산의 소유자가 파일이 아니었던 것이다.
+  const WITH_RUN_GIT = GOOD.replace(
+    `    await exec('git', ['init', 'r'])`,
+    `    await runGit(dir, ['init', 'r'])`
+  )
+
+  test('테스트가 프로덕션 기본 상한을 상속하면 걸린다', () => {
+    const { errors } = analyze('a.test.ts', WITH_RUN_GIT)
+    assert.equal(errors.length, 1)
+    assert.match(errors[0], /runGit/)
+  })
+
+  test('픽스처 상수를 넘기면 통과한다', () => {
+    const source = WITH_RUN_GIT.replace(
+      `runGit(dir, ['init', 'r'])`,
+      `runGit(dir, ['init', 'r'], { timeoutMs: FIXTURE_GIT_TIMEOUT_MS })`
+    )
+    assert.deepEqual(analyze('a.test.ts', source).errors, [])
   })
 })
 
