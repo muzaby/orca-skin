@@ -45,6 +45,7 @@ export function artifactFailureKey(reason?: string): MessageKey {
 
 interface ArtifactCardProps {
   artifact: ArtifactRef
+  variant?: 'transcript' | 'list'
   file?: ArtifactFileView
   onAction: (artifact: ArtifactRef, action: ArtifactOperation) => void
   onRefresh: () => void
@@ -53,6 +54,7 @@ interface ArtifactCardProps {
 
 export function ArtifactCard({
   artifact,
+  variant = 'transcript',
   file,
   onAction,
   onRefresh,
@@ -64,26 +66,61 @@ export function ArtifactCard({
   const checking = !file?.availability || file.checking
   const present = file?.availability?.state === 'present'
   const disabled = checking || file?.busy
+  const transcript = variant === 'transcript'
+  const format = artifact.kind === 'html' ? 'HTML' : 'MD'
+  const metadata = `${artifact.filename} · ${tr('chat.artifacts.bytes', { count: artifact.sizeBytes })} · ${new Date(artifact.publishedAt).toLocaleString()}`
   return (
     <article
-      className="group/artifact min-w-0 rounded-r6 border border-border bg-panel p-3"
+      className={`group/artifact min-w-0 ${transcript ? 'rounded-r6 border border-border bg-panel p-3' : 'rounded-r4 px-p2 py-2'}`}
       aria-label={artifact.title}
     >
-      <div className="flex min-w-0 items-start gap-2">
-        <Icon name="doc" size={20} className="mt-0.5 shrink-0 text-ink2" />
+      <div className="flex min-w-0 items-center gap-g3">
+        <span
+          aria-hidden
+          className={
+            transcript
+              ? 'flex h-10 w-10 shrink-0 items-center justify-center rounded-r4 border border-t5 bg-bg2 text-ink2'
+              : 'shrink-0 text-ink2'
+          }
+        >
+          <Icon name="doc" size={transcript ? 20 : 16} />
+        </span>
         <div className="min-w-0 flex-1">
-          <div className="break-words text-body font-medium text-ink">{artifact.title}</div>
-          <div className="break-all text-caption text-ink2">{artifact.filename}</div>
-          <div className="mt-1 text-caption text-ink3">
-            {artifact.kind === 'html' ? 'HTML' : 'Markdown'} ·{' '}
-            {tr('chat.artifacts.bytes', { count: artifact.sizeBytes })} ·{' '}
-            {new Date(artifact.publishedAt).toLocaleString()}
+          <div
+            className={`${transcript ? 'text-body' : 'text-footnote'} truncate font-medium text-ink`}
+            title={`${artifact.title}\n${metadata}`}
+          >
+            {artifact.title}
           </div>
+          {transcript && (
+            <div className="text-caption text-ink3">
+              {tr('chat.artifacts.document')} · {format}
+            </div>
+          )}
         </div>
+        {transcript ? (
+          <Button
+            size="small"
+            variant="contained"
+            leadingIcon="download"
+            className="shrink-0"
+            disabled={disabled || !present}
+            aria-label={tr('chat.artifacts.download')}
+            title={tr('chat.artifacts.save')}
+            onClick={() => onAction(artifact, 'save')}
+          >
+            {tr('chat.artifacts.download')}
+          </Button>
+        ) : (
+          <span className="shrink-0 text-caption text-ink3">
+            {tr('chat.artifacts.artifactLabel')}
+          </span>
+        )}
         <Button
           ref={menuRef}
           size="small"
           iconOnly
+          className="shrink-0"
           aria-label={tr('chat.artifacts.actions')}
           expanded={menuOpen}
           onClick={() => setMenuOpen(!menuOpen)}
@@ -91,46 +128,32 @@ export function ArtifactCard({
           <Icon name="kebab" size={14} />
         </Button>
       </div>
-      <div className="mt-2 text-caption text-ink2" role="status">
-        {file?.busy
-          ? tr('chat.artifacts.working')
-          : checking
-            ? tr('chat.artifacts.checking')
-            : present
-              ? tr('chat.artifacts.available')
+      {(file?.busy || checking || !present) && (
+        <div className="mt-1 text-caption text-ink2" role="status">
+          {file?.busy
+            ? tr('chat.artifacts.working')
+            : checking
+              ? tr('chat.artifacts.checking')
               : file?.availability?.state === 'missing'
                 ? tr('chat.artifacts.missing')
                 : tr('chat.artifacts.unavailable')}
-      </div>
+        </div>
+      )}
       {file?.lastTrashedAt && (
         <div className="mt-1 text-caption text-ink3">
           {tr('chat.artifacts.trashedAt', { time: new Date(file.lastTrashedAt).toLocaleString() })}
         </div>
       )}
-      <div className="mt-2 flex flex-wrap gap-1">
-        {present || checking ? (
-          <>
-            <Button
-              size="small"
-              variant="contained"
-              disabled={disabled}
-              onClick={() => onAction(artifact, 'save')}
-            >
-              {tr('chat.artifacts.save')}
-            </Button>
-            <Button size="small" disabled={disabled} onClick={() => onAction(artifact, 'reveal')}>
-              {tr('chat.artifacts.reveal')}
-            </Button>
-          </>
-        ) : (
+      {!present && !checking && (
+        <div className="mt-1 flex flex-wrap gap-1">
           <Button size="small" disabled={file?.busy} onClick={onOpenFolder}>
             {tr('chat.artifacts.openFolder')}
           </Button>
-        )}
-        <Button size="small" disabled={disabled} onClick={onRefresh}>
-          {tr('chat.artifacts.refresh')}
-        </Button>
-      </div>
+          <Button size="small" disabled={disabled} onClick={onRefresh}>
+            {tr('chat.artifacts.refresh')}
+          </Button>
+        </div>
+      )}
       <Popover
         open={menuOpen}
         anchorRef={menuRef}
@@ -138,6 +161,37 @@ export function ArtifactCard({
         placement="bottom"
         align="end"
       >
+        <div className="max-w-64 break-words px-2.5 py-1 text-caption text-ink3">{metadata}</div>
+        <MenuItem
+          icon="download"
+          disabled={disabled || !present}
+          onClick={() => {
+            setMenuOpen(false)
+            onAction(artifact, 'save')
+          }}
+        >
+          {tr('chat.artifacts.save')}
+        </MenuItem>
+        <MenuItem
+          icon="folder"
+          disabled={disabled || !present}
+          onClick={() => {
+            setMenuOpen(false)
+            onAction(artifact, 'reveal')
+          }}
+        >
+          {tr('chat.artifacts.reveal')}
+        </MenuItem>
+        <MenuItem
+          icon="refresh"
+          disabled={disabled}
+          onClick={() => {
+            setMenuOpen(false)
+            onRefresh()
+          }}
+        >
+          {tr('chat.artifacts.refresh')}
+        </MenuItem>
         <MenuItem
           danger
           icon="trash"
@@ -165,10 +219,12 @@ export function ArtifactCard({
 
 export function ArtifactCards({
   artifacts,
-  saveArtifacts = artifacts
+  saveArtifacts = artifacts,
+  variant = 'transcript'
 }: {
   artifacts: readonly ArtifactRef[]
   saveArtifacts?: readonly ArtifactRef[]
+  variant?: 'transcript' | 'list'
 }): React.JSX.Element | null {
   const { tr } = useI18n()
   const sessionId = useChatSession((session) => session.sessionId)
@@ -255,6 +311,7 @@ export function ArtifactCards({
         <ArtifactCard
           key={artifact.publicationId}
           artifact={artifact}
+          variant={variant}
           file={files[artifact.artifactFileId]}
           onAction={act}
           onRefresh={() => {

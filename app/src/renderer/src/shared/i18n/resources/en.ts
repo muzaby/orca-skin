@@ -460,6 +460,9 @@ export const en: typeof ko = {
       unavailable: 'Cannot access file',
       trashedAt: 'Moved to Recycle Bin at: {{time}}',
       save: 'Save as',
+      download: 'Download',
+      document: 'Document',
+      artifactLabel: 'Artifact',
       saveAll: 'Save all',
       reveal: 'Show in Explorer',
       refresh: 'Check again',
@@ -631,7 +634,7 @@ export const en: typeof ko = {
         output: 'Output',
         outputDesc: 'View and open files created during this work.',
         context: 'Context',
-        contextDesc: 'Tracks the tools used and files referenced by this work.'
+        contextDesc: 'Referenced resources are not collected yet.'
       },
       backToList: 'Back to list',
       headerTitle: 'Tasks',

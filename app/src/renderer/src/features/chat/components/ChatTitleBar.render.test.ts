@@ -57,13 +57,12 @@ function render(opts: { unseen?: number; activeTiles?: string[] } = {}): string 
 const BADGE_ARIA = 'chat.taskTile.badgeAria'
 
 describe('타일 메뉴 목록 — 프로덕션이 읽는 상수 (AT-01 · §10 EP-02)', () => {
-  it('기존 네 타일 순서를 보존하고 산출물을 마지막에 담는다', () => {
+  it('기존 네 타일 순서를 보존하고 독립 산출물 타일은 없다', () => {
     expect(VISIBLE_TILE_REGISTRY.map((tile) => tile.id)).toEqual([
       'plan',
       'subagent',
       'task',
-      'diff',
-      'artifacts'
+      'diff'
     ])
   })
 

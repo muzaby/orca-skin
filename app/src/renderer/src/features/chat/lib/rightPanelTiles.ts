@@ -9,8 +9,7 @@ export const rightPanelTileDefinitions = [
   { id: 'plan', defaultLabelKey: 'chat.rightpanel.tiles.plan' },
   { id: 'subagent', defaultLabelKey: 'chat.rightpanel.tiles.subagent' },
   { id: 'task', defaultLabelKey: 'chat.rightpanel.tiles.task' },
-  { id: 'diff', defaultLabelKey: 'chat.rightpanel.tiles.diff' },
-  { id: 'artifacts', defaultLabelKey: 'chat.rightpanel.tiles.artifacts' }
+  { id: 'diff', defaultLabelKey: 'chat.rightpanel.tiles.diff' }
 ] as const satisfies readonly { id: string; defaultLabelKey: MessageKey }[]
 
 export type RightPanelTileId = (typeof rightPanelTileDefinitions)[number]['id']

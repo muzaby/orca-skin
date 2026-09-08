@@ -30,7 +30,7 @@ it('an explicit repeat open requests the same offscreen tile again; background p
 it('background publication refreshes a mounted list without changing chat layout or reveal identity', async () => {
   Object.assign(window.orca, { artifacts: { list: vi.fn().mockResolvedValue([artifact]) } })
   const release = acquireArtifacts('s', [], true)
-  chatActions.setRightPanelTileActive('artifacts', true)
+  chatActions.setRightPanelTileActive('task', true)
   chatActions.setRightPanelTileActive('plan', true)
   const before = useChatStore.getState()
   const changed = vi.fn()

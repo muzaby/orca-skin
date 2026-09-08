@@ -13,6 +13,8 @@ import {
 import type { TFunction } from 'i18next'
 import { useI18n, type MessageKey } from '../../../../shared/i18n'
 import { chatActions, useChatSession, useUnseenSettledTaskCount } from '../../store/chatStore'
+import { SectionPlaceholder, TileSection } from './TaskTileSections'
+import { TaskOutputContent } from './TaskOutputContent'
 
 // 상태/그룹 라벨 키 — 렌더에서 tr() 해석(0096 stale-방지 패턴).
 const STATUS_KEY: Record<TaskBoardStatus, MessageKey> = {
@@ -225,14 +227,15 @@ export function TaskTileContent(): React.JSX.Element {
 
   if (selected) return <TaskDetail item={selected} />
 
-  // 목록 하나가 카드에 직접 붙는다(0213 D-003). `출력`·`컨텍스트` 는 채울 재료(아티팩트 도구·
-  // cowork 렌더링 모델)가 생길 때까지 숨긴다(D-002) — 섹션이 하나뿐이면 접기 헤더가 의미를
-  // 잃고, 접었을 때 타일 전체가 빈 카드로 보인다. 두 섹션이 돌아올 때 `TaskTileSections` 의
-  // 껍데기를 다시 씌운다: **파일도 i18n 키도 지우지 않았다**(D-004 — 0205 가 정지를 그렇게
-  // 남긴 덕에 이번 복귀가 배열 하나였다).
   return (
     <div className="min-h-0 flex-1 overflow-auto px-p3 py-p2">
-      <TaskProgressList items={items} agentTools={agentTools} cliVersion={cliVersion} />
+      <TileSection titleKey="chat.taskTile.sections.progress">
+        <TaskProgressList items={items} agentTools={agentTools} cliVersion={cliVersion} />
+      </TileSection>
+      <TaskOutputContent />
+      <TileSection titleKey="chat.taskTile.sections.context">
+        <SectionPlaceholder icon="doc" descKey="chat.taskTile.sections.contextDesc" />
+      </TileSection>
     </div>
   )
 }

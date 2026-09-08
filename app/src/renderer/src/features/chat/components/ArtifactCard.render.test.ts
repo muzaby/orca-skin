@@ -1,8 +1,18 @@
-import { createElement } from 'react'
+import { Children, createElement, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import { ArtifactCard, artifactFailureKey } from './ArtifactCard'
 import type { ArtifactFileView } from '../store/artifactStore'
+import { MenuItem, type MenuItemProps } from '../../../shared/ui/MenuItem'
+
+// 메뉴스코프의 실제 JSX/콜백을 관측한다. 포털 열기·키보드 수명은 이 SSR 시험의 범위가 아니다.
+const menu = vi.hoisted(() => ({ children: null as ReactNode }))
+vi.mock('../../../shared/ui/Popover', () => ({
+  Popover: ({ children }: { children: ReactNode }) => {
+    menu.children = children
+    return null
+  }
+}))
 const artifact = {
   publicationId: 'p',
   artifactFileId: 'f',
@@ -12,11 +22,12 @@ const artifact = {
   sizeBytes: 123,
   publishedAt: 1
 }
-function render(file?: ArtifactFileView): string {
+function render(file?: ArtifactFileView, variant?: 'transcript' | 'list'): string {
   return renderToStaticMarkup(
     createElement(ArtifactCard, {
       artifact,
       file,
+      variant,
       onAction: vi.fn(),
       onRefresh: vi.fn(),
       onOpenFolder: vi.fn()
@@ -33,34 +44,128 @@ describe('artifact metadata card', () => {
     })
     expect(html).toContain('&lt;script&gt;Report&lt;/script&gt;')
     expect(html).toContain('report.html')
-    expect(html).toContain('다른 이름으로 저장')
-    expect(html).toContain('탐색기에서 보기')
+    expect(html).toContain('aria-label="다운로드"')
+    expect(html).toContain('>다운로드</span>')
+    expect(html).toContain('문서 · HTML')
+    expect(html).not.toContain('role="status"')
+    expect(html).not.toContain('>파일 있음<')
+    expect(html).not.toContain('>탐색기에서 보기<')
     expect(html).not.toContain('<script>')
     expect(html).not.toContain('<iframe')
     expect(html).toMatch(/^<article /)
     expect(html).not.toContain('미리보기')
   })
-  it('keeps metadata for missing and inaccessible files and labels historical trash separately', () => {
-    const missing = render({
-      checking: false,
-      busy: false,
-      version: 1,
-      availability: { state: 'missing' },
-      lastTrashedAt: 10
-    })
-    expect(missing).toContain('파일 없음')
-    expect(missing).toContain('휴지통으로 이동한 시각')
-    expect(missing).toContain('다시 확인')
-    expect(missing).toContain('보관 폴더 열기')
-    expect(missing).not.toContain('다른 이름으로 저장')
-    const denied = render({
-      checking: false,
-      busy: false,
-      version: 1,
-      availability: { state: 'unavailable', reason: 'access-denied' }
-    })
-    expect(denied).toContain('파일에 접근할 수 없음')
-    expect(denied).not.toContain('파일 없음')
+  it('renders a compact list row with an artifact label instead of the transcript download control', () => {
+    const html = render(
+      {
+        checking: false,
+        busy: false,
+        version: 1,
+        availability: { state: 'present', sizeBytes: 123, modifiedAt: 1 }
+      },
+      'list'
+    )
+    expect(html).toContain('아티팩트')
+    expect(html).toContain('aria-label="파일 작업"')
+    expect(html).not.toContain('aria-label="다운로드"')
+    expect(html).not.toContain('문서 · HTML')
+    expect(html).not.toContain('role="button"')
+  })
+  it('keeps checking and busy state visible in both variants while disabling download', () => {
+    for (const variant of ['transcript', 'list'] as const) {
+      expect(render(undefined, variant)).toContain('확인 중')
+      const busy = render(
+        {
+          checking: false,
+          busy: true,
+          version: 1,
+          availability: { state: 'present', sizeBytes: 123, modifiedAt: 1 }
+        },
+        variant
+      )
+      expect(busy).toContain('처리 중')
+      if (variant === 'transcript')
+        expect(busy).toMatch(/<button[^>]*disabled=""[^>]*aria-label="다운로드"/)
+    }
+  })
+  it.each(['transcript', 'list'] as const)(
+    'keeps missing, inaccessible and historical trash states in %s',
+    (variant) => {
+      const missing = render(
+        {
+          checking: false,
+          busy: false,
+          version: 1,
+          availability: { state: 'missing' },
+          lastTrashedAt: 10
+        },
+        variant
+      )
+      expect(missing).toContain('파일 없음')
+      expect(missing).toContain('휴지통으로 이동한 시각')
+      expect(missing).toContain('다시 확인')
+      expect(missing).toContain('보관 폴더 열기')
+      if (variant === 'transcript')
+        expect(missing).toMatch(/<button[^>]*disabled=""[^>]*aria-label="다운로드"/)
+      const denied = render(
+        {
+          checking: false,
+          busy: false,
+          version: 1,
+          availability: { state: 'unavailable', reason: 'access-denied' }
+        },
+        variant
+      )
+      expect(denied).toContain('파일에 접근할 수 없음')
+      expect(denied).not.toContain('파일 없음')
+    }
+  )
+  it('keeps the same publication identity and all auxiliary actions in both variant menus', () => {
+    for (const variant of ['transcript', 'list'] as const) {
+      const onAction = vi.fn()
+      const onRefresh = vi.fn()
+      const onOpenFolder = vi.fn()
+      renderToStaticMarkup(
+        createElement(ArtifactCard, {
+          artifact,
+          variant,
+          file: {
+            checking: false,
+            busy: false,
+            version: 1,
+            availability: { state: 'present', sizeBytes: 123, modifiedAt: 1 }
+          },
+          onAction,
+          onRefresh,
+          onOpenFolder
+        })
+      )
+      const items = Children.toArray(menu.children).filter(
+        (node) => isValidElement<MenuItemProps>(node) && node.type === MenuItem
+      )
+      expect(
+        items.map((node) => isValidElement<MenuItemProps>(node) && node.props.children)
+      ).toEqual([
+        '다른 이름으로 저장',
+        '탐색기에서 보기',
+        '다시 확인',
+        '휴지통으로 이동',
+        '보관 폴더 열기'
+      ])
+      for (const node of items) {
+        if (isValidElement<MenuItemProps>(node)) {
+          expect(node.props.disabled).not.toBe(true)
+          node.props.onClick?.({} as Parameters<NonNullable<MenuItemProps['onClick']>>[0])
+        }
+      }
+      expect(onAction.mock.calls).toEqual([
+        [artifact, 'save'],
+        [artifact, 'reveal'],
+        [artifact, 'trash']
+      ])
+      expect(onRefresh).toHaveBeenCalledOnce()
+      expect(onOpenFolder).toHaveBeenCalledOnce()
+    }
   })
   it('maps known failure reasons and never displays a raw host error', () => {
     expect(artifactFailureKey('missing')).toBe('chat.artifacts.missing')

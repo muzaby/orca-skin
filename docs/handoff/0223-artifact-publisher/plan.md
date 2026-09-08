@@ -10,13 +10,13 @@
 | 작성자 | Codex — 사용자 명시 요청에 따른 설계 작성 |
 | 작성 주체 표기 | 사용자 지시: Codex가 작성한 plan·impl 기록에는 `작성자: Codex`, 해당 커밋에는 `Agent: codex`를 명시. 설계 커밋도 실제 작성 주체를 따름 |
 | 일자 | 2026-09-08 |
-| 상태 | **READY** — 사용자 구현 지시를 반영하고 Q-03·T-01을 확정 |
+| 상태 | **DRAFT — 일반 생성물 Q-04 설계 대기**. V1·ΔV1 확정 UI는 구현했으며 아래 기존 규범은 유지 |
 | 코드 기준 | `e475c62af8c553a7b1789d33aa99c99497d88726` |
 | V mode / 기준 V | Baseline V / none — 산출물 게시의 기존 구현 V 없음 |
 | 이번 revision / 유효 V | V1 rev.4 + ΔV1 — 작업 패널 출력 통합. 확정 UI READY, 일반 생성물 Q-04 OPEN |
 | 매핑 | [선행 검토](../../etc/study/cowork/artifact-publisher-review.md), 기존 리팩토링 PR과 별도 기능 |
-| 실행 범위 | 사용자 구현 승인. 게시 코드 구현, 남은 인수 검증은 [impl.md](impl.md) 참조 |
-| 구현 상태 | **IN_PROGRESS** — 코드와 자동 게이트 완료, 모델/native 인수 검증 일부 미완료 |
+| 실행 범위 | 사용자 구현 승인. 최신 UI 결과는 [ui-impl.md](ui-impl.md), V1 인수 검증은 [impl.md](impl.md) 참조 |
+| 구현 상태 | **부분 완료** — 작업 패널 출력 통합·카드 변경 완료. 일반 생성물 Q-04와 기존 모델/native 인수 검증 남음 |
 
 # Part I — Product & UX Contract
 
@@ -731,7 +731,9 @@ OpenCode용 포트 구현과 실제 도구 노출은 후속 범위다. 이 단�
 
 ## [구현자 기입] 구현 보고
 
-[impl.md](impl.md), [evaluation.md](evaluation.md). AC 9/15 자기 통과, 6개 부분 검증. V 20/27 자기 통과, 나머지는 인수 증거가 부족하다. `Status: partial`로 커밋하고 INDEX의 IN_PROGRESS를 유지한다.
+[ui-impl.md](ui-impl.md)가 라운드 2 결과 정본이다. 추가 UI AC 3/3, 기준 V1과 합산 12/18 자기 통과이며 기존 6개 인수 미완료는 유지한다. 일반 생성물 Q-04는 아직 AC 확정 전이며 보드는 `plan/DRAFT`로 둔다.
+
+V1 실행 증거는 [impl.md](impl.md), [evaluation.md](evaluation.md)에 보존한다. 최신 설계 리뷰·강제 지점·수정 잠금·Product/UX·잠재 문제·구현 보고·Review Signals는 [라운드 2 보고](ui-impl.md)에 같은 필드로 기록했다.
 
 ## [구현자 기입] Review Signals — 사실만
 

@@ -464,6 +464,9 @@ export const ko = {
       unavailable: '파일에 접근할 수 없음',
       trashedAt: '휴지통으로 이동한 시각: {{time}}',
       save: '다른 이름으로 저장',
+      download: '다운로드',
+      document: '문서',
+      artifactLabel: '아티팩트',
       saveAll: '모두 저장',
       reveal: '탐색기에서 보기',
       refresh: '다시 확인',
@@ -638,7 +641,7 @@ export const ko = {
         output: '출력',
         outputDesc: '이 작업 중에 생성된 파일을 확인하고 열 수 있습니다.',
         context: '컨텍스트',
-        contextDesc: '이 작업에 사용된 도구와 참조된 파일을 추적합니다.'
+        contextDesc: '참조 리소스는 아직 수집하지 않습니다.'
       },
       backToList: '목록으로',
       headerTitle: '작업',
