@@ -1,6 +1,5 @@
 import type { AttachmentView, ComposerAttachment } from '../../../../../../shared/ipc'
 import type { DiffRequirementSubmitSnapshot } from '../../store/chatStore'
-import { acceptedSubmitCanClearDraftAndRequirements } from './submitClearGate'
 import { clearDraftAfterAcceptedSubmit, type DraftSnapshot } from './draftSnapshot'
 
 interface ComposerSubmitInput {
@@ -59,4 +58,25 @@ export async function submitComposerInput({
   onClearDiffRequirementsIfUnchanged(submittedRequirements)
   updateSnapshot((current) => clearDraftAfterAcceptedSubmit(current, submitted.revision))
   focus(0)
+}
+
+export function acceptedSubmitCanClearDraftAndRequirements({
+  accepted,
+  composing,
+  currentDraftRevision,
+  submittedDraftRevision,
+  attachmentsUnchanged
+}: {
+  accepted: boolean
+  composing: boolean
+  currentDraftRevision: number
+  submittedDraftRevision: number
+  attachmentsUnchanged: boolean
+}): boolean {
+  return (
+    accepted &&
+    !composing &&
+    currentDraftRevision === submittedDraftRevision &&
+    attachmentsUnchanged
+  )
 }

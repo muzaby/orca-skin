@@ -42,7 +42,10 @@ export function DebugPanel({
   updateSection?: ReactNode
   providerSection?: ReactNode
 }): React.JSX.Element {
-  const { t, setTweak } = useTweakContext()
+  const { t, setTweak } = useTweakContext((t) => ({
+    theme: t.theme,
+    sidebarCollapsed: t.sidebarCollapsed
+  }))
   const { tr } = useI18n()
   const { state, setMock } = useDebugMock()
   const scenarioOptions = MOCK_SCENARIO_IDS.map((id) => ({

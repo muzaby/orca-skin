@@ -1,9 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import type { AttachmentView } from '../../../../../../shared/ipc'
-import { submitComposerInput } from './composerSubmit'
+import { submitComposerInput, acceptedSubmitCanClearDraftAndRequirements } from './composerSubmit'
 import { createDraftSnapshot, type DraftSnapshot } from './draftSnapshot'
-import { acceptedSubmitCanClearDraftAndRequirements } from './submitClearGate'
 
 const REQUIREMENTS = {
   sessionKey: 'session-1',

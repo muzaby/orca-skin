@@ -5,7 +5,7 @@ import { type ChatAction, type ChatState, chatReducer, initialChatState } from '
 const recv = (event: NormalizedEvent): ChatAction => ({ type: 'RECV_EVENT', event })
 
 // 0119 — 진행 턴 provider 스냅샷(turnProviderKey): BEGIN_TURN 에서 고정, 턴 종료 4경로에서
-// 초기화, SET_MODEL(선택 변경)로부터 보호. steer 게이트(lib/steerGate)가 이 값을 비교한다.
+// 초기화, SET_MODEL(선택 변경)로부터 보호. sendAdmission의 provider 게이트가 이 값을 비교한다.
 describe('chatReducer turnProviderKey 스냅샷(0119)', () => {
   const withProvider: ChatState = {
     ...initialChatState,

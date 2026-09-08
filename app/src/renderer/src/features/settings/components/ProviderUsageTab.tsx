@@ -11,7 +11,6 @@ import { SettingsGroup } from './parts'
 import { Icon } from '../../../shared/ui/Icon'
 import { formatRelativeTime, useI18n } from '../../../shared/i18n'
 import { LimitBarsSection, LimitEditor } from './UsageLimitViews'
-import { SyncRow } from './UsageTab'
 import { fmtUsd, providerLabel } from '../lib/usageFormat'
 import {
   ensureProviderUsage,
@@ -20,6 +19,33 @@ import {
   useProviderUsage,
   useProviderUsageUpdatedAt
 } from '../../../shared/stores/usageStore'
+
+interface CostRefreshView {
+  label: string | null
+  refreshing: boolean
+  onRefresh: () => void
+}
+
+// provider별 마지막 업데이트와 원격 새로고침 표시.
+function SyncRow({ label, refreshing, onRefresh }: CostRefreshView): React.JSX.Element {
+  const { tr } = useI18n()
+  return (
+    <div className="flex items-center gap-2 text-[12px] text-ink3">
+      <span>
+        {tr('usage.lastUpdated')}: {label ?? '—'}
+      </span>
+      <button
+        type="button"
+        onClick={onRefresh}
+        disabled={refreshing}
+        aria-label={tr('usage.refreshAria')}
+        className="grid h-6 w-6 place-items-center rounded-r4 text-ink3 hover:bg-fill-uncontained-hover hover:text-ink2 disabled:cursor-not-allowed"
+      >
+        <Icon name="refresh" size={13} className={refreshing ? 'animate-spin' : undefined} />
+      </button>
+    </div>
+  )
+}
 
 export function ProviderUsageTab({ provider }: { provider: AgentEnvironment }): React.JSX.Element {
   const [view, setView] = useState<'root' | 'limit'>('root')

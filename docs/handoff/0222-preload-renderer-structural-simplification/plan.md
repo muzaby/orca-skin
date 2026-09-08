@@ -150,3 +150,89 @@ R/AT-01~09, SD/ST-01~02, AR/IT-01~04, MD/UT-01~04는 기준 코드의 현재 계
 READY 정합성: D-01~06을 AC1~9 및 §9~12에 대조했고 충돌 없음. 생산 소비자·기존 시험·레이어 규칙과 참조 경로를 조사했다. 신규 제품 선택/외부 규약 변경 없이 구현 가능하다.
 
 ## [구현자 기입]
+
+### 설계 리뷰
+
+V1의 D-01~06과 AC1~9 범위로 구현했다. 공개 IPC·DB·UI 계약과 실패 정책을 유지하고 기존 파일의 소유를 재편했다. 새 의존성·범용 플랫폼·미래 adapter 구현은 없다. PLAN_GAP은 발견하지 않았다. 구조 조사와 유지한 경계는 [진단 보고서](../../etc/study/preload-renderer-structure/diagnosis.md)에 기록했다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+| AC / pair | 강제 지점과 이번 실행의 관측 | 자기결과 |
+|---|---|---|
+| AC1 / VP-01 | EP-01 공개 구독 8/8의 채널·payload·개별 해제 확인. `preload/index.test.ts` 11개 통과, 기존 invoke 3개 포함 | ✅ SELF_PASS |
+| AC2 / VP-02 | EP-02 entry 갱신 경로 7/7 결집. `chatStore.entryUpdates` 4개에서 무효 action 알림 0, 완료 단일 발신, child preview 격리, 정착→gate→send 확인 | ✅ SELF_PASS |
+| AC3 / VP-03 | EP-03 조회 effect·cwd 캐시 초기화·현재 필터 확인. 실제 hook 4개에서 pending prefix 조회 1회, 늦은 응답 차단·빈 캐시·quoted/hidden 유지 | ✅ SELF_PASS |
+| AC4 / VP-04 | EP-04 clear/provider/pending 판정과 실제 submit·Composer·store 호출을 대조. provider 판정 5개를 이관해 sendAdmission 9개 보존, 기존 async clear/유지 회귀 통과 | ✅ SELF_PASS |
+| AC5 / VP-05 | EP-05 최근/프로젝트 조회·patch·membership GC 4/4 확인. sessionsStore 9개에서 동일 참조·변경된 행·미조회/빈 목록·동률 pinned 순서 보존 | ✅ SELF_PASS |
+| AC6 / VP-06 | EP-06 no-op Provider/subscribe/barrel/App wrapper 제거와 실제 boot 초기화 5/5 대조. App.projects 3개에서 초기 조회 1회·실패 보존·남은 Provider 순서 확인 | ✅ SELF_PASS |
+| AC7 / VP-07 | EP-07 Provider store/load/patch/rollback/DOM과 소비자 6/6 확인. store·lifecycle·실제 consumer 시험 11개 통과, provider별 격리와 안정 action 유지 | ✅ SELF_PASS |
+| AC8 / VP-08 | EP-08 검색·app 선택 callback·barrel, EP-09 SyncRow 정의/사용 2/2, EP-10 hook·페이지 3/3·barrel 확인. 검색 3·app 배선 1·사용량 UI 2·telemetry hook 2개 통과 | ✅ SELF_PASS |
+| AC9 / VP-09 | EP-01~10 책임 이동·삭제를 실제 import/호출과 대조. 전체 1,443개 통과, 기준 시험과 이관 후 시험 차집합 0. Main·shared IPC·의존성 파일 변경 없음 | ✅ SELF_PASS |
+
+AC 검산: ✅ 9 · ⚠️ 0 · ❌ 0 = 9. 이는 구현 자기판정이다.
+
+| 나머지 pair | 이번 실행의 관측 | 자기결과 |
+|---|---|---|
+| VP-10·17 | 공개 push callback 시험 및 실제 ingest/store 시험. 완료/telemetry의 단일 정착, child 격리, 다음 pending 전송 순서와 기존 FIFO·권한·lease 회귀 통과 | SELF_PASS |
+| VP-11·15·19 | 실제 Provider store/요청별 cleanup·효과·selector/소비자 시험. 낙관 patch당 저장과 전체 이전 snapshot 복원, 관련 없는 필드의 같은 선택 참조 확인 | SELF_PASS |
+| VP-12 | 지연 files 응답으로 hook의 deps/effect/cleanup과 현재 후보를 직접 관측. prefix/caret 변경 조회 1회, cwd/dir 전환·토큰 제거·unmount 결과 차단 | SELF_PASS |
+| VP-13·18 | 실제 API mock→sessionsStore→nav 투영과 boot→projectsStore 실행. 동일 결과 알림 0과 프로젝트→최근 순서/GC 보존 | SELF_PASS |
+| VP-14 | 실제 SearchModal 선택→app navigation callback과 close 순서, provider 새로고침 성공/실패·표시, telemetry provider/global/boundary 경로 확인 | SELF_PASS |
+| VP-16 | 실제 contextBridge 노출 객체의 공개 endpoint마다 형제 채널·두 구독자·중복 해제 관측. 원본 복원 후 전체 suite 통과 | SELF_PASS |
+
+유효 pair 검산: VP-01~09의 9개 + VP-10~19의 10개 = SELF_PASS 19 / SELF_BLOCKED 0. §10 EP-01~10의 10행 모두 위 표에 대응하며 남긴 행은 없다.
+
+생산 구독은 `rg 'on[A-Z].*handler' app/src/preload/index.ts`, entry 적용은 `rg 'patchEntry\(' .../chatStore.ts`, 설정 소비는 renderer의 `useTweakContext` 전수 검색으로 재확인했다. 제출 함수·SearchModal·SyncRow·telemetry hook은 정의와 모든 생산 호출을 각각 대조했다. 이동된 기존 시험은 파일 경로와 fullName의 다중집합으로 비교했고 `steerGate.test.ts → sendAdmission.test.ts`만 경로 매핑했다. 누락 0, 추가 43, 실패/skip 0이다.
+
+### 이번 라운드 수정의 잠금
+
+| 선택 증거 / 대상 | 결함 주입과 이번 관측 | 복원 |
+|---|---|---|
+| EP-01 채널 | update state/progress 채널 맞바꿈 → 공개 endpoint 시험 2개 실패 | 정상 채널에서 전체 통과 |
+| EP-01 해제 | `off`에 새 함수를 전달 → 구독 시험 8개 실패 | 실제 listener 해제에서 전체 통과 |
+| EP-03 조회 수명 | effect 의존을 전체 match로 복귀 → hook 시험 1개 실패, 조회 기대 1/실제 3회 | queryDir 복원 후 통과 |
+| EP-07 저장 | settings patch 호출 제거 → store 시험 2개 실패, 호출/rollback 누락 검출 | 원본 SHA 일치·재시험 통과 |
+| EP-07 DOM | theme 대입 제거 → lifecycle 시험 1개 실패 | 원본 SHA 일치·재시험 통과 |
+| EP-07 소비자 | Header selector 필드 제거 → 실제 소비자 시험 1개 실패 | 원본 SHA 일치·재시험 통과 |
+| 시험 이관 비교 장치 | 이관된 provider 시험 하나를 최종 JSON 사본에서 누락 → 비교 exit 1, 차집합 1개 | JSON 원본 복원 후 차집합 0 |
+
+잠금 검산: plan 선택 증거 6 · 인용 변이 0 · 선택 증거와 중복되지 않는 새 비교 oracle 1 = 표 7행. 나머지 상태·callback·JSX 결과 검사는 직접 oracle이며 추가 변이를 요구하지 않는다. 모든 생산 변이를 복원한 뒤 최종 전체 시험을 수행했다.
+
+### Product/UX 파생 검토
+
+새 사용자 문자열·상태·모달·DOM/class 변경은 없다. 검색의 query/늦은 결과·선택→navigate→close, 사용량의 disabled/spinner/실패/timestamp, 설정의 초기 로드와 저장 실패 표시 의미를 보존했다. Provider lifecycle 시험은 요청별 cleanup 후 재설치도 다룬다. 실제 브라우저 전체 스케줄러·시각 실기·FPS를 확인한 것으로 보고하지 않는다.
+
+### 놓친 잠재 문제 + 대응
+
+| 발견 | 대응 / 상태 |
+|---|---|
+| sessions GC를 단순 병합하면 `Object.values` 순서가 달라져 같은 pinnedAt의 순서가 뒤집힘 | 실제 nav 투영에서 RED를 재현. 프로젝트→최근 키 순서 보존 후 9개 시험 통과 |
+| entry transaction의 child 완료 분기 직접 시험 부족 | main preview/live 참조·child transcript·다른 세션을 함께 검사하는 사례 추가. 해당 파일의 시험 4개 통과 |
+| 새 시험 위치가 renderer 계층을 역방향 참조 | App 조립 시험은 renderer 루트, cross-feature 소비자 시험은 app으로 배치. boundaries 오류 0 |
+| Tweak factory의 React Refresh export 경고 | 같은 파일에서 저장/수명을 직접 검사하도록 해당 export 한 줄만 사유 있는 예외. 새 store 파일·전역 singleton 추가 없음 |
+| 목록 비교와 렌더 생략의 성능 손익 | 같은 응답의 상태 교체/알림 제거를 확인. 전체 시간·대형 목록 성능은 별도 측정 후보로 기록 |
+
+설계 메커니즘 교체는 없다. 만료·공유·재진입·무효화 축의 추가 계약을 선택한 사실도 없다. 기존 provider 수신·서로 다른 삭제 시점·설정의 전체 snapshot rollback 정책은 이번에 바꾸지 않았다.
+
+### 구현 보고
+
+| 게이트 / 산출 | 관측 결과 |
+|---|---|
+| 변경 전 시험 | preload/renderer/shared 175파일 1,400개 통과 |
+| 변경 후 시험 | 같은 집합 184파일 1,443개 통과, 실패 0·pending/skip 0. 기존 사례 누락 0·추가 43 |
+| 타입 | `npm.cmd run typecheck`: node/web/test 모두 완료, 오류 0, exit 0 |
+| lint | `node node_modules/eslint/bin/eslint.js src/preload src/renderer src/shared`: 오류 0·경고 1, exit 0. 변경 없는 useTranscriptVirtualizer의 기존 incompatible-library 경고 |
+| 문서 / 시간 예산 | `check-doc-inventory.mjs --check`: inventory·수치 중복·상대 링크 통과. `check-test-budgets.mjs`: 실-git suite 규칙 통과 |
+| 변경 위생 | `git diff --check` 통과. Main·shared IPC·package/lock 변경 없음. 실제 시험/문서 이관 포함 |
+| 교차 리뷰 | 다른 구현자가 preload/sessions/projects/SyncRow, chat/자동완성/제출, Tweaks/검색/telemetry를 각각 읽기 검토. 구체 회귀 결함 없음, child 시험 보강 완료 |
+
+전체 시험 명령은 app에서 `node node_modules/vitest/vitest.mjs run src/preload src/renderer src/shared --maxWorkers=2 --reporter=json --outputFile=node_modules/.cache/orca/renderer-structure-check/final.json`이다. 해당 child 실행의 USERPROFILE만 같은 cache 하위 `home`으로 지정했다. `npm test`/설치/rebuild를 실행하지 않아 SQLite ABI를 변경하지 않았다.
+
+로컬 실행 원본은 `app/node_modules/.cache/orca/renderer-structure-check/`의 baseline/final JSON, typecheck/lint 로그, 시험 차집합과 선택 변이 로그에 남겼다. 재실행 가능한 테스트 소스는 원래 코드 소유 계층에 커밋한다. 0221 상태와 SRT 보류는 유지하며, 0222 보드는 `impl/IMPL_DONE`·다음 Claude·구현 좌표 검증자 기입으로 넘긴다.
+
+### Review Signals
+
+- 현재 라운드는 r1이다. 미래 기능 호환성 실증이나 독립 verify PASS를 선점하지 않는다.
+- 반복 실패 이슈는 없다. 동률 정렬 회귀 위험은 AC5의 순서 보존 조건에 따라 구현 중 발견·보완했다.
+- 새 시험의 계층 위반과 Settings fixture 타입 오류는 기존 gate가 검출했고 해당 시험만 정정했다.
+- hook/SSR fixture와 실제 GUI 검증의 경계를 명시했다. 기존 가상화 라이브러리 lint 경고는 이번 변경과 별개다.

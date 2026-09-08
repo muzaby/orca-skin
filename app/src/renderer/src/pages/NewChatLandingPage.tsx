@@ -1,7 +1,7 @@
 import { useLocation } from 'react-router-dom'
 import { ChatTile, Composer, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
-import { useUsageForTelemetryProvider } from './useUsageForTelemetryProvider'
+import { useUsageForTelemetryProvider } from '../features/chat'
 import { useOpenSettings, providerTabId } from '../features/settings'
 import { useI18n } from '../shared/i18n'
 

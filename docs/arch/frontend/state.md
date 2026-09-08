@@ -6,7 +6,7 @@
 
 ## 1. 상태 관리
 
-> **현재 (Phase 3++ / 0013)**: **Zustand 전환 + 멀티세션 외피 완료.** chat 은 `features/chat/store/chatStore.ts` 의 `sessions: Record<key, { session, live }>` + `activeKey` 외피(키 = sessionId, 새 채팅 = `NEW_CHAT_KEY` 슬롯 → `session.updated` 시 승격 — main TurnRegistry 와 대칭). Backend/Sessions/Projects/Cost 의 Context 4종도 feature 별 Zustand store 로 흡수(Provider 는 bootstrap-only). Tweaks/Skills/Agents 훅은 잔존(소규모 — 후속 검토).
+> **현재**: chat은 `features/chat/store/chatStore.ts`의 `sessions: Record<key, { session, live }>` + `activeKey` 외피를 갖는다(키 = sessionId, 새 채팅 = `NEW_CHAT_KEY` 슬롯 → `session.updated` 시 승격). Backend/Sessions/Projects/Cost는 feature별 Zustand store가 소유하고, projects 초기 조회는 `app/boot/steps`가 수행한다. Tweaks는 `TweakProvider` 인스턴스의 store와 필드 selector로 연결하며 Skills/Agents는 기존 hook 진입점을 유지한다.
 > **채택된 결정(이행 완료)**: 단일 root 대신 **feature 별 store + chat 의 sessions Record** 로 수렴 — `chatReducer` 는 세션-단위 순수 함수로 유지하고 **store 가 `ev.sessionId` 키 라우팅을 담당**한다(reducer 테스트·불변식 보존, "액션에 sessionId 인자" 안의 대체 — 사용자 결정 2026-06-11, handoff 0013). 동시 스트리밍 *UX*(사이드바 배지·탭)는 후속 기능.
 
 ### 1.1 상태 분류
@@ -15,7 +15,7 @@
 |---|---|---|---|
 | 채팅 세션 상태 (커밋) | `features/chat/store/chatStore.ts` 의 `sessions[key].session` — 변경은 순수 `chatReducer` 경유(스토어가 키 라우팅) | **Phase 3 부터**: 로컬 SQLite 영속화 (../backend/persistence.md). 메모리 캐시 + DB SSOT 병행. | sessionId, messages, inflight, permissionMode |
 | 채팅 스트리밍 라이브 버퍼 | `chatStore` 의 엔트리별 `live` 슬라이스 (transient — 턴 종료 시 리셋, 비활성 엔트리도 백그라운드 누적) | — | live.text(구 pendingDelta), live.reasoning |
-| Tweaks (theme/density/sidebar/한도) | `shared/hooks/useTweaks` + electron-store | ✅ `orca:settings:get` / `set` | theme, density, sidebarCollapsed, **sidebarWidth** (180–480, default 248 — Phase 3+), **spendingLimitUsd**(0079) |
+| Tweaks (theme/density/sidebar/한도) | `shared/theme/TweakProvider`의 provider별 store + electron-store | ✅ `orca:settings:get` / `set` | theme, density, sidebarCollapsed, **sidebarWidth** (180–480, default 248 — Phase 3+), **spendingLimitUsd**(0079) |
 | 백엔드 설치 상태 | `features/backend/store/backendStore`(Zustand, 0013) | — | list, active, installerOpen |
 | 세션/프로젝트 목록 | `features/{sessions,projects}/store/*Store`(Zustand, 0013) | — | list, loading |
 | 사용량 미러 | `shared/stores/usageStore`(Zustand, 0186) | — | Main 이 완성한 `UsageLimitsView` 의 사본 — `global` + `providers[key]` + `providerUpdatedAt[key]` (전역 쪽 타임스탬프는 두지 않는다 — 전역 화면에 "마지막 업데이트" 표시가 없다). **주/월을 여기서 파생하지 않는다**(계산은 main 소유). 갱신은 `orca:cost:usageEvent` delta push 뿐이고, `boundary` scope 가 오면 provider 사본을 통째로 버린다(기간이 넘어가 전부 어제 기준이므로). `features/chat`(도넛)·`features/settings`(사용량 탭) 둘이 읽으므로 어느 feature 에도 둘 수 없다 — renderer boundaries 가 feature 교차를 막는다 |
@@ -47,6 +47,8 @@ interface SessionEntry {
 - 스트리밍 델타 누적(구 `pendingDelta`/`pendingReasoning`)은 **reducer 에서 제거** — 엔트리별 `live` 슬라이스가 소유하고, `message.completed`(완성본 페이로드)·`telemetry`(잔여분 `COMMIT_PENDING_TEXT` 폴백) 시 parts 로 커밋된다.
 - 컴포넌트 접근은 selector 훅(`useChatSession`/`useLiveText`/`useLiveReasoning` — 활성 엔트리 구독)과 안정 액션 묶음 `chatActions`, imperative read 는 `getActiveChatSession()` — `UseChat` 객체 전달/Context 전파 모델 폐기.
 - 코얼레서는 단일 FIFO(세션 간 순서도 보존)이며 delta window를 `DeltaEvent[]`로 넘긴다. store는 batch 전체를 단일 `setState` transaction으로 반영해 flush당 notification을 1회로 제한한다. 세션 전환 시 dispose 하지 않는다(키 라우팅이 스테일 오염 방지).
+- 엔트리 교체는 store 내부 `patchEntry`가 소유한다. reducer가 같은 상태를 돌려주면 root 참조와 구독을 유지한다. `message.completed`와 `telemetry`의 committed/live 반영도 같은 transaction에서 처리하고, 다음 대기 입력 전송은 기존 이벤트 처리 순서를 따른다.
+- 파일 자동완성 조회 수명은 cwd·디렉토리·활성 토큰 유무로 정한다. 같은 디렉토리의 prefix·caret 변화는 진행 중 listing을 유지하며 후보 필터와 선택은 최신 match를 사용한다.
 
 #### 1.2.1 Git 패치와 댓글 범위
 
@@ -71,7 +73,7 @@ interface SessionEntry {
 ### 1.3 Anti-pattern (하지 말 것)
 
 - ❌ **입력창 텍스트를 전역 store 에 두기** — 매 키 입력마다 전역 리렌더 발생. draft snapshot은 persistent input controller의 로컬 state로 두고, shell·transcript에는 올리지 않는다.
-- ❌ **컴포넌트에서 `window.orca` 직접 호출** — `features/<domain>/hooks/use*.ts` (Tweaks 는 `shared/hooks/useTweaks.ts`) 안에서만 IPC 호출. Zustand 전환 후에도 IPC 호출은 store action 안에 머무르며 컴포넌트는 selector / action 만 사용한다.
+- ❌ **컴포넌트에서 `window.orca` 직접 호출** — feature hook/store와 `shared/api/ipc.ts` 래퍼를 사용한다. Tweaks는 `shared/theme/TweakProvider.tsx` 내부 store가 settings 호출을 소유하고 소비 컴포넌트는 selector/action을 사용한다.
 - ❌ **`features/` hook 에서 `window.orca.*` 직접 호출** — `shared/api/ipc.ts` 타입드 래퍼 (PR #29 에서 도입) 를 경유한다. 직접 호출은 ESLint 위반은 아니지만 테스트 진입점 / IPC 계약 변경 추적성을 망가뜨린다.
 - ❌ **`useEffect` 안에서 store→다른 store 갱신** — 무한 루프 위험. reducer 의 단일 액션으로 묶을 것.
 - ❌ **`messages` 배열을 mutate** — reducer 는 `.slice()` 후 새 배열 반환 (`chatReducer.ts` 패턴).
@@ -121,7 +123,7 @@ Context + useReducer 도 외피 (`sessions: Record<sessionId, ChatState>`) 변�
 - ✅ **(0008 완료)** `features/chat/store/chatStore.ts` 도입 — 단, reducer 를 폐기하지 않고 **순수 `chatReducer` 를 store 액션이 래핑**한다(테스트 자산·불변식 보존). Phase 4 에 `sessionId` 인자 추가.
 - ✅ **(0008 완료)** 구 `useChat.ts` 의 useReducer/Context 패턴 → `useChatSession(selector)`/`chatActions` 로 교체 (`UseChat` 객체·`useChatContext` 폐기, `ChatProvider` 는 부트스트랩 effect 전용).
 - ✅ **(0008 완료)** IPC onEvent 핸들러 → 코얼레서 → store `receive(ev)` 외부 dispatch.
-- ✅ **(0013 완료)** Backend/Sessions/Projects/Cost Context → feature 별 Zustand store 흡수(Provider 는 bootstrap-only). 잔여: `shared/hooks/useTweaks` · `useSkills` · `useAgents` (소규모 — 후속 검토).
+- Backend/Sessions/Projects/Cost는 feature별 Zustand store를 사용한다. 초기화와 이벤트 구독은 각 기존 진입점이 담당한다. Tweaks는 provider별 store, Skills/Agents는 기존 hook 진입점을 사용한다.
 - `app/AppLayout.tsx` 의 props drilling (현 `pinnedSlot` / `sessionsSlot` / `footerSlot` — `app/hooks/useSidebarSlots.tsx`) 은 store 직접 구독으로 단순화 가능 — 단, `shared/ui/` 의 presentational 규칙 (layers.md §1.1) 은 유지.
 
 #### 4.4.6 도입 PR 에서 결정할 사항 (Open Questions)
@@ -134,18 +136,25 @@ Context + useReducer 도 외피 (`sessions: Record<sessionId, ChatState>`) 변�
 ### 1.5 Tweaks 적용 흐름
 
 ```
-useTweaks() ──► [Tweaks, setTweak]
-                  │
+TweakProvider ──► provider별 store ──► useTweakContext(selector)
+                  │                   선택 필드 + 안정된 setTweak
 useEffect(theme):  ──► document.documentElement.dataset.theme = t.theme
                        (tokens.css 의 [data-theme="..."] 스코프 활성)
 useEffect(density): ──► document.documentElement.style.fontSize = DENSITY_FONT[t.density] + 'px'
                        (rem 기반 Tailwind spacing 자연 cascade)
 
-부팅: window.orca.settings.get() → 초기 Tweaks 복원
-변경: setTweak(key, val) → 로컬 state + window.orca.settings.set({ [key]: val })
+마운트: settingsApi.get() → 초기 Tweaks 복원 (요청별 cleanup으로 늦은 응답 무시)
+변경: setTweak(key, val) → store 낙관 갱신 + settingsApi.set({ [key]: val })
+실패: 해당 호출 직전의 전체 Tweaks snapshot 복원
 ```
 
 `data-theme` 속성 변경만으로 모든 CSS 변수 재해석. **트리 remount 불요** (이전에 사용하던 `key={theme}` bump 제거됨).
+
+Context에는 provider 수명 동안 같은 store를 전달한다. 소비자는 필요한 필드만 선택하고 shallow 비교로 관련 없는 설정 변경을 구독 결과에 전파하지 않는다. Provider 자체는 theme/density/font/locale 효과에 필요한 필드만 선택한다. font·locale·platform의 DOM 적용도 같은 Provider가 소유한다. 설정 저장을 합치거나 지연하지 않으며, 실패 시 전체 snapshot 복원 정책을 유지한다.
+
+### 1.6 세션 목록 참조와 membership
+
+`sessionsStore`는 최근·프로젝트 조회에서 같은 항목 비교와 병합을 사용한다. 같은 값의 행은 기존 참조를 유지하고, 실제 변경이 생길 때 `byId`를 복사한다. 최근 조회의 GC는 프로젝트 membership이 참조하는 행과 최근 결과를 보존한다. 같은 고정 시각의 정렬에도 영향을 주는 객체 키 순서는 기존 프로젝트→최근 구성 순서를 유지한다. 미조회 프로젝트와 조회한 빈 목록은 구분한다.
 
 ---
 

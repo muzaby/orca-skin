@@ -83,10 +83,12 @@ export function useFileAutocomplete(
     setValidPaths(new Set())
   }
 
-  // dirPath 가 바뀔 때마다 listing — cancelled 플래그로 stale 응답 무시.
+  // listing 소유자는 cwd/디렉토리/토큰 유무다. 같은 디렉토리의 prefix·caret 변화는
+  // 현재 조회를 유지하고, 아래 suggestions가 최신 match로 결과를 필터링한다.
+  const queryDir = match?.dirPath ?? null
   useEffect(() => {
-    if (!cwd || !match) return
-    const dir = match.dirPath
+    if (!cwd || queryDir === null) return
+    const dir = queryDir
     if (entriesByDir.has(dir)) return
     let cancelled = false
     void fileApi.list(cwd, dir).then((entries) => {
@@ -113,7 +115,7 @@ export function useFileAutocomplete(
     return (): void => {
       cancelled = true
     }
-  }, [cwd, match, entriesByDir])
+  }, [cwd, queryDir, entriesByDir])
 
   const suggestions = useMemo(() => {
     if (!match) return []

@@ -24,6 +24,7 @@
 | 확장 배포 (MCP · SKILL.md · AGENTS.md 표준) | [`arch/backend/standardization.md`](arch/backend/standardization.md) |
 | 시스템 프롬프트 · 정책 append | [`arch/backend/system-prompt.md`](arch/backend/system-prompt.md) |
 | 로깅 | [`arch/backend/observability.md`](arch/backend/observability.md) |
+| Preload·Renderer 구조·성능 진단 및 경량화 결과 | [`etc/study/preload-renderer-structure/diagnosis.md`](etc/study/preload-renderer-structure/diagnosis.md) |
 | renderer 범위 · 스택 · 구현 상태 | [`arch/frontend/overview.md`](arch/frontend/overview.md) |
 | renderer 4-layer · 디렉토리 책임 | [`arch/frontend/layers.md`](arch/frontend/layers.md) |
 | renderer 상태 관리 (Zustand · 멀티세션) | [`arch/frontend/state.md`](arch/frontend/state.md) |

@@ -1,6 +1,6 @@
 import { ChatView, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
-import { useUsageForTelemetryProvider } from './useUsageForTelemetryProvider'
+import { useUsageForTelemetryProvider } from '../features/chat'
 import { useOpenSettings, providerTabId } from '../features/settings'
 import { useProjectsState } from '../features/projects'
 import { useSessionActions } from './useSessionActions'

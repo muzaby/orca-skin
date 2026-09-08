@@ -64,7 +64,7 @@
 - **2단 분리** (PR #30):
   - 일반 메커니즘 → `shared/hooks/useDragResize` (`getOrigin` / `min` / `max` / `disabled` / `onChange` 옵션. sidebar 라는 도메인을 모르며 tile separator 등에도 재사용 가능).
   - 도메인 특정 설정·적용 → `app/Sidebar.tsx` (`SIDEBAR_MIN/MAX/DEFAULT_WIDTH` 상수, `asideRef`, `setTweak('sidebarWidth', n)` onChange).
-- 영속화: `Settings.sidebarWidth: number` (180–480, default 248). `shared/hooks/useTweaks` 가 부팅 시 hydrate + flush.
+- 영속화: `Settings.sidebarWidth: number` (180–480, default 248). `shared/theme/TweakProvider` 가 부팅 시 hydrate + flush.
 - collapsed 상태: handle 의 `data-state="hidden"` + `pointer-events-none`. 폭은 `w-14` (56px) 고정. `useDragResize` 의 `disabled: collapsed` 옵션으로 mousedown 무반응.
 - 명명: aside 내부는 `resize-handle`, tile 사이는 `separator` 로 구분 (dom-architecture.md.4).
 
@@ -94,7 +94,7 @@
 | `engine` (`features/engine/components/AgentEnvironmentView.tsx`, 구 EngineView) | 03 엔진 & 모델                          | 설정 · 엔진 & 모델  | ✅ '엔진 & 모델'              | **✅ Phase 4 CRUD 활성 (0021·0090)** | nav 항목으로 노출. 라우트 `/agent`. provider CRUD(`EngineFormModal` — 단일 화면 모달 + `~/.claude/settings.json` 불러오기, 0090) + `EngineCard`/`EngineModelList`.            |
 | `skills` (`features/skills/components/customize/ExtensionsCatalogView.tsx`, 구 SkillsMcpView·SkillsCustomizeView) | 04 Skills / MCP                         | 플러그인 모달 | ✅ '플러그인'             | **✅ Phase 3++ MCP 활성** | nav 4번째 항목이 공용 Modal로 연다. **MCP 섹션 실 연동** (`orca:mcp:*` + `AddMcpServerModal` 추가/편집/토글/삭제, 전역 적용) + customize rail/list/detail 재구성.                        |
 | (Debug Panel) `features/debug/components/DebugPanel.tsx`       | (플로팅 패널 — `#app-frame-debug` 슬롯, dev 전용) | —                   | —                             | **✅ Phase 2+ 영속**      | theme / density / sidebarCollapsed / sidebarWidth 등 Tweaks 컨트롤 흡수(구 shared/ui/TweaksPanel 부재) — electron-store 동기화. 더미 업데이트·wire log·SSO bypass 토글 포함. |
-| (SearchModal) `app/SearchModal.tsx`                            | (모달 — `#app-frame-modal` 슬롯)        | —                   | —                             | **✅ Phase 3++ 활성**     | FTS5 대화 검색. Header 검색 버튼 → `searchOpen` lift → OverlayLayer conditional mount.                                                                                       |
+| (SearchModal) `features/sessions/components/SearchModal.tsx`                            | (모달 — `#app-frame-modal` 슬롯)        | —                   | —                             | **✅ Phase 3++ 활성**     | FTS5 대화 검색. Header 검색 버튼 → `searchOpen` lift → OverlayLayer conditional mount.                                                                                       |
 
 > **CameraView** 와 **CapturesView** 는 `features/camera/` · `features/captures/` 에 존재하지만 도메인 카탈로그에서 제외 (GLOSSARY §3 사용자 결정). Sidebar nav 에도 없음.
 >

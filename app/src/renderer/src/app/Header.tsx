@@ -29,7 +29,7 @@ export interface HeaderProps {
 export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React.JSX.Element {
   const macOsPadLeft = isDarwin() ? 'pl-[80px]' : 'pl-[14px]'
   const navigate = useNavigate()
-  const { t, setTweak } = useTweakContext()
+  const { t, setTweak } = useTweakContext((t) => ({ sidebarCollapsed: t.sidebarCollapsed }))
   const { tr } = useI18n()
   const [menuOpen, setMenuOpen] = useState(false)
   const [versionOpen, setVersionOpen] = useState(false)

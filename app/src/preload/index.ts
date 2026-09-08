@@ -79,8 +79,14 @@ function sendLog(input: LogInput): void {
   }
 }
 
-// Phase 2 노출 표면 — renderer 가 실제 사용하는 6개 채널만.
-// 추가 채널 (backend.select, settings.*) 은 사용처 도입 시점에 다시 등록.
+// 공개 메서드가 채널과 payload 타입을 지정한다. Electron 이벤트 객체는 경계를 넘기지 않는다.
+function subscribe<T>(channel: string, handler: (payload: T) => void): () => void {
+  const listener = (_event: IpcRendererEvent, payload: T): void => handler(payload)
+  ipcRenderer.on(channel, listener)
+  return () => ipcRenderer.off(channel, listener)
+}
+
+// renderer가 사용하는 제한된 공개 표면. 임의 채널이나 ipcRenderer 원본은 노출하지 않는다.
 const orca = {
   boot: {
     report: (): Promise<BootReport> => ipcRenderer.invoke(CHANNELS.bootReport),
@@ -91,11 +97,8 @@ const orca = {
     send: (req: SendChatMessage): Promise<void> => ipcRenderer.invoke(CHANNELS.chatSend, req),
     cancelSteer: (req: CancelSteer): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.chatSteerCancel, req),
-    onEvent: (handler: (ev: NormalizedEvent) => void): (() => void) => {
-      const listener = (_e: IpcRendererEvent, ev: NormalizedEvent): void => handler(ev)
-      ipcRenderer.on(CHANNELS.chatEvent, listener)
-      return () => ipcRenderer.off(CHANNELS.chatEvent, listener)
-    },
+    onEvent: (handler: (ev: NormalizedEvent) => void): (() => void) =>
+      subscribe(CHANNELS.chatEvent, handler),
     cancel: (sessionId: string): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.chatCancel, { sessionId }),
     stopSubagent: (sessionId: string, toolUseId: string): Promise<void> =>
@@ -129,11 +132,8 @@ const orca = {
   install: {
     start: (backend: Backend): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.installStart, { backend }),
-    onStatus: (handler: (st: InstallStatus) => void): (() => void) => {
-      const listener = (_e: IpcRendererEvent, st: InstallStatus): void => handler(st)
-      ipcRenderer.on(CHANNELS.installStatus, listener)
-      return () => ipcRenderer.off(CHANNELS.installStatus, listener)
-    }
+    onStatus: (handler: (st: InstallStatus) => void): (() => void) =>
+      subscribe(CHANNELS.installStatus, handler)
   },
   settings: {
     get: (): Promise<Settings> => ipcRenderer.invoke(CHANNELS.settingsGet),
@@ -188,11 +188,8 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.sessionRename, { sessionId, title }),
     setPinned: (sessionId: string, pinned: boolean): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.sessionSetPinned, { sessionId, pinned }),
-    onTitle: (handler: (ev: SessionTitleEvent) => void): (() => void) => {
-      const listener = (_e: IpcRendererEvent, ev: SessionTitleEvent): void => handler(ev)
-      ipcRenderer.on(CHANNELS.sessionTitleEvent, listener)
-      return () => ipcRenderer.off(CHANNELS.sessionTitleEvent, listener)
-    }
+    onTitle: (handler: (ev: SessionTitleEvent) => void): (() => void) =>
+      subscribe(CHANNELS.sessionTitleEvent, handler)
   },
   project: {
     list: (): Promise<Project[]> => ipcRenderer.invoke(CHANNELS.projectList),
@@ -229,11 +226,8 @@ const orca = {
     // providerKey 생략 = 전역. Main 이 UsageLimitsView 를 완성해 주므로 renderer 는 파생하지 않는다.
     usage: (providerKey?: string): Promise<UsageLimitsView | null> =>
       ipcRenderer.invoke(CHANNELS.costUsage, providerKey ? { providerKey } : {}),
-    onUsage: (handler: (delta: UsageDelta) => void): (() => void) => {
-      const listener = (_e: IpcRendererEvent, delta: UsageDelta): void => handler(delta)
-      ipcRenderer.on(CHANNELS.costUsageEvent, listener)
-      return () => ipcRenderer.off(CHANNELS.costUsageEvent, listener)
-    },
+    onUsage: (handler: (delta: UsageDelta) => void): (() => void) =>
+      subscribe(CHANNELS.costUsageEvent, handler),
     // 원격 즉시 동기화(쓰기). `usage` 와 달리 원격을 실제로 부르고 0014 캐시를 갱신한다.
     refreshUsage: (providerKey: string): Promise<UsageLimitsView> =>
       ipcRenderer.invoke(CHANNELS.costRefreshUsage, { providerKey }),
@@ -255,18 +249,12 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.providerReauth, req),
     revoke: (req: ProviderRevokeRequest): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.providerRevoke, req),
-    onState: (handler: (state: ProviderPlatformState) => void): (() => void) => {
-      const listener = (_e: IpcRendererEvent, state: ProviderPlatformState): void => handler(state)
-      ipcRenderer.on(CHANNELS.providerState, listener)
-      return () => ipcRenderer.off(CHANNELS.providerState, listener)
-    }
+    onState: (handler: (state: ProviderPlatformState) => void): (() => void) =>
+      subscribe(CHANNELS.providerState, handler)
   },
   concurrency: {
-    onEvent: (handler: (ev: ConcurrencyEvent) => void): (() => void) => {
-      const listener = (_e: IpcRendererEvent, ev: ConcurrencyEvent): void => handler(ev)
-      ipcRenderer.on(CHANNELS.concurrencyEvent, listener)
-      return () => ipcRenderer.off(CHANNELS.concurrencyEvent, listener)
-    }
+    onEvent: (handler: (ev: ConcurrencyEvent) => void): (() => void) =>
+      subscribe(CHANNELS.concurrencyEvent, handler)
   },
   // 권한 응답 (ask/plan/tool 단일 채널) — 사용자의 승인/거부를 approvalId + resolution 으로
   // main 에 회신. 요청 수신은 별도 채널이 아니라 chat.onEvent 의 permission.requested 이벤트.
@@ -292,16 +280,10 @@ const orca = {
     download: (): Promise<UpdateCheckResult> => ipcRenderer.invoke(CHANNELS.updateDownload),
     quitAndInstall: (): Promise<UpdateInstallResult> =>
       ipcRenderer.invoke(CHANNELS.updateQuitAndInstall),
-    onState: (handler: (state: UpdateState) => void): (() => void) => {
-      const listener = (_e: IpcRendererEvent, state: UpdateState): void => handler(state)
-      ipcRenderer.on(CHANNELS.updateStateEvent, listener)
-      return () => ipcRenderer.off(CHANNELS.updateStateEvent, listener)
-    },
-    onProgress: (handler: (progress: UpdateProgress) => void): (() => void) => {
-      const listener = (_e: IpcRendererEvent, progress: UpdateProgress): void => handler(progress)
-      ipcRenderer.on(CHANNELS.updateProgressEvent, listener)
-      return () => ipcRenderer.off(CHANNELS.updateProgressEvent, listener)
-    }
+    onState: (handler: (state: UpdateState) => void): (() => void) =>
+      subscribe(CHANNELS.updateStateEvent, handler),
+    onProgress: (handler: (progress: UpdateProgress) => void): (() => void) =>
+      subscribe(CHANNELS.updateProgressEvent, handler)
   },
   // renderer 로그 인제스트 (0123) — 제한된 4메서드만. ipcRenderer 원본·임의 채널은 미노출.
   log: {

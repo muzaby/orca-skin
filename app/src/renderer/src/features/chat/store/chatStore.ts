@@ -12,8 +12,7 @@ import {
   type PlanComment
 } from '../reducer/chatReducer'
 import { toPlanFeedback } from '../lib/planComments'
-import { steerBlockedByProviderBoundary } from '../lib/steerGate'
-import { shouldQueueAsPending } from '../lib/sendAdmission'
+import { steerBlockedByProviderBoundary, shouldQueueAsPending } from '../lib/sendAdmission'
 import {
   chatApi,
   concurrencyApi,
@@ -161,17 +160,20 @@ export function getActiveChatSession(): ChatState {
   return s.sessions[s.activeKey].session
 }
 
-// 키 라우팅 dispatch — 엔트리가 없으면 무해한 no-op(삭제된 세션의 늦은 이벤트 등).
-function dispatchTo(key: string, action: ChatAction): void {
+// 세션 엔트리 교체의 단일 경계. 삭제된 세션과 동일 결과는 root까지 identity를 보존한다.
+function patchEntry(key: string, update: (entry: SessionEntry) => SessionEntry): void {
   setState((s) => {
     const entry = s.sessions[key]
     if (!entry) return s
-    return {
-      sessions: {
-        ...s.sessions,
-        [key]: { ...entry, session: chatReducer(entry.session, action) }
-      }
-    }
+    const next = update(entry)
+    return next === entry ? s : { sessions: { ...s.sessions, [key]: next } }
+  })
+}
+
+function dispatchTo(key: string, action: ChatAction): void {
+  patchEntry(key, (entry) => {
+    const session = chatReducer(entry.session, action)
+    return session === entry.session ? entry : { ...entry, session }
   })
 }
 
@@ -210,12 +212,9 @@ function requirementsBelongToCurrentSession(
 }
 
 function patchLive(key: string, patch: (live: LiveTurnState) => LiveTurnState): void {
-  setState((s) => {
-    const entry = s.sessions[key]
-    if (!entry) return s
+  patchEntry(key, (entry) => {
     const next = patch(entry.live)
-    if (next === entry.live) return s
-    return { sessions: { ...s.sessions, [key]: { ...entry, live: next } } }
+    return next === entry.live ? entry : { ...entry, live: next }
   })
 }
 
@@ -227,13 +226,10 @@ function patchPendingSteer(
   key: string,
   patch: (pending: PendingSteerState[]) => PendingSteerState[]
 ): void {
-  setState((s) => {
-    const entry = s.sessions[key]
-    if (!entry) return s
+  patchEntry(key, (entry) => {
     const prev = entry.pendingSteer ?? EMPTY_PENDING_STEER
     const next = patch(prev)
-    if (next === prev) return s
-    return { sessions: { ...s.sessions, [key]: { ...entry, pendingSteer: next } } }
+    return next === prev ? entry : { ...entry, pendingSteer: next }
   })
 }
 
@@ -243,9 +239,7 @@ function patchSubagentMeta(
   key: string,
   ev: Extract<NormalizedEvent, { type: 'subagent.task' }>
 ): void {
-  setState((s) => {
-    const entry = s.sessions[key]
-    if (!entry) return s
+  patchEntry(key, (entry) => {
     const prev = entry.subagentMeta[ev.toolUseId] ?? {}
     const next: SubagentMetaState = { ...prev }
     if (ev.taskId !== undefined) next.taskId = ev.taskId
@@ -256,15 +250,7 @@ function patchSubagentMeta(
     if (ev.lastToolName !== undefined) next.lastToolName = ev.lastToolName
     if (ev.status !== undefined) next.status = ev.status
     if (ev.phase !== 'settled' && next.startedAtMs === undefined) next.startedAtMs = Date.now()
-    return {
-      sessions: {
-        ...s.sessions,
-        [key]: {
-          ...entry,
-          subagentMeta: { ...entry.subagentMeta, [ev.toolUseId]: next }
-        }
-      }
-    }
+    return { ...entry, subagentMeta: { ...entry.subagentMeta, [ev.toolUseId]: next } }
   })
 }
 
@@ -468,10 +454,16 @@ function receive(ev: NormalizedEvent): void {
       // 완성본(ev.message.text)이 text 파트로 커밋되므로 라이브 프리뷰는 비운다. 단,
       // 서브에이전트(Task) child 텍스트(parentToolRunId)는 메인 스트리밍이 아니므로 메인
       // 라이브 프리뷰를 건드리지 않는다(우측 패널 child 트랜스크립트 전용).
-      dispatchTo(key, { type: 'RECV_EVENT', event: ev })
-      if (ev.parentToolRunId === undefined) {
-        patchLive(key, (live) => (live.text !== '' ? { ...live, text: '' } : live))
-      }
+      patchEntry(key, (entry) => {
+        const session = chatReducer(entry.session, { type: 'RECV_EVENT', event: ev })
+        const live =
+          ev.parentToolRunId === undefined && entry.live.text !== ''
+            ? { ...entry.live, text: '' }
+            : entry.live
+        return session === entry.session && live === entry.live
+          ? entry
+          : { ...entry, session, live }
+      })
       return
 
     case 'message.reasoning':
@@ -597,10 +589,17 @@ function receive(ev: NormalizedEvent): void {
 
     case 'telemetry': {
       // message.completed 없이 턴이 끝난 경우 잔여 라이브 텍스트를 text 파트로 굳힌다.
-      const leftover = getState().sessions[key]?.live.text ?? ''
-      if (leftover !== '') dispatchTo(key, { type: 'COMMIT_PENDING_TEXT', text: leftover })
-      dispatchTo(key, { type: 'RECV_EVENT', event: ev })
-      resetLive(key)
+      patchEntry(key, (entry) => {
+        const committed =
+          entry.live.text !== ''
+            ? chatReducer(entry.session, { type: 'COMMIT_PENDING_TEXT', text: entry.live.text })
+            : entry.session
+        const session = chatReducer(committed, { type: 'RECV_EVENT', event: ev })
+        const live = entry.live.text !== '' || entry.live.reasoning !== '' ? EMPTY_LIVE : entry.live
+        return session === entry.session && live === entry.live
+          ? entry
+          : { ...entry, session, live }
+      })
       if (!evSessionId || pendingFallback) releaseNewChatGate(key)
       return
     }
@@ -856,12 +855,10 @@ function removeExtraDir(dir: string): void {
 // 세션 id 가 발급되기 전(랜딩)의 활성 엔트리에만 리듀서를 적용한다. 확정된 세션은 무시 —
 // cwd·참조 경로는 세션 출생 시 고정이라 뒤늦은 수정이 main 과 어긋나면 안 된다.
 function patchPendingSession(apply: (session: ChatState) => ChatState): void {
-  setState((s) => {
-    const entry = s.sessions[s.activeKey]
-    if (!entry || entry.session.sessionId != null) return s
+  patchEntry(getState().activeKey, (entry) => {
+    if (entry.session.sessionId != null) return entry
     const session = apply(entry.session)
-    if (session === entry.session) return s
-    return { sessions: { ...s.sessions, [s.activeKey]: { ...entry, session } } }
+    return session === entry.session ? entry : { ...entry, session }
   })
 }
 

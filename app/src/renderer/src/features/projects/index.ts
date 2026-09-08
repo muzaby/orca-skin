@@ -1,4 +1,3 @@
-export { ProjectsProvider } from './providers/ProjectsProvider'
 export { projectsActions, useProjectsState } from './store/projectsStore'
 export { ProjectsView } from './components/ProjectsView'
 export { ProjectLandingHeader } from './components/ProjectLandingHeader'

@@ -1,4 +1,4 @@
-// 도넛 팝오버가 그릴 사용량 뷰 (0186) — page 레이어의 조립 훅.
+// 도넛 팝오버가 그릴 사용량 뷰 (0186) — 채팅 telemetry의 provider 선택 훅.
 //
 // **기준은 마지막 telemetry 시점의 provider** 다(사용자 결정: "Composer 가 보여주는 기준은 항상
 // 텔레메트리가 업데이트되는 시점"). 현재 선택 provider(`session.providerKey`)로 그리면 모델만
@@ -8,13 +8,14 @@
 // 그 사이에는 전역 뷰로 폴백한다 — 한도 섹션이 통째로 사라졌다 나타나며 팝오버 높이가 튀는
 // 것보다 낫다.
 //
-// page 레이어에 두는 이유: `features/chat`(세션 상태)과 `shared/stores/usageStore` 를 함께 읽는
-// 조립이라, 어느 feature 안에 두든 교차-feature 참조가 된다(renderer 4-layer 규칙).
-
 import { useEffect } from 'react'
-import { useChatSession } from '../features/chat'
-import type { UsageLimitsView } from '../../../shared/usage/limits'
-import { ensureProviderUsage, useGlobalUsage, useProviderUsage } from '../shared/stores/usageStore'
+import { useChatSession } from '../store/chatStore'
+import type { UsageLimitsView } from '../../../../../shared/usage/limits'
+import {
+  ensureProviderUsage,
+  useGlobalUsage,
+  useProviderUsage
+} from '../../../shared/stores/usageStore'
 
 export function useUsageForTelemetryProvider(): UsageLimitsView | null {
   const providerKey = useChatSession((s) => s.lastTelemetryProviderKey ?? null)

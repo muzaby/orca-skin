@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { ChatTile, Composer, useChatBusy, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
-import { useUsageForTelemetryProvider } from './useUsageForTelemetryProvider'
+import { useUsageForTelemetryProvider } from '../features/chat'
 import { useOpenSettings, providerTabId } from '../features/settings'
 import {
   ProjectInfoHero,

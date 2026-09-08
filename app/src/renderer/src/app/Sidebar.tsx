@@ -47,7 +47,10 @@ function SidebarImpl({
 }: SidebarProps): React.JSX.Element {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { t, setTweak } = useTweakContext()
+  const { t, setTweak } = useTweakContext((t) => ({
+    sidebarCollapsed: t.sidebarCollapsed,
+    sidebarWidth: t.sidebarWidth
+  }))
   const { tr } = useI18n()
 
   const collapsed = t.sidebarCollapsed

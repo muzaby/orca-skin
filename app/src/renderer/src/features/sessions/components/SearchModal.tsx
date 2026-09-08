@@ -7,14 +7,14 @@ import {
   type KeyboardEvent,
   type ReactNode
 } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Icon } from '../shared/ui/Icon'
-import { searchApi } from '../shared/api/ipc'
-import { useI18n } from '../shared/i18n'
-import type { SearchHit } from '../../../shared/ipc'
+import { Icon } from '../../../shared/ui/Icon'
+import { searchApi } from '../../../shared/api/ipc'
+import { useI18n } from '../../../shared/i18n'
+import type { SearchHit } from '../../../../../shared/ipc'
 
 interface SearchModalProps {
   onClose: () => void
+  onChoose: (sessionId: string) => void
 }
 
 const DEBOUNCE_MS = 150
@@ -24,7 +24,7 @@ const LIMIT = 30
 // open prop 은 없다 — unmount 가 곧 닫힘이고 state 자연 reset. 입력어는 150ms
 // debounce 후 main 의 FTS5 IPC 로 전달. 인플라이트 request id 시퀀스 비교로 stale
 // 응답을 폐기 — 빠르게 타이핑해도 마지막 응답만 반영.
-export function SearchModal({ onClose }: SearchModalProps): React.JSX.Element {
+export function SearchModal({ onClose, onChoose }: SearchModalProps): React.JSX.Element {
   const { tr } = useI18n()
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState<SearchHit[] | null>(null)
@@ -32,7 +32,6 @@ export function SearchModal({ onClose }: SearchModalProps): React.JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const reqSeqRef = useRef(0)
-  const navigate = useNavigate()
 
   // 입력어 변경 → debounce → IPC. 빈 입력일 땐 IPC skip; 렌더 측에서 query 가
   // empty 면 "검색어를 입력하세요" 분기로 가니 hits 잔존값은 화면에 노출되지 않는다.
@@ -70,10 +69,10 @@ export function SearchModal({ onClose }: SearchModalProps): React.JSX.Element {
 
   const goto = useCallback(
     (hit: SearchHit): void => {
-      navigate(`/chat/${hit.sessionId}`)
+      onChoose(hit.sessionId)
       onClose()
     },
-    [navigate, onClose]
+    [onChoose, onClose]
   )
 
   const onInputKey = (e: KeyboardEvent<HTMLInputElement>): void => {

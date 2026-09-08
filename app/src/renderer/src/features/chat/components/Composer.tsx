@@ -18,7 +18,7 @@ import {
   selectionExists,
   selectionLabel
 } from './composer/modelSelection'
-import { steerBlockedByProviderBoundary } from '../lib/steerGate'
+import { steerBlockedByProviderBoundary } from '../lib/sendAdmission'
 import { ConversationStatusLine } from './composer/ConversationStatusLine'
 import { Button } from '../../../shared/ui/Button'
 import { CwdPanel } from './CwdPanel'
@@ -55,7 +55,7 @@ interface ComposerProps {
   showScrollToBottom?: boolean
   onScrollToBottom?: () => void
   // 사용량 한도 뷰모델(도넛 팝오버). Main 이 완성한 뷰이고, page 가 마지막 telemetry 시점
-  // provider 의 것을 mirror 에서 읽어 주입한다(`pages/useUsageForTelemetryProvider.ts`).
+  // provider 의 것을 mirror 에서 읽어 주입한다(`hooks/useUsageForTelemetryProvider.ts`).
   usageLimits?: UsageLimitsView | null
   // 도넛 `사용량 한도 >` — 현재 세션 provider 서브탭 열기(providerKey 전달, page 가 배선).
   onOpenUsageSettings?: (providerKey?: string) => void

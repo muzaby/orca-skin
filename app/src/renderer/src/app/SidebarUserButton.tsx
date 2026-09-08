@@ -34,7 +34,7 @@ export function SidebarUserButton(): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const showSettings = useSettingsModalStore((s) => s.show)
-  const { t, setTweak } = useTweakContext()
+  const { t, setTweak } = useTweakContext((t) => ({ uiLocale: t.uiLocale }))
   const { tr } = useI18n()
   const closeMenu = (): void => {
     setMenuOpen(false)

@@ -2,7 +2,6 @@ import { BrowserRouter } from 'react-router-dom'
 import { TweakProvider } from './shared/theme'
 import { BackendProvider } from './features/backend'
 import { SessionsProvider } from './features/sessions'
-import { ProjectsProvider } from './features/projects'
 import { ChatProvider } from './features/chat'
 import { CostProvider } from './features/cost'
 import { UpdateProvider } from './features/update'
@@ -14,15 +13,13 @@ function App(): React.JSX.Element {
       <BrowserRouter>
         <BackendProvider>
           <SessionsProvider>
-            <ProjectsProvider>
-              <CostProvider>
-                <UpdateProvider>
-                  <ChatProvider>
-                    <RootGate />
-                  </ChatProvider>
-                </UpdateProvider>
-              </CostProvider>
-            </ProjectsProvider>
+            <CostProvider>
+              <UpdateProvider>
+                <ChatProvider>
+                  <RootGate />
+                </ChatProvider>
+              </UpdateProvider>
+            </CostProvider>
           </SessionsProvider>
         </BackendProvider>
       </BrowserRouter>
