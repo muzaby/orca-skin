@@ -105,9 +105,10 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh a5f62f4..fbaac3fc
 - plan이 인용한 기존 테스트 케이스 실제 존재: 확인. `net-request.test.ts` 12케이스는 `sendOnce`·`netFetch`·`createSender`·`BrowserSessionStore`를 **실제로 import**하고 electron만 emitter로 대체한다 — 동명 로컬 재구현이 아니다.
 - 핵심 입력/분기가 실제 실행됨: 확인. `bootstrap.shutdown.test.ts`는 `Bootstrap.prototype`의 실제 메서드를 호출한다.
 - structural proxy만으로 semantic 목표를 통과시킨 AC: **1건 있다** — D6(§13). `bootstrap.shutdown.test.ts:114`의 정규식 3줄 중 `this.registerTurnEvents(ctx, bus)` 행은 삭제는 잡고 **죽은 배선은 못 잡는다**.
-- **선택된 적대 증거 재측정**: 등록 변이 12건 재현 → **검출 12 · 미검출 0**. 일반 hunk 자동 확장 0.
+- **선택된 적대 증거 재측정**: 등록 변이 **12건**(M12는 두 지점이라 **13회 실행**) 재현 → **검출 13 · 미검출 0**. 일반 hunk 자동 확장 0.
 - **이전 라운드 대조**: 이전 검증 라운드 없음(첫 독립 검증). 덮개 회귀 판정 대상 0.
-- **자기검증 분모**: 구현자 ≠ 검증자. 그럼에도 구현 보고에 이름이 없는 축 **8건**을 만들었다(N1·N2·N2b·N2c·M2b·M4b·N3·N5·N8·N9·N10·N11 중 아래 표 참조).
+- **자기검증 분모**: 구현자 ≠ 검증자. 그럼에도 구현 보고에 이름이 없는 축 **14건**을 만들었다(M2b·M4b·N1·N2·N2b·N2c·N3·N4·N4b·N5·N8·N9·N10·N11) → **검출 13 · 미검출 1**(N11 → D1). 여기에 구조적 proxy 엄격화 2건(S1 미검출 → D6 · S2 검출)과 하네스 오탐 대조군 1건(N12)을 더했다.
+- **변이 합계 재측정**: 표 29행 = **30회 실행**(M12a·M12b 분리) · 검출 **27** · 미검출 **3**(N11 → D1 · S1 → D6 · N12는 의미 동등 대조군이라 미검출이 정답).
 
 | 변이 | 범위 | 이전 라운드 | 이번 라운드 | 귀속 |
 |---|---|---|---|---|
