@@ -7,13 +7,13 @@
 | slug | `0224-work-agent-layer` |
 | 작성자 | **Codex** |
 | 일자 | 2026-09-08 |
-| 상태 | **plan/READY — Codex r6 사용자 피드백 구현** |
+| 상태 | **impl/IMPL_DONE — Codex r6 자기확인 4/4, 독립 verify pending** |
 | 코드 조사 기준 | `04953cf781b8c967d4aaef3255752bb721bafeb0` |
 | V mode / revision | Delta V / ΔV6 — [r6 패널 계획](panel-plan-r6.md) |
 | 기준 V / 유효 V | V1 `51268488` / V1 + [ΔV2](panel-plan.md) + [ΔV3](panel-plan-r3.md) + [ΔV4](panel-plan-r4.md) + [ΔV5](panel-plan-r5.md) + [ΔV6](panel-plan-r6.md) |
 | 관련 작업 | 0205 Cowork 연구, 0223 게시 도구·작업 패널, 0214 OpenCode 연구 |
 
-현재 피드백은 [r6 패널 계획](panel-plan-r6.md)이 우선한다. 이 문서 본문은 V1 기준선이며 [r2 패널 계획](panel-plan.md)과 [r3 패널 계획](panel-plan-r3.md)의 대체되지 않은 결정·AC·V·강제 지점을 유지한다. Codex r5 자기확인은 [구현 보고 r5](impl-r5.md)에 기록했다. [r1 보고](impl.md)·[r2 보고](impl-r2.md)·[r3 보고](impl-r3.md)·[r4 보고](impl-r4.md)는 과거 증거이며 독립 verify는 미수행이다. 0223의 일반 생성물 기준과 미완료 상태는 이 핸드오프로 닫지 않는다.
+현재 피드백은 [r6 패널 계획](panel-plan-r6.md)이 우선한다. 이 문서 본문은 V1 기준선이며 [r2 패널 계획](panel-plan.md)과 [r3 패널 계획](panel-plan-r3.md)의 대체되지 않은 결정·AC·V·강제 지점을 유지한다. 현재 Codex 자기확인은 [구현 보고 r6](impl-r6.md)에 기록했다. [r5 보고](impl-r5.md)는 이전 라운드 증거다. [r1 보고](impl.md)·[r2 보고](impl-r2.md)·[r3 보고](impl-r3.md)·[r4 보고](impl-r4.md)는 과거 증거이며 독립 verify는 미수행이다. 0223의 일반 생성물 기준과 미완료 상태는 이 핸드오프로 닫지 않는다.
 
 # Part I — Product & UX Contract
 

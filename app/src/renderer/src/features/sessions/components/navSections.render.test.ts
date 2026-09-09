@@ -257,6 +257,7 @@ describe('r5 모든 채팅 구획의 모드 아이콘과 완료 색', () => {
     const icon = hidden('[data-context="session-agent-kind"]')
     expect(icon.attr('data-state')).toBe('unseen-complete')
     expect(icon.hasClass('text-selected')).toBe(true)
+    expect(icon.attr('class')).toContain('[&_svg]:[stroke-width:40]')
     expect(hidden('.text-selected')).toHaveLength(1)
     expect(hidden('[data-session-id]').hasClass('text-selected')).toBe(false)
 
@@ -265,6 +266,7 @@ describe('r5 모든 채팅 구획의 모드 아이콘과 완료 색', () => {
     )
     expect(open('[data-context="session-agent-kind"]').attr('data-state')).toBe('default')
     expect(open('.text-selected')).toHaveLength(0)
+    expect(open('[data-context="session-agent-kind"]').attr('class')).not.toContain('stroke-width')
     expect(open('[data-session-id]').text()).toBe('읽지 않은 작업')
   })
 

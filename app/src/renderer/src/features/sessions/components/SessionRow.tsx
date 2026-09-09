@@ -56,7 +56,7 @@ export const SessionRow = memo(function SessionRow({
       aria-label={tr(session.agentKind === 'work' ? 'chat.agent.work' : 'chat.agent.coding')}
       data-context="session-agent-kind"
       data-state={unseen && !isActive ? 'unseen-complete' : 'default'}
-      className={`inline-flex shrink-0 ${unseen && !isActive ? 'text-selected' : ''}`}
+      className={`inline-flex shrink-0 ${unseen && !isActive ? 'text-selected [&_svg]:stroke-current [&_svg]:[stroke-linejoin:round] [&_svg]:[stroke-width:40]' : ''}`}
     >
       <Icon name={leadingIcon} size={14} />
     </span>

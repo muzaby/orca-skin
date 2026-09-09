@@ -8,6 +8,7 @@ export function AgentModeToggle(): React.JSX.Element {
   const { tr } = useI18n()
   const kind = useChatSession((session) => session.agentKind)
   const locked = useChatSession((session) => session.agentKindLocked || session.sessionId != null)
+  const separatorClass = 'px-2 font-sans text-[32px] font-bold leading-none text-ink2'
   return (
     <div className="mb-4 flex flex-col items-center gap-g6">
       <div
@@ -16,17 +17,13 @@ export function AgentModeToggle(): React.JSX.Element {
         aria-label={tr('chat.agent.choose')}
         className="flex items-center gap-1 px-3 py-1"
       >
-        <span aria-hidden="true" data-agent-mode-chevron="left" className="text-ink3">
-          <Icon name="chevR" size={28} className="rotate-180" />
+        <span aria-hidden="true" data-agent-mode-chevron="left" className={separatorClass}>
+          {'<'}
         </span>
         {(['work', 'coding'] as const).map((option) => (
           <span key={option} className="flex items-center gap-1">
             {option === 'coding' && (
-              <span
-                aria-hidden="true"
-                data-agent-mode-separator="true"
-                className="px-2 text-[32px] font-bold leading-none text-ink2"
-              >
+              <span aria-hidden="true" data-agent-mode-separator="true" className={separatorClass}>
                 /
               </span>
             )}
@@ -47,8 +44,8 @@ export function AgentModeToggle(): React.JSX.Element {
             </Button>
           </span>
         ))}
-        <span aria-hidden="true" data-agent-mode-chevron="right" className="text-ink3">
-          <Icon name="chevR" size={28} />
+        <span aria-hidden="true" data-agent-mode-chevron="right" className={separatorClass}>
+          {'>'}
         </span>
       </div>
       <h1

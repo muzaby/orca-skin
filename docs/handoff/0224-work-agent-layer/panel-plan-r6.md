@@ -1,6 +1,6 @@
 # Plan r6 — 랜딩 Git 캐시와 권한 메뉴 보완
 
-작성: **Codex**, 2026-09-09. 상태: **plan/READY**. 기준은 원격 `39a37c20`의 V1~ΔV5이며 이번 사용자 피드백을 **ΔV6**로 적용한다. 사용자 지시에 따라 handoff-review는 사용하지 않는다.
+작성: **Codex**, 2026-09-09. 상태: **impl/IMPL_DONE**, Codex 자기확인 **4/4**. [구현 보고 r6](impl-r6.md), 독립 verify pending. 기준은 원격 `39a37c20`의 V1~ΔV5이며 이번 사용자 피드백을 **ΔV6**로 적용한다. 사용자 지시에 따라 handoff-review는 사용하지 않는다.
 
 ## Part I — Product & UX Contract
 
@@ -61,7 +61,7 @@ Q-R5-01의 Work 전송 시 worktree 적용 정책은 이번에도 변경하지 �
 | EP1 | 2 — SessionRow 완료 SVG·열람 복원 | 색만 변경/모든 아이콘 굵기 변경 |
 | EP2 | 3 — 공용 Toggle·새 랜딩·프로젝트 랜딩 | 문자 폰트 불일치/한 페이지 누락 |
 | EP3 | 5 — CwdPanel mount/hidden·조회 시작/캐시·pending 응답/수명·초기 placeholder/비Git·checkout/유예 | Work 선조회/응답 유실·중복/잘못된 cwd·기존 선택 회귀 |
-| EP4 | 5 — Main discovery 가족 분류· 선택 카탈로그 shape·custom/불명 후보·공유 버전 판별·두 모드 실제 메뉴 | canonical 이름 custom 허용·옛 버전 노출·지원 모델도 숨김 |
+| EP4 | 5 — Main discovery 계열 분류·선택 카탈로그 shape·custom/불명 후보·공유 버전 판별·두 모드 실제 메뉴 | canonical 이름 custom 허용·옛 버전 노출·지원 모델도 숨김 |
 | EP5 | 4 — r6 계획/root·INDEX/r5 대체 링크·보고/증거·현재 rendering 문서/trailer | 상태/결정 불일치 |
 
 영향 Vitest와 기존 renderer 회귀, node/web/test 타입, 전체 lint, production build, 실제 Windows Chromium의 대상 동작 인수, inventory/prose/links·diff·trailer 파싱을 수행한다. Electron SQLite ABI와 사용자 데이터는 유지한다.

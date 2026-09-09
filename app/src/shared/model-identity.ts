@@ -33,15 +33,20 @@ export function sameModelIdentity(a: ModelIdentityInput, b: ModelIdentityInput):
   return modelIdentity(a) === modelIdentity(b)
 }
 
+// Discovery 분류와 권한 판정이 같은 계열을 인식한다. 기본 alias 목록과는 별개다.
+export const CLAUDE_MODEL_FAMILIES = ['sonnet', 'opus', 'haiku', 'fable'] as const
+
+const AUTO_PERMISSION_MODEL_PATTERN = new RegExp(
+  String.raw`^(?:(?:(?:us|eu|apac|global)\.)?anthropic[./])?claude-(?:${CLAUDE_MODEL_FAMILIES.join('|')})-(\d+)(?:[.-](\d{1,2}))?(?:-\d{8})?(?:-v\d+(?::\d+)?)?$`,
+  'i'
+)
+
 // 자동 승인은 명시적으로 버전을 아는 Claude만 허용한다. alias/커스텀 provider 이름을
 // 최신 모델의 증거로 사용하지 않는다. 날짜 접미사는 minor 버전이 아니다.
 export function supportsAutoPermission(modelName: string | null | undefined): boolean {
   if (!modelName) return false
   const name = modelName.trim().replace(/\[1m\]$/i, '')
-  const match =
-    /^(?:(?:(?:us|eu|apac|global)\.)?anthropic[./])?claude-(?:sonnet|opus|haiku)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?(?:-v\d+(?::\d+)?)?$/i.exec(
-      name
-    )
+  const match = AUTO_PERMISSION_MODEL_PATTERN.exec(name)
   if (!match) return false
   const major = Number(match[1])
   const minor = Number(match[2] ?? '0')

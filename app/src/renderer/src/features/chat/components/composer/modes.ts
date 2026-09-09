@@ -73,11 +73,15 @@ const WORK_MODE_OPTIONS: ModeOption[] = [
 ]
 
 export function modeMenuOptions(
-  model: { alias: string; model: string | null } | null,
+  model: { alias: string; model: string | null; isCustom?: boolean } | null,
   kind: AgentKind = 'coding'
 ): ModeOption[] {
   const options = kind === 'work' ? WORK_MODE_OPTIONS : MODE_MENU_OPTIONS
-  return options.filter((option) => coercePermissionMode(option.mode, model, kind) === option.mode)
+  return options.filter((option) =>
+    option.mode === 'auto_classified' && (model?.isCustom || model?.alias === 'custom')
+      ? false
+      : coercePermissionMode(option.mode, model, kind) === option.mode
+  )
 }
 
 export function permissionModeLabelKey(

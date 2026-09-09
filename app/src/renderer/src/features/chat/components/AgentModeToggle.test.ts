@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AgentModeToggle } from './AgentModeToggle'
 import { agentPresentation } from '../lib/agentPresentation'
+import { load } from 'cheerio'
 const harness = vi.hoisted(() => ({
   state: { agentKind: 'coding', agentKindLocked: false, sessionId: null as string | null },
   select: vi.fn(),
@@ -23,6 +24,13 @@ vi.mock('../../../shared/ui/Button', () => ({
   }
 }))
 describe('actual draft mode toggle', () => {
+  it('renders all three separators as the same font characters', () => {
+    const $ = load(renderToStaticMarkup(createElement(AgentModeToggle)))
+    const marks = $('[data-agent-mode-chevron], [data-agent-mode-separator]')
+    expect(marks.toArray().map((el) => $(el).text())).toEqual(['<', '/', '>'])
+    expect(new Set(marks.toArray().map((el) => $(el).attr('class'))).size).toBe(1)
+    expect(marks.find('svg')).toHaveLength(0)
+  })
   beforeEach(() => {
     harness.buttons = []
     harness.select.mockClear()

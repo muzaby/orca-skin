@@ -14,9 +14,13 @@
 // 순수 함수 — fs 비의존, vitest 대상.
 
 import { isRecord } from '../../../../shared/obj'
-import { modelIdentity, sameModelIdentity } from '../../../../shared/model-identity'
+import {
+  CLAUDE_MODEL_FAMILIES,
+  modelIdentity,
+  sameModelIdentity
+} from '../../../../shared/model-identity'
 
-// Claude 모델 family — 노출 순서이자 discovery 분류 순서. 폴백 평가 순서는 아래 별도 상수다.
+// settings의 기본 alias 노출 순서. Discovery 계열 분류는 shared 목록을 사용한다.
 const FAMILY_ORDER = ['sonnet', 'opus', 'haiku'] as const
 const DEFAULT_FAMILY_ORDER = ['sonnet', 'haiku', 'opus'] as const
 
@@ -148,7 +152,7 @@ export function explicitModelOf(raw: unknown): ExplicitModel | undefined {
 // 모델명 → 노출 항목. family 이름이 부분문자열로 들어있으면 그 alias, 없으면 custom.
 function classifyModel(model: string, oneMillion: boolean): ParsedModel {
   const lower = model.toLowerCase()
-  const family = FAMILY_ORDER.find((candidate) => lower.includes(candidate))
+  const family = CLAUDE_MODEL_FAMILIES.find((candidate) => lower.includes(candidate))
   return {
     alias: family ?? 'custom',
     model,

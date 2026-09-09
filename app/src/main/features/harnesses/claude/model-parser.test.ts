@@ -386,3 +386,15 @@ describe('withExplicitModel — 명시 모델 편입 (AT-05·AT-06 · D-005)', (
     expect(withExplicitModel(base, explicitModelOf('   '))).toBe(base)
   })
 })
+describe('r6 Fable discovery classification', () => {
+  it.each(['claude-fable-4.6', 'claude-fable-4-6'])(
+    'classifies %s without inventing a default alias',
+    (model) => {
+      const rows = parseClaudeModels({ env: { ANTHROPIC_MODEL: model } })
+      expect(rows).toEqual([
+        expect.objectContaining({ alias: 'fable', model, isCustom: false, isDefault: true })
+      ])
+      expect(parseClaudeModels({}).map((row) => row.alias)).not.toContain('fable')
+    }
+  )
+})

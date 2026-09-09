@@ -62,16 +62,16 @@ export function selectionLabel(selection: ModelSelection | null): string | null 
 // 선택된 모델의 계열 형상 — 권한 모드 가부 판정의 입력(0215 D-009·D-011).
 //
 // 카탈로그를 아는 renderer 만 alias 축을 볼 수 있다. main 은 SDK 모델 문자열만 갖는다.
-// `null` = 아직 선택 없음 → 호출부는 제약 없는 기본 목록을 쓴다.
+// `null` = 아직 선택 없음 → 자동 승인 후보를 제공하지 않는다.
 export function selectedModelShape(
   agents: AgentEnvironment[],
   selection: ModelSelection | null
-): { alias: string; model: string | null } | null {
+): { alias: string; model: string | null; isCustom: boolean } | null {
   if (!selection?.modelFamily) return null
   const agent = agents.find((a) => a.key === selection.providerKey)
   const model = agent?.models.find((m) => modelKey(m) === selection.modelFamily)
-  if (model) return { alias: model.alias, model: model.model }
-  // 카탈로그에서 못 찾으면(하이드레이션 지연·기여 회수) 선택값이 들고 있는 것만으로 판정한다 —
-  // 판정 불가를 "제약 없음" 으로 흘리면 지원하지 않는 모드가 열린다.
-  return { alias: selection.modelAlias ?? '', model: selection.modelFamily }
+  if (model) return { alias: model.alias, model: model.model, isCustom: model.isCustom }
+  // 카탈로그에서 못 찾으면(하이드레이션 지연·기여 회수) custom 여부도 확인할 수 없다.
+  // 선택 문자열만으로 지원을 추측하지 않고 미확정으로 돌려준다.
+  return null
 }

@@ -1,5 +1,27 @@
 import { describe, expect, it } from 'vitest'
-import { modelIdentity, sameModelIdentity } from './model-identity'
+import { modelIdentity, sameModelIdentity, supportsAutoPermission } from './model-identity'
+
+describe('r6 Claude family and dotted/hyphenated version', () => {
+  for (const family of ['haiku', 'sonnet', 'opus', 'fable']) {
+    it.each(['4.6', '4-6', '5', '4.6[1m]', '4-6-20260909'])(
+      `${family} %s supports auto`,
+      (version) => {
+        expect(supportsAutoPermission(`claude-${family}-${version}`)).toBe(true)
+      }
+    )
+    it.each(['4.5', '4-5', '4', '4.1', '4-20250514'])(`${family} %s excludes auto`, (version) => {
+      expect(supportsAutoPermission(`claude-${family}-${version}`)).toBe(false)
+    })
+  }
+  it.each([
+    'custom-fable-4.6',
+    'claude-unknown-4.6',
+    'claude-fable-4.6-extra',
+    'claude-fable-4.6.1'
+  ])('rejects unconfirmed name %s', (name) => {
+    expect(supportsAutoPermission(name)).toBe(false)
+  })
+})
 
 // 0215 VP-15 (MD-03 ↔ UT) — 식별자·계열 판정의 단일 규칙.
 describe('modelIdentity — 선택 식별자 = SDK 모델 문자열 (AT-09)', () => {

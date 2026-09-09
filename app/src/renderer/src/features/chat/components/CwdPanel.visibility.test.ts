@@ -62,7 +62,16 @@ describe('landing branch and worktree visibility', () => {
     expect(coding.match(/<input[^>]*>/)?.[0]).toContain('checked=""')
   })
 
-  it.each([null, { ...repo, isRepo: false }])(
+  it('renders a disabled dash immediately before the Git response', () => {
+    const html = render()
+    expect(html).toContain('branch-worktree-group')
+    expect(html).toContain('>-<')
+    expect(
+      html.match(/<button[^>]*title="chat.composer.branchTitle"[^>]*>/)?.[0] ?? html
+    ).toContain('disabled')
+  })
+
+  it.each([{ ...repo, isRepo: false }])(
     'hides the entire group without a confirmed Git repository: %j',
     (status) => {
       fixture.status = status
