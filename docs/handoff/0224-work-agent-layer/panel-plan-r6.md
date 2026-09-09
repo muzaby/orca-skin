@@ -12,11 +12,12 @@
 | D-042 | 랜딩의 `<`, `/`, `>`는 같은 폰트·크기·굵기로 표시한다. Hero normal과 아이콘 크기·배치는 유지한다. | D-033 보완, SVG 꺾쇠를 문자로 대체 |
 | D-043 | Git 조회는 Coding에서 시작한다. Work로 전환해도 진행 중인 응답과 결과를 유지하고 같은 cwd의 Coding 복귀는 캐시를 즉시 표시한다. | 최종 사용자 정정. D-034의 unmount/조회 취소 대체 |
 | D-044 | Coding의 cwd가 있으면 초기 브랜치 확인 중 `-`를 즉시 표시한다. 확인된 non-Git/실패는 그룹을 숨기고, Git이면 실제 브랜치 또는 detached 라벨을 표시한다. | 지연 mount 대체. Work는 그룹이 없어 add-dir가 빈자리 없이 당겨짐 |
+| D-046 | 모델 계열은 haiku·sonnet·opus·fable을 인식하며 버전 구분자는 점과 하이픈을 모두 허용한다. 모델 discovery 분류와 자동 승인 판정에 같은 계열 목록을 사용한다. | 최신 사용자 보완. 4.6/4-6 동일 의미, 기본 alias/env 추가는 아님 |
 | D-045 | 두 모드의 자동 승인 메뉴는 확인된 비커스텀 Claude 4.6 이상에만 표시한다. 4.5 이하·custom·모델 미확정은 메뉴에서 제외한다. | r4 정책을 실제 선택 카탈로그/메뉴 경로에서 보완 |
 
 사용자는 “Git 조회는 코딩 트리거시 동작”, “그 순간 work 트리거시에도 결과는 갖고있어야 함”, “캐싱되어 coding으로 다시 트리거시 바로 출력”으로 최초 질의를 정정했다. 따라서 Work 최초 진입은 조회하지 않지만 Coding에서 시작한 조회를 Work 전환으로 취소하지 않는다. cwd 변경 시 다른 폴더의 브랜치를 표시하지 않으며 명시 checkout 이후에는 갱신한다.
 
-Q-R5-01의 Work 전송 시 worktree 적용 정책은 이번에도 변경하지 않는다. 변경은 표시·조회 수명과 권한 메뉴 후보이며 provider 실행 정책·Main 계약·DB·의존성을 확대하지 않는다.
+Q-R5-01의 Work 전송 시 worktree 적용 정책은 이번에도 변경하지 않는다. 변경은 표시·조회 수명과 권한 메뉴 후보이며 Main의 기존 모델 discovery 분류와 공용 버전 판정은 최신 요청에 맞춰 확장한다. 새 provider·env key·IPC·DB·의존성은 추가하지 않는다.
 
 ### 2. 인수 기준
 
@@ -25,7 +26,7 @@ Q-R5-01의 Work 전송 시 worktree 적용 정책은 이번에도 변경하지 �
 | AC-R6-1 | 미확인 완료 SVG가 파랗고 굵으며 열면 둘 다 복원 | SessionRow→Icon, 실제 SVG computed style·기존 완료 store 회귀 |
 | AC-R6-2 | 세 문자의 font family/size/weight 일치, 기존 토글·Hero 정상 | 공용 AgentModeToggle→두 랜딩, DOM/style/click |
 | AC-R6-3 | 첫 Work 조회 0, Coding 초기 `-`, Work 전환 중 응답 보존, Coding 복귀 즉시 캐시/중복 조회 0 | CwdPanel→BranchChip→지연 gitApi.status, cwd 교체/실패/nonrepo/detached 대조 |
-| AC-R6-4 | Haiku/Sonnet/Opus 버전 경계·custom·미확정의 메뉴 제외, 4.6 이상 양성, Work/Coding 동일 적용 | selectedModelShape→modeMenuOptions→실제 ModeMenu, 실제 Composer 경로/native |
+| AC-R6-4 | Haiku/Sonnet/Opus/Fable의 점·하이픈 버전 경계·custom·미확정의 메뉴 제외, 4.6 이상 양성, Work/Coding 동일 적용 | selectedModelShape→modeMenuOptions→실제 ModeMenu, 실제 Composer 경로/native |
 
 ## Part II — Technical Design
 
@@ -60,11 +61,11 @@ Q-R5-01의 Work 전송 시 worktree 적용 정책은 이번에도 변경하지 �
 | EP1 | 2 — SessionRow 완료 SVG·열람 복원 | 색만 변경/모든 아이콘 굵기 변경 |
 | EP2 | 3 — 공용 Toggle·새 랜딩·프로젝트 랜딩 | 문자 폰트 불일치/한 페이지 누락 |
 | EP3 | 5 — CwdPanel mount/hidden·조회 시작/캐시·pending 응답/수명·초기 placeholder/비Git·checkout/유예 | Work 선조회/응답 유실·중복/잘못된 cwd·기존 선택 회귀 |
-| EP4 | 4 — 선택 카탈로그 shape·custom/불명 후보·공유 버전 판별·두 모드 실제 메뉴 | canonical 이름 custom 허용·옛 버전 노출·지원 모델도 숨김 |
+| EP4 | 5 — Main discovery 가족 분류· 선택 카탈로그 shape·custom/불명 후보·공유 버전 판별·두 모드 실제 메뉴 | canonical 이름 custom 허용·옛 버전 노출·지원 모델도 숨김 |
 | EP5 | 4 — r6 계획/root·INDEX/r5 대체 링크·보고/증거·현재 rendering 문서/trailer | 상태/결정 불일치 |
 
 영향 Vitest와 기존 renderer 회귀, node/web/test 타입, 전체 lint, production build, 실제 Windows Chromium의 대상 동작 인수, inventory/prose/links·diff·trailer 파싱을 수행한다. Electron SQLite ABI와 사용자 데이터는 유지한다.
 
 ### 11. READY 대조
 
-D-041→AC1, D-042→AC2, D-043/044→AC3, D-045→AC4를 대조해 충돌 0이다. 마지막 Git 정정이 조회 수명과 캐시 oracle에 반영됐고 r5의 Work 조회 0은 최초 진입에만 남는다. 원격 r5의 완료 표시는 색만, 꺾쇠는 SVG, BranchChip은 조건부 mount, 모델 shape는 isCustom 누락임을 코드에서 확인했다.
+D-041→AC1, D-042→AC2, D-043/044→AC3, D-045/046→AC4를 대조해 충돌 0이다. 마지막 Git 정정이 조회 수명과 캐시 oracle에 반영됐고 r5의 Work 조회 0은 최초 진입에만 남는다. 원격 r5의 완료 표시는 색만, 꺾쇠는 SVG, BranchChip은 조건부 mount, 모델 shape는 isCustom 누락임을 코드에서 확인했다.
