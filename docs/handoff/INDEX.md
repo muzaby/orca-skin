@@ -21,6 +21,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
+| [`0225-orcinus-orca-naming`](0225-orcinus-orca-naming/plan.md) | plan | **READY** | **Codex** | `(V1 설계 — 검증자 기입)` | 1 | Claude 작성. 제품명·경로·내부 파일명을 `orcinus-orca` 축으로 분리 + 기존 데이터 1회 이관. 사용자 결정 3건 확정 — appId 변경(구버전 수동 제거 안내) · 전체 이관 + `git worktree repair` · 플러그인 이름 함께 변경. Baseline V1: R 14 · pair 14 · 강제 지점 13. 상세는 [`plan.md`](0225-orcinus-orca-naming/plan.md). |
 | [`0224-work-agent-layer`](0224-work-agent-layer/plan.md) | impl | **IMPL_DONE** | **Claude (verify)** | `(r7 구현 — 검증자 기입)` | 7 | Codex 작성. [ΔV7](0224-work-agent-layer/panel-plan-r7.md): 모델명 변형, Work 권한 버튼 라벨과 출력 간격. [Codex 보고](0224-work-agent-layer/impl-r7.md) 3/3, 독립 verify pending. |
 | [`0223-artifact-publisher`](0223-artifact-publisher/plan.md) | plan | **DRAFT** (일반 생성물 Q-04) | **Codex** | `e520d1f6` (V1 설계) · `(r2 구현 — 검증자 기입)` | 2 | Codex 작성. 세 섹션 복원·독립 산출물 타일 제거·카드 정리 완료. [UI 보고](0223-artifact-publisher/ui-impl.md): 영향 129개·타입·린트·빌드 통과. 일반 생성물 등록 기준 답변 대기, 기존 모델/native 인수 미완료 유지. |
 | [`0218-simplify-200-217-cleanup`](0218-simplify-200-217-cleanup/plan.md) | verify | **PASS** (r2) | **사람** (PR #436 머지 판단) | `5d0806e0`(설계) · `90096390`(r1) · `380d9f25`(r1 검증) · `6c2c6659`(r2) | 2 | **r2 검증 = PASS** — 판정 원문은 [`verify.md`](0218-simplify-200-217-cleanup/verify.md). r2 범위 5건(D9·A3·A4·A5·I-05) 전부 닫힘, 차집합 **새 red 0**. I-05(테스트 하네스 경쟁) 해소로 게이트가 결정적이 됐다(5회 연속 green). 광택 7건·`needs_decision` 6건은 `NEXT_HANDOFF`. |
