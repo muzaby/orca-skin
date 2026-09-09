@@ -1,6 +1,6 @@
 # Plan r8 — Work / Code 명시적 정책과 조립
 
-작성: **Codex**, 2026-09-09. 상태: **impl/IMPL_DONE**. Codex 자기확인과 증거는 [구현 보고 r8](impl-r8.md)에 있으며 독립 verify는 pending이다. 설계 기준은 `4e9e51fa`의 READY 문서다. 사용자가 [구조 진단](structural-diagnosis.md) 이후 “Plan 문서를 업데이트하고 구현을 이행하라”고 지시했다. 기준은 `0c24aaa2`의 V1~ΔV7이며 이번 변경은 **ΔV8**이다. 기존 사용자 지시에 따라 handoff-review는 사용하지 않는다.
+작성: **Codex**, 2026-09-09. 상태: **verify/PASS**. Codex 자기확인과 증거는 [구현 보고 r8](impl-r8.md)에, 독립 검증 판정은 [verify.md](verify.md)에 있다. 설계 기준은 `4e9e51fa`의 READY 문서다. 사용자가 [구조 진단](structural-diagnosis.md) 이후 “Plan 문서를 업데이트하고 구현을 이행하라”고 지시했다. 기준은 `0c24aaa2`의 V1~ΔV7이며 이번 변경은 **ΔV8**이다. 기존 사용자 지시에 따라 handoff-review는 사용하지 않는다.
 
 ## Part I — Product & UX Contract
 

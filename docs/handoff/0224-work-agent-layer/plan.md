@@ -7,7 +7,7 @@
 | slug | `0224-work-agent-layer` |
 | 작성자 | **Codex** |
 | 일자 | 2026-09-08 |
-| 상태 | **impl/IMPL_DONE — Codex r8 구조 리팩토링** |
+| 상태 | **verify/PASS (r8) — 판정 원문은 [`verify.md`](verify.md)** |
 | 코드 조사 기준 | `04953cf781b8c967d4aaef3255752bb721bafeb0` |
 | V mode / revision | Delta V / ΔV8 — [r8 구조 계획](structural-plan-r8.md) |
 | 기준 V / 유효 V | V1 `51268488` / V1 + [ΔV2](panel-plan.md) + [ΔV3](panel-plan-r3.md) + [ΔV4](panel-plan-r4.md) + [ΔV5](panel-plan-r5.md) + [ΔV6](panel-plan-r6.md) + [ΔV7](panel-plan-r7.md) + [ΔV8](structural-plan-r8.md) |
@@ -561,4 +561,16 @@ Work projection은 전체 세션을 다시 평탄화하지 않고 기존 virtual
 
 ## [검증자 기입] 파생 이슈
 
-아직 없음. Codex 자기확인은 독립 verify가 아니다.
+**r8 검증 = PASS.** 판정·증거 원문은 [`verify.md`](verify.md)다. 아래는 현재 PASS를 막지 않는 7건이며 전부 `NON_BLOCKING`이다.
+
+| # | finding | 귀속 | 후속 |
+|---|---|---|---|
+| D1 | `SessionInsert.agentKind`가 optional이고 `queries.ts:386`이 `?? DEFAULT_AGENT_KIND`를 적용한다 | D-052 인접 | 필수 필드로 좁히면 write 축까지 닫힌다 |
+| D2 | `parseAgentKind` 8지점 중 `chatStore.ts:1817`·`bootstrap.ts:934`는 테스트가 잠그지 않는다 | EP-1 | 두 입력이 canonical이라 등가 변이다 |
+| D3 | `docs/arch/backend/persistence.md:87`이 이행을 "후속 컬럼 migration"으로 적는다 | EP-7 | 0023이 수행했다고 바꾸면 단독으로 읽힌다 |
+| D4 | `[구현자 기입]`이 r1·r2만 담고 r3~r8은 `impl-rN.md`에만 있다 | EP-7 | plan 메타 링크로 증거는 살아 있다 |
+| D5 | native fixture `panel:code:retained-dom-scroll-focus`가 Linux/Xvfb에서 red다 | AC-R8-5 | 전이 중 10px 카드 높이를 읽은 샘플링 문제다(verify §13) |
+| D6 | `rightPanelTiles.ts:50` `isRightPanelTileId` 참조 0 | 비귀속 | `d542bfc` 산출이며 r8 무관이다 |
+| D7 | `check-migrations-appendonly.mjs`가 태그 부재로 git 이력 비교를 skip했다 | 환경 | `git log`로 0022 미변경을 대신 확인했다 |
+
+남은 사람 실기 2건은 verify §8에 있다 — 기존 DB 첫 부팅과 Windows 실물 창 시각 확인이다.
