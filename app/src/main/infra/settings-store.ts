@@ -15,6 +15,7 @@ import {
 } from '../../shared/protocol'
 import { migrateRawSettings } from './settings-migration'
 import { assertValidCron } from './cron'
+import { PRODUCT_SLUG } from '../../shared/product'
 
 type Raw = Record<string, unknown>
 
@@ -39,7 +40,7 @@ export class SettingsStore {
     this.store =
       backend ??
       new Store<Raw>({
-        name: 'orca-settings',
+        name: `${PRODUCT_SLUG}-settings`,
         defaults: SettingsSchema.parse({}) as Raw
       })
   }

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mkdtempSync } from 'node:fs'
 import { seedBuiltinSkills } from './seed'
+import { PRODUCT_SLUG } from '../../../../shared/product'
 
 let root: string
 let builtinDir: string
@@ -37,7 +38,7 @@ function sourceSkill(name: string, body = `# ${name}`): void {
 }
 
 function marker(): { version: string; skills: string[]; at: number } {
-  return JSON.parse(readFileSync(join(skillsDir, '.orca-builtin.json'), 'utf8'))
+  return JSON.parse(readFileSync(join(skillsDir, `.${PRODUCT_SLUG}-builtin.json`), 'utf8'))
 }
 
 describe('seedBuiltinSkills', () => {
@@ -82,13 +83,13 @@ describe('seedBuiltinSkills', () => {
     builtinSkill('demo', '# bundled')
     await seedBuiltinSkills(builtinDir, skillsDir)
     write(join(skillsDir, 'demo', 'USER.md'), 'user edit')
-    const before = statSync(join(skillsDir, '.orca-builtin.json')).mtimeMs
+    const before = statSync(join(skillsDir, `.${PRODUCT_SLUG}-builtin.json`)).mtimeMs
 
     const result = await seedBuiltinSkills(builtinDir, skillsDir)
 
     expect(result).toEqual({ seeded: [], pruned: [], skipped: true, version: '1.0.0' })
     expect(readFileSync(join(skillsDir, 'demo', 'USER.md'), 'utf8')).toBe('user edit')
-    expect(statSync(join(skillsDir, '.orca-builtin.json')).mtimeMs).toBe(before)
+    expect(statSync(join(skillsDir, `.${PRODUCT_SLUG}-builtin.json`)).mtimeMs).toBe(before)
   })
 
   it('사용자가 만든 non-builtin skill 디렉토리는 버전 업과 prune 에서 보존한다', async () => {
@@ -136,20 +137,20 @@ describe('seedBuiltinSkills', () => {
     manifest('1.0.0', [])
 
     const first = await seedBuiltinSkills(builtinDir, skillsDir)
-    const before = statSync(join(skillsDir, '.orca-builtin.json')).mtimeMs
+    const before = statSync(join(skillsDir, `.${PRODUCT_SLUG}-builtin.json`)).mtimeMs
     const second = await seedBuiltinSkills(builtinDir, skillsDir)
 
     expect(first).toEqual({ seeded: [], pruned: [], skipped: false, version: '1.0.0' })
     expect(marker()).toMatchObject({ version: '1.0.0', skills: [] })
     expect(second).toEqual({ seeded: [], pruned: [], skipped: true, version: '1.0.0' })
-    expect(statSync(join(skillsDir, '.orca-builtin.json')).mtimeMs).toBe(before)
+    expect(statSync(join(skillsDir, `.${PRODUCT_SLUG}-builtin.json`)).mtimeMs).toBe(before)
   })
 
   it('marker 의 비안전 이름은 prune 하지 않는다', async () => {
     manifest('1.0.0', [])
     mkdirSync(skillsDir, { recursive: true })
     writeFileSync(
-      join(skillsDir, '.orca-builtin.json'),
+      join(skillsDir, `.${PRODUCT_SLUG}-builtin.json`),
       JSON.stringify({ version: '0.9.0', skills: ['../outside', 'safe'] }),
       'utf8'
     )

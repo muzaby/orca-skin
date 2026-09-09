@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest'
 import { cwdDisplayName, repoDisplayName } from './worktreeDisplay'
 
 // 0210 D-104 의 실제 경로 형태 — `<repo>-<hash8>/<브랜치 slug>`.
-const WORKTREE_ROOT = '/home/u/.config/orca/worktrees/orca-skin-1a2b3c4d/work-list-filter'
+const WORKTREE_ROOT = '/home/u/.config/orcinus-orca/worktrees/orca-skin-1a2b3c4d/work-list-filter'
 const SOURCE_REPO = '/home/u/proj/orca-skin'
 
 describe('작업 경로 버튼 라벨 (VP-04)', () => {

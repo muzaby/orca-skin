@@ -10,6 +10,7 @@
 
 import Store from 'electron-store'
 import type { Grant } from '../../contracts/auth'
+import { PRODUCT_SLUG } from '../../../shared/product'
 import type { GrantPersistencePort, PersistenceLoad } from './store'
 import type { OAuthStatePersistencePort, PendingAuthorization } from './oauth'
 import {
@@ -20,7 +21,7 @@ import {
 } from './store-parse'
 
 // 한 번 정하면 유지한다 — 사용자 디스크에 남고 다음 버전이 읽는다.
-const STORE_NAME = 'orca-provider-grants'
+const STORE_NAME = `${PRODUCT_SLUG}-provider-grants`
 const RECORDS_KEY = 'grants'
 
 // ── OAuth 인가 pending (0181 AC4) ─────────────────────────────────────────────
@@ -29,7 +30,7 @@ const RECORDS_KEY = 'grants'
 // 재시작되면 메모리의 state·verifier 가 사라져 돌아온 콜백을 대조할 수 없다 — 대조 실패는
 // 곧 로그인 실패다. grant 와 **다른 파일**에 두는 이유는 수명이 다르기 때문이다(인가 pending 은
 // 분 단위, grant 는 재로그인까지).
-const OAUTH_STORE_NAME = 'orca-provider-oauth'
+const OAUTH_STORE_NAME = `${PRODUCT_SLUG}-provider-oauth`
 const PENDING_KEY = 'pending'
 
 // ── 파일 어댑터 ───────────────────────────────────────────────────────────────

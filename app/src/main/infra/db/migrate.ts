@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, statSync, statfsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type Database from 'better-sqlite3'
 import { getLogger } from '../log/registry'
+import { PRODUCT_SLUG } from '../../../shared/product'
 import migration0001 from './migrations/0001_initial.sql?raw'
 import migration0002 from './migrations/0002_projects.sql?raw'
 import migration0003 from './migrations/0003_messages_fts.sql?raw'
@@ -134,7 +135,7 @@ export function createMigrationBackup(
   assertEnoughFreeSpace(backupDir, requiredFreeBytes(options.databasePath, options.minFreeBytes))
   const backupPath = join(
     backupDir,
-    `orca.db.backup.before-${safeVersion(options.appVersion)}.${timestampForFilename(
+    `${PRODUCT_SLUG}.db.backup.before-${safeVersion(options.appVersion)}.${timestampForFilename(
       options.now?.() ?? new Date()
     )}`
   )

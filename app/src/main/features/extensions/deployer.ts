@@ -4,11 +4,11 @@
 //
 // claude 축별 동작:
 //   instructions : AGENTS.md 는 런타임 systemPromptAppend 로 주입(ExtensionBuilder) → dist 파일 미생성(중립).
-//   skills : sources/skills → dist/<engine>/plugins/orca/skills 로 **복사**(Claude plugin 패키지).
+//   skills : sources/skills → dist/<engine>/plugins/orcinus-orca/skills 로 **복사**(Claude plugin 패키지).
 //            adapter 스킬(~/.claude/skills)은 복사하지 않고 dist/<engine>/plugins/claude 래퍼
 //            플러그인(매니페스트 + skills 정션/심링크)으로 **링크**한다(0117 — settingSources
 //            user 배제 보전, harness-plugins/claude-user-skills.ts).
-//   mcp : 활성 MCP 를 확장한 뒤 dist/<engine>/plugins/orca/.mcp.json 으로 **렌더** + 키 검증.
+//   mcp : 활성 MCP 를 확장한 뒤 dist/<engine>/plugins/orcinus-orca/.mcp.json 으로 **렌더** + 키 검증.
 //   agents/hooks : 빈 디렉토리 스캐폴드(후속 자산 수용). commands/settings 는 dist 로 배포하지 않는다.
 //
 // dist/<engine> 는 편집 대상이 아니다. 무단 덮어쓰기를 막기 위해 기록 전 항상 백업한다(.bak 1개 롤링).
@@ -32,6 +32,8 @@ import { PROVIDER_NAME_RE } from '../../infra/config/provider-key'
 import { ORCA_PLUGIN_NAME } from '../../adapters/claude-plugin'
 import { renderClaudeHarnessPlugin } from './harness-plugins/claude'
 import { renderClaudeUserSkillsPlugin } from './harness-plugins/claude-user-skills'
+import { PRODUCT_SLUG } from '../../../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 
 interface DeployOptions {
   dryRun?: boolean
@@ -141,11 +143,11 @@ export async function deploy(
       `validate mcp keys (${validation.ok ? 'ok' : validation.errors.length + ' error(s)'})`
     )
     if (existsSync(dist)) actions.push(`backup ${dist} → ${dist}.bak`)
-    actions.push('render orca plugin → dist/plugins/orca')
+    actions.push(`render orca plugin → dist/plugins/${PRODUCT_SLUG}`)
     actions.push(
       existsSync(mcpSrc) || opts.mcpConfig
-        ? 'render mcp → plugins/orca/.mcp.json'
-        : 'render empty mcp → plugins/orca/.mcp.json'
+        ? `render mcp → plugins/${PRODUCT_SLUG}/.mcp.json`
+        : `render empty mcp → plugins/${PRODUCT_SLUG}/.mcp.json`
     )
     actions.push(userSkillsAction(!!adapterSkillsRoot && existsSync(adapterSkillsRoot)))
     actions.push('skip commands/settings dist copy')
@@ -177,17 +179,17 @@ export async function deploy(
   let mcpConfig: ClaudeMcpConfig = {}
   if (opts.mcpConfig) {
     mcpConfig = opts.mcpConfig
-    actions.push('render enabled mcp → plugins/orca/.mcp.json')
+    actions.push(`render enabled mcp → plugins/${PRODUCT_SLUG}/.mcp.json`)
   } else if (existsSync(mcpSrc)) {
     const parsed = readJsonFile(mcpSrc)
     if (isRecord(parsed)) {
       mcpConfig = (parsed.mcpServers as ClaudeMcpConfig | undefined) ?? {}
-      actions.push('copy mcp → plugins/orca/.mcp.json')
+      actions.push(`copy mcp → plugins/${PRODUCT_SLUG}/.mcp.json`)
     } else {
-      actions.push('render empty mcp → plugins/orca/.mcp.json (invalid source)')
+      actions.push(`render empty mcp → plugins/${PRODUCT_SLUG}/.mcp.json (invalid source)`)
     }
   } else {
-    actions.push('render empty mcp → plugins/orca/.mcp.json')
+    actions.push(`render empty mcp → plugins/${PRODUCT_SLUG}/.mcp.json`)
   }
 
   await renderClaudeHarnessPlugin({
@@ -196,14 +198,14 @@ export async function deploy(
     skillRoots: opts.skillRoots ?? [
       {
         sourceId: 'orca',
-        sourceLabel: 'Orca 스킬',
+        sourceLabel: `${PRODUCT_DISPLAY_NAME} 스킬`,
         sourceKind: 'orca',
         rootDir: join(sources, 'skills')
       }
     ],
     mcpConfig
   })
-  actions.push('render orca plugin → dist/plugins/orca')
+  actions.push(`render orca plugin → dist/plugins/${PRODUCT_SLUG}`)
 
   // 사용자 ~/.claude/skills 래퍼 플러그인(0117) — 대상 부재/링크 실패는 렌더러가 null 로 강등.
   const userPluginRoot = adapterSkillsRoot
@@ -214,7 +216,7 @@ export async function deploy(
 
   // 배포 마커(드리프트 식별·디버깅용).
   await writeFile(
-    join(dist, '.orca-deploy.json'),
+    join(dist, `.${PRODUCT_SLUG}-deploy.json`),
     JSON.stringify({ engine, at: Date.now() }, null, 2),
     'utf8'
   )

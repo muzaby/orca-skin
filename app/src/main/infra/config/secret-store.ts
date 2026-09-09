@@ -4,11 +4,12 @@
 
 import Store from 'electron-store'
 import { encrypt, safeDecrypt } from './crypto'
+import { PRODUCT_SLUG } from '../../../shared/product'
 
 type Raw = Record<string, unknown>
 
 export class SecretStore {
-  private readonly store = new Store<Raw>({ name: 'orca-secrets', defaults: {} })
+  private readonly store = new Store<Raw>({ name: `${PRODUCT_SLUG}-secrets`, defaults: {} })
 
   // env-var 이름 → 평문 비밀. 미존재/복호화 실패 시 undefined.
   get(name: string): string | undefined {

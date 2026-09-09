@@ -2,6 +2,7 @@
 // 강제한다 — 새 키는 항상 ko.ts 에 먼저 추가하고 여기 번역을 채운다.
 
 import type { ko } from './ko'
+import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../../../shared/product'
 
 export const en: typeof ko = {
   common: {
@@ -170,8 +171,7 @@ export const en: typeof ko = {
       markdownAria: 'Markdown',
       plainTextAria: 'Plain text',
       removeTitle: 'Remove skill',
-      removeConfirmBody:
-        'This removes the following folder from Orca skill sources. Confirm once more to continue.'
+      removeConfirmBody: `This removes the following folder from ${PRODUCT_DISPLAY_NAME} skill sources. Confirm once more to continue.`
     },
     addMenu: {
       create: 'Create skill',
@@ -194,12 +194,12 @@ export const en: typeof ko = {
       dropHint: 'Drag and drop, or click to upload',
       requirements: 'File requirements',
       reqLine1: 'A .md or .skill file containing YAML frontmatter and skill instructions',
-      reqLine2: 'The uploaded file is saved as SKILL.md in Orca skill sources',
+      reqLine2: `The uploaded file is saved as SKILL.md in ${PRODUCT_DISPLAY_NAME} skill sources`,
       failed: 'Failed to upload the skill.'
     },
     customMcp: {
       title: 'Add MCP server',
-      pasteHint: 'Paste a single MCP server JSON entry to merge it into Orca sources mcp.json.',
+      pasteHint: `Paste a single MCP server JSON entry to merge it into ${PRODUCT_DISPLAY_NAME} sources mcp.json.`,
       adding: 'Adding…',
       failed: 'Failed to add the MCP server.',
       jsonObject: 'Enter a JSON object.',
@@ -215,8 +215,7 @@ export const en: typeof ko = {
       remove: 'Remove',
       removing: 'Removing…',
       removeTitle: 'Remove MCP server',
-      removeConfirmBody:
-        'This removes the following server from the Orca sources mcp.json. Confirm once more to continue.',
+      removeConfirmBody: `This removes the following server from the ${PRODUCT_DISPLAY_NAME} sources mcp.json. Confirm once more to continue.`,
       configSummary: 'Configuration summary'
     },
     addServer: {
@@ -290,8 +289,7 @@ export const en: typeof ko = {
     title: 'Engine & Models',
     subtitle: 'Provider settings environment',
     addEngine: 'Add engine',
-    blurb:
-      'The Composer model menu is built from the provider settings in <c>~/.config/orca/sources/settings</c>. After editing, the model menu refreshes without restarting the app.',
+    blurb: `The Composer model menu is built from the provider settings in <c>~/.config/${PRODUCT_SLUG}/sources/settings</c>. After editing, the model menu refreshes without restarting the app.`,
     emptyState: 'No providers registered. Use the Add engine button to create a claude provider.',
     deleteConfirm: 'Delete provider {{name}}?',
     card: { unsupportedAdapter: 'Unsupported adapter', readOnly: 'Read-only' },
@@ -359,7 +357,7 @@ export const en: typeof ko = {
     }
   },
   update: {
-    dialogTitle: 'Orca update',
+    dialogTitle: `${PRODUCT_DISPLAY_NAME} update`,
     status: {
       idle: 'Waiting for update',
       checking: 'Checking for updates…',
@@ -731,7 +729,7 @@ export const en: typeof ko = {
         },
         dont_ask: {
           label: "Don't ask",
-          desc: 'Skips Orca approval prompts and follows the default auto-proceed policy.'
+          desc: `Skips ${PRODUCT_DISPLAY_NAME} approval prompts and follows the default auto-proceed policy.`
         },
         riskyConfirm: 'All approval gates will be disabled. Click once more to confirm.'
       },
@@ -748,8 +746,7 @@ export const en: typeof ko = {
       handoffNeedMoreTurns: 'Available after the conversation progresses further',
       scrollToBottom: 'Scroll to bottom',
       concurrencyNoticeTitle: 'Another task is running in the same project.',
-      concurrencyNoticeBody:
-        'File conflicts are possible. Orca does not block the task; whether to run concurrently is up to you.',
+      concurrencyNoticeBody: `File conflicts are possible. ${PRODUCT_DISPLAY_NAME} does not block the task; whether to run concurrently is up to you.`,
       queuedNoticeTitle: 'Waiting for connection.',
       queuedNoticeBody:
         'This message will be sent in order as soon as the previous new chat session is ready.',
@@ -969,7 +966,7 @@ export const en: typeof ko = {
     update: 'Update',
     version: 'Version',
     quit: 'Quit',
-    versionModalAria: 'Orca version'
+    versionModalAria: `${PRODUCT_DISPLAY_NAME} version`
   },
   settings: {
     title: 'Settings',

@@ -6,6 +6,7 @@ import type {
   ProviderStepInfo
 } from '../../../../../shared/ipc'
 import { Button } from '../../../shared/ui/Button'
+import { PRODUCT_DISPLAY_NAME } from '../../../../../shared/product'
 import { MODAL_INPUT, MODAL_LABEL } from '../../../shared/ui/Modal'
 import { useI18n } from '../../../shared/i18n'
 import { authChoices, needsAuthChoice } from '../../../shared/config/providerAuth'
@@ -14,7 +15,7 @@ import orca from '../assets/orca-login.webp'
 
 // 로그인 랜딩 (0180 이 지운 구 `features/auth/AuthView` 복원 — 0181 의 provider 축에 맞춰 개정).
 //
-// 중앙에 Orca 제목 + 오르카 이미지, 아래 카드에 현재 step 이 요구한 입력 필드(제네릭 렌더링)와
+// 중앙에 Orcinus orca 제목 + 오르카 이미지, 아래 카드에 현재 step 이 요구한 입력 필드(제네릭 렌더링)와
 // 검정 로그인 버튼을 둔다. 실패 시 버튼 위 빨간 메시지, 수행 중에는 버튼이 스피너로 바뀐다.
 //
 // **필드가 없어도 버튼은 항상 있다** — ADFS/WIA 같은 브라우저 플로우는 입력 없이 `login()` 하나로
@@ -50,7 +51,7 @@ export function GateLogin({
   return (
     <div className="flex w-full max-w-[360px] flex-col items-center gap-7 px-6">
       <h1 className="flex flex-col items-center gap-1 text-center leading-none">
-        <span className="text-5xl font-bold tracking-tight text-ink">Orca</span>
+        <span className="text-5xl font-bold tracking-tight text-ink">{PRODUCT_DISPLAY_NAME}</span>
         <span className="text-sm font-semibold uppercase tracking-[0.25em]">
           <span className="text-ink2">with </span>
           <span className="text-accent">Claude Code</span>
@@ -58,7 +59,7 @@ export function GateLogin({
       </h1>
       <img
         src={orca}
-        alt="Orca"
+        alt={PRODUCT_DISPLAY_NAME}
         className="h-56 w-56 select-none object-contain"
         draggable={false}
       />

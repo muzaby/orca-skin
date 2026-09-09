@@ -159,6 +159,6 @@ usage(집계) → history(영속) → title(제목) → relay(renderer 중계)
 | safeStorage 가용성 (Phase 3+) | Keychain | DPAPI | libsecret (추가 의존성) |
 | 단축키 modifier | Cmd | Ctrl | Ctrl |
 | 메뉴 위치 | 시스템 상단바 | 윈도우 내부 | 윈도우 내부 |
-| userData 경로 | `~/Library/Application Support/orca/` | `%APPDATA%/orca/` | `~/.config/orca/` |
+| userData 경로 | `~/Library/Application Support/orca/` | `%APPDATA%/orcinus-orca/` | `~/.config/orcinus-orca/` |
 
 ---

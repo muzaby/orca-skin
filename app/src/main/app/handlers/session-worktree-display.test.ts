@@ -49,7 +49,7 @@ describe('resume 후 표시 정본 복원 (VP-08)', () => {
   it('앱을 다시 켜도 source_cwd·repo_root 가 같은 값으로 돌아온다', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'orca-wtdisplay-'))
     dirs.push(dir)
-    const file = join(dir, 'orca.db')
+    const file = join(dir, 'orcinus-orca.db')
 
     const first = open(file)
     first.q.insertSession({
@@ -89,7 +89,7 @@ describe('resume 후 표시 정본 복원 (VP-08)', () => {
   it('managed row 가 없는 세션은 필드를 싣지 않는다 — 소비자가 cwd 파생으로 폴백한다', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'orca-wtdisplay-'))
     dirs.push(dir)
-    const { q } = open(join(dir, 'orca.db'))
+    const { q } = open(join(dir, 'orcinus-orca.db'))
     q.insertSession({
       id: 's2',
       backend: 'claude',

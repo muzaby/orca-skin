@@ -129,11 +129,11 @@ describe('ExtensionBuilder.runtimeTools', () => {
       () => [skill],
       () => makeSettings(),
       '1.0.0',
-      () => ['/plugins/orca', '/plugins/user']
+      () => ['/plugins/orcinus-orca', '/plugins/user']
     )
     const extensions = builder.build(null, null)
     expect(extensions).not.toHaveProperty('mcp')
-    expect(extensions.pluginRoots).toEqual(['/plugins/orca', '/plugins/user'])
+    expect(extensions.pluginRoots).toEqual(['/plugins/orcinus-orca', '/plugins/user'])
     expect(extensions.skills).toEqual([skill])
     expect(extensions.hooks).toEqual({ normalized: {} })
     expect(extensions.systemPromptAppend).toContain('Orca version: 1.0.0')

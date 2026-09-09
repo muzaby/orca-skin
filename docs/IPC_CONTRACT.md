@@ -135,21 +135,21 @@ interface Settings {
 }
 ```
 
-> MCP 서버 정의의 진실은 `~/.config/orca/sources/mcp/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`). `enabled`/`description` 만 settings 가 보유한다 — `orca:mcp:*` 핸들러가 mcp.json + secret-store + settings 를 함께 조율([arch/backend/security.md](arch/backend/security.md) §1.4).
+> MCP 서버 정의의 진실은 `~/.config/orcinus-orca/sources/mcp/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`). `enabled`/`description` 만 settings 가 보유한다 — `orca:mcp:*` 핸들러가 mcp.json + secret-store + settings 를 함께 조율([arch/backend/security.md](arch/backend/security.md) §1.4).
 
 ### 2.5 Skills
 
 | 채널                       | 방향         | 페이로드                                                 | 응답                                                                                                                                                                           | 설명                                                                                 |
 | -------------------------- | ------------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
 | `orca:skills:list`         | R→M (invoke) | —                                                        | `SkillInfo[]` = `{ name; description; argumentHint?; sourceId; sourceLabel; sourceKind; enabled; canToggle; canRemove; skillPath; skillDir; body?; createdAt?; updatedAt? }[]` | Orca sources + 어댑터/워크스페이스 SKILL.md 카탈로그.                                |
-| `orca:skills:author`       | R→M (invoke) | `AuthorSkillRequest` = `{ name; description; body }`     | `SkillInfo[]`                                                                                                                                                                  | `~/.config/orca/sources/skills/<name>/SKILL.md` 작성 후 refresh.                     |
+| `orca:skills:author`       | R→M (invoke) | `AuthorSkillRequest` = `{ name; description; body }`     | `SkillInfo[]`                                                                                                                                                                  | `~/.config/orcinus-orca/sources/skills/<name>/SKILL.md` 작성 후 refresh.                     |
 | `orca:skills:upload`       | R→M (invoke) | `UploadSkillRequest` = `{ fileName; content }`           | `SkillInfo[]`                                                                                                                                                                  | `.md`/`.skill` 파일 내용을 Orca skill source 로 저장 후 refresh.                     |
 | `orca:skills:setEnabled`   | R→M (invoke) | `SetSkillEnabledRequest` = `{ name; sourceId; enabled }` | `SkillInfo[]`                                                                                                                                                                  | Orca source 스킬만 settings `skillEnabled[sourceId/name]` 을 갱신하고 dist/cwd 싱크. |
 | `orca:skills:open`         | R→M (invoke) | `SkillTargetRequest` = `{ name; sourceId }`              | `Promise<void>`                                                                                                                                                                | SKILL.md 를 OS 기본 앱으로 연다.                                                     |
 | `orca:skills:showInFolder` | R→M (invoke) | `SkillTargetRequest`                                     | `Promise<void>`                                                                                                                                                                | SKILL.md 위치를 OS 파일 관리자에서 표시한다.                                         |
 | `orca:skills:remove`       | R→M (invoke) | `SkillTargetRequest`                                     | `SkillInfo[]`                                                                                                                                                                  | Orca source 스킬 폴더를 제거하고 refresh/sync 한다.                                  |
 
-> **현재 스캔 경로**: `~/.config/orca/sources/skills/<name>/SKILL.md` + 어댑터 네이티브 경로(`~/.claude/skills/<name>/SKILL.md`) + workspace 경로(`<cwd>/.claude/skills/<name>/SKILL.md`).
+> **현재 스캔 경로**: `~/.config/orcinus-orca/sources/skills/<name>/SKILL.md` + 어댑터 네이티브 경로(`~/.claude/skills/<name>/SKILL.md`) + workspace 경로(`<cwd>/.claude/skills/<name>/SKILL.md`).
 
 ### 2.6 Files
 
@@ -266,7 +266,7 @@ interface SearchHit {
 
 ### 2.10 MCP (Phase 3++)
 
-전역 MCP 서버 설정 CRUD. 플러그인 모달(`ExtensionsCatalogModal`)이 단일 호출자. **영속화는 파일-백드 모델** — 정의의 진실은 `~/.config/orca/sources/mcp/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`), **인증 비밀은 secret-store(`orca-secrets` + `safeStorage`)에 env-var 이름으로 암호화 저장**(mcp.json 엔 `${VAR}` 만, renderer 엔 `hasAuth` boolean 만), enabled/description 은 settings(`mcpEnabled`/`mcpMeta`). 활성화된 서버는 `handleChatSend` 가 `McpStore.buildQueryOptions()`(→ `toClaudeConfig`)로 변환해 매 query 의 `mcpServers` + `allowedTools`(`mcp__<name>__*`) 옵션에 주입. 상세 = [arch/backend/security.md](arch/backend/security.md) §1.4.
+전역 MCP 서버 설정 CRUD. 플러그인 모달(`ExtensionsCatalogModal`)이 단일 호출자. **영속화는 파일-백드 모델** — 정의의 진실은 `~/.config/orcinus-orca/sources/mcp/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`), **인증 비밀은 secret-store(`orcinus-orca-secrets` + `safeStorage`)에 env-var 이름으로 암호화 저장**(mcp.json 엔 `${VAR}` 만, renderer 엔 `hasAuth` boolean 만), enabled/description 은 settings(`mcpEnabled`/`mcpMeta`). 활성화된 서버는 `handleChatSend` 가 `McpStore.buildQueryOptions()`(→ `toClaudeConfig`)로 변환해 매 query 의 `mcpServers` + `allowedTools`(`mcp__<name>__*`) 옵션에 주입. 상세 = [arch/backend/security.md](arch/backend/security.md) §1.4.
 
 > IPC DTO 표면(`McpServer` + 4채널)은 파일-백드 재설계 전후로 **불변**이다(preload/renderer 무영향). `id` = 서버 `name`(고유 키), `authEnvKey` 는 stdio·http 양쪽에서 비밀을 주입할 env-var 이름.
 
@@ -298,7 +298,7 @@ interface McpServer {
 
 ### 2.11 Runtime — **제거됨 (handoff 0012)**
 
-구 `orca:runtime:{status,prepare,statusEvent}` 3채널은 renderer 소비처(과거 `features/runtime` RuntimeStatus 위젯)가 제거된 뒤 preload 에만 노출된 고아 채널이라 **2026-06-11 제거**됐다. 0050 PR-B 에서 main 내부 `PythonRuntime`/uv 격리 인터프리터도 제거됐다. 현재 chat send 는 orca.json 앱 env 만 SDK `query().options.env` 로 병합한다. 런타임 UI/채널 재도입 시 §6 변경 절차로 새로 추가한다.
+구 `orca:runtime:{status,prepare,statusEvent}` 3채널은 renderer 소비처(과거 `features/runtime` RuntimeStatus 위젯)가 제거된 뒤 preload 에만 노출된 고아 채널이라 **2026-06-11 제거**됐다. 0050 PR-B 에서 main 내부 `PythonRuntime`/uv 격리 인터프리터도 제거됐다. 현재 chat send 는 orcinus-orca.json 앱 env 만 SDK `query().options.env` 로 병합한다. 런타임 UI/채널 재도입 시 §6 변경 절차로 새로 추가한다.
 
 ### 2.12 Cost (Phase 3++)
 

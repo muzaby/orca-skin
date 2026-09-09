@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs'
 import { basename, extname, join } from 'node:path'
 import { sourcesSkillsDir } from '../../../infra/config/paths'
+import { PRODUCT_DISPLAY_NAME } from '../../../../shared/product'
 
 function sanitizeSkillName(name: string): string {
   return name
@@ -51,7 +52,7 @@ export async function writeUploadedSkill(input: {
 
 export async function removeOrcaSkillDir(skillDir: string): Promise<void> {
   if (!skillDir.startsWith(sourcesSkillsDir())) {
-    throw new Error('Orca 스킬 sources 안의 항목만 제거할 수 있습니다.')
+    throw new Error(`${PRODUCT_DISPLAY_NAME} 스킬 sources 안의 항목만 제거할 수 있습니다.`)
   }
   await fs.rm(skillDir, { recursive: true, force: true })
 }

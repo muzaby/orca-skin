@@ -59,7 +59,7 @@ function turnFor(cwd: string): TurnContext {
 async function openDb(): Promise<{ file: string; db: Database.Database; q: DbQueries }> {
   const dir = await mkdtemp(join(tmpdir(), 'orca-bind-'))
   dirs.push(dir)
-  const file = join(dir, 'orca.db')
+  const file = join(dir, 'orcinus-orca.db')
   const db = openHandle(file)
   applyMigrations(db)
   return { file, db, q: new DbQueries(db) }

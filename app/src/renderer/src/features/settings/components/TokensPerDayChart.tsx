@@ -1,6 +1,6 @@
 // 일별 토큰 바 차트(0112) — recharts(사용자 승인 의존성, TRD §2). 단일 시리즈라 범례 없음.
 // 색은 시맨틱 토큰만 사용한다: 바 = --color-indigo(사용량 지정색, 두 테마 공용), 그리드/축 =
-// --color-border, 라벨 = --color-ink3. 툴팁도 Orca 패널 토큰으로 직접 그린다(기본 스타일 미사용).
+// --color-border, 라벨 = --color-ink3. 툴팁도 Orcinus orca 패널 토큰으로 직접 그린다(기본 스타일 미사용).
 // 0208 — 툴팁은 날짜·토큰·비용만 낸다. SDK 추정치 안내는 탭 상단 설명 한 곳에만 있다(D-019).
 
 import { useMemo } from 'react'

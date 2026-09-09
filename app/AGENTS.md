@@ -13,7 +13,7 @@
 | React    | 19.x                                                           |
 | TypeScript | 5.x (strict, target ES2022)                                  |
 | 스타일   | Tailwind CSS v4 (`@tailwindcss/vite`, CSS-first `@theme`)      |
-| DB       | better-sqlite3@^12 (`<userData>/orca.db`, WAL)                 |
+| DB       | better-sqlite3@^12 (`<userData>/orcinus-orca.db`, WAL)                 |
 | 스케줄링 | croner (`main` 프로세스 in-app cron, 앱 실행 중만 발화) |
 | 라우팅   | react-router-dom v7 (`app://` 커스텀 스킴 + BrowserRouter)     |
 
@@ -51,7 +51,7 @@ shared     → shared 내부만                               (순수 타입/상
 | `src/main/adapters/`          | claude 어댑터 — `claude.ts`(query) · `claude-map.ts`(SDK→`NormalizedEvent`) · `claude-adapt.ts`(outbound) + 포트(`types`·`turn`·`descriptor`…) + **`harness-config.ts`**(실행 구성 계약 + spawn 입력 조립 `PreparedHarnessConfig`). mock 은 dev, opencode 는 future |
 | `src/main/features/`          | 수직 슬라이스 — `approvals` · `chat`(턴 오케스트레이션) · `extensions`(MCP·skill·deploy·seed) · `history`(persist) · `orchestration`(대화 연속성 fork/handoff, 순수 로직) · **`auth`**(인증 lifecycle) · **`gate`**(앱 접근 정책) · **`harnesses`**(settings·Model·실행 구성) · **`plugins`**(제품 기능 단위, 0188) · `scheduler`(croner 주기 실행, 0091) · `sessions`(런타임 거버넌스) · `usage` |
 | `src/main/contracts/`         | 공유 타입 계약 — `turn`(`TurnContext`) · `bus-events` · `ports` · `session-state` · **`auth`**(0188 — `AuthDefinition`·`AuthMethod`·`Grant`·`BoundAuth`·`AuthSecretReader`. 소비 슬롯 없음) |
-| `src/main/infra/`             | 얇은 인프라 — `db`(better-sqlite3+WAL+마이그레이션) · `bus`(TypedBus) · `config`(orca.json·secret) · `ipc`(handle/send/dto) · `net`(**`net-fetch`/`net-request`/`net-response`/`transport` = 유일한 원격 전송 스택**. 0180 에서 `infra/auth/` → `infra/net/` 이설) · `vault`·`browser-session`(+`-policy`)·`loopback-callback`(0181 — provider 자격증명·cookie jar·OAuth 콜백) · `log`(중앙 LogManager·JSONL·redact, 0123/0124) · `settings-store`(+`settings-migration`) · `cron`(croner 래퍼) · `errors` · `vars` |
+| `src/main/infra/`             | 얇은 인프라 — `db`(better-sqlite3+WAL+마이그레이션) · `bus`(TypedBus) · `config`(orcinus-orca.json·secret) · `ipc`(handle/send/dto) · `net`(**`net-fetch`/`net-request`/`net-response`/`transport` = 유일한 원격 전송 스택**. 0180 에서 `infra/auth/` → `infra/net/` 이설) · `vault`·`browser-session`(+`-policy`)·`loopback-callback`(0181 — provider 자격증명·cookie jar·OAuth 콜백) · `log`(중앙 LogManager·JSONL·redact, 0123/0124) · `settings-store`(+`settings-migration`) · `cron`(croner 래퍼) · `errors` · `vars` |
 | `src/shared/{ipc,protocol}.ts`| `CHANNELS` 상수 + 순수 TS 타입 / zod 스키마 (main 전용)                                        |
 
 > 레이아웃에서 벗어나려면 사용자에게 먼저 확인하고, TRD §1.2 와 코드를 동시에 갱신한다.
@@ -80,7 +80,7 @@ new BrowserWindow({
 ## DB · 캐시 정책 (app 고유)
 
 - `better-sqlite3@^12` raw + prepared statements. 12.x 메이저 = Electron 39 V8 ABI 호환 (11.x 비호환, Windows prebuild 포함). ORM 미도입 — Drizzle 재검토는 Phase 4.
-- **DB 위치** `<userData>/orca.db` (`app.getPath('userData')` 단일 출처). 부팅 PRAGMA `journal_mode=WAL` + `foreign_keys=ON`. **dev/prod 데이터 격리**: `import.meta.env.DEV`(정확히 `npm run dev`)면 `index.ts` 가 부팅 전 `userData` 를 sibling `orca-dev` 로 리디렉션한다(`devUserDataDir`, `infra/config/paths.ts`) — DB·WAL·마이그레이션 백업·secret-store 가 실제 설치본과 통째로 분리된다. prod 번들에선 dead-code 제거.
+- **DB 위치** `<userData>/orcinus-orca.db` (`app.getPath('userData')` 단일 출처). 부팅 PRAGMA `journal_mode=WAL` + `foreign_keys=ON`. **dev/prod 데이터 격리**: `import.meta.env.DEV`(정확히 `npm run dev`)면 `index.ts` 가 부팅 전 `userData` 를 sibling `orcinus-orca-dev` 로 리디렉션한다(`devUserDataDir`, `infra/config/paths.ts`) — DB·WAL·마이그레이션 백업·secret-store 가 실제 설치본과 통째로 분리된다. prod 번들에선 dead-code 제거.
 - **마이그레이션** `NNNN_<name>.sql` (4자리 zero-pad). **머지된 마이그레이션 파일은 절대 수정 금지** — 변경은 새 파일로. SQL 은 vite `?raw` 로 main 번들에 인라인. 상태는 `_migrations(name PK, applied_at)` 메타.
 - **SSOT 는 DB.** claude `resume` 은 컨텍스트 유지용일 뿐 메시지 출처는 DB. 삭제는 hard delete (CASCADE).
 - **메모리 캐시**: `chatStore` 의 `sessions: Record<sessionId, …>` 외피가 캐시 역할 흡수(handoff 0013) — 본 적 있는 세션 재진입은 IPC 없이 `activeKey` 전환. 무효화는 삭제 시 `invalidateSessionCache(id)`(엔트리 drop). 크기 제한 없음 (LRU cap 은 Future Scope).

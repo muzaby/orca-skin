@@ -1,15 +1,15 @@
-// Orca config 루트 경로 헬퍼. 사람이 편집하는 정규 소스(sources/)와 엔진별 배포 산출물(dist/<engine>/)을
-// DB/settings 의 <userData> 와 분리해 ~/.config/orca 아래 둔다 (제안서 명시 — 사용자가 직접 편집·버전관리
+// Orcinus orca config 루트 경로 헬퍼. 사람이 편집하는 정규 소스(sources/)와 엔진별 배포 산출물(dist/<engine>/)을
+// DB/settings 의 <userData> 와 분리해 ~/.config/orcinus-orca 아래 둔다 (제안서 명시 — 사용자가 직접 편집·버전관리
 // 가능한 "설정 소스" 성격). 비밀은 여기 두지 않는다(secret-store 가 <userData> 의 safeStorage 로 보관).
 //
 // 표준화 계층(arch/backend/standardization.md §5.1):
-//   ~/.config/orca/
-//   ├── orca.json                       # 앱 전역 설정(env 만 — agents 는 handoff 0014 에서 제거).
+//   ~/.config/orcinus-orca/
+//   ├── orcinus-orca.json               # 앱 전역 설정(env 만 — agents 는 handoff 0014 에서 제거).
 //   ├── sources/                        # 사람이 편집하는 단일 원천 (instructions/AGENTS.md · skills ·
 //   │   ├── mcp/mcp.json                #   agents · commands · mcp/mcp.json · hooks/<engine> ·
 //   │   └── settings/<adapter>/         #   settings/<adapter>/<provider>/settings.json)
 //   ├── dist/<engine>/                  # deployer 산출 (읽기 전용)
-//   │   └── plugins/orca/               #   Claude Code plugin(.claude-plugin, skills, agents, hooks, .mcp.json)
+//   │   └── plugins/orcinus-orca/       #   Claude Code plugin(.claude-plugin, skills, agents, hooks, .mcp.json)
 //   │   └── plugins/claude/             #   사용자 ~/.claude/skills 래퍼 plugin(.claude-plugin + skills 정션/심링크, 0117)
 //   └── projects/                       # 세션 작업 디렉토리(cwd) 루트 — 확장 파일을 복사하지 않는다.
 //       ├── default/                    #   비-프로젝트 / cwd 미지정 세션 공용 cwd
@@ -23,19 +23,33 @@ import { homedir } from 'node:os'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { mkdir } from 'node:fs/promises'
 import { mkdirSync } from 'node:fs'
+import { LEGACY_PRODUCT_SLUG, PRODUCT_SLUG } from '../../../shared/product'
 
-// 모든 OS 동일하게 ~/.config/orca (제안서 §환경구성). Windows 에서도 homedir() 하위로 통일.
+// 모든 OS 동일하게 ~/.config/orcinus-orca (제안서 §환경구성). Windows 에서도 homedir() 하위로 통일.
 export function orcaConfigDir(): string {
-  return join(homedir(), '.config', 'orca')
+  return join(homedir(), '.config', PRODUCT_SLUG)
 }
 
-// dev(`npm run dev`) 전용 userData 디렉토리 — prod `<appData>/orca` 와 sibling `<appData>/orca-dev`.
-// userData 는 Electron 이 app.getName()(dev·prod 모두 `orca`)에서 파생하므로 기본값은 dev·prod 가
-// 같은 폴더를 공유한다. dev 에서만 여기로 리디렉션해 DB·WAL·마이그레이션 백업·secret-store 를 통째로
-// 격리한다(개발 중 마이그레이션/데이터 변경이 실제 설치본을 오염시키지 않도록). 호출은 index.ts 가
-// import.meta.env.DEV 게이트로 감싸 prod 번들에서 dead-code 제거되게 한다.
+// dev(`npm run dev`) 전용 userData 디렉토리 — prod `<appData>/orcinus-orca` 와 sibling
+// `<appData>/orcinus-orca-dev`. userData 는 Electron 이 app.getName()(dev·prod 모두
+// `orcinus-orca`)에서 파생하므로 기본값은 dev·prod 가 같은 폴더를 공유한다. dev 에서만 여기로
+// 리디렉션해 DB·WAL·마이그레이션 백업·secret-store 를 통째로 격리한다(개발 중 마이그레이션/데이터
+// 변경이 실제 설치본을 오염시키지 않도록). 호출은 index.ts 가 import.meta.env.DEV 게이트로 감싸
+// prod 번들에서 dead-code 제거되게 한다.
 export function devUserDataDir(appDataDir: string): string {
-  return join(appDataDir, 'orca-dev')
+  return join(appDataDir, `${PRODUCT_SLUG}-dev`)
+}
+
+// ── 레거시(0225 이전) 루트 — **이관 모듈 전용** ────────────────────────────────
+// 여기서 조립만 하고, 소비는 `migrate-legacy.ts` 한 파일이 독점한다. 다른 파일이 이 둘을
+// import 하면 D-010("전환 후 옛 경로를 정상 저장소나 자동 fallback 으로 쓰지 않는다")이 깨지고
+// `product-identity.test.ts` 의 import 그래프 전수 단언이 red 가 된다(§10 EP-05).
+export function legacyConfigDir(): string {
+  return join(homedir(), '.config', LEGACY_PRODUCT_SLUG)
+}
+
+export function legacyUserDataDir(appDataDir: string, isDev: boolean): string {
+  return join(appDataDir, isDev ? `${LEGACY_PRODUCT_SLUG}-dev` : LEGACY_PRODUCT_SLUG)
 }
 
 // 격리 worktree 루트. `<userData>` 가 아니라 `orcaConfigDir()` 하위다(0210 D-102) — 저장소
@@ -53,10 +67,10 @@ function sourcesDir(): string {
   return join(orcaConfigDir(), 'sources')
 }
 
-// Orca 앱 자체 전역 설정 파일. sources/ 는 엔진별 배포 리소스 SSOT 이고, orca.json 은
+// Orcinus orca 앱 자체 전역 설정 파일. sources/ 는 엔진별 배포 리소스 SSOT 이고, orcinus-orca.json 은
 // 앱 부팅 시 1회 로드되는 전역 agent/provider 설정이다.
 export function orcaJsonPath(): string {
-  return join(orcaConfigDir(), 'orca.json')
+  return join(orcaConfigDir(), `${PRODUCT_SLUG}.json`)
 }
 
 export function sourcesSkillsDir(): string {

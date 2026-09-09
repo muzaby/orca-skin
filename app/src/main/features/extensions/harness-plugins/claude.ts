@@ -1,5 +1,5 @@
 // Claude Code plugin package renderer. 사람이 편집하는 sources/를 SDK options.plugins 로 로드 가능한
-// dist/claude/plugins/orca/ 패키지로 변환한다. deployer 는 백업/검증/마커를 맡고, 이 모듈은
+// dist/claude/plugins/orcinus-orca/ 패키지로 변환한다. deployer 는 백업/검증/마커를 맡고, 이 모듈은
 // Claude plugin 레이아웃 세부(.claude-plugin, skills, agents, hooks, .mcp.json)만 소유한다.
 
 // 동기 fs 금지(0109) — 스킬 재귀 복사가 부팅/CRUD 경로에서 이벤트 루프를 막지 않게 한다.
@@ -8,12 +8,13 @@ import type { Dirent } from 'node:fs'
 import { join } from 'node:path'
 import type { Backend } from '../../../../shared/ipc'
 import { ORCA_PLUGIN_NAME } from '../../../adapters/claude-plugin'
+import { PRODUCT_DISPLAY_NAME } from '../../../../shared/product'
 import type { ClaudeMcpConfig } from '../../../adapters/mcp-config'
 import type { SkillScanRoot } from '../skills/scan'
 
 const ORCA_PLUGIN_MANIFEST = {
   name: ORCA_PLUGIN_NAME,
-  description: 'orca에서 구성된 skill 및 mcp',
+  description: `${PRODUCT_DISPLAY_NAME}에서 구성된 skill 및 mcp`,
   version: '1.0.0'
 } as const
 

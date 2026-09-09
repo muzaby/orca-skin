@@ -9,6 +9,7 @@ import {
   type SkillInfo
 } from '../../../shared/protocol'
 import { shell } from 'electron'
+import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 import {
   removeOrcaSkillDir,
   writeAuthoredSkill,
@@ -78,7 +79,7 @@ export function registerSkillsHandlers(ctx: SkillsHandlerContext): void {
 
   handle(CHANNELS.skillsRemove, SkillTargetSchema, 'reject', async (req): Promise<SkillInfo[]> => {
     const skill = findSkill(ctx, req.sourceId, req.name)
-    if (!skill.canRemove) throw new Error('Orca 스킬만 제거할 수 있습니다.')
+    if (!skill.canRemove) throw new Error(`${PRODUCT_DISPLAY_NAME} 스킬만 제거할 수 있습니다.`)
     await removeOrcaSkillDir(skill.skillDir)
     const current = ctx.settings.getAll()
     const skillEnabled = { ...current.skillEnabled }

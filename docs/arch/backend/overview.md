@@ -34,7 +34,7 @@
 | LLM SDK (claude-code) | @anthropic-ai/claude-agent-sdk | latest | `query()` 함수 직접 사용 (Phase 3 채택) |
 | LLM SDK (opencode) | @opencode-ai/sdk | 1.18.27 (exact) | **조사·계약 검증용 설치**; adapter 미등록·runtime 미활성 ([SDK 해설](../../opencode-sdk-spec.md)) |
 | 입력 검증 | zod | ^4.4.3 | `src/shared/protocol.ts` 스키마 |
-| 설정 저장 | electron-store | ^8.2.0 | 단일 객체 스토어 (`orca-settings`) |
+| 설정 저장 | electron-store | ^8.2.0 | 단일 객체 스토어 (`orcinus-orca-settings`) |
 | 로컬 DB | **better-sqlite3** | ^12.x | ✅ Phase 3 도입 완료. 동기 API, Electron 호환. 직접 마이그레이션 (`db/migrations/`). WAL + foreign_keys pragma. |
 | HTTP 클라이언트 | (SDK 내부) | — | 별도 채택 없음 |
 | 보안 저장 (자격증명) | Electron safeStorage | (Electron 내장) | ✅ Phase 3++ 도입 완료 (MCP 인증 비밀 첫 실사용). OS keychain — macOS Keychain / Windows DPAPI / Linux libsecret. `config/secret-store.ts` 래퍼. |
@@ -144,8 +144,8 @@ Electron App
       → scheduler.applySettings(settings.scheduler)  # croner 스케줄 시작 (0091, 실패 시 비활성 시작)
    d. new ExtensionBuilder(db, …)           # DB 지침·settings·Skills·plugin/runtime tool 조립기
    e. adapter-registry (critical)           # 어댑터 설치 상태 갱신
-   f. workspace                             # 기본 작업공간(~/.config/orca/workspace) mkdir
-   g. config-dir → orca-config              # ~/.config/orca 보장 + orca.json 부팅 1회 로드
+   f. workspace                             # 기본 작업공간(~/.config/orcinus-orca/workspace) mkdir
+   g. config-dir → orca-config              # ~/.config/orcinus-orca 보장 + orcinus-orca.json 부팅 1회 로드
    h. builtin-skill-seed                    # seedBuiltinSkills — 번들 스킬 → sources/skills 시딩 (0078, manifest/marker 버전 게이트)
    i. provider-scaffold                     # 최초 1회 — readUserClaudeSettings() 로 ~/.claude/settings.json env 판별
                                             # (classifyClaudeEnv) 후 provider verbatim 시딩, 부재 시 anthropic 템플릿 (0090)
@@ -164,7 +164,7 @@ Electron App
 6. app.on('will-quit') → bootstrap.shutdown() → closeDb()  # 제목 생성 dispose·열린 도구 정착·abort·idle close·Scheduler.stopAll·WAL 정리
 ```
 
-> critical 이 아닌 단계 실패는 부팅을 막지 않는다(채팅/세션 기능은 config/deploy 와 독립). 레거시 1회성 이전(구 평면 레이아웃·구 orca-mcp 스토어)은 정식 배포 전 정리(handoff 0011)로 제거 — 구 dev 환경은 `~/.config/orca` 재생성으로 해결.
+> critical 이 아닌 단계 실패는 부팅을 막지 않는다(채팅/세션 기능은 config/deploy 와 독립). 레거시 1회성 이전(구 평면 레이아웃·구 orca-mcp 스토어)은 정식 배포 전 정리(handoff 0011)로 제거 — 구 dev 환경은 `~/.config/orcinus-orca` 재생성으로 해결.
 
 ### 3.2 모듈 간 import 규약
 

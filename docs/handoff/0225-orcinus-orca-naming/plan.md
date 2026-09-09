@@ -559,82 +559,132 @@ PRODUCT_SLUG ─→ paths.ts/db/store 6종 ─→ 디스크 이름 ─→ (이�
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 — r1
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- **동의 / 그대로 진행**: Baseline V1 의 14 pair 구조, 2등급 실패(D-018), 멱등 설계(D-017), 이름 SSOT 단일 파일, 빌드 설정 2사본을 테스트가 잠그는 방식. 전부 그대로 구현했다.
+- **이견 / 현실성 문제**: 없음. 다만 §10 분모 2개와 술어 1개가 실측과 달라 착수 전·구현 중 두 번 규범 정정했다(§3 정정표 C1~C4, 커밋 `c53f18b`·`fc0d993`).
+- **ACTIVE Decision 과 충돌하는 설계 발견**: 없음. C1·C4 는 D-001 이 이미 요구하던 지점을 분모가 덜 센 것이고, C2 는 D-014("전체 이관")가 요구하던 컬럼이 빠진 것이다.
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r1
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | … | … | … | … |
+| VP-01 | 빌드 식별자 5개 + AUMID | EP-01 (1) | 6/6 | `vitest run src/main/product-identity.test.ts` → `빌드 식별자 (EP-01 · EP-02)` 6케이스 green | 없음 |
+| VP-02·VP-13 | `productName` 부재 · `devUserDataDir` | EP-02 (2) | 2/2 | 같은 스위트 `package.json 에 productName 키가 없다` + `paths.test.ts` `appData 하위 sibling '<slug>-dev'` | 없음 |
+| VP-03 | 경로·파일명 16개 | EP-03 (16) | 16/16 (+2) | `paths.test.ts` `설정 루트 파생 (0225 AT-04)` 6케이스 = 설정 루트 8지점 중 6, `product-identity` `내부 저장 이름 (EP-03)` 10케이스(로그·artifacts 2 + 내부 파일 6 + DB 2) + `플러그인 디렉토리…` 1케이스 = 나머지 10. 합 16 계약 지점 + DB 2 추가 | 없음 |
+| VP-04 | 표시명 34지점 | EP-04 (34) | 34/34 | 음성: `grep -rnE "\bOrca\b" app/src/renderer --include=*.tsx --include=*.ts --include=*.html \| grep -v '\.test\.'` = **0행**(변경 전 31행). 양성: `표시명을 그리는 renderer 파일이 SSOT 를 참조한다` 11파일 + `main 의 사용자 대면 문구 7지점` + `index.html title` | 없음 |
+| VP-05 | 레거시 상수 소비자 1파일 | EP-05 (2) | 2/2 | `grep -rlE "legacyConfigDir\|legacyUserDataDir" app/src --include=*.ts \| grep -v '\.test\.'` = `paths.ts`·`migrate-legacy.ts` **2파일**. 양성 호출 단언 + 공개 export 2개(`migrateLegacyRoots`·`migrationBlocksBoot`)만 확인 | 없음 |
+| VP-06 | 이관 전체 시나리오 | EP-06 (4) | 4/4 | `migrate-legacy.test.ts` 9케이스 green — 루트 2개 이동 · 내부 개명 12항목 · dev 분기 · conflict · 실패 2등급 · 순서 · 재개 | 없음 |
+| VP-07 | 이관이 `initLog()` 보다 먼저 | EP-07 (1) | 1/1 | `startup-sequence.test.ts` 순서 기록기 2케이스 + `product-identity` 배선 단언(`index.ts 가 …결과를 Bootstrap 에 넘긴다`) | 없음 |
+| VP-08 | rebase 된 워크트리마다 repair 1회 | EP-08 (2) | 2/2 | `legacy-paths.test.ts` 실 git 4케이스 — 워크트리만 이동 · repo 도 함께 이동 · repair 생략(적대) · repo 소실 | 없음 |
+| VP-09 | `rebaseUnderRoot` 경계 | EP-09 (1) | 1/1 | `rebase-path.test.ts` 7케이스 (형제 접두 `/a/orca-x` · Windows 구분자 · 빈 문자열 포함) | 없음 |
+| VP-10 | 이관 멱등 | EP-10 (1) | 1/1 | `migrate-legacy.test.ts` `두 번 불러도 한 번 부른 것과 같은 디스크 상태다` — 디렉토리 스냅샷 차집합 | 없음 |
+| VP-11 | 채널 89 불변 · sentinel | EP-11 (1) | 1/1 | `node scripts/check-doc-inventory.mjs --check` = `generated doc ok (9 items, 89 channels)` + `product-identity` 채널 개수 ↔ 생성물 대조 · sentinel 4군 존재 | 없음 |
+| VP-12 | 운영 문서 3항목 | EP-12 (1) | 1/1 | `release-operations.md` 새 산출물명·`%APPDATA%/orcinus-orca`·`## 구버전(orca) 수동 제거` 절 단언 green | 없음 |
+| VP-14 | `partitionFor` 반환 불변 | EP-13 (1) | 1/1 | `browser-session-policy` 를 손대지 않았고 기존 스위트 green (`persist:auth.<group>` 문자열 불변) | 없음 |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: …
+- **§10 에 없는데 같은 불변식이 필요했던 지점**: 4건. ① `bootstrap.ts` 부팅 단계 라벨 2개(`'Orca 설정 디렉터리 보장'`·`'orca.json 로드'`) ② `harness-plugins/claude.ts` 플러그인 manifest description ③ `managed_worktrees.repo_root` 컬럼 ④ 이관 배선(호출부) 자체. ①②③ 은 규범 정정 C4·C2 로 분모에 올렸고 ④ 는 `product-identity` 의 배선 단언으로 새로 잠갔다.
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | 설정 파일 파싱 6케이스 green | not selected |
+| VP-02 | REQUIRED | SELF_PASS | 반환값·키 부재 직접 단언 green | not selected |
+| VP-03 | REQUIRED | SELF_PASS | 경로 반환값 16지점 green | not selected |
+| VP-04 | REQUIRED | SELF_PASS | 음성 0행 + 양성 34지점 green | **검출** — 소비처를 리터럴 `Orca` 로 되돌리면 음성이 red (MUT: Header.tsx) |
+| VP-05 | REQUIRED | SELF_PASS | import 그래프 2파일 green | **검출** — `db/index.ts` 에 `legacyUserDataDir` 폴백 import 추가 시 red |
+| VP-06 | REQUIRED | SELF_PASS | 임시 디스크 종단 9케이스 green | not selected |
+| VP-07 | REQUIRED | SELF_PASS | 호출 순서 기록기 green | **검출** — 두 호출을 맞바꾸면 2케이스 red |
+| VP-08 | REQUIRED | SELF_PASS | 실 git prune·status 4케이스 green | **검출** — repair 호출 제거 시 2케이스 red |
+| VP-09 | REQUIRED | SELF_PASS | 순수 반환값 7케이스 green | not selected |
+| VP-10 | REQUIRED | SELF_PASS | 스냅샷 차집합 green | not selected |
+| VP-11 | REQUIRED | SELF_PASS | 채널 89 ↔ 생성물 일치 green | not selected |
+| VP-12 | REQUIRED | SELF_PASS | 문서 문자열 존재 green | not selected |
+| VP-13 | REQUIRED | SELF_PASS | `'productName' in pkg === false` green | not selected |
+| VP-14 | REQUIRED | SELF_PASS | 파티션 문자열 불변 (기존 스위트) green | not selected |
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+## [구현자 기입] 이번 라운드 수정의 잠금 — r1
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | … | … | … |
+| Header.tsx 소비처를 리터럴 `Orca` 로 되돌림 | VP-04 선택 증거 | 해당 없음(r1) | `renderer prod 전체에 옛 표기가 0건이다` 1케이스 | 검출 |
+| Sidebar.tsx 소비처를 참조·import 통째로 삭제 | VP-04 양성 짝 | 해당 없음 | `표시명을 그리는 renderer 파일이 SSOT 를 참조한다` 1케이스 | 검출 |
+| i18n `ko.ts` 한 문구를 `'Orca 버전'` 으로 되돌림 | VP-04 (C1 이 새로 올린 i18n 축) | 해당 없음 | 음성 스윕 1케이스 | 검출 |
+| `db/index.ts` 에 `legacyUserDataDir` 폴백 import | VP-05 선택 증거 | 해당 없음 | `prod 코드에서 이 둘을 언급하는 파일은 …2뿐이다` 1케이스 | 검출 |
+| 이관 모듈에 `readLegacyConfigDir` export 추가 | VP-05 (D-010 폴백 부활) | 해당 없음 | `읽기 전용 폴백을 공개 API 로 노출하지 않는다` 1케이스 | 검출 |
+| `runStartupSequence` 의 두 호출 맞바꿈 | VP-07 선택 증거 | 해당 없음 | 순서 2케이스 | 검출 |
+| `repairMovedWorktrees` 의 git 호출 제거 | VP-08 선택 증거 | 해당 없음 | 실 git 2케이스 | 검출 |
+| `rebaseStoredPaths` 에서 `repo_root` 제외 | C2 정정이 실제로 잠기는가 | 해당 없음 | 실 git·sqlite 2케이스 | 검출 |
+| DB 3종 이동 순서를 `.db` 먼저로 뒤집음 | 새 oracle (순서 계약) | 해당 없음 | `DB 묶음은 -wal · -shm · .db 순서로 옮긴다` 1케이스 | 검출 |
+| DB 3종 실패 등급을 `critical: false` 로 강등 | 새 oracle (D-018) | 해당 없음 | `DB 3종 이동 실패는 critical 이라 부팅을 막는다` 1케이스 | 검출 |
+| `settings-store` 를 옛 리터럴 `'orca-settings'` 로 | 새 구조적 proxy (EP-03) | 해당 없음 | `settings-store 이름이 PRODUCT_SLUG 파생이다` 1케이스 | 검출 |
+| `log/index.ts` 를 옛 하드코딩 루트로 되돌림 | 새 구조적 proxy (EP-03) | 해당 없음 | `로그 디렉토리 이름이 PRODUCT_SLUG 파생이다` 1케이스 | 검출 |
+| `electron-builder.yml` appId 를 `com.orca.app` 으로 | 새 구조적 proxy (EP-01) | 해당 없음 | `appId 가 SSOT 와 같고 옛 값이 아니다` 1케이스 | 검출 |
+| `ipc.ts` 채널 하나의 접두 변경 | 새 구조적 proxy (EP-11) | 해당 없음 | `채널 접두가 그대로 orca: 이고 개수가 생성물과 일치한다` 1케이스 | 검출 |
+| `release-operations.md` 구버전 제거 절 제목 변경 | 새 구조적 proxy (EP-12) | 해당 없음 | `구버전 수동 제거 절차 문단을 갖는다` 1케이스 | 검출 |
+| `bootstrap.ts` 의 `legacy-paths` 단계 본문 제거 | 새 배선 oracle | 해당 없음 | `rebase·repair 단계가 DB 오픈 뒤·핸들러 등록 앞에 있다` 1케이스 | 검출 |
+| `index.ts` 가 이관 결과를 `Bootstrap` 에 넘기지 않음 | 새 배선 oracle | 해당 없음 | `index.ts 가 …결과를 Bootstrap 에 넘긴다` 1케이스 | 검출 |
+| `legacy-migration` 단계를 `critical: false` 로 강등 | 새 배선 oracle | 해당 없음 | **1차 측정에서 미검출** → oracle 수정 후 `부팅 차단 게이트가 critical 이고 DB 오픈보다 앞에 있다` 1케이스 | 수정 후 검출 |
 
-- 분모 검산: …
-- 덮개 회귀: …
+- **분모 검산**: 선택 증거 4(VP-04·05·07·08) · 인용 변이 0(r1 이라 파생 이슈 없음) · 이번 턴에 만든 구조적/배선 oracle 13 = **표 행 17** ✓ (표 17행).
+- **미검출 1건의 내용**: `legacy-migration` 단계의 `critical` 강등이 처음에는 통과했다. 단언이 `gate`~`db-init` **구간 전체**에서 `critical: true` 문자열을 찾았고 그 사이의 다른 critical 단계가 대신 통과시켰다. 단계 자신의 옵션(`/'legacy-migration',\s*\{ critical: true,/`)을 보도록 고쳐 재측정했고 red 가 됐다. **분모를 라벨이 아니라 주어로 잡으라는 §2 규칙이 oracle 범위에도 그대로 적용된다는 실증이다.**
+- **덮개 회귀**: 없음. 이번 라운드가 교체·삭제한 검사 장치가 없다(전부 신규). 기존 스위트 중 값을 바꾼 것은 픽스처 문자열뿐이며(`paths.test.ts` 6 · `migrate.test.ts` 3 · `seed.test.ts` 6 · `deployer.test.ts` 16 · `claude-plugin.test.ts` 2 · `claude-adapt.test.ts` 2 · DB 픽스처 4파일 6건 · `worktreeDisplay.test.ts` 1 · `builder.test.ts` 2 · `validate-dist.test.mjs` 10) 단언의 형태와 개수는 그대로다.
 
-## [구현자 기입] Product/UX 파생 검토
+## [구현자 기입] Product/UX 파생 검토 — r1
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | **있다** | 이관 실패의 사용자 대면 경로는 `BootFailureFrame` 하나다. `legacy-migration` 단계를 `critical: true` 로 두면 `bootReport.recordFailure` 가 rethrow → `router.start()` reject → `index.ts` 의 catch → renderer 부트 오케스트레이터의 main-ready 실패 UX. 모듈 스코프에서 throw 하면 창이 뜨기 전이라 화면이 없다 — 그래서 이관은 **던지지 않고 report 를 돌려주고** 부팅 단계가 등급을 읽는다 |
+| seam 을 만들려고 production 을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | **해당 있음 — 확인 완료** | `index.ts` 의 `const rootLog = initLog()` 를 `runStartupSequence` 반환값으로 바꿨다. `rootLog` 는 여전히 모듈 스코프 `const` 이고 `flushLogSync`·`will-quit` 정리 경로가 보던 참조가 그대로다. 콜백 안으로 들어간 것은 `migrateLegacyRoots` 호출뿐이고 그 안에 `await` 는 없다 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 전이표 7행 전부 구현·테스트됨 | `DB 3종 개명이 예외로 실패` 행이 `legacy-migration` critical 게이트, `옛 루트 있음 · 새 루트도 있음` 행이 `conflicts` 배열, `루트 이동 후 …크래시` 행이 재개 케이스에 각각 대응한다 |
+| 실패가 화면에서 "아무 일도 안 일어남" 으로 보이지 않는가 | **비차단 실패는 로그만 남는다** | 설계대로다(§5 "나머지는 부팅 후 로그로만"). 다만 **워크트리 repair 실패는 사용자가 세션을 열 때 0210 폴백으로 표면화**되고, 설정 루트 개명 실패는 재seed/재배포로 자기 치유한다. 화면 통지는 이번 범위 밖 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | 이관·rebase 는 창이 뜨기 전(모듈 스코프)과 핸들러 등록 전(부팅 단계)에 끝난다. 비동기 경쟁 지점이 없다 |
 
-## [구현자 기입] 놓친 잠재 문제 + 대응
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r1
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | **루트 이동이 실패한 첫 부팅이 데이터를 영구 고아로 만든다.** 이동 실패 → 그 부팅이 `initLog()`·DB 오픈으로 새 루트를 만든다 → 다음 부팅의 "target 없으면 이동" 가드가 영영 거짓이 되어 옛 루트를 다시 보지 않는다. 가장 그럴듯한 유발 조건은 §17 이 이미 적은 "구버전 앱이 떠 있어 rename 이 거부됨" 이다 | **보고만 — 구현하지 않았다.** 상태 전이표 3행("옛 루트도 새 루트도 있음 → 옛 루트는 손대지 않는다")이 제품 계약이라 임의로 병합 의미로 바꾸지 않는다 | `migrate-legacy.test.ts` `옛 루트와 새 루트가 둘 다 있으면 …conflict 로 남긴다` 가 이 동작을 그대로 잠근다. 완화안 2가지(① 루트 이동 실패도 `critical` 로 올려 부팅을 막는다 ② target 이 있어도 항목 단위로 구조한다)는 **사용자 결정 사항** |
+| 2 | 모델 대면 프롬프트가 여전히 `Orca` 를 말한다 (`system-header.ts:29·59` · `artifacts/tool.ts` 5곳 · `confluence/tools.ts:138`) | **보고만.** D-001 은 "화면 표시" 를 말하고 시스템 프롬프트는 화면이 아니다. 바꾸면 모델이 받는 정체성 문구가 달라진다 | 제품 의도 변경이라 §6 세 번째 갈래 |
+| 3 | 제품명 기반 **일회성 temp 이름**이 남는다 — `.orca-artifact-<uuid>.tmp`(`handlers/artifacts.ts:78`) · `.orca-export-check`(`:194`) · `orca-sqlite-warm-`(테스트 헬퍼) | **보고만.** 생성 직후 삭제되는 임시 파일이라 저장소가 아니고, §8 전수(리터럴 14)에도 없다. 고치면 계약 없이 PR 을 넓힌다 | D-008 의 "제품명 기반 내부 저장 파일" 해석 경계 — 판정은 설계자 몫 |
+| 4 | git stash 메시지가 `orca: auto-stash before switching to <target>` 이다 (`git-cli.ts:103`). **사용자 저장소에 영속**하고 `git stash list` 로 보인다 | **보고만.** 파싱하는 소비자는 없어 바꿔도 기능은 안 깨지지만, 사용자 저장소에 쓰는 문자열이라 제품 표기 결정이다 | `grep -rn "auto-stash" src` = 생성 1곳, 소비 0곳 |
+| 5 | `repo_root` 를 rebase 하면 `repoDirSegment(repoRoot)` 의 sha1 입력이 바뀌어, **다음에 만드는** 워크트리 디렉토리명이 기존 것과 달라진다 | **선조치 없음 — 설계대로.** §12 가 "재계산하지 않고 저장값을 rebase 한다" 를 이미 정했고, 기존 행은 저장값을 쓰므로 열린다. 새 워크트리가 다른 세그먼트에 생기는 것은 0210 D-104 의 결정적 명명 규칙상 정상이다 | `naming.ts:20` |
+| 6 | `electron-store` 파일명은 store `name` 파생이라 개명이 곧 이사인데, **이관이 실패한 채로 앱이 뜨면 빈 설정으로 시작**한다(옛 파일은 그대로 남음) | **선조치 없음.** 설계의 비차단 등급 그대로다. 다음 부팅이 멱등하게 재시도하며, 그 사이 사용자가 바꾼 설정은 새 파일에 쌓여 재시도 시 conflict 로 보존된다 | `migrate-legacy.test.ts` conflict 케이스 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- **`git worktree repair` 를 워크트리 측 무인자 호출이 아니라 repo 측 `git worktree repair <worktree>` 로 구현했다.** 이유: 임시 저장소 실측에서 저장소가 함께 이동한 경우 워크트리 측 호출이 `fatal: not a git repository` 로 실패한다(§3 정정 C3). repo 측 호출은 같은 상황에서 `gitdir` 과 워크트리의 `.git` 파일을 **둘 다** 고친다.
+- **`migrateLegacyRoots` 에 `rename` 주입 포트를 하나 열었다.** 프로덕션은 인자를 주지 않고 기본값 `renameSync` 를 쓴다. 이유: 이 환경은 root 라 퍼미션으로 rename 실패를 결정적으로 만들 수 없어 D-018 의 실패 등급을 관측할 수 없다. `runGit` 의 `execFileImpl` 과 같은 형상이다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | **해당 없음** — repair 도 rename 포트도 상태를 캐시하지 않는다. `git worktree repair` 는 매 호출이 디스크의 현재 포인터를 읽어 고치고, 결과에 TTL 이 없다 | EP-08 / `legacy-paths.test.ts` 4케이스 재측정 green |
+| 공유 | **있다 — repo 측 호출은 cwd 를 `repo_root` 로 쓴다.** 워크트리 측 호출은 워크트리 경로만 있으면 되지만, repo 측은 `repo_root` 가 **rebase 되어 실재해야** 한다. 그 값을 채우는 것은 같은 트랜잭션의 rebase 이고, 그 컬럼을 빠뜨리면(정정 C2 이전 설계) repo 가 사라진 것으로 보인다 | EP-08·EP-06 / `repo 와 워크트리가 함께 옮겨져도…` 케이스 + `repo 가 사라진 행은 실패로 남기고…` 케이스. MUT-F(`repo_root` rebase 제외)가 2케이스 red |
+| 재진입 | **해당 없음** — repair 는 멱등이다. 이미 고쳐진 워크트리에 다시 부르면 무출력 exit 0 이다. rename 포트도 상태가 없다 | EP-10 / `migrate-legacy.test.ts` 멱등 케이스 + `repairMovedWorktrees` 를 두 번 부르는 경로가 없음을 배선 단언이 고정 |
+| 다른 무효화 축 | **있다 — repo 측 호출은 repo 가 잠겨 있으면(`index.lock`) 실패할 수 있다.** 워크트리 측 호출도 같은 성질이지만 잠그는 주체가 다르다. 실패는 비차단이라 경고 로그 + 0210 폴백으로 떨어진다 | EP-08 / `repairFailed` 배열과 `legacy.worktree.repair.failed` 경고. `repo 가 사라진 행…` 케이스가 실패 수집 경로를 관측한다 |
 
-## [구현자 기입] 구현 보고
+## [구현자 기입] 구현 보고 — r1
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| 관측한 게이트 산출 | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| AC 자기보고 | … |
-| 합계 검산 | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | 신규 10(코드 5 + 테스트 5) · 변경 63(`git status --porcelain` 실측). 코드 신규: `src/shared/product.ts` · `main/infra/config/{rebase-path,migrate-legacy,startup-sequence}.ts` · `main/app/legacy-paths.ts`. 테스트 신규: 위 4개의 `*.test.ts` + `main/product-identity.test.ts` |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs` · `node scripts/check-doc-inventory.mjs --check` · `node scripts/check-test-budgets.mjs` · `node scripts/check-migrations-appendonly.mjs` |
+| 관측한 게이트 산출 | lint **0 error / 1 warning**(warning 은 `useTranscriptVirtualizer.ts` 의 react-compiler 경고 = 베이스라인). typecheck **3구성 0 error**. vitest **437파일 4069케이스 — 13 fail / 4055 pass / 1 skip**. `node --test scripts` **109/109 pass**. doc-inventory **generated ok(9 items, 89 channels) · prose ok · links ok**. test-budgets **11 real-git suites ok**. migrations **no-copies ok(1057 파일)** |
+| 베이스라인 분리 | vitest 13 fail = **9파일 전건 환경 기인**. 서명 `Error: Electron failed to install correctly` (egress 차단으로 `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 설치). **변경 전 트리(`git stash`)에서 같은 명령을 돌려 9파일 13케이스로 동일함을 실측했다** — 파일 목록도 같다: `bootstrap.{artifacts,shutdown}` · `chat-turn.{continuity,runtime-tools}` · `chat-turn/{approval.permission,resolve-turn.agent,send.busy,send.worktree}` · `handlers/session.load` |
+| V-pair 자기확인 | 14 pair 전건 `SELF_PASS`. 선택된 적대 증거 4건 전부 검출 |
+| 강제 지점 전수 | EP-01 6/6 · EP-02 2/2 · EP-03 16/16 · EP-04 34/34 · EP-05 2/2 · EP-06 4/4 · EP-07 1/1 · EP-08 2/2 · EP-09 1/1 · EP-10 1/1 · EP-11 1/1 · EP-12 1/1 · EP-13 1/1 |
+| AC 자기보고 | ✅ AC1·AC3·AC4·AC5·AC6·AC7·AC8·AC9·AC10·AC11·AC12·AC13 · ⚠️ AC2·AC14 |
+| 합계 검산 | ✅ 12 · ⚠️ 2 · ❌ 0 = **총 14** (AC 총수 14, 분모 변경 없음). ⚠️ 2건은 구현이 아니라 **관측 수단**이 막는다 — AC2(실제 `%APPDATA%\orcinus-orca` 폴더)와 AC14(Chromium 쿠키 저장 위치)는 Windows 실기가 필요하고, 순수 축(=`productName` 부재 · 파티션 문자열 불변)은 각각 green |
+| 블로커 / 역질문 | 3건 — ① `appId` 값을 `com.orcinus-orca.app` 으로 정했다(§17 one-way door). ② 잠재 문제 #1(첫 이관 실패의 영구 고아)은 상태 전이표 3행이 계약이라 그대로 뒀다. ③ 잠재 문제 #2·#4(모델 프롬프트·git stash 메시지)는 제품 표기 결정이라 손대지 않았다 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
-## [구현자 기입] Review Signals — 사실만
+## [구현자 기입] Review Signals — 사실만 — r1
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드 수: …
+- **이번에 닫은 불변식이 이전 라운드와 같은 축인가**: r1 이라 이전 라운드가 없다. 다만 **한 라운드 안에서 같은 축이 두 번 열렸다** — EP-04 분모가 9 → 31 → 34 로 두 번 늘었고, 두 번 다 원인이 같다("술어를 불변식의 주어가 아니라 표기의 한 형태로 잡았다"). 1차는 `'Orca'` 작은따옴표 리터럴, 2차는 `Orca` 대문자 표기만 보고 슬러그 표기(`orca.json`)를 뺀 것이다.
+- **그것을 막았어야 할 plan 지침·AC 가 있었는가**: 있었다. `handoff-plan` 의 전수 조사 규칙과 §8 "수치/전칭 표현 검산" 이 그 자리다. plan §8 은 실제로 반례를 하나 잡았지만(`log/index.ts` 의 설정 루트 2중 정의) 표시명 축에서는 `rg "Orca"` 를 좁힌 스코프로 돌려 i18n·main 을 보지 못했다. **검산이 "합이 총계와 맞는가" 였고 "빠진 것이 없는가(차집합)" 가 아니었다** — 9 = 1 + 8 은 참이지만 그 9 가 전부라는 근거는 아니었다.
+- **반복해서 부딪히는 환경 한계**: ① electron 바이너리 미설치로 `electron` 을 import 하는 9스위트가 상시 red — `Bootstrap` 을 실행할 수 없어 이관 배선을 소스 텍스트 proxy 로 잠갔다. ② root 실행이라 퍼미션 기반 fs 실패를 만들 수 없어 rename 주입 포트가 필요했다. ③ better-sqlite3 ABI 를 Node 로 뒤집어야 DB 스위트가 돈다(`npm rebuild better-sqlite3` 수행 — 이 트리에서 `npm run build` 를 하려면 Electron 재빌드가 필요하고 egress 차단으로 불가).
+- **현재 라운드 수**: 1
 
 ---
 

@@ -3,6 +3,7 @@ import { FullFrameShell } from './FullFrameShell'
 import { useI18n } from '../shared/i18n'
 import { DebugPanel } from '../features/debug'
 import { GateLogin, ProviderDebugSection } from '../features/providers'
+import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 
 // 로그인 게이트가 활성일 때 AppLayout 을 대체하는 화면 (구 `LoginFrame` 복원). 창 크롬은
 // `FullFrameShell` 이 갖고, 여기는 본문(로그인 랜딩)만 채운다.
@@ -30,7 +31,7 @@ export function GateFrame({
   const { tr } = useI18n()
   return (
     <FullFrameShell
-      screenLabel={`Orca · ${tr('gate.title')}`}
+      screenLabel={`${PRODUCT_DISPLAY_NAME} · ${tr('gate.title')}`}
       context="provider-gate"
       footer={import.meta.env.DEV && <DebugPanel providerSection={<ProviderDebugSection />} />}
     >

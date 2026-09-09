@@ -12,6 +12,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { deploy } from './deployer'
+import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../shared/product'
 
 let root: string
 
@@ -49,24 +50,26 @@ describe('deploy', () => {
     expect(r.dryRun).toBe(false)
     expect(r.validation.ok).toBe(true)
     expect(
-      readFileSync(join(dist(), 'plugins', 'orca', 'skills', 'demo', 'SKILL.md'), 'utf8')
+      readFileSync(join(dist(), 'plugins', PRODUCT_SLUG, 'skills', 'demo', 'SKILL.md'), 'utf8')
     ).toBe('# demo')
-    expect(JSON.parse(readFileSync(join(dist(), 'plugins', 'orca', '.mcp.json'), 'utf8'))).toEqual({
+    expect(
+      JSON.parse(readFileSync(join(dist(), 'plugins', PRODUCT_SLUG, '.mcp.json'), 'utf8'))
+    ).toEqual({
       mcpServers: { gh: { command: '${GH_MCP}' } }
     })
     expect(
       JSON.parse(
-        readFileSync(join(dist(), 'plugins', 'orca', '.claude-plugin', 'plugin.json'), 'utf8')
+        readFileSync(join(dist(), 'plugins', PRODUCT_SLUG, '.claude-plugin', 'plugin.json'), 'utf8')
       )
     ).toEqual({
-      name: 'orca',
-      description: 'orca에서 구성된 skill 및 mcp',
+      name: PRODUCT_SLUG,
+      description: `${PRODUCT_DISPLAY_NAME}에서 구성된 skill 및 mcp`,
       version: '1.0.0'
     })
     expect(existsSync(join(dist(), '.claude'))).toBe(false)
     expect(existsSync(join(dist(), '.mcp.json'))).toBe(false)
     expect(existsSync(join(dist(), 'commands'))).toBe(false)
-    expect(existsSync(join(dist(), '.orca-deploy.json'))).toBe(true)
+    expect(existsSync(join(dist(), `.${PRODUCT_SLUG}-deploy.json`))).toBe(true)
   })
 
   it('provider settings 는 검증만 하고 dist 로 복사하지 않는다', async () => {
@@ -132,9 +135,9 @@ describe('deploy', () => {
     const r2 = await deploy('claude', {}, root)
     expect(r2.backedUp).toBe(true)
     expect(existsSync(`${dist()}.bak`)).toBe(true)
-    expect(existsSync(join(`${dist()}.bak`, 'plugins', 'orca', 'skills', 'demo', 'SKILL.md'))).toBe(
-      true
-    )
+    expect(
+      existsSync(join(`${dist()}.bak`, 'plugins', PRODUCT_SLUG, 'skills', 'demo', 'SKILL.md'))
+    ).toBe(true)
   })
 
   // 0157 (AC12) — .bak 은 배포 구조 롤백용이지 비밀 보관용이 아니다. dist 를 통째로 rename 하면
@@ -144,17 +147,17 @@ describe('deploy', () => {
     const opts = { mcpConfig: { wiki: { command: 'npx', env: { TOKEN: 'resolved-secret' } } } }
     await deploy('claude', opts, root)
     // 1차 배포본에는 값이 있다(claude CLI 가 읽어야 하는 문서화된 잔여 노출).
-    const live = join(dist(), 'plugins', 'orca', '.mcp.json')
+    const live = join(dist(), 'plugins', PRODUCT_SLUG, '.mcp.json')
     expect(readFileSync(live, 'utf8')).toContain('resolved-secret')
 
     await deploy('claude', opts, root)
 
     // 백업으로 밀려난 사본은 제거된다.
-    expect(existsSync(join(`${dist()}.bak`, 'plugins', 'orca', '.mcp.json'))).toBe(false)
+    expect(existsSync(join(`${dist()}.bak`, 'plugins', PRODUCT_SLUG, '.mcp.json'))).toBe(false)
     // 백업의 나머지 구조(롤백 목적)는 그대로 남는다.
-    expect(existsSync(join(`${dist()}.bak`, 'plugins', 'orca', 'skills', 'demo', 'SKILL.md'))).toBe(
-      true
-    )
+    expect(
+      existsSync(join(`${dist()}.bak`, 'plugins', PRODUCT_SLUG, 'skills', 'demo', 'SKILL.md'))
+    ).toBe(true)
   })
 
   it('Orca 스킬은 enabled 와 무관하게 plugin 에 포함하고(활성 제어는 런타임 options.skills) MCP 는 mcpConfig 로 필터된다', async () => {
@@ -165,9 +168,15 @@ describe('deploy', () => {
 
     expect(r.validation.ok).toBe(true)
     // 비활성 스킬도 파일은 복사된다 — 활성/비활성은 어댑터의 options.skills 필터가 담당.
-    expect(existsSync(join(dist(), 'plugins', 'orca', 'skills', 'demo', 'SKILL.md'))).toBe(true)
-    expect(existsSync(join(dist(), 'plugins', 'orca', 'skills', 'off', 'SKILL.md'))).toBe(true)
-    expect(JSON.parse(readFileSync(join(dist(), 'plugins', 'orca', '.mcp.json'), 'utf8'))).toEqual({
+    expect(existsSync(join(dist(), 'plugins', PRODUCT_SLUG, 'skills', 'demo', 'SKILL.md'))).toBe(
+      true
+    )
+    expect(existsSync(join(dist(), 'plugins', PRODUCT_SLUG, 'skills', 'off', 'SKILL.md'))).toBe(
+      true
+    )
+    expect(
+      JSON.parse(readFileSync(join(dist(), 'plugins', PRODUCT_SLUG, '.mcp.json'), 'utf8'))
+    ).toEqual({
       mcpServers: { on: { command: 'npx' } }
     })
   })
@@ -199,8 +208,12 @@ describe('deploy', () => {
 
     expect(r.validation.ok).toBe(true)
     // Orca 스킬만 orca plugin 패키지에 포함, 어댑터 스킬은 제외(복사 없음).
-    expect(existsSync(join(dist(), 'plugins', 'orca', 'skills', 'demo', 'SKILL.md'))).toBe(true)
-    expect(existsSync(join(dist(), 'plugins', 'orca', 'skills', 'native', 'SKILL.md'))).toBe(false)
+    expect(existsSync(join(dist(), 'plugins', PRODUCT_SLUG, 'skills', 'demo', 'SKILL.md'))).toBe(
+      true
+    )
+    expect(existsSync(join(dist(), 'plugins', PRODUCT_SLUG, 'skills', 'native', 'SKILL.md'))).toBe(
+      false
+    )
     // 어댑터 스킬은 래퍼 플러그인(매니페스트 + skills 링크)으로 노출된다.
     expect(
       JSON.parse(
@@ -249,6 +262,6 @@ describe('deploy', () => {
     writeFile(join(root, 'sources', 'mcp', 'mcp.json'), '{"mcpServers":{}}')
     const r = await deploy('claude', {}, root)
     expect(r.validation.ok).toBe(true)
-    expect(existsSync(join(dist(), 'plugins', 'orca', 'skills'))).toBe(true)
+    expect(existsSync(join(dist(), 'plugins', PRODUCT_SLUG, 'skills'))).toBe(true)
   })
 })

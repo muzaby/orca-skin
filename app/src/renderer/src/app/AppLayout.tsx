@@ -6,6 +6,7 @@ import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { OverlayLayer } from './OverlayLayer'
 import { AppRouter } from './router'
+import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 import { useChatRouteSync } from './hooks/useChatRouteSync'
 import { useChatSessionsSync } from './hooks/useChatSessionsSync'
 import { useCompletionNotifier } from './hooks/useCompletionNotifier'
@@ -40,7 +41,7 @@ export function AppLayout(): React.JSX.Element {
   return (
     <div
       className="app-frame-root flex h-full w-full flex-col overflow-hidden bg-bg [font-family:var(--font-app)] text-[13px] leading-[1.45] text-ink"
-      data-screen-label={`Orca · ${tr(info.labelKey)}`}
+      data-screen-label={`${PRODUCT_DISPLAY_NAME} · ${tr(info.labelKey)}`}
     >
       <Header onOpenSearch={openSearch} />
       <div className="app-frame-grid relative grid min-h-0 flex-1 grid-cols-1 grid-rows-1 [&>*]:[grid-area:1/1]">
