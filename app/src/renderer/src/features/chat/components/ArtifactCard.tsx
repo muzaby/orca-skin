@@ -71,7 +71,7 @@ export function ArtifactCard({
   const metadata = `${artifact.filename} · ${tr('chat.artifacts.bytes', { count: artifact.sizeBytes })} · ${new Date(artifact.publishedAt).toLocaleString()}`
   return (
     <article
-      className={`group/artifact min-w-0 ${transcript ? 'rounded-r6 border border-border bg-panel p-3' : 'rounded-r4 px-p2 py-2'}`}
+      className={`group/artifact min-w-0 ${transcript ? 'rounded-r6 border border-border bg-panel p-3' : 'rounded-r4 px-p2 py-1'}`}
       aria-label={artifact.title}
     >
       <div className="flex min-w-0 items-center gap-g3">
@@ -297,7 +297,7 @@ export function ArtifactCards({
   }
   const outcome = result?.sessionId === sessionId ? result.result : undefined
   return (
-    <div className="flex min-w-0 flex-col gap-2">
+    <div className={`flex min-w-0 flex-col ${variant === 'list' ? 'gap-1' : 'gap-2'}`}>
       {variant === 'transcript' && saveArtifacts.length > 1 && (
         <div className="flex justify-end">
           <Button

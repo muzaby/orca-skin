@@ -15,6 +15,7 @@ app.whenReady().then(async () => {
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
+      backgroundThrottling: false,
     },
   });
   const result = {
@@ -27,12 +28,19 @@ app.whenReady().then(async () => {
   };
   try {
     await win.loadFile(path.join(cache, "panel.html"));
-    for (const [name, expression] of [
-      ["new-landing", "window.r6Landing('new-landing')"],
-      ["project-landing", "window.r6Landing('project-landing')"],
-      ["nav-unread", "window.r6Nav(false)"],
-      ["nav-read", "window.r6Nav(true)"],
-    ]) {
+    const scenes =
+      process.argv[3] === "r7"
+        ? [
+            ["work-permission", "window.r7Landing()"],
+            ["work-output", "window.r7Outputs()"],
+          ]
+        : [
+            ["new-landing", "window.r6Landing('new-landing')"],
+            ["project-landing", "window.r6Landing('project-landing')"],
+            ["nav-unread", "window.r6Nav(false)"],
+            ["nav-read", "window.r6Nav(true)"],
+          ];
+    for (const [name, expression] of scenes) {
       result.observed = await win.webContents.executeJavaScript(expression);
       fs.writeFileSync(
         path.join(cache, name + ".png"),

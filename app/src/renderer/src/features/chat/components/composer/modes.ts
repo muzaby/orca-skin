@@ -88,9 +88,11 @@ export function permissionModeLabelKey(
   mode: NormalizedPermissionMode,
   kind: AgentKind
 ): MessageKey {
-  return kind === 'work' && mode === 'bypass'
-    ? 'chat.composer.modes.skipAllLabel'
-    : MODE_LABEL_KEYS[mode]
+  return (
+    (kind === 'work'
+      ? WORK_MODE_OPTIONS.find((option) => option.mode === mode)?.labelKey
+      : undefined) ?? MODE_LABEL_KEYS[mode]
+  )
 }
 
 // MODE_OPTIONS 의 labelKey 파생 — 라벨 키의 단일 진실원은 MODE_OPTIONS.

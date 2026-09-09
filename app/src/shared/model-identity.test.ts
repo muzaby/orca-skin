@@ -1,6 +1,29 @@
 import { describe, expect, it } from 'vitest'
 import { modelIdentity, sameModelIdentity, supportsAutoPermission } from './model-identity'
 
+describe('Claude Code model name variants', () => {
+  it.each([
+    'claudecode-sonnet-5',
+    'claudecode-opus-4.8',
+    'claudecode-opus-4.8[1m]',
+    'claudecode-opus-4-8[1m]'
+  ])('accepts explicit supported version %s without changing identity', (model) => {
+    expect(supportsAutoPermission(model)).toBe(true)
+    expect(modelIdentity({ model, alias: 'claude', oneMillionContext: false })).toBe(model)
+  })
+  it.each([
+    'claudecode-opus-4.5',
+    'claudecode-opus-4-5[1m]',
+    'claudecode-4',
+    'claudecode-4\n8[1m]',
+    'custom-claudecode-sonnet-5',
+    'claudecode-unknown-5',
+    'claudecode-opus4.8extra'
+  ])('excludes unsupported or malformed name %s', (model) =>
+    expect(supportsAutoPermission(model)).toBe(false)
+  )
+})
+
 describe('r6 Claude family and dotted/hyphenated version', () => {
   for (const family of ['haiku', 'sonnet', 'opus', 'fable']) {
     it.each(['4.6', '4-6', '5', '4.6[1m]', '4-6-20260909'])(

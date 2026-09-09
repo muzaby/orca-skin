@@ -1,6 +1,6 @@
 # Plan r7 — 모델명 변형과 Work 표시 보완
 
-작성: **Codex**, 2026-09-09. 상태: **plan/READY**. 기준은 원격 r6 `86d47e04`의 V1~ΔV6이며 이번 피드백은 ΔV7이다. 사용자 지시대로 handoff-review는 사용하지 않는다.
+작성: **Codex**, 2026-09-09. 상태: **impl/IMPL_DONE**, Codex 자기확인 **3/3**. [구현 보고 r7](impl-r7.md), 독립 verify pending. 기준은 원격 r6 `86d47e04`의 V1~ΔV6이며 이번 피드백은 ΔV7이다. 사용자 지시대로 handoff-review는 사용하지 않는다.
 
 ## Part I — Product & UX Contract
 

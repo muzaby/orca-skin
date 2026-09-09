@@ -37,7 +37,7 @@ export function sameModelIdentity(a: ModelIdentityInput, b: ModelIdentityInput):
 export const CLAUDE_MODEL_FAMILIES = ['sonnet', 'opus', 'haiku', 'fable'] as const
 
 const AUTO_PERMISSION_MODEL_PATTERN = new RegExp(
-  String.raw`^(?:(?:(?:us|eu|apac|global)\.)?anthropic[./])?claude-(?:${CLAUDE_MODEL_FAMILIES.join('|')})-(\d+)(?:[.-](\d{1,2}))?(?:-\d{8})?(?:-v\d+(?::\d+)?)?$`,
+  String.raw`^(?:(?:(?:us|eu|apac|global)\.)?anthropic[./])?claude(?:code)?-(?:${CLAUDE_MODEL_FAMILIES.join('|')})-(\d+)(?:[.-](\d{1,2}))?(?:-\d{8})?(?:-v\d+(?::\d+)?)?$`,
   'i'
 )
 

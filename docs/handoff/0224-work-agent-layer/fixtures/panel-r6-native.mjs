@@ -8,11 +8,14 @@ const dir = path.dirname(fileURLToPath(import.meta.url)),
   repo = path.resolve(dir, "../../../.."),
   app = path.join(repo, "app");
 const require = createRequire(path.join(app, "package.json"));
+const revision = process.argv[2] ?? "r6";
+if (!["r6", "r7"].includes(revision))
+  throw new Error("Unknown fixture revision");
 const cache = fs.mkdtempSync(
-  path.join(app, "node_modules/.cache/orca/panel-r6-"),
+  path.join(app, `node_modules/.cache/orca/panel-${revision}-`),
 );
 await require("esbuild").build({
-  entryPoints: [path.join(dir, "panel-r6-native-browser.tsx")],
+  entryPoints: [path.join(dir, `panel-${revision}-native-browser.tsx`)],
   outfile: path.join(cache, "panel.js"),
   bundle: true,
   format: "iife",
@@ -34,6 +37,7 @@ const files = [
   "components/AgentModeToggle.tsx",
   "components/CwdPanel.tsx",
   "components/Composer.tsx",
+  "components/ArtifactCard.tsx",
   "components/composer/BranchChip.tsx",
   "components/composer/modelSelection.ts",
   "components/composer/modes.ts",

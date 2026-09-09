@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { MODE_LABEL_KEYS, MODE_MENU_OPTIONS, MODE_OPTIONS, modeMenuOptions } from './modes'
+import {
+  MODE_LABEL_KEYS,
+  MODE_MENU_OPTIONS,
+  MODE_OPTIONS,
+  modeMenuOptions,
+  permissionModeLabelKey
+} from './modes'
 import { NORMALIZED_MODES } from '../../../../../../shared/permission-mode'
 import { ko } from '../../../../shared/i18n/resources/ko'
 
@@ -79,6 +85,16 @@ describe('modeMenuOptions — haiku 에서 자동 제외 (AT-11)', () => {
 })
 
 describe('r4 Work menu actual modes', () => {
+  it('Work button uses exactly the same labels as its menu; Coding retains its labels', () => {
+    for (const option of modeMenuOptions(
+      { alias: 'sonnet', model: 'claudecode-sonnet-5' },
+      'work'
+    )) {
+      expect(permissionModeLabelKey(option.mode, 'work')).toBe(option.labelKey)
+    }
+    for (const mode of NORMALIZED_MODES)
+      expect(permissionModeLabelKey(mode, 'coding')).toBe(MODE_LABEL_KEYS[mode])
+  })
   it('manual, auto, bypass in requested order with complete labels', () => {
     const items = modeMenuOptions({ alias: 'sonnet', model: 'claude-sonnet-4-6' }, 'work')
     expect(items.map((item) => item.mode)).toEqual(['default', 'auto_classified', 'bypass'])
