@@ -25,6 +25,22 @@ const running = new Set<ChildProcess>()
 /** 종료를 기다리는 상한. 안 죽는 자식에 매달려 정리 전체를 막지 않는다. */
 const KILL_GRACE_MS = 5_000
 
+/**
+ * 실-git 스위트가 `runGit` 을 픽스처로 쓸 때 넘기는 **프로세스 상한**.
+ *
+ * `runGit` 의 기본 10s 는 앱이 멈춘 git 을 보고하기까지의 값이다. 테스트가 그것을 상속하면
+ * 파일 예산이 아니라 이 캡이 판정을 쥔다 — 인라인 캡이 파일 예산을 조용히 이기던 자리가 한
+ * 층 아래에 그대로 있는 것이다. `prepare-progress` 가 정확히 그렇게 죽었다: 픽스처의
+ * `worktree add`(풀 체크아웃이라 가장 무겁다)가 병렬 부하에서 10s 를 넘겨 자식이 죽었고,
+ * stderr 에는 `Preparing worktree` 한 줄뿐 fatal 이 없었으며 99s 파일 예산은 닿지도 않았다.
+ *
+ * git 의 속도는 호스트 몫이라 orca 가 정할 수 없다. 그래서 **어떤 파일 예산보다도 크게**
+ * 잡아(현재 최대 369s) 판정에서 빼고, 상한은 고아를 언젠가 반드시 죽이는 backstop 으로만
+ * 남긴다 — 0(무제한)으로 두면 예산에 끊긴 케이스의 `runGit` 자식은 `execGit` 과 달리 추적
+ * 밖이라 아무도 죽이지 않는다.
+ */
+export const FIXTURE_GIT_TIMEOUT_MS = 600_000
+
 /** `rm` 재시도 — 200·400·…·2000ms 로 늘어 총 11초. 짧은 git 명령이 끝나기엔 충분하다. */
 const RM_RETRY = { maxRetries: 10, retryDelay: 200 } as const
 

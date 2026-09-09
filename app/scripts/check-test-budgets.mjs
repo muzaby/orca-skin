@@ -10,7 +10,7 @@
 // `git-diff-commit` · `queue-entry` · `repository`), `service.test.ts` 는 198초 예산을 받고도
 // 케이스에 남은 30초 인라인 캡이 그 예산을 이겨 그대로 죽었다. 사람이 세는 한 또 빠진다.
 //
-// 그래서 네 가지를 강제한다.
+// 그래서 다섯 가지를 강제한다.
 //
 // (A) **대상 판정** — `git` 바이너리를 직접 띄우거나, 프로덕션 `runGit` 을 (가짜 주입 없이)
 //     부르거나, 공용 픽스처를 쓰는 `*.test.ts` 가 실-git 스위트다. 저장소를 세우려면 반드시
@@ -22,6 +22,11 @@
 //     지금 충분한지와 무관하게 형태 자체를 막는다. 예산의 소유자는 파일 하나여야 한다.
 // (D) **정리 경로** — `removeTempRoots` 를 지나야 한다. 직접 `rm` 하면 끊긴 케이스가 남긴
 //     고아 git 자식을 밟아 (A) 가 막으려던 두 번째 실패가 그대로 돌아온다.
+// (E) **프로세스 상한** — 테스트가 `runGit` 을 픽스처로 쓸 때 프로덕션 기본 10s 를 상속하면
+//     안 된다. 그 캡은 앱이 멈춘 git 을 보고하기까지의 값이지 테스트의 예산이 아니고, (C) 가
+//     막은 "더 작은 캡이 파일 예산을 조용히 이긴다" 가 한 층 아래에서 그대로 일어난다 —
+//     `prepare-progress` 의 `worktree add` 가 병렬 부하에서 10s 를 넘겨 죽었고 99s 파일
+//     예산은 닿지도 않았다. 값을 직접 적는 것도 막고 픽스처 상수 하나만 받는다.
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -29,6 +34,9 @@ import process from 'node:process'
 
 const TEST_ROOT = 'src'
 const FIXTURE = 'temp-repo.testfixture'
+/** (E) 가 요구하는 픽스처 상수 이름. 값이 아니라 **이름** 으로 받는다 — 숫자를 직접 적으면
+ *  그 자리마다 다시 작아질 수 있고, 상한의 근거는 픽스처 한 곳이 갖는다. */
+const FIXTURE_CAP = 'FIXTURE_GIT_TIMEOUT_MS'
 
 // `git` 바이너리를 직접 띄우는 형태. `promisify(execFile)` 로 감싼 별칭은 잡지 못하지만,
 // 그 경로는 (D) 가 요구하는 픽스처를 지나므로 `FIXTURE` 신호에 걸린다.
@@ -42,6 +50,11 @@ const RUN_GIT = /\brunGit\s*\(/
 // 러너 자체의 단위 테스트는 가짜 구현을 주입하므로 실제로 띄우지 않는다 — 유일한 예외이고,
 // 이름이 아니라 **주입한다는 사실**로 가른다.
 const INJECTS_RUNNER = /execFileImpl/
+
+// 실제 `runGit` 호출의 시작. `/\brunGit\s*\(/` 같은 **정규식 리터럴 본문은 잡지 않는다** —
+// 거기서는 `runGit` 다음이 백슬래시라 이 패턴이 요구하는 공백·`(` 가 아니다
+// (`ipc-integration.test.ts` 가 그 형태를 값으로 들고 있다).
+const RUN_GIT_CALL = /\brunGit\s*\(/g
 
 // 케이스/훅의 세 번째 인자 형태 — `  }, 30000)` · `  }, 30_000)`.
 const INLINE_TRAILING = /^\s*\}\s*,\s*(\d[\d_]*)\s*\)/gm
@@ -82,6 +95,46 @@ export function findInlineTimeouts(text) {
   return found
 }
 
+/**
+ * `text[open]` 의 `(` 와 짝이 맞는 `)` 안쪽. 문자열 리터럴 속 괄호는 깊이로 세지 않는다 —
+ * `throw new Error(\`git ${args.join(' ')}\`)` 같은 인자가 흔하다.
+ */
+function readCallArgs(text, open) {
+  let depth = 0
+  let quote = null
+  for (let i = open; i < text.length; i += 1) {
+    const ch = text[i]
+    if (quote) {
+      if (ch === '\\') i += 1
+      else if (ch === quote) quote = null
+      continue
+    }
+    if (ch === "'" || ch === '"' || ch === '`') quote = ch
+    else if (ch === '(') depth += 1
+    else if (ch === ')') {
+      depth -= 1
+      if (depth === 0) return text.slice(open + 1, i)
+    }
+  }
+  return text.slice(open + 1)
+}
+
+/** 픽스처 상한을 넘기지 않는 `runGit` 호출 목록. 통과면 빈 배열. */
+export function findUncappedRunGit(text) {
+  const found = []
+  RUN_GIT_CALL.lastIndex = 0
+  let hit
+  while ((hit = RUN_GIT_CALL.exec(text)) !== null) {
+    const open = text.indexOf('(', hit.index)
+    if (open === -1) continue
+    const args = readCallArgs(text, open)
+    if (!args.includes(FIXTURE_CAP)) {
+      found.push(`runGit(${args.replace(/\s+/g, ' ').trim().slice(0, 60)})`)
+    }
+  }
+  return found
+}
+
 /** 실-git 스위트인가. */
 export function isRealGitSuite(text) {
   if (text.includes(FIXTURE)) return true
@@ -107,6 +160,13 @@ export function analyze(relPath, source) {
   if (inline.length > 0) {
     errors.push(
       `케이스별 인라인 타임아웃(${inline.join(', ')}) — 파일 예산보다 작으면 조용히 이긴다. 예산은 파일이 소유한다`
+    )
+  }
+
+  const uncapped = findUncappedRunGit(text)
+  if (uncapped.length > 0) {
+    errors.push(
+      `프로덕션 기본 상한을 상속하는 runGit 호출(${uncapped.join(' · ')}) — 10s 가 파일 예산보다 먼저 끊는다. \`{ timeoutMs: ${FIXTURE_CAP} }\` 을 넘긴다`
     )
   }
 
