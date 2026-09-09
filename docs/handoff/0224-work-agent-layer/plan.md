@@ -7,7 +7,7 @@
 | slug | `0224-work-agent-layer` |
 | 작성자 | **Codex** |
 | 일자 | 2026-09-08 |
-| 상태 | **plan/READY — Codex r4 사용자 피드백 보완 설계, 구현 대기** |
+| 상태 | **plan/READY — Codex r4 최종 시각 피드백 반영, 해당 스타일 구현 대기** |
 | 코드 조사 기준 | `04953cf781b8c967d4aaef3255752bb721bafeb0` |
 | V mode / revision | Delta V / ΔV4 — [r4 패널 계획](panel-plan-r4.md) |
 | 기준 V / 유효 V | V1 `51268488` / V1 + [ΔV2](panel-plan.md) + [ΔV3](panel-plan-r3.md) + [ΔV4](panel-plan-r4.md) |
