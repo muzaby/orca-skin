@@ -47,7 +47,7 @@ beforeEach(() => {
   db.pragma('foreign_keys = ON')
   applyMigrations(db)
   queries = new DbQueries(db)
-  for (const id of ['work', 'other', 'coding'])
+  for (const id of ['work', 'other', 'code'])
     queries.insertSession({
       id,
       backend: 'claude',
@@ -55,10 +55,10 @@ beforeEach(() => {
       projectId: null,
       createdAt: 1,
       cwd,
-      agentKind: id === 'coding' ? 'coding' : 'work'
+      agentKind: id === 'code' ? 'code' : 'work'
     })
   queries.updateSessionExtraDirs('work', [realpathSync(directory)])
-  queries.updateSessionExtraDirs('coding', [realpathSync(directory)])
+  queries.updateSessionExtraDirs('code', [realpathSync(directory)])
   host.handlers.clear()
   host.openPath.mockReset().mockResolvedValue('')
   host.reveal.mockClear()
@@ -89,13 +89,20 @@ describe('Context directory open — actual registration, SQLite and filesystem'
     await invoke({ ...request(), path: cwd })
     expect(host.openPath).toHaveBeenCalledExactlyOnceWith(realpathSync(cwd))
   })
-  it.each(['other', 'coding', 'missing'])(
+  it.each(['other', 'code', 'missing'])(
     'rejects a folder outside the requested %s Work scope',
     async (sessionId) => {
       await expect(invoke({ ...request(), sessionId })).rejects.toThrow('허용되지 않은')
       expect(host.openPath).not.toHaveBeenCalled()
     }
   )
+  it('rejects an invalid persisted kind instead of treating it as Code', async () => {
+    db.pragma('ignore_check_constraints = ON')
+    db.prepare("UPDATE sessions SET agent_kind = 'corrupt' WHERE id = 'work'").run()
+    db.pragma('ignore_check_constraints = OFF')
+    await expect(invoke(request())).rejects.toThrow('Invalid agent kind')
+    expect(host.openPath).not.toHaveBeenCalled()
+  })
   it('does not allow descendants or unrelated directories by prefix matching', async () => {
     const child = join(directory, 'child')
     mkdirSync(child)

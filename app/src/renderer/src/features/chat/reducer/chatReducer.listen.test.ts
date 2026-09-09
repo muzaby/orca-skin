@@ -112,6 +112,7 @@ describe('chatReducer — chat.activity 권위 스냅샷', () => {
     s = chatReducer(s, {
       type: 'LOAD_SESSION',
       session: {
+        agentKind: 'code',
         id: 's',
         backend: 'claude',
         title: null,
@@ -127,6 +128,7 @@ describe('chatReducer — chat.activity 권위 스냅샷', () => {
     const s = chatReducer(initialChatState, {
       type: 'LOAD_SESSION',
       session: {
+        agentKind: 'code',
         id: 's',
         backend: 'claude',
         title: null,
@@ -152,6 +154,7 @@ describe('chatReducer — chat.activity 권위 스냅샷', () => {
     const s = chatReducer(initialChatState, {
       type: 'LOAD_SESSION',
       session: {
+        agentKind: 'code',
         id: 's',
         backend: 'claude',
         title: null,

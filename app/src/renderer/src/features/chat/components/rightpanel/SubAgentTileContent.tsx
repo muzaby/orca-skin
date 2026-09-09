@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Button } from '../../../../shared/ui/Button'
 import { StatusLine } from '../StatusLine'
 import { AssistantMessage } from '../transcript/AssistantMessage'
+import { agentUiPolicy } from '../../lib/agentPresentation'
 import { UserBubbleText } from '../UserBubbleText'
 import {
   childMessageForParentToolRunId,
@@ -109,6 +110,7 @@ export function SubAgentTileHeader(): React.JSX.Element {
 
 export function SubAgentTileContent(): React.JSX.Element {
   const messages = useChatSession((s) => s.messages)
+  const transcriptPolicy = agentUiPolicy(useChatSession((s) => s.agentKind)).transcript
   const selectedId = useChatSession((s) => s.selectedSubagentTaskId)
   // 중단 요청을 보내고 SDK 확정을 기다리는 집합(D-005). 표시에만 쓰고 상태를 확정하지 않는다.
   const stopping = useStoppingTasks()
@@ -134,6 +136,7 @@ export function SubAgentTileContent(): React.JSX.Element {
         task={selected}
         childMessage={childMessage}
         startedAtMs={selectedMeta?.startedAtMs ?? null}
+        transcriptPolicy={transcriptPolicy}
       />
     )
   }
@@ -157,11 +160,13 @@ export function SubAgentTileContent(): React.JSX.Element {
 export function SubAgentTaskDetail({
   task: selected,
   childMessage,
-  startedAtMs
+  startedAtMs,
+  transcriptPolicy
 }: {
   task: SubagentTaskSummary
   childMessage: Message | null
   startedAtMs: number | null
+  transcriptPolicy: import('../../lib/agentPresentation').AgentTranscriptPresentation
 }): React.JSX.Element {
   const { tr } = useI18n()
   const prompt = promptFromCall(selected.call)
@@ -181,7 +186,9 @@ export function SubAgentTaskDetail({
           </UserBubbleText>
         </div>
       )}
-      {childMessage && <AssistantMessage message={childMessage} />}
+      {childMessage && (
+        <AssistantMessage message={childMessage} transcriptPolicy={transcriptPolicy} />
+      )}
       {answerFallback && (
         <div className="whitespace-pre-wrap text-[14px] leading-[1.7] text-ink">
           {answerFallback}

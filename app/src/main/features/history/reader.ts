@@ -1,6 +1,7 @@
 import type { LoadedMessage, LoadedSession } from '../../../shared/protocol'
 import { parseStoredExtraDirectories } from '../../../shared/extra-directories'
 import type { DbQueries } from '../../infra/db'
+import { parseAgentKind } from '../../../shared/agent-kind'
 import { partFromRow, usageRowToTelemetry } from '../../infra/ipc/dto'
 
 // 영속 세션의 복원 조립. 현재 실행 상태(activity)는 IPC 조립 루트가 덧붙인다.
@@ -61,7 +62,7 @@ export function loadSession(
   return {
     id: meta.id,
     backend: meta.backend,
-    agentKind: meta.agent_kind,
+    agentKind: parseAgentKind(meta.agent_kind),
     title: meta.title,
     messages,
     providerKey: meta.provider_key,

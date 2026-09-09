@@ -88,34 +88,44 @@ describe('DEFAULT_PERMISSION_MODE — 렌더러·main 공용 기본값', () => {
 // 0215 VP-15 (MD-03 ↔ UT) — 지원하지 않는 모델에서의 '자동' 강등.
 describe('coerceAutoPermissionMode (AT-12·AT-14 · D-010)', () => {
   it('haiku + auto_classified 는 accept_edits 로 내려앉는다', () => {
-    expect(coercePermissionMode('auto_classified', { alias: 'haiku', model: null })).toBe(
+    expect(coercePermissionMode('auto_classified', { alias: 'haiku', model: null }, 'code')).toBe(
       'accept_edits'
     )
     expect(
-      coercePermissionMode('auto_classified', { alias: 'custom', model: 'claude-haiku-4-5' })
+      coercePermissionMode(
+        'auto_classified',
+        { alias: 'custom', model: 'claude-haiku-4-5' },
+        'code'
+      )
     ).toBe('accept_edits')
   })
 
   it('비-haiku 는 그대로다 — 양성 짝', () => {
     expect(
-      coercePermissionMode('auto_classified', { alias: 'sonnet', model: 'claude-sonnet-4-6' })
+      coercePermissionMode(
+        'auto_classified',
+        { alias: 'sonnet', model: 'claude-sonnet-4-6' },
+        'code'
+      )
     ).toBe('auto_classified')
   })
 
   it('auto 가 아닌 모드는 haiku 에서도 손대지 않는다', () => {
     for (const mode of ['default', 'accept_edits', 'plan', 'dont_ask', 'bypass'] as const) {
-      expect(coercePermissionMode(mode, { alias: 'haiku', model: null })).toBe(mode)
+      expect(coercePermissionMode(mode, { alias: 'haiku', model: null }, 'code')).toBe(mode)
     }
   })
 
   it('이름만 아는 호출부(main)는 이름 축으로만 판정한다 (D-011)', () => {
-    expect(coerceAutoPermissionModeForModelName('auto_classified', 'claude-haiku-4-5')).toBe(
+    expect(
+      coerceAutoPermissionModeForModelName('auto_classified', 'claude-haiku-4-5', 'code')
+    ).toBe('accept_edits')
+    expect(
+      coerceAutoPermissionModeForModelName('auto_classified', 'claude-sonnet-4-6', 'code')
+    ).toBe('auto_classified')
+    // r4: 구체적인 지원 모델을 확인할 수 없으면 자동을 허용하지 않는다.
+    expect(coerceAutoPermissionModeForModelName('auto_classified', undefined, 'code')).toBe(
       'accept_edits'
     )
-    expect(coerceAutoPermissionModeForModelName('auto_classified', 'claude-sonnet-4-6')).toBe(
-      'auto_classified'
-    )
-    // r4: 구체적인 지원 모델을 확인할 수 없으면 자동을 허용하지 않는다.
-    expect(coerceAutoPermissionModeForModelName('auto_classified', undefined)).toBe('accept_edits')
   })
 })

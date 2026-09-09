@@ -21,7 +21,7 @@ const { sessionState, unseenCount } = vi.hoisted(() => ({
   sessionState: {
     value: {
       title: '작업 중인 대화',
-      agentKind: 'coding' as 'coding' | 'work',
+      agentKind: 'code' as 'code' | 'work',
       messages: [],
       cwd: '/repo',
       worktree: null,
@@ -60,11 +60,7 @@ const BADGE_ARIA = 'chat.taskTile.badgeAria'
 
 describe('타일 메뉴 목록 — 프로덕션이 읽는 상수 (AT-01 · §10 EP-02)', () => {
   it('기존 네 타일 순서를 보존하고 독립 산출물 타일은 없다', () => {
-    expect(VISIBLE_TILE_REGISTRY.coding.map((tile) => tile.id)).toEqual([
-      'plan',
-      'subagent',
-      'diff'
-    ])
+    expect(VISIBLE_TILE_REGISTRY.code.map((tile) => tile.id)).toEqual(['plan', 'subagent', 'diff'])
   })
 
   // 정책 SSOT 를 실제로 읽는가 — 목록을 자기 필터로 다시 만들면 이 단언이 깨지지 않는다
@@ -72,10 +68,10 @@ describe('타일 메뉴 목록 — 프로덕션이 읽는 상수 (AT-01 · §10 
   // 정의 목록에서 빠진 id 는 메뉴에도 없어야 하고, 항목은 registry 형상을 갖춰야 한다.
   it('목록·순서가 `visibleRightPanelTileDefinitions` 와 같고 항목이 registry 형상이다', async () => {
     const { rightPanelTileDefinitionsForAgent } = await import('../lib/rightPanelTiles')
-    expect(VISIBLE_TILE_REGISTRY.coding.map((tile) => tile.id)).toEqual(
-      rightPanelTileDefinitionsForAgent('coding').map((tile) => tile.id)
+    expect(VISIBLE_TILE_REGISTRY.code.map((tile) => tile.id)).toEqual(
+      rightPanelTileDefinitionsForAgent('code').map((tile) => tile.id)
     )
-    for (const tile of VISIBLE_TILE_REGISTRY.coding) {
+    for (const tile of VISIBLE_TILE_REGISTRY.code) {
       expect(tile.defaultLabelKey).toBeTruthy()
       expect(tile.Content).toBeTypeOf('function')
     }

@@ -30,30 +30,46 @@ describe('partFromRow — attachment 파트', () => {
 })
 
 describe('session presentation DTO', () => {
-  it.each(['coding', 'work'] as const)(
-    'keeps %s independent from the execution backend',
-    (kind) => {
-      const session: SessionListRow = {
-        id: 'session',
-        backend: 'claude',
-        agent_kind: kind,
-        title: null,
-        updated_at: 1,
-        last_message_preview: null,
-        project_id: null,
-        title_source: 'auto',
-        provider_key: null,
-        cwd: 'C:/workspace',
-        extra_dirs: null,
-        pinned_at: null
-      }
-      expect(toSessionListItem(session)).toMatchObject({
-        id: 'session',
-        backend: 'claude',
-        agentKind: kind
-      })
+  it.each(['code', 'work'] as const)('keeps %s independent from the execution backend', (kind) => {
+    const session: SessionListRow = {
+      id: 'session',
+      backend: 'claude',
+      agent_kind: kind,
+      title: null,
+      updated_at: 1,
+      last_message_preview: null,
+      project_id: null,
+      title_source: 'auto',
+      provider_key: null,
+      cwd: 'C:/workspace',
+      extra_dirs: null,
+      pinned_at: null
     }
-  )
+    expect(toSessionListItem(session)).toMatchObject({
+      id: 'session',
+      backend: 'claude',
+      agentKind: kind
+    })
+  })
+
+  it('rejects a corrupt persisted kind instead of presenting it as Code', () => {
+    const session = {
+      id: 'session',
+      backend: 'claude',
+      agent_kind: 'corrupt',
+      title: null,
+      updated_at: 1,
+      last_message_preview: null,
+      project_id: null,
+      title_source: 'auto',
+      provider_key: null,
+      cwd: null,
+      extra_dirs: null,
+      pinned_at: null
+    } satisfies SessionListRow
+
+    expect(() => toSessionListItem(session)).toThrow('Invalid agent kind')
+  })
 
   it.each(['ended', 'aborted', 'failed', 'unknown'] as const)(
     'restores the %s boundary without adding prose',

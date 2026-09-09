@@ -21,7 +21,7 @@ export type NormalizedPermissionMode =
 export type ClaudePermissionMode =
   'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'dontAsk' | 'auto'
 
-// Coding의 계획 승인 기본 목표. Work 목표는 planApprovedMode에서 결정한다.
+// Code의 계획 승인 기본 목표. 종류별 목표는 명시적 정책에서 선택한다.
 export const PLAN_APPROVED_MODE: NormalizedPermissionMode = 'accept_edits'
 
 // 미설정 요청의 선호값. 실행/표시는 반드시 모델·종류 정책으로 정착한 값을 사용한다.
@@ -41,6 +41,43 @@ export const NORMALIZED_MODES: readonly NormalizedPermissionMode[] = [
   'bypass',
   'auto_classified'
 ] as const
+
+interface AgentPermissionPolicy {
+  modes: Readonly<Record<NormalizedPermissionMode, NormalizedPermissionMode>>
+  menuModes: readonly NormalizedPermissionMode[]
+  planApprovedMode: NormalizedPermissionMode
+  autoUnsupportedMode: NormalizedPermissionMode
+}
+
+// 실행 정착과 메뉴가 같은 역할 정의를 사용한다. Code도 독립적으로 모든 값을 정의한다.
+export const agentPermissionPolicy = {
+  work: {
+    modes: {
+      default: 'default',
+      accept_edits: 'default',
+      plan: 'default',
+      dont_ask: 'default',
+      bypass: 'bypass',
+      auto_classified: 'auto_classified'
+    },
+    menuModes: ['default', 'auto_classified', 'bypass'],
+    planApprovedMode: 'default',
+    autoUnsupportedMode: 'default'
+  },
+  code: {
+    modes: {
+      default: 'default',
+      accept_edits: 'accept_edits',
+      plan: 'plan',
+      dont_ask: 'dont_ask',
+      bypass: 'bypass',
+      auto_classified: 'auto_classified'
+    },
+    menuModes: ['auto_classified', 'default', 'accept_edits', 'plan', 'bypass'],
+    planApprovedMode: PLAN_APPROVED_MODE,
+    autoUnsupportedMode: AUTO_UNSUPPORTED_FALLBACK_MODE
+  }
+} as const satisfies Record<AgentKind, AgentPermissionPolicy>
 
 // NormalizedPermissionMode → SDK PermissionMode 순수 매핑 (provider-runtime.md §3 정본).
 // auto_classified = TS 전용 모델 분류기('auto'). 6종 전수 대응 — exhaustive switch 로 누락 시 컴파일 에러.
@@ -71,31 +108,29 @@ export function permissionModeForAgent(
   mode: NormalizedPermissionMode,
   kind: AgentKind
 ): NormalizedPermissionMode {
-  return kind === 'work' && (mode === 'plan' || mode === 'accept_edits' || mode === 'dont_ask')
-    ? 'default'
-    : mode
+  return agentPermissionPolicy[kind].modes[mode]
 }
 
 export function planApprovedMode(kind: AgentKind): NormalizedPermissionMode {
-  return kind === 'work' ? 'default' : PLAN_APPROVED_MODE
+  return agentPermissionPolicy[kind].planApprovedMode
 }
 
 // 메뉴·상태 전이·실제 실행이 같은 함수를 소비한다. 모드 어휘 자체는 SDK 호환 6종을 유지한다.
 export function coercePermissionMode(
   mode: NormalizedPermissionMode,
   model: { alias: string; model: string | null } | null,
-  kind: AgentKind = 'coding'
+  kind: AgentKind
 ): NormalizedPermissionMode {
   const allowed = permissionModeForAgent(mode, kind)
   if (allowed !== 'auto_classified' || supportsAutoPermission(model?.model)) return allowed
-  return kind === 'work' ? 'default' : AUTO_UNSUPPORTED_FALLBACK_MODE
+  return agentPermissionPolicy[kind].autoUnsupportedMode
 }
 
 // 실제 모델 문자열만 가진 Main 호출부의 입력 어댑터.
 export function coerceAutoPermissionModeForModelName(
   mode: NormalizedPermissionMode,
   modelName: string | undefined,
-  kind: AgentKind = 'coding'
+  kind: AgentKind
 ): NormalizedPermissionMode {
   return coercePermissionMode(mode, { alias: '', model: modelName ?? null }, kind)
 }

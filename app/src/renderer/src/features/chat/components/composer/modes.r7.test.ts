@@ -38,7 +38,7 @@ describe('model variants through discovery, Composer and execution policy', () =
           modelFamily: name,
           modelAlias: selected.alias
         })
-        for (const kind of ['work', 'coding'] as const) {
+        for (const kind of ['work', 'code'] as const) {
           expect(
             modeMenuOptions(shape, kind).some((option) => option.mode === 'auto_classified')
           ).toBe(true)

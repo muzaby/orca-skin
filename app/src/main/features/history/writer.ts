@@ -5,6 +5,7 @@
 
 import type { WebContents } from 'electron'
 import type { ArtifactRef } from '../../../shared/artifacts'
+import type { AgentKind } from '../../../shared/agent-kind'
 import type { AttachmentView, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
 import { subagentNoticePart } from '../../../shared/ipc'
 import { responseBoundaryPart } from '../../../shared/response-boundary'
@@ -24,6 +25,8 @@ type ContinuityArrivalHook = (arrival: {
   relation: LineageRelation
   createdAt: number
 }) => void
+
+type ResponseBoundaryPolicy = (kind: AgentKind) => boolean
 
 interface ArtifactLinker {
   linkPublication(
@@ -65,6 +68,7 @@ function artifactReceiptId(result: unknown): string | null {
 export class HistoryWriter {
   constructor(
     private readonly db: DbQueries,
+    private readonly shouldPersistResponseBoundary: ResponseBoundaryPolicy,
     private readonly onContinuityArrival?: ContinuityArrivalHook,
     private readonly artifacts?: ArtifactLinker
   ) {}
@@ -209,7 +213,11 @@ export class HistoryWriter {
     const now = Date.now()
     switch (ev.type) {
       case 'response.boundary': {
-        if (turn.agentKind !== 'work' || !turn.dbSessionId || ev.sessionId !== turn.dbSessionId)
+        if (
+          !this.shouldPersistResponseBoundary(turn.agentKind) ||
+          !turn.dbSessionId ||
+          ev.sessionId !== turn.dbSessionId
+        )
           break
         const { boundary } = ev
         let messageId: number

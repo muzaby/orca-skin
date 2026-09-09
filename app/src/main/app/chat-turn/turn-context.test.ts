@@ -29,7 +29,7 @@ const preparedSettings: ResolvedHarnessSettings = {
 
 function base(): Parameters<typeof buildTurnContext<string>>[0] {
   return {
-    agentKind: 'coding',
+    agentKind: 'code',
     controller: new AbortController(),
     owner: 'window-1',
     control,

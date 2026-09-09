@@ -18,7 +18,7 @@
 | `claude_code` preset + `append` | `adaptSystemPrompt()` 가 `{type:'preset', preset:'claude_code', append}` 반환 | `app/src/main/adapters/claude-adapt.ts` |
 | `append` 는 **단일 문자열** | 빌더가 구조화 헤더(지침 포함) 단일 string 조립(다중 블록 4-블록 버그 회피) | `app/src/main/features/extensions/builder.ts` |
 | 세션 스코프 `query()` + 입력 스트림 | spawn에서 query를 만들고 후속 입력은 같은 LiveTurn으로 전달한다. 재생성이 필요하면 `resume`한다 | `app/src/main/adapters/claude.ts` · `features/sessions/session-runtime.ts` |
-| 제품 에이전트 프로필 | Work만 `# Agent` 지침을 추가한다. Coding은 기존 append와 동일하다 | `features/agents/profiles.ts` · `system-header.ts` |
+| 제품 에이전트 프로필 | Work만 `# Agent` 지침을 추가한다. Code는 기존 append와 동일하다 | `features/agents/profiles.ts` · `system-header.ts` |
 | `excludeDynamicSections` 생략(=false) | 미사용 → cwd/플랫폼/메모리 경로 동적섹션을 시스템 프롬프트에 유지 | grep 0건 |
 | 출력 스타일 미사용 | 정책은 전부 `append` 로 주입 | — |
 
@@ -41,7 +41,7 @@ not a terminal CLI. Responses render as rich markdown in a GUI transcript.
 Orca version: <app.getVersion()>
 
 # Agent
-<Work 프로필 지침 — Coding이면 섹션 전체 생략>
+<Work 프로필 지침 — Code이면 섹션 전체 생략>
 
 # Tools
 Prefer dedicated file tools over shell commands (Read/Edit/Write, not cat/sed/echo);
@@ -90,7 +90,7 @@ Decision rationale: [ADR-002 feature slice boundaries](../../decisions/002-featu
 | tier | 내용 | Orca 위치 |
 |---|---|---|
 | STABLE | Orca 정체성 framing + version | `# Orca` 헤더 (`system-header.ts`, version=프로세스 고정) |
-| STABLE — 역할 | 세션 출생 때 고정한 Work/Coding | Work의 `# Agent`와 `agentProfileKey`; Coding은 둘 다 생략 |
+| STABLE — 역할 | 세션 출생 때 고정한 Work/Code | Work의 `# Agent`와 `agentProfileKey`; Code는 둘 다 생략 |
 | CONTEXT — 커스텀 지시 | 선호 언어·계정 지침·프로젝트 지침(DB/설정) | 빌더가 매 턴 재조회하되 SDK append는 query 생성 시 적용 |
 | CONTEXT — cwd/작업공간 | 실행 환경 | preset 동적 섹션 (SDK 자동, `excludeDynamicSections:false`) |
 | VOLATILE | 날짜·메모리 스냅샷 | **현재 없음** (§4 참조) |

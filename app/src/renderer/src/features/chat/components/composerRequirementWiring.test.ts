@@ -183,19 +183,19 @@ describe('컴포저 선택 액션이 store 까지 닿는다 (D47 · VP-97 · EP-
 })
 
 describe('r4 Composer Git mount boundary', () => {
-  it('Work does not mount GitRow; Coding mounts it', () => {
+  it('Work does not mount GitRow; Code mounts it', () => {
     h.state = { ...initialChatState, agentKind: 'work' }
     h.git.mockClear()
     const work = renderToStaticMarkup(
       createElement(Composer, { backendLabel: 'claude', canAbort: false })
     )
     expect(h.git).not.toHaveBeenCalled()
-    h.state = { ...h.state, agentKind: 'coding' }
-    const coding = renderToStaticMarkup(
+    h.state = { ...h.state, agentKind: 'code' }
+    const code = renderToStaticMarkup(
       createElement(Composer, { backendLabel: 'claude', canAbort: false })
     )
     expect(h.git).toHaveBeenCalledTimes(1)
     expect(load(work)('textarea')).toHaveLength(1)
-    expect(load(coding)('textarea')).toHaveLength(1)
+    expect(load(code)('textarea')).toHaveLength(1)
   })
 })

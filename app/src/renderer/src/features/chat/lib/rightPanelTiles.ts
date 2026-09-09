@@ -15,6 +15,34 @@ export const rightPanelTileDefinitions = [
 
 export type RightPanelTileId = (typeof rightPanelTileDefinitions)[number]['id']
 
+export interface RightPanelAgentPolicy {
+  visibleIds: readonly RightPanelTileId[]
+  taskTarget: RightPanelTileId
+  taskBadgeTile: RightPanelTileId
+  initialTile: RightPanelTileId | null
+  columnMode: 'standard-grid' | 'task-focus'
+  taskTileChrome: 'standard' | 'work-overview'
+}
+
+export const RIGHT_PANEL_POLICY = {
+  work: {
+    visibleIds: ['task'],
+    taskTarget: 'task',
+    taskBadgeTile: 'task',
+    initialTile: 'task',
+    columnMode: 'task-focus',
+    taskTileChrome: 'work-overview'
+  },
+  code: {
+    visibleIds: ['plan', 'subagent', 'diff'],
+    taskTarget: 'plan',
+    taskBadgeTile: 'plan',
+    initialTile: null,
+    columnMode: 'standard-grid',
+    taskTileChrome: 'standard'
+  }
+} as const satisfies Record<AgentKind, RightPanelAgentPolicy>
+
 export const rightPanelTileIds = rightPanelTileDefinitions.map(
   (tile) => tile.id
 ) as RightPanelTileId[]
@@ -64,7 +92,8 @@ export const visibleRightPanelTileDefinitions = rightPanelTileDefinitions.filter
 
 // 제품 종류는 표시 정책만 소유한다. 도구·계획 승인 데이터는 숨긴 타일과 함께 버리지 않는다.
 export function isRightPanelTileVisible(id: RightPanelTileId, kind: AgentKind): boolean {
-  return !isRightPanelTileSuspended(id) && (kind === 'work' ? id === 'task' : id !== 'task')
+  const visibleIds: readonly RightPanelTileId[] = RIGHT_PANEL_POLICY[kind].visibleIds
+  return !isRightPanelTileSuspended(id) && visibleIds.includes(id)
 }
 
 export function rightPanelTileDefinitionsForAgent(
@@ -73,9 +102,9 @@ export function rightPanelTileDefinitionsForAgent(
   return visibleRightPanelTileDefinitions.filter((tile) => isRightPanelTileVisible(tile.id, kind))
 }
 
-// 기존 작업 카드 진입은 Coding의 통합 계획 영역을 연다.
+// 기존 작업 카드 진입은 Code의 통합 계획 영역을 연다.
 export function rightPanelTarget(id: RightPanelTileId, kind: AgentKind): RightPanelTileId | null {
-  const target = kind === 'coding' && id === 'task' ? 'plan' : id
+  const target = id === 'task' ? RIGHT_PANEL_POLICY[kind].taskTarget : id
   return isRightPanelTileVisible(target, kind) ? target : null
 }
 
@@ -92,9 +121,9 @@ export function rightPanelTarget(id: RightPanelTileId, kind: AgentKind): RightPa
 export function showsUnseenTaskBadge(
   unseenCount: number,
   activeTiles: readonly RightPanelTileId[],
-  suspended: readonly RightPanelTileId[] = SUSPENDED_RIGHT_PANEL_TILES,
-  kind: AgentKind = 'coding'
+  suspended: readonly RightPanelTileId[],
+  kind: AgentKind
 ): boolean {
   if (isRightPanelTileSuspended('task', suspended)) return false
-  return unseenCount > 0 && !activeTiles.includes(kind === 'work' ? 'task' : 'plan')
+  return unseenCount > 0 && !activeTiles.includes(RIGHT_PANEL_POLICY[kind].taskBadgeTile)
 }

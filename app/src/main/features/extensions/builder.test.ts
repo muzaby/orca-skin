@@ -96,19 +96,19 @@ describe('ExtensionBuilder.runtimeTools', () => {
       () => ['/plugins/existing'],
       { snapshot: () => snapshot }
     )
-    const coding = builder.build(null, null)
+    const code = builder.build(null, null)
     const work = builder.build(null, null, {
       agentInstructions: 'Work fixture',
       agentProfileKey: 'work:1'
     })
     expect(work.agentProfileKey).toBe('work:1')
-    expect(coding).not.toHaveProperty('agentProfileKey')
+    expect(code).not.toHaveProperty('agentProfileKey')
     expect(work.runtimeTools).toBe(snapshot)
     expect(work.skills).toBe(skills)
-    expect(work.pluginRoots).toEqual(coding.pluginRoots)
-    expect(work.hooks).toEqual(coding.hooks)
+    expect(work.pluginRoots).toEqual(code.pluginRoots)
+    expect(work.hooks).toEqual(code.hooks)
     expect(work.systemPromptAppend?.replace('# Agent\nWork fixture\n\n', '')).toBe(
-      coding.systemPromptAppend
+      code.systemPromptAppend
     )
   })
   it('build는 plugin·skill·지침을 보존하면서 배포용 MCP 데이터를 만들지 않는다', () => {

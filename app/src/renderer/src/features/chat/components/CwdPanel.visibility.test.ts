@@ -6,7 +6,7 @@ import type { GitStatus } from '../../../../../shared/ipc'
 const fixture = vi.hoisted(() => ({
   status: null as GitStatus | null,
   isolation: false,
-  agentKind: 'coding' as 'coding' | 'work'
+  agentKind: 'code' as 'code' | 'work'
 }))
 vi.mock('../store/chatStore', () => ({
   useChatSession: (select: (value: unknown) => unknown) =>
@@ -44,11 +44,11 @@ const repo: GitStatus = {
 beforeEach(() => {
   fixture.status = null
   fixture.isolation = false
-  fixture.agentKind = 'coding'
+  fixture.agentKind = 'code'
 })
 
 describe('landing branch and worktree visibility', () => {
-  it('omits the Git group in Work and preserves the selected isolation when Coding returns', () => {
+  it('omits the Git group in Work and preserves the selected isolation when Code returns', () => {
     fixture.status = repo
     fixture.isolation = true
     fixture.agentKind = 'work'
@@ -56,10 +56,10 @@ describe('landing branch and worktree visibility', () => {
     expect(work).not.toContain('branch-worktree-group')
     expect(work).not.toContain('type="checkbox"')
     expect(work).toContain('chat.composer.extraDirAdd')
-    fixture.agentKind = 'coding'
-    const coding = render()
-    expect(coding).toContain('branch-worktree-group')
-    expect(coding.match(/<input[^>]*>/)?.[0]).toContain('checked=""')
+    fixture.agentKind = 'code'
+    const code = render()
+    expect(code).toContain('branch-worktree-group')
+    expect(code.match(/<input[^>]*>/)?.[0]).toContain('checked=""')
   })
 
   it('renders a disabled dash immediately before the Git response', () => {

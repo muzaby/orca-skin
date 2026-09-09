@@ -30,7 +30,7 @@ type MessagePartType =
   | 'subagent_notice'
 
 export interface SessionRow {
-  agent_kind: AgentKind
+  agent_kind: string
   id: string
   backend: Backend
   title: string | null
@@ -47,7 +47,7 @@ export interface SessionRow {
 }
 
 export interface SessionListRow {
-  agent_kind: AgentKind
+  agent_kind: string
   id: string
   backend: Backend
   title: string | null

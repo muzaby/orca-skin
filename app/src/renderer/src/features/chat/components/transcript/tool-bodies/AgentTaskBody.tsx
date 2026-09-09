@@ -1,8 +1,9 @@
 import { Button } from '../../../../../shared/ui/Button'
 import { useI18n } from '../../../../../shared/i18n'
-import { chatActions, useChatSession } from '../../../store/chatStore'
+import { chatActions } from '../../../store/chatStore'
 import { stringify } from '../../../format'
 import type { ToolCall } from '../../../reducer/chatReducer'
+import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation'
 
 function asRecord(input: unknown): Record<string, unknown> {
   return typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {}
@@ -13,9 +14,14 @@ function stringField(rec: Record<string, unknown>, key: string): string | null {
   return typeof value === 'string' && value.trim() !== '' ? value : null
 }
 
-export function AgentTaskBody({ call }: { call: ToolCall }): React.JSX.Element {
+export function AgentTaskBody({
+  call,
+  transcriptPolicy
+}: {
+  call: ToolCall
+  transcriptPolicy: AgentTranscriptPresentation
+}): React.JSX.Element {
   const { tr } = useI18n()
-  const agentKind = useChatSession((s) => s.agentKind)
   const input = asRecord(call.input)
   const subagentType =
     stringField(input, 'subagent_type') ?? stringField(input, 'agent') ?? 'default'
@@ -37,7 +43,7 @@ export function AgentTaskBody({ call }: { call: ToolCall }): React.JSX.Element {
           {typeof result === 'string' ? result : stringify(result)}
         </pre>
       )}
-      {agentKind !== 'work' && (
+      {transcriptPolicy.showTaskAgentLabel && (
         <div>
           <Button size="small" onClick={() => chatActions.openSubagentTask(call.toolUseId)}>
             {tr('chat.toolMeta.openSubagentPanel')}

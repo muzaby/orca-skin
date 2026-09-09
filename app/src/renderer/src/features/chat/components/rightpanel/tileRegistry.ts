@@ -3,6 +3,7 @@ import {
   rightPanelTileDefinitionsForAgent,
   type RightPanelTileId
 } from '../../lib/rightPanelTiles'
+import type { AgentKind } from '../../../../../../shared/agent-kind'
 import { PlanTileContent, PlanTileHeaderActions } from './PlanTileContent'
 import { DiffTileContent } from './DiffTileContent'
 import { GitContextBar } from './GitContextBar'
@@ -46,6 +47,6 @@ export function tileById(id: RightPanelTileId): (typeof tileRegistry)[number] {
 
 // 같은 모드 정책으로 메뉴 목록을 모듈 로드 시 한 번 조립한다.
 export const VISIBLE_TILE_REGISTRY = {
-  coding: rightPanelTileDefinitionsForAgent('coding').map((tile) => tileById(tile.id)),
-  work: rightPanelTileDefinitionsForAgent('work').map((tile) => tileById(tile.id))
-}
+  work: rightPanelTileDefinitionsForAgent('work').map((tile) => tileById(tile.id)),
+  code: rightPanelTileDefinitionsForAgent('code').map((tile) => tileById(tile.id))
+} satisfies Record<AgentKind, (typeof tileRegistry)[number][]>

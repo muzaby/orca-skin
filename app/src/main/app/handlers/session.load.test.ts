@@ -147,7 +147,7 @@ describe('session load IPC restores the complete persisted view', () => {
     expect(load('s1', () => activity)).toEqual({
       id: 's1',
       backend: 'claude',
-      agentKind: 'coding',
+      agentKind: 'code',
       title: 's1',
       providerKey: 'claude-local',
       projectId: null,
@@ -192,7 +192,7 @@ describe('session load IPC restores the complete persisted view', () => {
     expect(load('s1')).toEqual({
       id: 's1',
       backend: 'claude',
-      agentKind: 'coding',
+      agentKind: 'code',
       title: 's1',
       providerKey: 'claude-local',
       projectId: null,

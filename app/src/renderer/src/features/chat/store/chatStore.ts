@@ -1,4 +1,6 @@
 import { useMemo } from 'react'
+import { parseAgentKind } from '../../../../../shared/agent-kind'
+import { agentSessionPolicy } from '../../../../../shared/agent-session-policy'
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import {
@@ -926,7 +928,8 @@ async function addSessionDirectory(
   const session = state.sessions[target.key]?.session
   if (!session || session.sessionId !== target.sessionId) return { ok: false, reason: 'not-found' }
   if (state.activeKey !== target.key) return { ok: false, reason: 'not-found' }
-  if (session.agentKind !== 'work') return { ok: false, reason: 'not-work' }
+  if (!agentSessionPolicy[session.agentKind].allowDirectoryUpdates)
+    return { ok: false, reason: 'not-work' }
   if (session.inflight || session.listening || session.loadingSession)
     return { ok: false, reason: 'busy' }
   try {
@@ -1811,7 +1814,7 @@ export function useDraftSessionRows(): DraftRow[] {
         const [key, title, projectId, parentSessionId, kind] = row.split(DRAFT_ROW_SEP)
         return {
           key,
-          agentKind: kind === 'work' ? ('work' as const) : ('coding' as const),
+          agentKind: parseAgentKind(kind),
           title: title || null,
           projectId: projectId || null,
           parentSessionId: parentSessionId || null

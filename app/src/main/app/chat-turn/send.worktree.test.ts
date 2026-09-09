@@ -145,7 +145,7 @@ function makeHarness(sessionId?: string) {
           cwd: null,
           project_id: null,
           ...mocks.sessionMeta.value,
-          agent_kind: 'coding'
+          agent_kind: 'code'
         })
       },
       mockAdapter: null,
@@ -165,7 +165,7 @@ function makeHarness(sessionId?: string) {
     bus: {},
     approvals: {},
     persistence: {},
-    permissionModes: {},
+    permissionModes: { setMode: vi.fn() },
     // `orphanUnconfirmed` 는 `finalSessionId` 가 있을 때만 도달하는 정리 지점이라(`send.ts:420`)
     // 신규 세션 케이스만 있던 동안에는 부재가 드러나지 않았다.
     pendingMessages: {
@@ -695,12 +695,15 @@ describe('handleChatSend — worktree 소실 폴백의 send 층 배선 (AC12 · 
     )
   })
 
-  it('worktree 가 살아 있으면 아무것도 통지하지 않고 세션행 경로를 그대로 쓴다 (AC19)', async () => {
+  it('worktree 가 살아 있으면 경로 폴백을 통지하지 않고 세션행 경로를 그대로 쓴다 (AC19)', async () => {
     const harness = makeHarness('session-1')
 
     await resumeSend(harness, { kind: 'none' })
 
-    expect(mocks.sendChatEvent).not.toHaveBeenCalled()
+    // 모든 send의 권한 정착 알림은 허용하되 경로 폴백/오류 이벤트가 섞이면 실패한다.
+    expect(mocks.sendChatEvent.mock.calls.map(([, event]) => event)).toEqual([
+      { type: 'session.updated', sessionId: 'session-1', patch: { permissionMode: 'accept_edits' } }
+    ])
     expect(mocks.buildTurnContext).toHaveBeenCalledWith(
       expect.objectContaining({ sessionMeta: expect.objectContaining({ cwd: LOST }) })
     )

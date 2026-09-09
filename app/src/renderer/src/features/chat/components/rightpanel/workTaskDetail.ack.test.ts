@@ -23,11 +23,11 @@ vi.mock('../../store/chatStore', () => ({
   useUnseenSettledTaskCount: () => harness.unseen,
   chatActions: { acknowledgeSettledTasks: harness.acknowledge, selectTask: vi.fn() }
 }))
-// 이 검사는 Work/Coding 실제 wrapper가 공유하는 shell effect를 실행한다. 외부 구독/OS 포트 수명은 native에서 관측한다.
+// 이 검사는 Work/Code 실제 wrapper가 공유하는 shell effect를 실행한다. 외부 구독/OS 포트 수명은 native에서 관측한다.
 vi.mock('./TaskOutputContent', () => ({ TaskOutputContent: () => null }))
 vi.mock('./TaskContextContent', () => ({ TaskContextContent: () => null }))
 
-function commitPanelEffects(kind: 'work' | 'coding'): void {
+function commitPanelEffects(kind: 'work' | 'code'): void {
   harness.effects = []
   renderToStaticMarkup(createElement(kind === 'work' ? TaskTileContent : PlanTileContent))
   for (const effect of harness.effects) effect()
@@ -66,7 +66,7 @@ beforeEach(() => {
   })
 })
 
-describe.each(['work', 'coding'] as const)(
+describe.each(['work', 'code'] as const)(
   '%s overview visibility and completed-task acknowledgement',
   (kind) => {
     it('keeps unseen completion notifications while overview is hidden in detail', () => {

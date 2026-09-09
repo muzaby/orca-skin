@@ -20,9 +20,9 @@ export function AgentModeToggle(): React.JSX.Element {
         <span aria-hidden="true" data-agent-mode-chevron="left" className={separatorClass}>
           {'<'}
         </span>
-        {(['work', 'coding'] as const).map((option) => (
+        {(['work', 'code'] as const).map((option, index) => (
           <span key={option} className="flex items-center gap-1">
-            {option === 'coding' && (
+            {index > 0 && (
               <span aria-hidden="true" data-agent-mode-separator="true" className={separatorClass}>
                 /
               </span>

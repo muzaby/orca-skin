@@ -2,14 +2,16 @@ import { DEFAULT_AGENT_KIND, isAgentKind, type AgentKind } from '../../../shared
 
 interface AgentProfile {
   readonly kind: AgentKind
+  readonly persistResponseBoundaries: boolean
   readonly instructions?: string
   readonly key?: string
 }
 
 const PROFILES: Readonly<Record<AgentKind, AgentProfile>> = {
-  coding: Object.freeze({ kind: 'coding' }),
+  code: Object.freeze({ kind: 'code', persistResponseBoundaries: false }),
   work: Object.freeze({
     kind: 'work',
+    persistResponseBoundaries: true,
     key: 'work:1',
     instructions: [
       'Help the user complete practical work: documents, research, organization, and analysis.',

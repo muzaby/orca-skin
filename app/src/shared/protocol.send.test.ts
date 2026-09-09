@@ -4,7 +4,7 @@ import { OpenPathRequestSchema, SendChatMessageSchema, SetPermissionModeSchema }
 const base = { sessionId: null, projectId: null, text: 'hi' }
 
 describe('SendChatMessageSchema — 제품 에이전트 종류', () => {
-  it.each(['coding', 'work'])('종류 %s를 모델·권한 선택과 별도로 전달한다', (agentKind) => {
+  it.each(['code', 'work'])('종류 %s를 모델·권한 선택과 별도로 전달한다', (agentKind) => {
     const parsed = SendChatMessageSchema.parse({
       ...base,
       agentKind,
@@ -20,7 +20,7 @@ describe('SendChatMessageSchema — 제품 에이전트 종류', () => {
     })
   })
 
-  it('생략값을 파서에서 coding으로 덮지 않아 기존 세션·lease의 상속을 보존한다', () => {
+  it('생략값을 파서에서 code로 덮지 않아 기존 세션·lease의 상속을 보존한다', () => {
     expect(SendChatMessageSchema.parse(base).agentKind).toBeUndefined()
     expect(
       SendChatMessageSchema.parse({ ...base, sessionId: 'existing-work' }).agentKind
@@ -30,7 +30,7 @@ describe('SendChatMessageSchema — 제품 에이전트 종류', () => {
     ).toBeUndefined()
   })
 
-  it.each(['claude', 'opencode', 'bypass', 'cowork', '', null, true])(
+  it.each(['coding', 'claude', 'opencode', 'bypass', 'cowork', '', null, true])(
     '다른 축이나 미등록 값 %s는 종류로 수용하지 않는다',
     (agentKind) => {
       expect(SendChatMessageSchema.safeParse({ ...base, agentKind }).success).toBe(false)

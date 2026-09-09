@@ -8,11 +8,20 @@ import { RenameInput } from '../../../shared/ui/RenameInput'
 import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
 import { useI18n } from '../../../shared/i18n'
 import type { SessionListItem } from '../../../../../shared/ipc'
+import type { AgentKind } from '../../../../../shared/agent-kind'
+import type { MessageKey } from '../../../shared/i18n'
+
+export interface SessionAgentAppearance {
+  readonly navIcon: IconName
+  readonly label: MessageKey
+}
+export type AgentAppearanceResolver = (kind: AgentKind) => SessionAgentAppearance
 
 // 한 시점에 한 행만 메뉴 / rename 모드. 각 행이 로컬 state 를 갖고 자기 popover 를
 // anchor 한다. Popover atom 의 outside-click 핸들러가 다른 행 클릭 시 자동 닫음.
 // Sidebar 와 ProjectDetailScreen 양쪽에서 재사용 (kebab/rename/delete UX 통일).
 export interface SessionRowProps {
+  appearance: SessionAgentAppearance
   session: SessionListItem
   isActive: boolean
   // 프로젝트 소속 세션일 때만 truthy. label 에 `<projectName> / ` prefix 가 붙는다.
@@ -34,6 +43,7 @@ export interface SessionRowProps {
 // 비변경 엔티티의 참조를 보존하므로(patchSession 패치 + mergeItems 동일값 bail-out)
 // 실제로 바뀐 행만 재렌더된다.
 export const SessionRow = memo(function SessionRow({
+  appearance,
   session,
   isActive,
   projectName,
@@ -49,16 +59,15 @@ export const SessionRow = memo(function SessionRow({
   const [renaming, setRenaming] = useState(false)
   const kebabRef = useRef<HTMLButtonElement>(null)
   const unseen = useSessionsState((state) => state.unseenCompletedIds.has(session.id))
-  const leadingIcon: IconName = session.agentKind === 'work' ? 'checklist' : 'terminal2'
   const modeIcon = (
     <span
       role="img"
-      aria-label={tr(session.agentKind === 'work' ? 'chat.agent.work' : 'chat.agent.coding')}
+      aria-label={tr(appearance.label)}
       data-context="session-agent-kind"
       data-state={unseen && !isActive ? 'unseen-complete' : 'default'}
       className={`inline-flex shrink-0 ${unseen && !isActive ? 'text-selected [&_svg]:stroke-current [&_svg]:[stroke-linejoin:round] [&_svg]:[stroke-width:40]' : ''}`}
     >
-      <Icon name={leadingIcon} size={14} />
+      <Icon name={appearance.navIcon} size={14} />
     </span>
   )
 

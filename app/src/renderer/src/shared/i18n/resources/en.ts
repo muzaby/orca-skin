@@ -449,7 +449,7 @@ export const en: typeof ko = {
     agent: {
       choose: 'Choose a mode',
       work: 'Work',
-      coding: 'Coding',
+      code: 'Code',
       workGreeting: 'What task would you like to start?',
       workPlaceholder: 'Describe a document, analysis, or task to work on',
       activity: '{{tools}} tool types · {{notes}} notes',

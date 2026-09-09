@@ -5,6 +5,9 @@ import { WorkActivity } from './WorkActivity'
 import { Composer } from '../Composer'
 import { getActiveChatSession, ingestChatEvent } from '../../store/chatStore'
 import { installChatStoreHarness } from '../../store/chatStore.testHarness'
+import { agentUiPolicy } from '../../lib/agentPresentation'
+
+const transcriptPolicy = agentUiPolicy('work').transcript
 
 // 실제 컴포넌트 callback/재렌더와 기존 preload facade까지 관측한다.
 // React DOM 이벤트/포커스 또는 Electron permission handler 실행 시험은 아니다.
@@ -104,7 +107,10 @@ it('keeps the pending Work ask in Composer, sends its actual answer callback to 
       createElement(
         Fragment,
         null,
-        createElement(WorkActivity, { messages: getActiveChatSession().messages }),
+        createElement(WorkActivity, {
+          messages: getActiveChatSession().messages,
+          transcriptPolicy
+        }),
         createElement(Composer, { backendLabel: 'Claude', canAbort: true })
       )
     )

@@ -1,7 +1,7 @@
 import { useCallback, type ReactNode } from 'react'
 import { Button } from '../../../../shared/ui/Button'
 import { chatActions, useChatSession } from '../../store/chatStore'
-import type { RightPanelTileId } from '../../lib/rightPanelTiles'
+import type { RightPanelAgentPolicy, RightPanelTileId } from '../../lib/rightPanelTiles'
 import { useI18n, type MessageKey } from '../../../../shared/i18n'
 
 interface RightPanelTileProps {
@@ -16,6 +16,7 @@ interface RightPanelTileProps {
   className?: string
   expanded?: boolean
   onToggleExpand?: () => void
+  taskTileChrome: RightPanelAgentPolicy['taskTileChrome']
 }
 
 export function RightPanelTile({
@@ -26,13 +27,13 @@ export function RightPanelTile({
   headerContent,
   expanded = false,
   onToggleExpand,
+  taskTileChrome,
   className = ''
 }: RightPanelTileProps): React.JSX.Element {
   const { tr } = useI18n()
   const label = useChatSession((s) => s.rightPanelTileLabels[id]) ?? tr(defaultLabelKey)
   const isDiff = id === 'diff'
-  const agentKind = useChatSession((s) => s.agentKind)
-  const isWorkTask = agentKind === 'work' && id === 'task'
+  const isWorkTask = taskTileChrome === 'work-overview' && id === 'task'
   const expandButton = id === 'plan' && onToggleExpand && (
     <Button
       iconOnly

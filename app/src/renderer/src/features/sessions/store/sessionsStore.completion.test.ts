@@ -7,6 +7,7 @@ vi.mock('../../../shared/api/ipc', () => ({
 }))
 import { sessionsActions, useSessionsStore } from './sessionsStore'
 const row: SessionListItem = {
+  agentKind: 'code',
   id: 's',
   backend: 'claude',
   title: 'reply',

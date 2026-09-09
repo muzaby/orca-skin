@@ -3,6 +3,7 @@ import { Icon } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
 import { chatActions, useChatSession } from '../../store/chatStore'
 import { gitStatusForCwd } from './branchChipState'
+import { agentUiPolicy } from '../../lib/agentPresentation'
 import { columnsContain } from '../../lib/rightPanelLayout'
 
 import { COMPOSER_PANEL_ICON_SIZE, composerPanelSurface } from './composerPanel'
@@ -146,7 +147,7 @@ export function GitRow({ cwd, sessionStarted }: GitRowProps): React.JSX.Element 
       diffOpen={columnsContain(tiles, 'diff')}
       onToggleDiff={() => chatActions.toggleRightPanelTile('diff')}
       onClose={chatActions.closeGitRow}
-      canOpenDiff={agentKind !== 'work'}
+      canOpenDiff={agentUiPolicy(agentKind).composer.showGitRow}
     />
   )
 }

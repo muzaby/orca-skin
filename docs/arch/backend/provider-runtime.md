@@ -16,6 +16,8 @@
 >
 > **rename 범위 밖**: 실제 코드 심볼(`SessionAdapter`·`makeCanUseTool` 등)은 이번 라운드에서 변경하지 않는다. 구 `ChatEvent` 는 예외로, 와이어 전환과 함께 이미 제거됐다(§2 ③·PR #47). 본 절의 *목표 타입명*(`NormalizedEvent` 등)과 현행 코드명의 대응은 §12 매핑표로만 둔다.
 
+제품 에이전트의 응답 경계 정책은 `features/agents/profiles.ts`가 명시한다. app의 send와 bootstrap이 같은 `persistResponseBoundaries` 값을 각각 TurnCoordinator와 HistoryWriter의 포트로 전달한다. 이벤트 생성과 저장은 이 정책을 사용하며 서로 다른 feature의 프로필을 직접 import하지 않는다.
+
 ## 1. 왜 — 현재 결합의 3가지 괴리
 
 Phase 3++ 구현은 claude-code SDK 에 강하게 결합돼 있어, 범용(OpenCode + Claude) 런타임 모델과 어긋난다. 핵심 명제: **이 앱은 "툴 이름 매핑" 앱이 아니라, 서로 다른 SDK 런타임을 공통 이벤트·세션·권한·직접 호출 모델로 정규화하는 앱이다.**
@@ -199,7 +201,7 @@ interface PermissionModeController {
 }
 ```
 
-공유 `permission-mode.ts`는 정규화/SDK 매핑과 종류·모델에 따른 Composer 정책을 소유한다. Work는 default·auto_classified·bypass를 선택하며, 자동 승인은 명시된 Claude 버전 >4.5에만 허용한다. 지원하지 않는 자동은 Work=default, Coding=accept_edits로 정착한다. Main send는 payload의 모드 유무와 관계없이 실제 해소 모델을 확인한다. ApprovalCoordinator는 같은 세션의 라이브 변경을 직렬화하고 실제 spawnedModel로 정착한 값을 SDK에 적용한 후 저장·응답한다. idle 선택은 다음 send에서 모델을 최종 확인한다. 실제 실행 보정은 session.updated 권한 patch로 UI에 전달한다. 계획 승인 목표는 Main이 종류별로 계산하여 TurnRequest와 후속 요청에 전달하므로 adapter가 agentProfileKey를 해석하지 않는다. 자세한 반환·실패 계약은 [IPC 계약](../../IPC_CONTRACT.md)을 따른다.
+공유 `permission-mode.ts`는 정규화/SDK 매핑과 종류·모델에 따른 Composer 정책을 소유한다. Work는 default·auto_classified·bypass를 선택하며, 자동 승인은 명시된 Claude 버전 >4.5에만 허용한다. 지원하지 않는 자동은 Work=default, Code=accept_edits로 정착한다. Main send는 payload의 모드 유무와 관계없이 실제 해소 모델을 확인한다. ApprovalCoordinator는 같은 세션의 라이브 변경을 직렬화하고 실제 spawnedModel로 정착한 값을 SDK에 적용한 후 저장·응답한다. idle 선택은 다음 send에서 모델을 최종 확인한다. 실제 실행 보정은 session.updated 권한 patch로 UI에 전달한다. 계획 승인 목표는 Main이 종류별로 계산하여 TurnRequest와 후속 요청에 전달하므로 adapter가 agentProfileKey를 해석하지 않는다. 자세한 반환·실패 계약은 [IPC 계약](../../IPC_CONTRACT.md)을 따른다.
 
 | Provider | 처리 |
 |---|---|

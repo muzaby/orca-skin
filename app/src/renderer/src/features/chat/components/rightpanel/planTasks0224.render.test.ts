@@ -101,7 +101,7 @@ beforeEach(() => {
   state.agentTools = ['TaskCreate']
 })
 
-describe('0224 r3 — Coding 콘텐츠 존재·진행 표시 (VP-R3-01/07 · EP1)', () => {
+describe('0224 r3 — Code 콘텐츠 존재·진행 표시 (VP-R3-01/07 · EP1)', () => {
   it('계획 다음에 작업 section을 두고 id 순서와 세 상태를 실제 행에 표시한다', () => {
     const html = render()
     const planAt = html.indexOf('이 문장만 계획 댓글 범위입니다.')

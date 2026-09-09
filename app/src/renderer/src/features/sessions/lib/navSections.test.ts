@@ -4,6 +4,7 @@ import { pinnedProjectsOf, splitNavSections, type NavSectionsInput } from './nav
 
 function session(id: string, over: Partial<SessionListItem> = {}): SessionListItem {
   return {
+    agentKind: 'code',
     id,
     backend: 'claude',
     title: id,

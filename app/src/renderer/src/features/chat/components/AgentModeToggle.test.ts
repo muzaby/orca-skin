@@ -5,7 +5,7 @@ import { AgentModeToggle } from './AgentModeToggle'
 import { agentPresentation } from '../lib/agentPresentation'
 import { load } from 'cheerio'
 const harness = vi.hoisted(() => ({
-  state: { agentKind: 'coding', agentKindLocked: false, sessionId: null as string | null },
+  state: { agentKind: 'code', agentKindLocked: false, sessionId: null as string | null },
   select: vi.fn(),
   buttons: [] as ButtonHTMLAttributes<HTMLButtonElement>[]
 }))
@@ -34,13 +34,13 @@ describe('actual draft mode toggle', () => {
   beforeEach(() => {
     harness.buttons = []
     harness.select.mockClear()
-    harness.state = { agentKind: 'coding', agentKindLocked: false, sessionId: null }
+    harness.state = { agentKind: 'code', agentKindLocked: false, sessionId: null }
   })
-  it('places Todo Work on the left and Terminal Coding on the right with accessible selected state', () => {
+  it('places Todo Work on the left and Terminal Code on the right with accessible selected state', () => {
     const html = renderToStaticMarkup(createElement(AgentModeToggle))
     expect(agentPresentation.work.icon).toBe('todo')
-    expect(agentPresentation.coding.icon).toBe('terminal')
-    expect(harness.buttons.map((button) => button['aria-label'])).toEqual(['작업', '코딩'])
+    expect(agentPresentation.code.icon).toBe('terminal')
+    expect(harness.buttons.map((button) => button['aria-label'])).toEqual(['작업', '코드'])
     expect(html).toContain('aria-pressed="true"')
     harness.buttons[0].onClick?.({} as never)
     expect(harness.select).toHaveBeenCalledWith('work')
@@ -57,7 +57,7 @@ describe('actual draft mode toggle', () => {
   })
   it.each([
     ['work', '어떤 작업을 시작할까요?'],
-    ['coding', '개발, 디버깅을 시작하세요.']
+    ['code', '개발, 디버깅을 시작하세요.']
   ])('places the %s hero below the icon controls exactly once', (kind, greeting) => {
     harness.state.agentKind = kind
     const html = renderToStaticMarkup(createElement(AgentModeToggle))

@@ -43,7 +43,7 @@ it.each(['sessionId', 'forkFrom', 'handoffFrom'] as const)(
   }
 )
 
-it.each(['coding', 'corrupt'])(
+it.each(['code', 'corrupt'])(
   'rejects source kind changes during preparation (%s)',
   async (agentKind) => {
     let source = { agent_kind: 'work', backend: 'claude', project_id: null, cwd: '/workspace' }

@@ -55,6 +55,7 @@ describe('chatReducer — 모델 선택', () => {
     const loaded = chatReducer(initialChatState, {
       type: 'LOAD_SESSION',
       session: {
+        agentKind: 'code',
         id: 's1',
         backend: 'claude',
         title: null,
@@ -95,6 +96,7 @@ describe('chatReducer — 모델 선택', () => {
     const loaded = chatReducer(initialChatState, {
       type: 'LOAD_SESSION',
       session: {
+        agentKind: 'code',
         id: 's1',
         backend: 'claude',
         title: null,
@@ -157,7 +159,7 @@ describe('SET_MODEL — 자동 권한 강등 (AT-12 · D-010)', () => {
 })
 
 describe('r4 kind and permission transitions', () => {
-  it('Coding plan becomes Work manual, then Coding retains manual', () => {
+  it('Code plan becomes Work manual, then Code retains manual', () => {
     const plan = {
       ...initialChatState,
       permissionMode: 'plan' as const,
@@ -165,7 +167,7 @@ describe('r4 kind and permission transitions', () => {
     }
     const work = chatReducer(plan, { type: 'SET_AGENT_KIND', kind: 'work' })
     expect(work.permissionMode).toBe('default')
-    expect(chatReducer(work, { type: 'SET_AGENT_KIND', kind: 'coding' }).permissionMode).toBe(
+    expect(chatReducer(work, { type: 'SET_AGENT_KIND', kind: 'code' }).permissionMode).toBe(
       'default'
     )
   })

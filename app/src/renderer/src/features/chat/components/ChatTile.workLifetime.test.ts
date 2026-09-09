@@ -7,7 +7,7 @@ import { initialChatState } from '../reducer/chatReducer'
 
 const harness = vi.hoisted(() => ({
   activeKey: 'first',
-  kind: 'work' as 'work' | 'coding',
+  kind: 'work' as 'work' | 'code',
   draftRestore: null as {
     key: string
     seq: number
@@ -55,7 +55,7 @@ function find(node: ReactNode, type: unknown): ReactElement | undefined {
   return found
 }
 describe('actual ChatTile Work session lifetime wiring', () => {
-  it('keys only the Work transcript to its session, leaving Composer and Coding lifetime unchanged', () => {
+  it('keys only the Work transcript to its session, leaving Composer and Code lifetime unchanged', () => {
     harness.kind = 'work'
     harness.activeKey = 'first'
     const first = ChatTile({ backendLabel: 'Claude', canAbort: true })
@@ -65,7 +65,7 @@ describe('actual ChatTile Work session lifetime wiring', () => {
     expect(find(fork, TranscriptView)?.key).toBe('fork-with-copied-boundary')
     expect(find(first, Composer)?.key).toBeNull()
     expect(find(fork, Composer)?.key).toBeNull()
-    harness.kind = 'coding'
+    harness.kind = 'code'
     expect(
       find(ChatTile({ backendLabel: 'Claude', canAbort: true }), TranscriptView)?.key
     ).toBeNull()

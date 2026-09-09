@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
   },
   // 0215 — 이 턴이 실제로 쓰는 SDK 모델 문자열. main 은 alias 를 갖지 않으므로 보정의 유일한 입력이다.
   resolvedModel: { value: undefined as string | undefined },
-  agentKind: { value: 'coding' as 'coding' | 'work' }
+  agentKind: { value: 'code' as 'code' | 'work' }
 }))
 
 vi.mock('../../features/chat/attachments', () => ({
@@ -191,7 +191,7 @@ describe('handleChatSend — 지원하지 않는 권한 모드 보정 (AT-14)', 
     vi.clearAllMocks()
     mocks.sessionMeta.value = null
     mocks.resolvedModel.value = undefined
-    mocks.agentKind.value = 'coding'
+    mocks.agentKind.value = 'code'
     vi.mocked(normalizeAttachments).mockResolvedValue({
       attachmentTexts: [],
       attachmentImages: []
@@ -249,10 +249,10 @@ describe('handleChatSend — 지원하지 않는 권한 모드 보정 (AT-14)', 
       patch: { permissionMode: 'default' }
     })
   })
-  it('Work restores hidden plan mode to manual; Coding approval keeps accept_edits', async () => {
+  it('Work restores hidden plan mode to manual; Code approval keeps accept_edits', async () => {
     mocks.agentKind.value = 'work'
     expect((await run('claude-sonnet-4-6', 'plan')).requestMode).toBe('default')
-    mocks.agentKind.value = 'coding'
+    mocks.agentKind.value = 'code'
     expect((await run('claude-sonnet-4-6', 'plan')).planApprovalMode).toBe('accept_edits')
   })
   it('automatic continuation rechecks the current selection and actual resolved model', async () => {

@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 const { fixture } = vi.hoisted(() => ({
   fixture: {
     session: {
-      agentKind: 'coding' as 'coding' | 'work',
+      agentKind: 'code' as 'code' | 'work',
       sessionId: null as string | null,
       messages: [] as unknown[],
       loadingSession: false,
@@ -64,7 +64,7 @@ const { ProjectLandingPage } = await import('./ProjectLandingPage')
 
 beforeEach(() => {
   fixture.session = {
-    agentKind: 'coding',
+    agentKind: 'code',
     sessionId: null,
     messages: [],
     loadingSession: false,
@@ -78,7 +78,7 @@ const pages = [
 ]
 
 describe.each(pages)('0224 r3 — $label 랜딩 배치 (AC-R3-3 · EP3)', ({ Page }) => {
-  it.each(['coding', 'work'] as const)(
+  it.each(['code', 'work'] as const)(
     '%s 랜딩은 패널 없이 같은 Composer 계약을 유지한다',
     (kind) => {
       fixture.session.agentKind = kind

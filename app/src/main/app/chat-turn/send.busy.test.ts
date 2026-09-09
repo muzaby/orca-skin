@@ -93,7 +93,7 @@ describe('handleChatSend busy submission', () => {
         projectId: null,
         text: 'different kind',
         [sourceField]: 'source',
-        agentKind: 'coding'
+        agentKind: 'code'
       })
       expect(dbRead).toHaveBeenCalledWith('source')
       expect(acquireChain).not.toHaveBeenCalled()
@@ -144,7 +144,7 @@ describe('handleChatSend busy submission', () => {
         projectId: null,
         text: 'must not queue',
         clientRequestId: 'draft1',
-        agentKind: 'coding'
+        agentKind: 'code'
       })
       expect(acquireChain).not.toHaveBeenCalled()
       expect(queue.pending(sessionId ?? 'draft1')).toEqual([])
@@ -189,7 +189,7 @@ describe('handleChatSend busy submission', () => {
         mockAdapter: null,
         debugMock: { enabled: false },
         registry: { getActive: () => ({ id: 'claude' }) },
-        db: { getSessionById: () => ({ agent_kind: 'coding' }) }
+        db: { getSessionById: () => ({ agent_kind: 'code' }) }
       },
       supervisor: { acquireChain, getChainByKey: (key: string) => leases.getByKey(key) },
       pendingMessages: queue,

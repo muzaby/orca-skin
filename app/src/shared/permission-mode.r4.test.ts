@@ -26,16 +26,16 @@ describe('0224 r4 — 구체적 Claude 버전과 종류별 권한', () => {
     'corp-sonnet-9',
     'custom-claude-sonnet-4-6',
     null
-  ])('%s는 자동 불가이고 Work=수동/Coding=편집 수락이다', (name) => {
+  ])('%s는 자동 불가이고 Work=수동/Code=편집 수락이다', (name) => {
     expect(coercePermissionMode('auto_classified', model(name), 'work')).toBe('default')
-    expect(coercePermissionMode('auto_classified', model(name), 'coding')).toBe('accept_edits')
+    expect(coercePermissionMode('auto_classified', model(name), 'code')).toBe('accept_edits')
   })
 
   it.each(['accept_edits', 'plan', 'dont_ask'] as NormalizedPermissionMode[])(
     'Work의 이전 %s 선택은 수동으로 정착하고 Coding은 유지한다',
     (mode) => {
       expect(coercePermissionMode(mode, model('claude-sonnet-4-6'), 'work')).toBe('default')
-      expect(coercePermissionMode(mode, model('claude-sonnet-4-6'), 'coding')).toBe(mode)
+      expect(coercePermissionMode(mode, model('claude-sonnet-4-6'), 'code')).toBe(mode)
     }
   )
 
@@ -43,7 +43,7 @@ describe('0224 r4 — 구체적 Claude 버전과 종류별 권한', () => {
     '%s의 의미는 종류/모델과 무관하게 유지한다',
     (mode) => {
       expect(coercePermissionMode(mode, model(null), 'work')).toBe(mode)
-      expect(coercePermissionMode(mode, model(null), 'coding')).toBe(mode)
+      expect(coercePermissionMode(mode, model(null), 'code')).toBe(mode)
     }
   )
 })

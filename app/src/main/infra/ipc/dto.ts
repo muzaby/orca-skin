@@ -3,7 +3,7 @@
 import type { ProviderReportedTelemetry, TelemetryModelUsage } from '../../../shared/ipc'
 import { ifPresent } from '../../../shared/obj'
 import { pickPrimaryModel } from '../../../shared/usage/primary-model'
-import { DEFAULT_AGENT_KIND } from '../../../shared/agent-kind'
+import { parseAgentKind } from '../../../shared/agent-kind'
 
 import type { AppMessagePart, Project, SessionListItem } from '../../../shared/protocol'
 import type {
@@ -23,7 +23,7 @@ export function toSessionListItem(r: SessionListRow): SessionListItem {
   return {
     id: r.id,
     backend: r.backend,
-    agentKind: r.agent_kind ?? DEFAULT_AGENT_KIND,
+    agentKind: parseAgentKind(r.agent_kind),
     title: r.title,
     updatedAt: r.updated_at,
     preview: r.last_message_preview,

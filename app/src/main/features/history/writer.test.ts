@@ -18,6 +18,15 @@ import type { TurnContext } from '../../contracts/turn'
 import { applyMigrations } from '../../infra/db/migrate'
 import { loadSession } from './reader'
 
+type HistoryWriterAllowsMissingPolicy =
+  [DbQueries] extends ConstructorParameters<typeof HistoryWriter> ? true : false
+
+const HISTORY_WRITER_ALLOWS_MISSING_POLICY: HistoryWriterAllowsMissingPolicy = false
+
+it('requires an explicit response-boundary policy at construction', () => {
+  expect(HISTORY_WRITER_ALLOWS_MISSING_POLICY).toBe(false)
+})
+
 // persistUserMessage 만 검증 — appendMessage/appendPart 만 모의한다.
 function makePersistence(): {
   persistence: HistoryWriter
@@ -27,7 +36,7 @@ function makePersistence(): {
   const appendMessage = vi.fn(() => 7)
   const appendPart = vi.fn(() => 0)
   const db = { appendMessage, appendPart } as unknown as DbQueries
-  const persistence = new HistoryWriter(db)
+  const persistence = new HistoryWriter(db, () => false)
   return { persistence, appendMessage, appendPart }
 }
 
@@ -46,6 +55,27 @@ const fileView: AttachmentView = {
 }
 
 describe('Work boundary persistence', () => {
+  it('uses the injected response-boundary policy', () => {
+    const connection = new Database(':memory:')
+    try {
+      applyMigrations(connection)
+      const queries = new DbQueries(connection)
+      queries.insertSession({
+        id: 's1',
+        backend: 'claude',
+        title: null,
+        projectId: null,
+        createdAt: 1,
+        agentKind: 'work'
+      })
+      const writer = new HistoryWriter(queries, () => false)
+      writer.persist(turnFor(), begin('disabled'))
+      expect(queries.loadParts('s1')).toEqual([])
+    } finally {
+      connection.close()
+    }
+  })
+
   const turnFor = (): TurnContext =>
     ({
       agentKind: 'work',
@@ -78,7 +108,7 @@ describe('Work boundary persistence', () => {
     try {
       applyMigrations(connection)
       const queries = new DbQueries(connection)
-      const writer = new HistoryWriter(queries)
+      const writer = new HistoryWriter(queries, () => true)
       const turn = Object.assign(turnFor(), {
         titleAdapter: { id: 'claude' as const },
         pendingUserText: null,
@@ -142,7 +172,7 @@ describe('Work boundary persistence', () => {
         projectId: null,
         createdAt: 1
       })
-      const writer = new HistoryWriter(queries)
+      const writer = new HistoryWriter(queries, () => true)
       const turn = turnFor()
       writer.persist(turn, end('missing'))
       expect(queries.loadParts('s1')).toEqual([])
@@ -178,7 +208,7 @@ describe('Work boundary persistence', () => {
         projectId: null,
         createdAt: 1
       })
-      const writer = new HistoryWriter(queries)
+      const writer = new HistoryWriter(queries, () => true)
       const turn = turnFor()
       writer.persist(turn, begin('segment'))
       writer.persist(turn, text)
@@ -212,7 +242,7 @@ describe('HistoryWriter.persistUserMessage — 첨부 영속', () => {
         "INSERT INTO sessions (id, backend, created_at, updated_at) VALUES ('s1', 'claude', 1, 1)"
       ).run()
       const queries = new DbQueries(db)
-      const writer = new HistoryWriter(queries)
+      const writer = new HistoryWriter(queries, () => false)
       const requirements: DiffRequirementAnchor[] = [
         {
           sessionId: 's1',
@@ -282,7 +312,7 @@ describe('HistoryWriter — session baseline birth persistence', () => {
       updateSessionPreview: vi.fn(),
       updateSessionProviderKey: vi.fn()
     }
-    const persistence = new HistoryWriter(db as unknown as DbQueries)
+    const persistence = new HistoryWriter(db as unknown as DbQueries, () => false)
     const turn = {
       agentKind: 'work',
       dbSessionId: null,
@@ -318,7 +348,7 @@ describe('HistoryWriter — session baseline birth persistence', () => {
     const db = new Database(':memory:')
     applyMigrations(db)
     const queries = new DbQueries(db)
-    const persistence = new HistoryWriter(queries)
+    const persistence = new HistoryWriter(queries, () => false)
     const turn = (
       sessionBaseline: string | null,
       isNewSession: boolean,
@@ -380,7 +410,7 @@ function makeFinalizeHarness(): {
     updateSessionPreview: vi.fn(),
     updateSessionProviderKey: vi.fn()
   }
-  const persistence = new HistoryWriter(db as unknown as DbQueries)
+  const persistence = new HistoryWriter(db as unknown as DbQueries, () => false)
   const turn = {
     dbSessionId: 's1',
     currentAssistantMessageId: null,
@@ -468,7 +498,7 @@ describe('HistoryWriter — TaskXXX 구조화 출력 영속 (0204)', () => {
       updateSessionPreview: vi.fn(),
       updateSessionProviderKey: vi.fn()
     }
-    const persistence = new HistoryWriter(db as unknown as DbQueries)
+    const persistence = new HistoryWriter(db as unknown as DbQueries, () => false)
     const turn = {
       dbSessionId: 's1',
       currentAssistantMessageId: null,

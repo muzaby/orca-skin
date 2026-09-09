@@ -11,6 +11,7 @@
 
 import { randomUUID } from 'node:crypto'
 import type { ClassifiedError, NormalizedEvent } from '../../../shared/ipc'
+import type { AgentKind } from '../../../shared/agent-kind'
 import type { ResponseBoundary } from '../../../shared/response-boundary'
 import { isResponseDisplayEvent, responseBoundaryOutcome } from './response-boundary'
 import type { TurnRequest } from '../../adapters/turn'
@@ -115,6 +116,7 @@ export interface TurnCoordinatorDeps<W> {
   // 세션별 미정착 백그라운드 서브에이전트 추적 포트(0136) — started/settled 를 이벤트 루프에서
   // 갱신하고, chat-turn 의 턴-후 루프가 listen 턴 개시 조건으로 조회한다.
   backgroundTasks: BackgroundTaskPort
+  persistResponseBoundaries: (kind: AgentKind) => boolean
 }
 
 export class TurnCoordinator<W = unknown> {
@@ -347,7 +349,7 @@ export class TurnCoordinator<W = unknown> {
             // 링크·assistant 마감이 끝난 뒤여야 한다(0060).
             if (ev.type !== 'telemetry') this.commitConsumed(turn, closeBeforeUser)
             if (
-              turn.agentKind === 'work' &&
+              this.deps.persistResponseBoundaries(turn.agentKind) &&
               turn.dbSessionId &&
               turnOpenConsumed &&
               !boundaryId &&
