@@ -73,6 +73,16 @@
   - D-016("productName 키 금지") ↔ AT-02(`%APPDATA%\orcinus-orca`) → AT-02가 D-016 없이는 성립하지 않는다. AT-13이 D-016을 직접 잠근다.
   - D-013("side-by-side 허용") ↔ AT-12(구버전 수동 제거 안내가 문서에 있다) → 같은 방향.
 
+### r1 착수 전 설계 정정 (규범 행)
+
+구현 착수 전 실측에서 §10 분모 2건과 술어 1건이 틀린 것을 확인해 규범 행을 정정했다. ACTIVE Decision은 하나도 바뀌지 않았다 — D-001·D-014가 이미 요구하던 지점을 분모가 덜 세고 있었다.
+
+| # | 정정한 행 | 정정 전 | 정정 후 | 관측 |
+|---|---|---|---|---|
+| C1 | §10 EP-04 분모 · AT-08 술어 | 9지점 · `rg "'Orca'"` 0건 | 31지점(renderer 27 · main 4) · `\bOrca\b` 0건 | 옛 술어는 작은따옴표 리터럴만 봐서 31지점 중 `useCompletionNotifier.ts:25` 1곳만 분모에 올랐다. 주어(홀로 선 제품명 단어)로 다시 세어 `grep -rnE "\bOrca\b" src/renderer … \| grep -v '\.test\.'` = 31행, main 사용자 대면 4행 |
+| C2 | §8 DB 절대경로 컬럼 수 · EP-08 | 4컬럼 | 5컬럼(`repo_root` 추가) | `grep -rnE "cwd\|_root\|_path" migrations/*.sql` = 5행. `repo_root`는 `rev-parse --show-toplevel` 결과라 세션 cwd가 설정 루트 하위 저장소면 옛 접두를 갖는다. C3의 repo 측 repair가 이 값을 cwd로 쓰므로 rebase가 **선행 조건**이다 |
+| C3 | EP-08 repair 방향 | 워크트리 측 `git worktree repair` | repo 측 `git worktree repair <worktree>` | 임시 저장소 실측 — 워크트리만 이동하면 두 방향 다 성공하지만, **repo도 함께 이동하면 워크트리 측 호출이 `fatal: not a git repository`로 실패**한다. repo 측 호출은 같은 케이스에서 `repair: gitdir incorrect` + `repair: .git file broken` 둘 다 고쳐 `prune -n` 무출력·워크트리 `git status` exit 0 |
+
 ## 4. 요구 비판적 검토
 
 | 질문 | 판단 | 근거 |
@@ -150,9 +160,9 @@
 | R-05 | AT-05 / AC5 | DB와 그 부속 파일이 `orcinus-orca.db*`다 | `migrate.test.ts`가 `orcinus-orca.db.backup.before-<ver>.<ts>` 생성을 단언. `db/index.ts`의 파일명은 상수 SSOT를 통해서만 조립되는지 단언 | 부팅 DB 오픈 → 마이그레이션 백업 |
 | R-06 | AT-06 / AC6 | 제품명 기반 내부 저장 파일 6종이 새 이름이다 | 순수 테스트가 `settings-store`·`secret-store`·`store-file`(2)·`deployer` 마커·`seed` 마커의 이름 상수가 전부 `PRODUCT_SLUG` 파생임을 단언. 리터럴을 되돌리면 실패한다 | 설정 저장 · 시크릿 · provider grant · 배포 · 스킬 seed |
 | R-07 | AT-07 / AC7 | 플러그인 디렉토리와 스킬 네임스페이스가 `orcinus-orca`다 | `builtInHarnessPluginRoot(root,'claude')`가 `…/dist/claude/plugins/orcinus-orca`이고 `adaptSkillNameForClaude({sourceKind:'orca',name:'review'})==='orcinus-orca:review'` 단언 | 배포 → SDK `options.plugins` |
-| R-08 | AT-08 / AC8 | 화면에 보이는 제품명이 `Orcinus orca`다 | 표시명 SSOT 상수 1개를 단언하고, `rg "'Orca'" src/renderer/src` = 0건 + `index.html`의 `<title>`이 SSOT 값과 문자열 일치함을 단언 | 헤더·사이드바·로그인·부팅·알림 |
+| R-08 | AT-08 / AC8 | 화면에 보이는 제품명이 `Orcinus orca`다 | 표시명 SSOT 상수 1개를 단언하고, **불변식의 주어(`\bOrca\b` — 홀로 선 제품명 단어)** 로 renderer prod 전수 스윕이 0건임을 단언 + main 사용자 대면 문자열 4곳이 SSOT 파생임을 단언 + `index.html`의 `<title>`이 SSOT 값과 문자열 일치함을 단언 | 헤더·사이드바·로그인·부팅·알림·스킬 목록·오류 토스트 |
 | R-09 | AT-09 / AC9 | 옛 경로를 읽는 정상 경로가 없다 | 레거시 경로 상수가 **이관 모듈에서만** import되는지 전수 단언(`rg` import 그래프, 소비자 1파일) + 그 모듈이 읽기 전용 폴백을 노출하지 않음(공개 API에 `read*`/`resolve*` 없음) | — (부정 계약) |
-| R-10 | AT-10 / AC10 | 기존 설치본의 데이터가 새 자리에서 그대로 열린다 | 임시 디렉토리에 옛 레이아웃을 만들어 이관 함수를 돌린 뒤: 루트 이동 · 파일 8종 개명 · 재실행 멱등(2회 호출 후 동일 상태) 단언. DB 절대경로 4컬럼은 실 sqlite로 rebase 후 값 단언. worktree repair는 실 git 저장소로 §8 재현 절차를 그대로 태워 `git worktree prune -n`이 무출력임을 단언 | `index.ts` 모듈 스코프 → `bootstrap` DB 단계 |
+| R-10 | AT-10 / AC10 | 기존 설치본의 데이터가 새 자리에서 그대로 열린다 | 임시 디렉토리에 옛 레이아웃을 만들어 이관 함수를 돌린 뒤: 루트 이동 · 내부 이름 개명 · 재실행 멱등(2회 호출 후 동일 상태) 단언. DB 절대경로 **5컬럼**은 실 sqlite로 rebase 후 값 단언. worktree repair는 실 git 저장소로 §8 재현 절차를 그대로 태워 `git worktree prune -n`이 무출력임을 단언 | `index.ts` 모듈 스코프 → `bootstrap` DB 단계 |
 | R-11 | AT-11 / AC11 | 코드 식별자는 그대로다 | `docs/generated/inventory.md`의 IPC 채널 수가 **89**로 불변 · `sourceKind: 'orca'` 유니온 멤버 존재 · `ORCA_ATTACHMENT_START` 등 sentinel 4군 존재를 단언 | `npm run lint`·`check-doc-inventory --check` |
 | R-12 | AT-12 / AC12 | 운영 문서가 새 이름과 전환 절차를 서술한다 | `release-operations.md`가 `orcinus-orca-<ver>-setup.exe`·`%APPDATA%/orcinus-orca`를 쓰고 **구버전 수동 제거 절차 문단**을 갖는지 단언(문구 존재 + 새 섹션 앵커). `check-doc-inventory.mjs`의 링크 검사 통과 | 사람이 릴리스할 때 읽는 문서 |
 | R-13 | AT-13 / AC13 | `package.json`에 `productName` 키가 생기지 않는다 | 순수 테스트가 `'productName' in pkg === false` 단언 | — (회귀 가드) |
@@ -162,8 +172,8 @@
 
 - **기존 테스트 재사용**: `migrate.test.ts:153·206`이 실제로 `orca.db.backup.before-1.100.0.2026-07-08T00-00-00-000Z` 문자열을 단언하는 케이스를 갖고 있음을 확인했다 — AT-05는 이 케이스의 기대값 교체로 닫는다. `paths.test.ts`는 5건, `workspace-guard.test.ts`는 7건의 `.config/orca` 문자열을 갖는다.
 - **사람 실기 항목**: AT-02(실제 `%APPDATA%` 폴더)·AT-01의 설치 실기·아이콘 증상 재확인. 이유 — Windows 패키징과 레지스트리 결과는 이 환경에서 재현 불가(egress 차단으로 electron ABI 빌드 불가, `app/AGENTS.md §제약 환경`). 순수 로직(경로 조립·이관·rebase)은 전부 순수 테스트로 내렸다.
-- **N회/총량 기준**: AT-09의 분모는 "레거시 상수를 import하는 파일 수". sink는 `legacyUserDataDir`·`legacyConfigDir` 두 함수이고, `rg "legacyUserDataDir|legacyConfigDir" app/src --glob '!*.test.*'`의 결과가 **정의 파일 1 + 이관 모듈 1 = 2파일**이어야 한다. AT-08의 분모는 `rg "'Orca'" app/src/renderer/src --glob '!*.test.*'` = 0건이며, 허용 예외는 없다(`OrcaLogo`·`OrcaApi` 같은 식별자는 따옴표 밖이라 술어에 걸리지 않음을 확인).
-- **총량/0건 기준**: AT-08·AT-09는 음성 게이트다. 각각 양성 단언과 짝지었다 — AT-08은 "SSOT 상수가 `Orcinus orca`이고 8개 소비처가 그것을 import한다", AT-09는 "이관 모듈이 두 레거시 함수를 실제로 호출한다". 음성 단독으로 두지 않는다.
+- **N회/총량 기준**: AT-09의 분모는 "레거시 상수를 import하는 파일 수". sink는 `legacyUserDataDir`·`legacyConfigDir` 두 함수이고, `rg "legacyUserDataDir|legacyConfigDir" app/src --glob '!*.test.*'`의 결과가 **정의 파일 1 + 이관 모듈 1 = 2파일**이어야 한다. AT-08의 술어는 **불변식의 주어**여야 한다 — 해법의 이름(`'Orca'` 작은따옴표 리터럴)으로 세면 실측 31지점 중 1곳만 분모에 오른다(`useCompletionNotifier.ts:25`). 주어는 **홀로 선 제품명 단어**이므로 술어는 `grep -rnE "\bOrca\b" app/src/renderer --include=*.tsx --include=*.ts --include=*.html | grep -v '\.test\.'` = **0건**이고, 코드 식별자 `OrcaLogo`·`orcaApi`는 단어 경계가 성립하지 않아 술어에 걸리지 않는다(실측 확인). main은 전수 스윕 대상이 아니다 — 프롬프트 본문·주석의 `Orca`가 D-012로 남으므로, 사용자 대면 4지점을 **열거된 양성 단언**으로 잠근다.
+- **총량/0건 기준**: AT-08·AT-09는 음성 게이트다. 각각 양성 단언과 짝지었다 — AT-08은 "SSOT 상수가 `Orcinus orca`이고 열거된 소비처가 그것을 import한다", AT-09는 "이관 모듈이 두 레거시 함수를 실제로 호출한다". 음성 단독으로 두지 않는다.
 
 ## 7-A. V / Trace Matrix
 
@@ -197,11 +207,11 @@
 | VP-01 | R-01 ↔ AT-01 | REQUIRED | `package.json`/`electron-builder.yml` → electron-builder `AppInfo` → NSIS 산출물 | 설정 파일을 파싱해 5개 키 값을 직접 단언 | not selected — 값 자체를 읽는 직접 oracle | EP-01 (1) |
 | VP-02 | R-02·R-03 ↔ AT-02·AT-03 | REQUIRED | `app.getName()` → `getPath('userData')` → DB·store | `devUserDataDir` 반환값 직접 단언 + `productName` 부재 단언 | not selected — 반환값 직접 관측 | EP-02 (2) |
 | VP-03 | R-04·R-05·R-06·R-07 ↔ IT-01 | REQUIRED | 이름 SSOT → `paths.ts`·`db/index.ts`·store 4종·`claude-plugin.ts` → 디스크 | 각 경로 함수/상수의 반환 문자열을 개별 케이스로 단언 (8+6+2=16건) | not selected — 반환값 직접 관측 | EP-03 (16) |
-| VP-04 | R-08 ↔ AT-08 | REQUIRED | `PRODUCT_DISPLAY_NAME` → 8개 화면 소비처 + `index.html` | 양성: SSOT 값 단언 + 소비처가 상수를 참조. 음성: `'Orca'` 리터럴 0건 | **required** — 음성 스윕이 있으므로. 심을 결함: 한 소비처의 상수 참조를 문자열 `'Orca'`로 되돌리면 두 단언 중 음성이 실패해야 한다 | EP-04 (9) |
+| VP-04 | R-08 ↔ AT-08 | REQUIRED | `PRODUCT_DISPLAY_NAME` → renderer 27지점 + main 4지점 | 양성: SSOT 값 단언 + 소비처가 상수를 참조. 음성: renderer prod `\bOrca\b` 0건 | **required** — 음성 스윕이 있으므로. 심을 결함: 임의 소비처의 상수 참조를 문자열 `Orca`로 되돌리면 음성 스윕이 실패해야 한다 | EP-04 (31) |
 | VP-05 | R-09 ↔ AT-09 | REQUIRED | 레거시 상수 → 이관 모듈만 | 양성: 이관 모듈이 두 함수를 호출. 음성: 다른 파일의 import 0건 | **required** — 0건/전수 주장이므로. 심을 결함: `db/index.ts`에 `legacyUserDataDir` 폴백 import를 넣으면 음성이 실패해야 한다 | EP-05 (2) |
 | VP-06 | SD-01 ↔ ST-01 | REQUIRED | 옛 레이아웃 디스크 → `migrateLegacyRoots` → DB 오픈 → rebase → repair | 임시 디렉토리·실 sqlite·실 git으로 종단 실행 후 최종 상태 단언 | not selected — 최종 디스크·DB·git 상태를 직접 관측 | EP-06 (4) |
 | VP-07 | AR-02 ↔ IT-02 | REQUIRED | `index.ts` 모듈 스코프 → 이관 → `initLog()` | 순서 훅: 이관 함수와 로그 초기화에 순서 기록기를 주입해 이관이 먼저 불림을 단언 | **required** — 순서 계약이므로. 심을 결함: 두 호출을 맞바꾸면 실패해야 한다 | EP-07 (1) |
-| VP-08 | AR-03 ↔ IT-03 | REQUIRED | `managed_worktrees.worktree_root` → rebase → `git worktree repair` → 원본 저장소 포인터 | 실 git: repair 후 `git worktree prune -n -v` 무출력 + `git status` exit 0 | **required** — repair 누락이 조용히 통과할 수 있으므로. 심을 결함: repair 호출을 제거하면 `prune -n`이 `Removing worktrees/...`를 출력해 실패해야 한다 | EP-08 (2) |
+| VP-08 | AR-03 ↔ IT-03 | REQUIRED | `managed_worktrees.repo_root`·`worktree_root` → rebase → **repo 측** `git worktree repair <worktree>` → 양방향 포인터 | 실 git: repair 후 `git worktree prune -n -v` 무출력 + 워크트리에서 `git status` exit 0. **repo도 함께 이동한 케이스**를 별도 케이스로 둔다 | **required** — repair 누락이 조용히 통과할 수 있으므로. 심을 결함: repair 호출을 제거하면 `prune -n`이 `Removing worktrees/...`를 출력해 실패해야 한다 | EP-08 (2) |
 | VP-09 | MD-01 ↔ UT-01 | REQUIRED | `rebaseUnderRoot` 순수 함수 | 접두 일치·불일치·경계(`/a/orca-x`가 `/a/orca` 접두로 잘못 잡히지 않음)·Windows 구분자 케이스 단언 | not selected — 반환값 직접 관측 | EP-09 (1) |
 | VP-10 | MD-02 ↔ UT-02 | REQUIRED | 이관 단계 멱등성 | 같은 입력에 2회 호출 후 디스크 스냅샷이 1회 호출 후와 동일함을 단언 | not selected — 상태 차집합을 직접 관측 | EP-10 (1) |
 | VP-11 | R-11 ↔ AT-11 | REQUIRED | `shared/ipc.ts` → `check-doc-inventory` | 채널 수 89 불변 단언 + sentinel 4군 존재 | not selected — 개수·존재를 직접 관측 | EP-11 (1) |
@@ -239,10 +249,10 @@
 | `sanitize-filename`은 공백을 지우지 않는다 | `builder-util/out/filename.js` — `_sanitizeFileName` 위임, 금지문자만 제거 |
 | 설정 루트 리터럴이 **두 곳**에 있다 (SSOT 위반) | `infra/config/paths.ts:29` `join(homedir(),'.config','orca')` · `infra/log/index.ts:47` 같은 식의 독립 하드코딩 |
 | 로그 초기화가 모듈 스코프에서 설정 루트를 연다 | `index.ts:25` `initLog()` — 이관은 이 줄보다 먼저여야 한다 |
-| 절대경로를 저장하는 DB 컬럼은 4개다 | `0010_session_cwd.sql:1` · `0017_session_extra_dirs.sql:3` · `0018_managed_worktrees.sql:5-6`. `projects`에는 `cwd` 컬럼이 없다(`0002_projects.sql` 전문 확인) — `getWorkspacePath`의 `project.cwd`는 future scope |
+| 절대경로를 저장하는 DB 컬럼은 **5개**다 | `0010_session_cwd.sql:1` · `0017_session_extra_dirs.sql:3` · `0018_managed_worktrees.sql:4·5·6`(`repo_root`·`source_cwd`·`worktree_root`). `repo_root`는 `resolveRepoRoot(sourceCwd)`(= `rev-parse --show-toplevel`)이라 세션 cwd가 설정 루트 하위 저장소면 옛 루트 접두를 갖는다. `projects`에는 `cwd` 컬럼이 없다(`0002_projects.sql` 전문 확인) · `artifacts.relative_path`는 상대경로 |
 | artifacts는 상대경로만 저장한다 | `0021_artifacts.sql:4` `relative_path TEXT NOT NULL UNIQUE` — 루트가 바뀌어도 rebase 불필요 |
 | 렌더러가 `src/shared/`를 **값**으로 import하는 선례가 있다 | `GeneralTab.tsx:11` · `TokensPerDayChart.tsx:9` · `DebugPanel.tsx:2` · `chatReducer.ts:20` (4건). eslint `boundaries/include`는 renderer 블록에서 `src/renderer/src/**`만 포함하고 `no-unknown` 계열 규칙은 꺼져 있다(`eslint.config.mjs`) |
-| 화면 표시 `'Orca'`에 SSOT가 없다 | `index.html:5` · `Header.tsx:179` · `Sidebar.tsx:130` · `GateLogin.tsx:53·61` · `AppLayout.tsx:43` · `BootScreen.tsx:29` · `GateFrame.tsx:33` · `BootFailureFrame.tsx:19` · `useCompletionNotifier.ts:25` |
+| 화면 표시 `Orca`에 SSOT가 없다 — **renderer 27 + main 4 = 31지점** | renderer: `index.html:5` · `Header.tsx:179` · `Sidebar.tsx:130` · `GateLogin.tsx:53·61` · `AppLayout.tsx:43` · `BootScreen.tsx:29` · `GateFrame.tsx:33` · `BootFailureFrame.tsx:19` · `useCompletionNotifier.ts:25` · `OrcaLogo.tsx`의 `aria-label` · `i18n/resources/en.ts` 8건 · `ko.ts` 8건 (+ 주석 4건). main: `bootstrap.ts:182`·`deployer.ts:199`의 `sourceLabel` · `handlers/skills.ts:81`·`skills/sources.ts:54`의 오류 문구 |
 | 워크트리 브랜치·디렉토리 이름은 제품명과 무관하다 | `features/worktrees/naming.ts` — `repoDirSegment`는 저장소 basename + sha1 8자, `branchDirSegment`는 브랜치명 |
 | `docs/generated/inventory.md`의 IPC 채널 수 = 89 | `docs/generated/inventory.md:13` |
 
@@ -252,18 +262,18 @@
 |---|---|---:|---|
 | 파일시스템 이름을 만드는 리터럴 (prod 코드) | 14개 패턴 개별 `rg -c … --glob '!*.test.*'` | 14 | 각 패턴이 정확히 1파일에 있다 — §11 변경 파일 표와 1:1 |
 | 설정 루트 리터럴 | `rg "'\.config', 'orca'" src --glob '!*.test.*'` | 2 | `paths.ts` + `log/index.ts` — 중복 정의를 이번에 SSOT로 합친다 |
-| 화면 표시 `'Orca'` (prod 렌더러) | `rg "Orca" src/renderer/... \| grep -v OrcaLogo\|import` | 9 | `index.html` 1 + tsx 8 |
+| 화면 표시 `Orca` (prod) | `grep -rnE "\bOrca\b" src/renderer --include=*.tsx --include=*.ts --include=*.html \| grep -v '\.test\.'` = 31행(주석 4 포함) + main 사용자 대면 4행 | 31 | renderer 27 + main 4. 주석 4행도 함께 고쳐 스윕 술어를 `\bOrca\b` 0건으로 유지한다 |
 | `.config/orca` 문자열 (테스트 포함) | `rg -c "\.config/orca" src` | 10파일 | prod 6 + test 4 |
 | `orca.json` 언급 (코드 주석 포함) | `rg -c "orca\.json" src` | 21파일 | 리터럴은 `paths.ts` 1곳, 나머지는 주석 서술 |
 | `orca:` IPC 채널 | `docs/generated/inventory.md:13` | 89 | D-012 비범위 — 불변을 AT-11이 잠근다 |
-| 절대경로 저장 DB 컬럼 | `grep -rn "cwd\|_root" migrations/*.sql` | 4 | rebase 대상 전수 |
+| 절대경로 저장 DB 컬럼 | `grep -rnE "cwd\|_root\|_path" migrations/*.sql` | 5 | rebase 대상 전수 (`relative_path` 제외) |
 | 갱신 대상 현재-상태 문서 | `rg -ln "…" docs --glob '!archive' '!handoff' '!etc' '!spec'` | 15 | + `app/AGENTS.md`·`app/src/main/AGENTS.md` = 17 |
 | 갱신 대상 CI | `rg -n "orca" .github/` | 1 | `release.yml:81` artifact 이름 |
 
 ### 수치 / 전칭 표현 검산
 
-- **재측정 수치**: IPC 채널 89(생성물 대조), 파일시스템 리터럴 14, 렌더러 표시명 9, DB 경로 컬럼 4, 문서 17.
-- **내역 합 = 총계**: 표시명 9 = `index.html` 1 + tsx 8 ✓. 문서 17 = docs 15 + AGENTS 2 ✓.
+- **재측정 수치**: IPC 채널 89(생성물 대조), 파일시스템 리터럴 14, 표시명 31, DB 경로 컬럼 5, 문서 16.
+- **내역 합 = 총계**: 표시명 31 = renderer 27(`index.html` 1 + tsx/ts 9 + `OrcaLogo` aria 1 + i18n 16) + 주석 4 은 스윕 유지용 추가 + main 4 ✓ — **주석 4는 표시 분모가 아니라 스윕 분모다**. 문서 16 = docs 14 + AGENTS 2 ✓.
 - **"유일한/항상/절대" 반례 검색**: "설정 루트 리터럴은 `paths.ts`가 유일하다"는 **거짓**이었다 — `log/index.ts:47`이 반례다. 이 반례가 §11 변경 파일 목록에 들어갔다.
 - **문서 앵커 / 기존 테스트 케이스 존재 확인**: `migrate.test.ts:153`·`:206`의 백업 파일명 단언 케이스 실재 확인. `paths.test.ts` 5건·`workspace-guard.test.ts` 7건 실재 확인. `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드` 앵커 실재 확인(`AGENTS.md:112`).
 - **worktree 이동 파손 재현** (이 세션 실측, 임시 저장소):
@@ -329,8 +339,8 @@ bootstrap DB 단계 후:  rebaseStoredPaths(db) → repairMovedWorktrees(db)  �
 | 책임/소유권 | 이름이 14+9곳에 흩어짐, 소유자 없음 | `shared/product.ts` 단일 소유 + 빌드 설정 2사본을 테스트가 잠금 | 드리프트 방지 · D-016 | AR-01 / VP-03·VP-04 · `src/shared/product.ts` |
 | 설정 루트 조립 | `paths.ts`·`log/index.ts` **2중 정의** | `orcaConfigDir()` 1곳, `log/index.ts`가 호출 | 반례가 실재(§8) — 한쪽만 고치면 로그가 옛 루트에 남는다 | AR-01 / VP-03 · `infra/log/index.ts` |
 | data/control flow | 이관 없음 | 모듈 스코프 이관 → `initLog()` → DB 단계 rebase → repair | 로그가 옛 루트를 먼저 열면 이관이 불가 | SD-01·AR-02 / VP-06·VP-07 · `migrate-legacy.ts` |
-| state/contract | 저장 절대경로가 옛 루트 접두 | rebase로 새 루트 접두 (4컬럼) | 경로만 바꾸면 기존 세션이 없는 디렉토리를 가리킨다 | AR-03 / VP-08 · `rebaseUnderRoot` |
-| git 링크 | 원본 저장소 포인터가 옛 절대경로 | 이동된 워크트리마다 `git worktree repair` | 실측: 다음 `worktree add`의 자동 prune이 파괴한다 | AR-03 / VP-08 · `repairMovedWorktrees` |
+| state/contract | 저장 절대경로가 옛 루트 접두 | rebase로 새 루트 접두 (5컬럼) | 경로만 바꾸면 기존 세션이 없는 디렉토리를 가리킨다 | AR-03 / VP-08 · `rebaseUnderRoot` |
+| git 링크 | 원본 저장소 포인터가 옛 절대경로 | 이동된 워크트리마다 repo 측 `git worktree repair <worktree>` | 실측: 다음 `worktree add`의 자동 prune이 파괴한다 | AR-03 / VP-08 · `repairMovedWorktrees` |
 | error/lifecycle | 해당 없음 | 2등급 실패(DB 차단 / 그 외 계속) + 전 단계 멱등 | 부분 상태의 영구화를 막는다 | SD-01 / VP-06·VP-10 · §13 |
 | test seam/관측점 | 경로 함수는 순수, 이관 없음 | 이관·rebase·repair를 electron/DB 비의존 순수 파일로 분리 | 순수 테스트로 내리기 위해 | MD-01·MD-02 / VP-09·VP-10 · §11 |
 
@@ -342,7 +352,7 @@ bootstrap DB 단계 후:  rebaseStoredPaths(db) → repairMovedWorktrees(db)  �
 | `main/infra/config/paths.ts` | 설정 루트와 하위 경로 조립 + **레거시 루트 조립 2함수** | `PRODUCT_SLUG` / 절대경로 | `infra`·`features`·`app`·`adapters` |
 | `main/infra/config/migrate-legacy.ts` (신규) | 파일시스템 1회 이관 (루트 이동 + 파일 개명), 동기·멱등 | 경로 쌍 / `MigrationReport` | `main/index.ts` 단 1곳 |
 | `main/infra/config/rebase-path.ts` (신규) | `rebaseUnderRoot` 순수 술어 | `(p, oldRoot, newRoot)` / `string \| null` | `migrate-legacy` · `app/legacy-paths.ts` |
-| `main/app/legacy-paths.ts` (신규) | DB 절대경로 4컬럼 rebase + 이동된 워크트리 repair | `Queries`·git runner / `RebaseReport` | `bootstrap.ts` DB 단계 |
+| `main/app/legacy-paths.ts` (신규) | DB 절대경로 5컬럼 rebase + 이동된 워크트리 repair | `Queries`·git runner / `RebaseReport` | `bootstrap.ts` DB 단계 |
 
 ## 10. 계약 / 타입 / 강제 지점
 
@@ -351,11 +361,11 @@ bootstrap DB 단계 후:  rebaseStoredPaths(db) → repairMovedWorktrees(db)  �
 | **EP-01** AR-01 / VP-01 | 빌드 식별자 5개(`name`·`productName`·`executableName`·`artifactName`·`appId`) | `package.json` + `electron-builder.yml` | 순수 테스트 `product-identity.test.ts` | CI·로컬 vitest | 산출물 이름이 요구 표와 어긋난다. 게이트 green으로는 못 잡는다 |
 | **EP-02** R-02·R-13 / VP-02·VP-13 | `package.json`에 `productName` 없음 · `devUserDataDir` 반환 | 같은 테스트 + `paths.ts` | 순수 테스트 | 같음 | `productName`이 생기면 userData가 공백 포함 경로로 조용히 이동한다 |
 | **EP-03** AR-01 / VP-03 | 경로·파일명 16개가 `PRODUCT_SLUG` 파생 | `shared/product.ts` | `paths.test.ts` 외 5개 스위트 | vitest | 한 곳만 옛 이름이면 그 저장소만 옛 자리에 남는다 |
-| **EP-04** R-08 / VP-04 | 표시명 SSOT + 9개 소비처 + `'Orca'` 0건 | `shared/product.ts` | 순수 테스트 + 음성 스윕 | vitest | 화면 일부가 옛 이름. 음성 단독이면 소비처 삭제를 못 잡으므로 양성 단언과 짝지었다 |
+| **EP-04** R-08 / VP-04 | 표시명 SSOT + **31지점**(renderer 27 · main 4) + renderer `\bOrca\b` 0건 | `shared/product.ts` | 순수 테스트 + 음성 스윕 | vitest | 화면 일부가 옛 이름. 음성 단독이면 소비처 삭제를 못 잡으므로 양성 단언과 짝지었다 |
 | **EP-05** R-09 / VP-05 | 레거시 상수 소비자 = 이관 모듈 1파일 | `paths.ts` 레거시 2함수 | import 그래프 전수 테스트 | vitest | D-010 위반(자동 fallback 부활). 음성 단독이라 양성 호출 단언과 짝지었다 |
 | **EP-06** SD-01 / VP-06 | 이관 전체 시나리오 | `migrate-legacy.ts` | 임시 디렉토리 종단 테스트 | vitest | 기존 데이터 유실 |
 | **EP-07** AR-02 / VP-07 | 이관이 `initLog()`보다 먼저 | `main/index.ts` 모듈 스코프 | 순서 기록기 주입 테스트 | vitest | 로그가 새 루트를 먼저 만들어 이관의 "target 없음" 가드가 거짓이 된다 |
-| **EP-08** AR-03 / VP-08 | rebase된 워크트리마다 repair 1회 | `app/legacy-paths.ts` | 실 git 통합 테스트 | vitest (실 git) | 다음 `worktree add`의 자동 prune이 워크트리를 파괴한다(§8 실측 exit 128) |
+| **EP-08** AR-03 / VP-08 | rebase된 워크트리마다 **repo 측** repair 1회 | `app/legacy-paths.ts` | 실 git 통합 테스트(워크트리만 이동 · repo도 함께 이동 2케이스) | vitest (실 git) | 다음 `worktree add`의 자동 prune이 워크트리를 파괴한다(§8 실측 exit 128) |
 | **EP-09** MD-01 / VP-09 | `rebaseUnderRoot` 경계 규칙 | `rebase-path.ts` | 단위 테스트 | vitest | `/a/orca-x`를 `/a/orca` 하위로 오판해 남의 경로를 건드린다 |
 | **EP-10** MD-02 / VP-10 | 이관 멱등 | `migrate-legacy.ts` | 2회 호출 차집합 테스트 | vitest | 부분 실패 후 재부팅이 상태를 더 망가뜨린다 |
 | **EP-11** R-11 / VP-11 | IPC 채널 89 불변 · sentinel 4군 존재 | `shared/ipc.ts` | `check-doc-inventory --check` + 순수 테스트 | CI | D-012 위반(무차별 치환) |
@@ -387,10 +397,11 @@ bootstrap DB 단계 후:  rebaseStoredPaths(db) → repairMovedWorktrees(db)  �
 | `app/src/main/features/extensions/deployer.ts` | 배포 마커 | `.orca-deploy.json` → `.${PRODUCT_SLUG}-deploy.json` | 순수 |
 | `app/src/main/features/extensions/skills/seed.ts` | seed 마커 | `.orca-builtin.json` → `.${PRODUCT_SLUG}-builtin.json` | 순수 |
 | `app/src/main/adapters/claude-plugin.ts` | 플러그인 이름 SSOT | `ORCA_PLUGIN_NAME = PRODUCT_SLUG` (D-015). `sourceKind:'orca'` enum은 **불변** | 순수 |
-| `app/src/main/app/legacy-paths.ts` | **신규** DB rebase + repair | 4컬럼 rebase(1 트랜잭션) → 변경된 `worktree_root`마다 `git worktree repair` | 실 sqlite + 실 git |
+| `app/src/main/app/legacy-paths.ts` | **신규** DB rebase + repair | 5컬럼 rebase(1 트랜잭션) → 변경된 `worktree_root`마다 repo 측 `git worktree repair <worktree>` | 실 sqlite + 실 git |
 | `app/src/main/app/bootstrap.ts` | 부팅 배선 | DB 마이그레이션 단계 직후, **핸들러 등록 이전**에 `legacy-paths` 단계 삽입 | 부팅 단계 순서 |
 | `app/src/renderer/index.html` | 창 제목 | `<title>Orcinus orca</title>` | 순수(파일 파싱) |
-| renderer 8파일 | 화면 표시 | 리터럴 `'Orca'`를 `PRODUCT_DISPLAY_NAME` import로 | 순수 + 음성 스윕 |
+| renderer 10파일 | 화면 표시 | `Orca` 표기 27지점을 `PRODUCT_DISPLAY_NAME` 파생으로(주석 4지점도 함께) — `OrcaLogo.tsx` `aria-label`·`i18n/{ko,en}.ts` 16문구 포함 | 순수 + 음성 스윕 |
+| main 4파일 | 사용자 대면 문구 | `bootstrap.ts`·`deployer.ts`의 `sourceLabel`, `handlers/skills.ts`·`skills/sources.ts`의 오류 문구를 SSOT 파생으로 | 순수 |
 | `app/src/renderer/src/shared/i18n/resources/{ko,en}.ts` | 경로 안내 문구 | `~/.config/orca/sources/settings` → 새 루트 (각 1건) | 순수 |
 | `.github/workflows/release.yml` | CI 산출물 | artifact 이름 `orca-win-*` → `orcinus-orca-win-*` | — |
 | `app/scripts/validate-dist.test.mjs` | 산출물 검증 픽스처 | 기대 파일명 6건 교체 | `node --test` |
@@ -495,10 +506,10 @@ PRODUCT_SLUG ─→ paths.ts/db/store 6종 ─→ 디스크 이름 ─→ (이�
 **코드 (신규 5 · 변경 25)**
 
 - 신규: `app/src/shared/product.ts` · `app/src/main/infra/config/rebase-path.ts` · `app/src/main/infra/config/migrate-legacy.ts` · `app/src/main/app/legacy-paths.ts` · `app/src/main/product-identity.test.ts`(위치는 구현자 재량)
-- 변경: `app/package.json` · `app/electron-builder.yml` · `.github/workflows/release.yml` · `app/src/main/index.ts` · `app/src/main/app/bootstrap.ts` · `app/src/main/infra/config/paths.ts` · `app/src/main/infra/config/secret-store.ts` · `app/src/main/infra/log/index.ts` · `app/src/main/infra/db/index.ts` · `app/src/main/infra/db/migrate.ts` · `app/src/main/infra/settings-store.ts` · `app/src/main/features/auth/store-file.ts` · `app/src/main/features/extensions/deployer.ts` · `app/src/main/features/extensions/skills/seed.ts` · `app/src/main/adapters/claude-plugin.ts` · `app/src/renderer/index.html` · `app/src/renderer/src/app/{Header,Sidebar,AppLayout,GateFrame,BootFailureFrame}.tsx` · `app/src/renderer/src/app/boot/BootScreen.tsx` · `app/src/renderer/src/app/hooks/useCompletionNotifier.ts` · `app/src/renderer/src/features/providers/components/GateLogin.tsx` · `app/src/renderer/src/shared/i18n/resources/{ko,en}.ts`
+- 변경: `app/package.json` · `app/electron-builder.yml` · `.github/workflows/release.yml` · `app/src/main/index.ts` · `app/src/main/app/bootstrap.ts` · `app/src/main/infra/config/paths.ts` · `app/src/main/infra/config/secret-store.ts` · `app/src/main/infra/log/index.ts` · `app/src/main/infra/db/index.ts` · `app/src/main/infra/db/migrate.ts` · `app/src/main/infra/settings-store.ts` · `app/src/main/features/auth/store-file.ts` · `app/src/main/features/extensions/deployer.ts` · `app/src/main/features/extensions/skills/seed.ts` · `app/src/main/adapters/claude-plugin.ts` · `app/src/renderer/index.html` · `app/src/renderer/src/app/{Header,Sidebar,AppLayout,GateFrame,BootFailureFrame}.tsx` · `app/src/renderer/src/app/boot/BootScreen.tsx` · `app/src/renderer/src/app/hooks/useCompletionNotifier.ts` · `app/src/renderer/src/features/providers/components/GateLogin.tsx` · `app/src/renderer/src/shared/ui/OrcaLogo.tsx` · `app/src/renderer/src/shared/i18n/resources/{ko,en}.ts` · `app/src/renderer/src/features/chat/components/composer/composerPanel.ts` · `app/src/renderer/src/features/settings/components/TokensPerDayChart.tsx` · `app/src/main/app/handlers/skills.ts` · `app/src/main/features/extensions/skills/sources.ts` · `app/package-lock.json`
 - 테스트: `paths.test.ts` · `workspace-guard.test.ts` · `migrate.test.ts` · `worktreeDisplay.test.ts` · `orca-file.test.ts` · `log-manager.test.ts` · `harness-config.test.ts` · DB 픽스처 5파일(`worktree-recover`·`worktree-bind`·`session-worktree-display`·`artifacts/service`) · `scripts/validate-dist.test.mjs`
 
-**문서 (17)**
+**문서 (16)**
 
 - `docs/PRD.md` · `docs/TRD.md` · `docs/GLOSSARY.md` · `docs/IPC_CONTRACT.md`
 - `docs/arch/backend/{overview,persistence,runtime-ipc,security,standardization,observability,adapters}.md`
@@ -530,7 +541,7 @@ PRODUCT_SLUG ─→ paths.ts/db/store 6종 ─→ 디스크 이름 ─→ (이�
 - [x] 상속 기준이 없어 Baseline V를 썼고 유효 V = V1이다.
 - [x] 변경 효과에 필요한 레벨(R·SD·AR·MD 전부)을 선택했고 모든 NEW node에 같은 레벨 REQUIRED pair가 있다.
 - [x] INHERITED node 없음 — Baseline이라 REGRESSION·NOT_REQUIRED 행이 없다.
-- [x] 각 pair의 경로·§10 전수 분모·직접 oracle이 있고, 적대 증거는 음성·순서·구조 oracle을 가진 4개(VP-04·05·07·08)만 선택 이유·변이와 함께 등록했다.
+- [x] 각 pair의 경로·§10 전수 분모·직접 oracle이 있고, 적대 증거는 음성·순서·구조 oracle을 가진 4개(VP-04·05·07·08)만 선택 이유·변이와 함께 등록했다. **r1 착수 전 정정 C1~C3으로 EP-04(9→31)·EP-08(방향)·DB 컬럼(4→5) 분모를 실측값으로 교체했다.**
 - [x] 현재 변경 산출물의 운영 gate가 열거됐고 기존 ABI red를 새 blocking 범위로 만들지 않는다.
 - [x] 사람 실기로 미룬 순수 로직이 없다 — 경로 조립·이관·rebase는 전부 순수 테스트.
 - [x] semantic 목표가 structural proxy만으로 검증되지 않는다 — AT-08·AT-09의 음성 스윕에 양성 단언을 짝지었다.
