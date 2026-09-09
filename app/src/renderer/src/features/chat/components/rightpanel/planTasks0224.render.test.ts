@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { Message } from '../../reducer/chatReducer'
+import { load } from 'cheerio'
 import { Icon } from '../../../../shared/ui/Icon'
 
 const { state } = vi.hoisted(() => ({
@@ -81,11 +82,14 @@ function messages(): Message[] {
 const render = (): string => renderToStaticMarkup(createElement(PlanTileContent))
 
 function rowsBySubject(html: string): Record<string, string> {
+  const $ = load(html)
   return Object.fromEntries(
-    html
-      .split('<div role="button"')
-      .slice(1)
-      .map((chunk) => [chunk.match(/aria-label="([^"]+) 상세 보기"/)?.[1] ?? '', chunk])
+    $('[data-task-row]')
+      .toArray()
+      .map((row) => {
+        const label = $(row).find('[data-task-detail-trigger]').attr('aria-label') ?? ''
+        return [label.split(': ')[0], $.html(row)]
+      })
   )
 }
 
@@ -106,7 +110,7 @@ describe('0224 r3 — Coding 콘텐츠 존재·진행 표시 (VP-R3-01/07 · EP1
     expect(tasksAt).toBeGreaterThan(planAt)
     const taskSection = html.slice(tasksAt)
     // 계획과 작업의 존재만 보지 않고 각 영역과 순서를 관측한다. 슬롯 swap 변이가 red다.
-    expect(html.slice(0, tasksAt)).not.toContain('진행 작업 상세 보기')
+    expect(html.slice(0, tasksAt)).not.toContain('data-task-detail-trigger')
     expect(taskSection).not.toContain('이 문장만 계획 댓글 범위입니다.')
     const rows = rowsBySubject(taskSection)
     expect(Object.keys(rows)).toEqual(['진행 작업', '완료 작업', '대기 작업'])
@@ -115,11 +119,11 @@ describe('0224 r3 — Coding 콘텐츠 존재·진행 표시 (VP-R3-01/07 · EP1
     expect(rows['진행 작업']).toContain('motion-reduce:animate-none')
     expect(rows['완료 작업']).toContain('line-through')
     expect(rows['완료 작업']).toContain(
-      renderToStaticMarkup(createElement(Icon, { name: 'check', size: 17 }))
+      renderToStaticMarkup(createElement(Icon, { name: 'check', size: 18 }))
     )
     expect(rows['완료 작업']).not.toContain('완료 필요')
     expect(rows['완료 작업']).not.toContain('animate-spin')
-    expect(rows['대기 작업']).toContain('border-dashed')
+    expect(rows['대기 작업']).toContain('bg-bg2')
     expect(rows['대기 작업']).toContain('#2 완료 필요')
     expect(rows['대기 작업']).not.toContain('animate-spin')
   })
@@ -156,15 +160,19 @@ describe('0224 r3 — Coding 콘텐츠 존재·진행 표시 (VP-R3-01/07 · EP1
     )
   })
 
-  it('선택한 작업 상세와 뒤로가기는 하단에만 있고 상단 계획을 대체하지 않는다', () => {
+  it('r5: 선택한 작업은 계획과 목록을 보존한 채 전체 패널 상세로 전환한다', () => {
     state.selectedTaskKey = 'agent:1'
-    const html = render()
-    const tasksAt = html.indexOf('<section aria-label="작업"')
-    expect(html.slice(0, tasksAt)).toContain('이 문장만 계획 댓글 범위입니다.')
-    expect(html.slice(tasksAt)).toContain('실제 작업 상세')
-    expect(html.slice(tasksAt)).toContain('aria-label="목록으로"')
-    expect(html.slice(0, tasksAt)).not.toContain('실제 작업 상세')
-    expect(rowsBySubject(html)).toEqual({})
+    const $ = load(render())
+    const overview = $('[data-plan-task-overview]')
+    expect(overview.attr('hidden')).toBeDefined()
+    expect(overview.attr('inert')).toBeDefined()
+    expect(overview.text()).toContain('이 문장만 계획 댓글 범위입니다.')
+    expect(overview.find('[data-task-row]').length).toBe(3)
+    expect(overview.find('dl').length).toBe(0)
+    const detail = $('[data-plan-task-detail]')
+    expect(detail.text()).toContain('실제 작업 상세')
+    expect(detail.find('button[aria-label="목록으로"]').length).toBe(1)
+    expect(detail.parent()[0]).toBe(overview.parent()[0])
   })
 
   it('둘 다 비면 단일 빈 영역에 실제 도구 미지원 안내와 CLI 버전을 보존한다', () => {

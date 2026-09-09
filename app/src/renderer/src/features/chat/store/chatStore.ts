@@ -456,6 +456,16 @@ function dropSession(sessionId: string, fallbackProjectId: string | null = null)
 // ev.sessionId 로 해당 엔트리에 라우팅한다: 비활성 세션의 턴도 백그라운드로 누적되고,
 // 델타 2종은 그 엔트리의 live 슬라이스로만 흐른다. sessionId 가 없는 이벤트(일부 error)는
 // 활성 엔트리 폴백, 미지 sessionId(엔트리 삭제 후 늦게 도착)는 폐기한다.
+const turnEndListeners = new Set<(sessionId: string) => void>()
+
+// 정규화 이벤트의 세션 라우팅을 통과한 정상 완료만 app 조립부에 알린다.
+export function subscribeTurnEnd(listener: (sessionId: string) => void): () => void {
+  turnEndListeners.add(listener)
+  return () => {
+    turnEndListeners.delete(listener)
+  }
+}
+
 function receive(ev: NormalizedEvent): void {
   if (ev.type === 'response.boundary') {
     if (getState().sessions[ev.sessionId])
@@ -666,6 +676,10 @@ function receive(ev: NormalizedEvent): void {
     // 새-채팅 게이트도 풀지 않는다: 리듀서가 tick 하나만 올린다.
     case 'turn.ended':
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
+      // 미지/삭제 세션이나 미확정 draft로 폴백한 신호를 다른 세션의 완료로 만들지 않는다.
+      if (ev.sessionId && key === ev.sessionId && entrySession?.sessionId === ev.sessionId) {
+        for (const listener of turnEndListeners) listener(ev.sessionId)
+      }
       return
 
     case 'turn.aborted':

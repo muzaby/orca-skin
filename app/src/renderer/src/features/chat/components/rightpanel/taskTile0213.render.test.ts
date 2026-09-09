@@ -11,11 +11,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { load } from 'cheerio'
 import { backgroundTaskKey, taskBoardFromMessages, taskBoardOrdered } from '../../lib/taskBoard'
 import type { Message } from '../../reducer/chatReducer'
 import type { AppMessagePart } from '../../../../../../shared/ipc'
 
-// 래퍼(`TaskTileContent`)는 store 를 읽는다 — `renderToStaticMarkup` 은 zustand 의 SSR
+// 현재 Coding 래퍼(`PlanTileContent`)는 store 를 읽는다 — `renderToStaticMarkup` 은 zustand 의 SSR
 // 스냅샷(`getInitialState()`)을 돌려주어 시드가 반영되지 않는다. 그래서 store 모듈을 통째로
 // 모킹해 **래퍼가 View 로 흘리는 props** 를 카드 산출로 관측한다(선례 `ChatTitleBar.render.test.ts`).
 const { tileState } = vi.hoisted(() => ({
@@ -25,7 +26,11 @@ const { tileState } = vi.hoisted(() => ({
       selectedTaskKey: null as string | null,
       taskStopErrors: {} as Record<string, unknown>,
       agentTools: null as string[] | null,
-      cliVersion: null as string | null
+      cliVersion: null as string | null,
+      planContent: null,
+      pendingPlanReview: null,
+      planComments: [],
+      activePlanCommentId: null
     }
   }
 }))
@@ -45,8 +50,8 @@ vi.mock('../../store/chatStore', () => ({
   useUnseenSettledTaskCount: () => 0
 }))
 
-const { TaskProgressList, TaskProgressContent: TaskTileContent } =
-  await import('./TaskProgressList')
+const { TaskProgressList } = await import('./TaskProgressList')
+const { PlanTileContent } = await import('./PlanTileContent')
 
 let runSeq = 0
 const nextRun = (): string => `run${(runSeq += 1)}`
@@ -127,11 +132,12 @@ const renderProgress = (
 // 어느 행이 냈는지 알 수 없고, 형제 행끼리 맞바뀐 회귀가 초록으로 통과한다 — 어디에 담겼는지까지
 // 본다(형제 파일 `sectionBodies` 와 같은 형태). 행이 없으면 `undefined` 라 fail-closed 다.
 function rowsBySubject(html: string): Record<string, string> {
+  const $ = load(html)
   const rows: Record<string, string> = {}
-  for (const chunk of html.split('<div role="button"').slice(1)) {
-    const subject = chunk.match(/aria-label="([^"]+) 상세 보기"/)?.[1]
-    if (subject !== undefined) rows[subject] = chunk
-  }
+  $('[data-task-row]').each((_, row) => {
+    const subject = $(row).find('[data-task-title]').text()
+    rows[subject] = $.html(row)
+  })
   return rows
 }
 
@@ -261,13 +267,13 @@ describe('0213 — 래퍼가 View 로 흘리는 props (VP-08 path `→ 카드` �
       taskStopErrors: {},
       agentTools: null,
       cliVersion: null,
+      planContent: null,
+      pendingPlanReview: null,
+      planComments: [],
+      activePlanCommentId: null,
       ...state
     }
-    return renderToStaticMarkup(
-      createElement(TaskTileContent, {
-        items: taskBoardOrdered(taskBoardFromMessages(tileState.value.messages as Message[]))
-      })
-    )
+    return renderToStaticMarkup(createElement(PlanTileContent))
   }
 
   it('`agentTools`·`cliVersion` 이 카드까지 흐른다 — 안내와 버전이 실제로 뜬다', () => {
@@ -287,8 +293,8 @@ describe('0213 — 래퍼가 View 로 흘리는 props (VP-08 path `→ 카드` �
       cliVersion: '2.1.100'
     })
     expect(html).not.toContain(NOTICE)
-    // 양성 짝 — 카드가 렌더되긴 했다(빈 문구가 그 증거).
-    expect(html).toContain(EMPTY)
+    // r5 실제 Coding 소비자는 계획·작업이 모두 없을 때 한 빈 상태만 표시한다.
+    expect(html).toContain('아직 플랜이 없습니다')
   })
 
   it('`items` 가 카드까지 흐른다 — 세션 parts 가 행이 된다', () => {

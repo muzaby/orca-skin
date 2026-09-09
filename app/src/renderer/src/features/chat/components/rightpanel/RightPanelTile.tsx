@@ -33,7 +33,7 @@ export function RightPanelTile({
   const isDiff = id === 'diff'
   const agentKind = useChatSession((s) => s.agentKind)
   const isWorkTask = agentKind === 'work' && id === 'task'
-  const expandButton = (isWorkTask || id === 'plan') && onToggleExpand && (
+  const expandButton = id === 'plan' && onToggleExpand && (
     <Button
       iconOnly
       size="small"
@@ -54,12 +54,10 @@ export function RightPanelTile({
 
   return (
     <div
-      className={`app-frame-tile effect-primary-elevated relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-r6 border border-border bg-panel ${className}`}
+      className={`app-frame-tile effect-primary-elevated relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-r6 border border-border bg-panel ${isWorkTask ? 'max-h-full' : ''} ${className}`}
       data-context={id}
     >
-      {isWorkTask ? (
-        <div className="absolute right-3 top-3 z-10">{expandButton}</div>
-      ) : (
+      {!isWorkTask && (
         <div
           data-diff-tile-header={isDiff || undefined}
           className={`app-frame-tile-header flex shrink-0 items-center ${isDiff ? 'h-[32px] gap-[2px] px-[4px] font-sans' : 'gap-2 border-b border-t5 px-3 py-2'}`}

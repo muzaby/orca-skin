@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../../../../shared/ui/Icon'
 import { CopyIconButton } from '../../../../shared/ui/CopyIconButton'
 import { Markdown } from '../../../../shared/ui/markdown/Markdown'
-import { chatActions, useChatSession, useUnseenSettledTaskCount } from '../../store/chatStore'
+import { chatActions, useChatSession } from '../../store/chatStore'
 import { usePlanCommentSelection } from '../../hooks/usePlanCommentSelection'
 import { rangeFromOffsets, rectsForRange } from '../../lib/planCommentDom'
 import { PlanCommentOverlay } from './PlanCommentOverlay'
 import { PlanCommentPopover, type PopoverAnchorPoint } from './PlanCommentPopover'
 import { useI18n } from '../../../../shared/i18n'
-import { TaskProgressContent, TaskProgressList } from './TaskProgressList'
+import { TaskProgressList } from './TaskProgressList'
 import { useTaskBoard } from '../../hooks/useTaskBoard'
+import { TaskPanelContent } from './TaskPanelContent'
 
 // 계획 타일 헤더 액션 — 본문이 아닌 타일 헤더(RightPanelTile)에서 렌더된다.
 // planContent 를 직접 구독하므로 RightPanelTile 은 타일별 액션을 모른 채 슬롯만 받는다.
@@ -26,17 +27,16 @@ export function PlanTileContent(): React.JSX.Element {
   const pendingPlanReview = useChatSession((s) => s.pendingPlanReview)
   const agentTools = useChatSession((s) => s.agentTools)
   const cliVersion = useChatSession((s) => s.cliVersion)
-  const unseen = useUnseenSettledTaskCount()
-  // 목록 유무와 무관하게 열린 타일에서 완료 알림을 확인한다.
-  useEffect(() => {
-    if (unseen > 0) chatActions.acknowledgeSettledTasks()
-  }, [unseen])
   const hasTasks = items.length > 0
   // 승인 대기의 본문 해소 실패는 빈 계획과 다르므로 작업만 있어도 감추지 않는다.
   const showPlan = Boolean(planContent) || pendingPlanReview != null || !hasTasks
   const unsupported = !hasTasks && agentTools != null && !agentTools.includes('TaskCreate')
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto px-p5 py-p4 [scrollbar-gutter:stable]">
+    <TaskPanelContent
+      items={items}
+      mode="plan"
+      overviewClassName="flex flex-1 flex-col overflow-y-auto px-p5 py-p4 [scrollbar-gutter:stable]"
+    >
       <div className="mx-auto w-full max-w-[68ch] text-[13px] text-ink">
         {showPlan && (
           <PlanDocument
@@ -55,11 +55,11 @@ export function PlanTileContent(): React.JSX.Element {
             <h3 className="mb-g2 text-caption font-normal text-t6">
               {tr('chat.taskTile.headerTitle')}
             </h3>
-            <TaskProgressContent items={items} />
+            <TaskProgressList items={items} />
           </section>
         )}
       </div>
-    </div>
+    </TaskPanelContent>
   )
 }
 

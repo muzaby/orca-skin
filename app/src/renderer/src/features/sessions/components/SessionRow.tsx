@@ -1,4 +1,5 @@
 import { memo, useRef, useState } from 'react'
+import { useSessionsState } from '../store/sessionsStore'
 import { Icon, type IconName } from '../../../shared/ui/Icon'
 import { KebabButton } from '../../../shared/ui/KebabButton'
 import { MenuItem } from '../../../shared/ui/MenuItem'
@@ -24,8 +25,6 @@ export interface SessionRowProps {
   // continuity draft(미물질화, 0064 r4) 행은 rename 불가 — 마커 제목이 main 의 initialTitle
   // 에서 오므로 draft 단계 rename 은 물질화 시 덮여 유실된다. 메뉴에서 항목을 숨긴다.
   renameable?: boolean
-  // 0129 — 항목 좌측 구분 아이콘. 대화 행은 말풍선(기본), 필요 시 호출자가 교체.
-  leadingIcon?: IconName
   // 0129 고정 토글 — 핸들러가 있으면 kebab 에 고정/해제 항목이 나온다. pinned=현재 상태.
   onTogglePin?: (sessionId: string, pinned: boolean) => void
   pinned?: boolean
@@ -42,7 +41,6 @@ export const SessionRow = memo(function SessionRow({
   onDelete,
   onRename,
   renameable = true,
-  leadingIcon = 'chat',
   onTogglePin,
   pinned = false
 }: SessionRowProps): React.JSX.Element {
@@ -50,6 +48,19 @@ export const SessionRow = memo(function SessionRow({
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const kebabRef = useRef<HTMLButtonElement>(null)
+  const unseen = useSessionsState((state) => state.unseenCompletedIds.has(session.id))
+  const leadingIcon: IconName = session.agentKind === 'work' ? 'checklist' : 'terminal2'
+  const modeIcon = (
+    <span
+      role="img"
+      aria-label={tr(session.agentKind === 'work' ? 'chat.agent.work' : 'chat.agent.coding')}
+      data-context="session-agent-kind"
+      data-state={unseen && !isActive ? 'unseen-complete' : 'default'}
+      className={`inline-flex shrink-0 ${unseen && !isActive ? 'text-selected' : ''}`}
+    >
+      <Icon name={leadingIcon} size={14} />
+    </span>
+  )
 
   const baseLabel = (
     session.title?.trim() ||
@@ -90,7 +101,7 @@ export const SessionRow = memo(function SessionRow({
         data-behavior="interactive renaming"
         data-session-id={session.id}
       >
-        <Icon name={leadingIcon} size={14} className="shrink-0" />
+        {modeIcon}
         <RenameInput
           initial={baseLabel}
           onCommit={commitRename}
@@ -115,12 +126,9 @@ export const SessionRow = memo(function SessionRow({
       data-session-id={session.id}
       title={label}
     >
-      <Icon name={leadingIcon} size={14} className="shrink-0" />
+      {modeIcon}
       <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
         {label}
-      </span>
-      <span className="shrink-0 text-[10px] text-ink3">
-        {tr(session.agentKind === 'work' ? 'chat.agent.work' : 'chat.agent.coding')}
       </span>
       {hasMenu && (
         <>

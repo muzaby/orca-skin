@@ -8,6 +8,7 @@ const { setWorktreeIsolation, setWorktreeBaseRef, sessionState, chipProps, branc
     setWorktreeBaseRef: vi.fn(),
     sessionState: {
       value: {
+        agentKind: 'coding',
         extraDirs: [],
         extraDirRejection: null,
         worktreeIsolation: false,
@@ -74,6 +75,7 @@ const markup = (
   worktreeBaseRef: string | null = null
 ): string => {
   sessionState.value = {
+    agentKind: 'coding',
     extraDirs: [],
     extraDirRejection: null,
     worktreeIsolation: isolation,

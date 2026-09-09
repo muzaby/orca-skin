@@ -1,9 +1,10 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { TFunction } from 'i18next'
 import { Button } from '../../../../shared/ui/Button'
+import { Popover } from '../../../../shared/ui/Popover'
 import { useI18n, type MessageKey } from '../../../../shared/i18n'
-import { chatActions, useChatSession } from '../../store/chatStore'
+import { chatActions } from '../../store/chatStore'
 import {
-  taskBoardItemByKey,
   taskDetailRows,
   type TaskBoardItem,
   type TaskBoardStatus,
@@ -20,16 +21,9 @@ const STATUS_KEY: Record<TaskBoardStatus, MessageKey> = {
   aborted: 'chat.taskTile.status.aborted',
   failed: 'chat.taskTile.status.failed'
 }
-
 function blockedByText(tr: TFunction, ids: string[]): string {
   return tr('chat.taskTile.blockedByValue', { ids: ids.join(', #') })
 }
-
-function blockedRowText(tr: TFunction, item: TaskBoardItem): string | null {
-  if (item.status === 'completed' || item.blockedBy.length === 0) return null
-  return blockedByText(tr, item.blockedBy)
-}
-
 function detailValueText(tr: TFunction, value: TaskDetailValue): string {
   switch (value.kind) {
     case 'statusLabel':
@@ -41,86 +35,142 @@ function detailValueText(tr: TFunction, value: TaskDetailValue): string {
   }
 }
 
-type TaskListVariant = 'default' | 'plan'
-
-function TaskRow({
-  item,
-  variant
-}: {
-  item: TaskBoardItem
-  variant: TaskListVariant
-}): React.JSX.Element {
-  const { tr } = useI18n()
-  const open = (): void => chatActions.selectTask(item.key)
-  const blockedRow = blockedRowText(tr, item)
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={open}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          open()
-        }
-      }}
-      // 접근성 이름은 안정 subject, 화면 제목은 진행 중 activeForm을 사용한다.
-      aria-label={tr('chat.taskTile.openDetailAria', { description: item.subject })}
-      aria-description={tr(STATUS_KEY[item.status])}
-      className="group/task cursor-pointer rounded-r6 px-p2 py-1.5 text-left transition-colors hover:bg-fill-uncontained-hover focus:outline-none hide-focus-ring ring-focus"
-    >
-      <div className="flex min-w-0 items-start gap-g2">
-        {item.status === 'pending' ? (
-          <TaskStatusIcon status="pending" badge={item.id} variant={variant} />
-        ) : (
-          <TaskStatusIcon status={item.status} variant={variant} />
-        )}
-        <span
-          className={`min-w-0 truncate text-body leading-[1.5] ${
-            item.status === 'completed' ? 'text-t6 line-through' : 'font-medium text-t9'
-          }`}
-        >
-          {item.title}
-        </span>
-      </div>
-      {blockedRow && (
-        <div className="mt-0.5 truncate pl-6 text-footnote text-ink3">{blockedRow}</div>
-      )}
-    </div>
-  )
-}
-
-// 목록은 props-only View. 정렬·상태·의존 관계의 소유자는 taskBoard다.
+// 양 모드가 이 실제 목록을 사용한다. Work만 질문 callback을 제공한다.
 export function TaskProgressList({
   items,
   agentTools = null,
   cliVersion = null,
-  variant = 'default'
+  onAsk
 }: {
   items: TaskBoardItem[]
-  // null은 지원 판정 불가이며, 실제 init의 도구 목록이 없으면 미지원 안내를 만들지 않는다.
   agentTools?: string[] | null
   cliVersion?: string | null
-  variant?: TaskListVariant
+  onAsk?: (item: TaskBoardItem) => void
 }): React.JSX.Element {
   const { tr } = useI18n()
+  const [tooltipAnchor, setTooltipAnchor] = useState<{
+    element: HTMLButtonElement
+    taskKey: string
+  } | null>(null)
+  const tooltipVisible =
+    tooltipAnchor !== null && items.some((item) => item.key === tooltipAnchor.taskKey)
+  const tooltipAnchorRef = useMemo(
+    () => ({ current: tooltipAnchor?.element ?? null }),
+    [tooltipAnchor]
+  )
+  const closeTooltip = useCallback(() => setTooltipAnchor(null), [])
+  useEffect(() => {
+    if (!tooltipAnchor || !tooltipVisible) return
+    const closeOnFocus = (event: FocusEvent): void => {
+      if (event.target !== tooltipAnchor.element) closeTooltip()
+    }
+    // 상세 진입의 Back focus와 섹션 스크롤은 숨은 overview의 portal도 닫는다.
+    document.addEventListener('focusin', closeOnFocus)
+    window.addEventListener('scroll', closeTooltip, true)
+    return () => {
+      document.removeEventListener('focusin', closeOnFocus)
+      window.removeEventListener('scroll', closeTooltip, true)
+    }
+  }, [tooltipAnchor, tooltipVisible, closeTooltip])
   const unsupported =
     items.length === 0 && agentTools !== null && !agentTools.includes('TaskCreate')
+  if (items.length === 0)
+    return (
+      <div className="flex flex-col gap-px">
+        {unsupported ? (
+          <div className="px-p2 text-caption text-ink3">
+            <p>{tr('chat.taskTile.unsupported')}</p>
+            {cliVersion && <p>{tr('chat.taskTile.unsupportedVersion', { version: cliVersion })}</p>}
+          </div>
+        ) : (
+          <p className="px-p2 text-caption text-ink3">{tr('chat.taskTile.emptyDesc')}</p>
+        )}
+      </div>
+    )
   return (
-    <div className="flex flex-col gap-px">
-      {unsupported && (
-        <div className="px-p2 text-caption text-ink3">
-          <p>{tr('chat.taskTile.unsupported')}</p>
-          {cliVersion && <p>{tr('chat.taskTile.unsupportedVersion', { version: cliVersion })}</p>}
-        </div>
-      )}
-      {items.length === 0 && !unsupported && (
-        <p className="px-p2 text-caption text-ink3">{tr('chat.taskTile.emptyDesc')}</p>
-      )}
-      {items.map((item) => (
-        <TaskRow key={item.key} item={item} variant={variant} />
-      ))}
-    </div>
+    <>
+      <ol
+        className="flex flex-col gap-2 px-4 py-2"
+        aria-label={tr('chat.taskTile.sections.progress')}
+      >
+        {items.map((item, index) => {
+          const blocked =
+            item.status !== 'completed' && item.blockedBy.length > 0
+              ? blockedByText(tr, item.blockedBy)
+              : null
+          return (
+            <li
+              key={item.key}
+              data-task-row={item.key}
+              data-status={item.status}
+              className="group/task-row flex min-w-0 items-start gap-1"
+            >
+              <button
+                type="button"
+                data-task-detail-trigger={item.key}
+                aria-label={`${item.subject}: ${tr(STATUS_KEY[item.status])}`}
+                title={`${item.title} · ${tr(STATUS_KEY[item.status])}`}
+                onClick={() => {
+                  closeTooltip()
+                  chatActions.selectTask(item.key)
+                }}
+                className="flex min-w-0 flex-1 items-start gap-3 rounded-r3 text-left outline-none ring-focus hover:bg-bg2"
+              >
+                <TaskStatusIcon status={item.status} position={index + 1} />
+                <span className="min-w-0 flex-1 py-1">
+                  <span
+                    data-task-title
+                    title={item.title}
+                    className={`block min-w-0 truncate text-body leading-snug ${item.status === 'completed' ? 'text-ink3 line-through' : item.status === 'in_progress' ? 'text-ink' : 'text-ink2'}`}
+                  >
+                    {item.title}
+                  </span>
+                  {blocked && (
+                    <span className="block truncate text-footnote text-ink3" title={blocked}>
+                      {blocked}
+                    </span>
+                  )}
+                </span>
+              </button>
+              {onAsk && (
+                <span className="mt-0.5 shrink-0">
+                  <Button
+                    type="button"
+                    size="compact"
+                    iconOnly
+                    leadingIcon="commentAdd"
+                    aria-label={tr('chat.taskTile.askAboutTask')}
+                    data-behavior="action:ask-about-task"
+                    onMouseEnter={(event) =>
+                      setTooltipAnchor({ element: event.currentTarget, taskKey: item.key })
+                    }
+                    onMouseLeave={closeTooltip}
+                    onFocus={(event) =>
+                      setTooltipAnchor({ element: event.currentTarget, taskKey: item.key })
+                    }
+                    onBlur={closeTooltip}
+                    onClick={() => {
+                      closeTooltip()
+                      onAsk(item)
+                    }}
+                    className="opacity-0 group-hover/task-row:opacity-100 group-focus-within/task-row:opacity-100 focus:opacity-100"
+                  />
+                </span>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+      <Popover
+        open={tooltipVisible}
+        anchorRef={tooltipAnchorRef}
+        onClose={closeTooltip}
+        role="tooltip"
+        align="end"
+      >
+        {tr('chat.taskTile.askAboutTask')}
+      </Popover>
+    </>
   )
 }
 
@@ -137,41 +187,5 @@ export function TaskDetail({ item }: { item: TaskBoardItem }): React.JSX.Element
         ))}
       </dl>
     </div>
-  )
-}
-
-// Coding 계획 하단의 목록/상세만 전환한다. 상단 계획과 댓글 선택 컨테이너는 유지된다.
-export function TaskProgressContent({ items }: { items: TaskBoardItem[] }): React.JSX.Element {
-  const { tr } = useI18n()
-  const selectedKey = useChatSession((s) => s.selectedTaskKey)
-  const selected = taskBoardItemByKey(items, selectedKey)
-  const agentTools = useChatSession((s) => s.agentTools)
-  const cliVersion = useChatSession((s) => s.cliVersion)
-
-  if (selected) {
-    return (
-      <div>
-        <div className="flex min-w-0 items-center gap-g1">
-          <Button
-            iconOnly
-            size="small"
-            leadingIcon="arrowL"
-            onClick={() => chatActions.selectTask(null)}
-            aria-label={tr('chat.taskTile.backToList')}
-          />
-          <span className="min-w-0 truncate text-body text-t9">{selected.subject}</span>
-        </div>
-        <TaskDetail item={selected} />
-      </div>
-    )
-  }
-
-  return (
-    <TaskProgressList
-      items={items}
-      agentTools={agentTools}
-      cliVersion={cliVersion}
-      variant="plan"
-    />
   )
 }

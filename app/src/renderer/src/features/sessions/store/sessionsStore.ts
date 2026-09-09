@@ -10,6 +10,9 @@ import { projectApi, sessionApi } from '../../../shared/api/ipc'
 interface SessionsStoreState {
   // 세션 엔티티의 renderer 단일 정본. recent/project 조회는 ID membership 만 따로 가진다.
   byId: Record<string, SessionListItem>
+  // 이번 앱 실행에서 아직 열어보지 않은 정상 완료. DB 메타 재조회와 수명을 분리한다.
+  unseenCompletedIds: ReadonlySet<string>
+  viewedSessionId: string | null
   recentIds: string[]
   // 값이 없으면 "아직 조회 안 함" — 로딩 판정이 이 한 축에서 나온다(별도 플래그 없음).
   projectSessionIds: Record<string, string[]>
@@ -18,6 +21,8 @@ interface SessionsStoreState {
 
 export const useSessionsStore = create<SessionsStoreState>()(() => ({
   byId: {},
+  unseenCompletedIds: new Set<string>(),
+  viewedSessionId: null,
   recentIds: [],
   projectSessionIds: {},
   loading: true
@@ -130,6 +135,8 @@ async function remove(sessionId: string): Promise<boolean> {
     }
     return {
       byId,
+      unseenCompletedIds: new Set([...state.unseenCompletedIds].filter((id) => id !== sessionId)),
+      viewedSessionId: state.viewedSessionId === sessionId ? null : state.viewedSessionId,
       recentIds: state.recentIds.filter((candidate) => candidate !== sessionId),
       projectSessionIds: touchedProject ? projectSessionIds : state.projectSessionIds
     }
@@ -179,7 +186,37 @@ async function loadProject(projectId: string): Promise<void> {
   }
 }
 
-export const sessionsActions = { refresh: initSessions, loadProject, remove, rename, setPinned }
+function markCompleted(sessionId: string): void {
+  setState((state) => {
+    if (state.viewedSessionId === sessionId || state.unseenCompletedIds.has(sessionId)) return state
+    return { unseenCompletedIds: new Set([...state.unseenCompletedIds, sessionId]) }
+  })
+}
+
+function setViewedSession(sessionId: string | null): void {
+  setState((state) => {
+    if (
+      state.viewedSessionId === sessionId &&
+      (sessionId === null || !state.unseenCompletedIds.has(sessionId))
+    )
+      return state
+    const unseenCompletedIds =
+      sessionId !== null && state.unseenCompletedIds.has(sessionId)
+        ? new Set([...state.unseenCompletedIds].filter((id) => id !== sessionId))
+        : state.unseenCompletedIds
+    return { viewedSessionId: sessionId, unseenCompletedIds }
+  })
+}
+
+export const sessionsActions = {
+  refresh: initSessions,
+  loadProject,
+  remove,
+  rename,
+  setPinned,
+  markCompleted,
+  setViewedSession
+}
 
 // 자동 제목 이벤트 구독(행 in-place 패치 — 전체 refresh 없이).
 // 부팅 1회 조회는 initSessions(부트 오케스트레이터가 await), Provider 는 subscribeSessions 만 붙인다.

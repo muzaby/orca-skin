@@ -9,6 +9,7 @@ import { AppRouter } from './router'
 import { useChatRouteSync } from './hooks/useChatRouteSync'
 import { useChatSessionsSync } from './hooks/useChatSessionsSync'
 import { useCompletionNotifier } from './hooks/useCompletionNotifier'
+import { useSessionCompletion } from './hooks/useSessionCompletion'
 import { useSessionHandlers } from './hooks/useSessionHandlers'
 import { useSidebarSlots } from './hooks/useSidebarSlots'
 import { ExtensionsCatalogModal, useExtensionsModalStore } from '../features/skills'
@@ -26,6 +27,7 @@ export function AppLayout(): React.JSX.Element {
   useChatSessionsSync()
   useCompletionNotifier()
   const handlers = useSessionHandlers()
+  useSessionCompletion(handlers.currentSessionId)
   const slots = useSidebarSlots(handlers)
   const openPlugins = useExtensionsModalStore((state) => state.show)
 

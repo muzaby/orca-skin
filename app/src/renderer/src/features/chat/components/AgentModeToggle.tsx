@@ -30,31 +30,21 @@ export function AgentModeToggle(): React.JSX.Element {
                 /
               </span>
             )}
-            <span className="group/mode relative">
-              <Button
-                type="button"
-                pressed={kind === option}
-                disabled={locked}
-                aria-label={tr(agentPresentation[option].label)}
-                aria-pressed={kind === option}
-                aria-describedby={`agent-mode-${option}`}
-                className={`min-h-20 w-24 rounded-full ${kind === option ? '[&>.btn-squish]:bg-selected-soft' : ''}`}
-                onClick={() => chatActions.setAgentKind(option)}
-              >
-                <span
-                  className={`flex items-center justify-center ${kind === option ? 'text-selected' : 'text-ink2'}`}
-                >
-                  <Icon name={agentPresentation[option].icon} size={36} />
-                </span>
-              </Button>
+            <Button
+              type="button"
+              pressed={kind === option}
+              disabled={locked}
+              aria-label={tr(agentPresentation[option].label)}
+              aria-pressed={kind === option}
+              className={`min-h-20 w-24 rounded-full ${kind === option ? '[&>.btn-squish]:bg-selected-soft' : ''}`}
+              onClick={() => chatActions.setAgentKind(option)}
+            >
               <span
-                id={`agent-mode-${option}`}
-                role="tooltip"
-                className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-r4 border border-border bg-bg2 px-2 py-1 text-caption text-ink opacity-0 group-hover/mode:opacity-100 group-focus-within/mode:opacity-100"
+                className={`flex items-center justify-center ${kind === option ? 'text-selected' : 'text-ink2'}`}
               >
-                {tr(agentPresentation[option].label)}
+                <Icon name={agentPresentation[option].icon} size={36} />
               </span>
-            </span>
+            </Button>
           </span>
         ))}
         <span aria-hidden="true" data-agent-mode-chevron="right" className="text-ink3">
@@ -64,7 +54,7 @@ export function AgentModeToggle(): React.JSX.Element {
       <h1
         data-agent-mode-hero
         aria-live="polite"
-        className="text-center font-serif text-[32px] font-bold tracking-tight text-ink"
+        className="text-center font-serif text-[32px] font-normal tracking-tight text-ink"
       >
         {tr(agentPresentation[kind].greeting)}
       </h1>

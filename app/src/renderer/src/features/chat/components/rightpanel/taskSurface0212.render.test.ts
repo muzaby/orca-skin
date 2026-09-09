@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { load } from 'cheerio'
 import { SubAgentTaskList } from './SubAgentTileContent'
 import { TaskProgressList } from './TaskTileContent'
 import { subagentTasksFromMessages } from '../../lib/parts'
@@ -184,18 +185,20 @@ describe('0212 R-02 — activeForm 제목 교체와 안정 라벨 (AT-05·06·08
         agentTask('테스트 작성', '1', { status: 'in_progress', activeForm: '테스트 작성 중' })
       )
     )
+    const $ = load(html)
     // 표시 제목 — 현재진행형이 보인다.
-    expect(html).toMatch(/<span class="[^"]*">테스트 작성 중<\/span>/)
-    // 접근성 라벨 — 상태와 무관한 안정 이름이다. **두 값을 맞바꾸면 두 단언이 함께 red 다.**
-    expect(html).toContain('aria-label="테스트 작성 상세 보기"')
-    expect(html).not.toContain('aria-label="테스트 작성 중 상세 보기"')
+    expect($('[data-task-title]').text()).toBe('테스트 작성 중')
+    // r5 공통 행은 subject 뒤에 상태를 붙인다. 안정 이름과 표시 제목은 여전히 다르다.
+    const label = $('[data-task-detail-trigger]').attr('aria-label')
+    expect(label?.split(': ')[0]).toBe('테스트 작성')
+    expect(label).not.toContain('테스트 작성 중')
   })
 
   it('AT-06 — completed 로 바뀌면 표시 제목이 subject 로 돌아온다', () => {
     const html = renderProgress(
       messages(agentTask('테스트 작성', '1', { status: 'completed', activeForm: '테스트 작성 중' }))
     )
-    expect(html).toMatch(/<span class="[^"]*">테스트 작성<\/span>/)
+    expect(load(html)('[data-task-title]').text()).toBe('테스트 작성')
     expect(html).not.toContain('테스트 작성 중')
   })
 })

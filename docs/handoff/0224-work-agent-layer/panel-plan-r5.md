@@ -1,6 +1,6 @@
 # Plan r5 — 패널 밀도와 세션 완료 표시
 
-작성: **Codex**, 2026-09-09. 상태: **plan/READY**. 기준은 원격 r4 구현 `eb7e0db9`의 V1 + ΔV2 + ΔV3 + [ΔV4](panel-plan-r4.md)이며, 이번 사용자 피드백을 **ΔV5**로 적용한다. 사용자의 지시에 따라 handoff-review를 사용하지 않고 plan/impl 추적만 수행한다.
+작성: **Codex**, 2026-09-09. 상태: **impl/IMPL_DONE — Codex 자기확인 8/8, 독립 verify pending**. 기준은 원격 r4 구현 `eb7e0db9`의 V1 + ΔV2 + ΔV3 + [ΔV4](panel-plan-r4.md)이며, 이번 사용자 피드백을 **ΔV5**로 적용한다. 사용자의 지시에 따라 handoff-review를 사용하지 않고 plan/impl 추적만 수행했다. 구현과 Windows 인수는 [구현 보고 r5](impl-r5.md)에 기록한다.
 
 # Part I — Product & UX Contract
 

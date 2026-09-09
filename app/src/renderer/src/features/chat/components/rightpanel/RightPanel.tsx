@@ -149,6 +149,7 @@ function RightPanelColumn({
   onToggleExpand: (id: RightPanelTileId) => void
 }): React.JSX.Element {
   const columnRef = useRef<HTMLDivElement>(null)
+  const agentKind = useChatSession((s) => s.agentKind)
   // 2행→1행 제거 시 남은 행이 자라는 방향을 잡는다. 위(0번) 행이 제거되면 남은 행을 바닥에
   // 고정(justify-end)해 *위로* 자라게, 아래(1번) 행이 제거되면 상단 고정(기본)으로 *아래로*
   // 자라게 한다 — flex-basis 트랜지션이 크기를 애니메이션(타일은 keyed 라 remount 안 됨).
@@ -189,7 +190,8 @@ function RightPanelColumn({
     children.push(
       <div
         key={id}
-        className="flex min-h-0 animate-tile-in overflow-hidden transition-[flex-basis] duration-200 ease-out motion-reduce:animate-none motion-reduce:transition-none"
+        data-work-panel-available={agentKind === 'work' && id === 'task' ? '' : undefined}
+        className={`flex min-h-0 animate-tile-in overflow-hidden transition-[flex-basis] duration-200 ease-out motion-reduce:animate-none motion-reduce:transition-none ${agentKind === 'work' && id === 'task' ? 'items-start [container-type:size]' : ''}`}
         style={{ flexBasis: basis }}
       >
         <RightPanelTile

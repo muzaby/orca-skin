@@ -298,7 +298,7 @@ export function ArtifactCards({
   const outcome = result?.sessionId === sessionId ? result.result : undefined
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      {saveArtifacts.length > 1 && (
+      {variant === 'transcript' && saveArtifacts.length > 1 && (
         <div className="flex justify-end">
           <Button
             size="small"

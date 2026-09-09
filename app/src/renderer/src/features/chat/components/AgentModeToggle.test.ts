@@ -65,5 +65,8 @@ describe('actual draft mode toggle', () => {
     const active = harness.buttons[kind === 'work' ? 0 : 1]
     expect(active.className).toContain('[&>.btn-squish]:bg-selected-soft')
     expect(html).toContain('text-selected')
+    expect(html).not.toContain('role="tooltip"')
+    expect(html).not.toContain('aria-describedby=')
+    expect(harness.buttons.every((button) => button.title == null)).toBe(true)
   })
 })

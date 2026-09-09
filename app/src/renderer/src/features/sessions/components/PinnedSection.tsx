@@ -45,7 +45,6 @@ export const PinnedSectionView = memo(function PinnedSectionView({
           onRename={onRenameSession}
           onTogglePin={onTogglePinSession}
           pinned
-          leadingIcon="chat"
         />
       ))}
     </CollapsibleSection>

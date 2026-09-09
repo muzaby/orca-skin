@@ -3,10 +3,15 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GitStatus } from '../../../../../shared/ipc'
 
-const fixture = vi.hoisted(() => ({ status: null as GitStatus | null, isolation: false }))
+const fixture = vi.hoisted(() => ({
+  status: null as GitStatus | null,
+  isolation: false,
+  agentKind: 'coding' as 'coding' | 'work'
+}))
 vi.mock('../store/chatStore', () => ({
   useChatSession: (select: (value: unknown) => unknown) =>
     select({
+      agentKind: fixture.agentKind,
       extraDirs: [],
       extraDirRejection: null,
       worktreeIsolation: fixture.isolation,
@@ -39,9 +44,24 @@ const repo: GitStatus = {
 beforeEach(() => {
   fixture.status = null
   fixture.isolation = false
+  fixture.agentKind = 'coding'
 })
 
 describe('landing branch and worktree visibility', () => {
+  it('omits the Git group in Work and preserves the selected isolation when Coding returns', () => {
+    fixture.status = repo
+    fixture.isolation = true
+    fixture.agentKind = 'work'
+    const work = render()
+    expect(work).not.toContain('branch-worktree-group')
+    expect(work).not.toContain('type="checkbox"')
+    expect(work).toContain('chat.composer.extraDirAdd')
+    fixture.agentKind = 'coding'
+    const coding = render()
+    expect(coding).toContain('branch-worktree-group')
+    expect(coding.match(/<input[^>]*>/)?.[0]).toContain('checked=""')
+  })
+
   it.each([null, { ...repo, isRepo: false }])(
     'hides the entire group without a confirmed Git repository: %j',
     (status) => {

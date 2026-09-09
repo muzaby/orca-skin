@@ -20,11 +20,14 @@ export function TileSection({
   const { tr } = useI18n()
   const [open, setOpen] = useState(true)
   const title = tr(titleKey)
+  const section = titleKey.slice(titleKey.lastIndexOf('.') + 1)
   return (
-    <section aria-label={title} className="border-t border-t5 first:border-t-0">
-      <div
-        className={`flex items-center px-4 ${titleKey === 'chat.taskTile.sections.progress' ? 'pr-12' : ''}`}
-      >
+    <section
+      aria-label={title}
+      data-task-section={section}
+      className="flex max-h-[calc((100cqh-2px)/3)] min-h-0 flex-none flex-col overflow-hidden border-t border-t5 first:border-t-0"
+    >
+      <div className="flex shrink-0 items-center px-4">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -45,8 +48,10 @@ export function TileSection({
           </div>
         )}
       </div>
-      {open && <div className="pb-4">{children}</div>}
-      {status}
+      <div data-task-section-scroll={section} className="min-h-0 overflow-y-auto">
+        {open && <div className="pb-3">{children}</div>}
+        {status}
+      </div>
     </section>
   )
 }
@@ -61,7 +66,7 @@ export function SectionPlaceholder({
 }): React.JSX.Element {
   const { tr } = useI18n()
   return (
-    <div className="flex flex-col items-start gap-5 px-4 pt-2">
+    <div className="flex flex-col items-start gap-3 px-4 pt-2">
       {icon === 'doc' ? (
         <div aria-hidden className="relative ml-1 flex h-[76px] w-[132px] items-end pb-1">
           <span className="flex h-10 w-10 items-center justify-center rounded-r4 border border-border-strong bg-panel text-t5 shadow-sm">

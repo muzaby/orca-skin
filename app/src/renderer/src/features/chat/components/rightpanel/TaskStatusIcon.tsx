@@ -1,92 +1,46 @@
 import { Icon } from '../../../../shared/ui/Icon'
 import type { TaskBoardStatus } from '../../lib/taskBoard'
 
-// 상태 원형 아이콘 — cowork 우측 패널 양식(원형 배지 + ✓/↻/번호)을 시맨틱 토큰으로 옮긴 것이다.
-// raw hex 를 쓰지 않으므로 두 테마에서 함께 따라온다(renderer/AGENTS §스타일).
-//
-// props 가 **판별 union** 인 이유(0204 §10): 번호 배지는 `pending` 에만 존재한다. 그 상태는
-// agent Task 만 가질 수 있고(background 는 진행/종단만 있다) 배지에 들어가는 값은 그 Task 의
-// id 다. flat `{ status, badge }` 로 두면 background 의 tool_use id(불투명 긴 문자열)를 18px
-// 원에 넣는 조합을 타입이 허용한다 — 여기서는 그 조합이 컴파일되지 않는다.
-export type TaskStatusIconProps = (
-  { status: 'pending'; badge: string } | { status: Exclude<TaskBoardStatus, 'pending'> }
-) & { variant?: 'default' | 'plan' }
+const STATUS_CIRCLE: Record<TaskBoardStatus, string> = {
+  in_progress: 'border border-indigo bg-selected-soft text-selected',
+  completed: 'bg-indigo text-paper',
+  pending: 'bg-bg2 text-ink3',
+  stopping: 'border border-indigo bg-selected-soft text-selected',
+  paused: 'bg-bg2 text-ink2',
+  aborted: 'bg-bg2 text-ink3',
+  failed: 'bg-bg2 text-bad'
+}
 
-const BASE = 'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full mt-px'
-
-export function TaskStatusIcon(props: TaskStatusIconProps): React.JSX.Element {
-  // 계획 하단의 세 상태는 회전 표시·체크·점선 원으로 구별한다. 실제 id와 상태는 작업 데이터 및
-  // 상세에 남기며, Work의 기존 상태 표현을 Coding의 모양으로 덮어쓰지 않는다.
-  if (props.variant === 'plan') {
-    if (props.status === 'completed') {
-      return (
-        <span aria-hidden className={`${BASE} text-t6`}>
-          <Icon name="check" size={17} />
-        </span>
-      )
-    }
-    if (props.status === 'in_progress') {
-      return (
-        <span aria-hidden className={`${BASE} text-t6`}>
-          <Icon name="refresh" size={17} className="animate-spin motion-reduce:animate-none" />
-        </span>
-      )
-    }
-    if (props.status === 'pending') {
-      return <span aria-hidden className={`${BASE} border border-dashed border-t6`} />
-    }
-  }
-
-  switch (props.status) {
-    case 'completed':
-      return (
-        <span
-          className={`${BASE} bg-[color-mix(in_srgb,var(--color-good)_18%,transparent)] text-good`}
-        >
-          <Icon name="check" size={11} />
-        </span>
-      )
-    case 'in_progress':
-    case 'stopping':
-      return (
-        <span
-          className={`${BASE} ${
-            props.status === 'stopping'
-              ? 'bg-fill-uncontained-hover text-t6'
-              : 'bg-[color-mix(in_srgb,var(--color-accent)_14%,transparent)] text-accent'
-          }`}
-        >
-          {/* 진행 표시는 회전한다. 모션 최소화 설정에서는 정지한다(BootScreen 선례). */}
-          <Icon name="refresh" size={11} className="animate-spin motion-reduce:animate-none" />
-        </span>
-      )
-    case 'aborted':
-      return (
-        <span className={`${BASE} bg-fill-uncontained-hover text-t6`}>
-          <Icon name="stop" size={11} />
-        </span>
-      )
-    // `paused` 는 살아 있지만 진행하지 않는다(0212 D-014) — 회전하는 진행 표시를 쓰면 도는
-    // 중으로 보이고, 종단 아이콘을 쓰면 끝난 것으로 보인다. 정지한 일시정지 글리프가 그 사이다.
-    case 'paused':
-      return (
-        <span className={`${BASE} bg-fill-uncontained-hover text-t6`}>
-          <Icon name="pause" size={11} />
-        </span>
-      )
-    case 'failed':
-      return (
-        <span
-          className={`${BASE} bg-[color-mix(in_srgb,var(--color-bad)_16%,transparent)] text-bad`}
-        >
-          <Icon name="alert" size={11} />
-        </span>
-      )
-    case 'pending':
-      return (
-        <span className={`${BASE} border border-t5 text-[10px] leading-none text-t6`}>
-          {props.badge}
-        </span>
-      )
-  }
+// 순번과 실제 상태를 두 패널에서 같은 크기·색·동작으로 표시한다.
+export function TaskStatusIcon({
+  status,
+  position
+}: {
+  status: TaskBoardStatus
+  position: number
+}): React.JSX.Element {
+  return (
+    <span
+      data-task-status={status}
+      aria-hidden="true"
+      className={`relative flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full text-caption font-medium ${STATUS_CIRCLE[status]}`}
+    >
+      {status === 'in_progress' && (
+        <span className="pointer-events-none absolute -inset-px animate-spin rounded-full border-2 border-transparent border-t-indigo motion-reduce:animate-none" />
+      )}
+      {status === 'completed' ? (
+        <Icon name="check" size={18} />
+      ) : status === 'stopping' ? (
+        <span className="h-4 w-4 animate-spin rounded-full border border-indigo border-t-transparent motion-reduce:animate-none" />
+      ) : status === 'paused' ? (
+        <Icon name="pause" size={16} />
+      ) : status === 'failed' ? (
+        <Icon name="alert" size={16} />
+      ) : status === 'aborted' ? (
+        <Icon name="stop" size={16} />
+      ) : (
+        position
+      )}
+    </span>
+  )
 }

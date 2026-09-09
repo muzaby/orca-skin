@@ -1,11 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { load } from 'cheerio'
 import type { Project, SessionListItem } from '../../../../../shared/ipc'
 import type { PinnedSessions, ProjectChildSessions, RecentSessions } from '../lib/navSections'
 import { PinnedSectionView } from './PinnedSection'
 import { PinnedProjectChildren, PinnedProjectsSectionView } from './PinnedProjectsSection'
 import { SessionListView } from './SessionList'
+import { ProjectSessionsPanel } from './ProjectSessionsPanel'
+import { SessionRow } from './SessionRow'
+import { useSessionsStore } from '../store/sessionsStore'
 
 // 0203 ΔV1 EP-9 / ΔV2 AT-13a·AT-15 — 구획 컴포넌트는 **받은 목록만** 그리고,
 // 어댑터가 파티션의 **다른 칸**을 넘기면 컴파일되지 않는다.
@@ -161,6 +165,112 @@ describe('구획 헤더 (D-003 · D-008)', () => {
     expect(html.match(/<button/g) ?? []).toHaveLength(1) // 양성: 토글 1개는 있다
     expect(html).toContain('aria-expanded')
     expect(html).not.toMatch(/aria-label="[^"]*(추가|add)/i)
+  })
+})
+
+// Google 공식 원본: material-design-icons/symbols/web/{terminal_2,checklist}/
+// materialsymbolsoutlined/*_24px.svg. 소비 컴포넌트를 다시 불러 비교하지 않고 원본 glyph를 관측한다.
+const TERMINAL_2_PATH =
+  'M480-160v-80h320v80H480ZM220-320l-56-56 183-184-183-184 56-56 240 240-240 240Z'
+const CHECKLIST_PATH =
+  'M222-200 80-342l56-56 85 85 170-170 56 57-225 226Zm0-320L80-662l56-56 85 85 170-170 56 57-225 226Zm298 240v-80h360v80H520Zm0-320v-80h360v80H520Z'
+
+describe('r5 모든 채팅 구획의 모드 아이콘과 완료 색', () => {
+  // SSR은 Zustand getInitialState snapshot을 읽는다. 각 테스트 후 원본을 복원한다.
+  const snapshot = useSessionsStore.getInitialState()
+  const original = { ...snapshot }
+  beforeEach(() => Object.assign(snapshot, original))
+  afterEach(() => Object.assign(snapshot, original))
+
+  const renderers: [string, (items: SessionListItem[]) => string][] = [
+    ['recent', renderRecent],
+    ['pinned', renderPinned],
+    ['pinned project children', renderProjectChildren],
+    [
+      'project panel',
+      (items) => {
+        snapshot.byId = Object.fromEntries(items.map((item) => [item.id, item]))
+        snapshot.projectSessionIds = { p1: items.map((item) => item.id) }
+        return renderToStaticMarkup(
+          createElement(ProjectSessionsPanel, {
+            projectId: 'p1',
+            currentSessionId: null,
+            refreshOnTurnEnd: false,
+            onSessionSelected: noop,
+            onDeleteSession: noop,
+            onRenameSession: noop
+          })
+        )
+      }
+    ],
+    [
+      'draft',
+      (items) =>
+        renderToStaticMarkup(
+          createElement(SessionListView, {
+            sessions: asRecent([]),
+            currentSessionId: null,
+            projectNameById: new Map<string, string>(),
+            onSelect: noop,
+            onDelete: noop,
+            onRename: noop,
+            onTogglePin: noop,
+            drafts: items.map((item) => ({
+              key: item.id,
+              title: item.title,
+              agentKind: item.agentKind,
+              projectId: null,
+              deletable: false
+            }))
+          })
+        )
+    ]
+  ]
+
+  it.each(renderers)('%s uses official left icons without a right mode label', (_name, render) => {
+    const items = [
+      session('coding', '코딩 대화', { agentKind: 'coding' }),
+      session('work', '문서 작업', { agentKind: 'work' })
+    ]
+    const $ = load(render(items))
+    for (const [id, label, path] of [
+      ['coding', '코딩 대화', TERMINAL_2_PATH],
+      ['work', '문서 작업', CHECKLIST_PATH]
+    ]) {
+      const row = $(`[data-session-id="${id}"]`)
+      const icon = row.find('[data-context="session-agent-kind"]')
+      expect(row.text()).toBe(label)
+      expect(icon.attr('role')).toBe('img')
+      expect(icon.attr('aria-label')).toBeTruthy()
+      expect(icon.find('svg').attr('viewBox')).toBe('0 -960 960 960')
+      expect(icon.find('path').attr('d')).toBe(path)
+      expect(icon.find('svg').attr('fill')).toBe('currentColor')
+    }
+  })
+
+  it('only the non-viewed completed icon uses selected blue; an open row restores the normal color', () => {
+    snapshot.unseenCompletedIds = new Set(['work'])
+    const item = session('work', '읽지 않은 작업', { agentKind: 'work' })
+    const hidden = load(
+      renderToStaticMarkup(createElement(SessionRow, { session: item, isActive: false }))
+    )
+    const icon = hidden('[data-context="session-agent-kind"]')
+    expect(icon.attr('data-state')).toBe('unseen-complete')
+    expect(icon.hasClass('text-selected')).toBe(true)
+    expect(hidden('.text-selected')).toHaveLength(1)
+    expect(hidden('[data-session-id]').hasClass('text-selected')).toBe(false)
+
+    const open = load(
+      renderToStaticMarkup(createElement(SessionRow, { session: item, isActive: true }))
+    )
+    expect(open('[data-context="session-agent-kind"]').attr('data-state')).toBe('default')
+    expect(open('.text-selected')).toHaveLength(0)
+    expect(open('[data-session-id]').text()).toBe('읽지 않은 작업')
+  })
+
+  it('legacy sessions without a kind retain the Coding icon', () => {
+    const $ = load(renderRecent([session('legacy', '이전 대화')]))
+    expect($('[data-context="session-agent-kind"] path').attr('d')).toBe(TERMINAL_2_PATH)
   })
 })
 

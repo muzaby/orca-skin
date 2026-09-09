@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { initialChatState, type ChatState } from '../../reducer/chatReducer'
 import { TaskTileContent } from './TaskTileContent'
+import { PlanTileContent } from './PlanTileContent'
 
 const harness = vi.hoisted(() => ({
   effects: [] as EffectCallback[],
@@ -22,13 +23,13 @@ vi.mock('../../store/chatStore', () => ({
   useUnseenSettledTaskCount: () => harness.unseen,
   chatActions: { acknowledgeSettledTasks: harness.acknowledge, selectTask: vi.fn() }
 }))
-// 이 검사는 TaskTileContent의 실제 effect만 실행한다. 외부 구독/OS 포트 수명은 native에서 관측한다.
+// 이 검사는 Work/Coding 실제 wrapper가 공유하는 shell effect를 실행한다. 외부 구독/OS 포트 수명은 native에서 관측한다.
 vi.mock('./TaskOutputContent', () => ({ TaskOutputContent: () => null }))
 vi.mock('./TaskContextContent', () => ({ TaskContextContent: () => null }))
 
-function commitPanelEffects(): void {
+function commitPanelEffects(kind: 'work' | 'coding'): void {
   harness.effects = []
-  renderToStaticMarkup(createElement(TaskTileContent))
+  renderToStaticMarkup(createElement(kind === 'work' ? TaskTileContent : PlanTileContent))
   for (const effect of harness.effects) effect()
 }
 
@@ -65,19 +66,22 @@ beforeEach(() => {
   })
 })
 
-describe('Work overview visibility and completed-task acknowledgement', () => {
-  it('keeps unseen completion notifications while overview is hidden in detail', () => {
-    commitPanelEffects()
-    expect(harness.acknowledge).not.toHaveBeenCalled()
-    expect(harness.unseen).toBe(2)
-  })
-  it('acknowledges preserved completions only after returning to the visible overview', () => {
-    commitPanelEffects()
-    harness.state!.selectedTaskKey = null
-    commitPanelEffects()
-    expect(harness.acknowledge).toHaveBeenCalledOnce()
-    expect(harness.unseen).toBe(0)
-    commitPanelEffects()
-    expect(harness.acknowledge).toHaveBeenCalledOnce()
-  })
-})
+describe.each(['work', 'coding'] as const)(
+  '%s overview visibility and completed-task acknowledgement',
+  (kind) => {
+    it('keeps unseen completion notifications while overview is hidden in detail', () => {
+      commitPanelEffects(kind)
+      expect(harness.acknowledge).not.toHaveBeenCalled()
+      expect(harness.unseen).toBe(2)
+    })
+    it('acknowledges preserved completions only after returning to the visible overview', () => {
+      commitPanelEffects(kind)
+      harness.state!.selectedTaskKey = null
+      commitPanelEffects(kind)
+      expect(harness.acknowledge).toHaveBeenCalledOnce()
+      expect(harness.unseen).toBe(0)
+      commitPanelEffects(kind)
+      expect(harness.acknowledge).toHaveBeenCalledOnce()
+    })
+  }
+)

@@ -199,7 +199,6 @@ export function PinnedProjectChildren({
           onTogglePin={onTogglePinSession}
           onDelete={onDeleteSession}
           onRename={onRenameSession}
-          leadingIcon="chat"
         />
       ))}
     </>

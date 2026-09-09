@@ -17,7 +17,7 @@
 `agentPanelInitialized`는 Work 작업 패널의 최초 열기와 이후 사용자 선택을 구분한다. 표시 필터는 닫힌 배치를 보존하며, 첫 전송/처음 로드에서만 기본 작업 타일을 추가한다. 기존 캐시 복귀·다음 턴은 닫은 패널을 다시 열지 않는다. 입력 복원 신호는 대상 세션과 단조 순번을 갖고, 기본 교체와 작업 질문의 추가 모드를 구분한다. 실제 초안·첨부는 기존 입력 controller가 소유한다.
 
 > **현재**: chat은 `features/chat/store/chatStore.ts`의 `sessions: Record<key, { session, live }>` + `activeKey` 외피를 갖는다(키 = sessionId, 새 채팅 = `NEW_CHAT_KEY` 슬롯 → `session.updated` 시 승격). Backend/Sessions/Projects/Cost는 feature별 Zustand store가 소유하고, projects 초기 조회는 `app/boot/steps`가 수행한다. Tweaks는 `TweakProvider` 인스턴스의 store와 필드 selector로 연결하며 Skills/Agents는 기존 hook 진입점을 유지한다.
-> **채택된 결정(이행 완료)**: 단일 root 대신 **feature 별 store + chat 의 sessions Record** 로 수렴 — `chatReducer` 는 세션-단위 순수 함수로 유지하고 **store 가 `ev.sessionId` 키 라우팅을 담당**한다(reducer 테스트·불변식 보존, "액션에 sessionId 인자" 안의 대체 — 사용자 결정 2026-06-11, handoff 0013). 동시 스트리밍 *UX*(사이드바 배지·탭)는 후속 기능.
+> **채택된 결정(이행 완료)**: 단일 root 대신 **feature 별 store + chat 의 sessions Record** 로 수렴 — `chatReducer` 는 세션-단위 순수 함수로 유지하고 **store 가 `ev.sessionId` 키 라우팅을 담당**한다(reducer 테스트·불변식 보존, "액션에 sessionId 인자" 안의 대체 — 사용자 결정 2026-06-11, handoff 0013). 세션 완료의 미확인 표시는 아래의 transient 상태로 관리한다.
 
 ### 1.1 상태 분류
 
@@ -36,6 +36,8 @@
 | 자동완성 상태 | `ComposerInputController`의 deferred snapshot + `useSkillAutocomplete / useFileAutocomplete` | — | open, query, activeIndex, expected revision |
 | 입력창 상태 | 항상 mount되는 `ComposerInputController` 로컬 `DraftSnapshot` | — | revision, text, selectionStart/End, composing |
 | UI 인터랙션 (hover/focus/모달) | 컴포넌트 로컬 `useState` | — | DebugPanel 펼침 여부 |
+
+세션 완료 표시는 `sessionsStore.unseenCompletedIds`가 목록 엔티티와 분리해 보관한다. `chatStore`가 정상 라우팅한 `turn.ended`만 `subscribeTurnEnd`로 알리고, app의 `useSessionCompletion`이 실제 라우트와 draft 상태에서 계산한 열람 세션을 연결한다. 현재 열린 세션은 표시하지 않으며, 열기에서 확인 처리하고 목록 재조회에 유지한다. 삭제는 표시를 정리하며 앱 재시작 후에는 복원하지 않는다. 중간 메시지·오류·중단·삭제된 세션의 늦은 신호는 새 완료 표시를 만들지 않는다.
 
 ### 1.2 chat store 구조 (실제 정의 요약)
 

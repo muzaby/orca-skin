@@ -169,11 +169,15 @@ describe('작업 타일 — 완료 항목 취소선 (AT-26)', () => {
         agentTask('진행 중인 일', '2', 'in_progress')
       )
     )
-    const doneSpan = html.match(/<span class="([^"]*)">완료된 일<\/span>/)
-    const runningSpan = html.match(/<span class="([^"]*)">진행 중인 일<\/span>/)
-    expect(doneSpan?.[1]).toContain('line-through')
+    const doneSpan = load(html)('[data-task-title]')
+      .filter((_, element) => load(html)(element).text() === '완료된 일')
+      .attr('class')
+    const runningSpan = load(html)('[data-task-title]')
+      .filter((_, element) => load(html)(element).text() === '진행 중인 일')
+      .attr('class')
+    expect(doneSpan).toContain('line-through')
     // 양방향 — 미완료에는 걸리지 않는다.
-    expect(runningSpan?.[1]).not.toContain('line-through')
+    expect(runningSpan).not.toContain('line-through')
   })
 })
 
@@ -192,9 +196,9 @@ describe('0215 AT-16·AT-17 — `작업` 타일에는 서브에이전트가 오�
 
   it('제목이 flex-1 을 갖지 않는다 (D-020 유지)', () => {
     const html = renderProgress(messages(agentTask('로그 파서 조사', '1', 'in_progress')))
-    const titleSpan = html.match(/<span class="([^"]*)">로그 파서 조사<\/span>/)
-    expect(titleSpan?.[1]).not.toContain('flex-1')
-    expect(titleSpan?.[1]).toContain('truncate')
+    const titleSpan = load(html)('[data-task-title]').attr('class')
+    expect(titleSpan).not.toContain('flex-1')
+    expect(titleSpan).toContain('truncate')
   })
 })
 

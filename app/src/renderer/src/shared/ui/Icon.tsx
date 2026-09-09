@@ -3,6 +3,8 @@ import type { CSSProperties } from 'react'
 export type IconName =
   | 'todo'
   | 'terminal'
+  | 'terminal2'
+  | 'checklist'
   | 'chat'
   | 'plus'
   | 'search'
@@ -70,6 +72,10 @@ const ICONS: Record<IconName, string> = {
   todo: 'M100-660l60-60 70 70 130-130 60 60-190 190-130-130ZM460-720h400v80H460v-80ZM100-300l60-60 70 70 130-130 60 60-190 190-130-130ZM460-360h400v80H460v-80Z',
   terminal:
     'M80-800h800v640H80v-640Zm80 80v480h640v-480H160Zm80 100 140 140-140 140-56-56 84-84-84-84 56-56Zm220 200h200v80H460v-80Z',
+  // Google material-design-icons/symbols/web/{terminal_2,checklist}/materialsymbolsoutlined/*_24px.svg (Apache-2.0).
+  terminal2: 'M480-160v-80h320v80H480ZM220-320l-56-56 183-184-183-184 56-56 240 240-240 240Z', // terminal_2
+  checklist:
+    'M222-200 80-342l56-56 85 85 170-170 56 57-225 226Zm0-320L80-662l56-56 85 85 170-170 56 57-225 226Zm298 240v-80h360v80H520Zm0-320v-80h360v80H520Z', // checklist
   quote:
     'M160-280v-240l120-240h120L280-520h120v240H160Zm400 0v-240l120-240h120L680-520h120v240H560Z', // opening quotation marks
   expand:

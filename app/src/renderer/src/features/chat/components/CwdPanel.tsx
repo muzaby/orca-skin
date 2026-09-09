@@ -19,6 +19,7 @@ interface CwdPanelProps {
 // 편집 가능한 창이 여기뿐이다. 브랜치·워크트리 묶음은 Git 확인 후 함께 표시한다.
 export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
   const { tr } = useI18n()
+  const agentKind = useChatSession((s) => s.agentKind)
   const extraDirs = useChatSession((s) => s.extraDirs)
   const rejection = useChatSession((s) => s.extraDirRejection)
   const worktreeIsolation = useChatSession((s) => s.worktreeIsolation)
@@ -32,25 +33,29 @@ export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
       data-state="landing"
     >
       <CwdButton cwd={cwd} sessionStarted={false} inflight={inflight} variant="outlined" />
-      {/* 같은 Git 응답으로 묶음 전체를 표시한다. 격리 ON이면 선택은 base ref로 유예된다. */}
-      <BranchChip
-        cwd={cwd}
-        disabled={inflight}
-        variant="segment"
-        trailingDivider
-        deferTo={worktreeIsolation ? (branch) => chatActions.setWorktreeBaseRef(branch) : undefined}
-        deferred={worktreeIsolation ? worktreeBaseRef : null}
-        renderTrigger={(branch) => (
-          <div className={chipGroupSurface} data-surface="branch-worktree-group">
-            {branch}
-            <WorktreeToggle
-              checked={worktreeIsolation}
-              disabled={inflight || !cwd}
-              onChange={chatActions.setWorktreeIsolation}
-            />
-          </div>
-        )}
-      />
+      {/* Coding에서만 Git을 조회한다. 격리 ON이면 선택은 base ref로 유예된다. */}
+      {agentKind === 'coding' && (
+        <BranchChip
+          cwd={cwd}
+          disabled={inflight}
+          variant="segment"
+          trailingDivider
+          deferTo={
+            worktreeIsolation ? (branch) => chatActions.setWorktreeBaseRef(branch) : undefined
+          }
+          deferred={worktreeIsolation ? worktreeBaseRef : null}
+          renderTrigger={(branch) => (
+            <div className={chipGroupSurface} data-surface="branch-worktree-group">
+              {branch}
+              <WorktreeToggle
+                checked={worktreeIsolation}
+                disabled={inflight || !cwd}
+                onChange={chatActions.setWorktreeIsolation}
+              />
+            </div>
+          )}
+        />
+      )}
       {extraDirs.map((dir) => (
         <ExtraDirChip
           key={dir}

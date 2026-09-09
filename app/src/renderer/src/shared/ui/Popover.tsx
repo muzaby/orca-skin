@@ -13,6 +13,7 @@ interface PopoverProps {
   // (0-size 마우스/커서 앵커는 패널 중앙을 좌표에 맞춤). 'end' = anchor 우측 가장자리
   // 기준(right) — 화면 우측에 붙은 버튼(예: SkillDetail 케밥)이 메뉴를 왼쪽으로 펼쳐 오버플로를 막는다.
   align?: 'start' | 'center' | 'end'
+  role?: 'menu' | 'tooltip'
   className?: string
 }
 
@@ -35,6 +36,7 @@ export function Popover({
   children,
   placement = 'top',
   align = 'start',
+  role = 'menu',
   className = ''
 }: PopoverProps): React.JSX.Element | null {
   const panelRef = useRef<HTMLDivElement>(null)
@@ -122,8 +124,8 @@ export function Popover({
   return createPortal(
     <div
       ref={panelRef}
-      role="menu"
-      className={`app-frame-floating fixed z-50 rounded-lg border border-border bg-panel p-1 shadow-lg ${className}`}
+      role={role}
+      className={`app-frame-floating fixed z-50 ${role === 'tooltip' ? 'pointer-events-none whitespace-nowrap rounded-r4 bg-ink px-2.5 py-1.5 text-caption text-bg shadow-sm' : 'rounded-lg border border-border bg-panel p-1 shadow-lg'} ${className}`}
       style={style}
       data-context="floating"
       data-behavior="dismissible"
