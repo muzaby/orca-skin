@@ -141,7 +141,7 @@ TO-BE: 원문 parts와 projector의 경계는 유지하고 Work 전용 call pres
 | EP4 | IPC schema·sender guard·service owner·읽기 후 owner 재검사 | 4 | 변조 요청/타 세션/삭제 시 거부; metadata 조회만의 성공은 증거 아님 |
 | EP5 | 게시 입력 형식·파일 bytes·preview 변환에서 허용 형식/크기 보장 | 3 | 실제 텍스트/이미지·잘못된 서명·초과 파일; 확장자만 통과하면 실패 |
 
-preview 계약: `artifactPreview(ArtifactTargetRequest): Promise<ArtifactPreviewResult>`. 성공은 `{state:'ready',format:'markdown'|'html'|'text'|'image',content:string,mimeType:string,language?:string}`, 실패는 `{state:'unavailable',reason:string}`이다. image content는 검증한 data URL이고 다른 content는 UTF-8 원문이다.
+preview 계약: `window.orca.artifacts.preview(ArtifactTargetRequest): Promise<ArtifactPreviewResult>`. 성공은 `{state:'ready',format:'markdown'|'html'|'text'|'image',content:string,mimeType:string,language?:string,previewContent?:string}`, 실패는 `{state:'unavailable',reason:string}`이다. image content는 검증한 data URL이고 다른 content는 UTF-8 원문이며 HTML의 previewContent만 Main이 정제한 전체 문서다.
 
 게시 형식: Markdown(.md/.markdown), HTML(.html/.htm), 텍스트/코드의 명시 allowlist, 이미지 PNG/JPEG/GIF/WebP/SVG. raster는 서명 검사, SVG는 이미지 모드로 표시하고 원문은 텍스트로 검사한다. 기존 5 MiB 읽기 상한과 경로 검증을 유지한다.
 
@@ -160,28 +160,38 @@ READY: D-01~06→AC1~8 및 VP1~12 경로를 대조했다. 출력 2진입·요청
 
 ## [구현자 기입] 설계 리뷰
 
-구현 전. V1 기준선으로 구현한다.
+유지: V1의 D-01~06·AC1~8·VP1~12와 강제 지점은 변경하지 않았다. 기존 `artifacts` preload namespace를 사용하고 HTML 정제는 Main의 기존 cheerio로 수행하도록 기술 가이드를 구체화했다. 원문 `content`는 코드·복사용으로 보존하며 별도 `previewContent`만 격리 iframe에 전달한다.
 
 ## [구현자 기입] 강제 지점 전수와 V-pair 자기확인
 
-구현 후 실제 관측을 기입한다.
+PASS 자기확인: VP1~VP12를 각각 아래 경로의 직접 결과로 확인했다. 강제 지점 검색은 `rg 'WorkTool|toolCount' app/src/renderer/src/features/chat`, `rg 'openArtifactViewer|closeArtifactViewer|readSelection|retryArtifactViewer' app/src/renderer/src/features/chat`, `rg 'preview|readForExport|validateArtifactBytes' app/src/main/features/artifacts app/src/main/app/handlers/artifacts.ts`로 수행했다.
+
+| 지점 | 닫힘 | 실제 관측 |
+|---|---|---|
+| EP1 요약·행·본문 | 3/3 | 반복 호출 수, ID 순서, 구조화 Task 실패, 실제 검색·요청/응답을 helper/JSX/native에서 확인 |
+| EP2 목록·카드·닫기·세션 | 4/4 | 두 카드 callback→선택 및 native 파일 제목·원래 초점·세션 전환 후 뷰어 소실 |
+| EP3 첫 읽기·전환·재시도·unmount | 4/4 | deferred store 검사와 native retry/unmount/late-close 결과 |
+| EP4 schema·sender·owner·ownerAfter | 4/4 | 변조 경로·신뢰하지 않는 sender·타 세션·읽기 중 삭제가 본문을 반환하지 않음 |
+| EP5 입력·bytes·preview | 3/3 | 실파일 UTF-8/서명/상한, data URL, HTML 원문과 정제 문서의 분리 |
+
+VP1·2·11은 Work 투영·본문 회귀와 native, VP3·5·7·9는 실제 진입 callback·수명 tests/native, VP4·6·10·12는 실파일·DB·IPC tests와 격리 프레임 DOM 관측으로 닫았다. VP8은 기존 채팅·질문·Code 및 게시·migration 회귀로 닫았다. native 46개 단언 PASS, 런타임 오류와 외부 요청은 모두 0이며 manifest의 현재 소스 hash 불일치도 0이다([증거](evidence/native-validation.json)).
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-선택 적대 증거 없음. 직접 행동 oracle을 사용한다.
+선택 적대 증거 없음. Work helper·반복 집계·이전 세션 callback·Task 구조화 실패는 RED→GREEN으로 확인했고, native에서 실제 DOM·스크롤·초점·코드 강조·격리 프레임을 관측했다. 구현 전 활동 외곽 카드, Wasm CSP 실패, 줄번호 누락은 실제 화면/실행으로 재현한 뒤 수정했다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
-구현 후 기입한다.
+PASS: 오류·로딩·빈 파일·재시도는 사용자 문구로 연결된다. 출력/대화 카드 양쪽 진입, 원래 항목 초점, 빠른 전환, 세션 이동, unmount를 확인했다. 실제 HTML의 body 배경이 전체 canvas를 채우고 Markdown·코드는 앱 테마에 맞게 표시되는 최종 화면을 확인했다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
-구현 후 기입한다.
+수정 완료: 독립 코드 리뷰가 발견한 TaskXXX 구조화 결과 누락과 HTML/body 속성 유실을 닫았다. 추가로 HTML 기본 root 배경의 body canvas 전파 방해를 수정하고 native 전체 프레임에서 확인했다. 자세한 원인과 대응은 [구현 보고](impl.md#구현-중-발견과-수정)에 기록했으며 남은 PLAN_GAP은 없다.
 
 ## [구현자 기입] 구현 보고
 
-구현 후 기입한다.
+완료: AC1~8 자기확인 8/8, EP1~5 전수 18/18, VP1~12 PASS. 채팅/Markdown 1,255개·파일/DB 110개·운영 스크립트 116개 tests와 타입·빌드·lint·문서·migration gate를 통과했다. [구현 보고](impl.md)와 [시각·native 증거](evidence/native-validation.json)를 남기고 `impl/IMPL_DONE`으로 넘긴다.
 
 ## [구현자 기입] Review Signals
 
-신규 handoff r1. 기존 0223 Q-04와 0224 독립 검증 상태는 유지한다.
+신규 handoff r1. 기존 0223 Q-04와 0224 독립 검증 상태는 유지한다. Native의 opaque HTML frame은 별도 renderer target이므로 CDP target에 연결해 DOMSnapshot으로 읽었으며 sandbox 권한을 늘리지 않았다. 구현자 자기확인과 외부 코드 리뷰는 정식 handoff verify를 대체하지 않는다.

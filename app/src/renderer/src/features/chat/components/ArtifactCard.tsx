@@ -7,7 +7,8 @@ import { Popover } from '../../../shared/ui/Popover'
 import { MenuItem } from '../../../shared/ui/MenuItem'
 import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
 import { useI18n, type MessageKey } from '../../../shared/i18n'
-import { useChatSession } from '../store/chatStore'
+import { useChatSession, useChatStore } from '../store/chatStore'
+import { openArtifactViewer } from '../store/artifactViewerStore'
 import {
   acquireArtifacts,
   refreshArtifactStatuses,
@@ -50,6 +51,7 @@ interface ArtifactCardProps {
   onAction: (artifact: ArtifactRef, action: ArtifactOperation) => void
   onRefresh: () => void
   onOpenFolder: () => void
+  onPreview: (artifact: ArtifactRef, origin: HTMLElement) => void
 }
 
 export function ArtifactCard({
@@ -58,7 +60,8 @@ export function ArtifactCard({
   file,
   onAction,
   onRefresh,
-  onOpenFolder
+  onOpenFolder,
+  onPreview
 }: ArtifactCardProps): React.JSX.Element {
   const { tr } = useI18n()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -67,7 +70,7 @@ export function ArtifactCard({
   const present = file?.availability?.state === 'present'
   const disabled = checking || file?.busy
   const transcript = variant === 'transcript'
-  const format = artifact.kind === 'html' ? 'HTML' : 'MD'
+  const format = artifact.filename.split('.').pop()?.toUpperCase() ?? ''
   const metadata = `${artifact.filename} · ${tr('chat.artifacts.bytes', { count: artifact.sizeBytes })} · ${new Date(artifact.publishedAt).toLocaleString()}`
   return (
     <article
@@ -75,29 +78,47 @@ export function ArtifactCard({
       aria-label={artifact.title}
     >
       <div className="flex min-w-0 items-center gap-g3">
-        <span
-          aria-hidden
-          className={
-            transcript
-              ? 'flex h-10 w-10 shrink-0 items-center justify-center rounded-r4 border border-t5 bg-bg2 text-ink2'
-              : 'flex h-7 w-7 shrink-0 items-center justify-center rounded-r4 bg-bg2 text-ink3'
-          }
+        <button
+          type="button"
+          data-artifact-preview={artifact.publicationId}
+          onClick={(event) => onPreview(artifact, event.currentTarget)}
+          disabled={file?.busy}
+          aria-label={tr('chat.artifactViewer.open', { title: artifact.title })}
+          className="flex min-w-0 flex-1 items-center gap-g3 rounded-r4 text-left transition-colors hover:bg-bg2 hide-focus-ring ring-focus disabled:opacity-50"
         >
-          <Icon name={transcript ? 'doc' : 'layers'} size={transcript ? 20 : 17} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div
-            className={`${transcript ? 'text-body' : 'text-footnote'} truncate font-medium text-ink`}
-            title={`${artifact.title}\n${metadata}`}
+          <span
+            aria-hidden
+            className={
+              transcript
+                ? 'flex h-10 w-10 shrink-0 items-center justify-center rounded-r4 border border-t5 bg-bg2 text-ink2'
+                : 'flex h-7 w-7 shrink-0 items-center justify-center rounded-r4 bg-bg2 text-ink3'
+            }
           >
-            {artifact.title}
-          </div>
-          {transcript && (
-            <div className="text-caption text-ink3">
-              {tr('chat.artifacts.document')} · {format}
+            <Icon
+              name={
+                artifact.kind === 'image'
+                  ? 'cam'
+                  : artifact.kind === 'text' || artifact.kind === 'html'
+                    ? 'code'
+                    : 'doc'
+              }
+              size={transcript ? 20 : 17}
+            />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div
+              className={`${transcript ? 'text-body' : 'text-footnote'} truncate font-medium text-ink`}
+              title={`${artifact.title}\n${metadata}`}
+            >
+              {artifact.title}
             </div>
-          )}
-        </div>
+            {transcript && (
+              <div className="text-caption text-ink3">
+                {tr('chat.artifacts.document')} · {format}
+              </div>
+            )}
+          </div>
+        </button>
         {transcript ? (
           <Button
             size="small"
@@ -232,6 +253,7 @@ export function ArtifactCards({
 }): React.JSX.Element | null {
   const { tr } = useI18n()
   const sessionId = useChatSession((session) => session.sessionId)
+  const activeKey = useChatStore((state) => state.activeKey)
   const files = useArtifactStore((state) =>
     sessionId ? (state.sessions[sessionId]?.files ?? EMPTY_FILES) : EMPTY_FILES
   )
@@ -317,6 +339,10 @@ export function ArtifactCards({
           artifact={artifact}
           variant={variant}
           file={files[artifact.artifactFileId]}
+          onPreview={(selected, origin) => {
+            if (useChatStore.getState().activeKey !== activeKey) return
+            void openArtifactViewer(activeKey, sessionId, selected, origin)
+          }}
           onAction={act}
           onRefresh={() => {
             void refreshArtifactStatuses(sessionId, [artifact])

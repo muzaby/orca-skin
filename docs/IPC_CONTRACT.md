@@ -163,18 +163,19 @@ interface Settings {
 
 ### 2.6-a 산출물 게시 파일
 
-모델의 `publish_artifact` 호출만 게시를 생성한다. 아래 IPC는 저장된 게시 ID의 파일 관리용이며 임의 경로·파일 본문을 renderer에 반환하지 않는다. 타입 정본은 `app/src/shared/artifacts.ts`, 입력 검증은 `shared/protocol.ts`, 실행은 `main/app/handlers/artifacts.ts`다. 입력 스키마 실패는 모두 **reject**이며 알 수 없는 키·상한 초과 목록을 조용히 버리지 않는다.
+모델의 `publish_artifact` 호출만 게시를 생성한다. 아래 IPC는 저장된 게시 ID의 파일 관리용이며 임의 경로를 받거나 내부 경로를 renderer에 반환하지 않는다. 타입 정본은 `app/src/shared/artifacts.ts`, 입력 검증은 `shared/protocol.ts`, 실행은 `main/app/handlers/artifacts.ts`다. 입력 스키마 실패는 모두 **reject**이며 알 수 없는 키·상한 초과 목록을 조용히 버리지 않는다.
 
 | 채널 | 방향 | 요청 | 응답 | 의미 |
 |---|---|---|---|---|
 | `orca:artifact:list` | R→M (invoke) | `ArtifactListRequest` | `ArtifactRef[]` | 해당 세션의 입력 실체별 최신 게시. 미연결 게시·파일 없음도 포함. 조회 실패 reject. |
 | `orca:artifact:status` | R→M (invoke) | `ArtifactStatusRequest` | `ArtifactStatusItem[]` | 알려진 게시 ID의 현재 파일 상태. missing과 unavailable 구분. 최대 100개, stat 병렬 4. |
+| `orca:artifact:preview` | R→M (invoke) | `ArtifactTargetRequest` | `ArtifactPreviewResult` | 세션 소유 게시의 현재 본문. Markdown/HTML/텍스트는 UTF-8 원문, 이미지는 검증한 data URL. 원본 5 MiB 상한, 읽기 전후 소유권·파일 실체 검사. |
 | `orca:artifact:save` | R→M (invoke) | `ArtifactSaveRequest` | `ArtifactSaveResult` | 시작 시 고정한 최대 50개 ID. 하나면 저장 창, 여러 개면 폴더 선택. 동명 묶음은 suffix를 붙여 기존 파일 보존. 취소·항목별 저장/건너뜀/실패 구분. 원본 보관 루트 덮어쓰기 금지. |
 | `orca:artifact:reveal` | R→M (invoke) | `ArtifactTargetRequest` | `ArtifactActionResult` | 원래 게시 ID의 현 파일 실체를 확인하고 탐색기에 표시. |
 | `orca:artifact:trash` | R→M (invoke) | `ArtifactTargetRequest` | `ArtifactTrashResult` | 확인 UI 이후 현재 파일을 OS 휴지통으로 이동. 성공과 DB 이력 기록 성공을 분리. 영구 삭제 폴백 없음. |
 | `orca:artifact:openFolder` | R→M (invoke) | — | `ArtifactActionResult` | 앱이 정한 profile 보관 폴더만 탐색기로 열기. |
 
-`ArtifactRef`는 게시/파일 ID·제목·파일명·형식·게시 당시 크기/시각만 포함한다. 현재 파일은 외부에서 수정·삭제할 수 있으며 저장은 동작 시점의 바이트를 사용한다. 상태는 진입·사용자 재확인·액션 시 조회하고 watcher/polling은 없다. 파일뷰어·본문 읽기 채널은 제공하지 않는다. 보관과 세션 수명은 [영속성 문서](arch/backend/persistence.md#14-계층-2--게시-원본-파일) 참조.
+`ArtifactRef`는 게시/파일 ID·제목·파일명·형식·게시 당시 크기/시각만 포함한다. 현재 파일은 외부에서 수정·삭제할 수 있으며 저장과 미리보기는 동작 시점의 바이트를 사용한다. 상태는 진입·사용자 재확인·액션 시 조회하고 watcher/polling은 없다. `window.orca.artifacts.preview`는 `ready`일 때 format·content·mimeType·선택적 language를, `unavailable`일 때 reason을 반환한다. HTML에는 원문 content와 별도로 Main이 정제한 previewContent가 포함된다. 신뢰한 renderer sender만 호출할 수 있으며 파일·소유권 오류는 본문 없이 반환한다. HTML 미리보기는 정제된 문서만 스크립트·네트워크 없는 격리 iframe에서 표시한다. 보관과 세션 수명은 [영속성 문서](arch/backend/persistence.md#14-계층-2--게시-원본-파일) 참조.
 
 ### 2.6-b Git (컴포저 브랜치 칩)
 

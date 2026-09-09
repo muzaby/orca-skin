@@ -27,6 +27,8 @@ import { tileById } from './tileRegistry'
 import { RightPanelTile } from './RightPanelTile'
 import { useColumnSlideOnReflow } from '../../hooks/useColumnSlideOnReflow'
 import { useI18n } from '../../../../shared/i18n'
+import { ArtifactViewer } from './ArtifactViewer'
+import { closeArtifactViewer, useArtifactViewerStore } from '../../store/artifactViewerStore'
 
 const SEPARATOR_CAPSULE =
   'absolute left-1/2 top-1/2 rounded-full bg-border-strong opacity-0 transition-opacity duration-150 group-hover/sep:opacity-100 group-active/sep:opacity-100 group-active/sep:bg-ink3'
@@ -249,6 +251,10 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
   const agentKind = useChatSession((s) => s.agentKind)
   const panelPolicy = RIGHT_PANEL_POLICY[agentKind]
   const activeKey = useChatStore((s) => s.activeKey)
+  const selection = useArtifactViewerStore((state) => state.selection)
+  const viewer = selection?.sessionKey === activeKey ? selection : null
+  const viewerOrigin = useRef<HTMLElement | undefined>(undefined)
+  const overviewViewportLeft = useRef(0)
   const [expansion, setExpansion] = useState<{ key: string; id: RightPanelTileId } | null>(null)
   const widths = useChatSession((s) => s.rightPanelColWidths)
   const splits = useChatSession((s) => s.rightPanelRowSplits)
@@ -272,6 +278,25 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
   const { registerColumn, columnRightOf } = useColumnSlideOnReflow(columnKeys)
 
   useLayoutEffect(() => {
+    if (viewer) {
+      viewerOrigin.current = viewer.origin
+      if (viewportRef.current) viewportRef.current.scrollLeft = 0
+    } else if (viewerOrigin.current) {
+      const origin = viewerOrigin.current
+      viewerOrigin.current = undefined
+      if (viewportRef.current) viewportRef.current.scrollLeft = overviewViewportLeft.current
+      if (origin.isConnected && !origin.closest('[inert]')) origin.focus({ preventScroll: true })
+    }
+  }, [viewer])
+  useLayoutEffect(
+    () => () => {
+      viewerOrigin.current = undefined
+      closeArtifactViewer(activeKey)
+    },
+    [activeKey]
+  )
+
+  useLayoutEffect(() => {
     if (viewportRef.current && reveal) adjustPanelViewport(viewportRef.current, reveal.id)
   }, [reveal])
   useLayoutEffect(() => {
@@ -284,15 +309,24 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
     return () => observer.disconnect()
   }, [layout, widths])
 
-  if (layout.columns.length === 0) return null
+  if (layout.columns.length === 0 && !viewer) return null
 
   return (
     <div
       ref={viewportRef}
+      onScroll={() => {
+        if (!viewer && viewportRef.current)
+          overviewViewportLeft.current = viewportRef.current.scrollLeft
+      }}
       data-panel-expanded={expandedTile ?? undefined}
-      className={`my-2 mr-2 min-h-0 min-w-0 w-max shrink-0 overflow-x-auto ${expandedTile ? 'max-w-[calc(75%-0.5rem)]' : 'max-w-[calc(50%-0.5rem)]'} ${className}`}
+      className={`my-2 mr-2 min-h-0 min-w-0 shrink-0 ${viewer ? (viewer.expanded ? 'w-[min(960px,75%)]' : 'w-[min(560px,50%)]') : `w-max overflow-x-auto ${expandedTile ? 'max-w-[calc(75%-0.5rem)]' : 'max-w-[calc(50%-0.5rem)]'}`} ${className}`}
     >
-      <div className="flex h-full min-h-0 w-max">
+      <div
+        data-artifact-overview=""
+        hidden={!!viewer}
+        inert={!!viewer}
+        className={`${viewer ? 'hidden' : 'flex'} h-full min-h-0 w-max`}
+      >
         {layout.columns.map((column, index) => (
           <div
             key={column.id}
@@ -325,6 +359,9 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
           </div>
         ))}
       </div>
+      {viewer && (
+        <ArtifactViewer key={`${viewer.sessionKey}:${viewer.request}`} selection={viewer} />
+      )}
     </div>
   )
 }

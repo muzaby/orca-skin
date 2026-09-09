@@ -38,7 +38,7 @@ afterEach(async () => {
 })
 type TestService = Pick<
   ArtifactService,
-  'listLatest' | 'status' | 'trash' | 'readForExport' | 'revealPath' | 'openFolderPath'
+  'listLatest' | 'status' | 'preview' | 'trash' | 'readForExport' | 'revealPath' | 'openFolderPath'
 >
 async function setup(): Promise<{
   service: Mocked<TestService>
@@ -54,6 +54,12 @@ async function setup(): Promise<{
   const service: Mocked<TestService> = {
     listLatest: vi.fn(() => []),
     status: vi.fn(async () => []),
+    preview: vi.fn(async () => ({
+      state: 'ready' as const,
+      format: 'text' as const,
+      content: 'selected source',
+      mimeType: 'text/plain'
+    })),
     trash: vi.fn(),
     readForExport: vi.fn(async (_s: string, id: string) => {
       if (id === 'gone') throw new Error('missing')
@@ -75,6 +81,22 @@ async function setup(): Promise<{
   }
 }
 describe('artifact IPC file actions', () => {
+  it('previews only the selected IDs and rejects renderer paths at the schema boundary', async () => {
+    const { service, call } = await setup()
+    expect(
+      await call('artifactPreview', { sessionId: 'original', publicationId: 'older' })
+    ).toMatchObject({ state: 'ready', content: 'selected source' })
+    expect(service.preview).toHaveBeenCalledWith('original', 'older')
+    service.preview.mockClear()
+    await expect(
+      call('artifactPreview', {
+        sessionId: 'original',
+        publicationId: 'older',
+        path: 'C:/private/file.md'
+      })
+    ).rejects.toThrow()
+    expect(service.preview).not.toHaveBeenCalled()
+  })
   it('replaces an external hardlink destination without changing the managed original inode', async () => {
     const { root, dest, call } = await setup()
     const original = join(root, 'other-publication.md')
@@ -108,6 +130,7 @@ describe('artifact IPC file actions', () => {
   it.each([
     ['artifactList', { sessionId: 's' }],
     ['artifactStatus', { sessionId: 's', publicationIds: ['p'] }],
+    ['artifactPreview', { sessionId: 's', publicationId: 'p' }],
     ['artifactSave', { sessionId: 's', publicationIds: ['p'] }],
     ['artifactReveal', { sessionId: 's', publicationId: 'p' }],
     ['artifactTrash', { sessionId: 's', publicationId: 'p' }],

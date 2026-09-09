@@ -20,7 +20,7 @@ interface CodeBlockProps {
 // shiki `.line` 스팬에 라인넘버 ::before 거터. 새 CSS 없이 Tailwind arbitrary 유틸로만.
 const LINE_NUMBER_CLASSES =
   '[&_code]:[counter-reset:line] ' +
-  '[&_.line]:before:[content:counter(line)] [&_.line]:before:[counter-increment:line] ' +
+  '[&_.line]:before:content-[counter(line)] [&_.line]:before:[counter-increment:line] ' +
   '[&_.line]:before:mr-4 [&_.line]:before:inline-block [&_.line]:before:w-6 ' +
   '[&_.line]:before:text-right [&_.line]:before:text-ink3 [&_.line]:before:select-none'
 
@@ -42,6 +42,8 @@ export function CodeBlock({
   // 승격되거나 message.completed 커밋 렌더로 교체되면 streaming=false 로 1회 하이라이트.
   const streaming = useContext(MarkdownStreamingContext)
   const safeLang = lang && isLang(lang) ? lang : 'text'
+  // 출력 뷰어는 큰 파일도 연다. 큰 원문은 그대로 읽되 동기 구문 분석 비용을 제한한다.
+  const highlight = safeLang !== 'text' && !streaming && code.length <= 200_000
   const [hl, setHl] = useState<{
     code: string
     lang: string
@@ -50,23 +52,32 @@ export function CodeBlock({
   } | null>(null)
 
   useEffect(() => {
-    if (safeLang === 'text' || streaming) return
+    if (!highlight) return
     let cancelled = false
-    getHighlighter().then((h) => {
-      if (cancelled) return
-      try {
-        setHl({ code, lang: safeLang, theme, html: h.codeToHtml(code, { lang: safeLang, theme }) })
-      } catch {
-        // keep previous html as fallback marker — render path will detect staleness
-      }
-    })
+    getHighlighter()
+      .then((h) => {
+        if (cancelled) return
+        try {
+          setHl({
+            code,
+            lang: safeLang,
+            theme,
+            html: h.codeToHtml(code, { lang: safeLang, theme })
+          })
+        } catch {
+          // keep previous html as fallback marker — render path will detect staleness
+        }
+      })
+      .catch(() => {
+        // 문법 로드 실패에도 원문은 읽을 수 있다.
+      })
     return () => {
       cancelled = true
     }
-  }, [code, safeLang, theme, streaming])
+  }, [code, safeLang, theme, highlight])
 
   const isStale = hl != null && (hl.code !== code || hl.lang !== safeLang || hl.theme !== theme)
-  const html = !isStale && hl ? hl.html : null
+  const html = highlight && !isStale && hl ? hl.html : null
 
   // 헤더에 표시할 언어 라벨 — 지원 언어면 safeLang, 미지원이면 원본 lang 그대로,
   // 언어 헤더가 없으면 `text`(언어 식별자 라벨은 로케일 무관 원문 유지).
@@ -100,7 +111,12 @@ export function CodeBlock({
   return (
     <div className={`${shell} ${embedded ? '' : 'bg-t1'}`}>
       {showHeader && header}
-      <pre className="m-0 overflow-auto p-3 text-code text-t9">
+      <pre className={`m-0 overflow-auto p-3 text-code text-t9 ${showLineNumbers ? 'flex' : ''}`}>
+        {showLineNumbers && (
+          <span aria-hidden="true" className="mr-4 shrink-0 select-none text-right text-ink3">
+            {Array.from({ length: code.split('\n').length }, (_, index) => index + 1).join('\n')}
+          </span>
+        )}
         <code>{code}</code>
       </pre>
     </div>
@@ -109,5 +125,5 @@ export function CodeBlock({
 
 // 인스턴스별 MutationObserver 대신 모듈 싱글톤 구독(themeStore, 0108).
 function useThemeId(): ShikiThemeId {
-  return useSyncExternalStore(subscribeTheme, getThemeSnapshot)
+  return useSyncExternalStore(subscribeTheme, getThemeSnapshot, getThemeSnapshot)
 }

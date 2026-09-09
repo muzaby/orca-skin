@@ -2,6 +2,7 @@ import { memo, useRef } from 'react'
 import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import { useI18n } from '../../../../shared/i18n'
 import { ToolGroup } from './ToolGroup'
+import { WorkToolTimeline } from './WorkToolTimeline'
 import { AskExchange } from './AskExchange'
 import { ReasoningBlock } from './ReasoningBlock'
 import { ErrorCard } from './ErrorCard'
@@ -52,7 +53,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   )
 })
 
-// Code와 Work가 동일 도구/질문/오류 렌더러를 사용한다.
+// Work의 도구 행만 전용 표현을 사용한다. 질문·오류·서브에이전트 계약은 함께 유지한다.
 export const AssistantSegment = memo(function AssistantSegment({
   segment: seg,
   transcriptPolicy
@@ -64,7 +65,11 @@ export const AssistantSegment = memo(function AssistantSegment({
     case 'reasoning':
       return <ReasoningBlock items={seg.items} />
     case 'tools':
-      return <ToolGroup calls={seg.calls} transcriptPolicy={transcriptPolicy} />
+      return transcriptPolicy.turnProjection === 'work-activity' ? (
+        <WorkToolTimeline calls={seg.calls} transcriptPolicy={transcriptPolicy} />
+      ) : (
+        <ToolGroup calls={seg.calls} transcriptPolicy={transcriptPolicy} />
+      )
     case 'ask':
       return <AskExchange call={seg.call} />
     case 'structured':

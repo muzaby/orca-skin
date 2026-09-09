@@ -15,7 +15,7 @@
 | **로컬 SQLite DB** (`db/`) | `<userData>/orcinus-orca.db` (better-sqlite3, WAL + foreign_keys) | ✅ Phase 3 완료 |
 | **FTS5 전문 검색** | `messages_fts` 가상 테이블 (3 트리거로 `messages` 와 동기 유지) | ✅ Phase 3++ 완료 |
 | **MCP 인증 비밀** | `orcinus-orca-secrets` (electron-store) + safeStorage 암호화 | ✅ Phase 3++ 완료 |
-| **게시 원본 파일** | `~/.config/orcinus-orca/artifacts` (개발 profile은 `.dev` 하위) | 명시적 publisher의 HTML/Markdown 보관 |
+| **게시 원본 파일** | `~/.config/orcinus-orca/artifacts` (개발 profile은 `.dev` 하위) | 명시적 publisher의 문서·텍스트/코드·이미지 보관 |
 
 ### 1.2 electron-store 키 카탈로그
 
@@ -114,7 +114,8 @@ Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저�
 
 `features/artifacts`가 게시 파일 검증·보관·상태·휴지통을 소유한다. 본문은 `~/.config/orcinus-orca/artifacts/<artifactFileId>/<filename>`, 개발 profile은 같은 루트의 `.dev/<artifactFileId>/<filename>`에 둔다. DB의 `artifact_files`는 profile 상대 경로·초기 hash/크기·휴지통 이동 이력을 저장하며 세션 FK를 갖지 않는다. `session_artifacts`는 세션별 게시 참조이고 같은 SQLite 연결의 `DbQueries.artifacts`가 transaction을 소유한다.
 
-- 도구는 완성된 로컬 HTML/HTM/MD 파일을 읽어 게시 원본으로 복사한다. 입력 workspace 파일을 이동하거나 삭제하지 않는다. 일반 readRoots의 앱 설정/런타임 경로는 게시 입력 권한에 포함하지 않는다.
+- 도구는 완성된 로컬 Markdown/HTML·텍스트/코드·이미지 파일을 읽어 게시 원본으로 복사한다. 허용 확장자·언어·MIME 정본은 `features/artifacts/formats.ts`이며 UTF-8 또는 이미지 서명과 파일 크기를 검사한다. 입력 workspace 파일을 이동하거나 삭제하지 않는다. 일반 readRoots의 앱 설정/런타임 경로는 게시 입력 권한에 포함하지 않는다.
+- 미리보기는 저장과 같은 파일 큐·제한 읽기·읽기 전후 소유권 검사를 사용한다. DB에 본문을 추가하지 않으며 현재 파일을 다시 검증해 경로 없는 본문 DTO로 전달한다.
 - 게시 성공은 파일과 세션 publication 확정이다. 실제 publisher tool_result 영수증과 원래 tool_call을 검증한 뒤 그 메시지에 artifact part를 연결한다. 중간 종료로 연결이 없더라도 우측 목록에 게시를 보존한다.
 - 파일은 외부에서 수정·삭제될 수 있다. missing/unavailable은 실제 상태 조회 결과이며 영속 삭제 플래그가 아니다. 게시 당시 hash를 불변 백업 보장이나 현재 소실 판정에 사용하지 않는다.
 - fork는 기존 메시지 복사 transaction 안에서 자식 publication과 part ID를 복제하고 같은 artifactFileId를 참조한다. 대화 삭제는 해당 참조만 제거하며 마지막 참조가 없어도 파일을 자동 삭제하지 않는다.

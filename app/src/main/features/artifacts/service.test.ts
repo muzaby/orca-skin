@@ -74,6 +74,120 @@ afterEach(async () => {
 })
 
 describe('artifact real filesystem and SQLite publication', () => {
+  it('publishes, previews and downloads code, HTML, Markdown and image bytes through the persisted IDs', async () => {
+    const f = await setup()
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jWZkAAAAASUVORK5CYII=',
+      'base64'
+    )
+    const cases = [
+      { filename: 'code.ts', bytes: Buffer.from('const value = "한글"\r\n'), format: 'text' },
+      {
+        filename: 'page.html',
+        bytes: Buffer.from(
+          '<html lang="ko"><body class="report" style="margin:24px"><h1>Result</h1><script>alert(1)</script></body></html>'
+        ),
+        format: 'html'
+      },
+      { filename: 'report.markdown', bytes: Buffer.from('# Result'), format: 'markdown' },
+      { filename: 'picture.png', bytes: png, format: 'image' },
+      {
+        filename: 'drawing.svg',
+        bytes: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'),
+        format: 'image'
+      }
+    ]
+    for (const item of cases) {
+      await writeFile(join(f.cwd, item.filename), item.bytes)
+      const receipt = await f.service.publish({ path: item.filename }, f.context)
+      await rm(join(f.cwd, item.filename))
+      expect(f.service.getRef('a', receipt.publicationId).kind).toBe(item.format)
+      const preview = await f.service.preview('a', receipt.publicationId)
+      expect(preview).toMatchObject({ state: 'ready', format: item.format })
+      if (preview.state !== 'ready') throw new Error('preview unavailable')
+      if (item.format === 'html') {
+        expect(preview.previewContent).toContain('class="report" style="margin:24px"')
+        expect(preview.previewContent).toContain('Content-Security-Policy')
+        expect(preview.previewContent).not.toContain('<script>')
+        expect(preview.content).toContain('<script>alert(1)</script>')
+      } else expect(preview.previewContent).toBeUndefined()
+      expect(
+        item.format === 'image'
+          ? Buffer.from(preview.content.split(',')[1]!, 'base64')
+          : Buffer.from(preview.content)
+      ).toEqual(item.bytes)
+      expect(await f.service.readForExport('a', receipt.publicationId)).toEqual({
+        filename: item.filename,
+        bytes: item.bytes
+      })
+      expect(await f.service.preview('b', receipt.publicationId)).toEqual({
+        state: 'unavailable',
+        reason: 'forbidden'
+      })
+    }
+    expect(f.q.artifacts.listLatest('a')).toHaveLength(cases.length)
+  })
+  it('rejects forged image publication and validates changed preview bytes without changing downloads', async () => {
+    const f = await setup()
+    await writeFile(join(f.cwd, 'fake.png'), '<html>not a PNG</html>')
+    await expect(f.service.publish({ path: 'fake.png' }, f.context)).rejects.toThrow(
+      'invalid-image'
+    )
+    expect(f.service.listLatest('a')).toEqual([])
+    const { publicationId } = await f.service.publish({ path: 'report.md' }, f.context)
+    const file = f.q.artifacts.getOwnedFile('a', publicationId)!
+    const path = join(f.rootDir, file.relativePath)
+    await writeFile(path, Buffer.from([0xc3, 0x28]))
+    expect(await f.service.preview('a', publicationId)).toEqual({
+      state: 'unavailable',
+      reason: 'invalid-utf8'
+    })
+    expect((await f.service.readForExport('a', publicationId)).bytes).toEqual(
+      Buffer.from([0xc3, 0x28])
+    )
+    await writeFile(path, Buffer.alloc(5 * 1024 * 1024 + 1, 65))
+    expect(await f.service.preview('a', publicationId)).toEqual({
+      state: 'unavailable',
+      reason: 'too-large'
+    })
+    await rm(path)
+    expect(await f.service.preview('a', publicationId)).toEqual({
+      state: 'unavailable',
+      reason: 'missing'
+    })
+    await writeFile(path, '# Restored')
+    expect(await f.service.preview('a', publicationId)).toMatchObject({
+      state: 'ready',
+      content: '# Restored'
+    })
+  })
+  it('does not read unowned paths and rechecks ownership after the last file inspection', async () => {
+    const f = await setup()
+    const { publicationId } = await f.service.publish({ path: 'report.md' }, f.context)
+    const original = ArtifactFiles.prototype.inspect
+    const inspect = vi.spyOn(ArtifactFiles.prototype, 'inspect')
+    expect(await f.service.preview('b', publicationId)).toEqual({
+      state: 'unavailable',
+      reason: 'forbidden'
+    })
+    expect(inspect).not.toHaveBeenCalled()
+    inspect.mockRejectedValueOnce(Object.assign(new Error('private-path'), { code: 'EACCES' }))
+    expect(await f.service.preview('a', publicationId)).toEqual({
+      state: 'unavailable',
+      reason: 'access-denied'
+    })
+    let reads = 0
+    inspect.mockImplementation(async function (this: ArtifactFiles, file) {
+      const result = await original.call(this, file)
+      if (++reads === 2) f.q.deleteSession('a')
+      return result
+    })
+    expect(await f.service.preview('a', publicationId)).toEqual({
+      state: 'unavailable',
+      reason: 'forbidden'
+    })
+    expect(reads).toBe(2)
+  })
   it('reopens the SQLite file and restores the same reference, bytes and card without its workspace input', async () => {
     const f = await setup(true)
     const { publicationId } = await f.service.publish({ path: 'report.md' }, f.context)

@@ -1,4 +1,4 @@
-import { createHighlighter, type Highlighter } from 'shiki'
+import { createHighlighter, createJavaScriptRegexEngine, type Highlighter } from 'shiki'
 
 const LANGUAGES = [
   'typescript',
@@ -18,6 +18,8 @@ const LANGUAGES = [
 let highlighterPromise: Promise<Highlighter> | null = null
 export function getHighlighter(): Promise<Highlighter> {
   highlighterPromise ??= createHighlighter({
+    // Electron의 script-src 'self'를 유지하면서 WASM 컴파일 없이 강조한다.
+    engine: createJavaScriptRegexEngine(),
     themes: ['github-light', 'github-dark'],
     langs: [...LANGUAGES]
   })

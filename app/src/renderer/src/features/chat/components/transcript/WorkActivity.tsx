@@ -6,6 +6,7 @@ import { useI18n } from '../../../../shared/i18n'
 import { Icon } from '../../../../shared/ui/Icon'
 import type { WorkToolResults } from '../../lib/workToolResults'
 import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
+import { WorkToolTimeline } from './WorkToolTimeline'
 
 export const WorkActivity = memo(function WorkActivity({
   messages,
@@ -68,25 +69,37 @@ function ActivityDisclosure({
   const { tr } = useI18n()
   const [open, setOpen] = useState(false)
   return (
-    <div className="rounded-r6 border border-border bg-bg2 text-ink2">
+    <div className="min-w-0 text-ink2" data-work-activity="true">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-g2 rounded-r6 px-p5 py-p4 text-left text-caption focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+        className="flex max-w-full items-center gap-1.5 rounded-r4 py-1 text-left text-caption text-ink3 outline-none ring-focus hover:text-ink2"
       >
-        <Icon name="chevR" size={14} className={open ? 'rotate-90' : ''} />
-        {tr('chat.agent.activity', { tools: node.toolKinds, notes: node.noteCount })}
+        <span>{tr('chat.agent.activity', { tools: node.toolCount, notes: node.noteCount })}</span>
+        <Icon
+          name="chevR"
+          size={12}
+          className={`shrink-0 transition-transform ${open ? 'rotate-90' : ''}`}
+        />
       </button>
       {open && (
-        <div className="flex flex-col gap-g3 border-t border-border px-p5 py-p4">
-          {node.items.map((item) => (
-            <AssistantSegment
-              key={item.key}
-              segment={item.segment}
-              transcriptPolicy={transcriptPolicy}
-            />
-          ))}
+        <div className="relative mt-2">
+          <div aria-hidden className="absolute top-4 bottom-4 left-[9px] border-l border-border" />
+          {node.items.map((item) =>
+            item.segment.kind === 'tools' ? (
+              <WorkToolTimeline
+                key={item.key}
+                calls={item.segment.calls}
+                transcriptPolicy={transcriptPolicy}
+                rail={false}
+              />
+            ) : (
+              <div key={item.key} className="py-2 pl-[30px] text-body text-ink2">
+                <AssistantSegment segment={item.segment} transcriptPolicy={transcriptPolicy} />
+              </div>
+            )
+          )}
         </div>
       )}
     </div>

@@ -48,7 +48,7 @@ describe('Work response projection', () => {
     ])
     const activity = result.find((node) => node.kind === 'activity')!
     if (activity.kind !== 'activity') throw Error('activity expected')
-    expect(activity.toolKinds).toBe(1)
+    expect(activity.toolCount).toBe(2)
     expect(activity.noteCount).toBe(1)
     expect(result.at(-1)).toMatchObject({ outcome: 'ended' })
   })
