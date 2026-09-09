@@ -81,6 +81,7 @@
 |---|---|---|---|---|
 | C1 | §10 EP-04 분모 · AT-08 술어 | 9지점 · `rg "'Orca'"` 0건 | 31지점(renderer 27 · main 4) · `\bOrca\b` 0건 | 옛 술어는 작은따옴표 리터럴만 봐서 31지점 중 `useCompletionNotifier.ts:25` 1곳만 분모에 올랐다. 주어(홀로 선 제품명 단어)로 다시 세어 `grep -rnE "\bOrca\b" src/renderer … \| grep -v '\.test\.'` = 31행, main 사용자 대면 4행 |
 | C2 | §8 DB 절대경로 컬럼 수 · EP-08 | 4컬럼 | 5컬럼(`repo_root` 추가) | `grep -rnE "cwd\|_root\|_path" migrations/*.sql` = 5행. `repo_root`는 `rev-parse --show-toplevel` 결과라 세션 cwd가 설정 루트 하위 저장소면 옛 접두를 갖는다. C3의 repo 측 repair가 이 값을 cwd로 쓰므로 rebase가 **선행 조건**이다 |
+| C4 | §10 EP-04 분모 (구현 중 재측정) | 31지점(renderer 27 · main 4) | **34지점**(renderer 27 · main 7) | main 을 `Orca`(표시명)와 `orca`(슬러그·파일명) **두 표기 모두**로 다시 훑고 주석·모델 대면 프롬프트를 걷어내자 사용자 대면이 4가 아니라 7이었다 — 부팅 단계 라벨 2개(`'Orca 설정 디렉터리 보장'`·`'orca.json 로드'`, 둘 다 부팅 진단 화면에 그대로 뜬다)와 `harness-plugins/claude.ts` 의 플러그인 manifest description(`'orca에서 구성된 skill 및 mcp'`, 하네스가 읽는 산출물)이 빠져 있었다. 모델 대면 프롬프트(`system-header.ts`·`artifacts/tool.ts`·`confluence/tools.ts`)와 일회성 temp 이름(`.orca-artifact-*.tmp`·`.orca-export-check`)·git stash 메시지는 화면 표시가 아니라 분모 밖이며 §6 으로 보고한다 |
 | C3 | EP-08 repair 방향 | 워크트리 측 `git worktree repair` | repo 측 `git worktree repair <worktree>` | 임시 저장소 실측 — 워크트리만 이동하면 두 방향 다 성공하지만, **repo도 함께 이동하면 워크트리 측 호출이 `fatal: not a git repository`로 실패**한다. repo 측 호출은 같은 케이스에서 `repair: gitdir incorrect` + `repair: .git file broken` 둘 다 고쳐 `prune -n` 무출력·워크트리 `git status` exit 0 |
 
 ## 4. 요구 비판적 검토
@@ -172,7 +173,7 @@
 
 - **기존 테스트 재사용**: `migrate.test.ts:153·206`이 실제로 `orca.db.backup.before-1.100.0.2026-07-08T00-00-00-000Z` 문자열을 단언하는 케이스를 갖고 있음을 확인했다 — AT-05는 이 케이스의 기대값 교체로 닫는다. `paths.test.ts`는 5건, `workspace-guard.test.ts`는 7건의 `.config/orca` 문자열을 갖는다.
 - **사람 실기 항목**: AT-02(실제 `%APPDATA%` 폴더)·AT-01의 설치 실기·아이콘 증상 재확인. 이유 — Windows 패키징과 레지스트리 결과는 이 환경에서 재현 불가(egress 차단으로 electron ABI 빌드 불가, `app/AGENTS.md §제약 환경`). 순수 로직(경로 조립·이관·rebase)은 전부 순수 테스트로 내렸다.
-- **N회/총량 기준**: AT-09의 분모는 "레거시 상수를 import하는 파일 수". sink는 `legacyUserDataDir`·`legacyConfigDir` 두 함수이고, `rg "legacyUserDataDir|legacyConfigDir" app/src --glob '!*.test.*'`의 결과가 **정의 파일 1 + 이관 모듈 1 = 2파일**이어야 한다. AT-08의 술어는 **불변식의 주어**여야 한다 — 해법의 이름(`'Orca'` 작은따옴표 리터럴)으로 세면 실측 31지점 중 1곳만 분모에 오른다(`useCompletionNotifier.ts:25`). 주어는 **홀로 선 제품명 단어**이므로 술어는 `grep -rnE "\bOrca\b" app/src/renderer --include=*.tsx --include=*.ts --include=*.html | grep -v '\.test\.'` = **0건**이고, 코드 식별자 `OrcaLogo`·`orcaApi`는 단어 경계가 성립하지 않아 술어에 걸리지 않는다(실측 확인). main은 전수 스윕 대상이 아니다 — 프롬프트 본문·주석의 `Orca`가 D-012로 남으므로, 사용자 대면 4지점을 **열거된 양성 단언**으로 잠근다.
+- **N회/총량 기준**: AT-09의 분모는 "레거시 상수를 import하는 파일 수". sink는 `legacyUserDataDir`·`legacyConfigDir` 두 함수이고, `rg "legacyUserDataDir|legacyConfigDir" app/src --glob '!*.test.*'`의 결과가 **정의 파일 1 + 이관 모듈 1 = 2파일**이어야 한다. AT-08의 술어는 **불변식의 주어**여야 한다 — 해법의 이름(`'Orca'` 작은따옴표 리터럴)으로 세면 실측 34지점 중 1곳만 분모에 오른다(`useCompletionNotifier.ts:25`). 주어는 **홀로 선 제품명 단어**이므로 술어는 `grep -rnE "\bOrca\b" app/src/renderer --include=*.tsx --include=*.ts --include=*.html | grep -v '\.test\.'` = **0건**이고, 코드 식별자 `OrcaLogo`·`orcaApi`는 단어 경계가 성립하지 않아 술어에 걸리지 않는다(실측 확인). main은 전수 스윕 대상이 아니다 — 프롬프트 본문·주석의 `Orca`가 D-012로 남으므로, 사용자 대면 7지점을 **열거된 양성 단언**으로 잠근다.
 - **총량/0건 기준**: AT-08·AT-09는 음성 게이트다. 각각 양성 단언과 짝지었다 — AT-08은 "SSOT 상수가 `Orcinus orca`이고 열거된 소비처가 그것을 import한다", AT-09는 "이관 모듈이 두 레거시 함수를 실제로 호출한다". 음성 단독으로 두지 않는다.
 
 ## 7-A. V / Trace Matrix
@@ -207,7 +208,7 @@
 | VP-01 | R-01 ↔ AT-01 | REQUIRED | `package.json`/`electron-builder.yml` → electron-builder `AppInfo` → NSIS 산출물 | 설정 파일을 파싱해 5개 키 값을 직접 단언 | not selected — 값 자체를 읽는 직접 oracle | EP-01 (1) |
 | VP-02 | R-02·R-03 ↔ AT-02·AT-03 | REQUIRED | `app.getName()` → `getPath('userData')` → DB·store | `devUserDataDir` 반환값 직접 단언 + `productName` 부재 단언 | not selected — 반환값 직접 관측 | EP-02 (2) |
 | VP-03 | R-04·R-05·R-06·R-07 ↔ IT-01 | REQUIRED | 이름 SSOT → `paths.ts`·`db/index.ts`·store 4종·`claude-plugin.ts` → 디스크 | 각 경로 함수/상수의 반환 문자열을 개별 케이스로 단언 (8+6+2=16건) | not selected — 반환값 직접 관측 | EP-03 (16) |
-| VP-04 | R-08 ↔ AT-08 | REQUIRED | `PRODUCT_DISPLAY_NAME` → renderer 27지점 + main 4지점 | 양성: SSOT 값 단언 + 소비처가 상수를 참조. 음성: renderer prod `\bOrca\b` 0건 | **required** — 음성 스윕이 있으므로. 심을 결함: 임의 소비처의 상수 참조를 문자열 `Orca`로 되돌리면 음성 스윕이 실패해야 한다 | EP-04 (31) |
+| VP-04 | R-08 ↔ AT-08 | REQUIRED | `PRODUCT_DISPLAY_NAME` → renderer 27지점 + main 7지점 | 양성: SSOT 값 단언 + 소비처가 상수를 참조. 음성: renderer prod `\bOrca\b` 0건 | **required** — 음성 스윕이 있으므로. 심을 결함: 임의 소비처의 상수 참조를 문자열 `Orca`로 되돌리면 음성 스윕이 실패해야 한다 | EP-04 (34) |
 | VP-05 | R-09 ↔ AT-09 | REQUIRED | 레거시 상수 → 이관 모듈만 | 양성: 이관 모듈이 두 함수를 호출. 음성: 다른 파일의 import 0건 | **required** — 0건/전수 주장이므로. 심을 결함: `db/index.ts`에 `legacyUserDataDir` 폴백 import를 넣으면 음성이 실패해야 한다 | EP-05 (2) |
 | VP-06 | SD-01 ↔ ST-01 | REQUIRED | 옛 레이아웃 디스크 → `migrateLegacyRoots` → DB 오픈 → rebase → repair | 임시 디렉토리·실 sqlite·실 git으로 종단 실행 후 최종 상태 단언 | not selected — 최종 디스크·DB·git 상태를 직접 관측 | EP-06 (4) |
 | VP-07 | AR-02 ↔ IT-02 | REQUIRED | `index.ts` 모듈 스코프 → 이관 → `initLog()` | 순서 훅: 이관 함수와 로그 초기화에 순서 기록기를 주입해 이관이 먼저 불림을 단언 | **required** — 순서 계약이므로. 심을 결함: 두 호출을 맞바꾸면 실패해야 한다 | EP-07 (1) |
@@ -252,7 +253,7 @@
 | 절대경로를 저장하는 DB 컬럼은 **5개**다 | `0010_session_cwd.sql:1` · `0017_session_extra_dirs.sql:3` · `0018_managed_worktrees.sql:4·5·6`(`repo_root`·`source_cwd`·`worktree_root`). `repo_root`는 `resolveRepoRoot(sourceCwd)`(= `rev-parse --show-toplevel`)이라 세션 cwd가 설정 루트 하위 저장소면 옛 루트 접두를 갖는다. `projects`에는 `cwd` 컬럼이 없다(`0002_projects.sql` 전문 확인) · `artifacts.relative_path`는 상대경로 |
 | artifacts는 상대경로만 저장한다 | `0021_artifacts.sql:4` `relative_path TEXT NOT NULL UNIQUE` — 루트가 바뀌어도 rebase 불필요 |
 | 렌더러가 `src/shared/`를 **값**으로 import하는 선례가 있다 | `GeneralTab.tsx:11` · `TokensPerDayChart.tsx:9` · `DebugPanel.tsx:2` · `chatReducer.ts:20` (4건). eslint `boundaries/include`는 renderer 블록에서 `src/renderer/src/**`만 포함하고 `no-unknown` 계열 규칙은 꺼져 있다(`eslint.config.mjs`) |
-| 화면 표시 `Orca`에 SSOT가 없다 — **renderer 27 + main 4 = 31지점** | renderer: `index.html:5` · `Header.tsx:179` · `Sidebar.tsx:130` · `GateLogin.tsx:53·61` · `AppLayout.tsx:43` · `BootScreen.tsx:29` · `GateFrame.tsx:33` · `BootFailureFrame.tsx:19` · `useCompletionNotifier.ts:25` · `OrcaLogo.tsx`의 `aria-label` · `i18n/resources/en.ts` 8건 · `ko.ts` 8건 (+ 주석 4건). main: `bootstrap.ts:182`·`deployer.ts:199`의 `sourceLabel` · `handlers/skills.ts:81`·`skills/sources.ts:54`의 오류 문구 |
+| 화면 표시 `Orca`에 SSOT가 없다 — **renderer 27 + main 4 = 31지점** | main 7 = `bootstrap.ts:182` sourceLabel · `bootstrap.ts` 부팅 단계 라벨 2개 · `deployer.ts:199` sourceLabel · `handlers/skills.ts:81` · `skills/sources.ts:54` 오류 문구 · `harness-plugins/claude.ts:16` 플러그인 description. renderer: `index.html:5` · `Header.tsx:179` · `Sidebar.tsx:130` · `GateLogin.tsx:53·61` · `AppLayout.tsx:43` · `BootScreen.tsx:29` · `GateFrame.tsx:33` · `BootFailureFrame.tsx:19` · `useCompletionNotifier.ts:25` · `OrcaLogo.tsx`의 `aria-label` · `i18n/resources/en.ts` 8건 · `ko.ts` 8건 (+ 주석 4건). |
 | 워크트리 브랜치·디렉토리 이름은 제품명과 무관하다 | `features/worktrees/naming.ts` — `repoDirSegment`는 저장소 basename + sha1 8자, `branchDirSegment`는 브랜치명 |
 | `docs/generated/inventory.md`의 IPC 채널 수 = 89 | `docs/generated/inventory.md:13` |
 
@@ -272,8 +273,8 @@
 
 ### 수치 / 전칭 표현 검산
 
-- **재측정 수치**: IPC 채널 89(생성물 대조), 파일시스템 리터럴 14, 표시명 31, DB 경로 컬럼 5, 문서 16.
-- **내역 합 = 총계**: 표시명 31 = renderer 27(`index.html` 1 + tsx/ts 9 + `OrcaLogo` aria 1 + i18n 16) + 주석 4 은 스윕 유지용 추가 + main 4 ✓ — **주석 4는 표시 분모가 아니라 스윕 분모다**. 문서 16 = docs 14 + AGENTS 2 ✓.
+- **재측정 수치**: IPC 채널 89(생성물 대조), 파일시스템 리터럴 14, 표시명 34, DB 경로 컬럼 5, 문서 16.
+- **내역 합 = 총계**: 표시명 34 = renderer 27(`index.html` 1 + tsx/ts 9 + `OrcaLogo` aria 1 + i18n 16) + 주석 4 는 스윕 유지용 추가 + main 7 ✓ — **주석 4는 표시 분모가 아니라 스윕 분모다**. 문서 16 = docs 14 + AGENTS 2 ✓.
 - **"유일한/항상/절대" 반례 검색**: "설정 루트 리터럴은 `paths.ts`가 유일하다"는 **거짓**이었다 — `log/index.ts:47`이 반례다. 이 반례가 §11 변경 파일 목록에 들어갔다.
 - **문서 앵커 / 기존 테스트 케이스 존재 확인**: `migrate.test.ts:153`·`:206`의 백업 파일명 단언 케이스 실재 확인. `paths.test.ts` 5건·`workspace-guard.test.ts` 7건 실재 확인. `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드` 앵커 실재 확인(`AGENTS.md:112`).
 - **worktree 이동 파손 재현** (이 세션 실측, 임시 저장소):
@@ -361,7 +362,7 @@ bootstrap DB 단계 후:  rebaseStoredPaths(db) → repairMovedWorktrees(db)  �
 | **EP-01** AR-01 / VP-01 | 빌드 식별자 5개(`name`·`productName`·`executableName`·`artifactName`·`appId`) | `package.json` + `electron-builder.yml` | 순수 테스트 `product-identity.test.ts` | CI·로컬 vitest | 산출물 이름이 요구 표와 어긋난다. 게이트 green으로는 못 잡는다 |
 | **EP-02** R-02·R-13 / VP-02·VP-13 | `package.json`에 `productName` 없음 · `devUserDataDir` 반환 | 같은 테스트 + `paths.ts` | 순수 테스트 | 같음 | `productName`이 생기면 userData가 공백 포함 경로로 조용히 이동한다 |
 | **EP-03** AR-01 / VP-03 | 경로·파일명 16개가 `PRODUCT_SLUG` 파생 | `shared/product.ts` | `paths.test.ts` 외 5개 스위트 | vitest | 한 곳만 옛 이름이면 그 저장소만 옛 자리에 남는다 |
-| **EP-04** R-08 / VP-04 | 표시명 SSOT + **31지점**(renderer 27 · main 4) + renderer `\bOrca\b` 0건 | `shared/product.ts` | 순수 테스트 + 음성 스윕 | vitest | 화면 일부가 옛 이름. 음성 단독이면 소비처 삭제를 못 잡으므로 양성 단언과 짝지었다 |
+| **EP-04** R-08 / VP-04 | 표시명 SSOT + **34지점**(renderer 27 · main 7) + renderer `\bOrca\b` 0건 | `shared/product.ts` | 순수 테스트 + 음성 스윕 | vitest | 화면 일부가 옛 이름. 음성 단독이면 소비처 삭제를 못 잡으므로 양성 단언과 짝지었다 |
 | **EP-05** R-09 / VP-05 | 레거시 상수 소비자 = 이관 모듈 1파일 | `paths.ts` 레거시 2함수 | import 그래프 전수 테스트 | vitest | D-010 위반(자동 fallback 부활). 음성 단독이라 양성 호출 단언과 짝지었다 |
 | **EP-06** SD-01 / VP-06 | 이관 전체 시나리오 | `migrate-legacy.ts` | 임시 디렉토리 종단 테스트 | vitest | 기존 데이터 유실 |
 | **EP-07** AR-02 / VP-07 | 이관이 `initLog()`보다 먼저 | `main/index.ts` 모듈 스코프 | 순서 기록기 주입 테스트 | vitest | 로그가 새 루트를 먼저 만들어 이관의 "target 없음" 가드가 거짓이 된다 |
@@ -401,7 +402,7 @@ bootstrap DB 단계 후:  rebaseStoredPaths(db) → repairMovedWorktrees(db)  �
 | `app/src/main/app/bootstrap.ts` | 부팅 배선 | DB 마이그레이션 단계 직후, **핸들러 등록 이전**에 `legacy-paths` 단계 삽입 | 부팅 단계 순서 |
 | `app/src/renderer/index.html` | 창 제목 | `<title>Orcinus orca</title>` | 순수(파일 파싱) |
 | renderer 10파일 | 화면 표시 | `Orca` 표기 27지점을 `PRODUCT_DISPLAY_NAME` 파생으로(주석 4지점도 함께) — `OrcaLogo.tsx` `aria-label`·`i18n/{ko,en}.ts` 16문구 포함 | 순수 + 음성 스윕 |
-| main 4파일 | 사용자 대면 문구 | `bootstrap.ts`·`deployer.ts`의 `sourceLabel`, `handlers/skills.ts`·`skills/sources.ts`의 오류 문구를 SSOT 파생으로 | 순수 |
+| main 5파일 | 사용자 대면 문구 | `bootstrap.ts`의 `sourceLabel`·부팅 단계 라벨 2개, `deployer.ts`의 `sourceLabel`, `handlers/skills.ts`·`skills/sources.ts`의 오류 문구, `harness-plugins/claude.ts`의 플러그인 description 을 SSOT 파생으로 | 순수 |
 | `app/src/renderer/src/shared/i18n/resources/{ko,en}.ts` | 경로 안내 문구 | `~/.config/orca/sources/settings` → 새 루트 (각 1건) | 순수 |
 | `.github/workflows/release.yml` | CI 산출물 | artifact 이름 `orca-win-*` → `orcinus-orca-win-*` | — |
 | `app/scripts/validate-dist.test.mjs` | 산출물 검증 픽스처 | 기대 파일명 6건 교체 | `node --test` |
@@ -541,7 +542,7 @@ PRODUCT_SLUG ─→ paths.ts/db/store 6종 ─→ 디스크 이름 ─→ (이�
 - [x] 상속 기준이 없어 Baseline V를 썼고 유효 V = V1이다.
 - [x] 변경 효과에 필요한 레벨(R·SD·AR·MD 전부)을 선택했고 모든 NEW node에 같은 레벨 REQUIRED pair가 있다.
 - [x] INHERITED node 없음 — Baseline이라 REGRESSION·NOT_REQUIRED 행이 없다.
-- [x] 각 pair의 경로·§10 전수 분모·직접 oracle이 있고, 적대 증거는 음성·순서·구조 oracle을 가진 4개(VP-04·05·07·08)만 선택 이유·변이와 함께 등록했다. **r1 착수 전 정정 C1~C3으로 EP-04(9→31)·EP-08(방향)·DB 컬럼(4→5) 분모를 실측값으로 교체했다.**
+- [x] 각 pair의 경로·§10 전수 분모·직접 oracle이 있고, 적대 증거는 음성·순서·구조 oracle을 가진 4개(VP-04·05·07·08)만 선택 이유·변이와 함께 등록했다. **r1 정정 C1~C4로 EP-04(9→34)·EP-08(방향)·DB 컬럼(4→5) 분모를 실측값으로 교체했다.**
 - [x] 현재 변경 산출물의 운영 gate가 열거됐고 기존 ABI red를 새 blocking 범위로 만들지 않는다.
 - [x] 사람 실기로 미룬 순수 로직이 없다 — 경로 조립·이관·rebase는 전부 순수 테스트.
 - [x] semantic 목표가 structural proxy만으로 검증되지 않는다 — AT-08·AT-09의 음성 스윕에 양성 단언을 짝지었다.
