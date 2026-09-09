@@ -11,16 +11,19 @@ import { Icon } from '../../../../shared/ui/Icon'
 export function TranscriptActionRow({
   groupClassName,
   onActivate,
+  expanded,
   children
 }: {
   groupClassName: string
   onActivate: () => void
+  expanded?: boolean
   children: ReactNode
 }): React.JSX.Element {
   return (
     <div
       role="button"
       tabIndex={0}
+      aria-expanded={expanded}
       onClick={onActivate}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -31,7 +34,7 @@ export function TranscriptActionRow({
       className={`${groupClassName} flex max-w-full cursor-pointer items-center gap-g2 self-start text-left text-body text-t6 outline-none hide-focus-ring ring-focus`}
     >
       {children}
-      <span aria-hidden className="shrink-0">
+      <span aria-hidden className={`shrink-0 ${expanded ? 'rotate-90' : ''}`}>
         <Icon name="chevR" size={12} />
       </span>
     </div>

@@ -1,0 +1,46 @@
+TAP version 13
+# Subtest: frame producer exists and writes the versioned bounded wire contract
+ok 1 - frame producer exists and writes the versioned bounded wire contract
+  ---
+  duration_ms: 11.0873
+  type: 'test'
+  ...
+# Subtest: producer rejects invalid paths, NUL, surrogate, excessive counts and reserved/duplicate env
+ok 2 - producer rejects invalid paths, NUL, surrogate, excessive counts and reserved/duplicate env
+  ---
+  duration_ms: 5.2581
+  type: 'test'
+  ...
+# Subtest: native executable is built on Windows x64
+ok 3 - native executable is built on Windows x64
+  ---
+  duration_ms: 0.693
+  type: 'test'
+  ...
+# Subtest: native argv/env/cwd and unbuffered stdin suffix survive one write; exit and stderr survive
+ok 4 - native argv/env/cwd and unbuffered stdin suffix survive one write; exit and stderr survive
+  ---
+  duration_ms: 332.3207
+  type: 'test'
+  ...
+# Subtest: native rejects malformed frames before target execution without secret diagnostics
+ok 5 - native rejects malformed frames before target execution without secret diagnostics
+  ---
+  duration_ms: 1528.672
+  type: 'test'
+  ...
+# Subtest: native permits zero target arguments and consumes no target stdin bytes
+ok 6 - native permits zero target arguments and consumes no target stdin bytes
+  ---
+  duration_ms: 232.4197
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2131.0455

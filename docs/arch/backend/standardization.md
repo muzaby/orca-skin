@@ -91,8 +91,8 @@ class OpenCodeEngine {
 ### 5.1 sources / dist 분리
 
 ```text
-~/.config/orca/
-├── orca.json                # 앱 전역 env (부팅 1회 로드 — agents 필드 제거, TRD §6.8)
+~/.config/orcinus-orca/
+├── orcinus-orca.json                # 앱 전역 env (부팅 1회 로드 — agents 필드 제거, TRD §6.8)
 ├── sources/                 # 사람이 편집하는 단일 원천 (SSOT — 호환 자산만)
 │   ├── instructions/        # AGENTS.md (SSOT, cross-engine 표준)
 │   ├── skills/              # SKILL.md (폴더 규약, cross-engine 표준)
@@ -101,7 +101,7 @@ class OpenCodeEngine {
 │       └── <adapter>/       #   디렉토리 이름 = provider (열거 SSOT)
 │           └── <provider>/settings.json  # 모델은 settings.json 파싱(claude/model-parser.ts, 파생 캐시 없음)
 └── dist/<engine>/           # ExtensionDeployer 산출 = 런타임 plugin 패키지 (편집 금지)
-    └── plugins/orca/
+    └── plugins/orcinus-orca/
         ├── .claude-plugin/plugin.json  # name=orca, description/version 고정
         ├── skills/                     # sources/skills projection (SDK plugin skill)
         ├── agents/                     # 후속 자산용 빈 스캐폴드
@@ -110,15 +110,15 @@ class OpenCodeEngine {
     # settings.json 은 dist 에 두지 않음 — query flag(options.settings)로 주입(아래)
 ```
 
-> **소유 모델 (plugin 패키지 기준)**: Orca 가 관리하는 skill·mcp 는 `plugins/orca` 라는 단일 Claude Code plugin 패키지로 projection 한다. agents·hooks 는 구조만 스캐폴드하고 실제 자산 변환은 후속으로 남긴다. commands 는 레거시라 배포하지 않는다.
+> **소유 모델 (plugin 패키지 기준)**: Orca 가 관리하는 skill·mcp 는 `plugins/orcinus-orca` 라는 단일 Claude Code plugin 패키지로 projection 한다. agents·hooks 는 구조만 스캐폴드하고 실제 자산 변환은 후속으로 남긴다. commands 는 레거시라 배포하지 않는다.
 >
 > **외부 사용량 리포트는 배포 계층에 없다**: 사용량 전용 확장점은 **제거됐다** — 구 `static/modules/` 레지스트리도, 그것을 선언으로 옮긴 필드도 없다(0183 r2). 앱이 집계하는 사용량은 **로컬 턴 집계**(`UsageTracker`)뿐이고, `sources/settings/<adapter>/<provider>/settings.json` 은 bedrock/vertex/custom 을 선생성하지 않는다. 사내 사용량 endpoint 가 필요한 배포는 **확장점이 아니라 코드**로 붙인다 — 그 기능을 쓰는 feature 가 `BoundAuth.request` 로 부르고, 주기 실행이 필요하면 컴포지션 루트가 `Scheduler` 에 action 을 등록한다(절차: [`../../guides/closed-network-extensions.md`](../../guides/closed-network-extensions.md) §5-b).
 
-> **dist = 런타임 plugin 패키지**: `dist/<engine>/plugins/orca` 는 SDK `options.plugins: [{type:'local', path}]` 가 직접 읽는 경로다. 더 이상 세션 cwd 로 `.claude/skills`·`.mcp.json` 을 복사하지 않는다. MCP 도 `options.mcpServers` 가 아니라 plugin `.mcp.json` 로 로드되도록 query 전 렌더한다. 단 `options.mcpServers` 변환 함수는 레거시 안전화 전까지 코드에 남겨 추후 제거 대상으로 관리한다. plugin `.mcp.json` 은 `${VAR}` 를 확장한 활성 MCP 설정을 담을 수 있으므로 dist/.bak 에 평문 비밀이 잔존할 수 있다. 원천은 여전히 `sources/mcp/mcp.json` + safeStorage 이며 dist 는 파생 산출물이다. **settings.json 은 plugin 패키지의 예외** — 파일로 설치하지 않고 query flag(`options.settings` 인라인 JSON 문자열)로 주입한다(settingSources 와 직교·최우선 레이어, 상속한 `~/.claude/settings.json` 을 덮어씀, TRD §6.8). provider settings.json 은 `~/.claude/settings.json` 과 동일 취급이라 **env 를 포함한 채** verbatim 주입된다(handoff 0028 — argv 노출은 수용된 트레이드오프, security.md §1.4). `options.env` 에는 시스템(턴) env 만.
+> **dist = 런타임 plugin 패키지**: `dist/<engine>/plugins/orcinus-orca` 는 SDK `options.plugins: [{type:'local', path}]` 가 직접 읽는 경로다. 더 이상 세션 cwd 로 `.claude/skills`·`.mcp.json` 을 복사하지 않는다. MCP 도 `options.mcpServers` 가 아니라 plugin `.mcp.json` 로 로드되도록 query 전 렌더한다. 단 `options.mcpServers` 변환 함수는 레거시 안전화 전까지 코드에 남겨 추후 제거 대상으로 관리한다. plugin `.mcp.json` 은 `${VAR}` 를 확장한 활성 MCP 설정을 담을 수 있으므로 dist/.bak 에 평문 비밀이 잔존할 수 있다. 원천은 여전히 `sources/mcp/mcp.json` + safeStorage 이며 dist 는 파생 산출물이다. **settings.json 은 plugin 패키지의 예외** — 파일로 설치하지 않고 query flag(`options.settings` 인라인 JSON 문자열)로 주입한다(settingSources 와 직교·최우선 레이어, 상속한 `~/.claude/settings.json` 을 덮어씀, TRD §6.8). provider settings.json 은 `~/.claude/settings.json` 과 동일 취급이라 **env 를 포함한 채** verbatim 주입된다(handoff 0028 — argv 노출은 수용된 트레이드오프, security.md §1.4). `options.env` 에는 시스템(턴) env 만.
 >
 > **격리 해제**: `query()` 호출에서 `settingSources` 옵션을 **생략**해 SDK 기본값(user+project+local 전부)으로 사용자 전역 `~/.claude` skill·설정을 상속한다. 그로 끌려오는 사용자 allow 규칙은 `disallowedTools` 옵션으로 확정 차단한다(SDK 권한 평가: hooks→deny/disallowed→ask→allow→canUseTool — disallowed 가 allow·canUseTool 보다 상위). **`disallowedTools` 는 D1 사용자 결정 전이라 코드 주입 보류** — 목표 계약이고 현재 코드는 이 옵션을 넘기지 않는다(§5.2 구현 상태·adapters.md §1.3). **이는 handoff 0014/0015 가 채택한 `settingSources: []` 격리모드 결정을 폐기(supersede)한다** — 0014/0015 문서는 historical 기록으로 보존하고 supersession 만 본 절·TRD §6.8·PHASES 에 기재.
 >
-> **구현 상태 (0058 구현됨)**: 코드가 Claude plugin 레이아웃으로 정렬됐다. `features/extensions/deployer.ts` 는 `plugins/orca` 패키지를 렌더하고, `claude-adapt.ts` 는 `options.plugins` 와 `orca:<skill>` 필터를 주입한다. `options.mcpServers` 경로는 레거시로 남아 있으나 기본 query 경로에서는 호출하지 않는다.
+> **구현 상태 (0058 구현됨)**: 코드가 Claude plugin 레이아웃으로 정렬됐다. `features/extensions/deployer.ts` 는 `plugins/orcinus-orca` 패키지를 렌더하고, `claude-adapt.ts` 는 `options.plugins` 와 `orca:<skill>` 필터를 주입한다. `options.mcpServers` 경로는 레거시로 남아 있으나 기본 query 경로에서는 호출하지 않는다.
 
 ### 5.2 ExtensionDeployer
 
@@ -147,7 +147,7 @@ function deploy(engine: EngineId, opts: DeployOptions): DeployResult {
 
 > **구현 상태 (0024 구현됨)**: [`features/extensions/deployer.ts`](../../../app/src/main/features/extensions/deployer.ts) 는 신 레이아웃으로 정렬됐다 — skill→`.claude/skills`, mcp→`.mcp.json` 배포, manifest·agents·commands·hooks·settings dist 복사 제거. `deployer.test.ts` 가 같은 레이아웃을 검증한다. (⚠️ 이전 판이 인용하던 `conformance.ts` 는 **코드에 존재하지 않는다** — `StandardConformance` 는 아직 설계 단계이고 구현체가 없다. 아래 §StandardConformance 를 구현 완료로 읽지 말 것.) `disallowedTools` 는 D1 사용자 확정 전이라 코드 주입 보류. 최초 부팅 스캐폴드 [`features/extensions/scaffold.ts`](../../../app/src/main/features/extensions/scaffold.ts) 는 provider settings 만 시드한다 — skill/agents/commands/hooks 의 번들 first-party 콘텐츠는 없다(전부 사용자 제공). **claude-only — `engine` 파라미터·settings 로더 주입(`ProviderSettingsLoader`)이 OpenCode seam.**
 
-> **현행 선례 재사용**: "render sources → engine config" 는 이미 MCP 축에서 구현돼 있다 — `mcp/convert.ts` 의 순수 함수 `toClaudeConfig`(opencode 짝은 미구현), `mcp/resolver.ts` 의 `${VAR}` resolver(safeStorage → process.env 2단계), `mcp/expand.ts` 의 `expandEnv`([security.md §1.4](./security.md), [adapters.md §3.1](./adapters.md)). ExtensionDeployer 의 mcp 축은 이 함수들을 *호출*하면 되고 새로 발명하지 않는다.
+> **현행 선례 재사용**: MCP 소스의 `${VAR}` 확장과 서버별 미해결 제외는 `mcp/convert.ts`의 순수 함수 `toClaudeConfig`가 함께 소유한다. 문자열 치환은 `infra/vars.ts`, 토큰·비밀·허용된 환경변수 해석은 `mcp/resolver.ts`가 맡는다. Bootstrap이 변환 결과를 기존 ExtensionDeployer에 전달한다([security.md §1.4](./security.md)). OpenCode 변환기는 미구현이다.
 
 ### 5.3 StandardConformance
 

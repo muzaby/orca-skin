@@ -98,7 +98,11 @@ async function runTurn(
 ): Promise<NormalizedEvent[]> {
   const forwarded: NormalizedEvent[] = []
   // bootstrap 배선과 동형 — history(critical) → relay 등록순, 도착 물질화 주입.
-  const persistence = new HistoryWriter(db, (arrival) => materializeContinuityArrival(db, arrival))
+  const persistence = new HistoryWriter(
+    db,
+    () => false,
+    (arrival) => materializeContinuityArrival(db, arrival)
+  )
   const bus = new TypedBus<OrcaBusEvents<unknown>>()
   bus.on('turn.event', ({ turn: t, ev }) => persistence.persist(t, ev), { critical: true })
   bus.on('turn.event', ({ ev }) => forwarded.push(ev))
@@ -120,7 +124,8 @@ async function runTurn(
     },
     activeTurns: { increment: vi.fn(), decrement: vi.fn() },
     pendingMessages,
-    backgroundTasks: new BackgroundTaskTracker()
+    backgroundTasks: new BackgroundTaskTracker(),
+    persistResponseBoundaries: () => false
   })
   await coordinator.run(turn, { sessionId: null, text: '', cwd: '/w' } as never, {
     boundProjectId: null

@@ -16,7 +16,9 @@ import type { RouterContext } from '../context'
 import { toProject, toSessionListItem } from '../../infra/ipc/dto'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 
-export function registerProjectHandlers(ctx: RouterContext): void {
+type ProjectHandlerContext = Pick<RouterContext, 'db'>
+
+export function registerProjectHandlers(ctx: ProjectHandlerContext): void {
   handlePlain(CHANNELS.projectList, (): Project[] => ctx.db.listProjects().map(toProject))
 
   handle(CHANNELS.projectCreate, CreateProjectSchema, 'reject', (req): Project => {

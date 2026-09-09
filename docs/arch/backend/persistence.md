@@ -11,11 +11,11 @@
 
 | 항목 | 위치 | 상태 |
 |---|---|---|
-| **electron-store** (`infra/settings-store.ts`) | `~/Library/Application Support/orca-settings/...` (OS별 userData) | ✅ 완료 (키 카탈로그 §1.2) |
-| **로컬 SQLite DB** (`db/`) | `<userData>/orca.db` (better-sqlite3, WAL + foreign_keys) | ✅ Phase 3 완료 |
+| **electron-store** (`infra/settings-store.ts`) | `~/Library/Application Support/orcinus-orca-settings/...` (OS별 userData) | ✅ 완료 (키 카탈로그 §1.2) |
+| **로컬 SQLite DB** (`db/`) | `<userData>/orcinus-orca.db` (better-sqlite3, WAL + foreign_keys) | ✅ Phase 3 완료 |
 | **FTS5 전문 검색** | `messages_fts` 가상 테이블 (3 트리거로 `messages` 와 동기 유지) | ✅ Phase 3++ 완료 |
-| **MCP 인증 비밀** | `orca-secrets` (electron-store) + safeStorage 암호화 | ✅ Phase 3++ 완료 |
-| **첨부 / 산출물 디렉토리** | — | ❌ 미구현 (Future) |
+| **MCP 인증 비밀** | `orcinus-orca-secrets` (electron-store) + safeStorage 암호화 | ✅ Phase 3++ 완료 |
+| **게시 원본 파일** | `~/.config/orcinus-orca/artifacts` (개발 profile은 `.dev` 하위) | 명시적 publisher의 HTML/Markdown 보관 |
 
 ### 1.2 electron-store 키 카탈로그
 
@@ -50,7 +50,9 @@
 
 > **선택 이유**: better-sqlite3 — 동기 API (Main thread 직접 실행, worker thread 불필요), Electron 호환, 마이그레이션 자체 관리 용이 (Drizzle/Prisma ORM 의존 없이 SQL 파일 직접 관리).
 
-#### 현재 스키마 (16 마이그레이션)
+사용량 SQL은 `infra/db/usage-queries.ts`의 `UsageQueries`가 소유하며 `DbQueries.usage`로 접근한다. 같은 SQLite 연결과 transaction을 공유한다. `UsageTracker`는 이 사용량 객체만 받아 telemetry 기록·집계·발신을 맡는다. 세션 복원 조립은 `features/history/reader.ts`, row의 IPC 변환은 `infra/ipc/dto.ts`에 있다. `app/handlers/session.ts`는 입력 검증·조회 호출·현재 활동 상태 결합을 맡는다.
+
+#### 현재 스키마
 
 | 마이그레이션 | 내용 |
 |---|---|
@@ -70,7 +72,7 @@
 | `0014_provider_usage_report_cache.sql` | `provider_usage_report_cache` 테이블 — provider 당 1행의 원격 사용량 스냅샷. `report_json` 은 `{ baselineUsable, raw }` 봉투이고 스칼라 3종(`quota_{limit,used,remaining}_usd`)이 한도·기준선 경로를 싸게 만든다. 원격 fetcher 를 주입한 배포에서만 채워진다 (0111, 0186). |
 | `0015_pinned.sql` | 고정(pin) 섹션 지원 컬럼 (0129). |
 | `0016_turn_model_context_window.sql` | `turn_model_usage.context_window`(nullable) — SDK 실측 컨텍스트 윈도 영속. 재로드 도넛 분모가 라이브와 같은 실측값을 쓰게 해 렌더러의 모델명 추측 목록을 걷어냈다 (0149). |
-| `0017_session_extra_dirs.sql` | `sessions.extra_dirs`(nullable JSON 배열) — 세션 출생 시 고정한 추가 참조 경로. |
+| `0017_session_extra_dirs.sql` | `sessions.extra_dirs`(nullable JSON 배열) — 세션에 허용한 추가 참조 경로. Work는 유휴 상태의 명시 폴더 추가 명령으로 확장할 수 있다. |
 | `0018_managed_worktrees.sql` | `managed_worktrees` — Orca가 생성한 Git worktree의 저장소·경로·branch·base OID와 nullable 세션 연결. |
 
 **마이그레이션 규칙**:
@@ -80,9 +82,15 @@
 
 #### 저장 대상 (현재 구현)
 
+`sessions.agent_kind`는 `code|work` 출생값이며 현재 컬럼 계약은 `0023_session_agent_kind_code.sql`이 확정한다. 종류를 생략한 신규 insert의 기본값은 Code다. 재개는 DB 값을 읽고 fork/handoff는 원본 종류를 계승한다. 준비 중에는 live lease가 같은 역할을 맡으며, 종류 충돌은 큐 적재 전에 거부한다. 해제된 lease를 보존하는 별도 초안 레지스트리는 없다.
+
+종류의 현재 저장값은 code/work다. 구형 coding 값의 이행은 후속 컬럼 migration에서 수행하며 sessions의 PK와 참조 테이블을 유지한다. 현재 DB 읽기는 엄격한 종류 검증을 거친다. Renderer의 구형 `LOAD_SESSION` 입력만 명명된 decoder에서 coding 또는 필드 누락을 code로 변환하며, 그 외 값은 오류로 처리한다.
+
+Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저장한다. `begin`과 `end`는 수신 구간 ID를 공유하고 `end.outcome`은 `ended|aborted|failed|unknown`이다. `ended`는 수신 구간 종료를 뜻하며 작업 성공 판정이 아니다. writer는 begin이 속한 메시지 주소에 end를 추가하므로 telemetry 이후에도 marker만 있는 새 메시지를 만들지 않는다. 이 part는 FTS 본문·모델 컨텍스트·복사 텍스트에 합류하지 않는다. crash로 end가 없으면 불완전 구간으로 복원한다.
+
 | 테이블 | 저장 내용 |
 |---|---|
-| `sessions` | sessionId, title, title_source, backend, provider_key, cwd, projectId, createdAt, updatedAt, lastMessagePreview |
+| `sessions` | sessionId, title, title_source, backend, agent_kind, provider_key, cwd, projectId, createdAt, updatedAt, lastMessagePreview |
 | `messages` | sessionId FK, role, content(text — FTS5 text-cache), complete, createdAt, metadata(JSON) |
 | `message_parts` | messageId FK, 순서 보존 parts (text/tool/reasoning …, provider-runtime.md §7) |
 | `projects` | id, name, instructions, createdAt, updatedAt |
@@ -102,15 +110,18 @@
 - **`messages.content`(FTS5 text-cache) 는 메시지 마감 시 1회 기록** — 스트리밍 중 블록마다 누적 전체를 재기록하면 `messages_au` 트리거가 매번 전체 재색인(응답 길이에 초선형). 마감 경계 = telemetry persist · `commitUserMessage` · chatCancel(`finalizeTurn`). 트랜스크립트 복원은 `message_parts` 만 쓰므로(loadParts) 화면 영향 없음.
 - **finalize 이전 비정상 종료(크래시·adapter error·stall timeout)의 FTS 공백**은 `rebuildIncompleteMessageContent`(features/chat/recovery)가 복구 — 부팅(chat-recovery 스텝) + 해당 세션 다음 `chat:send` 초입, 둘 다 `recoverDanglingToolCalls` **이전** 실행(complete=0 이 대상 식별자).
 
-#### 1.4 계층 2 — 파일 시스템 (Future)
+#### 1.4 계층 2 — 게시 원본 파일
 
-| 저장 대상 | 경로 패턴 |
-|---|---|
-| 큰 산출물 (첨부 파일, 모델 생성 md / 코드 / 이미지) | `<userData>/artifacts/<sessionId>/<uuid>.<ext>` |
+`features/artifacts`가 게시 파일 검증·보관·상태·휴지통을 소유한다. 본문은 `~/.config/orcinus-orca/artifacts/<artifactFileId>/<filename>`, 개발 profile은 같은 루트의 `.dev/<artifactFileId>/<filename>`에 둔다. DB의 `artifact_files`는 profile 상대 경로·초기 hash/크기·휴지통 이동 이력을 저장하며 세션 FK를 갖지 않는다. `session_artifacts`는 세션별 게시 참조이고 같은 SQLite 연결의 `DbQueries.artifacts`가 transaction을 소유한다.
 
-- `app.getPath('userData')` 기준
-- DB 에는 경로·해시·크기만 저장 (Blob 직접 저장 금지)
-- 메시지/세션 삭제 시 DB CASCADE + 후처리로 파일 삭제 (GC 전략 — 신규 OQ)
+- 도구는 완성된 로컬 HTML/HTM/MD 파일을 읽어 게시 원본으로 복사한다. 입력 workspace 파일을 이동하거나 삭제하지 않는다. 일반 readRoots의 앱 설정/런타임 경로는 게시 입력 권한에 포함하지 않는다.
+- 게시 성공은 파일과 세션 publication 확정이다. 실제 publisher tool_result 영수증과 원래 tool_call을 검증한 뒤 그 메시지에 artifact part를 연결한다. 중간 종료로 연결이 없더라도 우측 목록에 게시를 보존한다.
+- 파일은 외부에서 수정·삭제될 수 있다. missing/unavailable은 실제 상태 조회 결과이며 영속 삭제 플래그가 아니다. 게시 당시 hash를 불변 백업 보장이나 현재 소실 판정에 사용하지 않는다.
+- fork는 기존 메시지 복사 transaction 안에서 자식 publication과 part ID를 복제하고 같은 artifactFileId를 참조한다. 대화 삭제는 해당 참조만 제거하며 마지막 참조가 없어도 파일을 자동 삭제하지 않는다.
+- 사용자 삭제는 OS 휴지통 이동이다. 게시 기록은 보존하며 `lastTrashedAt`는 과거 행위일 뿐 현재 파일 없음의 원인을 단정하지 않는다. 이동 후 DB 기록 실패는 별도로 보고한다.
+- 새 요청이 만든 임시/실패 파일만 정리한다. 전역 orphan scan·자동 GC는 없다. 종료는 신규 commit을 차단하며 강제 프로세스 종료 때 미등록 파일이 남을 수 있다.
+
+공개 계약은 [IPC_CONTRACT.md](../../IPC_CONTRACT.md#26-a-산출물-게시-파일), 설계 근거와 검증 기준은 [게시 도구 계획](../../handoff/0223-artifact-publisher/plan.md)에 있다.
 
 #### 어댑터 외부 저장과의 관계
 
@@ -119,7 +130,7 @@
 
 #### 백업 전략
 
-- DB 파일 1개 + `<userData>/artifacts/` 디렉토리 = 단일 export/import 단위
+- 앱 데이터 전체 백업은 해당 profile의 DB와 게시 원본 폴더를 함께 보존해야 한다. 현재 앱 내 전체 백업/복원 기능은 없다.
 - export 형식: TBD (zip / tar.gz / DB dump)
 
 ---

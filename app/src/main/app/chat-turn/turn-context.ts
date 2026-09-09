@@ -1,3 +1,5 @@
+import { parseStoredExtraDirectories as parseExtraDirs } from '../../../shared/extra-directories'
+export { parseExtraDirs }
 // TurnContext 조립 — **순수 함수만** 산다 (0179).
 //
 // 턴 상태를 만드는 규칙(무엇이 턴마다 초기화되고, 무엇이 체인을 따라 계승되며, continuity 가
@@ -5,12 +7,13 @@
 // "fork 턴은 initialTitle 을 갖는가" 같은 질문에 코드로 답할 수 없었다.
 
 import type { AttachmentView } from '../../../shared/ipc'
+import type { AgentKind } from '../../../shared/agent-kind'
 import { continuityTitle, type ContinuityLang } from '../../../shared/continuity-lang'
 import type { TurnContext } from '../../contracts/turn'
 import type { RuntimeTitleAdapter } from '../../contracts/ports'
 import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
 import type { SessionControl } from '../../features/sessions/session-chain-lease'
-import { isAbsolutePath, isFilesystemRoot } from '../../../shared/absolute-path'
+import { isFilesystemRoot } from '../../../shared/absolute-path'
 
 // 턴-로컬 상태의 단일 초기값 — 신규 턴과 자동 연속 턴이 공유한다. TurnContext 에 턴-로컬
 // 필드를 더하면 여기에만 더한다(턴 간 계승/차이가 있는 것은 각 호출부가 명시).
@@ -73,20 +76,7 @@ export function resolveTurnCwd(
 // 그 값은 resume/continuity 턴에서 SDK 옵션 `additionalDirectories` 까지 흘러가는데, workspace
 // 가드는 걸러도 SDK 자신의 스코프는 걸러지지 않아 D-006 이 막으려는 "두 스코프가 갈라짐" 이
 // 정확히 일어난다. 같은 규칙을 같은 SSOT(`isAbsolutePath`)로 세 번째 지점에 세운다.
-export function parseExtraDirs(raw: string | null | undefined): string[] {
-  if (!raw) return []
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter(
-      (v): v is string => typeof v === 'string' && isAbsolutePath(v) && !isFilesystemRoot(v)
-    )
-  } catch {
-    return []
-  }
-}
-
-// 추가 참조 경로 해석 — cwd 와 같은 규칙이다. resume 은 세션행에 박힌 값을, 새 채팅은 요청값을.
+// 추가 허용 폴더 해석 — resume은 명시 addDirectory로 갱신한 DB를, 신규는 요청값을 읽는다.
 export function resolveTurnExtraDirs(
   req: { sessionId: string | null; extraDirs?: string[] | undefined },
   sessionMeta: { extra_dirs?: string | null } | undefined
@@ -103,6 +93,7 @@ export interface ContinuitySourceMeta {
 }
 
 interface BuildTurnContextInput<W> {
+  agentKind: AgentKind
   controller: AbortController
   owner: W
   control: SessionControl
@@ -159,6 +150,7 @@ export function buildTurnContext<W>(input: BuildTurnContextInput<W>): TurnContex
 
   return {
     ...freshTurnLocalState<W>(input.control),
+    agentKind: input.agentKind,
     controller: input.controller,
     owner: input.owner,
     titleAdapter: input.titleAdapter,
@@ -223,6 +215,7 @@ export function makeContinuationTurn<W>(prev: TurnContext<W>): TurnContext<W> {
     }),
     controller: new AbortController(),
     owner: prev.owner,
+    agentKind: prev.agentKind,
     titleAdapter: prev.titleAdapter,
     ...(prev.titleSettings ? { titleSettings: prev.titleSettings } : {}),
     ...(prev.titleEnv ? { titleEnv: prev.titleEnv } : {}),

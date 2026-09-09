@@ -288,7 +288,7 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
 describe('chatReducer — 정지 해제된 타일의 활성화 (0213)', () => {
   it('TOGGLE 이 `작업` 타일을 연다', () => {
     const s = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'task' })
-    expect(colTiles(s)).toEqual([['task']])
+    expect(colTiles(s)).toEqual([['plan']])
   })
 
   it('TOGGLE 은 다른 타일도 그대로 연다 — 형제 짝', () => {
@@ -302,13 +302,13 @@ describe('chatReducer — 정지 해제된 타일의 활성화 (0213)', () => {
       id: 'task',
       active: true
     })
-    expect(colTiles(s)).toEqual([['task']])
+    expect(colTiles(s)).toEqual([['plan']])
   })
 
   it('이미 열려 있는 타일 옆에 붙는다 — 열을 갈아엎지 않는다', () => {
-    const plan = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'plan' })
+    const plan = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'subagent' })
     const after = chatReducer(plan, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'task' })
-    expect(colTiles(after)).toEqual([['plan', 'task']])
+    expect(colTiles(after)).toEqual([['subagent', 'plan']])
   })
 
   // 음성 짝 — 게이트가 상수 통과로 무너져도 위 넷은 통과한다. 정지 배열을 seam 없이 읽는

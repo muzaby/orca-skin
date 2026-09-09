@@ -1,0 +1,135 @@
+{
+  "command": "smoke",
+  "version": "0.0.75",
+  "status": {
+    "userProvisioned": true,
+    "credentialPresent": true,
+    "wfp": "cannot-read"
+  },
+  "enforcement": "unverified",
+  "smoke": {
+    "success": false,
+    "checks": [
+      {
+        "id": "transport.srt-frame",
+        "passed": false
+      },
+      {
+        "id": "filesystem.allowed",
+        "passed": false
+      },
+      {
+        "id": "filesystem.denied-read",
+        "passed": false
+      },
+      {
+        "id": "filesystem.denied-write",
+        "passed": false
+      },
+      {
+        "id": "network.allowed-proxy",
+        "passed": false
+      },
+      {
+        "id": "network.denied-proxy",
+        "passed": false
+      },
+      {
+        "id": "network.direct-ipv4",
+        "passed": false
+      },
+      {
+        "id": "network.direct-ipv6",
+        "passed": false
+      },
+      {
+        "id": "process.nested-exit",
+        "passed": false
+      },
+      {
+        "id": "cleanup.acl-restored",
+        "passed": true
+      },
+      {
+        "id": "cleanup.reset",
+        "passed": true
+      },
+      {
+        "id": "cleanup.listeners",
+        "passed": true
+      },
+      {
+        "id": "cleanup.runner",
+        "passed": true
+      }
+    ],
+    "failures": [
+      {
+        "stage": "echo",
+        "code": "PROBE_NO_RESULT"
+      }
+    ],
+    "executionPath": "bootstrap",
+    "diagnostics": [
+      {
+        "mode": "echo",
+        "exitCode": 125,
+        "stderrBytes": 32,
+        "bootstrapErrors": [
+          {
+            "code": "READ_FAILED",
+            "win32Error": 109
+          }
+        ],
+        "srtErrorCodes": []
+      }
+    ],
+    "cleanup": {
+      "resetCompleted": true,
+      "listenersClosed": true,
+      "runnerClosed": true,
+      "childrenObservationComplete": true,
+      "residualChildren": false,
+      "fixtureRemoved": true
+    },
+    "observations": {
+      "echo": null,
+      "filesystem": null,
+      "hostFiles": null,
+      "network": null,
+      "listeners": {
+        "ipv4": true,
+        "ipv6": true,
+        "allowedHits": 0,
+        "deniedHits": 0
+      },
+      "child": null,
+      "aclBefore": [
+        "b400a87c257f92066c08ebb1c5546f30e48047a68c89c49ef61ee22b1c7bb0af",
+        "b400a87c257f92066c08ebb1c5546f30e48047a68c89c49ef61ee22b1c7bb0af",
+        "b400a87c257f92066c08ebb1c5546f30e48047a68c89c49ef61ee22b1c7bb0af",
+        "3a14964110ae76aa4a8823fad1ba4ff0f132cdf974a12eeeec04facf85e2d42b",
+        "b400a87c257f92066c08ebb1c5546f30e48047a68c89c49ef61ee22b1c7bb0af",
+        "3a14964110ae76aa4a8823fad1ba4ff0f132cdf974a12eeeec04facf85e2d42b",
+        "3a14964110ae76aa4a8823fad1ba4ff0f132cdf974a12eeeec04facf85e2d42b",
+        "3a14964110ae76aa4a8823fad1ba4ff0f132cdf974a12eeeec04facf85e2d42b"
+      ],
+      "aclAfter": [
+        "b400a87c257f92066c08ebb1c5546f30e48047a68c89c49ef61ee22b1c7bb0af",
+        "b400a87c257f92066c08ebb1c5546f30e48047a68c89c49ef61ee22b1c7bb0af",
+        "b400a87c257f92066c08ebb1c5546f30e48047a68c89c49ef61ee22b1c7bb0af",
+        "3a14964110ae76aa4a8823fad1ba4ff0f132cdf974a12eeeec04facf85e2d42b",
+        "b400a87c257f92066c08ebb1c5546f30e48047a68c89c49ef61ee22b1c7bb0af",
+        "3a14964110ae76aa4a8823fad1ba4ff0f132cdf974a12eeeec04facf85e2d42b",
+        "3a14964110ae76aa4a8823fad1ba4ff0f132cdf974a12eeeec04facf85e2d42b",
+        "3a14964110ae76aa4a8823fad1ba4ff0f132cdf974a12eeeec04facf85e2d42b"
+      ]
+    },
+    "limitations": [
+      "P0_ONLY_APP_NOT_CONNECTED",
+      "FIXTURE_SCOPE_ONLY",
+      "SHARED_SANDBOX_SID",
+      "DNS_NOT_PROVEN_BLOCKED"
+    ]
+  }
+}

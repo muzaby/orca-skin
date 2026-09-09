@@ -6,12 +6,13 @@ import { Popover } from '../../../shared/ui/Popover'
 import { CollapsibleSection } from '../../../shared/ui/SidebarSection'
 import { useI18n } from '../../../shared/i18n'
 import type { Project } from '../../../../../shared/ipc'
-import { SessionRow } from './SessionRow'
+import { SessionRow, type AgentAppearanceResolver } from './SessionRow'
 import { useNavSections } from '../hooks/useNavSections'
 import type { ProjectChildSessions } from '../lib/navSections'
 import { sessionsActions } from '../store/sessionsStore'
 
 export interface PinnedProjectsSectionViewProps {
+  agentAppearance: AgentAppearanceResolver
   // app 셸이 projectsStore 에서 걸러 주입(cross-feature 는 props-only).
   pinnedProjects: Project[]
   // 0203 ΔV1 EP-9 — 프로젝트별 하위 대화. 키가 없으면 미조회(로딩)다.
@@ -69,6 +70,7 @@ interface PinnedProjectRowProps extends Omit<
 // 고정 프로젝트 행 — chevron 으로 하위 대화 접기/펼치기, 이름 클릭으로 프로젝트 열기,
 // hover kebab 으로 고정 해제. 하위 목록은 펼쳤을 때만 조회한다.
 function PinnedProjectRow({
+  agentAppearance,
   project,
   sessions,
   onExpandProject,
@@ -143,6 +145,7 @@ function PinnedProjectRow({
       {expanded && (
         <div className="pl-4">
           <PinnedProjectChildren
+            agentAppearance={agentAppearance}
             sessions={sessions}
             currentSessionId={currentSessionId}
             onSelectSession={onSelectSession}
@@ -157,6 +160,7 @@ function PinnedProjectRow({
 }
 
 export interface PinnedProjectChildrenProps {
+  agentAppearance: AgentAppearanceResolver
   // `undefined` = 미조회 → 로딩. `[]` = 조회했고 보여 줄 대화가 없음.
   // ΔV2 EP-11 — 슬롯 브랜드.
   sessions: ProjectChildSessions | undefined
@@ -173,6 +177,7 @@ export interface PinnedProjectChildrenProps {
 // export 하는 이유(0203 D7): 이 목록은 행의 `expanded` 상태 뒤에 있어 구획 단위 SSR 렌더로는
 // **아무것도 그려지지 않는다** — 그 출력에 대한 음성 단언은 무엇을 넣어도 참이 된다.
 export function PinnedProjectChildren({
+  agentAppearance,
   sessions,
   currentSessionId,
   onSelectSession,
@@ -194,12 +199,12 @@ export function PinnedProjectChildren({
         <SessionRow
           key={s.id}
           session={s}
+          appearance={agentAppearance(s.agentKind)}
           isActive={s.id === currentSessionId}
           onSelect={onSelectSession}
           onTogglePin={onTogglePinSession}
           onDelete={onDeleteSession}
           onRename={onRenameSession}
-          leadingIcon="chat"
         />
       ))}
     </>

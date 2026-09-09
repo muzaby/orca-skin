@@ -11,10 +11,12 @@
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { CHANNELS } from '../shared/ipc'
+import type { OrcaApi } from './index'
 
 const harness = vi.hoisted(() => ({
   invoke: vi.fn(async () => undefined),
-  exposed: new Map<string, unknown>()
+  exposed: new Map<string, unknown>(),
+  listeners: new Map<string, Set<(event: unknown, payload: unknown) => void>>()
 }))
 
 vi.mock('electron', () => ({
@@ -23,8 +25,14 @@ vi.mock('electron', () => ({
   },
   ipcRenderer: {
     invoke: harness.invoke,
-    on: vi.fn(),
-    off: vi.fn(),
+    on: (channel: string, listener: (event: unknown, payload: unknown) => void): void => {
+      const listeners = harness.listeners.get(channel) ?? new Set()
+      listeners.add(listener)
+      harness.listeners.set(channel, listeners)
+    },
+    off: (channel: string, listener: (event: unknown, payload: unknown) => void): void => {
+      harness.listeners.get(channel)?.delete(listener)
+    },
     send: vi.fn()
   },
   webUtils: { getPathForFile: vi.fn(() => '/f') }
@@ -34,6 +42,27 @@ vi.mock('electron', () => ({
 Object.defineProperty(process, 'contextIsolated', { value: true, configurable: true })
 
 await import('./index')
+
+it('artifact actions preserve session and publication IDs on dedicated channels', async () => {
+  const api = harness.exposed.get('orca') as OrcaApi
+  harness.invoke.mockClear()
+  const target = { sessionId: 'original-session', publicationId: 'older-publication' }
+  const batch = { sessionId: 'original-session', publicationIds: ['old', 'new'] }
+  await api.artifacts.list({ sessionId: target.sessionId })
+  await api.artifacts.status(batch)
+  await api.artifacts.save(batch)
+  await api.artifacts.reveal(target)
+  await api.artifacts.trash(target)
+  await api.artifacts.openFolder()
+  expect(harness.invoke.mock.calls).toEqual([
+    [CHANNELS.artifactList, { sessionId: target.sessionId }],
+    [CHANNELS.artifactStatus, batch],
+    [CHANNELS.artifactSave, batch],
+    [CHANNELS.artifactReveal, target],
+    [CHANNELS.artifactTrash, target],
+    [CHANNELS.artifactOpenFolder]
+  ])
+})
 
 type ChatApi = {
   backgroundSubagent: (sessionId: string, toolUseId: string) => Promise<void>
@@ -74,4 +103,95 @@ describe('preload orca.chat — 서브에이전트 제어 wire 홉 (0212 §10 EP
   it('두 채널은 서로 다른 채널 상수를 쓴다 — 맞바꿔도 위 두 케이스는 침묵한다', () => {
     expect(CHANNELS.chatBackgroundSubagent).not.toBe(CHANNELS.chatStopSubagent)
   })
+})
+
+interface EventEndpoint {
+  name: string
+  channel: string
+  subscribe: (api: OrcaApi, handler: (payload: unknown) => void) => () => void
+}
+
+// 공개 API에서 구독한다. 내부 helper만 시험하면 endpoint의 잘못된 채널 연결을 놓친다.
+const eventEndpoints: EventEndpoint[] = [
+  {
+    name: 'chat.onEvent',
+    channel: CHANNELS.chatEvent,
+    subscribe: (api, handler) => api.chat.onEvent(handler)
+  },
+  {
+    name: 'install.onStatus',
+    channel: CHANNELS.installStatus,
+    subscribe: (api, handler) => api.install.onStatus(handler)
+  },
+  {
+    name: 'session.onTitle',
+    channel: CHANNELS.sessionTitleEvent,
+    subscribe: (api, handler) => api.session.onTitle(handler)
+  },
+  {
+    name: 'cost.onUsage',
+    channel: CHANNELS.costUsageEvent,
+    subscribe: (api, handler) => api.cost.onUsage(handler)
+  },
+  {
+    name: 'provider.onState',
+    channel: CHANNELS.providerState,
+    subscribe: (api, handler) => api.provider.onState(handler)
+  },
+  {
+    name: 'concurrency.onEvent',
+    channel: CHANNELS.concurrencyEvent,
+    subscribe: (api, handler) => api.concurrency.onEvent(handler)
+  },
+  {
+    name: 'update.onState',
+    channel: CHANNELS.updateStateEvent,
+    subscribe: (api, handler) => api.update.onState(handler)
+  },
+  {
+    name: 'update.onProgress',
+    channel: CHANNELS.updateProgressEvent,
+    subscribe: (api, handler) => api.update.onProgress(handler)
+  }
+]
+
+describe('preload public event subscriptions', () => {
+  beforeEach(() => harness.listeners.clear())
+
+  it.each(eventEndpoints)(
+    '$name keeps its channel, strips the Electron event and releases only its own listener',
+    (endpoint) => {
+      const api = harness.exposed.get('orca') as OrcaApi
+      const first = vi.fn()
+      const second = vi.fn()
+      const stopFirst = endpoint.subscribe(api, first)
+      const stopSecond = endpoint.subscribe(api, second)
+      const electronEvent = { sender: { privileged: true } }
+      const firstPayload = { source: endpoint.name, revision: 1 }
+      const emit = (channel: string, payload: unknown): void => {
+        for (const listener of harness.listeners.get(channel) ?? [])
+          listener(electronEvent, payload)
+      }
+
+      for (const other of eventEndpoints) {
+        if (other.channel !== endpoint.channel) emit(other.channel, { unexpected: true })
+      }
+      expect(first).not.toHaveBeenCalled()
+      expect(second).not.toHaveBeenCalled()
+      emit(endpoint.channel, firstPayload)
+      expect(first).toHaveBeenCalledExactlyOnceWith(firstPayload)
+      expect(second).toHaveBeenCalledExactlyOnceWith(firstPayload)
+
+      stopFirst()
+      stopFirst()
+      const secondPayload = { source: endpoint.name, revision: 2 }
+      emit(endpoint.channel, secondPayload)
+      expect(first).toHaveBeenCalledOnce()
+      expect(second.mock.calls).toEqual([[firstPayload], [secondPayload]])
+      stopSecond()
+      emit(endpoint.channel, { revision: 3 })
+      expect(second).toHaveBeenCalledTimes(2)
+      expect(harness.listeners.get(endpoint.channel)?.size).toBe(0)
+    }
+  )
 })

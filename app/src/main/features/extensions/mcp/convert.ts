@@ -1,24 +1,38 @@
-// 정규 소스(OrcaMcpConfig) → 백엔드별 타깃 설정 변환기.
-//
-// Orca 정규형은 claude 스펙이므로(ClaudeMcpConfig = OrcaMcpConfig) Orca→Claude 변환은
-// **구조적으로 항등**이고 ${VAR} 확장만 수행한다. 그래도 "변환 불필요 특례"로 두지 않고 명시적
-// 변환기(toClaudeConfig)로 존재시킨다 — 어댑터 경계에서 값이 ClaudeMcpConfig 라는 이름으로
-// 다뤄지는 지점이자, 향후 소스 스키마가 Claude 형식에서 갈라질 때 차이를 흡수할 자리.
+// MCP 소스를 Claude 설정으로 준비한다. 구조는 동형이며 env/header 변수만 확장한다.
+// 미해결 변수가 있으면 해당 서버 전체를 제외한다. 문자열 치환은 infra가 소유한다.
+import { expandVars, type Resolver } from '../../../infra/vars'
+import type { OrcaMcpConfig, ClaudeMcpConfig, ClaudeMcp } from '../../../adapters/mcp-config'
 
-import { expandEnv } from './expand'
-import type { Resolver } from '../../../infra/vars'
-import type { OrcaMcpConfig, ClaudeMcpConfig } from '../../../adapters/mcp-config'
-
-interface ConvertResult<C> {
-  config: C
+interface ConvertResult {
+  config: ClaudeMcpConfig
   dropped: { name: string; reason: string }[]
 }
 
-// OrcaMcpConfig → ClaudeMcpConfig. 동형이므로 ${VAR} 확장 결과가 곧 Claude 타깃.
-export function toClaudeConfig(
-  servers: OrcaMcpConfig,
-  resolve: Resolver
-): ConvertResult<ClaudeMcpConfig> {
-  const { servers: expanded, dropped } = expandEnv(servers, resolve)
-  return { config: expanded, dropped }
+function expandRecord(
+  record: Record<string, string> | undefined,
+  resolve: Resolver,
+  missing: Set<string>
+): Record<string, string> | undefined {
+  if (!record) return record
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(record)) out[key] = expandVars(value, resolve, missing)
+  return out
+}
+
+export function toClaudeConfig(servers: OrcaMcpConfig, resolve: Resolver): ConvertResult {
+  const config: ClaudeMcpConfig = {}
+  const dropped: ConvertResult['dropped'] = []
+  for (const [name, server] of Object.entries(servers)) {
+    const missing = new Set<string>()
+    const expanded: ClaudeMcp =
+      'url' in server
+        ? { ...server, headers: expandRecord(server.headers, resolve, missing) }
+        : { ...server, env: expandRecord(server.env, resolve, missing) }
+    if (missing.size > 0) {
+      dropped.push({ name, reason: `미해결 환경변수: ${[...missing].join(', ')}` })
+      continue
+    }
+    config[name] = expanded
+  }
+  return { config, dropped }
 }

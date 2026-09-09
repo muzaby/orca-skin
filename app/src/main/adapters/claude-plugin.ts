@@ -3,8 +3,9 @@
 // 플러그인 이름(= 네임스페이스 prefix)의 SSOT 는 어댑터 포트에 둔다 — 렌더와 skills 필터가 공유한다.
 
 import type { SkillInfo } from '../../shared/ipc'
+import { PRODUCT_SLUG } from '../../shared/product'
 
-export const ORCA_PLUGIN_NAME = 'orca'
+export const ORCA_PLUGIN_NAME = PRODUCT_SLUG
 // 사용자 ~/.claude/skills 래퍼 플러그인(dist/claude/plugins/claude, handoff 0117). settingSources 에서
 // user 소스를 배제하면서 어댑터/네이티브 스킬을 plugin 경로로 보전한다 — plugin 로드 스킬은
 // `플러그인이름:스킬이름` 으로 발견되므로 필터도 같은 prefix 를 써야 한다.

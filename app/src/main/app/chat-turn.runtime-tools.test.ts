@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../shared/ipc'
+import { PermissionModeController } from '../features/approvals/permission-mode-controller'
 
 const harness = vi.hoisted(() => ({
   handlers: new Map<string, (event: unknown, raw: unknown) => Promise<unknown>>(),
@@ -95,17 +96,28 @@ function installHarness(options: {
   const built: unknown[] = []
   const turnRuntime = runtime(options.runtimeRevision, options.selectedModel)
   const extensions = {
-    build: vi.fn(() => {
-      const revision = options.extensionRevisions.shift()
-      const snapshot = {
-        mcp: {},
-        skills: [],
-        hooks: { normalized: {} },
-        runtimeTools: { revision, servers: new Map() }
+    build: vi.fn(
+      (
+        _sessionId: string | null,
+        _projectId: string | null,
+        profile?: { agentInstructions?: string; agentProfileKey?: string }
+      ) => {
+        const revision = options.extensionRevisions.shift()
+        const snapshot = {
+          ...(profile?.agentProfileKey
+            ? {
+                agentProfileKey: profile.agentProfileKey,
+                systemPromptAppend: profile.agentInstructions
+              }
+            : {}),
+          skills: [],
+          hooks: { normalized: {} },
+          runtimeTools: { revision, servers: new Map() }
+        }
+        built.push(snapshot)
+        return snapshot
       }
-      built.push(snapshot)
-      return snapshot
-    })
+    )
   }
   const batch = { uuid: 'batch-1', ids: ['batch-1'], text: 'queued text', createdAt: 1 }
   const pendingMessages = {
@@ -150,6 +162,7 @@ function installHarness(options: {
     activeTurns: { increment: vi.fn(), decrement: vi.fn() },
     promote: vi.fn(),
     getBySession: vi.fn(),
+    getChainByKey: vi.fn(),
     acquireChain: vi.fn(({ logicalKey, owner, requestedProviderKey }) => ({
       acquired: true,
       lease: {
@@ -205,7 +218,7 @@ function installHarness(options: {
     bus: { emit: vi.fn() },
     approvals: { isSessionAllowed: vi.fn(), register: vi.fn() },
     persistence: { flushAskAnswers: vi.fn() },
-    permissionModes: { setMode: vi.fn() },
+    permissionModes: new PermissionModeController(),
     pendingMessages,
     backgroundTasks: {
       hasAny: vi.fn(() => false),
@@ -221,16 +234,40 @@ function installHarness(options: {
   return { runtime: turnRuntime, built }
 }
 
-async function send(modelFamily = 'high'): Promise<void> {
+async function send(modelFamily = 'high', agentKind?: 'code' | 'work'): Promise<void> {
   const handler = harness.handlers.get(CHANNELS.chatSend)
   if (!handler) throw new Error('chat send handler was not registered')
   await handler(
     { sender: { isDestroyed: () => false, once: vi.fn(), on: vi.fn(), removeListener: vi.fn() } },
-    { sessionId: null, projectId: null, text: 'initial', modelFamily }
+    { sessionId: null, projectId: null, text: 'initial', modelFamily, agentKind }
   )
 }
 
 describe('registerChatHandlers runtime-tool continuation wiring (0158)', () => {
+  it.each(['listen', 'flush'] as const)(
+    'carries Work profile through the initial and automatic %s extension builds',
+    async (step) => {
+      const { runtime, built } = installHarness({
+        runtimeRevision: 2,
+        extensionRevisions: [2, 2],
+        defaultModel: 'sonnet',
+        selectedModel: 'opus',
+        steps: [step, 'break']
+      })
+      Object.assign(runtime, { spawnedAgentProfileKey: 'work:1' })
+      await send('high', 'work')
+      expect(built).toHaveLength(2)
+      for (const extensions of built)
+        expect(extensions).toMatchObject({
+          agentProfileKey: 'work:1',
+          systemPromptAppend: expect.stringContaining('deliverable')
+        })
+      expect(harness.requests).toHaveLength(2)
+      expect(harness.requests.map(({ request }) => request.extensions)).toEqual(built)
+      expect(harness.requests.map(({ request }) => request.model)).toEqual(['opus', 'opus'])
+      expect(runtime.teardownChannel).not.toHaveBeenCalled()
+    }
+  )
   it('respawns a stale persistent channel before its listen request and forwards that fresh snapshot', async () => {
     const { runtime, built } = installHarness({
       runtimeRevision: 1,

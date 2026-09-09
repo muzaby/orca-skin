@@ -10,6 +10,9 @@ import { projectApi, sessionApi } from '../../../shared/api/ipc'
 interface SessionsStoreState {
   // 세션 엔티티의 renderer 단일 정본. recent/project 조회는 ID membership 만 따로 가진다.
   byId: Record<string, SessionListItem>
+  // 이번 앱 실행에서 아직 열어보지 않은 정상 완료. DB 메타 재조회와 수명을 분리한다.
+  unseenCompletedIds: ReadonlySet<string>
+  viewedSessionId: string | null
   recentIds: string[]
   // 값이 없으면 "아직 조회 안 함" — 로딩 판정이 이 한 축에서 나온다(별도 플래그 없음).
   projectSessionIds: Record<string, string[]>
@@ -18,6 +21,8 @@ interface SessionsStoreState {
 
 export const useSessionsStore = create<SessionsStoreState>()(() => ({
   byId: {},
+  unseenCompletedIds: new Set<string>(),
+  viewedSessionId: null,
   recentIds: [],
   projectSessionIds: {},
   loading: true
@@ -35,17 +40,33 @@ function sameItem(a: SessionListItem, b: SessionListItem): boolean {
 // 프로젝트 하나를 펼칠 때마다 사이드바 전체가 리렌더된다.
 function mergeItems(
   current: Record<string, SessionListItem>,
-  items: SessionListItem[]
+  items: SessionListItem[],
+  retainedIds?: ReadonlySet<string>
 ): Record<string, SessionListItem> {
-  const next = { ...current }
-  let changed = false
+  let next = current
   for (const item of items) {
     const prev = next[item.id]
     if (prev && sameItem(prev, item)) continue
+    if (next === current) next = { ...current }
     next[item.id] = item
-    changed = true
   }
-  return changed ? next : current
+  if (retainedIds) {
+    for (const id of Object.keys(next)) {
+      if (retainedIds.has(id)) continue
+      if (next === current) next = { ...current }
+      delete next[id]
+    }
+    // 고정 시각이 같은 행은 Object.values의 순서를 따른다. 기존 GC의 프로젝트→최근
+    // 구성 순서를 유지하고, 순서까지 같은 snapshot만 재사용한다.
+    const orderedIds = [...retainedIds].filter((id) => next[id] != null)
+    const currentIds = Object.keys(next)
+    if (!sameIds(currentIds, orderedIds)) {
+      const ordered = Object.fromEntries(orderedIds.map((id) => [id, next[id]]))
+      // 숫자로만 된 키는 JS 객체가 자체 정렬한다.
+      if (!sameIds(currentIds, Object.keys(ordered))) return ordered
+    }
+  }
+  return next
 }
 
 function sameIds(a: string[] | undefined, b: string[]): boolean {
@@ -58,7 +79,9 @@ function patchSession(sessionId: string, patch: Partial<SessionListItem>): void 
   setState((state) => {
     const current = state.byId[sessionId]
     if (!current) return state
-    return { byId: { ...state.byId, [sessionId]: { ...current, ...patch } } }
+    const updated = { ...current, ...patch }
+    if (sameItem(current, updated)) return state
+    return { byId: { ...state.byId, [sessionId]: updated } }
   })
 }
 
@@ -70,17 +93,20 @@ export async function initSessions(): Promise<void> {
       // 걸려 있어 최근 창 밖으로 밀려난 엔티티가 byId 에 남는다 — 어떤 membership 도
       // 참조하지 않는 것만 버린다. **새 membership 목록을 추가하면 여기 루트에도
       // 넣어야 한다** (안 넣으면 턴 종료마다 도는 이 refresh 에 조용히 쓸려나간다).
-      const retained: Record<string, SessionListItem> = {}
-      for (const ids of Object.values(state.projectSessionIds)) {
-        for (const id of ids) {
-          const session = state.byId[id]
-          if (session) retained[id] = session
+      const ids = items.map((item) => item.id)
+      const retainedIds = new Set<string>()
+      for (const projectIds of Object.values(state.projectSessionIds)) {
+        for (const id of projectIds) {
+          if (state.byId[id]) retainedIds.add(id)
         }
       }
-      for (const item of items) retained[item.id] = item
+      for (const id of ids) retainedIds.add(id)
+      const byId = mergeItems(state.byId, items, retainedIds)
+      const recentIds = sameIds(state.recentIds, ids) ? state.recentIds : ids
+      if (byId === state.byId && recentIds === state.recentIds && !state.loading) return state
       return {
-        byId: retained,
-        recentIds: items.map((item) => item.id),
+        byId,
+        recentIds,
         loading: false
       }
     })
@@ -109,6 +135,8 @@ async function remove(sessionId: string): Promise<boolean> {
     }
     return {
       byId,
+      unseenCompletedIds: new Set([...state.unseenCompletedIds].filter((id) => id !== sessionId)),
+      viewedSessionId: state.viewedSessionId === sessionId ? null : state.viewedSessionId,
       recentIds: state.recentIds.filter((candidate) => candidate !== sessionId),
       projectSessionIds: touchedProject ? projectSessionIds : state.projectSessionIds
     }
@@ -136,11 +164,14 @@ async function loadProject(projectId: string): Promise<void> {
     setState((state) => {
       const ids = items.map((item) => item.id)
       const prev = state.projectSessionIds[projectId]
+      const byId = mergeItems(state.byId, items)
+      const projectSessionIds = sameIds(prev, ids)
+        ? state.projectSessionIds
+        : { ...state.projectSessionIds, [projectId]: ids }
+      if (byId === state.byId && projectSessionIds === state.projectSessionIds) return state
       return {
-        byId: mergeItems(state.byId, items),
-        projectSessionIds: sameIds(prev, ids)
-          ? state.projectSessionIds
-          : { ...state.projectSessionIds, [projectId]: ids }
+        byId,
+        projectSessionIds
       }
     })
   } catch (error) {
@@ -155,7 +186,37 @@ async function loadProject(projectId: string): Promise<void> {
   }
 }
 
-export const sessionsActions = { refresh: initSessions, loadProject, remove, rename, setPinned }
+function markCompleted(sessionId: string): void {
+  setState((state) => {
+    if (state.viewedSessionId === sessionId || state.unseenCompletedIds.has(sessionId)) return state
+    return { unseenCompletedIds: new Set([...state.unseenCompletedIds, sessionId]) }
+  })
+}
+
+function setViewedSession(sessionId: string | null): void {
+  setState((state) => {
+    if (
+      state.viewedSessionId === sessionId &&
+      (sessionId === null || !state.unseenCompletedIds.has(sessionId))
+    )
+      return state
+    const unseenCompletedIds =
+      sessionId !== null && state.unseenCompletedIds.has(sessionId)
+        ? new Set([...state.unseenCompletedIds].filter((id) => id !== sessionId))
+        : state.unseenCompletedIds
+    return { viewedSessionId: sessionId, unseenCompletedIds }
+  })
+}
+
+export const sessionsActions = {
+  refresh: initSessions,
+  loadProject,
+  remove,
+  rename,
+  setPinned,
+  markCompleted,
+  setViewedSession
+}
 
 // 자동 제목 이벤트 구독(행 in-place 패치 — 전체 refresh 없이).
 // 부팅 1회 조회는 initSessions(부트 오케스트레이터가 await), Provider 는 subscribeSessions 만 붙인다.

@@ -31,10 +31,9 @@ import { stopSubagentTask } from '../../features/chat/stop-subagent'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import { sendChatEvent } from '../../infra/ipc/send'
 import { getLogger, runWithLogContext } from '../../infra/log'
-import { reserveOnBusySession } from './busy-reserve'
 import type { ChatDeps, ChatRuntimeDeps } from './deps'
 import { handleChatSend } from './send'
-import { sendSubmitted } from './turn-setup'
+import { sendSubmitted } from './enqueue'
 
 export type { ChatDeps } from './deps'
 
@@ -87,16 +86,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
     ...deps,
     settleDeadBackgroundTasks,
     stopAndSettleAbortedTasks,
-    reserveOnBusySession: (event, queueKey, sessionId, lease, data, na) =>
-      reserveOnBusySession(
-        { pendingMessages, listenRelease },
-        event,
-        queueKey,
-        sessionId,
-        lease,
-        data,
-        na
-      ),
     listenRelease
   }
 

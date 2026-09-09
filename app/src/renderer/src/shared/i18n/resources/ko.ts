@@ -2,6 +2,8 @@
 // t() 키를 강제). en.ts 는 `typeof ko` 로 선언해 양방향 키 패리티를 컴파일 타임에 보장한다.
 // 값은 기존 하드코딩 문자열을 그대로 옮긴 것 — ko 표시 결과는 마이그레이션 전후 동일해야 한다.
 
+import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../../../shared/product'
+
 export const ko = {
   common: {
     cancel: '취소',
@@ -43,7 +45,7 @@ export const ko = {
     retry: '부트 다시 시도'
   },
   landing: {
-    newChatGreeting: '무엇을 도와드릴까요?'
+    newChatGreeting: '개발, 디버깅을 시작하세요.'
   },
   markdown: {
     imagePlaceholder: '[이미지: {{label}}]'
@@ -173,8 +175,7 @@ export const ko = {
       markdownAria: '마크다운',
       plainTextAria: '텍스트 원문',
       removeTitle: '스킬 제거',
-      removeConfirmBody:
-        '이 작업은 Orca 스킬 sources에서 다음 폴더를 제거합니다. 계속하려면 한 번 더 확인하세요.'
+      removeConfirmBody: `이 작업은 ${PRODUCT_DISPLAY_NAME} 스킬 sources에서 다음 폴더를 제거합니다. 계속하려면 한 번 더 확인하세요.`
     },
     addMenu: {
       create: '스킬 만들기',
@@ -197,12 +198,12 @@ export const ko = {
       dropHint: '드래그 앤 드롭하거나 클릭하여 업로드',
       requirements: '파일 요구사항',
       reqLine1: '.md 또는 .skill 파일에 YAML frontmatter와 스킬 지침을 포함합니다',
-      reqLine2: '업로드한 파일은 Orca 스킬 sources에 SKILL.md로 저장됩니다',
+      reqLine2: `업로드한 파일은 ${PRODUCT_DISPLAY_NAME} 스킬 sources에 SKILL.md로 저장됩니다`,
       failed: '스킬 업로드에 실패했습니다.'
     },
     customMcp: {
       title: 'MCP 서버 추가',
-      pasteHint: '단일 MCP 서버 JSON 항목을 붙여넣으면 Orca sources mcp.json에 병합합니다.',
+      pasteHint: `단일 MCP 서버 JSON 항목을 붙여넣으면 ${PRODUCT_DISPLAY_NAME} sources mcp.json에 병합합니다.`,
       adding: '추가 중…',
       failed: 'MCP 추가에 실패했습니다.',
       jsonObject: 'JSON 객체를 입력하세요.',
@@ -218,8 +219,7 @@ export const ko = {
       remove: '제거',
       removing: '제거 중…',
       removeTitle: 'MCP 서버 제거',
-      removeConfirmBody:
-        '이 작업은 Orca sources mcp.json에서 다음 서버를 제거합니다. 계속하려면 한 번 더 확인하세요.',
+      removeConfirmBody: `이 작업은 ${PRODUCT_DISPLAY_NAME} sources mcp.json에서 다음 서버를 제거합니다. 계속하려면 한 번 더 확인하세요.`,
       configSummary: '설정 요약'
     },
     addServer: {
@@ -293,8 +293,7 @@ export const ko = {
     title: '엔진 & 모델',
     subtitle: 'provider settings 환경',
     addEngine: '엔진 추가',
-    blurb:
-      '<c>~/.config/orca/sources/settings</c> 의 provider settings 를 기반으로 Composer 모델 메뉴가 구성됩니다. 편집 후 앱 재시작 없이 모델 메뉴가 갱신됩니다.',
+    blurb: `<c>~/.config/${PRODUCT_SLUG}/sources/settings</c> 의 provider settings 를 기반으로 Composer 모델 메뉴가 구성됩니다. 편집 후 앱 재시작 없이 모델 메뉴가 갱신됩니다.`,
     emptyState: '등록된 provider 가 없습니다. 엔진 추가 버튼으로 claude provider 를 생성하세요.',
     deleteConfirm: '{{name}} provider 를 삭제할까요?',
     card: { unsupportedAdapter: '미지원 adapter', readOnly: '읽기 전용' },
@@ -363,7 +362,7 @@ export const ko = {
     }
   },
   update: {
-    dialogTitle: 'Orca 업데이트',
+    dialogTitle: `${PRODUCT_DISPLAY_NAME} 업데이트`,
     status: {
       idle: '업데이트 대기 중',
       checking: '업데이트 확인 중…',
@@ -450,6 +449,57 @@ export const ko = {
     completeBody: '응답이 완료되었습니다.'
   },
   chat: {
+    agent: {
+      choose: '작업 종류 선택',
+      work: '작업',
+      code: '코드',
+      workGreeting: '어떤 작업을 시작할까요?',
+      workPlaceholder: '작성할 문서나 분석할 자료, 정리할 작업을 알려주세요',
+      activity: '도구 {{tools}}종 · 메모 {{notes}}개',
+      ended: '응답 수신 마감',
+      aborted: '응답 중단',
+      failed: '응답 오류',
+      unknown: '응답 미확정'
+    },
+    artifacts: {
+      forbidden: '이 대화에서 파일을 사용할 수 없습니다',
+      unsafe: '안전한 파일 위치를 확인할 수 없습니다',
+      tooLarge: '파일이 허용 크기를 초과했습니다',
+      title: '산출물',
+      actions: '파일 작업',
+      bytes: '{{count}} 바이트',
+      working: '처리 중',
+      checking: '확인 중',
+      available: '파일 있음',
+      missing: '파일 없음 — 삭제되었거나 이동되었습니다',
+      unavailable: '파일에 접근할 수 없음',
+      trashedAt: '휴지통으로 이동한 시각: {{time}}',
+      save: '다른 이름으로 저장',
+      download: '다운로드',
+      document: '문서',
+      artifactLabel: '아티팩트',
+      saveAll: '모두 저장',
+      reveal: '탐색기에서 보기',
+      refresh: '다시 확인',
+      openFolder: '보관 폴더 열기',
+      trash: '휴지통으로 이동',
+      trashTitle: '파일을 휴지통으로 이동할까요?',
+      trashMessage:
+        '게시 기록은 남습니다. 이 파일을 참조하는 다른 대화에서도 파일을 사용할 수 없게 됩니다.',
+      cancelled: '저장을 취소했습니다',
+      failed: '파일 작업을 완료하지 못했습니다. 다시 확인해 주세요.',
+      saveComplete: '저장 결과',
+      tooMany: '한 번에 50개까지 저장할 수 있습니다. 개별 저장을 이용해 주세요.',
+      saved: '저장됨',
+      skipped: '건너뜀 — 파일 상태를 확인해 주세요',
+      done: '완료했습니다',
+      trashed: '휴지통으로 이동했습니다',
+      trashedUnrecorded: '휴지통으로 이동했습니다. 이동 이력을 저장하지 못했습니다.',
+      empty: '게시된 산출물이 없습니다',
+      loading: '산출물을 불러오는 중',
+      listFailed: '산출물을 불러오지 못했습니다',
+      retainedOnSessionDelete: '저장된 산출물 파일은 유지됩니다.'
+    },
     // 예약 steer 가 stdin 으로 넘어가 취소 불가가 된 상태 표시(0151).
     steer: {
       submitted: '전달됨',
@@ -459,7 +509,7 @@ export const ko = {
       residualAction: '세션 전체 중단'
     },
     // 0211 — 격리 준비의 다섯 단계. `StatusLine` 한 줄이 이 문구로 바뀐다(D-002).
-    // Orca 가 **실제로 하는 일**만 적는다(D-001) — origin fetch 는 하지 않으므로 없다.
+    // Orcinus orca 가 **실제로 하는 일**만 적는다(D-001) — origin fetch 는 하지 않으므로 없다.
     worktreePrepare: {
       repo: '저장소를 확인하는 중…',
       base: '기준 커밋을 확인하는 중…',
@@ -563,6 +613,9 @@ export const ko = {
       took: '{{duration}} 소요됨'
     },
     subagentTile: {
+      loadingDetail: '하위 대화를 불러오는 중…',
+      loadDetailFailed: '하위 대화를 불러오지 못했습니다.',
+      retryDetail: '다시 불러오기',
       status: {
         running: '진행 중',
         stopping: '중단 중…',
@@ -580,6 +633,17 @@ export const ko = {
       viewTranscript: '대화록 보기'
     },
     taskTile: {
+      askAboutTask: '질문하거나 변경 사항 제안하기',
+      addDirectory: '폴더 추가',
+      allowedDirectory: '사용자가 추가한 폴더: {{path}}',
+      directoryBusy: '작업이 끝난 뒤 폴더를 추가할 수 있습니다.',
+      directoryPicking: '폴더 선택 중…',
+      directoryFailed: '폴더를 추가하지 못했습니다. 다시 시도해 주세요.',
+      openDirectory: '폴더 열기: {{name}}',
+      directoryOpenFailed:
+        '폴더를 열지 못했습니다. 삭제되었거나 접근할 수 없는지 확인한 뒤 다시 클릭해 주세요.',
+      directoryInvalid: '추가할 수 있는 폴더인지 확인해 주세요.',
+      directoryLimit: '추가할 수 있는 폴더 수를 초과했습니다.',
       status: {
         in_progress: '진행 중',
         stopping: '중단 중…',
@@ -599,10 +663,11 @@ export const ko = {
       },
       sections: {
         progress: '진행 상황',
+        progressDesc: '오래 걸리는 작업의 진행 상황을 확인하세요.',
         output: '출력',
-        outputDesc: '이 작업 중에 생성된 파일을 확인하고 열 수 있습니다.',
+        outputDesc: '이 작업 중에 생성된 파일을 확인하고 저장할 수 있습니다.',
         context: '컨텍스트',
-        contextDesc: '이 작업에 사용된 도구와 참조된 파일을 추적합니다.'
+        contextDesc: '이 작업에 사용할 폴더를 추가하세요.'
       },
       backToList: '목록으로',
       headerTitle: '작업',
@@ -650,6 +715,9 @@ export const ko = {
     },
     composer: {
       modes: {
+        workManualLabel: '수동 승인',
+        workAutoLabel: '자동 승인',
+        skipAllLabel: '모든 승인 건너뛰기',
         title: '모드',
         auto_classified: {
           label: '자동',
@@ -669,7 +737,7 @@ export const ko = {
         },
         dont_ask: {
           label: '묻지 않음',
-          desc: 'Orca 승인 질문을 만들지 않고 기본 자동 진행 정책을 따릅니다.'
+          desc: `${PRODUCT_DISPLAY_NAME} 승인 질문을 만들지 않고 기본 자동 진행 정책을 따릅니다.`
         },
         riskyConfirm: '모든 승인 게이트가 해제됩니다. 한 번 더 눌러 확인하세요.'
       },
@@ -686,8 +754,7 @@ export const ko = {
       handoffNeedMoreTurns: '대화가 더 진행된 뒤 사용할 수 있습니다',
       scrollToBottom: '맨 아래로',
       concurrencyNoticeTitle: '같은 프로젝트에서 다른 작업이 실행 중입니다.',
-      concurrencyNoticeBody:
-        '파일 충돌 가능성이 있습니다. Orca는 작업을 차단하지 않으며, 동시 실행 여부는 사용자가 판단합니다.',
+      concurrencyNoticeBody: `파일 충돌 가능성이 있습니다. ${PRODUCT_DISPLAY_NAME}는 작업을 차단하지 않으며, 동시 실행 여부는 사용자가 판단합니다.`,
       queuedNoticeTitle: '연결 대기 중입니다.',
       queuedNoticeBody: '이전 새 대화의 세션이 준비되는 대로 이 메시지를 순서대로 전송합니다.',
       backendTitle: '백엔드: {{label}}',
@@ -706,6 +773,8 @@ export const ko = {
       diffRequirementUnlocated: '위치 확인 필요',
       diffRequirementRemoveAria: 'Diff 요구사항 제거: {{comment}}',
       permissionModeTitle: '권한 모드',
+      permissionUpdateFailedLabel: '권한 적용 실패',
+      permissionUpdateFailed: '권한 모드를 적용하지 못했습니다. 다시 선택해 주세요.',
       attachMenuTitle: '추가 메뉴',
       modelSelectTitle: '모델 선택',
       modelMenuTitle: '모델',
@@ -804,11 +873,14 @@ export const ko = {
       next: '다음'
     },
     rightpanel: {
+      expandTile: '{{label}} 넓게 보기',
+      restoreTile: '{{label}} 원래 크기로',
       tiles: {
         plan: '계획',
         subagent: '백그라운드 작업',
         task: '작업',
-        diff: '변경사항'
+        diff: '변경사항',
+        artifacts: '산출물'
       },
       diffAllChanges: '모든 변경사항',
       diffEmpty: '표시할 변경 사항이 없습니다.',
@@ -901,7 +973,7 @@ export const ko = {
     update: '업데이트',
     version: '버전',
     quit: '종료',
-    versionModalAria: 'Orca 버전'
+    versionModalAria: `${PRODUCT_DISPLAY_NAME} 버전`
   },
   settings: {
     title: '설정',

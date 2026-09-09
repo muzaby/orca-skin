@@ -13,21 +13,19 @@
 //
 // 순수 함수 — fs 비의존, vitest 대상.
 
+import { isRecord } from '../../../../shared/obj'
 import {
-  availableModelsOf,
-  explicitModelOf,
-  FAMILY_ORDER,
-  markDefaultModel,
-  normalizeAvailableModels,
-  sameParsedModel,
-  stripOneMillion,
-  withExplicitModel
-} from './available-models'
+  CLAUDE_MODEL_FAMILIES,
+  modelIdentity,
+  sameModelIdentity
+} from '../../../../shared/model-identity'
 
-// family 목록은 discovery 분류와 같은 사실이라 `available-models.ts` 가 SSOT 다 — 여기서
-// 노출 순서로 쓴다(default 폴백 평가 순서는 그쪽의 별도 ORDER).
+// settings의 기본 alias 노출 순서. Discovery 계열 분류는 shared 목록을 사용한다.
+const FAMILY_ORDER = ['sonnet', 'opus', 'haiku'] as const
+const DEFAULT_FAMILY_ORDER = ['sonnet', 'haiku', 'opus'] as const
+
+// family 분류·노출 순서와 default 우선순위는 이 파서 안에서 함께 관리한다.
 type ModelAlias = (typeof FAMILY_ORDER)[number]
-const DISPLAY_ORDER: readonly ModelAlias[] = FAMILY_ORDER
 
 const ALIAS_ENV_KEY: Record<ModelAlias, string> = {
   sonnet: 'ANTHROPIC_DEFAULT_SONNET_MODEL',
@@ -67,7 +65,7 @@ export function parseClaudeModels(settings: {
   const env = asRecord(settings.env)
 
   // 1단계 — alias 별 후보 빌드.
-  const candidates: AliasCandidate[] = DISPLAY_ORDER.map((alias) => {
+  const candidates: AliasCandidate[] = FAMILY_ORDER.map((alias) => {
     const raw = modelValue(env[ALIAS_ENV_KEY[alias]])
     if (raw === undefined) {
       return { alias, model: null, isCustom: false, oneMillionContext: false, isDefault: false }
@@ -80,13 +78,13 @@ export function parseClaudeModels(settings: {
   // **중복 판정은 base 이름이 아니라 identity(모델명 + 1M)다**(0215 D-008) — 이름으로만 비교하면
   // env family `X` 와 availableModels `X[1m]` 중 뒤엣것이 버려져 1M 변형이 목록에서 사라진다.
   const configured = candidates.filter((candidate) => candidate.model !== null)
-  const discovered = availableModels ? normalizeAvailableModels(availableModels) : []
+  const discovered = availableModels ? normalizeModelEntries(availableModels) : []
   const merged =
     discovered.length > 0
       ? [
           ...configured,
           ...discovered.filter(
-            (entry) => !configured.some((candidate) => sameParsedModel(candidate, entry))
+            (entry) => !configured.some((candidate) => sameModelIdentity(candidate, entry))
           )
         ]
       : configured
@@ -98,11 +96,122 @@ export function parseClaudeModels(settings: {
   // 폴백 억제(0215 D-023) — 3개 alias 는 **노출 목록이 끝내 비는 경우에만** 쓴다. `anthropicModel`
   // 은 아래 `withExplicitModel` 이 목록을 채우므로 여기서 이미 "노출할 모델이 있다"로 센다.
   // 조건을 `explicit` 로 넓히면 목록에 들어가지 않는 top-level `model`(D-006) 이 폴백을 막아
-  // provider 가 모델 0개로 열거된다 — `settings-entries.ts` 의 파일 부재/손상 폴백이 그 자리다.
+  // provider 가 모델 0개로 열거된다 — `../settings.ts` 의 파일 부재/손상 폴백이 그 자리다.
   const visible = merged.length > 0 || anthropicModel ? merged : candidates
   const listed = withExplicitModel(visible, anthropicModel)
 
   markDefaultModel(listed, explicit)
 
   return listed
+}
+
+// Runtime discovery는 settings의 alias 폴백을 쓰지 않는다. 최종 목록에 명시 모델을 넣은 뒤
+// default를 한 번만 결정하며, 노출할 모델이 없으면 빈 목록을 유지한다.
+export function parseRuntimeModels(config: {
+  availableModels?: unknown
+  runtimeEnv?: Readonly<Record<string, string>>
+}): ParsedModel[] {
+  return normalizeAvailableModels(
+    availableModelsOf(config) ?? [],
+    explicitModelOf(config.runtimeEnv?.ANTHROPIC_MODEL)
+  )
+}
+
+export function normalizeAvailableModels(
+  models: readonly string[],
+  explicit?: ExplicitModel
+): ParsedModel[] {
+  const listed = withExplicitModel(normalizeModelEntries(models), explicit)
+  markDefaultModel(listed, explicit)
+  return listed
+}
+
+// 명시 모델(`env.ANTHROPIC_MODEL` 등)의 정규화 형태. `[1m]` 을 분리해 **두 축**으로 들고 다닌다
+// — 이름만 비교하면 `X` 와 `X[1m]` 이 같은 것이 되어 사용자가 지정한 1M 이 조용히 사라진다.
+interface ExplicitModel {
+  value: string
+  oneMillion: boolean
+}
+
+export function availableModelsOf(value: unknown): string[] | undefined {
+  if (!isRecord(value)) return undefined
+  const candidate = value.availableModels
+  if (candidate === undefined) return undefined
+  if (!Array.isArray(candidate) || candidate.some((model) => typeof model !== 'string'))
+    return undefined
+  return candidate
+}
+
+// 명시 모델 문자열 → 정규화. 비문자열·빈 값은 `undefined`(= 명시 없음).
+export function explicitModelOf(raw: unknown): ExplicitModel | undefined {
+  if (typeof raw !== 'string') return undefined
+  const { value, oneMillion } = stripOneMillion(raw)
+  return value === '' ? undefined : { value, oneMillion }
+}
+
+// 모델명 → 노출 항목. family 이름이 부분문자열로 들어있으면 그 alias, 없으면 custom.
+function classifyModel(model: string, oneMillion: boolean): ParsedModel {
+  const lower = model.toLowerCase()
+  const family = CLAUDE_MODEL_FAMILIES.find((candidate) => lower.includes(candidate))
+  return {
+    alias: family ?? 'custom',
+    model,
+    isCustom: family === undefined,
+    oneMillionContext: oneMillion,
+    isDefault: false
+  }
+}
+
+// 명시 모델이 노출 목록의 어느 항목인가 — alias 또는 모델명이 일치하고 **1M 축까지 같을 때**만.
+// default 부여와 `withExplicitModel` 의 중복 판정이 같은 술어를 쓴다(SSOT).
+function matchesExplicit(model: ParsedModel, explicit: ExplicitModel): boolean {
+  if (model.oneMillionContext !== explicit.oneMillion) return false
+  return model.alias === explicit.value || model.model === explicit.value
+}
+
+// 노출 목록에 명시 모델(`ANTHROPIC_MODEL`)을 더한다 (0215 D-005). 이미 같은 항목이 있으면
+// **추가하지 않는다** — 사용자 요구 "추가시 중복이 되면 1개만 유지".
+export function withExplicitModel(
+  models: ParsedModel[],
+  explicit: ExplicitModel | undefined
+): ParsedModel[] {
+  if (!explicit) return models
+  if (models.some((model) => matchesExplicit(model, explicit))) return models
+  return [...models, classifyModel(explicit.value, explicit.oneMillion)]
+}
+
+function normalizeModelEntries(models: readonly string[]): ParsedModel[] {
+  // dedupe 키는 **모델명이 아니라 identity** 다 (0215 D-008) — `X` 와 `X[1m]` 은 서로 다른
+  // 실행 대상이라 base 이름으로 접으면 둘 중 하나가 목록에서 사라진다.
+  const seen = new Set<string>()
+  const normalized: ParsedModel[] = []
+  for (const raw of models) {
+    const { value: model, oneMillion } = stripOneMillion(raw)
+    if (!model) continue
+    const entry = classifyModel(model, oneMillion)
+    const key = modelIdentity(entry)
+    if (seen.has(key)) continue
+    seen.add(key)
+    normalized.push(entry)
+  }
+  return normalized
+}
+
+function markDefaultModel(models: ParsedModel[], explicit?: ExplicitModel): void {
+  for (const model of models) model.isDefault = false
+  const selected =
+    (explicit ? models.find((model) => matchesExplicit(model, explicit)) : undefined) ??
+    DEFAULT_FAMILY_ORDER.map((family) => models.find((model) => model.alias === family)).find(
+      (model) => model !== undefined
+    ) ??
+    models[0]
+  if (selected) selected.isDefault = true
+}
+
+function stripOneMillion(raw: string): { value: string; oneMillion: boolean } {
+  const trimmed = raw.trim()
+  if (trimmed.toLowerCase().endsWith('[1m]')) {
+    return { value: trimmed.slice(0, -'[1m]'.length).trim(), oneMillion: true }
+  }
+  return { value: trimmed, oneMillion: false }
 }

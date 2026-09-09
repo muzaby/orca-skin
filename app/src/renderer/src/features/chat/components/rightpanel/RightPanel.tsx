@@ -16,8 +16,13 @@ import {
   PANEL_MIN_ROW_SPLIT,
   PANEL_MIN_WIDTH
 } from '../../reducer/chatReducer'
-import { chatActions, useChatSession } from '../../store/chatStore'
-import { deriveRightPanelLayout } from '../../lib/rightPanelLayout'
+import { chatActions, useChatSession, useChatStore } from '../../store/chatStore'
+import {
+  RIGHT_PANEL_POLICY,
+  type RightPanelAgentPolicy,
+  type RightPanelTileId
+} from '../../lib/rightPanelTiles'
+import { deriveRightPanelLayout, rightPanelColumnsForAgent } from '../../lib/rightPanelLayout'
 import { tileById } from './tileRegistry'
 import { RightPanelTile } from './RightPanelTile'
 import { useColumnSlideOnReflow } from '../../hooks/useColumnSlideOnReflow'
@@ -131,15 +136,23 @@ function RowSeparator({
 }
 
 function RightPanelColumn({
+  sessionKey,
   col,
   tiles,
   width,
-  split
+  split,
+  expandedTile,
+  onToggleExpand,
+  taskTileChrome
 }: {
+  sessionKey: string
   col: number
   tiles: ReturnType<typeof deriveRightPanelLayout>['columns'][number]['tiles']
   width: number
   split: number
+  expandedTile: RightPanelTileId | null
+  onToggleExpand: (id: RightPanelTileId) => void
+  taskTileChrome: RightPanelAgentPolicy['taskTileChrome']
 }): React.JSX.Element {
   const columnRef = useRef<HTMLDivElement>(null)
   // 2행→1행 제거 시 남은 행이 자라는 방향을 잡는다. 위(0번) 행이 제거되면 남은 행을 바닥에
@@ -182,7 +195,10 @@ function RightPanelColumn({
     children.push(
       <div
         key={id}
-        className="flex min-h-0 animate-tile-in overflow-hidden transition-[flex-basis] duration-200 ease-out motion-reduce:animate-none motion-reduce:transition-none"
+        data-work-panel-available={
+          taskTileChrome === 'work-overview' && id === 'task' ? '' : undefined
+        }
+        className={`flex min-h-0 animate-tile-in overflow-hidden transition-[flex-basis] duration-200 ease-out motion-reduce:animate-none motion-reduce:transition-none ${taskTileChrome === 'work-overview' && id === 'task' ? 'items-start [container-type:size]' : ''}`}
         style={{ flexBasis: basis }}
       >
         <RightPanelTile
@@ -190,8 +206,11 @@ function RightPanelColumn({
           defaultLabelKey={tile.defaultLabelKey}
           headerActions={HeaderActions ? <HeaderActions /> : undefined}
           headerContent={HeaderContent ? <HeaderContent /> : undefined}
+          expanded={expandedTile === id}
+          onToggleExpand={() => onToggleExpand(id)}
+          taskTileChrome={taskTileChrome}
         >
-          <Content />
+          <Content key={sessionKey} />
         </RightPanelTile>
       </div>
     )
@@ -208,12 +227,43 @@ function RightPanelColumn({
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- 기존 DOM 스크롤 좌표 보정을 직접 시험한다.
+export function adjustPanelViewport(viewport: HTMLDivElement, tile?: RightPanelTileId): void {
+  let left = viewport.scrollLeft
+  if (tile) {
+    const column = viewport.querySelector<HTMLElement>(`[data-panel-tiles~="${tile}"]`)
+    if (column) {
+      const bounds = viewport.getBoundingClientRect()
+      const target = column.getBoundingClientRect()
+      if (target.left < bounds.left || target.right - target.left > viewport.clientWidth)
+        left += target.left - bounds.left
+      else if (target.right > bounds.right) left += target.right - bounds.right
+    }
+  }
+  viewport.scrollLeft = Math.max(0, Math.min(left, viewport.scrollWidth - viewport.clientWidth))
+}
+
 export function RightPanel({ className = '' }: { className?: string }): React.JSX.Element | null {
   const { tr } = useI18n()
   const activeTiles = useChatSession((s) => s.rightPanelTiles)
+  const agentKind = useChatSession((s) => s.agentKind)
+  const panelPolicy = RIGHT_PANEL_POLICY[agentKind]
+  const activeKey = useChatStore((s) => s.activeKey)
+  const [expansion, setExpansion] = useState<{ key: string; id: RightPanelTileId } | null>(null)
   const widths = useChatSession((s) => s.rightPanelColWidths)
   const splits = useChatSession((s) => s.rightPanelRowSplits)
-  const layout = useMemo(() => deriveRightPanelLayout(activeTiles), [activeTiles])
+  const reveal = useChatStore((state) => state.sessions[state.activeKey]?.panelReveal)
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const layout = useMemo(
+    () => deriveRightPanelLayout(rightPanelColumnsForAgent(activeTiles, agentKind)),
+    [activeTiles, agentKind]
+  )
+  const expandedTile =
+    expansion?.key === activeKey && layout.columns.some((col) => col.tiles.includes(expansion.id))
+      ? expansion.id
+      : null
+  const toggleExpand = (id: RightPanelTileId): void =>
+    setExpansion(expandedTile === id ? null : { key: activeKey, id })
   // 열 래퍼 ref(리사이즈 기준점) + 열 제거 시 남은 열을 빈 자리로 슬라이드(FLIP). 래퍼는 (있다면)
   // 왼쪽 분리자 + 열로 구성돼 래퍼의 오른쪽 모서리 = 열의 오른쪽 모서리(우측 도킹 리사이즈 기준).
   // 슬라이드 추적 키는 *열 id*(안정) — 열은 id 로 keyed 라 좌측 열 제거 시 우측 열 엘리먼트가
@@ -221,35 +271,60 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
   const columnKeys = useMemo(() => layout.columns.map((c) => c.id), [layout])
   const { registerColumn, columnRightOf } = useColumnSlideOnReflow(columnKeys)
 
+  useLayoutEffect(() => {
+    if (viewportRef.current && reveal) adjustPanelViewport(viewportRef.current, reveal.id)
+  }, [reveal])
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+    const clamp = (): void => adjustPanelViewport(viewport)
+    clamp()
+    const observer = new ResizeObserver(clamp)
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [layout, widths])
+
   if (layout.columns.length === 0) return null
 
   return (
-    <>
-      <ColumnResizeSeparator
-        colIndex={0}
-        columnRightOf={columnRightOf}
-        label={tr('chat.rightpanel.panelResizeAria')}
-      />
-      <div className={`my-2 mr-2 flex min-h-0 shrink-0 ${className}`}>
+    <div
+      ref={viewportRef}
+      data-panel-expanded={expandedTile ?? undefined}
+      className={`my-2 mr-2 min-h-0 min-w-0 w-max shrink-0 overflow-x-auto ${expandedTile ? 'max-w-[calc(75%-0.5rem)]' : 'max-w-[calc(50%-0.5rem)]'} ${className}`}
+    >
+      <div className="flex h-full min-h-0 w-max">
         {layout.columns.map((column, index) => (
-          <div key={column.id} ref={registerColumn(index)} className="flex min-h-0 shrink-0">
-            {index > 0 && (
-              <ColumnResizeSeparator
-                colIndex={index}
-                columnRightOf={columnRightOf}
-                label={tr('chat.rightpanel.colResizeAria')}
-                widthClass="w-2"
-              />
-            )}
+          <div
+            key={column.id}
+            ref={registerColumn(index)}
+            data-panel-tiles={column.tiles.join(' ')}
+            className="flex min-h-0 shrink-0"
+          >
+            <ColumnResizeSeparator
+              colIndex={index}
+              columnRightOf={columnRightOf}
+              label={tr(
+                index === 0 ? 'chat.rightpanel.panelResizeAria' : 'chat.rightpanel.colResizeAria'
+              )}
+              widthClass="w-2"
+            />
             <RightPanelColumn
+              sessionKey={activeKey}
               col={column.col}
               tiles={column.tiles}
-              width={widths[column.col] ?? PANEL_DEFAULT_WIDTH}
+              width={
+                expandedTile && column.tiles.includes(expandedTile)
+                  ? Math.max(560, (widths[column.col] ?? PANEL_DEFAULT_WIDTH) + 200)
+                  : (widths[column.col] ?? PANEL_DEFAULT_WIDTH)
+              }
               split={splits[column.col] ?? PANEL_DEFAULT_ROW_SPLIT}
+              expandedTile={expandedTile}
+              onToggleExpand={toggleExpand}
+              taskTileChrome={panelPolicy.taskTileChrome}
             />
           </div>
         ))}
       </div>
-    </>
+    </div>
   )
 }

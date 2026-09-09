@@ -22,6 +22,8 @@ import {
 interface BranchChipProps {
   cwd: string | null
   disabled?: boolean
+  // Work에서는 표시와 새 조회만 중단하고 시작한 조회와 snapshot은 유지한다.
+  hidden?: boolean
   // 격리가 켜져 있으면 전환을 **유예**한다 (0210 D-101) — 선택은 다음 worktree 의 base ref 가
   // 되고 사용자의 작업 트리는 그대로다. 부재하면 기존 동작(즉시 checkout).
   deferTo?: ((branch: string) => void) | undefined
@@ -32,8 +34,8 @@ interface BranchChipProps {
   // 묶음에서 **자기 뒤의 구분선까지** 그린다. 저장소가 아니면 이 컴포넌트가 통째로 사라지는데,
   // 줄을 묶음이 그리면 그때 세로선 하나만 덩그러니 남는다.
   trailingDivider?: boolean
-  // Only invoked after Git visibility resolves, so companion controls share this same snapshot.
-  renderTrigger?: (trigger: ReactNode) => ReactNode
+  // Companion controls share the same pending/resolved Git snapshot.
+  renderTrigger?: (trigger: ReactNode, pending: boolean) => ReactNode
 }
 
 const EMPTY_LIST: GitBranchList = { current: null, branches: [] }
@@ -46,6 +48,7 @@ const EMPTY_LIST: GitBranchList = { current: null, branches: [] }
 export function BranchChip({
   cwd,
   disabled = false,
+  hidden = false,
   deferTo,
   deferred,
   variant = 'outlined',
@@ -57,6 +60,7 @@ export function BranchChip({
   // 새 경로의 상태를 덮는데, 경로를 같이 저장하면 아래 한 줄 비교로 그 값을 무시할 수 있다
   // (effect 안에서 동기 setState 를 하지 않아도 되는 이유이기도 하다).
   const [snapshot, setSnapshot] = useState<BranchSnapshot>({ cwd: null, status: null })
+  const requestRef = useRef<{ cwd: string } | null>(null)
   const status = statusForCwd(cwd, snapshot)
   const [list, setList] = useState<GitBranchList>(EMPTY_LIST)
   const [listLoading, setListLoading] = useState(false)
@@ -71,29 +75,35 @@ export function BranchChip({
   // 전환 직후 재조회 — 라벨이 옛 브랜치에 머무르지 않게 한다.
   const refresh = useCallback(async (): Promise<void> => {
     if (!cwd) return
-    setSnapshot({ cwd, status: await gitApi.status(cwd) })
-  }, [cwd])
-
-  useEffect(() => {
-    if (!cwd) return
-    let live = true
-    void gitApi
-      .status(cwd)
-      .then((next) => {
-        if (live) setSnapshot({ cwd, status: next })
-      })
-      .catch(() => {
-        if (live) setSnapshot({ cwd, status: null })
-      })
-    return () => {
-      live = false
+    const request = { cwd }
+    requestRef.current = request
+    try {
+      const next = await gitApi.status(cwd)
+      if (requestRef.current === request) setSnapshot({ cwd, status: next })
+    } catch (error) {
+      if (requestRef.current === request) setSnapshot({ cwd, status: null })
+      throw error
     }
   }, [cwd])
 
+  // 모드 표시 전환은 조회를 취소하지 않는다. unmount 때만 늦은 응답을 무효화한다.
+  useEffect(
+    () => () => {
+      requestRef.current = null
+    },
+    []
+  )
+  useEffect(() => {
+    if (!cwd || hidden || snapshot.cwd === cwd || requestRef.current?.cwd === cwd) return
+    void refresh().catch(() => {})
+  }, [cwd, hidden, snapshot.cwd, refresh])
+
   const view = branchChipView(cwd, status)
+  const pending = Boolean(cwd && !view.visible && status === null && snapshot.cwd !== cwd)
   // `branchChipView` 가 이미 cwd null 을 걸러 냈지만 그 좁히기는 함수 경계를 넘지 못한다 —
   // 아래 gitApi 호출들이 string 을 요구하므로 여기서 한 번 더 명시한다.
-  if (!view.visible || cwd == null) return null
+  if (hidden || (!view.visible && !pending) || cwd == null) return null
+  const branch = view.visible ? view.branch : null
 
   const openMenu = (): void => {
     setMenuOpen(true)
@@ -149,11 +159,11 @@ export function BranchChip({
       <ComposerChip
         ref={buttonRef}
         icon="fork"
-        label={deferred ?? view.branch ?? tr('chat.composer.branchDetached')}
+        label={pending ? '-' : (deferred ?? branch ?? tr('chat.composer.branchDetached'))}
         variant={variant}
         // `claude/composer-branch-and-add-dir` 같은 이름은 그냥 두면 행을 통째로 밀어낸다.
         className="max-w-[16rem]"
-        disabled={disabled || busy}
+        disabled={disabled || busy || pending}
         onClick={() => (menuOpen ? setMenuOpen(false) : openMenu())}
         ariaHasPopup
         ariaExpanded={menuOpen}
@@ -165,15 +175,16 @@ export function BranchChip({
 
   return (
     <>
-      {renderTrigger ? renderTrigger(trigger) : trigger}
+      {renderTrigger ? renderTrigger(trigger, pending) : trigger}
       <Popover open={menuOpen} anchorRef={buttonRef} onClose={() => setMenuOpen(false)}>
         <BranchMenu
-          current={deferred ?? list.current ?? view.branch}
+          current={deferred ?? list.current ?? branch}
           branches={list.branches}
           loading={listLoading}
           onPick={(branch) => {
             setMenuOpen(false)
-            if (branch !== (deferred ?? list.current ?? view.branch)) void checkout(branch)
+            if (branch !== (deferred ?? list.current ?? (view.visible ? view.branch : null)))
+              void checkout(branch)
           }}
         />
       </Popover>

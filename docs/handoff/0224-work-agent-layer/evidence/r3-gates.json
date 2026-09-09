@@ -1,0 +1,98 @@
+{
+  "author": "Codex",
+  "scope": "0224 Delta V3 implementation self-check; independent verification pending",
+  "tests": [
+    {
+      "file": "r3-renderer-tests.json",
+      "success": true,
+      "files": 147,
+      "passed": 1134,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "r3-landing-tests.json",
+      "success": true,
+      "files": 1,
+      "passed": 7,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "r3-directory-tests.json",
+      "success": true,
+      "files": 8,
+      "passed": 78,
+      "failed": 0,
+      "pending": 0
+    }
+  ],
+  "totalPassed": 1219,
+  "commands": [
+    {
+      "command": "tsc --noEmit -p tsconfig.node.json --composite false",
+      "exitCode": 0
+    },
+    {
+      "command": "tsc --noEmit -p tsconfig.web.json --composite false (after final test fixture correction)",
+      "exitCode": 0
+    },
+    {
+      "command": "tsc --noEmit -p tsconfig.test.json",
+      "exitCode": 0
+    },
+    {
+      "command": "eslint --cache ./src ./scripts",
+      "exitCode": 0,
+      "errors": 0,
+      "warnings": [
+        {
+          "file": "C:\\workspace\\github\\codex\\orca-skin\\app\\src\\renderer\\src\\features\\chat\\hooks\\useTranscriptVirtualizer.ts",
+          "rules": [
+            "react-hooks/incompatible-library"
+          ]
+        }
+      ]
+    },
+    {
+      "command": "electron-vite build",
+      "exitCode": 0
+    },
+    {
+      "command": "check-doc-inventory.mjs --check",
+      "exitCode": 0
+    }
+  ],
+  "native": {
+    "success": true,
+    "checks": 44,
+    "screens": 10,
+    "motion": {
+      "normal": {
+        "animationName": "spin",
+        "reduced": false
+      },
+      "reduced": {
+        "animationName": "none",
+        "reduced": true
+      }
+    },
+    "mainDirectory": {
+      "info": {
+        "sessionId": "directory-work",
+        "cwd": "C:\\workspace\\github\\codex\\orca-skin\\app\\node_modules\\.cache\\orca\\panel-r3-rnzApx\\directory-host-J5uikQ\\Downloads",
+        "directory": "C:\\workspace\\github\\codex\\orca-skin\\app\\node_modules\\.cache\\orca\\panel-r3-rnzApx\\directory-host-J5uikQ\\References"
+      },
+      "before": [],
+      "after": [
+        "C:\\workspace\\github\\codex\\orca-skin\\app\\node_modules\\.cache\\orca\\panel-r3-rnzApx\\directory-host-J5uikQ\\Downloads",
+        "C:\\workspace\\github\\codex\\orca-skin\\app\\node_modules\\.cache\\orca\\panel-r3-rnzApx\\directory-host-J5uikQ\\References"
+      ]
+    }
+  },
+  "environmentNotes": [
+    "Installed Electron SQLite ABI retained. Main 78 assertions passed; four worker shutdown warnings after results.",
+    "Synthetic task/artifact data. Main directory segment uses actual handler and SQLite through fixture IPC. Actual ComposerInputController via fixture shell; ChatTile to Composer mapping is covered by renderer tests.",
+    "Initial native attachment oracle incorrectly expected filename in textContent; corrected to actual title, accessible removal label and DOM identity. No production change for that correction."
+  ]
+}

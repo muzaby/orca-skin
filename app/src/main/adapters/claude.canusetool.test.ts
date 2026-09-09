@@ -361,3 +361,24 @@ describe('makeCanUseTool — ExitPlanMode 계획 본문 해소 (AT-01·AT-02)', 
     expect(planOf(requestApproval.mock.calls)).toBe('')
   })
 })
+
+describe('r4 Work plan approval target', () => {
+  it('keeps plan request and input while exiting SDK plan into actual default', async () => {
+    const approve = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'allow' })
+    const input = { plan: '# Work plan', allowedPrompts: [{ tool: 'Bash', prompt: 'read' }] }
+    const result = await makeCanUseTool(approve, { planApprovalMode: 'default' })(
+      'ExitPlanMode',
+      input,
+      ctx
+    )
+    expect(approve).toHaveBeenCalledWith(
+      { kind: 'plan_review', request: { requestId: '', plan: '# Work plan' } },
+      expect.any(AbortSignal)
+    )
+    expect(result).toEqual({
+      behavior: 'allow',
+      updatedInput: input,
+      updatedPermissions: [{ type: 'setMode', mode: 'default', destination: 'session' }]
+    })
+  })
+})

@@ -1,7 +1,18 @@
 // IPC 응답 DTO 변환 — DB row → 와이어 타입. 핸들러 도메인 모듈들이 공유하는 순수 함수만 둔다.
 
+import type { ProviderReportedTelemetry, TelemetryModelUsage } from '../../../shared/ipc'
+import { ifPresent } from '../../../shared/obj'
+import { pickPrimaryModel } from '../../../shared/usage/primary-model'
+import { parseAgentKind } from '../../../shared/agent-kind'
+
 import type { AppMessagePart, Project, SessionListItem } from '../../../shared/protocol'
-import type { LoadedPartRow, ProjectRow, SessionListRow } from '../db/types'
+import type {
+  LoadedPartRow,
+  ProjectRow,
+  SessionListRow,
+  TurnModelUsageRow,
+  TurnUsageRow
+} from '../db/types'
 
 export function previewOf(text: string, max = 80): string {
   const collapsed = text.replace(/\s+/g, ' ').trim()
@@ -12,6 +23,7 @@ export function toSessionListItem(r: SessionListRow): SessionListItem {
   return {
     id: r.id,
     backend: r.backend,
+    agentKind: parseAgentKind(r.agent_kind),
     title: r.title,
     updatedAt: r.updated_at,
     preview: r.last_message_preview,
@@ -51,4 +63,32 @@ export function partFromRow(r: LoadedPartRow): AppMessagePart {
   const part: Record<string, unknown> = { type: r.type, ...base }
   if (r.tool_run_id != null) part.toolRunId = r.tool_run_id
   return part as unknown as AppMessagePart
+}
+
+export function usageRowToTelemetry(
+  turn: TurnUsageRow,
+  modelRows: TurnModelUsageRow[]
+): ProviderReportedTelemetry {
+  const modelUsage = modelRows.reduce<Record<string, TelemetryModelUsage>>((acc, row) => {
+    acc[row.model] = {
+      ...ifPresent('inputTokens', row.input_tokens),
+      ...ifPresent('outputTokens', row.output_tokens),
+      ...ifPresent('cacheReadTokens', row.cache_read_input_tokens),
+      ...ifPresent('cacheCreationTokens', row.cache_creation_input_tokens),
+      ...ifPresent('costUsd', row.cost_usd),
+      ...ifPresent('contextWindow', row.context_window)
+    }
+    return acc
+  }, {})
+
+  const primary = pickPrimaryModel(modelUsage)
+  return {
+    ...ifPresent('model', primary),
+    ...ifPresent('inputTokens', turn.input_tokens),
+    ...ifPresent('outputTokens', turn.output_tokens),
+    ...ifPresent('cacheReadTokens', turn.cache_read_input_tokens),
+    ...ifPresent('cacheCreationTokens', turn.cache_creation_input_tokens),
+    ...ifPresent('costUsd', turn.total_cost_usd),
+    ...(Object.keys(modelUsage).length > 0 ? { modelUsage } : {})
+  }
 }

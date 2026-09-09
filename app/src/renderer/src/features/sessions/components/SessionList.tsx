@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { SessionRow } from './SessionRow'
+import { SessionRow, type AgentAppearanceResolver } from './SessionRow'
 import type { SessionListItem } from '../../../../../shared/ipc'
 import { useI18n } from '../../../shared/i18n'
 import { isPinnedSession } from '../lib/sessionPlacement'
@@ -10,6 +10,7 @@ import type { RecentSessions } from '../lib/navSections'
 // DraftRow 와 구조적으로 호환 — cross-feature import 대신 셸(app/)이 매핑해 props 로
 // 내린다(4-layer 경계). '새 대화' 행은 deletable=false(삭제 개념 없음 — kebab 숨김).
 export interface DraftSessionRow {
+  agentKind: import('../../../../../shared/agent-kind').AgentKind
   key: string
   title: string | null
   projectId: string | null
@@ -17,6 +18,7 @@ export interface DraftSessionRow {
 }
 
 export interface SessionListViewProps {
+  agentAppearance: AgentAppearanceResolver
   // 0203 ΔV1 EP-9 — 목록은 props 로만 들어온다. 이 컴포넌트에 배치 필터는 없다.
   // ΔV2 EP-11 — 슬롯 브랜드. 파티션의 다른 칸을 넘기면 컴파일되지 않는다.
   sessions: RecentSessions
@@ -38,6 +40,7 @@ export interface SessionListViewProps {
 // Sidebar 의 '최근 대화' 구획 렌더. 받은 목록을 그대로 그린다 — 무엇이 최근인지는
 // lib/navSections 의 파티션이 이미 정했다(배치 규칙은 이 파일에 없다).
 export const SessionListView = memo(function SessionListView({
+  agentAppearance,
   sessions,
   currentSessionId,
   projectNameById,
@@ -62,6 +65,7 @@ export const SessionListView = memo(function SessionListView({
         <SessionRow
           key={d.key}
           session={draftAsListItem(d)}
+          appearance={agentAppearance(d.agentKind)}
           isActive={d.key === activeDraftKey}
           projectName={d.projectId ? (projectNameById.get(d.projectId) ?? null) : null}
           onSelect={onSelectDraft}
@@ -73,6 +77,7 @@ export const SessionListView = memo(function SessionListView({
         <SessionRow
           key={s.id}
           session={s}
+          appearance={agentAppearance(s.agentKind)}
           isActive={s.id === currentSessionId}
           projectName={s.projectId ? (projectNameById.get(s.projectId) ?? null) : null}
           onSelect={onSelect}
@@ -106,6 +111,7 @@ function draftAsListItem(d: DraftSessionRow): SessionListItem {
   return {
     id: d.key,
     backend: 'claude',
+    agentKind: d.agentKind,
     title: d.title,
     updatedAt: 0,
     preview: null,

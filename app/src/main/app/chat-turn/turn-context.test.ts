@@ -29,6 +29,7 @@ const preparedSettings: ResolvedHarnessSettings = {
 
 function base(): Parameters<typeof buildTurnContext<string>>[0] {
   return {
+    agentKind: 'code',
     controller: new AbortController(),
     owner: 'window-1',
     control,
@@ -50,6 +51,18 @@ function base(): Parameters<typeof buildTurnContext<string>>[0] {
 }
 
 describe('buildTurnContext', () => {
+  it('keeps Work identity across automatic turns while starting a fresh response boundary', () => {
+    const turn = buildTurnContext<string>({ ...base(), agentKind: 'work' })
+    turn.responseBoundary = { id: 'previous-response', messageId: 3 }
+    const next = makeContinuationTurn(turn)
+    expect(turn.agentKind).toBe('work')
+    expect(next.agentKind).toBe('work')
+    expect(next.responseBoundary).toBeUndefined()
+    expect(next.titleSettings).toBe(preparedSettings)
+    expect(next.titleEnv).toEqual({ FOO: 'bar' })
+    expect(next.cwd).toBe(turn.cwd)
+    expect(next.extraDirs).toEqual(turn.extraDirs)
+  })
   it('일반 send 는 continuity 필드를 비우고 cwd 를 해석한다', () => {
     const turn = buildTurnContext<string>(base())
 

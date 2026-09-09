@@ -1,0 +1,4 @@
+{
+  "gate": "eslint --cache src scripts",
+  "exitCode": 0
+}

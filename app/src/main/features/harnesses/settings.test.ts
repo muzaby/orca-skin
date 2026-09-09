@@ -4,21 +4,18 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { HarnessSettingsService } from './settings'
 import { expandEnvRecord } from './env'
+import { createHarnessRuntimeConfigService } from './runtime-config'
 import {
   canonicalAgentKey,
   defaultModelFamily,
+  defaultProvider,
   mergeAgentEnvironments,
   modelNameForFamily,
   resolveTitleModel,
   toAgentEnvironments,
   type ParsedModel
 } from './models'
-import {
-  defaultProvider,
-  listAdapters,
-  listProviders,
-  type HarnessModelProviderEntry
-} from './settings-entries'
+import { listAdapters, listProviders, type HarnessModelProviderEntry } from './settings'
 
 let root: string
 const settingsDir = (): string => join(root, 'sources', 'settings', 'claude')
@@ -252,6 +249,25 @@ describe('mergeAgentEnvironments', () => {
 })
 
 describe('env 유틸', () => {
+  it('같은 미해결 변수와 binding이 반복된 모든 값을 제외하고 입력을 보존한다', () => {
+    const input = Object.freeze({
+      A: '${MISSING}',
+      B: '${MISSING}',
+      C: 'prefix-${OK}-${MISSING}',
+      D: '${BINDING:key}',
+      E: '${BINDING:key}-${MISSING}',
+      F: '${OK}',
+      G: 'plain',
+      H: ''
+    })
+    const result = expandEnvRecord(input, (name) => (name === 'OK' ? 'resolved' : undefined))
+    expect(result).toEqual({
+      env: { F: 'resolved', G: 'plain', H: '' },
+      missing: ['MISSING', 'BINDING:key']
+    })
+    expect(input.C).toBe('prefix-${OK}-${MISSING}')
+  })
+
   it('expandEnvRecord 는 미해결 변수가 있는 키만 드롭한다', () => {
     const { env, missing } = expandEnvRecord({ A: '${OK}', B: '${MISSING}', C: 'plain' }, (name) =>
       name === 'OK' ? 'v' : undefined
@@ -262,6 +278,25 @@ describe('env 유틸', () => {
 })
 
 describe('HarnessSettingsService', () => {
+  it('모델 목록 보정 없이 최소 설정 좌표를 runtime 서비스에 직접 주입한다', async () => {
+    seedSource('anthropic', '{}')
+    const loader = vi.fn(async () => ({ settings: { model: 'configured-model' } }))
+    const settings = new HarnessSettingsService({ claude: loader }, root)
+    const runtime = createHarnessRuntimeConfigService({ settings })
+    const target = {
+      key: 'claude-anthropic',
+      harnessId: 'claude',
+      modelProviderId: 'anthropic'
+    } satisfies Parameters<HarnessSettingsService['resolve']>[0]
+
+    expect(await runtime.resolve(target)).toMatchObject({
+      ...target,
+      settings: { providerKey: target.key, settings: { model: 'configured-model' } },
+      runtimeEnv: {}
+    })
+    expect(loader).toHaveBeenCalledOnce()
+  })
+
   function seedSource(modelProviderId: string, settings: string): string {
     const file = join(root, 'sources', 'settings', 'claude', modelProviderId, 'settings.json')
     writeFile(file, settings)
@@ -324,8 +359,7 @@ describe('HarnessSettingsService', () => {
       await svc.resolve({
         key: 'opencode-local',
         harnessId: 'opencode',
-        modelProviderId: 'local',
-        models: []
+        modelProviderId: 'local'
       })
     ).toBeUndefined()
     expect(await svc.resolve(entryOf('anthropic'))).toBeUndefined()

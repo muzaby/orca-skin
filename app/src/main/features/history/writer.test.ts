@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import Database from 'better-sqlite3'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 // writer → infra/ipc/send → electron(webContents) 런타임 체인을 절단 — 이 스위트는
 // electron 바이너리 없이도 돈다(hermetic, 0104 선례). 테스트는 send 를 호출하지 않는다.
@@ -13,6 +16,16 @@ import type { AttachmentView, DiffRequirementAnchor, NormalizedEvent } from '../
 import { partFromRow } from '../../infra/ipc/dto'
 import type { TurnContext } from '../../contracts/turn'
 import { applyMigrations } from '../../infra/db/migrate'
+import { loadSession } from './reader'
+
+type HistoryWriterAllowsMissingPolicy =
+  [DbQueries] extends ConstructorParameters<typeof HistoryWriter> ? true : false
+
+const HISTORY_WRITER_ALLOWS_MISSING_POLICY: HistoryWriterAllowsMissingPolicy = false
+
+it('requires an explicit response-boundary policy at construction', () => {
+  expect(HISTORY_WRITER_ALLOWS_MISSING_POLICY).toBe(false)
+})
 
 // persistUserMessage 만 검증 — appendMessage/appendPart 만 모의한다.
 function makePersistence(): {
@@ -23,7 +36,7 @@ function makePersistence(): {
   const appendMessage = vi.fn(() => 7)
   const appendPart = vi.fn(() => 0)
   const db = { appendMessage, appendPart } as unknown as DbQueries
-  const persistence = new HistoryWriter(db)
+  const persistence = new HistoryWriter(db, () => false)
   return { persistence, appendMessage, appendPart }
 }
 
@@ -41,6 +54,185 @@ const fileView: AttachmentView = {
   kind: 'file'
 }
 
+describe('Work boundary persistence', () => {
+  it('uses the injected response-boundary policy', () => {
+    const connection = new Database(':memory:')
+    try {
+      applyMigrations(connection)
+      const queries = new DbQueries(connection)
+      queries.insertSession({
+        id: 's1',
+        backend: 'claude',
+        title: null,
+        projectId: null,
+        createdAt: 1,
+        agentKind: 'work'
+      })
+      const writer = new HistoryWriter(queries, () => false)
+      writer.persist(turnFor(), begin('disabled'))
+      expect(queries.loadParts('s1')).toEqual([])
+    } finally {
+      connection.close()
+    }
+  })
+
+  const turnFor = (): TurnContext =>
+    ({
+      agentKind: 'work',
+      dbSessionId: 's1',
+      currentAssistantMessageId: null,
+      assistantText: '',
+      providerKey: null,
+      askResolved: new Map()
+    }) as unknown as TurnContext
+  const begin = (id: string): Extract<NormalizedEvent, { type: 'response.boundary' }> => ({
+    type: 'response.boundary',
+    sessionId: 's1',
+    boundary: { phase: 'begin', id }
+  })
+  const end = (id: string): Extract<NormalizedEvent, { type: 'response.boundary' }> => ({
+    type: 'response.boundary',
+    sessionId: 's1',
+    boundary: { phase: 'end', id, outcome: 'ended' }
+  })
+  const text: NormalizedEvent = {
+    type: 'message.completed',
+    sessionId: 's1',
+    message: { text: 'searchable answer' }
+  }
+
+  it('appends end to the completed original row, preserves FTS, and survives disk reopen and fork', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'orca-response-boundary-'))
+    const filename = join(directory, 'history.db')
+    let connection = new Database(filename)
+    try {
+      applyMigrations(connection)
+      const queries = new DbQueries(connection)
+      const writer = new HistoryWriter(queries, () => true)
+      const turn = Object.assign(turnFor(), {
+        titleAdapter: { id: 'claude' as const },
+        pendingUserText: null,
+        pendingProjectId: null,
+        cwd: '/fixture',
+        extraDirs: [],
+        isNewSession: true
+      })
+      writer.persist(turn, { type: 'session.updated', sessionId: 's1', patch: {} })
+      writer.persist(turn, begin('segment'))
+      writer.persist(turn, text)
+      const messageId = turn.currentAssistantMessageId
+      writer.persist(turn, { type: 'telemetry', sessionId: 's1' })
+      expect(turn.currentAssistantMessageId).toBeNull()
+      const before = connection.prepare('SELECT id,content,complete FROM messages').all()
+      writer.persist(turn, end('segment'))
+      expect(connection.prepare('SELECT id,content,complete FROM messages').all()).toEqual(before)
+      expect(before).toEqual([{ id: messageId, content: 'searchable answer', complete: 1 }])
+      expect(queries.loadParts('s1').map(partFromRow)).toEqual([
+        { type: 'response_boundary', boundary: { phase: 'begin', id: 'segment' } },
+        { type: 'text', text: 'searchable answer' },
+        { type: 'response_boundary', boundary: { phase: 'end', id: 'segment', outcome: 'ended' } }
+      ])
+      expect(
+        connection
+          .prepare("SELECT count(*) AS n FROM messages_fts WHERE messages_fts MATCH 'searchable'")
+          .get()
+      ).toEqual({ n: 1 })
+      queries.insertSession({
+        id: 'fork',
+        backend: 'claude',
+        title: null,
+        projectId: null,
+        createdAt: 2,
+        agentKind: 'work'
+      })
+      queries.copyMessagesToSession('s1', 'fork')
+      const expected = loadSession(queries, 's1', () => '/fallback')
+      expect(expected?.agentKind).toBe('work')
+      expect(loadSession(queries, 'fork', () => '/fallback')?.messages).toEqual(expected?.messages)
+      connection.close()
+      connection = new Database(filename)
+      const reopened = new DbQueries(connection)
+      expect(loadSession(reopened, 's1', () => '/fallback')).toEqual(expected)
+      expect(loadSession(reopened, 'fork', () => '/fallback')?.messages).toEqual(expected?.messages)
+    } finally {
+      if (connection.open) connection.close()
+      rmSync(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('does not synthesize end after a crash or create rows for unmatched/foreign ends', () => {
+    const connection = new Database(':memory:')
+    try {
+      applyMigrations(connection)
+      const queries = new DbQueries(connection)
+      queries.insertSession({
+        id: 's1',
+        backend: 'claude',
+        title: null,
+        projectId: null,
+        createdAt: 1
+      })
+      const writer = new HistoryWriter(queries, () => true)
+      const turn = turnFor()
+      writer.persist(turn, end('missing'))
+      expect(queries.loadParts('s1')).toEqual([])
+      writer.persist(turn, begin('crash'))
+      writer.persist(turn, text)
+      writer.persist(turn, end('wrong'))
+      writer.persist(turn, { ...end('crash'), sessionId: 'foreign' })
+      expect(loadSession(queries, 's1', () => '/fallback')?.messages).toEqual([
+        {
+          role: 'assistant',
+          createdAt: expect.any(Number),
+          incomplete: true,
+          parts: [
+            { type: 'response_boundary', boundary: { phase: 'begin', id: 'crash' } },
+            { type: 'text', text: 'searchable answer' }
+          ]
+        }
+      ])
+    } finally {
+      connection.close()
+    }
+  })
+
+  it('moves the end address when later output creates a new assistant row after telemetry', () => {
+    const connection = new Database(':memory:')
+    try {
+      applyMigrations(connection)
+      const queries = new DbQueries(connection)
+      queries.insertSession({
+        id: 's1',
+        backend: 'claude',
+        title: null,
+        projectId: null,
+        createdAt: 1
+      })
+      const writer = new HistoryWriter(queries, () => true)
+      const turn = turnFor()
+      writer.persist(turn, begin('segment'))
+      writer.persist(turn, text)
+      const first = turn.currentAssistantMessageId
+      writer.persist(turn, { type: 'telemetry', sessionId: 's1' })
+      writer.persist(turn, text)
+      const last = turn.currentAssistantMessageId
+      writer.persist(turn, end('segment'))
+      expect(last).not.toBe(first)
+      const rows = queries.loadParts('s1')
+      expect(rows.at(-1)).toMatchObject({
+        message_id: last,
+        type: 'response_boundary',
+        complete: 0
+      })
+      expect(
+        rows.filter((row) => row.message_id === first).every((row) => row.complete === 1)
+      ).toBe(true)
+    } finally {
+      connection.close()
+    }
+  })
+})
+
 describe('HistoryWriter.persistUserMessage — 첨부 영속', () => {
   it('committed requirements survive real message_parts storage and the session-load parser', () => {
     const db = new Database(':memory:')
@@ -50,7 +242,7 @@ describe('HistoryWriter.persistUserMessage — 첨부 영속', () => {
         "INSERT INTO sessions (id, backend, created_at, updated_at) VALUES ('s1', 'claude', 1, 1)"
       ).run()
       const queries = new DbQueries(db)
-      const writer = new HistoryWriter(queries)
+      const writer = new HistoryWriter(queries, () => false)
       const requirements: DiffRequirementAnchor[] = [
         {
           sessionId: 's1',
@@ -120,8 +312,9 @@ describe('HistoryWriter — session baseline birth persistence', () => {
       updateSessionPreview: vi.fn(),
       updateSessionProviderKey: vi.fn()
     }
-    const persistence = new HistoryWriter(db as unknown as DbQueries)
+    const persistence = new HistoryWriter(db as unknown as DbQueries, () => false)
     const turn = {
+      agentKind: 'work',
       dbSessionId: null,
       initialTitle: null,
       pendingUserText: null,
@@ -144,6 +337,7 @@ describe('HistoryWriter — session baseline birth persistence', () => {
       // 0211 ΔV4 — 커밋과 이름이 **한 insert** 로 간다(D-070).
       expect.objectContaining({
         id: 'new-session',
+        agentKind: 'work',
         baselineOid: 'a'.repeat(40),
         baselineRef: 'main'
       })
@@ -154,7 +348,7 @@ describe('HistoryWriter — session baseline birth persistence', () => {
     const db = new Database(':memory:')
     applyMigrations(db)
     const queries = new DbQueries(db)
-    const persistence = new HistoryWriter(queries)
+    const persistence = new HistoryWriter(queries, () => false)
     const turn = (
       sessionBaseline: string | null,
       isNewSession: boolean,
@@ -216,7 +410,7 @@ function makeFinalizeHarness(): {
     updateSessionPreview: vi.fn(),
     updateSessionProviderKey: vi.fn()
   }
-  const persistence = new HistoryWriter(db as unknown as DbQueries)
+  const persistence = new HistoryWriter(db as unknown as DbQueries, () => false)
   const turn = {
     dbSessionId: 's1',
     currentAssistantMessageId: null,
@@ -304,7 +498,7 @@ describe('HistoryWriter — TaskXXX 구조화 출력 영속 (0204)', () => {
       updateSessionPreview: vi.fn(),
       updateSessionProviderKey: vi.fn()
     }
-    const persistence = new HistoryWriter(db as unknown as DbQueries)
+    const persistence = new HistoryWriter(db as unknown as DbQueries, () => false)
     const turn = {
       dbSessionId: 's1',
       currentAssistantMessageId: null,

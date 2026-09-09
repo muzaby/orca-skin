@@ -12,9 +12,6 @@ vi.mock('../../infra/ipc/handle', () => ({
   }),
   handlePlain: vi.fn()
 }))
-vi.mock('../../features/extensions/deployer', () => ({
-  deploy: vi.fn(async () => ({ validation: { ok: true, errors: [] } }))
-}))
 vi.mock('../../features/harnesses/settings-write', () => ({
   addHarnessSettings: vi.fn(() => ({})),
   deleteHarnessSettings: vi.fn(),
@@ -40,10 +37,11 @@ describe('engine runtime catalog invalidation wiring', () => {
     const invalidateRuntime = vi.fn()
     const invalidateCatalog = vi.fn()
     registerEngineHandlers({
+      deployExtensions: vi.fn(async () => {}),
       harnessSettings: { invalidateAll: invalidateSettings },
       harnessRuntime: { invalidate: invalidateRuntime },
       runtimeModelCatalog: { isReadOnly: () => false, invalidate: invalidateCatalog }
-    } as never)
+    })
 
     await callbacks.get(channel)?.(request as never)
 
@@ -87,10 +85,11 @@ describe('engine runtime catalog invalidation wiring', () => {
       credentialRevision: 1
     })
     registerEngineHandlers({
+      deployExtensions: vi.fn(async () => {}),
       harnessSettings: { invalidateAll: vi.fn() },
       harnessRuntime: runtime,
       runtimeModelCatalog
-    } as never)
+    })
 
     await callbacks.get(channel)?.(request as never)
 
@@ -98,7 +97,7 @@ describe('engine runtime catalog invalidation wiring', () => {
     expect(runtime.cached('claude-corp')).toBeDefined()
 
     // AC11 — 같은 인스턴스에서 두 소비처 형태를 비교한다. `agent:list`(무필터, misc.ts:43)와
-    // 턴 후보(`adapter` 필터, turn-setup.ts:54)가 같은 runtime key 집합을 봐야 한다.
+    // 턴 후보(`adapter` 필터, resolve-turn.ts:54)가 같은 runtime key 집합을 봐야 한다.
     const settings: AgentEnvironment[] = [
       { key: 'claude-local', adapter: 'claude', provider: 'local', models: [], supported: true },
       { key: 'claude-corp', adapter: 'claude', provider: 'corp', models: [], supported: true },
@@ -130,9 +129,10 @@ describe('engine runtime catalog invalidation wiring', () => {
   ])('rejects non-canonical runtime-managed keys on %s', async (channel, request) => {
     const isReadOnly = vi.fn((key: string) => key === 'claude-corp')
     registerEngineHandlers({
+      deployExtensions: vi.fn(async () => {}),
       harnessSettings: { invalidateAll: vi.fn() },
       runtimeModelCatalog: { isReadOnly, invalidate: vi.fn() }
-    } as never)
+    })
 
     await expect(async () => callbacks.get(channel)?.(request as never)).rejects.toThrow(
       'runtime-managed engine is read-only: claude-corp'

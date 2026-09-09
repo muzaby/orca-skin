@@ -59,7 +59,7 @@ function turnFor(cwd: string): TurnContext {
 async function openDb(): Promise<{ file: string; db: Database.Database; q: DbQueries }> {
   const dir = await mkdtemp(join(tmpdir(), 'orca-bind-'))
   dirs.push(dir)
-  const file = join(dir, 'orca.db')
+  const file = join(dir, 'orcinus-orca.db')
   const db = openHandle(file)
   applyMigrations(db)
   return { file, db, q: new DbQueries(db) }
@@ -88,7 +88,7 @@ describe('HistoryWriter → managed worktree bind → resume (AC12 · AC13)', ()
     })
     expect(q.getManagedWorktreeBySession('s1')).toBeNull()
 
-    const writer = new HistoryWriter(q, { emit: vi.fn() } as never)
+    const writer = new HistoryWriter(q, () => false)
     writer.persist(turnFor(EXECUTION), { type: 'session.updated', sessionId: 's1' } as never)
 
     expect(q.getManagedWorktreeBySession('s1')).toMatchObject({ id: 'w1', session_id: 's1' })
@@ -105,7 +105,7 @@ describe('HistoryWriter → managed worktree bind → resume (AC12 · AC13)', ()
       baseOid: 'a'.repeat(40),
       createdAt: 1
     })
-    new HistoryWriter(q, { emit: vi.fn() } as never).persist(turnFor(EXECUTION), {
+    new HistoryWriter(q, () => false).persist(turnFor(EXECUTION), {
       type: 'session.updated',
       sessionId: 's1'
     } as never)
@@ -140,7 +140,7 @@ describe('HistoryWriter → managed worktree bind → resume (AC12 · AC13)', ()
       createdAt: 1
     })
 
-    new HistoryWriter(q, { emit: vi.fn() } as never).persist(turnFor('/repo/packages/web'), {
+    new HistoryWriter(q, () => false).persist(turnFor('/repo/packages/web'), {
       type: 'session.updated',
       sessionId: 's1'
     } as never)

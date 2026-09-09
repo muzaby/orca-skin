@@ -1,8 +1,7 @@
 // 0204 ΔV1 — 두 타일이 서로 다른 책임을 갖는다(D-015·D-019)는 것을 렌더 출력으로 잠근다.
 //
 //   `백그라운드 작업`(subagent) = `72766d2` 복구 — 상태 그룹 · 3줄 카드 · 대화록 상세 (AT-28)
-//   `작업`(task)               = 목록 하나 · id 순 · 취소선 · 제목 직후 중단 (AT-26·27 · 0213 AC8·AC9
-//                                가 AT-29 의 3섹션을 대체했다)
+//   `작업`(task)               = 진행 상황 · 출력 · 컨텍스트. 진행 목록의 id 순·취소선 보존.
 //
 // JSX 를 쓰지 않는 이유: vitest include 가 `src/**/*.test.ts` 라 `.tsx` 를 잡지 않는다.
 // jsdom·testing-library 없이 react-dom/server 로 돈다(신규 의존성 0).
@@ -11,6 +10,7 @@
 // 것을 막는다(0203 ΔV2 에서 실제로 겪은 형태다).
 
 import { beforeEach, describe, expect, it } from 'vitest'
+import { load } from 'cheerio'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { SubAgentTaskDetail, SubAgentTaskList, SubAgentTileContent } from './SubAgentTileContent'
@@ -24,6 +24,7 @@ import {
 } from '../../lib/taskBoard'
 import type { Message } from '../../reducer/chatReducer'
 import type { AppMessagePart } from '../../../../../../shared/ipc'
+import { agentUiPolicy } from '../../lib/agentPresentation'
 
 // 검증 대상은 **props 만 읽는 View** 다. store 연결 컴포넌트를 `renderToStaticMarkup` 으로
 // 돌리면 zustand 가 SSR 스냅샷(`getInitialState()`)을 돌려주어 시드가 반영되지 않는다 —
@@ -119,39 +120,33 @@ const renderSubagentList = (msgs: Message[], stoppingIds: string[] = []): string
 // 회귀가 초록으로 통과한다(verify r4 D15 / 변이 M-S) — 어느 섹션에 담겼는지까지 본다.
 // 섹션이 없으면 `undefined` 라 단언이 실패한다(fail-closed).
 function sectionBodies(html: string): Record<string, string> {
-  const bodies: Record<string, string> = {}
-  for (const chunk of html.split('<section').slice(1)) {
-    const title = chunk.match(/<span[^>]*>([^<]+)<\/span>/)?.[1]
-    const body = chunk.match(/<div class="pb-3">([\s\S]*)$/)?.[1]
-    if (title !== undefined && body !== undefined) bodies[title] = body
-  }
-  return bodies
+  const $ = load(html)
+  return Object.fromEntries(
+    $('section[aria-label]')
+      .toArray()
+      .map((node) => [$(node).attr('aria-label')!, $(node).children('div').last().html() ?? ''])
+  )
 }
 
 beforeEach(() => {
   runSeq = 0
 })
 
-// 0213 AC8·AC9 — 0204 AT-29(cowork 3섹션)를 **대체한다**. 사용자가 두 섹션을 숨기기로
-// 했고(D-002) 하나 남은 섹션의 껍데기도 벗겼다(D-003). 구 케이스가 잡던 것은 *래퍼 →
-// 본문 View 배선* 이라, 그 감도는 여기서 양성 단언으로 유지한다 — 래퍼에서 목록 View 를
-// 지우면 빈 상태 문구가 사라져 red 다.
-describe('작업 타일 — 목록 하나 (AC8·AC9 · §10 EP-06)', () => {
-  it('껍데기 없이 목록 View 만 그린다 — 래퍼→본문 배선은 그대로다', () => {
+// 0223 AC17·18 — 복원한 세 섹션의 순서뿐 아니라 각 본문 귀속을 잠근다.
+describe('작업 타일 — 진행 상황 / 출력 / 컨텍스트 (0223 AC17·18)', () => {
+  it('세 섹션이 순서대로 있고 각 본문은 자신의 섹션에만 있다', () => {
     const html = renderToStaticMarkup(createElement(TaskTileContent))
-    // 양성 — 래퍼가 `TaskProgressList` 를 실제로 부른다(빈 상태 문구가 그 View 의 산출이다).
-    expect(html).toContain(
-      'Claude 가 Task 를 만들거나 백그라운드 작업을 시작하면 여기에 표시됩니다.'
-    )
-    // 음성 ① — 섹션 껍데기가 없다. 헤더도 접기 컨트롤도 남지 않는다(D-003).
-    expect(sectionBodies(html)).toEqual({})
-    expect(html).not.toContain('aria-expanded')
-    expect(html).not.toContain('진행 상황')
-    // 음성 ② — 숨긴 두 섹션의 제목·설명 4문구가 전부 없다(D-002).
-    expect(html).not.toContain('출력')
-    expect(html).not.toContain('컨텍스트')
-    expect(html).not.toContain('이 작업 중에 생성된 파일을 확인하고 열 수 있습니다.')
-    expect(html).not.toContain('이 작업에 사용된 도구와 참조된 파일을 추적합니다.')
+    // Work 빈 진행과 출력·컨텍스트가 각자 지정된 슬롯에 들어간다(0224 ΔV2).
+    expect(html).toContain('오래 걸리는 작업의 진행 상황을 확인하세요.')
+    const bodies = sectionBodies(html)
+    expect(Object.keys(bodies)).toEqual(['진행 상황', '출력', '컨텍스트'])
+    expect(bodies['진행 상황']).toContain('오래 걸리는 작업의 진행 상황')
+    expect(bodies['출력']).toContain('이 작업 중에 생성된 파일')
+    expect(bodies['컨텍스트']).toContain('이 작업에 사용할 폴더를 추가하세요.')
+    expect(bodies['진행 상황']).not.toContain('이 작업 중에 생성된 파일')
+    expect(bodies['출력']).not.toContain('오래 걸리는 작업의 진행 상황')
+    expect(bodies['컨텍스트']).not.toContain('이 작업 중에 생성된 파일')
+    expect(html.match(/aria-expanded="true"/g)).toHaveLength(3)
   })
 
   it('목록에 상태 그룹 헤더가 없다 — 한 줄로 나열한다 (AC10)', () => {
@@ -175,11 +170,15 @@ describe('작업 타일 — 완료 항목 취소선 (AT-26)', () => {
         agentTask('진행 중인 일', '2', 'in_progress')
       )
     )
-    const doneSpan = html.match(/<span class="([^"]*)">완료된 일<\/span>/)
-    const runningSpan = html.match(/<span class="([^"]*)">진행 중인 일<\/span>/)
-    expect(doneSpan?.[1]).toContain('line-through')
+    const doneSpan = load(html)('[data-task-title]')
+      .filter((_, element) => load(html)(element).text() === '완료된 일')
+      .attr('class')
+    const runningSpan = load(html)('[data-task-title]')
+      .filter((_, element) => load(html)(element).text() === '진행 중인 일')
+      .attr('class')
+    expect(doneSpan).toContain('line-through')
     // 양방향 — 미완료에는 걸리지 않는다.
-    expect(runningSpan?.[1]).not.toContain('line-through')
+    expect(runningSpan).not.toContain('line-through')
   })
 })
 
@@ -198,9 +197,9 @@ describe('0215 AT-16·AT-17 — `작업` 타일에는 서브에이전트가 오�
 
   it('제목이 flex-1 을 갖지 않는다 (D-020 유지)', () => {
     const html = renderProgress(messages(agentTask('로그 파서 조사', '1', 'in_progress')))
-    const titleSpan = html.match(/<span class="([^"]*)">로그 파서 조사<\/span>/)
-    expect(titleSpan?.[1]).not.toContain('flex-1')
-    expect(titleSpan?.[1]).toContain('truncate')
+    const titleSpan = load(html)('[data-task-title]').attr('class')
+    expect(titleSpan).not.toContain('flex-1')
+    expect(titleSpan).toContain('truncate')
   })
 })
 
@@ -263,7 +262,8 @@ describe('백그라운드 작업 타일 — 복구 (AT-28 · D-016)', () => {
       createElement(SubAgentTaskDetail, {
         task,
         childMessage: childMessageForParentToolRunId(msgs, 'bg1'),
-        startedAtMs: null
+        startedAtMs: null,
+        transcriptPolicy: agentUiPolicy('code').transcript
       })
     )
     expect(html).toContain('서브에이전트가 찾은 결과')

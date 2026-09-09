@@ -88,6 +88,7 @@ describe('chatReducer — 사용량 기준 provider (0186)', () => {
 
   it('세션 복원은 그 세션의 provider_key 를 기준으로 삼는다', () => {
     const session = {
+      agentKind: 'code',
       id: 's9',
       backend: 'claude',
       title: null,

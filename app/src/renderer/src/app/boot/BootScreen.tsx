@@ -2,6 +2,7 @@ import { WinControls } from '../WinControls'
 import { getPlatform } from '../../shared/api/ipc'
 import { useI18n } from '../../shared/i18n'
 import type { CSSProperties } from 'react'
+import { PRODUCT_DISPLAY_NAME } from '../../../../shared/product'
 
 const DRAG_STYLE: CSSProperties = { WebkitAppRegion: 'drag' } as CSSProperties
 
@@ -26,7 +27,7 @@ export function BootScreen({
   return (
     <div
       className="app-frame-root flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-ink"
-      data-screen-label={`Orca · ${screenLabel}`}
+      data-screen-label={`${PRODUCT_DISPLAY_NAME} · ${screenLabel}`}
       aria-busy="true"
     >
       <header

@@ -1,6 +1,7 @@
 import { createSdkMcpServer, type Options } from '@anthropic-ai/claude-agent-sdk'
 import type {
   RuntimeToolImplementation,
+  RuntimeToolContext,
   RuntimeToolResult,
   RuntimeToolServer,
   RuntimeToolSnapshot
@@ -35,15 +36,21 @@ function assertRuntimeToolResult(
 
 function adaptHandler(
   implementation: RuntimeToolImplementation,
-  serverId: string
+  serverId: string,
+  context?: RuntimeToolContext
 ): (args: Record<string, unknown>) => Promise<RuntimeToolResult> {
   return async (args) =>
-    assertRuntimeToolResult(await implementation.handler(args), serverId, implementation.name)
+    assertRuntimeToolResult(
+      await implementation.handler(args, context),
+      serverId,
+      implementation.name
+    )
 }
 
 function adaptServer(
   server: RuntimeToolServer,
-  serverId: string
+  serverId: string,
+  context?: RuntimeToolContext
 ): ReturnType<typeof createSdkMcpServer> {
   const implementations = new Map(
     server.implementations.map((implementation) => [implementation.name, implementation])
@@ -58,7 +65,7 @@ function adaptServer(
       description: declaration.description,
       annotations: declaration.annotations,
       inputSchema: implementation.inputSchema,
-      handler: adaptHandler(implementation, serverId)
+      handler: adaptHandler(implementation, serverId, context)
     }
   })
 
@@ -73,13 +80,14 @@ function adaptServer(
 // SDK 동적 MCP map은 runtime snapshot이 실제로 있을 때만 주입한다. 빈 map을 넘기면 기존
 // plugin/.mcp.json 경로의 현행 동작까지 strict runtime surface로 바뀔 수 있으므로 key 자체를 생략한다.
 export function adaptRuntimeTools(
-  snapshot?: RuntimeToolSnapshot
+  snapshot?: RuntimeToolSnapshot,
+  context?: RuntimeToolContext
 ): Pick<Options, 'mcpServers'> | Record<never, never> {
   if (!snapshot || snapshot.servers.size === 0) return {}
 
   const mcpServers: NonNullable<Options['mcpServers']> = {}
   for (const [serverId, server] of snapshot.servers) {
-    mcpServers[serverId] = adaptServer(server, serverId)
+    mcpServers[serverId] = adaptServer(server, serverId, context)
   }
   return { mcpServers }
 }

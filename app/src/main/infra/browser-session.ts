@@ -24,12 +24,7 @@ import {
   type SessionGroupPolicy
 } from './browser-session-policy'
 import { sendOnce } from './net/net-request'
-import {
-  ResponseTooLargeError,
-  type PreparedRequest,
-  type SendOptions,
-  type SendResult
-} from './net/transport'
+import type { PreparedRequest, SendOptions, SendResult } from './net/transport'
 
 export { isAllowedOrigin, partitionFor, type SessionGroupPolicy } from './browser-session-policy'
 
@@ -122,9 +117,7 @@ export class BrowserSessionStore {
   // 리다이렉트는 **따라가지 않는다.** 홉마다 대상 정책을 다시 봐야 하므로 추종은 호출자
   // (`features/auth/api.ts`)의 몫이다 — `sendOnce` 계약 그대로다.
   //
-  // 상한은 응답을 다 받은 뒤에 잰다. `net.request` 가 본문을 모아서 주므로 스트리밍 중단 지점이
-  // 없다 — credential 주입 경로(`createSender`)의 스트리밍 상한과 다른 점이고, 첨부 다운로드는
-  // 그쪽 경로를 쓴다.
+  // 상한은 cookie와 명시 credential 경로가 공유하는 sendOnce 수신 경계에서 적용한다.
   async send(
     handleId: string,
     req: PreparedRequest,
@@ -142,13 +135,10 @@ export class BrowserSessionStore {
       ...(req.body !== undefined ? { body: req.body } : {}),
       session: entry.ses,
       credentials: 'include',
+      ...(options?.maxBytes !== undefined ? { maxBytes: options.maxBytes } : {}),
       ...(signal ? { signal } : {})
     })
     const bytes = body ?? new Uint8Array(0)
-    const limit = options?.maxBytes
-    if (limit !== undefined && bytes.byteLength > limit) {
-      throw new ResponseTooLargeError(bytes.byteLength, limit)
-    }
     const headers = normalizeHeaders(facts.headers)
     if (options?.responseType === 'binary') {
       return { status: facts.status, headers, body: '', bodyBytes: bytes }

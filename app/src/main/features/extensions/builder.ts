@@ -1,6 +1,6 @@
-// ExtensionBuilder — Extension 계층 조립기. 정규 소스(DB 지침 · McpStore · 스킬 스캔)를 읽어 백엔드
-// 중립 TurnExtensions 로 조립한다. 어댑터/백엔드를 전혀 모른다 — 어댑트(claude 타깃 변환·
-// ${VAR} 확장)는 전적으로 어댑터 책임. router 에 흩어져 있던 지침 조회를 이리로 이주해
+// ExtensionBuilder — DB 지침 · 스킬 메타 · plugin 경로 · runtime tool snapshot을 읽어 백엔드
+// 중립 TurnExtensions 로 조립한다. MCP 설정은 별도 plugin 배포 경로가 소유한다.
+// 어댑터/백엔드를 전혀 모른다. router 에 흩어져 있던 지침 조회를 이리로 이주해
 // "이 확장 리소스는 어디서 조립하지?"를 단일 위치로 모은다 (설계검토 §9 1단계).
 //
 // systemPromptAppend = 구조화 헤더(# Orca/# User/# Project). 프로젝트 name·지침은 '# Project'
@@ -9,7 +9,6 @@
 //
 
 import type { DbQueries } from '../../infra/db'
-import type { McpStore } from './mcp/store'
 import type { Settings, SkillInfo } from '../../../shared/ipc'
 import type { TurnExtensions } from '../../adapters/turn'
 import type { RuntimeToolSource } from '../../adapters/runtime-tools'
@@ -18,7 +17,6 @@ import { buildSystemHeader } from './system-header'
 export class ExtensionBuilder {
   constructor(
     private readonly db: DbQueries,
-    private readonly mcp: McpStore,
     private readonly skills: () => SkillInfo[],
     private readonly settings: () => Settings,
     private readonly orcaVersion: string,
@@ -28,9 +26,13 @@ export class ExtensionBuilder {
 
   // sessionId 가 있으면 resume 경로(세션→프로젝트 조회), 없으면 새 채팅(projectId 직접 조회).
   // 새 채팅이면 projectId 를, resume 면 null 을 넘긴다.
-  build(sessionId: string | null, projectId: string | null): TurnExtensions {
-    // 프로젝트 name+instructions 조회. 매 턴 1회 prepared statement — DB SSOT, 캐시 없음(지침·계정
-    // 지침 편집이 같은 세션의 다음 메시지부터 즉시 반영). resume 은 세션 바인딩으로, 새 채팅은 projectId 로.
+  build(
+    sessionId: string | null,
+    projectId: string | null,
+    profile?: { agentInstructions?: string; agentProfileKey?: string }
+  ): TurnExtensions {
+    // 프로젝트 name+instructions는 매 턴 재조회한다. SDK 시스템 지침 적용은 채널 spawn 시점이며
+    // warm 채널에 즉시 갱신하는 계약은 아니다. resume은 세션 바인딩, 새 채팅은 projectId를 쓴다.
     let projectName: string | undefined
     let instructions: string | undefined
     if (sessionId) {
@@ -53,6 +55,7 @@ export class ExtensionBuilder {
     const s = this.settings()
     const systemPromptAppend = buildSystemHeader({
       orcaVersion: this.orcaVersion,
+      agentInstructions: profile?.agentInstructions,
       language: s.language,
       accountInstructions: s.accountInstructions,
       projectName,
@@ -63,8 +66,7 @@ export class ExtensionBuilder {
     const pluginRoots = this.pluginRoots?.() ?? []
 
     return {
-      // 미확장 정규형 — Claude 는 plugin .mcp.json 렌더 경로로 소비한다.
-      mcp: this.mcp.enabledConfig(),
+      ...(profile?.agentProfileKey ? { agentProfileKey: profile.agentProfileKey } : {}),
       ...(this.runtimeTools ? { runtimeTools: this.runtimeTools.snapshot() } : {}),
       ...(pluginRoots.length > 0 ? { pluginRoots } : {}),
       // 가시화 메타 (어댑트는 어댑터의 항상-on skills 경로가 구동).

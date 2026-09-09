@@ -1,0 +1,218 @@
+{
+  "command": "diagnose",
+  "version": "0.0.75",
+  "status": {
+    "userProvisioned": true,
+    "credentialPresent": true,
+    "wfp": "cannot-read"
+  },
+  "enforcement": "unverified",
+  "code": "srt_diagnostic_only",
+  "smoke": {
+    "success": false,
+    "checks": [
+      {
+        "id": "transport.srt-frame",
+        "passed": false
+      },
+      {
+        "id": "transport.stdin-bytes",
+        "passed": false
+      },
+      {
+        "id": "filesystem.allowed",
+        "passed": true
+      },
+      {
+        "id": "filesystem.denied-read",
+        "passed": true
+      },
+      {
+        "id": "filesystem.denied-write",
+        "passed": true
+      },
+      {
+        "id": "network.allowed-proxy",
+        "passed": true
+      },
+      {
+        "id": "network.denied-proxy",
+        "passed": true
+      },
+      {
+        "id": "network.direct-ipv4",
+        "passed": true
+      },
+      {
+        "id": "network.direct-ipv6",
+        "passed": true
+      },
+      {
+        "id": "process.nested-exit",
+        "passed": true
+      },
+      {
+        "id": "cleanup.acl-restored",
+        "passed": true
+      },
+      {
+        "id": "cleanup.reset",
+        "passed": true
+      },
+      {
+        "id": "cleanup.listeners",
+        "passed": true
+      },
+      {
+        "id": "cleanup.runner",
+        "passed": true
+      }
+    ],
+    "failures": [],
+    "executionPath": "diagnostic-direct",
+    "diagnostics": [
+      {
+        "mode": "stdin",
+        "exitCode": 0,
+        "stderrBytes": 0,
+        "bootstrapErrors": [],
+        "srtErrorCodes": []
+      },
+      {
+        "mode": "echo",
+        "exitCode": 0,
+        "stderrBytes": 0,
+        "bootstrapErrors": [],
+        "srtErrorCodes": []
+      },
+      {
+        "mode": "fs",
+        "exitCode": 0,
+        "stderrBytes": 0,
+        "bootstrapErrors": [],
+        "srtErrorCodes": []
+      },
+      {
+        "mode": "network",
+        "exitCode": 0,
+        "stderrBytes": 0,
+        "bootstrapErrors": [],
+        "srtErrorCodes": []
+      },
+      {
+        "mode": "child",
+        "exitCode": null,
+        "stderrBytes": 0,
+        "bootstrapErrors": [],
+        "srtErrorCodes": []
+      }
+    ],
+    "cleanup": {
+      "resetCompleted": true,
+      "listenersClosed": true,
+      "runnerClosed": true,
+      "childrenObservationComplete": true,
+      "residualChildren": false,
+      "fixtureRemoved": true
+    },
+    "observations": {
+      "stdin": {
+        "bytes": 0,
+        "hashMatches": false
+      },
+      "observedPids": [
+        11136,
+        36180,
+        21980
+      ],
+      "runnerTermination": {
+        "requested": true,
+        "killAccepted": true,
+        "closed": true,
+        "exitCode": null
+      },
+      "echo": {
+        "markerMatches": true,
+        "argsMatch": true,
+        "cwdMatches": true,
+        "fakeEnvMatches": false
+      },
+      "filesystem": {
+        "allowWrite": {
+          "ok": true
+        },
+        "allowRead": {
+          "ok": true,
+          "bytes": 17
+        },
+        "denyRead": {
+          "ok": false,
+          "errorCode": "EPERM"
+        },
+        "denyWrite": {
+          "ok": false,
+          "errorCode": "EPERM"
+        }
+      },
+      "hostFiles": {
+        "allowedContentMatches": true,
+        "deniedContentUnchanged": true,
+        "deniedWriteAbsent": true
+      },
+      "network": {
+        "mode": "network",
+        "allowed": {
+          "ok": true,
+          "status": 200
+        },
+        "denied": {
+          "ok": false,
+          "status": 403
+        },
+        "directIPv4": {
+          "connected": false,
+          "errorCode": "EACCES"
+        },
+        "directIPv6": {
+          "connected": false,
+          "errorCode": "EACCES"
+        }
+      },
+      "listeners": {
+        "ipv4": true,
+        "ipv6": true,
+        "allowedHits": 1,
+        "deniedHits": 0
+      },
+      "child": {
+        "observedAlive": true,
+        "descendantCount": 2,
+        "deadAfterRunnerExit": true
+      },
+      "aclBefore": [
+        "b400a87c257f92066c08ebb1c5546f30e48047a68c89c49ef61ee22b1c7bb0af",
+        "b400a87c257f92066c08ebb1c5546f30e48047a68c89c49ef61ee22b1c7bb0af",
+        "b400a87c257f92066c08ebb1c5546f30e48047a68c89c49ef61ee22b1c7bb0af",
+        "3a14964110ae76aa4a8823fad1ba4ff0f132cdf974a12eeeec04facf85e2d42b",
+        "b400a87c257f92066c08ebb1c5546f30e48047a68c89c49ef61ee22b1c7bb0af",
+        "3a14964110ae76aa4a8823fad1ba4ff0f132cdf974a12eeeec04facf85e2d42b",
+        "3a14964110ae76aa4a8823fad1ba4ff0f132cdf974a12eeeec04facf85e2d42b"
+      ],
+      "aclAfter": [
+        "b400a87c257f92066c08ebb1c5546f30e48047a68c89c49ef61ee22b1c7bb0af",
+        "b400a87c257f92066c08ebb1c5546f30e48047a68c89c49ef61ee22b1c7bb0af",
+        "b400a87c257f92066c08ebb1c5546f30e48047a68c89c49ef61ee22b1c7bb0af",
+        "3a14964110ae76aa4a8823fad1ba4ff0f132cdf974a12eeeec04facf85e2d42b",
+        "b400a87c257f92066c08ebb1c5546f30e48047a68c89c49ef61ee22b1c7bb0af",
+        "3a14964110ae76aa4a8823fad1ba4ff0f132cdf974a12eeeec04facf85e2d42b",
+        "3a14964110ae76aa4a8823fad1ba4ff0f132cdf974a12eeeec04facf85e2d42b"
+      ]
+    },
+    "limitations": [
+      "P0_ONLY_APP_NOT_CONNECTED",
+      "FIXTURE_SCOPE_ONLY",
+      "SHARED_SANDBOX_SID",
+      "DNS_NOT_PROVEN_BLOCKED"
+    ]
+  }
+}

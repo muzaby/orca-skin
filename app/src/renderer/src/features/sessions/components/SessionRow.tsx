@@ -1,4 +1,5 @@
 import { memo, useRef, useState } from 'react'
+import { useSessionsState } from '../store/sessionsStore'
 import { Icon, type IconName } from '../../../shared/ui/Icon'
 import { KebabButton } from '../../../shared/ui/KebabButton'
 import { MenuItem } from '../../../shared/ui/MenuItem'
@@ -7,11 +8,20 @@ import { RenameInput } from '../../../shared/ui/RenameInput'
 import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
 import { useI18n } from '../../../shared/i18n'
 import type { SessionListItem } from '../../../../../shared/ipc'
+import type { AgentKind } from '../../../../../shared/agent-kind'
+import type { MessageKey } from '../../../shared/i18n'
+
+export interface SessionAgentAppearance {
+  readonly navIcon: IconName
+  readonly label: MessageKey
+}
+export type AgentAppearanceResolver = (kind: AgentKind) => SessionAgentAppearance
 
 // 한 시점에 한 행만 메뉴 / rename 모드. 각 행이 로컬 state 를 갖고 자기 popover 를
 // anchor 한다. Popover atom 의 outside-click 핸들러가 다른 행 클릭 시 자동 닫음.
 // Sidebar 와 ProjectDetailScreen 양쪽에서 재사용 (kebab/rename/delete UX 통일).
 export interface SessionRowProps {
+  appearance: SessionAgentAppearance
   session: SessionListItem
   isActive: boolean
   // 프로젝트 소속 세션일 때만 truthy. label 에 `<projectName> / ` prefix 가 붙는다.
@@ -24,8 +34,6 @@ export interface SessionRowProps {
   // continuity draft(미물질화, 0064 r4) 행은 rename 불가 — 마커 제목이 main 의 initialTitle
   // 에서 오므로 draft 단계 rename 은 물질화 시 덮여 유실된다. 메뉴에서 항목을 숨긴다.
   renameable?: boolean
-  // 0129 — 항목 좌측 구분 아이콘. 대화 행은 말풍선(기본), 필요 시 호출자가 교체.
-  leadingIcon?: IconName
   // 0129 고정 토글 — 핸들러가 있으면 kebab 에 고정/해제 항목이 나온다. pinned=현재 상태.
   onTogglePin?: (sessionId: string, pinned: boolean) => void
   pinned?: boolean
@@ -35,6 +43,7 @@ export interface SessionRowProps {
 // 비변경 엔티티의 참조를 보존하므로(patchSession 패치 + mergeItems 동일값 bail-out)
 // 실제로 바뀐 행만 재렌더된다.
 export const SessionRow = memo(function SessionRow({
+  appearance,
   session,
   isActive,
   projectName,
@@ -42,7 +51,6 @@ export const SessionRow = memo(function SessionRow({
   onDelete,
   onRename,
   renameable = true,
-  leadingIcon = 'chat',
   onTogglePin,
   pinned = false
 }: SessionRowProps): React.JSX.Element {
@@ -50,6 +58,18 @@ export const SessionRow = memo(function SessionRow({
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const kebabRef = useRef<HTMLButtonElement>(null)
+  const unseen = useSessionsState((state) => state.unseenCompletedIds.has(session.id))
+  const modeIcon = (
+    <span
+      role="img"
+      aria-label={tr(appearance.label)}
+      data-context="session-agent-kind"
+      data-state={unseen && !isActive ? 'unseen-complete' : 'default'}
+      className={`inline-flex shrink-0 ${unseen && !isActive ? 'text-selected [&_svg]:stroke-current [&_svg]:[stroke-linejoin:round] [&_svg]:[stroke-width:40]' : ''}`}
+    >
+      <Icon name={appearance.navIcon} size={14} />
+    </span>
+  )
 
   const baseLabel = (
     session.title?.trim() ||
@@ -90,7 +110,7 @@ export const SessionRow = memo(function SessionRow({
         data-behavior="interactive renaming"
         data-session-id={session.id}
       >
-        <Icon name={leadingIcon} size={14} className="shrink-0" />
+        {modeIcon}
         <RenameInput
           initial={baseLabel}
           onCommit={commitRename}
@@ -115,7 +135,7 @@ export const SessionRow = memo(function SessionRow({
       data-session-id={session.id}
       title={label}
     >
-      <Icon name={leadingIcon} size={14} className="shrink-0" />
+      {modeIcon}
       <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
         {label}
       </span>
@@ -171,7 +191,7 @@ export const SessionRow = memo(function SessionRow({
                     setMenuOpen(false)
                     openConfirmDialog({
                       title: tr('sessions.deleteDialogTitle'),
-                      message: tr('sessions.deleteDialogMessage'),
+                      message: `${tr('sessions.deleteDialogMessage')} ${tr('chat.artifacts.retainedOnSessionDelete')}`,
                       confirmLabel: tr('common.delete'),
                       danger: true,
                       onConfirm: () => onDelete(session.id)

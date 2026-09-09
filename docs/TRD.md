@@ -101,7 +101,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | 영속화 (설정) | `electron-store` | ^8 | **확정 (완료)** | theme·density·sidebar*·lastBackend·lastSessionId·windowBounds·mcp*·skillEnabled·authBypass·language·uiLocale·accountInstructions·appFont·notifyOnComplete·spendingLimitUsd·scheduler). §6.7 참조 |
 | 자동 업데이트 | `electron-updater` | ^6 | **확정 (0084~0086)** | `app/updater.ts` UpdateController — autoDownload=false·사용자 게이트. [arch/backend/runtime-ipc.md](arch/backend/runtime-ipc.md) §3.1 |
 | 로컬 DB (Phase 3+) | better-sqlite3 (Phase 3 MVP raw) / Drizzle 후보 (Phase 4 재검토) | — | **채택 (Phase 3+)** | 메시지·세션 메타 SSOT. 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스로 격하. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql`. **Phase 3 MVP: raw better-sqlite3 + prepared statements (쿼리 6 개 내외, ORM 가치 작음). Drizzle 은 Phase 4 멀티 세션·artifact·권한·통계 도입 시 재검토 (2026-05-20).** 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
-| 자격증명 | Electron `safeStorage` (OS keychain) | — | **부분 구현** | MCP 인증 비밀 = secret-store(`orca-secrets`) 구현 완료. 어댑터별 base URL/API key 저장은 Future. [arch/backend/security.md](arch/backend/security.md) §1.4 |
+| 자격증명 | Electron `safeStorage` (OS keychain) | — | **부분 구현** | MCP 인증 비밀 = secret-store(`orcinus-orca-secrets`) 구현 완료. 어댑터별 base URL/API key 저장은 Future. [arch/backend/security.md](arch/backend/security.md) §1.4 |
 | Python 런타임 | ~~uv + python-build-standalone~~ | — | **제거됨 (0050 PR-B)** | 구 `<userData>/runtime` 격리 Python 환경·runtime IPC 채널은 main 에서 삭제. uv 규약 정책 append 도 정적 정책 체인과 함께 제거 |
 | 패키징 | electron-builder | ^26 | **확정 (0087~0089)** | Windows **unsigned NSIS** + GitHub Releases **draft**(수동 Publish 게이트). 잔여 = 코드 서명/공증(macOS 포함). 정본 `docs/guides/release-operations.md` |
 | 테스트 (단위) | Vitest | latest | 확정 | 어댑터·reducer·IPC zod·scheduler·usage·updater 등 (+`node --test` 스크립트 스위트 4종) |
@@ -312,9 +312,9 @@ interface ChatState {
 ---
 
 
-### 6.8 orca.json 전역 설정 + provider settings 트리 (Main 전용)
+### 6.8 orcinus-orca.json 전역 설정 + provider settings 트리 (Main 전용)
 
-**orca.json (handoff 0014 에서 축소)**: `~/.config/orca/orca.json` 은 앱 자체의 전역 환경변수 파일이다. `sources/` 아래 엔진 배포 리소스가 아니며, 부팅 시 1회 로드해 main 프로세스 메모리에 캐시한다. 파일이 없으면 앱이 `{ "version": 1 }` 템플릿을 atomic write(temp+rename) 로 생성하고, 기존 파일은 덮어쓰지 않는다. 손상 JSON 또는 최상위 스키마 위반은 부팅을 막지 않고 기본값으로 동작하며 원본 파일을 보존한다.
+**orcinus-orca.json (handoff 0014 에서 축소)**: `~/.config/orcinus-orca/orcinus-orca.json` 은 앱 자체의 전역 환경변수 파일이다. `sources/` 아래 엔진 배포 리소스가 아니며, 부팅 시 1회 로드해 main 프로세스 메모리에 캐시한다. 파일이 없으면 앱이 `{ "version": 1 }` 템플릿을 atomic write(temp+rename) 로 생성하고, 기존 파일은 덮어쓰지 않는다. 손상 JSON 또는 최상위 스키마 위반은 부팅을 막지 않고 기본값으로 동작하며 원본 파일을 보존한다.
 
 ```ts
 interface OrcaConfig {
@@ -325,7 +325,7 @@ interface OrcaConfig {
 
 구 `agents[]` 필드(0009~0010)는 **제거됐다 (클린 브레이크 — 마이그레이션 없음)**. 잔존 파일에서 `agents` 키 발견 시 부팅 경고만 내고 무시한다. 수동 이전 표:
 
-| 구 orca.json agents[] 필드 | 새 위치 |
+| 구 orcinus-orca.json agents[] 필드 | 새 위치 |
 |---|---|
 | `adapter`+`provider` (식별) | `sources/settings/<adapter>/<provider>/` **디렉토리 이름** |
 | `authToken` | secret-store(`provider:${providerKey}`, 앱 UI) 또는 settings.json `env.ANTHROPIC_API_KEY`(`${VAR}` 권장) |
@@ -336,7 +336,7 @@ interface OrcaConfig {
 **provider settings 트리 (SSOT = sources/)**: provider 별 설정은 어댑터-네이티브 스키마 파일로 사용자가 직접 편집한다. claude 의 settings.json 스키마는 순정 Claude Code settings.json 그대로다 — Orca 전용 키 발명 없음.
 
 ```text
-~/.config/orca/sources/settings/<adapter>/
+~/.config/orcinus-orca/sources/settings/<adapter>/
 └── <provider>/settings.json   # 어댑터-네이티브 스키마 (claude = Claude settings.json)
 ```
 
@@ -351,7 +351,7 @@ interface OrcaConfig {
 주입 채널은 settings 와 시스템 env **두 레이어**다(handoff 0028 — provider settings == `~/.claude/settings.json`):
 
 - **settings(env 포함) → `options.settings`(flag 레이어, `--settings` 동등)에 인라인 JSON 문자열**로 넣는다. SDK 의 `Options.settings` 는 d.ts 상 `string | Settings` 지만 **런타임 transport 는 값을 직렬화 없이 CLI argv 에 그대로 push** 한다(0.3.143~0.3.175 확인). 따라서 객체를 넘기면 spawn 이 `"[object Object]"` 로 강제 변환해 settings 가 적용되지 않으므로 `JSON.stringify` 한 문자열을 넘긴다(CLI `--settings` 는 "JSON 파일 경로 또는 인라인 JSON 문자열" 을 허용 — cli-reference.md). `settingSources` 를 생략해 상속한 사용자 `~/.claude/settings.json` 위에 이 flag settings 가 얹혀 **덮어쓰므로**, provider settings 의 `env`(auth key 등)가 그 안에 함께 실려 사용자 전역 env 를 이긴다.
-- **시스템 env → `options.env`(subprocess env)**: 턴 env(uv 런타임 + orca.json 앱 env 병합 결과)만 싣는다. provider env 는 settings 레이어로 흐르므로 여기엔 없다.
+- **시스템 env → `options.env`(subprocess env)**: 턴 env(uv 런타임 + orcinus-orca.json 앱 env 병합 결과)만 싣는다. provider env 는 settings 레이어로 흐르므로 여기엔 없다.
 
 > **argv 노출 트레이드오프 (handoff 0028 — 0015/0018 폐기)**: `options.settings` 는 argv 로 push 되므로 env(평문 auth key 포함)가 same-user process list 에 노출된다. 이는 "앱 환경구성으로 `~/.claude/settings.json` 을 덮어쓴다"는 요구를 위해 수용한다(Claude Code `--settings` 와 동일 특성). 0015/0018 의 env↛argv 분리(`splitProviderSettings`·branded 타입 `ArgvSafeSettings`/`SubprocessEnv`·음성 타입 테스트)와 Orca 고유 `${VAR}` 확장·secret-store 토큰 주입은 제거했다(security.md §1.4). 0015/0018 문서는 historical 보존.
 
@@ -366,7 +366,7 @@ interface OrcaConfig {
 | vertex | `{ "env": { "CLAUDE_CODE_USE_VERTEX": "1" } }` |
 | 게이트웨이 | `{ "env": { "ANTHROPIC_BASE_URL": "https://gw.example.com", "ANTHROPIC_AUTH_TOKEN": "<token>" } }` |
 
-provider settings 의 `env` 는 `options.settings`(flag) 로 verbatim 주입되어 사용자 `~/.claude/settings.json` 의 env 를 덮어쓴다(handoff 0028). Orca 는 그 env 에 `${VAR}` 확장도 secret-store 토큰 주입도 하지 않는다(Claude 정책 그대로). 한편 orca.json 의 `env`(시스템/앱 전역 env)는 settings 가 아니라 subprocess env 베이스(`options.env`)로 병합된다(여기엔 `expandEnvRecord` 의 `${VAR}` 확장이 그대로 적용 — settings 경로와 별개).
+provider settings 의 `env` 는 `options.settings`(flag) 로 verbatim 주입되어 사용자 `~/.claude/settings.json` 의 env 를 덮어쓴다(handoff 0028). Orca 는 그 env 에 `${VAR}` 확장도 secret-store 토큰 주입도 하지 않는다(Claude 정책 그대로). 한편 orcinus-orca.json 의 `env`(시스템/앱 전역 env)는 settings 가 아니라 subprocess env 베이스(`options.env`)로 병합된다(여기엔 `expandEnvRecord` 의 `${VAR}` 확장이 그대로 적용 — settings 경로와 별개).
 
 ## 7. Backend Adapters (외부 인터페이스 계약)
 
@@ -532,13 +532,13 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - **(anchor) Agent SDK 고급 기능** — `permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer` (in-process custom tools) / 외부 `mcpServers` / `forkSession` / `startup()` (사전 워밍) / `AsyncIterable<SDKUserMessage>` 스트리밍 입력. 채택 표는 [arch/backend/adapters.md](arch/backend/adapters.md) §1.7 의 ⏳ 행 참조. Phase 4+ — 도구 권한 정책(OQ9) 결정 후 진행.
 - **(anchor) 어댑터 도구명 정규화 (OQ10)** — claude vs opencode 의 `tool_use.name` / `tool_use.input` 차이 해소 정책. PRD §11 OQ10 결정 후 어댑터별 매핑 표 확정.
 - **(anchor) ChatEvent sessionId 확장** — Phase 4 멀티 세션 진입 시 모든 변형(`assistant_delta` / `assistant_message` / `tool_use` / `tool_result` / `result` / `error`)에 `sessionId` 필드 추가. main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 그대로 활용 (별도 메시지큐 미도입). 상세 anchor 는 [arch/frontend/state.md](arch/frontend/state.md) §2.
-- **(구현됨) MCP & Skill 통합 레이어** — 정규 소스 = `~/.config/orca/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`, 평문 비밀 0). 비밀은 secret-store(safeStorage, env-var 이름 키잉), enabled/description 은 settings. `${VAR}` resolver = safeStorage→process.env(미해결 시 서버 드롭). **변환기**(`toClaudeConfig`, 순수 — opencode 대칭 짝은 미구현). **확장 정규 레이어**: `~/.config/orca` 디렉토리 자체를 Claude 로컬 플러그인으로 머티리얼라이즈(`.claude-plugin/plugin.json` + 정규 소스 `skills/`·`agents/`·`commands/`) → query() 에 `plugins:[{local, path: ~/.config/orca}]`+`skills:'all'`. Skill 은 양 백엔드 공통(opencode `.claude/skills` 네이티브), Hook/full-plugin 은 백엔드 종속이라 정규화 제외. 레거시 `orca-mcp` 1회 마이그레이션. **(재정의 — 0024 코드 정렬됨 / disallowedTools 보류)** skill 로드는 plugin 컨테이너 폐기 후 `settingSources` 경로로, mcp 는 `dist/<engine>/.mcp.json` 거울로 정렬되고 agents·commands·hooks·plugin 은 engine-specific 으로 연기된다(standardization.md §5.1, adapters.md §3.1). 상세 [arch/backend/security.md](arch/backend/security.md) §1.4.
+- **(구현됨) MCP & Skill 통합 레이어** — 정규 소스 = `~/.config/orcinus-orca/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`, 평문 비밀 0). 비밀은 secret-store(safeStorage, env-var 이름 키잉), enabled/description 은 settings. `${VAR}` resolver = safeStorage→process.env(미해결 시 서버 드롭). **변환기**(`toClaudeConfig`, 순수 — opencode 대칭 짝은 미구현). **확장 정규 레이어**: `~/.config/orcinus-orca` 디렉토리 자체를 Claude 로컬 플러그인으로 머티리얼라이즈(`.claude-plugin/plugin.json` + 정규 소스 `skills/`·`agents/`·`commands/`) → query() 에 `plugins:[{local, path: ~/.config/orca}]`+`skills:'all'`. Skill 은 양 백엔드 공통(opencode `.claude/skills` 네이티브), Hook/full-plugin 은 백엔드 종속이라 정규화 제외. 레거시 `orca-mcp` 1회 마이그레이션. **(재정의 — 0024 코드 정렬됨 / disallowedTools 보류)** skill 로드는 plugin 컨테이너 폐기 후 `settingSources` 경로로, mcp 는 `dist/<engine>/.mcp.json` 거울로 정렬되고 agents·commands·hooks·plugin 은 engine-specific 으로 연기된다(standardization.md §5.1, adapters.md §3.1). 상세 [arch/backend/security.md](arch/backend/security.md) §1.4.
 - **(anchor) Captures / Projects 확장** — PRD §9 Future Scope. 별도 IPC 도메인 + 모듈 추가.
 - ~~(anchor) 멀티 세션 / 과거 대화 목록~~ — **구현 완료** (세션별 SessionRuntime + 사이드바 세션 목록 + FTS 검색 — runtime-ipc.md §1). 동시 스트리밍 *UX*(배지·탭)만 잔여.
 - ~~(anchor) 재시작 재개~~ — **구현 완료** (`lastSessionId` 부트 복원 — BootRedirector).
 - ~~(anchor) Zustand 전환~~ — **구현 완료 (0008/0013)** — feature별 store + chat `sessions: Record` 외피 + 외부 dispatch(`receive(ev)`). 상세 [arch/frontend/state.md](arch/frontend/state.md) §1.
 - ~~(anchor) 로컬 DB (Phase 3+)~~ — **구현 완료** (better-sqlite3, `infra/db/migrations/`, DB=SSOT). 상세 [arch/backend/persistence.md](arch/backend/persistence.md).
-- **(anchor) Artifact FS 저장 (Phase 3+)** — `<userData>/artifacts/<sessionId>/<uuid>.<ext>`. DB 에는 경로·해시·크기만. 클라우드 동기화 없음 (export/import 만). `GLOSSARY.md` "Artifact" / [arch/backend/persistence.md](arch/backend/persistence.md).
+- **Artifact 게시·보관** — 모델의 `publish_artifact` 호출로 HTML/Markdown을 `~/.config/orcinus-orca/artifacts/<fileId>/<filename>`에 보관한다. 개발 파일은 `.dev` 하위에 분리한다. DB는 파일 메타데이터와 세션별 게시 참조를 가지며 대화 삭제로 파일을 지우지 않는다. 파일 소실 시 게시 기록을 유지하고 파일 없음으로 표시한다. 파일뷰어는 후속 범위다. 상세 [arch/backend/persistence.md](arch/backend/persistence.md).
 - **(anchor) safeStorage 자격증명** — MCP 인증 비밀은 **구현 완료**(secret-store). 어댑터별 base URL + API key 저장은 잔여. [arch/backend/security.md](arch/backend/security.md) §1.4.
 - ~~(anchor) 추가 IPC 도메인 (Phase 3+/Future)~~ — `session`·`project`·`search`·`mcp`·`cost`·`update` 등 대부분 도입 완료(IPC_CONTRACT §2). 잔여 예약은 IPC_CONTRACT §2.14.
 - **PRD §11 OQ** — 미정 항목은 여기서 결정하지 않음. 결정값 도착 시 본 문서 갱신. (OQ1 React 19·OQ3 패키징/자동업데이트는 해소 — PRD §11 표기 참조.)
@@ -597,7 +597,7 @@ Playwright 는 아직 devDependency 로 설치되지 않았다(§4). 도입 시 
 
 ### 6.8.1 Agent/model 선택 (0010-agent-model-select → 0014 원천 교체)
 
-- provider 환경은 provider key(`${adapter}-${provider}`)로 식별한다. 원천은 0014 부터 orca.json agents[] 가 아니라 **`sources/settings/<adapter>/` 디렉토리 트리**다 (§6.8) — 중복 키는 구조상 불가능.
+- provider 환경은 provider key(`${adapter}-${provider}`)로 식별한다. 원천은 0014 부터 orcinus-orca.json agents[] 가 아니라 **`sources/settings/<adapter>/` 디렉토리 트리**다 (§6.8) — 중복 키는 구조상 불가능.
 - Composer 는 `orca:agent:list` DTO(`key`, `adapter`, `provider`, `models`, `supported`)로 `${providerKey}/${alias}` 모델 메뉴를 구성한다. `models` 항목은 `{alias, model, isCustom, oneMillionContext, isDefault}`(`AgentModelView`) 이며 settings.json 파싱 결과다. wire/state 는 표시 문자열이 아니라 `providerKey` 와 `modelFamily` 구조 필드를 사용한다. **`modelFamily` = 모델 선택 식별자 = SDK 에 넘기는 모델 문자열**(`model ?? alias` + 1M 이면 `[1m]`)이고 규칙은 `shared/model-identity.ts` 하나가 갖는다 — main(`features/harnesses/models.ts`)과 renderer(`composer/modelSelection.ts`)가 위임한다.
 - 세션은 adapter(`sessions.backend`) 단위로 잠기며 같은 adapter 안에서는 provider/model family 를 턴 단위로 전환할 수 있다. `sessions.provider_key` 는 바인딩 제약이 아니라 마지막 사용 provider 기록이다. 턴 해석 폴백: payload providerKey(어댑터 일치 시) → 세션 provider_key → 기본 provider(anthropic 우선, 없으면 이름순 첫 디렉토리).
 - 앱 추가 provider 의 auth token 은 secret store `provider:${provider key}` 에만 저장한다. DB/renderer/agent list DTO 는 토큰·env 를 노출하지 않는다.

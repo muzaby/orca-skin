@@ -1,9 +1,11 @@
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { useI18n, type MessageKey } from '../../../../shared/i18n'
 import { formatDurationLabel } from '../../lib/toolMeta'
 import { subagentTaskDescription } from '../../lib/parts'
 import { chatActions, useChatSession } from '../../store/chatStore'
 import { TranscriptActionRow } from './TranscriptActionRow'
+import { InlineSubagentDetail } from './InlineSubagentDetail'
+import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
 
 // 백그라운드 서브에이전트 완료 통지(0143, r2 — Claude Code web 패리티 평문 행). 카드 크롬 없이
 // AgentTaskRow 와 동형의 한 줄 텍스트 행으로 렌더한다(행 셸은 TranscriptActionRow 공용):
@@ -25,16 +27,19 @@ interface SubagentNoticeRowProps {
   status: 'completed' | 'failed' | 'stopped'
   durationMs?: number
   summary?: string
+  transcriptPolicy: AgentTranscriptPresentation
 }
 
 export const SubagentNoticeRow = memo(function SubagentNoticeRow({
   toolRunId,
   status,
   durationMs,
-  summary
+  summary,
+  transcriptPolicy
 }: SubagentNoticeRowProps): React.JSX.Element {
   const { tr } = useI18n()
   const messages = useChatSession((s) => s.messages)
+  const [expanded, setExpanded] = useState(false)
   const description = useMemo(
     () => subagentTaskDescription(messages, toolRunId),
     [messages, toolRunId]
@@ -51,7 +56,11 @@ export const SubagentNoticeRow = memo(function SubagentNoticeRow({
     <div className="flex flex-col gap-1">
       <TranscriptActionRow
         groupClassName="group/notice"
-        onActivate={() => chatActions.openSubagentTask(toolRunId)}
+        expanded={transcriptPolicy.inlineSubagentDetail ? expanded : undefined}
+        onActivate={() => {
+          if (transcriptPolicy.inlineSubagentDetail) setExpanded((value) => !value)
+          else chatActions.openSubagentTask(toolRunId)
+        }}
       >
         <span
           className={`shrink-0 ${status === 'failed' ? 'text-bad' : ''} group-hover/notice:text-t9`}
@@ -62,6 +71,9 @@ export const SubagentNoticeRow = memo(function SubagentNoticeRow({
           <span className="min-w-0 truncate group-hover/notice:text-t9">{detail}</span>
         )}
       </TranscriptActionRow>
+      {transcriptPolicy.inlineSubagentDetail && expanded && (
+        <InlineSubagentDetail toolRunId={toolRunId} transcriptPolicy={transcriptPolicy} />
+      )}
       {status === 'failed' && summary && (
         <span className="line-clamp-2 text-caption text-t5">{summary}</span>
       )}

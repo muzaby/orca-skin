@@ -1,0 +1,188 @@
+{
+  "success": false,
+  "errors": [
+    "Error: Interaction failed: questionAttachmentBefore"
+  ],
+  "screens": [
+    {
+      "name": "new-landing",
+      "tiles": [],
+      "composer": true,
+      "width": 1200
+    },
+    {
+      "name": "project-landing",
+      "tiles": [],
+      "composer": true,
+      "width": 1200
+    },
+    {
+      "name": "coding-full",
+      "tiles": [
+        "plan"
+      ],
+      "width": 1200,
+      "sections": [
+        "작업"
+      ],
+      "rootWidth": 1200
+    },
+    {
+      "name": "coding-tasks-only",
+      "tiles": [
+        "plan"
+      ],
+      "width": 1200,
+      "sections": [
+        "작업"
+      ],
+      "rootWidth": 1200
+    },
+    {
+      "name": "coding-plan-only",
+      "tiles": [
+        "plan"
+      ],
+      "width": 1200,
+      "sections": [],
+      "rootWidth": 1200
+    },
+    {
+      "name": "coding-empty",
+      "tiles": [
+        "plan"
+      ],
+      "width": 1200,
+      "sections": [],
+      "rootWidth": 1200
+    },
+    {
+      "name": "work-empty",
+      "tiles": [
+        "task"
+      ],
+      "width": 1200,
+      "sections": [
+        "진행 상황",
+        "출력",
+        "컨텍스트"
+      ],
+      "rootWidth": 1200
+    },
+    {
+      "name": "work-full",
+      "tiles": [
+        "task"
+      ],
+      "width": 1200,
+      "sections": [
+        "진행 상황",
+        "출력",
+        "컨텍스트"
+      ],
+      "rootWidth": 1200
+    },
+    {
+      "name": "work-dark",
+      "tiles": [
+        "task"
+      ],
+      "width": 1200,
+      "sections": [
+        "진행 상황",
+        "출력",
+        "컨텍스트"
+      ],
+      "rootWidth": 1200
+    },
+    {
+      "name": "work-narrow",
+      "tiles": [
+        "task"
+      ],
+      "width": 760,
+      "sections": [
+        "진행 상황",
+        "출력",
+        "컨텍스트"
+      ],
+      "rootWidth": 760
+    }
+  ],
+  "directoryManifest": {
+    "scope": "Actual session directory handler/schema, SQLite queries/migrations and history loader; isolated synthetic session and directories.",
+    "bundle": {
+      "file": "directory-host.cjs",
+      "sha256": "80902c8dc43d58cf2a99d47fad8781a0464d795970a881a630bc16656bc5072f"
+    },
+    "files": {
+      "src/shared/absolute-path.ts": "2a88dd88bfaa96e776493d43ade3bf7d03f3c829a7ad2b801804ba187157914c",
+      "src/shared/extra-directories.ts": "dcbcff04f5c85c458c8bc85b305a26003d4d80036cb30cfd9cef33abe9650c01",
+      "src/main/app/handlers/session-directory.ts": "e3c8408379bd9876bd971ffb35146818ef2010b3bf1900c281b38be694622c92",
+      "src/shared/agent-kind.ts": "401c41852a517ba3dd72e706f1dafcb0bcce1ae3f7e92d0dd77577c73cbc0a22",
+      "src/main/infra/db/usage-queries.ts": "a704af89f538de8aab9bb52fae1eb2b5ac2b5be99eeb8f94f0dccd408d246733",
+      "src/main/infra/db/artifact-queries.ts": "1ec873e7b84e911f73ba4a8e1fb2e72a317123054c02ec8b4ccac9a516f62989",
+      "src/main/infra/config/paths.ts": "d3abb44877ebb4bfe727c68f8da18325603f4dab4f327e04da960427344433db",
+      "src/main/infra/log/registry.ts": "f4352237ef6b14cc35fa9269a794dcd34360b7853ba5989763f5e65e8f73ac62",
+      "src/main/infra/db/queries.ts": "7bed5d94629bb33c17c5a9fefb4831ca86f8b12d6d85c17e173c4e8b5c2d531c",
+      "src/main/infra/db/migrations/0001_initial.sql": "b0bbac4df4c1950436887df83a58c3217662f195cca39a24384775e5d39f0ef0",
+      "src/main/infra/db/migrations/0002_projects.sql": "43acf0c3376bf47a0f0786952742b455b6f6d6828fdabfef06d424fa02102e13",
+      "src/main/infra/db/migrations/0003_messages_fts.sql": "7d0eac30189e831670f96a5b8a828d749265b319d2ff5e1e27dc0b4daa172e95",
+      "src/main/infra/db/migrations/0004_message_parts.sql": "42943bf7595fc763da38540c493d53bf73a9848eae89079c1ea1e73b2043246d",
+      "src/main/infra/db/migrations/0005_usage_events.sql": "310ebba5f872f8d208e6002fa5ad68755743dc03e51039fb7d5358d994a2cbc8",
+      "src/main/infra/db/migrations/0006_turn_usage.sql": "c559ca4ab6b87197cb64bddb1b7e7b71d99ac4041669bb1510d789b6bfda01c9",
+      "src/main/infra/db/migrations/0007_title_source.sql": "9077d438dfeb46be1894618bcb01590443f5d0b4c16e73260ca02ca9f2eaf3fc",
+      "src/main/infra/db/migrations/0008_provider_key.sql": "c0ee91bd013196a8a21adacc40f7c29f2b7afbc47c60cdd64cbdd4fc56228787",
+      "src/main/infra/db/migrations/0009_message_complete.sql": "05169e35d134ff946ee943d96636ea5d0e3dc61d57740311d4bd8b6fab6c66cd",
+      "src/main/infra/db/migrations/0010_session_cwd.sql": "aad473a732bc9cba0f099ef4cdaa9265f0f7ed617e200274b0e7334a0cc9af45",
+      "src/main/infra/db/migrations/0011_session_lineage.sql": "07096ddf01b5f3a9a48624d016b49a26d0e22849c4f0366562617c35e33d3a55",
+      "src/main/infra/db/migrations/0012_provider_limits.sql": "fc6fcb2dd2551b973dd7641e4e3159f96ba4901242d74e68e00ca4aa23954ff5",
+      "src/main/infra/db/migrations/0013_schedules.sql": "a7fe6e46af0a5c38643ec9188bede059aa85b2d06287d24780b3e4834bf61ab6",
+      "src/main/infra/db/migrations/0014_provider_usage_report_cache.sql": "56c1d28a15df2ecf1336267d455c782afb645bbd596f2b7b2d0ce023ba299a7b",
+      "src/main/infra/db/migrations/0015_pinned.sql": "0fedec672b9bddf4d8943a915904e2687bc06bc54f91fabc765cf3e33ab21bd7",
+      "src/main/infra/db/migrations/0016_turn_model_context_window.sql": "715bf45116cff5045b70238ee06cc2cfa0a0315efc1da6202e72b73e4beb49f8",
+      "src/main/infra/db/migrations/0017_session_extra_dirs.sql": "8a6067c10592a0e7610af9a6b2b217ce17057a8ee5eb7e6d9a0d8b17c25c7a79",
+      "src/main/infra/db/migrations/0018_managed_worktrees.sql": "475b1a350620a49ee946059fa9d9b67b73f7db370310a2752446d677b559494e",
+      "src/main/infra/db/migrations/0019_session_baseline.sql": "fda4512e1a27633bfab1ea70d972c8772dbdfc359c1026688fb4b9b8409342f7",
+      "src/main/infra/db/migrations/0020_session_baseline_ref.sql": "9c8f94dfdcf9f807ce75447db741c4051317e36baca611a7bfdbde91722745f6",
+      "src/main/infra/db/migrations/0021_artifacts.sql": "e6e3f5b743e6d81be6f514d6533ae0936e4dcff6c1ddb8a1252d5d0bcc403789",
+      "src/main/infra/db/migrations/0022_session_agent_kind.sql": "737ea043a2f0d0cb6558f75020696e86c91513d67a99292bf6387c5d70fe66fb",
+      "src/main/infra/db/migrate.ts": "d9a3dfdab005f82ce2f722d061cdf6df7508d8302cd667c52bd8d9bf3979d127",
+      "src/shared/obj.ts": "0e9ab5839edc3c46eaac6866cddd0a0c3187100f8ebe5c67dbf972c977dbe7e6",
+      "src/shared/usage/primary-model.ts": "886711e1988a73fa6ba8c5e0e4972b7f1bb7d8bf8a7b41b49603c66007ad3e9d",
+      "src/main/infra/ipc/dto.ts": "f7a2979c1028be2f5f5a417f03aa98439950617b1331717346168f57acd43676",
+      "src/main/features/history/reader.ts": "0b61d72be7c51f2a516bedc7b5b278594d8e3a54d29b18490bc500937a90a519",
+      "src/shared/ipc.ts": "dd85eabb224f52ce6ed254ad470e6ddeccedac7a808760031957e708fb46382e",
+      "src/shared/logging.ts": "d3846b150e4bde53958d44a5f5f94bb9dc427e629734ac18c4eba051d9af2033",
+      "src/shared/protocol.ts": "84149e90cfd99f58b7aea02313d29d2fd812d7e02896c670eb32ba58bad0f1eb",
+      "../docs/handoff/0224-work-agent-layer/fixtures/panel-directory-host.mjs": "8deedf1caf18ce5371acbe93dfa5ee2e29b84a28a01988afd96007812076f34c"
+    }
+  },
+  "manifest": {
+    "scope": "Actual RightPanel/ChatTitleBar/task/plan/context components, production store/actions/CSS, synthetic tool/artifact/picker data. Directory acceptance also uses actual validated Main handler, SQLite/history through isolated IPC; no model call.",
+    "files": {
+      "components/rightpanel/RightPanel.tsx": "8d5bcff95fc56552a245baf1bcdabe8aabf5055f1844abbb38e0c835f824747e",
+      "components/rightpanel/TaskTileContent.tsx": "2632cac2e69647534553a9b87c74576e40311bd252c626f69cfe5408e6039651",
+      "components/rightpanel/TaskTileSections.tsx": "60dcb0e34cb1744f4558d3ea05dc994431bfe5ca0835ce07d8895c84dd675f6b",
+      "components/rightpanel/TaskContextContent.tsx": "fa38b348f28d2d9a1b69ac8155e8a9a82390dc730d0672f08c9b69eb0a888175",
+      "components/rightpanel/PlanTileContent.tsx": "4afce1a7f6666086307a31e1fb4482aa7dfdb2c98ad8a129c0f3caf3e3438958",
+      "hooks/useDirectoryPicker.ts": "c72a7bc5ebc93caa9da32ab74e42656e201dda7abdd5833add11a706bee3451d",
+      "store/chatStore.ts": "8f6cbf1133a50861fd90ce8dd31ca117dc0bcf6f2c01dda3c6c911a17012ab98",
+      "components/rightpanel/WorkTaskProgress.tsx": "15e1746e1020e14969f3f6e17bc8df897b8efbf831f9e8caf1b08a6a2b602f26",
+      "components/composer/ComposerInputController.tsx": "3306e452d3114fd159ea9a925b6278e1aeea57cc4d5f26856c45560306a3bde6",
+      "components/ChatTitleBar.tsx": "eba125374b7d9b483a4f27c28d0e63e2cc6d71a635a30c247a9431c134cc4ac6",
+      "lib/rightPanelLayout.ts": "8f279976fd913757051432fa43bd40632e091d7b428d5a390daff15f0965fbc3",
+      "reducer/chatReducer.ts": "8b0077d58620de4774f6b62aa1f0f89075ca851d136373c77b536cef0d450fa3"
+    }
+  },
+  "motion": {
+    "normal": {
+      "animationName": "spin",
+      "reduced": false
+    },
+    "reduced": {
+      "animationName": "none",
+      "reduced": true
+    }
+  }
+}

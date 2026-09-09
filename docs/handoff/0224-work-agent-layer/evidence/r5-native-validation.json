@@ -1,0 +1,796 @@
+{
+  "author": "Codex",
+  "cache": "panel-r5-MMjYsB",
+  "success": true,
+  "namedChecks": 163,
+  "groups": [
+    {
+      "group": "interactions",
+      "count": 44,
+      "passed": 44
+    },
+    {
+      "group": "r4",
+      "count": 23,
+      "passed": 23
+    },
+    {
+      "group": "landing-new",
+      "count": 25,
+      "passed": 25
+    },
+    {
+      "group": "landing-project",
+      "count": 25,
+      "passed": 25
+    },
+    {
+      "group": "r5",
+      "count": 19,
+      "passed": 19
+    },
+    {
+      "group": "r5Resize",
+      "count": 3,
+      "passed": 3
+    },
+    {
+      "group": "r5Nav",
+      "count": 12,
+      "passed": 12
+    },
+    {
+      "group": "r5Tooltip",
+      "count": 2,
+      "passed": 2
+    },
+    {
+      "group": "r5TooltipLast",
+      "count": 2,
+      "passed": 2
+    },
+    {
+      "group": "r5TooltipLife",
+      "count": 8,
+      "passed": 8
+    }
+  ],
+  "motion": {
+    "passed": true,
+    "actual": {
+      "normal": {
+        "animationName": "spin",
+        "reduced": false
+      },
+      "reduced": {
+        "animationName": "none",
+        "reduced": true
+      }
+    }
+  },
+  "sourceEntries": 85,
+  "sourceGroups": [
+    {
+      "Name": "chat",
+      "Count": 25
+    },
+    {
+      "Name": "directory",
+      "Count": 45
+    },
+    {
+      "Name": "supporting",
+      "Count": 15
+    }
+  ],
+  "sourceChecks": [
+    {
+      "group": "chat",
+      "path": "components/rightpanel/RightPanel.tsx",
+      "expected": "593ff768633287c7cb4b0cd5190e952007c64eb160e3533ffa93ebf6b3ba8572",
+      "actual": "593ff768633287c7cb4b0cd5190e952007c64eb160e3533ffa93ebf6b3ba8572",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/rightpanel/TaskTileContent.tsx",
+      "expected": "775a0e9940fb683fcec82e551e905ff04b6480ab52797f4b0da68d16fef2443a",
+      "actual": "775a0e9940fb683fcec82e551e905ff04b6480ab52797f4b0da68d16fef2443a",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/rightpanel/TaskTileSections.tsx",
+      "expected": "b02689f548a9380571a782474fccf9d0e89588e5a07e5bc9c2258d4889a132cf",
+      "actual": "b02689f548a9380571a782474fccf9d0e89588e5a07e5bc9c2258d4889a132cf",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/rightpanel/TaskContextContent.tsx",
+      "expected": "7d9f56c8b7247b7bbf1ed11213dea8a4c87a16ff4e2e86e800e1c30e167024a1",
+      "actual": "7d9f56c8b7247b7bbf1ed11213dea8a4c87a16ff4e2e86e800e1c30e167024a1",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/rightpanel/PlanTileContent.tsx",
+      "expected": "0e077a9a540988eef41f39e664c81ab912caf8768f7ab799b2a683e4c88ec5aa",
+      "actual": "0e077a9a540988eef41f39e664c81ab912caf8768f7ab799b2a683e4c88ec5aa",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "hooks/useDirectoryPicker.ts",
+      "expected": "c72a7bc5ebc93caa9da32ab74e42656e201dda7abdd5833add11a706bee3451d",
+      "actual": "c72a7bc5ebc93caa9da32ab74e42656e201dda7abdd5833add11a706bee3451d",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "store/chatStore.ts",
+      "expected": "2776bfa737040d06ff7b205f50f5131d55b9cd53f1ec0eb9ea2b1488161f0c54",
+      "actual": "2776bfa737040d06ff7b205f50f5131d55b9cd53f1ec0eb9ea2b1488161f0c54",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/rightpanel/WorkTaskProgress.tsx",
+      "expected": "5eb53f9015a5b91b7b828fe04189c47c9c19d504016fb418deda3019643be3cb",
+      "actual": "5eb53f9015a5b91b7b828fe04189c47c9c19d504016fb418deda3019643be3cb",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/composer/ComposerInputController.tsx",
+      "expected": "3306e452d3114fd159ea9a925b6278e1aeea57cc4d5f26856c45560306a3bde6",
+      "actual": "3306e452d3114fd159ea9a925b6278e1aeea57cc4d5f26856c45560306a3bde6",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/ChatTitleBar.tsx",
+      "expected": "eba125374b7d9b483a4f27c28d0e63e2cc6d71a635a30c247a9431c134cc4ac6",
+      "actual": "eba125374b7d9b483a4f27c28d0e63e2cc6d71a635a30c247a9431c134cc4ac6",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "lib/rightPanelLayout.ts",
+      "expected": "8f279976fd913757051432fa43bd40632e091d7b428d5a390daff15f0965fbc3",
+      "actual": "8f279976fd913757051432fa43bd40632e091d7b428d5a390daff15f0965fbc3",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "reducer/chatReducer.ts",
+      "expected": "689e510fd665655adbf8b99a92c6e3c3d79b3ead8e10562fa2ad97a670b40ee6",
+      "actual": "689e510fd665655adbf8b99a92c6e3c3d79b3ead8e10562fa2ad97a670b40ee6",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/Composer.tsx",
+      "expected": "e23b8b8cdcb87612984e9057bbe5cbe67057cb07448c44f8778ef5d4e67a9c11",
+      "actual": "e23b8b8cdcb87612984e9057bbe5cbe67057cb07448c44f8778ef5d4e67a9c11",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/AgentModeToggle.tsx",
+      "expected": "43d5e1025cc7c33bb92e2694e22f786aeba62944e84886982abff1f15f6fc30c",
+      "actual": "43d5e1025cc7c33bb92e2694e22f786aeba62944e84886982abff1f15f6fc30c",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/composer/ModeMenu.tsx",
+      "expected": "01d236474d3ee39368e9cff197d78a29b426e3370075fa03e86bfe160443ea3f",
+      "actual": "01d236474d3ee39368e9cff197d78a29b426e3370075fa03e86bfe160443ea3f",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/composer/modes.ts",
+      "expected": "4a792f2e77dcde6732ac5436194230247d3d6335ff2d96460eec4201c023dd25",
+      "actual": "4a792f2e77dcde6732ac5436194230247d3d6335ff2d96460eec4201c023dd25",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "lib/agentPresentation.ts",
+      "expected": "decad17805f936ec3f5888672779270b34d7a82c0790ab3e275e73ae3541abfc",
+      "actual": "decad17805f936ec3f5888672779270b34d7a82c0790ab3e275e73ae3541abfc",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/CwdPanel.tsx",
+      "expected": "2938f6fc307407d1902e1a041b040c7b96836a1550a28278632a2538cb9708a4",
+      "actual": "2938f6fc307407d1902e1a041b040c7b96836a1550a28278632a2538cb9708a4",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/composer/BranchChip.tsx",
+      "expected": "cc976b1e0f4a55bcaebf1175e4e37ceb26b117b639ed2a6600fe0d855f909135",
+      "actual": "cc976b1e0f4a55bcaebf1175e4e37ceb26b117b639ed2a6600fe0d855f909135",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/rightpanel/TaskProgressList.tsx",
+      "expected": "0e235309224a28c3ab8f221299e8fd49253dfb54f43d7b5e70ccdab877ea4ee4",
+      "actual": "0e235309224a28c3ab8f221299e8fd49253dfb54f43d7b5e70ccdab877ea4ee4",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/rightpanel/TaskOutputContent.tsx",
+      "expected": "7bab40a86b28e4eb1fe2c30262c93a6a432762cd4a536f3fe56dbb9022776d96",
+      "actual": "7bab40a86b28e4eb1fe2c30262c93a6a432762cd4a536f3fe56dbb9022776d96",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/rightpanel/TaskPanelContent.tsx",
+      "expected": "34a4472cbb832d2467d2a00df13c8d4bf89a06a657c51daed657b8dcf308b8bd",
+      "actual": "34a4472cbb832d2467d2a00df13c8d4bf89a06a657c51daed657b8dcf308b8bd",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/rightpanel/TaskStatusIcon.tsx",
+      "expected": "1a2cd6958e41337a4bd907ca9e24638bec283a4721e938ee4d1229dcbb2e301d",
+      "actual": "1a2cd6958e41337a4bd907ca9e24638bec283a4721e938ee4d1229dcbb2e301d",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/rightpanel/RightPanelTile.tsx",
+      "expected": "3402d94586a4688af93e1615c069a669ee39082b3749b2cccf66cb3536f7c711",
+      "actual": "3402d94586a4688af93e1615c069a669ee39082b3749b2cccf66cb3536f7c711",
+      "matches": true
+    },
+    {
+      "group": "chat",
+      "path": "components/ArtifactCard.tsx",
+      "expected": "f2ac4e240e2e926249ad39c58bc838a765655475f1602f5e8729baf33631f716",
+      "actual": "f2ac4e240e2e926249ad39c58bc838a765655475f1602f5e8729baf33631f716",
+      "matches": true
+    },
+    {
+      "group": "supporting",
+      "path": "src/renderer/src/pages/NewChatLandingPage.tsx",
+      "expected": "89fd1c6f45a20eb92554a63000b425abbc7ae11b31f6fca81b091c964cf2d529",
+      "actual": "89fd1c6f45a20eb92554a63000b425abbc7ae11b31f6fca81b091c964cf2d529",
+      "matches": true
+    },
+    {
+      "group": "supporting",
+      "path": "src/renderer/src/pages/ProjectLandingPage.tsx",
+      "expected": "d4d7ae4ff4cf8a4800dbdc41924b44fa6b09600b0f4a036a1f5272f92a30f306",
+      "actual": "d4d7ae4ff4cf8a4800dbdc41924b44fa6b09600b0f4a036a1f5272f92a30f306",
+      "matches": true
+    },
+    {
+      "group": "supporting",
+      "path": "src/renderer/src/features/sessions/components/SessionRow.tsx",
+      "expected": "7c92c753ef52db7a7ed8d53de42909d60a993a437a812a3b9f1a1d6b87ca750e",
+      "actual": "7c92c753ef52db7a7ed8d53de42909d60a993a437a812a3b9f1a1d6b87ca750e",
+      "matches": true
+    },
+    {
+      "group": "supporting",
+      "path": "src/renderer/src/features/sessions/store/sessionsStore.ts",
+      "expected": "2b29e3f0e626ebaa020913baad8dd7f1de8191d146a99ab2af0cce178b0b763f",
+      "actual": "2b29e3f0e626ebaa020913baad8dd7f1de8191d146a99ab2af0cce178b0b763f",
+      "matches": true
+    },
+    {
+      "group": "supporting",
+      "path": "src/renderer/src/app/hooks/useSessionCompletion.ts",
+      "expected": "5b56f88b26753c956535776e1962e25416ba712bc547945f2895d5ffd6b394fe",
+      "actual": "5b56f88b26753c956535776e1962e25416ba712bc547945f2895d5ffd6b394fe",
+      "matches": true
+    },
+    {
+      "group": "supporting",
+      "path": "src/renderer/src/app/hooks/useSessionHandlers.ts",
+      "expected": "37b8031ddb39ffd123bcbcbb41694f33daeff7a6d8309c93d7f90372d3c47bce",
+      "actual": "37b8031ddb39ffd123bcbcbb41694f33daeff7a6d8309c93d7f90372d3c47bce",
+      "matches": true
+    },
+    {
+      "group": "supporting",
+      "path": "src/renderer/src/shared/ui/Icon.tsx",
+      "expected": "f58312d7d986fa1732b9b0b43e5fa29c517a0390c34cd9eb5f625b2e62023d32",
+      "actual": "f58312d7d986fa1732b9b0b43e5fa29c517a0390c34cd9eb5f625b2e62023d32",
+      "matches": true
+    },
+    {
+      "group": "supporting",
+      "path": "src/renderer/src/shared/ui/Popover.tsx",
+      "expected": "692df0fe775a7d036de012a8da0fdee5bd290ddbbc89e878a4a372bd2698d21b",
+      "actual": "692df0fe775a7d036de012a8da0fdee5bd290ddbbc89e878a4a372bd2698d21b",
+      "matches": true
+    },
+    {
+      "group": "supporting",
+      "path": "src/renderer/src/shared/api/ipc.ts",
+      "expected": "e8576947b1b6905fd62066f5b4067feedada777eb1df4ace155e19fe6abb458f",
+      "actual": "e8576947b1b6905fd62066f5b4067feedada777eb1df4ace155e19fe6abb458f",
+      "matches": true
+    },
+    {
+      "group": "supporting",
+      "path": "src/shared/ipc.ts",
+      "expected": "6c185ae0a0bf1167ba9590c6aa7c96e0c1abd541f4f9ad38fd11187b266db03d",
+      "actual": "6c185ae0a0bf1167ba9590c6aa7c96e0c1abd541f4f9ad38fd11187b266db03d",
+      "matches": true
+    },
+    {
+      "group": "supporting",
+      "path": "src/shared/protocol.ts",
+      "expected": "c77dae79b87dab544c68a6039587abb5bd8856a653701cefd095da54065577fe",
+      "actual": "c77dae79b87dab544c68a6039587abb5bd8856a653701cefd095da54065577fe",
+      "matches": true
+    },
+    {
+      "group": "supporting",
+      "path": "src/preload/index.ts",
+      "expected": "dc3713549ac464be9a8d51a1c4d04f863b7f04852c6d557b51c43b9afa9cf9ff",
+      "actual": "dc3713549ac464be9a8d51a1c4d04f863b7f04852c6d557b51c43b9afa9cf9ff",
+      "matches": true
+    },
+    {
+      "group": "supporting",
+      "path": "../docs/handoff/0224-work-agent-layer/fixtures/panel-r5-native-browser.tsx",
+      "expected": "52c0c267401f7c5c815e74302bb6dc0f7b4ebbb3b3fd5bb55632f2f768ab661f",
+      "actual": "52c0c267401f7c5c815e74302bb6dc0f7b4ebbb3b3fd5bb55632f2f768ab661f",
+      "matches": true
+    },
+    {
+      "group": "supporting",
+      "path": "../docs/handoff/0224-work-agent-layer/fixtures/panel-r5-native-runner.cjs",
+      "expected": "dbe34405ded355970c2a92954cf741cace4ddfa31b8f1c2bbc035d4a8dabc008",
+      "actual": "dbe34405ded355970c2a92954cf741cace4ddfa31b8f1c2bbc035d4a8dabc008",
+      "matches": true
+    },
+    {
+      "group": "supporting",
+      "path": "../docs/handoff/0224-work-agent-layer/fixtures/panel-r5-native.mjs",
+      "expected": "6f366c319e148ab253b337a1130e2cff5c6a94ca2729d2037d2719ca1fc54829",
+      "actual": "6f366c319e148ab253b337a1130e2cff5c6a94ca2729d2037d2719ca1fc54829",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/shared/absolute-path.ts",
+      "expected": "2a88dd88bfaa96e776493d43ade3bf7d03f3c829a7ad2b801804ba187157914c",
+      "actual": "2a88dd88bfaa96e776493d43ade3bf7d03f3c829a7ad2b801804ba187157914c",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/shared/extra-directories.ts",
+      "expected": "dcbcff04f5c85c458c8bc85b305a26003d4d80036cb30cfd9cef33abe9650c01",
+      "actual": "dcbcff04f5c85c458c8bc85b305a26003d4d80036cb30cfd9cef33abe9650c01",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/app/handlers/session-directory.ts",
+      "expected": "e3c8408379bd9876bd971ffb35146818ef2010b3bf1900c281b38be694622c92",
+      "actual": "e3c8408379bd9876bd971ffb35146818ef2010b3bf1900c281b38be694622c92",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/shared/agent-kind.ts",
+      "expected": "401c41852a517ba3dd72e706f1dafcb0bcce1ae3f7e92d0dd77577c73cbc0a22",
+      "actual": "401c41852a517ba3dd72e706f1dafcb0bcce1ae3f7e92d0dd77577c73cbc0a22",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/shared/ipc.ts",
+      "expected": "6c185ae0a0bf1167ba9590c6aa7c96e0c1abd541f4f9ad38fd11187b266db03d",
+      "actual": "6c185ae0a0bf1167ba9590c6aa7c96e0c1abd541f4f9ad38fd11187b266db03d",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/shared/logging.ts",
+      "expected": "d3846b150e4bde53958d44a5f5f94bb9dc427e629734ac18c4eba051d9af2033",
+      "actual": "d3846b150e4bde53958d44a5f5f94bb9dc427e629734ac18c4eba051d9af2033",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/shared/protocol.ts",
+      "expected": "c77dae79b87dab544c68a6039587abb5bd8856a653701cefd095da54065577fe",
+      "actual": "c77dae79b87dab544c68a6039587abb5bd8856a653701cefd095da54065577fe",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/features/chat/image.ts",
+      "expected": "2c17e13e388392ef25d9d90e61adc48beee640984acd46deba304e8bdc76b17a",
+      "actual": "2c17e13e388392ef25d9d90e61adc48beee640984acd46deba304e8bdc76b17a",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/features/chat/attachments.ts",
+      "expected": "74f9333b70683201a2738c72f1794326e10053a6d8fd8562a625d5a5aea23aca",
+      "actual": "74f9333b70683201a2738c72f1794326e10053a6d8fd8562a625d5a5aea23aca",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/features/chat/scan.ts",
+      "expected": "8ab654db6a8730ab66e891c1f05bb6b6701555786b8586845b073b1fc4d28ce2",
+      "actual": "8ab654db6a8730ab66e891c1f05bb6b6701555786b8586845b073b1fc4d28ce2",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/config/paths.ts",
+      "expected": "d3abb44877ebb4bfe727c68f8da18325603f4dab4f327e04da960427344433db",
+      "actual": "d3abb44877ebb4bfe727c68f8da18325603f4dab4f327e04da960427344433db",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/log/registry.ts",
+      "expected": "f4352237ef6b14cc35fa9269a794dcd34360b7853ba5989763f5e65e8f73ac62",
+      "actual": "f4352237ef6b14cc35fa9269a794dcd34360b7853ba5989763f5e65e8f73ac62",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/ipc/handle.ts",
+      "expected": "8f07bd0b7b399e484f605bafb1239268e3b157e56ad43c1a55ae47281776771e",
+      "actual": "8f07bd0b7b399e484f605bafb1239268e3b157e56ad43c1a55ae47281776771e",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/app/handlers/files.ts",
+      "expected": "2ec931f1cd8c689d3b73e3705b89bc465ccc90701891562954eb489a32f99b79",
+      "actual": "2ec931f1cd8c689d3b73e3705b89bc465ccc90701891562954eb489a32f99b79",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/usage-queries.ts",
+      "expected": "a704af89f538de8aab9bb52fae1eb2b5ac2b5be99eeb8f94f0dccd408d246733",
+      "actual": "a704af89f538de8aab9bb52fae1eb2b5ac2b5be99eeb8f94f0dccd408d246733",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/artifact-queries.ts",
+      "expected": "1ec873e7b84e911f73ba4a8e1fb2e72a317123054c02ec8b4ccac9a516f62989",
+      "actual": "1ec873e7b84e911f73ba4a8e1fb2e72a317123054c02ec8b4ccac9a516f62989",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/queries.ts",
+      "expected": "7bed5d94629bb33c17c5a9fefb4831ca86f8b12d6d85c17e173c4e8b5c2d531c",
+      "actual": "7bed5d94629bb33c17c5a9fefb4831ca86f8b12d6d85c17e173c4e8b5c2d531c",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0001_initial.sql",
+      "expected": "b0bbac4df4c1950436887df83a58c3217662f195cca39a24384775e5d39f0ef0",
+      "actual": "b0bbac4df4c1950436887df83a58c3217662f195cca39a24384775e5d39f0ef0",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0002_projects.sql",
+      "expected": "43acf0c3376bf47a0f0786952742b455b6f6d6828fdabfef06d424fa02102e13",
+      "actual": "43acf0c3376bf47a0f0786952742b455b6f6d6828fdabfef06d424fa02102e13",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0003_messages_fts.sql",
+      "expected": "7d0eac30189e831670f96a5b8a828d749265b319d2ff5e1e27dc0b4daa172e95",
+      "actual": "7d0eac30189e831670f96a5b8a828d749265b319d2ff5e1e27dc0b4daa172e95",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0004_message_parts.sql",
+      "expected": "42943bf7595fc763da38540c493d53bf73a9848eae89079c1ea1e73b2043246d",
+      "actual": "42943bf7595fc763da38540c493d53bf73a9848eae89079c1ea1e73b2043246d",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0005_usage_events.sql",
+      "expected": "310ebba5f872f8d208e6002fa5ad68755743dc03e51039fb7d5358d994a2cbc8",
+      "actual": "310ebba5f872f8d208e6002fa5ad68755743dc03e51039fb7d5358d994a2cbc8",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0006_turn_usage.sql",
+      "expected": "c559ca4ab6b87197cb64bddb1b7e7b71d99ac4041669bb1510d789b6bfda01c9",
+      "actual": "c559ca4ab6b87197cb64bddb1b7e7b71d99ac4041669bb1510d789b6bfda01c9",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0007_title_source.sql",
+      "expected": "9077d438dfeb46be1894618bcb01590443f5d0b4c16e73260ca02ca9f2eaf3fc",
+      "actual": "9077d438dfeb46be1894618bcb01590443f5d0b4c16e73260ca02ca9f2eaf3fc",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0008_provider_key.sql",
+      "expected": "c0ee91bd013196a8a21adacc40f7c29f2b7afbc47c60cdd64cbdd4fc56228787",
+      "actual": "c0ee91bd013196a8a21adacc40f7c29f2b7afbc47c60cdd64cbdd4fc56228787",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0009_message_complete.sql",
+      "expected": "05169e35d134ff946ee943d96636ea5d0e3dc61d57740311d4bd8b6fab6c66cd",
+      "actual": "05169e35d134ff946ee943d96636ea5d0e3dc61d57740311d4bd8b6fab6c66cd",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0010_session_cwd.sql",
+      "expected": "aad473a732bc9cba0f099ef4cdaa9265f0f7ed617e200274b0e7334a0cc9af45",
+      "actual": "aad473a732bc9cba0f099ef4cdaa9265f0f7ed617e200274b0e7334a0cc9af45",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0011_session_lineage.sql",
+      "expected": "07096ddf01b5f3a9a48624d016b49a26d0e22849c4f0366562617c35e33d3a55",
+      "actual": "07096ddf01b5f3a9a48624d016b49a26d0e22849c4f0366562617c35e33d3a55",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0012_provider_limits.sql",
+      "expected": "fc6fcb2dd2551b973dd7641e4e3159f96ba4901242d74e68e00ca4aa23954ff5",
+      "actual": "fc6fcb2dd2551b973dd7641e4e3159f96ba4901242d74e68e00ca4aa23954ff5",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0013_schedules.sql",
+      "expected": "a7fe6e46af0a5c38643ec9188bede059aa85b2d06287d24780b3e4834bf61ab6",
+      "actual": "a7fe6e46af0a5c38643ec9188bede059aa85b2d06287d24780b3e4834bf61ab6",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0014_provider_usage_report_cache.sql",
+      "expected": "56c1d28a15df2ecf1336267d455c782afb645bbd596f2b7b2d0ce023ba299a7b",
+      "actual": "56c1d28a15df2ecf1336267d455c782afb645bbd596f2b7b2d0ce023ba299a7b",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0015_pinned.sql",
+      "expected": "0fedec672b9bddf4d8943a915904e2687bc06bc54f91fabc765cf3e33ab21bd7",
+      "actual": "0fedec672b9bddf4d8943a915904e2687bc06bc54f91fabc765cf3e33ab21bd7",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0016_turn_model_context_window.sql",
+      "expected": "715bf45116cff5045b70238ee06cc2cfa0a0315efc1da6202e72b73e4beb49f8",
+      "actual": "715bf45116cff5045b70238ee06cc2cfa0a0315efc1da6202e72b73e4beb49f8",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0017_session_extra_dirs.sql",
+      "expected": "8a6067c10592a0e7610af9a6b2b217ce17057a8ee5eb7e6d9a0d8b17c25c7a79",
+      "actual": "8a6067c10592a0e7610af9a6b2b217ce17057a8ee5eb7e6d9a0d8b17c25c7a79",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0018_managed_worktrees.sql",
+      "expected": "475b1a350620a49ee946059fa9d9b67b73f7db370310a2752446d677b559494e",
+      "actual": "475b1a350620a49ee946059fa9d9b67b73f7db370310a2752446d677b559494e",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0019_session_baseline.sql",
+      "expected": "fda4512e1a27633bfab1ea70d972c8772dbdfc359c1026688fb4b9b8409342f7",
+      "actual": "fda4512e1a27633bfab1ea70d972c8772dbdfc359c1026688fb4b9b8409342f7",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0020_session_baseline_ref.sql",
+      "expected": "9c8f94dfdcf9f807ce75447db741c4051317e36baca611a7bfdbde91722745f6",
+      "actual": "9c8f94dfdcf9f807ce75447db741c4051317e36baca611a7bfdbde91722745f6",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0021_artifacts.sql",
+      "expected": "e6e3f5b743e6d81be6f514d6533ae0936e4dcff6c1ddb8a1252d5d0bcc403789",
+      "actual": "e6e3f5b743e6d81be6f514d6533ae0936e4dcff6c1ddb8a1252d5d0bcc403789",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrations/0022_session_agent_kind.sql",
+      "expected": "737ea043a2f0d0cb6558f75020696e86c91513d67a99292bf6387c5d70fe66fb",
+      "actual": "737ea043a2f0d0cb6558f75020696e86c91513d67a99292bf6387c5d70fe66fb",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/db/migrate.ts",
+      "expected": "d9a3dfdab005f82ce2f722d061cdf6df7508d8302cd667c52bd8d9bf3979d127",
+      "actual": "d9a3dfdab005f82ce2f722d061cdf6df7508d8302cd667c52bd8d9bf3979d127",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/shared/obj.ts",
+      "expected": "0e9ab5839edc3c46eaac6866cddd0a0c3187100f8ebe5c67dbf972c977dbe7e6",
+      "actual": "0e9ab5839edc3c46eaac6866cddd0a0c3187100f8ebe5c67dbf972c977dbe7e6",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/shared/usage/primary-model.ts",
+      "expected": "886711e1988a73fa6ba8c5e0e4972b7f1bb7d8bf8a7b41b49603c66007ad3e9d",
+      "actual": "886711e1988a73fa6ba8c5e0e4972b7f1bb7d8bf8a7b41b49603c66007ad3e9d",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/infra/ipc/dto.ts",
+      "expected": "f7a2979c1028be2f5f5a417f03aa98439950617b1331717346168f57acd43676",
+      "actual": "f7a2979c1028be2f5f5a417f03aa98439950617b1331717346168f57acd43676",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "src/main/features/history/reader.ts",
+      "expected": "0b61d72be7c51f2a516bedc7b5b278594d8e3a54d29b18490bc500937a90a519",
+      "actual": "0b61d72be7c51f2a516bedc7b5b278594d8e3a54d29b18490bc500937a90a519",
+      "matches": true
+    },
+    {
+      "group": "directory",
+      "path": "../docs/handoff/0224-work-agent-layer/fixtures/panel-r4-directory-host.mjs",
+      "expected": "d389c16aa7cee5a0820b35273bf96e5e9b4dbbb8e92ea2d9e54375bfd35a55b7",
+      "actual": "d389c16aa7cee5a0820b35273bf96e5e9b4dbbb8e92ea2d9e54375bfd35a55b7",
+      "matches": true
+    }
+  ],
+  "stylesheet": {
+    "file": "index-DWov5eU4.css",
+    "sha256": "6fa638ef9f4fc430978bc9190af3e646ac1b6b7dc60eb26814ac0dc3f84bd18e",
+    "matches": true
+  },
+  "directoryBundle": {
+    "sha256": "93cfac07690cef056fa6904fbc21a6ac361f22007d0cf82936e08559340001a8",
+    "matches": true
+  },
+  "screenshots": [
+    {
+      "name": "new-landing",
+      "file": "r5-new-landing.png",
+      "sha256": "5d069fd7af5c41f07bbf23d7e23a4e0588fc5ca730881906ee6c08a03808b499"
+    },
+    {
+      "name": "project-landing",
+      "file": "r5-project-landing.png",
+      "sha256": "ebb050d57aecaea597e7abbca9025a2621d61b1cb0897edd50eb20ddd0a23e28"
+    },
+    {
+      "name": "coding-full",
+      "file": "r5-coding-full.png",
+      "sha256": "48da048378d031389c5628565b89314a009060380dcc0718f9664161f1ef110c"
+    },
+    {
+      "name": "coding-tasks-only",
+      "file": "r5-coding-tasks-only.png",
+      "sha256": "619bae8f0cd13113256dabb68e673f104c398f8eba4ce96b68e7de27e1053768"
+    },
+    {
+      "name": "coding-plan-only",
+      "file": "r5-coding-plan-only.png",
+      "sha256": "6e436a848f7e50d471877681ec9ca862216d4a344d3c4cd16a580df37fa4dce7"
+    },
+    {
+      "name": "coding-empty",
+      "file": "r5-coding-empty.png",
+      "sha256": "4dccd687f79ac5cff70c12537f770bb4bd0bec48ad378c8b5035ae66354e65e5"
+    },
+    {
+      "name": "work-empty",
+      "file": "r5-work-empty.png",
+      "sha256": "6aebff256bf59c397b85214906ae87a4f0026322a9d5c397004062aa95d52472"
+    },
+    {
+      "name": "work-full",
+      "file": "r5-work-full.png",
+      "sha256": "25faba416f7523759877fe9c3528ec183e0757d6d3625419839e041817459042"
+    },
+    {
+      "name": "work-dark",
+      "file": "r5-work-dark.png",
+      "sha256": "659c3c1e814c3076a091cfe5b123106e5f6342338287cf916e0c7781d0c2c8b2"
+    },
+    {
+      "name": "work-narrow",
+      "file": "r5-work-narrow.png",
+      "sha256": "905e4377e7045cf0a1301349460777463c95cf5c6e8154b9c3304f7af5b7fabb"
+    },
+    {
+      "name": "work-detail",
+      "file": "r5-work-detail.png",
+      "sha256": "411295f6e0c4dcd5e759d723f85e868825f65f9de45a0e1408518646f6fe719d"
+    },
+    {
+      "name": "work-context-error",
+      "file": "r5-work-context-error.png",
+      "sha256": "e26de54d55cff91e766536c7f0bd7a5c42192f8c1b97f397675d515ecf98ff1f"
+    },
+    {
+      "name": "work-menu",
+      "file": "r5-work-menu.png",
+      "sha256": "90fdf45fd18fc0366a884078e12c7138ce3b3abd4664657d378b1578fb74a9c4"
+    },
+    {
+      "name": "coding-menu",
+      "file": "r5-coding-menu.png",
+      "sha256": "df41f5344563ebf7d1d6884d652d3c830e8be231145525daf7285b18f12233c6"
+    },
+    {
+      "name": "work-density",
+      "file": "r5-work-density.png",
+      "sha256": "1eb7fc0475f0bdd4d3dc0e8ca26e442efc5c3b51b8a8f8d427ead06d84b79692"
+    },
+    {
+      "name": "coding-detail",
+      "file": "r5-coding-detail.png",
+      "sha256": "6f50a11e85c3d38ed86116045124bdf4bdaa6b7a14099f50e9aa9491f656f10b"
+    },
+    {
+      "name": "nav-completion",
+      "file": "r5-nav-completion.png",
+      "sha256": "eb7a06651d83caebe351d4949f90c4ef53d78edfe34566db0aa2b93b2094fbce"
+    }
+  ],
+  "visualInspection": [
+    "new-landing",
+    "project-landing",
+    "work-density",
+    "work-dark",
+    "work-narrow",
+    "coding-detail",
+    "nav-completion"
+  ],
+  "preservedFailures": [
+    "r5-native-initial.json",
+    "r5-native-tooltip-red.json",
+    "r5-native-tooltip-lifecycle-initial.json",
+    "r5-native-tooltip-lifecycle-red.json"
+  ],
+  "inputIsolation": "After actual first/last pointer hover tests, keyboard/Back/deletion runs with pointer at (0,0). Original mixed-input RED and independent diagnostic evidence are preserved.",
+  "scope": "Real components/hooks/store/routes and production CSS; synthetic model/artifact/picker APIs; actual cache-local Main/SQLite/directory IPC with injected OS open port. No remote model, Explorer, user DB, or Work isolation execution test."
+}

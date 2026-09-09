@@ -4,8 +4,11 @@
 // 영속 책임이라 여기 둔다.
 
 import type { WebContents } from 'electron'
+import type { ArtifactRef } from '../../../shared/artifacts'
+import type { AgentKind } from '../../../shared/agent-kind'
 import type { AttachmentView, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
 import { subagentNoticePart } from '../../../shared/ipc'
+import { responseBoundaryPart } from '../../../shared/response-boundary'
 import type { DbQueries } from '../../infra/db'
 import type { LineageRelation } from '../../infra/db/types'
 import { previewOf } from '../../infra/ipc/dto'
@@ -23,12 +26,51 @@ type ContinuityArrivalHook = (arrival: {
   createdAt: number
 }) => void
 
-// 턴 영속(history) — 사용량 집계(usage/subscriber)·제목 생성(TitleGenerator)은 별개 버스 구독자로
+type ResponseBoundaryPolicy = (kind: AgentKind) => boolean
+
+interface ArtifactLinker {
+  linkPublication(
+    sessionId: string,
+    toolRunId: string,
+    publicationId: string,
+    parentToolRunId?: string
+  ): ArtifactRef | null
+}
+
+// 실제 tool_result의 text 영수증만 읽는다. 도구명·세션·원래 메시지 검증은 DB linker가 소유한다.
+function artifactReceiptId(result: unknown): string | null {
+  const text =
+    typeof result === 'string'
+      ? result
+      : Array.isArray(result) && result.length === 1 && result[0]?.type === 'text'
+        ? (result[0].text as unknown)
+        : undefined
+  if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > 8192) return null
+  try {
+    const receipt: unknown = JSON.parse(text)
+    if (receipt === null || typeof receipt !== 'object' || Array.isArray(receipt)) return null
+    const value = receipt as Record<string, unknown>
+    return Object.keys(value).length === 3 &&
+      value.type === 'orca.artifact.published' &&
+      value.version === 1 &&
+      typeof value.publicationId === 'string' &&
+      value.publicationId.length > 0 &&
+      value.publicationId.length <= 128
+      ? value.publicationId
+      : null
+  } catch {
+    return null
+  }
+}
+
+// 턴 영속(history) — 사용량 집계(UsageTracker)·제목 생성(TitleGenerator)은 별개 버스 구독자로
 // 분리됐다(0062). 여기 telemetry 처리는 assistant 메시지 마감 + 다음 턴 대비 reset 만 담당한다.
 export class HistoryWriter {
   constructor(
     private readonly db: DbQueries,
-    private readonly onContinuityArrival?: ContinuityArrivalHook
+    private readonly shouldPersistResponseBoundary: ResponseBoundaryPolicy,
+    private readonly onContinuityArrival?: ContinuityArrivalHook,
+    private readonly artifacts?: ArtifactLinker
   ) {}
 
   // user 메시지 1건을 messages row + text 파트로 영속한다(content 는 FTS5 캐시).
@@ -127,6 +169,9 @@ export class HistoryWriter {
       })
       turn.assistantText = ''
     }
+    if (turn.responseBoundary) {
+      turn.responseBoundary.messageId = turn.currentAssistantMessageId
+    }
     return turn.currentAssistantMessageId
   }
 
@@ -167,6 +212,33 @@ export class HistoryWriter {
   persist(turn: TurnContext, ev: NormalizedEvent): void {
     const now = Date.now()
     switch (ev.type) {
+      case 'response.boundary': {
+        if (
+          !this.shouldPersistResponseBoundary(turn.agentKind) ||
+          !turn.dbSessionId ||
+          ev.sessionId !== turn.dbSessionId
+        )
+          break
+        const { boundary } = ev
+        let messageId: number
+        if (boundary.phase === 'begin') {
+          if (turn.responseBoundary) break
+          messageId = this.ensureAssistantMessage(turn, turn.dbSessionId)
+        } else {
+          if (turn.responseBoundary?.id !== boundary.id) break
+          messageId = turn.responseBoundary.messageId
+        }
+        const { type, ...payload } = responseBoundaryPart(boundary)
+        this.db.appendPart({
+          messageId,
+          type,
+          toolRunId: null,
+          payloadJson: JSON.stringify(payload)
+        })
+        if (boundary.phase === 'begin') turn.responseBoundary = { id: boundary.id, messageId }
+        else delete turn.responseBoundary
+        break
+      }
       case 'session.updated': {
         // claude 의 system/init — sessionId 발급 시점. sessions row 생성 + 대기 user 메시지 기록.
         const sessionId = ev.sessionId
@@ -178,6 +250,7 @@ export class HistoryWriter {
           id: sessionId,
           // backend 출처는 이 턴이 잠긴 어댑터(0010 세션-어댑터 바인딩) — 리터럴 금지(0016).
           backend: turn.titleAdapter.id,
+          agentKind: turn.agentKind,
           title,
           projectId: turn.pendingProjectId,
           createdAt: now,
@@ -266,6 +339,8 @@ export class HistoryWriter {
         break
       }
       case 'tool.call.completed': {
+        // 어댑터 입력의 artifact는 권위가 없다. DB가 확인한 참조만 relay에 실을 수 있다.
+        delete ev.artifact
         if (!turn.dbSessionId) break
         // 합성으로 이미 답변을 채운 AskUserQuestion id 에 실제 tool_result 가 뒤늦게 오면
         // 저장된 answers 로 재주입해 빈 output 으로 덮어쓰지 않게 한다.
@@ -292,6 +367,18 @@ export class HistoryWriter {
             ...(ev.structuredOutput !== undefined ? { structuredOutput: ev.structuredOutput } : {})
           })
         )
+        if (!ev.isError && ev.sessionId === turn.dbSessionId && this.artifacts) {
+          const publicationId = artifactReceiptId(ev.result)
+          if (publicationId) {
+            const artifact = this.artifacts.linkPublication(
+              turn.dbSessionId,
+              ev.toolRunId,
+              publicationId,
+              ev.parentToolRunId
+            )
+            if (artifact) ev.artifact = artifact
+          }
+        }
         break
       }
       case 'error': {

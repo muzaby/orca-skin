@@ -1,0 +1,855 @@
+{
+  "success": false,
+  "errors": [
+    "r5TooltipLife: tooltipBackRemainsDismissed failed",
+    "r5TooltipLife: tooltipAnchorDeletionDismisses failed"
+  ],
+  "screens": [
+    {
+      "name": "new-landing",
+      "tiles": [],
+      "composer": true,
+      "width": 1200
+    },
+    {
+      "name": "project-landing",
+      "tiles": [],
+      "composer": true,
+      "width": 1200
+    },
+    {
+      "name": "coding-full",
+      "tiles": [
+        "plan"
+      ],
+      "width": 1200,
+      "sections": [
+        "작업"
+      ],
+      "rootWidth": 1200
+    },
+    {
+      "name": "coding-tasks-only",
+      "tiles": [
+        "plan"
+      ],
+      "width": 1200,
+      "sections": [
+        "작업"
+      ],
+      "rootWidth": 1200
+    },
+    {
+      "name": "coding-plan-only",
+      "tiles": [
+        "plan"
+      ],
+      "width": 1200,
+      "sections": [],
+      "rootWidth": 1200
+    },
+    {
+      "name": "coding-empty",
+      "tiles": [
+        "plan"
+      ],
+      "width": 1200,
+      "sections": [],
+      "rootWidth": 1200
+    },
+    {
+      "name": "work-empty",
+      "tiles": [
+        "task"
+      ],
+      "width": 1200,
+      "sections": [
+        "진행 상황",
+        "출력",
+        "컨텍스트"
+      ],
+      "rootWidth": 1200
+    },
+    {
+      "name": "work-full",
+      "tiles": [
+        "task"
+      ],
+      "width": 1200,
+      "sections": [
+        "진행 상황",
+        "출력",
+        "컨텍스트"
+      ],
+      "rootWidth": 1200
+    },
+    {
+      "name": "work-dark",
+      "tiles": [
+        "task"
+      ],
+      "width": 1200,
+      "sections": [
+        "진행 상황",
+        "출력",
+        "컨텍스트"
+      ],
+      "rootWidth": 1200
+    },
+    {
+      "name": "work-narrow",
+      "tiles": [
+        "task"
+      ],
+      "width": 760,
+      "sections": [
+        "진행 상황",
+        "출력",
+        "컨텍스트"
+      ],
+      "rootWidth": 760
+    },
+    {
+      "name": "work-detail",
+      "width": 1200
+    },
+    {
+      "name": "work-context-error",
+      "width": 1200
+    },
+    {
+      "name": "work-menu",
+      "width": 1200
+    },
+    {
+      "name": "coding-menu",
+      "width": 1200
+    },
+    {
+      "name": "work-density",
+      "checks": {
+        "resizedThirdCaps": true,
+        "resizedOuterFits": true,
+        "noHorizontalOverflow": true
+      },
+      "metrics": {
+        "available": 581.921875,
+        "card": 581.4859619140625,
+        "sections": {
+          "progress": {
+            "height": 193.29722595214844,
+            "clientHeight": 147,
+            "scrollHeight": 1730
+          },
+          "output": {
+            "height": 193.29722595214844,
+            "clientHeight": 147,
+            "scrollHeight": 1824
+          },
+          "context": {
+            "height": 193.2971954345703,
+            "clientHeight": 147,
+            "scrollHeight": 1237
+          }
+        }
+      }
+    },
+    {
+      "name": "coding-detail",
+      "width": 1200
+    },
+    {
+      "name": "nav-completion",
+      "checks": {
+        "modeIconsDistinct": true,
+        "noTrailingModeLabel": true,
+        "intermediateNotCompleted": true,
+        "unviewedCompletionBlue": true,
+        "onlyIconBlue": true,
+        "refreshRetainsCompletion": true,
+        "openAcknowledgesCompletion": true,
+        "sessionClickRoutes": true,
+        "viewedCompletionNotBlue": true,
+        "leaveDoesNotReplay": true,
+        "projectRouteNotViewed": true,
+        "abortNotCompleted": true
+      },
+      "colors": {
+        "initial": "rgb(61, 61, 58)",
+        "completed": "rgb(31, 104, 189)",
+        "title": "rgb(61, 61, 58)"
+      }
+    }
+  ],
+  "directoryManifest": {
+    "scope": "Actual session directory and files open handlers/schema, SQLite queries/migrations and history loader. Electron shell is an injected recording/failure port; Explorer is never opened. Isolated synthetic session/directories.",
+    "bundle": {
+      "file": "directory-host.cjs",
+      "sha256": "93cfac07690cef056fa6904fbc21a6ac361f22007d0cf82936e08559340001a8"
+    },
+    "files": {
+      "src/shared/absolute-path.ts": "2a88dd88bfaa96e776493d43ade3bf7d03f3c829a7ad2b801804ba187157914c",
+      "src/shared/extra-directories.ts": "dcbcff04f5c85c458c8bc85b305a26003d4d80036cb30cfd9cef33abe9650c01",
+      "src/main/app/handlers/session-directory.ts": "e3c8408379bd9876bd971ffb35146818ef2010b3bf1900c281b38be694622c92",
+      "src/shared/agent-kind.ts": "401c41852a517ba3dd72e706f1dafcb0bcce1ae3f7e92d0dd77577c73cbc0a22",
+      "src/shared/ipc.ts": "6c185ae0a0bf1167ba9590c6aa7c96e0c1abd541f4f9ad38fd11187b266db03d",
+      "src/shared/logging.ts": "d3846b150e4bde53958d44a5f5f94bb9dc427e629734ac18c4eba051d9af2033",
+      "src/shared/protocol.ts": "c77dae79b87dab544c68a6039587abb5bd8856a653701cefd095da54065577fe",
+      "src/main/features/chat/image.ts": "2c17e13e388392ef25d9d90e61adc48beee640984acd46deba304e8bdc76b17a",
+      "src/main/features/chat/attachments.ts": "74f9333b70683201a2738c72f1794326e10053a6d8fd8562a625d5a5aea23aca",
+      "src/main/features/chat/scan.ts": "8ab654db6a8730ab66e891c1f05bb6b6701555786b8586845b073b1fc4d28ce2",
+      "src/main/infra/config/paths.ts": "d3abb44877ebb4bfe727c68f8da18325603f4dab4f327e04da960427344433db",
+      "src/main/infra/log/registry.ts": "f4352237ef6b14cc35fa9269a794dcd34360b7853ba5989763f5e65e8f73ac62",
+      "src/main/infra/ipc/handle.ts": "8f07bd0b7b399e484f605bafb1239268e3b157e56ad43c1a55ae47281776771e",
+      "src/main/app/handlers/files.ts": "2ec931f1cd8c689d3b73e3705b89bc465ccc90701891562954eb489a32f99b79",
+      "src/main/infra/db/usage-queries.ts": "a704af89f538de8aab9bb52fae1eb2b5ac2b5be99eeb8f94f0dccd408d246733",
+      "src/main/infra/db/artifact-queries.ts": "1ec873e7b84e911f73ba4a8e1fb2e72a317123054c02ec8b4ccac9a516f62989",
+      "src/main/infra/db/queries.ts": "7bed5d94629bb33c17c5a9fefb4831ca86f8b12d6d85c17e173c4e8b5c2d531c",
+      "src/main/infra/db/migrations/0001_initial.sql": "b0bbac4df4c1950436887df83a58c3217662f195cca39a24384775e5d39f0ef0",
+      "src/main/infra/db/migrations/0002_projects.sql": "43acf0c3376bf47a0f0786952742b455b6f6d6828fdabfef06d424fa02102e13",
+      "src/main/infra/db/migrations/0003_messages_fts.sql": "7d0eac30189e831670f96a5b8a828d749265b319d2ff5e1e27dc0b4daa172e95",
+      "src/main/infra/db/migrations/0004_message_parts.sql": "42943bf7595fc763da38540c493d53bf73a9848eae89079c1ea1e73b2043246d",
+      "src/main/infra/db/migrations/0005_usage_events.sql": "310ebba5f872f8d208e6002fa5ad68755743dc03e51039fb7d5358d994a2cbc8",
+      "src/main/infra/db/migrations/0006_turn_usage.sql": "c559ca4ab6b87197cb64bddb1b7e7b71d99ac4041669bb1510d789b6bfda01c9",
+      "src/main/infra/db/migrations/0007_title_source.sql": "9077d438dfeb46be1894618bcb01590443f5d0b4c16e73260ca02ca9f2eaf3fc",
+      "src/main/infra/db/migrations/0008_provider_key.sql": "c0ee91bd013196a8a21adacc40f7c29f2b7afbc47c60cdd64cbdd4fc56228787",
+      "src/main/infra/db/migrations/0009_message_complete.sql": "05169e35d134ff946ee943d96636ea5d0e3dc61d57740311d4bd8b6fab6c66cd",
+      "src/main/infra/db/migrations/0010_session_cwd.sql": "aad473a732bc9cba0f099ef4cdaa9265f0f7ed617e200274b0e7334a0cc9af45",
+      "src/main/infra/db/migrations/0011_session_lineage.sql": "07096ddf01b5f3a9a48624d016b49a26d0e22849c4f0366562617c35e33d3a55",
+      "src/main/infra/db/migrations/0012_provider_limits.sql": "fc6fcb2dd2551b973dd7641e4e3159f96ba4901242d74e68e00ca4aa23954ff5",
+      "src/main/infra/db/migrations/0013_schedules.sql": "a7fe6e46af0a5c38643ec9188bede059aa85b2d06287d24780b3e4834bf61ab6",
+      "src/main/infra/db/migrations/0014_provider_usage_report_cache.sql": "56c1d28a15df2ecf1336267d455c782afb645bbd596f2b7b2d0ce023ba299a7b",
+      "src/main/infra/db/migrations/0015_pinned.sql": "0fedec672b9bddf4d8943a915904e2687bc06bc54f91fabc765cf3e33ab21bd7",
+      "src/main/infra/db/migrations/0016_turn_model_context_window.sql": "715bf45116cff5045b70238ee06cc2cfa0a0315efc1da6202e72b73e4beb49f8",
+      "src/main/infra/db/migrations/0017_session_extra_dirs.sql": "8a6067c10592a0e7610af9a6b2b217ce17057a8ee5eb7e6d9a0d8b17c25c7a79",
+      "src/main/infra/db/migrations/0018_managed_worktrees.sql": "475b1a350620a49ee946059fa9d9b67b73f7db370310a2752446d677b559494e",
+      "src/main/infra/db/migrations/0019_session_baseline.sql": "fda4512e1a27633bfab1ea70d972c8772dbdfc359c1026688fb4b9b8409342f7",
+      "src/main/infra/db/migrations/0020_session_baseline_ref.sql": "9c8f94dfdcf9f807ce75447db741c4051317e36baca611a7bfdbde91722745f6",
+      "src/main/infra/db/migrations/0021_artifacts.sql": "e6e3f5b743e6d81be6f514d6533ae0936e4dcff6c1ddb8a1252d5d0bcc403789",
+      "src/main/infra/db/migrations/0022_session_agent_kind.sql": "737ea043a2f0d0cb6558f75020696e86c91513d67a99292bf6387c5d70fe66fb",
+      "src/main/infra/db/migrate.ts": "d9a3dfdab005f82ce2f722d061cdf6df7508d8302cd667c52bd8d9bf3979d127",
+      "src/shared/obj.ts": "0e9ab5839edc3c46eaac6866cddd0a0c3187100f8ebe5c67dbf972c977dbe7e6",
+      "src/shared/usage/primary-model.ts": "886711e1988a73fa6ba8c5e0e4972b7f1bb7d8bf8a7b41b49603c66007ad3e9d",
+      "src/main/infra/ipc/dto.ts": "f7a2979c1028be2f5f5a417f03aa98439950617b1331717346168f57acd43676",
+      "src/main/features/history/reader.ts": "0b61d72be7c51f2a516bedc7b5b278594d8e3a54d29b18490bc500937a90a519",
+      "../docs/handoff/0224-work-agent-layer/fixtures/panel-r4-directory-host.mjs": "d389c16aa7cee5a0820b35273bf96e5e9b4dbbb8e92ea2d9e54375bfd35a55b7"
+    }
+  },
+  "manifest": {
+    "scope": "Actual landing pages/Composer/RightPanel/ChatTitleBar/task/plan/context components, production store/actions/CSS, synthetic tool/artifact/picker/model catalog. Directory acceptance uses actual validated Main handlers/SQLite/history through isolated IPC; injected OS port only, no model or Explorer call.",
+    "stylesheet": {
+      "file": "index-DWov5eU4.css",
+      "sha256": "6fa638ef9f4fc430978bc9190af3e646ac1b6b7dc60eb26814ac0dc3f84bd18e"
+    },
+    "supportingFiles": {
+      "src/renderer/src/pages/NewChatLandingPage.tsx": "89fd1c6f45a20eb92554a63000b425abbc7ae11b31f6fca81b091c964cf2d529",
+      "src/renderer/src/pages/ProjectLandingPage.tsx": "d4d7ae4ff4cf8a4800dbdc41924b44fa6b09600b0f4a036a1f5272f92a30f306",
+      "src/renderer/src/features/sessions/components/SessionRow.tsx": "7c92c753ef52db7a7ed8d53de42909d60a993a437a812a3b9f1a1d6b87ca750e",
+      "src/renderer/src/features/sessions/store/sessionsStore.ts": "2b29e3f0e626ebaa020913baad8dd7f1de8191d146a99ab2af0cce178b0b763f",
+      "src/renderer/src/app/hooks/useSessionCompletion.ts": "5b56f88b26753c956535776e1962e25416ba712bc547945f2895d5ffd6b394fe",
+      "src/renderer/src/app/hooks/useSessionHandlers.ts": "37b8031ddb39ffd123bcbcbb41694f33daeff7a6d8309c93d7f90372d3c47bce",
+      "src/renderer/src/shared/ui/Icon.tsx": "f58312d7d986fa1732b9b0b43e5fa29c517a0390c34cd9eb5f625b2e62023d32",
+      "src/renderer/src/shared/ui/Popover.tsx": "692df0fe775a7d036de012a8da0fdee5bd290ddbbc89e878a4a372bd2698d21b",
+      "src/renderer/src/shared/api/ipc.ts": "e8576947b1b6905fd62066f5b4067feedada777eb1df4ace155e19fe6abb458f",
+      "src/shared/ipc.ts": "6c185ae0a0bf1167ba9590c6aa7c96e0c1abd541f4f9ad38fd11187b266db03d",
+      "src/shared/protocol.ts": "c77dae79b87dab544c68a6039587abb5bd8856a653701cefd095da54065577fe",
+      "src/preload/index.ts": "dc3713549ac464be9a8d51a1c4d04f863b7f04852c6d557b51c43b9afa9cf9ff",
+      "../docs/handoff/0224-work-agent-layer/fixtures/panel-r5-native-browser.tsx": "dcc8bb07903c4b314b2d3525cbd8aaad335af497d80b095331e811fe8db3a3bc",
+      "../docs/handoff/0224-work-agent-layer/fixtures/panel-r5-native-runner.cjs": "9dfaf36e0a2c56b6fed421b1a61f164650f7f098adf96c2869b11a5d193789a9",
+      "../docs/handoff/0224-work-agent-layer/fixtures/panel-r5-native.mjs": "6f366c319e148ab253b337a1130e2cff5c6a94ca2729d2037d2719ca1fc54829"
+    },
+    "files": {
+      "components/rightpanel/RightPanel.tsx": "593ff768633287c7cb4b0cd5190e952007c64eb160e3533ffa93ebf6b3ba8572",
+      "components/rightpanel/TaskTileContent.tsx": "775a0e9940fb683fcec82e551e905ff04b6480ab52797f4b0da68d16fef2443a",
+      "components/rightpanel/TaskTileSections.tsx": "b02689f548a9380571a782474fccf9d0e89588e5a07e5bc9c2258d4889a132cf",
+      "components/rightpanel/TaskContextContent.tsx": "7d9f56c8b7247b7bbf1ed11213dea8a4c87a16ff4e2e86e800e1c30e167024a1",
+      "components/rightpanel/PlanTileContent.tsx": "0e077a9a540988eef41f39e664c81ab912caf8768f7ab799b2a683e4c88ec5aa",
+      "hooks/useDirectoryPicker.ts": "c72a7bc5ebc93caa9da32ab74e42656e201dda7abdd5833add11a706bee3451d",
+      "store/chatStore.ts": "2776bfa737040d06ff7b205f50f5131d55b9cd53f1ec0eb9ea2b1488161f0c54",
+      "components/rightpanel/WorkTaskProgress.tsx": "5eb53f9015a5b91b7b828fe04189c47c9c19d504016fb418deda3019643be3cb",
+      "components/composer/ComposerInputController.tsx": "3306e452d3114fd159ea9a925b6278e1aeea57cc4d5f26856c45560306a3bde6",
+      "components/ChatTitleBar.tsx": "eba125374b7d9b483a4f27c28d0e63e2cc6d71a635a30c247a9431c134cc4ac6",
+      "lib/rightPanelLayout.ts": "8f279976fd913757051432fa43bd40632e091d7b428d5a390daff15f0965fbc3",
+      "reducer/chatReducer.ts": "689e510fd665655adbf8b99a92c6e3c3d79b3ead8e10562fa2ad97a670b40ee6",
+      "components/Composer.tsx": "e23b8b8cdcb87612984e9057bbe5cbe67057cb07448c44f8778ef5d4e67a9c11",
+      "components/AgentModeToggle.tsx": "43d5e1025cc7c33bb92e2694e22f786aeba62944e84886982abff1f15f6fc30c",
+      "components/composer/ModeMenu.tsx": "01d236474d3ee39368e9cff197d78a29b426e3370075fa03e86bfe160443ea3f",
+      "components/composer/modes.ts": "4a792f2e77dcde6732ac5436194230247d3d6335ff2d96460eec4201c023dd25",
+      "lib/agentPresentation.ts": "decad17805f936ec3f5888672779270b34d7a82c0790ab3e275e73ae3541abfc",
+      "components/CwdPanel.tsx": "2938f6fc307407d1902e1a041b040c7b96836a1550a28278632a2538cb9708a4",
+      "components/composer/BranchChip.tsx": "cc976b1e0f4a55bcaebf1175e4e37ceb26b117b639ed2a6600fe0d855f909135",
+      "components/rightpanel/TaskProgressList.tsx": "0e235309224a28c3ab8f221299e8fd49253dfb54f43d7b5e70ccdab877ea4ee4",
+      "components/rightpanel/TaskOutputContent.tsx": "7bab40a86b28e4eb1fe2c30262c93a6a432762cd4a536f3fe56dbb9022776d96",
+      "components/rightpanel/TaskPanelContent.tsx": "34a4472cbb832d2467d2a00df13c8d4bf89a06a657c51daed657b8dcf308b8bd",
+      "components/rightpanel/TaskStatusIcon.tsx": "1a2cd6958e41337a4bd907ca9e24638bec283a4721e938ee4d1229dcbb2e301d",
+      "components/rightpanel/RightPanelTile.tsx": "3402d94586a4688af93e1615c069a669ee39082b3749b2cccf66cb3536f7c711",
+      "components/ArtifactCard.tsx": "f2ac4e240e2e926249ad39c58bc838a765655475f1602f5e8729baf33631f716"
+    }
+  },
+  "landing": [
+    {
+      "checks": {
+        "landingFrameFillsViewport": true,
+        "heroCenteredInContent": true,
+        "controlsBeforeHero": true,
+        "workHero": true,
+        "decorations": true,
+        "largeChevrons": true,
+        "largeModeIcons": true,
+        "largeBoldSeparator": true,
+        "largeNormalHero": true,
+        "noModeTooltip": true,
+        "transparentControls": true,
+        "selectedBlue": true,
+        "workGitAbsent": true,
+        "workAddDirectoryNoGap": true,
+        "codingHero": true,
+        "sameInput": true,
+        "sameAttachment": true,
+        "codingGitQueries": true,
+        "codingGitRestored": true,
+        "codingIsolationSelected": true,
+        "codingSelectionBlue": true,
+        "workReturnState": true,
+        "noLandingPanel": true,
+        "workGitReturnAbsent": true,
+        "codingSelectionRetained": true
+      },
+      "styles": {
+        "chevrons": [
+          {
+            "width": 28,
+            "height": 28
+          },
+          {
+            "width": 28,
+            "height": 28
+          }
+        ],
+        "modeIcons": [
+          {
+            "width": 36,
+            "height": 36
+          },
+          {
+            "width": 36,
+            "height": 36
+          }
+        ],
+        "separator": {
+          "fontSize": "32px",
+          "fontWeight": "700"
+        },
+        "hero": {
+          "fontSize": "32px",
+          "fontWeight": "400"
+        },
+        "controls": {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "borderWidth": "0px"
+        }
+      },
+      "draft": "토글 후에도 유지될 초안",
+      "gitCalls": [
+        {
+          "type": "status",
+          "request": "C:/fixture/work-next"
+        },
+        {
+          "type": "status",
+          "request": "C:/fixture/work-next"
+        }
+      ]
+    },
+    {
+      "checks": {
+        "landingFrameFillsViewport": true,
+        "heroCenteredInContent": true,
+        "controlsBeforeHero": true,
+        "workHero": true,
+        "decorations": true,
+        "largeChevrons": true,
+        "largeModeIcons": true,
+        "largeBoldSeparator": true,
+        "largeNormalHero": true,
+        "noModeTooltip": true,
+        "transparentControls": true,
+        "selectedBlue": true,
+        "workGitAbsent": true,
+        "workAddDirectoryNoGap": true,
+        "codingHero": true,
+        "sameInput": true,
+        "sameAttachment": true,
+        "codingGitQueries": true,
+        "codingGitRestored": true,
+        "codingIsolationSelected": true,
+        "codingSelectionBlue": true,
+        "workReturnState": true,
+        "noLandingPanel": true,
+        "workGitReturnAbsent": true,
+        "codingSelectionRetained": true
+      },
+      "styles": {
+        "chevrons": [
+          {
+            "width": 28,
+            "height": 28
+          },
+          {
+            "width": 28,
+            "height": 28
+          }
+        ],
+        "modeIcons": [
+          {
+            "width": 36,
+            "height": 36
+          },
+          {
+            "width": 36,
+            "height": 36
+          }
+        ],
+        "separator": {
+          "fontSize": "32px",
+          "fontWeight": "700"
+        },
+        "hero": {
+          "fontSize": "32px",
+          "fontWeight": "400"
+        },
+        "controls": {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "borderWidth": "0px"
+        }
+      },
+      "draft": "토글 후에도 유지될 초안",
+      "gitCalls": [
+        {
+          "type": "status",
+          "request": "C:/fixture/work-next"
+        },
+        {
+          "type": "status",
+          "request": "C:/fixture/work-next"
+        },
+        {
+          "type": "status",
+          "request": "C:/fixture/work-next"
+        },
+        {
+          "type": "status",
+          "request": "C:/fixture/work-next"
+        }
+      ]
+    }
+  ],
+  "motion": {
+    "normal": {
+      "animationName": "spin",
+      "reduced": false
+    },
+    "reduced": {
+      "animationName": "none",
+      "reduced": true
+    }
+  },
+  "interactions": {
+    "checks": {
+      "workExpandAbsent": true,
+      "workSaveAllAbsent": true,
+      "workResizePreservesContent": true,
+      "workMenu": true,
+      "collapse": true,
+      "contextActionReopens": true,
+      "collapsedError": true,
+      "cancel": true,
+      "root": true,
+      "add": true,
+      "duplicate": true,
+      "error": true,
+      "stale": true,
+      "busy": true,
+      "sessionSectionsReset": true,
+      "codingMenu": true,
+      "codingDetail": true,
+      "codingDetailBack": true,
+      "planCopy": true,
+      "planSelection": true,
+      "taskOutsidePlanSelection": true,
+      "workPlanVisible": true,
+      "workPlanApproval": true,
+      "workChildInline": true,
+      "workNoticeInline": true,
+      "workVerticalRows": true,
+      "workSubjects": true,
+      "workCompleteStrike": true,
+      "workToggleEnabled": true,
+      "workToggleOff": true,
+      "workClosedThroughTurn": true,
+      "workToggleOn": true,
+      "questionInitialDraft": true,
+      "questionAttachmentBefore": true,
+      "questionAppends": true,
+      "questionFocus": true,
+      "questionNoSend": true,
+      "questionAttachmentPreserved": true,
+      "questionConsumedOnce": true,
+      "mainNoImplicitCwd": true,
+      "mainCwdChip": true,
+      "mainCwdOnce": true,
+      "mainReloadChip": true,
+      "mainNewFolder": true
+    },
+    "calls": [
+      {
+        "sessionId": "work",
+        "directory": "C:/References"
+      },
+      {
+        "sessionId": "work",
+        "directory": "C:/References"
+      },
+      {
+        "sessionId": "work",
+        "directory": "C:/missing"
+      },
+      {
+        "sessionId": "directory-work",
+        "directory": "C:\\workspace\\github\\codex\\orca-skin\\app\\node_modules\\.cache\\orca\\panel-r5-94sL00\\directory-host-sYJ3R6\\Downloads"
+      },
+      {
+        "sessionId": "directory-work",
+        "directory": "C:\\workspace\\github\\codex\\orca-skin\\app\\node_modules\\.cache\\orca\\panel-r5-94sL00\\directory-host-sYJ3R6\\Downloads"
+      },
+      {
+        "sessionId": "directory-work",
+        "directory": "C:\\workspace\\github\\codex\\orca-skin\\app\\node_modules\\.cache\\orca\\panel-r5-94sL00\\directory-host-sYJ3R6\\References"
+      }
+    ],
+    "permissionCalls": [
+      {
+        "approvalId": "review-work",
+        "resolution": {
+          "behavior": "allow"
+        }
+      }
+    ],
+    "menuItems": [
+      "작업"
+    ],
+    "codingItems": [
+      "계획",
+      "백그라운드 작업",
+      "변경사항"
+    ],
+    "directory": {
+      "info": {
+        "sessionId": "directory-work",
+        "cwd": "C:\\workspace\\github\\codex\\orca-skin\\app\\node_modules\\.cache\\orca\\panel-r5-94sL00\\directory-host-sYJ3R6\\Downloads",
+        "directory": "C:\\workspace\\github\\codex\\orca-skin\\app\\node_modules\\.cache\\orca\\panel-r5-94sL00\\directory-host-sYJ3R6\\References"
+      },
+      "before": [],
+      "after": [
+        "C:\\workspace\\github\\codex\\orca-skin\\app\\node_modules\\.cache\\orca\\panel-r5-94sL00\\directory-host-sYJ3R6\\Downloads",
+        "C:\\workspace\\github\\codex\\orca-skin\\app\\node_modules\\.cache\\orca\\panel-r5-94sL00\\directory-host-sYJ3R6\\References"
+      ]
+    }
+  },
+  "r4": {
+    "checks": {
+      "workConversationGitAbsent": true,
+      "workMenuModes": true,
+      "bypassNeedsConfirmation": true,
+      "bypassAppliedChip": true,
+      "contextFailureVisible": true,
+      "contextExactNativeTarget": true,
+      "wholeDetail": true,
+      "detailBackFocus": true,
+      "hiddenOverviewLifetime": true,
+      "hiddenPickerFailure": true,
+      "detailBackRestores": true,
+      "detailComposerLifetime": true,
+      "detailErrorAndCollapseRetained": true,
+      "contextRetry": true,
+      "contextOpenDoesNotWrite": true,
+      "deletedTaskReturnsOverview": true,
+      "contextPendingDisabled": true,
+      "contextDuplicateBlocked": true,
+      "contextLateFailureIgnored": true,
+      "codingMenuRetained": true,
+      "codingGitQueriesRetained": true,
+      "contextKeyboardEnter": true,
+      "contextKeyboardSpace": true
+    },
+    "workModes": [
+      "수동 승인",
+      "자동 승인",
+      "모든 승인 건너뛰기"
+    ],
+    "codingModes": [
+      "자동",
+      "수동",
+      "편집 자동 수락",
+      "계획",
+      "권한 무시"
+    ],
+    "nativeOpen": {
+      "calls": [
+        "C:\\workspace\\github\\codex\\orca-skin\\app\\node_modules\\.cache\\orca\\panel-r5-94sL00\\directory-host-sYJ3R6\\References",
+        "C:\\workspace\\github\\codex\\orca-skin\\app\\node_modules\\.cache\\orca\\panel-r5-94sL00\\directory-host-sYJ3R6\\References",
+        "C:\\workspace\\github\\codex\\orca-skin\\app\\node_modules\\.cache\\orca\\panel-r5-94sL00\\directory-host-sYJ3R6\\References"
+      ],
+      "pending": false
+    },
+    "directory": "C:\\workspace\\github\\codex\\orca-skin\\app\\node_modules\\.cache\\orca\\panel-r5-94sL00\\directory-host-sYJ3R6\\References"
+  },
+  "r5": {
+    "checks": {
+      "emptyNaturalHeight": true,
+      "workTaskEllipsis": true,
+      "outputEllipsis": true,
+      "contextEllipsis": true,
+      "naturalGrowth": true,
+      "noSiblingHeightAllocation": true,
+      "progressOnlyScroll": true,
+      "eachSectionThirdCap": true,
+      "outerStaysWithinAvailable": true,
+      "outputSaveAllAbsentWithMany": true,
+      "workDetailFullHeight": true,
+      "allScrollOwnersRetained": true,
+      "densityBackFocus": true,
+      "sharedRowStyles": true,
+      "codingQuestionAbsent": true,
+      "codingWholeDepth": true,
+      "codingHeightUnchangedInDetail": true,
+      "codingDocumentIdentity": true,
+      "codingEmptyHeightUnchanged": true
+    },
+    "metrics": {
+      "empty": {
+        "available": 884,
+        "card": 506.6499938964844,
+        "sections": {
+          "progress": {
+            "height": 146.4875030517578,
+            "clientHeight": 100,
+            "scrollHeight": 100
+          },
+          "output": {
+            "height": 179.27500915527344,
+            "clientHeight": 132,
+            "scrollHeight": 132
+          },
+          "context": {
+            "height": 179.28750610351562,
+            "clientHeight": 132,
+            "scrollHeight": 132
+          }
+        }
+      },
+      "short": {
+        "available": 884,
+        "card": 303.70001220703125,
+        "sections": {
+          "progress": {
+            "height": 104.5,
+            "clientHeight": 58,
+            "scrollHeight": 58
+          },
+          "output": {
+            "height": 103.30000305175781,
+            "clientHeight": 56,
+            "scrollHeight": 56
+          },
+          "context": {
+            "height": 94.30000305175781,
+            "clientHeight": 47,
+            "scrollHeight": 47
+          }
+        }
+      },
+      "workRow": {
+        "row": "group/task-row flex min-w-0 items-start gap-1",
+        "title": "block min-w-0 truncate text-body leading-snug text-ink",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "lineHeight": "22px",
+        "gap": "4px",
+        "padding": "0px"
+      },
+      "growing": {
+        "available": 884,
+        "card": 417.70001220703125,
+        "sections": {
+          "progress": {
+            "height": 218.5,
+            "clientHeight": 172,
+            "scrollHeight": 172
+          },
+          "output": {
+            "height": 103.30000305175781,
+            "clientHeight": 56,
+            "scrollHeight": 56
+          },
+          "context": {
+            "height": 94.30000305175781,
+            "clientHeight": 47,
+            "scrollHeight": 47
+          }
+        }
+      },
+      "progressOverflow": {
+        "available": 884,
+        "card": 493.1875,
+        "sections": {
+          "progress": {
+            "height": 293.9875183105469,
+            "clientHeight": 247,
+            "scrollHeight": 1730
+          },
+          "output": {
+            "height": 103.30000305175781,
+            "clientHeight": 56,
+            "scrollHeight": 56
+          },
+          "context": {
+            "height": 94.30000305175781,
+            "clientHeight": 47,
+            "scrollHeight": 47
+          }
+        }
+      },
+      "allOverflow": {
+        "available": 884,
+        "card": 883.5625,
+        "sections": {
+          "progress": {
+            "height": 293.9875183105469,
+            "clientHeight": 247,
+            "scrollHeight": 1730
+          },
+          "output": {
+            "height": 293.9875183105469,
+            "clientHeight": 247,
+            "scrollHeight": 1824
+          },
+          "context": {
+            "height": 293.9875183105469,
+            "clientHeight": 247,
+            "scrollHeight": 1237
+          }
+        }
+      },
+      "codingHeight": {
+        "overview": 884,
+        "detail": 884,
+        "empty": 884
+      },
+      "codingRow": {
+        "row": "group/task-row flex min-w-0 items-start gap-1",
+        "title": "block min-w-0 truncate text-body leading-snug text-ink",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "lineHeight": "22px",
+        "gap": "4px",
+        "padding": "0px"
+      }
+    }
+  },
+  "r5Tooltip": {
+    "checks": {
+      "tooltipVisible": true,
+      "tooltipUnclipped": true
+    },
+    "box": {
+      "top": 30.25,
+      "bottom": 60.33749961853027,
+      "left": 955.5499877929688,
+      "right": 1154.249984741211
+    },
+    "clipping": []
+  },
+  "r5Resize": {
+    "name": "work-density",
+    "checks": {
+      "resizedThirdCaps": true,
+      "resizedOuterFits": true,
+      "noHorizontalOverflow": true
+    },
+    "metrics": {
+      "available": 581.921875,
+      "card": 581.4859619140625,
+      "sections": {
+        "progress": {
+          "height": 193.29722595214844,
+          "clientHeight": 147,
+          "scrollHeight": 1730
+        },
+        "output": {
+          "height": 193.29722595214844,
+          "clientHeight": 147,
+          "scrollHeight": 1824
+        },
+        "context": {
+          "height": 193.2971954345703,
+          "clientHeight": 147,
+          "scrollHeight": 1237
+        }
+      }
+    }
+  },
+  "r5TooltipLife": {
+    "checks": {
+      "tooltipDismissesOnScroll": true,
+      "tooltipQuestionDismisses": true,
+      "tooltipQuestionAppends": true,
+      "tooltipKeyboardFocus": true,
+      "tooltipDetailDismisses": true,
+      "tooltipBackRemainsDismissed": false,
+      "tooltipBeforeAnchorDeletion": true,
+      "tooltipAnchorDeletionDismisses": false
+    },
+    "target": {
+      "x": 1152.800048828125,
+      "y": 166.10000610351562
+    }
+  },
+  "r5TooltipLast": {
+    "checks": {
+      "tooltipVisible": true,
+      "tooltipUnclipped": true
+    },
+    "box": {
+      "top": 118.01250457763672,
+      "bottom": 148.100004196167,
+      "left": 966.1124877929688,
+      "right": 1164.812484741211
+    },
+    "clipping": []
+  },
+  "r5Nav": {
+    "name": "nav-completion",
+    "checks": {
+      "modeIconsDistinct": true,
+      "noTrailingModeLabel": true,
+      "intermediateNotCompleted": true,
+      "unviewedCompletionBlue": true,
+      "onlyIconBlue": true,
+      "refreshRetainsCompletion": true,
+      "openAcknowledgesCompletion": true,
+      "sessionClickRoutes": true,
+      "viewedCompletionNotBlue": true,
+      "leaveDoesNotReplay": true,
+      "projectRouteNotViewed": true,
+      "abortNotCompleted": true
+    },
+    "colors": {
+      "initial": "rgb(61, 61, 58)",
+      "completed": "rgb(31, 104, 189)",
+      "title": "rgb(61, 61, 58)"
+    }
+  }
+}

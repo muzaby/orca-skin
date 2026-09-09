@@ -3,6 +3,7 @@ import { Icon } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
 import { chatActions, useChatSession } from '../../store/chatStore'
 import { gitStatusForCwd } from './branchChipState'
+import { agentUiPolicy } from '../../lib/agentPresentation'
 import { columnsContain } from '../../lib/rightPanelLayout'
 
 import { COMPOSER_PANEL_ICON_SIZE, composerPanelSurface } from './composerPanel'
@@ -31,6 +32,7 @@ interface GitRowViewProps {
   diffOpen: boolean
   onToggleDiff: () => void
   onClose: () => void
+  canOpenDiff?: boolean
 }
 
 export function GitRowView({
@@ -39,7 +41,8 @@ export function GitRowView({
   view,
   diffOpen,
   onToggleDiff,
-  onClose
+  onClose,
+  canOpenDiff = true
 }: GitRowViewProps): React.JSX.Element | null {
   const { tr } = useI18n()
   if (!view.visible) return null
@@ -70,7 +73,7 @@ export function GitRowView({
         githubUrl={view.githubUrl ?? null}
       />
       {/* 요약이 준비된 경우에만 변경량 버튼을 표시한다. null을 임시 0/0으로 보이지 않는다. */}
-      {view.totals !== null && (
+      {view.totals !== null && canOpenDiff && (
         <Button
           data-git-row-diff
           size="small"
@@ -124,6 +127,7 @@ interface GitRowProps {
 export function GitRow({ cwd, sessionStarted }: GitRowProps): React.JSX.Element | null {
   // 랜딩에서는 조회하지 않는다 — cwd 를 null 로 넘겨 훅 전체를 끈다.
   const sessionId = useChatSession((s) => s.sessionId)
+  const agentKind = useChatSession((s) => s.agentKind)
   useGitSnapshot(sessionStarted ? cwd : null, sessionStarted ? sessionId : null)
   const status = useChatSession(gitStatusForCwd)
   const tiles = useChatSession((s) => s.rightPanelTiles)
@@ -143,6 +147,7 @@ export function GitRow({ cwd, sessionStarted }: GitRowProps): React.JSX.Element 
       diffOpen={columnsContain(tiles, 'diff')}
       onToggleDiff={() => chatActions.toggleRightPanelTile('diff')}
       onClose={chatActions.closeGitRow}
+      canOpenDiff={agentUiPolicy(agentKind).composer.showGitRow}
     />
   )
 }

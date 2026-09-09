@@ -1,0 +1,16 @@
+
+C:\workspace\github\codex\orca-skin\app\src\renderer\src\features\chat\hooks\useTranscriptVirtualizer.ts
+  22:10  warning  Compilation Skipped: Use of incompatible library
+
+This API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.
+
+C:\workspace\github\codex\orca-skin\app\src\renderer\src\features\chat\hooks\useTranscriptVirtualizer.ts:22:10
+  20 |   scrollRef: React.RefObject<HTMLDivElement | null>
+  21 | ): Virtualizer<HTMLDivElement, Element> {
+> 22 |   return useVirtualizer({
+     |          ^^^^^^^^^^^^^^ TanStack Virtual's `useVirtualizer()` API returns functions that cannot be memoized safely
+  23 |     count: head.length,
+  24 |     getScrollElement: () => scrollRef.current,
+  25 |     estimateSize: () => ESTIMATE_PX,  react-hooks/incompatible-library
+
+✖ 1 problem (0 errors, 1 warning)

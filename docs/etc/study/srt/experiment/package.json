@@ -1,0 +1,22 @@
+{
+  "name": "orca-srt-windows-study",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Archived Windows SRT preflight experiments; adoption deferred on 2026-09-08",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "test": "node --test scripts/*.test.mjs",
+    "sandbox:build": "node scripts/build-sandbox-launcher.mjs",
+    "sandbox:test": "npm run sandbox:build && node scripts/sandbox-launcher.test.mjs --native",
+    "sandbox:check": "node scripts/check-sandbox.mjs check",
+    "sandbox:install": "node scripts/check-sandbox.mjs install",
+    "sandbox:smoke": "node scripts/check-sandbox.mjs smoke",
+    "sandbox:diagnose": "node scripts/check-sandbox.mjs diagnose"
+  },
+  "dependencies": {
+    "@anthropic-ai/sandbox-runtime": "0.0.75"
+  }
+}

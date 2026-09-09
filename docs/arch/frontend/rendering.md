@@ -6,6 +6,28 @@
 
 ## 1. 컴포넌트 렌더링 전략
 
+### Work/Code 표현
+
+제품 종류별 표시 값은 chat의 순수 agentPresentation 정의가 소유한다. Composer·트랜스크립트는 선택한 정책을 사용하고, 하위 도구 카드는 상세 표시 속성을 전달받는다. 우측 패널의 허용 타일·진입/배지 대상·배치는 rightPanelTiles의 명시적 정의에서 선택한다. app/page는 세션 목록에 아이콘·라벨 해석기를 주입하며 sessions는 chat을 직접 import하지 않는다.
+
+새 대화와 프로젝트 랜딩의 `AgentModeToggle`은 양끝 꺾쇠 안에 왼쪽 Todo(작업), 슬래시, 오른쪽 Terminal(코드)을 표시한다. 회색 컨테이너 배경 없이 확대된 꺾쇠·슬래시·아이콘과 보통 두께의 큰 Hero를 사용한다. 꺾쇠와 슬래시는 같은 폰트·크기·굵기의 문자다. 모드 tooltip은 없으며 접근성 이름과 선택 상태는 Button에 제공한다. 활성 아이콘과 배경은 기존 selected 계열 파랑이며 Button·Icon·시맨틱 토큰을 사용한다. 토글 아래에 Work는 “어떤 작업을 시작할까요?”, Code는 “개발, 디버깅을 시작하세요.”를 표시한다. `agentPresentation`이 인사말과 Composer 안내 문구를 제공하며 토글로 Composer 인스턴스를 교체하지 않는다. 프로젝트 정보 Hero는 별도로 유지한다.
+
+Work Composer는 GitRow를 mount하지 않아 Git 스택과 그 조회를 실행하지 않는다. 랜딩 CwdPanel의 BranchChip은 두 모드에서 유지하고 조회는 Code에서 시작한다. 조회 중 브랜치는 비활성 `-`로 표시하며 Work에서는 그룹만 숨긴다. Work 전환 중 도착한 결과와 같은 cwd의 snapshot을 유지해 Code 복귀 때 즉시 표시하고, 폴더 추가 버튼은 빈자리 없이 당겨진다. 보유 Git 선택과 폴더·첨부·입력은 유지한다. Work 권한 메뉴는 수동 승인·자동 승인·모든 승인 건너뛰기 순이고 칩도 메뉴와 동일한 수동 승인·자동 승인·모든 승인 건너뛰기 라벨을 사용한다. Code 메뉴는 기존 구성을 사용한다. 자동 승인 메뉴는 선택 카탈로그에서 확인된 비커스텀 Claude 4.6 이상에만 제공한다. claude/claudecode 접두사, Haiku·Sonnet·Opus·Fable 계열과 점/하이픈 버전 표기 및 `[1m]` 접미사를 공용 판정으로 인식하며, 미확정 카탈로그·버전 불명·커스텀 모델은 제외한다. 위험 모드의 기존 확인 절차는 유지한다.
+
+ChatTile은 표시 정책에서 transcript의 세션별 재마운트 여부를 선택한다. TranscriptView가 같은 정의에서 선택한 정적 `transcriptPolicy`는 Exchange→AssistantTurn으로 전달되고 memo 비교에도 포함된다. 공통 본문과 도구 카드는 종류를 다시 해석하지 않고 투영·상세 표시 정책을 사용한다. Code는 기존 AssistantMessage를 사용한다. Work는 `createWorkProjector`로 원문 parts를 보존한 채 도입·접을 수 있는 도구/중간 메모·마무리를 조립한다. reasoning·질문·오류·구조화 결과는 기존 전용 표현을 유지하고 ArtifactCards도 공통 경로를 사용한다. 표시 경계가 없는 이력은 기존 렌더러로 폴백한다.
+
+Main의 `response_boundary` 구간 안에서 실제 종료된 구간의 마지막 본문만 마무리로 분리한다. 중단·실패·불명확한 끝은 그 상태를 표시한다. 후속 자동 응답은 별도 구간이며 늦은 도구 결과는 ID로 원래 호출에 결합해 이미 정한 마무리의 위치를 바꾸지 않는다. 완료 메시지의 part 해석을 캐시하고 접힌 활동의 본문은 mount하지 않는다.
+
+Code는 계획 패널 상단에 ExitPlanMode 본문, 하단에 Work와 같은 작업 목록을 표시한다. 작업 클릭은 계획 패널 전체의 상세로 전환하며 Back은 문서와 목록으로 복귀한다. 계획 또는 작업만 있으면 해당 영역만, 모두 없으면 단일 빈 상태를 표시한다. 승인 본문 해소 실패는 별도 오류로 남긴다. 공통 작업 배지는 진행 중 회전을 표시하고 reduced-motion을 존중한다. 계획 패널의 높이 정책과 복사·확대·닫기는 유지한다. 독립 작업 타일은 표시하지 않는다.
+
+Work는 랜딩에 패널을 표시하지 않는다. 첫 전송이나 처음 불러온 대화에서 작업 타일을 열고, 이후 케밥에서 켜거나 끈 선택은 세션 캐시 안에서 유지한다. 케밥의 타일 항목은 작업만 제공하며 타일 우상단 확대 버튼은 없다. 작업이 있으면 번호·상태·말줄임 제목이 있는 세로 목록을, 없으면 빈 상태 그림을 표시한다. 작업 클릭은 같은 타일 전체를 상세 화면으로 바꾸며 뒤로가기로 복귀한다. `TaskPanelContent`는 양 모드의 숨긴 overview를 mounted 상태로 유지하되 키보드 접근을 막아 구역 접힘·출력 더보기·폴더 선택 수명을 보존한다. 복귀 시 이전 문서·구역별 스크롤과 작업 행 초점을 복원하며 선택한 작업이 삭제되면 목록으로 돌아간다. 목록이 보일 때만 완료 알림을 읽음 처리한다. 질문 버튼은 상세 전환과 별개로 기존 입력 뒤에 작업 인용을 추가하고 포커스한다. 진행 상황·출력·컨텍스트는 개별적으로 접을 수 있다. 세션 이동 시 본문 로컬 상태는 초기화하지만 선택 작업은 기존 세션 캐시에 남고 DB에서 새로 로드할 때 초기화한다.
+
+Work 카드 외곽은 내용 높이로 표시한다. 진행 상황·출력·컨텍스트 각각은 부모가 허용하는 패널 높이의 1/3까지만 늘어나며 남는 높이를 나눠 갖지 않는다. 초과한 본문은 영역 내부에서 스크롤하고 작업 상세에는 이 분할 상한을 적용하지 않는다.
+
+출력 목록은 행 사이와 행의 세로 여백을 작게 배치한다. 모두 저장 버튼을 제공하지 않으며 개별 파일 메뉴와 트랜스크립트 저장 동작은 유지한다. 출력은 명시 게시된 산출물이며 기존 저장·부재·삭제 동작을 재사용한다. 컨텍스트에는 사용자가 추가한 허용 폴더를 표시하며, 현재 작업 폴더도 직접 선택한 경우 목록에 남긴다. 폴더 칩을 클릭하거나 키보드로 실행하면 해당 Work 세션의 저장 목록을 Main에서 확인한 뒤 탐색기로 연다. 실패 시 항목과 오류를 남겨 재시도할 수 있다. 유휴 Work 대화는 폴더 추가를 DB에 저장하고 다음 요청부터 적용하며, 실행·준비 중에는 Main에서도 거부한다([IPC 계약](../../IPC_CONTRACT.md)). 일반 생성물 자동 수집·실제 참조 추적·파일 뷰어는 현재 제공하지 않는다. Work의 계획 승인과 서브에이전트 상세는 해당 대화 영역 안에서 확인한다.
+
+채팅 행은 오른쪽 종류 텍스트 대신 왼쪽 Material Terminal 2 또는 Checklist 아이콘을 표시한다. 현재 열리지 않은 세션의 정상 완료를 굵은 파란 아이콘으로 표시하며, 실제 세션을 열면 원래 색과 굵기로 돌아간다. 완료 표시 수명은 [상태 관리](state.md)에 따른다.
+
 ### 1.1 메시지 리스트 가상화
 
 - **현재: 미사용.** `features/chat/components/ChatTile.tsx` 의 메시지 리스트는 일반 `messages.map(...)` 렌더링.
@@ -140,11 +162,21 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 **② 구현.** 도넛/패널은 **`state.lastTelemetry` 단일 소스로 구동**한다(`pendingInputTokens` 폐기). 컨텍스트 사용량 토큰 = `contextTokens = input + cacheRead + cacheCreation`(**출력 제외**, `features/chat/lib/telemetry.ts`) = **`/context` 상단 분자와 같은 정의**(전체 컨텍스트 점유). 도넛 비율 = `contextTokens / contextWindowFor(model)`. 윈도우는 **기본 200k, 모델명에 `'1m'` 포함 시 1M**(`features/chat/lib/contextWindow.ts` — 정적 맵/env 불필요). 패널 컴포넌트는 **`UsagePanel.tsx`**(0079 에서 `TelemetryPanel.tsx` 대체): **컨텍스트 창 프로그레스바(`Meter`, `used / window (pct%)`) + 구분선 + 주간/월간 사용량 한도 바 + 우측 `>` 버튼(설정 사용량 탭 이동)**. 구 신규입력/캐시읽기/캐시생성 분해 행은 제거됐다(0079 AC4). 한도 바는 **Main 이 완성한 `UsageLimitsView`** 를 props 로 받아 표시만 한다 — 파생은 `computeUsageLimits`(`src/shared/usage/limits.ts`)가 main 에서 한 번 수행하고 renderer 는 `shared/stores/usageStore` 로 mirror 한다(renderer 재계산 0). 기준 provider 는 **마지막 telemetry 시점**의 것이라 모델 선택만 바꿔서는 숫자가 바뀌지 않는다. `state.lastTelemetry` 없으면 컨텍스트 섹션 미표시, 사용량 뷰 미도착이면 한도 섹션 숨김.
 
 - **컨텍스트 입력 = 마지막 assistant 스냅샷 (`/context` 근사 교정)**: 도넛/패널의 컨텍스트 입력 3종(input·cacheRead·cacheCreation)은 **그 턴 *마지막* assistant 메시지의 `usage`** 다(턴 누적 아님). 매퍼(`claude-map.ts`)가 `result.usage`(멀티스텝에서 단계별 입력이 합산돼 과대 집계) 대신 `ctx.lastAssistantUsage` 로 덮어 `/context` 상단 %("모델이 마지막으로 본 입력 / 윈도우")와 같은 정의로 근사한다. **스냅샷에 있는 필드만 덮는다** — 없는 필드는 `result.usage` 값을 보존한다(스냅샷이 `input` 만 주고 `cache_read` 를 안 줄 때 `delete` 하면 `contextTokens` 가 input(≈1)으로 붕괴 → 도넛 0~1%; field-merge 로 방지). **비용(`costUsd`)·지연·`numTurns`·`modelUsage`·`model` 은 result 누적값 유지**(비용은 턴 전체 합이 맞음). `/context` 와 100% 일치는 불가(클라이언트가 모든 입력 구성요소를 보지 못함) — *근사*가 목표.
-- **컨텍스트 0 턴은 도넛 소스 미갱신 (`/context` 등 로컬 슬래시 명령)**: `/context`·`/help` 등은 모델을 호출하지 않아 컨텍스트(=비용)가 없는 빈 telemetry 를 만든다. 이 빈 값이 직전 도넛을 0 으로 덮지 않게 두 지점에서 가드: ① **라이브** — reducer `telemetry` case 가 `contextTokens(telemetry) > 0` 일 때만 `lastTelemetry` 교체(턴 종료 `inflight:false` 등은 그대로). ② **복원** — main `features/usage/subscriber.ts` 가 `hasContextTokens(usage)`(`features/usage/usage-map.ts`) 일 때만 `turn_usage` 적재 → 빈 행이 최신 행으로 복원돼 0 으로 덮는 일 방지(`getLatestTurnUsage` 단순 최신행 쿼리 유지).
+- **컨텍스트 0 턴은 도넛 소스 미갱신 (`/context` 등 로컬 슬래시 명령)**: `/context`·`/help` 등은 모델을 호출하지 않아 컨텍스트(=비용)가 없는 빈 telemetry 를 만든다. 이 빈 값이 직전 도넛을 0 으로 덮지 않게 두 지점에서 가드: ① **라이브** — reducer `telemetry` case 가 `contextTokens(telemetry) > 0` 일 때만 `lastTelemetry` 교체(턴 종료 `inflight:false` 등은 그대로). ② **복원** — main `features/usage/tracker.ts` 가 `hasContextTokens(usage)`(`features/usage/tracker.ts`) 일 때만 `turn_usage` 적재 → 빈 행이 최신 행으로 복원돼 0 으로 덮는 일 방지(`getLatestTurnUsage` 단순 최신행 쿼리 유지).
 - **compaction 임박 경고**: `nearCompaction(used, window)`(`contextWindow.ts`) = `used ≥ (window - AUTOCOMPACT_BUFFER) * 0.835`. `AUTOCOMPACT_BUFFER`(~33k)는 CLI 버전·`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` 에 따라 가변인 *추정값*. true 면 도넛 progress arc 가 경고색(`--color-warn`, `UsageCircle.warn` prop), title 에 "컨텍스트 한계 임박", 패널에 "곧 컨텍스트 정리(compaction)" 경고 행(추정값 캡션 포함).
 
-**③ 세션 영속 + 비용 원장 (구현 완료).** 과거엔 메모리 전용이라 `SEND`/세션 전환/재시작 시 도넛이 사라졌다. 이제 턴 종료마다 **per-turn 원장**(`0006_turn_usage.sql` 의 `turn_usage` + `turn_model_usage` — `session_id`(세션 삭제 시 `SET NULL`)·`created_at`·input/output/cache 토큰·`total_cost_usd`)에 적재한다(`features/usage/subscriber.ts` 의 `recordTurnUsage` → `DbQueries.insertTurnUsage`/`insertTurnModelUsage`). 세션 로드 시 **최신 행에서 `lastTelemetry` 재구성**(`DbQueries.getLatestTurnUsage` + main `features/usage/usage-map.ts` `usageRowToTelemetry`, 배선은 `app/handlers/session.ts`) → `LoadedSession.lastTelemetry` 로 복원(reducer `LOAD_SESSION`. 구 `LOAD_SESSION_FROM_CACHE`·`CachedSession` 스냅샷 Map 은 0013 멀티세션 외피의 `sessions` Record 가 흡수했다 — `chatStore.ts:48`). `SEND` 는 `lastTelemetry` 를 비우지 않아 턴 진행 중에도 유지 → 컨텍스트는 세션 수명(새 대화에서만 0) 동안 항상 표시. **비용/지연/모델 행은 패널에서 제거** — 비용은 원장이 SSOT 이며 시간(`created_at`)·모델별 집계로 1일/주/월 사용량을 산출(추후 usage 화면; 스키마만 준비). `sessionCostUsd`/`lastTurnLatencyMs` state 필드 폐기.
+**③ 세션 영속 + 비용 원장 (구현 완료).** 과거엔 메모리 전용이라 `SEND`/세션 전환/재시작 시 도넛이 사라졌다. 이제 턴 종료마다 **per-turn 원장**(`0006_turn_usage.sql` 의 `turn_usage` + `turn_model_usage` — `session_id`(세션 삭제 시 `SET NULL`)·`created_at`·input/output/cache 토큰·`total_cost_usd`)에 적재한다(`features/usage/tracker.ts` 의 `recordTurnUsage` → `DbQueries.usage.insertTurnUsage`/`DbQueries.usage.insertTurnModelUsage`). 세션 로드 시 **최신 행에서 `lastTelemetry` 재구성**(`DbQueries.usage.getLatestTurnUsage` + main `infra/ipc/dto.ts` `usageRowToTelemetry`, 복원 조립은 `features/history/reader.ts`, IPC 배선은 `app/handlers/session.ts`) → `LoadedSession.lastTelemetry` 로 복원(reducer `LOAD_SESSION`. 구 `LOAD_SESSION_FROM_CACHE`·`CachedSession` 스냅샷 Map 은 0013 멀티세션 외피의 `sessions` Record 가 흡수했다 — `chatStore.ts:48`). `SEND` 는 `lastTelemetry` 를 비우지 않아 턴 진행 중에도 유지 → 컨텍스트는 세션 수명(새 대화에서만 0) 동안 항상 표시. **비용/지연/모델 행은 패널에서 제거** — 비용은 원장이 SSOT 이며 시간(`created_at`)·모델별 집계로 1일/주/월 사용량을 산출(추후 usage 화면; 스키마만 준비). `sessionCostUsd`/`lastTurnLatencyMs` state 필드 폐기.
 
 **⑤ 빈 reasoning 카드 스킵 (구현 완료).** 빈/공백 "사고 과정" 카드가 뜨던 문제 해소 — `claude-map`(빈 `thinking` emit 안 함)·`messageSegments`(빈 reasoning 파트 스킵)·`ReasoningBlock`(합친 텍스트 공백이면 `null`) 3층 가드. 라이브 경로 `PendingAssistant` 는 기존 `{pendingReasoning && …}` 로 이미 가드됨.
 
 ---
+
+## 산출물 게시 카드
+
+`artifact` part는 transcript의 문서 카드에 표시하고 세션 게시 목록은 작업 타일의 출력 섹션에 작은 행으로 표시한다. `ArtifactCard`의 표시 형상만 구분하며 게시 ID, 파일 상태와 저장·탐색기 보기·휴지통 이동·다시 확인 액션은 공유한다. 파일 없음과 접근 오류를 구분하며 휴지통 이동 시각은 과거 이력으로 표시한다.
+
+작업 타일은 진행 상황·출력·컨텍스트 섹션을 제공한다. 출력 접기는 카드의 파일 상태 구독을 정리하고 목록 메타 구독은 헤더 개수 갱신을 위해 유지한다. Work 작업 상세 진입은 숨긴 목록의 구독을 유지하며, 타일 닫기·세션 전환은 목록 구독도 해제한다. 컨텍스트 리소스 수집과 본문 미리보기·파일뷰어는 제공하지 않는다.
+
+검증된 `tool.call.completed.artifact`는 원래 toolRunId가 속한 메시지만 교체한다. 목록 갱신 이벤트는 transcript에 새 카드를 추정 추가하거나 패널을 자동 선택하지 않는다. `artifactStore`는 mount된 세션의 알려진 ID를 대상으로 상태 조회를 병합하고 세션/파일별 요청 세대로 지각 응답을 폐기한다. transcript 묶음 저장은 해당 메시지의 게시 집합, 타일은 Main이 반환한 최신 목록을 사용한다.
+
+우측 패널은 기존 타일 registry·메뉴·행/열 배치를 사용한다. viewport 폭은 가용 영역의 절반 이내이며 넘치는 열은 가로 스크롤한다. 명시적으로 타일을 열면 이미 열린 화면 밖 열도 보여 주고, 열 리사이즈는 스크롤된 실제 DOM 좌표를 기준으로 계산한다. 카드와 액션은 기존 시맨틱 토큰·Button·DropdownMenu·확인창·번역 리소스를 공유한다.

@@ -1,4 +1,5 @@
 export { SessionsProvider } from './providers/SessionsProvider'
+export { SearchModal } from './components/SearchModal'
 export { sessionsActions, useSessionsState } from './store/sessionsStore'
 export { SessionList, type DraftSessionRow } from './components/SessionList'
 export { splitNavSections, pinnedProjectsOf } from './lib/navSections'

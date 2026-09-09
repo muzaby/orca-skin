@@ -16,6 +16,7 @@ export interface ContinuationSettings {
   // 생긴다(구 listen 이 env 를 생략했다).
   prepared: PreparedHarnessConfig
   model?: string | undefined
+  permissionMode?: TurnRequest['permissionMode']
 }
 
 // listen 턴 — 입력 push 없이 프레임만 소비해 CLI 자동 턴(진행·task_notification·완료 알림)을
@@ -35,9 +36,11 @@ export function buildListenRequest(input: {
   return {
     sessionId: input.sessionId,
     text: '',
+    ...(input.base.planApprovalMode ? { planApprovalMode: input.base.planApprovalMode } : {}),
     cwd: input.base.cwd,
     ...(input.base.extraDirs ? { extraDirs: input.base.extraDirs } : {}),
     extensions: continuation.extensions,
+    ...(continuation.permissionMode ? { permissionMode: continuation.permissionMode } : {}),
     signal: input.signal,
     ...(continuation.model !== undefined ? { model: continuation.model } : {}),
     ...preparedFields(continuation.prepared),
@@ -68,6 +71,7 @@ export function buildFlushRequest(input: {
     attachmentImages: batch.attachmentImages ?? [],
     requirements: batch.requirements ?? [],
     extensions: continuation.extensions,
+    ...(continuation.permissionMode ? { permissionMode: continuation.permissionMode } : {}),
     // 0126/0188: respawn 대비 **신선한 settings + env** 로 교체 — 해석 실패(undefined)면
     // 원본 유지(보수적).
     ...preparedFields(continuation.prepared),

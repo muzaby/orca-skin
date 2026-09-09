@@ -116,3 +116,10 @@ export function mergeAgentEnvironments(
   for (const entry of runtime) merged.set(canonicalAgentKey(entry.key), entry)
   return [...merged.values()]
 }
+
+// 기본 ModelProvider 선택 — anthropic 우선, 없으면 정렬된 목록의 첫 항목.
+export function defaultProvider<T extends { modelProviderId: string }>(
+  entries: readonly T[]
+): T | undefined {
+  return entries.find((entry) => entry.modelProviderId === 'anthropic') ?? entries[0]
+}

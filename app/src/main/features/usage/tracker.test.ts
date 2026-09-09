@@ -2,7 +2,9 @@
 // (실제 왕복은 `infra/db/queries.test.ts` 가 본다).
 
 import { describe, expect, it, vi } from 'vitest'
-import type { DbQueries } from '../../infra/db'
+import type { UsageQueries } from '../../infra/db/usage-queries'
+import type { NormalizedEvent, ProviderReportedTelemetry } from '../../../shared/ipc'
+import type { TurnContext } from '../../contracts/turn'
 import type { ProviderUsageReportRow } from '../../infra/db/types'
 import type { UsageDelta } from '../../../shared/usage/limits'
 import { UsageTracker } from './tracker'
@@ -28,13 +30,13 @@ interface FakeDbOptions {
 }
 
 function fakeDb(opts: FakeDbOptions = {}): {
-  db: DbQueries
+  db: UsageQueries
   insertTurnUsage: ReturnType<typeof vi.fn>
   insertTurnModelUsage: ReturnType<typeof vi.fn>
   upsert: ReturnType<typeof vi.fn>
   sumForProvider: ReturnType<typeof vi.fn>
 } {
-  const insertTurnUsage = vi.fn()
+  const insertTurnUsage = vi.fn().mockReturnValue(1)
   const insertTurnModelUsage = vi.fn()
   const upsert = vi.fn()
   const sumForProvider = vi.fn().mockReturnValue({
@@ -53,7 +55,7 @@ function fakeDb(opts: FakeDbOptions = {}): {
       .fn()
       .mockReturnValue({ day: sums(1), week: sums(12), month: sums(40) }),
     sumUsageByBoundariesForProvider: sumForProvider
-  } as unknown as DbQueries
+  } as unknown as UsageQueries
   return { db, insertTurnUsage, insertTurnModelUsage, upsert, sumForProvider }
 }
 
@@ -339,5 +341,171 @@ describe('UsageTracker.refreshProvider', () => {
     await expect(t.refreshProvider('claude-gateway')).resolves.toBeNull()
     expect(fetchUsage).not.toHaveBeenCalled()
     expect(upsert).not.toHaveBeenCalled()
+  })
+})
+
+function turnCtx(over: Partial<TurnContext> = {}): TurnContext {
+  return {
+    dbSessionId: 'sess-1',
+    currentAssistantMessageId: 7,
+    providerKey: 'claude-gateway',
+    ...over
+  } as TurnContext
+}
+
+function telemetry(): Extract<NormalizedEvent, { type: 'telemetry' }> {
+  return {
+    type: 'telemetry',
+    sessionId: 'sess-1',
+    usage: { inputTokens: 10, outputTokens: 4, costUsd: 0.5, model: 'claude-sonnet-4' }
+  } as Extract<NormalizedEvent, { type: 'telemetry' }>
+}
+
+describe('recordTurnUsage', () => {
+  it('영향받은 provider 만 재집계한다', () => {
+    const { db } = fakeDb()
+    const recordAndBroadcast = vi.fn()
+    const cost = new UsageTracker(db)
+    vi.spyOn(cost, 'recordAndBroadcast').mockImplementation(recordAndBroadcast)
+
+    cost.recordTurnUsage(turnCtx({ providerKey: 'claude-gateway' }), telemetry())
+
+    // 정확히 1회, 그리고 이 턴의 providerKey 만 넘긴다 — 전 provider 를 훑지 않는다.
+    expect(recordAndBroadcast).toHaveBeenCalledTimes(1)
+    expect(recordAndBroadcast).toHaveBeenCalledWith('claude-gateway')
+  })
+
+  it('providerKey 가 없는 턴은 전역만 갱신한다', () => {
+    const { db } = fakeDb()
+    const recordAndBroadcast = vi.fn()
+    const cost = new UsageTracker(db)
+    vi.spyOn(cost, 'recordAndBroadcast').mockImplementation(recordAndBroadcast)
+
+    cost.recordTurnUsage(turnCtx({ providerKey: null }), telemetry())
+
+    expect(recordAndBroadcast).toHaveBeenCalledWith(null)
+  })
+
+  it('컨텍스트 0 인 턴은 원장에 적재하지도, 갱신하지도 않는다', () => {
+    const { db, insertTurnUsage } = fakeDb()
+    const recordAndBroadcast = vi.fn()
+    const cost = new UsageTracker(db)
+    vi.spyOn(cost, 'recordAndBroadcast').mockImplementation(recordAndBroadcast)
+
+    const empty = {
+      type: 'telemetry',
+      sessionId: 'sess-1',
+      usage: { inputTokens: 0, outputTokens: 0 }
+    } as Extract<NormalizedEvent, { type: 'telemetry' }>
+    cost.recordTurnUsage(turnCtx(), empty)
+
+    expect(insertTurnUsage).not.toHaveBeenCalled()
+    expect(recordAndBroadcast).not.toHaveBeenCalled()
+  })
+})
+
+describe('UsageTracker 원장 기록', () => {
+  it.each<ProviderReportedTelemetry>([{}, { inputTokens: 0 }, { outputTokens: 99 }])(
+    '빈 컨텍스트는 기록과 broadcast를 생략한다: %j',
+    (usage) => {
+      const { db, insertTurnUsage } = fakeDb()
+      const broadcast = vi.fn()
+      const cost = new UsageTracker(db, broadcast)
+      cost.recordTurnUsage(turnCtx(), { ...telemetry(), usage })
+      expect(insertTurnUsage).not.toHaveBeenCalled()
+      expect(broadcast).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each<ProviderReportedTelemetry>([
+    { inputTokens: 1 },
+    { cacheReadTokens: 1 },
+    { cacheCreationTokens: 1 }
+  ])('컨텍스트 세 종류의 기록 가드를 보존한다: %j', (usage) => {
+    const { db, insertTurnUsage, sumForProvider } = fakeDb()
+    const broadcast = vi.fn()
+    const cost = new UsageTracker(db, broadcast)
+    cost.recordTurnUsage(turnCtx(), { ...telemetry(), usage })
+    expect(insertTurnUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: 'sess-1', messageId: 7 })
+    )
+    expect(sumForProvider).toHaveBeenCalledTimes(1)
+    expect(sumForProvider.mock.calls[0][0]).toBe('claude-gateway')
+    expect(broadcast.mock.calls.map(([delta]) => delta.scope)).toEqual(['global', 'provider'])
+  })
+
+  it('session 또는 usage가 없으면 원장과 갱신을 건너뛴다', () => {
+    const { db, insertTurnUsage } = fakeDb()
+    const broadcast = vi.fn()
+    const cost = new UsageTracker(db, broadcast)
+    cost.recordTurnUsage(turnCtx({ dbSessionId: null }), telemetry())
+    cost.recordTurnUsage(turnCtx(), { type: 'telemetry', sessionId: 'sess-1' })
+    expect(insertTurnUsage).not.toHaveBeenCalled()
+    expect(broadcast).not.toHaveBeenCalled()
+  })
+
+  it('modelUsage 모든 행을 부모와 연결하고 원장 저장 후 갱신한다', () => {
+    const { db, insertTurnUsage, insertTurnModelUsage } = fakeDb()
+    const broadcast = vi.fn()
+    const cost = new UsageTracker(db, broadcast)
+    cost.recordTurnUsage(turnCtx(), {
+      ...telemetry(),
+      usage: {
+        inputTokens: 10,
+        model: 'fallback',
+        modelUsage: {
+          a: { inputTokens: 8, contextWindow: 200000 },
+          b: { inputTokens: 2, costUsd: 0.2 }
+        }
+      }
+    })
+    expect(insertTurnModelUsage.mock.calls.map(([row]) => row)).toEqual([
+      {
+        turnUsageId: 1,
+        model: 'a',
+        inputTokens: 8,
+        outputTokens: null,
+        cacheCreationInputTokens: null,
+        cacheReadInputTokens: null,
+        costUsd: null,
+        contextWindow: 200000
+      },
+      {
+        turnUsageId: 1,
+        model: 'b',
+        inputTokens: 2,
+        outputTokens: null,
+        cacheCreationInputTokens: null,
+        cacheReadInputTokens: null,
+        costUsd: 0.2,
+        contextWindow: null
+      }
+    ])
+    expect(insertTurnUsage.mock.invocationCallOrder[0]).toBeLessThan(
+      insertTurnModelUsage.mock.invocationCallOrder[0]
+    )
+    expect(insertTurnModelUsage.mock.invocationCallOrder[1]).toBeLessThan(
+      broadcast.mock.invocationCallOrder[0]
+    )
+  })
+
+  it('단일 모델의 top-level contextWindow를 보존하고 기록 오류를 전파한다', () => {
+    const { db, insertTurnModelUsage } = fakeDb()
+    const broadcast = vi.fn()
+    const cost = new UsageTracker(db, broadcast)
+    cost.recordTurnUsage(turnCtx(), {
+      ...telemetry(),
+      usage: { inputTokens: 10, model: 'single', contextWindow: 100000 }
+    })
+    expect(insertTurnModelUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'single', contextWindow: 100000 })
+    )
+    const failure = new Error('ledger failed')
+    insertTurnModelUsage.mockImplementation(() => {
+      throw failure
+    })
+    broadcast.mockClear()
+    expect(() => cost.recordTurnUsage(turnCtx(), telemetry())).toThrow(failure)
+    expect(broadcast).not.toHaveBeenCalled()
   })
 })

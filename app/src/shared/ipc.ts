@@ -5,6 +5,12 @@
 import type { NormalizedPermissionMode } from './permission-mode'
 // continuity 언어 스냅샷(0127) — type-only.
 import type { ContinuityLang } from './continuity-lang'
+import type { ArtifactRef } from './artifacts'
+import type { AgentKind } from './agent-kind'
+import type { ResponseBoundary, ResponseBoundaryPart } from './response-boundary'
+
+export type { AgentKind } from './agent-kind'
+export type { ResponseBoundary } from './response-boundary'
 
 // Phase 2 활성 채널 (preload 노출 대상). 미사용 채널은 의도적으로 누락.
 export const CHANNELS = {
@@ -45,6 +51,12 @@ export const CHANNELS = {
   filesPickDirectory: 'orca:files:pickDirectory',
   filesOpenPath: 'orca:files:openPath',
   filesReadAttachment: 'orca:files:readAttachment',
+  artifactList: 'orca:artifact:list',
+  artifactStatus: 'orca:artifact:status',
+  artifactSave: 'orca:artifact:save',
+  artifactReveal: 'orca:artifact:reveal',
+  artifactTrash: 'orca:artifact:trash',
+  artifactOpenFolder: 'orca:artifact:openFolder',
   // 컴포저 브랜치 칩(작업 경로의 git 상태·브랜치 목록·전환). 작업 경로가 git 저장소가 아니면
   // status 가 `isRepo:false` 를 돌려주고 renderer 는 칩 자체를 렌더하지 않는다.
   gitStatus: 'orca:git:status',
@@ -62,6 +74,7 @@ export const CHANNELS = {
   sessionDelete: 'orca:session:delete',
   sessionRename: 'orca:session:rename',
   sessionSetPinned: 'orca:session:setPinned',
+  sessionAddDirectory: 'orca:session:addDirectory',
   sessionTitleEvent: 'orca:session:titleEvent',
   projectList: 'orca:project:list',
   projectCreate: 'orca:project:create',
@@ -450,6 +463,7 @@ export interface ProviderReportedTelemetry {
 // provider 는 어떤 소비자도 읽지 않는 write-only 메타였고 session.backend(0010 세션-어댑터
 // 잠금)와 중복된 이중 진실원이었다. "어느 백엔드인지" 는 sessionId → session.backend 로 파생한다.
 export type NormalizedEvent =
+  | { type: 'response.boundary'; sessionId: string; boundary: ResponseBoundary }
   | {
       type: 'session.updated'
       sessionId: string
@@ -462,7 +476,9 @@ export type NormalizedEvent =
       //               부재는 "판정 불가" 라 기능 안내를 띄우지 않는다(0212 D-005 · EP-01).
       //   cliVersion  init 의 `claude_code_version`. 안내 문구가 실제 버전을 말하게 한다.
       patch: {
+        agentKind?: AgentKind
         model?: string
+        permissionMode?: NormalizedPermissionMode
         cwd?: string
         worktree?: WorktreeDisplay | null
         agentTools?: string[]
@@ -565,7 +581,10 @@ export type NormalizedEvent =
       // 모델용 wire content 라 TaskCreate 의 task.id 같은 필드를 담지 않는다. 다른 도구까지
       // 실으면 큰 출력이 그대로 영속되므로 `isTaskToolName` 이 유일한 게이트다.
       structuredOutput?: unknown
+      // HistoryWriter만 원래 publisher 호출·게시 소유권 확인 후 보강한다.
+      artifact?: ArtifactRef
     }
+  | { type: 'artifact.published'; sessionId: string; artifact: ArtifactRef }
   // 서브에이전트(Task) 라이브 메타 — SDK task_started/task_progress/task_notification 정규화.
   // reducer 미경유(메인 transcript 파트 비오염): store 가 toolUseId 키 transient 맵으로 흡수해
   // 우측 패널·AgentTaskRow 의 모델/경과시간/현재도구/도구수 표시를 구동한다.
@@ -641,8 +660,8 @@ export type NormalizedEvent =
     }
   // 턴이 **정상 종료**했다 — 백엔드의 Stop hook 이 낸다(0211 ΔV6 D-115). `turn.aborted` 와
   // 달리 terminal 판정에 들어가지 않는다: 턴을 닫는 것은 여전히 `telemetry` 이고, 이 이벤트는
-  // "에이전트가 작업을 끝냈다" 는 **신호**다. 소비자는 git 변경 목록 싱크 하나이며 페이로드가
-  // 없다 — 결과를 실으면 hook 이 그 결과를 기다려야 하고, 그 대기가 D-115 가 없애는 지연이다.
+  // "에이전트가 작업을 끝냈다" 는 **신호**다. Git 변경 목록 동기화와 세션 완료 표시에 사용한다.
+  // 결과 페이로드는 없다 — 결과를 실으면 hook 이 기다려야 해 D-115 가 없애는 지연이 생긴다.
   | {
       type: 'turn.ended'
       sessionId?: string
@@ -788,6 +807,8 @@ export interface ConcurrencyEvent {
 // IPC payloads (TRD §5.2 의 활성 부분)
 export interface SendChatMessage {
   sessionId: string | null
+  // 신규의 생략은 code, 기존/준비/파생 요청의 생략은 소유 세션 종류 상속.
+  agentKind?: AgentKind
   // 새 채팅 첫 메시지의 소속 프로젝트. resume(sessionId != null) 의 경우는 무시되고,
   // main 이 sessionId → project_id → instructions 를 DB 에서 직접 조회한다.
   projectId: string | null
@@ -1075,16 +1096,15 @@ export interface FileEntry {
   isDirectory: boolean
 }
 
-export interface OpenPathRequest {
-  path: string
-  /**
-   * `directory` = 그 디렉토리를 연다(0201 이래의 동작). `reveal` = 그 **파일**을 탐색기에서
-   * 선택해 보여준다(0211 ΔV5 D-108).
-   *
-   * **필수다.** optional 로 두고 미지정을 파일 허용으로 접으면 기존 호출부가 조용히 넓어진다.
-   */
-  mode: 'directory' | 'reveal'
-}
+/** `mode`는 필수다. 폴더 열기와 파일 선택 표시를 명시적으로 구분한다. */
+export type OpenPathRequest = { path: string } & (
+  | {
+      mode: 'directory'
+      /** 지정하면 해당 Work 세션에 기록된 추가 폴더만 연다. */
+      sessionId?: string
+    }
+  | { mode: 'reveal'; sessionId?: never }
+)
 
 // ── git (컴포저 브랜치 칩) ──────────────────────────────────────────────────
 // 작업 경로 한 곳에 대한 읽기 2종 + 전환 1종. worktree 는 다루지 않는다(제품 결정).
@@ -1294,6 +1314,7 @@ export type GitCheckoutResult =
 export interface SessionListItem {
   id: string
   backend: Backend
+  agentKind: AgentKind
   title: string | null
   updatedAt: number
   preview: string | null
@@ -1340,6 +1361,8 @@ export interface SubagentTaskMeta {
 // claude 가 실제로 채우는 종류: text / reasoning / tool_call / tool_result / error.
 // file / diff / structured_output 은 모델 정의만 두고 OpenCode 어댑터 도입 시 채운다(seam).
 export type AppMessagePart =
+  | ResponseBoundaryPart
+  | { type: 'artifact'; artifact: ArtifactRef; parentToolRunId?: string }
   // parentToolRunId: 서브에이전트(Task) child 의 텍스트/사고면 부모 Task toolRunId. 최상위면 생략.
   // 메인 트랜스크립트는 이 필드가 있는 파트를 제외하고, 우측 패널 child 트랜스크립트만 모은다.
   | { type: 'text'; text: string; parentToolRunId?: string }
@@ -1424,6 +1447,7 @@ export interface LoadedMessage {
 export interface LoadedSession {
   id: string
   backend: Backend
+  agentKind: AgentKind
   title: string | null
   messages: LoadedMessage[]
   // 세션 마지막 턴의 provider-reported 통계 — 컨텍스트 도넛/UsagePanel 을 세션 수명 동안
@@ -1436,6 +1460,7 @@ export interface LoadedSession {
   providerKey?: string | null
   projectId?: string | null
   cwd?: string | null
+  extraDirs?: string[]
   // 0064 continuity — 이 세션이 fork/handoff 로 파생된 경우의 부모 관계(session_lineage).
   // 렌더러가 출처 배너("원본 열기" 링크)를 복원하는 데 쓴다. parentTitle 은 표시용 스냅샷.
   lineage?: { parentSessionId: string; relation: 'fork' | 'handoff'; parentTitle: string | null }
@@ -1446,6 +1471,18 @@ export interface LoadedSession {
   // 그때는 소비자가 `cwd` 파생으로 폴백하고, 폴백 경로가 곧 원본이라 그 값이 옳다.
   worktree?: WorktreeDisplay
 }
+
+export interface AddSessionDirectoryRequest {
+  sessionId: string
+  directory: string
+}
+
+export type AddSessionDirectoryResult =
+  | { ok: true; extraDirs: string[] }
+  | {
+      ok: false
+      reason: 'busy' | 'not-found' | 'invalid-directory' | 'not-work' | 'limit' | 'failed'
+    }
 
 // worktree 세션의 표시 이름 정본 — `managed_worktrees` row 에서 온다. 동작(탐색기 열기·git
 // 조회·diff)은 이 값이 아니라 실행 경로(`cwd`)를 쓴다: 이름만 원본, 동작은 실행 경로다.

@@ -1,16 +1,13 @@
-// Extension 계층 — 백엔드 중립 확장(Extension) 타입. 어댑터 위에 세우는 "Orca 범용 데이터 계층"의
-// 입력 데이터 모델이다 (설계검토 §9 1단계). 어떤 백엔드(claude / opencode …)로 가든 동일한
-// 형태로 조립되고, 각 어댑터가 자기 형식으로 어댑트(adapt)한다.
+// 턴 실행 입력과 확장 정보. 앱은 필요한 값을 조립하고 어댑터가 SDK 형식으로 변환한다.
 //
 // ※ 어휘 주의: 여기의 "Extension"(주입 묶음, 앱→백엔드, 세션 전)과 capabilities/ 의
 //   "capability"(능력 탐지, 백엔드→앱, 세션 중)는 무관한 두 개념이다 (GLOSSARY §1/§2).
 //
-// 불변식: 여기 담기는 mcp 는 **미확장**(${VAR} 플레이스홀더 보유). 비밀 확장/복호화는 어댑터의
-// 어댑트 시점에만 일어나며 이 구조체에는 절대 평문이 들어오지 않는다.
+// 파일 기반 MCP 구성은 배포 경로가 소유한다. 턴은 plugin 경로와 runtime tool snapshot을
+// 전달하며, MCP 서버 구성이나 비밀 해석 책임을 중복해서 갖지 않는다.
 
 import type { ResolvedHarnessSettings } from './harness-config'
-import type { OrcaMcpConfig } from './mcp-config'
-import type { RuntimeToolSnapshot } from './runtime-tools'
+import type { RuntimeToolContext, RuntimeToolSnapshot } from './runtime-tools'
 import type {
   ApprovalResolution,
   AttachmentSourceKind,
@@ -87,9 +84,8 @@ type NormalizedSkillRef = SkillInfo
 
 // 한 턴에 적용할 백엔드 중립 보조기능 묶음. 어댑터가 이를 받아 자기 query 옵션으로 굽는다.
 export interface TurnExtensions {
-  // 활성 MCP 서버 (미확장 ${VAR}). 0058 이후 Claude 런타임은 query options.mcpServers 가 아니라
-  // plugin .mcp.json 렌더 경로로 소비한다. options.mcpServers 는 레거시 제거 대상으로 남겨둔다.
-  mcp: OrcaMcpConfig
+  // 앱의 고정 제품 프로필 구성 키. 어댑터는 의미를 해석하지 않고 runtime이 spawn 경계를 비교한다.
+  agentProfileKey?: string
   // 인증된 내장 도구의 현재 메모리 snapshot. extensions feature가 조립하며, adapters는
   // backend별 SDK 옵션으로만 변환한다. 미주입은 기존 MCP 배포 경로를 그대로 유지한다.
   runtimeTools?: RuntimeToolSnapshot
@@ -123,6 +119,8 @@ export interface TurnContinuation {
 
 // 한 턴 실행 요청. sendMessage 의 인자 증식(7개)을 단일 객체로 통합한다 (설계검토 §9 1단계).
 export interface TurnRequest {
+  // Runtime이 cold spawn에만 주입하는 채널 소유 문맥. frame delegate가 아니다.
+  runtimeToolContext?: RuntimeToolContext
   sessionId: string | null
   // 0064 continuity — 이 턴이 분기 출발점으로 삼을 세션 id (fork/handoff 공통). sessionId
   // (resume=이어쓰기)와 달리 원본은 불변이고 백엔드가 **새 session id 를 발급**한다
@@ -163,6 +161,8 @@ export interface TurnRequest {
   // 자기 query 옵션(SDK PermissionMode)으로 어댑트. 확장 묶음이 아니라 query-레벨 제어라
   // env/askUser 처럼 TurnRequest 직속.
   permissionMode?: NormalizedPermissionMode
+  // Main이 작업 종류로 계산한 계획 승인 후 권한. 어댑터는 프로필 키를 해석하지 않는다.
+  planApprovalMode?: NormalizedPermissionMode
   // Claude Code thinking effort. SDK Options.effort 로 per-turn 전달한다.
   effort?: EffortLevel
   // 게이트 훅 시점에 로컬 홀드 steer 를 병합 단일 배치로 회수한다(0060 D3·D4). 어댑터가 자기

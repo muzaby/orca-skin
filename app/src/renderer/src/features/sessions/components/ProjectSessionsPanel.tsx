@@ -1,10 +1,11 @@
 import { useEffect } from 'react'
-import { SessionRow } from './SessionRow'
+import { SessionRow, type AgentAppearanceResolver } from './SessionRow'
 import { useProjectSessions } from '../hooks/useProjectSessions'
 import { sessionsActions } from '../store/sessionsStore'
 import { useI18n } from '../../../shared/i18n'
 
 interface ProjectSessionsPanelProps {
+  agentAppearance: AgentAppearanceResolver
   projectId: string
   currentSessionId: string | null
   // 채팅 턴 종료 시 자동 refresh 트리거 (chat-side inflight flag 가 false 로 전이).
@@ -21,6 +22,7 @@ interface ProjectSessionsPanelProps {
 // 삭제·이름변경은 chat/sessions 두 스토어를 함께 건드려야 하므로 page 가 주입한
 // 핸들러(useSessionActions)가 수행한다.
 export function ProjectSessionsPanel({
+  agentAppearance,
   projectId,
   currentSessionId,
   refreshOnTurnEnd,
@@ -59,6 +61,7 @@ export function ProjectSessionsPanel({
             <SessionRow
               key={s.id}
               session={s}
+              appearance={agentAppearance(s.agentKind)}
               isActive={s.id === currentSessionId}
               onSelect={onSessionSelected}
               onDelete={onDeleteSession}

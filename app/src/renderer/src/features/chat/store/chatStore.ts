@@ -1,4 +1,6 @@
 import { useMemo } from 'react'
+import { parseAgentKind } from '../../../../../shared/agent-kind'
+import { agentSessionPolicy } from '../../../../../shared/agent-session-policy'
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import {
@@ -12,8 +14,8 @@ import {
   type PlanComment
 } from '../reducer/chatReducer'
 import { toPlanFeedback } from '../lib/planComments'
-import { steerBlockedByProviderBoundary } from '../lib/steerGate'
-import { shouldQueueAsPending } from '../lib/sendAdmission'
+import { nextComposerDraftSequence, type ComposerDraftUpdate } from '../lib/composerDraft'
+import { steerBlockedByProviderBoundary, shouldQueueAsPending } from '../lib/sendAdmission'
 import {
   chatApi,
   concurrencyApi,
@@ -31,17 +33,19 @@ import type {
   GitDiffPatch,
   GitDiffSummary,
   NormalizedEvent,
-  SendChatMessage
+  SendChatMessage,
+  AddSessionDirectoryResult
 } from '../../../../../shared/ipc'
 import {
-  PLAN_APPROVED_MODE,
+  planApprovedMode,
   type NormalizedPermissionMode
 } from '../../../../../shared/permission-mode'
 import { continuityLangFor, continuityTitle } from '../../../../../shared/continuity-lang'
-import type { RightPanelTileId } from '../lib/rightPanelTiles'
+import { rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
 import type { BranchSnapshot } from '../components/composer/branchChipState'
 import { wireDiffRequirementAnchor } from '../components/rightpanel/diffRequirements'
 import type { DiffComparison } from '../components/rightpanel/diffComparison'
+import { forgetArtifacts, refreshArtifactList } from './artifactStore'
 
 // Zustand 단일 chat store — arch/frontend/state.md §1.4 채택안의 멀티세션 외피(handoff 0013).
 //
@@ -95,6 +99,7 @@ export interface SessionEntry {
   live: LiveTurnState
   subagentMeta: Record<string, SubagentMetaState>
   pendingSteer?: PendingSteerState[]
+  panelReveal?: { id: RightPanelTileId }
 }
 
 interface QueuedNewChat {
@@ -119,7 +124,12 @@ export interface ChatStoreState {
   concurrencyByProjectId: Record<string, number>
   // 중단 버튼의 held 전량 취소(0067 확정 5) — main 의 message.cancelled 에서 잔존 항목 텍스트를
   // 모아 여기 실으면 ChatTile 이 구독해 Composer draft 로 복원한다(편집 가능). seq 로 중복 소비 방지.
-  draftRestore: { key: string; seq: number; text: string } | null
+  draftRestore: {
+    key: string
+    seq: number
+    text: string
+    mode?: ComposerDraftUpdate['mode']
+  } | null
 }
 
 // 새-채팅(아직 sessionId 미발급) 엔트리의 예약 키. 창당 1개 — main 의 pending 슬롯과 대칭.
@@ -161,22 +171,62 @@ export function getActiveChatSession(): ChatState {
   return s.sessions[s.activeKey].session
 }
 
-// 키 라우팅 dispatch — 엔트리가 없으면 무해한 no-op(삭제된 세션의 늦은 이벤트 등).
-function dispatchTo(key: string, action: ChatAction): void {
+// 세션 엔트리 교체의 단일 경계. 삭제된 세션과 동일 결과는 root까지 identity를 보존한다.
+function patchEntry(key: string, update: (entry: SessionEntry) => SessionEntry): void {
   setState((s) => {
     const entry = s.sessions[key]
     if (!entry) return s
-    return {
-      sessions: {
-        ...s.sessions,
-        [key]: { ...entry, session: chatReducer(entry.session, action) }
-      }
-    }
+    const next = update(entry)
+    return next === entry ? s : { sessions: { ...s.sessions, [key]: next } }
+  })
+}
+
+const permissionUpdates = new Map<string, { request: number; settlement: number }>()
+let permissionUpdateSequence = 0
+
+function dispatchTo(key: string, action: ChatAction): void {
+  if (
+    [
+      'SET_MODEL',
+      'SET_AGENT_KIND',
+      'SET_PERMISSION_MODE',
+      'APPLY_PERMISSION_MODE',
+      'LOAD_SESSION',
+      'START_LOAD_SESSION'
+    ].includes(action.type)
+  ) {
+    permissionUpdates.set(key, {
+      request: ++permissionUpdateSequence,
+      settlement: permissionUpdates.get(key)?.settlement ?? 0
+    })
+  }
+  if (
+    action.type === 'RECV_EVENT' &&
+    action.event.type === 'session.updated' &&
+    action.event.patch.permissionMode !== undefined
+  ) {
+    permissionUpdates.set(key, {
+      request: permissionUpdates.get(key)?.request ?? 0,
+      settlement: ++permissionUpdateSequence
+    })
+  }
+  patchEntry(key, (entry) => {
+    const session = chatReducer(entry.session, action)
+    return session === entry.session ? entry : { ...entry, session }
   })
 }
 
 function dispatchActive(action: ChatAction): void {
   dispatchTo(getState().activeKey, action)
+}
+
+function revealRightPanelTile(id: RightPanelTileId): void {
+  patchEntry(getState().activeKey, (entry) => {
+    const target = rightPanelTarget(id, entry.session.agentKind)
+    return target && entry.session.rightPanelTiles.some((column) => column.tiles.includes(target))
+      ? { ...entry, panelReveal: { id: target } }
+      : entry
+  })
 }
 
 function captureDiffRequirementSnapshot(): DiffRequirementSubmitSnapshot {
@@ -210,12 +260,9 @@ function requirementsBelongToCurrentSession(
 }
 
 function patchLive(key: string, patch: (live: LiveTurnState) => LiveTurnState): void {
-  setState((s) => {
-    const entry = s.sessions[key]
-    if (!entry) return s
+  patchEntry(key, (entry) => {
     const next = patch(entry.live)
-    if (next === entry.live) return s
-    return { sessions: { ...s.sessions, [key]: { ...entry, live: next } } }
+    return next === entry.live ? entry : { ...entry, live: next }
   })
 }
 
@@ -227,13 +274,10 @@ function patchPendingSteer(
   key: string,
   patch: (pending: PendingSteerState[]) => PendingSteerState[]
 ): void {
-  setState((s) => {
-    const entry = s.sessions[key]
-    if (!entry) return s
+  patchEntry(key, (entry) => {
     const prev = entry.pendingSteer ?? EMPTY_PENDING_STEER
     const next = patch(prev)
-    if (next === prev) return s
-    return { sessions: { ...s.sessions, [key]: { ...entry, pendingSteer: next } } }
+    return next === prev ? entry : { ...entry, pendingSteer: next }
   })
 }
 
@@ -243,9 +287,7 @@ function patchSubagentMeta(
   key: string,
   ev: Extract<NormalizedEvent, { type: 'subagent.task' }>
 ): void {
-  setState((s) => {
-    const entry = s.sessions[key]
-    if (!entry) return s
+  patchEntry(key, (entry) => {
     const prev = entry.subagentMeta[ev.toolUseId] ?? {}
     const next: SubagentMetaState = { ...prev }
     if (ev.taskId !== undefined) next.taskId = ev.taskId
@@ -256,15 +298,7 @@ function patchSubagentMeta(
     if (ev.lastToolName !== undefined) next.lastToolName = ev.lastToolName
     if (ev.status !== undefined) next.status = ev.status
     if (ev.phase !== 'settled' && next.startedAtMs === undefined) next.startedAtMs = Date.now()
-    return {
-      sessions: {
-        ...s.sessions,
-        [key]: {
-          ...entry,
-          subagentMeta: { ...entry.subagentMeta, [ev.toolUseId]: next }
-        }
-      }
-    }
+    return { ...entry, subagentMeta: { ...entry.subagentMeta, [ev.toolUseId]: next } }
   })
 }
 
@@ -406,6 +440,8 @@ function promotePendingNewChat(sessionId: string): void {
 
 // 엔트리 제거. 활성 엔트리였다면 깨끗한 새 채팅으로 전환한다.
 function dropSession(sessionId: string, fallbackProjectId: string | null = null): void {
+  permissionUpdates.delete(sessionId)
+  forgetArtifacts(sessionId)
   setState((s) => {
     if (!s.sessions[sessionId]) return s
     const rest = { ...s.sessions }
@@ -422,7 +458,27 @@ function dropSession(sessionId: string, fallbackProjectId: string | null = null)
 // ev.sessionId 로 해당 엔트리에 라우팅한다: 비활성 세션의 턴도 백그라운드로 누적되고,
 // 델타 2종은 그 엔트리의 live 슬라이스로만 흐른다. sessionId 가 없는 이벤트(일부 error)는
 // 활성 엔트리 폴백, 미지 sessionId(엔트리 삭제 후 늦게 도착)는 폐기한다.
+const turnEndListeners = new Set<(sessionId: string) => void>()
+
+// 정규화 이벤트의 세션 라우팅을 통과한 정상 완료만 app 조립부에 알린다.
+export function subscribeTurnEnd(listener: (sessionId: string) => void): () => void {
+  turnEndListeners.add(listener)
+  return () => {
+    turnEndListeners.delete(listener)
+  }
+}
+
 function receive(ev: NormalizedEvent): void {
+  if (ev.type === 'response.boundary') {
+    if (getState().sessions[ev.sessionId])
+      dispatchTo(ev.sessionId, { type: 'RECV_EVENT', event: ev })
+    return
+  }
+  if (ev.type === 'artifact.published') {
+    // 목록 알림은 pending draft로 폴백하거나 transcript part를 만들지 않는다.
+    if (getState().sessions[ev.sessionId]) void refreshArtifactList(ev.sessionId)
+    return
+  }
   const evSessionId = 'sessionId' in ev ? ev.sessionId || null : null
 
   // session.updated = sessionId 발급/확정 시점 — main 에 진입한 pending draft 를 sessionId 키로 승격.
@@ -468,10 +524,16 @@ function receive(ev: NormalizedEvent): void {
       // 완성본(ev.message.text)이 text 파트로 커밋되므로 라이브 프리뷰는 비운다. 단,
       // 서브에이전트(Task) child 텍스트(parentToolRunId)는 메인 스트리밍이 아니므로 메인
       // 라이브 프리뷰를 건드리지 않는다(우측 패널 child 트랜스크립트 전용).
-      dispatchTo(key, { type: 'RECV_EVENT', event: ev })
-      if (ev.parentToolRunId === undefined) {
-        patchLive(key, (live) => (live.text !== '' ? { ...live, text: '' } : live))
-      }
+      patchEntry(key, (entry) => {
+        const session = chatReducer(entry.session, { type: 'RECV_EVENT', event: ev })
+        const live =
+          ev.parentToolRunId === undefined && entry.live.text !== ''
+            ? { ...entry.live, text: '' }
+            : entry.live
+        return session === entry.session && live === entry.live
+          ? entry
+          : { ...entry, session, live }
+      })
       return
 
     case 'message.reasoning':
@@ -587,7 +649,7 @@ function receive(ev: NormalizedEvent): void {
         setState({
           draftRestore: {
             key,
-            seq: Date.now(),
+            seq: nextComposerDraftSequence(),
             text: present.map((item) => item.text).join('\n\n')
           }
         })
@@ -597,10 +659,17 @@ function receive(ev: NormalizedEvent): void {
 
     case 'telemetry': {
       // message.completed 없이 턴이 끝난 경우 잔여 라이브 텍스트를 text 파트로 굳힌다.
-      const leftover = getState().sessions[key]?.live.text ?? ''
-      if (leftover !== '') dispatchTo(key, { type: 'COMMIT_PENDING_TEXT', text: leftover })
-      dispatchTo(key, { type: 'RECV_EVENT', event: ev })
-      resetLive(key)
+      patchEntry(key, (entry) => {
+        const committed =
+          entry.live.text !== ''
+            ? chatReducer(entry.session, { type: 'COMMIT_PENDING_TEXT', text: entry.live.text })
+            : entry.session
+        const session = chatReducer(committed, { type: 'RECV_EVENT', event: ev })
+        const live = entry.live.text !== '' || entry.live.reasoning !== '' ? EMPTY_LIVE : entry.live
+        return session === entry.session && live === entry.live
+          ? entry
+          : { ...entry, session, live }
+      })
       if (!evSessionId || pendingFallback) releaseNewChatGate(key)
       return
     }
@@ -609,6 +678,10 @@ function receive(ev: NormalizedEvent): void {
     // 새-채팅 게이트도 풀지 않는다: 리듀서가 tick 하나만 올린다.
     case 'turn.ended':
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
+      // 미지/삭제 세션이나 미확정 draft로 폴백한 신호를 다른 세션의 완료로 만들지 않는다.
+      if (ev.sessionId && key === ev.sessionId && entrySession?.sessionId === ev.sessionId) {
+        for (const listener of turnEndListeners) listener(ev.sessionId)
+      }
       return
 
     case 'turn.aborted':
@@ -689,6 +762,7 @@ function send(
     const draftKey = `draft:${crypto.randomUUID()}`
     const requestId = crypto.randomUUID()
     const payload: SendChatMessage = {
+      agentKind: cur.agentKind,
       sessionId: null,
       projectId: cur.pendingProjectId,
       text: trimmed,
@@ -820,6 +894,7 @@ function send(
   // 거부되면(큐 미적재 = echo 없음) 낙관 버블/pending 항목을 되물려 유령 버블을 막는다.
   void chatApi
     .send({
+      agentKind: cur.agentKind,
       sessionId: cur.sessionId,
       projectId: null,
       text: trimmed,
@@ -844,7 +919,33 @@ function send(
   return true
 }
 
-// 참조 경로 칩(CLI `/add-dir`) — cwd 와 같은 게이트: 세션이 확정되기 전에만 편집할 수 있다.
+// 확정된 Work 세션의 추가 폴더는 명시 IPC로 저장하고 캡처한 대상에만 반영한다.
+async function addSessionDirectory(
+  target: { key: string; sessionId: string },
+  directory: string
+): Promise<AddSessionDirectoryResult> {
+  const state = getState()
+  const session = state.sessions[target.key]?.session
+  if (!session || session.sessionId !== target.sessionId) return { ok: false, reason: 'not-found' }
+  if (state.activeKey !== target.key) return { ok: false, reason: 'not-found' }
+  if (!agentSessionPolicy[session.agentKind].allowDirectoryUpdates)
+    return { ok: false, reason: 'not-work' }
+  if (session.inflight || session.listening || session.loadingSession)
+    return { ok: false, reason: 'busy' }
+  try {
+    const result = await sessionApi.addDirectory({ sessionId: target.sessionId, directory })
+    if (result.ok)
+      dispatchTo(target.key, {
+        type: 'SYNC_SESSION_EXTRA_DIRS',
+        sessionId: target.sessionId,
+        extraDirs: result.extraDirs
+      })
+    return result
+  } catch {
+    return { ok: false, reason: 'failed' }
+  }
+}
+
 function addExtraDir(dir: string): void {
   patchPendingSession((session) => chatReducer(session, { type: 'ADD_EXTRA_DIR', dir }))
 }
@@ -856,12 +957,10 @@ function removeExtraDir(dir: string): void {
 // 세션 id 가 발급되기 전(랜딩)의 활성 엔트리에만 리듀서를 적용한다. 확정된 세션은 무시 —
 // cwd·참조 경로는 세션 출생 시 고정이라 뒤늦은 수정이 main 과 어긋나면 안 된다.
 function patchPendingSession(apply: (session: ChatState) => ChatState): void {
-  setState((s) => {
-    const entry = s.sessions[s.activeKey]
-    if (!entry || entry.session.sessionId != null) return s
+  patchEntry(getState().activeKey, (entry) => {
+    if (entry.session.sessionId != null) return entry
     const session = apply(entry.session)
-    if (session === entry.session) return s
-    return { sessions: { ...s.sessions, [s.activeKey]: { ...entry, session } } }
+    return session === entry.session ? entry : { ...entry, session }
   })
 }
 
@@ -1051,6 +1150,8 @@ function continuityDraftSession(src: ChatState, kind: 'fork' | 'handoff'): ChatS
   const lang = continuityLangFor(languageCache ?? undefined)
   return {
     ...initialChatState,
+    agentKind: src.agentKind,
+    agentKindLocked: true,
     title: continuityTitle(kind, lang, src.title?.trim() || src.sessionId!.slice(0, 8)),
     continuityLang: lang,
     cwd: src.cwd,
@@ -1251,21 +1352,67 @@ function skipAsk(requestId: string): void {
   dispatchActive({ type: 'RESOLVE_ASK', requestId })
 }
 
+// 응답은 발신 세션과 모델/종류/요청 세대가 여전히 같은 경우에만 적용한다.
+function synchronizePermissionMode(key: string, previousMode: NormalizedPermissionMode): void {
+  const session = getState().sessions[key]?.session
+  if (!session?.sessionId) return
+  const {
+    sessionId,
+    permissionMode: mode,
+    providerKey,
+    modelFamily,
+    modelAlias,
+    agentKind
+  } = session
+  const sequence = ++permissionUpdateSequence
+  const settlement = permissionUpdates.get(key)?.settlement ?? 0
+  permissionUpdates.set(key, { request: sequence, settlement })
+  const current = (): boolean => {
+    const value = getState().sessions[key]?.session
+    return (
+      permissionUpdates.get(key)?.request === sequence &&
+      !!value &&
+      value.sessionId === sessionId &&
+      !value.loadingSession &&
+      value.providerKey === providerKey &&
+      value.modelFamily === modelFamily &&
+      value.modelAlias === modelAlias &&
+      value.agentKind === agentKind
+    )
+  }
+  const fail = (): void => {
+    if (!current() || permissionUpdates.get(key)?.settlement !== settlement) return
+    dispatchTo(key, { type: 'SET_PERMISSION_MODE', mode: previousMode })
+    dispatchTo(key, { type: 'SET_PERMISSION_MODE_ERROR', failed: true })
+  }
+  void permissionApi
+    .setMode({ sessionId, mode })
+    .then((applied) => {
+      if (!current()) return
+      if (applied === undefined) {
+        fail()
+        return
+      }
+      dispatchTo(key, { type: 'APPLY_PERMISSION_MODE', mode: applied })
+    })
+    .catch(fail)
+}
+
 function setModel(
   providerKey: string | null,
   modelFamily: string | null,
   modelAlias: string | null,
   adapter?: string | null
 ): void {
-  const before = getActiveChatSession().permissionMode
-  dispatchActive({ type: 'SET_MODEL', providerKey, modelFamily, modelAlias, adapter })
-  // 강등 판정의 정본은 reducer 다(0215 EP-13). 여기서 규칙을 다시 쓰지 않고 **결과가 바뀌었을
-  // 때만** main 으로 옮긴다 — 옮기지 않으면 controller 와 진행 중 턴이 '자동'을 계속 믿는다.
-  const after = getActiveChatSession()
-  if (after.permissionMode === before) return
-  if (after.sessionId) {
-    void permissionApi.setMode({ sessionId: after.sessionId, mode: after.permissionMode })
-  }
+  const key = getState().activeKey
+  const beforeSession = getActiveChatSession()
+  const before = beforeSession.permissionMode
+  dispatchTo(key, { type: 'SET_MODEL', providerKey, modelFamily, modelAlias, adapter })
+  if (
+    getState().sessions[key]?.session.permissionMode !== before ||
+    beforeSession.permissionModeError
+  )
+    synchronizePermissionMode(key, before)
 }
 
 function setEffort(effort: EffortLevel): void {
@@ -1273,21 +1420,23 @@ function setEffort(effort: EffortLevel): void {
 }
 
 function setPermissionMode(mode: NormalizedPermissionMode): void {
-  dispatchActive({ type: 'SET_PERMISSION_MODE', mode })
-  // 활성 세션이면 라이브 전환 IPC 발행 — main 이 진행 중 턴이면 즉시 Query.setPermissionMode,
-  // 아니면 controller 에 기록해 다음 턴에 반영. 새 채팅(sessionId 미발급)은 send 페이로드로 전달.
-  const sid = getActiveChatSession().sessionId
-  if (sid) void permissionApi.setMode({ sessionId: sid, mode })
+  const key = getState().activeKey
+  const previous = getActiveChatSession().permissionMode
+  dispatchTo(key, { type: 'SET_PERMISSION_MODE', mode })
+  synchronizePermissionMode(key, previous)
 }
 
 function approvePlan(requestId: string): void {
   void permissionApi.respond({ approvalId: requestId, resolution: { behavior: 'allow' } })
   dispatchActive({ type: 'RESOLVE_PLAN' })
-  // 승인 = plan 모드 종료. 칩을 '편집 수락'으로 전환 → 다음 턴이 plan 모드로 재진입하지
+  // 승인 = plan 모드 종료. 종류별 승인 목표로 칩을 전환 → 다음 턴이 plan 모드로 재진입하지
   // 않아 ExitPlanMode 재호출(단순 질문 시 계획 카드 재출현)을 막는다. 여기는 낙관적 UI 갱신이고,
   // SDK 세션 전환은 어댑터가 같은 allow 응답의 updatedPermissions 로 원자 처리한다
   // (adapters/claude.ts) — 그래서 setPermissionMode() 처럼 별도 IPC 를 발행하지 않는다.
-  dispatchActive({ type: 'SET_PERMISSION_MODE', mode: PLAN_APPROVED_MODE })
+  dispatchActive({
+    type: 'SET_PERMISSION_MODE',
+    mode: planApprovedMode(getActiveChatSession().agentKind)
+  })
 }
 
 function revisePlan(requestId: string, feedback: string): void {
@@ -1351,6 +1500,8 @@ function denyTool(approvalId: string): void {
 // 안정 액션 묶음 — 모듈 상수라 컴포넌트가 deps/메모 걱정 없이 직접 import 하거나 props 로
 // 전달할 수 있다(컴포넌트는 selector / action 만 사용, state.md §1.3).
 export const chatActions = {
+  setAgentKind: (kind: import('../../../../../shared/agent-kind').AgentKind): void =>
+    dispatchActive({ type: 'SET_AGENT_KIND', kind }),
   send,
   cancelSteer,
   cancel,
@@ -1364,6 +1515,7 @@ export const chatActions = {
   setWorktreeIsolation,
   setWorktreeBaseRef,
   addExtraDir,
+  addSessionDirectory,
   removeExtraDir,
   clearError: (): void => dispatchActive({ type: 'CLEAR_ERROR' }),
   loadSession,
@@ -1389,10 +1541,14 @@ export const chatActions = {
   approveTool,
   approveToolForSession,
   denyTool,
-  toggleRightPanelTile: (id: RightPanelTileId): void =>
-    dispatchActive({ type: 'TOGGLE_RIGHT_PANEL_TILE', id }),
-  setRightPanelTileActive: (id: RightPanelTileId, active: boolean): void =>
-    dispatchActive({ type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id, active }),
+  toggleRightPanelTile: (id: RightPanelTileId): void => {
+    dispatchActive({ type: 'TOGGLE_RIGHT_PANEL_TILE', id })
+    revealRightPanelTile(id)
+  },
+  setRightPanelTileActive: (id: RightPanelTileId, active: boolean): void => {
+    dispatchActive({ type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id, active })
+    if (active) revealRightPanelTile(id)
+  },
   renameRightPanelTile: (id: RightPanelTileId, label: string): void =>
     dispatchActive({ type: 'RENAME_RIGHT_PANEL_TILE', id, label }),
   removeRightPanelTile: (id: RightPanelTileId): void =>
@@ -1438,11 +1594,25 @@ export const chatActions = {
   captureDiffRequirementSnapshot,
   clearDiffRequirementsIfUnchanged,
   selectTask: (key: string | null): void => dispatchActive({ type: 'SELECT_TASK', key }),
-  openTask: (key: string): void => dispatchActive({ type: 'OPEN_TASK', key }),
+  restoreComposerDraft: (
+    key: string,
+    text: string,
+    mode: ComposerDraftUpdate['mode'] = 'replace'
+  ): void => {
+    const state = getState()
+    if (state.activeKey !== key || !state.sessions[key]) return
+    setState({ draftRestore: { key, seq: nextComposerDraftSequence(), text, mode } })
+  },
+  openTask: (key: string): void => {
+    dispatchActive({ type: 'OPEN_TASK', key })
+    revealRightPanelTile('task')
+  },
   selectSubagentTask: (toolRunId: string | null): void =>
     dispatchActive({ type: 'SELECT_SUBAGENT_TASK', toolRunId }),
-  openSubagentTask: (toolRunId: string): void =>
-    dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId }),
+  openSubagentTask: (toolRunId: string): void => {
+    dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId })
+    revealRightPanelTile('subagent')
+  },
   acknowledgeSettledTasks: (): void => dispatchActive({ type: 'ACKNOWLEDGE_SETTLED_TASKS' }),
   stopTask,
   backgroundTask,
@@ -1607,6 +1777,7 @@ const isNewChatRowVisible = (s: ChatStoreState): boolean =>
   s.pendingNewChatKey === NEW_CHAT_KEY || s.newChatQueue.some((q) => q.key === NEW_CHAT_KEY)
 
 export interface DraftRow {
+  agentKind: import('../../../../../shared/agent-kind').AgentKind
   key: string
   title: string | null
   projectId: string | null
@@ -1623,13 +1794,16 @@ export function useDraftSessionRows(): DraftRow[] {
             key,
             e.session.title ?? '',
             e.session.projectId ?? '',
-            e.session.forkFrom ?? e.session.handoffFrom ?? ''
+            e.session.forkFrom ?? e.session.handoffFrom ?? '',
+            e.session.agentKind
           ].join(DRAFT_ROW_SEP)
         )
         .reverse()
       if (isNewChatRowVisible(s)) {
         const cur = s.sessions[NEW_CHAT_KEY].session
-        rows.unshift([NEW_CHAT_KEY, '', cur.pendingProjectId ?? '', ''].join(DRAFT_ROW_SEP))
+        rows.unshift(
+          [NEW_CHAT_KEY, '', cur.pendingProjectId ?? '', '', cur.agentKind].join(DRAFT_ROW_SEP)
+        )
       }
       return rows
     })
@@ -1637,9 +1811,10 @@ export function useDraftSessionRows(): DraftRow[] {
   return useMemo(
     () =>
       encoded.map((row) => {
-        const [key, title, projectId, parentSessionId] = row.split(DRAFT_ROW_SEP)
+        const [key, title, projectId, parentSessionId, kind] = row.split(DRAFT_ROW_SEP)
         return {
           key,
+          agentKind: parseAgentKind(kind),
           title: title || null,
           projectId: projectId || null,
           parentSessionId: parentSessionId || null

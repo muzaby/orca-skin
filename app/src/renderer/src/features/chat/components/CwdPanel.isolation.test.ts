@@ -8,6 +8,7 @@ const { setWorktreeIsolation, setWorktreeBaseRef, sessionState, chipProps, branc
     setWorktreeBaseRef: vi.fn(),
     sessionState: {
       value: {
+        agentKind: 'code',
         extraDirs: [],
         extraDirRejection: null,
         worktreeIsolation: false,
@@ -74,6 +75,7 @@ const markup = (
   worktreeBaseRef: string | null = null
 ): string => {
   sessionState.value = {
+    agentKind: 'code',
     extraDirs: [],
     extraDirRejection: null,
     worktreeIsolation: isolation,
@@ -153,3 +155,7 @@ describe('CwdPanel — 유예 배선과 안내 문구 (AC7 · AC18)', () => {
     expect(en.chat.composer.worktreeIsolationHelp).toContain('Uncommitted changes')
   })
 })
+
+vi.mock('../hooks/useDirectoryPicker', () => ({
+  useDirectoryPicker: () => ({ pick: vi.fn(), picking: false, disabled: false, errorKey: null })
+}))

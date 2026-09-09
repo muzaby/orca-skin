@@ -176,3 +176,29 @@ describe('envFingerprint 승계 (0190)', () => {
     expect(flush.envFingerprint).toBe('fp-fresh')
   })
 })
+
+describe('r4 settled permission and plan approval target continuation', () => {
+  it('listen and flush preserve Work plan target while using latest settled permission', () => {
+    const base = {
+      ...baseRequest(),
+      permissionMode: 'auto_classified' as const,
+      planApprovalMode: 'default' as const
+    }
+    const signal = new AbortController().signal
+    const settled = { ...continuation, permissionMode: 'default' as const }
+    const listen = buildListenRequest({ base, sessionId: 's', signal, continuation: settled })
+    const flush = buildFlushRequest({
+      base,
+      sessionId: 's',
+      signal,
+      batch: { ids: [], text: 'next', createdAt: 1, uuid: 'u' },
+      preludes: [],
+      continuation: settled
+    })
+    for (const request of [listen, flush]) {
+      expect(request.planApprovalMode).toBe('default')
+      expect(request.permissionMode).toBe('default')
+    }
+    expect(listen.attachmentImages).toBeUndefined()
+  })
+})

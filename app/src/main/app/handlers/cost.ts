@@ -22,7 +22,7 @@ import type { UsageLimitsView } from '../../../shared/usage/limits'
 import { handle } from '../../infra/ipc/handle'
 import type { RouterContext } from '../context'
 
-export function registerCostHandlers(ctx: RouterContext): void {
+export function registerCostHandlers(ctx: Pick<RouterContext, 'cost'>): void {
   // 정본 조회 — providerKey 가 있으면 provider 뷰(원격 기준선 합성 포함), 없으면 전역.
   // 조회류라 실패 정책은 fallback: null — renderer 는 null 이면 한도 섹션을 숨긴다(기존 동작).
   handle(

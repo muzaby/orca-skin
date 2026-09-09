@@ -13,12 +13,12 @@ import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
 import {
   createHarnessRuntimeConfigService,
   StaleHarnessConfigError,
-  type HarnessModelProviderEntry,
+  type HarnessRuntimeConfigTarget,
   type HarnessSettingsPort,
   type RuntimeConfigAugmenter
 } from './runtime-config'
 
-const ENTRY: HarnessModelProviderEntry = {
+const ENTRY: HarnessRuntimeConfigTarget = {
   key: 'claude-corp',
   harnessId: 'claude',
   modelProviderId: 'corp'

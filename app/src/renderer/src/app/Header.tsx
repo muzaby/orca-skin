@@ -6,6 +6,7 @@ import { MenuItem } from '../shared/ui/MenuItem'
 import { Popover } from '../shared/ui/Popover'
 import { Modal } from '../shared/ui/Modal'
 import { OrcaLogo } from '../shared/ui/OrcaLogo'
+import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 import { useTweakContext } from '../shared/theme'
 import { useI18n } from '../shared/i18n'
 import { getPlatform, windowApi } from '../shared/api/ipc'
@@ -29,7 +30,7 @@ export interface HeaderProps {
 export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React.JSX.Element {
   const macOsPadLeft = isDarwin() ? 'pl-[80px]' : 'pl-[14px]'
   const navigate = useNavigate()
-  const { t, setTweak } = useTweakContext()
+  const { t, setTweak } = useTweakContext((t) => ({ sidebarCollapsed: t.sidebarCollapsed }))
   const { tr } = useI18n()
   const [menuOpen, setMenuOpen] = useState(false)
   const [versionOpen, setVersionOpen] = useState(false)
@@ -176,7 +177,9 @@ function HeaderVersionModal({
       panelClassName="flex w-[280px] max-w-[92vw] flex-col items-center gap-3 rounded-r6 border border-border bg-panel px-8 py-7 text-center shadow-xl"
     >
       <OrcaLogo className="h-10 w-auto text-ink" />
-      <div className="font-serif text-[18px] font-semibold tracking-tight text-ink">Orca</div>
+      <div className="font-serif text-[18px] font-semibold tracking-tight text-ink">
+        {PRODUCT_DISPLAY_NAME}
+      </div>
       <div className="text-[12.5px] text-ink2">v{__APP_VERSION__}</div>
     </Modal>
   )

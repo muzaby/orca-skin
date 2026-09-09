@@ -1,6 +1,6 @@
 // 구조화된 시스템 프롬프트 헤더 빌더 — 사용자 정보 + 실행환경 구성을 '# Orca / # User / # Project'
 // 마크다운 섹션으로 조립하는 순수 함수. ExtensionBuilder 가 이 헤더를 프로젝트 지침 앞에 붙여
-// systemPromptAppend(claude_code preset 뒤 append)로 매 턴 주입한다.
+// systemPromptAppend(claude_code preset 뒤 append)로 매 턴 조립하고, SDK 채널 spawn 시 주입한다.
 //
 // 설계 근거(docs/arch/backend/system-prompt.md · study/opencode·hermes): 정체성/실행환경 framing 을
 // 프롬프트 앞에 구조화해 붙인다. Orca 는 excludeDynamicSections:false 라 preset 이 이미
@@ -11,6 +11,7 @@
 // 필드는 줄 자체를 생략한다(opencode instruction.ts "빈 조각 제외" 패턴).
 
 interface SystemHeaderInput {
+  agentInstructions?: string
   // Orca 앱 버전(app.getVersion()). 프로세스 수명 고정.
   orcaVersion: string
   // 선호 언어(settings.language). 없으면 Preferred language 줄 생략.
@@ -56,6 +57,8 @@ export function buildSystemHeader(input: SystemHeaderInput): string {
 
   // # Orca — 정체성 framing + 버전 (항상).
   sections.push(`# Orca\n${ORCA_IDENTITY}\nOrca version: ${input.orcaVersion}`)
+  const agentInstructions = input.agentInstructions?.trim()
+  if (agentInstructions) sections.push(`# Agent\n${agentInstructions}`)
 
   // # Tools — 도구-사용 정책 (항상). 파일 작업을 전용 툴로 몰아 workspace 가드가 격리를 강제하게 하고,
   // Bash 는 프롬프트로 workspace 스코프를 유도한다(0075 후속).

@@ -1,0 +1,3 @@
+[migrations] sync ok: 23 migrations, dir == migrate.ts imports
+[migrations] no-copies ok: scanned 1052 source files, 2 list owners
+[migrations] append-only ok since v0.3.1

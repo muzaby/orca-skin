@@ -16,7 +16,7 @@ src/renderer/
 ├── index.html                       # React 마운트 + CSP + Google Fonts link
 └── src/
     ├── main.tsx                     # React entrypoint (createRoot) + 글로벌 CSS import
-    ├── App.tsx                      # Provider 합성 루트 (Tweak → Backend → Sessions → Projects → Cost → Update → Chat, bootstrap-only Provider + RootGate)
+    ├── App.tsx                      # Provider 합성 루트 (Tweak → Backend → Sessions → Cost → Update → Chat, 초기화/구독 Provider + RootGate)
     ├── env.d.ts                     # Vite 클라이언트 타입
     │
     ├── app/                         ✅ 셸 — 고정 골격. cross-feature wiring 권한.
@@ -25,7 +25,6 @@ src/renderer/
     │   ├── Sidebar.tsx              # `app-frame-sidebar` — NAV 4-항목(새 대화·프로젝트·엔진&모델·플러그인 모달, 0083/0159) + collapsible/resizable + 슬롯 (sessions/footer). React.memo + 도메인 특정 설정값 (SIDEBAR_MIN/MAX/DEFAULT_WIDTH) 유지
     │   ├── SidebarUserButton.tsx    # 사이드바 하단 사용자 버튼 (언어 플라이아웃 포함)
     │   ├── OverlayLayer.tsx         # `#app-frame-overlay` + `#app-frame-modal` + `#app-frame-debug` 3슬롯 통합 — SearchModal·ConfirmDialogHost·UpdateDialog(0085)·(dev) DebugPanel+UpdateDebugSection 호스트
-    │   ├── SearchModal.tsx          # FTS5 전문 검색 모달
     │   ├── RootGate.tsx             # 게이트 판정 — 부팅 실패(BootFailureFrame) → 미완료(BootScreen) → 미통과(GateFrame) → 메인.
     │   │                            #   판정 전(gate=null)에는 통과시키지 않는다(fail-closed). prod 는 게이트 선언 0개면 즉시 통과,
     │   │                            #   DEV 는 선언 0개여도 게이트를 세운다(탈출구 = 디버그 패널 우회 토글)
@@ -58,8 +57,8 @@ src/renderer/
     │   │                            #   ApprovalCard, AskUserQuestionCard, StatusLine(0093 에서 shared/ui 로부터 이동),
     │   │                            #   UsagePanel(사용량 도넛 팝오버, 0079~0082), UserBubbleText(0083),
     │   │                            #   composer/, transcript/, markdown/(StreamingMarkdown), rightpanel/, format.ts
-    │   ├── sessions/                # SessionsProvider, sessions store, useProjectSessions, SessionList, SessionRow, ProjectSessionsPanel
-    │   ├── projects/                # ProjectsProvider, projects store, ProjectsView, ProjectLandingHeader,
+    │   ├── sessions/                # SessionsProvider, sessions store, useProjectSessions, SessionList, SessionRow, ProjectSessionsPanel, SearchModal(선택은 app callback)
+    │   ├── projects/                # projects store(초기 조회는 app/boot/steps), ProjectsView, ProjectLandingHeader,
     │   │                            #   ProjectInstructionsSidebar, CreateProjectModal, EditInstructionsModal
     │   ├── cost/                    # CostProvider, cost store (일/주/월·provider별 사용량 미러, refreshCost) — 0079~0082
     │   ├── settings/                # SettingsModal + 탭(General/Usage/ProviderUsage) + settingsModalStore (0079~0082)
@@ -76,8 +75,8 @@ src/renderer/
     ├── shared/                      ✅ 범용 — 도메인 로직 0. 모든 레이어 의존 가능.
     │   ├── navigation/              # routes.ts (path 패턴 + 라벨 + breadcrumb 카탈로그 — AppLayout matchPath 소스)
     │   ├── i18n/                    # i18next 초기화 + 리소스 번들 + datetime 로캘 포맷 (0096/0097)
-    │   ├── theme/                   # TweakProvider, useTweakContext
-    │   ├── hooks/                   # useTweaks (theme/density), useSkills (orca:skills:list), useAgents (engine/provider 목록), useDragResize (1D 드래그→숫자 일반 메커니즘)
+    │   ├── theme/                   # TweakProvider(인스턴스별 설정 store·DOM 효과), useTweakContext(필수 selector)
+    │   ├── hooks/                   # useSkills (orca:skills:list), useAgents (engine/provider 목록), useDragResize (1D 드래그→숫자 일반 메커니즘)
     │   ├── stores/                  # agentStore (engine/provider 공유 store — 카드·Composer/ModelMenu 싱크)
     │   ├── api/ipc.ts               # `window.orca.*` 타입드 래퍼 — chatApi/backendApi/installApi/settingsApi/skillApi/fileApi/sessionApi/projectApi/windowApi/costApi/updateApi/debugApi(dev 전용)
     │   ├── config/theme.ts          # ThemeId / DensityId 타입 + DENSITY_FONT
@@ -167,4 +166,3 @@ app/AppLayout.tsx
 | Sidebar 드래그 메커니즘 | ✅ `shared/hooks/useDragResize` 로 분리 (sidebar 핸들바·설정값 모르는 일반 1D 드래그→숫자 hook). `SIDEBAR_MIN/MAX/DEFAULT_WIDTH` 상수·`asideRef`·`setTweak('sidebarWidth', n)` 적용은 Sidebar 잔류 (도메인 특정 설정) |
 
 ---
-

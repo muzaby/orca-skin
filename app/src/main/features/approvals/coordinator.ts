@@ -7,11 +7,17 @@
 
 import { CHANNELS, type ApprovalResolution, type PermissionRespond } from '../../../shared/ipc'
 import { PermissionRespondSchema, SetPermissionModeSchema } from '../../../shared/protocol'
-import { toClaudePermissionMode } from '../../../shared/permission-mode'
+import {
+  coerceAutoPermissionModeForModelName,
+  permissionModeForAgent,
+  toClaudePermissionMode,
+  type NormalizedPermissionMode
+} from '../../../shared/permission-mode'
 import { ApprovalBroker } from '../../features/approvals/broker'
 import type { PermissionModeController } from '../../features/approvals/permission-mode-controller'
 import { handle } from '../../infra/ipc/handle'
 import type { TurnContext } from '../../contracts/turn'
+import type { AgentKind } from '../../../shared/agent-kind'
 
 // 세션 조회 포트 — 라이브 전환 시 진행 중 턴을 찾는 데만 필요. 구조적 타입으로 features/sessions
 // 직접 참조를 끊는다(수직 슬라이스 경계, 0062). RuntimeSupervisor 가 구조적으로 만족한다.
@@ -20,6 +26,7 @@ interface SessionLookup {
 }
 
 export class ApprovalCoordinator {
+  private readonly modeUpdates = new Map<string, Promise<NormalizedPermissionMode | undefined>>()
   private readonly broker = new ApprovalBroker<ApprovalResolution>()
   // "세션 동안 허용"으로 부여된 도구 — 같은 세션의 이후 턴에서 카드 없이 자동 허용. 키 =
   // dbSessionId, 값 = 허용된 toolName 집합. 프로세스 메모리에만 보존(영속 안 함).
@@ -73,28 +80,53 @@ export class ApprovalCoordinator {
     }
   }
 
-  registerHandlers(supervisor: SessionLookup, permissionModes: PermissionModeController): void {
+  registerHandlers(
+    supervisor: SessionLookup,
+    permissionModes: PermissionModeController,
+    getSessionKind: (sessionId: string) => AgentKind | undefined
+  ): void {
     handle(CHANNELS.permissionRespond, PermissionRespondSchema, { fallback: undefined }, (req) =>
       this.respond(req)
     )
 
-    // 권한 모드 라이브 전환 (orca:permission:setMode). 두 경로:
-    //   ① controller(세션 SSOT) 갱신 — 다음 턴 send 가 이 값을 싣는다.
-    //   ② 진행 중 턴(같은 세션)이면 Query.setPermissionMode 로 즉시 전환 — 그 턴의 이후 도구부터 반영.
+    // live는 실제 채널 모델로 정착하고 SDK 성공 후 적용값을 회신한다.
+    // idle은 종류별 선택만 저장한다. 다음 send가 해소한 실제 모델로 다시 검사한다.
     handle(
       CHANNELS.permissionSetMode,
       SetPermissionModeSchema,
       { fallback: undefined },
-      async ({ sessionId, mode }): Promise<void> => {
-        void permissionModes.setMode(sessionId, mode)
-
-        const turn = supervisor.getBySession(sessionId)
-        if (turn?.live) {
-          try {
-            await turn.live.setPermissionMode(toClaudePermissionMode(mode))
-          } catch {
-            // 라이브 전환 실패(핸들이 막 닫힘 등)는 무시 — controller 값이 다음 턴에 반영된다.
+      async ({ sessionId, mode }): Promise<NormalizedPermissionMode | undefined> => {
+        const previous = this.modeUpdates.get(sessionId)
+        const update = (async (): Promise<NormalizedPermissionMode | undefined> => {
+          await previous
+          const turn = supervisor.getBySession(sessionId)
+          const kind = turn?.agentKind ?? getSessionKind(sessionId)
+          if (!kind || (turn && !turn.live)) return undefined
+          const live = turn?.live
+          const applied = turn?.live
+            ? coerceAutoPermissionModeForModelName(mode, turn.live.spawnedModel, kind)
+            : permissionModeForAgent(mode, kind)
+          if (turn?.live) {
+            try {
+              await turn.live.setPermissionMode(toClaudePermissionMode(applied))
+              if (
+                supervisor.getBySession(sessionId) !== turn ||
+                turn.live !== live ||
+                getSessionKind(sessionId) !== kind
+              )
+                return undefined
+            } catch {
+              return undefined
+            }
           }
+          void permissionModes.setMode(sessionId, applied)
+          return applied
+        })()
+        this.modeUpdates.set(sessionId, update)
+        try {
+          return await update
+        } finally {
+          if (this.modeUpdates.get(sessionId) === update) this.modeUpdates.delete(sessionId)
         }
       }
     )

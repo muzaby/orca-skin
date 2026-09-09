@@ -67,7 +67,7 @@ const req = (): TurnRequest => ({
   sessionId: 's1',
   text: 'hello',
   cwd: '/tmp',
-  extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+  extensions: { skills: [], hooks: { normalized: {} } }
 })
 
 /** 어댑터가 SDK 에 **실제로 건넨** `Stop` 콜백. 배선이 없으면 여기서 이미 실패한다. */

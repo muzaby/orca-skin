@@ -1,17 +1,18 @@
 # 릴리스 운영 가이드 (Windows unsigned NSIS + GitHub Releases)
 
-Orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 핸드오프 [`0087-cicd-release-pipeline`](../handoff/0087-cicd-release-pipeline/plan.md), 업데이트 클라이언트 설계는 0084/0085 참조.
+Orcinus orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 핸드오프 [`0087-cicd-release-pipeline`](../handoff/0087-cicd-release-pipeline/plan.md), 업데이트 클라이언트 설계는 0084/0085 참조.
 
 ## 구조 한눈에
 
 | 구성 요소 | 값 |
 |---|---|
 | 배포 채널 | GitHub Releases (`muzaby/orca-skin`, public) — `v*` 태그 push 시 **즉시 게시** |
-| 산출물 | `orca-<ver>-setup.exe` (NSIS installer) + `latest.yml` + `.blockmap` |
+| 산출물 | `orcinus-orca-<ver>-setup.exe` (NSIS installer) + `latest.yml` + `.blockmap` |
 | 릴리스 CI | [`.github/workflows/release.yml`](../../.github/workflows/release.yml) — `v*` 태그 push 트리거, `windows-latest` |
 | 상시 게이트 | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) — main push + **모든 PR**(둘 다 `app/**`·`.github/workflows/**` 변경 시) + 수동 실행(`workflow_dispatch`) |
 | 버전 진실원 | `app/package.json` `version` (렌더러 `__APP_VERSION__` · main `app.getVersion()` 모두 파생) |
 | 서명 | **없음** (사내용) — 무결성은 HTTPS + `latest.yml` sha512 로 보장 (아래 §unsigned) |
+| 앱 식별자 | `appId` = `com.orcinus-orca.app` · 설치 디렉토리 `%LOCALAPPDATA%\Programs\orcinus-orca` · 업데이트 캐시 `%LOCALAPPDATA%\orcinus-orca-updater` (전부 `app/package.json` `name` 파생 — 0225) |
 | 업데이트 클라이언트 | electron-updater (0085 배선: `autoDownload=false` · idle-gated 설치 · published release 만 감지) |
 
 ## 릴리스 절차
@@ -28,7 +29,7 @@ Orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 핸드오�
    git push origin main --follow-tags
    ```
 3. **CI 자동 수행** (release.yml, `v*` 태그 push 로 발동): 버전 검증(태그↔package.json) → 마이그레이션 가드(동기화+append-only) → lint/typecheck/test → NSIS 빌드 → **GitHub Release 즉시 게시** → 산출물 검증(sha512 대조) → workflow artifact 업로드.
-4. **published release 확인**: GitHub Releases 에 자산 3종(`orca-<ver>-setup.exe`, `latest.yml`, `.blockmap`)이 있는지 확인한다. 게시 완료 시점부터 기존 설치본의 electron-updater가 새 버전을 감지한다.
+4. **published release 확인**: GitHub Releases 에 자산 3종(`orcinus-orca-<ver>-setup.exe`, `latest.yml`, `.blockmap`)이 있는지 확인한다. 게시 완료 시점부터 기존 설치본의 electron-updater가 새 버전을 감지한다.
 5. **수동 시나리오 테스트** (아래 체크리스트) 수행. 문제가 있으면 아래 롤백 절차로 즉시 전파를 중단한다.
 
 > **dry-run**: Actions 탭에서 release.yml 을 `workflow_dispatch` 로 수동 실행하면 게시 없이 빌드+검증만 수행하고 결과를 workflow artifact 로 남긴다 (파이프라인 자체 점검용).
@@ -51,15 +52,34 @@ Orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 핸드오�
 
 릴리스 태그를 push하기 **전** 로컬 또는 별도 테스트 산출물로 사전 점검하고, 게시 후에는 테스트 머신에서 구버전→신버전 흐름을 즉시 확인한다:
 
-- [ ] **구버전 설치**: 직전 릴리스의 `orca-<old>-setup.exe` 설치 → 앱 실행 → 세션 생성·메시지 송수신으로 DB 데이터 생성.
+- [ ] **구버전 설치**: 직전 릴리스의 `orcinus-orca-<old>-setup.exe` 설치 → 앱 실행 → 세션 생성·메시지 송수신으로 DB 데이터 생성.
 - [ ] **신버전 공개**: 검증된 `v*` 태그를 push하여 release workflow가 published release를 생성하도록 한다.
 - [ ] **감지**: 구버전 앱 재시작 → 헤더에 업데이트 버튼 노출 (0085 UX — 시작 시 1회 확인).
 - [ ] **다운로드**: 버튼 클릭 → 안내 다이얼로그 → 다운로드 진행률 표시.
 - [ ] **idle-gate 설치**: 턴 진행 중에는 설치가 거부되는지 확인 → idle 상태에서 설치 → 앱 재시작.
 - [ ] **버전 확인**: 헤더에 `v<new>` 표시.
-- [ ] **DB 마이그레이션**: 신버전에 새 마이그레이션이 있으면 `%APPDATA%/orca/orca.db.backup.before-<old>.<timestamp>` 백업 파일 생성 확인.
+- [ ] **DB 마이그레이션**: 신버전에 새 마이그레이션이 있으면 `%APPDATA%/orcinus-orca/orcinus-orca.db.backup.before-<old>.<timestamp>` 백업 파일 생성 확인.
 - [ ] **데이터 보존**: 기존 세션·메시지가 그대로 보이는지 확인.
-- [ ] (선택) `orca.json` 의 `update` override 경로를 쓰는 경우 해당 피드로도 감지 확인. 지원 provider: `github`(옵션 `host`=GitHub Enterprise) · `generic`(정적 HTTPS `url`) · `s3`(오브젝트 스토리지 — `bucket`+옵션 `endpoint`=MinIO/S3-호환·`region`·`path`) · `{ enabled: false }`(비활성). 스키마·조립은 `infra/config/orca-file.ts`·`app/updater-feed.ts`, 폐쇄망 배포는 [`closed-network-extensions.md §10`](./closed-network-extensions.md).
+- [ ] (선택) `orcinus-orca.json` 의 `update` override 경로를 쓰는 경우 해당 피드로도 감지 확인. 지원 provider: `github`(옵션 `host`=GitHub Enterprise) · `generic`(정적 HTTPS `url`) · `s3`(오브젝트 스토리지 — `bucket`+옵션 `endpoint`=MinIO/S3-호환·`region`·`path`) · `{ enabled: false }`(비활성). 스키마·조립은 `infra/config/orca-file.ts`·`app/updater-feed.ts`, 폐쇄망 배포는 [`closed-network-extensions.md §10`](./closed-network-extensions.md).
+
+## 구버전(orca) 수동 제거
+
+0.3.x 까지의 설치본은 제품 식별자가 `orca`(appId `com.orca.app`)였다. 0225 가 `appId` 를 바꾸면서
+**신버전은 구버전을 덮어쓰지 않고 나란히 설치된다** — 제어판에 항목이 둘 보이고 시작 메뉴에도
+바로가기가 둘 남는다. 데이터는 신버전 최초 실행이 새 자리로 옮기므로 대화·설정·워크트리는
+그대로 열린다.
+
+릴리스 노트에 아래를 그대로 안내한다.
+
+1. 신버전 `orcinus-orca-<ver>-setup.exe` 를 설치하고 **한 번 실행해 데이터 이관을 마친다**
+   (기존 세션 목록이 보이면 끝난 것이다).
+2. 구버전 앱이 떠 있으면 종료한다 — 떠 있는 동안에는 옛 폴더가 잠겨 이관이 미뤄진다.
+3. 제어판 → 앱 → **"orca"** 항목을 제거한다. 신버전 항목은 **"Orcinus orca"** 로 표시된다.
+4. 제거 후에도 남는 잔여 폴더는 지워도 된다: `%APPDATA%\orca` · `%LOCALAPPDATA%\orca-updater` ·
+   `~/.config/orca`. 이관이 끝났다면 셋 다 비어 있거나 옮겨지지 않은 잔여물만 남는다.
+
+> **자동 제거는 하지 않는다** (0225 D-013). NSIS 커스텀 언인스톨 스크립트로 남의 제품 GUID 를
+> 지우는 경로는 되돌리기 어렵고, 같은 이름의 다른 Orca 제품을 지울 위험이 있다.
 
 ## 롤백 절차
 
@@ -77,12 +97,12 @@ Orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 핸드오�
 
 새 버전에서 DB 마이그레이션이 실행됐다면 구버전 앱은 부팅 시 `DB_SCHEMA_TOO_NEW` 로 **의도적으로 기동 거부**한다 (`migrate.ts` 다운그레이드 가드). 순서:
 
-1. 앱 종료 → 제어판/설정에서 Orca 제거 (사용자 데이터 `%APPDATA%/orca` 는 유지됨).
-2. 구버전 `orca-<old>-setup.exe` 설치 (GitHub release 자산 또는 CI workflow artifact 에서 확보).
-3. **DB 복원**: `%APPDATA%/orca/` 에서
-   - `orca.db` 를 다른 이름으로 보관(포렌식용),
-   - 마이그레이션 직전 백업 `orca.db.backup.before-<old-ver>.<timestamp>` 를 `orca.db` 로 복사,
-   - 남아 있는 `orca.db-wal` / `orca.db-shm` 파일 삭제 (백업은 `VACUUM INTO` 산출이라 WAL 불필요).
+1. 앱 종료 → 제어판/설정에서 Orcinus orca 제거 (사용자 데이터 `%APPDATA%/orcinus-orca` 는 유지됨).
+2. 구버전 `orcinus-orca-<old>-setup.exe` 설치 (GitHub release 자산 또는 CI workflow artifact 에서 확보).
+3. **DB 복원**: `%APPDATA%/orcinus-orca/` 에서
+   - `orcinus-orca.db` 를 다른 이름으로 보관(포렌식용),
+   - 마이그레이션 직전 백업 `orcinus-orca.db.backup.before-<old-ver>.<timestamp>` 를 `orcinus-orca.db` 로 복사,
+   - 남아 있는 `orcinus-orca.db-wal` / `orcinus-orca.db-shm` 파일 삭제 (백업은 `VACUUM INTO` 산출이라 WAL 불필요).
 4. 구버전 앱 실행 → 데이터 확인. (백업 시점 이후에 쓴 데이터는 유실된다 — 마이그레이션 이후 발생분.)
 
 ## unsigned 배포 주의사항
@@ -99,7 +119,7 @@ Orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 핸드오�
 | release.yml 이 버전 검증에서 실패 | 태그 ≠ `app/package.json` version. 태그 삭제 → 버전 커밋 반영 → 재태그 |
 | 마이그레이션 가드 실패 (append-only) | 머지된 `NNNN_*.sql` 이 수정/삭제됨 — 금지. 변경은 새 번호 파일로 |
 | 마이그레이션 가드 실패 (sync) | `migrations/` 디렉토리와 `migrate.ts` import 불일치(잉여/누락 .sql). 둘을 정합화 |
-| 앱이 업데이트를 감지 못함 | 1순위: tag workflow가 아닌 `workflow_dispatch` dry-run으로 실행했는지 확인. 그 외: release가 draft 상태, 버전이 semver로 더 낮음, `orca.json` `update.enabled=false` |
+| 앱이 업데이트를 감지 못함 | 1순위: tag workflow가 아닌 `workflow_dispatch` dry-run으로 실행했는지 확인. 그 외: release가 draft 상태, 버전이 semver로 더 낮음, `orcinus-orca.json` `update.enabled=false` |
 | 같은 태그 재실행 시 업로드 충돌 | 기존 release에 동명 자산이 남아 있음 — 실패 버전 번호를 재사용하지 말고 다음 patch 버전으로 전진 |
 | 구버전 설치 후 앱이 안 뜸 | `DB_SCHEMA_TOO_NEW` 다운그레이드 가드 — 위 클라이언트측 롤백 3단계(DB 백업 복원) 수행 |
 | CI 에서 better-sqlite3 로드 실패 | `ensure-sqlite-abi.mjs` 훅 순서 전제(`npm ci`→test→build) 위반 여부 확인 — `npx electron-builder` 직접 호출 금지 |

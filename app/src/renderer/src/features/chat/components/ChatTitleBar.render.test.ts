@@ -21,6 +21,7 @@ const { sessionState, unseenCount } = vi.hoisted(() => ({
   sessionState: {
     value: {
       title: '작업 중인 대화',
+      agentKind: 'code' as 'code' | 'work',
       messages: [],
       cwd: '/repo',
       worktree: null,
@@ -44,7 +45,8 @@ vi.mock('../../../shared/i18n', () => ({
 // cwd 칩은 이 계약의 대상이 아니다 — 자기 IPC 를 물지 않게 형상만 남긴다.
 vi.mock('./CwdButton', () => ({ CwdButton: () => null }))
 
-const { ChatTitleBar, VISIBLE_TILE_REGISTRY } = await import('./ChatTitleBar')
+const { ChatTitleBar } = await import('./ChatTitleBar')
+const { VISIBLE_TILE_REGISTRY } = await import('./rightpanel/tileRegistry')
 
 function render(opts: { unseen?: number; activeTiles?: string[] } = {}): string {
   unseenCount.value = opts.unseen ?? 0
@@ -57,24 +59,19 @@ function render(opts: { unseen?: number; activeTiles?: string[] } = {}): string 
 const BADGE_ARIA = 'chat.taskTile.badgeAria'
 
 describe('타일 메뉴 목록 — 프로덕션이 읽는 상수 (AT-01 · §10 EP-02)', () => {
-  it('메뉴가 정의 순서대로 4종을 담는다 — `작업` 이 돌아왔다', () => {
-    expect(VISIBLE_TILE_REGISTRY.map((tile) => tile.id)).toEqual([
-      'plan',
-      'subagent',
-      'task',
-      'diff'
-    ])
+  it('기존 네 타일 순서를 보존하고 독립 산출물 타일은 없다', () => {
+    expect(VISIBLE_TILE_REGISTRY.code.map((tile) => tile.id)).toEqual(['plan', 'subagent', 'diff'])
   })
 
   // 정책 SSOT 를 실제로 읽는가 — 목록을 자기 필터로 다시 만들면 이 단언이 깨지지 않는다
   // (정지가 비어 두 파생의 산출이 같기 때문이다). 그래서 **SSOT 쪽 값과의 대응**을 본다:
   // 정의 목록에서 빠진 id 는 메뉴에도 없어야 하고, 항목은 registry 형상을 갖춰야 한다.
   it('목록·순서가 `visibleRightPanelTileDefinitions` 와 같고 항목이 registry 형상이다', async () => {
-    const { visibleRightPanelTileDefinitions } = await import('../lib/rightPanelTiles')
-    expect(VISIBLE_TILE_REGISTRY.map((tile) => tile.id)).toEqual(
-      visibleRightPanelTileDefinitions.map((tile) => tile.id)
+    const { rightPanelTileDefinitionsForAgent } = await import('../lib/rightPanelTiles')
+    expect(VISIBLE_TILE_REGISTRY.code.map((tile) => tile.id)).toEqual(
+      rightPanelTileDefinitionsForAgent('code').map((tile) => tile.id)
     )
-    for (const tile of VISIBLE_TILE_REGISTRY) {
+    for (const tile of VISIBLE_TILE_REGISTRY.code) {
       expect(tile.defaultLabelKey).toBeTruthy()
       expect(tile.Content).toBeTypeOf('function')
     }
@@ -87,7 +84,7 @@ describe('미확인 완료 배지 — 술어에서 화면까지 (AT-05 · AT-06 
   })
 
   it('타일을 보고 있으면 배지 노드가 없다 — 음성 짝', () => {
-    expect(render({ unseen: 2, activeTiles: ['task'] })).not.toContain(BADGE_ARIA)
+    expect(render({ unseen: 2, activeTiles: ['plan'] })).not.toContain(BADGE_ARIA)
   })
 
   it('미확인이 없으면 배지 노드가 없다', () => {

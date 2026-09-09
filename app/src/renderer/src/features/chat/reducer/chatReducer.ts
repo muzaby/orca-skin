@@ -19,8 +19,17 @@ import type {
 } from '../../../../../shared/ipc'
 import { subagentNoticePart } from '../../../../../shared/ipc'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
+import { directoryIdentity } from '../../../../../shared/extra-directories'
 import {
-  coerceAutoPermissionMode,
+  DEFAULT_AGENT_KIND,
+  parseAgentKind,
+  readLegacyAgentKind
+} from '../../../../../shared/agent-kind'
+import { agentSessionPolicy } from '../../../../../shared/agent-session-policy'
+import { responseBoundaryPart } from '../../../../../shared/response-boundary'
+import {
+  coercePermissionMode,
+  permissionModeForAgent,
   DEFAULT_PERMISSION_MODE
 } from '../../../../../shared/permission-mode'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
@@ -30,7 +39,7 @@ import type { MessageKey } from '../../../shared/i18n'
 import { contextTokens } from '../lib/telemetry'
 import { agentTaskKey, backgroundTaskKey } from '../lib/taskBoard'
 import { settleOrphanToolParts, settleStaleAsyncLaunchParts } from '../lib/parts'
-import { isRightPanelTileSuspended, type RightPanelTileId } from '../lib/rightPanelTiles'
+import { RIGHT_PANEL_POLICY, rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
 import type { BranchSnapshot } from '../components/composer/branchChipState'
 import {
   reanchorDiffRequirementItem,
@@ -43,6 +52,7 @@ import {
   addTileColumnMajor,
   columnsContain,
   removeTileFromColumns,
+  rightPanelColumnsForAgent,
   type RightPanelColumns
 } from '../lib/rightPanelLayout'
 import {
@@ -243,6 +253,9 @@ function resetGitReview(
 }
 
 export interface ChatState {
+  agentKind: import('../../../../../shared/agent-kind').AgentKind
+  agentKindLocked: boolean
+  agentPanelInitialized: boolean
   sessionId: string | null
   // 사이드바 메타 (또는 LoadedSession.title) 에서 즉시 채워지는 세션 제목. 사용자가
   // 세션을 클릭한 순간부터 헤더에 표시되며, 메시지 도착 시점에 한 번 더 reconcile.
@@ -343,6 +356,7 @@ export interface ChatState {
   // Composer 모드 버튼이 정하는 이 대화의 권한 모드. send 시 IPC 페이로드로 실린다.
   // 새 대화마다 기본값 'plan' 으로 리셋(initialChatState).
   permissionMode: NormalizedPermissionMode
+  permissionModeError: boolean
   // plan 모드에서 에이전트가 제출한 계획(ExitPlanMode). canUseTool 직렬화로 동시 1개.
   // 승인/수정/거부 시 null. (백엔드 중립 — SDK 를 모름.) 우측 계획 타일의 액션바
   // (승인/수정/거부) 노출 여부 + requestId 의 소스.
@@ -436,6 +450,9 @@ export interface ChatState {
 }
 
 export const initialChatState: ChatState = {
+  agentKind: DEFAULT_AGENT_KIND,
+  agentKindLocked: false,
+  agentPanelInitialized: false,
   sessionId: null,
   title: null,
   pendingProjectId: null,
@@ -469,7 +486,8 @@ export const initialChatState: ChatState = {
   worktreePrepareStep: null,
   worktree: null,
   pendingAsks: [],
-  permissionMode: DEFAULT_PERMISSION_MODE,
+  permissionMode: coercePermissionMode(DEFAULT_PERMISSION_MODE, null, DEFAULT_AGENT_KIND),
+  permissionModeError: false,
   pendingPlanReview: null,
   rightPanelTiles: [],
   rightPanelTileLabels: {},
@@ -546,6 +564,7 @@ export type ChatAction =
   // 턴 시작 전이 — user 버블은 붙이지 않는다(버블은 낙관 커밋 또는 echo 커밋이 별도로).
   // 자동 연속 턴(send 없는 턴)도 store 가 활동 이벤트에서 같은 액션으로 전이시킨다.
   | { type: 'BEGIN_TURN' }
+  | { type: 'SET_AGENT_KIND'; kind: import('../../../../../shared/agent-kind').AgentKind }
   // 사용자 메시지 커밋 버블. 턴-시작 send 는 낙관 커밋(clientId=clientRequestId, 0068)으로
   // 즉시 붙고, steer 예약·핸드오프 자동 메시지는 echo 커밋(message.committed)으로 붙는다 —
   // clientId 멱등 가드가 두 경로의 이중 append 를 차단한다.
@@ -588,6 +607,7 @@ export type ChatAction =
   | { type: 'SET_WORKTREE_BASE_REF'; branch: string | null }
   // 참조 경로 칩 추가/제거 — 세션 확정 전에만 유효(리듀서가 가드하지 않고 호출부가 게이트한다).
   | { type: 'ADD_EXTRA_DIR'; dir: string }
+  | { type: 'SYNC_SESSION_EXTRA_DIRS'; sessionId: string; extraDirs: string[] }
   | { type: 'REMOVE_EXTRA_DIR'; dir: string }
   | { type: 'START_LOAD_SESSION'; sessionId: string; title: string | null }
   | { type: 'LOAD_SESSION'; session: LoadedSession }
@@ -596,6 +616,8 @@ export type ChatAction =
   | { type: 'RESOLVE_ASK'; requestId: string }
   // Composer 모드 버튼 선택 (계획 / 편집 수락).
   | { type: 'SET_PERMISSION_MODE'; mode: NormalizedPermissionMode }
+  | { type: 'SET_PERMISSION_MODE_ERROR'; failed: boolean }
+  | { type: 'APPLY_PERMISSION_MODE'; mode: NormalizedPermissionMode }
   // 계획 카드 응답(승인/수정/거부) 후 액션 게이트 제거(타일 내용은 유지).
   | { type: 'RESOLVE_PLAN' }
   // 계획 패널 인라인 코멘트 추가/편집/삭제 + 편집 대상 선택.
@@ -690,9 +712,30 @@ function diffRequirementDraftsEqual(
 
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
+    case 'SET_AGENT_KIND':
+      if (state.agentKindLocked || state.sessionId || state.agentKind === action.kind) return state
+      return {
+        ...state,
+        agentKind: parseAgentKind(action.kind),
+        permissionMode: coercePermissionMode(
+          state.permissionMode,
+          { alias: state.modelAlias ?? '', model: state.modelFamily },
+          action.kind
+        ),
+        permissionModeError: false,
+        rightPanelTiles: rightPanelColumnsForAgent(state.rightPanelTiles, action.kind),
+        rightPanelColWidths: [],
+        rightPanelRowSplits: []
+      }
     case 'BEGIN_TURN':
       return {
         ...state,
+        agentKindLocked: true,
+        agentPanelInitialized: true,
+        rightPanelTiles:
+          RIGHT_PANEL_POLICY[state.agentKind].initialTile && !state.agentPanelInitialized
+            ? activateTile(state, RIGHT_PANEL_POLICY[state.agentKind].initialTile!)
+            : rightPanelColumnsForAgent(state.rightPanelTiles, state.agentKind),
         sendCount: state.sendCount + 1,
         inflight: true,
         // 0119: 이 턴이 쓰는 provider 고정 — 이후 SET_MODEL 이 providerKey 를 바꿔도
@@ -754,6 +797,15 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           // sessionId 발급 시점(claude init) → pendingProjectId 역할 종료(binding 완료). cwd 갱신.
           return {
             ...state,
+            agentKind: ev.patch.agentKind ?? state.agentKind,
+            permissionMode:
+              ev.patch.permissionMode ??
+              (ev.patch.agentKind !== undefined
+                ? permissionModeForAgent(state.permissionMode, ev.patch.agentKind)
+                : state.permissionMode),
+            permissionModeError:
+              ev.patch.permissionMode !== undefined ? false : state.permissionModeError,
+            agentKindLocked: true,
             sessionId: ev.sessionId,
             backend: 'claude',
             cwd: ev.patch.cwd ?? state.cwd,
@@ -795,6 +847,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             })
           }
 
+        case 'response.boundary':
+          return {
+            ...state,
+            messages: appendAssistantPart(state.messages, responseBoundaryPart(ev.boundary))
+          }
+
         case 'message.completed':
           // 스트리밍 델타는 라이브 리프가 보여줬으니, 완성본을 text 파트로 굳힌다.
           // (live.text 클리어는 store 가 담당.)
@@ -822,7 +880,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           }
 
         case 'tool.call.completed': {
-          const messages = appendAssistantPart(state.messages, {
+          let messages = appendAssistantPart(state.messages, {
             type: 'tool_result',
             toolRunId: ev.toolRunId,
             result: ev.result,
@@ -833,6 +891,40 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             // 전까지 비어 보인다(writer 영속과 같은 필드를 실어야 한다).
             ...(ev.structuredOutput !== undefined ? { structuredOutput: ev.structuredOutput } : {})
           })
+          // 게시 성공은 원래 호출 메시지에만 연결한다. 늦은 결과를 마지막 턴으로 추정하지 않는다.
+          const artifact = ev.isError ? undefined : ev.artifact
+          if (artifact) {
+            const owner = messages.findIndex(
+              (message) =>
+                message.role === 'assistant' &&
+                message.parts.some(
+                  (part) => part.type === 'tool_call' && part.toolRunId === ev.toolRunId
+                )
+            )
+            if (
+              owner >= 0 &&
+              !messages[owner].parts.some(
+                (part) =>
+                  part.type === 'artifact' && part.artifact.publicationId === artifact.publicationId
+              )
+            ) {
+              messages = messages.map((message, index) =>
+                index === owner
+                  ? {
+                      ...message,
+                      parts: [
+                        ...message.parts,
+                        {
+                          type: 'artifact' as const,
+                          artifact,
+                          ...(ev.parentToolRunId ? { parentToolRunId: ev.parentToolRunId } : {})
+                        }
+                      ]
+                    }
+                  : message
+              )
+            }
+          }
           // 부모 Task 의 권위 결과 도착 = 중단 대기 종료(확정·watchdog·채널 사망 공통 경로).
           const stoppingTaskIds = withoutId(state.stoppingTaskIds, ev.toolRunId)
           // 라이브 상태 표식들도 같은 자리에서 끝난다(0212) — 정착한 태스크는 일시정지도
@@ -919,7 +1011,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               retry: undefined,
               pendingPlanReview: ev.action.request,
               planContent: ev.action.request.plan,
-              rightPanelTiles: activateTile(state.rightPanelTiles, 'plan')
+              rightPanelTiles: activateTile(state, 'plan')
             }
           }
           // tool_approval — 위험 도구 실행 승인 게이트. approvalId 로 응답을 라우팅한다.
@@ -1074,13 +1166,28 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'SET_WORKTREE_BASE_REF':
       return { ...state, worktreeBaseRef: action.branch }
 
+    case 'SYNC_SESSION_EXTRA_DIRS': {
+      if (
+        state.sessionId !== action.sessionId ||
+        !agentSessionPolicy[state.agentKind].allowDirectoryUpdates
+      )
+        return state
+      const extraDirs = [...new Set([...state.extraDirs, ...action.extraDirs])]
+      return { ...state, extraDirs, extraDirRejection: null }
+    }
+
     case 'ADD_EXTRA_DIR':
       // **루트는 거부하고 사유를 남긴다** (D-019·D-020). 가드 루트로 오르면 0075 격리가
       // 판정할 바깥이 없어지므로 스키마·가드·세션행 3지점이 뒤에서 또 자르지만, 여기서
       // 막지 않으면 칩은 붙고 전송만 `schema_validation_error` 로 죽어 원인이 안 보인다.
       if (isFilesystemRoot(action.dir)) return { ...state, extraDirRejection: 'root' }
-      // 중복·cwd 자기 자신은 조용히 무시한다 — 사용자가 이미 가진 것을 다시 고른 것뿐이다.
-      if (state.extraDirs.includes(action.dir) || action.dir === state.cwd) return state
+      // Work는 직접 선택한 cwd도 컨텍스트에 남긴다. Code의 기존 cwd 제외 정책은 유지한다.
+      if (
+        agentSessionPolicy[state.agentKind].directoryIdentity === 'windows'
+          ? state.extraDirs.some((dir) => directoryIdentity(dir) === directoryIdentity(action.dir))
+          : state.extraDirs.includes(action.dir) || action.dir === state.cwd
+      )
+        return state
       return {
         ...state,
         extraDirs: [...state.extraDirs, action.dir],
@@ -1129,6 +1236,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     // 사이드바에서 과거 대화를 선택했을 때 IPC 응답 (LoadedSession) 으로 state 를 통째로 교체.
     // cwd 는 세션 영속값이 있으면 우선하고, 레거시 세션은 현재 baseline 을 보존한다.
     case 'LOAD_SESSION': {
+      const agentKind = readLegacyAgentKind(action.session.agentKind)
       const messages: Message[] = action.session.messages.map((m) => ({
         role: m.role,
         createdAt: m.createdAt,
@@ -1144,7 +1252,23 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         state.sessionId === action.session.id && state.activityRevision > (activity?.revision ?? 0)
       return {
         ...initialChatState,
+        agentKind,
+        permissionMode: coercePermissionMode(DEFAULT_PERMISSION_MODE, null, agentKind),
+        agentKindLocked: true,
+        agentPanelInitialized: true,
+        rightPanelTiles: rightPanelColumnsForAgent(
+          state.agentPanelInitialized && state.sessionId === action.session.id
+            ? state.rightPanelTiles
+            : RIGHT_PANEL_POLICY[agentKind].initialTile
+              ? activateTile(
+                  { ...state, agentKind, rightPanelTiles: [] },
+                  RIGHT_PANEL_POLICY[agentKind].initialTile!
+                )
+              : [],
+          agentKind
+        ),
         cwd: action.session.cwd ?? state.cwd,
+        extraDirs: action.session.extraDirs ?? [],
         // 0211 — 재시작 뒤에도 이름이 원본으로 복원되는 자리(§10 EP-06 둘째 지점).
         worktree: action.session.worktree ?? null,
         sessionId: action.session.id,
@@ -1218,7 +1342,21 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
 
     case 'SET_PERMISSION_MODE':
-      return { ...state, permissionMode: action.mode }
+      return {
+        ...state,
+        permissionMode: coercePermissionMode(
+          action.mode,
+          { alias: state.modelAlias ?? '', model: state.modelFamily },
+          state.agentKind
+        ),
+        permissionModeError: false
+      }
+
+    case 'APPLY_PERMISSION_MODE':
+      return { ...state, permissionMode: action.mode, permissionModeError: false }
+
+    case 'SET_PERMISSION_MODE_ERROR':
+      return { ...state, permissionModeError: action.failed }
 
     case 'SET_MODEL': {
       if (state.sessionId && state.backend && action.adapter && action.adapter !== state.backend) {
@@ -1231,10 +1369,15 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         providerKey: action.providerKey,
         modelFamily: action.modelFamily,
         modelAlias: action.modelAlias,
-        permissionMode: coerceAutoPermissionMode(state.permissionMode, {
-          alias: action.modelAlias ?? '',
-          model: action.modelFamily
-        })
+        permissionMode: coercePermissionMode(
+          state.permissionMode,
+          {
+            alias: action.modelAlias ?? '',
+            model: action.modelFamily
+          },
+          state.agentKind
+        ),
+        permissionModeError: false
       }
     }
 
@@ -1287,15 +1430,18 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         )
       }
 
-    case 'TOGGLE_RIGHT_PANEL_TILE':
-      return columnsContain(state.rightPanelTiles, action.id)
-        ? removeTile(state, action.id)
-        : { ...state, rightPanelTiles: activateTile(state.rightPanelTiles, action.id) }
+    case 'TOGGLE_RIGHT_PANEL_TILE': {
+      const target = rightPanelTarget(action.id, state.agentKind)
+      if (!target) return state
+      return columnsContain(state.rightPanelTiles, target)
+        ? removeTile(state, target)
+        : { ...state, rightPanelTiles: activateTile(state, target) }
+    }
 
     case 'SET_RIGHT_PANEL_TILE_ACTIVE':
       return action.active
-        ? { ...state, rightPanelTiles: activateTile(state.rightPanelTiles, action.id) }
-        : removeTile(state, action.id)
+        ? { ...state, rightPanelTiles: activateTile(state, action.id) }
+        : removeTile(state, rightPanelTarget(action.id, state.agentKind) ?? action.id)
 
     case 'RENAME_RIGHT_PANEL_TILE': {
       const label = action.label.trim()
@@ -1314,7 +1460,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...removed,
         rightPanelTileLabels: nextLabels,
-        ...(action.id === 'task' ? { selectedTaskKey: null } : {}),
+        ...(['task', 'plan'].includes(action.id) ? { selectedTaskKey: null } : {}),
         ...(action.id === 'subagent' ? { selectedSubagentTaskId: null } : {})
       }
     }
@@ -1381,7 +1527,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...next,
         activeDiffRequirementId: item.id,
         diffRequirementSelectionVersion: state.diffRequirementSelectionVersion + 1,
-        rightPanelTiles: activateTile(state.rightPanelTiles, 'diff'),
+        rightPanelTiles: activateTile(state, 'diff'),
         gitSnapshot: {
           ...next.gitSnapshot,
           expandedFiles: expandedFiles.includes(item.anchor.filePath)
@@ -1542,7 +1688,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         selectedTaskKey: action.key,
         unseenSettledTaskKeys: [],
-        rightPanelTiles: activateTile(state.rightPanelTiles, 'task')
+        rightPanelTiles: activateTile(state, 'task')
       }
 
     // 백그라운드 작업 타일의 선택 — `selectedTaskKey` 를 건드리지 않는다(EP-12).
@@ -1553,7 +1699,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         selectedSubagentTaskId: action.toolRunId,
-        rightPanelTiles: activateTile(state.rightPanelTiles, 'subagent')
+        rightPanelTiles: activateTile(state, 'subagent')
       }
 
     case 'TASK_STOP_REQUESTED': {
@@ -1703,8 +1849,10 @@ function findToolCallPart(
 //
 // **reducer 가 `addTileColumnMajor` 를 직접 부르지 않는다**: 지점이 5곳이라 한 곳만 막으면
 // 나머지로 정지가 뚫리고, 대표 경로 테스트는 그대로 통과한다. 게이트는 여기 하나다.
-function activateTile(cols: RightPanelColumns, id: RightPanelTileId): RightPanelColumns {
-  return isRightPanelTileSuspended(id) ? cols : addTileColumnMajor(cols, id)
+function activateTile(state: ChatState, id: RightPanelTileId): RightPanelColumns {
+  const cols = rightPanelColumnsForAgent(state.rightPanelTiles, state.agentKind)
+  const target = rightPanelTarget(id, state.agentKind)
+  return target ? addTileColumnMajor(cols, target) : cols
 }
 
 function removeTile(state: ChatState, id: RightPanelTileId): ChatState {

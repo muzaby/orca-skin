@@ -6,9 +6,10 @@ import { isRecord } from '../../../../shared/obj'
 import { readJsonFile, writeJsonAtomic } from '../../../infra/config/json-file'
 import { isWithinDir } from '../../../infra/config/paths'
 import { PROVIDER_NAME_RE } from '../../../infra/config/provider-key'
+import { PRODUCT_SLUG } from '../../../../shared/product'
 
 const MANIFEST = 'manifest.json'
-const MARKER = '.orca-builtin.json'
+const MARKER = `.${PRODUCT_SLUG}-builtin.json`
 // skill 디렉토리명 = 안전한 경로 세그먼트만(traversal 방어). provider/MCP 키와 동일 SSOT 제약.
 const SAFE_NAME = PROVIDER_NAME_RE
 

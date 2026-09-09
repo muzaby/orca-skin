@@ -9,6 +9,7 @@ import {
   type SkillInfo
 } from '../../../shared/protocol'
 import { shell } from 'electron'
+import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 import {
   removeOrcaSkillDir,
   writeAuthoredSkill,
@@ -18,13 +19,22 @@ import { skillEnabledKey } from '../../features/extensions/skills/scan'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import type { RouterContext } from '../context'
 
-function findSkill(ctx: RouterContext, sourceId: string, name: string): SkillInfo {
+type SkillsHandlerContext = Pick<
+  RouterContext,
+  'getSkills' | 'settings' | 'deployExtensions' | 'refreshSkills'
+>
+
+function findSkill(
+  ctx: Pick<RouterContext, 'getSkills'>,
+  sourceId: string,
+  name: string
+): SkillInfo {
   const skill = ctx.getSkills().find((s) => s.sourceId === sourceId && s.name === name)
   if (!skill) throw new Error(`스킬을 찾을 수 없습니다: ${sourceId}/${name}`)
   return skill
 }
 
-export function registerSkillsHandlers(ctx: RouterContext): void {
+export function registerSkillsHandlers(ctx: SkillsHandlerContext): void {
   handlePlain(CHANNELS.skillsList, (): SkillInfo[] => ctx.getSkills())
 
   handle(CHANNELS.skillsAuthor, AuthorSkillSchema, 'reject', async (req): Promise<SkillInfo[]> => {
@@ -69,7 +79,7 @@ export function registerSkillsHandlers(ctx: RouterContext): void {
 
   handle(CHANNELS.skillsRemove, SkillTargetSchema, 'reject', async (req): Promise<SkillInfo[]> => {
     const skill = findSkill(ctx, req.sourceId, req.name)
-    if (!skill.canRemove) throw new Error('Orca 스킬만 제거할 수 있습니다.')
+    if (!skill.canRemove) throw new Error(`${PRODUCT_DISPLAY_NAME} 스킬만 제거할 수 있습니다.`)
     await removeOrcaSkillDir(skill.skillDir)
     const current = ctx.settings.getAll()
     const skillEnabled = { ...current.skillEnabled }

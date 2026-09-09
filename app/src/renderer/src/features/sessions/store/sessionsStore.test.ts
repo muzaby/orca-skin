@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SessionListItem } from '../../../../../shared/ipc'
+import { splitNavSections } from '../lib/navSections'
 
 const sessionList = vi.hoisted(() => vi.fn())
 const sessionRename = vi.hoisted(() => vi.fn())
@@ -21,6 +22,7 @@ const { initSessions, sessionsActions, useSessionsStore } = await import('./sess
 
 function session(id: string, title: string, projectId: string | null = null): SessionListItem {
   return {
+    agentKind: 'code',
     id,
     backend: 'claude',
     title,
@@ -71,6 +73,95 @@ describe('sessionsStore single entity source', () => {
     const state = useSessionsStore.getState()
     expect(state.byId.s2.title).toBe('after')
     expect(state.projectSessionIds.p1.map((id) => state.byId[id].title)).toEqual(['after'])
+  })
+
+  it('동일한 최근/프로젝트 응답과 이름 patch는 참조와 구독 결과를 보존한다', async () => {
+    sessionList.mockImplementation(async () => [session('s1', 'one', 'p1')])
+    projectListSessions.mockImplementation(async () => [session('s1', 'one', 'p1')])
+    await initSessions()
+    await sessionsActions.loadProject('p1')
+    const before = useSessionsStore.getState()
+    const notify = vi.fn()
+    const off = useSessionsStore.subscribe(notify)
+    try {
+      await initSessions()
+      await sessionsActions.loadProject('p1')
+      await sessionsActions.rename('s1', 'one')
+      expect(useSessionsStore.getState()).toBe(before)
+      expect(notify).not.toHaveBeenCalled()
+    } finally {
+      off()
+    }
+  })
+
+  it('바뀐 행만 교체하고 같은 ID 순서와 프로젝트 membership은 유지한다', async () => {
+    sessionList.mockResolvedValue([session('s1', 'one'), session('s2', 'two', 'p1')])
+    await initSessions()
+    projectListSessions.mockResolvedValue([session('s2', 'two', 'p1')])
+    await sessionsActions.loadProject('p1')
+    const before = useSessionsStore.getState()
+    sessionList.mockResolvedValue([session('s1', 'changed'), session('s2', 'two', 'p1')])
+    await initSessions()
+    const after = useSessionsStore.getState()
+    expect(after.byId.s1).not.toBe(before.byId.s1)
+    expect(after.byId.s2).toBe(before.byId.s2)
+    expect(after.recentIds).toBe(before.recentIds)
+    expect(after.projectSessionIds).toBe(before.projectSessionIds)
+    const nav = splitNavSections({ ...after, pinnedProjectIds: new Set(['p1']) })
+    expect(nav.recent.map((item) => item.title)).toEqual(['changed'])
+    expect(nav.projectChildren.p1.map((item) => item.title)).toEqual(['two'])
+  })
+
+  it('최근 응답의 순서를 따르고 GC는 프로젝트만 참조하는 행을 보존한다', async () => {
+    sessionList.mockResolvedValue([session('old', 'old'), session('s1', 'one')])
+    await initSessions()
+    projectListSessions.mockResolvedValue([session('project-only', 'project', 'p1')])
+    await sessionsActions.loadProject('p1')
+    const projectOnly = useSessionsStore.getState().byId['project-only']
+    sessionList.mockResolvedValue([session('s2', 'two'), session('s1', 'one')])
+    await initSessions()
+    expect(useSessionsStore.getState().recentIds).toEqual(['s2', 's1'])
+    expect(useSessionsStore.getState().byId.old).toBeUndefined()
+    expect(useSessionsStore.getState().byId['project-only']).toBe(projectOnly)
+    sessionList.mockResolvedValue([])
+    await initSessions()
+    expect(useSessionsStore.getState().recentIds).toEqual([])
+    expect(useSessionsStore.getState().byId).toEqual({ 'project-only': projectOnly })
+  })
+
+  it('GC의 프로젝트 우선 엔티티 순서는 같은 시각에 고정된 대화의 순서를 보존한다', async () => {
+    const recent = { ...session('recent', 'recent'), pinnedAt: 1 }
+    const project = { ...session('project', 'project', 'p1'), pinnedAt: 1 }
+    sessionList.mockResolvedValue([recent, project])
+    await initSessions()
+    projectListSessions.mockResolvedValue([project])
+    await sessionsActions.loadProject('p1')
+    await initSessions()
+    const state = useSessionsStore.getState()
+    expect(
+      splitNavSections({ ...state, pinnedProjectIds: new Set() }).pinned.map((s) => s.id)
+    ).toEqual(['project', 'recent'])
+    await initSessions()
+    expect(useSessionsStore.getState()).toBe(state)
+  })
+
+  it('조회 실패는 reject하면서 최근 목록과 이미 조회한 프로젝트를 보존한다', async () => {
+    sessionList.mockResolvedValue([session('s1', 'one')])
+    projectListSessions.mockResolvedValue([session('s2', 'two', 'p1')])
+    await initSessions()
+    await sessionsActions.loadProject('p1')
+    const before = useSessionsStore.getState()
+    sessionList.mockRejectedValue(new Error('recent unavailable'))
+    projectListSessions.mockRejectedValue(new Error('project unavailable'))
+    await expect(initSessions()).rejects.toThrow('recent unavailable')
+    await expect(sessionsActions.loadProject('p1')).rejects.toThrow('project unavailable')
+    expect(useSessionsStore.getState().byId).toBe(before.byId)
+    expect(useSessionsStore.getState().recentIds).toBe(before.recentIds)
+    expect(useSessionsStore.getState().projectSessionIds).toBe(before.projectSessionIds)
+    expect(useSessionsStore.getState().loading).toBe(false)
+    expect(useSessionsStore.getState().projectSessionIds.p2).toBeUndefined()
+    await expect(sessionsActions.loadProject('p2')).rejects.toThrow('project unavailable')
+    expect(useSessionsStore.getState().projectSessionIds.p2).toEqual([])
   })
 })
 

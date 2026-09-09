@@ -1,5 +1,50 @@
 import { describe, expect, it } from 'vitest'
-import { isHaikuModel, modelIdentity, sameModelIdentity } from './model-identity'
+import { modelIdentity, sameModelIdentity, supportsAutoPermission } from './model-identity'
+
+describe('Claude Code model name variants', () => {
+  it.each([
+    'claudecode-sonnet-5',
+    'claudecode-opus-4.8',
+    'claudecode-opus-4.8[1m]',
+    'claudecode-opus-4-8[1m]'
+  ])('accepts explicit supported version %s without changing identity', (model) => {
+    expect(supportsAutoPermission(model)).toBe(true)
+    expect(modelIdentity({ model, alias: 'claude', oneMillionContext: false })).toBe(model)
+  })
+  it.each([
+    'claudecode-opus-4.5',
+    'claudecode-opus-4-5[1m]',
+    'claudecode-4',
+    'claudecode-4\n8[1m]',
+    'custom-claudecode-sonnet-5',
+    'claudecode-unknown-5',
+    'claudecode-opus4.8extra'
+  ])('excludes unsupported or malformed name %s', (model) =>
+    expect(supportsAutoPermission(model)).toBe(false)
+  )
+})
+
+describe('r6 Claude family and dotted/hyphenated version', () => {
+  for (const family of ['haiku', 'sonnet', 'opus', 'fable']) {
+    it.each(['4.6', '4-6', '5', '4.6[1m]', '4-6-20260909'])(
+      `${family} %s supports auto`,
+      (version) => {
+        expect(supportsAutoPermission(`claude-${family}-${version}`)).toBe(true)
+      }
+    )
+    it.each(['4.5', '4-5', '4', '4.1', '4-20250514'])(`${family} %s excludes auto`, (version) => {
+      expect(supportsAutoPermission(`claude-${family}-${version}`)).toBe(false)
+    })
+  }
+  it.each([
+    'custom-fable-4.6',
+    'claude-unknown-4.6',
+    'claude-fable-4.6-extra',
+    'claude-fable-4.6.1'
+  ])('rejects unconfirmed name %s', (name) => {
+    expect(supportsAutoPermission(name)).toBe(false)
+  })
+})
 
 // 0215 VP-15 (MD-03 ↔ UT) — 식별자·계열 판정의 단일 규칙.
 describe('modelIdentity — 선택 식별자 = SDK 모델 문자열 (AT-09)', () => {
@@ -16,22 +61,5 @@ describe('modelIdentity — 선택 식별자 = SDK 모델 문자열 (AT-09)', ()
   it('model 이 null 이면 bare alias 를 쓴다 — 모델명을 추측하지 않는다', () => {
     expect(modelIdentity({ alias: 'haiku', model: null, oneMillionContext: false })).toBe('haiku')
     expect(modelIdentity({ alias: 'opus', model: null, oneMillionContext: true })).toBe('opus[1m]')
-  })
-})
-
-describe('isHaikuModel — 두 축을 모두 본다 (AT-11 · D-009)', () => {
-  it('alias 축 — 이름에 haiku 가 없어도 haiku 계열이면 참이다', () => {
-    expect(isHaikuModel({ alias: 'haiku', model: 'corp-fast-1' })).toBe(true)
-  })
-
-  it('이름 축 — alias 가 custom 이어도 이름에 haiku 가 있으면 참이다', () => {
-    expect(isHaikuModel({ alias: 'custom', model: 'bedrock/anthropic.claude-HAIKU-4-5' })).toBe(
-      true
-    )
-  })
-
-  it('음성 짝 — 어느 축도 아니면 거짓이다', () => {
-    expect(isHaikuModel({ alias: 'sonnet', model: 'claude-sonnet-4-6' })).toBe(false)
-    expect(isHaikuModel({ alias: 'custom', model: null })).toBe(false)
   })
 })

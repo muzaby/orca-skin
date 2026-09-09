@@ -14,7 +14,6 @@ function preparedConfig(fingerprint = 'fp-1'): PreparedHarnessConfig {
 
 function extensions(revision: number): TurnExtensions {
   return {
-    mcp: {},
     skills: [],
     hooks: { normalized: {} },
     runtimeTools: { revision, servers: new Map() }
@@ -32,6 +31,25 @@ function runtime(revision: number, model: string): AutomaticContinuationRuntime 
 }
 
 describe('chat turn automatic continuation (0158)', () => {
+  it('compares the same fresh profile key used by automatic requests', async () => {
+    const previous = { ...runtime(1, 'opus'), spawnedAgentProfileKey: 'work:1' }
+    const prepare = (key: string | undefined): ReturnType<typeof prepareAutomaticContinuation> =>
+      prepareAutomaticContinuation({
+        runtime: previous,
+        providerKey: 'team-a',
+        modelFamily: 'high',
+        fallbackModel: 'opus',
+        resolveProvider: async () => ({
+          providerKey: 'team-a',
+          model: 'opus',
+          prepared: preparedConfig()
+        }),
+        buildExtensions: () => ({ ...extensions(1), agentProfileKey: key })
+      })
+    expect((await prepare('work:1')).shouldRespawn).toBe(false)
+    expect((await prepare('work:2')).shouldRespawn).toBe(true)
+    expect((await prepare(undefined)).shouldRespawn).toBe(true)
+  })
   it('uses one fresh listen snapshot for both stale detection and the request', async () => {
     const fresh = extensions(2)
     const buildExtensions = vi.fn(() => fresh)
@@ -145,4 +163,30 @@ describe('chat turn automatic continuation — runtime config fingerprint (0188)
 
     expect(result.shouldRespawn).toBe(false)
   })
+})
+
+describe('automatic continuation keeps the selected extra directory scope', () => {
+  it.each([
+    [['C:/old'], false],
+    [['c:\\OLD'], false],
+    [['C:/old', 'C:/new'], true]
+  ] as const)(
+    'compares next directories %j with the channel snapshot',
+    async (extraDirs, changed) => {
+      const prepared = await prepareAutomaticContinuation({
+        runtime: { ...runtime(2, 'opus'), spawnedExtraDirs: ['C:/old'] },
+        providerKey: 'team-a',
+        modelFamily: 'high',
+        fallbackModel: 'opus',
+        extraDirs,
+        resolveProvider: async () => ({
+          providerKey: 'team-a',
+          model: 'opus',
+          prepared: preparedConfig()
+        }),
+        buildExtensions: () => extensions(2)
+      })
+      expect(prepared.shouldRespawn).toBe(changed)
+    }
+  )
 })

@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "checks": 132,
+  "failed": 0,
+  "sourceFiles": 11,
+  "hashMismatches": [],
+  "screens": [
+    "new-landing",
+    "project-landing",
+    "nav-unread",
+    "nav-read"
+  ]
+}

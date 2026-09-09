@@ -14,7 +14,7 @@ function req(): TurnRequest {
     sessionId: 's1',
     text: 'hi',
     cwd: '/w',
-    extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+    extensions: { skills: [], hooks: { normalized: {} } }
   }
 }
 
@@ -191,6 +191,167 @@ function channelLive(): {
 }
 
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
+
+describe('runtime tool channel context', () => {
+  it('isolates concurrent channels and retains the confirmed context through listen', async () => {
+    const channels = [channelLive(), channelLive()]
+    const requests: TurnRequest[] = []
+    const runtimes = channels.map(
+      (channel) =>
+        new SessionRuntime({
+          ...adapter(channel.liveTurn),
+          sendMessage: (request) => {
+            requests.push(request)
+            return channel.liveTurn
+          }
+        })
+    )
+    const running = runtimes.map((runtime) => collect(runtime.send({ ...req(), sessionId: null })))
+    await tick()
+    try {
+      const contexts = requests.map((request) => request.runtimeToolContext!)
+      const results = contexts.map((context) => context.waitForSession(context.getSignal()))
+      runtimes[0].confirmRuntimeToolSession('a')
+      runtimes[1].confirmRuntimeToolSession('b')
+      await expect(Promise.all(results)).resolves.toEqual(['a', 'b'])
+      channels.forEach((channel, i) =>
+        channel.emit({ type: 'telemetry', sessionId: i ? 'b' : 'a' })
+      )
+      await Promise.all(running)
+      const listening = collect(runtimes[0].listen({ ...req(), sessionId: 'a' }))
+      await tick()
+      await expect(contexts[0].waitForSession(contexts[0].getSignal())).resolves.toBe('a')
+      channels[0].emit({ type: 'telemetry', sessionId: 'a' })
+      await listening
+      runtimes[0].teardownChannel()
+      expect(contexts[0].getSignal().aborted).toBe(true)
+      expect(contexts[1].getSignal().aborted).toBe(false)
+    } finally {
+      runtimes.forEach((runtime) => runtime.close())
+      await Promise.all(running)
+    }
+  })
+
+  it('rejects pending session waiters when the provider stream dies', async () => {
+    const channel = channelLive()
+    let captured: TurnRequest | undefined
+    const runtime = new SessionRuntime({
+      ...adapter(channel.liveTurn),
+      sendMessage: (request) => {
+        captured = request
+        return channel.liveTurn
+      }
+    })
+    const running = collect(runtime.send(req()))
+    await tick()
+    const context = captured!.runtimeToolContext!
+    const outcome = context.waitForSession(context.getSignal()).then(
+      () => 'ready',
+      () => 'closed'
+    )
+    channel.liveTurn.close()
+    await running
+    await expect(outcome).resolves.toBe('closed')
+    expect(context.getSignal().aborted).toBe(true)
+    runtime.close()
+  })
+
+  it('rejects waiting publishers when the consumer leaves before confirming the session', async () => {
+    const channel = channelLive()
+    let captured: TurnRequest | undefined
+    const runtime = new SessionRuntime({
+      ...adapter(channel.liveTurn),
+      sendMessage: (request) => {
+        captured = request
+        return channel.liveTurn
+      }
+    })
+    const iterator = runtime.send({ ...req(), sessionId: null })[Symbol.asyncIterator]()
+    const next = iterator.next()
+    await tick()
+    const context = captured!.runtimeToolContext!
+    const signal = context.getSignal()
+    const ready = context.waitForSession(signal)
+    const outcome = ready.then(
+      () => 'confirmed',
+      () => 'cancelled'
+    )
+    channel.emit({ type: 'session.updated', sessionId: 's1', patch: {} })
+    await next
+    await iterator.return?.()
+    try {
+      expect(signal.aborted).toBe(true)
+      await expect(outcome).resolves.toBe('cancelled')
+    } finally {
+      runtime.close()
+      await outcome
+    }
+  })
+
+  it('waits for persisted session confirmation, keeps warm scope, and rotates cancellation on interrupt', async () => {
+    const channel = channelLive()
+    let captured: TurnRequest | undefined
+    const runtime = new SessionRuntime({
+      ...adapter(channel.liveTurn),
+      sendMessage: (request) => {
+        captured = request
+        return channel.liveTurn
+      }
+    })
+    const first = collect(runtime.send({ ...req(), sessionId: null, extraDirs: ['/shared'] }))
+    await tick()
+    try {
+      expect(captured?.runtimeToolContext).toBeDefined()
+      const context = captured!.runtimeToolContext!
+      const signal = context.getSignal()
+      let confirmed = false
+      const ready = context.waitForSession(signal).then((id) => {
+        confirmed = true
+        return id
+      })
+      await tick()
+      expect(confirmed).toBe(false)
+      runtime.confirmRuntimeToolSession('s1')
+      await expect(ready).resolves.toBe('s1')
+      expect(context.cwd).toBe('/w')
+      expect(context.extraDirs).toEqual(['/shared'])
+      channel.emit({ type: 'telemetry', sessionId: 's1' })
+      await first
+      const warm = collect(runtime.send(req()))
+      await tick()
+      expect(context.getSignal()).toBe(signal)
+      runtime.markAborted('user_cancelled')
+      await warm
+      expect(signal.aborted).toBe(true)
+      const nextSignal = context.getSignal()
+      expect(nextSignal).not.toBe(signal)
+      expect(nextSignal.aborted).toBe(false)
+      await expect(context.waitForSession(nextSignal)).resolves.toBe('s1')
+      runtime.close()
+      expect(nextSignal.aborted).toBe(true)
+      await expect(context.waitForSession(context.getSignal())).rejects.toThrow()
+    } finally {
+      runtime.close()
+      await first
+    }
+  })
+
+  it('cancels an unconfirmed context when spawn throws without leaking it into the next channel', async () => {
+    let captured: TurnRequest | undefined
+    const runtime = new SessionRuntime({
+      ...adapter(live([])),
+      sendMessage: (request) => {
+        captured = request
+        throw new Error('spawn failed')
+      }
+    })
+    await expect(collect(runtime.send(req()))).rejects.toThrow('spawn failed')
+    expect(captured?.runtimeToolContext).toBeDefined()
+    const context = captured!.runtimeToolContext!
+    expect(context.getSignal().aborted).toBe(true)
+    await expect(context.waitForSession(context.getSignal())).rejects.toThrow()
+  })
+})
 
 describe('SessionRuntime 장수명 채널(0067)', () => {
   it('terminal 에서 프레임만 닫고 채널(live)은 유지한다', async () => {
@@ -1245,7 +1406,11 @@ describe('SessionRuntime runtime tool revision (0158)', () => {
     })
     const withRevision = (revision: number): TurnRequest => ({
       ...req(),
-      extensions: { ...req().extensions, runtimeTools: { revision, servers: new Map() } }
+      extensions: {
+        ...req().extensions,
+        agentProfileKey: `work:${revision}`,
+        runtimeTools: { revision, servers: new Map() }
+      }
     })
     const recorded = runtime as unknown as { spawnedRuntimeToolsRevision?: number }
 
@@ -1253,14 +1418,17 @@ describe('SessionRuntime runtime tool revision (0158)', () => {
     first.emit({ type: 'telemetry', sessionId: 's1' })
     await firstAttempt
     expect(recorded.spawnedRuntimeToolsRevision).toBe(3)
+    expect(runtime.spawnedAgentProfileKey).toBe('work:3')
 
     runtime.teardownChannel()
     expect(recorded.spawnedRuntimeToolsRevision).toBeUndefined()
+    expect(runtime.spawnedAgentProfileKey).toBeUndefined()
 
     const secondAttempt = collect(runtime.send(withRevision(4)))
     second.liveTurn.close()
     await secondAttempt
     expect(recorded.spawnedRuntimeToolsRevision).toBeUndefined()
+    expect(runtime.spawnedAgentProfileKey).toBeUndefined()
   })
 
   it('uses the fresh automatic-continuation snapshot for both stale detection and respawn request', async () => {
@@ -1400,6 +1568,28 @@ describe('SessionRuntime — live 전달 홉 (0212 §10 EP-14)', () => {
     await done()
   })
 
+  it('r4 permission update fails when no channel exists', async () => {
+    const { turn, spy } = spiedLive(true)
+    const runtime = new SessionRuntime(adapter(turn))
+    await expect(runtime.setPermissionMode('default')).rejects.toThrow('No live channel')
+    expect(spy.setPermissionMode).not.toHaveBeenCalled()
+  })
+
+  it('r4 an old raw channel reply does not succeed after retirement', async () => {
+    const { runtime, spy, done } = await runtimeWithLive()
+    let finish!: () => void
+    spy.setPermissionMode.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finish = resolve
+      })
+    )
+    const update = runtime.setPermissionMode('default')
+    runtime.teardownChannel()
+    finish()
+    await expect(update).rejects.toThrow('Live channel changed')
+    await done()
+  })
+
   it('setModel·setPermissionMode 도 받은 값을 그대로 넘긴다 — 같은 형상의 형제 홉이다', async () => {
     const { runtime, spy, done } = await runtimeWithLive()
 
@@ -1411,5 +1601,39 @@ describe('SessionRuntime — live 전달 홉 (0212 §10 EP-14)', () => {
     expect(spy.setModel.mock.calls).toEqual([['opus'], ['sonnet']])
     expect(spy.setPermissionMode.mock.calls).toEqual([['plan'], ['acceptEdits']])
     await done()
+  })
+})
+
+describe('SessionRuntime extra directory scope snapshot', () => {
+  it('uses the same new scope for the adapter request and host tool context after respawn', async () => {
+    const first = channelLive()
+    const second = channelLive()
+    const sent: TurnRequest[] = []
+    const runtime = new SessionRuntime({
+      id: 'claude',
+      complete: async () => '',
+      sendMessage: (request) => {
+        sent.push(request)
+        return sent.length === 1 ? first.liveTurn : second.liveTurn
+      },
+      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+    })
+    const firstAttempt = collect(runtime.send({ ...req(), extraDirs: ['C:/old'] }))
+    first.emit({ type: 'telemetry', sessionId: 's1' })
+    await firstAttempt
+    expect(runtime.spawnedExtraDirs).toEqual(['C:/old'])
+    expect(sent[0].runtimeToolContext?.extraDirs).toEqual(sent[0].extraDirs)
+    runtime.teardownChannel()
+    expect(runtime.spawnedExtraDirs).toBeUndefined()
+    const next = ['C:/old', 'C:/new']
+    const secondAttempt = collect(runtime.send({ ...req(), extraDirs: next }))
+    second.emit({ type: 'telemetry', sessionId: 's1' })
+    await secondAttempt
+    expect(sent[1].extraDirs).toEqual(next)
+    expect(sent[1].runtimeToolContext?.extraDirs).toEqual(next)
+    expect(runtime.spawnedExtraDirs).toEqual(next)
+    next.push('C:/uncommitted')
+    expect(runtime.spawnedExtraDirs).toEqual(['C:/old', 'C:/new'])
+    runtime.close()
   })
 })

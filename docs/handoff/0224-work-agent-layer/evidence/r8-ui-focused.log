@@ -1,0 +1,19 @@
+COMMAND
+cd app
+npx.cmd vitest run src/renderer/src/features/chat/components/ChatTitleBar.render.test.ts src/renderer/src/features/chat/lib/agentPresentation.r8.test.ts src/renderer/src/features/chat/lib/rightPanelTiles.test.ts src/renderer/src/features/chat/lib/rightPanelLayout.test.ts src/renderer/src/features/chat/components/transcript/WorkActivity.render.test.ts src/renderer/src/features/chat/components/transcript/TranscriptView.workResults.test.ts src/renderer/src/features/chat/components/ChatTile.workLifetime.test.ts src/renderer/src/features/chat/components/rightpanel/rightPanelTiles.render.test.ts src/renderer/src/features/chat/components/rightpanel/TaskPanelContent.r5.test.ts src/renderer/src/features/chat/components/rightpanel/workTaskDetail.ack.test.ts --reporter=dot
+
+RESULT
+exit_code=0
+Test Files  10 passed (10)
+Tests       56 passed (56)
+Duration    40.17s
+
+FOLLOW-UP COMMAND
+cd app
+npx.cmd vitest run src/renderer/src/features/chat/components/transcript/WorkActivity.interaction.test.ts src/renderer/src/features/chat/components/transcript/WorkActivity.questionIpc.test.ts --reporter=dot
+
+FOLLOW-UP RESULT
+exit_code=0
+Test Files  2 passed (2)
+Tests       2 passed (2)
+Duration    12.92s

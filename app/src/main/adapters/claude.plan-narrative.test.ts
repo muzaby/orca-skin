@@ -52,7 +52,7 @@ async function drive(narrative: string | null): Promise<PermissionAction[]> {
     sessionId: 's1',
     text: 'hello',
     cwd: '/tmp',
-    extensions: { mcp: {}, skills: [], hooks: { normalized: {} } },
+    extensions: { skills: [], hooks: { normalized: {} } },
     requestApproval
   }
   const live = new ClaudeAdapter().sendMessage(req)

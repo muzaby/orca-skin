@@ -1,0 +1,272 @@
+{
+  "manifest": {
+    "scope": "Actual Work Exchange/ToolCard plus actual useScrollAnchor, synthetic messages, production CSS; excludes virtualizer, IPC/SDK, whole app navigation and paint/FPS",
+    "hashes": {
+      "renderer/src/features/chat/components/transcript/Exchange.tsx": "a3c8b550168f76d476fb583dfa43a5619e123eb540562c7c09956d812c08c66d",
+      "renderer/src/features/chat/components/transcript/WorkActivity.tsx": "861e8bde68efec5c19469c29defb39b97d63b8dd4fa88d96c9794b53bedde7a2",
+      "renderer/src/features/chat/components/transcript/AssistantTurn.tsx": "aeaefa21b3b079f88c74156b4fd3710a624539a5d7ef712da6e6342187ed2a61",
+      "renderer/src/features/chat/hooks/useScrollAnchor.ts": "054a7bdb2695804b9ee04c88a07178b8910acec500ea5802acc2a9840337220f",
+      "renderer/src/features/chat/lib/workActivity.ts": "8def27a4ce01bc835a84b56c87e0ced8da3887e38455a07f1433a2e30fa7caf3",
+      "renderer/src/features/chat/lib/workToolResults.ts": "08a1400d60fbdeb3448f277bdeeb8e40bc6ae5574e1e8f244744c488f9e7eba4"
+    },
+    "react": "19.2.8",
+    "electron": "39.8.10"
+  },
+  "startedAt": "2026-09-08T10:02:16.768Z",
+  "success": true,
+  "errors": [],
+  "result": {
+    "initial": {
+      "scrollTop": 3409.60009765625,
+      "anchorTop": 80.17500305175781,
+      "gapToBottom": 1020.39990234375
+    },
+    "samples": [
+      {
+        "stage": "opened",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-0",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-1",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-2",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-3",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-4",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-5",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-6",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-7",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-8",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-9",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-10",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-11",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-12",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-13",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-14",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-15",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-16",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-17",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-18",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "tail-19",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      },
+      {
+        "stage": "late-original-result",
+        "disclosureOpen": true,
+        "toolOpen": true,
+        "activityDomPreserved": true,
+        "toolDomPreserved": true,
+        "historicalDomPreserved": true,
+        "conclusionDomPreserved": true,
+        "scrollTop": 3409.60009765625,
+        "anchorTop": 80.17500305175781
+      }
+    ],
+    "lateResultVisible": true,
+    "rootUnmounted": true
+  },
+  "finishedAt": "2026-09-08T10:02:20.058Z"
+}

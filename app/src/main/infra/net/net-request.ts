@@ -12,16 +12,16 @@
 //
 // `net.request` 는 그 이벤트를 준다. 따라가지 않고 **이벤트 인자로 3xx 를 재구성**해 돌려준다.
 //
-// ── 이 파일을 테스트가 import 하지 않는다 (P29) ──────────────────────────────
-// `vitest.config.ts` 에 electron alias 가 없어 electron 을 무는 모듈은 테스트에서 즉시 죽는다.
-// 판정·변환은 전부 `net-response.ts`(순수)에 있고 여기는 이벤트 배선만 한다.
+// 판정·변환은 `net-response.ts`(순수), 요청 수명과 수신 상한은 이 파일이 소유한다.
+// 테스트는 Electron 이벤트 emitter를 대체해 실제 요청·응답 배선을 실행한다.
 //
 // ── 호출 시점 ────────────────────────────────────────────────────────────────
 // `net.request` 는 **app ready 이후**에만 동작한다. 여기 export 는 함수이므로 모듈 로드 시점에는
 // 아무것도 하지 않는다 — 요청하는 순간에만 `net` 에 닿는다.
 
 import { net, type Session } from 'electron'
-import { redirectFacts, toResponse, type NetResponseFacts } from './net-response'
+import { flattenHeaders, redirectFacts, toResponse, type NetResponseFacts } from './net-response'
+import { ResponseTooLargeError } from './transport'
 
 export interface SendOnceOptions {
   url: string
@@ -32,6 +32,7 @@ export interface SendOnceOptions {
   session?: Session
   credentials?: 'include' | 'omit' | 'same-origin'
   signal?: AbortSignal
+  maxBytes?: number
 }
 
 export interface SendOnceResult {
@@ -59,6 +60,7 @@ export function sendOnce(opts: SendOnceOptions): Promise<SendOnceResult> {
     const finish = (fn: () => void): void => {
       if (settled) return
       settled = true
+      opts.signal?.removeEventListener('abort', onAbort)
       fn()
     }
 
@@ -72,6 +74,8 @@ export function sendOnce(opts: SendOnceOptions): Promise<SendOnceResult> {
         reject(new Error('요청이 취소되었습니다'))
       })
     }
+    // Register before cancellation: even an already-aborted signal can trigger a late error.
+    request.on('error', (error) => finish(() => reject(error)))
     if (opts.signal) {
       if (opts.signal.aborted) return onAbort()
       opts.signal.addEventListener('abort', onAbort, { once: true })
@@ -87,22 +91,40 @@ export function sendOnce(opts: SendOnceOptions): Promise<SendOnceResult> {
 
     request.on('response', (response) => {
       const chunks: Buffer[] = []
-      response.on('data', (chunk: Buffer) => void chunks.push(chunk))
+      let total = 0
+      const rejectOversize = (actual: number): boolean => {
+        if (opts.maxBytes === undefined || !(actual > opts.maxBytes)) return false
+        const error = new ResponseTooLargeError(actual, opts.maxBytes)
+        finish(() => {
+          chunks.length = 0
+          request.abort()
+          reject(error)
+        })
+        return true
+      }
+      // Attach before abort: Chromium can emit an error while cancelling reception.
+      response.on('error', (error: Error) => finish(() => reject(error)))
+      if (settled) return
+      const declared = Number(flattenHeaders(response.headers)['content-length'])
+      if (Number.isFinite(declared) && rejectOversize(declared)) return
+      // Electron requires the end listener before data starts the readable flow.
       response.on('end', () => {
         finish(() =>
           resolve({
             facts: { status: response.statusCode, headers: response.headers },
             // `Buffer` 는 이미 `Uint8Array` 다 — `new Uint8Array(...)` 로 감싸면 본문 전체를
             // 한 번 더 복사한다. 첨부가 수십 MB 인 경로라 그 사본이 그대로 비용이다.
-            body: Buffer.concat(chunks)
+            body: Buffer.concat(chunks, total)
           })
         )
       })
-      response.on('error', (error: Error) => finish(() => reject(error)))
+      response.on('data', (chunk: Buffer) => {
+        if (settled) return
+        total += chunk.byteLength
+        // Reject before retaining the excessive chunk or allocating a merged body.
+        if (!rejectOversize(total)) chunks.push(chunk)
+      })
     })
-
-    // abort() 뒤에도 error 가 뒤늦게 올 수 있다 — settled 가드가 그것을 흡수한다.
-    request.on('error', (error) => finish(() => reject(error)))
 
     if (opts.body !== undefined) request.write(opts.body)
     request.end()

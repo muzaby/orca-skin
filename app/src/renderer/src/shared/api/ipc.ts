@@ -1,3 +1,15 @@
+import type { NormalizedPermissionMode } from '../../../../shared/permission-mode'
+import type {
+  ArtifactRef,
+  ArtifactListRequest,
+  ArtifactTargetRequest,
+  ArtifactStatusRequest,
+  ArtifactStatusItem,
+  ArtifactSaveRequest,
+  ArtifactSaveResult,
+  ArtifactTrashResult,
+  ArtifactActionResult
+} from '../../../../shared/artifacts'
 import type {
   PermissionRespond,
   BootReport,
@@ -32,6 +44,8 @@ import type {
   ReadAttachmentResult,
   InstallStatus,
   LoadedSession,
+  AddSessionDirectoryRequest,
+  AddSessionDirectoryResult,
   McpServer,
   Project,
   SearchHit,
@@ -154,6 +168,8 @@ export const concurrencyApi = {
 }
 
 export const sessionApi = {
+  addDirectory: (request: AddSessionDirectoryRequest): Promise<AddSessionDirectoryResult> =>
+    window.orca.session.addDirectory(request),
   cwd: (): Promise<string> => window.orca.session.cwd(),
   list: (): Promise<SessionListItem[]> => window.orca.session.list(),
   load: (sessionId: string): Promise<LoadedSession | null> => window.orca.session.load(sessionId),
@@ -205,7 +221,8 @@ export const costApi = {
 
 export const permissionApi = {
   respond: (req: PermissionRespond): Promise<void> => window.orca.permission.respond(req),
-  setMode: (req: SetPermissionMode): Promise<void> => window.orca.permission.setMode(req)
+  setMode: (req: SetPermissionMode): Promise<NormalizedPermissionMode | undefined> =>
+    window.orca.permission.setMode(req)
 }
 
 export const updateApi = {
@@ -252,4 +269,16 @@ export const mcpApi = {
 export function getPlatform(): 'darwin' | 'win32' | 'linux' | undefined {
   if (typeof window === 'undefined') return undefined
   return window.orca?.platform
+}
+
+export const artifactApi = {
+  list: (req: ArtifactListRequest): Promise<ArtifactRef[]> => window.orca.artifacts.list(req),
+  status: (req: ArtifactStatusRequest): Promise<ArtifactStatusItem[]> =>
+    window.orca.artifacts.status(req),
+  save: (req: ArtifactSaveRequest): Promise<ArtifactSaveResult> => window.orca.artifacts.save(req),
+  reveal: (req: ArtifactTargetRequest): Promise<ArtifactActionResult> =>
+    window.orca.artifacts.reveal(req),
+  trash: (req: ArtifactTargetRequest): Promise<ArtifactTrashResult> =>
+    window.orca.artifacts.trash(req),
+  openFolder: (): Promise<ArtifactActionResult> => window.orca.artifacts.openFolder()
 }

@@ -8,8 +8,12 @@ import { exchangeEquals, type Exchange as ExchangeGroup } from '../../lib/turns'
 import { PendingSteerTurn } from './PendingSteerTurn'
 import type { ClassifiedError } from '../../../../../../shared/ipc'
 import type { PendingSteerState } from '../../store/chatStore'
+import type { WorkToolResults } from '../../lib/workToolResults'
+import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
 
 interface ExchangeProps {
+  toolResults?: WorkToolResults
+  transcriptPolicy: AgentTranscriptPresentation
   exchange: ExchangeGroup
   // 예약공간(ChatGPT식 앵커) — 라이브 전송으로 생긴 마지막 교환에만 true. min-h-[50cqh]
   // (스크롤 컨테이너 = size container 의 content-box 기준 50%)가 user 버블이 미드라인까지
@@ -29,6 +33,8 @@ interface ExchangeProps {
 
 export const Exchange = memo(
   function Exchange({
+    transcriptPolicy,
+    toolResults,
     exchange,
     reserve,
     pending,
@@ -48,6 +54,8 @@ export const Exchange = memo(
             <UserTurn key={turn.startIndex} turn={turn} />
           ) : (
             <AssistantTurn
+              transcriptPolicy={transcriptPolicy}
+              toolResults={toolResults}
               key={turn.startIndex}
               turn={turn}
               // 진행 중 교환의 마지막 assistant 턴만 메타 숨김(턴 종료 시 노출).
@@ -67,6 +75,8 @@ export const Exchange = memo(
   },
   (prev, next) =>
     prev.reserve === next.reserve &&
+    prev.transcriptPolicy === next.transcriptPolicy &&
+    prev.toolResults === next.toolResults &&
     prev.pending === next.pending &&
     prev.forkable === next.forkable &&
     prev.error === next.error &&

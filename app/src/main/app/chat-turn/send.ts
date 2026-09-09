@@ -15,7 +15,11 @@
 
 import type { IpcMainInvokeEvent, WebContents } from 'electron'
 import { ifPresent } from '../../../shared/obj'
-import { coerceAutoPermissionModeForModelName } from '../../../shared/permission-mode'
+import {
+  coerceAutoPermissionModeForModelName,
+  DEFAULT_PERMISSION_MODE,
+  planApprovedMode
+} from '../../../shared/permission-mode'
 import type { AttachmentView, WorktreeDisplay } from '../../../shared/ipc'
 import type { SteerFlushBatch, TurnRequest } from '../../adapters/turn'
 import type { TurnContext } from '../../contracts/turn'
@@ -27,16 +31,16 @@ import { sendChatEvent } from '../../infra/ipc/send'
 import { prepareAutomaticContinuation } from '../chat-turn-continuation'
 import { admitChatSend, attachmentFailure, foreignPreparingLease, leaseKeyFor } from './admission'
 import { buildTurnContext, resolveTurnCwd } from './turn-context'
-import { resolveTurn } from './resolve-turn'
+import { resolveTurn, resolveTurnProvider } from './resolve-turn'
 import { acquireTurnRuntime } from './runtime-entry'
-import { enqueueTurnPrompt } from './enqueue'
-import { chatForward, resolveTurnProvider } from './turn-setup'
+import { enqueueTurnPrompt, reserveOnBusySession } from './enqueue'
 import { buildTurnRequest } from './turn-request'
 import { createApprovalRequester } from './approval'
 import { runTurnWithContinuations } from './post-turn'
 import type { ChatRuntimeDeps, NormalizedAttachments } from './deps'
 import { makeClassifiedError } from '../../infra/errors'
 import { prepareTurnExecution } from './prepare-worktree'
+import { resolveAgentKind, resolveAgentProfile } from '../../features/agents/profiles'
 
 export async function handleChatSend(
   deps: ChatRuntimeDeps,
@@ -86,7 +90,37 @@ export async function handleChatSend(
 
   // ── 3. lease 획득 · busy 면 예약으로 수용 ──────────────────────────────────
   const { provisionalKey, logicalKey } = leaseKeyFor(payload)
+  // 출생 속성 비교는 lease 획득과 busy 예약보다 앞, 둘 사이 await 없이 끝낸다.
+  const sourceId = payload.sessionId ?? payload.forkFrom ?? payload.handoffFrom
+  const source = sourceId ? ctx.db.getSessionById(sourceId) : undefined
+  if (sourceId && !source) {
+    sendChatEvent(event.sender, {
+      type: 'error',
+      error: makeClassifiedError('schema_validation_error', '계속할 원본 대화를 찾을 수 없습니다.')
+    })
+    return
+  }
+  const existingLease = supervisor.getChainByKey(logicalKey)
+  const identity = resolveAgentKind(
+    payload.agentKind,
+    source ? source.agent_kind : existingLease?.agentKind
+  )
+  if (!identity.ok || (existingLease && existingLease.agentKind !== identity.kind)) {
+    sendChatEvent(event.sender, {
+      type: 'error',
+      ...(payload.sessionId ? { sessionId: payload.sessionId } : {}),
+      error: makeClassifiedError(
+        'schema_validation_error',
+        '대화의 작업 종류가 올바르지 않거나 시작 후 변경되었습니다. 새 대화에서 선택해 주세요.'
+      )
+    })
+    return
+  }
+  const agentKind = identity.kind
+  const profile = resolveAgentProfile(agentKind)
+  const extensionProfile = { agentInstructions: profile.instructions, agentProfileKey: profile.key }
   const acquired = supervisor.acquireChain({
+    agentKind,
     logicalKey,
     sessionId: payload.sessionId,
     owner: event.sender,
@@ -100,7 +134,8 @@ export async function handleChatSend(
       sendChatEvent(event.sender, { type: 'error', error: foreignPreparingLease() })
       return
     }
-    deps.reserveOnBusySession(
+    reserveOnBusySession(
+      { pendingMessages, listenRelease: deps.listenRelease },
       event,
       payload.sessionId ?? provisionalKey,
       payload.sessionId ?? undefined,
@@ -117,13 +152,14 @@ export async function handleChatSend(
   let leaderRuntime: SessionRuntime | null = null
   let cleanupDone = false
   let initialBatches: SteerFlushBatch[] = []
+  let onOwnerGone: (() => void) | null = null
   const abortPreparing = (): void => lease.controller.abort()
   event.sender.once('destroyed', abortPreparing)
   event.sender.once('render-process-gone', abortPreparing)
 
   try {
     // ── 4·5. continuity 검증 + provider·env·메타·텍스트 해석 (resolve-turn.ts) ─
-    const resolution = await resolveTurn(ctx, supervisor, activeAdapter, payload)
+    const resolution = await resolveTurn(ctx, supervisor, activeAdapter, { ...payload, agentKind })
     if (!resolution.ok) {
       sendChatEvent(event.sender, { type: 'error', error: resolution.error })
       return
@@ -188,6 +224,7 @@ export async function handleChatSend(
         // ── 6. TurnContext 조립 ───────────────────────────────────────────
         const controller = lease.controller
         return buildTurnContext<WebContents>({
+          agentKind,
           controller,
           owner: event.sender,
           control: lease.control,
@@ -249,7 +286,11 @@ export async function handleChatSend(
             lease,
             adapter: activeAdapter,
             buildExtensions: () =>
-              ctx.extensions.build(payload.sessionId, payload.sessionId ? null : boundProjectId),
+              ctx.extensions.build(
+                payload.sessionId,
+                payload.sessionId ? null : boundProjectId,
+                extensionProfile
+              ),
             settleDeadBackgroundTasks: deps.settleDeadBackgroundTasks,
             // turn 과 같은 축 — 인출 즉시 공개해야 이 다음 await 가 reject 해도
             // 바깥 finally 가 핸들을 닫는다.
@@ -315,7 +356,7 @@ export async function handleChatSend(
     // 타이머가 아닌 이벤트로 대체한다. 여기는 abortTurn(turn) 이 아니라 runtime 을 직접 mark
     // 한다 — coordinator.run 이 turn.live=runtime 을 세우기 *전* 에 owner 가 사라질 수 있어,
     // 그 창에서도 런타임 상태(cancelled)를 확실히 남긴다.
-    const onOwnerGone = (): void => {
+    onOwnerGone = (): void => {
       runtime.markAborted('user_cancelled')
       controller.abort()
       // 창이 사라지면 in-process 백그라운드 태스크도 함께 죽는다 — 추적을 남기면 그 세션에
@@ -330,12 +371,13 @@ export async function handleChatSend(
       runtime,
       bus,
       persist: persistence,
-      forward: chatForward,
+      forward: { forward: (owner, ev) => sendChatEvent(owner, ev) },
       registry: supervisor,
       classifyError: (err, phase) => activeAdapter.classifyError(err, phase),
       activeTurns: supervisor.activeTurns,
       pendingMessages,
-      backgroundTasks
+      backgroundTasks,
+      persistResponseBoundaries: (kind) => resolveAgentProfile(kind).persistResponseBoundaries
     })
     let activeTurn: TurnContext<WebContents> = turn
     const getActiveTurn = (): TurnContext<WebContents> => activeTurn
@@ -349,18 +391,26 @@ export async function handleChatSend(
       getActiveTurn
     })
 
-    // 지원하지 않는 권한 모드의 **2차 방어**(0215 D-011). renderer 가 alias 축까지 보고 이미
-    // 강등하지만, main 은 SDK 모델 문자열로 한 번 더 자른다 — 보정 없이 `auto` 가 나가면 CLI 는
-    // `accept_edits` 가 아니라 `default` 로 폴백해 사용자가 요구한 것과 다른 모드가 된다.
-    // controller 기록과 TurnRequest 가 **같은 값**을 읽도록 여기서 한 번만 계산한다.
-    const permissionMode = payload.permissionMode
-      ? coerceAutoPermissionModeForModelName(payload.permissionMode, resolved.model)
-      : payload.permissionMode
-
-    // 세션 모드 SSOT 동기화 — resume 경로(sessionId 확정)에서 이번 턴 모드를 controller 에 기록.
-    // 라이브 전환(setMode IPC)과 다음 턴이 같은 출처를 읽도록 한다.
-    if (payload.sessionId && permissionMode) {
-      void permissionModes.setMode(payload.sessionId, permissionMode)
+    // 실제 해소된 모델과 세션 종류에서 요청 여부와 무관하게 실행 권한을 정착한다.
+    const permissionMode = coerceAutoPermissionModeForModelName(
+      payload.permissionMode ?? DEFAULT_PERMISSION_MODE,
+      resolved.model,
+      agentKind
+    )
+    const publishPermissionMode = (sessionId: string): void => {
+      void permissionModes.setMode(sessionId, permissionMode)
+      sendChatEvent(wc, { type: 'session.updated', sessionId, patch: { permissionMode } })
+    }
+    if (payload.sessionId) publishPermissionMode(payload.sessionId)
+    else {
+      const onSessionConfirmed = turn.onSessionConfirmed
+      let permissionPublished = false
+      turn.onSessionConfirmed = (sessionId) => {
+        onSessionConfirmed?.(sessionId)
+        if (permissionPublished) return
+        permissionPublished = true
+        publishPermissionMode(sessionId)
+      }
     }
 
     // ── 11. TurnRequest 조립 ────────────────────────────────────────────────
@@ -397,7 +447,8 @@ export async function handleChatSend(
         ...ifPresent('providerSettings', resolved.prepared.providerSettings),
         ...(resolved.model !== undefined ? { model: resolved.model } : {}),
         requestApproval,
-        ...(permissionMode ? { permissionMode } : {}),
+        permissionMode,
+        planApprovalMode: planApprovedMode(agentKind),
         ...(payload.effort ? { effort: payload.effort } : {}),
         attachmentTexts: mainBatch.attachmentTexts ?? [],
         attachmentImages: mainBatch.attachmentImages ?? [],
@@ -417,12 +468,13 @@ export async function handleChatSend(
           pendingMessages,
           backgroundTasks,
           listenRelease: deps.listenRelease,
-          prepareContinuation: (sessionId) =>
-            prepareAutomaticContinuation({
+          prepareContinuation: async (sessionId) => {
+            const prepared = await prepareAutomaticContinuation({
               runtime,
               providerKey: getActiveTurn().providerKey,
               modelFamily: payload.modelFamily ?? null,
               fallbackModel: request.model,
+              extraDirs: getActiveTurn().extraDirs,
               resolveProvider: ({ providerKey, modelFamily }) =>
                 resolveTurnProvider(ctx, {
                   adapter: activeAdapter,
@@ -430,8 +482,24 @@ export async function handleChatSend(
                   providerKey,
                   modelFamily
                 }),
-              buildExtensions: () => ctx.extensions.build(sessionId, null)
-            }),
+              buildExtensions: () => ctx.extensions.build(sessionId, null, extensionProfile)
+            })
+            const selected = permissionModes.getCurrentMode(sessionId)
+            const settled = coerceAutoPermissionModeForModelName(
+              selected,
+              prepared.model,
+              agentKind
+            )
+            if (settled !== selected) {
+              void permissionModes.setMode(sessionId, settled)
+              sendChatEvent(wc, {
+                type: 'session.updated',
+                sessionId,
+                patch: { permissionMode: settled }
+              })
+            }
+            return { ...prepared, permissionMode: settled }
+          },
           settleDeadBackgroundTasks: deps.settleDeadBackgroundTasks,
           stopAndSettleAbortedTasks: deps.stopAndSettleAbortedTasks,
           getActiveTurn,
@@ -447,8 +515,6 @@ export async function handleChatSend(
         boundProjectId
       )
     } finally {
-      wc.removeListener('destroyed', onOwnerGone)
-      wc.removeListener('render-process-gone', onOwnerGone)
       const finalSessionId = activeTurn.dbSessionId ?? turn.dbSessionId
       // 제출 수용 전 예외가 재시도 한도를 소진한 경우에만 submitting 예약을 held 로 복구한다.
       // 이미 submitted/confirmed/orphaned 인 배치는 rollback fence 가 거부하므로 이중 전달되지 않는다.
@@ -468,6 +534,11 @@ export async function handleChatSend(
       error: activeAdapter.classifyError(err, 'prepareTurn')
     })
   } finally {
+    // 등록 뒤 요청 조립이 실패해 실행 try에 못 들어가도 체인 스코프에서 회수한다.
+    if (onOwnerGone) {
+      event.sender.removeListener('destroyed', onOwnerGone)
+      event.sender.removeListener('render-process-gone', onOwnerGone)
+    }
     event.sender.removeListener('destroyed', abortPreparing)
     event.sender.removeListener('render-process-gone', abortPreparing)
     if (!cleanupDone) {

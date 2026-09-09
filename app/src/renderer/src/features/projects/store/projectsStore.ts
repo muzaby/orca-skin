@@ -58,10 +58,6 @@ export const projectsActions = {
   setPinned
 }
 
-export function subscribeProjects(): () => void {
-  return () => undefined
-}
-
 export function useProjectsState<T>(selector: (s: ProjectsStoreState) => T): T {
   return useProjectsStore(selector)
 }

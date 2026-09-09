@@ -3,6 +3,7 @@
 // features/{chat,history,approvals,sessions,usage} 참조 (handoff 0062 수직 슬라이스 재구성).
 
 import { app, shell, webContents } from 'electron'
+import type { IpcMainInvokeEvent } from 'electron'
 import { mkdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -13,6 +14,7 @@ import {
   type SkillInfo
 } from '../../shared/ipc'
 import type { RestartGateState } from '../../shared/update-restart'
+import { parseAgentKind } from '../../shared/agent-kind'
 import type { TurnContext } from '../contracts/turn'
 import { AdapterRegistry } from '../adapters/registry'
 import { MockAdapter } from '../adapters/mock'
@@ -38,7 +40,11 @@ import { netFetch } from '../infra/net/net-fetch'
 import { loadClaudeProviderSettings, readUserClaudeSettings } from '../adapters/claude-settings'
 import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/scan'
 import { seedBuiltinSkills } from '../features/extensions/skills/seed'
-import { initDb } from '../infra/db'
+import type { MigrationReport } from '../infra/config/migrate-legacy'
+import { migrationBlocksBoot } from '../infra/config/migrate-legacy'
+import { rebaseStoredPaths, repairMovedWorktrees } from './legacy-paths'
+import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../shared/product'
+import { getDbConnection, initDb } from '../infra/db'
 import { getLogger, setLogDebug } from '../infra/log'
 import { UsageTracker } from '../features/usage/tracker'
 import { registerUsageJobs } from '../features/usage/jobs'
@@ -55,6 +61,9 @@ import { registerMiscHandlers } from './handlers/misc'
 import { registerSettingsHandlers } from './handlers/settings'
 import { registerSkillsHandlers } from './handlers/skills'
 import { registerFilesHandlers } from './handlers/files'
+import { registerArtifactHandlers } from './handlers/artifacts'
+import { ArtifactService } from '../features/artifacts/service'
+import { createArtifactToolServer } from '../features/artifacts/tool'
 import { registerGitHandlers } from './handlers/git'
 import { registerCostHandlers } from './handlers/cost'
 import { registerBootHandlers } from './handlers/boot'
@@ -111,9 +120,9 @@ import { ActiveTurnTracker } from '../features/sessions/active-turn-tracker'
 import { TypedBus } from '../infra/bus'
 import type { MainBus, OrcaBusEvents } from '../contracts/bus-events'
 import { settleOpenToolRuns } from '../features/chat/settle'
-import { recordTurnUsage } from '../features/usage/subscriber'
 import { ApprovalCoordinator } from '../features/approvals/coordinator'
 import { HistoryWriter } from '../features/history/writer'
+import { resolveAgentProfile } from '../features/agents/profiles'
 import { materializeContinuityArrival } from '../features/orchestration/fork'
 import { TitleGenerator } from '../features/chat/title-generation'
 import { recoverSessionHistory } from '../features/chat/recovery'
@@ -154,11 +163,24 @@ export class Bootstrap {
   private bus?: MainBus<Electron.WebContents>
   private activeDbWriteCount = 0
   private isIndexing = false
+  private artifacts?: ArtifactService
   private updates: UpdateController | null = null
   private scheduler?: Scheduler
   // 0151 — 종료 시 admission freeze + payload 스크럽을 위해 루트가 참조를 보관한다.
   private pendingMessages?: PendingMessageQueue
   private activity?: SessionActivityProjector
+  private titles?: TitleGenerator
+
+  constructor(
+    private readonly isTrustedArtifactSender: (event: IpcMainInvokeEvent) => boolean,
+    // `main/index.ts` 모듈 스코프의 이관 결과(0225). DB 를 열기 전에 등급을 확인한다.
+    private readonly legacyMigration: MigrationReport = {
+      moved: [],
+      conflicts: [],
+      failed: [],
+      configRoots: { legacy: '', current: '' }
+    }
+  ) {}
 
   private builtinSkillsDir(): string {
     return resolveBuiltinSkillsDir({
@@ -172,7 +194,7 @@ export class Bootstrap {
     return [
       {
         sourceId: 'orca',
-        sourceLabel: 'Orca 스킬',
+        sourceLabel: `${PRODUCT_DISPLAY_NAME} 스킬`,
         sourceKind: 'orca',
         rootDir: sourcesSkillsDir()
       },
@@ -217,8 +239,8 @@ export class Bootstrap {
     })
   }
 
-  private async deployExtensions(): Promise<void> {
-    await this.deployment?.deployNow()
+  private async deployExtensions(options?: { throwOnFailure?: boolean }): Promise<void> {
+    await this.deployment?.deployNow(options)
   }
 
   private async ensureExtensionsDeployedForTurn(): Promise<void> {
@@ -322,6 +344,22 @@ export class Bootstrap {
   }
 
   async start(): Promise<void> {
+    // ── 0225 이관 등급 확인: **DB·store 를 열기 전에** ────────────────────────────
+    // DB 3종(`*.db`·`-wal`·`-shm`) 이동 실패만 여기서 부팅을 막는다(D-018). WAL 만 남고 DB 가
+    // 옮겨진 상태로 DB 를 열면 WAL 꼬리가 조용히 유실되기 때문이다. 나머지 실패는
+    // `index.ts` 가 이미 경고로 남겼고 다음 부팅이 멱등하게 재시도한다(D-017).
+    this.bootReport.stepSync(
+      'legacy-migration',
+      { critical: true, label: '데이터 이관 확인' },
+      () => {
+        if (!migrationBlocksBoot(this.legacyMigration)) return
+        const detail = this.legacyMigration.failed
+          .filter((failure) => failure.critical)
+          .map((failure) => `${failure.from} → ${failure.to}: ${failure.message}`)
+          .join('; ')
+        throw new Error(`데이터 이관에 실패했습니다 — 앱을 다시 실행해 주세요. ${detail}`)
+      }
+    )
     const secretStore = new SecretStore()
     // 0181 — 런타임 도구 기여자는 `Provider{kind:'service'}.tools` 다.
     const runtimeTools = new RuntimeToolRegistry()
@@ -432,6 +470,30 @@ export class Bootstrap {
         }
       })
     )
+    // 저장된 절대경로를 새 설정 루트로 다시 적고, 옮겨진 워크트리의 git 링크를 고친다(0225).
+    // **핸들러 등록 이전**이다 — 세션 재개가 옛 경로를 보기 전에, 그리고 다음 `worktree add` 의
+    // 자동 prune 이 워크트리를 파괴하기 전에 끝나야 한다.
+    await this.bootReport.step(
+      'legacy-paths',
+      { critical: false, label: '저장 경로 이관' },
+      async () => {
+        const connection = getDbConnection()
+        const { legacy, current } = this.legacyMigration.configRoots
+        if (!connection || legacy === '' || current === '') return
+        const report = await repairMovedWorktrees(rebaseStoredPaths(connection, legacy, current))
+        const log = getLogger().child('boot')
+        if (report.repairTargets.length > 0 || report.repairFailed.length > 0) {
+          log.info('legacy.paths.rebased', {
+            ...report.counts,
+            repaired: report.repaired.length,
+            repairFailed: report.repairFailed.length
+          })
+        }
+        for (const failure of report.repairFailed) {
+          log.warn('legacy.worktree.repair.failed', failure)
+        }
+      }
+    )
     const recovered = this.bootReport.stepSync(
       'chat-recovery',
       { critical: true, label: '미완료 도구 호출 복구' },
@@ -449,15 +511,7 @@ export class Bootstrap {
     // 으로 나가는 값은 사용자가 직접 적은 것만 남는다(0028 결정 유지).
     const harnessSettings = new HarnessSettingsService({ claude: loadClaudeProviderSettings })
     const harnessRuntime = createHarnessRuntimeConfigService({
-      settings: {
-        resolve: (entry) =>
-          harnessSettings.resolve({
-            ...entry,
-            // 열거 캐시가 이미 들고 있는 모델 목록을 다시 만들지 않는다 — runtime config 는
-            // 모델 목록을 쓰지 않으므로 빈 배열로 충분하다.
-            models: []
-          })
-      },
+      settings: harnessSettings,
       augmenters: createRuntimeConfigAugmenters({
         auth,
         // **배포가 선언한 AuthId 에 대해서만 닫힌 closure 를 만든다** — selector 를 넘기면
@@ -501,7 +555,7 @@ export class Bootstrap {
     // 사용량 delta 송출 배선 — domain(UsageTracker)은 electron 비의존, 송출은 여기(컴포지션 루트)서.
     // 0186 — 전체 provider map 이 아니라 **변경된 scope 만** 나간다.
     const cost = new UsageTracker(
-      db,
+      db.usage,
       (delta) => {
         for (const wc of webContents.getAllWebContents()) {
           if (!wc.isDestroyed()) wc.send(CHANNELS.costUsageEvent, delta)
@@ -564,7 +618,6 @@ export class Bootstrap {
 
     const extensions = new ExtensionBuilder(
       db,
-      this.mcp,
       () => this.skillsCache,
       () => this.settings.getAll(),
       app.getVersion(),
@@ -590,14 +643,18 @@ export class Bootstrap {
     // 어느 단계 실패도 부팅을 막지 않는다(채팅/세션 기능은 독립).
     await this.bootReport.step(
       'config-dir',
-      { critical: false, label: 'Orca 설정 디렉터리 보장' },
+      { critical: false, label: `${PRODUCT_DISPLAY_NAME} 설정 디렉터리 보장` },
       () => ensureConfigDir()
     )
-    this.bootReport.stepSync('orca-config', { critical: false, label: 'orca.json 로드' }, () => {
-      const cfg = loadOrcaConfig()
-      // orca.json "debug":true 면 prod 파일 레벨을 info→debug 로 올린다(0144). dev 는 항상 debug.
-      setLogDebug(cfg.debug === true)
-    })
+    this.bootReport.stepSync(
+      'orca-config',
+      { critical: false, label: `${PRODUCT_SLUG}.json 로드` },
+      () => {
+        const cfg = loadOrcaConfig()
+        // `"debug":true` 면 prod 파일 레벨을 info→debug 로 올린다(0144). dev 는 항상 debug.
+        setLogDebug(cfg.debug === true)
+      }
+    )
     await this.bootReport.step(
       'builtin-skill-seed',
       { critical: false, label: '기본 스킬 seed' },
@@ -623,7 +680,7 @@ export class Bootstrap {
         for (const path of s.created) scaffoldLog.debug('providers.scaffold.created', { path })
       }
     )
-    // dist/claude/plugins/orca 렌더를 boot 1회 수행한다. CRUD 는 즉시 재배포, 턴 진입은
+    // dist/claude/plugins/orcinus-orca 렌더를 boot 1회 수행한다. CRUD 는 즉시 재배포, 턴 진입은
     // ensureDeployed 로 실패/dirty 상태를 한 번 더 보장한다.
     this.deployment = this.createDeploymentService()
     await this.bootReport.step('extension-deploy', { critical: false, label: '확장 배포' }, () =>
@@ -674,7 +731,7 @@ export class Bootstrap {
       harnessSettings,
       getSkills: () => this.skillsCache,
       refreshSkills: () => this.refreshSkills(),
-      deployExtensions: () => this.deployExtensions(),
+      deployExtensions: (options) => this.deployExtensions(options),
       ensureExtensionsDeployedForTurn: () => this.ensureExtensionsDeployedForTurn(),
       getCwd: (projectId) => getWorkspacePath(projectId ? db.getProject(projectId) : null),
       getBootReport: () => this.bootReport.getReport(),
@@ -683,8 +740,6 @@ export class Bootstrap {
       updates: this.createUpdateController(),
       scheduler,
       runtimeTools,
-      auth,
-      gate,
       harnessRuntime,
       runtimeModelCatalog
     }
@@ -739,6 +794,8 @@ export class Bootstrap {
     // admission freeze 를 **가장 먼저**(0151 AC9) — 이후 send/steer 예약을 거부해, 종료 중
     // 게이트 flush·자동 연속 턴이 큐 폐기와 경합하며 메시지를 뒤늦게 제출하는 것을 막는다.
     this.pendingMessages?.freeze()
+    void this.artifacts?.close()
+    this.titles?.dispose()
     this.scheduler?.stopAll()
     if (!this.supervisor || !this.bus) {
       // 조기 반환 경로에서도 미커밋 payload 는 반드시 스크럽한다.
@@ -771,34 +828,27 @@ export class Bootstrap {
     this.activity?.dispose()
   }
 
-  private register(ctx: RouterContext): void {
-    // chat 턴 파이프라인 조립 — 레지스트리(세션 키잉) · persist · 제목 생성 · 승인 조정.
-    const supervisor = (this.supervisor = new RuntimeSupervisor<Electron.WebContents>({
-      activeTurns: new ActiveTurnTracker((projectId, count) => {
-        broadcastConcurrency({ projectId, count })
-        this.updateStateChanged()
-      }),
-      // 0067: 장수명 채널 거버넌스 — 동시 생존 런타임 cap 5(사용자 확정), 초과 시 idle LRU 축출.
-      // 세션 수명 = 프로그램 종료(shutdown→closeIdleRuntimes) or 이 축출뿐(IdleCloseTimer 폐기).
-      capPolicy: new BoundedRuntimeCapPolicy(),
-      capacity: 5
-    }))
-    supervisor.subscribeLeases(() => this.updateStateChanged())
+  private registerTurnEvents(
+    ctx: Pick<RouterContext, 'db' | 'cost'>,
+    bus: MainBus<Electron.WebContents>
+  ): HistoryWriter {
     // turn.event 단일 파이프라인(스펙 §4.2). **구독 순서 = SSOT**: usage(집계) → history(영속) →
     // title(제목) → relay(renderer 중계). usage 가 history 의 currentAssistantMessageId reset *전* 에
     // 그 messageId 를 읽고, title 이 relay 전에 트리거되는 순서 불변식을 이 등록 순서 한 곳이 소유한다.
     // usage·history 는 critical(throw=턴 실패 전파), title·relay 는 격리(실패가 파이프라인을 안 죽임).
-    const bus = (this.bus = new TypedBus<OrcaBusEvents<Electron.WebContents>>())
-    const titles = new TitleGenerator(ctx.db)
+    const titles = (this.titles = new TitleGenerator(ctx.db))
     // continuity 도착 물질화(0064 fork/handoff)는 orchestration 슬라이스 구현을 여기서 주입
     // — history↔orchestration 교차 import 차단.
-    const persistence = new HistoryWriter(ctx.db, (arrival) =>
-      materializeContinuityArrival(ctx.db, arrival)
+    const persistence = new HistoryWriter(
+      ctx.db,
+      (kind) => resolveAgentProfile(kind).persistResponseBoundaries,
+      (arrival) => materializeContinuityArrival(ctx.db, arrival),
+      ctx.db.artifacts
     )
     bus.on(
       'turn.event',
       ({ turn, ev }) => {
-        if (ev.type === 'telemetry') recordTurnUsage(ctx.db, ctx.cost, turn, ev)
+        if (ev.type === 'telemetry') ctx.cost.recordTurnUsage(turn, ev)
       },
       { critical: true }
     )
@@ -807,6 +857,38 @@ export class Bootstrap {
       if (ev.type === 'session.updated' || ev.type === 'telemetry') titles.maybeStart(turn)
     })
     bus.on('turn.event', ({ turn, ev }) => sendChatEvent(turn.owner, ev))
+    return persistence
+  }
+
+  private registerArtifacts(ctx: Pick<RouterContext, 'db' | 'runtimeTools'>): void {
+    const artifacts = (this.artifacts = new ArtifactService({
+      queries: ctx.db.artifacts,
+      rootDir: join(orcaConfigDir(), 'artifacts', ...(import.meta.env.DEV ? ['.dev'] : [])),
+      trashItem: (path) => shell.trashItem(path)
+    }))
+    ctx.runtimeTools.add(
+      createArtifactToolServer(artifacts, (sessionId, artifact) =>
+        broadcastChatEvent({ type: 'artifact.published', sessionId, artifact })
+      )
+    )
+    registerArtifactHandlers(artifacts, this.isTrustedArtifactSender)
+  }
+
+  private register(ctx: RouterContext): void {
+    this.registerArtifacts(ctx)
+    // chat 턴 파이프라인 조립 — 레지스트리(세션 키잉) · persist · 제목 생성 · 승인 조정.
+    const supervisor = (this.supervisor = new RuntimeSupervisor<Electron.WebContents>({
+      activeTurns: new ActiveTurnTracker((projectId, count) => {
+        broadcastConcurrency({ projectId, count })
+        this.updateStateChanged()
+      }),
+      // 장수명 채널 cap과 idle LRU 축출은 supervisor가 소유한다.
+      capPolicy: new BoundedRuntimeCapPolicy(),
+      capacity: 5
+    }))
+    supervisor.subscribeLeases(() => this.updateStateChanged())
+    const bus = (this.bus = new TypedBus<OrcaBusEvents<Electron.WebContents>>())
+    const persistence = this.registerTurnEvents(ctx, bus)
 
     const approvals = new ApprovalCoordinator()
     const permissionModes = new PermissionModeController()
@@ -847,11 +929,15 @@ export class Bootstrap {
       isUpdateInstallPending: () => this.isUpdateInstallPending(),
       worktrees
     })
-    approvals.registerHandlers(supervisor, permissionModes)
+    approvals.registerHandlers(supervisor, permissionModes, (sessionId) => {
+      const kind = ctx.db.getSessionById(sessionId)?.agent_kind
+      return kind === undefined ? undefined : parseAgentKind(kind)
+    })
 
     // 세션 삭제 시 미커밋 pending 도 함께 폐기한다(0151 AC8) — 루트가 chat 큐를 주입해
     // session 슬라이스가 chat 슬라이스를 참조하지 않게 한다.
     registerSessionHandlers(ctx, {
+      isSessionBusy: (sessionId) => supervisor.hasSession(sessionId),
       onSessionDisposed: (sessionId) => {
         // DB 행을 지우기 전에 호출되는 hook에서 active/idle provider 수명도 함께 끊는다. lease가
         // child 교체 중이어도 runtime을 직접 소유하므로 삭제된 세션이 뒤늦게 영속화를 재개하지 않는다.

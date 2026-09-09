@@ -1,20 +1,14 @@
 import type { AgentEnvironment } from '../../../shared/ipc'
 import type { AuthId, AuthSnapshot } from '../../contracts/auth'
 import type { HarnessRuntimeConfigService } from './runtime-config'
-import {
-  availableModelsOf,
-  explicitModelOf,
-  markDefaultModel,
-  normalizeAvailableModels,
-  withExplicitModel
-} from './claude/available-models'
+import { parseRuntimeModels } from './claude/model-parser'
 import { canonicalAgentKey, mergeAgentEnvironments, toAgentEnvironment } from './models'
 
 export interface RuntimeModelContribution {
-  authId: AuthId
-  key: string
-  harnessId: string
-  modelProviderId: string
+  readonly authId: AuthId
+  readonly key: string
+  readonly harnessId: string
+  readonly modelProviderId: string
 }
 
 export interface RuntimeModelCatalog {
@@ -63,6 +57,8 @@ export function createRuntimeModelCatalog(input: {
   snapshotOf: (authId: AuthId) => AuthSnapshot
   onChange?: () => void
 }): RuntimeModelCatalog {
+  // 배포 선언은 catalog 수명 동안 불변이다. 소유권은 로딩된 모델 cache와 별개로 유지한다.
+  const ownedKeys = new Set(input.contributions.map((item) => canonicalAgentKey(item.key)))
   const entries = new Map<string, AgentEnvironment>()
   const authGeneration = new Map<AuthId, number>()
   const resolvedRevision = new Map<string, number>()
@@ -118,17 +114,7 @@ export function createRuntimeModelCatalog(input: {
           try {
             const config = await input.runtime.resolve(contribution)
             if ((authGeneration.get(authId) ?? 0) !== generation) return
-            // `ANTHROPIC_MODEL` 은 settings 경로와 **같은 규칙**으로 목록에 더한다(0215 D-006).
-            // runtime 기여는 `availableModels` 만 실을 수도 있어, 배포가 지정한 실행 모델이
-            // 선택지에 없던 자리다. 중복이면 추가하지 않는다.
-            const explicit = explicitModelOf(config.runtimeEnv?.ANTHROPIC_MODEL)
-            const models = withExplicitModel(
-              normalizeAvailableModels(availableModelsOf(config) ?? []),
-              explicit
-            )
-            // 편입 후 default 를 **다시** 매긴다 — settings 경로와 같은 순서다. 목록만 늘리고
-            // 이 줄을 빼면 배포가 지정한 실행 모델이 목록에는 있는데 기본 선택은 다른 것이 된다.
-            markDefaultModel(models, explicit)
+            const models = parseRuntimeModels(config)
             const next =
               models.length === 0
                 ? undefined
@@ -160,7 +146,7 @@ export function createRuntimeModelCatalog(input: {
 
   const list = (): AgentEnvironment[] =>
     [...entries.values()].sort((a, b) => a.key.localeCompare(b.key))
-  const isReadOnly = (key: string): boolean => input.contributions.some(ownsKey(key))
+  const isReadOnly = (key: string): boolean => ownedKeys.has(canonicalAgentKey(key))
 
   return {
     list,

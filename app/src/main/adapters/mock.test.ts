@@ -3,7 +3,7 @@ import type { DebugMockState, NormalizedEvent } from '../../shared/ipc'
 import { MockAdapter } from './mock'
 import type { ProviderMessageBatch } from './types'
 
-const extensions = { mcp: {}, skills: [], hooks: { normalized: {} } }
+const extensions = { skills: [], hooks: { normalized: {} } }
 
 async function collect(events: AsyncIterable<ProviderMessageBatch>): Promise<NormalizedEvent[]> {
   const out: NormalizedEvent[] = []

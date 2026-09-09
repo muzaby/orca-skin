@@ -1,7 +1,8 @@
-import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import Database from 'better-sqlite3'
+import { DbQueries } from './queries'
 import { afterEach, describe, expect, it } from 'vitest'
 import migration0001 from './migrations/0001_initial.sql?raw'
 import migration0002 from './migrations/0002_projects.sql?raw'
@@ -39,7 +40,10 @@ const EXPECTED_MIGRATIONS = [
   '0017_session_extra_dirs',
   '0018_managed_worktrees',
   '0019_session_baseline',
-  '0020_session_baseline_ref'
+  '0020_session_baseline_ref',
+  '0021_artifacts',
+  '0022_session_agent_kind',
+  '0023_session_agent_kind_code'
 ]
 
 const APPLIED_SQL = [
@@ -61,7 +65,7 @@ function tmpRoot(): string {
 
 function createFileDb(): { db: Database.Database; path: string; root: string } {
   const root = tmpRoot()
-  const path = join(root, 'orca.db')
+  const path = join(root, 'orcinus-orca.db')
   const db = new Database(path)
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
@@ -147,7 +151,7 @@ describe('DB migrations hardening', () => {
       }
     })
 
-    const backupPath = join(root, 'orca.db.backup.before-1.100.0.2026-07-08T00-00-00-000Z')
+    const backupPath = join(root, 'orcinus-orca.db.backup.before-1.100.0.2026-07-08T00-00-00-000Z')
     expect(existsSync(backupPath)).toBe(true)
     const backup = new Database(backupPath, { readonly: true })
     expect(backup.pragma('integrity_check', { simple: true })).toBe('ok')
@@ -200,9 +204,9 @@ describe('DB migrations hardening', () => {
       }
     })
 
-    expect(existsSync(join(root, 'orca.db.backup.before-1.100.0.2026-07-08T00-00-00-000Z'))).toBe(
-      false
-    )
+    expect(
+      existsSync(join(root, 'orcinus-orca.db.backup.before-1.100.0.2026-07-08T00-00-00-000Z'))
+    ).toBe(false)
     db.close()
   })
 
@@ -306,5 +310,236 @@ describe('0009_message_complete migration', () => {
     db.exec(migration0009)
 
     expect(db.prepare('SELECT complete FROM messages').get()).toEqual({ complete: 1 })
+  })
+})
+
+it('upgrades an existing pre-kind session to Code without changing messages or metadata', () => {
+  const db = new Database(':memory:')
+  try {
+    db.exec(migration0001)
+    db.exec('CREATE TABLE _migrations (name TEXT PRIMARY KEY, applied_at INTEGER NOT NULL)')
+    db.prepare('INSERT INTO _migrations VALUES (?, ?)').run('0001_initial', 1)
+    db.prepare(
+      'INSERT INTO sessions (id, backend, title, created_at, updated_at, last_message_preview) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run('old', 'claude', 'keep title', 1, 2, 'keep preview')
+    db.prepare(
+      'INSERT INTO messages (session_id, role, content, created_at, idx) VALUES (?, ?, ?, ?, ?)'
+    ).run('old', 'user', 'keep body', 3, 0)
+    applyMigrations(db)
+    expect(new DbQueries(db).getSessionById('old')).toMatchObject({
+      agent_kind: 'code',
+      title: 'keep title',
+      last_message_preview: 'keep preview',
+      updated_at: 2
+    })
+    expect(db.prepare('SELECT content FROM messages WHERE session_id=?').get('old')).toEqual({
+      content: 'keep body'
+    })
+  } finally {
+    db.close()
+  }
+})
+
+describe('0023_session_agent_kind_code migration', () => {
+  const migrationsDir = join(process.cwd(), 'src', 'main', 'infra', 'db', 'migrations')
+  const migration0023Path = join(migrationsDir, '0023_session_agent_kind_code.sql')
+
+  function databaseThrough0022(filename = ':memory:'): Database.Database {
+    const db = new Database(filename)
+    db.pragma('foreign_keys = ON')
+    for (const name of readdirSync(migrationsDir)
+      .filter((name) => /^00(?:0\d|1\d|2[0-2])_/.test(name))
+      .sort()) {
+      db.exec(readFileSync(join(migrationsDir, name), 'utf8'))
+    }
+    return db
+  }
+
+  it('moves both values while preserving session indexes, inbound FKs, messages, FTS, and lineage', () => {
+    expect(existsSync(migration0023Path)).toBe(true)
+    const db = databaseThrough0022()
+    try {
+      db.prepare(
+        'INSERT INTO sessions (id, backend, title, created_at, updated_at, agent_kind) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run('parent', 'claude', 'parent', 1, 1, 'work')
+      db.prepare(
+        'INSERT INTO sessions (id, backend, title, created_at, updated_at, agent_kind) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run('child', 'claude', 'child', 1, 1, 'coding')
+      db.prepare(
+        'INSERT INTO messages (session_id, role, content, created_at, idx) VALUES (?, ?, ?, ?, ?)'
+      ).run('child', 'user', 'migration needle', 2, 0)
+      db.prepare(
+        'INSERT INTO session_lineage (child_session_id, parent_session_id, relation, fork_point_message_idx, created_at) VALUES (?, ?, ?, ?, ?)'
+      ).run('child', 'parent', 'fork', null, 3)
+
+      const indexesBefore = db
+        .prepare(
+          "SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='sessions' ORDER BY name"
+        )
+        .all()
+      const tableNamesBefore = db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+        )
+        .pluck()
+        .all() as string[]
+      const inboundFksBefore = tableNamesBefore.flatMap((table) =>
+        (
+          db.pragma(`foreign_key_list(${String(table)})`) as Array<{
+            table: string
+            [key: string]: unknown
+          }>
+        )
+          .filter((fk) => fk.table === 'sessions')
+          .map((fk) => ({ childTable: table, ...fk }))
+      )
+
+      db.transaction(() => db.exec(readFileSync(migration0023Path, 'utf8')))()
+
+      expect(db.prepare('SELECT id, agent_kind FROM sessions ORDER BY id').all()).toEqual([
+        { id: 'child', agent_kind: 'code' },
+        { id: 'parent', agent_kind: 'work' }
+      ])
+      const sessionsSchema = db
+        .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='sessions'")
+        .pluck()
+        .get() as string
+      expect(sessionsSchema).toMatch(
+        /agent_kind TEXT NOT NULL DEFAULT 'code'\s+CHECK \(agent_kind IN \('code',\s*'work'\)\)/
+      )
+      expect(
+        db
+          .prepare(
+            "SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='sessions' ORDER BY name"
+          )
+          .all()
+      ).toEqual(indexesBefore)
+      const tableNamesAfter = db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+        )
+        .pluck()
+        .all() as string[]
+      const inboundFksAfter = tableNamesAfter.flatMap((table) =>
+        (
+          db.pragma(`foreign_key_list(${String(table)})`) as Array<{
+            table: string
+            [key: string]: unknown
+          }>
+        )
+          .filter((fk) => fk.table === 'sessions')
+          .map((fk) => ({ childTable: table, ...fk }))
+      )
+      expect(inboundFksAfter).toEqual(inboundFksBefore)
+      expect(db.pragma('foreign_key_check')).toEqual([])
+      expect(db.pragma('integrity_check', { simple: true })).toBe('ok')
+      expect(
+        db
+          .prepare("SELECT content FROM messages_fts WHERE messages_fts MATCH 'needle'")
+          .pluck()
+          .get()
+      ).toBe('migration needle')
+      expect(
+        db
+          .prepare('SELECT child_session_id, parent_session_id, relation FROM session_lineage')
+          .get()
+      ).toEqual({
+        child_session_id: 'child',
+        parent_session_id: 'parent',
+        relation: 'fork'
+      })
+      db.prepare(
+        "INSERT INTO sessions (id, backend, created_at, updated_at) VALUES ('default', 'claude', 4, 4)"
+      ).run()
+      expect(db.prepare("SELECT agent_kind FROM sessions WHERE id='default'").pluck().get()).toBe(
+        'code'
+      )
+      expect(() =>
+        db
+          .prepare(
+            "INSERT INTO sessions (id, backend, created_at, updated_at, agent_kind) VALUES ('legacy', 'claude', 5, 5, 'coding')"
+          )
+          .run()
+      ).toThrow()
+    } finally {
+      db.close()
+    }
+  })
+
+  it('rolls back the schema change when persisted data is corrupt', () => {
+    const db = databaseThrough0022()
+    try {
+      db.pragma('ignore_check_constraints = ON')
+      db.prepare(
+        "INSERT INTO sessions (id, backend, created_at, updated_at, agent_kind) VALUES ('bad', 'claude', 1, 1, 'corrupt')"
+      ).run()
+      db.pragma('ignore_check_constraints = OFF')
+
+      expect(() =>
+        db.transaction(() => db.exec(readFileSync(migration0023Path, 'utf8')))()
+      ).toThrow()
+      expect(
+        (db.pragma('table_info(sessions)') as Array<{ name: string }>).map((column) => column.name)
+      ).not.toContain('agent_kind_next')
+      expect(db.prepare("SELECT agent_kind FROM sessions WHERE id='bad'").pluck().get()).toBe(
+        'corrupt'
+      )
+    } finally {
+      db.close()
+    }
+  })
+
+  it('preserves published artifact references, messages, and FTS after close and reopen', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'orca-agent-kind-migration-'))
+    const filename = join(directory, 'history.db')
+    let db = databaseThrough0022(filename)
+    try {
+      db.prepare(
+        "INSERT INTO sessions (id, backend, created_at, updated_at, agent_kind) VALUES ('s1', 'claude', 1, 1, 'coding')"
+      ).run()
+      const messageId = db
+        .prepare(
+          "INSERT INTO messages (session_id, role, content, created_at, idx) VALUES ('s1', 'assistant', 'artifact migration needle', 2, 0)"
+        )
+        .run().lastInsertRowid
+      db.prepare(
+        "INSERT INTO artifact_files (id, relative_path, filename, kind, size_bytes, hash, created_at) VALUES ('file-1', 's1/report.html', 'report.html', 'html', 42, 'sha256-fixture', 3)"
+      ).run()
+      db.prepare(
+        'INSERT INTO session_artifacts (id, session_id, artifact_file_id, message_id, tool_run_id, title, input_source, published_at, card_attached) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).run('publication-1', 's1', 'file-1', messageId, 'tool-1', 'Report', 'tool', 4, 1)
+
+      db.transaction(() => db.exec(readFileSync(migration0023Path, 'utf8')))()
+      db.close()
+      db = new Database(filename)
+      db.pragma('foreign_keys = ON')
+
+      expect(db.prepare("SELECT agent_kind FROM sessions WHERE id='s1'").pluck().get()).toBe('code')
+      expect(
+        db
+          .prepare(
+            'SELECT sa.id, sa.session_id, sa.artifact_file_id, sa.message_id, sa.tool_run_id, af.kind FROM session_artifacts sa JOIN artifact_files af ON af.id = sa.artifact_file_id'
+          )
+          .get()
+      ).toEqual({
+        id: 'publication-1',
+        session_id: 's1',
+        artifact_file_id: 'file-1',
+        message_id: Number(messageId),
+        tool_run_id: 'tool-1',
+        kind: 'html'
+      })
+      expect(
+        db
+          .prepare("SELECT content FROM messages_fts WHERE messages_fts MATCH 'needle'")
+          .pluck()
+          .get()
+      ).toBe('artifact migration needle')
+      expect(db.pragma('foreign_key_check')).toEqual([])
+      expect(db.pragma('integrity_check', { simple: true })).toBe('ok')
+    } finally {
+      if (db.open) db.close()
+      rmSync(directory, { recursive: true, force: true })
+    }
   })
 })

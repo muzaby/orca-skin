@@ -13,6 +13,60 @@ function result(tag: number): DeployResult {
 }
 
 describe('ExtensionDeploymentService — 비동기 직렬화 (0109)', () => {
+  it.each([true, false])(
+    'strict caller and default caller share the final failure (strictFirst=%s)',
+    async (strictFirst) => {
+      let release!: () => void
+      const held = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      const initialFailure = new Error('initial deployment failed')
+      const lastFailure = new Error('last deployment failed')
+      let runs = 0
+      const service = new ExtensionDeploymentService({
+        deploy: async () => {
+          if (++runs === 1) {
+            await held
+            throw initialFailure
+          }
+          throw lastFailure
+        }
+      })
+      const first = service.deployNow({ throwOnFailure: strictFirst })
+      const second = service.deployNow({ throwOnFailure: !strictFirst })
+      const settled = Promise.allSettled([first, second])
+      release()
+      const outcomes = await settled
+      expect(runs).toBe(2)
+      expect(outcomes[strictFirst ? 0 : 1]).toEqual({ status: 'rejected', reason: lastFailure })
+      expect(outcomes[strictFirst ? 1 : 0]).toEqual({ status: 'fulfilled', value: null })
+    }
+  )
+
+  it('a failed attempt still runs the queued retry and resolves both callers with its success', async () => {
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let runs = 0
+    const service = new ExtensionDeploymentService({
+      deploy: async () => {
+        if (++runs === 1) {
+          await held
+          throw new Error('first failed')
+        }
+        return result(runs)
+      }
+    })
+    const strict = service.deployNow({ throwOnFailure: true })
+    const regular = service.deployNow()
+    const settled = Promise.all([strict, regular])
+    release()
+    expect(await settled).toEqual([result(2), result(2)])
+    expect(runs).toBe(2)
+    expect(await service.deployNow({ throwOnFailure: true })).toEqual(result(3))
+  })
+
   it('진행 중 deployNow 는 완주 후 1회 재실행으로 코얼레스되고, 최신 결과로 resolve 된다', async () => {
     let runs = 0
     let release!: () => void

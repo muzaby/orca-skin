@@ -1,11 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { load } from 'cheerio'
 import type { Project, SessionListItem } from '../../../../../shared/ipc'
 import type { PinnedSessions, ProjectChildSessions, RecentSessions } from '../lib/navSections'
 import { PinnedSectionView } from './PinnedSection'
 import { PinnedProjectChildren, PinnedProjectsSectionView } from './PinnedProjectsSection'
 import { SessionListView } from './SessionList'
+import { ProjectSessionsPanel } from './ProjectSessionsPanel'
+import { SessionRow, type AgentAppearanceResolver } from './SessionRow'
+import { useSessionsStore } from '../store/sessionsStore'
 
 // 0203 ΔV1 EP-9 / ΔV2 AT-13a·AT-15 — 구획 컴포넌트는 **받은 목록만** 그리고,
 // 어댑터가 파티션의 **다른 칸**을 넘기면 컴파일되지 않는다.
@@ -18,6 +22,7 @@ import { SessionListView } from './SessionList'
 
 function session(id: string, title: string, over: Partial<SessionListItem> = {}): SessionListItem {
   return {
+    agentKind: 'code',
     id,
     backend: 'claude',
     title,
@@ -35,6 +40,15 @@ function session(id: string, title: string, over: Partial<SessionListItem> = {})
 const asPinned = (items: SessionListItem[]): PinnedSessions => items as PinnedSessions
 const asRecent = (items: SessionListItem[]): RecentSessions => items as RecentSessions
 const asChildren = (items: SessionListItem[]): ProjectChildSessions => items as ProjectChildSessions
+
+// 상위 조립자가 전달하는 표시 계약만 시험한다. chat feature를 직접 참조하지 않는다.
+const resolveAppearance: AgentAppearanceResolver = (kind) =>
+  (
+    ({
+      work: { navIcon: 'checklist', label: 'chat.agent.work' },
+      code: { navIcon: 'terminal2', label: 'chat.agent.code' }
+    }) as const
+  )[kind]
 
 const noop = (): void => {}
 const rowHandlers = {
@@ -61,13 +75,18 @@ const PROJECT: Project = {
 
 function renderPinned(items: SessionListItem[]): string {
   return renderToStaticMarkup(
-    createElement(PinnedSectionView, { sessions: asPinned(items), ...rowHandlers })
+    createElement(PinnedSectionView, {
+      agentAppearance: resolveAppearance,
+      sessions: asPinned(items),
+      ...rowHandlers
+    })
   )
 }
 
 function renderRecent(items: SessionListItem[]): string {
   return renderToStaticMarkup(
     createElement(SessionListView, {
+      agentAppearance: resolveAppearance,
       sessions: asRecent(items),
       currentSessionId: null,
       projectNameById: new Map<string, string>(),
@@ -84,6 +103,7 @@ function renderRecent(items: SessionListItem[]): string {
 function renderProjectChildren(items: SessionListItem[] | undefined): string {
   return renderToStaticMarkup(
     createElement(PinnedProjectChildren, {
+      agentAppearance: resolveAppearance,
       sessions: items === undefined ? undefined : asChildren(items),
       ...rowHandlers
     })
@@ -93,6 +113,7 @@ function renderProjectChildren(items: SessionListItem[] | undefined): string {
 function renderProjectsSection(pinnedProjects: Project[] = [PROJECT]): string {
   return renderToStaticMarkup(
     createElement(PinnedProjectsSectionView, {
+      agentAppearance: resolveAppearance,
       pinnedProjects,
       projectChildren: {},
       onExpandProject: noop,
@@ -164,6 +185,128 @@ describe('구획 헤더 (D-003 · D-008)', () => {
   })
 })
 
+// Google 공식 원본: material-design-icons/symbols/web/{terminal_2,checklist}/
+// materialsymbolsoutlined/*_24px.svg. 소비 컴포넌트를 다시 불러 비교하지 않고 원본 glyph를 관측한다.
+const TERMINAL_2_PATH =
+  'M480-160v-80h320v80H480ZM220-320l-56-56 183-184-183-184 56-56 240 240-240 240Z'
+const CHECKLIST_PATH =
+  'M222-200 80-342l56-56 85 85 170-170 56 57-225 226Zm0-320L80-662l56-56 85 85 170-170 56 57-225 226Zm298 240v-80h360v80H520Zm0-320v-80h360v80H520Z'
+
+describe('r5 모든 채팅 구획의 모드 아이콘과 완료 색', () => {
+  // SSR은 Zustand getInitialState snapshot을 읽는다. 각 테스트 후 원본을 복원한다.
+  const snapshot = useSessionsStore.getInitialState()
+  const original = { ...snapshot }
+  beforeEach(() => Object.assign(snapshot, original))
+  afterEach(() => Object.assign(snapshot, original))
+
+  const renderers: [string, (items: SessionListItem[]) => string][] = [
+    ['recent', renderRecent],
+    ['pinned', renderPinned],
+    ['pinned project children', renderProjectChildren],
+    [
+      'project panel',
+      (items) => {
+        snapshot.byId = Object.fromEntries(items.map((item) => [item.id, item]))
+        snapshot.projectSessionIds = { p1: items.map((item) => item.id) }
+        return renderToStaticMarkup(
+          createElement(ProjectSessionsPanel, {
+            agentAppearance: resolveAppearance,
+            projectId: 'p1',
+            currentSessionId: null,
+            refreshOnTurnEnd: false,
+            onSessionSelected: noop,
+            onDeleteSession: noop,
+            onRenameSession: noop
+          })
+        )
+      }
+    ],
+    [
+      'draft',
+      (items) =>
+        renderToStaticMarkup(
+          createElement(SessionListView, {
+            agentAppearance: resolveAppearance,
+            sessions: asRecent([]),
+            currentSessionId: null,
+            projectNameById: new Map<string, string>(),
+            onSelect: noop,
+            onDelete: noop,
+            onRename: noop,
+            onTogglePin: noop,
+            drafts: items.map((item) => ({
+              key: item.id,
+              title: item.title,
+              agentKind: item.agentKind,
+              projectId: null,
+              deletable: false
+            }))
+          })
+        )
+    ]
+  ]
+
+  it.each(renderers)('%s uses official left icons without a right mode label', (_name, render) => {
+    const items = [
+      session('code', '코딩 대화', { agentKind: 'code' }),
+      session('work', '문서 작업', { agentKind: 'work' })
+    ]
+    const $ = load(render(items))
+    for (const [id, label, path] of [
+      ['code', '코딩 대화', TERMINAL_2_PATH],
+      ['work', '문서 작업', CHECKLIST_PATH]
+    ]) {
+      const row = $(`[data-session-id="${id}"]`)
+      const icon = row.find('[data-context="session-agent-kind"]')
+      expect(row.text()).toBe(label)
+      expect(icon.attr('role')).toBe('img')
+      expect(icon.attr('aria-label')).toBeTruthy()
+      expect(icon.find('svg').attr('viewBox')).toBe('0 -960 960 960')
+      expect(icon.find('path').attr('d')).toBe(path)
+      expect(icon.find('svg').attr('fill')).toBe('currentColor')
+    }
+  })
+
+  it('only the non-viewed completed icon uses selected blue; an open row restores the normal color', () => {
+    snapshot.unseenCompletedIds = new Set(['work'])
+    const item = session('work', '읽지 않은 작업', { agentKind: 'work' })
+    const hidden = load(
+      renderToStaticMarkup(
+        createElement(SessionRow, {
+          appearance: resolveAppearance(item.agentKind),
+          session: item,
+          isActive: false
+        })
+      )
+    )
+    const icon = hidden('[data-context="session-agent-kind"]')
+    expect(icon.attr('data-state')).toBe('unseen-complete')
+    expect(icon.hasClass('text-selected')).toBe(true)
+    expect(icon.attr('class')).toContain('[&_svg]:[stroke-width:40]')
+    expect(hidden('.text-selected')).toHaveLength(1)
+    expect(hidden('[data-session-id]').hasClass('text-selected')).toBe(false)
+
+    const open = load(
+      renderToStaticMarkup(
+        createElement(SessionRow, {
+          appearance: resolveAppearance(item.agentKind),
+          session: item,
+          isActive: true
+        })
+      )
+    )
+    expect(open('[data-context="session-agent-kind"]').attr('data-state')).toBe('default')
+    expect(open('.text-selected')).toHaveLength(0)
+    expect(open('[data-context="session-agent-kind"]').attr('class')).not.toContain('stroke-width')
+    expect(open('[data-session-id]').text()).toBe('읽지 않은 작업')
+  })
+
+  it('legacy sessions without a kind retain the Code icon', () => {
+    const $ = load(renderRecent([session('legacy', '이전 대화')]))
+    expect($('[data-context="session-agent-kind"] path').attr('d')).toBe(TERMINAL_2_PATH)
+  })
+})
+
 // ── AT-15 · 이음매의 음성 타입 테스트 (ΔV2 EP-11) ──────────────────────────
 //
 // 렌더 단언은 컴포넌트가 **무엇을 그리는지**만 보고 어댑터가 **무엇을 넘겼는지**는 못 본다 —
@@ -176,10 +319,18 @@ describe('어댑터가 파티션의 다른 칸을 넘기면 컴파일되지 않�
     const recent = asRecent([GIVEN])
     const children = asChildren([GIVEN])
 
-    // @ts-expect-error "고정됨" 구획에 최근 대화 칸을 넘길 수 없다.
-    createElement(PinnedSectionView, { sessions: recent, ...rowHandlers })
-    // @ts-expect-error 프로젝트 하위 목록에 고정됨 칸을 넘길 수 없다.
-    createElement(PinnedProjectChildren, { sessions: pinned, ...rowHandlers })
+    createElement(PinnedSectionView, {
+      agentAppearance: resolveAppearance,
+      // @ts-expect-error "고정됨" 구획에 최근 대화 칸을 넘길 수 없다.
+      sessions: recent,
+      ...rowHandlers
+    })
+    createElement(PinnedProjectChildren, {
+      agentAppearance: resolveAppearance,
+      // @ts-expect-error 프로젝트 하위 목록에 고정됨 칸을 넘길 수 없다.
+      sessions: pinned,
+      ...rowHandlers
+    })
     // `@ts-expect-error` 는 **바로 다음 줄**만 덮는다 — 여러 줄 호출이면 오류가 그 줄에 안 찍혀
     // 지시자가 `TS2578`(불필요)로 뒤집힌다. 그래서 나머지 props 를 먼저 묶어 한 줄로 좁힌다.
     const recentProps = {
@@ -190,8 +341,12 @@ describe('어댑터가 파티션의 다른 칸을 넘기면 컴파일되지 않�
       onRename: noop,
       onTogglePin: noop
     }
-    // @ts-expect-error "최근 대화" 구획에 프로젝트 하위 칸을 넘길 수 없다.
-    createElement(SessionListView, { sessions: children, ...recentProps })
+    createElement(SessionListView, {
+      agentAppearance: resolveAppearance,
+      // @ts-expect-error "최근 대화" 구획에 프로젝트 하위 칸을 넘길 수 없다.
+      sessions: children,
+      ...recentProps
+    })
 
     // 올바른 칸은 통과한다 — 브랜드가 모든 대입을 막는 것이 아니라 **혼동만** 막는다.
     expect(renderPinned([GIVEN])).toContain('준-대화')

@@ -10,6 +10,9 @@ import {
   MENU_HIDDEN_RIGHT_PANEL_TILES,
   SUSPENDED_RIGHT_PANEL_TILES,
   isRightPanelTileSuspended,
+  RIGHT_PANEL_POLICY,
+  rightPanelTarget,
+  rightPanelTileDefinitionsForAgent,
   rightPanelTileIds,
   showsUnseenTaskBadge,
   visibleRightPanelTileDefinitions
@@ -18,7 +21,7 @@ import {
 describe('우측 패널 타일 가시성 — 메뉴 목록 (AT-01)', () => {
   // 0213 D-001 — 정지가 풀려 넷이 됐다. 음성만 두면 아무것도 그리지 않는 회귀가 통과하므로
   // 양성 4종을 순서까지 단언한다.
-  it('메뉴 목록은 `계획`·`백그라운드 작업`·`작업`·`변경사항` 넷이고 정의 순서를 지킨다', () => {
+  it('기존 메뉴 순서를 보존하고 출력은 작업 안으로 통합한다', () => {
     expect(visibleRightPanelTileDefinitions.map((tile) => tile.id)).toEqual([
       'plan',
       'subagent',
@@ -27,7 +30,7 @@ describe('우측 패널 타일 가시성 — 메뉴 목록 (AT-01)', () => {
     ])
   })
 
-  it('타일 정의 자체는 4종 그대로다 — 정지는 제거가 아니었다 (0204 D-021)', () => {
+  it('독립 산출물 타일을 등록하지 않는다', () => {
     expect(rightPanelTileIds).toEqual(['plan', 'subagent', 'task', 'diff'])
   })
 
@@ -55,22 +58,56 @@ describe('우측 패널 타일 가시성 — 정지 술어 (AT-07 · AT-02·03·
 
 describe('미확인 완료 배지 (AT-04)', () => {
   it('정지되지 않았고 미확인이 있고 타일이 닫혀 있으면 띄운다 — 양성 방향', () => {
-    expect(showsUnseenTaskBadge(2, [], [])).toBe(true)
+    expect(showsUnseenTaskBadge(2, [], [], 'code')).toBe(true)
   })
 
   it('`작업` 이 정지돼 있으면 미확인이 있어도 띄우지 않는다', () => {
-    expect(showsUnseenTaskBadge(2, [], ['task'])).toBe(false)
+    expect(showsUnseenTaskBadge(2, [], ['task'], 'code')).toBe(false)
   })
 
   it('미확인이 없으면 띄우지 않는다', () => {
-    expect(showsUnseenTaskBadge(0, [], [])).toBe(false)
+    expect(showsUnseenTaskBadge(0, [], [], 'code')).toBe(false)
   })
 
   it('타일을 이미 보고 있으면 띄우지 않는다', () => {
-    expect(showsUnseenTaskBadge(2, ['task'], [])).toBe(false)
+    expect(showsUnseenTaskBadge(2, ['plan'], [], 'code')).toBe(false)
   })
 
-  it('프로덕션 기본값(인자 생략)으로도 배지가 뜬다 — 정지 해제 결선 확인 (AT-05)', () => {
-    expect(showsUnseenTaskBadge(2, [])).toBe(true)
+  it('Work와 Code가 각자의 완료 배지 타일을 명시한다', () => {
+    expect(showsUnseenTaskBadge(2, ['plan'], [], 'work')).toBe(true)
+    expect(showsUnseenTaskBadge(2, ['task'], [], 'work')).toBe(false)
+    expect(showsUnseenTaskBadge(2, ['task'], [], 'code')).toBe(true)
+    expect(showsUnseenTaskBadge(2, ['plan'], [], 'code')).toBe(false)
+  })
+})
+
+describe('종류별 우측 패널 정책 (R8)', () => {
+  it('Work와 Code가 가시 타일·대상·초기 타일을 각각 완전하게 정의한다', () => {
+    expect(RIGHT_PANEL_POLICY).toMatchObject({
+      work: {
+        visibleIds: ['task'],
+        taskTarget: 'task',
+        taskBadgeTile: 'task',
+        initialTile: 'task',
+        columnMode: 'task-focus',
+        taskTileChrome: 'work-overview'
+      },
+      code: {
+        visibleIds: ['plan', 'subagent', 'diff'],
+        taskTarget: 'plan',
+        taskBadgeTile: 'plan',
+        initialTile: null,
+        columnMode: 'standard-grid',
+        taskTileChrome: 'standard'
+      }
+    })
+    expect(rightPanelTileDefinitionsForAgent('work').map((tile) => tile.id)).toEqual(['task'])
+    expect(rightPanelTileDefinitionsForAgent('code').map((tile) => tile.id)).toEqual([
+      'plan',
+      'subagent',
+      'diff'
+    ])
+    expect(rightPanelTarget('task', 'work')).toBe('task')
+    expect(rightPanelTarget('task', 'code')).toBe('plan')
   })
 })

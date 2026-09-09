@@ -1,0 +1,67 @@
+{
+  "author": "Codex",
+  "root": "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orca-work-native-GIF3XL",
+  "compare": false,
+  "originalSessionId": "9c186297-63a2-4a5d-8aae-a1ae763b49c1",
+  "startedAt": "2026-09-08T10:19:46.895Z",
+  "checks": {
+    "reopenedWorkAndPublication": true,
+    "fileBytesAndDatabaseLink": true,
+    "reopenedEndedBoundary": true,
+    "reopenedTranscriptAndOutput": true
+  },
+  "errors": [],
+  "artifact": {
+    "publicationId": "29f3e415-7688-400a-99a7-3eb7394f0dac",
+    "artifactFileId": "d7b4f295-5591-457a-9b07-1cdb9fcae6bb",
+    "title": "회의 메모 요약 — Alpha 시험 재실행",
+    "filename": "meeting-summary.md",
+    "kind": "markdown",
+    "sizeBytes": 544,
+    "publishedAt": 1788862181405
+  },
+  "file": {
+    "source": "c:\\users\\rlaeo\\appdata\\local\\temp\\orca-work-native-gif3xl\\home\\.config\\orca\\projects\\default\\meeting-summary.md",
+    "publishedPath": "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orca-work-native-GIF3XL\\home\\.config\\orca\\artifacts\\d7b4f295-5591-457a-9b07-1cdb9fcae6bb\\meeting-summary.md",
+    "sizeBytes": 544,
+    "sha256": "e9339ba49f33d2b6510c061d4d2e805fddfdb335bf6187bec8d46f73096cd6b8",
+    "messageId": 2,
+    "toolRunId": "toolu_014DEiNoFmL2TDAbSDC3m9Yj"
+  },
+  "toolNames": [
+    "Write",
+    "mcp__orca_artifacts__publish_artifact"
+  ],
+  "ui": {
+    "route": "/chat/9c186297-63a2-4a5d-8aae-a1ae763b49c1",
+    "cards": [
+      {
+        "title": "회의 메모 요약 — Alpha 시험 재실행",
+        "inTask": false
+      },
+      {
+        "title": "회의 메모 요약 — Alpha 시험 재실행",
+        "inTask": true
+      }
+    ],
+    "sections": [
+      {
+        "text": "진행 상황",
+        "expanded": "true"
+      },
+      {
+        "text": "출력1",
+        "expanded": "true"
+      },
+      {
+        "text": "컨텍스트",
+        "expanded": "true"
+      }
+    ],
+    "responseStates": [
+      "ended",
+      "ended"
+    ]
+  },
+  "finishedAt": "2026-09-08T10:19:53.082Z"
+}

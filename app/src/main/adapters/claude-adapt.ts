@@ -1,14 +1,14 @@
 // claude 어댑트 변환 — 백엔드 중립 Extension 조각을 claude query() 옵션 조각으로 변환하는 순수
 // 함수들. 인바운드(백엔드→중립)가 normalize 라면, 이쪽은 그 아웃바운드 짝(중립→백엔드)으로,
-// Ports & Adapters 의 어댑터 경계 변환이다. 각 함수는 `...spread` 로 합성될 옵션 조각(object)을
-// 반환한다 — claude.ts 가 이미 219줄이라 hook 래핑까지 합치면 CLAUDE.md 원칙 9 의 400줄 경고를
-// 넘어 별 파일로 분리한다. MCP 는 0058 이후 plugin .mcp.json 경로가 기본이다.
+// Ports & Adapters 의 어댑터 경계 변환이다. 각 함수는 `...spread` 로 합성될 옵션 조각을
+// 반환한다. MCP 는 plugin .mcp.json 경로가 기본이다.
 
 import type {
   HookCallback,
   HookCallbackMatcher,
   HookEvent,
   HookJSONOutput,
+  Options,
   PostToolUseHookSpecificOutput,
   PreToolUseHookSpecificOutput,
   SyncHookJSONOutput,
@@ -79,7 +79,7 @@ export function adaptSkills(skills: SkillInfo[]): object {
 // **env↛argv 분리 폐기(handoff 0028)**: provider settings.json 은 `~/.claude/settings.json` 과
 // 동일 취급이라 env(auth key 포함)를 settings 안에 그대로 실어 argv 로 넘긴다 — 앱 환경구성이
 // 사용자 전역 env 를 덮어쓰는 메커니즘. argv 평문 노출(same-user process list)은 수용된 트레이드오프.
-export function adaptSettings(settings?: HarnessNativeSettings): object {
+export function adaptSettings(settings?: HarnessNativeSettings): Pick<Options, 'settings'> {
   return settings && Object.keys(settings).length > 0 ? { settings: JSON.stringify(settings) } : {}
 }
 
@@ -89,7 +89,7 @@ export function adaptSettings(settings?: HarnessNativeSettings): object {
 // 끊기는 ~/.claude/skills 는 dist/claude/plugins/claude 래퍼 플러그인이 보전한다
 // (features/extensions/harness-plugins/claude-user-skills.ts — adaptPlugins 로 주입). provider settings
 // 유무와 무관하게 항상 주입하므로 adaptSettings 와 분리된 조각이다.
-export function adaptSettingSources(): object {
+export function adaptSettingSources(): Pick<Options, 'settingSources'> {
   return { settingSources: ['project', 'local'] }
 }
 
@@ -97,8 +97,16 @@ export function adaptSettingSources(): object {
 // env)로 넘긴다. provider settings 의 env 는 settings flag(adaptSettings)로 흐르므로 여기서는
 // 시스템 env 만 다룬다(handoff 0028). 베이스가 없으면 옵션을 생략해 SDK 기본 env(process.env
 // 상속) 동작을 유지한다.
-export function adaptEnv(base?: Record<string, string>): object {
+export function adaptEnv(base?: Record<string, string>): Pick<Options, 'env'> {
   return base && Object.keys(base).length > 0 ? { env: base } : {}
+}
+
+// 단발 completion과 대화가 공유하는 실행 설정만 조립한다. 도구·plugin·hook 정책은 각 호출부 소유.
+export function adaptExecutionConfig(
+  settings?: HarnessNativeSettings,
+  env?: Record<string, string>
+): Pick<Options, 'settings' | 'settingSources' | 'env'> {
+  return { ...adaptSettingSources(), ...adaptSettings(settings), ...adaptEnv(env) }
 }
 
 // NormalizedHookEvent → claude HookEvent.

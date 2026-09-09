@@ -1,12 +1,18 @@
-import { useState } from 'react'
 import { ChatTitleBar } from './ChatTitleBar'
 import { LineageBanner } from './transcript/LineageBanner'
 import { TranscriptView } from './transcript/TranscriptView'
 import { Composer } from './Composer'
 import { RightPanel } from './rightpanel/RightPanel'
 import { useScrollAnchor } from '../hooks/useScrollAnchor'
-import { useChatBusy, useChatSession, useChatStore, usePendingSteer } from '../store/chatStore'
+import {
+  chatActions,
+  useChatBusy,
+  useChatSession,
+  useChatStore,
+  usePendingSteer
+} from '../store/chatStore'
 import type { UsageLimitsView } from '../../../../../shared/usage/limits'
+import { agentUiPolicy } from '../lib/agentPresentation'
 
 interface ChatTileProps {
   backendLabel: string
@@ -46,6 +52,8 @@ export function ChatTile({
   onTogglePinSession
 }: ChatTileProps): React.JSX.Element {
   const messages = useChatSession((s) => s.messages)
+  const agentKind = useChatSession((s) => s.agentKind)
+  const policy = agentUiPolicy(agentKind)
   const sessionId = useChatSession((s) => s.sessionId)
   const sendCount = useChatSession((s) => s.sendCount)
   // 0143 — listen 대기(백그라운드 서브에이전트 완료 대기)도 사용자 관점 "작업 중" 이다:
@@ -54,19 +62,14 @@ export function ChatTile({
   const loadingSession = useChatSession((s) => s.loadingSession)
   const error = useChatSession((s) => s.error)
   const pendingSteer = usePendingSteer()
-  const [restoredDraft, setRestoredDraft] = useState<{ id: number; text: string } | undefined>()
   // 중단 버튼 held 전량 취소(0067 확정 5) — store 의 draftRestore 신호를 파생값으로 합류해
-  // Composer 입력에 편집 가능한 텍스트로 복원한다(활성 세션 것만, 최신 id 우선 — effect 불요).
+  // Composer 입력에 전달한다. 작업 질문은 같은 신호의 append 모드를 쓴다(활성 세션만).
   const draftRestore = useChatStore((s) => s.draftRestore)
   const activeKey = useChatStore((s) => s.activeKey)
   const storeRestore =
     draftRestore && draftRestore.key === activeKey
-      ? { id: draftRestore.seq, text: draftRestore.text }
+      ? { id: draftRestore.seq, text: draftRestore.text, mode: draftRestore.mode }
       : undefined
-  const effectiveRestore =
-    storeRestore && (!restoredDraft || storeRestore.id >= restoredDraft.id)
-      ? storeRestore
-      : restoredDraft
   const { scrollRef, contentRef, onScroll, showJump, scrollToBottom, anchored } = useScrollAnchor({
     messages,
     sessionId,
@@ -102,9 +105,11 @@ export function ChatTile({
           <div className="relative flex min-h-0 flex-1 flex-col">
             <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-8 bg-gradient-to-b from-bg to-transparent" />
             <TranscriptView
+              key={policy.transcript.remountTranscriptBySession ? activeKey : undefined}
+              agentKind={agentKind}
               messages={messages}
               pendingSteer={pendingSteer}
-              onRestoreSteerDraft={(text) => setRestoredDraft({ id: Date.now(), text })}
+              onRestoreSteerDraft={(text) => chatActions.restoreComposerDraft(activeKey, text)}
               inflight={inflight}
               loadingSession={loadingSession}
               error={error}
@@ -117,7 +122,7 @@ export function ChatTile({
           </div>
 
           <Composer
-            showGitRow
+            showGitRow={policy.composer.showGitRow}
             backendLabel={backendLabel}
             canAbort={canAbort}
             showScrollToBottom={showJump}
@@ -125,7 +130,7 @@ export function ChatTile({
             usageLimits={usageLimits}
             onOpenUsageSettings={onOpenUsageSettings}
             initialDraft={initialDraft}
-            restoredDraft={effectiveRestore}
+            restoredDraft={storeRestore}
           />
         </div>
 

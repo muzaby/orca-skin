@@ -11,6 +11,7 @@
 | **어떤 기술로** 만드는지 (기능·스택·API 사양) | [`TRD.md`](TRD.md) |
 | **아키텍처 문서 전체 지도** (backend/frontend 파일 맵) | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | 부트 시퀀스 · main 프로세스 구조 | [`arch/backend/overview.md`](arch/backend/overview.md) |
+| Main 구조·성능 진단 및 경량화 결과 | [`etc/study/main-structure/diagnosis.md`](etc/study/main-structure/diagnosis.md) |
 | 세션 런타임 · 동시성 · IPC 핸들러 구조 | [`arch/backend/runtime-ipc.md`](arch/backend/runtime-ipc.md) |
 | chat turn · 어댑터 호출 · SDK→NormalizedEvent 정규화 | [`arch/backend/adapters.md`](arch/backend/adapters.md) |
 | **TaskXXX 도구군** (할 일 목록 · background 태스크 · 기능 가용성) | [`claude-taskxxx-spec.md`](claude-taskxxx-spec.md) — SDK 표면 정본 |
@@ -23,16 +24,21 @@
 | 확장 배포 (MCP · SKILL.md · AGENTS.md 표준) | [`arch/backend/standardization.md`](arch/backend/standardization.md) |
 | 시스템 프롬프트 · 정책 append | [`arch/backend/system-prompt.md`](arch/backend/system-prompt.md) |
 | 로깅 | [`arch/backend/observability.md`](arch/backend/observability.md) |
+| Preload·Renderer 구조·성능 진단 및 경량화 결과 | [`etc/study/preload-renderer-structure/diagnosis.md`](etc/study/preload-renderer-structure/diagnosis.md) |
 | renderer 범위 · 스택 · 구현 상태 | [`arch/frontend/overview.md`](arch/frontend/overview.md) |
 | renderer 4-layer · 디렉토리 책임 | [`arch/frontend/layers.md`](arch/frontend/layers.md) |
 | renderer 상태 관리 (Zustand · 멀티세션) | [`arch/frontend/state.md`](arch/frontend/state.md) |
 | 렌더링 (ToolRendererRegistry · 스트리밍 · UsagePanel) | [`arch/frontend/rendering.md`](arch/frontend/rendering.md) |
+| **Work·Code 에이전트 계층** | [`handoff/0224-work-agent-layer/plan.md`](handoff/0224-work-agent-layer/plan.md) · [Work/Code 구조 진단](handoff/0224-work-agent-layer/structural-diagnosis.md) · 근거는 [`Cowork 연구`](etc/study/cowork/README.md) |
+| **산출물 게시 도구** (모델 직접 호출·HTML/Markdown 카드·우측 패널) | [`handoff/0223-artifact-publisher/plan.md`](handoff/0223-artifact-publisher/plan.md) — 계획 · [`구현 보고`](handoff/0223-artifact-publisher/impl.md) · [`모델 선택 평가`](handoff/0223-artifact-publisher/evaluation.md) · [`선행 검토`](etc/study/cowork/artifact-publisher-review.md) |
 | UX 패턴 · 도메인 화면 카탈로그 | [`arch/frontend/ux-domains.md`](arch/frontend/ux-domains.md) |
 | DOM 마커 체계 · z-stack · custom titlebar | [`arch/frontend/dom-architecture.md`](arch/frontend/dom-architecture.md) |
 | **IPC 채널 계약** (추가·변경 포함) | [`IPC_CONTRACT.md`](IPC_CONTRACT.md) |
 | **릴리스** 실행·롤백 | [`guides/release-operations.md`](guides/release-operations.md) |
 | **폐쇄망 확장·로그인 게이트 추가** ("플러그인 추가" 요청 포함) | [`guides/closed-network-extensions.md`](guides/closed-network-extensions.md) |
 | 도구 권한 · 작업 디렉토리 스코프 | [`guides/workspace-isolation-permissions.md`](guides/workspace-isolation-permissions.md) |
+| **Windows SRT 도입 보류·실증 결과** | [`etc/study/srt/execution-report.md`](etc/study/srt/execution-report.md) — 사용자 보류 결정과 Windows 실행 결과 |
+| **Windows SRT 보관 실험·재현 자료** | [`etc/study/srt/README.md`](etc/study/srt/README.md) — 계획·시험 코드·운영 절차의 study 보관본, 현재 앱 기능 아님 |
 | **용어** 정의 | [`GLOSSARY.md`](GLOSSARY.md) · 쉬운 해설은 [`arch/frontend/terms.md`](arch/frontend/terms.md) · [`arch/backend/terms.md`](arch/backend/terms.md) |
 | **왜 이 구조인가** (결정 근거) | [`decisions/`](decisions/) — ADR |
 | 커밋 trailer 작성·파싱 | [`git-template.md`](git-template.md) |

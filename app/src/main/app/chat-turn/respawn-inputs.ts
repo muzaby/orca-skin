@@ -17,6 +17,7 @@ import {
   providerSettingsChangedSinceSpawn,
   runtimeEnvChangedSinceSpawn
 } from '../../features/harnesses/runtime-boundary'
+import { sameExtraDirectories } from '../../../shared/extra-directories'
 import type { RespawnDecisionInput } from '../../features/sessions/respawn-policy'
 
 // spawn 당시의 기록. `SessionRuntime` 이 구조적으로 만족한다 — 구현 타입을 물지 않아야
@@ -27,6 +28,8 @@ export interface SpawnRecord {
   spawnedProviderSettings: ResolvedHarnessSettings | undefined
   spawnedRuntimeEnvFingerprint: string | undefined
   spawnedRuntimeToolsRevision: number | undefined
+  spawnedAgentProfileKey?: string
+  spawnedExtraDirs?: readonly string[]
 }
 
 export function respawnInputs(input: {
@@ -38,6 +41,8 @@ export function respawnInputs(input: {
   nextProviderKey: string | null
   model: string | undefined
   runtimeToolsRevision: number | undefined
+  agentProfileKey?: string
+  extraDirs?: readonly string[]
   // 0210 — 이번 턴이 worktree 소실 폴백으로 실행 경로를 바꿨는가. 자동 연속 턴은 최초 턴이
   // 확정한 cwd 를 계승하므로 언제나 false 다(폴백은 send 진입에서 한 번만 판정된다).
   executionCwdRecovered: boolean
@@ -61,7 +66,10 @@ export function respawnInputs(input: {
       prepared.runtimeEnvFingerprint
     ),
     executionCwdRecovered: input.executionCwdRecovered,
+    extraDirectoriesChanged: !sameExtraDirectories(runtime.spawnedExtraDirs, input.extraDirs),
     spawnedRuntimeToolsRevision: runtime.spawnedRuntimeToolsRevision,
-    runtimeToolsRevision: input.runtimeToolsRevision
+    runtimeToolsRevision: input.runtimeToolsRevision,
+    spawnedAgentProfileKey: runtime.spawnedAgentProfileKey,
+    agentProfileKey: input.agentProfileKey
   }
 }

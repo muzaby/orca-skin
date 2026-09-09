@@ -1,0 +1,4 @@
+{
+  "gate": "electron-vite build",
+  "exitCode": 0
+}

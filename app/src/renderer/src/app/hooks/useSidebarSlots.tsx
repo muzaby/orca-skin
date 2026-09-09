@@ -1,3 +1,4 @@
+import { agentUiPolicy } from '../../features/chat/lib/agentPresentation'
 import { useMemo, type ReactNode } from 'react'
 import { PinnedProjectsSection, PinnedSection, SessionList } from '../../features/sessions'
 import { SidebarUserButton } from '../SidebarUserButton'
@@ -20,6 +21,7 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
   const projectsSlot = useMemo(
     () => (
       <PinnedProjectsSection
+        agentAppearance={agentUiPolicy}
         pinnedProjects={handlers.pinnedProjects}
         pinnedProjectIds={handlers.pinnedProjectIds}
         currentSessionId={handlers.currentSessionId}
@@ -47,6 +49,7 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
   const pinnedSlot = useMemo(
     () => (
       <PinnedSection
+        agentAppearance={agentUiPolicy}
         pinnedProjectIds={handlers.pinnedProjectIds}
         currentSessionId={handlers.currentSessionId}
         onSelectSession={handlers.handleSelectSession}
@@ -67,6 +70,7 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
   const sessionsSlot = useMemo(
     () => (
       <SessionList
+        agentAppearance={agentUiPolicy}
         currentSessionId={handlers.currentSessionId}
         projectNameById={handlers.projectNameById}
         pinnedProjectIds={handlers.pinnedProjectIds}

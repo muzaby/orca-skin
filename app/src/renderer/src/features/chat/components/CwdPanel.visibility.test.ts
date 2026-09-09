@@ -3,10 +3,15 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GitStatus } from '../../../../../shared/ipc'
 
-const fixture = vi.hoisted(() => ({ status: null as GitStatus | null, isolation: false }))
+const fixture = vi.hoisted(() => ({
+  status: null as GitStatus | null,
+  isolation: false,
+  agentKind: 'code' as 'code' | 'work'
+}))
 vi.mock('../store/chatStore', () => ({
   useChatSession: (select: (value: unknown) => unknown) =>
     select({
+      agentKind: fixture.agentKind,
       extraDirs: [],
       extraDirRejection: null,
       worktreeIsolation: fixture.isolation,
@@ -39,10 +44,34 @@ const repo: GitStatus = {
 beforeEach(() => {
   fixture.status = null
   fixture.isolation = false
+  fixture.agentKind = 'code'
 })
 
 describe('landing branch and worktree visibility', () => {
-  it.each([null, { ...repo, isRepo: false }])(
+  it('omits the Git group in Work and preserves the selected isolation when Code returns', () => {
+    fixture.status = repo
+    fixture.isolation = true
+    fixture.agentKind = 'work'
+    const work = render()
+    expect(work).not.toContain('branch-worktree-group')
+    expect(work).not.toContain('type="checkbox"')
+    expect(work).toContain('chat.composer.extraDirAdd')
+    fixture.agentKind = 'code'
+    const code = render()
+    expect(code).toContain('branch-worktree-group')
+    expect(code.match(/<input[^>]*>/)?.[0]).toContain('checked=""')
+  })
+
+  it('renders a disabled dash immediately before the Git response', () => {
+    const html = render()
+    expect(html).toContain('branch-worktree-group')
+    expect(html).toContain('>-<')
+    expect(
+      html.match(/<button[^>]*title="chat.composer.branchTitle"[^>]*>/)?.[0] ?? html
+    ).toContain('disabled')
+  })
+
+  it.each([{ ...repo, isRepo: false }])(
     'hides the entire group without a confirmed Git repository: %j',
     (status) => {
       fixture.status = status
@@ -81,3 +110,8 @@ describe('landing branch and worktree visibility', () => {
     expect(ko.chat.composer.worktreeIsolation).toBe('워크트리')
   })
 })
+
+// 폴더 선택의 비동기 동작은 실제 renderer 인수에서 별도로 검사한다.
+vi.mock('../hooks/useDirectoryPicker', () => ({
+  useDirectoryPicker: () => ({ pick: vi.fn(), picking: false, disabled: false, errorKey: null })
+}))

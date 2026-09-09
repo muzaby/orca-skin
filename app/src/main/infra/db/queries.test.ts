@@ -26,7 +26,7 @@ describe('DbQueries turn usage', () => {
     insertSession(db)
     const q = new DbQueries(db)
 
-    const id = q.insertTurnUsage({
+    const id = q.usage.insertTurnUsage({
       sessionId: 's1',
       messageId: null,
       createdAt: 10,
@@ -36,7 +36,7 @@ describe('DbQueries turn usage', () => {
       cacheReadInputTokens: 4,
       totalCostUsd: 0.1
     })
-    q.insertTurnModelUsage({
+    q.usage.insertTurnModelUsage({
       turnUsageId: id,
       model: 'claude-opus-4-5',
       inputTokens: 1,
@@ -57,7 +57,7 @@ describe('DbQueries turn usage', () => {
     const db = dbWithMigrations()
     insertSession(db)
     const q = new DbQueries(db)
-    q.insertTurnUsage({
+    q.usage.insertTurnUsage({
       sessionId: 's1',
       messageId: null,
       createdAt: 1,
@@ -67,7 +67,7 @@ describe('DbQueries turn usage', () => {
       cacheReadInputTokens: null,
       totalCostUsd: null
     })
-    const latest = q.insertTurnUsage({
+    const latest = q.usage.insertTurnUsage({
       sessionId: 's1',
       messageId: null,
       createdAt: 2,
@@ -77,7 +77,7 @@ describe('DbQueries turn usage', () => {
       cacheReadInputTokens: 6,
       totalCostUsd: 0.2
     })
-    q.insertTurnModelUsage({
+    q.usage.insertTurnModelUsage({
       turnUsageId: latest,
       model: 'claude-haiku-4',
       inputTokens: 10,
@@ -87,7 +87,7 @@ describe('DbQueries turn usage', () => {
       contextWindow: null,
       costUsd: null
     })
-    q.insertTurnModelUsage({
+    q.usage.insertTurnModelUsage({
       turnUsageId: latest,
       model: 'claude-opus-4-5',
       inputTokens: 50,
@@ -98,7 +98,7 @@ describe('DbQueries turn usage', () => {
       costUsd: null
     })
 
-    const row = q.getLatestTurnUsage('s1')
+    const row = q.usage.getLatestTurnUsage('s1')
     expect(row?.turn.id).toBe(latest)
     expect(row?.modelUsage.map((m) => m.model)).toEqual(['claude-opus-4-5', 'claude-haiku-4'])
   })
@@ -114,19 +114,19 @@ describe('DbQueries turn usage', () => {
       cacheCreationInputTokens: null,
       cacheReadInputTokens: null
     }
-    q.insertTurnUsage({ ...base, sessionId: 's1', createdAt: 1, totalCostUsd: 0.1 })
-    q.insertTurnUsage({ ...base, sessionId: 's1', createdAt: 2, totalCostUsd: 0.25 })
-    q.insertTurnUsage({ ...base, sessionId: 's1', createdAt: 3, totalCostUsd: null })
+    q.usage.insertTurnUsage({ ...base, sessionId: 's1', createdAt: 1, totalCostUsd: 0.1 })
+    q.usage.insertTurnUsage({ ...base, sessionId: 's1', createdAt: 2, totalCostUsd: 0.25 })
+    q.usage.insertTurnUsage({ ...base, sessionId: 's1', createdAt: 3, totalCostUsd: null })
 
-    expect(q.sumSessionCostUsd('s1')).toBeCloseTo(0.35, 10)
-    expect(q.sumSessionCostUsd('없는-세션')).toBe(0)
+    expect(q.usage.sumSessionCostUsd('s1')).toBeCloseTo(0.35, 10)
+    expect(q.usage.sumSessionCostUsd('없는-세션')).toBe(0)
   })
 
   it('sumUsageByBoundaries 는 한 스캔으로 day/week/month 를 집계하고 null 을 0 으로 본다', () => {
     const db = dbWithMigrations()
     insertSession(db)
     const q = new DbQueries(db)
-    q.insertTurnUsage({
+    q.usage.insertTurnUsage({
       sessionId: 's1',
       messageId: null,
       createdAt: 10,
@@ -136,7 +136,7 @@ describe('DbQueries turn usage', () => {
       cacheReadInputTokens: 4,
       totalCostUsd: null
     })
-    q.insertTurnUsage({
+    q.usage.insertTurnUsage({
       sessionId: 's1',
       messageId: null,
       createdAt: 20,
@@ -148,7 +148,7 @@ describe('DbQueries turn usage', () => {
     })
 
     // dayStart=15 → ts=20 행만, weekStart=5/monthStart=0 → 두 행 모두.
-    const sums = q.sumUsageByBoundaries({ dayStart: 15, weekStart: 5, monthStart: 0 })
+    const sums = q.usage.sumUsageByBoundaries({ dayStart: 15, weekStart: 5, monthStart: 0 })
     expect(sums.day).toEqual({
       input_tokens: 3,
       output_tokens: 0,
@@ -166,7 +166,7 @@ describe('DbQueries turn usage', () => {
     expect(sums.month).toEqual(sums.week)
 
     // 모든 경계가 데이터 이후면 전 구간 0.
-    const empty = q.sumUsageByBoundaries({ dayStart: 999, weekStart: 999, monthStart: 999 })
+    const empty = q.usage.sumUsageByBoundaries({ dayStart: 999, weekStart: 999, monthStart: 999 })
     const zero = {
       input_tokens: 0,
       output_tokens: 0,
@@ -190,7 +190,7 @@ describe('DbQueries usage stats (0112)', () => {
       totalCostUsd: number | null
     }> = {}
   ): number {
-    return q.insertTurnUsage({
+    return q.usage.insertTurnUsage({
       sessionId: 's1',
       messageId: null,
       createdAt,
@@ -213,7 +213,7 @@ describe('DbQueries usage stats (0112)', () => {
     insertUsage(q, earlyMorning, { outputTokens: 2, cacheCreationInputTokens: 3 })
     insertUsage(q, earlyMorning + 60_000, { outputTokens: 5 })
 
-    const rows = q.sumUsageByDaySince(0)
+    const rows = q.usage.sumUsageByDaySince(0)
     expect(rows).toEqual([
       {
         day: '2026-01-15',
@@ -243,7 +243,7 @@ describe('DbQueries usage stats (0112)', () => {
     insertUsage(q, old, { inputTokens: 100 })
     insertUsage(q, recent, { inputTokens: 1 })
 
-    const rows = q.sumUsageByDaySince(new Date(2026, 0, 15).getTime())
+    const rows = q.usage.sumUsageByDaySince(new Date(2026, 0, 15).getTime())
     expect(rows.map((r) => r.day)).toEqual(['2026-01-16'])
   })
 
@@ -256,7 +256,7 @@ describe('DbQueries usage stats (0112)', () => {
     const t2 = new Date(2026, 0, 16, 12).getTime()
 
     const oldTurn = insertUsage(q, old)
-    q.insertTurnModelUsage({
+    q.usage.insertTurnModelUsage({
       turnUsageId: oldTurn,
       model: 'claude-opus-4-5',
       inputTokens: 999,
@@ -267,7 +267,7 @@ describe('DbQueries usage stats (0112)', () => {
       costUsd: null
     })
     const turn1 = insertUsage(q, t1)
-    q.insertTurnModelUsage({
+    q.usage.insertTurnModelUsage({
       turnUsageId: turn1,
       model: 'claude-opus-4-5',
       inputTokens: 10,
@@ -277,7 +277,7 @@ describe('DbQueries usage stats (0112)', () => {
       contextWindow: null,
       costUsd: 0.3
     })
-    q.insertTurnModelUsage({
+    q.usage.insertTurnModelUsage({
       turnUsageId: turn1,
       model: 'claude-haiku-4',
       inputTokens: 1,
@@ -288,7 +288,7 @@ describe('DbQueries usage stats (0112)', () => {
       costUsd: null
     })
     const turn2 = insertUsage(q, t2)
-    q.insertTurnModelUsage({
+    q.usage.insertTurnModelUsage({
       turnUsageId: turn2,
       model: 'claude-opus-4-5',
       inputTokens: 20,
@@ -299,7 +299,7 @@ describe('DbQueries usage stats (0112)', () => {
       costUsd: 0.4
     })
 
-    const rows = q.sumUsageByModelSince(new Date(2026, 0, 15).getTime())
+    const rows = q.usage.sumUsageByModelSince(new Date(2026, 0, 15).getTime())
     expect(rows).toEqual([
       {
         model: 'claude-haiku-4',
@@ -320,7 +320,7 @@ describe('DbQueries usage stats (0112)', () => {
     ])
 
     // since=0 이면 이전 턴까지 포함.
-    const all = q.sumUsageByModelSince(0)
+    const all = q.usage.sumUsageByModelSince(0)
     expect(all[0].model).toBe('claude-opus-4-5')
     expect(all[0].input_tokens).toBe(1029)
   })
@@ -612,7 +612,7 @@ describe('DbQueries provider usage + limits (0080)', () => {
     insertSessionWithProvider(db, 'sa', 'claude')
     insertSessionWithProvider(db, 'sb', 'claude-bedrock')
     const q = new DbQueries(db)
-    q.insertTurnUsage({
+    q.usage.insertTurnUsage({
       sessionId: 'sa',
       messageId: null,
       createdAt: 20,
@@ -622,7 +622,7 @@ describe('DbQueries provider usage + limits (0080)', () => {
       cacheReadInputTokens: null,
       totalCostUsd: 0.5
     })
-    q.insertTurnUsage({
+    q.usage.insertTurnUsage({
       sessionId: 'sb',
       messageId: null,
       createdAt: 20,
@@ -633,7 +633,7 @@ describe('DbQueries provider usage + limits (0080)', () => {
       totalCostUsd: 2.0
     })
 
-    const claude = q.sumUsageByBoundariesForProvider('claude', {
+    const claude = q.usage.sumUsageByBoundariesForProvider('claude', {
       dayStart: 0,
       weekStart: 0,
       monthStart: 0
@@ -641,7 +641,7 @@ describe('DbQueries provider usage + limits (0080)', () => {
     expect(claude.month.total_cost_usd).toBe(0.5)
     expect(claude.month.input_tokens).toBe(3)
 
-    const bedrock = q.sumUsageByBoundariesForProvider('claude-bedrock', {
+    const bedrock = q.usage.sumUsageByBoundariesForProvider('claude-bedrock', {
       dayStart: 0,
       weekStart: 0,
       monthStart: 0
@@ -649,7 +649,7 @@ describe('DbQueries provider usage + limits (0080)', () => {
     expect(bedrock.month.total_cost_usd).toBe(2.0)
 
     // 알려지지 않은 provider 는 전 구간 0.
-    const none = q.sumUsageByBoundariesForProvider('claude-missing', {
+    const none = q.usage.sumUsageByBoundariesForProvider('claude-missing', {
       dayStart: 0,
       weekStart: 0,
       monthStart: 0
@@ -662,7 +662,7 @@ describe('DbQueries provider usage + limits (0080)', () => {
     const db = dbWithMigrations()
     insertSessionWithProvider(db, 'snull', null)
     const q = new DbQueries(db)
-    q.insertTurnUsage({
+    q.usage.insertTurnUsage({
       sessionId: 'snull',
       messageId: null,
       createdAt: 20,
@@ -672,7 +672,7 @@ describe('DbQueries provider usage + limits (0080)', () => {
       cacheReadInputTokens: null,
       totalCostUsd: 1.0
     })
-    const sums = q.sumUsageByBoundariesForProvider('claude', {
+    const sums = q.usage.sumUsageByBoundariesForProvider('claude', {
       dayStart: 0,
       weekStart: 0,
       monthStart: 0
@@ -684,18 +684,18 @@ describe('DbQueries provider usage + limits (0080)', () => {
     const db = dbWithMigrations()
     const q = new DbQueries(db)
     // 미설정이면 null.
-    expect(q.getProviderLimit('claude')).toBeNull()
+    expect(q.usage.getProviderLimit('claude')).toBeNull()
 
-    q.setProviderLimit('claude', 90, 100)
-    expect(q.getProviderLimit('claude')).toBe(90)
+    q.usage.setProviderLimit('claude', 90, 100)
+    expect(q.usage.getProviderLimit('claude')).toBe(90)
 
     // 재설정(upsert) — 덮어쓴다.
-    q.setProviderLimit('claude', 120, 200)
-    expect(q.getProviderLimit('claude')).toBe(120)
+    q.usage.setProviderLimit('claude', 120, 200)
+    expect(q.usage.getProviderLimit('claude')).toBe(120)
 
     // 무제한(null) 명시 저장 — 행은 있으나 limit_usd 는 NULL → getter null.
-    q.setProviderLimit('claude', null, 300)
-    expect(q.getProviderLimit('claude')).toBeNull()
+    q.usage.setProviderLimit('claude', null, 300)
+    expect(q.usage.getProviderLimit('claude')).toBeNull()
   })
 
   // 0186 — asOf 는 WHERE 하한이 아니라 조건부 SUM 의 경계다. 하한을 올려 재사용하면 같은
@@ -705,7 +705,7 @@ describe('DbQueries provider usage + limits (0080)', () => {
     insertSessionWithProvider(db, 'sw', 'claude')
     const q = new DbQueries(db)
     const usd = (createdAt: number, totalCostUsd: number): void => {
-      q.insertTurnUsage({
+      q.usage.insertTurnUsage({
         sessionId: 'sw',
         messageId: null,
         createdAt,
@@ -721,7 +721,7 @@ describe('DbQueries provider usage + limits (0080)', () => {
     usd(250, 2)
     usd(400, 4)
 
-    const sums = q.sumUsageByBoundariesForProvider(
+    const sums = q.usage.sumUsageByBoundariesForProvider(
       'claude',
       { dayStart: 100, weekStart: 100, monthStart: 100 },
       300
@@ -738,7 +738,7 @@ describe('DbQueries provider usage + limits (0080)', () => {
     const db = dbWithMigrations()
     insertSessionWithProvider(db, 'sd', 'claude')
     const q = new DbQueries(db)
-    q.insertTurnUsage({
+    q.usage.insertTurnUsage({
       sessionId: 'sd',
       messageId: null,
       createdAt: 150,
@@ -749,7 +749,7 @@ describe('DbQueries provider usage + limits (0080)', () => {
       totalCostUsd: 3
     })
 
-    const sums = q.sumUsageByBoundariesForProvider('claude', {
+    const sums = q.usage.sumUsageByBoundariesForProvider('claude', {
       dayStart: 100,
       weekStart: 100,
       monthStart: 100
@@ -765,9 +765,9 @@ describe('provider usage report cache (0014)', () => {
     const db = dbWithMigrations()
     const q = new DbQueries(db)
 
-    expect(q.getProviderUsageReport('claude-gateway')).toBeUndefined()
+    expect(q.usage.getProviderUsageReport('claude-gateway')).toBeUndefined()
 
-    q.upsertProviderUsageReport({
+    q.usage.upsertProviderUsageReport({
       providerKey: 'claude-gateway',
       reportJson: JSON.stringify({ baselineUsable: true, raw: { anything: 1 } }),
       fetchedAt: 1000,
@@ -778,7 +778,7 @@ describe('provider usage report cache (0014)', () => {
       updatedAt: 1000
     })
 
-    const row = q.getProviderUsageReport('claude-gateway')
+    const row = q.usage.getProviderUsageReport('claude-gateway')
     expect(row).toMatchObject({
       provider_key: 'claude-gateway',
       fetched_at: 1000,
@@ -794,7 +794,7 @@ describe('provider usage report cache (0014)', () => {
     const db = dbWithMigrations()
     const q = new DbQueries(db)
     const put = (asOf: number, used: number): void =>
-      q.upsertProviderUsageReport({
+      q.usage.upsertProviderUsageReport({
         providerKey: 'claude-gateway',
         reportJson: '{}',
         fetchedAt: asOf + 10,
@@ -808,7 +808,7 @@ describe('provider usage report cache (0014)', () => {
     put(900, 312)
     put(1900, 280) // 원격 correction 으로 내려갈 수 있다 — 그대로 덮는다.
 
-    const row = q.getProviderUsageReport('claude-gateway')
+    const row = q.usage.getProviderUsageReport('claude-gateway')
     expect(row?.as_of).toBe(1900)
     expect(row?.quota_used_usd).toBe(280)
     expect(

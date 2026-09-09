@@ -18,7 +18,11 @@ import type {
   NormalizedEvent,
   PermissionAction
 } from '../../shared/ipc'
-import { PLAN_APPROVED_MODE, toClaudePermissionMode } from '../../shared/permission-mode'
+import {
+  PLAN_APPROVED_MODE,
+  toClaudePermissionMode,
+  type NormalizedPermissionMode
+} from '../../shared/permission-mode'
 import { claudeToNormalized, type MapContext } from './claude-map'
 import { claudeErrorClassifier, errorEvent } from './error-classifier'
 import { createSessionInputStream, type TurnInputContent } from './streaming-input'
@@ -34,11 +38,9 @@ import { isRiskyTool } from './risky-tools'
 import { adaptRuntimeTools } from './claude-runtime-tools'
 import { runtimeApprovalToolNames } from './runtime-tool-policy'
 import {
-  adaptEnv,
+  adaptExecutionConfig,
   adaptHooks,
   adaptPlugins,
-  adaptSettings,
-  adaptSettingSources,
   adaptSkills,
   adaptSystemPrompt,
   makeSteerGateHook,
@@ -97,6 +99,7 @@ const SUBAGENT_BLOCKED_MESSAGE =
   '사용자가 이 작업을 취소했습니다. 해당 서브에이전트를 다시 호출하지 말고 다른 방식으로 진행하세요.'
 
 interface CanUseToolOptions {
+  planApprovalMode?: NormalizedPermissionMode
   // 중단된 서브에이전트 타입이면 재호출을 deny(가이드 §6-A). 미주입이면 차단 없음.
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
   // 이번 턴 메인 에이전트의 마지막 서술(0215). `ExitPlanMode` 입력에 계획이 실려 오지 않는
@@ -171,7 +174,7 @@ export function makeCanUseTool(
           updatedPermissions: [
             {
               type: 'setMode',
-              mode: toClaudePermissionMode(PLAN_APPROVED_MODE),
+              mode: toClaudePermissionMode(opts.planApprovalMode ?? PLAN_APPROVED_MODE),
               destination: 'session'
             }
           ]
@@ -265,9 +268,7 @@ export class ClaudeAdapter implements SessionAdapter {
       // plugin 로딩은 chat sendMessage 경로에만 적용한다.
       persistSession: false,
       ...claudeExecutableOption,
-      ...adaptSettingSources(),
-      ...adaptSettings(req.providerSettings?.settings),
-      ...adaptEnv(req.env),
+      ...adaptExecutionConfig(req.providerSettings?.settings, req.env),
       ...(req.cwd ? { cwd: req.cwd } : {}),
       ...(req.model ? { model: req.model } : {})
     }
@@ -358,7 +359,7 @@ export class ClaudeAdapter implements SessionAdapter {
 
     // Workspace 격리(0075) — 작업 폴더(cwd) 밖 r/w 를 PreToolUse 가드 훅으로 막는다. additionalDirectories
     // 는 옵션과 훅이 **같은 배열**을 공유해 드리프트를 막는다(가이드 §5). 값은 컴포저 참조 경로
-    // 칩(CLI `/add-dir` 대응)이 세션 출생 시 고정한 것이 턴 요청에 실려 온다.
+    // 신규 칩 또는 유휴 Work의 명시 폴더 추가가 DB를 거쳐 턴 요청에 실린다.
     const additionalDirectories: string[] = req.extraDirs ?? []
     const runtimeToolApprovalNames = runtimeApprovalToolNames(extensions.runtimeTools)
 
@@ -397,10 +398,8 @@ export class ClaudeAdapter implements SessionAdapter {
         // 0028 의 "생략=기본 소스 상속" supersede). provider settings 가 사용자 전역
         // ~/.claude/settings.json 개입 없이 적용된다.
         // options.env(adaptEnv)에는 시스템(턴) env 만 — orca.json 앱 env.
-        ...adaptSettingSources(),
-        ...adaptSettings(req.providerSettings?.settings),
-        ...adaptEnv(env),
-        ...adaptRuntimeTools(extensions.runtimeTools),
+        ...adaptExecutionConfig(req.providerSettings?.settings, env),
+        ...adaptRuntimeTools(extensions.runtimeTools, req.runtimeToolContext),
         // hooks = 중립 정규화 훅 + steer 게이트(PostToolBatch, 메인 루프 한정 flush) 병합 위에
         // 어댑터 내부 PostCompact(압축 요약 수집, manual 만·0064) 를 덧씌운다.
         ...withPostCompactHook(
@@ -431,6 +430,7 @@ export class ClaudeAdapter implements SessionAdapter {
           ? {
               canUseTool: makeCanUseTool(requestApproval, {
                 runtimeApprovalToolNames: runtimeToolApprovalNames,
+                ...(req.planApprovalMode ? { planApprovalMode: req.planApprovalMode } : {}),
                 // 매퍼가 쓰는 **같은 ctx** 를 읽는다(0215 EP-01) — 이 인자를 빼면 계획을
                 // 입력에 싣지 않는 모델에서 우측 패널이 다시 빈다.
                 getPlanNarrative: () => ctx.lastAssistantText,

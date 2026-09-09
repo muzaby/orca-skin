@@ -1,7 +1,6 @@
 // ${VAR} 환경변수 확장의 **중립 프리미티브**(infra). resolver 주입식이라 electron 없이 단위 테스트
-// 가능. 기본 resolver 순서: safeStorage(비밀) → process.env (2단계). MCP 서버 구조를 순회하는
-// expandEnv(OrcaMcpConfig 의존)는 mcp feature(`features/extensions/mcp/expand.ts`)로 분리했다 —
-// infra 는 도메인 타입(OrcaMcpConfig)을 몰라야 한다.
+// 가능. 실제 값의 조회 정책은 호출자가 주입한다. MCP 서버별 확장/제외는
+// features/extensions/mcp/convert.ts가 소유하며 infra는 도메인 타입을 알지 않는다.
 
 export type Resolver = (name: string) => string | undefined
 
@@ -18,7 +17,7 @@ const BINDING_RE = /\$\{BINDING:([A-Za-z0-9_-]+)\}/g
 export const BINDING_PREFIX = 'BINDING:'
 
 // 한 문자열 안의 모든 ${VAR} · ${BINDING:id} 치환. 미해결 참조는 missing 에 모은다.
-// 미해결을 빈 문자열로 조용히 치환하지 않는 것이 핵심 — 호출부(mcp expand)가 missing 을 보고
+// 미해결을 빈 문자열로 조용히 치환하지 않는 것이 핵심 — 호출부(mcp convert)가 missing 을 보고
 // 해당 서버 전체를 드롭한다. 비밀 누락을 숨기면 인증 없는 요청이 새어나간다.
 export function expandVars(
   value: string,

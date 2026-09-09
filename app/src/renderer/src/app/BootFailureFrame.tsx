@@ -1,6 +1,7 @@
 import { FullFrameShell } from './FullFrameShell'
 import { Button } from '../shared/ui/Button'
 import { useI18n } from '../shared/i18n'
+import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 
 // 부팅이 실패했을 때 AppLayout 을 대체하는 화면 — 실패 사유와 재시도 버튼. 창 크롬은
 // `FullFrameShell` 이 갖는다.
@@ -16,7 +17,7 @@ export function BootFailureFrame({
 }): React.JSX.Element {
   const { tr } = useI18n()
   return (
-    <FullFrameShell screenLabel={`Orca · ${tr('boot.errorTitle')}`}>
+    <FullFrameShell screenLabel={`${PRODUCT_DISPLAY_NAME} · ${tr('boot.errorTitle')}`}>
       <div className="flex w-full max-w-[360px] flex-col gap-4">
         <div
           role="alert"

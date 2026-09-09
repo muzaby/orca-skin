@@ -10,7 +10,7 @@
 import type { WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
 import type { ApprovalResolution, PermissionAction } from '../../../shared/ipc'
-import { PLAN_APPROVED_MODE } from '../../../shared/permission-mode'
+import { planApprovedMode } from '../../../shared/permission-mode'
 import { agentPermissionRequest } from '../../features/approvals/permission-bridge'
 import type { ApprovalCoordinator } from '../../features/approvals/coordinator'
 import type { PermissionModeController } from '../../features/approvals/permission-mode-controller'
@@ -103,7 +103,7 @@ export function createApprovalRequester(
     // (adapters/claude.ts). 여기서는 main 세션 SSOT 를 같은 값으로 맞춰, 다음 턴 send 페이로드가
     // 도착하기 전 구간에도 controller 가 plan 이라고 답하지 않게 한다.
     if (action.kind === 'plan_review' && resolution.behavior === 'allow' && turn.dbSessionId) {
-      void permissionModes.setMode(turn.dbSessionId, PLAN_APPROVED_MODE)
+      void permissionModes.setMode(turn.dbSessionId, planApprovedMode(turn.agentKind))
     }
     return resolution
   }

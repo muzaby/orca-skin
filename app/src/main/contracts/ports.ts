@@ -11,6 +11,7 @@ import type { SessionRuntimeState } from './session-state'
 // raw `LiveTurn` 도 이 타입에 대입 가능(선택 필드 부재 허용).
 export interface RuntimeLiveTurn extends LiveTurn {
   markAborted?(cause: 'user_cancelled' | 'stall' | 'retry'): void
+  readonly spawnedModel?: string
   readonly cancelled?: boolean
   readonly timedOut?: boolean
 }

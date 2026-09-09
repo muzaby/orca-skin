@@ -6,7 +6,7 @@
 >
 > **가로축 구동체 (TurnCoordinator, 2026-06-29 정제 0051):** 본 문서의 `NormalizedEvent`·`PermissionBridge` 가 흐르는 *턴 실행 파이프라인*(stream → reduce → **persist ∥ forward** + 권한 재진입 콜백)을 구동하는 1급 컴포넌트는 **TurnCoordinator**(`features/chat/turn-coordinator.ts`, handoff 0052)다. 원칙: **DB 영속(persist)은 main-side·renderer 생존 무관**, renderer forwarding 은 별도 best-effort fan-out, 권한은 단계가 아니라 `canUseTool` 재진입 콜백이다. 개념 정본은 `etc/orca_lifecycle_orchestration_design_draft_ko.md` §A(용어 3분리 + 2축 모델).
 >
-> **세로축 자원 supervision (RuntimeSupervisor, handoff 0053):** SessionRuntime 집합의 소유자(§A 세로축 unit #3)는 **`RuntimeSupervisor`**(`features/sessions/supervisor.ts`)다 — `SessionRuntimeRegistry` 를 소유하고 턴 핸들 teardown(`release`, 멱등)과 abort 프리미티브(`abortTurn` = `markAborted`+`controller.abort`)를 **단일 경로**로 모은다. 현재는 **척추**만 안착(정책 0); cap admission·LRU/idle eviction·IdleCloseTimer·Persistent runtime 은 0054 에서 이 소유자에 plug-in 한다.
+> **세로축 자원 supervision:** **`RuntimeSupervisor`**(`features/sessions/supervisor.ts`)가 활성 턴 registry와 장수명 runtime pool을 소유한다. 턴 release와 runtime close를 구분하며 cap admission·LRU 축출을 수행한다. 시간 기반 idle eviction은 사용하지 않는다. 실제 수명 정책은 [runtime-ipc.md §1](./runtime-ipc.md)에 서술한다.
 
 > **상태**: 절마다 다르다 — **절별 판정은 각 절의 "③ 현재 코드 갭" 이 갖고, 요약은 §12 매핑표·§13 이다.** 와이어(`orca:chat:event`)는 `NormalizedEvent` 로 전면 전환됐고 PermissionBridge·PermissionModeController·ErrorClassifier·Telemetry 는 구현돼 있다. `RevertManager`(§5) 는 구현 없음, `provider` 축은 claude 고정(opencode 미구현)이다. 여기 정의한 타입은 **정본(SSOT)** 이며, ../frontend/ 의 렌더링·UX 문서(rendering.md·ux-domains.md)은 이 타입들을 *참조만* 한다(중복 정의 금지).
 >
@@ -15,6 +15,8 @@
 > **출처 신뢰 원칙**: `[검증-타입]`은 SDK 선언/소스 확인, `[검증-런타임]`은 실제 코드 구동/소비 확인, `[미확인-런타임]`은 실제 서버 상호운용 미검증, `[N/A-claude]`는 Claude 대응 개념 없음, `[미확인-opencode]`는 OpenCode 적용 의미 미확정이다. OpenCode SDK는 조사·계약 검증용으로 설치되어 있으며 버전·API 표면·mock 관측은 [SDK 해설](../../opencode-sdk-spec.md)이 갖는다. 설치·mock 성공을 Orca adapter 활성화나 실제 서버 검증으로 승격하지 않는다.
 >
 > **rename 범위 밖**: 실제 코드 심볼(`SessionAdapter`·`makeCanUseTool` 등)은 이번 라운드에서 변경하지 않는다. 구 `ChatEvent` 는 예외로, 와이어 전환과 함께 이미 제거됐다(§2 ③·PR #47). 본 절의 *목표 타입명*(`NormalizedEvent` 등)과 현행 코드명의 대응은 §12 매핑표로만 둔다.
+
+제품 에이전트의 응답 경계 정책은 `features/agents/profiles.ts`가 명시한다. app의 send와 bootstrap이 같은 `persistResponseBoundaries` 값을 각각 TurnCoordinator와 HistoryWriter의 포트로 전달한다. 이벤트 생성과 저장은 이 정책을 사용하며 서로 다른 feature의 프로필을 직접 import하지 않는다.
 
 ## 1. 왜 — 현재 결합의 3가지 괴리
 
@@ -185,7 +187,7 @@ const DEFAULT_APP_COMMAND_POLICY: Record<AppCommandKind, 'pass' | 'require_appro
 
 **② 예시.** 사용자가 "계획만 보기(plan)" 로 시작했다가, 신뢰가 쌓이면 런타임에 `accept_edits` 로 올려 파일 편집 자동 수락. 이후 `allow` 시 `updatedPermissions` 로 규칙 누적.
 
-**③ 현재 상태.** 어댑터(`adapters/claude.ts`)는 턴 경로에서 `prompt: input.stream`(`adapters/streaming-input.ts` 의 `createSessionInputStream`, `claude.ts:327`→`:346`)으로 `query()` 를 호출해 살아있는 `Query` 핸들을 유지한다 — 그 핸들에 `setPermissionMode`/`interrupt`/`setModel` 이 열려 있다(아래 구현 상태 노트). `prompt` 를 string 으로 넘기는 one-off 경로는 제목 생성용 1-shot `complete()`(`claude.ts:270`)에만 남았다. IPC 는 여전히 per-turn `permissionMode: 'plan' | 'acceptEdits'`(`src/shared/ipc.ts`, 2종)를 `SendChatMessage` 로 나르고, 라이브 전환은 별도 채널 `orca:permission:setMode` 가 담당한다. **설계 근거**: 런타임 전환의 선행 조건은 "장수명 `ClaudeSDKClient` 클래스"가 아니라 **스트리밍 입력 모드 전환**이다 — 동일 `query()` 함수에 `prompt` 만 `AsyncIterable<SDKUserMessage>` 로 넘기면 반환된 `Query` 핸들에서 `setPermissionMode`/`interrupt`/`setModel` 이 열린다(별도 클라이언트 클래스 불요). 입력 큐가 살아있는 동안 generator 가 `return` 되지 않아야 핸들이 유지된다. runtime-ipc.md §1(동시성)의 멀티세션 `SessionRuntimeRegistry`(`features/sessions/session-registry.ts`) 와 세션별 `Query` 핸들 수명을 연결한다.
+**③ 현재 상태.** 어댑터(`adapters/claude.ts`)는 턴 경로에서 `prompt: input.stream`(`createSessionInputStream`)으로 `query()`를 호출해 살아있는 Query 핸들을 유지한다. 문자열 prompt 경로는 제목 생성용 complete()에 남아 있다. 전송 IPC는 정규화 permissionMode를 전달하고 라이브 변경은 `orca:permission:setMode`가 담당한다. 입력 큐가 살아있는 동안 generator를 종료하지 않아야 control 메서드가 열린다. 세션별 핸들은 SessionRuntimeRegistry가 관리한다.
 
 **④ 인터페이스 (정본).**
 
@@ -199,7 +201,7 @@ interface PermissionModeController {
 }
 ```
 
-> **구현 상태**: ✅ **PR③ 라이브 전환까지 구현 완료.** `NormalizedPermissionMode`(6종)·`toClaudePermissionMode`·`fromUiPermissionMode`(`src/shared/permission-mode.ts`) + 세션-키 `PermissionModeController`(`src/main/features/approvals/permission-mode-controller.ts`, sessionId 인자) + Vitest. **router/adapter 와이어링·라이브 `Query.setPermissionMode` 위임 완료** — 어댑터가 매 턴 streaming input 모드(`createSessionInputStream` → `prompt: AsyncIterable<SDKUserMessage>`, `src/main/adapters/streaming-input.ts`)로 `query()` 를 호출해 살아있는 `Query` 핸들을 유지하고, `src/main/adapters/claude.ts` 가 `setPermissionMode`/`interrupt`/`setModel` 을 핸들에 위임한다. `src/main/features/approvals/coordinator.ts` 가 등록한 `orca:permission:setMode` 핸들러가 ① controller(세션 SSOT) 갱신 + ② 진행 중 턴이면 `turn.live.setPermissionMode(toClaudePermissionMode(mode))` 즉시 위임. **잔여: 풀 크로스턴 멀티세션**(resume-from-DB SSOT 충돌·구동 UI 부재 — Phase 4).
+공유 `permission-mode.ts`는 정규화/SDK 매핑과 종류·모델에 따른 Composer 정책을 소유한다. Work는 default·auto_classified·bypass를 선택하며, 자동 승인은 명시된 Claude 버전 >4.5에만 허용한다. 지원하지 않는 자동은 Work=default, Code=accept_edits로 정착한다. Main send는 payload의 모드 유무와 관계없이 실제 해소 모델을 확인한다. ApprovalCoordinator는 같은 세션의 라이브 변경을 직렬화하고 실제 spawnedModel로 정착한 값을 SDK에 적용한 후 저장·응답한다. idle 선택은 다음 send에서 모델을 최종 확인한다. 실제 실행 보정은 session.updated 권한 patch로 UI에 전달한다. 계획 승인 목표는 Main이 종류별로 계산하여 TurnRequest와 후속 요청에 전달하므로 adapter가 agentProfileKey를 해석하지 않는다. 자세한 반환·실패 계약은 [IPC 계약](../../IPC_CONTRACT.md)을 따른다.
 
 | Provider | 처리 |
 |---|---|
@@ -325,7 +327,7 @@ type AppMessagePart =
 
 - **컨텍스트 입력 = 마지막 assistant 스냅샷, 비용 = result 누적 (2-소스 분리).** `claude-map.ts` 의 `MapContext.lastAssistantUsage` 가 매 `assistant` 메시지의 `message.usage`(Anthropic shape: `input_tokens`/`output_tokens`/`cache_read_input_tokens`/`cache_creation_input_tokens`)를 최신값으로 보관한다(ctx 는 턴 1회 생성·스트림 전체 공유 → 마지막 것이 남음). `result` 정규화 시 telemetry 의 **컨텍스트 입력 3종(`inputTokens`·`cacheReadTokens`·`cacheCreationTokens`) 중 스냅샷에 존재하는 필드만 이 스냅샷으로 덮는다**(없는 필드는 `result.usage` 값 보존 — field-merge). 이유: `result.usage` 는 멀티스텝(도구 N회) 턴에서 단계별 입력이 누적돼 과대 집계되므로 `/context` 상단 %("모델이 *마지막으로* 본 입력 / 윈도우")와 어긋난다. **`else delete` 금지** — 스냅샷이 `input` 만 주고 `cache_read` 를 안 줄 때 result 의 `cache_read` 를 지우면 `contextTokens` 가 input(≈1)으로 붕괴해 도넛이 0~1% 로 무너진다. **`costUsd`·`durationMs`·`numTurns`·`modelUsage`·`model` 은 result 누적값 유지**(비용은 턴 전체 합이 맞음). 스냅샷 미수신 시 `result.usage` 로 graceful fallback. `/context` 와 100% 일치는 불가 — 개념·수치 *근사*가 목표. 단위 테스트는 `claude-map.test.ts`(멀티스텝 스냅샷 vs 누적·fallback·cache 보존).
 - **핸드오프 도착 턴 컨텍스트 무효화 (0127).** `TurnRequest.handoff` → `MapContext.handoffArrival` 표식. 압축 경계(compact_boundary) *전* 의 assistant usage 는 원본 세션 전체 이력의 승계 컨텍스트라 스냅샷으로 캡처하지 않고, 경계 없이 끝난 result 는 telemetry 의 컨텍스트 3종을 제거한다(도넛/경고 '미측정' 시작 — 새 세션이 원본 사용량을 승계하지 않음). 경계 통과 후에는 기존 압축-후 근사(post_tokens/요약 크기)·실측 스냅샷 경로 그대로. 자동 연속 턴은 `forkFrom` 과 함께 플래그를 제거한다(chat-turn).
-- **빈 컨텍스트 턴 적재 스킵 (`/context` 등).** `features/usage/subscriber.ts` 는 `usage` 가 있고 `hasContextTokens(usage)`(`features/usage/usage-map.ts` — input+cacheRead+cacheCreation > 0) 일 때만 `usage_events` 1행 적재한다. `/context`·`/help` 류 로컬 슬래시 명령은 모델 미호출이라 컨텍스트·비용 둘 다 없는 빈 행을 만드는데, 이를 적재하면 `getLatestTurnUsage`(최신행) 복원 시 직전 도넛을 0 으로 덮는다. 라이브 쪽 짝 가드는 reducer(`contextTokens > 0` 일 때만 `lastTelemetry` 교체, rendering.md §1.9).
+- **빈 컨텍스트 턴 적재 스킵 (`/context` 등).** `features/usage/tracker.ts` 는 `usage` 가 있고 `hasContextTokens(usage)`(`features/usage/tracker.ts` — input+cacheRead+cacheCreation > 0) 일 때만 `turn_usage` 1행 적재한다. `/context`·`/help` 류 로컬 슬래시 명령은 모델 미호출이라 컨텍스트·비용 둘 다 없는 빈 행을 만드는데, 이를 적재하면 `getLatestTurnUsage`(최신행) 복원 시 직전 도넛을 0 으로 덮는다. 라이브 쪽 짝 가드는 reducer(`contextTokens > 0` 일 때만 `lastTelemetry` 교체, rendering.md §1.9).
 
 **④ 인터페이스 (정본 — `[검증-런타임]` cost-tracking.md 로 필드 확정).** 구현된 정본 타입은 `src/shared/ipc.ts` 의 `ProviderReportedTelemetry`/`TelemetryModelUsage`(claude `result` 의 snake/camel 혼용을 camelCase 정규화).
 

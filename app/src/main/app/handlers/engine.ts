@@ -9,7 +9,6 @@ import {
   type EngineWriteResult
 } from '../../../shared/protocol'
 import { readUserClaudeSettings } from '../../adapters/claude-settings'
-import { deploy } from '../../features/extensions/deployer'
 import {
   addHarnessSettings,
   deleteHarnessSettings,
@@ -18,19 +17,20 @@ import {
 } from '../../features/harnesses/settings-write'
 import type { RouterContext } from '../context'
 import { handle, handlePlain } from '../../infra/ipc/handle'
-import { getLogger } from '../../infra/log'
 import { canonicalProviderKey, providerKeyOf } from '../../infra/config/provider-key'
 
-async function refreshHarnessSettings(ctx: RouterContext, key: string): Promise<void> {
+interface EngineHandlerContext extends Pick<RouterContext, 'deployExtensions'> {
+  harnessSettings: Pick<RouterContext['harnessSettings'], 'invalidateAll'>
+  harnessRuntime?: Pick<NonNullable<RouterContext['harnessRuntime']>, 'invalidate'>
+  runtimeModelCatalog?: Pick<
+    NonNullable<RouterContext['runtimeModelCatalog']>,
+    'isReadOnly' | 'invalidate'
+  >
+}
+
+async function refreshHarnessSettings(ctx: EngineHandlerContext, key: string): Promise<void> {
   try {
-    const result = await deploy('claude')
-    if (!result.validation.ok) {
-      for (const err of result.validation.errors) {
-        getLogger()
-          .child('extensions')
-          .warn('extensions.deploy.warning', { message: String(err) })
-      }
-    }
+    await ctx.deployExtensions({ throwOnFailure: true })
   } finally {
     // **두 cache 를 함께 비운다** (0188) — settings 만 비우면 동적 runtime config 가 옛
     // sourceRevision 기준 값을 warm hit 로 계속 돌려준다.
@@ -40,7 +40,7 @@ async function refreshHarnessSettings(ctx: RouterContext, key: string): Promise<
   }
 }
 
-export function registerEngineHandlers(ctx: RouterContext): void {
+export function registerEngineHandlers(ctx: EngineHandlerContext): void {
   const assertMutable = (key: string): string => {
     const canonical = canonicalProviderKey(key, ['claude'])
     if (ctx.runtimeModelCatalog?.isReadOnly(canonical)) {

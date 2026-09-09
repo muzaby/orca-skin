@@ -77,7 +77,7 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 | `features/auth/browser-session/runner.ts` | 브라우저 세션 로그인 흐름 (창 → final URL 의 인가 코드 → 토큰 교환 · whoami) |
 | `features/auth/specs/` | 선언 헬퍼(값 입력형) + 브라우저 세션 포트·응답 해석 |
 | `features/gate/index.ts` | `evaluateGate`(순수 진리표) · `createGate` · `selectGateMembers`(fail-closed) |
-| `features/harnesses/settings-entries.ts` | `sources/settings/<harness>/<modelProvider>/` 열거 |
+| `features/harnesses/settings.ts` | `sources/settings/<harness>/<modelProvider>/` 열거 |
 | `features/harnesses/settings.ts` | native settings 해석 + mtime cache + `sourceRevision` |
 | `features/harnesses/runtime-config.ts` | 동적 실행 구성 — augmenter · 세대 cache · fence · single-flight · expiry |
 | `features/harnesses/runtime-boundary.ts` | respawn 경계 판정(순수) |

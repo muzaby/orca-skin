@@ -4,7 +4,8 @@ import { DebugPanel } from '../features/debug'
 import { InstallerDialog, AuthExpiredModal } from '../features/backend'
 import { ConfirmDialogHost } from '../shared/ui/ConfirmDialogHost'
 import { MODAL_BACKDROP_CLASS } from '../shared/ui/Modal'
-import { SearchModal } from './SearchModal'
+import { SearchModal } from '../features/sessions'
+import { useNavigate } from 'react-router-dom'
 import { UpdateDebugSection, UpdateDialog, useUpdateDialogOpen } from '../features/update'
 import { ProviderDebugSection } from '../features/providers'
 
@@ -22,6 +23,7 @@ interface OverlayLayerProps {
 // 공용 Modal 계열(UpdateDialog·ConfirmDialogHost 포함)은 body 포털 + 자체 backdrop
 // (MODAL_BACKDROP_CLASS 공유)로 뜨므로 슬롯 밖 형제로 마운트한다 (handoff 0121).
 export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): React.JSX.Element {
+  const navigate = useNavigate()
   const installerOpen = useInstallerOpen()
   const authExpired = useChatSession((s) => s.error?.category === 'auth_error')
   const updateOpen = useUpdateDialogOpen()
@@ -56,7 +58,12 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
           onNewChat={chatActions.newChat}
           onDismiss={chatActions.clearError}
         />
-        {searchOpen && <SearchModal onClose={onCloseSearch} />}
+        {searchOpen && (
+          <SearchModal
+            onClose={onCloseSearch}
+            onChoose={(sessionId) => navigate(`/chat/${sessionId}`)}
+          />
+        )}
       </div>
       <UpdateDialog open={updateOpen} />
       <ConfirmDialogHost />

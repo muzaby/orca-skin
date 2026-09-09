@@ -12,7 +12,11 @@ const { planState } = vi.hoisted(() => ({
       planContent: null as string | null,
       pendingPlanReview: null as unknown,
       planComments: [] as unknown[],
-      activePlanCommentId: null as string | null
+      activePlanCommentId: null as string | null,
+      messages: [] as unknown[],
+      selectedTaskKey: null,
+      agentTools: null,
+      cliVersion: null
     }
   }
 }))
@@ -24,7 +28,8 @@ vi.mock('../../store/chatStore', () => ({
     removePlanComment: vi.fn(),
     setActivePlanComment: vi.fn()
   },
-  useChatSession: (select: (s: unknown) => unknown) => select(planState.value)
+  useChatSession: (select: (s: unknown) => unknown) => select(planState.value),
+  useUnseenSettledTaskCount: () => 0
 }))
 
 const { PlanTileContent } = await import('./PlanTileContent')
@@ -35,6 +40,10 @@ const render = (state: Partial<(typeof planState)['value']>): string => {
     pendingPlanReview: null,
     planComments: [],
     activePlanCommentId: null,
+    messages: [],
+    selectedTaskKey: null,
+    agentTools: null,
+    cliVersion: null,
     ...state
   }
   return renderToStaticMarkup(createElement(PlanTileContent))

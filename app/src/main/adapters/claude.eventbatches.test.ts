@@ -28,7 +28,7 @@ const baseReq = (): TurnRequest => ({
   sessionId: 's1',
   text: 'hello',
   cwd: '/tmp',
-  extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+  extensions: { skills: [], hooks: { normalized: {} } }
 })
 
 async function collectBatches(): Promise<ProviderMessageBatch[]> {

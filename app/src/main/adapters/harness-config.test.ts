@@ -430,7 +430,7 @@ describe('env fingerprint (AC19)', () => {
 // 살아 있는 채널을 내렸다 — 0125 가 settings 축에서 못 박은 "해석 실패는 경계가 아니다" 가
 // env 축에만 빠져 있었다.
 describe('해석 실패 턴 (prepareUnresolvedHarnessConfig, r10)', () => {
-  // **production 진입점을 그대로 부른다** — `turn-setup.ts` 의 `unresolvedPrepared` 가 이 함수를
+  // **production 진입점을 그대로 부른다** — `resolve-turn.ts` 의 `unresolvedPrepared` 가 이 함수를
   // 호출하는 한 줄이므로, 여기 단언이 곧 그 경로의 계약이다(D-055).
   const unresolved = (): ReturnType<typeof prepareHarnessConfig> =>
     prepareUnresolvedHarnessConfig({ appEnv: { APP_ONLY: 'kept' }, baseEnv: BASE })

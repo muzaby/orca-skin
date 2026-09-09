@@ -195,7 +195,7 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 |---|---|---|
 | **Phase 1 (MVP)** ✅ | 단일 활성 대화 컨텍스트 유지 | `sessionId` 메모리 변수 1개 |
 | Phase 2 ✅ | 앱 재시작 후 마지막 대화 재개 | `electron-store` 로 `sessionId` 영속화 |
-| Phase 3 ✅ | 사이드바에 과거 대화 목록 + 로컬 영속성 도입 | 로컬 DB (`<userData>/orca.db`) 가 메시지·세션 메타 SSOT. Artifact FS 는 잔여. 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
+| Phase 3 ✅ | 사이드바에 과거 대화 목록 + 로컬 영속성 도입 | 로컬 DB (`<userData>/orcinus-orca.db`) 가 메시지·세션 메타 SSOT. Artifact FS 는 잔여. 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
 | Phase 4 (진행 중) | 멀티 세션 전환 모드 + **Zustand 상태 관리 전환** | **런타임·상태 전환은 완료** (세션별 SessionRuntime + chat `sessions: Record` 외피, 0008~0013·0051~0069) — 동시 스트리밍 *UX*(배지·탭)가 잔여. 진행 이력 정본 [archive/PHASES.md](archive/PHASES.md), 상태 상세 [arch/frontend/state.md](arch/frontend/state.md) §1 |
 
 ---

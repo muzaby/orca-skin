@@ -26,7 +26,7 @@ export function useUpdateCheckSetting(): [
     }
   }, [])
 
-  // 낙관적으로 먼저 반영하고, 저장이 실패하면 갱신 직전 값으로 되돌린다(useTweaks 와 같은 방식 —
+  // 낙관적으로 먼저 반영하고, 저장이 실패하면 갱신 직전 값으로 되돌린다(TweakProvider와 같은 방식 —
   // 추가 IPC 없이 unmount 후에도 안전).
   const update = useCallback((patch: Partial<SchedulerUpdateCheckSettings>) => {
     let previous: SchedulerUpdateCheckSettings | null = null

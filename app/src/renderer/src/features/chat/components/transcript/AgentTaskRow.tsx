@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { formatElapsed, useElapsed } from '../../../../shared/ui/elapsed'
 import { useI18n, type MessageKey } from '../../../../shared/i18n'
 import {
@@ -10,6 +10,8 @@ import { formatDurationLabel, toolDescription } from '../../lib/toolMeta'
 import { chatActions, useChatSession, useSubagentMeta } from '../../store/chatStore'
 import type { ToolCall } from '../../reducer/chatReducer'
 import { TranscriptActionRow } from './TranscriptActionRow'
+import { InlineSubagentDetail } from './InlineSubagentDetail'
+import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
 
 // 서브에이전트(Task) 행의 상태별 접두 동사 키 — 렌더에서 tr() 해석(0096 패턴). 진행 중만 shimmer.
 const PREFIX_KEY: Record<SubagentTaskStatus, MessageKey> = {
@@ -29,13 +31,16 @@ const PREFIX_KEY: Record<SubagentTaskStatus, MessageKey> = {
 // 완료/중단/실패: `에이전트 {상태} {model} {title}` (+ 완료 시 durationLabel).
 export function AgentTaskRow({
   call,
-  inGroup = false
+  inGroup = false,
+  transcriptPolicy
 }: {
   call: ToolCall
   inGroup?: boolean
+  transcriptPolicy: AgentTranscriptPresentation
 }): React.JSX.Element {
   const { tr } = useI18n()
   const messages = useChatSession((s) => s.messages)
+  const [expanded, setExpanded] = useState(false)
   const summary = useMemo(
     () => subagentTasksFromMessages(messages).find((t) => t.toolUseId === call.toolUseId),
     [messages, call.toolUseId]
@@ -72,19 +77,31 @@ export function AgentTaskRow({
     detail = `${model} ${title}${duration}`
   }
 
-  const activate = (): void => chatActions.openSubagentTask(call.toolUseId)
+  const activate = (): void => {
+    if (transcriptPolicy.inlineSubagentDetail) setExpanded((value) => !value)
+    else chatActions.openSubagentTask(call.toolUseId)
+  }
 
   return (
-    <TranscriptActionRow groupClassName="group/tool" onActivate={activate}>
-      <span
-        className={`shrink-0 ${
-          isBad ? 'text-bad' : running ? 'epitaxy-text-shine' : 'group-hover/tool:text-t9'
-        }`}
+    <>
+      <TranscriptActionRow
+        groupClassName="group/tool"
+        onActivate={activate}
+        expanded={transcriptPolicy.inlineSubagentDetail ? expanded : undefined}
       >
-        {tr(PREFIX_KEY[status])}
-      </span>
-      {running && <span className="sr-only">{tr('common.running')}</span>}
-      <span className="min-w-0 truncate group-hover/tool:text-t9">{detail}</span>
-    </TranscriptActionRow>
+        <span
+          className={`shrink-0 ${
+            isBad ? 'text-bad' : running ? 'epitaxy-text-shine' : 'group-hover/tool:text-t9'
+          }`}
+        >
+          {tr(PREFIX_KEY[status])}
+        </span>
+        {running && <span className="sr-only">{tr('common.running')}</span>}
+        <span className="min-w-0 truncate group-hover/tool:text-t9">{detail}</span>
+      </TranscriptActionRow>
+      {transcriptPolicy.inlineSubagentDetail && expanded && (
+        <InlineSubagentDetail toolRunId={call.toolUseId} transcriptPolicy={transcriptPolicy} />
+      )}
+    </>
   )
 }

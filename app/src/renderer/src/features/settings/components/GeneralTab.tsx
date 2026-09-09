@@ -7,7 +7,7 @@ import { Toggle } from '../../../shared/ui/Toggle'
 import { AutoGrowTextarea } from '../../../shared/ui/AutoGrowTextarea'
 import { useI18n, type UiLocale } from '../../../shared/i18n'
 import type { ThemeId, DensityId } from '../../../shared/config/theme'
-import type { AppFontId } from '../../../shared/hooks/useTweaks'
+import type { AppFontId } from '../../../shared/theme'
 import { UPDATE_CHECK_INTERVAL_HOURS } from '../../../../../shared/ipc'
 import { useUpdateCheckSetting } from '../hooks/useUpdateCheckSetting'
 import { SettingsGroup, SettingsRow, SettingsSelect } from './parts'
@@ -41,9 +41,15 @@ const LOCALE_OPTIONS: { value: UiLocale; label: string }[] = [
 // 업데이트(자동 확인 주기).
 // theme·appFont·uiLocale·notifyOnComplete 는 Tweak 컨텍스트(영속 자동). accountInstructions 는
 // 대용량 텍스트라, scheduler.updateCheck 는 중첩 키라 컨텍스트에 두지 않고 settingsApi 로 직접
-// 로드/저장한다(useTweaks 의 flat 패치로는 중첩 키를 표현할 수 없다).
+// 로드/저장한다(Tweaks의 flat 패치로는 중첩 키를 표현할 수 없다).
 export function GeneralTab(): React.JSX.Element {
-  const { t, setTweak } = useTweakContext()
+  const { t, setTweak } = useTweakContext((t) => ({
+    theme: t.theme,
+    appFont: t.appFont,
+    uiLocale: t.uiLocale,
+    density: t.density,
+    notifyOnComplete: t.notifyOnComplete
+  }))
   const { tr } = useI18n()
   // 자동 업데이트 확인 주기 — 중첩 설정이라 Tweaks 가 아니라 전용 훅으로 바인딩(0156).
   const [updateCheck, setUpdateCheck] = useUpdateCheckSetting()

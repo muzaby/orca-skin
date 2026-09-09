@@ -67,9 +67,8 @@ function toToolResult(raw: unknown, render: (data: unknown) => string): RuntimeT
   return { content: [{ type: 'text', text: render(result.data) }] }
 }
 
-// 0181 — 정적 descriptor 와 구현을 **한 번에** 만든다. 구 구조는 `RuntimeToolContribution`
-// (descriptor + connection 별 factory)이었지만, 연결이 provider 하나에 1건이라 두 단계로 나눌
-// 이유가 사라졌다. `readOnlyHint` 를 런타임에 뒤집을 표면이 없다는 성질은 그대로다.
+// 정적 descriptor와 구현을 함께 만든다. 연결별 별도 factory를 두지 않으며,
+// `readOnlyHint`를 런타임에 뒤집을 표면을 노출하지 않는다.
 //
 // **id·label·origin 을 인자로 받지 않는다.** 배포가 그것들을 다시 적게 두면 `AuthId` 와
 // 어긋날 수 있고, 그러면 도구는 모델에 보이는데 호출은 인증 대상을 못 찾아 죽는다. 전부

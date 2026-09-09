@@ -8,7 +8,7 @@
 //
 // ── 하지만 두 번째 플랫폼을 만들지 않는다 ────────────────────────────────────
 // 선택 가능한 Harness+ModelProvider 목록과 Model 목록의 SSOT 는 **여전히
-// `sources/settings/<harness>/<modelProvider>/` 디렉터리**다(`settings-entries.ts`).
+// `sources/settings/<harness>/<modelProvider>/` 디렉터리**다(`settings.ts`).
 // `RuntimeConfigAugmenters` 는 catalog 가 아니다 — entry 를 열거하지도 선택하지도 않고,
 // **이미 선택된 key 에 동적 보강 코드가 있는지만** 조회한다. 매핑에 key 가 없으면 기존
 // settings 와 app env 만으로 동작하며 network 는 0이다.
@@ -36,7 +36,7 @@ import { ifPresent } from '../../../shared/obj'
 export type { HarnessModelProviderKey, HarnessRuntimeConfig }
 
 // settings 디렉터리가 확정한 좌표. **새 definition 배열이 아니다** — 열거 결과의 부분집합이다.
-export interface HarnessModelProviderEntry {
+export interface HarnessRuntimeConfigTarget {
   key: HarnessModelProviderKey
   harnessId: string
   modelProviderId: string
@@ -63,7 +63,7 @@ export type RuntimeConfigAugmenters = Readonly<
 >
 
 export interface HarnessRuntimeConfigService {
-  resolve(entry: HarnessModelProviderEntry, signal?: AbortSignal): Promise<HarnessRuntimeConfig>
+  resolve(entry: HarnessRuntimeConfigTarget, signal?: AbortSignal): Promise<HarnessRuntimeConfig>
   cached(key: HarnessModelProviderKey): HarnessRuntimeConfig | undefined
   // key 미지정 = 전부. `reason` 은 진단 로그용이다.
   invalidate(key?: HarnessModelProviderKey, reason?: string): void
@@ -72,7 +72,7 @@ export interface HarnessRuntimeConfigService {
 // settings 해석 포트. 구조적으로 받아 `HarnessSettingsService` 와 타입 결합을 만들지 않는다
 // (`src/main/AGENTS.md §해소책 2`).
 export interface HarnessSettingsPort {
-  resolve(entry: HarnessModelProviderEntry): Promise<ResolvedHarnessSettings | undefined>
+  resolve(entry: HarnessRuntimeConfigTarget): Promise<ResolvedHarnessSettings | undefined>
 }
 
 // `validUntil` 판정의 안전 여유. 시계 오차와 요청 왕복을 고려해 만료 직전 값을 warm hit 로
@@ -130,7 +130,7 @@ export function createHarnessRuntimeConfigService(
   // settings 를 해석하고 필요하면 augmenter 를 태운다. **여기서는 cache 를 만지지 않는다** —
   // 세대 검사는 호출부(`resolve`)가 완료 시점에 한다.
   const compute = async (
-    entry: HarnessModelProviderEntry,
+    entry: HarnessRuntimeConfigTarget,
     settings: ResolvedHarnessSettings | undefined,
     signal: AbortSignal
   ): Promise<HarnessRuntimeConfig> => {
@@ -158,7 +158,7 @@ export function createHarnessRuntimeConfigService(
   }
 
   const resolveOnce = async (
-    entry: HarnessModelProviderEntry,
+    entry: HarnessRuntimeConfigTarget,
     attempt: number
   ): Promise<HarnessRuntimeConfig> => {
     const state = stateFor(entry.key)

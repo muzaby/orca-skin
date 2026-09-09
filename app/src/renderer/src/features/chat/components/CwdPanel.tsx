@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import { fileApi } from '../../../shared/api/ipc'
 import { useI18n } from '../../../shared/i18n'
+import { agentUiPolicy } from '../lib/agentPresentation'
 import { chatActions, useChatSession } from '../store/chatStore'
 import { CwdButton } from './CwdButton'
+import { useDirectoryPicker } from '../hooks/useDirectoryPicker'
 import { BranchChip } from './composer/BranchChip'
 import { chipGroupSurface } from './composer/chipSurface'
 import { ComposerChip } from './composer/ComposerChip'
@@ -17,25 +17,15 @@ interface CwdPanelProps {
 // 컴포저 입력 위의 작업 컨텍스트 행 — [작업 경로] [브랜치] [참조 경로…] [＋].
 //
 // 세션이 확정되기 전(랜딩)에만 뜬다. cwd·브랜치·참조 경로는 새 세션 출생 시 고정되는 값이라
-// 편집 가능한 창이 여기뿐이다. 브랜치·워크트리 묶음은 Git 확인 후 함께 표시한다.
+// 편집 가능한 창이 여기뿐이다. Code의 브랜치 묶음은 조회 중에도 placeholder로 표시한다.
 export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
   const { tr } = useI18n()
+  const agentKind = useChatSession((s) => s.agentKind)
   const extraDirs = useChatSession((s) => s.extraDirs)
   const rejection = useChatSession((s) => s.extraDirRejection)
   const worktreeIsolation = useChatSession((s) => s.worktreeIsolation)
   const worktreeBaseRef = useChatSession((s) => s.worktreeBaseRef)
-  const [picking, setPicking] = useState(false)
-
-  const addDir = async (): Promise<void> => {
-    if (picking) return
-    setPicking(true)
-    try {
-      const picked = await fileApi.pickDirectory()
-      if (picked) chatActions.addExtraDir(picked)
-    } finally {
-      setPicking(false)
-    }
-  }
+  const { pick, picking, errorKey } = useDirectoryPicker()
 
   return (
     <div
@@ -44,20 +34,21 @@ export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
       data-state="landing"
     >
       <CwdButton cwd={cwd} sessionStarted={false} inflight={inflight} variant="outlined" />
-      {/* 같은 Git 응답으로 묶음 전체를 표시한다. 격리 ON이면 선택은 base ref로 유예된다. */}
+      {/* Code에서만 Git을 조회한다. 격리 ON이면 선택은 base ref로 유예된다. */}
       <BranchChip
         cwd={cwd}
+        hidden={!agentUiPolicy(agentKind).composer.showLandingCwdControls}
         disabled={inflight}
         variant="segment"
         trailingDivider
         deferTo={worktreeIsolation ? (branch) => chatActions.setWorktreeBaseRef(branch) : undefined}
         deferred={worktreeIsolation ? worktreeBaseRef : null}
-        renderTrigger={(branch) => (
+        renderTrigger={(branch, pending) => (
           <div className={chipGroupSurface} data-surface="branch-worktree-group">
             {branch}
             <WorktreeToggle
               checked={worktreeIsolation}
-              disabled={inflight || !cwd}
+              disabled={inflight || !cwd || pending}
               onChange={chatActions.setWorktreeIsolation}
             />
           </div>
@@ -75,11 +66,16 @@ export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
         icon="plus"
         variant="outlined"
         disabled={picking || inflight}
-        onClick={() => void addDir()}
+        onClick={() => void pick()}
         title={tr('chat.composer.extraDirAdd')}
       />
       {/* 거부 사유 — 고른 폴더가 칩으로 안 붙었는데 아무 말도 없으면 사용자는 앱이 먹은
           것으로 읽는다(D-020). 다음 추가·제거·작업 경로 변경에서 리듀서가 지운다. */}
+      {errorKey && (
+        <span role="alert" className="w-full px-1 text-footnote text-rust">
+          {tr(errorKey)}
+        </span>
+      )}
       {rejection === 'root' && (
         <span data-surface="extra-dir-rejection" className="w-full px-1 text-footnote text-rust">
           {tr('chat.composer.extraDirRejectRoot')}

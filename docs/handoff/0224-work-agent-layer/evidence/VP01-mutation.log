@@ -1,0 +1,29 @@
+
+ RUN  v4.1.10 C:/workspace/github/codex/orca-skin/app
+
+ ❯ src/renderer/src/features/chat/components/AgentModeToggle.test.ts (2 tests | 1 failed) 92ms
+     × places Todo Work on the left and Terminal Coding on the right with accessible selected state 74ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  18:00:48
+   Duration  1.78s (transform 542ms, setup 0ms, import 848ms, tests 92ms, environment 0ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/renderer/src/features/chat/components/AgentModeToggle.test.ts > actual draft mode toggle > places Todo Work on the left and Terminal Coding on the right with accessible selected state
+AssertionError: expected 'terminal' to be 'todo' // Object.is equality
+
+Expected: "todo"
+Received: "terminal"
+
+ ❯ src/renderer/src/features/chat/components/AgentModeToggle.test.ts:33:41
+     31|   it('places Todo Work on the left and Terminal Coding on the right wi…
+     32|     const html = renderToStaticMarkup(createElement(AgentModeToggle))
+     33|     expect(agentPresentation.work.icon).toBe('todo')
+       |                                         ^
+     34|     expect(agentPresentation.coding.icon).toBe('terminal')
+     35|     expect(harness.buttons.map((button) => button['aria-label'])).toEq…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { useI18n } from '../../../shared/i18n'
 import { UsageCircle } from '../../../shared/ui/UsageCircle'
+import { agentUiPolicy } from '../lib/agentPresentation'
 import { Popover } from '../../../shared/ui/Popover'
 import { ReadingColumn } from '../../../shared/ui/ReadingColumn'
 import { ComposerInputController } from './composer/ComposerInputController'
@@ -18,7 +19,7 @@ import {
   selectionExists,
   selectionLabel
 } from './composer/modelSelection'
-import { steerBlockedByProviderBoundary } from '../lib/steerGate'
+import { steerBlockedByProviderBoundary } from '../lib/sendAdmission'
 import { ConversationStatusLine } from './composer/ConversationStatusLine'
 import { Button } from '../../../shared/ui/Button'
 import { CwdPanel } from './CwdPanel'
@@ -26,7 +27,7 @@ import { GitRow } from './composer/GitRow'
 import { Notice } from './Notice'
 import { StatusPopover } from './composer/StatusPopover'
 import { conversationStatusModel as conversationStatusModelFactory } from './composer/statusViewModel'
-import { MODE_LABEL_KEYS, modeMenuOptions } from './composer/modes'
+import { permissionModeLabelKey, modeMenuOptions } from './composer/modes'
 import type { ConversationStatus } from './composer/statusCopy'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
 import { ApprovalCard, ToolApprovalBody } from './ApprovalCard'
@@ -43,6 +44,7 @@ import {
 import { contextTokens } from '../lib/telemetry'
 import { contextWindowOf, nearCompaction } from '../lib/contextWindow'
 import { useAgents } from '../../../shared/hooks/useAgents'
+import type { ComposerDraftUpdate } from '../lib/composerDraft'
 
 interface ComposerProps {
   backendLabel: string
@@ -55,14 +57,14 @@ interface ComposerProps {
   showScrollToBottom?: boolean
   onScrollToBottom?: () => void
   // 사용량 한도 뷰모델(도넛 팝오버). Main 이 완성한 뷰이고, page 가 마지막 telemetry 시점
-  // provider 의 것을 mirror 에서 읽어 주입한다(`pages/useUsageForTelemetryProvider.ts`).
+  // provider 의 것을 mirror 에서 읽어 주입한다(`hooks/useUsageForTelemetryProvider.ts`).
   usageLimits?: UsageLimitsView | null
   // 도넛 `사용량 한도 >` — 현재 세션 provider 서브탭 열기(providerKey 전달, page 가 배선).
   onOpenUsageSettings?: (providerKey?: string) => void
   // 컴포저 초기 입력 시드 — Skills "채팅에서 사용해보기" 가 nav state → page 를 거쳐 주입한다.
   // 마운트/값 변경 시 1회 draft 에 채우고 포커스한다(사용자 입력 중에는 덮어쓰지 않음).
   initialDraft?: string
-  restoredDraft?: { id: number; text: string }
+  restoredDraft?: ComposerDraftUpdate
   // 리딩-거터/최대폭(ReadingColumn)을 제거해 컴포저를 부모 컬럼 폭에 꽉 채운다.
   // 프로젝트 랜딩처럼 이미 컬럼이 폭을 제한하는 곳에서 hero/세션 목록과 좌우 라인을 맞춘다.
   // 채팅 뷰(ChatTile)는 transcript 와 폭을 공유해야 하므로 미전달(기본 ReadingColumn).
@@ -127,6 +129,8 @@ export function Composer({
   const userTurnCount = useChatSession((s) =>
     s.messages.reduce((n, m) => (m.role === 'user' ? n + 1 : n), 0)
   )
+  const agentKind = useChatSession((s) => s.agentKind)
+  const permissionModeError = useChatSession((s) => s.permissionModeError)
   const cwd = useChatSession((s) => s.cwd)
   const lastTelemetry = useChatSession((s) => s.lastTelemetry)
   const sessionCostUsd = useChatSession((s) => s.sessionCostUsd)
@@ -319,9 +323,14 @@ export function Composer({
               {showLandingCwdPanel && <CwdPanel cwd={cwd} inflight={inflight} />}
             </>
           }
-          gitRow={<GitRow cwd={cwd} sessionStarted={showGitRow} />}
+          gitRow={
+            agentUiPolicy(agentKind).composer.showGitRow ? (
+              <GitRow cwd={cwd} sessionStarted={showGitRow} />
+            ) : null
+          }
           afterGitRow={
             <>
+              {permissionModeError && <Notice title={tr('chat.composer.permissionUpdateFailed')} />}
               {showConcurrencyNotice && (
                 <Notice
                   title={tr('chat.composer.concurrencyNoticeTitle')}
@@ -377,7 +386,11 @@ export function Composer({
               controlsStart={
                 <ComposerChip
                   ref={modeButtonRef}
-                  label={tr(MODE_LABEL_KEYS[permissionMode])}
+                  label={tr(
+                    permissionModeError
+                      ? 'chat.composer.permissionUpdateFailedLabel'
+                      : permissionModeLabelKey(permissionMode, agentKind)
+                  )}
                   onClick={() => setModeMenuOpen((value) => !value)}
                   ariaHasPopup
                   ariaExpanded={modeMenuOpen}
@@ -463,7 +476,7 @@ export function Composer({
       <Popover open={modeMenuOpen} anchorRef={modeButtonRef} onClose={() => setModeMenuOpen(false)}>
         <ModeMenu
           mode={permissionMode}
-          options={modeMenuOptions(selectedModelShape(agents, selectedModel))}
+          options={modeMenuOptions(selectedModelShape(agents, selectedModel), agentKind)}
           onPick={(mode) => {
             setPermissionMode(mode)
             setModeMenuOpen(false)

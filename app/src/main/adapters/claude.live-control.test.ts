@@ -40,7 +40,7 @@ const baseReq = (): TurnRequest => ({
   sessionId: null,
   text: 'hello',
   cwd: '/tmp',
-  extensions: { mcp: {}, skills: [], hooks: { normalized: {} } }
+  extensions: { skills: [], hooks: { normalized: {} } }
 })
 
 describe('ClaudeAdapter — live 제어 위임의 인자 (0212 AC25 경로 끝)', () => {

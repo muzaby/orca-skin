@@ -92,6 +92,7 @@ export function useSessionHandlers(): SessionHandlers {
       draftRows.map((d: DraftRow) => ({
         key: d.key,
         title: d.title,
+        agentKind: d.agentKind,
         projectId: d.projectId,
         // '새 대화' 행(부모 無)은 활성일 때만 존재해 삭제 개념이 없다 — kebab 자체를 숨긴다.
         deletable: d.parentSessionId != null
