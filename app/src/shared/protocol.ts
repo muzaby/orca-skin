@@ -282,10 +282,14 @@ export const ListFilesRequestSchema = z.object({
   relDir: z.string()
 })
 
-export const OpenPathRequestSchema = z.object({
-  path: z.string().min(1),
-  mode: z.enum(['directory', 'reveal'])
-})
+export const OpenPathRequestSchema = z.discriminatedUnion('mode', [
+  z.object({
+    path: z.string().min(1),
+    mode: z.literal('directory'),
+    sessionId: z.string().min(1).max(256).optional()
+  }),
+  z.object({ path: z.string().min(1), mode: z.literal('reveal'), sessionId: z.never().optional() })
+])
 
 // ── git (컴포저 브랜치 칩) ──────────────────────────────────────────────────
 export const GitPathRequestSchema = z.object({ cwd: z.string().min(1) })

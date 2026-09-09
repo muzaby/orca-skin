@@ -1568,6 +1568,28 @@ describe('SessionRuntime — live 전달 홉 (0212 §10 EP-14)', () => {
     await done()
   })
 
+  it('r4 permission update fails when no channel exists', async () => {
+    const { turn, spy } = spiedLive(true)
+    const runtime = new SessionRuntime(adapter(turn))
+    await expect(runtime.setPermissionMode('default')).rejects.toThrow('No live channel')
+    expect(spy.setPermissionMode).not.toHaveBeenCalled()
+  })
+
+  it('r4 an old raw channel reply does not succeed after retirement', async () => {
+    const { runtime, spy, done } = await runtimeWithLive()
+    let finish!: () => void
+    spy.setPermissionMode.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finish = resolve
+      })
+    )
+    const update = runtime.setPermissionMode('default')
+    runtime.teardownChannel()
+    finish()
+    await expect(update).rejects.toThrow('Live channel changed')
+    await done()
+  })
+
   it('setModel·setPermissionMode 도 받은 값을 그대로 넘긴다 — 같은 형상의 형제 홉이다', async () => {
     const { runtime, spy, done } = await runtimeWithLive()
 

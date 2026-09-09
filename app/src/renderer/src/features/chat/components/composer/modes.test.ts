@@ -64,14 +64,35 @@ describe('modeMenuOptions — haiku 에서 자동 제외 (AT-11)', () => {
     )
   })
 
-  it('양성 짝 — 비-haiku 와 미선택은 기본 목록 그대로다', () => {
+  it('지원 Claude는 자동을 제공하고 미선택은 자동을 제외한다', () => {
     expect(modesOf({ alias: 'sonnet', model: 'claude-sonnet-4-6' })).toContain('auto_classified')
-    expect(modesOf(null)).toContain('auto_classified')
-    expect(modesOf(null)).toEqual(MODE_MENU_OPTIONS.map((o) => o.mode))
+    expect(modesOf(null)).not.toContain('auto_classified')
+    expect(modesOf(null)).toEqual(
+      MODE_MENU_OPTIONS.filter((o) => o.mode !== 'auto_classified').map((o) => o.mode)
+    )
   })
 
   it('나머지 항목은 순서까지 그대로다 — 자동 하나만 빠진다', () => {
     const base = MODE_MENU_OPTIONS.map((o) => o.mode).filter((m) => m !== 'auto_classified')
     expect(modesOf({ alias: 'haiku', model: null })).toEqual(base)
+  })
+})
+
+describe('r4 Work menu actual modes', () => {
+  it('manual, auto, bypass in requested order with complete labels', () => {
+    const items = modeMenuOptions({ alias: 'sonnet', model: 'claude-sonnet-4-6' }, 'work')
+    expect(items.map((item) => item.mode)).toEqual(['default', 'auto_classified', 'bypass'])
+    expect(items.map((item) => koLeaf(item.labelKey))).toEqual([
+      '수동 승인',
+      '자동 승인',
+      '모든 승인 건너뛰기'
+    ])
+    expect(items[2].risky).toBe(true)
+  })
+  it('unknown/custom and 4.5 have only manual/bypass', () => {
+    for (const model of [null, 'sonnet', 'corp-sonnet-9', 'claude-sonnet-4-5'])
+      expect(
+        modeMenuOptions(model ? { alias: 'sonnet', model } : null, 'work').map((item) => item.mode)
+      ).toEqual(['default', 'bypass'])
   })
 })

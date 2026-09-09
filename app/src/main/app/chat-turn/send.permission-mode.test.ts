@@ -14,7 +14,8 @@ const mocks = vi.hoisted(() => ({
     value: null as { cwd: string | null; project_id: string | null; provider_key: null } | null
   },
   // 0215 — 이 턴이 실제로 쓰는 SDK 모델 문자열. main 은 alias 를 갖지 않으므로 보정의 유일한 입력이다.
-  resolvedModel: { value: undefined as string | undefined }
+  resolvedModel: { value: undefined as string | undefined },
+  agentKind: { value: 'coding' as 'coding' | 'work' }
 }))
 
 vi.mock('../../features/chat/attachments', () => ({
@@ -76,6 +77,9 @@ vi.mock('../../features/chat/turn-coordinator', () => ({
 }))
 
 import { handleChatSend } from './send'
+import { runTurnWithContinuations } from './post-turn'
+import { prepareAutomaticContinuation } from '../chat-turn-continuation'
+import type { NormalizedPermissionMode } from '../../../shared/permission-mode'
 import { normalizeAttachments } from '../../features/chat/attachments'
 import { enqueueTurnPrompt } from './enqueue'
 
@@ -134,7 +138,7 @@ function makeHarness(sessionId?: string) {
           cwd: null,
           project_id: null,
           ...mocks.sessionMeta.value,
-          agent_kind: 'coding'
+          agent_kind: mocks.agentKind.value
         })
       },
       mockAdapter: null,
@@ -187,6 +191,7 @@ describe('handleChatSend — 지원하지 않는 권한 모드 보정 (AT-14)', 
     vi.clearAllMocks()
     mocks.sessionMeta.value = null
     mocks.resolvedModel.value = undefined
+    mocks.agentKind.value = 'coding'
     vi.mocked(normalizeAttachments).mockResolvedValue({
       attachmentTexts: [],
       attachmentImages: []
@@ -200,11 +205,18 @@ describe('handleChatSend — 지원하지 않는 권한 모드 보정 (AT-14)', 
 
   const run = async (
     model: string | undefined,
-    permissionMode: 'auto_classified' | 'plan'
-  ): Promise<{ setMode: ReturnType<typeof vi.fn>; requestMode: unknown }> => {
+    permissionMode: 'auto_classified' | 'plan' | undefined
+  ): Promise<{
+    setMode: (sessionId: string, mode: NormalizedPermissionMode) => void
+    requestMode: unknown
+    planApprovalMode: unknown
+  }> => {
     const harness = makeHarness('session-1')
-    const setMode = vi.fn()
-    harness.deps.permissionModes = { setMode } as never
+    let currentMode: NormalizedPermissionMode = 'default'
+    const setMode = vi.fn((_sessionId: string, mode: NormalizedPermissionMode) => {
+      currentMode = mode
+    })
+    harness.deps.permissionModes = { setMode, getCurrentMode: () => currentMode } as never
     mocks.resolvedModel.value = model
     mocks.acquireTurnRuntime.mockResolvedValue({
       ok: true,
@@ -219,9 +231,45 @@ describe('handleChatSend — 지원하지 않는 권한 모드 보정 (AT-14)', 
       attachmentViews: []
     })
     const call = mocks.buildTurnRequest.mock.calls.at(-1)
-    return { setMode, requestMode: (call?.[1] as { permissionMode?: unknown })?.permissionMode }
+    return {
+      setMode,
+      requestMode: (call?.[1] as { permissionMode?: unknown })?.permissionMode,
+      planApprovalMode: (call?.[1] as { planApprovalMode?: unknown })?.planApprovalMode
+    }
   }
 
+  it('Work uses manual fallback and plan approval target even without a payload mode', async () => {
+    mocks.agentKind.value = 'work'
+    const result = await run('claude-sonnet-4-5', undefined)
+    expect(result.requestMode).toBe('default')
+    expect(result.planApprovalMode).toBe('default')
+    expect(mocks.sendChatEvent).toHaveBeenCalledWith(expect.anything(), {
+      type: 'session.updated',
+      sessionId: 'session-1',
+      patch: { permissionMode: 'default' }
+    })
+  })
+  it('Work restores hidden plan mode to manual; Coding approval keeps accept_edits', async () => {
+    mocks.agentKind.value = 'work'
+    expect((await run('claude-sonnet-4-6', 'plan')).requestMode).toBe('default')
+    mocks.agentKind.value = 'coding'
+    expect((await run('claude-sonnet-4-6', 'plan')).planApprovalMode).toBe('accept_edits')
+  })
+  it('automatic continuation rechecks the current selection and actual resolved model', async () => {
+    mocks.agentKind.value = 'work'
+    const { setMode } = await run('claude-sonnet-4-6', 'auto_classified')
+    const next = vi.mocked(runTurnWithContinuations).mock.calls.at(-1)![0].prepareContinuation
+    vi.mocked(prepareAutomaticContinuation).mockResolvedValue({
+      model: 'claude-sonnet-4-5',
+      extensions: { skills: [], hooks: { normalized: {} } },
+      prepared: { envFingerprint: 'fresh', runtimeEnvFingerprint: 'fresh' },
+      shouldRespawn: true
+    })
+    expect((await next('session-1')).permissionMode).toBe('default')
+    expect(setMode).toHaveBeenLastCalledWith('session-1', 'default')
+    setMode('session-1', 'bypass')
+    expect((await next('session-1')).permissionMode).toBe('bypass')
+  })
   it('haiku 면 두 지점이 모두 accept_edits 를 읽는다', async () => {
     const { setMode, requestMode } = await run('claude-haiku-4-5', 'auto_classified')
     expect(setMode).toHaveBeenCalledWith('session-1', 'accept_edits')
@@ -240,9 +288,9 @@ describe('handleChatSend — 지원하지 않는 권한 모드 보정 (AT-14)', 
     expect(requestMode).toBe('plan')
   })
 
-  it('모델 미해석이면 손대지 않는다 — 판정 불가를 강등으로 바꾸지 않는다', async () => {
+  it('r4 모델 미해석은 자동을 강등한다', async () => {
     const { setMode, requestMode } = await run(undefined, 'auto_classified')
-    expect(setMode).toHaveBeenCalledWith('session-1', 'auto_classified')
-    expect(requestMode).toBe('auto_classified')
+    expect(setMode).toHaveBeenCalledWith('session-1', 'accept_edits')
+    expect(requestMode).toBe('accept_edits')
   })
 })

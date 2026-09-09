@@ -85,16 +85,14 @@ describe('Work populated progress', () => {
     expect($('p').text()).not.toContain('오래 걸리는 작업')
   })
   it.each(['stopping', 'paused', 'aborted', 'failed'] satisfies TaskBoardStatus[])(
-    'retains %s semantics and existing selected task detail',
+    'retains %s semantics in the list without embedding detail',
     (status) => {
       const selected = { ...items[0], status, description: '작업의 세부 설명' }
-      const $ = load(
-        renderToStaticMarkup(createElement(WorkTaskProgress, { items: [selected], selected }))
-      )
+      const $ = load(renderToStaticMarkup(createElement(WorkTaskProgress, { items: [selected] })))
       expect($('li').attr('data-status')).toBe(status)
-      expect($('li > button').attr('aria-pressed')).toBe('true')
-      expect($('body').text()).toContain('작업의 세부 설명')
-      expect($('body').text()).toContain('목록으로')
+      expect($('li > button').attr('data-task-detail-trigger')).toBe(selected.key)
+      expect($('body').text()).not.toContain('작업의 세부 설명')
+      expect($('body').text()).not.toContain('목록으로')
     }
   )
   it('uses illustrative circles and helper copy only for the empty state', () => {

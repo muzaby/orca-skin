@@ -10,6 +10,7 @@ import type {
   ArtifactActionResult
 } from '../shared/artifacts'
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
+import type { NormalizedPermissionMode } from '../shared/permission-mode'
 import {
   CHANNELS,
   type BootReport,
@@ -290,7 +291,7 @@ const orca = {
     respond: (req: PermissionRespond): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.permissionRespond, req),
     // 세션 진행 중 권한 모드 라이브 전환 (PR③).
-    setMode: (req: SetPermissionMode): Promise<void> =>
+    setMode: (req: SetPermissionMode): Promise<NormalizedPermissionMode | undefined> =>
       ipcRenderer.invoke(CHANNELS.permissionSetMode, req)
   },
   debug: {

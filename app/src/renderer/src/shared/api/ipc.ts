@@ -1,3 +1,4 @@
+import type { NormalizedPermissionMode } from '../../../../shared/permission-mode'
 import type {
   ArtifactRef,
   ArtifactListRequest,
@@ -220,7 +221,8 @@ export const costApi = {
 
 export const permissionApi = {
   respond: (req: PermissionRespond): Promise<void> => window.orca.permission.respond(req),
-  setMode: (req: SetPermissionMode): Promise<void> => window.orca.permission.setMode(req)
+  setMode: (req: SetPermissionMode): Promise<NormalizedPermissionMode | undefined> =>
+    window.orca.permission.setMode(req)
 }
 
 export const updateApi = {

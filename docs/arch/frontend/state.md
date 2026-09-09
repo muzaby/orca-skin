@@ -8,9 +8,11 @@
 
 ### 제품 에이전트 종류
 
-`ChatState.agentKind`는 `coding|work`, `agentKindLocked`는 초안의 첫 전송 이후 변경 방지 상태다. 새 대화는 Coding으로 시작하며 첫 전송 전 토글은 종류만 바꾼다. 입력·첨부·cwd·추가 폴더·Git 선택은 유지한다. 준비 실패 후 같은 초안을 다시 보내도 잠금은 유지한다. Main은 별도로 DB와 live lease의 출생값을 검사한다.
+`ChatState.agentKind`는 `coding|work`, `agentKindLocked`는 초안의 첫 전송 이후 변경 방지 상태다. 새 대화는 Coding으로 시작하며 첫 전송 전 토글은 종류와 허용 권한 모드를 함께 정착시킨다. 입력·첨부·cwd·추가 폴더·Git 선택은 유지한다. 준비 실패 후 같은 초안을 다시 보내도 잠금은 유지한다. Main은 별도로 DB와 live lease의 출생값을 검사한다.
 
-전송·busy 후속·fork/handoff는 같은 세션 종류를 전달한다. 저장 세션 로드는 DB 값을 쓰고, 종류가 없는 구형 payload는 Coding으로 복원한다. 역할은 backend·provider·permissionMode와 독립적이다. `response.boundary`도 다른 세션 이벤트처럼 소유 sessionId에만 라우팅하며 삭제된 세션을 되살리지 않는다.
+전송·busy 후속·fork/handoff는 같은 세션 종류를 전달한다. 저장 세션 로드는 DB 값을 쓰고, 종류가 없는 구형 payload는 Coding으로 복원한다. 역할은 backend·provider와 별도 축이며 Composer 권한 정책은 종류와 실제 모델을 함께 사용한다. `response.boundary`도 다른 세션 이벤트처럼 소유 sessionId에만 라우팅하며 삭제된 세션을 되살리지 않는다.
+
+공유 권한 정책은 종류·모델·모드 선택과 세션 복원에서 적용한다. 지원하지 않는 auto는 Work에서 default, Coding에서 accept_edits로 정착한다. Work의 plan·accept_edits·dont_ask 선택은 default로 정착하며 계획 승인 후에도 default를 사용한다. 라이브 권한 응답은 요청 세대와 대상 세션을 확인한 뒤 Main이 적용한 모드를 반영하고, 실패 시 정책상 유효한 다음 요청값을 남기되 칩에 권한 적용 실패를 표시하여 SDK에 적용된 모드로 오해하지 않게 한다. 실제 실행 모델로 보정한 값은 session.updated의 권한 patch로 동기화한다.
 
 `agentPanelInitialized`는 Work 작업 패널의 최초 열기와 이후 사용자 선택을 구분한다. 표시 필터는 닫힌 배치를 보존하며, 첫 전송/처음 로드에서만 기본 작업 타일을 추가한다. 기존 캐시 복귀·다음 턴은 닫은 패널을 다시 열지 않는다. 입력 복원 신호는 대상 세션과 단조 순번을 갖고, 기본 교체와 작업 질문의 추가 모드를 구분한다. 실제 초안·첨부는 기존 입력 controller가 소유한다.
 

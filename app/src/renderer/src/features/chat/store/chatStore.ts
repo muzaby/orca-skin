@@ -35,7 +35,7 @@ import type {
   AddSessionDirectoryResult
 } from '../../../../../shared/ipc'
 import {
-  PLAN_APPROVED_MODE,
+  planApprovedMode,
   type NormalizedPermissionMode
 } from '../../../../../shared/permission-mode'
 import { continuityLangFor, continuityTitle } from '../../../../../shared/continuity-lang'
@@ -179,7 +179,35 @@ function patchEntry(key: string, update: (entry: SessionEntry) => SessionEntry):
   })
 }
 
+const permissionUpdates = new Map<string, { request: number; settlement: number }>()
+let permissionUpdateSequence = 0
+
 function dispatchTo(key: string, action: ChatAction): void {
+  if (
+    [
+      'SET_MODEL',
+      'SET_AGENT_KIND',
+      'SET_PERMISSION_MODE',
+      'APPLY_PERMISSION_MODE',
+      'LOAD_SESSION',
+      'START_LOAD_SESSION'
+    ].includes(action.type)
+  ) {
+    permissionUpdates.set(key, {
+      request: ++permissionUpdateSequence,
+      settlement: permissionUpdates.get(key)?.settlement ?? 0
+    })
+  }
+  if (
+    action.type === 'RECV_EVENT' &&
+    action.event.type === 'session.updated' &&
+    action.event.patch.permissionMode !== undefined
+  ) {
+    permissionUpdates.set(key, {
+      request: permissionUpdates.get(key)?.request ?? 0,
+      settlement: ++permissionUpdateSequence
+    })
+  }
   patchEntry(key, (entry) => {
     const session = chatReducer(entry.session, action)
     return session === entry.session ? entry : { ...entry, session }
@@ -410,6 +438,7 @@ function promotePendingNewChat(sessionId: string): void {
 
 // 엔트리 제거. 활성 엔트리였다면 깨끗한 새 채팅으로 전환한다.
 function dropSession(sessionId: string, fallbackProjectId: string | null = null): void {
+  permissionUpdates.delete(sessionId)
   forgetArtifacts(sessionId)
   setState((s) => {
     if (!s.sessions[sessionId]) return s
@@ -1306,21 +1335,67 @@ function skipAsk(requestId: string): void {
   dispatchActive({ type: 'RESOLVE_ASK', requestId })
 }
 
+// 응답은 발신 세션과 모델/종류/요청 세대가 여전히 같은 경우에만 적용한다.
+function synchronizePermissionMode(key: string, previousMode: NormalizedPermissionMode): void {
+  const session = getState().sessions[key]?.session
+  if (!session?.sessionId) return
+  const {
+    sessionId,
+    permissionMode: mode,
+    providerKey,
+    modelFamily,
+    modelAlias,
+    agentKind
+  } = session
+  const sequence = ++permissionUpdateSequence
+  const settlement = permissionUpdates.get(key)?.settlement ?? 0
+  permissionUpdates.set(key, { request: sequence, settlement })
+  const current = (): boolean => {
+    const value = getState().sessions[key]?.session
+    return (
+      permissionUpdates.get(key)?.request === sequence &&
+      !!value &&
+      value.sessionId === sessionId &&
+      !value.loadingSession &&
+      value.providerKey === providerKey &&
+      value.modelFamily === modelFamily &&
+      value.modelAlias === modelAlias &&
+      value.agentKind === agentKind
+    )
+  }
+  const fail = (): void => {
+    if (!current() || permissionUpdates.get(key)?.settlement !== settlement) return
+    dispatchTo(key, { type: 'SET_PERMISSION_MODE', mode: previousMode })
+    dispatchTo(key, { type: 'SET_PERMISSION_MODE_ERROR', failed: true })
+  }
+  void permissionApi
+    .setMode({ sessionId, mode })
+    .then((applied) => {
+      if (!current()) return
+      if (applied === undefined) {
+        fail()
+        return
+      }
+      dispatchTo(key, { type: 'APPLY_PERMISSION_MODE', mode: applied })
+    })
+    .catch(fail)
+}
+
 function setModel(
   providerKey: string | null,
   modelFamily: string | null,
   modelAlias: string | null,
   adapter?: string | null
 ): void {
-  const before = getActiveChatSession().permissionMode
-  dispatchActive({ type: 'SET_MODEL', providerKey, modelFamily, modelAlias, adapter })
-  // 강등 판정의 정본은 reducer 다(0215 EP-13). 여기서 규칙을 다시 쓰지 않고 **결과가 바뀌었을
-  // 때만** main 으로 옮긴다 — 옮기지 않으면 controller 와 진행 중 턴이 '자동'을 계속 믿는다.
-  const after = getActiveChatSession()
-  if (after.permissionMode === before) return
-  if (after.sessionId) {
-    void permissionApi.setMode({ sessionId: after.sessionId, mode: after.permissionMode })
-  }
+  const key = getState().activeKey
+  const beforeSession = getActiveChatSession()
+  const before = beforeSession.permissionMode
+  dispatchTo(key, { type: 'SET_MODEL', providerKey, modelFamily, modelAlias, adapter })
+  if (
+    getState().sessions[key]?.session.permissionMode !== before ||
+    beforeSession.permissionModeError
+  )
+    synchronizePermissionMode(key, before)
 }
 
 function setEffort(effort: EffortLevel): void {
@@ -1328,21 +1403,23 @@ function setEffort(effort: EffortLevel): void {
 }
 
 function setPermissionMode(mode: NormalizedPermissionMode): void {
-  dispatchActive({ type: 'SET_PERMISSION_MODE', mode })
-  // 활성 세션이면 라이브 전환 IPC 발행 — main 이 진행 중 턴이면 즉시 Query.setPermissionMode,
-  // 아니면 controller 에 기록해 다음 턴에 반영. 새 채팅(sessionId 미발급)은 send 페이로드로 전달.
-  const sid = getActiveChatSession().sessionId
-  if (sid) void permissionApi.setMode({ sessionId: sid, mode })
+  const key = getState().activeKey
+  const previous = getActiveChatSession().permissionMode
+  dispatchTo(key, { type: 'SET_PERMISSION_MODE', mode })
+  synchronizePermissionMode(key, previous)
 }
 
 function approvePlan(requestId: string): void {
   void permissionApi.respond({ approvalId: requestId, resolution: { behavior: 'allow' } })
   dispatchActive({ type: 'RESOLVE_PLAN' })
-  // 승인 = plan 모드 종료. 칩을 '편집 수락'으로 전환 → 다음 턴이 plan 모드로 재진입하지
+  // 승인 = plan 모드 종료. 종류별 승인 목표로 칩을 전환 → 다음 턴이 plan 모드로 재진입하지
   // 않아 ExitPlanMode 재호출(단순 질문 시 계획 카드 재출현)을 막는다. 여기는 낙관적 UI 갱신이고,
   // SDK 세션 전환은 어댑터가 같은 allow 응답의 updatedPermissions 로 원자 처리한다
   // (adapters/claude.ts) — 그래서 setPermissionMode() 처럼 별도 IPC 를 발행하지 않는다.
-  dispatchActive({ type: 'SET_PERMISSION_MODE', mode: PLAN_APPROVED_MODE })
+  dispatchActive({
+    type: 'SET_PERMISSION_MODE',
+    mode: planApprovedMode(getActiveChatSession().agentKind)
+  })
 }
 
 function revisePlan(requestId: string, feedback: string): void {

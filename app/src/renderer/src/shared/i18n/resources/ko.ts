@@ -43,7 +43,7 @@ export const ko = {
     retry: '부트 다시 시도'
   },
   landing: {
-    newChatGreeting: '무엇을 도와드릴까요?'
+    newChatGreeting: '개발, 디버깅을 시작하세요.'
   },
   markdown: {
     imagePlaceholder: '[이미지: {{label}}]'
@@ -454,9 +454,7 @@ export const ko = {
       choose: '작업 종류 선택',
       work: '작업',
       coding: '코딩',
-      workGreeting: '어떤 작업을 도와드릴까요?',
-      workDescription: '작업 · 문서 작성, 자료 분석과 정리',
-      codingDescription: '코딩 · 코드 작성, 문제 해결과 개발',
+      workGreeting: '어떤 작업을 시작할까요?',
       workPlaceholder: '작성할 문서나 분석할 자료, 정리할 작업을 알려주세요',
       activity: '도구 {{tools}}종 · 메모 {{notes}}개',
       ended: '응답 수신 마감',
@@ -642,6 +640,9 @@ export const ko = {
       directoryBusy: '작업이 끝난 뒤 폴더를 추가할 수 있습니다.',
       directoryPicking: '폴더 선택 중…',
       directoryFailed: '폴더를 추가하지 못했습니다. 다시 시도해 주세요.',
+      openDirectory: '폴더 열기: {{name}}',
+      directoryOpenFailed:
+        '폴더를 열지 못했습니다. 삭제되었거나 접근할 수 없는지 확인한 뒤 다시 클릭해 주세요.',
       directoryInvalid: '추가할 수 있는 폴더인지 확인해 주세요.',
       directoryLimit: '추가할 수 있는 폴더 수를 초과했습니다.',
       status: {
@@ -715,6 +716,9 @@ export const ko = {
     },
     composer: {
       modes: {
+        workManualLabel: '수동 승인',
+        workAutoLabel: '자동 승인',
+        skipAllLabel: '모든 승인 건너뛰기',
         title: '모드',
         auto_classified: {
           label: '자동',
@@ -771,6 +775,8 @@ export const ko = {
       diffRequirementUnlocated: '위치 확인 필요',
       diffRequirementRemoveAria: 'Diff 요구사항 제거: {{comment}}',
       permissionModeTitle: '권한 모드',
+      permissionUpdateFailedLabel: '권한 적용 실패',
+      permissionUpdateFailed: '권한 모드를 적용하지 못했습니다. 다시 선택해 주세요.',
       attachMenuTitle: '추가 메뉴',
       modelSelectTitle: '모델 선택',
       modelMenuTitle: '모델',

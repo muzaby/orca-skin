@@ -33,15 +33,17 @@ export function sameModelIdentity(a: ModelIdentityInput, b: ModelIdentityInput):
   return modelIdentity(a) === modelIdentity(b)
 }
 
-// haiku 계열인가 (0215 D-009 — 사용자 결정).
-//
-// 두 축을 **모두** 본다. `alias` 는 `ANTHROPIC_DEFAULT_HAIKU_MODEL` 로 선언한 계열이라
-// 모델명에 haiku 가 없어도 haiku 이고, 반대로 discovery 로 들어온 이름은 alias 가 `custom`
-// 이어도 이름이 haiku 를 담을 수 있다. 어느 한 축만 보면 나머지 절반이 샌다.
-//
-// CLI 실물(`oqe()`)은 `claude-haiku-4-5` 와 비-firstParty 의 `includes("haiku")` 를 auto 에서
-// 제외한다 — 이 술어는 그보다 **넓다**(사용자 결정). 편차는 plan §16 에 남겼다.
-export function isHaikuModel(model: { alias: string; model: string | null }): boolean {
-  if (model.alias.toLowerCase() === 'haiku') return true
-  return (model.model ?? '').toLowerCase().includes('haiku')
+// 자동 승인은 명시적으로 버전을 아는 Claude만 허용한다. alias/커스텀 provider 이름을
+// 최신 모델의 증거로 사용하지 않는다. 날짜 접미사는 minor 버전이 아니다.
+export function supportsAutoPermission(modelName: string | null | undefined): boolean {
+  if (!modelName) return false
+  const name = modelName.trim().replace(/\[1m\]$/i, '')
+  const match =
+    /^(?:(?:(?:us|eu|apac|global)\.)?anthropic[./])?claude-(?:sonnet|opus|haiku)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?(?:-v\d+(?::\d+)?)?$/i.exec(
+      name
+    )
+  if (!match) return false
+  const major = Number(match[1])
+  const minor = Number(match[2] ?? '0')
+  return major > 4 || (major === 4 && minor > 5)
 }

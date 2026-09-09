@@ -60,7 +60,11 @@ beforeEach(() => {
   shellCalls.reveal = []
   registerFilesHandlers({
     getCwd: () => SESSION_CWD,
-    db: { hasSessionWithCwd: (cwd: string) => cwd === SESSION_CWD, searchMessages: () => [] }
+    db: {
+      hasSessionWithCwd: (cwd: string) => cwd === SESSION_CWD,
+      getSessionById: () => undefined,
+      searchMessages: () => []
+    }
   })
 })
 

@@ -1,0 +1,62 @@
+
+C:\workspace\github\codex\orca-skin\app\src\main\app\chat-turn\send.permission-mode.test.ts
+  216:84  warning  Replace `·currentMode·=·mode` with `⏎······currentMode·=·mode⏎···`                                                                                                                                                                                                                           prettier/prettier
+  261:13  warning  Replace `'claude-sonnet-4-5',·extensions:{skills:[],hooks:{normalized:{}}},·prepared:{envFingerprint:'fresh'},·shouldRespawn:` with `·'claude-sonnet-4-5',⏎······extensions:·{·skills:·[],·hooks:·{·normalized:·{}·}·},⏎······prepared:·{·envFingerprint:·'fresh'·},⏎······shouldRespawn:·`  prettier/prettier
+  264:58  warning  Insert `·`                                                                                                                                                                                                                                                                                   prettier/prettier
+  265:25  warning  Insert `·`                                                                                                                                                                                                                                                                                   prettier/prettier
+
+C:\workspace\github\codex\orca-skin\app\src\main\app\handlers\files.contextDirectory.test.ts
+  20:26  error  '_path' is defined but never used  @typescript-eslint/no-unused-vars
+  74:20  error  Missing return type on function    @typescript-eslint/explicit-function-return-type
+
+C:\workspace\github\codex\orca-skin\app\src\main\features\approvals\coordinator.permission.test.ts
+  28:1  error  Missing return type on function  @typescript-eslint/explicit-function-return-type
+
+C:\workspace\github\codex\orca-skin\app\src\renderer\src\features\chat\hooks\useTranscriptVirtualizer.ts
+  22:10  warning  Compilation Skipped: Use of incompatible library
+
+This API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.
+
+C:\workspace\github\codex\orca-skin\app\src\renderer\src\features\chat\hooks\useTranscriptVirtualizer.ts:22:10
+  20 |   scrollRef: React.RefObject<HTMLDivElement | null>
+  21 | ): Virtualizer<HTMLDivElement, Element> {
+> 22 |   return useVirtualizer({
+     |          ^^^^^^^^^^^^^^ TanStack Virtual's `useVirtualizer()` API returns functions that cannot be memoized safely
+  23 |     count: head.length,
+  24 |     getScrollElement: () => scrollRef.current,
+  25 |     estimateSize: () => ESTIMATE_PX,  react-hooks/incompatible-library
+
+C:\workspace\github\codex\orca-skin\app\src\renderer\src\features\chat\reducer\chatReducer.ts
+  795:28  warning  Replace `·ev.patch.permissionMode·??` with `⏎··············ev.patch.permissionMode·??⏎·············`  prettier/prettier
+  796:1   warning  Insert `··`                                                                                           prettier/prettier
+  797:1   warning  Insert `··`                                                                                           prettier/prettier
+
+C:\workspace\github\codex\orca-skin\app\src\renderer\src\features\chat\store\chatStore.permission.r4.test.ts
+    6:1   error    Missing return type on function                                                                                                                                                                                                                                @typescript-eslint/explicit-function-return-type
+   13:1   error    Missing return type on function                                                                                                                                                                                                                                @typescript-eslint/explicit-function-return-type
+   96:62  warning  Replace `()=>` with `·()·=>·`                                                                                                                                                                                                                                  prettier/prettier
+   97:1   warning  Replace `·it('an·earlier·Main·patch·cannot·suppress·the·newest·successful·user·request',async()=>` with `··it('an·earlier·Main·patch·cannot·suppress·the·newest·successful·user·request',·async·()·=>·`                                                        prettier/prettier
+   98:3   warning  Replace `const·pending=deferred();` with `··const·pending·=·deferred()⏎····`                                                                                                                                                                                   prettier/prettier
+   99:3   warning  Insert `··`                                                                                                                                                                                                                                                    prettier/prettier
+  100:1   warning  Replace `··ingestChatEvent({type:'session.updated',sessionId:'s',patch:{permissionMode:'default'}` with `····ingestChatEvent({⏎······type:·'session.updated',⏎······sessionId:·'s',⏎······patch:·{·permissionMode:·'default'·}⏎····`                           prettier/prettier
+  101:1   warning  Replace `··pending.resolve('bypass');` with `····pending.resolve('bypass')⏎····`                                                                                                                                                                               prettier/prettier
+  102:1   warning  Insert `··`                                                                                                                                                                                                                                                    prettier/prettier
+  103:1   warning  Insert `·`                                                                                                                                                                                                                                                     prettier/prettier
+  104:2   warning  Replace `it('late·failure·does·not·roll·back·a·Main-confirmed·mode·even·when·the·mode·equals·the·optimistic·value',async()=>` with `·it('late·failure·does·not·roll·back·a·Main-confirmed·mode·even·when·the·mode·equals·the·optimistic·value',·async·()·=>·`  prettier/prettier
+  105:3   warning  Replace `const·pending=deferred();` with `··const·pending·=·deferred()⏎····`                                                                                                                                                                                   prettier/prettier
+  106:1   warning  Replace `··` with `····`                                                                                                                                                                                                                                       prettier/prettier
+  107:3   warning  Replace `ingestChatEvent({type:'session.updated',sessionId:'s',patch:{permissionMode:'auto_classified'}` with `··ingestChatEvent({⏎······type:·'session.updated',⏎······sessionId:·'s',⏎······patch:·{·permissionMode:·'auto_classified'·}⏎····`               prettier/prettier
+  108:1   warning  Replace `··pending.resolve(undefined);` with `····pending.resolve(undefined)⏎····`                                                                                                                                                                             prettier/prettier
+  109:1   warning  Replace `··` with `····`                                                                                                                                                                                                                                       prettier/prettier
+  110:3   warning  Insert `··`                                                                                                                                                                                                                                                    prettier/prettier
+  111:1   warning  Insert `·`                                                                                                                                                                                                                                                     prettier/prettier
+
+C:\workspace\github\codex\orca-skin\app\src\renderer\src\features\chat\store\chatStore.ts
+  187:7  warning  Replace `['SET_MODEL',·'SET_AGENT_KIND',·'SET_PERMISSION_MODE',·'APPLY_PERMISSION_MODE',·'LOAD_SESSION',·'START_LOAD_SESSION'].includes(action.type)` with `⏎····[⏎······'SET_MODEL',⏎······'SET_AGENT_KIND',⏎······'SET_PERMISSION_MODE',⏎······'APPLY_PERMISSION_MODE',⏎······'LOAD_SESSION',⏎······'START_LOAD_SESSION'⏎····].includes(action.type)⏎··`  prettier/prettier
+  190:7  warning  Replace `action.type·===·'RECV_EVENT'·&&·action.event.type·===·'session.updated'·&&·action.event.patch.permissionMode·!==·undefined` with `⏎····action.type·===·'RECV_EVENT'·&&⏎····action.event.type·===·'session.updated'·&&⏎····action.event.patch.permissionMode·!==·undefined⏎··`                                                                      prettier/prettier
+
+C:\workspace\github\codex\orca-skin\app\src\shared\permission-mode.r4.test.ts
+  4:37  error  Missing return type on function  @typescript-eslint/explicit-function-return-type
+
+✖ 32 problems (6 errors, 26 warnings)
+  0 errors and 25 warnings potentially fixable with the `--fix` option.

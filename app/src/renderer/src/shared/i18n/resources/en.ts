@@ -44,7 +44,7 @@ export const en: typeof ko = {
     retry: 'Retry boot'
   },
   landing: {
-    newChatGreeting: 'How can I help you?'
+    newChatGreeting: 'Start developing and debugging.'
   },
   markdown: {
     imagePlaceholder: '[Image: {{label}}]'
@@ -450,9 +450,7 @@ export const en: typeof ko = {
       choose: 'Choose a mode',
       work: 'Work',
       coding: 'Coding',
-      workGreeting: 'What would you like to work on?',
-      workDescription: 'Work · Write documents, analyze and organize information',
-      codingDescription: 'Coding · Write code, solve problems and build software',
+      workGreeting: 'What task would you like to start?',
       workPlaceholder: 'Describe a document, analysis, or task to work on',
       activity: '{{tools}} tool types · {{notes}} notes',
       ended: 'Response received',
@@ -635,6 +633,9 @@ export const en: typeof ko = {
       directoryBusy: 'Add a folder after the current work finishes.',
       directoryPicking: 'Choosing a folder…',
       directoryFailed: 'Could not add the folder. Please try again.',
+      openDirectory: 'Open folder: {{name}}',
+      directoryOpenFailed:
+        'Could not open the folder. Check that it still exists and is accessible, then click it again.',
       directoryInvalid: 'Check that this is an accessible folder.',
       directoryLimit: 'The folder limit has been reached.',
       status: {
@@ -708,6 +709,9 @@ export const en: typeof ko = {
     },
     composer: {
       modes: {
+        workManualLabel: 'Manual approval',
+        workAutoLabel: 'Automatic approval',
+        skipAllLabel: 'Skip all approvals',
         title: 'Mode',
         auto_classified: {
           label: 'Auto',
@@ -765,6 +769,8 @@ export const en: typeof ko = {
       diffRequirementUnlocated: 'Relocate before sending',
       diffRequirementRemoveAria: 'Remove diff requirement: {{comment}}',
       permissionModeTitle: 'Permission mode',
+      permissionUpdateFailedLabel: 'Permission update failed',
+      permissionUpdateFailed: 'Could not apply the permission mode. Please select it again.',
       attachMenuTitle: 'More menu',
       modelSelectTitle: 'Select model',
       modelMenuTitle: 'Model',

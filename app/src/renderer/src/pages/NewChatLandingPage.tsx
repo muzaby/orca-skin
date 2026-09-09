@@ -1,15 +1,8 @@
 import { useLocation } from 'react-router-dom'
-import {
-  AgentModeToggle,
-  agentPresentation,
-  ChatTile,
-  Composer,
-  useChatSession
-} from '../features/chat'
+import { AgentModeToggle, ChatTile, Composer, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { useUsageForTelemetryProvider } from '../features/chat'
 import { useOpenSettings, providerTabId } from '../features/settings'
-import { useI18n } from '../shared/i18n'
 
 // `/new` 라우트의 랜딩 페이지.
 // - 메시지가 아예 없을 때: 빈 화면 중앙에 Composer 만 노출 (ChatGPT 스타일).
@@ -18,8 +11,6 @@ import { useI18n } from '../shared/i18n'
 //   `useChatRouteSync` Direction 2 가 URL 을 `/chat/<id>` 로 replace 하여 ChatPage
 //   가 인계받는다.
 export function NewChatLandingPage(): React.JSX.Element {
-  const { tr } = useI18n()
-  const agentKind = useChatSession((session) => session.agentKind)
   // 첫 send 의 낙관 커밋(0068)이 messages 를 즉시 채워 같은 렌더 사이클에 ChatTile 로
   // 전환된다. !inflight 는 이중 방어 — 어떤 경로로든 턴이 시작되면 랜딩에 갇히지 않는다.
   const isEmpty = useChatSession((s) => s.messages.length === 0 && !s.loadingSession && !s.inflight)
@@ -45,9 +36,6 @@ export function NewChatLandingPage(): React.JSX.Element {
       <section className="flex min-h-0 min-w-0 flex-1 bg-bg">
         <div className="flex min-w-0 flex-1 items-center justify-center px-4">
           <div className="w-full max-w-[720px]">
-            <div className="mb-3 text-center font-serif text-[24px] font-semibold tracking-tight text-ink">
-              {tr(agentPresentation[agentKind].greeting)}
-            </div>
             <AgentModeToggle />
             <Composer
               backendLabel={backendLabel}

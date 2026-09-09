@@ -22,6 +22,7 @@ type TrayProps = ComponentProps<typeof RequirementTrayType>
 
 const h = vi.hoisted(() => ({
   state: null as unknown as ChatState,
+  git: vi.fn(),
   select: vi.fn(),
   remove: vi.fn(),
   tray: null as unknown
@@ -60,7 +61,12 @@ vi.mock('../store/chatStore', () => ({
   }
 }))
 vi.mock('../../../shared/hooks/useAgents', () => ({ useAgents: () => [] }))
-vi.mock('./composer/GitRow', () => ({ GitRow: () => null }))
+vi.mock('./composer/GitRow', () => ({
+  GitRow: () => {
+    h.git()
+    return null
+  }
+}))
 
 // 실제 트레이를 그대로 그리면서 컨테이너가 건넨 props 도 잡는다 — 마크업 축과 콜백 축이
 // 같은 렌더에서 나온다(대역으로 갈아끼우면 소비자 쪽이 안 잠긴다).
@@ -173,5 +179,23 @@ describe('컴포저 선택 액션이 store 까지 닿는다 (D47 · VP-97 · EP-
 
     expect(h.remove).toHaveBeenCalledExactlyOnceWith('one')
     expect(h.select).not.toHaveBeenCalled()
+  })
+})
+
+describe('r4 Composer Git mount boundary', () => {
+  it('Work does not mount GitRow; Coding mounts it', () => {
+    h.state = { ...initialChatState, agentKind: 'work' }
+    h.git.mockClear()
+    const work = renderToStaticMarkup(
+      createElement(Composer, { backendLabel: 'claude', canAbort: false })
+    )
+    expect(h.git).not.toHaveBeenCalled()
+    h.state = { ...h.state, agentKind: 'coding' }
+    const coding = renderToStaticMarkup(
+      createElement(Composer, { backendLabel: 'claude', canAbort: false })
+    )
+    expect(h.git).toHaveBeenCalledTimes(1)
+    expect(load(work)('textarea')).toHaveLength(1)
+    expect(load(coding)('textarea')).toHaveLength(1)
   })
 })

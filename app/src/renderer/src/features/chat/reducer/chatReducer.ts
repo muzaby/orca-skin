@@ -22,7 +22,8 @@ import { isFilesystemRoot } from '../../../../../shared/absolute-path'
 import { directoryIdentity } from '../../../../../shared/extra-directories'
 import { responseBoundaryPart } from '../../../../../shared/response-boundary'
 import {
-  coerceAutoPermissionMode,
+  coercePermissionMode,
+  permissionModeForAgent,
   DEFAULT_PERMISSION_MODE
 } from '../../../../../shared/permission-mode'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
@@ -349,6 +350,7 @@ export interface ChatState {
   // Composer 모드 버튼이 정하는 이 대화의 권한 모드. send 시 IPC 페이로드로 실린다.
   // 새 대화마다 기본값 'plan' 으로 리셋(initialChatState).
   permissionMode: NormalizedPermissionMode
+  permissionModeError: boolean
   // plan 모드에서 에이전트가 제출한 계획(ExitPlanMode). canUseTool 직렬화로 동시 1개.
   // 승인/수정/거부 시 null. (백엔드 중립 — SDK 를 모름.) 우측 계획 타일의 액션바
   // (승인/수정/거부) 노출 여부 + requestId 의 소스.
@@ -478,7 +480,8 @@ export const initialChatState: ChatState = {
   worktreePrepareStep: null,
   worktree: null,
   pendingAsks: [],
-  permissionMode: DEFAULT_PERMISSION_MODE,
+  permissionMode: coercePermissionMode(DEFAULT_PERMISSION_MODE, null),
+  permissionModeError: false,
   pendingPlanReview: null,
   rightPanelTiles: [],
   rightPanelTileLabels: {},
@@ -607,6 +610,8 @@ export type ChatAction =
   | { type: 'RESOLVE_ASK'; requestId: string }
   // Composer 모드 버튼 선택 (계획 / 편집 수락).
   | { type: 'SET_PERMISSION_MODE'; mode: NormalizedPermissionMode }
+  | { type: 'SET_PERMISSION_MODE_ERROR'; failed: boolean }
+  | { type: 'APPLY_PERMISSION_MODE'; mode: NormalizedPermissionMode }
   // 계획 카드 응답(승인/수정/거부) 후 액션 게이트 제거(타일 내용은 유지).
   | { type: 'RESOLVE_PLAN' }
   // 계획 패널 인라인 코멘트 추가/편집/삭제 + 편집 대상 선택.
@@ -706,6 +711,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         agentKind: action.kind,
+        permissionMode: coercePermissionMode(
+          state.permissionMode,
+          { alias: state.modelAlias ?? '', model: state.modelFamily },
+          action.kind
+        ),
+        permissionModeError: false,
         rightPanelTiles: rightPanelColumnsForAgent(state.rightPanelTiles, action.kind),
         rightPanelColWidths: [],
         rightPanelRowSplits: []
@@ -781,6 +792,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return {
             ...state,
             agentKind: ev.patch.agentKind ?? state.agentKind,
+            permissionMode:
+              ev.patch.permissionMode ??
+              (ev.patch.agentKind !== undefined
+                ? permissionModeForAgent(state.permissionMode, ev.patch.agentKind)
+                : state.permissionMode),
+            permissionModeError:
+              ev.patch.permissionMode !== undefined ? false : state.permissionModeError,
             agentKindLocked: true,
             sessionId: ev.sessionId,
             backend: 'claude',
@@ -1224,6 +1242,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...initialChatState,
         agentKind: action.session.agentKind ?? 'coding',
+        permissionMode: coercePermissionMode(
+          DEFAULT_PERMISSION_MODE,
+          null,
+          action.session.agentKind ?? 'coding'
+        ),
         agentKindLocked: true,
         agentPanelInitialized: true,
         rightPanelTiles: rightPanelColumnsForAgent(
@@ -1309,7 +1332,21 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
 
     case 'SET_PERMISSION_MODE':
-      return { ...state, permissionMode: action.mode }
+      return {
+        ...state,
+        permissionMode: coercePermissionMode(
+          action.mode,
+          { alias: state.modelAlias ?? '', model: state.modelFamily },
+          state.agentKind
+        ),
+        permissionModeError: false
+      }
+
+    case 'APPLY_PERMISSION_MODE':
+      return { ...state, permissionMode: action.mode, permissionModeError: false }
+
+    case 'SET_PERMISSION_MODE_ERROR':
+      return { ...state, permissionModeError: action.failed }
 
     case 'SET_MODEL': {
       if (state.sessionId && state.backend && action.adapter && action.adapter !== state.backend) {
@@ -1322,10 +1359,15 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         providerKey: action.providerKey,
         modelFamily: action.modelFamily,
         modelAlias: action.modelAlias,
-        permissionMode: coerceAutoPermissionMode(state.permissionMode, {
-          alias: action.modelAlias ?? '',
-          model: action.modelFamily
-        })
+        permissionMode: coercePermissionMode(
+          state.permissionMode,
+          {
+            alias: action.modelAlias ?? '',
+            model: action.modelFamily
+          },
+          state.agentKind
+        ),
+        permissionModeError: false
       }
     }
 

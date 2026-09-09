@@ -7,14 +7,12 @@ export const agentPresentation = {
     icon: 'todo',
     label: 'chat.agent.work',
     greeting: 'chat.agent.workGreeting',
-    description: 'chat.agent.workDescription',
     placeholder: 'chat.agent.workPlaceholder'
   },
   coding: {
     icon: 'terminal',
     label: 'chat.agent.coding',
     greeting: 'landing.newChatGreeting',
-    description: 'chat.agent.codingDescription',
     placeholder: 'chat.composer.placeholderIdle'
   }
 } as const satisfies Record<
@@ -23,7 +21,6 @@ export const agentPresentation = {
     icon: IconName
     label: MessageKey
     greeting: MessageKey
-    description: MessageKey
     placeholder: MessageKey
   }
 >

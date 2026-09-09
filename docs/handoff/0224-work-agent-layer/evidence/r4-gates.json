@@ -1,0 +1,123 @@
+{
+  "author": "Codex",
+  "scope": "0224 Delta V4 implementation self-check; independent verification pending",
+  "tests": {
+    "author": "Codex",
+    "scope": "Delta V4 implementation self-check; independent verification pending",
+    "reports": [
+      {
+        "file": "r4-renderer-tests.json",
+        "success": true,
+        "files": 153,
+        "tests": 1173,
+        "passed": 1173,
+        "failed": 0,
+        "pending": 0
+      },
+      {
+        "file": "r4-permission-tests.json",
+        "success": true,
+        "files": 14,
+        "tests": 197,
+        "passed": 197,
+        "failed": 0,
+        "pending": 0
+      },
+      {
+        "file": "r4-context-tests.json",
+        "success": true,
+        "files": 4,
+        "tests": 36,
+        "passed": 36,
+        "failed": 0,
+        "pending": 0
+      },
+      {
+        "file": "r4-main-regression-tests.json",
+        "success": true,
+        "files": 8,
+        "tests": 78,
+        "passed": 78,
+        "failed": 0,
+        "pending": 0
+      }
+    ],
+    "uniqueFiles": 173,
+    "uniquePassed": 1423,
+    "duplicateRule": "file.name + assertion.fullName; focused landing/detail/context-renderer already included in renderer"
+  },
+  "commands": [
+    {
+      "gate": "typecheck:node",
+      "exitCode": 0
+    },
+    {
+      "gate": "typecheck:web",
+      "exitCode": 0
+    },
+    {
+      "gate": "typecheck:test",
+      "exitCode": 0
+    },
+    {
+      "gate": "eslint --cache src scripts",
+      "exitCode": 0,
+      "errors": 0,
+      "existingWarnings": [
+        "useTranscriptVirtualizer.ts react-hooks/incompatible-library"
+      ]
+    },
+    {
+      "exitCode": 0,
+      "gate": "electron-vite build (final landing style)"
+    },
+    {
+      "gate": "check-doc-inventory.mjs --check (inventory/prose/links)",
+      "exitCode": 0
+    },
+    {
+      "gate": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "selectedMutation": {
+    "author": "Codex",
+    "mutation": "controls/hero sibling slot swap",
+    "mutantExit": 1,
+    "restoredExit": 0,
+    "originalRestored": true
+  },
+  "native": {
+    "file": "r4-native-ui.json",
+    "success": true,
+    "errors": [],
+    "checks": 105,
+    "screens": 14,
+    "motion": {
+      "normal": {
+        "animationName": "spin",
+        "reduced": false
+      },
+      "reduced": {
+        "animationName": "none",
+        "reduced": true
+      }
+    }
+  },
+  "environment": [
+    "Installed Electron SQLite ABI retained. Native Main tests use temporary resources and SDK/OS ports.",
+    "No new dependency, DB migration or user-account model call."
+  ],
+  "finalStyleRecheck": {
+    "affectedFileLint": 0,
+    "nativeChecks": 105,
+    "scope": "AgentModeToggle presentation only after full behavior regression",
+    "landing": {
+      "files": 3,
+      "passed": 14,
+      "failed": 0
+    },
+    "typecheckWeb": 0,
+    "build": 0
+  }
+}

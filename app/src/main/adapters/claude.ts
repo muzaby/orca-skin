@@ -18,7 +18,11 @@ import type {
   NormalizedEvent,
   PermissionAction
 } from '../../shared/ipc'
-import { PLAN_APPROVED_MODE, toClaudePermissionMode } from '../../shared/permission-mode'
+import {
+  PLAN_APPROVED_MODE,
+  toClaudePermissionMode,
+  type NormalizedPermissionMode
+} from '../../shared/permission-mode'
 import { claudeToNormalized, type MapContext } from './claude-map'
 import { claudeErrorClassifier, errorEvent } from './error-classifier'
 import { createSessionInputStream, type TurnInputContent } from './streaming-input'
@@ -95,6 +99,7 @@ const SUBAGENT_BLOCKED_MESSAGE =
   '사용자가 이 작업을 취소했습니다. 해당 서브에이전트를 다시 호출하지 말고 다른 방식으로 진행하세요.'
 
 interface CanUseToolOptions {
+  planApprovalMode?: NormalizedPermissionMode
   // 중단된 서브에이전트 타입이면 재호출을 deny(가이드 §6-A). 미주입이면 차단 없음.
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
   // 이번 턴 메인 에이전트의 마지막 서술(0215). `ExitPlanMode` 입력에 계획이 실려 오지 않는
@@ -169,7 +174,7 @@ export function makeCanUseTool(
           updatedPermissions: [
             {
               type: 'setMode',
-              mode: toClaudePermissionMode(PLAN_APPROVED_MODE),
+              mode: toClaudePermissionMode(opts.planApprovalMode ?? PLAN_APPROVED_MODE),
               destination: 'session'
             }
           ]
@@ -425,6 +430,7 @@ export class ClaudeAdapter implements SessionAdapter {
           ? {
               canUseTool: makeCanUseTool(requestApproval, {
                 runtimeApprovalToolNames: runtimeToolApprovalNames,
+                ...(req.planApprovalMode ? { planApprovalMode: req.planApprovalMode } : {}),
                 // 매퍼가 쓰는 **같은 ctx** 를 읽는다(0215 EP-01) — 이 인자를 빼면 계획을
                 // 입력에 싣지 않는 모델에서 우측 패널이 다시 빈다.
                 getPlanNarrative: () => ctx.lastAssistantText,

@@ -9,8 +9,8 @@ const sendUser = (s: ChatState, text: string): ChatState =>
   })
 
 describe('chatReducer — 권한 모드', () => {
-  it('기본값은 auto_classified', () => {
-    expect(initialChatState.permissionMode).toBe('auto_classified')
+  it('모델 선택 전 기본은 accept_edits', () => {
+    expect(initialChatState.permissionMode).toBe('accept_edits')
   })
 
   it('SET_PERMISSION_MODE 가 모드를 갱신', () => {
@@ -25,7 +25,7 @@ describe('chatReducer — 권한 모드', () => {
     })
     expect(edited.permissionMode).toBe('accept_edits')
     const fresh = chatReducer(edited, { type: 'NEW_CHAT' })
-    expect(fresh.permissionMode).toBe('auto_classified')
+    expect(fresh.permissionMode).toBe('accept_edits')
   })
 
   it('턴 시작(BEGIN_TURN)·커밋은 현재 모드를 유지', () => {
@@ -153,5 +153,96 @@ describe('SET_MODEL — 자동 권한 강등 (AT-12 · D-010)', () => {
 
   it('선택 alias 가 상태에 남는다 — 다음 판정의 입력이다', () => {
     expect(pick(withMode('plan'), 'corp-fast-1', 'haiku').modelAlias).toBe('haiku')
+  })
+})
+
+describe('r4 kind and permission transitions', () => {
+  it('Coding plan becomes Work manual, then Coding retains manual', () => {
+    const plan = {
+      ...initialChatState,
+      permissionMode: 'plan' as const,
+      modelFamily: 'claude-sonnet-4-6'
+    }
+    const work = chatReducer(plan, { type: 'SET_AGENT_KIND', kind: 'work' })
+    expect(work.permissionMode).toBe('default')
+    expect(chatReducer(work, { type: 'SET_AGENT_KIND', kind: 'coding' }).permissionMode).toBe(
+      'default'
+    )
+  })
+  it('Work accepted edits and plan cannot become hidden modes', () => {
+    const work = { ...initialChatState, agentKind: 'work' as const }
+    for (const mode of ['accept_edits', 'plan', 'dont_ask'] as const)
+      expect(chatReducer(work, { type: 'SET_PERMISSION_MODE', mode }).permissionMode).toBe(
+        'default'
+      )
+  })
+  it('Work supported auto falls back to manual on model change', () => {
+    const work = {
+      ...initialChatState,
+      agentKind: 'work' as const,
+      permissionMode: 'auto_classified' as const
+    }
+    expect(
+      chatReducer(work, {
+        type: 'SET_MODEL',
+        providerKey: 'claude',
+        modelFamily: 'claude-sonnet-4-5',
+        modelAlias: 'sonnet'
+      }).permissionMode
+    ).toBe('default')
+  })
+  it('loaded Work starts manual and a Main settled mode updates its chip state', () => {
+    const loaded = chatReducer(initialChatState, {
+      type: 'LOAD_SESSION',
+      session: { id: 'w', backend: 'claude', agentKind: 'work', title: null, messages: [] }
+    })
+    expect(loaded.permissionMode).toBe('default')
+    expect(
+      chatReducer(
+        { ...loaded, permissionMode: 'auto_classified' },
+        {
+          type: 'RECV_EVENT',
+          event: { type: 'session.updated', sessionId: 'w', patch: { permissionMode: 'default' } }
+        }
+      ).permissionMode
+    ).toBe('default')
+  })
+})
+
+describe('r4 applied permission is distinct from next-model selection', () => {
+  it('adopts actual applied mode and unrelated session patches preserve it', () => {
+    const state = {
+      ...initialChatState,
+      agentKind: 'work' as const,
+      modelFamily: 'custom',
+      permissionModeError: true
+    }
+    const applied = chatReducer(state, { type: 'APPLY_PERMISSION_MODE', mode: 'auto_classified' })
+    expect(applied.permissionMode).toBe('auto_classified')
+    expect(applied.permissionModeError).toBe(false)
+    const cwd = chatReducer(applied, {
+      type: 'RECV_EVENT',
+      event: { type: 'session.updated', sessionId: 's', patch: { cwd: '/work' } }
+    })
+    expect(cwd.permissionMode).toBe('auto_classified')
+  })
+  it('next send settled mode clears failure, metadata-only patch does not', () => {
+    const state = { ...initialChatState, permissionModeError: true }
+    expect(
+      chatReducer(state, {
+        type: 'RECV_EVENT',
+        event: { type: 'session.updated', sessionId: 's', patch: { cwd: '/work' } }
+      }).permissionModeError
+    ).toBe(true)
+    expect(
+      chatReducer(state, {
+        type: 'RECV_EVENT',
+        event: {
+          type: 'session.updated',
+          sessionId: 's',
+          patch: { permissionMode: 'accept_edits' }
+        }
+      }).permissionModeError
+    ).toBe(false)
   })
 })

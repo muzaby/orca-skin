@@ -185,7 +185,7 @@ const DEFAULT_APP_COMMAND_POLICY: Record<AppCommandKind, 'pass' | 'require_appro
 
 **② 예시.** 사용자가 "계획만 보기(plan)" 로 시작했다가, 신뢰가 쌓이면 런타임에 `accept_edits` 로 올려 파일 편집 자동 수락. 이후 `allow` 시 `updatedPermissions` 로 규칙 누적.
 
-**③ 현재 상태.** 어댑터(`adapters/claude.ts`)는 턴 경로에서 `prompt: input.stream`(`adapters/streaming-input.ts` 의 `createSessionInputStream`, `claude.ts:327`→`:346`)으로 `query()` 를 호출해 살아있는 `Query` 핸들을 유지한다 — 그 핸들에 `setPermissionMode`/`interrupt`/`setModel` 이 열려 있다(아래 구현 상태 노트). `prompt` 를 string 으로 넘기는 one-off 경로는 제목 생성용 1-shot `complete()`(`claude.ts:270`)에만 남았다. IPC 는 여전히 per-turn `permissionMode: 'plan' | 'acceptEdits'`(`src/shared/ipc.ts`, 2종)를 `SendChatMessage` 로 나르고, 라이브 전환은 별도 채널 `orca:permission:setMode` 가 담당한다. **설계 근거**: 런타임 전환의 선행 조건은 "장수명 `ClaudeSDKClient` 클래스"가 아니라 **스트리밍 입력 모드 전환**이다 — 동일 `query()` 함수에 `prompt` 만 `AsyncIterable<SDKUserMessage>` 로 넘기면 반환된 `Query` 핸들에서 `setPermissionMode`/`interrupt`/`setModel` 이 열린다(별도 클라이언트 클래스 불요). 입력 큐가 살아있는 동안 generator 가 `return` 되지 않아야 핸들이 유지된다. runtime-ipc.md §1(동시성)의 멀티세션 `SessionRuntimeRegistry`(`features/sessions/session-registry.ts`) 와 세션별 `Query` 핸들 수명을 연결한다.
+**③ 현재 상태.** 어댑터(`adapters/claude.ts`)는 턴 경로에서 `prompt: input.stream`(`createSessionInputStream`)으로 `query()`를 호출해 살아있는 Query 핸들을 유지한다. 문자열 prompt 경로는 제목 생성용 complete()에 남아 있다. 전송 IPC는 정규화 permissionMode를 전달하고 라이브 변경은 `orca:permission:setMode`가 담당한다. 입력 큐가 살아있는 동안 generator를 종료하지 않아야 control 메서드가 열린다. 세션별 핸들은 SessionRuntimeRegistry가 관리한다.
 
 **④ 인터페이스 (정본).**
 
@@ -199,7 +199,7 @@ interface PermissionModeController {
 }
 ```
 
-> **구현 상태**: ✅ **PR③ 라이브 전환까지 구현 완료.** `NormalizedPermissionMode`(6종)·`toClaudePermissionMode`·`fromUiPermissionMode`(`src/shared/permission-mode.ts`) + 세션-키 `PermissionModeController`(`src/main/features/approvals/permission-mode-controller.ts`, sessionId 인자) + Vitest. **router/adapter 와이어링·라이브 `Query.setPermissionMode` 위임 완료** — 어댑터가 매 턴 streaming input 모드(`createSessionInputStream` → `prompt: AsyncIterable<SDKUserMessage>`, `src/main/adapters/streaming-input.ts`)로 `query()` 를 호출해 살아있는 `Query` 핸들을 유지하고, `src/main/adapters/claude.ts` 가 `setPermissionMode`/`interrupt`/`setModel` 을 핸들에 위임한다. `src/main/features/approvals/coordinator.ts` 가 등록한 `orca:permission:setMode` 핸들러가 ① controller(세션 SSOT) 갱신 + ② 진행 중 턴이면 `turn.live.setPermissionMode(toClaudePermissionMode(mode))` 즉시 위임. **잔여: 풀 크로스턴 멀티세션**(resume-from-DB SSOT 충돌·구동 UI 부재 — Phase 4).
+공유 `permission-mode.ts`는 정규화/SDK 매핑과 종류·모델에 따른 Composer 정책을 소유한다. Work는 default·auto_classified·bypass를 선택하며, 자동 승인은 명시된 Claude 버전 >4.5에만 허용한다. 지원하지 않는 자동은 Work=default, Coding=accept_edits로 정착한다. Main send는 payload의 모드 유무와 관계없이 실제 해소 모델을 확인한다. ApprovalCoordinator는 같은 세션의 라이브 변경을 직렬화하고 실제 spawnedModel로 정착한 값을 SDK에 적용한 후 저장·응답한다. idle 선택은 다음 send에서 모델을 최종 확인한다. 실제 실행 보정은 session.updated 권한 patch로 UI에 전달한다. 계획 승인 목표는 Main이 종류별로 계산하여 TurnRequest와 후속 요청에 전달하므로 adapter가 agentProfileKey를 해석하지 않는다. 자세한 반환·실패 계약은 [IPC 계약](../../IPC_CONTRACT.md)을 따른다.
 
 | Provider | 처리 |
 |---|---|

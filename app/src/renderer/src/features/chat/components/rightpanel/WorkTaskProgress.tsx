@@ -3,7 +3,6 @@ import { Button } from '../../../../shared/ui/Button'
 import { useI18n, type MessageKey } from '../../../../shared/i18n'
 import { chatActions, useChatStore } from '../../store/chatStore'
 import type { TaskBoardItem, TaskBoardStatus } from '../../lib/taskBoard'
-import { TaskDetail } from './TaskProgressList'
 
 const STATUS: Record<TaskBoardStatus, MessageKey> = {
   pending: 'chat.taskTile.status.pending',
@@ -26,13 +25,7 @@ const STATUS_CIRCLE: Record<TaskBoardStatus, string> = {
   failed: 'bg-bg2 text-bad'
 }
 
-export function WorkTaskProgress({
-  items,
-  selected
-}: {
-  items: TaskBoardItem[]
-  selected?: TaskBoardItem
-}): React.JSX.Element {
+export function WorkTaskProgress({ items }: { items: TaskBoardItem[] }): React.JSX.Element {
   const { tr } = useI18n()
   const activeKey = useChatStore((state) => state.activeKey)
   return (
@@ -69,9 +62,9 @@ export function WorkTaskProgress({
                 type="button"
                 aria-label={`${item.subject}: ${tr(STATUS[item.status])}`}
                 title={`${item.title} · ${tr(STATUS[item.status])}`}
-                aria-pressed={selected?.key === item.key}
-                onClick={() => chatActions.selectTask(selected?.key === item.key ? null : item.key)}
-                className={`flex min-w-0 flex-1 items-start gap-3 rounded-r3 text-left outline-none ring-focus ${selected?.key === item.key ? 'bg-selected-soft' : 'hover:bg-bg2'}`}
+                data-task-detail-trigger={item.key}
+                onClick={() => chatActions.selectTask(item.key)}
+                className="flex min-w-0 flex-1 items-start gap-3 rounded-r3 text-left outline-none ring-focus hover:bg-bg2"
               >
                 <span
                   aria-hidden="true"
@@ -124,20 +117,6 @@ export function WorkTaskProgress({
             </li>
           ))}
         </ol>
-      )}
-      {selected && (
-        <div>
-          <Button
-            size="small"
-            leadingIcon="arrowL"
-            className="mx-4"
-            onClick={() => chatActions.selectTask(null)}
-          >
-            {tr('chat.taskTile.backToList')}
-          </Button>
-          <p className="px-4 pt-2 text-footnote text-ink">{selected.title}</p>
-          <TaskDetail item={selected} />
-        </div>
       )}
     </div>
   )

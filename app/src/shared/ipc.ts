@@ -478,6 +478,7 @@ export type NormalizedEvent =
       patch: {
         agentKind?: AgentKind
         model?: string
+        permissionMode?: NormalizedPermissionMode
         cwd?: string
         worktree?: WorktreeDisplay | null
         agentTools?: string[]
@@ -1095,16 +1096,15 @@ export interface FileEntry {
   isDirectory: boolean
 }
 
-export interface OpenPathRequest {
-  path: string
-  /**
-   * `directory` = 그 디렉토리를 연다(0201 이래의 동작). `reveal` = 그 **파일**을 탐색기에서
-   * 선택해 보여준다(0211 ΔV5 D-108).
-   *
-   * **필수다.** optional 로 두고 미지정을 파일 허용으로 접으면 기존 호출부가 조용히 넓어진다.
-   */
-  mode: 'directory' | 'reveal'
-}
+/** `mode`는 필수다. 폴더 열기와 파일 선택 표시를 명시적으로 구분한다. */
+export type OpenPathRequest = { path: string } & (
+  | {
+      mode: 'directory'
+      /** 지정하면 해당 Work 세션에 기록된 추가 폴더만 연다. */
+      sessionId?: string
+    }
+  | { mode: 'reveal'; sessionId?: never }
+)
 
 // ── git (컴포저 브랜치 칩) ──────────────────────────────────────────────────
 // 작업 경로 한 곳에 대한 읽기 2종 + 전환 1종. worktree 는 다루지 않는다(제품 결정).

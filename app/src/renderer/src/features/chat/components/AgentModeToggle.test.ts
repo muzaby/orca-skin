@@ -47,4 +47,23 @@ describe('actual draft mode toggle', () => {
     renderToStaticMarkup(createElement(AgentModeToggle))
     expect(harness.buttons.every((button) => button.disabled)).toBe(true)
   })
+  it.each([
+    ['work', '어떤 작업을 시작할까요?'],
+    ['coding', '개발, 디버깅을 시작하세요.']
+  ])('places the %s hero below the icon controls exactly once', (kind, greeting) => {
+    harness.state.agentKind = kind
+    const html = renderToStaticMarkup(createElement(AgentModeToggle))
+    expect(html).toContain(greeting)
+    expect(html.split(greeting)).toHaveLength(2)
+    const controls = html.indexOf('data-agent-mode-controls')
+    const hero = html.indexOf('data-agent-mode-hero')
+    expect(controls).toBeGreaterThanOrEqual(0)
+    expect(hero).toBeGreaterThan(controls)
+    expect(html).toContain('data-agent-mode-separator="true"')
+    expect(html.match(/data-agent-mode-chevron=/g)).toHaveLength(2)
+    expect(harness.buttons).toHaveLength(2)
+    const active = harness.buttons[kind === 'work' ? 0 : 1]
+    expect(active.className).toContain('[&>.btn-squish]:bg-selected-soft')
+    expect(html).toContain('text-selected')
+  })
 })

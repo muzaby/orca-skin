@@ -26,9 +26,11 @@ import { listDir } from '../../features/chat/scan'
 import { isWithinDir, projectsDir } from '../../infra/config/paths'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import type { RouterContext } from '../context'
+import { isAbsolutePath, isFilesystemRoot } from '../../../shared/absolute-path'
+import { directoryIdentity, parseStoredExtraDirectories } from '../../../shared/extra-directories'
 
 interface FilesHandlerContext extends Pick<RouterContext, 'getCwd'> {
-  db: Pick<RouterContext['db'], 'hasSessionWithCwd' | 'searchMessages'>
+  db: Pick<RouterContext['db'], 'hasSessionWithCwd' | 'getSessionById' | 'searchMessages'>
 }
 
 export function registerFilesHandlers(ctx: FilesHandlerContext): void {
@@ -39,6 +41,16 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
   // 있다. 그래서 부모부터 루트까지 올리며 같은 술어를 돌린다(깊이 유한, 술어는 그대로 하나).
   const isAllowedDir = (dir: string): boolean =>
     isWithinDir(dir, projectsDir()) || ctx.db.hasSessionWithCwd(dir)
+
+  const isRecordedWorkDirectory = (sessionId: string, directory: string): boolean => {
+    const session = ctx.db.getSessionById(sessionId)
+    return (
+      session?.agent_kind === 'work' &&
+      parseStoredExtraDirectories(session.extra_dirs).some(
+        (recorded) => directoryIdentity(recorded) === directoryIdentity(directory)
+      )
+    )
+  }
 
   const isInsideAllowedDir = (dir: string): boolean => {
     let current = resolve(dir)
@@ -84,10 +96,22 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
   })
 
   // 임의 경로 오픈 벡터를 차단한다 — 렌더러가 보낸 경로를 무검증으로 열지 않고 **모드마다**
-  // 실체(디렉토리/파일)를 확인한 뒤 같은 화이트리스트를 통과시킨다. 정상 호출은 둘이다:
-  // 세션 cwd 디렉토리(0201)와 그 안의 변경 파일(0211 ΔV5).
+  // 실체(디렉토리/파일)를 확인한다. 일반 호출은 세션 cwd와 그 안의 변경 파일을 허용하고,
+  // Work 컨텍스트 호출은 해당 세션에 기록된 추가 폴더만 허용한다.
   handle(CHANNELS.filesOpenPath, OpenPathRequestSchema, 'reject', async (req): Promise<void> => {
-    const stat = await fs.stat(req.path).catch(() => null)
+    let target = req.path
+    if (req.mode === 'directory' && req.sessionId !== undefined) {
+      if (
+        !isAbsolutePath(req.path) ||
+        isFilesystemRoot(req.path) ||
+        !isRecordedWorkDirectory(req.sessionId, req.path)
+      ) {
+        throw new Error('허용되지 않은 경로입니다.')
+      }
+      target = await fs.realpath(req.path)
+      if (isFilesystemRoot(target)) throw new Error('허용되지 않은 경로입니다.')
+    }
+    const stat = await fs.stat(target).catch(() => null)
     // `reveal` 은 **파일**을 탐색기에서 선택해 보여준다(0211 ΔV5 D-108). 화이트리스트는
     // 새로 쓰지 않고 부모부터 조상까지 같은 판정을 돌린다 — 두 벌이 되면 한쪽만 좁아진다.
     if (req.mode === 'reveal') {
@@ -97,8 +121,13 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
       return
     }
     if (!stat?.isDirectory()) throw new Error('디렉토리만 열 수 있습니다.')
-    if (!isAllowedDir(req.path)) throw new Error('허용되지 않은 경로입니다.')
-    const error = await shell.openPath(req.path)
+    // 경로 해석 중 세션 삭제/변경도 반영한다. scoped 요청은 일반 cwd 허용으로 폴백하지 않는다.
+    const allowed =
+      req.sessionId !== undefined
+        ? isRecordedWorkDirectory(req.sessionId, req.path)
+        : isAllowedDir(req.path)
+    if (!allowed) throw new Error('허용되지 않은 경로입니다.')
+    const error = await shell.openPath(target)
     if (error) throw new Error(error)
   })
 

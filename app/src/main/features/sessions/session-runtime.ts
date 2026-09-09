@@ -723,7 +723,10 @@ export class SessionRuntime implements ManagedRuntime {
   }
 
   async setPermissionMode(mode: ClaudePermissionMode): Promise<void> {
-    await this.live?.setPermissionMode(mode)
+    const live = this.live
+    if (!live) throw new Error('No live channel for permission update')
+    await live.setPermissionMode(mode)
+    if (this.live !== live) throw new Error('Live channel changed during permission update')
   }
 
   async interrupt(): Promise<void> {

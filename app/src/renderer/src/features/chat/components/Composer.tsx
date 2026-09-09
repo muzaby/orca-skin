@@ -26,7 +26,7 @@ import { GitRow } from './composer/GitRow'
 import { Notice } from './Notice'
 import { StatusPopover } from './composer/StatusPopover'
 import { conversationStatusModel as conversationStatusModelFactory } from './composer/statusViewModel'
-import { MODE_LABEL_KEYS, modeMenuOptions } from './composer/modes'
+import { permissionModeLabelKey, modeMenuOptions } from './composer/modes'
 import type { ConversationStatus } from './composer/statusCopy'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
 import { ApprovalCard, ToolApprovalBody } from './ApprovalCard'
@@ -128,6 +128,8 @@ export function Composer({
   const userTurnCount = useChatSession((s) =>
     s.messages.reduce((n, m) => (m.role === 'user' ? n + 1 : n), 0)
   )
+  const agentKind = useChatSession((s) => s.agentKind)
+  const permissionModeError = useChatSession((s) => s.permissionModeError)
   const cwd = useChatSession((s) => s.cwd)
   const lastTelemetry = useChatSession((s) => s.lastTelemetry)
   const sessionCostUsd = useChatSession((s) => s.sessionCostUsd)
@@ -320,9 +322,10 @@ export function Composer({
               {showLandingCwdPanel && <CwdPanel cwd={cwd} inflight={inflight} />}
             </>
           }
-          gitRow={<GitRow cwd={cwd} sessionStarted={showGitRow} />}
+          gitRow={agentKind === 'coding' ? <GitRow cwd={cwd} sessionStarted={showGitRow} /> : null}
           afterGitRow={
             <>
+              {permissionModeError && <Notice title={tr('chat.composer.permissionUpdateFailed')} />}
               {showConcurrencyNotice && (
                 <Notice
                   title={tr('chat.composer.concurrencyNoticeTitle')}
@@ -378,7 +381,11 @@ export function Composer({
               controlsStart={
                 <ComposerChip
                   ref={modeButtonRef}
-                  label={tr(MODE_LABEL_KEYS[permissionMode])}
+                  label={tr(
+                    permissionModeError
+                      ? 'chat.composer.permissionUpdateFailedLabel'
+                      : permissionModeLabelKey(permissionMode, agentKind)
+                  )}
                   onClick={() => setModeMenuOpen((value) => !value)}
                   ariaHasPopup
                   ariaExpanded={modeMenuOpen}
@@ -464,7 +471,7 @@ export function Composer({
       <Popover open={modeMenuOpen} anchorRef={modeButtonRef} onClose={() => setModeMenuOpen(false)}>
         <ModeMenu
           mode={permissionMode}
-          options={modeMenuOptions(selectedModelShape(agents, selectedModel))}
+          options={modeMenuOptions(selectedModelShape(agents, selectedModel), agentKind)}
           onPick={(mode) => {
             setPermissionMode(mode)
             setModeMenuOpen(false)

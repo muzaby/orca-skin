@@ -869,7 +869,11 @@ export class Bootstrap {
       isUpdateInstallPending: () => this.isUpdateInstallPending(),
       worktrees
     })
-    approvals.registerHandlers(supervisor, permissionModes)
+    approvals.registerHandlers(
+      supervisor,
+      permissionModes,
+      (sessionId) => ctx.db.getSessionById(sessionId)?.agent_kind
+    )
 
     // 세션 삭제 시 미커밋 pending 도 함께 폐기한다(0151 AC8) — 루트가 chat 큐를 주입해
     // session 슬라이스가 chat 슬라이스를 참조하지 않게 한다.

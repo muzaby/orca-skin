@@ -161,6 +161,8 @@ export interface TurnRequest {
   // 자기 query 옵션(SDK PermissionMode)으로 어댑트. 확장 묶음이 아니라 query-레벨 제어라
   // env/askUser 처럼 TurnRequest 직속.
   permissionMode?: NormalizedPermissionMode
+  // Main이 작업 종류로 계산한 계획 승인 후 권한. 어댑터는 프로필 키를 해석하지 않는다.
+  planApprovalMode?: NormalizedPermissionMode
   // Claude Code thinking effort. SDK Options.effort 로 per-turn 전달한다.
   effort?: EffortLevel
   // 게이트 훅 시점에 로컬 홀드 steer 를 병합 단일 배치로 회수한다(0060 D3·D4). 어댑터가 자기

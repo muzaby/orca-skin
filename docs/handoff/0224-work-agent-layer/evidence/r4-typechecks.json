@@ -1,0 +1,14 @@
+[
+  {
+    "gate": "typecheck:node",
+    "exitCode": 0
+  },
+  {
+    "gate": "typecheck:web",
+    "exitCode": 0
+  },
+  {
+    "gate": "typecheck:test",
+    "exitCode": 0
+  }
+]

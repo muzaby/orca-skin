@@ -45,7 +45,7 @@ export function installChatStoreHarness(
   const permissionRespond = vi.fn().mockResolvedValue(undefined)
   const stopSubagent = vi.fn().mockResolvedValue(undefined)
   const backgroundSubagent = vi.fn().mockResolvedValue(undefined)
-  const permissionSetMode = vi.fn().mockResolvedValue(undefined)
+  const permissionSetMode = vi.fn().mockImplementation(async ({ mode }) => mode)
   vi.stubGlobal('window', {
     orca: {
       chat: {

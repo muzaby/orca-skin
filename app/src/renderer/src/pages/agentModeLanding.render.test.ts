@@ -26,10 +26,6 @@ vi.mock('../features/chat', () => ({
   useChatSession: (select: (state: typeof fixture.session) => unknown) => select(fixture.session),
   useChatBusy: () => fixture.session.inflight,
   useUsageForTelemetryProvider: () => null,
-  agentPresentation: {
-    coding: { greeting: 'chat.work.codingGreeting' },
-    work: { greeting: 'chat.work.greeting' }
-  },
   AgentModeToggle: () => createElement('div', { 'data-component': 'AgentModeToggle' }),
   Composer: (props: { initialDraft?: string; showLandingCwdPanel?: boolean; flush?: boolean }) =>
     createElement('div', {
@@ -89,6 +85,11 @@ describe.each(pages)('0224 r3 — $label 랜딩 배치 (AC-R3-3 · EP3)', ({ Pag
       const html = renderToStaticMarkup(createElement(Page))
       expect(html.match(/data-component="Composer"/g)).toHaveLength(1)
       expect(html.match(/data-component="AgentModeToggle"/g)).toHaveLength(1)
+      expect(html.indexOf('data-component="AgentModeToggle"')).toBeLessThan(
+        html.indexOf('data-component="Composer"')
+      )
+      expect(html).not.toContain('어떤 작업을 시작할까요?')
+      expect(html).not.toContain('개발, 디버깅을 시작하세요.')
       expect(html).toContain('data-landing-cwd="true"')
       expect(html).not.toContain('data-component="RightPanel"')
       expect(html).not.toContain('data-component="ChatTile"')
@@ -111,6 +112,9 @@ it('새 대화의 prefill과 프로젝트의 지침·세션 목록 배치를 보
   expect(fresh).toContain('data-initial-draft="/검토 기존 초안"')
   const project = renderToStaticMarkup(createElement(ProjectLandingPage))
   expect(project).toContain('data-component="ProjectInstructionsSidebar"')
+  expect(project.indexOf('data-component="ProjectInfoHero"')).toBeLessThan(
+    project.indexOf('data-component="AgentModeToggle"')
+  )
   expect(project).toContain('data-component="ProjectSessionsPanel"')
   expect(project).toContain('data-flush="true"')
 })

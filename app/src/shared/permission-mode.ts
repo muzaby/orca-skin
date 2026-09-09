@@ -7,11 +7,11 @@
 //   1) NormalizedPermissionMode — provider 중립 정규화(6종, snake_case). 앱 내부 SSOT 어휘.
 //   2) ClaudePermissionMode     — Claude Agent SDK 의 PermissionMode 미러(6종, camelCase, sdk.d.ts:1865).
 //                                 SDK 를 직접 import 하지 않고 타입만 미러해 sandbox 안전을 지킨다.
-//   3) PermissionMode (./ipc)   — 현 Composer UI 가 노출하는 2종(plan/acceptEdits). 1)의 부분집합.
-//                                 PR③ 에서 6종으로 확장 예정.
+//   3) PermissionMode (./ipc) — 이전 UI 저장값을 읽는 호환 어휘(plan/acceptEdits).
 
 import type { PermissionMode } from './ipc'
-import { isHaikuModel } from './model-identity'
+import { supportsAutoPermission } from './model-identity'
+import type { AgentKind } from './agent-kind'
 
 // provider 중립 권한 모드 (정규화 어휘). UI/IPC/controller 가 공유하는 SSOT 표현.
 export type NormalizedPermissionMode =
@@ -21,13 +21,10 @@ export type NormalizedPermissionMode =
 export type ClaudePermissionMode =
   'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'dontAsk' | 'auto'
 
-// 계획 승인(ExitPlanMode allow) = plan 모드 종료 시 들어갈 모드. 렌더러 칩(chatStore.approvePlan)·
-// SDK 세션(adapters/claude.ts 의 updatedPermissions)·main 세션 SSOT(app/chat-turn.ts) 세 곳이
-// 같은 값을 읽도록 단일 정의로 둔다 — 셋이 어긋나면 "칩은 편집 수락인데 SDK 는 plan" 이 된다.
+// Coding의 계획 승인 기본 목표. Work 목표는 planApprovedMode에서 결정한다.
 export const PLAN_APPROVED_MODE: NormalizedPermissionMode = 'accept_edits'
 
-// 미설정 세션의 기본 권한 모드 (D-012). **렌더러 초기 상태와 main 미설정 조회가 이 상수 하나를
-// 읽는다** — 양쪽에 리터럴을 두면 한쪽만 옮겼을 때 칩과 main 이 서로 다른 모드를 진실로 삼는다.
+// 미설정 요청의 선호값. 실행/표시는 반드시 모델·종류 정책으로 정착한 값을 사용한다.
 export const DEFAULT_PERMISSION_MODE: NormalizedPermissionMode = 'auto_classified'
 
 // '자동'(auto)을 지원하지 않는 모델에서 그것을 대신할 모드 (0215 D-010 — 사용자 결정).
@@ -64,30 +61,41 @@ export function toClaudePermissionMode(mode: NormalizedPermissionMode): ClaudePe
   }
 }
 
-// 현 UI 2종(PermissionMode) → 정규화 모드 브리지. UI 가 보낸 per-turn 모드를 controller 의
-// 정규화 어휘로 올린다. PR③ 에서 UI 가 6종을 보내면 이 함수 호출처는 직접 NormalizedPermissionMode 사용.
+// 이전 UI 저장값을 정규화된 모드로 읽는 호환 브리지.
 export function fromUiPermissionMode(mode: PermissionMode): NormalizedPermissionMode {
   return mode === 'plan' ? 'plan' : 'accept_edits'
 }
 
-// 선택 모델이 '자동'을 지원하지 않으면 모드를 내려앉힌다 (0215 D-009·D-010).
-//
-// 규칙은 이 함수 하나가 갖고 renderer 메뉴·reducer·main 턴 조립이 모두 이것을 부른다 —
-// 세 곳에 조건을 복붙하면 한 곳만 고쳐졌을 때 칩과 SDK 세션이 서로 다른 모드를 주장한다.
-// `auto_classified` 가 아니면 손대지 않는다(다른 모드는 haiku 에서도 유효하다).
-export function coerceAutoPermissionMode(
+// 종류별 선택 가능한 실제 모드. idle 선택은 이 정책만 적용하고 다음 send에서 모델을 검사한다.
+export function permissionModeForAgent(
   mode: NormalizedPermissionMode,
-  model: { alias: string; model: string | null }
+  kind: AgentKind
 ): NormalizedPermissionMode {
-  if (mode !== 'auto_classified') return mode
-  return isHaikuModel(model) ? AUTO_UNSUPPORTED_FALLBACK_MODE : mode
+  return kind === 'work' && (mode === 'plan' || mode === 'accept_edits' || mode === 'dont_ask')
+    ? 'default'
+    : mode
 }
 
-// 모델 문자열만 아는 호출부(main 턴 조립 — alias 를 갖지 않는다)를 위한 얇은 래퍼(0215 D-011).
-// alias 축은 renderer 가 이미 닫았고 여기는 이름 축의 2차 방어다.
+export function planApprovedMode(kind: AgentKind): NormalizedPermissionMode {
+  return kind === 'work' ? 'default' : PLAN_APPROVED_MODE
+}
+
+// 메뉴·상태 전이·실제 실행이 같은 함수를 소비한다. 모드 어휘 자체는 SDK 호환 6종을 유지한다.
+export function coercePermissionMode(
+  mode: NormalizedPermissionMode,
+  model: { alias: string; model: string | null } | null,
+  kind: AgentKind = 'coding'
+): NormalizedPermissionMode {
+  const allowed = permissionModeForAgent(mode, kind)
+  if (allowed !== 'auto_classified' || supportsAutoPermission(model?.model)) return allowed
+  return kind === 'work' ? 'default' : AUTO_UNSUPPORTED_FALLBACK_MODE
+}
+
+// 실제 모델 문자열만 가진 Main 호출부의 입력 어댑터.
 export function coerceAutoPermissionModeForModelName(
   mode: NormalizedPermissionMode,
-  modelName: string | undefined
+  modelName: string | undefined,
+  kind: AgentKind = 'coding'
 ): NormalizedPermissionMode {
-  return coerceAutoPermissionMode(mode, { alias: '', model: modelName ?? null })
+  return coercePermissionMode(mode, { alias: '', model: modelName ?? null }, kind)
 }
