@@ -2,6 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { WorkActivity } from './WorkActivity'
+import { WorkToolRow } from './WorkToolTimeline'
 import type { Message } from '../../reducer/chatReducer'
 import { agentUiPolicy } from '../../lib/agentPresentation'
 
@@ -113,5 +114,32 @@ describe('Work activity disclosure lifecycle', () => {
     expect(opened.indexOf('activity-second')).toBeLessThan(opened.indexOf('final-answer'))
     harness.toggle!()
     expect(render()).not.toContain('activity-second')
+  })
+  it('opens a tool through its actual row callback and hides its request and response when closed', () => {
+    const renderTool = (): string => {
+      harness.calls = 0
+      harness.toggle = undefined
+      return renderToStaticMarkup(
+        createElement(WorkToolRow, {
+          call: {
+            toolUseId: 'command-1',
+            name: 'Bash',
+            input: { description: '검증 명령', command: 'npm run check-exact-command' },
+            result: { output: 'exact-result-line', isError: false }
+          }
+        })
+      )
+    }
+    const closed = renderTool()
+    expect(closed).toContain('검증 명령')
+    expect(closed).not.toContain('check-exact-command')
+    expect(closed).not.toContain('exact-result-line')
+    harness.toggle!()
+    const opened = renderTool()
+    expect(opened).toContain('aria-expanded="true"')
+    expect(opened).toContain('check-exact-command')
+    expect(opened).toContain('exact-result-line')
+    harness.toggle!()
+    expect(renderTool()).not.toContain('exact-result-line')
   })
 })

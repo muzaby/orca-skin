@@ -13,7 +13,7 @@ export type WorkActivityNode =
       kind: 'activity'
       key: string
       items: SegmentNode[]
-      toolKinds: number
+      toolCount: number
       noteCount: number
     }
   | { kind: 'status'; key: string; outcome: 'ended' | 'aborted' | 'failed' | 'unknown' }
@@ -133,16 +133,15 @@ export function createWorkProjector(): (
       let activity: SegmentNode[] = []
       function flushActivity(): void {
         if (!activity.length) return
-        const names = new Set(
-          activity.flatMap((item) =>
-            item.segment.kind === 'tools' ? item.segment.calls.map((call) => call.name) : []
-          )
+        const toolCount = activity.reduce(
+          (count, item) => count + (item.segment.kind === 'tools' ? item.segment.calls.length : 0),
+          0
         )
         output.push({
           kind: 'activity',
           key: `activity:${id}:${activity[0].key}`,
           items: activity,
-          toolKinds: names.size,
+          toolCount,
           noteCount: activity.filter((item) => item.segment.kind === 'text').length
         })
         activity = []

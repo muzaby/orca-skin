@@ -3,6 +3,7 @@ import { lstat, mkdir, open, realpath, rename, rmdir, stat, unlink } from 'node:
 import type { Stats } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import type { ArtifactFileRecord } from '../../infra/db/artifact-queries'
+import { validateArtifactBytes } from './formats'
 import {
   assertArtifactFilename,
   assertLocalPath,
@@ -125,11 +126,7 @@ export async function readArtifactInput(
   const finalRoots = await Promise.all([cwd, ...extraDirs].map((root) => realpath(root)))
   if (!finalRoots.every((root, index) => samePath(root, roots[index])))
     throw new Error('file-changed')
-  try {
-    new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-  } catch {
-    throw new Error('invalid-utf8')
-  }
+  validateArtifactBytes(candidate, bytes)
   return {
     bytes,
     inputSource: process.platform === 'win32' ? inputSource.toLowerCase() : inputSource,

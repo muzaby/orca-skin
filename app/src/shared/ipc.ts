@@ -53,6 +53,7 @@ export const CHANNELS = {
   filesReadAttachment: 'orca:files:readAttachment',
   artifactList: 'orca:artifact:list',
   artifactStatus: 'orca:artifact:status',
+  artifactPreview: 'orca:artifact:preview',
   artifactSave: 'orca:artifact:save',
   artifactReveal: 'orca:artifact:reveal',
   artifactTrash: 'orca:artifact:trash',

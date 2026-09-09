@@ -1,7 +1,8 @@
-import { basename, extname, isAbsolute, relative, resolve, sep, win32 } from 'node:path'
+import { basename, isAbsolute, relative, resolve, sep, win32 } from 'node:path'
 import type { ArtifactAvailability, ArtifactRef } from '../../../shared/artifacts'
+import { artifactFormat } from './formats'
 
-export const MAX_ARTIFACT_BYTES = 5 * 1024 * 1024
+export { MAX_ARTIFACT_BYTES } from './formats'
 
 export interface PublishArtifactInput {
   path: string
@@ -52,10 +53,7 @@ export function artifactInput(
   assertLocalPath(value.path)
   const filename = basename(value.path.replaceAll('\\', '/'))
   assertArtifactFilename(filename)
-  const extension = extname(filename).toLowerCase()
-  const kind =
-    extension === '.md' ? 'markdown' : ['.html', '.htm'].includes(extension) ? 'html' : null
-  if (!kind) throw new Error('unsupported-format')
+  const kind = artifactFormat(filename).format
   if (value.title !== undefined && typeof value.title !== 'string') throw new Error('invalid-title')
   const title = value.title === undefined ? filename : (value.title as string).trim()
   if (!title || title.length > 160) throw new Error('invalid-title')
@@ -81,6 +79,7 @@ export function artifactError(error: unknown): Error {
     'unsupported-format',
     'too-large',
     'invalid-utf8',
+    'invalid-image',
     'file-changed',
     'cancelled',
     'busy',

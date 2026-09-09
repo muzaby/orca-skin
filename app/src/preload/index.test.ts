@@ -50,6 +50,7 @@ it('artifact actions preserve session and publication IDs on dedicated channels'
   const batch = { sessionId: 'original-session', publicationIds: ['old', 'new'] }
   await api.artifacts.list({ sessionId: target.sessionId })
   await api.artifacts.status(batch)
+  await api.artifacts.preview(target)
   await api.artifacts.save(batch)
   await api.artifacts.reveal(target)
   await api.artifacts.trash(target)
@@ -57,6 +58,7 @@ it('artifact actions preserve session and publication IDs on dedicated channels'
   expect(harness.invoke.mock.calls).toEqual([
     [CHANNELS.artifactList, { sessionId: target.sessionId }],
     [CHANNELS.artifactStatus, batch],
+    [CHANNELS.artifactPreview, target],
     [CHANNELS.artifactSave, batch],
     [CHANNELS.artifactReveal, target],
     [CHANNELS.artifactTrash, target],

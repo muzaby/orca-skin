@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import type {
   ArtifactRef,
+  ArtifactPreviewResult,
   ArtifactStatusItem,
   ArtifactTrashResult
 } from '../../../shared/artifacts'
 import type { ArtifactFileRecord, ArtifactQueries } from '../../infra/db/artifact-queries'
 import { ArtifactFiles, readArtifactInput, readStableFile } from './files'
 import { artifactError, artifactInput, classifyFileError } from './validation'
+import { artifactPreview } from './formats'
 
 export interface ArtifactPublishContext {
   sessionId: string
@@ -196,6 +198,17 @@ export class ArtifactService {
         }
       })
     )
+  }
+
+  async preview(sessionId: string, publicationId: string): Promise<ArtifactPreviewResult> {
+    try {
+      const file = await this.readForExport(sessionId, publicationId)
+      // readForExport validates ownership before queueing, within the queue and after disk reads.
+      this.own(sessionId, publicationId)
+      return artifactPreview(file.filename, file.bytes)
+    } catch (error) {
+      return { state: 'unavailable', reason: artifactError(error).message }
+    }
   }
 
   readForExport(

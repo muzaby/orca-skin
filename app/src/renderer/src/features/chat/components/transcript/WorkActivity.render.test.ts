@@ -44,10 +44,10 @@ describe('actual Work transcript branch', () => {
     expect(html).toContain('introduction')
     expect(html).toContain('conclusion')
     expect(html).toContain('aria-expanded="false"')
-    expect(html).toContain('도구 1종')
+    expect(html).toContain('도구 1회 호출')
     expect(html).not.toContain('private-tool-body')
   })
-  it('keeps Code tool body and legacy Work transcript on the original renderer', () => {
+  it('preserves Code while applying Work tool rows to legacy history without boundaries', () => {
     const code = renderToStaticMarkup(
       createElement(AssistantTurn, { turn, transcriptPolicy: codeTranscript, pending: true })
     )
@@ -68,7 +68,7 @@ describe('actual Work transcript branch', () => {
           pending: true
         })
       )
-    ).not.toContain('data-agent="work"')
+    ).toContain('data-work-tools="true"')
   })
   it('passes mode through the actual Exchange consumer and observes mode in both memo comparators', () => {
     const exchange = { startIndex: 0, turns: [turn] }

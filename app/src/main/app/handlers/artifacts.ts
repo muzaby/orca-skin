@@ -21,7 +21,7 @@ import { handle, handlePlain } from '../../infra/ipc/handle'
 
 type ArtifactHandlers = Pick<
   ArtifactService,
-  'listLatest' | 'status' | 'trash' | 'readForExport' | 'revealPath' | 'openFolderPath'
+  'listLatest' | 'status' | 'preview' | 'trash' | 'readForExport' | 'revealPath' | 'openFolderPath'
 >
 export type ArtifactSenderCheck = (event: IpcMainInvokeEvent) => boolean
 
@@ -136,6 +136,10 @@ export function registerArtifactHandlers(
   handle(CHANNELS.artifactStatus, ArtifactStatusRequestSchema, 'reject', (req, event) => {
     assertSender(event)
     return service.status(req.sessionId, req.publicationIds)
+  })
+  handle(CHANNELS.artifactPreview, ArtifactTargetRequestSchema, 'reject', (req, event) => {
+    assertSender(event)
+    return service.preview(req.sessionId, req.publicationId)
   })
   handle(CHANNELS.artifactTrash, ArtifactTargetRequestSchema, 'reject', (req, event) => {
     assertSender(event)

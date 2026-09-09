@@ -1,0 +1,846 @@
+TAP version 13
+# Subtest: analyzeComposerInputTrace
+    # Subtest: accepts raw arrays and DevTools trace objects
+    ok 1 - accepts raw arrays and DevTools trace objects
+      ---
+      duration_ms: 5.5765
+      type: 'test'
+      ...
+    # Subtest: matches each input to the next paint on the renderer main thread
+    ok 2 - matches each input to the next paint on the renderer main thread
+      ---
+      duration_ms: 12.5425
+      type: 'test'
+      ...
+    # Subtest: reports unmatched inputs and long tasks overlapping the sample window
+    ok 3 - reports unmatched inputs and long tasks overlapping the sample window
+      ---
+      duration_ms: 0.8295
+      type: 'test'
+      ...
+    1..3
+ok 1 - analyzeComposerInputTrace
+  ---
+  duration_ms: 23.4458
+  type: 'suite'
+  ...
+# [doc-inventory] wrote docs\\generated\\inventory.md
+# [doc-inventory] generated doc ok (9 items, 3 channels)
+# [doc-inventory] prose ok: no inventory counts restated in current-state docs
+# [doc-inventory] links ok: every relative markdown link resolves
+# [doc-inventory] wrote docs\\generated\\inventory.md
+# [doc-inventory] docs\\generated\\inventory.md is stale or hand-edited — run: node scripts/check-doc-inventory.mjs
+# [doc-inventory] prose ok: no inventory counts restated in current-state docs
+# [doc-inventory] links ok: every relative markdown link resolves
+# [doc-inventory] wrote docs\\generated\\inventory.md
+# [doc-inventory] generated doc ok (9 items, 3 channels)
+# [doc-inventory] prose ok: no inventory counts restated in current-state docs
+# [doc-inventory] links ok: every relative markdown link resolves
+# [doc-inventory] wrote docs\\generated\\inventory.md
+# [doc-inventory] docs\\generated\\inventory.md is stale or hand-edited — run: node scripts/check-doc-inventory.mjs
+# [doc-inventory] prose ok: no inventory counts restated in current-state docs
+# [doc-inventory] links ok: every relative markdown link resolves
+# [doc-inventory] wrote docs\\generated\\inventory.md
+# [doc-inventory] generated doc ok (9 items, 3 channels)
+# [doc-inventory] inventory count in prose: docs\\AGENTS.md:1 "총 76 채널" — link docs\\generated\\inventory.md instead
+# [doc-inventory] links ok: every relative markdown link resolves
+# [doc-inventory] wrote docs\\generated\\inventory.md
+# [doc-inventory] generated doc ok (9 items, 3 channels)
+# [doc-inventory] prose ok: no inventory counts restated in current-state docs
+# [doc-inventory] broken relative link: docs\\AGENTS.md -> ./gone.md
+# Subtest: 파서
+    # Subtest: 채널과 도메인 분포를 뽑는다
+    ok 1 - 채널과 도메인 분포를 뽑는다
+      ---
+      duration_ms: 5.0202
+      type: 'test'
+      ...
+    # Subtest: 중첩 오브젝트의 키는 settings 키로 세지 않는다
+    ok 2 - 중첩 오브젝트의 키는 settings 키로 세지 않는다
+      ---
+      duration_ms: 1.0552
+      type: 'test'
+      ...
+    # Subtest: union 은 인라인 멤버와 참조 멤버를 모두 센다
+    ok 3 - union 은 인라인 멤버와 참조 멤버를 모두 센다
+      ---
+      duration_ms: 1.4895
+      type: 'test'
+      ...
+    # Subtest: union 파싱이 다음 export 에서 멈춘다
+    ok 4 - union 파싱이 다음 export 에서 멈춘다
+      ---
+      duration_ms: 6.5295
+      type: 'test'
+      ...
+    1..4
+ok 2 - 파서
+  ---
+  duration_ms: 17.1115
+  type: 'suite'
+  ...
+# Subtest: 인벤토리 집계
+    # Subtest: 9개 항목을 코드에서 센다
+    ok 1 - 9개 항목을 코드에서 센다
+      ---
+      duration_ms: 275.2176
+      type: 'test'
+      ...
+    # Subtest: 생성 결과가 9개 항목과 정본 경로를 담는다
+    ok 2 - 생성 결과가 9개 항목과 정본 경로를 담는다
+      ---
+      duration_ms: 132.7227
+      type: 'test'
+      ...
+    1..2
+ok 3 - 인벤토리 집계
+  ---
+  duration_ms: 408.7394
+  type: 'suite'
+  ...
+# Subtest: 프로즈 스캐너
+    # Subtest: 인벤토리 수치 서술을 잡는다
+    ok 1 - 인벤토리 수치 서술을 잡는다
+      ---
+      duration_ms: 9.749
+      type: 'test'
+      ...
+    # Subtest: 정본 링크로 바꾼 문장은 잡지 않는다
+    ok 2 - 정본 링크로 바꾼 문장은 잡지 않는다
+      ---
+      duration_ms: 2.57
+      type: 'test'
+      ...
+    # Subtest: 맨숫자는 잡지 않는다 — 단위가 붙은 서술만 본다
+    ok 3 - 맨숫자는 잡지 않는다 — 단위가 붙은 서술만 본다
+      ---
+      duration_ms: 0.4963
+      type: 'test'
+      ...
+    1..3
+ok 4 - 프로즈 스캐너
+  ---
+  duration_ms: 14.2709
+  type: 'suite'
+  ...
+# Subtest: 제외 경로 (P30 방어)
+    # Subtest: 이력·생성물·외부 미러를 제외한다
+    ok 1 - 이력·생성물·외부 미러를 제외한다
+      ---
+      duration_ms: 0.8947
+      type: 'test'
+      ...
+    # Subtest: current-state 문서는 제외하지 않는다
+    ok 2 - current-state 문서는 제외하지 않는다
+      ---
+      duration_ms: 0.3587
+      type: 'test'
+      ...
+    # Subtest: 제외 디렉토리 안의 수치는 스캔 결과에 나오지 않는다
+    ok 3 - 제외 디렉토리 안의 수치는 스캔 결과에 나오지 않는다
+      ---
+      duration_ms: 33.2948
+      type: 'test'
+      ...
+    1..3
+ok 5 - 제외 경로 (P30 방어)
+  ---
+  duration_ms: 37.1744
+  type: 'suite'
+  ...
+# Subtest: 링크 체커
+    # Subtest: 사이트 절대경로와 외부 URL 은 상대링크가 아니다
+    ok 1 - 사이트 절대경로와 외부 URL 은 상대링크가 아니다
+      ---
+      duration_ms: 0.9625
+      type: 'test'
+      ...
+    # Subtest: 과거 핸드오프는 링크 검사 대상이 아니다
+    ok 2 - 과거 핸드오프는 링크 검사 대상이 아니다
+      ---
+      duration_ms: 0.5351
+      type: 'test'
+      ...
+    # Subtest: 살아 있는 문서의 파손 링크를 잡는다
+    ok 3 - 살아 있는 문서의 파손 링크를 잡는다
+      ---
+      duration_ms: 43.9275
+      type: 'test'
+      ...
+    1..3
+ok 6 - 링크 체커
+  ---
+  duration_ms: 45.9742
+  type: 'suite'
+  ...
+# Subtest: CLI
+    # Subtest: 생성 후 --check 가 통과한다
+    ok 1 - 생성 후 --check 가 통과한다
+      ---
+      duration_ms: 330.7006
+      type: 'test'
+      ...
+    # Subtest: 슬라이스 추가 시 --check 가 실패한다
+    ok 2 - 슬라이스 추가 시 --check 가 실패한다
+      ---
+      duration_ms: 353.6185
+      type: 'test'
+      ...
+    # Subtest: CRLF 체크아웃에서도 --check 가 통과한다
+    ok 3 - CRLF 체크아웃에서도 --check 가 통과한다
+      ---
+      duration_ms: 608.0953
+      type: 'test'
+      ...
+    # Subtest: 생성물을 손편집하면 --check 가 실패한다
+    ok 4 - 생성물을 손편집하면 --check 가 실패한다
+      ---
+      duration_ms: 572.5794
+      type: 'test'
+      ...
+    # Subtest: 본문에 수치 서술이 남아 있으면 --check 가 실패한다
+    ok 5 - 본문에 수치 서술이 남아 있으면 --check 가 실패한다
+      ---
+      duration_ms: 580.9725
+      type: 'test'
+      ...
+    # Subtest: 링크가 깨지면 --check 가 실패한다
+    ok 6 - 링크가 깨지면 --check 가 실패한다
+      ---
+      duration_ms: 879.4154
+      type: 'test'
+      ...
+    1..6
+ok 7 - CLI
+  ---
+  duration_ms: 3326.0199
+  type: 'suite'
+  ...
+# Subtest: CLI 진입 가드 (0212)
+    # Subtest: 스크립트를 직접 실행하면 CLI 본문이 돈다 — 무음 exit 0 이 아니다
+    ok 1 - 스크립트를 직접 실행하면 CLI 본문이 돈다 — 무음 exit 0 이 아니다
+      ---
+      duration_ms: 13000.4104
+      type: 'test'
+      ...
+    # Subtest: 모듈로 import 하면 CLI 본문이 돌지 않는다 — 양성 짝
+    ok 2 - 모듈로 import 하면 CLI 본문이 돌지 않는다 — 양성 짝
+      ---
+      duration_ms: 592.1098
+      type: 'test'
+      ...
+    1..2
+ok 8 - CLI 진입 가드 (0212)
+  ---
+  duration_ms: 13592.8315
+  type: 'suite'
+  ...
+# Subtest: parseImportedMigrations extracts names in order
+ok 9 - parseImportedMigrations extracts names in order
+  ---
+  duration_ms: 13.4846
+  type: 'test'
+  ...
+# Subtest: checkSync passes when dir and imports match
+ok 10 - checkSync passes when dir and imports match
+  ---
+  duration_ms: 1.4501
+  type: 'test'
+  ...
+# Subtest: checkSync rejects orphan file not imported
+ok 11 - checkSync rejects orphan file not imported
+  ---
+  duration_ms: 3.6006
+  type: 'test'
+  ...
+# Subtest: checkSync rejects import of missing file
+ok 12 - checkSync rejects import of missing file
+  ---
+  duration_ms: 1.4633
+  type: 'test'
+  ...
+# Subtest: checkSync rejects numbering gap and bad filename
+ok 13 - checkSync rejects numbering gap and bad filename
+  ---
+  duration_ms: 1.3723
+  type: 'test'
+  ...
+# Subtest: checkAppendOnly passes on additions only and empty diff
+ok 14 - checkAppendOnly passes on additions only and empty diff
+  ---
+  duration_ms: 0.5964
+  type: 'test'
+  ...
+# Subtest: checkAppendOnly rejects modify/delete/rename of existing migrations
+ok 15 - checkAppendOnly rejects modify/delete/rename of existing migrations
+  ---
+  duration_ms: 0.7625
+  type: 'test'
+  ...
+# Subtest: findPreviousTag skips the tag being built and empty lines
+ok 16 - findPreviousTag skips the tag being built and empty lines
+  ---
+  duration_ms: 0.6301
+  type: 'test'
+  ...
+# Subtest: findMigrationListCopies 는 정본과 골든 목록을 사본으로 세지 않는다
+ok 17 - findMigrationListCopies 는 정본과 골든 목록을 사본으로 세지 않는다
+  ---
+  duration_ms: 1.2403
+  type: 'test'
+  ...
+# Subtest: findMigrationListCopies 는 상대경로 import 도 잡는다 (from 절·인용부호에 앵커하지 않는다)
+ok 18 - findMigrationListCopies 는 상대경로 import 도 잡는다 (from 절·인용부호에 앵커하지 않는다)
+  ---
+  duration_ms: 1.6707
+  type: 'test'
+  ...
+# Subtest: findMigrationListCopies 의 허용 판정은 정확 경로다 — 동명 파일은 면제되지 않는다
+ok 19 - findMigrationListCopies 의 허용 판정은 정확 경로다 — 동명 파일은 면제되지 않는다
+  ---
+  duration_ms: 0.6187
+  type: 'test'
+  ...
+# Subtest: findMigrationListCopies 는 windows 구분자 경로를 정규화해 비교한다
+ok 20 - findMigrationListCopies 는 windows 구분자 경로를 정규화해 비교한다
+  ---
+  duration_ms: 0.3775
+  type: 'test'
+  ...
+# Subtest: checkNoListCopies 는 사본 파일명과 인용 개수를 오류에 싣는다
+ok 21 - checkNoListCopies 는 사본 파일명과 인용 개수를 오류에 싣는다
+  ---
+  duration_ms: 0.4355
+  type: 'test'
+  ...
+# Subtest: checkNoListCopies 는 사본이 없으면 통과한다
+ok 22 - checkNoListCopies 는 사본이 없으면 통과한다
+  ---
+  duration_ms: 0.219
+  type: 'test'
+  ...
+# Subtest: collectSourceFiles 는 4개 확장자를 전부 훑는다
+ok 23 - collectSourceFiles 는 4개 확장자를 전부 훑는다
+  ---
+  duration_ms: 66.204
+  type: 'test'
+  ...
+# Subtest: collectSourceFiles 는 하위 디렉토리를 재귀로 내려간다
+ok 24 - collectSourceFiles 는 하위 디렉토리를 재귀로 내려간다
+  ---
+  duration_ms: 69.2358
+  type: 'test'
+  ...
+# Subtest: collectSourceFiles 는 소스가 아닌 파일을 세지 않는다
+ok 25 - collectSourceFiles 는 소스가 아닌 파일을 세지 않는다
+  ---
+  duration_ms: 80.7941
+  type: 'test'
+  ...
+# Subtest: collectSourceFiles 산출은 `/` 로 정규화된다 — 허용 목록과 같은 축
+ok 26 - collectSourceFiles 산출은 `/` 로 정규화된다 — 허용 목록과 같은 축
+  ---
+  duration_ms: 45.5135
+  type: 'test'
+  ...
+# [test-budgets] src/a.test.ts: 파일 예산이 없다 — 최상위에 `vi.setConfig({ testTimeout, hookTimeout })` 을 둔다
+# [test-budgets] 1/1 real-git suites violate the budget contract
+# [test-budgets] 1 real-git suites ok
+# [test-budgets] 11 real-git suites ok
+# Subtest: 대상 판정
+    # Subtest: git 바이너리를 직접 띄우면 대상이다
+    ok 1 - git 바이너리를 직접 띄우면 대상이다
+      ---
+      duration_ms: 4.4328
+      type: 'test'
+      ...
+    # Subtest: 공용 픽스처를 쓰면 대상이다 — 별칭으로 감싼 spawn 도 이 문으로 들어온다
+    ok 2 - 공용 픽스처를 쓰면 대상이다 — 별칭으로 감싼 spawn 도 이 문으로 들어온다
+      ---
+      duration_ms: 0.3711
+      type: 'test'
+      ...
+    # Subtest: git 을 띄우지 않는 순수 테스트는 대상이 아니다
+    ok 3 - git 을 띄우지 않는 순수 테스트는 대상이 아니다
+      ---
+      duration_ms: 0.7418
+      type: 'test'
+      ...
+    # Subtest: 프로덕션 runGit 을 통한 간접 spawn 도 대상이다
+    ok 4 - 프로덕션 runGit 을 통한 간접 spawn 도 대상이다
+      ---
+      duration_ms: 0.5615
+      type: 'test'
+      ...
+    # Subtest: 가짜 구현을 주입하는 러너 단위 테스트는 대상이 아니다 — 실제로 띄우지 않는다
+    ok 5 - 가짜 구현을 주입하는 러너 단위 테스트는 대상이 아니다 — 실제로 띄우지 않는다
+      ---
+      duration_ms: 0.4683
+      type: 'test'
+      ...
+    1..5
+ok 27 - 대상 판정
+  ---
+  duration_ms: 27.9916
+  type: 'suite'
+  ...
+# Subtest: 주석 제거
+    # Subtest: 문자열 안의 `//` 를 자르지 않는다
+    ok 1 - 문자열 안의 `//` 를 자르지 않는다
+      ---
+      duration_ms: 0.8173
+      type: 'test'
+      ...
+    # Subtest: 줄 전체 주석과 블록 주석은 지운다
+    ok 2 - 줄 전체 주석과 블록 주석은 지운다
+      ---
+      duration_ms: 0.7832
+      type: 'test'
+      ...
+    # Subtest: 주석 안의 예시 코드는 신호로 세지 않는다
+    ok 3 - 주석 안의 예시 코드는 신호로 세지 않는다
+      ---
+      duration_ms: 0.7518
+      type: 'test'
+      ...
+    1..3
+ok 28 - 주석 제거
+  ---
+  duration_ms: 3.1052
+  type: 'suite'
+  ...
+# Subtest: 예산 파싱
+    # Subtest: 두 값을 읽고 밑줄 구분자를 접는다
+    ok 1 - 두 값을 읽고 밑줄 구분자를 접는다
+      ---
+      duration_ms: 2.5977
+      type: 'test'
+      ...
+    # Subtest: 호출이 없으면 null 이다
+    ok 2 - 호출이 없으면 null 이다
+      ---
+      duration_ms: 0.8342
+      type: 'test'
+      ...
+    1..2
+ok 29 - 예산 파싱
+  ---
+  duration_ms: 4.0116
+  type: 'suite'
+  ...
+# Subtest: 인라인 타임아웃 탐지
+    # Subtest: 세 번째 인자 형태를 잡는다
+    ok 1 - 세 번째 인자 형태를 잡는다
+      ---
+      duration_ms: 22.4399
+      type: 'test'
+      ...
+    # Subtest: 옵션 객체 형태를 잡는다
+    ok 2 - 옵션 객체 형태를 잡는다
+      ---
+      duration_ms: 0.3316
+      type: 'test'
+      ...
+    # Subtest: 타임아웃이 아닌 끝 괄호는 잡지 않는다
+    ok 3 - 타임아웃이 아닌 끝 괄호는 잡지 않는다
+      ---
+      duration_ms: 0.3694
+      type: 'test'
+      ...
+    1..3
+ok 30 - 인라인 타임아웃 탐지
+  ---
+  duration_ms: 23.4938
+  type: 'suite'
+  ...
+# Subtest: 규칙 — 0218 러너에서 실제로 터진 두 형태
+    # Subtest: 예산이 없으면 걸린다 (첫 조치에서 네 파일이 조용히 빠진 자리)
+    ok 1 - 예산이 없으면 걸린다 (첫 조치에서 네 파일이 조용히 빠진 자리)
+      ---
+      duration_ms: 1.0031
+      type: 'test'
+      ...
+    # Subtest: 예산이 있어도 인라인 캡이 남아 있으면 걸린다 (service.test.ts 가 죽은 자리)
+    ok 2 - 예산이 있어도 인라인 캡이 남아 있으면 걸린다 (service.test.ts 가 죽은 자리)
+      ---
+      duration_ms: 0.6402
+      type: 'test'
+      ...
+    # Subtest: hookTimeout 이 빠지면 걸린다 — 기본 10초는 저장소를 세우는 훅을 못 담는다
+    ok 3 - hookTimeout 이 빠지면 걸린다 — 기본 10초는 저장소를 세우는 훅을 못 담는다
+      ---
+      duration_ms: 0.3418
+      type: 'test'
+      ...
+    # Subtest: 정리가 removeTempRoots 를 지나지 않으면 걸린다
+    ok 4 - 정리가 removeTempRoots 를 지나지 않으면 걸린다
+      ---
+      duration_ms: 0.3245
+      type: 'test'
+      ...
+    # Subtest: 전부 갖추면 통과한다
+    ok 5 - 전부 갖추면 통과한다
+      ---
+      duration_ms: 0.3175
+      type: 'test'
+      ...
+    1..5
+ok 31 - 규칙 — 0218 러너에서 실제로 터진 두 형태
+  ---
+  duration_ms: 3.2754
+  type: 'suite'
+  ...
+# Subtest: 프로세스 상한 탐지 (E)
+    # Subtest: 상한을 안 넘기는 호출을 잡는다 — 프로덕션 기본 10s 를 상속한다
+    ok 1 - 상한을 안 넘기는 호출을 잡는다 — 프로덕션 기본 10s 를 상속한다
+      ---
+      duration_ms: 0.6883
+      type: 'test'
+      ...
+    # Subtest: 픽스처 상수를 넘기면 통과한다
+    ok 2 - 픽스처 상수를 넘기면 통과한다
+      ---
+      duration_ms: 0.4124
+      type: 'test'
+      ...
+    # Subtest: 숫자를 직접 적으면 잡는다 — 근거는 픽스처 한 곳이 갖는다
+    ok 3 - 숫자를 직접 적으면 잡는다 — 근거는 픽스처 한 곳이 갖는다
+      ---
+      duration_ms: 0.2522
+      type: 'test'
+      ...
+    # Subtest: 정규식 리터럴 본문은 호출이 아니다 — ipc-integration 이 그 형태를 값으로 든다
+    ok 4 - 정규식 리터럴 본문은 호출이 아니다 — ipc-integration 이 그 형태를 값으로 든다
+      ---
+      duration_ms: 0.3799
+      type: 'test'
+      ...
+    # Subtest: 문자열 안의 괄호를 깊이로 세지 않는다
+    ok 5 - 문자열 안의 괄호를 깊이로 세지 않는다
+      ---
+      duration_ms: 0.4941
+      type: 'test'
+      ...
+    1..5
+ok 32 - 프로세스 상한 탐지 (E)
+  ---
+  duration_ms: 4.6813
+  type: 'suite'
+  ...
+# Subtest: 규칙 (E) — 캡이 파일 예산을 이기던 자리가 한 층 아래에 남아 있었다
+    # Subtest: 테스트가 프로덕션 기본 상한을 상속하면 걸린다
+    ok 1 - 테스트가 프로덕션 기본 상한을 상속하면 걸린다
+      ---
+      duration_ms: 0.4493
+      type: 'test'
+      ...
+    # Subtest: 픽스처 상수를 넘기면 통과한다
+    ok 2 - 픽스처 상수를 넘기면 통과한다
+      ---
+      duration_ms: 0.283
+      type: 'test'
+      ...
+    1..2
+ok 33 - 규칙 (E) — 캡이 파일 예산을 이기던 자리가 한 층 아래에 남아 있었다
+  ---
+  duration_ms: 4.1919
+  type: 'suite'
+  ...
+# Subtest: CLI
+    # Subtest: 위반이 있으면 1, 없으면 0 이다
+    ok 1 - 위반이 있으면 1, 없으면 0 이다
+      ---
+      duration_ms: 93.1446
+      type: 'test'
+      ...
+    # Subtest: 중첩 디렉토리를 전부 훑고 경로를 `/` 로 정규화한다
+    ok 2 - 중첩 디렉토리를 전부 훑고 경로를 `/` 로 정규화한다
+      ---
+      duration_ms: 29.3672
+      type: 'test'
+      ...
+    # Subtest: 실제 저장소가 계약을 지킨다
+    ok 3 - 실제 저장소가 계약을 지킨다
+      ---
+      duration_ms: 1239.0439
+      type: 'test'
+      ...
+    1..3
+ok 34 - CLI
+  ---
+  duration_ms: 1361.9491
+  type: 'suite'
+  ...
+# Subtest: parseArgs accepts target and check flag
+ok 35 - parseArgs accepts target and check flag
+  ---
+  duration_ms: 4.3392
+  type: 'test'
+  ...
+# Subtest: electron target fast-paths when marker matches and binary is Electron-ABI
+ok 36 - electron target fast-paths when marker matches and binary is Electron-ABI
+  ---
+  duration_ms: 197.0661
+  type: 'test'
+  ...
+# Subtest: electron target rebuilds when binary is Node-ABI even if marker matches
+ok 37 - electron target rebuilds when binary is Node-ABI even if marker matches
+  ---
+  duration_ms: 73.0712
+  type: 'test'
+  ...
+# Subtest: electron target rebuilds and writes marker when marker is missing
+ok 38 - electron target rebuilds and writes marker when marker is missing
+  ---
+  duration_ms: 66.0707
+  type: 'test'
+  ...
+# Subtest: check mode reports missing electron marker without running rebuild
+ok 39 - check mode reports missing electron marker without running rebuild
+  ---
+  duration_ms: 144.7277
+  type: 'test'
+  ...
+# Subtest: node target rebuilds only when better-sqlite3 cannot load
+ok 40 - node target rebuilds only when better-sqlite3 cannot load
+  ---
+  duration_ms: 21.4498
+  type: 'test'
+  ...
+# Subtest: node check mode does not rebuild on load failure
+ok 41 - node check mode does not rebuild on load failure
+  ---
+  duration_ms: 96.2347
+  type: 'test'
+  ...
+# Subtest: win32 에서 .cmd 셔임은 shell 을 거친다 — 아니면 자식이 뜨지 않는다
+ok 42 - win32 에서 .cmd 셔임은 shell 을 거친다 — 아니면 자식이 뜨지 않는다
+  ---
+  duration_ms: 0.9261
+  type: 'test'
+  ...
+# Subtest: win32 이 아니면 실행 이미지를 직접 부르고 shell 을 쓰지 않는다
+ok 43 - win32 이 아니면 실행 이미지를 직접 부르고 shell 을 쓰지 않는다
+  ---
+  duration_ms: 3.7209
+  type: 'test'
+  ...
+# Subtest: 모든 target × 플랫폼에서 .cmd/.bat 이면 shell 이 참이다 (전수)
+ok 44 - 모든 target × 플랫폼에서 .cmd/.bat 이면 shell 이 참이다 (전수)
+  ---
+  duration_ms: 1.3234
+  type: 'test'
+  ...
+# Subtest: ensureSqliteAbi 는 shell 판정을 runner 까지 실제로 넘긴다
+ok 45 - ensureSqliteAbi 는 shell 판정을 runner 까지 실제로 넘긴다
+  ---
+  duration_ms: 22.6671
+  type: 'test'
+  ...
+# Subtest: spawn 실패 사유가 결과에 실린다 — 삼키지 않는다
+ok 46 - spawn 실패 사유가 결과에 실린다 — 삼키지 않는다
+  ---
+  duration_ms: 152.9557
+  type: 'test'
+  ...
+# Subtest: describeRunFailure 는 spawn 실패와 비-0 종료를 구분한다
+ok 47 - describeRunFailure 는 spawn 실패와 비-0 종료를 구분한다
+  ---
+  duration_ms: 0.3298
+  type: 'test'
+  ...
+# Subtest: deutility 가 @utility 를 클래스 규칙으로 바꾼다
+ok 48 - deutility 가 @utility 를 클래스 규칙으로 바꾼다
+  ---
+  duration_ms: 3.3555
+  type: 'test'
+  ...
+# Subtest: 동결 fixture 에서 구 CSS 와 마크업을 꺼낸다
+ok 49 - 동결 fixture 에서 구 CSS 와 마크업을 꺼낸다
+  ---
+  duration_ms: 0.8302
+  type: 'test'
+  ...
+# Subtest: 구 fixture 가 새 트랙을 갖지 않는다 — 두 조건이 섞이면 비교가 무의미하다
+ok 50 - 구 fixture 가 새 트랙을 갖지 않는다 — 두 조건이 섞이면 비교가 무의미하다
+  ---
+  duration_ms: 1.0954
+  type: 'test'
+  ...
+# Subtest: 원본 SVG 에서 신 마크업을 파생한다
+ok 51 - 원본 SVG 에서 신 마크업을 파생한다
+  ---
+  duration_ms: 1.5879
+  type: 'test'
+  ...
+# Subtest: 마크 그룹이 5개가 아니면 던진다 — 조용히 빈 페이지를 재지 않는다
+ok 52 - 마크 그룹이 5개가 아니면 던진다 — 조용히 빈 페이지를 재지 않는다
+  ---
+  duration_ms: 1.2668
+  type: 'test'
+  ...
+# Subtest: 세 조건 페이지가 각각 스피너 3개(또는 0개)를 담는다
+ok 53 - 세 조건 페이지가 각각 스피너 3개(또는 0개)를 담는다
+  ---
+  duration_ms: 14.1763
+  type: 'test'
+  ...
+# Subtest: 페이지가 서로의 CSS 를 갖지 않는다
+ok 54 - 페이지가 서로의 CSS 를 갖지 않는다
+  ---
+  duration_ms: 1.885
+  type: 'test'
+  ...
+# Subtest: 차분이 누적값의 증분이고 시간은 ms 다
+ok 55 - 차분이 누적값의 증분이고 시간은 ms 다
+  ---
+  duration_ms: 1.1438
+  type: 'test'
+  ...
+# Subtest: rAF 가 멈춘 창은 무효 행이다 — 0 을 "비용 없음" 으로 읽지 않는다
+ok 56 - rAF 가 멈춘 창은 무효 행이다 — 0 을 "비용 없음" 으로 읽지 않는다
+  ---
+  duration_ms: 1.0573
+  type: 'test'
+  ...
+# Subtest: 요약이 none 기준선 대비 순증가를 ms/s 로 낸다
+ok 57 - 요약이 none 기준선 대비 순증가를 ms/s 로 낸다
+  ---
+  duration_ms: 2.2328
+  type: 'test'
+  ...
+# Subtest: 판정이 예산을 본다 — 초과하면 FAIL, 이내면 PASS
+ok 58 - 판정이 예산을 본다 — 초과하면 FAIL, 이내면 PASS
+  ---
+  duration_ms: 1.7074
+  type: 'test'
+  ...
+# Subtest: 예산 경계에서 갈린다 — 같으면 통과, 0.1 넘으면 실패
+ok 59 - 예산 경계에서 갈린다 — 같으면 통과, 0.1 넘으면 실패
+  ---
+  duration_ms: 1.5161
+  type: 'test'
+  ...
+# Subtest: 신이 구보다 싸도 통과한다 — 예산은 상한이지 하한이 아니다
+ok 60 - 신이 구보다 싸도 통과한다 — 예산은 상한이지 하한이 아니다
+  ---
+  duration_ms: 0.5249
+  type: 'test'
+  ...
+# Subtest: layout 이 늘어도 예산 안이면 통과한다 — rev.4 에서 layout 단독 축을 뺐다
+ok 61 - layout 이 늘어도 예산 안이면 통과한다 — rev.4 에서 layout 단독 축을 뺐다
+  ---
+  duration_ms: 3.4319
+  type: 'test'
+  ...
+# Subtest: rep 사이 초과분을 rep 안에서만 뺀다 — 기준선 드리프트에 흔들리지 않는다
+ok 62 - rep 사이 초과분을 rep 안에서만 뺀다 — 기준선 드리프트에 흔들리지 않는다
+  ---
+  duration_ms: 1.4814
+  type: 'test'
+  ...
+# Subtest: rep 산포가 크면 평균이 좋아도 판정하지 않는다
+ok 63 - rep 산포가 크면 평균이 좋아도 판정하지 않는다
+  ---
+  duration_ms: 3.4482
+  type: 'test'
+  ...
+# Subtest: 조용한 실행의 산포는 임계 안이다 — 가드가 정상 실행을 막지 않는다
+ok 64 - 조용한 실행의 산포는 임계 안이다 — 가드가 정상 실행을 막지 않는다
+  ---
+  duration_ms: 3.3055
+  type: 'test'
+  ...
+# Subtest: 무효 행이 있으면 수치가 좋아도 판정하지 않는다
+ok 65 - 무효 행이 있으면 수치가 좋아도 판정하지 않는다
+  ---
+  duration_ms: 0.7137
+  type: 'test'
+  ...
+# Subtest: fps 가 60 에 못 미치면 FAIL 이다
+ok 66 - fps 가 60 에 못 미치면 FAIL 이다
+  ---
+  duration_ms: 0.655
+  type: 'test'
+  ...
+# Subtest: 표에 세 모드가 모두 나온다
+ok 67 - 표에 세 모드가 모두 나온다
+  ---
+  duration_ms: 0.59
+  type: 'test'
+  ...
+# Subtest: buildPage 가 인스턴스 수를 그대로 반영한다
+ok 68 - buildPage 가 인스턴스 수를 그대로 반영한다
+  ---
+  duration_ms: 0.6778
+  type: 'test'
+  ...
+# Subtest: parseLatestYml reads version, path, sha512 and files entries
+ok 69 - parseLatestYml reads version, path, sha512 and files entries
+  ---
+  duration_ms: 5.0056
+  type: 'test'
+  ...
+# Subtest: validateDist passes on consistent manifest and files
+ok 70 - validateDist passes on consistent manifest and files
+  ---
+  duration_ms: 1.0282
+  type: 'test'
+  ...
+# Subtest: validateDist rejects version mismatch
+ok 71 - validateDist rejects version mismatch
+  ---
+  duration_ms: 0.6877
+  type: 'test'
+  ...
+# Subtest: validateDist rejects sha512 mismatch
+ok 72 - validateDist rejects sha512 mismatch
+  ---
+  duration_ms: 0.4516
+  type: 'test'
+  ...
+# Subtest: validateDist rejects size mismatch, missing artifact and missing blockmap
+ok 73 - validateDist rejects size mismatch, missing artifact and missing blockmap
+  ---
+  duration_ms: 3.0449
+  type: 'test'
+  ...
+# Subtest: accepts matching tag and strict semver version
+ok 74 - accepts matching tag and strict semver version
+  ---
+  duration_ms: 5.995
+  type: 'test'
+  ...
+# Subtest: accepts empty tag (dry run) with strict semver version
+ok 75 - accepts empty tag (dry run) with strict semver version
+  ---
+  duration_ms: 0.4882
+  type: 'test'
+  ...
+# Subtest: rejects tag/version mismatch
+ok 76 - rejects tag/version mismatch
+  ---
+  duration_ms: 0.6926
+  type: 'test'
+  ...
+# Subtest: rejects malformed tag
+ok 77 - rejects malformed tag
+  ---
+  duration_ms: 0.4754
+  type: 'test'
+  ...
+# Subtest: rejects non-strict package version
+ok 78 - rejects non-strict package version
+  ---
+  duration_ms: 0.4452
+  type: 'test'
+  ...
+1..78
+# tests 116
+# suites 16
+# pass 116
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 18162.0109

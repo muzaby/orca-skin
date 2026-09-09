@@ -4,7 +4,7 @@ export interface ArtifactRef {
   artifactFileId: string
   title: string
   filename: string
-  kind: 'html' | 'markdown'
+  kind: 'html' | 'markdown' | 'text' | 'image'
   sizeBytes: number
   publishedAt: number
 }
@@ -27,6 +27,18 @@ export interface ArtifactListRequest {
 export interface ArtifactTargetRequest extends ArtifactListRequest {
   publicationId: string
 }
+// Bounded source only; managed paths and filesystem identities never cross this boundary.
+export type ArtifactPreviewResult =
+  | {
+      state: 'ready'
+      format: ArtifactRef['kind']
+      content: string
+      // Main-sanitized full HTML document; raw content remains the source/copy payload.
+      previewContent?: string
+      mimeType: string
+      language?: string
+    }
+  | { state: 'unavailable'; reason: string }
 export interface ArtifactStatusRequest extends ArtifactListRequest {
   publicationIds: string[]
 }

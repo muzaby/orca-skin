@@ -4,7 +4,7 @@ import type { RuntimeToolServer } from '../../adapters/runtime-tools'
 import type { ArtifactService } from './service'
 import { artifactError } from './validation'
 
-const instructions = `Publish a completed HTML or Markdown deliverable into the current Orca conversation.
+const instructions = `Publish a completed HTML, Markdown, text/code or image deliverable into the current Orca conversation.
 Use this when the requested result is a document the user should open or save.
 Do not publish application internals, configuration, tests, logs or intermediate files
 merely because they were created or edited. A requested standalone HTML example can
@@ -15,7 +15,7 @@ unless the tool confirms success. This publishes locally in Orca, not to the web
 The tool stores the published file in Orca's artifacts folder and returns its reference.
 Use the completed file in your working directory or the session's additional directories
 as input; do not change Orca settings or write directly to its configuration folder.
-The current UI provides file cards and file actions; it does not preview document contents.`
+The UI provides a preview, source view for text, and file actions for published deliverables.`
 
 export function createArtifactToolServer(
   service: Pick<ArtifactService, 'publish' | 'getRef'>,
@@ -32,7 +32,7 @@ export function createArtifactToolServer(
         {
           name,
           description:
-            'Publish one finished local HTML or Markdown document to this Orca conversation. The input file is copied and preserved. Maximum 5 MiB, UTF-8; path is relative to the current working directory or an allowed absolute local path.',
+            'Publish one finished local HTML, Markdown, text/code or PNG/JPEG/GIF/WebP/SVG deliverable to this Orca conversation. The input file is copied and preserved. Maximum 5 MiB; text and SVG must be UTF-8 and raster images must have valid signatures. Path is relative to the current working directory or an allowed absolute local path.',
           annotations: {
             readOnlyHint: false,
             destructiveHint: false,

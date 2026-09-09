@@ -11,7 +11,7 @@ describe('artifact input boundaries', () => {
     })
     expect(artifactInput({ path: 'report.md', title: '  Result  ' }).title).toBe('Result')
     for (const input of [
-      { path: 'a.js' },
+      { path: 'a.exe' },
       { path: '' },
       { path: 'a.md', title: '' },
       { path: 'a.md', title: 'a'.repeat(161) },

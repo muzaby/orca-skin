@@ -29,13 +29,14 @@ function render(file?: ArtifactFileView, variant?: 'transcript' | 'list'): strin
       file,
       variant,
       onAction: vi.fn(),
+      onPreview: vi.fn(),
       onRefresh: vi.fn(),
       onOpenFolder: vi.fn()
     })
   )
 }
 describe('artifact metadata card', () => {
-  it('escapes HTML metadata and exposes explicit file actions without a full-card button or document body', () => {
+  it('escapes HTML metadata and separates the preview trigger from auxiliary file actions', () => {
     const html = render({
       checking: false,
       busy: false,
@@ -53,7 +54,8 @@ describe('artifact metadata card', () => {
     expect(html).not.toContain('<script>')
     expect(html).not.toContain('<iframe')
     expect(html).toMatch(/^<article /)
-    expect(html).not.toContain('미리보기')
+    expect(html).toContain('미리보기')
+    expect(html).toContain('data-artifact-preview="p"')
   })
   it('renders a compact list row with an artifact label instead of the transcript download control', () => {
     const html = render(
@@ -136,6 +138,7 @@ describe('artifact metadata card', () => {
             availability: { state: 'present', sizeBytes: 123, modifiedAt: 1 }
           },
           onAction,
+          onPreview: vi.fn(),
           onRefresh,
           onOpenFolder
         })
