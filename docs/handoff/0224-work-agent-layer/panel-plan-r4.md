@@ -2,6 +2,8 @@
 
 작성: **Codex**, 2026-09-09. 상태: **impl/IMPL_DONE — Codex 자기확인 8/8, 독립 verify pending**. 기존 [V1](plan.md) + [ΔV2](panel-plan.md) + [ΔV3](panel-plan-r3.md)에 적용하는 **ΔV4**다. 조사 기준은 원격에 게시된 r3 구현 `20d9489d`이며 사용자 피드백 보완으로 진행했다. 구현과 최종 시각 피드백 인수는 [구현 보고 r4](impl-r4.md)에 기록한다.
 
+후속 사용자 피드백은 [ΔV5](panel-plan-r5.md)가 부분 대체하며, 여기의 나머지 결정과 검사는 기준선으로 유지한다.
+
 # Part I — Product & UX Contract
 
 ## 1. 목표와 사용자 출처
