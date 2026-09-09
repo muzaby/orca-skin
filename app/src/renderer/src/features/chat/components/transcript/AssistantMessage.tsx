@@ -11,9 +11,11 @@ import { ForkBoundaryMarker } from './ForkBoundaryMarker'
 import { SubagentNoticeRow } from './SubagentNoticeRow'
 import { messageSegments, reconcileSegments, type MessageSegment } from '../../lib/parts'
 import type { Message } from '../../reducer/chatReducer'
+import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
 
 interface AssistantMessageProps {
   message: Message
+  transcriptPolicy: AgentTranscriptPresentation
 }
 
 // 본문 전용 — 메타(복사/시간)는 턴 단위로 AssistantTurn 이 한 번만 렌더한다.
@@ -29,7 +31,8 @@ interface AssistantMessageProps {
 //     ToolCard·ReasoningBlock·Markdown…)이 shallow 비교로 bail — tool.call.* 커밋 1건은
 //     "변경된 카드 1개" 재렌더로 좁혀진다.
 export const AssistantMessage = memo(function AssistantMessage({
-  message
+  message,
+  transcriptPolicy
 }: AssistantMessageProps): React.JSX.Element {
   const { tr } = useI18n()
   const prevRef = useRef<MessageSegment[] | null>(null)
@@ -38,7 +41,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   return (
     <div className="flex flex-col gap-[var(--chat-item-gap)] text-[14px] leading-[1.7] text-ink">
       {segments.map((segment, index) => (
-        <AssistantSegment key={index} segment={segment} />
+        <AssistantSegment key={index} segment={segment} transcriptPolicy={transcriptPolicy} />
       ))}
       {message.incomplete && (
         <div className="inline-flex w-fit rounded-full border border-border bg-bg2 px-2 py-1 text-xs leading-none text-ink3">
@@ -49,17 +52,19 @@ export const AssistantMessage = memo(function AssistantMessage({
   )
 })
 
-// Coding과 Work가 동일 도구/질문/오류 렌더러를 사용한다.
+// Code와 Work가 동일 도구/질문/오류 렌더러를 사용한다.
 export const AssistantSegment = memo(function AssistantSegment({
-  segment: seg
+  segment: seg,
+  transcriptPolicy
 }: {
   segment: MessageSegment
+  transcriptPolicy: AgentTranscriptPresentation
 }): React.JSX.Element {
   switch (seg.kind) {
     case 'reasoning':
       return <ReasoningBlock items={seg.items} />
     case 'tools':
-      return <ToolGroup calls={seg.calls} />
+      return <ToolGroup calls={seg.calls} transcriptPolicy={transcriptPolicy} />
     case 'ask':
       return <AskExchange call={seg.call} />
     case 'structured':
@@ -85,6 +90,7 @@ export const AssistantSegment = memo(function AssistantSegment({
           status={seg.status}
           durationMs={seg.durationMs}
           summary={seg.summary}
+          transcriptPolicy={transcriptPolicy}
         />
       )
   }

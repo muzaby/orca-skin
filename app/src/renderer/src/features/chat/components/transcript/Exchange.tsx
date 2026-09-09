@@ -8,12 +8,12 @@ import { exchangeEquals, type Exchange as ExchangeGroup } from '../../lib/turns'
 import { PendingSteerTurn } from './PendingSteerTurn'
 import type { ClassifiedError } from '../../../../../../shared/ipc'
 import type { PendingSteerState } from '../../store/chatStore'
-import type { AgentKind } from '../../../../../../shared/agent-kind'
 import type { WorkToolResults } from '../../lib/workToolResults'
+import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
 
 interface ExchangeProps {
   toolResults?: WorkToolResults
-  agentKind?: AgentKind
+  transcriptPolicy: AgentTranscriptPresentation
   exchange: ExchangeGroup
   // 예약공간(ChatGPT식 앵커) — 라이브 전송으로 생긴 마지막 교환에만 true. min-h-[50cqh]
   // (스크롤 컨테이너 = size container 의 content-box 기준 50%)가 user 버블이 미드라인까지
@@ -33,7 +33,7 @@ interface ExchangeProps {
 
 export const Exchange = memo(
   function Exchange({
-    agentKind = 'coding',
+    transcriptPolicy,
     toolResults,
     exchange,
     reserve,
@@ -54,7 +54,7 @@ export const Exchange = memo(
             <UserTurn key={turn.startIndex} turn={turn} />
           ) : (
             <AssistantTurn
-              agentKind={agentKind}
+              transcriptPolicy={transcriptPolicy}
               toolResults={toolResults}
               key={turn.startIndex}
               turn={turn}
@@ -75,7 +75,7 @@ export const Exchange = memo(
   },
   (prev, next) =>
     prev.reserve === next.reserve &&
-    prev.agentKind === next.agentKind &&
+    prev.transcriptPolicy === next.transcriptPolicy &&
     prev.toolResults === next.toolResults &&
     prev.pending === next.pending &&
     prev.forkable === next.forkable &&

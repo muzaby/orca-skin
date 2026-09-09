@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../shared/ipc'
+import { PermissionModeController } from '../features/approvals/permission-mode-controller'
 
 const harness = vi.hoisted(() => ({
   handlers: new Map<string, (event: unknown, raw: unknown) => Promise<unknown>>(),
@@ -217,7 +218,7 @@ function installHarness(options: {
     bus: { emit: vi.fn() },
     approvals: { isSessionAllowed: vi.fn(), register: vi.fn() },
     persistence: { flushAskAnswers: vi.fn() },
-    permissionModes: { setMode: vi.fn() },
+    permissionModes: new PermissionModeController(),
     pendingMessages,
     backgroundTasks: {
       hasAny: vi.fn(() => false),
@@ -233,7 +234,7 @@ function installHarness(options: {
   return { runtime: turnRuntime, built }
 }
 
-async function send(modelFamily = 'high', agentKind?: 'coding' | 'work'): Promise<void> {
+async function send(modelFamily = 'high', agentKind?: 'code' | 'work'): Promise<void> {
   const handler = harness.handlers.get(CHANNELS.chatSend)
   if (!handler) throw new Error('chat send handler was not registered')
   await handler(

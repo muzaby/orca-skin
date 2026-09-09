@@ -72,7 +72,7 @@ beforeEach(() => {
     ]
   }
 })
-const render = (kind: 'work' | 'coding'): CheerioAPI => {
+const render = (kind: 'work' | 'code'): CheerioAPI => {
   harness.session!.agentKind = kind
   return load(
     renderToStaticMarkup(createElement(kind === 'work' ? TaskTileContent : PlanTileContent))
@@ -82,12 +82,12 @@ const render = (kind: 'work' | 'coding'): CheerioAPI => {
 describe('0224 r5 actual panel composition', () => {
   it('shares task row/title/badge classes, keeps blockers, and exposes questions only in Work', () => {
     const work = render('work')
-    const coding = render('coding')
+    const code = render('code')
     for (const selector of ['[data-task-row]', '[data-task-title]', '[data-task-status]']) {
       expect(work(selector).length).toBe(3)
       expect(
-        coding(selector)
-          .map((_, el) => coding(el).attr('class'))
+        code(selector)
+          .map((_, el) => code(el).attr('class'))
           .get()
       ).toEqual(
         work(selector)
@@ -95,15 +95,15 @@ describe('0224 r5 actual panel composition', () => {
           .get()
       )
     }
-    expect(coding('[data-task-row]').first().text()).toContain('#3 완료 필요')
+    expect(code('[data-task-row]').first().text()).toContain('#3 완료 필요')
     expect(work('[data-behavior="action:ask-about-task"]').length).toBe(3)
-    expect(coding('[data-behavior="action:ask-about-task"]').length).toBe(0)
+    expect(code('[data-behavior="action:ask-about-task"]').length).toBe(0)
     expect(work('[data-task-title]').first().attr('title')).toContain('아주 긴 작업')
     expect(work('[data-task-status="in_progress"] .animate-spin').length).toBe(1)
   })
-  it('hides and retains the entire Coding overview while showing a sibling full detail', () => {
+  it('hides and retains the entire Code overview while showing a sibling full detail', () => {
     harness.session!.selectedTaskKey = 'agent:1'
-    const $ = render('coding')
+    const $ = render('code')
     const overview = $('[data-plan-task-overview]')
     const detail = $('[data-plan-task-detail]')
     expect(overview.attr('hidden')).toBeDefined()
@@ -114,13 +114,14 @@ describe('0224 r5 actual panel composition', () => {
     expect(detail.text()).toContain('선택된 작업의 자세한 설명')
     expect(detail.find('[data-behavior="action:back-to-plan-overview"]').length).toBe(1)
   })
-  it('removes Work expansion while keeping Coding expansion and close controls', () => {
-    for (const kind of ['work', 'coding'] as const) {
+  it('removes Work expansion while keeping Code expansion and close controls', () => {
+    for (const kind of ['work', 'code'] as const) {
       harness.session!.agentKind = kind
       const tileProps = {
         id: kind === 'work' ? ('task' as const) : ('plan' as const),
         defaultLabelKey: 'chat.rightpanel.tiles.plan' as const,
         onToggleExpand: () => {},
+        taskTileChrome: kind === 'work' ? ('work-overview' as const) : ('standard' as const),
         children: '패널 내용'
       }
       const $ = load(renderToStaticMarkup(createElement(RightPanelTile, tileProps)))

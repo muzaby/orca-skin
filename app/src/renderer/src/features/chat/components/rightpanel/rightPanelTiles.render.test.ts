@@ -24,6 +24,7 @@ import {
 } from '../../lib/taskBoard'
 import type { Message } from '../../reducer/chatReducer'
 import type { AppMessagePart } from '../../../../../../shared/ipc'
+import { agentUiPolicy } from '../../lib/agentPresentation'
 
 // 검증 대상은 **props 만 읽는 View** 다. store 연결 컴포넌트를 `renderToStaticMarkup` 으로
 // 돌리면 zustand 가 SSR 스냅샷(`getInitialState()`)을 돌려주어 시드가 반영되지 않는다 —
@@ -261,7 +262,8 @@ describe('백그라운드 작업 타일 — 복구 (AT-28 · D-016)', () => {
       createElement(SubAgentTaskDetail, {
         task,
         childMessage: childMessageForParentToolRunId(msgs, 'bg1'),
-        startedAtMs: null
+        startedAtMs: null,
+        transcriptPolicy: agentUiPolicy('code').transcript
       })
     )
     expect(html).toContain('서브에이전트가 찾은 결과')

@@ -10,7 +10,7 @@
 
 ### 1.1 SessionAdapter 인터페이스 계약
 
-Work/Coding은 실행 backend와 별개인 제품 에이전트 종류다. `features/agents/profiles.ts`의 고정 프로필을 app 컴포지션 루트가 선택하고 `ExtensionBuilder`에 지침·key만 전달한다. 어댑터는 제품 종류를 해석하지 않고 기존 `TurnExtensions`의 prompt·도구·plugin 입력을 실행한다. 별도 플러그인 인터페이스나 에이전트 등록 플랫폼은 없다.
+Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `features/agents/profiles.ts`의 고정 프로필을 app 컴포지션 루트가 선택하고 `ExtensionBuilder`에 지침·key만 전달한다. 어댑터는 제품 종류를 해석하지 않고 기존 `TurnExtensions`의 prompt·도구·plugin 입력을 실행한다. 별도 플러그인 인터페이스나 에이전트 등록 플랫폼은 없다.
 
 실행 계약 정본은 [adapters/types.ts](../../../app/src/main/adapters/types.ts)의 `SessionAdapter`·`LiveTurn`·`ProviderMessageBatch`다. `sendMessage(req: TurnRequest)`는 `LiveTurn`을 반환하고 `eventBatches`에 정규화 이벤트 묶음을 제공한다.
 설치 확인/안내 외에 `describe()`·`complete()`·`classifyError()`와 LiveTurn 제어도 어댑터 책임이다. 입력은 [adapters/turn.ts](../../../app/src/main/adapters/turn.ts), 와이어는 [shared/ipc.ts](../../../app/src/shared/ipc.ts)의 `NormalizedEvent`를 참조한다.

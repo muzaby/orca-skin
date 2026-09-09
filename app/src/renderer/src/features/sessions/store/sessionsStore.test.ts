@@ -22,6 +22,7 @@ const { initSessions, sessionsActions, useSessionsStore } = await import('./sess
 
 function session(id: string, title: string, projectId: string | null = null): SessionListItem {
   return {
+    agentKind: 'code',
     id,
     backend: 'claude',
     title,

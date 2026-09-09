@@ -1,4 +1,4 @@
-# Plan — Work·Coding 제품 에이전트 계층
+# Plan — Work·Code 제품 에이전트 계층
 
 ## 메타
 
@@ -7,13 +7,13 @@
 | slug | `0224-work-agent-layer` |
 | 작성자 | **Codex** |
 | 일자 | 2026-09-08 |
-| 상태 | **impl/IMPL_DONE — Codex r7 자기확인 3/3, 독립 verify pending** |
+| 상태 | **impl/IMPL_DONE — Codex r8 구조 리팩토링** |
 | 코드 조사 기준 | `04953cf781b8c967d4aaef3255752bb721bafeb0` |
-| V mode / revision | Delta V / ΔV7 — [r7 패널 계획](panel-plan-r7.md) |
-| 기준 V / 유효 V | V1 `51268488` / V1 + [ΔV2](panel-plan.md) + [ΔV3](panel-plan-r3.md) + [ΔV4](panel-plan-r4.md) + [ΔV5](panel-plan-r5.md) + [ΔV6](panel-plan-r6.md) + [ΔV7](panel-plan-r7.md) |
+| V mode / revision | Delta V / ΔV8 — [r8 구조 계획](structural-plan-r8.md) |
+| 기준 V / 유효 V | V1 `51268488` / V1 + [ΔV2](panel-plan.md) + [ΔV3](panel-plan-r3.md) + [ΔV4](panel-plan-r4.md) + [ΔV5](panel-plan-r5.md) + [ΔV6](panel-plan-r6.md) + [ΔV7](panel-plan-r7.md) + [ΔV8](structural-plan-r8.md) |
 | 관련 작업 | 0205 Cowork 연구, 0223 게시 도구·작업 패널, 0214 OpenCode 연구 |
 
-현재 피드백은 [r7 패널 계획](panel-plan-r7.md)이 우선한다. 이 문서 본문은 V1 기준선이며 [r2 패널 계획](panel-plan.md)과 [r3 패널 계획](panel-plan-r3.md)의 대체되지 않은 결정·AC·V·강제 지점을 유지한다. 현재 Codex 자기확인은 [구현 보고 r7](impl-r7.md)에 기록했다. [r6 보고](impl-r6.md)는 이전 라운드 증거다. [r5 보고](impl-r5.md)는 이전 라운드 증거다. [r1 보고](impl.md)·[r2 보고](impl-r2.md)·[r3 보고](impl-r3.md)·[r4 보고](impl-r4.md)는 과거 증거이며 독립 verify는 미수행이다. 0223의 일반 생성물 기준과 미완료 상태는 이 핸드오프로 닫지 않는다.
+현재 변경은 [r8 구조 계획](structural-plan-r8.md)이 우선한다. D-050~054가 종류 이름과 명시적 정책 구성을 갱신한다. 아래 V1의 coding은 이행 전 기준 어휘이며 현재 정본은 code다. 이 문서 본문은 V1 기준선이며 [r2 패널 계획](panel-plan.md)과 [r3 패널 계획](panel-plan-r3.md)의 대체되지 않은 결정·AC·V·강제 지점을 유지한다. 현재 Codex 자기확인은 [구현 보고 r8](impl-r8.md)에 기록했다. [r7 보고](impl-r7.md)는 이전 라운드 증거다. [r6 보고](impl-r6.md)는 이전 라운드 증거다. [r5 보고](impl-r5.md)는 이전 라운드 증거다. [r1 보고](impl.md)·[r2 보고](impl-r2.md)·[r3 보고](impl-r3.md)·[r4 보고](impl-r4.md)는 과거 증거이며 독립 verify는 미수행이다. 0223의 일반 생성물 기준과 미완료 상태는 이 핸드오프로 닫지 않는다.
 
 # Part I — Product & UX Contract
 

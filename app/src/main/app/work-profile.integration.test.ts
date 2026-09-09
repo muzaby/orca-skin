@@ -28,7 +28,7 @@ import { ExtensionBuilder } from '../features/extensions/builder'
 import { applyMigrations } from '../infra/db/migrate'
 import { DbQueries } from '../infra/db/queries'
 
-it('composes Work only into the SDK header while retaining Coding execution, tools, plugins and approval', async () => {
+it('composes Work only into the SDK header while retaining Code execution, tools, plugins and approval', async () => {
   const root = mkdtempSync(join(tmpdir(), 'orca-profile-query-'))
   const db = new Database(':memory:')
   try {
@@ -73,7 +73,7 @@ it('composes Work only into the SDK header while retaining Coding execution, too
     )
     const options: Options[] = []
     queryMock.mockClear()
-    for (const kind of ['coding', 'work'] as const) {
+    for (const kind of ['code', 'work'] as const) {
       const profile = resolveAgentProfile(kind)
       const extensions = builder.build(null, null, {
         agentInstructions: profile.instructions,
@@ -99,12 +99,12 @@ it('composes Work only into the SDK header while retaining Coding execution, too
       live.close()
     }
     expect(queryMock).toHaveBeenCalledTimes(2)
-    const [coding, work] = options
-    const codingPrompt = coding.systemPrompt as { append: string }
+    const [code, work] = options
+    const codePrompt = code.systemPrompt as { append: string }
     const workPrompt = work.systemPrompt as { append: string }
     const section = `# Agent\n${resolveAgentProfile('work').instructions}\n\n`
     expect(workPrompt.append.split('# Agent\n')).toHaveLength(2)
-    expect(workPrompt.append.replace(section, '')).toBe(codingPrompt.append)
+    expect(workPrompt.append.replace(section, '')).toBe(codePrompt.append)
     for (const field of [
       'cwd',
       'additionalDirectories',
@@ -115,12 +115,12 @@ it('composes Work only into the SDK header while retaining Coding execution, too
       'extraArgs',
       'pathToClaudeCodeExecutable'
     ] as const) {
-      expect(work[field]).toEqual(coding[field])
+      expect(work[field]).toEqual(code[field])
     }
     expect(work.plugins).toEqual([{ type: 'local', path: root }])
     expect(work.mcpServers?.fixture).toMatchObject({ type: 'sdk', name: 'fixture' })
-    expect(coding.mcpServers?.fixture).toMatchObject({ type: 'sdk', name: 'fixture' })
-    expect(work.hooks?.PreToolUse).toHaveLength(coding.hooks!.PreToolUse!.length)
+    expect(code.mcpServers?.fixture).toMatchObject({ type: 'sdk', name: 'fixture' })
+    expect(work.hooks?.PreToolUse).toHaveLength(code.hooks!.PreToolUse!.length)
     for (const option of options) {
       const result = await option.canUseTool!(
         'mcp__fixture__write',

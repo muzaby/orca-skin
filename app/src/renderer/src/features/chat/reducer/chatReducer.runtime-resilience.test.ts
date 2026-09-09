@@ -34,6 +34,7 @@ describe('chatReducer runtime resilience', () => {
 
   it('LOAD_SESSION 은 incomplete 메시지 마커를 보존한다', () => {
     const session: LoadedSession = {
+      agentKind: 'code',
       id: 's1',
       backend: 'claude',
       title: null,

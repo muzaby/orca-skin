@@ -7,7 +7,7 @@ import { modeMenuOptions } from './modes'
 import { ModeMenu } from './ModeMenu'
 
 describe('r6 selected catalog to actual permission menu', () => {
-  for (const kind of ['work', 'coding'] as const) {
+  for (const kind of ['work', 'code'] as const) {
     it.each([
       ['claude-haiku-4-5', false, false],
       ['claude-sonnet-4-5', false, false],

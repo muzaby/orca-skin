@@ -20,6 +20,12 @@ import type {
 import { subagentNoticePart } from '../../../../../shared/ipc'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
 import { directoryIdentity } from '../../../../../shared/extra-directories'
+import {
+  DEFAULT_AGENT_KIND,
+  parseAgentKind,
+  readLegacyAgentKind
+} from '../../../../../shared/agent-kind'
+import { agentSessionPolicy } from '../../../../../shared/agent-session-policy'
 import { responseBoundaryPart } from '../../../../../shared/response-boundary'
 import {
   coercePermissionMode,
@@ -33,7 +39,7 @@ import type { MessageKey } from '../../../shared/i18n'
 import { contextTokens } from '../lib/telemetry'
 import { agentTaskKey, backgroundTaskKey } from '../lib/taskBoard'
 import { settleOrphanToolParts, settleStaleAsyncLaunchParts } from '../lib/parts'
-import { rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
+import { RIGHT_PANEL_POLICY, rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
 import type { BranchSnapshot } from '../components/composer/branchChipState'
 import {
   reanchorDiffRequirementItem,
@@ -444,7 +450,7 @@ export interface ChatState {
 }
 
 export const initialChatState: ChatState = {
-  agentKind: 'coding',
+  agentKind: DEFAULT_AGENT_KIND,
   agentKindLocked: false,
   agentPanelInitialized: false,
   sessionId: null,
@@ -480,7 +486,7 @@ export const initialChatState: ChatState = {
   worktreePrepareStep: null,
   worktree: null,
   pendingAsks: [],
-  permissionMode: coercePermissionMode(DEFAULT_PERMISSION_MODE, null),
+  permissionMode: coercePermissionMode(DEFAULT_PERMISSION_MODE, null, DEFAULT_AGENT_KIND),
   permissionModeError: false,
   pendingPlanReview: null,
   rightPanelTiles: [],
@@ -710,7 +716,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       if (state.agentKindLocked || state.sessionId || state.agentKind === action.kind) return state
       return {
         ...state,
-        agentKind: action.kind,
+        agentKind: parseAgentKind(action.kind),
         permissionMode: coercePermissionMode(
           state.permissionMode,
           { alias: state.modelAlias ?? '', model: state.modelFamily },
@@ -727,8 +733,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         agentKindLocked: true,
         agentPanelInitialized: true,
         rightPanelTiles:
-          state.agentKind === 'work' && !state.agentPanelInitialized
-            ? activateTile(state, 'task')
+          RIGHT_PANEL_POLICY[state.agentKind].initialTile && !state.agentPanelInitialized
+            ? activateTile(state, RIGHT_PANEL_POLICY[state.agentKind].initialTile!)
             : rightPanelColumnsForAgent(state.rightPanelTiles, state.agentKind),
         sendCount: state.sendCount + 1,
         inflight: true,
@@ -1161,7 +1167,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, worktreeBaseRef: action.branch }
 
     case 'SYNC_SESSION_EXTRA_DIRS': {
-      if (state.sessionId !== action.sessionId || state.agentKind !== 'work') return state
+      if (
+        state.sessionId !== action.sessionId ||
+        !agentSessionPolicy[state.agentKind].allowDirectoryUpdates
+      )
+        return state
       const extraDirs = [...new Set([...state.extraDirs, ...action.extraDirs])]
       return { ...state, extraDirs, extraDirRejection: null }
     }
@@ -1171,9 +1181,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       // 판정할 바깥이 없어지므로 스키마·가드·세션행 3지점이 뒤에서 또 자르지만, 여기서
       // 막지 않으면 칩은 붙고 전송만 `schema_validation_error` 로 죽어 원인이 안 보인다.
       if (isFilesystemRoot(action.dir)) return { ...state, extraDirRejection: 'root' }
-      // Work는 직접 선택한 cwd도 컨텍스트에 남긴다. Coding의 기존 cwd 제외 정책은 유지한다.
+      // Work는 직접 선택한 cwd도 컨텍스트에 남긴다. Code의 기존 cwd 제외 정책은 유지한다.
       if (
-        state.agentKind === 'work'
+        agentSessionPolicy[state.agentKind].directoryIdentity === 'windows'
           ? state.extraDirs.some((dir) => directoryIdentity(dir) === directoryIdentity(action.dir))
           : state.extraDirs.includes(action.dir) || action.dir === state.cwd
       )
@@ -1226,6 +1236,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     // 사이드바에서 과거 대화를 선택했을 때 IPC 응답 (LoadedSession) 으로 state 를 통째로 교체.
     // cwd 는 세션 영속값이 있으면 우선하고, 레거시 세션은 현재 baseline 을 보존한다.
     case 'LOAD_SESSION': {
+      const agentKind = readLegacyAgentKind(action.session.agentKind)
       const messages: Message[] = action.session.messages.map((m) => ({
         role: m.role,
         createdAt: m.createdAt,
@@ -1241,21 +1252,20 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         state.sessionId === action.session.id && state.activityRevision > (activity?.revision ?? 0)
       return {
         ...initialChatState,
-        agentKind: action.session.agentKind ?? 'coding',
-        permissionMode: coercePermissionMode(
-          DEFAULT_PERMISSION_MODE,
-          null,
-          action.session.agentKind ?? 'coding'
-        ),
+        agentKind,
+        permissionMode: coercePermissionMode(DEFAULT_PERMISSION_MODE, null, agentKind),
         agentKindLocked: true,
         agentPanelInitialized: true,
         rightPanelTiles: rightPanelColumnsForAgent(
           state.agentPanelInitialized && state.sessionId === action.session.id
             ? state.rightPanelTiles
-            : action.session.agentKind === 'work'
-              ? activateTile({ ...state, agentKind: 'work', rightPanelTiles: [] }, 'task')
+            : RIGHT_PANEL_POLICY[agentKind].initialTile
+              ? activateTile(
+                  { ...state, agentKind, rightPanelTiles: [] },
+                  RIGHT_PANEL_POLICY[agentKind].initialTile!
+                )
               : [],
-          action.session.agentKind ?? 'coding'
+          agentKind
         ),
         cwd: action.session.cwd ?? state.cwd,
         extraDirs: action.session.extraDirs ?? [],

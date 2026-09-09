@@ -1,0 +1,323 @@
+{
+  "Author": "Codex",
+  "Date": "2026-09-10",
+  "Method": "Most recent complete file run wins; initial failures retained in source reports",
+  "Files": 39,
+  "Passed": 400.0,
+  "Failed": 0.0,
+  "Skipped": 0.0,
+  "Results": [
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/adapters/claude-runtime-tools.boundary.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 5,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/adapters/claude-runtime-tools.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 2,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/app/chat-turn-continuation.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 9,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/app/chat-turn.continuity.test.ts",
+      "Evidence": "r8-writer-final.json",
+      "Status": "passed",
+      "Passed": 2,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/app/chat-turn.runtime-tools.test.ts",
+      "Evidence": "r8-main-fixtures-final.json",
+      "Status": "passed",
+      "Passed": 4,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/app/chat-turn/approval.permission.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 2,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/app/chat-turn/continuation.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 6,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/app/chat-turn/resolve-turn.agent.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 5,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/app/chat-turn/resolve-turn.runtime-catalog.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 3,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/app/chat-turn/respawn-inputs.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 1,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/app/chat-turn/send.busy.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 8,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/app/chat-turn/send.permission-mode.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 7,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/app/chat-turn/send.worktree.test.ts",
+      "Evidence": "r8-main-fixtures-final.json",
+      "Status": "passed",
+      "Passed": 21,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/app/chat-turn/worktree-bind.test.ts",
+      "Evidence": "r8-writer-final.json",
+      "Status": "passed",
+      "Passed": 3,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/app/handlers/files.contextDirectory.test.ts",
+      "Evidence": "r8-main-boundaries.json",
+      "Status": "passed",
+      "Passed": 13,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/app/handlers/session-directory.test.ts",
+      "Evidence": "r8-main-boundaries.json",
+      "Status": "passed",
+      "Passed": 16,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/app/response-boundary.integration.test.ts",
+      "Evidence": "r8-writer-final.json",
+      "Status": "passed",
+      "Passed": 1,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/app/work-profile.integration.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 1,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/features/agents/profiles.test.ts",
+      "Evidence": "r8-main-boundaries.json",
+      "Status": "passed",
+      "Passed": 2,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/features/approvals/coordinator.permission.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 10,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/features/approvals/permission-bridge.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 5,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/features/approvals/permission-mode-controller.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 6,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/features/chat/turn-coordinator.test.ts",
+      "Evidence": "r8-main-boundaries.json",
+      "Status": "passed",
+      "Passed": 55,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/features/extensions/system-header.agent.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 1,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/features/extensions/system-header.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 9,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/features/history/reader.test.ts",
+      "Evidence": "r8-main-boundaries.json",
+      "Status": "passed",
+      "Passed": 3,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/features/history/writer.artifacts.test.ts",
+      "Evidence": "r8-writer-final.json",
+      "Status": "passed",
+      "Passed": 10,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/features/history/writer.test.ts",
+      "Evidence": "r8-writer-final.json",
+      "Status": "passed",
+      "Passed": 16,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/features/sessions/respawn-policy.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 8,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/features/sessions/runtime-pool.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 10,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/features/sessions/session-chain-lease.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 3,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/features/sessions/session-registry.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 8,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/features/sessions/session-runtime.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 62,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/features/sessions/supervisor.test.ts",
+      "Evidence": "r8-main-regression.json",
+      "Status": "passed",
+      "Passed": 17,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/infra/db/agent-kind.test.ts",
+      "Evidence": "r8-main-boundaries.json",
+      "Status": "passed",
+      "Passed": 1,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/infra/db/migrate.test.ts",
+      "Evidence": "r8-main-fixtures-final.json",
+      "Status": "passed",
+      "Passed": 13,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/main/infra/ipc/dto.test.ts",
+      "Evidence": "r8-main-boundaries.json",
+      "Status": "passed",
+      "Passed": 11,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/shared/agent-kind.test.ts",
+      "Evidence": "r8-main-boundaries.json",
+      "Status": "passed",
+      "Passed": 2,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "File": "C:/workspace/github/codex/orca-skin/app/src/shared/protocol.send.test.ts",
+      "Evidence": "r8-main-boundaries.json",
+      "Status": "passed",
+      "Passed": 39,
+      "Failed": 0,
+      "Skipped": 0
+    }
+  ]
+}

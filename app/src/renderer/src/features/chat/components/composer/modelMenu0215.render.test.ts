@@ -94,7 +94,7 @@ describe('ModeMenu — haiku 선택 시 자동 제외 (AT-11)', () => {
     renderToStaticMarkup(
       createElement(ModeMenu, {
         mode: 'accept_edits' as const,
-        options: modeMenuOptions(selectedModelShape([agent(models)], sel)),
+        options: modeMenuOptions(selectedModelShape([agent(models)], sel), 'code'),
         onPick: vi.fn()
       })
     )

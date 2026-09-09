@@ -4,6 +4,7 @@ import {
   columnsContain,
   deriveRightPanelLayout,
   flattenColumns,
+  rightPanelColumnsForAgent,
   removeTileFromColumns,
   ROWS_PER_COL,
   type RightPanelColumns
@@ -96,6 +97,20 @@ describe('rightPanel 열 구조 헬퍼', () => {
       { kind: 'column', axis: 'vertical', col: 1 },
       { kind: 'row', axis: 'horizontal', col: 0 },
       { kind: 'row', axis: 'horizontal', col: 1 }
+    ])
+  })
+
+  it('종류별 표시는 raw 열을 바꾸지 않고 기존 열 id와 유효 참조를 보존한다', () => {
+    const raw = mk(['plan', 'task'], ['diff', 'subagent'])
+    const work = rightPanelColumnsForAgent(raw, 'work')
+    expect(work).toEqual([{ id: 'c0', tiles: ['task'] }])
+    expect(raw).toEqual(mk(['plan', 'task'], ['diff', 'subagent']))
+
+    const codeOnly = mk(['plan'], ['diff', 'subagent'])
+    expect(rightPanelColumnsForAgent(codeOnly, 'code')).toBe(codeOnly)
+    expect(rightPanelColumnsForAgent(raw, 'code')).toEqual([
+      { id: 'c0', tiles: ['plan'] },
+      { id: 'c1', tiles: ['diff', 'subagent'] }
     ])
   })
 })

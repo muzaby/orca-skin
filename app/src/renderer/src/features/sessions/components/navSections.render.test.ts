@@ -8,7 +8,7 @@ import { PinnedSectionView } from './PinnedSection'
 import { PinnedProjectChildren, PinnedProjectsSectionView } from './PinnedProjectsSection'
 import { SessionListView } from './SessionList'
 import { ProjectSessionsPanel } from './ProjectSessionsPanel'
-import { SessionRow } from './SessionRow'
+import { SessionRow, type AgentAppearanceResolver } from './SessionRow'
 import { useSessionsStore } from '../store/sessionsStore'
 
 // 0203 ΔV1 EP-9 / ΔV2 AT-13a·AT-15 — 구획 컴포넌트는 **받은 목록만** 그리고,
@@ -22,6 +22,7 @@ import { useSessionsStore } from '../store/sessionsStore'
 
 function session(id: string, title: string, over: Partial<SessionListItem> = {}): SessionListItem {
   return {
+    agentKind: 'code',
     id,
     backend: 'claude',
     title,
@@ -39,6 +40,15 @@ function session(id: string, title: string, over: Partial<SessionListItem> = {})
 const asPinned = (items: SessionListItem[]): PinnedSessions => items as PinnedSessions
 const asRecent = (items: SessionListItem[]): RecentSessions => items as RecentSessions
 const asChildren = (items: SessionListItem[]): ProjectChildSessions => items as ProjectChildSessions
+
+// 상위 조립자가 전달하는 표시 계약만 시험한다. chat feature를 직접 참조하지 않는다.
+const resolveAppearance: AgentAppearanceResolver = (kind) =>
+  (
+    ({
+      work: { navIcon: 'checklist', label: 'chat.agent.work' },
+      code: { navIcon: 'terminal2', label: 'chat.agent.code' }
+    }) as const
+  )[kind]
 
 const noop = (): void => {}
 const rowHandlers = {
@@ -65,13 +75,18 @@ const PROJECT: Project = {
 
 function renderPinned(items: SessionListItem[]): string {
   return renderToStaticMarkup(
-    createElement(PinnedSectionView, { sessions: asPinned(items), ...rowHandlers })
+    createElement(PinnedSectionView, {
+      agentAppearance: resolveAppearance,
+      sessions: asPinned(items),
+      ...rowHandlers
+    })
   )
 }
 
 function renderRecent(items: SessionListItem[]): string {
   return renderToStaticMarkup(
     createElement(SessionListView, {
+      agentAppearance: resolveAppearance,
       sessions: asRecent(items),
       currentSessionId: null,
       projectNameById: new Map<string, string>(),
@@ -88,6 +103,7 @@ function renderRecent(items: SessionListItem[]): string {
 function renderProjectChildren(items: SessionListItem[] | undefined): string {
   return renderToStaticMarkup(
     createElement(PinnedProjectChildren, {
+      agentAppearance: resolveAppearance,
       sessions: items === undefined ? undefined : asChildren(items),
       ...rowHandlers
     })
@@ -97,6 +113,7 @@ function renderProjectChildren(items: SessionListItem[] | undefined): string {
 function renderProjectsSection(pinnedProjects: Project[] = [PROJECT]): string {
   return renderToStaticMarkup(
     createElement(PinnedProjectsSectionView, {
+      agentAppearance: resolveAppearance,
       pinnedProjects,
       projectChildren: {},
       onExpandProject: noop,
@@ -193,6 +210,7 @@ describe('r5 모든 채팅 구획의 모드 아이콘과 완료 색', () => {
         snapshot.projectSessionIds = { p1: items.map((item) => item.id) }
         return renderToStaticMarkup(
           createElement(ProjectSessionsPanel, {
+            agentAppearance: resolveAppearance,
             projectId: 'p1',
             currentSessionId: null,
             refreshOnTurnEnd: false,
@@ -208,6 +226,7 @@ describe('r5 모든 채팅 구획의 모드 아이콘과 완료 색', () => {
       (items) =>
         renderToStaticMarkup(
           createElement(SessionListView, {
+            agentAppearance: resolveAppearance,
             sessions: asRecent([]),
             currentSessionId: null,
             projectNameById: new Map<string, string>(),
@@ -229,12 +248,12 @@ describe('r5 모든 채팅 구획의 모드 아이콘과 완료 색', () => {
 
   it.each(renderers)('%s uses official left icons without a right mode label', (_name, render) => {
     const items = [
-      session('coding', '코딩 대화', { agentKind: 'coding' }),
+      session('code', '코딩 대화', { agentKind: 'code' }),
       session('work', '문서 작업', { agentKind: 'work' })
     ]
     const $ = load(render(items))
     for (const [id, label, path] of [
-      ['coding', '코딩 대화', TERMINAL_2_PATH],
+      ['code', '코딩 대화', TERMINAL_2_PATH],
       ['work', '문서 작업', CHECKLIST_PATH]
     ]) {
       const row = $(`[data-session-id="${id}"]`)
@@ -252,7 +271,13 @@ describe('r5 모든 채팅 구획의 모드 아이콘과 완료 색', () => {
     snapshot.unseenCompletedIds = new Set(['work'])
     const item = session('work', '읽지 않은 작업', { agentKind: 'work' })
     const hidden = load(
-      renderToStaticMarkup(createElement(SessionRow, { session: item, isActive: false }))
+      renderToStaticMarkup(
+        createElement(SessionRow, {
+          appearance: resolveAppearance(item.agentKind),
+          session: item,
+          isActive: false
+        })
+      )
     )
     const icon = hidden('[data-context="session-agent-kind"]')
     expect(icon.attr('data-state')).toBe('unseen-complete')
@@ -262,7 +287,13 @@ describe('r5 모든 채팅 구획의 모드 아이콘과 완료 색', () => {
     expect(hidden('[data-session-id]').hasClass('text-selected')).toBe(false)
 
     const open = load(
-      renderToStaticMarkup(createElement(SessionRow, { session: item, isActive: true }))
+      renderToStaticMarkup(
+        createElement(SessionRow, {
+          appearance: resolveAppearance(item.agentKind),
+          session: item,
+          isActive: true
+        })
+      )
     )
     expect(open('[data-context="session-agent-kind"]').attr('data-state')).toBe('default')
     expect(open('.text-selected')).toHaveLength(0)
@@ -270,7 +301,7 @@ describe('r5 모든 채팅 구획의 모드 아이콘과 완료 색', () => {
     expect(open('[data-session-id]').text()).toBe('읽지 않은 작업')
   })
 
-  it('legacy sessions without a kind retain the Coding icon', () => {
+  it('legacy sessions without a kind retain the Code icon', () => {
     const $ = load(renderRecent([session('legacy', '이전 대화')]))
     expect($('[data-context="session-agent-kind"] path').attr('d')).toBe(TERMINAL_2_PATH)
   })
@@ -288,10 +319,18 @@ describe('어댑터가 파티션의 다른 칸을 넘기면 컴파일되지 않�
     const recent = asRecent([GIVEN])
     const children = asChildren([GIVEN])
 
-    // @ts-expect-error "고정됨" 구획에 최근 대화 칸을 넘길 수 없다.
-    createElement(PinnedSectionView, { sessions: recent, ...rowHandlers })
-    // @ts-expect-error 프로젝트 하위 목록에 고정됨 칸을 넘길 수 없다.
-    createElement(PinnedProjectChildren, { sessions: pinned, ...rowHandlers })
+    createElement(PinnedSectionView, {
+      agentAppearance: resolveAppearance,
+      // @ts-expect-error "고정됨" 구획에 최근 대화 칸을 넘길 수 없다.
+      sessions: recent,
+      ...rowHandlers
+    })
+    createElement(PinnedProjectChildren, {
+      agentAppearance: resolveAppearance,
+      // @ts-expect-error 프로젝트 하위 목록에 고정됨 칸을 넘길 수 없다.
+      sessions: pinned,
+      ...rowHandlers
+    })
     // `@ts-expect-error` 는 **바로 다음 줄**만 덮는다 — 여러 줄 호출이면 오류가 그 줄에 안 찍혀
     // 지시자가 `TS2578`(불필요)로 뒤집힌다. 그래서 나머지 props 를 먼저 묶어 한 줄로 좁힌다.
     const recentProps = {
@@ -302,8 +341,12 @@ describe('어댑터가 파티션의 다른 칸을 넘기면 컴파일되지 않�
       onRename: noop,
       onTogglePin: noop
     }
-    // @ts-expect-error "최근 대화" 구획에 프로젝트 하위 칸을 넘길 수 없다.
-    createElement(SessionListView, { sessions: children, ...recentProps })
+    createElement(SessionListView, {
+      agentAppearance: resolveAppearance,
+      // @ts-expect-error "최근 대화" 구획에 프로젝트 하위 칸을 넘길 수 없다.
+      sessions: children,
+      ...recentProps
+    })
 
     // 올바른 칸은 통과한다 — 브랜드가 모든 대입을 막는 것이 아니라 **혼동만** 막는다.
     expect(renderPinned([GIVEN])).toContain('준-대화')

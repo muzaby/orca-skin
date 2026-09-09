@@ -19,7 +19,7 @@ type W = string
 
 function makeTurn(): TurnContext<W> {
   return {
-    agentKind: 'coding',
+    agentKind: 'code',
     controller: new AbortController(),
     owner: 'owner',
     live: null,
@@ -111,6 +111,7 @@ function makeDeps(
     ),
     activeTurns: { increment: vi.fn(), decrement: vi.fn() },
     backgroundTasks: new BackgroundTaskTracker(),
+    persistResponseBoundaries: (kind) => kind === 'work',
     ...overrides
   }
   base.bus.on(
@@ -139,6 +140,17 @@ describe('Work response boundaries', () => {
   }
   const forwarded = (deps: CoordDeps): NormalizedEvent[] =>
     vi.mocked(deps.forward.forward).mock.calls.map((call) => call[1])
+
+  it('uses the injected response-boundary policy', async () => {
+    const deps = makeDeps(fakeRuntime([[text, telemetry]]), {
+      persistResponseBoundaries: () => false
+    })
+    const turn = makeTurn()
+    turn.agentKind = 'work'
+    turn.dbSessionId = 's1'
+    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    expect(forwarded(deps).filter((ev) => ev.type === 'response.boundary')).toEqual([])
+  })
 
   it.each([
     ['ended', [text, telemetry]],
@@ -181,7 +193,7 @@ describe('Work response boundaries', () => {
     }
   )
 
-  it.each(['coding', 'work'] as const)(
+  it.each(['code', 'work'] as const)(
     'does not create an empty %s listen segment',
     async (agentKind) => {
       const deps = makeDeps(fakeRuntime([[telemetry]]))
@@ -193,7 +205,7 @@ describe('Work response boundaries', () => {
     }
   )
 
-  it('leaves Coding display events unchanged', async () => {
+  it('leaves Code display events unchanged', async () => {
     const deps = makeDeps(fakeRuntime([[text, telemetry]]))
     const turn = makeTurn()
     turn.dbSessionId = 's1'
@@ -330,14 +342,14 @@ describe('Work response boundaries', () => {
     const raw: NormalizedEvent = {
       type: 'session.updated',
       sessionId: 's1',
-      patch: { agentKind: 'coding' }
+      patch: { agentKind: 'code' }
     }
     const deps = makeDeps(fakeRuntime([[raw]]))
     const turn = makeTurn()
     turn.agentKind = 'work'
     await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
     expect(forwarded(deps)[0]).toMatchObject({ patch: { agentKind: 'work' } })
-    expect(raw.patch?.agentKind).toBe('coding')
+    expect(raw.patch?.agentKind).toBe('code')
   })
 })
 

@@ -13,7 +13,12 @@ import {
 } from '../store/chatStore'
 import { partsText } from '../lib/parts'
 import type { ChatState } from '../reducer/chatReducer'
-import { showsUnseenTaskBadge, type RightPanelTileId } from '../lib/rightPanelTiles'
+import {
+  RIGHT_PANEL_POLICY,
+  showsUnseenTaskBadge,
+  SUSPENDED_RIGHT_PANEL_TILES,
+  type RightPanelTileId
+} from '../lib/rightPanelTiles'
 import { flattenColumns, rightPanelColumnsForAgent } from '../lib/rightPanelLayout'
 import { VISIBLE_TILE_REGISTRY } from './rightpanel/tileRegistry'
 import { CwdButton } from './CwdButton'
@@ -67,7 +72,13 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   const unseenSettledTasks = useUnseenSettledTaskCount()
   // 배지 판정은 SSOT 가 갖고 여기는 결과만 그린다(§10 EP-03) — 정지된 타일을 가리키는
   // 배지는 애초에 뜨지 않는다.
-  const showTaskBadge = showsUnseenTaskBadge(unseenSettledTasks, activeTiles, undefined, agentKind)
+  const panelPolicy = RIGHT_PANEL_POLICY[agentKind]
+  const showTaskBadge = showsUnseenTaskBadge(
+    unseenSettledTasks,
+    activeTiles,
+    SUSPENDED_RIGHT_PANEL_TILES,
+    agentKind
+  )
   const labels = useChatSession((s) => s.rightPanelTileLabels)
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -225,7 +236,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
                 <span>{labels[tile.id as RightPanelTileId] ?? tr(tile.defaultLabelKey)}</span>
                 {/* 0213 D-001 로 `작업` 이 목록에 돌아와 이 배지가 다시 도달한다 — 메뉴를 연
                     채로도 미확인 완료 수가 보인다(0205 §10 EP-03 이 지우지 말라고 남긴 자리). */}
-                {tile.id === (agentKind === 'work' ? 'task' : 'plan') && showTaskBadge && (
+                {tile.id === panelPolicy.taskBadgeTile && showTaskBadge && (
                   <span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] px-1.5 text-[10px] font-medium text-accent">
                     {unseenSettledTasks}
                   </span>

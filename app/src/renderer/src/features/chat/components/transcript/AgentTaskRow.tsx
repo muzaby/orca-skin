@@ -11,6 +11,7 @@ import { chatActions, useChatSession, useSubagentMeta } from '../../store/chatSt
 import type { ToolCall } from '../../reducer/chatReducer'
 import { TranscriptActionRow } from './TranscriptActionRow'
 import { InlineSubagentDetail } from './InlineSubagentDetail'
+import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
 
 // 서브에이전트(Task) 행의 상태별 접두 동사 키 — 렌더에서 tr() 해석(0096 패턴). 진행 중만 shimmer.
 const PREFIX_KEY: Record<SubagentTaskStatus, MessageKey> = {
@@ -30,14 +31,15 @@ const PREFIX_KEY: Record<SubagentTaskStatus, MessageKey> = {
 // 완료/중단/실패: `에이전트 {상태} {model} {title}` (+ 완료 시 durationLabel).
 export function AgentTaskRow({
   call,
-  inGroup = false
+  inGroup = false,
+  transcriptPolicy
 }: {
   call: ToolCall
   inGroup?: boolean
+  transcriptPolicy: AgentTranscriptPresentation
 }): React.JSX.Element {
   const { tr } = useI18n()
   const messages = useChatSession((s) => s.messages)
-  const agentKind = useChatSession((s) => s.agentKind)
   const [expanded, setExpanded] = useState(false)
   const summary = useMemo(
     () => subagentTasksFromMessages(messages).find((t) => t.toolUseId === call.toolUseId),
@@ -76,7 +78,7 @@ export function AgentTaskRow({
   }
 
   const activate = (): void => {
-    if (agentKind === 'work') setExpanded((value) => !value)
+    if (transcriptPolicy.inlineSubagentDetail) setExpanded((value) => !value)
     else chatActions.openSubagentTask(call.toolUseId)
   }
 
@@ -85,7 +87,7 @@ export function AgentTaskRow({
       <TranscriptActionRow
         groupClassName="group/tool"
         onActivate={activate}
-        expanded={agentKind === 'work' ? expanded : undefined}
+        expanded={transcriptPolicy.inlineSubagentDetail ? expanded : undefined}
       >
         <span
           className={`shrink-0 ${
@@ -97,7 +99,9 @@ export function AgentTaskRow({
         {running && <span className="sr-only">{tr('common.running')}</span>}
         <span className="min-w-0 truncate group-hover/tool:text-t9">{detail}</span>
       </TranscriptActionRow>
-      {agentKind === 'work' && expanded && <InlineSubagentDetail toolRunId={call.toolUseId} />}
+      {transcriptPolicy.inlineSubagentDetail && expanded && (
+        <InlineSubagentDetail toolRunId={call.toolUseId} transcriptPolicy={transcriptPolicy} />
+      )}
     </>
   )
 }

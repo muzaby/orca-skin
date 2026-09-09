@@ -20,7 +20,7 @@ describe('product agent kind', () => {
     expect(chatActions.send('report')).toBe(true)
     expect(chatSend.mock.calls[0][0]).toMatchObject({ agentKind: 'work', text: 'report' })
     ingestChatEvent({ type: 'turn.aborted', reason: 'user_cancelled' })
-    chatActions.setAgentKind('coding')
+    chatActions.setAgentKind('code')
     expect(getActiveChatSession().agentKind).toBe('work')
     expect(getActiveChatSession().agentKindLocked).toBe(true)
   })
@@ -32,7 +32,7 @@ describe('product agent kind', () => {
     expect(chatActions.startForkDraft()).toBe(true)
     expect(getActiveChatSession()).toMatchObject({ agentKind: 'work', agentKindLocked: true })
   })
-  it('loads legacy as coding and keeps a closed Work task hidden on the next turn', () => {
+  it('loads legacy as code and keeps a closed Work task hidden on the next turn', () => {
     const loaded = chatReducer(initialChatState, {
       type: 'LOAD_SESSION',
       session: {
@@ -52,14 +52,9 @@ describe('product agent kind', () => {
     expect(
       chatReducer(initialChatState, {
         type: 'LOAD_SESSION',
-        session: {
-          id: 'old',
-          backend: 'claude',
-          title: null,
-          messages: []
-        }
+        session: { agentKind: 'code', id: 'old', backend: 'claude', title: null, messages: [] }
       }).agentKind
-    ).toBe('coding')
+    ).toBe('code')
   })
   it('routes boundaries only to the owning live session without starting a turn', () => {
     installChatStoreHarness({ agentKind: 'work' })

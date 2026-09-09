@@ -3,6 +3,9 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { WorkActivity } from './WorkActivity'
 import type { Message } from '../../reducer/chatReducer'
+import { agentUiPolicy } from '../../lib/agentPresentation'
+
+const transcriptPolicy = agentUiPolicy('work').transcript
 
 // 기존 React fixture 방식: 실제 disclosure callback과 재렌더 산출을 관측한다.
 // DOM focus/native 이벤트 dispatch 검증은 앱 브라우저 게이트가 담당한다.
@@ -92,7 +95,7 @@ const messages: Message[] = [
 function render(): string {
   harness.calls = 0
   harness.toggle = undefined
-  return renderToStaticMarkup(createElement(WorkActivity, { messages }))
+  return renderToStaticMarkup(createElement(WorkActivity, { messages, transcriptPolicy }))
 }
 describe('Work activity disclosure lifecycle', () => {
   beforeEach(() => {

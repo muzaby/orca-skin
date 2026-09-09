@@ -135,9 +135,9 @@ it.skipIf(process.env.ORCA_ARTIFACT_LIVE !== '1')(
       }
     }
     const runtime = new SessionRuntime(adapter)
-    const writer = new HistoryWriter(queries, undefined, queries.artifacts)
+    const writer = new HistoryWriter(queries, () => false, undefined, queries.artifacts)
     const turn = {
-      agentKind: 'coding',
+      agentKind: 'code',
       dbSessionId: null,
       currentAssistantMessageId: null,
       assistantText: '',

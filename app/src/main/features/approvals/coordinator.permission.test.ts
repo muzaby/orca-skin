@@ -64,10 +64,10 @@ beforeEach(() => hooks.clear())
 describe('r4 live permission actual model and applied response', () => {
   it.each([
     ['work', 'claude-sonnet-4-5', 'default', 'default'],
-    ['coding', 'claude-sonnet-4-5', 'accept_edits', 'acceptEdits'],
+    ['code', 'claude-sonnet-4-5', 'accept_edits', 'acceptEdits'],
     ['work', 'claude-sonnet-4-6', 'auto_classified', 'auto'],
     ['work', undefined, 'default', 'default'],
-    ['coding', 'corp-sonnet-9', 'accept_edits', 'acceptEdits']
+    ['code', 'corp-sonnet-9', 'accept_edits', 'acceptEdits']
   ] as const)('%s %s settles %s', async (kind, model, expected, sdk) => {
     const h = setup(kind, model)
     expect(await h.invoke('auto_classified')).toBe(expected)

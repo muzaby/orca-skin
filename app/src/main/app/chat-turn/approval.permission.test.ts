@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 import { createApprovalRequester } from './approval'
 describe('r4 Main plan approval target', () => {
-  it.each(['work', 'coding'] as const)(
+  it.each(['work', 'code'] as const)(
     '%s keeps plan request and settles expected mode',
     async (agentKind) => {
       const setMode = vi.fn()

@@ -14,6 +14,7 @@ import {
   type SkillInfo
 } from '../../shared/ipc'
 import type { RestartGateState } from '../../shared/update-restart'
+import { parseAgentKind } from '../../shared/agent-kind'
 import type { TurnContext } from '../contracts/turn'
 import { AdapterRegistry } from '../adapters/registry'
 import { MockAdapter } from '../adapters/mock'
@@ -121,6 +122,7 @@ import type { MainBus, OrcaBusEvents } from '../contracts/bus-events'
 import { settleOpenToolRuns } from '../features/chat/settle'
 import { ApprovalCoordinator } from '../features/approvals/coordinator'
 import { HistoryWriter } from '../features/history/writer'
+import { resolveAgentProfile } from '../features/agents/profiles'
 import { materializeContinuityArrival } from '../features/orchestration/fork'
 import { TitleGenerator } from '../features/chat/title-generation'
 import { recoverSessionHistory } from '../features/chat/recovery'
@@ -839,6 +841,7 @@ export class Bootstrap {
     // — history↔orchestration 교차 import 차단.
     const persistence = new HistoryWriter(
       ctx.db,
+      (kind) => resolveAgentProfile(kind).persistResponseBoundaries,
       (arrival) => materializeContinuityArrival(ctx.db, arrival),
       ctx.db.artifacts
     )
@@ -926,11 +929,10 @@ export class Bootstrap {
       isUpdateInstallPending: () => this.isUpdateInstallPending(),
       worktrees
     })
-    approvals.registerHandlers(
-      supervisor,
-      permissionModes,
-      (sessionId) => ctx.db.getSessionById(sessionId)?.agent_kind
-    )
+    approvals.registerHandlers(supervisor, permissionModes, (sessionId) => {
+      const kind = ctx.db.getSessionById(sessionId)?.agent_kind
+      return kind === undefined ? undefined : parseAgentKind(kind)
+    })
 
     // 세션 삭제 시 미커밋 pending 도 함께 폐기한다(0151 AC8) — 루트가 chat 큐를 주입해
     // session 슬라이스가 chat 슬라이스를 참조하지 않게 한다.

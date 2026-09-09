@@ -5,12 +5,12 @@ import { turnCopyText, turnEquals, type Turn } from '../../lib/turns'
 import { partsArtifacts } from '../../lib/parts'
 import { ArtifactCards } from '../ArtifactCard'
 import { WorkActivity } from './WorkActivity'
-import type { AgentKind } from '../../../../../../shared/agent-kind'
 import type { WorkToolResults } from '../../lib/workToolResults'
+import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
 
 interface AssistantTurnProps {
   toolResults?: WorkToolResults
-  agentKind?: AgentKind
+  transcriptPolicy: AgentTranscriptPresentation
   turn: Turn
   // 이 턴이 아직 진행 중(스트리밍)이면 메타를 숨긴다 — "답변이 모두 종료됐을 때 하나의 턴".
   pending?: boolean
@@ -29,7 +29,7 @@ export const AssistantTurn = memo(
     turn,
     pending,
     forkable,
-    agentKind = 'coding',
+    transcriptPolicy,
     toolResults
   }: AssistantTurnProps): React.JSX.Element {
     const last = turn.messages[turn.messages.length - 1]
@@ -39,10 +39,16 @@ export const AssistantTurn = memo(
     )
     return (
       <div className="group/msg relative flex flex-col gap-[var(--chat-item-gap)]">
-        {agentKind === 'work' ? (
-          <WorkActivity messages={turn.messages} toolResults={toolResults} />
+        {transcriptPolicy.turnProjection === 'work-activity' ? (
+          <WorkActivity
+            messages={turn.messages}
+            toolResults={toolResults}
+            transcriptPolicy={transcriptPolicy}
+          />
         ) : (
-          turn.messages.map((m, i) => <AssistantMessage key={i} message={m} />)
+          turn.messages.map((m, i) => (
+            <AssistantMessage key={i} message={m} transcriptPolicy={transcriptPolicy} />
+          ))
         )}
         {artifacts.length > 0 && <ArtifactCards artifacts={artifacts} />}
         {!pending && (
@@ -58,7 +64,7 @@ export const AssistantTurn = memo(
   },
   (prev, next) =>
     prev.pending === next.pending &&
-    prev.agentKind === next.agentKind &&
+    prev.transcriptPolicy === next.transcriptPolicy &&
     prev.toolResults === next.toolResults &&
     prev.forkable === next.forkable &&
     turnEquals(prev.turn, next.turn)

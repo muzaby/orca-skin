@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { useI18n } from '../../../shared/i18n'
 import { UsageCircle } from '../../../shared/ui/UsageCircle'
+import { agentUiPolicy } from '../lib/agentPresentation'
 import { Popover } from '../../../shared/ui/Popover'
 import { ReadingColumn } from '../../../shared/ui/ReadingColumn'
 import { ComposerInputController } from './composer/ComposerInputController'
@@ -322,7 +323,11 @@ export function Composer({
               {showLandingCwdPanel && <CwdPanel cwd={cwd} inflight={inflight} />}
             </>
           }
-          gitRow={agentKind === 'coding' ? <GitRow cwd={cwd} sessionStarted={showGitRow} /> : null}
+          gitRow={
+            agentUiPolicy(agentKind).composer.showGitRow ? (
+              <GitRow cwd={cwd} sessionStarted={showGitRow} />
+            ) : null
+          }
           afterGitRow={
             <>
               {permissionModeError && <Notice title={tr('chat.composer.permissionUpdateFailed')} />}

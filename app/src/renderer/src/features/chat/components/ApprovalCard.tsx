@@ -6,6 +6,7 @@ import { quoteSnippet } from '../lib/planComments'
 import type { PlanComment } from '../reducer/chatReducer'
 import { useI18n } from '../../../shared/i18n'
 import { Markdown } from '../../../shared/ui/markdown/Markdown'
+import { agentUiPolicy } from '../lib/agentPresentation'
 
 // ApprovalCard — Composer 의 입력 패널을 *대체*하는 **계획(plan_review)** 승인 게이트
 // (rendering.md §7.6). 입력 위 additive 패턴인 tool_approval/ask_question 은 Composer 가
@@ -167,6 +168,7 @@ function PlanApprovalBody(): React.JSX.Element | null {
   const { approvePlan, revisePlanWithComments, rejectPlan, setRightPanelTileActive } = chatActions
   const review = useChatSession((s) => s.pendingPlanReview)
   const agentKind = useChatSession((s) => s.agentKind)
+  const planBodyPlacement = agentUiPolicy(agentKind).transcript.planBodyPlacement
   const planTileOpen = useChatSession((s) => columnsContain(s.rightPanelTiles, 'plan'))
   const comments = useChatSession((s) => s.planComments)
   const [feedback, setFeedback] = useState('')
@@ -245,7 +247,7 @@ function PlanApprovalBody(): React.JSX.Element | null {
         <span className="text-footnote font-medium text-t9">
           {tr('chat.approval.planProposed')}
         </span>
-        {agentKind !== 'work' && !planTileOpen && (
+        {planBodyPlacement === 'right-panel' && !planTileOpen && (
           <button
             type="button"
             onClick={() => setRightPanelTileActive('plan', true)}
@@ -256,7 +258,7 @@ function PlanApprovalBody(): React.JSX.Element | null {
         )}
       </div>
 
-      {agentKind === 'work' && (
+      {planBodyPlacement === 'approval-card' && (
         <div
           className="mt-3 max-h-72 overflow-y-auto rounded-r4 border border-border p-3"
           data-work-plan-review

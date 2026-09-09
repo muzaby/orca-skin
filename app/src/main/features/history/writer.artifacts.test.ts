@@ -38,7 +38,7 @@ function harness(): {
 } {
   const db = { upsertToolResultPart: vi.fn() } as unknown as DbQueries
   const linkPublication = vi.fn((): ArtifactRef | null => artifact)
-  const writer = new HistoryWriter(db, undefined, { linkPublication })
+  const writer = new HistoryWriter(db, () => false, undefined, { linkPublication })
   const turn = {
     dbSessionId: 's1',
     currentAssistantMessageId: 999,
@@ -69,7 +69,7 @@ describe('HistoryWriter artifact receipt', () => {
           projectId: null,
           createdAt: 1
         })
-        const writer = new HistoryWriter(queries, undefined, queries.artifacts)
+        const writer = new HistoryWriter(queries, () => false, undefined, queries.artifacts)
         const turn = {
           dbSessionId: 's1',
           currentAssistantMessageId: null,

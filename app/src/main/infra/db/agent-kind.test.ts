@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { applyMigrations } from './migrate'
 import { DbQueries } from './queries'
 
-it('persists Work across reopen, defaults legacy callers, and preserves birth on conflict', () => {
+it('persists Work across reopen, defaults callers to Code, and preserves birth on conflict', () => {
   const root = mkdtempSync(join(tmpdir(), 'orca-agent-kind-'))
   let db: Database.Database | undefined
   try {
@@ -26,7 +26,7 @@ it('persists Work across reopen, defaults legacy callers, and preserves birth on
     queries.insertSession({
       id: 'c',
       backend: 'claude',
-      title: 'coding',
+      title: 'code',
       projectId: null,
       createdAt: 2
     })
@@ -36,14 +36,14 @@ it('persists Work across reopen, defaults legacy callers, and preserves birth on
       title: 'overwrite',
       projectId: null,
       createdAt: 3,
-      agentKind: 'coding'
+      agentKind: 'code'
     })
     db.close()
     db = new Database(path)
     queries = new DbQueries(db)
     expect(queries.getSessionById('w')?.agent_kind).toBe('work')
-    expect(queries.getSessionById('c')?.agent_kind).toBe('coding')
-    expect(queries.listSessions().map((row) => row.agent_kind)).toEqual(['coding', 'work'])
+    expect(queries.getSessionById('c')?.agent_kind).toBe('code')
+    expect(queries.listSessions().map((row) => row.agent_kind)).toEqual(['code', 'work'])
     expect(queries.listSessionsByProject('p').map((row) => row.agent_kind)).toEqual(['work'])
     expect(() =>
       db!.prepare("UPDATE sessions SET agent_kind='invalid' WHERE id='w'").run()

@@ -1,3 +1,4 @@
+import { agentUiPolicy } from '../features/chat/lib/agentPresentation'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AgentModeToggle, ChatTile, Composer, useChatBusy, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
@@ -81,6 +82,7 @@ export function ProjectLandingPage(): React.JSX.Element {
               showLandingCwdPanel
             />
             <ProjectSessionsPanel
+              agentAppearance={agentUiPolicy}
               projectId={projectId}
               currentSessionId={sessionId}
               refreshOnTurnEnd={inflight}

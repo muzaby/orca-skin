@@ -81,4 +81,28 @@ describe('history reader with the current SQLite schema', () => {
     expect(getCwd).not.toHaveBeenCalled()
     expect(loadSession(db, 'missing', getCwd)).toBeNull()
   })
+
+  it('rejects a corrupt persisted kind instead of returning an invalid current session', () => {
+    connection.pragma('ignore_check_constraints = ON')
+    connection
+      .prepare(
+        "INSERT INTO sessions (id, backend, created_at, updated_at, agent_kind) VALUES ('bad', 'claude', 1, 1, 'corrupt')"
+      )
+      .run()
+    connection.pragma('ignore_check_constraints = OFF')
+    const messageId = db.appendMessage({
+      sessionId: 'bad',
+      role: 'user',
+      content: 'kept',
+      createdAt: 2
+    })
+    db.appendPart({
+      messageId,
+      type: 'text',
+      toolRunId: null,
+      payloadJson: '{"text":"kept"}'
+    })
+
+    expect(() => loadSession(db, 'bad', () => '/fallback')).toThrow('Invalid agent kind')
+  })
 })

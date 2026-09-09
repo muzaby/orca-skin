@@ -11,9 +11,10 @@ import type { PendingSteerState } from '../../store/chatStore'
 import type { ClassifiedError } from '../../../../../../shared/ipc'
 import type { AgentKind } from '../../../../../../shared/agent-kind'
 import { createWorkToolResultSelector } from '../../lib/workToolResults'
+import { agentUiPolicy } from '../../lib/agentPresentation'
 
 interface TranscriptViewProps {
-  agentKind?: AgentKind
+  agentKind: AgentKind
   messages: Message[]
   pendingSteer: PendingSteerState[]
   onRestoreSteerDraft?: (text: string) => void
@@ -38,7 +39,7 @@ interface TranscriptViewProps {
 // overflow-anchor:none — pin/앵커를 직접 제어하므로 네이티브 scroll anchoring 의 이중
 // 보정을 차단한다.
 export const TranscriptView = memo(function TranscriptView({
-  agentKind = 'coding',
+  agentKind,
   messages,
   pendingSteer,
   onRestoreSteerDraft,
@@ -54,10 +55,14 @@ export const TranscriptView = memo(function TranscriptView({
   // 델타 프레임(messages 참조 불변)에서 Exchange/Turn 객체 identity 를 고정 — memo 된
   // 컴포넌트가 props 비교만으로 재렌더를 건너뛴다 (0007-transcript-render-memo 계승).
   const exchanges = useMemo(() => groupExchanges(messages), [messages])
+  const transcriptPolicy = agentUiPolicy(agentKind).transcript
   const [selectWorkResults] = useState(createWorkToolResultSelector)
   const workResults = useMemo(
-    () => (agentKind === 'work' ? selectWorkResults(exchanges) : undefined),
-    [agentKind, exchanges, selectWorkResults]
+    () =>
+      transcriptPolicy.turnProjection === 'work-activity'
+        ? selectWorkResults(exchanges)
+        : undefined,
+    [exchanges, selectWorkResults, transcriptPolicy]
   )
   // "virtualized head + unvirtualized tail" (0102) — 마지막(스트리밍) 교환은 비가상 tail 로
   // 렌더해 0008 예약공간 앵커(min-h-[50cqh]) + useScrollAnchor 계약을 보존하고, 과거 확정
@@ -108,7 +113,7 @@ export const TranscriptView = memo(function TranscriptView({
                   {/* pb = 다음 교환까지의 간격. 측정 높이에 포함돼 스페이서/스크롤과 정합. */}
                   <div className="pb-[var(--chat-turn-gap)]">
                     <Exchange
-                      agentKind={agentKind}
+                      transcriptPolicy={transcriptPolicy}
                       toolResults={workResults?.get(exchange.startIndex)}
                       exchange={exchange}
                       reserve={false}
@@ -125,7 +130,7 @@ export const TranscriptView = memo(function TranscriptView({
             여기에만 적용해 0008 스트리밍 앵커를 그대로 유지한다. */}
         {tail && (
           <Exchange
-            agentKind={agentKind}
+            transcriptPolicy={transcriptPolicy}
             toolResults={workResults?.get(tail.startIndex)}
             key={tail.startIndex}
             exchange={tail}

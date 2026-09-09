@@ -72,7 +72,13 @@ describe('artifact publication ownership', () => {
     const live = chatReducer(start, { type: 'RECV_EVENT', event: complete() })
     const loaded = chatReducer(initialChatState, {
       type: 'LOAD_SESSION',
-      session: { id: 's', backend: 'claude', title: 'report', messages: live.messages }
+      session: {
+        agentKind: 'code',
+        id: 's',
+        backend: 'claude',
+        title: 'report',
+        messages: live.messages
+      }
     })
     expect(loaded.messages.map((message) => message.parts)).toEqual(
       live.messages.map((message) => message.parts)

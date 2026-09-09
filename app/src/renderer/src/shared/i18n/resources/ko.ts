@@ -452,7 +452,7 @@ export const ko = {
     agent: {
       choose: '작업 종류 선택',
       work: '작업',
-      coding: '코딩',
+      code: '코드',
       workGreeting: '어떤 작업을 시작할까요?',
       workPlaceholder: '작성할 문서나 분석할 자료, 정리할 작업을 알려주세요',
       activity: '도구 {{tools}}종 · 메모 {{notes}}개',

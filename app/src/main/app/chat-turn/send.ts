@@ -376,7 +376,8 @@ export async function handleChatSend(
       classifyError: (err, phase) => activeAdapter.classifyError(err, phase),
       activeTurns: supervisor.activeTurns,
       pendingMessages,
-      backgroundTasks
+      backgroundTasks,
+      persistResponseBoundaries: (kind) => resolveAgentProfile(kind).persistResponseBoundaries
     })
     let activeTurn: TurnContext<WebContents> = turn
     const getActiveTurn = (): TurnContext<WebContents> => activeTurn

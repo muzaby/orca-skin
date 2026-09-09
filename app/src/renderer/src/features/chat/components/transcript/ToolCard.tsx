@@ -16,6 +16,7 @@ import { stringify } from '../../format'
 import { toolRendererRegistry } from './registry'
 import type { ToolCall } from '../../reducer/chatReducer'
 import { AgentTaskRow } from './AgentTaskRow'
+import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
 
 // result.output 을 문자열로.
 function resultOutput(call: ToolCall): string {
@@ -57,9 +58,15 @@ function copyText(call: ToolCall): string {
 }
 
 // 도구별 본문 디스패치 — 도구 이름 switch 대신 ToolRendererRegistry 로 시맨틱 해소(rendering.md §1.6).
-function ToolBody({ call }: { call: ToolCall }): React.JSX.Element {
+function ToolBody({
+  call,
+  transcriptPolicy
+}: {
+  call: ToolCall
+  transcriptPolicy: AgentTranscriptPresentation
+}): React.JSX.Element {
   const Body = toolRendererRegistry.resolve(call).Body
-  return <Body call={call} />
+  return <Body call={call} transcriptPolicy={transcriptPolicy} />
 }
 
 // 전략문서 5.4 양식 — 카드가 아니라 *행*. 동사→이름→diff→chevron(마지막).
@@ -70,10 +77,12 @@ function ToolBody({ call }: { call: ToolCall }): React.JSX.Element {
 // 등 카드 내부 상태 변화도 자기 자신에 한정된다 (0008).
 export const ToolCard = memo(function ToolCard({
   call,
-  inGroup = false
+  inGroup = false,
+  transcriptPolicy
 }: {
   call: ToolCall
   inGroup?: boolean
+  transcriptPolicy: AgentTranscriptPresentation
 }): React.JSX.Element {
   const { tr } = useI18n()
   const [open, setOpen] = useState(false)
@@ -84,7 +93,8 @@ export const ToolCard = memo(function ToolCard({
   // 우측 백그라운드 패널)을 갖되 라벨을 참고 양식(에이전트 실행 중 …)으로 구성하고, child
   // 메타(모델·도구·경과)를 store 에서 파생한다. 인라인 펼침 본문은 없다(사용자 결정).
   const isAgentTask = toolRendererRegistry.resolve(call).kind === 'agent_task'
-  if (isAgentTask) return <AgentTaskRow call={call} inGroup={inGroup} />
+  if (isAgentTask)
+    return <AgentTaskRow call={call} inGroup={inGroup} transcriptPolicy={transcriptPolicy} />
 
   const toggle = (): void => {
     setOpen((v) => !v)
@@ -172,7 +182,7 @@ export const ToolCard = memo(function ToolCard({
                       <CopyIconButton text={copyText(call)} title={tr('common.copy')} />
                     </div>
                   </div>
-                  <ToolBody call={call} />
+                  <ToolBody call={call} transcriptPolicy={transcriptPolicy} />
                 </div>
               </div>
             )}

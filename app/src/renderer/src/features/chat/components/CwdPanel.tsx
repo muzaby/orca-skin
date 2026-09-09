@@ -1,4 +1,5 @@
 import { useI18n } from '../../../shared/i18n'
+import { agentUiPolicy } from '../lib/agentPresentation'
 import { chatActions, useChatSession } from '../store/chatStore'
 import { CwdButton } from './CwdButton'
 import { useDirectoryPicker } from '../hooks/useDirectoryPicker'
@@ -16,7 +17,7 @@ interface CwdPanelProps {
 // 컴포저 입력 위의 작업 컨텍스트 행 — [작업 경로] [브랜치] [참조 경로…] [＋].
 //
 // 세션이 확정되기 전(랜딩)에만 뜬다. cwd·브랜치·참조 경로는 새 세션 출생 시 고정되는 값이라
-// 편집 가능한 창이 여기뿐이다. Coding의 브랜치 묶음은 조회 중에도 placeholder로 표시한다.
+// 편집 가능한 창이 여기뿐이다. Code의 브랜치 묶음은 조회 중에도 placeholder로 표시한다.
 export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
   const { tr } = useI18n()
   const agentKind = useChatSession((s) => s.agentKind)
@@ -33,10 +34,10 @@ export function CwdPanel({ cwd, inflight }: CwdPanelProps): React.JSX.Element {
       data-state="landing"
     >
       <CwdButton cwd={cwd} sessionStarted={false} inflight={inflight} variant="outlined" />
-      {/* Coding에서만 Git을 조회한다. 격리 ON이면 선택은 base ref로 유예된다. */}
+      {/* Code에서만 Git을 조회한다. 격리 ON이면 선택은 base ref로 유예된다. */}
       <BranchChip
         cwd={cwd}
-        hidden={agentKind === 'work'}
+        hidden={!agentUiPolicy(agentKind).composer.showLandingCwdControls}
         disabled={inflight}
         variant="segment"
         trailingDivider

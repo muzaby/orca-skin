@@ -82,7 +82,9 @@
 
 #### 저장 대상 (현재 구현)
 
-`0022_session_agent_kind.sql`의 `sessions.agent_kind`는 `coding|work` 출생값이다. 기존 행과 종류를 생략한 신규 insert의 기본값은 Coding이다. 재개는 DB 값을 읽고 fork/handoff는 원본 종류를 계승한다. 준비 중에는 live lease가 같은 역할을 맡으며, 종류 충돌은 큐 적재 전에 거부한다. 해제된 lease를 보존하는 별도 초안 레지스트리는 없다.
+`sessions.agent_kind`는 `code|work` 출생값이며 현재 컬럼 계약은 `0023_session_agent_kind_code.sql`이 확정한다. 종류를 생략한 신규 insert의 기본값은 Code다. 재개는 DB 값을 읽고 fork/handoff는 원본 종류를 계승한다. 준비 중에는 live lease가 같은 역할을 맡으며, 종류 충돌은 큐 적재 전에 거부한다. 해제된 lease를 보존하는 별도 초안 레지스트리는 없다.
+
+종류의 현재 저장값은 code/work다. 구형 coding 값의 이행은 후속 컬럼 migration에서 수행하며 sessions의 PK와 참조 테이블을 유지한다. 현재 DB 읽기는 엄격한 종류 검증을 거친다. Renderer의 구형 `LOAD_SESSION` 입력만 명명된 decoder에서 coding 또는 필드 누락을 code로 변환하며, 그 외 값은 오류로 처리한다.
 
 Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저장한다. `begin`과 `end`는 수신 구간 ID를 공유하고 `end.outcome`은 `ended|aborted|failed|unknown`이다. `ended`는 수신 구간 종료를 뜻하며 작업 성공 판정이 아니다. writer는 begin이 속한 메시지 주소에 end를 추가하므로 telemetry 이후에도 marker만 있는 새 메시지를 만들지 않는다. 이 part는 FTS 본문·모델 컨텍스트·복사 텍스트에 합류하지 않는다. crash로 end가 없으면 불완전 구간으로 복원한다.
 

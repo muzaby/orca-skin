@@ -3,12 +3,19 @@ import { Button } from '../../../../shared/ui/Button'
 import { useI18n } from '../../../../shared/i18n'
 import { childMessageForParentToolRunId, subagentTasksFromMessages } from '../../lib/parts'
 import { useChatSession, useSubagentMeta } from '../../store/chatStore'
+import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
 
 type DetailComponent = typeof import('../rightpanel/SubAgentTileContent').SubAgentTaskDetail
 
 // 하위 대화는 같은 transcript renderer를 재사용하므로, 명시적 펼침 이후에만 구현을 읽는다.
 // 정적 모듈 초기화 순환과 접힌 행의 불필요한 상세 구독을 함께 피한다.
-export function InlineSubagentDetail({ toolRunId }: { toolRunId: string }): React.JSX.Element {
+export function InlineSubagentDetail({
+  toolRunId,
+  transcriptPolicy
+}: {
+  toolRunId: string
+  transcriptPolicy: AgentTranscriptPresentation
+}): React.JSX.Element {
   const { tr } = useI18n()
   const [Detail, setDetail] = useState<DetailComponent | null>(null)
   const [failed, setFailed] = useState(false)
@@ -44,7 +51,12 @@ export function InlineSubagentDetail({ toolRunId }: { toolRunId: string }): Reac
       data-subagent-inline={toolRunId}
     >
       {Detail && task ? (
-        <Detail task={task} childMessage={childMessage} startedAtMs={meta?.startedAtMs ?? null} />
+        <Detail
+          task={task}
+          childMessage={childMessage}
+          startedAtMs={meta?.startedAtMs ?? null}
+          transcriptPolicy={transcriptPolicy}
+        />
       ) : failed ? (
         <div className="flex items-center gap-2 p-3 text-footnote text-bad" role="alert">
           <span>{tr('chat.subagentTile.loadDetailFailed')}</span>

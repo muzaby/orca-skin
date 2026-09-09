@@ -15,14 +15,14 @@ const closed = (): ChatState =>
 const ids = (s: ChatState): string[] => flattenColumns(s.rightPanelTiles)
 
 describe('0224 r3 agent panel policy', () => {
-  it('offers only task to Work and integrates Coding tasks under plan', () => {
+  it('offers only task to Work and integrates Code tasks under plan', () => {
     expect(rightPanelTileDefinitionsForAgent('work').map((t) => t.id)).toEqual(['task'])
-    expect(rightPanelTileDefinitionsForAgent('coding').map((t) => t.id)).toEqual([
+    expect(rightPanelTileDefinitionsForAgent('code').map((t) => t.id)).toEqual([
       'plan',
       'subagent',
       'diff'
     ])
-    expect(rightPanelTarget('task', 'coding')).toBe('plan')
+    expect(rightPanelTarget('task', 'code')).toBe('plan')
     for (const id of ['plan', 'subagent', 'diff'] as const)
       expect(rightPanelTarget(id, 'work')).toBeNull()
   })
@@ -30,10 +30,10 @@ describe('0224 r3 agent panel policy', () => {
     const original = { ...initialChatState, cwd: 'C:/project', extraDirs: ['C:/docs'] }
     const selected = chatReducer(original, { type: 'SET_AGENT_KIND', kind: 'work' })
     expect(ids(selected)).toEqual([])
-    const coding = chatReducer(selected, { type: 'SET_AGENT_KIND', kind: 'coding' })
-    expect(ids(coding)).toEqual([])
-    expect(coding.cwd).toBe(original.cwd)
-    expect(coding.extraDirs).toBe(original.extraDirs)
+    const code = chatReducer(selected, { type: 'SET_AGENT_KIND', kind: 'code' })
+    expect(ids(code)).toEqual([])
+    expect(code.cwd).toBe(original.cwd)
+    expect(code.extraDirs).toBe(original.extraDirs)
   })
   it('opens once on first turn, allows toggling, and honors close on later turns', () => {
     expect(ids(started())).toEqual(['task'])
@@ -96,7 +96,7 @@ describe('0224 r3 agent panel policy', () => {
   it('filters stale columns without reopening an empty layout or allocating valid layouts', () => {
     const dirty = [{ id: 'old', tiles: ['diff', 'task', 'plan'] as ('diff' | 'task' | 'plan')[] }]
     expect(flattenColumns(rightPanelColumnsForAgent(dirty, 'work'))).toEqual(['task'])
-    expect(flattenColumns(rightPanelColumnsForAgent(dirty, 'coding'))).toEqual(['diff', 'plan'])
+    expect(flattenColumns(rightPanelColumnsForAgent(dirty, 'code'))).toEqual(['diff', 'plan'])
     const empty: [] = []
     expect(rightPanelColumnsForAgent(empty, 'work')).toBe(empty)
     const clean = started().rightPanelTiles
@@ -107,7 +107,7 @@ describe('0224 r3 agent panel policy', () => {
     expect(showsUnseenTaskBadge(2, ['task'], [], 'work')).toBe(false)
     expect(showsUnseenTaskBadge(0, [], [], 'work')).toBe(false)
   })
-  it('records explicit Work cwd selection once while retaining Coding cwd policy', () => {
+  it('records explicit Work cwd selection once while retaining Code cwd policy', () => {
     const work = { ...draft(), cwd: 'C:/Downloads' }
     const added = chatReducer(work, { type: 'ADD_EXTRA_DIR', dir: 'C:/Downloads' })
     expect(added.extraDirs).toEqual(['C:/Downloads'])

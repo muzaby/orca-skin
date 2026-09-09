@@ -4,6 +4,7 @@ import { isPinnedSession, placementOf, type SessionPlacement } from './sessionPl
 
 function session(over: Partial<SessionListItem> = {}): SessionListItem {
   return {
+    agentKind: 'code',
     id: 's1',
     backend: 'claude',
     title: null,

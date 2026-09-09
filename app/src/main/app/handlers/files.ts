@@ -28,6 +28,8 @@ import { handle, handlePlain } from '../../infra/ipc/handle'
 import type { RouterContext } from '../context'
 import { isAbsolutePath, isFilesystemRoot } from '../../../shared/absolute-path'
 import { directoryIdentity, parseStoredExtraDirectories } from '../../../shared/extra-directories'
+import { parseAgentKind } from '../../../shared/agent-kind'
+import { agentSessionPolicy } from '../../../shared/agent-session-policy'
 
 interface FilesHandlerContext extends Pick<RouterContext, 'getCwd'> {
   db: Pick<RouterContext['db'], 'hasSessionWithCwd' | 'getSessionById' | 'searchMessages'>
@@ -42,10 +44,11 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
   const isAllowedDir = (dir: string): boolean =>
     isWithinDir(dir, projectsDir()) || ctx.db.hasSessionWithCwd(dir)
 
-  const isRecordedWorkDirectory = (sessionId: string, directory: string): boolean => {
+  const isRecordedContextDirectory = (sessionId: string, directory: string): boolean => {
     const session = ctx.db.getSessionById(sessionId)
+    if (!session) return false
     return (
-      session?.agent_kind === 'work' &&
+      agentSessionPolicy[parseAgentKind(session.agent_kind)].allowContextFileOpen &&
       parseStoredExtraDirectories(session.extra_dirs).some(
         (recorded) => directoryIdentity(recorded) === directoryIdentity(directory)
       )
@@ -104,7 +107,7 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
       if (
         !isAbsolutePath(req.path) ||
         isFilesystemRoot(req.path) ||
-        !isRecordedWorkDirectory(req.sessionId, req.path)
+        !isRecordedContextDirectory(req.sessionId, req.path)
       ) {
         throw new Error('허용되지 않은 경로입니다.')
       }
@@ -124,7 +127,7 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
     // 경로 해석 중 세션 삭제/변경도 반영한다. scoped 요청은 일반 cwd 허용으로 폴백하지 않는다.
     const allowed =
       req.sessionId !== undefined
-        ? isRecordedWorkDirectory(req.sessionId, req.path)
+        ? isRecordedContextDirectory(req.sessionId, req.path)
         : isAllowedDir(req.path)
     if (!allowed) throw new Error('허용되지 않은 경로입니다.')
     const error = await shell.openPath(target)

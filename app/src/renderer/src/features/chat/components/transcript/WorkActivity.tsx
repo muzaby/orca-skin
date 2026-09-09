@@ -5,13 +5,16 @@ import type { Message } from '../../reducer/chatReducer'
 import { useI18n } from '../../../../shared/i18n'
 import { Icon } from '../../../../shared/ui/Icon'
 import type { WorkToolResults } from '../../lib/workToolResults'
+import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
 
 export const WorkActivity = memo(function WorkActivity({
   messages,
-  toolResults
+  toolResults,
+  transcriptPolicy
 }: {
   messages: Message[]
   toolResults?: WorkToolResults
+  transcriptPolicy: AgentTranscriptPresentation
 }): React.JSX.Element {
   const [project] = useState(createWorkProjector)
   const { tr } = useI18n()
@@ -20,7 +23,7 @@ export const WorkActivity = memo(function WorkActivity({
     return (
       <>
         {messages.map((message, index) => (
-          <AssistantMessage key={index} message={message} />
+          <AssistantMessage key={index} message={message} transcriptPolicy={transcriptPolicy} />
         ))}
       </>
     )
@@ -31,9 +34,13 @@ export const WorkActivity = memo(function WorkActivity({
     >
       {nodes.map((node) =>
         node.kind === 'segment' ? (
-          <AssistantSegment key={node.key} segment={node.segment} />
+          <AssistantSegment
+            key={node.key}
+            segment={node.segment}
+            transcriptPolicy={transcriptPolicy}
+          />
         ) : node.kind === 'activity' ? (
-          <ActivityDisclosure key={node.key} node={node} />
+          <ActivityDisclosure key={node.key} node={node} transcriptPolicy={transcriptPolicy} />
         ) : (
           <span
             key={node.key}
@@ -52,9 +59,11 @@ export const WorkActivity = memo(function WorkActivity({
 })
 
 function ActivityDisclosure({
-  node
+  node,
+  transcriptPolicy
 }: {
   node: Extract<WorkActivityNode, { kind: 'activity' }>
+  transcriptPolicy: AgentTranscriptPresentation
 }): React.JSX.Element {
   const { tr } = useI18n()
   const [open, setOpen] = useState(false)
@@ -72,7 +81,11 @@ function ActivityDisclosure({
       {open && (
         <div className="flex flex-col gap-g3 border-t border-border px-p5 py-p4">
           {node.items.map((item) => (
-            <AssistantSegment key={item.key} segment={item.segment} />
+            <AssistantSegment
+              key={item.key}
+              segment={item.segment}
+              transcriptPolicy={transcriptPolicy}
+            />
           ))}
         </div>
       )}

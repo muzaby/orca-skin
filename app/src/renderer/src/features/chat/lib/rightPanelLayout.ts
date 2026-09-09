@@ -1,5 +1,9 @@
 import type { AgentKind } from '../../../../../shared/agent-kind'
-import { isRightPanelTileVisible, type RightPanelTileId } from './rightPanelTiles'
+import {
+  isRightPanelTileVisible,
+  RIGHT_PANEL_POLICY,
+  type RightPanelTileId
+} from './rightPanelTiles'
 
 export const ROWS_PER_COL = 2
 
@@ -34,7 +38,7 @@ export function rightPanelColumnsForAgent(
   cols: RightPanelColumns,
   kind: AgentKind
 ): RightPanelColumns {
-  if (kind === 'work') {
+  if (RIGHT_PANEL_POLICY[kind].columnMode === 'task-focus') {
     if (cols.length === 0) return cols
     if (cols.length === 1 && cols[0].tiles.length === 1 && cols[0].tiles[0] === 'task') return cols
     const owner = cols.find((col) => col.tiles.includes('task'))

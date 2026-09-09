@@ -16,7 +16,7 @@ import { backgroundTaskKey, taskBoardFromMessages, taskBoardOrdered } from '../.
 import type { Message } from '../../reducer/chatReducer'
 import type { AppMessagePart } from '../../../../../../shared/ipc'
 
-// 현재 Coding 래퍼(`PlanTileContent`)는 store 를 읽는다 — `renderToStaticMarkup` 은 zustand 의 SSR
+// 현재 Code 래퍼(`PlanTileContent`)는 store 를 읽는다 — `renderToStaticMarkup` 은 zustand 의 SSR
 // 스냅샷(`getInitialState()`)을 돌려주어 시드가 반영되지 않는다. 그래서 store 모듈을 통째로
 // 모킹해 **래퍼가 View 로 흘리는 props** 를 카드 산출로 관측한다(선례 `ChatTitleBar.render.test.ts`).
 const { tileState } = vi.hoisted(() => ({
@@ -293,7 +293,7 @@ describe('0213 — 래퍼가 View 로 흘리는 props (VP-08 path `→ 카드` �
       cliVersion: '2.1.100'
     })
     expect(html).not.toContain(NOTICE)
-    // r5 실제 Coding 소비자는 계획·작업이 모두 없을 때 한 빈 상태만 표시한다.
+    // r5 실제 Code 소비자는 계획·작업이 모두 없을 때 한 빈 상태만 표시한다.
     expect(html).toContain('아직 플랜이 없습니다')
   })
 

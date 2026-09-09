@@ -13,6 +13,7 @@ import type { OrcaBusEvents } from '../contracts/bus-events'
 import type { TurnContext } from '../contracts/turn'
 import type { TurnRequest } from '../adapters/turn'
 import type { NormalizedEvent } from '../../shared/ipc'
+import { resolveAgentProfile } from '../features/agents/profiles'
 
 const turnFor = (): TurnContext =>
   ({
@@ -43,7 +44,10 @@ describe('Work response boundary composition', () => {
         createdAt: 1,
         agentKind: 'work'
       })
-      const writer = new HistoryWriter(queries)
+      const writer = new HistoryWriter(
+        queries,
+        (kind) => resolveAgentProfile(kind).persistResponseBoundaries
+      )
       const turn = Object.assign(turnFor(), {
         controller: new AbortController(),
         openToolRuns: new Map(),
@@ -95,7 +99,8 @@ describe('Work response boundary composition', () => {
         classifyError: () => ({ category: 'stream_error', message: 'failed', retryable: false }),
         activeTurns: { increment: () => {}, decrement: () => {} },
         backgroundTasks: new BackgroundTaskTracker(),
-        pendingMessages: queue
+        pendingMessages: queue,
+        persistResponseBoundaries: (kind) => resolveAgentProfile(kind).persistResponseBoundaries
       })
       await coordinator.run(
         turn,

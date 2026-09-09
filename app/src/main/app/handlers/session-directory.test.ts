@@ -192,15 +192,15 @@ describe('Work session:addDirectory — production registration, filesystem and 
       reason: 'invalid-directory'
     })
   })
-  it('rejects Coding and missing sessions without granting directories', async () => {
+  it('rejects Code and missing sessions without granting directories', async () => {
     queries.insertSession({
-      id: 'coding',
+      id: 'code',
       backend: 'claude',
       title: null,
       projectId: null,
       createdAt: 1
     })
-    expect(await invoke({ sessionId: 'coding', directory })).toEqual({
+    expect(await invoke({ sessionId: 'code', directory })).toEqual({
       ok: false,
       reason: 'not-work'
     })
@@ -208,6 +208,12 @@ describe('Work session:addDirectory — production registration, filesystem and 
       ok: false,
       reason: 'not-found'
     })
+  })
+  it('rejects an invalid persisted kind instead of treating it as Code', async () => {
+    db.pragma('ignore_check_constraints = ON')
+    db.prepare("UPDATE sessions SET agent_kind = 'corrupt' WHERE id = 'work'").run()
+    db.pragma('ignore_check_constraints = OFF')
+    await expect(invoke(request())).rejects.toThrow('Invalid agent kind')
   })
   it('rejects busy sessions before filesystem lookup', async () => {
     busy = true

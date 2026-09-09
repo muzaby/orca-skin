@@ -12,6 +12,7 @@ import {
   usePendingSteer
 } from '../store/chatStore'
 import type { UsageLimitsView } from '../../../../../shared/usage/limits'
+import { agentUiPolicy } from '../lib/agentPresentation'
 
 interface ChatTileProps {
   backendLabel: string
@@ -52,6 +53,7 @@ export function ChatTile({
 }: ChatTileProps): React.JSX.Element {
   const messages = useChatSession((s) => s.messages)
   const agentKind = useChatSession((s) => s.agentKind)
+  const policy = agentUiPolicy(agentKind)
   const sessionId = useChatSession((s) => s.sessionId)
   const sendCount = useChatSession((s) => s.sendCount)
   // 0143 — listen 대기(백그라운드 서브에이전트 완료 대기)도 사용자 관점 "작업 중" 이다:
@@ -103,7 +105,7 @@ export function ChatTile({
           <div className="relative flex min-h-0 flex-1 flex-col">
             <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-8 bg-gradient-to-b from-bg to-transparent" />
             <TranscriptView
-              key={agentKind === 'work' ? activeKey : undefined}
+              key={policy.transcript.remountTranscriptBySession ? activeKey : undefined}
               agentKind={agentKind}
               messages={messages}
               pendingSteer={pendingSteer}
@@ -120,7 +122,7 @@ export function ChatTile({
           </div>
 
           <Composer
-            showGitRow
+            showGitRow={policy.composer.showGitRow}
             backendLabel={backendLabel}
             canAbort={canAbort}
             showScrollToBottom={showJump}

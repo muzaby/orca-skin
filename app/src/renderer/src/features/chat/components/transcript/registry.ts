@@ -17,6 +17,7 @@ import { AskBody } from './tool-bodies/AskBody'
 import { AgentTaskBody } from './tool-bodies/AgentTaskBody'
 import { TaskToolBody } from './tool-bodies/TaskToolBody'
 import { KeyValueBody } from './tool-bodies/KeyValueBody'
+import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
 
 // 렌더 카드의 시맨틱 종류 (rendering.md §1.6 정본 taxonomy). 도구 이름이 아니라 "무엇을
 // 보여주는가" 로 분류한다. 본 레지스트리는 *도구 본문*(tool_call 파트)만 다루므로 그중
@@ -47,7 +48,10 @@ export type RenderableKind =
 export interface ToolRenderer {
   kind: RenderableKind
   match: (call: ToolCall) => boolean
-  Body: (props: { call: ToolCall }) => React.JSX.Element
+  Body: (props: {
+    call: ToolCall
+    transcriptPolicy: AgentTranscriptPresentation
+  }) => React.JSX.Element
 }
 
 export class ToolRendererRegistry {

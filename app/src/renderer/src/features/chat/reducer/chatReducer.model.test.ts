@@ -88,7 +88,14 @@ describe('chatReducer sessionCostUsd 누산(0122 r2)', () => {
   it('LOAD_SESSION 은 costUsd 로 시드하고 이후 telemetry 가 그 위에 누산한다', () => {
     const loaded = chatReducer(initialChatState, {
       type: 'LOAD_SESSION',
-      session: { id: 's1', backend: 'claude', title: 't', messages: [], costUsd: 1.2 }
+      session: {
+        agentKind: 'code',
+        id: 's1',
+        backend: 'claude',
+        title: 't',
+        messages: [],
+        costUsd: 1.2
+      }
     })
     expect(loaded.sessionCostUsd).toBeCloseTo(1.2, 10)
     const next = chatReducer(
@@ -101,7 +108,7 @@ describe('chatReducer sessionCostUsd 누산(0122 r2)', () => {
   it('costUsd 없는 LOAD_SESSION 은 undefined 로 시작한다', () => {
     const loaded = chatReducer(initialChatState, {
       type: 'LOAD_SESSION',
-      session: { id: 's1', backend: 'claude', title: 't', messages: [] }
+      session: { agentKind: 'code', id: 's1', backend: 'claude', title: 't', messages: [] }
     })
     expect(loaded.sessionCostUsd).toBeUndefined()
   })
