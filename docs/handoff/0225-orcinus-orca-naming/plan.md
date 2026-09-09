@@ -690,6 +690,14 @@ PRODUCT_SLUG ─→ paths.ts/db/store 6종 ─→ 디스크 이름 ─→ (이�
 
 ## [검증자 기입] 파생 이슈
 
+> r1 판정 원문은 [`verify.md`](verify.md). 여기엔 이관 대상 파생 이슈만 둔다.
+
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | … | … | … | … | … |
+| D1 | `app/AGENTS.md:171` 이 `name=`orca`` 로 남았다 | 비귀속 — AT-12 는 `release-operations.md` 만 잠근다 | 다음 문서 손질에서 정정 | NON_BLOCKING | open |
+| D2 | baseline red 13 건의 서명이 하나가 아니다 — `handlers/session.load.test.ts` 2 건은 `extraDirs: []` deep-equal 불일치 | 비귀속 — 변경 전 트리에서 동일 | 기존 red 의 원인은 별도 조사 | NON_BLOCKING | open |
+| D3 | 첫 부팅에 새 userData 루트가 이미 있으면 이관이 통째로 conflict 로 넘어간다. electron 의 userData 생성 시점을 이 환경에서 확인 불가 | VP-06 production path 의 전제 | §19 사람 실기 ② 가 관측. 완화안 ① 빈 target 은 항목 단위 이관 ② 루트 conflict 를 critical 로 승격 | NON_BLOCKING (사용자 결정) | open |
+| D4 | 음성 스윕이 `.css` 를 보지 않는다 — 차집합은 `tokens.css` 주석 3행 | VP-04 | 표시 문자열 0건 주장은 유지된다 | NON_BLOCKING | open |
+| D5 | main 주석 8행이 옛 경로를 서술한다 (`~/.config/orca` 7 · `dist/plugins/orca` 1) | 비귀속 — D-012 가 주석을 비범위로 둔다 | 다음 손질에서 함께 | NON_BLOCKING | open |
+| D6 | `appId` 값 `com.orcinus-orca.app` 을 구현자가 정했다 (§17 one-way door) | D-013 | **릴리스 전 사용자 승인** | NON_BLOCKING (사용자 결정) | open |
+| D7 | `legacy !== current` 가 영구 참이라 rebase SELECT 2건이 매 부팅 돈다 | 비귀속 — §14 가 세지 않은 비용 | 비용이 작아 지금 고치지 않는다 | NON_BLOCKING | open |
