@@ -1,4 +1,13 @@
-import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  symlink,
+  writeFile
+} from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { unlinkSync, writeFileSync } from 'node:fs'
@@ -302,7 +311,7 @@ describe('artifact real filesystem and SQLite publication', () => {
     expect((await f.service.readForExport('a', publicationId)).bytes.toString()).toBe(
       'User changed'
     )
-    expect(await f.service.revealPath('a', publicationId)).toBe(path)
+    expect(await f.service.revealPath('a', publicationId)).toBe(await realpath(path))
     await expect(f.service.readForExport('b', publicationId)).rejects.toThrow('forbidden')
     expect(await f.service.trash('a', publicationId)).toEqual({
       outcome: 'trashed',

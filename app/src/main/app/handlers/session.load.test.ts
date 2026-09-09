@@ -152,6 +152,7 @@ describe('session load IPC restores the complete persisted view', () => {
       providerKey: 'claude-local',
       projectId: null,
       cwd: '/managed/wt',
+      extraDirs: [],
       messages: [
         {
           role: 'assistant',
@@ -197,6 +198,7 @@ describe('session load IPC restores the complete persisted view', () => {
       providerKey: 'claude-local',
       projectId: null,
       cwd: '/fallback/default',
+      extraDirs: [],
       messages: [
         {
           role: 'assistant',

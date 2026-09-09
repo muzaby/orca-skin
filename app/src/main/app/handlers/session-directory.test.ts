@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3'
-import { mkdtempSync, mkdirSync, rmSync, realpathSync, writeFileSync, symlinkSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, symlinkSync } from 'node:fs'
+import { realpath } from 'node:fs/promises'
 import { join, dirname, resolve, parse } from 'node:path'
 import { tmpdir } from 'node:os'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
@@ -104,36 +105,36 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
 
 describe('Work session:addDirectory — production registration, filesystem and SQLite', () => {
   it('persists canonical directories, restores them and uses DB scope on resume', async () => {
-    expect(await invoke(request())).toEqual({ ok: true, extraDirs: [realpathSync(directory)] })
+    expect(await invoke(request())).toEqual({ ok: true, extraDirs: [await realpath(directory)] })
     const meta = queries.getSessionById('work')!
     expect(meta.cwd).toBe(root)
-    expect(loadSession(queries, 'work', () => root)?.extraDirs).toEqual([realpathSync(directory)])
+    expect(loadSession(queries, 'work', () => root)?.extraDirs).toEqual([await realpath(directory)])
     expect(resolveTurnExtraDirs({ sessionId: 'work', extraDirs: ['C:/forged'] }, meta)).toEqual([
-      realpathSync(directory)
+      await realpath(directory)
     ])
   })
   it('keeps an already added directory idempotent without a DB write', async () => {
     await invoke(request())
     const update = vi.spyOn(queries, 'updateSessionExtraDirs')
-    expect(await invoke(request())).toEqual({ ok: true, extraDirs: [realpathSync(directory)] })
+    expect(await invoke(request())).toEqual({ ok: true, extraDirs: [await realpath(directory)] })
     expect(update).not.toHaveBeenCalled()
   })
   it('persists an explicitly selected cwd for Context and reload without changing cwd', async () => {
     expect(loadSession(queries, 'work', () => root)?.extraDirs).toEqual([])
     expect(await invoke({ ...request(), directory: root })).toEqual({
       ok: true,
-      extraDirs: [realpathSync(root)]
+      extraDirs: [await realpath(root)]
     })
     const meta = queries.getSessionById('work')!
     expect(meta.cwd).toBe(root)
-    expect(loadSession(queries, 'work', () => root)?.extraDirs).toEqual([realpathSync(root)])
+    expect(loadSession(queries, 'work', () => root)?.extraDirs).toEqual([await realpath(root)])
     expect(resolveTurnExtraDirs({ sessionId: 'work', extraDirs: ['C:/forged'] }, meta)).toEqual([
-      realpathSync(root)
+      await realpath(root)
     ])
     const update = vi.spyOn(queries, 'updateSessionExtraDirs')
     expect(await invoke({ ...request(), directory: root })).toEqual({
       ok: true,
-      extraDirs: [realpathSync(root)]
+      extraDirs: [await realpath(root)]
     })
     expect(update).not.toHaveBeenCalled()
   })
@@ -150,13 +151,13 @@ describe('Work session:addDirectory — production registration, filesystem and 
       agentKind: 'work'
     })
     const selected = { sessionId: 'aliased-work', directory: alias }
-    expect(await invoke(selected)).toEqual({ ok: true, extraDirs: [realpathSync(directory)] })
+    expect(await invoke(selected)).toEqual({ ok: true, extraDirs: [await realpath(directory)] })
     const update = vi.spyOn(queries, 'updateSessionExtraDirs')
     expect(await invoke({ ...selected, directory })).toEqual({
       ok: true,
-      extraDirs: [realpathSync(directory)]
+      extraDirs: [await realpath(directory)]
     })
-    expect(await invoke(selected)).toEqual({ ok: true, extraDirs: [realpathSync(directory)] })
+    expect(await invoke(selected)).toEqual({ ok: true, extraDirs: [await realpath(directory)] })
     expect(queries.getSessionById('aliased-work')!.cwd).toBe(alias)
     expect(update).not.toHaveBeenCalled()
   })
@@ -281,7 +282,7 @@ describe('Work session:addDirectory — production registration, filesystem and 
     ])
     expect(results.every((result) => result.ok)).toBe(true)
     expect(JSON.parse(queries.getSessionById('work')!.extra_dirs!)).toEqual(
-      expect.arrayContaining([realpathSync(directory), realpathSync(second)])
+      expect.arrayContaining(await Promise.all([realpath(directory), realpath(second)]))
     )
   })
   it('refuses new additions at the limit while preserving prior entries', async () => {

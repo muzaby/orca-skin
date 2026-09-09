@@ -79,7 +79,7 @@ describe('Context directory open — actual registration, SQLite and filesystem'
   it('opens the stored Work extra directory without changing cwd or allowed scope', async () => {
     const before = queries.getSessionById('work')!
     await invoke(request())
-    expect(host.openPath).toHaveBeenCalledExactlyOnceWith(realpathSync(directory))
+    expect(host.openPath).toHaveBeenCalledExactlyOnceWith(await fs.realpath(directory))
     expect(host.reveal).not.toHaveBeenCalled()
     expect(queries.getSessionById('work')).toEqual(before)
   })
@@ -87,7 +87,7 @@ describe('Context directory open — actual registration, SQLite and filesystem'
     await expect(invoke({ ...request(), path: cwd })).rejects.toThrow('허용되지 않은')
     queries.updateSessionExtraDirs('work', [realpathSync(cwd)])
     await invoke({ ...request(), path: cwd })
-    expect(host.openPath).toHaveBeenCalledExactlyOnceWith(realpathSync(cwd))
+    expect(host.openPath).toHaveBeenCalledExactlyOnceWith(await fs.realpath(cwd))
   })
   it.each(['other', 'code', 'missing'])(
     'rejects a folder outside the requested %s Work scope',
@@ -129,7 +129,7 @@ describe('Context directory open — actual registration, SQLite and filesystem'
     symlinkSync(directory, alias, process.platform === 'win32' ? 'junction' : 'dir')
     queries.updateSessionExtraDirs('work', [alias])
     await invoke({ ...request(), path: alias })
-    expect(host.openPath).toHaveBeenCalledExactlyOnceWith(realpathSync(directory))
+    expect(host.openPath).toHaveBeenCalledExactlyOnceWith(await fs.realpath(directory))
     await expect(invoke(request())).rejects.toThrow('허용되지 않은')
   })
   it('rechecks the stored session after asynchronous path resolution', async () => {

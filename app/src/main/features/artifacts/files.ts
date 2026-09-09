@@ -13,6 +13,37 @@ import {
 function samePath(a: string, b: string): boolean {
   return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b
 }
+
+async function unredirectedDirectory(path: string): Promise<string> {
+  const info = await lstat(path)
+  if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('unsafe-path')
+  const actual = await realpath(path)
+  assertLocalPath(actual)
+  const resolved = resolve(path)
+  if (samePath(actual, resolved)) return actual
+
+  // Windows 8.3 names resolve to a different spelling without redirecting the directory.
+  // Check ancestors only on a spelling mismatch; a junction must still be rejected.
+  let ancestor = dirname(resolved)
+  while (true) {
+    const parentInfo = await lstat(ancestor)
+    if (!parentInfo.isDirectory() || parentInfo.isSymbolicLink()) throw new Error('unsafe-path')
+    const parent = dirname(ancestor)
+    if (parent === ancestor) break
+    ancestor = parent
+  }
+  const current = await lstat(path)
+  if (
+    !current.isDirectory() ||
+    current.isSymbolicLink() ||
+    current.dev !== info.dev ||
+    current.ino !== info.ino
+  )
+    throw new Error('unsafe-path')
+  if (!samePath(await realpath(path), actual)) throw new Error('unsafe-path')
+  return actual
+}
+
 function sameFile(a: Stats, b: Stats): boolean {
   return (
     a.dev === b.dev &&
@@ -122,13 +153,7 @@ export class ArtifactFiles {
       let ancestor = this.rootDir
       while (true) {
         try {
-          const info = await lstat(ancestor)
-          if (
-            !info.isDirectory() ||
-            info.isSymbolicLink() ||
-            !samePath(await realpath(ancestor), resolve(ancestor))
-          )
-            throw new Error('unsafe-path')
+          await unredirectedDirectory(ancestor)
           break
         } catch (error) {
           if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT'))
@@ -140,11 +165,7 @@ export class ArtifactFiles {
       }
       await mkdir(this.rootDir, { recursive: true })
     }
-    const info = await lstat(this.rootDir)
-    const actual = await realpath(this.rootDir)
-    if (!info.isDirectory() || info.isSymbolicLink() || !samePath(actual, resolve(this.rootDir)))
-      throw new Error('unsafe-path')
-    return actual
+    return unredirectedDirectory(this.rootDir)
   }
 
   private async parent(fileId: string): Promise<string> {

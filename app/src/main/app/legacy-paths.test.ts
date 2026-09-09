@@ -13,14 +13,20 @@ import { join } from 'node:path'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { applyMigrations } from '../infra/db/migrate'
 import { warmFileSqlite } from '../infra/db/warm-file-sqlite'
-import { execGit, removeTempRoots } from '../infra/git/temp-repo.testfixture'
+import {
+  execGit,
+  FIXTURE_GIT_TIMEOUT_MS,
+  removeTempRoots
+} from '../infra/git/temp-repo.testfixture'
 import { runGit } from '../infra/git/runner'
 import { rebaseStoredPaths, repairMovedWorktrees } from './legacy-paths'
 
 // `git worktree prune -v` 는 진단을 **stderr** 로 낸다. stdout 만 보면 어떤 상태에서도 빈
 // 문자열이라 단언이 항상 통과한다 — 적대 케이스가 이 실수를 잡았다.
 async function pruneDiagnostics(repoRoot: string): Promise<string> {
-  const result = await runGit(repoRoot, ['worktree', 'prune', '-n', '-v'])
+  const result = await runGit(repoRoot, ['worktree', 'prune', '-n', '-v'], {
+    timeoutMs: FIXTURE_GIT_TIMEOUT_MS
+  })
   return `${result.stdout}${result.stderr}`.trim()
 }
 
@@ -171,7 +177,9 @@ describe('repairMovedWorktrees', () => {
     expect(report.repairFailed).toEqual([])
     expect(report.repaired).toEqual([join(newRoot, 'worktrees', 'r', 'feat')])
     expect(await pruneDiagnostics(repoDir)).toBe('')
-    const status = await runGit(join(newRoot, 'worktrees', 'r', 'feat'), ['status', '--short'])
+    const status = await runGit(join(newRoot, 'worktrees', 'r', 'feat'), ['status', '--short'], {
+      timeoutMs: FIXTURE_GIT_TIMEOUT_MS
+    })
     expect(status.ok).toBe(true)
   })
 
@@ -205,7 +213,9 @@ describe('repairMovedWorktrees', () => {
     const movedRepo = join(newRoot, 'projects', 'p')
     const movedWorktree = join(newRoot, 'worktrees', 'r', 'feat')
     // 전제 재현: 이동 직후에는 워크트리가 저장소로 열리지 않는다.
-    const broken = await runGit(movedWorktree, ['status', '--short'])
+    const broken = await runGit(movedWorktree, ['status', '--short'], {
+      timeoutMs: FIXTURE_GIT_TIMEOUT_MS
+    })
     expect(broken.ok).toBe(false)
 
     const db = openDb(join(root, 'db.sqlite'))
@@ -216,7 +226,9 @@ describe('repairMovedWorktrees', () => {
     expect(report.repairFailed).toEqual([])
     expect(existsSync(movedRepo)).toBe(true)
     expect(await pruneDiagnostics(movedRepo)).toBe('')
-    const status = await runGit(movedWorktree, ['status', '--short'])
+    const status = await runGit(movedWorktree, ['status', '--short'], {
+      timeoutMs: FIXTURE_GIT_TIMEOUT_MS
+    })
     expect(status.ok).toBe(true)
   })
 
