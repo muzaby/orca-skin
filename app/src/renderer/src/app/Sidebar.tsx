@@ -2,6 +2,7 @@ import { memo, useCallback, useRef, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Icon } from '../shared/ui/Icon'
 import { OrcaLogo } from '../shared/ui/OrcaLogo'
+import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 import { useTweakContext } from '../shared/theme'
 import { useI18n } from '../shared/i18n'
 import { useDragResize } from '../shared/hooks/useDragResize'
@@ -127,7 +128,7 @@ function SidebarImpl({
           <div className="app-frame-sidebar-brand flex items-center gap-2 px-3 pb-1.5 pt-2.5">
             <OrcaLogo className="h-[18px] w-auto flex-none text-ink" />
             <span className="font-serif text-[16px] font-semibold tracking-tight text-ink">
-              Orca
+              {PRODUCT_DISPLAY_NAME}
             </span>
           </div>
 

@@ -2,6 +2,8 @@
 // t() 키를 강제). en.ts 는 `typeof ko` 로 선언해 양방향 키 패리티를 컴파일 타임에 보장한다.
 // 값은 기존 하드코딩 문자열을 그대로 옮긴 것 — ko 표시 결과는 마이그레이션 전후 동일해야 한다.
 
+import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../../../shared/product'
+
 export const ko = {
   common: {
     cancel: '취소',
@@ -173,8 +175,7 @@ export const ko = {
       markdownAria: '마크다운',
       plainTextAria: '텍스트 원문',
       removeTitle: '스킬 제거',
-      removeConfirmBody:
-        '이 작업은 Orca 스킬 sources에서 다음 폴더를 제거합니다. 계속하려면 한 번 더 확인하세요.'
+      removeConfirmBody: `이 작업은 ${PRODUCT_DISPLAY_NAME} 스킬 sources에서 다음 폴더를 제거합니다. 계속하려면 한 번 더 확인하세요.`
     },
     addMenu: {
       create: '스킬 만들기',
@@ -197,12 +198,12 @@ export const ko = {
       dropHint: '드래그 앤 드롭하거나 클릭하여 업로드',
       requirements: '파일 요구사항',
       reqLine1: '.md 또는 .skill 파일에 YAML frontmatter와 스킬 지침을 포함합니다',
-      reqLine2: '업로드한 파일은 Orca 스킬 sources에 SKILL.md로 저장됩니다',
+      reqLine2: `업로드한 파일은 ${PRODUCT_DISPLAY_NAME} 스킬 sources에 SKILL.md로 저장됩니다`,
       failed: '스킬 업로드에 실패했습니다.'
     },
     customMcp: {
       title: 'MCP 서버 추가',
-      pasteHint: '단일 MCP 서버 JSON 항목을 붙여넣으면 Orca sources mcp.json에 병합합니다.',
+      pasteHint: `단일 MCP 서버 JSON 항목을 붙여넣으면 ${PRODUCT_DISPLAY_NAME} sources mcp.json에 병합합니다.`,
       adding: '추가 중…',
       failed: 'MCP 추가에 실패했습니다.',
       jsonObject: 'JSON 객체를 입력하세요.',
@@ -218,8 +219,7 @@ export const ko = {
       remove: '제거',
       removing: '제거 중…',
       removeTitle: 'MCP 서버 제거',
-      removeConfirmBody:
-        '이 작업은 Orca sources mcp.json에서 다음 서버를 제거합니다. 계속하려면 한 번 더 확인하세요.',
+      removeConfirmBody: `이 작업은 ${PRODUCT_DISPLAY_NAME} sources mcp.json에서 다음 서버를 제거합니다. 계속하려면 한 번 더 확인하세요.`,
       configSummary: '설정 요약'
     },
     addServer: {
@@ -293,8 +293,7 @@ export const ko = {
     title: '엔진 & 모델',
     subtitle: 'provider settings 환경',
     addEngine: '엔진 추가',
-    blurb:
-      '<c>~/.config/orca/sources/settings</c> 의 provider settings 를 기반으로 Composer 모델 메뉴가 구성됩니다. 편집 후 앱 재시작 없이 모델 메뉴가 갱신됩니다.',
+    blurb: `<c>~/.config/${PRODUCT_SLUG}/sources/settings</c> 의 provider settings 를 기반으로 Composer 모델 메뉴가 구성됩니다. 편집 후 앱 재시작 없이 모델 메뉴가 갱신됩니다.`,
     emptyState: '등록된 provider 가 없습니다. 엔진 추가 버튼으로 claude provider 를 생성하세요.',
     deleteConfirm: '{{name}} provider 를 삭제할까요?',
     card: { unsupportedAdapter: '미지원 adapter', readOnly: '읽기 전용' },
@@ -363,7 +362,7 @@ export const ko = {
     }
   },
   update: {
-    dialogTitle: 'Orca 업데이트',
+    dialogTitle: `${PRODUCT_DISPLAY_NAME} 업데이트`,
     status: {
       idle: '업데이트 대기 중',
       checking: '업데이트 확인 중…',
@@ -510,7 +509,7 @@ export const ko = {
       residualAction: '세션 전체 중단'
     },
     // 0211 — 격리 준비의 다섯 단계. `StatusLine` 한 줄이 이 문구로 바뀐다(D-002).
-    // Orca 가 **실제로 하는 일**만 적는다(D-001) — origin fetch 는 하지 않으므로 없다.
+    // Orcinus orca 가 **실제로 하는 일**만 적는다(D-001) — origin fetch 는 하지 않으므로 없다.
     worktreePrepare: {
       repo: '저장소를 확인하는 중…',
       base: '기준 커밋을 확인하는 중…',
@@ -738,7 +737,7 @@ export const ko = {
         },
         dont_ask: {
           label: '묻지 않음',
-          desc: 'Orca 승인 질문을 만들지 않고 기본 자동 진행 정책을 따릅니다.'
+          desc: `${PRODUCT_DISPLAY_NAME} 승인 질문을 만들지 않고 기본 자동 진행 정책을 따릅니다.`
         },
         riskyConfirm: '모든 승인 게이트가 해제됩니다. 한 번 더 눌러 확인하세요.'
       },
@@ -755,8 +754,7 @@ export const ko = {
       handoffNeedMoreTurns: '대화가 더 진행된 뒤 사용할 수 있습니다',
       scrollToBottom: '맨 아래로',
       concurrencyNoticeTitle: '같은 프로젝트에서 다른 작업이 실행 중입니다.',
-      concurrencyNoticeBody:
-        '파일 충돌 가능성이 있습니다. Orca는 작업을 차단하지 않으며, 동시 실행 여부는 사용자가 판단합니다.',
+      concurrencyNoticeBody: `파일 충돌 가능성이 있습니다. ${PRODUCT_DISPLAY_NAME}는 작업을 차단하지 않으며, 동시 실행 여부는 사용자가 판단합니다.`,
       queuedNoticeTitle: '연결 대기 중입니다.',
       queuedNoticeBody: '이전 새 대화의 세션이 준비되는 대로 이 메시지를 순서대로 전송합니다.',
       backendTitle: '백엔드: {{label}}',
@@ -975,7 +973,7 @@ export const ko = {
     update: '업데이트',
     version: '버전',
     quit: '종료',
-    versionModalAria: 'Orca 버전'
+    versionModalAria: `${PRODUCT_DISPLAY_NAME} 버전`
   },
   settings: {
     title: '설정',

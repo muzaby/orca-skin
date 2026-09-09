@@ -40,7 +40,7 @@ async function fixture(): Promise<{
   // source 는 **실재하는** 디렉토리여야 한다 — 폴백은 되돌릴 곳이 있을 때만 성립한다.
   const source = dir
   const worktreeRoot = join(dir, 'gone', 'work-x')
-  const file = join(dir, 'orca.db')
+  const file = join(dir, 'orcinus-orca.db')
   const db = new Database(file)
   handles.push(db)
   db.pragma('foreign_keys = ON')

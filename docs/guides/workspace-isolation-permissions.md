@@ -132,7 +132,7 @@ for await (const message of query({ prompt: userPrompt, options })) {
 |---|---|---|
 | workspace (작업 폴더) + `additionalDirectories` | 허용 | 허용 |
 | `~/.claude` — plugin/skill 제공 | 허용 | 차단 *(가이드 기본값 — Orca 구현은 **허용**, 아래 편차 노트)* |
-| `~/.config/orca/` — plugin 제공 | 허용 | 차단 (단, 세션 cwd 가 이 하위면 cwd 는 writeRoots — 예외의 예외) |
+| `~/.config/orcinus-orca/` — plugin 제공 | 허용 | 차단 (단, 세션 cwd 가 이 하위면 cwd 는 writeRoots — 예외의 예외) |
 | node/python skill 런타임 경로 (실행 특성상 read 불가피) | 허용 | 차단 |
 | 그 외 모든 경로 | 차단 | 차단 |
 
@@ -276,7 +276,7 @@ function screenBashCommand(
     }
   }
 
-  // 3) 홈/시스템 확장 차단 (~/.claude, ~/.config/orca 예외)
+  // 3) 홈/시스템 확장 차단 (~/.claude, ~/.config/orcinus-orca 예외)
   if (/(^|\s)(~[^\/\s]|~\/(?!\.claude|\.config\/orca))/.test(cmd)) {
     return { block: true, reason: "Bash 홈 디렉터리 확장 차단" };
   }
@@ -359,7 +359,7 @@ disallowedTools: [
 - [ ] `Bash: cat /etc/hosts` → (Orca 구현) 코드 차단 아님 — 프롬프트 유도 + 승인 카드 (§3.5 SUPERSEDED)
 - [ ] `Bash: cat ../../secret` → 동상
 - [ ] `~/.claude` 하위 Read → 허용, Write → 가이드 기본 차단 / **Orca 구현 허용** (§3.2 편차 노트)
-- [ ] `~/.config/orca` 하위 Read → 허용
+- [ ] `~/.config/orcinus-orca` 하위 Read → 허용
 - [ ] **`AskUserQuestion` → 사용자에게 질문이 뜬다 (자동 거부되지 않음)**
 - [ ] **`ExitPlanMode` / `plan` 모드 → 계획 제출 후 정상 진행 (자동 거부되지 않음)**
 - [ ] node/python skill 실행 → 정상 동작 (깨지면 런타임 경로를 `readRoots` 에 추가)

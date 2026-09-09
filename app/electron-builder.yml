@@ -1,5 +1,5 @@
-appId: com.orca.app
-productName: orca
+appId: com.orcinus-orca.app
+productName: Orcinus orca
 directories:
   buildResources: build
 files:
@@ -22,7 +22,7 @@ extraResources:
   - from: resources/builtin
     to: builtin
 win:
-  executableName: orca
+  executableName: orcinus-orca
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

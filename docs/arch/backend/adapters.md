@@ -161,7 +161,7 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 
 ### 2.4 로그
 
-- 위치: `~/.config/orca/logs/application.jsonl` (홈 디렉토리 고정, dev/prod 공통). 중앙 LogManager JSONL 단일 파이프라인 — 정본은 [observability.md](observability.md).
+- 위치: `~/.config/orcinus-orca/logs/application.jsonl` (홈 디렉토리 고정, dev/prod 공통). 중앙 LogManager JSONL 단일 파이프라인 — 정본은 [observability.md](observability.md).
 - 로테이션: 10MB × 5개(base + .1~.4), 초과 시 오래된 것부터 삭제.
 
 ---
@@ -298,7 +298,7 @@ interface NormalizedHookSet {
 
 #### 3.2.6 보안 주의 — hook 은 임의 코드 실행
 
-Hook 은 정의상 도구 호출/세션 시점에 **임의 로직**을 실행한다. claude 선언형 hook 은 shell 명령까지 돈다. 정규 소스 `~/.config/orca/hooks/` 를 도입한다면:
+Hook 은 정의상 도구 호출/세션 시점에 **임의 로직**을 실행한다. claude 선언형 hook 은 shell 명령까지 돈다. 정규 소스 `~/.config/orcinus-orca/hooks/` 를 도입한다면:
 - 출처 신뢰 모델(누가 hook 을 넣을 수 있는가)을 명시하고,
 - renderer 에는 hook *메타*만 노출(코드 본문 비노출),
 - 비밀은 security.md 의 불변식대로 hook 코드에 평문 인라인 금지(secret-store 경유).

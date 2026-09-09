@@ -78,7 +78,7 @@ jobs:
       # 게시 여부와 무관하게 산출물을 보존한다 — 롤백 스태시 겸 dry-run 결과 확인용
       - uses: actions/upload-artifact@v4
         with:
-          name: orca-win-${{ github.ref_name }}
+          name: orcinus-orca-win-${{ github.ref_name }}
           path: |
             app/dist/*-setup.exe
             app/dist/*-setup.exe.blockmap

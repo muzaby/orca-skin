@@ -36,7 +36,7 @@ async function setup(fileDb = false): Promise<{
   const cwd = join(root, 'workspace')
   const rootDir = join(orcaConfigDir(), 'artifacts')
   await mkdir(cwd)
-  const db = new Database(fileDb ? join(root, 'orca.db') : ':memory:')
+  const db = new Database(fileDb ? join(root, 'orcinus-orca.db') : ':memory:')
   databases.push(db)
   db.pragma('foreign_keys = ON')
   applyMigrations(db)
@@ -90,7 +90,7 @@ describe('artifact real filesystem and SQLite publication', () => {
     databases.splice(databases.indexOf(f.db), 1)
     await rm(join(f.cwd, 'report.md'))
 
-    const reopened = new Database(join(f.root, 'orca.db'))
+    const reopened = new Database(join(f.root, 'orcinus-orca.db'))
     databases.push(reopened)
     reopened.pragma('foreign_keys = ON')
     applyMigrations(reopened)

@@ -455,7 +455,7 @@ subprocess env가 아니라 runtime catalog에 전달된다.
 - **미인증이면 실패시킨다** — 빈 문자열로 치환하지 않는다. 인증된 것처럼 보이는 요청이 나가면
   서버가 401 대신 이상한 오류를 준다.
 - 우선순위는 `spawn env injector > augmenter env > settings env > app env > process env` 다.
-  **settings env 가 app env 를 이긴다** — `orca.json` 의 app env 는 전역 폴백이고 ModelProvider
+  **settings env 가 app env 를 이긴다** — `orcinus-orca.json` 의 app env 는 전역 폴백이고 ModelProvider
   settings 는 그 ModelProvider 전용 설정이다. 폴백이 전용을 이기면 게이트웨이를 바꿔도 URL·모델
   변수가 따라오지 않는다. 최상위 injector 는 §3-d 다 — **그것이 여기 augmenter 값을 덮는다.**
 - `options.env` 를 만드는 턴에는 settings 의 **`env` 블록이 통째로** in-memory 사본에서 빠지고 그
@@ -791,7 +791,7 @@ export function createPluginBindings(deps: {
   (fail-closed). 빈 문자열로 채우지 않는다.
 - **세션 grant(쿠키)는 값이 아니므로 `null` 이다** — SSO 는 MCP 로 반출되지 않는다(0178 결정).
   MCP 에는 PAT·ID/비밀번호·토큰을 쓴다.
-- 해석된 값은 `dist/plugins/orca/.mcp.json` 에 평문으로 렌더된다(문서화된 예외 1,
+- 해석된 값은 `dist/plugins/orcinus-orca/.mcp.json` 에 평문으로 렌더된다(문서화된 예외 1,
   [`arch/backend/security.md §1.4-b`](../arch/backend/security.md)) — claude CLI 가 그 파일을 읽어
   서버를 spawn 하기 때문이다.
 
@@ -1093,7 +1093,7 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 5. `allowedOrigins` 에 로그인 왕복이 지나는 origin 을 **전부** 넣는다.
 6. `npm run build:win` 으로 배포본을 만든다(릴리스 절차는 [`release-operations.md`](./release-operations.md)).
 7. 실기: 로그인 화면 → 사내 로그인 → 메인 UI 진입 → 연결 탭에서 상태·재인증·해제 확인.
-8. 로그(`~/.config/orca/logs/`)에서 `providers.*` 이벤트로 거부·실패 사유를 확인한다.
+8. 로그(`~/.config/orcinus-orca/logs/`)에서 `providers.*` 이벤트로 거부·실패 사유를 확인한다.
 
 ---
 
@@ -1138,10 +1138,10 @@ provider 선언과 별개로, **배포본 자체를 폐쇄망에서 만들고 �
 
 **자동 업데이트**: 피드가 설정되지 않으면 updater 는 이미 noop 으로 저하된다
 (`feed-not-configured`, `app/src/main/app/updater.ts`) — 외부 GitHub Releases 피드는 폐쇄망에서
-자연히 불능이다. 사내 피드는 `orca.json` 의 `update` 로 **코드 수정 없이** 지정한다
+자연히 불능이다. 사내 피드는 `orcinus-orca.json` 의 `update` 로 **코드 수정 없이** 지정한다
 (스키마·조립 정본: `infra/config/orca-file.ts` · `app/updater-feed.ts`).
 
-| provider | `orca.json` 예 | 언제 |
+| provider | `orcinus-orca.json` 예 | 언제 |
 |---|---|---|
 | `s3` (권장 — MinIO/S3-호환) | `{ "update": { "provider": "s3", "bucket": "orca-updates", "endpoint": "http://minio.internal:9000", "path": "win" } }` | `endpoint` 를 주면 electron-updater 가 `${endpoint}/${bucket}[/${path}]` 를 base URL 로 삼는다(사내 MinIO). 생략하면 AWS S3(`region` 사용) |
 | `generic` | `{ "update": { "provider": "generic", "url": "https://updates.internal/orca/" } }` | 임의 HTTPS 정적 호스트 |

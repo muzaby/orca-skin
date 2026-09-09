@@ -40,7 +40,11 @@ import { netFetch } from '../infra/net/net-fetch'
 import { loadClaudeProviderSettings, readUserClaudeSettings } from '../adapters/claude-settings'
 import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/scan'
 import { seedBuiltinSkills } from '../features/extensions/skills/seed'
-import { initDb } from '../infra/db'
+import type { MigrationReport } from '../infra/config/migrate-legacy'
+import { migrationBlocksBoot } from '../infra/config/migrate-legacy'
+import { rebaseStoredPaths, repairMovedWorktrees } from './legacy-paths'
+import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../shared/product'
+import { getDbConnection, initDb } from '../infra/db'
 import { getLogger, setLogDebug } from '../infra/log'
 import { UsageTracker } from '../features/usage/tracker'
 import { registerUsageJobs } from '../features/usage/jobs'
@@ -167,7 +171,16 @@ export class Bootstrap {
   private activity?: SessionActivityProjector
   private titles?: TitleGenerator
 
-  constructor(private readonly isTrustedArtifactSender: (event: IpcMainInvokeEvent) => boolean) {}
+  constructor(
+    private readonly isTrustedArtifactSender: (event: IpcMainInvokeEvent) => boolean,
+    // `main/index.ts` 모듈 스코프의 이관 결과(0225). DB 를 열기 전에 등급을 확인한다.
+    private readonly legacyMigration: MigrationReport = {
+      moved: [],
+      conflicts: [],
+      failed: [],
+      configRoots: { legacy: '', current: '' }
+    }
+  ) {}
 
   private builtinSkillsDir(): string {
     return resolveBuiltinSkillsDir({
@@ -181,7 +194,7 @@ export class Bootstrap {
     return [
       {
         sourceId: 'orca',
-        sourceLabel: 'Orca 스킬',
+        sourceLabel: `${PRODUCT_DISPLAY_NAME} 스킬`,
         sourceKind: 'orca',
         rootDir: sourcesSkillsDir()
       },
@@ -331,6 +344,22 @@ export class Bootstrap {
   }
 
   async start(): Promise<void> {
+    // ── 0225 이관 등급 확인: **DB·store 를 열기 전에** ────────────────────────────
+    // DB 3종(`*.db`·`-wal`·`-shm`) 이동 실패만 여기서 부팅을 막는다(D-018). WAL 만 남고 DB 가
+    // 옮겨진 상태로 DB 를 열면 WAL 꼬리가 조용히 유실되기 때문이다. 나머지 실패는
+    // `index.ts` 가 이미 경고로 남겼고 다음 부팅이 멱등하게 재시도한다(D-017).
+    this.bootReport.stepSync(
+      'legacy-migration',
+      { critical: true, label: '데이터 이관 확인' },
+      () => {
+        if (!migrationBlocksBoot(this.legacyMigration)) return
+        const detail = this.legacyMigration.failed
+          .filter((failure) => failure.critical)
+          .map((failure) => `${failure.from} → ${failure.to}: ${failure.message}`)
+          .join('; ')
+        throw new Error(`데이터 이관에 실패했습니다 — 앱을 다시 실행해 주세요. ${detail}`)
+      }
+    )
     const secretStore = new SecretStore()
     // 0181 — 런타임 도구 기여자는 `Provider{kind:'service'}.tools` 다.
     const runtimeTools = new RuntimeToolRegistry()
@@ -440,6 +469,30 @@ export class Bootstrap {
           this.activeDbWriteCount = Math.max(0, this.activeDbWriteCount - 1)
         }
       })
+    )
+    // 저장된 절대경로를 새 설정 루트로 다시 적고, 옮겨진 워크트리의 git 링크를 고친다(0225).
+    // **핸들러 등록 이전**이다 — 세션 재개가 옛 경로를 보기 전에, 그리고 다음 `worktree add` 의
+    // 자동 prune 이 워크트리를 파괴하기 전에 끝나야 한다.
+    await this.bootReport.step(
+      'legacy-paths',
+      { critical: false, label: '저장 경로 이관' },
+      async () => {
+        const connection = getDbConnection()
+        const { legacy, current } = this.legacyMigration.configRoots
+        if (!connection || legacy === '' || current === '') return
+        const report = await repairMovedWorktrees(rebaseStoredPaths(connection, legacy, current))
+        const log = getLogger().child('boot')
+        if (report.repairTargets.length > 0 || report.repairFailed.length > 0) {
+          log.info('legacy.paths.rebased', {
+            ...report.counts,
+            repaired: report.repaired.length,
+            repairFailed: report.repairFailed.length
+          })
+        }
+        for (const failure of report.repairFailed) {
+          log.warn('legacy.worktree.repair.failed', failure)
+        }
+      }
     )
     const recovered = this.bootReport.stepSync(
       'chat-recovery',
@@ -590,14 +643,18 @@ export class Bootstrap {
     // 어느 단계 실패도 부팅을 막지 않는다(채팅/세션 기능은 독립).
     await this.bootReport.step(
       'config-dir',
-      { critical: false, label: 'Orca 설정 디렉터리 보장' },
+      { critical: false, label: `${PRODUCT_DISPLAY_NAME} 설정 디렉터리 보장` },
       () => ensureConfigDir()
     )
-    this.bootReport.stepSync('orca-config', { critical: false, label: 'orca.json 로드' }, () => {
-      const cfg = loadOrcaConfig()
-      // orca.json "debug":true 면 prod 파일 레벨을 info→debug 로 올린다(0144). dev 는 항상 debug.
-      setLogDebug(cfg.debug === true)
-    })
+    this.bootReport.stepSync(
+      'orca-config',
+      { critical: false, label: `${PRODUCT_SLUG}.json 로드` },
+      () => {
+        const cfg = loadOrcaConfig()
+        // `"debug":true` 면 prod 파일 레벨을 info→debug 로 올린다(0144). dev 는 항상 debug.
+        setLogDebug(cfg.debug === true)
+      }
+    )
     await this.bootReport.step(
       'builtin-skill-seed',
       { critical: false, label: '기본 스킬 seed' },
@@ -623,7 +680,7 @@ export class Bootstrap {
         for (const path of s.created) scaffoldLog.debug('providers.scaffold.created', { path })
       }
     )
-    // dist/claude/plugins/orca 렌더를 boot 1회 수행한다. CRUD 는 즉시 재배포, 턴 진입은
+    // dist/claude/plugins/orcinus-orca 렌더를 boot 1회 수행한다. CRUD 는 즉시 재배포, 턴 진입은
     // ensureDeployed 로 실패/dirty 상태를 한 번 더 보장한다.
     this.deployment = this.createDeploymentService()
     await this.bootReport.step('extension-deploy', { critical: false, label: '확장 배포' }, () =>

@@ -65,7 +65,7 @@ function tmpRoot(): string {
 
 function createFileDb(): { db: Database.Database; path: string; root: string } {
   const root = tmpRoot()
-  const path = join(root, 'orca.db')
+  const path = join(root, 'orcinus-orca.db')
   const db = new Database(path)
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
@@ -151,7 +151,7 @@ describe('DB migrations hardening', () => {
       }
     })
 
-    const backupPath = join(root, 'orca.db.backup.before-1.100.0.2026-07-08T00-00-00-000Z')
+    const backupPath = join(root, 'orcinus-orca.db.backup.before-1.100.0.2026-07-08T00-00-00-000Z')
     expect(existsSync(backupPath)).toBe(true)
     const backup = new Database(backupPath, { readonly: true })
     expect(backup.pragma('integrity_check', { simple: true })).toBe('ok')
@@ -204,9 +204,9 @@ describe('DB migrations hardening', () => {
       }
     })
 
-    expect(existsSync(join(root, 'orca.db.backup.before-1.100.0.2026-07-08T00-00-00-000Z'))).toBe(
-      false
-    )
+    expect(
+      existsSync(join(root, 'orcinus-orca.db.backup.before-1.100.0.2026-07-08T00-00-00-000Z'))
+    ).toBe(false)
     db.close()
   })
 

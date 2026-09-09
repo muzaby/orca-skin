@@ -2,13 +2,16 @@
 // markings) 를 테마 적응형으로 인라인 — 몸통은 currentColor(text-ink), 흰 마킹은
 // sidebar 배경색으로 채워 두 테마 모두에서 잘라낸 듯 보이게 한다(다크에서도 가시).
 // 크기·색은 className(예: h-[18px] w-auto text-ink) 으로 제어한다.
+
+import { PRODUCT_DISPLAY_NAME } from '../../../../shared/product'
+
 export function OrcaLogo({ className = '' }: { className?: string }): React.JSX.Element {
   return (
     <svg
       viewBox="0 0 932 693"
       className={className}
       role="img"
-      aria-label="Orca"
+      aria-label={PRODUCT_DISPLAY_NAME}
       shapeRendering="crispEdges"
     >
       <path

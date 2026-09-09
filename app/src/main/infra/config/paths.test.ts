@@ -1,12 +1,15 @@
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
+import { PRODUCT_SLUG } from '../../../shared/product'
 import {
   devUserDataDir,
   getWorkspacePath,
   isWithinDir,
   managedWorktreesDir,
   orcaConfigDir,
+  orcaJsonPath,
+  sourcesSkillsDir,
   projectsDir,
   downloadsDir,
   safeProjectName,
@@ -53,7 +56,7 @@ describe('workspaceDirName', () => {
 })
 
 describe('getWorkspacePath', () => {
-  const root = join(homedir(), '.config', 'orca', 'projects')
+  const root = join(homedir(), '.config', PRODUCT_SLUG, 'projects')
 
   it('프로젝트 없으면 projects/default', () => {
     expect(getWorkspacePath(null)).toBe(join(root, 'default'))
@@ -72,7 +75,7 @@ describe('getWorkspacePath', () => {
     )
   })
 
-  it('projectsDir 는 ~/.config/orca/projects', () => {
+  it('projectsDir 는 ~/.config/<slug>/projects', () => {
     expect(projectsDir()).toBe(root)
   })
 })
@@ -80,14 +83,14 @@ describe('getWorkspacePath', () => {
 describe('downloadsDir', () => {
   it('downloadsDir 는 orcaConfigDir 하위다', () => {
     // workspace-guard 의 read 예외 루트(`orcaConfigDir()`) 안이어야 모델이 결과물을 읽을 수 있다.
-    expect(downloadsDir()).toBe(join(homedir(), '.config', 'orca', 'downloads'))
-    expect(isWithinDir(downloadsDir(), join(homedir(), '.config', 'orca'))).toBe(true)
+    expect(downloadsDir()).toBe(join(homedir(), '.config', PRODUCT_SLUG, 'downloads'))
+    expect(isWithinDir(downloadsDir(), join(homedir(), '.config', PRODUCT_SLUG))).toBe(true)
   })
 })
 
 describe('devUserDataDir', () => {
-  it('appData 하위 sibling `orca-dev` 를 반환한다', () => {
-    expect(devUserDataDir(join('/x', 'AppData'))).toBe(join('/x', 'AppData', 'orca-dev'))
+  it('appData 하위 sibling `<slug>-dev` 를 반환한다', () => {
+    expect(devUserDataDir(join('/x', 'AppData'))).toBe(join('/x', 'AppData', 'orcinus-orca-dev'))
   })
 })
 
@@ -122,8 +125,41 @@ describe('managedWorktreesDir', () => {
   // D-103 의 조건절이 여기 산다. config 루트까지 갈랐다면 dev 가 settings·plugins·projects 를
   // 통째로 잃는데, 그 회귀는 worktree 경로만 보는 단언으로는 보이지 않는다.
   it('orcaConfigDir 자체는 dev 에서도 그대로다 (AC3)', () => {
-    expect(orcaConfigDir()).toBe(join(homedir(), '.config', 'orca'))
+    expect(orcaConfigDir()).toBe(join(homedir(), '.config', PRODUCT_SLUG))
     expect(projectsDir()).toBe(join(orcaConfigDir(), 'projects'))
     expect(downloadsDir()).toBe(join(orcaConfigDir(), 'downloads'))
+  })
+})
+
+// ── AT-04 / §10 EP-03 — 설정 루트와 그 하위가 전부 새 슬러그 파생인가 (0225) ─────────────
+// 케이스를 함수마다 하나씩 둔다. 한 케이스에 몰면 첫 실패가 나머지를 가려 "몇 곳이 옛 이름인가"
+// 를 못 센다.
+describe('설정 루트 파생 (0225 AT-04)', () => {
+  const root = join(homedir(), '.config', PRODUCT_SLUG)
+
+  it('orcaConfigDir 가 ~/.config/orcinus-orca 다', () => {
+    expect(orcaConfigDir()).toBe(root)
+    expect(root.endsWith('orcinus-orca')).toBe(true)
+  })
+
+  it('managedWorktreesDir 는 prod/dev 둘 다 새 루트 하위다', () => {
+    expect(managedWorktreesDir(false)).toBe(join(root, 'worktrees'))
+    expect(managedWorktreesDir(true)).toBe(join(root, 'worktrees-dev'))
+  })
+
+  it('orcaJsonPath 는 <루트>/orcinus-orca.json 이다', () => {
+    expect(orcaJsonPath()).toBe(join(root, `${PRODUCT_SLUG}.json`))
+  })
+
+  it('sourcesSkillsDir 는 <루트>/sources/skills 다', () => {
+    expect(sourcesSkillsDir()).toBe(join(root, 'sources', 'skills'))
+  })
+
+  it('projectsDir 는 <루트>/projects 다', () => {
+    expect(projectsDir()).toBe(join(root, 'projects'))
+  })
+
+  it('downloadsDir 는 <루트>/downloads 다', () => {
+    expect(downloadsDir()).toBe(join(root, 'downloads'))
   })
 })

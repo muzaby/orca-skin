@@ -10,11 +10,15 @@ import { createArtifactSenderCheck } from './app/artifact-sender'
 import { closeDb } from './infra/db'
 import { closeLog, flushLogSync, getLogger, initLog } from './infra/log'
 import { devUserDataDir } from './infra/config/paths'
+import { migrateLegacyRoots } from './infra/config/migrate-legacy'
+import { runStartupSequence } from './infra/config/startup-sequence'
 import { CHANNELS } from '../shared/ipc'
+import { APP_USER_MODEL_ID } from '../shared/product'
 import type { SettingsStore } from './infra/settings-store'
 
-// dev(`npm run dev`) 데이터를 실제 설치본과 격리한다. userData 는 app.getName()(dev·prod 모두 `orca`)
-// 에서 파생돼 같은 폴더로 해석되므로, dev 에서만 sibling `orca-dev` 로 리디렉션한다. 이후 DB·WAL·
+// dev(`npm run dev`) 데이터를 실제 설치본과 격리한다. userData 는 app.getName()(dev·prod 모두
+// `orcinus-orca`)에서 파생돼 같은 폴더로 해석되므로, dev 에서만 sibling `orcinus-orca-dev` 로
+// 리디렉션한다. 이후 DB·WAL·
 // 마이그레이션 백업·secret-store 가 모두 이 폴더 아래로 격리된다(하위 코드는 getPath('userData') 만 참조).
 // app.setPath('userData') 는 app.whenReady() *이전* 에 호출돼야 하므로 이 모듈 스코프에 둔다. prod
 // 번들에선 import.meta.env.DEV 상수 치환으로 이 블록이 dead-code 제거된다.
@@ -22,9 +26,36 @@ if (import.meta.env.DEV) {
   app.setPath('userData', devUserDataDir(app.getPath('appData')))
 }
 
-// 로깅 싱글턴 초기화 (0123) — userData 리다이렉트 *이후*·다른 모든 배선 이전. 파일은
-// <userData>/logs/ 라 dev/prod 가 자동 격리된다. 이후 전역 장애 훅이 이 로거를 쓴다.
-const rootLog = initLog()
+// 0225 이관 → 로깅 싱글턴 초기화 (0123). **순서가 계약이다**(§10 EP-07) — `initLog()` 가 먼저
+// 돌면 새 설정 루트가 생겨 이관의 "target 없으면 이동" 가드가 거짓이 된다. userData 리다이렉트
+// *이후*·다른 모든 배선 이전이라는 기존 제약은 그대로다.
+const startup = runStartupSequence({
+  migrateLegacy: () =>
+    migrateLegacyRoots({
+      appDataDir: app.getPath('appData'),
+      isDev: import.meta.env.DEV,
+      userDataDir: app.getPath('userData')
+    }),
+  initLog
+})
+const rootLog = startup.logger
+const legacyMigration = startup.migration
+
+// 이관 결과는 로거가 생긴 뒤에 남긴다(이관 자체는 로거보다 앞이라 버퍼가 필요하다).
+for (const item of legacyMigration.moved) {
+  rootLog.info('app.legacy.migrated', { from: item.from, to: item.to })
+}
+for (const item of legacyMigration.conflicts) {
+  rootLog.warn('app.legacy.conflict', { from: item.from, to: item.to, using: item.to })
+}
+for (const item of legacyMigration.failed) {
+  rootLog.warn('app.legacy.failed', {
+    from: item.from,
+    to: item.to,
+    message: item.message,
+    critical: item.critical
+  })
+}
 
 // will-quit(모듈 스코프)에서 종료 정리를 호출하기 위한 라우터 참조. whenReady 에서 채워진다.
 let routerRef: Bootstrap | null = null
@@ -230,7 +261,7 @@ app.whenReady().then(async () => {
   // 락을 얻지 못한(종료 중인) 두 번째 인스턴스는 창/Bootstrap 을 만들지 않는다.
   if (!hasSingleInstanceLock) return
 
-  electronApp.setAppUserModelId('com.orca.app')
+  electronApp.setAppUserModelId(APP_USER_MODEL_ID)
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
@@ -240,7 +271,8 @@ app.whenReady().then(async () => {
   registerAppProtocol()
 
   const router = new Bootstrap(
-    createArtifactSenderCheck(() => mainWindowRef?.webContents ?? null, rendererUrl)
+    createArtifactSenderCheck(() => mainWindowRef?.webContents ?? null, rendererUrl),
+    legacyMigration
   )
   routerRef = router
   // 창 먼저(0109) — start() 의 DB 마이그레이션/스킬 시드/확장 배포를 기다리지 않고 셸을

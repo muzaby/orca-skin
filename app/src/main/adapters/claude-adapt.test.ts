@@ -20,6 +20,7 @@ import {
 } from './claude-adapt'
 import type { NormalizedHookHandler } from './hooks'
 import type { SkillInfo } from '../../shared/ipc'
+import { PRODUCT_SLUG } from '../../shared/product'
 
 describe('adaptPlugins', () => {
   let pluginRoot: string
@@ -114,11 +115,13 @@ describe('adaptSkills', () => {
       skill('b', 'orca', false),
       skill('native', 'adapter', true)
     ]
-    expect(adaptSkills(skills)).toEqual({ skills: ['orca:a', 'claude:native'] })
+    expect(adaptSkills(skills)).toEqual({ skills: [`${PRODUCT_SLUG}:a`, 'claude:native'] })
   })
 
   it('이미 네임스페이스된 Orca 스킬은 중복 prefix 하지 않는다', () => {
-    expect(adaptSkills([skill('orca:ready', 'orca', true)])).toEqual({ skills: ['orca:ready'] })
+    expect(adaptSkills([skill(`${PRODUCT_SLUG}:ready`, 'orca', true)])).toEqual({
+      skills: [`${PRODUCT_SLUG}:ready`]
+    })
   })
 })
 
