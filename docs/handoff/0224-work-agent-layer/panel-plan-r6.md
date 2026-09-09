@@ -69,3 +69,5 @@ Q-R5-01의 Work 전송 시 worktree 적용 정책은 이번에도 변경하지 �
 ### 11. READY 대조
 
 D-041→AC1, D-042→AC2, D-043/044→AC3, D-045/046→AC4를 대조해 충돌 0이다. 마지막 Git 정정이 조회 수명과 캐시 oracle에 반영됐고 r5의 Work 조회 0은 최초 진입에만 남는다. 원격 r5의 완료 표시는 색만, 꺾쇠는 SVG, BranchChip은 조건부 mount, 모델 shape는 isCustom 누락임을 코드에서 확인했다.
+
+후속 모델명 변형·Work 표시 보완은 [ΔV7](panel-plan-r7.md)이 우선하며 나머지 결정은 유지한다.
