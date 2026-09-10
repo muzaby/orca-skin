@@ -1,5 +1,5 @@
 import { useCallback, type ReactNode } from 'react'
-import { Button } from '../../../../shared/ui/Button'
+import { PanelCloseButton, PanelExpandButton } from '../../../../shared/ui/PanelControls'
 import { chatActions, useChatSession } from '../../store/chatStore'
 import type { RightPanelAgentPolicy, RightPanelTileId } from '../../lib/rightPanelTiles'
 import { useI18n, type MessageKey } from '../../../../shared/i18n'
@@ -35,18 +35,7 @@ export function RightPanelTile({
   const isDiff = id === 'diff'
   const isWorkTask = taskTileChrome === 'work-overview' && id === 'task'
   const expandButton = (id === 'plan' || id === 'task') && onToggleExpand && (
-    <Button
-      iconOnly
-      size="small"
-      leadingIcon={expanded ? 'collapse' : 'expand'}
-      pressed={expanded}
-      aria-pressed={expanded}
-      onClick={onToggleExpand}
-      title={tr(expanded ? 'chat.rightpanel.restoreTile' : 'chat.rightpanel.expandTile', { label })}
-      aria-label={tr(expanded ? 'chat.rightpanel.restoreTile' : 'chat.rightpanel.expandTile', {
-        label
-      })}
-    />
+    <PanelExpandButton expanded={expanded} targetLabel={label} onClick={onToggleExpand} />
   )
 
   const remove = useCallback((): void => {
@@ -73,13 +62,10 @@ export function RightPanelTile({
           <div className={`ml-auto flex shrink-0 items-center ${isDiff ? 'gap-[2px]' : 'gap-g2'}`}>
             {headerActions}
             {expandButton}
-            <Button
-              iconOnly
+            <PanelCloseButton
               size={isDiff ? 'compact' : 'small'}
-              leadingIcon="x"
               onClick={remove}
-              title={tr('chat.rightpanel.closeTile', { label })}
-              aria-label={tr('chat.rightpanel.closeTile', { label })}
+              label={tr('chat.rightpanel.closeTile', { label })}
             />
           </div>
         </div>

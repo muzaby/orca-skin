@@ -186,4 +186,4 @@ provider `settings.json`(`sources/settings/<adapter>/<provider>/`)은 `~/.claude
 
 artifact IPC는 현재 Orca 메인 창의 최상위 frame과 renderer URL의 protocol/host를 확인한다. renderer는 session/publication ID만 전달하고 Main이 세션 참조와 보관 루트 실체를 다시 검사한다. 개별 내보내기는 임시 파일을 작성하고 rename으로 교체하여 외부 하드링크를 통한 보관 원본 덮어쓰기를 피한다. 묶음 저장은 exclusive create와 접미사로 기존 파일을 보존한다. 파일 reveal은 탐색기 선택만 하며 HTML을 실행하지 않는다.
 
-휴지통 이동은 사용자 확인 후 등록된 파일만 대상으로 하고 영구 삭제로 대체하지 않는다. 모델에는 삭제 도구를 노출하지 않는다. 게시 UI로 파일 본문을 보내거나 렌더링하는 IPC는 없다. 보관·소실·복원 규칙은 [persistence.md](persistence.md)에 있다.
+휴지통 이동은 사용자 확인 후 등록된 파일만 대상으로 하고 영구 삭제로 대체하지 않는다. 모델에는 삭제 도구를 노출하지 않는다. 본문 미리보기는 session/publication ID의 소유권과 제한 읽기를 확인한 뒤 반환한다. HTML은 Main에서 정제한 문서만 격리된 iframe에 표시하며 원문은 코드·복사용으로 보존한다([렌더링 경계](../frontend/rendering.md#산출물-게시-카드)). 보관·소실·복원 규칙은 [persistence.md](persistence.md)에 있다.

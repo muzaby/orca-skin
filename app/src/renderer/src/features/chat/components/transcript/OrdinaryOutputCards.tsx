@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { ArtifactCards } from '../ArtifactCard'
+import { ArtifactCards } from '../ArtifactCards'
 import { useSessionOutputs } from '../../hooks/useSessionOutputs'
 import { refreshArtifactList } from '../../store/artifactStore'
 import { Button } from '../../../../shared/ui/Button'

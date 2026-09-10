@@ -92,6 +92,7 @@ export function ArtifactCatalogRow({
             iconOnly
             size="small"
             leadingIcon="kebab"
+            title={tr('common.more')}
             disabled={busy}
             aria-label={tr('artifactCatalog.itemMenu', { title: item.title })}
             aria-haspopup="menu"

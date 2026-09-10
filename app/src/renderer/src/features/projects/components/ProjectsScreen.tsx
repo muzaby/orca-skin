@@ -1,6 +1,9 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { Icon } from '../../../shared/ui/Icon'
+import { CatalogTabs } from '../../../shared/ui/CatalogTabs'
+import { CatalogSearch } from '../../../shared/ui/CatalogSearch'
+import { useCatalogSearch } from '../../../shared/hooks/useCatalogSearch'
 import { CreateProjectModal } from './CreateProjectModal'
 import { ProjectCatalogRow } from './ProjectCatalogRow'
 import { useI18n } from '../../../shared/i18n'
@@ -25,9 +28,7 @@ export function ProjectsScreen({
   const [createOpen, setCreateOpen] = useState(false)
   const [tab, setTab] = useState<'all' | 'pinned'>('all')
   const [query, setQuery] = useState('')
-  const [searchOpen, setSearchOpen] = useState(false)
-  const searchRef = useRef<HTMLButtonElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const search = useCatalogSearch(() => setQuery(''))
   const activeTabRef = useRef<HTMLButtonElement>(null)
   const unpinningId = useRef<string | null>(null)
   const id = useId()
@@ -52,14 +53,6 @@ export function ProjectsScreen({
     if (document.activeElement === document.body)
       activeTabRef.current?.focus({ preventScroll: true })
   }, [visible])
-  const closeSearch = (): void => {
-    setSearchOpen(false)
-    setQuery('')
-    searchRef.current?.focus({ preventScroll: true })
-  }
-  useEffect(() => {
-    if (searchOpen) inputRef.current?.focus()
-  }, [searchOpen])
 
   return (
     <section data-project-catalog="" className="flex min-h-0 min-w-0 flex-1 pb-2 pr-2">
@@ -81,79 +74,27 @@ export function ProjectsScreen({
               {tr('projects.newProject')}
             </Button>
           </div>
-          <div className="mb-4 mt-6 flex items-center justify-between gap-3">
-            <div
-              role="tablist"
-              aria-label={tr('projects.title')}
-              className="flex gap-1"
-              onKeyDown={(event) => {
-                if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
-                event.preventDefault()
-                const next =
-                  event.key === 'Home'
-                    ? 'all'
-                    : event.key === 'End'
-                      ? 'pinned'
-                      : tab === 'all'
-                        ? 'pinned'
-                        : 'all'
-                setTab(next)
-                event.currentTarget
-                  .querySelector<HTMLButtonElement>(`[data-project-tab=${next}]`)
-                  ?.focus()
-              }}
-            >
-              {(['all', 'pinned'] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="tab"
-                  ref={tab === value ? activeTabRef : undefined}
-                  id={`${id}-${value}`}
-                  data-project-tab={value}
-                  aria-selected={tab === value}
-                  aria-controls={`${id}-items`}
-                  tabIndex={tab === value ? 0 : -1}
-                  onClick={() => setTab(value)}
-                  className={`rounded-r4 px-3 py-1.5 text-footnote transition-colors hide-focus-ring ring-focus ${tab === value ? 'bg-fill-uncontained-active font-medium text-ink' : 'text-ink3 hover:bg-fill-uncontained-hover hover:text-ink'}`}
-                >
-                  {tr(`artifactCatalog.${value}`)}
-                </button>
-              ))}
-            </div>
-            <Button
-              ref={searchRef}
-              iconOnly
-              leadingIcon="search"
-              pressed={searchOpen}
-              aria-label={tr('projects.search')}
-              title={tr('projects.search')}
-              aria-expanded={searchOpen}
-              aria-controls={`${id}-search`}
-              onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
+          <CatalogSearch
+            id={id}
+            label={tr('projects.search')}
+            placeholder={tr('projects.searchPlaceholder')}
+            value={query}
+            onChange={setQuery}
+            controls={search}
+          >
+            <CatalogTabs
+              id={id}
+              label={tr('projects.title')}
+              value={tab}
+              items={(['all', 'pinned'] as const).map((value) => ({
+                value,
+                label: tr(`artifactCatalog.${value}`)
+              }))}
+              onChange={setTab}
+              activeTabRef={activeTabRef}
+              marker="data-project-tab"
             />
-          </div>
-          {searchOpen && (
-            <div className="mb-4 flex items-center gap-2 rounded-r4 border border-border bg-panel px-3 focus-within:border-border-strong">
-              <Icon name="search" size={16} className="shrink-0 text-ink3" />
-              <input
-                ref={inputRef}
-                id={`${id}-search`}
-                type="search"
-                value={query}
-                aria-label={tr('projects.search')}
-                placeholder={tr('projects.searchPlaceholder')}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape') {
-                    event.stopPropagation()
-                    closeSearch()
-                  }
-                }}
-                className="min-w-0 flex-1 bg-transparent py-2.5 text-footnote text-ink outline-none placeholder:text-ink3"
-              />
-            </div>
-          )}
+          </CatalogSearch>
           <div
             role="tabpanel"
             id={`${id}-items`}
@@ -209,8 +150,7 @@ export function ProjectsScreen({
         onCreate={async (name, instructions) => {
           await onCreate(name, instructions)
           setTab('all')
-          setQuery('')
-          setSearchOpen(false)
+          search.reset()
         }}
       />
     </section>

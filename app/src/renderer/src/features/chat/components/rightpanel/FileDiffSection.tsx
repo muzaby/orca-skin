@@ -160,7 +160,7 @@ export function FileDiffSection({
           onClick={() => onOpenFile(section.path)}
           className="absolute right-[8px] flex size-[20px] shrink-0 items-center justify-center rounded-[4px] text-ink opacity-0 outline-none transition-opacity hide-focus-ring ring-focus hover:bg-fill-uncontained-hover group-hover/filehead:opacity-100 group-focus-within/filehead:opacity-100 [@media(pointer:coarse)]:opacity-100"
         >
-          <Icon name="arrowNE" size={12} />
+          <Icon name="fileOpen" size={12} />
         </button>
       </div>
       {!collapsed &&

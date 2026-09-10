@@ -19,6 +19,10 @@ export const ko = {
     unpin: '고정 해제',
     expand: '펼치기',
     collapse: '접기',
+    expandPanel: '패널 펼치기',
+    restorePanel: '원래 크기로',
+    expandNamedPanel: '{{label}} 패널 펼치기',
+    restoreNamedPanel: '{{label}} 원래 크기로',
     more: '더 보기',
     copied: '복사됨',
     copy: '복사',
@@ -529,8 +533,6 @@ export const ko = {
       copy: '복사',
       copied: '복사했습니다',
       copyFailed: '복사하지 못했습니다. 다시 시도해 주세요.',
-      expand: '펼치기',
-      restore: '원래 크기로',
       close: '뷰어 닫기',
       loading: '파일을 불러오는 중…',
       retry: '다시 시도',
@@ -969,8 +971,6 @@ export const ko = {
       next: '다음'
     },
     rightpanel: {
-      expandTile: '{{label}} 넓게 보기',
-      restoreTile: '{{label}} 원래 크기로',
       tiles: {
         plan: '계획',
         subagent: '백그라운드 작업',
@@ -1008,8 +1008,6 @@ export const ko = {
       diffHighlightWords: '변경된 단어 강조',
       diffIgnoreWhitespace: '공백 변경 숨기기',
       diffViewSettings: 'diff 표시 설정',
-      diffExpandPanel: '패널 확대',
-      diffShrinkPanel: '패널 크기 되돌리기',
       diffUnmodifiedLines: '변경 없는 {{count}}줄',
       diffNoSessionChange: '세션 기준 변경 없음',
       diffPatchUnavailable: '변경 내용을 불러오지 못했습니다. 새로고침해 주세요.',

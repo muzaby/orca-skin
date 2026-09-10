@@ -1,25 +1,18 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Button } from '../../../../shared/ui/Button'
+import { PanelCloseButton, PanelExpandButton } from '../../../../shared/ui/PanelControls'
 import { Icon } from '../../../../shared/ui/Icon'
-import { useI18n, type MessageKey } from '../../../../shared/i18n'
-import { artifactApi } from '../../../../shared/api/ipc'
-import { artifactFailureKey } from '../ArtifactCard'
+import { useI18n } from '../../../../shared/i18n'
+import { previewFailureKey } from '../../lib/artifactFeedback'
+import { useArtifactViewerActions } from '../../hooks/useArtifactViewerActions'
 import { ArtifactPreviewContent } from './ArtifactPreviewContent'
 import {
   closeArtifactViewer,
   retryArtifactViewer,
   setArtifactViewerMode,
   toggleArtifactViewerExpanded,
-  useArtifactViewerStore,
   type ArtifactViewerSelection
 } from '../../store/artifactViewerStore'
-
-function previewFailureKey(reason: string): MessageKey {
-  if (reason === 'unsupported-format') return 'chat.artifactViewer.unsupported'
-  if (reason === 'invalid-utf8' || reason === 'invalid-encoding')
-    return 'chat.artifactViewer.invalidEncoding'
-  return artifactFailureKey(reason)
-}
 
 export function ArtifactViewer({
   selection
@@ -28,10 +21,7 @@ export function ArtifactViewer({
 }): React.JSX.Element {
   const { tr } = useI18n()
   const closeRef = useRef<HTMLButtonElement>(null)
-  const [action, setAction] = useState<'copy' | 'download' | null>(null)
-  const actionRef = useRef(false)
-  const [feedback, setFeedback] = useState<MessageKey | null>(null)
-  const alive = useRef(true)
+  const { action, feedback, copy, download } = useArtifactViewerActions(selection)
   const { artifact, result, loading, mode, expanded } = selection
   const ready = result?.state === 'ready' ? result : null
   const image = ready?.format === 'image' || artifact.kind === 'image'
@@ -40,55 +30,9 @@ export function ArtifactViewer({
   const unsupported = result?.state === 'unavailable' && result.reason === 'unsupported-format'
   const downloadable = !!ready || unsupported
   const extension = artifact.filename.split('.').pop()?.toUpperCase() ?? ''
-  const current = (): boolean =>
-    alive.current && useArtifactViewerStore.getState().selection?.request === selection.request
   useEffect(() => {
-    alive.current = true
     closeRef.current?.focus({ preventScroll: true })
-    return () => {
-      alive.current = false
-    }
   }, [])
-  const copy = async (): Promise<void> => {
-    if (!ready || image || actionRef.current) return
-    actionRef.current = true
-    setAction('copy')
-    setFeedback(null)
-    try {
-      await navigator.clipboard.writeText(ready.content)
-      if (current()) setFeedback('chat.artifactViewer.copied')
-    } catch {
-      if (current()) setFeedback('chat.artifactViewer.copyFailed')
-    } finally {
-      actionRef.current = false
-      if (current()) setAction(null)
-    }
-  }
-  const download = async (): Promise<void> => {
-    if (!downloadable || actionRef.current) return
-    actionRef.current = true
-    setAction('download')
-    setFeedback(null)
-    try {
-      const saved = await artifactApi.save({
-        sessionId: selection.sessionId,
-        publicationIds: [artifact.publicationId]
-      })
-      if (current())
-        setFeedback(
-          saved.outcome === 'cancelled'
-            ? 'chat.artifacts.cancelled'
-            : saved.outcome === 'completed' && saved.items[0]?.outcome === 'saved'
-              ? 'chat.artifacts.saved'
-              : artifactFailureKey(saved.reason ?? saved.items[0]?.reason)
-        )
-    } catch {
-      if (current()) setFeedback('chat.artifacts.failed')
-    } finally {
-      actionRef.current = false
-      if (current()) setAction(null)
-    }
-  }
   return (
     <section
       data-artifact-viewer={artifact.publicationId}
@@ -166,23 +110,14 @@ export function ArtifactViewer({
           >
             {tr('chat.artifacts.download')}
           </Button>
-          <Button
-            iconOnly
-            size="small"
-            leadingIcon={expanded ? 'collapse' : 'expand'}
-            aria-expanded={expanded}
-            aria-label={tr(expanded ? 'chat.artifactViewer.restore' : 'chat.artifactViewer.expand')}
-            title={tr(expanded ? 'chat.artifactViewer.restore' : 'chat.artifactViewer.expand')}
+          <PanelExpandButton
+            expanded={expanded}
             data-behavior="viewer:expand"
             onClick={toggleArtifactViewerExpanded}
           />
-          <Button
+          <PanelCloseButton
             ref={closeRef}
-            iconOnly
-            size="small"
-            leadingIcon="x"
-            aria-label={tr('chat.artifactViewer.close')}
-            title={tr('chat.artifactViewer.close')}
+            label={tr('chat.artifactViewer.close')}
             data-behavior="viewer:close"
             onClick={() => closeArtifactViewer(selection.sessionKey)}
           />

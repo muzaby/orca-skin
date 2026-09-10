@@ -19,6 +19,10 @@ export const en: typeof ko = {
     unpin: 'Unpin',
     expand: 'Expand',
     collapse: 'Collapse',
+    expandPanel: 'Expand panel',
+    restorePanel: 'Restore size',
+    expandNamedPanel: 'Expand {{label}} panel',
+    restoreNamedPanel: 'Restore {{label}} size',
     more: 'More',
     copied: 'Copied',
     copy: 'Copy',
@@ -524,8 +528,6 @@ export const en: typeof ko = {
       copy: 'Copy',
       copied: 'Copied',
       copyFailed: 'Could not copy. Please try again.',
-      expand: 'Expand',
-      restore: 'Restore size',
       close: 'Close viewer',
       loading: 'Loading file…',
       retry: 'Try again',
@@ -962,8 +964,6 @@ export const en: typeof ko = {
       next: 'Next'
     },
     rightpanel: {
-      expandTile: 'Expand {{label}}',
-      restoreTile: 'Restore {{label}} width',
       tiles: {
         plan: 'Plan',
         subagent: 'Background tasks',
@@ -1001,8 +1001,6 @@ export const en: typeof ko = {
       diffHighlightWords: 'Highlight changed words',
       diffIgnoreWhitespace: 'Hide whitespace changes',
       diffViewSettings: 'Diff view settings',
-      diffExpandPanel: 'Widen panel',
-      diffShrinkPanel: 'Restore panel size',
       diffUnmodifiedLines: '{{count}} unmodified lines',
       diffNoSessionChange: 'No change against the session baseline.',
       diffPatchUnavailable: 'Could not load the changes. Refresh to try again.',

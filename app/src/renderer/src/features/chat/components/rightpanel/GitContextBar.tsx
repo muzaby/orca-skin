@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { Button } from '../../../../shared/ui/Button'
+import { PanelExpandButton } from '../../../../shared/ui/PanelControls'
 import { Icon } from '../../../../shared/ui/Icon'
 import { MenuItem, MenuTitle } from '../../../../shared/ui/MenuItem'
 import { Popover } from '../../../../shared/ui/Popover'
@@ -190,9 +191,6 @@ export function GitContextBar({
   const filesLabel = tr(
     sidebarVisible ? 'chat.rightpanel.diffFilesOff' : 'chat.rightpanel.diffFilesOn'
   )
-  const expandLabel = tr(
-    expanded ? 'chat.rightpanel.diffShrinkPanel' : 'chat.rightpanel.diffExpandPanel'
-  )
 
   return (
     <span
@@ -271,15 +269,10 @@ export function GitContextBar({
           aria-expanded={viewOpen}
           data-diff-view-trigger
         />
-        <Button
-          iconOnly
+        <PanelExpandButton
           size="compact"
-          leadingIcon={expanded ? 'collapse' : 'expand'}
+          expanded={expanded}
           onClick={onToggleExpand}
-          pressed={expanded}
-          aria-pressed={expanded}
-          title={expandLabel}
-          aria-label={expandLabel}
           data-diff-expand-panel
         />
       </span>

@@ -3,12 +3,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 import { homedir, tmpdir } from 'node:os'
 import { afterEach, describe, expect, it } from 'vitest'
-import {
-  MAX_FILE_CONTEXT_CHARS,
-  TextExtractor,
-  bufferToBase64Chunked,
-  normalizeAttachments
-} from './attachments'
+import { MAX_FILE_CONTEXT_CHARS, bufferToBase64Chunked, normalizeAttachments } from './attachments'
 import { MAX_ATTACHMENT_BYTES, nativeAttachmentDirectory } from './attachment-files'
 
 const createdDirs: string[] = []
@@ -19,7 +14,6 @@ async function trackTempDir(dir: string): Promise<string> {
   return dir
 }
 
-// TextExtractor 는 홈-경계 검사를 거치지 않으므로 OS 임시 디렉토리를 쓴다.
 async function makeTempDir(): Promise<string> {
   return trackTempDir(await mkdtemp(join(tmpdir(), 'orca-attachment-test-')))
 }
@@ -35,7 +29,7 @@ afterEach(async () => {
   await Promise.all(createdDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })))
 })
 
-describe('TextExtractor', () => {
+describe('attachment files and text normalization', () => {
   it('stores attachments in the OS user temporary directory by default', () => {
     expect(nativeAttachmentDirectory()).toBe(resolve(tmpdir()))
   })
@@ -71,19 +65,26 @@ describe('TextExtractor', () => {
     expect(await readFile(source, 'utf8')).toBe('# Source')
   })
   it('extracts UTF-8 text and strips BOM', async () => {
-    const dir = await makeTempDir()
+    const dir = await makeHomeTempDir()
     const path = join(dir, 'note.md')
     await writeFile(path, '\uFEFFhello')
 
-    await expect(new TextExtractor().extract(path)).resolves.toBe('hello')
+    const result = await normalizeAttachments([
+      { kind: 'path', path, name: 'note.md', mimeType: 'text/markdown', sourceKind: 'dialog' }
+    ])
+    expect(result.attachmentTexts[0]?.text).toBe('hello')
   })
 
   it('rejects binary-like text', async () => {
-    const dir = await makeTempDir()
+    const dir = await makeHomeTempDir()
     const path = join(dir, 'bad.txt')
     await writeFile(path, Buffer.from([65, 0, 66]))
 
-    await expect(new TextExtractor().extract(path)).rejects.toThrow('binary-like')
+    await expect(
+      normalizeAttachments([
+        { kind: 'path', path, name: 'bad.txt', mimeType: 'text/plain', sourceKind: 'dialog' }
+      ])
+    ).rejects.toThrow('binary-like')
   })
 })
 

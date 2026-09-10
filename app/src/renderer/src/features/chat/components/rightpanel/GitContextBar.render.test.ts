@@ -237,11 +237,11 @@ describe('`↗` 라벨은 카탈로그로 해석된다 (AT-52)', () => {
     // 키가 그대로 새어 나오면 카탈로그를 지나지 않은 것이다.
     expect(wide).not.toContain('chat.rightpanel.diff')
     expect(narrow).not.toContain('chat.rightpanel.diff')
-    expect(wide).toContain('aria-label="패널 확대"')
-    expect(narrow).toContain('aria-label="패널 크기 되돌리기"')
+    expect(wide).toContain('aria-label="패널 펼치기"')
+    expect(narrow).toContain('aria-label="원래 크기로"')
     // 호버로 읽는 자리도 같은 문구다 — 둘 중 하나만 있으면 두 독자 중 하나가 잃는다.
-    expect(wide).toContain('title="패널 확대"')
-    expect(narrow).toContain('title="패널 크기 되돌리기"')
+    expect(wide).toContain('title="패널 펼치기"')
+    expect(narrow).toContain('title="원래 크기로"')
   })
 
   it('확대와 되돌리기는 같은 NE/SW 축에서 외향/내향으로 갈린다 (ΔV8 D-127)', () => {
@@ -252,10 +252,10 @@ describe('`↗` 라벨은 카탈로그로 해석된다 (AT-52)', () => {
     }
 
     expect(iconPath(render({ colWidth: PANEL_DEFAULT_WIDTH }))).toBe(
-      'M160-160v-240h80v104l168-168 56 56-168 168h104v80H160Zm400-640h240v240h-80v-104L552-496l-56-56 168-168H560v-80Z'
+      'M120-120v-320h80v184l504-504H520v-80h320v320h-80v-184L256-200h184v80H120Z'
     )
     expect(iconPath(render({ colWidth: PANEL_DEFAULT_WIDTH, expanded: true }))).toBe(
-      'M560-560H800v-80h-104L864-808l-56-56-168 168v-104h-80v240Zm-160 160H160v80h104L96-152l56 56 168-168v104h80v-240Z'
+      'm136-80-56-56 264-264H160v-80h320v320h-80v-184L136-80Zm344-400v-320h80v184l264-264 56 56-264 264h184v80H480Z'
     )
   })
 
@@ -266,7 +266,7 @@ describe('`↗` 라벨은 카탈로그로 해석된다 (AT-52)', () => {
     const pairs: [string, string][] = [
       ['data-diff-sidebar-toggle', '파일 목록 표시'],
       ['data-diff-view-trigger', 'diff 표시 설정'],
-      ['data-diff-expand-panel', '패널 확대']
+      ['data-diff-expand-panel', '패널 펼치기']
     ]
 
     for (const [marker, name] of pairs) {

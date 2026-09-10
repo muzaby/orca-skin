@@ -6,7 +6,7 @@ import { initialChatState, type ChatState } from '../../reducer/chatReducer'
 import { TaskTileContent } from './TaskTileContent'
 import { PlanTileContent } from './PlanTileContent'
 import { RightPanelTile } from './RightPanelTile'
-import { ArtifactCards } from '../ArtifactCard'
+import { ArtifactCards } from '../ArtifactCards'
 
 const harness = vi.hoisted(() => ({ session: null as ChatState | null }))
 vi.mock('../../store/chatStore', () => ({
@@ -114,7 +114,7 @@ describe('0224 r5 actual panel composition', () => {
     expect(detail.text()).toContain('선택된 작업의 자세한 설명')
     expect(detail.find('[data-behavior="action:back-to-plan-overview"]').length).toBe(1)
   })
-  it('removes Work expansion while keeping Code expansion and close controls', () => {
+  it('keeps Work expansion and Code expansion with its close control', () => {
     for (const kind of ['work', 'code'] as const) {
       harness.session!.agentKind = kind
       const tileProps = {
@@ -125,7 +125,9 @@ describe('0224 r5 actual panel composition', () => {
         children: '패널 내용'
       }
       const $ = load(renderToStaticMarkup(createElement(RightPanelTile, tileProps)))
-      expect($('button').length).toBe(kind === 'work' ? 0 : 2)
+      expect($('button').length).toBe(kind === 'work' ? 1 : 2)
+      expect($('button[title="패널 펼치기"]').length).toBe(1)
+      expect($('button[title="패널 펼치기"]').attr('aria-label')).toContain('계획')
       expect($.text()).toContain('패널 내용')
     }
   })
