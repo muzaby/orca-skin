@@ -1,10 +1,8 @@
-// 카탈로그 목록의 그룹 구성 + 접힘 판정 (순수). renderer 의 `.tsx` 는 vitest include
-// (`src/**/*.test.ts`) 밖이라 기계 검증이 안 되므로, 표에서 판정 가능한 로직만 여기로 내린다.
+// 카탈로그 목록의 그룹 구성과 순서 판정 (순수). 평탄한 목록도 같은 정렬 순서를 재사용한다.
 // 라벨은 `tr` 을 부르지 않도록 shared/i18n 의 판별 유니온 `UiMessage` 로 반환한다 —
 // 스킬 그룹은 동적 sourceLabel(`{raw}`), MCP·플러그인 그룹은 카탈로그 키(`{key}`).
 import type { McpServer, ProviderInfo, SkillInfo } from '../../../../../shared/ipc'
 import type { UiMessage } from '../../../shared/i18n'
-import type { CatalogTab } from './catalogSelection'
 
 export interface CatalogGroup<T> {
   id: string
@@ -12,7 +10,7 @@ export interface CatalogGroup<T> {
   rows: T[]
 }
 
-// 행이 하나도 없는 그룹은 목록에 내지 않는다 (빈 표 + 빈 제목이 남는 것을 막는다).
+// 행이 하나도 없는 그룹은 반환하지 않는다.
 function nonEmpty<T>(groups: CatalogGroup<T>[]): CatalogGroup<T>[] {
   return groups.filter((group) => group.rows.length > 0)
 }
@@ -72,22 +70,4 @@ export function providerGroups(providers: ProviderInfo[]): CatalogGroup<Provider
       rows: providers.filter((provider) => provider.kind === 'service')
     }
   ])
-}
-
-// ── 그룹 접기 ────────────────────────────────────────────────────────
-// 접힌 그룹만 true 로 담는다(기본 = 펼침). 키를 탭으로 네임스페이스해 탭을 오가도
-// 접힘이 유지되고, 서로 다른 탭의 동명 그룹이 간섭하지 않는다. 모달 언마운트 시
-// state 가 사라지므로 영속 키 계약이 프로세스 밖으로 나가지 않는다.
-export type CollapsedGroups = Readonly<Record<string, boolean>>
-
-export function groupKey(tab: CatalogTab, groupId: string): string {
-  return `${tab}:${groupId}`
-}
-
-export function isGroupOpen(collapsed: CollapsedGroups, key: string): boolean {
-  return collapsed[key] !== true
-}
-
-export function toggleGroup(collapsed: CollapsedGroups, key: string): CollapsedGroups {
-  return { ...collapsed, [key]: isGroupOpen(collapsed, key) }
 }

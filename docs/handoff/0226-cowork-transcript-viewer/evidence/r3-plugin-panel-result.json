@@ -1,0 +1,338 @@
+{
+  "success": true,
+  "errors": [],
+  "screens": [
+    "skills-list-1400.png",
+    "skills-detail-1400.png",
+    "skills-switched.png",
+    "skills-resized.png",
+    "skills-expanded.png",
+    "skills-restored.png",
+    "skills-closed.png",
+    "mcp-detail-1400.png",
+    "providers-detail-1400.png",
+    "mcp-renamed.png",
+    "mcp-removed.png",
+    "skills-detail-960.png",
+    "skills-detail-720.png"
+  ],
+  "blockedRequests": [],
+  "consoleMessages": [],
+  "observed": {
+    "checks": {
+      "skills-flat-list-count": true,
+      "skills-no-table-or-group-headings": true,
+      "skills-shared-artifact-row": true,
+      "initial-no-detail-panel": true,
+      "skills-list-1400-no-main-overflow": true,
+      "skills-orca/검증 보고서-list-stays-mounted": true,
+      "skills-orca/검증 보고서-selected-row": true,
+      "skills-orca/검증 보고서-detail-visible": true,
+      "skills-orca/검증 보고서-two-rows-retained": true,
+      "skill-rendered-markdown": true,
+      "skills-detail-1400-no-main-overflow": true,
+      "skills-detail-1400-list-and-panel-visible": true,
+      "skill-menu-open-with-trigger-focus": true,
+      "skill-first-escape-closes-menu-only": true,
+      "skill-second-escape-closes-detail": true,
+      "skill-escape-restores-origin-focus": true,
+      "skill-plain-mode-enabled": true,
+      "skills-custom/분석 도우미-list-stays-mounted": true,
+      "skills-custom/분석 도우미-selected-row": true,
+      "skills-custom/분석 도우미-detail-visible": true,
+      "skills-custom/분석 도우미-two-rows-retained": true,
+      "switch-skill-resets-plain-local-state": true,
+      "mouse-drag-resizes-side-panel": true,
+      "mouse-drag-cleans-shield": true,
+      "keyboard-resizes-side-panel": true,
+      "skills-resized-1400-no-main-overflow": true,
+      "skills-resized-1400-list-and-panel-visible": true,
+      "detail-has-real-scroll-offset": true,
+      "expanded-covers-entire-plugin-host": true,
+      "expanded-retains-list-dom": true,
+      "expanded-disables-background-list": true,
+      "expanded-hides-resize-handle": true,
+      "expanded-preserves-detail-dom": true,
+      "restore-preserves-user-width": true,
+      "restore-releases-inert": true,
+      "restore-preserves-detail-scroll-dom": true,
+      "restore-preserves-detail-scroll-offset": true,
+      "close-removes-detail-panel": true,
+      "close-restores-origin-focus": true,
+      "close-clears-selected-state": true,
+      "mcp-flat-list-count": true,
+      "mcp-no-table-or-group-headings": true,
+      "mcp-shared-artifact-row": true,
+      "mcp-mcp-a-list-stays-mounted": true,
+      "mcp-mcp-a-selected-row": true,
+      "mcp-mcp-a-detail-visible": true,
+      "mcp-mcp-a-two-rows-retained": true,
+      "mcp-detail-configuration-visible": true,
+      "mcp-menu-open-with-trigger-focus": true,
+      "mcp-first-escape-closes-menu-only": true,
+      "mcp-second-escape-closes-detail": true,
+      "mcp-escape-restores-origin-focus": true,
+      "mcp-detail-1400-no-main-overflow": true,
+      "mcp-detail-1400-list-and-panel-visible": true,
+      "tab-switch-closes-panel": true,
+      "providers-flat-list-count": true,
+      "providers-no-table-or-group-headings": true,
+      "providers-shared-artifact-row": true,
+      "providers-mcp-a-list-stays-mounted": true,
+      "providers-mcp-a-selected-row": true,
+      "providers-mcp-a-detail-visible": true,
+      "providers-mcp-a-two-rows-retained": true,
+      "cross-tab-id-collision-stays-provider": true,
+      "providers-connection-b-list-stays-mounted": true,
+      "providers-connection-b-selected-row": true,
+      "providers-connection-b-detail-visible": true,
+      "providers-connection-b-two-rows-retained": true,
+      "provider-switch-clears-auth-step": true,
+      "provider-switch-clears-input-state": true,
+      "provider-detail-1400-no-main-overflow": true,
+      "provider-detail-1400-list-and-panel-visible": true,
+      "mcp-pending-save-blocks-escape": true,
+      "mcp-pending-save-blocks-backdrop": true,
+      "mcp-pending-save-disables-cancel": true,
+      "mcp-save-resolution-closes-dialog": true,
+      "mcp-rename-keeps-list-and-detail-selected": true,
+      "mcp-rename-removes-old-row": true,
+      "mcp-remove-closes-stale-panel": true,
+      "mcp-remove-keeps-other-row": true,
+      "mcp-remove-focus-returns-to-tab": true,
+      "skills-detail-960-no-main-overflow": true,
+      "skills-detail-960-list-and-panel-visible": true,
+      "skills-detail-720-no-main-overflow": true,
+      "skills-detail-720-list-and-panel-visible": true
+    },
+    "errors": [],
+    "calls": [
+      [
+        "connect",
+        {
+          "providerId": "mcp-a",
+          "authKind": "pat"
+        }
+      ],
+      [
+        "connect",
+        {
+          "providerId": "connection-b",
+          "authKind": "pat"
+        }
+      ],
+      [
+        "update-mcp",
+        {
+          "id": "mcp-a",
+          "name": "mcp-renamed",
+          "description": "문서와 컨텍스트를 읽는 로컬 도구",
+          "transport": "stdio",
+          "command": "node",
+          "args": [
+            "fixture-server.js"
+          ],
+          "authEnvKey": "",
+          "url": ""
+        }
+      ],
+      [
+        "delete-mcp",
+        "mcp-renamed"
+      ]
+    ],
+    "geometry": {
+      "skills-list-1400": {
+        "host": {
+          "x": 264.25,
+          "y": 0,
+          "width": 1135.75,
+          "height": 816,
+          "right": 1400,
+          "bottom": 816
+        },
+        "pane": null,
+        "list": {
+          "x": 374.875,
+          "y": 135.65000915527344,
+          "width": 908,
+          "height": 129.3000030517578,
+          "right": 1282.875,
+          "bottom": 264.95001220703125
+        }
+      },
+      "skills-detail-1400": {
+        "host": {
+          "x": 264.25,
+          "y": 0,
+          "width": 1135.75,
+          "height": 816,
+          "right": 1400,
+          "bottom": 816
+        },
+        "pane": {
+          "x": 753.5,
+          "y": 0,
+          "width": 640,
+          "height": 809.5,
+          "right": 1393.5,
+          "bottom": 809.5
+        },
+        "list": {
+          "x": 277.25,
+          "y": 135.65000915527344,
+          "width": 463.25,
+          "height": 129.3000030517578,
+          "right": 740.5,
+          "bottom": 264.95001220703125
+        }
+      },
+      "beforeDrag": {
+        "x": 753.5,
+        "y": 0,
+        "width": 640,
+        "height": 809.5,
+        "right": 1393.5,
+        "bottom": 809.5
+      },
+      "normalPane": {
+        "x": 676.5,
+        "y": 0,
+        "width": 717,
+        "height": 809.5,
+        "right": 1393.5,
+        "bottom": 809.5
+      },
+      "skills-resized-1400": {
+        "host": {
+          "x": 264.25,
+          "y": 0,
+          "width": 1135.75,
+          "height": 816,
+          "right": 1400,
+          "bottom": 816
+        },
+        "pane": {
+          "x": 676.5,
+          "y": 0,
+          "width": 717,
+          "height": 809.5,
+          "right": 1393.5,
+          "bottom": 809.5
+        },
+        "list": {
+          "x": 277.25,
+          "y": 135.65000915527344,
+          "width": 386.25,
+          "height": 129.3000030517578,
+          "right": 663.5,
+          "bottom": 264.95001220703125
+        }
+      },
+      "mcp-detail-1400": {
+        "host": {
+          "x": 264.25,
+          "y": 0,
+          "width": 1135.75,
+          "height": 816,
+          "right": 1400,
+          "bottom": 816
+        },
+        "pane": {
+          "x": 676.5,
+          "y": 0,
+          "width": 717,
+          "height": 809.5,
+          "right": 1393.5,
+          "bottom": 809.5
+        },
+        "list": {
+          "x": 277.25,
+          "y": 135.65000915527344,
+          "width": 386.25,
+          "height": 129.3000030517578,
+          "right": 663.5,
+          "bottom": 264.95001220703125
+        }
+      },
+      "provider-detail-1400": {
+        "host": {
+          "x": 264.25,
+          "y": 0,
+          "width": 1135.75,
+          "height": 816,
+          "right": 1400,
+          "bottom": 816
+        },
+        "pane": {
+          "x": 676.5,
+          "y": 0,
+          "width": 717,
+          "height": 809.5,
+          "right": 1393.5,
+          "bottom": 809.5
+        },
+        "list": {
+          "x": 277.25,
+          "y": 135.65000915527344,
+          "width": 386.25,
+          "height": 129.3000030517578,
+          "right": 663.5,
+          "bottom": 264.95001220703125
+        }
+      },
+      "skills-detail-960": {
+        "host": {
+          "x": 264.25,
+          "y": 0,
+          "width": 695.75,
+          "height": 1000,
+          "right": 960,
+          "bottom": 1000
+        },
+        "pane": {
+          "x": 497.5,
+          "y": 0,
+          "width": 456,
+          "height": 993.5,
+          "right": 953.5,
+          "bottom": 993.5
+        },
+        "list": {
+          "x": 277.25,
+          "y": 135.65000915527344,
+          "width": 207.25,
+          "height": 129.3000030517578,
+          "right": 484.5,
+          "bottom": 264.95001220703125
+        }
+      },
+      "skills-detail-720": {
+        "host": {
+          "x": 264.25,
+          "y": 0,
+          "width": 455.75,
+          "height": 1000,
+          "right": 720,
+          "bottom": 1000
+        },
+        "pane": {
+          "x": 497.5,
+          "y": 0,
+          "width": 216,
+          "height": 993.5,
+          "right": 713.5,
+          "bottom": 993.5
+        },
+        "list": {
+          "x": 277.25,
+          "y": 135.65000915527344,
+          "width": 207.25,
+          "height": 129.3000030517578,
+          "right": 484.5,
+          "bottom": 264.95001220703125
+        }
+      }
+    }
+  }
+}

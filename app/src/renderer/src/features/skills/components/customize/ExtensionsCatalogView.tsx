@@ -6,7 +6,7 @@ import { useCustomizeSkills } from '../../hooks/useCustomizeSkills'
 import { useMcpServers } from '../../hooks/useMcpServers'
 import { useProviders } from '../../hooks/useProviders'
 import { back, openDetail, selectTab, type CatalogSelection } from '../../lib/catalogSelection'
-import { toggleGroup, type CollapsedGroups } from '../../lib/catalogGroups'
+import { ExtensionDetailPane } from './ExtensionDetailPane'
 import { CustomizeTabs } from './CustomizeTabs'
 import { CustomizeList } from './CustomizeList'
 import { SkillDetail } from './SkillDetail'
@@ -25,9 +25,11 @@ export function ExtensionsCatalogView(): React.JSX.Element {
   const navigate = useNavigate()
   const id = useId()
   const [selection, setSelection] = useState<CatalogSelection>({ tab: 'skills', selectedId: null })
-  // 그룹 접힘 — 키가 탭으로 네임스페이스돼 탭을 오가도 유지되고, 카탈로그 언마운트 시 초기화된다
-  // (영속 키 계약을 만들지 않기 위해 의도적으로 메모리 전용, plan 0159 r5).
-  const [collapsed, setCollapsed] = useState<CollapsedGroups>({})
+  const [panelWidth, setPanelWidth] = useState(640)
+  const [expanded, setExpanded] = useState(false)
+  const originRef = useRef<HTMLButtonElement | null>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  const selectionEpoch = useRef(0)
   const skills = useCustomizeSkills()
   const mcp = useMcpServers()
   const providers = useProviders()
@@ -38,12 +40,17 @@ export function ExtensionsCatalogView(): React.JSX.Element {
   // 편집 대상은 id 로 들고 목록에서 되찾는다 — 서버 객체를 복사해 두면 갱신 후 낡은 값이 남는다.
   const [mcpEditId, setMcpEditId] = useState<string | null>(null)
   const addRef = useRef<HTMLButtonElement>(null)
-  const selectedSkill = skills.list.find(
-    (item) => skillKey(item.sourceId, item.name) === selection.selectedId
-  )
-  const selectedMcp = mcp.list.find((item) => item.id === selection.selectedId)
+  const selectedSkill =
+    selection.tab === 'skills'
+      ? skills.list.find((item) => skillKey(item.sourceId, item.name) === selection.selectedId)
+      : undefined
+  const selectedMcp =
+    selection.tab === 'mcp' ? mcp.list.find((item) => item.id === selection.selectedId) : undefined
   const editingMcp = mcp.list.find((item) => item.id === mcpEditId)
-  const selectedProvider = providers.list.find((item) => item.id === selection.selectedId)
+  const selectedProvider =
+    selection.tab === 'providers'
+      ? providers.list.find((item) => item.id === selection.selectedId)
+      : undefined
   const detail = selectedSkill ?? selectedMcp ?? selectedProvider
   const title = tr(
     selection.tab === 'skills'
@@ -52,30 +59,58 @@ export function ExtensionsCatalogView(): React.JSX.Element {
         ? 'skills.rail.mcp'
         : 'skills.rail.providers'
   )
+  const closeDetail = (): void => {
+    selectionEpoch.current += 1
+    const epoch = selectionEpoch.current
+    providers.clearStep()
+    setExpanded(false)
+    setSelection((state) => back(state))
+    window.requestAnimationFrame(() => {
+      if (selectionEpoch.current !== epoch) return
+      if (originRef.current?.isConnected) originRef.current.focus({ preventScroll: true })
+      else
+        listRef.current
+          ?.querySelector<HTMLButtonElement>('[role=tab][aria-selected=true]')
+          ?.focus({ preventScroll: true })
+    })
+  }
+  const removeDetail = async (remove: () => Promise<void>): Promise<void> => {
+    const epoch = selectionEpoch.current
+    await remove()
+    if (selectionEpoch.current === epoch) closeDetail()
+  }
   return (
     <section
-      className="flex min-h-0 min-w-0 flex-1 pb-2 pr-2"
+      className="relative flex min-h-0 min-w-0 flex-1 pb-2 pr-2"
+      data-side-pane-host=""
       data-context="extensions-catalog"
       data-state={detail ? 'detail' : 'list'}
     >
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[960px] px-8 pb-10 pt-10">
+      <div
+        ref={listRef}
+        data-extensions-catalog-list=""
+        inert={!!detail && expanded}
+        className="@container/catalog min-h-0 min-w-0 flex-1 overflow-y-auto"
+      >
+        <div className={`mx-auto w-full max-w-[960px] pb-10 pt-10 ${detail ? 'px-4' : 'px-8'}`}>
           <h1 className="m-0 font-serif text-[30px] font-medium tracking-[-0.02em] text-ink">
             {tr('skills.pageTitle')}
           </h1>
-          <div className="mb-4 mt-6 flex items-center justify-between gap-3">
+          <div className="mb-4 mt-6 flex flex-wrap items-center justify-between gap-3">
             <CustomizeTabs
               id={id}
               tab={selection.tab}
               onSelect={(tab) => {
+                selectionEpoch.current += 1
                 providers.clearStep()
                 setMenuOpen(false)
+                setExpanded(false)
                 setSelection((state) => selectTab(state, tab))
               }}
             />
             {/* skills 는 메뉴, mcp 는 모달. */}
             {/* provider 는 빌드타임 선언이라 UI 추가 경로가 없다 — 버튼 자체를 내지 않는다. */}
-            {!detail && selection.tab !== 'providers' && (
+            {selection.tab !== 'providers' && (
               <Button
                 ref={addRef}
                 className="ml-auto"
@@ -93,86 +128,91 @@ export function ExtensionsCatalogView(): React.JSX.Element {
             )}
           </div>
           <div role="tabpanel" id={`${id}-items`} aria-labelledby={`${id}-${selection.tab}`}>
-            {detail && (
-              <div className="mb-2 flex items-center gap-2">
-                <Button
-                  iconOnly
-                  leadingIcon="arrowL"
-                  size="small"
-                  onClick={() => {
-                    providers.clearStep()
-                    setSelection((state) => back(state))
-                  }}
-                  aria-label={tr('skills.view.backAria', { section: title })}
-                />
-                <span className="text-footnote text-ink2">{title}</span>
-              </div>
-            )}
-            {selectedSkill ? (
-              <SkillDetail
-                skill={selectedSkill}
-                onToggle={() =>
-                  selectedSkill.canToggle &&
-                  void skills.setEnabled({
-                    name: selectedSkill.name,
-                    sourceId: selectedSkill.sourceId,
-                    enabled: !selectedSkill.enabled
-                  })
-                }
-                onTryInChat={() =>
-                  navigate('/new', { state: { composerDraft: `/${selectedSkill.name} ` } })
-                }
-                onOpenDefault={() =>
-                  void skills.open({ name: selectedSkill.name, sourceId: selectedSkill.sourceId })
-                }
-                onShowInFolder={() =>
-                  void skills.showInFolder({
-                    name: selectedSkill.name,
-                    sourceId: selectedSkill.sourceId
-                  })
-                }
-                onRemove={() =>
-                  skills.remove({ name: selectedSkill.name, sourceId: selectedSkill.sourceId })
-                }
-              />
-            ) : selectedMcp ? (
-              <McpDetail
-                server={selectedMcp}
-                onToggle={() => void mcp.toggle(selectedMcp.id, !selectedMcp.enabled)}
-                onEdit={() => setMcpEditId(selectedMcp.id)}
-                onRemove={() => mcp.remove(selectedMcp.id)}
-              />
-            ) : selectedProvider ? (
-              <ProviderDetail
-                // provider 를 갈아타면 방식 선택·입력값이 남지 않도록 리마운트한다.
-                key={selectedProvider.id}
-                provider={selectedProvider}
-                step={providers.step}
-                onLogin={(authKind) => void providers.login(selectedProvider.id, authKind)}
-                onSubmit={(input) => void providers.submit(selectedProvider.id, input)}
-                onReauth={(authKind) => void providers.reauth(selectedProvider.id, authKind)}
-                onRevoke={() => void providers.revoke(selectedProvider.id)}
-              />
-            ) : skills.loading || mcp.loading || providers.loading ? (
+            {skills.loading || mcp.loading || providers.loading ? (
               <div role="status" className="grid h-48 place-items-center text-footnote text-ink3">
                 {tr('common.loading')}
               </div>
             ) : (
-              <div className="flex min-h-0 flex-1 flex-col">
-                <CustomizeList
-                  tab={selection.tab}
-                  skills={skills.list}
-                  mcpServers={mcp.list}
-                  providers={providers.list}
-                  collapsed={collapsed}
-                  onToggleGroup={(key) => setCollapsed((state) => toggleGroup(state, key))}
-                  onSelect={(id) => setSelection((state) => openDetail(state, id))}
-                />
-              </div>
+              <CustomizeList
+                tab={selection.tab}
+                skills={skills.list}
+                mcpServers={mcp.list}
+                providers={providers.list}
+                selectedId={selection.selectedId}
+                onSelect={(id, origin) => {
+                  selectionEpoch.current += 1
+                  originRef.current = origin
+                  providers.clearStep()
+                  setExpanded(false)
+                  setSelection((state) => openDetail(state, id))
+                }}
+              />
             )}
           </div>
         </div>
       </div>
+      {detail && selection.selectedId && (
+        <ExtensionDetailPane
+          key={`${selection.tab}:${selection.selectedId}`}
+          tab={selection.tab}
+          itemId={selection.selectedId}
+          title={title}
+          width={panelWidth}
+          expanded={expanded}
+          onWidthChange={setPanelWidth}
+          onExpandedChange={setExpanded}
+          onClose={closeDetail}
+        >
+          {selectedSkill ? (
+            <SkillDetail
+              skill={selectedSkill}
+              onToggle={() =>
+                selectedSkill.canToggle &&
+                void skills.setEnabled({
+                  name: selectedSkill.name,
+                  sourceId: selectedSkill.sourceId,
+                  enabled: !selectedSkill.enabled
+                })
+              }
+              onTryInChat={() =>
+                navigate('/new', { state: { composerDraft: `/${selectedSkill.name} ` } })
+              }
+              onOpenDefault={() =>
+                void skills.open({ name: selectedSkill.name, sourceId: selectedSkill.sourceId })
+              }
+              onShowInFolder={() =>
+                void skills.showInFolder({
+                  name: selectedSkill.name,
+                  sourceId: selectedSkill.sourceId
+                })
+              }
+              onRemove={() =>
+                removeDetail(() =>
+                  skills.remove({ name: selectedSkill.name, sourceId: selectedSkill.sourceId })
+                )
+              }
+            />
+          ) : selectedMcp ? (
+            <McpDetail
+              server={selectedMcp}
+              onToggle={() => void mcp.toggle(selectedMcp.id, !selectedMcp.enabled)}
+              onEdit={() => setMcpEditId(selectedMcp.id)}
+              onRemove={() => removeDetail(() => mcp.remove(selectedMcp.id))}
+            />
+          ) : selectedProvider ? (
+            <ProviderDetail
+              // provider 를 갈아타면 방식 선택·입력값이 남지 않도록 리마운트한다.
+              key={selectedProvider.id}
+              provider={selectedProvider}
+              step={providers.step}
+              onLogin={(authKind) => void providers.login(selectedProvider.id, authKind)}
+              onSubmit={(input) => void providers.submit(selectedProvider.id, input)}
+              onReauth={(authKind) => void providers.reauth(selectedProvider.id, authKind)}
+              onRevoke={() => void providers.revoke(selectedProvider.id)}
+            />
+          ) : null}
+        </ExtensionDetailPane>
+      )}
       <SkillAddMenu
         open={menuOpen}
         anchorRef={addRef}
@@ -212,7 +252,11 @@ export function ExtensionsCatalogView(): React.JSX.Element {
             // id 는 서버 이름이라 rename 이 곧 재키잉이다 — 상세 선택을 새 id 로 옮기지 않으면
             // 저장 직후 상세가 사라지고 목록으로 튕긴다.
             if (values.name !== editingMcp.id) {
-              setSelection((state) => openDetail(state, values.name))
+              setSelection((state) =>
+                state.tab === 'mcp' && state.selectedId === editingMcp.id
+                  ? openDetail(state, values.name)
+                  : state
+              )
             }
             setMcpEditId(null)
           }}

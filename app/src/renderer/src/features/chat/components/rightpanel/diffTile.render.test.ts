@@ -14,9 +14,8 @@ import type {
   GitDiffPatchFile,
   GitDiffSummary
 } from '../../../../../../shared/ipc'
-import { DEFAULT_DIFF_VIEW, PANEL_DEFAULT_WIDTH, PANEL_MAX_WIDTH } from '../../reducer/chatReducer'
+import { DEFAULT_DIFF_VIEW } from '../../reducer/chatReducer'
 import { DiffReview } from './DiffReview'
-import { nextDiffPanelWidth } from './diffPanelWidth'
 import { buildDiffRequirementSubmission, shouldCancelDiffRequirementDraft } from './FileDiffSection'
 import { tileById } from './tileRegistry'
 
@@ -382,21 +381,6 @@ describe('표시 옵션 넷이 화면을 바꾼다 (AT-51 · D-088)', () => {
     expect(hidden).toContain('const a = 1')
     expect(hidden).toContain('const b = 1')
     expect(hidden).toContain('const b = 2')
-  })
-})
-
-describe('패널 확대는 이미 있는 열 폭 축을 쓴다 (AT-52 · D-091)', () => {
-  it('기본 폭이면 최대로, 최대면 기본으로 토글한다', () => {
-    expect(nextDiffPanelWidth(PANEL_DEFAULT_WIDTH)).toBe(PANEL_MAX_WIDTH)
-    expect(nextDiffPanelWidth(PANEL_MAX_WIDTH)).toBe(PANEL_DEFAULT_WIDTH)
-  })
-
-  it('폭이 아직 없으면 기본으로 보고 최대로 넓힌다', () => {
-    expect(nextDiffPanelWidth(undefined)).toBe(PANEL_MAX_WIDTH)
-  })
-
-  it('최대보다 넓게 끌어둔 열도 기본으로 되돌린다 — 새 모드를 만들지 않는다', () => {
-    expect(nextDiffPanelWidth(PANEL_MAX_WIDTH + 50)).toBe(PANEL_DEFAULT_WIDTH)
   })
 })
 

@@ -1009,7 +1009,7 @@ export const ko = {
       diffIgnoreWhitespace: '공백 변경 숨기기',
       diffViewSettings: 'diff 표시 설정',
       diffExpandPanel: '패널 확대',
-      diffShrinkPanel: '패널 폭 되돌리기',
+      diffShrinkPanel: '패널 크기 되돌리기',
       diffUnmodifiedLines: '변경 없는 {{count}}줄',
       diffNoSessionChange: '세션 기준 변경 없음',
       diffPatchUnavailable: '변경 내용을 불러오지 못했습니다. 새로고침해 주세요.',

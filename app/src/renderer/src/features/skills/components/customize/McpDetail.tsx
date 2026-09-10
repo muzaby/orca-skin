@@ -44,13 +44,13 @@ export function McpDetail({
 
   return (
     <div className="min-w-0 py-6">
-      <div className="flex items-center gap-g6">
+      <div className="flex flex-wrap items-center gap-g6">
         <span className="grid h-9 w-9 flex-none place-items-center rounded-r4 bg-bg2 text-ink2">
           <Icon name={server.transport === 'http' ? 'link' : 'cpu'} size={18} />
         </span>
         <div className="min-w-0">
-          <h2 className="m-0 text-heading text-ink">{server.name}</h2>
-          <div className="mt-g1 flex items-center gap-g3 text-footnote text-ink3">
+          <h2 className="m-0 break-words text-heading text-ink">{server.name}</h2>
+          <div className="mt-g1 flex flex-wrap items-center gap-g3 text-footnote text-ink3">
             <span className="font-mono uppercase">{server.transport}</span>
             <span>·</span>
             <Dot tone={server.enabled ? 'green' : 'slate'} />

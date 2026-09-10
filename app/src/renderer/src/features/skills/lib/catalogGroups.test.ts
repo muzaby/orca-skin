@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { McpServer, SkillInfo } from '../../../../../shared/ipc'
-import { groupKey, isGroupOpen, mcpGroups, skillGroups, toggleGroup } from './catalogGroups'
+import { mcpGroups, skillGroups } from './catalogGroups'
 
 const skill = (sourceId: string, sourceLabel: string, name: string): SkillInfo =>
   ({ sourceKind: 'orca', sourceId, sourceLabel, name }) as SkillInfo
@@ -41,28 +41,5 @@ describe('catalog groups', () => {
       ['active', 'a'],
       ['inactive', 'b']
     ])
-  })
-
-  it('그룹은 기본 펼침이다', () => expect(isGroupOpen({}, 'skills:orca')).toBe(true))
-
-  it('토글은 열림→닫힘→열림 을 왕복한다', () => {
-    const key = groupKey('skills', 'orca')
-    const closed = toggleGroup({}, key)
-    expect(isGroupOpen(closed, key)).toBe(false)
-    expect(isGroupOpen(toggleGroup(closed, key), key)).toBe(true)
-  })
-
-  it('접힘 키는 탭으로 네임스페이스된다 — 동명 그룹이 간섭하지 않는다', () => {
-    expect(groupKey('mcp', 'active')).toBe('mcp:active')
-    const collapsed = toggleGroup({}, groupKey('mcp', 'active'))
-    expect(isGroupOpen(collapsed, groupKey('mcp', 'active'))).toBe(false)
-    expect(isGroupOpen(collapsed, groupKey('skills', 'active'))).toBe(true)
-  })
-
-  it('토글은 기존 상태를 보존하며 새 객체를 만든다', () => {
-    const first = toggleGroup({}, 'skills:a')
-    const second = toggleGroup(first, 'skills:b')
-    expect(second).toEqual({ 'skills:a': true, 'skills:b': true })
-    expect(first).toEqual({ 'skills:a': true })
   })
 })

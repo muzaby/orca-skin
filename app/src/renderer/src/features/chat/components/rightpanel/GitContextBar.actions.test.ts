@@ -21,6 +21,7 @@ type Props = Record<string, unknown>
 
 const buttons: Props[] = []
 const menuItems: Props[] = []
+const toggleExpand = vi.fn()
 
 vi.mock('../../../../shared/ui/Button', () => ({
   Button: (props: Props) => {
@@ -122,15 +123,12 @@ vi.mock('../../store/chatStore', () => ({
 
 const { GitContextBar } = await import('./GitContextBar')
 
-/** diff 타일이 세 번째 열에 있다 — 인덱스를 고정값으로 쓰면 열이 옮겨간 회귀가 보이지 않는다. */
-const DIFF_COL = 2
-
-function render(width = PANEL_DEFAULT_WIDTH, visible = false): void {
+function render(width = PANEL_DEFAULT_WIDTH, visible = false, expanded = false): void {
   buttons.length = 0
   menuItems.length = 0
   colWidth = width
   sidebarVisible = visible
-  renderToStaticMarkup(createElement(GitContextBar))
+  renderToStaticMarkup(createElement(GitContextBar, { expanded, onToggleExpand: toggleExpand }))
 }
 
 const byMarker = (list: Props[], marker: string): Props =>
@@ -139,30 +137,35 @@ const byMarker = (list: Props[], marker: string): Props =>
 const click = (props: Props): void => (props.onClick as () => void)()
 
 beforeEach(() => {
+  toggleExpand.mockClear()
   for (const fn of Object.values(actions)) fn.mockClear()
 })
 
-describe('`↗` 는 이 타일이 있는 열의 폭을 토글한다 (AT-52 · D-091)', () => {
-  it('기본 폭에서 누르면 그 열을 최대로 넓힌다', () => {
-    render(PANEL_DEFAULT_WIDTH)
+describe('변경사항 확대는 transcript host를 덮는 패널 상태를 토글한다', () => {
+  it.each([PANEL_DEFAULT_WIDTH, PANEL_MAX_WIDTH, 420])(
+    '열 폭 %s에서도 같은 확대 동작을 요청한다',
+    (width) => {
+      render(width)
 
-    const control = byMarker(buttons, 'data-diff-expand-panel')
-    expect(control.leadingIcon).toBe('expand')
-    click(control)
+      const control = byMarker(buttons, 'data-diff-expand-panel')
+      expect(control.leadingIcon).toBe('expand')
+      click(control)
 
-    expect(actions.setRightPanelColWidth).toHaveBeenCalledTimes(1)
-    // 열 인덱스가 계약의 절반이다 — 폭만 맞고 열이 틀리면 남의 패널이 넓어진다.
-    expect(actions.setRightPanelColWidth).toHaveBeenCalledWith(DIFF_COL, PANEL_MAX_WIDTH)
-  })
+      expect(toggleExpand).toHaveBeenCalledOnce()
+      expect(actions.setRightPanelColWidth).not.toHaveBeenCalled()
+    }
+  )
 
-  it('최대 폭에서 누르면 같은 열을 기본으로 되돌린다 — 새 모드를 만들지 않는다', () => {
-    render(PANEL_MAX_WIDTH)
+  it('펼친 상태에서 다시 누르면 원래 배치로 복귀하며 열 폭은 유지한다', () => {
+    render(420, false, true)
 
     const control = byMarker(buttons, 'data-diff-expand-panel')
     expect(control.leadingIcon).toBe('collapse')
     click(control)
 
-    expect(actions.setRightPanelColWidth).toHaveBeenCalledWith(DIFF_COL, PANEL_DEFAULT_WIDTH)
+    expect(control['aria-pressed']).toBe(true)
+    expect(toggleExpand).toHaveBeenCalledOnce()
+    expect(actions.setRightPanelColWidth).not.toHaveBeenCalled()
   })
 })
 
