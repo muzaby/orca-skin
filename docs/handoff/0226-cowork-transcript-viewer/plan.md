@@ -415,3 +415,16 @@ Architecture: `ExtensionsCatalogView`가 selection과 폭·확대 상태를 보�
 ### [구현자 기입] Delta V4 결과
 
 AC28~31 자기확인 4/4, EP18~21 전수 12/12 완료. [구현 보고](impl-r3-panels.md)에 V-pair·게이트·native 증거 및 메뉴 Escape/지연 저장의 파생 문제 수정을 기록했다. 같은 r3 구현 턴이며 독립 verify는 pending이다.
+
+## [검증자 기입] 파생 이슈
+
+> ΔV8 판정 원문은 [`verify.md`](verify.md). 여기엔 이관 대상 파생 이슈만 둔다. r1~r6은 독립 검증 없이 승계됐다.
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D1 | Temp root 자체가 정션이면 그 대상 폴더 전체가 게시 입력이 된다. 일반 출력은 같은 root를 `unredirectedDirectory`로 거부한다 | 비귀속 — AC44는 "외부로 나가는" 정션만 거부한다 | 게시 root도 `unredirectedDirectory`로 맞추는 안 | NON_BLOCKING | open |
+| D2 | 프로젝트 empty CTA 버튼만 `variant` 없이 남는다 | 비귀속 — ΔV8이 명시 제외 | 기록만 | NON_BLOCKING | open |
+| D3 | 인용된 기준선 해시가 `codex-cowork-transcript-viewer`에만 있다. `main`은 내용만 같은 다른 SHA다 | 운영 — 다음 라운드 기준선 | 이후 문서는 `main` 좌표를 함께 적는다 | NON_BLOCKING | open |
+| D4 | AC43의 기계 잠금은 native fixture뿐이다. 단위 되돌림 2종은 green이었다 | VP83의 선언된 oracle과 정합 | 버튼 계약 변경 라운드는 native 재실행 필수 | NON_BLOCKING | open |
+| D5 | `composerRequirementWiring` 6실패는 r2(`b23d254`)의 `useChatResponding` mock 누락이며 r6까지 red였다 | 운영 — 라운드 gate 범위 | 후속 라운드는 전체 Vitest를 gate로 | NON_BLOCKING | open |
+| D6 | node ID `MD11`이 ΔV6 VP76·ΔV8 VP86에 중복 배정됐다 | 추적 | 다음 Delta에서 번호 재부여 | NON_BLOCKING | open |
