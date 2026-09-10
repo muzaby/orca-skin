@@ -6,7 +6,7 @@
 |---|---|
 | 작성자 / 일자 | Codex / 2026-09-10 |
 | 상태 | READY |
-| V mode / revision | Baseline V1 + Delta V2 (아래 §13) |
+| V mode / revision | Baseline V1 + Delta V2 + Delta V3 (아래 §13·14) |
 | 기준선 | `a89e6f89`; 기존 0223·0224 구현 위에 별도 요구를 추가한다 |
 
 # Part I — Product & UX Contract
@@ -212,7 +212,7 @@ READY (2026-09-10). 기준 V는 `fde5557dedc516ddf09d308b71cc7495cc3ea43f`의 �
 | D-10 | 일반 출력도 Transcript 카드로 표시한다. 게시 카드의 타이틀 하단은 “아티팩트”만; 카드/우측 출력에서 보관 폴더 열기·메뉴 상단 파일 메타·하단 성공 안내를 제거한다. | ACTIVE; V1 완료 안내의 카드 부분 대체 | AC10·11 |
 | D-11 | “백그라운드 작업, 크론 등의 답변을 기다릴때(steer가 아닌 즉각대화재개가 가능할때)”는 답변 대기 표시를 하지 않는다. 실제 모델 활동·입력 순서·예약 수신은 유지한다. | ACTIVE | AC12 |
 | D-12 | 새 Composer landing의 기본 경로는 Desktop. 세션 시작 경로를 프로젝트 기본 경로로 저장하고 해당 landing에 자동 적용한다. 동일 basename·다른 경로의 프로젝트는 별개다. | ACTIVE | AC13·14 |
-| D-13 | 프로젝트 landing은 아티팩트 목록 레이아웃으로 제목→Composer→대화 목록을 배치한다. 우측 지침 UI·대화 제목 아래 메타를 제거한다. Nav는 경로를 연한 왼쪽 prefix로 표시하고 최근 대화 그룹 제거, 고정됨→프로젝트 순서다. | ACTIVE; 후속 사용자 지시 포함 | AC14·15 |
+| D-13 | 프로젝트 landing은 제목→Composer→대화 목록을 배치하고 우측 지침 UI·대화 제목 아래 메타를 제거한다. | ACTIVE; nav 표시·최근 그룹·좌우 폭은 D-17·18·21로 대체 | AC14·15 |
 | D-14 | 프로젝트 상단 케밥의 “세부사항 수정”을 “지침 편집”으로 바꾸고 편집 대화상자에 연결한다. | ACTIVE; 사용자 후속 지시 | AC16 |
 | D-15 | 아티팩트 페이지 제목 옆에 전체 아티팩트 수를 작게 표시한다. 검색·고정 탭의 필터 결과 수로 바꾸지 않는다. | ACTIVE; 사용자 후속 지시 | AC17 |
 | D-16 | `/tmp`는 Linux 예시라는 사용자 정정을 반영한다. Windows 일반 출력·첨부·클립보드 사본은 사용자 OS 임시 폴더(LocalAppData/Temp)에 저장한다. | ACTIVE; D-07의 플랫폼 경로 예시 대체 | AC18 |
@@ -236,7 +236,7 @@ READY (2026-09-10). 기준 V는 `fde5557dedc516ddf09d308b71cc7495cc3ea43f`의 �
 
 일반 출력의 현재 영속 목록에는 메시지/턴 소유자가 없으므로 타임스탬프로 턴을 추측하지 않는다. 최신 일반 출력은 Transcript 하단의 카드 목록으로 표시하고, 기존 명시 게시 카드는 원래 턴 연결을 유지한다. 원본 `/tmp` 파일이나 첨부를 수정·재공개하는 기능은 추가하지 않는다.
 
-기존 cwd 없는 프로젝트와 미분류 대화를 강제로 이동하지 않는다. 기존 프로젝트도 목록에 보존하며 기본 cwd가 없으면 Desktop을 사용하고, 미분류 대화는 기존 검색 경로로 계속 접근한다. 현재 `/chats` 경로는 없으므로 전체 대화 페이지를 새로 만들지 않으며 기존 instructions 저장/런타임 주입과 수동 이름 편집은 보존한다.
+기존 cwd 없는 프로젝트와 미분류 대화를 강제로 이동하지 않는다. 기존 프로젝트도 목록에 보존하며 기본 cwd가 없으면 Desktop을 사용한다. 미분류 대화 접근은 D-21의 최근 대화 복구로 보완하며 기존 instructions 저장/런타임 주입과 수동 이름 편집은 보존한다.
 
 ### 13.3 조사와 Technical Design
 
@@ -296,5 +296,58 @@ R9~16/AT9~16, SD2~4/ST2~4, AR2~4/IT2~4, MD3~5/UT3~5는 NEW다. R3·R5·R7·R8은
 구현 분담: 공통 패널·두 호스트, 활동/재개 계약, 프로젝트 경로·landing/nav, 출력 카드·통합 검증을 독립 소유한다. shared i18n·app 조립 파일은 필요한 hunk만 수정하여 합류하고 새 기능 간 교차 import를 만들지 않는다.
 
 READY: D-07~16와 AC10·9·9·10/11·12·13/14·14/15·16·17·18 대응을 대조했다. 새 노드 21개(R 10+SD 3+AR 4+MD 4)는 동일 수준 REQUIRED pair를 가지며 전수 EP 21지점(3+3+4+4+3+1+3)을 고정했다. 계획 규범 변경은 구현과 별도 커밋으로 보존하고, 사용자가 명시한 이번 변경을 먼저 반영하되 기존 독립 verify 대기 상태를 PASS로 바꾸지 않는다.
+
+## 14. Delta V3 — 탐색 목록과 페이지 후속 피드백
+
+READY (2026-09-10). 기준은 `5e53f4a5`의 V1+V2 구현이다. 이번 사용자 정정은 아래 결정으로 승계하며 r2의 독립 검증 결과를 대신하지 않는다.
+
+### 14.1 Decision Ledger / Product & UX
+
+| ID | 현재 결정 / 출처 | 상태 |
+|---|---|---|
+| D-17 | nav 프로젝트 행은 이름 다음에 전체 경로를 작고 연하게 표시한다. 고정하면 고정됨 그룹으로 이동하고 해제하면 프로젝트 그룹으로 돌아간다. | ACTIVE; D-13의 prefix·전용 프로젝트 배치 대체 |
+| D-18 | 개별 프로젝트 landing의 제목·Composer·대화 목록 좌우 간격을 새 대화와 같게 한다. | ACTIVE; V2의 landing 폭 대체 |
+| D-19 | 아티팩트 제목 옆 총계는 한국어에서 `6개`처럼 단위를 포함한다. | ACTIVE; D-15 보완 |
+| D-20 | nav 플러그인은 아티팩트 같은 페이지 레이아웃을 사용하고 스킬·MCP·연결 탭은 전체·고정됨 위치에 둔다. | ACTIVE |
+| D-21 | 고아 대화 자동 보정 요구는 취소하고 최근 대화 분류를 복구한다. 기존 대화의 프로젝트 할당은 수정하지 않는다. | ACTIVE; 사용자 후속 정정, D-13의 최근 제거 대체 |
+| D-22 | nav 프로젝트 목록 페이지는 아티팩트 같은 세로 목록을 사용하고 항목 제목 아래 메타에 프로젝트 경로를 표시한다. | ACTIVE; 사용자 추가 요청 |
+
+| R / AT / AC | 관측 가능한 기준 | production path / 직접 oracle |
+|---|---|---|
+| R19 / AT19 / AC19 | 두 nav 그룹의 프로젝트 이름 뒤에 작은 전체 cwd가 보이며 동명·다른 경로를 구별한다. | projects→공통 nav 행; 실제 DOM 문자열 순서·시각 확인 |
+| R20 / AT20 / AC20 | 새 대화와 개별 프로젝트의 콘텐츠 좌우 경계가 같은 창 크기에서 일치한다. | 두 page container→제목/Composer/대화; Electron bounding rect |
+| R21 / AT21 / AC21 | 프로젝트 고정·해제 시 그룹 간에 이동하고 고정 대화·프로젝트 하위 대화 액션은 유지된다. | pin IPC→project store→nav 파티션/슬롯; 필터·실제 클릭 결과 |
+| R22 / AT22 / AC22 | 아티팩트 제목 총계가 한국어 단위를 포함하고 삭제·검색·고정 필터에도 전체 총계를 유지한다. | artifact store→common.count→제목; 렌더 및 기존 catalog 회귀 |
+| R23 / AT23 / AC23 | 플러그인 nav가 페이지를 열고 제목 아래 가로 탭으로 스킬·MCP·연결을 전환한다. 검색·추가·상세 기능은 유지된다. | Sidebar→router→ExtensionsCatalogView; 실제 이동/탭/검색 |
+| R24 / AT24 / AC24 | 고정됨→프로젝트→최근 대화 순서로 표시하고 프로젝트 없는 기존 대화를 최근 목록에서 다시 연다. | recentIds→기존 파티션→SessionList→chat route; 미할당 대화·고정 중복 제거 |
+| R25 / AT25 / AC25 | 프로젝트 목록은 중앙 세로 목록이고 제목 아래에 저장된 cwd가 표시된다. 이름 또는 경로 검색·고정 필터·프로젝트 열기·생성을 제공한다. | ProjectsScreen→CatalogListRow→project route; 실제 행/메타/필터/열기 |
+
+최근 대화 파티션은 기존 고정 프로젝트와 고정 대화의 중복 제거를 재사용한다. 미고정 프로젝트 대화는 최근에도 표시되며 프로젝트 없는 대화를 임의로 배정하지 않는다. cwd 없는 프로젝트는 경로를 발명하지 않고 기존 Desktop 기본값 계약을 유지한다.
+
+### 14.2 Architecture / V / 강제 지점
+
+renderer 변경만 수행한다. Main DB·migration·프로젝트 배정은 이번 범위 밖이다. 공통 `CatalogListRow`를 재사용하고 nav는 기존 project row 및 session partition을 조립한다. 프로젝트 landing은 새 대화의 외부 px-4·내부 max-w-[720px] 경계를 적용한다. 플러그인 nav는 modal 호출에서 `/plugins` route로 연결하며 확장 feature의 기존 동작을 보존한다.
+
+| EP | 강제 지점 / N | 실패 의미 / oracle |
+|---|---|---|
+| EP13 | nav 파티션·두 그룹 공통 프로젝트 행·최근 슬롯 / 3 | 고정 중복/미할당 소실/경로 순서 오류; 파생·렌더·클릭 |
+| EP14 | 프로젝트 landing·프로젝트 catalog·아티팩트 제목 / 3 | 콘텐츠 경계/경로 메타/단위 오류; 실제 치수·렌더 |
+| EP15 | 플러그인 nav route·catalog tabs/content / 2 | 페이지 진입 단절/기존 검색·상세 소실; route와 상호작용 |
+
+| Pair | 노드 상태 / requiredness | 경로와 oracle | EP |
+|---|---|---|---|
+| VP35~41 | NEW R19~25↔AT19~25 / REQUIRED | §14.1 각 행동의 DOM·경로·필터 결과 | EP13~15 중 해당 지점 |
+| VP42 | CHANGED SD4↔ST4 / REQUIRED | pin→nav 이동→project landing→recent→기존 대화; 프로젝트 상태 보존 | EP13·14 |
+| VP43 | NEW AR6↔IT6 / REQUIRED | Sidebar→plugins route→feature 탭/검색/상세 | EP15 |
+| VP44 | CHANGED MD5↔UT5 / REQUIRED | project pin·session membership→nav 각 목록, 기존 미할당 포함 | EP13 |
+| VP45 | INHERITED R14·16·17↔AT14·16·17 / REGRESSION | landing cwd·지침 편집·catalog 전체 총계 | EP10·11 |
+
+기존 AC14의 순서·메타 제거·cwd는 유지하고 폭만 AC20으로 정정한다. AC15의 prefix·최근 제거는 AC19·21·24로 대체하며 AC17의 총계는 AC22로 보완한다. 나머지 V1/V2 pair는 비영향이므로 이전 증거 승계, 이번 전면 재검증은 NOT_REQUIRED다. 직접 행동을 검증하므로 별도 변이는 not selected다.
+
+### 14.3 운영 gate / READY 대조
+
+main/web/test typecheck, 변경 파일 읽기 ESLint·Prettier, nav/landing/catalog/plugin 관련 vitest, Electron fixture 시각·치수·액션, 직접 electron-vite build, doc inventory·test budget·diff whitespace와 INDEX/trailer를 확인한다. DB를 수정하지 않으므로 DB ABI 변경과 새 migration은 불필요하다.
+
+READY: D-17~22의 각 결과를 AC19~25 및 EP13~15에 대조했다. 취소한 고아 보정은 구현 경로에서 제외했고 최근 분류 복구는 기존 membership 파티션으로 구체화했다. 기존 지침/세션 관계와 새 표시 계약 간 충돌은 없다.
 
 플랫폼 경로 정정의 기술 적용: `infra/config`의 OS 임시 경로 resolver를 첨부·출력 준비가 함께 사용한다. Node `os.tmpdir()`의 OS 사용자 임시 폴더를 사용하여 Windows 기본 LocalAppData/Temp와 시스템 재지정을 따른다. Work prompt에는 실제 native 경로를 명시하고 `/tmp`를 Windows 파일로 바꾸는 별칭 해석은 제거한다; 기존 관리 사본·기존 대화의 경로는 이동하지 않는다.
