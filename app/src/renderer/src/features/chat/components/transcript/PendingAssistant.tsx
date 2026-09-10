@@ -13,16 +13,20 @@ import { errorCategoryKey } from '../../lib/errorLabels'
 
 // 진행 중 턴의 라이브 표면 — 셸은 정적이고, 스트림 종류별 리프가 store 의 live 슬라이스를
 // 직접 구독해 델타 프레임의 재렌더를 자기 자신으로 한정한다 (0008):
-//   · text 델타      → LiveText(꼬리 블록만 재파스) + LiveStatus(토큰 근사)
+//   · text 델타      → LiveText(꼬리 블록만 재파스) + PendingAssistantStatus(토큰 근사)
 //   · reasoning 델타 → LiveReasoning (streaming — 확정 블록 memo, 꼬리만 재파스)
 // transcript(커밋 메시지)·Composer·셸은 어느 델타에도 재렌더되지 않는다.
-export function PendingAssistant(): React.JSX.Element {
+export function PendingAssistant({
+  showStatus = true
+}: {
+  showStatus?: boolean
+}): React.JSX.Element {
   return (
     <div className="flex flex-col gap-2.5 text-[14px] leading-[1.7] text-ink">
       <LiveReasoning />
       <LiveText />
       <RetryStatus />
-      <LiveStatus />
+      {showStatus && <PendingAssistantStatus />}
     </div>
   )
 }
@@ -39,7 +43,7 @@ function LiveText(): React.JSX.Element | null {
   return <StreamingMarkdown source={text} />
 }
 
-function LiveStatus(): React.JSX.Element {
+export function PendingAssistantStatus(): React.JSX.Element {
   const turnStartedAt = useChatSession((s) => s.turnStartedAt)
   // 0143 listen 대기 — 개별 알림 턴 종료가 turnStartedAt 을 비워도(TURN_END_RESET) listening
   // 구간의 앵커(listenStartedAt)로 폴백해 StatusLine 애니메이션이 끊기지 않는다.

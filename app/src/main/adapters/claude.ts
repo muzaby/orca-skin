@@ -424,7 +424,6 @@ export class ClaudeAdapter implements SessionAdapter {
         // ~/.claude/settings.json 개입 없이 적용된다.
         // options.env(adaptEnv)에는 시스템(턴) env 만 — orca.json 앱 env.
         ...adaptExecutionConfig(req.providerSettings?.settings, env),
-        allowedTools: ['PowerShell'],
         disallowedTools: ['Bash', 'WebSearch'],
         ...adaptRuntimeTools(extensions.runtimeTools, req.runtimeToolContext),
         // hooks = 중립 정규화 훅 + steer 게이트(PostToolBatch, 메인 루프 한정 flush) 병합 위에

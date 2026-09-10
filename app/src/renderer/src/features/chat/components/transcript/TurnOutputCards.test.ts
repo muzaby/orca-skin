@@ -78,23 +78,35 @@ beforeEach(() => {
 })
 
 it.each(['work', 'code'] as const)(
-  '%s renders committed and live text, then one spark, then both categories at the turn end',
+  '%s renders user, committed and live text, both output categories, then one spark last',
   (kind) => {
     const html = render(
       createElement(Exchange, {
         transcriptPolicy: agentUiPolicy(kind).transcript,
-        exchange: { startIndex: 0, turns: [turn] },
+        exchange: {
+          startIndex: 0,
+          turns: [
+            {
+              role: 'user',
+              startIndex: 0,
+              messages: [
+                { role: 'user', createdAt: 0, parts: [{ type: 'text', text: 'first-user' }] }
+              ]
+            },
+            { ...turn, startIndex: 1 }
+          ]
+        },
         reserve: false,
         pending: true
       })
     )
+    expect(html.indexOf('first-user')).toBeLessThan(html.indexOf('committed-body'))
     expect(html.indexOf('committed-body')).toBeLessThan(html.indexOf('live-body'))
-    expect(html.indexOf('live-body')).toBeLessThan(html.indexOf(spark))
-    expect(html.indexOf(spark)).toBeLessThan(html.indexOf(card('ordinary')))
+    expect(html.indexOf('live-body')).toBeLessThan(html.indexOf(card('ordinary')))
     expect(html.indexOf(card('ordinary'))).toBeLessThan(html.indexOf(card('published')))
+    expect(html.indexOf(card('published'))).toBeLessThan(html.indexOf(spark))
     expect(html.split(spark)).toHaveLength(2)
     expect(html.split(card('ordinary'))).toHaveLength(2)
-    expect(html).not.toContain('group-hover/msg:opacity-100')
   }
 )
 

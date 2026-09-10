@@ -3,7 +3,7 @@ import { isRiskyTool } from './risky-tools'
 
 describe('isRiskyTool (위험 도구 게이트 화이트리스트)', () => {
   it('상태 변경 도구는 위험으로 분류', () => {
-    for (const t of ['Bash', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit']) {
+    for (const t of ['Bash', 'PowerShell', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit']) {
       expect(isRiskyTool(t)).toBe(true)
     }
   })

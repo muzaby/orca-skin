@@ -5,6 +5,7 @@
 
 export const RISKY_TOOLS: ReadonlySet<string> = new Set([
   'Bash',
+  'PowerShell',
   'Write',
   'Edit',
   'MultiEdit',

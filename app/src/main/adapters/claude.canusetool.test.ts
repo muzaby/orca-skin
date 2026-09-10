@@ -169,26 +169,29 @@ describe('makeCanUseTool — ExitPlanMode', () => {
 })
 
 describe('makeCanUseTool — 위험 도구 게이트(tool_approval)', () => {
-  it('위험 도구 + allow → allow (input 보존)', async () => {
+  it.each(['Bash', 'PowerShell'])('%s + allow → allow (input 보존)', async (toolName) => {
     const requestApproval = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'allow' })
     const canUse = makeCanUseTool(requestApproval)
     const input = { command: 'ls -la' }
-    const res = await canUse('Bash', input, ctx)
+    const res = await canUse(toolName, input, ctx)
     expect(requestApproval).toHaveBeenCalledWith(
-      { kind: 'tool_approval', toolName: 'Bash', input },
+      { kind: 'tool_approval', toolName, input },
       expect.any(AbortSignal)
     )
     expect(res).toEqual({ behavior: 'allow', updatedInput: input })
   })
 
-  it('위험 도구 + allow + updatedInput → 갱신된 input 사용', async () => {
-    const requestApproval = vi
-      .fn<ReqApproval>()
-      .mockResolvedValue({ behavior: 'allow', updatedInput: { command: 'ls' } })
-    const canUse = makeCanUseTool(requestApproval)
-    const res = await canUse('Bash', { command: 'ls -la' }, ctx)
-    expect(res).toEqual({ behavior: 'allow', updatedInput: { command: 'ls' } })
-  })
+  it.each(['Bash', 'PowerShell'])(
+    '%s + allow + updatedInput → 갱신된 input 사용',
+    async (toolName) => {
+      const requestApproval = vi
+        .fn<ReqApproval>()
+        .mockResolvedValue({ behavior: 'allow', updatedInput: { command: 'ls' } })
+      const canUse = makeCanUseTool(requestApproval)
+      const res = await canUse(toolName, { command: 'ls -la' }, ctx)
+      expect(res).toEqual({ behavior: 'allow', updatedInput: { command: 'ls' } })
+    }
+  )
 
   it('위험 도구 + deny → deny + 기본 사유', async () => {
     const requestApproval = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'deny' })
@@ -206,6 +209,22 @@ describe('makeCanUseTool — 위험 도구 게이트(tool_approval)', () => {
     const res = await canUse('Edit', { file_path: '/etc/hosts' }, ctx)
     expect(res?.behavior).toBe('deny')
     if (res?.behavior === 'deny') expect(res.message).toBe('그 파일은 건드리지 마')
+  })
+
+  it('PowerShell의 거절·중단과 원래 승인 취소 signal을 보존한다', async () => {
+    const requestApproval = vi.fn<ReqApproval>().mockResolvedValue({
+      behavior: 'deny',
+      message: '실행하지 마',
+      interrupt: true
+    })
+    const input = { command: "Set-Content -LiteralPath 'output.txt' -Value 'fixture'" }
+    const signal = new AbortController().signal
+    const result = await makeCanUseTool(requestApproval)('PowerShell', input, { signal } as never)
+    expect(requestApproval).toHaveBeenCalledWith(
+      { kind: 'tool_approval', toolName: 'PowerShell', input },
+      signal
+    )
+    expect(result).toEqual({ behavior: 'deny', message: '실행하지 마', interrupt: true })
   })
 
   it('안전 도구(Read)는 requestApproval 미호출 + 즉시 allow passthrough', async () => {
