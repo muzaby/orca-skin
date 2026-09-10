@@ -45,7 +45,7 @@ export function ProviderDetail({
   const fields = useMemo(() => (mine?.kind === 'input-required' ? mine.fields : []), [mine])
 
   return (
-    <div className="min-w-0 flex-1 overflow-y-auto px-7 py-6">
+    <div className="min-w-0 py-6">
       <div className="flex items-center gap-g6">
         <span className="grid h-9 w-9 flex-none place-items-center rounded-r4 bg-bg2 text-ink2">
           <Icon name="power" size={18} />

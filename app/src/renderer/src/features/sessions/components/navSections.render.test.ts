@@ -10,6 +10,7 @@ import { SessionListView } from './SessionList'
 import { ProjectSessionsPanel } from './ProjectSessionsPanel'
 import { SessionRow, type AgentAppearanceResolver } from './SessionRow'
 import { useSessionsStore } from '../store/sessionsStore'
+import { projectNavActions, useProjectNavStore } from '../store/projectNavStore'
 
 // 0203 ΔV1 EP-9 / ΔV2 AT-13a·AT-15 — 구획 컴포넌트는 **받은 목록만** 그리고,
 // 어댑터가 파티션의 **다른 칸**을 넘기면 컴파일되지 않는다.
@@ -171,6 +172,59 @@ describe('구획 컴포넌트는 props 목록만 렌더한다 (EP-9 · AT-13a)',
 })
 
 describe('구획 헤더 (D-003 · D-008)', () => {
+  it('a newly created project mounts expanded in either group and preserves a manual collapse', () => {
+    const initial = useProjectNavStore.getInitialState()
+    const prior = { ...initial }
+    useProjectNavStore.setState({ expanded: {}, announced: new Set() })
+    try {
+      projectNavActions.announceCreated(PROJECT.id)
+      Object.assign(initial, useProjectNavStore.getState())
+      const render = (embedded: boolean): ReturnType<typeof load> =>
+        load(
+          renderToStaticMarkup(
+            createElement(PinnedProjectsSectionView, {
+              agentAppearance: resolveAppearance,
+              pinnedProjects: [PROJECT],
+              embedded,
+              projectChildren: { [PROJECT.id]: asChildren([GIVEN]) },
+              onExpandProject: noop,
+              onOpenProject: noop,
+              onTogglePinProject: noop,
+              ...rowHandlers
+            })
+          )
+        )
+      for (const embedded of [false, true]) {
+        const $ = render(embedded)
+        expect($('[data-project-id="p1"] button[aria-expanded]').attr('aria-expanded')).toBe('true')
+        expect($('[data-session-id="given"]')).toHaveLength(1)
+      }
+      projectNavActions.setExpanded(PROJECT.id, false)
+      projectNavActions.announceCreated(PROJECT.id)
+      Object.assign(initial, useProjectNavStore.getState())
+      const closed = render(true)
+      expect(closed('[data-project-id="p1"] button[aria-expanded]').attr('aria-expanded')).toBe(
+        'false'
+      )
+      expect(closed('[data-session-id="given"]')).toHaveLength(0)
+    } finally {
+      Object.assign(initial, prior)
+      useProjectNavStore.setState(prior)
+    }
+  })
+
+  it('project rows put the name before a smaller muted complete cwd', () => {
+    const cwd = 'C:\\Users\\rlaeodud\\Desktop'
+    const $ = load(renderProjectsSection([{ ...PROJECT, name: 'Desktop', cwd }]))
+    const row = $('[data-context="project"]')
+    expect(row.find('[data-project-name]').text()).toBe('Desktop')
+    expect(row.find('[data-project-path]').text()).toBe(cwd)
+    expect(row.find('[data-project-path]').hasClass('text-ink3')).toBe(true)
+    expect(row.find('[data-project-path]').hasClass('text-[10.5px]')).toBe(true)
+    expect(row.find('[data-project-name]').next('[data-project-path]').length).toBe(1)
+    expect(row.find('[data-project-path-prefix]').length).toBe(0)
+  })
+
   it('고정 항목이 0개여도 두 구획 헤더가 남는다', () => {
     expect(renderPinned([])).toContain('aria-expanded')
     expect(renderProjectsSection([])).toContain('aria-expanded')

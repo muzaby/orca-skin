@@ -6,6 +6,7 @@ import { ProjectLandingPage } from '../pages/ProjectLandingPage'
 import { AgentPage } from '../pages/AgentPage'
 import { CapturesPage } from '../pages/CapturesPage'
 import { ArtifactsPage } from '../pages/ArtifactsPage'
+import { PluginsPage } from '../pages/PluginsPage'
 import type { ArtifactsViewProps } from '../features/artifacts'
 import { BootRedirector } from './BootRedirector'
 
@@ -30,6 +31,7 @@ export function AppRouter({
       <Route path="/chat/:sessionId" element={<ChatPage />} />
       <Route path="/projects" element={<ProjectsPage />} />
       <Route path="/artifacts" element={<ArtifactsPage {...artifactCatalog} />} />
+      <Route path="/plugins" element={<PluginsPage />} />
       <Route path="/projects/:projectId" element={<ProjectLandingPage />} />
       <Route path="/agent" element={<AgentPage />} />
       <Route path="/captures" element={<CapturesPage />} />

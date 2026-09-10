@@ -365,4 +365,8 @@ main/web/test typecheck, 변경 파일 읽기 ESLint·Prettier, nav/landing/cata
 
 READY: D-17~24의 각 결과를 AC19~27 및 EP13~17에 대조했다. 취소한 고아 보정은 구현 경로에서 제외했고 최근 분류 복구는 기존 membership 파티션으로 구체화했다. 기존 지침/세션 관계와 새 표시 계약 간 충돌은 없다.
 
+### [구현자 기입] Delta V3 결과
+
+AC19~27 자기확인 9/9, EP13~17 전수 11/11 완료. [구현 보고](impl-r3.md)에 V-pair·게이트·실제 치수와 수정한 파생 문제를 기록했다. 독립 verify는 pending이며 사용자 정정으로 취소한 기존 대화 재배정은 구현하지 않았다.
+
 플랫폼 경로 정정의 기술 적용: `infra/config`의 OS 임시 경로 resolver를 첨부·출력 준비가 함께 사용한다. Node `os.tmpdir()`의 OS 사용자 임시 폴더를 사용하여 Windows 기본 LocalAppData/Temp와 시스템 재지정을 따른다. Work prompt에는 실제 native 경로를 명시하고 `/tmp`를 Windows 파일로 바꾸는 별칭 해석은 제거한다; 기존 관리 사본·기존 대화의 경로는 이동하지 않는다.

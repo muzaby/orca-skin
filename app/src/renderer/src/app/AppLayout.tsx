@@ -14,7 +14,6 @@ import { useSessionCompletion } from './hooks/useSessionCompletion'
 import { useSessionHandlers } from './hooks/useSessionHandlers'
 import { useSidebarSlots } from './hooks/useSidebarSlots'
 import { useArtifactCatalogViewer } from './hooks/useArtifactCatalogViewer'
-import { ExtensionsCatalogModal, useExtensionsModalStore } from '../features/skills'
 
 // 셸 조립 진입점. App.tsx 의 Provider 합성 직하에서 호출되며, 라우팅에 무관한
 // 고정 골격 (Header + Sidebar + main + OverlayLayer) 을 한 곳에서 직접 조립한다.
@@ -32,7 +31,6 @@ export function AppLayout(): React.JSX.Element {
   useSessionCompletion(handlers.currentSessionId)
   const slots = useSidebarSlots(handlers)
   const artifactCatalog = useArtifactCatalogViewer()
-  const openPlugins = useExtensionsModalStore((state) => state.show)
 
   // 대화 검색 모달은 셸 단일 인스턴스 — 열기는 Header, 렌더는 OverlayLayer 한 곳.
   // 두 노드 모두 app/ 셸 레이어 안에 있으므로 Context 없이 useState 로 lift.
@@ -48,7 +46,7 @@ export function AppLayout(): React.JSX.Element {
       <Header onOpenSearch={openSearch} />
       <div className="app-frame-grid relative grid min-h-0 flex-1 grid-cols-1 grid-rows-1 [&>*]:[grid-area:1/1]">
         <div className="app-frame-body z-0 flex min-h-0 min-w-0">
-          <Sidebar {...slots} onOpenPlugins={openPlugins} />
+          <Sidebar {...slots} />
           <main
             className="app-frame-main flex min-h-0 min-w-0 flex-1 flex-col"
             data-context="route-target"
@@ -57,7 +55,6 @@ export function AppLayout(): React.JSX.Element {
           </main>
         </div>
         <OverlayLayer searchOpen={searchOpen} onCloseSearch={closeSearch} />
-        <ExtensionsCatalogModal />
       </div>
     </div>
   )

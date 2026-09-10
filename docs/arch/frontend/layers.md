@@ -22,7 +22,7 @@ src/renderer/
     ├── app/                         ✅ 셸 — 고정 골격. cross-feature wiring 권한.
     │   ├── AppLayout.tsx            # Header + Sidebar (슬롯) + main + OverlayLayer 조립. 본체는 wiring hook 호출 + JSX 만
     │   ├── Header.tsx               # `app-frame-header` — 브랜드 + breadcrumb + WinControls + drag 2-layer + 조건부 업데이트 버튼/파란 뱃지(0085/0086) + 햄버거 메뉴(버전 → HeaderVersionModal, 0083)
-    │   ├── Sidebar.tsx              # `app-frame-sidebar` — NAV 4-항목(새 대화·프로젝트·엔진&모델·플러그인 모달, 0083/0159) + collapsible/resizable + 슬롯 (sessions/footer). React.memo + 도메인 특정 설정값 (SIDEBAR_MIN/MAX/DEFAULT_WIDTH) 유지
+    │   ├── Sidebar.tsx              # `app-frame-sidebar` — NAV(새 대화·아티팩트·프로젝트·엔진&모델·플러그인) + collapsible/resizable + 슬롯 (pinned/projects/sessions/footer). React.memo + 도메인 특정 설정값 (SIDEBAR_MIN/MAX/DEFAULT_WIDTH) 유지
     │   ├── SidebarUserButton.tsx    # 사이드바 하단 사용자 버튼 (언어 플라이아웃 포함)
     │   ├── OverlayLayer.tsx         # `#app-frame-overlay` + `#app-frame-modal` + `#app-frame-debug` 3슬롯 통합 — SearchModal·ConfirmDialogHost·UpdateDialog(0085)·(dev) DebugPanel+UpdateDebugSection 호스트
     │   ├── RootGate.tsx             # 게이트 판정 — 부팅 실패(BootFailureFrame) → 미완료(BootScreen) → 미통과(GateFrame) → 메인.
@@ -32,7 +32,7 @@ src/renderer/
     │   ├── BootFailureFrame.tsx     # 부팅 실패 화면 (0180 — 구 LoginFrame 의 나머지 절반)
     │   ├── boot/                    # BootScreen + bootStore + steps (부팅 오케스트레이션, 0077)
     │   ├── WinControls.tsx          # minimize/maximize/close IPC. macOS → null
-    │   ├── router.tsx               # `<Routes>` — URL path → Page (which). `/`=BootRedirector · `/new`=NewChatLandingPage · `/chat`→/new · `/chat/:sessionId`=ChatPage · `/projects` · `/projects/:projectId` · `/agent` · `/captures` · `*`→/new
+    │   ├── router.tsx               # `<Routes>` — URL path → Page (which). `/`=BootRedirector · `/new`=NewChatLandingPage · `/chat`→/new · `/chat/:sessionId`=ChatPage · `/projects` · `/projects/:projectId` · `/artifacts` · `/plugins` · `/agent` · `/captures` · `*`→/new
     │   ├── BootRedirector.tsx       # `/` 라우트 element — settings.lastSessionId → `/chat/<id>` 또는 `/new` replace
     │   └── hooks/                   # cross-feature wiring (셸 내부 전용)
     │       ├── useChatRouteSync.ts      # URL ↔ ChatState 동기화 (방향 1: `/new` · `/chat/:id` · `/projects/:id` 모두 처리, 방향 2: armed-ref 패턴 — sessionId null→non-null 전이 시 `/chat/<id>` replace)
@@ -65,7 +65,7 @@ src/renderer/
     │   ├── update/                  # UpdateProvider, updateStore(dummyMode 포함), UpdateDialog, UpdateDebugSection — 인앱 업데이트 UX (0085/0086)
     │   ├── providers/               # 연결(provider) — GateLogin(로그인 랜딩), useProviderGate, ProviderDetail,
     │   │                            #   principal.ts(신원 선택 규칙, 순수), bypassStore(DEV 우회 토글)
-    │   ├── skills/                  # ExtensionsCatalogModal/View + customize/ (rail·list·detail·모달들),
+    │   ├── skills/                  # ExtensionsCatalogView + customize/ (tabs·list·detail·모달들),
     │   │                            #   useCustomizeSkills·useMcpServers·useProviders, extensionsModalStore, AddMcpServerModal
     │   ├── engine/                  # AgentEnvironmentView(구 EngineView), EngineFormModal(단일 화면, 0090), EngineCard, EngineModelList
     │   ├── camera/                  # CameraView
@@ -166,3 +166,5 @@ app/AppLayout.tsx
 | Sidebar 드래그 메커니즘 | ✅ `shared/hooks/useDragResize` 로 분리 (sidebar 핸들바·설정값 모르는 일반 1D 드래그→숫자 hook). `SIDEBAR_MIN/MAX/DEFAULT_WIDTH` 상수·`asideRef`·`setTweak('sidebarWidth', n)` 적용은 Sidebar 잔류 (도메인 특정 설정) |
 
 ---
+
+프로젝트 목록은 `ProjectsScreen`이 아티팩트와 같은 중앙 목록 레이아웃 및 `CatalogListRow`를 사용하며 항목 제목 아래에 저장된 경로를 표시한다. 개별 프로젝트 landing은 새 대화와 같은 외곽 폭 및 `ReadingColumn` 거터로 제목·Composer·대화 목록을 맞춘다. `/plugins`는 `PluginsPage`가 `ExtensionsCatalogView`를 조립하고 제목 아래 가로 스킬·MCP·연결 탭으로 목록과 상세를 전환한다.

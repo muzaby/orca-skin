@@ -261,6 +261,11 @@ export const en: typeof ko = {
     }
   },
   projects: {
+    search: 'Search projects',
+    searchPlaceholder: 'Search project name or path…',
+    itemMenu: '{{title}} menu',
+    emptyPinned: 'No pinned projects yet.',
+    noMatches: 'No matching projects.',
     unavailable: 'Could not load the project.',
     retry: 'Try again',
     title: 'Projects',

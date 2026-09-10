@@ -8,10 +8,6 @@ vi.mock('../store/artifactCatalogStore', async (original) => ({
   ...(await original<typeof import('../store/artifactCatalogStore')>()),
   useArtifactCatalogStore: () => ({ ...state, busy: {}, error: null })
 }))
-vi.mock('../../../shared/i18n', async (original) => ({
-  ...(await original<typeof import('../../../shared/i18n')>()),
-  useI18n: () => ({ tr: (key: string) => key, locale: 'en' })
-}))
 import { ArtifactsView } from './ArtifactsView'
 
 const item: ArtifactCatalogItem = {
@@ -29,23 +25,23 @@ const item: ArtifactCatalogItem = {
 const render = (): string =>
   renderToStaticMarkup(createElement(ArtifactsView, { onOpen: vi.fn(), onDeleted: vi.fn() }))
 const count = (): string | undefined =>
-  render().match(/data-artifact-catalog-count=""[^>]*>(\d+)</)?.[1]
+  render().match(/data-artifact-catalog-count=""[^>]*>([^<]+)</)?.[1]
 
 describe('catalog title total', () => {
   it('tracks loaded, newly published, deleted and empty totals beside the title', () => {
     state.items = [item]
-    expect(count()).toBe('1')
+    expect(count()).toBe('1개')
     state.items = [item, { ...item, artifactFileId: 'f2', publicationId: 'p2' }]
-    expect(count()).toBe('2')
+    expect(count()).toBe('2개')
     state.items = [item]
-    expect(count()).toBe('1')
+    expect(count()).toBe('1개')
     state.items = []
-    expect(count()).toBe('0')
+    expect(count()).toBe('0개')
   })
   it('keeps the current total while refreshing the existing list', () => {
     state.items = [item]
     state.loading = true
-    expect(count()).toBe('1')
+    expect(count()).toBe('1개')
     state.loading = false
   })
 })

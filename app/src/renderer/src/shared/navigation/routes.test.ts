@@ -14,8 +14,8 @@ const resolve = (catalog: object, key: string): unknown =>
       catalog
     )
 describe('route catalog', () => {
-  it('모달인 플러그인 카탈로그는 ROUTES 에 없다', () =>
-    expect(ROUTES.map((route) => String(route.pattern))).not.toContain('/plugins'))
+  it('플러그인 카탈로그는 별도 페이지 경로를 갖는다', () =>
+    expect(ROUTES.map((route) => String(route.pattern))).toContain('/plugins'))
   it('ROUTES 의 모든 labelKey·breadcrumbKey 가 ko·en 에서 해석된다', () => {
     for (const route of ROUTES)
       for (const key of [route.labelKey, route.breadcrumbKey])

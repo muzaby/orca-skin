@@ -82,7 +82,7 @@ export function SkillDetail({
   }
 
   return (
-    <div className="min-w-0 flex-1 overflow-y-auto px-7 py-6">
+    <div className="min-w-0 py-6">
       <div className="flex items-center gap-3">
         <h2 className="m-0 text-heading text-ink">{skill.name}</h2>
         <div className="ml-auto flex items-center gap-2">

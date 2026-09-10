@@ -10,8 +10,11 @@ import { SessionRow, type AgentAppearanceResolver } from './SessionRow'
 import { useNavSections } from '../hooks/useNavSections'
 import type { ProjectChildSessions } from '../lib/navSections'
 import { sessionsActions } from '../store/sessionsStore'
+import { projectNavActions, useProjectExpanded } from '../store/projectNavStore'
 
 export interface PinnedProjectsSectionViewProps {
+  // 고정됨 구획에 합성할 때는 별도 헤더를 만들지 않는다.
+  embedded?: boolean
   agentAppearance: AgentAppearanceResolver
   // app 셸이 projectsStore 에서 걸러 주입(cross-feature 는 props-only).
   pinnedProjects: Project[]
@@ -29,15 +32,26 @@ export interface PinnedProjectsSectionViewProps {
   onRenameSession: (sessionId: string, title: string) => void
 }
 
-// 좌측 nav "프로젝트" 구획 — 고정 프로젝트는 대화 고정과 구분된 전용 구획에만 둔다.
+// 프로젝트 행은 일반 프로젝트 구획과 고정됨 구획이 공유한다.
 // 별도 추가 버튼은 두지 않는다(D-003).
 export const PinnedProjectsSectionView = memo(function PinnedProjectsSectionView({
+  embedded = false,
   pinnedProjects,
   projectChildren,
   onExpandProject,
   ...row
 }: PinnedProjectsSectionViewProps): React.JSX.Element {
   const { tr } = useI18n()
+  const rows = pinnedProjects.map((project) => (
+    <PinnedProjectRow
+      key={project.id}
+      project={project}
+      sessions={projectChildren[project.id]}
+      onExpandProject={onExpandProject}
+      {...row}
+    />
+  ))
+  if (embedded) return <>{rows}</>
 
   return (
     <CollapsibleSection
@@ -45,22 +59,14 @@ export const PinnedProjectsSectionView = memo(function PinnedProjectsSectionView
       className="app-frame-sidebar-projects"
       dataContext="projects"
     >
-      {pinnedProjects.map((project) => (
-        <PinnedProjectRow
-          key={project.id}
-          project={project}
-          sessions={projectChildren[project.id]}
-          onExpandProject={onExpandProject}
-          {...row}
-        />
-      ))}
+      {rows}
     </CollapsibleSection>
   )
 })
 
 interface PinnedProjectRowProps extends Omit<
   PinnedProjectsSectionViewProps,
-  'pinnedProjects' | 'projectChildren'
+  'pinnedProjects' | 'projectChildren' | 'embedded'
 > {
   project: Project
   // 이 프로젝트의 하위 대화. `undefined` = 아직 조회하지 않음.
@@ -83,7 +89,7 @@ function PinnedProjectRow({
   onRenameSession
 }: PinnedProjectRowProps): React.JSX.Element {
   const { tr } = useI18n()
-  const [expanded, setExpanded] = useState(false)
+  const expanded = useProjectExpanded(project.id)
   const [menuOpen, setMenuOpen] = useState(false)
   const kebabRef = useRef<HTMLButtonElement>(null)
 
@@ -97,13 +103,14 @@ function PinnedProjectRow({
         onClick={() => onOpenProject(project.id)}
         className="app-frame-pinned-project group/pinproj relative flex cursor-pointer items-center gap-1 rounded-md px-1 py-[5px] text-[12.5px] text-t7 transition-colors hover:bg-fill-uncontained-hover"
         data-context="project"
+        data-project-id={project.id}
         title={project.cwd ?? project.name}
       >
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation()
-            setExpanded((v) => !v)
+            projectNavActions.setExpanded(project.id, !expanded)
           }}
           className="grid h-5 w-5 shrink-0 place-items-center rounded border-0 bg-transparent text-t7 hover:text-ink"
           aria-label={tr(expanded ? 'common.collapse' : 'common.expand')}
@@ -112,16 +119,20 @@ function PinnedProjectRow({
           <Icon name={expanded ? 'chevD' : 'chevR'} size={14} />
         </button>
         <Icon name="folder" size={14} className="shrink-0" />
-        <span className="flex min-w-0 flex-1 items-center overflow-hidden whitespace-nowrap">
-          {project.cwd && (
-            <span className="min-w-0 truncate text-ink3" data-project-path-prefix>
-              {project.cwd.replace(/[^\\/]+[\\/]*$/, '')}
-            </span>
-          )}
-          <span className="shrink-0" data-project-name>
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden border-0 bg-transparent p-0 text-left whitespace-nowrap"
+          aria-label={project.cwd ? `${project.name} ${project.cwd}` : project.name}
+        >
+          <span className="max-w-full shrink-0 truncate" data-project-name>
             {project.name}
           </span>
-        </span>
+          {project.cwd && (
+            <span className="min-w-0 truncate text-[10.5px] text-ink3" data-project-path>
+              {project.cwd}
+            </span>
+          )}
+        </button>
         <KebabButton
           ref={kebabRef}
           open={menuOpen}

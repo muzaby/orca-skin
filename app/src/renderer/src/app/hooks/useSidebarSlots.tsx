@@ -1,12 +1,13 @@
 import { agentUiPolicy } from '../../features/chat/lib/agentPresentation'
 import { useMemo, type ReactNode } from 'react'
-import { PinnedProjectsSection, PinnedSection } from '../../features/sessions'
+import { PinnedProjectsSection, PinnedSection, SessionList } from '../../features/sessions'
 import { SidebarUserButton } from '../SidebarUserButton'
 import type { SessionHandlers } from './useSessionHandlers'
 
 export interface SidebarSlots {
   projectsSlot: ReactNode
   pinnedSlot: ReactNode
+  sessionsSlot: ReactNode
   footerSlot: ReactNode
 }
 
@@ -44,7 +45,7 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
       handlers.handleRenameSession
     ]
   )
-  // 고정된 대화만 모으는 섹션. 프로젝트는 바로 위의 전용 섹션에만 노출한다.
+  // 프로젝트와 대화를 같은 고정됨 헤더 안에 합성한다.
   const pinnedSlot = useMemo(
     () => (
       <PinnedSection
@@ -55,16 +56,64 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
         onTogglePinSession={handlers.handleTogglePinSession}
         onDeleteSession={handlers.handleDeleteSession}
         onRenameSession={handlers.handleRenameSession}
-      />
+      >
+        <PinnedProjectsSection
+          embedded
+          agentAppearance={agentUiPolicy}
+          pinnedProjects={handlers.pinnedProjects}
+          pinnedProjectIds={handlers.navProjectIds}
+          currentSessionId={handlers.currentSessionId}
+          onOpenProject={handlers.handleOpenProject}
+          onTogglePinProject={handlers.handleTogglePinProject}
+          onSelectSession={handlers.handleSelectSession}
+          onTogglePinSession={handlers.handleTogglePinSession}
+          onDeleteSession={handlers.handleDeleteSession}
+          onRenameSession={handlers.handleRenameSession}
+        />
+      </PinnedSection>
     ),
     [
       handlers.navProjectIds,
+      handlers.pinnedProjects,
       handlers.currentSessionId,
+      handlers.handleOpenProject,
+      handlers.handleTogglePinProject,
       handlers.handleSelectSession,
       handlers.handleTogglePinSession,
       handlers.handleDeleteSession,
       handlers.handleRenameSession
     ]
   )
-  return { projectsSlot, pinnedSlot, footerSlot }
+  const sessionsSlot = useMemo(
+    () => (
+      <SessionList
+        agentAppearance={agentUiPolicy}
+        pinnedProjectIds={handlers.pinnedProjectIds}
+        currentSessionId={handlers.currentSessionId}
+        projectNameById={handlers.projectNameById}
+        onSelect={handlers.handleSelectSession}
+        onTogglePin={handlers.handleTogglePinSession}
+        onDelete={handlers.handleDeleteSession}
+        onRename={handlers.handleRenameSession}
+        drafts={handlers.draftSessions}
+        activeDraftKey={handlers.activeDraftKey}
+        onSelectDraft={handlers.handleSelectDraft}
+        onDeleteDraft={handlers.handleDeleteDraft}
+      />
+    ),
+    [
+      handlers.pinnedProjectIds,
+      handlers.currentSessionId,
+      handlers.projectNameById,
+      handlers.handleSelectSession,
+      handlers.handleTogglePinSession,
+      handlers.handleDeleteSession,
+      handlers.handleRenameSession,
+      handlers.draftSessions,
+      handlers.activeDraftKey,
+      handlers.handleSelectDraft,
+      handlers.handleDeleteDraft
+    ]
+  )
+  return { projectsSlot, pinnedSlot, sessionsSlot, footerSlot }
 }

@@ -120,10 +120,8 @@ export function CustomizeList({
   if (rows.length === 0)
     return <div className="grid h-48 place-items-center text-body text-ink3">{tr(emptyKey)}</div>
 
-  // 그룹 간 세로 리듬(1.75rem)을 좌우 거터(px-7)와 같은 값으로 맞춘다. p*/g* 램프는
-  // 1.25rem 에서 끝나므로 레이아웃 리듬은 base rem 스케일을 쓴다.
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-7 overflow-auto px-7 pb-6">
+    <div className="flex min-w-0 flex-col gap-7">
       {tab === 'skills' &&
         skillGroups(skills).map((group) => (
           <GroupTable

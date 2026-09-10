@@ -188,6 +188,7 @@ export async function handleChatSend(
       effectiveText
     } = resolution.value
     let boundProjectId = requestedProjectId
+    let projectCreated = false
 
     // resume 턴의 준비 입력은 **세션행이 잠근 경로**여야 한다 — `payload.cwd` 는 새 세션의
     // 요청값이라 그것으로 존재 확인을 하면 worktree 가 사라져도 다른 경로를 보고 지나간다.
@@ -237,12 +238,14 @@ export async function handleChatSend(
       extraDirs: payload.extraDirs,
       buildTurn: (executionCwd, extraDirs, sessionBaseline, sessionBaselineRef) => {
         if (!payload.sessionId && !continuitySource) {
-          boundProjectId = bindStartingProject(
+          const binding = bindStartingProject(
             ctx.db,
             preparedSourceCwd,
             requestedProjectId,
             ctx.getCwd()
           )
+          boundProjectId = binding.projectId
+          projectCreated = binding.created
         }
         // ── 6. TurnContext 조립 ───────────────────────────────────────────
         // 응답 Stop과 세션 수명을 분리한다. 체인 폐기는 응답도 중단하지만,
@@ -284,15 +287,18 @@ export async function handleChatSend(
           queueKey: provisionalKey,
           // 세션 id 가 서면 표시 정본을 보낸다. 0210 D-109 와 같은 자리·같은 wire —
           // 새 variant 없이 `session.updated` 의 patch 에 얹는다.
-          onSessionConfirmed: (sessionId: string): void =>
+          onSessionConfirmed: (sessionId: string): void => {
             sendChatEvent(event.sender, {
               type: 'session.updated',
               sessionId,
               patch: {
                 projectId: boundProjectId,
+                ...(projectCreated ? { projectCreated: true } : {}),
                 ...(worktreeDisplay ? { worktree: worktreeDisplay } : {})
               }
-            }),
+            })
+            projectCreated = false
+          },
           getCwd: (projectId) => ctx.getCwd(projectId)
         })
       },

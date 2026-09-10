@@ -2,6 +2,7 @@ import { memo, useCallback, useRef, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Icon } from '../shared/ui/Icon'
 import { OrcaLogo } from '../shared/ui/OrcaLogo'
+import { SIDEBAR_SECTION_HEAD } from '../shared/ui/SidebarSection'
 import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 import { useTweakContext } from '../shared/theme'
 import { useI18n } from '../shared/i18n'
@@ -24,9 +25,9 @@ export interface SidebarProps {
   projectsSlot: ReactNode
   // '고정됨' 슬롯 — features/sessions 의 PinnedSection.
   pinnedSlot: ReactNode
+  sessionsSlot: ReactNode
   // footer 슬롯 — features/backend 의 BackendStatus.
   footerSlot: ReactNode
-  onOpenPlugins: () => void
 }
 
 // 앱 셸의 sidebar 골격. router pathname + TweakContext 를 자체 구독해 collapse /
@@ -39,8 +40,8 @@ export interface SidebarProps {
 function SidebarImpl({
   projectsSlot,
   pinnedSlot,
-  footerSlot,
-  onOpenPlugins
+  sessionsSlot,
+  footerSlot
 }: SidebarProps): React.JSX.Element {
   const { pathname } = useLocation()
   const navigate = useNavigate()
@@ -91,7 +92,7 @@ function SidebarImpl({
             return (
               <button
                 key={it.labelKey}
-                onClick={() => (it.path ? navigate(it.path) : onOpenPlugins())}
+                onClick={() => navigate(it.path)}
                 aria-label={tr(it.labelKey)}
                 aria-current={isActive ? 'page' : undefined}
                 className={`flex items-center justify-center rounded-r4 border-0 px-2.5 py-1.5 outline-none hide-focus-ring ring-focus transition-colors ${
@@ -135,7 +136,7 @@ function SidebarImpl({
                 <button
                   key={it.labelKey}
                   type="button"
-                  onClick={() => (it.path ? navigate(it.path) : onOpenPlugins())}
+                  onClick={() => navigate(it.path)}
                   aria-current={isActive ? 'page' : undefined}
                   className={`flex w-full items-center gap-g4 rounded-r4 border-0 px-2.5 py-1.5 text-left text-footnote outline-none hide-focus-ring ring-focus transition-colors ${
                     isActive
@@ -150,10 +151,14 @@ function SidebarImpl({
             })}
           </nav>
 
-          {/* 고정됨과 프로젝트를 한 스크롤 컨테이너에 담는다. */}
+          {/* 고정됨 → 프로젝트 → 최근 대화를 한 스크롤 컨테이너에 담는다. */}
           <div className="app-frame-sidebar-scroll flex min-h-0 flex-1 flex-col overflow-y-auto">
             {pinnedSlot}
             {projectsSlot}
+            <section className="app-frame-sidebar-recents" data-context="recents">
+              <div className={SIDEBAR_SECTION_HEAD}>{tr('sidebar.recents')}</div>
+              {sessionsSlot}
+            </section>
           </div>
 
           {footerSlot && (

@@ -265,6 +265,11 @@ export const ko = {
     }
   },
   projects: {
+    search: '프로젝트 검색',
+    searchPlaceholder: '프로젝트 이름 또는 경로 검색…',
+    itemMenu: '{{title}} 메뉴',
+    emptyPinned: '고정한 프로젝트가 없습니다.',
+    noMatches: '검색 결과가 없습니다.',
     unavailable: '프로젝트를 불러올 수 없습니다.',
     retry: '다시 시도',
     title: '프로젝트',
