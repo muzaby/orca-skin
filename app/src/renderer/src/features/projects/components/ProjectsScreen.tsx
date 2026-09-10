@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { Icon } from '../../../shared/ui/Icon'
 import { CreateProjectModal } from './CreateProjectModal'
-import { formatRelativeDay, useI18n } from '../../../shared/i18n'
+import { ProjectCatalogRow } from './ProjectCatalogRow'
+import { useI18n } from '../../../shared/i18n'
 import type { Project } from '../../../../../shared/ipc'
 
 interface ProjectsScreenProps {
@@ -22,116 +23,196 @@ export function ProjectsScreen({
 }: ProjectsScreenProps): React.JSX.Element {
   const { tr } = useI18n()
   const [createOpen, setCreateOpen] = useState(false)
+  const [tab, setTab] = useState<'all' | 'pinned'>('all')
+  const [query, setQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchRef = useRef<HTMLButtonElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const activeTabRef = useRef<HTMLButtonElement>(null)
+  const unpinningId = useRef<string | null>(null)
+  const id = useId()
+  const normalizedQuery = query.trim().toLocaleLowerCase()
+  const visible = useMemo(
+    () =>
+      projects.filter(
+        (project) =>
+          (tab === 'all' || project.pinnedAt != null) &&
+          (!normalizedQuery ||
+            `${project.name}\n${project.cwd ?? ''}`.toLocaleLowerCase().includes(normalizedQuery))
+      ),
+    [projects, tab, normalizedQuery]
+  )
+  useEffect(() => {
+    if (
+      unpinningId.current == null ||
+      visible.some((project) => project.id === unpinningId.current)
+    )
+      return
+    unpinningId.current = null
+    if (document.activeElement === document.body)
+      activeTabRef.current?.focus({ preventScroll: true })
+  }, [visible])
+  const closeSearch = (): void => {
+    setSearchOpen(false)
+    setQuery('')
+    searchRef.current?.focus({ preventScroll: true })
+  }
+  useEffect(() => {
+    if (searchOpen) inputRef.current?.focus()
+  }, [searchOpen])
 
   return (
-    <section className="flex-1 overflow-auto px-8 pb-10 pt-6">
-      <div className="mb-1 flex items-baseline gap-3.5">
-        <h1 className="m-0 font-serif text-[28px] font-semibold tracking-[-0.02em] text-ink">
-          {tr('projects.title')}
-        </h1>
-        <span className="text-[13px] text-ink3">
-          {loading ? tr('common.loading') : tr('common.count', { count: projects.length })}
-        </span>
-        <Button
-          variant="primary"
-          size="small"
-          leadingIcon="plus"
-          className="ml-auto"
-          onClick={() => setCreateOpen(true)}
-        >
-          {tr('projects.newProject')}
-        </Button>
-      </div>
-      <p className="mb-[22px] mt-1.5 text-[13.5px] text-ink2">{tr('projects.blurb')}</p>
-
-      {!loading && projects.length === 0 ? (
-        <EmptyState onCreate={() => setCreateOpen(true)} />
-      ) : (
-        <div className="grid grid-cols-2 gap-3.5">
-          {projects.map((p) => (
-            <ProjectCard
-              key={p.id}
-              project={p}
-              onOpen={() => onOpenProject(p.id)}
-              onTogglePin={onTogglePin}
+    <section data-project-catalog="" className="flex min-h-0 min-w-0 flex-1 pb-2 pr-2">
+      <div className="@container/catalog min-h-0 min-w-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[960px] px-8 pb-10 pt-10">
+          <div className="flex items-center gap-3">
+            <h1 className="m-0 font-serif text-[30px] font-medium tracking-[-0.02em] text-ink">
+              {tr('projects.title')}
+              <span className="ml-2.5 align-middle font-sans text-footnote font-normal tracking-normal text-ink3">
+                {tr('common.count', { count: projects.length })}
+              </span>
+            </h1>
+            <Button
+              size="small"
+              leadingIcon="plus"
+              className="ml-auto"
+              onClick={() => setCreateOpen(true)}
+            >
+              {tr('projects.newProject')}
+            </Button>
+          </div>
+          <div className="mb-4 mt-6 flex items-center justify-between gap-3">
+            <div
+              role="tablist"
+              aria-label={tr('projects.title')}
+              className="flex gap-1"
+              onKeyDown={(event) => {
+                if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+                event.preventDefault()
+                const next =
+                  event.key === 'Home'
+                    ? 'all'
+                    : event.key === 'End'
+                      ? 'pinned'
+                      : tab === 'all'
+                        ? 'pinned'
+                        : 'all'
+                setTab(next)
+                event.currentTarget
+                  .querySelector<HTMLButtonElement>(`[data-project-tab=${next}]`)
+                  ?.focus()
+              }}
+            >
+              {(['all', 'pinned'] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  ref={tab === value ? activeTabRef : undefined}
+                  id={`${id}-${value}`}
+                  data-project-tab={value}
+                  aria-selected={tab === value}
+                  aria-controls={`${id}-items`}
+                  tabIndex={tab === value ? 0 : -1}
+                  onClick={() => setTab(value)}
+                  className={`rounded-r4 px-3 py-1.5 text-footnote transition-colors hide-focus-ring ring-focus ${tab === value ? 'bg-fill-uncontained-active font-medium text-ink' : 'text-ink3 hover:bg-fill-uncontained-hover hover:text-ink'}`}
+                >
+                  {tr(`artifactCatalog.${value}`)}
+                </button>
+              ))}
+            </div>
+            <Button
+              ref={searchRef}
+              iconOnly
+              leadingIcon="search"
+              pressed={searchOpen}
+              aria-label={tr('projects.search')}
+              title={tr('projects.search')}
+              aria-expanded={searchOpen}
+              aria-controls={`${id}-search`}
+              onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
             />
-          ))}
+          </div>
+          {searchOpen && (
+            <div className="mb-4 flex items-center gap-2 rounded-r4 border border-border bg-panel px-3 focus-within:border-border-strong">
+              <Icon name="search" size={16} className="shrink-0 text-ink3" />
+              <input
+                ref={inputRef}
+                id={`${id}-search`}
+                type="search"
+                value={query}
+                aria-label={tr('projects.search')}
+                placeholder={tr('projects.searchPlaceholder')}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    event.stopPropagation()
+                    closeSearch()
+                  }
+                }}
+                className="min-w-0 flex-1 bg-transparent py-2.5 text-footnote text-ink outline-none placeholder:text-ink3"
+              />
+            </div>
+          )}
+          <div
+            role="tabpanel"
+            id={`${id}-items`}
+            aria-labelledby={`${id}-${tab}`}
+            aria-busy={loading}
+          >
+            {loading && projects.length === 0 ? (
+              <p role="status" className="py-16 text-center text-footnote text-ink3">
+                {tr('common.loading')}
+              </p>
+            ) : visible.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 py-16 text-center text-ink3">
+                <Icon
+                  name={normalizedQuery ? 'search' : tab === 'pinned' ? 'pin' : 'folder'}
+                  size={28}
+                />
+                <p role="status" className="text-footnote">
+                  {tr(
+                    normalizedQuery
+                      ? 'projects.noMatches'
+                      : tab === 'pinned'
+                        ? 'projects.emptyPinned'
+                        : 'projects.emptyTitle'
+                  )}
+                </p>
+                {projects.length === 0 && (
+                  <Button size="small" leadingIcon="plus" onClick={() => setCreateOpen(true)}>
+                    {tr('projects.createFirst')}
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <ul className="m-0 list-none divide-y divide-border p-0">
+                {visible.map((project) => (
+                  <ProjectCatalogRow
+                    key={project.id}
+                    project={project}
+                    onOpen={() => onOpenProject(project.id)}
+                    onTogglePin={(id, pinned) => {
+                      if (tab === 'pinned' && !pinned) unpinningId.current = id
+                      onTogglePin(id, pinned)
+                    }}
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
-      )}
-
+      </div>
       <CreateProjectModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreate={onCreate}
+        onCreate={async (name, instructions) => {
+          await onCreate(name, instructions)
+          setTab('all')
+          setQuery('')
+          setSearchOpen(false)
+        }}
       />
     </section>
-  )
-}
-
-interface ProjectCardProps {
-  project: Project
-  onOpen: () => void
-  onTogglePin: (id: string, pinned: boolean) => void
-}
-
-function ProjectCard({ project, onOpen, onTogglePin }: ProjectCardProps): React.JSX.Element {
-  const instructionsPreview = project.instructions.trim()
-  // "방금"→"어제"→"N일 전"→"5월 13일" 사다리 — 로케일·OS 타임존 명시 공용 포맷터(0096).
-  const { tr, locale } = useI18n()
-  const pinned = project.pinnedAt != null
-  // 카드 자체가 <button> 이라 고정 토글을 안에 중첩할 수 없다(중첩 버튼 무효 마크업).
-  // relative 래퍼의 형제로 두고 hover / 고정 상태에서 노출한다.
-  return (
-    <div className="group/card relative">
-      <button
-        type="button"
-        onClick={onOpen}
-        className="w-full cursor-pointer rounded-xl border border-border bg-panel p-4 text-left transition-colors hover:border-border-strong"
-      >
-        <div className="mb-1.5 flex items-center gap-2 pr-6">
-          <Icon name="folder" size={14} />
-          <span className="font-mono text-[14px] font-semibold text-ink">{project.name}</span>
-        </div>
-        <div className="mb-3 line-clamp-2 min-h-[36px] text-[12.5px] leading-[1.5] text-ink2">
-          {instructionsPreview || (
-            <span className="italic text-ink3">{tr('projects.noInstructions')}</span>
-          )}
-        </div>
-        <div className="flex items-center border-t border-border pt-2.5 text-[11.5px] text-ink3">
-          <span className="ml-auto">{formatRelativeDay(project.updatedAt, locale)}</span>
-        </div>
-      </button>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          onTogglePin(project.id, !pinned)
-        }}
-        className={`absolute right-3 top-3 grid h-6 w-6 place-items-center rounded border-0 bg-transparent transition-colors hover:bg-fill-uncontained-hover ${
-          pinned ? 'text-ink' : 'text-ink3 opacity-0 group-hover/card:opacity-100'
-        }`}
-        title={tr(pinned ? 'common.unpin' : 'common.pin')}
-        aria-label={tr(pinned ? 'common.unpin' : 'common.pin')}
-        aria-pressed={pinned}
-      >
-        <Icon name="pin" size={14} />
-      </button>
-    </div>
-  )
-}
-
-function EmptyState({ onCreate }: { onCreate: () => void }): React.JSX.Element {
-  const { tr } = useI18n()
-  return (
-    <div className="m-auto mt-12 max-w-[420px] rounded-xl border border-dashed border-border bg-panel/50 px-6 py-10 text-center">
-      <Icon name="folder" size={32} />
-      <div className="mt-3 font-serif text-[15px] font-semibold text-ink">
-        {tr('projects.emptyTitle')}
-      </div>
-      <div className="mt-1.5 text-[12.5px] leading-[1.6] text-ink2">{tr('projects.emptyDesc')}</div>
-      <Button variant="primary" size="small" leadingIcon="plus" className="mt-4" onClick={onCreate}>
-        {tr('projects.createFirst')}
-      </Button>
-    </div>
   )
 }

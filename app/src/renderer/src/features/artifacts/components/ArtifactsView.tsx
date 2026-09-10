@@ -92,7 +92,7 @@ export function ArtifactsView({
               data-artifact-catalog-count=""
               className="ml-2.5 align-middle font-sans text-footnote font-normal tracking-normal text-ink3"
             >
-              {items.length}
+              {tr('common.count', { count: items.length })}
             </span>
           </h1>
           <div className="mb-4 mt-6 flex items-center justify-between gap-3">

@@ -13,10 +13,10 @@ describe('SIDEBAR_NAV', () => {
     expect(projects.isActive('/projects/abc')).toBe(false)
   })
 
-  it('플러그인 nav 항목은 라우트가 아닌 모달 액션이다', () => {
-    const item = SIDEBAR_NAV.find((entry) => entry.path === null)!
-    expect(item.path).toBeNull()
-    expect(item.isActive()).toBe(false)
+  it('플러그인 nav 항목은 카탈로그 페이지를 열고 활성 상태를 표시한다', () => {
+    const item = SIDEBAR_NAV.find((entry) => entry.path === '/plugins')!
+    expect(item.isActive('/plugins')).toBe(true)
+    expect(item.isActive('/new')).toBe(false)
     expect(ko.sidebar.nav.plugins).toBeTruthy()
     expect(en.sidebar.nav.plugins).toBeTruthy()
   })

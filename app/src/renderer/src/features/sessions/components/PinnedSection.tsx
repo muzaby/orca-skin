@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, type ReactNode } from 'react'
 import { CollapsibleSection } from '../../../shared/ui/SidebarSection'
 import { useI18n } from '../../../shared/i18n'
 import { SessionRow, type AgentAppearanceResolver } from './SessionRow'
@@ -6,6 +6,8 @@ import { useNavSections } from '../hooks/useNavSections'
 import type { PinnedSessions } from '../lib/navSections'
 
 export interface PinnedSectionViewProps {
+  // 고정 프로젝트 목록을 같은 헤더 안에 합성한다.
+  children?: ReactNode
   agentAppearance: AgentAppearanceResolver
   // 0203 ΔV1 EP-9 — 목록은 props 로만 들어온다. 이 컴포넌트에 배치 필터는 없다.
   // ΔV2 EP-11 — 슬롯 브랜드. 파티션의 다른 칸을 넘기면 컴파일되지 않는다.
@@ -21,6 +23,7 @@ export interface PinnedSectionViewProps {
 // 좌측 nav "고정됨" 구획의 렌더. 받은 목록을 그대로 그린다 — 무엇이 고정인지는
 // lib/navSections 의 파티션이 이미 정했다(배치 규칙은 이 파일에 없다).
 export const PinnedSectionView = memo(function PinnedSectionView({
+  children,
   agentAppearance,
   sessions,
   currentSessionId,
@@ -37,6 +40,7 @@ export const PinnedSectionView = memo(function PinnedSectionView({
       className="app-frame-sidebar-pinned"
       dataContext="pinned"
     >
+      {children}
       {sessions.map((s) => (
         <SessionRow
           key={s.id}

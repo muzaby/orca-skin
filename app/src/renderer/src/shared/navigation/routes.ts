@@ -19,6 +19,7 @@ export const ROUTES = [
   { pattern: '/chat/:sessionId', labelKey: 'nav.chat', breadcrumbKey: null },
   { pattern: '/projects', labelKey: 'nav.projects', breadcrumbKey: 'nav.projectsBreadcrumb' },
   { pattern: '/artifacts', labelKey: 'nav.artifacts', breadcrumbKey: 'nav.artifactsBreadcrumb' },
+  { pattern: '/plugins', labelKey: 'nav.plugins', breadcrumbKey: 'nav.pluginsBreadcrumb' },
   {
     pattern: '/projects/:projectId',
     labelKey: 'nav.projects',

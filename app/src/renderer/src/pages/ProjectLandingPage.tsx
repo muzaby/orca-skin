@@ -9,12 +9,13 @@ import { ProjectSessionsPanel } from '../features/sessions'
 import { useSessionActions } from './useSessionActions'
 import { useI18n } from '../shared/i18n'
 import { Button } from '../shared/ui/Button'
+import { ReadingColumn } from '../shared/ui/ReadingColumn'
 
 // page = "어떤 Feature 를 배치할지" 결정 (조립만). 채팅 라이프사이클(랜딩 reset
 // / 첫 턴 후 URL upgrade) 은 셸의 `useChatRouteSync` 가 담당하므로 여기서는 별도
 // hook 호출 없이 순수 조립.
 //
-// 아티팩트 목록과 같은 너비의 단일 컬럼: 제목 → Composer → 대화 목록.
+// 새 대화와 같은 좌우 경계의 단일 컬럼: 제목 → Composer → 대화 목록.
 export function ProjectLandingPage(): React.JSX.Element {
   const { projectId = '' } = useParams<{ projectId: string }>()
   const { tr } = useI18n()
@@ -76,29 +77,31 @@ export function ProjectLandingPage(): React.JSX.Element {
 
   return (
     <section className="flex min-h-0 min-w-0 flex-1 bg-bg">
-      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-        <div className="mx-auto w-full max-w-[960px] min-w-0 px-8 pb-10 pt-10">
-          <main className="flex min-w-0 flex-col gap-6">
-            <ProjectInfoHero key={projectId} projectId={projectId} />
-            <AgentModeToggle />
-            <Composer
-              backendLabel={backendLabel}
-              canAbort={canAbort}
-              usageLimits={usageLimits}
-              onOpenUsageSettings={onOpenUsageSettings}
-              flush
-              showLandingCwdPanel
-            />
-            <ProjectSessionsPanel
-              agentAppearance={agentUiPolicy}
-              projectId={projectId}
-              currentSessionId={sessionId}
-              refreshOnTurnEnd={inflight}
-              onSessionSelected={(id) => navigate(`/chat/${id}`)}
-              onDeleteSession={sessionActions.onDeleteSession}
-              onRenameSession={sessionActions.onRenameSession}
-            />
-          </main>
+      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto px-4">
+        <div className="mx-auto w-full max-w-[720px] min-w-0 pb-10 pt-10">
+          <ReadingColumn>
+            <main className="flex min-w-0 flex-col gap-6">
+              <ProjectInfoHero key={projectId} projectId={projectId} />
+              <AgentModeToggle />
+              <Composer
+                backendLabel={backendLabel}
+                canAbort={canAbort}
+                usageLimits={usageLimits}
+                onOpenUsageSettings={onOpenUsageSettings}
+                flush
+                showLandingCwdPanel
+              />
+              <ProjectSessionsPanel
+                agentAppearance={agentUiPolicy}
+                projectId={projectId}
+                currentSessionId={sessionId}
+                refreshOnTurnEnd={inflight}
+                onSessionSelected={(id) => navigate(`/chat/${id}`)}
+                onDeleteSession={sessionActions.onDeleteSession}
+                onRenameSession={sessionActions.onRenameSession}
+              />
+            </main>
+          </ReadingColumn>
         </div>
       </div>
     </section>

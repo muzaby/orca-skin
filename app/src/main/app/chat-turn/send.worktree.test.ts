@@ -291,6 +291,13 @@ describe('handleChatSend worktree production wiring', () => {
     expect(mocks.sendChatEvent).toHaveBeenCalledWith(harness.sender, {
       type: 'session.updated',
       sessionId: 'confirmed',
+      patch: { projectId, projectCreated: true }
+    })
+    mocks.sendChatEvent.mockClear()
+    mocks.buildTurnContext.mock.calls[0]?.[0].onSessionConfirmed('confirmed')
+    expect(mocks.sendChatEvent).toHaveBeenCalledWith(harness.sender, {
+      type: 'session.updated',
+      sessionId: 'confirmed',
       patch: { projectId }
     })
 
@@ -321,6 +328,12 @@ describe('handleChatSend worktree production wiring', () => {
         attachmentViews: []
       })
       expect(harness.deps.ctx.db.ensurePathProject).not.toHaveBeenCalled()
+      mocks.buildTurnContext.mock.calls[0]?.[0].onSessionConfirmed('continued')
+      expect(mocks.sendChatEvent).toHaveBeenCalledWith(harness.sender, {
+        type: 'session.updated',
+        sessionId: 'continued',
+        patch: { projectId: 'original-project' }
+      })
       expect(mocks.buildTurnContext).toHaveBeenCalledWith(
         expect.objectContaining({
           boundProjectId: 'original-project',
@@ -329,6 +342,23 @@ describe('handleChatSend worktree production wiring', () => {
       )
     }
   )
+
+  it('does not announce an existing path project as newly created', async () => {
+    const harness = makeHarness()
+    harness.deps.ctx.db.ensurePathProject.mockReturnValue({ id: 'existing-project' })
+    mocks.acquireTurnRuntime.mockResolvedValue({ ok: false, runtime: { close: vi.fn() } })
+    await handleChatSend(harness.deps as never, { sender: harness.sender } as never, {
+      text: 'work',
+      cwd: '/source/repo',
+      attachmentViews: []
+    })
+    mocks.buildTurnContext.mock.calls[0]?.[0].onSessionConfirmed('confirmed')
+    expect(mocks.sendChatEvent).toHaveBeenCalledWith(harness.sender, {
+      type: 'session.updated',
+      sessionId: 'confirmed',
+      patch: { projectId: 'existing-project' }
+    })
+  })
 
   it('managed cwd와 extraDirs가 TurnRequest 조립까지 그대로 간다', async () => {
     const harness = makeHarness()

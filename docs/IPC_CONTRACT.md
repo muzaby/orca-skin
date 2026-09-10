@@ -226,6 +226,8 @@ interface Settings {
 
 `Project.cwd`는 프로젝트의 시작 경로이며 경로 없는 프로젝트는 `null`이다. 새 대화 기본값은 Electron `app.getPath('desktop')`이고 프로젝트 landing은 저장된 cwd를 우선한다. 신규 전송은 격리 준비가 끝난 뒤 격리 전 선택 경로로 프로젝트를 생성·연결하고 `session.updated.patch.projectId`로 실제 연결을 알린다. patch에서 projectId가 생략되면 기존 값을 유지한다. 같은 경로의 Windows 대소문자·끝 구분자 차이는 같은 프로젝트이며 이름은 유일키가 아니다. 명시한 기존 경로 없는 프로젝트를 기본 폴더에서 시작하면 기존 ID와 지침을 유지하고, 다른 폴더를 선택하면 해당 경로 프로젝트를 쓴다. 재개는 기록된 세션 cwd·projectId를 유지한다.
 
+실제 프로젝트를 새로 만든 최초 세션 확정 이벤트에만 선택 필드 `projectCreated: true`를 추가한다. 이 필드는 nav 자동 펼침을 위한 일회성 비영속 신호이며 기존 프로젝트 재사용·재개·초기 목록 로딩에는 보내지 않는다.
+
 ### 2.8 Window (Phase 3+)
 
 `frame: false` 커스텀 타이틀바의 `WinControls` 가 호출. macOS 는 OS traffic light 가 윈도우 조작을 담당하므로 `WinControls` 가 null 을 반환 → 이 채널 호출자가 없다 (채널 자체는 플랫폼 공통 노출).

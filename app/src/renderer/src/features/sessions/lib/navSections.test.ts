@@ -3,6 +3,7 @@ import type { Project, SessionListItem } from '../../../../../shared/ipc'
 import {
   navProjectsOf,
   pinnedProjectsOf,
+  splitNavProjects,
   splitNavSections,
   type NavSectionsInput
 } from './navSections'
@@ -169,5 +170,27 @@ describe('pinnedProjectsOf — 고정 프로젝트 파생 (EP-10)', () => {
 
   it('고정이 하나도 없으면 빈 목록이다', () => {
     expect(pinnedProjectsOf([project('a', null)])).toEqual([])
+  })
+})
+
+describe('project pin placement', () => {
+  it('moves a pinned project between groups without duplication and restores its recency position', () => {
+    const entries = [
+      { ...project('older', null), updatedAt: 1 },
+      { ...project('newer', null), updatedAt: 3 },
+      { ...project('pinned', 9), updatedAt: 2 }
+    ]
+    const before = splitNavProjects(entries)
+    expect(before.pinned.map((p) => p.id)).toEqual(['pinned'])
+    expect(before.projects.map((p) => p.id)).toEqual(['newer', 'older'])
+    const after = splitNavProjects(
+      entries.map((p) => (p.id === 'newer' ? { ...p, pinnedAt: 10 } : p))
+    )
+    expect(after.pinned.map((p) => p.id)).toEqual(['newer', 'pinned'])
+    expect(after.projects.map((p) => p.id)).toEqual(['older'])
+    expect(new Set([...after.pinned, ...after.projects].map((p) => p.id)).size).toBe(entries.length)
+    const released = splitNavProjects(entries.map((p) => ({ ...p, pinnedAt: null })))
+    expect(released.pinned).toEqual([])
+    expect(released.projects.map((p) => p.id)).toEqual(['newer', 'pinned', 'older'])
   })
 })

@@ -43,8 +43,8 @@ const cases: [string, () => ReactNode, (keyof Tweaks)[]][] = [
       createElement(Sidebar, {
         projectsSlot: null,
         pinnedSlot: null,
-        footerSlot: null,
-        onOpenPlugins: () => {}
+        sessionsSlot: null,
+        footerSlot: null
       }),
     ['sidebarCollapsed', 'sidebarWidth']
   ],

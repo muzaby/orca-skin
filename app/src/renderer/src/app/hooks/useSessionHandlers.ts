@@ -6,7 +6,7 @@ import {
   useDraftSessionRows,
   type DraftRow
 } from '../../features/chat'
-import { navProjectsOf, sessionsActions, type DraftSessionRow } from '../../features/sessions'
+import { splitNavProjects, sessionsActions, type DraftSessionRow } from '../../features/sessions'
 import { projectsActions, useProjectsState } from '../../features/projects'
 import type { Project } from '../../../../shared/ipc'
 
@@ -18,8 +18,10 @@ export interface SessionHandlers {
   handleRenameSession: (id: string, title: string) => void
   // 0129 고정 — "고정됨" 섹션 데이터·토글. app 셸이 sessions/projects 두 feature 를 잇는다.
   navProjects: Project[]
-  // 최근 대화의 배치 판정에 쓰는 고정 프로젝트 id 집합 — navProjects 와 같은 곳에서 파생한다.
+  pinnedProjects: Project[]
+  // 프로젝트 행의 하위 목록은 전체 프로젝트를, 최근 대화 배치는 고정 프로젝트만 읽는다.
   navProjectIds: ReadonlySet<string>
+  pinnedProjectIds: ReadonlySet<string>
   handleTogglePinSession: (id: string, pinned: boolean) => void
   handleTogglePinProject: (id: string, pinned: boolean) => void
   handleOpenProject: (id: string) => void
@@ -66,11 +68,11 @@ export function useSessionHandlers(): SessionHandlers {
     return map
   }, [projects])
 
-  // 고정 프로젝트 — 파생은 features/sessions 의 순수 함수가 갖는다(0203 ΔV1 EP-10).
-  // hook 안에 두면 순수 테스트가 닿지 못한다.
-  const navProjects = useMemo(() => navProjectsOf(projects), [projects])
-
-  const navProjectIds = useMemo(() => new Set(navProjects.map((p) => p.id)), [navProjects])
+  const projectGroups = useMemo(() => splitNavProjects(projects), [projects])
+  const navProjects = projectGroups.projects
+  const pinnedProjects = projectGroups.pinned
+  const navProjectIds = useMemo(() => new Set(projects.map((p) => p.id)), [projects])
+  const pinnedProjectIds = useMemo(() => new Set(pinnedProjects.map((p) => p.id)), [pinnedProjects])
 
   const handleTogglePinSession = useCallback((id: string, pinned: boolean): void => {
     void sessionsActions.setPinned(id, pinned)
@@ -152,7 +154,9 @@ export function useSessionHandlers(): SessionHandlers {
     handleDeleteSession,
     handleRenameSession,
     navProjects,
+    pinnedProjects,
     navProjectIds,
+    pinnedProjectIds,
     handleTogglePinSession,
     handleTogglePinProject,
     handleOpenProject,

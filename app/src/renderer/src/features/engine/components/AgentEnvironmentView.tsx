@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { AgentEnvironment } from '../../../../../shared/ipc'
 import { Button } from '../../../shared/ui/Button'
-import { Trans } from 'react-i18next'
 import { uiMessageText, useI18n } from '../../../shared/i18n'
 import { EngineCard } from './EngineCard'
 import { EngineFormModal } from './EngineFormModal'
@@ -42,11 +41,15 @@ export function AgentEnvironmentView(): React.JSX.Element {
 
   return (
     <section className="flex-1 overflow-auto px-8 pb-10 pt-6">
-      <div className="mb-1 flex items-baseline gap-3.5">
+      <div className="mb-6 flex items-baseline gap-3.5">
         <h1 className="m-0 font-serif text-[28px] font-semibold tracking-[-0.02em] text-ink">
           {tr('engine.title')}
         </h1>
-        <span className="text-[13px] text-ink3">{tr('engine.subtitle')}</span>
+        <span data-engine-catalog-count="" className="text-[13px] text-ink3">
+          {tr('common.count', {
+            count: agents.filter((agent) => agent.source === 'settings').length
+          })}
+        </span>
         <Button
           variant="primary"
           size="small"
@@ -57,11 +60,6 @@ export function AgentEnvironmentView(): React.JSX.Element {
           {tr('engine.addEngine')}
         </Button>
       </div>
-      <p className="mb-[22px] mt-1.5 text-[13.5px] text-ink2">
-        {/* 카탈로그 값의 <c> 태그가 code 요소로 치환된다. */}
-        <Trans i18nKey="engine.blurb" components={{ c: <code /> }} />
-      </p>
-
       {(state.error || readError) && (
         <div className="mb-3 rounded-lg bg-bad/10 px-3 py-2 text-[12px] text-bad">
           {state.error ? uiMessageText(tr, state.error) : readError}

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../../../../shared/ui/Button'
 import { useI18n } from '../../../../shared/i18n'
@@ -7,7 +7,7 @@ import { useMcpServers } from '../../hooks/useMcpServers'
 import { useProviders } from '../../hooks/useProviders'
 import { back, openDetail, selectTab, type CatalogSelection } from '../../lib/catalogSelection'
 import { toggleGroup, type CollapsedGroups } from '../../lib/catalogGroups'
-import { CustomizeRail } from './CustomizeRail'
+import { CustomizeTabs } from './CustomizeTabs'
 import { CustomizeList } from './CustomizeList'
 import { SkillDetail } from './SkillDetail'
 import { McpDetail } from './McpDetail'
@@ -23,8 +23,9 @@ const skillKey = (sourceId: string, name: string): string => `${sourceId}/${name
 export function ExtensionsCatalogView(): React.JSX.Element {
   const { tr } = useI18n()
   const navigate = useNavigate()
+  const id = useId()
   const [selection, setSelection] = useState<CatalogSelection>({ tab: 'skills', selectedId: null })
-  // 그룹 접힘 — 키가 탭으로 네임스페이스돼 탭을 오가도 유지되고, 모달 언마운트 시 초기화된다
+  // 그룹 접힘 — 키가 탭으로 네임스페이스돼 탭을 오가도 유지되고, 카탈로그 언마운트 시 초기화된다
   // (영속 키 계약을 만들지 않기 위해 의도적으로 메모리 전용, plan 0159 r5).
   const [collapsed, setCollapsed] = useState<CollapsedGroups>({})
   const skills = useCustomizeSkills()
@@ -53,115 +54,124 @@ export function ExtensionsCatalogView(): React.JSX.Element {
   )
   return (
     <section
-      className="flex h-full min-h-0 w-full"
+      className="flex min-h-0 min-w-0 flex-1 pb-2 pr-2"
       data-context="extensions-catalog"
       data-state={detail ? 'detail' : 'list'}
     >
-      <CustomizeRail
-        tab={selection.tab}
-        onSelect={(tab) => setSelection((state) => selectTab(state, tab))}
-      />
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* 레퍼런스(claude.ai 설정) 헤더 구성 — 목록은 제목 + 우측 액션, 상세는 조용한
-            `← 섹션` 되돌아가기 줄. 상세의 큰 제목은 각 detail 패널이 소유한다(중복 heading 제거).
-            "찾아보기"는 사용자 지시로 배치하지 않는다. */}
-        <header className="flex flex-none items-center gap-g3 px-7 pb-p7 pt-6">
-          {detail ? (
-            <>
-              <Button
-                iconOnly
-                leadingIcon="arrowL"
-                size="small"
-                onClick={() => {
-                  providers.clearStep()
-                  setSelection((state) => back(state))
-                }}
-                aria-label={tr('skills.view.backAria', { section: title })}
-              />
-              <span className="text-footnote text-ink2">{title}</span>
-            </>
-          ) : (
-            <h1 className="m-0 text-heading text-ink">{title}</h1>
-          )}
-          {/* skills 는 메뉴, mcp 는 모달. */}
-          {/* provider 는 빌드타임 선언이라 UI 추가 경로가 없다 — 버튼 자체를 내지 않는다. */}
-          {!detail && selection.tab !== 'providers' && (
-            <Button
-              ref={addRef}
-              className="ml-auto"
-              variant="contained"
-              size="small"
-              dropdown={selection.tab === 'skills'}
-              expanded={selection.tab === 'skills' ? menuOpen : undefined}
-              onClick={() => {
-                if (selection.tab === 'skills') setMenuOpen((value) => !value)
-                else if (selection.tab === 'mcp') setMcpModalOpen(true)
-              }}
-            >
-              {tr('common.add')}
-            </Button>
-          )}
-        </header>
-        {selectedSkill ? (
-          <SkillDetail
-            skill={selectedSkill}
-            onToggle={() =>
-              selectedSkill.canToggle &&
-              void skills.setEnabled({
-                name: selectedSkill.name,
-                sourceId: selectedSkill.sourceId,
-                enabled: !selectedSkill.enabled
-              })
-            }
-            onTryInChat={() =>
-              navigate('/new', { state: { composerDraft: `/${selectedSkill.name} ` } })
-            }
-            onOpenDefault={() =>
-              void skills.open({ name: selectedSkill.name, sourceId: selectedSkill.sourceId })
-            }
-            onShowInFolder={() =>
-              void skills.showInFolder({
-                name: selectedSkill.name,
-                sourceId: selectedSkill.sourceId
-              })
-            }
-            onRemove={() =>
-              skills.remove({ name: selectedSkill.name, sourceId: selectedSkill.sourceId })
-            }
-          />
-        ) : selectedMcp ? (
-          <McpDetail
-            server={selectedMcp}
-            onToggle={() => void mcp.toggle(selectedMcp.id, !selectedMcp.enabled)}
-            onEdit={() => setMcpEditId(selectedMcp.id)}
-            onRemove={() => mcp.remove(selectedMcp.id)}
-          />
-        ) : selectedProvider ? (
-          <ProviderDetail
-            // provider 를 갈아타면 방식 선택·입력값이 남지 않도록 리마운트한다.
-            key={selectedProvider.id}
-            provider={selectedProvider}
-            step={providers.step}
-            onLogin={(authKind) => void providers.login(selectedProvider.id, authKind)}
-            onSubmit={(input) => void providers.submit(selectedProvider.id, input)}
-            onReauth={(authKind) => void providers.reauth(selectedProvider.id, authKind)}
-            onRevoke={() => void providers.revoke(selectedProvider.id)}
-          />
-        ) : skills.loading || mcp.loading || providers.loading ? (
-          <div className="grid flex-1 place-items-center text-ink3">{tr('common.loading')}</div>
-        ) : (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <CustomizeList
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[960px] px-8 pb-10 pt-10">
+          <h1 className="m-0 font-serif text-[30px] font-medium tracking-[-0.02em] text-ink">
+            {tr('skills.pageTitle')}
+          </h1>
+          <div className="mb-4 mt-6 flex items-center justify-between gap-3">
+            <CustomizeTabs
+              id={id}
               tab={selection.tab}
-              skills={skills.list}
-              mcpServers={mcp.list}
-              providers={providers.list}
-              collapsed={collapsed}
-              onToggleGroup={(key) => setCollapsed((state) => toggleGroup(state, key))}
-              onSelect={(id) => setSelection((state) => openDetail(state, id))}
+              onSelect={(tab) => {
+                providers.clearStep()
+                setMenuOpen(false)
+                setSelection((state) => selectTab(state, tab))
+              }}
             />
+            {/* skills 는 메뉴, mcp 는 모달. */}
+            {/* provider 는 빌드타임 선언이라 UI 추가 경로가 없다 — 버튼 자체를 내지 않는다. */}
+            {!detail && selection.tab !== 'providers' && (
+              <Button
+                ref={addRef}
+                className="ml-auto"
+                variant="contained"
+                size="small"
+                dropdown={selection.tab === 'skills'}
+                expanded={selection.tab === 'skills' ? menuOpen : undefined}
+                onClick={() => {
+                  if (selection.tab === 'skills') setMenuOpen((value) => !value)
+                  else if (selection.tab === 'mcp') setMcpModalOpen(true)
+                }}
+              >
+                {tr('common.add')}
+              </Button>
+            )}
           </div>
-        )}
+          <div role="tabpanel" id={`${id}-items`} aria-labelledby={`${id}-${selection.tab}`}>
+            {detail && (
+              <div className="mb-2 flex items-center gap-2">
+                <Button
+                  iconOnly
+                  leadingIcon="arrowL"
+                  size="small"
+                  onClick={() => {
+                    providers.clearStep()
+                    setSelection((state) => back(state))
+                  }}
+                  aria-label={tr('skills.view.backAria', { section: title })}
+                />
+                <span className="text-footnote text-ink2">{title}</span>
+              </div>
+            )}
+            {selectedSkill ? (
+              <SkillDetail
+                skill={selectedSkill}
+                onToggle={() =>
+                  selectedSkill.canToggle &&
+                  void skills.setEnabled({
+                    name: selectedSkill.name,
+                    sourceId: selectedSkill.sourceId,
+                    enabled: !selectedSkill.enabled
+                  })
+                }
+                onTryInChat={() =>
+                  navigate('/new', { state: { composerDraft: `/${selectedSkill.name} ` } })
+                }
+                onOpenDefault={() =>
+                  void skills.open({ name: selectedSkill.name, sourceId: selectedSkill.sourceId })
+                }
+                onShowInFolder={() =>
+                  void skills.showInFolder({
+                    name: selectedSkill.name,
+                    sourceId: selectedSkill.sourceId
+                  })
+                }
+                onRemove={() =>
+                  skills.remove({ name: selectedSkill.name, sourceId: selectedSkill.sourceId })
+                }
+              />
+            ) : selectedMcp ? (
+              <McpDetail
+                server={selectedMcp}
+                onToggle={() => void mcp.toggle(selectedMcp.id, !selectedMcp.enabled)}
+                onEdit={() => setMcpEditId(selectedMcp.id)}
+                onRemove={() => mcp.remove(selectedMcp.id)}
+              />
+            ) : selectedProvider ? (
+              <ProviderDetail
+                // provider 를 갈아타면 방식 선택·입력값이 남지 않도록 리마운트한다.
+                key={selectedProvider.id}
+                provider={selectedProvider}
+                step={providers.step}
+                onLogin={(authKind) => void providers.login(selectedProvider.id, authKind)}
+                onSubmit={(input) => void providers.submit(selectedProvider.id, input)}
+                onReauth={(authKind) => void providers.reauth(selectedProvider.id, authKind)}
+                onRevoke={() => void providers.revoke(selectedProvider.id)}
+              />
+            ) : skills.loading || mcp.loading || providers.loading ? (
+              <div role="status" className="grid h-48 place-items-center text-footnote text-ink3">
+                {tr('common.loading')}
+              </div>
+            ) : (
+              <div className="flex min-h-0 flex-1 flex-col">
+                <CustomizeList
+                  tab={selection.tab}
+                  skills={skills.list}
+                  mcpServers={mcp.list}
+                  providers={providers.list}
+                  collapsed={collapsed}
+                  onToggleGroup={(key) => setCollapsed((state) => toggleGroup(state, key))}
+                  onSelect={(id) => setSelection((state) => openDetail(state, id))}
+                />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
       <SkillAddMenu
         open={menuOpen}

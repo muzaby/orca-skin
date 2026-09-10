@@ -8,17 +8,21 @@ export function bindStartingProject(
   sourceCwd: string,
   preferredProjectId: string | null,
   defaultCwd: string
-): string {
+): { projectId: string; created: boolean } {
   const path = projectPath(sourceCwd)
   const preferred = preferredProjectId ? db.getProject(preferredProjectId) : null
   // An explicitly opened legacy project retains its instructions and identity at its default.
-  if (preferred && projectPath(preferred.cwd ?? defaultCwd).key === path.key) return preferred.id
-  return db.ensurePathProject({
-    id: randomUUID(),
+  if (preferred && projectPath(preferred.cwd ?? defaultCwd).key === path.key)
+    return { projectId: preferred.id, created: false }
+  const candidateId = randomUUID()
+  const project = db.ensurePathProject({
+    id: candidateId,
     name: path.name,
     instructions: '',
     cwd: path.cwd,
     cwdKey: path.key,
     createdAt: Date.now()
-  }).id
+  })
+  // The transaction returns the pre-existing row or the row inserted with this candidate ID.
+  return { projectId: project.id, created: project.id === candidateId }
 }

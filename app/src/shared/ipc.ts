@@ -481,6 +481,8 @@ export type NormalizedEvent =
       //   cliVersion  init 의 `claude_code_version`. 안내 문구가 실제 버전을 말하게 한다.
       patch: {
         projectId?: string | null
+        // 이번 신규 세션이 실제 프로젝트 행을 생성했을 때만 보내는 일회성 nav 신호.
+        projectCreated?: boolean
         agentKind?: AgentKind
         model?: string
         permissionMode?: NormalizedPermissionMode

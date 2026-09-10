@@ -77,3 +77,14 @@ export function navProjectsOf(projects: readonly Project[]): Project[] {
     (a, b) => (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0) || b.updatedAt - a.updatedAt
   )
 }
+
+export function splitNavProjects(projects: readonly Project[]): {
+  pinned: Project[]
+  projects: Project[]
+} {
+  const ordered = navProjectsOf(projects)
+  return {
+    pinned: ordered.filter((project) => project.pinnedAt != null),
+    projects: ordered.filter((project) => project.pinnedAt == null)
+  }
+}
