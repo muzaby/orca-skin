@@ -102,18 +102,22 @@ describe('Work activity disclosure lifecycle', () => {
   beforeEach(() => {
     harness.open = false
   })
-  it('mounts ordered existing tool/note bodies only after the actual toggle callback, then unmounts them', () => {
+  it('keeps intermediate text visible while its surrounding tool groups open independently', () => {
     const closed = render()
-    expect(closed).not.toContain('middle-note')
+    expect(closed).toContain('middle-note')
     expect(closed).not.toContain('activity-first')
+    expect(closed).not.toContain('activity-second')
     harness.toggle!()
     const opened = render()
     expect(opened).toContain('aria-expanded="true"')
     expect(opened.indexOf('activity-first')).toBeLessThan(opened.indexOf('middle-note'))
-    expect(opened.indexOf('middle-note')).toBeLessThan(opened.indexOf('activity-second'))
-    expect(opened.indexOf('activity-second')).toBeLessThan(opened.indexOf('final-answer'))
+    expect(opened.indexOf('middle-note')).toBeLessThan(opened.indexOf('final-answer'))
+    expect(opened).not.toContain('activity-second')
     harness.toggle!()
-    expect(render()).not.toContain('activity-second')
+    const collapsed = render()
+    expect(collapsed).not.toContain('activity-first')
+    expect(collapsed).not.toContain('activity-second')
+    expect(collapsed).toContain('middle-note')
   })
   it('opens a tool through its actual row callback and hides its request and response when closed', () => {
     const renderTool = (): string => {

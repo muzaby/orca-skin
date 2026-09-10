@@ -14,7 +14,6 @@ export type WorkActivityNode =
       key: string
       items: SegmentNode[]
       toolCount: number
-      noteCount: number
     }
   | { kind: 'status'; key: string; outcome: 'ended' | 'aborted' | 'failed' | 'unknown' }
 
@@ -122,14 +121,6 @@ export function createWorkProjector(): (
     function finish(outcome: 'ended' | 'aborted' | 'failed' | 'unknown'): void {
       if (!active) return
       const { id, items } = active
-      const firstTool = items.findIndex(
-        (item) => item.segment.kind === 'tools' || item.segment.kind === 'ask'
-      )
-      let finalStart = items.length
-      if (firstTool >= 0 && outcome === 'ended') {
-        while (finalStart > firstTool + 1 && items[finalStart - 1].segment.kind === 'text')
-          finalStart--
-      }
       let activity: SegmentNode[] = []
       function flushActivity(): void {
         if (!activity.length) return
@@ -141,17 +132,12 @@ export function createWorkProjector(): (
           kind: 'activity',
           key: `activity:${id}:${activity[0].key}`,
           items: activity,
-          toolCount,
-          noteCount: activity.filter((item) => item.segment.kind === 'text').length
+          toolCount
         })
         activity = []
       }
-      items.forEach((item, index) => {
-        const { kind } = item.segment
-        const foldable =
-          kind === 'tools' ||
-          (kind === 'text' && firstTool >= 0 && index > firstTool && index < finalStart)
-        if (foldable) activity.push(item)
+      items.forEach((item) => {
+        if (item.segment.kind === 'tools') activity.push(item)
         else {
           flushActivity()
           output.push(item)

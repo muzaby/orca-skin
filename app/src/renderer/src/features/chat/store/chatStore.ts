@@ -615,12 +615,17 @@ function receive(ev: NormalizedEvent): void {
         createdAt: ev.createdAt,
         clientId: ev.ids[0],
         requirements: ev.requirements,
+        ...(ev.origin ? { origin: ev.origin } : {}),
         ...(ev.attachmentViews ? { attachmentViews: ev.attachmentViews } : {})
       })
       return
 
     case 'chat.activity':
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
+      return
+
+    case 'session.schedules':
+      // main이 runtime 소유권을 확인하고 chat.activity에 합친다. 원시 신호로 되감지 않는다.
       return
 
     case 'message.submitted':
@@ -1707,6 +1712,8 @@ export function useChatActivity(): Pick<
   | 'activityDeliveryPendingCount'
   | 'activityResidualCount'
   | 'activityBackgroundTaskCount'
+  | 'sessionSchedules'
+  | 'pendingSessionWakeup'
   | 'listening'
 > {
   return useChatStore(
@@ -1718,6 +1725,8 @@ export function useChatActivity(): Pick<
         activityDeliveryPendingCount: session.activityDeliveryPendingCount,
         activityResidualCount: session.activityResidualCount,
         activityBackgroundTaskCount: session.activityBackgroundTaskCount,
+        sessionSchedules: session.sessionSchedules,
+        pendingSessionWakeup: session.pendingSessionWakeup,
         listening: session.listening
       }
     })

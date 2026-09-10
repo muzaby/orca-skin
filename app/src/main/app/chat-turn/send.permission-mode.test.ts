@@ -95,12 +95,14 @@ type Recovery =
 function makeHarness(sessionId?: string) {
   const controller = new AbortController()
   const turn = {
+    controller: new AbortController(),
     cwd: '/managed/repo',
     extraDirs: ['/shared'],
     queueKey: 'new:1',
     dbSessionId: sessionId ?? null
   }
   mocks.buildTurnContext.mockImplementation((input) => {
+    turn.controller = input.controller
     turn.cwd = input.payload.cwd
     // production `buildTurnContext` 는 `resolveTurnExtraDirs` 로 **항상 배열**을 만든다.
     // 여기서 undefined 를 그대로 흘리면 하네스가 계약보다 느슨해진다.

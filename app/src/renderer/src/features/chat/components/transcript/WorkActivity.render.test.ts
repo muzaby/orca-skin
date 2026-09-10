@@ -47,6 +47,45 @@ describe('actual Work transcript branch', () => {
     expect(html).toContain('도구 1회 호출')
     expect(html).not.toContain('private-tool-body')
   })
+  it('renders intermediate text between closed tool groups without a note label', () => {
+    const message = turn.messages[0]
+    const withIntermediateText: Turn = {
+      ...turn,
+      messages: [
+        {
+          ...message,
+          parts: [
+            ...message.parts.slice(0, 3),
+            { type: 'text', text: 'visible-intermediate-text' },
+            {
+              type: 'tool_call',
+              toolRunId: 'second',
+              toolName: 'Bash',
+              args: { command: 'private-second-tool' }
+            },
+            ...message.parts.slice(3)
+          ]
+        }
+      ]
+    }
+    const html = renderToStaticMarkup(
+      createElement(AssistantTurn, {
+        turn: withIntermediateText,
+        transcriptPolicy: workTranscript,
+        pending: true
+      })
+    )
+    const firstGroup = html.indexOf('data-work-activity="true"')
+    const secondGroup = html.indexOf('data-work-activity="true"', firstGroup + 1)
+    expect(firstGroup).toBeGreaterThan(-1)
+    expect(secondGroup).toBeGreaterThan(firstGroup)
+    expect(html.indexOf('visible-intermediate-text')).toBeGreaterThan(firstGroup)
+    expect(html.indexOf('visible-intermediate-text')).toBeLessThan(secondGroup)
+    expect(html.match(/aria-expanded="false"/g)).toHaveLength(2)
+    expect(html).not.toContain('메모')
+    expect(html).not.toContain('private-tool-body')
+    expect(html).not.toContain('private-second-tool')
+  })
   it('preserves Code while applying Work tool rows to legacy history without boundaries', () => {
     const code = renderToStaticMarkup(
       createElement(AssistantTurn, { turn, transcriptPolicy: codeTranscript, pending: true })

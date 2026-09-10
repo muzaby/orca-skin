@@ -54,6 +54,18 @@ const fileView: AttachmentView = {
   kind: 'file'
 }
 
+it('round trips the received message origin in the text part without rewriting the prompt', () => {
+  const { persistence, appendPart } = makePersistence()
+  const origin = { kind: 'scheduled' as const }
+  persistence.persistUserMessage('s', 'check now', 1, undefined, undefined, origin)
+  const row = appendPart.mock.calls[0][0]
+  expect(
+    partFromRow({ type: row.type, payload_json: row.payloadJson, tool_run_id: null } as Parameters<
+      typeof partFromRow
+    >[0])
+  ).toEqual({ type: 'text', text: 'check now', origin })
+})
+
 describe('Work boundary persistence', () => {
   it('uses the injected response-boundary policy', () => {
     const connection = new Database(':memory:')

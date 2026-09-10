@@ -57,6 +57,8 @@ function LiveStatus(): React.JSX.Element {
       deliveryPendingCount: activity.activityDeliveryPendingCount,
       residualCount: activity.activityResidualCount,
       backgroundTaskCount: activity.activityBackgroundTaskCount,
+      sessionSchedules: activity.sessionSchedules,
+      pendingSessionWakeup: activity.pendingSessionWakeup,
       listening: activity.listening
     }),
     [
@@ -65,6 +67,8 @@ function LiveStatus(): React.JSX.Element {
       activity.activityDeliveryPendingCount,
       activity.activityResidualCount,
       activity.activityBackgroundTaskCount,
+      activity.sessionSchedules,
+      activity.pendingSessionWakeup,
       activity.listening
     ]
   )

@@ -19,6 +19,22 @@ const view = (patch: Partial<ActivityView> = {}): ActivityView => ({
 })
 
 describe('deriveActivityLabel — 사실 조합 (AC12)', () => {
+  it('counts scheduled prompts separately from background tasks while preserving other waiting facts', () => {
+    const label = deriveActivityLabel(
+      view({
+        listening: true,
+        backgroundTaskCount: 1,
+        sessionSchedules: [
+          { id: 'cron', schedule: '*/5 * * * *', recurring: true, prompt: 'check' }
+        ]
+      }),
+      0
+    )
+    expect(label.facts).toEqual([
+      { key: 'background', count: 1 },
+      { key: 'scheduled', count: 1 }
+    ])
+  })
   it('여러 이유가 동시에 있으면 우선순위로 하나만 고르지 않고 **함께** 싣는다', () => {
     const label = deriveActivityLabel(
       view({ listening: true, backgroundTaskCount: 2, deliveryPendingCount: 1 }),
@@ -81,6 +97,39 @@ describe('deriveActivityLabel — 표시 순서 (앞 MAX_VISIBLE_FACTS 개가 �
 })
 
 describe('deriveActivityLabel — 상태 (AC14 · AC21)', () => {
+  it('waits normally for an acknowledged wakeup before schedule metadata arrives without inventing a count', () => {
+    const waiting = view({ listening: true, pendingSessionWakeup: true })
+    expect(deriveActivityLabel(waiting, IDLE_HINT_MS * 100)).toEqual({
+      status: 'scheduledWaiting',
+      facts: []
+    })
+    expect(deriveActivityLabel({ ...waiting, sessionSchedules: [] }, 0)).toEqual({
+      status: 'scheduledWaiting',
+      facts: []
+    })
+    expect(deriveActivityLabel({ ...waiting, foreground: 'streaming' }, 0).status).toBe('streaming')
+    expect(
+      deriveActivityLabel({ ...waiting, pendingSessionWakeup: false }, IDLE_HINT_MS).status
+    ).toBe('finishingSlow')
+  })
+  it('uses a steady scheduled-wait status instead of a slow-finishing warning between cron runs', () => {
+    const waiting = view({
+      listening: true,
+      sessionSchedules: [{ id: 'cron', schedule: '0 9 * * *', recurring: true, prompt: 'check' }]
+    })
+    expect(deriveActivityLabel(waiting, 0)).toEqual({
+      status: 'scheduledWaiting',
+      facts: [{ key: 'scheduled', count: 1 }]
+    })
+    expect(deriveActivityLabel(waiting, IDLE_HINT_MS * 100).status).toBe('scheduledWaiting')
+    expect(
+      deriveActivityLabel({ ...waiting, foreground: 'streaming' }, IDLE_HINT_MS * 100).status
+    ).toBe('streaming')
+    expect(
+      deriveActivityLabel({ ...waiting, backgroundTaskCount: 1 }, IDLE_HINT_MS * 100).status
+    ).toBe('finishingSlow')
+    expect(deriveActivityLabel({ ...waiting, sessionSchedules: [] }, 0).facts).toEqual([])
+  })
   it('preparing 은 준비 라벨', () => {
     expect(deriveActivityLabel(view({ foreground: 'preparing' }), 0).status).toBe('preparing')
   })

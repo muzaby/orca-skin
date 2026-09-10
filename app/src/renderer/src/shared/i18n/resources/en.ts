@@ -450,7 +450,7 @@ export const en: typeof ko = {
       code: 'Code',
       workGreeting: 'What task would you like to start?',
       workPlaceholder: 'Describe a document, analysis, or task to work on',
-      activity: '{{tools}} tool calls · {{notes}} notes',
+      activity: '{{tools}} tool calls',
       ended: 'Response received',
       aborted: 'Response interrupted',
       failed: 'Response error',
@@ -475,8 +475,19 @@ export const en: typeof ko = {
       toolSearch: 'Search tools',
       task: 'Update task list',
       plan: 'Review plan',
-      schedule: 'Scheduled task',
+      scheduleCreate: 'Create session schedule',
+      scheduleList: 'List session schedules',
+      scheduleDelete: 'Delete session schedule',
+      loopWait: 'Wait for next loop',
+      loopStop: 'Stop loop',
       notification: 'Notification'
+    },
+    messageOrigin: {
+      automatic: 'Automatic input',
+      scheduled: 'Scheduled task',
+      channel: 'Channel',
+      task: 'Task notification',
+      peer: 'Another agent'
     },
     artifactViewer: {
       open: 'Preview {{title}}',
@@ -555,11 +566,13 @@ export const en: typeof ko = {
     activity: {
       preparing: 'Preparing the response…',
       waiting: 'Checking remaining work…',
+      scheduledWaiting: 'Waiting for the next scheduled prompt…',
       finishingSlow: 'Finishing is taking longer than expected…',
       queued: '{{count}} input(s) queued',
       deliveryPending: '{{count}} awaiting delivery confirmation',
       residual: '{{count}} awaiting delivery after stop',
       background: '{{count}} background task(s)',
+      scheduled: '{{count}} scheduled prompt(s) waiting',
       more: '{{count}} more'
     },
     titleBar: {
@@ -697,12 +710,21 @@ export const en: typeof ko = {
         toolUses: 'Tool uses'
       },
       sections: {
+        scheduled: 'Scheduled',
         progress: 'Progress',
         progressDesc: 'Follow the progress of longer tasks.',
         output: 'Output',
         outputDesc: 'Find and save the files created during this task.',
         context: 'Context',
         contextDesc: 'Add folders to use for this task.'
+      },
+      scheduled: {
+        recurring: 'Recurring',
+        once: 'Once',
+        pendingWakeup: 'Waiting for the next loop',
+        awaitingDetails: 'Waiting for schedule details',
+        lastConfirmed: 'Last confirmed schedule list.',
+        sessionOnly: 'Runs only in this session. Actual execution time may vary.'
       },
       backToList: 'Back to list',
       headerTitle: 'Tasks',

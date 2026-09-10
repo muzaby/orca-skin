@@ -78,6 +78,8 @@ import { handleChatSend } from './send'
 import { normalizeAttachments } from '../../features/chat/attachments'
 import { enqueueTurnPrompt } from './enqueue'
 import { runTurnWithContinuations } from './post-turn'
+import { PendingMessageQueue } from '../../features/chat/pending-message-queue'
+import type { TurnRequest } from '../../adapters/turn'
 
 const requirement = (overrides: Partial<DiffRequirementAnchor> = {}): DiffRequirementAnchor => ({
   sessionId: 'session-1',
@@ -105,12 +107,15 @@ type Recovery =
 function makeHarness(sessionId?: string) {
   const controller = new AbortController()
   const turn = {
+    controller: new AbortController(),
+    resumeScheduledReception: undefined as boolean | undefined,
     cwd: '/managed/repo',
     extraDirs: ['/shared'],
     queueKey: 'new:1',
     dbSessionId: sessionId ?? null
   }
   mocks.buildTurnContext.mockImplementation((input) => {
+    turn.controller = input.controller
     turn.cwd = input.payload.cwd
     // production `buildTurnContext` 는 `resolveTurnExtraDirs` 로 **항상 배열**을 만든다.
     // 여기서 undefined 를 그대로 흘리면 하네스가 계약보다 느슨해진다.
@@ -203,6 +208,50 @@ describe('handleChatSend worktree production wiring', () => {
     })
   })
 
+  it('확장 준비 await 중 취소한 최초 입력만 복원하고 이후 held 입력과 예약 수신을 보존한다', async () => {
+    const harness = makeHarness('session-1')
+    const queue = new PendingMessageQueue()
+    const actualEnqueue = await vi.importActual<typeof import('./enqueue')>('./enqueue')
+    vi.mocked(enqueueTurnPrompt).mockImplementationOnce(actualEnqueue.enqueueTurnPrompt)
+    const runtime = { close: vi.fn(), channelAlive: true, hasSchedules: true, markAborted: vi.fn() }
+    mocks.acquireTurnRuntime.mockResolvedValue({
+      ok: true,
+      runtime,
+      extensions: { skills: [], hooks: { normalized: {} } }
+    })
+    harness.deps.ctx.ensureExtensionsDeployedForTurn.mockImplementationOnce(async () => {
+      // chatCancel의 응답만 중단하는 결과. 이미 submitting인 initial은 cancelAllHeld 대상이 아니다.
+      harness.turn.controller.abort()
+      harness.turn.resumeScheduledReception = true
+      queue.enqueue('new:1', { text: 'after stop' }, 2, 'later')
+    })
+    vi.mocked(runTurnWithContinuations).mockImplementationOnce(async () => {
+      expect(queue.pending('new:1').map((item) => item.id)).toEqual(['later'])
+      expect(queue.counts('new:1')).toMatchObject({ queuedCount: 1, deliveryPendingCount: 0 })
+      expect(mocks.sendChatEvent).toHaveBeenCalledWith(harness.sender, {
+        type: 'message.cancelled',
+        sessionId: 'session-1',
+        ids: ['cancelled']
+      })
+    })
+    await handleChatSend(
+      { ...harness.deps, pendingMessages: queue } as never,
+      { sender: harness.sender } as never,
+      {
+        sessionId: 'session-1',
+        text: 'cancel me',
+        clientRequestId: 'cancelled',
+        attachmentViews: []
+      }
+    )
+    expect(runTurnWithContinuations).toHaveBeenCalledOnce()
+    expect(queue.pending('new:1').map((item) => item.id)).toEqual(['later'])
+    expect(runtime.close).not.toHaveBeenCalled()
+    expect(mocks.sendChatEvent.mock.calls.map(([, event]) => event)).not.toContainEqual(
+      expect.objectContaining({ type: 'error' })
+    )
+  })
+
   it('준비 완료 전에는 context/runtime을 만들지 않고 managed cwd와 extraDirs를 runtime까지 전달한다', async () => {
     const harness = makeHarness()
     let finish!: (value: { kind: 'managed'; worktreeId: string; executionCwd: string }) => void
@@ -269,6 +318,12 @@ describe('handleChatSend worktree production wiring', () => {
     expect(mocks.buildTurnRequest.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({ cwd: '/managed/repo', extraDirs: ['/shared'] })
     )
+    const leaseController = harness.supervisor.acquireChain.mock.results[0].value.lease.controller
+    const request = mocks.buildTurnRequest.mock.calls[0]?.[1] as Partial<TurnRequest> | undefined
+    expect(request?.signal).toBe(harness.turn.controller.signal)
+    expect(harness.turn.controller).not.toBe(leaseController)
+    harness.turn.controller.abort()
+    expect(leaseController.signal.aborted).toBe(false)
   })
 
   it('requirements 가 직접 send 에서 TurnRequest 조립까지 그대로 간다', async () => {
@@ -363,6 +418,7 @@ describe('handleChatSend worktree production wiring', () => {
     // resume·continuity 는 payload 에 없는 참조 경로를 세션 메타에서 계승한다. 두 출처가
     // 같은 값이면 "어느 쪽을 읽는가" 를 구별할 수 없으므로 여기서만 갈라 둔다.
     mocks.buildTurnContext.mockImplementation((input) => ({
+      controller: input.controller,
       cwd: input.payload.cwd,
       extraDirs: ['/inherited'],
       queueKey: 'new:1',

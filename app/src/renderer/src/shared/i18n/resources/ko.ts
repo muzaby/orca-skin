@@ -455,7 +455,7 @@ export const ko = {
       code: '코드',
       workGreeting: '어떤 작업을 시작할까요?',
       workPlaceholder: '작성할 문서나 분석할 자료, 정리할 작업을 알려주세요',
-      activity: '도구 {{tools}}회 호출 · 메모 {{notes}}개',
+      activity: '도구 {{tools}}회 호출',
       ended: '응답 수신 마감',
       aborted: '응답 중단',
       failed: '응답 오류',
@@ -480,8 +480,19 @@ export const ko = {
       toolSearch: '도구 검색',
       task: '작업 목록 업데이트',
       plan: '계획 검토',
-      schedule: '예약 작업',
+      scheduleCreate: '세션 예약 생성',
+      scheduleList: '세션 예약 조회',
+      scheduleDelete: '세션 예약 삭제',
+      loopWait: '반복 작업 대기',
+      loopStop: '반복 작업 중단',
       notification: '알림'
+    },
+    messageOrigin: {
+      automatic: '자동 수신',
+      scheduled: '예약 작업',
+      channel: '채널',
+      task: '작업 알림',
+      peer: '다른 에이전트'
     },
     artifactViewer: {
       open: '{{title}} 미리보기',
@@ -563,11 +574,13 @@ export const ko = {
     activity: {
       preparing: '응답 준비 중…',
       waiting: '남은 작업을 확인하는 중…',
+      scheduledWaiting: '다음 예약을 기다리는 중…',
       finishingSlow: '마무리가 예상보다 오래 걸리고 있습니다…',
       queued: '입력 대기 {{count}}건',
       deliveryPending: '전달 확인 중 {{count}}건',
       residual: '중단 후 전달 대기 {{count}}건',
       background: '백그라운드 작업 {{count}}건',
+      scheduled: '예약 대기 {{count}}개',
       more: '외 {{count}}개'
     },
     titleBar: {
@@ -705,12 +718,21 @@ export const ko = {
         toolUses: '도구 사용'
       },
       sections: {
+        scheduled: '예정',
         progress: '진행 상황',
         progressDesc: '오래 걸리는 작업의 진행 상황을 확인하세요.',
         output: '출력',
         outputDesc: '이 작업 중에 생성된 파일을 확인하고 저장할 수 있습니다.',
         context: '컨텍스트',
         contextDesc: '이 작업에 사용할 폴더를 추가하세요.'
+      },
+      scheduled: {
+        recurring: '반복',
+        once: '한 번',
+        pendingWakeup: '반복 작업 대기 중',
+        awaitingDetails: '예약 정보를 기다리는 중',
+        lastConfirmed: '마지막으로 확인한 예약 목록입니다.',
+        sessionOnly: '이 세션에서만 실행되며, 실행 시각은 달라질 수 있습니다.'
       },
       backToList: '목록으로',
       headerTitle: '작업',

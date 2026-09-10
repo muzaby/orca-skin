@@ -1,4 +1,5 @@
 import type { ChatActivitySnapshot } from '../../../shared/ipc'
+import type { SessionSchedule } from '../../../shared/session-schedules'
 import { parseLeaseKey } from '../../../shared/lease-key'
 import type { PendingMessageQueue, PendingQueueMutation } from './pending-message-queue'
 import type { BackgroundTaskTracker } from './background-tasks'
@@ -22,6 +23,8 @@ export class SessionActivityProjector {
   private readonly revisions = new Map<string, number>()
   private readonly transport = new Map<string, ChatActivitySnapshot['transport']>()
   private readonly residualAttempts = new Map<string, Set<string>>()
+  private readonly schedules = new Map<string, SessionSchedule[]>()
+  private readonly pendingWakeups = new Set<string>()
   // client key가 session key로 승격된 뒤에도 supervisor가 이전 키의 수명 전이를 한 번 더 알릴
   // 수 있다. 별칭으로 흡수해 provisional snapshot/revision이 다시 생기지 않게 한다.
   private readonly aliases = new Map<string, string>()
@@ -49,6 +52,21 @@ export class SessionActivityProjector {
     if ((this.transport.get(sessionId) ?? 'idle') === transport) return
     if (transport === 'idle') this.transport.delete(sessionId)
     else this.transport.set(sessionId, transport)
+    this.recompute(sessionId)
+  }
+
+  setSchedules(sessionId: string, schedules: SessionSchedule[], pendingWakeup = false): void {
+    sessionId = this.canonicalKey(sessionId)
+    if (this.cleared.has(sessionId) || this.disposed) return
+    const previous = this.schedules.get(sessionId)
+    if (
+      JSON.stringify(previous) === JSON.stringify(schedules) &&
+      this.pendingWakeups.has(sessionId) === pendingWakeup
+    )
+      return
+    if (pendingWakeup) this.pendingWakeups.add(sessionId)
+    else this.pendingWakeups.delete(sessionId)
+    this.schedules.set(sessionId, schedules)
     this.recompute(sessionId)
   }
 
@@ -88,6 +106,10 @@ export class SessionActivityProjector {
     const transport = this.transport.get(source)
     if (transport) this.transport.set(target, transport)
     this.transport.delete(source)
+    const schedules = this.schedules.get(source)
+    if (schedules) this.schedules.set(target, schedules)
+    this.schedules.delete(source)
+    if (this.pendingWakeups.delete(source)) this.pendingWakeups.add(target)
     const residual = this.residualAttempts.get(source)
     if (residual) this.residualAttempts.set(target, residual)
     this.residualAttempts.delete(source)
@@ -100,6 +122,8 @@ export class SessionActivityProjector {
     this.snapshots.delete(sessionId)
     this.revisions.delete(sessionId)
     this.transport.delete(sessionId)
+    this.schedules.delete(sessionId)
+    this.pendingWakeups.delete(sessionId)
     this.residualAttempts.delete(sessionId)
     this.pending.delete(sessionId)
     for (const [alias, target] of this.aliases) {
@@ -113,6 +137,8 @@ export class SessionActivityProjector {
     this.snapshots.clear()
     this.revisions.clear()
     this.transport.clear()
+    this.schedules.clear()
+    this.pendingWakeups.clear()
     this.residualAttempts.clear()
     this.aliases.clear()
     this.cleared.clear()
@@ -185,7 +211,11 @@ export class SessionActivityProjector {
       queuedCount: counts.queuedCount,
       deliveryPendingCount: counts.deliveryPendingCount,
       residualCount,
-      backgroundTaskCount
+      backgroundTaskCount,
+      ...(this.schedules.has(sessionId)
+        ? { sessionSchedules: this.schedules.get(sessionId)! }
+        : {}),
+      ...(this.pendingWakeups.has(sessionId) ? { pendingSessionWakeup: true } : {})
     }
   }
 }
@@ -202,6 +232,8 @@ function sameActivity(a: ChatActivitySnapshot, b: ChatActivitySnapshot): boolean
     a.queuedCount === b.queuedCount &&
     a.deliveryPendingCount === b.deliveryPendingCount &&
     a.residualCount === b.residualCount &&
-    a.backgroundTaskCount === b.backgroundTaskCount
+    a.backgroundTaskCount === b.backgroundTaskCount &&
+    a.sessionSchedules === b.sessionSchedules &&
+    a.pendingSessionWakeup === b.pendingSessionWakeup
   )
 }

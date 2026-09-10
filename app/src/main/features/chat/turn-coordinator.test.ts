@@ -37,6 +37,61 @@ function makeTurn(): TurnContext<W> {
 
 const REQUEST = { sessionId: null, text: 'hi' } as unknown as TurnRequest
 
+it('commits a received scheduled prompt before its response without consuming a queued user prompt', async () => {
+  const runtime = fakeRuntime([
+    [
+      {
+        type: 'input.received',
+        sessionId: 's1',
+        text: 'check now',
+        uuid: 'cron-event',
+        origin: { kind: 'scheduled' }
+      },
+      { type: 'message.completed', sessionId: 's1', message: { text: 'checked' } },
+      { type: 'telemetry', sessionId: 's1' }
+    ]
+  ])
+  const deps = makeDeps(runtime)
+  const commit = vi.fn(() => 42)
+  deps.persist.commitUserMessage = commit
+  const turn = makeTurn()
+  turn.dbSessionId = 's1'
+  turn.agentKind = 'work'
+  await new TurnCoordinator(deps).run(turn, REQUEST, { kind: 'listen', boundProjectId: null })
+  expect(commit).toHaveBeenCalledWith(
+    turn,
+    expect.objectContaining({ text: 'check now', origin: { kind: 'scheduled' } })
+  )
+  const forwarded = vi.mocked(deps.forward.forward).mock.calls.map((call) => call[1])
+  expect(forwarded[0]).toMatchObject({
+    type: 'message.committed',
+    ids: [],
+    messageId: 42,
+    origin: { kind: 'scheduled' }
+  })
+  expect(forwarded.some((event) => event.type === 'input.received')).toBe(false)
+  expect(forwarded.findIndex((event) => event.type === 'message.completed')).toBeGreaterThan(0)
+})
+
+it('does not replay channel-owned schedule state through a delayed turn frame', async () => {
+  const runtime = fakeRuntime([
+    [
+      {
+        type: 'session.schedules',
+        sessionId: 's1',
+        schedules: [{ id: 'old', schedule: '* * * * *', recurring: true, prompt: 'check' }]
+      },
+      { type: 'telemetry', sessionId: 's1' }
+    ]
+  ])
+  const deps = makeDeps(runtime)
+  const turn = makeTurn()
+  turn.dbSessionId = 's1'
+  await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+  const forwarded = vi.mocked(deps.forward.forward).mock.calls.map((call) => call[1])
+  expect(forwarded.some((event) => event.type === 'session.schedules')).toBe(false)
+})
+
 // 스크립트된 이벤트 리스트(또는 attempt 별 동작)를 yield 하는 가짜 런타임.
 function fakeRuntime(
   scripts: Array<NormalizedEvent[] | (() => never)>

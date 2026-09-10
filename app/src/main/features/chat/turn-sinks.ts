@@ -12,6 +12,7 @@
 
 import type { AttachmentView, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
+import type { ReceivedMessageOrigin } from '../../../shared/session-schedules'
 
 // 영속 sink — DB 기록(가로축 좌측). renderer 비의존. L3 HistoryWriter 가 만족.
 export interface TurnPersistSink<W = unknown> {
@@ -23,6 +24,7 @@ export interface TurnPersistSink<W = unknown> {
     batch: {
       text: string
       createdAt: number
+      origin?: ReceivedMessageOrigin
       attachmentViews?: AttachmentView[]
       requirements?: DiffRequirementAnchor[]
     }

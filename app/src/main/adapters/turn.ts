@@ -190,6 +190,11 @@ export interface TurnRequest {
   // 채널 화신이 종료/교체되는 순간의 상향 통지. app 계층이 해당 채널에 묶인 백그라운드
   // 작업을 합성 정착한다. token은 관측/멱등 키이며 chat 기능을 sessions가 직접 참조하지 않는다.
   onChannelRetired?: (channelToken: number) => void
+  onSessionSchedules?: (
+    sessionId: string,
+    schedules: import('../../shared/session-schedules').SessionSchedule[],
+    pendingWakeup?: boolean
+  ) => void
   // 중단된 서브에이전트 타입 재호출 차단 술어(가이드 §6-A). turn.blockedSubagents 를 읽는다.
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
   attachmentTexts?: ExtractedAttachmentText[]

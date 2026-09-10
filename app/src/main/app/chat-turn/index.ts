@@ -142,7 +142,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
   handle(CHANNELS.chatCancel, CancelChatSchema, 'reject', (req, event): void => {
     // 중단 버튼 = 턴 interrupt + held 전량 취소(0067 확정 5). renderer 는 message.cancelled 의
     // 잔존 항목 텍스트를 composer draft 로 복원한다(편집 가능). flushed 분은 회수 불가(D3) —
-    // 소비되면 echo 커밋으로 정직 화해. controller abort 가 자동 연속 루프도 차단한다.
+    // 소비되면 echo 커밋으로 정직 화해. 세션 예약이 있으면 현재 응답만 중단하고 수신은 잇는다.
     const removed = pendingMessages.cancelAllHeld(req.sessionId)
     if (removed.length > 0) {
       sendChatEvent(event.sender, {
@@ -151,9 +151,17 @@ export function registerChatHandlers(deps: ChatDeps): void {
         ids: removed.map((item) => item.id)
       })
     }
-    supervisor.cancelChain(req.sessionId)
     const turn = supervisor.getBySession(req.sessionId)
+    const chain = supervisor.getChainBySession(req.sessionId)
+    const scheduleActivity = activity.current(req.sessionId)
+    const keepScheduledReception =
+      chain?.kind === 'active' &&
+      !chain.controller.signal.aborted &&
+      ((scheduleActivity.sessionSchedules?.length ?? 0) > 0 ||
+        scheduleActivity.pendingSessionWakeup === true)
+    if (!keepScheduledReception) supervisor.cancelChain(req.sessionId)
     if (!turn) return
+    if (keepScheduledReception) turn.resumeScheduledReception = true
     abortTurn(turn, 'user_cancelled')
     // 진행 중이던 도구(최상위 + 서브에이전트 child)를 중단 결과로 정착 — 안 하면 결과가
     // 영영 안 와 "실행 중"으로 무한 렌더되고 부모 Task 가 "진행 중"으로 남는다. turn.aborted 전에.

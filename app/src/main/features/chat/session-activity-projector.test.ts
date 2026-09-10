@@ -46,6 +46,44 @@ const flush = async (): Promise<void> => {
 }
 
 describe('SessionActivityProjector', () => {
+  it('publishes an early wakeup without inventing schedule entries and clears its flag on a full snapshot', async () => {
+    const { projector, emitted } = fixture()
+    projector.setSchedules('s', [], true)
+    await flush()
+    expect(projector.current('s')).toMatchObject({
+      sessionSchedules: [],
+      pendingSessionWakeup: true
+    })
+    const revision = emitted.at(-1)!.revision
+    projector.setSchedules('s', [])
+    await flush()
+    expect(projector.current('s').pendingSessionWakeup).toBeUndefined()
+    expect(emitted.at(-1)!.revision).toBeGreaterThan(revision)
+    projector.dispose()
+  })
+  it('keeps live schedules available for reload and clears them on retirement/disposal', async () => {
+    const { projector, emitted } = fixture()
+    expect(projector.current('s').sessionSchedules).toBeUndefined()
+    const schedules = [{ id: 'c', schedule: '*/5 * * * *', recurring: true, prompt: 'check' }]
+    projector.setSchedules('s', schedules)
+    await flush()
+    expect(projector.current('s').sessionSchedules).toEqual(schedules)
+    const revision = emitted.at(-1)!.revision
+    projector.setSchedules(
+      's',
+      schedules.map((item) => ({ ...item }))
+    )
+    await flush()
+    expect(emitted.at(-1)!.revision).toBe(revision)
+    projector.setSchedules('s', [])
+    await flush()
+    expect(emitted.at(-1)!.sessionSchedules).toEqual([])
+    projector.clear('s')
+    projector.setSchedules('s', schedules)
+    await flush()
+    expect(emitted.at(-1)!.sessionSchedules).toEqual([])
+    projector.dispose()
+  })
   it('큐의 여러 동기 전이를 한 revision 스냅샷으로 합쳐 중간 깜빡임을 노출하지 않는다', async () => {
     const f = fixture()
     f.queue.enqueue('s', { text: 'hello' }, 1, 'm1')

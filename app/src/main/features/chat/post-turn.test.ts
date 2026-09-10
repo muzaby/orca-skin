@@ -13,6 +13,12 @@ const base = {
 }
 
 describe('decidePostTurnStep (0143)', () => {
+  it('keeps receiving while a live session has schedules, without delaying user input', () => {
+    expect(decidePostTurnStep({ ...base, haveSchedules: true })).toBe('listen')
+    expect(decidePostTurnStep({ ...base, haveSchedules: true, havePending: true })).toBe('flush')
+    expect(decidePostTurnStep({ ...base, haveSchedules: true, channelAlive: false })).toBe('break')
+    expect(decidePostTurnStep({ ...base, hasBacklog: true })).toBe('listen')
+  })
   it('할 일 없음(유휴) → break', () => {
     expect(decidePostTurnStep(base)).toBe('break')
   })

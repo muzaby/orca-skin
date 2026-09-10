@@ -70,6 +70,7 @@ export function buildTurnRequest(
     | 'rollbackInitialSubmission'
     | 'captureInterruptReceipt'
     | 'onChannelRetired'
+    | 'onSessionSchedules'
     | 'isSubagentBlocked'
   >
 ): TurnRequest {
@@ -149,6 +150,8 @@ export function buildTurnRequest(
       const sid = activeTurn.dbSessionId
       if (sid) void deps.settleDeadBackgroundTasks(activeTurn, sid)
     },
+    onSessionSchedules: (sessionId, schedules, pendingWakeup) =>
+      activity.setSchedules(sessionId, schedules, pendingWakeup),
     isSubagentBlocked: (st) => st !== undefined && deps.getActiveTurn().blockedSubagents.has(st)
   }
 }

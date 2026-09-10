@@ -199,12 +199,20 @@ export function makeSteerGateHook(
  *
  * 그래서 이 콜백은 **신호만 적재**한다. 조회는 renderer 가 이벤트를 받은 뒤에 한다.
  */
-export function makeTurnEndHook(onTurnEnd: () => void): object {
-  const callback: HookCallback = async () => {
-    onTurnEnd()
+export function makeTurnEndHook(onTurnEnd: (input: unknown) => void): object {
+  const callback: HookCallback = async (input) => {
+    onTurnEnd(input)
     return {}
   }
   return { hooks: { Stop: [{ hooks: [callback] }] } }
+}
+
+export function makeInputReceiptHook(onPrompt: (input: unknown) => void): object {
+  const callback: HookCallback = async (input) => {
+    onPrompt(input)
+    return {}
+  }
+  return { hooks: { UserPromptSubmit: [{ hooks: [callback] }] } }
 }
 
 // options.hooks 조각 병합 — adaptHooks 산출과 게이트 조각처럼 `{hooks?: …}` 조각 여럿을

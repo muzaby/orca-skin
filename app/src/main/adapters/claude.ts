@@ -24,6 +24,9 @@ import {
   type NormalizedPermissionMode
 } from '../../shared/permission-mode'
 import { claudeToNormalized, type MapContext } from './claude-map'
+import { readClaudeSessionSchedules } from './claude-schedules'
+import { ClaudeInputReceipts } from './claude-input-receipts'
+import type { SessionSchedule } from '../../shared/session-schedules'
 import { claudeErrorClassifier, errorEvent } from './error-classifier'
 import { createSessionInputStream, type TurnInputContent } from './streaming-input'
 import type { Base64ImageSource } from '@anthropic-ai/sdk/resources/messages'
@@ -44,6 +47,7 @@ import {
   adaptSkills,
   adaptSystemPrompt,
   makeSteerGateHook,
+  makeInputReceiptHook,
   makeTurnEndHook,
   mergeHooks,
   withPostCompactHook
@@ -339,13 +343,21 @@ export class ClaudeAdapter implements SessionAdapter {
         b.attachmentImages ?? [],
         b.requirements ?? []
       )
-    const input = createSessionInputStream([
+    const initialInputs = [
       ...(req.preludes ?? []).map((b) => ({ content: batchContent(b), uuid: b.uuid })),
       {
         content: buildTurnContent(text, attachmentTexts, attachmentImages, requirements),
         ...(req.promptUuid !== undefined ? { uuid: req.promptUuid } : {})
       }
-    ])
+    ]
+    const receipts = new ClaudeInputReceipts()
+    for (const item of initialInputs) receipts.submitted(item.content, item.uuid)
+    const input = createSessionInputStream(initialInputs)
+    const pushInput = (content: TurnInputContent, uuid?: string): boolean => {
+      if (!input.push(content, uuid)) return false
+      receipts.submitted(content, uuid)
+      return true
+    }
 
     // 압축 요약 surface (0064 r3) — PostCompact hook 이 전달한 compact_summary 를 assistant
     // 메시지로 승격할 대기열. hook 콜백은 스트림 밖에서 도착하므로 events() 가 SDK 메시지
@@ -353,9 +365,10 @@ export class ClaudeAdapter implements SessionAdapter {
     const compactSummaries: string[] = []
 
     // 턴 종료 신호 대기열 (0211 ΔV6 D-115). `Stop` hook 은 스트림 밖에서 도착하므로 압축 요약과
-    // 같은 형태로 적재하고 events() 가 SDK 메시지 경계마다 드레인한다. **개수만** 싣는다 —
-    // 페이로드가 없어야 hook 이 아무것도 기다리지 않는다.
+    // 같은 형태로 적재하고 events() 가 SDK 메시지 경계마다 드레인한다. 예약 스냅샷도
+    // 동기적으로 복사만 하며 hook 안에서 조회나 renderer 응답을 기다리지 않는다.
     let turnEndSignals = 0
+    const scheduleSnapshots: SessionSchedule[][] = []
 
     // Workspace 격리(0075) — 작업 폴더(cwd) 밖 r/w 를 PreToolUse 가드 훅으로 막는다. additionalDirectories
     // 는 옵션과 훅이 **같은 배열**을 공유해 드리프트를 막는다(가이드 §5). 값은 컴포저 참조 경로
@@ -405,8 +418,13 @@ export class ClaudeAdapter implements SessionAdapter {
         ...withPostCompactHook(
           mergeHooks(
             adaptHooks(extensions.hooks),
+            makeInputReceiptHook((input) => receipts.prompt(input)),
             // 턴 종료(Stop) — git 변경 목록 싱크의 유일한 계기다(0211 ΔV6 D-115, §10 EP-46 ①).
-            makeTurnEndHook(() => {
+            makeTurnEndHook((input) => {
+              const schedules = readClaudeSessionSchedules(input)
+              if (schedules !== undefined) {
+                scheduleSnapshots.push(schedules)
+              }
               turnEndSignals += 1
             }),
             // 격리 가드(PreToolUse) — 모든 툴·모든 모드보다 먼저 밖 경로를 자른다(0075). 안·예외는
@@ -415,7 +433,7 @@ export class ClaudeAdapter implements SessionAdapter {
             req.takeSteerFlush
               ? makeSteerGateHook(
                   req.takeSteerFlush,
-                  (batch) => input.push(batchContent(batch), batch.uuid),
+                  (batch) => pushInput(batchContent(batch), batch.uuid),
                   req.rollbackSteerFlush,
                   req.commitSteerFlush
                 )
@@ -445,7 +463,10 @@ export class ClaudeAdapter implements SessionAdapter {
       }
     })
 
-    const close = (): void => input.close()
+    const close = (): void => {
+      input.close()
+      receipts.close()
+    }
 
     // 대기 중인 압축 요약을 assistant 메시지 이벤트로 비운다 — persist(text 파트)와 렌더
     // (마크다운 메시지)가 일반 message.completed 경로를 그대로 탄다. 새 세션(fork/handoff)에서
@@ -473,20 +494,55 @@ export class ClaudeAdapter implements SessionAdapter {
       }
     }
 
+    function* drainSchedules(): Iterable<NormalizedEvent> {
+      while (scheduleSnapshots.length > 0) {
+        const schedules = scheduleSnapshots.shift()!
+        ctx.sessionSchedules = schedules
+        ctx.pendingWakeup = false
+        yield {
+          type: 'session.schedules',
+          sessionId: ctx.sessionId,
+          schedules,
+          pendingWakeup: false
+        }
+      }
+    }
+
     async function* eventBatches(): AsyncIterable<ProviderMessageBatch> {
       let sequence = 0
       try {
         for await (const msg of handle) {
-          const events = claudeToNormalized(msg, ctx)
+          const events = claudeToNormalized(msg, ctx).flatMap<NormalizedEvent>((event) => {
+            if (event.type !== 'input.received' && event.type !== 'input.echo') return [event]
+            const reconciled = receipts.reconcile(event)
+            return reconciled ? [reconciled] : []
+          })
+          if (msg.type === 'assistant' || msg.type === 'stream_event' || msg.type === 'result') {
+            events.unshift(...receipts.drain(ctx.sessionId))
+          }
+          if (msg.type === 'result') receipts.finishResponse()
+          // Stop callback은 이미 출력된 tool_result의 소비보다 먼저 도착할 수 있다.
+          // 그 영수증들을 모두 처리한 result 경계에서 정본을 적용하되 telemetry보다 먼저 보낸다.
+          if (msg.type === 'result') events.unshift(...drainSchedules())
           // hook 은 다음 SDK 메시지(compact_boundary/result)보다 먼저 완료되므로 메시지 뒤
           // 드레인이 [구분선 → 요약] 순서를 만든다.
           events.push(...drainCompactSummaries())
           events.push(...drainTurnEnded())
           if (events.length > 0) yield { sequence: sequence++, events }
         }
-        const summaries = [...drainCompactSummaries(true), ...drainTurnEnded()]
+        const summaries = [
+          ...receipts.drain(ctx.sessionId),
+          ...drainSchedules(),
+          ...drainCompactSummaries(true),
+          ...drainTurnEnded()
+        ]
         if (summaries.length > 0) yield { sequence: sequence++, events: summaries }
       } catch (err) {
+        const events: NormalizedEvent[] = [
+          ...receipts.drain(ctx.sessionId),
+          ...drainSchedules(),
+          ...drainTurnEnded()
+        ]
         // 의도적 중단(턴 취소 / 계획 거부)은 에러가 아니므로 error 이벤트를 내지 않는다
         // (user_cancelled 로 분류되지만 emit 안 함 — 설계 결정 3).
         if (!abortController.signal.aborted) {
@@ -494,8 +550,9 @@ export class ClaudeAdapter implements SessionAdapter {
             provider: 'claude',
             phase: 'sendMessage'
           })
-          yield { sequence: sequence++, events: [errorEvent(classified, ctx.sessionId)] }
+          events.push(errorEvent(classified, ctx.sessionId))
         }
+        if (events.length > 0) yield { sequence: sequence++, events }
       } finally {
         // 어떤 경로로 끝나든 입력 스트림을 닫아(멱등) 핸들/서브프로세스 누수를 막는다.
         close()
@@ -515,7 +572,7 @@ export class ClaudeAdapter implements SessionAdapter {
         if (next.permissionMode !== undefined) {
           await handle.setPermissionMode(toClaudePermissionMode(next.permissionMode))
         }
-        return input.push(
+        return pushInput(
           buildTurnContent(
             next.text,
             next.attachmentTexts ?? [],

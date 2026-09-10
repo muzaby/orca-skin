@@ -13,14 +13,15 @@ export const IDLE_HINT_MS = 30_000
 /** StatusLine 에 한 줄로 보이는 최대 사실 수 — 나머지는 합계(`more`)로 접는다. */
 export const MAX_VISIBLE_FACTS = 2
 
-export type ActivityFactKey = 'deliveryPending' | 'queued' | 'residual' | 'background'
+export type ActivityFactKey = 'deliveryPending' | 'queued' | 'residual' | 'background' | 'scheduled'
 
 export interface ActivityFact {
   key: ActivityFactKey
   count: number
 }
 
-export type ActivityStatus = 'preparing' | 'streaming' | 'waiting' | 'finishingSlow'
+export type ActivityStatus =
+  'preparing' | 'streaming' | 'waiting' | 'finishingSlow' | 'scheduledWaiting'
 
 export interface ActivityLabelModel {
   status: ActivityStatus
@@ -35,7 +36,13 @@ export interface ActivityLabelModel {
 
 export type ActivityView = Pick<
   ChatActivitySnapshot,
-  'foreground' | 'queuedCount' | 'deliveryPendingCount' | 'residualCount' | 'backgroundTaskCount'
+  | 'foreground'
+  | 'queuedCount'
+  | 'deliveryPendingCount'
+  | 'residualCount'
+  | 'backgroundTaskCount'
+  | 'sessionSchedules'
+  | 'pendingSessionWakeup'
 > & { listening: boolean }
 
 export function deriveActivityLabel(
@@ -58,21 +65,25 @@ export function deriveActivityLabel(
     { key: 'deliveryPending' as const, count: ordinaryDeliveryPending },
     { key: 'queued' as const, count: activity.queuedCount },
     { key: 'residual' as const, count: activity.residualCount },
-    { key: 'background' as const, count: activity.backgroundTaskCount }
+    { key: 'background' as const, count: activity.backgroundTaskCount },
+    { key: 'scheduled' as const, count: activity.sessionSchedules?.length ?? 0 }
   ].filter((fact) => fact.count > 0)
 
-  return { status: deriveStatus(activity, facts.length > 0, elapsedMs), facts }
+  return { status: deriveStatus(activity, facts, elapsedMs), facts }
 }
 
 function deriveStatus(
   activity: ActivityView,
-  hasFacts: boolean,
+  facts: readonly ActivityFact[],
   elapsedMs: number
 ): ActivityStatus {
   if (activity.foreground === 'preparing') return 'preparing'
   // **foreground 구간에는 무활동 라벨을 붙이지 않는다**(0167 AC21) — 모델이 실제로 응답 중인데
   // "종료 확인 대기" 로 바꾸면 거짓 정보다.
   if (activity.foreground !== 'idle') return 'streaming'
-  if (!activity.listening && !hasFacts) return 'streaming'
+  // 다음 발화까지의 정상 대기다. cron 간격이 길다는 이유로 마무리 지연 경고를 띄우지 않는다.
+  if (facts.length === 1 && facts[0].key === 'scheduled') return 'scheduledWaiting'
+  if (activity.pendingSessionWakeup && facts.length === 0) return 'scheduledWaiting'
+  if (!activity.listening && facts.length === 0) return 'streaming'
   return elapsedMs >= IDLE_HINT_MS ? 'finishingSlow' : 'waiting'
 }

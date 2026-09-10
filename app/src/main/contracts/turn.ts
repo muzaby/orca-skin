@@ -7,6 +7,8 @@ import type { GovernedLiveTurn, RuntimeTitleAdapter } from './ports'
 export interface TurnContext<W = unknown> {
   agentKind: AgentKind
   controller: AbortController
+  // 명시적인 응답 Stop 뒤에도 세션 예약 수신은 이어간다. 새 child에는 상속하지 않는다.
+  resumeScheduledReception?: boolean
   owner: W
   live: GovernedLiveTurn | null
   titleAdapter: RuntimeTitleAdapter

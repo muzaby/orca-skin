@@ -136,4 +136,48 @@ describe('0224 r5 actual panel composition', () => {
     const html = renderToStaticMarkup(createElement(ArtifactCards, { artifacts: publications }))
     expect(html).toContain('모두 저장')
   })
+  it('shows confirmed session schedules above Work progress with the supplied cron and recurrence', () => {
+    harness.session!.sessionSchedules = [
+      { id: 'cron-1', schedule: '*/5 * * * *', recurring: true, prompt: '서버 상태 확인' },
+      { id: 'cron-2', schedule: '0 9 10 9 *', recurring: false, prompt: '한 번만 확인 <이름>' }
+    ]
+    const work = render('work')
+    expect(work('[data-task-section]').first().attr('data-task-section')).toBe('scheduled')
+    expect(work('[data-session-schedule]').length).toBe(2)
+    expect(work('[data-session-schedule="cron-1"]').text()).toContain('서버 상태 확인')
+    expect(work('[data-session-schedule="cron-1"]').text()).toContain('*/5 * * * *')
+    expect(work('[data-session-schedule="cron-1"]').text()).toContain('반복')
+    expect(work('[data-session-schedule="cron-2"]').text()).toContain('한 번')
+    expect(work('[data-task-section="scheduled"]').text()).toContain(
+      '실행 시각은 달라질 수 있습니다.'
+    )
+    expect(render('code')('[data-session-schedule]').length).toBe(0)
+  })
+  it('does not invent a scheduled section before a snapshot or after its jobs are removed', () => {
+    expect(render('work')('[data-task-section="scheduled"]').length).toBe(0)
+    harness.session!.sessionSchedules = []
+    expect(render('work')('[data-task-section="scheduled"]').length).toBe(0)
+    expect(render('work')('[data-task-section="progress"]').length).toBe(1)
+  })
+  it('shows an acknowledged wakeup before a schedule ID is known without an invented count or deadline', () => {
+    harness.session!.sessionSchedules = []
+    harness.session!.pendingSessionWakeup = true
+    const work = render('work')
+    const section = work('[data-task-section="scheduled"]')
+    expect(section.length).toBe(1)
+    expect(section.find('button').text().trim()).toBe('예정')
+    expect(section.text()).toContain('반복 작업 대기 중')
+    expect(section.text()).toContain('예약 정보를 기다리는 중')
+    expect(work('[data-session-schedule]').length).toBe(0)
+    expect(work('[data-session-wakeup-pending]').length).toBe(1)
+    expect(section.text()).not.toContain('마지막으로 확인한 예약 목록')
+    harness.session!.sessionSchedules = [
+      { id: 'known', schedule: '*/5 * * * *', recurring: true, prompt: '확인된 예약' }
+    ]
+    const withKnown = render('work')
+    expect(withKnown('[data-session-schedule]').length).toBe(1)
+    expect(withKnown('[data-task-section="scheduled"]').text()).toContain(
+      '마지막으로 확인한 예약 목록입니다.'
+    )
+  })
 })
