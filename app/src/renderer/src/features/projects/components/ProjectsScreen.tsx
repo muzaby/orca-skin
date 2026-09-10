@@ -66,6 +66,7 @@ export function ProjectsScreen({
               </span>
             </h1>
             <Button
+              variant="primary"
               size="small"
               leadingIcon="plus"
               className="ml-auto"

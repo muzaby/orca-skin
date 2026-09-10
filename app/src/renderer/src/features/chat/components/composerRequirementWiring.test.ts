@@ -32,6 +32,7 @@ vi.mock('../store/chatStore', () => ({
   useChatSession: (select: (state: ChatState) => unknown) => select(h.state),
   useChatStore: (select: (state: { activeKey: string }) => unknown) => select({ activeKey: 's' }),
   useChatBusy: () => false,
+  useChatResponding: () => h.state.inflight,
   useChatResidualSteer: () => 0,
   useNewChatPending: () => false,
   useProjectConcurrencyCount: () => 0,

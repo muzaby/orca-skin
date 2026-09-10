@@ -32,12 +32,15 @@ describe('Work task panel sections', () => {
     expect($('section[aria-label="컨텍스트"] button[aria-label="폴더 추가"]').length).toBe(1)
     expect($('section[aria-label="출력"]').text()).toContain('이 작업 중에 생성된 파일')
   })
-  it('shows only user-added folders as allowed resources, without claiming they were read', () => {
+  it('distinguishes working and user-added folders without claiming they were read', () => {
     session = { ...session, cwd: 'C:/default', extraDirs: ['C:/Downloads'] }
     const $ = load(renderToStaticMarkup(createElement(TaskTileContent)))
     const context = $('section[aria-label="컨텍스트"]')
-    expect(context.text()).toContain('Downloads')
-    expect(context.html()).toContain('사용자가 추가한 폴더')
-    expect(context.text()).not.toContain('default')
+    const directories = context.find('[data-surface="context-directory"]')
+    expect(directories.map((_, el) => $(el).text()).get()).toEqual(['default', 'Downloads'])
+    expect(directories.eq(0).attr('title')).toBe('현재 작업 폴더: C:/default')
+    expect(directories.eq(1).attr('title')).toBe('사용자가 추가한 폴더: C:/Downloads')
+    expect(context.find('[data-surface="context-file-source"]')).toHaveLength(0)
+    expect(context.text()).not.toContain('출처')
   })
 })

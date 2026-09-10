@@ -19,6 +19,7 @@ import { ArtifactService, type ArtifactPublishContext } from './service'
 import { ArtifactFiles } from './files'
 import { orcaConfigDir } from '../../infra/config/paths'
 import { partFromRow } from '../../infra/ipc/dto'
+import { createArtifactToolServer } from './tool'
 
 const configFixture = vi.hoisted(() => ({ root: '' }))
 vi.mock('../../infra/config/paths', async (original) => ({
@@ -79,6 +80,50 @@ afterEach(async () => {
 })
 
 describe('artifact real filesystem and SQLite publication', () => {
+  it('publishes a Temp deliverable through the tool and preserves its owned copy after source deletion', async () => {
+    const f = await setup()
+    const directory = join(f.root, 'tmp', 'completed')
+    await mkdir(directory, { recursive: true })
+    const path = join(directory, 'report.md')
+    await writeFile(path, '# Published from Temp')
+    const published = vi.fn()
+    const server = createArtifactToolServer(f.service, published)
+    const result = await server.implementations[0].handler(
+      { path, title: 'Temp report' },
+      {
+        cwd: f.cwd,
+        extraDirs: [],
+        getSignal: () => f.controller.signal,
+        waitForSession: async () => 'a'
+      }
+    )
+    expect(result.isError).not.toBe(true)
+    const receipt = JSON.parse(result.content[0].text)
+    expect(receipt).toEqual({
+      type: 'orca.artifact.published',
+      version: 1,
+      publicationId: expect.any(String)
+    })
+    const artifact = f.service.getRef('a', receipt.publicationId)
+    expect(artifact).toMatchObject({ category: 'artifact', title: 'Temp report' })
+    expect(published).toHaveBeenCalledWith('a', artifact)
+    expect(await readFile(path, 'utf8')).toBe('# Published from Temp')
+    const saved = f.q.artifacts.getOwnedFile('a', receipt.publicationId)!
+    expect(await readFile(join(f.rootDir, saved.relativePath), 'utf8')).toBe(
+      '# Published from Temp'
+    )
+    await rm(path)
+    expect(await f.service.preview('a', receipt.publicationId)).toMatchObject({
+      state: 'ready',
+      content: '# Published from Temp'
+    })
+    expect((await f.service.readForExport('a', receipt.publicationId)).bytes.toString()).toBe(
+      '# Published from Temp'
+    )
+    await expect(f.service.readForExport('b', receipt.publicationId)).rejects.toThrow('forbidden')
+    expect(f.service.listLatest('b')).toEqual([])
+    await f.service.close()
+  })
   it('keeps unchanged attachments in context and collects only a changed or newly generated file as output', async () => {
     const f = await setup()
     const directory = join(f.root, 'tmp')
@@ -163,7 +208,7 @@ describe('artifact real filesystem and SQLite publication', () => {
     const revised = await f.service.captureOutput(md, directory, f.context)
     expect(revised?.publicationId).not.toBe(file?.publicationId)
     expect(f.service.listLatest('a')).toHaveLength(1)
-    const artifact = await f.service.publish({ path: md }, { ...f.context, extraDirs: [directory] })
+    const artifact = await f.service.publish({ path: md }, f.context)
     expect(f.service.getRef('a', artifact.publicationId).category).toBe('artifact')
     expect(f.service.listLatest('a')).toHaveLength(2)
     expect(f.q.artifacts.listCatalog().map((item) => item.publicationId)).toEqual([

@@ -315,7 +315,7 @@ describe('Context file reveal — session scope and actual filesystem paths', ()
     const file = join(directory, 'report.md')
     writeFileSync(file, 'fixture')
     await invoke({ path: join(alias, 'report.md'), mode: 'reveal', sessionId: 'work' })
-    expect(host.reveal).toHaveBeenCalledExactlyOnceWith(realpathSync(file))
+    expect(host.reveal).toHaveBeenCalledExactlyOnceWith(await fs.realpath(file))
   })
 
   it.each(['delete', 'remove-extra', 'change-cwd'])(
