@@ -55,7 +55,8 @@ vi.mock('../store/artifactStore', () => ({
   runArtifactAction: h.action
 }))
 vi.mock('../../../shared/i18n', () => ({ useI18n: () => ({ tr: (key: string) => key }) }))
-import { ArtifactCard, ArtifactCards } from './ArtifactCard'
+import { ArtifactCard } from './ArtifactCard'
+import { ArtifactCards } from './ArtifactCards'
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import type { ArtifactRef } from '../../../../../shared/artifacts'
 import { useConfirmStore } from '../../../shared/ui/confirmDialogStore'

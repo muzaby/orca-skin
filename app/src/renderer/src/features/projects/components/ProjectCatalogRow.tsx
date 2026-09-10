@@ -65,6 +65,7 @@ export function ProjectCatalogRow({
             iconOnly
             size="small"
             leadingIcon="kebab"
+            title={tr('common.more')}
             aria-label={tr('projects.itemMenu', { title: project.name })}
             aria-haspopup="menu"
             expanded={menuOpen}

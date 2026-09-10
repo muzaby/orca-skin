@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { refreshArtifactList } from '../../store/artifactStore'
 import { useSessionOutputs } from '../../hooks/useSessionOutputs'
-import { ArtifactCards } from '../ArtifactCard'
+import { ArtifactCards } from '../ArtifactCards'
 import { useI18n } from '../../../../shared/i18n'
 import { Button } from '../../../../shared/ui/Button'
 import { SectionPlaceholder, TileSection } from './TaskTileSections'

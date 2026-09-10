@@ -1,0 +1,655 @@
+{
+  "success": true,
+  "errors": [],
+  "screens": [
+    "project-1400.png",
+    "project-pinned.png",
+    "project-unpinned.png",
+    "new-1400.png",
+    "new-project-expanded.png",
+    "artifacts-1400.png",
+    "plugins-1400.png",
+    "plugins-mcp.png",
+    "plugins-connections.png",
+    "projects-1400.png",
+    "projects-filters.png",
+    "catalog-controls.png",
+    "project-960.png",
+    "new-960.png",
+    "artifacts-960.png",
+    "plugins-960.png",
+    "projects-960.png",
+    "project-720.png",
+    "new-720.png",
+    "artifacts-720.png",
+    "plugins-720.png",
+    "projects-720.png",
+    "engine-1400.png",
+    "engine-720.png"
+  ],
+  "blockedRequests": [],
+  "consoleMessages": [],
+  "observed": {
+    "checks": {
+      "production-default-app-font": true,
+      "pinned-before-projects": true,
+      "recent-group-restored": true,
+      "unassigned-session-discoverable": true,
+      "nav-a-name-before-full-path": true,
+      "nav-a-muted-smaller-path": true,
+      "nav-b-name-before-full-path": true,
+      "nav-b-muted-smaller-path": true,
+      "nav-desktop-name-before-full-path": true,
+      "nav-desktop-muted-smaller-path": true,
+      "project-1400-column-aligned": true,
+      "project-1400-title-composer-list-order": true,
+      "project-1400-no-chat-metadata": true,
+      "project-1400-no-main-overflow": true,
+      "project-pin-ipc": true,
+      "project-pin-moves-group": true,
+      "project-pin-no-duplicate": true,
+      "project-unpin-ipc": true,
+      "project-unpin-moves-group": true,
+      "project-unpin-no-duplicate": true,
+      "project-new-1400-same-horizontal-insets": true,
+      "new-1400-no-main-overflow": true,
+      "new-project-row-expands-after-session-confirmation": true,
+      "new-project-loads-child-conversations": true,
+      "new-project-preserves-existing-collapse": true,
+      "background-confirmation-preserves-current-draft": true,
+      "duplicate-created-receipt-preserves-user-collapse": true,
+      "artifacts-1400-count-unit": true,
+      "artifacts-1400-six-list-rows": true,
+      "artifacts-1400-no-main-overflow": true,
+      "plugins-1400-catalog-title-position": true,
+      "plugins-1400-catalog-tabs-position": true,
+      "plugins-1400-catalog-tab-height": true,
+      "plugins-1400-three-tabs": true,
+      "plugins-1400-skills-visible": true,
+      "plugins-1400-no-main-overflow": true,
+      "plugin-mcp-tab-switch": true,
+      "plugin-providers-tab-switch": true,
+      "projects-1400-catalog-title-position": true,
+      "projects-1400-vertical-list": true,
+      "projects-1400-a-cwd-below-title": true,
+      "projects-1400-b-cwd-below-title": true,
+      "projects-1400-desktop-cwd-below-title": true,
+      "projects-1400-new-project-cwd-below-title": true,
+      "projects-1400-no-main-overflow": true,
+      "project-catalog-pinned-filter": true,
+      "project-catalog-unpin-removes-row": true,
+      "project-catalog-unpin-restores-tab-focus": true,
+      "project-catalog-search-by-full-path": true,
+      "project-catalog-create-resets-filters": true,
+      "project-tabs-ArrowLeft-1-selects-and-focuses-tab": true,
+      "project-tabs-ArrowLeft-1-single-tabstop": true,
+      "project-tabs-ArrowLeft-1-aria-connected": true,
+      "project-tabs-ArrowRight-0-selects-and-focuses-tab": true,
+      "project-tabs-ArrowRight-0-single-tabstop": true,
+      "project-tabs-ArrowRight-0-aria-connected": true,
+      "project-tabs-ArrowRight-1-selects-and-focuses-tab": true,
+      "project-tabs-ArrowRight-1-single-tabstop": true,
+      "project-tabs-ArrowRight-1-aria-connected": true,
+      "project-tabs-End-1-selects-and-focuses-tab": true,
+      "project-tabs-End-1-single-tabstop": true,
+      "project-tabs-End-1-aria-connected": true,
+      "project-tabs-Home-0-selects-and-focuses-tab": true,
+      "project-tabs-Home-0-single-tabstop": true,
+      "project-tabs-Home-0-aria-connected": true,
+      "project-search-opens-and-focuses-input": true,
+      "project-search-aria-controls-input": true,
+      "project-search-filters-target": true,
+      "project-search-preserves-title-total": true,
+      "project-search-escape-stops-propagation": true,
+      "project-search-escape-closes-and-restores-trigger": true,
+      "project-search-escape-clears-filter": true,
+      "project-search-reopens-empty": true,
+      "project-search-toggle-close-clears-filter-and-focuses": true,
+      "artifact-tabs-ArrowLeft-1-selects-and-focuses-tab": true,
+      "artifact-tabs-ArrowLeft-1-single-tabstop": true,
+      "artifact-tabs-ArrowLeft-1-aria-connected": true,
+      "artifact-tabs-ArrowRight-0-selects-and-focuses-tab": true,
+      "artifact-tabs-ArrowRight-0-single-tabstop": true,
+      "artifact-tabs-ArrowRight-0-aria-connected": true,
+      "artifact-tabs-ArrowRight-1-selects-and-focuses-tab": true,
+      "artifact-tabs-ArrowRight-1-single-tabstop": true,
+      "artifact-tabs-ArrowRight-1-aria-connected": true,
+      "artifact-tabs-End-1-selects-and-focuses-tab": true,
+      "artifact-tabs-End-1-single-tabstop": true,
+      "artifact-tabs-End-1-aria-connected": true,
+      "artifact-tabs-Home-0-selects-and-focuses-tab": true,
+      "artifact-tabs-Home-0-single-tabstop": true,
+      "artifact-tabs-Home-0-aria-connected": true,
+      "artifact-search-opens-and-focuses-input": true,
+      "artifact-search-aria-controls-input": true,
+      "artifact-search-filters-target": true,
+      "artifact-search-preserves-title-total": true,
+      "artifact-search-escape-stops-propagation": true,
+      "artifact-search-escape-closes-and-restores-trigger": true,
+      "artifact-search-escape-clears-filter": true,
+      "artifact-search-reopens-empty": true,
+      "artifact-search-toggle-close-clears-filter-and-focuses": true,
+      "artifact-pinned-filter-preserves-total": true,
+      "project-960-column-aligned": true,
+      "project-960-title-composer-list-order": true,
+      "project-960-no-chat-metadata": true,
+      "project-960-no-main-overflow": true,
+      "project-new-960-same-horizontal-insets": true,
+      "new-960-no-main-overflow": true,
+      "artifacts-960-count-unit": true,
+      "artifacts-960-six-list-rows": true,
+      "artifacts-960-no-main-overflow": true,
+      "plugins-960-catalog-title-position": true,
+      "plugins-960-catalog-tabs-position": true,
+      "plugins-960-catalog-tab-height": true,
+      "plugins-960-three-tabs": true,
+      "plugins-960-skills-visible": true,
+      "plugins-960-no-main-overflow": true,
+      "projects-960-catalog-title-position": true,
+      "projects-960-vertical-list": true,
+      "projects-960-a-cwd-below-title": true,
+      "projects-960-b-cwd-below-title": true,
+      "projects-960-desktop-cwd-below-title": true,
+      "projects-960-new-project-cwd-below-title": true,
+      "projects-960-no-main-overflow": true,
+      "project-720-column-aligned": true,
+      "project-720-title-composer-list-order": true,
+      "project-720-no-chat-metadata": true,
+      "project-720-no-main-overflow": true,
+      "project-new-720-same-horizontal-insets": true,
+      "new-720-no-main-overflow": true,
+      "artifacts-720-count-unit": true,
+      "artifacts-720-six-list-rows": true,
+      "artifacts-720-no-main-overflow": true,
+      "plugins-720-catalog-title-position": true,
+      "plugins-720-catalog-tabs-position": true,
+      "plugins-720-catalog-tab-height": true,
+      "plugins-720-three-tabs": true,
+      "plugins-720-skills-visible": true,
+      "plugins-720-no-main-overflow": true,
+      "projects-720-catalog-title-position": true,
+      "projects-720-vertical-list": true,
+      "projects-720-a-cwd-below-title": true,
+      "projects-720-b-cwd-below-title": true,
+      "projects-720-desktop-cwd-below-title": true,
+      "projects-720-new-project-cwd-below-title": true,
+      "projects-720-no-main-overflow": true,
+      "engine-1400-settings-count-excludes-runtime": true,
+      "engine-1400-count-beside-title": true,
+      "engine-1400-no-header-metadata": true,
+      "engine-1400-settings-and-runtime-cards-preserved": true,
+      "engine-1400-no-main-overflow": true,
+      "engine-720-settings-count-excludes-runtime": true,
+      "engine-720-count-beside-title": true,
+      "engine-720-no-header-metadata": true,
+      "engine-720-settings-and-runtime-cards-preserved": true,
+      "engine-720-no-main-overflow": true
+    },
+    "errors": [],
+    "calls": [
+      [
+        "project-sessions",
+        "a"
+      ],
+      [
+        "project-sessions",
+        "a"
+      ],
+      [
+        "pin-project",
+        "a",
+        true
+      ],
+      [
+        "pin-project",
+        "a",
+        false
+      ],
+      [
+        "project-sessions",
+        "new-project"
+      ],
+      [
+        "project-sessions",
+        "new-project"
+      ],
+      [
+        "project-sessions",
+        "new-project"
+      ],
+      [
+        "pin-project",
+        "a",
+        true
+      ],
+      [
+        "pin-project",
+        "a",
+        false
+      ],
+      [
+        "project-sessions",
+        "a"
+      ],
+      [
+        "project-sessions",
+        "a"
+      ],
+      [
+        "project-sessions",
+        "a"
+      ],
+      [
+        "project-sessions",
+        "a"
+      ]
+    ],
+    "geometry": {
+      "project-1400": {
+        "title": {
+          "x": 496.125,
+          "y": 32.5,
+          "width": 618.375,
+          "height": 43.5,
+          "right": 1114.5,
+          "bottom": 76
+        },
+        "composer": {
+          "x": 496.125,
+          "y": 265.3999938964844,
+          "width": 672,
+          "height": 30.850000381469727,
+          "right": 1168.125,
+          "bottom": 296.2499942779541
+        },
+        "row": {
+          "x": 496.125,
+          "y": 443.25,
+          "width": 672,
+          "height": 46.29999923706055,
+          "right": 1168.125,
+          "bottom": 489.54999923706055
+        }
+      },
+      "new-1400": {
+        "x": 496.125,
+        "y": 416.70001220703125,
+        "width": 672,
+        "height": 30.850000381469727,
+        "right": 1168.125,
+        "bottom": 447.550012588501
+      },
+      "artifacts-1400": {
+        "title": {
+          "x": 374.875,
+          "y": 32.5,
+          "width": 908,
+          "height": 43.5,
+          "right": 1282.875,
+          "bottom": 76
+        },
+        "tabs": {
+          "x": 374.875,
+          "y": 95.5,
+          "width": 102.2249984741211,
+          "height": 27.149999618530273,
+          "right": 477.0999984741211,
+          "bottom": 122.64999961853027
+        },
+        "firstTab": {
+          "x": 374.875,
+          "y": 95.5,
+          "width": 43.48749923706055,
+          "height": 27.149999618530273,
+          "right": 418.36249923706055,
+          "bottom": 122.64999961853027
+        }
+      },
+      "plugins-1400": {
+        "title": {
+          "x": 374.875,
+          "y": 32.5,
+          "width": 908,
+          "height": 43.5,
+          "right": 1282.875,
+          "bottom": 76
+        },
+        "tabs": {
+          "x": 374.875,
+          "y": 95.5,
+          "width": 137.8874969482422,
+          "height": 27.149999618530273,
+          "right": 512.7624969482422,
+          "bottom": 122.64999961853027
+        },
+        "firstTab": {
+          "x": 374.875,
+          "y": 95.5,
+          "width": 43.48749923706055,
+          "height": 27.149999618530273,
+          "right": 418.36249923706055,
+          "bottom": 122.64999961853027
+        }
+      },
+      "projects-1400": [
+        {
+          "x": 374.875,
+          "y": 135.65000915527344,
+          "width": 908,
+          "height": 65.05000305175781,
+          "right": 1282.875,
+          "bottom": 200.70001220703125
+        },
+        {
+          "x": 374.875,
+          "y": 200.6999969482422,
+          "width": 908,
+          "height": 65.05000305175781,
+          "right": 1282.875,
+          "bottom": 265.75
+        },
+        {
+          "x": 374.875,
+          "y": 265.75,
+          "width": 908,
+          "height": 65.05000305175781,
+          "right": 1282.875,
+          "bottom": 330.8000030517578
+        },
+        {
+          "x": 374.875,
+          "y": 330.8000183105469,
+          "width": 908,
+          "height": 47.10000228881836,
+          "right": 1282.875,
+          "bottom": 377.90002059936523
+        },
+        {
+          "x": 374.875,
+          "y": 377.8999938964844,
+          "width": 908,
+          "height": 64.25,
+          "right": 1282.875,
+          "bottom": 442.1499938964844
+        }
+      ],
+      "project-960": {
+        "title": {
+          "x": 301.25,
+          "y": 32.5,
+          "width": 568.125,
+          "height": 43.5,
+          "right": 869.375,
+          "bottom": 76
+        },
+        "composer": {
+          "x": 301.25,
+          "y": 265.3999938964844,
+          "width": 621.75,
+          "height": 30.850000381469727,
+          "right": 923,
+          "bottom": 296.2499942779541
+        },
+        "row": {
+          "x": 301.25,
+          "y": 443.25,
+          "width": 621.75,
+          "height": 46.29999923706055,
+          "right": 923,
+          "bottom": 489.54999923706055
+        }
+      },
+      "new-960": {
+        "x": 301.25,
+        "y": 508.70001220703125,
+        "width": 621.75,
+        "height": 30.850000381469727,
+        "right": 923,
+        "bottom": 539.550012588501
+      },
+      "artifacts-960": {
+        "title": {
+          "x": 290.25,
+          "y": 32.5,
+          "width": 637.25,
+          "height": 43.5,
+          "right": 927.5,
+          "bottom": 76
+        },
+        "tabs": {
+          "x": 290.25,
+          "y": 95.5,
+          "width": 102.2249984741211,
+          "height": 27.149999618530273,
+          "right": 392.4749984741211,
+          "bottom": 122.64999961853027
+        },
+        "firstTab": {
+          "x": 290.25,
+          "y": 95.5,
+          "width": 43.48749923706055,
+          "height": 27.149999618530273,
+          "right": 333.73749923706055,
+          "bottom": 122.64999961853027
+        }
+      },
+      "plugins-960": {
+        "title": {
+          "x": 290.25,
+          "y": 32.5,
+          "width": 637.25,
+          "height": 43.5,
+          "right": 927.5,
+          "bottom": 76
+        },
+        "tabs": {
+          "x": 290.25,
+          "y": 95.5,
+          "width": 137.8874969482422,
+          "height": 27.149999618530273,
+          "right": 428.1374969482422,
+          "bottom": 122.64999961853027
+        },
+        "firstTab": {
+          "x": 290.25,
+          "y": 95.5,
+          "width": 43.48749923706055,
+          "height": 27.149999618530273,
+          "right": 333.73749923706055,
+          "bottom": 122.64999961853027
+        }
+      },
+      "projects-960": [
+        {
+          "x": 290.25,
+          "y": 135.65000915527344,
+          "width": 637.25,
+          "height": 65.05000305175781,
+          "right": 927.5,
+          "bottom": 200.70001220703125
+        },
+        {
+          "x": 290.25,
+          "y": 200.6999969482422,
+          "width": 637.25,
+          "height": 65.05000305175781,
+          "right": 927.5,
+          "bottom": 265.75
+        },
+        {
+          "x": 290.25,
+          "y": 265.75,
+          "width": 637.25,
+          "height": 65.05000305175781,
+          "right": 927.5,
+          "bottom": 330.8000030517578
+        },
+        {
+          "x": 290.25,
+          "y": 330.8000183105469,
+          "width": 637.25,
+          "height": 47.10000228881836,
+          "right": 927.5,
+          "bottom": 377.90002059936523
+        },
+        {
+          "x": 290.25,
+          "y": 377.8999938964844,
+          "width": 637.25,
+          "height": 65.05000305175781,
+          "right": 927.5,
+          "bottom": 442.9499969482422
+        },
+        {
+          "x": 290.25,
+          "y": 442.95001220703125,
+          "width": 637.25,
+          "height": 46.29999923706055,
+          "right": 927.5,
+          "bottom": 489.2500114440918
+        }
+      ],
+      "project-720": {
+        "title": {
+          "x": 301.25,
+          "y": 32.5,
+          "width": 328.125,
+          "height": 43.5,
+          "right": 629.375,
+          "bottom": 76
+        },
+        "composer": {
+          "x": 301.25,
+          "y": 265.3999938964844,
+          "width": 381.75,
+          "height": 30.850000381469727,
+          "right": 683,
+          "bottom": 296.2499942779541
+        },
+        "row": {
+          "x": 301.25,
+          "y": 443.25,
+          "width": 381.75,
+          "height": 46.29999923706055,
+          "right": 683,
+          "bottom": 489.54999923706055
+        }
+      },
+      "new-720": {
+        "x": 301.25,
+        "y": 508.70001220703125,
+        "width": 381.75,
+        "height": 30.850000381469727,
+        "right": 683,
+        "bottom": 539.550012588501
+      },
+      "artifacts-720": {
+        "title": {
+          "x": 290.25,
+          "y": 32.5,
+          "width": 397.25,
+          "height": 43.5,
+          "right": 687.5,
+          "bottom": 76
+        },
+        "tabs": {
+          "x": 290.25,
+          "y": 95.5,
+          "width": 102.2249984741211,
+          "height": 27.149999618530273,
+          "right": 392.4749984741211,
+          "bottom": 122.64999961853027
+        },
+        "firstTab": {
+          "x": 290.25,
+          "y": 95.5,
+          "width": 43.48749923706055,
+          "height": 27.149999618530273,
+          "right": 333.73749923706055,
+          "bottom": 122.64999961853027
+        }
+      },
+      "plugins-720": {
+        "title": {
+          "x": 290.25,
+          "y": 32.5,
+          "width": 397.25,
+          "height": 43.5,
+          "right": 687.5,
+          "bottom": 76
+        },
+        "tabs": {
+          "x": 290.25,
+          "y": 95.5,
+          "width": 137.8874969482422,
+          "height": 27.149999618530273,
+          "right": 428.1374969482422,
+          "bottom": 122.64999961853027
+        },
+        "firstTab": {
+          "x": 290.25,
+          "y": 95.5,
+          "width": 43.48749923706055,
+          "height": 27.149999618530273,
+          "right": 333.73749923706055,
+          "bottom": 122.64999961853027
+        }
+      },
+      "projects-720": [
+        {
+          "x": 290.25,
+          "y": 135.65000915527344,
+          "width": 397.25,
+          "height": 65.05000305175781,
+          "right": 687.5,
+          "bottom": 200.70001220703125
+        },
+        {
+          "x": 290.25,
+          "y": 200.6999969482422,
+          "width": 397.25,
+          "height": 65.05000305175781,
+          "right": 687.5,
+          "bottom": 265.75
+        },
+        {
+          "x": 290.25,
+          "y": 265.75,
+          "width": 397.25,
+          "height": 65.05000305175781,
+          "right": 687.5,
+          "bottom": 330.8000030517578
+        },
+        {
+          "x": 290.25,
+          "y": 330.8000183105469,
+          "width": 397.25,
+          "height": 47.10000228881836,
+          "right": 687.5,
+          "bottom": 377.90002059936523
+        },
+        {
+          "x": 290.25,
+          "y": 377.8999938964844,
+          "width": 397.25,
+          "height": 65.05000305175781,
+          "right": 687.5,
+          "bottom": 442.9499969482422
+        },
+        {
+          "x": 290.25,
+          "y": 442.95001220703125,
+          "width": 397.25,
+          "height": 46.29999923706055,
+          "right": 687.5,
+          "bottom": 489.2500114440918
+        }
+      ]
+    },
+    "typography": {
+      "root": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, sans-serif",
+      "title": "\"Source Serif 4\", \"Source Serif Pro\", \"Tiempos Headline\", Georgia, serif",
+      "rootSize": "13px"
+    }
+  }
+}

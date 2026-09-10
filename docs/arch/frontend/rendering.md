@@ -185,7 +185,7 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 ## 산출물 게시 카드
 
-`artifact` part는 transcript의 문서 카드에 표시하고 세션 게시 목록은 작업 타일의 출력 섹션에 작은 행으로 표시한다. `ArtifactCard`의 표시 형상만 구분하며 게시 ID, 파일 상태와 저장·탐색기 보기·휴지통 이동·다시 확인 액션은 공유한다. 파일 없음과 접근 오류를 구분하며 휴지통 이동 시각은 과거 이력으로 표시한다.
+`artifact` part는 transcript의 문서 카드에 표시하고 세션 게시 목록은 작업 타일의 출력 섹션에 작은 행으로 표시한다. `ArtifactCard`는 단일 카드와 메뉴를 그리며, `ArtifactCards`가 세션 구독·파일 작업·묶음 저장을 연결한다. 표시 형상만 구분하고 게시 ID, 파일 상태와 저장·탐색기 보기·휴지통 이동·다시 확인 액션은 공유한다. 파일 없음과 접근 오류를 구분하며 파일 메타와 휴지통 이동 시각은 메뉴에 표시하지 않는다.
 
 작업 타일은 진행 상황·출력·컨텍스트 섹션을 제공한다. 출력 접기는 카드의 파일 상태 구독을 정리하고 목록 메타 구독은 헤더 개수 갱신을 위해 유지한다. Work 작업 상세 진입은 숨긴 목록의 구독을 유지하며, 타일을 닫아도 Work Transcript가 열린 동안 일반 출력 목록 구독은 유지하고, 세션 전환·화면 unmount에서 해제한다. 컨텍스트는 작업 경로·추가 디렉터리·읽기 및 웹 소스·첨부 사본을 표시한다.
 
@@ -193,6 +193,10 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 검증된 `tool.call.completed.artifact`는 원래 toolRunId가 속한 메시지만 교체한다. 목록 갱신 이벤트는 게시 카드를 임의의 메시지에 추가하거나 패널을 자동 선택하지 않는다. 일반 출력은 이 목록의 최신 파일을 Transcript 하단에서 표시하며 원래 메시지에 이미 연결된 파일은 중복 표시하지 않는다. `artifactStore`는 mount된 세션의 알려진 ID를 대상으로 상태 조회를 병합하고 세션/파일별 요청 세대로 지각 응답을 폐기한다. transcript 묶음 저장은 해당 메시지의 게시 집합, 타일은 Main이 반환한 최신 목록을 사용한다.
 
-우측 패널은 기존 타일 registry·메뉴·행/열 배치를 사용한다. overview viewport 폭은 가용 영역의 절반 이내이며 넘치는 열은 가로 스크롤한다. 뷰어는 별도 저장한 폭을 사용한다. 명시적으로 타일을 열면 이미 열린 화면 밖 열도 보여 주고, 열 리사이즈는 스크롤된 실제 DOM 좌표를 기준으로 계산한다. 카드와 액션은 기존 시맨틱 토큰·Button·DropdownMenu·확인창·번역 리소스를 공유한다.
+우측 패널은 타일 registry·메뉴·행/열 배치를 사용한다. `RightPanel`은 세션·뷰어·확대 수명을 조립하고 `RightPanelColumn`은 타일과 행 애니메이션, `PanelResizeSeparators`는 행/열 조절을 담당한다. overview viewport 폭은 가용 영역의 절반 이내이며 넘치는 열은 가로 스크롤한다. 뷰어는 별도 저장한 폭을 사용한다. 명시적으로 타일을 열면 이미 열린 화면 밖 열도 보여 주고, 열 리사이즈는 스크롤된 실제 DOM 좌표를 기준으로 계산한다. 카드와 액션은 기존 시맨틱 토큰·Button·DropdownMenu·확인창·번역 리소스를 공유한다.
+
+`useArtifactViewerActions`는 복사와 저장의 중복 실행 잠금·피드백·요청 소유권을 관리한다. 오류 문구는 `artifactFeedback`에서 해석하고 선택 전환·닫기 이후의 완료는 이전 화면을 갱신하지 않는다. 패널 펼치기·복원·닫기는 공통 `PanelControls`와 Material SVG를 사용한다. 같은 역할의 툴팁은 공통 번역을 사용하며 타일을 식별해야 하는 접근성 이름에는 대상명을 포함한다.
+
+프로젝트·아티팩트·플러그인 목록의 탭은 `CatalogTabs`로 방향키·Home/End·ARIA 연결을 공유한다. 프로젝트와 아티팩트 검색은 `CatalogSearch`와 `useCatalogSearch`로 열기·Escape·초점 복귀를 공유하며 검색어와 필터·총계는 각 feature가 소유한다. 플러그인의 최종 행 순서는 `catalogOrder`에서 정하고 표시하지 않는 그룹 헤더나 빈 그룹 모델을 만들지 않는다.
 
 뷰어 패널과 작업 타일은 도메인에 독립적인 공통 `ResizableSidePane`을 사용한다. Transcript와 아티팩트 화면의 뷰어 좌측 핸들은 포인터·키보드로 폭을 조절하며 iframe 위를 지나는 드래그도 유지한다. 확대는 가장 가까운 현재 pane 전체를 덮고 nav에는 영향을 주지 않는다. Code 변경사항의 `GitContextBar`도 registry 헤더 props로 같은 확대 상태를 전달받는다. 본문을 다시 mount하지 않으며 복원 시 일반 폭과 스크롤을 되돌린다. 확대한 타일을 닫으면 확대 상태도 해제한다. 세션·대상 전환, 창 초점 이탈, 취소와 unmount에서 드래그 자원을 정리한다.

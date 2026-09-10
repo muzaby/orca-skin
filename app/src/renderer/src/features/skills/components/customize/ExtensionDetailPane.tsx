@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
-import { Button } from '../../../../shared/ui/Button'
+import { PanelCloseButton, PanelExpandButton } from '../../../../shared/ui/PanelControls'
 import { ResizableSidePane } from '../../../../shared/ui/ResizableSidePane'
 import { useI18n } from '../../../../shared/i18n'
 import type { CatalogTab } from '../../lib/catalogSelection'
@@ -61,23 +61,13 @@ export function ExtensionDetailPane({
           <h2 className="min-w-0 flex-1 truncate px-1 text-footnote font-normal text-ink2">
             {title}
           </h2>
-          <Button
-            iconOnly
-            size="small"
-            leadingIcon={expanded ? 'collapse' : 'expand'}
-            aria-expanded={expanded}
-            aria-label={tr(expanded ? 'chat.artifactViewer.restore' : 'chat.artifactViewer.expand')}
-            title={tr(expanded ? 'chat.artifactViewer.restore' : 'chat.artifactViewer.expand')}
+          <PanelExpandButton
+            expanded={expanded}
             data-behavior="extension-detail:expand"
             onClick={() => onExpandedChange(!expanded)}
           />
-          <Button
+          <PanelCloseButton
             ref={closeRef}
-            iconOnly
-            size="small"
-            leadingIcon="x"
-            aria-label={tr('common.close')}
-            title={tr('common.close')}
             data-behavior="extension-detail:close"
             onClick={onClose}
           />

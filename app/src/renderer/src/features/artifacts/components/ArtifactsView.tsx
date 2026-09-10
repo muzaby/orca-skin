@@ -1,8 +1,11 @@
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import type { ArtifactCatalogItem } from '../../../../../shared/artifacts'
 import { useI18n } from '../../../shared/i18n'
 import { Button } from '../../../shared/ui/Button'
 import { Icon } from '../../../shared/ui/Icon'
+import { CatalogTabs } from '../../../shared/ui/CatalogTabs'
+import { CatalogSearch } from '../../../shared/ui/CatalogSearch'
+import { useCatalogSearch } from '../../../shared/hooks/useCatalogSearch'
 import { ResizableSidePane } from '../../../shared/ui/ResizableSidePane'
 import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
 import {
@@ -40,16 +43,9 @@ export function ArtifactsView({
   const { items, loading, error, busy } = useArtifactCatalogStore()
   const [tab, setTab] = useState<ArtifactCatalogTab>('all')
   const [query, setQuery] = useState('')
-  const [searchOpen, setSearchOpen] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const searchRef = useRef<HTMLButtonElement>(null)
+  const search = useCatalogSearch(() => setQuery(''))
   const id = useId()
   const visible = useMemo(() => filterArtifactCatalog(items, tab, query), [items, tab, query])
-  const closeSearch = (): void => {
-    setSearchOpen(false)
-    setQuery('')
-    searchRef.current?.focus({ preventScroll: true })
-  }
   useEffect(() => {
     void refreshArtifactCatalog()
     const refresh = (): void => {
@@ -58,9 +54,6 @@ export function ArtifactsView({
     window.addEventListener('focus', refresh)
     return () => window.removeEventListener('focus', refresh)
   }, [])
-  useEffect(() => {
-    if (searchOpen) inputRef.current?.focus()
-  }, [searchOpen])
   const deleteItem = (item: ArtifactCatalogItem): void => {
     openConfirmDialog({
       title: tr('chat.artifacts.trashTitle'),
@@ -95,81 +88,28 @@ export function ArtifactsView({
               {tr('common.count', { count: items.length })}
             </span>
           </h1>
-          <div className="mb-4 mt-6 flex items-center justify-between gap-3">
-            <div
-              role="tablist"
-              aria-label={tr('artifactCatalog.tabs')}
-              className="flex gap-1"
-              onKeyDown={(event) => {
-                if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
-                  event.preventDefault()
-                  const next =
-                    event.key === 'Home'
-                      ? 'all'
-                      : event.key === 'End'
-                        ? 'pinned'
-                        : tab === 'all'
-                          ? 'pinned'
-                          : 'all'
-                  setTab(next)
-                  event.currentTarget
-                    .querySelector<HTMLButtonElement>(`[data-catalog-tab=${next}]`)
-                    ?.focus()
-                }
-              }}
-            >
-              {(['all', 'pinned'] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="tab"
-                  id={`${id}-${value}`}
-                  data-catalog-tab={value}
-                  aria-selected={tab === value}
-                  aria-controls={`${id}-items`}
-                  tabIndex={tab === value ? 0 : -1}
-                  onClick={() => setTab(value)}
-                  className={`rounded-r4 px-3 py-1.5 text-footnote transition-colors hide-focus-ring ring-focus ${tab === value ? 'bg-fill-uncontained-active font-medium text-ink' : 'text-ink3 hover:bg-fill-uncontained-hover hover:text-ink'}`}
-                >
-                  {tr(`artifactCatalog.${value}`)}
-                </button>
-              ))}
-            </div>
-            <Button
-              ref={searchRef}
-              iconOnly
-              leadingIcon="search"
-              pressed={searchOpen}
-              aria-label={tr('artifactCatalog.search')}
-              title={tr('artifactCatalog.search')}
-              aria-expanded={searchOpen}
-              aria-controls={`${id}-search`}
-              data-behavior="catalog:search-toggle"
-              onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
+          <CatalogSearch
+            id={id}
+            label={tr('artifactCatalog.search')}
+            placeholder={tr('artifactCatalog.searchPlaceholder')}
+            value={query}
+            onChange={setQuery}
+            controls={search}
+            toggleBehavior="catalog:search-toggle"
+            inputMarker="data-artifact-catalog-search"
+          >
+            <CatalogTabs
+              id={id}
+              label={tr('artifactCatalog.tabs')}
+              value={tab}
+              items={(['all', 'pinned'] as const).map((value) => ({
+                value,
+                label: tr(`artifactCatalog.${value}`)
+              }))}
+              onChange={setTab}
+              marker="data-catalog-tab"
             />
-          </div>
-          {searchOpen && (
-            <div className="mb-4 flex items-center gap-2 rounded-r4 border border-border bg-panel px-3 focus-within:border-border-strong">
-              <Icon name="search" size={16} className="shrink-0 text-ink3" />
-              <input
-                ref={inputRef}
-                id={`${id}-search`}
-                type="search"
-                value={query}
-                data-artifact-catalog-search=""
-                aria-label={tr('artifactCatalog.search')}
-                placeholder={tr('artifactCatalog.searchPlaceholder')}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape') {
-                    event.stopPropagation()
-                    closeSearch()
-                  }
-                }}
-                className="min-w-0 flex-1 bg-transparent py-2.5 text-footnote text-ink outline-none placeholder:text-ink3"
-              />
-            </div>
-          )}
+          </CatalogSearch>
           {error && (
             <div
               role="alert"

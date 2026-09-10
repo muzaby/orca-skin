@@ -5,6 +5,7 @@ import type { ArtifactRef } from '../../../../../../shared/artifacts'
 const h = vi.hoisted(() => ({
   states: [] as unknown[],
   refs: [] as { current: unknown }[],
+  cleanups: [] as (() => void)[],
   si: 0,
   ri: 0,
   save: vi.fn()
@@ -22,7 +23,10 @@ vi.mock('react', async (original) => ({
     ]
   },
   useRef: (value: unknown) => h.refs[h.ri++] ?? (h.refs[h.ri - 1] = { current: value }),
-  useEffect: () => undefined
+  useEffect: (run: () => (() => void) | void) => {
+    const cleanup = run()
+    if (cleanup) h.cleanups.push(cleanup)
+  }
 }))
 vi.mock('../../../../shared/i18n', () => ({ useI18n: () => ({ tr: (key: string) => key }) }))
 vi.mock('../../../../shared/api/ipc', () => ({ artifactApi: { save: h.save } }))
@@ -69,6 +73,7 @@ function status(): unknown {
 beforeEach(async () => {
   h.states = []
   h.refs = []
+  h.cleanups = []
   closeArtifactViewer()
   h.save
     .mockReset()
@@ -87,6 +92,60 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('viewer toolbar production callbacks', () => {
+  it.each(['copy', 'download'] as const)(
+    'locks both toolbar actions until the pending %s completes',
+    async (operation) => {
+      let finish!: () => void
+      const pending = new Promise<void>((resolve) => {
+        finish = resolve
+      })
+      if (operation === 'copy') writeText.mockReturnValueOnce(pending)
+      else h.save.mockReturnValueOnce(pending.then(() => ({ outcome: 'cancelled', items: [] })))
+      click(operation)
+      click('copy')
+      click('download')
+      expect(writeText).toHaveBeenCalledTimes(operation === 'copy' ? 1 : 0)
+      expect(h.save).toHaveBeenCalledTimes(operation === 'download' ? 1 : 0)
+      expect(status()).toBe(`chat.artifactViewer.${operation}Busy`)
+      finish()
+      await pending
+      await Promise.resolve()
+      await Promise.resolve()
+      expect(status()).toBe(
+        operation === 'copy' ? 'chat.artifactViewer.copied' : 'chat.artifacts.cancelled'
+      )
+    }
+  )
+  it.each([
+    ['copy', 'switch'],
+    ['download', 'switch'],
+    ['copy', 'close'],
+    ['download', 'close'],
+    ['copy', 'unmount'],
+    ['download', 'unmount']
+  ] as const)('drops a late %s result after %s', async (operation, transition) => {
+    let finish!: () => void
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    if (operation === 'copy') writeText.mockReturnValueOnce(pending)
+    else h.save.mockReturnValueOnce(pending.then(() => ({ outcome: 'cancelled', items: [] })))
+    click(operation)
+    if (transition === 'switch') {
+      await openArtifactViewer('key', 'session', { ...ref, publicationId: 'next' })
+      h.states = []
+      h.refs = []
+      render()
+    } else if (transition === 'close') closeArtifactViewer()
+    else for (const cleanup of h.cleanups) cleanup()
+    const stateBeforeCompletion = [...h.states]
+    finish()
+    await pending
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(h.states).toEqual(stateBeforeCompletion)
+    if (transition === 'switch') expect(status()).toBeUndefined()
+  })
   it('keeps binary file download available when its preview format is unsupported', async () => {
     preview.mockResolvedValueOnce({ state: 'unavailable', reason: 'unsupported-format' })
     await openArtifactViewer('key', 'session', {

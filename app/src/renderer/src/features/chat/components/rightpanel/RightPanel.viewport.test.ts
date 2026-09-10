@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { adjustPanelViewport } from './RightPanel'
+import { adjustPanelViewport } from '../../lib/rightPanelViewport'
 
 describe('right panel scroll coordinates', () => {
   it('reveals an existing offscreen column including its separator, using current scroll coordinates', () => {

@@ -60,11 +60,11 @@ Material 원본은 [Google 저장소](https://github.com/google/material-design-
 
 ## 구현 작업 목록
 
-- [ ] 카탈로그: 기존 행동 테스트 baseline → 공유 tabs/search → 최종 순서 helper → 영향 테스트/native.
-- [ ] 출력/패널: 카드·피드백·액션 hook·열 조립 분리 → 기존 imports 직접 갱신 → 수명/폭 회귀.
-- [ ] Main: 실제 normalizeAttachments로 BOM/NUL 사례 이동 → 죽은 추출기 제거 → export-files 분리 → 실파일·IPC 회귀.
-- [ ] 버튼: 기존 렌더 테스트에 동일 역할 기대값 → 공식 SVG 및 공통 panel controls → 모든 EP22/27 소비처 대조.
-- [ ] 통합: 코드 리뷰 → main/web/test 타입, 변경 소스 ESLint/Prettier, 영향 Vitest, Electron native, build, doc inventory/test budget/whitespace → 문서·INDEX·커밋·푸시.
+- [x] 카탈로그: 기존 행동 테스트 baseline → 공유 tabs/search → 최종 순서 helper → 영향 테스트/native.
+- [x] 출력/패널: 카드·피드백·액션 hook·열 조립 분리 → 기존 imports 직접 갱신 → 수명/폭 회귀.
+- [x] Main: 실제 normalizeAttachments로 BOM/NUL 사례 이동 → 죽은 추출기 제거 → export-files 분리 → 실파일·IPC 회귀.
+- [x] 버튼: 기존 렌더 테스트에 동일 역할 기대값 → 공식 SVG 및 공통 panel controls → 모든 EP22/27 소비처 대조.
+- [x] 통합: 코드 리뷰 → main/web/test 타입, 변경 소스 ESLint/Prettier, 영향 Vitest, Electron native, build, doc inventory/test budget/whitespace → 문서·INDEX 보고. 검증된 변경을 기존 브랜치에 커밋·푸시한다.
 
 ## 운영 / READY 검토
 
@@ -73,3 +73,7 @@ Material 원본은 [Google 저장소](https://github.com/google/material-design-
 `handoff-review`는 r4 진입에 따른 DIAGNOSE_ONLY: 사용자 후속 레이아웃/경로 정정은 D(결정 변경), 이번 아이콘 일관성은 F(공유 구현 누락)로 본다. 현재 renderer 가이드의 공통 UI·기존 §15의 재사용 계약이 충분하므로 SKILL/AGENTS를 수정하거나 과거 corpus를 추가하지 않는다. 독립 verify pending을 자기확인 PASS로 바꾸지 않는다.
 
 READY self-review: D-28/29→AC32~35→VP61~69→EP22~27의 경로를 대조했다. 외부 계약이나 제품 정책 선택 없이 현재 동작을 유지하는 구현 경계가 확정되었다.
+
+## [구현자 기입] Delta V5 결과
+
+AC32~35 자기확인 4/4. [구현 보고](impl-r4.md)에 설계 리뷰·EP22~27 각 지점·VP61~69·직접 검사·UX 파생 수정·게이트·Review Signals를 기록했다. 독립 verify는 pending이다.

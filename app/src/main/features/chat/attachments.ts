@@ -14,25 +14,6 @@ import {
 export const MAX_FILE_CONTEXT_CHARS = 24_000
 export const SUPPORTED_IMAGE_MIME_TYPES = new Set<string>(SUPPORTED_IMAGE_MEDIA_TYPES)
 
-interface AttachmentExtractor {
-  supports(ext: string): boolean
-  extract(absPath: string): Promise<string>
-}
-
-export class TextExtractor implements AttachmentExtractor {
-  supports(ext: string): boolean {
-    return ext === '.txt' || ext === '.md'
-  }
-
-  async extract(absPath: string): Promise<string> {
-    const buf = await fs.readFile(absPath)
-    if (buf.includes(0)) throw new Error('binary-like text attachment is not supported')
-    return buf.toString('utf8').replace(/^\uFEFF/, '')
-  }
-}
-
-const textExtractor = new TextExtractor()
-
 // 대용량 버퍼 base64 인코딩(0110) — 이미지 상한 32MB 의 단일 .toString('base64') 는
 // send 경로에서 이벤트 루프를 수백 ms 점유한다. base64 패딩 경계(3바이트 배수) 청크로
 // 나눠 setImmediate 로 양보하며 인코딩한다 — 총비용 동일, 점유만 분산. worker 오프로딩은
@@ -141,7 +122,7 @@ async function attachmentFromPath(
     return { id, name: att.name, mimeType, sizeBytes, data, sourceKind: att.sourceKind }
   }
   const ext = extname(path).toLowerCase()
-  if (!textExtractor.supports(ext)) throw new Error(`unsupported attachment type: ${ext}`)
+  if (ext !== '.txt' && ext !== '.md') throw new Error(`unsupported attachment type: ${ext}`)
   if (bytes.includes(0)) throw new Error('binary-like text attachment is not supported')
   const extracted = bytes.toString('utf8').replace(/^\uFEFF/, '')
   const truncated = truncateText(extracted)
