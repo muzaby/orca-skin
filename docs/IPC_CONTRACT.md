@@ -46,6 +46,8 @@
 | `orca:chat:stopSubagent` | R→M (invoke) | `StopSubagentSchema` = `{ sessionId: string; toolUseId: string }`                                                                                                                                                            | `Promise<void>`       | 서브에이전트(Task) **단위** 중단(턴 전체 취소 아님). main 이 `toolUseId`→SDK `task_id`(subagent.task 이벤트에서 누적)를 찾아 `query.stopTask(taskId)` 호출(foreground 거부 시 `backgroundTasks(toolUseId)` 후 재시도). UI 전이는 SDK 의 `task_notification status:'stopped'` → `subagent.task(settled)` 로. |
 | `orca:chat:backgroundSubagent` | R→M (invoke) | `BackgroundSubagentSchema` = `{ sessionId: string; toolUseId: string }` | `Promise<void>` | 서브에이전트(Task) **단위** foreground → background 전환(0212 R-07). 중단과 다른 축이다 — 작업은 계속 돌고 **턴이 기다리는 것만** 그만둔다. main 이 `query.backgroundTasks(toolUseId)` 를 부르고, `false`(대상 foreground 태스크 없음)도 **실패로 reject** 한다 — 조용히 성공으로 끝내면 화면이 "아무 일도 안 일어남" 이 된다. 인자 없는 전량 전환(Ctrl+B 시맨틱)은 Bash 까지 옮기므로 채널에 담지 않는다(D-020). 확정을 기다리지 않는다(정착·watchdog 없음) — 성공하면 blocking 도구가 `async_launched` 영수증으로 즉시 회신한다. |
 
+Composer의 `dialog`·`drag_drop`·`clipboard` 첨부는 `chat:send` 정규화 단계에서 native `/tmp`에 고유 이름으로 보관한다. `AttachmentView.path`·`sha256`은 Main이 실제 바이트에서 확정하며 renderer가 보낸 값을 그대로 사용하지 않는다. 원래 파일명·이미지 썸네일은 유지하고 저장 경로/hash는 user attachment 파트, 큐 병합과 재로드를 거쳐 보존한다. 경로가 없는 이전 이력도 읽을 수 있다. 입력 형식은 기존 텍스트/이미지 지원 범위를 유지하며 실제 바이트 기준 32 MiB를 검사한다.
+
 ### 2.1-b Boot
 
 | 채널 | 방향 | 페이로드 | 응답 | 설명 |
@@ -158,16 +160,18 @@ interface Settings {
 | `orca:files:list`            | R→M (invoke) | `ListFilesRequest` = `{ cwd: string; relDir: string }` | `FileEntry[]` = `{ name: string; isDirectory: boolean }[]` | `@` 파일 경로 자동완성용. `cwd` 기준 `relDir` 의 직속 항목 한 단계만 리스팅. |
 | `orca:files:pickAttachments` | R→M (invoke) | —                                                      | `PickedAttachment[]`                                      | 컴포저 첨부 다이얼로그. main 이 OS 파일 선택창을 열고 txt/md/image 경로 메타데이터를 반환한다. |
 | `orca:files:pickDirectory` | R→M (invoke) | —                                                      | `string \| null`                                      | 컴포저 cwd 버튼용 디렉토리 선택 다이얼로그. 기본 시작 위치는 Orca 기본 작업 경로(`projects/default`)이며, 취소/빈 선택은 `null`. |
-| `orca:files:openPath` | R→M (invoke) | `OpenPathRequest` = `{ path: string; mode: 'directory'; sessionId?: string } \| { path: string; mode: 'reveal' }` | `Promise<void>` | `directory`는 탐색기로 폴더를 열고, `reveal`은 파일을 선택해 보여준다. sessionId가 있는 directory 요청은 해당 Work 세션의 저장 extraDirs와 정확히 일치하는 경로만 허용한다. 실제 디렉터리·루트 금지·경로 해석 후 세션 목록을 재확인하며 일반 cwd 규칙으로 폴백하지 않는다. sessionId 없는 directory는 projects/ 하위 또는 실재 세션 cwd만 허용한다. reveal은 파일 부모부터 조상까지 같은 cwd 허용 술어를 사용하며 sessionId를 받지 않는다. mode는 필수이고 실체가 모드와 다르면 reject한다. OS 열기 실패도 reject하여 UI가 재시도를 제공한다. |
+| `orca:files:openPath` | R→M (invoke) | `OpenPathRequest` = `{ path: string; mode: 'directory' \| 'reveal'; sessionId?: string }` | `Promise<void>` | `directory`는 탐색기로 폴더를 열고, `reveal`은 파일을 선택해 보여준다. sessionId가 있는 요청은 해당 Work 세션의 cwd·저장 extraDirs를 허용 범위로 사용한다. directory는 기록된 폴더와 정확히 일치해야 하며 파일시스템 루트는 허용하지 않는다. reveal은 절대 경로와 실제 파일 경로가 모두 허용 폴더 안에 있는 파일 또는 해당 세션의 user attachment에 등록된 정확한 파일만 허용한다. 첨부 경로의 리디렉션과 허용 폴더 밖으로 벗어나는 연결 경로를 거부한다. 비동기 검사 후 세션의 허용 범위를 재확인하고 일반 cwd 규칙으로 폴백하지 않는다. sessionId 없는 directory는 projects/ 하위 또는 실재 세션 cwd만 허용하며, reveal은 파일 부모부터 조상까지 같은 cwd 허용 술어를 사용한다. mode는 필수이고 실체가 모드와 다르면 reject한다. OS 열기 실패도 reject하여 UI가 재시도를 제공한다. |
 | `orca:files:readAttachment`  | R→M (invoke) | `ReadAttachmentRequest` = `{ path: string }`           | `ReadAttachmentResult` = `{ data: string; mimeType: string }` | 이미지 첨부 썸네일용 base64 읽기. main path allowlist 검증 후 image 파일만 반환한다. |
 
 ### 2.6-a 산출물 게시 파일
 
-모델의 `publish_artifact` 호출만 게시를 생성한다. 아래 IPC는 저장된 게시 ID의 파일 관리용이며 임의 경로를 받거나 내부 경로를 renderer에 반환하지 않는다. 타입 정본은 `app/src/shared/artifacts.ts`, 입력 검증은 `shared/protocol.ts`, 실행은 `main/app/handlers/artifacts.ts`다. 입력 스키마 실패는 모두 **reject**이며 알 수 없는 키·상한 초과 목록을 조용히 버리지 않는다.
+명시적 `publish_artifact`는 `category: artifact`, Work의 완성본 파일 수집은 `category: file`로 저장한다. 아래 IPC는 저장된 게시 ID의 파일 관리용이며 임의 경로를 받거나 내부 보관 경로를 renderer에 반환하지 않는다. 타입 정본은 `app/src/shared/artifacts.ts`, 입력 검증은 `shared/protocol.ts`, 실행은 `main/app/handlers/artifacts.ts`다. 입력 스키마 실패는 모두 **reject**이며 알 수 없는 키·상한 초과 목록을 조용히 버리지 않는다.
 
 | 채널 | 방향 | 요청 | 응답 | 의미 |
 |---|---|---|---|---|
-| `orca:artifact:list` | R→M (invoke) | `ArtifactListRequest` | `ArtifactRef[]` | 해당 세션의 입력 실체별 최신 게시. 미연결 게시·파일 없음도 포함. 조회 실패 reject. |
+| `orca:artifact:list` | R→M (invoke) | `ArtifactListRequest` | `ArtifactRef[]` | 해당 세션의 입력 실체·category별 최신 항목. 일반 출력 파일과 아티팩트, 미연결 게시·파일 없음도 포함. 조회 실패 reject. |
+| `orca:artifact:catalog` | R→M (invoke) | `{}` | `ArtifactCatalogItem[]` | 세션별 최신 아티팩트만 모아 같은 보관 파일의 fork 중복을 제거한다. 일반 출력·휴지통 처리 항목 제외. 세션 ID·제목·고정 여부 포함. |
+| `orca:artifact:setPinned` | R→M (invoke) | `ArtifactTargetRequest & { pinned: boolean }` | `ArtifactActionResult` | 세션 소유 아티팩트의 파일 단위 고정 상태 저장. 일반 출력에는 적용하지 않는다. |
 | `orca:artifact:status` | R→M (invoke) | `ArtifactStatusRequest` | `ArtifactStatusItem[]` | 알려진 게시 ID의 현재 파일 상태. missing과 unavailable 구분. 최대 100개, stat 병렬 4. |
 | `orca:artifact:preview` | R→M (invoke) | `ArtifactTargetRequest` | `ArtifactPreviewResult` | 세션 소유 게시의 현재 본문. Markdown/HTML/텍스트는 UTF-8 원문, 이미지는 검증한 data URL. 원본 5 MiB 상한, 읽기 전후 소유권·파일 실체 검사. |
 | `orca:artifact:save` | R→M (invoke) | `ArtifactSaveRequest` | `ArtifactSaveResult` | 시작 시 고정한 최대 50개 ID. 하나면 저장 창, 여러 개면 폴더 선택. 동명 묶음은 suffix를 붙여 기존 파일 보존. 취소·항목별 저장/건너뜀/실패 구분. 원본 보관 루트 덮어쓰기 금지. |
@@ -175,7 +179,7 @@ interface Settings {
 | `orca:artifact:trash` | R→M (invoke) | `ArtifactTargetRequest` | `ArtifactTrashResult` | 확인 UI 이후 현재 파일을 OS 휴지통으로 이동. 성공과 DB 이력 기록 성공을 분리. 영구 삭제 폴백 없음. |
 | `orca:artifact:openFolder` | R→M (invoke) | — | `ArtifactActionResult` | 앱이 정한 profile 보관 폴더만 탐색기로 열기. |
 
-`ArtifactRef`는 게시/파일 ID·제목·파일명·형식·게시 당시 크기/시각만 포함한다. 현재 파일은 외부에서 수정·삭제할 수 있으며 저장과 미리보기는 동작 시점의 바이트를 사용한다. 상태는 진입·사용자 재확인·액션 시 조회하고 watcher/polling은 없다. `window.orca.artifacts.preview`는 `ready`일 때 format·content·mimeType·선택적 language를, `unavailable`일 때 reason을 반환한다. HTML에는 원문 content와 별도로 Main이 정제한 previewContent가 포함된다. 신뢰한 renderer sender만 호출할 수 있으며 파일·소유권 오류는 본문 없이 반환한다. HTML 미리보기는 정제된 문서만 스크립트·네트워크 없는 격리 iframe에서 표시한다. 보관과 세션 수명은 [영속성 문서](arch/backend/persistence.md#14-계층-2--게시-원본-파일) 참조.
+`ArtifactRef`는 게시/파일 ID·제목·파일명·형식·category·게시 당시 크기/시각을 포함한다. 구형 DTO의 category 생략은 artifact로 해석한다. 일반 출력의 `kind: file`은 Office·PDF 등 다운로드 전용 형식이며 ready 미리보기 형식에 포함되지 않는다. 일반 파일 수집·저장은 64 MiB, 미리보기와 명시적 아티팩트 게시에는 5 MiB 상한을 적용한다. 현재 파일은 외부에서 수정·삭제할 수 있으며 저장과 미리보기는 동작 시점의 바이트를 사용한다. 상태는 진입·사용자 재확인·액션 시 조회하고 watcher/polling은 없다. `window.orca.artifacts.preview`는 `ready`일 때 format·content·mimeType·선택적 language를, `unavailable`일 때 reason을 반환한다. HTML에는 원문 content와 별도로 Main이 정제한 previewContent가 포함된다. 신뢰한 renderer sender만 호출할 수 있으며 파일·소유권 오류는 본문 없이 반환한다. HTML 미리보기는 정제된 문서만 스크립트·네트워크 없는 격리 iframe에서 표시한다. 보관과 세션 수명은 [영속성 문서](arch/backend/persistence.md#14-계층-2--게시-원본-파일) 참조.
 
 ### 2.6-b Git (컴포저 브랜치 칩)
 

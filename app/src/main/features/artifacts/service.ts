@@ -6,9 +6,14 @@ import type {
   ArtifactTrashResult
 } from '../../../shared/artifacts'
 import type { ArtifactFileRecord, ArtifactQueries } from '../../infra/db/artifact-queries'
-import { ArtifactFiles, readArtifactInput, readStableFile } from './files'
+import { ArtifactFiles, readArtifactInput, readOutputInput, readStableFile } from './files'
 import { artifactError, artifactInput, classifyFileError } from './validation'
-import { artifactPreview } from './formats'
+import {
+  artifactPreview,
+  MAX_ARTIFACT_BYTES,
+  MAX_OUTPUT_BYTES,
+  validateArtifactBytes
+} from './formats'
 
 export interface ArtifactPublishContext {
   sessionId: string
@@ -43,6 +48,7 @@ export class ArtifactService {
       queries: Queries
       rootDir: string
       trashItem(path: string): Promise<void>
+      isInputFile?: (sessionId: string, inputSource: string, hash: string) => boolean
     }
   ) {
     this.files = new ArtifactFiles(options.rootDir)
@@ -82,6 +88,103 @@ export class ArtifactService {
   publish(input: unknown, context: ArtifactPublishContext): Promise<ArtifactReceipt> {
     return this.track(this.publishOne(input, context))
   }
+
+  captureOutput(
+    path: string,
+    directory: string,
+    context: ArtifactPublishContext,
+    expectedContent?: string
+  ): Promise<ArtifactRef | undefined> {
+    return this.track(
+      this.withFile(`output:${context.sessionId}:${directory}`, async () => {
+        this.assertOpen()
+        const signal = AbortSignal.any([context.signal, this.lifetime.signal])
+        const check = (): void => {
+          if (signal.aborted || !context.isCurrent()) throw new Error('cancelled')
+        }
+        check()
+        const source = await readOutputInput(path, directory, signal)
+        if (!source) return undefined
+        check()
+        if (this.options.isInputFile?.(context.sessionId, source.inputSource, source.hash))
+          return undefined
+        if (
+          expectedContent !== undefined &&
+          source.bytes.toString('utf8').replace(/\r\n/g, '\n') !==
+            expectedContent.replace(/\r\n/g, '\n')
+        )
+          throw new Error('file-changed')
+        const existing = this.listLatest(context.sessionId).find((ref) => {
+          if (ref.category !== 'file' || ref.filename !== source.filename) return false
+          const row = this.own(context.sessionId, ref.publicationId)
+          return (
+            row.inputSource === source.inputSource &&
+            row.hash === source.hash &&
+            row.lastTrashedAt === null
+          )
+        })
+        if (existing) {
+          try {
+            const saved = await this.readForExport(context.sessionId, existing.publicationId)
+            check()
+            if (saved.bytes.equals(source.bytes)) return existing
+          } catch {
+            // 사본이 사라지거나 바뀌었으면 확인한 원본으로 새 버전을 만든다.
+          }
+        }
+        check()
+        let kind: ArtifactRef['kind'] = 'file'
+        try {
+          kind = validateArtifactBytes(source.filename, source.bytes).format
+        } catch {
+          // Office·PDF·대용량 또는 UTF-8 이외 파일도 원본 다운로드를 보존한다.
+        }
+        const artifactFileId = randomUUID()
+        const publicationId = randomUUID()
+        const prepared = await this.files.prepare(
+          artifactFileId,
+          source.filename,
+          source.bytes,
+          signal
+        )
+        let committed = false
+        try {
+          check()
+          this.options.queries.createPublication({
+            publicationId,
+            artifactFileId,
+            sessionId: context.sessionId,
+            relativePath: prepared.relativePath,
+            filename: source.filename,
+            title: source.filename.slice(0, 160),
+            kind,
+            category: 'file',
+            sizeBytes: source.bytes.length,
+            hash: source.hash,
+            inputSource: source.inputSource,
+            publishedAt: this.nextPublicationTime(context.sessionId, source.inputSource, 'file')
+          })
+          committed = true
+          return this.getRef(context.sessionId, publicationId)
+        } finally {
+          if (!committed) await prepared.cleanup().catch(() => undefined)
+        }
+      })
+    )
+  }
+  private nextPublicationTime(
+    sessionId: string,
+    inputSource: string,
+    category: 'file' | 'artifact'
+  ): number {
+    let at = Date.now()
+    for (const ref of this.listLatest(sessionId)) {
+      if ((ref.category ?? 'artifact') !== category) continue
+      const row = this.own(sessionId, ref.publicationId)
+      if (row.inputSource === inputSource) at = Math.max(at, row.publishedAt + 1)
+    }
+    return at
+  }
   private async publishOne(
     input: unknown,
     context: ArtifactPublishContext
@@ -115,7 +218,7 @@ export class ArtifactService {
           sizeBytes: source.bytes.length,
           hash: source.hash,
           inputSource: source.inputSource,
-          publishedAt: Date.now()
+          publishedAt: this.nextPublicationTime(context.sessionId, source.inputSource, 'artifact')
         })
       } catch {
         throw new Error('storage-failed')
@@ -142,6 +245,7 @@ export class ArtifactService {
       title: file.title,
       filename: file.filename,
       kind: file.kind,
+      category: file.category ?? 'artifact',
       sizeBytes: file.sizeBytes,
       publishedAt: file.publishedAt
     }
@@ -226,7 +330,11 @@ export class ArtifactService {
       try {
         this.own(sessionId, publicationId)
         const before = await this.files.inspect(file)
-        const bytes = await readStableFile(before.path, this.lifetime.signal)
+        const bytes = await readStableFile(
+          before.path,
+          this.lifetime.signal,
+          file.category === 'file' ? MAX_OUTPUT_BYTES : MAX_ARTIFACT_BYTES
+        )
         const after = await this.files.inspect(file)
         if (before.info.ino !== after.info.ino || before.info.dev !== after.info.dev)
           throw new Error('file-changed')
@@ -296,15 +404,22 @@ export class ArtifactService {
         if (error instanceof Error && ['forbidden', 'closed'].includes(error.message))
           return { outcome: 'failed', reason: 'forbidden' }
         const state = classifyFileError(error)
-        return state.state === 'missing'
-          ? { outcome: 'already-missing' }
-          : {
-              outcome: 'failed',
-              reason:
-                state.state === 'unavailable' && state.reason === 'unsafe-path'
-                  ? 'unsafe-path'
-                  : 'trash-failed'
-            }
+        if (state.state === 'missing') {
+          try {
+            this.own(sessionId, publicationId)
+            this.options.queries.markTrashed(file.artifactFileId, Date.now())
+          } catch {
+            return { outcome: 'failed', reason: 'trash-failed' }
+          }
+          return { outcome: 'already-missing' }
+        }
+        return {
+          outcome: 'failed',
+          reason:
+            state.state === 'unavailable' && state.reason === 'unsafe-path'
+              ? 'unsafe-path'
+              : 'trash-failed'
+        }
       }
       try {
         this.assertOpen()

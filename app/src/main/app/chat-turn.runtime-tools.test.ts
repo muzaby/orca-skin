@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../shared/ipc'
 import { PermissionModeController } from '../features/approvals/permission-mode-controller'
+import { resolveAgentProfile } from '../features/agents/profiles'
 
 const harness = vi.hoisted(() => ({
   handlers: new Map<string, (event: unknown, raw: unknown) => Promise<unknown>>(),
@@ -85,7 +86,12 @@ function installHarness(options: {
   defaultModel: string
   selectedModel: string
   steps: Array<'listen' | 'flush' | 'break'>
-}): { runtime: ReturnType<typeof runtime>; built: unknown[] } {
+  outputs?: boolean
+}): {
+  runtime: ReturnType<typeof runtime>
+  built: unknown[]
+  prepareOutputFiles: ReturnType<typeof vi.fn>
+} {
   harness.handlers.clear()
   harness.requests.length = 0
   harness.steps = [...options.steps]
@@ -94,6 +100,7 @@ function installHarness(options: {
   const selected = { alias: 'high', model: options.selectedModel, isDefault: false }
   const fallback = { alias: 'standard', model: options.defaultModel, isDefault: true }
   const built: unknown[] = []
+  const prepareOutputFiles = vi.fn(async () => ({ directory: '/tmp', capture: vi.fn() }))
   const turnRuntime = runtime(options.runtimeRevision, options.selectedModel)
   const extensions = {
     build: vi.fn(
@@ -228,10 +235,11 @@ function installHarness(options: {
       settled: vi.fn()
     },
     activity: { setTransport: vi.fn(), setResidualAttempts: vi.fn(), clear: vi.fn() },
-    isUpdateInstallPending: () => false
+    isUpdateInstallPending: () => false,
+    ...(options.outputs ? { prepareOutputFiles } : {})
   } as never)
 
-  return { runtime: turnRuntime, built }
+  return { runtime: turnRuntime, built, prepareOutputFiles }
 }
 
 async function send(modelFamily = 'high', agentKind?: 'code' | 'work'): Promise<void> {
@@ -254,18 +262,43 @@ describe('registerChatHandlers runtime-tool continuation wiring (0158)', () => {
         selectedModel: 'opus',
         steps: [step, 'break']
       })
-      Object.assign(runtime, { spawnedAgentProfileKey: 'work:1' })
+      Object.assign(runtime, { spawnedAgentProfileKey: resolveAgentProfile('work').key })
       await send('high', 'work')
       expect(built).toHaveLength(2)
       for (const extensions of built)
         expect(extensions).toMatchObject({
-          agentProfileKey: 'work:1',
+          agentProfileKey: resolveAgentProfile('work').key,
           systemPromptAppend: expect.stringContaining('deliverable')
         })
       expect(harness.requests).toHaveLength(2)
       expect(harness.requests.map(({ request }) => request.extensions)).toEqual(built)
       expect(harness.requests.map(({ request }) => request.model)).toEqual(['opus', 'opus'])
       expect(runtime.teardownChannel).not.toHaveBeenCalled()
+    }
+  )
+  it.each(['work', 'code'] as const)(
+    'enables output capture only for Work, preserving %s continuations',
+    async (kind) => {
+      const { prepareOutputFiles, runtime } = installHarness({
+        runtimeRevision: 2,
+        extensionRevisions: [2, 2],
+        defaultModel: 'sonnet',
+        selectedModel: 'opus',
+        steps: ['listen', 'break'],
+        outputs: true
+      })
+      Object.assign(runtime, { spawnedAgentProfileKey: resolveAgentProfile(kind).key })
+      await send('high', kind)
+      expect(prepareOutputFiles).toHaveBeenCalledTimes(kind === 'work' ? 1 : 0)
+      expect(harness.requests).toHaveLength(2)
+      for (const { request } of harness.requests) {
+        if (kind === 'work')
+          expect(request.extensions).toMatchObject({
+            outputFiles: { directory: '/tmp', capture: expect.any(Function) },
+            systemPromptAppend: expect.stringContaining('Final ordinary output directory: /tmp')
+          })
+        else expect(request.extensions).not.toHaveProperty('outputFiles')
+      }
     }
   )
   it('respawns a stale persistent channel before its listen request and forwards that fresh snapshot', async () => {

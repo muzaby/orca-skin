@@ -4,9 +4,17 @@ export interface ArtifactRef {
   artifactFileId: string
   title: string
   filename: string
-  kind: 'html' | 'markdown' | 'text' | 'image'
+  kind: 'html' | 'markdown' | 'text' | 'image' | 'file'
+  // Older persisted cards without a category are explicitly published artifacts.
+  category?: 'artifact' | 'file'
   sizeBytes: number
   publishedAt: number
+}
+
+export interface ArtifactCatalogItem extends ArtifactRef {
+  sessionId: string
+  sessionTitle: string
+  pinned: boolean
 }
 
 export type ArtifactAvailability =
@@ -27,11 +35,14 @@ export interface ArtifactListRequest {
 export interface ArtifactTargetRequest extends ArtifactListRequest {
   publicationId: string
 }
+export interface ArtifactSetPinnedRequest extends ArtifactTargetRequest {
+  pinned: boolean
+}
 // Bounded source only; managed paths and filesystem identities never cross this boundary.
 export type ArtifactPreviewResult =
   | {
       state: 'ready'
-      format: ArtifactRef['kind']
+      format: Exclude<ArtifactRef['kind'], 'file'>
       content: string
       // Main-sanitized full HTML document; raw content remains the source/copy payload.
       previewContent?: string

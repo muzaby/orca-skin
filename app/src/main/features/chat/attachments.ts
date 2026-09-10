@@ -1,9 +1,15 @@
 import { promises as fs } from 'node:fs'
 import { basename, extname, parse, resolve } from 'node:path'
 import { homedir, platform } from 'node:os'
-import type { ComposerAttachment } from '../../../shared/ipc'
+import type { AttachmentView, ComposerAttachment } from '../../../shared/ipc'
 import { SUPPORTED_IMAGE_MEDIA_TYPES } from './image'
 import type { ExtractedAttachmentText, ExtractedAttachmentImage } from '../../adapters/turn'
+import {
+  MAX_ATTACHMENT_BYTES,
+  nativeAttachmentDirectory,
+  readAttachmentBytes,
+  storeAttachmentBytes
+} from './attachment-files'
 
 export const MAX_FILE_CONTEXT_CHARS = 24_000
 export const SUPPORTED_IMAGE_MIME_TYPES = new Set<string>(SUPPORTED_IMAGE_MEDIA_TYPES)
@@ -123,19 +129,21 @@ function truncateText(text: string): {
 }
 
 async function attachmentFromPath(
-  att: Extract<ComposerAttachment, { kind: 'path' }>
+  att: Extract<ComposerAttachment, { kind: 'path' }>,
+  bytes: Buffer
 ): Promise<ExtractedAttachmentText | ExtractedAttachmentImage> {
   const path = assertAllowedAttachmentPath(att.path)
   const mimeType = att.mimeType || mimeTypeForPath(path)
-  const sizeBytes = att.sizeBytes ?? (await fs.stat(path)).size
+  const sizeBytes = bytes.length
   const id = makeAttachmentId({ name: att.name, path })
   if (SUPPORTED_IMAGE_MIME_TYPES.has(mimeType)) {
-    const data = await bufferToBase64Chunked(await fs.readFile(path))
+    const data = await bufferToBase64Chunked(bytes)
     return { id, name: att.name, mimeType, sizeBytes, data, sourceKind: att.sourceKind }
   }
   const ext = extname(path).toLowerCase()
   if (!textExtractor.supports(ext)) throw new Error(`unsupported attachment type: ${ext}`)
-  const extracted = await textExtractor.extract(path)
+  if (bytes.includes(0)) throw new Error('binary-like text attachment is not supported')
+  const extracted = bytes.toString('utf8').replace(/^\uFEFF/, '')
   const truncated = truncateText(extracted)
   return { id, name: att.name, mimeType, sizeBytes, sourceKind: att.sourceKind, ...truncated }
 }
@@ -155,17 +163,68 @@ function attachmentFromInline(
   }
 }
 
-export async function normalizeAttachments(attachments: ComposerAttachment[]): Promise<{
+export async function normalizeAttachments(
+  attachments: ComposerAttachment[],
+  storage?: {
+    views: readonly AttachmentView[]
+    directory?: string
+  }
+): Promise<{
   attachmentTexts: ExtractedAttachmentText[]
   attachmentImages: ExtractedAttachmentImage[]
+  attachmentViews?: AttachmentView[]
 }> {
   const attachmentTexts: ExtractedAttachmentText[] = []
   const attachmentImages: ExtractedAttachmentImage[] = []
-  for (const att of attachments) {
-    const normalized =
-      att.kind === 'path' ? await attachmentFromPath(att) : attachmentFromInline(att)
-    if ('text' in normalized) attachmentTexts.push(normalized)
-    else attachmentImages.push(normalized)
+  const attachmentViews: AttachmentView[] = []
+  const stored: Array<Awaited<ReturnType<typeof storeAttachmentBytes>>> = []
+  try {
+    for (const [index, att] of attachments.entries()) {
+      let bytes: Buffer
+      if (att.kind === 'path') {
+        const path = assertAllowedAttachmentPath(att.path)
+        bytes = await readAttachmentBytes(path, assertAllowedAttachmentPath)
+      } else {
+        const data = stripDataUrlPrefix(att.data)
+        if (data.length > Math.ceil(MAX_ATTACHMENT_BYTES / 3) * 4)
+          throw new Error('attachment exceeds 32 MiB')
+        if (!/^[A-Za-z0-9+/]*={0,2}$/.test(data) || data.length % 4 === 1)
+          throw new Error('invalid attachment base64')
+        bytes = Buffer.from(data, 'base64')
+        if (bytes.length > MAX_ATTACHMENT_BYTES) throw new Error('attachment exceeds 32 MiB')
+      }
+      const normalized =
+        att.kind === 'path' ? await attachmentFromPath(att, bytes) : attachmentFromInline(att)
+      normalized.sizeBytes = bytes.length
+      if (storage) {
+        const file = await storeAttachmentBytes(
+          bytes,
+          att.name,
+          storage.directory ?? nativeAttachmentDirectory()
+        )
+        stored.push(file)
+        normalized.path = file.path
+        normalized.sha256 = file.sha256
+        const view = storage.views[index]
+        attachmentViews.push({
+          id: view?.id ?? normalized.id,
+          name: att.name,
+          mimeType: normalized.mimeType,
+          kind: 'data' in normalized ? 'image' : 'file',
+          sizeBytes: bytes.length,
+          ...('data' in normalized && view?.previewDataUrl
+            ? { previewDataUrl: view.previewDataUrl }
+            : {}),
+          path: file.path,
+          sha256: file.sha256
+        })
+      }
+      if ('text' in normalized) attachmentTexts.push(normalized)
+      else attachmentImages.push(normalized)
+    }
+  } catch (error) {
+    await Promise.allSettled(stored.map((file) => file.cleanup()))
+    throw error
   }
-  return { attachmentTexts, attachmentImages }
+  return { attachmentTexts, attachmentImages, ...(storage ? { attachmentViews } : {}) }
 }

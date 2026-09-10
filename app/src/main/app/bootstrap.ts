@@ -63,6 +63,8 @@ import { registerSkillsHandlers } from './handlers/skills'
 import { registerFilesHandlers } from './handlers/files'
 import { registerArtifactHandlers } from './handlers/artifacts'
 import { ArtifactService } from '../features/artifacts/service'
+import { ArtifactCatalog } from '../features/artifacts/catalog'
+import { createWorkOutputFiles } from '../features/artifacts/output-files'
 import { createArtifactToolServer } from '../features/artifacts/tool'
 import { registerGitHandlers } from './handlers/git'
 import { registerCostHandlers } from './handlers/cost'
@@ -864,6 +866,14 @@ export class Bootstrap {
     const artifacts = (this.artifacts = new ArtifactService({
       queries: ctx.db.artifacts,
       rootDir: join(orcaConfigDir(), 'artifacts', ...(import.meta.env.DEV ? ['.dev'] : [])),
+      isInputFile: (sessionId, inputSource, hash) =>
+        ctx.db
+          .listSessionAttachmentFiles(sessionId)
+          .some(
+            (file) =>
+              (process.platform === 'win32' ? file.path.toLowerCase() : file.path) ===
+                inputSource && file.sha256 === hash
+          ),
       trashItem: (path) => shell.trashItem(path)
     }))
     ctx.runtimeTools.add(
@@ -871,7 +881,11 @@ export class Bootstrap {
         broadcastChatEvent({ type: 'artifact.published', sessionId, artifact })
       )
     )
-    registerArtifactHandlers(artifacts, this.isTrustedArtifactSender)
+    registerArtifactHandlers(
+      artifacts,
+      this.isTrustedArtifactSender,
+      new ArtifactCatalog(ctx.db.artifacts)
+    )
   }
 
   private register(ctx: RouterContext): void {
@@ -927,6 +941,10 @@ export class Bootstrap {
       backgroundTasks,
       activity,
       isUpdateInstallPending: () => this.isUpdateInstallPending(),
+      prepareOutputFiles: (cwd) =>
+        createWorkOutputFiles(this.artifacts!, cwd, (sessionId, artifact) =>
+          broadcastChatEvent({ type: 'artifact.published', sessionId, artifact })
+        ),
       worktrees
     })
     approvals.registerHandlers(supervisor, permissionModes, (sessionId) => {

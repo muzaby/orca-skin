@@ -83,11 +83,10 @@ describe('Context directory open — actual registration, SQLite and filesystem'
     expect(host.reveal).not.toHaveBeenCalled()
     expect(queries.getSessionById('work')).toEqual(before)
   })
-  it('opens an explicitly added cwd while scoped requests never infer an unlisted cwd', async () => {
-    await expect(invoke({ ...request(), path: cwd })).rejects.toThrow('허용되지 않은')
-    queries.updateSessionExtraDirs('work', [realpathSync(cwd)])
+  it('opens the actual session cwd without requiring a duplicate extra folder', async () => {
     await invoke({ ...request(), path: cwd })
     expect(host.openPath).toHaveBeenCalledExactlyOnceWith(await fs.realpath(cwd))
+    await expect(invoke({ ...request(), path: root })).rejects.toThrow('허용되지 않은')
   })
   it.each(['other', 'code', 'missing'])(
     'rejects a folder outside the requested %s Work scope',
@@ -156,13 +155,189 @@ describe('Context directory open — actual registration, SQLite and filesystem'
       realpathSync(directory)
     ])
   })
-  it('keeps unscoped extra directory and scoped reveal closed while legacy cwd opening works', async () => {
+  it('keeps unscoped extra directory closed while legacy cwd opening works', async () => {
     await expect(invoke({ path: directory, mode: 'directory' })).rejects.toThrow('허용되지 않은')
-    const file = join(cwd, 'report.md')
-    writeFileSync(file, 'fixture')
-    await expect(invoke({ path: file, mode: 'reveal', sessionId: 'work' })).rejects.toThrow()
     expect(host.reveal).not.toHaveBeenCalled()
     await invoke({ path: cwd, mode: 'directory' })
     expect(host.openPath).toHaveBeenCalledExactlyOnceWith(cwd)
+  })
+})
+
+describe('Context file reveal — session scope and actual filesystem paths', () => {
+  it('reveals only the exact attachment file registered in this session outside its folders', async () => {
+    const file = join(root, 'stored-input.md')
+    const other = join(root, 'other-input.md')
+    writeFileSync(file, 'reference')
+    writeFileSync(other, 'unrelated')
+    const messageId = queries.appendMessage({
+      sessionId: 'work',
+      role: 'user',
+      content: 'input',
+      createdAt: 1
+    })
+    queries.appendPart({
+      messageId,
+      type: 'attachment',
+      toolRunId: null,
+      payloadJson: JSON.stringify({
+        attachments: [{ path: realpathSync(file), sha256: 'a'.repeat(64) }]
+      })
+    })
+    await invoke({ path: file, mode: 'reveal', sessionId: 'work' })
+    expect(host.reveal).toHaveBeenCalledExactlyOnceWith(realpathSync(file))
+    await expect(invoke({ path: other, mode: 'reveal', sessionId: 'work' })).rejects.toThrow(
+      '허용되지 않은'
+    )
+    await expect(invoke({ path: file, mode: 'reveal', sessionId: 'other' })).rejects.toThrow(
+      '허용되지 않은'
+    )
+    await expect(invoke({ path: root, mode: 'directory', sessionId: 'work' })).rejects.toThrow(
+      '허용되지 않은'
+    )
+  })
+
+  it('does not follow a registered attachment that is later redirected', async () => {
+    const originalDirectory = join(root, 'Stored')
+    const replacementDirectory = join(root, 'Replacement')
+    mkdirSync(originalDirectory)
+    mkdirSync(replacementDirectory)
+    const file = join(originalDirectory, 'input.md')
+    writeFileSync(file, 'original')
+    writeFileSync(join(replacementDirectory, 'input.md'), 'unrelated')
+    const messageId = queries.appendMessage({
+      sessionId: 'work',
+      role: 'user',
+      content: 'input',
+      createdAt: 1
+    })
+    queries.appendPart({
+      messageId,
+      type: 'attachment',
+      toolRunId: null,
+      payloadJson: JSON.stringify({
+        attachments: [{ path: realpathSync(file), sha256: 'a'.repeat(64) }]
+      })
+    })
+    rmSync(file)
+    rmSync(originalDirectory, { recursive: true })
+    symlinkSync(
+      replacementDirectory,
+      originalDirectory,
+      process.platform === 'win32' ? 'junction' : 'dir'
+    )
+    await expect(invoke({ path: file, mode: 'reveal', sessionId: 'work' })).rejects.toThrow(
+      '허용되지 않은'
+    )
+    expect(host.reveal).not.toHaveBeenCalled()
+  })
+
+  it('uses recorded extra folders when the session has no cwd', async () => {
+    db.prepare('UPDATE sessions SET cwd = NULL WHERE id = ?').run('work')
+    const file = join(directory, 'report.md')
+    writeFileSync(file, 'fixture')
+    await invoke({ path: file, mode: 'reveal', sessionId: 'work' })
+    expect(host.reveal).toHaveBeenCalledExactlyOnceWith(realpathSync(file))
+  })
+
+  it.each(['cwd', 'extra'])(
+    'reveals files inside the session %s, including descendants',
+    async (scope) => {
+      const child = join(scope === 'cwd' ? cwd : directory, 'child')
+      mkdirSync(child)
+      const file = join(child, 'report.md')
+      writeFileSync(file, 'fixture')
+      await invoke({ path: file, mode: 'reveal', sessionId: 'work' })
+      expect(host.reveal).toHaveBeenCalledExactlyOnceWith(realpathSync(file))
+      expect(host.openPath).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(['other', 'code', 'missing'])(
+    'rejects files outside the requested %s Work scope',
+    async (sessionId) => {
+      const file = join(directory, 'report.md')
+      writeFileSync(file, 'fixture')
+      await expect(invoke({ path: file, mode: 'reveal', sessionId })).rejects.toThrow(
+        '허용되지 않은'
+      )
+      expect(host.reveal).not.toHaveBeenCalled()
+    }
+  )
+
+  it('does not fall back to other sessions or allow lexical traversal outside the requested scope', async () => {
+    const unrelated = join(root, 'Elsewhere')
+    mkdirSync(unrelated)
+    db.prepare('UPDATE sessions SET cwd = ? WHERE id = ?').run(unrelated, 'other')
+    const file = join(unrelated, 'report.md')
+    writeFileSync(file, 'fixture')
+    for (const path of [file, `${cwd}/../Elsewhere/report.md`, 'report.md']) {
+      await expect(invoke({ path, mode: 'reveal', sessionId: 'work' })).rejects.toThrow(
+        '허용되지 않은'
+      )
+    }
+    expect(host.reveal).not.toHaveBeenCalled()
+  })
+
+  it('rejects an in-scope junction escaping to an unrecorded actual directory', async () => {
+    const unrelated = join(root, 'Elsewhere')
+    mkdirSync(unrelated)
+    writeFileSync(join(unrelated, 'report.md'), 'fixture')
+    const alias = join(cwd, 'escape')
+    symlinkSync(unrelated, alias, process.platform === 'win32' ? 'junction' : 'dir')
+    await expect(
+      invoke({ path: join(alias, 'report.md'), mode: 'reveal', sessionId: 'work' })
+    ).rejects.toThrow('허용되지 않은')
+    expect(host.reveal).not.toHaveBeenCalled()
+  })
+
+  it('requires lexical membership even when an outside alias resolves to a recorded directory', async () => {
+    const alias = join(root, 'outside-alias')
+    symlinkSync(directory, alias, process.platform === 'win32' ? 'junction' : 'dir')
+    writeFileSync(join(directory, 'report.md'), 'fixture')
+    await expect(
+      invoke({ path: join(alias, 'report.md'), mode: 'reveal', sessionId: 'work' })
+    ).rejects.toThrow('허용되지 않은')
+    expect(host.reveal).not.toHaveBeenCalled()
+  })
+
+  it('supports an explicitly recorded root alias and reveals the resolved file', async () => {
+    const alias = join(root, 'reference-alias')
+    symlinkSync(directory, alias, process.platform === 'win32' ? 'junction' : 'dir')
+    queries.updateSessionExtraDirs('work', [alias])
+    const file = join(directory, 'report.md')
+    writeFileSync(file, 'fixture')
+    await invoke({ path: join(alias, 'report.md'), mode: 'reveal', sessionId: 'work' })
+    expect(host.reveal).toHaveBeenCalledExactlyOnceWith(realpathSync(file))
+  })
+
+  it.each(['delete', 'remove-extra', 'change-cwd'])(
+    'rechecks session scope after path resolution: %s',
+    async (change) => {
+      const file = join(change === 'change-cwd' ? cwd : directory, 'report.md')
+      writeFileSync(file, 'fixture')
+      const realpath = fs.realpath
+      let continueResolve!: (value: string) => void
+      const gate = new Promise<string>((done) => {
+        continueResolve = done
+      })
+      vi.spyOn(fs, 'realpath').mockImplementation((path) => (path === file ? gate : realpath(path)))
+      const opening = invoke({ path: file, mode: 'reveal', sessionId: 'work' })
+      if (change === 'delete') queries.deleteSession('work')
+      else if (change === 'remove-extra') queries.updateSessionExtraDirs('work', [])
+      else db.prepare('UPDATE sessions SET cwd = ? WHERE id = ?').run(root, 'work')
+      continueResolve(realpathSync(file))
+      await expect(opening).rejects.toThrow('허용되지 않은')
+      expect(host.reveal).not.toHaveBeenCalled()
+    }
+  )
+
+  it('rejects directories and missing files', async () => {
+    await expect(invoke({ path: directory, mode: 'reveal', sessionId: 'work' })).rejects.toThrow(
+      '파일만'
+    )
+    await expect(
+      invoke({ path: join(directory, 'missing.md'), mode: 'reveal', sessionId: 'work' })
+    ).rejects.toThrow()
+    expect(host.reveal).not.toHaveBeenCalled()
   })
 })

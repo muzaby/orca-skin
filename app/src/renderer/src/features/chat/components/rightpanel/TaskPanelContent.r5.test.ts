@@ -176,6 +176,7 @@ describe('0224 r5 actual panel composition', () => {
     ]
     const withKnown = render('work')
     expect(withKnown('[data-session-schedule]').length).toBe(1)
+    expect(withKnown('[data-session-wakeup-pending]').length).toBe(0)
     expect(withKnown('[data-task-section="scheduled"]').text()).toContain(
       '마지막으로 확인한 예약 목록입니다.'
     )

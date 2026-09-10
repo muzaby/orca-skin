@@ -32,7 +32,10 @@ import { parseAgentKind } from '../../../shared/agent-kind'
 import { agentSessionPolicy } from '../../../shared/agent-session-policy'
 
 interface FilesHandlerContext extends Pick<RouterContext, 'getCwd'> {
-  db: Pick<RouterContext['db'], 'hasSessionWithCwd' | 'getSessionById' | 'searchMessages'>
+  db: Pick<
+    RouterContext['db'],
+    'hasSessionWithCwd' | 'getSessionById' | 'searchMessages' | 'listSessionAttachmentFiles'
+  >
 }
 
 export function registerFilesHandlers(ctx: FilesHandlerContext): void {
@@ -44,15 +47,28 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
   const isAllowedDir = (dir: string): boolean =>
     isWithinDir(dir, projectsDir()) || ctx.db.hasSessionWithCwd(dir)
 
-  const isRecordedContextDirectory = (sessionId: string, directory: string): boolean => {
+  const recordedContextDirectories = (sessionId: string): string[] => {
     const session = ctx.db.getSessionById(sessionId)
-    if (!session) return false
-    return (
-      agentSessionPolicy[parseAgentKind(session.agent_kind)].allowContextFileOpen &&
-      parseStoredExtraDirectories(session.extra_dirs).some(
-        (recorded) => directoryIdentity(recorded) === directoryIdentity(directory)
-      )
+    if (!session || !agentSessionPolicy[parseAgentKind(session.agent_kind)].allowContextFileOpen)
+      return []
+    return [session.cwd, ...parseStoredExtraDirectories(session.extra_dirs)].filter(
+      (directory): directory is string =>
+        typeof directory === 'string' && isAbsolutePath(directory) && !isFilesystemRoot(directory)
     )
+  }
+
+  const isRecordedContextDirectory = (sessionId: string, directory: string): boolean =>
+    recordedContextDirectories(sessionId).some(
+      (recorded) => directoryIdentity(recorded) === directoryIdentity(directory)
+    )
+
+  const isRecordedAttachmentFile = (sessionId: string, path: string): boolean => {
+    const session = ctx.db.getSessionById(sessionId)
+    if (!session || !agentSessionPolicy[parseAgentKind(session.agent_kind)].allowContextFileOpen)
+      return false
+    return ctx.db
+      .listSessionAttachmentFiles(sessionId)
+      .some((file) => directoryIdentity(file.path) === directoryIdentity(path))
   }
 
   const isInsideAllowedDir = (dir: string): boolean => {
@@ -100,8 +116,43 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
 
   // 임의 경로 오픈 벡터를 차단한다 — 렌더러가 보낸 경로를 무검증으로 열지 않고 **모드마다**
   // 실체(디렉토리/파일)를 확인한다. 일반 호출은 세션 cwd와 그 안의 변경 파일을 허용하고,
-  // Work 컨텍스트 호출은 해당 세션에 기록된 추가 폴더만 허용한다.
+  // Work 컨텍스트 호출은 해당 세션의 cwd와 기록된 추가 폴더 범위만 허용한다.
   handle(CHANNELS.filesOpenPath, OpenPathRequestSchema, 'reject', async (req): Promise<void> => {
+    if (req.mode === 'reveal' && req.sessionId !== undefined) {
+      if (!isAbsolutePath(req.path) || isFilesystemRoot(req.path))
+        throw new Error('허용되지 않은 경로입니다.')
+      const directories = recordedContextDirectories(req.sessionId).filter((directory) =>
+        isWithinDir(req.path, directory)
+      )
+      const attachment = isRecordedAttachmentFile(req.sessionId, req.path)
+      if (directories.length === 0 && !attachment) throw new Error('허용되지 않은 경로입니다.')
+      const target = await fs.realpath(req.path)
+      const stat = await fs.stat(target).catch(() => null)
+      if (!stat?.isFile()) throw new Error('파일만 탐색기에서 열 수 있습니다.')
+      const verifiedDirectories = await Promise.all(
+        directories.map(async (directory) => {
+          const actual = await fs.realpath(directory).catch(() => null)
+          if (!actual || isFilesystemRoot(actual) || !isWithinDir(target, actual)) return null
+          const directoryStat = await fs.stat(actual).catch(() => null)
+          return directoryStat?.isDirectory() ? directoryIdentity(directory) : null
+        })
+      )
+      // 비동기 파일 검사 뒤에도 같은 세션에 남아 있는 승인 범위만 사용한다.
+      const currentDirectories = recordedContextDirectories(req.sessionId)
+      if (
+        !currentDirectories.some((directory) =>
+          verifiedDirectories.includes(directoryIdentity(directory))
+        ) &&
+        !(
+          attachment &&
+          directoryIdentity(target) === directoryIdentity(req.path) &&
+          isRecordedAttachmentFile(req.sessionId, target)
+        )
+      )
+        throw new Error('허용되지 않은 경로입니다.')
+      shell.showItemInFolder(target)
+      return
+    }
     let target = req.path
     if (req.mode === 'directory' && req.sessionId !== undefined) {
       if (

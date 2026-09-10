@@ -6,6 +6,8 @@ import { basename, dirname, extname, join, resolve } from 'node:path'
 import {
   CHANNELS,
   ArtifactListRequestSchema,
+  ArtifactCatalogRequestSchema,
+  ArtifactSetPinnedRequestSchema,
   ArtifactTargetRequestSchema,
   ArtifactStatusRequestSchema,
   ArtifactSaveRequestSchema
@@ -16,6 +18,7 @@ import type {
   ArtifactSaveResult
 } from '../../../shared/artifacts'
 import type { ArtifactService } from '../../features/artifacts/service'
+import type { ArtifactCatalog } from '../../features/artifacts/catalog'
 import { isWithinDir } from '../../infra/config/paths'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 
@@ -124,11 +127,20 @@ async function replaceExport(path: string, root: string, bytes: Buffer): Promise
 
 export function registerArtifactHandlers(
   service: ArtifactHandlers,
-  isTrustedSender: ArtifactSenderCheck
+  isTrustedSender: ArtifactSenderCheck,
+  catalog: Pick<ArtifactCatalog, 'list' | 'setPinned'>
 ): void {
   const assertSender = (event: IpcMainInvokeEvent): void => {
     if (!isTrustedSender(event)) throw new Error('forbidden')
   }
+  handle(CHANNELS.artifactCatalog, ArtifactCatalogRequestSchema, 'reject', (_req, event) => {
+    assertSender(event)
+    return catalog.list()
+  })
+  handle(CHANNELS.artifactSetPinned, ArtifactSetPinnedRequestSchema, 'reject', (req, event) => {
+    assertSender(event)
+    return catalog.setPinned(req.sessionId, req.publicationId, req.pinned)
+  })
   handle(CHANNELS.artifactList, ArtifactListRequestSchema, 'reject', (req, event) => {
     assertSender(event)
     return service.listLatest(req.sessionId)

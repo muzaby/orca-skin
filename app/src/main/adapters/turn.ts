@@ -68,6 +68,8 @@ export interface ExtractedAttachmentText {
   charsIncluded: number
   truncated: boolean
   sourceKind: AttachmentSourceKind
+  path?: string
+  sha256?: string
 }
 
 export interface ExtractedAttachmentImage {
@@ -77,6 +79,8 @@ export interface ExtractedAttachmentImage {
   sizeBytes?: number
   data: string
   sourceKind: AttachmentSourceKind
+  path?: string
+  sha256?: string
 }
 
 // SKILL.md 스캔 메타 DTO 를 그대로 재사용 (step 2 — 자산 가시화).
@@ -89,6 +93,11 @@ export interface TurnExtensions {
   // 인증된 내장 도구의 현재 메모리 snapshot. extensions feature가 조립하며, adapters는
   // backend별 SDK 옵션으로만 변환한다. 미주입은 기존 MCP 배포 경로를 그대로 유지한다.
   runtimeTools?: RuntimeToolSnapshot
+  // Work의 일반 출력 파일 수집. 실제 폴더 생성·검증·snapshot 저장은 앱이 주입한다.
+  outputFiles?: {
+    directory: string
+    capture(path: string, context: RuntimeToolContext, expectedContent?: string): Promise<void>
+  }
   // SDK options.plugins 로 로드할 plugin root 목록 — Orca plugin(dist/plugins/orca) + 사용자
   // ~/.claude/skills 래퍼 plugin(dist/plugins/claude, 0117). 존재/매니페스트 검증은 어댑터
   // (adaptPlugins)가 root 별로 수행하므로 조립 측(ExtensionBuilder)은 fs 를 만지지 않는다.

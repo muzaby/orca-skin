@@ -87,6 +87,25 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('viewer toolbar production callbacks', () => {
+  it('keeps binary file download available when its preview format is unsupported', async () => {
+    preview.mockResolvedValueOnce({ state: 'unavailable', reason: 'unsupported-format' })
+    await openArtifactViewer('key', 'session', {
+      ...ref,
+      filename: 'report.pdf',
+      category: 'file',
+      kind: 'file'
+    })
+    const nodes = all(render())
+    expect(
+      nodes.find((element) => element.props['data-behavior'] === 'viewer:download')?.props.disabled
+    ).toBe(false)
+    expect(nodes.some((element) => element.props['data-behavior'] === 'viewer:copy')).toBe(false)
+    expect(nodes.some((element) => element.props['data-behavior'] === 'viewer:retry')).toBe(false)
+    click('download')
+    await Promise.resolve()
+    expect(h.save).toHaveBeenCalledWith({ sessionId: 'session', publicationIds: ['p'] })
+    expect(status()).toBe('chat.artifacts.saved')
+  })
   it('changes the selected file mode, expands, and closes without changing its identity', () => {
     const code = all(render()).find(
       (element) => element.props['aria-label'] === 'chat.artifactViewer.code'

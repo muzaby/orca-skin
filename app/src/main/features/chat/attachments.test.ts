@@ -1,5 +1,6 @@
-import { mkdtemp, writeFile, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdtemp, writeFile, readFile, readdir, rm, symlink, truncate } from 'node:fs/promises'
+import { basename, dirname, join } from 'node:path'
+import { createHash } from 'node:crypto'
 import { homedir, tmpdir } from 'node:os'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
@@ -8,6 +9,7 @@ import {
   bufferToBase64Chunked,
   normalizeAttachments
 } from './attachments'
+import { MAX_ATTACHMENT_BYTES } from './attachment-files'
 
 const createdDirs: string[] = []
 
@@ -81,6 +83,155 @@ describe('normalizeAttachments', () => {
 
     expect(result.attachmentTexts[0]?.truncated).toBe(true)
     expect(result.attachmentTexts[0]?.charsIncluded).toBe(MAX_FILE_CONTEXT_CHARS)
+  })
+
+  it('stores dialog, drop and clipboard bytes at unique paths while preserving display views and model data', async () => {
+    const source = await makeHomeTempDir()
+    const directory = await makeTempDir()
+    const path = join(source, 'note.md')
+    await writeFile(path, '# Reference')
+    const image = Buffer.from('clipboard image bytes')
+    const attachments = [
+      {
+        kind: 'path' as const,
+        path,
+        name: 'note.md',
+        mimeType: 'text/markdown',
+        sourceKind: 'dialog' as const
+      },
+      {
+        kind: 'path' as const,
+        path,
+        name: 'note.md',
+        mimeType: 'text/markdown',
+        sourceKind: 'drag_drop' as const
+      },
+      {
+        kind: 'inline' as const,
+        name: 'note.md',
+        mimeType: 'image/png',
+        data: image.toString('base64'),
+        sourceKind: 'clipboard' as const
+      }
+    ]
+    const views = [
+      {
+        id: 'original-view',
+        name: 'note.md',
+        mimeType: 'text/markdown',
+        kind: 'file' as const,
+        path: '/forged',
+        sha256: 'forged'
+      }
+    ]
+    const result = await normalizeAttachments(attachments, { directory, views })
+    expect(result.attachmentViews).toHaveLength(3)
+    expect(new Set(result.attachmentViews!.map((view) => view.path)).size).toBe(3)
+    expect(result.attachmentViews![0]).toMatchObject({ id: 'original-view', name: 'note.md' })
+    for (const [index, view] of result.attachmentViews!.entries()) {
+      expect(dirname(view.path!)).toBe(directory)
+      expect(basename(view.path!)).not.toBe('note.md')
+      const bytes = await readFile(view.path!)
+      expect(bytes).toEqual(index === 2 ? image : Buffer.from('# Reference'))
+      expect(view.sha256).toBe(createHash('sha256').update(bytes).digest('hex'))
+    }
+    expect(result.attachmentTexts[0]).toMatchObject({
+      text: '# Reference',
+      path: result.attachmentViews![0].path
+    })
+    expect(result.attachmentImages[0]).toMatchObject({
+      data: image.toString('base64'),
+      path: result.attachmentViews![2].path,
+      sourceKind: 'clipboard'
+    })
+    expect(await readFile(path, 'utf8')).toBe('# Reference')
+  })
+
+  it('rolls back files from this batch when a later attachment fails', async () => {
+    const directory = await makeTempDir()
+    await writeFile(join(directory, 'unrelated.txt'), 'keep')
+    await expect(
+      normalizeAttachments(
+        [
+          {
+            kind: 'inline',
+            name: 'paste.png',
+            mimeType: 'image/png',
+            data: 'YWJj',
+            sourceKind: 'clipboard'
+          },
+          {
+            kind: 'inline',
+            name: 'bad.txt',
+            mimeType: 'text/plain',
+            data: 'YWJj',
+            sourceKind: 'clipboard'
+          }
+        ],
+        { directory, views: [] }
+      )
+    ).rejects.toThrow('must be an image')
+    expect(await readdir(directory)).toEqual(['unrelated.txt'])
+  })
+
+  it('rejects redirected storage roots before writing attachment bytes', async () => {
+    const container = await makeTempDir()
+    const actual = await makeTempDir()
+    const directory = join(container, 'redirect')
+    await symlink(actual, directory, process.platform === 'win32' ? 'junction' : 'dir')
+    await expect(
+      normalizeAttachments(
+        [
+          {
+            kind: 'inline',
+            name: 'paste.png',
+            mimeType: 'image/png',
+            data: 'YWJj',
+            sourceKind: 'clipboard'
+          }
+        ],
+        { directory, views: [] }
+      )
+    ).rejects.toThrow('unsafe attachment directory')
+    expect(await readdir(actual)).toEqual([])
+  })
+
+  it('bounds actual file bytes regardless of the advertised size and rejects malformed clipboard data', async () => {
+    const source = await makeHomeTempDir()
+    const directory = await makeTempDir()
+    const path = join(source, 'large.txt')
+    await writeFile(path, '')
+    await truncate(path, MAX_ATTACHMENT_BYTES + 1)
+    await expect(
+      normalizeAttachments(
+        [
+          {
+            kind: 'path',
+            path,
+            name: 'large.txt',
+            mimeType: 'text/plain',
+            sizeBytes: 1,
+            sourceKind: 'drag_drop'
+          }
+        ],
+        { directory, views: [] }
+      )
+    ).rejects.toThrow('32 MiB')
+    await expect(
+      normalizeAttachments(
+        [
+          {
+            kind: 'inline',
+            name: 'paste.png',
+            mimeType: 'image/png',
+            data: 'not base64!?',
+            sourceKind: 'clipboard'
+          }
+        ],
+        { directory, views: [] }
+      )
+    ).rejects.toThrow('base64')
+    expect(await readdir(directory)).toEqual([])
   })
 })
 

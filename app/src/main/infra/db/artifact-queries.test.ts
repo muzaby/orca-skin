@@ -176,3 +176,74 @@ describe('artifact DB ledger and original-call attachment', () => {
     expect(db.prepare('SELECT COUNT(*) AS n FROM artifact_files').get()).toEqual({ n: 2 })
   })
 })
+
+describe('artifact catalog across sessions', () => {
+  it('keeps the latest artifact and ordinary file independently for the same input source', () => {
+    const { q } = fixture()
+    publication(q, 'old', { publishedAt: 1 })
+    publication(q, 'latest', { publishedAt: 2 })
+    publication(q, 'ordinary', { category: 'file', kind: 'file', publishedAt: 3 })
+    publication(q, 'another-session', { sessionId: 'b', publishedAt: 4 })
+    expect(q.artifacts.listLatest('a').map((item) => item.publicationId)).toEqual([
+      'ordinary',
+      'latest'
+    ])
+    expect(q.artifacts.listCatalog().map((item) => item.publicationId)).toEqual([
+      'another-session',
+      'latest'
+    ])
+    expect(q.artifacts.listCatalog()[0]).toEqual({
+      publicationId: 'another-session',
+      artifactFileId: 'file-another-session',
+      sessionId: 'b',
+      sessionTitle: 'b',
+      title: 'Report',
+      filename: 'report.md',
+      kind: 'markdown',
+      category: 'artifact',
+      sizeBytes: 5,
+      publishedAt: 4,
+      pinned: false
+    })
+  })
+
+  it('deduplicates shared fork files, persists pin state and inherits it on a new source version', () => {
+    const { db, q } = fixture()
+    publication(q, 'original')
+    q.copyMessagesToSession('a', 'b')
+    const child = q.artifacts.listLatest('b')[0]!
+    expect(q.artifacts.setPinned('b', child.publicationId, true)).toBe(true)
+    expect(q.artifacts.listCatalog()).toHaveLength(1)
+    expect(q.artifacts.listCatalog()[0].pinned).toBe(true)
+    publication(q, 'new-version', { publishedAt: 20 })
+    expect(new DbQueries(db).artifacts.listCatalog().every((item) => item.pinned)).toBe(true)
+    expect(q.artifacts.setPinned('a', 'new-version', false)).toBe(true)
+    expect(
+      q.artifacts.listCatalog().find((item) => item.publicationId === 'new-version')?.pinned
+    ).toBe(false)
+    expect(q.artifacts.getOwnedFile('b', child.publicationId)?.artifactFileId).toBe('file-original')
+  })
+
+  it('rejects pinning another session, an ordinary output or a trashed file', () => {
+    const { q } = fixture()
+    publication(q, 'artifact')
+    publication(q, 'ordinary', { inputSource: 'other', category: 'file' })
+    expect(q.artifacts.setPinned('b', 'artifact', true)).toBe(false)
+    expect(q.artifacts.setPinned('a', 'ordinary', true)).toBe(false)
+    q.artifacts.markTrashed('file-artifact', 20)
+    expect(q.artifacts.setPinned('a', 'artifact', true)).toBe(false)
+    expect(q.artifacts.listCatalog()).toEqual([])
+  })
+
+  it('removes a trashed latest file without resurrecting older versions or deleting the ledger', () => {
+    const { db, q } = fixture()
+    publication(q, 'old', { publishedAt: 1 })
+    publication(q, 'latest', { publishedAt: 2 })
+    q.copyMessagesToSession('a', 'b')
+    q.artifacts.markTrashed('file-latest', 3)
+    expect(q.artifacts.listCatalog()).toEqual([])
+    expect(q.artifacts.listLatest('a').map((item) => item.publicationId)).toEqual(['latest'])
+    expect(db.prepare('SELECT COUNT(*) AS n FROM artifact_files').get()).toEqual({ n: 2 })
+    expect(db.prepare('SELECT COUNT(*) AS n FROM session_artifacts').get()).toEqual({ n: 4 })
+  })
+})

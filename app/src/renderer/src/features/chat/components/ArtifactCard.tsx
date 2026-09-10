@@ -70,7 +70,9 @@ export function ArtifactCard({
   const present = file?.availability?.state === 'present'
   const disabled = checking || file?.busy
   const transcript = variant === 'transcript'
-  const format = artifact.filename.split('.').pop()?.toUpperCase() ?? ''
+  const dot = artifact.filename.lastIndexOf('.')
+  const format = dot > 0 ? artifact.filename.slice(dot + 1).toUpperCase() : ''
+  const ordinaryFile = artifact.category === 'file'
   const metadata = `${artifact.filename} · ${tr('chat.artifacts.bytes', { count: artifact.sizeBytes })} · ${new Date(artifact.publishedAt).toLocaleString()}`
   return (
     <article
@@ -114,7 +116,8 @@ export function ArtifactCard({
             </div>
             {transcript && (
               <div className="text-caption text-ink3">
-                {tr('chat.artifacts.document')} · {format}
+                {tr(ordinaryFile ? 'chat.artifacts.fileLabel' : 'chat.artifacts.document')}
+                {format && ` · ${format}`}
               </div>
             )}
           </div>
@@ -134,7 +137,9 @@ export function ArtifactCard({
           </Button>
         ) : (
           <span className="shrink-0 text-caption text-ink3">
-            {tr('chat.artifacts.artifactLabel')}
+            {ordinaryFile
+              ? format || tr('chat.artifacts.fileLabel')
+              : tr('chat.artifacts.artifactLabel')}
           </span>
         )}
         <Button
@@ -153,7 +158,7 @@ export function ArtifactCard({
           <Icon name="kebab" size={14} />
         </Button>
       </div>
-      {(file?.busy || checking || !present) && (
+      {(file?.busy ? transcript : checking || !present) && (
         <div className="mt-1 text-caption text-ink2" role="status">
           {file?.busy
             ? tr('chat.artifacts.working')

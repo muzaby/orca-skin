@@ -66,6 +66,18 @@ it('artifact actions preserve session and publication IDs on dedicated channels'
   ])
 })
 
+it('artifact catalog and pin state preserve their exact IPC requests', async () => {
+  const api = harness.exposed.get('orca') as OrcaApi
+  harness.invoke.mockClear()
+  const request = { sessionId: 'owner', publicationId: 'selected', pinned: false }
+  await api.artifacts.catalog()
+  await api.artifacts.setPinned(request)
+  expect(harness.invoke.mock.calls).toEqual([
+    [CHANNELS.artifactCatalog, {}],
+    [CHANNELS.artifactSetPinned, request]
+  ])
+})
+
 type ChatApi = {
   backgroundSubagent: (sessionId: string, toolUseId: string) => Promise<void>
   stopSubagent: (sessionId: string, toolUseId: string) => Promise<void>

@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto'
 import { lstat, mkdir, open, realpath, rename, rmdir, stat, unlink } from 'node:fs/promises'
 import type { Stats } from 'node:fs'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import type { ArtifactFileRecord } from '../../infra/db/artifact-queries'
-import { validateArtifactBytes } from './formats'
+import { MAX_OUTPUT_BYTES, validateArtifactBytes } from './formats'
 import {
   assertArtifactFilename,
   assertLocalPath,
@@ -59,15 +59,19 @@ function cancelled(signal?: AbortSignal): void {
 }
 
 // Bounded handle reads detect ordinary replacement/change races. This is not an OS sandbox.
-export async function readStableFile(path: string, signal?: AbortSignal): Promise<Buffer> {
+export async function readStableFile(
+  path: string,
+  signal?: AbortSignal,
+  limit = MAX_ARTIFACT_BYTES
+): Promise<Buffer> {
   cancelled(signal)
   const actual = await realpath(path)
   const handle = await open(actual, 'r')
   try {
     const before = await handle.stat()
     if (!before.isFile()) throw new Error('unsafe-path')
-    if (before.size > MAX_ARTIFACT_BYTES) throw new Error('too-large')
-    const bytes = Buffer.allocUnsafe(Math.min(MAX_ARTIFACT_BYTES + 1, before.size + 1))
+    if (before.size > limit) throw new Error('too-large')
+    const bytes = Buffer.allocUnsafe(Math.min(limit + 1, before.size + 1))
     let length = 0
     while (length < bytes.length) {
       cancelled(signal)
@@ -80,9 +84,9 @@ export async function readStableFile(path: string, signal?: AbortSignal): Promis
       if (!result.bytesRead) break
       length += result.bytesRead
     }
-    if (length > MAX_ARTIFACT_BYTES) throw new Error('too-large')
+    if (length > limit) throw new Error('too-large')
     const after = await handle.stat()
-    if (after.size > MAX_ARTIFACT_BYTES) throw new Error('too-large')
+    if (after.size > limit) throw new Error('too-large')
     const finalPath = await realpath(path)
     const finalStat = await stat(finalPath)
     cancelled(signal)
@@ -137,6 +141,45 @@ export async function readArtifactInput(
 export interface PreparedArtifactFile {
   relativePath: string
   cleanup(): Promise<void>
+}
+
+// Work의 완성본 폴더는 루트 바로 아래 파일만 받는다. 하위 작업 폴더와 링크는
+// 수집하지 않으며, 다른 세션의 파일을 찾는 디렉터리 전체 스캔도 하지 않는다.
+export async function prepareOutputDirectory(cwd: string): Promise<string> {
+  assertLocalPath(cwd)
+  if (!isAbsolute(cwd)) throw new Error('unsafe-path')
+  const directory = resolve('/tmp')
+  await mkdir(directory, { recursive: true })
+  return unredirectedDirectory(directory)
+}
+
+export async function readOutputInput(
+  path: string,
+  directory: string,
+  signal: AbortSignal
+): Promise<{ bytes: Buffer; filename: string; inputSource: string; hash: string } | undefined> {
+  assertLocalPath(path)
+  assertLocalPath(directory)
+  if (!isAbsolute(path) || !isAbsolute(directory)) return undefined
+  const candidate = resolve(directory, path)
+  if (!samePath(dirname(candidate), resolve(directory))) return undefined
+  const filename = basename(candidate)
+  assertArtifactFilename(filename)
+  const root = await unredirectedDirectory(directory)
+  const before = await lstat(candidate)
+  if (!before.isFile() || before.isSymbolicLink()) throw new Error('unsafe-path')
+  const actual = await realpath(candidate)
+  if (!samePath(dirname(actual), root)) throw new Error('unsafe-path')
+  const bytes = await readStableFile(candidate, signal, MAX_OUTPUT_BYTES)
+  if (!samePath(await unredirectedDirectory(directory), root)) throw new Error('file-changed')
+  const after = await lstat(candidate)
+  if (after.isSymbolicLink() || !sameFile(before, after)) throw new Error('file-changed')
+  return {
+    bytes,
+    filename,
+    inputSource: process.platform === 'win32' ? actual.toLowerCase() : actual,
+    hash: createHash('sha256').update(bytes).digest('hex')
+  }
 }
 
 export class ArtifactFiles {

@@ -5,12 +5,13 @@ import type { ArtifactService } from './service'
 import { artifactError } from './validation'
 
 const instructions = `Publish a completed HTML, Markdown, text/code or image deliverable into the current Orca conversation.
-Use this when the requested result is a document the user should open or save.
+Use this when the user requests an artifact or a result intended for publishing or sharing.
+Ordinary generated documents are file outputs and do not require artifact publication.
 Do not publish application internals, configuration, tests, logs or intermediate files
 merely because they were created or edited. A requested standalone HTML example can
 itself be a deliverable; decide from the user's task, not the folder or extension alone.
-Finish writing and checking the file, then call this tool before the final response.
-If several files are final deliverables, publish each. Do not claim publication succeeded
+Finish writing and checking the requested artifact, then call this tool before the final response.
+If several artifacts are requested, publish each. Do not claim publication succeeded
 unless the tool confirms success. This publishes locally in Orca, not to the web.
 The tool stores the published file in Orca's artifacts folder and returns its reference.
 Use the completed file in your working directory or the session's additional directories

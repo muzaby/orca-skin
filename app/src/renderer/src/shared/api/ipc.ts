@@ -1,6 +1,8 @@
 import type { NormalizedPermissionMode } from '../../../../shared/permission-mode'
 import type {
   ArtifactRef,
+  ArtifactCatalogItem,
+  ArtifactSetPinnedRequest,
   ArtifactListRequest,
   ArtifactTargetRequest,
   ArtifactStatusRequest,
@@ -272,6 +274,9 @@ export function getPlatform(): 'darwin' | 'win32' | 'linux' | undefined {
 }
 
 export const artifactApi = {
+  catalog: (): Promise<ArtifactCatalogItem[]> => window.orca.artifacts.catalog(),
+  setPinned: (req: ArtifactSetPinnedRequest): Promise<ArtifactActionResult> =>
+    window.orca.artifacts.setPinned(req),
   list: (req: ArtifactListRequest): Promise<ArtifactRef[]> => window.orca.artifacts.list(req),
   status: (req: ArtifactStatusRequest): Promise<ArtifactStatusItem[]> =>
     window.orca.artifacts.status(req),

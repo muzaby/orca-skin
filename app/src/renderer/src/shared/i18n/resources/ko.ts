@@ -51,6 +51,8 @@ export const ko = {
     imagePlaceholder: '[이미지: {{label}}]'
   },
   nav: {
+    artifacts: '아티팩트',
+    artifactsBreadcrumb: '아티팩트',
     chat: '01 채팅',
     projects: '02 프로젝트',
     projectsBreadcrumb: '프로젝트',
@@ -67,6 +69,22 @@ export const ko = {
     typeToSearch: '검색어를 입력하세요',
     noMatches: '일치하는 메시지가 없습니다',
     noTitle: '제목 없음'
+  },
+  artifactCatalog: {
+    title: '아티팩트',
+    tabs: '아티팩트 목록',
+    all: '전체',
+    pinned: '고정됨',
+    search: '아티팩트 검색',
+    searchPlaceholder: '제목, 파일명 또는 대화 검색…',
+    itemMenu: '{{title}} 메뉴',
+    empty: '아직 아티팩트가 없습니다.',
+    emptyPinned: '고정한 아티팩트가 없습니다.',
+    noMatches: '검색 결과가 없습니다.',
+    loadFailed: '아티팩트 목록을 불러오지 못했습니다.',
+    pinFailed: '고정 상태를 변경하지 못했습니다. 다시 시도해 주세요.',
+    trashFailed: '아티팩트를 삭제하지 못했습니다. 다시 시도해 주세요.',
+    retry: '다시 시도'
   },
   sessions: {
     deleteDialogTitle: '대화 삭제',
@@ -531,6 +549,7 @@ export const ko = {
       save: '다른 이름으로 저장',
       download: '다운로드',
       document: '문서',
+      fileLabel: '파일',
       artifactLabel: '아티팩트',
       saveAll: '모두 저장',
       reveal: '탐색기에서 보기',
@@ -692,6 +711,10 @@ export const ko = {
       askAboutTask: '질문하거나 변경 사항 제안하기',
       addDirectory: '폴더 추가',
       allowedDirectory: '사용자가 추가한 폴더: {{path}}',
+      workingDirectory: '현재 작업 폴더: {{path}}',
+      sourceHeading: '출처',
+      openSourceFile: '{{name}} 파일 위치 열기',
+      sourceOpenFailed: '파일 위치를 열지 못했습니다.',
       directoryBusy: '작업이 끝난 뒤 폴더를 추가할 수 있습니다.',
       directoryPicking: '폴더 선택 중…',
       directoryFailed: '폴더를 추가하지 못했습니다. 다시 시도해 주세요.',
@@ -1014,6 +1037,7 @@ export const ko = {
   },
   sidebar: {
     nav: {
+      artifacts: '아티팩트',
       newChat: '새 대화',
       projects: '프로젝트',
       engine: '엔진 & 모델',
