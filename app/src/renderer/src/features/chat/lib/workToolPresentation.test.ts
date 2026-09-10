@@ -17,6 +17,24 @@ function call(name: string, input: unknown = {}, output?: unknown): ToolCall {
 }
 
 describe('Work tool presentation', () => {
+  it('distinguishes session cron operations from the loop wakeup mechanism', () => {
+    expect(
+      workToolPresentation(call('CronCreate', { cron: '*/5 * * * *', prompt: '확인' }))
+    ).toMatchObject({ icon: 'clock', labelKey: 'chat.workTool.scheduleCreate', target: '확인' })
+    expect(workToolPresentation(call('CronList'))).toMatchObject({
+      labelKey: 'chat.workTool.scheduleList'
+    })
+    expect(workToolPresentation(call('CronDelete', { id: 'cron-1' }))).toMatchObject({
+      labelKey: 'chat.workTool.scheduleDelete',
+      target: 'cron-1'
+    })
+    expect(workToolPresentation(call('ScheduleWakeup', { seconds: 30 }))).toMatchObject({
+      labelKey: 'chat.workTool.loopWait'
+    })
+    expect(workToolPresentation(call('ScheduleWakeup', { stop: true }))).toMatchObject({
+      labelKey: 'chat.workTool.loopStop'
+    })
+  })
   it('uses authoritative task-list observations when the wire receipt reports no error', () => {
     const failed = call('TaskUpdate', { taskId: '404', status: 'completed' }, 'wire receipt')
     failed.result!.structuredOutput = { success: false, taskId: '404', error: 'Task not found' }

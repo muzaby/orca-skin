@@ -1,4 +1,5 @@
 import type { NormalizedEvent } from '../../../shared/ipc'
+import type { SessionSchedule } from '../../../shared/session-schedules'
 import type { ClaudePermissionMode } from '../../../shared/permission-mode'
 import { harnessEnvFingerprint, type ResolvedHarnessSettings } from '../../adapters/harness-config'
 import type { TurnRequest } from '../../adapters/turn'
@@ -21,7 +22,8 @@ const FRAME_DELEGATE_KEYS = [
   'commitSteerFlush',
   'rollbackSteerFlush',
   'captureInterruptReceipt',
-  'onChannelRetired'
+  'onChannelRetired',
+  'onSessionSchedules'
 ] as const
 
 type FrameDelegateKey = (typeof FRAME_DELEGATE_KEYS)[number]
@@ -218,6 +220,13 @@ export class SessionRuntime implements ManagedRuntime {
   // 중 send 가 오면 이벤트 소속을 구분할 수 없으므로 채널을 teardown 하고 respawn 한다(안전 열화).
   private draining = false
   private unframed: ProviderMessageBatch[] = []
+  private schedules: readonly SessionSchedule[] = []
+  private pendingWakeup = false
+  private scheduleSessionId: string | null = null
+
+  get hasSchedules(): boolean {
+    return this.channelAlive && (this.schedules.length > 0 || this.pendingWakeup)
+  }
   // 0143 — CLI 가 지금 턴(사용자 턴이든 자동/알림 턴이든)을 진행 중인가. routeEvent 가 비-terminal
   // 이벤트에서 true, terminal 에서 false 로 굴린다(draining 경로 포함). endListenFrame 밸브 유예와
   // chat-turn 의 "pushTurn 은 유휴 채널에서만" 가드가 읽는다 — mid-turn push 로 auto-turn 의
@@ -259,7 +268,7 @@ export class SessionRuntime implements ManagedRuntime {
   // 0143 — CLI mid-turn 여부(자동/알림 턴 포함). chat-turn 턴-후 루프가 "held flush(pushTurn)는
   // 유휴 채널에서만" 을 판정한다.
   get channelBusy(): boolean {
-    return this.cliBusy
+    return this.cliBusy || this.draining
   }
 
   // 0143 — 프레임 밖 적체(unframed) 존재 여부. 백로그가 있으면 pushTurn 전에 listen 드레인이
@@ -530,6 +539,14 @@ export class SessionRuntime implements ManagedRuntime {
 
   private routeBatch(channelToken: number, batch: ProviderMessageBatch): void {
     if (this.channelTokenValue !== channelToken) return
+    for (const event of batch.events) {
+      if (event.type === 'session.schedules') {
+        this.schedules = event.schedules
+        this.pendingWakeup = event.pendingWakeup === true
+        this.scheduleSessionId = event.sessionId
+        this.delegate.onSessionSchedules?.(event.sessionId, event.schedules, this.pendingWakeup)
+      }
+    }
     const terminal = batch.events.some(isTerminal)
     // CLI 메인 루프 mid-turn 추적(0143) — 어떤 경로(프레임/드레인/unframed)든 터미널 = 유휴 복귀,
     // 비-terminal 은 백그라운드 스코프(child·subagent.task)를 제외하고 진행 중으로 굴린다.
@@ -540,6 +557,13 @@ export class SessionRuntime implements ManagedRuntime {
       if (terminal) {
         this.draining = false
         this.status.markLive()
+        // 응답 취소 뒤 열린 수신 프레임은 이 경계를 기다린다. 취소된 tail은 전달하지 않고
+        // 프레임만 마쳐 post-turn이 다음 예약/held 입력을 다시 판정하게 한다.
+        if (this.frame && this.frame === this.listenFrame) {
+          const waiting = this.frame
+          this.frame = null
+          waiting.end()
+        }
       }
       return
     }
@@ -596,7 +620,7 @@ export class SessionRuntime implements ManagedRuntime {
   endListenFrame(): void {
     const frame = this.frame
     if (frame == null || frame !== this.listenFrame) return
-    if (this.cliBusy) return
+    if (this.cliBusy || this.draining) return
     this.frame = null
     this.listenFrame = null
     frame.end()
@@ -650,6 +674,10 @@ export class SessionRuntime implements ManagedRuntime {
     const token = this.channelTokenValue
     if (token == null) return
     this.channelTokenValue = null
+    this.schedules = []
+    this.pendingWakeup = false
+    if (this.scheduleSessionId) this.delegate.onSessionSchedules?.(this.scheduleSessionId, [])
+    this.scheduleSessionId = null
     this.delegate.onChannelRetired?.(token)
   }
 
@@ -711,7 +739,8 @@ export class SessionRuntime implements ManagedRuntime {
       if (deliveryFrame) {
         if (this.frame === deliveryFrame) {
           this.frame = null
-          this.draining = true
+          // 유휴 수신에는 버릴 응답이 없다. 이때 drain을 세우면 다음 cron 턴을 지운다.
+          this.draining = deliveryFrame !== this.listenFrame || this.cliBusy || this.draining
         }
         // provider 한 메시지에서 delta 뒤 error 가 함께 정규화돼 이미 프레임 큐에 들어왔더라도
         // 취소를 실패로 재표시하지 않는다 — **error 만** 걷어내고 부분 답변·telemetry 는 배달한다.

@@ -129,10 +129,21 @@ export function workToolPresentation(call: ToolCall): WorkToolPresentation {
         assign('checklist', 'chat.workTool.plan')
         break
       case 'CronCreate':
+        assign('clock', 'chat.workTool.scheduleCreate', stringField(input, 'prompt'))
+        break
       case 'CronDelete':
+        assign('clock', 'chat.workTool.scheduleDelete', stringField(input, 'id'))
+        break
       case 'CronList':
+        assign('clock', 'chat.workTool.scheduleList')
+        break
       case 'ScheduleWakeup':
-        assign('clock', 'chat.workTool.schedule', stringField(input, 'reason'))
+        assign(
+          'clock',
+          isRecord(input) && input.stop === true
+            ? 'chat.workTool.loopStop'
+            : 'chat.workTool.loopWait'
+        )
         break
       case 'PushNotification':
       case 'ReadNotifications':

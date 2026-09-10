@@ -10,6 +10,7 @@ interface PostTurnState {
   havePending: boolean
   // 미정착 백그라운드 서브에이전트 존재(BackgroundTaskTracker)
   haveTasks: boolean
+  haveSchedules?: boolean
   // 장수명 채널 생존(SessionRuntime.channelAlive)
   channelAlive: boolean
   // CLI 메인 루프 mid-turn(SessionRuntime.channelBusy — 백그라운드 스코프 이벤트 제외)
@@ -51,5 +52,5 @@ export function decidePostTurnStep(s: PostTurnState): PostTurnStep {
   // 유예는 호출자가 강등(submitted→orphaned)으로 **1라운드에 묶는다** — 강등은 단조이고 이 술어는
   // submitted 만 세므로, 미확정 사유의 listen 은 배치당 최대 1회다(무한 대기 불가).
   if (s.haveUnconfirmed) return 'listen'
-  return s.haveTasks ? 'listen' : 'break'
+  return s.haveTasks || s.haveSchedules || s.channelBusy || s.hasBacklog ? 'listen' : 'break'
 }

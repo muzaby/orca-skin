@@ -6,6 +6,7 @@
 import type { WebContents } from 'electron'
 import type { ArtifactRef } from '../../../shared/artifacts'
 import type { AgentKind } from '../../../shared/agent-kind'
+import type { ReceivedMessageOrigin } from '../../../shared/session-schedules'
 import type { AttachmentView, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
 import { subagentNoticePart } from '../../../shared/ipc'
 import { responseBoundaryPart } from '../../../shared/response-boundary'
@@ -80,14 +81,15 @@ export class HistoryWriter {
     text: string,
     createdAt: number,
     attachmentViews?: AttachmentView[],
-    requirements?: DiffRequirementAnchor[]
+    requirements?: DiffRequirementAnchor[],
+    origin?: ReceivedMessageOrigin
   ): number {
     const id = this.db.appendMessage({ sessionId, role: 'user', content: text, createdAt })
     this.db.appendPart({
       messageId: id,
       type: 'text',
       toolRunId: null,
-      payloadJson: JSON.stringify({ text })
+      payloadJson: JSON.stringify({ text, ...(origin ? { origin } : {}) })
     })
     if (attachmentViews && attachmentViews.length > 0) {
       this.db.appendPart({
@@ -119,6 +121,7 @@ export class HistoryWriter {
     batch: {
       text: string
       createdAt: number
+      origin?: ReceivedMessageOrigin
       attachmentViews?: AttachmentView[]
       requirements?: DiffRequirementAnchor[]
     }
@@ -131,7 +134,8 @@ export class HistoryWriter {
       batch.text,
       batch.createdAt,
       batch.attachmentViews,
-      batch.requirements
+      batch.requirements,
+      batch.origin
     )
     this.db.updateSessionPreview(sessionId, previewOf(batch.text), batch.createdAt)
     this.db.updateSessionProviderKey(sessionId, turn.providerKey, batch.createdAt)

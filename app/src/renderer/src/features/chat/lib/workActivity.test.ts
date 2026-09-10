@@ -26,7 +26,7 @@ describe('Work response projection', () => {
     expect(result.filter((node) => node.kind === 'activity')).toEqual([])
     expect(result.filter((node) => node.kind === 'segment')).toHaveLength(1)
   })
-  it('separates intro, actual tools and notes, then only the closed response final text', () => {
+  it('keeps intermediate text outside separate consecutive tool groups in original order', () => {
     const result = createWorkProjector()([
       message(
         begin('r'),
@@ -43,22 +43,29 @@ describe('Work response projection', () => {
       'segment',
       'activity',
       'segment',
+      'activity',
+      'segment',
       'segment',
       'status'
     ])
-    const activity = result.find((node) => node.kind === 'activity')!
-    if (activity.kind !== 'activity') throw Error('activity expected')
-    expect(activity.toolCount).toBe(2)
-    expect(activity.noteCount).toBe(1)
+    const activities = result.filter((node) => node.kind === 'activity')
+    expect(activities.map((node) => node.toolCount)).toEqual([1, 1])
+    expect(activities.flatMap((node) => node.items.map((item) => item.segment.kind))).toEqual([
+      'tools',
+      'tools'
+    ])
+    expect(result[2]).toMatchObject({ segment: { kind: 'text', text: 'note' } })
     expect(result.at(-1)).toMatchObject({ outcome: 'ended' })
   })
   it.each(['failed', 'aborted', 'unknown'] as const)(
-    'does not promote a %s partial response into a final answer',
+    'keeps partial text visible with its %s response status',
     (outcome) => {
       const result = createWorkProjector()([
         message(begin('r'), tool, text('partial'), end('r', outcome))
       ])!
-      expect(result.filter((node) => node.kind === 'segment')).toHaveLength(0)
+      expect(result.filter((node) => node.kind === 'segment')).toMatchObject([
+        { segment: { kind: 'text', text: 'partial' } }
+      ])
       expect(result.at(-1)).toMatchObject({ outcome })
     }
   )
@@ -91,7 +98,7 @@ describe('Work response projection', () => {
     ])!
     expect(
       result.filter((node) => node.kind === 'segment').map((node) => node.segment.kind)
-    ).toEqual(['ask', 'error'])
+    ).toEqual(['ask', 'error', 'text'])
     expect(result.at(-1)).toMatchObject({ outcome: 'unknown' })
   })
   it('joins late results stored in a separate DB message without reclassifying the closed conclusion', () => {
@@ -114,7 +121,7 @@ describe('Work response projection', () => {
       before.find((node) => node.kind === 'segment')
     )
   })
-  it('keeps reasoning outside activity and never creates a zero-tool zero-note summary', () => {
+  it('keeps reasoning outside activity and never creates a zero-tool summary', () => {
     const result = createWorkProjector()([
       message(
         begin('r'),

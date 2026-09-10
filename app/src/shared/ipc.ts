@@ -8,6 +8,7 @@ import type { ContinuityLang } from './continuity-lang'
 import type { ArtifactRef } from './artifacts'
 import type { AgentKind } from './agent-kind'
 import type { ResponseBoundary, ResponseBoundaryPart } from './response-boundary'
+import type { ReceivedMessageOrigin, SessionSchedule } from './session-schedules'
 
 export type { AgentKind } from './agent-kind'
 export type { ResponseBoundary } from './response-boundary'
@@ -510,6 +511,20 @@ export type NormalizedEvent =
   // 하지 않는다. uuid = 주입 배치 uuid(미보존 시 text 매칭 폴백, 0060 D1).
   | { type: 'input.echo'; sessionId: string; text: string; uuid?: string }
   | {
+      type: 'input.received'
+      sessionId: string
+      text: string
+      uuid?: string
+      origin: ReceivedMessageOrigin
+    }
+  | {
+      type: 'session.schedules'
+      sessionId: string
+      schedules: SessionSchedule[]
+      /** ScheduleWakeup 성공 후 전체 Stop 목록을 받기 전의 확인된 대기. */
+      pendingWakeup?: boolean
+    }
+  | {
       type: 'message.committed'
       sessionId: string
       ids: string[]
@@ -518,6 +533,7 @@ export type NormalizedEvent =
       requirements?: DiffRequirementAnchor[]
       messageId: number
       createdAt: number
+      origin?: ReceivedMessageOrigin
     }
   | { type: 'message.cancelled'; sessionId: string; ids: string[] }
   // 소유권 전이(0151) — pending 버블이 held(취소 가능) ↔ submitted(stdin 주입 완료, 취소 불가)
@@ -1366,7 +1382,7 @@ export type AppMessagePart =
   | { type: 'artifact'; artifact: ArtifactRef; parentToolRunId?: string }
   // parentToolRunId: 서브에이전트(Task) child 의 텍스트/사고면 부모 Task toolRunId. 최상위면 생략.
   // 메인 트랜스크립트는 이 필드가 있는 파트를 제외하고, 우측 패널 child 트랜스크립트만 모은다.
-  | { type: 'text'; text: string; parentToolRunId?: string }
+  | { type: 'text'; text: string; parentToolRunId?: string; origin?: ReceivedMessageOrigin }
   | { type: 'reasoning'; text: string; signature?: string; parentToolRunId?: string }
   | {
       type: 'tool_call'
@@ -1507,6 +1523,8 @@ export interface ChatActivitySnapshot {
   deliveryPendingCount: number
   residualCount: number
   backgroundTaskCount: number
+  sessionSchedules?: SessionSchedule[]
+  pendingSessionWakeup?: boolean
 }
 
 // 프로젝트 (Phase 3+) — 대화 묶음 + 전용 시스템 프롬프트 (instructions).

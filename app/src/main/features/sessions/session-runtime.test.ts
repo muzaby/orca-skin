@@ -192,6 +192,93 @@ function channelLive(): {
 
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
 
+it('tracks session schedules across response frames and clears them with the channel', async () => {
+  const ch = channelLive()
+  const runtime = new SessionRuntime(adapter(ch.liveTurn))
+  const first = collect(runtime.send(req()))
+  await tick()
+  ch.emitBatch([
+    {
+      type: 'session.schedules',
+      sessionId: 's1',
+      schedules: [{ id: 'cron1', schedule: '*/5 * * * *', recurring: true, prompt: 'check' }]
+    },
+    { type: 'telemetry', sessionId: 's1' }
+  ])
+  await first
+  expect(runtime.hasSchedules).toBe(true)
+  const next = collect(runtime.listen(req()))
+  await tick()
+  ch.emit({ type: 'input.received', sessionId: 's1', text: 'check', origin: { kind: 'scheduled' } })
+  ch.emit({ type: 'message.completed', sessionId: 's1', message: { text: 'done' } })
+  ch.emit({ type: 'telemetry', sessionId: 's1' })
+  expect((await next).map((event) => event.type)).toEqual([
+    'input.received',
+    'message.completed',
+    'telemetry'
+  ])
+  expect(ch.pushed).toEqual([])
+  expect(runtime.hasSchedules).toBe(true)
+  runtime.teardownChannel()
+  expect(runtime.hasSchedules).toBe(false)
+})
+
+it('orders schedule replacement and retirement before a delayed frame consumer can revive them', async () => {
+  const ch = channelLive()
+  const snapshots: string[][] = []
+  const runtime = new SessionRuntime(adapter(ch.liveTurn))
+  const first = collect(
+    runtime.send({
+      ...req(),
+      onSessionSchedules: (_sessionId, schedules) =>
+        snapshots.push(schedules.map((item) => item.id))
+    })
+  )
+  await tick()
+  ch.emitBatch([
+    {
+      type: 'session.schedules',
+      sessionId: 's1',
+      schedules: [{ id: 'c', schedule: '* * * * *', recurring: true, prompt: 'check' }]
+    },
+    { type: 'telemetry', sessionId: 's1' }
+  ])
+  ch.liveTurn.close()
+  await first
+  await tick()
+  expect(snapshots).toEqual([['c'], []])
+  expect(runtime.hasSchedules).toBe(false)
+  runtime.close()
+})
+
+it('keeps a confirmed wakeup alive before the first full schedule snapshot', async () => {
+  const ch = channelLive()
+  const runtime = new SessionRuntime(adapter(ch.liveTurn))
+  const changes = vi.fn()
+  try {
+    const first = collect(runtime.send({ ...req(), onSessionSchedules: changes }))
+    await tick()
+    ch.emitBatch([
+      { type: 'session.schedules', sessionId: 's1', schedules: [], pendingWakeup: true },
+      { type: 'telemetry', sessionId: 's1' }
+    ])
+    await first
+    expect(runtime.hasSchedules).toBe(true)
+    expect(changes).toHaveBeenLastCalledWith('s1', [], true)
+    const next = collect(runtime.listen({ ...req(), onSessionSchedules: changes }))
+    await tick()
+    ch.emitBatch([
+      { type: 'session.schedules', sessionId: 's1', schedules: [], pendingWakeup: false },
+      { type: 'telemetry', sessionId: 's1' }
+    ])
+    await next
+    expect(runtime.hasSchedules).toBe(false)
+    expect(changes).toHaveBeenLastCalledWith('s1', [], false)
+  } finally {
+    runtime.close()
+  }
+})
+
 describe('runtime tool channel context', () => {
   it('isolates concurrent channels and retains the confirmed context through listen', async () => {
     const channels = [channelLive(), channelLive()]
@@ -922,6 +1009,71 @@ describe('SessionRuntime provider 경계 respawn(0118)', () => {
 // CLI 자동 턴(진행·task_notification·완료 알림 턴)을 라이브 배달한다.
 describe('SessionRuntime listen 턴(0136)', () => {
   const listenReq = (): TurnRequest => ({ ...req(), text: '' })
+
+  it('idle listen 취소는 다음 예약 응답을 drain하지 않고 같은 채널에서 수신한다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    try {
+      const first = collect(runtime.send(req()))
+      ch.emit({ type: 'telemetry', sessionId: 's1' })
+      await first
+      const waiting = collect(runtime.listen(listenReq()))
+      await tick()
+      runtime.markAborted('user_cancelled')
+      await waiting
+      ch.emit({
+        type: 'input.received',
+        sessionId: 's1',
+        text: 'next cron',
+        origin: { kind: 'scheduled' }
+      })
+      ch.emit({ type: 'telemetry', sessionId: 's1' })
+      await tick()
+      expect(runtime.hasUnframedBacklog).toBe(true)
+      expect((await collect(runtime.listen(listenReq()))).map((event) => event.type)).toEqual([
+        'input.received',
+        'telemetry'
+      ])
+      expect(ch.close).not.toHaveBeenCalled()
+    } finally {
+      runtime.close()
+    }
+  })
+
+  it('응답 취소 tail의 terminal은 새 수신 프레임을 해제하고 다음 예약은 보존한다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    try {
+      const first = collect(runtime.send(req()))
+      ch.emit({ type: 'message.delta', sessionId: 's1', delta: { text: 'before stop' } })
+      await tick()
+      runtime.markAborted('user_cancelled')
+      await first
+      let drainEnded = false
+      const resumed = collect(runtime.listen(listenReq())).then((events) => {
+        drainEnded = true
+        return events
+      })
+      await tick()
+      ch.emit({ type: 'message.delta', sessionId: 's1', delta: { text: 'cancelled tail' } })
+      ch.emit({ type: 'telemetry', sessionId: 's1' })
+      await tick()
+      expect(drainEnded).toBe(true)
+      expect(await resumed).toEqual([])
+      const next = collect(runtime.listen(listenReq()))
+      ch.emit({
+        type: 'input.received',
+        sessionId: 's1',
+        text: 'next cron',
+        origin: { kind: 'scheduled' }
+      })
+      ch.emit({ type: 'telemetry', sessionId: 's1' })
+      expect((await next).map((event) => event.type)).toEqual(['input.received', 'telemetry'])
+      expect(ch.close).not.toHaveBeenCalled()
+    } finally {
+      runtime.close()
+    }
+  })
 
   it('채널 생존 중 listen 은 push 없이 프레임을 열어 이벤트를 소비한다', async () => {
     const ch = channelLive()

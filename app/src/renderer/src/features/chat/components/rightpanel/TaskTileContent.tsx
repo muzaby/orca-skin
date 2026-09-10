@@ -5,6 +5,7 @@ import { TaskContextContent } from './TaskContextContent'
 import { useTaskBoard } from '../../hooks/useTaskBoard'
 import { WorkTaskProgress } from './WorkTaskProgress'
 import { TaskPanelContent } from './TaskPanelContent'
+import { TaskScheduleContent } from './TaskScheduleContent'
 
 export { TaskProgressList } from './TaskProgressList'
 
@@ -21,6 +22,7 @@ export function TaskTileContent(): React.JSX.Element {
   const items = useTaskBoard()
   return (
     <TaskPanelContent items={items} mode="work">
+      <TaskScheduleContent />
       <TileSection titleKey="chat.taskTile.sections.progress">
         <WorkTaskProgress items={items} />
       </TileSection>

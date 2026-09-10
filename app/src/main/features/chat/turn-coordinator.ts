@@ -324,6 +324,9 @@ export class TurnCoordinator<W = unknown> {
                 : coerced
             eventsReceived += 1
             idle.reset()
+            // 예약 상태는 채널 pump가 수신/종료 순서대로 activity에 전달한다. 지연된
+            // 프레임의 원시 이벤트를 다시 relay하면 채널 종료 뒤 옛 예약이 되살아난다.
+            if (ev.type === 'session.schedules') continue
             // input.echo — main 내부 steer 커밋 신호(renderer 미전달·미영속). 소비 표시만 하고
             // 다음 이벤트로 넘어간다. echo 는 drain 배치 동안 연속으로 오므로(명세 §6.2), 실제
             // flush 는 배치가 끝난 첫 비-echo 이벤트에서 일괄 수행된다(0059 요구 4 단일 버블 유지).
@@ -332,6 +335,31 @@ export class TurnCoordinator<W = unknown> {
               // 잡힌다 — echo↔어시스턴트 스트림 순서 실측(0068 AC7)을 위해 여기서 직접 남긴다.
               wireLog('input.echo', { uuid: ev.uuid, text: ev.text.slice(0, 80) })
               this.markSteerConsumed(turn, ev)
+              continue
+            }
+            // 공급자가 받은 예약/채널 프롬프트는 앱의 전송 큐와 별개다. 응답 앞에 같은
+            // user 커밋 경로로 기록하고, origin을 원문과 함께 보존한다.
+            if (ev.type === 'input.received') {
+              if (!turn.dbSessionId || ev.sessionId !== turn.dbSessionId) continue
+              this.commitConsumed(turn, closeBeforeUser)
+              closeBeforeUser()
+              const createdAt = Date.now()
+              const messageId = persist.commitUserMessage?.(turn, {
+                text: ev.text,
+                createdAt,
+                origin: ev.origin
+              })
+              if (messageId != null) {
+                forward.forward(turn.owner, {
+                  type: 'message.committed',
+                  sessionId: ev.sessionId,
+                  ids: [],
+                  text: ev.text,
+                  messageId,
+                  createdAt,
+                  origin: ev.origin
+                })
+              }
               continue
             }
             // 턴-시작 배치 소비 판정(0069) — 첫 모델 출력 관측 시 프렐류드+프롬프트를 일괄

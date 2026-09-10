@@ -89,6 +89,18 @@ type ProviderEventMapper = { provider: ProviderId; map(raw: unknown): Normalized
 - **완료 통지(0143)**: 영수증 관측 태스크의 settled 는 coordinator 가 `background:true` 로 enrich — history writer 가 `subagent_notice` 파트(status/durationMs/summary, toolRunId 멱등)로 영속하고 renderer 가 동형 커밋해 transcript 에 "백그라운드 작업 완료 · Agent "…" · 소요시간" 블록을 라이브·재로드 동일하게 렌더한다(사용자 직접 stop 은 통지 미표시). 세션 로드 시 settled 미도착 영수증은 aborted 로 강제(재시작 = in-process 태스크 소멸).
 - **비범위**: `SDKBackgroundTasksChangedMessage`(레벨 신호)·`remote_launched`(CCR).
 
+### 세션 예약 수신
+
+Claude 어댑터는 장수명 입력·출력 스트림과 SDK 훅을 함께 소비한다. Stop의 `session_crons`는 `{id, schedule, recurring, prompt}[]`를 검증해 `session.schedules`로 전달한다. 확인된 CronCreate·CronDelete 성공 영수증도 즉시 반영하며, 다음 Stop의 전체 스냅샷으로 동기화한다. ScheduleWakeup 성공 응답은 ID를 제공하지 않으므로 목록을 만들지 않고 `pendingWakeup`으로 대기를 유지하며, 전체 스냅샷을 받으면 이 임시 표식을 해제한다. 필드 부재와 빈 목록을 구분하며, 채널 종료에는 살아 있는 예약 상태를 비운다. `SessionRuntime`은 예약이 남아 있으면 후속 listen 프레임을 유지하고 사용자 입력은 기존 전송 큐로 이어받는다.
+
+응답의 취소 신호는 세션 lease와 분리한다. 예약이 있는 세션에서 중지하면 현재 응답만 중단하고, 취소 잔여 출력을 비운 뒤 같은 채널에서 새 listen 프레임으로 다음 예약을 받는다. 세션 전체 중단·창 소유자 종료는 lease도 취소하므로 수신을 재개하지 않는다. 예약 스냅샷은 프레임 소비보다 앞선 채널 pump에서 갱신해 늦은 프레임이 종료된 예약을 복원하지 못하게 한다.
+
+목록은 마지막 확인 상태다. 사용자 중단에는 Stop 훅이 실행되지 않으므로 일회성 예약이 발화한 직후 응답을 중단하면 다음 정상 Stop 또는 채널 종료까지 이전 항목이 남을 수 있다. 공개 수신 필드에는 발화한 예약 ID가 없어 원문으로 ID를 추측하거나 예약 전체를 삭제하지 않는다.
+
+공급자 origin이 실린 수신 메시지는 `input.received`로 정규화한다. 일반 cron 프롬프트가 SDK 메시지에 생략되는 경로는 `UserPromptSubmit` 훅으로 보완하며 앱이 전송한 입력과 SDK echo를 중복 기록하지 않는다. 출처가 확정되지 않은 입력은 자동 수신으로 표시한다. 코디네이터는 응답보다 먼저 기존 user 커밋 경로로 원문과 origin을 함께 기록한다. 타입 정본은 `app/src/shared/session-schedules.ts`, 와이어 의미는 [IPC 계약](../../IPC_CONTRACT.md)에 있다.
+
+이 연결은 실행 중인 Orca의 세션 예약용이다. Claude Desktop 예약은 별도 세션 생성 경로이고 Routines는 별도 클라우드 서비스다. 현재 공개 Routines 실행 API의 토큰은 결과 읽기 권한을 제공하지 않으므로 해당 서비스의 결과 폴링을 구현하지 않는다. 근거: [Stop 훅](https://code.claude.com/docs/en/hooks#stop-input), [예약 실행](https://code.claude.com/docs/en/scheduled-tasks), [Routines 실행 API](https://platform.claude.com/docs/en/api/claude-code/routines-fire).
+
 ## 3. 권한 정규화 파이프라인
 
 #### permission.requested 는 1급 이벤트 (`origin`)

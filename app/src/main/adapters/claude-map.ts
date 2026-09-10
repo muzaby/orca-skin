@@ -15,11 +15,41 @@ import type {
   TelemetryModelUsage
 } from '../../shared/ipc'
 import { isRecord } from '../../shared/obj'
+import type { ReceivedMessageOrigin, SessionSchedule } from '../../shared/session-schedules'
 import { isAsyncLaunchedPayload } from '../../shared/subagent'
 import { isTaskToolName } from '../../shared/task-tool'
 import { pickPrimaryModel } from '../../shared/usage/primary-model'
 import { makeClassifiedError } from '../infra/errors'
 import { errorEvent } from './error-classifier'
+import { applyClaudeScheduleReceipt, type ClaudeScheduleCall } from './claude-schedules'
+
+type ClaudePendingScheduleCall = ClaudeScheduleCall | { name: 'ScheduleWakeup'; input: unknown }
+
+// 기계 수신은 SDK가 부여한 origin만 따른다. 원문의 태그나 isSynthetic은 출처 증거가 아니다.
+function receivedOrigin(message: unknown): ReceivedMessageOrigin | undefined {
+  if (!isRecord(message)) return undefined
+  if (!isRecord(message.origin))
+    return message.isSynthetic === true ? { kind: 'automatic' } : undefined
+  const origin = message.origin
+  if (origin.kind === 'task-notification') {
+    return { kind: origin.subkind === 'scheduled-trigger' ? 'scheduled' : 'task' }
+  }
+  if (
+    origin.kind === 'channel' &&
+    typeof origin.server === 'string' &&
+    origin.server.trim() !== ''
+  ) {
+    return { kind: 'channel', label: origin.server }
+  }
+  if (origin.kind === 'peer' && typeof origin.from === 'string' && origin.from.trim() !== '') {
+    return {
+      kind: 'peer',
+      label:
+        typeof origin.name === 'string' && origin.name.trim() !== '' ? origin.name : origin.from
+    }
+  }
+  return undefined
+}
 
 // 매퍼 컨텍스트 — sessionId 는 턴 동안 system/init(=session.updated)에서 갱신된다
 // (resume 면 초기값이 그 id). cwd 는 session.updated.patch 에 실린다. 코어 중립(0016)으로
@@ -27,6 +57,12 @@ import { errorEvent } from './error-classifier'
 export interface MapContext {
   sessionId: string
   cwd: string
+  // 장수명 채널 안의 기계 입력 재전송 방지. 텍스트는 반복 예약의 정상 입력일 수 있어 키로 쓰지 않는다.
+  receivedInputUuids?: Set<string>
+  sessionSchedules?: SessionSchedule[]
+  // ScheduleWakeup 영수증에는 ID가 없다. Stop의 정본 목록을 받기 전에는 대기 여부만 보존한다.
+  pendingWakeup?: boolean
+  pendingScheduleCalls?: Map<string, ClaudePendingScheduleCall>
   // 마지막 assistant 메시지의 usage 스냅샷 — /context 상단 % 근사용. 턴 누적이 아니라 그 턴
   // *마지막* 요청에서 모델이 본 입력 컨텍스트다. 멀티스텝(도구 N회) 턴에서 result.usage 는
   // 단계별 입력이 합산돼 과대 집계되므로, result telemetry 의 컨텍스트 입력 3종을 이 값으로 덮는다.
@@ -165,6 +201,37 @@ function hasSingleToolResult(content: unknown[]): boolean {
     if (isRecord(part) && part.type === 'tool_result') toolResults += 1
   }
   return toolResults === 1
+}
+
+function applyPendingScheduleReceipt(
+  ctx: MapContext,
+  call: ClaudePendingScheduleCall,
+  output: unknown
+): NormalizedEvent | undefined {
+  if (call.name === 'ScheduleWakeup') {
+    if (!isRecord(output)) return undefined
+    if (isRecord(call.input) && call.input.stop === true) {
+      if (output.stopped !== true || output.scheduledFor !== 0) return undefined
+      ctx.pendingWakeup = false
+    } else if (
+      output.stopped !== true &&
+      typeof output.scheduledFor === 'number' &&
+      Number.isFinite(output.scheduledFor) &&
+      output.scheduledFor > 0
+    ) {
+      ctx.pendingWakeup = true
+    } else return undefined
+  } else {
+    const schedules = applyClaudeScheduleReceipt(ctx.sessionSchedules ?? [], call, output)
+    if (schedules === undefined) return undefined
+    ctx.sessionSchedules = schedules
+  }
+  return {
+    type: 'session.schedules',
+    sessionId: ctx.sessionId,
+    schedules: ctx.sessionSchedules ?? [],
+    pendingWakeup: ctx.pendingWakeup ?? false
+  }
 }
 
 // SDK user 메시지의 구조화 도구 출력(tool_use_result)이 백그라운드 런치 영수증(async_launched)
@@ -444,6 +511,15 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
             if (!ctx.taskToolRunIds) ctx.taskToolRunIds = new Set()
             ctx.taskToolRunIds.add(toolRunId)
           }
+          if (
+            parentToolRunId === undefined &&
+            (toolName === 'CronCreate' ||
+              toolName === 'CronDelete' ||
+              toolName === 'ScheduleWakeup')
+          ) {
+            ctx.pendingScheduleCalls ??= new Map()
+            ctx.pendingScheduleCalls.set(toolRunId, { name: toolName, input: p.input })
+          }
           events.push({
             type: 'tool.call.started',
             sessionId: ctx.sessionId,
@@ -458,7 +534,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     return events
   }
 
-  // SDKUserMessage / SDKUserMessageReplay → tool.call.completed | input.echo
+  // SDKUserMessage / SDKUserMessageReplay → tool.call.completed | input.echo | input.received
   if (msg.type === 'user') {
     const rawContent = (msg as unknown as { message?: { content?: unknown } }).message?.content
     const content = Array.isArray(rawContent) ? rawContent : []
@@ -483,10 +559,12 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         if (!toolRunId) continue
         // 부모 Task tool_result 면 누산한 서브에이전트 메타(모델·시간·도구수)를 실어 영속.
         const meta = ctx.subagentMeta?.get(toolRunId)
+        const scheduleCall = ctx.pendingScheduleCalls?.get(toolRunId)
         // TaskXXX 도구면 SDK 구조화 출력을 동행시킨다(0204 §10 EP-01). tool_use_result 는
         // 메시지당 1개라 tool_result 블록이 정확히 1개일 때만 귀속이 명확하다(영수증과 동일 규칙).
         const structuredOutput =
-          singleToolResult && ctx.taskToolRunIds?.has(toolRunId) === true
+          singleToolResult &&
+          (ctx.taskToolRunIds?.has(toolRunId) === true || scheduleCall !== undefined)
             ? (msg as { tool_use_result?: unknown }).tool_use_result
             : undefined
         events.push({
@@ -499,6 +577,13 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
           ...(meta && Object.keys(meta).length > 0 ? { subagentMeta: meta } : {}),
           ...(structuredOutput !== undefined ? { structuredOutput } : {})
         })
+        if (scheduleCall) {
+          ctx.pendingScheduleCalls?.delete(toolRunId)
+          if (singleToolResult && p.is_error !== true && parentToolRunId === undefined) {
+            const scheduleEvent = applyPendingScheduleReceipt(ctx, scheduleCall, structuredOutput)
+            if (scheduleEvent) events.push(scheduleEvent)
+          }
+        }
       }
     }
     // 텍스트-only user echo → input.echo (main 내부 steer 커밋 신호, 0060 D1). CLI 가 stdin 주입
@@ -521,12 +606,22 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
               .join('\n')
       if (text.trim() !== '') {
         const uuid = (msg as unknown as { uuid?: unknown }).uuid
-        events.push({
-          type: 'input.echo',
+        const common = {
           sessionId: ctx.sessionId,
           text,
           ...(typeof uuid === 'string' ? { uuid } : {})
-        })
+        }
+        const origin = receivedOrigin(msg)
+        if (origin && typeof uuid === 'string' && uuid !== '') {
+          const seen = (ctx.receivedInputUuids ??= new Set())
+          if (seen.has(uuid)) return events
+          seen.add(uuid)
+          // 오래 열린 세션에서도 공급자 UUID 기억이 무한히 늘어나지 않게 한다.
+          if (seen.size > 2048) seen.delete(seen.values().next().value!)
+        }
+        events.push(
+          origin ? { type: 'input.received', ...common, origin } : { type: 'input.echo', ...common }
+        )
       }
     }
     return events

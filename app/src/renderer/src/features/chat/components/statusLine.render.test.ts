@@ -63,6 +63,28 @@ function shapeOf(markup: string): [string, Record<string, string>][] {
 }
 
 describe('StatusLine — 스피너가 원본 아트워크다', () => {
+  it('describes the actual scheduled wait without a zero-task or slow-finishing label', () => {
+    const html = renderToStaticMarkup(
+      createElement(StatusLine, {
+        turnStartedAt: Date.now() - 60_000,
+        activity: {
+          foreground: 'idle',
+          queuedCount: 0,
+          deliveryPendingCount: 0,
+          residualCount: 0,
+          backgroundTaskCount: 0,
+          listening: true,
+          sessionSchedules: [
+            { id: 'cron', schedule: '*/5 * * * *', recurring: true, prompt: 'check' }
+          ]
+        }
+      })
+    )
+    expect(html).toContain('예약 대기 1개')
+    expect(html).toContain('다음 예약을 기다리는 중')
+    expect(html).not.toContain('백그라운드 작업 0')
+    expect(html).not.toContain('마무리가 예상보다 오래')
+  })
   it('턴 진행 중 SVG 스피너 하나가 서고 옛 글리프는 없다', () => {
     expect(count(HTML, 'svg')).toBe(1)
     for (const glyph of ['✢', '✳︎', '✶', '✻', '✽']) {

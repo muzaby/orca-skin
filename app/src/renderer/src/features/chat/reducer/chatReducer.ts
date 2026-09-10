@@ -27,6 +27,10 @@ import {
 } from '../../../../../shared/agent-kind'
 import { agentSessionPolicy } from '../../../../../shared/agent-session-policy'
 import { responseBoundaryPart } from '../../../../../shared/response-boundary'
+import type {
+  ReceivedMessageOrigin,
+  SessionSchedule
+} from '../../../../../shared/session-schedules'
 import {
   coercePermissionMode,
   permissionModeForAgent,
@@ -287,6 +291,10 @@ export interface ChatState {
   // CLI 를 의심하게 된다.
   agentTools: string[] | null
   cliVersion: string | null
+  // 공급자에게 아직 목록을 받지 않은 상태는 명시적인 빈 목록과 구분한다. 세션 실행 중만 유효하다.
+  sessionSchedules?: SessionSchedule[]
+  // wakeup 접수는 확인했으나 전체 예약 목록은 아직 받지 못한 상태. 임의 목록 행으로 바꾸지 않는다.
+  pendingSessionWakeup?: boolean
   // 컴포저 참조 경로 칩이 모으는 cwd 밖 추가 경로(CLI `/add-dir` 대응).
   // **세션 출생 전(랜딩)에만 의미가 있다** — 첫 전송에 실려 세션행에 고정된 뒤로는
   // main/DB 가 정본이고 renderer 는 이 값을 다시 읽지 않는다.
@@ -575,6 +583,7 @@ export type ChatAction =
       attachmentViews?: AttachmentView[]
       requirements?: DiffRequirementAnchor[]
       clientId?: string
+      origin?: ReceivedMessageOrigin
     }
   // 낙관 커밋 롤백(0068) — send invoke 자체가 거부됐을 때만(큐 미적재 = echo 도 안 옴).
   | { type: 'DROP_UNCOMMITTED_USER'; clientId: string }
@@ -758,7 +767,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       ) {
         return state
       }
-      const userParts: AppMessagePart[] = [{ type: 'text', text: action.text }]
+      const userParts: AppMessagePart[] = [
+        { type: 'text', text: action.text, ...(action.origin ? { origin: action.origin } : {}) }
+      ]
       if (action.attachmentViews && action.attachmentViews.length > 0) {
         userParts.push({ type: 'attachment', attachments: action.attachmentViews })
       }
@@ -793,6 +804,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'RECV_EVENT': {
       const ev = action.event
       switch (ev.type) {
+        case 'session.schedules':
+          // main 내부 공급자 신호는 순서 정보가 없다. renderer는 revision 있는 activity만 받는다.
+          return state
+
         case 'session.updated':
           // sessionId 발급 시점(claude init) → pendingProjectId 역할 종료(binding 완료). cwd 갱신.
           return {
@@ -1065,6 +1080,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             activityDeliveryPendingCount: ev.deliveryPendingCount,
             activityResidualCount: ev.residualCount,
             activityBackgroundTaskCount: ev.backgroundTaskCount,
+            ...(ev.sessionSchedules !== undefined ? { sessionSchedules: ev.sessionSchedules } : {}),
+            ...(ev.pendingSessionWakeup !== undefined
+              ? { pendingSessionWakeup: ev.pendingSessionWakeup }
+              : {}),
             listening,
             listenStartedAt: listening ? (state.listenStartedAt ?? Date.now()) : null
           }
@@ -1275,6 +1294,16 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         projectId: action.session.projectId ?? null,
         backend: action.session.backend,
         title: action.session.title,
+        ...(!preserveNewerLiveActivity && activity?.sessionSchedules !== undefined
+          ? { sessionSchedules: activity.sessionSchedules }
+          : state.sessionId === action.session.id && state.sessionSchedules !== undefined
+            ? { sessionSchedules: state.sessionSchedules }
+            : {}),
+        ...(!preserveNewerLiveActivity && activity?.pendingSessionWakeup !== undefined
+          ? { pendingSessionWakeup: activity.pendingSessionWakeup }
+          : state.sessionId === action.session.id && state.pendingSessionWakeup !== undefined
+            ? { pendingSessionWakeup: state.pendingSessionWakeup }
+            : {}),
         providerKey: action.session.providerKey ?? null,
         messages,
         ...(preserveNewerLiveActivity

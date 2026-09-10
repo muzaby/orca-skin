@@ -153,6 +153,7 @@ export async function handleChatSend(
   let cleanupDone = false
   let initialBatches: SteerFlushBatch[] = []
   let onOwnerGone: (() => void) | null = null
+  let unlinkResponseAbort = (): void => {}
   const abortPreparing = (): void => lease.controller.abort()
   event.sender.once('destroyed', abortPreparing)
   event.sender.once('render-process-gone', abortPreparing)
@@ -222,7 +223,14 @@ export async function handleChatSend(
       extraDirs: payload.extraDirs,
       buildTurn: (executionCwd, extraDirs, sessionBaseline, sessionBaselineRef) => {
         // ── 6. TurnContext 조립 ───────────────────────────────────────────
-        const controller = lease.controller
+        // 응답 Stop과 세션 수명을 분리한다. 체인 폐기는 응답도 중단하지만,
+        // 응답 하나의 중단이 다음 예약을 받을 체인까지 폐기하지는 않는다.
+        const controller = new AbortController()
+        const abortResponse = (): void => controller.abort()
+        if (lease.controller.signal.aborted) abortResponse()
+        else lease.controller.signal.addEventListener('abort', abortResponse, { once: true })
+        unlinkResponseAbort = () =>
+          lease.controller.signal.removeEventListener('abort', abortResponse)
         return buildTurnContext<WebContents>({
           agentKind,
           controller,
@@ -438,7 +446,7 @@ export async function handleChatSend(
         ...(preludes.length > 0 ? { preludes } : {}),
         cwd: turn.cwd,
         ...(turn.extraDirs.length > 0 ? { extraDirs: turn.extraDirs } : {}),
-        signal: controller.signal,
+        signal: turn.controller.signal,
         extensions,
         ...(resolved.prepared.env ? { env: { ...resolved.prepared.env } } : {}),
         // 조립부가 계산한 값을 spawn 기록부로 나른다(0190) — `env` 는 얕은 복사지만
@@ -458,6 +466,25 @@ export async function handleChatSend(
 
     // ── 12. 실행 + 자동 연속 턴 루프 ────────────────────────────────────────
     try {
+      if (turn.controller.signal.aborted) {
+        // 준비 await 중 Stop은 이미 예약한 submitting 배치를 cancelAllHeld로 회수할 수 없다.
+        // SDK에 넘기기 전이므로 이 배치만 복원한다. 중단 뒤 새로 들어온 held 입력은 남긴다.
+        const cancelledIds: string[] = []
+        for (const batch of initialBatches) {
+          if (!pendingMessages.rollback(queueKey, batch.attemptId ?? batch.uuid)) continue
+          for (const id of batch.ids) {
+            if (pendingMessages.cancel(queueKey, id)) cancelledIds.push(id)
+          }
+        }
+        initialBatches = []
+        if (turn.dbSessionId && cancelledIds.length > 0) {
+          sendChatEvent(wc, {
+            type: 'message.cancelled',
+            sessionId: turn.dbSessionId,
+            ids: cancelledIds
+          })
+        }
+      }
       await runTurnWithContinuations(
         {
           coordinator,
@@ -541,6 +568,7 @@ export async function handleChatSend(
     }
     event.sender.removeListener('destroyed', abortPreparing)
     event.sender.removeListener('render-process-gone', abortPreparing)
+    unlinkResponseAbort()
     if (!cleanupDone) {
       const key = leaderTurn?.dbSessionId ?? leaderTurn?.queueKey ?? provisionalKey
       for (const batch of initialBatches) {
