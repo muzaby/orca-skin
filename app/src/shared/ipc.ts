@@ -607,6 +607,14 @@ export type NormalizedEvent =
       artifact?: ArtifactRef
     }
   | { type: 'artifact.published'; sessionId: string; artifact: ArtifactRef }
+  | {
+      type: 'output.captured'
+      sessionId: string
+      // HistoryWriter replaces this with the owned reference before relay.
+      artifact?: ArtifactRef
+      toolRunId?: string
+      responseId?: string
+    }
   // 서브에이전트(Task) 라이브 메타 — SDK task_started/task_progress/task_notification 정규화.
   // reducer 미경유(메인 transcript 파트 비오염): store 가 toolUseId 키 transient 맵으로 흡수해
   // 우측 패널·AgentTaskRow 의 모델/경과시간/현재도구/도구수 표시를 구동한다.

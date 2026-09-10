@@ -24,7 +24,6 @@ export interface SessionListViewProps {
   sessions: RecentSessions
   // ChatContext, ProjectsContext 는 cross-feature 이므로 app/AppLayout 가 wiring.
   currentSessionId: string | null
-  projectNameById: Map<string, string>
   onSelect: (id: string) => void
   onDelete: (id: string) => void
   onRename: (id: string, title: string) => void
@@ -43,7 +42,6 @@ export const SessionListView = memo(function SessionListView({
   agentAppearance,
   sessions,
   currentSessionId,
-  projectNameById,
   onSelect,
   onDelete,
   onRename,
@@ -67,7 +65,6 @@ export const SessionListView = memo(function SessionListView({
           session={draftAsListItem(d)}
           appearance={agentAppearance(d.agentKind)}
           isActive={d.key === activeDraftKey}
-          projectName={d.projectId ? (projectNameById.get(d.projectId) ?? null) : null}
           onSelect={onSelectDraft}
           {...(d.deletable ? { onDelete: onDeleteDraft } : {})}
           renameable={false}
@@ -79,7 +76,6 @@ export const SessionListView = memo(function SessionListView({
           session={s}
           appearance={agentAppearance(s.agentKind)}
           isActive={s.id === currentSessionId}
-          projectName={s.projectId ? (projectNameById.get(s.projectId) ?? null) : null}
           onSelect={onSelect}
           onDelete={onDelete}
           onRename={onRename}

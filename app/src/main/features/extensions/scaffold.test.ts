@@ -20,7 +20,7 @@ describe('scaffoldProviderSettings', () => {
     expect(r.created).toEqual([join(settingsDir(), 'anthropic', 'settings.json')])
     expect(
       JSON.parse(readFileSync(join(settingsDir(), 'anthropic', 'settings.json'), 'utf8'))
-    ).toEqual({ env: {} })
+    ).toEqual({ skipWebFetchPreflight: true, env: { CLAUDE_CODE_USE_POWERSHELL_TOOL: '1' } })
   })
 
   it('멱등 — 재호출 시 아무것도 만들지 않는다', () => {
@@ -41,14 +41,18 @@ describe('scaffoldProviderSettings — 사용자 settings 시딩 (0090)', () => 
   const read = (provider: string): unknown =>
     JSON.parse(readFileSync(join(settingsDir(), provider, 'settings.json'), 'utf8'))
 
-  it('bedrock env 면 bedrock provider 로 전문을 verbatim 시딩한다', () => {
+  it('bedrock env 면 기존 값을 보존하고 Windows 기본값을 합성한다', () => {
     const user = {
       env: { CLAUDE_CODE_USE_BEDROCK: '1', AWS_REGION: 'ap-northeast-2' },
       permissions: { allow: ['Read'] }
     }
     const r = scaffoldProviderSettings('claude', root, JSON.stringify(user))
     expect(r.created).toEqual([join(settingsDir(), 'bedrock', 'settings.json')])
-    expect(read('bedrock')).toEqual(user)
+    expect(read('bedrock')).toEqual({
+      ...user,
+      skipWebFetchPreflight: true,
+      env: { CLAUDE_CODE_USE_POWERSHELL_TOOL: '1', ...user.env }
+    })
   })
 
   it('vertex env 면 vertex, 게이트웨이(ANTHROPIC_BASE_URL)면 custom 으로 시딩한다', () => {
@@ -70,12 +74,28 @@ describe('scaffoldProviderSettings — 사용자 settings 시딩 (0090)', () => 
   it('판별 신호 없는 env 는 anthropic 으로 전문 시딩한다', () => {
     const user = { env: { ANTHROPIC_API_KEY: 'k' } }
     scaffoldProviderSettings('claude', root, JSON.stringify(user))
-    expect(read('anthropic')).toEqual(user)
+    expect(read('anthropic')).toEqual({
+      ...user,
+      skipWebFetchPreflight: true,
+      env: { CLAUDE_CODE_USE_POWERSHELL_TOOL: '1', ...user.env }
+    })
   })
 
   it('파싱 실패/비객체 원문은 기본 템플릿으로 폴백한다', () => {
     scaffoldProviderSettings('claude', root, '{broken')
-    expect(read('anthropic')).toEqual({ env: {} })
+    expect(read('anthropic')).toEqual({
+      skipWebFetchPreflight: true,
+      env: { CLAUDE_CODE_USE_POWERSHELL_TOOL: '1' }
+    })
+  })
+
+  it('사용자의 명시적 비활성 설정은 seed에서도 보존한다', () => {
+    const user = {
+      skipWebFetchPreflight: false,
+      env: { CLAUDE_CODE_USE_POWERSHELL_TOOL: '0', OTHER: 'preserved' }
+    }
+    scaffoldProviderSettings('claude', root, JSON.stringify(user))
+    expect(read('anthropic')).toEqual(user)
   })
 
   it('기존 provider 가 있으면 사용자 원문이 있어도 미개입 (업데이트 시나리오)', () => {

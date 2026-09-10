@@ -6,7 +6,14 @@ import type {
   ArtifactTrashResult
 } from '../../../shared/artifacts'
 import type { ArtifactFileRecord, ArtifactQueries } from '../../infra/db/artifact-queries'
-import { ArtifactFiles, readArtifactInput, readOutputInput, readStableFile } from './files'
+import {
+  ArtifactFiles,
+  inspectOutputFile,
+  prepareOutputDirectory,
+  readArtifactInput,
+  readOutputInput,
+  readStableFile
+} from './files'
 import { artifactError, artifactInput, classifyFileError } from './validation'
 import {
   artifactPreview,
@@ -103,7 +110,9 @@ export class ArtifactService {
           if (signal.aborted || !context.isCurrent()) throw new Error('cancelled')
         }
         check()
-        const source = await readOutputInput(path, directory, signal)
+        const temporaryRoot = await prepareOutputDirectory(context.cwd)
+        // The injected path must still resolve to the app's OS Temp policy.
+        const source = await readOutputInput(path, temporaryRoot, signal)
         if (!source) return undefined
         check()
         if (this.options.isInputFile?.(context.sessionId, source.inputSource, source.hash))
@@ -129,7 +138,7 @@ export class ArtifactService {
             check()
             if (saved.bytes.equals(source.bytes)) return existing
           } catch {
-            // 사본이 사라지거나 바뀌었으면 확인한 원본으로 새 버전을 만든다.
+            // 원본이 바뀌었으면 이번에 확인한 메타데이터로 새 버전을 만든다.
           }
         }
         check()
@@ -141,34 +150,23 @@ export class ArtifactService {
         }
         const artifactFileId = randomUUID()
         const publicationId = randomUUID()
-        const prepared = await this.files.prepare(
+        check()
+        this.options.queries.createPublication({
+          publicationId,
           artifactFileId,
-          source.filename,
-          source.bytes,
-          signal
-        )
-        let committed = false
-        try {
-          check()
-          this.options.queries.createPublication({
-            publicationId,
-            artifactFileId,
-            sessionId: context.sessionId,
-            relativePath: prepared.relativePath,
-            filename: source.filename,
-            title: source.filename.slice(0, 160),
-            kind,
-            category: 'file',
-            sizeBytes: source.bytes.length,
-            hash: source.hash,
-            inputSource: source.inputSource,
-            publishedAt: this.nextPublicationTime(context.sessionId, source.inputSource, 'file')
-          })
-          committed = true
-          return this.getRef(context.sessionId, publicationId)
-        } finally {
-          if (!committed) await prepared.cleanup().catch(() => undefined)
-        }
+          sessionId: context.sessionId,
+          // A unique registry key only; ordinary reads resolve inputSource in OS Temp.
+          relativePath: `temporary/${artifactFileId}/${source.filename}`,
+          filename: source.filename,
+          title: source.filename.slice(0, 160),
+          kind,
+          category: 'file',
+          sizeBytes: source.bytes.length,
+          hash: source.hash,
+          inputSource: source.inputSource,
+          publishedAt: this.nextPublicationTime(context.sessionId, source.inputSource, 'file')
+        })
+        return this.getRef(context.sessionId, publicationId)
       })
     )
   }
@@ -258,7 +256,7 @@ export class ArtifactService {
     else this.statCount++
     try {
       this.assertOpen()
-      const { info } = await this.files.inspect(file)
+      const { info } = await this.inspect(file)
       return { state: 'present', sizeBytes: info.size, modifiedAt: info.mtimeMs }
     } catch (error) {
       return classifyFileError(error)
@@ -267,6 +265,9 @@ export class ArtifactService {
       if (next) next()
       else this.statCount--
     }
+  }
+  private inspect(file: ArtifactFileRecord): ReturnType<ArtifactFiles['inspect']> {
+    return file.category === 'file' ? inspectOutputFile(file) : this.files.inspect(file)
   }
   status(sessionId: string, publicationIds: string[]): Promise<ArtifactStatusItem[]> {
     return this.track(this.statusBatch(sessionId, publicationIds))
@@ -329,13 +330,13 @@ export class ArtifactService {
     return this.withFile(file.artifactFileId, async () => {
       try {
         this.own(sessionId, publicationId)
-        const before = await this.files.inspect(file)
+        const before = await this.inspect(file)
         const bytes = await readStableFile(
           before.path,
           this.lifetime.signal,
           file.category === 'file' ? MAX_OUTPUT_BYTES : MAX_ARTIFACT_BYTES
         )
-        const after = await this.files.inspect(file)
+        const after = await this.inspect(file)
         if (before.info.ino !== after.info.ino || before.info.dev !== after.info.dev)
           throw new Error('file-changed')
         this.own(sessionId, publicationId)
@@ -351,7 +352,7 @@ export class ArtifactService {
         const file = this.own(sessionId, publicationId)
         return this.withFile(file.artifactFileId, async () => {
           try {
-            const { path } = await this.files.inspect(file)
+            const { path } = await this.inspect(file)
             this.own(sessionId, publicationId)
             return path
           } catch (error) {
@@ -389,8 +390,8 @@ export class ArtifactService {
     return this.withFile(file.artifactFileId, async () => {
       try {
         this.own(sessionId, publicationId)
-        const before = await this.files.inspect(file)
-        const after = await this.files.inspect(file)
+        const before = await this.inspect(file)
+        const after = await this.inspect(file)
         if (
           before.info.ino !== after.info.ino ||
           before.info.dev !== after.info.dev ||

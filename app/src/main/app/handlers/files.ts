@@ -30,6 +30,7 @@ import { isAbsolutePath, isFilesystemRoot } from '../../../shared/absolute-path'
 import { directoryIdentity, parseStoredExtraDirectories } from '../../../shared/extra-directories'
 import { parseAgentKind } from '../../../shared/agent-kind'
 import { agentSessionPolicy } from '../../../shared/agent-session-policy'
+import { unredirectedFile } from '../../infra/config/real-file'
 
 interface FilesHandlerContext extends Pick<RouterContext, 'getCwd'> {
   db: Pick<
@@ -62,13 +63,11 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
       (recorded) => directoryIdentity(recorded) === directoryIdentity(directory)
     )
 
-  const isRecordedAttachmentFile = (sessionId: string, path: string): boolean => {
+  const recordedAttachmentFiles = (sessionId: string): string[] => {
     const session = ctx.db.getSessionById(sessionId)
     if (!session || !agentSessionPolicy[parseAgentKind(session.agent_kind)].allowContextFileOpen)
-      return false
-    return ctx.db
-      .listSessionAttachmentFiles(sessionId)
-      .some((file) => directoryIdentity(file.path) === directoryIdentity(path))
+      return []
+    return ctx.db.listSessionAttachmentFiles(sessionId).map((file) => file.path)
   }
 
   const isInsideAllowedDir = (dir: string): boolean => {
@@ -121,20 +120,33 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
     if (req.mode === 'reveal' && req.sessionId !== undefined) {
       if (!isAbsolutePath(req.path) || isFilesystemRoot(req.path))
         throw new Error('허용되지 않은 경로입니다.')
-      const directories = recordedContextDirectories(req.sessionId).filter((directory) =>
-        isWithinDir(req.path, directory)
-      )
-      const attachment = isRecordedAttachmentFile(req.sessionId, req.path)
-      if (directories.length === 0 && !attachment) throw new Error('허용되지 않은 경로입니다.')
+      const directories = recordedContextDirectories(req.sessionId)
+      const attachments = recordedAttachmentFiles(req.sessionId)
+      if (directories.length === 0 && attachments.length === 0)
+        throw new Error('허용되지 않은 경로입니다.')
       const target = await fs.realpath(req.path)
       const stat = await fs.stat(target).catch(() => null)
       if (!stat?.isFile()) throw new Error('파일만 탐색기에서 열 수 있습니다.')
+      const unredirectedTarget = await unredirectedFile(req.path).catch(() => null)
       const verifiedDirectories = await Promise.all(
         directories.map(async (directory) => {
+          // Only a real spelling alias may bypass lexical membership; an outside
+          // junction pointing into a permitted folder is not an approved path.
+          if (!isWithinDir(req.path, directory) && unredirectedTarget === null) return null
           const actual = await fs.realpath(directory).catch(() => null)
           if (!actual || isFilesystemRoot(actual) || !isWithinDir(target, actual)) return null
           const directoryStat = await fs.stat(actual).catch(() => null)
           return directoryStat?.isDirectory() ? directoryIdentity(directory) : null
+        })
+      )
+      const verifiedAttachments = await Promise.all(
+        attachments.map(async (path) => {
+          const actual = await unredirectedFile(path).catch(() => null)
+          return unredirectedTarget &&
+            actual &&
+            directoryIdentity(actual) === directoryIdentity(target)
+            ? directoryIdentity(path)
+            : null
         })
       )
       // 비동기 파일 검사 뒤에도 같은 세션에 남아 있는 승인 범위만 사용한다.
@@ -143,10 +155,8 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
         !currentDirectories.some((directory) =>
           verifiedDirectories.includes(directoryIdentity(directory))
         ) &&
-        !(
-          attachment &&
-          directoryIdentity(target) === directoryIdentity(req.path) &&
-          isRecordedAttachmentFile(req.sessionId, target)
+        !recordedAttachmentFiles(req.sessionId).some((path) =>
+          verifiedAttachments.includes(directoryIdentity(path))
         )
       )
         throw new Error('허용되지 않은 경로입니다.')

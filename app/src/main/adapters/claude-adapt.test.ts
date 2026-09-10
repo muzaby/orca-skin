@@ -7,6 +7,7 @@ import {
   makeSteerGateHook,
   mergeHooks,
   adaptEnv,
+  adaptExecutionConfig,
   adaptHooks,
   adaptPlugins,
   adaptSettings,
@@ -159,6 +160,64 @@ describe('adaptEnv', () => {
   it('base(시스템/턴 env)가 있으면 options.env 로 그대로 넘긴다', () => {
     expect(adaptEnv({ PATH: '/bin', A: 'a' })).toEqual({ env: { PATH: '/bin', A: 'a' } })
   })
+})
+
+describe('adaptExecutionConfig Windows defaults', () => {
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('기존 설치의 빈 설정에 기본값을 제공하고 subprocess env 상속을 유지한다', () => {
+    vi.stubEnv('CLAUDE_CODE_USE_POWERSHELL_TOOL', undefined)
+    const out = adaptExecutionConfig()
+    expect(JSON.parse(out.settings as string)).toEqual({
+      skipWebFetchPreflight: true,
+      env: { CLAUDE_CODE_USE_POWERSHELL_TOOL: '1' }
+    })
+    expect(out).not.toHaveProperty('env')
+    expect(out.settingSources).toEqual(['project', 'local'])
+  })
+
+  it('provider의 명시 설정이 process fallback과 기본값을 이긴다', () => {
+    vi.stubEnv('CLAUDE_CODE_USE_POWERSHELL_TOOL', '1')
+    const settings = {
+      skipWebFetchPreflight: false,
+      env: { CLAUDE_CODE_USE_POWERSHELL_TOOL: '0', API_KEY: 'fixture' }
+    }
+    expect(JSON.parse(adaptExecutionConfig(settings).settings as string)).toEqual(settings)
+    expect(settings.env).toEqual({ CLAUDE_CODE_USE_POWERSHELL_TOOL: '0', API_KEY: 'fixture' })
+  })
+
+  it('settings-only 경로에서도 명시된 process 값을 보존한다', () => {
+    vi.stubEnv('CLAUDE_CODE_USE_POWERSHELL_TOOL', '0')
+    expect(JSON.parse(adaptExecutionConfig().settings as string).env).toEqual({
+      CLAUDE_CODE_USE_POWERSHELL_TOOL: '0'
+    })
+  })
+
+  it('호출자가 settings와 env를 함께 주어도 기본값이 명시 settings env와 충돌하지 않는다', () => {
+    const out = adaptExecutionConfig(
+      { env: { CLAUDE_CODE_USE_POWERSHELL_TOOL: '0' } },
+      { PATH: '/fixture' }
+    )
+    expect(out.env).toEqual({ PATH: '/fixture' })
+    expect(JSON.parse(out.settings as string).env).toEqual({ CLAUDE_CODE_USE_POWERSHELL_TOOL: '0' })
+  })
+
+  it.each([undefined, '0', '1'])(
+    '조립된 env의 명시값 %s를 유지하고 settings에 되넣지 않는다',
+    (value) => {
+      const env = { PATH: '/fixture', ...(value ? { CLAUDE_CODE_USE_POWERSHELL_TOOL: value } : {}) }
+      const out = adaptExecutionConfig({ model: 'fixture' }, env)
+      expect(out.env).toEqual({ CLAUDE_CODE_USE_POWERSHELL_TOOL: value ?? '1', ...env })
+      expect(JSON.parse(out.settings as string)).toEqual({
+        skipWebFetchPreflight: true,
+        model: 'fixture'
+      })
+      expect(env).toEqual({
+        PATH: '/fixture',
+        ...(value ? { CLAUDE_CODE_USE_POWERSHELL_TOOL: value } : {})
+      })
+    }
+  )
 })
 
 describe('adaptHooks', () => {

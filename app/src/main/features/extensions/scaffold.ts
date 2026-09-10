@@ -6,12 +6,13 @@
 //
 // settings.json 은 어댑터-네이티브 스키마(claude = Claude settings.json)다. 사용자 전역
 // `~/.claude/settings.json` 원문이 주어지면 그 env 로 provider 종류를 판별해 전문을
-// verbatim 시딩하고(handoff 0090), 부재/파싱 실패면 anthropic 빈 템플릿으로 폴백한다.
+// 명시값을 보존하면서 앱 기본값을 합성하고, 부재/파싱 실패면 anthropic 템플릿으로 폴백한다.
 
 import { existsSync, mkdirSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Backend } from '../../../shared/ipc'
 import { isRecord } from '../../../shared/obj'
+import { withClaudeSettingsDefaults } from '../../../shared/claude-settings-defaults'
 import { classifyClaudeEnv } from '../../adapters/claude-settings'
 import { orcaConfigDir } from '../../infra/config/paths'
 import { writeJsonAtomic } from '../../infra/config/json-file'
@@ -21,7 +22,7 @@ const DEFAULT_PROVIDER = 'anthropic'
 // 폴백 settings.json 템플릿. `~/.claude/settings.json` 과 동일 스키마/취급이다
 // (handoff 0028) — env 에 auth key 등을 직접 적어 관리하고(Orca 는 ${VAR} 확장을 하지 않음),
 // 비워두면 SDK 의 기존 인증(OAuth 등)으로 동작한다.
-const SETTINGS_TEMPLATE = { env: {} }
+const SETTINGS_TEMPLATE = withClaudeSettingsDefaults()
 
 function hasProviderDir(settingsDir: string): boolean {
   try {
@@ -43,7 +44,7 @@ function resolveSeed(userSettingsJson?: string | null): Seed {
     try {
       const parsed: unknown = JSON.parse(userSettingsJson)
       if (isRecord(parsed)) {
-        return { provider: classifyClaudeEnv(parsed), settings: parsed }
+        return { provider: classifyClaudeEnv(parsed), settings: withClaudeSettingsDefaults(parsed) }
       }
     } catch {
       // 파싱 실패 — 아래 기본 템플릿으로 폴백

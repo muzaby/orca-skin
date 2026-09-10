@@ -370,6 +370,15 @@ export class ClaudeAdapter implements SessionAdapter {
     // 동기적으로 복사만 하며 hook 안에서 조회나 renderer 응답을 기다리지 않는다.
     let turnEndSignals = 0
     const scheduleSnapshots: SessionSchedule[][] = []
+    const capturedOutputs: Array<{
+      event: Extract<NormalizedEvent, { type: 'output.captured' }>
+      signal: AbortSignal
+      responseScope?: number
+    }> = []
+    // The initial input already owns a response, even if its Stop hook races the
+    // iterator's first assistant message. Later responses reopen on main input/output.
+    let responseScope = 1
+    let responseOpen = true
 
     // Workspace 격리(0075) — 작업 폴더(cwd) 밖 r/w 를 PreToolUse 가드 훅으로 막는다. additionalDirectories
     // 는 옵션과 훅이 **같은 배열**을 공유해 드리프트를 막는다(가이드 §5). 값은 컴포저 참조 경로
@@ -415,14 +424,38 @@ export class ClaudeAdapter implements SessionAdapter {
         // ~/.claude/settings.json 개입 없이 적용된다.
         // options.env(adaptEnv)에는 시스템(턴) env 만 — orca.json 앱 env.
         ...adaptExecutionConfig(req.providerSettings?.settings, env),
+        allowedTools: ['PowerShell'],
+        disallowedTools: ['Bash', 'WebSearch'],
         ...adaptRuntimeTools(extensions.runtimeTools, req.runtimeToolContext),
         // hooks = 중립 정규화 훅 + steer 게이트(PostToolBatch, 메인 루프 한정 flush) 병합 위에
         // 어댑터 내부 PostCompact(압축 요약 수집, manual 만·0064) 를 덧씌운다.
         ...withPostCompactHook(
           mergeHooks(
             adaptHooks(extensions.hooks),
-            makeOutputFilesHook(extensions.outputFiles, req.runtimeToolContext),
-            makeInputReceiptHook((input) => receipts.prompt(input)),
+            makeOutputFilesHook(
+              extensions.outputFiles,
+              req.runtimeToolContext,
+              (artifact, toolRunId, signal, scope) => {
+                capturedOutputs.push({
+                  event: {
+                    type: 'output.captured',
+                    sessionId: ctx.sessionId,
+                    artifact,
+                    ...(toolRunId ? { toolRunId } : {})
+                  },
+                  signal,
+                  responseScope: scope
+                })
+              },
+              () => (responseOpen ? responseScope : undefined)
+            ),
+            makeInputReceiptHook((input) => {
+              if (!responseOpen) {
+                responseOpen = true
+                responseScope++
+              }
+              receipts.prompt(input)
+            }),
             // 턴 종료(Stop) — git 변경 목록 싱크의 유일한 계기다(0211 ΔV6 D-115, §10 EP-46 ①).
             makeTurnEndHook((input) => {
               const schedules = readClaudeSessionSchedules(input)
@@ -468,6 +501,7 @@ export class ClaudeAdapter implements SessionAdapter {
     })
 
     const close = (): void => {
+      capturedOutputs.length = 0
       input.close()
       receipts.close()
     }
@@ -516,6 +550,15 @@ export class ClaudeAdapter implements SessionAdapter {
       let sequence = 0
       try {
         for await (const msg of handle) {
+          const mainMessage = !('parent_tool_use_id' in msg) || msg.parent_tool_use_id == null
+          if (
+            !responseOpen &&
+            mainMessage &&
+            (msg.type === 'assistant' || msg.type === 'stream_event')
+          ) {
+            responseOpen = true
+            responseScope++
+          }
           const events = claudeToNormalized(msg, ctx).flatMap<NormalizedEvent>((event) => {
             if (event.type !== 'input.received' && event.type !== 'input.echo') return [event]
             const reconciled = receipts.reconcile(event)
@@ -527,7 +570,26 @@ export class ClaudeAdapter implements SessionAdapter {
           if (msg.type === 'result') receipts.finishResponse()
           // Stop callback은 이미 출력된 tool_result의 소비보다 먼저 도착할 수 있다.
           // 그 영수증들을 모두 처리한 result 경계에서 정본을 적용하되 telemetry보다 먼저 보낸다.
-          if (msg.type === 'result') events.unshift(...drainSchedules())
+          if (msg.type === 'result') {
+            // Stop captures belong to this result, before telemetry closes its assistant message.
+            // Tool captures carry their original call ID, including late child results.
+            const terminal = events.findIndex((event) => event.type === 'telemetry')
+            events.splice(
+              terminal < 0 ? events.length : terminal,
+              0,
+              ...capturedOutputs
+                .splice(0)
+                .filter(
+                  (capture) =>
+                    !capture.signal.aborted &&
+                    (capture.event.toolRunId !== undefined ||
+                      capture.responseScope === responseScope)
+                )
+                .map((capture) => capture.event)
+            )
+            events.unshift(...drainSchedules())
+            responseOpen = false
+          }
           // hook 은 다음 SDK 메시지(compact_boundary/result)보다 먼저 완료되므로 메시지 뒤
           // 드레인이 [구분선 → 요약] 순서를 만든다.
           events.push(...drainCompactSummaries())

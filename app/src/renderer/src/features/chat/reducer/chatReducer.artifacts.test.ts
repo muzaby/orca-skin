@@ -86,3 +86,105 @@ describe('artifact publication ownership', () => {
     expect(partsArtifacts(loaded.messages[0].parts)).toEqual([artifact])
   })
 })
+
+describe('captured ordinary output ownership', () => {
+  const file = { ...artifact, category: 'file' as const }
+  const captured = (
+    origin: Pick<Extract<NormalizedEvent, { type: 'output.captured' }>, 'toolRunId' | 'responseId'>
+  ): NormalizedEvent => ({ type: 'output.captured', sessionId: 's', artifact: file, ...origin })
+  const withBoundary: ChatState = {
+    ...start,
+    messages: start.messages.map((message, index) =>
+      index === 0
+        ? {
+            ...message,
+            parts: [
+              { type: 'response_boundary', boundary: { phase: 'begin', id: 'response-1' } },
+              ...message.parts
+            ]
+          }
+        : message
+    )
+  }
+
+  it.each([{ toolRunId: 'original' }, { responseId: 'response-1' }])(
+    'attaches late output to the original message from %j and preserves unrelated identities',
+    (origin) => {
+      const next = chatReducer(withBoundary, { type: 'RECV_EVENT', event: captured(origin) })
+      expect(partsArtifacts(next.messages[0].parts)).toEqual([file])
+      expect(next.messages[0]).not.toBe(withBoundary.messages[0])
+      expect(next.messages.slice(1)).toEqual(withBoundary.messages.slice(1))
+      expect(next.messages[1]).toBe(withBoundary.messages[1])
+      expect(next.messages[2]).toBe(withBoundary.messages[2])
+      expect(next.inflight).toBe(withBoundary.inflight)
+    }
+  )
+
+  it.each([
+    {},
+    { toolRunId: 'missing' },
+    { responseId: 'missing' },
+    { toolRunId: 'missing', responseId: 'response-1' }
+  ])('does not guess a tail or substitute response ownership for %j', (origin) => {
+    expect(chatReducer(withBoundary, { type: 'RECV_EVENT', event: captured(origin) })).toBe(
+      withBoundary
+    )
+  })
+
+  it('ignores captures whose artifact was rejected by Main', () => {
+    expect(
+      chatReducer(withBoundary, {
+        type: 'RECV_EVENT',
+        event: { type: 'output.captured', sessionId: 's', toolRunId: 'original' }
+      })
+    ).toBe(withBoundary)
+  })
+
+  it('deduplicates one publication across adjacent assistant messages in the same turn', () => {
+    const sameTurn: ChatState = {
+      ...withBoundary,
+      messages: [
+        withBoundary.messages[0],
+        { role: 'assistant', createdAt: 2, parts: [{ type: 'artifact', artifact: file }] },
+        ...withBoundary.messages.slice(1)
+      ]
+    }
+    expect(
+      chatReducer(sameTurn, { type: 'RECV_EVENT', event: captured({ toolRunId: 'original' }) })
+    ).toBe(sameTurn)
+  })
+
+  it('deduplicates repeated delivery and retains the same file in a later explicit turn after reload', () => {
+    const once = chatReducer(withBoundary, {
+      type: 'RECV_EVENT',
+      event: captured({ toolRunId: 'original' })
+    })
+    expect(
+      chatReducer(once, { type: 'RECV_EVENT', event: captured({ toolRunId: 'original' }) })
+    ).toBe(once)
+    const laterBoundary = chatReducer(once, {
+      type: 'RECV_EVENT',
+      event: {
+        type: 'response.boundary',
+        sessionId: 's',
+        boundary: { phase: 'begin', id: 'response-2' }
+      }
+    })
+    const later = chatReducer(laterBoundary, {
+      type: 'RECV_EVENT',
+      event: captured({ responseId: 'response-2' })
+    })
+    const loaded = chatReducer(initialChatState, {
+      type: 'LOAD_SESSION',
+      session: {
+        agentKind: 'work',
+        id: 's',
+        backend: 'claude',
+        title: 'files',
+        messages: later.messages
+      }
+    })
+    expect(partsArtifacts(loaded.messages[0].parts)).toEqual([file])
+    expect(partsArtifacts(loaded.messages[2].parts)).toEqual([file])
+  })
+})

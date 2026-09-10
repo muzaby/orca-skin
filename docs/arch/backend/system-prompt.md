@@ -45,8 +45,8 @@ Orca version: <app.getVersion()>
 
 # Tools
 Prefer dedicated file tools over shell commands (Read/Edit/Write, not cat/sed/echo);
-reserve Bash for real shell needs. Work only inside the workspace — file tools are
-restricted to it; Bash is not path-restricted, so keep every command scoped yourself.
+reserve PowerShell for shell needs. Work only inside the workspace — file tools are
+restricted to it; PowerShell is not path-restricted, so keep every command scoped yourself.
 
 # User
 Preferred language: <settings.language>
@@ -77,6 +77,13 @@ Project instructions:
 - **실행환경 재주입 안 함**: cwd/platform/date/도구목록은 preset 동적섹션(`excludeDynamicSections:false`)이
   이미 주입 → 헤더는 preset 이 주지 못하는 Orca framing(GUI/markdown 표면)만 얹는다.
 - 근거 코드: `features/extensions/system-header.ts`(+`.test.ts`)·`builder.ts`(조립)·`app/bootstrap.ts`(version/settings 주입).
+
+Claude 대화는 Work/Code 모두 `Bash`·`WebSearch`를 제외하고 `PowerShell`을 자동 허용한다.
+provider 템플릿과 실행 설정은 `CLAUDE_CODE_USE_POWERSHELL_TOOL="1"`과
+`skipWebFetchPreflight=true`를 기본 제공하되 명시 설정과 기존 환경 변수 우선순위를 보존한다.
+기존 provider 파일은 일괄 수정하지 않으며 실행 시 누락값을 보완한다. 단발 completion의 도구는
+비활성으로 유지한다. 기본값 정본은 `app/src/shared/claude-settings-defaults.ts`, 실행 조립은
+`adapters/claude-adapt.ts`다.
 
 ## 2. 정적 정책 append — 미채택
 

@@ -472,7 +472,8 @@ export function subscribeTurnEnd(listener: (sessionId: string) => void): () => v
 }
 
 function receive(ev: NormalizedEvent): void {
-  if (ev.type === 'response.boundary') {
+  if (ev.type === 'response.boundary' || ev.type === 'output.captured') {
+    // 소유권 이벤트는 세션이 일치할 때만 반영하고 새 턴/활성 draft를 만들지 않는다.
     if (getState().sessions[ev.sessionId])
       dispatchTo(ev.sessionId, { type: 'RECV_EVENT', event: ev })
     return

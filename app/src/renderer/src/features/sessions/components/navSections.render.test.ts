@@ -91,7 +91,6 @@ function renderRecent(items: SessionListItem[]): string {
       agentAppearance: resolveAppearance,
       sessions: asRecent(items),
       currentSessionId: null,
-      projectNameById: new Map<string, string>(),
       onSelect: noop,
       onDelete: noop,
       onRename: noop,
@@ -284,7 +283,6 @@ describe('r5 모든 채팅 구획의 모드 아이콘과 완료 색', () => {
             agentAppearance: resolveAppearance,
             sessions: asRecent([]),
             currentSessionId: null,
-            projectNameById: new Map<string, string>(),
             onSelect: noop,
             onDelete: noop,
             onRename: noop,
@@ -390,7 +388,6 @@ describe('어댑터가 파티션의 다른 칸을 넘기면 컴파일되지 않�
     // 지시자가 `TS2578`(불필요)로 뒤집힌다. 그래서 나머지 props 를 먼저 묶어 한 줄로 좁힌다.
     const recentProps = {
       currentSessionId: null,
-      projectNameById: new Map<string, string>(),
       onSelect: noop,
       onDelete: noop,
       onRename: noop,

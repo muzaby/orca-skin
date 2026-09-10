@@ -45,9 +45,9 @@ vi.mock('../../features/chat', () => ({
   useDraftSessionRows: () => [
     {
       key: 'draft-1',
-      title: '분기 초안',
+      title: '분기 / 초안',
       agentKind: 'work',
-      projectId: null,
+      projectId: 'a',
       parentSessionId: 'parent'
     }
   ]
@@ -115,6 +115,35 @@ beforeEach(() => {
 afterEach(() => Object.assign(snapshot, original))
 
 describe('actual sidebar project and recent composition', () => {
+  it('groups every recent row beneath the expanded control and preserves literal title slashes', () => {
+    snapshot.byId['plain-child'] = { ...snapshot.byId['plain-child']!, title: '원문 / 대화' }
+    const $ = render()
+    const group = $('[data-context="recents"]')
+    const toggle = group.children('button')
+    expect(toggle.text()).toBe('최근 대화')
+    expect(toggle.attr('type')).toBe('button')
+    expect(toggle.attr('aria-expanded')).toBe('true')
+    const bodyId = toggle.attr('aria-controls')
+    expect(bodyId).toBeTruthy()
+    const body = group.children('div').filter((_, el) => $(el).attr('id') === bodyId)
+    expect(body).toHaveLength(1)
+    expect(
+      body
+        .find('[data-session-id]')
+        .map((_, el) => $(el).attr('data-session-id'))
+        .get()
+    ).toEqual(['draft-1', 'unassigned', 'plain-child'])
+    expect(group.find('[data-session-id]')).toHaveLength(3)
+    for (const [id, title] of [
+      ['draft-1', '분기 / 초안'],
+      ['plain-child', '원문 / 대화']
+    ]) {
+      const row = body.find(`[data-session-id="${id}"]`)
+      expect(row.attr('title')).toBe(title)
+      expect(row.children('span').last().text()).toBe(title)
+    }
+  })
+
   it('puts pinned projects and chats under one header, followed by projects and recent sessions', () => {
     const $ = render()
     const groups = $('.app-frame-sidebar-scroll')

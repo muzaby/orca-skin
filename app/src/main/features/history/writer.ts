@@ -30,6 +30,11 @@ type ContinuityArrivalHook = (arrival: {
 type ResponseBoundaryPolicy = (kind: AgentKind) => boolean
 
 interface ArtifactLinker {
+  linkOutput?(
+    sessionId: string,
+    publicationId: string,
+    owner: { toolRunId?: string; messageId?: number; responseId?: string }
+  ): ArtifactRef | null
   linkPublication(
     sessionId: string,
     toolRunId: string,
@@ -339,6 +344,26 @@ export class HistoryWriter {
         if (ev.parentToolRunId === undefined) {
           turn.assistantText += ev.message.text
           this.db.updateSessionPreview(turn.dbSessionId, previewOf(ev.message.text), now)
+        }
+        break
+      }
+      case 'output.captured': {
+        const publicationId = ev.artifact?.publicationId
+        delete ev.artifact
+        delete ev.responseId
+        if (!publicationId || !turn.dbSessionId || ev.sessionId !== turn.dbSessionId) break
+        const boundary = turn.responseBoundary
+        const artifact = this.artifacts?.linkOutput?.(turn.dbSessionId, publicationId, {
+          ...(ev.toolRunId
+            ? { toolRunId: ev.toolRunId }
+            : {
+                messageId: boundary?.messageId ?? undefined,
+                responseId: boundary?.id
+              })
+        })
+        if (artifact) {
+          ev.artifact = artifact
+          if (!ev.toolRunId && boundary) ev.responseId = boundary.id
         }
         break
       }

@@ -9,7 +9,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Options } from '@anthropic-ai/claude-agent-sdk'
-import type { ResolvedHarnessSettings } from './harness-config'
+import { prepareHarnessConfig, type ResolvedHarnessSettings } from './harness-config'
 import type { RuntimeToolSnapshot } from './runtime-tools'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
@@ -203,13 +203,21 @@ describe('Claude 공통 실행 옵션', () => {
       const conversation = optionsOfFirstCall()
       for (const options of [completion, conversation]) {
         expect(options.settingSources).toEqual(['project', 'local'])
-        expect(options.env).toEqual(env)
-        expect(options.settings).toBe(
-          settings && Object.keys(settings).length > 0 ? JSON.stringify(settings) : undefined
+        expect(options.env).toEqual(
+          env ? { CLAUDE_CODE_USE_POWERSHELL_TOOL: '1', ...env } : undefined
         )
-        if (!settings || Object.keys(settings).length === 0) {
-          expect(options).not.toHaveProperty('settings')
-        }
+        expect(JSON.parse(options.settings as string)).toEqual({
+          skipWebFetchPreflight: true,
+          ...settings,
+          ...(!env
+            ? {
+                env: {
+                  CLAUDE_CODE_USE_POWERSHELL_TOOL:
+                    process.env.CLAUDE_CODE_USE_POWERSHELL_TOOL ?? '1'
+                }
+              }
+            : {})
+        })
         if (!env) expect(options).not.toHaveProperty('env')
       }
       expect(completion.tools).toEqual([])
@@ -223,6 +231,64 @@ describe('Claude 공통 실행 옵션', () => {
       expect(conversation).not.toHaveProperty('persistSession')
       expect(conversation.hooks?.PreToolUse).toBeDefined()
       expect(conversation.hooks?.Stop).toBeDefined()
+      expect(conversation.allowedTools).toEqual(['PowerShell'])
+      expect(conversation.disallowedTools).toEqual(['Bash', 'WebSearch'])
+    }
+  )
+
+  it.each(['work', 'code'])('%s 대화는 같은 Windows 도구 정책을 사용한다', (kind) => {
+    queryMock.mockClear()
+    new ClaudeAdapter().sendMessage({
+      sessionId: null,
+      text: 'hello',
+      cwd: '/ws/project',
+      extensions: {
+        ...(kind === 'work' ? { agentProfileKey: 'work:fixture' } : {}),
+        skills: [],
+        hooks: { normalized: {} }
+      }
+    })
+    const options = optionsOfFirstCall()
+    expect(options.allowedTools).toEqual(['PowerShell'])
+    expect(options.disallowedTools).toEqual(['Bash', 'WebSearch'])
+  })
+
+  it.each(['process', 'app', 'provider', 'runtime', 'custom'])(
+    '%s의 명시 env를 실제 설정 조립부터 query까지 보존한다',
+    (highest) => {
+      const layers = ['process', 'app', 'provider', 'runtime', 'custom']
+      const values = layers.map((layer, index) => {
+        const env: Record<string, string> = {}
+        if (index <= layers.indexOf(highest)) {
+          env.CLAUDE_CODE_USE_POWERSHELL_TOOL = layer === highest ? '0' : '1'
+        }
+        return env
+      })
+      const settings = { env: values[2], skipWebFetchPreflight: false }
+      const prepared = prepareHarnessConfig({
+        config: {
+          key: 'fixture',
+          harnessId: 'claude',
+          modelProviderId: 'fixture',
+          settings: { providerKey: 'fixture', provider: 'claude', sourceRevision: '1', settings },
+          runtimeEnv: values[3]
+        },
+        baseEnv: () => ({ PATH: '/fixture/bin', ...values[0] }),
+        appEnv: { APP_VALUE: 'fixture', ...values[1] },
+        customEnv: () => values[4]
+      })
+      queryMock.mockClear()
+      new ClaudeAdapter().sendMessage({
+        sessionId: null,
+        text: 'hello',
+        cwd: '/ws/project',
+        ...prepared,
+        extensions: { skills: [], hooks: { normalized: {} } }
+      })
+      const options = optionsOfFirstCall()
+      expect(options.env?.CLAUDE_CODE_USE_POWERSHELL_TOOL).toBe('0')
+      expect(JSON.parse(options.settings as string)).toEqual({ skipWebFetchPreflight: false })
+      expect(settings.env).toBe(values[2])
     }
   )
 })

@@ -164,37 +164,45 @@ describe('Context directory open — actual registration, SQLite and filesystem'
 })
 
 describe('Context file reveal — session scope and actual filesystem paths', () => {
-  it('reveals only the exact attachment file registered in this session outside its folders', async () => {
-    const file = join(root, 'stored-input.md')
-    const other = join(root, 'other-input.md')
-    writeFileSync(file, 'reference')
-    writeFileSync(other, 'unrelated')
-    const messageId = queries.appendMessage({
-      sessionId: 'work',
-      role: 'user',
-      content: 'input',
-      createdAt: 1
-    })
-    queries.appendPart({
-      messageId,
-      type: 'attachment',
-      toolRunId: null,
-      payloadJson: JSON.stringify({
-        attachments: [{ path: realpathSync(file), sha256: 'a'.repeat(64) }]
+  it.each(['lexical', 'canonical'])(
+    'reveals only the exact attachment registered with its %s path outside session folders',
+    async (spelling) => {
+      const file = join(root, 'stored-input.md')
+      const other = join(root, 'other-input.md')
+      writeFileSync(file, 'reference')
+      writeFileSync(other, 'unrelated')
+      const messageId = queries.appendMessage({
+        sessionId: 'work',
+        role: 'user',
+        content: 'input',
+        createdAt: 1
       })
-    })
-    await invoke({ path: file, mode: 'reveal', sessionId: 'work' })
-    expect(host.reveal).toHaveBeenCalledExactlyOnceWith(realpathSync(file))
-    await expect(invoke({ path: other, mode: 'reveal', sessionId: 'work' })).rejects.toThrow(
-      '허용되지 않은'
-    )
-    await expect(invoke({ path: file, mode: 'reveal', sessionId: 'other' })).rejects.toThrow(
-      '허용되지 않은'
-    )
-    await expect(invoke({ path: root, mode: 'directory', sessionId: 'work' })).rejects.toThrow(
-      '허용되지 않은'
-    )
-  })
+      queries.appendPart({
+        messageId,
+        type: 'attachment',
+        toolRunId: null,
+        payloadJson: JSON.stringify({
+          attachments: [
+            {
+              path: spelling === 'canonical' ? await fs.realpath(file) : realpathSync(file),
+              sha256: 'a'.repeat(64)
+            }
+          ]
+        })
+      })
+      await invoke({ path: file, mode: 'reveal', sessionId: 'work' })
+      expect(host.reveal).toHaveBeenCalledExactlyOnceWith(await fs.realpath(file))
+      await expect(invoke({ path: other, mode: 'reveal', sessionId: 'work' })).rejects.toThrow(
+        '허용되지 않은'
+      )
+      await expect(invoke({ path: file, mode: 'reveal', sessionId: 'other' })).rejects.toThrow(
+        '허용되지 않은'
+      )
+      await expect(invoke({ path: root, mode: 'directory', sessionId: 'work' })).rejects.toThrow(
+        '허용되지 않은'
+      )
+    }
+  )
 
   it('does not follow a registered attachment that is later redirected', async () => {
     const originalDirectory = join(root, 'Stored')
@@ -236,7 +244,7 @@ describe('Context file reveal — session scope and actual filesystem paths', ()
     const file = join(directory, 'report.md')
     writeFileSync(file, 'fixture')
     await invoke({ path: file, mode: 'reveal', sessionId: 'work' })
-    expect(host.reveal).toHaveBeenCalledExactlyOnceWith(realpathSync(file))
+    expect(host.reveal).toHaveBeenCalledExactlyOnceWith(await fs.realpath(file))
   })
 
   it.each(['cwd', 'extra'])(
@@ -247,7 +255,7 @@ describe('Context file reveal — session scope and actual filesystem paths', ()
       const file = join(child, 'report.md')
       writeFileSync(file, 'fixture')
       await invoke({ path: file, mode: 'reveal', sessionId: 'work' })
-      expect(host.reveal).toHaveBeenCalledExactlyOnceWith(realpathSync(file))
+      expect(host.reveal).toHaveBeenCalledExactlyOnceWith(await fs.realpath(file))
       expect(host.openPath).not.toHaveBeenCalled()
     }
   )
