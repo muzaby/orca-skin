@@ -1,0 +1,2024 @@
+2026-09-10T14:14:43.6691089Z Current runner version: '2.337.0'
+2026-09-10T14:14:43.6716610Z ##[group]Runner Image Provisioner
+2026-09-10T14:14:43.6717823Z Hosted Compute Agent
+2026-09-10T14:14:43.6718760Z Version: 20260819.586
+2026-09-10T14:14:43.6719866Z Commit: 3cc4a88dfa507ef76119ad1bb3eccc6378bb2b76
+2026-09-10T14:14:43.6721015Z Build Date: 2026-08-18T23:20:18Z
+2026-09-10T14:14:43.6722202Z Worker ID: {97c2d25b-d13b-4a93-afdb-de46e02d9cc1}
+2026-09-10T14:14:43.6723380Z Azure Region: westus2
+2026-09-10T14:14:43.6724269Z ##[endgroup]
+2026-09-10T14:14:43.6725903Z ##[group]Operating System
+2026-09-10T14:14:43.6726662Z Microsoft Windows Server 2025
+2026-09-10T14:14:43.6727230Z 10.0.26100
+2026-09-10T14:14:43.6727706Z Datacenter
+2026-09-10T14:14:43.6728165Z ##[endgroup]
+2026-09-10T14:14:43.6728633Z ##[group]Runner Image
+2026-09-10T14:14:43.6729172Z Image: windows-2025-vs2026
+2026-09-10T14:14:43.6729701Z Version: 20260824.214.3
+2026-09-10T14:14:43.6731157Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20260824.214/images/windows/Windows2025-VS2026-Readme.md
+2026-09-10T14:14:43.6732839Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20260824.214
+2026-09-10T14:14:43.6733786Z ##[endgroup]
+2026-09-10T14:14:43.6735674Z ##[group]GITHUB_TOKEN Permissions
+2026-09-10T14:14:43.6738382Z Contents: read
+2026-09-10T14:14:43.6739174Z Metadata: read
+2026-09-10T14:14:43.6739997Z Packages: read
+2026-09-10T14:14:43.6740727Z ##[endgroup]
+2026-09-10T14:14:43.6743312Z Secret source: Actions
+2026-09-10T14:14:43.6744727Z Cache mode: write
+2026-09-10T14:14:43.6745912Z Prepare workflow directory
+2026-09-10T14:14:43.7185602Z Prepare all required actions
+2026-09-10T14:14:43.7234475Z Getting action download info
+2026-09-10T14:14:44.0578881Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-09-10T14:14:44.1866710Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-09-10T14:14:44.4990809Z Complete job name: gate
+2026-09-10T14:14:44.6494489Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-10T14:14:44.6504428Z ##[group]Run actions/checkout@v4
+2026-09-10T14:14:44.6505131Z with:
+2026-09-10T14:14:44.6505523Z   fetch-depth: 0
+2026-09-10T14:14:44.6505934Z   fetch-tags: true
+2026-09-10T14:14:44.6506356Z   repository: muzaby/orca-skin
+2026-09-10T14:14:44.6510497Z   token: ***
+2026-09-10T14:14:44.6510897Z   ssh-strict: true
+2026-09-10T14:14:44.6511293Z   ssh-user: git
+2026-09-10T14:14:44.6511701Z   persist-credentials: true
+2026-09-10T14:14:44.6512521Z   clean: true
+2026-09-10T14:14:44.6512938Z   sparse-checkout-cone-mode: true
+2026-09-10T14:14:44.6513425Z   show-progress: true
+2026-09-10T14:14:44.6513868Z   lfs: false
+2026-09-10T14:14:44.6514262Z   submodules: false
+2026-09-10T14:14:44.6514688Z   set-safe-directory: true
+2026-09-10T14:14:44.6515175Z   allow-unsafe-pr-checkout: false
+2026-09-10T14:14:44.6515928Z ##[endgroup]
+2026-09-10T14:14:44.8172624Z Syncing repository: muzaby/orca-skin
+2026-09-10T14:14:44.8174304Z ##[group]Getting Git version info
+2026-09-10T14:14:44.8174926Z Working directory is 'D:\a\orca-skin\orca-skin'
+2026-09-10T14:14:44.9203196Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-09-10T14:14:45.3051228Z git version 2.55.0.windows.5
+2026-09-10T14:14:45.3097043Z ##[endgroup]
+2026-09-10T14:14:45.3116172Z Temporarily overriding HOME='D:\a\_temp\ffcc5f1e-5e00-4715-b233-67badaa2037a' before making global git config changes
+2026-09-10T14:14:45.3117468Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-10T14:14:45.3127197Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\orca-skin\orca-skin
+2026-09-10T14:14:45.3697642Z Deleting the contents of 'D:\a\orca-skin\orca-skin'
+2026-09-10T14:14:45.3704337Z ##[group]Initializing the repository
+2026-09-10T14:14:45.3712190Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\orca-skin\orca-skin
+2026-09-10T14:14:45.4554499Z Initialized empty Git repository in D:/a/orca-skin/orca-skin/.git/
+2026-09-10T14:14:45.4597036Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/muzaby/orca-skin
+2026-09-10T14:14:45.5211951Z ##[endgroup]
+2026-09-10T14:14:45.5213485Z ##[group]Disabling automatic garbage collection
+2026-09-10T14:14:45.5219182Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+2026-09-10T14:14:45.5585264Z ##[endgroup]
+2026-09-10T14:14:45.5586354Z ##[group]Setting up auth
+2026-09-10T14:14:45.5597790Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-09-10T14:14:45.5886061Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-09-10T14:14:47.1442660Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-10T14:14:47.1732245Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-09-10T14:14:47.6882441Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-10T14:14:47.7170089Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-09-10T14:14:48.2317949Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+2026-09-10T14:14:48.2621461Z ##[endgroup]
+2026-09-10T14:14:48.2622222Z ##[group]Fetching the repository
+2026-09-10T14:14:48.2633066Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/* +42e7f938b94fe80eda6387fa647626e33348bcb3:refs/remotes/pull/443/merge
+2026-09-10T14:14:52.4295013Z From https://github.com/muzaby/orca-skin
+2026-09-10T14:14:52.4296225Z  * [new branch]        521qzt-codex/add-handoff-implementation  -> origin/521qzt-codex/add-handoff-implementation
+2026-09-10T14:14:52.4298112Z  * [new branch]        93bg3b-codex/implement-handoff-feature   -> origin/93bg3b-codex/implement-handoff-feature
+2026-09-10T14:14:52.4299500Z  * [new branch]        9zq4ju-codex/-199                        -> origin/9zq4ju-codex/-199
+2026-09-10T14:14:52.4300385Z  * [new branch]        claude/0205-cowork-study-and-task-tile-suspend -> origin/claude/0205-cowork-study-and-task-tile-suspend
+2026-09-10T14:14:52.4301418Z  * [new branch]        claude/0211-dv6-git-panel-fidelity       -> origin/claude/0211-dv6-git-panel-fidelity
+2026-09-10T14:14:52.4302328Z  * [new branch]        claude/ci-failure-fix-dquqv7             -> origin/claude/ci-failure-fix-dquqv7
+2026-09-10T14:14:52.4303221Z  * [new branch]        claude/closed-network-custom-env-f3f58u  -> origin/claude/closed-network-custom-env-f3f58u
+2026-09-10T14:14:52.4304074Z  * [new branch]        claude/composer-branch-and-add-dir       -> origin/claude/composer-branch-and-add-dir
+2026-09-10T14:14:52.4304971Z  * [new branch]        claude/composer-git-panel-wiring-ae4dc1  -> origin/claude/composer-git-panel-wiring-ae4dc1
+2026-09-10T14:14:52.4305875Z  * [new branch]        claude/composer-stack-diff-panel-1522ku  -> origin/claude/composer-stack-diff-panel-1522ku
+2026-09-10T14:14:52.4306880Z  * [new branch]        claude/git-uphuk-panel-redesign-xybgmd   -> origin/claude/git-uphuk-panel-redesign-xybgmd
+2026-09-10T14:14:52.4309412Z  * [new branch]        claude/handoff-191-196-simplify-w1dfy3   -> origin/claude/handoff-191-196-simplify-w1dfy3
+2026-09-10T14:14:52.4310341Z  * [new branch]        claude/handoff-208-reimplementation-1aiies -> origin/claude/handoff-208-reimplementation-1aiies
+2026-09-10T14:14:52.4311187Z  * [new branch]        claude/handoff-213-diagnosis-c7zifr      -> origin/claude/handoff-213-diagnosis-c7zifr
+2026-09-10T14:14:52.4312050Z  * [new branch]        claude/handoff-215-model-exposure-pvse6k -> origin/claude/handoff-215-model-exposure-pvse6k
+2026-09-10T14:14:52.4312853Z  * [new branch]        claude/handoff-215-round-increment-2peh1s -> origin/claude/handoff-215-round-increment-2peh1s
+2026-09-10T14:14:52.4313601Z  * [new branch]        claude/handoff-impl-211-qli1fh           -> origin/claude/handoff-impl-211-qli1fh
+2026-09-10T14:14:52.4314578Z  * [new branch]        claude/handoff-impl-211-verify-c09jml    -> origin/claude/handoff-impl-211-verify-c09jml
+2026-09-10T14:14:52.4315373Z  * [new branch]        claude/handoff-impl-plan-review-l26h97   -> origin/claude/handoff-impl-plan-review-l26h97
+2026-09-10T14:14:52.4316134Z  * [new branch]        claude/handoff-impl-sfsnc6               -> origin/claude/handoff-impl-sfsnc6
+2026-09-10T14:14:52.4317092Z  * [new branch]        claude/handoff-review-plan-impl-verify-kuxqhp -> origin/claude/handoff-review-plan-impl-verify-kuxqhp
+2026-09-10T14:14:52.4317889Z  * [new branch]        claude/handoff-veridy-4xif8x             -> origin/claude/handoff-veridy-4xif8x
+2026-09-10T14:14:52.4318538Z  * [new branch]        claude/handoff-veridy-59zzfu             -> origin/claude/handoff-veridy-59zzfu
+2026-09-10T14:14:52.4319186Z  * [new branch]        claude/handoff-veridy-vp1bm1             -> origin/claude/handoff-veridy-vp1bm1
+2026-09-10T14:14:52.4319859Z  * [new branch]        claude/handoff-verify-202-qv2u8e         -> origin/claude/handoff-verify-202-qv2u8e
+2026-09-10T14:14:52.4320563Z  * [new branch]        claude/handoff-verify-211-ds9vkv         -> origin/claude/handoff-verify-211-ds9vkv
+2026-09-10T14:14:52.4322533Z  * [new branch]        claude/handoff-verify-212-s220i8         -> origin/claude/handoff-verify-212-s220i8
+2026-09-10T14:14:52.4323362Z  * [new branch]        claude/handoff-verify-221-222-ni4s3l     -> origin/claude/handoff-verify-221-222-ni4s3l
+2026-09-10T14:14:52.4324216Z  * [new branch]        claude/handoff-verify-224-acxtty         -> origin/claude/handoff-verify-224-acxtty
+2026-09-10T14:14:52.4324896Z  * [new branch]        claude/handoff-verify-429-ard04l         -> origin/claude/handoff-verify-429-ard04l
+2026-09-10T14:14:52.4325575Z  * [new branch]        claude/handoff-verify-624ppi             -> origin/claude/handoff-verify-624ppi
+2026-09-10T14:14:52.4326234Z  * [new branch]        claude/handoff-verify-hkchuu             -> origin/claude/handoff-verify-hkchuu
+2026-09-10T14:14:52.4326971Z  * [new branch]        claude/handoff-verify-s31cet             -> origin/claude/handoff-verify-s31cet
+2026-09-10T14:14:52.4327743Z  * [new branch]        claude/handoff-verify-su6cf3             -> origin/claude/handoff-verify-su6cf3
+2026-09-10T14:14:52.4328391Z  * [new branch]        claude/handoff-verify-tc6t7x             -> origin/claude/handoff-verify-tc6t7x
+2026-09-10T14:14:52.4329038Z  * [new branch]        claude/handoff-verify-yi2xnh             -> origin/claude/handoff-verify-yi2xnh
+2026-09-10T14:14:52.4329635Z  * [new branch]        claude/hello-hcpxul                      -> origin/claude/hello-hcpxul
+2026-09-10T14:14:52.4330210Z  * [new branch]        claude/hello-j4z9hq                      -> origin/claude/hello-j4z9hq
+2026-09-10T14:14:52.4330838Z  * [new branch]        claude/orcinus-orca-naming-xkz33k        -> origin/claude/orcinus-orca-naming-xkz33k
+2026-09-10T14:14:52.4331689Z  * [new branch]        claude/plan-mode-bugs-f25i42             -> origin/claude/plan-mode-bugs-f25i42
+2026-09-10T14:14:52.4332482Z  * [new branch]        claude/plugin-llm-sync-issue-apyf3f      -> origin/claude/plugin-llm-sync-issue-apyf3f
+2026-09-10T14:14:52.4333427Z  * [new branch]        claude/prepare-progress-timeout-58646i   -> origin/claude/prepare-progress-timeout-58646i
+2026-09-10T14:14:52.4335010Z  * [new branch]        claude/simplify-handoff-194-lt4p6h       -> origin/claude/simplify-handoff-194-lt4p6h
+2026-09-10T14:14:52.4335800Z  * [new branch]        claude/task-panel-separation-dw3tt6      -> origin/claude/task-panel-separation-dw3tt6
+2026-09-10T14:14:52.4336519Z  * [new branch]        claude/taskxxx-right-panel-4eqku0        -> origin/claude/taskxxx-right-panel-4eqku0
+2026-09-10T14:14:52.4337462Z  * [new branch]        claude/test-time-budget-runner-spawn-4h7d2n -> origin/claude/test-time-budget-runner-spawn-4h7d2n
+2026-09-10T14:14:52.4338310Z  * [new branch]        claude/transcript-spinner-attachment-27cc38 -> origin/claude/transcript-spinner-attachment-27cc38
+2026-09-10T14:14:52.4338956Z  * [new branch]        codex                                    -> origin/codex
+2026-09-10T14:14:52.4339626Z  * [new branch]        codex-800vn7                             -> origin/codex-800vn7
+2026-09-10T14:14:52.4340153Z  * [new branch]        codex-8vg5hu                             -> origin/codex-8vg5hu
+2026-09-10T14:14:52.4340835Z  * [new branch]        codex-cowork-transcript-viewer           -> origin/codex-cowork-transcript-viewer
+2026-09-10T14:14:52.4341785Z  * [new branch]        codex-dhrykn                             -> origin/codex-dhrykn
+2026-09-10T14:14:52.4342332Z  * [new branch]        codex-opencode                           -> origin/codex-opencode
+2026-09-10T14:14:52.4343090Z  * [new branch]        codex-preload-renderer-structural-simplification -> origin/codex-preload-renderer-structural-simplification
+2026-09-10T14:14:52.4343830Z  * [new branch]        codex-prox21                             -> origin/codex-prox21
+2026-09-10T14:14:52.4344658Z  * [new branch]        handoff/0211-worktree-session-ux         -> origin/handoff/0211-worktree-session-ux
+2026-09-10T14:14:52.4345504Z  * [new branch]        jyfe7b-codex/handoff-impl                -> origin/jyfe7b-codex/handoff-impl
+2026-09-10T14:14:52.4346171Z  * [new branch]        main                                     -> origin/main
+2026-09-10T14:14:52.4346941Z  * [new branch]        njcov8-codex/configure-engine-and-model-page -> origin/njcov8-codex/configure-engine-and-model-page
+2026-09-10T14:14:52.4347685Z  * [new branch]        prfvhw-codex/handoff-verify              -> origin/prfvhw-codex/handoff-verify
+2026-09-10T14:14:52.4348304Z  * [new branch]        qxr9sf-codex/handoff-impl                -> origin/qxr9sf-codex/handoff-impl
+2026-09-10T14:14:52.4349039Z  * [new branch]        r0nrv9-codex/configure-engine-and-model-page -> origin/r0nrv9-codex/configure-engine-and-model-page
+2026-09-10T14:14:52.4349928Z  * [new branch]        revert-424-claude/composer-git-panel-wiring-ae4dc1 -> origin/revert-424-claude/composer-git-panel-wiring-ae4dc1
+2026-09-10T14:14:52.4350777Z  * [new branch]        xn95c3-codex/add-/handoff-impl-endpoint  -> origin/xn95c3-codex/add-/handoff-impl-endpoint
+2026-09-10T14:14:52.4351381Z  * [new tag]           v0.1.0                                   -> v0.1.0
+2026-09-10T14:14:52.4351780Z  * [new tag]           v0.2.0                                   -> v0.2.0
+2026-09-10T14:14:52.4352169Z  * [new tag]           v0.3.0                                   -> v0.3.0
+2026-09-10T14:14:52.4352558Z  * [new tag]           v0.3.1                                   -> v0.3.1
+2026-09-10T14:14:52.4352997Z  * [new ref]           42e7f938b94fe80eda6387fa647626e33348bcb3 -> pull/443/merge
+2026-09-10T14:14:52.4354254Z ##[endgroup]
+2026-09-10T14:14:52.4354887Z ##[group]Determining the checkout info
+2026-09-10T14:14:52.4355676Z ##[endgroup]
+2026-09-10T14:14:52.4356053Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+2026-09-10T14:14:52.4841034Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+2026-09-10T14:14:52.5127846Z ##[group]Checking out the ref
+2026-09-10T14:14:52.5136241Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force refs/remotes/pull/443/merge
+2026-09-10T14:14:53.4111106Z Note: switching to 'refs/remotes/pull/443/merge'.
+2026-09-10T14:14:53.4111441Z
+2026-09-10T14:14:53.4111661Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-09-10T14:14:53.4112324Z changes and commit them, and you can discard any commits you make in this
+2026-09-10T14:14:53.4112944Z state without impacting any branches by switching back to a branch.
+2026-09-10T14:14:53.4113224Z
+2026-09-10T14:14:53.4113530Z If you want to create a new branch to retain commits you create, you may
+2026-09-10T14:14:53.4113969Z do so (now or later) by using -c with the switch command. Example:
+2026-09-10T14:14:53.4114223Z
+2026-09-10T14:14:53.4114354Z   git switch -c <new-branch-name>
+2026-09-10T14:14:53.4114544Z
+2026-09-10T14:14:53.4114634Z Or undo this operation with:
+2026-09-10T14:14:53.4114792Z
+2026-09-10T14:14:53.4114872Z   git switch -
+2026-09-10T14:14:53.4115033Z
+2026-09-10T14:14:53.4115249Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-09-10T14:14:53.4115578Z
+2026-09-10T14:14:53.4115977Z HEAD is now at 42e7f938 Merge 75322377523a38a93621c70c003c734de40c1c2a into c80d146949c7e8bbf758538b3029fd45a93e0dec
+2026-09-10T14:14:53.4289936Z ##[endgroup]
+2026-09-10T14:14:53.4695799Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+2026-09-10T14:14:53.4963911Z 42e7f938b94fe80eda6387fa647626e33348bcb3
+2026-09-10T14:14:53.5474251Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-10T14:14:53.5476218Z ##[group]Run actions/setup-node@v4
+2026-09-10T14:14:53.5476463Z with:
+2026-09-10T14:14:53.5476638Z   node-version: 22
+2026-09-10T14:14:53.5476858Z   cache: npm
+2026-09-10T14:14:53.5477092Z   cache-dependency-path: app/package-lock.json
+2026-09-10T14:14:53.5477376Z   always-auth: false
+2026-09-10T14:14:53.5477574Z   check-latest: false
+2026-09-10T14:14:53.5479840Z   token: ***
+2026-09-10T14:14:53.5480073Z ##[endgroup]
+2026-09-10T14:14:53.7240557Z Found in cache @ C:\hostedtoolcache\windows\node\22.23.2\x64
+2026-09-10T14:14:53.7247916Z (node:6260) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-09-10T14:14:53.7250947Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-09-10T14:14:53.7252310Z ##[group]Environment details
+2026-09-10T14:14:58.9151779Z node: v22.23.2
+2026-09-10T14:14:58.9152031Z npm: 10.9.8
+2026-09-10T14:14:58.9152218Z yarn: 1.22.22
+2026-09-10T14:14:58.9152847Z ##[endgroup]
+2026-09-10T14:14:58.9944531Z [command]C:\Windows\system32\cmd.exe /D /S /C "C:\hostedtoolcache\windows\node\22.23.2\x64\npm.cmd config get cache"
+2026-09-10T14:14:59.5081808Z C:\npm\cache
+2026-09-10T14:14:59.9565618Z Cache hit for: node-cache-Windows-x64-npm-e464d5ebd2bdc3123be7f418fd2d7330eb7ab5b7c3ac160bd12d9eca219eef6d
+2026-09-10T14:14:59.9704234Z (node:6260) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-09-10T14:15:01.2543197Z Received 33554432 of 167663215 (20.0%), 31.9 MBs/sec
+2026-09-10T14:15:02.2555515Z Received 130023424 of 167663215 (77.6%), 61.9 MBs/sec
+2026-09-10T14:15:03.2575103Z Received 130023424 of 167663215 (77.6%), 41.3 MBs/sec
+2026-09-10T14:15:04.2577315Z Received 163468911 of 167663215 (97.5%), 38.9 MBs/sec
+2026-09-10T14:15:05.2677854Z Received 163468911 of 167663215 (97.5%), 31.1 MBs/sec
+2026-09-10T14:15:06.0205127Z Received 167663215 of 167663215 (100.0%), 27.7 MBs/sec
+2026-09-10T14:15:06.0208681Z Cache Size: ~160 MB (167663215 B)
+2026-09-10T14:15:06.0282414Z [command]"C:\Program Files\Git\usr\bin\tar.exe" -xf D:/a/_temp/2ed76f6e-7ca5-42cb-a156-8d0595b983e2/cache.tzst -P -C D:/a/orca-skin/orca-skin --force-local --use-compress-program "zstd -d"
+2026-09-10T14:15:12.5537401Z Cache restored successfully
+2026-09-10T14:15:12.5644110Z Cache restored from key: node-cache-Windows-x64-npm-e464d5ebd2bdc3123be7f418fd2d7330eb7ab5b7c3ac160bd12d9eca219eef6d
+2026-09-10T14:15:13.1698103Z ##[group]Run npm ci
+2026-09-10T14:15:13.1698438Z npm ci
+2026-09-10T14:15:13.6563848Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-09-10T14:15:13.6564259Z ##[endgroup]
+2026-09-10T14:15:21.7066820Z npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+2026-09-10T14:15:21.8868810Z npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+2026-09-10T14:15:21.9773804Z npm warn deprecated rimraf@2.6.3: Rimraf versions prior to v4 are no longer supported
+2026-09-10T14:15:22.2437493Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+2026-09-10T14:15:22.2987996Z npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+2026-09-10T14:15:23.1063151Z npm warn deprecated prebuild-install@7.1.3: No longer maintained. Please contact the author of the relevant native addon; alternatives are available.
+2026-09-10T14:15:23.7699625Z npm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+2026-09-10T14:15:43.5792543Z
+2026-09-10T14:15:43.5793545Z > orcinus-orca@0.3.1 postinstall
+2026-09-10T14:15:43.5794378Z > node scripts/ensure-sqlite-abi.mjs electron
+2026-09-10T14:15:43.5795186Z
+2026-09-10T14:15:44.5275627Z   • electron-builder  version=26.15.3
+2026-09-10T14:15:44.5354575Z   • loaded configuration  file=D:\a\orca-skin\orca-skin\app\electron-builder.yml
+2026-09-10T14:15:44.8433998Z   • executing @electron/rebuild  electronVersion=39.8.10 arch=x64 buildFromSource=false workspaceRoot=D:\a\orca-skin\orca-skin\app projectDir=./ appDir=./
+2026-09-10T14:15:44.8437121Z   • installing native dependencies  arch=x64
+2026-09-10T14:15:45.2966748Z   • preparing       moduleName=better-sqlite3 arch=x64
+2026-09-10T14:15:45.4889939Z   • finished        moduleName=better-sqlite3 arch=x64
+2026-09-10T14:15:45.4891911Z   • completed installing native dependencies
+2026-09-10T14:15:45.5085706Z [sqlite-abi] electron: rebuilt
+2026-09-10T14:15:45.5465483Z
+2026-09-10T14:15:45.5466181Z added 970 packages, and audited 971 packages in 31s
+2026-09-10T14:15:45.5466695Z
+2026-09-10T14:15:45.5467052Z 320 packages are looking for funding
+2026-09-10T14:15:45.5467614Z   run `npm fund` for details
+2026-09-10T14:15:45.5962304Z
+2026-09-10T14:15:45.5962864Z 14 vulnerabilities (4 moderate, 10 high)
+2026-09-10T14:15:45.5963236Z
+2026-09-10T14:15:45.5963560Z To address issues that do not require attention, run:
+2026-09-10T14:15:45.5964049Z   npm audit fix
+2026-09-10T14:15:45.5964206Z
+2026-09-10T14:15:45.5964425Z To address all issues (including breaking changes), run:
+2026-09-10T14:15:45.5964777Z   npm audit fix --force
+2026-09-10T14:15:45.5964921Z
+2026-09-10T14:15:45.5965036Z Run `npm audit` for details.
+2026-09-10T14:15:46.8443302Z ##[group]Run node scripts/check-migrations-appendonly.mjs
+2026-09-10T14:15:46.8443797Z node scripts/check-migrations-appendonly.mjs
+2026-09-10T14:15:46.8544960Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-09-10T14:15:46.8545319Z ##[endgroup]
+2026-09-10T14:15:47.1624707Z [migrations] sync ok: 26 migrations, dir == migrate.ts imports
+2026-09-10T14:15:47.2995629Z [migrations] no-copies ok: scanned 1146 source files, 2 list owners
+2026-09-10T14:15:47.3740246Z [migrations] append-only ok since v0.3.1
+2026-09-10T14:15:47.5095534Z ##[group]Run node scripts/check-doc-inventory.mjs --check
+2026-09-10T14:15:47.5096019Z node scripts/check-doc-inventory.mjs --check
+2026-09-10T14:15:47.5202340Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-09-10T14:15:47.5202755Z ##[endgroup]
+2026-09-10T14:15:47.8585719Z [doc-inventory] generated doc ok (9 items, 92 channels)
+2026-09-10T14:15:47.9345267Z [doc-inventory] prose ok: no inventory counts restated in current-state docs
+2026-09-10T14:15:48.0028507Z [doc-inventory] links ok: every relative markdown link resolves
+2026-09-10T14:15:48.1241873Z ##[group]Run node scripts/check-test-budgets.mjs
+2026-09-10T14:15:48.1242317Z node scripts/check-test-budgets.mjs
+2026-09-10T14:15:48.1343746Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-09-10T14:15:48.1344131Z ##[endgroup]
+2026-09-10T14:15:48.5180011Z [test-budgets] 11 real-git suites ok
+2026-09-10T14:15:48.6400088Z ##[group]Run npm run lint
+2026-09-10T14:15:48.6400401Z npm run lint
+2026-09-10T14:15:48.6496631Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-09-10T14:15:48.6496997Z ##[endgroup]
+2026-09-10T14:15:49.3564410Z
+2026-09-10T14:15:49.3564830Z > orcinus-orca@0.3.1 lint
+2026-09-10T14:15:49.3565223Z > eslint --cache --fix ./src ./scripts
+2026-09-10T14:15:49.3565432Z
+2026-09-10T14:16:59.8723864Z
+2026-09-10T14:16:59.8725340Z D:\a\orca-skin\orca-skin\app\src\renderer\src\features\chat\hooks\useTranscriptVirtualizer.ts
+2026-09-10T14:16:59.8726617Z   22:10  warning  Compilation Skipped: Use of incompatible library
+2026-09-10T14:16:59.8727114Z
+2026-09-10T14:16:59.8729712Z This API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.
+2026-09-10T14:16:59.8731170Z
+2026-09-10T14:16:59.8731606Z D:\a\orca-skin\orca-skin\app\src\renderer\src\features\chat\hooks\useTranscriptVirtualizer.ts:22:10
+2026-09-10T14:16:59.8732225Z   20 |   scrollRef: React.RefObject<HTMLDivElement | null>
+2026-09-10T14:16:59.8732878Z   21 | ): Virtualizer<HTMLDivElement, Element> {
+2026-09-10T14:16:59.8733384Z > 22 |   return useVirtualizer({
+2026-09-10T14:16:59.8734239Z      |          ^^^^^^^^^^^^^^ TanStack Virtual's `useVirtualizer()` API returns functions that cannot be memoized safely
+2026-09-10T14:16:59.8735081Z   23 |     count: head.length,
+2026-09-10T14:16:59.8735575Z   24 |     getScrollElement: () => scrollRef.current,
+2026-09-10T14:16:59.8736329Z   25 |     estimateSize: () => ESTIMATE_PX,  react-hooks/incompatible-library
+2026-09-10T14:16:59.8736833Z
+2026-09-10T14:16:59.8737358Z ✖ 1 problem (0 errors, 1 warning)
+2026-09-10T14:16:59.8737670Z
+2026-09-10T14:17:05.8112690Z ##[group]Run npm run typecheck
+2026-09-10T14:17:05.8113030Z npm run typecheck
+2026-09-10T14:17:05.8213567Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-09-10T14:17:05.8213920Z ##[endgroup]
+2026-09-10T14:17:06.4787818Z
+2026-09-10T14:17:06.4788387Z > orcinus-orca@0.3.1 typecheck
+2026-09-10T14:17:06.4789162Z > npm run typecheck:node && npm run typecheck:web && npm run typecheck:test
+2026-09-10T14:17:06.4789497Z
+2026-09-10T14:17:06.7713035Z
+2026-09-10T14:17:06.7713445Z > orcinus-orca@0.3.1 typecheck:node
+2026-09-10T14:17:06.7713940Z > tsc --noEmit -p tsconfig.node.json --composite false
+2026-09-10T14:17:06.7714525Z
+2026-09-10T14:17:12.9487032Z
+2026-09-10T14:17:12.9487751Z > orcinus-orca@0.3.1 typecheck:web
+2026-09-10T14:17:12.9488490Z > tsc --noEmit -p tsconfig.web.json --composite false
+2026-09-10T14:17:12.9488913Z
+2026-09-10T14:17:28.8218985Z
+2026-09-10T14:17:28.8219552Z > orcinus-orca@0.3.1 typecheck:test
+2026-09-10T14:17:28.8220321Z > tsc --noEmit -p tsconfig.test.json
+2026-09-10T14:17:28.8220526Z
+2026-09-10T14:17:38.5045427Z ##[group]Run npm test
+2026-09-10T14:17:38.5045725Z npm test
+2026-09-10T14:17:38.5145401Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-09-10T14:17:38.5145764Z ##[endgroup]
+2026-09-10T14:17:39.1830195Z
+2026-09-10T14:17:39.1830761Z > orcinus-orca@0.3.1 pretest
+2026-09-10T14:17:39.1833674Z > node scripts/ensure-sqlite-abi.mjs node
+2026-09-10T14:17:39.1834122Z
+2026-09-10T14:17:40.8498218Z rebuilt dependencies successfully
+2026-09-10T14:17:40.9275647Z [sqlite-abi] node: rebuilt
+2026-09-10T14:17:40.9361167Z
+2026-09-10T14:17:40.9361520Z > orcinus-orca@0.3.1 test
+2026-09-10T14:17:40.9362052Z > vitest run && node --test scripts/*.test.mjs
+2026-09-10T14:17:40.9362299Z
+2026-09-10T14:17:41.5266741Z
+2026-09-10T14:17:41.5269713Z  RUN  v4.1.10 D:/a/orca-skin/orca-skin/app
+2026-09-10T14:17:41.5270380Z
+2026-09-10T14:17:42.5160659Z  ✓ src/main/features/auth/login.test.ts (60 tests) 91ms
+2026-09-10T14:17:42.5554112Z  ✓ src/main/features/auth/runtime.test.ts (46 tests) 92ms
+2026-09-10T14:17:43.0265317Z  ✓ src/main/features/sessions/session-runtime.test.ts (68 tests) 634ms
+2026-09-10T14:17:43.1451446Z  ✓ src/main/features/chat/turn-coordinator.test.ts (57 tests) 101ms
+2026-09-10T14:17:43.4132979Z  ✓ src/renderer/src/features/chat/store/chatStore.test.ts (52 tests) 112ms
+2026-09-10T14:17:43.4562405Z  ✓ src/main/adapters/claude-map.test.ts (77 tests) 43ms
+2026-09-10T14:17:43.5560172Z  ✓ src/main/app/auth-resume.test.ts (51 tests) 42ms
+2026-09-10T14:17:43.8516632Z  ✓ src/main/adapters/harness-config.test.ts (49 tests) 31ms
+2026-09-10T14:17:44.2189333Z  ✓ src/main/app/chat-turn/send.worktree.test.ts (25 tests) 206ms
+2026-09-10T14:17:45.6922449Z  ✓ src/main/features/plugins/confluence/connector.test.ts (36 tests) 612ms
+2026-09-10T14:17:45.6924554Z      ✓ 한 번에 처리할 개수에 상한을 두고 남은 id 를 돌려준다  342ms
+2026-09-10T14:17:46.0710064Z  ✓ src/main/features/chat/pending-message-queue.test.ts (50 tests) 41ms
+2026-09-10T14:17:46.4583492Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.plan.test.ts (38 tests) 36ms
+2026-09-10T14:17:47.4798414Z  ✓ src/main/infra/db/queries.test.ts (32 tests) 669ms
+2026-09-10T14:17:47.9659537Z  ✓ src/main/app/deployment/deployment-wiring.test.ts (18 tests) 62ms
+2026-09-10T14:17:48.3348173Z  ✓ src/main/features/auth/browser-session/runner.test.ts (26 tests) 43ms
+2026-09-10T14:17:48.5119177Z  ✓ src/main/features/artifacts/service.test.ts (28 tests) 3534ms
+2026-09-10T14:17:48.5121611Z      ✓ publishes, previews and downloads code, HTML, Markdown and image bytes through the persisted IDs  301ms
+2026-09-10T14:17:48.5124830Z      ✓ reopens the SQLite file and restores the same reference, bytes and card without its workspace input  968ms
+2026-09-10T14:17:48.6946327Z  ✓ src/renderer/src/features/chat/lib/taskBoard.test.ts (34 tests) 32ms
+2026-09-10T14:17:48.9468339Z  ✓ src/main/adapters/claude-adapt.test.ts (51 tests) 52ms
+2026-09-10T14:17:49.3113951Z  ✓ src/main/features/auth/authenticated-request.test.ts (15 tests) 47ms
+2026-09-10T14:17:50.6652346Z  ✓ src/main/features/history/writer.test.ts (17 tests) 1507ms
+2026-09-10T14:17:50.6654438Z      ✓ appends end to the completed original row, preserves FTS, and survives disk reopen and fork  1355ms
+2026-09-10T14:17:51.3223976Z  ✓ src/main/adapters/claude.turnEnd.test.ts (27 tests) 60ms
+2026-09-10T14:17:51.8590739Z  ✓ src/renderer/src/features/chat/components/rightpanel/diffTile.render.test.ts (29 tests) 296ms
+2026-09-10T14:17:52.1472890Z  ✓ src/renderer/src/features/chat/lib/parts.test.ts (23 tests) 19ms
+2026-09-10T14:17:52.7781735Z  ✓ src/main/infra/git/git-diff-parse.test.ts (30 tests) 370ms
+2026-09-10T14:17:53.6906186Z  ✓ src/main/infra/db/migrate.test.ts (13 tests) 1983ms
+2026-09-10T14:17:53.6908028Z      ✓ preserves published artifact references, messages, and FTS after close and reopen  1504ms
+2026-09-10T14:17:53.8927871Z  ✓ src/main/app/chat-turn/post-turn.schedules.test.ts (12 tests) 297ms
+2026-09-10T14:17:54.0886664Z  ✓ src/main/features/usage/tracker.test.ts (32 tests) 43ms
+2026-09-10T14:17:54.5475818Z  ✓ src/main/features/auth/oauth.test.ts (26 tests) 35ms
+2026-09-10T14:17:54.9055752Z  ✓ src/main/features/harnesses/claude/model-parser.test.ts (42 tests) 33ms
+2026-09-10T14:17:55.9868358Z  ✓ src/renderer/src/features/sessions/components/navSections.render.test.ts (18 tests) 166ms
+2026-09-10T14:17:56.6268138Z  ✓ src/main/adapters/claude.canusetool.test.ts (35 tests) 32ms
+2026-09-10T14:17:58.0442030Z  ✓ src/renderer/src/features/chat/components/rightpanel/taskSurface0212.render.test.ts (21 tests) 116ms
+2026-09-10T14:17:58.1644534Z  ✓ src/main/infra/git/git-diff.test.ts (34 tests) 14062ms
+2026-09-10T14:17:58.1646133Z      ✓ 기준선 이후 커밋이 없으면 목록도 커밋도 비어 있다 (D-112)  663ms
+2026-09-10T14:17:58.1647639Z      ✓ base 위에 커밋하고 트리가 깨끗해도 합계가 0 이 아니다 (AT-18)  956ms
+2026-09-10T14:17:58.1649383Z      ✓ 한 호출이 수정·추가·삭제·binary 를 함께 싣는다 — 파일 수와 무관하다 (AT-47)  331ms
+2026-09-10T14:17:58.1651364Z      ✓ 전문맥이다 — 변경 주변이 아니라 파일 전체가 온다 (D-076)  830ms
+2026-09-10T14:17:58.1660322Z      ✓ 한글·공백 경로가 이스케이프되지 않는다 — core.quotePath=false (EP-29 ②)  813ms
+2026-09-10T14:17:58.1661703Z      ✓ rename 은 새 경로에 옛 경로를 함께 싣는다  810ms
+2026-09-10T14:17:58.1663062Z      ✓ 실제 Git의 루트 orca-commit 파일을 commit header로 오인하지 않는다  966ms
+2026-09-10T14:17:58.1664574Z      ✓ HEAD와 baseline이 같으면 미커밋 변경이 있어도 전부 빈다 (D-111 · D-112)  599ms
+2026-09-10T14:17:58.1665935Z      ✓ 빈 저장소에서 시작했으면 이후 커밋이 전부 범위 안이다  770ms
+2026-09-10T14:17:58.1667263Z      ✓ 커밋이 있던 저장소는 출생 시각의 커밋을 기준으로 잡는다 — 그 이전 이력은 범위 밖이다  923ms
+2026-09-10T14:17:58.1670549Z      ✓ 기록된 기준선이 있으면 출생 시각을 보지 않는다 — 고정점이 우선이다  534ms
+2026-09-10T14:17:58.1671689Z      ✓ 출생 시각이 없으면 예전 동작 그대로다 — 회귀 짝  521ms
+2026-09-10T14:17:58.5100426Z  ✓ src/main/features/harnesses/runtime-catalog.test.ts (24 tests) 69ms
+2026-09-10T14:17:58.7687445Z  ✓ src/main/product-identity.test.ts (34 tests) 275ms
+2026-09-10T14:17:59.6523991Z  ✓ src/main/features/plugins/confluence/storage-to-markdown.test.ts (38 tests) 134ms
+2026-09-10T14:17:59.9356384Z  ✓ src/renderer/src/features/chat/components/rightpanel/rightPanelTiles.render.test.ts (16 tests) 195ms
+2026-09-10T14:18:00.1437565Z  ✓ src/main/features/harnesses/settings.test.ts (24 tests) 107ms
+2026-09-10T14:18:00.7228040Z  ✓ src/renderer/src/shared/ui/sparkCss.test.ts (15 tests) 263ms
+2026-09-10T14:18:00.8935695Z  ✓ src/main/app/no-stray-auth-subscribe.test.ts (17 tests) 637ms
+2026-09-10T14:18:01.2976988Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.task.test.ts (22 tests) 28ms
+2026-09-10T14:18:02.3754805Z  ✓ src/main/app/handlers/files.contextDirectory.test.ts (30 tests) 1033ms
+2026-09-10T14:18:02.5178714Z  ✓ src/renderer/src/features/chat/components/rightpanel/taskTile0213.render.test.ts (11 tests) 84ms
+2026-09-10T14:18:02.7007614Z  ✓ src/main/app/chat-turn/turn-context.test.ts (25 tests) 18ms
+2026-09-10T14:18:03.3393830Z  ✓ src/renderer/src/features/chat/components/composer/gitIdentityMenusWiring.test.ts (9 tests) 292ms
+2026-09-10T14:18:03.6263809Z  ✓ src/renderer/src/features/chat/components/rightpanel/GitContextBar.render.test.ts (18 tests) 124ms
+2026-09-10T14:18:04.0199104Z  ✓ src/main/app/chat-turn/send.permission-mode.test.ts (7 tests) 25ms
+2026-09-10T14:18:04.2808979Z  ✓ src/main/adapters/claude.executable-option.test.ts (14 tests) 77ms
+2026-09-10T14:18:04.3642306Z  ✓ src/main/features/auth/store.test.ts (12 tests) 18ms
+2026-09-10T14:18:04.6368871Z  ✓ src/main/features/harnesses/runtime-config.test.ts (12 tests) 27ms
+2026-09-10T14:18:05.4930947Z  ✓ src/main/app/handlers/session-directory.test.ts (16 tests) 540ms
+2026-09-10T14:18:05.6824257Z  ✓ src/renderer/src/features/chat/components/rightpanel/diffPanel0211dv6.render.test.ts (13 tests) 92ms
+2026-09-10T14:18:05.7234998Z  ✓ src/main/features/worktrees/service.test.ts (11 tests) 11443ms
+2026-09-10T14:18:05.7237005Z      ✓ clean HEAD에서 repository 밖 managed worktree를 만들고 metadata를 기록한다  794ms
+2026-09-10T14:18:05.7240151Z      ✓ managed 경로는 <repo>-<hash8>/<브랜치> 2단이고 같은 repo 는 늘 같은 첫 칸이다 (AC5 · AC6)  1843ms
+2026-09-10T14:18:05.7241977Z      ✓ repository 하위 cwd를 managed worktree 안의 같은 subpath로 보존한다  964ms
+2026-09-10T14:18:05.7244398Z      ✓ tracked·untracked 변경이 있어도 격리를 만들고 source 트리를 그대로 둔다 (AC1 · AC2)  911ms
+2026-09-10T14:18:05.7261226Z      ✓ 유예된 기준 브랜치의 커밋에서 worktree 를 만든다 (AC10)  1278ms
+2026-09-10T14:18:05.7263533Z      ✓ 없는 기준 브랜치는 거부한다 — HEAD 로 조용히 대체하지 않는다 (AC10)  443ms
+2026-09-10T14:18:05.7265144Z      ✓ 별칭 managed root에서 add가 실패로 끝나면 생성된 worktree와 빈 bucket을 rollback한다  1006ms
+2026-09-10T14:18:05.7267215Z      ✓ managed worktree가 clean이고 새 commit이 없을 때만 안전 제거한다  1066ms
+2026-09-10T14:18:05.7268408Z      ✓ managed worktree가 dirty면 세션 작업을 보존한다  849ms
+2026-09-10T14:18:05.7269804Z      ✓ managed 결과가 기준 커밋 옆에 그때의 브랜치 이름을 함께 싣는다 (AT-44 · D-072)  1411ms
+2026-09-10T14:18:05.7279390Z      ✓ detached HEAD 에서 시작하면 이름은 null 이고 커밋은 남는다 (AT-44 · D-071)  875ms
+2026-09-10T14:18:06.0804480Z  ✓ src/main/app/chat-turn/prepare-worktree.test.ts (8 tests) 23ms
+2026-09-10T14:18:06.1474219Z  ✓ src/main/app/chat-turn.runtime-tools.test.ts (6 tests) 96ms
+2026-09-10T14:18:06.1841827Z  ✓ src/shared/protocol.send.test.ts (39 tests) 41ms
+2026-09-10T14:18:06.5309753Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.parts.test.ts (15 tests) 24ms
+2026-09-10T14:18:06.5354455Z  ✓ src/main/adapters/opencode-sdk.test.ts (11 tests) 71ms
+2026-09-10T14:18:07.1786912Z  ✓ src/renderer/src/features/chat/components/statusLine.render.test.ts (11 tests) 205ms
+2026-09-10T14:18:07.6560531Z  ✓ src/main/features/extensions/deployer.test.ts (14 tests) 761ms
+2026-09-10T14:18:07.7521790Z Preparing worktree (new branch 'review')
+2026-09-10T14:18:07.9668500Z  ✓ src/main/infra/db/artifact-queries.test.ts (13 tests) 356ms
+2026-09-10T14:18:08.4939579Z  ✓ src/renderer/src/features/chat/store/chatStore.listen.test.ts (14 tests) 35ms
+2026-09-10T14:18:08.5041063Z  ✓ src/main/features/plugins/confluence/rest.test.ts (29 tests) 56ms
+2026-09-10T14:18:08.8493012Z  ✓ src/shared/task-tool.test.ts (25 tests) 23ms
+2026-09-10T14:18:09.0909398Z  ✓ src/main/features/chat/attachments.test.ts (12 tests) 233ms
+2026-09-10T14:18:09.4662161Z  ✓ src/main/adapters/mock-scenarios.test.ts (13 tests) 23ms
+2026-09-10T14:18:09.5015292Z  ✓ src/main/app/handlers/artifacts.test.ts (17 tests) 155ms
+2026-09-10T14:18:09.7934139Z  ✓ src/main/features/sessions/supervisor.test.ts (17 tests) 24ms
+2026-09-10T14:18:09.9085014Z HEAD is now at e7d5241 init
+2026-09-10T14:18:10.0986356Z  ✓ src/renderer/src/features/chat/components/rightpanel/GitContextBar.actions.test.ts (12 tests) 113ms
+2026-09-10T14:18:11.0335870Z  ↓ src/main/app/artifact-sdk-live.test.ts (1 test | 1 skipped)
+2026-09-10T14:18:11.3870562Z  ✓ src/main/features/auth/policy.test.ts (15 tests) 53ms
+2026-09-10T14:18:11.8837971Z  ✓ src/main/app/chat-turn/send.busy.test.ts (8 tests) 24ms
+2026-09-10T14:18:13.8432856Z  ✓ src/main/app/chat-turn/prepare-progress.test.ts (5 tests) 1673ms
+2026-09-10T14:18:13.8434821Z      ✓ 다섯 단계가 이 순서로 정확히 1회씩 온다  779ms
+2026-09-10T14:18:13.8436322Z      ✓ managed 결과가 source_cwd·repo_root 를 함께 준다 — 소비자가 역산하지 않는다  767ms
+2026-09-10T14:18:14.2183618Z  ✓ src/renderer/src/features/chat/store/chatStore.schedules.test.ts (10 tests) 23ms
+2026-09-10T14:18:17.5613514Z  ✓ src/main/app/legacy-paths.test.ts (6 tests) 7277ms
+2026-09-10T14:18:17.5615118Z      ✓ 5컬럼을 새 루트로 옮겨 적고 루트 밖 경로는 건드리지 않는다  951ms
+2026-09-10T14:18:17.5681862Z      ✓ 같은 루트면 아무것도 하지 않는다 — 이관 루트 미상(빈 문자열)일 때의 방어  804ms
+2026-09-10T14:18:17.5757407Z      ✓ 워크트리만 옮겨진 경우 repo 측 repair 로 prune 대상이 사라진다  1478ms
+2026-09-10T14:18:17.5764274Z      ✓ repair 를 건너뛰면 prune 대상이 그대로 남는다  1387ms
+2026-09-10T14:18:17.5778316Z      ✓ repo 와 워크트리가 함께 옮겨져도 repo 측 repair 가 양방향을 고친다  1586ms
+2026-09-10T14:18:17.5815463Z      ✓ repo 가 사라진 행은 실패로 남기고 나머지를 계속 처리한다  1029ms
+2026-09-10T14:18:18.0678104Z  ✓ src/main/features/history/writer.artifacts.test.ts (11 tests) 98ms
+2026-09-10T14:18:18.9067999Z  ✓ src/renderer/src/features/chat/components/rightpanel/ArtifactViewer.actions.test.ts (14 tests) 46ms
+2026-09-10T14:18:19.2743564Z  ✓ src/renderer/src/features/sessions/store/sessionsStore.test.ts (9 tests) 24ms
+2026-09-10T14:18:19.6690853Z  ✓ src/main/features/scheduler/scheduler.test.ts (12 tests) 46ms
+2026-09-10T14:18:19.8376176Z  ✓ src/main/features/worktrees/safe-delete.test.ts (7 tests) 5350ms
+2026-09-10T14:18:19.8378079Z      ✓ clean + HEAD == base 면 remove → branch delete → db delete 순으로 각각 1회다  957ms
+2026-09-10T14:18:19.8379477Z      ✓ worktree에 새 commit이 있으면 아무것도 지우지 않는다  919ms
+2026-09-10T14:18:19.8380672Z      ✓ Git 검사 자체가 실패하면 보존한다 — 실패를 clean으로 읽지 않는다  689ms
+2026-09-10T14:18:19.8381767Z      ✓ dirty면 보존하고, 그 판정도 Git mutation 앞이다  674ms
+2026-09-10T14:18:19.8382998Z      ✓ 검사가 답을 못 주면(null) 각각 보존한다 — clean·HEAD 두 축을 따로 본다  772ms
+2026-09-10T14:18:19.8384303Z      ✓ porcelain 목록에 외부가 섞여도 remove 대상은 managed row 하나뿐이다  1335ms
+2026-09-10T14:18:20.0049154Z  ✓ src/main/features/gate/gate.test.ts (21 tests) 17ms
+2026-09-10T14:18:20.1888402Z  ✓ src/renderer/src/features/chat/lib/toolMeta.test.ts (22 tests) 23ms
+2026-09-10T14:18:20.3701865Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.listen.test.ts (14 tests) 23ms
+2026-09-10T14:18:20.5728789Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.permission.test.ts (19 tests) 21ms
+2026-09-10T14:18:21.9447990Z  ✓ src/renderer/src/features/chat/components/rightpanel/TaskPanelContent.r5.test.ts (7 tests) 329ms
+2026-09-10T14:18:22.0080435Z  ✓ src/renderer/src/features/settings/components/usageTooltip.render.test.ts (10 tests) 226ms
+2026-09-10T14:18:22.0606819Z  ✓ src/main/infra/git/git-cli.test.ts (20 tests) 15335ms
+2026-09-10T14:18:22.0615188Z      ✓ origin 주소를 웹 URL로 정규화하고 원격 변경·worktree에서도 현재 값을 읽는다  1983ms
+2026-09-10T14:18:22.0620322Z      ✓ 상태에 dirty 축이 없다 — 변경량 정본은 diff 요약이다 (AT-19)  593ms
+2026-09-10T14:18:22.0630524Z      ✓ detached HEAD 면 branch=null · detached=true 다  694ms
+2026-09-10T14:18:22.0644505Z      ✓ 실제 checkout 이 일어나고 이후 gitStatus 가 대상 브랜치를 돌려준다  1104ms
+2026-09-10T14:18:22.0677848Z      ✓ 작업 트리를 한 바이트도 바꾸지 않고 reason:dirty 를 돌려준다  714ms
+2026-09-10T14:18:22.0736289Z      ✓ stash 후에도 미추적 파일은 그대로 남는다  973ms
+2026-09-10T14:18:22.0738441Z      ✓ commit-wip 후에도 미추적 파일은 그대로 남는다  845ms
+2026-09-10T14:18:22.0741662Z      ✓ discard 후에도 미추적 파일은 그대로 남는다  837ms
+2026-09-10T14:18:22.0742908Z      ✓ "-f" 는 거부되고 작업 트리도 브랜치도 그대로다  545ms
+2026-09-10T14:18:22.0744008Z      ✓ "--" 는 거부되고 작업 트리도 브랜치도 그대로다  526ms
+2026-09-10T14:18:22.0745108Z      ✓ "a..b" 는 거부되고 작업 트리도 브랜치도 그대로다  511ms
+2026-09-10T14:18:22.0746216Z      ✓ "x.lock" 는 거부되고 작업 트리도 브랜치도 그대로다  513ms
+2026-09-10T14:18:22.0747564Z      ✓ "--upload-pack=touch /tmp/pwn" 는 거부되고 작업 트리도 브랜치도 그대로다  528ms
+2026-09-10T14:18:22.0748832Z      ✓ "" 는 거부되고 작업 트리도 브랜치도 그대로다  538ms
+2026-09-10T14:18:22.0749891Z      ✓ 정상 이름은 통과한다 — 검사가 전부를 막는 것은 아니다  766ms
+2026-09-10T14:18:22.0750902Z      ✓ stash 이 적용됐음을 결과가 식별한다  979ms
+2026-09-10T14:18:22.0752624Z      ✓ commit-wip 이 적용됐음을 결과가 식별한다  897ms
+2026-09-10T14:18:22.0753786Z      ✓ discard 이 적용됐음을 결과가 식별한다  941ms
+2026-09-10T14:18:22.0755595Z      ✓ 해소 자체가 없었던 실패(깨끗한 트리)에는 applied 를 싣지 않는다  722ms
+2026-09-10T14:18:22.3339710Z  ✓ src/renderer/src/features/sessions/lib/navSections.test.ts (14 tests) 24ms
+2026-09-10T14:18:22.4495677Z  ✓ src/main/infra/net/net-request.test.ts (12 tests) 84ms
+2026-09-10T14:18:22.7775424Z  ✓ src/preload/index.test.ts (13 tests) 31ms
+2026-09-10T14:18:22.9664846Z  ✓ src/main/app/chat-turn.continuity.test.ts (2 tests) 72ms
+2026-09-10T14:18:23.2899036Z  ✓ src/main/features/auth/store-parse.test.ts (18 tests) 14ms
+2026-09-10T14:18:23.3409510Z  ✓ src/main/infra/log/log-manager.test.ts (14 tests) 33ms
+2026-09-10T14:18:23.3632652Z  ✓ src/renderer/src/features/chat/components/rightpanel/planTasks0224.render.test.ts (8 tests) 146ms
+2026-09-10T14:18:23.6410580Z  ✓ src/main/features/chat/background-tasks.test.ts (22 tests) 68ms
+2026-09-10T14:18:23.6632989Z  ✓ src/main/app/runtime-model-startup.test.ts (11 tests) 18ms
+2026-09-10T14:18:23.6713945Z  ✓ src/renderer/src/features/chat/lib/activityLabel.test.ts (18 tests) 16ms
+2026-09-10T14:18:23.9894702Z  ✓ src/main/features/usage/jobs.test.ts (11 tests) 32ms
+2026-09-10T14:18:24.0893148Z  ✓ src/renderer/src/features/chat/store/chatStore.worktreeIsolation.test.ts (11 tests) 35ms
+2026-09-10T14:18:24.3467129Z  ✓ src/renderer/src/features/chat/lib/taskContext.test.ts (7 tests) 16ms
+2026-09-10T14:18:24.3646935Z  ✓ src/main/infra/config/migrate-legacy.test.ts (9 tests) 363ms
+2026-09-10T14:18:24.4451328Z  ✓ src/main/app/chat-turn/continuation.test.ts (6 tests) 14ms
+2026-09-10T14:18:24.8572541Z  ✓ src/renderer/src/shared/i18n/datetime.test.ts (11 tests) 91ms
+2026-09-10T14:18:25.3548183Z  ✓ src/renderer/src/features/chat/components/composer/GitIdentityMenu.test.ts (14 tests) 110ms
+2026-09-10T14:18:25.5656836Z  ✓ src/renderer/src/app/hooks/useSidebarSlots.test.ts (4 tests) 234ms
+2026-09-10T14:18:25.9407985Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.diffRequirementSelection.test.ts (9 tests) 20ms
+2026-09-10T14:18:26.3009562Z  ✓ src/main/features/plugins/confluence/search-render.test.ts (17 tests) 19ms
+2026-09-10T14:18:26.3087906Z  ✓ src/main/features/worktrees/ipc-integration.test.ts (4 tests) 914ms
+2026-09-10T14:18:26.3090005Z      ✓ renderer 가 보낸 격리 요청이 실제 worktree 와 branch 로 도착한다  871ms
+2026-09-10T14:18:26.9308010Z  ✓ src/renderer/src/features/chat/components/ArtifactCard.render.test.ts (8 tests) 128ms
+2026-09-10T14:18:27.4342782Z  ✓ src/main/app/bootstrap.shutdown.test.ts (6 tests) 24ms
+2026-09-10T14:18:27.8146589Z  ✓ src/renderer/src/features/chat/hooks/useFileAutocomplete.test.ts (4 tests) 18ms
+2026-09-10T14:18:27.9672866Z  ✓ src/renderer/src/features/chat/components/transcript/TurnOutputCards.test.ts (7 tests) 119ms
+2026-09-10T14:18:28.1728980Z  ✓ src/renderer/src/features/chat/lib/workToolPresentation.test.ts (10 tests) 22ms
+2026-09-10T14:18:28.3487938Z  ✓ src/main/adapters/claude-map.schedules.test.ts (19 tests) 20ms
+2026-09-10T14:18:28.4673178Z  ✓ src/renderer/src/features/chat/components/composerRequirementWiring.test.ts (6 tests) 137ms
+2026-09-10T14:18:28.8763107Z  ✓ src/main/app/handlers/git.test.ts (5 tests) 20ms
+2026-09-10T14:18:28.9646624Z  ✓ src/main/infra/config/orca-file.test.ts (15 tests) 45ms
+2026-09-10T14:18:29.0874070Z  ✓ src/renderer/src/features/chat/components/rightpanel/TaskContextContent.test.ts (6 tests) 86ms
+2026-09-10T14:18:29.1894703Z  ✓ src/main/app/connection-views.test.ts (9 tests) 16ms
+2026-09-10T14:18:29.4266594Z  ✓ src/main/adapters/claude-output-files.test.ts (9 tests) 28ms
+2026-09-10T14:18:29.8229748Z  ✓ src/main/features/plugins/confluence/tools.test.ts (12 tests) 39ms
+2026-09-10T14:18:29.8820402Z  ✓ src/main/app/handlers/session.load.test.ts (5 tests) 160ms
+2026-09-10T14:18:29.8964975Z  ✓ src/main/features/extensions/skills/seed.test.ts (8 tests) 137ms
+2026-09-10T14:18:30.2268336Z  ✓ src/main/features/chat/session-activity-projector.test.ts (9 tests) 22ms
+2026-09-10T14:18:30.3314908Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.artifacts.test.ts (13 tests) 19ms
+2026-09-10T14:18:30.6172744Z  ✓ src/renderer/src/features/chat/lib/workActivity.test.ts (11 tests) 64ms
+2026-09-10T14:18:30.7015456Z  ✓ src/renderer/src/features/chat/lib/diffHunks.test.ts (10 tests) 19ms
+2026-09-10T14:18:30.8142758Z  ✓ src/renderer/src/features/chat/components/rightpanel/diffTileWiring.test.ts (5 tests) 121ms
+2026-09-10T14:18:31.0487013Z  ✓ src/renderer/src/shared/stores/usageStore.test.ts (10 tests) 19ms
+2026-09-10T14:18:31.1216172Z  ✓ src/main/app/chat-turn/admission.test.ts (16 tests) 20ms
+2026-09-10T14:18:31.2455506Z  ✓ src/renderer/src/features/chat/components/ArtifactCards.lifecycle.test.ts (5 tests) 48ms
+2026-09-10T14:18:31.3834233Z  ✓ src/main/app/chat-turn-continuation.test.ts (9 tests) 13ms
+2026-09-10T14:18:31.4545371Z  ✓ src/main/app/deployment/plugins.test.ts (7 tests) 13ms
+2026-09-10T14:18:31.5799060Z  ✓ src/main/features/chat/stop-subagent.test.ts (9 tests) 22ms
+2026-09-10T14:18:31.7871618Z  ✓ src/renderer/src/features/chat/components/ChatTile.workLifetime.test.ts (6 tests) 23ms
+2026-09-10T14:18:31.7887890Z  ✓ src/main/adapters/workspace-guard.test.ts (18 tests) 19ms
+2026-09-10T14:18:31.9209490Z  ✓ src/renderer/src/features/chat/components/composer/composerWiring.test.ts (4 tests) 12ms
+2026-09-10T14:18:32.1313140Z  ✓ src/main/app/chat-turn/runtime-entry.test.ts (10 tests) 15ms
+2026-09-10T14:18:32.3406319Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.extraDirs.test.ts (20 tests) 15ms
+2026-09-10T14:18:32.6872988Z  ✓ src/renderer/src/features/chat/components/composer/gitQueryReason.test.ts (9 tests) 9ms
+2026-09-10T14:18:32.7215281Z  ✓ src/renderer/src/features/chat/components/rightpanel/diffSyncState.render.test.ts (14 tests) 70ms
+2026-09-10T14:18:32.7448025Z  ✓ src/renderer/src/features/chat/components/composer/gitIdentityRemoteWiring.test.ts (6 tests) 272ms
+2026-09-10T14:18:33.1022262Z  ✓ src/main/infra/db/artifact-formats-migration.test.ts (2 tests) 100ms
+2026-09-10T14:18:33.3949770Z  ✓ src/main/features/plugins/confluence/download-store.test.ts (17 tests) 38ms
+2026-09-10T14:18:33.6673497Z  ✓ src/main/infra/config/paths.test.ts (24 tests) 17ms
+2026-09-10T14:18:34.0693901Z  ✓ src/renderer/src/pages/agentModeLanding.render.test.ts (8 tests) 33ms
+2026-09-10T14:18:34.4694645Z  ✓ src/renderer/src/features/chat/components/CwdPanel.isolation.test.ts (8 tests) 55ms
+2026-09-10T14:18:34.9166562Z  ✓ src/main/app/handlers/session.delete.test.ts (6 tests) 72ms
+2026-09-10T14:18:35.1923306Z  ✓ src/main/adapters/streaming-input.test.ts (12 tests) 13ms
+2026-09-10T14:18:35.4809742Z  ✓ src/main/adapters/claude-executable.test.ts (11 tests) 32ms
+2026-09-10T14:18:35.7654344Z  ✓ src/main/infra/git/queue-entry.test.ts (4 tests) 2554ms
+2026-09-10T14:18:35.7656409Z      ✓ addWorktree  480ms
+2026-09-10T14:18:35.7658014Z      ✓ removeWorktree  777ms
+2026-09-10T14:18:35.7659341Z      ✓ deleteBranch  530ms
+2026-09-10T14:18:35.7709510Z      ✓ gitCheckout  765ms
+2026-09-10T14:18:35.8346872Z  ✓ src/main/app/chat-turn/worktree-bind.test.ts (3 tests) 2704ms
+2026-09-10T14:18:35.8348653Z      ✓ session.updated 영속이 unbound row 를 그 세션에 묶는다 — writer 층이 그 지점이다  1090ms
+2026-09-10T14:18:35.8350795Z      ✓ 재시작해도 같은 executionCwd 로 resume 한다 — 저장된 값이 다음 턴의 cwd 다  831ms
+2026-09-10T14:18:35.8359464Z      ✓ source cwd 로 시작한 세션은 어떤 row 에도 묶이지 않는다 — 조상만 묶는다  745ms
+2026-09-10T14:18:36.1709759Z  ✓ src/renderer/src/features/chat/components/transcript/WorkActivity.render.test.ts (6 tests) 73ms
+2026-09-10T14:18:36.3141258Z  ✓ src/main/app/handlers/engine.deployment.test.ts (8 tests) 16ms
+2026-09-10T14:18:36.4976977Z  ✓ src/renderer/src/features/chat/components/rightpanel/diffReviewNavigation.test.ts (6 tests) 79ms
+2026-09-10T14:18:36.7162812Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.panelPolicy.test.ts (15 tests) 28ms
+2026-09-10T14:18:37.0446887Z  ✓ src/main/app/handlers/engine.runtime-catalog.test.ts (9 tests) 26ms
+2026-09-10T14:18:37.2024418Z  ✓ src/renderer/src/features/chat/components/transcript/WorkToolBody.render.test.ts (11 tests) 57ms
+2026-09-10T14:18:37.3718406Z  ✓ src/renderer/src/features/chat/components/composer/ComposerInputController.test.ts (6 tests) 14ms
+2026-09-10T14:18:37.4542217Z  ✓ src/main/features/artifacts/html-preview.test.ts (4 tests) 51ms
+2026-09-10T14:18:37.5576764Z  ✓ src/renderer/src/features/chat/lib/workToolResults.test.ts (7 tests) 25ms
+2026-09-10T14:18:37.7976447Z  ✓ src/main/features/chat/subagent-settlement.test.ts (6 tests) 13ms
+2026-09-10T14:18:37.8872475Z  ✓ src/main/features/auth/session-policies.test.ts (6 tests) 14ms
+2026-09-10T14:18:37.9123633Z  ✓ src/main/features/extensions/builder.test.ts (6 tests) 159ms
+2026-09-10T14:18:38.1873066Z  ✓ src/renderer/src/features/sessions/components/SearchModal.test.ts (3 tests) 37ms
+2026-09-10T14:18:38.2347558Z  ✓ src/renderer/src/features/chat/lib/markdownBlocks.test.ts (11 tests) 34ms
+2026-09-10T14:18:38.2392330Z  ✓ src/main/features/approvals/broker.test.ts (12 tests) 21ms
+2026-09-10T14:18:38.5453895Z  ✓ src/main/features/chat/post-turn.test.ts (18 tests) 15ms
+2026-09-10T14:18:38.5642573Z  ✓ src/renderer/src/features/chat/components/composer/branchChipState.test.ts (21 tests) 20ms
+2026-09-10T14:18:38.9985667Z  ✓ src/main/features/artifacts/input-files.test.ts (8 tests) 158ms
+2026-09-10T14:18:39.0745967Z  ✓ src/main/app/chat-turn/resolve-turn.runtime-catalog.test.ts (3 tests) 16ms
+2026-09-10T14:18:39.3289699Z  ✓ src/renderer/src/features/chat/store/artifactStore.test.ts (5 tests) 24ms
+2026-09-10T14:18:39.7246540Z  ✓ src/main/adapters/claude-settings.test.ts (12 tests) 54ms
+2026-09-10T14:18:39.8128268Z  ✓ src/main/features/artifacts/files.test.ts (7 tests) 109ms
+2026-09-10T14:18:40.2689657Z  ✓ src/renderer/src/shared/theme/TweakProvider.lifecycle.test.ts (2 tests) 14ms
+2026-09-10T14:18:40.3685984Z  ✓ src/main/features/worktrees/reject-reasons.test.ts (5 tests) 1489ms
+2026-09-10T14:18:40.3687645Z      ✓ Git 이 답을 못 주면 `git-unavailable` 이다 — `not-repo` 로 읽지 않는다  330ms
+2026-09-10T14:18:40.3689219Z      ✓ 거부한 뒤에도 다음 준비는 성공한다 — 실패가 서비스에 남지 않는다  926ms
+2026-09-10T14:18:40.5771088Z  ✓ src/main/features/usage/usage-compose.test.ts (13 tests) 14ms
+2026-09-10T14:18:40.7685671Z  ✓ src/renderer/src/features/chat/components/rightpanel/workTaskDetail.test.ts (5 tests) 171ms
+2026-09-10T14:18:40.8200929Z  ✓ src/main/app/response-boundary.integration.test.ts (1 test) 45ms
+2026-09-10T14:18:41.3019590Z  ✓ src/renderer/src/features/chat/components/transcript/WorkActivity.interaction.test.ts (2 tests) 36ms
+2026-09-10T14:18:41.4529074Z  ✓ src/main/app/work-profile.integration.test.ts (1 test) 52ms
+2026-09-10T14:18:41.5828330Z  ✓ src/main/features/sessions/restart-gate.test.ts (7 tests) 13ms
+2026-09-10T14:18:41.9053166Z  ✓ src/renderer/src/features/chat/components/composer/gitQueryOwner.test.ts (1 test) 201ms
+2026-09-10T14:18:41.9340011Z  ✓ src/renderer/src/features/chat/store/chatStore.artifacts.test.ts (6 tests) 21ms
+2026-09-10T14:18:42.2622031Z  ✓ src/renderer/src/features/chat/store/chatStore.sessionDirectory.test.ts (16 tests) 24ms
+2026-09-10T14:18:42.4711208Z  ✓ src/renderer/src/features/chat/components/rightpanel/fileDiffRequirementReveal.test.ts (5 tests) 49ms
+2026-09-10T14:18:42.5896701Z  ✓ src/renderer/src/features/chat/store/chatStore.permission.r4.test.ts (8 tests) 21ms
+2026-09-10T14:18:42.7387297Z  ✓ src/main/features/extensions/mcp/resolver.test.ts (11 tests) 9ms
+2026-09-10T14:18:43.0013935Z  ✓ src/shared/absolute-path.test.ts (42 tests) 19ms
+2026-09-10T14:18:43.2743788Z  ✓ src/shared/permission-mode.test.ts (13 tests) 12ms
+2026-09-10T14:18:43.5404473Z  ✓ src/renderer/src/features/chat/components/rightpanel/diffRequirements.test.ts (5 tests) 9ms
+2026-09-10T14:18:43.6641076Z  ✓ src/renderer/src/features/chat/components/transcript/WorkActivity.questionIpc.test.ts (1 test) 54ms
+2026-09-10T14:18:43.8461199Z  ✓ src/renderer/src/features/artifacts/store/artifactCatalogStore.test.ts (7 tests) 14ms
+2026-09-10T14:18:44.0103025Z  ✓ src/renderer/src/features/chat/store/chatStore.entryUpdates.test.ts (4 tests) 14ms
+2026-09-10T14:18:44.1369132Z  ✓ src/renderer/src/features/chat/lib/rightPanelLayout.test.ts (7 tests) 17ms
+2026-09-10T14:18:44.4170744Z  ✓ src/main/adapters/claude-map.received.test.ts (18 tests) 20ms
+2026-09-10T14:18:44.4261146Z  ✓ src/main/infra/settings-store.test.ts (9 tests) 27ms
+2026-09-10T14:18:44.5830613Z  ✓ src/main/app/chat-turn/worktree-recover.test.ts (4 tests) 3394ms
+2026-09-10T14:18:44.5832357Z      ✓ 경로가 사라지면 session.cwd 를 source 로 옮기고 metadata 를 지운다 (AC15)  786ms
+2026-09-10T14:18:44.5834032Z      ✓ 재시작해도 source cwd 로 resume 한다 — 폴백이 1회성이 아니다 (AC16)  782ms
+2026-09-10T14:18:44.5835721Z      ✓ 경로가 살아 있으면 아무것도 쓰지 않는다 — 정상 resume 이 폴백으로 오염되지 않는다 (AC19)  854ms
+2026-09-10T14:18:44.5837160Z      ✓ 원본마저 없으면 unrecoverable 이고 DB 를 건드리지 않는다  928ms
+2026-09-10T14:18:44.7126090Z  ✓ src/renderer/src/features/chat/lib/contextWindow.test.ts (14 tests) 12ms
+2026-09-10T14:18:44.7218548Z  ✓ src/renderer/src/features/chat/components/composer/modes.test.ts (10 tests) 18ms
+2026-09-10T14:18:44.9195831Z  ✓ src/renderer/src/features/chat/components/composer/gitRowState.test.ts (14 tests) 15ms
+2026-09-10T14:18:45.0365219Z  ✓ src/main/features/extensions/mcp/convert.test.ts (12 tests) 16ms
+2026-09-10T14:18:45.1836711Z  ✓ src/main/app/handlers/files.openPath.test.ts (8 tests) 17ms
+2026-09-10T14:18:45.3428832Z  ✓ src/main/adapters/error-classifier.test.ts (12 tests) 12ms
+2026-09-10T14:18:45.5083818Z  ✓ src/renderer/src/features/chat/store/artifactViewerStore.test.ts (6 tests) 17ms
+2026-09-10T14:18:46.1282633Z  ✓ src/main/adapters/build-turn-content.test.ts (8 tests) 15ms
+2026-09-10T14:18:46.3489944Z  ✓ src/renderer/src/features/chat/components/rightpanel/diffRequirementSelection.render.test.ts (5 tests) 141ms
+2026-09-10T14:18:46.7298113Z  ✓ src/main/adapters/claude.fork.test.ts (5 tests) 17ms
+2026-09-10T14:18:46.9955686Z  ✓ src/main/adapters/claude-runtime-tools.boundary.test.ts (5 tests) 52ms
+2026-09-10T14:18:47.0361837Z  ✓ src/renderer/src/features/chat/lib/turns.test.ts (12 tests) 16ms
+2026-09-10T14:18:47.3052029Z  ✓ src/shared/usage/limits.test.ts (11 tests) 17ms
+2026-09-10T14:18:47.3486346Z  ✓ src/renderer/src/features/chat/lib/rightPanelTiles.test.ts (11 tests) 13ms
+2026-09-10T14:18:47.6701601Z  ✓ src/main/infra/ipc/wire-log.test.ts (10 tests) 19ms
+2026-09-10T14:18:47.6989486Z  ✓ src/main/features/extensions/runtime-tool-registry.test.ts (6 tests) 18ms
+2026-09-10T14:18:48.0624617Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > main-ready 가 첫 스텝으로 main 준비를 기다린 뒤에야 다른 IPC 스텝이 돈다 (0109)
+2026-09-10T14:18:48.0626296Z [boot] main-ready running
+2026-09-10T14:18:48.0626902Z
+2026-09-10T14:18:48.0630135Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > main-ready 가 첫 스텝으로 main 준비를 기다린 뒤에야 다른 IPC 스텝이 돈다 (0109)
+2026-09-10T14:18:48.0631705Z [boot] main-ready ok (2ms)
+2026-09-10T14:18:48.0634323Z [boot] main-report running
+2026-09-10T14:18:48.0636634Z
+2026-09-10T14:18:48.0638381Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > main-ready 가 첫 스텝으로 main 준비를 기다린 뒤에야 다른 IPC 스텝이 돈다 (0109)
+2026-09-10T14:18:48.0639914Z [boot] main report ok (1ms)
+2026-09-10T14:18:48.0640371Z
+2026-09-10T14:18:48.0641714Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > main-ready 가 첫 스텝으로 main 준비를 기다린 뒤에야 다른 IPC 스텝이 돈다 (0109)
+2026-09-10T14:18:48.0643197Z [boot] main-report ok (0ms)
+2026-09-10T14:18:48.0643880Z [boot] landing-target running
+2026-09-10T14:18:48.0644296Z
+2026-09-10T14:18:48.0646055Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > main-ready 가 첫 스텝으로 main 준비를 기다린 뒤에야 다른 IPC 스텝이 돈다 (0109)
+2026-09-10T14:18:48.0647817Z [boot] landing-target ok (0ms)
+2026-09-10T14:18:48.0648442Z [boot] backend running
+2026-09-10T14:18:48.0648784Z
+2026-09-10T14:18:48.0650214Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > main-ready 가 첫 스텝으로 main 준비를 기다린 뒤에야 다른 IPC 스텝이 돈다 (0109)
+2026-09-10T14:18:48.0651666Z [boot] backend ok (0ms)
+2026-09-10T14:18:48.0652267Z [boot] sessions running
+2026-09-10T14:18:48.0652617Z
+2026-09-10T14:18:48.0653940Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > main-ready 가 첫 스텝으로 main 준비를 기다린 뒤에야 다른 IPC 스텝이 돈다 (0109)
+2026-09-10T14:18:48.0655408Z [boot] sessions ok (0ms)
+2026-09-10T14:18:48.0656053Z [boot] projects-cost running
+2026-09-10T14:18:48.0656461Z
+2026-09-10T14:18:48.0658183Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > main-ready 가 첫 스텝으로 main 준비를 기다린 뒤에야 다른 IPC 스텝이 돈다 (0109)
+2026-09-10T14:18:48.0659736Z [boot] projects-cost ok (0ms)
+2026-09-10T14:18:48.0660224Z
+2026-09-10T14:18:48.0676167Z  ✓ src/renderer/src/features/chat/components/composer/gitSnapshotQuery.test.ts (4 tests) 15ms
+2026-09-10T14:18:48.0682151Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > main-ready 실패는 필수 스텝 규칙으로 부트 실패가 된다 (0109)
+2026-09-10T14:18:48.0700839Z [boot] main-ready running
+2026-09-10T14:18:48.0701474Z
+2026-09-10T14:18:48.0758036Z stderr | src/renderer/src/app/boot/steps.test.ts > boot steps > main-ready 실패는 필수 스텝 규칙으로 부트 실패가 된다 (0109)
+2026-09-10T14:18:48.0760408Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > lastSessionId 로 기존 채팅 랜딩 타겟을 만든다
+2026-09-10T14:18:48.0771913Z [boot] main-ready failed (1ms): bootstrap 실패
+2026-09-10T14:18:48.0772678Z [boot] main-ready running
+2026-09-10T14:18:48.0773026Z
+2026-09-10T14:18:48.0786317Z stderr | src/renderer/src/app/boot/steps.test.ts > boot steps > main BootReport 조회 실패는 non-mandatory degrade 후 랜딩을 계속한다
+2026-09-10T14:18:48.0787321Z
+2026-09-10T14:18:48.0789481Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > lastSessionId 로 기존 채팅 랜딩 타겟을 만든다
+2026-09-10T14:18:48.0814812Z [boot] main-report failed (0ms): report unavailable
+2026-09-10T14:18:48.0850009Z
+2026-09-10T14:18:48.0850421Z [boot] main-ready ok (0ms)
+2026-09-10T14:18:48.0853628Z [boot] main-report running
+2026-09-10T14:18:48.0856849Z stderr | src/renderer/src/app/boot/steps.test.ts > boot steps > 비필수 단계 실패는 degrade 하고 랜딩을 계속한다
+2026-09-10T14:18:48.0858355Z
+2026-09-10T14:18:48.0860315Z [boot] backend failed (0ms): backend unavailable
+2026-09-10T14:18:48.0861856Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > lastSessionId 로 기존 채팅 랜딩 타겟을 만든다
+2026-09-10T14:18:48.0865264Z
+2026-09-10T14:18:48.0865668Z [boot] main report ok (1ms)
+2026-09-10T14:18:48.0877755Z
+2026-09-10T14:18:48.0944914Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > lastSessionId 로 기존 채팅 랜딩 타겟을 만든다
+2026-09-10T14:18:48.0986899Z [boot] main-report ok (0ms)
+2026-09-10T14:18:48.0988282Z [boot] landing-target running
+2026-09-10T14:18:48.0988858Z
+2026-09-10T14:18:48.0990518Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > lastSessionId 로 기존 채팅 랜딩 타겟을 만든다
+2026-09-10T14:18:48.0991776Z [boot] landing-target ok (0ms)
+2026-09-10T14:18:48.0992866Z [boot] backend running
+2026-09-10T14:18:48.0993533Z
+2026-09-10T14:18:48.0995201Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > lastSessionId 로 기존 채팅 랜딩 타겟을 만든다
+2026-09-10T14:18:48.0996400Z [boot] backend ok (0ms)
+2026-09-10T14:18:48.0996863Z [boot] sessions running
+2026-09-10T14:18:48.0997609Z
+2026-09-10T14:18:48.0999654Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > lastSessionId 로 기존 채팅 랜딩 타겟을 만든다
+2026-09-10T14:18:48.1001086Z [boot] sessions ok (0ms)
+2026-09-10T14:18:48.1005427Z [boot] projects-cost running
+2026-09-10T14:18:48.1005750Z
+2026-09-10T14:18:48.1007997Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > lastSessionId 로 기존 채팅 랜딩 타겟을 만든다
+2026-09-10T14:18:48.1009148Z [boot] projects-cost ok (0ms)
+2026-09-10T14:18:48.1009470Z
+2026-09-10T14:18:48.1014509Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > main BootReport 조회 실패는 non-mandatory degrade 후 랜딩을 계속한다
+2026-09-10T14:18:48.1016825Z [boot] main-ready running
+2026-09-10T14:18:48.1017165Z
+2026-09-10T14:18:48.1018365Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > main BootReport 조회 실패는 non-mandatory degrade 후 랜딩을 계속한다
+2026-09-10T14:18:48.1019583Z [boot] main-ready ok (0ms)
+2026-09-10T14:18:48.1020029Z [boot] main-report running
+2026-09-10T14:18:48.1020275Z
+2026-09-10T14:18:48.1022333Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > main BootReport 조회 실패는 non-mandatory degrade 후 랜딩을 계속한다
+2026-09-10T14:18:48.1023916Z [boot] landing-target running
+2026-09-10T14:18:48.1024244Z
+2026-09-10T14:18:48.1025483Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > main BootReport 조회 실패는 non-mandatory degrade 후 랜딩을 계속한다
+2026-09-10T14:18:48.1026771Z [boot] landing-target ok (0ms)
+2026-09-10T14:18:48.1027306Z [boot] backend running
+2026-09-10T14:18:48.1027546Z
+2026-09-10T14:18:48.1028833Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > main BootReport 조회 실패는 non-mandatory degrade 후 랜딩을 계속한다
+2026-09-10T14:18:48.1030151Z [boot] backend ok (0ms)
+2026-09-10T14:18:48.1030621Z [boot] sessions running
+2026-09-10T14:18:48.1030863Z
+2026-09-10T14:18:48.1032142Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > main BootReport 조회 실패는 non-mandatory degrade 후 랜딩을 계속한다
+2026-09-10T14:18:48.1033544Z [boot] sessions ok (0ms)
+2026-09-10T14:18:48.1034068Z [boot] projects-cost running
+2026-09-10T14:18:48.1034285Z
+2026-09-10T14:18:48.1035511Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > main BootReport 조회 실패는 non-mandatory degrade 후 랜딩을 계속한다
+2026-09-10T14:18:48.1036850Z [boot] projects-cost ok (0ms)
+2026-09-10T14:18:48.1037575Z
+2026-09-10T14:18:48.1038790Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > landing-target 은 lastSessionId 를 한 번만 조회한다
+2026-09-10T14:18:48.1040074Z [boot] main-ready running
+2026-09-10T14:18:48.1040394Z
+2026-09-10T14:18:48.1041584Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > landing-target 은 lastSessionId 를 한 번만 조회한다
+2026-09-10T14:18:48.1042818Z [boot] main-ready ok (0ms)
+2026-09-10T14:18:48.1043311Z [boot] main-report running
+2026-09-10T14:18:48.1043592Z
+2026-09-10T14:18:48.1044759Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > landing-target 은 lastSessionId 를 한 번만 조회한다
+2026-09-10T14:18:48.1045934Z [boot] main report ok (1ms)
+2026-09-10T14:18:48.1046244Z
+2026-09-10T14:18:48.1047294Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > landing-target 은 lastSessionId 를 한 번만 조회한다
+2026-09-10T14:18:48.1048680Z [boot] main-report ok (0ms)
+2026-09-10T14:18:48.1049366Z [boot] landing-target running
+2026-09-10T14:18:48.1049661Z
+2026-09-10T14:18:48.1050655Z stderr | src/renderer/src/app/boot/steps.test.ts > boot steps > 필수 단계 실패는 부트를 중단한다
+2026-09-10T14:18:48.1051864Z [boot] landing-target failed (0ms): settings down
+2026-09-10T14:18:48.1052279Z
+2026-09-10T14:18:48.1053395Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > landing-target 은 lastSessionId 를 한 번만 조회한다
+2026-09-10T14:18:48.1054947Z [boot] landing-target ok (0ms)
+2026-09-10T14:18:48.1055699Z [boot] backend running
+2026-09-10T14:18:48.1056159Z
+2026-09-10T14:18:48.1057541Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > landing-target 은 lastSessionId 를 한 번만 조회한다
+2026-09-10T14:18:48.1058696Z [boot] backend ok (0ms)
+2026-09-10T14:18:48.1059165Z [boot] sessions running
+2026-09-10T14:18:48.1059371Z
+2026-09-10T14:18:48.1060437Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > landing-target 은 lastSessionId 를 한 번만 조회한다
+2026-09-10T14:18:48.1061473Z [boot] sessions ok (0ms)
+2026-09-10T14:18:48.1061938Z [boot] projects-cost running
+2026-09-10T14:18:48.1062177Z
+2026-09-10T14:18:48.1063298Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > landing-target 은 lastSessionId 를 한 번만 조회한다
+2026-09-10T14:18:48.1064368Z [boot] projects-cost ok (1ms)
+2026-09-10T14:18:48.1064679Z
+2026-09-10T14:18:48.1065808Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > warning threshold 초과는 UI event 가 아니라 console warning 으로만 남긴다
+2026-09-10T14:18:48.1067824Z [boot] main-ready running
+2026-09-10T14:18:48.1068374Z
+2026-09-10T14:18:48.1069683Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > warning threshold 초과는 UI event 가 아니라 console warning 으로만 남긴다
+2026-09-10T14:18:48.1071040Z [boot] main-ready ok (0ms)
+2026-09-10T14:18:48.1071537Z [boot] main-report running
+2026-09-10T14:18:48.1071818Z
+2026-09-10T14:18:48.1073100Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > warning threshold 초과는 UI event 가 아니라 console warning 으로만 남긴다
+2026-09-10T14:18:48.1078595Z [boot] main report ok (1ms)
+2026-09-10T14:18:48.1078935Z
+2026-09-10T14:18:48.1080177Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > warning threshold 초과는 UI event 가 아니라 console warning 으로만 남긴다
+2026-09-10T14:18:48.1081436Z [boot] main-report ok (0ms)
+2026-09-10T14:18:48.1081924Z [boot] landing-target running
+2026-09-10T14:18:48.1082200Z
+2026-09-10T14:18:48.1083358Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > warning threshold 초과는 UI event 가 아니라 console warning 으로만 남긴다
+2026-09-10T14:18:48.1085270Z [boot] landing-target ok (0ms)
+2026-09-10T14:18:48.1087490Z [boot] backend running
+2026-09-10T14:18:48.1087749Z
+2026-09-10T14:18:48.1089060Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > warning threshold 초과는 UI event 가 아니라 console warning 으로만 남긴다
+2026-09-10T14:18:48.1090380Z [boot] backend ok (0ms)
+2026-09-10T14:18:48.1090835Z [boot] sessions running
+2026-09-10T14:18:48.1091069Z
+2026-09-10T14:18:48.1092258Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > warning threshold 초과는 UI event 가 아니라 console warning 으로만 남긴다
+2026-09-10T14:18:48.1093510Z [boot] sessions ok (0ms)
+2026-09-10T14:18:48.1093959Z [boot] projects-cost running
+2026-09-10T14:18:48.1094232Z
+2026-09-10T14:18:48.1095922Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > warning threshold 초과는 UI event 가 아니라 console warning 으로만 남긴다
+2026-09-10T14:18:48.1097315Z [boot] projects-cost ok (0ms)
+2026-09-10T14:18:48.1097652Z
+2026-09-10T14:18:48.1098683Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > 비필수 단계 실패는 degrade 하고 랜딩을 계속한다
+2026-09-10T14:18:48.1099731Z [boot] main-ready running
+2026-09-10T14:18:48.1100020Z
+2026-09-10T14:18:48.1100974Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > 비필수 단계 실패는 degrade 하고 랜딩을 계속한다
+2026-09-10T14:18:48.1102009Z [boot] main-ready ok (0ms)
+2026-09-10T14:18:48.1102478Z [boot] main-report running
+2026-09-10T14:18:48.1103218Z
+2026-09-10T14:18:48.1104297Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > 비필수 단계 실패는 degrade 하고 랜딩을 계속한다
+2026-09-10T14:18:48.1105419Z [boot] main report ok (1ms)
+2026-09-10T14:18:48.1105741Z
+2026-09-10T14:18:48.1106802Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > 비필수 단계 실패는 degrade 하고 랜딩을 계속한다
+2026-09-10T14:18:48.1107873Z [boot] main-report ok (0ms)
+2026-09-10T14:18:48.1108801Z [boot] landing-target running
+2026-09-10T14:18:48.1109098Z
+2026-09-10T14:18:48.1111041Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > 비필수 단계 실패는 degrade 하고 랜딩을 계속한다
+2026-09-10T14:18:48.1115527Z [boot] landing-target ok (0ms)
+2026-09-10T14:18:48.1115992Z [boot] backend running
+2026-09-10T14:18:48.1116216Z
+2026-09-10T14:18:48.1117575Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > 비필수 단계 실패는 degrade 하고 랜딩을 계속한다
+2026-09-10T14:18:48.1118770Z [boot] sessions running
+2026-09-10T14:18:48.1119067Z
+2026-09-10T14:18:48.1120052Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > 비필수 단계 실패는 degrade 하고 랜딩을 계속한다
+2026-09-10T14:18:48.1121180Z [boot] sessions ok (0ms)
+2026-09-10T14:18:48.1121646Z [boot] projects-cost running
+2026-09-10T14:18:48.1121915Z
+2026-09-10T14:18:48.1122859Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > 비필수 단계 실패는 degrade 하고 랜딩을 계속한다
+2026-09-10T14:18:48.1123897Z [boot] projects-cost ok (0ms)
+2026-09-10T14:18:48.1124189Z
+2026-09-10T14:18:48.1125052Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > 필수 단계 실패는 부트를 중단한다
+2026-09-10T14:18:48.1126009Z [boot] main-ready running
+2026-09-10T14:18:48.1126277Z
+2026-09-10T14:18:48.1127109Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > 필수 단계 실패는 부트를 중단한다
+2026-09-10T14:18:48.1128045Z [boot] main-ready ok (0ms)
+2026-09-10T14:18:48.1128483Z [boot] main-report running
+2026-09-10T14:18:48.1128715Z
+2026-09-10T14:18:48.1129766Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > 필수 단계 실패는 부트를 중단한다
+2026-09-10T14:18:48.1130860Z [boot] main report ok (1ms)
+2026-09-10T14:18:48.1131152Z
+2026-09-10T14:18:48.1132003Z stdout | src/renderer/src/app/boot/steps.test.ts > boot steps > 필수 단계 실패는 부트를 중단한다
+2026-09-10T14:18:48.1132998Z [boot] main-report ok (0ms)
+2026-09-10T14:18:48.1133455Z [boot] landing-target running
+2026-09-10T14:18:48.1133713Z
+2026-09-10T14:18:48.1134476Z  ✓ src/renderer/src/app/boot/steps.test.ts (8 tests) 36ms
+2026-09-10T14:18:48.5333809Z  ✓ src/renderer/src/features/chat/components/CwdPanel.visibility.test.ts (5 tests) 39ms
+2026-09-10T14:18:48.5947889Z  ✓ src/main/features/approvals/coordinator.permission.test.ts (10 tests) 17ms
+2026-09-10T14:18:48.8436511Z  ✓ src/main/infra/ipc/dto.test.ts (11 tests) 15ms
+2026-09-10T14:18:48.9603567Z  ✓ src/renderer/src/features/chat/components/composer/BranchSwitchActions.test.ts (6 tests) 18ms
+2026-09-10T14:18:49.3506259Z  ✓ src/renderer/src/features/chat/hooks/useGitPatch.commitScope.test.ts (4 tests) 17ms
+2026-09-10T14:18:49.4925188Z  ✓ src/main/infra/git/git-diff-commit.test.ts (3 tests) 4104ms
+2026-09-10T14:18:49.4927125Z      ✓ 100줄과 20줄 커밋은 각각 100/20, 전체는 120이며 이후 HEAD/작업트리와 독립적이다  1779ms
+2026-09-10T14:18:49.4928778Z      ✓ root는 empty tree 대비이고 없는 커밋은 누적 본문으로 폴백하지 않는다  693ms
+2026-09-10T14:18:49.4930376Z      ✓ merge 커밋은 첫 부모와 비교한다  1565ms
+2026-09-10T14:18:49.7352840Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.model.test.ts (10 tests) 13ms
+2026-09-10T14:18:49.7795691Z  ✓ src/renderer/src/features/chat/components/composer/gitRow.render.test.ts (9 tests) 90ms
+2026-09-10T14:18:49.8713075Z  ✓ src/main/features/extensions/scaffold.test.ts (9 tests) 76ms
+2026-09-10T14:18:50.0541025Z  ✓ src/main/features/auth/no-cookie-token.test.ts (4 tests) 19ms
+2026-09-10T14:18:50.1569567Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.prepareStep.test.ts (10 tests) 13ms
+2026-09-10T14:18:50.3245055Z  ✓ src/renderer/src/features/chat/components/composer/modelMenu0215.render.test.ts (6 tests) 49ms
+2026-09-10T14:18:50.5493782Z  ✓ src/main/adapters/claude.extra-dirs.test.ts (4 tests) 22ms
+2026-09-10T14:18:50.7642253Z  ✓ src/renderer/src/features/chat/components/composer/gitRowIdentityGeneration.test.ts (3 tests) 13ms
+2026-09-10T14:18:50.9149844Z  ✓ src/renderer/src/features/chat/components/rightpanel/diffPanelDesign.test.ts (16 tests) 17ms
+2026-09-10T14:18:51.1106012Z  ✓ src/renderer/src/features/chat/components/ChatTitleBar.render.test.ts (5 tests) 34ms
+2026-09-10T14:18:51.2579190Z  ✓ src/main/features/orchestration/fork.test.ts (4 tests) 117ms
+2026-09-10T14:18:51.4740024Z  ✓ src/main/features/extensions/system-header.test.ts (9 tests) 8ms
+2026-09-10T14:18:51.6210592Z  ✓ src/main/features/chat/title-generation.test.ts (4 tests) 21ms
+2026-09-10T14:18:51.8097156Z  ✓ src/main/features/extensions/extension-deployment-service.test.ts (6 tests) 14ms
+2026-09-10T14:18:51.9839086Z  ✓ src/main/infra/net/net-response.test.ts (13 tests) 45ms
+2026-09-10T14:18:51.9913459Z  ✓ src/renderer/src/features/chat/components/composerMount.render.test.ts (3 tests) 58ms
+2026-09-10T14:18:52.2941409Z  ✓ src/renderer/src/features/skills/lib/catalogOrder.test.ts (7 tests) 26ms
+2026-09-10T14:18:52.3171020Z  ✓ src/main/features/harnesses/runtime-boundary.test.ts (11 tests) 10ms
+2026-09-10T14:18:52.6407149Z  ✓ src/main/features/chat/recovery.test.ts (6 tests) 12ms
+2026-09-10T14:18:52.6666424Z stdout | src/renderer/src/App.projects.test.ts > project initialization stays in the boot owner > actual boot steps initialize the project store exactly once
+2026-09-10T14:18:52.6670058Z [boot] main-ready running
+2026-09-10T14:18:52.6672389Z
+2026-09-10T14:18:52.6678904Z stdout | src/renderer/src/App.projects.test.ts > project initialization stays in the boot owner > actual boot steps initialize the project store exactly once
+2026-09-10T14:18:52.6681796Z [boot] main-ready ok (1ms)
+2026-09-10T14:18:52.6684509Z [boot] main-report running
+2026-09-10T14:18:52.6685057Z
+2026-09-10T14:18:52.6687149Z stdout | src/renderer/src/App.projects.test.ts > project initialization stays in the boot owner > actual boot steps initialize the project store exactly once
+2026-09-10T14:18:52.6691220Z [boot] main report ok (1ms)
+2026-09-10T14:18:52.6695947Z
+2026-09-10T14:18:52.6697718Z stdout | src/renderer/src/App.projects.test.ts > project initialization stays in the boot owner > actual boot steps initialize the project store exactly once
+2026-09-10T14:18:52.6699455Z [boot] main-report ok (1ms)
+2026-09-10T14:18:52.6700140Z [boot] landing-target running
+2026-09-10T14:18:52.6700612Z
+2026-09-10T14:18:52.6702413Z stdout | src/renderer/src/App.projects.test.ts > project initialization stays in the boot owner > actual boot steps initialize the project store exactly once
+2026-09-10T14:18:52.6704227Z [boot] landing-target ok (0ms)
+2026-09-10T14:18:52.6704856Z [boot] backend running
+2026-09-10T14:18:52.6705226Z
+2026-09-10T14:18:52.6706850Z stdout | src/renderer/src/App.projects.test.ts > project initialization stays in the boot owner > actual boot steps initialize the project store exactly once
+2026-09-10T14:18:52.6708450Z [boot] backend ok (0ms)
+2026-09-10T14:18:52.6709396Z [boot] sessions running
+2026-09-10T14:18:52.6709848Z
+2026-09-10T14:18:52.6711494Z stdout | src/renderer/src/App.projects.test.ts > project initialization stays in the boot owner > actual boot steps initialize the project store exactly once
+2026-09-10T14:18:52.6712989Z [boot] sessions ok (1ms)
+2026-09-10T14:18:52.6713795Z [boot] projects-cost running
+2026-09-10T14:18:52.6714230Z
+2026-09-10T14:18:52.6716238Z stdout | src/renderer/src/App.projects.test.ts > project initialization stays in the boot owner > actual boot steps initialize the project store exactly once
+2026-09-10T14:18:52.6718338Z [boot] projects-cost ok (1ms)
+2026-09-10T14:18:52.6718734Z
+2026-09-10T14:18:52.6757053Z stdout | src/renderer/src/App.projects.test.ts > project initialization stays in the boot owner > project failure preserves the list, ends loading and degrades without blocking landing
+2026-09-10T14:18:52.6759904Z [boot] main-ready running
+2026-09-10T14:18:52.6762964Z
+2026-09-10T14:18:52.6764908Z stderr | src/renderer/src/App.projects.test.ts > project initialization stays in the boot owner > project failure preserves the list, ends loading and degrades without blocking landing
+2026-09-10T14:18:52.6767150Z [boot] projects-cost failed (0ms): projects unavailable
+2026-09-10T14:18:52.6769434Z stdout | src/renderer/src/App.projects.test.ts > project initialization stays in the boot owner > project failure preserves the list, ends loading and degrades without blocking landing
+2026-09-10T14:18:52.6771247Z
+2026-09-10T14:18:52.6771624Z [boot] main-ready ok (0ms)
+2026-09-10T14:18:52.6772383Z [boot] main-report running
+2026-09-10T14:18:52.6772768Z
+2026-09-10T14:18:52.6774692Z stdout | src/renderer/src/App.projects.test.ts > project initialization stays in the boot owner > project failure preserves the list, ends loading and degrades without blocking landing
+2026-09-10T14:18:52.6776490Z [boot] main report ok (1ms)
+2026-09-10T14:18:52.6776996Z
+2026-09-10T14:18:52.6778912Z stdout | src/renderer/src/App.projects.test.ts > project initialization stays in the boot owner > project failure preserves the list, ends loading and degrades without blocking landing
+2026-09-10T14:18:52.6781106Z [boot] main-report ok (0ms)
+2026-09-10T14:18:52.6782205Z [boot] landing-target running
+2026-09-10T14:18:52.6784567Z
+2026-09-10T14:18:52.6787198Z stdout | src/renderer/src/App.projects.test.ts > project initialization stays in the boot owner > project failure preserves the list, ends loading and degrades without blocking landing
+2026-09-10T14:18:52.6788994Z [boot] landing-target ok (0ms)
+2026-09-10T14:18:52.6789493Z [boot] backend running
+2026-09-10T14:18:52.6789738Z
+2026-09-10T14:18:52.6791525Z stdout | src/renderer/src/App.projects.test.ts > project initialization stays in the boot owner > project failure preserves the list, ends loading and degrades without blocking landing
+2026-09-10T14:18:52.6794955Z [boot] backend ok (0ms)
+2026-09-10T14:18:52.6795473Z [boot] sessions running
+2026-09-10T14:18:52.6795726Z
+2026-09-10T14:18:52.6797912Z stdout | src/renderer/src/App.projects.test.ts > project initialization stays in the boot owner > project failure preserves the list, ends loading and degrades without blocking landing
+2026-09-10T14:18:52.6873020Z [boot] sessions ok (0ms)
+2026-09-10T14:18:52.6873528Z [boot] projects-cost running
+2026-09-10T14:18:52.6873799Z
+2026-09-10T14:18:52.6874760Z  ✓ src/renderer/src/App.projects.test.ts (3 tests) 20ms
+2026-09-10T14:18:53.0046108Z  ✓ src/main/app/chat-turn.runtime-resilience.test.ts (7 tests) 23ms
+2026-09-10T14:18:53.2576036Z  ✓ src/main/app/chat-turn.background-subagent.test.ts (5 tests) 18ms
+2026-09-10T14:18:53.4121213Z  ✓ src/renderer/src/features/chat/store/chatStore.subagentControl.test.ts (6 tests) 32ms
+2026-09-10T14:18:53.7430741Z  ✓ src/renderer/src/features/chat/hooks/gitPatchQuery.test.ts (9 tests) 101ms
+2026-09-10T14:18:53.7512960Z  ✓ src/main/infra/git/repository.test.ts (5 tests) 1607ms
+2026-09-10T14:18:53.7514252Z      ✓ 브랜치 위에서는 그 브랜치 이름이다  506ms
+2026-09-10T14:18:53.7518624Z      ✓ detached HEAD 는 null 이다 — sha 를 이름인 척 돌려주지 않는다  587ms
+2026-09-10T14:18:54.0889220Z  ✓ src/renderer/src/features/chat/components/composer/chipGroup.test.ts (6 tests) 9ms
+2026-09-10T14:18:54.1318263Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.usage.test.ts (6 tests) 14ms
+2026-09-10T14:18:54.2631016Z  ✓ src/renderer/src/features/chat/components/rightpanel/WorkTaskProgress.test.ts (6 tests) 90ms
+2026-09-10T14:18:54.4025477Z  ✓ src/renderer/src/features/chat/lib/diffDisplay.test.ts (10 tests) 16ms
+2026-09-10T14:18:54.4422686Z  ✓ src/renderer/src/features/chat/lib/ask.test.ts (10 tests) 11ms
+2026-09-10T14:18:54.6653377Z  ✓ src/renderer/src/features/chat/components/composer/BranchChip.defer.test.ts (3 tests) 23ms
+2026-09-10T14:18:54.8017906Z  ✓ src/renderer/src/features/chat/hooks/gitPatchGuard.test.ts (5 tests) 10ms
+2026-09-10T14:18:54.8323735Z  ✓ src/main/features/extensions/harness-plugins/claude-user-skills.test.ts (6 tests) 64ms
+2026-09-10T14:18:54.9954154Z  ✓ src/main/features/sessions/runtime-pool.test.ts (10 tests) 17ms
+2026-09-10T14:18:55.1147229Z  ✓ src/shared/obj.test.ts (10 tests) 12ms
+2026-09-10T14:18:55.1518104Z  ✓ src/main/features/sessions/session-registry.test.ts (8 tests) 12ms
+2026-09-10T14:18:55.5180140Z  ✓ src/shared/usage/stats.test.ts (13 tests) 20ms
+2026-09-10T14:18:55.6630315Z  ✓ src/main/infra/settings-migration.test.ts (9 tests) 21ms
+2026-09-10T14:18:55.7729960Z  ✓ src/renderer/src/features/chat/components/AgentModeToggle.test.ts (5 tests) 58ms
+2026-09-10T14:18:56.2018574Z  ✓ src/renderer/src/features/settings/components/ProviderUsageTab.test.ts (2 tests) 32ms
+2026-09-10T14:18:56.5290812Z  ✓ src/main/features/artifacts/tool.test.ts (4 tests) 45ms
+2026-09-10T14:18:56.5894674Z  ✓ src/renderer/src/features/chat/store/chatStore.project.test.ts (5 tests) 19ms
+2026-09-10T14:18:56.8873185Z  ✓ src/renderer/src/features/chat/components/composer/statusViewModel.test.ts (7 tests) 9ms
+2026-09-10T14:18:57.0318438Z  ✓ src/main/app/bootstrap.artifacts.test.ts (2 tests) 80ms
+2026-09-10T14:18:57.0745602Z  ✓ src/renderer/src/features/chat/components/rightpanel/diffTileMockRemoved.test.ts (5 tests) 25ms
+2026-09-10T14:18:57.2006142Z  ✓ src/main/adapters/claude-input-receipts.test.ts (7 tests) 14ms
+2026-09-10T14:18:57.5293898Z  ✓ src/main/features/auth/registry.test.ts (5 tests) 8ms
+2026-09-10T14:18:57.8835644Z  ✓ src/renderer/src/features/chat/components/transcript/registry.test.ts (8 tests) 9ms
+2026-09-10T14:18:58.1542953Z  ✓ src/main/infra/log/redact.test.ts (14 tests) 11ms
+2026-09-10T14:18:58.3982011Z  ✓ src/renderer/src/features/chat/components/rightpanel/subagentWiring.render.test.ts (3 tests) 52ms
+2026-09-10T14:18:58.4182970Z  ✓ src/main/features/chat/settle.test.ts (6 tests) 13ms
+2026-09-10T14:18:58.6863811Z  ✓ src/renderer/src/features/chat/hooks/useUsageForTelemetryProvider.test.ts (2 tests) 12ms
+2026-09-10T14:18:58.6993154Z  ✓ src/main/adapters/workspace-guard.extra-dirs.test.ts (12 tests) 18ms
+2026-09-10T14:18:58.9039015Z  ✓ src/main/app/handlers/session-worktree-display.test.ts (2 tests) 1483ms
+2026-09-10T14:18:58.9040962Z      ✓ 앱을 다시 켜도 source_cwd·repo_root 가 같은 값으로 돌아온다  842ms
+2026-09-10T14:18:58.9042614Z      ✓ managed row 가 없는 세션은 필드를 싣지 않는다 — 소비자가 cwd 파생으로 폴백한다  638ms
+2026-09-10T14:18:58.9857857Z  ✓ src/main/adapters/plan-feedback.test.ts (8 tests) 15ms
+2026-09-10T14:18:59.0522077Z  ✓ src/renderer/src/features/chat/components/rightpanel/diffOpenFile.test.ts (5 tests) 21ms
+2026-09-10T14:18:59.5321888Z  ✓ src/renderer/src/features/chat/components/rightpanel/diffPeekRemoved.test.ts (5 tests) 82ms
+2026-09-10T14:18:59.5553117Z  ✓ src/renderer/src/features/skills/components/customize/mcpDetail.render.test.ts (4 tests) 47ms
+2026-09-10T14:18:59.6687283Z  ✓ src/main/features/artifacts/formats.test.ts (19 tests) 46ms
+2026-09-10T14:19:00.0535419Z  ✓ src/renderer/src/features/skills/components/customize/CustomizeList.render.test.ts (7 tests) 77ms
+2026-09-10T14:19:00.0943235Z  ✓ src/renderer/src/features/chat/components/rightpanel/gitSyncTriggersRemoved.test.ts (5 tests) 12ms
+2026-09-10T14:19:00.1094970Z  ✓ src/main/infra/loopback-callback.test.ts (6 tests) 215ms
+2026-09-10T14:19:00.3542001Z  ✓ src/renderer/src/features/chat/lib/eventCoalescer.test.ts (4 tests) 8ms
+2026-09-10T14:19:00.4346958Z  ✓ src/main/infra/git/mutation-queue.test.ts (2 tests) 65ms
+2026-09-10T14:19:00.4778341Z  ✓ src/renderer/src/features/chat/store/chatStore.gitTriggers.test.ts (5 tests) 17ms
+2026-09-10T14:19:00.8637463Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.commitScope.test.ts (3 tests) 11ms
+2026-09-10T14:19:00.8721744Z  ✓ src/main/features/history/reader.test.ts (3 tests) 144ms
+2026-09-10T14:19:01.0515471Z  ✓ src/renderer/src/shared/theme/TweakProvider.store.test.ts (3 tests) 15ms
+2026-09-10T14:19:01.1471445Z  ✓ src/renderer/src/features/chat/components/composer/draftSnapshot.test.ts (6 tests) 13ms
+2026-09-10T14:19:01.2216424Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.turnEnd.test.ts (5 tests) 10ms
+2026-09-10T14:19:01.3882568Z  ✓ src/main/infra/log/file-transport.test.ts (6 tests) 43ms
+2026-09-10T14:19:01.4681272Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.worktree.test.ts (8 tests) 13ms
+2026-09-10T14:19:01.7567395Z  ✓ src/renderer/src/features/chat/components/composer/gitIdentityRemote.test.ts (5 tests) 14ms
+2026-09-10T14:19:01.8045131Z  ✓ src/renderer/src/features/chat/components/rightpanel/DiffTileContent.commitScope.test.ts (2 tests) 15ms
+2026-09-10T14:19:01.9609818Z  ✓ src/main/app/chat-turn/project-binding.test.ts (3 tests) 86ms
+2026-09-10T14:19:02.0764442Z  ✓ src/renderer/src/features/chat/components/rightpanel/diffComparison.test.ts (7 tests) 12ms
+2026-09-10T14:19:02.1164764Z  ✓ src/main/features/sessions/session-chain-lease.test.ts (3 tests) 12ms
+2026-09-10T14:19:02.3315275Z  ✓ src/renderer/src/features/chat/store/chatStore.agentKind.test.ts (4 tests) 24ms
+2026-09-10T14:19:02.3893737Z  ✓ src/main/app/settings-reactions.test.ts (5 tests) 11ms
+2026-09-10T14:19:02.7054664Z  ✓ src/renderer/src/features/chat/components/rightpanel/sessionChangesData.test.ts (6 tests) 10ms
+2026-09-10T14:19:02.9268170Z  ✓ src/renderer/src/features/chat/components/composer/composerPanel.render.test.ts (5 tests) 44ms
+2026-09-10T14:19:03.0891270Z  ✓ src/main/adapters/claude.eventbatches.test.ts (3 tests) 16ms
+2026-09-10T14:19:03.4017097Z  ✓ src/renderer/src/features/chat/components/composer/draftQuestion.test.ts (8 tests) 17ms
+2026-09-10T14:19:03.5079593Z  ✓ src/renderer/src/app/hooks/useSessionCompletion.test.ts (5 tests) 17ms
+2026-09-10T14:19:03.7398129Z  ✓ src/renderer/src/shared/hooks/sidePaneResize.test.ts (6 tests) 23ms
+2026-09-10T14:19:03.8084406Z  ✓ src/renderer/src/features/chat/lib/sendAdmission.test.ts (9 tests) 8ms
+2026-09-10T14:19:04.0174961Z  ✓ src/renderer/src/features/chat/components/rightpanel/workTaskDetail.ack.test.ts (4 tests) 39ms
+2026-09-10T14:19:04.0912127Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.gitSnapshotFail.test.ts (5 tests) 11ms
+2026-09-10T14:19:04.1612928Z  ✓ src/renderer/src/features/skills/lib/providerRows.test.ts (5 tests) 11ms
+2026-09-10T14:19:04.3570301Z  ✓ src/main/features/plugins/confluence/limit.test.ts (7 tests) 44ms
+2026-09-10T14:19:05.0175500Z  ✓ src/renderer/src/features/chat/components/composer/gitRow.availability.test.ts (4 tests) 65ms
+2026-09-10T14:19:05.2047988Z  ✓ src/renderer/src/features/chat/components/rightpanel/ArtifactPreviewContent.render.test.ts (3 tests) 54ms
+2026-09-10T14:19:05.4779305Z  ✓ src/main/adapters/mock.test.ts (4 tests) 734ms
+2026-09-10T14:19:05.4780880Z      ✓ 새 채팅은 sessionId 를 발급하고 resume 은 기존 sessionId 를 보존한다  353ms
+2026-09-10T14:19:05.7046940Z  ✓ src/main/app/handlers/misc-split.test.ts (1 test) 10ms
+2026-09-10T14:19:05.9071538Z  ✓ src/main/adapters/claude.plan-narrative.test.ts (2 tests) 13ms
+2026-09-10T14:19:06.1125239Z  ✓ src/renderer/src/app/hooks/useProjectCatalogSync.test.ts (2 tests) 12ms
+2026-09-10T14:19:06.2775694Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.tool.test.ts (6 tests) 14ms
+2026-09-10T14:19:06.2843251Z  ✓ src/renderer/src/features/chat/components/composer/Composer.requirements.render.test.ts (1 test) 73ms
+2026-09-10T14:19:06.4501810Z  ✓ src/renderer/src/features/chat/components/rightpanel/diffViewMenu.test.ts (7 tests) 9ms
+2026-09-10T14:19:06.6001336Z  ✓ src/main/adapters/turn-end-hook.test.ts (4 tests) 9ms
+2026-09-10T14:19:06.7699450Z  ✓ src/shared/protocol.permission.test.ts (10 tests) 24ms
+2026-09-10T14:19:06.7870661Z  ✓ src/main/infra/ipc/handle.test.ts (4 tests) 16ms
+2026-09-10T14:19:06.9773526Z  ✓ src/main/infra/net/no-node-fetch.test.ts (3 tests) 71ms
+2026-09-10T14:19:07.0911300Z  ✓ src/main/features/orchestration/handoff.test.ts (8 tests) 10ms
+2026-09-10T14:19:07.3374353Z  ✓ src/main/adapters/diff-requirements.test.ts (3 tests) 12ms
+2026-09-10T14:19:07.4310146Z  ✓ src/renderer/src/app/rootFrame.test.ts (9 tests) 11ms
+2026-09-10T14:19:07.6590210Z  ✓ src/renderer/src/features/chat/lib/worktreeDisplay.test.ts (7 tests) 9ms
+2026-09-10T14:19:07.7553040Z  ✓ src/renderer/src/features/chat/components/rightpanel/diffSyntax.render.test.ts (2 tests) 85ms
+2026-09-10T14:19:08.0311415Z  ✓ src/main/infra/git/github-url.test.ts (37 tests) 14ms
+2026-09-10T14:19:08.2707215Z {"scope":"Work selectors only; not React commit time","previousExchanges":100,"currentCompletedMessages":100,"updates":100,"repeatedCompletedPartReads":0,"medianMs":0.8363999999999692,"p95Ms":1.800200000000018}
+2026-09-10T14:19:08.2779457Z  ✓ src/renderer/src/features/chat/lib/workActivity.performance.test.ts (1 test) 130ms
+2026-09-10T14:19:08.9257349Z  ✓ src/main/app/handlers/project.test.ts (2 tests) 70ms
+2026-09-10T14:19:09.0958108Z  ✓ src/renderer/src/features/chat/components/rightpanel/plan0215.render.test.ts (3 tests) 59ms
+2026-09-10T14:19:09.2589054Z  ✓ src/renderer/src/shared/ui/depthCss.test.ts (3 tests) 10ms
+2026-09-10T14:19:09.4028594Z  ✓ src/renderer/src/features/chat/lib/fileSectionScroll.test.ts (4 tests) 11ms
+2026-09-10T14:19:09.6129573Z  ✓ src/renderer/src/features/chat/components/composer/CheckoutErrorBody.test.ts (4 tests) 11ms
+2026-09-10T14:19:09.7440304Z  ✓ src/shared/model-identity.test.ts (57 tests) 22ms
+2026-09-10T14:19:09.8252935Z  ✓ src/renderer/src/app/tweakConsumers.render.test.ts (6 tests) 80ms
+2026-09-10T14:19:09.9925660Z  ✓ src/main/adapters/claude.live-control.test.ts (2 tests) 8ms
+2026-09-10T14:19:10.1430570Z  ✓ src/renderer/src/features/chat/lib/parts.reconcile.test.ts (4 tests) 10ms
+2026-09-10T14:19:10.2126405Z  ✓ src/main/app/handlers/providers.test.ts (3 tests) 9ms
+2026-09-10T14:19:10.4470859Z  ✓ src/shared/protocol.log.test.ts (7 tests) 21ms
+2026-09-10T14:19:10.4501394Z  ✓ src/main/adapters/attachment-prompt.test.ts (4 tests) 8ms
+2026-09-10T14:19:10.7283572Z  ✓ src/renderer/src/features/chat/components/transcript/UserMessage.requirements.test.ts (3 tests) 33ms
+2026-09-10T14:19:10.9112824Z  ✓ src/main/app/chat-turn/queued-requirements.test.ts (2 tests) 7ms
+2026-09-10T14:19:10.9253384Z  ✓ src/main/app/worktree-root-wiring.test.ts (2 tests) 145ms
+2026-09-10T14:19:11.0400244Z  ✓ src/main/features/auth/store-vault-keys.test.ts (5 tests) 9ms
+2026-09-10T14:19:11.2307663Z  ✓ src/main/app/updater-feed.test.ts (7 tests) 10ms
+2026-09-10T14:19:11.2852171Z  ✓ src/renderer/src/features/chat/store/chatStore.extraDirs.test.ts (4 tests) 14ms
+2026-09-10T14:19:11.3844767Z  ✓ src/main/infra/log/suppress.test.ts (6 tests) 9ms
+2026-09-10T14:19:11.5864506Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.runtime-resilience.test.ts (3 tests) 12ms
+2026-09-10T14:19:11.6276327Z  ✓ src/main/features/chat/title.test.ts (7 tests) 8ms
+2026-09-10T14:19:11.7206988Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.diffCache.test.ts (2 tests) 10ms
+2026-09-10T14:19:11.8861162Z  ✓ src/renderer/src/features/chat/lib/changedFileTree.test.ts (5 tests) 9ms
+2026-09-10T14:19:11.9999513Z  ✓ src/shared/ipc-documentation.test.ts (3 tests) 7ms
+2026-09-10T14:19:12.1308441Z  ✓ src/main/features/extensions/mcp/store.test.ts (2 tests) 13ms
+2026-09-10T14:19:12.2628975Z  ✓ src/renderer/src/features/providers/store/bypassStore.test.ts (6 tests) 51ms
+2026-09-10T14:19:12.3064664Z  ✓ src/shared/time/clock.test.ts (6 tests) 10ms
+2026-09-10T14:19:12.6042333Z  ✓ src/renderer/src/features/chat/components/CwdPanel.landing.test.ts (5 tests) 10ms
+2026-09-10T14:19:12.6248751Z  ✓ src/renderer/src/features/providers/lib/principal.test.ts (7 tests) 8ms
+2026-09-10T14:19:12.7993270Z  ✓ src/renderer/src/features/chat/components/transcript/TranscriptView.workResults.test.ts (1 test) 36ms
+2026-09-10T14:19:12.9109373Z  ✓ src/main/app/handlers/context.test.ts (1 test) 4ms
+2026-09-10T14:19:12.9259506Z  ✓ src/renderer/src/features/chat/lib/parts.settle-orphan.test.ts (5 tests) 12ms
+2026-09-10T14:19:13.1162718Z  ✓ src/renderer/src/features/chat/reducer/chatReducer.ask.test.ts (4 tests) 8ms
+2026-09-10T14:19:13.4018473Z  ✓ src/renderer/src/features/chat/components/composer/RequirementTray.render.test.ts (3 tests) 39ms
+2026-09-10T14:19:13.6898428Z  ✓ src/main/app/chat-turn/resolve-turn.agent.test.ts (5 tests) 14ms
+2026-09-10T14:19:13.8461302Z  ✓ src/renderer/src/features/chat/components/rightpanel/workPanelSections.test.ts (2 tests) 97ms
+2026-09-10T14:19:13.8534250Z  ✓ src/main/infra/db/managed-worktrees.test.ts (2 tests) 68ms
+2026-09-10T14:19:14.0759723Z  ✓ src/renderer/src/features/sessions/store/sessionsStore.completion.test.ts (4 tests) 11ms
+2026-09-10T14:19:14.1431977Z  ✓ src/renderer/src/features/chat/lib/diffPatchLines.test.ts (4 tests) 9ms
+2026-09-10T14:19:14.3148387Z  ✓ src/main/app/handlers/misc.runtime-catalog.test.ts (1 test) 6ms
+2026-09-10T14:19:14.4647424Z  ✓ src/renderer/src/features/chat/components/composer/ComposerDecorationLayer.test.ts (3 tests) 28ms
+2026-09-10T14:19:14.6584550Z  ✓ src/main/infra/config/rebase-path.test.ts (7 tests) 9ms
+2026-09-10T14:19:14.8250905Z  ✓ src/main/features/artifacts/validation.test.ts (4 tests) 23ms
+2026-09-10T14:19:14.8774116Z  ✓ src/main/infra/db/attachment-files.test.ts (1 test) 40ms
+2026-09-10T14:19:15.0122053Z  ✓ src/renderer/src/features/engine/lib/providerCatalog.test.ts (8 tests) 9ms
+2026-09-10T14:19:15.1302823Z  ✓ src/main/features/approvals/permission-bridge.test.ts (5 tests) 10ms
+2026-09-10T14:19:15.3026874Z  ✓ src/renderer/src/features/chat/lib/parts.stale-async.test.ts (4 tests) 8ms
+2026-09-10T14:19:15.4558345Z  ✓ src/main/adapters/claude-runtime-tools.test.ts (2 tests) 9ms
+2026-09-10T14:19:15.6155232Z  ✓ src/main/features/chat/interrupt-reconcile.test.ts (6 tests) 10ms
+2026-09-10T14:19:15.8134050Z  ✓ src/renderer/src/features/chat/components/composer/modelSelection.test.ts (4 tests) 7ms
+2026-09-10T14:19:15.9698074Z  ✓ src/renderer/src/features/sessions/lib/sessionPlacement.test.ts (5 tests) 9ms
+2026-09-10T14:19:16.0462951Z  ✓ src/renderer/src/features/chat/lib/diffSyntax.test.ts (4 tests) 528ms
+2026-09-10T14:19:16.0464890Z      ✓ 공통 줄도 좌우의 주석 문맥을 별도로 보존한다  521ms
+2026-09-10T14:19:16.1493983Z  ✓ src/renderer/src/features/chat/components/composer/modes.r7.test.ts (12 tests) 17ms
+2026-09-10T14:19:16.3323889Z  ✓ src/main/adapters/claude.cwd.test.ts (2 tests) 9ms
+2026-09-10T14:19:16.4364603Z  ✓ src/renderer/src/features/chat/lib/planComments.test.ts (8 tests) 10ms
+2026-09-10T14:19:16.5218549Z  ✓ src/shared/protocol.worktree.test.ts (4 tests) 11ms
+2026-09-10T14:19:16.7682673Z  ✓ src/shared/continuity-lang.test.ts (6 tests) 10ms
+2026-09-10T14:19:16.8264519Z  ✓ src/renderer/src/features/chat/components/composer/modes.r6.test.ts (18 tests) 68ms
+2026-09-10T14:19:17.0919596Z  ✓ src/renderer/src/features/engine/components/AgentEnvironmentView.count.test.ts (2 tests) 47ms
+2026-09-10T14:19:17.1613225Z  ✓ src/main/infra/git/git-parse.test.ts (9 tests) 29ms
+2026-09-10T14:19:17.4357154Z  ✓ src/renderer/src/features/chat/lib/gitPatchCache.test.ts (2 tests) 8ms
+2026-09-10T14:19:17.5171167Z  ✓ src/main/adapters/hooks.test.ts (8 tests) 10ms
+2026-09-10T14:19:17.7401631Z  ✓ src/main/app/boot-report.test.ts (3 tests) 12ms
+2026-09-10T14:19:18.0375089Z  ✓ src/renderer/src/features/chat/components/usagePanel.render.test.ts (1 test) 69ms
+2026-09-10T14:19:18.0939133Z  ✓ src/main/features/extensions/skills/scan.test.ts (1 test) 42ms
+2026-09-10T14:19:18.2170340Z  ✓ src/renderer/src/features/chat/components/Composer.activity.test.ts (2 tests) 80ms
+2026-09-10T14:19:18.4588985Z  ✓ src/renderer/src/features/chat/store/chatStore.modelPermission.test.ts (3 tests) 18ms
+2026-09-10T14:19:18.5506071Z  ✓ src/renderer/src/app/OverlayLayer.search.test.ts (1 test) 11ms
+2026-09-10T14:19:18.6045360Z  ✓ src/main/infra/log/serialize-error.test.ts (5 tests) 15ms
+2026-09-10T14:19:18.9065313Z  ✓ src/renderer/src/features/projects/components/instructionsCard.render.test.ts (4 tests) 32ms
+2026-09-10T14:19:18.9505064Z  ✓ src/main/infra/bus/index.test.ts (5 tests) 14ms
+2026-09-10T14:19:19.0132178Z  ✓ src/shared/artifacts.test.ts (3 tests) 16ms
+2026-09-10T14:19:19.2406036Z  ✓ src/main/features/harnesses/settings-write.test.ts (2 tests) 22ms
+2026-09-10T14:19:19.2407973Z  ✓ src/main/infra/config/provider-key.test.ts (4 tests) 10ms
+2026-09-10T14:19:19.4573339Z  ✓ src/shared/git-diff-schema.test.ts (9 tests) 11ms
+2026-09-10T14:19:19.5393685Z  ✓ src/shared/permission-mode.r4.test.ts (18 tests) 12ms
+2026-09-10T14:19:19.6995220Z  ✓ src/renderer/src/shared/i18n/resources/resources.test.ts (3 tests) 141ms
+2026-09-10T14:19:19.8657546Z  ✓ src/shared/usage/primary-model.test.ts (5 tests) 8ms
+2026-09-10T14:19:20.0036841Z  ✓ src/main/infra/config/startup-sequence.test.ts (2 tests) 7ms
+2026-09-10T14:19:20.3262488Z  ✓ src/main/adapters/claude.steer-replay.test.ts (1 test) 8ms
+2026-09-10T14:19:20.3716580Z  ✓ src/renderer/src/features/artifacts/components/ArtifactsView.count.test.ts (2 tests) 84ms
+2026-09-10T14:19:20.6343895Z  ✓ src/renderer/src/app/navItems.test.ts (3 tests) 5ms
+2026-09-10T14:19:20.6740475Z  ✓ src/main/infra/db/agent-kind.test.ts (1 test) 858ms
+2026-09-10T14:19:20.6742360Z    ✓ persists Work across reopen, defaults callers to Code, and preserves birth on conflict  856ms
+2026-09-10T14:19:20.6977144Z  ✓ src/renderer/src/features/chat/components/rightpanel/RightPanelTile.actions.test.ts (2 tests) 34ms
+2026-09-10T14:19:20.9390529Z  ✓ src/main/features/approvals/permission-mode-controller.test.ts (6 tests) 9ms
+2026-09-10T14:19:21.0001589Z  ✓ src/main/app/artifact-sender.test.ts (3 tests) 8ms
+2026-09-10T14:19:21.1535576Z  ✓ src/renderer/src/features/chat/components/transcript/UserMessage.origin.test.ts (6 tests) 28ms
+2026-09-10T14:19:21.2474324Z  ✓ src/main/adapters/claude-plugin.test.ts (4 tests) 8ms
+2026-09-10T14:19:21.3052122Z  ✓ src/main/adapters/descriptor.test.ts (6 tests) 11ms
+2026-09-10T14:19:21.4567943Z  ✓ src/main/features/agents/profiles.test.ts (2 tests) 9ms
+2026-09-10T14:19:21.5331163Z  ✓ src/renderer/src/features/chat/components/rightpanel/RightPanel.viewport.test.ts (2 tests) 10ms
+2026-09-10T14:19:21.6054085Z  ✓ src/main/features/sessions/respawn-policy.test.ts (8 tests) 6ms
+2026-09-10T14:19:21.7962442Z  ✓ src/renderer/src/features/chat/lib/diffLines.test.ts (4 tests) 9ms
+2026-09-10T14:19:21.8558847Z  ✓ src/main/adapters/plan-text.test.ts (4 tests) 5ms
+2026-09-10T14:19:21.9914679Z  ✓ src/renderer/src/shared/ui/meter.render.test.ts (3 tests) 20ms
+2026-09-10T14:19:22.1193802Z  ✓ src/main/features/chat/abort.test.ts (3 tests) 12ms
+2026-09-10T14:19:22.2612194Z  ✓ src/renderer/src/features/chat/lib/agentPresentation.r8.test.ts (2 tests) 8ms
+2026-09-10T14:19:22.3347846Z  ✓ src/shared/protocol.pin.test.ts (5 tests) 12ms
+2026-09-10T14:19:22.4623292Z  ✓ src/renderer/src/features/chat/reducer/agentPolicy.r8.test.ts (5 tests) 11ms
+2026-09-10T14:19:22.5591136Z  ✓ src/main/app/chat-turn/respawn-inputs.test.ts (1 test) 6ms
+2026-09-10T14:19:22.6571493Z  ✓ src/shared/agent-kind.test.ts (2 tests) 12ms
+2026-09-10T14:19:22.8046737Z  ✓ src/renderer/src/app/boot/bootStore.test.ts (2 tests) 11ms
+2026-09-10T14:19:22.8606187Z  ✓ src/renderer/src/features/chat/lib/diffHunks.selection.test.ts (2 tests) 9ms
+2026-09-10T14:19:23.0196246Z  ✓ src/main/adapters/claude.effort.test.ts (1 test) 7ms
+2026-09-10T14:19:23.1155831Z  ✓ src/main/adapters/runtime-tool-policy.test.ts (2 tests) 7ms
+2026-09-10T14:19:23.1622615Z  ✓ src/shared/permission-mode.r8.test.ts (2 tests) 10ms
+2026-09-10T14:19:23.3841528Z  ✓ src/renderer/src/features/chat/lib/artifactOperationIssues.test.ts (2 tests) 6ms
+2026-09-10T14:19:23.4774541Z  ✓ src/shared/update-protocol.test.ts (3 tests) 13ms
+2026-09-10T14:19:23.4888817Z  ✓ src/renderer/src/features/skills/lib/catalogSelection.test.ts (3 tests) 9ms
+2026-09-10T14:19:23.6625706Z  ✓ src/renderer/src/features/chat/lib/diffRequirementScroll.test.ts (2 tests) 10ms
+2026-09-10T14:19:23.7944256Z  ✓ src/renderer/src/features/chat/lib/lang.test.ts (5 tests) 9ms
+2026-09-10T14:19:23.8232405Z  ✓ src/main/app/chat-turn/approval.permission.test.ts (2 tests) 13ms
+2026-09-10T14:19:23.9585368Z  ✓ src/shared/time/relative.test.ts (5 tests) 7ms
+2026-09-10T14:19:24.0937390Z  ✓ src/main/features/sessions/eviction-policy.test.ts (3 tests) 7ms
+2026-09-10T14:19:24.1270550Z  ✓ src/main/features/worktrees/naming.test.ts (2 tests) 9ms
+2026-09-10T14:19:24.2607667Z  ✓ src/shared/subagent.test.ts (3 tests) 7ms
+2026-09-10T14:19:24.4045220Z  ✓ src/shared/extra-directories.test.ts (3 tests) 10ms
+2026-09-10T14:19:24.5500833Z  ✓ src/main/features/chat/timers.test.ts (1 test) 9ms
+2026-09-10T14:19:24.6488203Z  ✓ src/renderer/src/shared/ui/markdown/CodeBlock.render.test.ts (2 tests) 20ms
+2026-09-10T14:19:24.7369199Z  ✓ src/main/adapters/claude-schedules.test.ts (2 tests) 9ms
+2026-09-10T14:19:24.8601792Z  ✓ src/main/infra/git/runner.test.ts (1 test) 16ms
+2026-09-10T14:19:25.0345273Z  ✓ src/renderer/src/features/chat/components/composer/gitManualRefresh.test.ts (2 tests) 10ms
+2026-09-10T14:19:25.0417855Z  ✓ src/renderer/src/shared/ui/markdown/isCodeBlock.test.ts (5 tests) 6ms
+2026-09-10T14:19:25.1939219Z  ✓ src/renderer/src/shared/navigation/routes.test.ts (2 tests) 11ms
+2026-09-10T14:19:25.3205876Z  ✓ src/renderer/src/features/skills/lib/catalogRows.test.ts (3 tests) 7ms
+2026-09-10T14:19:25.3453196Z  ✓ src/main/infra/config/project-path.test.ts (3 tests) 11ms
+2026-09-10T14:19:25.5139353Z  ✓ src/renderer/src/features/chat/lib/diffViewport.test.ts (2 tests) 5ms
+2026-09-10T14:19:25.6122880Z  ✓ src/main/features/sessions/active-turn-tracker.test.ts (1 test) 9ms
+2026-09-10T14:19:25.6179880Z  ✓ src/main/app/builtin-resources.test.ts (2 tests) 6ms
+2026-09-10T14:19:25.8188327Z  ✓ src/main/infra/vars.test.ts (3 tests) 9ms
+2026-09-10T14:19:25.9041938Z  ✓ src/main/adapters/risky-tools.test.ts (3 tests) 8ms
+2026-09-10T14:19:25.9196696Z  ✓ src/shared/update-restart.test.ts (5 tests) 8ms
+2026-09-10T14:19:26.1212936Z  ✓ src/renderer/src/features/chat/components/composer/composerDecoration.test.ts (1 test) 8ms
+2026-09-10T14:19:26.4311341Z  ✓ src/shared/time/reset.test.ts (2 tests) 9ms
+2026-09-10T14:19:26.5180318Z  ✓ src/main/adapters/registry.test.ts (2 tests) 6ms
+2026-09-10T14:19:26.5363712Z  ✓ src/main/features/artifacts/temp-directory.test.ts (1 test) 24ms
+2026-09-10T14:19:26.7373571Z  ✓ src/main/features/extensions/system-header.agent.test.ts (1 test) 7ms
+2026-09-10T14:19:26.8025155Z  ✓ src/renderer/src/features/settings/lib/usageFormat.test.ts (3 tests) 5ms
+2026-09-10T14:19:26.8231461Z  ✓ src/main/infra/git/worktree.test.ts (1 test) 7ms
+2026-09-10T14:19:27.0343765Z  ✓ src/renderer/src/features/chat/lib/telemetry.test.ts (2 tests) 5ms
+2026-09-10T14:19:27.1026245Z  ✓ src/main/contracts/session-state.test.ts (1 test) 5ms
+2026-09-10T14:19:27.1100836Z  ✓ src/shared/path-basename.test.ts (2 tests) 7ms
+2026-09-10T14:19:27.3490854Z  ✓ src/renderer/src/features/skills/store/extensionsModalStore.test.ts (1 test) 7ms
+2026-09-10T14:19:27.4000318Z  ✓ src/main/features/chat/image.test.ts (1 test) 6ms
+2026-09-10T14:19:27.5682798Z  ✓ src/main/adapters/claude.describe.test.ts (2 tests) 4ms
+2026-09-10T14:19:27.5840170Z
+2026-09-10T14:19:27.5866321Z  Test Files  476 passed | 1 skipped (477)
+2026-09-10T14:19:27.5894861Z       Tests  4493 passed | 1 skipped (4494)
+2026-09-10T14:19:27.5895834Z    Start at  14:17:41
+2026-09-10T14:19:27.5902319Z    Duration  105.97s (transform 14.18s, setup 0ms, import 80.67s, tests 106.35s, environment 112ms)
+2026-09-10T14:19:27.5904805Z
+2026-09-10T14:19:27.9258912Z TAP version 13
+2026-09-10T14:19:27.9978282Z # Subtest: analyzeComposerInputTrace
+2026-09-10T14:19:27.9979301Z     # Subtest: accepts raw arrays and DevTools trace objects
+2026-09-10T14:19:27.9986544Z     ok 1 - accepts raw arrays and DevTools trace objects
+2026-09-10T14:19:27.9987626Z       ---
+2026-09-10T14:19:27.9988181Z       duration_ms: 1.828
+2026-09-10T14:19:27.9988744Z       type: 'test'
+2026-09-10T14:19:27.9989247Z       ...
+2026-09-10T14:19:28.0019348Z     # Subtest: matches each input to the next paint on the renderer main thread
+2026-09-10T14:19:28.0020681Z     ok 2 - matches each input to the next paint on the renderer main thread
+2026-09-10T14:19:28.0021569Z       ---
+2026-09-10T14:19:28.0031304Z       duration_ms: 2.2462
+2026-09-10T14:19:28.0047520Z       type: 'test'
+2026-09-10T14:19:28.0048093Z       ...
+2026-09-10T14:19:28.0049338Z     # Subtest: reports unmatched inputs and long tasks overlapping the sample window
+2026-09-10T14:19:28.0050648Z     ok 3 - reports unmatched inputs and long tasks overlapping the sample window
+2026-09-10T14:19:28.0051586Z       ---
+2026-09-10T14:19:28.0052112Z       duration_ms: 0.5949
+2026-09-10T14:19:28.0054969Z       type: 'test'
+2026-09-10T14:19:28.0055551Z       ...
+2026-09-10T14:19:28.0056056Z     1..3
+2026-09-10T14:19:28.0056741Z ok 1 - analyzeComposerInputTrace
+2026-09-10T14:19:28.0057400Z   ---
+2026-09-10T14:19:28.0057916Z   duration_ms: 7.7251
+2026-09-10T14:19:28.0058451Z   type: 'suite'
+2026-09-10T14:19:28.0058964Z   ...
+2026-09-10T14:19:28.1017858Z # [doc-inventory] wrote docs\\generated\\inventory.md
+2026-09-10T14:19:28.1131126Z # [doc-inventory] generated doc ok (9 items, 3 channels)
+2026-09-10T14:19:28.1136105Z # [doc-inventory] prose ok: no inventory counts restated in current-state docs
+2026-09-10T14:19:28.1143560Z # [doc-inventory] links ok: every relative markdown link resolves
+2026-09-10T14:19:28.1394756Z # [doc-inventory] wrote docs\\generated\\inventory.md
+2026-09-10T14:19:28.1419712Z # [doc-inventory] docs\\generated\\inventory.md is stale or hand-edited — run: node scripts/check-doc-inventory.mjs
+2026-09-10T14:19:28.1454738Z # [doc-inventory] prose ok: no inventory counts restated in current-state docs
+2026-09-10T14:19:28.1494614Z # [doc-inventory] links ok: every relative markdown link resolves
+2026-09-10T14:19:28.1780881Z # [doc-inventory] wrote docs\\generated\\inventory.md
+2026-09-10T14:19:28.1808410Z # [doc-inventory] generated doc ok (9 items, 3 channels)
+2026-09-10T14:19:28.1855106Z # [doc-inventory] prose ok: no inventory counts restated in current-state docs
+2026-09-10T14:19:28.1894788Z # [doc-inventory] links ok: every relative markdown link resolves
+2026-09-10T14:19:28.2150156Z # [doc-inventory] wrote docs\\generated\\inventory.md
+2026-09-10T14:19:28.2172882Z # [doc-inventory] docs\\generated\\inventory.md is stale or hand-edited — run: node scripts/check-doc-inventory.mjs
+2026-09-10T14:19:28.2197578Z # [doc-inventory] prose ok: no inventory counts restated in current-state docs
+2026-09-10T14:19:28.2226456Z # [doc-inventory] links ok: every relative markdown link resolves
+2026-09-10T14:19:28.2478755Z # [doc-inventory] wrote docs\\generated\\inventory.md
+2026-09-10T14:19:28.2493874Z # [doc-inventory] generated doc ok (9 items, 3 channels)
+2026-09-10T14:19:28.2532519Z # [doc-inventory] inventory count in prose: docs\\AGENTS.md:1 "총 76 채널" — link docs\\generated\\inventory.md instead
+2026-09-10T14:19:28.2567680Z # [doc-inventory] links ok: every relative markdown link resolves
+2026-09-10T14:19:28.2821430Z # [doc-inventory] wrote docs\\generated\\inventory.md
+2026-09-10T14:19:28.2837680Z # [doc-inventory] generated doc ok (9 items, 3 channels)
+2026-09-10T14:19:28.2879746Z # [doc-inventory] prose ok: no inventory counts restated in current-state docs
+2026-09-10T14:19:28.2916054Z # [doc-inventory] broken relative link: docs\\AGENTS.md -> ./gone.md
+2026-09-10T14:19:29.0899821Z # Subtest: 파서
+2026-09-10T14:19:29.0903685Z     # Subtest: 채널과 도메인 분포를 뽑는다
+2026-09-10T14:19:29.0912149Z     ok 1 - 채널과 도메인 분포를 뽑는다
+2026-09-10T14:19:29.0912743Z       ---
+2026-09-10T14:19:29.0913238Z       duration_ms: 3.6375
+2026-09-10T14:19:29.0913776Z       type: 'test'
+2026-09-10T14:19:29.0914244Z       ...
+2026-09-10T14:19:29.0914993Z     # Subtest: 중첩 오브젝트의 키는 settings 키로 세지 않는다
+2026-09-10T14:19:29.0916610Z     ok 2 - 중첩 오브젝트의 키는 settings 키로 세지 않는다
+2026-09-10T14:19:29.0917232Z       ---
+2026-09-10T14:19:29.0917716Z       duration_ms: 0.5923
+2026-09-10T14:19:29.0918237Z       type: 'test'
+2026-09-10T14:19:29.0918695Z       ...
+2026-09-10T14:19:29.0919342Z     # Subtest: union 은 인라인 멤버와 참조 멤버를 모두 센다
+2026-09-10T14:19:29.0921084Z     ok 3 - union 은 인라인 멤버와 참조 멤버를 모두 센다
+2026-09-10T14:19:29.0921991Z       ---
+2026-09-10T14:19:29.0925259Z       duration_ms: 0.9007
+2026-09-10T14:19:29.0926087Z       type: 'test'
+2026-09-10T14:19:29.0926612Z       ...
+2026-09-10T14:19:29.0931217Z     # Subtest: union 파싱이 다음 export 에서 멈춘다
+2026-09-10T14:19:29.0932514Z     ok 4 - union 파싱이 다음 export 에서 멈춘다
+2026-09-10T14:19:29.0933354Z       ---
+2026-09-10T14:19:29.0933811Z       duration_ms: 0.3327
+2026-09-10T14:19:29.0934334Z       type: 'test'
+2026-09-10T14:19:29.0934623Z       ...
+2026-09-10T14:19:29.0936356Z     1..4
+2026-09-10T14:19:29.0938107Z ok 2 - 파서
+2026-09-10T14:19:29.0938993Z   ---
+2026-09-10T14:19:29.0939313Z   duration_ms: 7.6064
+2026-09-10T14:19:29.0939632Z   type: 'suite'
+2026-09-10T14:19:29.0939908Z   ...
+2026-09-10T14:19:29.0942276Z # Subtest: 인벤토리 집계
+2026-09-10T14:19:29.0943583Z     # Subtest: 9개 항목을 코드에서 센다
+2026-09-10T14:19:29.0945129Z     ok 1 - 9개 항목을 코드에서 센다
+2026-09-10T14:19:29.0945831Z       ---
+2026-09-10T14:19:29.0946130Z       duration_ms: 28.4295
+2026-09-10T14:19:29.0946473Z       type: 'test'
+2026-09-10T14:19:29.0946764Z       ...
+2026-09-10T14:19:29.0951791Z     # Subtest: 생성 결과가 9개 항목과 정본 경로를 담는다
+2026-09-10T14:19:29.0953315Z     ok 2 - 생성 결과가 9개 항목과 정본 경로를 담는다
+2026-09-10T14:19:29.0954181Z       ---
+2026-09-10T14:19:29.0954474Z       duration_ms: 25.2366
+2026-09-10T14:19:29.0954813Z       type: 'test'
+2026-09-10T14:19:29.0955105Z       ...
+2026-09-10T14:19:29.0955508Z     1..2
+2026-09-10T14:19:29.0957491Z ok 3 - 인벤토리 집계
+2026-09-10T14:19:29.0958407Z   ---
+2026-09-10T14:19:29.0959056Z   duration_ms: 53.9501
+2026-09-10T14:19:29.0959374Z   type: 'suite'
+2026-09-10T14:19:29.0959859Z   ...
+2026-09-10T14:19:29.0962060Z # Subtest: 프로즈 스캐너
+2026-09-10T14:19:29.0963433Z     # Subtest: 인벤토리 수치 서술을 잡는다
+2026-09-10T14:19:29.0965141Z     ok 1 - 인벤토리 수치 서술을 잡는다
+2026-09-10T14:19:29.0966299Z       ---
+2026-09-10T14:19:29.0966591Z       duration_ms: 2.8441
+2026-09-10T14:19:29.0966925Z       type: 'test'
+2026-09-10T14:19:29.0967226Z       ...
+2026-09-10T14:19:29.0989242Z     # Subtest: 정본 링크로 바꾼 문장은 잡지 않는다
+2026-09-10T14:19:29.0990180Z     ok 2 - 정본 링크로 바꾼 문장은 잡지 않는다
+2026-09-10T14:19:29.0990811Z       ---
+2026-09-10T14:19:29.0991353Z       duration_ms: 0.3907
+2026-09-10T14:19:29.0991931Z       type: 'test'
+2026-09-10T14:19:29.0992470Z       ...
+2026-09-10T14:19:29.0993202Z     # Subtest: 맨숫자는 잡지 않는다 — 단위가 붙은 서술만 본다
+2026-09-10T14:19:29.0994057Z     ok 3 - 맨숫자는 잡지 않는다 — 단위가 붙은 서술만 본다
+2026-09-10T14:19:29.0994703Z       ---
+2026-09-10T14:19:29.0995218Z       duration_ms: 0.4308
+2026-09-10T14:19:29.0995841Z       type: 'test'
+2026-09-10T14:19:29.0996326Z       ...
+2026-09-10T14:19:29.0996825Z     1..3
+2026-09-10T14:19:29.0997427Z ok 4 - 프로즈 스캐너
+2026-09-10T14:19:29.0997949Z   ---
+2026-09-10T14:19:29.0998445Z   duration_ms: 5.4651
+2026-09-10T14:19:29.0998988Z   type: 'suite'
+2026-09-10T14:19:29.0999485Z   ...
+2026-09-10T14:19:29.1000231Z # Subtest: 제외 경로 (P30 방어)
+2026-09-10T14:19:29.1001046Z     # Subtest: 이력·생성물·외부 미러를 제외한다
+2026-09-10T14:19:29.1001821Z     ok 1 - 이력·생성물·외부 미러를 제외한다
+2026-09-10T14:19:29.1002438Z       ---
+2026-09-10T14:19:29.1002938Z       duration_ms: 0.7862
+2026-09-10T14:19:29.1003499Z       type: 'test'
+2026-09-10T14:19:29.1004019Z       ...
+2026-09-10T14:19:29.1004720Z     # Subtest: current-state 문서는 제외하지 않는다
+2026-09-10T14:19:29.1012997Z     ok 2 - current-state 문서는 제외하지 않는다
+2026-09-10T14:19:29.1013790Z       ---
+2026-09-10T14:19:29.1014405Z       duration_ms: 0.5138
+2026-09-10T14:19:29.1015021Z       type: 'test'
+2026-09-10T14:19:29.1015553Z       ...
+2026-09-10T14:19:29.1016325Z     # Subtest: 제외 디렉토리 안의 수치는 스캔 결과에 나오지 않는다
+2026-09-10T14:19:29.1017336Z     ok 3 - 제외 디렉토리 안의 수치는 스캔 결과에 나오지 않는다
+2026-09-10T14:19:29.1018012Z       ---
+2026-09-10T14:19:29.1018518Z       duration_ms: 5.1184
+2026-09-10T14:19:29.1019085Z       type: 'test'
+2026-09-10T14:19:29.1019606Z       ...
+2026-09-10T14:19:29.1020087Z     1..3
+2026-09-10T14:19:29.1020810Z ok 5 - 제외 경로 (P30 방어)
+2026-09-10T14:19:29.1021395Z   ---
+2026-09-10T14:19:29.1021896Z   duration_ms: 6.6569
+2026-09-10T14:19:29.1022450Z   type: 'suite'
+2026-09-10T14:19:29.1022941Z   ...
+2026-09-10T14:19:29.1023515Z # Subtest: 링크 체커
+2026-09-10T14:19:29.1024257Z     # Subtest: 사이트 절대경로와 외부 URL 은 상대링크가 아니다
+2026-09-10T14:19:29.1025501Z     ok 1 - 사이트 절대경로와 외부 URL 은 상대링크가 아니다
+2026-09-10T14:19:29.1026198Z       ---
+2026-09-10T14:19:29.1026796Z       duration_ms: 0.4779
+2026-09-10T14:19:29.1027374Z       type: 'test'
+2026-09-10T14:19:29.1027879Z       ...
+2026-09-10T14:19:29.1039023Z     # Subtest: 과거 핸드오프는 링크 검사 대상이 아니다
+2026-09-10T14:19:29.1040961Z     ok 2 - 과거 핸드오프는 링크 검사 대상이 아니다
+2026-09-10T14:19:29.1041674Z       ---
+2026-09-10T14:19:29.1042039Z       duration_ms: 0.2828
+2026-09-10T14:19:29.1081979Z       type: 'test'
+2026-09-10T14:19:29.1084807Z       ...
+2026-09-10T14:19:29.1085323Z     # Subtest: 살아 있는 문서의 파손 링크를 잡는다
+2026-09-10T14:19:29.1085881Z     ok 3 - 살아 있는 문서의 파손 링크를 잡는다
+2026-09-10T14:19:29.1086268Z       ---
+2026-09-10T14:19:29.1086575Z       duration_ms: 9.6856
+2026-09-10T14:19:29.1087254Z       type: 'test'
+2026-09-10T14:19:29.1087570Z       ...
+2026-09-10T14:19:29.1087826Z     1..3
+2026-09-10T14:19:29.1088198Z ok 6 - 링크 체커
+2026-09-10T14:19:29.1090107Z   ---
+2026-09-10T14:19:29.1090422Z   duration_ms: 10.7466
+2026-09-10T14:19:29.1090771Z   type: 'suite'
+2026-09-10T14:19:29.1091067Z   ...
+2026-09-10T14:19:29.1091329Z # Subtest: CLI
+2026-09-10T14:19:29.1092503Z     # Subtest: 생성 후 --check 가 통과한다
+2026-09-10T14:19:29.1093103Z     ok 1 - 생성 후 --check 가 통과한다
+2026-09-10T14:19:29.1093499Z       ---
+2026-09-10T14:19:29.1093825Z       duration_ms: 41.8016
+2026-09-10T14:19:29.1094150Z       type: 'test'
+2026-09-10T14:19:29.1094326Z       ...
+2026-09-10T14:19:29.1094637Z     # Subtest: 슬라이스 추가 시 --check 가 실패한다
+2026-09-10T14:19:29.1094967Z     ok 2 - 슬라이스 추가 시 --check 가 실패한다
+2026-09-10T14:19:29.1095291Z       ---
+2026-09-10T14:19:29.1095587Z       duration_ms: 37.4795
+2026-09-10T14:19:29.1095966Z       type: 'test'
+2026-09-10T14:19:29.1096266Z       ...
+2026-09-10T14:19:29.1096737Z     # Subtest: CRLF 체크아웃에서도 --check 가 통과한다
+2026-09-10T14:19:29.1097342Z     ok 3 - CRLF 체크아웃에서도 --check 가 통과한다
+2026-09-10T14:19:29.1098133Z       ---
+2026-09-10T14:19:29.1098430Z       duration_ms: 37.434
+2026-09-10T14:19:29.1098795Z       type: 'test'
+2026-09-10T14:19:29.1099099Z       ...
+2026-09-10T14:19:29.1099584Z     # Subtest: 생성물을 손편집하면 --check 가 실패한다
+2026-09-10T14:19:29.1100173Z     ok 4 - 생성물을 손편집하면 --check 가 실패한다
+2026-09-10T14:19:29.1100577Z       ---
+2026-09-10T14:19:29.1100864Z       duration_ms: 32.0974
+2026-09-10T14:19:29.1101243Z       type: 'test'
+2026-09-10T14:19:29.1101562Z       ...
+2026-09-10T14:19:29.1102377Z     # Subtest: 본문에 수치 서술이 남아 있으면 --check 가 실패한다
+2026-09-10T14:19:29.1103154Z     ok 5 - 본문에 수치 서술이 남아 있으면 --check 가 실패한다
+2026-09-10T14:19:29.1103591Z       ---
+2026-09-10T14:19:29.1104782Z       duration_ms: 35.3684
+2026-09-10T14:19:29.1105147Z       type: 'test'
+2026-09-10T14:19:29.1105408Z       ...
+2026-09-10T14:19:29.1105828Z     # Subtest: 링크가 깨지면 --check 가 실패한다
+2026-09-10T14:19:29.1106591Z     ok 6 - 링크가 깨지면 --check 가 실패한다
+2026-09-10T14:19:29.1106958Z       ---
+2026-09-10T14:19:29.1107244Z       duration_ms: 40.6453
+2026-09-10T14:19:29.1107600Z       type: 'test'
+2026-09-10T14:19:29.1107896Z       ...
+2026-09-10T14:19:29.1108164Z     1..6
+2026-09-10T14:19:29.1108434Z ok 7 - CLI
+2026-09-10T14:19:29.1108699Z   ---
+2026-09-10T14:19:29.1108973Z   duration_ms: 225.27
+2026-09-10T14:19:29.1109306Z   type: 'suite'
+2026-09-10T14:19:29.1109580Z   ...
+2026-09-10T14:19:29.1110013Z # Subtest: CLI 진입 가드 (0212)
+2026-09-10T14:19:29.1110645Z     # Subtest: 스크립트를 직접 실행하면 CLI 본문이 돈다 — 무음 exit 0 이 아니다
+2026-09-10T14:19:29.1111375Z     ok 1 - 스크립트를 직접 실행하면 CLI 본문이 돈다 — 무음 exit 0 이 아니다
+2026-09-10T14:19:29.1111831Z       ---
+2026-09-10T14:19:29.1112188Z       duration_ms: 722.5279
+2026-09-10T14:19:29.1112570Z       type: 'test'
+2026-09-10T14:19:29.1112853Z       ...
+2026-09-10T14:19:29.1113348Z     # Subtest: 모듈로 import 하면 CLI 본문이 돌지 않는다 — 양성 짝
+2026-09-10T14:19:29.1114032Z     ok 2 - 모듈로 import 하면 CLI 본문이 돌지 않는다 — 양성 짝
+2026-09-10T14:19:29.1114501Z       ---
+2026-09-10T14:19:29.1114791Z       duration_ms: 53.805
+2026-09-10T14:19:29.1115133Z       type: 'test'
+2026-09-10T14:19:29.1115419Z       ...
+2026-09-10T14:19:29.1115684Z     1..2
+2026-09-10T14:19:29.1116059Z ok 8 - CLI 진입 가드 (0212)
+2026-09-10T14:19:29.1116377Z   ---
+2026-09-10T14:19:29.1116649Z   duration_ms: 776.5083
+2026-09-10T14:19:29.1116973Z   type: 'suite'
+2026-09-10T14:19:29.1117250Z   ...
+2026-09-10T14:19:29.1246164Z # Subtest: parseImportedMigrations extracts names in order
+2026-09-10T14:19:29.1247225Z ok 9 - parseImportedMigrations extracts names in order
+2026-09-10T14:19:29.1247882Z   ---
+2026-09-10T14:19:29.1248197Z   duration_ms: 2.1008
+2026-09-10T14:19:29.1248540Z   type: 'test'
+2026-09-10T14:19:29.1248862Z   ...
+2026-09-10T14:19:29.1249409Z # Subtest: checkSync passes when dir and imports match
+2026-09-10T14:19:29.1250159Z ok 10 - checkSync passes when dir and imports match
+2026-09-10T14:19:29.1250565Z   ---
+2026-09-10T14:19:29.1250909Z   duration_ms: 0.497
+2026-09-10T14:19:29.1251252Z   type: 'test'
+2026-09-10T14:19:29.1251427Z   ...
+2026-09-10T14:19:29.1251789Z # Subtest: checkSync rejects orphan file not imported
+2026-09-10T14:19:29.1252361Z ok 11 - checkSync rejects orphan file not imported
+2026-09-10T14:19:29.1252781Z   ---
+2026-09-10T14:19:29.1252964Z   duration_ms: 0.3702
+2026-09-10T14:19:29.1253158Z   type: 'test'
+2026-09-10T14:19:29.1253369Z   ...
+2026-09-10T14:19:29.1253769Z # Subtest: checkSync rejects import of missing file
+2026-09-10T14:19:29.1255051Z ok 12 - checkSync rejects import of missing file
+2026-09-10T14:19:29.1255990Z   ---
+2026-09-10T14:19:29.1256330Z   duration_ms: 0.2621
+2026-09-10T14:19:29.1256701Z   type: 'test'
+2026-09-10T14:19:29.1257021Z   ...
+2026-09-10T14:19:29.1257577Z # Subtest: checkSync rejects numbering gap and bad filename
+2026-09-10T14:19:29.1258385Z ok 13 - checkSync rejects numbering gap and bad filename
+2026-09-10T14:19:29.1258936Z   ---
+2026-09-10T14:19:29.1259254Z   duration_ms: 1.3187
+2026-09-10T14:19:29.1259608Z   type: 'test'
+2026-09-10T14:19:29.1259920Z   ...
+2026-09-10T14:19:29.1260530Z # Subtest: checkAppendOnly passes on additions only and empty diff
+2026-09-10T14:19:29.1261431Z ok 14 - checkAppendOnly passes on additions only and empty diff
+2026-09-10T14:19:29.1262033Z   ---
+2026-09-10T14:19:29.1262348Z   duration_ms: 0.2384
+2026-09-10T14:19:29.1262715Z   type: 'test'
+2026-09-10T14:19:29.1263018Z   ...
+2026-09-10T14:19:29.1264024Z # Subtest: checkAppendOnly rejects modify/delete/rename of existing migrations
+2026-09-10T14:19:29.1265128Z ok 15 - checkAppendOnly rejects modify/delete/rename of existing migrations
+2026-09-10T14:19:29.1265814Z   ---
+2026-09-10T14:19:29.1266122Z   duration_ms: 0.4683
+2026-09-10T14:19:29.1266482Z   type: 'test'
+2026-09-10T14:19:29.1266780Z   ...
+2026-09-10T14:19:29.1267380Z # Subtest: findPreviousTag skips the tag being built and empty lines
+2026-09-10T14:19:29.1268307Z ok 16 - findPreviousTag skips the tag being built and empty lines
+2026-09-10T14:19:29.1268910Z   ---
+2026-09-10T14:19:29.1269218Z   duration_ms: 0.2556
+2026-09-10T14:19:29.1269572Z   type: 'test'
+2026-09-10T14:19:29.1269864Z   ...
+2026-09-10T14:19:29.1270622Z # Subtest: findMigrationListCopies 는 정본과 골든 목록을 사본으로 세지 않는다
+2026-09-10T14:19:29.1271593Z ok 17 - findMigrationListCopies 는 정본과 골든 목록을 사본으로 세지 않는다
+2026-09-10T14:19:29.1272135Z   ---
+2026-09-10T14:19:29.1272444Z   duration_ms: 0.4791
+2026-09-10T14:19:29.1273095Z   type: 'test'
+2026-09-10T14:19:29.1273415Z   ...
+2026-09-10T14:19:29.1275719Z # Subtest: findMigrationListCopies 는 상대경로 import 도 잡는다 (from 절·인용부호에 앵커하지 않는다)
+2026-09-10T14:19:29.1277091Z ok 18 - findMigrationListCopies 는 상대경로 import 도 잡는다 (from 절·인용부호에 앵커하지 않는다)
+2026-09-10T14:19:29.1277779Z   ---
+2026-09-10T14:19:29.1278316Z   duration_ms: 0.7927
+2026-09-10T14:19:29.1278714Z   type: 'test'
+2026-09-10T14:19:29.1279030Z   ...
+2026-09-10T14:19:29.1279828Z # Subtest: findMigrationListCopies 의 허용 판정은 정확 경로다 — 동명 파일은 면제되지 않는다
+2026-09-10T14:19:29.1295427Z ok 19 - findMigrationListCopies 의 허용 판정은 정확 경로다 — 동명 파일은 면제되지 않는다
+2026-09-10T14:19:29.1296057Z   ---
+2026-09-10T14:19:29.1296372Z   duration_ms: 0.3358
+2026-09-10T14:19:29.1296724Z   type: 'test'
+2026-09-10T14:19:29.1297027Z   ...
+2026-09-10T14:19:29.1297736Z # Subtest: findMigrationListCopies 는 windows 구분자 경로를 정규화해 비교한다
+2026-09-10T14:19:29.1298632Z ok 20 - findMigrationListCopies 는 windows 구분자 경로를 정규화해 비교한다
+2026-09-10T14:19:29.1299188Z   ---
+2026-09-10T14:19:29.1299477Z   duration_ms: 0.2083
+2026-09-10T14:19:29.1299827Z   type: 'test'
+2026-09-10T14:19:29.1300110Z   ...
+2026-09-10T14:19:29.1300715Z # Subtest: checkNoListCopies 는 사본 파일명과 인용 개수를 오류에 싣는다
+2026-09-10T14:19:29.1301495Z ok 21 - checkNoListCopies 는 사본 파일명과 인용 개수를 오류에 싣는다
+2026-09-10T14:19:29.1301953Z   ---
+2026-09-10T14:19:29.1302223Z   duration_ms: 0.2876
+2026-09-10T14:19:29.1302525Z   type: 'test'
+2026-09-10T14:19:29.1302776Z   ...
+2026-09-10T14:19:29.1303701Z # Subtest: checkNoListCopies 는 사본이 없으면 통과한다
+2026-09-10T14:19:29.1304776Z ok 22 - checkNoListCopies 는 사본이 없으면 통과한다
+2026-09-10T14:19:29.1305508Z   ---
+2026-09-10T14:19:29.1305803Z   duration_ms: 0.1574
+2026-09-10T14:19:29.1306147Z   type: 'test'
+2026-09-10T14:19:29.1306439Z   ...
+2026-09-10T14:19:29.1307018Z # Subtest: collectSourceFiles 는 4개 확장자를 전부 훑는다
+2026-09-10T14:19:29.1307759Z ok 23 - collectSourceFiles 는 4개 확장자를 전부 훑는다
+2026-09-10T14:19:29.1308224Z   ---
+2026-09-10T14:19:29.1308510Z   duration_ms: 15.8988
+2026-09-10T14:19:29.1308869Z   type: 'test'
+2026-09-10T14:19:29.1309164Z   ...
+2026-09-10T14:19:29.1309726Z # Subtest: collectSourceFiles 는 하위 디렉토리를 재귀로 내려간다
+2026-09-10T14:19:29.1310423Z ok 24 - collectSourceFiles 는 하위 디렉토리를 재귀로 내려간다
+2026-09-10T14:19:29.1310858Z   ---
+2026-09-10T14:19:29.1311140Z   duration_ms: 13.6608
+2026-09-10T14:19:29.1311452Z   type: 'test'
+2026-09-10T14:19:29.1311727Z   ...
+2026-09-10T14:19:29.1312235Z # Subtest: collectSourceFiles 는 소스가 아닌 파일을 세지 않는다
+2026-09-10T14:19:29.1312889Z ok 25 - collectSourceFiles 는 소스가 아닌 파일을 세지 않는다
+2026-09-10T14:19:29.1313338Z   ---
+2026-09-10T14:19:29.1313607Z   duration_ms: 13.2106
+2026-09-10T14:19:29.1313916Z   type: 'test'
+2026-09-10T14:19:29.1314190Z   ...
+2026-09-10T14:19:29.1314770Z # Subtest: collectSourceFiles 산출은 `/` 로 정규화된다 — 허용 목록과 같은 축
+2026-09-10T14:19:29.1315274Z ok 26 - collectSourceFiles 산출은 `/` 로 정규화된다 — 허용 목록과 같은 축
+2026-09-10T14:19:29.1315561Z   ---
+2026-09-10T14:19:29.1315734Z   duration_ms: 11.6177
+2026-09-10T14:19:29.1316045Z   type: 'test'
+2026-09-10T14:19:29.1316304Z   ...
+2026-09-10T14:19:29.1316959Z # [test-budgets] src/a.test.ts: 파일 예산이 없다 — 최상위에 `vi.setConfig({ testTimeout, hookTimeout })` 을 둔다
+2026-09-10T14:19:29.1317732Z # [test-budgets] 1/1 real-git suites violate the budget contract
+2026-09-10T14:19:29.1318232Z # [test-budgets] 1 real-git suites ok
+2026-09-10T14:19:29.1318674Z # [test-budgets] 11 real-git suites ok
+2026-09-10T14:19:29.1319159Z # Subtest: 대상 판정
+2026-09-10T14:19:29.1319447Z     # Subtest: git 바이너리를 직접 띄우면 대상이다
+2026-09-10T14:19:29.1319770Z     ok 1 - git 바이너리를 직접 띄우면 대상이다
+2026-09-10T14:19:29.1320132Z       ---
+2026-09-10T14:19:29.1320389Z       duration_ms: 2.8118
+2026-09-10T14:19:29.1320597Z       type: 'test'
+2026-09-10T14:19:29.1320827Z       ...
+2026-09-10T14:19:29.1321324Z     # Subtest: 공용 픽스처를 쓰면 대상이다 — 별칭으로 감싼 spawn 도 이 문으로 들어온다
+2026-09-10T14:19:29.1321870Z     ok 2 - 공용 픽스처를 쓰면 대상이다 — 별칭으로 감싼 spawn 도 이 문으로 들어온다
+2026-09-10T14:19:29.1322255Z       ---
+2026-09-10T14:19:29.1322680Z       duration_ms: 0.2408
+2026-09-10T14:19:29.1323032Z       type: 'test'
+2026-09-10T14:19:29.1323856Z       ...
+2026-09-10T14:19:29.1324404Z     # Subtest: git 을 띄우지 않는 순수 테스트는 대상이 아니다
+2026-09-10T14:19:29.1325024Z     ok 3 - git 을 띄우지 않는 순수 테스트는 대상이 아니다
+2026-09-10T14:19:29.1325451Z       ---
+2026-09-10T14:19:29.1325749Z       duration_ms: 0.4947
+2026-09-10T14:19:29.1326111Z       type: 'test'
+2026-09-10T14:19:29.1326420Z       ...
+2026-09-10T14:19:29.1326922Z     # Subtest: 프로덕션 runGit 을 통한 간접 spawn 도 대상이다
+2026-09-10T14:19:29.1327552Z     ok 4 - 프로덕션 runGit 을 통한 간접 spawn 도 대상이다
+2026-09-10T14:19:29.1327982Z       ---
+2026-09-10T14:19:29.1328277Z       duration_ms: 0.2941
+2026-09-10T14:19:29.1328622Z       type: 'test'
+2026-09-10T14:19:29.1328923Z       ...
+2026-09-10T14:19:29.1329488Z     # Subtest: 가짜 구현을 주입하는 러너 단위 테스트는 대상이 아니다 — 실제로 띄우지 않는다
+2026-09-10T14:19:29.1330234Z     ok 5 - 가짜 구현을 주입하는 러너 단위 테스트는 대상이 아니다 — 실제로 띄우지 않는다
+2026-09-10T14:19:29.1330685Z       ---
+2026-09-10T14:19:29.1331013Z       duration_ms: 0.2938
+2026-09-10T14:19:29.1331363Z       type: 'test'
+2026-09-10T14:19:29.1331670Z       ...
+2026-09-10T14:19:29.1331927Z     1..5
+2026-09-10T14:19:29.1332279Z ok 27 - 대상 판정
+2026-09-10T14:19:29.1332566Z   ---
+2026-09-10T14:19:29.1332858Z   duration_ms: 6.3632
+2026-09-10T14:19:29.1333193Z   type: 'suite'
+2026-09-10T14:19:29.1333477Z   ...
+2026-09-10T14:19:29.1333811Z # Subtest: 주석 제거
+2026-09-10T14:19:29.1334252Z     # Subtest: 문자열 안의 `//` 를 자르지 않는다
+2026-09-10T14:19:29.1334792Z     ok 1 - 문자열 안의 `//` 를 자르지 않는다
+2026-09-10T14:19:29.1335172Z       ---
+2026-09-10T14:19:29.1335471Z       duration_ms: 0.5204
+2026-09-10T14:19:29.1335844Z       type: 'test'
+2026-09-10T14:19:29.1336144Z       ...
+2026-09-10T14:19:29.1336590Z     # Subtest: 줄 전체 주석과 블록 주석은 지운다
+2026-09-10T14:19:29.1337114Z     ok 2 - 줄 전체 주석과 블록 주석은 지운다
+2026-09-10T14:19:29.1337481Z       ---
+2026-09-10T14:19:29.1337777Z       duration_ms: 0.5104
+2026-09-10T14:19:29.1338138Z       type: 'test'
+2026-09-10T14:19:29.1338461Z       ...
+2026-09-10T14:19:29.1338931Z     # Subtest: 주석 안의 예시 코드는 신호로 세지 않는다
+2026-09-10T14:19:29.1339507Z     ok 3 - 주석 안의 예시 코드는 신호로 세지 않는다
+2026-09-10T14:19:29.1339889Z       ---
+2026-09-10T14:19:29.1340171Z       duration_ms: 0.5924
+2026-09-10T14:19:29.1340514Z       type: 'test'
+2026-09-10T14:19:29.1340806Z       ...
+2026-09-10T14:19:29.1341062Z     1..3
+2026-09-10T14:19:29.1341389Z ok 28 - 주석 제거
+2026-09-10T14:19:29.1341707Z   ---
+2026-09-10T14:19:29.1342474Z   duration_ms: 2.1962
+2026-09-10T14:19:29.1342815Z   type: 'suite'
+2026-09-10T14:19:29.1343099Z   ...
+2026-09-10T14:19:29.1343755Z # Subtest: 예산 파싱
+2026-09-10T14:19:29.1344088Z     # Subtest: 두 값을 읽고 밑줄 구분자를 접는다
+2026-09-10T14:19:29.1344402Z     ok 1 - 두 값을 읽고 밑줄 구분자를 접는다
+2026-09-10T14:19:29.1344709Z       ---
+2026-09-10T14:19:29.1345039Z       duration_ms: 2.0409
+2026-09-10T14:19:29.1345396Z       type: 'test'
+2026-09-10T14:19:29.1345692Z       ...
+2026-09-10T14:19:29.1346185Z     # Subtest: 호출이 없으면 null 이다
+2026-09-10T14:19:29.1347320Z     ok 2 - 호출이 없으면 null 이다
+2026-09-10T14:19:29.1347722Z       ---
+2026-09-10T14:19:29.1348213Z       duration_ms: 0.4542
+2026-09-10T14:19:29.1360664Z       type: 'test'
+2026-09-10T14:19:29.1361070Z       ...
+2026-09-10T14:19:29.1361387Z     1..2
+2026-09-10T14:19:29.1361819Z ok 29 - 예산 파싱
+2026-09-10T14:19:29.1362139Z   ---
+2026-09-10T14:19:29.1362456Z   duration_ms: 2.9061
+2026-09-10T14:19:29.1362840Z   type: 'suite'
+2026-09-10T14:19:29.1363160Z   ...
+2026-09-10T14:19:29.1363996Z # Subtest: 인라인 타임아웃 탐지
+2026-09-10T14:19:29.1364537Z     # Subtest: 세 번째 인자 형태를 잡는다
+2026-09-10T14:19:29.1365080Z     ok 1 - 세 번째 인자 형태를 잡는다
+2026-09-10T14:19:29.1365458Z       ---
+2026-09-10T14:19:29.1365778Z       duration_ms: 0.4868
+2026-09-10T14:19:29.1366240Z       type: 'test'
+2026-09-10T14:19:29.1366602Z       ...
+2026-09-10T14:19:29.1367058Z     # Subtest: 옵션 객체 형태를 잡는다
+2026-09-10T14:19:29.1367552Z     ok 2 - 옵션 객체 형태를 잡는다
+2026-09-10T14:19:29.1367914Z       ---
+2026-09-10T14:19:29.1368256Z       duration_ms: 0.1502
+2026-09-10T14:19:29.1368641Z       type: 'test'
+2026-09-10T14:19:29.1368981Z       ...
+2026-09-10T14:19:29.1369474Z     # Subtest: 타임아웃이 아닌 끝 괄호는 잡지 않는다
+2026-09-10T14:19:29.1370048Z     ok 3 - 타임아웃이 아닌 끝 괄호는 잡지 않는다
+2026-09-10T14:19:29.1370454Z       ---
+2026-09-10T14:19:29.1370764Z       duration_ms: 0.1653
+2026-09-10T14:19:29.1371142Z       type: 'test'
+2026-09-10T14:19:29.1371466Z       ...
+2026-09-10T14:19:29.1371753Z     1..3
+2026-09-10T14:19:29.1372176Z ok 30 - 인라인 타임아웃 탐지
+2026-09-10T14:19:29.1372506Z   ---
+2026-09-10T14:19:29.1372815Z   duration_ms: 0.9915
+2026-09-10T14:19:29.1373170Z   type: 'suite'
+2026-09-10T14:19:29.1373493Z   ...
+2026-09-10T14:19:29.1374023Z # Subtest: 규칙 — 0218 러너에서 실제로 터진 두 형태
+2026-09-10T14:19:29.1374693Z     # Subtest: 예산이 없으면 걸린다 (첫 조치에서 네 파일이 조용히 빠진 자리)
+2026-09-10T14:19:29.1375378Z     ok 1 - 예산이 없으면 걸린다 (첫 조치에서 네 파일이 조용히 빠진 자리)
+2026-09-10T14:19:29.1375848Z       ---
+2026-09-10T14:19:29.1376157Z       duration_ms: 0.6144
+2026-09-10T14:19:29.1376558Z       type: 'test'
+2026-09-10T14:19:29.1376871Z       ...
+2026-09-10T14:19:29.1377581Z     # Subtest: 예산이 있어도 인라인 캡이 남아 있으면 걸린다 (service.test.ts 가 죽은 자리)
+2026-09-10T14:19:29.1378458Z     ok 2 - 예산이 있어도 인라인 캡이 남아 있으면 걸린다 (service.test.ts 가 죽은 자리)
+2026-09-10T14:19:29.1378992Z       ---
+2026-09-10T14:19:29.1379306Z       duration_ms: 0.3539
+2026-09-10T14:19:29.1379687Z       type: 'test'
+2026-09-10T14:19:29.1380002Z       ...
+2026-09-10T14:19:29.1380661Z     # Subtest: hookTimeout 이 빠지면 걸린다 — 기본 10초는 저장소를 세우는 훅을 못 담는다
+2026-09-10T14:19:29.1381551Z     ok 3 - hookTimeout 이 빠지면 걸린다 — 기본 10초는 저장소를 세우는 훅을 못 담는다
+2026-09-10T14:19:29.1382079Z       ---
+2026-09-10T14:19:29.1382405Z       duration_ms: 0.2026
+2026-09-10T14:19:29.1382784Z       type: 'test'
+2026-09-10T14:19:29.1383110Z       ...
+2026-09-10T14:19:29.1383660Z     # Subtest: 정리가 removeTempRoots 를 지나지 않으면 걸린다
+2026-09-10T14:19:29.1384648Z     ok 4 - 정리가 removeTempRoots 를 지나지 않으면 걸린다
+2026-09-10T14:19:29.1385171Z       ---
+2026-09-10T14:19:29.1385538Z       duration_ms: 0.2036
+2026-09-10T14:19:29.1385935Z       type: 'test'
+2026-09-10T14:19:29.1386250Z       ...
+2026-09-10T14:19:29.1386674Z     # Subtest: 전부 갖추면 통과한다
+2026-09-10T14:19:29.1387148Z     ok 5 - 전부 갖추면 통과한다
+2026-09-10T14:19:29.1387501Z       ---
+2026-09-10T14:19:29.1387814Z       duration_ms: 0.1855
+2026-09-10T14:19:29.1388203Z       type: 'test'
+2026-09-10T14:19:29.1388521Z       ...
+2026-09-10T14:19:29.1388809Z     1..5
+2026-09-10T14:19:29.1389306Z ok 31 - 규칙 — 0218 러너에서 실제로 터진 두 형태
+2026-09-10T14:19:29.1389803Z   ---
+2026-09-10T14:19:29.1390138Z   duration_ms: 1.9132
+2026-09-10T14:19:29.1390496Z   type: 'suite'
+2026-09-10T14:19:29.1390817Z   ...
+2026-09-10T14:19:29.1391247Z # Subtest: 프로세스 상한 탐지 (E)
+2026-09-10T14:19:29.1391892Z     # Subtest: 상한을 안 넘기는 호출을 잡는다 — 프로덕션 기본 10s 를 상속한다
+2026-09-10T14:19:29.1392676Z     ok 1 - 상한을 안 넘기는 호출을 잡는다 — 프로덕션 기본 10s 를 상속한다
+2026-09-10T14:19:29.1393157Z       ---
+2026-09-10T14:19:29.1393484Z       duration_ms: 0.5102
+2026-09-10T14:19:29.1394174Z       type: 'test'
+2026-09-10T14:19:29.1394503Z       ...
+2026-09-10T14:19:29.1395289Z     # Subtest: 픽스처 상수를 넘기면 통과한다
+2026-09-10T14:19:29.1395857Z     ok 2 - 픽스처 상수를 넘기면 통과한다
+2026-09-10T14:19:29.1396250Z       ---
+2026-09-10T14:19:29.1396564Z       duration_ms: 0.269
+2026-09-10T14:19:29.1397026Z       type: 'test'
+2026-09-10T14:19:29.1397359Z       ...
+2026-09-10T14:19:29.1397904Z     # Subtest: 숫자를 직접 적으면 잡는다 — 근거는 픽스처 한 곳이 갖는다
+2026-09-10T14:19:29.1398595Z     ok 3 - 숫자를 직접 적으면 잡는다 — 근거는 픽스처 한 곳이 갖는다
+2026-09-10T14:19:29.1399053Z       ---
+2026-09-10T14:19:29.1399372Z       duration_ms: 0.1656
+2026-09-10T14:19:29.1399751Z       type: 'test'
+2026-09-10T14:19:29.1400076Z       ...
+2026-09-10T14:19:29.1400775Z     # Subtest: 정규식 리터럴 본문은 호출이 아니다 — ipc-integration 이 그 형태를 값으로 든다
+2026-09-10T14:19:29.1401671Z     ok 4 - 정규식 리터럴 본문은 호출이 아니다 — ipc-integration 이 그 형태를 값으로 든다
+2026-09-10T14:19:29.1402214Z       ---
+2026-09-10T14:19:29.1402527Z       duration_ms: 0.1726
+2026-09-10T14:19:29.1403037Z       type: 'test'
+2026-09-10T14:19:29.1403355Z       ...
+2026-09-10T14:19:29.1403876Z     # Subtest: 문자열 안의 괄호를 깊이로 세지 않는다
+2026-09-10T14:19:29.1404785Z     ok 5 - 문자열 안의 괄호를 깊이로 세지 않는다
+2026-09-10T14:19:29.1405189Z       ---
+2026-09-10T14:19:29.1405515Z       duration_ms: 0.2315
+2026-09-10T14:19:29.1405891Z       type: 'test'
+2026-09-10T14:19:29.1406219Z       ...
+2026-09-10T14:19:29.1406501Z     1..5
+2026-09-10T14:19:29.1406948Z ok 32 - 프로세스 상한 탐지 (E)
+2026-09-10T14:19:29.1407294Z   ---
+2026-09-10T14:19:29.1407596Z   duration_ms: 1.621
+2026-09-10T14:19:29.1407956Z   type: 'suite'
+2026-09-10T14:19:29.1408264Z   ...
+2026-09-10T14:19:29.1408890Z # Subtest: 규칙 (E) — 캡이 파일 예산을 이기던 자리가 한 층 아래에 남아 있었다
+2026-09-10T14:19:29.1409621Z     # Subtest: 테스트가 프로덕션 기본 상한을 상속하면 걸린다
+2026-09-10T14:19:29.1410243Z     ok 1 - 테스트가 프로덕션 기본 상한을 상속하면 걸린다
+2026-09-10T14:19:29.1410662Z       ---
+2026-09-10T14:19:29.1410988Z       duration_ms: 0.308
+2026-09-10T14:19:29.1411363Z       type: 'test'
+2026-09-10T14:19:29.1411712Z       ...
+2026-09-10T14:19:29.1412209Z     # Subtest: 픽스처 상수를 넘기면 통과한다
+2026-09-10T14:19:29.1412761Z     ok 2 - 픽스처 상수를 넘기면 통과한다
+2026-09-10T14:19:29.1413130Z       ---
+2026-09-10T14:19:29.1413437Z       duration_ms: 0.2388
+2026-09-10T14:19:29.1413808Z       type: 'test'
+2026-09-10T14:19:29.1414118Z       ...
+2026-09-10T14:19:29.1414392Z     1..2
+2026-09-10T14:19:29.1414971Z ok 33 - 규칙 (E) — 캡이 파일 예산을 이기던 자리가 한 층 아래에 남아 있었다
+2026-09-10T14:19:29.1415445Z   ---
+2026-09-10T14:19:29.1415755Z   duration_ms: 0.7765
+2026-09-10T14:19:29.1416104Z   type: 'suite'
+2026-09-10T14:19:29.1416423Z   ...
+2026-09-10T14:19:29.1416705Z # Subtest: CLI
+2026-09-10T14:19:29.1417208Z     # Subtest: 위반이 있으면 1, 없으면 0 이다
+2026-09-10T14:19:29.1417796Z     ok 1 - 위반이 있으면 1, 없으면 0 이다
+2026-09-10T14:19:29.1418186Z       ---
+2026-09-10T14:19:29.1418500Z       duration_ms: 9.778
+2026-09-10T14:19:29.1418886Z       type: 'test'
+2026-09-10T14:19:29.1419197Z       ...
+2026-09-10T14:19:29.1420059Z     # Subtest: 중첩 디렉토리를 전부 훑고 경로를 `/` 로 정규화한다
+2026-09-10T14:19:29.1421092Z     ok 2 - 중첩 디렉토리를 전부 훑고 경로를 `/` 로 정규화한다
+2026-09-10T14:19:29.1421576Z       ---
+2026-09-10T14:19:29.1421888Z       duration_ms: 6.2424
+2026-09-10T14:19:29.1422263Z       type: 'test'
+2026-09-10T14:19:29.1422535Z       ...
+2026-09-10T14:19:29.1422992Z     # Subtest: 실제 저장소가 계약을 지킨다
+2026-09-10T14:19:29.1423502Z     ok 3 - 실제 저장소가 계약을 지킨다
+2026-09-10T14:19:29.1423889Z       ---
+2026-09-10T14:19:29.1424492Z       duration_ms: 124.7302
+2026-09-10T14:19:29.1424947Z       type: 'test'
+2026-09-10T14:19:29.1425267Z       ...
+2026-09-10T14:19:29.1425558Z     1..3
+2026-09-10T14:19:29.1425855Z ok 34 - CLI
+2026-09-10T14:19:29.1426151Z   ---
+2026-09-10T14:19:29.1426453Z   duration_ms: 141.0882
+2026-09-10T14:19:29.1426812Z   type: 'suite'
+2026-09-10T14:19:29.1427148Z   ...
+2026-09-10T14:19:29.1427609Z # Subtest: parseArgs accepts target and check flag
+2026-09-10T14:19:29.1428294Z ok 35 - parseArgs accepts target and check flag
+2026-09-10T14:19:29.1428831Z   ---
+2026-09-10T14:19:29.1429133Z   duration_ms: 4.1859
+2026-09-10T14:19:29.1429494Z   type: 'test'
+2026-09-10T14:19:29.1429813Z   ...
+2026-09-10T14:19:29.1430524Z # Subtest: electron target fast-paths when marker matches and binary is Electron-ABI
+2026-09-10T14:19:29.1431659Z ok 36 - electron target fast-paths when marker matches and binary is Electron-ABI
+2026-09-10T14:19:29.1432369Z   ---
+2026-09-10T14:19:29.1432679Z   duration_ms: 14.1117
+2026-09-10T14:19:29.1433037Z   type: 'test'
+2026-09-10T14:19:29.1433350Z   ...
+2026-09-10T14:19:29.1434050Z # Subtest: electron target rebuilds when binary is Node-ABI even if marker matches
+2026-09-10T14:19:29.1435140Z ok 37 - electron target rebuilds when binary is Node-ABI even if marker matches
+2026-09-10T14:19:29.1435825Z   ---
+2026-09-10T14:19:29.1436152Z   duration_ms: 11.6433
+2026-09-10T14:19:29.1436510Z   type: 'test'
+2026-09-10T14:19:29.1436806Z   ...
+2026-09-10T14:19:29.1437491Z # Subtest: electron target rebuilds and writes marker when marker is missing
+2026-09-10T14:19:29.1438529Z ok 38 - electron target rebuilds and writes marker when marker is missing
+2026-09-10T14:19:29.1439174Z   ---
+2026-09-10T14:19:29.1439500Z   duration_ms: 9.2912
+2026-09-10T14:19:29.1439846Z   type: 'test'
+2026-09-10T14:19:29.1440155Z   ...
+2026-09-10T14:19:29.1440857Z # Subtest: check mode reports missing electron marker without running rebuild
+2026-09-10T14:19:29.1441894Z ok 39 - check mode reports missing electron marker without running rebuild
+2026-09-10T14:19:29.1442533Z   ---
+2026-09-10T14:19:29.1442848Z   duration_ms: 7.4526
+2026-09-10T14:19:29.1443208Z   type: 'test'
+2026-09-10T14:19:29.1443518Z   ...
+2026-09-10T14:19:29.1444104Z # Subtest: node target rebuilds only when better-sqlite3 cannot load
+2026-09-10T14:19:29.1445337Z ok 40 - node target rebuilds only when better-sqlite3 cannot load
+2026-09-10T14:19:29.1445942Z   ---
+2026-09-10T14:19:29.1446255Z   duration_ms: 8.2391
+2026-09-10T14:19:29.1446610Z   type: 'test'
+2026-09-10T14:19:29.1446921Z   ...
+2026-09-10T14:19:29.1447444Z # Subtest: node check mode does not rebuild on load failure
+2026-09-10T14:19:29.1448214Z ok 41 - node check mode does not rebuild on load failure
+2026-09-10T14:19:29.1448757Z   ---
+2026-09-10T14:19:29.1449067Z   duration_ms: 8.428
+2026-09-10T14:19:29.1449400Z   type: 'test'
+2026-09-10T14:19:29.1449698Z   ...
+2026-09-10T14:19:29.1450367Z # Subtest: win32 에서 .cmd 셔임은 shell 을 거친다 — 아니면 자식이 뜨지 않는다
+2026-09-10T14:19:29.1451220Z ok 42 - win32 에서 .cmd 셔임은 shell 을 거친다 — 아니면 자식이 뜨지 않는다
+2026-09-10T14:19:29.1451716Z   ---
+2026-09-10T14:19:29.1452003Z   duration_ms: 0.4187
+2026-09-10T14:19:29.1452325Z   type: 'test'
+2026-09-10T14:19:29.1452628Z   ...
+2026-09-10T14:19:29.1453213Z # Subtest: win32 이 아니면 실행 이미지를 직접 부르고 shell 을 쓰지 않는다
+2026-09-10T14:19:29.1453983Z ok 43 - win32 이 아니면 실행 이미지를 직접 부르고 shell 을 쓰지 않는다
+2026-09-10T14:19:29.1454489Z   ---
+2026-09-10T14:19:29.1454842Z   duration_ms: 0.5176
+2026-09-10T14:19:29.1455180Z   type: 'test'
+2026-09-10T14:19:29.1455773Z   ...
+2026-09-10T14:19:29.1456637Z # Subtest: 모든 target × 플랫폼에서 .cmd/.bat 이면 shell 이 참이다 (전수)
+2026-09-10T14:19:29.1457563Z ok 44 - 모든 target × 플랫폼에서 .cmd/.bat 이면 shell 이 참이다 (전수)
+2026-09-10T14:19:29.1458081Z   ---
+2026-09-10T14:19:29.1458399Z   duration_ms: 0.5736
+2026-09-10T14:19:29.1458745Z   type: 'test'
+2026-09-10T14:19:29.1459040Z   ...
+2026-09-10T14:19:29.1459683Z # Subtest: ensureSqliteAbi 는 shell 판정을 runner 까지 실제로 넘긴다
+2026-09-10T14:19:29.1460555Z ok 45 - ensureSqliteAbi 는 shell 판정을 runner 까지 실제로 넘긴다
+2026-09-10T14:19:29.1461071Z   ---
+2026-09-10T14:19:29.1461376Z   duration_ms: 8.1305
+2026-09-10T14:19:29.1461738Z   type: 'test'
+2026-09-10T14:19:29.1462442Z   ...
+2026-09-10T14:19:29.1463000Z # Subtest: spawn 실패 사유가 결과에 실린다 — 삼키지 않는다
+2026-09-10T14:19:29.1463652Z ok 46 - spawn 실패 사유가 결과에 실린다 — 삼키지 않는다
+2026-09-10T14:19:29.1464053Z   ---
+2026-09-10T14:19:29.1464329Z   duration_ms: 7.0902
+2026-09-10T14:19:29.1464650Z   type: 'test'
+2026-09-10T14:19:29.1464933Z   ...
+2026-09-10T14:19:29.1465528Z # Subtest: describeRunFailure 는 spawn 실패와 비-0 종료를 구분한다
+2026-09-10T14:19:29.1466268Z ok 47 - describeRunFailure 는 spawn 실패와 비-0 종료를 구분한다
+2026-09-10T14:19:29.1466742Z   ---
+2026-09-10T14:19:29.1467050Z   duration_ms: 0.1765
+2026-09-10T14:19:29.1467387Z   type: 'test'
+2026-09-10T14:19:29.1467698Z   ...
+2026-09-10T14:19:29.1468298Z # Subtest: deutility 가 @utility 를 클래스 규칙으로 바꾼다
+2026-09-10T14:19:29.1469044Z ok 48 - deutility 가 @utility 를 클래스 규칙으로 바꾼다
+2026-09-10T14:19:29.1469502Z   ---
+2026-09-10T14:19:29.1469818Z   duration_ms: 1.5961
+2026-09-10T14:19:29.1470169Z   type: 'test'
+2026-09-10T14:19:29.1470475Z   ...
+2026-09-10T14:19:29.1471010Z # Subtest: 동결 fixture 에서 구 CSS 와 마크업을 꺼낸다
+2026-09-10T14:19:29.1471669Z ok 49 - 동결 fixture 에서 구 CSS 와 마크업을 꺼낸다
+2026-09-10T14:19:29.1472102Z   ---
+2026-09-10T14:19:29.1472415Z   duration_ms: 0.3437
+2026-09-10T14:19:29.1472765Z   type: 'test'
+2026-09-10T14:19:29.1473063Z   ...
+2026-09-10T14:19:29.1473717Z # Subtest: 구 fixture 가 새 트랙을 갖지 않는다 — 두 조건이 섞이면 비교가 무의미하다
+2026-09-10T14:19:29.1474632Z ok 50 - 구 fixture 가 새 트랙을 갖지 않는다 — 두 조건이 섞이면 비교가 무의미하다
+2026-09-10T14:19:29.1475127Z   ---
+2026-09-10T14:19:29.1475433Z   duration_ms: 0.4149
+2026-09-10T14:19:29.1475787Z   type: 'test'
+2026-09-10T14:19:29.1476088Z   ...
+2026-09-10T14:19:29.1476588Z # Subtest: 원본 SVG 에서 신 마크업을 파생한다
+2026-09-10T14:19:29.1477140Z ok 51 - 원본 SVG 에서 신 마크업을 파생한다
+2026-09-10T14:19:29.1477545Z   ---
+2026-09-10T14:19:29.1477831Z   duration_ms: 0.5313
+2026-09-10T14:19:29.1478181Z   type: 'test'
+2026-09-10T14:19:29.1478491Z   ...
+2026-09-10T14:19:29.1479100Z # Subtest: 마크 그룹이 5개가 아니면 던진다 — 조용히 빈 페이지를 재지 않는다
+2026-09-10T14:19:29.1501453Z ok 52 - 마크 그룹이 5개가 아니면 던진다 — 조용히 빈 페이지를 재지 않는다
+2026-09-10T14:19:29.1501948Z   ---
+2026-09-10T14:19:29.1502271Z   duration_ms: 0.5487
+2026-09-10T14:19:29.1502914Z   type: 'test'
+2026-09-10T14:19:29.1503731Z   ...
+2026-09-10T14:19:29.1520647Z # Subtest: 세 조건 페이지가 각각 스피너 3개(또는 0개)를 담는다
+2026-09-10T14:19:29.1521500Z ok 53 - 세 조건 페이지가 각각 스피너 3개(또는 0개)를 담는다
+2026-09-10T14:19:29.1522202Z   ---
+2026-09-10T14:19:29.1523040Z   duration_ms: 1.5632
+2026-09-10T14:19:29.1523441Z   type: 'test'
+2026-09-10T14:19:29.1523749Z   ...
+2026-09-10T14:19:29.1524569Z # Subtest: 페이지가 서로의 CSS 를 갖지 않는다
+2026-09-10T14:19:29.1525426Z ok 54 - 페이지가 서로의 CSS 를 갖지 않는다
+2026-09-10T14:19:29.1526062Z   ---
+2026-09-10T14:19:29.1526431Z   duration_ms: 0.628
+2026-09-10T14:19:29.1527004Z   type: 'test'
+2026-09-10T14:19:29.1527311Z   ...
+2026-09-10T14:19:29.1528302Z # Subtest: 차분이 누적값의 증분이고 시간은 ms 다
+2026-09-10T14:19:29.1528939Z ok 55 - 차분이 누적값의 증분이고 시간은 ms 다
+2026-09-10T14:19:29.1529554Z   ---
+2026-09-10T14:19:29.1529853Z   duration_ms: 0.5521
+2026-09-10T14:19:29.1530459Z   type: 'test'
+2026-09-10T14:19:29.1530985Z   ...
+2026-09-10T14:19:29.1531859Z # Subtest: rAF 가 멈춘 창은 무효 행이다 — 0 을 "비용 없음" 으로 읽지 않는다
+2026-09-10T14:19:29.1532949Z ok 56 - rAF 가 멈춘 창은 무효 행이다 — 0 을 "비용 없음" 으로 읽지 않는다
+2026-09-10T14:19:29.1533661Z   ---
+2026-09-10T14:19:29.1534174Z   duration_ms: 0.4434
+2026-09-10T14:19:29.1534583Z   type: 'test'
+2026-09-10T14:19:29.1535119Z   ...
+2026-09-10T14:19:29.1535902Z # Subtest: 요약이 none 기준선 대비 순증가를 ms/s 로 낸다
+2026-09-10T14:19:29.1536867Z ok 57 - 요약이 none 기준선 대비 순증가를 ms/s 로 낸다
+2026-09-10T14:19:29.1537516Z   ---
+2026-09-10T14:19:29.1538012Z   duration_ms: 0.9393
+2026-09-10T14:19:29.1538381Z   type: 'test'
+2026-09-10T14:19:29.1538900Z   ...
+2026-09-10T14:19:29.1539676Z # Subtest: 판정이 예산을 본다 — 초과하면 FAIL, 이내면 PASS
+2026-09-10T14:19:29.1540595Z ok 58 - 판정이 예산을 본다 — 초과하면 FAIL, 이내면 PASS
+2026-09-10T14:19:29.1541258Z   ---
+2026-09-10T14:19:29.1541778Z   duration_ms: 0.7563
+2026-09-10T14:19:29.1542340Z   type: 'test'
+2026-09-10T14:19:29.1542644Z   ...
+2026-09-10T14:19:29.1543508Z # Subtest: 예산 경계에서 갈린다 — 같으면 통과, 0.1 넘으면 실패
+2026-09-10T14:19:29.1544166Z ok 59 - 예산 경계에서 갈린다 — 같으면 통과, 0.1 넘으면 실패
+2026-09-10T14:19:29.1544586Z   ---
+2026-09-10T14:19:29.1544893Z   duration_ms: 0.6229
+2026-09-10T14:19:29.1545232Z   type: 'test'
+2026-09-10T14:19:29.1545507Z   ...
+2026-09-10T14:19:29.1546072Z # Subtest: 신이 구보다 싸도 통과한다 — 예산은 상한이지 하한이 아니다
+2026-09-10T14:19:29.1546781Z ok 60 - 신이 구보다 싸도 통과한다 — 예산은 상한이지 하한이 아니다
+2026-09-10T14:19:29.1547217Z   ---
+2026-09-10T14:19:29.1547507Z   duration_ms: 0.1832
+2026-09-10T14:19:29.1547857Z   type: 'test'
+2026-09-10T14:19:29.1548140Z   ...
+2026-09-10T14:19:29.1548827Z # Subtest: layout 이 늘어도 예산 안이면 통과한다 — rev.4 에서 layout 단독 축을 뺐다
+2026-09-10T14:19:29.1549735Z ok 61 - layout 이 늘어도 예산 안이면 통과한다 — rev.4 에서 layout 단독 축을 뺐다
+2026-09-10T14:19:29.1550246Z   ---
+2026-09-10T14:19:29.1550542Z   duration_ms: 0.2706
+2026-09-10T14:19:29.1550856Z   type: 'test'
+2026-09-10T14:19:29.1551127Z   ...
+2026-09-10T14:19:29.1551768Z # Subtest: rep 사이 초과분을 rep 안에서만 뺀다 — 기준선 드리프트에 흔들리지 않는다
+2026-09-10T14:19:29.1552579Z ok 62 - rep 사이 초과분을 rep 안에서만 뺀다 — 기준선 드리프트에 흔들리지 않는다
+2026-09-10T14:19:29.1553055Z   ---
+2026-09-10T14:19:29.1553344Z   duration_ms: 0.1539
+2026-09-10T14:19:29.1553671Z   type: 'test'
+2026-09-10T14:19:29.1553960Z   ...
+2026-09-10T14:19:29.1554805Z # Subtest: rep 산포가 크면 평균이 좋아도 판정하지 않는다
+2026-09-10T14:19:29.1555656Z ok 63 - rep 산포가 크면 평균이 좋아도 판정하지 않는다
+2026-09-10T14:19:29.1556082Z   ---
+2026-09-10T14:19:29.1556379Z   duration_ms: 0.4227
+2026-09-10T14:19:29.1556712Z   type: 'test'
+2026-09-10T14:19:29.1557007Z   ...
+2026-09-10T14:19:29.1557602Z # Subtest: 조용한 실행의 산포는 임계 안이다 — 가드가 정상 실행을 막지 않는다
+2026-09-10T14:19:29.1558342Z ok 64 - 조용한 실행의 산포는 임계 안이다 — 가드가 정상 실행을 막지 않는다
+2026-09-10T14:19:29.1558783Z   ---
+2026-09-10T14:19:29.1559081Z   duration_ms: 0.2676
+2026-09-10T14:19:29.1559407Z   type: 'test'
+2026-09-10T14:19:29.1559695Z   ...
+2026-09-10T14:19:29.1560194Z # Subtest: 무효 행이 있으면 수치가 좋아도 판정하지 않는다
+2026-09-10T14:19:29.1560900Z ok 65 - 무효 행이 있으면 수치가 좋아도 판정하지 않는다
+2026-09-10T14:19:29.1561305Z   ---
+2026-09-10T14:19:29.1561630Z   duration_ms: 0.215
+2026-09-10T14:19:29.1561991Z   type: 'test'
+2026-09-10T14:19:29.1562267Z   ...
+2026-09-10T14:19:29.1562718Z # Subtest: fps 가 60 에 못 미치면 FAIL 이다
+2026-09-10T14:19:29.1563621Z ok 66 - fps 가 60 에 못 미치면 FAIL 이다
+2026-09-10T14:19:29.1564029Z   ---
+2026-09-10T14:19:29.1564327Z   duration_ms: 0.6646
+2026-09-10T14:19:29.1564633Z   type: 'test'
+2026-09-10T14:19:29.1564904Z   ...
+2026-09-10T14:19:29.1565189Z # Subtest: 표에 세 모드가 모두 나온다
+2026-09-10T14:19:29.1565466Z ok 67 - 표에 세 모드가 모두 나온다
+2026-09-10T14:19:29.1565663Z   ---
+2026-09-10T14:19:29.1565833Z   duration_ms: 0.2732
+2026-09-10T14:19:29.1566032Z   type: 'test'
+2026-09-10T14:19:29.1566204Z   ...
+2026-09-10T14:19:29.1566478Z # Subtest: buildPage 가 인스턴스 수를 그대로 반영한다
+2026-09-10T14:19:29.1566822Z ok 68 - buildPage 가 인스턴스 수를 그대로 반영한다
+2026-09-10T14:19:29.1567049Z   ---
+2026-09-10T14:19:29.1567212Z   duration_ms: 0.1292
+2026-09-10T14:19:29.1567394Z   type: 'test'
+2026-09-10T14:19:29.1567558Z   ...
+2026-09-10T14:19:29.1567894Z # Subtest: parseLatestYml reads version, path, sha512 and files entries
+2026-09-10T14:19:29.1568413Z ok 69 - parseLatestYml reads version, path, sha512 and files entries
+2026-09-10T14:19:29.1568737Z   ---
+2026-09-10T14:19:29.1568916Z   duration_ms: 4.2362
+2026-09-10T14:19:29.1569100Z   type: 'test'
+2026-09-10T14:19:29.1569267Z   ...
+2026-09-10T14:19:29.1569568Z # Subtest: validateDist passes on consistent manifest and files
+2026-09-10T14:19:29.1570011Z ok 70 - validateDist passes on consistent manifest and files
+2026-09-10T14:19:29.1570303Z   ---
+2026-09-10T14:19:29.1570464Z   duration_ms: 0.5599
+2026-09-10T14:19:29.1570644Z   type: 'test'
+2026-09-10T14:19:29.1570806Z   ...
+2026-09-10T14:19:29.1571039Z # Subtest: validateDist rejects version mismatch
+2026-09-10T14:19:29.1571391Z ok 71 - validateDist rejects version mismatch
+2026-09-10T14:19:29.1571643Z   ---
+2026-09-10T14:19:29.1571798Z   duration_ms: 0.4716
+2026-09-10T14:19:29.1571992Z   type: 'test'
+2026-09-10T14:19:29.1572155Z   ...
+2026-09-10T14:19:29.1572386Z # Subtest: validateDist rejects sha512 mismatch
+2026-09-10T14:19:29.1572720Z ok 72 - validateDist rejects sha512 mismatch
+2026-09-10T14:19:29.1572964Z   ---
+2026-09-10T14:19:29.1573126Z   duration_ms: 1.263
+2026-09-10T14:19:29.1573323Z   type: 'test'
+2026-09-10T14:19:29.1573491Z   ...
+2026-09-10T14:19:29.1573875Z # Subtest: validateDist rejects size mismatch, missing artifact and missing blockmap
+2026-09-10T14:19:29.1574476Z ok 73 - validateDist rejects size mismatch, missing artifact and missing blockmap
+2026-09-10T14:19:29.1574854Z   ---
+2026-09-10T14:19:29.1575034Z   duration_ms: 0.3973
+2026-09-10T14:19:29.1575222Z   type: 'test'
+2026-09-10T14:19:29.1575387Z   ...
+2026-09-10T14:19:29.1575666Z # Subtest: accepts matching tag and strict semver version
+2026-09-10T14:19:29.1576072Z ok 74 - accepts matching tag and strict semver version
+2026-09-10T14:19:29.1576344Z   ---
+2026-09-10T14:19:29.1576507Z   duration_ms: 2.506
+2026-09-10T14:19:29.1576687Z   type: 'test'
+2026-09-10T14:19:29.1576846Z   ...
+2026-09-10T14:19:29.1577153Z # Subtest: accepts empty tag (dry run) with strict semver version
+2026-09-10T14:19:29.1577612Z ok 75 - accepts empty tag (dry run) with strict semver version
+2026-09-10T14:19:29.1578107Z   ---
+2026-09-10T14:19:29.1578278Z   duration_ms: 0.3198
+2026-09-10T14:19:29.1578545Z   type: 'test'
+2026-09-10T14:19:29.1578717Z   ...
+2026-09-10T14:19:29.1578927Z # Subtest: rejects tag/version mismatch
+2026-09-10T14:19:29.1579223Z ok 76 - rejects tag/version mismatch
+2026-09-10T14:19:29.1579452Z   ---
+2026-09-10T14:19:29.1579607Z   duration_ms: 0.3654
+2026-09-10T14:19:29.1579799Z   type: 'test'
+2026-09-10T14:19:29.1579961Z   ...
+2026-09-10T14:19:29.1580167Z # Subtest: rejects malformed tag
+2026-09-10T14:19:29.1580421Z ok 77 - rejects malformed tag
+2026-09-10T14:19:29.1580627Z   ---
+2026-09-10T14:19:29.1580784Z   duration_ms: 0.1947
+2026-09-10T14:19:29.1580968Z   type: 'test'
+2026-09-10T14:19:29.1581136Z   ...
+2026-09-10T14:19:29.1581379Z # Subtest: rejects non-strict package version
+2026-09-10T14:19:29.1581714Z ok 78 - rejects non-strict package version
+2026-09-10T14:19:29.1581964Z   ---
+2026-09-10T14:19:29.1582120Z   duration_ms: 0.2996
+2026-09-10T14:19:29.1582308Z   type: 'test'
+2026-09-10T14:19:29.1582466Z   ...
+2026-09-10T14:19:29.1582622Z 1..78
+2026-09-10T14:19:29.1582780Z # tests 116
+2026-09-10T14:19:29.1582935Z # suites 16
+2026-09-10T14:19:29.1583095Z # pass 116
+2026-09-10T14:19:29.1583250Z # fail 0
+2026-09-10T14:19:29.1583764Z # cancelled 0
+2026-09-10T14:19:29.1583951Z # skipped 0
+2026-09-10T14:19:29.1584110Z # todo 0
+2026-09-10T14:19:29.1584287Z # duration_ms 1232.822
+2026-09-10T14:19:29.2292777Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-10T14:19:29.2294110Z Post job cleanup.
+2026-09-10T14:19:29.3728913Z (node:9792) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-09-10T14:19:29.3732709Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-09-10T14:19:29.3734513Z Cache hit occurred on the primary key node-cache-Windows-x64-npm-e464d5ebd2bdc3123be7f418fd2d7330eb7ab5b7c3ac160bd12d9eca219eef6d, not saving cache.
+2026-09-10T14:19:29.4037539Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-10T14:19:29.4038879Z Post job cleanup.
+2026-09-10T14:19:29.6130852Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-09-10T14:19:29.6426851Z git version 2.55.0.windows.5
+2026-09-10T14:19:29.6504147Z Temporarily overriding HOME='D:\a\_temp\6c3796d5-61a1-40f7-9d6f-6ccecba0c58b' before making global git config changes
+2026-09-10T14:19:29.6505762Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-10T14:19:29.6515914Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\orca-skin\orca-skin
+2026-09-10T14:19:29.6912744Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-09-10T14:19:29.7247557Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-09-10T14:19:30.2555558Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-10T14:19:30.2813812Z http.https://github.com/.extraheader
+2026-09-10T14:19:30.2860496Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+2026-09-10T14:19:30.3171336Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-09-10T14:19:30.8425318Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-10T14:19:30.8751431Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-09-10T14:19:31.4207662Z Cleaning up orphan processes
+2026-09-10T14:19:31.4244796Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

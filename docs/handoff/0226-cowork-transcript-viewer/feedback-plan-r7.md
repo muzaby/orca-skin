@@ -53,3 +53,7 @@ publish 입력→바이트 검증→관리 파일 준비→DB publication→tool
 원인 재현 후 최소 수정한다. 영향 Vitest와 전체 Vitest, node/web/test 타입, 변경 파일 ESLint/Prettier, 두 테마의 실제 Button 스타일·메뉴/모달·좁은 화면, electron-vite build, inventory/test budget/whitespace를 수행한다. SQLite는 기존 Electron ABI를 유지하여 Electron-as-Node로 실행한다. 기존 브랜치에 설계와 구현을 분리하여 커밋·푸시하고 CI를 확인한다.
 
 READY self-review: D37~39→AC43~45→VP83~88→EP35~37을 현재 호출부와 대조했다. 기존 ACTIVE 결정과 충돌 0; Temp 허용을 publisher에 추가하되 일반 출력의 직속 수집과 다른 도구의 권한은 유지한다. handoff-review DIAGNOSE_ONLY: 버튼은 사용자 구체화(D), Temp 입력 불일치는 구현 결함(F), CI는 현행 fixture와의 불일치를 실측 후 분류한다. 지침 자체는 수정하지 않는다.
+
+## [구현자 기입] Delta V8 결과
+
+AC43~45 자기확인 3/3, VP83~88 SELF_PASS, EP35 3/3·EP36 5/5·EP37 4/4. [구현 보고](impl-r7.md)에 Windows 8.3 경로 재현, Temp 게시의 실제 tool/DB 동작, 최종 CSS native 228건 및 로컬·Windows CI의 전체 Vitest 결과를 기록했다. 독립 verify는 pending이다.
