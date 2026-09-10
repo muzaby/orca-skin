@@ -1002,7 +1002,7 @@ export const en: typeof ko = {
       diffIgnoreWhitespace: 'Hide whitespace changes',
       diffViewSettings: 'Diff view settings',
       diffExpandPanel: 'Widen panel',
-      diffShrinkPanel: 'Restore panel width',
+      diffShrinkPanel: 'Restore panel size',
       diffUnmodifiedLines: '{{count}} unmodified lines',
       diffNoSessionChange: 'No change against the session baseline.',
       diffPatchUnavailable: 'Could not load the changes. Refresh to try again.',

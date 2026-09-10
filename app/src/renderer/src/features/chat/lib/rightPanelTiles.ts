@@ -15,6 +15,11 @@ export const rightPanelTileDefinitions = [
 
 export type RightPanelTileId = (typeof rightPanelTileDefinitions)[number]['id']
 
+export interface RightPanelHeaderProps {
+  expanded?: boolean
+  onToggleExpand?: () => void
+}
+
 export interface RightPanelAgentPolicy {
   visibleIds: readonly RightPanelTileId[]
   taskTarget: RightPanelTileId

@@ -1,6 +1,7 @@
 import {
   rightPanelTileDefinitions,
   rightPanelTileDefinitionsForAgent,
+  type RightPanelHeaderProps,
   type RightPanelTileId
 } from '../../lib/rightPanelTiles'
 import type { AgentKind } from '../../../../../../shared/agent-kind'
@@ -28,7 +29,9 @@ const headerActionsById: Partial<Record<RightPanelTileId, React.ComponentType>> 
 //
 // `Partial` 이라 **키를 빠뜨려도 컴파일된다**(0204 §10 EP-13③) — typecheck 가 잡아주지 않는
 // 유일한 지점이라, 두 헤더가 실제로 해석되는지는 AT-28 이 렌더 출력으로 단언한다.
-const headerContentById: Partial<Record<RightPanelTileId, React.ComponentType>> = {
+const headerContentById: Partial<
+  Record<RightPanelTileId, React.ComponentType<RightPanelHeaderProps>>
+> = {
   subagent: SubAgentTileHeader,
   task: TaskTileHeader,
   diff: GitContextBar

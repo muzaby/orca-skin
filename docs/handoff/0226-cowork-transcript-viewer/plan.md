@@ -6,7 +6,7 @@
 |---|---|
 | 작성자 / 일자 | Codex / 2026-09-10 |
 | 상태 | READY |
-| V mode / revision | Baseline V1 + Delta V2 + Delta V3 (아래 §13·14) |
+| V mode / revision | Baseline V1 + Delta V2 + Delta V3 + Delta V4 (아래 §13·14·15) |
 | 기준선 | `a89e6f89`; 기존 0223·0224 구현 위에 별도 요구를 추가한다 |
 
 # Part I — Product & UX Contract
@@ -411,3 +411,7 @@ Architecture: `ExtensionsCatalogView`가 selection과 폭·확대 상태를 보�
 직접 행동 oracle을 사용하므로 별도 mutation은 not selected다. 필수 gate는 renderer 타입·변경 소스 ESLint/Prettier·영향 Vitest·실제 Electron 목록/패널/좁은 화면·build·문서 inventory·diff whitespace다. DB·메시지 프로토콜은 비영향, D-25~27과 AC28~31·EP18~21의 충돌은 없다.
 
 플랫폼 경로 정정의 기술 적용: `infra/config`의 OS 임시 경로 resolver를 첨부·출력 준비가 함께 사용한다. Node `os.tmpdir()`의 OS 사용자 임시 폴더를 사용하여 Windows 기본 LocalAppData/Temp와 시스템 재지정을 따른다. Work prompt에는 실제 native 경로를 명시하고 `/tmp`를 Windows 파일로 바꾸는 별칭 해석은 제거한다; 기존 관리 사본·기존 대화의 경로는 이동하지 않는다.
+
+### [구현자 기입] Delta V4 결과
+
+AC28~31 자기확인 4/4, EP18~21 전수 12/12 완료. [구현 보고](impl-r3-panels.md)에 V-pair·게이트·native 증거 및 메뉴 Escape/지연 저장의 파생 문제 수정을 기록했다. 같은 r3 구현 턴이며 독립 verify는 pending이다.

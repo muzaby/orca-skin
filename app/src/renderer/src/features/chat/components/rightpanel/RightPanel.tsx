@@ -214,7 +214,14 @@ function RightPanelColumn({
             id={id}
             defaultLabelKey={tile.defaultLabelKey}
             headerActions={HeaderActions ? <HeaderActions /> : undefined}
-            headerContent={HeaderContent ? <HeaderContent /> : undefined}
+            headerContent={
+              HeaderContent ? (
+                <HeaderContent
+                  expanded={expandedTile === id}
+                  onToggleExpand={() => onToggleExpand(id)}
+                />
+              ) : undefined
+            }
             expanded={expandedTile === id}
             onToggleExpand={() => onToggleExpand(id)}
             taskTileChrome={taskTileChrome}

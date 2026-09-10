@@ -63,6 +63,7 @@ interface Fixture {
   sidebarVisible: boolean
   view: DiffViewOptions
   colWidth: number
+  expanded: boolean
   status: GitStatus | null
 }
 
@@ -74,6 +75,7 @@ let fixture: Fixture = {
   sidebarVisible: false,
   view: DEFAULT_DIFF_VIEW,
   colWidth: PANEL_DEFAULT_WIDTH,
+  expanded: false,
   status: gitStatus
 }
 
@@ -117,10 +119,11 @@ function render(patchFixture: Partial<Fixture> = {}): string {
     sidebarVisible: false,
     view: DEFAULT_DIFF_VIEW,
     colWidth: PANEL_DEFAULT_WIDTH,
+    expanded: false,
     status: gitStatus,
     ...patchFixture
   }
-  return renderToStaticMarkup(createElement(GitContextBar))
+  return renderToStaticMarkup(createElement(GitContextBar, { expanded: fixture.expanded }))
 }
 
 // 0211 ΔV5 D-104 — 사용자가 참조 화면을 다시 보고 D-069 의 금지를 뒤집었다. 이제 두 값이다.
@@ -227,18 +230,18 @@ describe('컨텍스트 바의 컨트롤 — `×` 는 타일이 그린다 (제안
 describe('`↗` 라벨은 카탈로그로 해석된다 (AT-52)', () => {
   // **속성을 지목해 센다**(r2 검증 D17). 같은 문자열이 `title` 에도 실려 있어 문구만 찾으면
   // `aria-label` 을 통째로 지운 변이가 green 이다 — AT-52 가 이름 붙인 것은 접근성 이름이다.
-  it('기본 폭이면 넓히는 라벨, 최대 폭이면 되돌리는 라벨이다', () => {
-    const wide = render({ colWidth: PANEL_DEFAULT_WIDTH })
-    const narrow = render({ colWidth: PANEL_MAX_WIDTH })
+  it('열 너비와 무관하게 transcript를 덮은 상태에서만 되돌리는 라벨이다', () => {
+    const wide = render({ colWidth: PANEL_MAX_WIDTH, expanded: false })
+    const narrow = render({ colWidth: PANEL_DEFAULT_WIDTH, expanded: true })
 
     // 키가 그대로 새어 나오면 카탈로그를 지나지 않은 것이다.
     expect(wide).not.toContain('chat.rightpanel.diff')
     expect(narrow).not.toContain('chat.rightpanel.diff')
     expect(wide).toContain('aria-label="패널 확대"')
-    expect(narrow).toContain('aria-label="패널 폭 되돌리기"')
+    expect(narrow).toContain('aria-label="패널 크기 되돌리기"')
     // 호버로 읽는 자리도 같은 문구다 — 둘 중 하나만 있으면 두 독자 중 하나가 잃는다.
     expect(wide).toContain('title="패널 확대"')
-    expect(narrow).toContain('title="패널 폭 되돌리기"')
+    expect(narrow).toContain('title="패널 크기 되돌리기"')
   })
 
   it('확대와 되돌리기는 같은 NE/SW 축에서 외향/내향으로 갈린다 (ΔV8 D-127)', () => {
@@ -251,7 +254,7 @@ describe('`↗` 라벨은 카탈로그로 해석된다 (AT-52)', () => {
     expect(iconPath(render({ colWidth: PANEL_DEFAULT_WIDTH }))).toBe(
       'M160-160v-240h80v104l168-168 56 56-168 168h104v80H160Zm400-640h240v240h-80v-104L552-496l-56-56 168-168H560v-80Z'
     )
-    expect(iconPath(render({ colWidth: PANEL_MAX_WIDTH }))).toBe(
+    expect(iconPath(render({ colWidth: PANEL_DEFAULT_WIDTH, expanded: true }))).toBe(
       'M560-560H800v-80h-104L864-808l-56-56-168 168v-104h-80v240Zm-160 160H160v80h104L96-152l56 56 168-168v104h80v-240Z'
     )
   })

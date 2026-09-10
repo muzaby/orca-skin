@@ -50,8 +50,9 @@ export function RightPanelTile({
   )
 
   const remove = useCallback((): void => {
+    if (expanded) onToggleExpand?.()
     chatActions.removeRightPanelTile(id)
-  }, [id])
+  }, [expanded, id, onToggleExpand])
 
   return (
     <div

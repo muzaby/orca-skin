@@ -167,4 +167,4 @@ app/AppLayout.tsx
 
 ---
 
-프로젝트 목록은 `ProjectsScreen`이 아티팩트와 같은 중앙 목록 레이아웃 및 `CatalogListRow`를 사용하며 항목 제목 아래에 저장된 경로를 표시한다. 개별 프로젝트 landing은 새 대화와 같은 외곽 폭 및 `ReadingColumn` 거터로 제목·Composer·대화 목록을 맞춘다. `/plugins`는 `PluginsPage`가 `ExtensionsCatalogView`를 조립하고 제목 아래 가로 스킬·MCP·연결 탭으로 목록과 상세를 전환한다.
+프로젝트 목록은 `ProjectsScreen`이 아티팩트와 같은 중앙 목록 레이아웃 및 `CatalogListRow`를 사용하며 항목 제목 아래에 저장된 경로를 표시한다. 개별 프로젝트 landing은 새 대화와 같은 외곽 폭 및 `ReadingColumn` 거터로 제목·Composer·대화 목록을 맞춘다. `/plugins`는 `PluginsPage`가 `ExtensionsCatalogView`를 조립하고 제목 아래 가로 스킬·MCP·연결 탭으로 `CatalogListRow` 목록을 전환한다. 선택한 항목은 목록 옆 `ResizableSidePane`에 열며, 탭과 항목 ID를 함께 사용해 상세 폼 수명을 구분한다. 패널은 너비 조절과 전체 확대·복원을 지원하고 확대 중에는 뒤의 목록을 inert 처리한다. 닫으면 원래 항목으로 초점을 돌려준다.

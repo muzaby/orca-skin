@@ -5,13 +5,12 @@ import { MenuItem, MenuTitle } from '../../../../shared/ui/MenuItem'
 import { Popover } from '../../../../shared/ui/Popover'
 import { useI18n } from '../../../../shared/i18n'
 import { formatRelativeTime } from '../../../../shared/i18n/datetime'
-import { PANEL_DEFAULT_WIDTH, type DiffViewOptions } from '../../reducer/chatReducer'
+import type { DiffViewOptions } from '../../reducer/chatReducer'
+import type { RightPanelHeaderProps } from '../../lib/rightPanelTiles'
 import { chatActions, useChatSession } from '../../store/chatStore'
 import { gitStatusForCwd } from '../composer/branchChipState'
-import { columnIndexOfTile } from '../../lib/rightPanelLayout'
 
 import { ALL_CHANGES, type DiffComparison } from './diffComparison'
-import { nextDiffPanelWidth } from './diffPanelWidth'
 import {
   DIFF_VIEW_MENU_ITEMS,
   diffViewMenuChecked,
@@ -168,7 +167,10 @@ function ViewMenu({
   )
 }
 
-export function GitContextBar(): React.JSX.Element {
+export function GitContextBar({
+  expanded = false,
+  onToggleExpand
+}: RightPanelHeaderProps): React.JSX.Element {
   const { tr } = useI18n()
   const summary = useChatSession((state) => state.gitSnapshot.summary)
   const status = useChatSession(gitStatusForCwd)
@@ -178,16 +180,11 @@ export function GitContextBar(): React.JSX.Element {
   const knownEmpty = !error && patch?.isRepo && !patch.unavailable && patch.files.length === 0
   const sidebarVisible = useChatSession((state) => state.gitSnapshot.sidebarVisible)
   const view = useChatSession((state) => state.gitSnapshot.view)
-  const columns = useChatSession((state) => state.rightPanelTiles)
-  const widths = useChatSession((state) => state.rightPanelColWidths)
   const [comparisonOpen, setComparisonOpen] = useState(false)
   const [viewOpen, setViewOpen] = useState(false)
   const comparisonRef = useRef<HTMLButtonElement>(null)
   const viewRef = useRef<HTMLButtonElement>(null)
 
-  const col = columnIndexOfTile(columns, 'diff')
-  const nextWidth = nextDiffPanelWidth(widths[col])
-  const expanded = nextWidth === PANEL_DEFAULT_WIDTH
   // 0211 ΔV5 D-104 — 두 값 라벨. `head` 가 없으면 화살표도 그리지 않는다.
   const label = summaryComparisonLabel(summary, status, comparison, tr)
   const filesLabel = tr(
@@ -278,7 +275,9 @@ export function GitContextBar(): React.JSX.Element {
           iconOnly
           size="compact"
           leadingIcon={expanded ? 'collapse' : 'expand'}
-          onClick={() => chatActions.setRightPanelColWidth(col, nextWidth)}
+          onClick={onToggleExpand}
+          pressed={expanded}
+          aria-pressed={expanded}
           title={expandLabel}
           aria-label={expandLabel}
           data-diff-expand-panel

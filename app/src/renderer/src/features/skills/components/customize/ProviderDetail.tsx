@@ -46,13 +46,13 @@ export function ProviderDetail({
 
   return (
     <div className="min-w-0 py-6">
-      <div className="flex items-center gap-g6">
+      <div className="flex flex-wrap items-center gap-g6">
         <span className="grid h-9 w-9 flex-none place-items-center rounded-r4 bg-bg2 text-ink2">
           <Icon name="power" size={18} />
         </span>
         <div className="min-w-0">
-          <h2 className="m-0 text-heading text-ink">{provider.label}</h2>
-          <div className="mt-g1 flex items-center gap-g3 text-footnote text-ink3">
+          <h2 className="m-0 break-words text-heading text-ink">{provider.label}</h2>
+          <div className="mt-g1 flex flex-wrap items-center gap-g3 text-footnote text-ink3">
             <span>{tr(meta.kindKey)}</span>
             <span>·</span>
             <Dot tone={TONE[provider.status]} />
@@ -83,7 +83,7 @@ export function ProviderDetail({
         </div>
       </div>
 
-      <dl className="mt-p8 grid grid-cols-[auto_1fr] gap-x-g6 gap-y-g3 text-footnote">
+      <dl className="mt-p8 grid grid-cols-[auto_minmax(0,1fr)] gap-x-g6 gap-y-g3 text-footnote">
         {/* id 는 vault 네임스페이스이자 도구 서버 이름(`<id>-tools`)의 뿌리다 — 선언과 어긋난
             호출을 사용자가 대조할 수 있어야 한다. */}
         <dt className="text-ink3">{tr('skills.provider.id')}</dt>

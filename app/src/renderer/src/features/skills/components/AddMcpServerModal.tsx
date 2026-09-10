@@ -86,6 +86,7 @@ function AddMcpServerModalOpen({
   return (
     <Modal
       open
+      busy={busy}
       title={editing ? tr('skills.addServer.titleEdit') : tr('skills.addServer.titleAdd')}
       onClose={onClose}
       footer={

@@ -65,34 +65,37 @@ function find(node: ReactNode, type: unknown): ReactElement | undefined {
   return found
 }
 describe('actual ChatTile Work session lifetime wiring', () => {
-  it('keeps the conversation and Composer mounted while its panel expands, scopes inert to the active session, and restores it', () => {
-    harness.activeKey = 'first'
-    harness.kind = 'work'
-    const render = (): React.JSX.Element => ChatTile({ backendLabel: 'Claude', canAbort: true })
-    const first = render()
-    const panel = find(first, RightPanel)!
-    const expand = (panel.props as { onExpandedChange: (key: string, expanded: boolean) => void })
-      .onExpandedChange
-    const content = (node: ReactNode): ReactElement<{ inert?: boolean }> | undefined => {
-      if (!isValidElement<Record<string, unknown>>(node)) return undefined
-      if ('data-chat-pane-content' in node.props) return node as ReactElement<{ inert?: boolean }>
-      return Children.toArray(node.props.children as ReactNode)
-        .map(content)
-        .find(Boolean)
+  it.each(['work', 'code'] as const)(
+    'keeps the %s conversation and Composer mounted while its panel expands, scopes inert to the active session, and restores it',
+    (kind) => {
+      harness.activeKey = 'first'
+      harness.kind = kind
+      const render = (): React.JSX.Element => ChatTile({ backendLabel: 'Claude', canAbort: true })
+      const first = render()
+      const panel = find(first, RightPanel)!
+      const expand = (panel.props as { onExpandedChange: (key: string, expanded: boolean) => void })
+        .onExpandedChange
+      const content = (node: ReactNode): ReactElement<{ inert?: boolean }> | undefined => {
+        if (!isValidElement<Record<string, unknown>>(node)) return undefined
+        if ('data-chat-pane-content' in node.props) return node as ReactElement<{ inert?: boolean }>
+        return Children.toArray(node.props.children as ReactNode)
+          .map(content)
+          .find(Boolean)
+      }
+      expand('first', true)
+      const expanded = render()
+      expect(content(expanded)?.props.inert).toBe(true)
+      expect(find(expanded, TranscriptView)?.key).toBe(find(first, TranscriptView)?.key)
+      expect(find(expanded, Composer)?.key).toBeNull()
+      harness.activeKey = 'second'
+      expect(content(render())?.props.inert).toBe(false)
+      harness.activeKey = 'first'
+      expand('first', false)
+      expect(content(render())?.props.inert).toBe(false)
+      expect(find(render(), Composer)?.key).toBeNull()
+      harness.panelExpansion = null
     }
-    expand('first', true)
-    const expanded = render()
-    expect(content(expanded)?.props.inert).toBe(true)
-    expect(find(expanded, TranscriptView)?.key).toBe(find(first, TranscriptView)?.key)
-    expect(find(expanded, Composer)?.key).toBeNull()
-    harness.activeKey = 'second'
-    expect(content(render())?.props.inert).toBe(false)
-    harness.activeKey = 'first'
-    expand('first', false)
-    expect(content(render())?.props.inert).toBe(false)
-    expect(find(render(), Composer)?.key).toBeNull()
-    harness.panelExpansion = null
-  })
+  )
   it('유휴 수신은 응답 표시를 끄고 자동 응답에만 Transcript inflight를 전달한다', () => {
     harness.responding = false
     const ready = find(ChatTile({ backendLabel: 'Claude', canAbort: true }), TranscriptView)
