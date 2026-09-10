@@ -1,6 +1,6 @@
 # 0226 r7 구현 보고 — Delta V8
 
-[Delta V8](feedback-plan-r7.md)의 CI·상단 추가 버튼·Temp 게시 보정이다. 독립 handoff verify는 이전 라운드와 함께 pending이다.
+[Delta V8](feedback-plan-r7.md)의 AC43~45 자기확인 3/3, VP83~88 SELF_PASS다. 로컬 전체 Vitest와 구현 커밋의 Windows CI가 통과했다. 독립 handoff verify는 이전 라운드와 함께 pending이다.
 
 ## [구현자 기입] 설계 리뷰
 
@@ -19,6 +19,23 @@
 | EP37 4/4 | files.contextDirectory의 async canonical 경로, attachments의 실제 Temp 실체, Composer mock export, 작업폴더/add-dir context 표시 기대값. 실제 Windows 8.3 Temp에서 4 suite 50/50 |
 
 전수 검색은 artifacts의 files/tool/service 생산 파일에서 `readArtifactInput|sourceRoots|finalRoots|publish_artifact|service.publish`, AgentEnvironmentView/ProjectsScreen/ExtensionsCatalogView에서 `leadingIcon|variant|addEngine|newProject`를 대조했다. 기존 일반 출력의 직속 파일 검사와 RuntimeToolContext/query의 extraDirs는 수정하지 않았다.
+
+| Pair | 자기결과 / 관측 |
+|---|---|
+| VP83 REQUIRED | SELF_PASS — 최종 production CSS에서 세 버튼의 기본/hover 토큰과 기존 실제 입력 동작 |
+| VP84 REQUIRED | SELF_PASS — Temp 직속·하위·Windows 8.3 파일을 extraDirs 없이 게시하고 원본·관리 사본 보존 |
+| VP85 REQUIRED | SELF_PASS — 실제 tool handler가 서비스·파일·SQLite를 거쳐 영수증/알림을 반환하고 타 세션 읽기를 거부 |
+| VP86 REQUIRED | SELF_PASS — cwd/extraDirs 및 Temp root와 candidate의 실체 경계·읽기 후 교체 검출 |
+| VP87 REQUIRED | SELF_PASS — 현재 CI의 10 실패가 포함된 4 suite와 전체 로컬/Windows CI 통과 |
+| VP88 REGRESSION | SELF_PASS — 일반 출력 직속 원본, 기존 게시 형식/크기·세션·취소/실패·cleanup을 영향 71건과 전체 집합에서 확인 |
+
+| AC | 자기확인 |
+|---|---|
+| AC43 | ✅ 최종 CSS native 228/228, 두 테마와 두 폭에서 레퍼런스 토큰 및 기존 액션 일치 |
+| AC44 | ✅ Temp 입력 8건 및 실제 tool→service 게시 경로, 기존 게시/일반 출력 회귀 통과 |
+| AC45 | ✅ 실제 Windows 8.3 환경의 4 suite 50/50, 로컬·Windows CI 전체 Vitest 각각 4493 통과·1 skip |
+
+✅ 3 · ⚠️ 0 · ❌ 0 = 이번 Delta AC 총 3. 이전 라운드 분모와 합산하지 않는다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
@@ -46,11 +63,15 @@
 | CI 집합 로컬 재현 | 일반 경로에서는 7 실패/43 통과. [로그](evidence/r7-ci-local-baseline.log). 실제 8.3 Temp로 보정 후 50/50, [결과](evidence/r7-ci-local.json) |
 | Temp 게시 | 수정 전 7 실패/29 통과 → 영향 7파일 71/71. [red](evidence/r7-publish-red.log)·[green](evidence/r7-publish-green.log). 개별 실행 worker 종료 timeout 경고 한 건은 [stderr](evidence/r7-publish-green-error.log)에 보존 |
 | 타입·스타일·빌드 | node/web/test 타입, 변경 TS/TSX ESLint(오류·경고 0), Prettier, electron-vite main/preload/renderer 통과. 기존 SubAgentTileContent 정적/동적 import 경고 유지 |
-| 문서·스크립트 | inventory·test budgets 통과. Node script tests 116/116 |
-| 전체 gate | 로컬 전체 Vitest 실행 중. 관련 집합은 통과한 상태로 먼저 푸시하여 Windows CI도 병행 확인한다. 최종 CSS 기반 native 증거와 CI 결과를 추가한 뒤 IMPL_DONE으로 전환한다. |
+| 문서·스크립트 | inventory·test budgets 통과. Node script tests [116/116](evidence/r7-script-tests.log) |
+| 최종 Native | production CSS를 로드한 228/228, 28장, runtime/console/외부 요청 오류 0. [결과](evidence/r7-button-native-result.json)·[manifest](evidence/r7-button-native-manifest.json). 생산 입력 357개·증거 31개 SHA 대조 불일치 `[]`, CSS hash 일치 |
+| 로컬 전체 Vitest | 477파일 중 476 통과·1 skip, 테스트 4493 통과·1 skip·실패 0, Electron-as-Node exit 0. [로그](evidence/r7-vitest.log)·[stderr](evidence/r7-vitest-errors.log). 1065.24초, worker 종료 경고 재발 없음 |
+| Windows CI | [run 34487744739](https://github.com/muzaby/orca-skin/actions/runs/34487744739), 구현 코드의 `75322377`에서 전체 gate success. Vitest 4493 통과·1 skip, Node script 116/116. [결과](evidence/r7-ci-green.json)·[로그](evidence/r7-ci-green.log) |
 
-현재 AC43·44 SELF_PASS, AC45는 현재 실패 집합 50/50을 확인했으며 전체 CI 결과를 기다린다. 중간 구현 커밋은 Criteria-Met 2/3, Status partial이고 최종 완료를 주장하지 않는다.
+원격 CI와 로컬 전체 결과로 AC45를 확인했다. 중간 구현 커밋은 Criteria-Met 2/3, Status partial이었고 최종 보고는 3/3이다. 최종 증거 커밋은 구현 코드에 추가 변경을 하지 않는다.
+
+native hover의 최초 고정 150ms 대기는 offscreen CSS transition 완료 전 색상을 읽어 세 비교에서 한 색상 채널 차이를 보였다. fixture가 실제 CSS Animation.finished를 기다리게 보정한 뒤 최종 production CSS로 다시 228/228을 관측했다. 제품 코드를 이 측정 오차에 맞춰 변경하지 않았다. CI 원문 증거는 ANSI와 줄 끝 공백만 정리했다.
 
 ## [구현자 기입] Review Signals
 
-현재 라운드 7. 버튼은 사용자 구체화이고 Temp는 SDK와 publisher의 입력 허용 범위 불일치였다. 테스트 fixture가 추가 권한을 주어 결함을 가린 점을 실제 무추가권한 tool 경로로 보완했다. 이번에는 전체 Vitest와 현재 커밋의 원격 CI까지 확인한다. 독립 코드 리뷰는 handoff verify를 대체하지 않는다.
+현재 라운드 7. 버튼은 사용자 구체화이고 Temp는 SDK와 publisher의 입력 허용 범위 불일치였다. 테스트 fixture가 추가 권한을 주어 결함을 가린 점을 실제 무추가권한 tool 경로로 보완했다. 전체 Vitest와 구현 커밋의 원격 CI를 확인했으며 독립 코드 리뷰에서도 추가 수정이 필요한 finding은 없었다. 독립 코드 리뷰는 handoff verify를 대체하지 않는다.
