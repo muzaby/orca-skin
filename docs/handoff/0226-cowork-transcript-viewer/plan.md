@@ -312,6 +312,7 @@ READY (2026-09-10). 기준은 `5e53f4a5`의 V1+V2 구현이다. 이번 사용자
 | D-21 | 고아 대화 자동 보정 요구는 취소하고 최근 대화 분류를 복구한다. 기존 대화의 프로젝트 할당은 수정하지 않는다. | ACTIVE; 사용자 후속 정정, D-13의 최근 제거 대체 |
 | D-22 | nav 프로젝트 목록 페이지는 아티팩트 같은 세로 목록을 사용하고 항목 제목 아래 메타에 프로젝트 경로를 표시한다. | ACTIVE; 사용자 추가 요청 |
 | D-23 | 세션 시작 시 새로 생성한 프로젝트는 nav에서 펼쳐진 상태로 표시한다. | ACTIVE; 사용자 추가 요청 |
+| D-24 | 프로젝트·엔진&모델 제목 아래 설명을 제거한다. 엔진&모델 제목 오른쪽 설명은 연결된 setting 개수(`3개`)로 바꾼다. | ACTIVE; 사용자 추가 요청 |
 
 | R / AT / AC | 관측 가능한 기준 | production path / 직접 oracle |
 |---|---|---|
@@ -323,6 +324,7 @@ READY (2026-09-10). 기준은 `5e53f4a5`의 V1+V2 구현이다. 이번 사용자
 | R24 / AT24 / AC24 | 고정됨→프로젝트→최근 대화 순서로 표시하고 프로젝트 없는 기존 대화를 최근 목록에서 다시 연다. | recentIds→기존 파티션→SessionList→chat route; 미할당 대화·고정 중복 제거 |
 | R25 / AT25 / AC25 | 프로젝트 목록은 중앙 세로 목록이고 제목 아래에 저장된 cwd가 표시된다. 이름 또는 경로 검색·고정 필터·프로젝트 열기·생성을 제공한다. | ProjectsScreen→CatalogListRow→project route; 실제 행/메타/필터/열기 |
 | R26 / AT26 / AC26 | 세션 시작으로 새 프로젝트가 생성되면 해당 nav 행이 펼쳐지고 첫 대화가 나타난다. 기존 프로젝트 접힘과 수동 접기 선택은 유지한다. | main 신규 생성→session.updated→nav 펼침/하위 조회; 신규·재사용·초기 로딩 구별 |
+| R27 / AT27 / AC27 | 두 페이지 제목 아래 설명이 없고 엔진&모델 제목 우측은 settings 원천의 설정 수와 한국어 단위를 표시한다. | useEngines→source 필터→제목; settings 2개+runtime 1개 입력에서 2개, 추가/삭제/빈 목록 |
 
 최근 대화 파티션은 기존 고정 프로젝트와 고정 대화의 중복 제거를 재사용한다. 미고정 프로젝트 대화는 최근에도 표시되며 프로젝트 없는 대화를 임의로 배정하지 않는다. cwd 없는 프로젝트는 경로를 발명하지 않고 기존 Desktop 기본값 계약을 유지한다.
 
@@ -332,12 +334,15 @@ Main DB·migration·기존 대화 프로젝트 배정은 이번 범위 밖이다
 
 신규 프로젝트 자동 펼침은 Main의 실제 생성 결과를 `session.updated.patch.projectCreated` 선택 필드로 전달한다. renderer는 해당 project ID의 펼침 요청을 보관하여 catalog 조회의 지각 응답 뒤에도 적용한다. 최초 전체 목록이나 기존 project 재사용을 새 생성으로 추측하지 않는다.
 
+엔진 제목의 setting 수는 `AgentEnvironment.source === 'settings'`의 표시 항목 수다. 모델 수나 읽기전용 `runtime` 원천 환경은 setting 파일 개수로 세지 않는다. `common.count`를 재사용하며 설정 편집·추가·삭제 동작은 유지한다.
+
 | EP | 강제 지점 / N | 실패 의미 / oracle |
 |---|---|---|
 | EP13 | nav 파티션·두 그룹 공통 프로젝트 행·최근 슬롯 / 3 | 고정 중복/미할당 소실/경로 순서 오류; 파생·렌더·클릭 |
 | EP14 | 프로젝트 landing·프로젝트 catalog·아티팩트 제목 / 3 | 콘텐츠 경계/경로 메타/단위 오류; 실제 치수·렌더 |
 | EP15 | 플러그인 nav route·catalog tabs/content / 2 | 페이지 진입 단절/기존 검색·상세 소실; route와 상호작용 |
 | EP16 | Main 생성 사실 발신·renderer nav 펼침 적용 / 2 | 기존 프로젝트를 신규로 오인/지각 목록에서 신호 소실; 생성·재사용·이벤트 순서 행동 |
+| EP17 | 엔진 제목의 설명·설정 총계 / 1 | runtime·model 수 혼동/설명 잔존; 혼합 원천 및 실제 화면 |
 
 | Pair | 노드 상태 / requiredness | 경로와 oracle | EP |
 |---|---|---|---|
@@ -349,6 +354,8 @@ Main DB·migration·기존 대화 프로젝트 배정은 이번 범위 밖이다
 | VP46 | NEW R26↔AT26 / REQUIRED | 신규 세션→새 프로젝트→nav 펼침→첫 대화 | EP16 |
 | VP47 | NEW AR7↔IT7 / REQUIRED | bindStartingProject→wire→project sync→목록 지각 응답 | EP16 |
 | VP48 | NEW MD7↔UT7 / REQUIRED | 실제 created flag→expand 요청·소비; 기존 접힘·수동 접기 보존 | EP16 |
+| VP49 | NEW R27↔AT27 / REQUIRED | projects/engine 화면→제목 설명 제거·settings 총계 | EP14·17 |
+| VP50 | NEW MD8↔UT8 / REQUIRED | 환경 원천→settings 항목 수→제목; runtime·모델 수 독립 | EP17 |
 
 기존 AC14의 순서·메타 제거·cwd는 유지하고 폭만 AC20으로 정정한다. AC15의 prefix·최근 제거는 AC19·21·24로 대체하며 AC17의 총계는 AC22로 보완한다. 나머지 V1/V2 pair는 비영향이므로 이전 증거 승계, 이번 전면 재검증은 NOT_REQUIRED다. 직접 행동을 검증하므로 별도 변이는 not selected다.
 
@@ -356,6 +363,6 @@ Main DB·migration·기존 대화 프로젝트 배정은 이번 범위 밖이다
 
 main/web/test typecheck, 변경 파일 읽기 ESLint·Prettier, nav/landing/catalog/plugin 관련 vitest, Electron fixture 시각·치수·액션, 직접 electron-vite build, doc inventory·test budget·diff whitespace와 INDEX/trailer를 확인한다. DB를 수정하지 않으므로 DB ABI 변경과 새 migration은 불필요하다.
 
-READY: D-17~23의 각 결과를 AC19~26 및 EP13~16에 대조했다. 취소한 고아 보정은 구현 경로에서 제외했고 최근 분류 복구는 기존 membership 파티션으로 구체화했다. 기존 지침/세션 관계와 새 표시 계약 간 충돌은 없다.
+READY: D-17~24의 각 결과를 AC19~27 및 EP13~17에 대조했다. 취소한 고아 보정은 구현 경로에서 제외했고 최근 분류 복구는 기존 membership 파티션으로 구체화했다. 기존 지침/세션 관계와 새 표시 계약 간 충돌은 없다.
 
 플랫폼 경로 정정의 기술 적용: `infra/config`의 OS 임시 경로 resolver를 첨부·출력 준비가 함께 사용한다. Node `os.tmpdir()`의 OS 사용자 임시 폴더를 사용하여 Windows 기본 LocalAppData/Temp와 시스템 재지정을 따른다. Work prompt에는 실제 native 경로를 명시하고 `/tmp`를 Windows 파일로 바꾸는 별칭 해석은 제거한다; 기존 관리 사본·기존 대화의 경로는 이동하지 않는다.
