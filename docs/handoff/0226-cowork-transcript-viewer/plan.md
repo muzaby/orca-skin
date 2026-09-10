@@ -6,7 +6,7 @@
 |---|---|
 | 작성자 / 일자 | Codex / 2026-09-10 |
 | 상태 | READY |
-| V mode / revision | Baseline V / V1 |
+| V mode / revision | Baseline V1 + Delta V2 (아래 §13) |
 | 기준선 | `a89e6f89`; 기존 0223·0224 구현 위에 별도 요구를 추가한다 |
 
 # Part I — Product & UX Contract
@@ -31,7 +31,7 @@ Work transcript의 활동을 첨부 Cowork처럼 가벼운 요약과 세로 타�
 |---|---|---|---|
 | D-01 | Work에 Cowork 활동 요약·개별 행·타임라인·요청/응답/오류 본문을 적용 | 사용자 요청, screenshot 3~16 | ACTIVE |
 | D-02 | 우측 진행/출력/컨텍스트의 기존 구조와 수명을 유지하고 출력 뷰어를 추가 | 사용자 요청, panel HTML | ACTIVE |
-| D-03 | Markdown·HTML·텍스트/코드·이미지를 현재 명시 게시 경로로 열 수 있게 한다 | 사용자 범위 답변; 현 게시 타입은 html/markdown에 한정 | ACTIVE |
+| D-03 | Markdown·HTML·텍스트/코드·이미지를 현재 명시 게시 경로로 열 수 있게 한다 | 사용자 범위 답변; 현 게시 타입은 html/markdown에 한정 | SUPERSEDED → D-07 |
 | D-04 | 미리보기/코드·복사·다운로드·확대·닫기를 제공; 닫으면 기존 목록 위치로 복귀 | viewer HTML·screenshot 1의 직접 표현 | ACTIVE |
 | D-05 | 기존 응답 경계·도구 ID 연결·질문 승인·Code 표시 정책을 보존 | 현재 workActivity/agentPresentation 계약 | ACTIVE |
 | D-06 | ID 기반 소유권 확인과 제한 읽기를 유지; HTML은 격리된 정적 미리보기 | 기존 artifact 보안 경계 + 새 뷰어의 문서 표시 목적 | ACTIVE |
@@ -195,3 +195,96 @@ PASS: 오류·로딩·빈 파일·재시도는 사용자 문구로 연결된다.
 ## [구현자 기입] Review Signals
 
 신규 handoff r1. 기존 0223 Q-04와 0224 독립 검증 상태는 유지한다. Native의 opaque HTML frame은 별도 renderer target이므로 CDP target에 연결해 DOMSnapshot으로 읽었으며 sandbox 권한을 늘리지 않았다. 구현자 자기확인과 외부 코드 리뷰는 정식 handoff verify를 대체하지 않는다.
+
+## 13. Delta V2 — 공통 패널·출력 카드·경로 프로젝트
+
+READY (2026-09-10). 기준 V는 `fde5557dedc516ddf09d308b71cc7495cc3ea43f`의 본 문서 V1이다. V1 이후 사용자가 핸드오프 없이 요청했던 변경은 이 커밋의 코드·테스트를 현재 기준으로 승계하며, 이번 사용자의 “핸드오프 작업을 이어서 하겠다”에 따라 r2를 설계한다.
+
+### 13.1 결정 복원과 변경
+
+아래 결정은 충돌하는 V1 본문보다 우선한다. 이전 응답 경계의 데이터 보존(D-05)과 보안(D-06)은 유지하며 표시 정책·출력 수집 비범위만 명시적으로 대체한다.
+
+| ID | 결정 / 출처 | 상태 | AC |
+|---|---|---|---|
+| D-07 | 일반 출력과 게시 아티팩트를 구분한다. `/tmp/<파일이름>`의 최종 일반 출력, Composer 첨부의 `/tmp` 사본·컨텍스트, 메모의 독립 표시 등 이전 사용자 피드백은 `fde5557d` 구현을 유지한다. | ACTIVE; D-03 및 V1 일반 수집 비범위 대체 | AC10·11 |
+| D-08 | “뷰어 패널의 좌측에 핸들바를 배치하여 사이즈 조절”; Transcript와 아티팩트 페이지는 같은 패널 소스·기능을 재사용한다. | ACTIVE | AC9 |
+| D-09 | “transcript의 우측패널의 펼치기 버튼 클릭시 transcript 전체만큼”; viewer와 기존 작업 타일 확대는 현재 대화 pane 전체를 채운다. 닫기·복원은 원래 폭·초안·스크롤을 유지한다. | ACTIVE | AC9 |
+| D-10 | 일반 출력도 Transcript 카드로 표시한다. 게시 카드의 타이틀 하단은 “아티팩트”만; 카드/우측 출력에서 보관 폴더 열기·메뉴 상단 파일 메타·하단 성공 안내를 제거한다. | ACTIVE; V1 완료 안내의 카드 부분 대체 | AC10·11 |
+| D-11 | “백그라운드 작업, 크론 등의 답변을 기다릴때(steer가 아닌 즉각대화재개가 가능할때)”는 답변 대기 표시를 하지 않는다. 실제 모델 활동·입력 순서·예약 수신은 유지한다. | ACTIVE | AC12 |
+| D-12 | 새 Composer landing의 기본 경로는 Desktop. 세션 시작 경로를 프로젝트 기본 경로로 저장하고 해당 landing에 자동 적용한다. 동일 basename·다른 경로의 프로젝트는 별개다. | ACTIVE | AC13·14 |
+| D-13 | 프로젝트 landing은 아티팩트 목록 레이아웃으로 제목→Composer→대화 목록을 배치한다. 우측 지침 UI·대화 제목 아래 메타를 제거한다. Nav는 경로를 연한 왼쪽 prefix로 표시하고 최근 대화 그룹 제거, 고정됨→프로젝트 순서다. | ACTIVE; 후속 사용자 지시 포함 | AC14·15 |
+| D-14 | 프로젝트 상단 케밥의 “세부사항 수정”을 “지침 편집”으로 바꾸고 편집 대화상자에 연결한다. | ACTIVE; 사용자 후속 지시 | AC16 |
+
+유지 판정: V1 D-01·02·04·05·06은 D-07~14의 명시 변경 외 그대로다. ACTIVE 결정↔AC 대조에서 충돌 0이며, 우측 지침 제거와 메뉴 편집 유지(D-13·14)는 서로 다른 표면이다.
+
+### 13.2 Product & UX / 인수 기준
+
+| R / AT / AC | 관측 가능한 기준 | production path / oracle |
+|---|---|---|
+| R9 / AT9 / AC9 | 두 화면에서 좌측 핸들로 폭을 조절하고 확대·복원·닫기를 같은 방식으로 실행한다. 확대는 nav를 침범하지 않고 현재 pane 전체를 채운다. | RightPanel·catalog→공통 pane; native 치수·드래그·초안·스크롤·iframe 넘기 관측 |
+| R10 / AT10 / AC10 | Work Transcript에서도 최신 일반 출력의 카드를 열고 저장한다. 우측 패널을 열지 않아도 실시간 추가와 재로드 후 목록이 같다. 게시 카드를 중복 표시하지 않는다. | 저장된 artifact list→세션 출력 구독→Transcript 카드; 게시/파일 혼합·버전·세션 전환 검사 |
+| R11 / AT11 / AC11 | 게시 카드 하단에는 아티팩트만 표시한다. 양쪽 카드 메뉴에서 보관 폴더·상단 메타를 제거하고 성공 안내는 표시하지 않는다. 실패는 재시도 가능한 상태로 보인다. | 공통 ArtifactCard/Cards→Transcript·TaskOutputContent; 실제 메뉴·저장 성공/실패 관측 |
+| R12 / AT12 / AC12 | 수신 채널이 유휴로 즉시 입력을 받을 때는 응답 스피너·대기 문구·중단 버튼 없이 일반 전송이 가능하다. 자동 응답이 시작하면 응답 중 표시가 돌아온다. | main runtime activity→snapshot→Composer/Transcript; ready→입력/자동 응답→ready·load 회귀 |
+| R13 / AT13 / AC13 | 새 대화는 Desktop을 기본으로 하고 최초 전송의 실제 cwd로 프로젝트가 생성·연결된다. 같은 경로는 재사용하고 이름이 같아도 경로가 다르면 둘 다 남는다. | workspace default→send→DB project/session→session.updated; 실제 DB 재개·중복경로 검사 |
+| R14 / AT14 / AC14 | 프로젝트를 클릭하면 제목→해당 cwd의 Composer→해당 프로젝트 대화 목록이 나온다. 대화 제목 아래 메타와 우측 지침 패널이 없다. | nav→project route→landing→send; 프로젝트 전환·cwd·목록/초안·빈 상태 native |
+| R15 / AT15 / AC15 | nav의 최근 대화 그룹을 제거하고 고정됨을 프로젝트보다 위에 배치한다. 자동 생성한 프로젝트도 표시되며 경로가 연한 prefix로 이름 왼쪽에 보인다. | project/session list→Sidebar; 실제 DOM 순서·중복 basename·미고정 project 검사 |
+| R16 / AT16 / AC16 | 상단 메뉴의 지침 편집을 누르면 해당 프로젝트 지침을 편집·저장·취소할 수 있다. 재진입 후 저장된 지침이 남는다. | project kebab→instructions dialog→기존 project update IPC→DB→reload |
+
+일반 출력의 현재 영속 목록에는 메시지/턴 소유자가 없으므로 타임스탬프로 턴을 추측하지 않는다. 최신 일반 출력은 Transcript 하단의 카드 목록으로 표시하고, 기존 명시 게시 카드는 원래 턴 연결을 유지한다. 원본 `/tmp` 파일이나 첨부를 수정·재공개하는 기능은 추가하지 않는다.
+
+기존 cwd 없는 프로젝트와 미분류 대화를 강제로 이동하지 않는다. 기존 프로젝트도 목록에 보존하며 기본 cwd가 없으면 Desktop을 사용하고, 미분류 대화는 전체 대화·검색 경로로 계속 접근한다. 기존 instructions 저장/런타임 주입과 수동 이름 편집은 보존한다.
+
+### 13.3 조사와 Technical Design
+
+| 축 | AS-IS 근거 | TO-BE / 책임 |
+|---|---|---|
+| panel | `RightPanel.tsx` viewer 50%/75%, `ArtifactsView.tsx` 60%/전체; 서로 다른 wrapper 2곳 | shared의 도메인 없는 resizable side pane 1벌. app 훅이 catalog viewer 상태를 props로 연결하여 feature 교차 import 방지 |
+| 확대 | `ChatTile.tsx` pane-row에 대화와 우측 패널이 형제, task 확대는 viewer와 별도 상태 | pane-row를 기준으로 전체 확대. 기존 DOM 유지·inert, 일반 폭 저장과 복원; catalog도 같은 shell 계약 |
+| drag | `RightPanel.tsx` private separator→shared useDragResize; mouseup만 정리 | 좌측 핸들 pointer capture/drag shield, min/max clamp·키보드, unmount/blur/대상 전환 취소; 본문 요청 수명과 폭 분리 |
+| 출력 | `ArtifactService.captureOutput`→`artifact.published`→artifactStore 최신 목록; Transcript는 parts의 게시물만 표시 | 세션별 일반 출력 구독을 Transcript에 추가. latest 목록을 SSOT로 쓰고 ArtifactCards 재사용; output 상태는 다른 session으로 새지 않음 |
+| 카드 | `ArtifactCard.tsx`에 card/list 두 형상, 메뉴 metadata/openFolder와 결과 success 표시 | 한 소스에서 양 형상 수정. 실패 메시지·다운로드·reveal·휴지통·새로고침은 기존 경계를 유지 |
+| 활동 | `post-turn.ts` beginListenPhase와 `sessionBusy=inflight||listening` | `ChatActivitySnapshot.transport`에 ready 추가. 런타임 channelBusy/미소비 backlog로 판정하고 lease/진행 태스크 수로 busy를 추론하지 않음 |
+| 프로젝트 | DB project에 cwd 없음; freshEntry는 전역 cwdCache, nav는 pinnedProjects만 표시 | append-only migration으로 nullable cwd+정규화 경로 식별. 실제 세션 시작 main 경로에서 ensure/연결, DTO와 이벤트 전달; landing cwd는 project 우선 |
+| landing | project 전용 목록/우측 지침 UI, artifact 전용 list row | 범용 row layout을 shared에 두어 동일 디자인 사용. project는 meta slot 미전달, app/page는 feature를 props로 조립 |
+
+활동 상태는 `idle`(체인 없음), `ready`(수신 유지·즉시 입력 가능), 기존 `listening`(실제 자동 응답/배출 대기)으로 구별한다. 새 snapshot 뒤 SDK가 바빠지는 레이스에서도 기존 main admission·held→flush·UUID/commit 순서를 유지하며 사용자 버블을 낙관적으로 끼워 넣지 않는다. Renderer의 transport 비교와 초기 snapshot 복원 소비처를 함께 갱신한다.
+
+경로는 OS absolute/normalize 비교를 main에서 소유하고 Windows 대소문자·끝 구분자 차이를 같은 경로로 취급한다. 이름은 basename 표시용이며 유일키가 아니다. 신규 세션의 실제 cwd 확정 뒤 프로젝트 생성/연결을 처리하고 기존 명시 project의 지침·세션 관계를 임의로 덮어쓰지 않는다; 다른 cwd를 선택한 최초 전송은 그 경로 프로젝트로 연결한다.
+
+### 13.4 Delta V와 §10 강제 지점 추가
+
+R9~16/AT9~16, SD2~4/ST2~4, AR2~4/IT2~4, MD3~5/UT3~5는 NEW다. R3·R5·R7·R8은 INHERITED이며 기존 본문/선택 소유권·도구 순서·저장 경로 회귀를 선택한다. V1 VP1·2·4·6·10~12는 변경하지 않은 표현·파일 읽기 경계로 기존 증거를 승계하며 이번 구현 산출에 해당하지 않는 전면 재검증은 NOT_REQUIRED다.
+
+| EP | 강제 지점 전수 / N | 직접 oracle·실패 의미 |
+|---|---|---|
+| EP6 | Transcript viewer·catalog viewer·task panel 확대 / 3 | host rect와 viewer rect, restore 폭·초안·scroll; 일부만 커지는 회귀 검출 |
+| EP7 | Transcript 출력 구독·우측 출력 구독·공통 카드 / 3 | 목록 실시간/reload 및 실제 card/menu 문구·성공/실패; 닫힌 패널 의존 검출 |
+| EP8 | runtime listen 전이·activity snapshot/복원·Composer·Transcript / 4 | 채널 유휴와 활성 구간의 실제 상태/전송·순서; 예약 대기를 모델 응답 중으로 오인하면 실패 |
+| EP9 | default path·main 최초 세션 연결·project DB/DTO·landing cwd / 4 | Desktop·동일경로 재사용·다른경로 이름중복·프로젝트 전환 cwd; session 불일치 검출 |
+| EP10 | Sidebar group 순서/프로젝트 행·project landing/row·지침 메뉴/dialog / 3 | 화면 DOM·실제 버튼→IPC→재로드; 고아 메뉴/중복 배치 검출 |
+
+검색 분모: `rg 'viewerExpanded|expanded|min\\(.*(560|640|960)' renderer`, `rg 'ArtifactCards|acquireArtifacts' features/chat`, `rg 'listening|sessionBusy' main renderer`, `rg 'getWorkspacePath|freshEntry|pendingProjectId|pinnedProjects' app/src`의 소비 흐름으로 열거했다. 세부 소비처는 구현 리뷰에서 전수 재확인하며 검색 결과 파일 수를 지점 수로 대신하지 않는다.
+
+| pair | 노드 / requiredness | start → edges → end / oracle | EP |
+|---|---|---|---|
+| VP13~20 | R9~16↔AT9~16 / REQUIRED | §13.2의 실제 행동; native+DB+선택자 결과 | EP6~10의 해당 행 |
+| VP21 | SD2↔ST2 / REQUIRED | 두 route→resize/expand→switch/close→복원; stale selection·iframe drag·초안 유지 | EP6 (3) |
+| VP22 | SD3↔ST3 / REQUIRED | background/cron listen→ready→send/자동응답→다시 유휴; commit 순서/중복 없음 | EP8 (4) |
+| VP23 | SD4↔ST4 / REQUIRED | 새 대화 cwd→시작→프로젝트 nav→project landing→재시작; 연결/지침 유지 | EP9·10 (7) |
+| VP24 | AR2↔IT2 / REQUIRED | artifact list/event→Transcript와 output→공통 카드/viewer; reload·격리된 본문 | EP6·7 (6) |
+| VP25 | AR3↔IT3 / REQUIRED | runtime→activity wire→hydration→send UI; ready wire 왕복과 channel 레이스 | EP8 (4) |
+| VP26 | AR4↔IT4 / REQUIRED | project DB→DTO/event→app 조립→landing→지침 update; 실DB·IPC 연결 | EP9·10 (7) |
+| VP27 | MD3↔UT3 / REQUIRED | drag 입력/폭→clamp·취소, 출력 category→카드 목록; 경계값·latest·세션 격리 | EP6·7 (6) |
+| VP28 | MD4↔UT4 / REQUIRED | channel busy/backlog→ready, transport→응답 중/전송 표시; 상태 조합 직접 단언 | EP8 (4) |
+| VP29 | MD5↔UT5 / REQUIRED | cwd→경로 식별·basename·landing 초기값, project list→nav 순서; 같은 이름/다른 경로 | EP9·10 (7) |
+| VP30 | R3·5·7·8↔기존 AT3·5·7·8 / REGRESSION | preview 선택/재시도/닫기·Code·늦은 결과·입력 commit·첨부/출력 저장; 기존 행동 suite | EP2·3·7·8 (15) |
+
+각 oracle은 실제 행동 결과를 읽으므로 구조 검색만의 PASS 또는 별도 결함 변이는 선택하지 않는다. Native가 대신할 수 없는 DB 보존·상태 전이는 의미 테스트로 검증하고 시각·치수·키보드·스크롤은 실제 Electron 렌더로 확인한다.
+
+### 13.5 운영 gate·구현 분담·READY 교차검사
+
+필수 gate는 main/web/test typecheck, 변경 파일 read-only ESLint·Prettier, 관련 vitest(현재 Electron SQLite ABI 유지), 직접 electron-vite build, native UI, doc inventory, migration append-only, test budgets, diff whitespace, INDEX/trailer 파싱이다. 새 의존성은 없으며 DB 변경은 기존 migration을 수정하지 않고 추가한다. IPC 의미 변경은 `docs/IPC_CONTRACT.md`, 현재 상태는 해당 frontend/backend architecture에 반영한다.
+
+구현 분담: 공통 패널·두 호스트, 활동/재개 계약, 프로젝트 경로·landing/nav, 출력 카드·통합 검증을 독립 소유한다. shared i18n·app 조립 파일은 필요한 hunk만 수정하여 합류하고 새 기능 간 교차 import를 만들지 않는다.
+
+READY: D-07~14와 AC10·9·9·10/11·12·13/14·14/15·16 대응을 대조했다. 새 노드 17개(R 8+SD 3+AR 3+MD 3)는 동일 수준 REQUIRED pair를 가지며 전수 EP 17지점(3+3+4+4+3)을 고정했다. 계획 규범 변경은 구현과 별도 커밋으로 보존하고, 사용자가 명시한 이번 변경을 먼저 반영하되 기존 독립 verify 대기 상태를 PASS로 바꾸지 않는다.
