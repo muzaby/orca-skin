@@ -369,4 +369,39 @@ READY: D-17~24의 각 결과를 AC19~27 및 EP13~17에 대조했다. 취소한 �
 
 AC19~27 자기확인 9/9, EP13~17 전수 11/11 완료. [구현 보고](impl-r3.md)에 V-pair·게이트·실제 치수와 수정한 파생 문제를 기록했다. 독립 verify는 pending이며 사용자 정정으로 취소한 기존 대화 재배정은 구현하지 않았다.
 
+## 15. Delta V4 — 플러그인 항목 목록과 우측 상세
+
+READY. 기준은 `73ac30a0`의 V1~V3다. 같은 사용자 피드백 구현 턴의 추가 요청이며 새로운 독립 검증 라운드를 만들지 않는다.
+
+| 결정 | 사용자 결과 | 상태 |
+|---|---|---|
+| D-25 | 플러그인 세 탭의 항목을 아티팩트와 같은 리스트로 표시하고 목록 헤더를 제거한다. | ACTIVE; 그룹별 표·열 헤더·접힘 헤더 대체 |
+| D-26 | 항목 클릭 시 기존 depth 이동 대신 목록 옆 우측 상세 패널을 연다. | ACTIVE; V3의 상세 화면 교체 방식을 대체 |
+
+페이지 제목과 스킬·MCP·연결 탭은 유지한다. 목록 헤더는 그룹 헤더와 표 열 헤더를 뜻하며 항목의 이름·보조 정보는 공통 `CatalogListRow` 안으로 옮긴다. 기존 상세의 토글·편집·삭제·연결·인증과 스킬 본문 기능을 우측 패널에서 유지한다.
+
+| R / AT / AC | 관측 기준 / 경로 | oracle |
+|---|---|---|
+| R28 / AT28 / AC28 | 각 탭은 무헤더 세로 항목 목록이며 아이콘·제목·보조 정보와 선택 상태를 보여준다. | 공통 row 실제 렌더·세 탭 클릭·키보드 |
+| R29 / AT29 / AC29 | 목록 항목→같은 페이지 우측 상세, 목록·탭·추가 버튼 유지. 닫으면 실행한 행으로 초점 복귀, 탭 이동은 상세를 닫는다. | 실제 DOM 동시존재·좌표·close/tab/focus |
+| R30 / AT30 / AC30 | 공통 우측 패널의 크기 조절·확대·복원을 사용하고 선택 전환 시 이전 항목의 폼·본문 표시 모드가 새 항목에 남지 않는다. | 드래그·키보드·치수·서로 다른 상세 전환 |
+
+Architecture: `ExtensionsCatalogView`가 selection과 폭·확대 상태를 보유하고 기존 상세 컴포넌트를 `ResizableSidePane`에 조립한다. skills feature끼리만 결합하며 chat feature를 import하지 않는다. 목록은 항상 mounted, 확대 시 inert이고 상세 수명은 탭+항목 ID로 구분한다. ID는 선택한 탭 안에서만 해석해 다른 탭의 동명 ID와 충돌하지 않는다.
+
+| EP / 지점 | N | 실패 의미 / 직접 관측 |
+|---|---:|---|
+| EP18 스킬·MCP·연결 리스트 | 3 | 표/그룹 헤더 잔존·다른 형상·잘못된 선택; 실제 row DOM |
+| EP19 선택·닫기·탭전환·항목전환·rename/delete | 5 | 목록 소실·초점 소실·다른 항목 폼 누출·stale 선택; 실제 이벤트 |
+| EP20 상세 panel resize·expand/restore | 2 | 별도 조절 로직·좁은 창 overflow·목록 remount; 공통 panel 치수·키보드 |
+
+| pair | 노드 / requiredness | 경로 / oracle |
+|---|---|---|
+| VP51~53 | NEW R28~30↔AT28~30 / REQUIRED | 각 AC의 실제 renderer 행동; EP18~20 |
+| VP54 | NEW SD5↔ST5 / REQUIRED | select→panel→switch/tab/close→목록/초점; EP19 |
+| VP55 | CHANGED AR6↔IT6 / REQUIRED | plugin route→list+shared pane→기존 상세 액션; EP18~20 |
+| VP56 | NEW MD9↔UT9 / REQUIRED | tab+ID→선택 상세/수명; 다른 탭 동일ID·삭제/rename; EP19 |
+| VP57 | INHERITED R23↔AT23 / REGRESSION | 페이지 진입·가로 탭·추가/편집/인증 기능; EP15 |
+
+직접 행동 oracle을 사용하므로 별도 mutation은 not selected다. 필수 gate는 renderer 타입·변경 소스 ESLint/Prettier·영향 Vitest·실제 Electron 목록/패널/좁은 화면·build·문서 inventory·diff whitespace다. DB·메시지 프로토콜은 비영향, D-25·26과 AC28~30·EP18~20의 충돌은 없다.
+
 플랫폼 경로 정정의 기술 적용: `infra/config`의 OS 임시 경로 resolver를 첨부·출력 준비가 함께 사용한다. Node `os.tmpdir()`의 OS 사용자 임시 폴더를 사용하여 Windows 기본 LocalAppData/Temp와 시스템 재지정을 따른다. Work prompt에는 실제 native 경로를 명시하고 `/tmp`를 Windows 파일로 바꾸는 별칭 해석은 제거한다; 기존 관리 사본·기존 대화의 경로는 이동하지 않는다.
