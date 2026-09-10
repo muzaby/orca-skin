@@ -2,28 +2,27 @@ import { useRef, useState } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { MenuItem } from '../../../shared/ui/MenuItem'
 import { Popover } from '../../../shared/ui/Popover'
-import { formatDateLong, useI18n } from '../../../shared/i18n'
+import { useI18n } from '../../../shared/i18n'
 import { projectsActions, useProjectsState } from '../store/projectsStore'
+import { EditInstructionsModal } from './EditInstructionsModal'
 
 interface ProjectInfoHeroProps {
   projectId: string
 }
 
-// LEFT 컬럼 상단 hero — 프로젝트 제목 + 지침 preview(line-clamp-2) + 업데이트
-// 메타. 제목 라인 우측에 핀 + 케밥 메뉴(세부사항 수정 / 삭제). 케밥 메뉴 동작은
-// 아직 미배선(시각만) — 추후 라운드. ProjectsContext 직접 구독 (intra-feature OK).
+// 프로젝트 제목과 고정·지침 편집 메뉴. 지침 본문은 편집 대화상자에서 표시한다.
 export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.Element {
   const list = useProjectsState((s) => s.list)
   const project = list.find((p) => p.id === projectId) ?? null
   const [menuOpen, setMenuOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
   const kebabRef = useRef<HTMLButtonElement>(null)
-  const { tr, locale } = useI18n()
+  const { tr } = useI18n()
 
   if (!project) {
     return <div className="h-[60px]" aria-hidden />
   }
 
-  const updatedLabel = formatDateLong(project.updatedAt, locale)
   const pinned = project.pinnedAt != null
 
   return (
@@ -31,7 +30,7 @@ export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.
       <div className="flex items-start gap-2">
         <h1
           id="project-hero-title"
-          className="m-0 min-w-0 flex-1 font-serif text-[28px] font-semibold tracking-[-0.01em] text-ink"
+          className="m-0 min-w-0 flex-1 font-serif text-[30px] font-medium tracking-[-0.02em] text-ink"
         >
           {project.name}
         </h1>
@@ -70,9 +69,12 @@ export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.
                 role="menuitem"
                 icon="edit"
                 iconSize={13}
-                onClick={() => setMenuOpen(false)}
+                onClick={() => {
+                  setMenuOpen(false)
+                  setEditOpen(true)
+                }}
               >
-                <span>{tr('projects.hero.editDetails')}</span>
+                <span>{tr('projects.hero.editInstructions')}</span>
               </MenuItem>
               <MenuItem
                 role="menuitem"
@@ -87,15 +89,14 @@ export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.
           </Popover>
         </div>
       </div>
-      {project.instructions.trim() ? (
-        <p className="mt-2 line-clamp-2 text-[13px] leading-[1.55] text-ink2">
-          {project.instructions}
-        </p>
-      ) : null}
-      <div className="mt-2 text-[11.5px] text-ink3">
-        {tr('projects.hero.updated')}{' '}
-        <time dateTime={new Date(project.updatedAt).toISOString()}>{updatedLabel}</time>
-      </div>
+      <EditInstructionsModal
+        key={project.id}
+        open={editOpen}
+        initial={project.instructions}
+        projectName={project.name}
+        onClose={() => setEditOpen(false)}
+        onSave={(instructions) => projectsActions.update(project.id, { instructions })}
+      />
     </section>
   )
 }

@@ -6,6 +6,18 @@ import type { BackgroundTaskTracker } from './background-tasks'
 
 type Foreground = ChatActivitySnapshot['foreground']
 
+/** lease는 세션 점유, transport는 그 채널의 현재 응답 활동을 표현한다. */
+export function sessionForeground(
+  lease: { kind: 'preparing' | 'active' | 'closing'; activeChild: unknown } | undefined,
+  transport: ChatActivitySnapshot['transport']
+): Foreground {
+  if (!lease) return 'idle'
+  if (lease.kind === 'preparing') return 'preparing'
+  return lease.kind === 'active' && lease.activeChild && transport !== 'ready'
+    ? 'streaming'
+    : 'idle'
+}
+
 interface ActivityLeaseSource {
   foreground(sessionId: string, transport: ChatActivitySnapshot['transport']): Foreground
   subscribe(listener: (logicalKey: string) => void): () => void

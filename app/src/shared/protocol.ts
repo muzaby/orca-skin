@@ -369,7 +369,12 @@ export const SetSessionPinnedSchema = z.object({
 // systemPrompt.append 에 허용하는 토큰 한도 대비 여유.
 export const CreateProjectSchema = z.object({
   name: z.string().trim().min(1).max(120),
-  instructions: z.string().max(8000).default('')
+  instructions: z.string().max(8000).default(''),
+  cwd: z
+    .string()
+    .refine(isAbsolutePath)
+    .refine((value) => !isFilesystemRoot(value))
+    .optional()
 })
 
 export const UpdateProjectSchema = z.object({

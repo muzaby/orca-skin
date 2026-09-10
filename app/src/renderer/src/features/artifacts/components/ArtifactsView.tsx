@@ -3,6 +3,7 @@ import type { ArtifactCatalogItem } from '../../../../../shared/artifacts'
 import { useI18n } from '../../../shared/i18n'
 import { Button } from '../../../shared/ui/Button'
 import { Icon } from '../../../shared/ui/Icon'
+import { ResizableSidePane } from '../../../shared/ui/ResizableSidePane'
 import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
 import {
   filterArtifactCatalog,
@@ -19,6 +20,9 @@ export interface ArtifactsViewProps {
   onDeleted: (item: ArtifactCatalogItem) => void
   viewer?: ReactNode
   viewerExpanded?: boolean
+  viewerWidth?: number
+  onViewerWidthChange?: (width: number) => void
+  viewerKey?: string
   selectedFileId?: string
 }
 
@@ -27,6 +31,9 @@ export function ArtifactsView({
   onDeleted,
   viewer,
   viewerExpanded = false,
+  viewerWidth = 640,
+  onViewerWidthChange,
+  viewerKey = '',
   selectedFileId
 }: ArtifactsViewProps): React.JSX.Element {
   const { tr } = useI18n()
@@ -68,16 +75,25 @@ export function ArtifactsView({
     })
   }
   return (
-    <section data-artifact-catalog="" className="flex min-h-0 min-w-0 flex-1 gap-2 pb-2 pr-2">
+    <section
+      data-artifact-catalog=""
+      data-side-pane-host=""
+      className="relative flex min-h-0 min-w-0 flex-1 pb-2 pr-2"
+    >
       <div
-        hidden={viewerExpanded}
         inert={viewerExpanded}
         data-artifact-catalog-list=""
-        className={`@container/catalog min-h-0 min-w-0 flex-1 overflow-y-auto ${viewerExpanded ? 'hidden' : ''}`}
+        className="@container/catalog min-h-0 min-w-0 flex-1 overflow-y-auto"
       >
         <div className={`mx-auto w-full max-w-[960px] pb-10 pt-10 ${viewer ? 'px-4' : 'px-8'}`}>
           <h1 className="m-0 font-serif text-[30px] font-medium tracking-[-0.02em] text-ink">
             {tr('artifactCatalog.title')}
+            <span
+              data-artifact-catalog-count=""
+              className="ml-2.5 align-middle font-sans text-footnote font-normal tracking-normal text-ink3"
+            >
+              {items.length}
+            </span>
           </h1>
           <div className="mb-4 mt-6 flex items-center justify-between gap-3">
             <div
@@ -215,12 +231,18 @@ export function ArtifactsView({
         </div>
       </div>
       {viewer && (
-        <div
-          data-artifact-catalog-viewer=""
-          className={`min-h-0 min-w-0 pt-2 ${viewerExpanded ? 'flex-1' : 'w-[min(640px,60%)] shrink-0'}`}
+        <ResizableSidePane
+          expanded={viewerExpanded}
+          lifecycleKey={viewerKey}
+          width={viewerWidth}
+          onWidthChange={onViewerWidthChange}
+          label={tr('chat.rightpanel.panelResizeAria')}
+          className="pt-2"
         >
-          {viewer}
-        </div>
+          <div data-artifact-catalog-viewer="" className="flex min-h-0 flex-1 flex-col">
+            {viewer}
+          </div>
+        </ResizableSidePane>
       )}
     </section>
   )

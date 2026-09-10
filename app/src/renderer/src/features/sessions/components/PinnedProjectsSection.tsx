@@ -97,7 +97,7 @@ function PinnedProjectRow({
         onClick={() => onOpenProject(project.id)}
         className="app-frame-pinned-project group/pinproj relative flex cursor-pointer items-center gap-1 rounded-md px-1 py-[5px] text-[12.5px] text-t7 transition-colors hover:bg-fill-uncontained-hover"
         data-context="project"
-        title={project.name}
+        title={project.cwd ?? project.name}
       >
         <button
           type="button"
@@ -112,8 +112,15 @@ function PinnedProjectRow({
           <Icon name={expanded ? 'chevD' : 'chevR'} size={14} />
         </button>
         <Icon name="folder" size={14} className="shrink-0" />
-        <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
-          {project.name}
+        <span className="flex min-w-0 flex-1 items-center overflow-hidden whitespace-nowrap">
+          {project.cwd && (
+            <span className="min-w-0 truncate text-ink3" data-project-path-prefix>
+              {project.cwd.replace(/[^\\/]+[\\/]*$/, '')}
+            </span>
+          )}
+          <span className="shrink-0" data-project-name>
+            {project.name}
+          </span>
         </span>
         <KebabButton
           ref={kebabRef}
@@ -134,10 +141,10 @@ function PinnedProjectRow({
               onClick={(e) => {
                 e.stopPropagation()
                 setMenuOpen(false)
-                onTogglePinProject(project.id, false)
+                onTogglePinProject(project.id, project.pinnedAt == null)
               }}
             >
-              <span>{tr('common.unpin')}</span>
+              <span>{tr(project.pinnedAt == null ? 'common.pin' : 'common.unpin')}</span>
             </MenuItem>
           </div>
         </Popover>

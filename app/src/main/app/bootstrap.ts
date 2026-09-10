@@ -137,7 +137,10 @@ import {
 import { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
 import { resolveBuiltinSkillsDir } from './builtin-resources'
 import { BackgroundTaskTracker } from '../features/chat/background-tasks'
-import { SessionActivityProjector } from '../features/chat/session-activity-projector'
+import {
+  SessionActivityProjector,
+  sessionForeground
+} from '../features/chat/session-activity-projector'
 import { clientLeaseKey } from '../features/sessions/session-chain-lease'
 import { deriveLeaseGateState } from '../features/sessions/restart-gate'
 
@@ -636,7 +639,7 @@ export class Bootstrap {
       { critical: true, label: '어댑터 설치 상태 갱신' },
       () => this.registry.refreshInstallState()
     )
-    this.defaultCwd = getWorkspacePath(null)
+    this.defaultCwd = app.getPath('desktop')
     await this.bootReport.step('workspace', { critical: false, label: '기본 작업공간 보장' }, () =>
       mkdir(this.defaultCwd, { recursive: true })
     )
@@ -735,7 +738,8 @@ export class Bootstrap {
       refreshSkills: () => this.refreshSkills(),
       deployExtensions: (options) => this.deployExtensions(options),
       ensureExtensionsDeployedForTurn: () => this.ensureExtensionsDeployedForTurn(),
-      getCwd: (projectId) => getWorkspacePath(projectId ? db.getProject(projectId) : null),
+      getCwd: (projectId) =>
+        getWorkspacePath(projectId ? db.getProject(projectId) : null, this.defaultCwd),
       getBootReport: () => this.bootReport.getReport(),
       debugMock: this.debugMock,
       mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null,
@@ -918,12 +922,7 @@ export class Bootstrap {
           const lease =
             supervisor.getChainBySession(sessionId) ??
             supervisor.getChainByKey(clientLeaseKey(sessionId))
-          if (!lease) return 'idle'
-          if (lease.kind === 'preparing') return 'preparing'
-          if (lease.kind === 'active' && lease.activeChild && transport === 'idle') {
-            return 'streaming'
-          }
-          return 'idle'
+          return sessionForeground(lease, transport)
         }
       },
       emit: broadcastChatEvent

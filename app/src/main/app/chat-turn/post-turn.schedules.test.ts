@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { WebContents } from 'electron'
-import { CHANNELS, type NormalizedEvent } from '../../../shared/ipc'
+import { CHANNELS, type ChatActivitySnapshot, type NormalizedEvent } from '../../../shared/ipc'
 import { sessionLeaseKey } from '../../../shared/lease-key'
 import type { TurnContext } from '../../contracts/turn'
 import type { TurnRequest } from '../../adapters/turn'
@@ -9,7 +9,10 @@ import { SessionRuntime } from '../../features/sessions/session-runtime'
 import { RuntimeSupervisor } from '../../features/sessions/supervisor'
 import { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import { BackgroundTaskTracker } from '../../features/chat/background-tasks'
-import { SessionActivityProjector } from '../../features/chat/session-activity-projector'
+import {
+  SessionActivityProjector,
+  sessionForeground
+} from '../../features/chat/session-activity-projector'
 import { TurnCoordinator } from '../../features/chat/turn-coordinator'
 import { TypedBus } from '../../infra/bus'
 import type { OrcaBusEvents } from '../../contracts/bus-events'
@@ -99,14 +102,16 @@ function fixture() {
   supervisor.activateChain(lease.leaseId, runtime, null, turn)
   const pendingMessages = new PendingMessageQueue()
   const backgroundTasks = new BackgroundTaskTracker()
+  const activityEvents: ChatActivitySnapshot[] = []
   const activity = new SessionActivityProjector({
     queue: pendingMessages,
     backgroundTasks,
     leases: {
-      foreground: () => 'idle',
+      foreground: (sessionId, transport) =>
+        sessionForeground(supervisor.getChainBySession(sessionId), transport),
       subscribe: (listener) => supervisor.subscribeLeases(listener)
     },
-    emit: () => {}
+    emit: (snapshot) => activityEvents.push(snapshot)
   })
   const events: NormalizedEvent[] = []
   const bus = new TypedBus<OrcaBusEvents<WebContents>>()
@@ -195,6 +200,8 @@ function fixture() {
     lease,
     turn,
     activity,
+    activityEvents,
+    backgroundTasks,
     events,
     pushed,
     pendingMessages,
@@ -224,6 +231,124 @@ function fixture() {
 }
 
 describe('scheduled reception after Stop', () => {
+  it('예약 없이 백그라운드 작업만 기다려도 ready이며 즉시 재개한다', async () => {
+    const f = fixture()
+    f.backgroundTasks.started('s1', 'background1')
+    const running = f.run()
+    try {
+      f.emit({ type: 'telemetry', sessionId: 's1' })
+      await tick()
+      expect(f.activity.current('s1')).toMatchObject({
+        transport: 'ready',
+        foreground: 'idle',
+        backgroundTaskCount: 1
+      })
+      f.pendingMessages.enqueue('s1', { text: 'continue' }, Date.now(), 'continue1')
+      f.listenRelease.get('s1')?.()
+      await tick()
+      expect(f.pushed).toEqual(['continue'])
+      expect(f.activity.current('s1').transport).toBe('listening')
+      f.emit({ type: 'telemetry', sessionId: 's1' })
+      await tick()
+      expect(f.activity.current('s1').transport).toBe('ready')
+    } finally {
+      f.cleanup()
+      await running
+    }
+  })
+
+  it('유휴 예약 수신은 ready이고 자동 응답 시작과 종료에 맞춰 전환한다', async () => {
+    const f = fixture()
+    const running = f.run()
+    try {
+      f.emit(
+        { type: 'session.schedules', sessionId: 's1', schedules },
+        { type: 'telemetry', sessionId: 's1' }
+      )
+      await tick()
+      expect(f.activity.current('s1').transport).toBe('ready')
+      expect(f.activity.current('s1').foreground).toBe('idle')
+      expect(f.activityEvents.at(-1)).toMatchObject({ transport: 'ready', foreground: 'idle' })
+      f.emit({
+        type: 'tool.call.started',
+        sessionId: 's1',
+        toolRunId: 'child',
+        toolName: 'Read',
+        args: {},
+        parentToolRunId: 'parent'
+      })
+      await tick()
+      expect(f.activity.current('s1').transport).toBe('ready')
+      f.emit({
+        type: 'input.received',
+        sessionId: 's1',
+        text: 'scheduled check',
+        origin: { kind: 'scheduled' }
+      })
+      await tick()
+      expect(f.activity.current('s1').transport).toBe('listening')
+      expect(f.activity.current('s1').foreground).toBe('streaming')
+      expect(f.activityEvents.at(-1)).toMatchObject({
+        transport: 'listening',
+        foreground: 'streaming'
+      })
+      f.emit(
+        { type: 'message.completed', sessionId: 's1', message: { text: 'done' } },
+        { type: 'telemetry', sessionId: 's1' }
+      )
+      await tick()
+      expect(f.activity.current('s1').transport).toBe('ready')
+      expect(f.runtime.channelAlive).toBe(true)
+      f.emit(
+        { type: 'session.schedules', sessionId: 's1', schedules: [] },
+        { type: 'telemetry', sessionId: 's1' }
+      )
+      await running
+      expect(f.activity.current('s1').transport).toBe('idle')
+    } finally {
+      f.cleanup()
+      await running
+    }
+  })
+
+  it.each([false, true])(
+    'ready 입력의 자동 응답 레이스(%s)는 이전 terminal 뒤 한 번만 전송한다',
+    async (autoStarted) => {
+      const f = fixture()
+      const running = f.run()
+      try {
+        f.emit(
+          { type: 'session.schedules', sessionId: 's1', schedules },
+          { type: 'telemetry', sessionId: 's1' }
+        )
+        await tick()
+        expect(f.activity.current('s1').transport).toBe('ready')
+        if (autoStarted) {
+          f.emit({ type: 'message.delta', sessionId: 's1', delta: { text: 'automatic answer' } })
+          await tick()
+        }
+        f.pendingMessages.enqueue('s1', { text: 'resume now' }, Date.now(), 'resume1')
+        f.listenRelease.get('s1')?.()
+        await tick()
+        if (autoStarted) {
+          expect(f.pushed).toEqual([])
+          expect(f.activity.current('s1').transport).toBe('listening')
+          f.emit({ type: 'telemetry', sessionId: 's1' })
+          await tick()
+        }
+        expect(f.pushed).toEqual(['resume now'])
+        expect(f.activity.current('s1').transport).toBe('listening')
+        expect(f.runtime.channelAlive).toBe(true)
+        f.emit({ type: 'telemetry', sessionId: 's1' })
+        await tick()
+        expect(f.activity.current('s1').transport).toBe('ready')
+      } finally {
+        f.cleanup()
+        await running
+      }
+    }
+  )
+
   it('첫 wakeup의 예약 목록을 받기 전 Stop도 수신 lease와 다음 자동 응답을 보존한다', async () => {
     const f = fixture()
     const running = f.run()

@@ -41,6 +41,7 @@ import type { ChatRuntimeDeps, NormalizedAttachments } from './deps'
 import { makeClassifiedError } from '../../infra/errors'
 import { prepareTurnExecution } from './prepare-worktree'
 import { resolveAgentKind, resolveAgentProfile } from '../../features/agents/profiles'
+import { bindStartingProject } from './project-binding'
 
 export async function handleChatSend(
   deps: ChatRuntimeDeps,
@@ -128,7 +129,7 @@ export async function handleChatSend(
       ? {
           ...extensions,
           outputFiles,
-          systemPromptAppend: `${extensions.systemPromptAppend ?? ''}\nFinal ordinary output directory: ${outputFiles.directory} (the native /tmp directory).`
+          systemPromptAppend: `${extensions.systemPromptAppend ?? ''}\nFinal ordinary output directory: ${outputFiles.directory} (the OS user temporary directory). Use this exact absolute path in file operations and final Markdown links.`
         }
       : extensions
   const acquired = supervisor.acquireChain({
@@ -183,9 +184,10 @@ export async function handleChatSend(
       continuityLang,
       resolved,
       sessionMeta,
-      boundProjectId,
+      boundProjectId: requestedProjectId,
       effectiveText
     } = resolution.value
+    let boundProjectId = requestedProjectId
 
     // resume 턴의 준비 입력은 **세션행이 잠근 경로**여야 한다 — `payload.cwd` 는 새 세션의
     // 요청값이라 그것으로 존재 확인을 하면 worktree 가 사라져도 다른 경로를 보고 지나간다.
@@ -234,6 +236,14 @@ export async function handleChatSend(
       },
       extraDirs: payload.extraDirs,
       buildTurn: (executionCwd, extraDirs, sessionBaseline, sessionBaselineRef) => {
+        if (!payload.sessionId && !continuitySource) {
+          boundProjectId = bindStartingProject(
+            ctx.db,
+            preparedSourceCwd,
+            requestedProjectId,
+            ctx.getCwd()
+          )
+        }
         // ── 6. TurnContext 조립 ───────────────────────────────────────────
         // 응답 Stop과 세션 수명을 분리한다. 체인 폐기는 응답도 중단하지만,
         // 응답 하나의 중단이 다음 예약을 받을 체인까지 폐기하지는 않는다.
@@ -274,16 +284,15 @@ export async function handleChatSend(
           queueKey: provisionalKey,
           // 세션 id 가 서면 표시 정본을 보낸다. 0210 D-109 와 같은 자리·같은 wire —
           // 새 variant 없이 `session.updated` 의 patch 에 얹는다.
-          ...(worktreeDisplay
-            ? {
-                onSessionConfirmed: (sessionId: string): void =>
-                  sendChatEvent(event.sender, {
-                    type: 'session.updated',
-                    sessionId,
-                    patch: { worktree: worktreeDisplay! }
-                  })
+          onSessionConfirmed: (sessionId: string): void =>
+            sendChatEvent(event.sender, {
+              type: 'session.updated',
+              sessionId,
+              patch: {
+                projectId: boundProjectId,
+                ...(worktreeDisplay ? { worktree: worktreeDisplay } : {})
               }
-            : {}),
+            }),
           getCwd: (projectId) => ctx.getCwd(projectId)
         })
       },

@@ -38,6 +38,7 @@ export function toProject(r: ProjectRow): Project {
     id: r.id,
     name: r.name,
     instructions: r.instructions,
+    cwd: r.cwd,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     pinnedAt: r.pinned_at

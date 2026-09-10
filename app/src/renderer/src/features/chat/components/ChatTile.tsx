@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react'
 import { ChatTitleBar } from './ChatTitleBar'
 import { LineageBanner } from './transcript/LineageBanner'
 import { TranscriptView } from './transcript/TranscriptView'
@@ -6,7 +7,7 @@ import { RightPanel } from './rightpanel/RightPanel'
 import { useScrollAnchor } from '../hooks/useScrollAnchor'
 import {
   chatActions,
-  useChatBusy,
+  useChatResponding,
   useChatSession,
   useChatStore,
   usePendingSteer
@@ -56,9 +57,7 @@ export function ChatTile({
   const policy = agentUiPolicy(agentKind)
   const sessionId = useChatSession((s) => s.sessionId)
   const sendCount = useChatSession((s) => s.sendCount)
-  // 0143 — listen 대기(백그라운드 서브에이전트 완료 대기)도 사용자 관점 "작업 중" 이다:
-  // StatusLine 애니메이션 지속·스크롤 앵커 유지. 개별 알림 턴 종료(telemetry)로 끊기지 않는다.
-  const inflight = useChatBusy()
+  const inflight = useChatResponding()
   const loadingSession = useChatSession((s) => s.loadingSession)
   const error = useChatSession((s) => s.error)
   const pendingSteer = usePendingSteer()
@@ -66,6 +65,13 @@ export function ChatTile({
   // Composer 입력에 전달한다. 작업 질문은 같은 신호의 append 모드를 쓴다(활성 세션만).
   const draftRestore = useChatStore((s) => s.draftRestore)
   const activeKey = useChatStore((s) => s.activeKey)
+  const [panelExpansion, setPanelExpansion] = useState<{ key: string; expanded: boolean } | null>(
+    null
+  )
+  const onPanelExpandedChange = useCallback((key: string, expanded: boolean): void => {
+    setPanelExpansion({ key, expanded })
+  }, [])
+  const panelExpanded = panelExpansion?.key === activeKey && panelExpansion.expanded
   const storeRestore =
     draftRestore && draftRestore.key === activeKey
       ? { id: draftRestore.seq, text: draftRestore.text, mode: draftRestore.mode }
@@ -79,10 +85,12 @@ export function ChatTile({
 
   return (
     <section className="app-frame-pane-host flex min-h-0 min-w-0 flex-1 flex-col bg-bg">
-      <div className="app-frame-pane-row relative flex min-h-0 flex-1">
+      <div data-side-pane-host="" className="app-frame-pane-row relative flex min-h-0 flex-1">
         {/* Claude Code 룩: transcript 는 별도 카드 없이 bg 평면 위에 그대로 — 우측
             plan tile 만 보더 카드로 분리된다. */}
         <div
+          inert={panelExpanded}
+          data-chat-pane-content=""
           className="app-frame-tile flex min-w-0 flex-1 flex-col overflow-hidden bg-bg"
           data-behavior="resizable"
         >
@@ -134,7 +142,7 @@ export function ChatTile({
           />
         </div>
 
-        <RightPanel />
+        <RightPanel onExpandedChange={onPanelExpandedChange} />
       </div>
     </section>
   )

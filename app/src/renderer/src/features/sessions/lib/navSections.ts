@@ -71,3 +71,9 @@ export function pinnedProjectsOf(projects: readonly Project[]): Project[] {
     .filter((project) => project.pinnedAt != null)
     .sort((a, b) => (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0))
 }
+
+export function navProjectsOf(projects: readonly Project[]): Project[] {
+  return [...projects].sort(
+    (a, b) => (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0) || b.updatedAt - a.updatedAt
+  )
+}

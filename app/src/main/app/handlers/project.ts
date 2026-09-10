@@ -15,6 +15,7 @@ import {
 import type { RouterContext } from '../context'
 import { toProject, toSessionListItem } from '../../infra/ipc/dto'
 import { handle, handlePlain } from '../../infra/ipc/handle'
+import { projectPath } from '../../infra/config/project-path'
 
 type ProjectHandlerContext = Pick<RouterContext, 'db'>
 
@@ -24,6 +25,19 @@ export function registerProjectHandlers(ctx: ProjectHandlerContext): void {
   handle(CHANNELS.projectCreate, CreateProjectSchema, 'reject', (req): Project => {
     const id = randomUUID()
     const now = Date.now()
+    if (req.cwd) {
+      const path = projectPath(req.cwd)
+      return toProject(
+        ctx.db.ensurePathProject({
+          id,
+          name: path.name,
+          instructions: req.instructions,
+          createdAt: now,
+          cwd: path.cwd,
+          cwdKey: path.key
+        })
+      )
+    }
     ctx.db.insertProject({
       id,
       name: req.name,
@@ -36,7 +50,8 @@ export function registerProjectHandlers(ctx: ProjectHandlerContext): void {
       instructions: req.instructions,
       createdAt: now,
       updatedAt: now,
-      pinnedAt: null
+      pinnedAt: null,
+      cwd: null
     }
   })
 

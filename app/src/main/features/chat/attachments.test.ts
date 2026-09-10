@@ -1,5 +1,5 @@
 import { mkdtemp, writeFile, readFile, readdir, rm, symlink, truncate } from 'node:fs/promises'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 import { homedir, tmpdir } from 'node:os'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -9,9 +9,10 @@ import {
   bufferToBase64Chunked,
   normalizeAttachments
 } from './attachments'
-import { MAX_ATTACHMENT_BYTES } from './attachment-files'
+import { MAX_ATTACHMENT_BYTES, nativeAttachmentDirectory } from './attachment-files'
 
 const createdDirs: string[] = []
+const copiedFiles: string[] = []
 
 async function trackTempDir(dir: string): Promise<string> {
   createdDirs.push(dir)
@@ -30,10 +31,45 @@ async function makeHomeTempDir(): Promise<string> {
 }
 
 afterEach(async () => {
+  await Promise.all(copiedFiles.splice(0).map((file) => rm(file, { force: true })))
   await Promise.all(createdDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })))
 })
 
 describe('TextExtractor', () => {
+  it('stores attachments in the OS user temporary directory by default', () => {
+    expect(nativeAttachmentDirectory()).toBe(resolve(tmpdir()))
+  })
+  it('copies file and clipboard input into the actual OS Temp root without touching the source', async () => {
+    const source = join(await makeHomeTempDir(), 'reference.md')
+    await writeFile(source, '# Source')
+    const normalized = await normalizeAttachments(
+      [
+        {
+          kind: 'path',
+          path: source,
+          name: 'reference.md',
+          mimeType: 'text/markdown',
+          sourceKind: 'dialog'
+        },
+        {
+          kind: 'inline',
+          name: 'clipboard.png',
+          mimeType: 'image/png',
+          data: Buffer.from('clipboard').toString('base64'),
+          sourceKind: 'clipboard'
+        }
+      ],
+      { views: [] }
+    )
+    for (const view of normalized.attachmentViews ?? []) {
+      copiedFiles.push(view.path!)
+      expect(dirname(view.path!)).toBe(resolve(tmpdir()))
+    }
+    expect(normalized.attachmentViews).toHaveLength(2)
+    expect(await readFile(normalized.attachmentViews![0].path!, 'utf8')).toBe('# Source')
+    expect(await readFile(normalized.attachmentViews![1].path!, 'utf8')).toBe('clipboard')
+    expect(await readFile(source, 'utf8')).toBe('# Source')
+  })
   it('extracts UTF-8 text and strips BOM', async () => {
     const dir = await makeTempDir()
     const path = join(dir, 'note.md')

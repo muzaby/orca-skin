@@ -34,7 +34,7 @@ export function RightPanelTile({
   const label = useChatSession((s) => s.rightPanelTileLabels[id]) ?? tr(defaultLabelKey)
   const isDiff = id === 'diff'
   const isWorkTask = taskTileChrome === 'work-overview' && id === 'task'
-  const expandButton = id === 'plan' && onToggleExpand && (
+  const expandButton = (id === 'plan' || id === 'task') && onToggleExpand && (
     <Button
       iconOnly
       size="small"
@@ -58,6 +58,7 @@ export function RightPanelTile({
       className={`app-frame-tile effect-primary-elevated relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-r6 border border-border bg-panel ${isWorkTask ? 'max-h-full' : ''} ${className}`}
       data-context={id}
     >
+      {isWorkTask && <div className="absolute right-2 top-1 z-10">{expandButton}</div>}
       {!isWorkTask && (
         <div
           data-diff-tile-header={isDiff || undefined}

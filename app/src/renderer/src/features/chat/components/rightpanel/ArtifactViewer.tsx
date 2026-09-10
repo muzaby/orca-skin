@@ -93,7 +93,7 @@ export function ArtifactViewer({
     <section
       data-artifact-viewer={artifact.publicationId}
       aria-label={tr('chat.artifactViewer.title')}
-      className="app-frame-tile effect-primary-elevated ml-2 flex h-full min-h-0 flex-col overflow-hidden rounded-r6 border border-border bg-panel"
+      className="app-frame-tile effect-primary-elevated flex h-full min-h-0 flex-col overflow-hidden rounded-r6 border border-border bg-panel"
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
           event.stopPropagation()

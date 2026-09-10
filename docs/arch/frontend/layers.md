@@ -44,7 +44,7 @@ src/renderer/
     │   ├── NewChatLandingPage.tsx   # `/new` — empty 시 중앙 Composer (랜딩), 메시지 있으면 ChatTile
     │   ├── ChatPage.tsx             # `/chat/:sessionId` — backend store → ChatView.backendLabel wiring
     │   ├── ProjectsPage.tsx         # ProjectsView 단순 배치
-    │   ├── ProjectLandingPage.tsx   # 프로젝트 채팅 랜딩 (ChatTile + ProjectSessionsPanel + ProjectInstructionsSidebar). 랜딩 라이프사이클은 셸의 useChatRouteSync 가 담당
+    │   ├── ProjectLandingPage.tsx   # 프로젝트 제목 → Composer → ProjectSessionsPanel. 랜딩 cwd·전환은 useChatRouteSync, 지침 편집은 제목 메뉴의 dialog가 담당
     │   ├── AgentPage.tsx            # `/agent` — 엔진&모델 설정 (features/engine AgentEnvironmentView 배치, 구 EnginePage)
     │   ├── CapturesPage.tsx
     │   └── useSessionActions.ts     # 페이지 공용 세션 액션 (rename/삭제 확인 다이얼로그 배선, 0083)

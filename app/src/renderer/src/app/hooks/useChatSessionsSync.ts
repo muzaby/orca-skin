@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
-import { useChatBusy, useChatRecentsEpoch } from '../../features/chat'
+import { useChatBusy, useChatRecentsEpoch, useChatSession } from '../../features/chat'
 import { sessionsActions } from '../../features/sessions'
+import { projectsActions } from '../../features/projects'
 
 // 채팅 턴 완료 (busy: true → false 전이) 시 사이드바 세션 목록을 자동 갱신.
 // cross-feature effect 라 셸이 호스트한다 (features/ 끼리는 직접 결합 못함).
@@ -9,12 +10,20 @@ import { sessionsActions } from '../../features/sessions'
 export function useChatSessionsSync(): void {
   const inflight = useChatBusy()
   const recentsEpoch = useChatRecentsEpoch()
+  const projectId = useChatSession((session) => session.projectId)
+  useEffect(() => {
+    if (projectId) void projectsActions.refresh()
+  }, [projectId])
   const wasInflightRef = useRef(false)
   useEffect(() => {
     if (wasInflightRef.current && !inflight) void sessionsActions.refresh()
     wasInflightRef.current = inflight
   }, [inflight])
   useEffect(() => {
-    if (recentsEpoch > 0) void sessionsActions.refresh()
+    if (recentsEpoch > 0) {
+      void sessionsActions.refresh()
+      // A new session may be confirmed after its draft has left the active view.
+      void projectsActions.refresh()
+    }
   }, [recentsEpoch])
 }

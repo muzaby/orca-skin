@@ -8,6 +8,7 @@ import {
   type RefObject
 } from 'react'
 import { useDragResize } from '../../../../shared/hooks/useDragResize'
+import { ResizableSidePane } from '../../../../shared/ui/ResizableSidePane'
 import {
   PANEL_DEFAULT_ROW_SPLIT,
   PANEL_DEFAULT_WIDTH,
@@ -28,7 +29,11 @@ import { RightPanelTile } from './RightPanelTile'
 import { useColumnSlideOnReflow } from '../../hooks/useColumnSlideOnReflow'
 import { useI18n } from '../../../../shared/i18n'
 import { ArtifactViewer } from './ArtifactViewer'
-import { closeArtifactViewer, useArtifactViewerStore } from '../../store/artifactViewerStore'
+import {
+  closeArtifactViewer,
+  setArtifactViewerWidth,
+  useArtifactViewerStore
+} from '../../store/artifactViewerStore'
 
 const SEPARATOR_CAPSULE =
   'absolute left-1/2 top-1/2 rounded-full bg-border-strong opacity-0 transition-opacity duration-150 group-hover/sep:opacity-100 group-active/sep:opacity-100 group-active/sep:bg-ink3'
@@ -197,23 +202,26 @@ function RightPanelColumn({
     children.push(
       <div
         key={id}
+        inert={!!expandedTile && expandedTile !== id}
         data-work-panel-available={
           taskTileChrome === 'work-overview' && id === 'task' ? '' : undefined
         }
-        className={`flex min-h-0 animate-tile-in overflow-hidden transition-[flex-basis] duration-200 ease-out motion-reduce:animate-none motion-reduce:transition-none ${taskTileChrome === 'work-overview' && id === 'task' ? 'items-start [container-type:size]' : ''}`}
+        className={`flex min-h-0 ${expandedTile === id ? '' : 'animate-tile-in overflow-hidden transition-[flex-basis] duration-200 ease-out motion-reduce:animate-none motion-reduce:transition-none'} ${taskTileChrome === 'work-overview' && id === 'task' && expandedTile !== id ? 'items-start [container-type:size]' : ''}`}
         style={{ flexBasis: basis }}
       >
-        <RightPanelTile
-          id={id}
-          defaultLabelKey={tile.defaultLabelKey}
-          headerActions={HeaderActions ? <HeaderActions /> : undefined}
-          headerContent={HeaderContent ? <HeaderContent /> : undefined}
-          expanded={expandedTile === id}
-          onToggleExpand={() => onToggleExpand(id)}
-          taskTileChrome={taskTileChrome}
-        >
-          <Content key={sessionKey} />
-        </RightPanelTile>
+        <ResizableSidePane expanded={expandedTile === id} lifecycleKey={`${sessionKey}:${id}`}>
+          <RightPanelTile
+            id={id}
+            defaultLabelKey={tile.defaultLabelKey}
+            headerActions={HeaderActions ? <HeaderActions /> : undefined}
+            headerContent={HeaderContent ? <HeaderContent /> : undefined}
+            expanded={expandedTile === id}
+            onToggleExpand={() => onToggleExpand(id)}
+            taskTileChrome={taskTileChrome}
+          >
+            <Content key={sessionKey} />
+          </RightPanelTile>
+        </ResizableSidePane>
       </div>
     )
   })
@@ -245,7 +253,13 @@ export function adjustPanelViewport(viewport: HTMLDivElement, tile?: RightPanelT
   viewport.scrollLeft = Math.max(0, Math.min(left, viewport.scrollWidth - viewport.clientWidth))
 }
 
-export function RightPanel({ className = '' }: { className?: string }): React.JSX.Element | null {
+export function RightPanel({
+  className = '',
+  onExpandedChange
+}: {
+  className?: string
+  onExpandedChange?: (sessionKey: string, expanded: boolean) => void
+}): React.JSX.Element | null {
   const { tr } = useI18n()
   const activeTiles = useChatSession((s) => s.rightPanelTiles)
   const agentKind = useChatSession((s) => s.agentKind)
@@ -253,6 +267,7 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
   const activeKey = useChatStore((s) => s.activeKey)
   const selection = useArtifactViewerStore((state) => state.selection)
   const viewer = selection?.sessionKey === activeKey ? selection : null
+  const viewerWidth = useArtifactViewerStore((state) => state.widths.transcript)
   const viewerOrigin = useRef<HTMLElement | undefined>(undefined)
   const overviewViewportLeft = useRef(0)
   const [expansion, setExpansion] = useState<{ key: string; id: RightPanelTileId } | null>(null)
@@ -270,6 +285,11 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
       : null
   const toggleExpand = (id: RightPanelTileId): void =>
     setExpansion(expandedTile === id ? null : { key: activeKey, id })
+  const expanded = viewer ? viewer.expanded : !!expandedTile
+  useLayoutEffect(() => {
+    onExpandedChange?.(activeKey, expanded)
+    return () => onExpandedChange?.(activeKey, false)
+  }, [activeKey, expanded, onExpandedChange])
   // 열 래퍼 ref(리사이즈 기준점) + 열 제거 시 남은 열을 빈 자리로 슬라이드(FLIP). 래퍼는 (있다면)
   // 왼쪽 분리자 + 열로 구성돼 래퍼의 오른쪽 모서리 = 열의 오른쪽 모서리(우측 도킹 리사이즈 기준).
   // 슬라이드 추적 키는 *열 id*(안정) — 열은 id 로 keyed 라 좌측 열 제거 시 우측 열 엘리먼트가
@@ -319,7 +339,7 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
           overviewViewportLeft.current = viewportRef.current.scrollLeft
       }}
       data-panel-expanded={expandedTile ?? undefined}
-      className={`my-2 mr-2 min-h-0 min-w-0 shrink-0 ${viewer ? (viewer.expanded ? 'w-[min(960px,75%)]' : 'w-[min(560px,50%)]') : `w-max overflow-x-auto ${expandedTile ? 'max-w-[calc(75%-0.5rem)]' : 'max-w-[calc(50%-0.5rem)]'}`} ${className}`}
+      className={`${viewer ? 'contents' : `my-2 mr-2 min-h-0 min-w-0 w-max max-w-[calc(50%-0.5rem)] shrink-0 ${expandedTile ? 'overflow-visible' : 'overflow-x-auto'}`} ${className}`}
     >
       <div
         data-artifact-overview=""
@@ -346,11 +366,7 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
               sessionKey={activeKey}
               col={column.col}
               tiles={column.tiles}
-              width={
-                expandedTile && column.tiles.includes(expandedTile)
-                  ? Math.max(560, (widths[column.col] ?? PANEL_DEFAULT_WIDTH) + 200)
-                  : (widths[column.col] ?? PANEL_DEFAULT_WIDTH)
-              }
+              width={widths[column.col] ?? PANEL_DEFAULT_WIDTH}
               split={splits[column.col] ?? PANEL_DEFAULT_ROW_SPLIT}
               expandedTile={expandedTile}
               onToggleExpand={toggleExpand}
@@ -360,7 +376,16 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
         ))}
       </div>
       {viewer && (
-        <ArtifactViewer key={`${viewer.sessionKey}:${viewer.request}`} selection={viewer} />
+        <ResizableSidePane
+          expanded={viewer.expanded}
+          lifecycleKey={`${viewer.sessionKey}:${viewer.request}`}
+          width={viewerWidth}
+          onWidthChange={(width) => setArtifactViewerWidth('transcript', width)}
+          label={tr('chat.rightpanel.panelResizeAria')}
+          className="my-2 mr-2"
+        >
+          <ArtifactViewer key={`${viewer.sessionKey}:${viewer.request}`} selection={viewer} />
+        </ResizableSidePane>
       )}
     </div>
   )

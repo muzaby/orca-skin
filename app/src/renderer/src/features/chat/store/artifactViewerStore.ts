@@ -12,10 +12,15 @@ export interface ArtifactViewerSelection {
   expanded: boolean
   origin?: HTMLElement
 }
-export const useArtifactViewerStore = create<{ selection: ArtifactViewerSelection | null }>()(
-  () => ({ selection: null })
-)
+export const useArtifactViewerStore = create<{
+  selection: ArtifactViewerSelection | null
+  widths: Record<'transcript' | 'catalog', number>
+}>()(() => ({ selection: null, widths: { transcript: 560, catalog: 640 } }))
 let sequence = 0
+
+export function setArtifactViewerWidth(host: 'transcript' | 'catalog', width: number): void {
+  useArtifactViewerStore.setState((state) => ({ widths: { ...state.widths, [host]: width } }))
+}
 
 async function readSelection(selection: ArtifactViewerSelection): Promise<void> {
   let result: ArtifactPreviewResult

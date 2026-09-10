@@ -36,6 +36,7 @@ import type { UsageLimitsView } from '../../../../../shared/usage/limits'
 import {
   chatActions,
   useChatBusy,
+  useChatResponding,
   useChatResidualSteer,
   useChatSession,
   useNewChatPending,
@@ -118,9 +119,8 @@ export function Composer({
 }: ComposerProps): React.JSX.Element {
   const { tr } = useI18n()
   const { send, cancel, answerAsk, skipAsk, setPermissionMode, setModel, setEffort } = chatActions
-  // 0143 — listen 대기(백그라운드 서브에이전트 완료 대기)도 busy: 전송=steer 예약(feedbackMode),
-  // 중단 버튼 노출, concurrency 자기-차감이 일반 턴과 동일하게 동작한다(정의는 useChatBusy).
-  const inflight = useChatBusy()
+  const leaseBusy = useChatBusy()
+  const inflight = useChatResponding()
   // Stop 잔여(0151 r2) — 중단했는데 이미 전달된 예약이 CLI 큐에 살아남았다. 수동 배지로 덮지 않고
   // 완전 정지 수단을 그 자리에서 제시한다(런타임 폐기 = 백그라운드 작업도 종료, 본문에 명시).
   const residualSteer = useChatResidualSteer()
@@ -236,7 +236,7 @@ export function Composer({
   const handoffDisabledReason =
     sessionId == null
       ? tr('chat.composer.handoffNoSession')
-      : inflight
+      : leaseBusy
         ? tr('chat.composer.handoffWaitTurn')
         : userTurnCount < 2
           ? tr('chat.composer.handoffNeedMoreTurns')
@@ -252,7 +252,7 @@ export function Composer({
   // 0119: busy 중 provider 경계를 넘는 모델이 선택된 동안 steer 차단 — 진행 턴의 채널은
   // 낡은 provider env 라 경계 너머 메시지를 실을 수 없다. 본래 provider 로 되돌리면 해제.
   const steerBlocked = steerBlockedByProviderBoundary({
-    inflight,
+    inflight: leaseBusy,
     turnProviderKey,
     selectedProviderKey: selectedModel?.providerKey
   })
@@ -320,7 +320,7 @@ export function Composer({
                   input={p.input}
                 />
               ))}
-              {showLandingCwdPanel && <CwdPanel cwd={cwd} inflight={inflight} />}
+              {showLandingCwdPanel && <CwdPanel cwd={cwd} inflight={leaseBusy} />}
             </>
           }
           gitRow={

@@ -1,6 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { ArtifactRef } from '../../../../../shared/artifacts'
-import { artifactApi } from '../../../shared/api/ipc'
 import { Button } from '../../../shared/ui/Button'
 import { Icon } from '../../../shared/ui/Icon'
 import { Popover } from '../../../shared/ui/Popover'
@@ -18,6 +17,7 @@ import {
   type ArtifactOperation,
   type ArtifactOperationResult
 } from '../store/artifactStore'
+import { artifactOperationIssues } from '../lib/artifactOperationIssues'
 
 const EMPTY_FILES: Record<string, ArtifactFileView> = {}
 
@@ -50,7 +50,6 @@ interface ArtifactCardProps {
   file?: ArtifactFileView
   onAction: (artifact: ArtifactRef, action: ArtifactOperation) => void
   onRefresh: () => void
-  onOpenFolder: () => void
   onPreview: (artifact: ArtifactRef, origin: HTMLElement) => void
 }
 
@@ -60,7 +59,6 @@ export function ArtifactCard({
   file,
   onAction,
   onRefresh,
-  onOpenFolder,
   onPreview
 }: ArtifactCardProps): React.JSX.Element {
   const { tr } = useI18n()
@@ -116,8 +114,9 @@ export function ArtifactCard({
             </div>
             {transcript && (
               <div className="text-caption text-ink3">
-                {tr(ordinaryFile ? 'chat.artifacts.fileLabel' : 'chat.artifacts.document')}
-                {format && ` · ${format}`}
+                {ordinaryFile
+                  ? format || tr('chat.artifacts.fileLabel')
+                  : tr('chat.artifacts.artifactLabel')}
               </div>
             )}
           </div>
@@ -169,16 +168,8 @@ export function ArtifactCard({
                 : tr('chat.artifacts.unavailable')}
         </div>
       )}
-      {file?.lastTrashedAt && (
-        <div className="mt-1 text-caption text-ink3">
-          {tr('chat.artifacts.trashedAt', { time: new Date(file.lastTrashedAt).toLocaleString() })}
-        </div>
-      )}
       {!present && !checking && (
         <div className="mt-1 flex flex-wrap gap-1">
-          <Button size="small" disabled={file?.busy} onClick={onOpenFolder}>
-            {tr('chat.artifacts.openFolder')}
-          </Button>
           <Button size="small" disabled={disabled} onClick={onRefresh}>
             {tr('chat.artifacts.refresh')}
           </Button>
@@ -191,7 +182,6 @@ export function ArtifactCard({
         placement="bottom"
         align="end"
       >
-        <div className="max-w-64 break-words px-2.5 py-1 text-caption text-ink3">{metadata}</div>
         <MenuItem
           icon="download"
           disabled={disabled || !present}
@@ -232,15 +222,6 @@ export function ArtifactCard({
           }}
         >
           {tr('chat.artifacts.trash')}
-        </MenuItem>
-        <MenuItem
-          icon="folder"
-          onClick={() => {
-            setMenuOpen(false)
-            onOpenFolder()
-          }}
-        >
-          {tr('chat.artifacts.openFolder')}
         </MenuItem>
       </Popover>
     </article>
@@ -313,16 +294,8 @@ export function ArtifactCards({
       }
     })
   }
-  const openFolder = async (): Promise<void> => {
-    const token = ++generation.current
-    try {
-      const next = await artifactApi.openFolder()
-      if (generation.current === token) setResult({ sessionId, result: next, refs: [] })
-    } catch {
-      if (generation.current === token) setResult({ sessionId, result: { ok: false }, refs: [] })
-    }
-  }
   const outcome = result?.sessionId === sessionId ? result.result : undefined
+  const issues = artifactOperationIssues(outcome)
   return (
     <div className={`flex min-w-0 flex-col ${variant === 'list' ? 'gap-1' : 'gap-2'}`}>
       {variant === 'transcript' && saveArtifacts.length > 1 && (
@@ -352,52 +325,21 @@ export function ArtifactCards({
           onRefresh={() => {
             void refreshArtifactStatuses(sessionId, [artifact])
           }}
-          onOpenFolder={() => {
-            void openFolder()
-          }}
         />
       ))}
-      {outcome && (
+      {issues.length > 0 && (
         <div role="status" className="text-caption text-ink2">
-          {'items' in outcome ? (
-            <>
+          {issues.map((issue, index) => (
+            <div key={issue.publicationId ?? index}>
+              {issue.publicationId &&
+                `${result?.refs.find((ref) => ref.publicationId === issue.publicationId)?.filename ?? issue.publicationId}: `}
               {tr(
-                outcome.outcome === 'cancelled'
-                  ? 'chat.artifacts.cancelled'
-                  : outcome.outcome === 'failed'
-                    ? 'chat.artifacts.failed'
-                    : 'chat.artifacts.saveComplete'
+                issue.unrecorded
+                  ? 'chat.artifacts.trashedUnrecorded'
+                  : artifactFailureKey(issue.reason)
               )}
-              {outcome.reason && <p>{tr(artifactFailureKey(outcome.reason))}</p>}
-              {outcome.items.map((item) => (
-                <div key={item.publicationId}>
-                  {result?.refs.find((ref) => ref.publicationId === item.publicationId)?.filename ??
-                    item.publicationId}
-                  :{' '}
-                  {tr(
-                    item.outcome === 'saved'
-                      ? 'chat.artifacts.saved'
-                      : item.outcome === 'skipped'
-                        ? 'chat.artifacts.skipped'
-                        : 'chat.artifacts.failed'
-                  )}
-                  {item.reason && <> — {tr(artifactFailureKey(item.reason))}</>}
-                </div>
-              ))}
-            </>
-          ) : 'ok' in outcome ? (
-            tr(outcome.ok ? 'chat.artifacts.done' : artifactFailureKey(outcome.reason))
-          ) : (
-            tr(
-              outcome.outcome === 'trashed'
-                ? outcome.deletionRecorded
-                  ? 'chat.artifacts.trashed'
-                  : 'chat.artifacts.trashedUnrecorded'
-                : outcome.outcome === 'already-missing'
-                  ? 'chat.artifacts.missing'
-                  : artifactFailureKey(outcome.reason)
-            )
-          )}
+            </div>
+          ))}
         </div>
       )}
     </div>

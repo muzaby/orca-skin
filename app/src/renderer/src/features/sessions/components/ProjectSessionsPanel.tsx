@@ -51,15 +51,16 @@ export function ProjectSessionsPanel({
             : tr('common.count', { count: sessions.list.length })}
         </div>
       </div>
-      <div className="flex flex-col">
+      <ul className="m-0 flex list-none flex-col p-0">
         {!sessions.loading && sessions.list.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border bg-panel/40 px-4 py-6 text-center text-[12px] leading-[1.55] text-ink3">
+          <li className="rounded-lg border border-dashed border-border bg-panel/40 px-4 py-6 text-center text-[12px] leading-[1.55] text-ink3">
             {tr('sessions.projectEmpty')}
-          </div>
+          </li>
         ) : (
           sessions.list.map((s) => (
             <SessionRow
               key={s.id}
+              variant="catalog"
               session={s}
               appearance={agentAppearance(s.agentKind)}
               isActive={s.id === currentSessionId}
@@ -69,7 +70,7 @@ export function ProjectSessionsPanel({
             />
           ))
         )}
-      </div>
+      </ul>
     </section>
   )
 }

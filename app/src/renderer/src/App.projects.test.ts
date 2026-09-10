@@ -86,7 +86,15 @@ describe('project initialization stays in the boot owner', () => {
 
   it('actual boot steps initialize the project store exactly once', async () => {
     const projects = [
-      { id: 'p1', name: 'Project', instructions: '', createdAt: 1, updatedAt: 2, pinnedAt: null }
+      {
+        id: 'p1',
+        name: 'Project',
+        instructions: '',
+        createdAt: 1,
+        updatedAt: 2,
+        pinnedAt: null,
+        cwd: null
+      }
     ]
     listProjects.mockResolvedValue(projects)
     const events: string[] = []
@@ -101,7 +109,15 @@ describe('project initialization stays in the boot owner', () => {
   it('project failure preserves the list, ends loading and degrades without blocking landing', async () => {
     listProjects.mockRejectedValue(new Error('projects unavailable'))
     const retained = [
-      { id: 'p1', name: 'Retained', instructions: '', createdAt: 1, updatedAt: 2, pinnedAt: null }
+      {
+        id: 'p1',
+        name: 'Retained',
+        instructions: '',
+        createdAt: 1,
+        updatedAt: 2,
+        pinnedAt: null,
+        cwd: null
+      }
     ]
     useProjectsStore.setState({ list: retained, loading: true })
     const events: string[] = []

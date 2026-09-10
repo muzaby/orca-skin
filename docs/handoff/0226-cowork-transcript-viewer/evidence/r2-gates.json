@@ -1,0 +1,20 @@
+{
+  "kind": "implementation-tool-run-summary",
+  "formalIndependentVerify": false,
+  "checks": [
+    { "command": "npm run typecheck", "result": "PASS", "scope": "node, web, test" },
+    { "command": "npm run typecheck:web", "result": "PASS", "scope": "final renderer changes" },
+    { "command": "node node_modules/electron-vite/bin/electron-vite.js build", "result": "PASS", "scope": "main, preload, renderer; existing Electron ABI retained" },
+    { "command": "node node_modules/eslint/bin/eslint.js <changed TS/TSX files>", "result": "PASS after scoped corrections", "detail": "Initial full changed-file scan found 6 errors in 4 files. Those files were corrected and rescanned with 0 errors/warnings; 3 late project files were also rescanned with 0 errors/warnings. Other files in the full scan had no errors/warnings." },
+    { "command": "node app/node_modules/prettier/bin/prettier.cjs --check <all changed and new app TS/TSX files>", "result": "PASS" },
+    { "command": "node scripts/check-doc-inventory.mjs && node scripts/check-doc-inventory.mjs --check", "result": "PASS", "scope": "inventory, prose, relative links" },
+    { "command": "node scripts/check-migrations-appendonly.mjs", "result": "PASS", "scope": "sync, no copies, append-only since v0.3.1" },
+    { "command": "node scripts/check-test-budgets.mjs", "result": "PASS" },
+    { "command": "git diff --check", "result": "PASS" }
+  ],
+  "notes": [
+    "Commands are normalized descriptions of observed tool executions, not raw shell transcripts.",
+    "Project and panel test runs and native results have separate evidence files. Overlapping test runs are not summed.",
+    "No dependency install, SQLite ABI rebuild, release packaging, or external Claude SDK session was performed."
+  ]
+}

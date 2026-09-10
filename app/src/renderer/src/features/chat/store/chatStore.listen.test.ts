@@ -1,7 +1,13 @@
 // 0143 — listen 대기 UX 의 store 계약: busy 라우팅(steer 예약), 자식 이벤트 BEGIN_TURN 제외,
 // 백그라운드 완료 통지 dispatch. 하네스는 chatStore.testHarness 공용(0149).
 import { beforeEach, describe, expect, it } from 'vitest'
-import { chatActions, ingestChatEvent, sessionBusy, useChatStore } from './chatStore'
+import {
+  chatActions,
+  ingestChatEvent,
+  sessionBusy,
+  sessionResponding,
+  useChatStore
+} from './chatStore'
 import {
   flushRaf,
   harnessSession as session,
@@ -17,6 +23,38 @@ beforeEach(() => {
 })
 
 describe('chatStore — chat.activity 라우팅', () => {
+  it('ready는 세션 점유만 유지하고 일반 전송을 예약한 뒤 main 커밋 순서를 따른다', () => {
+    ingestChatEvent(activity(1, 'ready', { backgroundTaskCount: 1 }))
+    flushRaf()
+    expect(sessionBusy(session())).toBe(true)
+    expect(sessionResponding(session())).toBe(false)
+    expect(session().listenStartedAt).toBeNull()
+    expect(chatActions.send('바로 재개')).toBe(true)
+    expect(chatSend).toHaveBeenCalledTimes(1)
+    const pendingId = useChatStore.getState().sessions.s.pendingSteer![0].id
+    expect(session().messages).toHaveLength(0)
+    expect(sessionResponding(session())).toBe(false)
+    ingestChatEvent(activity(2, 'listening', { foreground: 'streaming' }))
+    ingestChatEvent({
+      type: 'message.committed',
+      sessionId: 's',
+      ids: [pendingId],
+      text: '바로 재개',
+      messageId: 1,
+      createdAt: 1
+    })
+    flushRaf()
+    expect(sessionResponding(session())).toBe(true)
+    expect(session().messages).toHaveLength(1)
+    expect(useChatStore.getState().sessions.s.pendingSteer).toHaveLength(0)
+    ingestChatEvent(activity(3, 'ready'))
+    flushRaf()
+    expect(sessionResponding(session())).toBe(false)
+    ingestChatEvent(activity(2, 'listening'))
+    flushRaf()
+    expect(sessionResponding(session())).toBe(false)
+  })
+
   it('transport 스냅샷이 listening 상태를 굴린다', () => {
     ingestChatEvent(activity(1, 'listening'))
     flushRaf()

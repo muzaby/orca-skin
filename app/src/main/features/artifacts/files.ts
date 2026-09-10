@@ -3,6 +3,7 @@ import { lstat, mkdir, open, realpath, rename, rmdir, stat, unlink } from 'node:
 import type { Stats } from 'node:fs'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import type { ArtifactFileRecord } from '../../infra/db/artifact-queries'
+import { getTemporaryFilesPath } from '../../infra/config/temp-path'
 import { MAX_OUTPUT_BYTES, validateArtifactBytes } from './formats'
 import {
   assertArtifactFilename,
@@ -148,7 +149,7 @@ export interface PreparedArtifactFile {
 export async function prepareOutputDirectory(cwd: string): Promise<string> {
   assertLocalPath(cwd)
   if (!isAbsolute(cwd)) throw new Error('unsafe-path')
-  const directory = resolve('/tmp')
+  const directory = getTemporaryFilesPath()
   await mkdir(directory, { recursive: true })
   return unredirectedDirectory(directory)
 }

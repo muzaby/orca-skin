@@ -31,14 +31,14 @@ vi.mock('./resolve-turn', () => ({
   resolveTurn: vi.fn(async (_ctx, _supervisor, _adapter, payload) => ({
     ok: true,
     value: {
-      continuitySource: null,
+      continuitySource: payload.forkFrom ?? payload.handoffFrom ?? null,
       continuityMeta: null,
       continuityLang: null,
       resolved: {
         prepared: { providerSettings: { snapshot: true }, env: { SNAPSHOT: 'yes' } }
       },
       sessionMeta: mocks.sessionMeta.value,
-      boundProjectId: null,
+      boundProjectId: payload.projectId ?? null,
       effectiveText: payload.text
     }
   }))
@@ -146,6 +146,8 @@ function makeHarness(sessionId?: string) {
   const deps = {
     ctx: {
       db: {
+        getProject: vi.fn(() => null),
+        ensurePathProject: vi.fn((row) => ({ ...row, cwd_key: row.cwdKey })),
         getSessionById: () => ({
           cwd: null,
           project_id: null,
@@ -272,10 +274,25 @@ describe('handleChatSend worktree production wiring', () => {
     await vi.waitFor(() => expect(harness.deps.worktrees.prepare).toHaveBeenCalledOnce())
 
     expect(mocks.buildTurnContext).not.toHaveBeenCalled()
+    expect(harness.deps.ctx.db.ensurePathProject).not.toHaveBeenCalled()
     expect(mocks.acquireTurnRuntime).not.toHaveBeenCalled()
 
     finish({ kind: 'managed', worktreeId: 'w1', executionCwd: '/managed/repo' })
     await result
+
+    expect(harness.deps.ctx.db.ensurePathProject).toHaveBeenCalledWith(
+      expect.objectContaining({ cwd: '/source/repo', name: 'repo' })
+    )
+    const projectId = harness.deps.ctx.db.ensurePathProject.mock.results[0]?.value.id
+    expect(mocks.buildTurnContext).toHaveBeenCalledWith(
+      expect.objectContaining({ boundProjectId: projectId })
+    )
+    mocks.buildTurnContext.mock.calls[0]?.[0].onSessionConfirmed('confirmed')
+    expect(mocks.sendChatEvent).toHaveBeenCalledWith(harness.sender, {
+      type: 'session.updated',
+      sessionId: 'confirmed',
+      patch: { projectId }
+    })
 
     expect(mocks.buildTurnContext).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -290,6 +307,28 @@ describe('handleChatSend worktree production wiring', () => {
       expect.anything()
     )
   })
+
+  it.each(['forkFrom', 'handoffFrom'])(
+    'keeps the source project for %s from an isolated cwd',
+    async (relation) => {
+      const harness = makeHarness()
+      mocks.acquireTurnRuntime.mockResolvedValue({ ok: false, runtime: { close: vi.fn() } })
+      await handleChatSend(harness.deps as never, { sender: harness.sender } as never, {
+        text: 'continue',
+        [relation]: 'source-session',
+        projectId: 'original-project',
+        cwd: '/managed/repo',
+        attachmentViews: []
+      })
+      expect(harness.deps.ctx.db.ensurePathProject).not.toHaveBeenCalled()
+      expect(mocks.buildTurnContext).toHaveBeenCalledWith(
+        expect.objectContaining({
+          boundProjectId: 'original-project',
+          payload: expect.objectContaining({ cwd: '/managed/repo' })
+        })
+      )
+    }
+  )
 
   it('managed cwd와 extraDirs가 TurnRequest 조립까지 그대로 간다', async () => {
     const harness = makeHarness()

@@ -1193,6 +1193,39 @@ describe('SessionRuntime listen 턴(0136)', () => {
 describe('SessionRuntime channelBusy + 밸브 유예(0143)', () => {
   const listenReq = (): TurnRequest => ({ ...req(), text: '' })
 
+  it('채널 관측은 자동 backlog·소비·폐기에서 갱신되고 구독 해제 후 호출하지 않는다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const observed: Array<{ alive: boolean; busy: boolean; backlog: boolean }> = []
+    const unsubscribe = runtime.subscribeChannelActivity(() =>
+      observed.push({
+        alive: runtime.channelAlive,
+        busy: runtime.channelBusy,
+        backlog: runtime.hasUnframedBacklog
+      })
+    )
+    const first = collect(runtime.send(req()))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await first
+    ch.emitBatch([
+      { type: 'message.completed', sessionId: 's1', message: { text: 'automatic' } },
+      { type: 'telemetry', sessionId: 's1' }
+    ])
+    await tick()
+    expect(observed.at(-1)).toEqual({ alive: true, busy: false, backlog: true })
+    expect((await collect(runtime.listen(listenReq()))).map((event) => event.type)).toEqual([
+      'message.completed',
+      'telemetry'
+    ])
+    expect(observed.at(-1)).toEqual({ alive: true, busy: false, backlog: false })
+    runtime.close()
+    expect(observed.at(-1)).toEqual({ alive: false, busy: false, backlog: false })
+    unsubscribe()
+    const count = observed.length
+    runtime.close()
+    expect(observed).toHaveLength(count)
+  })
+
   it('비-terminal 최상위 이벤트에 busy, terminal 에 유휴로 굴린다', async () => {
     const ch = channelLive()
     const runtime = new SessionRuntime(adapter(ch.liveTurn))
