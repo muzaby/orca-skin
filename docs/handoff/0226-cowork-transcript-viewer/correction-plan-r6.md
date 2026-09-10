@@ -41,3 +41,7 @@ READY · Codex · 2026-09-10 · 기준 `b727adbb`. 사용자가 같은 작업의
 기존 테스트의 query/승인 및 spark 순서를 새 계약으로 먼저 바꾸어 red 확인 후 최소 구현한다. PendingAssistant의 공통 합성과 기존 ArtifactCards를 사용하며 새로운 store/IPC/의존성은 만들지 않는다. 영향 Vitest, node/web/test 타입, 변경 파일 ESLint/Prettier, Electron native 순서·스크린, build, inventory/test-budget/whitespace를 수행한다. 현재 ABI와 기존 브랜치를 유지하고 설계·구현 커밋을 분리한 뒤 원격에 푸시한다.
 
 handoff-review DIAGNOSE_ONLY: 이번 정정은 D(User decision change)다. 기존 명시 결정의 supersede만 기록하며 스킬/지침을 바꾸지 않는다. READY self-review: D35/36→AC41/42→VP79~82→EP33/34의 생산·소비·실패 경로를 대조했다.
+
+## [구현자 기입] Delta V7 결과
+
+AC41·42 자기확인 2/2, VP79~82 SELF_PASS, EP33 3/3·EP34 4/4. [구현 보고](impl-r6.md)에 승인 fallback 보강, 카드 부모 유지, 영향 Vitest 198건·native 46건 및 운영 gate 결과를 기록했다. 독립 verify는 pending이다.

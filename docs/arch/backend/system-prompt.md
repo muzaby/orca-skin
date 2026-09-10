@@ -78,7 +78,9 @@ Project instructions:
   이미 주입 → 헤더는 preset 이 주지 못하는 Orca framing(GUI/markdown 표면)만 얹는다.
 - 근거 코드: `features/extensions/system-header.ts`(+`.test.ts`)·`builder.ts`(조립)·`app/bootstrap.ts`(version/settings 주입).
 
-Claude 대화는 Work/Code 모두 `Bash`·`WebSearch`를 제외하고 `PowerShell`을 자동 허용한다.
+Claude 대화는 Work/Code 모두 `Bash`·`WebSearch`를 제외한 SDK 기본 도구와 `PowerShell`을 노출한다.
+앱은 `allowedTools`로 PowerShell을 자동 허용하지 않는다. 기존 permission mode와 명시 권한
+설정을 따르며, SDK가 승인을 요청하면 PowerShell도 기존 shell 승인 분류를 통해 승인·거절을 받는다.
 provider 템플릿과 실행 설정은 `CLAUDE_CODE_USE_POWERSHELL_TOOL="1"`과
 `skipWebFetchPreflight=true`를 기본 제공하되 명시 설정과 기존 환경 변수 우선순위를 보존한다.
 기존 provider 파일은 일괄 수정하지 않으며 실행 시 누락값을 보완한다. 단발 completion의 도구는

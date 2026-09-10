@@ -5,7 +5,7 @@ import { turnCopyText, turnEquals, type Turn } from '../../lib/turns'
 import { partsArtifacts } from '../../lib/parts'
 import { ArtifactCards } from '../ArtifactCards'
 import { WorkActivity } from './WorkActivity'
-import { PendingAssistant } from './PendingAssistant'
+import { PendingAssistant, PendingAssistantStatus } from './PendingAssistant'
 import type { WorkToolResults } from '../../lib/workToolResults'
 import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
 
@@ -51,7 +51,7 @@ export const AssistantTurn = memo(
             <AssistantMessage key={i} message={m} transcriptPolicy={transcriptPolicy} />
           ))
         )}
-        {pending && <PendingAssistant />}
+        {pending && <PendingAssistant showStatus={false} />}
         {!pending && (
           <MessageMeta
             text={turnCopyText(turn)}
@@ -61,6 +61,7 @@ export const AssistantTurn = memo(
           />
         )}
         {artifacts.length > 0 && <ArtifactCards artifacts={artifacts} />}
+        {pending && <PendingAssistantStatus />}
       </div>
     )
   },

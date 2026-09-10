@@ -231,27 +231,56 @@ describe('Claude 공통 실행 옵션', () => {
       expect(conversation).not.toHaveProperty('persistSession')
       expect(conversation.hooks?.PreToolUse).toBeDefined()
       expect(conversation.hooks?.Stop).toBeDefined()
-      expect(conversation.allowedTools).toEqual(['PowerShell'])
+      expect(conversation).not.toHaveProperty('allowedTools')
+      expect(conversation).not.toHaveProperty('tools')
       expect(conversation.disallowedTools).toEqual(['Bash', 'WebSearch'])
     }
   )
 
-  it.each(['work', 'code'])('%s 대화는 같은 Windows 도구 정책을 사용한다', (kind) => {
-    queryMock.mockClear()
-    new ClaudeAdapter().sendMessage({
-      sessionId: null,
-      text: 'hello',
-      cwd: '/ws/project',
-      extensions: {
-        ...(kind === 'work' ? { agentProfileKey: 'work:fixture' } : {}),
-        skills: [],
-        hooks: { normalized: {} }
+  it.each(['work', 'code'])(
+    '%s 대화는 도구 노출과 PowerShell 승인 정책을 분리한다',
+    async (kind) => {
+      const requestApproval = vi
+        .fn()
+        .mockResolvedValueOnce({ behavior: 'allow', updatedInput: { command: 'approved command' } })
+        .mockResolvedValueOnce({ behavior: 'deny', message: 'fixture deny' })
+      queryMock.mockClear()
+      new ClaudeAdapter().sendMessage({
+        sessionId: null,
+        text: 'hello',
+        cwd: '/ws/project',
+        requestApproval,
+        extensions: {
+          ...(kind === 'work' ? { agentProfileKey: 'work:fixture' } : {}),
+          skills: [],
+          hooks: { normalized: {} }
+        }
+      })
+      const options = optionsOfFirstCall()
+      expect(options).not.toHaveProperty('allowedTools')
+      expect(options).not.toHaveProperty('tools')
+      expect(options.disallowedTools).toEqual(['Bash', 'WebSearch'])
+      const input = { command: "Set-Content -LiteralPath 'output.txt' -Value 'fixture'" }
+      const context = {
+        signal: new AbortController().signal,
+        toolUseID: 'fixture-call',
+        requestId: 'fixture-request'
       }
-    })
-    const options = optionsOfFirstCall()
-    expect(options.allowedTools).toEqual(['PowerShell'])
-    expect(options.disallowedTools).toEqual(['Bash', 'WebSearch'])
-  })
+      expect(await options.canUseTool!('PowerShell', input, context)).toEqual({
+        behavior: 'allow',
+        updatedInput: { command: 'approved command' }
+      })
+      expect(await options.canUseTool!('PowerShell', input, context)).toEqual({
+        behavior: 'deny',
+        message: 'fixture deny'
+      })
+      expect(requestApproval).toHaveBeenCalledTimes(2)
+      expect(requestApproval).toHaveBeenCalledWith(
+        { kind: 'tool_approval', toolName: 'PowerShell', input },
+        context.signal
+      )
+    }
+  )
 
   it.each(['process', 'app', 'provider', 'runtime', 'custom'])(
     '%s의 명시 env를 실제 설정 조립부터 query까지 보존한다',
