@@ -215,6 +215,7 @@ READY (2026-09-10). 기준 V는 `fde5557dedc516ddf09d308b71cc7495cc3ea43f`의 �
 | D-13 | 프로젝트 landing은 아티팩트 목록 레이아웃으로 제목→Composer→대화 목록을 배치한다. 우측 지침 UI·대화 제목 아래 메타를 제거한다. Nav는 경로를 연한 왼쪽 prefix로 표시하고 최근 대화 그룹 제거, 고정됨→프로젝트 순서다. | ACTIVE; 후속 사용자 지시 포함 | AC14·15 |
 | D-14 | 프로젝트 상단 케밥의 “세부사항 수정”을 “지침 편집”으로 바꾸고 편집 대화상자에 연결한다. | ACTIVE; 사용자 후속 지시 | AC16 |
 | D-15 | 아티팩트 페이지 제목 옆에 전체 아티팩트 수를 작게 표시한다. 검색·고정 탭의 필터 결과 수로 바꾸지 않는다. | ACTIVE; 사용자 후속 지시 | AC17 |
+| D-16 | `/tmp`는 Linux 예시라는 사용자 정정을 반영한다. Windows 일반 출력·첨부·클립보드 사본은 사용자 OS 임시 폴더(LocalAppData/Temp)에 저장한다. | ACTIVE; D-07의 플랫폼 경로 예시 대체 | AC18 |
 
 유지 판정: V1 D-01·02·04·05·06은 D-07~14의 명시 변경 외 그대로다. ACTIVE 결정↔AC 대조에서 충돌 0이며, 우측 지침 제거와 메뉴 편집 유지(D-13·14)는 서로 다른 표면이다.
 
@@ -231,6 +232,7 @@ READY (2026-09-10). 기준 V는 `fde5557dedc516ddf09d308b71cc7495cc3ea43f`의 �
 | R15 / AT15 / AC15 | nav의 최근 대화 그룹을 제거하고 고정됨을 프로젝트보다 위에 배치한다. 자동 생성한 프로젝트도 표시되며 경로가 연한 prefix로 이름 왼쪽에 보인다. | project/session list→Sidebar; 실제 DOM 순서·중복 basename·미고정 project 검사 |
 | R16 / AT16 / AC16 | 상단 메뉴의 지침 편집을 누르면 해당 프로젝트 지침을 편집·저장·취소할 수 있다. 재진입 후 저장된 지침이 남는다. | project kebab→instructions dialog→기존 project update IPC→DB→reload |
 | R17 / AT17 / AC17 | 아티팩트 제목 옆 작은 총 개수가 로딩 완료·게시·삭제 후 현재 전체 목록과 일치한다. 검색/탭 이동에도 총 개수를 유지한다. | catalog store→title; 혼합 탭/검색/삭제 native 관측 |
+| R18 / AT18 / AC18 | Windows에서 Composer 파일·클립보드 사본과 모델의 일반 최종 출력이 같은 OS Temp 폴더를 사용한다. 모델 안내·허용 루트·수집 판정이 실제 경로와 같다. | OS temp SSOT→attachment copy/output prepare→prompt/guard→capture; 실파일·별도 드라이브·원본 보존 검사 |
 
 일반 출력의 현재 영속 목록에는 메시지/턴 소유자가 없으므로 타임스탬프로 턴을 추측하지 않는다. 최신 일반 출력은 Transcript 하단의 카드 목록으로 표시하고, 기존 명시 게시 카드는 원래 턴 연결을 유지한다. 원본 `/tmp` 파일이나 첨부를 수정·재공개하는 기능은 추가하지 않는다.
 
@@ -281,6 +283,9 @@ R9~16/AT9~16, SD2~4/ST2~4, AR2~4/IT2~4, MD3~5/UT3~5는 NEW다. R3·R5·R7·R8은
 | VP29 | MD5↔UT5 / REQUIRED | cwd→경로 식별·basename·landing 초기값, project list→nav 순서; 같은 이름/다른 경로 | EP9·10 (7) |
 | VP30 | R3·5·7·8↔기존 AT3·5·7·8 / REGRESSION | preview 선택/재시도/닫기·Code·늦은 결과·입력 commit·첨부/출력 저장; 기존 행동 suite | EP2·3·7·8 (15) |
 | VP31 | R17↔AT17 / REQUIRED; NEW | catalog 실제 전체 list→타이틀 개수; pinned/search/delete 상태에서도 원천 전체 개수 | 추가 EP11: catalog 제목 (1) |
+| VP32 | R18↔AT18 / REQUIRED; NEW | 선택/클립보드→Temp 사본·컨텍스트, Write/Stop→Temp 출력·카드; OS 실제 경로·실파일과 prompt 관측 | EP12: attachment directory·output directory·prompt/link 해석 (3) |
+| VP33 | AR5↔IT5 / REQUIRED; NEW | 공통 main infra temp resolver→두 feature→추출/저장; 원본 불변·같은 루트 | EP12 (3) |
+| VP34 | MD6↔UT6 / REQUIRED; NEW | OS temp path→native 절대경로, final link→실제 path 유지; Windows에서 Linux 별칭으로 바꾸지 않음 | EP12 (3) |
 
 각 oracle은 실제 행동 결과를 읽으므로 구조 검색만의 PASS 또는 별도 결함 변이는 선택하지 않는다. Native가 대신할 수 없는 DB 보존·상태 전이는 의미 테스트로 검증하고 시각·치수·키보드·스크롤은 실제 Electron 렌더로 확인한다.
 
@@ -290,4 +295,6 @@ R9~16/AT9~16, SD2~4/ST2~4, AR2~4/IT2~4, MD3~5/UT3~5는 NEW다. R3·R5·R7·R8은
 
 구현 분담: 공통 패널·두 호스트, 활동/재개 계약, 프로젝트 경로·landing/nav, 출력 카드·통합 검증을 독립 소유한다. shared i18n·app 조립 파일은 필요한 hunk만 수정하여 합류하고 새 기능 간 교차 import를 만들지 않는다.
 
-READY: D-07~15와 AC10·9·9·10/11·12·13/14·14/15·16·17 대응을 대조했다. 새 노드 18개(R 9+SD 3+AR 3+MD 3)는 동일 수준 REQUIRED pair를 가지며 전수 EP 18지점(3+3+4+4+3+1)을 고정했다. 계획 규범 변경은 구현과 별도 커밋으로 보존하고, 사용자가 명시한 이번 변경을 먼저 반영하되 기존 독립 verify 대기 상태를 PASS로 바꾸지 않는다.
+READY: D-07~16와 AC10·9·9·10/11·12·13/14·14/15·16·17·18 대응을 대조했다. 새 노드 21개(R 10+SD 3+AR 4+MD 4)는 동일 수준 REQUIRED pair를 가지며 전수 EP 21지점(3+3+4+4+3+1+3)을 고정했다. 계획 규범 변경은 구현과 별도 커밋으로 보존하고, 사용자가 명시한 이번 변경을 먼저 반영하되 기존 독립 verify 대기 상태를 PASS로 바꾸지 않는다.
+
+플랫폼 경로 정정의 기술 적용: `infra/config`의 OS 임시 경로 resolver를 첨부·출력 준비가 함께 사용한다. Node `os.tmpdir()`의 OS 사용자 임시 폴더를 사용하여 Windows 기본 LocalAppData/Temp와 시스템 재지정을 따른다. Work prompt에는 실제 native 경로를 명시하고 `/tmp`를 Windows 파일로 바꾸는 별칭 해석은 제거한다; 기존 관리 사본·기존 대화의 경로는 이동하지 않는다.
