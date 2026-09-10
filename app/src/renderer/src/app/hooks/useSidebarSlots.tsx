@@ -90,7 +90,6 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
         agentAppearance={agentUiPolicy}
         pinnedProjectIds={handlers.pinnedProjectIds}
         currentSessionId={handlers.currentSessionId}
-        projectNameById={handlers.projectNameById}
         onSelect={handlers.handleSelectSession}
         onTogglePin={handlers.handleTogglePinSession}
         onDelete={handlers.handleDeleteSession}
@@ -104,7 +103,6 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
     [
       handlers.pinnedProjectIds,
       handlers.currentSessionId,
-      handlers.projectNameById,
       handlers.handleSelectSession,
       handlers.handleTogglePinSession,
       handlers.handleDeleteSession,

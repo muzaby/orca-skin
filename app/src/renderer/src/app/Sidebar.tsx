@@ -2,7 +2,7 @@ import { memo, useCallback, useRef, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Icon } from '../shared/ui/Icon'
 import { OrcaLogo } from '../shared/ui/OrcaLogo'
-import { SIDEBAR_SECTION_HEAD } from '../shared/ui/SidebarSection'
+import { CollapsibleSection } from '../shared/ui/SidebarSection'
 import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 import { useTweakContext } from '../shared/theme'
 import { useI18n } from '../shared/i18n'
@@ -155,10 +155,13 @@ function SidebarImpl({
           <div className="app-frame-sidebar-scroll flex min-h-0 flex-1 flex-col overflow-y-auto">
             {pinnedSlot}
             {projectsSlot}
-            <section className="app-frame-sidebar-recents" data-context="recents">
-              <div className={SIDEBAR_SECTION_HEAD}>{tr('sidebar.recents')}</div>
+            <CollapsibleSection
+              className="app-frame-sidebar-recents"
+              dataContext="recents"
+              label={tr('sidebar.recents')}
+            >
               {sessionsSlot}
-            </section>
+            </CollapsibleSection>
           </div>
 
           {footerSlot && (

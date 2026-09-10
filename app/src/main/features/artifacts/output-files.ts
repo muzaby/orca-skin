@@ -33,6 +33,7 @@ export async function createWorkOutputFiles(
           // 이미 커밋된 파일은 목록을 다시 읽으면 복구된다.
         }
       }
+      return file
     }
   }
 }

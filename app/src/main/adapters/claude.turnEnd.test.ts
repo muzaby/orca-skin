@@ -82,10 +82,10 @@ function stopCallback(): HookCallback {
 }
 
 /** 한 턴을 끝까지 돌려 배치별 이벤트 타입을 모은다. */
-async function run(script: Step[]): Promise<NormalizedEvent[][]> {
+async function run(script: Step[], request = req()): Promise<NormalizedEvent[][]> {
   h.state.script = script
   h.state.options = null
-  const live = new ClaudeAdapter().sendMessage(req())
+  const live = new ClaudeAdapter().sendMessage(request)
   const batches: NormalizedEvent[][] = []
   for await (const batch of live.eventBatches) batches.push(batch.events)
   return batches
@@ -105,6 +105,115 @@ const firePrompt = (prompt: string) => async (): Promise<void> => {
 
 beforeEach(() => {
   h.queryMock.mockClear()
+})
+
+describe('ordinary output hook to response stream', () => {
+  const outputStop = async (): Promise<void> => {
+    for (const matcher of h.state.options?.hooks?.Stop ?? [])
+      for (const hook of matcher.hooks)
+        await hook(
+          { hook_event_name: 'Stop', last_assistant_message: '[result](/tmp/result.md)' },
+          undefined,
+          {}
+        )
+  }
+  const file = {
+    publicationId: 'output-1',
+    artifactFileId: 'file-1',
+    title: 'Result',
+    filename: 'result.md',
+    kind: 'markdown' as const,
+    category: 'file' as const,
+    sizeBytes: 2,
+    publishedAt: 1
+  }
+  const request = (): TurnRequest => ({
+    ...req(),
+    runtimeToolContext: {
+      cwd: '/tmp',
+      extraDirs: [],
+      getSignal: () => new AbortController().signal,
+      waitForSession: async () => 's1'
+    },
+    extensions: {
+      ...req().extensions!,
+      outputFiles: { directory: '/tmp', capture: vi.fn(async () => file) }
+    }
+  })
+  it('drains Stop output after the response text and before its telemetry', async () => {
+    const batches = await run([INIT, ASSISTANT, outputStop, RESULT], request())
+    const flat = batches.flat()
+    const outputIndex = flat.findIndex((event) => event.type === 'output.captured')
+    expect(outputIndex).toBeGreaterThan(
+      flat.findIndex((event) => event.type === 'message.completed')
+    )
+    expect(outputIndex).toBeLessThan(flat.findIndex((event) => event.type === 'telemetry'))
+    expect(flat[outputIndex]).toEqual({ type: 'output.captured', sessionId: 's1', artifact: file })
+  })
+  it('retains a Write identity while waiting for the final response', async () => {
+    const write = async (): Promise<void> => {
+      for (const matcher of h.state.options?.hooks?.PostToolUse ?? [])
+        for (const hook of matcher.hooks)
+          await hook(
+            {
+              hook_event_name: 'PostToolUse',
+              tool_name: 'Write',
+              tool_use_id: 'write-original',
+              tool_input: { file_path: '/tmp/result.md', content: 'ok' },
+              tool_response: {}
+            },
+            'write-original',
+            {}
+          )
+    }
+    const batches = await run([INIT, write, ASSISTANT, RESULT], request())
+    expect(batches.flat().filter((event) => event.type === 'output.captured')).toEqual([
+      { type: 'output.captured', sessionId: 's1', artifact: file, toolRunId: 'write-original' }
+    ])
+  })
+  it('does not assign a Stop capture without a result boundary to another response', async () => {
+    const batches = await run([INIT, ASSISTANT, outputStop], request())
+    expect(batches.flat().filter((event) => event.type === 'output.captured')).toEqual([])
+  })
+  it('does not attach a late Stop after a result to the next persistent response', async () => {
+    const current = request()
+    const batches = await run([INIT, ASSISTANT, RESULT, outputStop, ASSISTANT, RESULT], current)
+    expect(current.extensions?.outputFiles?.capture).toHaveBeenCalledOnce()
+    expect(batches.flat().filter((event) => event.type === 'output.captured')).toEqual([])
+  })
+  it('does not let background child text reopen the main response scope', async () => {
+    const batches = await run(
+      [
+        INIT,
+        ASSISTANT,
+        RESULT,
+        { ...ASSISTANT, parent_tool_use_id: 'background-task' },
+        outputStop,
+        ASSISTANT,
+        RESULT
+      ],
+      request()
+    )
+    expect(batches.flat().filter((event) => event.type === 'output.captured')).toEqual([])
+  })
+  it('retains a Stop that races consumption of the initial assistant message', async () => {
+    const batches = await run([INIT, outputStop, ASSISTANT, RESULT], request())
+    expect(batches.flat().filter((event) => event.type === 'output.captured')).toHaveLength(1)
+  })
+  it('drops a capture interrupted after its hook completed and before the result', async () => {
+    const controller = new AbortController()
+    const current = request()
+    current.runtimeToolContext = {
+      ...current.runtimeToolContext!,
+      getSignal: () => controller.signal
+    }
+    const batches = await run(
+      [INIT, ASSISTANT, outputStop, async () => controller.abort(), RESULT],
+      current
+    )
+    expect(current.extensions?.outputFiles?.capture).toHaveBeenCalledOnce()
+    expect(batches.flat().filter((event) => event.type === 'output.captured')).toEqual([])
+  })
 })
 
 describe('claude.ts 턴 종료 배선 (D25·D26 · VP-72 · EP-46 ①②)', () => {

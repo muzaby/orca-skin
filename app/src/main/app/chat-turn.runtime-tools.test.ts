@@ -6,6 +6,7 @@ import { resolveAgentProfile } from '../features/agents/profiles'
 const harness = vi.hoisted(() => ({
   handlers: new Map<string, (event: unknown, raw: unknown) => Promise<unknown>>(),
   requests: [] as Array<{ request: { model?: string; extensions: unknown }; kind?: string }>,
+  errors: [] as unknown[],
   steps: [] as Array<'listen' | 'flush' | 'break'>,
   coordinatorRuns: 0
 }))
@@ -25,7 +26,11 @@ vi.mock('../features/chat/attachments', () => ({
 }))
 
 vi.mock('../features/chat/recovery', () => ({ recoverSessionHistory: vi.fn() }))
-vi.mock('../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
+vi.mock('../infra/ipc/send', () => ({
+  sendChatEvent: vi.fn((_owner: unknown, event: { type: string; error?: unknown }) => {
+    if (event.type === 'error') harness.errors.push(event.error)
+  })
+}))
 vi.mock('../features/chat/post-turn', () => ({
   decidePostTurnStep: () => harness.steps.shift() ?? 'break',
   postTurnHoldsSession: (step: string) => step !== 'break'
@@ -61,8 +66,10 @@ function runtime(
   spawnedProviderSettings: undefined
   spawnedModel: string
   spawnedRuntimeToolsRevision: number
+  subscribeChannelActivity: ReturnType<typeof vi.fn>
   teardownChannel: ReturnType<typeof vi.fn>
   endListenFrame: ReturnType<typeof vi.fn>
+  close: ReturnType<typeof vi.fn>
 } {
   const value = {
     channelAlive: true,
@@ -71,8 +78,10 @@ function runtime(
     spawnedProviderSettings: undefined,
     spawnedModel: model,
     spawnedRuntimeToolsRevision: revision,
+    subscribeChannelActivity: vi.fn(() => vi.fn()),
     teardownChannel: vi.fn(),
-    endListenFrame: vi.fn()
+    endListenFrame: vi.fn(),
+    close: vi.fn()
   }
   value.teardownChannel.mockImplementation(() => {
     value.channelAlive = false
@@ -94,6 +103,7 @@ function installHarness(options: {
 } {
   harness.handlers.clear()
   harness.requests.length = 0
+  harness.errors.length = 0
   harness.steps = [...options.steps]
   harness.coordinatorRuns = 0
 
@@ -149,6 +159,7 @@ function installHarness(options: {
     rollback: vi.fn(() => false),
     submittedUuids: vi.fn(() => []),
     cancel: vi.fn(),
+    cancelAllHeld: vi.fn(() => []),
     dispose: vi.fn(),
     disposeAll: vi.fn()
   }
@@ -156,7 +167,7 @@ function installHarness(options: {
     id: 'claude',
     complete: async () => '',
     sendMessage: vi.fn(),
-    classifyError: vi.fn()
+    classifyError: vi.fn((error: unknown) => error)
   }
   const supervisor = {
     hasSession: vi.fn(() => false),
@@ -214,7 +225,10 @@ function installHarness(options: {
         ],
         resolve: async () => undefined
       },
-      db: { getSessionById: vi.fn() },
+      db: {
+        getSessionById: vi.fn(),
+        ensurePathProject: vi.fn((project: { id: string }) => project)
+      },
       settings: { getAll: () => ({}) },
       mcp: { resolver: () => () => undefined },
       extensions,
@@ -230,6 +244,7 @@ function installHarness(options: {
     backgroundTasks: {
       hasAny: vi.fn(() => false),
       count: vi.fn(() => 0),
+      ids: vi.fn(() => new Set<string>()),
       clear: vi.fn(),
       isAsyncLaunched: vi.fn(() => false),
       settled: vi.fn()
@@ -249,6 +264,7 @@ async function send(modelFamily = 'high', agentKind?: 'code' | 'work'): Promise<
     { sender: { isDestroyed: () => false, once: vi.fn(), on: vi.fn(), removeListener: vi.fn() } },
     { sessionId: null, projectId: null, text: 'initial', modelFamily, agentKind }
   )
+  expect(harness.errors, 'chat preparation and execution must not emit an error').toEqual([])
 }
 
 describe('registerChatHandlers runtime-tool continuation wiring (0158)', () => {

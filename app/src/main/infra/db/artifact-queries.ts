@@ -168,6 +168,59 @@ export class ArtifactQueries {
   ): ArtifactRef | null {
     return this.link(sessionId, toolRunId, publicationId, parentToolRunId)
   }
+  // Ordinary outputs are owned files, not publication-tool receipts. Reusing a file in a
+  // later response may attach the same reference there; each message remains idempotent.
+  linkOutput(
+    sessionId: string,
+    publicationId: string,
+    owner: { toolRunId?: string; messageId?: number; responseId?: string }
+  ): ArtifactRef | null {
+    return this.db.transaction(() => {
+      const file = this.getOwnedFile(sessionId, publicationId)
+      if (!file || file.category !== 'file') return null
+      let messageId = owner.messageId
+      if (owner.toolRunId) {
+        const calls = this.db
+          .prepare(
+            `SELECT m.id AS messageId, mp.payload_json AS payload
+          FROM message_parts mp JOIN messages m ON m.id = mp.message_id
+          WHERE m.session_id = ? AND m.role = 'assistant' AND mp.type = 'tool_call'
+            AND mp.tool_run_id = ?`
+          )
+          .all(sessionId, owner.toolRunId) as Array<{ messageId: number; payload: string }>
+        if (calls.length !== 1) return null
+        const call = JSON.parse(calls[0].payload) as { toolName?: string }
+        if (call.toolName !== 'Write' && call.toolName !== 'Edit') return null
+        messageId = calls[0].messageId
+      } else {
+        if (messageId === undefined || !owner.responseId) return null
+        const boundary = this.db
+          .prepare(
+            `SELECT 1 FROM message_parts mp
+          JOIN messages m ON m.id = mp.message_id WHERE m.session_id = ? AND m.id = ?
+          AND m.role = 'assistant' AND mp.type = 'response_boundary'
+          AND json_extract(mp.payload_json, '$.boundary.id') = ?`
+          )
+          .get(sessionId, messageId, owner.responseId)
+        if (!boundary) return null
+      }
+      const artifact = ref(file)
+      const existing = this.db
+        .prepare(
+          `SELECT 1 FROM message_parts WHERE message_id = ?
+        AND type = 'artifact' AND json_extract(payload_json, '$.artifact.publicationId') = ?`
+        )
+        .get(messageId, publicationId)
+      if (!existing)
+        this.db
+          .prepare(
+            `INSERT INTO message_parts (message_id, idx, type, tool_run_id, payload_json)
+        VALUES (?, (SELECT COALESCE(MAX(idx), -1) + 1 FROM message_parts WHERE message_id = ?), 'artifact', ?, ?)`
+          )
+          .run(messageId, messageId, owner.toolRunId ?? null, JSON.stringify({ artifact }))
+      return artifact
+    })()
+  }
   listLatest(sessionId: string): ArtifactRef[] {
     return (this.latest.all({ sessionId }) as PublicationRow[]).map(ref)
   }

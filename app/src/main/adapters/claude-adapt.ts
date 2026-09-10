@@ -19,6 +19,12 @@ import { join } from 'node:path'
 import { adaptSkillNameForClaude } from './claude-plugin'
 import { getLogger } from '../infra/log/registry'
 import type { SkillInfo } from '../../shared/ipc'
+import { isRecord } from '../../shared/obj'
+import {
+  CLAUDE_DEFAULT_ENV,
+  CLAUDE_DEFAULT_SETTINGS,
+  withClaudeSettingsDefaults
+} from '../../shared/claude-settings-defaults'
 import type { HarnessNativeSettings } from './harness-config'
 import {
   resolveHookDecisions,
@@ -106,7 +112,24 @@ export function adaptExecutionConfig(
   settings?: HarnessNativeSettings,
   env?: Record<string, string>
 ): Pick<Options, 'settings' | 'settingSources' | 'env'> {
-  return { ...adaptSettingSources(), ...adaptSettings(settings), ...adaptEnv(env) }
+  // prepareHarnessConfig가 env를 조립한 경우 settings.env는 이미 hoist됐다.
+  // 기본값도 같은 채널에만 넣어 custom/runtime/provider/app/process 우선순위를 유지한다.
+  const hasEnv = env && Object.keys(env).length > 0
+  const configuredSettings = hasEnv
+    ? { ...CLAUDE_DEFAULT_SETTINGS, ...settings }
+    : withClaudeSettingsDefaults(settings, process.env.CLAUDE_CODE_USE_POWERSHELL_TOOL)
+  const settingsPowerShell = isRecord(settings?.env)
+    ? settings.env.CLAUDE_CODE_USE_POWERSHELL_TOOL
+    : undefined
+  return {
+    ...adaptSettingSources(),
+    ...adaptSettings(configuredSettings),
+    ...adaptEnv(
+      hasEnv
+        ? { ...(typeof settingsPowerShell === 'string' ? {} : CLAUDE_DEFAULT_ENV), ...env }
+        : undefined
+    )
+  }
 }
 
 // NormalizedHookEvent → claude HookEvent.

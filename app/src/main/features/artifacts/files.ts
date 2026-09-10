@@ -163,10 +163,14 @@ export async function readOutputInput(
   assertLocalPath(directory)
   if (!isAbsolute(path) || !isAbsolute(directory)) return undefined
   const candidate = resolve(directory, path)
-  if (!samePath(dirname(candidate), resolve(directory))) return undefined
+  const root = await unredirectedDirectory(directory)
+  if (!samePath(dirname(candidate), resolve(directory))) {
+    const actualParent = await realpath(dirname(candidate)).catch(() => null)
+    if (!actualParent || !samePath(actualParent, root)) return undefined
+    await unredirectedDirectory(dirname(candidate))
+  }
   const filename = basename(candidate)
   assertArtifactFilename(filename)
-  const root = await unredirectedDirectory(directory)
   const before = await lstat(candidate)
   if (!before.isFile() || before.isSymbolicLink()) throw new Error('unsafe-path')
   const actual = await realpath(candidate)
@@ -177,10 +181,28 @@ export async function readOutputInput(
   if (after.isSymbolicLink() || !sameFile(before, after)) throw new Error('file-changed')
   return {
     bytes,
-    filename,
+    filename: basename(actual),
     inputSource: process.platform === 'win32' ? actual.toLowerCase() : actual,
     hash: createHash('sha256').update(bytes).digest('hex')
   }
+}
+
+export async function inspectOutputFile(
+  file: Pick<ArtifactFileRecord, 'inputSource' | 'filename'>,
+  directory = getTemporaryFilesPath()
+): Promise<{ path: string; info: Stats }> {
+  assertLocalPath(file.inputSource)
+  assertArtifactFilename(file.filename)
+  if (!isAbsolute(file.inputSource) || !samePath(basename(file.inputSource), file.filename))
+    throw new Error('unsafe-path')
+  const root = await unredirectedDirectory(directory)
+  const parent = await unredirectedDirectory(dirname(file.inputSource))
+  if (!samePath(root, parent)) throw new Error('unsafe-path')
+  const info = await lstat(file.inputSource)
+  if (!info.isFile() || info.isSymbolicLink()) throw new Error('unsafe-path')
+  const path = await realpath(file.inputSource)
+  if (!samePath(dirname(path), root)) throw new Error('unsafe-path')
+  return { path, info }
 }
 
 export class ArtifactFiles {

@@ -12,7 +12,6 @@ import type { Project } from '../../../../shared/ipc'
 
 export interface SessionHandlers {
   currentSessionId: string | null
-  projectNameById: Map<string, string>
   handleSelectSession: (id: string) => void
   handleDeleteSession: (id: string) => void
   handleRenameSession: (id: string, title: string) => void
@@ -61,12 +60,6 @@ export function useSessionHandlers(): SessionHandlers {
   // (0007 의 "안정 함수만 뽑기" 패턴이 store 전환으로 기본값이 됨).
   const { handleSessionDeleted, renameSession } = chatActions
   const { remove: removeSession, rename: renameSessionMeta } = sessionsActions
-
-  const projectNameById = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const p of projects) map.set(p.id, p.name)
-    return map
-  }, [projects])
 
   const projectGroups = useMemo(() => splitNavProjects(projects), [projects])
   const navProjects = projectGroups.projects
@@ -149,7 +142,6 @@ export function useSessionHandlers(): SessionHandlers {
 
   return {
     currentSessionId,
-    projectNameById,
     handleSelectSession,
     handleDeleteSession,
     handleRenameSession,

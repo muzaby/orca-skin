@@ -25,6 +25,9 @@ vi.mock('../../infra/config/paths', async (original) => ({
   ...(await original<typeof import('../../infra/config/paths')>()),
   orcaConfigDir: () => configFixture.root
 }))
+vi.mock('../../infra/config/temp-path', () => ({
+  getTemporaryFilesPath: () => join(configFixture.root, 'tmp')
+}))
 
 const roots: string[] = []
 const databases: Database.Database[] = []
@@ -96,7 +99,7 @@ describe('artifact real filesystem and SQLite publication', () => {
     })
     await f.service.close()
   })
-  it('repairs missing or modified output copies and orders versions even when the clock does not advance', async () => {
+  it('reads the Temp original without a managed copy and orders changed versions with a frozen clock', async () => {
     const f = await setup()
     const directory = join(f.root, 'tmp')
     await mkdir(directory)
@@ -104,16 +107,30 @@ describe('artifact real filesystem and SQLite publication', () => {
     vi.spyOn(Date, 'now').mockReturnValue(100)
     await writeFile(path, 'Final')
     const first = (await f.service.captureOutput(path, directory, f.context))!
-    await rm(await f.service.revealPath('a', first.publicationId))
+    expect(await f.service.revealPath('a', first.publicationId)).toBe(await realpath(path))
+    expect(await readdir(f.rootDir).catch(() => [])).toEqual([])
+    await writeFile(path, 'Changed externally')
+    expect((await f.service.readForExport('a', first.publicationId)).bytes.toString()).toBe(
+      'Changed externally'
+    )
     const second = (await f.service.captureOutput(path, directory, f.context))!
     expect(second.publicationId).not.toBe(first.publicationId)
     expect(second.publishedAt).toBeGreaterThan(first.publishedAt)
-    await writeFile(await f.service.revealPath('a', second.publicationId), 'Changed externally')
+    await writeFile(path, 'Final revision')
     const third = (await f.service.captureOutput(path, directory, f.context))!
     expect(third.publicationId).not.toBe(second.publicationId)
     expect(third.publishedAt).toBeGreaterThan(second.publishedAt)
     expect(f.service.listLatest('a')[0].publicationId).toBe(third.publicationId)
-    expect((await f.service.readForExport('a', third.publicationId)).bytes.toString()).toBe('Final')
+    expect((await f.service.readForExport('a', third.publicationId)).bytes.toString()).toBe(
+      'Final revision'
+    )
+    await rm(path)
+    expect((await f.service.status('a', [third.publicationId]))[0].availability.state).toBe(
+      'missing'
+    )
+    expect(await f.service.preview('a', third.publicationId)).toMatchObject({
+      state: 'unavailable'
+    })
     await f.service.close()
   })
   it('does not collect bytes overwritten after the triggering Write', async () => {
@@ -157,13 +174,14 @@ describe('artifact real filesystem and SQLite publication', () => {
     await writeFile(ppt, bytes)
     const slides = await f.service.captureOutput(ppt, directory, f.context)
     expect(slides).toMatchObject({ category: 'file', kind: 'file', filename: 'slides.pptx' })
-    await rm(ppt)
     expect((await f.service.readForExport('a', slides!.publicationId)).bytes.equals(bytes)).toBe(
       true
     )
     expect(await f.service.preview('a', slides!.publicationId)).toMatchObject({
       state: 'unavailable'
     })
+    await rm(ppt)
+    await expect(f.service.readForExport('a', slides!.publicationId)).rejects.toThrow()
     await f.service.close()
   })
   it('ignores intermediate and unrelated paths, rejects redirected output files, and respects cancellation', async () => {

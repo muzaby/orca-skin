@@ -3,6 +3,7 @@ import { isAbsolutePath } from '../../shared/absolute-path'
 import { isRecord } from '../../shared/obj'
 import type { RuntimeToolContext } from './runtime-tools'
 import type { TurnExtensions } from './turn'
+import type { ArtifactRef } from '../../shared/artifacts'
 
 // 일반 Markdown 전체를 렌더링하지 않는다. 명시적 링크의 목적지만 읽으며 코드 예시는 제외한다.
 function withoutCode(markdown: string): string {
@@ -175,11 +176,19 @@ export function explicitOutputLinks(markdown: string): string[] {
 
 export function makeOutputFilesHook(
   outputFiles?: TurnExtensions['outputFiles'],
-  context?: RuntimeToolContext
+  context?: RuntimeToolContext,
+  onCaptured?: (
+    artifact: ArtifactRef,
+    toolRunId: string | undefined,
+    signal: AbortSignal,
+    responseScope?: number
+  ) => void,
+  getResponseScope?: () => number | undefined
 ): Pick<Options, 'hooks'> {
   if (!outputFiles || !context) return {}
   const callback: HookCallback = async (input) => {
     const signal = context.getSignal()
+    const responseScope = getResponseScope?.()
     if (signal.aborted) return {}
     const invocationContext: RuntimeToolContext = {
       cwd: context.cwd,
@@ -203,9 +212,21 @@ export function makeOutputFilesHook(
     for (const filePath of paths) {
       if (signal.aborted) break
       try {
-        if (expectedContent !== undefined)
-          await outputFiles.capture(filePath, invocationContext, expectedContent)
-        else await outputFiles.capture(filePath, invocationContext)
+        const file =
+          expectedContent !== undefined
+            ? await outputFiles.capture(filePath, invocationContext, expectedContent)
+            : await outputFiles.capture(filePath, invocationContext)
+        if (
+          file &&
+          !signal.aborted &&
+          (input.hook_event_name !== 'Stop' || !getResponseScope || responseScope !== undefined)
+        )
+          onCaptured?.(
+            file,
+            input.hook_event_name === 'PostToolUse' ? input.tool_use_id : undefined,
+            signal,
+            responseScope
+          )
       } catch {
         if (!signal.aborted) failed = true
       }

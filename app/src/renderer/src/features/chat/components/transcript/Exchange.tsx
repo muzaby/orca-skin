@@ -65,7 +65,7 @@ export const Exchange = memo(
             />
           )
         )}
-        {pending && <PendingAssistant />}
+        {pending && lastTurn?.role !== 'assistant' && <PendingAssistant />}
         {pendingSteer.length > 0 && (
           <PendingSteerTurn items={pendingSteer} onRestoreDraft={onRestoreSteerDraft} />
         )}

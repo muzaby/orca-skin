@@ -26,10 +26,6 @@ export interface SessionRowProps {
   variant?: 'nav' | 'catalog'
   session: SessionListItem
   isActive: boolean
-  // 프로젝트 소속 세션일 때만 truthy. label 에 `<projectName> / ` prefix 가 붙는다.
-  // ProjectDetail 의 내부 대화 리스트처럼 이미 프로젝트 컨텍스트가 명확한 곳에서는
-  // 의도적으로 비워둔다.
-  projectName?: string | null
   onSelect?: (sessionId: string) => void
   onDelete?: (sessionId: string) => void
   onRename?: (sessionId: string, title: string) => void
@@ -49,7 +45,6 @@ export const SessionRow = memo(function SessionRow({
   variant = 'nav',
   session,
   isActive,
-  projectName,
   onSelect,
   onDelete,
   onRename,
@@ -74,12 +69,10 @@ export const SessionRow = memo(function SessionRow({
     </span>
   )
 
-  const baseLabel = (
-    session.title?.trim() ||
-    session.preview?.trim() ||
-    tr('common.newChat')
-  ).slice(0, 60)
-  const label = projectName ? `${projectName} / ${baseLabel}` : baseLabel
+  const label = (session.title?.trim() || session.preview?.trim() || tr('common.newChat')).slice(
+    0,
+    60
+  )
 
   // 메뉴 항목이 하나도 없으면(이름변경 불가 + 삭제 핸들러 없음 — 활성 '새 대화' draft 행)
   // kebab 자체를 렌더하지 않는다(0065). 고정 토글이 있으면 메뉴를 노출한다.
@@ -93,8 +86,7 @@ export const SessionRow = memo(function SessionRow({
   const commitRename = (next: string): void => {
     const trimmed = next.trim()
     setRenaming(false)
-    // prefix(projectName) 는 lookup 으로 합성된 값이므로 비교는 baseLabel 기준.
-    if (trimmed === '' || trimmed === baseLabel) return
+    if (trimmed === '' || trimmed === label) return
     onRename?.(session.id, trimmed)
   }
 
@@ -116,7 +108,7 @@ export const SessionRow = memo(function SessionRow({
       >
         {modeIcon}
         <RenameInput
-          initial={baseLabel}
+          initial={label}
           onCommit={commitRename}
           onCancel={cancelRename}
           maxLength={120}

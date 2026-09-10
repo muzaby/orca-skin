@@ -8,6 +8,7 @@
 // — 언어 전환 시 표시 중인 검증 메시지도 함께 갱신된다.
 
 import type { MessageKey } from '../../../shared/i18n'
+import { withClaudeSettingsDefaults } from '../../../../../shared/claude-settings-defaults'
 
 export interface ProviderOption {
   id: string
@@ -17,8 +18,8 @@ export interface ProviderOption {
   template: string
 }
 
-function tpl(value: unknown): string {
-  return JSON.stringify(value, null, 2)
+function tpl(value: Record<string, unknown>): string {
+  return JSON.stringify(withClaudeSettingsDefaults(value), null, 2)
 }
 
 // 공급자(provider) 드롭다운 선택지. 각 항목은 선택 시 채워질 settings.json 템플릿을 갖는다.

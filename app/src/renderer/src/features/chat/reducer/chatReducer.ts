@@ -704,6 +704,31 @@ function appendAssistantPart(messages: Message[], part: AppMessagePart): Message
   return next
 }
 
+function appendOwnedArtifact(
+  messages: Message[],
+  owner: number,
+  part: Extract<AppMessagePart, { type: 'artifact' }>
+): Message[] {
+  if (owner < 0) return messages
+  let first = owner
+  let last = owner
+  while (first > 0 && messages[first - 1].role === 'assistant') first -= 1
+  while (last + 1 < messages.length && messages[last + 1].role === 'assistant') last += 1
+  for (let index = first; index <= last; index += 1) {
+    if (
+      messages[index].parts.some(
+        (existing) =>
+          existing.type === 'artifact' &&
+          existing.artifact.publicationId === part.artifact.publicationId
+      )
+    )
+      return messages
+  }
+  return messages.map((message, index) =>
+    index === owner ? { ...message, parts: [...message.parts, part] } : message
+  )
+}
+
 function diffRequirementDraftsEqual(
   a: DiffRequirementDraft | null,
   b: DiffRequirementDraft | null
@@ -871,6 +896,27 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             messages: appendAssistantPart(state.messages, responseBoundaryPart(ev.boundary))
           }
 
+        case 'output.captured': {
+          if (!ev.artifact) return state
+          // Main이 검증한 소유권만 연결한다. 도구 ID가 있으면 응답 경계로 대체하지 않는다.
+          const owner = state.messages.findIndex(
+            (message) =>
+              message.role === 'assistant' &&
+              message.parts.some((part) =>
+                ev.toolRunId !== undefined
+                  ? part.type === 'tool_call' && part.toolRunId === ev.toolRunId
+                  : ev.responseId !== undefined &&
+                    part.type === 'response_boundary' &&
+                    part.boundary.id === ev.responseId
+              )
+          )
+          const messages = appendOwnedArtifact(state.messages, owner, {
+            type: 'artifact',
+            artifact: ev.artifact
+          })
+          return messages === state.messages ? state : { ...state, messages }
+        }
+
         case 'message.completed':
           // 스트리밍 델타는 라이브 리프가 보여줬으니, 완성본을 text 파트로 굳힌다.
           // (live.text 클리어는 store 가 담당.)
@@ -919,29 +965,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                   (part) => part.type === 'tool_call' && part.toolRunId === ev.toolRunId
                 )
             )
-            if (
-              owner >= 0 &&
-              !messages[owner].parts.some(
-                (part) =>
-                  part.type === 'artifact' && part.artifact.publicationId === artifact.publicationId
-              )
-            ) {
-              messages = messages.map((message, index) =>
-                index === owner
-                  ? {
-                      ...message,
-                      parts: [
-                        ...message.parts,
-                        {
-                          type: 'artifact' as const,
-                          artifact,
-                          ...(ev.parentToolRunId ? { parentToolRunId: ev.parentToolRunId } : {})
-                        }
-                      ]
-                    }
-                  : message
-              )
-            }
+            messages = appendOwnedArtifact(messages, owner, {
+              type: 'artifact',
+              artifact,
+              ...(ev.parentToolRunId ? { parentToolRunId: ev.parentToolRunId } : {})
+            })
           }
           // 부모 Task 의 권위 결과 도착 = 중단 대기 종료(확정·watchdog·채널 사망 공통 경로).
           const stoppingTaskIds = withoutId(state.stoppingTaskIds, ev.toolRunId)

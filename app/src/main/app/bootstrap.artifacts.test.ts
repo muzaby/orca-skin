@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 import { scanOffenders, stripCommentsAndStrings } from '../infra/source-scan'
+import { ArtifactCatalog } from '../features/artifacts/catalog'
 
 const mocks = vi.hoisted(() => ({
   options: vi.fn(),
@@ -55,16 +56,26 @@ describe('artifact composition wiring', () => {
       isTrustedArtifactSender: () => boolean
     }
     bootstrap.isTrustedArtifactSender = () => true
-    const queries = { marker: 'same-db-connection' }
+    const catalogItems = [{ publicationId: 'catalog-publication' }]
+    const queries = {
+      listCatalog: vi.fn(() => catalogItems),
+      setPinned: vi.fn(() => true)
+    }
     bootstrap.registerArtifacts({ db: { artifacts: queries }, runtimeTools: { add } })
     expect(mocks.options).toHaveBeenCalledWith(
       expect.objectContaining({ queries, rootDir: expect.stringMatching(/artifacts[/\\]\.dev$/) })
     )
     expect(add).toHaveBeenCalledWith(server)
     expect(mocks.register).toHaveBeenCalledWith(
-      expect.anything(),
-      bootstrap.isTrustedArtifactSender
+      mocks.tool.mock.calls[0]![0],
+      bootstrap.isTrustedArtifactSender,
+      expect.any(ArtifactCatalog)
     )
+    const catalog = mocks.register.mock.calls[0]![2] as ArtifactCatalog
+    expect(catalog.list()).toBe(catalogItems)
+    expect(queries.listCatalog).toHaveBeenCalledOnce()
+    expect(catalog.setPinned('catalog-session', 'catalog-publication', true)).toEqual({ ok: true })
+    expect(queries.setPinned).toHaveBeenCalledWith('catalog-session', 'catalog-publication', true)
     const publish = mocks.tool.mock.calls[0]![1] as (sessionId: string, artifact: unknown) => void
     const artifact = { publicationId: 'p' }
     publish('original-session', artifact)

@@ -51,6 +51,10 @@ describe('provider catalog', () => {
   it('모든 템플릿은 유효한 객체 JSON', () => {
     for (const p of PROVIDER_OPTIONS) {
       expect(validateSettingsJson(p.template).ok).toBe(true)
+      expect(JSON.parse(p.template)).toMatchObject({
+        skipWebFetchPreflight: true,
+        env: { CLAUDE_CODE_USE_POWERSHELL_TOOL: '1' }
+      })
     }
   })
 

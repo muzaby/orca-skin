@@ -5,6 +5,7 @@ import { turnCopyText, turnEquals, type Turn } from '../../lib/turns'
 import { partsArtifacts } from '../../lib/parts'
 import { ArtifactCards } from '../ArtifactCards'
 import { WorkActivity } from './WorkActivity'
+import { PendingAssistant } from './PendingAssistant'
 import type { WorkToolResults } from '../../lib/workToolResults'
 import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
 
@@ -50,7 +51,7 @@ export const AssistantTurn = memo(
             <AssistantMessage key={i} message={m} transcriptPolicy={transcriptPolicy} />
           ))
         )}
-        {artifacts.length > 0 && <ArtifactCards artifacts={artifacts} />}
+        {pending && <PendingAssistant />}
         {!pending && (
           <MessageMeta
             text={turnCopyText(turn)}
@@ -59,6 +60,7 @@ export const AssistantTurn = memo(
             forkable={forkable}
           />
         )}
+        {artifacts.length > 0 && <ArtifactCards artifacts={artifacts} />}
       </div>
     )
   },

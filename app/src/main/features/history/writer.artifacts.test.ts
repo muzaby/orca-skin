@@ -14,6 +14,7 @@ const artifact: ArtifactRef = {
   title: 'Report',
   filename: 'report.md',
   kind: 'markdown',
+  category: 'artifact',
   sizeBytes: 10,
   publishedAt: 1
 }
@@ -48,6 +49,93 @@ function harness(): {
 }
 
 describe('HistoryWriter artifact receipt', () => {
+  it('persists ordinary output in its original tool or response message, including reload and reuse', () => {
+    const db = new Database(':memory:')
+    try {
+      applyMigrations(db)
+      const q = new DbQueries(db)
+      for (const id of ['s1', 'other'])
+        q.insertSession({ id, backend: 'claude', title: null, projectId: null, createdAt: 1 })
+      const writer = new HistoryWriter(q, () => true, undefined, q.artifacts)
+      const turn = {
+        dbSessionId: 's1',
+        agentKind: 'work',
+        currentAssistantMessageId: null,
+        assistantText: '',
+        providerKey: null,
+        askResolved: new Map()
+      } as unknown as TurnContext
+      const ordinary = { ...artifact, category: 'file' as const }
+      q.artifacts.createPublication({
+        ...ordinary,
+        sessionId: 's1',
+        relativePath: 'report.md',
+        hash: 'hash',
+        inputSource: 'C:/Users/me/AppData/Local/Temp/report.md'
+      })
+      writer.persist(turn, {
+        type: 'response.boundary',
+        sessionId: 's1',
+        boundary: { phase: 'begin', id: 'first-response' }
+      })
+      writer.persist(turn, {
+        type: 'tool.call.started',
+        sessionId: 's1',
+        toolRunId: 'write-first',
+        toolName: 'Write',
+        args: { file_path: 'report.md' }
+      })
+      const first = turn.currentAssistantMessageId
+      writer.persist(turn, {
+        type: 'response.boundary',
+        sessionId: 's1',
+        boundary: { phase: 'end', id: 'first-response', outcome: 'ended' }
+      })
+      writer.commitUserMessage(turn, { text: 'next', createdAt: 2 })
+      writer.persist(turn, {
+        type: 'response.boundary',
+        sessionId: 's1',
+        boundary: { phase: 'begin', id: 'second-response' }
+      })
+      writer.persist(turn, {
+        type: 'message.completed',
+        sessionId: 's1',
+        message: { text: 'next answer' }
+      })
+      const second = turn.currentAssistantMessageId
+      const captured = (extra = {}): Extract<NormalizedEvent, { type: 'output.captured' }> => ({
+        type: 'output.captured',
+        sessionId: 's1',
+        artifact: ordinary,
+        ...extra
+      })
+      const late = captured({ toolRunId: 'write-first' })
+      writer.persist(turn, late)
+      writer.persist(turn, captured({ toolRunId: 'write-first' }))
+      const stop = captured()
+      writer.persist(turn, stop)
+      writer.persist(turn, captured())
+      expect(late.artifact).toEqual(ordinary)
+      expect(stop.responseId).toBe('second-response')
+      const loaded = new DbQueries(db).loadParts('s1').filter((part) => part.type === 'artifact')
+      expect(loaded.map((part) => part.message_id)).toEqual([first, second])
+      expect(loaded.map((part) => JSON.parse(part.payload_json).artifact)).toEqual([
+        ordinary,
+        ordinary
+      ])
+      for (const bad of [
+        captured({ sessionId: 'other' }),
+        captured({ toolRunId: 'missing' }),
+        captured({ artifact: { ...ordinary, publicationId: 'foreign' } })
+      ]) {
+        writer.persist(turn, bad)
+        expect(bad.artifact).toBeUndefined()
+      }
+      expect(q.loadParts('other')).toEqual([])
+    } finally {
+      db.close()
+    }
+  })
   it.each([undefined, 'parent-tool'])(
     'uses the persisted original tool call after steer and reload (parent=%s)',
     (parentToolRunId) => {

@@ -1,12 +1,8 @@
 import { useId, useState, type ReactNode } from 'react'
 import { Icon } from './Icon'
 
-// 사이드바 섹션 헤더의 시각 단일 소스. app/Sidebar 의 '최근 대화'(접히지 않는 헤더)와
-// features/ 의 접히는 섹션이 함께 쓴다 — 레이어마다 클래스 문자열을 복제하면 한쪽만
-// 바뀌어 조용히 어긋난다(MODAL_LABEL 과 같은 공유 상수 패턴). 도메인 지식은 없다.
-export const SIDEBAR_SECTION_HEAD = 'px-3 pb-1 pt-4 text-caption font-medium text-ink3'
-
-const TOGGLE_HEAD = `${SIDEBAR_SECTION_HEAD} flex w-full items-center gap-1 border-0 bg-transparent text-left hover:text-t7`
+const TOGGLE_HEAD =
+  'flex w-full items-center gap-1 border-0 bg-transparent px-3 pb-1 pt-4 text-left text-caption font-medium text-ink3 hover:text-t7'
 
 interface CollapsibleSectionProps {
   label: string

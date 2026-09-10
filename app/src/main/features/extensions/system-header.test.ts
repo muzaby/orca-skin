@@ -32,11 +32,12 @@ describe('buildSystemHeader', () => {
     )
   })
 
-  it('# Tools 정책 섹션을 항상 포함하고 Bash·전용툴 규칙을 담는다', () => {
+  it('# Tools 정책 섹션을 항상 포함하고 PowerShell·전용툴 규칙을 담는다', () => {
     const out = buildSystemHeader({ orcaVersion: '1.0.0' })
     expect(out).toContain('# Tools')
     expect(out).toContain('Prefer dedicated file tools over shell commands')
-    expect(out).toContain('Reserve the Bash tool')
+    expect(out).toContain('Reserve the PowerShell tool')
+    expect(out).not.toContain('Bash')
     expect(out).toContain('Work only inside the current working directory')
   })
 

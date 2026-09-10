@@ -60,3 +60,7 @@ Renderer는 기존 `ArtifactCards`와 `CollapsibleSection`을 사용한다. Main
 영향 Vitest, main/web/test typecheck, 변경 TypeScript ESLint/Prettier, doc inventory/test budget/whitespace, Electron 빌드, 실제 SQLite 경로 검사와 native DOM 순서를 확인한다. 현재 Electron ABI를 유지하며 Node용 rebuild는 하지 않는다. 신규 의존성은 없다. 설계와 구현 커밋을 분리하고 현재 원격 브랜치에 푸시한다.
 
 r5 handoff-review는 DIAGNOSE_ONLY. 새 사용자 배치/정책 결정과 CI 대역 drift를 기존 재구현 불변식에 반영한다. 스킬/AGENTS 수정은 필요 없다. D30~34→AC36~40→VP70~78→EP28~32를 대조했고 구현 가능한 경계와 실패 oracle을 확정했다.
+
+## [구현자 기입] 결과
+
+AC36~40 자기확인 5/5. [r5 구현 보고](impl-r5.md)에 EP28~32 전수, VP70~78 증거, 구현 중 발견한 경계 사례와 운영 gate를 기록했다. 독립 verify pending.

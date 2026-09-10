@@ -91,3 +91,47 @@ it('nested late completion retains the main live preview and attaches only to it
   expect(partsArtifacts(messages[0].parts)).toEqual([artifact])
   expect(messages.slice(1).flatMap((message) => partsArtifacts(message.parts))).toEqual([])
 })
+
+it('a captured output updates the original background session without starting a turn or clearing live text', () => {
+  installChatStoreHarness({
+    messages: [
+      {
+        role: 'assistant',
+        createdAt: 1,
+        parts: [{ type: 'tool_call', toolRunId: 'write', toolName: 'Write', args: {} }]
+      }
+    ]
+  })
+  useChatStore.setState((state) => ({
+    activeKey: 'other',
+    sessions: {
+      s: { ...state.sessions.s, live: { text: 'streaming text', reasoning: 'reasoning' } },
+      other: { ...state.sessions.s, session: { ...state.sessions.s.session, sessionId: 'other' } }
+    }
+  }))
+  const before = useChatStore.getState()
+  ingestChatEvent({ type: 'output.captured', sessionId: 's', toolRunId: 'write', artifact })
+  const after = useChatStore.getState()
+  expect(partsArtifacts(after.sessions.s.session.messages[0].parts)).toEqual([artifact])
+  expect(after.sessions.s.session.inflight).toBe(false)
+  expect(after.sessions.s.live).toBe(before.sessions.s.live)
+  expect(after.sessions.s.panelReveal).toBe(before.sessions.s.panelReveal)
+  expect(after.sessions.other).toBe(before.sessions.other)
+  expect(after.activeKey).toBe('other')
+})
+
+it('a capture for an unknown session cannot fall back to a pending draft with the same call id', () => {
+  installChatStoreHarness({
+    messages: [
+      {
+        role: 'assistant',
+        createdAt: 1,
+        parts: [{ type: 'tool_call', toolRunId: 'write', toolName: 'Write', args: {} }]
+      }
+    ]
+  })
+  useChatStore.setState({ pendingNewChatKey: 's' })
+  const before = useChatStore.getState()
+  ingestChatEvent({ type: 'output.captured', sessionId: 'unknown', toolRunId: 'write', artifact })
+  expect(useChatStore.getState()).toBe(before)
+})
