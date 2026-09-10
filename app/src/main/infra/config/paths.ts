@@ -22,7 +22,6 @@
 import { homedir } from 'node:os'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { mkdir } from 'node:fs/promises'
-import { mkdirSync } from 'node:fs'
 import { LEGACY_PRODUCT_SLUG, PRODUCT_SLUG } from '../../../shared/product'
 
 // 모든 OS 동일하게 ~/.config/orcinus-orca (제안서 §환경구성). Windows 에서도 homedir() 하위로 통일.
@@ -119,17 +118,12 @@ export function workspaceDirName(project: { id: string; name: string }): string 
   return `${safeProjectName(project.name)}-${shortProjectId(project.id)}`
 }
 
-// 세션 cwd 단일 해석기. 프로젝트 미소속이면 projects/default, 소속이면 파생 디렉토리.
-// cwd 는 future scope(절대경로 지정) — 값이 있으면 파생값보다 우선한다(지금은 항상 미설정).
+// Desktop is supplied by Electron's app.getPath so redirected/OneDrive folders are respected.
 export function getWorkspacePath(
-  project?: { id: string; name: string; cwd?: string | null } | null
+  project: { cwd?: string | null } | null | undefined,
+  desktopPath: string
 ): string {
-  let dir: string
-  if (!project) dir = join(projectsDir(), 'default')
-  else if (project.cwd) dir = project.cwd
-  else dir = join(projectsDir(), workspaceDirName(project))
-  mkdirSync(dir, { recursive: true })
-  return dir
+  return project?.cwd || desktopPath
 }
 
 function sourcesMcpDir(): string {

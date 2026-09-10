@@ -1,31 +1,21 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useChatSession } from '../../store/chatStore'
-import { acquireArtifacts, refreshArtifactList, useArtifactStore } from '../../store/artifactStore'
+import { useMemo, useState } from 'react'
+import { refreshArtifactList } from '../../store/artifactStore'
+import { useSessionOutputs } from '../../hooks/useSessionOutputs'
 import { ArtifactCards } from '../ArtifactCard'
 import { useI18n } from '../../../../shared/i18n'
 import { Button } from '../../../../shared/ui/Button'
-import type { ArtifactRef } from '../../../../../../shared/artifacts'
 import { SectionPlaceholder, TileSection } from './TaskTileSections'
 
-const EMPTY: ArtifactRef[] = []
 export function TaskOutputContent(): React.JSX.Element {
   const { tr } = useI18n()
-  const sessionId = useChatSession((session) => session.sessionId)
-  const entry = useArtifactStore((state) => (sessionId ? state.sessions[sessionId] : undefined))
+  const { sessionId, entry, list } = useSessionOutputs()
   const [limit, setLimit] = useState(50)
   const [previousSession, setPreviousSession] = useState(sessionId)
   if (previousSession !== sessionId) {
     setPreviousSession(sessionId)
     setLimit(50)
   }
-  const list = entry?.list ?? EMPTY
   const visible = useMemo(() => list.slice(0, limit), [list, limit])
-  useEffect(() => {
-    if (!sessionId) return
-    const release = acquireArtifacts(sessionId, [], true)
-    void refreshArtifactList(sessionId)
-    return release
-  }, [sessionId])
   return (
     <TileSection titleKey="chat.taskTile.sections.output" count={list.length || undefined}>
       <div className="flex flex-col gap-2">

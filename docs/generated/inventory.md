@@ -17,7 +17,7 @@
 | main 수직 슬라이스 | **15** | `app/src/main/features/` |
 | main contracts 모듈 | **5** | `app/src/main/contracts/` |
 | IPC 핸들러 | **16** | `app/src/main/app/handlers/` |
-| DB 마이그레이션 | **25** | `app/src/main/infra/db/migrations/` |
+| DB 마이그레이션 | **26** | `app/src/main/infra/db/migrations/` |
 | renderer feature | **14** | `app/src/renderer/src/features/` |
 
 ## 내역
@@ -50,9 +50,9 @@
 
 `artifacts` · `boot` · `cost` · `engine` · `files` · `git` · `log` · `mcp` · `misc` · `project` · `providers` · `session` · `session-directory` · `settings` · `skills` · `update`
 
-### DB 마이그레이션 (25)
+### DB 마이그레이션 (26)
 
-`0001_initial` · `0002_projects` · `0003_messages_fts` · `0004_message_parts` · `0005_usage_events` · `0006_turn_usage` · `0007_title_source` · `0008_provider_key` · `0009_message_complete` · `0010_session_cwd` · `0011_session_lineage` · `0012_provider_limits` · `0013_schedules` · `0014_provider_usage_report_cache` · `0015_pinned` · `0016_turn_model_context_window` · `0017_session_extra_dirs` · `0018_managed_worktrees` · `0019_session_baseline` · `0020_session_baseline_ref` · `0021_artifacts` · `0022_session_agent_kind` · `0023_session_agent_kind_code` · `0024_artifact_preview_formats` · `0025_artifact_catalog`
+`0001_initial` · `0002_projects` · `0003_messages_fts` · `0004_message_parts` · `0005_usage_events` · `0006_turn_usage` · `0007_title_source` · `0008_provider_key` · `0009_message_complete` · `0010_session_cwd` · `0011_session_lineage` · `0012_provider_limits` · `0013_schedules` · `0014_provider_usage_report_cache` · `0015_pinned` · `0016_turn_model_context_window` · `0017_session_extra_dirs` · `0018_managed_worktrees` · `0019_session_baseline` · `0020_session_baseline_ref` · `0021_artifacts` · `0022_session_agent_kind` · `0023_session_agent_kind_code` · `0024_artifact_preview_formats` · `0025_artifact_catalog` · `0026_project_paths`
 
 ### renderer feature (14)
 

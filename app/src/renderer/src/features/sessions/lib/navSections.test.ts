@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { Project, SessionListItem } from '../../../../../shared/ipc'
-import { pinnedProjectsOf, splitNavSections, type NavSectionsInput } from './navSections'
+import {
+  navProjectsOf,
+  pinnedProjectsOf,
+  splitNavSections,
+  type NavSectionsInput
+} from './navSections'
 
 function session(id: string, over: Partial<SessionListItem> = {}): SessionListItem {
   return {
@@ -18,7 +23,7 @@ function session(id: string, over: Partial<SessionListItem> = {}): SessionListIt
 }
 
 function project(id: string, pinnedAt: number | null): Project {
-  return { id, name: id, instructions: '', createdAt: 0, updatedAt: 0, pinnedAt }
+  return { id, name: id, instructions: '', createdAt: 0, updatedAt: 0, pinnedAt, cwd: null }
 }
 
 // (고정 × 소속) 전 조합. 소속 축은 미소속 · 고정 프로젝트 · 비고정 프로젝트 셋이다.
@@ -42,6 +47,20 @@ function fullyLoaded(items: SessionListItem[] = COMBOS): NavSectionsInput {
 }
 
 const idsOf = (items: SessionListItem[]): string[] => items.map((s) => s.id)
+
+it('nav includes unpinned path projects, duplicate names and legacy projects exactly once', () => {
+  const entries = [
+    { ...project('a', null), cwd: 'C:\\A\\Demo', name: 'Demo' },
+    { ...project('b', null), cwd: 'C:\\B\\Demo', name: 'Demo' },
+    project('legacy', 3)
+  ]
+  const nav = navProjectsOf(entries)
+  expect(nav.map((p) => p.id)).toEqual(['legacy', 'a', 'b'])
+  const input = fullyLoaded()
+  input.pinnedProjectIds = new Set(['p1', 'p2'])
+  input.projectSessionIds.p2 = ['n-plainProj', 'p-plainProj']
+  expect(splitNavSections(input).projectChildren.p2.map((s) => s.id)).toEqual(['n-plainProj'])
+})
 
 describe('splitNavSections — 배치 파티션 (EP-1a)', () => {
   it('고정 대화는 소속과 무관하게 "고정됨"이 가져가고 최근 고정이 위다', () => {

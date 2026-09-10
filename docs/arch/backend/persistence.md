@@ -93,12 +93,14 @@ Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저�
 | `sessions` | sessionId, title, title_source, backend, agent_kind, provider_key, cwd, projectId, createdAt, updatedAt, lastMessagePreview |
 | `messages` | sessionId FK, role, content(text — FTS5 text-cache), complete, createdAt, metadata(JSON) |
 | `message_parts` | messageId FK, 순서 보존 parts (text/tool/reasoning …, provider-runtime.md §7) |
-| `projects` | id, name, instructions, createdAt, updatedAt |
+| `projects` | id, name, instructions, cwd, cwd_key, pinned_at, createdAt, updatedAt |
 | `turn_usage` / `turn_model_usage` | per-turn 사용량 원장 + 모델별 분해 (토큰·cost_usd·context_window) |
 | `provider_limits` | provider별 월간 지출 한도 (0080) |
 | `session_lineage` | fork/handoff 계보 (0051) |
 | `schedule_runs` | scheduler job 실행 이력 (0091) |
 | `messages_fts` | FTS5 가상 테이블 (content + sessionId 인덱싱. rank 정렬. `toFtsMatch` 가 토큰마다 `*` wildcard 부착.) |
+
+프로젝트는 선택한 시작 폴더를 nullable `cwd`에 저장하며 `cwd_key`의 부분 UNIQUE 인덱스로 같은 정규화 경로를 재사용한다. Windows 경로의 대소문자·구분자·끝 구분자는 식별에 영향을 주지 않고, 이름이 같아도 경로가 다르면 별개다. 경로 정규화는 lexical 비교이며 심볼릭 링크를 다른 실제 경로로 바꾸지 않는다. 시작 폴더와 격리 worktree의 실행 cwd는 별도 값이다. 신규 전송은 실행 준비가 성공한 뒤 프로젝트를 ensure하고 SDK 확인 시 세션에 연결한다. SDK 시작이 실패하면 준비된 빈 프로젝트가 남을 수 있다. 기존 경로 없는 프로젝트·미분류 세션은 강제 재분류하지 않는다.
 
 #### FTS5 검색
 
@@ -115,11 +117,11 @@ Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저�
 `features/artifacts`가 게시 파일 검증·보관·상태·휴지통을 소유한다. 본문은 `~/.config/orcinus-orca/artifacts/<artifactFileId>/<filename>`, 개발 profile은 같은 루트의 `.dev/<artifactFileId>/<filename>`에 둔다. DB의 `artifact_files`는 profile 상대 경로·초기 hash/크기·휴지통 이동 이력을 저장하며 세션 FK를 갖지 않는다. `session_artifacts`는 세션별 게시 참조이고 같은 SQLite 연결의 `DbQueries.artifacts`가 transaction을 소유한다.
 
 - 도구는 완성된 로컬 Markdown/HTML·텍스트/코드·이미지 파일을 읽어 게시 원본으로 복사한다. 허용 확장자·언어·MIME 정본은 `features/artifacts/formats.ts`이며 UTF-8 또는 이미지 서명과 파일 크기를 검사한다. 입력 workspace 파일을 이동하거나 삭제하지 않는다. 일반 readRoots의 앱 설정/런타임 경로는 게시 입력 권한에 포함하지 않는다.
-- 일반 출력은 Work에만 주입하는 `TurnExtensions.outputFiles`로 수집한다. 완성본 위치는 `/tmp/<filename>`이며 Windows에서는 앱 프로세스가 해석한 native `/tmp` 디렉터리다. SDK의 additionalDirectories와 workspace 가드에 같은 출력 루트를 추가하며 사용자 extraDirs 기록은 바꾸지 않는다. 성공한 Write/Edit의 파일과 Stop 응답의 명시적 로컬 Markdown 파일 링크를 수집하고, 루트 바로 아래 파일만 받아 중간 하위 폴더와 다른 경로·리디렉션을 제외한다. 디렉터리 전체를 스캔하지 않는다.
+- 일반 출력은 Work에만 주입하는 `TurnExtensions.outputFiles`로 수집한다. 완성본 위치는 OS 사용자 임시 폴더 바로 아래 파일이다. 공통 `infra/config/temp-path.ts`가 `os.tmpdir()`로 결정하며 Windows 기본값은 `%LOCALAPPDATA%\Temp`, Linux 기본값은 `/tmp`다. SDK의 additionalDirectories와 workspace 가드에 같은 출력 루트를 추가하며 사용자 extraDirs 기록은 바꾸지 않는다. 성공한 Write/Edit의 파일과 Stop 응답의 명시적 로컬 Markdown 파일 링크를 수집하고, 루트 바로 아래 파일만 받아 중간 하위 폴더와 다른 경로·리디렉션을 제외한다. 디렉터리 전체를 스캔하지 않는다.
 - 일반 파일도 검증한 보관 사본과 세션 참조로 저장하되 `category: file`로 아티팩트와 구분한다. 같은 세션·원본 경로·category의 최신 버전을 표시하며 동일 내용의 반복 수신은 기존 참조를 재사용한다. Office·PDF 등은 원본 다운로드를 지원하고 미리보기 지원 형식과 별개로 분류한다. 크기 제한과 DTO는 [IPC 계약](../../IPC_CONTRACT.md#26-a-산출물-게시-파일)을 따른다.
-- `/tmp`는 같은 드라이브의 Work 세션이 공유하므로 모델에는 작업별로 다른 파일명을 사용하도록 안내한다. Write 수집은 입력 본문과 읽은 파일 내용까지 확인하고 불일치는 거부한다. Stop의 링크 수집은 모델이 완성본으로 명시한 현재 파일을 보관하며 파일 작성 주체를 증명하는 별도 OS 격리는 아니다. 중복 수집은 보관 사본의 실체와 바이트도 확인하며, 사본이 없거나 바뀌었으면 새로 보관한다. 같은 시각에 작성된 버전도 원본별 게시 시각을 단조 증가시켜 최신 순서를 보존한다.
+- OS 임시 폴더는 Work 세션이 공유하므로 모델에는 작업별로 다른 파일명을 사용하도록 안내한다. Write 수집은 입력 본문과 읽은 파일 내용까지 확인하고 불일치는 거부한다. Stop의 링크 수집은 모델이 완성본으로 명시한 현재 파일을 보관하며 파일 작성 주체를 증명하는 별도 OS 격리는 아니다. 중복 수집은 보관 사본의 실체와 바이트도 확인하며, 사본이 없거나 바뀌었으면 새로 보관한다. 같은 시각에 작성된 버전도 원본별 게시 시각을 단조 증가시켜 최신 순서를 보존한다.
 - 아티팩트 카탈로그는 최신 버전을 먼저 고른 후 휴지통 이력 항목을 제외하여 삭제한 파일의 이전 버전이 다시 나타나지 않게 한다. 같은 파일을 참조하는 fork는 하나로 표시하고 파일 단위 고정 상태를 저장한다. 고정 상태는 같은 원본의 새 게시 버전에 승계한다. 일반 출력 파일은 카탈로그 대상이 아니다.
-- Composer의 파일 선택·드래그·클립보드 이미지 첨부는 전송 정규화 단계에서 같은 `/tmp` 아래 고유 파일명으로 보관한다. 원래 표시 이름과 보관 경로·SHA-256을 첨부 파트에 보존하고, 이미지 썸네일과 기존 모델 본문 주입은 유지한다. 컨텍스트는 이 첨부 메타데이터를 사용하며 경로가 없는 과거 첨부는 이름만 표시한다. 출력 수집은 세션에 등록된 첨부와 경로·내용 hash가 같은 파일을 제외한다.
+- Composer의 파일 선택·드래그·클립보드 이미지 첨부는 전송 정규화 단계에서 같은 OS 임시 폴더 아래 고유 파일명으로 보관한다. 원래 표시 이름과 보관 경로·SHA-256을 첨부 파트에 보존하고, 이미지 썸네일과 기존 모델 본문 주입은 유지한다. 컨텍스트는 이 첨부 메타데이터를 사용하며 경로가 없는 과거 첨부는 이름만 표시한다. 출력 수집은 세션에 등록된 첨부와 경로·내용 hash가 같은 파일을 제외한다.
 - 미리보기는 저장과 같은 파일 큐·제한 읽기·읽기 전후 소유권 검사를 사용한다. DB에 본문을 추가하지 않으며 현재 파일을 다시 검증해 경로 없는 본문 DTO로 전달한다.
 - 게시 성공은 파일과 세션 publication 확정이다. 실제 publisher tool_result 영수증과 원래 tool_call을 검증한 뒤 그 메시지에 artifact part를 연결한다. 중간 종료로 연결이 없더라도 우측 목록에 게시를 보존한다.
 - 파일은 외부에서 수정·삭제될 수 있다. missing/unavailable은 실제 상태 조회 결과이며 영속 삭제 플래그가 아니다. 게시 당시 hash를 불변 백업 보장이나 현재 소실 판정에 사용하지 않는다.

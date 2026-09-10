@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { ChatActivitySnapshot } from '../../../shared/ipc'
 import { BackgroundTaskTracker } from './background-tasks'
 import { PendingMessageQueue } from './pending-message-queue'
-import { SessionActivityProjector } from './session-activity-projector'
+import { SessionActivityProjector, sessionForeground } from './session-activity-projector'
 
 function fixture(): {
   queue: PendingMessageQueue
@@ -46,6 +46,16 @@ const flush = async (): Promise<void> => {
 }
 
 describe('SessionActivityProjector', () => {
+  it('ready 수신 lease만 응답 foreground에서 제외하고 준비/활성 응답/종료를 구별한다', () => {
+    expect(sessionForeground(undefined, 'ready')).toBe('idle')
+    expect(sessionForeground({ kind: 'preparing', activeChild: null }, 'idle')).toBe('preparing')
+    expect(sessionForeground({ kind: 'active', activeChild: {} }, 'idle')).toBe('streaming')
+    expect(sessionForeground({ kind: 'active', activeChild: {} }, 'ready')).toBe('idle')
+    expect(sessionForeground({ kind: 'active', activeChild: {} }, 'listening')).toBe('streaming')
+    expect(sessionForeground({ kind: 'active', activeChild: null }, 'listening')).toBe('idle')
+    expect(sessionForeground({ kind: 'closing', activeChild: {} }, 'listening')).toBe('idle')
+  })
+
   it('publishes an early wakeup without inventing schedule entries and clears its flag on a full snapshot', async () => {
     const { projector, emitted } = fixture()
     projector.setSchedules('s', [], true)

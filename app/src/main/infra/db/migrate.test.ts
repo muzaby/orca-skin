@@ -44,7 +44,9 @@ const EXPECTED_MIGRATIONS = [
   '0021_artifacts',
   '0022_session_agent_kind',
   '0023_session_agent_kind_code',
-  '0024_artifact_preview_formats'
+  '0024_artifact_preview_formats',
+  '0025_artifact_catalog',
+  '0026_project_paths'
 ]
 
 const APPLIED_SQL = [
@@ -114,11 +116,26 @@ describe('DB migrations hardening', () => {
     const db = new Database(':memory:')
     applyFirstSix(db)
     db.prepare(
+      "INSERT INTO projects (id, name, instructions, created_at, updated_at) VALUES ('legacy-project', 'Original', 'Keep these instructions', 1, 1)"
+    ).run()
+    db.prepare(
       `INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview)
        VALUES ('legacy-session', 'claude', 'before', NULL, 1, 1, NULL)`
     ).run()
 
     applyMigrations(db)
+    expect(
+      db
+        .prepare(
+          "SELECT name, instructions, cwd, cwd_key FROM projects WHERE id = 'legacy-project'"
+        )
+        .get()
+    ).toEqual({
+      name: 'Original',
+      instructions: 'Keep these instructions',
+      cwd: null,
+      cwd_key: null
+    })
 
     const rows = db.prepare('SELECT name FROM _migrations ORDER BY name').pluck().all()
     expect(rows).toEqual(EXPECTED_MIGRATIONS)

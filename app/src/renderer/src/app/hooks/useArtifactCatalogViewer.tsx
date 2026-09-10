@@ -6,6 +6,7 @@ import {
   ArtifactViewer,
   closeArtifactViewer,
   openArtifactViewer,
+  setArtifactViewerWidth,
   useArtifactViewerStore
 } from '../../features/chat'
 
@@ -15,6 +16,7 @@ const CATALOG_KEY = 'artifact-catalog:'
 export function useArtifactCatalogViewer(): ArtifactsViewProps {
   const { pathname } = useLocation()
   const selection = useArtifactViewerStore((state) => state.selection)
+  const width = useArtifactViewerStore((state) => state.widths.catalog)
   const isCatalog = pathname === '/artifacts'
   const viewer = isCatalog && selection?.sessionKey.startsWith(CATALOG_KEY) ? selection : null
   const origin = useRef<HTMLElement | undefined>(undefined)
@@ -52,6 +54,9 @@ export function useArtifactCatalogViewer(): ArtifactsViewProps {
     onDeleted,
     selectedFileId: viewer?.artifact.artifactFileId,
     viewerExpanded: viewer?.expanded,
+    viewerWidth: width,
+    viewerKey: viewer ? `${viewer.sessionKey}:${viewer.request}` : undefined,
+    onViewerWidthChange: (next) => setArtifactViewerWidth('catalog', next),
     viewer: viewer ? (
       <ArtifactViewer key={`${viewer.sessionKey}:${viewer.request}`} selection={viewer} />
     ) : undefined

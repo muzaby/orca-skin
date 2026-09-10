@@ -6,6 +6,7 @@ export { ArtifactViewer } from './components/rightpanel/ArtifactViewer'
 export {
   closeArtifactViewer,
   openArtifactViewer,
+  setArtifactViewerWidth,
   useArtifactViewerStore
 } from './store/artifactViewerStore'
 export { Composer } from './components/Composer'

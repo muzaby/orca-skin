@@ -1,13 +1,12 @@
 import { agentUiPolicy } from '../../features/chat/lib/agentPresentation'
 import { useMemo, type ReactNode } from 'react'
-import { PinnedProjectsSection, PinnedSection, SessionList } from '../../features/sessions'
+import { PinnedProjectsSection, PinnedSection } from '../../features/sessions'
 import { SidebarUserButton } from '../SidebarUserButton'
 import type { SessionHandlers } from './useSessionHandlers'
 
 export interface SidebarSlots {
   projectsSlot: ReactNode
   pinnedSlot: ReactNode
-  sessionsSlot: ReactNode
   footerSlot: ReactNode
 }
 
@@ -22,8 +21,8 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
     () => (
       <PinnedProjectsSection
         agentAppearance={agentUiPolicy}
-        pinnedProjects={handlers.pinnedProjects}
-        pinnedProjectIds={handlers.pinnedProjectIds}
+        pinnedProjects={handlers.navProjects}
+        pinnedProjectIds={handlers.navProjectIds}
         currentSessionId={handlers.currentSessionId}
         onOpenProject={handlers.handleOpenProject}
         onTogglePinProject={handlers.handleTogglePinProject}
@@ -34,8 +33,8 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
       />
     ),
     [
-      handlers.pinnedProjects,
-      handlers.pinnedProjectIds,
+      handlers.navProjects,
+      handlers.navProjectIds,
       handlers.currentSessionId,
       handlers.handleOpenProject,
       handlers.handleTogglePinProject,
@@ -50,7 +49,7 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
     () => (
       <PinnedSection
         agentAppearance={agentUiPolicy}
-        pinnedProjectIds={handlers.pinnedProjectIds}
+        pinnedProjectIds={handlers.navProjectIds}
         currentSessionId={handlers.currentSessionId}
         onSelectSession={handlers.handleSelectSession}
         onTogglePinSession={handlers.handleTogglePinSession}
@@ -59,7 +58,7 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
       />
     ),
     [
-      handlers.pinnedProjectIds,
+      handlers.navProjectIds,
       handlers.currentSessionId,
       handlers.handleSelectSession,
       handlers.handleTogglePinSession,
@@ -67,36 +66,5 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
       handlers.handleRenameSession
     ]
   )
-  const sessionsSlot = useMemo(
-    () => (
-      <SessionList
-        agentAppearance={agentUiPolicy}
-        currentSessionId={handlers.currentSessionId}
-        projectNameById={handlers.projectNameById}
-        pinnedProjectIds={handlers.pinnedProjectIds}
-        onSelect={handlers.handleSelectSession}
-        onDelete={handlers.handleDeleteSession}
-        onRename={handlers.handleRenameSession}
-        onTogglePin={handlers.handleTogglePinSession}
-        drafts={handlers.draftSessions}
-        activeDraftKey={handlers.activeDraftKey}
-        onSelectDraft={handlers.handleSelectDraft}
-        onDeleteDraft={handlers.handleDeleteDraft}
-      />
-    ),
-    [
-      handlers.currentSessionId,
-      handlers.projectNameById,
-      handlers.pinnedProjectIds,
-      handlers.handleSelectSession,
-      handlers.handleDeleteSession,
-      handlers.handleRenameSession,
-      handlers.handleTogglePinSession,
-      handlers.draftSessions,
-      handlers.activeDraftKey,
-      handlers.handleSelectDraft,
-      handlers.handleDeleteDraft
-    ]
-  )
-  return { projectsSlot, pinnedSlot, sessionsSlot, footerSlot }
+  return { projectsSlot, pinnedSlot, footerSlot }
 }

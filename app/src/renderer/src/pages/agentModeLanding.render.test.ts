@@ -11,7 +11,9 @@ const { fixture } = vi.hoisted(() => ({
       loadingSession: false,
       inflight: false
     },
-    draft: '/검토 기존 초안'
+    draft: '/검토 기존 초안',
+    projectsAvailable: true,
+    projectsLoading: false
   }
 }))
 
@@ -47,12 +49,18 @@ vi.mock('../features/settings', () => ({
   providerTabId: (key: string) => key
 }))
 vi.mock('../features/projects', () => ({
+  projectsActions: { refresh: vi.fn(async () => {}) },
   ProjectInfoHero: () => createElement('div', { 'data-component': 'ProjectInfoHero' }),
   ProjectInstructionsSidebar: () =>
     createElement('div', { 'data-component': 'ProjectInstructionsSidebar' }),
   ProjectLandingHeader: () => createElement('div', { 'data-component': 'ProjectLandingHeader' }),
-  useProjectsState: (select: (state: { list: { id: string; name: string }[] }) => unknown) =>
-    select({ list: [{ id: 'project-r3', name: '회귀 프로젝트' }] })
+  useProjectsState: (
+    select: (state: { list: { id: string; name: string }[]; loading: boolean }) => unknown
+  ) =>
+    select({
+      list: fixture.projectsAvailable ? [{ id: 'project-r3', name: '회귀 프로젝트' }] : [],
+      loading: fixture.projectsLoading
+    })
 }))
 vi.mock('../features/sessions', () => ({
   ProjectSessionsPanel: () => createElement('div', { 'data-component': 'ProjectSessionsPanel' })
@@ -63,6 +71,8 @@ const { NewChatLandingPage } = await import('./NewChatLandingPage')
 const { ProjectLandingPage } = await import('./ProjectLandingPage')
 
 beforeEach(() => {
+  fixture.projectsAvailable = true
+  fixture.projectsLoading = false
   fixture.session = {
     agentKind: 'code',
     sessionId: null,
@@ -76,6 +86,23 @@ const pages = [
   { label: '새 대화', Page: NewChatLandingPage },
   { label: '프로젝트', Page: ProjectLandingPage }
 ]
+
+it('a direct project URL cannot send with the global cwd while its project is loading', () => {
+  fixture.projectsAvailable = false
+  fixture.projectsLoading = true
+  const loading = renderToStaticMarkup(createElement(ProjectLandingPage))
+  expect(loading).toContain('불러오는 중')
+  expect(loading).not.toContain('data-component="Composer"')
+  expect(loading).not.toContain('data-component="ProjectInfoHero"')
+  fixture.projectsLoading = false
+  expect(renderToStaticMarkup(createElement(ProjectLandingPage))).toContain(
+    '프로젝트를 불러올 수 없습니다'
+  )
+  fixture.projectsAvailable = true
+  expect(renderToStaticMarkup(createElement(ProjectLandingPage))).toContain(
+    'data-component="Composer"'
+  )
+})
 
 describe.each(pages)('0224 r3 — $label 랜딩 배치 (AC-R3-3 · EP3)', ({ Page }) => {
   it.each(['code', 'work'] as const)(
@@ -111,7 +138,7 @@ it('새 대화의 prefill과 프로젝트의 지침·세션 목록 배치를 보
   const fresh = renderToStaticMarkup(createElement(NewChatLandingPage))
   expect(fresh).toContain('data-initial-draft="/검토 기존 초안"')
   const project = renderToStaticMarkup(createElement(ProjectLandingPage))
-  expect(project).toContain('data-component="ProjectInstructionsSidebar"')
+  expect(project).not.toContain('data-component="ProjectInstructionsSidebar"')
   expect(project.indexOf('data-component="ProjectInfoHero"')).toBeLessThan(
     project.indexOf('data-component="AgentModeToggle"')
   )

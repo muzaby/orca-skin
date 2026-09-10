@@ -6,7 +6,7 @@ import {
   useDraftSessionRows,
   type DraftRow
 } from '../../features/chat'
-import { pinnedProjectsOf, sessionsActions, type DraftSessionRow } from '../../features/sessions'
+import { navProjectsOf, sessionsActions, type DraftSessionRow } from '../../features/sessions'
 import { projectsActions, useProjectsState } from '../../features/projects'
 import type { Project } from '../../../../shared/ipc'
 
@@ -17,9 +17,9 @@ export interface SessionHandlers {
   handleDeleteSession: (id: string) => void
   handleRenameSession: (id: string, title: string) => void
   // 0129 고정 — "고정됨" 섹션 데이터·토글. app 셸이 sessions/projects 두 feature 를 잇는다.
-  pinnedProjects: Project[]
-  // 최근 대화의 배치 판정에 쓰는 고정 프로젝트 id 집합 — pinnedProjects 와 같은 곳에서 파생한다.
-  pinnedProjectIds: ReadonlySet<string>
+  navProjects: Project[]
+  // 최근 대화의 배치 판정에 쓰는 고정 프로젝트 id 집합 — navProjects 와 같은 곳에서 파생한다.
+  navProjectIds: ReadonlySet<string>
   handleTogglePinSession: (id: string, pinned: boolean) => void
   handleTogglePinProject: (id: string, pinned: boolean) => void
   handleOpenProject: (id: string) => void
@@ -68,9 +68,9 @@ export function useSessionHandlers(): SessionHandlers {
 
   // 고정 프로젝트 — 파생은 features/sessions 의 순수 함수가 갖는다(0203 ΔV1 EP-10).
   // hook 안에 두면 순수 테스트가 닿지 못한다.
-  const pinnedProjects = useMemo(() => pinnedProjectsOf(projects), [projects])
+  const navProjects = useMemo(() => navProjectsOf(projects), [projects])
 
-  const pinnedProjectIds = useMemo(() => new Set(pinnedProjects.map((p) => p.id)), [pinnedProjects])
+  const navProjectIds = useMemo(() => new Set(navProjects.map((p) => p.id)), [navProjects])
 
   const handleTogglePinSession = useCallback((id: string, pinned: boolean): void => {
     void sessionsActions.setPinned(id, pinned)
@@ -151,8 +151,8 @@ export function useSessionHandlers(): SessionHandlers {
     handleSelectSession,
     handleDeleteSession,
     handleRenameSession,
-    pinnedProjects,
-    pinnedProjectIds,
+    navProjects,
+    navProjectIds,
     handleTogglePinSession,
     handleTogglePinProject,
     handleOpenProject,

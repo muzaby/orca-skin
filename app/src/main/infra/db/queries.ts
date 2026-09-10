@@ -275,18 +275,18 @@ export class DbQueries {
       UPDATE projects SET pinned_at = @pinnedAt WHERE id = @id
     `)
     this.listProjectsStmt = db.prepare(`
-      SELECT id, name, instructions, created_at, updated_at, pinned_at
+      SELECT id, name, instructions, created_at, updated_at, pinned_at, cwd, cwd_key
       FROM projects
       ORDER BY updated_at DESC
     `)
     this.getProjectStmt = db.prepare(`
-      SELECT id, name, instructions, created_at, updated_at, pinned_at
+      SELECT id, name, instructions, created_at, updated_at, pinned_at, cwd, cwd_key
       FROM projects
       WHERE id = @id
     `)
     this.insertProjectStmt = db.prepare(`
-      INSERT INTO projects (id, name, instructions, created_at, updated_at)
-      VALUES (@id, @name, @instructions, @createdAt, @createdAt)
+      INSERT INTO projects (id, name, instructions, created_at, updated_at, cwd, cwd_key)
+      VALUES (@id, @name, @instructions, @createdAt, @createdAt, @cwd, @cwdKey)
     `)
     // 부분 업데이트 — name / instructions 둘 다 nullable 인자. NULL 이면 기존 값 유지.
     this.updateProjectStmt = db.prepare(`
@@ -654,7 +654,17 @@ export class DbQueries {
   }
 
   insertProject(row: ProjectInsert): void {
-    this.insertProjectStmt.run(row)
+    this.insertProjectStmt.run({ ...row, cwd: row.cwd ?? null, cwdKey: row.cwdKey ?? null })
+  }
+
+  /** The unique path key owns reuse, including starts arriving from different windows. */
+  ensurePathProject(row: ProjectInsert & { cwd: string; cwdKey: string }): ProjectRow {
+    return this.db.transaction(() => {
+      const existing = this.db.prepare('SELECT * FROM projects WHERE cwd_key = ?').get(row.cwdKey)
+      if (existing) return existing as ProjectRow
+      this.insertProject(row)
+      return this.getProject(row.id)!
+    })()
   }
 
   // name / instructions 둘 다 undefined 면 updated_at 만 갱신되지만, 호출 측에서

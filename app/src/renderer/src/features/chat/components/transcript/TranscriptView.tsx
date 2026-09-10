@@ -12,6 +12,7 @@ import type { ClassifiedError } from '../../../../../../shared/ipc'
 import type { AgentKind } from '../../../../../../shared/agent-kind'
 import { createWorkToolResultSelector } from '../../lib/workToolResults'
 import { agentUiPolicy } from '../../lib/agentPresentation'
+import { OrdinaryOutputCards } from './OrdinaryOutputCards'
 
 interface TranscriptViewProps {
   agentKind: AgentKind
@@ -153,6 +154,7 @@ export const TranscriptView = memo(function TranscriptView({
         {inflight && exchanges.length === 0 && <PendingAssistant />}
         {/* 교환이 없는데 에러만 있는 엣지(전송 실패 직후 등) — 최상위 fallback. */}
         {error && exchanges.length === 0 && <TurnErrorBanner error={error} />}
+        {agentKind === 'work' && !loadingSession && <OrdinaryOutputCards />}
       </ReadingColumn>
     </div>
   )

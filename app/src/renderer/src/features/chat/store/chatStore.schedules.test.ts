@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { chatReducer, initialChatState } from '../reducer/chatReducer'
-import { ingestChatEvent, useChatStore } from './chatStore'
+import { ingestChatEvent, sessionBusy, sessionResponding, useChatStore } from './chatStore'
 import { harnessSession, installChatStoreHarness } from './chatStore.testHarness'
 import type { SessionSchedule } from '../../../../../shared/session-schedules'
 import { activitySnapshot } from '../activity.testfixture'
@@ -10,6 +10,44 @@ const schedules: SessionSchedule[] = [
 ]
 
 describe('session scheduling receive path', () => {
+  it('ready 복원은 예약 수신 점유만 유지하고 오래된 복원이나 다른 세션으로 새지 않는다', () => {
+    const loaded = chatReducer(initialChatState, {
+      type: 'LOAD_SESSION',
+      session: {
+        id: 's',
+        agentKind: 'work',
+        backend: 'claude',
+        title: null,
+        messages: [],
+        activity: activitySnapshot(3, 'ready', { sessionSchedules: schedules })
+      }
+    })
+    expect(sessionBusy(loaded)).toBe(true)
+    expect(sessionResponding(loaded)).toBe(false)
+    expect(loaded.activityTransport).toBe('ready')
+    expect(loaded.listenStartedAt).toBeNull()
+    expect(loaded.sessionSchedules).toEqual(schedules)
+    const stale = chatReducer(loaded, {
+      type: 'LOAD_SESSION',
+      session: {
+        id: 's',
+        agentKind: 'work',
+        backend: 'claude',
+        title: null,
+        messages: [],
+        activity: activitySnapshot(2, 'listening', { foreground: 'streaming' })
+      }
+    })
+    expect(sessionResponding(stale)).toBe(false)
+    const other = chatReducer(loaded, {
+      type: 'LOAD_SESSION',
+      session: { id: 'other', agentKind: 'work', backend: 'claude', title: null, messages: [] }
+    })
+    expect(sessionBusy(other)).toBe(false)
+    expect(other.activityTransport).toBe('idle')
+    expect(chatReducer(loaded, { type: 'CANCEL_CHAT' }).activityTransport).toBe('idle')
+  })
+
   beforeEach(() => {
     installChatStoreHarness()
   })

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { matchPath, useLocation, useNavigate } from 'react-router-dom'
 import { chatActions, getActiveChatSession, useChatSession } from '../../features/chat'
 import { useSessionsState } from '../../features/sessions'
+import { useProjectsState } from '../../features/projects'
 
 // URL ↔ chat store 의 양방향 동기화. AppLayout 레벨에서 한 번만 마운트해 두면
 // chat 적합 라우트 세 가지(`/new`, `/chat/:sessionId`, `/projects/:projectId`)
@@ -32,6 +33,9 @@ export function useChatRouteSync(): void {
   const projectMatch = matchPath('/projects/:projectId', pathname)
   const urlSessionId = chatMatch?.params.sessionId ?? null
   const urlProjectId = projectMatch?.params.projectId ?? null
+  const urlProject = useProjectsState((state) =>
+    state.list.find((project) => project.id === urlProjectId)
+  )
   // URL 이 가리키는 세션 하나만 구독한다 — byId 맵 전체를 구독하면 무관한 세션의 제목
   // 이벤트·고정 토글까지 이 effect 를 다시 돌린다(엔티티 참조는 store 가 보존).
   const urlSessionMeta = useSessionsState((state) =>
@@ -73,11 +77,12 @@ export function useChatRouteSync(): void {
       // 프로젝트 랜딩으로 진입 / 다른 프로젝트로 전이 시에만 reset. 이미 같은
       // 프로젝트에 묶여 있고(sessionId 도 없음) 사용자가 입력 중인 상태는 보존.
       const wrongState = cur.pendingProjectId !== urlProjectId || cur.sessionId != null
-      if (wrongState) chatActions.newChat(urlProjectId)
+      if (wrongState) chatActions.newChat(urlProjectId, urlProject?.cwd)
+      if (urlProject) chatActions.initializeProjectCwd(urlProjectId, urlProject.cwd)
       return
     }
     // chat 라우트(비채팅, 예: /projects, /agent 등) → no-op.
-  }, [onNew, urlSessionId, urlProjectId, urlSessionMeta, pathname])
+  }, [onNew, urlSessionId, urlProjectId, urlSessionMeta, urlProject, pathname])
 
   // 방향 2 — State → URL (armed-ref)
   const sessionId = useChatSession((s) => s.sessionId)

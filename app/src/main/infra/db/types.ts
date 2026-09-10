@@ -201,6 +201,8 @@ export interface ProjectRow {
   created_at: number
   updated_at: number
   pinned_at: number | null
+  cwd: string | null
+  cwd_key: string | null
 }
 
 export interface ProjectInsert {
@@ -208,6 +210,8 @@ export interface ProjectInsert {
   name: string
   instructions: string
   createdAt: number
+  cwd?: string | null
+  cwdKey?: string | null
 }
 
 // 0064 continuity — fork/handoff 로 파생된 세션의 부모 관계 (session_lineage).

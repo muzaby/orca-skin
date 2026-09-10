@@ -480,6 +480,7 @@ export type NormalizedEvent =
       //               부재는 "판정 불가" 라 기능 안내를 띄우지 않는다(0212 D-005 · EP-01).
       //   cliVersion  init 의 `claude_code_version`. 안내 문구가 실제 버전을 말하게 한다.
       patch: {
+        projectId?: string | null
         agentKind?: AgentKind
         model?: string
         permissionMode?: NormalizedPermissionMode
@@ -1528,7 +1529,7 @@ export interface ChatActivitySnapshot {
   sessionId: string
   revision: number
   foreground: 'idle' | 'preparing' | 'streaming'
-  transport: 'idle' | 'listening'
+  transport: 'idle' | 'ready' | 'listening'
   queuedCount: number
   deliveryPendingCount: number
   residualCount: number
@@ -1546,11 +1547,14 @@ export interface Project {
   updatedAt: number
   // 0129 고정(pin) — 고정 시각(ms). null=미고정.
   pinnedAt: number | null
+  /** null for projects created before folder-based grouping. */
+  cwd: string | null
 }
 
 export interface CreateProjectRequest {
   name: string
   instructions: string
+  cwd?: string
 }
 
 export interface UpdateProjectRequest {

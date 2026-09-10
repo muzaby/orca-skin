@@ -6,7 +6,6 @@ import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 import { useTweakContext } from '../shared/theme'
 import { useI18n } from '../shared/i18n'
 import { useDragResize } from '../shared/hooks/useDragResize'
-import { SIDEBAR_SECTION_HEAD } from '../shared/ui/SidebarSection'
 import { SIDEBAR_NAV } from './navItems'
 
 // NAV 라벨은 언어 전환 시 stale 해지지 않도록 키만 상수로 두고 렌더에서 t() 해석(0096).
@@ -21,12 +20,10 @@ export const SIDEBAR_MAX_WIDTH = 480
 export const SIDEBAR_DEFAULT_WIDTH = 248
 
 export interface SidebarProps {
-  // '프로젝트' 슬롯 — 고정된 프로젝트만 나열한다.
+  // '프로젝트' 슬롯 — 경로 프로젝트와 기존 프로젝트를 모두 나열한다.
   projectsSlot: ReactNode
   // '고정됨' 슬롯 — features/sessions 의 PinnedSection.
   pinnedSlot: ReactNode
-  // '최근 대화' 슬롯 — features/sessions 의 SessionList.
-  sessionsSlot: ReactNode
   // footer 슬롯 — features/backend 의 BackendStatus.
   footerSlot: ReactNode
   onOpenPlugins: () => void
@@ -42,7 +39,6 @@ export interface SidebarProps {
 function SidebarImpl({
   projectsSlot,
   pinnedSlot,
-  sessionsSlot,
   footerSlot,
   onOpenPlugins
 }: SidebarProps): React.JSX.Element {
@@ -154,12 +150,10 @@ function SidebarImpl({
             })}
           </nav>
 
-          {/* 프로젝트 + 고정됨 + 최근 대화를 한 스크롤 컨테이너에 담아 함께 스크롤한다. */}
+          {/* 고정됨과 프로젝트를 한 스크롤 컨테이너에 담는다. */}
           <div className="app-frame-sidebar-scroll flex min-h-0 flex-1 flex-col overflow-y-auto">
-            {projectsSlot}
             {pinnedSlot}
-            <div className={SIDEBAR_SECTION_HEAD}>{tr('sidebar.recents')}</div>
-            <div className="app-frame-sidebar-sessions px-1.5 pt-1">{sessionsSlot}</div>
+            {projectsSlot}
           </div>
 
           {footerSlot && (

@@ -4,28 +4,20 @@ import { AgentModeToggle, ChatTile, Composer, useChatBusy, useChatSession } from
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { useUsageForTelemetryProvider } from '../features/chat'
 import { useOpenSettings, providerTabId } from '../features/settings'
-import {
-  ProjectInfoHero,
-  ProjectInstructionsSidebar,
-  ProjectLandingHeader,
-  useProjectsState
-} from '../features/projects'
+import { ProjectInfoHero, projectsActions, useProjectsState } from '../features/projects'
 import { ProjectSessionsPanel } from '../features/sessions'
 import { useSessionActions } from './useSessionActions'
+import { useI18n } from '../shared/i18n'
+import { Button } from '../shared/ui/Button'
 
 // page = "어떤 Feature 를 배치할지" 결정 (조립만). 채팅 라이프사이클(랜딩 reset
 // / 첫 턴 후 URL upgrade) 은 셸의 `useChatRouteSync` 가 담당하므로 여기서는 별도
 // hook 호출 없이 순수 조립.
 //
-// 레이아웃 슬롯:
-// - HEADER (풀-너비): ProjectLandingHeader — "모든 프로젝트" 링크만.
-// - LEFT col-span-3: ProjectInfoHero (제목/지침/메타) → Composer → 세션 목록.
-// - RIGHT col-span-2: ProjectInstructionsSidebar (지침 카드 — 파일 placeholder 는 0208 에서 제거).
-// 중앙:우측 = 6:4. 두 패널은 max-w-[1200px] mx-auto 단일 블록 안에서 고정 gap(gap-x-10)
-// 으로 묶이고, 창이 1200px 를 넘으면 패널 간 간격이 아니라 좌우 바깥 여백이 커진다.
-// xl 미만(< 1280px)에서는 단일 컬럼 자연 스택. 구조 구분선(헤더 하단·패널 사이)은 없음.
+// 아티팩트 목록과 같은 너비의 단일 컬럼: 제목 → Composer → 대화 목록.
 export function ProjectLandingPage(): React.JSX.Element {
   const { projectId = '' } = useParams<{ projectId: string }>()
+  const { tr } = useI18n()
   const navigate = useNavigate()
   const sessionId = useChatSession((s) => s.sessionId)
   const messages = useChatSession((s) => s.messages)
@@ -45,11 +37,28 @@ export function ProjectLandingPage(): React.JSX.Element {
   const projectName = useProjectsState((s) =>
     projectId ? (s.list.find((project) => project.id === projectId)?.name ?? null) : null
   )
+  const projectsLoading = useProjectsState((s) => s.loading)
   const sessionActions = useSessionActions({
     deleteFallbackProjectId: projectId,
     redirectAfterActiveDelete: `/projects/${projectId}`
   })
   const isEmpty = messages.length === 0 && !loadingSession
+
+  // A direct URL can arrive before the catalog. Do not expose a Composer seeded with Desktop.
+  if (isEmpty && projectName == null) {
+    return (
+      <section className="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 px-8">
+        <p role="status" className="text-[14px] text-ink3">
+          {tr(projectsLoading ? 'common.loading' : 'projects.unavailable')}
+        </p>
+        {!projectsLoading && (
+          <Button onClick={() => void projectsActions.refresh().catch(() => undefined)}>
+            {tr('projects.retry')}
+          </Button>
+        )}
+      </section>
+    )
+  }
 
   if (!isEmpty) {
     return (
@@ -68,10 +77,9 @@ export function ProjectLandingPage(): React.JSX.Element {
   return (
     <section className="flex min-h-0 min-w-0 flex-1 bg-bg">
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-        <ProjectLandingHeader onBack={() => navigate('/projects')} />
-        <div className="mx-auto grid w-full max-w-[1200px] min-w-0 flex-1 grid-cols-1 gap-y-6 px-6 py-8 xl:grid-cols-5 xl:gap-x-10">
-          <main className="flex min-w-0 flex-col space-y-6 xl:col-span-3">
-            <ProjectInfoHero projectId={projectId} />
+        <div className="mx-auto w-full max-w-[960px] min-w-0 px-8 pb-10 pt-10">
+          <main className="flex min-w-0 flex-col gap-6">
+            <ProjectInfoHero key={projectId} projectId={projectId} />
             <AgentModeToggle />
             <Composer
               backendLabel={backendLabel}
@@ -91,9 +99,6 @@ export function ProjectLandingPage(): React.JSX.Element {
               onRenameSession={sessionActions.onRenameSession}
             />
           </main>
-          <aside className="min-w-0 xl:col-span-2">
-            <ProjectInstructionsSidebar projectId={projectId} />
-          </aside>
         </div>
       </div>
     </section>

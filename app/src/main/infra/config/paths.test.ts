@@ -58,21 +58,17 @@ describe('workspaceDirName', () => {
 describe('getWorkspacePath', () => {
   const root = join(homedir(), '.config', PRODUCT_SLUG, 'projects')
 
-  it('프로젝트 없으면 projects/default', () => {
-    expect(getWorkspacePath(null)).toBe(join(root, 'default'))
-    expect(getWorkspacePath()).toBe(join(root, 'default'))
+  it('프로젝트가 없으면 OS에서 받은 Desktop을 쓴다', () => {
+    expect(getWorkspacePath(null, 'C:\\OneDrive\\Desktop')).toBe('C:\\OneDrive\\Desktop')
+    expect(getWorkspacePath(undefined, '/Users/me/Desktop')).toBe('/Users/me/Desktop')
   })
 
-  it('프로젝트 소속이면 파생 디렉토리', () => {
-    expect(getWorkspacePath({ id: '550e8400-e29b-41d4', name: 'My Project' })).toBe(
-      join(root, 'My_Project-550e8400')
-    )
+  it('기존 cwd 없는 프로젝트도 Desktop을 기본으로 쓴다', () => {
+    expect(getWorkspacePath({ cwd: null }, '/Desktop')).toBe('/Desktop')
   })
 
   it('cwd 지정값(future)이 파생값보다 우선한다', () => {
-    expect(getWorkspacePath({ id: '550e8400', name: 'My Project', cwd: '/abs/repo' })).toBe(
-      '/abs/repo'
-    )
+    expect(getWorkspacePath({ cwd: '/abs/repo' }, '/Desktop')).toBe('/abs/repo')
   })
 
   it('projectsDir 는 ~/.config/<slug>/projects', () => {

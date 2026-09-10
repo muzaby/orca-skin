@@ -1,4 +1,3 @@
-import path from 'node:path'
 import type { HookCallback, Options } from '@anthropic-ai/claude-agent-sdk'
 import { isAbsolutePath } from '../../shared/absolute-path'
 import { isRecord } from '../../shared/obj'
@@ -116,7 +115,7 @@ function hasLinkEnd(text: string, start: number): number | undefined {
 
 const referenceKey = (value: string): string => value.trim().replace(/\s+/g, ' ').toLowerCase()
 
-export function explicitOutputLinks(markdown: string, directory: string): string[] {
+export function explicitOutputLinks(markdown: string): string[] {
   const definitions = new Map<string, string>()
   const text = withoutCode(markdown)
     .split('\n')
@@ -139,13 +138,8 @@ export function explicitOutputLinks(markdown: string, directory: string): string
       return
     }
     if (!isAbsolutePath(decoded)) return
-    const slashPath = decoded.replace(/\\/g, '/')
-    // 모델에게 안내한 /tmp/<file> 별칭만 실제 Work 출력 폴더에 대응시킨다.
-    links.add(
-      path.posix.dirname(slashPath) === '/tmp'
-        ? path.join(directory, path.posix.basename(slashPath))
-        : decoded
-    )
+    // Keep the model's actual absolute destination. The file reader enforces the OS output root.
+    links.add(decoded)
   }
   for (let i = 0; i < text.length; i++) {
     if (text[i] === '\\') {
@@ -203,7 +197,7 @@ export function makeOutputFilesHook(
       if (input.tool_name === 'Write' && typeof input.tool_input.content === 'string')
         expectedContent = input.tool_input.content
     } else if (input.hook_event_name === 'Stop' && input.last_assistant_message) {
-      paths = explicitOutputLinks(input.last_assistant_message, outputFiles.directory)
+      paths = explicitOutputLinks(input.last_assistant_message)
     }
     let failed = false
     for (const filePath of paths) {

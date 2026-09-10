@@ -232,6 +232,17 @@ export class SessionRuntime implements ManagedRuntime {
   // chat-turn 의 "pushTurn 은 유휴 채널에서만" 가드가 읽는다 — mid-turn push 로 auto-turn 의
   // terminal/에러가 다음 프레임에 오귀속되는 것(steer 세션 사망)을 구조적으로 차단한다.
   private cliBusy = false
+  private readonly channelActivityListeners = new Set<() => void>()
+
+  /** 채널 소유권과 별개인 즉시 입력 가능 상태의 변화. 구독 수명은 호출 체인이 소유한다. */
+  subscribeChannelActivity(listener: () => void): () => void {
+    this.channelActivityListeners.add(listener)
+    return () => this.channelActivityListeners.delete(listener)
+  }
+
+  private notifyChannelActivity(): void {
+    for (const listener of this.channelActivityListeners) listener()
+  }
   // 현재 턴의 콜백 위임(0067 W1) — 채널 spawn 시 어댑터에 바인딩된 콜백이 턴을 넘어 재사용되므로,
   // 어댑터에는 고정 래퍼를 주고 실제 콜백은 매 send/listen 마다 여기로 갈아끼운다.
   // 목록 정본은 `FRAME_DELEGATE_KEYS` 다 — **요청을 재조립하는 모든 경로**(listen 등)가 같은
@@ -495,6 +506,7 @@ export class SessionRuntime implements ManagedRuntime {
         this.frame = null
         this.draining = true
       }
+      this.notifyChannelActivity()
     }
   }
 
@@ -512,22 +524,26 @@ export class SessionRuntime implements ManagedRuntime {
           // 다시 unframed에 남기고, 닫힌 프레임을 routing slot에 걸어 새 이벤트를 유실시키지 않는다.
           this.unframed.push(...backlog.slice(index + 1))
           frame.end()
+          this.notifyChannelActivity()
           return frame
         }
       }
     }
     this.frame = frame
+    this.notifyChannelActivity()
     return frame
   }
 
   private startPump(live: LiveTurn, channelToken: number): void {
     this.pumpRunning = true
+    this.notifyChannelActivity()
     void (async () => {
       let pumpError: unknown = null
       try {
         for await (const batch of live.eventBatches) {
           if (this.live !== live || this.channelTokenValue !== channelToken) return
           this.routeBatch(channelToken, batch)
+          this.notifyChannelActivity()
         }
       } catch (err) {
         pumpError = err
@@ -668,6 +684,7 @@ export class SessionRuntime implements ManagedRuntime {
     this.spawnedModelValue = undefined
     this.spawnedRuntimeToolsRevisionValue = undefined
     this.spawnedAgentProfileKeyValue = undefined
+    this.notifyChannelActivity()
   }
 
   private notifyChannelRetired(): void {
@@ -746,6 +763,7 @@ export class SessionRuntime implements ManagedRuntime {
         // 취소를 실패로 재표시하지 않는다 — **error 만** 걷어내고 부분 답변·telemetry 는 배달한다.
         deliveryFrame.cancel()
       }
+      this.notifyChannelActivity()
       return
     }
     this.channelController.abort()

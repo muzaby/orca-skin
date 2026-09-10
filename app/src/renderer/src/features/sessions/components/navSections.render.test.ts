@@ -67,6 +67,7 @@ const WITHHELD = session('withheld', '안준-대화', { pinnedAt: 55 })
 const PROJECT: Project = {
   id: 'p1',
   name: '프로젝트하나',
+  cwd: null,
   instructions: '',
   createdAt: 0,
   updatedAt: 0,

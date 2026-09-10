@@ -4,6 +4,8 @@ import {
   closeArtifactViewer,
   openArtifactViewer,
   retryArtifactViewer,
+  setArtifactViewerWidth,
+  toggleArtifactViewerExpanded,
   useArtifactViewerStore
 } from './artifactViewerStore'
 
@@ -40,6 +42,19 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllGlobals())
 describe('viewer selection and request lifetime', () => {
+  it('preserves independent host widths across expand, close and publication changes without reloading', async () => {
+    await openArtifactViewer('key', 's', ref)
+    const selection = useArtifactViewerStore.getState().selection
+    setArtifactViewerWidth('transcript', 710)
+    setArtifactViewerWidth('catalog', 620)
+    expect(useArtifactViewerStore.getState().selection).toBe(selection)
+    toggleArtifactViewerExpanded()
+    toggleArtifactViewerExpanded()
+    closeArtifactViewer()
+    await openArtifactViewer('key', 's', { ...ref, publicationId: 'p2' })
+    expect(useArtifactViewerStore.getState().widths).toEqual({ transcript: 710, catalog: 620 })
+    expect(preview).toHaveBeenCalledTimes(2)
+  })
   it('shows the selected title while loading then the same publication content', async () => {
     const pending = deferred()
     preview.mockReturnValueOnce(pending.promise)

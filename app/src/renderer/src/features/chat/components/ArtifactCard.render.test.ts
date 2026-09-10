@@ -35,8 +35,7 @@ function render(
       variant,
       onAction: vi.fn(),
       onPreview: vi.fn(),
-      onRefresh: vi.fn(),
-      onOpenFolder: vi.fn()
+      onRefresh: vi.fn()
     })
   )
 }
@@ -76,7 +75,8 @@ describe('artifact metadata card', () => {
     expect(html).toContain('report.html')
     expect(html).toContain('aria-label="다운로드"')
     expect(html).toContain('>다운로드</span>')
-    expect(html).toContain('문서 · HTML')
+    expect(html).toContain('>아티팩트</div>')
+    expect(html).not.toContain('아티팩트 · HTML')
     expect(html).not.toContain('role="status"')
     expect(html).not.toContain('>파일 있음<')
     expect(html).not.toContain('>탐색기에서 보기<')
@@ -124,7 +124,7 @@ describe('artifact metadata card', () => {
     }
   })
   it.each(['transcript', 'list'] as const)(
-    'keeps missing, inaccessible and historical trash states in %s',
+    'keeps missing and inaccessible states without storage metadata in %s',
     (variant) => {
       const missing = render(
         {
@@ -137,9 +137,9 @@ describe('artifact metadata card', () => {
         variant
       )
       expect(missing).toContain('파일 없음')
-      expect(missing).toContain('휴지통으로 이동한 시각')
+      expect(missing).not.toContain('휴지통으로 이동한 시각')
       expect(missing).toContain('다시 확인')
-      expect(missing).toContain('보관 폴더 열기')
+      expect(missing).not.toContain('보관 폴더 열기')
       if (variant === 'transcript')
         expect(missing).toMatch(/<button[^>]*disabled=""[^>]*aria-label="다운로드"/)
       const denied = render(
@@ -159,7 +159,6 @@ describe('artifact metadata card', () => {
     for (const variant of ['transcript', 'list'] as const) {
       const onAction = vi.fn()
       const onRefresh = vi.fn()
-      const onOpenFolder = vi.fn()
       renderToStaticMarkup(
         createElement(ArtifactCard, {
           artifact,
@@ -172,8 +171,7 @@ describe('artifact metadata card', () => {
           },
           onAction,
           onPreview: vi.fn(),
-          onRefresh,
-          onOpenFolder
+          onRefresh
         })
       )
       const items = Children.toArray(menu.children).filter(
@@ -181,13 +179,7 @@ describe('artifact metadata card', () => {
       )
       expect(
         items.map((node) => isValidElement<MenuItemProps>(node) && node.props.children)
-      ).toEqual([
-        '다른 이름으로 저장',
-        '탐색기에서 보기',
-        '다시 확인',
-        '휴지통으로 이동',
-        '보관 폴더 열기'
-      ])
+      ).toEqual(['다른 이름으로 저장', '탐색기에서 보기', '다시 확인', '휴지통으로 이동'])
       for (const node of items) {
         if (isValidElement<MenuItemProps>(node)) {
           expect(node.props.disabled).not.toBe(true)
@@ -200,7 +192,7 @@ describe('artifact metadata card', () => {
         [artifact, 'trash']
       ])
       expect(onRefresh).toHaveBeenCalledOnce()
-      expect(onOpenFolder).toHaveBeenCalledOnce()
+      expect(Children.toArray(menu.children)).toHaveLength(4)
     }
   })
   it('maps known failure reasons and never displays a raw host error', () => {

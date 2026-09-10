@@ -1,0 +1,191 @@
+{
+  "success": true,
+  "errors": [],
+  "screens": [
+    "project.png",
+    "instructions-error.png",
+    "instructions-saved.png",
+    "project-switch.png",
+    "new-desktop.png",
+    "background-catalog.png",
+    "project-loading.png"
+  ],
+  "blockedRequests": [],
+  "consoleMessages": [],
+  "platformFonts": {
+    "title": {
+      "fonts": [
+        {
+          "familyName": "Georgia",
+          "glyphCount": 13,
+          "isCustomFont": false,
+          "postScriptName": "Georgia"
+        }
+      ]
+    },
+    "chatRow": {
+      "fonts": [
+        {
+          "familyName": "Segoe UI Semibold",
+          "glyphCount": 4,
+          "isCustomFont": false,
+          "postScriptName": "SegoeUI-Semibold"
+        },
+        {
+          "familyName": "Malgun Gothic",
+          "glyphCount": 11,
+          "isCustomFont": false,
+          "postScriptName": "MalgunGothic"
+        }
+      ]
+    }
+  },
+  "observed": {
+    "checks": {
+      "production-default-app-font": true,
+      "production-explicit-title-serif": true,
+      "production-density-normal": true,
+      "project-cwd-beats-late-global-default": true,
+      "pinned-before-projects": true,
+      "no-recent-group": true,
+      "all-projects-visible": true,
+      "same-basename-path-prefixes": true,
+      "title-composer-list-order": true,
+      "project-chat-list-two-rows": true,
+      "no-chat-row-metadata": true,
+      "no-right-instructions": true,
+      "shared-catalog-row-geometry": true,
+      "instructions-menu-wired": true,
+      "instructions-dialog-open": true,
+      "instructions-loaded": true,
+      "save-failure-visible-and-retryable": true,
+      "save-closes-dialog": true,
+      "saved-instructions-reload": true,
+      "cancel-keeps-saved-instructions": true,
+      "next-project-cwd": true,
+      "next-project-empty-list": true,
+      "project-a-instructions-preserved": true,
+      "new-landing-desktop": true,
+      "background-confirmation-does-not-switch-view": true,
+      "background-event-refreshes-project-catalog": true,
+      "direct-url-waits-for-project-catalog": true
+    },
+    "errors": [],
+    "calls": [
+      [
+        "update",
+        {
+          "id": "a",
+          "instructions": "모든 검증 결과를 한국어로 정리하세요."
+        }
+      ],
+      [
+        "update",
+        {
+          "id": "a",
+          "instructions": "모든 검증 결과를 한국어로 정리하세요."
+        }
+      ],
+      [
+        "list-projects"
+      ],
+      [
+        "list-projects"
+      ]
+    ],
+    "typography": {
+      "fontApp": "var(--font-sans)",
+      "root": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, sans-serif",
+      "title": "\"Source Serif 4\", \"Source Serif Pro\", \"Tiempos Headline\", Georgia, serif",
+      "rootSize": "13px",
+      "fonts": "loaded"
+    },
+    "layout": [
+      {
+        "tag": "MAIN",
+        "class": "app-frame-main flex min-h-0 min-w-0 flex-1 flex-col",
+        "width": 1135.75,
+        "display": "flex",
+        "maxWidth": "none"
+      },
+      {
+        "tag": "SECTION",
+        "class": "flex min-h-0 min-w-0 flex-1 bg-bg",
+        "width": 1135.75,
+        "display": "flex",
+        "maxWidth": "none"
+      },
+      {
+        "tag": "DIV",
+        "class": "flex min-w-0 flex-1 flex-col overflow-y-auto",
+        "width": 1135.75,
+        "display": "flex",
+        "maxWidth": "none"
+      },
+      {
+        "tag": "DIV",
+        "class": "mx-auto w-full max-w-[960px] min-w-0 px-8 pb-10 pt-10",
+        "width": 960,
+        "display": "block",
+        "maxWidth": "960px"
+      },
+      {
+        "tag": "MAIN",
+        "class": "flex min-w-0 flex-col gap-6",
+        "width": 908,
+        "display": "flex",
+        "maxWidth": "none"
+      },
+      {
+        "tag": "SECTION",
+        "class": "",
+        "width": 908,
+        "display": "block",
+        "maxWidth": "none"
+      },
+      {
+        "tag": "DIV",
+        "class": "flex items-start gap-2",
+        "width": 908,
+        "display": "flex",
+        "maxWidth": "none"
+      },
+      {
+        "tag": "DIV",
+        "class": "ml-auto flex shrink-0 items-center gap-0.5",
+        "width": 47.125,
+        "display": "flex",
+        "maxWidth": "none"
+      },
+      {
+        "tag": "SECTION",
+        "class": "flex flex-col",
+        "width": 908,
+        "display": "flex",
+        "maxWidth": "none"
+      },
+      {
+        "tag": "DIV",
+        "class": "mb-2 flex items-baseline gap-2 px-1",
+        "width": 908,
+        "display": "flex",
+        "maxWidth": "none"
+      },
+      {
+        "tag": "DIV",
+        "class": "font-serif text-[13px] font-semibold text-ink",
+        "width": 107.07500457763672,
+        "display": "block",
+        "maxWidth": "none"
+      },
+      {
+        "tag": "DIV",
+        "class": "text-[11px] text-ink3",
+        "width": 16.9375,
+        "display": "block",
+        "maxWidth": "none"
+      }
+    ],
+    "rowPadding": "13px"
+  }
+}

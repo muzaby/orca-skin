@@ -1,9 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { promises as fs, type Stats } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
+import { getTemporaryFilesPath } from '../../infra/config/temp-path'
 
 export const MAX_ATTACHMENT_BYTES = 32 * 1024 * 1024
-export const nativeAttachmentDirectory = (): string => resolve('/tmp')
+export const nativeAttachmentDirectory = getTemporaryFilesPath
 
 const samePath = (a: string, b: string): boolean =>
   process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b

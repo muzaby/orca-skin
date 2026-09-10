@@ -95,6 +95,8 @@ export interface SubagentMetaState {
 }
 
 export interface SessionEntry {
+  cwdSelected?: boolean
+  projectCwdInitialized?: boolean
   session: ChatState
   live: LiveTurnState
   subagentMeta: Record<string, SubagentMetaState>
@@ -143,9 +145,10 @@ const EMPTY_SUBAGENT_META: Record<string, SubagentMetaState> = {}
 // 새 대화에서도 `@` 파일 자동완성이 즉시 동작한다(init 이벤트가 같은 값으로 덮어쓰기만).
 let cwdCache: string | null = null
 
-function freshEntry(projectId: string | null = null): SessionEntry {
+function freshEntry(projectId: string | null = null, cwd?: string | null): SessionEntry {
   return {
-    session: { ...initialChatState, cwd: cwdCache, pendingProjectId: projectId },
+    session: { ...initialChatState, cwd: cwd ?? cwdCache, pendingProjectId: projectId },
+    projectCwdInitialized: cwd !== undefined || projectId === null,
     live: EMPTY_LIVE,
     subagentMeta: EMPTY_SUBAGENT_META,
     pendingSteer: []
@@ -970,7 +973,29 @@ function patchPendingSession(apply: (session: ChatState) => ChatState): void {
 }
 
 function setPendingCwd(cwd: string): void {
-  patchPendingSession((session) => chatReducer(session, { type: 'SET_CWD', cwd }))
+  patchEntry(getState().activeKey, (entry) => {
+    if (entry.session.sessionId != null) return entry
+    const session = chatReducer(entry.session, { type: 'SET_CWD', cwd })
+    return session === entry.session ? entry : { ...entry, session, cwdSelected: true }
+  })
+}
+
+function initializeProjectCwd(projectId: string, cwd: string | null): void {
+  patchEntry(getState().activeKey, (entry) => {
+    if (
+      entry.session.sessionId != null ||
+      entry.session.pendingProjectId !== projectId ||
+      entry.projectCwdInitialized ||
+      entry.cwdSelected ||
+      entry.session.messages.length > 0
+    )
+      return entry
+    return {
+      ...entry,
+      projectCwdInitialized: true,
+      session: { ...entry.session, cwd: cwd ?? cwdCache }
+    }
+  })
 }
 
 function setWorktreeIsolation(enabled: boolean): void {
@@ -1073,9 +1098,9 @@ function backgroundTask(toolUseId: string): void {
   })
 }
 
-function newChat(projectId: string | null = null): void {
+function newChat(projectId: string | null = null, cwd?: string | null): void {
   setState((s) => ({
-    sessions: { ...s.sessions, [NEW_CHAT_KEY]: freshEntry(projectId) },
+    sessions: { ...s.sessions, [NEW_CHAT_KEY]: freshEntry(projectId, cwd) },
     activeKey: NEW_CHAT_KEY
   }))
   void settingsApi.set({ lastSessionId: null })
@@ -1512,6 +1537,7 @@ export const chatActions = {
   cancel,
   discardSession,
   newChat,
+  initializeProjectCwd,
   startForkDraft,
   startHandoff,
   activateContinuityDraft,
@@ -1638,7 +1664,9 @@ export function bootstrapChat(): () => void {
       sessions: Object.fromEntries(
         Object.entries(s.sessions).map(([k, entry]) => [
           k,
-          { ...entry, session: chatReducer(entry.session, { type: 'SET_CWD', cwd }) }
+          entry.session.sessionId == null && entry.session.cwd == null && !entry.cwdSelected
+            ? { ...entry, session: { ...entry.session, cwd } }
+            : entry
         ])
       )
     }))
@@ -1679,19 +1707,24 @@ export function useLiveText(): string {
   return useChatStore((s) => s.sessions[s.activeKey].live.text)
 }
 
-// 세션이 "작업 중" 인가 — inflight(턴 진행) ‖ listening(백그라운드 서브에이전트 완료 대기).
-//
-// 0143 이 listening 을 두 번째 불리언으로 들이면서 소비처마다 `inflight || listening` 을 손으로
-// 유도했고, 그 결과 일부가 누락돼 판정이 갈렸다(startHandoff·useChatSessionsSync·
-// ProjectLandingPage 는 inflight 만 봤다). 0149: busy 정의를 스토어가 단독 소유한다 — 다음
-// busy 하위 상태(압축 대기·승인 대기 등)가 생겨도 여기 한 곳만 고치면 된다.
-// listening 자체는 PendingAssistant 의 경과시간 앵커 전용으로만 직접 읽는다.
+// 세션 lease 점유 여부. ready 수신도 포함하며 입력 순서·폴더 변경·handoff 가드에 쓴다.
 export function useChatBusy(): boolean {
   return useChatSession(sessionBusy)
 }
 
 export function sessionBusy(s: Pick<ChatState, 'inflight' | 'listening'>): boolean {
   return s.inflight || s.listening
+}
+
+/** 답변 표면 전용. 채널을 유지하며 다음 예약을 기다리는 ready는 응답 중이 아니다. */
+export function sessionResponding(
+  s: Pick<ChatState, 'inflight' | 'listening' | 'activityTransport'>
+): boolean {
+  return s.inflight || (s.listening && s.activityTransport !== 'ready')
+}
+
+export function useChatResponding(): boolean {
+  return useChatSession(sessionResponding)
 }
 
 // 턴 종료 신호 수 (0211 ΔV6 D-115). git 조회 계기의 유일한 입력이다 — `sessionBusy` 와 달리

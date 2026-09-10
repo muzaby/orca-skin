@@ -265,6 +265,8 @@ export const ko = {
     }
   },
   projects: {
+    unavailable: '프로젝트를 불러올 수 없습니다.',
+    retry: '다시 시도',
     title: '프로젝트',
     newProject: '새 프로젝트',
     blurb:
@@ -283,6 +285,7 @@ export const ko = {
         'Claude 의 응답을 이 프로젝트에 맞게 조정하는 지침. 예: 모든 응답을 한국어로, 코드 예시는 TypeScript 로.'
     },
     editInstructions: {
+      saveFailed: '지침을 저장하지 못했습니다. 다시 시도해 주세요.',
       title: '지침 편집',
       body: '<mono>{{name}}</mono> 의 모든 새 메시지에 시스템 프롬프트로 덧붙여집니다.',
       placeholder:
@@ -292,7 +295,7 @@ export const ko = {
       pin: '고정',
       pinAria: '프로젝트 고정',
       menuAria: '프로젝트 메뉴',
-      editDetails: '세부사항 수정',
+      editInstructions: '지침 편집',
       updated: '업데이트'
     },
     instructionsCard: {

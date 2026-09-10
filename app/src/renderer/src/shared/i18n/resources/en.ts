@@ -261,6 +261,8 @@ export const en: typeof ko = {
     }
   },
   projects: {
+    unavailable: 'Could not load the project.',
+    retry: 'Try again',
     title: 'Projects',
     newProject: 'New project',
     blurb:
@@ -279,6 +281,7 @@ export const en: typeof ko = {
         "Instructions that tailor Claude's responses to this project. e.g. Respond in Korean; use TypeScript for code examples."
     },
     editInstructions: {
+      saveFailed: 'Could not save instructions. Please try again.',
       title: 'Edit instructions',
       body: 'Appended as a system prompt to every new message in <mono>{{name}}</mono>.',
       placeholder:
@@ -288,7 +291,7 @@ export const en: typeof ko = {
       pin: 'Pin',
       pinAria: 'Pin project',
       menuAria: 'Project menu',
-      editDetails: 'Edit details',
+      editInstructions: 'Edit instructions',
       updated: 'Updated'
     },
     instructionsCard: {

@@ -4,6 +4,7 @@ import { Icon, type IconName } from '../../../shared/ui/Icon'
 import { KebabButton } from '../../../shared/ui/KebabButton'
 import { MenuItem } from '../../../shared/ui/MenuItem'
 import { Popover } from '../../../shared/ui/Popover'
+import { CatalogListRow } from '../../../shared/ui/CatalogListRow'
 import { RenameInput } from '../../../shared/ui/RenameInput'
 import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
 import { useI18n } from '../../../shared/i18n'
@@ -22,6 +23,7 @@ export type AgentAppearanceResolver = (kind: AgentKind) => SessionAgentAppearanc
 // Sidebar 와 ProjectDetailScreen 양쪽에서 재사용 (kebab/rename/delete UX 통일).
 export interface SessionRowProps {
   appearance: SessionAgentAppearance
+  variant?: 'nav' | 'catalog'
   session: SessionListItem
   isActive: boolean
   // 프로젝트 소속 세션일 때만 truthy. label 에 `<projectName> / ` prefix 가 붙는다.
@@ -44,6 +46,7 @@ export interface SessionRowProps {
 // 실제로 바뀐 행만 재렌더된다.
 export const SessionRow = memo(function SessionRow({
   appearance,
+  variant = 'nav',
   session,
   isActive,
   projectName,
@@ -67,7 +70,7 @@ export const SessionRow = memo(function SessionRow({
       data-state={unseen && !isActive ? 'unseen-complete' : 'default'}
       className={`inline-flex shrink-0 ${unseen && !isActive ? 'text-selected [&_svg]:stroke-current [&_svg]:[stroke-linejoin:round] [&_svg]:[stroke-width:40]' : ''}`}
     >
-      <Icon name={appearance.navIcon} size={14} />
+      <Icon name={appearance.navIcon} size={variant === 'catalog' ? 20 : 14} />
     </span>
   )
 
@@ -100,8 +103,9 @@ export const SessionRow = memo(function SessionRow({
   }
 
   if (renaming) {
+    const Root = variant === 'catalog' ? 'li' : 'div'
     return (
-      <div
+      <Root
         className={`app-frame-session-row flex items-center gap-1.5 rounded-md px-2 py-[5px] text-[12.5px] ${
           isActive ? 'bg-fill-uncontained-active text-ink' : 'text-t7'
         }`}
@@ -119,7 +123,94 @@ export const SessionRow = memo(function SessionRow({
           ariaLabel={tr('sessions.renameAria')}
           autoSize
         />
-      </div>
+      </Root>
+    )
+  }
+
+  const actions = hasMenu && (
+    <>
+      <KebabButton
+        ref={kebabRef}
+        open={menuOpen}
+        onToggle={(e) => {
+          e.stopPropagation()
+          setMenuOpen((v) => !v)
+        }}
+        revealClass={
+          variant === 'catalog' ? 'group-hover/catalog-row:grid' : 'group-hover/session:grid'
+        }
+        ariaLabel={tr('sessions.menuAria')}
+      />
+      <Popover open={menuOpen} anchorRef={kebabRef} onClose={() => setMenuOpen(false)}>
+        <div role="menu" className="flex w-[140px] flex-col py-1">
+          {onTogglePin != null && (
+            <MenuItem
+              role="menuitem"
+              icon="pin"
+              iconSize={12}
+              onClick={(e) => {
+                e.stopPropagation()
+                setMenuOpen(false)
+                onTogglePin(session.id, !pinned)
+              }}
+            >
+              <span>{tr(pinned ? 'common.unpin' : 'common.pin')}</span>
+            </MenuItem>
+          )}
+          {renameable && (
+            <MenuItem
+              role="menuitem"
+              icon="edit"
+              iconSize={12}
+              onClick={(e) => {
+                e.stopPropagation()
+                startRename()
+              }}
+            >
+              <span>{tr('common.rename')}</span>
+            </MenuItem>
+          )}
+          {onDelete != null && (
+            <MenuItem
+              role="menuitem"
+              danger
+              icon="trash"
+              iconSize={12}
+              onClick={(e) => {
+                e.stopPropagation()
+                setMenuOpen(false)
+                openConfirmDialog({
+                  title: tr('sessions.deleteDialogTitle'),
+                  message: `${tr('sessions.deleteDialogMessage')} ${tr('chat.artifacts.retainedOnSessionDelete')}`,
+                  confirmLabel: tr('common.delete'),
+                  danger: true,
+                  onConfirm: () => onDelete(session.id)
+                })
+              }}
+            >
+              <span>{tr('common.delete')}</span>
+            </MenuItem>
+          )}
+        </div>
+      </Popover>
+    </>
+  )
+
+  if (variant === 'catalog') {
+    return (
+      <CatalogListRow
+        data-context="project-session"
+        data-session-id={session.id}
+        selected={isActive}
+        icon={modeIcon}
+        title={
+          <span className="truncate" title={label}>
+            {label}
+          </span>
+        }
+        openProps={{ onClick: () => onSelect?.(session.id) }}
+        actions={actions}
+      />
     )
   }
 
@@ -139,72 +230,7 @@ export const SessionRow = memo(function SessionRow({
       <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
         {label}
       </span>
-      {hasMenu && (
-        <>
-          <KebabButton
-            ref={kebabRef}
-            open={menuOpen}
-            onToggle={(e) => {
-              e.stopPropagation()
-              setMenuOpen((v) => !v)
-            }}
-            revealClass="group-hover/session:grid"
-            ariaLabel={tr('sessions.menuAria')}
-          />
-          <Popover open={menuOpen} anchorRef={kebabRef} onClose={() => setMenuOpen(false)}>
-            <div role="menu" className="flex w-[140px] flex-col py-1">
-              {onTogglePin != null && (
-                <MenuItem
-                  role="menuitem"
-                  icon="pin"
-                  iconSize={12}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setMenuOpen(false)
-                    onTogglePin(session.id, !pinned)
-                  }}
-                >
-                  <span>{tr(pinned ? 'common.unpin' : 'common.pin')}</span>
-                </MenuItem>
-              )}
-              {renameable && (
-                <MenuItem
-                  role="menuitem"
-                  icon="edit"
-                  iconSize={12}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    startRename()
-                  }}
-                >
-                  <span>{tr('common.rename')}</span>
-                </MenuItem>
-              )}
-              {onDelete != null && (
-                <MenuItem
-                  role="menuitem"
-                  danger
-                  icon="trash"
-                  iconSize={12}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setMenuOpen(false)
-                    openConfirmDialog({
-                      title: tr('sessions.deleteDialogTitle'),
-                      message: `${tr('sessions.deleteDialogMessage')} ${tr('chat.artifacts.retainedOnSessionDelete')}`,
-                      confirmLabel: tr('common.delete'),
-                      danger: true,
-                      onConfirm: () => onDelete(session.id)
-                    })
-                  }}
-                >
-                  <span>{tr('common.delete')}</span>
-                </MenuItem>
-              )}
-            </div>
-          </Popover>
-        </>
-      )}
+      {actions}
     </div>
   )
 })

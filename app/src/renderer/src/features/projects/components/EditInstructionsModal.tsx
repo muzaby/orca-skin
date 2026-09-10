@@ -36,6 +36,7 @@ function EditInstructionsModalOpen({
   const { tr } = useI18n()
   const [value, setValue] = useState(initial)
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -45,9 +46,12 @@ function EditInstructionsModalOpen({
   const save = async (): Promise<void> => {
     if (busy) return
     setBusy(true)
+    setError(false)
     try {
       await onSave(value)
       onClose()
+    } catch {
+      setError(true)
     } finally {
       setBusy(false)
     }
@@ -57,7 +61,9 @@ function EditInstructionsModalOpen({
     <Modal
       open
       title={tr('projects.editInstructions.title')}
-      onClose={onClose}
+      onClose={() => {
+        if (!busy) onClose()
+      }}
       footer={
         <ModalActions
           onCancel={onClose}
@@ -87,6 +93,11 @@ function EditInstructionsModalOpen({
         className={`${MODAL_INPUT} resize-none leading-[1.6]`}
       />
       <div className="mt-1 text-right text-[10.5px] text-ink3">{value.length} / 8000</div>
+      {error && (
+        <p role="alert" className="mt-2 text-[12px] text-bad">
+          {tr('projects.editInstructions.saveFailed')}
+        </p>
+      )}
     </Modal>
   )
 }

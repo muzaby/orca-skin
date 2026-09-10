@@ -9,6 +9,13 @@ const output = (name: string): string => path.join(directory, name)
 const inputBase = { session_id: 's1', cwd: '/work', transcript_path: '/work/transcript.jsonl' }
 
 describe('explicit output links', () => {
+  it('preserves a Windows OS Temp destination and never rewrites a Linux example into it', () => {
+    expect(
+      explicitOutputLinks(
+        '[report](<C:/Users/me/AppData/Local/Temp/report.pptx>) [linux](/tmp/report.md)'
+      )
+    ).toEqual(['C:/Users/me/AppData/Local/Temp/report.pptx', '/tmp/report.md'])
+  })
   it('extracts direct, angle, encoded, parenthesized and image destinations without remote or plain-text paths', () => {
     expect(
       explicitOutputLinks(
@@ -23,15 +30,14 @@ describe('explicit output links', () => {
           '[상대](../report.md)',
           '[잘못된 인코딩](/tmp/%XX.md)',
           '/tmp/plain.md'
-        ].join('\n'),
-        directory
+        ].join('\n')
       )
     ).toEqual([
-      output('report.md'),
-      output('my report.pdf'),
-      output('결과.csv'),
-      output('result(1).png'),
-      output('image.png'),
+      '/tmp/report.md',
+      '/tmp/my report.pdf',
+      '/tmp/결과.csv',
+      '/tmp/result(1).png',
+      '/tmp/image.png',
       output('actual.md')
     ])
   })
@@ -55,17 +61,15 @@ describe('explicit output links', () => {
           '~~~',
           '    [indented](/tmp/indented.md)',
           '\\[escaped](/tmp/escaped.md)'
-        ].join('\n'),
-        directory
+        ].join('\n')
       )
-    ).toEqual([output('report.md')])
+    ).toEqual(['/tmp/report.md'])
   })
 
   it('does not rebase nested, remote-style or sibling absolute paths into the output root', () => {
     expect(
       explicitOutputLinks(
-        '[nested](/tmp/nested/report.md) [other](/tmp-other/report.md) [UNC](//host/report.md)',
-        directory
+        '[nested](/tmp/nested/report.md) [other](/tmp-other/report.md) [UNC](//host/report.md)'
       )
     ).toEqual(['/tmp/nested/report.md', '/tmp-other/report.md'])
   })
@@ -140,8 +144,8 @@ describe('Work output hooks', () => {
       last_assistant_message: '[시트](/tmp/result.xlsx) [이미지](/tmp/chart.png)'
     })
     expect(capture.mock.calls.map(([filePath]) => filePath)).toEqual([
-      output('result.xlsx'),
-      output('chart.png')
+      '/tmp/result.xlsx',
+      '/tmp/chart.png'
     ])
     expect(result).toEqual({ systemMessage: '출력 파일을 저장하지 못했습니다.' })
     expect(result).not.toHaveProperty('continue', false)

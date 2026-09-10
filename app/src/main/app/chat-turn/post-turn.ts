@@ -49,15 +49,21 @@ export async function runTurnWithContinuations(
   const { coordinator, runtime, lease, supervisor, activity, pendingMessages, backgroundTasks } =
     deps
 
-  // listen phase 레벨 신호(0143) — renderer 의 listening 상태(inflight 지속·send=steer 라우팅)를
-  // 구동한다. 개별 listen 턴 경계가 아니라 **턴-후 루프 스코프**로 started 1회/ended 1회 —
-  // 연속 listen 턴·중간 held-flush 연속 턴을 관통해 깜빡임을 없앤다. sendChatEvent 직행(버스
-  // 미경유)이라 history/usage 는 구조적으로 못 본다(미영속 — message.queued 동렬).
+  // 체인 점유는 유지하되 유휴 수신과 실제 응답/배출을 나눈다. ready도 main admission에서는
+  // held 예약 경로다. 공급자 pump에서 자동 응답이 시작되면 다음 post-turn까지 기다리지 않는다.
   let listenPhaseSessionId: string | null = null
-  const beginListenPhase = (sessionId: string): void => {
-    if (listenPhaseSessionId) return
+  let receiving = false
+  const syncTransport = (): void => {
+    if (!listenPhaseSessionId) return
+    const ready =
+      receiving && runtime.channelAlive && !runtime.channelBusy && !runtime.hasUnframedBacklog
+    activity.setTransport(listenPhaseSessionId, ready ? 'ready' : 'listening')
+  }
+  const unsubscribeChannelActivity = runtime.subscribeChannelActivity(syncTransport)
+  const beginListenPhase = (sessionId: string, isReceiving: boolean): void => {
     listenPhaseSessionId = sessionId
-    activity.setTransport(sessionId, 'listening')
+    receiving = isReceiving
+    syncTransport()
   }
   const endListenPhase = (): void => {
     if (!listenPhaseSessionId) return
@@ -126,7 +132,7 @@ export async function runTurnWithContinuations(
       // main 은 busy 다. 구 구조는 listen 스텝에서만 신호를 보내 renderer 가 이 구간을 idle 로
       // 오판했고, 그 창의 send 가 낙관 커밋 경로를 타 **잔여보다 앞에** 렌더됐다. 판정은
       // post-turn 의 순수 함수가 소유한다.
-      if (postTurnHoldsSession(step)) beginListenPhase(sessionId)
+      if (postTurnHoldsSession(step)) beginListenPhase(sessionId, step === 'listen')
 
       if (step === 'break') {
         // 턴 체인 종료(0151 AC7 → 0154 개정) — 확정 신호가 오지 않은 예약을 orphaned 로 내려
@@ -224,6 +230,7 @@ export async function runTurnWithContinuations(
       }
     }
   } finally {
+    unsubscribeChannelActivity()
     // listen phase 종료 신호(0143) — 정상 종료·break·중단·throw 전 경로에서 renderer 의
     // listening 상태를 반드시 내린다.
     endListenPhase()
