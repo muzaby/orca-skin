@@ -7,9 +7,9 @@ READY · Codex · 2026-09-10 · 기준 `769cd454`. 사용자 후속 요구와 CI
 | 결정 | 출처와 계약 |
 |---|---|
 | D-30 ACTIVE | 최근 대화도 접을 수 있어야 한다. 모든 최근 대화(임시 대화 포함)는 같은 그룹 하위에 놓고 표시용 프로젝트 prefix를 제거한다. 제목 자체의 `/`는 유지한다. |
-| D-31 ACTIVE | 일반/아티팩트 카드는 해당 assistant 턴의 마지막에 모은다. 확정 본문과 live 본문 아래에 spark/status, 그 뒤 완료 메타와 카드가 온다. 배경 대기 때 spinner를 숨기는 D-11은 유지한다. §13.2의 일반 출력 세션 최하단 배치를 대체한다. |
+| D-31 SUPERSEDED → D-36 | 일반/아티팩트 카드는 해당 assistant 턴의 마지막에 모은다. 확정 본문과 live 본문 아래에 spark/status, 그 뒤 완료 메타와 카드가 온다. **배치 순서는 [Delta V7](correction-plan-r6.md)로 대체한다.** 배경 대기 때 spinner를 숨기는 D-11은 유지한다. §13.2의 일반 출력 세션 최하단 배치를 대체한다. |
 | D-32 ACTIVE | 일반 산출물은 Windows OS 사용자 Temp의 실제 파일을 읽고 열고 저장한다. 관리 아티팩트 디렉터리 사본을 일반 파일의 읽기 원본으로 사용하지 않는다. 외부 게시 아티팩트의 관리 사본은 유지한다. |
-| D-33 ACTIVE | 앱의 Claude 대화 기본 정책은 Bash·WebSearch 제외, PowerShell 허용이다. 관리 provider 설정 템플릿과 실행 설정에 `env.CLAUDE_CODE_USE_POWERSHELL_TOOL="1"`, `skipWebFetchPreflight=true` 기본값을 제공한다. 기존의 명시 환경/설정 우선순위는 보존한다. completion의 도구 비활성은 유지한다. |
+| D-33 SUPERSEDED → D-35 | 앱의 Claude 대화 기본 정책은 Bash·WebSearch 제외, PowerShell 허용이다. **PowerShell 자동 허용은 [Delta V7](correction-plan-r6.md)의 노출/승인 분리로 대체한다.** 관리 provider 설정 템플릿과 실행 설정에 `env.CLAUDE_CODE_USE_POWERSHELL_TOOL="1"`, `skipWebFetchPreflight=true` 기본값을 제공한다. 기존의 명시 환경/설정 우선순위는 보존한다. completion의 도구 비활성은 유지한다. |
 | D-34 ACTIVE | 사용자가 전달한 Vitest red gate를 수정한다. Windows 짧은 경로와 canonical 경로의 같은 파일을 허용하되 경로 탈출은 허용하지 않는다. 현재 계약에 뒤처진 테스트 대역을 보강하고 숨겨진 실행 오류도 검출한다. |
 
 대안 검토: 카드 위치를 수신 시각이나 현재 마지막 메시지로 추정하면 늦은 도구 결과가 다음 턴에 붙는다. 기존 tool ID 및 응답 경계, 영속 artifact part를 재사용한다. 새 DB migration이나 타임스탬프 추정은 도입하지 않는다. 소유권 근거가 없는 과거 일반 출력은 우측 출력 목록에서 계속 제공하며 임의의 과거 턴에 끼워 넣지 않는다.
