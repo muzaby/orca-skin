@@ -114,8 +114,9 @@ export async function readArtifactInput(
   if (!isAbsolute(cwd)) throw new Error('unsafe-path')
   const candidate = resolve(cwd, path)
   assertLocalPath(candidate)
+  const sourceRoots = [cwd, ...extraDirs]
   const roots = await Promise.all(
-    [cwd, ...extraDirs].map(async (root) => {
+    sourceRoots.map(async (root) => {
       assertLocalPath(root)
       if (!isAbsolute(root)) throw new Error('unsafe-path')
       const actual = await realpath(root)
@@ -125,10 +126,24 @@ export async function readArtifactInput(
   )
   const inputSource = await realpath(candidate)
   assertLocalPath(inputSource)
-  if (!roots.some((root) => containsPath(inputSource, root))) throw new Error('unsafe-path')
+  if (!roots.some((root) => containsPath(inputSource, root))) {
+    // Temp is a publisher input root; existing workspace inputs do not depend on it.
+    const temporaryRoot = getTemporaryFilesPath()
+    assertLocalPath(temporaryRoot)
+    if (!isAbsolute(temporaryRoot)) throw new Error('unsafe-path')
+    const actual = await realpath(temporaryRoot).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT' || error.code === 'ENOTDIR') throw new Error('unsafe-path')
+      throw error
+    })
+    assertLocalPath(actual)
+    if (!(await stat(actual)).isDirectory() || !containsPath(inputSource, actual))
+      throw new Error('unsafe-path')
+    sourceRoots.push(temporaryRoot)
+    roots.push(actual)
+  }
   const bytes = await readStableFile(inputSource, signal)
   if (!samePath(await realpath(candidate), inputSource)) throw new Error('file-changed')
-  const finalRoots = await Promise.all([cwd, ...extraDirs].map((root) => realpath(root)))
+  const finalRoots = await Promise.all(sourceRoots.map((root) => realpath(root)))
   if (!finalRoots.every((root, index) => samePath(root, roots[index])))
     throw new Error('file-changed')
   validateArtifactBytes(candidate, bytes)

@@ -114,8 +114,9 @@ export function ExtensionsCatalogView(): React.JSX.Element {
               <Button
                 ref={addRef}
                 className="ml-auto"
-                variant="contained"
+                variant="primary"
                 size="small"
+                leadingIcon="plus"
                 dropdown={selection.tab === 'skills'}
                 expanded={selection.tab === 'skills' ? menuOpen : undefined}
                 onClick={() => {

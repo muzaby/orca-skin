@@ -1,0 +1,17 @@
+
+ RUN  v4.1.10 C:/workspace/github/codex/orca-skin/app
+
+ ❯ src/main/features/artifacts/input-files.test.ts (8 tests | 5 failed) 546ms
+     × reads a completed Temp file in "" without extra directories 65ms
+     × reads a completed Temp file in "nested/result" without extra directories 37ms
+     × accepts physical Windows short paths for Temp and its file 193ms
+     × rejects a candidate redirected after reading the Temp file 41ms
+     × rejects a root redirected after reading the Temp file 28ms
+ ❯ src/main/features/artifacts/service.test.ts (28 tests | 2 failed) 24791ms
+     × publishes a Temp deliverable through the tool and preserves its owned copy after source deletion 827ms
+     × collects ordinary final files separately from artifacts and preserves Office bytes above the preview limit 654ms
+
+ Test Files  2 failed (2)
+      Tests  7 failed | 29 passed (36)
+   Start at  22:55:21
+   Duration  41.05s (transform 3.39s, setup 0ms, import 25.84s, tests 25.34s, environment 1ms)

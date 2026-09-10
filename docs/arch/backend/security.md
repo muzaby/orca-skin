@@ -182,7 +182,7 @@ provider `settings.json`(`sources/settings/<adapter>/<provider>/`)은 `~/.claude
 
 ## 산출물 파일 액션 경계
 
-게시 입력은 채널의 cwd/extraDirs 안에 있는 로컬 일반 파일만 허용한다. 경로 실체, UTF-8 형식, 크기 상한, 읽기 전후 상태를 검사한다. 이 파일 검증은 OS 샌드박스가 아니며 악의적인 모든 경로 교체 경쟁의 원자적 차단을 보장하지 않는다.
+게시 입력은 채널의 cwd/extraDirs 또는 OS 사용자 Temp와 그 하위에 있는 로컬 일반 파일을 허용한다. Temp는 `infra/config/temp-path.ts`로 해석하며 다른 도구의 허용 폴더를 늘리지 않는다. 경로 실체가 허용 root 안에 있는지와 UTF-8 형식, 크기 상한, 읽기 전후 파일·root 상태를 검사하여 허용 범위 밖으로 나가는 정션을 거부한다. 이 파일 검증은 OS 샌드박스가 아니며 악의적인 모든 경로 교체 경쟁의 원자적 차단을 보장하지 않는다.
 
 artifact IPC는 현재 Orca 메인 창의 최상위 frame과 renderer URL의 protocol/host를 확인한다. renderer는 session/publication ID만 전달하고 Main이 세션 참조와 보관 루트 실체를 다시 검사한다. 개별 내보내기는 임시 파일을 작성하고 rename으로 교체하여 외부 하드링크를 통한 보관 원본 덮어쓰기를 피한다. 묶음 저장은 exclusive create와 접미사로 기존 파일을 보존한다. 파일 reveal은 탐색기 선택만 하며 HTML을 실행하지 않는다.
 

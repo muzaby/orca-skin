@@ -1,4 +1,13 @@
-import { mkdtemp, writeFile, readFile, readdir, rm, symlink, truncate } from 'node:fs/promises'
+import {
+  mkdtemp,
+  writeFile,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  symlink,
+  truncate
+} from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 import { homedir, tmpdir } from 'node:os'
@@ -57,7 +66,7 @@ describe('attachment files and text normalization', () => {
     )
     for (const view of normalized.attachmentViews ?? []) {
       copiedFiles.push(view.path!)
-      expect(dirname(view.path!)).toBe(resolve(tmpdir()))
+      expect(dirname(view.path!)).toBe(await realpath(tmpdir()))
     }
     expect(normalized.attachmentViews).toHaveLength(2)
     expect(await readFile(normalized.attachmentViews![0].path!, 'utf8')).toBe('# Source')
@@ -166,7 +175,7 @@ describe('normalizeAttachments', () => {
     expect(new Set(result.attachmentViews!.map((view) => view.path)).size).toBe(3)
     expect(result.attachmentViews![0]).toMatchObject({ id: 'original-view', name: 'note.md' })
     for (const [index, view] of result.attachmentViews!.entries()) {
-      expect(dirname(view.path!)).toBe(directory)
+      expect(dirname(view.path!)).toBe(await realpath(directory))
       expect(basename(view.path!)).not.toBe('note.md')
       const bytes = await readFile(view.path!)
       expect(bytes).toEqual(index === 2 ? image : Buffer.from('# Reference'))
