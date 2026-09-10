@@ -6,7 +6,7 @@
 |---|---|
 | 작성자 / 일자 | Codex / 2026-09-10 |
 | 상태 | READY |
-| V mode / revision | Baseline V1 + Delta V2 + Delta V3 + Delta V4 + [Delta V5](refactor-plan-r4.md) + [Delta V6](feedback-plan-r5.md) + [Delta V7](correction-plan-r6.md) (아래 §13·14·15) |
+| V mode / revision | Baseline V1 + Delta V2 + Delta V3 + Delta V4 + [Delta V5](refactor-plan-r4.md) + [Delta V6](feedback-plan-r5.md) + [Delta V7](correction-plan-r6.md) + [Delta V8](feedback-plan-r7.md) (아래 §13·14·15) |
 | 기준선 | `a89e6f89`; 기존 0223·0224 구현 위에 별도 요구를 추가한다 |
 
 # Part I — Product & UX Contract
