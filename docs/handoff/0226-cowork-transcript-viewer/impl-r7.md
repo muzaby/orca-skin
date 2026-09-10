@@ -43,7 +43,7 @@
 | 검사 | 관측 |
 |---|---|
 | 기존 CI | 4 suite 10 실패. [요약](evidence/r7-ci-baseline.json)·[원문 로그](evidence/r7-ci-baseline.log) |
-| CI 집합 로컬 재현 | 일반 경로에서는 7 실패/43 통과. [로그](evidence/r7-ci-local-baseline.log). 실제 8.3 Temp로 보정 후 50/50, [결과](evidence/r7-ci-local-green.json) |
+| CI 집합 로컬 재현 | 일반 경로에서는 7 실패/43 통과. [로그](evidence/r7-ci-local-baseline.log). 실제 8.3 Temp로 보정 후 50/50, [결과](evidence/r7-ci-local.json) |
 | Temp 게시 | 수정 전 7 실패/29 통과 → 영향 7파일 71/71. [red](evidence/r7-publish-red.log)·[green](evidence/r7-publish-green.log). 개별 실행 worker 종료 timeout 경고 한 건은 [stderr](evidence/r7-publish-green-error.log)에 보존 |
 | 타입·스타일·빌드 | node/web/test 타입, 변경 TS/TSX ESLint(오류·경고 0), Prettier, electron-vite main/preload/renderer 통과. 기존 SubAgentTileContent 정적/동적 import 경고 유지 |
 | 문서·스크립트 | inventory·test budgets 통과. Node script tests 116/116 |
