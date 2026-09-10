@@ -17,6 +17,12 @@ export const SIDEBAR_NAV = [
     isActive: (p: string) => p === '/projects'
   },
   {
+    icon: 'doc',
+    labelKey: 'sidebar.nav.artifacts',
+    path: '/artifacts',
+    isActive: (p: string) => p === '/artifacts'
+  },
+  {
     icon: 'cpu',
     labelKey: 'sidebar.nav.engine',
     path: '/agent',

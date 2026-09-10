@@ -35,7 +35,10 @@ export function ArtifactViewer({
   const { artifact, result, loading, mode, expanded } = selection
   const ready = result?.state === 'ready' ? result : null
   const image = ready?.format === 'image' || artifact.kind === 'image'
+  const binary = artifact.kind === 'file'
   const textOnly = ready?.format === 'text' || artifact.kind === 'text'
+  const unsupported = result?.state === 'unavailable' && result.reason === 'unsupported-format'
+  const downloadable = !!ready || unsupported
   const extension = artifact.filename.split('.').pop()?.toUpperCase() ?? ''
   const current = (): boolean =>
     alive.current && useArtifactViewerStore.getState().selection?.request === selection.request
@@ -62,7 +65,7 @@ export function ArtifactViewer({
     }
   }
   const download = async (): Promise<void> => {
-    if (!ready || actionRef.current) return
+    if (!downloadable || actionRef.current) return
     actionRef.current = true
     setAction('download')
     setFeedback(null)
@@ -104,7 +107,7 @@ export function ArtifactViewer({
           aria-label={tr('chat.artifactViewer.mode')}
           className="flex shrink-0 rounded-r4 border border-border bg-bg2 p-0.5"
           onKeyDown={(event) => {
-            if (!image && !textOnly && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+            if (!image && !textOnly && !binary && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
               event.preventDefault()
               setArtifactViewerMode(mode === 'preview' ? 'code' : 'preview')
               const buttons =
@@ -122,7 +125,7 @@ export function ArtifactViewer({
               aria-label={tr(`chat.artifactViewer.${value}`)}
               title={tr(`chat.artifactViewer.${value}`)}
               tabIndex={mode === value ? 0 : -1}
-              disabled={value === 'preview' ? textOnly : image}
+              disabled={binary || (value === 'preview' ? textOnly : image)}
               onClick={() => setArtifactViewerMode(value)}
               className={`flex h-6 w-7 items-center justify-center rounded-sm text-ink3 transition-colors hide-focus-ring ring-focus disabled:opacity-30 ${mode === value ? 'bg-panel text-ink shadow-sm' : 'hover:text-ink'}`}
             >
@@ -139,7 +142,7 @@ export function ArtifactViewer({
           <span className="text-ink3">{extension}</span>
         </h2>
         <div className="flex shrink-0 items-center gap-0.5">
-          {!image && (
+          {!image && !binary && (
             <Button
               iconOnly
               size="small"
@@ -155,7 +158,7 @@ export function ArtifactViewer({
             size="small"
             variant="contained"
             leadingIcon="download"
-            disabled={!ready || !!action}
+            disabled={!downloadable || !!action}
             aria-label={tr('chat.artifacts.download')}
             title={tr('chat.artifacts.download')}
             data-behavior="viewer:download"
@@ -217,14 +220,16 @@ export function ArtifactViewer({
             <p role="alert" className="text-footnote text-ink2">
               {tr(previewFailureKey(result.reason))}
             </p>
-            <Button
-              size="small"
-              leadingIcon="refresh"
-              data-behavior="viewer:retry"
-              onClick={() => void retryArtifactViewer()}
-            >
-              {tr('chat.artifactViewer.retry')}
-            </Button>
+            {!unsupported && (
+              <Button
+                size="small"
+                leadingIcon="refresh"
+                data-behavior="viewer:retry"
+                onClick={() => void retryArtifactViewer()}
+              >
+                {tr('chat.artifactViewer.retry')}
+              </Button>
+            )}
           </div>
         ) : (
           ready && (

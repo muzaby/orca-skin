@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { ArtifactCard, artifactFailureKey } from './ArtifactCard'
 import type { ArtifactFileView } from '../store/artifactStore'
 import { MenuItem, type MenuItemProps } from '../../../shared/ui/MenuItem'
+import type { ArtifactRef } from '../../../../../shared/artifacts'
 
 // 메뉴스코프의 실제 JSX/콜백을 관측한다. 포털 열기·키보드 수명은 이 SSR 시험의 범위가 아니다.
 const menu = vi.hoisted(() => ({ children: null as ReactNode }))
@@ -22,10 +23,14 @@ const artifact = {
   sizeBytes: 123,
   publishedAt: 1
 }
-function render(file?: ArtifactFileView, variant?: 'transcript' | 'list'): string {
+function render(
+  file?: ArtifactFileView,
+  variant?: 'transcript' | 'list',
+  ref: ArtifactRef = artifact
+): string {
   return renderToStaticMarkup(
     createElement(ArtifactCard, {
-      artifact,
+      artifact: ref,
       file,
       variant,
       onAction: vi.fn(),
@@ -36,6 +41,30 @@ function render(file?: ArtifactFileView, variant?: 'transcript' | 'list'): strin
   )
 }
 describe('artifact metadata card', () => {
+  it('labels ordinary output files by extension and falls back to File for extensionless names', () => {
+    const file: ArtifactFileView = {
+      checking: false,
+      busy: false,
+      version: 1,
+      availability: { state: 'present', sizeBytes: 123, modifiedAt: 1 }
+    }
+    const pdf = render(file, 'list', {
+      ...artifact,
+      category: 'file',
+      kind: 'file',
+      filename: 'report.pdf'
+    })
+    expect(pdf).toContain('PDF')
+    expect(pdf).not.toContain('아티팩트')
+    const plain = render(file, 'list', {
+      ...artifact,
+      category: 'file',
+      kind: 'text',
+      filename: 'README'
+    })
+    expect(plain).toContain('>파일</span>')
+    expect(plain).not.toContain('아티팩트')
+  })
   it('escapes HTML metadata and separates the preview trigger from auxiliary file actions', () => {
     const html = render({
       checking: false,
@@ -73,7 +102,7 @@ describe('artifact metadata card', () => {
     expect(html).not.toContain('문서 · HTML')
     expect(html).not.toContain('role="button"')
   })
-  it('keeps checking and busy state visible in both variants while disabling download', () => {
+  it('keeps checking and disables busy actions while omitting the transient busy label from output lists', () => {
     for (const variant of ['transcript', 'list'] as const) {
       expect(render(undefined, variant)).toContain('확인 중')
       const busy = render(
@@ -85,9 +114,13 @@ describe('artifact metadata card', () => {
         },
         variant
       )
-      expect(busy).toContain('처리 중')
-      if (variant === 'transcript')
+      if (variant === 'transcript') {
+        expect(busy).toContain('처리 중')
         expect(busy).toMatch(/<button[^>]*disabled=""[^>]*aria-label="다운로드"/)
+      } else {
+        expect(busy).not.toContain('처리 중')
+        expect(busy).toMatch(/<button[^>]*data-artifact-preview="p"[^>]*disabled=""/)
+      }
     }
   })
   it.each(['transcript', 'list'] as const)(

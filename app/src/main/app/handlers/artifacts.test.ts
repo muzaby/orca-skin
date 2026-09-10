@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi, type Mocked } from 'vitest'
 import type { IpcMainInvokeEvent } from 'electron'
 import type { ArtifactService } from '../../features/artifacts/service'
+import type { ArtifactCatalog } from '../../features/artifacts/catalog'
 import { CHANNELS } from '../../../shared/ipc'
 
 const mocks = vi.hoisted(() => ({
@@ -40,8 +41,10 @@ type TestService = Pick<
   ArtifactService,
   'listLatest' | 'status' | 'preview' | 'trash' | 'readForExport' | 'revealPath' | 'openFolderPath'
 >
+type TestCatalog = Pick<ArtifactCatalog, 'list' | 'setPinned'>
 async function setup(): Promise<{
   service: Mocked<TestService>
+  catalog: Mocked<TestCatalog>
   dest: string
   root: string
   trusted: ReturnType<typeof vi.fn<(event: IpcMainInvokeEvent) => boolean>>
@@ -69,10 +72,15 @@ async function setup(): Promise<{
     openFolderPath: vi.fn(async () => root)
   }
   const event = {} as IpcMainInvokeEvent
+  const catalog: Mocked<TestCatalog> = {
+    list: vi.fn(() => []),
+    setPinned: vi.fn(() => ({ ok: true }))
+  }
   const trusted = vi.fn((candidate: IpcMainInvokeEvent) => candidate === event)
-  registerArtifactHandlers(service, trusted)
+  registerArtifactHandlers(service, trusted, catalog)
   return {
     service,
+    catalog,
     dest,
     root,
     trusted,
@@ -81,6 +89,29 @@ async function setup(): Promise<{
   }
 }
 describe('artifact IPC file actions', () => {
+  it('lists the catalog and pins only the selected publication after validating the sender', async () => {
+    const { catalog, call } = await setup()
+    expect(await call('artifactCatalog', {})).toEqual([])
+    expect(catalog.list).toHaveBeenCalledOnce()
+    expect(
+      await call('artifactSetPinned', {
+        sessionId: 'owner',
+        publicationId: 'original',
+        pinned: false
+      })
+    ).toEqual({ ok: true })
+    expect(catalog.setPinned).toHaveBeenCalledWith('owner', 'original', false)
+    catalog.setPinned.mockClear()
+    await expect(
+      call('artifactSetPinned', {
+        sessionId: 'owner',
+        publicationId: 'original',
+        pinned: false,
+        path: 'C:/private'
+      })
+    ).rejects.toThrow()
+    expect(catalog.setPinned).not.toHaveBeenCalled()
+  })
   it('previews only the selected IDs and rejects renderer paths at the schema boundary', async () => {
     const { service, call } = await setup()
     expect(
@@ -128,6 +159,8 @@ describe('artifact IPC file actions', () => {
     expect(await readdir(dest)).toEqual(['existing-directory'])
   })
   it.each([
+    ['artifactCatalog', {}],
+    ['artifactSetPinned', { sessionId: 's', publicationId: 'p', pinned: true }],
     ['artifactList', { sessionId: 's' }],
     ['artifactStatus', { sessionId: 's', publicationIds: ['p'] }],
     ['artifactPreview', { sessionId: 's', publicationId: 'p' }],
@@ -138,11 +171,12 @@ describe('artifact IPC file actions', () => {
   ] as const)(
     'rejects an untrusted sender before any service or native action: %s',
     async (channel, request) => {
-      const { service, trusted, call } = await setup()
+      const { service, catalog, trusted, call } = await setup()
       trusted.mockReturnValue(false)
       await expect(call(channel, request)).rejects.toThrow('forbidden')
       expect(trusted).toHaveBeenCalledOnce()
       for (const method of Object.values(service)) expect(method).not.toHaveBeenCalled()
+      for (const method of Object.values(catalog)) expect(method).not.toHaveBeenCalled()
       for (const native of [mocks.save, mocks.open, mocks.reveal, mocks.openPath])
         expect(native).not.toHaveBeenCalled()
     }

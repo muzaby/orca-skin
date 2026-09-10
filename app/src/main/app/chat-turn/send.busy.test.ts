@@ -232,7 +232,12 @@ describe('handleChatSend busy submission', () => {
         sourceKind: 'dialog'
       }
     ]
-    completeNormalization({ attachmentTexts, attachmentImages: [] })
+    const storedViews = attachmentViews.map((view) => ({
+      ...view,
+      path: 'C:/tmp/input.txt',
+      sha256: 'a'.repeat(64)
+    }))
+    completeNormalization({ attachmentTexts, attachmentImages: [], attachmentViews: storedViews })
     await request
     expect(order).toEqual(['admitted', 'listen-released', 'next-microtask:1'])
     expect(queue.pending('s1')).toEqual([
@@ -242,7 +247,7 @@ describe('handleChatSend busy submission', () => {
         createdAt: 101,
         attachmentTexts,
         requirements: [requirement],
-        attachmentViews
+        attachmentViews: storedViews
       })
     ])
     expect(sendChatEvent).toHaveBeenCalledExactlyOnceWith(owner, {
@@ -251,7 +256,7 @@ describe('handleChatSend busy submission', () => {
       id: 'queued-1',
       text: 'queued text',
       requirements: [requirement],
-      attachmentViews,
+      attachmentViews: storedViews,
       createdAt: 101
     })
   })

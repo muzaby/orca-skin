@@ -37,6 +37,7 @@ vi.mock('./workspace-guard', async (importOriginal) => {
 import { ClaudeAdapter } from './claude'
 import { makeWorkspaceGuardHook } from './workspace-guard'
 import type { TurnRequest } from './turn'
+import type { RuntimeToolContext } from './runtime-tools'
 
 const guardHookMock = vi.mocked(makeWorkspaceGuardHook)
 
@@ -75,5 +76,42 @@ describe('ClaudeAdapter — extraDirs 는 옵션과 가드가 같은 배열을 �
   it('가드 훅은 cwd 를 workspace 루트로 함께 받는다', () => {
     capture({ ...baseReq(), extraDirs: ['/tmp/refs'] })
     expect(guardHookMock.mock.calls[0]?.[0]).toBe('/tmp/work')
+  })
+
+  it('Work output directory reaches the SDK and guard without mutating user extraDirs', async () => {
+    const extraDirs = ['/tmp/refs']
+    const context: RuntimeToolContext = {
+      cwd: '/tmp/work',
+      extraDirs,
+      getSignal: () => new AbortController().signal,
+      waitForSession: async () => 's1'
+    }
+    const captured = vi.fn(async () => {})
+    const request = baseReq()
+    request.extraDirs = extraDirs
+    request.runtimeToolContext = context
+    request.extensions.outputFiles = { directory: '/tmp/output', capture: captured }
+    const { option, guardArg } = capture(request)
+    expect(option).toEqual(['/tmp/refs', '/tmp/output'])
+    expect(guardArg).toBe(option)
+    expect(extraDirs).toEqual(['/tmp/refs'])
+    const args = queryMock.mock.calls[0][0] as {
+      options: { hooks: Record<string, { hooks: ((...args: unknown[]) => Promise<unknown>)[] }[]> }
+    }
+    expect(args.options.hooks.Stop).toHaveLength(2)
+    await args.options.hooks.PostToolUse[0].hooks[0](
+      {
+        hook_event_name: 'PostToolUse',
+        tool_name: 'Write',
+        tool_input: { file_path: '/tmp/output/report.md' },
+        tool_response: 'success'
+      },
+      undefined,
+      {}
+    )
+    expect(captured).toHaveBeenCalledWith(
+      '/tmp/output/report.md',
+      expect.objectContaining({ cwd: '/tmp/work' })
+    )
   })
 })

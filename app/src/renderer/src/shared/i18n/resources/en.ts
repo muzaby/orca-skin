@@ -51,6 +51,8 @@ export const en: typeof ko = {
     imagePlaceholder: '[Image: {{label}}]'
   },
   nav: {
+    artifacts: 'Artifacts',
+    artifactsBreadcrumb: 'Artifacts',
     chat: '01 Chat',
     projects: '02 Projects',
     projectsBreadcrumb: 'Projects',
@@ -67,6 +69,22 @@ export const en: typeof ko = {
     typeToSearch: 'Type to search',
     noMatches: 'No matching messages',
     noTitle: 'Untitled'
+  },
+  artifactCatalog: {
+    title: 'Artifacts',
+    tabs: 'Artifact list',
+    all: 'All',
+    pinned: 'Pinned',
+    search: 'Search artifacts',
+    searchPlaceholder: 'Search titles, filenames or conversations…',
+    itemMenu: '{{title}} menu',
+    empty: 'No artifacts yet.',
+    emptyPinned: 'No pinned artifacts.',
+    noMatches: 'No matching artifacts.',
+    loadFailed: 'Could not load artifacts.',
+    pinFailed: 'Could not change the pin. Please try again.',
+    trashFailed: 'Could not delete the artifact. Please try again.',
+    retry: 'Try again'
   },
   sessions: {
     deleteDialogTitle: 'Delete conversation',
@@ -526,6 +544,7 @@ export const en: typeof ko = {
       save: 'Save as',
       download: 'Download',
       document: 'Document',
+      fileLabel: 'File',
       artifactLabel: 'Artifact',
       saveAll: 'Save all',
       reveal: 'Show in Explorer',
@@ -684,6 +703,10 @@ export const en: typeof ko = {
       askAboutTask: 'Ask a question or suggest changes',
       addDirectory: 'Add folder',
       allowedDirectory: 'User-added folder: {{path}}',
+      workingDirectory: 'Current working folder: {{path}}',
+      sourceHeading: 'Sources',
+      openSourceFile: 'Show {{name}} in folder',
+      sourceOpenFailed: 'Could not show the file in its folder.',
       directoryBusy: 'Add a folder after the current work finishes.',
       directoryPicking: 'Choosing a folder…',
       directoryFailed: 'Could not add the folder. Please try again.',
@@ -1007,6 +1030,7 @@ export const en: typeof ko = {
   },
   sidebar: {
     nav: {
+      artifacts: 'Artifacts',
       newChat: 'New chat',
       projects: 'Projects',
       engine: 'Engine & Models',

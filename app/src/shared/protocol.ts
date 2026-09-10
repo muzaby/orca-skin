@@ -8,9 +8,13 @@ import { AGENT_KINDS } from './agent-kind'
 export const AgentKindSchema = z.enum(AGENT_KINDS)
 
 const artifactId = z.string().min(1).max(256)
+export const ArtifactCatalogRequestSchema = z.object({}).strict()
 export const ArtifactListRequestSchema = z.object({ sessionId: artifactId }).strict()
 export const ArtifactTargetRequestSchema = ArtifactListRequestSchema.extend({
   publicationId: artifactId
+}).strict()
+export const ArtifactSetPinnedRequestSchema = ArtifactTargetRequestSchema.extend({
+  pinned: z.boolean()
 }).strict()
 export const ArtifactStatusRequestSchema = ArtifactListRequestSchema.extend({
   publicationIds: z.array(artifactId).max(100)
@@ -288,7 +292,11 @@ export const OpenPathRequestSchema = z.discriminatedUnion('mode', [
     mode: z.literal('directory'),
     sessionId: z.string().min(1).max(256).optional()
   }),
-  z.object({ path: z.string().min(1), mode: z.literal('reveal'), sessionId: z.never().optional() })
+  z.object({
+    path: z.string().min(1),
+    mode: z.literal('reveal'),
+    sessionId: z.string().min(1).max(256).optional()
+  })
 ])
 
 // ── git (컴포저 브랜치 칩) ──────────────────────────────────────────────────

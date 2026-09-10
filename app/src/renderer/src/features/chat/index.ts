@@ -2,6 +2,12 @@ export { ChatProvider } from './providers/ChatProvider'
 export { ChatView } from './components/ChatView'
 export { ChatTile } from './components/ChatTile'
 export { RightPanel } from './components/rightpanel/RightPanel'
+export { ArtifactViewer } from './components/rightpanel/ArtifactViewer'
+export {
+  closeArtifactViewer,
+  openArtifactViewer,
+  useArtifactViewerStore
+} from './store/artifactViewerStore'
 export { Composer } from './components/Composer'
 export { AgentModeToggle } from './components/AgentModeToggle'
 export { agentPresentation } from './lib/agentPresentation'

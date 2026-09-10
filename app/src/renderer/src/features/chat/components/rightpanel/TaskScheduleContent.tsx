@@ -42,7 +42,7 @@ export function TaskScheduleContent(): React.JSX.Element | null {
             </div>
           </li>
         ))}
-        {pendingWakeup && (
+        {pendingWakeup && !schedules?.length && (
           <li
             data-session-wakeup-pending
             className="flex min-w-0 items-start gap-3 rounded-r4 px-2 py-2"

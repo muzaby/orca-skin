@@ -63,6 +63,7 @@ beforeEach(() => {
     db: {
       hasSessionWithCwd: (cwd: string) => cwd === SESSION_CWD,
       getSessionById: () => undefined,
+      listSessionAttachmentFiles: () => [],
       searchMessages: () => []
     }
   })

@@ -3,6 +3,7 @@ import type { ArtifactPreviewResult, ArtifactRef } from '../../../shared/artifac
 import { staticArtifactHtml } from './html-preview'
 
 export const MAX_ARTIFACT_BYTES = 5 * 1024 * 1024
+export const MAX_OUTPUT_BYTES = 64 * 1024 * 1024
 
 const textLanguages: Readonly<Record<string, string>> = {
   '.txt': 'text',
@@ -65,7 +66,7 @@ const imageMimeTypes: Readonly<Record<string, string>> = {
   '.svg': 'image/svg+xml'
 }
 interface ArtifactFormat {
-  format: ArtifactRef['kind']
+  format: Exclude<ArtifactRef['kind'], 'file'>
   mimeType: string
   language?: string
 }

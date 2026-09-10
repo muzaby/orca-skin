@@ -38,6 +38,7 @@ async function setup(fileDb = false): Promise<{
   context: ArtifactPublishContext
   controller: AbortController
   trashItem: ReturnType<typeof vi.fn<(path: string) => Promise<void>>>
+  isInputFile: ReturnType<typeof vi.fn<(sessionId: string, path: string, hash: string) => boolean>>
 }> {
   const root = await mkdtemp(join(tmpdir(), 'orca-artifact-'))
   roots.push(root)
@@ -55,7 +56,8 @@ async function setup(fileDb = false): Promise<{
   const trashItem = vi.fn(async (path: string) => {
     await rm(path)
   })
-  const service = new ArtifactService({ queries: q.artifacts, rootDir, trashItem })
+  const isInputFile = vi.fn<(sessionId: string, path: string, hash: string) => boolean>(() => false)
+  const service = new ArtifactService({ queries: q.artifacts, rootDir, trashItem, isInputFile })
   const controller = new AbortController()
   const context = {
     sessionId: 'a',
@@ -65,7 +67,7 @@ async function setup(fileDb = false): Promise<{
     isCurrent: () => true
   }
   await writeFile(join(cwd, 'report.md'), '# Original')
-  return { root, cwd, rootDir, db, q, service, context, controller, trashItem }
+  return { root, cwd, rootDir, db, q, service, context, controller, trashItem, isInputFile }
 }
 afterEach(async () => {
   vi.restoreAllMocks()
@@ -74,6 +76,132 @@ afterEach(async () => {
 })
 
 describe('artifact real filesystem and SQLite publication', () => {
+  it('keeps unchanged attachments in context and collects only a changed or newly generated file as output', async () => {
+    const f = await setup()
+    const directory = join(f.root, 'tmp')
+    await mkdir(directory)
+    const path = join(directory, 'attachment.md')
+    await writeFile(path, 'User source')
+    f.isInputFile.mockReturnValueOnce(true)
+    expect(await f.service.captureOutput(path, directory, f.context)).toBeUndefined()
+    expect(f.service.listLatest('a')).toEqual([])
+    expect(f.isInputFile).toHaveBeenCalledWith(
+      'a',
+      expect.any(String),
+      expect.stringMatching(/^[a-f0-9]{64}$/)
+    )
+    await writeFile(path, 'Model revision')
+    expect(await f.service.captureOutput(path, directory, f.context)).toMatchObject({
+      category: 'file'
+    })
+    await f.service.close()
+  })
+  it('repairs missing or modified output copies and orders versions even when the clock does not advance', async () => {
+    const f = await setup()
+    const directory = join(f.root, 'tmp')
+    await mkdir(directory)
+    const path = join(directory, 'final.txt')
+    vi.spyOn(Date, 'now').mockReturnValue(100)
+    await writeFile(path, 'Final')
+    const first = (await f.service.captureOutput(path, directory, f.context))!
+    await rm(await f.service.revealPath('a', first.publicationId))
+    const second = (await f.service.captureOutput(path, directory, f.context))!
+    expect(second.publicationId).not.toBe(first.publicationId)
+    expect(second.publishedAt).toBeGreaterThan(first.publishedAt)
+    await writeFile(await f.service.revealPath('a', second.publicationId), 'Changed externally')
+    const third = (await f.service.captureOutput(path, directory, f.context))!
+    expect(third.publicationId).not.toBe(second.publicationId)
+    expect(third.publishedAt).toBeGreaterThan(second.publishedAt)
+    expect(f.service.listLatest('a')[0].publicationId).toBe(third.publicationId)
+    expect((await f.service.readForExport('a', third.publicationId)).bytes.toString()).toBe('Final')
+    await f.service.close()
+  })
+  it('does not collect bytes overwritten after the triggering Write', async () => {
+    const f = await setup()
+    const directory = join(f.root, 'tmp')
+    await mkdir(directory)
+    const path = join(directory, 'same-name.md')
+    await writeFile(path, 'Another task')
+    await expect(
+      f.service.captureOutput(path, directory, f.context, 'Expected task')
+    ).rejects.toThrow('file-changed')
+    expect(f.service.listLatest('a')).toEqual([])
+    await f.service.close()
+  })
+  it('collects ordinary final files separately from artifacts and preserves Office bytes above the preview limit', async () => {
+    const f = await setup()
+    const directory = join(f.root, 'tmp')
+    await mkdir(directory)
+    const md = join(directory, 'summary.md')
+    await writeFile(md, '# Completed')
+    const file = await f.service.captureOutput(md, directory, f.context)
+    expect(file).toMatchObject({ category: 'file', kind: 'markdown', filename: 'summary.md' })
+    const again = await f.service.captureOutput(md, directory, f.context)
+    expect(again?.publicationId).toBe(file?.publicationId)
+    expect(await f.service.preview('a', file!.publicationId)).toMatchObject({
+      state: 'ready',
+      content: '# Completed'
+    })
+    await writeFile(md, '# Revised')
+    const revised = await f.service.captureOutput(md, directory, f.context)
+    expect(revised?.publicationId).not.toBe(file?.publicationId)
+    expect(f.service.listLatest('a')).toHaveLength(1)
+    const artifact = await f.service.publish({ path: md }, { ...f.context, extraDirs: [directory] })
+    expect(f.service.getRef('a', artifact.publicationId).category).toBe('artifact')
+    expect(f.service.listLatest('a')).toHaveLength(2)
+    expect(f.q.artifacts.listCatalog().map((item) => item.publicationId)).toEqual([
+      artifact.publicationId
+    ])
+    const ppt = join(directory, 'slides.pptx')
+    const bytes = Buffer.alloc(6 * 1024 * 1024, 0x50)
+    await writeFile(ppt, bytes)
+    const slides = await f.service.captureOutput(ppt, directory, f.context)
+    expect(slides).toMatchObject({ category: 'file', kind: 'file', filename: 'slides.pptx' })
+    await rm(ppt)
+    expect((await f.service.readForExport('a', slides!.publicationId)).bytes.equals(bytes)).toBe(
+      true
+    )
+    expect(await f.service.preview('a', slides!.publicationId)).toMatchObject({
+      state: 'unavailable'
+    })
+    await f.service.close()
+  })
+  it('ignores intermediate and unrelated paths, rejects redirected output files, and respects cancellation', async () => {
+    const f = await setup()
+    const directory = join(f.root, 'tmp')
+    await mkdir(join(directory, 'work'), { recursive: true })
+    const intermediate = join(directory, 'work', 'draft.md')
+    await writeFile(intermediate, 'draft')
+    expect(await f.service.captureOutput(intermediate, directory, f.context)).toBeUndefined()
+    expect(
+      await f.service.captureOutput(join(f.cwd, 'report.md'), directory, f.context)
+    ).toBeUndefined()
+    const redirected = join(directory, 'redirect.md')
+    try {
+      await symlink(join(f.cwd, 'report.md'), redirected, 'file')
+      await expect(f.service.captureOutput(redirected, directory, f.context)).rejects.toThrow(
+        'unsafe-path'
+      )
+    } catch (error) {
+      if (!(error && typeof error === 'object' && 'code' in error && error.code === 'EPERM'))
+        throw error
+    }
+    f.controller.abort()
+    await expect(
+      f.service.captureOutput(join(directory, 'cancelled.md'), directory, f.context)
+    ).rejects.toThrow('cancelled')
+    expect(f.service.listLatest('a')).toEqual([])
+    await f.service.close()
+  })
+  it('removes an already missing artifact from the catalog without deleting its original source', async () => {
+    const f = await setup()
+    const { publicationId } = await f.service.publish({ path: 'report.md' }, f.context)
+    await rm(await f.service.revealPath('a', publicationId))
+    expect(await f.service.trash('a', publicationId)).toEqual({ outcome: 'already-missing' })
+    expect(f.q.artifacts.listCatalog()).toEqual([])
+    expect(await readFile(join(f.cwd, 'report.md'), 'utf8')).toBe('# Original')
+    await f.service.close()
+  })
   it('publishes, previews and downloads code, HTML, Markdown and image bytes through the persisted IDs', async () => {
     const f = await setup()
     const png = Buffer.from(

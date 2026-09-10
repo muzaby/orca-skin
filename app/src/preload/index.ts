@@ -1,5 +1,7 @@
 import type {
   ArtifactRef,
+  ArtifactCatalogItem,
+  ArtifactSetPinnedRequest,
   ArtifactPreviewResult,
   ArtifactListRequest,
   ArtifactTargetRequest,
@@ -170,6 +172,9 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.skillsRemove, req)
   },
   artifacts: {
+    catalog: (): Promise<ArtifactCatalogItem[]> => ipcRenderer.invoke(CHANNELS.artifactCatalog, {}),
+    setPinned: (req: ArtifactSetPinnedRequest): Promise<ArtifactActionResult> =>
+      ipcRenderer.invoke(CHANNELS.artifactSetPinned, req),
     preview: (req: ArtifactTargetRequest): Promise<ArtifactPreviewResult> =>
       ipcRenderer.invoke(CHANNELS.artifactPreview, req),
     list: (req: ArtifactListRequest): Promise<ArtifactRef[]> =>

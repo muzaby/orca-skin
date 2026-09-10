@@ -17,6 +17,7 @@ import type { HistoryWriter } from '../../features/history/writer'
 import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
 import type { RouterContext } from '../context'
 import type { WorktreeService } from '../../features/worktrees/service'
+import type { TurnExtensions } from '../../adapters/turn'
 
 export interface ChatDeps {
   ctx: RouterContext
@@ -30,6 +31,7 @@ export interface ChatDeps {
   activity: SessionActivityProjector
   isUpdateInstallPending: () => boolean
   worktrees: WorktreeService
+  prepareOutputFiles?: (cwd: string) => Promise<NonNullable<TurnExtensions['outputFiles']>>
 }
 
 export type NormalizedAttachments = Awaited<ReturnType<typeof normalizeAttachments>>

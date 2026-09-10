@@ -36,6 +36,33 @@ const turn: Turn = {
   ]
 }
 describe('actual Work transcript branch', () => {
+  it.each(['ended', 'unknown'] as const)(
+    'does not expose the internal %s response boundary as a message label',
+    (outcome) => {
+      const boundaryTurn: Turn = {
+        ...turn,
+        messages: turn.messages.map((message) => ({
+          ...message,
+          parts: message.parts.map((part) =>
+            part.type === 'response_boundary' && part.boundary.phase === 'end'
+              ? { ...part, boundary: { ...part.boundary, outcome } }
+              : part
+          )
+        }))
+      }
+      const html = renderToStaticMarkup(
+        createElement(AssistantTurn, {
+          turn: boundaryTurn,
+          transcriptPolicy: workTranscript,
+          pending: true
+        })
+      )
+      expect(html).toContain('conclusion')
+      expect(html).not.toContain('응답 수신 마감')
+      expect(html).not.toContain('응답 미확정')
+      expect(html).not.toContain(`data-response-outcome="${outcome}"`)
+    }
+  )
   it('renders intro and conclusion while a closed activity does not mount tool bodies', () => {
     const html = renderToStaticMarkup(
       createElement(AssistantTurn, { turn, transcriptPolicy: workTranscript, pending: true })

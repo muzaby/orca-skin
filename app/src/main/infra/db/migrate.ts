@@ -27,6 +27,7 @@ import migration0021 from './migrations/0021_artifacts.sql?raw'
 import migration0022 from './migrations/0022_session_agent_kind.sql?raw'
 import migration0023 from './migrations/0023_session_agent_kind_code.sql?raw'
 import migration0024 from './migrations/0024_artifact_preview_formats.sql?raw'
+import migration0025 from './migrations/0025_artifact_catalog.sql?raw'
 
 interface Migration {
   name: string
@@ -57,7 +58,8 @@ const MIGRATIONS: Migration[] = [
   { name: '0021_artifacts', sql: migration0021 },
   { name: '0022_session_agent_kind', sql: migration0022 },
   { name: '0023_session_agent_kind_code', sql: migration0023 },
-  { name: '0024_artifact_preview_formats', sql: migration0024 }
+  { name: '0024_artifact_preview_formats', sql: migration0024 },
+  { name: '0025_artifact_catalog', sql: migration0025 }
 ]
 
 export const MIGRATION_NAMES = MIGRATIONS.map((m) => m.name)

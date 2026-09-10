@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   ArtifactSaveRequestSchema,
+  ArtifactCatalogRequestSchema,
+  ArtifactSetPinnedRequestSchema,
   ArtifactStatusRequestSchema,
   ArtifactTargetRequestSchema
 } from './protocol'
@@ -23,5 +25,15 @@ describe('artifact ID-only IPC contracts', () => {
     expect(ArtifactSaveRequestSchema.safeParse(request(0)).success).toBe(false)
     expect(ArtifactStatusRequestSchema.safeParse(request(100)).success).toBe(true)
     expect(ArtifactStatusRequestSchema.safeParse(request(101)).success).toBe(false)
+  })
+  it('bounds catalog and pin actions to ID-only inputs with an explicit boolean', () => {
+    expect(ArtifactCatalogRequestSchema.safeParse({}).success).toBe(true)
+    expect(ArtifactCatalogRequestSchema.safeParse({ path: 'C:/private' }).success).toBe(false)
+    expect(ArtifactSetPinnedRequestSchema.safeParse({ ...target, pinned: false }).success).toBe(
+      true
+    )
+    for (const extra of [{}, { pinned: 'true' }, { pinned: true, path: 'C:/private' }]) {
+      expect(ArtifactSetPinnedRequestSchema.safeParse({ ...target, ...extra }).success).toBe(false)
+    }
   })
 })

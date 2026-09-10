@@ -53,6 +53,8 @@ export const CHANNELS = {
   filesOpenPath: 'orca:files:openPath',
   filesReadAttachment: 'orca:files:readAttachment',
   artifactList: 'orca:artifact:list',
+  artifactCatalog: 'orca:artifact:catalog',
+  artifactSetPinned: 'orca:artifact:setPinned',
   artifactStatus: 'orca:artifact:status',
   artifactPreview: 'orca:artifact:preview',
   artifactSave: 'orca:artifact:save',
@@ -773,7 +775,7 @@ export interface PickedAttachment {
 
 // 트랜스크립트 user 버블/영속용 첨부 뷰 — 모델 주입용 ComposerAttachment(경로/바이트)와 별개로
 // 렌더·DB 에 남길 가벼운 메타다. 이미지는 previewDataUrl 에 다운스케일 썸네일(data URL)을 담아
-// reload 후에도 보이게 하고(원본 base64/경로 미보관), 비-이미지는 확장자만 칩으로 표시한다.
+// reload 후에도 보이게 하고, 원본 바이트는 main이 만든 /tmp 보관 경로로 연결한다.
 export interface AttachmentView {
   id: string
   name: string
@@ -781,6 +783,10 @@ export interface AttachmentView {
   kind: 'image' | 'file'
   previewDataUrl?: string
   sizeBytes?: number
+  /** Main에서 보관한 첨부 파일의 실제 경로. 이전 이력에는 없을 수 있다. */
+  path?: string
+  /** 보관한 원본 바이트의 SHA-256. */
+  sha256?: string
 }
 
 // diff 파일 요구사항의 wire anchor — main 으로는 **정확히 이 10키만** 보낸다(0211 D-057).
@@ -1117,10 +1123,14 @@ export interface FileEntry {
 export type OpenPathRequest = { path: string } & (
   | {
       mode: 'directory'
-      /** 지정하면 해당 Work 세션에 기록된 추가 폴더만 연다. */
+      /** 지정하면 해당 Work 세션의 cwd 또는 기록된 추가 폴더만 연다. */
       sessionId?: string
     }
-  | { mode: 'reveal'; sessionId?: never }
+  | {
+      mode: 'reveal'
+      /** 지정하면 해당 Work 세션의 cwd·추가 폴더 안에 있는 파일만 표시한다. */
+      sessionId?: string
+    }
 )
 
 // ── git (컴포저 브랜치 칩) ──────────────────────────────────────────────────

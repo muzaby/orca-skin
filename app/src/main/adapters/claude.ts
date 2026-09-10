@@ -25,6 +25,7 @@ import {
 } from '../../shared/permission-mode'
 import { claudeToNormalized, type MapContext } from './claude-map'
 import { readClaudeSessionSchedules } from './claude-schedules'
+import { makeOutputFilesHook } from './claude-output-files'
 import { ClaudeInputReceipts } from './claude-input-receipts'
 import type { SessionSchedule } from '../../shared/session-schedules'
 import { claudeErrorClassifier, errorEvent } from './error-classifier'
@@ -373,7 +374,9 @@ export class ClaudeAdapter implements SessionAdapter {
     // Workspace 격리(0075) — 작업 폴더(cwd) 밖 r/w 를 PreToolUse 가드 훅으로 막는다. additionalDirectories
     // 는 옵션과 훅이 **같은 배열**을 공유해 드리프트를 막는다(가이드 §5). 값은 컴포저 참조 경로
     // 신규 칩 또는 유휴 Work의 명시 폴더 추가가 DB를 거쳐 턴 요청에 실린다.
-    const additionalDirectories: string[] = req.extraDirs ?? []
+    const additionalDirectories: string[] = extensions.outputFiles
+      ? [...new Set([...(req.extraDirs ?? []), extensions.outputFiles.directory])]
+      : (req.extraDirs ?? [])
     const runtimeToolApprovalNames = runtimeApprovalToolNames(extensions.runtimeTools)
 
     const handle = query({
@@ -418,6 +421,7 @@ export class ClaudeAdapter implements SessionAdapter {
         ...withPostCompactHook(
           mergeHooks(
             adaptHooks(extensions.hooks),
+            makeOutputFilesHook(extensions.outputFiles, req.runtimeToolContext),
             makeInputReceiptHook((input) => receipts.prompt(input)),
             // 턴 종료(Stop) — git 변경 목록 싱크의 유일한 계기다(0211 ΔV6 D-115, §10 EP-46 ①).
             makeTurnEndHook((input) => {
@@ -621,6 +625,18 @@ export function buildTurnContent(
   const mergedTextParts = [text]
   if (attachmentTexts.length > 0) {
     mergedTextParts.push(...attachmentTexts.map((a) => formatAttachmentPromptBlock(a)))
+  }
+  for (const image of attachmentImages) {
+    if (image.path)
+      mergedTextParts.push(
+        formatAttachmentPromptBlock({
+          ...image,
+          text: '',
+          charsOriginal: 0,
+          charsIncluded: 0,
+          truncated: false
+        })
+      )
   }
   if (requirements.length > 0) {
     mergedTextParts.push(formatDiffRequirementsPrompt(requirements))

@@ -1,5 +1,7 @@
 import type Database from 'better-sqlite3'
 import { DEFAULT_AGENT_KIND } from '../../../shared/agent-kind'
+import { isAbsolutePath } from '../../../shared/absolute-path'
+import { isRecord } from '../../../shared/obj'
 import type {
   DanglingToolCallRow,
   IncompleteAssistantTextPartRow,
@@ -36,6 +38,7 @@ export class DbQueries {
   private readonly getSessionByIdStmt: Database.Statement
   private readonly getSessionBaselineStmt: Database.Statement
   private readonly loadPartsStmt: Database.Statement
+  private readonly listSessionAttachmentFilesStmt: Database.Statement
   private readonly appendMessageStmt: Database.Statement
   private readonly updateMessageContentStmt: Database.Statement
   private readonly markMessageCompleteStmt: Database.Statement
@@ -138,6 +141,11 @@ export class DbQueries {
       FROM messages m
       JOIN message_parts mp ON mp.message_id = m.id
       WHERE m.session_id = @sessionId
+      ORDER BY m.idx ASC, mp.idx ASC
+    `)
+    this.listSessionAttachmentFilesStmt = db.prepare(`
+      SELECT mp.payload_json FROM messages m JOIN message_parts mp ON mp.message_id = m.id
+      WHERE m.session_id = @sessionId AND m.role = 'user' AND mp.type = 'attachment'
       ORDER BY m.idx ASC, mp.idx ASC
     `)
     this.appendMessageStmt = db.prepare(`
@@ -430,6 +438,40 @@ export class DbQueries {
 
   loadParts(sessionId: string): LoadedPartRow[] {
     return this.loadPartsStmt.all({ sessionId }) as LoadedPartRow[]
+  }
+
+  listSessionAttachmentFiles(sessionId: string): Array<{ path: string; sha256: string }> {
+    const files: Array<{ path: string; sha256: string }> = []
+    const seen = new Set<string>()
+    const rows = this.listSessionAttachmentFilesStmt.all({ sessionId }) as Array<{
+      payload_json: string
+    }>
+    for (const row of rows) {
+      let payload: unknown
+      try {
+        payload = JSON.parse(row.payload_json)
+      } catch {
+        continue
+      }
+      if (!isRecord(payload) || !Array.isArray(payload.attachments)) continue
+      for (const file of payload.attachments) {
+        if (
+          !isRecord(file) ||
+          typeof file.path !== 'string' ||
+          !isAbsolutePath(file.path) ||
+          typeof file.sha256 !== 'string' ||
+          !/^[a-f\d]{64}$/i.test(file.sha256)
+        )
+          continue
+        const sha256 = file.sha256.toLowerCase()
+        const key = `${file.path}\0${sha256}`
+        if (!seen.has(key)) {
+          seen.add(key)
+          files.push({ path: file.path, sha256 })
+        }
+      }
+    }
+    return files
   }
 
   appendMessage(row: MessageInsert): number {

@@ -12,6 +12,7 @@ export interface AttachmentPromptBlockInput {
   truncated: boolean
   sizeBytes?: number
   sha256?: string
+  path?: string
 }
 
 const START_SENTINEL = 'ORCA_ATTACHMENT_START'
@@ -36,7 +37,8 @@ function metadataAttributes(input: AttachmentPromptBlockInput): string {
     ['chars_original', input.charsOriginal],
     ['chars_included', input.charsIncluded],
     ['truncated', input.truncated],
-    ['sha256', input.sha256]
+    ['sha256', input.sha256],
+    ['path', input.path]
   ]
 
   return attrs

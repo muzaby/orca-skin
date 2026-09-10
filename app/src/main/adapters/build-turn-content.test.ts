@@ -42,6 +42,21 @@ const requirement = (overrides: Partial<DiffRequirementAnchor> = {}): DiffRequir
 })
 
 describe('buildTurnContent', () => {
+  it('includes stored file paths and hashes for text and clipboard images while preserving image bytes', () => {
+    const hash = 'a'.repeat(64)
+    const content = buildTurnContent(
+      'review',
+      [textAtt({ path: 'C:/tmp/reference.md', sha256: hash })],
+      [imageAtt({ path: 'C:/tmp/paste.png', sha256: hash })],
+      []
+    )
+    const blocks = content as unknown as Array<Record<string, unknown>>
+    expect(blocks[0].text).toContain('path="C:/tmp/reference.md"')
+    expect(blocks[0].text).toContain('path="C:/tmp/paste.png"')
+    expect(blocks[0].text).toContain(`sha256="${hash}"`)
+    expect(blocks[1]).toMatchObject({ type: 'image', source: { data: 'QUJD' } })
+  })
+
   it('첨부가 없으면 본문 text 를 string 그대로 반환한다(검증된 무첨부 경로)', () => {
     expect(buildTurnContent('hi', [], [], [])).toBe('hi')
   })

@@ -42,7 +42,7 @@ export const WorkActivity = memo(function WorkActivity({
           />
         ) : node.kind === 'activity' ? (
           <ActivityDisclosure key={node.key} node={node} transcriptPolicy={transcriptPolicy} />
-        ) : (
+        ) : node.outcome === 'ended' || node.outcome === 'unknown' ? null : (
           <span
             key={node.key}
             className="text-caption text-ink3"

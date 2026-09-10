@@ -21,7 +21,7 @@ import {
   planApprovedMode
 } from '../../../shared/permission-mode'
 import type { AttachmentView, WorktreeDisplay } from '../../../shared/ipc'
-import type { SteerFlushBatch, TurnRequest } from '../../adapters/turn'
+import type { SteerFlushBatch, TurnExtensions, TurnRequest } from '../../adapters/turn'
 import type { TurnContext } from '../../contracts/turn'
 import { normalizeAttachments } from '../../features/chat/attachments'
 import { TurnCoordinator } from '../../features/chat/turn-coordinator'
@@ -78,7 +78,10 @@ export async function handleChatSend(
   // ── 2. 첨부 정규화 (busy 판정 앞 — 위 ①) ──────────────────────────────────
   let normalizedAttachments: NormalizedAttachments
   try {
-    normalizedAttachments = await normalizeAttachments(payload.attachments)
+    normalizedAttachments = await normalizeAttachments(payload.attachments, {
+      views: payload.attachmentViews
+    })
+    payload.attachmentViews = normalizedAttachments.attachmentViews ?? payload.attachmentViews
   } catch (err) {
     sendChatEvent(event.sender, {
       type: 'error',
@@ -119,6 +122,15 @@ export async function handleChatSend(
   const agentKind = identity.kind
   const profile = resolveAgentProfile(agentKind)
   const extensionProfile = { agentInstructions: profile.instructions, agentProfileKey: profile.key }
+  let outputFiles: TurnExtensions['outputFiles']
+  const withOutputs = (extensions: TurnExtensions): TurnExtensions =>
+    outputFiles
+      ? {
+          ...extensions,
+          outputFiles,
+          systemPromptAppend: `${extensions.systemPromptAppend ?? ''}\nFinal ordinary output directory: ${outputFiles.directory} (the native /tmp directory).`
+        }
+      : extensions
   const acquired = supervisor.acquireChain({
     agentKind,
     logicalKey,
@@ -288,16 +300,20 @@ export async function handleChatSend(
         // start* 로 등록한 즉시 cleanup 핸들을 공개한다. 이 다음 await가 reject해도
         // 바깥 finally가 등록된 turn을 정확히 한 번 release해야 한다.
         leaderTurn = turn
+        if (agentKind === 'work' && deps.prepareOutputFiles)
+          outputFiles = await deps.prepareOutputFiles(turn.cwd)
         const entry = await acquireTurnRuntime(
           {
             supervisor,
             lease,
             adapter: activeAdapter,
             buildExtensions: () =>
-              ctx.extensions.build(
-                payload.sessionId,
-                payload.sessionId ? null : boundProjectId,
-                extensionProfile
+              withOutputs(
+                ctx.extensions.build(
+                  payload.sessionId,
+                  payload.sessionId ? null : boundProjectId,
+                  extensionProfile
+                )
               ),
             settleDeadBackgroundTasks: deps.settleDeadBackgroundTasks,
             // turn 과 같은 축 — 인출 즉시 공개해야 이 다음 await 가 reject 해도
@@ -509,7 +525,8 @@ export async function handleChatSend(
                   providerKey,
                   modelFamily
                 }),
-              buildExtensions: () => ctx.extensions.build(sessionId, null, extensionProfile)
+              buildExtensions: () =>
+                withOutputs(ctx.extensions.build(sessionId, null, extensionProfile))
             })
             const selected = permissionModes.getCurrentMode(sessionId)
             const settled = coerceAutoPermissionModeForModelName(

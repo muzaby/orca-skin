@@ -5,6 +5,8 @@ import { ProjectsPage } from '../pages/ProjectsPage'
 import { ProjectLandingPage } from '../pages/ProjectLandingPage'
 import { AgentPage } from '../pages/AgentPage'
 import { CapturesPage } from '../pages/CapturesPage'
+import { ArtifactsPage } from '../pages/ArtifactsPage'
+import type { ArtifactsViewProps } from '../features/artifacts'
 import { BootRedirector } from './BootRedirector'
 
 // path 라우팅의 진실의 출처. 화면 ID → element 매핑.
@@ -15,7 +17,11 @@ import { BootRedirector } from './BootRedirector'
 // - `/projects` : 프로젝트 목록
 // - `/projects/:projectId` : ProjectLandingPage
 // - 그 외       : `/new` 로 fallback
-export function AppRouter(): React.JSX.Element {
+export function AppRouter({
+  artifactCatalog
+}: {
+  artifactCatalog: ArtifactsViewProps
+}): React.JSX.Element {
   return (
     <Routes>
       <Route path="/" element={<BootRedirector />} />
@@ -23,6 +29,7 @@ export function AppRouter(): React.JSX.Element {
       <Route path="/chat" element={<Navigate to="/new" replace />} />
       <Route path="/chat/:sessionId" element={<ChatPage />} />
       <Route path="/projects" element={<ProjectsPage />} />
+      <Route path="/artifacts" element={<ArtifactsPage {...artifactCatalog} />} />
       <Route path="/projects/:projectId" element={<ProjectLandingPage />} />
       <Route path="/agent" element={<AgentPage />} />
       <Route path="/captures" element={<CapturesPage />} />
