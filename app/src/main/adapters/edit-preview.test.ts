@@ -101,6 +101,35 @@ describe('buildEditPreview', () => {
     expect(read).toHaveBeenCalledTimes(1)
     expect(inside).not.toBeNull()
   })
+
+  // 0229 verify r1 D1 — 가드가 **푼 경로**와 reader 가 **읽는 경로**가 같아야 한다. 둘이 갈리면
+  // 상대 경로 `file_path` 가 가드는 workspace 기준으로, 읽기는 main 프로세스 cwd 기준으로 풀려
+  // 가드 밖 파일을 읽는다. 호출 여부(위 케이스)만 보면 이 갈림이 보이지 않는다.
+  it('reader 는 가드가 통과시킨 그 경로를 받는다 — 상대 경로도 workspace 기준이다', () => {
+    const read = vi.fn().mockReturnValue(FILE)
+    const relative = buildEditPreview(
+      'Edit',
+      edit({ file_path: 'nested/hello_world.ts' }),
+      roots,
+      read
+    )
+
+    expect(relative).not.toBeNull()
+    expect(read).toHaveBeenCalledExactlyOnceWith(path.join(WS, 'nested', 'hello_world.ts'))
+    // main 프로세스 cwd 기준으로 풀린 경로가 아니다 — 그랬다면 workspace 밖을 읽은 것이다.
+    expect(read.mock.calls[0][0]).not.toBe(path.resolve('nested/hello_world.ts'))
+  })
+
+  it('절대 경로도 정규화해 같은 문자열로 넘긴다', () => {
+    const read = vi.fn().mockReturnValue(FILE)
+    buildEditPreview(
+      'Edit',
+      edit({ file_path: path.join(WS, '.', 'a', '..', 'x.ts') }),
+      roots,
+      read
+    )
+    expect(read).toHaveBeenCalledExactlyOnceWith(path.join(WS, 'x.ts'))
+  })
 })
 
 describe('nodeEditPreviewReader', () => {
@@ -126,7 +155,15 @@ describe('nodeEditPreviewReader', () => {
     expect(nodeEditPreviewReader()(dir)).toBeNull()
   })
 
-  it('기본 상한은 1 MiB 다', () => {
-    expect(EDIT_PREVIEW_MAX_BYTES).toBe(1024 * 1024)
+  // 0229 verify r1 D2 — 상수 값 자체를 단언하면 동어반복이다. 인자 없는 기본 reader 가 실제로
+  // 그 상한을 쓰는지(경계 바로 위/아래)를 본다.
+  it('기본 reader 가 EDIT_PREVIEW_MAX_BYTES 를 경계로 쓴다', () => {
+    const atCap = path.join(dir, 'at-cap.ts')
+    const overCap = path.join(dir, 'over-cap.ts')
+    writeFileSync(atCap, 'x'.repeat(EDIT_PREVIEW_MAX_BYTES))
+    writeFileSync(overCap, 'x'.repeat(EDIT_PREVIEW_MAX_BYTES + 1))
+
+    expect(nodeEditPreviewReader()(atCap)).toHaveLength(EDIT_PREVIEW_MAX_BYTES)
+    expect(nodeEditPreviewReader()(overCap)).toBeNull()
   })
 })
