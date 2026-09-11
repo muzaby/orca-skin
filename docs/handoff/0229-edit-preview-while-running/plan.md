@@ -420,3 +420,108 @@ claude.ts enricher → NormalizedEvent.tool.call.started.editPreview
 - [x] 게이트 명령이 `app/AGENTS.md` 현재 지침과 충돌하지 않는다.
 - [x] 본문 완성 후 교차검증했고 결과를 §3 갱신 메모에 적었다.
 - [x] 산출물 문장 규칙을 지켰다.
+
+---
+
+## [구현자 기입] 설계 리뷰 (r1)
+
+- 동의 / 그대로 진행: Part I 전체와 §9 TO-BE 경로를 그대로 구현했다. `diff.structuredPatch` 의 기본 문맥이 실제로 4줄임을 테스트로 고정했다.
+- 이견 / 현실성 문제: §10 `EP-Δ4` 를 "`DiffBody.buildBlocks` 1지점" 으로 적었는데, 같은 불변식("미리보기가 카드까지 도달한다")이 성립해야 하는 지점이 **하나 더** 있었다 — `tool_call` 파트 → `ToolCall` view 생성자다. 그 생성자가 **셋**으로 복제돼 있어(`partsToolCalls`·`messageSegments`·`toolCallFromPart`) 한 곳만 고쳤을 때 트랜스크립트 카드가 미리보기를 보지 못했다(실측). 아래 `놓친 잠재 문제` 2 참조.
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-Δ4 | 가드 안에서만 읽는다 | 미리보기 생성 (1) | 1/1 | 불변식 주어(`미리보기가 파일을 읽는 지점`)로 재검색 `rg "read\(" src/main/adapters/edit-preview.ts` → 1건(`:70`) / 케이스 `workspace 밖 경로는 읽지 않는다` 가 `read` 미호출을 단언 | — |
+| VP-Δ4 | 1 MiB 상한 | 읽기 (1) | 1/1 | `rg "readFileSync" src/main --glob '!*.test.*'` → 1건(`edit-preview.ts:93`), 바로 앞 줄이 `statSync` 가드 | — |
+| VP-Δ3·VP-Δ8 | 일치 1회(또는 `replace_all`) | 미리보기 생성 (1) | 1/1 | `edit-preview.ts:73` / 케이스 `일치가 0회거나 2회 이상(replace_all 아님)이면 null` | — |
+| VP-Δ1·VP-Δ5·VP-Δ7 | 렌더 우선순위 | `DiffBody` (1) | **2/2** | `DiffBody.tsx:46` + **§10에 없던 지점** `parts.ts` 의 `ToolCall` view 생성자. 불변식 주어(`tool_call 파트 → ToolCall view 를 만드는 지점`)로 재검색 `rg "toolUseId: p.toolRunId" src/renderer` → 통합 전 3건 → **통합 후 1건**(`parts.ts:213`) | — |
+| VP-Δ6 | 미리보기 비영속 | writer started 분기 (1) | 1/1 | `rg "editPreview" src/main/features/history` → 주석 1건뿐, 코드 0건 / 케이스 `editPreview 는 실려 와도 영속 payload 에 들어가지 않는다` | — |
+
+- 전수 합계 **6/5** — §10 이 적은 5지점을 닫고, `EP-Δ4` 에 표에 없던 형제 지점 1곳을 더 닫았다(설계 리뷰 참조).
+- §10에 없는데 같은 불변식이 필요했던 지점: **1건** — `ToolCall` view 생성자. 현재 pair(VP-Δ1·VP-Δ7)의 필수 경로라 `PLAN_GAP` 후보지만, 구현자 권한 안(중복 제거)에서 닫혔고 Decision·AC·V node 를 바꾸지 않아 선조치했다. `§10 EP-Δ4` 의 지점 수를 2로 정정하는 것은 설계자 몫이다.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-Δ1 | REQUIRED | SELF_PASS | 미리보기만 있는 카드의 거터 `45·46·46`, 본문 전체 줄 | not selected — 화면 산출 직접 관측 |
+| VP-Δ2 | REQUIRED | SELF_PASS | 진행 중 카드의 `color:#112233` | not selected — 산출 직접 관측 |
+| VP-Δ3 | REQUIRED | SELF_PASS | 0회·2회·`replace_all`·비-Edit 반환값 | not selected — 반환값 직접 관측 |
+| VP-Δ4 | REQUIRED | SELF_PASS | 가드 밖에서 `read` 호출 **0회**, 상한 초과 시 `null` | required — N1 red(1케이스) · N3 red(1케이스) |
+| VP-Δ5 | REQUIRED | SELF_PASS | 결과 좌표 `90·91·91` 이 미리보기 `45·46·46` 을 대체 | not selected — 상태 전이 직접 관측 |
+| VP-Δ6 | REQUIRED | SELF_PASS | 영속 payload 키가 `['toolName','args']` | required — N2 red(1케이스) |
+| VP-Δ7 | REQUIRED | SELF_PASS | started 이벤트 → 파트 → 두 view 생성자 전부 도달 | not selected — 왕복 산출 직접 비교 |
+| VP-Δ8 | REQUIRED | SELF_PASS | hunk 좌표·문맥 폭 4줄 | not selected — 반환값 직접 관측 |
+| VP-R1 | REGRESSION | SELF_PASS | 0228 `DiffBody.render` 8케이스 + `claude-map.fileEdit` 4케이스 통과 | not selected — 기존 직접 oracle |
+| VP-R2 | REGRESSION | SELF_PASS | `diffSyntax.render` 2케이스 + DiffBody 토큰 2케이스 통과 | not selected — 기존 직접 oracle |
+| VP-N1 | NOT_REQUIRED | — | 랜딩 축 파일 미변경(`rg "lastAgentKind" 변경 파일` → 0건) | — |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| N1 `edit-preview.ts:68` — 가드 판정을 항상 통과로(제거) | `VP-Δ4 선택 증거` + `read 호출 0회` 부작용 oracle | 최초 | `workspace 밖 경로는 읽지 않는다` 1건 | 잠김 |
+| N2 `tool-call-payload.ts` — 영속 payload 에 `editPreview` 추가 | `VP-Δ6 선택 증거` + `not.toContain('structuredPatch')` 0건 스윕 | 최초 | `editPreview 는 실려 와도 영속 payload 에 들어가지 않는다` 1건 | 잠김 |
+| N6 `claude.ts:567-575` — 배선 블록 제거(+ 미사용 import·지역변수까지 치워 잔여물 0) | `배선 존재 oracle 민감도` | 최초 | `claude.ts 가 …들여온다`·`started 이벤트 분기가 …싣는다` 2건 | 잠김 |
+| N3 `edit-preview.ts:92` — 상한 확인을 읽기 뒤로(순서 변이) | EP-Δ2 순서 | 최초 | `상한 초과 파일은 null` 1건 | 잠김 |
+| N4 `DiffBody.tsx:46` — 결과/미리보기 우선순위 맞바꿈(형제 스왑) | EP-Δ4 형제 슬롯 | 최초 | `결과 패치가 미리보기를 이긴다 (AC2)` 1건 | 잠김 |
+| N5 `parts.ts` `messageSegments` — 미리보기를 빠뜨린 사본 복원 | EP-Δ4 형제 지점(실제로 났던 결함) | 최초 | `tool_call 파트 → ToolCall view 생성자 전부가 미리보기를 싣는다` 1건 | 잠김 |
+
+- **분모 검산**: `선택 증거 2 · 인용 변이 0 · 새 oracle 3 = 표 행 5`. N1·N2 가 각각 등록 변이와 그 자리에 만든 0건/부작용 oracle 두 주장을 함께 닫으므로 3행으로 접히고, 형제 축 N3·N4·N5 를 더해 표는 **6행**이다.
+- **덮개 회귀**: 이전 라운드에 red 였는데 이번에 green 인 행 0건 — r1 이다. 다만 `parts.ts` 의 세 생성자를 하나로 **통합**했으므로 0228 이 red 로 잡던 자리를 잃지 않았는지 확인했다 — `DiffBody.render` 8케이스·`diffSyntax.render` 2케이스가 그대로 통과하고, N5 가 통합 전 형태를 되살렸을 때 red 다.
+- **중요 관측**: N6 의 **첫 시도는 아무것도 재지 못했다** — `npm run lint`(prettier)가 호출을 여러 줄로 재포맷해 치환 문자열이 맞지 않았고, 그 상태의 `typecheck 0 error` 를 잠금 근거로 읽을 뻔했다. 실제 줄 범위로 다시 심어 배선 가드만 red 임을 확인했다.
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 신규 문구 0. 신규 상태(미리보기)의 소비자는 `DiffBody` → `DiffTable` 하나다 | 없음 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 2건 — `toolCallPartPayload` 추출(writer 의 `id`·`ev` 는 호출부에 그대로), `parts.ts` 생성자 통합(지역 `result` 를 생성자 안으로 옮김) | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 5개 폴백(가드·상한·읽기실패·일치·비-Edit) 전부 표에 행이 있다 | 없음 |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 모든 폴백이 **변경 전과 똑같은 카드**다 — 빈 본문 분기가 없다 | 없음 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 결과가 미리보기를 이기는 단방향이라 되돌림이 없다(AC2) | 없음 |
+| 예측을 사실로 오독할 여지 | 카드 동사가 `수정 중` 이고 완료 시 좌표가 결과로 교체된다 | 없음 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | `claude.ts` 는 electron 을 import 해 vitest 가 열 수 없다. 배선 블록을 통째로 지워도 **typecheck 0 error · 전 스위트 green** 이었다 — 단위만 잠그고 기능이 죽는 형태다 | ✅ 선조치 — 저장소 선례(`infra/net/no-node-fetch.test.ts`)와 같은 소스 스캔 가드를 추가하고 가드 자신의 감도 케이스를 함께 뒀다. 📝 §7-A `VP-Δ7` 의 oracle 이 "이벤트에 실은 값부터" 라 배선 앞단을 덮지 못한다 — 설계자가 그 pair 에 배선 증거를 추가하는 것이 맞다 | N6 실측 |
+| 2 | `tool_call` 파트 → `ToolCall` view 생성자가 **세 곳에 복제**돼 있었다(`partsToolCalls:101`·`messageSegments:538`·`toolCallFromPart:213`). 트랜스크립트 카드가 쓰는 것은 `messageSegments` 인데 처음에 `toolCallFromPart` 만 고쳐 카드가 미리보기를 못 봤다 | ✅ 선조치 — 셋을 `toolCallFromPart` 하나로 통합하고 파생 경로 테스트를 추가했다. 같은 파일의 `resultMap` 주석이 이미 "한 곳이 소유한다" 고 적고 있었으나 그 통합이 **결과 맵에만** 적용돼 있었다 | `parts.ts` 실측 · N5 |
+| 3 | `toolCallEquals`(0008 재렌더 최적화)는 `editPreview` 를 비교하지 않는다 | ✅ 선조치 — 비교 축이 아닌 이유를 주석으로 고정했다. 미리보기는 파트 생성 시 1회 실리고 이후 바뀌지 않아 `input` identity 가 대표한다 | `parts.ts` `toolCallEquals` |
+| 4 | 연속 편집에서 앞 편집이 파일을 바꾸면 뒤 편집의 미리보기는 **바뀐 파일**을 읽어야 한다 | ✅ 선조치 — 파일 캐시를 두지 않았다(§14 설계대로). 매 편집마다 그 시점 파일을 읽는다 | `edit-preview.ts` |
+| 5 | 승인 카드(`ToolApprovalBody`) 자체에는 여전히 diff 가 없다 — 사용자는 카드를 펼쳐야 본다 | ⚠️ 보고만 — §6 비범위이고 배치 변경은 제품 결정이다 | `ApprovalCard.tsx` |
+
+### 설계 대비 명시적 차이 (r1)
+
+- plan 이 지정한 메커니즘과 다르게 구현한 것: 없음. 추가한 것은 §11 에 없던 두 파일이다 — `features/history/tool-call-payload.ts`(writer 의 인라인 payload 를 순수 함수로 떼 AC9 를 DB 없이 단언) 와 `claude.edit-preview-wiring.test.ts`(위 잠재 문제 1).
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 미리보기는 캐시가 아니라 매 편집 1회 계산이다 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | `toolCallPartPayload` 는 writer 한 곳만 부른다(`rg "toolCallPartPayload" src/main --glob '!*.test.*'` → 정의 1 · 호출 1). 소스 스캔 가드는 `claude.ts` 파일 텍스트에 의존하므로 그 파일이 이름을 바꾸면 함께 고쳐야 한다 | AC9 · §10 EP-Δ5 — 키 집합 `['toolName','args']` |
+| 재진입 | 해당 없음 — 두 함수 모두 입력을 변형하지 않고 새 객체를 만든다 | — |
+| 다른 무효화 축 | 소스 스캔 가드는 **동작이 아니라 텍스트**를 본다 — 배선이 다른 형태로 재작성되면(예: helper 로 추출) 거짓 실패가 난다. 그때 가드를 함께 옮기는 것이 계약이다 | §10 EP-Δ4 — 가드 자신의 감도 케이스 4단언 |
+
+## [구현자 기입] 구현 보고 (r1)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 수정 7 · 신규 6(`edit-preview.ts`+테스트 · `tool-call-payload.ts`+테스트 · `claude.edit-preview-wiring.test.ts` · `parts.editPreview.test.ts`) |
+| 실행 명령 | `npm run typecheck` · `npm run lint` · `./node_modules/.bin/vitest run` · `node scripts/check-doc-inventory.mjs --check` |
+| **관측한 게이트 산출**(exit code 아님) | typecheck `error TS` **0건**(3구성) · lint **0 error / 1 warning**(`useTranscriptVirtualizer.ts:22` — 변경 무관 기존 항목) · vitest **486파일 4523케이스: 4334 pass · 173 fail · 16 skip**. 실패 30파일은 0228 기준선과 **동일 집합**(`diff after2.txt after3.txt` → 0줄), 오류 원문 3종 전부 better-sqlite3/electron ABI 서명 |
+| V-pair 자기확인 | `SELF_PASS 10 / SELF_BLOCKED 0` (REQUIRED 8 · REGRESSION 2); `NOT_REQUIRED 1` |
+| 강제 지점 전수 | 6/5 (§10 5지점 + 표에 없던 형제 지점 1) |
+| **AC 자기보고**(`Criteria-Met`) | 10/10 — AC1 거터 `45·46·46`(결과 없는 카드) · AC2 결과 좌표 `90·91·91` 이 미리보기를 대체 · AC3 `color:#112233` · AC4 0회·2회 모두 `null` · AC5 `replace_all` 에서 `spin` 2건 · AC6 `read` 호출 0회 · AC7 32바이트 상한에서 `null`, 64바이트에서 본문 · AC8 `null` 반환·throw 없음 · AC9 payload 키 `['toolName','args']` · AC10 `Write`/`MultiEdit`/`Read` 모두 `null` |
+| **합계 검산** | `✅ 10 · ⚠️ 0 · ❌ 0 = 총 10` — §7 표의 AT 행을 다시 세어 분모 10. 0228(13)과 분모가 다르므로 직접 비교하지 않는다 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals (r1)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **예** — 0228 이 "패치가 카드까지 도달한다" 를 닫았고 0229 가 같은 축을 진행 중 상태로 넓혔다. 0228 검증의 `D1`(죽은 export)과 달리 이번 것은 파생 사본 드리프트다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: §10 `EP-Δ4` 가 지점을 1로 적었다. plan §12 의 "기존 소비처" 표도 `parts.ts` 를 한 줄로 적어 생성자가 셋이라는 사실을 세지 않았다 — 0228 Review Signals 가 남긴 "전수 표가 프로덕션 소비처만 세고 사본을 세지 않는다" 와 같은 축이다.
+- 반복해서 부딪히는 환경 한계: better-sqlite3 Electron ABI 미빌드(30파일) · `claude.ts` 가 electron 을 import 해 직접 테스트 불가.
+- 현재 라운드 수: 1

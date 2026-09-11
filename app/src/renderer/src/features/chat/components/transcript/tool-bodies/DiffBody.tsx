@@ -13,9 +13,10 @@ import type { ToolCall } from '../../../reducer/chatReducer'
 // 표를 그려야 하므로 `lib/diffLines`·`lib/diffPatchLines`·`components/DiffTable` 이 소유한다
 // (0206 D-019 · 0211 ΔV4). 여기 남는 것은 *어느 입력으로 줄을 만들 것인가* 뿐이다.
 //
-// 우선순위는 **결과의 구조화 패치 → 도구 입력 쌍** 이다(0228 D-006). 패치는 실제 파일 좌표를
-// 갖고 있어 `46 -` 처럼 그릴 수 있고, 입력 쌍은 조각이라 1번 줄부터 셀 수밖에 없다. 패치가
-// 없는 경우(`Write`·`MultiEdit`·구버전·오류 결과)는 폴백이다(D-009·D-010).
+// 우선순위는 **결과의 구조화 패치 → 실행 전 미리보기 → 도구 입력 쌍** 이다(0228 D-006 · 0229
+// E-009). 앞의 둘은 실제 파일 좌표를 갖고 있어 `46 -` 처럼 그릴 수 있고, 입력 쌍은 조각이라
+// 1번 줄부터 셀 수밖에 없다. 결과가 오면 예측을 사실로 교체한다 — 진행 중에만 미리보기가 선다.
+// 셋 다 없는 경우(`Write`·`MultiEdit`·구버전·오류 결과)는 입력 쌍 폴백이다(D-009·D-010).
 
 function buildPairLines(call: ToolCall): DiffLine[][] {
   const rec = call.input as Record<string, unknown> | null
@@ -42,7 +43,9 @@ function buildPairLines(call: ToolCall): DiffLine[][] {
 }
 
 function buildBlocks(call: ToolCall): DiffLine[][] {
-  const hunks = readFileEditStructuredPatch(call.result?.structuredOutput)
+  const hunks =
+    readFileEditStructuredPatch(call.result?.structuredOutput) ??
+    readFileEditStructuredPatch(call.editPreview)
   if (hunks) return [patchLinesToDiffLines(fileEditPatchLines(hunks))]
   return buildPairLines(call)
 }

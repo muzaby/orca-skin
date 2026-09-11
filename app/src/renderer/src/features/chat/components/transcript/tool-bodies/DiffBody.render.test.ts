@@ -40,15 +40,25 @@ const patchHunk = {
   ]
 }
 
+const editInput = {
+  file_path: 'C:/w/hello_world.ts',
+  old_string: 'animate',
+  new_string: 'animate2'
+}
+
 const editCall = (structuredOutput?: unknown): ToolCall => ({
   toolUseId: 'e1',
   name: 'Edit',
-  input: {
-    file_path: 'C:/w/hello_world.ts',
-    old_string: 'animate',
-    new_string: 'animate2'
-  },
+  input: editInput,
   result: { output: 'updated', isError: false, ...(structuredOutput ? { structuredOutput } : {}) }
+})
+
+// 0229 — 결과가 아직 없는 `수정 중` 카드. 미리보기만 갖는다.
+const runningEditCall = (editPreview?: unknown): ToolCall => ({
+  toolUseId: 'e1',
+  name: 'Edit',
+  input: editInput,
+  ...(editPreview ? { editPreview } : {})
 })
 
 function render(call: ToolCall): ReturnType<typeof load> {
@@ -141,6 +151,53 @@ describe('편집 도구 카드 본문 (0228)', () => {
     const $ = render(editCall({ structuredPatch: [patchHunk] }))
     expect($('td span')).toHaveLength(0)
     expect($('tr').eq(1).find('pre').eq(2).text()).toBe('async function animate(): Promise<void> {')
+  })
+
+  // 0229 AC1 — 결과가 오기 전에도 실제 좌표를 그린다. 승인 대기 화면이 이 상태다.
+  it('결과 없이 미리보기만 있으면 실제 파일 줄번호와 줄 전체를 그린다 (AC1)', () => {
+    tokensOn = false
+    const table = rows(render(runningEditCall({ structuredPatch: [patchHunk] })))
+    expect(table).toEqual([
+      { lineNo: '45', gutter: '', text: '  const frame = 0' },
+      { lineNo: '46', gutter: '-', text: 'async function animate(): Promise<void> {' },
+      { lineNo: '46', gutter: '+', text: 'async function animate2(): Promise<void> {' }
+    ])
+  })
+
+  // 0229 AC2 — 완료되면 예측을 사실로 교체한다. 두 좌표가 달라야 어느 쪽을 썼는지 보인다.
+  it('결과 패치가 미리보기를 이긴다 (AC2)', () => {
+    tokensOn = false
+    const resultHunk = { ...patchHunk, oldStart: 90, newStart: 90 }
+    const table = rows(
+      render({
+        ...runningEditCall({ structuredPatch: [patchHunk] }),
+        result: {
+          output: 'updated',
+          isError: false,
+          structuredOutput: { structuredPatch: [resultHunk] }
+        }
+      })
+    )
+    expect(table.map((row) => row.lineNo)).toEqual(['90', '91', '91'])
+  })
+
+  it('진행 중 카드에도 문법 색이 붙는다 (AC3)', () => {
+    tokensOn = true
+    const $ = render(runningEditCall({ structuredPatch: [patchHunk] }))
+    expect($('tr').eq(1).find('pre').eq(2).find('span').attr('style')).toBe('color:#112233')
+  })
+
+  it('형태가 어긋난 미리보기는 폴백한다', () => {
+    tokensOn = false
+    const table = rows(
+      render(runningEditCall({ structuredPatch: [{ ...patchHunk, newLines: 9 }] }))
+    )
+    expect(table.map((row) => row.lineNo)).toEqual(['1', '1'])
+  })
+
+  it('미리보기도 결과도 없으면 입력 쌍 렌더다', () => {
+    tokensOn = false
+    expect(rows(render(runningEditCall())).map((row) => row.lineNo)).toEqual(['1', '1'])
   })
 
   it('결과도 입력도 없으면 입력 JSON 을 그대로 보인다', () => {

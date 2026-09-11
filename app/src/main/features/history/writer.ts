@@ -16,6 +16,7 @@ import { previewOf } from '../../infra/ipc/dto'
 import { sendChatEvent } from '../../infra/ipc/send'
 import { getLogger } from '../../infra/log/registry'
 import type { TurnContext } from '../../contracts/turn'
+import { toolCallPartPayload } from './tool-call-payload'
 
 // 0064 continuity — fork/handoff 도착 물질화 훅(구조적 포트). 구현은 features/orchestration
 // 의 materializeContinuityArrival 이고 컴포지션 루트(app/bootstrap)가 주입한다 — feature
@@ -317,11 +318,8 @@ export class HistoryWriter {
           messageId: id,
           type: 'tool_call',
           toolRunId: ev.toolRunId,
-          payloadJson: JSON.stringify({
-            toolName: ev.toolName,
-            args: ev.args ?? null,
-            ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {})
-          })
+          // 라이브 전용 필드(`editPreview`)를 거르는 규칙은 순수 모듈이 갖는다(0229 §10 EP-Δ5).
+          payloadJson: JSON.stringify(toolCallPartPayload(ev))
         })
         break
       }
