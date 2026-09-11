@@ -6,13 +6,19 @@ import { useDiffSyntax } from '../hooks/useDiffSyntax'
 // diff 한 쌍의 줄 렌더 — **props 만 읽는다**(0206 D-019). 도구 카드(`DiffBody`)와 diff 타일이
 // 같은 표를 쓰므로 거터 문자·줄번호 자리·행 틴트가 한 곳에서 정해진다.
 //
-// 3열이 계약이다: 줄번호(3em) · `+`/`-` 거터(1.4em) · 본문. 앞 둘은 `select-none` 이라
-// 사용자가 diff 를 복사하면 본문만 딸려 온다.
+// 4열이 계약이다: old 줄 · new 줄 · `+`/`-` 거터 · 본문. 앞 셋은 `select-none` 이라
+// 사용자가 diff 를 복사하면 본문만 딸려 온다. 실제 Git 축을 확인하지 못하면 숫자는 비운다.
 export function DiffTable({
   oldValue,
   newValue,
-  filePath = ''
-}: DiffPair & { filePath?: string }): React.JSX.Element {
+  filePath = '',
+  oldStartLine = null,
+  newStartLine = null
+}: DiffPair & {
+  filePath?: string
+  oldStartLine?: number | null
+  newStartLine?: number | null
+}): React.JSX.Element {
   // diffLines 는 O(n·m) — 부모가 재렌더돼도 같은 입력이면 재계산하지 않는다(0108).
   const lines = useMemo(() => buildDiffLines(oldValue, newValue), [oldValue, newValue])
   const syntax = useDiffSyntax(lines, filePath)
@@ -49,12 +55,20 @@ export function DiffTable({
               <td
                 className={`select-none whitespace-nowrap px-2 text-right align-baseline tabular-nums ${gutterBg}`}
               >
-                <pre className="m-0 text-code text-t6 opacity-60">{line.oldLine ?? ''}</pre>
+                <pre className="m-0 text-code text-t6 opacity-60">
+                  {line.oldLine !== null && oldStartLine !== null
+                    ? oldStartLine + line.oldLine - 1
+                    : ''}
+                </pre>
               </td>
               <td
                 className={`select-none whitespace-nowrap px-2 text-right align-baseline tabular-nums ${gutterBg}`}
               >
-                <pre className="m-0 text-code text-t6 opacity-60">{line.newLine ?? ''}</pre>
+                <pre className="m-0 text-code text-t6 opacity-60">
+                  {line.newLine !== null && newStartLine !== null
+                    ? newStartLine + line.newLine - 1
+                    : ''}
+                </pre>
               </td>
               <td className={`select-none px-1 text-center align-baseline ${gutterBg}`}>
                 <pre className="m-0 text-code text-t6">{isAdded ? '+' : isRemoved ? '-' : ' '}</pre>

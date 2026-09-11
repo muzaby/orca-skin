@@ -3,8 +3,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { DiffLine } from '../../../lib/diffLines'
 import type { ToolCall } from '../../../reducer/chatReducer'
+import type { GitDiffPatch } from '../../../../../../../shared/ipc'
 
 const highlightedPaths: string[] = []
+const storeHarness = vi.hoisted(() => ({ patch: null as GitDiffPatch | null }))
 
 vi.mock('../../../hooks/useDiffSyntax', () => ({
   useDiffSyntax: (lines: readonly DiffLine[], filePath: string) => {
@@ -21,6 +23,11 @@ vi.mock('../../../hooks/useDiffSyntax', () => ({
   }
 }))
 
+vi.mock('../../../store/chatStore', () => ({
+  useChatSession: (selector: (state: { gitSnapshot: { patch: GitDiffPatch | null } }) => unknown) =>
+    selector({ gitSnapshot: { patch: storeHarness.patch } })
+}))
+
 import { DiffBody, buildPairs } from './DiffBody'
 
 function call(name: ToolCall['name'], input: Record<string, unknown>): ToolCall {
@@ -28,6 +35,7 @@ function call(name: ToolCall['name'], input: Record<string, unknown>): ToolCall 
 }
 
 describe('Code file edit tool body', () => {
+  storeHarness.patch = null
   it.each([
     ['Write', { file_path: 'src/new.ts', content: 'const answer = 42' }, '', 'const answer = 42'],
     [
@@ -49,7 +57,7 @@ describe('Code file edit tool body', () => {
     }
   )
 
-  it('renders every MultiEdit pair with independent relative old/new axes', () => {
+  it('renders every MultiEdit pair and hides unverified relative axes', () => {
     highlightedPaths.length = 0
     const toolCall = call('MultiEdit', {
       file_path: 'src/multi.tsx',
@@ -63,6 +71,51 @@ describe('Code file edit tool body', () => {
     expect(highlightedPaths).toEqual(['src/multi.tsx', 'src/multi.tsx'])
     expect(html).toContain('old one')
     expect(html).toContain('new two')
-    expect(html).toContain('>2</pre>')
+    expect(html).not.toMatch(/<pre[^>]*>\d+<\/pre>/)
+  })
+
+  it('renders the actual 46/47 axes from the owning Git patch', () => {
+    storeHarness.patch = {
+      isRepo: true,
+      base: { kind: 'head', oid: 'base' },
+      filesTruncated: false,
+      contextLimited: false,
+      unavailable: false,
+      files: [
+        {
+          path: 'hello_world.ts',
+          status: 'modified',
+          added: 1,
+          removed: 1,
+          kind: 'text',
+          lines: [
+            {
+              type: 'removed',
+              oldLine: 46,
+              newLine: null,
+              text: 'async function animate(): Promise<void> {'
+            },
+            {
+              type: 'added',
+              oldLine: null,
+              newLine: 47,
+              text: 'async function animate2(): Promise<void> {'
+            }
+          ]
+        }
+      ]
+    }
+    const html = renderToStaticMarkup(
+      createElement(DiffBody, {
+        call: call('Edit', {
+          file_path: 'C:\\repo\\hello_world.ts',
+          old_string: 'async function animate(): Promise<void> {',
+          new_string: 'async function animate2(): Promise<void> {'
+        })
+      })
+    )
+    expect(html).toContain('>46</pre>')
+    expect(html).toContain('>47</pre>')
+    storeHarness.patch = null
   })
 })

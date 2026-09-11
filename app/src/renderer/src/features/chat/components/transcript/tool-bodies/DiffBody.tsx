@@ -3,6 +3,8 @@ import { stringify } from '../../../format'
 import { DiffTable } from '../../DiffTable'
 import type { DiffPair } from '../../../lib/diffLines'
 import type { ToolCall } from '../../../reducer/chatReducer'
+import { useChatSession } from '../../../store/chatStore'
+import { locateToolDiffPairs } from '../../../lib/toolDiffLocation'
 
 // 도구 입력(Write/Edit/MultiEdit)을 diff 쌍으로 접는 곳. **줄 파생과 줄 렌더는 갖지 않는다** —
 // diff 타일과 같은 표를 그려야 하므로 `lib/diffLines`·`components/DiffTable` 이 소유한다
@@ -37,6 +39,11 @@ export function DiffBody({ call }: { call: ToolCall }): React.JSX.Element {
   const pairs = useMemo(() => buildPairs(call), [call])
   const rec = call.input as Record<string, unknown> | null
   const filePath = typeof rec?.file_path === 'string' ? rec.file_path : ''
+  const patch = useChatSession((session) => session.gitSnapshot.patch)
+  const locations = useMemo(
+    () => locateToolDiffPairs(patch, filePath, pairs),
+    [filePath, pairs, patch]
+  )
 
   return (
     <div className="flex flex-col gap-2">
@@ -47,7 +54,13 @@ export function DiffBody({ call }: { call: ToolCall }): React.JSX.Element {
       ) : (
         pairs.map((p, i) => (
           <div key={i} className="overflow-auto rounded-r4 border border-t5">
-            <DiffTable oldValue={p.oldValue} newValue={p.newValue} filePath={filePath} />
+            <DiffTable
+              oldValue={p.oldValue}
+              newValue={p.newValue}
+              filePath={filePath}
+              oldStartLine={locations[i].oldStartLine}
+              newStartLine={locations[i].newStartLine}
+            />
           </div>
         ))
       )}

@@ -10,8 +10,8 @@
 | 상태 | READY |
 | V mode | Baseline V |
 | 기준 V | none |
-| 이번 V revision | V1 |
-| 유효 V | V1 |
+| 이번 V revision | ΔV1 — V1 줄번호 계약 일부 대체 |
+| 유효 V | V1 + ΔV1 |
 
 # Part I — Product & UX Contract
 
@@ -39,12 +39,13 @@
 | D-002 | 랜딩에서 Work/Code를 명시 선택하면 그 값을 앱 설정에 저장하고 이후 새 랜딩에 사용한다. | 프로세스 재시작을 포함한 “기억” | 사용자 턴 | ACTIVE | — |
 | D-003 | 확정된 기존 세션의 `agentKind`는 세션 기록을 따르며 마지막 랜딩 선택으로 덮지 않는다. | 이력의 실행 종류 보존 | 현행 session load 계약에서 파생 | ACTIVE | — |
 | D-004 | Read·Write·Edit·MultiEdit의 언어 판정은 파일 경로 확장자 SSOT를 공유한다. | 사용자 지정 참조 구현 재사용 | 사용자 턴 | ACTIVE | — |
-| D-005 | Edit/MultiEdit는 각 입력의 실제 타깃 문자열을 diff하고 SDK가 시작 줄을 주지 않으므로 절대 파일 줄번호를 추측하지 않는다. | 부정확한 숫자보다 정직한 상대 축 | 현행 tool input 계약 조사 | ACTIVE | — |
+| D-005 | Edit/MultiEdit는 각 입력의 실제 타깃 문자열을 diff하고 SDK가 시작 줄을 주지 않으므로 절대 파일 줄번호를 추측하지 않는다. | 부정확한 숫자보다 정직한 상대 축 | 현행 tool input 계약 조사 | SUPERSEDED | D-007 |
 | D-006 | Write는 빈 파일에서 새 내용으로의 diff, Edit는 `old_string→new_string`, MultiEdit는 각 edit 쌍의 diff를 유지한다. | 입력 의미와 현재 카드 구조 보존 | 현행 코드 | ACTIVE | — |
+| D-007 | Edit/MultiEdit는 우측 Git diff patch에서 같은 파일·old/new 본문에 대응하는 줄을 찾아 실제 old/new 파일 줄번호를 표시한다. 대응이 없거나 모호하면 숫자를 숨기며 1부터의 상대 번호를 실제 줄처럼 표시하지 않는다. | 사용자 실측은 도구 카드 `1` 대신 같은 화면 Git diff의 `46/47` 파일 축을 요구한다. | 사용자 후속 턴 | ACTIVE | D-005 |
 
 ### 갱신 메모
 
-- 새 결정은 D-001~D-006이며 대체된 결정과 OPEN 항목은 없다.
+- D-005는 D-007로 대체한다. 나머지 D-001~D-004·D-006은 유지하며 OPEN 항목은 없다.
 - ACTIVE 결정 ↔ AC 대조: D-001↔AC1, D-002·D-003↔AC2, D-004↔AC3, D-005·D-006↔AC4로 충돌 0건이다.
 
 ## 4. 요구 비판적 검토
@@ -57,7 +58,7 @@
 | 정확한 Edit 절대 줄을 만들 수 있는가 | 입력만으로 불가 | `old_string/new_string`에는 파일 내 시작 offset이 없고 결과에도 패치가 없다. |
 | 기존 결정과 충돌하는가 | 없음 | 세션 `agentKind` 잠금과 우측 diff SSOT를 보존한다. |
 
-- 사용자에게 올릴 결정: 없음. “정확한 줄번호”는 존재하지 않는 절대 offset을 추측하지 않고 편집 조각의 old/new 상대 축을 명확히 표시하는 것으로 닫는다.
+- 사용자에게 올릴 결정: 없음. 사용자 예시로 절대 파일 줄번호가 제품 계약임이 확정됐다. 이미 정상 동작하는 우측 Git patch의 파일·old/new 축을 SSOT로 사용하고, 모호하면 거짓 숫자 대신 줄번호를 숨긴다.
 - 코드 조사로 닫은 사실: 카드의 잘못된 타깃은 `DiffBody`가 파일 경로를 `DiffTable`에 전달하지 않는 데서, 문법 미지원은 `DiffTable`이 Shiki 토큰을 소비하지 않는 데서 발생한다.
 
 ## 5. 동작 / 사용자 흐름
@@ -99,7 +100,28 @@ Code 도구 카드 수신 → file_path 언어 판정 → old/new 축 diff + 문
 | R-01 | AT-01 / AC1 | 설정 없는 첫 실행의 랜딩은 Work 활성이다. | Settings 기본값과 bootstrap된 draft의 버튼 상태 단언 | SettingsStore→settings IPC→chat bootstrap→AgentModeToggle |
 | R-02 | AT-02 / AC2 | 마지막 명시 선택이 새 대화·앱 재시작에 복원되고 기존 세션은 자체 종류를 유지한다. | 선택→patch, 늦은 bootstrap 경쟁, NEW_CHAT/freshEntry, LOAD_SESSION 사례 단언 | toggle→chatActions→store/cache/settings→draft; session.load→reducer |
 | R-03 | AT-03 / AC3 | 지원 확장자의 Write/Edit/MultiEdit 카드가 Read·Git diff와 같은 언어 판정과 테마 토큰을 쓴다. | TS/TSX fixture의 키워드 토큰 색상과 미지원 확장자 평문 폴백 단언 | tool registry→DiffBody→DiffTable→useDiffSyntax/extToLang→Shiki |
-| R-04 | AT-04 / AC4 | Write/Edit/MultiEdit가 각 입력의 정확한 old/new 본문과 상대 old/new 줄 축을 표시한다. | 삽입·삭제·문맥·다중 edit fixture에서 본문과 두 축 번호 단언 | tool input→buildPairs→buildDiffLines→DiffTable |
+| R-04 | AT-04 / AC4 | Write/Edit/MultiEdit가 각 입력의 정확한 old/new 본문을 보존한다. | 삽입·삭제·문맥·다중 edit fixture에서 본문 단언 | tool input→buildPairs→buildDiffLines→DiffTable |
+| R-05 | AT-05 / AC5 | Edit/MultiEdit 카드가 Git patch에서 유일하게 대응한 old/new 실제 줄번호를 표시하고, 대응 없음·모호함에는 숫자를 숨긴다. | 사용자 예시 fixture→`46 -`/`47 +`, MultiEdit 독립 대응, 중복 target→번호 없음 단언 | ToolCall+chatStore.gitSnapshot.patch→matcher→DiffTable |
+
+## 7-B. ΔV1 — 실제 파일 줄번호 정정
+
+- 변경 시작 수준: R. 사용자 후속 실측이 V1 R-04의 “상대 축”을 실제 파일 축으로 정정한다.
+- `R-04/AT-04`의 본문 정확성은 INHERITED/REGRESSION이며 상대 번호 표시는 D-007·R-05가 supersede한다.
+
+| Node | 레벨 | 계약 | provenance | 대체 관계 |
+|---|---|---|---|---|
+| R-05 / AT-05 | R / AT | §7 AC5 | NEW | R-04의 줄번호 절 |
+| SD-02 / ST-02 | SD / ST | tool card와 최신 Git patch 결합·patch 갱신 | NEW | — |
+| AR-03 / IT-03 | AR / IT | chatStore patch→matcher→table | NEW | — |
+| MD-02 / UT-02 | MD / UT | 파일 path+old/new 연속 줄의 유일 대응 | NEW | — |
+
+| Pair | left ↔ right | requiredness | production path | 직접 evidence oracle | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-09 | R-05 ↔ AT-05 | REQUIRED | tool card+Git patch→matcher→absolute gutters | 46/47 예시 DOM | required — patch 좌표 대신 1을 쓰면 red | EP-05 (4) |
+| VP-10 | SD-02 ↔ ST-02 | REQUIRED | patch null→도착/갱신→card 재파생 | patch 전 번호 없음, 도착 후 실제 번호 | not selected — 직접 전이 oracle | EP-06 (2) |
+| VP-11 | AR-03 ↔ IT-03 | REQUIRED | store patch selector→matcher→DiffBody→DiffTable | 실제 store patch render fixture | required — selector 또는 matcher 배선 제거 시 red | EP-05·06 (4) |
+| VP-12 | MD-02 ↔ UT-02 | REQUIRED | path+pair lines→patch subsequence→axis offsets | unique/duplicate/CRLF/multiline table | not selected — 직접 값 oracle | EP-05 (3) |
+| VP-13 | R-04 ↔ AT-04 | REGRESSION | 기존 parser→diff body | 세 도구 원문 보존 | not selected | EP-03 (4) |
 
 ## 7-A. V / Trace Matrix
 
@@ -211,6 +233,8 @@ tool input + file_path → DiffBody pairs → DiffTable(filePath)
 | EP-02 / VP-03·07 | 언어 판정 | `extToLang`+Shiki `isLang` | DiffBody가 path 전달; DiffTable이 hook 호출 (2) | 편집 카드만 평문 또는 잘못된 언어 |
 | EP-03 / VP-03·04·07·08 | 편집 내용과 old/new 축 | `buildPairs`+`buildDiffLines` | 3 tool variant 파싱; table token cell 렌더 (4) | 타깃 본문/줄 축 왜곡 |
 | EP-04 / VP-04·08 | 절대 시작 줄을 추측하지 않음 | tool input shape | 라벨/시험; 파일 read 미도입 (2) | 실제 파일 위치처럼 보이는 거짓 숫자 |
+| EP-05 / VP-09·11·12 | 실제 old/new 줄 축 | Git patch `oldLine/newLine` | file path 대응; pair subsequence 유일성; axis offset; DiffTable 적용 (4) | 1 대신 46/47이어야 하는 카드가 재발 |
+| EP-06 / VP-10·11 | 최신 patch 파생 | `chatStore.gitSnapshot.patch` | store selector; patch 변경마다 재파생 (2) | 패널은 맞고 도구 카드만 stale |
 
 - `lastAgentKind`는 필수 Settings 필드이며 디스크 부재/잘못된 값은 Work로 복구한다.
 - Shiki 비지원 확장자는 token map이 비어 평문으로 렌더된다.
@@ -225,6 +249,8 @@ tool input + file_path → DiffBody pairs → DiffTable(filePath)
 | `app/src/renderer/src/features/chat/reducer/chatReducer.ts` | 새 대화 seed 수용 | 저장소가 넘긴 마지막 kind를 보존하는 전이 | reducer test |
 | `app/src/renderer/src/features/chat/components/transcript/tool-bodies/DiffBody.tsx` | 도구 입력 파싱 | file path 전달, 3 variant pair 유지 | render test |
 | `app/src/renderer/src/features/chat/components/DiffTable.tsx` | 도구 diff 렌더 | filePath 선택 prop, syntax token과 두 축 표시 | render test |
+| `app/src/renderer/src/features/chat/lib/toolDiffLocation.ts` | 실제 축 matcher | file path와 old/new 줄 시퀀스를 Git patch에 유일 대응 | 순수 UT |
+| `app/src/renderer/src/features/chat/components/transcript/tool-bodies/DiffBody.tsx` | patch 결합 | store patch를 구독해 pair별 실제 축을 DiffTable에 전달 | store render test |
 | 관련 `*.test.ts(x)` | 회귀 잠금 | AC1~4와 선택 변이 | Vitest |
 
 ### 테스트 가능성
@@ -369,3 +395,35 @@ ToolCall → registry → DiffBody → DiffTable → diffLines/diffSyntax → DO
 - 구현 커밋 좌표: `(r1 구현 — 좌표는 INDEX)`.
 - 신규 의존성·IPC 채널·DB 마이그레이션: 없음.
 - Review Signals: 없음. 다음 주체는 Claude 독립 검증이다.
+
+## [구현자 기입] ΔV1 설계 리뷰 / 구현 결과 (r2)
+
+- 동의 / 그대로 진행: D-007·AC5·VP-09~13을 구현했다. 우측 패널의 `GitDiffPatchLine.oldLine/newLine`을 실제 줄 축 SSOT로 재사용한다.
+- 이견 / 현실성 문제: 없음. 최초 ΔV1 초안의 현재 파일 재조회는 old 축을 복원할 수 없어 사용자 예시 `46/47`을 만족하지 못하므로, 구현 전 같은 설계 커밋에서 Git patch 재사용으로 바로잡았다.
+- ACTIVE Decision 충돌: D-005는 SUPERSEDED이고 D-007만 적용했다.
+
+### ΔV1 강제 지점 / V-pair 자기확인
+
+| Pair | §10 지점 | 닫은 지점 | 직접 관측 | 적대 증거 |
+|---|---:|---:|---|---|
+| VP-09 | EP-05 4 | 4/4 | 사용자 fixture가 도구 카드 DOM `46 -`·`47 +` 산출 | offset을 상대 1로 복귀하면 2 red |
+| VP-10 | EP-06 2 | 2/2 | patch null은 번호 없음, patch 값 변경은 selector 재렌더 파생 | not selected — 직접 상태 oracle |
+| VP-11 | EP-05·06 4 | 4/4 | 실제 `useChatSession→locateToolDiffPairs→DiffTable` render | selector를 null로 끊으면 1 red |
+| VP-12 | EP-05 3 | 3/3 | path·old/new subsequence unique/duplicate/missing 시험 | not selected — 직접 값 oracle |
+| VP-13 | EP-03 4 | 4/4 | Write/Edit/MultiEdit exact pair·syntax 기존 4-case 유지 | not selected — 회귀 행동 oracle |
+
+- 전수 검색: `rg -n 'gitSnapshot.patch|locateToolDiffPairs|oldStartLine|newStartLine|<DiffTable' app/src/renderer/src/features/chat`로 selector·matcher·table·생산 호출을 대조했다.
+- §10 밖 동일 불변식 지점: 없음. Git patch 소비자는 matcher 한 곳, `DiffTable` 생산자는 `DiffBody` 한 곳이다.
+
+### ΔV1 수정 잠금 / Product UX
+
+| 심은 결함 | 출처 | 실패한 테스트 | 결과 |
+|---|---|---|---|
+| absolute offset 계산을 기존 상대 `line.oldLine/newLine`으로 복귀 | VP-09 | 2파일 2건 | 잠김 |
+| DiffBody의 patch selector를 `null`로 단절 | VP-11 | 실제 card render 1건 | 잠김 |
+
+- 분모 검산: 선택 증거 2 · 인용 변이 0 · 새 구조 oracle 0 = 표 행 2; 2/2 red.
+- 사용자가 준 `hello_world.ts` 예시를 그대로 fixture화했다. 대응이 없거나 같은 본문이 중복되면 `1`을 표시하지 않고 줄번호 칸을 비운다.
+- 설정/Work-Code 계약과 syntax token은 변경하지 않았다. 신규 의존성·IPC·DB 변경은 없다.
+- AC 자기합계: ✅ 5/5, 미충족 0. 구현 커밋 좌표는 `(r2 구현 — 좌표는 INDEX)`.
+- 게이트: lint 0 error/기존 warning 1, typecheck 3구성, 관련 Vitest 8파일 39건, doc inventory/prose/link, diff check가 통과했다.
