@@ -125,15 +125,103 @@
 | F-13 | 종료 ↔ 스냅샷 불일치 표시 | 스냅샷 제외를 `failed` 로 **확정** | `turn-coordinator.ts:459-478` | 스펙의 "종료 사유 미확인"(성공도 실패도 아님)과 다르다 | "실행 목록에서 제외됨 · 종료 사유 미확인" / "완료 · 정리 중" 구분 |
 | F-14 | `task_updated.patch.end_time·total_paused_ms·description` | 미판독 | `claude-map.ts:271-309` 가 `status`·`error`·`is_backgrounded` 만 읽는다 | 일시정지 누적 시간·설명 변경이 화면에 없다 | 카드에 "일시정지 N분 포함" 표기 |
 
-## G5 — 조건부 도구 (현재 전부 0)
+## G5 — 조건부 도구 (F-15~F-19 상세)
 
-| ID | 대상 | 현재 Orca | 관측 근거 | 구현 시 가능한 UX |
-|---|---|---|---|---|
-| F-15 | `Monitor`(명령·WebSocket 감시) | 없음 | `rg Monitor app/src` → 0건 | 감시 실행 카드 — 이벤트·타임아웃·개별 중단 |
-| F-16 | `Workflow` | 없음 | `rg Workflow app/src` → 0건 | `async_launched` + `error` 를 시작으로 오표시하지 않는 실행 카드, 내부 에이전트 진행 |
-| F-17 | 분리 실행 `Skill`(`background:true`) | 없음 | 같은 검색 | 스킬 분리 실행을 작업으로 연결 |
-| F-18 | 원격 Agent(`remote_launched`·`sessionUrl`) | 없음 | `rg remote_launched app/src` → 0건 | 원격 실행 링크·상태, 로컬 종료 시 "확인 불가" |
-| F-19 | `TaskOutput`/`TaskStop` 도구 호출 | 일반 도구 카드로만 | `claude-taskxxx-spec.md:111-124` 의 ⛔ 의도적 미채택 | 유지 — 새 실행 관리와 분리된 채 결과만 보인다 |
+> **전제 ① 차단은 없다.** 메인 chat query 의 거부 목록은 `Bash`·`WebSearch` 둘뿐이다
+> (`claude.ts:432`). `allowedTools: []` 는 제목 생성 query(`claude.ts:272`, `maxTurns:1`)의 것이라
+> 본문 대화와 무관하다. **사용자 설치본 CLI 가 `Monitor`·`Workflow`·분리 `Skill`·원격 Agent 를
+> 제공하면 모델은 지금도 그것을 부를 수 있다.** "미구현" 은 "호출이 막혀 있다" 가 아니라
+> "호출되면 잘못 그린다" 는 뜻이다.
+>
+> **전제 ② 아래 결과 payload 형태는 첨부 스펙에서 왔다.** 실제 로그로 관측하지 않았다. 각 항목의
+> 코드 경로는 현재 HEAD 실측이고, 그 경로에 스펙의 payload 를 대입한 귀결이 '증상' 칸이다.
+
+### 공통 분기점 — `isAsyncLaunchedPayload`
+
+네 도구의 운명은 한 술어가 가른다(`shared/subagent.ts`):
+
+```ts
+export function isAsyncLaunchedPayload(value: unknown): boolean {
+  return isRecord(value) && value.status === 'async_launched'
+}
+```
+
+`tool.call.completed` 에서 이 술어가 참이면 `markAsyncLaunched`(= 라이브 백그라운드 유지),
+거짓이면 `backgroundTasks.settled`(= 추적 해제 · 도구 호출 종료)다
+(`turn-coordinator.ts:514-522`). 스펙이 말하는 네 결과 중 **`status` 가
+`async_launched` 인 것은 `Workflow` 하나**다.
+
+| 도구 | 결과의 판별 필드 | 술어 결과 | 귀결 |
+|---|---|---|---|
+| `Monitor` | `{ taskId, timeoutMs, persistent? }` — `status` 없음 | 거짓 | 즉시 추적 해제 |
+| `Workflow` | `{ status: 'async_launched', taskId, … }` | **참** | 라이브 등록 — `error` 동반 시에도 |
+| 분리 `Skill` | `{ …, background: true }` | 거짓 | 즉시 추적 해제 |
+| 원격 Agent | `{ status: 'remote_launched', taskId, sessionUrl, … }` | 거짓 | 즉시 추적 해제 + **완료로 표시** |
+
+### F-15 `Monitor` — 감시가 도는데 추적에서 빠진다
+
+| 축 | 내용 |
+|---|---|
+| 지금 일어나는 일 | 결과에 `status` 가 없어 도구 반환 시 `backgroundTasks.settled(toolRunId)` 가 돈다. 감시는 CLI 안에서 계속 도는데 Orca 의 라이브 집합에서 사라진다 |
+| 연쇄 | 추적이 비면 `decidePostTurnStep` 이 `break` 로 갈 수 있다(`features/chat/post-turn.ts` 마지막 줄). listen 프레임이 닫히고 이후 감시 stdout 은 `unframed` 백로그로 쌓인다 — 유실은 아니지만 라이브 표시가 없다 |
+| 표시 | `toolRendererRegistry` 에 `Monitor` 등록이 없어 `KeyValueBody` 일반 카드로 떨어진다. 동사는 `toolVerbCategory` 의 `default` 인 "사용" 이다 |
+| 스펙 요구 | `command` 와 `ws` 중 정확히 하나. `persistent: true` 를 "CLI 종료 후에도 사는 서비스" 로 읽지 않는다. `task_type: 'local_bash'` 가 Bash 와 겹치므로 **원래 도구 이름을 보존**한다 |
+| 열리는 UX | 감시 카드 — 대상(명령 또는 WebSocket URL) · 경과 · 수신 이벤트 수 · 타임아웃 잔여 · 개별 중단. 감시가 도는 동안 listen 유지 |
+| 선행 조건 | F-01(`task_type`) — Bash 와 같은 `local_bash` 를 쓰므로 원래 도구 이름 없이는 구분할 수 없다 |
+
+### F-16 `Workflow` — 시작 실패를 라이브 실행으로 등록한다
+
+| 축 | 내용 |
+|---|---|
+| 지금 일어나는 일 ① | 결과가 `status: 'async_launched'` 라 **비-Agent 도구 중 유일하게** 라이브 백그라운드로 등록된다 |
+| 지금 일어나는 일 ② | 스펙: 구문 검사 실패 시 `async_launched` 와 `error` 가 **함께** 온다. Orca 는 `error` 를 보지 않으므로 **시작조차 안 한 실행을 라이브로 등록**한다. 정착 이벤트가 영영 오지 않아 listen 루프가 채널 사망까지 세션을 붙잡고, spark 라인의 "백그라운드 작업 1건" 이 고착된다 |
+| 지금 일어나는 일 ③ | 정착 시 `createSubagentSettlementEvents` 가 `{ summary: '' }` 를 `tool.call.completed` 로 덮어쓴다. `resultMap` 은 마지막 항목이 이기므로 `runId`·`transcriptDir`·`scriptPath` 가 지워진다 (F-03 과 같은 축) |
+| 지금 일어나는 일 ④ | 완료 통지 행은 뜨지만 `subagentTaskDescription` 이 `isAgentTaskName` 으로 조인해 **제목이 빈다**. 클릭하면 `openSubagentTask(toolRunId)` → `SubAgentTileContent` 가 그 id 를 못 찾아 목록으로 폴백한다 — **죽은 어포던스** |
+| 스펙 요구 | `error` 를 **먼저** 확인한다. `taskId`·`runId`·내부 에이전트 ID 를 별도 보존한다. 내부 에이전트 완료를 전체 Workflow 완료로 처리하지 않는다 |
+| 열리는 UX | Workflow 실행 카드 — 스크립트 이름 · `runId` · `transcriptDir` · 내부 에이전트 진행과 `blocked` · `resumeFromRunId` 재실행 |
+| 선행 조건 | 없음. 시작 오류 판정만으로도 고착 결함이 닫힌다 |
+
+### F-17 분리 실행 `Skill` — 백그라운드인데 완료로 본다
+
+| 축 | 내용 |
+|---|---|
+| 지금 일어나는 일 | `SkillToolOutput.background: true` 는 `async_launched` 가 아니므로 술어가 거짓이다. 스킬이 분리 실행으로 돌기 시작해도 도구 호출은 반환 즉시 종료로 그려지고 추적에서 빠진다 |
+| 스펙 요구 | 작업 이벤트와 연결한다. **Skill 결과에 없는 `taskId` 를 만들어 연결하지 않는다** |
+| 열리는 UX | 분리 실행 스킬의 진행·완료 통지. 도구 카드가 "백그라운드로 실행 중" 을 말한다 |
+| 선행 조건 | `task_started.tool_use_id` 로만 연결해야 한다 — id 를 합성하면 스펙 위반이다 |
+
+### F-18 원격 Agent — 띄우자마자 완료로 그린다
+
+| 축 | 내용 |
+|---|---|
+| 지금 일어나는 일 ① | `remote_launched` 는 `async_launched` 가 아니라 술어가 거짓이다 → `backgroundTasks.settled`. 원격 실행의 종료를 기다리지 않는다 |
+| 지금 일어나는 일 ② | 원격 실행은 `Agent` 도구라 `subagentTasksFromMessages` 에 **들어간다**. `deriveSubagentTaskStatus` 는 `result` 존재 + `isError` 아님 → **`completed`** 를 돌려준다. 우측 패널 타일이 원격 에이전트를 **즉시 완료**로 그리고, 런치 영수증이 답변 자리에 들어간다 |
+| 지금 일어나는 일 ③ | `sessionUrl` 을 읽는 코드가 없어 원격 세션으로 갈 링크가 화면에 없다 |
+| 스펙 요구 | 원격 링크·상태·출력·중단 범위를 실제로 확인한다. 로컬 종료 시 원격 결과를 임의 확정하지 않는다 |
+| 열리는 UX | 원격 실행 카드 — 세션 링크 · 원격 상태 · `outputFile` · 로컬 종료 시 "확인 불가" 표시 |
+| 선행 조건 | 술어를 `async_launched` 단일 리터럴에서 **런치 영수증 종류 판별**로 넓혀야 한다 |
+
+### F-19 `TaskOutput` / `TaskStop` — 유지가 맞다, 단 두 가지 사실
+
+| 축 | 내용 |
+|---|---|
+| 현행 결정 | ⛔ **의도적 미채택**(`claude-taskxxx-spec.md:111-124`). GUI 의 백그라운드 상태를 `TaskOutput` polling 에 의존시키지 않는다(0204 D-010·D-011). 호스트 제어는 `Query.stopTask(taskId)` 다 — 이 결정은 스펙과도 일치하므로 **유지**한다 |
+| 사실 ① | 두 이름이 `TASK_TOOL_NAMES` 에 있어 어댑터가 `structuredOutput` 을 실어 **영속**한다(`claude-map.ts:514-517`·`583`). 그런데 렌더 소비자는 `TASK_LIST_TOOL_NAMES` 4종뿐이라(`registry.ts` `task_list`) **소비처가 0** 이다 — 읽히지 않는 필드를 저장한다 |
+| 사실 ② | 모델이 `TaskStop` 을 부르면 `stoppedSubagents` 에는 들어가지 않는다. 정착은 `status:'stopped'` 로 오고, `task_notification.summary` 가 없으면 UI 가 폴백 문구 `chat.taskTile.stoppedReason`(`ko.ts:775`) = **"사용자에 의해 중단됨"** 을 쓴다. 실제로는 모델이 멈춘 것이라 행위자를 잘못 말한다 |
+| 열리는 UX | 사실 ②를 고치면 "모델이 중단함" 과 "사용자가 중단함" 이 갈린다. 사실 ①은 저장을 멈추거나 상세에서 보여주거나 둘 중 하나로 닫는다 |
+
+### G5 를 미룰 때의 비용
+
+| 항목 | 미뤘을 때 | 성격 |
+|---|---|---|
+| F-16 ② | 세션이 유휴로 돌아오지 못한다 | **고착 결함** — 도구가 있으면 오늘 재현된다 |
+| F-18 ② | 원격 실행이 즉시 완료로 보인다 | 오표시 |
+| F-15 · F-17 | 백그라운드 실행이 조용히 사라진다 | 누락 |
+| F-19 ② | 중단 행위자를 잘못 말한다 | 오표시 (경미) |
+| F-19 ① | 소비처 없는 필드를 영속한다 | 위생 |
+
+F-16 ②·F-18 ②·F-19 ②는 **새 화면 없이 판정 한 줄씩**으로 닫힌다. 새 카드(F-15·F-16 ①·F-17·F-18 ①)는
+그보다 크다 — 이 둘을 같은 항목으로 묶어 미루면 값싼 결함 수정까지 함께 미뤄진다.
 
 ## G6 — 제어·수명
 
