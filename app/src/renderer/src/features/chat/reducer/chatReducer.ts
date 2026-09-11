@@ -84,6 +84,9 @@ export interface ToolCall {
     structuredOutput?: unknown
   }
   parentToolRunId?: string
+  // 실행 전 편집 미리보기(0229) — `result` 가 없는 동안 diff 카드가 읽는 값. 결과가 오면
+  // `result.structuredOutput` 이 이긴다(§10 EP-Δ4).
+  editPreview?: unknown
 }
 
 // 계획 패널 인라인 코멘트 1건(휘발성 — 세션 상태). quote=선택 본문 스냅샷, start/end=계획
@@ -939,7 +942,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               toolRunId: ev.toolRunId,
               toolName: ev.toolName,
               args: ev.args,
-              ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {})
+              ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {}),
+              // 실행 전 편집 미리보기(0229) — 결과가 오기 전까지 카드가 실제 줄번호를 그리는
+              // 유일한 입력이다. 영속되지 않으므로 재로드 후에는 결과 패치가 같은 자리를 채운다.
+              ...(ev.editPreview !== undefined ? { editPreview: ev.editPreview } : {})
             })
           }
 

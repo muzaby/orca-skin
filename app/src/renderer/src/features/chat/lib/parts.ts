@@ -103,14 +103,7 @@ export function partsToolCalls(parts: AppMessagePart[]): ToolCall[] {
   const calls: ToolCall[] = []
   for (const p of parts) {
     if (p.type === 'tool_call' && p.parentToolRunId === undefined) {
-      const result = resultByRun.get(p.toolRunId)
-      calls.push({
-        toolUseId: p.toolRunId,
-        name: p.toolName,
-        input: p.args,
-        ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {}),
-        ...(result ? { result } : {})
-      })
+      calls.push(toolCallFromPart(p, resultByRun))
     }
   }
   return calls
@@ -210,9 +203,13 @@ function isToolResultPart(
   return p.type === 'tool_result'
 }
 
+// tool_call 파트 → `ToolCall` view 의 **단일 생성자**. 0229 이전에는 같은 본문이 세 곳
+// (`partsToolCalls`·`messageSegments`·`subagentTasksFromMessages`)에 복사돼 있어, 파트에 필드가
+// 늘면 세 곳이 갈라졌다 — 실제로 `editPreview` 를 한 곳에만 넣자 트랜스크립트 카드가 그 값을
+// 보지 못했다. `resultMap` 과 같은 이유로 한 곳이 소유한다.
 function toolCallFromPart(
   p: Extract<AppMessagePart, { type: 'tool_call' }>,
-  resultByRun: Map<string, NonNullable<ToolCall['result']>>
+  resultByRun: ReadonlyMap<string, NonNullable<ToolCall['result']>>
 ): ToolCall {
   const result = resultByRun.get(p.toolRunId)
   return {
@@ -220,6 +217,9 @@ function toolCallFromPart(
     name: p.toolName,
     input: p.args,
     ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {}),
+    // 실행 전 편집 미리보기(0229) — 라이브 파트에만 있다. 영속 파트에는 없으므로 재로드 후에는
+    // 결과의 구조화 출력이 같은 카드를 세운다.
+    ...(p.editPreview !== undefined ? { editPreview: p.editPreview } : {}),
     ...(result ? { result } : {})
   }
 }
@@ -534,14 +534,7 @@ export function messageSegments(
       else segments.push((current = { kind: 'reasoning', items: [item] }))
     } else if (p.type === 'tool_call') {
       if (p.parentToolRunId !== undefined) continue
-      const result = resultByRun.get(p.toolRunId)
-      const call: ToolCall = {
-        toolUseId: p.toolRunId,
-        name: p.toolName,
-        input: p.args,
-        ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {}),
-        ...(result ? { result } : {})
-      }
+      const call = toolCallFromPart(p, resultByRun)
       if (p.toolName === 'AskUserQuestion') {
         segments.push((current = { kind: 'ask', call }))
       } else if (current?.kind === 'tools') {
@@ -595,6 +588,8 @@ function resultEquals(a: ToolCall['result'], b: ToolCall['result']): boolean {
   return a.output === b.output && a.isError === b.isError && a.durationMs === b.durationMs
 }
 
+// `editPreview` 는 비교 축이 아니다(0229) — started 파트가 만들어질 때 한 번 실리고 이후 바뀌지
+// 않으므로 `input` identity 가 그것까지 대표한다. 결과 도착은 `resultEquals` 가 잡는다.
 function toolCallEquals(a: ToolCall, b: ToolCall): boolean {
   return (
     a.toolUseId === b.toolUseId &&

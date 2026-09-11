@@ -587,6 +587,11 @@ export type NormalizedEvent =
       toolName: string
       args: unknown
       parentToolRunId?: string
+      // `Edit` 실행 **전** 미리보기 패치 `{ structuredPatch }`(0229) — 진행 중 카드가 완료 카드와
+      // 같은 줄번호·전체 줄을 그리게 한다. SDK 는 실행 전 diff 를 주지 않아 main 이 편집 전 파일을
+      // workspace 가드 안에서 읽어 만든다. **라이브 전용 — 영속하지 않는다**: 완료 결과의
+      // `structuredOutput` 이 정본이고 이미 영속되므로 둘 다 저장하면 같은 hunk 를 두 번 적는다.
+      editPreview?: unknown
     }
   | {
       type: 'tool.call.completed'
@@ -1414,6 +1419,9 @@ export type AppMessagePart =
       toolName: string
       args: unknown
       parentToolRunId?: string
+      // 실행 전 미리보기 패치(0229) — **라이브 전용**이라 `HistoryWriter` 가 적지 않는다. 재로드
+      // 후에는 완료 결과의 `structuredOutput` 이 같은 카드를 세운다.
+      editPreview?: unknown
     }
   | {
       type: 'tool_result'

@@ -54,7 +54,8 @@ import {
   withPostCompactHook
 } from './claude-adapt'
 import { CLAUDE_DESCRIPTOR } from './descriptor'
-import { makeWorkspaceGuardHook } from './workspace-guard'
+import { makeWorkspaceGuardHook, resolveGuardRoots } from './workspace-guard'
+import { buildEditPreview, nodeEditPreviewReader } from './edit-preview'
 import { resolveClaudeExecutable } from './claude-executable'
 import type { ProviderDescriptor } from '../../shared/ipc'
 
@@ -387,6 +388,10 @@ export class ClaudeAdapter implements SessionAdapter {
       ? [...new Set([...(req.extraDirs ?? []), extensions.outputFiles.directory])]
       : (req.extraDirs ?? [])
     const runtimeToolApprovalNames = runtimeApprovalToolNames(extensions.runtimeTools)
+    // 실행 전 편집 미리보기(0229) — 가드 훅과 **같은 입력**으로 루트를 턴당 1회 푼다. 편집이 쓸 수
+    // 없는 경로는 미리보기로도 읽지 않는다.
+    const previewRoots = resolveGuardRoots(cwd, additionalDirectories)
+    const readForPreview = nodeEditPreviewReader()
 
     const handle = query({
       prompt: input.stream,
@@ -559,6 +564,15 @@ export class ClaudeAdapter implements SessionAdapter {
             responseScope++
           }
           const events = claudeToNormalized(msg, ctx).flatMap<NormalizedEvent>((event) => {
+            if (event.type === 'tool.call.started') {
+              const hunks = buildEditPreview(
+                event.toolName,
+                event.args,
+                previewRoots,
+                readForPreview
+              )
+              return [hunks ? { ...event, editPreview: { structuredPatch: hunks } } : event]
+            }
             if (event.type !== 'input.received' && event.type !== 'input.echo') return [event]
             const reconciled = receipts.reconcile(event)
             return reconciled ? [reconciled] : []
