@@ -387,64 +387,89 @@
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: Part I·Part II 전부. Decision D-001~D-006 을 그대로 수행했다.
+- 이견 / 현실성 문제: §7 AT-03 의 "out/main 에 emit" 이 사실과 달랐다 — electron-vite 는 main 의 `?asset` 을 복사하지 않고 `join(__dirname, "../../resources/logo.png")` 로 외부화한다. 설계자 역할로 **별도 커밋**(`docs(handoff): 0227 AT-03 검증 수단 정정`)에서 규범 행을 고친 뒤 구현했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| … | … | … | … | … | … |
+| VP-01·VP-03 | 런타임 아이콘 = `resources/logo.png` | EP-01 import(1) · EP-02 `BrowserWindow` 분기 2가지(2) | 3/3 | `grep -rn 'resources/logo.png?asset' app/src` → `index.ts:6` 1건 / `index.ts:181` 이 win32·linux 두 경우 모두 `icon: logo`, darwin 은 미지정 / `grep -rn 'resources/icon\.\(png\|ico\)\|iconIco' app/src` → 0건 | — |
+| VP-02 | 자산 인벤토리 | EP-03 두 디렉토리(1) | 1/1 | `git ls-files \| grep -E '(^\|/)icon\.(png\|ico)$'` → 0건(삭제 staged) / `app/build`·`app/resources` 각각 `logo.png`·`logo-with-claude.png` 존재, sha256 = 업로드 원본(`e08465f4…` · `7c4f18d6…`) | — |
+| VP-04 | 패키징 아이콘 = `build/logo.png` | EP-04 `win.icon`·`mac.icon`·`linux.icon`(3) | 3/3 | `grep -c '^  icon: build/logo.png$' app/electron-builder.yml` → 3 (`:28` win · `:36` mac · `:46` linux) | — |
 
-**V-pair 자기확인**
+- §10에 없는데 같은 불변식이 필요했던 지점: 없음 — `grep -ri 'icon' app/scripts \| grep -vi iconv` 0건, 아이콘을 아는 스크립트·테스트가 없다.
+
+**V-pair 자기확인** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다.
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| … | … | … | … | … |
+| VP-01 | REQUIRED | SELF_BLOCKED | 코드 경로는 닫혔으나 창 아이콘 육안은 이 환경(헤드리스 Linux 컨테이너)에서 불가 | not selected |
+| VP-02 | REQUIRED | SELF_PASS | 구 자산 0건 · 신규 4개 sha256 일치 | not selected |
+| VP-03 | REQUIRED | SELF_PASS | `electron-vite build` 성공, `app/out/main/index.js` 에 `join(__dirname, "../../resources/logo.png")` 1건 · 구 `icon.png`/`icon.ico` 0건 | **red 확인** — 아래 잠금 표 참조 |
+| VP-04 | REQUIRED | SELF_BLOCKED | yml 3지점은 닫혔으나 `electron-builder` 실기는 egress 차단으로 불가 | not selected |
+| VP-05 | REQUIRED | SELF_PASS | lint 0 error · typecheck 3구성 무오류 | not selected |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | … | … | … |
+| `app/resources/logo.png` 를 임시 이동(자산 제거) | `VP-03 선택 증거` | 최초 | `electron-vite build` → `Could not resolve "../../resources/logo.png?asset" from "src/main/index.ts"`, `Build failed in 53ms` | 잠김 |
+
+- **분모 검산**: `선택 증거 1 · 인용 변이 0 · 새 oracle 0 = 표 행 1`.
+- **덮개 회귀**: 최초 라운드라 이전 red 행이 없다. 제거한 장치 없음.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| … | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — 새 문구 0건, 정적 자산 교체다 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 새 실패 경로 0건 — 자산 부재는 빌드 시점에 끊긴다(§5 흐름의 실패 갈래와 동일) | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 해당 없음 — 런타임 분기가 없다 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 — 비동기 경로가 없다 | — |
+| `logo-with-claude.png` 를 아무도 참조하지 않는다 | 의도된 상태(D-005) — 저장소에만 둔다 | 사용처는 후속 handoff |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| … | … | … | … |
+| 1 | AT-03 의 "out/main emit" 이 electron-vite 의 실제 동작과 다르다 | 📝 **plan 수정 제안** → 별도 설계 커밋으로 반영 | `app/out/main/index.js` 가 자산 사본이 아니라 `join(__dirname, "../../resources/logo.png")` 경로를 갖는다 |
+| 2 | `resources/**` 가 `asarUnpack` 대상이라 패키징 후에도 실디스크 경로가 유효하다 | ✅ 선조치 불필요 — 기존 설정이 이미 보장한다 | `app/electron-builder.yml:17` |
+| 3 | 새 자산이 RGBA(투명 배경)라 구 RGB 아이콘과 배경 처리가 다르다 | ⚠️ 보고만 — 다크 배경 대비는 AT-01 육안 항목 | `file app/resources/logo.png` → `8-bit/color RGBA` |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: 플랫폼 분기를 중첩 삼항(`win32 ? … : linux ? … : {}`)으로 남기지 않고 `win32 || linux` 단일 조건으로 합쳤다. 두 분기의 값이 같아져(D-004) 중첩이 의미를 잃었다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 정적 상수 참조라 만료 개념이 없다 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — `logo` 는 모듈 스코프 상수이고 쓰는 곳이 `BrowserWindow` 1곳이다 | EP-02 / `grep -rn 'icon: logo' app/src` → `index.ts:181` 1건 |
+| 재진입 | 해당 없음 — 창 생성마다 같은 상수를 읽는다 | — |
+| 다른 무효화 축 | darwin 이 실수로 아이콘을 받게 되는 경우 — 합친 조건이 `darwin` 을 포함하면 macOS 계약이 깨진다 | §5 darwin 행 / `index.ts:181` 조건이 `win32 || linux` 뿐임을 확인, `electron-vite build` 성공 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| 관측한 게이트 산출 | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| AC 자기보고 | … |
-| 합계 검산 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | … |
+| 변경 파일 | `app/build/{logo.png,logo-with-claude.png}`(신규) · `app/resources/{logo.png,logo-with-claude.png}`(신규) · 같은 두 디렉토리의 `icon.png`·`icon.ico`(삭제 4) · `app/src/main/index.ts` · `app/electron-builder.yml` · `docs/handoff/INDEX.md` |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/electron-vite build` · `node scripts/check-doc-inventory.mjs --check` |
+| **관측한 게이트 산출**(exit code 아님) | lint **0 error · 1 warning**(`useTranscriptVirtualizer.ts:22` `react-hooks/incompatible-library` — 변경 무관 기존 경고) · typecheck **3구성 무오류**(node·web·test) · build **성공**(main·preload·renderer, `✓ built in 5.99s`) · doc-inventory **ok**(9 items, 92 channels · 링크 전건 해석) |
+| V-pair 자기확인 | `SELF_PASS 3 / SELF_BLOCKED 2`; VP-01·VP-04 는 사람/CI 실기 대기 |
+| 강제 지점 전수 | 7/7 (EP-01 1 · EP-02 2 · EP-03 1 · EP-04 3) |
+| **AC 자기보고**(`Criteria-Met`) | AC1 ⚠️ 실기 대기(헤드리스 환경) · AC2 ✅ 구 자산 0건 + 신규 4개 sha256 일치 · AC3 ✅ import 1건·구 참조 0건·번들 경로 1건 · AC4 ⚠️ yml 3지점 확인, 패키징 실기 대기 · AC5 ✅ lint 0 error·typecheck 무오류 |
+| **합계 검산** | `✅ 3 · ⚠️ 2 · ❌ 0 = 총 5` — 분모는 AT-01~AT-05 로 이번 라운드에 바뀌지 않았다 |
+| 블로커 / 역질문 | 없음. AC1·AC4 는 설계 시점부터 사람/CI 몫으로 명시된 항목이다 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드 수: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 최초 라운드라 해당 없음.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: AT-03 의 증거 문장이 도구 동작(`?asset` 외부화)을 확인하지 않고 쓰였다. 구현 중 번들을 읽어 드러났다.
+- 반복해서 부딪히는 환경 한계: 헤드리스·egress 차단으로 `npm run dev`·`electron-builder` 실기 불가 — `app/AGENTS.md §제약 환경 게이트` 가 예고한 한계와 같다.
+- 현재 라운드 수: 1
 
 ---
 
