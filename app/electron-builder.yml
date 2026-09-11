@@ -23,6 +23,9 @@ extraResources:
     to: builtin
 win:
   executableName: orcinus-orca
+  # build/ 에 icon.ico 가 없으므로 경로를 명시한다 — electron-builder 가 png 에서
+  # 다해상도 ico 를 생성한다(원본 1254px). buildResources 기본 탐색명은 icon.* 라 해석되지 않는다. (0227)
+  icon: build/logo.png
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -30,6 +33,7 @@ nsis:
   createDesktopShortcut: always
 mac:
   entitlementsInherit: build/entitlements.mac.plist
+  icon: build/logo.png
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
@@ -39,6 +43,7 @@ mac:
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
+  icon: build/logo.png
   target:
     - AppImage
     - snap
