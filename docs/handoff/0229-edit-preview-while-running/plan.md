@@ -525,3 +525,14 @@ claude.ts enricher → NormalizedEvent.tool.call.started.editPreview
 - 그것을 막았어야 할 plan 지침·AC 가 있었는가: §10 `EP-Δ4` 가 지점을 1로 적었다. plan §12 의 "기존 소비처" 표도 `parts.ts` 를 한 줄로 적어 생성자가 셋이라는 사실을 세지 않았다 — 0228 Review Signals 가 남긴 "전수 표가 프로덕션 소비처만 세고 사본을 세지 않는다" 와 같은 축이다.
 - 반복해서 부딪히는 환경 한계: better-sqlite3 Electron ABI 미빌드(30파일) · `claude.ts` 가 electron 을 import 해 직접 테스트 불가.
 - 현재 라운드 수: 1
+
+## [검증자 기입] 파생 이슈
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D1 | `read()` 인자를 `read(edit.filePath)` 로 바꿔도 12케이스 전건 통과 — EP-Δ1 의 "가드가 통과시킨 **그 경로**만" 축에 oracle 이 없다 | verify r1 · `VP-Δ4` · `§10 EP-Δ1` · AC6 | 가드와 read 가 같은 해석 경로를 쓰는지 단언하는 케이스 추가(상대 경로 입력) | BLOCKING | open |
+| D2 | `EDIT_PREVIEW_MAX_BYTES` 값 자체 단언은 동어반복 | verify r1 · 비귀속 | 기록만 | NON_BLOCKING | open |
+| D3 | §10 `EP-Δ4` 지점 수가 1인데 실제 불변식은 4지점(어댑터·리듀서·view·소비)에서 성립해야 한다 | verify r1 · `§10 EP-Δ4` | 설계자가 지점 수 정정 — 4지점 전부 잠겨 있어 막지 않는다 | NON_BLOCKING | open |
+| D4 | 승인 카드 본문에 여전히 diff 가 없다 | verify r1 · 비귀속(§6 비범위) | 새 handoff 후보 | NEXT_HANDOFF | open |
+
+> 판정 원문은 [`verify.md`](verify.md).
