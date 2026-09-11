@@ -711,6 +711,12 @@ export const ko = {
       },
       backToList: '목록으로',
       headerTitle: '백그라운드 작업',
+      // 0230 — 작업 종류 라벨. 에이전트 카드는 `chat.toolMeta.agentFallback`('에이전트')을
+      // 쓰므로 두 카드가 같은 자리에서 서로 다른 말을 한다.
+      kind: {
+        shell: '셸 명령'
+      },
+      timedOutToBackground: '타임아웃으로 백그라운드 전환',
       noChildActivity: '이 작업에 기록된 하위 활동이 없습니다.',
       emptyTitle: '백그라운드 작업이 없습니다',
       emptyDesc: 'Task 도구 호출이 감지되면 여기에 표시됩니다.',

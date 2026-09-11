@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-11 |
 | 매핑 | 0230~0236 분할의 **1번**. 조사 정본을 겸한다 |
-| 상태 | **READY** |
+| 상태 | **impl/IMPL_DONE** (r1) |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
@@ -558,3 +558,126 @@ SDK system/tool_result
 - 외부 구현자가 구현할 port: 없음.
 - 갱신할 문서: `docs/claude-taskxxx-spec.md`(`task_type` 채택 표기) · `docs/IPC_CONTRACT.md`
   (`taskKind` 필드). 둘 다 해설 미러/계약이라 **같은 커밋**에서 갱신한다.
+
+---
+
+> **[구현자 기입]** 이하는 구현 턴(r1)이 채운다. 절차 정본은
+> [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
+
+## [구현자 기입] 설계 리뷰 (r1)
+
+- 동의 / 그대로 진행: Part I 전부와 Part II §9~§14. AS-IS 의 네 소유자 진단이 코드와 일치했다.
+- 이견 / 현실성 문제: **§10 EP-06 의 술어**. 초안 `taskKind === 'agent'` 는 종류 미확인에서
+  에이전트 정착까지 막아 §0.10 의 회귀 대상(서브에이전트 카드)을 깨뜨린다. 규범 행이라 구현과
+  분리해 설계 턴으로 정정했다(선행 커밋).
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-01·VP-08 | `subagent.task.taskKind` 부착 | 어댑터 부착 (2) | 2/2 | `rg "taskKind !== undefined \? \{ taskKind \}" src/main/adapters/claude-map.ts` → 2건 | 소비자가 store 가 아니다(아래 차이) |
+| VP-01·VP-10 | 종류 우선순위 SSOT | `taskKindFrom` 호출부 (2) | 2/2 | `rg "taskKindFrom\(" src --type ts \| grep -v test \| grep -v "export function"` → 2건 | — |
+| VP-02·VP-07 | 런치 영수증 술어 | `tool.call.completed` 분기 (1) | 1/1 | `rg "readLaunchReceipt\(" src \| grep -v test \| grep -v "export function"` → 1건 (`turn-coordinator.ts:522`) | — |
+| VP-05·VP-09 | 셸 투영 생성 | `tool_result` 매핑 (1) | 1/1 | `rg "shellBackground \}" src/main/adapters/claude-map.ts` → 1건 | — |
+| VP-03·VP-11 | 목록 포함 술어 | fold + 제목 조인 (2) | 2/2 | `rg "isBackgroundTaskCall\(" src \| grep -v test \| grep -v "export function"` → 2건 | — |
+| VP-04·VP-07·VP-12 | 정착 kind 게이트 | 게이트 1 + **정착 생산자 4** | 1/1 + **4/4** | `rg "phase: 'settled'" src/main \| grep -v test` → 4건(`settle.ts:111`·`stop-subagent.ts:99`·`mock-scenarios.ts:278`·`claude-map.ts:322`) + `mapTaskSystem` 의 `phase` 변수 경로. 프로덕션 4곳 전부 `taskKind` 를 싣는다 | `mock-scenarios.ts` 는 dev mock — 프로덕션 아님 |
+| VP-06 | 제목 조인 술어 = 목록 술어 | **EP-05 와 같은 2지점** | 2/2 | `rg "isBackgroundTaskCall\(part, resultByRun\)" src/renderer/.../parts.ts` → 2건(fold + 조인). 두 EP 가 같은 집합이라 합계에서 한 번만 센다 | — |
+
+- **§10 에 없는데 같은 불변식이 필요했던 지점: 1건 → 선조치.** `stop-subagent.ts:99`(중단
+  watchdog 정착)가 네 번째 정착 생산자인데 §10 초안의 지점 목록(3)에 없었다. 술어를 해법 이름
+  (`readLaunchReceipt`)이 아니라 불변식의 주어(`phase: 'settled'` 를 내는 곳)로 다시 세어 찾았다.
+  게이트만 고치고 이 생산자를 빠뜨렸다면 **중단 경로에서만** 셸 stdout 이 덮였다.
+
+**V-pair 자기확인** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `claude-map.taskKind.test.ts` 11케이스 | not selected — 값 단언 |
+| VP-02 | REQUIRED | SELF_PASS | AT-03·AT-04 케이스 | required — M1 red(AT-03) |
+| VP-03 | REQUIRED | SELF_PASS | fold 6 + 렌더 10케이스 | required — M4 red 13건 |
+| VP-04 | REQUIRED | SELF_PASS | 정착 5케이스 | required — M2 red 3건 · M7(형제 반전) red 4건 |
+| VP-05 | REQUIRED | SELF_PASS | 투영 4 + 렌더 2케이스 | not selected — AT-10 이 음성 축 |
+| VP-06 | REQUIRED | SELF_PASS | 조인 3케이스 | not selected |
+| VP-07 | REQUIRED | SELF_PASS | 시작→영수증→정착 전 구간(트래커 6케이스) | required — M1·M2 로 대체 관측 |
+| VP-08 | REQUIRED | SELF_PASS | **store 가 아니라 main 소비자**(tracker·settlement) 3지점 | not selected |
+| VP-09 | REQUIRED | SELF_PASS | 영속 파트만으로 카드 복원(AT-11) | required — M5 red 3건 |
+| VP-10 | REQUIRED | SELF_PASS | 우선순위 5케이스 | required — M3 red 2건 |
+| VP-11 | REQUIRED | SELF_PASS | fold 단독 | not selected |
+| VP-12 | REGRESSION | SELF_PASS | 에이전트 카드·통지·정착 회귀 4케이스 + 기존 295 우측패널 케이스 green | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `task-kind.ts` — 셸 영수증 분기 제거 | `VP-02 선택 증거` | 최초 | `AT-03: backgroundTaskId 결과가 도착해도 추적이 줄지 않는다` 1건 | 잠김 |
+| `subagent-settlement.ts` — kind 게이트 제거 | `VP-04 선택 증거` | 최초 | AT-07 외 3건 | 잠김 |
+| `task-kind.ts` — 종류 우선순위 뒤집기 | `VP-10 선택 증거` | 최초 | AT-02 외 2건 | 잠김 |
+| `parts.ts` — 포함 술어를 이름만으로 | `VP-03 선택 증거` | 최초 | 13건 | 잠김 |
+| `claude-map.ts` — 셸 투영 미부착 | `VP-09 선택 증거` | 최초 | 3건 | 잠김 |
+| `SubAgentTileContent.tsx` — **형제 맞바꿈**: 셸 카드에 에이전트 라벨 | `VP-03 형제 슬롯 계약` | 최초 | AT-06 1건 | 잠김 |
+| `subagent-settlement.ts` — **형제 맞바꿈**: 게이트 반전(agent 만 생략) | `VP-04 형제 슬롯 계약` | 최초 | 4건 | 잠김 |
+| `stop-subagent.ts` — watchdog 정착에서 종류 제거 | `§10 신설 지점 민감도` | 최초 | `watchdog 정착이 종류를 싣는다` 1건 | 잠김 |
+
+- **분모 검산**: 선택 증거 5 · 인용 변이 0 · 새 oracle(형제 맞바꿈 2 + 신설 지점 1) 3 = 표 행 8. ✅
+- **덮개 회귀**: 이전 라운드 없음(r1) — 해당 없음.
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ✅ `kind.shell`·`timedOutToBackground` 둘 다 `ShellTaskCard` 가 렌더하고 렌더 테스트가 문자열을 관측한다 | — |
+| seam 을 만들려고 production 을 재배치했는가 | 재배치 없음 — 새 파일(`task-kind.ts`)과 분기 추가뿐이다 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | ✅ 6행 전부 대응. 채널 사망·watchdog 정착은 "채널 사망" 행 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | ✅ 중단 실패는 기존 `stopErrors` 문구를 셸 카드도 렌더한다 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | ✅ 정착 후 통지 파트가 상태를 확정하고, 늦은 `started` 는 `kind` 를 덮어쓰지 않는다(테스트 있음) | — |
+
+- **파생(범위 밖, 0231 로)**: 실행 중 셸 카드에 **경과 시간이 없다**. Part I §5 흐름은 "경과" 를
+  적었지만 AC 는 그것을 잠그지 않았고, 진행 표시(F-04·F-05)는 0231 의 범위다. 지금은 정착 후
+  `durationMs` 만 그린다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | `stop-subagent.ts` watchdog 정착이 §10 지점 목록에 없었다 | ✅ 선조치 + 테스트 + 변이 | `rg "phase: 'settled'" src/main` → 4건 |
+| 2 | 셸 task 의 **종단 상태가 어디에 영속되는가** 가 설계에 없었다. D-006 이 부모 결과 합성을 없애면서 재로드 복원 경로가 함께 사라진다 | ✅ 선조치 — `subagent_notice` 파트(이미 영속)를 상태원으로 쓴다 | AT-11 이 영속 파트만으로 통과 |
+| 3 | 셸 카드의 서술이 도구 이름(`PowerShell`)으로 떨어졌다 — `toolDescriptionFromInput` 은 `description` 만 읽는다 | ✅ 선조치 — 명령 첫 줄 규칙을 `parts.shellCommandDescription` 단일 소유로 옮기고 `toolMeta` 가 부른다 | 최초 테스트 2건 red → green |
+| 4 | VP-08 의 oracle(`subagentMeta[id].taskKind`)이 **죽은 표면**을 요구한다 | 📝 **plan 수정 제안** — 렌더러는 transcript fold 에서 종류를 얻는다(재로드 생존). store 에 두 번째 출처를 만들면 갈라진다 | `parts.ts:367` 이 유일 파생원 |
+
+### 설계 대비 명시적 차이 (r1)
+
+- plan 이 지정한 것과 다르게 구현한 것: **VP-08 의 소비자**. `store 흡수` 대신 main 의
+  tracker·settlement 가 `taskKind` 를 소비한다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 트래커 레코드는 정착에서만 사라지고 TTL 이 없다 | `background-tasks.ts` 에 시간 기반 제거 0건 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | **있다** — `clear(sessionId)` 와 `settled()` 가 종류를 함께 지운다. 정착 **후** 읽으면 `undefined` 다 | §10 EP-06 / `stop-subagent.ts:95` 를 `settled()` **앞**으로 두고 테스트로 잠갔다 |
+| 재진입 | 순서 역전(영수증이 시작보다 먼저)에서 종류가 미지정으로 남을 수 있다 | AT-07 음성 케이스 — 미지정은 현행(합성) 유지라 회귀가 아니다 |
+| 다른 무효화 축 | CLI 재기동(`resetLevel`)은 종류를 지우지 않는다 — 레코드 자체가 `clear` 로 사라진다 | `background-tasks.ts:183-186` 관측 |
+
+## [구현자 기입] 구현 보고 (r1)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규 2(`shared/task-kind.ts` + 테스트 4) · 수정 12(`ipc.ts`·`claude-map.ts`·`background-tasks.ts`·`turn-coordinator.ts`·`settle.ts`·`subagent-settlement.ts`·`stop-subagent.ts`·`parts.ts`·`toolMeta.ts`·`SubAgentTileContent.tsx`·`ko.ts`·`en.ts`) · 문서 2 |
+| 실행 명령 | `npm run typecheck` · `npm run lint` · `./node_modules/.bin/vitest run` · `./node_modules/.bin/electron-vite build` · `node scripts/check-doc-inventory.mjs --check` |
+| **관측한 게이트 산출** | vitest **491파일 / 4571케이스 · 실패 0 · skip 3**. 파일 6건은 수집 오류(`Electron failed to install correctly`) — **변경 전 트리에서 같은 6건 동일 실패**(`git stash` 후 측정). typecheck 3구성 `error TS` 0건. lint 0 error / 1 warning(`useTranscriptVirtualizer.ts` — 미수정 파일, 기존). build 3번들 성공. doc-inventory 3검사 통과 |
+| 환경 기인 분리 근거 | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 로 설치해 electron 바이너리가 없다. `npm rebuild better-sqlite3`(Node ABI) 후 DB 스위트는 전부 green — 남은 6건은 `electron/index.js` 로드 실패 하나뿐이다 |
+| V-pair 자기확인 | `SELF_PASS 12 / SELF_BLOCKED 0` |
+| 강제 지점 전수 | **13/13**. 합계를 행과 별개로 다시 셌다: EP-01 2 · EP-02 2 · EP-03 1 · EP-04 1 · **EP-05+EP-07 2(공유 — 같은 두 호출부라 따로 세면 중복)** · EP-06 게이트 1 + 프로덕션 정착 생산자 4 = 13. `mock-scenarios.ts:278` 은 dev mock 이라 분모 밖이다 |
+| **AC 자기보고**(`Criteria-Met`) | 12/12 — AT-01·02(`claude-map.taskKind.test.ts`) · AT-03·04·07(`shell-background.test.ts`) · AT-05·06·09·10(`shellTaskCard.render.test.ts` + fold) · AT-08·11·12(`shellBackgroundTasks.test.ts`) |
+| **합계 검산** | `✅ 12 · ⚠️ 0 · ❌ 0 = 총 12` — 분모는 §7 의 AT 행을 다시 세었다(AT-01~AT-12). 분모 변경 없음 |
+| 블로커 / 역질문 | 없음. 단 셸 백그라운드의 **실제 SDK payload 는 스펙 기준 추론**이고 이 환경에서 Windows 실기를 못 한다 — 검증자·사람이 실제 로그로 확인할 항목이다 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음 — r1 이다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **§10 EP-06 의 지점 목록이 3이었고 실제는 4였다.**
+  설계 턴이 정착 생산자를 `task_notification` 중심으로 셌고 `stop-subagent.ts` 의 watchdog 경로를
+  빠뜨렸다. 구현 턴이 `phase: 'settled'` 전수 검색으로 찾았다.
+- 반복해서 부딪히는 환경 한계: electron 바이너리 egress 차단 — `npm test`·`npm run build` 의
+  pre 훅이 막힌다. `vitest` 직접 호출 + `electron-vite build` 직접 호출로 우회했다.
+- 현재 라운드 수: 1

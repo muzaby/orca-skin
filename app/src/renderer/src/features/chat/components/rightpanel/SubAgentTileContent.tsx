@@ -252,6 +252,19 @@ export function SubAgentTaskList({
           </div>
           <div className="flex flex-col gap-g3">
             {group.items.map((task) => {
+              // 셸 백그라운드 작업은 **하위 대화록이 없다** — SDK 가 셸 실행에 child 스트림을
+              // 만들지 않는다. 카드를 열기 트리거로 두면 눌러도 "하위 활동 없음" 만 나오는 죽은
+              // 어포던스가 되므로 전용 카드로 가른다(0230 R-03).
+              if (task.kind === 'shell') {
+                return (
+                  <ShellTaskCard
+                    key={task.toolUseId}
+                    task={task}
+                    stopping={stopping}
+                    stopError={stopErrors[backgroundTaskKey(task.toolUseId)]}
+                  />
+                )
+              }
               const open = (): void => chatActions.selectSubagentTask(task.toolUseId)
               // 중단 대기 → 표시 상태의 규칙은 `taskBoard` 가 소유한다(plan §3 갱신메모) —
               // 두 타일이 같은 수명주기를 각자의 인라인 조건으로 쓰면 한쪽만 따라간다.
@@ -375,6 +388,73 @@ export function SubAgentTaskList({
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+// 셸(PowerShell) 백그라운드 작업 카드(0230 R-03·R-05) — 에이전트 카드와 **다른 것을 그린다**.
+// 모델·도구수·토큰·대화록이 없고, 대신 명령과 전환 사유가 있다. 전환 버튼도 없다: 셸 영수증은
+// 이미 백그라운드라는 뜻이라 `backgroundTasks(toolUseId)` 가 `false` 를 돌려준다(D-021 과 같은
+// 이유).
+//
+// **props 만 읽는 순수 View** — `renderToStaticMarkup` 으로 검증한다.
+export function ShellTaskCard({
+  task,
+  stopping,
+  stopError
+}: {
+  task: SubagentTaskSummary
+  stopping: ReadonlySet<string>
+  stopError?: TaskStopError
+}): React.JSX.Element {
+  const { tr, locale } = useI18n()
+  const boardStatus = backgroundBoardStatus(task.status, task.toolUseId, stopping)
+  const durationLabel = formatDurationLabel(tr, task.durationMs)
+  return (
+    <div className="group/shelltask rounded-r6 bg-bg2 px-3 py-2.5 text-left">
+      <div className="flex min-w-0 items-center gap-g3">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-t6" />
+        <span
+          className="min-w-0 flex-1 truncate font-mono text-body font-semibold text-t9"
+          title={task.description}
+        >
+          {task.description}
+        </span>
+      </div>
+      <div className="mt-g1 pl-5 text-footnote text-ink3">
+        {`${tr('chat.subagentTile.kind.shell')}${META_GAP}${
+          boardStatus === 'stopping'
+            ? tr('chat.subagentTile.status.stopping')
+            : tr(STATUS_KEY[task.status])
+        }`}
+        {durationLabel ? `${META_GAP}${durationLabel}` : ''}
+        {/* 타임아웃 자동 전환은 명시 요청과 다른 사건이다(0230 AT-09) — 사용자가 백그라운드를
+            요청한 적이 없는데 작업이 계속 도는 경우라 그 사실을 말해야 한다. */}
+        {task.shellBackground?.timedOutAfterMs !== undefined
+          ? `${META_GAP}${tr('chat.subagentTile.timedOutToBackground')}`
+          : ''}
+        {task.settlementMessage ? `${META_GAP}${task.settlementMessage}` : ''}
+        <span title={formatTimeFull(task.createdAtMs, locale)}>
+          {`${META_GAP}${formatTimeShort(task.createdAtMs, locale)}`}
+        </span>
+      </div>
+      {canStopBackgroundStatus(boardStatus) && (
+        <div className="mt-g1 flex items-center pl-5">
+          <Button
+            iconOnly
+            variant="uncontained"
+            size="small"
+            leadingIcon="stop"
+            aria-label={tr('common.stop')}
+            title={tr('common.stop')}
+            className="shrink-0"
+            onClick={() => chatActions.stopTask(task.toolUseId)}
+          />
+        </div>
+      )}
+      {stopError && (
+        <div className="mt-0.5 text-footnote text-bad">{stopErrorText(tr, stopError)}</div>
+      )}
     </div>
   )
 }

@@ -121,6 +121,24 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 > 주기적 polling 을 만들지 않기 위해서다(0204 D-010·D-011). 상태의 권위는 §4 의 system 메시지이고,
 > 모델이 이 두 도구를 부르는 것은 transcript 에만 남는다.
 
+### 3.1 셸(Bash/PowerShell) 백그라운드 결과 (0230)
+
+서브에이전트만 background 로 도는 것이 아니다. 셸 명령도 `run_in_background` 또는 **타임아웃 자동
+전환**으로 분리되고, 그때 도구 결과가 아래 필드를 싣는다. 에이전트 영수증(`status:'async_launched'`)과
+달리 `status` 가 없으므로 **`backgroundTaskId` 의 존재 자체가 영수증**이다.
+
+| 결과 필드 | 의미 | Orca |
+|---|---|---|
+| `backgroundTaskId` | 분리된 실행의 작업 ID | ✅ 런치 영수증 판정 + `structuredOutput.shellBackground` 투영 |
+| `timedOutAfterMs` | **타임아웃으로 전환**됨(명시 요청 아님) | ✅ 카드가 전환 사유를 말한다 |
+| `persistedOutputPath` · `rawOutputPath` | 저장된 결과 · 원시 로그 경로 | ✅ 투영에 보존. 읽기는 0232 |
+| `stdout` · `stderr` | 반환 시점의 출력 | ✅ 도구 결과 그대로 — **투영에 복제하지 않는다**(같은 출력 2회 저장 방지) |
+| `interrupted` · `returnCodeInterpretation` | 인터럽트 · 종료 코드 해석 | ❌ |
+
+**두 가지가 이 필드들에 달려 있다.** ① 영수증을 놓치면 백그라운드 명령이 추적에서 빠져 턴-후 루프가
+종료를 기다리지 않는다. ② 셸은 자기 `tool_result` 가 이미 권위라 종료 정착이 부모 결과를 합성하면
+안 된다 — 합성하면 `resultMap` 이 마지막을 이겨 stdout 이 `{summary:''}` 로 덮인다.
+
 ---
 
 ## 4. SDK system 메시지 — background 상태의 권위
@@ -134,7 +152,8 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 | `task_id` · `tool_use_id?` | 식별자 두 축 | ✅ `tool_use_id` 가 없으면 앞선 매핑으로 복원 |
 | `description` · `subagent_type?` | 무엇을 하는 서브에이전트인가 | ✅ |
 | `prompt?` | 요청 프롬프트 | ⛔ 같은 값을 `tool_use.args` 에서 파생한다 |
-| `task_type?` · `workflow_name?` | `local_workflow` 등 종류 | ❌ |
+| `task_type?` | `local_agent`·`local_bash`·`local_workflow` 등 종류 | ✅ `taskKind` 로 정규화(0230). **판정 1순위는 원래 도구 이름**이고 이 필드는 2순위다 — `Monitor` 가 셸과 `local_bash` 를 공유한다 |
+| `workflow_name?` | `task_type === 'local_workflow'` 일 때의 이름 | ❌ (0234) |
 | `skip_transcript?` | ambient/housekeeping — 인라인 transcript 에서 숨기라는 뜻 | ⛔ 드롭 (0204 D-013) |
 
 `skip_transcript` 의 SDK 주석은 *"it may still appear in a tasks panel"* 이다 — 패널 표시는 **허용**이지

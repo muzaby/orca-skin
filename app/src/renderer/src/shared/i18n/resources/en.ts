@@ -703,6 +703,10 @@ export const en: typeof ko = {
       },
       backToList: 'Back to list',
       headerTitle: 'Background tasks',
+      kind: {
+        shell: 'Shell command'
+      },
+      timedOutToBackground: 'Moved to background after timeout',
       noChildActivity: 'No child activity recorded for this task.',
       emptyTitle: 'No background tasks',
       emptyDesc: 'Task tool calls will appear here when detected.',

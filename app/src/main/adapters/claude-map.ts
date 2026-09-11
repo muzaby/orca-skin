@@ -19,6 +19,7 @@ import type { ReceivedMessageOrigin, SessionSchedule } from '../../shared/sessio
 import { isAsyncLaunchedPayload } from '../../shared/subagent'
 import { carriesFileEditPatch, readFileEditStructuredPatch } from '../../shared/file-edit-tool'
 import { isTaskToolName } from '../../shared/task-tool'
+import { readShellBackground, SHELL_TOOL_NAMES, taskKindFrom } from '../../shared/task-kind'
 import { pickPrimaryModel } from '../../shared/usage/primary-model'
 import { makeClassifiedError } from '../infra/errors'
 import { errorEvent } from './error-classifier'
@@ -102,6 +103,27 @@ export interface MapContext {
   // 구조화 패치를 실을 편집 도구 tool_use id 집합(0228). 위와 같은 이유로 이름을 기억한다 —
   // tool_result 는 도구 이름을 싣지 않는다. Task 집합과 배타라 한 결과에 두 의미가 섞이지 않는다.
   fileEditToolRunIds?: Set<string>
+  // 실행 태스크를 낳을 수 있는 **경계 도구의 이름만** 기억한다(0230 §10 EP-02). `task_*` 와
+  // `tool_result` 둘 다 도구 이름을 싣지 않는데, 종류 판정의 1순위가 그 이름이다.
+  // **전체 도구를 담지 않는다** — `taskToolRunIds` 와 같은 제한 방식이라 맵이 턴 길이에
+  // 비례해 자라지 않는다.
+  taskBoundaryToolNames?: Map<string, string>
+}
+
+// 실행 태스크를 낳을 수 있는 도구인가 — 이 집합만 `ctx.taskBoundaryToolNames` 에 오른다.
+// `Monitor`·`Workflow` 는 아직 전용 처리가 없지만(0234) 종류 판정에는 지금부터 필요하다:
+// `Monitor` 가 셸과 `task_type: 'local_bash'` 를 공유하므로 이름이 유일한 구분자다.
+function isTaskBoundaryTool(toolName: string): boolean {
+  return (
+    isAgentTaskToolName(toolName) ||
+    SHELL_TOOL_NAMES.has(toolName) ||
+    toolName === 'Monitor' ||
+    toolName === 'Workflow'
+  )
+}
+
+function isAgentTaskToolName(toolName: string): boolean {
+  return toolName === 'Task' || toolName === 'Agent'
 }
 
 // ctx.subagentMeta 에 정의된 필드만 병합(누락은 기존값 보존). 부모 Task tool_result 영속용 누산.
@@ -134,6 +156,14 @@ function mapTaskSystem(
   }
   const subagentType = typeof msg.subagent_type === 'string' ? msg.subagent_type : undefined
   const description = typeof msg.description === 'string' ? msg.description : undefined
+  // 종류 판정(0230 §10 EP-01·EP-02) — 도구 이름이 1순위, `task_type` 이 2순위다. 둘 다 없으면
+  // **키를 싣지 않는다**: 판정 불가와 `'unknown'`(판정했으나 어휘 밖)은 다른 사실이다.
+  const rawTaskType = typeof msg.task_type === 'string' ? msg.task_type : undefined
+  const boundaryToolName = ctx.taskBoundaryToolNames?.get(toolUseId)
+  const taskKind =
+    boundaryToolName !== undefined || rawTaskType !== undefined
+      ? taskKindFrom(boundaryToolName, rawTaskType)
+      : undefined
   const usage = (typeof msg.usage === 'object' && msg.usage !== null ? msg.usage : {}) as Record<
     string,
     unknown
@@ -164,6 +194,7 @@ function mapTaskSystem(
       toolUseId,
       phase,
       ...(taskId !== undefined ? { taskId } : {}),
+      ...(taskKind !== undefined ? { taskKind } : {}),
       ...(subagentType !== undefined ? { subagentType } : {}),
       ...(description !== undefined ? { description } : {}),
       ...(durationMs !== undefined ? { durationMs } : {}),
@@ -276,6 +307,12 @@ function mapTaskUpdated(msg: Record<string, unknown>, ctx: MapContext): Normaliz
   const errorMessage = typeof p.error === 'string' && p.error !== '' ? p.error : undefined
   const isBackgrounded = typeof p.is_backgrounded === 'boolean' ? p.is_backgrounded : undefined
 
+  // `killed` 는 **정착**이라 종류를 함께 실어야 한다(0230 §10 EP-06) — 정착 빌더가 셸의
+  // stdout 을 덮지 않으려면 이 경로에서도 종류를 알아야 한다. 앞선 `task_*` 가 좌표를 남긴
+  // 뒤에만 여기 오므로 도구 이름 매핑도 이미 서 있다.
+  const boundaryToolName = ctx.taskBoundaryToolNames?.get(toolUseId)
+  const taskKind = boundaryToolName !== undefined ? taskKindFrom(boundaryToolName) : undefined
+
   if (status === 'killed') {
     return [
       {
@@ -284,6 +321,7 @@ function mapTaskUpdated(msg: Record<string, unknown>, ctx: MapContext): Normaliz
         toolUseId,
         phase: 'settled',
         ...(taskId !== undefined ? { taskId } : {}),
+        ...(taskKind !== undefined ? { taskKind } : {}),
         status: 'stopped',
         // 사유 문구를 정착에 싣는다 — 중단 행이 원인을 말하는 유일한 경로다(AT-21).
         ...(errorMessage !== undefined ? { summary: errorMessage } : {})
@@ -515,6 +553,12 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
             if (!ctx.taskToolRunIds) ctx.taskToolRunIds = new Set()
             ctx.taskToolRunIds.add(toolRunId)
           }
+          // 실행 태스크의 **종류 판정 1순위가 도구 이름**이고(0230 §10 EP-02), `task_*` 도
+          // `tool_result` 도 이름을 싣지 않는다 — 경계 도구만 기억한다.
+          if (isTaskBoundaryTool(toolName)) {
+            if (!ctx.taskBoundaryToolNames) ctx.taskBoundaryToolNames = new Map()
+            ctx.taskBoundaryToolNames.set(toolRunId, toolName)
+          }
           // 편집 결과의 줄번호 정본도 tool_result 시점에 이름이 필요하다(0228 D-006).
           if (carriesFileEditPatch(toolName)) {
             if (!ctx.fileEditToolRunIds) ctx.fileEditToolRunIds = new Set()
@@ -579,12 +623,22 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         const fileEditPatch = ctx.fileEditToolRunIds?.has(toolRunId)
           ? readFileEditStructuredPatch(toolUseResult)
           : null
+        // 셸 백그라운드 영수증도 **투영만** 싣는다(0230 §10 EP-04) — SDK 원본에는 stdout
+        // 전문이 있어 그대로 영속하면 같은 출력을 결과와 구조화 출력 두 곳에 저장한다.
+        // 편집 투영과 같은 자리·같은 게이트 방식이다(0228 선례).
+        const shellBackground = SHELL_TOOL_NAMES.has(
+          ctx.taskBoundaryToolNames?.get(toolRunId) ?? ''
+        )
+          ? readShellBackground(toolUseResult)
+          : undefined
         const structuredOutput =
           ctx.taskToolRunIds?.has(toolRunId) === true || scheduleCall !== undefined
             ? toolUseResult
-            : fileEditPatch
-              ? { structuredPatch: fileEditPatch }
-              : undefined
+            : shellBackground
+              ? { shellBackground }
+              : fileEditPatch
+                ? { structuredPatch: fileEditPatch }
+                : undefined
         events.push({
           type: 'tool.call.completed',
           sessionId: ctx.sessionId,

@@ -58,6 +58,21 @@ function subagentMetaFrom(ev: Extract<NormalizedEvent, { type: 'subagent.task' }
   }
 }
 
+// 부모 도구 결과를 **합성해도 되는** 종류인가(0230 §10 EP-06).
+//
+// 에이전트는 자기 결과가 런치 영수증(`async_launched`)이라 종료 시점에 권위 결과를 합성해야
+// 한다. 셸·감시·워크플로는 **이미 자기 tool_result 를 돌려줬다** — stdout·`taskId`·`runId` 가
+// 거기 있고, 같은 `toolRunId` 로 결과를 한 번 더 내면 `resultMap` 이 마지막을 이겨 그것들을
+// `{summary:''}` 로 덮는다.
+//
+// **판정은 "에이전트인가" 가 아니라 "에이전트가 아님이 확인됐는가" 다.** 종류 미확인
+// (`taskKind` 부재 · `'unknown'`)에서 합성을 막으면 종류를 못 읽은 에이전트 카드가 영원히
+// 실행 중으로 남는다 — 그 회귀는 이 게이트가 막으려는 결함보다 나쁘다. 미확인은 현행(합성)을
+// 유지하고, 셸을 셸로 읽었을 때만 비운다.
+function settlementOverwritesOwnResult(task: SubagentSettlementInput['task']): boolean {
+  return task.taskKind === 'shell' || task.taskKind === 'monitor' || task.taskKind === 'workflow'
+}
+
 // 서브에이전트 종료를 transcript 의 권위 tool_result 이벤트들로 변환한다.
 // 부모 Agent/Task 는 항상 정착시키고, stopped/failed 인 경우 해당 부모 아래 열린 child 도구도
 // aborted 로 정착해 전용 transcript 와 루트 transcript 의 inflight 고착을 동시에 해소한다.
@@ -70,16 +85,19 @@ export function createSubagentSettlementEvents({
   if (!parent) return []
 
   const parentId = task.toolUseId
-  const events: Extract<NormalizedEvent, { type: 'tool.call.completed' }>[] = [
-    {
-      type: 'tool.call.completed',
-      sessionId,
-      toolRunId: parentId,
-      result: parent.result,
-      isError: parent.isError,
-      ...subagentMetaFrom(task)
-    }
-  ]
+  const emitsParentResult = !settlementOverwritesOwnResult(task)
+  const events: Extract<NormalizedEvent, { type: 'tool.call.completed' }>[] = emitsParentResult
+    ? [
+        {
+          type: 'tool.call.completed',
+          sessionId,
+          toolRunId: parentId,
+          result: parent.result,
+          isError: parent.isError,
+          ...subagentMetaFrom(task)
+        }
+      ]
+    : []
 
   if (!parent.isError) return events
 

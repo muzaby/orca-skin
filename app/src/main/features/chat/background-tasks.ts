@@ -9,14 +9,22 @@
 // 태스크 소멸), listen 턴이 채널 사망으로 끝나면 합성 정착 후 clear.
 //
 // asyncLaunched(0143): foreground 태스크도 task_started/settled 를 왕복하므로 membership 은
-// background 판별 신호가 아니다 — **async_launched 런치 영수증 관측**(부모 tool_result)만이
-// "실제 백그라운드" 의 정확한 신호다. stopLiveSubagent 분기·settled background enrich 가 읽는다.
+// background 판별 신호가 아니다 — **런치 영수증 관측**(부모 tool_result)만이 "실제 백그라운드"
+// 의 정확한 신호다. stopLiveSubagent 분기·settled background enrich 가 읽는다.
+//
+// 0230: 영수증은 이제 두 형태다 — 에이전트의 `{status:'async_launched'}` 와 셸의
+// `backgroundTaskId`. 판정 SSOT 는 `shared/task-kind.ts` 의 `readLaunchReceipt` 이고 여기는
+// 그 결과를 기록만 한다. 셸 영수증을 놓치면 백그라운드 명령이 추적에서 빠져 턴-후 루프가
+// 종료를 기다리지 않는다.
+
+import type { TaskKind } from '../../../shared/task-kind'
 
 export interface BackgroundTaskPort {
-  started(sessionId: string, toolUseId: string): void
+  started(sessionId: string, toolUseId: string, kind?: TaskKind): void
   settled(sessionId: string, toolUseId: string): void
   markAsyncLaunched(sessionId: string, toolUseId: string): void
   isAsyncLaunched(sessionId: string, toolUseId: string): boolean
+  kindOf(sessionId: string, toolUseId: string): TaskKind | undefined
   // 레벨 신호 적용 → 정착시켜야 할 id(0212). 판정만 하고 방출은 호출부가 한다.
   applyLiveSet(sessionId: string, liveIds: readonly string[]): string[]
 }
@@ -24,7 +32,12 @@ export interface BackgroundTaskPort {
 const EMPTY: ReadonlySet<string> = new Set()
 
 interface TaskState {
+  // 0230: 이름은 `asyncLaunched` 로 남지만 의미는 **"런치 영수증이 관측됐다"** 로 넓어졌다
+  // (D-007). 에이전트의 `async_launched` 와 셸의 `backgroundTaskId` 둘 다 여기로 모인다 —
+  // 두 경우 모두 "도구는 반환했고 실행은 아직 돈다" 라는 같은 사실이다.
   asyncLaunched: boolean
+  // 표시·정착 분기용. 판정은 이 값에 걸지 않는다 — 추적 규칙은 종류와 무관하다.
+  kind?: TaskKind
 }
 
 export class BackgroundTaskTracker implements BackgroundTaskPort {
@@ -40,17 +53,27 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
     return () => this.listeners.delete(listener)
   }
 
-  started(sessionId: string, toolUseId: string): void {
+  started(sessionId: string, toolUseId: string, kind?: TaskKind): void {
     let map = this.bySession.get(sessionId)
     if (!map) {
       map = new Map()
       this.bySession.set(sessionId, map)
     }
     // 재started(진행 갱신 경합)에도 기존 asyncLaunched 관측을 보존한다.
-    if (!map.has(toolUseId)) {
-      map.set(toolUseId, { asyncLaunched: false })
+    const existing = map.get(toolUseId)
+    if (!existing) {
+      map.set(toolUseId, { asyncLaunched: false, ...(kind !== undefined ? { kind } : {}) })
       this.changed(sessionId)
+      return
     }
+    // 종류는 뒤늦게 알 수도 있다(영수증이 시작 이벤트보다 먼저 오는 순서 역전). **덮어쓰지
+    // 않고 채우기만 한다** — 이미 아는 종류를 미지정으로 되돌리지 않는다.
+    if (kind !== undefined && existing.kind === undefined) existing.kind = kind
+  }
+
+  /** 표시·정착 분기가 읽는 종류. 미관측이면 `undefined` — `'unknown'` 으로 채우지 않는다. */
+  kindOf(sessionId: string, toolUseId: string): TaskKind | undefined {
+    return this.bySession.get(sessionId)?.get(toolUseId)?.kind
   }
 
   settled(sessionId: string, toolUseId: string): void {

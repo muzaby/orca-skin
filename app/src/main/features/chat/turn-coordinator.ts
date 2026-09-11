@@ -23,7 +23,7 @@ import type { GovernedLiveTurn } from '../../contracts/ports'
 import { createStallTimer, type StallTimer } from './timers'
 import { turnPolicyFor, type TurnKind } from './turn-policy'
 import type { BackgroundTaskPort } from './background-tasks'
-import { isAsyncLaunchedPayload } from '../../../shared/subagent'
+import { readLaunchReceipt } from '../../../shared/task-kind'
 import { coerceStoppedToolCompletion } from './subagent-settlement'
 import {
   settleOpenToolRuns,
@@ -442,7 +442,7 @@ export class TurnCoordinator<W = unknown> {
             // 자연 소거된다.
             if (ev.type === 'subagent.task' && turn.dbSessionId) {
               if (ev.phase === 'started') {
-                this.deps.backgroundTasks.started(turn.dbSessionId, ev.toolUseId)
+                this.deps.backgroundTasks.started(turn.dbSessionId, ev.toolUseId, ev.taskKind)
               } else if (ev.phase === 'settled') {
                 this.deps.backgroundTasks.settled(turn.dbSessionId, ev.toolUseId)
               }
@@ -512,10 +512,14 @@ export class TurnCoordinator<W = unknown> {
               turn.openToolRuns.delete(ev.toolRunId)
               // 부모 Task 의 권위 결과(비-런치 영수증) 도착도 정착으로 본다(0136) — foreground
               // 에이전트가 task_notification 없이 끝나는 경로의 추적 고착 방지. 일반 도구 id 는
-              // 추적에 없어 no-op. 런치 영수증(async_launched)은 아직 실행 중 — 해제하지 않고
-              // **background 확정 관측**으로 기록한다(0143 — stop 분기·settled enrich 의 신호).
+              // 추적에 없어 no-op. 런치 영수증은 아직 실행 중 — 해제하지 않고 **background
+              // 확정 관측**으로 기록한다(0143 — stop 분기·settled enrich 의 신호).
+              //
+              // 0230 §10 EP-03: 영수증 판정이 `async_launched` 하나가 아니다. 셸은 stdout 을
+              // `result` 로 돌려주고 `backgroundTaskId` 를 구조화 출력에 싣는다 — 한 축만 보면
+              // 백그라운드 명령이 여기서 추적 해제돼 턴-후 루프가 종료를 기다리지 않는다.
               if (turn.dbSessionId) {
-                if (isAsyncLaunchedPayload(ev.result)) {
+                if (readLaunchReceipt(ev)) {
                   this.deps.backgroundTasks.markAsyncLaunched(turn.dbSessionId, ev.toolRunId)
                 } else {
                   this.deps.backgroundTasks.settled(turn.dbSessionId, ev.toolRunId)

@@ -9,6 +9,7 @@ import type { TurnContext } from '../../contracts/turn'
 import type { TurnEmit } from '../../contracts/bus-events'
 import { createSubagentSettlementEvents } from './subagent-settlement'
 import type { GovernedLiveTurn } from '../../contracts/ports'
+import type { TaskKind } from '../../../shared/task-kind'
 
 // 턴 중단/실패 시 아직 열린 도구 실행을 abort/failed 마커 tool_result 로 정착시킨다.
 // AskUserQuestion tool_result 합성(flushAskAnswers)과 동형의 보정 — toolRunId 멱등(upsert).
@@ -100,6 +101,9 @@ export async function settleTaskSubset<W>(
         tracker.isAsyncLaunched(sessionId, toolUseId)
       )
     }
+    // 합성 정착도 종류를 실어야 한다(0230 §10 EP-06) — 채널 사망·사용자 중단·레벨 신호 제외는
+    // claude-map 을 지나지 않으므로, 종류를 빠뜨리면 정착 빌더가 셸의 stdout 을 덮는다.
+    const kind = tracker.kindOf?.(sessionId, toolUseId)
     const settled = {
       type: 'subagent.task',
       sessionId,
@@ -108,7 +112,8 @@ export async function settleTaskSubset<W>(
       status: opts.status,
       // 턴-후 루프까지 살아남은 추적 = 백그라운드 대기물(0143) — 완료 통지 게이팅.
       background: true,
-      summary: opts.summary
+      summary: opts.summary,
+      ...(kind !== undefined ? { taskKind: kind } : {})
     } as const
     settleSubagentTask(turn, emit, settled)
     emit(turn, settled)
@@ -121,6 +126,8 @@ export async function settleTaskSubset<W>(
 interface SubsetSettleSource {
   isAsyncLaunched(sessionId: string, toolUseId: string): boolean
   settled(sessionId: string, toolUseId: string): void
+  // 0230 — 합성 정착이 종류를 싣기 위해 읽는다. 선택적으로 둬 구 포트도 구조적으로 만족한다.
+  kindOf?(sessionId: string, toolUseId: string): TaskKind | undefined
 }
 
 // 전량 정착이 요구하는 표면(구현은 BackgroundTaskTracker).

@@ -13,6 +13,7 @@
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
 import type { GovernedLiveTurn } from '../../contracts/ports'
+import type { TaskKind } from '../../../shared/task-kind'
 
 // 사용자 중단 클릭이 확정을 기다리는 최대 시간(ms). 짧으면 정상 확정을 앞질러 거짓 '중단됨'
 // 을 만들고, 길면 '중단 중' 이 사실상 고착으로 보인다 — `[1_000, 60_000]` 안에 둔다.
@@ -22,6 +23,8 @@ export const STOP_SETTLE_TIMEOUT_MS = 15_000
 export interface StopSubagentTracker {
   isAsyncLaunched(sessionId: string, toolUseId: string): boolean
   settled(sessionId: string, toolUseId: string): void
+  // 0230 — watchdog 정착이 종류를 싣기 위해 읽는다. 선택적이라 구 포트도 구조적으로 만족한다.
+  kindOf?(sessionId: string, toolUseId: string): TaskKind | undefined
   waitForTask(
     sessionId: string,
     toolUseId: string,
@@ -90,13 +93,19 @@ export async function stopSubagentTask<W>(
   if (outcome === 'settled') return
 
   deps.onWatchdog?.({ sessionId, toolUseId, timeoutMs })
+  // 종류는 **정착 전에** 읽는다 — `settled` 가 레코드를 지우면 같이 사라진다(위
+  // `alreadyBackground` 와 같은 이유).
+  const kind = deps.tracker.kindOf?.(sessionId, toolUseId)
   deps.tracker.settled(sessionId, toolUseId)
   // 사용자 자기 행위의 통지는 소음(0143) — background 플래그를 싣지 않아 subagent_notice 미생성.
+  // 종류는 싣는다(0230 §10 EP-06): watchdog 정착도 정착이라, 빠뜨리면 여기서만 셸 stdout 이
+  // 덮인다.
   deps.settle(turn, {
     type: 'subagent.task',
     sessionId,
     toolUseId,
     phase: 'settled',
-    status: 'stopped'
+    status: 'stopped',
+    ...(kind !== undefined ? { taskKind: kind } : {})
   })
 }

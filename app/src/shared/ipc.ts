@@ -9,6 +9,7 @@ import type { ArtifactRef } from './artifacts'
 import type { AgentKind } from './agent-kind'
 import type { ResponseBoundary, ResponseBoundaryPart } from './response-boundary'
 import type { ReceivedMessageOrigin, SessionSchedule } from './session-schedules'
+import type { TaskKind } from './task-kind'
 
 export type { AgentKind } from './agent-kind'
 export type { ResponseBoundary } from './response-boundary'
@@ -634,6 +635,13 @@ export type NormalizedEvent =
       phase: 'started' | 'progress' | 'settled' | 'updated'
       // SDK task_id — stopTask(taskId) 대상. started/progress/settled 에서 실린다.
       taskId?: string
+      // 실행 태스크의 종류(0230 §10 EP-01). **이벤트 이름은 `subagent.task` 로 남지만 대상은
+      // 서브에이전트만이 아니다**(D-005 — 개명 blast radius 회피). 판정 SSOT 와 우선순위는
+      // `shared/task-kind.ts` 가 갖는다: 원래 도구 이름 > `task_type`.
+      //
+      // **키 부재와 `'unknown'` 은 다른 사실이다** — 부재는 판정할 입력이 없었다(구형 CLI),
+      // `'unknown'` 은 판정했으나 어휘에 없다. 부재를 `'unknown'` 으로 채우지 않는다.
+      taskKind?: TaskKind
       subagentType?: string
       description?: string
       // child assistant 메시지의 실제 모델 id(message.model). 'Explore'(subagent_type) 가 아님.
