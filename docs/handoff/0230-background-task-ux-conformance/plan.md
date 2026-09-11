@@ -268,7 +268,7 @@ G3 의 출력 카드가 G4 의 "종료 사유 미확인" 상태 위에 서기 �
 | R-02 | AT-04 | 같은 셸 작업의 `task_notification` 이 오면 그때 추적이 해제된다 | UT: 위 상태에서 `task_notification` 주입 → `count()` 가 0 | 같음 |
 | R-03 | AT-05 | 셸 백그라운드 작업이 `백그라운드 작업` 타일에 카드로 선다 | 순수 렌더 테스트: 셸 `tool_call`+런치 영수증 `tool_result` 를 담은 `messages` → `renderToStaticMarkup` 에 명령 문자열 포함 | transcript parts → `backgroundTasksFromMessages` → `SubAgentTaskList` |
 | R-03 | AT-06 | 그 카드는 종류 라벨로 에이전트 카드와 구분된다 | 같은 테스트에서 셸 라벨 존재 + 에이전트 라벨 부재 | 같음 |
-| R-04 | AT-07 | 셸 작업의 종료 정착이 **부모 `tool.call.completed` 를 만들지 않는다** | UT: `createSubagentSettlementEvents` 에 `taskKind:'shell'` 정착 입력 → 부모 id 의 이벤트 0건, child 정착은 유지 | `subagent.task(settled)` → `settleSubagentTask` |
+| R-04 | AT-07 | 셸 작업의 종료 정착이 **부모 `tool.call.completed` 를 만들지 않는다**. 종류 미확인 정착은 **종전대로 만든다** | UT: `createSubagentSettlementEvents` 에 `taskKind:'shell'` 정착 입력 → 부모 id 의 이벤트 0건, child 정착은 유지. 음성 대조로 `taskKind` 부재·`'unknown'`·`'agent'` → 부모 이벤트 1건 | `subagent.task(settled)` → `settleSubagentTask` |
 | R-04 | AT-08 | 정착 후에도 셸 도구 카드의 stdout 이 보존된다 | 순수 렌더 테스트: 런치 영수증 → 정착 순서로 접은 뒤 stdout 문자열 존재 | parts fold → `BashBody` |
 | R-05 | AT-09 | `timedOutAfterMs` 가 있으면 카드가 타임아웃 전환을 말한다 | 순수 렌더 테스트: 해당 문구 키 존재 | 결과 투영 → 카드 |
 | R-05 | AT-10 | `backgroundTaskId` 가 없는 셸 결과는 현행대로 완료로 그려지고 타일에 서지 않는다 | 같은 테스트의 음성 대조 | 같음 |
@@ -462,8 +462,14 @@ task_notification(셸)
 | EP-03 | AR-02 / VP-02·VP-07 | 런치 영수증 = `async_launched` **또는** `backgroundTaskId` 보유 | `shared/task-kind.ts` | `turn-coordinator` 의 `tool.call.completed` 분기 | 도구 결과 도착 | 백그라운드 셸이 추적에서 빠져 세션이 기다리지 않는다 |
 | EP-04 | AR-03 / VP-05·VP-09 | `structuredOutput = { shellBackground: { taskId, timedOutAfterMs?, persistedOutputPath?, rawOutputPath? } }` — **raw payload 를 싣지 않는다** | `claude-map.ts` | 어댑터 | `tool_result` 매핑 | raw 를 실으면 stdout 이 두 번 저장된다 |
 | EP-05 | MD-02 / VP-03·VP-11 | 백그라운드 목록의 포함 술어 = 에이전트 이름 **또는** `shellBackground` 보유 | `parts.ts` | `backgroundTasksFromMessages` | 렌더 fold | 셸 카드가 안 뜨거나 foreground 셸까지 뜬다 |
-| EP-06 | AR-04 / VP-04·VP-07·VP-12 | 부모 합성 `tool.call.completed` 는 `taskKind==='agent'` 에만 | `subagent-settlement.ts` | 정착 빌더 | `task_notification` 도착 | 셸 stdout 이 `{summary:''}` 로 덮인다 |
+| EP-06 | AR-04 / VP-04·VP-07·VP-12 | 부모 합성 `tool.call.completed` 는 **에이전트가 아님이 확인된 종류**(`shell`·`monitor`·`workflow`)에서만 생략한다. 종류 미확인(키 부재·`'unknown'`)은 현행대로 합성한다 | `subagent-settlement.ts` | 정착 빌더 | `task_notification` 도착 · `task_updated(killed)` · 합성 정착(`settle.ts`) | 생략 조건이 좁으면 셸 stdout 이 `{summary:''}` 로 덮이고, 넓으면(`=== 'agent'`) 종류를 못 읽은 에이전트 카드가 영원히 실행 중으로 남는다 |
 | EP-07 | R-07 / VP-06 | 통지 행 제목 조인 술어 = 백그라운드 목록과 **같은 술어** | `parts.ts` | `subagentTaskDescription` 개칭분 | 통지 렌더 | 셸 통지 행의 제목이 빈다 |
+
+> **EP-06 정정(설계 턴, 구현 전)**: 초안은 `taskKind === 'agent'` 에만 합성한다고 적었다. 그
+> 술어는 종류 미확인에서 **에이전트 정착까지 막아** `§0.10` 의 회귀 대상(서브에이전트 카드)을
+> 깨뜨린다 — `VP-12` 가 보호하는 동작이다. 보호하려는 불변식은 "셸의 stdout 이 살아남는다" 이지
+> "비-에이전트 정착을 없앤다" 가 아니므로, 판정을 **확인된 비-에이전트**로 뒤집는다. 강제 지점도
+> 셋으로 늘린다 — 정착 이벤트의 생산자가 `task_notification` 하나가 아니다.
 
 - 같은 규칙이 여러 레이어에 있는 곳: EP-05 와 EP-07 이 **같은 포함 술어**를 쓴다. `parts.ts` 가
   하나의 `isBackgroundTaskCall(call)` 를 export 하고 두 소비처가 그것을 부른다 — 술어를 복붙하지
