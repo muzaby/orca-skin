@@ -52,12 +52,22 @@ describe('SettingsStore (0092 — write-on-read 제거)', () => {
   })
 
   it('깨진 디스크 데이터는 기본값으로 복원된다 (기존 불변식 유지)', () => {
-    const backend = countingBackend({ theme: 12345, garbage: true })
+    const backend = countingBackend({ theme: 12345, lastAgentKind: 'invalid', garbage: true })
     const store = new SettingsStore('1.0.0', backend)
 
     const settings = store.getAll()
     expect(typeof settings.theme).toBe('string')
+    expect(settings.lastAgentKind).toBe('work')
     expect(backend.store).not.toHaveProperty('garbage')
+  })
+
+  it('마지막 composer 종류를 저장하고 새 store에서 복원한다', () => {
+    const backend = countingBackend()
+    const first = new SettingsStore('1.0.0', backend)
+    expect(first.getAll().lastAgentKind).toBe('work')
+    first.patch({ lastAgentKind: 'code' })
+
+    expect(new SettingsStore('1.0.0', backend).getAll().lastAgentKind).toBe('code')
   })
 })
 

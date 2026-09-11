@@ -13,8 +13,8 @@ describe('product identity at renderer boundaries', () => {
       }).agentKind
     ).toBe('code')
   })
-  it('creates a Code draft explicitly', () => {
-    expect(initialChatState.agentKind).toBe('code')
+  it('creates a first-run Work draft while legacy loaded sessions remain Code', () => {
+    expect(initialChatState.agentKind).toBe('work')
   })
 
   it('rejects an invalid selection without creating a Code or Work session', () => {

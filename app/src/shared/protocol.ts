@@ -652,6 +652,7 @@ export const SettingsSchema = z.object({
     .default(SIDEBAR_WIDTH_DEFAULT),
   lastBackend: BackendSchema.nullable().default(null),
   lastSessionId: z.string().nullable().default(null),
+  lastAgentKind: AgentKindSchema.catch('work').default('work'),
   windowBounds: WindowBoundsSchema.nullable().default(null),
   // MCP 서버 on/off. 키 = 서버 name. 부재한 서버는 enabled=true 로 간주(McpStore.toDto).
   // enabled 상태는 mcp.json(정의 소스)이 아니라 앱 설정이 보유한다(설계 결정 D2).
@@ -688,6 +689,7 @@ export const SettingsPatchSchema = z
     sidebarWidth: z.number().int().min(SIDEBAR_WIDTH_MIN).max(SIDEBAR_WIDTH_MAX),
     lastBackend: BackendSchema.nullable(),
     lastSessionId: z.string().nullable(),
+    lastAgentKind: AgentKindSchema,
     windowBounds: WindowBoundsSchema.nullable(),
     mcpEnabled: z.record(z.string(), z.boolean()),
     mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })),

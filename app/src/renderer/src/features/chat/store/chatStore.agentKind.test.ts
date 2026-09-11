@@ -11,18 +11,24 @@ describe('product agent kind', () => {
       cwd: 'C:/work',
       extraDirs: ['C:/refs']
     })
-    chatActions.setAgentKind('work')
+    chatActions.setAgentKind('code')
     expect(getActiveChatSession()).toMatchObject({
-      agentKind: 'work',
+      agentKind: 'code',
       cwd: 'C:/work',
       extraDirs: ['C:/refs']
     })
     expect(chatActions.send('report')).toBe(true)
-    expect(chatSend.mock.calls[0][0]).toMatchObject({ agentKind: 'work', text: 'report' })
+    expect(chatSend.mock.calls[0][0]).toMatchObject({ agentKind: 'code', text: 'report' })
     ingestChatEvent({ type: 'turn.aborted', reason: 'user_cancelled' })
     chatActions.setAgentKind('code')
-    expect(getActiveChatSession().agentKind).toBe('work')
+    expect(getActiveChatSession().agentKind).toBe('code')
     expect(getActiveChatSession().agentKindLocked).toBe(true)
+  })
+  it('persists an explicit landing choice without rolling back the immediate state', () => {
+    const { settingsSet } = installChatStoreHarness({ sessionId: null, agentKind: 'code' })
+    chatActions.setAgentKind('work')
+    expect(getActiveChatSession().agentKind).toBe('work')
+    expect(settingsSet).toHaveBeenCalledExactlyOnceWith({ lastAgentKind: 'work' })
   })
   it('keeps the kind on busy sends and fork drafts', () => {
     const { chatSend } = installChatStoreHarness({ agentKind: 'work', inflight: true })
