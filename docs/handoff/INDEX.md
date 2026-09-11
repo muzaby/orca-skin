@@ -21,7 +21,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0230-background-task-ux-conformance`](0230-background-task-ux-conformance/plan.md) | impl | **IMPL_DONE** (r1) | **Claude** (검증) | `5db40b0`(설계) · (EP-06 정정) · (r1 구현 — 검증자 기입) | 1 | **G1 구현 완료.** `taskKind` 정규화 · 런치 영수증 확장 · 셸 카드 · 정착이 stdout 을 덮지 않게. AC **12/12** · 강제 지점 **13/13** · 변이 **8종 전건 red**. §10 EP-06 은 구현 전 규범 정정(별도 커밋)했고, 전수 재열거가 §10 에 없던 네 번째 정착 생산자(`stop-subagent.ts` watchdog)를 찾아 함께 닫았다. 이 문서가 **0231~0236 의 조사 정본**(§0)이다. |
+| [`0230-background-task-ux-conformance`](0230-background-task-ux-conformance/plan.md) | verify | **FAIL** (r1) | **Codex** (재구현) | `5db40b0`(설계) · `3518999`(EP-06 정정) · `3e676fa`(r1) | 1 | **r1 검증 = FAIL** — 판정 원문은 [`verify.md`](0230-background-task-ux-conformance/verify.md). pair **10 PASS · VP-02 PAIR_FAIL · VP-07 BLOCKED_BY**. 코드는 옳으나 `turn-coordinator.ts:522` 배선이 잠기지 않았다 — 구 술어로 되돌려도 4571케이스 green(D1). 강제 지점 독립 재열거 13/13 일치, gate 7종 PASS. 비차단 3(D2~D4). |
 | [`0231-background-progress-and-turn-state`](0231-background-progress-and-turn-state/plan.md) | plan | DRAFT | **사람** (D-101 결정) | — | 0 | G2 + 사용자 제보 ②. 진행 표시(경과·요약·retry) · 배지 의미 · spark 라인 클릭 진입 · 정식 사용자 턴. 선행 0230. **D-101(백그라운드 실행 줄의 배치)** 이 열려 있다. |
 | [`0233-background-state-accuracy`](0233-background-state-accuracy/plan.md) | plan | DRAFT | **사람** (D-305 결정) | — | 0 | G4. 스냅샷 제외를 `failed` 로 확정하는 것을 `unknown` 으로 · `정리 중` · `ambient` · 일시정지 누적. 선행 0230(Delta V 후보). |
 | [`0232-background-output-access`](0232-background-output-access/plan.md) | plan | DRAFT | **사람** (D-204·D-205 결정) | — | 0 | G3. `output_file` 전체 출력 · MCP `resource_links` · 읽기 안전성. 선행 0230·0233. 축소안(경로만 표시)이 있다. |
