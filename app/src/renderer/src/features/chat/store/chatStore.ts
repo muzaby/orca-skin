@@ -144,10 +144,19 @@ const EMPTY_SUBAGENT_META: Record<string, SubagentMetaState> = {}
 // main 의 단일 default cwd — 부트스트랩 1회 조회 캐시. 새 엔트리 생성 시 주입해
 // 새 대화에서도 `@` 파일 자동완성이 즉시 동작한다(init 이벤트가 같은 값으로 덮어쓰기만).
 let cwdCache: string | null = null
+// Settings 응답 전에도 첫 랜딩이 Work여야 한다. 선택 revision은 늦은 부트스트랩 응답이
+// 사용자의 더 최신 클릭을 되돌리지 못하게 한다.
+let lastAgentKindCache: import('../../../../../shared/agent-kind').AgentKind = 'work'
+let agentKindSelectionRevision = 0
 
 function freshEntry(projectId: string | null = null, cwd?: string | null): SessionEntry {
   return {
-    session: { ...initialChatState, cwd: cwd ?? cwdCache, pendingProjectId: projectId },
+    session: {
+      ...initialChatState,
+      agentKind: lastAgentKindCache,
+      cwd: cwd ?? cwdCache,
+      pendingProjectId: projectId
+    },
     projectCwdInitialized: cwd !== undefined || projectId === null,
     live: EMPTY_LIVE,
     subagentMeta: EMPTY_SUBAGENT_META,
@@ -1531,8 +1540,16 @@ function denyTool(approvalId: string): void {
 // 안정 액션 묶음 — 모듈 상수라 컴포넌트가 deps/메모 걱정 없이 직접 import 하거나 props 로
 // 전달할 수 있다(컴포넌트는 selector / action 만 사용, state.md §1.3).
 export const chatActions = {
-  setAgentKind: (kind: import('../../../../../shared/agent-kind').AgentKind): void =>
-    dispatchActive({ type: 'SET_AGENT_KIND', kind }),
+  setAgentKind: (kind: import('../../../../../shared/agent-kind').AgentKind): void => {
+    const current = getActiveChatSession()
+    if (current.agentKindLocked || current.sessionId || current.agentKind === kind) return
+    lastAgentKindCache = kind
+    agentKindSelectionRevision += 1
+    dispatchActive({ type: 'SET_AGENT_KIND', kind })
+    void settingsApi.set({ lastAgentKind: kind }).catch(() => {
+      // 현재 프로세스 선택은 유지한다. 다음 부팅은 마지막으로 성공한 디스크 값을 따른다.
+    })
+  },
   send,
   cancelSteer,
   cancel,
@@ -1674,8 +1691,22 @@ export function bootstrapChat(): () => void {
   })
 
   // 선호 언어 1회 조회(0127) — continuity draft 의 언어 스냅샷 소스. 시드 전 draft 는 ko 폴백.
+  const agentKindRevisionAtRead = agentKindSelectionRevision
   void settingsApi.get().then((s) => {
     languageCache = s.language ?? null
+    if (agentKindSelectionRevision !== agentKindRevisionAtRead) return
+    const savedAgentKind = s.lastAgentKind ?? 'work'
+    lastAgentKindCache = savedAgentKind
+    setState((state) => ({
+      sessions: Object.fromEntries(
+        Object.entries(state.sessions).map(([key, entry]) => [
+          key,
+          entry.session.sessionId == null && !entry.session.agentKindLocked
+            ? { ...entry, session: { ...entry.session, agentKind: savedAgentKind } }
+            : entry
+        ])
+      )
+    }))
   })
 
   const unsubEvents = chatApi.onEvent(ingestChatEvent)

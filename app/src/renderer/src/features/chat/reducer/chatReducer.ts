@@ -457,7 +457,9 @@ export interface ChatState {
 }
 
 export const initialChatState: ChatState = {
-  agentKind: DEFAULT_AGENT_KIND,
+  // 랜딩의 최초 실행 기본은 Work. 저장된 세션의 legacy 기본은 DEFAULT_AGENT_KIND(Code)를
+  // 계속 사용하며 LOAD_SESSION에서 별도로 복원한다.
+  agentKind: 'work',
   agentKindLocked: false,
   agentPanelInitialized: false,
   sessionId: null,
@@ -1182,6 +1184,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       // projectId 가 명시되면 새 세션이 해당 프로젝트에 binding 될 준비.
       return {
         ...initialChatState,
+        agentKind: state.agentKind,
         cwd: state.cwd,
         pendingProjectId: action.projectId ?? null,
         projectId: action.projectId ?? null

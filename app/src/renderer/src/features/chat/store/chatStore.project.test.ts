@@ -59,6 +59,30 @@ describe('project landing cwd', () => {
     expect(current().cwd).toBe('C:\\OneDrive\\Desktop')
     cleanup()
   })
+  it('does not let a late settings response overwrite a newer landing choice', async () => {
+    let resolveSettings!: (value: { language: string; lastAgentKind: 'code' }) => void
+    const settingsReady = new Promise<{ language: string; lastAgentKind: 'code' }>((resolve) => {
+      resolveSettings = resolve
+    })
+    const unsubscribe = (): void => {}
+    vi.stubGlobal('window', {
+      orca: {
+        chat: { onEvent: () => unsubscribe },
+        session: { cwd: async () => 'C:\\Work', onTitle: () => unsubscribe },
+        settings: { get: () => settingsReady, set: async () => ({}) },
+        concurrency: { onEvent: () => unsubscribe }
+      }
+    })
+    chatActions.newChat()
+    chatActions.setAgentKind('code')
+    const cleanup = bootstrapChat()
+    chatActions.setAgentKind('work')
+    resolveSettings({ language: '한국어', lastAgentKind: 'code' })
+    await settingsReady
+    await Promise.resolve()
+    expect(current().agentKind).toBe('work')
+    cleanup()
+  })
   it('accepts the main-created project ID and preserves it when later patches omit it', () => {
     chatActions.newChat()
     useChatStore.setState({ pendingNewChatKey: NEW_CHAT_KEY })

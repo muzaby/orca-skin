@@ -8,7 +8,8 @@ import type { ToolCall } from '../../../reducer/chatReducer'
 // diff 타일과 같은 표를 그려야 하므로 `lib/diffLines`·`components/DiffTable` 이 소유한다
 // (0206 D-019). 여기 남는 것은 *도구 입력을 어떻게 쌍으로 읽는가* 뿐이다.
 
-function buildPairs(call: ToolCall): DiffPair[] {
+// eslint-disable-next-line react-refresh/only-export-components -- pure parser is exported for the production body contract test.
+export function buildPairs(call: ToolCall): DiffPair[] {
   const rec = call.input as Record<string, unknown> | null
   if (!rec || typeof rec !== 'object') return []
   if (call.name === 'Write') {
@@ -34,6 +35,8 @@ function buildPairs(call: ToolCall): DiffPair[] {
 
 export function DiffBody({ call }: { call: ToolCall }): React.JSX.Element {
   const pairs = useMemo(() => buildPairs(call), [call])
+  const rec = call.input as Record<string, unknown> | null
+  const filePath = typeof rec?.file_path === 'string' ? rec.file_path : ''
 
   return (
     <div className="flex flex-col gap-2">
@@ -44,7 +47,7 @@ export function DiffBody({ call }: { call: ToolCall }): React.JSX.Element {
       ) : (
         pairs.map((p, i) => (
           <div key={i} className="overflow-auto rounded-r4 border border-t5">
-            <DiffTable oldValue={p.oldValue} newValue={p.newValue} />
+            <DiffTable oldValue={p.oldValue} newValue={p.newValue} filePath={filePath} />
           </div>
         ))
       )}

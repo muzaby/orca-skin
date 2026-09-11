@@ -1039,6 +1039,8 @@ export interface Settings {
   sidebarWidth: number
   lastBackend: Backend | null
   lastSessionId: string | null
+  // 새 composer 랜딩에서 마지막으로 명시 선택한 제품 에이전트. 기존 세션 kind와 독립.
+  lastAgentKind: AgentKind
   windowBounds: WindowBounds | null
   // MCP 서버 enabled on/off (키 = 서버 name). 부재 ⇒ enabled=true.
   mcpEnabled: Record<string, boolean>
