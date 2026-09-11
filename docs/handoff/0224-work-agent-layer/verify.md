@@ -8,8 +8,8 @@
 | 검증자 | Claude Code |
 | 일자 | 2026-09-09 |
 | 대상 커밋/range | `4e9e51fa`(ΔV8 설계) → `4313e953`(r8 구현). diff range `4e9e51f..4313e95` |
-| 구현 전 plan 기준 | `4e9e51fa` — 이 커밋의 `structural-plan-r8.md`가 채점 기준이다 |
-| V mode / 유효 V | Delta V / V1 `51268488` + ΔV2~ΔV7 + **ΔV8**([structural-plan-r8.md](structural-plan-r8.md)) |
+| 구현 전 plan 기준 | `4e9e51fa` — 이 커밋의 `structural-plan-r8.md`가 채점 기준이다 (현재는 [plan.md](plan.md) §27) |
+| V mode / 유효 V | Delta V / V1 `51268488` + ΔV2~ΔV7 + **ΔV8** (현재는 [plan.md](plan.md) §27로 병합) |
 | 검증 기준 plan revision | `4e9e51fa`:ΔV8 |
 | 라운드 | impl r8 / **verify r1** — 이 핸드오프의 첫 독립 검증 턴이다 |
 | 상태 | **PASS** |
@@ -232,7 +232,7 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh 4e9e51f..4313e95   # 
 | 항목 | 기계 검증한 범위 | 남은 사람 실기 | 실행 방법 |
 |---|---|---|---|
 | DB 이행 | 실제 better-sqlite3로 0001→0023 + 오염 rollback | 사용자 실 DB 첫 부팅(백업 파일 생성·WAL) | Windows 앱을 기존 프로필로 실행하고 세션 목록 확인 |
-| native 렌더 | Linux/Xvfb Electron으로 fixture 153/154 재현 | Windows 실물 창의 시각 품질·좁은 창·다크 | `node docs/handoff/0224-work-agent-layer/fixtures/structural-r8-native.mjs` 후 Electron 전달 |
+| native 렌더 | Linux/Xvfb Electron으로 fixture 153/154 재현 | Windows 실물 창의 시각 품질·좁은 창·다크 | 검증 시점 fixture `structural-r8-native.mjs` 실행 후 Electron 전달 (fixture는 이후 정리됨) |
 | 실제 모델 | 해당 없음 | ΔV8이 `NOT_REQUIRED`로 둔 VP-15는 이전 상태 유지 | 이번 handoff가 닫지 않는다 |
 
 - egress 차단이 아니었다. 프록시로 electron 바이너리를 받아 native fixture를 직접 돌렸다.

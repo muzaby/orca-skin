@@ -6,7 +6,7 @@
 |---|---|
 | 작성자 / 일자 | Codex / 2026-09-10 |
 | 상태 | READY |
-| V mode / revision | Baseline V1 + Delta V2 + Delta V3 + Delta V4 + [Delta V5](refactor-plan-r4.md) + [Delta V6](feedback-plan-r5.md) + [Delta V7](correction-plan-r6.md) + [Delta V8](feedback-plan-r7.md) (아래 §13·14·15) |
+| V mode / revision | Baseline V1 + Delta V2 + Delta V3 + Delta V4 + Delta V5 + Delta V6 + Delta V7 + Delta V8 (아래 §13~19) |
 | 기준선 | `a89e6f89`; 기존 0223·0224 구현 위에 별도 요구를 추가한다 |
 
 # Part I — Product & UX Contract
@@ -174,7 +174,7 @@ PASS 자기확인: VP1~VP12를 각각 아래 경로의 직접 결과로 확인�
 | EP4 schema·sender·owner·ownerAfter | 4/4 | 변조 경로·신뢰하지 않는 sender·타 세션·읽기 중 삭제가 본문을 반환하지 않음 |
 | EP5 입력·bytes·preview | 3/3 | 실파일 UTF-8/서명/상한, data URL, HTML 원문과 정제 문서의 분리 |
 
-VP1·2·11은 Work 투영·본문 회귀와 native, VP3·5·7·9는 실제 진입 callback·수명 tests/native, VP4·6·10·12는 실파일·DB·IPC tests와 격리 프레임 DOM 관측으로 닫았다. VP8은 기존 채팅·질문·Code 및 게시·migration 회귀로 닫았다. native 46개 단언 PASS, 런타임 오류와 외부 요청은 모두 0이며 manifest의 현재 소스 hash 불일치도 0이다([증거](evidence/native-validation.json)).
+VP1·2·11은 Work 투영·본문 회귀와 native, VP3·5·7·9는 실제 진입 callback·수명 tests/native, VP4·6·10·12는 실파일·DB·IPC tests와 격리 프레임 DOM 관측으로 닫았다. VP8은 기존 채팅·질문·Code 및 게시·migration 회귀로 닫았다. native 46개 단언 PASS, 런타임 오류와 외부 요청은 모두 0이며 manifest의 현재 소스 hash 불일치도 0이다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
@@ -186,11 +186,11 @@ PASS: 오류·로딩·빈 파일·재시도는 사용자 문구로 연결된다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
-수정 완료: 독립 코드 리뷰가 발견한 TaskXXX 구조화 결과 누락과 HTML/body 속성 유실을 닫았다. 추가로 HTML 기본 root 배경의 body canvas 전파 방해를 수정하고 native 전체 프레임에서 확인했다. 자세한 원인과 대응은 [구현 보고](impl.md#구현-중-발견과-수정)에 기록했으며 남은 PLAN_GAP은 없다.
+수정 완료: 독립 코드 리뷰가 발견한 TaskXXX 구조화 결과 누락과 HTML/body 속성 유실을 닫았다. 추가로 HTML 기본 root 배경의 body canvas 전파 방해를 수정하고 native 전체 프레임에서 확인했다. 자세한 원인과 대응은 r1 구현 보고에 기록했으며 남은 PLAN_GAP은 없다.
 
 ## [구현자 기입] 구현 보고
 
-완료: AC1~8 자기확인 8/8, EP1~5 전수 18/18, VP1~12 PASS. 채팅/Markdown 1,255개·파일/DB 110개·운영 스크립트 116개 tests와 타입·빌드·lint·문서·migration gate를 통과했다. [구현 보고](impl.md)와 [시각·native 증거](evidence/native-validation.json)를 남기고 `impl/IMPL_DONE`으로 넘긴다.
+완료: AC1~8 자기확인 8/8, EP1~5 전수 18/18, VP1~12 PASS. 채팅/Markdown 1,255개·파일/DB 110개·운영 스크립트 116개 tests와 타입·빌드·lint·문서·migration gate를 통과했다. 구현 보고와 시각·native 증거를 남기고 `impl/IMPL_DONE`으로 넘긴다.
 
 ## [구현자 기입] Review Signals
 
@@ -367,7 +367,7 @@ READY: D-17~24의 각 결과를 AC19~27 및 EP13~17에 대조했다. 취소한 �
 
 ### [구현자 기입] Delta V3 결과
 
-AC19~27 자기확인 9/9, EP13~17 전수 11/11 완료. [구현 보고](impl-r3.md)에 V-pair·게이트·실제 치수와 수정한 파생 문제를 기록했다. 독립 verify는 pending이며 사용자 정정으로 취소한 기존 대화 재배정은 구현하지 않았다.
+AC19~27 자기확인 9/9, EP13~17 전수 11/11 완료. r3 구현 보고에 V-pair·게이트·실제 치수와 수정한 파생 문제를 기록했다. 독립 verify는 pending이며 사용자 정정으로 취소한 기존 대화 재배정은 구현하지 않았다.
 
 ## 15. Delta V4 — 플러그인 항목 목록과 우측 상세
 
@@ -414,7 +414,262 @@ Architecture: `ExtensionsCatalogView`가 selection과 폭·확대 상태를 보�
 
 ### [구현자 기입] Delta V4 결과
 
-AC28~31 자기확인 4/4, EP18~21 전수 12/12 완료. [구현 보고](impl-r3-panels.md)에 V-pair·게이트·native 증거 및 메뉴 Escape/지연 저장의 파생 문제 수정을 기록했다. 같은 r3 구현 턴이며 독립 verify는 pending이다.
+AC28~31 자기확인 4/4, EP18~21 전수 12/12 완료. r3 패널 구현 보고에 V-pair·게이트·native 증거 및 메뉴 Escape/지연 저장의 파생 문제 수정을 기록했다. 같은 r3 구현 턴이며 독립 verify는 pending이다.
+
+## 16. 0226 리팩토링 및 공통 버튼 — Delta V5
+
+READY · 작성 Codex · 2026-09-10 · 기준 `c02610ba`의 V1~V4. 기존 동작은 본 plan 본문의 ACTIVE 결정이 정본이다. 사용자 요청에 따라 같은 0226에서 r4를 진행한다.
+
+### 16.1 결정과 범위
+
+| 결정 | 출처 / 결과 |
+|---|---|
+| D-28 ACTIVE | “리팩토링…모듈화, 재사용, 간소화” — 반복되는 카탈로그 조작과 패널 조립을 공유하고 UI·비동기 액션·파일 작업의 책임을 분리한다. |
+| D-29 ACTIVE | “비슷한, 같은 버튼은 아이콘을 통일…구글 메테리얼 svg” — 같은 역할은 공통 버튼과 Material Symbols Outlined SVG를 사용한다. 패널 펼치기/복원/닫기의 표시 라벨도 공통화한다. 대상 이름이 필요한 접근성 이름은 보존한다. |
+
+동작 보존 리팩토링이 기본이며 D-29의 아이콘·버튼 문구만 표시 변경이다. 새 의존성·DB migration·IPC 스키마·출력 수집 정책·인증 및 HTML 격리 변경은 없다. 최근 대화 복구, 프로젝트 경로·고정·자동 펼침, 출력과 아티팩트 구분, 메모 독립 표시를 유지한다.
+
+검토한 대안: 범용 store/패널 프레임워크는 서로 다른 요청·route 수명과 권한 정책을 억지로 합친다. 파일을 크기만으로 자르는 방식은 중복을 줄이지 못한다. 실제 중복 조작을 공유하고 한 파일에 섞인 책임만 분리하는 안을 선택한다.
+
+### 16.2 AS-IS → TO-BE
+
+| 현재 근거 | 변경 / 소유자 |
+|---|---|
+| ProjectsScreen·ArtifactsView·CustomizeTabs가 같은 tab ARIA/방향키/스타일 반복, 앞의 두 화면이 검색 초점/Escape 반복 | shared `CatalogTabs` 및 작은 카탈로그 검색 hook/UI. 필터·총계·생성·삭제·선택 데이터는 feature에 유지 |
+| CustomizeList는 그룹을 만든 직후 rows를 flatMap. 그룹 제목·빈 그룹 모델은 표시되지 않음 | skills 내부 순수 `catalogOrder`로 최종 순서만 반환. 스킬 source의 동률/연속성, 활성 MCP 우선, provider kind 순서 유지 |
+| ArtifactCard는 단일 카드·세션 구독 묶음·오류 메시지 매핑 혼재, viewer가 오류 하나 때문에 UI 파일 import | `ArtifactCard`/`ArtifactCards`, `lib/artifactFeedback`로 분리. import edge를 실제 책임에 연결하고 호환 배럴은 만들지 않음 |
+| ArtifactViewer copy/download가 busy·피드백·현재 요청 확인을 반복 | `useArtifactViewerActions(selection)`에서 단일 실행 잠금과 요청 수명 처리. UI는 액션 상태·명령을 소비 |
+| RightPanel이 separator·열/행 애니메이션·타일 조립·viewer host 수명 모두 포함 | 같은 feature의 `PanelResizeSeparators`, `RightPanelColumn`, 순수 `rightPanelViewport`로 분리. column/tile key와 평탄한 자식 배열 유지 |
+| 패널 확장 버튼 4곳이 같은 icon과 다른 문구를 반복 | shared `PanelExpandButton`/`PanelCloseButton`, 공통 i18n 라벨. viewer·extension·task/plan·Code diff에 적용. compact/small 크기와 기존 data marker 유지 |
+| 출력 카드의 탐색기 열기는 folder, diff 파일 열기는 arrowNE | 같은 파일 reveal 동작에 Material `file_open` 적용. 디렉터리를 여는 folder와 외부 링크를 여는 north_east는 역할에 맞게 유지 |
+| TextExtractor.extract는 실제 첨부 경로에서 미사용, NUL/BOM 처리가 실제 경로에도 존재 | 클래스·옛 전체 파일 읽기 제거. 제한 읽기 후 현재 첨부 디코딩 한 경로만 유지 |
+| artifact IPC 등록 파일에 내보내기 경로 검증·동명 파일 저장·안전 교체가 섞임 | 같은 artifact feature의 `export-files`로 이동. IPC는 sender·dialog·ID 재검사·DTO 조립만 담당 |
+
+Material 원본은 [Google 저장소](https://github.com/google/material-design-icons)의 `symbols/web/<glyph>/materialsymbolsoutlined/<glyph>_24px.svg`를 확인한다. 펼치기=`open_in_full`, 복원=`close_fullscreen`, 닫기=`close`, 더보기=`more_vert`, 고정=`push_pin`, 파일 탐색=`file_open`, 복사=`content_copy`, 다운로드=`download`, 재조회=`refresh`, 미리보기=`visibility`, 코드=`code`를 기존 `Icon` SVG 진입점에서 재사용한다. 자체 그린 확대/복원 경로는 공식 원본으로 교체하고 실제 렌더로 확인한다.
+
+### 16.3 인수 기준과 Delta V
+
+| AC / R·AT | 사용자 관측 / 직접 oracle |
+|---|---|
+| AC32 / R32·AT32 NEW | 같은 역할의 패널 버튼이 같은 SVG·표시 라벨을 갖고 펼치기→host 전체→복원→닫기, 파일 열기 메뉴가 기존 동작을 실행한다. 실제 버튼 DOM/콜백·native 화면 |
+| AC33 / R33·AT33 NEW | 카탈로그 두/세 탭, 방향키/Home/End, 검색 열기/Escape/초점, 필터·총계·생성/고정 후 초점이 동일하게 동작한다. 최종 행 순서와 native 사용자 흐름 |
+| AC34 / R34·AT34 NEW | 출력 단일/묶음 카드와 뷰어 복사/저장·취소/오류·닫기/전환 후 지각 완료 무시가 유지된다. 기존 수명 테스트와 deferred 액션 |
+| AC35 / R35·AT35 NEW | 첨부 BOM/NUL·Temp 사본·상한/원본 보존 및 artifact 내보내기 동명 충돌/하드링크/실패 정리가 실제 production 경로에서 유지된다. 실파일 테스트 |
+
+| EP | 강제 지점 / N | 실패 의미 |
+|---|---|---|
+| EP22 | viewer·extension·task/plan tile·diff header 확장/닫기 / 4 | 같은 역할 문구/자원이 달라지거나 props 전달·복원 소실 |
+| EP23 | project·artifact·plugin 탭 및 project/artifact 검색 / 5 | ARIA 연결·방향키·Escape/초점·총계 소실 |
+| EP24 | skill·MCP·provider 순서 / 3 | 동률 source가 섞이거나 입력을 mutate |
+| EP25 | 단일 카드·세션 묶음·viewer copy·viewer save / 4 | 다른 선택 결과가 남거나 저장 대상·상태 구분 소실 |
+| EP26 | 첨부 실제 decode·export 목적지·동명 저장·안전 교체 / 4 | 우회 읽기·원본 변경·중간 실패 잔여 |
+| EP27 | 출력 카드 reveal·diff 파일 reveal / 2 | 같은 파일 작업의 잘못된 아이콘 또는 경로 콜백 변경 |
+
+| Pair | 노드 / requiredness | 경로 / oracle |
+|---|---|---|
+| VP61~64 | NEW R32~35↔AT32~35 / REQUIRED | 각 AC 직접 동작, EP22~27 해당 지점 |
+| VP65 | NEW AR8↔IT8 / REQUIRED | 세 카탈로그→공통 controls→기존 필터/선택, 카드/viewer→feature hook/lib, IPC→export-files; 실제 소비 경로 테스트 |
+| VP66 | NEW MD10↔UT10 / REQUIRED | 최종 catalog 순서·viewer 액션의 중복 잠금/요청 소유권·첨부 decode; 순서/지각 Promise/실파일 oracle |
+| VP67 | INHERITED R9·R31↔AT9·AT31 / REGRESSION | 분리된 열/타일→공통 pane→resize/전체 확대/원폭/스크롤/초안 유지 |
+| VP68 | INHERITED R3~8·R10~11↔해당 AT / REGRESSION | 출력 선택·소유권·preview 격리·save-all·기존 카드와 늦은 결과 |
+| VP69 | INHERITED R19~30↔해당 AT / REGRESSION | nav/프로젝트/cwd/최근·카탈로그 순서·총계·플러그인 상세/모달·초점 |
+
+선택 적대 증거: 없음. 행 순서·실행된 콜백·지각 Promise·실파일·실제 화면으로 직접 검증한다. 분리 파일 수/호출문 수로 동작을 대신 증명하지 않는다. 이번 비영향인 DB migration·스케줄 프로토콜·런타임 admission은 기준 V를 승계하고 전면 재검증은 NOT_REQUIRED다.
+
+### 16.4 구현 작업 목록
+
+- [x] 카탈로그: 기존 행동 테스트 baseline → 공유 tabs/search → 최종 순서 helper → 영향 테스트/native.
+- [x] 출력/패널: 카드·피드백·액션 hook·열 조립 분리 → 기존 imports 직접 갱신 → 수명/폭 회귀.
+- [x] Main: 실제 normalizeAttachments로 BOM/NUL 사례 이동 → 죽은 추출기 제거 → export-files 분리 → 실파일·IPC 회귀.
+- [x] 버튼: 기존 렌더 테스트에 동일 역할 기대값 → 공식 SVG 및 공통 panel controls → 모든 EP22/27 소비처 대조.
+- [x] 통합: 코드 리뷰 → main/web/test 타입, 변경 소스 ESLint/Prettier, 영향 Vitest, Electron native, build, doc inventory/test budget/whitespace → 문서·INDEX 보고. 검증된 변경을 기존 브랜치에 커밋·푸시한다.
+
+### 16.5 운영 / READY 검토
+
+기존 공유 브랜치에서 이어간다는 사용자 맥락에 따라 현재 checkout을 사용한다. 4-layer/feature DAG, OS Temp SSOT, 각 파일 읽기의 서로 다른 검증 정책을 유지한다. UI 리팩토링 baseline은 기존 r3 native fixture를 재사용하고 새 r4 결과를 별도로 기록한다. 테스트 파일명은 계약이 아니며 행동 단언을 이동한 뒤 다시 실행한다.
+
+`handoff-review`는 r4 진입에 따른 DIAGNOSE_ONLY: 사용자 후속 레이아웃/경로 정정은 D(결정 변경), 이번 아이콘 일관성은 F(공유 구현 누락)로 본다. 현재 renderer 가이드의 공통 UI·기존 §15의 재사용 계약이 충분하므로 SKILL/AGENTS를 수정하거나 과거 corpus를 추가하지 않는다. 독립 verify pending을 자기확인 PASS로 바꾸지 않는다.
+
+READY self-review: D-28/29→AC32~35→VP61~69→EP22~27의 경로를 대조했다. 외부 계약이나 제품 정책 선택 없이 현재 동작을 유지하는 구현 경계가 확정되었다.
+
+### [구현자 기입] Delta V5 결과
+
+AC32~35 자기확인 4/4. r4 구현 보고에 설계 리뷰·EP22~27 각 지점·VP61~69·직접 검사·UX 파생 수정·게이트·Review Signals를 기록했다. 독립 verify는 pending이다.
+
+## 17. 0226 후속 동작 및 Windows CI — Delta V6
+
+READY · Codex · 2026-09-10 · 기준 `769cd454`. 사용자 후속 요구와 CI red gate를 같은 0226 r5에서 처리한다. V1~V5의 비충돌 계약과 독립 verify pending을 승계한다.
+
+### 17.1 결정과 사용자 결과
+
+| 결정 | 출처와 계약 |
+|---|---|
+| D-30 ACTIVE | 최근 대화도 접을 수 있어야 한다. 모든 최근 대화(임시 대화 포함)는 같은 그룹 하위에 놓고 표시용 프로젝트 prefix를 제거한다. 제목 자체의 `/`는 유지한다. |
+| D-31 SUPERSEDED → D-36 | 일반/아티팩트 카드는 해당 assistant 턴의 마지막에 모은다. 확정 본문과 live 본문 아래에 spark/status, 그 뒤 완료 메타와 카드가 온다. **배치 순서는 아래 §18 Delta V7로 대체한다.** 배경 대기 때 spinner를 숨기는 D-11은 유지한다. §13.2의 일반 출력 세션 최하단 배치를 대체한다. |
+| D-32 ACTIVE | 일반 산출물은 Windows OS 사용자 Temp의 실제 파일을 읽고 열고 저장한다. 관리 아티팩트 디렉터리 사본을 일반 파일의 읽기 원본으로 사용하지 않는다. 외부 게시 아티팩트의 관리 사본은 유지한다. |
+| D-33 SUPERSEDED → D-35 | 앱의 Claude 대화 기본 정책은 Bash·WebSearch 제외, PowerShell 허용이다. **PowerShell 자동 허용은 아래 §18 Delta V7의 노출/승인 분리로 대체한다.** 관리 provider 설정 템플릿과 실행 설정에 `env.CLAUDE_CODE_USE_POWERSHELL_TOOL="1"`, `skipWebFetchPreflight=true` 기본값을 제공한다. 기존의 명시 환경/설정 우선순위는 보존한다. completion의 도구 비활성은 유지한다. |
+| D-34 ACTIVE | 사용자가 전달한 Vitest red gate를 수정한다. Windows 짧은 경로와 canonical 경로의 같은 파일을 허용하되 경로 탈출은 허용하지 않는다. 현재 계약에 뒤처진 테스트 대역을 보강하고 숨겨진 실행 오류도 검출한다. |
+
+대안 검토: 카드 위치를 수신 시각이나 현재 마지막 메시지로 추정하면 늦은 도구 결과가 다음 턴에 붙는다. 기존 tool ID 및 응답 경계, 영속 artifact part를 재사용한다. 새 DB migration이나 타임스탬프 추정은 도입하지 않는다. 소유권 근거가 없는 과거 일반 출력은 우측 출력 목록에서 계속 제공하며 임의의 과거 턴에 끼워 넣지 않는다.
+
+### 17.2 데이터 흐름과 상태
+
+- Write/Edit 또는 Stop 명시 링크 → 제한된 Temp 파일 캡처 → SDK hook 결과 대기열 → SDK result의 telemetry 이전 `output.captured` → HistoryWriter의 소유권 확인/원래 메시지 artifact part → renderer의 같은 메시지 → 해당 턴 footer.
+- Write/Edit는 `toolRunId`로 원래 호출 메시지를 찾는다. Stop 결과는 해당 응답 경계를 전달한다. Main에서 검증되지 않은 출력은 renderer에 연결하지 않는다. 오류/취소 시 경계 없는 Stop 출력을 다음 응답으로 넘기지 않는다.
+- 일반 파일 capture는 메타데이터만 등록하고 관리 사본을 만들지 않는다. status/preview/save/reveal/trash의 단일 분기에서 category=file은 등록한 Temp 원본을 재검사한다. 파일 소실은 missing, 링크/정션·Temp 밖 경로는 거부한다. 기존 일반 출력도 등록한 원본으로 읽고 사본으로 fallback하지 않는다.
+- 동일 파일 재수집은 기존 중복 억제를 유지하되, 현재 턴에서 명시적으로 생성/언급한 출력의 part 연결을 허용한다. 턴 안에서는 publicationId로 중복 제거한다.
+- 최근 대화 접힘은 기존 CollapsibleSection의 화면 수명을 따른다. 새 항목 수신이나 route 변경이 사용자의 접힘을 강제로 풀지 않는다.
+- provider 신규 설정/seed에는 기본값을 합성한다. 기존 설정 파일을 일괄 수정하지 않고 실행 시 누락된 기본값을 보완한다. 기존 custom > runtime > provider > app > process 우선순위를 보존한다.
+
+### 17.3 AC와 유효 V
+
+| AC / 노드 | 관측 가능한 결과 |
+|---|---|
+| AC36 / R36↔AT36 | 최근 대화 접기/펼치기·키보드, 모든 항목의 그룹 소속, 표시 prefix 제거와 실제 제목 보존 |
+| AC37 / R37↔AT37 | 확정/live 본문→spark→카드 순서, 여러 턴·늦은 출력·reload에서 원래 턴 footer 유지, 일반/게시 동일 카드 액션 |
+| AC38 / R38↔AT38 | 일반 파일 작업은 실제 Temp 원본에서 동작하고 관리 사본을 만들지 않음. 게시 아티팩트는 기존 관리 파일 유지. 삭제/교체/권한·범위 실패를 구분 |
+| AC39 / R39↔AT39 | Work/Code SDK query의 deny/allow 및 신규·기존 실행 설정 기본값, 명시 설정 우선순위, completion 도구 없음 유지 |
+| AC40 / R40↔AT40 | 전달된 CI 테스트가 Windows 실제 경로 및 현행 런타임/부팅 계약으로 통과하고 미등록 파일·정션 탈출은 계속 거부 |
+
+| Pair | requiredness / 경로 / 직접 oracle |
+|---|---|
+| VP70~74 | REQUIRED · NEW R36~40↔AT36~40 · 위 AC의 native DOM/실파일/실제 query 옵션/실제 handler 실행 |
+| VP75 | REQUIRED · NEW AR9↔IT9 · hook→SDK result→HistoryWriter→DB part→reducer의 일반 출력 연결, 도구 ID/응답 경계/중복/다른 세션 검증 |
+| VP76 | REQUIRED · NEW MD11↔UT11 · Temp inspect 및 renderer footer 조립, 짧은 경로 canonicalization와 대역 오류 검출 |
+| VP77 | REGRESSION · R6~8·R10~12↔해당 AT · 게시 소유권/격리 preview/save/trash, 배경 idle와 출력 액션 수명 |
+| VP78 | REGRESSION · R19~30↔해당 AT · 고정됨→프로젝트→최근 순서 및 프로젝트/최근 탐색 |
+
+선택 적대 증거: 없음. 실제 이벤트·DOM 순서·실파일과 실제 호출 인자로 검증한다. 비영향 패널 리사이즈·카탈로그 탭 전체 회귀는 V5 증거를 승계한다.
+
+### 17.4 §10 강제 지점과 구현 경계
+
+| EP | 언제 강제 / 지점 | 실패 의미 |
+|---|---|---|
+| EP28 | Sidebar 그룹·draft 행·저장 대화 행 / 3 | 그룹 밖 항목 또는 프로젝트 prefix 잔존 |
+| EP29 | hook 수집·SDK drain·history 연결·live reducer·reload part·AssistantTurn footer / 6 | 다음 턴 오귀속, 중복, 카드 뒤 본문/spark |
+| EP30 | ordinary capture·status·preview/export·reveal·trash / 5 | Temp 대신 관리 사본 읽기 또는 범위 우회 |
+| EP31 | conversation query·completion query·설정 조립·신규 scaffold/seed·provider template·system header / 6 | Bash 지침 잔존, WebSearch 노출, env 우선순위 변경 |
+| EP32 | session cwd·extraDirs·정확한 첨부·runtime fixture·bootstrap catalog / 5 | 8.3 경로 오거부, 미등록/정션 허용, 오류 은폐 |
+
+Renderer는 기존 `ArtifactCards`와 `CollapsibleSection`을 사용한다. Main은 `TurnExtensions.outputFiles.capture` 반환값 및 hook 콜백으로 수집 결과를 정규화 스트림에 합친다. DB의 기존 message/tool 연결과 artifact part 포맷을 사용하며 일반 출력 전용 링크 검증은 게시 도구의 영수증 검증과 구분한다. 코드 경로의 category 분기와 제한 읽기는 한 서비스 내부에 모은다.
+
+### 17.5 운영 gate와 READY 검토
+
+영향 Vitest, main/web/test typecheck, 변경 TypeScript ESLint/Prettier, doc inventory/test budget/whitespace, Electron 빌드, 실제 SQLite 경로 검사와 native DOM 순서를 확인한다. 현재 Electron ABI를 유지하며 Node용 rebuild는 하지 않는다. 신규 의존성은 없다. 설계와 구현 커밋을 분리하고 현재 원격 브랜치에 푸시한다.
+
+r5 handoff-review는 DIAGNOSE_ONLY. 새 사용자 배치/정책 결정과 CI 대역 drift를 기존 재구현 불변식에 반영한다. 스킬/AGENTS 수정은 필요 없다. D30~34→AC36~40→VP70~78→EP28~32를 대조했고 구현 가능한 경계와 실패 oracle을 확정했다.
+
+### [구현자 기입] 결과
+
+AC36~40 자기확인 5/5. r5 구현 보고에 EP28~32 전수, VP70~78 증거, 구현 중 발견한 경계 사례와 운영 gate를 기록했다. 독립 verify pending.
+
+## 18. 0226 도구 노출과 spark 순서 정정 — Delta V7
+
+READY · Codex · 2026-09-10 · 기준 `b727adbb`. 사용자가 같은 작업의 요구를 명시적으로 정정했으므로 r6에서 이어간다. V1~V6의 비충돌 계약과 독립 verify pending을 승계한다.
+
+### 18.1 Decision Ledger와 동작
+
+| 결정 | 출처 / 결과 |
+|---|---|
+| D-35 ACTIVE | “항상 허용이 아닌 도구 노출이 목적” — D-33의 PowerShell 자동 허용을 대체한다. Claude Work·Code는 Bash/WebSearch를 제외하고 SDK 기본 도구와 PowerShell을 노출한다. 앱이 PowerShell을 allowedTools로 자동 허용하지 않는다. 기존 permission mode와 승인 경로를 따른다. PS 활성화 환경값, WebFetch preflight 기본값, 명시 설정 우선순위는 승계한다. |
+| D-36 ACTIVE | “사용자 메시지 버블, 어시스턴트 메시지 버블, 카드 ui, 스파크 순서” — D-31/AC37의 spark 앞 카드 배치를 대체한다. 확정/live 본문 → 일반/게시 카드 → spark/status가 같은 응답의 순서다. 완료 메타는 기존처럼 완료한 본문과 카드 사이에 둔다. idle/background ready에서 진행 spark를 숨기는 기존 정책은 유지한다. |
+
+노출과 승인을 분리한다. 기본 도구 이름을 수동으로 전부 나열하면 SDK의 기본 도구가 누락될 수 있으므로 SDK 기본 집합을 유지하고 제외 목록만 적용한다. PowerShell은 env로 활성화한다. `allowedTools` 제거 후에도 Orca의 `canUseTool` 안전 도구 fallback이 자동 승인하지 않도록 PowerShell을 기존 shell 승인 분류에 넣는다. 승인/거절과 사용자가 선택한 permission mode는 그대로 전달한다.
+
+화면은 PendingAssistant의 본문과 status 사이에 출력 카드를 조립할 수 있게 하여 live 리프 구독을 보존한다. 첫 응답의 assistant 메시지가 아직 없으면 기존 본문/status fallback을 사용하고 spark는 한 번만 표시한다. 파일 소유권·수집·영속·Temp 작업 경로는 바꾸지 않는다.
+
+### 18.2 인수 기준과 V
+
+| AC / 노드 | 사용자 관측 / oracle |
+|---|---|
+| AC41 / R41↔AT41 NEW | Work·Code에서 Bash/WebSearch를 제외한 SDK 기본 도구와 PowerShell을 노출하고 PowerShell을 자동 허용하지 않는다. 실제 query 옵션, canUseTool의 승인/거절 전달 및 기존 completion 도구 비활성 검사 |
+| AC42 / R42↔AT42 NEW | 사용자→확정/live 본문→일반/게시 카드→spark 순서이며 spark는 하나다. 늦은 카드·첫 전송·reload·background ready 및 카드 액션 유지. 실제 React 조립과 Electron DOM/수직 순서 |
+
+| Pair | requiredness / production path / oracle |
+|---|---|
+| VP79 | REQUIRED · NEW R41↔AT41 · Work/Code 요청→query 기본 도구+제외/활성화→SDK 권한 callback→기존 승인 응답, 실제 옵션과 spy 결과 |
+| VP80 | REQUIRED · NEW R42↔AT42 · Exchange→AssistantTurn→PendingAssistant 본문/카드/status, SSR+native DOM/수직 순서 |
+| VP81 | REQUIRED · NEW AR10↔IT10 · query와 canUseTool의 노출/권한 분리, PendingAssistant 일반 fallback/카드 삽입 경로. 해당 integration tests |
+| VP82 | REGRESSION · R37~39↔AT37~39의 비충돌 부분 · 원래 턴 귀속·중복·메타·idle·Temp·설정 우선순위·completion 도구 없음, 기존 테스트 및 r5 증거 승계 |
+
+선택 적대 증거 없음. 실제 반환 옵션·호출 결과·렌더 DOM을 직접 관측한다. DB·파일 수집·nav·다른 패널은 비영향이며 V6 증거를 승계한다.
+
+### 18.3 §10 강제 지점
+
+| EP | 언제 강제 / N | 실패 의미 |
+|---|---|---|
+| EP33 | conversation query·PowerShell 권한 분류/callback·completion query / 3 | 자동 허용 잔존, 기본 도구 누락, 제외 도구 재노출, completion 도구 활성화 |
+| EP34 | pending assistant의 카드 삽입·assistant 없는 fallback·완료 메타/카드·늦은 카드 갱신 / 4 | 카드 뒤 본문, spark 앞 카드 누락, 중복 spark, 새 출력이 다른 턴으로 이동 |
+
+### 18.4 작업과 gate
+
+기존 테스트의 query/승인 및 spark 순서를 새 계약으로 먼저 바꾸어 red 확인 후 최소 구현한다. PendingAssistant의 공통 합성과 기존 ArtifactCards를 사용하며 새로운 store/IPC/의존성은 만들지 않는다. 영향 Vitest, node/web/test 타입, 변경 파일 ESLint/Prettier, Electron native 순서·스크린, build, inventory/test-budget/whitespace를 수행한다. 현재 ABI와 기존 브랜치를 유지하고 설계·구현 커밋을 분리한 뒤 원격에 푸시한다.
+
+handoff-review DIAGNOSE_ONLY: 이번 정정은 D(User decision change)다. 기존 명시 결정의 supersede만 기록하며 스킬/지침을 바꾸지 않는다. READY self-review: D35/36→AC41/42→VP79~82→EP33/34의 생산·소비·실패 경로를 대조했다.
+
+### [구현자 기입] Delta V7 결과
+
+AC41·42 자기확인 2/2, VP79~82 SELF_PASS, EP33 3/3·EP34 4/4. r6 구현 보고에 승인 fallback 보강, 카드 부모 유지, 영향 Vitest 198건·native 46건 및 운영 gate 결과를 기록했다. 독립 verify는 pending이다.
+
+## 19. 0226 CI·추가 버튼·Temp 게시 보정 — Delta V8
+
+READY · Codex · 2026-09-10. V1~V7 및 r6 구현 `cdc8175b`를 승계한다. 같은 사용자 피드백의 구현을 이어가며 독립 verify pending은 유지한다.
+
+### 19.1 Part I — 사용자 결과와 결정
+
+| 결정 | 명시 요구 / 동작 |
+|---|---|
+| D-37 ACTIVE | “엔진 추가 버튼이 레퍼런스” — 프로젝트 상단 새 프로젝트와 플러그인 상단 스킬/MCP 추가를 같은 공통 Button 디자인으로 맞춘다. 기존 생성 모달·스킬 메뉴와 탭 전환을 유지한다. |
+| D-38 ACTIVE | “publish artifact 도구가 … Temp 경로를 unsafe-path라고 한다. 해당 경로는 허용” — 게시 입력에 실제 OS 사용자 Temp와 그 하위 파일을 허용한다. Windows는 기존 resolver의 LocalAppData/Temp 및 OS 재지정을 따른다. cwd/add-dir 게시와 기존 파일 형식·크기·로컬 경로·실체 경계 검사는 유지한다. |
+| D-39 ACTIVE | “vitest 실패: 첨부” — 첨부는 제목 한 줄뿐이다. 현재 HEAD의 CI run 34465282903에서 확인한 실패 10건을 보정하고 실행 결과로 확인한다. 테스트가 현재 동작과 어긋나면 기대값/fixture를 수정하며 정상 제품 동작을 과거 기대값으로 되돌리지 않는다. |
+
+버튼은 light/dark에서 레퍼런스와 같은 색상·크기·간격·plus 아이콘을 사용한다. 스킬의 dropdown 표시와 메뉴 열림은 유지한다. 프로젝트 empty CTA는 지정한 상단 버튼과 별개이며 그대로 둔다.
+
+Temp의 완성된 파일로 publish_artifact를 호출하면 관리 사본과 해당 세션의 게시 참조를 얻는다. 입력 원본은 보존하고 게시 성공 여부·취소·실패·재시도·세션 소유권은 기존 흐름을 따른다. OS Temp 허용은 게시 입력에 한정하며 임의 폴더나 다른 도구의 권한으로 확장하지 않는다. 일반 출력의 Temp 직속 원본 정책은 유지한다.
+
+| AC / 노드 | 행동 기준 / 직접 oracle |
+|---|---|
+| AC43 / NEW R43↔AT43 | 프로젝트·스킬·MCP 상단 추가 버튼이 엔진 추가와 같은 primary/small/plus 토큰을 사용한다. 실제 computed style과 light/dark 화면, 기존 클릭·키보드·닫기 동작 |
+| AC44 / NEW R44↔AT44 | cwd/add-dir 밖의 실제 OS Temp 파일을 게시할 수 있다. root·하위·Windows 짧은 표기, tool→service→실파일/DB/preview 경로. Temp 밖 형제 및 외부로 나가는 정션은 거부하고 게시 사본·원본·세션 격리를 유지한다. |
+| AC45 / NEW R45↔AT45 | 현재 CI의 4 suite 10 실패를 재현 가능한 현재 계약으로 보정한다. 해당 suite 실행, 전체 Vitest 및 Windows CI 결과로 확인한다. |
+
+### 19.2 Part II — 조사와 기술 적용
+
+| 대상 | 관측 / 최소 적용 |
+|---|---|
+| 상단 추가 버튼 | AgentEnvironmentView는 primary/small/plus다. ProjectsScreen은 variant 생략, ExtensionsCatalogView는 contained이며 plus 누락이다. 기존 Button props만 맞추고 공통 토큰은 수정하지 않는다. |
+| publisher 허용 root | tool→service→readArtifactInput의 허용 목록은 cwd/extraDirs뿐이다. SDK에는 별도로 Temp가 전달되지만 publisher context에는 없다. 파일 입력 검사에서 실제 Temp를 허용하고 query/사용자 extraDirs는 바꾸지 않는다. |
+| Temp 검증 | getTemporaryFilesPath를 단일 출처로 사용한다. canonical root와 candidate containment 및 stable read 뒤 root/candidate 재검사를 유지한다. 기존 cwd 게시가 존재하지 않는 별도 Temp root 때문에 실패하지 않게 한다. |
+| CI 현재 실패 | [run 34465282903](https://github.com/muzaby/orca-skin/actions/runs/34465282903): files.contextDirectory 1, attachments 2, composerRequirementWiring 6, workPanelSections 1. 경로 실체 기대값·현재 hook mock·컨텍스트 표시 기대값을 원인과 대조한다. |
+
+publish 입력→바이트 검증→관리 파일 준비→DB publication→tool 영수증/알림의 기존 수명은 재사용한다. 새 저장소·migration·IPC·의존성은 없다. tool 설명과 현재 영속성 문서에 Temp 입력 허용을 반영한다. 실제 파일·DB 검증은 기존 service fixture의 독립 Temp resolver를 사용하여 허용 밖 형제 경로를 계속 검사한다.
+
+| Pair | requiredness / 경로 / oracle |
+|---|---|
+| VP83 | REQUIRED · NEW R43↔AT43 · 세 화면 상단 Button→메뉴/모달, 실제 스타일·기존 액션 |
+| VP84 | REQUIRED · NEW R44↔AT44 · Temp 완성 파일→publisher→관리 사본/세션 참조→preview, 실제 파일/DB 결과 |
+| VP85 | REQUIRED · NEW AR11↔IT11 · runtime tool context→service→Temp 입력 검사·사본/DB·영수증, 실제 tool handler 합성 |
+| VP86 | REQUIRED · NEW MD11↔UT11 · 허용 roots·canonical containment·stable read 및 후검사, 정상 Temp/short path와 외부 탈출·교체 직접 결과 |
+| VP87 | REQUIRED · NEW R45↔AT45 · CI에 명시된 4 suite→생산 경로/현재 fixture→기대 결과, 로컬 및 CI Vitest |
+| VP88 | REGRESSION · INHERITED R18·38↔AT18·38와 게시/카탈로그 동작 · 일반 Temp 직속·원본, 기존 cwd/add-dir·형식/크기·세션·취소/실패/cleanup, 기존 실제 suite |
+
+별도 적대 변이는 not selected다. 실제 반환값·파일·DB·DOM을 직접 관측하며 r6의 PowerShell 승인 분리와 spark 순서 및 비영향 nav/패널은 기존 증거를 승계한다.
+
+### 19.3 §10 강제 지점과 gate
+
+| EP | 지점 / N | 실패 의미 |
+|---|---|---|
+| EP35 | 프로젝트 상단·스킬 상단·MCP 상단 / 3 | 다른 버튼 색상/아이콘, 메뉴·모달 동작 소실 |
+| EP36 | Temp root 해석·candidate 경계·stable read와 후검사·서비스 사본/세션·tool 입력/영수증 / 5 | Temp 정상 파일 거부, 외부 탈출, 변경 중 혼합 바이트, 잘못된 세션/거짓 성공 |
+| EP37 | files.contextDirectory·attachments·composerRequirementWiring·workPanelSections / 4 | Windows canonical 경로 불일치, 누락 mock export, 현재 컨텍스트 기대값 불일치 |
+
+원인 재현 후 최소 수정한다. 영향 Vitest와 전체 Vitest, node/web/test 타입, 변경 파일 ESLint/Prettier, 두 테마의 실제 Button 스타일·메뉴/모달·좁은 화면, electron-vite build, inventory/test budget/whitespace를 수행한다. SQLite는 기존 Electron ABI를 유지하여 Electron-as-Node로 실행한다. 기존 브랜치에 설계와 구현을 분리하여 커밋·푸시하고 CI를 확인한다.
+
+READY self-review: D37~39→AC43~45→VP83~88→EP35~37을 현재 호출부와 대조했다. 기존 ACTIVE 결정과 충돌 0; Temp 허용을 publisher에 추가하되 일반 출력의 직속 수집과 다른 도구의 권한은 유지한다. handoff-review DIAGNOSE_ONLY: 버튼은 사용자 구체화(D), Temp 입력 불일치는 구현 결함(F), CI는 현행 fixture와의 불일치를 실측 후 분류한다. 지침 자체는 수정하지 않는다.
+
+### [구현자 기입] Delta V8 결과
+
+AC43~45 자기확인 3/3, VP83~88 SELF_PASS, EP35 3/3·EP36 5/5·EP37 4/4. r7 구현 보고에 Windows 8.3 경로 재현, Temp 게시의 실제 tool/DB 동작, 최종 CSS native 228건 및 로컬·Windows CI의 전체 Vitest 결과를 기록했다. 독립 verify는 pending이다.
 
 ## [검증자 기입] 파생 이슈
 

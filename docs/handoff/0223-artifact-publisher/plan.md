@@ -1,6 +1,6 @@
 # Plan — artifact-publisher
 
-> 현재 UI 설계는 [ΔV1 — 작업 패널 출력 통합](ui-plan.md)이 정본이다. 아래 V1의 독립 산출물 타일·공통 카드 배치는 ΔV1로 대체한다. 일반 생성물 수집 기준 Q-04는 사용자 답변 대기이며 확정 UI와 분리한다.
+> 현재 UI 설계는 아래 §20 ΔV1 — 작업 패널 출력 통합이 정본이다. 아래 V1의 독립 산출물 타일·공통 카드 배치는 ΔV1로 대체한다. 일반 생성물 수집 기준 Q-04는 사용자 답변 대기이며 확정 UI와 분리한다.
 
 ## 메타
 
@@ -15,7 +15,7 @@
 | V mode / 기준 V | Baseline V / none — 산출물 게시의 기존 구현 V 없음 |
 | 이번 revision / 유효 V | V1 rev.4 + ΔV1 — 작업 패널 출력 통합. 확정 UI READY, 일반 생성물 Q-04 OPEN |
 | 매핑 | [선행 검토](../../etc/study/cowork/artifact-publisher-review.md), 기존 리팩토링 PR과 별도 기능 |
-| 실행 범위 | 사용자 구현 승인. 최신 UI 결과는 [ui-impl.md](ui-impl.md), V1 인수 검증은 [impl.md](impl.md) 참조 |
+| 실행 범위 | 사용자 구현 승인. 구현 결과와 인수 검증 판정은 [verify.md](verify.md) 참조 |
 | 구현 상태 | **부분 완료** — 작업 패널 출력 통합·카드 변경 완료. 일반 생성물 Q-04와 기존 모델/native 인수 검증 남음 |
 
 # Part I — Product & UX Contract
@@ -196,7 +196,7 @@ T-01은 §9.3의 2단계 경로로 해소했다. query별 host context, DB 세�
 | R-10 | AT-10 / AC10 | fork가 같은 게시 파일을 참조하고 세션 삭제는 실제 파일을 삭제하지 않음 | 부모/마지막 대화 삭제 뒤 파일 생존, 자식 참조 조회, handoff 이력 미복사 유지 | fork/session delete → DB refs → retained file |
 | R-11 | AT-11 / AC11 | 닫기·세션 삭제·재조회 뒤 지연 파일 상태/작업 결과가 이전 화면을 되살리지 않음 | A→B→A·삭제→재생성·삭제 뒤 늦은 present 응답 순서 시험 | IPC status/action → request generation → session entry |
 | R-12 | AT-12 / AC12 | 기존 대화·도구·타일 동작을 보존하고 목록에서 본문을 읽지 않음 | 기존 회귀 사례 + FS read/stat 관측·긴 transcript UI 비교 | 기존 runtime/store/tiles → 새 경로 |
-| R-13 | AT-13 / AC13 | 누락·오게시를 저장/표시 실패와 분리해 평가하고 후속 여부를 사용자에게 보고함 | [평가표](evaluation.md)의 사전 oracle·전 실행 기록·집계·판단 보류/결정 | 실제 모델 작업 → 호출 → FS/DB → 화면 |
+| R-13 | AT-13 / AC13 | 누락·오게시를 저장/표시 실패와 분리해 평가하고 후속 여부를 사용자에게 보고함 | 모델 평가표의 사전 oracle·전 실행 기록·집계·판단 보류/결정 | 실제 모델 작업 → 호출 → FS/DB → 화면 |
 | R-14 | AT-14 / AC14 | 게시 파일 소실·접근 실패·복원을 구분하고 게시 기록은 유지 | ENOENT/권한 오류/복원에서 카드 메타·상태·액션 비교. 알려진 경로만 조회 | tracked path → status IPC → cards/tile |
 | R-15 | AT-15 / AC15 | 사용자 파일 삭제가 휴지통 이동으로 실행되고 실패·취소·다른 참조 영향이 정확함 | 확인 취소/성공/실패·중복 클릭·FS 성공 후 DB 실패·fork 카드 상태, 영구 삭제 호출 없음 | card confirm → delete IPC → shell trash → status |
 | R-16 | AT-16 / AC16 | 뷰어 없이 HTML/MD 원본 저장·탐색기 위치 확인·파일 관리가 사용 가능함 | 게시 UI가 본문을 표시/실행하지 않으며 저장 바이트와 reveal 대상 일치. 파일 액션 전용 IPC 경계 확인 | 카드/목록 → ID 기반 Main 파일 액션 → OS/FS |
@@ -229,7 +229,7 @@ Baseline V1이다. 선행 study는 구현 V가 아니므로 Delta V의 상속 �
 | MD-01, UT-01 | MD / UT | 경로·형식·크기·파일 안정성, §10 | NEW | 게시 validation |
 | MD-02, UT-02 | MD / UT | 중복·버전·참조·파일 독립 보관, §10·§13 | NEW | DB/FS 분리 |
 | MD-03, UT-03 | MD / UT | part→카드/목록·세션별 파일 상태·지연 응답, §11 | NEW | chat selector/reducer |
-| MD-04, UT-04 | MD / UT | 평가 분모·실패 분류, evaluation.md | NEW | D-003 |
+| MD-04, UT-04 | MD / UT | 평가 분모·실패 분류, 모델 평가표 | NEW | D-003 |
 | MD-05, UT-05 | MD / UT | 파일 상태·삭제 진행/실패·복원 우선순위, §10 | NEW | D-016·017 |
 | R-90, AT-90 | R / AT | 기존 세션·타일·분기 동작 유지, §8 기존 case | INHERITED | 코드 기준 커밋의 해당 테스트 의미 |
 
@@ -471,7 +471,7 @@ DB에는 root 기준 상대경로·파일 ID·게시 당시 메타데이터와 �
 | EP-08 / MD-03 | 공통 카드·타일·stale 방지 | chat 내부 상태/컴포넌트 | menu/catalog, tileRegistry, RightPanel, 파일 상태/액션 hook, 세션 삭제/invalidate, 명시적 열기 | 이전 응답 복원·타일 접근 불가·리사이즈 회귀 |
 | EP-10 / AR-03 | 저장 대상 고정·취소·동명 처리·원본 위치 검증 | artifact save/reveal handler | 개별/묶음 저장 IPC, dialog, 각 copy, 항목별 결과, ID 기반 reveal | 원본 덮어쓰기·실패를 전체 성공으로 표시·다른 파일 열기 |
 | EP-11 / SD-02·MD-02 | fork 참조·세션과 파일 수명 분리 | artifact DB refs + file store | copyMessagesTx, sessionDelete, boot 시 파일 보존, quit 취소 | 마지막 대화 삭제/다른 DB의 GC로 실제 파일 손실 |
-| EP-12 / MD-04 | 모델 평가와 후속 판단 분리 | evaluation.md | fixture 기대값, 실행 기록, 생성/선택/저장/표시 분류, 사용자 판단 | 근거 없는 정확도·미평가 상태의 watcher 도입 |
+| EP-12 / MD-04 | 모델 평가와 후속 판단 분리 | 모델 평가표 | fixture 기대값, 실행 기록, 생성/선택/저장/표시 분류, 사용자 판단 | 근거 없는 정확도·미평가 상태의 watcher 도입 |
 | EP-13 / 문서 gate | 계획 상태 사본의 일치 | plan 메타 + handoff INDEX | 계획 상태, 보드 행, docs INDEX 진입점, 선행 study 안내, 평가표 상태 | DRAFT를 READY/구현 완료로 오인 |
 | EP-14 / SD-04·MD-05 | 사용자 휴지통 삭제·기록 보존·소실/복원 | artifacts service + card state | 메뉴/확인, IPC, 경로 재검증, trash, 결과 기록, 참조 투영, 재조회 | 영구 삭제 대체·기록 소실·다른 파일 삭제·거짓 상태 |
 
@@ -674,7 +674,7 @@ OpenCode용 포트 구현과 실제 도구 노출은 후속 범위다. 이 단�
 
 앱 변경 위치는 §11 표를 따른다. 실제 구현 후 IPC_CONTRACT, backend runtime/persistence/security, frontend rendering/UX 문서 및 generated inventory를 현재 코드와 동기화한다.
 
-설계 산출물은 `plan.md`, `evaluation.md`, handoff INDEX, docs INDEX, 선행 study의 결정 변경 안내다. rev.4 승인 이후 앱 구현 산출물과 결과는 [impl.md](impl.md)에 기록한다. 기존 리팩토링 handoff 상태는 변경하지 않는다.
+설계 산출물은 `plan.md`, handoff INDEX, docs INDEX, 선행 study의 결정 변경 안내다. rev.4 승인 이후 앱 구현 결과의 판정은 [verify.md](verify.md)가 갖는다. 기존 리팩토링 handoff 상태는 변경하지 않는다.
 
 ## 19. 게이트
 
@@ -687,7 +687,7 @@ OpenCode용 포트 구현과 실제 도구 노출은 후속 범위다. 이 단�
 | 빌드 | Electron ABI 복구를 감안해 `npm run build`, Windows packaged smoke | ABI/egress 실패와 제품 실패 구분 |
 | repository | docs inventory·migration append-only·test budgets·CI 필수 검사 | 현 subtree 가이드와 CI가 정본 |
 | UI/파일 액션 | 실제 Electron에서 §7·§11 fixture와 기존 타일 동작 | 카드·저장·탐색기 대상·휴지통·파일 수명 직접 관측. HTML 렌더링 gate는 후속 |
-| 모델 선택 | evaluation.md 전체 fixture의 제한된 반복 | 실패 종류별 근거 및 사용자 판단 보고 |
+| 모델 선택 | 모델 평가 fixture 전체의 제한된 반복 | 실패 종류별 근거 및 사용자 판단 보고 |
 
 계획 작성 중 앱 테스트·빌드·모델 API는 실행하지 않는다. 구현 단계에서는 `app/AGENTS.md`의 ABI 지침을 따라 DB 시험과 Electron 실행 순서를 잡는다.
 
@@ -707,19 +707,19 @@ OpenCode용 포트 구현과 실제 도구 노출은 후속 범위다. 이 단�
 
 ## [구현자 기입] 설계 리뷰
 
-작성자: Codex. rev.4의 hook 없는 2단계 게시·연결, 세션과 파일 수명 분리, 뷰어 후속 계약을 구현했다. 제품 결정을 추가로 바꾸지 않았다. 단계별 실행 결과의 정본은 [impl.md](impl.md)다.
+작성자: Codex. rev.4의 hook 없는 2단계 게시·연결, 세션과 파일 수명 분리, 뷰어 후속 계약을 구현했다. 제품 결정을 추가로 바꾸지 않았다. 단계별 실행 결과의 독립 판정은 [verify.md](verify.md)가 갖는다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
-[impl.md 강제 지점 전수](impl.md#강제-지점-전수-대조)에 모든 EP 위치를 대조했다. EP-08-h의 키보드 실기, EP-12-b/d의 전체 모델 반복/사용자 수용 판단과 모델/native 종단 gate는 미완료다. 전건 완료로 보고하지 않는다.
+구현 턴에 모든 EP 위치를 §10과 대조했다. EP-08-h의 키보드 실기, EP-12-b/d의 전체 모델 반복/사용자 수용 판단과 모델/native 종단 gate는 미완료다. 전건 완료로 보고하지 않는다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-선택 VP-01/02/05/10 변이 red와 원복 green을 확인했다. hardlink와 미신뢰 sender 실패도 재현 후 수정했다. 상세는 [impl.md](impl.md#선택-변이구현-중-발견과-대응)에 있다.
+선택 VP-01/02/05/10 변이 red와 원복 green을 확인했다. hardlink와 미신뢰 sender 실패도 재현 후 수정했다. 선택 변이와 구현 중 발견·대응의 재측정 결과는 [verify.md](verify.md)에 있다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
-파일 소실/접근 오류/복원/과거 휴지통 이력, 원래 ID 액션, 지각 응답, 미연결 게시의 목록 유지와 파일 단독 보관 비용을 검토했다. [impl.md](impl.md#productux-파생-검토와-제한)를 따른다.
+파일 소실/접근 오류/복원/과거 휴지통 이력, 원래 ID 액션, 지각 응답, 미연결 게시의 목록 유지와 파일 단독 보관 비용을 검토했다. 판정은 [verify.md](verify.md)를 따른다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
@@ -731,13 +731,125 @@ OpenCode용 포트 구현과 실제 도구 노출은 후속 범위다. 이 단�
 
 ## [구현자 기입] 구현 보고
 
-[ui-impl.md](ui-impl.md)가 라운드 2 결과 정본이다. 추가 UI AC 3/3, 기준 V1과 합산 12/18 자기 통과이며 기존 6개 인수 미완료는 유지한다. 일반 생성물 Q-04는 아직 AC 확정 전이며 보드는 `plan/DRAFT`로 둔다.
+라운드 2 결과는 추가 UI AC 3/3, 기준 V1과 합산 12/18 자기 통과이며 기존 6개 인수 미완료는 유지한다. 일반 생성물 Q-04는 아직 AC 확정 전이며 보드는 `plan/DRAFT`로 둔다.
 
-V1 실행 증거는 [impl.md](impl.md), [evaluation.md](evaluation.md)에 보존한다. 최신 설계 리뷰·강제 지점·수정 잠금·Product/UX·잠재 문제·구현 보고·Review Signals는 [라운드 2 보고](ui-impl.md)에 같은 필드로 기록했다.
+V1 실행 증거의 재측정 정본은 [verify.md](verify.md)다. 라운드 2 보고도 설계 리뷰·강제 지점·수정 잠금·Product/UX·잠재 문제·구현 보고·Review Signals 7필드를 같은 형식으로 기록했다.
 
 ## [구현자 기입] Review Signals — 사실만
 
 새 dependency·자동 감지·뷰어 없이 기존 registry/SQLite/preload/renderer 패턴을 확장했다. 공유 production 변경은 전체 자동 회귀 통과 후 동결했다. 독립 verify는 미착수다.
+
+## 20. ΔV1 — 작업 패널 출력 통합
+
+작성자: Codex. 상태: **READY — 확정 UI 범위**. 일반 생성물의 수집 기준(Q-04)은 사용자 답변 대기이며 이 경로는 구현을 시작하지 않는다.
+
+기준은 `0223:V1 rev.4@dd378d34`이고 유효 V는 기준 V + 본 ΔV1이다. 기존 도구 호출·파일 보관의 미완료 인수 결과는 그대로 남는다.
+
+### 20-I. Product & UX Contract
+
+#### 20.1 결정과 범위
+
+| ID | 결정 | 상태 / 출처 |
+|---|---|---|
+| D-020 | 독립 `산출물` 타일을 제거하고 `작업` 타일 안의 `진행 상황 / 출력 / 컨텍스트`를 복원 | ACTIVE. 사용자 최신 지시. D-004의 우측 배치 및 0213의 섹션 숨김을 대체 |
+| D-021 | 게시된 아티팩트는 출력 목록의 작은 행으로, transcript는 문서 아이콘·제목·형식·다운로드 버튼이 있는 카드로 표시 | ACTIVE. 사용자 최신 지시와 첨부 사진. 기존 시맨틱 토큰·파일 액션 재사용 |
+| D-022 | 컨텍스트는 영역만 복원. 참조 리소스 수집·항목 표시는 다음 단계에서 설계 | ACTIVE. 사용자 “아직 설계조차 안되엇음. 다음 스텝에서 진행” |
+| D-023 | 일반 생성물도 출력에 표시하되 발견/등록 기준은 Q-04 답변 후 확정 | OPEN. 성공한 파일 도구 관측과 명시적 모델 등록은 서로 다른 제품 결과 |
+
+Q-04: 일반 생성물을 성공한 파일 생성 도구 결과에서 찾을지, 모델의 명시적 등록만 받을지 질문했다. 답변 전 일반 파일을 아티팩트로 승격하거나 watcher를 추가하지 않는다.
+
+목표는 게시 기능을 기존 작업 화면에 결합하는 것이다. 기존 D-001~003·005·007~008·011~019 중 배치 외의 도구·보관·권한·수명·뷰어 후속 계약을 유지한다.
+
+#### 20.2 사용자 흐름
+
+`대화 상단 타일 메뉴 → 작업 → 진행 상황 / 출력 / 컨텍스트` 순서로 보인다. 각 섹션은 독립적으로 접을 수 있고 작업 상세/뒤로가기는 기존 흐름을 유지한다.
+
+publisher 성공은 출력 목록을 갱신하고 원래 호출 턴에 카드가 붙는다. 출력 목록은 compact 행, transcript는 넓은 문서 카드이며 파일 액션은 같은 게시 ID를 사용한다.
+
+| 상태 | 표시 / 동작 |
+|---|---|
+| 게시 전 | 출력 빈 상태. 컨텍스트에는 아직 수집하지 않는 상태를 짧게 표시 |
+| 정상 파일 | transcript 우측 다운로드, 출력 행에 아티팩트 구분. 보조 메뉴로 저장·탐색기·휴지통·보관 폴더·다시 확인 |
+| 확인 중 / 작업 중 | 해당 상태 표시, 중복 파일 작업 방지 |
+| 파일 소실 / 접근 오류 | 메타 유지와 구분된 상태. 다시 확인·보관 폴더 액션 보존 |
+| 목록 재조회 실패 | 출력 안에서 오류와 재시도 제공 |
+| 닫기 / 세션 전환 | 기존 artifactStore의 요청 세대·소유 세션 검사를 유지 |
+
+출력 섹션만 접으면 카드와 파일 상태 구독을 정리하고 목록 메타 구독은 유지해 헤더 개수를 갱신한다. 작업 타일 닫기·작업 상세 진입·세션 전환은 목록 구독도 해제하며, 늦은 목록 응답이 닫힌 본문이나 이전 세션 화면을 복원하지 않는다.
+
+뷰어·HTML 실행·컨텍스트 수집·일반 생성물 수집 기준의 임의 결정은 이번 확정 UI 범위 밖이다. 파일 저장 루트·DB·IPC·publisher 입력은 변경하지 않는다.
+
+#### 20.3 AC와 기존 기준 대체
+
+| R / AC | 관측 기준 | 직접 검증 / production path |
+|---|---|---|
+| R-06 / AC6 CHANGED | transcript 카드와 작업 출력 행에서 같은 게시 ID의 파일 작업·상태를 제공 | 카드 렌더/액션 시험, 실제 컴포넌트 브라우저 확인. AssistantTurn/TaskTileContent → ArtifactCards → 기존 파일 IPC |
+| R-17 / AC17 NEW | 작업 기본 화면에 세 섹션이 해당 순서로 있고 진행 목록은 진행 상황, 게시 목록은 출력에 귀속. 독립 산출물 타일 없음 | TaskTileContent 직접 렌더에서 섹션별 본문·순서와 메뉴/registry 결과 비교 |
+| R-18 / AC18 NEW | 컨텍스트는 미수집 상태를 표시하고 실제 참조 항목을 만들지 않음 | TaskTileContent 렌더의 컨텍스트 본문 확인 |
+| R-19 / AC19 NEW | transcript는 문서 카드, 출력은 작은 파일 행. 다운로드/보조 메뉴와 소실·오류 상태가 두 테마에서 구별됨 | ArtifactCard 두 표시 형상 렌더 + 브라우저 시각/키보드 확인 |
+
+Q-04는 아직 AC로 확정하지 않았으므로 위 UI 완료가 사용자 전체 요청 완료를 뜻하지 않는다. 기존 AC6의 native 인수 미완료는 새 디자인으로 해소됐다고 세지 않는다.
+
+#### 20.4 Delta V
+
+기준 R-06/AT-06·MD-03/UT-03의 UI 배치만 CHANGED다. 아래 신규 노드의 출처는 D-020~022, 나머지 상속 노드의 출처는 기준 커밋 plan이다.
+
+| Node | provenance | 계약 |
+|---|---|---|
+| R-17/AT-17, R-18/AT-18, R-19/AT-19 | NEW | 위 AC17~19 |
+| R-06/AT-06 | CHANGED | 위 AC6. 독립 타일 대신 출력 행 |
+| SD-05/ST-05 | NEW | 작업 출력 목록의 열기·접기·세션 전환·재조회 |
+| AR-04/IT-04 | NEW | TaskTileContent → 출력 컴포넌트 → artifactStore/공통 카드 조립 |
+| MD-03/UT-03 | CHANGED | 동일 카드의 transcript/list 표현 분리, 파일 ID·액션 수명 유지 |
+| R-11/AT-11, R-14/AT-14, R-15/AT-15, R-90/AT-90 | INHERITED | 지연 결과 폐기·파일 상태·삭제 확인·작업 상세와 타일 레이아웃 |
+
+| Pair | left ↔ right | requiredness | 경로 / 직접 oracle | §10 지점 / 적대 증거 |
+|---|---|---|---|---|
+| VP-06 | R-06 ↔ AT-06 | REQUIRED, 기준 행 대체 | 카드/출력 → 액션의 게시 ID·메타/상태 확인 | EP-U2(3), native 미검증은 별도 유지. 직접 행동, 변이 미선택 |
+| VP-U1 | R-17 ↔ AT-17 | REQUIRED | 메뉴 → 작업 → 세 섹션의 순서·각 본문 | EP-U1(3). 섹션 본문 맞교환/출력 제거 변이 선택: 자리 귀속 검증 |
+| VP-U2 | R-18 ↔ AT-18 | REQUIRED | 작업 → 컨텍스트 → 미수집 안내 | EP-U1-c(1). 직접 렌더, 변이 미선택 |
+| VP-U3 | R-19 ↔ AT-19 | REQUIRED | transcript/출력 → 카드/행 → 다운로드·메뉴 | EP-U2(3). 직접 렌더/브라우저, 변이 미선택 |
+| VP-U4 | SD-05 ↔ ST-05 | REQUIRED | 작업 열기 → 목록 acquire/list → 섹션 접기 시 카드 cleanup·헤더 count 유지 → 타일 닫기/상세/세션 전환 시 list cleanup | EP-U3(2). lifecycle 순서 관측, 변이 미선택 |
+| VP-U5 | AR-04 ↔ IT-04 | REQUIRED | catalog → registry → TaskTileContent → 출력 목록 | EP-U1(3)+EP-U3-a(1). U1의 제거/교환 변이 공유 |
+| VP-42 | MD-03 ↔ UT-03 | REQUIRED, 기준 행의 UI 경로 정정 | live/reload part → 기존 store → 카드/행의 상태·ID | EP-U2(3)+EP-U3(2). 직접 lifecycle/상태표, 변이 미선택 |
+| VP-11/14/15/90 | 기준의 동일 좌우 노드 | REGRESSION | 기존 artifactStore/lifecycle/작업 상세/타일 배치 행동 시험 | EP-U3-b(1)+EP-U2(3)+EP-U1(3), 기존 직접 oracle. 기준 native 한계 유지 |
+
+### 20-II. Technical Design
+
+#### 20.5 코드 조사 / AS-IS → TO-BE
+
+| 축 | AS-IS | TO-BE |
+|---|---|---|
+| 작업 타일 | TaskTileContent 기본 화면에 TaskProgressList 하나 | 보존된 TileSection으로 세 영역 조립 |
+| 게시 목록 | ArtifactTileContent가 별도 타일 | TaskOutputContent로 이동해 출력 섹션에 삽입. 동일 세션 목록·50건 표시·더 보기 |
+| 표시 | ArtifactCards가 양쪽에서 같은 큰 카드 사용 | 공통 액션/구독은 유지, ArtifactCard의 `variant: transcript / list`만 구분 |
+| 컨텍스트 | 사용되지 않는 placeholder·i18n 존재 | 미수집 안내. 메시지·파일·도구를 참조 항목으로 추정하지 않음 |
+| 일반 생성물 | 목록 producer/계약 없음. TaskOutput은 background 조회 | Q-04 확정 뒤 별도 증분. 기존 메시지 기록 활용 시 신규/수정 구분과 shell 누락 문제 고려 |
+
+현재 등록 표면은 `rightPanelTiles.ts` catalog와 `tileRegistry.ts` 조립이며 메뉴는 catalog에서 파생한다. 활성 타일은 메모리 상태이고 직렬화 저장 코드가 없으므로 DB migration은 불필요하다.
+
+새 플랫폼·공유 범용 레지스트리·추가 의존성 없이 chat feature 안에서 해결한다. 카드의 파일 상태/확인창/액션 로직을 복제하지 않고 표현 인자만 추가한다.
+
+#### 20.10 강제 지점 / gate
+
+| EP | 전수 N / 위치 | 계약 / 실패 의미 |
+|---|---|---|
+| EP-U1 | 3: a `lib/rightPanelTiles.ts`; b `rightpanel/tileRegistry.ts`; c `rightpanel/TaskTileContent.tsx` | 독립 타일 제거와 작업 섹션 조립. 메뉴 누락·잘못된 본문 귀속 방지 |
+| EP-U2 | 3: a `ArtifactCard.tsx` 표현/메뉴; b 같은 파일 `ArtifactCards` variant 전달·ID 액션; c `rightpanel/TaskOutputContent.tsx` list variant 소비 | 두 표현이 같은 상태·ID 액션을 사용. 복제된 상태/잘못된 파일 선택 금지 |
+| EP-U3 | 2: a `TaskOutputContent.tsx` 세션 구독·목록 갱신/페이지; b 기존 `store/artifactStore.ts` 및 ArtifactCards 수명 | 닫힘·세션 전환 뒤 늦은 응답을 재표시하지 않음. 파일 본문/scan/polling 추가 없음 |
+| EP-U4 | 3: plan 메타, 본 문서 상태, INDEX 행 | 확정 UI와 미정 Q-04·기존 SDK 검증 한계를 일치시킴 |
+
+전수 조사 술어: `rg -n 'artifacts|ArtifactTileContent' app/src/renderer/src/features/chat -g '*.ts*'`, `rg -n 'TileSection|TaskProgressList' .../rightpanel`, `rg -n 'ArtifactCards|ArtifactCard' .../components`의 production 정의/소비 경로를 대조한다. i18n·테스트·기존 데이터 타입의 artifacts 이름은 독립 패널이 아니므로 유지한다.
+
+운영 gate: 변경 renderer 테스트와 기존 task/layout/artifactStore 회귀, `npm run typecheck`, ESLint 전체 읽기 검사, `npm run build`, 문서 gate와 `git diff --check`. DB/SDK 코드를 바꾸지 않으므로 ABI 변경 테스트와 유료 모델 실행은 이번 UI 검증을 위해 반복하지 않는다.
+
+시각 확인은 실제 컴포넌트를 사용한 임시 브라우저 fixture로 white/dark·좁은 폭·접기·메뉴·세션 전환을 확인하고 fixture를 정리한다. native 저장/탐색기·실제 모델 publisher 성공을 모의 브라우저로 대신 판정하지 않는다.
+
+#### 20.11 READY self-review
+
+확정 UI 계약 D-020/AC17, D-021/AC6·19, D-022/AC18을 대응했고 기준의 보관/도구 계약과 충돌하지 않는다. Q-04는 OPEN이며 일반 생성물 경로는 의도적으로 착수하지 않는다.
+
+새 패널 제거는 단순 메뉴 숨김으로 대체하지 않고 catalog/registry/전용 타일 컴포넌트를 제거한다. 출력 목록 구독과 카드 액션은 기존 프로덕션 구현을 재사용하므로 미연결 게시·파일 소실 상태를 잃지 않는다.
 
 ## [검증자 기입] 파생 이슈
 

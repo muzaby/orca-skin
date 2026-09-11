@@ -8,7 +8,7 @@
 | 검증자 | Claude Code |
 | 일자 | 2026-09-10 |
 | 대상 커밋/range | `69f94b7`(ΔV8 설계) · `b5583ed`·`bf2f17f`·`b03c1d2`(r7 구현) — range `69f94b7..b03c1d2` |
-| 구현 전 plan 기준 | `69f94b7` ([feedback-plan-r7.md](feedback-plan-r7.md) READY 시점) |
+| 구현 전 plan 기준 | `69f94b7` (`feedback-plan-r7.md` READY 시점 — 현재는 [plan.md](plan.md) §19로 병합) |
 | V mode / 유효 V | Baseline V1 + ΔV2~ΔV7 + **ΔV8**(이번 라운드 판정 범위) |
 | 검증 기준 plan revision | `69f94b7:feedback-plan-r7.md` (D-37~39 · AC43~45 · VP83~88 · EP35~37) |
 | 라운드 | 7 (구현) · **검증 1회차** |

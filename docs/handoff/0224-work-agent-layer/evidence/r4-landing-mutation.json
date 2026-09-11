@@ -1,7 +1,0 @@
-{
-  "author": "Codex",
-  "mutation": "controls/hero sibling slot swap",
-  "mutantExit": 1,
-  "restoredExit": 0,
-  "originalRestored": true
-}

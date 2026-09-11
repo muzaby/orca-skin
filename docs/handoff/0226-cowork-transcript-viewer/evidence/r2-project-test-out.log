@@ -1,9 +1,0 @@
-
- RUN  v4.1.10 C:/workspace/github/codex/orca-skin/app
-
-
- Test Files  7 passed (7)
-      Tests  88 passed (88)
-   Start at  13:28:12
-   Duration  45.22s (transform 9.44s, setup 0ms, import 24.79s, tests 3.93s, environment 2ms)
-
