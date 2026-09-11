@@ -254,3 +254,98 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh f7afca5..97773c0
 - 현재 변경 운영 gate: 4종 전건 PASS
 - NON_BLOCKING / NEXT_HANDOFF: D2·D3 / D4
 - 다음 단계: 보드는 `verify/FAIL` · 다음 주체 **구현자**. r2 에서 D1 을 닫고 `Criteria-Met` 를 재산정한다
+
+---
+
+# r2 재검증
+
+## 메타 (r2)
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `97773c0..665dfab` |
+| 라운드 | 2 |
+| 상태 | **PASS** |
+| 자기 검증 여부 | 동일 에이전트 — r2 구현 보고가 이름을 대지 않은 적대 축 1건(축 E)을 추가했다 |
+
+## 0. 기준선 (r2)
+
+- r2 커밋이 `plan.md` 에서 지운 줄: **0** — `[구현자 기입] … (r2)` 섹션 추가와 `[검증자 기입]` D1·D2 상태 갱신뿐이다.
+- 규범 행(Decision·AC·V node/pair·§10) 변경: 없음. 채점 기준은 r1 과 같은 `f7afca5:ΔV1` 이다.
+- 프로덕션 코드 변경: **0** — `git show --stat 665dfab` 의 코드 파일은 `edit-preview.test.ts` 하나다.
+
+## 5. 실행 범위와 pair 결과 (r2)
+
+재검증 범위는 root 실패 pair·그 종속·이번 변경 영향 pair·적용 gate 다. 영향받지 않은 r1 `PASS` 는 위 r1 표의 증거 좌표를 참조한다.
+
+| Pair | 결과 | 직접 검증 증거 |
+|---|---|---|
+| VP-Δ4 (root, r1 `PAIR_FAIL`) | **PASS** | `read` 인자 = `<WS>/nested/hello_world.ts` 단언. D1 인용 변이 재실행 = **red 1케이스**(r1 에서는 green) |
+| VP-Δ1·Δ2·Δ3·Δ5·Δ6·Δ7·Δ8 | **PASS**(r1 증거 유지) | 프로덕션 무변경이고 r1 의 red 변이 6건을 전부 재실행해 여전히 red |
+| VP-R1·VP-R2 | **PASS** | 0228 스위트 전건 통과 |
+| VP-N1 | **NOT_REQUIRED** | 랜딩 축 파일 무변경 |
+
+### AT / AC (r2 갱신분)
+
+| AT / AC | 결과 | 검증 증거 |
+|---|---|---|
+| AT-Δ6 / AC6 | ✅ (r1 ⚠️ → r2 ✅) | 경로 인자 단언 + main cwd 기준 경로가 아님을 함께 단언 |
+| AT-Δ7 / AC7 | ✅ | 기본 reader 경계값 2점(상한 = 본문 길이, 상한+1 = `null`) |
+| 나머지 8건 | ✅ | r1 관측 유지(프로덕션 무변경) |
+
+- **합계 재측정**: `✅ 10 · ⚠️ 0 · ❌ 0 = 총 10` — 분모를 §7 표에서 다시 세어 10.
+- **합계 사본 대조**: 본문 10 ↔ r2 trailer `Criteria-Met: 10/10` ↔ INDEX 비고 `AC 10/10` — **일치**. r1 의 갈림(9 vs 10)은 r2 에서 해소됐다.
+
+## 4. 적대 증거 재측정 (r2)
+
+이전 라운드가 red 로 관측한 변이 **전건**을 다시 실행했다. `red → green` 은 **0건**이다.
+
+| 변이 | r1 | r2 |
+|---|---|---|
+| D1 인용 변이 — `read(edit.filePath)` | **green(잠금 없음)** | **red** 1케이스 |
+| N1 가드 항상 통과 | red | red 1케이스 |
+| N2 writer 가 미리보기를 적음 | red | red 1케이스 |
+| N3 상한 확인 제거 | red | red **2케이스**(r2 의 경계값 케이스가 하나 더 잡는다) |
+| N4 결과/미리보기 우선순위 스왑 | red | red 1케이스 |
+| N5 `messageSegments` 사본 복원 | red | red 1케이스 |
+| N6 `claude.ts` 배선 제거(잔여물 0까지) | red | red 2케이스 — typecheck `error TS` 0건 상태에서도 가드만 잡는다 |
+| 축 A 리듀서 분기 제거 | red | red 1케이스 |
+
+- **덮개 회귀**: 0건. 교체된 장치(`기본 상한은 1 MiB 다` → 경계값 케이스)는 구 장치가 잡던 자리를 잃지 않았다 — 구 케이스는 상수 값만 봐 어떤 프로덕션 변이에도 반응하지 않았고, 새 케이스는 N3 에서 함께 red 다(1 → 2케이스).
+- **자기검증 분모**: 구현자 = 검증자 → r2 보고가 이름을 대지 않은 축 **1건** 추가.
+  - **축 E** — `path.resolve` 를 `path.join` 으로 바꿔 **정규화 축**만 깬다(루트는 그대로). `path.join('/ws', '/ws/./a/../x.ts')` 는 `/ws/ws/x.ts` 라 가드가 판정한 경로와 다르다. 결과 **red 1케이스**(`절대 경로도 정규화해 같은 문자열로 넘긴다`) — r2 가 추가한 두 케이스가 루트 축과 정규화 축을 각각 잡는다.
+
+## 9. 게이트 재실행 (r2)
+
+- 실행 명령: `npm run typecheck` · `npm run lint` · `./node_modules/.bin/vitest run`.
+- **관측한 실행 산출**: typecheck `error TS` **0건**(3구성) · lint `✖ 1 problem (0 errors, 1 warning)` · vitest **486파일 4525케이스 — 4336 pass · 173 fail · 16 skip**. 실패 30파일은 0228 기준선과 동일 집합.
+- 게이트가 작업 트리를 바꿨는가: 없음 — 아홉 변이 원복 후 `git status --short` 0줄.
+- 검증 중 잔여물: 없음.
+
+## 11. Repository operation checks (r2)
+
+- INDEX: `verify/PASS` · 다음 주체 **사람**(실기 1건) 으로 갱신. 대상 커밋 `f7afca5`·`97773c0`·`665dfab` — `git cat-file -t` 전건 `commit`.
+- trailer: r2 커밋이 `%(trailers:only=true)` 로 6키를 그대로 반환. `Criteria-Met: 10/10` 이 본문 재측정과 일치.
+- `[구현자 기입]` 7필드: r2 절도 7/7, 산문으로 접힌 필드 0.
+- PASS archive 이동: **하지 않는다** — 사람 실기 1건이 남아 보드에 둔다.
+
+## 13. Finding disposition (r2)
+
+| # | finding | 분류 | 상태 |
+|---|---|---|---|
+| D1 | 경로 해석 축 oracle 부재 | BLOCKING | **closed** — 인용 변이가 red |
+| D2 | 상수 값 동어반복 단언 | NON_BLOCKING | **closed** — 경계값 케이스로 교체 |
+| D3 | §10 `EP-Δ4` 지점 수 1 → 4 | NON_BLOCKING | open — 설계자 몫. 4지점 전부 잠겨 있어 막지 않는다 |
+| D4 | 승인 카드 본문에 diff 없음 | NEXT_HANDOFF | open — 새 handoff 후보 |
+| D5 | "부르지 않았다" 단언이 "무엇으로 불렀나" 를 말하지 않는 형태가 다른 주입 포트에도 있을 수 있다(r2 구현 보고 1) | NEXT_HANDOFF | open — 전수 조사 별도 작업 |
+
+## 15. 결론 (r2)
+
+- 상태: **PASS**
+- pair 결과: REQUIRED PASS 8 · REGRESSION PASS 2 · root PAIR_FAIL 0 · BLOCKED_BY 0 · NOT_REQUIRED 1
+- PLAN_GAP: 없음
+- AC 충족: **10/10** — 본문·trailer·INDEX 세 사본 일치
+- 현재 변경 운영 gate: 4종 전건 PASS
+- NON_BLOCKING / NEXT_HANDOFF: D3 / D4·D5
+- 남은 사람 확인: 승인 대기 화면 실기 1건 · PR merge
+- 다음 단계: 보드는 `verify/PASS` · 다음 주체 **사람**
