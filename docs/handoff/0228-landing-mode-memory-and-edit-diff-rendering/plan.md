@@ -557,3 +557,13 @@ claude-map(Edit tool_result) → NormalizedEvent.structuredOutput({structuredPat
 - 그것을 막았어야 할 plan 지침·AC 가 있었는가: 잠재 문제 1·2 는 **기존 테스트 픽스처가 새 의존/새 기본값에 결합**된 경우다. plan §12 의 "기존 소비처 전수" 표는 프로덕션 소비처만 세고 테스트 픽스처를 세지 않았다.
 - 반복해서 부딪히는 환경 한계: better-sqlite3 Electron ABI 미빌드로 DB 로드 스위트 30파일이 red — `app/AGENTS.md` 가 서술한 제약 그대로이며 그 문서의 "실측 5파일(0180)" 수치보다 크다(이번 실측 30).
 - 현재 라운드 수: 1
+
+## [검증자 기입] 파생 이슈
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D1 | `isFileEditToolName`·`FileEditToolName` 이 프로덕션 참조 0 — 소비자는 `FILE_EDIT_TOOL_NAME_SET` 만 쓴다 | verify r1 · 비귀속(현재 pair·AC·gate 없음) | 두 export 제거 | NON_BLOCKING | open |
+| D2 | 카드 헤더 `+N -M` 은 입력 쌍으로 세고 본문은 패치로 그린다 — `replace_all` 다중 치환에서 두 수가 갈린다 | verify r1 · 비귀속(§6 비범위) | 헤더도 패치 기준으로 셀지 사용자 결정 | NON_BLOCKING | open |
+| D3 | `chatStore.test.ts` 의 `mockDraftIds` 가 `crypto.randomUUID` 호출 패리티에 결합 | verify r1 · 비귀속 | 스텁을 draft-key 소비 순서 기준으로 교체 | NEXT_HANDOFF | open |
+
+> 판정 원문은 [`verify.md`](verify.md).
