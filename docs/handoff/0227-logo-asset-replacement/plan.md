@@ -105,7 +105,7 @@
 |---|---|---|---|---|
 | R-01 | AT-01 / AC1 | Windows·Linux 에서 앱을 실행하면 창·작업표시줄 아이콘이 새 orca 로고다 | 사람 실기 — `npm run dev` 후 창 아이콘 육안 확인(플랫폼 2종) | `index.ts createWindow → BrowserWindow({icon}) → OS` |
 | R-02 | AT-02 / AC2 | 저장소에 `icon.png`·`icon.ico` 가 없고 `logo.png`·`logo-with-claude.png` 가 `app/build`·`app/resources` 각각에 있다 | `git ls-files | grep -E '(^|/)icon\.(png|ico)$'` = 0 **및** 4개 경로 존재 + 업로드 원본과 sha256 일치 | 저장소 트리 자체 |
-| R-03 | AT-03 / AC3 | main 번들이 `resources/logo.png` 를 유일한 아이콘 자산으로 참조하고 win32·linux 분기가 모두 그것을 쓴다 | `electron-vite build` 산출 `out/main/` 에 로고 자산이 emit 되고, `grep -rn 'resources/icon\.\(png\|ico\)' app/src` = 0 · `grep -rn "resources/logo.png?asset" app/src` = 1 | `import logo … ?asset → vite 번들 → BrowserWindow.icon` |
+| R-03 | AT-03 / AC3 | main 번들이 `resources/logo.png` 를 유일한 아이콘 자산으로 참조하고 win32·linux 분기가 모두 그것을 쓴다 | `electron-vite build` 가 성공하고 main 번들이 `join(__dirname, "../../resources/logo.png")` 를 갖는다(electron-vite 는 main 의 `?asset` 을 복사하지 않고 경로로 외부화한다), `grep -rn 'resources/icon\.\(png\|ico\)' app/src` = 0 · `grep -rn "resources/logo.png?asset" app/src` = 1 | `import logo … ?asset → vite 번들 → BrowserWindow.icon` |
 | R-04 | AT-04 / AC4 | 패키징이 `build/logo.png` 를 win·mac·linux 아이콘으로 쓴다 | `electron-builder.yml` 의 `win.icon`·`mac.icon`·`linux.icon` 3지점이 `build/logo.png` **및** 패키징 실기(사람/CI) 시 산출물 아이콘 확인 | `electron-builder --win/--mac/--linux → 설치본` |
 | R-05 | AT-05 / AC5 | 기존 정적 게이트가 이번 변경으로 깨지지 않는다 | `npm run lint` · `npm run typecheck` 무오류 | 저장소 게이트 |
 
@@ -142,7 +142,7 @@
 |---|---|---|---|---|---|---|
 | VP-01 | R-01 ↔ AT-01 | REQUIRED | `createWindow → BrowserWindow({icon}) → OS 셸` | 사람 실기 육안 | not selected — 결과를 직접 본다 | EP-01 (1) |
 | VP-02 | R-02 ↔ AT-02 | REQUIRED | 저장소 트리 → 빌드 입력 | 파일 존재 + sha256 대조 + 파일명 스윕 0건 | not selected — 존재/부재를 직접 센다 | EP-03 (1) |
-| VP-03 | R-03 ↔ AT-03 / IT-01 | REQUIRED | `import ?asset → vite main 번들 → out/main` | `electron-vite build` 가 로고를 emit; 자산을 지우면 빌드가 실패한다 | required — 방향 확인용으로 `resources/logo.png` 를 임시 이동해 빌드 실패를 본다 | EP-01·EP-02 (2) |
+| VP-03 | R-03 ↔ AT-03 / IT-01 | REQUIRED | `import ?asset → vite main 번들 → 런타임 resources/ 경로` | 번들이 `resources/logo.png` 경로를 갖고, 자산을 지우면 빌드가 실패한다 | required — 방향 확인용으로 `resources/logo.png` 를 임시 이동해 빌드 실패를 본다 | EP-01·EP-02 (2) |
 | VP-04 | R-04 ↔ AT-04 / IT-02 | REQUIRED | `electron-builder.yml → app-builder 아이콘 변환 → 설치본` | yml 3지점 값 대조 + 패키징 실기 | not selected — 값과 산출물을 직접 본다 | EP-04 (3) |
 | VP-05 | R-05 ↔ AT-05 | REQUIRED | 저장소 게이트 | `npm run lint`·`npm run typecheck` 출력 | not selected | 0 — 게이트 자체가 관측이다 |
 
@@ -237,7 +237,7 @@
 | data/control flow | 아이콘 자산 2종(png·ico) | 자산 1종(`logo.png`) | D-004 | AR-01 / VP-03 · `index.ts` |
 | state/contract | win32=`.ico`, linux=`.png` | win32·linux 모두 `logo.png` | D-003 으로 `.ico` 부재 | AR-01 / VP-01 · `index.ts` |
 | error/lifecycle | 자산 부재 = 빌드 실패 | 동일(유지) | 변경 없음 | AR-01 / VP-03 |
-| test seam/관측점 | 없음 | `electron-vite build` 산출 + yml 값 대조 | 기존 테스트 seam 이 0건이다 | IT-01·IT-02 / VP-03·VP-04 |
+| test seam/관측점 | 없음 | `electron-vite build` 성공 + 번들 경로 문자열 + yml 값 대조 | 기존 테스트 seam 이 0건이다 | IT-01·IT-02 / VP-03·VP-04 |
 
 ### 핵심 책임 분리
 
@@ -267,7 +267,7 @@
 | `app/build/logo.png`·`app/build/logo-with-claude.png` | 패키징 자산 | 신규(1번·2번 이미지) | 파일 존재 + sha256 |
 | `app/resources/logo.png`·`app/resources/logo-with-claude.png` | 런타임 자산 | 신규 | 동일 |
 | `app/build/icon.png`·`app/build/icon.ico`·`app/resources/icon.png`·`app/resources/icon.ico` | — | 삭제 | 파일명 스윕 0건 |
-| `app/src/main/index.ts` | 창 아이콘 | import 2줄 → 1줄(`logo`), win32·linux 분기 모두 `logo`, 주석 정정 | `electron-vite build` emit |
+| `app/src/main/index.ts` | 창 아이콘 | import 2줄 → 1줄(`logo`), win32·linux 분기 모두 `logo`, 주석 정정 | `electron-vite build` + 번들 경로 |
 | `app/electron-builder.yml` | 패키징 아이콘 | `win`·`mac`·`linux` 에 `icon: build/logo.png` 추가 | yml 값 대조 |
 | `docs/handoff/INDEX.md` | 보드 | 0227 행 추가 | `check-doc-inventory --check` |
 
@@ -348,7 +348,7 @@
 - 적용할 하위 가이드: `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드`
 - ABI/네트워크 등 환경 제약: `npm run dev`·`electron-builder` 실기는 이 환경에서 불가 — 사람/CI 몫(AT-01·AT-04).
 - 기본 정적 게이트: `npm run lint` · `npm run typecheck`
-- 관련 테스트: 아이콘 전용 테스트는 없다. 배선 증거는 `./node_modules/.bin/electron-vite build` 의 main 번들 산출이다.
+- 관련 테스트: 아이콘 전용 테스트는 없다. 배선 증거는 `./node_modules/.bin/electron-vite build` 성공과 main 번들의 `resources/logo.png` 경로 문자열이다.
 - 문서 게이트: `node app/scripts/check-doc-inventory.mjs --check`
 - 사람 실기: Windows·Linux 창 아이콘 육안(AT-01), 패키징 산출물 아이콘(AT-04).
 
@@ -369,7 +369,7 @@
 - [x] 각 pair 가 production path·§10 전수·직접 oracle 을 갖고, 적대 증거는 VP-03 만 이유와 함께 선택했다.
 - [x] 운영 gate 3종이 열거됐고 무관한 기존 실패를 blocking 으로 만들지 않는다.
 - [x] 사람 실기로 미룬 순수 로직이 없다 — 남긴 2건은 OS 렌더링·패키징 변환 결과다.
-- [x] semantic 목표가 structural proxy 만으로 검증되지 않는다 — AT-03 이 빌드 emit 을, VP-03 이 자산 제거 시 실패를 확인한다.
+- [x] semantic 목표가 structural proxy 만으로 검증되지 않는다 — AT-03 이 번들의 실제 해석 경로를, VP-03 이 자산 제거 시 빌드 실패를 확인한다.
 - [x] "X 가 쓰인다" 불변식의 장치가 X 를 지웠을 때 실패한다 — `resources/logo.png` 제거 시 `electron-vite build` 실패(VP-03 적대 증거).
 - [x] 정책 파라미터 없음 — 해당 없음.
 - [x] 참조 구현 사용 없음 — 해당 없음.
