@@ -9,12 +9,14 @@ import type { TFunction } from 'i18next'
 import type { ToolCall } from '../reducer/chatReducer'
 import { diffLines as jsDiffLines } from 'diff'
 import { basenameForDisplay } from '../../../../../shared/path-basename'
+import { FILE_EDIT_TOOL_NAME_SET } from '../../../../../shared/file-edit-tool'
 import type { MessageKey } from '../../../shared/i18n'
 import { isAgentTaskName } from './parts'
 
-// 파일 도구 이름 집합 — 편집(diff 렌더 대상)과 읽기 포함(파일경로 헤더 대상)의 단일 진실원.
-// 새 편집형 도구는 여기에만 추가하면 registry(diff)·ToolCard(헤더/복사)가 함께 따라온다.
-export const FILE_EDIT_TOOLS: ReadonlySet<string> = new Set(['Write', 'Edit', 'MultiEdit'])
+// 파일 도구 이름 집합 — 편집(diff 렌더 대상)과 읽기 포함(파일경로 헤더 대상).
+// 편집 도구 이름의 정본은 `shared/file-edit-tool.ts` 다 — main 어댑터가 같은 이름으로 구조화
+// 패치를 실을지 판정하므로 렌더가 리터럴 사본을 들면 SDK 이름 변경에 두 곳이 갈라진다(0228).
+export const FILE_EDIT_TOOLS: ReadonlySet<string> = FILE_EDIT_TOOL_NAME_SET
 export const FILE_TOOLS: ReadonlySet<string> = new Set(['Read', ...FILE_EDIT_TOOLS])
 
 export type VerbCategory =

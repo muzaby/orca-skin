@@ -17,6 +17,7 @@ import type {
 import { isRecord } from '../../shared/obj'
 import type { ReceivedMessageOrigin, SessionSchedule } from '../../shared/session-schedules'
 import { isAsyncLaunchedPayload } from '../../shared/subagent'
+import { carriesFileEditPatch, readFileEditStructuredPatch } from '../../shared/file-edit-tool'
 import { isTaskToolName } from '../../shared/task-tool'
 import { pickPrimaryModel } from '../../shared/usage/primary-model'
 import { makeClassifiedError } from '../infra/errors'
@@ -98,6 +99,9 @@ export interface MapContext {
   // **이름으로만** 판정되므로(TaskXXX 한정) 앞선 tool_use 에서 본 판정 결과를 여기 기억한다.
   // 이름이 아니라 멤버십만 담는다 — 소비처는 "이 run 이 Task 도구였나" 하나다.
   taskToolRunIds?: Set<string>
+  // 구조화 패치를 실을 편집 도구 tool_use id 집합(0228). 위와 같은 이유로 이름을 기억한다 —
+  // tool_result 는 도구 이름을 싣지 않는다. Task 집합과 배타라 한 결과에 두 의미가 섞이지 않는다.
+  fileEditToolRunIds?: Set<string>
 }
 
 // ctx.subagentMeta 에 정의된 필드만 병합(누락은 기존값 보존). 부모 Task tool_result 영속용 누산.
@@ -511,6 +515,11 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
             if (!ctx.taskToolRunIds) ctx.taskToolRunIds = new Set()
             ctx.taskToolRunIds.add(toolRunId)
           }
+          // 편집 결과의 줄번호 정본도 tool_result 시점에 이름이 필요하다(0228 D-006).
+          if (carriesFileEditPatch(toolName)) {
+            if (!ctx.fileEditToolRunIds) ctx.fileEditToolRunIds = new Set()
+            ctx.fileEditToolRunIds.add(toolRunId)
+          }
           if (
             parentToolRunId === undefined &&
             (toolName === 'CronCreate' ||
@@ -562,11 +571,20 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         const scheduleCall = ctx.pendingScheduleCalls?.get(toolRunId)
         // TaskXXX 도구면 SDK 구조화 출력을 동행시킨다(0204 §10 EP-01). tool_use_result 는
         // 메시지당 1개라 tool_result 블록이 정확히 1개일 때만 귀속이 명확하다(영수증과 동일 규칙).
+        const toolUseResult = singleToolResult
+          ? (msg as { tool_use_result?: unknown }).tool_use_result
+          : undefined
+        // 편집 도구는 SDK 원본을 그대로 싣지 않고 `structuredPatch` 만 투영한다(0228 D-007) —
+        // `originalFile` 은 편집 전 파일 전체라 결과 파트가 파일 크기만큼 커진다.
+        const fileEditPatch = ctx.fileEditToolRunIds?.has(toolRunId)
+          ? readFileEditStructuredPatch(toolUseResult)
+          : null
         const structuredOutput =
-          singleToolResult &&
-          (ctx.taskToolRunIds?.has(toolRunId) === true || scheduleCall !== undefined)
-            ? (msg as { tool_use_result?: unknown }).tool_use_result
-            : undefined
+          ctx.taskToolRunIds?.has(toolRunId) === true || scheduleCall !== undefined
+            ? toolUseResult
+            : fileEditPatch
+              ? { structuredPatch: fileEditPatch }
+              : undefined
         events.push({
           type: 'tool.call.completed',
           sessionId: ctx.sessionId,

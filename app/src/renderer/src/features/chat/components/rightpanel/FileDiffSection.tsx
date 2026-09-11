@@ -8,7 +8,6 @@ import {
   useRef,
   useState
 } from 'react'
-import type { ThemedToken } from 'shiki'
 import type { DiffRequirementItem, GitDiffPatchLine } from '../../../../../../shared/ipc'
 import { Icon } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
@@ -30,6 +29,7 @@ import { patchLinesToDiffLines } from '../../lib/diffPatchLines'
 import { planUpwardExpansionCompensation } from '../../lib/diffViewport'
 import { lineAxisLabel, lineNumberLabel, type DiffLine } from '../../lib/diffLines'
 import { DiffSyntaxContext, useDiffSyntax } from '../../hooks/useDiffSyntax'
+import { syntaxText } from '../diffSyntaxText'
 import type { DiffRequirementDraft, DiffViewOptions } from '../../reducer/chatReducer'
 import { diffRequirementLineKey, diffRequirementMatchesLine } from './diffRequirements'
 import { revealDiffRequirement } from '../../lib/diffRequirementScroll'
@@ -482,27 +482,6 @@ function LineText({
       {syntaxText(line, tokens, span.end)}
     </pre>
   )
-}
-
-/** 변경 강조가 문법 토큰 중간을 잘라도 원문과 각 토큰 색은 그대로 보존한다. */
-function syntaxText(
-  line: DiffLine,
-  tokens: readonly ThemedToken[] | undefined,
-  start = 0,
-  end = line.text.length
-): React.ReactNode {
-  if (!tokens) return line.text.slice(start, end)
-  let offset = 0
-  return tokens.map((token, index) => {
-    const tokenStart = offset
-    offset += token.content.length
-    const text = token.content.slice(Math.max(0, start - tokenStart), Math.max(0, end - tokenStart))
-    return text.length > 0 ? (
-      <span key={index} style={{ color: token.color }}>
-        {text}
-      </span>
-    ) : null
-  })
 }
 
 /** 연속된 removed/added 묶음에서 k 번째끼리 짝지어 단어 강조의 상대를 찾는다. */

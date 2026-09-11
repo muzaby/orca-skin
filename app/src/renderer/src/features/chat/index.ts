@@ -18,6 +18,7 @@ export { useUsageForTelemetryProvider } from './hooks/useUsageForTelemetryProvid
 export {
   chatActions,
   getActiveChatSession,
+  seedLandingAgentKind,
   useChatRecentsEpoch,
   useChatBusy,
   useChatSession,

@@ -454,3 +454,106 @@ claude-map(Edit tool_result) → NormalizedEvent.structuredOutput({structuredPat
 - [x] 게이트 명령이 `app/AGENTS.md` 현재 지침(lint+typecheck 기본, vitest 직접 호출)과 충돌하지 않는다.
 - [x] 본문 완성 후 교차검증했고 결과를 §3 갱신 메모에 적었다.
 - [x] 산출물 문장 규칙을 지켰다.
+
+---
+
+## [구현자 기입] 설계 리뷰 (r1)
+
+- 동의 / 그대로 진행: Part I 전체와 §9 TO-BE 경로를 그대로 구현했다. 신규 계약 2종(`shared/file-edit-tool.ts`·`components/diffSyntaxText.tsx`)도 §11 위치 그대로다.
+- 이견 / 현실성 문제: §11 구현 설계 1 은 hunk 줄 수 검증을 `fileEditPatchLines` 에 두라고 적었으나 그 자리는 main 투영 경로를 검사하지 못한다(§10 EP-05 는 지점이 둘이고 투영은 변환을 부르지 않는다). AC12 가 "리더가 `null`" 이라 적었으므로 AC 문면대로 `readFileEditStructuredPatch` 에 두었다 — 아래 `설계 대비 명시적 차이` 참조.
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-01 | 수용된 선택만 영속 | 토글 클릭 (1) | 1/1 | `rg "lastAgentKind" app/src --glob '!*.test.*'` → 5건(타입 1·스키마 2·읽기 1·**쓰기 1** `chatStore.ts:1141`) | — |
+| VP-02·VP-05·VP-11 | 잠기지 않은 미전송 초안만 시드 | 시드·신규 초안 (2) | 2/2 | `rg "withLandingAgentKind" app/src` → 3건(정의 1 · 적용 2: `chatStore.ts:170`·`:180`) | — |
+| VP-02·VP-07 | `lastAgentKind` 열거·기본·복구 | 읽기·쓰기 (2) | 2/2 | `protocol.ts:657`(`SettingsSchema`, catch+default) · `protocol.ts:696`(`SettingsPatchSchema`) | — |
+| VP-08 | 편집 결과는 `{structuredPatch}` 투영만 | tool_result 매핑 (1) | 1/1 | `claude-map.ts:580` 분기 / 케이스 `Edit tool_result 에 structuredPatch 만 투영해 싣는다` | — |
+| VP-03·VP-06·VP-10 | hunk 줄 수 정합 검증 | 투영·렌더 (2) | 2/2 | `rg "readFileEditStructuredPatch\(" app/src --glob '!*.test.*'` → 호출 2건(`claude-map.ts:580` 투영 · `DiffBody.tsx:45` 렌더) | — |
+| VP-04·VP-09 | 토큰→노드 변환 SSOT | 두 소비자 렌더 (2) | 2/2 | `rg "syntaxText" app/src --glob '!*.test.*'` → 정의 1(`diffSyntaxText.tsx:10`) · 소비 2파일(`DiffTable.tsx:59` · `FileDiffSection.tsx:471·475·480·482`) | — |
+
+- 전수 합계 **10/10**. §10에 없는데 같은 불변식이 필요했던 지점: 없음.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `settingsSet` 인자 `{ lastAgentKind: 'work' }` 1회 | not selected — 호출 인자 직접 관측 |
+| VP-02 | REQUIRED | SELF_PASS | 시드 후 초안 `agentKind === 'code'`, 시드 전 `'work'` | not selected — 상태값 직접 관측 |
+| VP-03 | REQUIRED | SELF_PASS | 거터 `45·46·46`, 본문 `async function animate(): Promise<void> {` | not selected — 화면 산출 직접 관측 |
+| VP-04 | REQUIRED | SELF_PASS | `color:#112233`(old) · `color:#445566`(new), 토큰 없으면 `span` 0개 | required — M1 red(3케이스) |
+| VP-05 | REQUIRED | SELF_PASS | `landing-target.mandatory === true` + 시드 1회 호출 | not selected — 스텝 정의 직접 관측 |
+| VP-06 | REQUIRED | SELF_PASS | 영속 JSON 왕복 후 같은 hunk·같은 두 축 | not selected — 왕복 산출 직접 비교 |
+| VP-07 | REQUIRED | SELF_PASS | `parse({})`·`parse({lastAgentKind:'bogus'})` 모두 `work` | not selected — 파싱 결과 직접 관측 |
+| VP-08 | REQUIRED | SELF_PASS | `Object.keys(structuredOutput) === ['structuredPatch']` | required — M3 red(1케이스) |
+| VP-09 | REQUIRED | SELF_PASS | 기존 `diffSyntax.render.test.ts` 2케이스 그대로 통과 | not selected — 기존 산출 직접 관측 |
+| VP-10 | REQUIRED | SELF_PASS | 정상/거부/빈 입력 반환값 | not selected — 반환값 직접 관측 |
+| VP-11 | REQUIRED | SELF_PASS | 잠긴 엔트리 `agentKind` 불변 | not selected — 상태값 직접 관측 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `diffSyntaxText.tsx:15` — 토큰이 있어도 원문 `slice` 만 반환(제거) | `VP-04 선택 증거` | 최초 | `토큰이 오면 색을 입히고 원문은 보존한다` 외 2건 | 잠김 |
+| `claude-map.ts:585` — 투영 대신 SDK 원본을 그대로 실음(제거) | `VP-08 선택 증거` | 최초 | `Edit tool_result 에 structuredPatch 만 투영해 싣는다` 1건 | 잠김 |
+| `DiffTable.tsx:59` — `old`↔`new` 축을 맞바꿈(형제 스왑) | `형제 슬롯 계약` | 최초 | `토큰이 오면 색을 입히고 원문은 보존한다` 1건 | 잠김 |
+| `diffSyntaxText.tsx:15` — 토큰 없을 때도 `span` 으로 감쌈 | `0건 스윕 oracle 민감도`(AC9 `span` 0개) | 최초 | `토큰이 없으면 색 요소 0개로 같은 본문을 그린다` 1건 | 잠김 |
+| `claude-map.ts` 투영 제거(위와 동일 변이) | `0건 스윕 oracle 민감도`(AC11 `originalFile` 미포함) | 최초 | 같은 1케이스가 키 집합·스윕 두 단언 모두로 red | 잠김 |
+| `steps.ts:97` — `landing-target` 이 시드를 부르지 않음(배선 제거) | `배선 존재 oracle 민감도` | 최초 | `랜딩 종류 시드를 landing-target(필수) 안에서 끝낸다` 1건 | 잠김 |
+
+- **분모 검산**: `선택 증거 2 · 인용 변이 0 · 새 oracle 3 = 표 행 5` + 형제 스왑 1행 = **6행**. 형제 스왑은 공식 밖이지만 `old`/`new` 슬롯 계약이 달라 별도 행으로 심었다.
+- **덮개 회귀**: 이전 라운드에 red였는데 이번에 green인 행 0건 — r1 이라 이전 라운드가 없다. 다만 `syntaxText` 를 `FileDiffSection` 밖으로 **옮겼으므로** 구 장치(`diffSyntax.render.test.ts` 2케이스)를 그대로 유지했고 M1 이 그 두 케이스도 red 로 만든다(하한 보존 확인).
+- 추가 확인(공식 밖): `file-edit-tool.ts` 의 줄 수 검증 제거 변이 → `줄 수가 oldLines/newLines 와 어긋나면 패치 전체를 거부한다`·`패치 형태가 어긋나면 싣지 않는다 (EP-05)`·`형태가 어긋난 패치도 폴백한다 (AC12)` 3건 red.
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 신규 문구 0. 신규 상태는 랜딩 종류 하나이고 소비자는 `AgentModeToggle` 히어로와 `Composer` 권한 메뉴다 | 없음 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 1건(`syntaxText` 이설) — 인자만 읽는 순수 함수라 옛 스코프에서 읽던 변수가 없다 | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | `hunk 줄 수 ≠ oldLines/newLines → 패치 전체 거부` 행 | 없음 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 패치가 없거나 거부되면 **변경 전과 동일한 카드**가 그려진다 — 빈 본문이 되는 분기가 없다 | 없음 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | `useDiffSyntax` 가 `lines`·`filePath`·`theme` 를 결과와 함께 저장해 stale 응답을 버린다(기존 구조 승계) | 없음 |
+| 첫 실행 기본값 변경의 파생 | `work` 초안은 첫 턴에 Work 정책의 초기 우측 타일(`task`)을 연다 — D-002 의 직접 결과다 | 아래 잠재 문제 2 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | `App.projects.test.ts` 가 `defaultBootDependencies` 를 spread 하고 I/O 의존을 하나씩만 덮어써, 새 의존이 늘면 모킹되지 않은 실제 IPC 로 샌다 | ✅ 선조치 — `applyLandingAgentKind` 스텁 추가 | 실측 실패 `landing-target failed: settingsApi.get is not a function` |
+| 2 | `chatStore.test.ts` 의 `mockDraftIds` 가 `crypto.randomUUID` **호출 패리티**에 결합돼 있다. Work 초안은 첫 턴에 우측 타일을 열어 호출이 1회 늘어 draft key 가 밀린다 | ✅ 선조치 — 해당 스위트 `beforeEach` 에 `seedLandingAgentKind('code')` 로 시드를 명시. 📝 근본 해결(패리티 대신 draft-key 소비 순서로 스텁)은 이번 범위 밖 | 실측 실패 `expected ['draft:b','draft:req-5'] to equal ['draft:b','draft:c']` · `rightPanelLayout.ts:70` 이 열 id 로 UUID 소비 |
+| 3 | 카드 헤더의 `+N -M`(`toolDiffStat`)은 여전히 `old_string`/`new_string` 만 센다. `replace_all` 다중 치환이면 헤더는 1회분, 본문(패치)은 전량을 보여 두 수가 갈린다 | ⚠️ 보고만 — 사용자가 보는 수치가 달라지는 제품 판단이고 현재 AC 밖이다 | `toolMeta.ts:185-215` · SDK `FileEditOutput.replaceAll` |
+
+### 설계 대비 명시적 차이 (r1)
+
+- plan §11 구현 설계 1 은 hunk 줄 수 검증을 `fileEditPatchLines` 에 두라고 적었고, 구현은 `readFileEditStructuredPatch`(내부 `asHunk`)에 두었다. 이유: AC12 가 "리더가 `null` 을 반환한다"로 적혀 있고, §10 EP-05 의 지점이 둘인데 **main 투영 경로는 변환 함수를 부르지 않는다**.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 두 함수 모두 순수하고 상태를 갖지 않는다 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 리더는 main·renderer 두 소비자가 공유한다. 검증이 변환 쪽에 있었다면 main 투영은 검사 없이 통과해 **거짓 패치가 DB 에 영속**된다 | §10 EP-05 2/2 · AC11·AC12 — `패치 형태가 어긋나면 싣지 않는다 (EP-05)` 케이스가 main 경로를 직접 본다 |
+| 재진입 | 해당 없음 — 호출마다 새 배열을 만들고 입력을 변형하지 않는다 | — |
+| 다른 무효화 축 | 해당 없음 — 캐시·구독·타이머가 없다 | — |
+
+## [구현자 기입] 구현 보고 (r1)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 수정 18 · 신규 7 (`shared/file-edit-tool.ts`+테스트 · `components/diffSyntaxText.tsx` · `DiffBody.render.test.ts` · `claude-map.fileEdit.test.ts` · `chatStore.landingDefault.test.ts` · `parts.fileEditPatch.test.ts`) |
+| 실행 명령 | `npm run typecheck` · `npm run lint` · `./node_modules/.bin/vitest run` (pretest 우회) · `node scripts/check-doc-inventory.mjs --check` |
+| **관측한 게이트 산출**(exit code 아님) | typecheck 3구성 0 error · lint **0 error / 1 warning**(`useTranscriptVirtualizer.ts:22` — 이번 변경과 무관한 기존 warning) · vitest **483파일 4496케이스: 4307 pass · 173 fail · 16 skip**. 실패 30파일은 전부 `Module did not self-register: better_sqlite3.node` 서명이고 **기준선(stash)과 파일 집합이 동일**하다(`diff base.txt after2.txt` → 0줄, 기준선 4281 pass / 173 fail) |
+| V-pair 자기확인 | `SELF_PASS 11 / SELF_BLOCKED 0`; pair별 상세는 위 표 |
+| 강제 지점 전수 | 10/10 |
+| **AC 자기보고**(`Criteria-Met`) | 13/13 — AC1 `시드는 미전송 초안만…`(시드 후 `code`) · AC2 `시드 전 새-채팅 초안은 work 다` + `설정 기본값…` · AC3 `toHaveBeenCalledExactlyOnceWith({lastAgentKind:'work'})` · AC4 잠긴 엔트리 `agentKind` 불변 + `settingsSet` 미호출 · AC5 `parse({lastAgentKind:'bogus'}) → work` · AC6 거터 `45·46·46` · AC7 본문 `async function animate(): Promise<void> {` · AC8 `color:#112233`/`#445566` · AC9 `td span` 0개 · AC10 폴백 3케이스(Edit·Write·MultiEdit) · AC11 `Object.keys === ['structuredPatch']` · AC12 리더 `null` 3형 + 카드 폴백 · AC13 영속 JSON 왕복 후 같은 두 축 |
+| **합계 검산** | `✅ 13 · ⚠️ 0 · ❌ 0 = 총 13` — 현재 AC 총수를 §7 표에서 다시 세어 13, 분모 변경 없음 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals (r1)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음 — r1 이다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: 잠재 문제 1·2 는 **기존 테스트 픽스처가 새 의존/새 기본값에 결합**된 경우다. plan §12 의 "기존 소비처 전수" 표는 프로덕션 소비처만 세고 테스트 픽스처를 세지 않았다.
+- 반복해서 부딪히는 환경 한계: better-sqlite3 Electron ABI 미빌드로 DB 로드 스위트 30파일이 red — `app/AGENTS.md` 가 서술한 제약 그대로이며 그 문서의 "실측 5파일(0180)" 수치보다 크다(이번 실측 30).
+- 현재 라운드 수: 1

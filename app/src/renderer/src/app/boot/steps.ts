@@ -1,4 +1,5 @@
 import { settingsApi, bootApi } from '../../shared/api/ipc'
+import { seedLandingAgentKind } from '../../features/chat'
 import { initBackend } from '../../features/backend/store/backendStore'
 import { initUsage } from '../../shared/stores/usageStore'
 import { initProjects } from '../../features/projects/store/projectsStore'
@@ -44,6 +45,10 @@ export interface BootDependencies {
   whenMainReady: () => Promise<void>
   getBootReport: () => Promise<BootReport>
   getLastSessionId: () => Promise<string | null>
+  // 컴포저 랜딩이 열 종류를 설정에서 읽어 chat store 에 시드한다(0228 D-004). 랜딩 타겟과
+  // 같은 mandatory 스텝에 있어 AppLayout 이 마운트되기 전에 끝난다 — 부트 후 비동기로
+  // 덮어쓰면 히어로 토글이 한 프레임 동안 잘못된 종류를 보인다.
+  applyLandingAgentKind: () => Promise<void>
   initBackend: () => Promise<void>
   initSessions: () => Promise<void>
   initProjects: () => Promise<void>
@@ -56,6 +61,10 @@ export const defaultBootDependencies: BootDependencies = {
   getLastSessionId: async () => {
     const settings = await settingsApi.get()
     return settings.lastSessionId ?? null
+  },
+  applyLandingAgentKind: async () => {
+    const settings = await settingsApi.get()
+    seedLandingAgentKind(settings.lastAgentKind)
   },
   initBackend,
   initSessions,
@@ -94,7 +103,10 @@ export function createBootSteps(deps: BootDependencies = defaultBootDependencies
       id: 'landing-target',
       mandatory: true,
       run: async () => {
-        const lastSessionId = await deps.getLastSessionId()
+        const [lastSessionId] = await Promise.all([
+          deps.getLastSessionId(),
+          deps.applyLandingAgentKind()
+        ])
         return { landingTarget: lastSessionId ? `/chat/${lastSessionId}` : '/new' }
       }
     },

@@ -599,9 +599,10 @@ export type NormalizedEvent =
       // 부모 Task(서브에이전트) tool_result 면 SDK task_* 누산 메타(모델·시간·도구수)를 실어
       // 영속한다 — 세션 재로드 후에도 카드/행이 모델·소요시간을 복원하게 한다.
       subagentMeta?: SubagentTaskMeta
-      // SDK 구조화 도구 출력(tool_use_result) — **TaskXXX 도구에만** 싣는다(0204). `result` 는
-      // 모델용 wire content 라 TaskCreate 의 task.id 같은 필드를 담지 않는다. 다른 도구까지
-      // 실으면 큰 출력이 그대로 영속되므로 `isTaskToolName` 이 유일한 게이트다.
+      // SDK 구조화 도구 출력(tool_use_result) — `result` 는 모델용 wire content 라 TaskCreate 의
+      // task.id 나 Edit 의 패치 좌표 같은 필드를 담지 않는다. 대상은 **TaskXXX 전량**(0204)과
+      // **`Edit`**(0228) 둘뿐이고, 후자는 SDK 원본이 아니라 `{ structuredPatch }` 투영만 싣는다 —
+      // `FileEditOutput.originalFile` 은 편집 전 파일 전체라 영속 비용이 파일 크기에 비례한다.
       structuredOutput?: unknown
       // HistoryWriter만 원래 publisher 호출·게시 소유권 확인 후 보강한다.
       artifact?: ArtifactRef
@@ -1039,6 +1040,8 @@ export interface Settings {
   sidebarWidth: number
   lastBackend: Backend | null
   lastSessionId: string | null
+  // 컴포저 랜딩이 여는 종류 — 마지막 토글 선택. 저장값이 없으면 스키마가 첫 실행 고정값(0228 D-002).
+  lastAgentKind: AgentKind
   windowBounds: WindowBounds | null
   // MCP 서버 enabled on/off (키 = 서버 name). 부재 ⇒ enabled=true.
   mcpEnabled: Record<string, boolean>
@@ -1421,8 +1424,9 @@ export type AppMessagePart =
       parentToolRunId?: string
       // 부모 Task tool_result 면 서브에이전트 영속 메타(모델·시간·도구수).
       subagentMeta?: SubagentTaskMeta
-      // TaskXXX 도구의 SDK 구조화 출력(0204) — 재로드 후에도 작업 타일이 목록을 접을 수 있게
-      // 영속한다. 과거 렌더러는 미인식 필드를 무시하므로 전방 호환.
+      // SDK 구조화 출력 — TaskXXX 는 목록 fold 용(0204), `Edit` 는 diff 카드의 줄번호 정본인
+      // `{ structuredPatch }` 투영(0228). 재로드 후에도 같은 파생이 서게 영속한다.
+      // 과거 렌더러는 미인식 필드를 무시하므로 전방 호환.
       structuredOutput?: unknown
     }
   | { type: 'file'; path: string; readType?: 'raw' | 'patch'; content?: string }

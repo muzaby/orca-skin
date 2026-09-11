@@ -6,6 +6,7 @@ import {
   bootstrapChat,
   chatActions,
   ingestChatEvent,
+  seedLandingAgentKind,
   useChatStore,
   NEW_CHAT_KEY
 } from './chatStore'
@@ -49,6 +50,10 @@ const requirement = (id: string, sessionId = 's'): DiffRequirementItem => ({
 
 // 활성 키 's' 에 진행 중 턴 엔트리 1개로 초기화(하네스는 chatStore.testHarness 공용, 0149).
 beforeEach(() => {
+  // 이 스위트의 시드는 전부 `initialChatState`(= code) 기준이다. 랜딩 기억 캐시(0228)는 모듈
+  // 상태라 앞선 케이스가 바꿔 놓으면 `newChat()` 이 다른 종류의 초안을 만든다 — Work 초안은
+  // 첫 턴에 우측 타일을 열어 `crypto.randomUUID` 소비 수까지 달라진다.
+  seedLandingAgentKind('code')
   ;({ chatSend, settingsSet, permissionRespond } = installChatStoreHarness({
     inflight: true,
     turnStartedAt: 1
