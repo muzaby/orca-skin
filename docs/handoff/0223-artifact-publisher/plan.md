@@ -741,4 +741,16 @@ V1 실행 증거는 [impl.md](impl.md), [evaluation.md](evaluation.md)에 보존
 
 ## [검증자 기입] 파생 이슈
 
-독립 검증 미착수. rev.4 구현 뒤 독립 검증한다.
+verify r1 = **RETURN_TO_PLAN**. 판정과 증거의 정본은 [verify.md](verify.md)다.
+
+| ID | 발견 | 범위 |
+|---|---|---|
+| D1 | 구현 커밋 `04953cf7` 이 plan 메타 상태를 `READY`→`DRAFT`로 수정 | NON_BLOCKING |
+| D2 | **AC2 위반** — PostToolUse `Write`/`Edit` 훅이 publisher 없이 `createPublication` | BLOCKING / VP-02 `PAIR_FAIL` |
+| D3 | **AC18·D-022 위반** — 컨텍스트 참조 항목 수집 구현, 테스트가 반대 동작을 잠금 | BLOCKING / VP-U2 `PAIR_FAIL` |
+| D4 | `rightPanelTiles.ts` export 6개가 테스트 전용 표면 | NON_BLOCKING |
+| D5 | `45b1d43d` 가 `Handoff: none` 으로 74파일 기능 변경 + 사용자 유보 결정 확정 | PLAN_GAP 근원 |
+| D6 | `TaskScheduleContent` 가 세 섹션 앞에 추가됨 | NON_BLOCKING |
+| D7 | VP-01·12·13·16 인수가 r1 이후 재실행된 적 없음 | 미종결 |
+
+D2·D3의 근원은 사용자에게 유보된 Q-04/D-023이다. 답변 전에는 구현자가 닫을 수 없으므로 설계자가 규범 행(D-023·AC2·D-022·AC18·§10·pair)을 먼저 정정한다.
