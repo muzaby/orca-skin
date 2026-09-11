@@ -4,6 +4,11 @@ export const AGENT_KINDS = ['code', 'work'] as const
 export type AgentKind = (typeof AGENT_KINDS)[number]
 export const DEFAULT_AGENT_KIND: AgentKind = 'code'
 
+// 컴포저 랜딩이 저장된 선택 없이 여는 종류 — **첫 실행 고정값**이다(0228 D-002).
+// `DEFAULT_AGENT_KIND` 와 별개다: 저것은 main 의 DB 행·세션 리스가 **과거 데이터**를 읽을 때
+// 쓰는 폴백이라 값을 바꾸면 옛 세션의 해석이 바뀐다(0228 D-005).
+export const DEFAULT_LANDING_AGENT_KIND: AgentKind = 'work'
+
 export function isAgentKind(value: unknown): value is AgentKind {
   return value === 'code' || value === 'work'
 }

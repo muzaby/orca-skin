@@ -119,7 +119,7 @@ interface ToolRendererRegistry { register(r: ToolRenderer): void; resolve(input:
 |---|---|---|
 | `TerminalCard`(`terminal`) | shell/command 실행 | ✅ `BashBody` |
 | `FilePreviewCard`(`file_preview`) | `file.read` `raw`, Read | ✅ `FileBody` |
-| `DiffCard`(`diff`) | `file.read` `patch`, edit/write | ✅ `DiffBody` |
+| `DiffCard`(`diff`) | `file.read` `patch`, edit/write | ✅ `DiffBody` — 줄의 정본은 결과의 구조화 패치(`Edit`)이고 없으면 도구 입력 쌍으로 폴백한다. 두 경로 모두 `DiffTable` 이 그리며 파일 경로가 있으면 변경사항 패널과 같은 shiki 토큰을 얹는다 |
 | `SearchCard`(`search`) | `find.*`, grep/glob | 🔴 seam (OpenCode 전용 소스) |
 | `ApprovalCard`(`approval`) | `permission.requested` | ✅ `ApprovalCard`(plan_review + tool_approval, 레지스트리 밖) — ux-domains.md §1.6 |
 | `AgentTaskCard`(`agent_task`) | 서브에이전트 **실행**(Task/Agent 도구) | ✅ `AgentTaskBody` |

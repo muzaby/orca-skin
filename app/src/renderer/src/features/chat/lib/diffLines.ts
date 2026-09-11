@@ -4,7 +4,8 @@ import { diffLines } from 'diff'
 //
 // 도구 카드(`DiffBody`)와 diff 타일 두 곳이 같은 diff 를 그린다. 파생 규칙이 두 벌이 되면
 // `+`/`-` 표기와 줄번호 기준이 갈라지므로 여기 한 곳이 소유한다. 렌더는 `components/DiffTable`
-// 이 갖고, 이 파일은 그것이 그릴 줄 배열만 만든다.
+// 이 갖고, 이 파일은 그것이 그릴 줄 배열만 만든다. 실제 파일 좌표를 가진 구조화 패치는
+// `lib/diffPatchLines` 가 같은 `DiffLine` 으로 편다(0211 ΔV4).
 
 // 줄 축 표기 — `+새줄` · `-옛줄` · 축 없는 줄은 맨숫자. **이 규칙은 여기가 소유한다**(위 헤더가
 // 선언한 그 계약이다). 패널·컴포저 트레이·전송된 메시지가 각자 사본을 갖고 있었고(0218 r2),
@@ -26,11 +27,6 @@ export function lineAxisLabel(line: LineAxis): string {
 // 축 기호 없이 줄번호만. 새 축을 우선하고 없으면 옛 축을 쓴다.
 export function lineNumberLabel(line: LineAxis): string {
   return String(line.newLine ?? line.oldLine ?? '?')
-}
-
-export interface DiffPair {
-  oldValue: string
-  newValue: string
 }
 
 export interface DiffLine {

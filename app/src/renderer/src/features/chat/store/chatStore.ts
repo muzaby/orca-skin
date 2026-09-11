@@ -1,5 +1,9 @@
 import { useMemo } from 'react'
-import { parseAgentKind } from '../../../../../shared/agent-kind'
+import {
+  DEFAULT_LANDING_AGENT_KIND,
+  parseAgentKind,
+  type AgentKind
+} from '../../../../../shared/agent-kind'
 import { agentSessionPolicy } from '../../../../../shared/agent-session-policy'
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
@@ -145,9 +149,38 @@ const EMPTY_SUBAGENT_META: Record<string, SubagentMetaState> = {}
 // 새 대화에서도 `@` 파일 자동완성이 즉시 동작한다(init 이벤트가 같은 값으로 덮어쓰기만).
 let cwdCache: string | null = null
 
+// 컴포저 랜딩이 열 종류 — 부트스트랩이 설정에서 1회 시드한다(cwdCache 동형, 0228 D-004).
+// 시드 전 기본값은 첫 실행 고정값이라, 시드가 늦거나 실패해도 랜딩이 `code` 로 번쩍이지 않는다.
+let landingAgentKind: AgentKind = DEFAULT_LANDING_AGENT_KIND
+
+// 권한 모드 강등 규칙을 복사하지 않고 리듀서를 그대로 태운다 — 종류를 바꾸는 규칙은
+// `SET_AGENT_KIND` 한 곳이 갖는다.
+function withLandingAgentKind(session: ChatState, kind: AgentKind): ChatState {
+  return chatReducer(session, { type: 'SET_AGENT_KIND', kind })
+}
+
+// 부트 `landing-target` 스텝이 부른다(0228 §10 EP-02). 잠기지 않은 미전송 초안에만 적용해
+// 진행 중이거나 이미 확정된 대화의 종류는 건드리지 않는다.
+export function seedLandingAgentKind(kind: AgentKind): void {
+  landingAgentKind = kind
+  setState((s) => ({
+    sessions: Object.fromEntries(
+      Object.entries(s.sessions).map(([key, entry]) =>
+        entry.session.sessionId == null && !entry.session.agentKindLocked
+          ? [key, { ...entry, session: withLandingAgentKind(entry.session, kind) }]
+          : [key, entry]
+      )
+    )
+  }))
+}
+
 function freshEntry(projectId: string | null = null, cwd?: string | null): SessionEntry {
   return {
-    session: { ...initialChatState, cwd: cwd ?? cwdCache, pendingProjectId: projectId },
+    session: {
+      ...withLandingAgentKind(initialChatState, landingAgentKind),
+      cwd: cwd ?? cwdCache,
+      pendingProjectId: projectId
+    },
     projectCwdInitialized: cwd !== undefined || projectId === null,
     live: EMPTY_LIVE,
     subagentMeta: EMPTY_SUBAGENT_META,
@@ -1099,6 +1132,15 @@ function backgroundTask(toolUseId: string): void {
   })
 }
 
+// 토글 선택만 랜딩 기억의 입력이다(0228 D-001) — 리듀서가 실제로 받아들였을 때만 영속한다.
+// 잠긴 대화에서 누른 버튼이 다음 실행의 랜딩을 바꾸면 "마지막으로 선택된 버튼"이 아니게 된다.
+function setAgentKind(kind: AgentKind): void {
+  dispatchActive({ type: 'SET_AGENT_KIND', kind })
+  if (getActiveChatSession().agentKind !== kind) return
+  landingAgentKind = kind
+  void settingsApi.set({ lastAgentKind: kind })
+}
+
 function newChat(projectId: string | null = null, cwd?: string | null): void {
   setState((s) => ({
     sessions: { ...s.sessions, [NEW_CHAT_KEY]: freshEntry(projectId, cwd) },
@@ -1531,8 +1573,7 @@ function denyTool(approvalId: string): void {
 // 안정 액션 묶음 — 모듈 상수라 컴포넌트가 deps/메모 걱정 없이 직접 import 하거나 props 로
 // 전달할 수 있다(컴포넌트는 selector / action 만 사용, state.md §1.3).
 export const chatActions = {
-  setAgentKind: (kind: import('../../../../../shared/agent-kind').AgentKind): void =>
-    dispatchActive({ type: 'SET_AGENT_KIND', kind }),
+  setAgentKind,
   send,
   cancelSteer,
   cancel,

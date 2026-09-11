@@ -3,7 +3,7 @@
 // 타입과 CHANNELS 만 필요한 곳은 ./ipc 에서 import.
 
 import { z } from 'zod'
-import { AGENT_KINDS } from './agent-kind'
+import { AGENT_KINDS, DEFAULT_LANDING_AGENT_KIND } from './agent-kind'
 
 export const AgentKindSchema = z.enum(AGENT_KINDS)
 
@@ -652,6 +652,11 @@ export const SettingsSchema = z.object({
     .default(SIDEBAR_WIDTH_DEFAULT),
   lastBackend: BackendSchema.nullable().default(null),
   lastSessionId: z.string().nullable().default(null),
+  // 컴포저 랜딩이 마지막으로 선택된 종류로 열리게 하는 값(0228 D-003). `last*` 형제와 같은
+  // "마지막 상태" 축이다. 손상된 값은 부팅을 막지 않고 첫 실행 고정값으로 복원한다.
+  lastAgentKind: AgentKindSchema.catch(DEFAULT_LANDING_AGENT_KIND).default(
+    DEFAULT_LANDING_AGENT_KIND
+  ),
   windowBounds: WindowBoundsSchema.nullable().default(null),
   // MCP 서버 on/off. 키 = 서버 name. 부재한 서버는 enabled=true 로 간주(McpStore.toDto).
   // enabled 상태는 mcp.json(정의 소스)이 아니라 앱 설정이 보유한다(설계 결정 D2).
@@ -688,6 +693,7 @@ export const SettingsPatchSchema = z
     sidebarWidth: z.number().int().min(SIDEBAR_WIDTH_MIN).max(SIDEBAR_WIDTH_MAX),
     lastBackend: BackendSchema.nullable(),
     lastSessionId: z.string().nullable(),
+    lastAgentKind: AgentKindSchema,
     windowBounds: WindowBoundsSchema.nullable(),
     mcpEnabled: z.record(z.string(), z.boolean()),
     mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })),

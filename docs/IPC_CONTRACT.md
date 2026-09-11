@@ -119,6 +119,7 @@ interface Settings {
   sidebarWidth: number; // 180–480, default 248 (Phase 3+ 도입)
   lastBackend: Backend | null;
   lastSessionId: string | null;
+  lastAgentKind: AgentKind; // 컴포저 랜딩이 여는 종류 — 마지막 토글 선택. 저장값 없음/손상 ⇒ 'work'(첫 실행 고정값, 0228). 부팅 `landing-target` 스텝이 읽어 새-채팅 초안에 시드한다
   windowBounds: { x: number; y: number; width: number; height: number } | null;
   mcpEnabled: Record<string, boolean>; // MCP 서버 on/off (키=name). 부재 ⇒ true
   mcpMeta: Record<string, { description: string }>; // MCP Orca 전용 메타 (mcp.json 순정 유지)

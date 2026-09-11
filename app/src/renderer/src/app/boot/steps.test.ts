@@ -13,6 +13,7 @@ function deps(overrides: Partial<BootDependencies> = {}): BootDependencies {
       warnings: []
     }),
     getLastSessionId: vi.fn().mockResolvedValue(null),
+    applyLandingAgentKind: vi.fn().mockResolvedValue(undefined),
     initBackend: vi.fn().mockResolvedValue(undefined),
     initSessions: vi.fn().mockResolvedValue(undefined),
     initProjects: vi.fn().mockResolvedValue(undefined),
@@ -108,6 +109,18 @@ describe('boot steps', () => {
 
     expect(result.landingTarget).toBe('/new')
     expect(events).toContain('backend:degraded')
+  })
+
+  // 0228 D-004 — 시드가 부트 완료 전에 끝나야 히어로 토글이 잘못된 종류로 한 프레임 뜨지 않는다.
+  it('랜딩 종류 시드를 landing-target(필수) 안에서 끝낸다', async () => {
+    const applyLandingAgentKind = vi.fn().mockResolvedValue(undefined)
+    const steps = createBootSteps(deps({ applyLandingAgentKind }))
+    const landing = steps.find((step) => step.id === 'landing-target')
+
+    expect(landing?.mandatory).toBe(true)
+    await runBootSteps(steps, () => undefined)
+
+    expect(applyLandingAgentKind).toHaveBeenCalledTimes(1)
   })
 
   it('필수 단계 실패는 부트를 중단한다', async () => {

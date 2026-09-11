@@ -79,6 +79,7 @@ describe('project initialization stays in the boot owner', () => {
         warnings: []
       }),
       getLastSessionId: async () => 's1',
+      applyLandingAgentKind: async () => undefined,
       initBackend: async () => undefined,
       initSessions: async () => undefined,
       initUsage: async () => undefined

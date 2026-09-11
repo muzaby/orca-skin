@@ -1866,9 +1866,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
 // TaskXXX 결과가 "완료" 전이를 담고 있으면 미확인 배지 키를 더한다(0204 D-004).
 //
-// `structuredOutput` 은 Task 도구에만 실리므로(§10 EP-01) 그 유무가 값싼 게이트다 — 일반 도구
-// 결과에서는 tool_call 역탐색조차 하지 않는다. TaskList/TaskGet 은 보정(reconcile)이지 전이가
-// 아니므로 배지를 켜지 않는다: 전이의 권위는 TaskUpdate 의 statusChange 다.
+// `structuredOutput` 은 TaskXXX 와 `Edit` 에만 실리므로(0204 §10 EP-01 · 0228 D-008) 그 유무가
+// 값싼 게이트다 — 그 밖의 도구 결과에서는 tool_call 역탐색조차 하지 않고, 편집 결과는 바로 뒤
+// 이름 검사에서 걸러진다. TaskList/TaskGet 은 보정(reconcile)이지 전이가 아니므로 배지를 켜지
+// 않는다: 전이의 권위는 TaskUpdate 의 statusChange 다.
 function markCompletedAgentTask(
   state: ChatState,
   ev: Extract<NormalizedEvent, { type: 'tool.call.completed' }>
