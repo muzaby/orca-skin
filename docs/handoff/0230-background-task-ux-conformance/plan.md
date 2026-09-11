@@ -10,235 +10,137 @@
 | slug | `0230-background-task-ux-conformance` |
 | 작성자 | Claude Code |
 | 일자 | 2026-09-11 |
-| 매핑 | — |
-| 상태 | **DRAFT** (범위 결정 대기 — D-003) |
-| V mode | `Baseline V` (범위 확정 후 작성) |
+| 매핑 | 0230~0236 분할의 **1번**. 조사 정본을 겸한다 |
+| 상태 | **READY** |
+| V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
 | 유효 V | `V1` |
 
----
-
-# Part I — Product & UX Contract
-
-## 1. Context / 목표
-
-- 해결하려는 문제: Orca 가 지원하는 백그라운드 기능(서브에이전트 · 셸 백그라운드 · 라이브 집합)의
-  **사용자 통신**이 SDK 가 주는 신호를 다 쓰지 않는다. 사용자는 작업이 도는지 멈췄는지 판단할
-  근거를 화면에서 얻지 못한다.
-- 완료 후 달라지는 것: 백그라운드 작업이 **무엇을 · 얼마나 오래 · 지금 무엇을** 하는지 화면이
-  말하고, 어시스턴트 턴이 끝난 뒤 사용자가 정상 턴으로 대화를 이어갈 수 있다.
-- 성공을 사용자 관점에서 한 문장으로: 긴 PowerShell 작업이 도는 동안에도 "고장인지 정상인지"를
-  화면만 보고 판단할 수 있다.
-
-## 2. 사용자 의도 / 요구 출처
-
-| 구분 | 내용 | 출처 |
-|---|---|---|
-| 명시 요구 | "백그라운드 작업과 서브에이전트 등 orca에서 현재 지원중인 백그라운드 기능에서 ux적인 통신이 충실하게 구현됐는지 점검/진단하고 부족한 부분이 발견되면 보완한다" | 라이브 세션 2026-09-11 |
-| 명시 요구 | "메시지버블 아래 spark 라인에서 백그라운드 작업 이라는 표현될때 실제로 해당 백그라운드 작업이 얼마나 진행됐는지 확인하고 싶을때가 있다. 가령 vitest같은 긴 작업의 경우, powershell이 언제끝나는지 알수없어 고장인지 정상동작인지 판단이 어렵다." | 같은 턴 |
-| 명시 요구 | "main이 백그라운드 작업을 기다리고 있을때, 대화재개가 가능한 상태가 되는데 메시지 전송시 steer로 push되는 uiux로 표현된다. 어시스턴트의 종료 이후 사용자 턴을 기다리는 상태로 되어여 한다." | 같은 턴 |
-| 명시 요구 | "원하큰건 정식사용자 턴인데 클로드가 백그라운드 작업이 끝나면 답변하겠다고 턴을 종료하는 상황이어야 한다" | 같은 턴 (질의 응답) |
-| 명시 요구 | 진행 정보 위치 = "spark 라인 요약 + 클릭 진입" | 같은 턴 (질의 응답) |
-| 명시 요구 | "스펙전면대응을 자세하게 나열해줘 구현하면 어떤 ux가 가능한지도 포함해서" | 같은 턴 (질의 응답) |
-| 참조 입력 | 첨부 문서 `Claude Agent SDK 백그라운드 작업 지원 스펙` (기준 SDK `0.3.267`, 작성일 2026-09-10) | 사용자 첨부 |
-
-## 3. Decision Ledger
-
-| ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
-|---|---|---|---|---|---|
-| D-001 | 백그라운드 진행 정보는 **spark 라인 한 줄 요약 + 클릭 시 상세**로 노출한다 | 사용자 선택 | 사용자 턴 | ACTIVE | — |
-| D-002 | 백그라운드 대기 구간의 사용자 전송은 **정식 사용자 턴**으로 보이고, 그 앞의 어시스턴트 턴은 "백그라운드 작업이 끝나면 답변하겠다"는 **종료된 턴**으로 보인다 | 사용자 원문: "원하큰건 정식사용자 턴인데 클로드가 백그라운드 작업이 끝나면 답변하겠다고 턴을 종료하는 상황이어야 한다" | 사용자 턴 | ACTIVE | — |
-| D-003 | 이번 핸드오프의 구현 범위 | 사용자가 전면 대응 항목의 상세 열람을 먼저 요구했다 | 사용자 턴 | **OPEN** | — |
-
-### 갱신 메모
-
-- 이번 턴에서 새로 추가된 결정: D-001 · D-002 · D-003.
-- 변경된 결정: 없음.
-- `ACTIVE 결정 ↔ AC` 대조: **미수행** — AC 는 범위(D-003) 확정 후 작성한다.
-
-## 4. 요구 비판적 검토
-
-| 질문 | 판단 | 근거 |
-|---|---|---|
-| 요구가 증상이 아니라 원인을 겨냥하는가 | 타당 | 아래 §조사 의 F-01·F-02·F-04 가 제보 두 건의 직접 원인이다 |
-| 이미 기존 코드가 충족하는가 | 부분 | 서브에이전트(`Agent`/`Task`)는 경과·현재도구·도구수를 그린다(`AgentTaskRow.tsx:55-77`). 셸 백그라운드는 어디에도 없다 |
-| 더 작은 해법이 있는가 | 있음 | 제보 2건만 닫는 최소안이 가능하다 — 그래서 D-003 이 OPEN 이다 |
-| 선행 자료의 주장을 코드와 대조했는가 | 예 | `docs/claude-taskxxx-spec.md §4.1·§4.3` 이 `task_type`·`output_file` 을 이미 ❌ 로 표기한다 — 코드와 일치 |
-| ACTIVE 결정·기존 채택 결정과 충돌하는가 | 주의 필요 | 0153 이 "listening 중 낙관 커밋 금지"를 잠갔다(`sendAdmission.ts:1-23`). D-002 는 **표시**를 바꾸되 그 커밋 순서 불변식을 깨지 않아야 한다 |
-
-- 사용자에게 올릴 결정: D-003(범위).
-- 코드 조사로 닫은 사실: 아래 §조사 전량.
+**이 문서는 두 가지를 갖는다.** §0 은 7군 전수 조사와 0230~0236 분할 로드맵으로, **여섯 후속
+핸드오프의 공통 입력**이다. Part I·II 는 이 핸드오프의 구현 범위인 **G1(셸 백그라운드 작업의 1급
+표면)** 만 다룬다.
 
 ---
 
-# Part II — 조사 (스펙 대비 현재 구현)
+# §0 — 조사 정본 (0230~0236 공통 입력)
 
-> 기준 문서 = 사용자 첨부 스펙. 기준 코드 = 현재 HEAD. `app/package.json:35` 의 SDK 핀은
-> `0.3.220` 이고 스펙 기준은 `0.3.267` 이다 — 스펙의 `0.3.238`(`is_backgrounded`·`spawn_depth`) ·
-> `0.3.247`(`ambient`) · `0.3.257`(`resource_links`·Agent `heartbeat`) 확장은 **핀 이후**다.
-> 실행 CLI 는 사용자 설치본이라(`claude-map.ts:344-347`) 배포물 선언과 실제 로그로 다시 확인한다.
-
-## 조사 요약
-
-| 그룹 | 항목 수 | 완전 | 부분 | 없음 |
-|---|---|---|---|---|
-| G1 셸(PowerShell) 백그라운드 | 3 | 0 | 0 | 3 |
-| G2 진행 표시 | 4 | 0 | 2 | 2 |
-| G3 결과·출력 | 3 | 0 | 0 | 3 |
-| G4 상태 정확성 | 4 | 0 | 2 | 2 |
-| G5 조건부 도구 | 5 | 0 | 0 | 5 |
-| G6 제어·수명 | 3 | 1 | 1 | 1 |
-| G7 견고성 | 2 | 0 | 1 | 1 |
-
-## G1 — 셸(PowerShell) 백그라운드
-
-| ID | SDK 신호 | 현재 Orca | 관측 근거 | 증상 | 구현 시 가능한 UX |
-|---|---|---|---|---|---|
-| F-01 | `task_started.task_type`(`local_bash`·`local_agent`·`local_workflow`) | 미판독 | `rg task_type app/src` → 0건 | 모든 `task_*` 이 서브에이전트로 취급된다 | 종류별 카드 — 에이전트/셸/감시/워크플로를 구분해 그린다 |
-| F-02 | 백그라운드 목록 표시 | `Agent`/`Task` 만 | `parts.ts:319` `isAgentTaskName` 필터 | spark 라인 건수는 오르는데 `백그라운드 작업` 타일은 비어 있다 | 셸 작업 카드 — 명령·경과·부분 출력·중단 버튼 |
-| F-03 | Bash 결과 `backgroundTaskId`·`timedOutAfterMs`·`rawOutputPath`·`persistedOutputPath`·`interrupted` | 미판독 | `rg backgroundTaskId app/src` → 0건 | 타임아웃 자동 전환을 "완료"로 그린다. `task_notification` 이 합성 `tool.call.completed`(`{summary:''}`)로 실제 stdout 을 덮는다(`resultMap` 은 마지막 승) | "타임아웃으로 백그라운드 전환 · 계속 실행 중" 배지, 종료 시 전체 출력 복원 |
-
-## G2 — 진행 표시
-
-| ID | SDK 신호 | 현재 Orca | 관측 근거 | 증상 | 구현 시 가능한 UX |
-|---|---|---|---|---|---|
-| F-04 | `tool_progress`(최상위 type) — `elapsed_time_seconds`·`heartbeat`·`subagent_retry` | 전량 미처리 | `rg tool_progress app/src` → 0건; `claude-map.ts:747` 이 미지 메시지를 드롭 | 긴 foreground 도구에 경과 시간이 없다. API 재시도 대기와 정상 진행을 구분하지 못한다 | 도구 카드의 경과 초, "재시도 대기 중" 상태, heartbeat 로 "연결은 살아 있음" 구분 |
-| F-05 | `task_progress.summary` + `agentProgressSummaries` 옵션 | 정규화는 하나 renderer 가 버린다. 옵션 미설정 | `claude-map.ts:144` 가 `summary` 를 싣고, `chatStore.ts:322-338` 이 복사하지 않는다 | 작업이 "지금 무엇을 하는 중인지" 문장으로 말하지 못한다 | spark 라인·카드의 한 줄 진행 요약 |
-| F-06 | 실행 수 배지 = 라이브 스냅샷 기준 | `BackgroundTaskTracker.count()` = **추적 전량**(foreground 포함) | `background-tasks.ts:124-126`; `session-activity-projector.ts:216` | `run_in_background:false` 동기 에이전트도 "백그라운드 작업 1건"으로 센다 | 배지가 실제 백그라운드만 세고 foreground 는 다른 문구를 쓴다 |
-| F-07 | — (호스트 UX) | spark 라인 사실에 클릭 진입점 없음 | `StatusLine.tsx:123-128` — 사실은 `span` 뿐 | 건수를 봐도 상세로 갈 길이 없다 | **D-001** — 클릭 시 해당 작업 상세 |
-
-## G3 — 결과·출력
-
-| ID | SDK 신호 | 현재 Orca | 관측 근거 | 증상 | 구현 시 가능한 UX |
-|---|---|---|---|---|---|
-| F-08 | `task_notification.output_file` | 미판독 | `rg output_file app/src` → 0건; `claude-taskxxx-spec.md:159` 가 ❌ 로 표기 | 알림 요약만 남고 전체 출력을 볼 방법이 없다 | "전체 출력 보기" — 증분 읽기·부분 표시·접근 불가 구분 |
-| F-09 | `resource_links`(자동 백그라운드 MCP) · `tool_use_result.resourceLinks` | 미판독 | `rg resource_links\|resourceLinks app/src` → 0건 | MCP 가 돌려준 결과 파일 참조가 화면에 없다 | 결과 파일 카드 — 원래 호출에 연결, 중복 카드 없음 |
-| F-10 | 출력 읽기 안전성(경로 검증·대용량·쓰는 중 파일·외부 수정) | 해당 없음(읽는 코드가 없다) | F-08 의 귀결 | — | F-08 을 하면 같은 설계에서 함께 잠근다 |
-
-## G4 — 상태 정확성
-
-| ID | SDK 신호 | 현재 Orca | 관측 근거 | 증상 | 구현 시 가능한 UX |
-|---|---|---|---|---|---|
-| F-11 | `ambient`(내부 유지 작업) | 미판독. `skip_transcript` 만 드롭 | `claude-map.ts:120` | 내부 유지 작업이 일반 배지에 섞일 수 있다 | 배지에서 제외하되 목록에서는 볼 수 있다 |
-| F-12 | `background_tasks_changed.tasks[].task_type·description` | `task_id → tool_use_id` 매핑된 것만 추린다 | `claude-map.ts:311-334` | 스냅샷이 유일한 근거인 작업은 존재 자체를 모른다 | 매핑 없는 라이브 작업도 최소 카드로 표시 |
-| F-13 | 종료 ↔ 스냅샷 불일치 표시 | 스냅샷 제외를 `failed` 로 **확정** | `turn-coordinator.ts:459-478` | 스펙의 "종료 사유 미확인"(성공도 실패도 아님)과 다르다 | "실행 목록에서 제외됨 · 종료 사유 미확인" / "완료 · 정리 중" 구분 |
-| F-14 | `task_updated.patch.end_time·total_paused_ms·description` | 미판독 | `claude-map.ts:271-309` 가 `status`·`error`·`is_backgrounded` 만 읽는다 | 일시정지 누적 시간·설명 변경이 화면에 없다 | 카드에 "일시정지 N분 포함" 표기 |
-
-## G5 — 조건부 도구 (F-15~F-19 상세)
-
-> **전제 ① 차단은 없다.** 메인 chat query 의 거부 목록은 `Bash`·`WebSearch` 둘뿐이다
-> (`claude.ts:432`). `allowedTools: []` 는 제목 생성 query(`claude.ts:272`, `maxTurns:1`)의 것이라
-> 본문 대화와 무관하다. **사용자 설치본 CLI 가 `Monitor`·`Workflow`·분리 `Skill`·원격 Agent 를
-> 제공하면 모델은 지금도 그것을 부를 수 있다.** "미구현" 은 "호출이 막혀 있다" 가 아니라
-> "호출되면 잘못 그린다" 는 뜻이다.
+> 기준 문서 = 사용자 첨부 스펙 `Claude Agent SDK 백그라운드 작업 지원 스펙`(기준 SDK `0.3.267`,
+> 작성일 2026-09-10). 기준 코드 = 현재 HEAD.
 >
-> **전제 ② 아래 결과 payload 형태는 첨부 스펙에서 왔다.** 실제 로그로 관측하지 않았다. 각 항목의
-> 코드 경로는 현재 HEAD 실측이고, 그 경로에 스펙의 payload 를 대입한 귀결이 '증상' 칸이다.
+> **버전 간극**: `app/package.json:35` 의 SDK 핀은 `0.3.220` 이다. 스펙의
+> `0.3.238`(`is_backgrounded`·`spawn_depth`) · `0.3.247`(`ambient`) ·
+> `0.3.257`(`resource_links`·Agent `heartbeat`) 확장은 **핀 이후**라, 코드를 넣어도 SDK 를 올리기
+> 전에는 도달하지 않는다. 실행 CLI 는 사용자 설치본이므로(`claude-map.ts:344-347`) 배포물 선언과
+> 실제 로그로 다시 확인한다.
+
+## 0.1 조사 요약
+
+| 그룹 | 항목 | 완전 | 부분 | 없음 | 담당 handoff |
+|---|---:|---:|---:|---:|---|
+| G1 셸(PowerShell) 백그라운드 | 3 | 0 | 0 | 3 | **0230 (이 문서)** |
+| G2 진행 표시 | 4 | 0 | 2 | 2 | [0231](../0231-background-progress-and-turn-state/plan.md) |
+| G3 결과·출력 | 3 | 0 | 0 | 3 | [0232](../0232-background-output-access/plan.md) |
+| G4 상태 정확성 | 4 | 0 | 2 | 2 | [0233](../0233-background-state-accuracy/plan.md) |
+| G5 조건부 도구 | 5 | 0 | 0 | 5 | [0234](../0234-conditional-task-tools/plan.md) |
+| G6 제어·수명 | 3 | 1 | 1 | 1 | [0235](../0235-background-control-and-lifetime/plan.md) |
+| G7 견고성 | 2 | 0 | 1 | 1 | [0236](../0236-background-stream-robustness/plan.md) |
+
+## 0.2 분할 로드맵
+
+| 순서 | handoff | 범위 | 선행 | 사용자 제보 |
+|---|---|---|---|---|
+| 1 | 0230 | G1 — 셸 작업 종류 정규화 · 타일 표시 · 결과 보존 | 없음 | ① 절반 |
+| 2 | 0231 | G2 + 턴 상태 — 진행 표시 · 배지 의미 · 클릭 진입 · 정식 사용자 턴 | 0230 (클릭 대상) | ① 나머지 · ② 전부 |
+| 3 | 0233 | G4 — 상태 정확성 | 0230 (task kind) | — |
+| 4 | 0232 | G3 — 결과·출력 접근 | 0230 · 0233 | — |
+| 5 | 0234 | G5 — 조건부 도구 | 0230 (task kind · 런치 영수증) | — |
+| 6 | 0235 | G6 — 제어·수명 | 0231 | — |
+| 7 | 0236 | G7 — 견고성 | 없음 | — |
+
+**번호 순서 ≠ 실행 순서다.** 실행은 위 `순서` 열을 따른다 — 0233 이 0232 보다 앞인 이유는
+G3 의 출력 카드가 G4 의 "종료 사유 미확인" 상태 위에 서기 때문이다.
+
+## 0.3 G1 — 셸(PowerShell) 백그라운드
+
+| ID | SDK 신호 | 현재 Orca | 관측 근거 | 증상 |
+|---|---|---|---|---|
+| F-01 | `task_started.task_type` | 미판독 | `rg task_type app/src` → 0건 | 모든 `task_*` 이 서브에이전트로 취급된다 |
+| F-02 | 백그라운드 목록 표시 | `Agent`/`Task` 만 | `parts.ts:319` `isAgentTaskName` 필터 | spark 라인 건수는 오르는데 타일은 비어 있다 |
+| F-03 | Bash 결과 `backgroundTaskId`·`timedOutAfterMs`·`rawOutputPath`·`persistedOutputPath` | 미판독 | `rg backgroundTaskId app/src` → 0건 | ① 백그라운드 전환을 완료로 그린다 ② 추적이 해제돼 세션이 기다리지 않는다 ③ 정착이 실제 stdout 을 덮는다 |
+
+## 0.4 G2 — 진행 표시
+
+| ID | SDK 신호 | 현재 Orca | 관측 근거 | 증상 |
+|---|---|---|---|---|
+| F-04 | `tool_progress`(최상위 type) — `elapsed_time_seconds`·`heartbeat`·`subagent_retry` | 전량 미처리 | `rg tool_progress app/src` → 0건; `claude-map.ts:747` 이 미지 메시지를 드롭 | 긴 foreground 도구에 경과가 없다. 재시도 대기와 정상 진행을 구분 못 한다 |
+| F-05 | `task_progress.summary` + `agentProgressSummaries` | 정규화는 하나 renderer 가 버린다. 옵션 미설정 | `claude-map.ts:144` 가 싣고 `chatStore.ts:322-338` 이 복사하지 않는다 | 작업이 "지금 무엇을 하는 중인지" 말하지 못한다 |
+| F-06 | 실행 수 배지 = 라이브 스냅샷 기준 | `count()` = 추적 전량(foreground 포함) | `background-tasks.ts:124-126`; `session-activity-projector.ts:216` | 동기 에이전트도 "백그라운드 작업 1건"으로 센다 |
+| F-07 | — (호스트 UX) | spark 라인 사실에 클릭 진입점 없음 | `StatusLine.tsx:123-128` — 사실은 `span` 뿐 | 건수를 봐도 상세로 갈 길이 없다 |
+
+## 0.5 G3 — 결과·출력
+
+| ID | SDK 신호 | 현재 Orca | 관측 근거 | 증상 |
+|---|---|---|---|---|
+| F-08 | `task_notification.output_file` | 미판독 | `rg output_file app/src` → 0건; `claude-taskxxx-spec.md:159` 가 ❌ | 알림 요약만 남고 전체 출력을 볼 방법이 없다 |
+| F-09 | `resource_links` · `tool_use_result.resourceLinks` | 미판독 | `rg resource_links\|resourceLinks app/src` → 0건 | MCP 결과 파일 참조가 화면에 없다 |
+| F-10 | 출력 읽기 안전성(경로 검증·대용량·쓰는 중 파일·외부 수정) | 해당 없음(읽는 코드가 없다) | F-08 의 귀결 | — |
+
+## 0.6 G4 — 상태 정확성
+
+| ID | SDK 신호 | 현재 Orca | 관측 근거 | 증상 |
+|---|---|---|---|---|
+| F-11 | `ambient` | 미판독. `skip_transcript` 만 드롭 | `claude-map.ts:120` | 내부 유지 작업이 일반 배지에 섞일 수 있다 |
+| F-12 | `background_tasks_changed.tasks[].task_type·description` | 매핑된 id 만 추린다 | `claude-map.ts:311-334` | 스냅샷이 유일한 근거인 작업은 존재를 모른다 |
+| F-13 | 종료 ↔ 스냅샷 불일치 표시 | 스냅샷 제외를 `failed` 로 **확정** | `turn-coordinator.ts:459-478` | 스펙의 "종료 사유 미확인"과 다르다 |
+| F-14 | `task_updated.patch.end_time·total_paused_ms·description` | 미판독 | `claude-map.ts:271-309` | 일시정지 누적·설명 변경이 화면에 없다 |
+
+## 0.7 G5 — 조건부 도구
+
+> **차단은 없다.** 메인 chat query 의 거부 목록은 `Bash`·`WebSearch` 둘뿐이다(`claude.ts:432`).
+> `allowedTools: []` 는 제목 생성 query 의 것이다(`claude.ts:272`, `maxTurns:1`). 설치본 CLI 가
+> 이 도구들을 주면 모델은 지금도 부를 수 있고, 부르면 잘못 그려진다.
+>
+> 아래 결과 payload 형태는 스펙에서 왔다. 실제 로그로 관측하지 않았다. 코드 경로는 HEAD 실측이고
+> 그 경로에 스펙 payload 를 대입한 귀결이 증상이다.
 
 ### 공통 분기점 — `isAsyncLaunchedPayload`
 
-네 도구의 운명은 한 술어가 가른다(`shared/subagent.ts`):
+`tool.call.completed` 에서 이 술어가 참이면 `markAsyncLaunched`(라이브 유지), 거짓이면
+`backgroundTasks.settled`(추적 해제)다(`turn-coordinator.ts:514-522`). 네 결과 중 `status` 가
+`async_launched` 인 것은 `Workflow` 하나다.
 
-```ts
-export function isAsyncLaunchedPayload(value: unknown): boolean {
-  return isRecord(value) && value.status === 'async_launched'
-}
-```
-
-`tool.call.completed` 에서 이 술어가 참이면 `markAsyncLaunched`(= 라이브 백그라운드 유지),
-거짓이면 `backgroundTasks.settled`(= 추적 해제 · 도구 호출 종료)다
-(`turn-coordinator.ts:514-522`). 스펙이 말하는 네 결과 중 **`status` 가
-`async_launched` 인 것은 `Workflow` 하나**다.
-
-| 도구 | 결과의 판별 필드 | 술어 결과 | 귀결 |
+| 도구 | 결과의 판별 필드 | 술어 | 귀결 |
 |---|---|---|---|
 | `Monitor` | `{ taskId, timeoutMs, persistent? }` — `status` 없음 | 거짓 | 즉시 추적 해제 |
 | `Workflow` | `{ status: 'async_launched', taskId, … }` | **참** | 라이브 등록 — `error` 동반 시에도 |
 | 분리 `Skill` | `{ …, background: true }` | 거짓 | 즉시 추적 해제 |
-| 원격 Agent | `{ status: 'remote_launched', taskId, sessionUrl, … }` | 거짓 | 즉시 추적 해제 + **완료로 표시** |
+| 원격 Agent | `{ status: 'remote_launched', taskId, sessionUrl, … }` | 거짓 | 해제 + **완료로 표시** |
 
-### F-15 `Monitor` — 감시가 도는데 추적에서 빠진다
-
-| 축 | 내용 |
-|---|---|
-| 지금 일어나는 일 | 결과에 `status` 가 없어 도구 반환 시 `backgroundTasks.settled(toolRunId)` 가 돈다. 감시는 CLI 안에서 계속 도는데 Orca 의 라이브 집합에서 사라진다 |
-| 연쇄 | 추적이 비면 `decidePostTurnStep` 이 `break` 로 갈 수 있다(`features/chat/post-turn.ts` 마지막 줄). listen 프레임이 닫히고 이후 감시 stdout 은 `unframed` 백로그로 쌓인다 — 유실은 아니지만 라이브 표시가 없다 |
-| 표시 | `toolRendererRegistry` 에 `Monitor` 등록이 없어 `KeyValueBody` 일반 카드로 떨어진다. 동사는 `toolVerbCategory` 의 `default` 인 "사용" 이다 |
-| 스펙 요구 | `command` 와 `ws` 중 정확히 하나. `persistent: true` 를 "CLI 종료 후에도 사는 서비스" 로 읽지 않는다. `task_type: 'local_bash'` 가 Bash 와 겹치므로 **원래 도구 이름을 보존**한다 |
-| 열리는 UX | 감시 카드 — 대상(명령 또는 WebSocket URL) · 경과 · 수신 이벤트 수 · 타임아웃 잔여 · 개별 중단. 감시가 도는 동안 listen 유지 |
-| 선행 조건 | F-01(`task_type`) — Bash 와 같은 `local_bash` 를 쓰므로 원래 도구 이름 없이는 구분할 수 없다 |
-
-### F-16 `Workflow` — 시작 실패를 라이브 실행으로 등록한다
-
-| 축 | 내용 |
-|---|---|
-| 지금 일어나는 일 ① | 결과가 `status: 'async_launched'` 라 **비-Agent 도구 중 유일하게** 라이브 백그라운드로 등록된다 |
-| 지금 일어나는 일 ② | 스펙: 구문 검사 실패 시 `async_launched` 와 `error` 가 **함께** 온다. Orca 는 `error` 를 보지 않으므로 **시작조차 안 한 실행을 라이브로 등록**한다. 정착 이벤트가 영영 오지 않아 listen 루프가 채널 사망까지 세션을 붙잡고, spark 라인의 "백그라운드 작업 1건" 이 고착된다 |
-| 지금 일어나는 일 ③ | 정착 시 `createSubagentSettlementEvents` 가 `{ summary: '' }` 를 `tool.call.completed` 로 덮어쓴다. `resultMap` 은 마지막 항목이 이기므로 `runId`·`transcriptDir`·`scriptPath` 가 지워진다 (F-03 과 같은 축) |
-| 지금 일어나는 일 ④ | 완료 통지 행은 뜨지만 `subagentTaskDescription` 이 `isAgentTaskName` 으로 조인해 **제목이 빈다**. 클릭하면 `openSubagentTask(toolRunId)` → `SubAgentTileContent` 가 그 id 를 못 찾아 목록으로 폴백한다 — **죽은 어포던스** |
-| 스펙 요구 | `error` 를 **먼저** 확인한다. `taskId`·`runId`·내부 에이전트 ID 를 별도 보존한다. 내부 에이전트 완료를 전체 Workflow 완료로 처리하지 않는다 |
-| 열리는 UX | Workflow 실행 카드 — 스크립트 이름 · `runId` · `transcriptDir` · 내부 에이전트 진행과 `blocked` · `resumeFromRunId` 재실행 |
-| 선행 조건 | 없음. 시작 오류 판정만으로도 고착 결함이 닫힌다 |
-
-### F-17 분리 실행 `Skill` — 백그라운드인데 완료로 본다
-
-| 축 | 내용 |
-|---|---|
-| 지금 일어나는 일 | `SkillToolOutput.background: true` 는 `async_launched` 가 아니므로 술어가 거짓이다. 스킬이 분리 실행으로 돌기 시작해도 도구 호출은 반환 즉시 종료로 그려지고 추적에서 빠진다 |
-| 스펙 요구 | 작업 이벤트와 연결한다. **Skill 결과에 없는 `taskId` 를 만들어 연결하지 않는다** |
-| 열리는 UX | 분리 실행 스킬의 진행·완료 통지. 도구 카드가 "백그라운드로 실행 중" 을 말한다 |
-| 선행 조건 | `task_started.tool_use_id` 로만 연결해야 한다 — id 를 합성하면 스펙 위반이다 |
-
-### F-18 원격 Agent — 띄우자마자 완료로 그린다
-
-| 축 | 내용 |
-|---|---|
-| 지금 일어나는 일 ① | `remote_launched` 는 `async_launched` 가 아니라 술어가 거짓이다 → `backgroundTasks.settled`. 원격 실행의 종료를 기다리지 않는다 |
-| 지금 일어나는 일 ② | 원격 실행은 `Agent` 도구라 `subagentTasksFromMessages` 에 **들어간다**. `deriveSubagentTaskStatus` 는 `result` 존재 + `isError` 아님 → **`completed`** 를 돌려준다. 우측 패널 타일이 원격 에이전트를 **즉시 완료**로 그리고, 런치 영수증이 답변 자리에 들어간다 |
-| 지금 일어나는 일 ③ | `sessionUrl` 을 읽는 코드가 없어 원격 세션으로 갈 링크가 화면에 없다 |
-| 스펙 요구 | 원격 링크·상태·출력·중단 범위를 실제로 확인한다. 로컬 종료 시 원격 결과를 임의 확정하지 않는다 |
-| 열리는 UX | 원격 실행 카드 — 세션 링크 · 원격 상태 · `outputFile` · 로컬 종료 시 "확인 불가" 표시 |
-| 선행 조건 | 술어를 `async_launched` 단일 리터럴에서 **런치 영수증 종류 판별**로 넓혀야 한다 |
-
-### F-19 `TaskOutput` / `TaskStop` — 유지가 맞다, 단 두 가지 사실
-
-| 축 | 내용 |
-|---|---|
-| 현행 결정 | ⛔ **의도적 미채택**(`claude-taskxxx-spec.md:111-124`). GUI 의 백그라운드 상태를 `TaskOutput` polling 에 의존시키지 않는다(0204 D-010·D-011). 호스트 제어는 `Query.stopTask(taskId)` 다 — 이 결정은 스펙과도 일치하므로 **유지**한다 |
-| 사실 ① | 두 이름이 `TASK_TOOL_NAMES` 에 있어 어댑터가 `structuredOutput` 을 실어 **영속**한다(`claude-map.ts:514-517`·`583`). 그런데 렌더 소비자는 `TASK_LIST_TOOL_NAMES` 4종뿐이라(`registry.ts` `task_list`) **소비처가 0** 이다 — 읽히지 않는 필드를 저장한다 |
-| 사실 ② | 모델이 `TaskStop` 을 부르면 `stoppedSubagents` 에는 들어가지 않는다. 정착은 `status:'stopped'` 로 오고, `task_notification.summary` 가 없으면 UI 가 폴백 문구 `chat.taskTile.stoppedReason`(`ko.ts:775`) = **"사용자에 의해 중단됨"** 을 쓴다. 실제로는 모델이 멈춘 것이라 행위자를 잘못 말한다 |
-| 열리는 UX | 사실 ②를 고치면 "모델이 중단함" 과 "사용자가 중단함" 이 갈린다. 사실 ①은 저장을 멈추거나 상세에서 보여주거나 둘 중 하나로 닫는다 |
-
-### G5 를 미룰 때의 비용
-
-| 항목 | 미뤘을 때 | 성격 |
+| ID | 대상 | 증상 |
 |---|---|---|
-| F-16 ② | 세션이 유휴로 돌아오지 못한다 | **고착 결함** — 도구가 있으면 오늘 재현된다 |
-| F-18 ② | 원격 실행이 즉시 완료로 보인다 | 오표시 |
-| F-15 · F-17 | 백그라운드 실행이 조용히 사라진다 | 누락 |
-| F-19 ② | 중단 행위자를 잘못 말한다 | 오표시 (경미) |
-| F-19 ① | 소비처 없는 필드를 영속한다 | 위생 |
+| F-15 | `Monitor` | 감시는 도는데 추적에서 빠진다. 렌더러 등록이 없어 일반 key-value 카드로 떨어진다. `task_type:'local_bash'` 가 셸과 겹쳐 F-01 이 선행이다 |
+| F-16 | `Workflow` | ① 유일한 비-Agent 라이브 등록 ② `error` 동반 시 시작 안 한 실행을 라이브로 등록해 세션이 유휴로 못 돌아온다 ③ 정착이 `runId`·`transcriptDir` 를 덮는다 ④ 통지 행 제목이 비고 클릭이 목록으로 폴백한다 |
+| F-17 | 분리 `Skill` | `background:true` 는 술어가 거짓이라 반환 즉시 종료로 그려진다 |
+| F-18 | 원격 Agent | `Agent` 도구라 타일에 들어가는데 `deriveSubagentTaskStatus` 가 `completed` 를 준다. `sessionUrl` 을 읽는 코드가 없다 |
+| F-19 | `TaskOutput`/`TaskStop` | 미채택 결정은 유지가 맞다. 단 ① `structuredOutput` 을 영속하는데 렌더 소비처가 0 ② 모델이 `TaskStop` 을 불러도 UI 폴백이 "사용자에 의해 중단됨"(`ko.ts:775`)이라 행위자를 잘못 말한다 |
 
-F-16 ②·F-18 ②·F-19 ②는 **새 화면 없이 판정 한 줄씩**으로 닫힌다. 새 카드(F-15·F-16 ①·F-17·F-18 ①)는
-그보다 크다 — 이 둘을 같은 항목으로 묶어 미루면 값싼 결함 수정까지 함께 미뤄진다.
+## 0.8 G6 — 제어·수명
 
-## G6 — 제어·수명
+| ID | 대상 | 현재 Orca | 판정 |
+|---|---|---|---|
+| F-20 | `stopTask(taskId)` · `backgroundTasks(toolUseId)` | 있음 (`stop-subagent.ts:55`) | **충족** — 회귀만 지킨다 |
+| F-21 | `perTaskStopAffordance` | 미설정 — 메인 Stop 이 백그라운드 Agent 도 중단 | **문구는 일치**(`ko.ts:590`). 켜면 "응답만 중지" 가 새로 가능해진다 |
+| F-22 | 결과 기다리기 / 대기 취소 UI | 없음 | 없음 |
 
-| ID | 대상 | 현재 Orca | 관측 근거 | 판정 |
-|---|---|---|---|---|
-| F-20 | `stopTask(taskId)` · `backgroundTasks(toolUseId)` | 있음 | `stop-subagent.ts:55`; 0212 | **충족** |
-| F-21 | `perTaskStopAffordance` | 미설정 — 메인 Stop 이 백그라운드 Agent 도 중단 | `rg perTaskStopAffordance app/src` → 0건; 문구는 `ko.ts:590` 이 그렇게 말한다 | **문구는 일치**. 옵션을 켜면 "응답만 중지"가 새로 가능해진다 |
-| F-22 | 결과 기다리기 / 대기 취소 UI | 없음 | — | 특정 작업의 종료를 구독하고 알림 받는 UI |
+## 0.9 G7 — 견고성
 
-## G7 — 견고성
+| ID | 대상 | 현재 Orca | 판정 |
+|---|---|---|---|
+| F-23 | 미지 스키마 원본 보존 | 드롭 (`claude-map.ts:747-749` `return []`) | 스트림은 안 끊기나 원본이 남지 않는다 |
+| F-24 | 중복 이벤트 | uuid 단위 방어 없음. 자료구조 멱등성 의존 | 현재 경로에서는 중복 통지가 나지 않는다 |
 
-| ID | 대상 | 현재 Orca | 관측 근거 | 판정 |
-|---|---|---|---|---|
-| F-23 | 미지 스키마 원본 보존(`UNKNOWN-SCHEMA`) | 드롭 | `claude-map.ts:747-749` `return []` | 스트림은 안 끊기나 원본이 남지 않는다 |
-| F-24 | 중복 이벤트(`DUPLICATE-EVENT`) | uuid 단위 방어 장치는 없고 자료구조 멱등성에 의존 | `background-tasks.ts:56-62`(재삭제 no-op), `turn-coordinator.ts:310-322`(관측 소멸 후 미부여) | 현재 경로에서는 중복 통지가 나지 않는다 |
-
-## 이미 충족하는 것 (회귀 금지)
+## 0.10 이미 충족하는 것 — 7개 handoff 공통 회귀 대상
 
 | 항목 | 근거 |
 |---|---|
@@ -246,24 +148,407 @@ F-16 ②·F-18 ②·F-19 ②는 **새 화면 없이 판정 한 줄씩**으로 �
 | 백그라운드 완료 통지 1회 | `turn-coordinator.ts:310-322`; `SubagentNoticeRow.tsx` |
 | `task_updated` 델타 병합 · `killed`↔`stopped` 동형 · `paused` 라이브 유지 | `claude-map.ts:256-309`; 0212 |
 | 레벨 신호 REPLACE + 첫 payload 기준선 | `background-tasks.ts:85-101` |
-| 메인 `result` 이후에도 프레임 소비 유지 | `post-turn.ts`; `chat-turn/post-turn.ts` |
+| 메인 `result` 이후에도 프레임 소비 유지 | `features/chat/post-turn.ts` |
 | interrupt 영수증 `still_queued` 교집합 화해 | `interrupt-reconcile.ts` |
 | 서브에이전트 행의 모델·현재 도구·도구수·경과 | `AgentTaskRow.tsx:55-77` |
+| listening 중 낙관 커밋 금지(커밋 순서 보존) | `sendAdmission.ts:1-23`; 0153 |
 
 ---
 
-## 제보 2건의 원인 귀속
+# Part I — Product & UX Contract (범위 = G1)
 
-| 제보 | 원인 | 항목 |
+## 1. Context / 목표
+
+- 해결하려는 문제: 백그라운드로 도는 셸 명령(PowerShell)이 Orca 에서 **어디에도 실행 중으로 서지
+  않는다**. 도구 카드는 완료로 그려지고, 백그라운드 타일은 그 항목을 갖지 않으며, 추적이 해제돼
+  세션이 완료를 기다리지 않는다.
+- 완료 후 달라지는 것: 백그라운드 셸 작업이 `백그라운드 작업` 타일에 **명령·상태·경과를 가진
+  카드**로 서고, 종료될 때까지 세션이 그것을 기다리며, 종료 정착이 이미 받은 stdout 을 지우지
+  않는다.
+- 성공을 사용자 관점에서 한 문장으로: 백그라운드로 넘어간 vitest 실행이 화면 어딘가에 "아직 돌고
+  있다" 고 서 있다.
+
+## 2. 사용자 의도 / 요구 출처
+
+| 구분 | 내용 | 출처 |
 |---|---|---|
-| ① spark 라인이 "백그라운드 작업 N건"만 말한다 | 건수 외 진행 신호가 없고(F-05) 클릭 진입점이 없으며(F-07) 셸 작업은 상세 화면 자체가 없다(F-02) | F-02·F-05·F-07 |
-| ① PowerShell 이 언제 끝나는지 모른다 | 셸 결과 필드 미판독(F-03) · `tool_progress` 경과 미처리(F-04) | F-03·F-04 |
-| ② 전송이 steer push 로 보인다 | `shouldQueueAsPending` 이 `listening`(transport ≠ idle)만 보고 예약 경로로 보낸다 | `sendAdmission.ts:14-23` |
-| ② 어시스턴트 턴이 끝나 보이지 않는다 | `sessionResponding` 이 `listening && transport !== 'ready'` 동안 `PendingAssistant`(스피너)를 유지한다 | `chatStore.ts:1762-1766`; `ChatTile.tsx:60` |
+| 명시 요구 | "백그라운드 기능에서 ux적인 통신이 충실하게 구현됐는지 점검/진단하고 부족한 부분이 발견되면 보완한다" | 라이브 세션 2026-09-11 |
+| 명시 요구 | "vitest같은 긴 작업의 경우, powershell이 언제끝나는지 알수없어 고장인지 정상동작인지 판단이 어렵다" | 같은 턴 |
+| 명시 요구 | "g7까지 핸드오프 문서를 분할하여 작성하라" | 같은 턴 |
+| 추론 의도 | 진행 *표시*(경과·요약)보다 **존재 표시**가 먼저다 — 없는 항목에 경과를 붙일 수 없다 | 설계자 추론. 0231 이 표시를 잇는다 |
+| 참조 입력 | 첨부 스펙 §1 Bash · §2 이벤트별 처리 규칙 · §3 `BASH-EXPLICIT`·`BASH-TIMEOUT`·`BASH-STDERR` | 사용자 첨부 |
+
+## 3. Decision Ledger
+
+| ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
+|---|---|---|---|---|---|
+| D-001 | 백그라운드 진행 정보는 **spark 라인 한 줄 요약 + 클릭 시 상세**로 노출한다 | 사용자 선택 | 사용자 턴 | ACTIVE (0231 이 구현) | — |
+| D-002 | 백그라운드 대기 구간의 사용자 전송은 **정식 사용자 턴**으로 보이고, 앞의 어시스턴트 턴은 "백그라운드 작업이 끝나면 답변하겠다"는 **종료된 턴**으로 보인다 | 사용자 원문: "원하큰건 정식사용자 턴인데 클로드가 백그라운드 작업이 끝나면 답변하겠다고 턴을 종료하는 상황이어야 한다" | 사용자 턴 | ACTIVE (0231 이 구현) | — |
+| D-003 | 범위는 **G1~G7 전부**이며 7개 handoff(0230~0236)로 분할한다 | 사용자 원문: "g7까지 핸드오프 문서를 분할하여 작성하라" | 사용자 턴 | ACTIVE | D-003(OPEN) 를 대체 |
+| D-004 | 작업 종류(`taskKind`)의 1순위 근거는 **원래 도구 이름**, 2순위가 `task_type` 이다 | 스펙: "원래 이름 `PowerShell` 을 보존한다". `Monitor` 와 셸이 `local_bash` 를 공유해 `task_type` 단독으로는 갈리지 않는다 | 스펙 §1 Monitor·PowerShell | ACTIVE | — |
+| D-005 | `subagent.task` **이벤트 이름은 바꾸지 않는다**. `taskKind` 필드를 더한다 | 개명은 영속 파트·reducer·writer·테스트에 걸쳐 blast radius 가 크고 이번 목표(표시 정확성)와 무관하다. 이름 부채는 주석으로 남긴다 | 설계자 판단 | ACTIVE | — |
+| D-006 | 정착 합성 `tool.call.completed`(부모 결과 덮어쓰기)는 **`taskKind==='agent'` 에만** 낸다 | 셸은 자기 `tool_result` 가 이미 권위다. 합성 결과가 그것을 덮으면 명령 출력이 사라진다 | 코드 실측 (`resultMap` 마지막 승) | ACTIVE | — |
+| D-007 | "아직 실행 중" 판정을 `async_launched` 단일 리터럴에서 **런치 영수증 술어**로 넓힌다 | 셸 백그라운드 영수증은 `status` 가 아니라 `backgroundTaskId` 로 온다 | 스펙 §1 Bash 결과 | ACTIVE | — |
+
+### 갱신 메모
+
+- 새로 추가된 결정: D-004 · D-005 · D-006 · D-007.
+- 변경된 결정: D-003 이 `OPEN` → `ACTIVE`(사용자가 전 범위 분할을 지시).
+- 이번 턴에 언급되지 않았으나 유지: D-001 · D-002 (0231 이 구현한다).
+- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-004 ↔ AC2(도구 이름 우선), D-005 ↔ AC1(같은 이벤트에
+  필드 추가), D-006 ↔ AC6(셸은 합성 결과 없음), D-007 ↔ AC4(셸 영수증도 추적 유지). D-001·D-002
+  는 이 handoff 의 AC 를 갖지 않는다 — 0231 소관이며 여기서 반대 방향을 요구하는 AC 도 없다.
+
+## 4. 요구 비판적 검토
+
+| 질문 | 판단 | 근거 |
+|---|---|---|
+| 요구가 증상이 아니라 원인을 겨냥하는가 | 타당 | "언제 끝나는지 모른다" 의 1차 원인은 표시가 없어서가 아니라 **추적이 해제돼 세션이 기다리지 않아서**다(F-03 ②) |
+| 이미 기존 코드가 충족하는가 | 아니오 | `rg backgroundTaskId app/src` → 0건. `parts.ts:319` 가 Agent 로 좁힌다 |
+| 더 작은 해법이 있는가 | 아니오 | 표시만 고치면 추적 해제가 남아 카드가 뜨자마자 사라진다. 추적·표시·정착 셋이 한 덩어리다 |
+| 선행 자료의 주장을 코드와 대조했는가 | 예 | `claude-taskxxx-spec.md:137` 이 `task_type` 을 ❌ 로 적었고 코드와 일치 |
+| ACTIVE 결정·기존 채택 결정과 충돌하는가 | 아니오 | 0143 의 `isAsyncLaunched` 는 **에이전트** 판별이 목적이다. D-007 은 그 술어를 대체하지 않고 상위에 런치 영수증 판정을 둔다 |
+
+- 사용자에게 올릴 결정: 없음.
+- 코드 조사로 닫은 사실: §0.3 · §8.
+
+## 5. 동작 / 사용자 흐름
+
+```text
+[모델이 PowerShell 을 run_in_background 로 실행하거나 타임아웃으로 전환됨]
+  → 도구 카드: "백그라운드에서 실행 중" (부분 출력 유지)
+  → 백그라운드 작업 타일: 셸 카드 1건 (명령 · 실행 중 · 경과 · 중단)
+  → 세션: 종료를 기다린다 (listen 유지)
+  → task_notification 도착
+      → 타일 카드: 완료 / 실패 / 중단
+      → 도구 카드: 상태만 갱신, 기존 stdout 보존
+      ↘ 중단 클릭 → '중단 중' → 정착 → '중단됨'
+```
+
+### 상태와 전이
+
+| 시작 상태/이벤트 | 시스템 동작 | 사용자에게 보이는 결과 |
+|---|---|---|
+| 셸 `tool_result` 에 `backgroundTaskId` 존재 | 런치 영수증으로 판정 → 추적 유지 | 도구 카드가 "백그라운드에서 실행 중" |
+| 같은 결과에 `timedOutAfterMs` 존재 | 전환 사유 보존 | 카드가 "타임아웃으로 백그라운드 전환" |
+| `task_started` (`task_type`·도구이름) | `taskKind` 확정 | 타일에 종류 라벨이 붙은 카드 |
+| `task_notification` (`completed`/`failed`/`stopped`) | 정착. **부모 합성 결과 없음** | 타일 카드 상태 변경. 도구 카드 stdout 유지 |
+| 사용자 중단 클릭 | `stopTask(taskId)` | '중단 중' → 정착 후 '중단됨' |
+| 채널 사망 | 기존 합성 정착 경로 그대로 | 카드가 실패로 정착 |
+
+### 파생 UX / 엣지케이스
+
+- empty: 셸 백그라운드가 없으면 타일 문구는 현행 유지.
+- foreground 셸: `backgroundTaskId` 가 없으므로 타일에 서지 않는다 — 현행과 같다.
+- stderr 만 있는 성공: 실패로 보지 않는다(스펙 `BASH-STDERR`).
+- 재로드: `structuredOutput` 투영이 영속되므로 카드가 복원된다.
+- a11y: 셸 카드는 기존 카드와 같은 `role="button"` · 키보드 계약을 쓴다.
+
+## 6. 범위 / 비범위
+
+- **범위**: `taskKind` 정규화 · 런치 영수증 술어 확장 · 셸 결과 필드 투영 · 백그라운드 타일의 셸
+  카드 · 정착이 셸 결과를 덮지 않게 · 완료 통지 행의 제목 조인 확장.
+- **비범위**: 경과·요약·배지 의미·클릭 진입(0231) · `output_file` 전체 출력(0232) · `ambient`·
+  스냅샷 정확성(0233) · Monitor/Workflow/원격(0234) · `perTaskStopAffordance`(0235) · 미지 스키마
+  보존(0236) · SDK 핀 상향.
+
+| 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
+|---|---|---|
+| `taskKind` 어휘(`agent`·`shell`·`monitor`·`workflow`·`unknown`) | **예 — 공개 IPC 계약** | 지금 확정한다. 0234 가 `monitor`·`workflow` 를 소비만 한다 |
+| `subagent.task` 이벤트 개명 | 아니오 | D-005 로 보류 |
+| `structuredOutput` 투영 형태 | **예 — 영속 데이터 포맷** | 지금 확정한다(§10 EP-04) |
+
+## 7. Requirements / Acceptance — `R ↔ AT`
+
+| R | AT | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-01 | AT-01 | `task_started` 가 셸 도구의 `tool_use_id` 를 실으면 정규화 이벤트의 `taskKind` 가 `shell` 이다 | UT: `claudeToNormalized` 에 `task_started`(`task_type:'local_bash'`, 앞선 `PowerShell` tool_use) 를 넣고 `taskKind==='shell'` 단언 | SDK system 메시지 → `claude-map` → `subagent.task` |
+| R-01 | AT-02 | 도구 이름이 `Agent` 면 `task_type` 이 `local_bash` 여도 `taskKind` 가 `agent` 다 | UT: 같은 함수에 도구이름/`task_type` 불일치 입력 → `agent` | 같음 (D-004 우선순위) |
+| R-02 | AT-03 | 셸 `tool_result` 에 `backgroundTaskId` 가 있으면 그 도구 호출은 **추적에서 해제되지 않는다** | UT: `turn-coordinator` 이벤트 루프에 셸 런치 영수증 주입 → `backgroundTasks.count()` 가 감소하지 않음 | `tool_result` → `tool.call.completed` → 트래커 |
+| R-02 | AT-04 | 같은 셸 작업의 `task_notification` 이 오면 그때 추적이 해제된다 | UT: 위 상태에서 `task_notification` 주입 → `count()` 가 0 | 같음 |
+| R-03 | AT-05 | 셸 백그라운드 작업이 `백그라운드 작업` 타일에 카드로 선다 | 순수 렌더 테스트: 셸 `tool_call`+런치 영수증 `tool_result` 를 담은 `messages` → `renderToStaticMarkup` 에 명령 문자열 포함 | transcript parts → `backgroundTasksFromMessages` → `SubAgentTaskList` |
+| R-03 | AT-06 | 그 카드는 종류 라벨로 에이전트 카드와 구분된다 | 같은 테스트에서 셸 라벨 존재 + 에이전트 라벨 부재 | 같음 |
+| R-04 | AT-07 | 셸 작업의 종료 정착이 **부모 `tool.call.completed` 를 만들지 않는다** | UT: `createSubagentSettlementEvents` 에 `taskKind:'shell'` 정착 입력 → 부모 id 의 이벤트 0건, child 정착은 유지 | `subagent.task(settled)` → `settleSubagentTask` |
+| R-04 | AT-08 | 정착 후에도 셸 도구 카드의 stdout 이 보존된다 | 순수 렌더 테스트: 런치 영수증 → 정착 순서로 접은 뒤 stdout 문자열 존재 | parts fold → `BashBody` |
+| R-05 | AT-09 | `timedOutAfterMs` 가 있으면 카드가 타임아웃 전환을 말한다 | 순수 렌더 테스트: 해당 문구 키 존재 | 결과 투영 → 카드 |
+| R-05 | AT-10 | `backgroundTaskId` 가 없는 셸 결과는 현행대로 완료로 그려지고 타일에 서지 않는다 | 같은 테스트의 음성 대조 | 같음 |
+| R-06 | AT-11 | 세션을 다시 열어도 셸 백그라운드 카드가 복원된다 | UT: 영속 파트(`structuredOutput` 투영)만으로 `backgroundTasksFromMessages` 가 항목을 만든다 | DB 파트 → reducer → fold |
+| R-07 | AT-12 | 완료 통지 행이 셸 작업의 설명을 조인한다 | 순수 렌더 테스트: 셸 toolRunId 통지 → 명령 문자열이 행에 있다 | `subagent_notice` 파트 → `SubagentNoticeRow` |
+
+### AC 검증 주의사항
+
+- 기존 테스트 재사용: `app/src/main/adapters/claude-map.test.ts` 와
+  `app/src/renderer/src/features/chat/components/rightpanel/subagentWiring.render.test.ts` 가
+  존재한다(파일 존재 확인 완료). **케이스는 신설**한다 — 셸 task 케이스는 현재 0건이다.
+- 사람 실기 항목: 없음. 전부 순수 테스트로 내린다 — 목록 포함 여부·상태 파생은 로직이다.
+- 총량/0건 기준: AT-07 의 "부모 이벤트 0건" 은 `createSubagentSettlementEvents` 반환 배열에서
+  `toolRunId === 부모 id` 인 항목만 센다. child 정착 이벤트는 분모에서 제외한다.
+- 음성 대조: AT-10 이 AT-05 의 방향을 잡는다 — 영수증이 없으면 카드가 서지 **않아야** 한다.
+
+## 7-A. V / Trace Matrix
+
+- V mode 판정: **Baseline V**. 상속할 명시 V 가 없다(0212 는 TaskXXX 표면 handoff 로 V 를 남기지
+  않았다).
+- 기준 V 상속 근거: 없음.
+- 변경이 시작되는 수준: `R`.
+
+### Node registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 |
+|---|---|---|---|---|
+| R-01 | R | §7 작업 종류 식별 | NEW | — |
+| R-02 | R | §7 실행 중 유지 | NEW | — |
+| R-03 | R | §7 타일 표시 | NEW | — |
+| R-04 | R | §7 결과 보존 | NEW | — |
+| R-05 | R | §7 전환 사유 표시 | NEW | — |
+| R-06 | R | §7 재로드 복원 | NEW | — |
+| R-07 | R | §7 통지 행 제목 | NEW | — |
+| SD-01 | SD | §5·§13 셸 작업의 시작→정착 수명주기 | NEW | — |
+| AR-01 | AR | §10 `subagent.task.taskKind` 계약 | NEW | — |
+| AR-02 | AR | §10 런치 영수증 술어 | NEW | — |
+| AR-03 | AR | §10 셸 결과 `structuredOutput` 투영 | NEW | — |
+| AR-04 | AR | §10 정착 이벤트의 kind 게이트 | NEW | — |
+| MD-01 | MD | §11 `taskKindFrom(toolName, taskType)` 순수 함수 | NEW | — |
+| MD-02 | MD | §11 `backgroundTasksFromMessages` fold | NEW | — |
+
+### Pair registry
+
+| Pair | left ↔ right | requiredness | production path | 직접 oracle | 적대 증거 | §10 강제 지점 |
+|---|---|---|---|---|---|---|
+| VP-01 | R-01 ↔ AT-01·AT-02 | REQUIRED | SDK `task_started` → `claudeToNormalized` → `subagent.task.taskKind` | 정규화 결과의 `taskKind` 값 | not selected — 값 단언이 직접적 | EP-01·EP-02 (2) |
+| VP-02 | R-02 ↔ AT-03·AT-04 | REQUIRED | `tool_result` → `tool.call.completed` → `BackgroundTaskTracker` | `count()` 관측 | required — 술어를 좁히는 변이(영수증 무시)를 심어 AT-03 이 red 인지 확인 | EP-03 (1) |
+| VP-03 | R-03·R-06 ↔ AT-05·AT-06·AT-11 | REQUIRED | parts → `backgroundTasksFromMessages` → `SubAgentTaskList` | 렌더 문자열 | required — 셸 필터 제거 변이로 AT-06 이 red 인지 | EP-04·EP-05 (2) |
+| VP-04 | R-04 ↔ AT-07·AT-08 | REQUIRED | `subagent.task(settled)` → `createSubagentSettlementEvents` → parts | 반환 배열의 부모 항목 수 · fold 후 stdout | required — kind 게이트 제거 변이로 AT-08 이 red 인지 | EP-06 (1) |
+| VP-05 | R-05 ↔ AT-09·AT-10 | REQUIRED | `tool_use_result` → 투영 → 카드 | 렌더 문자열 · 음성 대조 | not selected — AT-10 이 이미 음성 축이다 | EP-04 (1) |
+| VP-06 | R-07 ↔ AT-12 | REQUIRED | `subagent_notice` 파트 → `SubagentNoticeRow` | 렌더 문자열 | not selected | EP-07 (1) |
+| VP-07 | SD-01 ↔ ST-01 | REQUIRED | 시작→영수증→진행→정착 전 구간을 fake 채널로 1회 | 각 단계 후 트래커·parts 상태 | required — 정착 누락 변이로 red | EP-03·EP-06 (2) |
+| VP-08 | AR-01 ↔ IT-01 | REQUIRED | 어댑터 → IPC → store 흡수 | `subagentMeta[id].taskKind` | not selected | EP-01 (1) |
+| VP-09 | AR-03 ↔ IT-02 | REQUIRED | 어댑터 투영 → writer 영속 → 재로드 fold | 영속 파트의 필드 존재 | required — 투영 누락 변이로 AT-11 red | EP-04 (1) |
+| VP-10 | MD-01 ↔ UT-01 | REQUIRED | 순수 함수 단독 | 입력 조합별 반환값 | required — 우선순위를 뒤집는 변이로 AT-02 red | EP-02 (1) |
+| VP-11 | MD-02 ↔ UT-02 | REQUIRED | 순수 fold 단독 | 항목 수·필드 | not selected | EP-05 (1) |
+| VP-12 | INHERITED: 서브에이전트 카드·통지 1회 (§0.10) | REGRESSION | 기존 경로 그대로 | 기존 테스트 green 유지 | not selected | EP-06 (1) |
+
+### 현재 변경의 운영 gate
+
+| Gate | 적용 이유 | 증거 / 명령 | 실패 범위 |
+|---|---|---|---|
+| subtree unit (`app`) | `app/src/main/adapters` · `app/src/renderer/src/features/chat` 를 고친다 | `pnpm -C app test` | 이번 변경이 유발한 red 만 blocking |
+| typecheck | 새 IPC 필드와 새 순수 모듈 | `pnpm -C app typecheck` | 전건 blocking |
+| lint (boundaries) | main 레이어 DAG 와 renderer 4-layer 를 건드린다 | `pnpm -C app lint` | 전건 blocking |
+| build | electron-vite 번들에 새 모듈이 들어간다 | `pnpm -C app build` | 전건 blocking |
+| doc inventory | IPC 필드를 늘린다 | `node app/scripts/check-doc-inventory.mjs` | 전건 blocking |
 
 ---
 
-## 다음 단계
+# Part II — Technical Design
 
-D-003(범위)이 정해지면 Part I §5~§7-A(동작 흐름 · 범위 · AC · V)와 Part II 나머지(아키텍처 ·
-모듈 · §10 강제 지점 · 테스트)를 작성하고 상태를 `READY` 로 올린다.
+## 8. Research — 현재 코드와 계약
+
+| 발견 / 제약 | 근거 |
+|---|---|
+| `task_*` 정규화는 `tool_use_id` 만 요구하고 종류를 보지 않는다 | `app/src/main/adapters/claude-map.ts:118-176` |
+| 런치 영수증 판정이 `status==='async_launched'` 리터럴 하나다 | `app/src/shared/subagent.ts` |
+| 영수증이 아니면 `tool.call.completed` 가 추적을 해제한다 | `app/src/main/features/chat/turn-coordinator.ts:514-522` |
+| 정착이 부모 `tool.call.completed` 를 합성한다 | `app/src/main/features/chat/subagent-settlement.ts:64-82` |
+| 같은 `toolRunId` 의 두 번째 `tool_result` 가 첫 번째를 이긴다 | `app/src/renderer/src/features/chat/lib/parts.ts:231-246` (`resultMap`) |
+| 백그라운드 목록 fold 가 Agent 이름으로 좁힌다 | `app/src/renderer/src/features/chat/lib/parts.ts:319` |
+| 통지 행 제목 조인도 Agent 이름으로 좁힌다 | `app/src/renderer/src/features/chat/lib/parts.ts:283` |
+| `structuredOutput` 은 영속되고 재로드에 복원된다 | `app/src/main/features/history/writer.ts:395`; `chatReducer.ts:962` |
+| 편집 도구가 raw 대신 **투영**을 싣는 선례가 있다 | `claude-map.ts:575-586` (`{ structuredPatch }`, 0228 D-007) |
+| 셸 도구 이름은 `PowerShell` 이다. `Bash` 는 거부 목록에 있다 | `claude.ts:432`; `risky-tools.ts:8` |
+
+### 전수 조사
+
+| 대상 | 검색 | N | 의미 |
+|---|---|---:|---|
+| `isAsyncLaunchedPayload` 호출부 | `rg "isAsyncLaunchedPayload" app/src` | 3 | `subagent.ts` 정의 · `turn-coordinator.ts` · `parts.ts` — 술어를 넓히면 세 곳이 함께 따라간다 |
+| `isAgentTaskName` 호출부 | `rg "isAgentTaskName" app/src` | 4 | `parts.ts` 정의 + `parts.ts:283`·`parts.ts:319` + `registry.ts` — 타일·통지·렌더 세 소비처 |
+| `subagent.task` 이벤트 소비처 | `rg "'subagent.task'" app/src` | 다수 | main: `turn-coordinator`·`settle`·`subagent-settlement`. renderer: `chatStore.ts:588` |
+| `task_type` 판독 | `rg "task_type" app/src` | 0 | 신설 |
+| `backgroundTaskId` 판독 | `rg "backgroundTaskId" app/src` | 0 | 신설 |
+
+> 위 `N` 은 구현 턴에 **다시 센다**. 여기 값은 설계 시점 관측이며, 구현자는 같은 명령으로
+> 재측정해 §10 강제 지점 수와 대조한다.
+
+### 수치 / 전칭 표현 검산
+
+- "모든 `task_*` 이 서브에이전트로 취급된다": `mapTaskSystem` 에 종류 분기가 없음을 함수 전문
+  (118-176)으로 확인. 반례 없음.
+- "`Workflow` 만 `async_launched` 를 돌려준다": 스펙 기준의 주장이며 **코드 관측이 아니다**.
+  0234 가 실제 로그로 확인한다.
+- 문서 앵커 확인: `docs/claude-taskxxx-spec.md` 의 `§4.1`(130행) · `§4.3`(152행) 존재.
+
+## 9. Architecture / Data & Control Flow — AS-IS → TO-BE
+
+### AS-IS
+
+- 관련 V node: `SD-01`, `AR-01`~`AR-04`.
+- 현재 책임 소유자: `claude-map.mapTaskSystem`(정규화) · `BackgroundTaskTracker`(라이브 집합) ·
+  `subagent-settlement`(정착) · `parts.subagentTasksFromMessages`(표시 fold).
+- 문제의 직접 원인: 네 소유자가 모두 "task = 서브에이전트" 를 전제한다. 종류를 나르는 필드가
+  계약에 없다.
+
+```text
+SDK task_started(tool_use_id)
+  → mapTaskSystem            (종류 미판정)
+  → subagent.task            (taskKind 없음)
+  → BackgroundTaskTracker    (전부 동일 취급)
+  → parts fold               (Agent 이름으로 걸러 셸은 탈락)
+
+셸 tool_result(backgroundTaskId)
+  → isAsyncLaunchedPayload = false
+  → backgroundTasks.settled  (아직 도는데 추적 해제)
+
+task_notification(셸)
+  → createSubagentSettlementEvents
+  → tool.call.completed { summary:'' }
+  → resultMap 마지막 승       (stdout 소멸)
+```
+
+### TO-BE
+
+- 관련 V node: 같음.
+- 변경 후 책임 소유자: `taskKindFrom`(신설 순수 모듈)이 종류의 SSOT. 나머지 넷은 그 값을 **읽기만**
+  한다.
+- 유지하는 기존 메커니즘: 트래커의 레벨 신호 REPLACE · 완료 통지 1회 게이팅 · `stopTask` 수명주기.
+- 대체하는 메커니즘: `isAsyncLaunchedPayload` 단독 판정 → `readLaunchReceipt` 로 감싼다(기존 함수는
+  에이전트 판별 용도로 남는다).
+
+```text
+SDK task_started(tool_use_id, task_type)
+  → mapTaskSystem + ctx.toolNameByRunId
+  → taskKindFrom(toolName, task_type)     ← SSOT
+  → subagent.task { taskKind }
+  → BackgroundTaskTracker (kind 보존)
+  → backgroundTasksFromMessages           (kind 별 카드)
+
+셸 tool_result(backgroundTaskId)
+  → readLaunchReceipt → { kind:'shell', taskId }
+  → markAsyncLaunched 상당 (추적 유지)
+  → structuredOutput: { shellBackground:{…} }  → 영속
+
+task_notification(셸)
+  → createSubagentSettlementEvents(taskKind)
+  → 부모 이벤트 없음 (D-006)               → stdout 보존
+  → 타일 카드만 상태 전이
+```
+
+### AS-IS → TO-BE Delta
+
+| 비교 축 | AS-IS | TO-BE | 변경 이유 | V / 연결 |
+|---|---|---|---|---|
+| 책임/소유권 | 종류 개념 없음 | `taskKindFrom` 단일 소유 | 네 소비처가 각자 추측하면 갈라진다 | MD-01 / VP-10 · `shared/task-kind.ts` |
+| data flow | `subagent.task` 가 종류를 안 나른다 | `taskKind` 필드 추가 | 표시·정착·추적이 같은 값을 본다 | AR-01 / VP-01·VP-08 |
+| state/contract | 영수증 = `async_launched` 하나 | 런치 영수증 union | 셸 영수증은 `status` 가 없다 | AR-02 / VP-02 |
+| 영속 | 셸 결과 투영 없음 | `structuredOutput.shellBackground` | 재로드 복원 | AR-03 / VP-09 |
+| error/lifecycle | 정착이 결과를 덮는다 | kind 게이트로 부모 이벤트 생략 | 출력 소멸 방지 | AR-04 / VP-04 |
+| test seam | 없음 | 순수 `task-kind` · 순수 fold | electron 비의존 | MD-01·MD-02 / VP-10·VP-11 |
+
+### 핵심 책임 분리
+
+| 모듈/레이어 | 책임 | 입력/출력 | 누가 import |
+|---|---|---|---|
+| `app/src/shared/task-kind.ts` (신설, L0) | `taskKindFrom` · `readLaunchReceipt` · `TaskKind` 타입 | (도구이름, `task_type`) → kind · `tool_use_result` → 영수증 \| undefined | main 어댑터 · main 트래커 · renderer parts |
+| `claude-map.ts` | `ctx.toolNameByRunId` 유지 · `taskKind` 부착 · 셸 투영 | SDK 메시지 → `NormalizedEvent[]` | 어댑터 내부 |
+| `subagent-settlement.ts` | kind 게이트 | 정착 이벤트 → `tool.call.completed[]` | `turn-coordinator` |
+| `parts.ts` | `backgroundTasksFromMessages` | `Message[]` → 카드 모델 | 타일 · 통지 행 |
+
+## 10. 계약 / 타입 / 강제 지점
+
+| EP | V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 | 실패 의미 |
+|---|---|---|---|---|---|---|
+| EP-01 | AR-01 / VP-01·VP-08 | `subagent.task.taskKind?: TaskKind` | `shared/ipc.ts` | 어댑터가 부착, store 가 흡수 | 정규화 시점 | 소비처가 종류를 모른다 → 셸이 다시 에이전트로 보인다 |
+| EP-02 | MD-01 / VP-01·VP-10 | 종류 판정 우선순위 = 도구이름 > `task_type` > `unknown` | `shared/task-kind.ts` | `taskKindFrom` | 정규화 시점 | Monitor 와 셸이 뒤섞인다(둘 다 `local_bash`) |
+| EP-03 | AR-02 / VP-02·VP-07 | 런치 영수증 = `async_launched` **또는** `backgroundTaskId` 보유 | `shared/task-kind.ts` | `turn-coordinator` 의 `tool.call.completed` 분기 | 도구 결과 도착 | 백그라운드 셸이 추적에서 빠져 세션이 기다리지 않는다 |
+| EP-04 | AR-03 / VP-05·VP-09 | `structuredOutput = { shellBackground: { taskId, timedOutAfterMs?, persistedOutputPath?, rawOutputPath? } }` — **raw payload 를 싣지 않는다** | `claude-map.ts` | 어댑터 | `tool_result` 매핑 | raw 를 실으면 stdout 이 두 번 저장된다 |
+| EP-05 | MD-02 / VP-03·VP-11 | 백그라운드 목록의 포함 술어 = 에이전트 이름 **또는** `shellBackground` 보유 | `parts.ts` | `backgroundTasksFromMessages` | 렌더 fold | 셸 카드가 안 뜨거나 foreground 셸까지 뜬다 |
+| EP-06 | AR-04 / VP-04·VP-07·VP-12 | 부모 합성 `tool.call.completed` 는 `taskKind==='agent'` 에만 | `subagent-settlement.ts` | 정착 빌더 | `task_notification` 도착 | 셸 stdout 이 `{summary:''}` 로 덮인다 |
+| EP-07 | R-07 / VP-06 | 통지 행 제목 조인 술어 = 백그라운드 목록과 **같은 술어** | `parts.ts` | `subagentTaskDescription` 개칭분 | 통지 렌더 | 셸 통지 행의 제목이 빈다 |
+
+- 같은 규칙이 여러 레이어에 있는 곳: EP-05 와 EP-07 이 **같은 포함 술어**를 쓴다. `parts.ts` 가
+  하나의 `isBackgroundTaskCall(call)` 를 export 하고 두 소비처가 그것을 부른다 — 술어를 복붙하지
+  않는다.
+- `실패 의미` 에 "다른 게이트가 막는다" 를 적은 행: 없음.
+- 선택적 필드 의미: `taskKind` **미지정 = 판정 불가**(구형 CLI). `unknown` 과 다르다 — 전자는
+  이벤트에 키가 없고, 후자는 종류를 봤지만 어휘에 없다. 소비처는 둘 다 "일반 작업 카드" 로
+  그리되 원본을 버리지 않는다.
+- 외부 SDK 경계: `tool_use_result` 는 `unknown` 이다. `readLaunchReceipt` 가 `isRecord` 가드 뒤에
+  필드를 읽고, 타입이 어긋나면 `undefined` 를 돌려준다(거짓 영수증보다 미판정).
+
+## 11. 구현 설계
+
+| 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
+|---|---|---|---|
+| `app/src/shared/task-kind.ts` | 신설 L0 | `TaskKind` · `taskKindFrom` · `readLaunchReceipt` · `SHELL_TOOL_NAMES` | 순수 단위 |
+| `app/src/shared/ipc.ts` | 계약 | `subagent.task` 에 `taskKind?` 추가 | 타입 |
+| `app/src/main/adapters/claude-map.ts` | 정규화 | `ctx.toolNameByRunId`(경계 도구만) · `mapTaskSystem` 에 kind 부착 · 셸 `structuredOutput` 투영 | 순수 단위(기존 `claude-map.test.ts`) |
+| `app/src/main/features/chat/turn-coordinator.ts` | 추적 | `tool.call.completed` 분기를 `readLaunchReceipt` 로 교체 | 단위(기존 `turn-coordinator.test.ts`) |
+| `app/src/main/features/chat/background-tasks.ts` | 추적 | kind 보존(표시용, 판정은 안 바꾼다) | 단위 |
+| `app/src/main/features/chat/subagent-settlement.ts` | 정착 | kind 게이트 | 순수 단위 |
+| `app/src/renderer/src/features/chat/lib/parts.ts` | fold | `isBackgroundTaskCall` · `backgroundTasksFromMessages` · 제목 조인 확장 | 순수 단위 |
+| `app/src/renderer/src/features/chat/components/rightpanel/SubAgentTileContent.tsx` | 표시 | 셸 카드 분기 | `renderToStaticMarkup` |
+| `app/src/renderer/src/shared/i18n/resources/{ko,en}.ts` | 문구 | 셸 카드 라벨 · 타임아웃 전환 문구 | — |
+| `docs/claude-taskxxx-spec.md` | 해설 미러 | `task_type` ❌ → ✅, Bash 결과 필드 행 추가 | — |
+| `docs/IPC_CONTRACT.md` | 계약 | `subagent.task.taskKind` | — |
+
+### 테스트 가능성
+
+- electron 의존 분리: `task-kind.ts` 는 L0(런타임 의존 0)라 main·renderer 양쪽 테스트에서 직접
+  import 한다 — `shared/subagent.ts` 의 선례와 같은 자리다.
+- 기존 메커니즘 재사용 적합성: `structuredOutput` 투영은 0228 의 `{ structuredPatch }` 와 같은
+  지점·같은 게이트 방식이다. 새 영속 채널을 만들지 않는다.
+- 순서 관측: VP-07 은 fake 채널에 이벤트를 순서대로 넣고 각 단계 후 트래커·parts 를 관측한다.
+
+## 12. End-to-end 영향
+
+```text
+SDK system/tool_result
+  → claude-map (taskKind · shellBackground 투영)
+  → NormalizedEvent subagent.task / tool.call.completed
+  → main: BackgroundTaskTracker · settlement
+  → IPC → chatStore(subagentMeta) · chatReducer(parts)
+  → parts fold → SubAgentTaskList · SubagentNoticeRow · BashBody
+```
+
+- producer 기준: `taskKind` 는 어댑터만 만든다. renderer 는 파생하지 않는다.
+- consumer 파생 규칙: 카드 포함 여부는 `isBackgroundTaskCall` 하나로만 판정한다.
+- 합성값 우회 방지: renderer 가 도구 이름으로 "이건 셸이니 백그라운드겠지" 를 추론하지 않는다 —
+  foreground 셸과 구분되지 않기 때문이다.
+
+### 기존 소비처 영향
+
+| 기존 소비처 | 변경 영향 | 회귀 AC |
+|---|---|---|
+| `SubAgentTaskList`(에이전트 카드) | 목록이 늘어난다. 그룹 분류·중단 버튼 술어는 그대로 | VP-12 |
+| `SubagentNoticeRow` | 제목 조인 술어가 넓어진다. 에이전트 행은 불변 | VP-12 |
+| `AgentTaskRow` | 변경 없음 — Agent 전용 행이다 | VP-12 |
+| `backgroundTaskCount` 배지 | **의미가 바뀌지 않는다**(0231 소관). 셸이 추적에 남으므로 건수가 늘 수 있다 | 0231 로 이월 |
+
+> 마지막 행이 이 handoff 의 알려진 부작용이다. EP-03 이 셸을 추적에 남기면 배지 건수가
+> 늘어난다 — 실제로 도는 작업이므로 **정확해지는 방향**이지만, 배지 문구의 의미 정정은 0231 이다.
+
+## 13. Lifecycle / 오류 / 정리
+
+- 생성/시작: `task_started` 또는 런치 영수증 중 먼저 온 것으로 레코드가 선다(기존 순서 역전 처리
+  그대로).
+- 취소/중단: 사용자 중단은 `stopTask(taskId)` — 셸도 같은 경로다. `taskId` 는 `task_started` 에서
+  온다.
+- 종료/crash/renderer-gone: `backgroundTasks.clear(sessionId)` 경로 불변(`send.ts` 의 `onOwnerGone`).
+- 채널 사망: `settleDeadBackgroundTasks` 가 셸도 함께 정착시킨다. **이때는 부모 합성 결과가
+  없으므로** 도구 카드가 마지막 stdout 인 채로 남는다 — 타일 카드가 실패로 정착해 사유를 말한다.
+- **다중 저장소 쓰기**: 해당 없음. 이번 변경의 영속은 `structuredOutput` 한 곳이다.
+
+## 14. 성능 / 상한 / 최적화
+
+- `ctx.toolNameByRunId` 는 **경계 도구 이름만** 담는다(에이전트·셸·Monitor·Workflow·Skill).
+  턴 길이에 비례해 자라지 않는다 — `taskToolRunIds` 와 같은 제한 방식이다.
+- `structuredOutput.shellBackground` 는 필드 4개의 투영이다. stdout 을 싣지 않으므로 파트 크기가
+  명령 출력에 비례하지 않는다.
+- `backgroundTasksFromMessages` 는 기존 fold 와 같은 1-entry 캐시를 쓴다(`taskBoardForMessages`
+  선례) — 헤더·본문 두 컴포넌트가 같은 배열을 두 번 접지 않게 한다.
+
+## 15. 외부 구현 포트 / 문서 계약
+
+- 외부 구현자가 구현할 port: 없음.
+- 갱신할 문서: `docs/claude-taskxxx-spec.md`(`task_type` 채택 표기) · `docs/IPC_CONTRACT.md`
+  (`taskKind` 필드). 둘 다 해설 미러/계약이라 **같은 커밋**에서 갱신한다.
