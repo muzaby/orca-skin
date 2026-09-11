@@ -741,16 +741,20 @@ V1 실행 증거는 [impl.md](impl.md), [evaluation.md](evaluation.md)에 보존
 
 ## [검증자 기입] 파생 이슈
 
-verify r1 = **RETURN_TO_PLAN**. 판정과 증거의 정본은 [verify.md](verify.md)다.
+verify r2 = **PASS (기계 검증 범위)**. 판정과 증거의 정본은 [verify.md](verify.md)다.
+
+사용자가 후속 핸드오프 구현으로 `impl/IMPL_DONE` 동등을 확정해 Q-04/D-023·D-022를 해소된 결정으로 재평가했다. r1의 D2·D3는 `SUPERSEDED`이며 대체 계약은 변이 4종으로 잠겨 있다. **AC2·AC18 문구가 구현을 따라오지 못하므로 설계자가 규범 행을 정정한다** — 제품 결정이 아니라 기록 정정이다.
 
 | ID | 발견 | 범위 |
 |---|---|---|
 | D1 | 구현 커밋 `04953cf7` 이 plan 메타 상태를 `READY`→`DRAFT`로 수정 | NON_BLOCKING |
-| D2 | **AC2 위반** — PostToolUse `Write`/`Edit` 훅이 publisher 없이 `createPublication` | BLOCKING / VP-02 `PAIR_FAIL` |
-| D3 | **AC18·D-022 위반** — 컨텍스트 참조 항목 수집 구현, 테스트가 반대 동작을 잠금 | BLOCKING / VP-U2 `PAIR_FAIL` |
+| D2 | AC2 대체 — 캡처는 지정 Temp 출력 디렉토리 직속 파일로 한정되며 감시기·스캔 없음 | **SUPERSEDED** (r2) |
+| D3 | AC18 대체 — 컨텍스트 수집이 구현되고 URL 위생 가드가 잠김 | **SUPERSEDED** (r2) |
 | D4 | `rightPanelTiles.ts` export 6개가 테스트 전용 표면 | NON_BLOCKING |
 | D5 | `45b1d43d` 가 `Handoff: none` 으로 74파일 기능 변경 + 사용자 유보 결정 확정 | PLAN_GAP 근원 |
 | D6 | `TaskScheduleContent` 가 세 섹션 앞에 추가됨 | NON_BLOCKING |
 | D7 | VP-01·12·13·16 인수가 r1 이후 재실행된 적 없음 | 미종결 |
 
-D2·D3의 근원은 사용자에게 유보된 Q-04/D-023이다. 답변 전에는 구현자가 닫을 수 없으므로 설계자가 규범 행(D-023·AC2·D-022·AC18·§10·pair)을 먼저 정정한다.
+| D8 | `readOutputInput` 의 `realpath` 루트 재확인이 테스트로 잠기지 않음(변이 N2 green) | NON_BLOCKING |
+
+D8은 프로덕션 배선에서 도달 불가한 심층 방어라 악용 구멍이 아니다. 회귀 케이스 1개를 다음 핸드오프에 남긴다. D5(`Handoff: none` 74파일 기능 커밋)는 판정을 바꾸지 않는 프로세스 기록으로 유지한다.
