@@ -29,9 +29,9 @@
 | renderer 4-layer · 디렉토리 책임 | [`arch/frontend/layers.md`](arch/frontend/layers.md) |
 | renderer 상태 관리 (Zustand · 멀티세션) | [`arch/frontend/state.md`](arch/frontend/state.md) |
 | 렌더링 (ToolRendererRegistry · 스트리밍 · UsagePanel) | [`arch/frontend/rendering.md`](arch/frontend/rendering.md) |
-| **Work·Code 에이전트 계층** | [`handoff/0224-work-agent-layer/plan.md`](handoff/0224-work-agent-layer/plan.md) · [Work/Code 구조 진단](handoff/0224-work-agent-layer/structural-diagnosis.md) · 근거는 [`Cowork 연구`](etc/study/cowork/README.md) |
-| **산출물 게시 도구** (모델 직접 호출·HTML/Markdown 카드·우측 패널) | [`handoff/0223-artifact-publisher/plan.md`](handoff/0223-artifact-publisher/plan.md) — 계획 · [`구현 보고`](handoff/0223-artifact-publisher/impl.md) · [`모델 선택 평가`](handoff/0223-artifact-publisher/evaluation.md) · [`선행 검토`](etc/study/cowork/artifact-publisher-review.md) |
-| **Work transcript·출력 뷰어** (Cowork 참고·Markdown/HTML·텍스트/코드·이미지) | [`렌더링`](arch/frontend/rendering.md) · [`계약·검증 기준`](handoff/0226-cowork-transcript-viewer/plan.md) · [`첨부 분석`](handoff/0226-cowork-transcript-viewer/reference-analysis.md) |
+| **Work·Code 에이전트 계층** | [`handoff/0224-work-agent-layer/plan.md`](handoff/0224-work-agent-layer/plan.md) · 근거는 [`Cowork 연구`](etc/study/cowork/README.md) |
+| **산출물 게시 도구** (모델 직접 호출·HTML/Markdown 카드·우측 패널) | [`handoff/0223-artifact-publisher/plan.md`](handoff/0223-artifact-publisher/plan.md) — 계획 · [`검증`](handoff/0223-artifact-publisher/verify.md) · [`선행 검토`](etc/study/cowork/artifact-publisher-review.md) |
+| **Work transcript·출력 뷰어** (Cowork 참고·Markdown/HTML·텍스트/코드·이미지) | [`렌더링`](arch/frontend/rendering.md) · [`계약·검증 기준`](handoff/0226-cowork-transcript-viewer/plan.md) · [`검증`](handoff/0226-cowork-transcript-viewer/verify.md) |
 | UX 패턴 · 도메인 화면 카탈로그 | [`arch/frontend/ux-domains.md`](arch/frontend/ux-domains.md) |
 | DOM 마커 체계 · z-stack · custom titlebar | [`arch/frontend/dom-architecture.md`](arch/frontend/dom-architecture.md) |
 | **IPC 채널 계약** (추가·변경 포함) | [`IPC_CONTRACT.md`](IPC_CONTRACT.md) |
