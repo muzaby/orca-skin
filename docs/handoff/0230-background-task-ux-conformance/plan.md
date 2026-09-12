@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-11 |
 | 매핑 | 0230~0236 분할의 **1번**. 조사 정본을 겸한다 |
-| 상태 | **impl/IMPL_DONE** (r2) |
+| 상태 | **verify/PASS** (V1 r2) |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
