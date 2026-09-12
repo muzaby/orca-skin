@@ -15,16 +15,24 @@ vi.mock('../../infra/config/temp-path', () => ({
 
 const roots: string[] = []
 const signal = new AbortController().signal
-async function setup(): Promise<{ root: string; cwd: string; temp: string; outside: string }> {
+async function setup(): Promise<{
+  root: string
+  cwd: string
+  osTemp: string
+  temp: string
+  outside: string
+}> {
   const root = await fs.realpath(await fs.mkdtemp(join(tmpdir(), 'orca-publish-input-')))
   roots.push(root)
   const cwd = join(root, 'workspace')
-  const temp = join(root, 'tmp')
+  const osTemp = join(root, 'tmp')
+  const temp = join(osTemp, 'orcinus-orca')
   const outside = join(root, 'outside')
   await fs.mkdir(cwd)
+  await fs.mkdir(osTemp)
   await fs.mkdir(outside)
   tempFixture.directory = temp
-  return { root, cwd, temp, outside }
+  return { root, cwd, osTemp, temp, outside }
 }
 
 afterEach(async () => {
@@ -68,15 +76,20 @@ describe('artifact publication input roots', () => {
     await expect(fs.stat(f.temp)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
-  it('rejects Temp siblings and a Temp junction escaping to an outside directory', async () => {
+  it('rejects the OS Temp parent, app Temp siblings and a junction escaping outside', async () => {
     const f = await setup()
     const sibling = join(f.root, 'tmp-sibling')
     await fs.mkdir(f.temp)
     await fs.mkdir(sibling)
+    await fs.writeFile(join(f.osTemp, 'parent.md'), '# Parent')
     await fs.writeFile(join(sibling, 'report.md'), '# Sibling')
     await fs.writeFile(join(f.outside, 'report.md'), '# Outside')
     await fs.symlink(f.outside, join(f.temp, 'escape'), 'junction')
-    for (const path of [join(sibling, 'report.md'), join(f.temp, 'escape', 'report.md')]) {
+    for (const path of [
+      join(f.osTemp, 'parent.md'),
+      join(sibling, 'report.md'),
+      join(f.temp, 'escape', 'report.md')
+    ]) {
       await expect(readArtifactInput(path, f.cwd, [], signal)).rejects.toThrow('unsafe-path')
     }
   })
@@ -100,7 +113,7 @@ describe('artifact publication input roots', () => {
       if (shortRoot.toLowerCase() === f.root.toLowerCase()) {
         context.skip('This filesystem does not create 8.3 directory names')
       }
-      tempFixture.directory = join(shortRoot, 'tmp')
+      tempFixture.directory = join(shortRoot, 'tmp', 'orcinus-orca')
       await fs.writeFile(join(f.temp, 'report.md'), '# Short path')
       expect(
         (

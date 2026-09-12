@@ -165,6 +165,57 @@ describe('adaptEnv', () => {
 describe('adaptExecutionConfig Windows defaults', () => {
   afterEach(() => vi.unstubAllEnvs())
 
+  it('pins the host temp root in both channels without changing inherited OS temp or caller settings', () => {
+    vi.stubEnv('CLAUDE_CODE_TMPDIR', 'C:/broad-temp')
+    vi.stubEnv('ORCA_TEMP_TEST_INHERITED', 'preserved')
+    const settings = {
+      env: {
+        claude_code_tmpdir: 'C:/other-broad',
+        API_KEY: 'fixture',
+        CLAUDE_CODE_USE_POWERSHELL_TOOL: '0'
+      }
+    }
+    const before = { ...process.env }
+    const out = adaptExecutionConfig(settings, undefined, 'C:/Temp/orcinus-orca')
+    expect(out.env).toMatchObject({
+      CLAUDE_CODE_TMPDIR: 'C:/Temp/orcinus-orca',
+      ORCA_TEMP_TEST_INHERITED: 'preserved'
+    })
+    expect(out.env).not.toHaveProperty('claude_code_tmpdir')
+    expect(JSON.parse(out.settings as string).env).toEqual({
+      CLAUDE_CODE_TMPDIR: 'C:/Temp/orcinus-orca',
+      API_KEY: 'fixture',
+      CLAUDE_CODE_USE_POWERSHELL_TOOL: '0'
+    })
+    for (const key of ['TEMP', 'TMP', 'TMPDIR', 'PATH']) expect(out.env?.[key]).toBe(before[key])
+    expect(process.env).toEqual(before)
+    expect(settings.env.claude_code_tmpdir).toBe('C:/other-broad')
+  })
+
+  it('overrides explicit temp aliases while preserving the supplied env and PowerShell precedence', () => {
+    const env = {
+      PATH: '/fixture',
+      TMP: 'C:/os-temp',
+      claude_code_tmpdir: 'C:/wide1',
+      CLAUDE_CODE_TMPDIR: 'C:/wide2',
+      CLAUDE_CODE_USE_POWERSHELL_TOOL: '0'
+    }
+    const settings = { env: { Claude_Code_Tmpdir: 'C:/wide3', OTHER: 'value' } }
+    const out = adaptExecutionConfig(settings, env, 'C:/Temp/orcinus-orca')
+    expect(out.env).toEqual({
+      PATH: '/fixture',
+      TMP: 'C:/os-temp',
+      CLAUDE_CODE_TMPDIR: 'C:/Temp/orcinus-orca',
+      CLAUDE_CODE_USE_POWERSHELL_TOOL: '0'
+    })
+    expect(JSON.parse(out.settings as string).env).toEqual({
+      OTHER: 'value',
+      CLAUDE_CODE_TMPDIR: 'C:/Temp/orcinus-orca'
+    })
+    expect(env.CLAUDE_CODE_TMPDIR).toBe('C:/wide2')
+    expect(settings.env.Claude_Code_Tmpdir).toBe('C:/wide3')
+  })
+
   it('기존 설치의 빈 설정에 기본값을 제공하고 subprocess env 상속을 유지한다', () => {
     vi.stubEnv('CLAUDE_CODE_USE_POWERSHELL_TOOL', undefined)
     const out = adaptExecutionConfig()

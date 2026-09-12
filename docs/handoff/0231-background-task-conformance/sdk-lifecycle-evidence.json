@@ -1,0 +1,1892 @@
+{
+  "author": "Codex",
+  "recordedAt": "2026-09-12T15:07:38.341Z",
+  "sdkVersion": "0.3.267",
+  "cliVersion": "2.1.267",
+  "modelFixture": "loopback HTTP only; no external model requests",
+  "permissions": "fixture bypassPermissions only",
+  "processScope": "only owned SDK Query.close; shell commands self-terminate after 8 seconds; main fixture response held for at most 15 seconds",
+  "limitations": [
+    "Monitor absent from observed init tool list",
+    "Remote/provider model behavior and packaged UI not exercised",
+    "VVkFQs background-agent-interrupt excluded because preliminary fixture closed at Agent notification; BL66of supersedes it with active main request and Bash terminal observation"
+  ],
+  "results": [
+    {
+      "source": "<APP_TEMP>/sdk-smoke-VVkFQs/result.json",
+      "scenario": {
+        "name": "main-interrupt",
+        "owner": "main",
+        "action": "interrupt"
+      },
+      "available": true,
+      "timedOut": false,
+      "requests": 4,
+      "mainResult": true,
+      "terminal": true,
+      "actionApplied": true,
+      "shellStarted": true,
+      "shellFinished": true,
+      "metrics": {
+        "shellTaskId": "bjpbqy02q",
+        "actionAt": 1789225082026,
+        "firstResultAt": 1789225082030,
+        "actionBeforeFirstResult": true,
+        "shellNotifications": [
+          {
+            "at": 1789225090055,
+            "status": "completed"
+          }
+        ],
+        "otherNotifications": []
+      },
+      "observations": [
+        {
+          "at": 1789225082025,
+          "kind": "shell-started",
+          "pid": "1483"
+        },
+        {
+          "at": 1789225082026,
+          "kind": "interrupt"
+        },
+        {
+          "at": 1789225090178,
+          "kind": "final-markers",
+          "shellStarted": true,
+          "shellFinished": true
+        }
+      ],
+      "outputs": [
+        {
+          "path": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-VVkFQs\\71e8f301-8ea8-4f4e-a838-462e43f9440d\\tasks\\bjpbqy02q.output",
+          "insideAppTemp": true,
+          "bytes": 45,
+          "korean": false,
+          "mainReadStatus": "available",
+          "mainReadKorean": false,
+          "snapshot": {
+            "size": 45,
+            "sha256": "b28b2894585f43d380d86a23b18574467014cc860d6b7c5b2313b34cb83569d5",
+            "partial": false
+          }
+        }
+      ],
+      "events": [
+        {
+          "at": 1789225079074,
+          "type": "system",
+          "subtype": "init",
+          "tools": [
+            "Task",
+            "Bash",
+            "CronCreate",
+            "CronDelete",
+            "CronList",
+            "Edit",
+            "EnterWorktree",
+            "ExitWorktree",
+            "Glob",
+            "Grep",
+            "ListAgents",
+            "NotebookEdit",
+            "PowerShell",
+            "Read",
+            "ReportFindings",
+            "ScheduleWakeup",
+            "SendMessage",
+            "Skill",
+            "TaskCreate",
+            "TaskGet",
+            "TaskList",
+            "TaskOutput",
+            "TaskStop",
+            "TaskUpdate",
+            "WebFetch",
+            "WebSearch",
+            "Workflow",
+            "Write"
+          ]
+        },
+        {
+          "at": 1789225079086,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225081691,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225081692,
+          "type": "system",
+          "subtype": "task_started",
+          "task_id": "bjpbqy02q",
+          "tool_use_id": "fixture_main_Bash",
+          "task_type": "local_bash"
+        },
+        {
+          "at": 1789225082030,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225082030,
+          "type": "result",
+          "subtype": "success"
+        },
+        {
+          "at": 1789225090055,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225090055,
+          "type": "system",
+          "subtype": "task_updated",
+          "task_id": "bjpbqy02q",
+          "patch": {
+            "status": "completed",
+            "end_time": 1789225090063
+          }
+        },
+        {
+          "at": 1789225090055,
+          "type": "system",
+          "subtype": "task_notification",
+          "task_id": "bjpbqy02q",
+          "status": "completed",
+          "output_file": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-VVkFQs\\71e8f301-8ea8-4f4e-a838-462e43f9440d\\tasks\\bjpbqy02q.output",
+          "tool_use_id": "fixture_main_Bash"
+        }
+      ]
+    },
+    {
+      "source": "<APP_TEMP>/sdk-smoke-VVkFQs/result.json",
+      "scenario": {
+        "name": "main-close",
+        "owner": "main",
+        "action": "close"
+      },
+      "available": true,
+      "timedOut": false,
+      "requests": 3,
+      "mainResult": false,
+      "terminal": false,
+      "actionApplied": true,
+      "shellStarted": true,
+      "shellFinished": false,
+      "metrics": {
+        "shellTaskId": "b6tc8l8sr",
+        "actionAt": 1789225096839,
+        "shellNotifications": [],
+        "otherNotifications": []
+      },
+      "observations": [
+        {
+          "at": 1789225096836,
+          "kind": "shell-started",
+          "pid": "1512"
+        },
+        {
+          "at": 1789225096839,
+          "kind": "close"
+        },
+        {
+          "at": 1789225108878,
+          "kind": "final-markers",
+          "shellStarted": true,
+          "shellFinished": false
+        }
+      ],
+      "outputs": [],
+      "events": [
+        {
+          "at": 1789225093238,
+          "type": "system",
+          "subtype": "init",
+          "tools": [
+            "Task",
+            "Bash",
+            "CronCreate",
+            "CronDelete",
+            "CronList",
+            "Edit",
+            "EnterWorktree",
+            "ExitWorktree",
+            "Glob",
+            "Grep",
+            "ListAgents",
+            "NotebookEdit",
+            "PowerShell",
+            "Read",
+            "ReportFindings",
+            "ScheduleWakeup",
+            "SendMessage",
+            "Skill",
+            "TaskCreate",
+            "TaskGet",
+            "TaskList",
+            "TaskOutput",
+            "TaskStop",
+            "TaskUpdate",
+            "WebFetch",
+            "WebSearch",
+            "Workflow",
+            "Write"
+          ]
+        },
+        {
+          "at": 1789225093254,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225096392,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225096393,
+          "type": "system",
+          "subtype": "task_started",
+          "task_id": "b6tc8l8sr",
+          "tool_use_id": "fixture_main_Bash",
+          "task_type": "local_bash"
+        }
+      ]
+    },
+    {
+      "source": "<APP_TEMP>/sdk-smoke-VVkFQs/result.json",
+      "scenario": {
+        "name": "main-oneshot",
+        "owner": "main",
+        "action": "oneshot"
+      },
+      "available": true,
+      "timedOut": false,
+      "requests": 3,
+      "mainResult": true,
+      "terminal": true,
+      "actionApplied": false,
+      "shellStarted": true,
+      "shellFinished": false,
+      "metrics": {
+        "shellTaskId": "bcb79x21q",
+        "firstResultAt": 1789225115118,
+        "shellNotifications": [
+          {
+            "at": 1789225120003,
+            "status": "stopped"
+          }
+        ],
+        "otherNotifications": []
+      },
+      "observations": [
+        {
+          "at": 1789225115118,
+          "kind": "shell-started",
+          "pid": "1541"
+        },
+        {
+          "at": 1789225115118,
+          "kind": "one-shot-main-result"
+        },
+        {
+          "at": 1789225130349,
+          "kind": "final-markers",
+          "shellStarted": true,
+          "shellFinished": false
+        }
+      ],
+      "outputs": [
+        {
+          "path": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-VVkFQs\\05db0188-c219-4047-b09c-a24677ecd44c\\tasks\\bcb79x21q.output",
+          "insideAppTemp": true,
+          "bytes": 10,
+          "korean": false,
+          "mainReadStatus": "available",
+          "mainReadKorean": false,
+          "snapshot": {
+            "size": 10,
+            "sha256": "6caf3ac12c8c443229d86996a80886e86bc4da77167087b74b4306128f39c53f",
+            "partial": false
+          }
+        }
+      ],
+      "events": [
+        {
+          "at": 1789225111635,
+          "type": "system",
+          "subtype": "init",
+          "tools": [
+            "Task",
+            "Bash",
+            "CronCreate",
+            "CronDelete",
+            "CronList",
+            "Edit",
+            "EnterWorktree",
+            "ExitWorktree",
+            "Glob",
+            "Grep",
+            "ListAgents",
+            "NotebookEdit",
+            "PowerShell",
+            "Read",
+            "ReportFindings",
+            "ScheduleWakeup",
+            "SendMessage",
+            "Skill",
+            "TaskCreate",
+            "TaskGet",
+            "TaskList",
+            "TaskOutput",
+            "TaskStop",
+            "TaskUpdate",
+            "WebFetch",
+            "WebSearch",
+            "Workflow",
+            "Write"
+          ]
+        },
+        {
+          "at": 1789225111650,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225114791,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225114794,
+          "type": "system",
+          "subtype": "task_started",
+          "task_id": "bcb79x21q",
+          "tool_use_id": "fixture_main_Bash",
+          "task_type": "local_bash"
+        },
+        {
+          "at": 1789225115118,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225115118,
+          "type": "result",
+          "subtype": "success"
+        },
+        {
+          "at": 1789225120003,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225120003,
+          "type": "system",
+          "subtype": "task_updated",
+          "task_id": "bcb79x21q",
+          "patch": {
+            "status": "killed",
+            "end_time": 1789225120011
+          }
+        },
+        {
+          "at": 1789225120003,
+          "type": "system",
+          "subtype": "task_notification",
+          "task_id": "bcb79x21q",
+          "status": "stopped",
+          "output_file": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-VVkFQs\\05db0188-c219-4047-b09c-a24677ecd44c\\tasks\\bcb79x21q.output",
+          "tool_use_id": "fixture_main_Bash"
+        }
+      ]
+    },
+    {
+      "source": "<APP_TEMP>/sdk-smoke-VVkFQs/result.json",
+      "scenario": {
+        "name": "foreground-agent-interrupt",
+        "owner": "foreground-agent",
+        "action": "interrupt"
+      },
+      "available": true,
+      "timedOut": false,
+      "requests": 5,
+      "mainResult": false,
+      "terminal": true,
+      "actionApplied": true,
+      "shellStarted": true,
+      "shellFinished": false,
+      "metrics": {
+        "shellTaskId": "bec4hg9qp",
+        "actionAt": 1789225138130,
+        "shellNotifications": [
+          {
+            "at": 1789225138160,
+            "status": "stopped"
+          }
+        ],
+        "otherNotifications": []
+      },
+      "observations": [
+        {
+          "at": 1789225138130,
+          "kind": "shell-started",
+          "pid": "1570"
+        },
+        {
+          "at": 1789225138130,
+          "kind": "interrupt"
+        },
+        {
+          "at": 1789225148343,
+          "kind": "final-markers",
+          "shellStarted": true,
+          "shellFinished": false
+        }
+      ],
+      "outputs": [
+        {
+          "path": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-VVkFQs\\58c30bff-5b75-43e4-9434-9fcb42f83998\\tasks\\bec4hg9qp.output",
+          "insideAppTemp": true,
+          "bytes": 10,
+          "korean": false,
+          "mainReadStatus": "available",
+          "mainReadKorean": false,
+          "snapshot": {
+            "size": 10,
+            "sha256": "6caf3ac12c8c443229d86996a80886e86bc4da77167087b74b4306128f39c53f",
+            "partial": false
+          }
+        }
+      ],
+      "events": [
+        {
+          "at": 1789225133540,
+          "type": "system",
+          "subtype": "init",
+          "tools": [
+            "Task",
+            "Bash",
+            "CronCreate",
+            "CronDelete",
+            "CronList",
+            "Edit",
+            "EnterWorktree",
+            "ExitWorktree",
+            "Glob",
+            "Grep",
+            "ListAgents",
+            "NotebookEdit",
+            "PowerShell",
+            "Read",
+            "ReportFindings",
+            "ScheduleWakeup",
+            "SendMessage",
+            "Skill",
+            "TaskCreate",
+            "TaskGet",
+            "TaskList",
+            "TaskOutput",
+            "TaskStop",
+            "TaskUpdate",
+            "WebFetch",
+            "WebSearch",
+            "Workflow",
+            "Write"
+          ]
+        },
+        {
+          "at": 1789225133552,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225133761,
+          "type": "system",
+          "subtype": "task_started",
+          "task_id": "a3a593114ab87fc81",
+          "tool_use_id": "fixture_main_Agent",
+          "task_type": "local_agent"
+        },
+        {
+          "at": 1789225133953,
+          "type": "system",
+          "subtype": "task_progress",
+          "task_id": "a3a593114ab87fc81",
+          "tool_use_id": "fixture_main_Agent"
+        },
+        {
+          "at": 1789225137350,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225137353,
+          "type": "system",
+          "subtype": "task_started",
+          "task_id": "bec4hg9qp",
+          "tool_use_id": "fixture_child_Bash",
+          "task_type": "local_bash"
+        },
+        {
+          "at": 1789225138160,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225138160,
+          "type": "system",
+          "subtype": "task_updated",
+          "task_id": "bec4hg9qp",
+          "patch": {
+            "status": "killed",
+            "end_time": 1789225137493
+          }
+        },
+        {
+          "at": 1789225138160,
+          "type": "system",
+          "subtype": "task_notification",
+          "task_id": "bec4hg9qp",
+          "status": "stopped",
+          "output_file": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-VVkFQs\\58c30bff-5b75-43e4-9434-9fcb42f83998\\tasks\\bec4hg9qp.output",
+          "tool_use_id": "fixture_child_Bash"
+        }
+      ]
+    },
+    {
+      "source": "<APP_TEMP>/sdk-smoke-VVkFQs/result.json",
+      "scenario": {
+        "name": "foreground-agent-close",
+        "owner": "foreground-agent",
+        "action": "close"
+      },
+      "available": true,
+      "timedOut": false,
+      "requests": 5,
+      "mainResult": false,
+      "terminal": false,
+      "actionApplied": true,
+      "shellStarted": true,
+      "shellFinished": false,
+      "metrics": {
+        "shellTaskId": "b5n20i2jk",
+        "actionAt": 1789225154030,
+        "shellNotifications": [],
+        "otherNotifications": []
+      },
+      "observations": [
+        {
+          "at": 1789225154029,
+          "kind": "shell-started",
+          "pid": "1598"
+        },
+        {
+          "at": 1789225154030,
+          "kind": "close"
+        },
+        {
+          "at": 1789225164223,
+          "kind": "final-markers",
+          "shellStarted": true,
+          "shellFinished": false
+        }
+      ],
+      "outputs": [],
+      "events": [
+        {
+          "at": 1789225150054,
+          "type": "system",
+          "subtype": "init",
+          "tools": [
+            "Task",
+            "Bash",
+            "CronCreate",
+            "CronDelete",
+            "CronList",
+            "Edit",
+            "EnterWorktree",
+            "ExitWorktree",
+            "Glob",
+            "Grep",
+            "ListAgents",
+            "NotebookEdit",
+            "PowerShell",
+            "Read",
+            "ReportFindings",
+            "ScheduleWakeup",
+            "SendMessage",
+            "Skill",
+            "TaskCreate",
+            "TaskGet",
+            "TaskList",
+            "TaskOutput",
+            "TaskStop",
+            "TaskUpdate",
+            "WebFetch",
+            "WebSearch",
+            "Workflow",
+            "Write"
+          ]
+        },
+        {
+          "at": 1789225150076,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225150268,
+          "type": "system",
+          "subtype": "task_started",
+          "task_id": "a912dd998dc36a5ab",
+          "tool_use_id": "fixture_main_Agent",
+          "task_type": "local_agent"
+        },
+        {
+          "at": 1789225150343,
+          "type": "system",
+          "subtype": "task_progress",
+          "task_id": "a912dd998dc36a5ab",
+          "tool_use_id": "fixture_main_Agent"
+        },
+        {
+          "at": 1789225153604,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225153606,
+          "type": "system",
+          "subtype": "task_started",
+          "task_id": "b5n20i2jk",
+          "tool_use_id": "fixture_child_Bash",
+          "task_type": "local_bash"
+        }
+      ]
+    },
+    {
+      "source": "<APP_TEMP>/sdk-smoke-VVkFQs/result.json",
+      "scenario": {
+        "name": "foreground-agent-oneshot",
+        "owner": "foreground-agent",
+        "action": "oneshot"
+      },
+      "available": true,
+      "timedOut": false,
+      "requests": 5,
+      "mainResult": true,
+      "terminal": true,
+      "actionApplied": false,
+      "shellStarted": true,
+      "shellFinished": false,
+      "metrics": {
+        "shellTaskId": "bagrit11f",
+        "firstResultAt": 1789225168864,
+        "shellNotifications": [
+          {
+            "at": 1789225168864,
+            "status": "stopped"
+          }
+        ],
+        "otherNotifications": [
+          {
+            "at": 1789225168864,
+            "task_id": "a7cc79459cbac60f5",
+            "status": "completed"
+          }
+        ]
+      },
+      "observations": [
+        {
+          "at": 1789225168864,
+          "kind": "shell-started",
+          "pid": "1627"
+        },
+        {
+          "at": 1789225168864,
+          "kind": "one-shot-main-result"
+        },
+        {
+          "at": 1789225178912,
+          "kind": "final-markers",
+          "shellStarted": true,
+          "shellFinished": false
+        }
+      ],
+      "outputs": [
+        {
+          "path": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-VVkFQs\\f2b1cb1a-c481-4fe3-860a-5197f916ac7a\\tasks\\bagrit11f.output",
+          "insideAppTemp": true,
+          "bytes": 10,
+          "korean": false,
+          "mainReadStatus": "available",
+          "mainReadKorean": false,
+          "snapshot": {
+            "size": 10,
+            "sha256": "6caf3ac12c8c443229d86996a80886e86bc4da77167087b74b4306128f39c53f",
+            "partial": false
+          }
+        },
+        {
+          "path": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-VVkFQs\\f2b1cb1a-c481-4fe3-860a-5197f916ac7a\\tasks\\a7cc79459cbac60f5.output",
+          "insideAppTemp": true,
+          "bytes": 0,
+          "korean": false,
+          "mainReadStatus": "available",
+          "mainReadKorean": false,
+          "snapshot": {
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "partial": false
+          }
+        }
+      ],
+      "events": [
+        {
+          "at": 1789225165894,
+          "type": "system",
+          "subtype": "init",
+          "tools": [
+            "Task",
+            "Bash",
+            "CronCreate",
+            "CronDelete",
+            "CronList",
+            "Edit",
+            "EnterWorktree",
+            "ExitWorktree",
+            "Glob",
+            "Grep",
+            "ListAgents",
+            "NotebookEdit",
+            "PowerShell",
+            "Read",
+            "ReportFindings",
+            "ScheduleWakeup",
+            "SendMessage",
+            "Skill",
+            "TaskCreate",
+            "TaskGet",
+            "TaskList",
+            "TaskOutput",
+            "TaskStop",
+            "TaskUpdate",
+            "WebFetch",
+            "WebSearch",
+            "Workflow",
+            "Write"
+          ]
+        },
+        {
+          "at": 1789225165906,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225166070,
+          "type": "system",
+          "subtype": "task_started",
+          "task_id": "a7cc79459cbac60f5",
+          "tool_use_id": "fixture_main_Agent",
+          "task_type": "local_agent"
+        },
+        {
+          "at": 1789225166174,
+          "type": "system",
+          "subtype": "task_progress",
+          "task_id": "a7cc79459cbac60f5",
+          "tool_use_id": "fixture_main_Agent"
+        },
+        {
+          "at": 1789225168437,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225168438,
+          "type": "system",
+          "subtype": "task_started",
+          "task_id": "bagrit11f",
+          "tool_use_id": "fixture_child_Bash",
+          "task_type": "local_bash"
+        },
+        {
+          "at": 1789225168864,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225168864,
+          "type": "system",
+          "subtype": "task_updated",
+          "task_id": "bagrit11f",
+          "patch": {
+            "status": "killed",
+            "end_time": 1789225168508
+          }
+        },
+        {
+          "at": 1789225168864,
+          "type": "system",
+          "subtype": "task_notification",
+          "task_id": "bagrit11f",
+          "status": "stopped",
+          "output_file": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-VVkFQs\\f2b1cb1a-c481-4fe3-860a-5197f916ac7a\\tasks\\bagrit11f.output",
+          "tool_use_id": "fixture_child_Bash"
+        },
+        {
+          "at": 1789225168864,
+          "type": "system",
+          "subtype": "task_updated",
+          "task_id": "a7cc79459cbac60f5",
+          "patch": {
+            "status": "completed",
+            "end_time": 1789225168614
+          }
+        },
+        {
+          "at": 1789225168864,
+          "type": "system",
+          "subtype": "task_notification",
+          "task_id": "a7cc79459cbac60f5",
+          "status": "completed",
+          "output_file": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-VVkFQs\\f2b1cb1a-c481-4fe3-860a-5197f916ac7a\\tasks\\a7cc79459cbac60f5.output",
+          "tool_use_id": "fixture_main_Agent"
+        },
+        {
+          "at": 1789225168864,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225168864,
+          "type": "result",
+          "subtype": "success"
+        }
+      ]
+    },
+    {
+      "source": "<APP_TEMP>/sdk-smoke-VVkFQs/result.json",
+      "scenario": {
+        "name": "background-agent-close",
+        "owner": "background-agent",
+        "action": "close"
+      },
+      "available": true,
+      "timedOut": false,
+      "requests": 6,
+      "mainResult": true,
+      "terminal": false,
+      "actionApplied": true,
+      "shellStarted": true,
+      "shellFinished": false,
+      "metrics": {
+        "shellTaskId": "bewncv58n",
+        "actionAt": 1789225200827,
+        "firstResultAt": 1789225196697,
+        "actionBeforeFirstResult": false,
+        "shellNotifications": [],
+        "otherNotifications": []
+      },
+      "observations": [
+        {
+          "at": 1789225200827,
+          "kind": "shell-started",
+          "pid": "1684"
+        },
+        {
+          "at": 1789225200827,
+          "kind": "close"
+        },
+        {
+          "at": 1789225212915,
+          "kind": "final-markers",
+          "shellStarted": true,
+          "shellFinished": false
+        }
+      ],
+      "outputs": [],
+      "events": [
+        {
+          "at": 1789225196203,
+          "type": "system",
+          "subtype": "init",
+          "tools": [
+            "Task",
+            "Bash",
+            "CronCreate",
+            "CronDelete",
+            "CronList",
+            "Edit",
+            "EnterWorktree",
+            "ExitWorktree",
+            "Glob",
+            "Grep",
+            "ListAgents",
+            "NotebookEdit",
+            "PowerShell",
+            "Read",
+            "ReportFindings",
+            "ScheduleWakeup",
+            "SendMessage",
+            "Skill",
+            "TaskCreate",
+            "TaskGet",
+            "TaskList",
+            "TaskOutput",
+            "TaskStop",
+            "TaskUpdate",
+            "WebFetch",
+            "WebSearch",
+            "Workflow",
+            "Write"
+          ]
+        },
+        {
+          "at": 1789225196216,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225196387,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225196395,
+          "type": "system",
+          "subtype": "task_started",
+          "task_id": "ad3cdcc45d36ab178",
+          "tool_use_id": "fixture_main_Agent",
+          "task_type": "local_agent"
+        },
+        {
+          "at": 1789225196449,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225196496,
+          "type": "system",
+          "subtype": "task_progress",
+          "task_id": "ad3cdcc45d36ab178",
+          "tool_use_id": "fixture_main_Agent"
+        },
+        {
+          "at": 1789225196697,
+          "type": "result",
+          "subtype": "success"
+        },
+        {
+          "at": 1789225200129,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225200130,
+          "type": "system",
+          "subtype": "task_started",
+          "task_id": "bewncv58n",
+          "tool_use_id": "fixture_child_Bash",
+          "task_type": "local_bash"
+        }
+      ]
+    },
+    {
+      "source": "<APP_TEMP>/sdk-smoke-VVkFQs/result.json",
+      "scenario": {
+        "name": "background-agent-oneshot",
+        "owner": "background-agent",
+        "action": "oneshot"
+      },
+      "available": true,
+      "timedOut": false,
+      "requests": 6,
+      "mainResult": true,
+      "terminal": true,
+      "actionApplied": false,
+      "shellStarted": true,
+      "shellFinished": false,
+      "metrics": {
+        "shellTaskId": "b0qec5aev",
+        "firstResultAt": 1789225218351,
+        "shellNotifications": [
+          {
+            "at": 1789225223290,
+            "status": "stopped"
+          }
+        ],
+        "otherNotifications": [
+          {
+            "at": 1789225218350,
+            "task_id": "aaf2a859fd6dc6d32",
+            "status": "completed"
+          }
+        ]
+      },
+      "observations": [
+        {
+          "at": 1789225218350,
+          "kind": "shell-started",
+          "pid": "1713"
+        },
+        {
+          "at": 1789225218351,
+          "kind": "one-shot-main-result"
+        },
+        {
+          "at": 1789225218351,
+          "kind": "one-shot-main-result"
+        },
+        {
+          "at": 1789225233600,
+          "kind": "final-markers",
+          "shellStarted": true,
+          "shellFinished": false
+        }
+      ],
+      "outputs": [
+        {
+          "path": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-VVkFQs\\c9d7976c-c2f8-4cf3-9d3f-26a4baf90402\\tasks\\aaf2a859fd6dc6d32.output",
+          "insideAppTemp": true,
+          "bytes": 0,
+          "korean": false,
+          "mainReadStatus": "available",
+          "mainReadKorean": false,
+          "snapshot": {
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "partial": false
+          }
+        },
+        {
+          "path": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-VVkFQs\\c9d7976c-c2f8-4cf3-9d3f-26a4baf90402\\tasks\\b0qec5aev.output",
+          "insideAppTemp": true,
+          "bytes": 10,
+          "korean": false,
+          "mainReadStatus": "available",
+          "mainReadKorean": false,
+          "snapshot": {
+            "size": 10,
+            "sha256": "6caf3ac12c8c443229d86996a80886e86bc4da77167087b74b4306128f39c53f",
+            "partial": false
+          }
+        }
+      ],
+      "events": [
+        {
+          "at": 1789225215257,
+          "type": "system",
+          "subtype": "init",
+          "tools": [
+            "Task",
+            "Bash",
+            "CronCreate",
+            "CronDelete",
+            "CronList",
+            "Edit",
+            "EnterWorktree",
+            "ExitWorktree",
+            "Glob",
+            "Grep",
+            "ListAgents",
+            "NotebookEdit",
+            "PowerShell",
+            "Read",
+            "ReportFindings",
+            "ScheduleWakeup",
+            "SendMessage",
+            "Skill",
+            "TaskCreate",
+            "TaskGet",
+            "TaskList",
+            "TaskOutput",
+            "TaskStop",
+            "TaskUpdate",
+            "WebFetch",
+            "WebSearch",
+            "Workflow",
+            "Write"
+          ]
+        },
+        {
+          "at": 1789225215271,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225215472,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225215481,
+          "type": "system",
+          "subtype": "task_started",
+          "task_id": "aaf2a859fd6dc6d32",
+          "tool_use_id": "fixture_main_Agent",
+          "task_type": "local_agent"
+        },
+        {
+          "at": 1789225215537,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225215583,
+          "type": "system",
+          "subtype": "task_progress",
+          "task_id": "aaf2a859fd6dc6d32",
+          "tool_use_id": "fixture_main_Agent"
+        },
+        {
+          "at": 1789225218019,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225218022,
+          "type": "system",
+          "subtype": "task_started",
+          "task_id": "b0qec5aev",
+          "tool_use_id": "fixture_child_Bash",
+          "task_type": "local_bash"
+        },
+        {
+          "at": 1789225218350,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225218350,
+          "type": "system",
+          "subtype": "task_updated",
+          "task_id": "aaf2a859fd6dc6d32",
+          "patch": {
+            "status": "completed",
+            "end_time": 1789225218068
+          }
+        },
+        {
+          "at": 1789225218350,
+          "type": "system",
+          "subtype": "task_notification",
+          "task_id": "aaf2a859fd6dc6d32",
+          "status": "completed",
+          "output_file": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-VVkFQs\\c9d7976c-c2f8-4cf3-9d3f-26a4baf90402\\tasks\\aaf2a859fd6dc6d32.output",
+          "tool_use_id": "fixture_main_Agent"
+        },
+        {
+          "at": 1789225218350,
+          "type": "system",
+          "subtype": "init",
+          "tools": [
+            "Task",
+            "Bash",
+            "CronCreate",
+            "CronDelete",
+            "CronList",
+            "Edit",
+            "EnterWorktree",
+            "ExitWorktree",
+            "Glob",
+            "Grep",
+            "ListAgents",
+            "NotebookEdit",
+            "PowerShell",
+            "Read",
+            "ReportFindings",
+            "ScheduleWakeup",
+            "SendMessage",
+            "Skill",
+            "TaskCreate",
+            "TaskGet",
+            "TaskList",
+            "TaskOutput",
+            "TaskStop",
+            "TaskUpdate",
+            "WebFetch",
+            "WebSearch",
+            "Workflow",
+            "Write"
+          ]
+        },
+        {
+          "at": 1789225218350,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225218351,
+          "type": "result",
+          "subtype": "success"
+        },
+        {
+          "at": 1789225218351,
+          "type": "result",
+          "subtype": "success"
+        },
+        {
+          "at": 1789225223289,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225223290,
+          "type": "system",
+          "subtype": "task_updated",
+          "task_id": "b0qec5aev",
+          "patch": {
+            "status": "killed",
+            "end_time": 1789225223289
+          }
+        },
+        {
+          "at": 1789225223290,
+          "type": "system",
+          "subtype": "task_notification",
+          "task_id": "b0qec5aev",
+          "status": "stopped",
+          "output_file": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-VVkFQs\\c9d7976c-c2f8-4cf3-9d3f-26a4baf90402\\tasks\\b0qec5aev.output",
+          "tool_use_id": "fixture_child_Bash"
+        }
+      ]
+    },
+    {
+      "source": "<APP_TEMP>/sdk-smoke-BL66of/result.json",
+      "scenario": {
+        "name": "background-agent-interrupt",
+        "owner": "background-agent",
+        "action": "interrupt"
+      },
+      "available": true,
+      "timedOut": false,
+      "requests": 6,
+      "mainResult": true,
+      "terminal": true,
+      "actionApplied": true,
+      "shellStarted": true,
+      "shellFinished": true,
+      "metrics": {
+        "shellTaskId": "bczqvzs0g",
+        "actionAt": 1789225361015,
+        "firstResultAt": 1789225361082,
+        "actionBeforeFirstResult": true,
+        "shellNotifications": [
+          {
+            "at": 1789225369141,
+            "status": "completed"
+          }
+        ],
+        "otherNotifications": [
+          {
+            "at": 1789225361022,
+            "task_id": "a2244fd8c2b7e504b",
+            "status": "completed"
+          }
+        ]
+      },
+      "observations": [
+        {
+          "at": 1789225355798,
+          "kind": "main-response-held"
+        },
+        {
+          "at": 1789225357845,
+          "kind": "main-response-held"
+        },
+        {
+          "at": 1789225361015,
+          "kind": "shell-started",
+          "pid": "1771"
+        },
+        {
+          "at": 1789225361015,
+          "kind": "interrupt"
+        },
+        {
+          "at": 1789225361122,
+          "kind": "main-response-held"
+        },
+        {
+          "at": 1789225371146,
+          "kind": "final-markers",
+          "shellStarted": true,
+          "shellFinished": true
+        }
+      ],
+      "outputs": [
+        {
+          "path": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-BL66of\\522af6c2-7abd-46c9-bc69-693003cb5b73\\tasks\\a2244fd8c2b7e504b.output",
+          "insideAppTemp": true,
+          "bytes": 0,
+          "korean": false,
+          "mainReadStatus": "available",
+          "mainReadKorean": false,
+          "snapshot": {
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "partial": false
+          }
+        },
+        {
+          "path": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-BL66of\\522af6c2-7abd-46c9-bc69-693003cb5b73\\tasks\\bczqvzs0g.output",
+          "insideAppTemp": true,
+          "bytes": 45,
+          "korean": false,
+          "mainReadStatus": "available",
+          "mainReadKorean": false,
+          "snapshot": {
+            "size": 45,
+            "sha256": "b28b2894585f43d380d86a23b18574467014cc860d6b7c5b2313b34cb83569d5",
+            "partial": false
+          }
+        }
+      ],
+      "canonical": {
+        "pending": false,
+        "tasks": [
+          {
+            "taskId": "a2244fd8c2b7e504b",
+            "status": "completed",
+            "taskType": "local_agent",
+            "toolUseId": "fixture_main_Agent"
+          },
+          {
+            "taskId": "bczqvzs0g",
+            "status": "completed",
+            "taskType": "local_bash",
+            "parentToolUseId": "fixture_main_Agent",
+            "toolUseId": "fixture_child_Bash"
+          }
+        ],
+        "calls": [
+          {
+            "toolUseId": "fixture_main_Agent",
+            "toolName": "Agent",
+            "status": "async_launched",
+            "awaitingTask": false
+          },
+          {
+            "toolUseId": "fixture_child_Bash",
+            "toolName": "Bash",
+            "status": "completed",
+            "awaitingTask": false
+          }
+        ]
+      },
+      "events": [
+        {
+          "at": 1789225357392,
+          "type": "system",
+          "subtype": "init",
+          "tools": [
+            "Task",
+            "Bash",
+            "CronCreate",
+            "CronDelete",
+            "CronList",
+            "Edit",
+            "EnterWorktree",
+            "ExitWorktree",
+            "Glob",
+            "Grep",
+            "ListAgents",
+            "NotebookEdit",
+            "PowerShell",
+            "Read",
+            "ReportFindings",
+            "ScheduleWakeup",
+            "SendMessage",
+            "Skill",
+            "TaskCreate",
+            "TaskGet",
+            "TaskList",
+            "TaskOutput",
+            "TaskStop",
+            "TaskUpdate",
+            "WebFetch",
+            "WebSearch",
+            "Workflow",
+            "Write"
+          ]
+        },
+        {
+          "at": 1789225357403,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225357739,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225357745,
+          "type": "system",
+          "subtype": "task_started",
+          "task_id": "a2244fd8c2b7e504b",
+          "tool_use_id": "fixture_main_Agent",
+          "task_type": "local_agent"
+        },
+        {
+          "at": 1789225357811,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225357874,
+          "type": "system",
+          "subtype": "task_progress",
+          "task_id": "a2244fd8c2b7e504b",
+          "tool_use_id": "fixture_main_Agent"
+        },
+        {
+          "at": 1789225360699,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225360700,
+          "type": "system",
+          "subtype": "task_started",
+          "task_id": "bczqvzs0g",
+          "tool_use_id": "fixture_child_Bash",
+          "task_type": "local_bash"
+        },
+        {
+          "at": 1789225361021,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225361022,
+          "type": "system",
+          "subtype": "task_updated",
+          "task_id": "a2244fd8c2b7e504b",
+          "patch": {
+            "status": "completed",
+            "end_time": 1789225360999
+          }
+        },
+        {
+          "at": 1789225361022,
+          "type": "system",
+          "subtype": "task_notification",
+          "task_id": "a2244fd8c2b7e504b",
+          "status": "completed",
+          "output_file": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-BL66of\\522af6c2-7abd-46c9-bc69-693003cb5b73\\tasks\\a2244fd8c2b7e504b.output",
+          "tool_use_id": "fixture_main_Agent"
+        },
+        {
+          "at": 1789225361082,
+          "type": "result",
+          "subtype": "error_during_execution"
+        },
+        {
+          "at": 1789225361097,
+          "type": "system",
+          "subtype": "init",
+          "tools": [
+            "Task",
+            "Bash",
+            "CronCreate",
+            "CronDelete",
+            "CronList",
+            "Edit",
+            "EnterWorktree",
+            "ExitWorktree",
+            "Glob",
+            "Grep",
+            "ListAgents",
+            "NotebookEdit",
+            "PowerShell",
+            "Read",
+            "ReportFindings",
+            "ScheduleWakeup",
+            "SendMessage",
+            "Skill",
+            "TaskCreate",
+            "TaskGet",
+            "TaskList",
+            "TaskOutput",
+            "TaskStop",
+            "TaskUpdate",
+            "WebFetch",
+            "WebSearch",
+            "Workflow",
+            "Write"
+          ]
+        },
+        {
+          "at": 1789225361098,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225369140,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225369140,
+          "type": "system",
+          "subtype": "task_updated",
+          "task_id": "bczqvzs0g",
+          "patch": {
+            "status": "completed",
+            "end_time": 1789225369139
+          }
+        },
+        {
+          "at": 1789225369141,
+          "type": "system",
+          "subtype": "task_notification",
+          "task_id": "bczqvzs0g",
+          "status": "completed",
+          "output_file": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-BL66of\\522af6c2-7abd-46c9-bc69-693003cb5b73\\tasks\\bczqvzs0g.output",
+          "tool_use_id": "fixture_child_Bash"
+        }
+      ]
+    },
+    {
+      "source": "<APP_TEMP>/sdk-smoke-Qf1dHJ/result.json",
+      "scenario": {
+        "name": "workflow-start-error",
+        "action": "workflow"
+      },
+      "available": true,
+      "timedOut": false,
+      "requests": 3,
+      "mainResult": true,
+      "terminal": false,
+      "actionApplied": false,
+      "shellStarted": false,
+      "shellFinished": false,
+      "metrics": {
+        "firstResultAt": 1789225266042,
+        "shellNotifications": [],
+        "otherNotifications": []
+      },
+      "observations": [],
+      "outputs": [],
+      "startupError": {
+        "status": "async_launched",
+        "taskId": "w2vemyr3w",
+        "taskType": "local_workflow",
+        "workflowName": "orca-smoke-start-error",
+        "runId": "wf_efb7ebe8-531",
+        "summary": "Bounded syntax error fixture",
+        "error": "SyntaxError: Unexpected keyword 'export'\nLoad the `workflow-authoring` skill for the script reference if you have not, fix the script, and retry."
+      },
+      "canonical": {
+        "pending": false,
+        "tasks": [],
+        "calls": [
+          {
+            "toolUseId": "fixture_main_Workflow",
+            "toolName": "Workflow",
+            "status": "failed",
+            "awaitingTask": false
+          }
+        ]
+      },
+      "events": [
+        {
+          "at": 1789225265741,
+          "type": "system",
+          "subtype": "init",
+          "tools": [
+            "Task",
+            "Bash",
+            "CronCreate",
+            "CronDelete",
+            "CronList",
+            "Edit",
+            "EnterWorktree",
+            "ExitWorktree",
+            "Glob",
+            "Grep",
+            "ListAgents",
+            "NotebookEdit",
+            "PowerShell",
+            "Read",
+            "ReportFindings",
+            "ScheduleWakeup",
+            "SendMessage",
+            "Skill",
+            "TaskCreate",
+            "TaskGet",
+            "TaskList",
+            "TaskOutput",
+            "TaskStop",
+            "TaskUpdate",
+            "WebFetch",
+            "WebSearch",
+            "Workflow",
+            "Write"
+          ]
+        },
+        {
+          "at": 1789225265751,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225265905,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225266042,
+          "type": "result",
+          "subtype": "success"
+        }
+      ]
+    },
+    {
+      "source": "<APP_TEMP>/sdk-smoke-Qf1dHJ/result.json",
+      "scenario": {
+        "name": "workflow-oneshot",
+        "action": "oneshot"
+      },
+      "available": true,
+      "timedOut": false,
+      "requests": 5,
+      "mainResult": true,
+      "terminal": true,
+      "actionApplied": false,
+      "shellStarted": false,
+      "shellFinished": false,
+      "metrics": {
+        "firstResultAt": 1789225271444,
+        "shellNotifications": [],
+        "otherNotifications": [
+          {
+            "at": 1789225271384,
+            "task_id": "wrij6qjhj",
+            "status": "completed"
+          }
+        ]
+      },
+      "observations": [
+        {
+          "at": 1789225271444,
+          "kind": "one-shot-main-result"
+        },
+        {
+          "at": 1789225271444,
+          "kind": "one-shot-main-result"
+        }
+      ],
+      "outputs": [
+        {
+          "path": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-Qf1dHJ\\8af04827-cb95-46ba-b0c4-85c5f2617878\\tasks\\wrij6qjhj.output",
+          "insideAppTemp": true,
+          "bytes": 794,
+          "korean": false,
+          "mainReadStatus": "available",
+          "mainReadKorean": false,
+          "snapshot": {
+            "size": 794,
+            "sha256": "a1b15be0ea95a295d3f1bdc4f02a8bacd9c9934aa12faa621a2a4627e376ee91",
+            "partial": false
+          }
+        }
+      ],
+      "canonical": {
+        "pending": false,
+        "tasks": [
+          {
+            "taskId": "wrij6qjhj",
+            "status": "completed",
+            "taskType": "local_workflow",
+            "toolUseId": "fixture_main_Workflow"
+          }
+        ],
+        "calls": [
+          {
+            "toolUseId": "fixture_main_Workflow",
+            "toolName": "Workflow",
+            "status": "async_launched",
+            "awaitingTask": false
+          }
+        ]
+      },
+      "events": [
+        {
+          "at": 1789225268004,
+          "type": "system",
+          "subtype": "init",
+          "tools": [
+            "Task",
+            "Bash",
+            "CronCreate",
+            "CronDelete",
+            "CronList",
+            "Edit",
+            "EnterWorktree",
+            "ExitWorktree",
+            "Glob",
+            "Grep",
+            "ListAgents",
+            "NotebookEdit",
+            "PowerShell",
+            "Read",
+            "ReportFindings",
+            "ScheduleWakeup",
+            "SendMessage",
+            "Skill",
+            "TaskCreate",
+            "TaskGet",
+            "TaskList",
+            "TaskOutput",
+            "TaskStop",
+            "TaskUpdate",
+            "WebFetch",
+            "WebSearch",
+            "Workflow",
+            "Write"
+          ]
+        },
+        {
+          "at": 1789225268022,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225268198,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225268201,
+          "type": "system",
+          "subtype": "task_started",
+          "task_id": "wrij6qjhj",
+          "tool_use_id": "fixture_main_Workflow",
+          "task_type": "local_workflow"
+        },
+        {
+          "at": 1789225268222,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225268481,
+          "type": "system",
+          "subtype": "task_progress",
+          "task_id": "wrij6qjhj",
+          "tool_use_id": "fixture_main_Workflow"
+        },
+        {
+          "at": 1789225271383,
+          "type": "system",
+          "subtype": "task_progress",
+          "task_id": "wrij6qjhj",
+          "tool_use_id": "fixture_main_Workflow"
+        },
+        {
+          "at": 1789225271383,
+          "type": "system",
+          "subtype": "background_tasks_changed"
+        },
+        {
+          "at": 1789225271384,
+          "type": "system",
+          "subtype": "task_updated",
+          "task_id": "wrij6qjhj",
+          "patch": {
+            "status": "completed",
+            "end_time": 1789225271381
+          }
+        },
+        {
+          "at": 1789225271384,
+          "type": "system",
+          "subtype": "task_notification",
+          "task_id": "wrij6qjhj",
+          "status": "completed",
+          "output_file": "<APP_TEMP>\\claude\\<APP_TEMP_KEY>-sdk-smoke-Qf1dHJ\\8af04827-cb95-46ba-b0c4-85c5f2617878\\tasks\\wrij6qjhj.output",
+          "tool_use_id": "fixture_main_Workflow"
+        },
+        {
+          "at": 1789225271414,
+          "type": "system",
+          "subtype": "init",
+          "tools": [
+            "Task",
+            "Bash",
+            "CronCreate",
+            "CronDelete",
+            "CronList",
+            "Edit",
+            "EnterWorktree",
+            "ExitWorktree",
+            "Glob",
+            "Grep",
+            "ListAgents",
+            "NotebookEdit",
+            "PowerShell",
+            "Read",
+            "ReportFindings",
+            "ScheduleWakeup",
+            "SendMessage",
+            "Skill",
+            "TaskCreate",
+            "TaskGet",
+            "TaskList",
+            "TaskOutput",
+            "TaskStop",
+            "TaskUpdate",
+            "WebFetch",
+            "WebSearch",
+            "Workflow",
+            "Write"
+          ]
+        },
+        {
+          "at": 1789225271415,
+          "type": "system",
+          "subtype": "status",
+          "status": "requesting"
+        },
+        {
+          "at": 1789225271444,
+          "type": "result",
+          "subtype": "success"
+        },
+        {
+          "at": 1789225271444,
+          "type": "result",
+          "subtype": "success"
+        }
+      ]
+    }
+  ]
+}

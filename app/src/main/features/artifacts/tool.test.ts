@@ -53,6 +53,8 @@ describe('model artifact tool contract', () => {
     expect(server.descriptor.id).toBe('orca_artifacts')
     expect(server.descriptor.alwaysLoad).toBe(true)
     expect(server.descriptor.instructions).toContain('Do not publish application internals')
+    expect(server.descriptor.instructions).toContain('orcinus-orca')
+    expect(server.descriptor.tools[0].description).toContain('orcinus-orca')
     expect(server.implementations.map((t) => t.name)).toEqual(['publish_artifact'])
     expect(Object.keys(server.implementations[0].inputSchema)).toEqual(['path', 'title'])
     expect(z.object(server.implementations[0].inputSchema).safeParse({ path: '' }).success).toBe(

@@ -15,7 +15,7 @@ If several artifacts are requested, publish each. Do not claim publication succe
 unless the tool confirms success. This publishes locally in Orca, not to the web.
 The tool stores the published file in Orca's artifacts folder and returns its reference.
 Use the completed file in your working directory, the session's additional directories,
-or the OS user's temporary directory (including its subdirectories) as input.
+or the orcinus-orca folder under the OS user's temporary directory (including its subdirectories) as input.
 Do not change Orca settings or write directly to its configuration folder.
 The UI provides a preview, source view for text, and file actions for published deliverables.`
 
@@ -34,7 +34,7 @@ export function createArtifactToolServer(
         {
           name,
           description:
-            'Publish one finished local HTML, Markdown, text/code or PNG/JPEG/GIF/WebP/SVG deliverable to this Orca conversation. The input file is copied and preserved. Maximum 5 MiB; text and SVG must be UTF-8 and raster images must have valid signatures. Path is relative to the current working directory or an allowed absolute local path, including files under the OS temporary directory.',
+            'Publish one finished local HTML, Markdown, text/code or PNG/JPEG/GIF/WebP/SVG deliverable to this Orca conversation. The input file is copied and preserved. Maximum 5 MiB; text and SVG must be UTF-8 and raster images must have valid signatures. Path is relative to the current working directory or an allowed absolute local path, including files under the orcinus-orca folder in the OS temporary directory.',
           annotations: {
             readOnlyHint: false,
             destructiveHint: false,

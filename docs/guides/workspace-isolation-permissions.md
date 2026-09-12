@@ -306,10 +306,10 @@ function screenBashCommand(
 
 ## 5. `additionalDirectories` 확장 시나리오
 
-지금은 `[]`. 추후 특정 폴더를 추가 허용할 때, **SDK 옵션과 훅에 같은 배열을 주입**한다.
+Orca는 OS 임시 폴더 아래의 `orcinus-orca` 앱 루트를 Code·Work에 자동 추가하고, 사용자가 고른 참조 경로도 함께 넣는다. **SDK 옵션과 훅에는 같은 배열을 주입**한다.
 
 ```typescript
-const ADDITIONAL_DIRS = ["/abs/extra/dir"]; // 단일 소스(one array)
+const ADDITIONAL_DIRS = [AUTOMATIC_TEMP_ROOT, ...USER_EXTRA_DIRS]; // 단일 소스(one array)
 
 const options = {
   additionalDirectories: ADDITIONAL_DIRS, // SDK 내장 파일툴 경로 스코프에 반영
@@ -375,7 +375,7 @@ disallowedTools: [
 | **permissionMode** | 대화·자동진행 UX 다이얼. `default` 권장, `dontAsk` **아님** | `permissionMode: "default"` |
 | `allowedTools` | (선택) 허용 툴 표면 축소 | Read/Write/Edit/Bash/AskUserQuestion/… |
 | `disallowedTools` | 위험 명령 이중 차단 — **Orca 미채택**(§6) | `Bash(sudo *)` 등 |
-| `additionalDirectories` | 추후 확장 (지금 `[]`) | 훅과 동일 배열 공유 |
+| `additionalDirectories` | 앱 임시 루트 + 사용자 추가 경로 | 훅과 동일 배열 공유 |
 
 **핵심 원칙 재확인:**
 

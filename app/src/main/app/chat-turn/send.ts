@@ -39,6 +39,7 @@ import { createApprovalRequester } from './approval'
 import { runTurnWithContinuations } from './post-turn'
 import type { ChatRuntimeDeps, NormalizedAttachments } from './deps'
 import { makeClassifiedError } from '../../infra/errors'
+import { prepareTemporaryFilesPath } from '../../infra/config/temp-path'
 import { prepareTurnExecution } from './prepare-worktree'
 import { resolveAgentKind, resolveAgentProfile } from '../../features/agents/profiles'
 import { bindStartingProject } from './project-binding'
@@ -129,7 +130,7 @@ export async function handleChatSend(
       ? {
           ...extensions,
           outputFiles,
-          systemPromptAppend: `${extensions.systemPromptAppend ?? ''}\nFinal ordinary output directory: ${outputFiles.directory} (the OS user temporary directory). Use this exact absolute path in file operations and final Markdown links.`
+          systemPromptAppend: `${extensions.systemPromptAppend ?? ''}\nFinal ordinary output directory: ${outputFiles.directory} (the Orca-specific orcinus-orca folder under the OS user temporary directory). Use this exact absolute path in file operations and final Markdown links.`
         }
       : extensions
   const acquired = supervisor.acquireChain({
@@ -315,6 +316,7 @@ export async function handleChatSend(
         // start* 로 등록한 즉시 cleanup 핸들을 공개한다. 이 다음 await가 reject해도
         // 바깥 finally가 등록된 turn을 정확히 한 번 release해야 한다.
         leaderTurn = turn
+        await prepareTemporaryFilesPath()
         if (agentKind === 'work' && deps.prepareOutputFiles)
           outputFiles = await deps.prepareOutputFiles(turn.cwd)
         const entry = await acquireTurnRuntime(
