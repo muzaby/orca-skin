@@ -155,3 +155,40 @@ D-204·D-205 확정 후 작성한다. 고정된 설계 제약:
 | 경로 검증 술어는 `workspace-guard` 와 **같은 SSOT** 를 쓴다 | 복붙 정규식 금지 |
 | 반환은 범위 지정 읽기(offset·length)다. 전체 파일 반복 읽기를 만들지 않는다 | 스펙 §2 대용량 요구 |
 | 완료 스냅샷의 해시·크기를 저장한 경우에만 "변경됨" 을 주장한다 | 스펙 §2 — 근거 없는 변경 표시 금지 |
+
+---
+
+# 실기 증거 반영 (2026-09-12)
+
+> 출처: 사용자 Windows 실기 보고(0230 테스트 1·2·4·5). 이 절이 D-204 를 닫고 새 사실 셋을 더한다.
+
+## 결정 갱신
+
+| ID | 결정 | 상태 |
+|---|---|---|
+| D-204 | 읽기 허용 범위 = **Orca 가 만든 하위 경로만 rw**. OS temp 전체를 열지 않는다 | **ACTIVE** (사용자 턴 2026-09-12) |
+| D-206 | 출력 파일 읽기는 **셸 작업에만** 건다. 에이전트 작업의 `.output` 은 읽지 않는다 | **ACTIVE** |
+| D-205 | 대용량 정책(상한·부분 읽기 단위) | **OPEN** 유지 |
+
+- D-206 근거는 벤더 도구 설명 원문이다: *"For local_agent tasks: do NOT Read the .output file — it is a symlink to the full subagent conversation transcript (JSONL) and will overflow your context window."*
+- D-204 는 `workspace-guard.ts` 를 넓히는 결정이라 **0237 이 선행**이다. 이 handoff 는 그 위에서 UX 를 세운다.
+
+## 도구 계약 실측 (2026-09-12)
+
+| 대상 | 관측 | 의미 |
+|---|---|---|
+| `TaskOutput` | 도구 설명 첫 줄이 `DEPRECATED` | 0204 D-010 의 미채택 판단이 벤더 방향과 일치한다. 승계 유지 |
+| 벤더 권장 경로 | *"For bash tasks: prefer using the Read tool on that output file path"* | **모델이 쓸 정식 경로는 `Read` 다.** 실기 1번은 그 경로가 가드에 막힌 것이다 |
+| 완료 알림 | *"you receive a `<task-notification>` with the same path when the task completes"* | 경로는 결과와 알림 두 곳에서 온다. Orca 는 결과 쪽을 이미 투영한다(`shellBackground`) |
+| `Monitor` | `command` 로 새 감시 프로세스를 띄우고 stdout 한 줄마다 이벤트 | 기존 작업 조회 도구가 **아니다**. 출력 파일 tail 감시가 추적 수단이고 그것도 D-204 가 선행이다 |
+
+## 실기가 확인한 결함
+
+| 실기 # | 증상 | 코드 원인 | 이 handoff 의 대응 |
+|---|---|---|---|
+| 2·4 | 백그라운드 작업이 **실행 중에는 우측 패널에 없다** | 목록 fold 의 `isBackgroundTaskCall` 이 셸을 **런치 영수증으로만** 판정한다(`parts.ts:356-361`). 영수증은 `tool_result` 에 실려 오므로 포그라운드로 돌다 전환되는 명령은 그 전까지 오를 근거가 없다 | 범위에 든다 — 목록 진입 조건을 영수증 이전으로 넓힐지 설계한다 |
+| 4 | 5분 타임아웃 실패에서 hang 인지 진행 중인지 못 가린다 | stdout 표면이 없다. `persistedOutputPath`·`rawOutputPath` 는 이미 투영에 있다(`task-kind.ts:93-99`) | 이 handoff 의 본래 목표 |
+| 5 | 패널 카드 클릭 불가, 중단 버튼만 활성 | 0230 R-03 이 의도적으로 막았다 — 셸은 하위 대화록이 없어 상세가 죽은 어포던스라는 근거 | **R-03 재검토 대상**. 사용자가 원한 것은 대화록이 아니라 stdout 이다 |
+
+- 실기 5 는 0230 의 ACTIVE 결정(R-03)과 사용자 요구가 갈리는 지점이다. 상세를 여는 것이 아니라
+  **stdout 전용 표면**을 주는 것이 D-206 과도 맞는다 — READY 승격 시 R-03 supersede 여부를 명시한다.

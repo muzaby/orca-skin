@@ -11,11 +11,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-11 |
 | 매핑 | 0230~0236 분할의 **2번**. 담당 = G2(F-04~F-07) + 사용자 제보 ② |
-| 상태 | **READY** |
-| V mode | `Baseline V`(이 handoff 고유 V1) |
+| 상태 | **READY** (ΔV1) |
+| V mode | `Baseline V`(V1) → **`Delta V`(ΔV1)** |
 | 기준 V | `none` — 0230 V1 을 상속하지 않는다(§4 참조) |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 이번 V revision | **`ΔV1`** — 정본은 문서 끝 [§ΔV1](#δv1--r1-return_to_plan-정정-2026-09-12) |
+| 유효 V | **`V1 + ΔV1`** |
 
 **선행 해소**: 0230 이 `impl/IMPL_DONE`(r2) 를 지나 `verify/PASS` 까지 갔다. F-07 의 대상인 셸
 카드가 섰고 어포던스 규칙(R-03)도 잠겼으므로 §7-A 를 채워 READY 로 올린다.
@@ -515,3 +515,107 @@ SDK tool_progress / task_progress
 - 반복해서 부딪히는 환경 한계: electron 바이너리 미설치로 6파일 수집 실패(0230 과 동일 계열).
   그 때문에 VP-218(SD↔ST)과 AT-111 의 IT 를 이 환경에서 닫지 못한다.
 - 현재 라운드 수: **1**.
+
+---
+
+# ΔV1 — r1 `RETURN_TO_PLAN` 정정 (2026-09-12)
+
+> 이 절이 **유효 V 의 정본**이다. 위 `V1` 행은 기준선으로 보존하며 여기서 supersede 한 행만 바뀐다.
+> 판정 원문은 [`verify.md`](verify.md), 근거 이슈는 그 §13 의 D1·D3·D8.
+
+| 항목 | 값 |
+|---|---|
+| V mode | `Delta V` |
+| 기준 V | `171e609:V1` |
+| 이번 V revision | `ΔV1` |
+| 유효 V | `V1 + ΔV1` |
+| 상태 | **READY** |
+
+## Δ1. Decision Ledger 추가
+
+| ID | 결정 | 이유/조건 | 출처 | 상태 |
+|---|---|---|---|---|
+| D-107 | 카드가 보이는 경과는 **그 백그라운드 작업 자신의 것**이다. `elapsedSeconds` 는 **경계 도구 자기 귀속**(자기 id 또는 `task_id` 매핑)일 때만 싣고, 부모 귀속(안쪽 도구 진행)에서는 싣지 않는다 | 사용자 원문: "백그라운드 작업의 것이고, bash/powershell 작업이기 떄문에". 부모 귀속 값은 **안쪽 도구**의 경과라 Task 카드에 걸면 거짓 라벨이다 — `lastToolName` 이 이미 같은 이유로 반대 방향 가드를 갖는다 | 사용자 턴 | **ACTIVE** |
+| D-108 | Work 에서 실행 줄은 **클릭 어포던스를 갖지 않는다**. 건수·경과·요약은 그대로 말한다 | 사용자 원문: "work 에서는 장시간 작업의 경우 모니터를 이요하여 bash/powershell을 추적한다". 그 추적은 0234 범위다. 지금 Work 는 `subagent` 타일이 없어 클릭이 완전 무반응이고 그것은 D-105 가 금지한 죽은 어포던스다 | 사용자 턴 | **ACTIVE** |
+| D-109 | `SubagentMetaState.elapsedSeconds` 는 **카드가 읽는다**. 소비처 없는 필드로 두지 않는다 | r1 이 store 까지만 배선해 AT-101 이 화면에 도달하지 않았다(verify D1) | verify r1 | **ACTIVE** |
+
+- D-103(진행률 없음) 유지. D-105 유지하되 **Code 한정**임을 D-108 이 명시한다.
+- **`ACTIVE 결정 ↔ AC` 대조**: D-107↔AT-101a · D-108↔AT-115 · D-109↔AT-101a. 충돌 0.
+
+## Δ2. AC 정정
+
+| AT | 상태 | 내용 |
+|---|---|---|
+| AT-101 | **SUPERSEDED by AT-101a** | 원문이 "그 도구 카드" 로만 적어 누구의 경과인지 미정이었다 |
+| AT-101a | **NEW** | 경계 도구 자기 진행이 `elapsed_time_seconds` 를 실으면 **그 작업 카드가 그 값을 경과로 보인다**. 부모 귀속 진행은 카드 경과를 바꾸지 않는다 |
+| AT-115 | **NEW** | Work 의 실행 줄은 `role="button"`·포인터·키보드 진입을 갖지 않는다. Code 는 그대로 목록을 연다 |
+
+| AT | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|
+| AT-101a | 셸 자기 진행 `elapsed_time_seconds: 7` 수신 후 그 작업 카드 문자열에 `7초` 경과가 있다. 같은 작업에 부모 귀속 진행이 와도 그 값은 바뀌지 않는다 | 순수 렌더 — `AgentTaskRow` 를 production store 상태로 마운트하고 문자열 단언. 음성 대조로 부모 귀속 주입 | `tool_progress` → `mapToolProgress` → `subagent.task` → `patchSubagentMeta` → `AgentTaskRow` |
+| AT-115 | Work 로 렌더한 실행 줄 DOM 에 `role="button"` 이 없다. 같은 상태의 Code 렌더에는 있다 | 순수 렌더 양성/음성 짝 — 두 `agentKind` 로 같은 상태를 렌더 | `agentKind` → `BackgroundRunRow` → `TranscriptActionRow` |
+
+## Δ3. V node / pair
+
+| Node | 레벨 | provenance | 비고 |
+|---|---|---|---|
+| R-101 | R | **CHANGED**(ΔV1) | 경과 주체 확정 — 기준 `V1:R-101` |
+| R-109 | R | NEW | Work 어포던스 정책(D-108) |
+| AR-101 | AR | **CHANGED**(ΔV1) | `elapsedSeconds` 방출 조건에 귀속 축 추가 |
+| AR-103 | AR | **INHERITED** | 배선 자체는 그대로. VP-214 가 `REGRESSION` 이 아니라 재실행 대상이다 |
+| MD-105 | MD | NEW | 카드 경과 선택 — `live.elapsedSeconds` 우선, 없으면 기존 `startedAtMs` 앵커 |
+| MD-106 | MD | NEW | 실행 줄 어포던스 파생 — `agentKind` 소비 |
+
+| Pair | 레벨 | 노드 | requiredness | production path | 직접 oracle | 적대 증거 | §10 |
+|---|---|---|---|---|---|---|---|
+| VP-201a | R↔AT | R-101 ↔ AT-101a·AT-102 | REQUIRED | `tool_progress` → 어댑터 → store → **카드** | 카드 렌더 문자열 | required — 카드의 `elapsedSeconds` 읽기를 지우는 변이 | EP-208 (2) |
+| VP-224 | AR↔IT | AR-101 ↔ IT | REQUIRED | 귀속 축별 방출 | 정규화 반환값 2종 | required — **형제 맞바꿈**: 부모 귀속에 `elapsedSeconds` 를, 자기 귀속에 `lastToolName` 을 싣는 변이 | EP-208 (2) |
+| VP-221 | MD↔UT | MD-105 ↔ UT | REQUIRED | 카드 경과 선택 단독 | 선택 결과 | not selected — 값 단언 | EP-208 (2) |
+| VP-222 | R↔AT | R-109 ↔ AT-115 | REQUIRED | `agentKind` → 실행 줄 → DOM | 어포던스 부재·존재 | required — **형제 맞바꿈**: 두 `agentKind` 의 어포던스를 맞바꾸는 변이 | EP-209 (1) |
+| VP-223 | MD↔UT | MD-106 ↔ UT | REQUIRED | 어포던스 파생 단독 | 파생 반환값 | not selected — VP-222 가 렌더까지 본다 | EP-209 (1) |
+| VP-214 | AR↔IT | AR-103 ↔ IT | REQUIRED **재실행** | **`TranscriptView` 마운트**로 store → 실행 줄 배선 | 컨테이너 렌더 출력 | required — `TranscriptView` 의 `last` 를 지우는 변이(verify D2 가 green 으로 관측) | EP-206 (**3**) |
+
+- **합계**: ΔV1 이 더하는 pair `REQUIRED 5`, 재실행 `1`. 유효 V 의 `REQUIRED` 는 `15 − 1(VP-201 supersede) + 5 = 19`, `REGRESSION 5`.
+- `V1` 의 나머지 pair 는 영향 없음 — r1 에서 PASS 로 관측된 좌표를 참조한다(verify §5).
+- VP-218(SD↔ST)은 VP-214 재실행으로 root 가 풀린다. 구간 이음매 관측은 여전히 환경 제약이다.
+
+## Δ4. §10 강제 지점 정정·추가
+
+**정정(verify D6)**: `V1 §10` 표의 `pair` 열이 EP-203 부터 pair 표와 어긋난다. 계약과 지점 수는 그대로 두고 열만 바로잡는다.
+
+| EP | 올바른 pair |
+|---|---|
+| EP-203 | VP-206 · VP-207 |
+| EP-204 | VP-208 |
+| EP-205 | VP-209 · VP-210 · VP-211 · VP-212 |
+| EP-206 | VP-213 · VP-214 · VP-215 · VP-219 |
+| EP-207 | VP-216 · VP-217 · VP-220 |
+
+**EP-206 지점 수 정정 `2 → 3`**: 구현이 `Exchange` 에 `last` 게이트를 새로 만들었다. 배선은 파생 1 + 렌더 분기 1 + **`TranscriptView` 의 `last` 전달 1** 이다.
+
+| EP | pair | 계약 | SSOT | 언제 강제 | 지점 수 | 실패 의미 |
+|---|---|---|---|---|---|---|
+| EP-208 | VP-201a·VP-224·VP-221 | 카드 경과는 **그 작업 자신의 것**이다. `elapsedSeconds` 는 자기 귀속에서만 실리고 카드는 그것을 우선한다 | `claude-map.ts` 귀속부 + 카드 경과 선택 | 방출 1 + 카드 선택 1 | 2 | 부모 귀속 값을 카드에 걸면 안쪽 도구 경과가 작업 경과로 보인다 |
+| EP-209 | VP-222·VP-223 | 실행 줄 어포던스는 **`agentKind` 하나**가 가른다 | `BackgroundRunRow.tsx` | 어포던스 분기 1 | 1 | Work 에서 누를 수 있는데 아무 일도 없는 줄이 남는다(D-105 위반) |
+
+- **합계**: `V1 11 + EP-206 의 +1 + EP-208 2 + EP-209 1 = 15` 지점.
+
+## Δ5. 구현 설계 추가 (§11 보강)
+
+| 파일 | 역할 | 변경 |
+|---|---|---|
+| `src/main/adapters/claude-map.ts` | 귀속 축별 방출 | `elapsedSeconds` 를 **자기 귀속**(`ownIsTaskBoundary` 또는 `task_id` 매핑)일 때만 싣는다. `lastToolName` 의 부모 가드와 대칭 |
+| `src/renderer/.../transcript/AgentTaskRow.tsx` | **카드 경과** | `live.elapsedSeconds` 가 있으면 그것을, 없으면 기존 `useElapsed(startedAtMs)` 를 쓴다. r1 이 빠뜨린 소비처다 |
+| `src/renderer/.../transcript/BackgroundRunRow.tsx` | 어포던스 | `agentKind` 를 읽어 Work 면 `TranscriptActionRow` 의 진입 계약을 주지 않는다 |
+| `src/renderer/.../transcript/TranscriptView.*.test.ts` | **배선 잠금** | `TranscriptView.workResults.test.ts` 와 같은 하네스(`renderToStaticMarkup` + virtualizer mock)로 tail 이 실행 줄을 세우는지 단언 |
+| `src/renderer/.../i18n/resources/{ko,en}.ts` | 정리 | 소비처 없는 `backgroundRun.openHint` 를 지운다(verify D4) |
+
+## Δ6. 비차단 처분
+
+| # | 처분 |
+|---|---|
+| D4 | `openHint` 제거 — Δ5 에 포함 |
+| D5 | `heartbeat` 필드 **유지**. `V1 §11` 이 요구했고 IPC 문서가 의미를 적는다. 소비처는 0233 의 `정리 중`·일시정지 표시가 후보다 — 그때까지 어댑터 방출만 둔다 |
+| D6 | Δ4 에서 정정 |
+| D7 | 다음 라운드 구현 보고는 변이 실패 수를 재측정값으로 적는다 |
+| D8 | 우측 패널 접힘 무반응 — **0235 로 이관**. Work 는 D-108 이 먼저 닫는다 |
