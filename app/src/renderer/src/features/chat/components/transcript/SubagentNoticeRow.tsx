@@ -1,7 +1,7 @@
 import { memo, useMemo, useState } from 'react'
 import { useI18n, type MessageKey } from '../../../../shared/i18n'
 import { formatDurationLabel } from '../../lib/toolMeta'
-import { subagentTaskDescription } from '../../lib/parts'
+import { subagentTaskJoin } from '../../lib/parts'
 import { chatActions, useChatSession } from '../../store/chatStore'
 import { TranscriptActionRow } from './TranscriptActionRow'
 import { InlineSubagentDetail } from './InlineSubagentDetail'
@@ -40,38 +40,48 @@ export const SubagentNoticeRow = memo(function SubagentNoticeRow({
   const { tr } = useI18n()
   const messages = useChatSession((s) => s.messages)
   const [expanded, setExpanded] = useState(false)
-  const description = useMemo(
-    () => subagentTaskDescription(messages, toolRunId),
-    [messages, toolRunId]
-  )
+  const joined = useMemo(() => subagentTaskJoin(messages, toolRunId), [messages, toolRunId])
+  const description = joined?.description
+  // 셸 백그라운드 작업은 **하위 대화록이 없다** — 상세로 들어가면 stdout 이 "에이전트 답변"
+  // 자리에 명령도 맥락도 없이 그려진다. 우측 패널 카드에서 이미 막은 규칙을 통지 행에도 같게
+  // 건다(0230 r2 · D3): 진입 어포던스 자체를 주지 않는다.
+  const hasDetail = joined?.kind !== 'shell'
+  const inlineDetail = hasDetail && transcriptPolicy.inlineSubagentDetail
   const durationLabel = formatDurationLabel(tr, durationMs)
   const notice = NOTICE[status]
+  // 종류 라벨(0231 D-106 · §10 EP-207) — 어포던스와 **같은 `joined.kind` 하나**가 가른다. 고정
+  // `Agent "…"` 문구는 셸 명령을 `Agent "npx vitest run" finished` 로 불렀다(0230 verify r2 D6).
+  const lineKey =
+    joined?.kind === 'shell'
+      ? 'chat.subagentNotice.shellLine'
+      : ('chat.subagentNotice.agentLine' as const)
   const detail = [
-    ...(description
-      ? [tr('chat.subagentNotice.agentLine', { title: description, verb: notice.verb })]
-      : []),
+    ...(description ? [tr(lineKey, { title: description, verb: notice.verb })] : []),
     ...(durationLabel ? [tr('chat.subagentNotice.took', { duration: durationLabel })] : [])
   ].join(' · ')
+  // 갈 곳이 없는 행은 hover 에도 반응하지 않는다 — 행 셸이 role·포인터·꺾쇠를 이미 막는데
+  // (`TranscriptActionRow`) 자식의 hover 틴트만 남으면 누를 수 없는 줄이 눌릴 것처럼 밝아진다.
+  const hoverTint = hasDetail ? 'group-hover/notice:text-t9' : ''
   return (
     <div className="flex flex-col gap-1">
       <TranscriptActionRow
         groupClassName="group/notice"
-        expanded={transcriptPolicy.inlineSubagentDetail ? expanded : undefined}
-        onActivate={() => {
-          if (transcriptPolicy.inlineSubagentDetail) setExpanded((value) => !value)
-          else chatActions.openSubagentTask(toolRunId)
-        }}
+        expanded={inlineDetail ? expanded : undefined}
+        onActivate={
+          hasDetail
+            ? () => {
+                if (inlineDetail) setExpanded((value) => !value)
+                else chatActions.openSubagentTask(toolRunId)
+              }
+            : undefined
+        }
       >
-        <span
-          className={`shrink-0 ${status === 'failed' ? 'text-bad' : ''} group-hover/notice:text-t9`}
-        >
+        <span className={`shrink-0 ${status === 'failed' ? 'text-bad' : ''} ${hoverTint}`}>
           {tr(notice.key)}
         </span>
-        {detail !== '' && (
-          <span className="min-w-0 truncate group-hover/notice:text-t9">{detail}</span>
-        )}
+        {detail !== '' && <span className={`min-w-0 truncate ${hoverTint}`}>{detail}</span>}
       </TranscriptActionRow>
-      {transcriptPolicy.inlineSubagentDetail && expanded && (
+      {inlineDetail && expanded && (
         <InlineSubagentDetail toolRunId={toolRunId} transcriptPolicy={transcriptPolicy} />
       )}
       {status === 'failed' && summary && (

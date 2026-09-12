@@ -9,6 +9,7 @@ import type { ArtifactRef } from './artifacts'
 import type { AgentKind } from './agent-kind'
 import type { ResponseBoundary, ResponseBoundaryPart } from './response-boundary'
 import type { ReceivedMessageOrigin, SessionSchedule } from './session-schedules'
+import type { TaskKind } from './task-kind'
 
 export type { AgentKind } from './agent-kind'
 export type { ResponseBoundary } from './response-boundary'
@@ -634,6 +635,13 @@ export type NormalizedEvent =
       phase: 'started' | 'progress' | 'settled' | 'updated'
       // SDK task_id — stopTask(taskId) 대상. started/progress/settled 에서 실린다.
       taskId?: string
+      // 실행 태스크의 종류(0230 §10 EP-01). **이벤트 이름은 `subagent.task` 로 남지만 대상은
+      // 서브에이전트만이 아니다**(D-005 — 개명 blast radius 회피). 판정 SSOT 와 우선순위는
+      // `shared/task-kind.ts` 가 갖는다: 원래 도구 이름 > `task_type`.
+      //
+      // **키 부재와 `'unknown'` 은 다른 사실이다** — 부재는 판정할 입력이 없었다(구형 CLI),
+      // `'unknown'` 은 판정했으나 어휘에 없다. 부재를 `'unknown'` 으로 채우지 않는다.
+      taskKind?: TaskKind
       subagentType?: string
       description?: string
       // child assistant 메시지의 실제 모델 id(message.model). 'Explore'(subagent_type) 가 아님.
@@ -657,6 +665,19 @@ export type NormalizedEvent =
       // 백그라운드로 돈) 태스크의 정착에만 true. renderer 완료 통지(subagent_notice 파트 커밋)와
       // history writer 영속의 유일한 신호 — renderer 는 스스로 background 를 추론하지 않는다.
       background?: boolean
+      // 0231 — SDK **최상위** `tool_progress` 정규화(AR-101). `task_*`(system subtype)과 달리
+      // 도구 실행 중 초 단위로 오므로 **transient 다**: 파트를 만들지 않고 store 의 라이브 맵만
+      // 교체한다(§10 EP-201). 진행률(%)은 싣지 않는다 — SDK 가 주지 않는다(D-103).
+      //
+      //   elapsedSeconds SDK `elapsed_time_seconds`. 도구가 스스로 재는 값이라 화면의 경과
+      //                  앵커(`listenStartedAt`)와 별개 축이다.
+      //   heartbeat      연결 생존 신호. **진척을 주장하지 않는다** — 이것만 반복되면 경과는
+      //                  흐르되 상태 문구는 그대로여야 한다.
+      //   retry          `subagent_retry`. `heartbeat` 로 해제되지 않고 **정착 또는 새 attempt**
+      //                  로만 바뀐다(AT-102). 부재 = 무변경이지 해제가 아니다.
+      elapsedSeconds?: number
+      heartbeat?: boolean
+      retry?: { attempt: number; maxRetries: number; errorCategory: string }
     }
   // SDK `background_tasks_changed` 정규화(0212 AR-02) — **레벨 신호**다. edge(started/settled)
   // 와 짝지어 읽지 않고 **매 payload 로 집합을 교체**한다: 놓친 bookend 가 "실행 중" 표시를

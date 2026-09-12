@@ -7,6 +7,11 @@ import type {
   DiffRequirementAnchor
 } from '../../../../../shared/ipc'
 import { isAsyncLaunchedPayload } from '../../../../../shared/subagent'
+import {
+  readShellBackgroundFromStructured,
+  type ShellBackgroundProjection,
+  type TaskKind
+} from '../../../../../shared/task-kind'
 import type { Message, ToolCall } from '../reducer/chatReducer'
 import type { ArtifactRef } from '../../../../../shared/artifacts'
 
@@ -190,6 +195,13 @@ export interface SubagentTaskSummary {
   // 관측이 유일한 신호다(0136·0143). foreground → background 전환 버튼은 이 값이 `false` 일
   // 때만 뜬다: 이미 background 면 SDK 가 `false` 를 돌려주므로 눌러도 아무 일이 없다(D-021).
   asyncLaunched: boolean
+  // 실행 태스크의 종류(0230). `Agent`/`Task` 는 `'agent'`, 백그라운드 셸은 `'shell'` 이다.
+  // 카드가 종류 라벨을 그리고 상세 진입 가능 여부가 여기서 갈린다 — 셸에는 child 대화록이
+  // 없다(SDK 가 셸 실행에 하위 대화를 만들지 않는다).
+  kind: TaskKind
+  // 셸 백그라운드 영수증의 투영(0230 §10 EP-04). `'shell'` 일 때만 실린다 — `timedOutAfterMs`
+  // 가 있으면 명시 요청이 아니라 **타임아웃으로 전환**된 것이다.
+  shellBackground: ShellBackgroundProjection | null
   call: ToolCall
 }
 
@@ -266,27 +278,86 @@ export function childMessageForParentToolRunId(
   return { role: 'assistant', createdAt: Date.now(), parts }
 }
 
-// 부모 Task 하나의 description 만 필요할 때(완료 통지 행) — 전체 요약을 만들지 않는다.
-// subagentTasksFromMessages 는 세션의 모든 파트를 flatMap 으로 펼치고 Map 4개를 만든 뒤 여러 번
-// 순회하는데, 통지 행은 그중 문자열 하나만 읽었다. 트랜스크립트는 커밋마다 messages identity 가
-// 바뀌므로(턴당 수십 회 × 표시 중인 행 수) 그 비용이 그대로 곱해졌다(0149).
+// 설명만 필요한 호출부용 얇은 래퍼 — 조인 본체는 아래 `subagentTaskJoin` 이다.
 export function subagentTaskDescription(
   messages: Message[],
   toolUseId: string
 ): string | undefined {
+  return subagentTaskJoin(messages, toolUseId)?.description
+}
+
+/**
+ * 부모 Task 하나와 조인해 **설명과 종류 한 벌**을 낸다(완료 통지 행) — 전체 요약을 만들지 않는다.
+ * `subagentTasksFromMessages` 는 세션의 모든 파트를 flatMap 으로 펼치고 Map 4개를 만든 뒤 여러 번
+ * 순회하는데, 통지 행은 그중 두 값만 읽는다. 트랜스크립트는 커밋마다 messages identity 가
+ * 바뀌므로(턴당 수십 회 × 표시 중인 행 수) 그 비용이 그대로 곱해졌다(0149).
+ *
+ * 종류를 함께 내는 이유는 셸 작업에 상세 진입 어포던스를 주면 안 되기 때문이다(0230 r2 · D3).
+ * 셸은 하위 대화록이 없어서 상세가 stdout 을 "에이전트 답변" 자리에 그린다 — 우측 패널 카드에서
+ * 이미 막은 규칙(R-03)을 통지 행도 같게 따른다. 두 값을 **한 번의 순회**로 내는 것도 같은 이유다:
+ * 행마다 messages 를 두 번 걷는 것은 0149 가 없앤 비용을 반만 되살리는 것이다.
+ */
+export function subagentTaskJoin(
+  messages: Message[],
+  toolUseId: string
+): { description: string; kind: TaskKind } | undefined {
+  // **Map 을 만들지 않는다**(0149). 이 함수는 통지 행마다·렌더마다 불리고 messages identity 는
+  // 커밋마다 바뀐다 — 전체 fold 비용을 여기 되살리면 행 수만큼 곱해진다. 필요한 것은 대상
+  // `toolUseId` 의 결과 하나뿐이라 그것만 지연 조회한다(r2 · D2).
+  const findResult = (id: string): NonNullable<ToolCall['result']> | undefined => {
+    for (const message of messages) {
+      for (const part of message.parts) {
+        if (isToolResultPart(part) && part.toolRunId === id) {
+          return {
+            output: part.result,
+            isError: part.isError,
+            ...(part.structuredOutput !== undefined
+              ? { structuredOutput: part.structuredOutput }
+              : {})
+          }
+        }
+      }
+    }
+    return undefined
+  }
   for (const message of messages) {
     for (const part of message.parts) {
       if (
         isToolCallPart(part) &&
         part.parentToolRunId === undefined &&
         part.toolRunId === toolUseId &&
-        isAgentTaskName(part.toolName)
+        isBackgroundTaskCall(part, findResult)
       ) {
-        return toolDescriptionFromInput(part.args) ?? part.toolName
+        // 목록 fold 와 **같은 서술**이어야 한다 — 통지 행과 카드가 같은 작업을 다르게 부르면
+        // 사용자가 둘을 잇지 못한다.
+        return {
+          description:
+            toolDescriptionFromInput(part.args) ??
+            shellCommandDescription(part.args) ??
+            part.toolName,
+          kind: isAgentTaskName(part.toolName) ? 'agent' : 'shell'
+        }
       }
     }
   }
   return undefined
+}
+
+/**
+ * 이 최상위 tool_call 이 **백그라운드 작업 목록에 오르는가** — 0230 §10 EP-05·EP-07 의 SSOT.
+ *
+ * 두 소비처가 같은 술어를 쓴다: 목록 fold(`subagentTasksFromMessages`)와 완료 통지 행의 제목
+ * 조인(`subagentTaskDescription`). 복붙하면 셸 통지 행만 제목이 비는 식으로 갈라진다.
+ *
+ * 셸은 **이름이 아니라 영수증**으로 판정한다. foreground PowerShell 은 백그라운드 작업이
+ * 아니므로 목록에 오르면 안 되고, 둘을 가르는 것은 `backgroundTaskId` 뿐이다.
+ */
+export function isBackgroundTaskCall(
+  part: Extract<AppMessagePart, { type: 'tool_call' }>,
+  findResult: (toolRunId: string) => NonNullable<ToolCall['result']> | undefined
+): boolean {
+  if (isAgentTaskName(part.toolName)) return true
+  return readShellBackgroundFromStructured(findResult(part.toolRunId)?.structuredOutput) != null
 }
 
 export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSummary[] {
@@ -311,35 +382,72 @@ export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSumm
       if (!resultByRun.has(part.toolRunId)) currentChild.set(part.parentToolRunId, part.toolName)
     }
   }
+  // 백그라운드 셸 작업의 **종단 상태는 완료 통지 파트가 나른다**(0230). 셸은 자기 tool_result
+  // 를 이미 돌려줬으므로 정착이 부모 결과를 합성하지 않는다(§10 EP-06) — 대신 `subagent_notice`
+  // 가 status·소요시간을 싣고 영속되므로 재로드 후에도 같은 상태가 선다.
+  const noticeByRun = new Map<string, Extract<AppMessagePart, { type: 'subagent_notice' }>>()
+  for (const part of allParts) {
+    if (part.type === 'subagent_notice') noticeByRun.set(part.toolRunId, part)
+  }
   const summaries: SubagentTaskSummary[] = []
   for (const part of allParts) {
     if (
       isToolCallPart(part) &&
       part.parentToolRunId === undefined &&
-      isAgentTaskName(part.toolName)
+      isBackgroundTaskCall(part, (id) => resultByRun.get(id))
     ) {
       const call = toolCallFromPart(part, resultByRun)
       const meta = call.result?.subagentMeta
+      const shellBackground = readShellBackgroundFromStructured(call.result?.structuredOutput)
+      const kind: TaskKind = isAgentTaskName(call.name) ? 'agent' : 'shell'
+      const notice = noticeByRun.get(call.toolUseId)
       // 도구수·소요시간은 SDK 누산 메타(영속)를 우선, 없으면 child 파트 파생/result.durationMs.
       const toolCount = meta?.toolUses ?? childCounts.get(call.toolUseId) ?? 0
       summaries.push({
         toolUseId: call.toolUseId,
-        description: toolDescriptionFromInput(call.input) ?? call.name,
-        status: deriveSubagentTaskStatus(call),
+        description:
+          toolDescriptionFromInput(call.input) ??
+          (kind === 'shell' ? shellCommandDescription(call.input) : null) ??
+          call.name,
+        status: kind === 'shell' ? shellTaskStatus(notice) : deriveSubagentTaskStatus(call),
         createdAtMs: createdAtByRun.get(call.toolUseId) ?? Date.now(),
         childToolCount: toolCount,
-        durationMs: meta?.durationMs ?? call.result?.durationMs ?? null,
+        durationMs: meta?.durationMs ?? notice?.durationMs ?? call.result?.durationMs ?? null,
         tokenCount: tokenCountFromResult(call.result?.output),
         agentLabel: agentModelFromCall(call),
         subagentType: subagentTypeFromCall(call),
         currentChildLabel: currentChild.get(call.toolUseId) ?? null,
-        settlementMessage: settlementMessageFromCall(call),
-        asyncLaunched: isAsyncLaunchedResult(call.result),
+        settlementMessage:
+          kind === 'shell' ? shellSettlementMessage(notice) : settlementMessageFromCall(call),
+        // 셸 영수증도 "이미 백그라운드로 돈다" 는 같은 사실이다(D-007) — 전환 버튼은 뜨지
+        // 않아야 하고, 중단은 가능해야 한다.
+        asyncLaunched: kind === 'shell' ? true : isAsyncLaunchedResult(call.result),
+        kind,
+        shellBackground: shellBackground ?? null,
         call
       })
     }
   }
   return summaries
+}
+
+// 셸 백그라운드 작업의 표시 상태 — 통지가 없으면 아직 도는 중이다. `stopped` 는 에이전트와
+// 같은 어휘(`aborted`)로 접는다: 사용자에게 둘은 "끝까지 못 갔다" 하나다(0212 D-015 와 동형).
+function shellTaskStatus(
+  notice: Extract<AppMessagePart, { type: 'subagent_notice' }> | undefined
+): SubagentTaskStatus {
+  if (!notice) return 'running'
+  if (notice.status === 'completed') return 'completed'
+  return notice.status === 'stopped' ? 'aborted' : 'failed'
+}
+
+// 셸 정착 사유 — 성공 통지의 summary 는 사유가 아니라 요약이라 사유 자리에 쓰지 않는다
+// (0204 D-024 와 같은 규칙).
+function shellSettlementMessage(
+  notice: Extract<AppMessagePart, { type: 'subagent_notice' }> | undefined
+): string | null {
+  if (!notice || notice.status === 'completed') return null
+  return notice.summary ?? null
 }
 
 export function isAgentTaskName(name: string): boolean {
@@ -461,6 +569,20 @@ export function modelDisplayLabel(modelId: string): string {
   if (tokens.length >= 2) return `${family} ${tokens[0]}.${tokens[1]}`
   if (tokens.length === 1) return `${family} ${tokens[0]}`
   return family
+}
+
+/**
+ * 셸 도구의 표시 서술 — `description` 이 없을 때의 명령 첫 줄(0230). **규칙 소유자는 여기
+ * 하나다**: `toolMeta.toolDescription` 이 같은 함수를 부른다. 두 곳에 적으면 도구 카드와
+ * 백그라운드 목록이 같은 명령을 다르게 부른다.
+ */
+export function shellCommandDescription(input: unknown): string | null {
+  if (typeof input !== 'object' || input === null) return null
+  const command = (input as Record<string, unknown>).command
+  if (typeof command !== 'string') return null
+  const firstLine = command.split('\n')[0].trim()
+  if (firstLine === '') return null
+  return firstLine.length > 80 ? `${firstLine.slice(0, 80)}…` : firstLine
 }
 
 function toolDescriptionFromInput(input: unknown): string | null {

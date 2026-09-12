@@ -121,6 +121,24 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 > 주기적 polling 을 만들지 않기 위해서다(0204 D-010·D-011). 상태의 권위는 §4 의 system 메시지이고,
 > 모델이 이 두 도구를 부르는 것은 transcript 에만 남는다.
 
+### 3.1 셸(Bash/PowerShell) 백그라운드 결과 (0230)
+
+서브에이전트만 background 로 도는 것이 아니다. 셸 명령도 `run_in_background` 또는 **타임아웃 자동
+전환**으로 분리되고, 그때 도구 결과가 아래 필드를 싣는다. 에이전트 영수증(`status:'async_launched'`)과
+달리 `status` 가 없으므로 **`backgroundTaskId` 의 존재 자체가 영수증**이다.
+
+| 결과 필드 | 의미 | Orca |
+|---|---|---|
+| `backgroundTaskId` | 분리된 실행의 작업 ID | ✅ 런치 영수증 판정 + `structuredOutput.shellBackground` 투영 |
+| `timedOutAfterMs` | **타임아웃으로 전환**됨(명시 요청 아님) | ✅ 카드가 전환 사유를 말한다 |
+| `persistedOutputPath` · `rawOutputPath` | 저장된 결과 · 원시 로그 경로 | ✅ 투영에 보존. 읽기는 0232 |
+| `stdout` · `stderr` | 반환 시점의 출력 | ✅ 도구 결과 그대로 — **투영에 복제하지 않는다**(같은 출력 2회 저장 방지) |
+| `interrupted` · `returnCodeInterpretation` | 인터럽트 · 종료 코드 해석 | ❌ |
+
+**두 가지가 이 필드들에 달려 있다.** ① 영수증을 놓치면 백그라운드 명령이 추적에서 빠져 턴-후 루프가
+종료를 기다리지 않는다. ② 셸은 자기 `tool_result` 가 이미 권위라 종료 정착이 부모 결과를 합성하면
+안 된다 — 합성하면 `resultMap` 이 마지막을 이겨 stdout 이 `{summary:''}` 로 덮인다.
+
 ---
 
 ## 4. SDK system 메시지 — background 상태의 권위
@@ -134,7 +152,8 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 | `task_id` · `tool_use_id?` | 식별자 두 축 | ✅ `tool_use_id` 가 없으면 앞선 매핑으로 복원 |
 | `description` · `subagent_type?` | 무엇을 하는 서브에이전트인가 | ✅ |
 | `prompt?` | 요청 프롬프트 | ⛔ 같은 값을 `tool_use.args` 에서 파생한다 |
-| `task_type?` · `workflow_name?` | `local_workflow` 등 종류 | ❌ |
+| `task_type?` | `local_agent`·`local_bash`·`local_workflow` 등 종류 | ✅ `taskKind` 로 정규화(0230). **판정 1순위는 원래 도구 이름**이고 이 필드는 2순위다 — `Monitor` 가 셸과 `local_bash` 를 공유한다 |
+| `workflow_name?` | `task_type === 'local_workflow'` 일 때의 이름 | ❌ (0234) |
 | `skip_transcript?` | ambient/housekeeping — 인라인 transcript 에서 숨기라는 뜻 | ⛔ 드롭 (0204 D-013) |
 
 `skip_transcript` 의 SDK 주석은 *"it may still appear in a tasks panel"* 이다 — 패널 표시는 **허용**이지
@@ -147,7 +166,21 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 | `description` | 무엇을 하는 서브에이전트인가 (필수) | ✅ |
 | `subagent_type?` | Task 도구 서브에이전트의 종류 | ✅ |
 | `usage.{total_tokens,tool_uses,duration_ms}` | 누적 실행 메타 | ✅ |
-| `last_tool_name?` · `summary?` | 현재 작업 표시 | ✅ |
+| `last_tool_name?` · `summary?` | 현재 작업 표시 | ✅ 0231 — 어댑터가 싣고 renderer 가 흡수한다. `summary` 는 `agentProgressSummaries: true` 를 켜야 온다 |
+
+### 4.2-a `tool_progress` (최상위 type · 반복)
+
+`system` subtype 이 아니라 자기 `type` 을 갖는다 — `task_*` 분기로는 받을 수 없다.
+
+| 필드 | 의미 | Orca |
+|---|---|---|
+| `tool_use_id` · `parent_tool_use_id` | 진행 중인 도구와 그 부모 | ✅ 0231 — **부모가 1순위** 키다. 실행 태스크에 귀속되지 않는 최상위 일반 도구의 진행은 드롭한다(소비자 없음) |
+| `elapsed_time_seconds` | 도구가 스스로 잰 경과 | ✅ 0231 |
+| `heartbeat?` | 연결 생존 — **진척을 주장하지 않는다** | ✅ 0231 |
+| `subagent_retry?` | 재시도 대기(attempt·max_retries·error_category) | ✅ 0231 — `heartbeat` 로 해제되지 않고 정착·새 attempt 로만 바뀐다 |
+| `task_id?` · `subagent_type?` | 좌표·종류 | ✅ 0231 |
+
+`tool_progress` 는 **transient** 다 — 초 단위로 오므로 파트를 만들지 않고 라이브 맵만 교체한다.
 
 ### 4.3 `task_notification` (edge — 종단)
 
@@ -303,6 +336,8 @@ SDK 는 `TodoWriteInput`/`TodoWriteOutput` 을 **여전히 정의한다**. 한 �
 | 목록 파생(fold) | transcript parts 의 순수 fold — main 에 스토어 없음 | `app/src/renderer/src/features/chat/lib/taskBoard.ts` |
 | 구조화 출력 동행 | `tool_result` 블록이 정확히 1개일 때만 귀속 | `app/src/main/adapters/claude-map.ts` |
 | background 이벤트 | `task_started`/`task_progress`/`task_notification` → `subagent.task` | 같은 파일 |
+| 진행 신호 | 최상위 `tool_progress` → `subagent.task` `phase:'progress'`(transient, 0231) | 같은 파일 |
+| 진행 요약 | `agentProgressSummaries: true` 로 `task_progress.summary` 를 켠다(0231) | `app/src/main/adapters/claude.ts` |
 | 중단 수명주기 | `중단 중` → SDK 확정 → 정착 (watchdog 병행) | `app/src/main/features/chat/` |
 
 세부 결정의 근거는 [`handoff/0204-taskxxx-right-panel/plan.md`](handoff/0204-taskxxx-right-panel/plan.md)

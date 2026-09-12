@@ -11,7 +11,7 @@ import { diffLines as jsDiffLines } from 'diff'
 import { basenameForDisplay } from '../../../../../shared/path-basename'
 import { FILE_EDIT_TOOL_NAME_SET } from '../../../../../shared/file-edit-tool'
 import type { MessageKey } from '../../../shared/i18n'
-import { isAgentTaskName } from './parts'
+import { isAgentTaskName, shellCommandDescription } from './parts'
 
 // 파일 도구 이름 집합 — 편집(diff 렌더 대상)과 읽기 포함(파일경로 헤더 대상).
 // 편집 도구 이름의 정본은 `shared/file-edit-tool.ts` 다 — main 어댑터가 같은 이름으로 구조화
@@ -144,11 +144,10 @@ export function toolDescription(call: ToolCall, planLabel?: string): string {
     case 'Bash':
     case 'PowerShell': {
       // description 이 없으면 명령 자체로 작업을 식별 (도구명 "Bash" 보다 유용).
-      const command = stringField(rec, 'command')
-      if (command) {
-        const firstLine = command.split('\n')[0].trim()
-        return firstLine.length > 80 ? `${firstLine.slice(0, 80)}…` : firstLine
-      }
+      // 규칙 소유자는 `parts.shellCommandDescription` 하나다(0230) — 백그라운드 목록·통지 행이
+      // 같은 함수를 부른다.
+      const fromCommand = shellCommandDescription(call.input)
+      if (fromCommand) return fromCommand
       break
     }
     case 'Glob':

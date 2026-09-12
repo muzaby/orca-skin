@@ -96,6 +96,12 @@ export interface SubagentMetaState {
   status?: 'completed' | 'failed' | 'stopped'
   // 진행 중 경과시간 로컬 틱 앵커(첫 비-settled 이벤트 수신 시각).
   startedAtMs?: number
+  // 0231 — `task_progress.summary`(작업이 지금 무엇을 하는지 한 줄). **최신 것으로 교체**하며
+  // 누적하지 않는다(§10 EP-202).
+  summary?: string
+  // 0231 — `tool_progress` 진행 신호. 도구가 스스로 잰 경과와 재시도 대기 상태다.
+  elapsedSeconds?: number
+  retry?: { attempt: number; maxRetries: number; errorCategory: string }
 }
 
 export interface SessionEntry {
@@ -333,6 +339,13 @@ function patchSubagentMeta(
     if (ev.toolUses !== undefined) next.toolUses = ev.toolUses
     if (ev.lastToolName !== undefined) next.lastToolName = ev.lastToolName
     if (ev.status !== undefined) next.status = ev.status
+    // 0231 — 아래 셋은 전부 **스냅샷 교체**다(§10 EP-202). 부재는 무변경이지 해제가 아니다.
+    if (ev.summary !== undefined) next.summary = ev.summary
+    if (ev.elapsedSeconds !== undefined) next.elapsedSeconds = ev.elapsedSeconds
+    // 재시도는 `heartbeat` 로 해제되지 않는다(AT-102) — 새 `retry` 나 정착만 바꾼다. 정착에서
+    // 지우는 이유: 끝난 작업이 "재시도 대기 중" 으로 남으면 거짓이다.
+    if (ev.retry !== undefined) next.retry = ev.retry
+    if (ev.phase === 'settled') delete next.retry
     if (ev.phase !== 'settled' && next.startedAtMs === undefined) next.startedAtMs = Date.now()
     return { ...entry, subagentMeta: { ...entry.subagentMeta, [ev.toolUseId]: next } }
   })
@@ -892,7 +905,9 @@ function send(
   const queueAsPending = shouldQueueAsPending({
     inflight: cur.inflight,
     listening: cur.listening,
-    pendingCount: snapshot.sessions[sendKey]?.pendingSteer?.length ?? 0
+    pendingCount: snapshot.sessions[sendKey]?.pendingSteer?.length ?? 0,
+    // 0231 — 답변 표면(`sessionResponding`)과 **같은 `ready` 판정**을 쓴다(§10 EP-205).
+    transportReady: cur.activityTransport === 'ready'
   })
   // 0119: busy 중 provider 경계를 넘는 모델이 선택돼 있으면 steer 예약을 거부한다 —
   // 진행 턴의 채널은 낡은 provider env 라 경계 너머 메시지를 실을 수 없다(Composer 게이트의
@@ -1686,6 +1701,18 @@ export const chatActions = {
     dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId })
     revealRightPanelTile('subagent')
   },
+  /**
+   * 0231 D-105 — 백그라운드 실행 줄의 클릭 대상. **목록**을 연다.
+   *
+   * `openSubagentTask` 와 다르다: 실행 줄은 N건의 요약이라 열 상세가 하나로 정해지지 않고,
+   * 셸 작업은 하위 대화록 자체가 없어(0230 R-03) 개별 상세가 죽은 어포던스다. 목록은 두 종류를
+   * 다 담고 에이전트 카드는 거기서 다시 상세로 들어간다.
+   */
+  openBackgroundTaskList: (): void => {
+    dispatchActive({ type: 'SELECT_SUBAGENT_TASK', toolRunId: null })
+    dispatchActive({ type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'subagent', active: true })
+    revealRightPanelTile('subagent')
+  },
   acknowledgeSettledTasks: (): void => dispatchActive({ type: 'ACKNOWLEDGE_SETTLED_TASKS' }),
   stopTask,
   backgroundTask,
@@ -1769,6 +1796,26 @@ export function useChatResponding(): boolean {
   return useChatSession(sessionResponding)
 }
 
+/**
+ * 0231 MD-101 — 세션이 **백그라운드만** 기다리는 구간인가.
+ *
+ * `sessionResponding` 과 **배타다**(§10 EP-206): 응답 중이면 이 값은 거짓이고, 그래서 스피너와
+ * 백그라운드 실행 줄이 한 화면에 함께 서지 않는다. 두 술어가 각자 조건을 세면 곧 갈리므로 이쪽이
+ * 저쪽을 직접 부른다 — "둘 다 참" 을 만들려면 `sessionResponding` 을 고쳐야 한다.
+ *
+ * `backgroundTaskCount` 는 main 의 배지 세기(런치 영수증 관측분 · D-104)라 foreground 도구가
+ * 도는 것만으로는 이 줄이 서지 않는다.
+ */
+export function sessionAwaitingBackground(
+  s: Pick<ChatState, 'inflight' | 'listening' | 'activityTransport' | 'activityBackgroundTaskCount'>
+): boolean {
+  return s.listening && !sessionResponding(s) && s.activityBackgroundTaskCount > 0
+}
+
+export function useChatAwaitingBackground(): boolean {
+  return useChatSession(sessionAwaitingBackground)
+}
+
 // 턴 종료 신호 수 (0211 ΔV6 D-115). git 조회 계기의 유일한 입력이다 — `sessionBusy` 와 달리
 // 백엔드 Stop hook 이 낸 `turn.ended` 만 센다.
 export function turnEndTick(s: Pick<ChatState, 'turnEndTick'>): number {
@@ -1816,6 +1863,13 @@ export function usePendingSteer(): PendingSteerState[] {
 // toolUseId 엔트리가 갱신될 때만 재렌더(stored 참조 안정).
 export function useSubagentMeta(toolUseId: string): SubagentMetaState | undefined {
   return useChatStore((s) => s.sessions[s.activeKey].subagentMeta[toolUseId])
+}
+
+// 0231 — 라이브 메타 맵 전체. `patchSubagentMeta` 가 항목을 바꿀 때만 참조가 바뀌므로 소비자의
+// `useMemo` 가 살아 있다. 키 조회(`useSubagentMeta`)로는 "지금 도는 것들 중 최신 요약" 을 고를 수
+// 없어 실행 줄이 이것을 쓴다 — 세션의 **태스크 수**만큼이라 파트 순회(O(전체 파트))가 아니다.
+export function useSubagentMetaMap(): Readonly<Record<string, SubagentMetaState>> {
+  return useChatStore((s) => s.sessions[s.activeKey].subagentMeta)
 }
 
 // 중단 확정을 기다리는 background tool_use id 집합(0204). 배열 identity 가 그대로면 같은 Set 을

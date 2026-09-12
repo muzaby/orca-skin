@@ -234,6 +234,9 @@ describe('scheduled reception after Stop', () => {
   it('예약 없이 백그라운드 작업만 기다려도 ready이며 즉시 재개한다', async () => {
     const f = fixture()
     f.backgroundTasks.started('s1', 'background1')
+    // 0231 D-104 — 배지 세기는 런치 영수증 관측분이다. 이 케이스의 주어는 "실제로 백그라운드로
+    // 도는 작업" 이므로 영수증까지 모형한다(추적 등록만으로는 foreground 일 수 있다).
+    f.backgroundTasks.markAsyncLaunched('s1', 'background1')
     const running = f.run()
     try {
       f.emit({ type: 'telemetry', sessionId: 's1' })

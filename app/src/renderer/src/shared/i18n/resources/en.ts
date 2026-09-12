@@ -682,11 +682,17 @@ export const en: typeof ko = {
       subagentTypeLine: 'Type: {{type}}',
       openSubagentPanel: 'Open subagent panel'
     },
+    backgroundRun: {
+      count: '{{count}} background task(s)',
+      retrying: 'Waiting to retry {{attempt}}/{{max}}',
+      openHint: 'Open the task list'
+    },
     subagentNotice: {
       completed: 'Background task finished',
       failed: 'Background task failed',
       stopped: 'Background task stopped',
       agentLine: 'Agent "{{title}}" {{verb}}',
+      shellLine: 'Shell "{{title}}" {{verb}}',
       took: 'took {{duration}}'
     },
     subagentTile: {
@@ -703,6 +709,10 @@ export const en: typeof ko = {
       },
       backToList: 'Back to list',
       headerTitle: 'Background tasks',
+      kind: {
+        shell: 'Shell command'
+      },
+      timedOutToBackground: 'Moved to background after timeout',
       noChildActivity: 'No child activity recorded for this task.',
       emptyTitle: 'No background tasks',
       emptyDesc: 'Task tool calls will appear here when detected.',

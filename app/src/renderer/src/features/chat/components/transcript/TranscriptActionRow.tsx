@@ -15,10 +15,22 @@ export function TranscriptActionRow({
   children
 }: {
   groupClassName: string
-  onActivate: () => void
+  // **선택** — 갈 곳이 없는 행은 어포던스를 갖지 않는다(0230 r2 · D3). 셸 백그라운드 작업은
+  // 하위 대화록이 없어 상세가 stdout 을 "에이전트 답변" 자리에 그린다. 그런 행에 버튼 역할·
+  // 포인터·꺾쇠를 주면 눌러도 아무 일이 없거나 잘못된 것이 나오는 죽은 어포던스가 된다.
+  onActivate?: () => void
   expanded?: boolean
   children: ReactNode
 }): React.JSX.Element {
+  if (!onActivate) {
+    return (
+      <div
+        className={`${groupClassName} flex max-w-full items-center gap-g2 self-start text-left text-body text-t6`}
+      >
+        {children}
+      </div>
+    )
+  }
   return (
     <div
       role="button"
