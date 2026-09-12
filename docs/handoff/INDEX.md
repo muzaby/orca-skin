@@ -21,7 +21,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0232-background-transcript-ux`](0232-background-transcript-ux/plan.md) | impl | **IMPL_DONE** (V1 + ΔV1) | **Claude** (검증) | (r1 구현 — 검증자 기입) | 1 | 작성자 Codex. Work 노트·자동 수신 비표시·Code 카드·Spark 버튼 및 상세 정리. AC10/10·pair11/11 자기확인. renderer 230파일/1679테스트, 최종 영향 5파일/35테스트·lint/typecheck/build 통과. |
+| [`0232-background-transcript-ux`](0232-background-transcript-ux/plan.md) | plan | **READY** (V1 + ΔV1 + ΔV2) | **Codex** (구현) | (ΔV2 설계 커밋) | 2 | 작성자 Codex. 사용자 후속: 실제 모델, 카드/상세 결과 정리, Code foreground 셸 단건 background 전환과 패널 제외. 기존 r1 증거는 plan에 보존. |
 | [`0231-background-task-conformance`](0231-background-task-conformance/plan.md) | impl | **IMPL_DONE** (V1) | **Claude** (검증) | (r1 구현 — 검증자 기입) | 1 | 작성자 Codex. 첨부 69기준 대조·상태/수명/중단/승인/출력/이력 보완. AC 20/24 자기확인; 조건부 배포 실기 AC19~22 별도. Windows SDK 실기와 독립 코드 검토 결과는 plan·진단서 참조. |
 | [`0230-temp-scope`](0230-temp-scope/plan.md) | impl | **IMPL_DONE** (V2) | **Claude** (검증) | (r1 구현 — 검증자 기입) | 1 | 작성자 Codex. 앱 Temp 공통 rw·첨부/출력·SDK 내부 tmp 경로 구현. AC 6/6 자기확인, 실제 두 셸·Agent 출력 읽기/보존 확인. |
 | [`0229-edit-preview-while-running`](0229-edit-preview-while-running/plan.md) | verify | **PASS** (ΔV1 r2) | **사람** (실기 1건) | `f7afca5`(설계) · `97773c0`(r1) · `665dfab`(r2) | 2 | **r2 검증 = PASS** — 판정 원문은 [`verify.md`](0229-edit-preview-while-running/verify.md). r1 의 root `PAIR_FAIL`(VP-Δ4) 닫힘, 이전 라운드 red 변이 8건 전건 재현(덮개 회귀 0). REQUIRED 8 · REGRESSION 2 PASS · AC 10/10 · 운영 gate 4종 PASS. 남은 사람 몫: 승인 대기 화면 실기 1건. |
