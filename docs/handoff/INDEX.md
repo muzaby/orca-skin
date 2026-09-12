@@ -21,6 +21,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
+| [`0230-temp-scope`](0230-temp-scope/plan.md) | plan | **READY** (V1) | **Codex** (구현) | — | 1 | 작성자 Codex. 사용자 확정 경로 `Temp/orcinus-orca`를 Code·Work 공통 자동 rw 및 첨부·출력 루트로 적용한다. |
 | [`0229-edit-preview-while-running`](0229-edit-preview-while-running/plan.md) | verify | **PASS** (ΔV1 r2) | **사람** (실기 1건) | `f7afca5`(설계) · `97773c0`(r1) · `665dfab`(r2) | 2 | **r2 검증 = PASS** — 판정 원문은 [`verify.md`](0229-edit-preview-while-running/verify.md). r1 의 root `PAIR_FAIL`(VP-Δ4) 닫힘, 이전 라운드 red 변이 8건 전건 재현(덮개 회귀 0). REQUIRED 8 · REGRESSION 2 PASS · AC 10/10 · 운영 gate 4종 PASS. 남은 사람 몫: 승인 대기 화면 실기 1건. |
 | [`0228-landing-mode-memory-and-edit-diff-rendering`](0228-landing-mode-memory-and-edit-diff-rendering/plan.md) | verify | **PASS** (V1 r1) | **사람** (실기 1건 · D2 결정) | `9bb59e8`(설계) · `5259ede`(r1) | 1 | **r1 검증 = PASS** — 판정 원문은 [`verify.md`](0228-landing-mode-memory-and-edit-diff-rendering/verify.md). REQUIRED pair 11/11 · AC 13/13 · 강제 지점 10/10 · 운영 gate 4종 PASS. 남은 사람 몫: 실제 `Edit` 실행에서 카드 줄번호 시각 확인 1건, 헤더 `+N -M` 기준(D2) 제품 결정. |
 | [`0227-logo-asset-replacement`](0227-logo-asset-replacement/plan.md) | impl | **IMPL_DONE** (사용자 후속) | **Claude** (검증) | `51944fe`·`fe0f10f`(설계) · `546b81a`(r1) · (r2 구현 — 검증자 기입) | 2 | 사용자 후속 결정 반영: `build/logo-with-claude.png` 제거, renderer 인라인 SVG를 `resources/logo.png` 이미지로 교체, 중앙 1023×776 영역을 CSS로 잘라 기존 18px·40px 표시 크기를 유지하고 smooth scaling 적용. component test 1/1 · typecheck · lint(0 error, 기존 warning 1) · electron-vite build 통과. |
