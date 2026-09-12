@@ -7,10 +7,13 @@ import {
   type BackgroundSessionState
 } from '../../../../../shared/background-task'
 
+export type BackgroundSelection = { kind: 'task'; key: string } | { kind: 'call'; key: string }
+
 interface BackgroundView {
   state: BackgroundSessionState
   loading: boolean
   error?: string
+  selection?: BackgroundSelection
 }
 interface BackgroundStore {
   sessions: Record<string, BackgroundView>
@@ -34,6 +37,21 @@ export function ingestBackgroundEvent(event: BackgroundEvent): void {
     }
   })
 }
+export function selectBackgroundItem(
+  sessionId: string,
+  selection: BackgroundSelection | undefined
+): void {
+  useBackgroundStore.setState((store) => {
+    const view = store.sessions[sessionId]
+    if (!view) return store
+    return {
+      sessions: {
+        ...store.sessions,
+        [sessionId]: { ...view, selection }
+      }
+    }
+  })
+}
 export async function refreshBackgroundState(sessionId: string): Promise<void> {
   if (loadingEvents.has(sessionId)) return
   removed.delete(sessionId)
@@ -43,6 +61,7 @@ export async function refreshBackgroundState(sessionId: string): Promise<void> {
     sessions: {
       ...store.sessions,
       [sessionId]: {
+        ...store.sessions[sessionId],
         state: store.sessions[sessionId]?.state ?? emptyBackgroundState(),
         loading: true
       }
@@ -53,7 +72,10 @@ export async function refreshBackgroundState(sessionId: string): Promise<void> {
     if (removed.has(sessionId) || loadingEvents.get(sessionId) !== events) return
     for (const event of events) state = applyBackgroundEvent(state, event)
     useBackgroundStore.setState((store) => ({
-      sessions: { ...store.sessions, [sessionId]: { state, loading: false } }
+      sessions: {
+        ...store.sessions,
+        [sessionId]: { ...store.sessions[sessionId], state, loading: false, error: undefined }
+      }
     }))
   } catch (error) {
     if (removed.has(sessionId) || loadingEvents.get(sessionId) !== events) return
@@ -61,6 +83,7 @@ export async function refreshBackgroundState(sessionId: string): Promise<void> {
       sessions: {
         ...store.sessions,
         [sessionId]: {
+          ...store.sessions[sessionId],
           state: store.sessions[sessionId]?.state ?? emptyBackgroundState(),
           loading: false,
           error: String(error)

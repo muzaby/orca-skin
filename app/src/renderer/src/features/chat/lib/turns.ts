@@ -16,6 +16,9 @@ export function groupTurns(messages: Message[]): Turn[] {
   const turns: Turn[] = []
   for (let i = 0; i < messages.length; i++) {
     const m = messages[i]
+    // 자동 수신은 내부 이력에 남기고 표시에서만 제외한다. 원문 태그는 출처가 아니며,
+    // 필터 배열을 만들지 않아 뒤따르는 실제 메시지의 원본 index/key도 유지한다.
+    if (m.role === 'user' && m.parts.some((part) => part.type === 'text' && part.origin)) continue
     const last = turns[turns.length - 1]
     if (last && last.role === m.role) {
       last.messages.push(m)

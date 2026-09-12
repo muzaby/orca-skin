@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { CanonicalBackgroundContent } from './CanonicalBackgroundContent'
-import { useBackgroundStore } from '../../store/backgroundStore'
+import { backgroundCallTitle, hasCanonicalBackground } from '../../lib/canonicalBackground'
+import { selectBackgroundItem, useBackgroundStore } from '../../store/backgroundStore'
 import { Button } from '../../../../shared/ui/Button'
 import { StatusLine } from '../StatusLine'
 import { AssistantMessage } from '../transcript/AssistantMessage'
@@ -84,6 +85,8 @@ function answerTextFromCall(call: ToolCall): string | null {
 // RightPanelTile 의 기본 라벨 span 을 대체한다(tileRegistry 주입). 제목 폰트/톤은 기본 라벨과 일치.
 export function SubAgentTileHeader(): React.JSX.Element {
   const { tr } = useI18n()
+  const sessionId = useChatSession((s) => s.sessionId)
+  const canonical = useBackgroundStore((s) => (sessionId ? s.sessions[sessionId] : undefined))
   const messages = useChatSession((s) => s.messages)
   const selectedId = useChatSession((s) => s.selectedSubagentTaskId)
   // O(전체 parts) 파생이라 메모 — messages identity 는 커밋 이벤트에만 바뀐다 (AgentTaskRow 동일).
@@ -94,6 +97,41 @@ export function SubAgentTileHeader(): React.JSX.Element {
         : undefined,
     [messages, selectedId]
   )
+
+  if (canonical && hasCanonicalBackground(canonical.state)) {
+    const canonicalTask =
+      canonical.selection?.kind === 'task'
+        ? canonical.state.tasks[canonical.selection.key]
+        : undefined
+    const canonicalCall =
+      canonical.selection?.kind === 'call'
+        ? canonical.state.calls[canonical.selection.key]
+        : undefined
+    if (canonicalTask || canonicalCall) {
+      const title = canonicalTask
+        ? canonicalTask.description || canonicalTask.taskType || canonicalTask.taskId
+        : backgroundCallTitle(canonicalCall!)
+      return (
+        <div className="flex min-w-0 flex-1 items-center gap-g1">
+          <Button
+            iconOnly
+            size="small"
+            leadingIcon="arrowL"
+            onClick={() => selectBackgroundItem(sessionId!, undefined)}
+            aria-label={tr('chat.subagentTile.backToList')}
+          />
+          <span className="min-w-0 truncate font-serif text-[13px] font-semibold tracking-tight text-t9">
+            {title}
+          </span>
+        </div>
+      )
+    }
+    return (
+      <span className="min-w-0 truncate font-serif text-[13px] font-semibold tracking-tight text-t9">
+        {tr('chat.subagentTile.headerTitle')}
+      </span>
+    )
+  }
 
   if (selected) {
     return (
@@ -142,13 +180,7 @@ export function SubAgentTileContent(): React.JSX.Element {
   // 아래에 띄우기 위한 경과 앵커 — 라이브 메타의 startedAtMs(첫 task 이벤트 수신 시각).
   const selectedMeta = useSubagentMeta(selectedId ?? '')
 
-  if (
-    canonical &&
-    (canonical.state.generation ||
-      Object.keys(canonical.state.tasks).length ||
-      Object.keys(canonical.state.calls).length)
-  )
-    return <CanonicalBackgroundContent />
+  if (canonical && hasCanonicalBackground(canonical.state)) return <CanonicalBackgroundContent />
 
   if (selected) {
     return (

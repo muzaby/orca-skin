@@ -535,6 +535,7 @@ export const en: typeof ko = {
       workGreeting: 'What task would you like to start?',
       workPlaceholder: 'Describe a document, analysis, or task to work on',
       activity: '{{tools}} tool calls',
+      activityNotes: '{{notes}} notes',
       ended: 'Response received',
       aborted: 'Response interrupted',
       failed: 'Response error',

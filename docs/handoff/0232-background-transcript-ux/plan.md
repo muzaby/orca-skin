@@ -6,7 +6,7 @@
 |---|---|
 | 작성자 | Codex |
 | 일자 | 2026-09-13 |
-| 상태 | READY |
+| 상태 | IMPL_DONE — Codex 구현 자기확인 완료, 독립 verify 대기 |
 | V mode / 기준 / revision | Baseline V / none / V1 |
 | 유효 V | V1 + ΔV1 — 패널 상단 일괄 제어·중복 도구 제목 제거를 포함한다. 0230·0231 런타임 계약은 유지한다. |
 
@@ -214,3 +214,111 @@ SDK→normalize→history/reducer는 그대로 두고 transcript 투영만 바�
 AS-IS: canonical 목록 toolbar에 refresh/stopAll, 상세 ToolCard에 status/title 확장 행과 결과 대기 UI. TO-BE: toolbar·대기 전용 UI 제거, 기존 stopAll API는 남고 셸 선택 상세만 제목 없는 도구 본문을 표시한다. Explorer/Agent 상세는 부모 ToolCard와 외곽 프레임 없이 InlineSubagentDetail 대화록을 표시한다. 파일: `CanonicalBackgroundContent`, `ToolCard`, `InlineSubagentDetail`, 관련 render/interaction 테스트. 기본 ToolCard·인라인 프레임 및 개별 중단은 회귀 대상으로 확인한다.
 
 §10 유효 강제 지점은 기존 8지점 + EP-Δ01(1) + EP-Δ02(3)다. EP-Δ01은 canonical 패널 목록과 상세의 제어 집합을 함께 검사한다. 운영 gate는 §19를 유지한다. 기존 AC1~8 + AC9~10 = 총 10개이며 ACTIVE↔AC 대조는 D-07·D-09=AC9, D-08·D-10·D-11=AC10으로 충돌 없다.
+
+## [구현자 기입] 설계 리뷰
+
+작성자 **Codex**, 구현 r1. V1 + ΔV1을 적용했다. 사용자 미리보기 피드백인 D-07~11은 각각 구현에 앞선 설계 커밋으로 보존했다. SDK·DB 원본을 유지하고 화면 투영을 바꾸는 책임 구분에 동의한다. 미해결 PLAN_GAP은 없다.
+
+구현 세부로 canonical 선택은 generation/taskId와 generation/toolUseId를 구분한다. 아직 task가 없는 Agent 호출도 대화록을 열며, 이후 task가 연결되어도 선택을 유지한다. 컴포넌트 밖 helper는 `lib/canonicalBackground.ts`로 옮겨 Fast Refresh의 비컴포넌트 export 경계를 지킨다. 새 캐시·소유권·만료 정책은 만들지 않았다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인
+
+| §10 | 닫은 지점 / 분모 | 관측한 소비 경로와 증거 | 남긴 곳 |
+|---|---|---|---|
+| EP-01 | 2/2 | workActivity projector→WorkActivity disclosure. `opens notes and their surrounding tools together in one ordered timeline`에서 노트 위치·펼침 순서 관측 | 없음 |
+| EP-02 | 2/2 | groupTurns→TranscriptView와 message.committed/LOAD_SESSION. 자동 입력 버블 없이 원본 origin을 보존하는 두 모드 회귀 | 없음 |
+| EP-03 | 2/2 | canonical 카드/상세→실제 stop callback. `sends the actual stop button to canonical IPC without opening the card`에서 세대/id 및 선택 보존 관측 | 없음 |
+| EP-04 | 2/2 | StatusLine→PendingAssistantStatus callback. 실제 store 패널 상태로 Code/Work 전환·재클릭 멱등 관측 | 없음 |
+| EP-Δ01 | 1/1 | canonical 목록·상세 제어 집합. 새로고침/일괄 중단/결과 대기 UI 부재와 실행 카드 개별 stop 양성 단언 | 없음 |
+| EP-Δ02 | 3/3 | canonical 상세→ToolCard·InlineSubagentDetail. Agent는 대화록만, 셸은 제목 없는 본문; 브라우저 대화록 class=`my-2 min-h-0`, border=`0px` | 없음 |
+
+분모 검산: `2+2+2+2+1+3=12`, 닫은 지점 12/12. 범위는 §10 책임 지점이며 호출 횟수가 아니다. `rg -n 'InlineSubagentDetail|presentation="detail-body"|<StatusLine|PendingAssistantStatus' app/src/renderer/src/features/chat`로 사용처를 대조했다. AgentTaskRow·SubagentNoticeRow는 framed 옵션을 생략하여 기존 프레임을 유지하고, canonical만 false를 전달한다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 |
+|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | Work projector·render·interaction: 노트/도구 순서와 최종 본문 |
+| VP-02 | REQUIRED | SELF_PASS | turns.received·TranscriptView.received: live/reload·원본/직접 입력 |
+| VP-03 | REQUIRED | SELF_PASS | canonical render/wiring: 연결 전후 상세·stop IPC·실행 시간 |
+| VP-04 | REQUIRED | SELF_PASS | statusLine.background: 순서·overflow·파랑·현재 모드 패널 |
+| VP-05 | REQUIRED | SELF_PASS | workActivity: 응답 경계·보호 구간·late result·identity; turns.received 원본 인덱스 |
+| VP-06 | REQUIRED | SELF_PASS | 실제 JSX callback→store 선택/back/패널 및 세대별 stop payload |
+| VP-07 | REQUIRED | SELF_PASS | received LOAD_SESSION·canonical terminal/unknown/retry와 generation/session 분리 |
+| VP-Δ01 | REQUIRED | SELF_PASS | canonical render 버튼 집합과 실제 개별 stop callback |
+| VP-Δ02 | REQUIRED | SELF_PASS | Agent 카드/반복 제목 부재, 자식 Read·back 표시; shell body 양성 |
+| VP-Δ03 | REQUIRED | SELF_PASS | ToolCard 기본 row 회귀; Inline 기본 프레임 보존과 canonical border 0 DOM |
+| VP-Δ04 | REQUIRED | SELF_PASS | 카드 선택→상세→header back, 연결 전후 Agent/shell 배선 |
+
+SELF_PASS 11 · SELF_BLOCKED 0 = 총11(REQUIRED11). 선택 적대 증거는 각 pair의 `not selected`를 유지한다. 아래 결과는 구현자 자기확인이며 독립 verify PASS가 아니다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+선택 증거 0 · 인용 변이 0 · 새 구조적 proxy/전수/배선 존재 oracle 0 = 잠금 표 행0. 해당 없음 — 렌더된 노트 순서, 실제 callback의 IPC payload, store 전이, 보존된 원본 메시지를 직접 관측한다. 소스 문자열의 존재로 행동을 대신하는 검사는 추가하지 않았다.
+
+기존 동작에서 Work 노트 관련 3개, 자동 수신 관련 10개, Agent 부모 카드 제거 관련 3개 테스트의 RED를 확인한 뒤 구현하여 GREEN을 관측했다. D-11은 표현 옵션 변경으로 실제 브라우저 border 0과 기존 인라인 사용처 보존을 확인했다. 기존 ToolCard row 및 셸 출력 양성 회귀는 유지했다. 공식 이전 verify의 인용 변이·교체한 검증 장치는 없다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 / 관측 | 후속 |
+|---|---|---|
+| 문구·상태의 소비자 | 노트 수는 disclosure, background fact는 파랑 버튼으로 렌더. 두 모드 실제 패널 액션 연결 | 없음 |
+| 재배치의 스코프/정리 | helper 함수만 이동. 구독·timer·finally 소유 스코프 불변 | 관련 회귀 실행 |
+| 오류·재시도 | 기존 중단 실패/미확인 및 대화록 loading/retry 표시 유지. UI 제거를 중단 API 제거로 확대하지 않음 | 없음 |
+| 늦은 응답 | 열린 call에 task가 붙으면 같은 선택을 유지. 종료 후 늦은 메타가 경과 시간을 늘리지 않음 | canonical 회귀 |
+| 대화의 가독성 | 접힌 Work 그룹 밖 최종 답변 유지. Explorer 상세는 대화와 자식 도구 행만 표시 | 브라우저 fixture에서 확인 |
+| 키보드·테마 | 중첩 stop의 Enter가 카드 선택을 유발하지 않음. light/dark selected 토큰과 hover 배경 확인 | 없음 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| 문제 | 대응 / 이번 관측 |
+|---|---|
+| 호출만 있고 task가 늦게 생성됨 | call 선택을 지원. Agent 연결 전후 대화록, 셸 연결 후 출력 refs를 서로 다른 양성 케이스로 확인 |
+| stop 버튼 키 입력이 부모 카드로 전파됨 | target/currentTarget을 구분. 실제 버튼 callback 및 Enter/Space interaction으로 확인 |
+| SDK 종료 duration이 없는 작업의 시간이 계속 증가함 | 첫 terminal evidence 시각으로 고정. 이후 lastSeen이 바뀌는 회귀에서 동일 elapsed 관측 |
+| Agent 부모 카드 제거와 함께 출력 데이터가 손실될 수 있음 | 상세 UI만 제거. wiring 테스트가 내부 outputRefs 보존을 단언 |
+| Fast Refresh가 helper export 변경을 거부함 | 비컴포넌트 export를 lib로 이동. 초기 브라우저 HMR 지연을 관측하여 보완 |
+| 전체 대화 복사는 원본 이력을 사용함 | 버블 필터와 별개인 기존 ChatTitleBar 전체 복사 동작은 유지. 자동 수신 원본 자체를 삭제하는 범위로 확대하지 않음 |
+
+설계 대비 명시적 차이: 제품 동작은 D-01~11과 일치한다. helper 모듈 분리는 구현 세부다. 만료는 새 캐시가 없어 해당 없음, 공유 상태는 기존 session store 유지, 재진입은 기존 callback과 훅 소유 유지, 무효화는 기존 세대/세션 키를 유지한다. AC5~8·EP-03~04의 실제 상태/IPC 회귀로 확인한다.
+
+## [구현자 기입] 구현 보고
+
+| AC | 자기 상태 | 이번 관측 |
+|---|---|---|
+| AC1 | ✅ SELF_PASS | Work 도구 2개·노트 2개 헤더와 펼친 도구→노트→노트→도구 순서 |
+| AC2 | ✅ SELF_PASS | 접힌 최종 답변, 보호된 질문/오류/추론, live/late result identity 회귀 |
+| AC3 | ✅ SELF_PASS | Work/Code live·LOAD_SESSION 자동 수신 버블/메타·빈 exchange 부재 |
+| AC4 | ✅ SELF_PASS | 직접 입력한 task-notification 태그와 어시스턴트 결과, 저장 origin 보존 |
+| AC5 | ✅ SELF_PASS | 실제 카드 callback으로 call/task 선택 후 상세, 늦은 연결 및 back |
+| AC6 | ✅ SELF_PASS | 실제 세대/taskId stop payload, 실패/미확인·terminal elapsed 고정 |
+| AC7 | ✅ SELF_PASS | 상태→입력 대기→파랑 background 버튼→시간, 0/overflow/준비 회귀 |
+| AC8 | ✅ SELF_PASS | Code=subagent·Work=task 실제 store 전이, 재클릭 활성 상태 유지 |
+| AC9 | ✅ SELF_PASS | 제거 요청한 패널 제어 부재, 개별 stop 유지 및 키보드 호출 |
+| AC10 | ✅ SELF_PASS | Agent 부모 카드/반복 제목/대화록 외곽 border 부재, 자식 도구·셸 body·back 유지 |
+
+검산: ✅10 · ⚠️0 · ❌0 = 총10. V-pair 11/11, 강제 지점 12/12 자기확인. 변경 파일은 구현 diff가 정본이며 SDK/DB/외부 실행 계약을 추가 변경하지 않았다. 대상 커밋은 `(r1 구현 — 좌표는 INDEX)`이다.
+
+### 운영 gate
+
+| Gate | 실행 명령 / 최종 관측 |
+|---|---|
+| renderer 통합 회귀 | `vitest run src/renderer`와 background-task·Claude metadata/input-receipts 관련 3파일, `--maxWorkers=2` — 230파일·1679테스트 통과 |
+| 마지막 변경 회귀 | canonical render/wiring·WorkActivity render/interaction·statusLine.background — 5파일·35테스트 통과. 외곽 프레임·helper 분리 이후 실행 |
+| 스크립트 | `node --test scripts/*.test.mjs` — 116테스트 통과, 실패0 |
+| lint | `npm run lint` — 오류0, 기존 useTranscriptVirtualizer 경고1. canonical Fast Refresh 경고는 없음 |
+| typecheck | `npm run build` 내부 `typecheck:node`, `typecheck:web`, `typecheck:test` 모두 통과 |
+| Electron 산출 | `npm run build` — prebuild Electron ABI 정상, main/preload/renderer 생성 완료. SubAgentTileContent의 정적·동적 import 병존에 따른 청크 분리 안내1건 |
+| 문서/운영 | `check-doc-inventory.mjs --check` 인벤토리·현재 문서·상대 링크 정상; migration append-only·test-budgets 정상 |
+| 화면 | 실제 컴포넌트 fixture 브라우저: 노트2개 순서, 정상 back/상세, 개별 stop, light/dark 파랑·hover, Explorer border 0px와 자식 Read 표시 |
+| 저장소 | `git diff --check` 통과. 검증용 preview 파일은 제거했고 커밋 trailer는 생성 후 파싱하여 확인 |
+
+초기 전체 실행의 종료 시간 회귀 1건은 테스트 작성과 구현이 겹친 RED였다. 수정 후 230파일·1679테스트를 다시 실행하여 통과했다. 반환 타입·미사용 import·출력 참조 fixture 타입도 정적 검사에서 수정한 뒤 최종 lint/typecheck를 재실행했다. 이력상의 실패를 처음부터 통과한 것으로 바꿔 적지 않는다. 최종 스크립트 및 테스트의 중복 범위는 합산하지 않는다.
+
+브라우저 fixture는 IPC 경계가 fake이며 외부 SDK를 실행하지 않았다. 실제 SDK의 별도 loopback 관측은 0231 증거 문서에 있다. 독립 verify가 다음 단계이며 0231의 조건부 배포 실기 대기는 그대로 남는다.
+
+## [구현자 기입] Review Signals
+
+- 구현 r1. 사용자 미리보기의 추가 제품 결정은 D-07~11로 보존했으며 공식 verify 재구현은 아직 없다.
+- 초기 테스트가 callback 함수만 확인하던 경계를 독립 리뷰가 지적하여 실제 JSX 이벤트→store/IPC 검사를 추가했다.
+- 전체 회귀를 병렬 개발 중 실행하면 작성 중인 RED 테스트를 읽을 수 있었다. 모두 소유권을 해제한 뒤 전체 renderer 회귀를 다시 실행했다.
+- Windows 부하 때문에 최종 전체 회귀는 worker 2개로 제한했고, 비DB 테스트는 Vitest 직접 실행하여 Electron ABI를 유지했다.
+- 독립 코드 리뷰와 브라우저 컴포넌트 fixture 확인을 수행했다. 설치된 Electron 전체 UI·외부 모델/원격 worker 실기 및 handoff verify를 대체하지 않는다. 0231 AC19~22의 조건부 배포 검증 상태는 바꾸지 않았다.

@@ -99,7 +99,7 @@ Claude 어댑터는 장수명 입력·출력 스트림과 SDK 훅을 함께 소�
 
 목록은 마지막 확인 상태다. 사용자 중단에는 Stop 훅이 실행되지 않으므로 일회성 예약이 발화한 직후 응답을 중단하면 다음 정상 Stop 또는 채널 종료까지 이전 항목이 남을 수 있다. 공개 수신 필드에는 발화한 예약 ID가 없어 원문으로 ID를 추측하거나 예약 전체를 삭제하지 않는다.
 
-공급자 origin이 실린 수신 메시지는 `input.received`로 정규화한다. 일반 cron 프롬프트가 SDK 메시지에 생략되는 경로는 `UserPromptSubmit` 훅으로 보완하며 앱이 전송한 입력과 SDK echo를 중복 기록하지 않는다. 출처가 확정되지 않은 입력은 자동 수신으로 표시한다. 코디네이터는 응답보다 먼저 기존 user 커밋 경로로 원문과 origin을 함께 기록한다. 타입 정본은 `app/src/shared/session-schedules.ts`, 와이어 의미는 [IPC 계약](../../IPC_CONTRACT.md)에 있다.
+공급자 origin이 실린 수신 메시지는 `input.received`로 정규화한다. 일반 cron 프롬프트가 SDK 메시지에 생략되는 경로는 `UserPromptSubmit` 훅으로 보완하며 앱이 전송한 입력과 SDK echo를 중복 기록하지 않는다. 앱이 제출하지 않았고 구체적인 출처가 확정되지 않은 입력은 automatic origin으로 기록한다. 자동 수신은 내부 이력과 처리에 유지하며 Work/Code 대화 버블에는 표시하지 않는다. 코디네이터는 응답보다 먼저 기존 user 커밋 경로로 원문과 origin을 함께 기록한다. 타입 정본은 `app/src/shared/session-schedules.ts`, 와이어 의미는 [IPC 계약](../../IPC_CONTRACT.md)에 있다.
 
 이 연결은 실행 중인 Orca의 세션 예약용이다. Claude Desktop 예약은 별도 세션 생성 경로이고 Routines는 별도 클라우드 서비스다. 현재 공개 Routines 실행 API의 토큰은 결과 읽기 권한을 제공하지 않으므로 해당 서비스의 결과 폴링을 구현하지 않는다. 근거: [Stop 훅](https://code.claude.com/docs/en/hooks#stop-input), [예약 실행](https://code.claude.com/docs/en/scheduled-tasks), [Routines 실행 API](https://platform.claude.com/docs/en/api/claude-code/routines-fire).
 

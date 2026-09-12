@@ -14,6 +14,7 @@ export type WorkActivityNode =
       key: string
       items: SegmentNode[]
       toolCount: number
+      noteCount: number
     }
   | { kind: 'status'; key: string; outcome: 'ended' | 'aborted' | 'failed' | 'unknown' }
 
@@ -122,6 +123,7 @@ export function createWorkProjector(): (
       if (!active) return
       const { id, items } = active
       let activity: SegmentNode[] = []
+      let trailingText: SegmentNode[] = []
       function flushActivity(): void {
         if (!activity.length) return
         const toolCount = activity.reduce(
@@ -132,18 +134,27 @@ export function createWorkProjector(): (
           kind: 'activity',
           key: `activity:${id}:${activity[0].key}`,
           items: activity,
-          toolCount
+          toolCount,
+          noteCount: activity.filter((item) => item.segment.kind === 'text').length
         })
         activity = []
       }
       items.forEach((item) => {
-        if (item.segment.kind === 'tools') activity.push(item)
+        if (item.segment.kind === 'tools') {
+          // Text becomes a note only after another tool confirms both sides of its position.
+          activity.push(...trailingText, item)
+          trailingText = []
+        } else if (item.segment.kind === 'text' && activity.length) trailingText.push(item)
         else {
           flushActivity()
+          output.push(...trailingText)
+          trailingText = []
           output.push(item)
         }
       })
       flushActivity()
+      // The final text, including an interrupted partial answer, stays outside the disclosure.
+      output.push(...trailingText)
       output.push({ kind: 'status', key: `status:${id}`, outcome })
       active = undefined
     }
