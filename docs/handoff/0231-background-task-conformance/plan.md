@@ -7,7 +7,7 @@
 | slug | 0231-background-task-conformance |
 | 작성자 | **Codex** — 사용자 명시 지시 |
 | 일자 | 2026-09-12 |
-| 상태 | IMPL_DONE |
+| 상태 | verify/FAIL (r1) |
 | V mode / 기준 V | Baseline V / none |
 | 이번 V revision / 유효 V | V1 / V1 |
 | 매핑 | [첨부 원문](source-spec.md) 전체 대조·보완 구현, [진단](diagnosis.md) |
@@ -559,7 +559,20 @@ V-pair: VP-R1~R24는 아래 동일 번호 AC 행의 자기 상태를 따른다. 
 
 ## [검증자 기입] 파생 이슈
 
-아직 독립 검증 전이다.
+r1 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md).
+
+| # | 이슈 | 출처 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| D1 | Monitor 분기(`claude-background.ts:396`)를 무력화해도 전체 4745케이스 green. `Monitor` fixture 0건 | AC19 / VP-R19 | BLOCKING | 선언 기반 Monitor payload fixture(종류·진행·timeout·persistent·출력·중단) |
+| D2 | Workflow·Agent 두 생산자의 `remote_launched→'remote'`·`async_launched→'background'`와 원격 taskId 파생을 제거해도 476파일 green | AC20·AC22 / VP-R20·VP-R22 | BLOCKING | 두 생산자의 mode 파생·원격 기록 fixture |
+| D3 | 분리 Skill `background===true → mode` 분기를 무력화해도 476파일 green | AC21 / VP-R21 | BLOCKING | 분리 Skill 자동 background fixture |
+| D4 | `backgroundPresentation.ts` 4함수·`parts.ts:316 settlementMessage`가 HEAD에서 소비처 0 | 0232 D-13·D-14 결과 | NON_BLOCKING | 기록 |
+| D5 | `chatStopAllBackgroundTasks`·`chatReadBackgroundOutput`이 renderer 소비처 0 | 0232 D-07·D-14 결과 | NON_BLOCKING | 현재 아키텍처 문서에 진입점 상태 반영 |
+| D6 | `coerceStoppedToolCompletion`이 항등 함수로 남아 테스트 4참조만 가짐 | D-06 의도 | NON_BLOCKING | 기록 |
+| D7 | `background-controller.test.ts`의 "rejects stale generations"가 `unknown task` 분기로 통과해 세대·연결 가드를 잠그지 않음. 프로덕션 동작은 정상 | AC8 / VP-R8 | NON_BLOCKING | 옛 세대에 실재하는 작업으로 stale stop 케이스 추가 |
+| D8 | §10 EP-07의 `HistoryWriter.recordProviderEvent`가 실제 이름 `persistProviderEvent`와 다름. 계약 의미는 일치 | 문서 | NON_BLOCKING | 다음 plan 갱신 때 이름 정정 |
+
+D1~D3이 root `PAIR_FAIL`이며 다음 주체는 구현자다. D7도 같은 라운드에서 닫기를 권한다.
 
 ## 설계 정정 — 실제 SDK 출력 경로 (Codex, 2026-09-12)
 
