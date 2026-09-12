@@ -6,7 +6,7 @@
 |---|---|
 | 작성자 | Codex |
 | 일자 | 2026-09-12 |
-| 상태 | IMPL_DONE |
+| 상태 | verify/PASS (r1) |
 | V mode / 기준 / revision | Baseline V / none / V2 |
 | 관련 작업 | 백그라운드 SDK 보완은 별도 `0231-background-task-conformance` |
 
@@ -300,3 +300,13 @@ READY: 독립 감사가 찾은 Code 폴더 생성 누락과 artifact 도구 설�
 | plan이 막았어야 했는가 | V1은 SDK 내부 생성 경로를 열거하지 않았다; 실제 실기 후 별도 설계 V2가 D-06·VP-10·EP-06을 추가했다 |
 | 반복 환경 한계 | loopback은 실제 SDK/CLI와 production reader를 쓰지만 외부 모델·원격 Worker 동작은 측정하지 않는다 |
 | 현재 라운드 수 | r1, 유효 설계 V2 |
+
+## [검증자 기입] 파생 이슈
+
+r1 독립 검증 = **PASS**. 판정 원문은 [`verify.md`](verify.md).
+
+| # | 이슈 | 출처 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| D1 | 준비된 env가 없는 호출에서 `options.env`가 `process.env`의 명시 스냅샷이 된다(`claude-adapt.ts:158`). 이전에는 옵션 생략으로 SDK가 상속했다 | 비귀속 — env 전달 방식 계약 없음 | NON_BLOCKING | 기록 |
+| D2 | 앱 임시 루트를 만드는 곳이 3곳이고 mode가 갈린다 — `temp-path.ts:30`은 `0o700`, `attachment-files`·`files.prepareOutputDirectory`는 기본 mode | 비귀속 — mode를 정한 AC 없음 | NON_BLOCKING | 기록 |
+| D3 | `getTemporaryFilesPath()` 소비처가 0231에서 1곳(`app/chat-turn/background.ts:46`) 늘었다 | 0231 EP-09 | NON_BLOCKING | 0231 verify에서 다룸 |
