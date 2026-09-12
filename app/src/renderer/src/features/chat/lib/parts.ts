@@ -278,28 +278,65 @@ export function childMessageForParentToolRunId(
   return { role: 'assistant', createdAt: Date.now(), parts }
 }
 
-// 부모 Task 하나의 description 만 필요할 때(완료 통지 행) — 전체 요약을 만들지 않는다.
-// subagentTasksFromMessages 는 세션의 모든 파트를 flatMap 으로 펼치고 Map 4개를 만든 뒤 여러 번
-// 순회하는데, 통지 행은 그중 문자열 하나만 읽었다. 트랜스크립트는 커밋마다 messages identity 가
-// 바뀌므로(턴당 수십 회 × 표시 중인 행 수) 그 비용이 그대로 곱해졌다(0149).
+// 설명만 필요한 호출부용 얇은 래퍼 — 조인 본체는 아래 `subagentTaskJoin` 이다.
 export function subagentTaskDescription(
   messages: Message[],
   toolUseId: string
 ): string | undefined {
-  const resultByRun = resultMap(messages.flatMap((m) => m.parts))
+  return subagentTaskJoin(messages, toolUseId)?.description
+}
+
+/**
+ * 부모 Task 하나와 조인해 **설명과 종류 한 벌**을 낸다(완료 통지 행) — 전체 요약을 만들지 않는다.
+ * `subagentTasksFromMessages` 는 세션의 모든 파트를 flatMap 으로 펼치고 Map 4개를 만든 뒤 여러 번
+ * 순회하는데, 통지 행은 그중 두 값만 읽는다. 트랜스크립트는 커밋마다 messages identity 가
+ * 바뀌므로(턴당 수십 회 × 표시 중인 행 수) 그 비용이 그대로 곱해졌다(0149).
+ *
+ * 종류를 함께 내는 이유는 셸 작업에 상세 진입 어포던스를 주면 안 되기 때문이다(0230 r2 · D3).
+ * 셸은 하위 대화록이 없어서 상세가 stdout 을 "에이전트 답변" 자리에 그린다 — 우측 패널 카드에서
+ * 이미 막은 규칙(R-03)을 통지 행도 같게 따른다. 두 값을 **한 번의 순회**로 내는 것도 같은 이유다:
+ * 행마다 messages 를 두 번 걷는 것은 0149 가 없앤 비용을 반만 되살리는 것이다.
+ */
+export function subagentTaskJoin(
+  messages: Message[],
+  toolUseId: string
+): { description: string; kind: TaskKind } | undefined {
+  // **Map 을 만들지 않는다**(0149). 이 함수는 통지 행마다·렌더마다 불리고 messages identity 는
+  // 커밋마다 바뀐다 — 전체 fold 비용을 여기 되살리면 행 수만큼 곱해진다. 필요한 것은 대상
+  // `toolUseId` 의 결과 하나뿐이라 그것만 지연 조회한다(r2 · D2).
+  const findResult = (id: string): NonNullable<ToolCall['result']> | undefined => {
+    for (const message of messages) {
+      for (const part of message.parts) {
+        if (isToolResultPart(part) && part.toolRunId === id) {
+          return {
+            output: part.result,
+            isError: part.isError,
+            ...(part.structuredOutput !== undefined
+              ? { structuredOutput: part.structuredOutput }
+              : {})
+          }
+        }
+      }
+    }
+    return undefined
+  }
   for (const message of messages) {
     for (const part of message.parts) {
       if (
         isToolCallPart(part) &&
         part.parentToolRunId === undefined &&
         part.toolRunId === toolUseId &&
-        isBackgroundTaskCall(part, resultByRun)
+        isBackgroundTaskCall(part, findResult)
       ) {
         // 목록 fold 와 **같은 서술**이어야 한다 — 통지 행과 카드가 같은 작업을 다르게 부르면
         // 사용자가 둘을 잇지 못한다.
-        return (
-          toolDescriptionFromInput(part.args) ?? shellCommandDescription(part.args) ?? part.toolName
-        )
+        return {
+          description:
+            toolDescriptionFromInput(part.args) ??
+            shellCommandDescription(part.args) ??
+            part.toolName,
+          kind: isAgentTaskName(part.toolName) ? 'agent' : 'shell'
+        }
       }
     }
   }
@@ -317,12 +354,10 @@ export function subagentTaskDescription(
  */
 export function isBackgroundTaskCall(
   part: Extract<AppMessagePart, { type: 'tool_call' }>,
-  resultByRun: ReadonlyMap<string, NonNullable<ToolCall['result']>>
+  findResult: (toolRunId: string) => NonNullable<ToolCall['result']> | undefined
 ): boolean {
   if (isAgentTaskName(part.toolName)) return true
-  return (
-    readShellBackgroundFromStructured(resultByRun.get(part.toolRunId)?.structuredOutput) != null
-  )
+  return readShellBackgroundFromStructured(findResult(part.toolRunId)?.structuredOutput) != null
 }
 
 export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSummary[] {
@@ -359,7 +394,7 @@ export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSumm
     if (
       isToolCallPart(part) &&
       part.parentToolRunId === undefined &&
-      isBackgroundTaskCall(part, resultByRun)
+      isBackgroundTaskCall(part, (id) => resultByRun.get(id))
     ) {
       const call = toolCallFromPart(part, resultByRun)
       const meta = call.result?.subagentMeta

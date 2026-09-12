@@ -3,10 +3,11 @@
 // 목록 View 가 셸 작업을 **에이전트와 다르게** 그리는지 본다. props 만 읽는 순수 View 라
 // `renderToStaticMarkup` 으로 관측한다(`rightPanelTiles.render.test.ts` 와 같은 방식).
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { SubAgentTaskList } from './SubAgentTileContent'
+import { SubAgentTaskList, SubAgentTileContent } from './SubAgentTileContent'
+import { useChatStore } from '../../store/chatStore'
 import { subagentTasksFromMessages } from '../../lib/parts'
 import type { Message } from '../../reducer/chatReducer'
 import type { AppMessagePart } from '../../../../../../shared/ipc'
@@ -100,5 +101,38 @@ describe('0230 — 셸 카드의 중단 어포던스', () => {
       { type: 'subagent_notice', toolRunId: 'sh1', status: 'completed' }
     ])
     expect(html).not.toContain('aria-label="중단"')
+  })
+})
+
+// W4(r2) — **컨테이너를 마운트**해 store → props → 셸 카드 배선을 본다. 위 케이스들은
+// `SubAgentTaskList` 에 props 를 직접 넣으므로, 컨테이너가 셸 항목을 걸러도 전부 초록이었다
+// (r2 실측). `subagentWiring.render.test.ts` 와 같은 시드 방식을 쓴다 — zustand v5 의 SSR
+// 스냅샷은 `getInitialState()` 만 보므로 `setState` 가 아니라 제자리 변형이다.
+describe('0230 r2 — 컨테이너가 셸 작업을 목록에 공급한다 (W4)', () => {
+  const activeSession = (): { messages: Message[] } => {
+    const init = useChatStore.getInitialState()
+    return init.sessions[init.activeKey]!.session as unknown as { messages: Message[] }
+  }
+  const pristine = activeSession().messages
+
+  afterEach(() => {
+    activeSession().messages = pristine
+  })
+
+  it('셸 백그라운드 작업이 컨테이너를 거쳐 카드로 선다', () => {
+    activeSession().messages = messages(shellParts(launched))
+    const html = renderToStaticMarkup(createElement(SubAgentTileContent))
+    expect(html).toContain(CMD)
+    expect(html).toContain('셸 명령')
+  })
+
+  it('음성 대조: 영수증이 없으면 컨테이너도 빈 목록을 공급한다', () => {
+    activeSession().messages = messages([
+      { type: 'tool_call', toolRunId: 'sh9', toolName: 'PowerShell', args: { command: CMD } },
+      { type: 'tool_result', toolRunId: 'sh9', result: 'done', isError: false }
+    ])
+    expect(renderToStaticMarkup(createElement(SubAgentTileContent))).toContain(
+      '백그라운드 작업이 없습니다'
+    )
   })
 })

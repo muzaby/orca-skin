@@ -8,65 +8,138 @@ import { describe, expect, it } from 'vitest'
 import { BackgroundTaskTracker } from './background-tasks'
 import { createSubagentSettlementEvents } from './subagent-settlement'
 import { stopSubagentTask } from './stop-subagent'
-import { readLaunchReceipt } from '../../../shared/task-kind'
+import { settleTaskSubset } from './settle'
+import { TurnCoordinator, type CoordinatorRuntime } from './turn-coordinator'
+import { TypedBus } from '../../infra/bus'
+import type { OrcaBusEvents } from '../../contracts/bus-events'
 import type { NormalizedEvent } from '../../../shared/ipc'
 
 const SESSION = 's1'
 
-// `turn-coordinator` 의 `tool.call.completed` 분기와 **같은 술어**를 같은 순서로 돈다.
-// 코디네이터 전체를 세우지 않고 그 판정만 재현한다 — 판정이 EP-03 의 대상이다.
-function applyToolCompletion(
+// **프로덕션 코디네이터를 실제로 돌린다**(r2 · D1). r1 은 여기서 코디네이터의 분기를 로컬로
+// 재구현했고, 그래서 `turn-coordinator.ts` 의 호출부를 구 술어로 되돌려도 전 스위트가 초록이었다
+// — 술어는 잠기고 **배선은 잠기지 않았다**. 판정이 사는 자리를 테스트가 직접 지나야 한다.
+async function runCoordinator(
   tracker: BackgroundTaskTracker,
-  ev: { toolRunId: string; result?: unknown; structuredOutput?: unknown }
-): void {
-  if (readLaunchReceipt(ev)) tracker.markAsyncLaunched(SESSION, ev.toolRunId)
-  else tracker.settled(SESSION, ev.toolRunId)
+  events: NormalizedEvent[]
+): Promise<void> {
+  const stream = (): AsyncIterable<NormalizedEvent> =>
+    (async function* () {
+      for (const ev of events) yield ev
+    })()
+  const runtime = {
+    cancelled: false,
+    timedOut: false,
+    eventBatches: {
+      [Symbol.asyncIterator]: () => ({ next: async () => ({ done: true, value: undefined }) })
+    },
+    close: () => {},
+    setPermissionMode: async () => {},
+    interrupt: async () => {},
+    setModel: async () => {},
+    stopTask: async () => {},
+    backgroundTask: async () => false,
+    markAborted: () => {},
+    send: stream,
+    listen: stream
+  } as unknown as CoordinatorRuntime
+  const coordinator = new TurnCoordinator<string>({
+    runtime,
+    bus: new TypedBus<OrcaBusEvents<string>>(),
+    persist: { persist: () => {}, flushAskAnswers: () => {} },
+    forward: { forward: () => {} },
+    registry: { promote: () => {} },
+    classifyError: () => ({ category: 'stream_error', message: 'x' }) as never,
+    activeTurns: { increment: () => {}, decrement: () => {} },
+    backgroundTasks: tracker,
+    persistResponseBoundaries: () => false
+  } as never)
+  const turn = {
+    owner: 'o',
+    dbSessionId: SESSION,
+    controller: new AbortController(),
+    openToolRuns: new Map(),
+    subagentTaskIds: new Map(),
+    subagentTypes: new Map(),
+    stoppedSubagents: new Set<string>(),
+    blockedSubagents: new Set<string>(),
+    askPendingIds: [],
+    agentKind: 'code'
+  }
+  await coordinator.run(turn as never, { sessionId: SESSION } as never, { boundProjectId: null })
 }
 
+// 셸 백그라운드 런치 영수증이 실린 `tool.call.completed` 한 건.
+const shellReceipt = (toolRunId: string): NormalizedEvent =>
+  ({
+    type: 'tool.call.completed',
+    sessionId: SESSION,
+    toolRunId,
+    result: 'partial stdout',
+    isError: false,
+    structuredOutput: { shellBackground: { taskId: 'bg-1' } }
+  }) as NormalizedEvent
+
 describe('0230 AT-03/AT-04 — 셸 영수증은 추적을 유지한다', () => {
-  it('AT-03: backgroundTaskId 결과가 도착해도 추적이 줄지 않는다', () => {
+  it('AT-03: backgroundTaskId 결과가 코디네이터를 지나도 추적이 줄지 않는다', async () => {
     const tracker = new BackgroundTaskTracker()
     tracker.started(SESSION, 'sh1', 'shell')
     expect(tracker.count(SESSION)).toBe(1)
 
-    applyToolCompletion(tracker, {
-      toolRunId: 'sh1',
-      result: 'partial stdout',
-      structuredOutput: { shellBackground: { taskId: 'bg-1' } }
-    })
+    await runCoordinator(tracker, [shellReceipt('sh1')])
 
     expect(tracker.count(SESSION)).toBe(1)
     expect(tracker.isAsyncLaunched(SESSION, 'sh1')).toBe(true)
   })
 
-  it('AT-04: 이어서 정착이 오면 그때 추적에서 빠진다', () => {
+  it('AT-04: 이어서 정착이 오면 그때 추적에서 빠진다', async () => {
     const tracker = new BackgroundTaskTracker()
     tracker.started(SESSION, 'sh1', 'shell')
-    applyToolCompletion(tracker, {
-      toolRunId: 'sh1',
-      result: 'partial stdout',
-      structuredOutput: { shellBackground: { taskId: 'bg-1' } }
-    })
-
-    tracker.settled(SESSION, 'sh1')
+    await runCoordinator(tracker, [
+      shellReceipt('sh1'),
+      {
+        type: 'subagent.task',
+        sessionId: SESSION,
+        toolUseId: 'sh1',
+        phase: 'settled',
+        status: 'completed',
+        taskKind: 'shell'
+      } as NormalizedEvent
+    ])
 
     expect(tracker.count(SESSION)).toBe(0)
   })
 
-  it('음성 대조: 영수증 없는 셸 결과는 현행대로 추적을 해제한다', () => {
+  it('음성 대조: 영수증 없는 셸 결과는 코디네이터에서 추적을 해제한다', async () => {
     const tracker = new BackgroundTaskTracker()
     tracker.started(SESSION, 'sh2', 'shell')
 
-    applyToolCompletion(tracker, { toolRunId: 'sh2', result: 'done' })
+    await runCoordinator(tracker, [
+      {
+        type: 'tool.call.completed',
+        sessionId: SESSION,
+        toolRunId: 'sh2',
+        result: 'done',
+        isError: false
+      } as NormalizedEvent
+    ])
 
     expect(tracker.count(SESSION)).toBe(0)
   })
 
-  it('회귀: 에이전트 영수증(async_launched)은 종전대로 추적을 유지한다', () => {
+  it('회귀: 에이전트 영수증(async_launched)은 종전대로 추적을 유지한다', async () => {
     const tracker = new BackgroundTaskTracker()
     tracker.started(SESSION, 'ag1', 'agent')
 
-    applyToolCompletion(tracker, { toolRunId: 'ag1', result: { status: 'async_launched' } })
+    await runCoordinator(tracker, [
+      {
+        type: 'tool.call.completed',
+        sessionId: SESSION,
+        toolRunId: 'ag1',
+        result: { status: 'async_launched' },
+        isError: false
+      } as NormalizedEvent
+    ])
 
     expect(tracker.count(SESSION)).toBe(1)
     expect(tracker.isAsyncLaunched(SESSION, 'ag1')).toBe(true)
@@ -182,5 +255,92 @@ describe('0230 §10 EP-06 전수 — 정착 생산 지점이 모두 종류를 �
     } as never)
     const settledEv = emitted.find((e) => e.phase === 'settled')
     expect(settledEv?.taskKind).toBe('shell')
+  })
+})
+
+describe('0230 r2 — 시작 배선이 종류를 트래커에 넣는다 (W2)', () => {
+  // `turn-coordinator.ts:445` 가 `started(sessionId, toolUseId, ev.taskKind)` 로 **종류를
+  // 넘기는** 지점. 세 번째 인자를 떨어뜨려도 `started` 는 성공하고 추적 수도 같다 — 어긋남은
+  // 정착 시점에야 드러난다(종류 미상 → 셸 stdout 이 `{summary:''}` 로 덮인다). D1 과 같은 축이라
+  // 여기도 프로덕션 코디네이터를 지나서 본다.
+  it('started 이벤트의 taskKind 가 트래커에 기록된다', async () => {
+    const tracker = new BackgroundTaskTracker()
+    await runCoordinator(tracker, [
+      {
+        type: 'subagent.task',
+        sessionId: SESSION,
+        toolUseId: 'sh8',
+        phase: 'started',
+        taskKind: 'shell'
+      } as NormalizedEvent
+    ])
+    expect(tracker.kindOf(SESSION, 'sh8')).toBe('shell')
+  })
+
+  it('회귀: 에이전트 started 도 같은 경로로 종류를 싣는다', async () => {
+    const tracker = new BackgroundTaskTracker()
+    await runCoordinator(tracker, [
+      {
+        type: 'subagent.task',
+        sessionId: SESSION,
+        toolUseId: 'ag8',
+        phase: 'started',
+        taskKind: 'agent'
+      } as NormalizedEvent
+    ])
+    expect(tracker.kindOf(SESSION, 'ag8')).toBe('agent')
+  })
+})
+
+describe('0230 r2 — 정착 배선이 종류를 나른다 (W3)', () => {
+  // `settleTaskSubset` 이 트래커에서 종류를 읽어 정착 이벤트에 싣는 **배선**을 본다. 빌더의
+  // 게이트가 옳아도 여기서 종류를 안 실으면 채널 사망·레벨 제외 경로에서만 stdout 이 덮인다.
+  it('레벨 제외 정착이 트래커의 종류를 실어 보낸다', async () => {
+    const tracker = new BackgroundTaskTracker()
+    tracker.started(SESSION, 'sh9', 'shell')
+    const emitted: { type?: string; toolRunId?: string; taskKind?: string; phase?: string }[] = []
+    const turn = {
+      dbSessionId: SESSION,
+      live: null,
+      openToolRuns: new Map(),
+      subagentTaskIds: new Map()
+    }
+    await settleTaskSubset(
+      turn as never,
+      (_t, ev) => emitted.push(ev as never),
+      SESSION,
+      tracker,
+      ['sh9'],
+      { status: 'failed', summary: '사라짐', stopLive: false }
+    )
+    const settledEv = emitted.find((e) => e.phase === 'settled')
+    expect(settledEv?.taskKind).toBe('shell')
+    // 그리고 그 종류 덕분에 부모 결과가 합성되지 않는다 — 배선과 게이트가 한 경로에서 만난다.
+    expect(
+      emitted.filter((e) => e.type === 'tool.call.completed' && e.toolRunId === 'sh9')
+    ).toHaveLength(0)
+  })
+
+  it('에이전트는 같은 경로에서 종전대로 부모 결과를 받는다', async () => {
+    const tracker = new BackgroundTaskTracker()
+    tracker.started(SESSION, 'ag9', 'agent')
+    const emitted: { type?: string; toolRunId?: string }[] = []
+    const turn = {
+      dbSessionId: SESSION,
+      live: null,
+      openToolRuns: new Map(),
+      subagentTaskIds: new Map()
+    }
+    await settleTaskSubset(
+      turn as never,
+      (_t, ev) => emitted.push(ev as never),
+      SESSION,
+      tracker,
+      ['ag9'],
+      { status: 'failed', summary: '사라짐', stopLive: false }
+    )
+    expect(
+      emitted.filter((e) => e.type === 'tool.call.completed' && e.toolRunId === 'ag9')
+    ).toHaveLength(1)
   })
 })

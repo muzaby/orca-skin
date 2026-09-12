@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-11 |
 | 매핑 | 0230~0236 분할의 **1번**. 조사 정본을 겸한다 |
-| 상태 | **verify/FAIL** (r1) |
+| 상태 | **impl/IMPL_DONE** (r2) |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
@@ -681,3 +681,156 @@ SDK system/tool_result
 - 반복해서 부딪히는 환경 한계: electron 바이너리 egress 차단 — `npm test`·`npm run build` 의
   pre 훅이 막힌다. `vitest` 직접 호출 + `electron-vite build` 직접 호출로 우회했다.
 - 현재 라운드 수: 1
+
+---
+
+## [구현자 기입] 설계 리뷰 (r2)
+
+- 동의 / 그대로 진행: Part I·Part II·§10 전부. r2 는 **기능을 다시 만들지 않았다** — 코드 동작
+  변경은 D2·D3 두 비차단 이슈뿐이고 나머지는 증거를 프로덕션 경로로 옮긴 것이다.
+- 이견 / 현실성 문제: 없음. §10 은 r1 의 13지점 그대로다(재열거 13 — 아래 전수표).
+- ACTIVE Decision 과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r2)
+
+§10 에 행 신설·삭제가 없으므로 **분모는 r1 과 같은 13** 이다. 값을 기억하지 않고 다시 셌다 —
+EP-05·EP-07 의 검색 술어는 r2 가 인자 형태를 바꿔(`resultByRun` → 조회 콜백) r1 의 리터럴로는
+0건이 나온다. 술어를 불변식의 주어(`isBackgroundTaskCall` 호출)로 바꿔 세었다.
+
+| Pair | 계약/필드 | §10 지점 | 닫은 지점 | 재현 명령 / 관측 |
+|---|---|---|---|---|
+| VP-01·VP-08 | `taskKind` 부착 | 2 | 2/2 | `grep -c "taskKind !== undefined ? { taskKind }" claude-map.ts` → 2 |
+| VP-01·VP-10 | 종류 우선순위 SSOT | 2 | 2/2 | `grep -rn "taskKindFrom(" src \| grep -v test \| grep -v "export function"` → 2 |
+| VP-02·VP-07 | 런치 영수증 술어 | 1 | 1/1 | `grep -rn "readLaunchReceipt(" src \| grep -v test \| grep -v "export function"` → 1 (`turn-coordinator.ts:522`) |
+| VP-05·VP-09 | 셸 투영 생성 | 1 | 1/1 | `grep -c "shellBackground }" claude-map.ts` → 1 |
+| VP-03·VP-06·VP-11 | 목록 포함 술어 = 조인 술어 | 2(공유) | 2/2 | `grep -n "isBackgroundTaskCall(" parts.ts \| grep -v "export function"` → 2 |
+| VP-04·VP-07·VP-12 | 정착 kind 게이트 | 1 | 1/1 | `grep -rn "settlementOverwritesOwnResult(task)" src \| grep -v test` → 1 |
+| VP-04·VP-12 | 정착 생산자 전수 | 4 | 4/4 | `grep -rn "phase: 'settled'" src/main \| grep -v test` → 4(`settle.ts:111`·`stop-subagent.ts:107`·`mock-scenarios.ts:278`·`claude-map.ts:322`). `const phase` 경로는 `claude-map.ts:184` 1건 |
+
+- **합계 재검산**: `2+2+1+1+2+1+4 = 13`. r1 자기보고·verify r1 독립 재열거와 같다. 분모 변경 없음.
+- **§10 밖이지만 이번에 닫은 불변식 1건**: "하위 대화록이 없는 셸 작업은 상세 진입 어포던스를
+  갖지 않는다"(D3). 현재 AC·ACTIVE Decision 어디에도 귀속되지 않아 §10 행을 신설하지 않았다 —
+  `PLAN_GAP` 이 아니라 비차단 파생 이슈의 종결이다. 전수는 아래 §놓친 잠재 문제 2 에 있다.
+
+**V-pair 자기확인 (r2)** — `SELF_PASS`는 독립 검증의 `PASS`가 아니다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `claude-map.taskKind.test.ts` 11케이스 | not selected — 값 단언 |
+| VP-02 | REQUIRED | SELF_PASS | **프로덕션 `TurnCoordinator.run` 을 지나는** AT-03·AT-04 | required — W1 red 1건(r1 은 green 이었다) |
+| VP-03 | REQUIRED | SELF_PASS | fold 6 + 렌더 10 + **컨테이너 마운트 2** | required — M4 red 16건 |
+| VP-04 | REQUIRED | SELF_PASS | 정착 5 + **`settleTaskSubset` 배선 2** | required — M2 red 4 · M7 red 6 |
+| VP-05 | REQUIRED | SELF_PASS | 투영 4 + 렌더 2 | not selected — AT-10 이 음성 축 |
+| VP-06 | REQUIRED | SELF_PASS | 조인 3 + **통지 행 컨테이너 마운트 4** | not selected |
+| VP-07 | REQUIRED | SELF_PASS | 시작→영수증→정착이 **한 코디네이터 실행**을 지난다 | required — W1·W2·W3 red |
+| VP-08 | REQUIRED | SELF_PASS | main 소비자(tracker·settlement) 3지점 | not selected |
+| VP-09 | REQUIRED | SELF_PASS | 영속 파트만으로 카드 복원 | required — M5 red 3건 |
+| VP-10 | REQUIRED | SELF_PASS | 우선순위 5케이스 | required — M3 red 2건 |
+| VP-11 | REQUIRED | SELF_PASS | fold 단독 | not selected |
+| VP-12 | REGRESSION | SELF_PASS | 에이전트 카드·통지 행·정착 회귀 + 전 스위트 4578 green | not selected |
+
+`SELF_PASS 12 / SELF_BLOCKED 0`. VP-02·VP-07 이 r1 의 `PAIR_FAIL`·`BLOCKED_BY` 대상이었다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| W1 `turn-coordinator.ts:522` → `readLaunchReceipt(ev)?.kind === 'agent-async'` | `D1 인용 변이` | **r1 green(4571 전건)** | `AT-03: backgroundTaskId 결과가 코디네이터를 지나도 추적이 줄지 않는다` 1건 | 잠김 |
+| W2 `turn-coordinator.ts:445` → `started()` 3번째 인자 제거 | `새 oracle — started 배선` | 최초 | `started 이벤트의 taskKind 가 트래커에 기록된다` 외 1건 = 2건 | 잠김 |
+| W3 `settle.ts:106` → `kind = undefined` | `새 oracle — 정착 배선` | 최초 | `레벨 제외 정착이 트래커의 종류를 실어 보낸다` 1건 | 잠김 |
+| W4 `SubAgentTileContent.tsx:258` 셸 분기 제거 | `새 oracle — 컨테이너→카드` | 최초 | 4건(AT-06·AT-09·진입점 부재·컨테이너 경유) | 잠김 |
+| W5a `SubagentNoticeRow` `hasDetail = true` | `새 oracle — 컨테이너→통지 행` | 최초 | 2건 | 잠김 |
+| W5b **형제 맞바꿈** `hasDetail = joined?.kind === 'shell'` | `형제 슬롯 계약` | 최초 | 4건(셸 2 + 에이전트 1 + 미확인 1) | 잠김 |
+| W5c `TranscriptActionRow` 비대화형 분기 제거 | `새 oracle 민감도` | 최초 | 2건 | 잠김 |
+| W6 `claude-map.ts:558` 경계 도구 기억 제거 | `불변식 전수 재열거` | 최초 | 6건 | 잠김 |
+| W7 `toolMeta.ts` 셸 명령 폴백 제거 | `불변식 전수 재열거` | 최초 | `Bash 는 description 없으면 명령 첫 줄로 폴백` 1건 | 잠김 |
+| M1 `task-kind.ts` 셸 영수증 분기 제거 | `VP-02 선택 증거` | r1 red 1 | 1건 | 잠김 |
+| M2 `subagent-settlement.ts` kind 게이트 제거 | `VP-04 선택 증거` | r1 red 3 | 4건(+1 = W3 의 첫 케이스) | 잠김 |
+| M3 `task-kind.ts` 우선순위 뒤집기 | `VP-10 선택 증거` | r1 red 2 | 2건 | 잠김 |
+| M4 `parts.ts` 포함 술어를 이름만으로 | `VP-03 선택 증거` | r1 red 13 | 16건 | 잠김 |
+| M5 `claude-map.ts` 셸 투영 미부착 | `VP-09 선택 증거` | r1 red 3 | 3건 | 잠김 |
+| M6 **형제 맞바꿈**: 셸 카드에 에이전트 라벨 | `VP-03 형제 슬롯 계약` | r1 red 1 | 2건 | 잠김 |
+| M7 **형제 맞바꿈**: 정착 게이트 반전 | `VP-04 형제 슬롯 계약` | r1 red 4 | 6건 | 잠김 |
+| M8 `stop-subagent.ts` watchdog 정착에서 종류 제거 | `§10 신설 지점 민감도` | r1 red 1 | 1건 | 잠김 |
+
+- **분모 검산**: 선택 증거 5(M1·M2·M3·M4·M5) · 인용 변이 1(D1 → W1) · 새 oracle 4개의 변이
+  6(W2·W3·W4·W5a·W5b·W5c) · 불변식 전수 재열거 5(M6·M7·M8·W6·W7) = **표 행 17**. ✅
+- **덮개 회귀**: r1 이 red 로 관측한 8변이(M1~M8)를 전부 다시 실행했다 — **red → green 0건**.
+  세 변이가 커졌다(M4 13→16 · M6 1→2 · M7 4→6): r2 가 같은 계약에 관측 지점을 더한 결과다.
+  M2 는 verify r1 의 독립 재측정 `3` 에 W3 의 첫 케이스가 더해져 4다.
+- 실행 방식: 변이 1건 적용 → `./node_modules/.bin/vitest run`(전 스위트) → 원복. 실패 케이스
+  이름은 대상 스위트 재실행으로 확인했다.
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ✅ r2 는 새 문구를 만들지 않았다 — 어포던스를 **없앤** 변경이다 | — |
+| 그 제거가 화면에서 "아무 일도 안 일어남"이 되지 않는가 | ✅ 셸 통지 행은 버튼 역할·포인터·꺾쇠가 함께 사라져 **누를 수 있게 보이지 않는다**. 눌러도 반응 없는 행이 아니라 처음부터 평문 행이다 | — |
+| seam 을 만들려고 production 을 재배치했는가 | `TranscriptActionRow` 의 `onActivate` 를 선택으로 넓혔다. 기존 두 호출부는 항상 값을 넘기므로 동작 불변 — 회귀는 전 스위트 4578 green | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 신규 실패 경로 없음 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | ✅ `subagentTaskJoin` 은 messages 파생이라 늦은 파트가 도착하면 종류가 `undefined` → `shell` 로 **좁아지는 방향**으로만 바뀐다. 반대(셸 → 에이전트)는 없다 | — |
+| 상세로 가는 다른 길이 남아 있는가 | ✅ 선택 지점 4 · 인라인 펼침 1 중 셸 도달 3, 전부 닫혔다(아래 전수) | — |
+
+- **파생(범위 밖, 0231 로)**: r1 과 같다 — 실행 중 셸 카드에 경과 시간이 없다. r2 가 바꾸지 않았다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | **D1 은 한 줄이 아니라 불변식이었다** — "이번 핸드오프가 만든 배선을 프로덕션 호출부에서 관측한다". 지적된 `turn-coordinator.ts:522` 만 고치면 형제 배선이 다음 라운드에 올라온다 | ✅ 배선 12지점을 전수로 세고 잠기지 않은 4곳을 함께 닫았다(W2·W3·W4·W5) | 전수표는 아래 |
+| 2 | D3 의 "상세 진입" 도 한 지점이 아니다 | ✅ 선택 4 + 인라인 펼침 1 = 5지점을 세고 셸 도달 3지점을 닫았다 | `grep -rn "openSubagentTask(\|selectSubagentTask("` → 4(그중 `(null)` 제외). `AgentTaskBody`·`AgentTaskRow` 는 `registry.ts:82` 가 Bash/PowerShell 을 `terminal` 로 먼저 잡아 셸이 도달하지 못한다 |
+| 3 | 소비자 쪽(`SubAgentTaskDetail` 렌더 2지점)에도 가드가 필요한가 | ❌ 불필요 — `selectedSubagentTaskId` 를 쓰는 곳은 reducer 2 case 뿐이고 그 입력이 위 4 producer 다 | `grep -rn "selectedSubagentTaskId" src` → 쓰기 2(`chatReducer.ts:1767`·`:1772`) |
+| 4 | D2 를 고치며 `subagentTaskDescription` 이 한 번 더 messages 를 걷게 될 뻔했다 — 통지 행이 설명과 종류 둘을 읽는다 | ✅ 선조치 — `subagentTaskJoin` 한 함수가 **한 순회로 두 값**을 낸다. `subagentTaskDescription` 은 래퍼로 남겨 AT-12 의 단언을 그대로 유지 | `grep -c "resultMap(messages.flatMap" parts.ts` → 0 |
+| 5 | 조인이 실패(부모 `tool_call` 미도착)하면 종류를 모른다 | ✅ 현행 유지(어포던스 보존) — §10 EP-06 의 "미확인은 현행" 과 같은 방향이다. 테스트로 고정 | `종류 미확인(조인 실패)은 현행대로 어포던스를 유지한다` |
+
+**배선 전수 (불변식 1)** — "0230 이 만든 배선이 프로덕션 호출부에서 관측되는가". 12/12.
+
+| # | 배선 지점 | 잠금 | 라운드 |
+|---|---|---|---|
+| B1 | `claude-map.ts:558` 경계 도구 이름 기억 | W6 red 6 | r1(관측은 r2) |
+| B2 | `claude-map.ts:162` started 에 `taskKind` 부착 | M3 red 2 | r1 |
+| B3 | `claude-map.ts:313` killed 정착에 `taskKind` 부착 | `killed 정착 이벤트에 taskKind 가 실린다` | r1 |
+| B4 | `claude-map.ts:629` 셸 결과 투영 | M5 red 3 | r1 |
+| B5 | `turn-coordinator.ts:445` started → 트래커 종류 기록 | **W2 red 2** | **r2 신설** |
+| B6 | `turn-coordinator.ts:522` 영수증 → 추적 유지 | **W1 red 1** | **r2 수정** |
+| B7 | `settle.ts:106` 정착이 트래커 종류를 싣는다 | **W3 red 1** | **r2 신설** |
+| B8 | `stop-subagent.ts:98` watchdog 정착이 종류를 싣는다 | M8 red 1 | r1 |
+| B9 | `subagent-settlement.ts:88` 게이트가 부모 결과를 가른다 | M2 red 4 · M7 red 6 | r1 |
+| B10 | `parts.ts` fold → `SubAgentTaskList` 셸 분기 | **W4 red 4** | **r2 신설** |
+| B11 | `toolMeta.toolDescription` → `shellCommandDescription` | W7 red 1 | r1(관측은 r2) |
+| B12 | `SubagentNoticeRow` → `subagentTaskJoin` 종류 | **W5a·W5b·W5c red** | **r2 신설** |
+
+### 설계 대비 명시적 차이 (r2)
+
+- r1 이 보고한 차이(VP-08 소비자가 store 가 아니라 main 의 tracker·settlement)는 **그대로**다.
+  r2 는 그 차이를 바꾸지 않았고 축별 재유도도 r1 표가 유효하다.
+- r2 가 새로 만든 차이: 없음. `TranscriptActionRow.onActivate` 를 선택으로 넓힌 것은 plan 이
+  지정한 메커니즘의 교체가 아니라 기존 공용 셸의 확장이다.
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 프로덕션 3(`parts.ts`·`SubagentNoticeRow.tsx`·`TranscriptActionRow.tsx`) · 테스트 4(`shell-background.test.ts`·`shellTaskCard.render.test.ts`·`shellBackgroundTasks.test.ts` 수정 + `shellNoticeRow.render.test.ts` 신규) |
+| 실행 명령 | `npm run typecheck` · `npm run lint` · `./node_modules/.bin/vitest run` · `./node_modules/.bin/electron-vite build` · `node scripts/check-doc-inventory.mjs --check` |
+| **관측한 게이트 산출** | vitest **492파일 / 4581케이스 · 실패 0 · skip 3**(r1 4571 → +10: W2 2 · W3 2 · 컨테이너 2 · 통지 행 4). 수집 오류 6파일 = `Electron failed to install correctly`, r1·r2 세션 시작 시점과 **동일 6건**. typecheck exit 0 · `error TS` **0건**(3구성). lint **0 error / 1 warning**(`useTranscriptVirtualizer.ts` — 미수정 파일). lint 후 `git status --short` 에 도구 변경분 **0줄**. build exit 0 · 3번들. doc-inventory 3검사 통과(9 items · 92 channels) |
+| 환경 기인 분리 근거 | electron 바이너리 egress 차단 — 6파일 전부 `electron/index.js` 로드 실패 하나뿐이고 DB 스위트는 `npm rebuild better-sqlite3`(Node ABI) 후 green |
+| V-pair 자기확인 | `SELF_PASS 12 / SELF_BLOCKED 0` |
+| 강제 지점 전수 | **13/13** — 분모 변경 없음. 술어를 불변식의 주어로 다시 세었다(위 전수표) |
+| **AC 자기보고**(`Criteria-Met`) | 12/12 — AT-01·02(`claude-map.taskKind.test.ts`) · AT-03·04·07(`shell-background.test.ts`, **이제 실제 코디네이터를 지난다**) · AT-05·06·09·10(`shellTaskCard.render.test.ts`) · AT-08·11·12(`shellBackgroundTasks.test.ts`) |
+| **합계 검산** | `✅ 12 · ⚠️ 0 · ❌ 0 = 총 12` — §7 의 AT 행을 다시 세었다(AT-01~AT-12). r1 과 분모 동일 |
+| 파생 이슈 처리 | D1 **closed**(W1 red — 인용 변이가 이제 검출된다) · D2 **closed**(`resultMap(messages.flatMap` 0건) · D3 **closed**(어포던스 3/3, W5 red) · D4 **open 유지** — 현재 경로에서 재현되지 않는다. 정착이 `tool_result` 보다 먼저 오는 순서를 만들 수 없어 관측 자체가 없다 |
+| 블로커 / 역질문 | 없음. r1 과 같은 한계 — 셸 백그라운드의 실제 SDK payload 는 스펙 기준 추론이고 Windows 실기를 못 한다 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **같다.** r1 의 결함도 "oracle 이 선언한
+  프로덕션 경로를 지나지 않는다" 였고, r2 가 그것을 불변식으로 올려 12배선을 전수로 세자
+  지적되지 않은 3곳(B5·B7·B10)이 더 나왔다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: **있었다.** VP-02 의 production path 칸이
+  정확했다. plan 은 pair 마다 path 를 적지만 **그 path 를 테스트가 실제로 지나는지** 를 묻는
+  칸은 없다 — r1 은 path 를 읽고 같은 형상의 로컬 함수를 세웠다.
+- 반복해서 부딪히는 환경 한계: electron 바이너리 egress 차단(0230 고유 아님). Windows 실기 불가.
+- 현재 라운드 수: 2

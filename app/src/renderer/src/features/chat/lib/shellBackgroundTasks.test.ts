@@ -54,10 +54,13 @@ describe('0230 AT-05/AT-10 — 목록 포함 술어', () => {
     const withoutReceipt = shellMessages({})
     const call = (m: Message[]): Extract<AppMessagePart, { type: 'tool_call' }> =>
       m[0].parts[0] as Extract<AppMessagePart, { type: 'tool_call' }>
-    expect(isBackgroundTaskCall(call(withReceipt), resultMap(withReceipt[0].parts))).toBe(true)
-    expect(isBackgroundTaskCall(call(withoutReceipt), resultMap(withoutReceipt[0].parts))).toBe(
-      false
-    )
+    // 조회는 지연 콜백이다(r2 · D2) — 통지 행마다 Map 을 새로 접지 않기 위해서다.
+    const lookup = (m: Message[]) => {
+      const byRun = resultMap(m[0].parts)
+      return (id: string) => byRun.get(id)
+    }
+    expect(isBackgroundTaskCall(call(withReceipt), lookup(withReceipt))).toBe(true)
+    expect(isBackgroundTaskCall(call(withoutReceipt), lookup(withoutReceipt))).toBe(false)
   })
 
   it('회귀: 에이전트 작업은 영수증과 무관하게 종전대로 선다', () => {

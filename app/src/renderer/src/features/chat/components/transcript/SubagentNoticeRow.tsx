@@ -1,7 +1,7 @@
 import { memo, useMemo, useState } from 'react'
 import { useI18n, type MessageKey } from '../../../../shared/i18n'
 import { formatDurationLabel } from '../../lib/toolMeta'
-import { subagentTaskDescription } from '../../lib/parts'
+import { subagentTaskJoin } from '../../lib/parts'
 import { chatActions, useChatSession } from '../../store/chatStore'
 import { TranscriptActionRow } from './TranscriptActionRow'
 import { InlineSubagentDetail } from './InlineSubagentDetail'
@@ -40,10 +40,13 @@ export const SubagentNoticeRow = memo(function SubagentNoticeRow({
   const { tr } = useI18n()
   const messages = useChatSession((s) => s.messages)
   const [expanded, setExpanded] = useState(false)
-  const description = useMemo(
-    () => subagentTaskDescription(messages, toolRunId),
-    [messages, toolRunId]
-  )
+  const joined = useMemo(() => subagentTaskJoin(messages, toolRunId), [messages, toolRunId])
+  const description = joined?.description
+  // 셸 백그라운드 작업은 **하위 대화록이 없다** — 상세로 들어가면 stdout 이 "에이전트 답변"
+  // 자리에 명령도 맥락도 없이 그려진다. 우측 패널 카드에서 이미 막은 규칙을 통지 행에도 같게
+  // 건다(0230 r2 · D3): 진입 어포던스 자체를 주지 않는다.
+  const hasDetail = joined?.kind !== 'shell'
+  const inlineDetail = hasDetail && transcriptPolicy.inlineSubagentDetail
   const durationLabel = formatDurationLabel(tr, durationMs)
   const notice = NOTICE[status]
   const detail = [
@@ -56,11 +59,15 @@ export const SubagentNoticeRow = memo(function SubagentNoticeRow({
     <div className="flex flex-col gap-1">
       <TranscriptActionRow
         groupClassName="group/notice"
-        expanded={transcriptPolicy.inlineSubagentDetail ? expanded : undefined}
-        onActivate={() => {
-          if (transcriptPolicy.inlineSubagentDetail) setExpanded((value) => !value)
-          else chatActions.openSubagentTask(toolRunId)
-        }}
+        expanded={inlineDetail ? expanded : undefined}
+        onActivate={
+          hasDetail
+            ? () => {
+                if (inlineDetail) setExpanded((value) => !value)
+                else chatActions.openSubagentTask(toolRunId)
+              }
+            : undefined
+        }
       >
         <span
           className={`shrink-0 ${status === 'failed' ? 'text-bad' : ''} group-hover/notice:text-t9`}
@@ -71,7 +78,7 @@ export const SubagentNoticeRow = memo(function SubagentNoticeRow({
           <span className="min-w-0 truncate group-hover/notice:text-t9">{detail}</span>
         )}
       </TranscriptActionRow>
-      {transcriptPolicy.inlineSubagentDetail && expanded && (
+      {inlineDetail && expanded && (
         <InlineSubagentDetail toolRunId={toolRunId} transcriptPolicy={transcriptPolicy} />
       )}
       {status === 'failed' && summary && (
