@@ -10,7 +10,7 @@ import type { ChatActivitySnapshot, WorktreePrepareStep } from '../../../../../s
 /** 무활동 라벨 전환 임계(0167 §D 확정값). foreground 구간에는 적용하지 않는다. */
 export const IDLE_HINT_MS = 30_000
 
-/** StatusLine 에 한 줄로 보이는 최대 사실 수 — 나머지는 합계(`more`)로 접는다. */
+/** StatusLine의 최대 사실 수. 배경 작업 진입점은 유지하고 나머지는 more로 접는다. */
 export const MAX_VISIBLE_FACTS = 2
 
 export type ActivityFactKey = 'deliveryPending' | 'queued' | 'residual' | 'background' | 'scheduled'
@@ -25,7 +25,7 @@ export type ActivityStatus =
 
 export interface ActivityLabelModel {
   status: ActivityStatus
-  /** 0 인 항목을 뺀 전체 사실 — 화면은 앞 `MAX_VISIBLE_FACTS` 개만 쓰고 나머지는 합계로 접는다. */
+  /** 0인 항목을 뺀 전체 사실. StatusLine이 표시 상한 안에 배경 작업을 우선 포함한다. */
   facts: ActivityFact[]
   /**
    * 0211 — 격리 준비 단계. 있으면 화면은 **이것만** 말한다: 무작위 동사와 활동 사실은

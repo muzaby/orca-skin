@@ -2,7 +2,7 @@
 // 작업 타일 · 서브에이전트 타일 셋)이라 shared/ui 가 아닌 chat feature 에 둔다. 경과 틱은
 // 범용 useElapsed(shared/ui/elapsed)를 공유한다.
 // 스피너는 셋이 **분기 없이** 같은 것을 받는다(0208 D-002) — 소비자별 variant 를 두지 않는다.
-import { useMemo } from 'react'
+import { Fragment, useMemo } from 'react'
 import { formatElapsed, useElapsed } from '../../../shared/ui/elapsed'
 import { SparkSpinner } from '../../../shared/ui/SparkSpinner'
 import { useI18n } from '../../../shared/i18n'
@@ -45,6 +45,7 @@ export interface StatusLineProps {
   activity?: ActivityView
   /** 0211 — 격리 준비 단계. 있으면 무작위 동사 대신 그 단계 문구 하나만 보인다. */
   prepareStep?: WorktreePrepareStep | null
+  onOpenBackground?: () => void
 }
 
 export function StatusLine({
@@ -53,7 +54,8 @@ export function StatusLine({
   thinkingActive,
   thoughtDurationMs,
   activity,
-  prepareStep
+  prepareStep,
+  onOpenBackground
 }: StatusLineProps): React.JSX.Element | null {
   const { tr } = useI18n()
   // verb 는 한 응답 내에서 고정, 새 응답 (turnStartedAt 변경) 마다 재선택.
@@ -82,11 +84,12 @@ export function StatusLine({
     [label, tr]
   )
   const visibleFacts = useMemo(() => {
-    const shown = factTexts.slice(0, MAX_VISIBLE_FACTS)
-    const overflow = factTexts.length - shown.length
-    if (overflow > 0) shown.push(tr('chat.activity.more', { count: overflow }))
-    return shown
-  }, [factTexts, tr])
+    const shown = label.facts.slice(0, MAX_VISIBLE_FACTS)
+    const background = label.facts.find((fact) => fact.key === 'background')
+    // 배경 작업 진입점은 다른 대기 사실이 많아도 합계 안에 숨기지 않는다.
+    if (background && !shown.includes(background)) shown[shown.length - 1] = background
+    return { facts: shown, overflow: label.facts.length - shown.length }
+  }, [label])
   const factLabel = useMemo(() => factTexts.join(' · '), [factTexts])
 
   if (turnStartedAt == null) return null
@@ -120,13 +123,36 @@ export function StatusLine({
           다른 색이 된다(0208 D-016). 원본은 두 테마 모두 #d97757 하나다. */}
       <SparkSpinner className="shrink-0 text-spinner" />
       <span aria-hidden>{statusLabel}</span>
-      {visibleFacts.length > 0 && (
+      {visibleFacts.facts.map((fact) => (
+        <Fragment key={fact.key}>
+          <span className="text-[11px] text-ink3" aria-hidden>
+            {' · '}
+          </span>
+          {fact.key === 'background' && onOpenBackground ? (
+            <button
+              type="button"
+              onClick={onOpenBackground}
+              data-behavior="action:open-background-tasks"
+              className="-mx-1 rounded-r4 px-1 py-0.5 text-[11px] text-selected outline-none transition-colors hover:bg-selected-soft focus-visible:bg-selected-soft focus-visible:ring-1 focus-visible:ring-selected"
+            >
+              {tr('chat.activity.background', { count: fact.count })}
+            </button>
+          ) : (
+            <span className="text-[11px] text-ink3" aria-hidden>
+              {tr(`chat.activity.${fact.key}`, { count: fact.count })}
+            </span>
+          )}
+        </Fragment>
+      ))}
+      {visibleFacts.overflow > 0 && (
         <span className="text-[11px] text-ink3" aria-hidden>
-          · {visibleFacts.join(' · ')}
+          {' · '}
+          {tr('chat.activity.more', { count: visibleFacts.overflow })}
         </span>
       )}
       {showCounter && (
         <span className="font-mono text-[11px] text-ink3" aria-hidden>
+          {' '}
           ({formatElapsed(elapsedSec)}
           {outputTokensLabel ? ` · ↓ ${outputTokensLabel}` : ''}
           {thoughtLabel ? ` · ${thoughtLabel}` : ''})

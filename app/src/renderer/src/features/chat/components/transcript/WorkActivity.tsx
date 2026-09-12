@@ -76,7 +76,12 @@ function ActivityDisclosure({
         onClick={() => setOpen(!open)}
         className="flex max-w-full items-center gap-1.5 rounded-r4 py-1 text-left text-caption text-ink3 outline-none ring-focus hover:text-ink2"
       >
-        <span>{tr('chat.agent.activity', { tools: node.toolCount })}</span>
+        <span>
+          {tr('chat.agent.activity', { tools: node.toolCount })}
+          {node.noteCount > 0 && (
+            <> · {tr('chat.agent.activityNotes', { notes: node.noteCount })}</>
+          )}
+        </span>
         <Icon
           name="chevR"
           size={12}
@@ -94,6 +99,16 @@ function ActivityDisclosure({
                 transcriptPolicy={transcriptPolicy}
                 rail={false}
               />
+            ) : item.segment.kind === 'text' ? (
+              <div key={item.key} className="relative py-2 pl-[30px]" data-work-note="true">
+                <span
+                  aria-hidden
+                  className="absolute top-2.5 left-0 flex h-5 w-5 items-center justify-center bg-bg text-ink3"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                </span>
+                <AssistantSegment segment={item.segment} transcriptPolicy={transcriptPolicy} />
+              </div>
             ) : null
           )}
         </div>

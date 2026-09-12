@@ -71,10 +71,10 @@ describe('actual Work transcript branch', () => {
     expect(html).toContain('introduction')
     expect(html).toContain('conclusion')
     expect(html).toContain('aria-expanded="false"')
-    expect(html).toContain('도구 1회 호출')
+    expect(html).toContain('도구 1개 사용함')
     expect(html).not.toContain('private-tool-body')
   })
-  it('renders intermediate text between closed tool groups without a note label', () => {
+  it('counts intermediate notes inside one closed tool group while retaining the final answer', () => {
     const message = turn.messages[0]
     const withIntermediateText: Turn = {
       ...turn,
@@ -105,11 +105,12 @@ describe('actual Work transcript branch', () => {
     const firstGroup = html.indexOf('data-work-activity="true"')
     const secondGroup = html.indexOf('data-work-activity="true"', firstGroup + 1)
     expect(firstGroup).toBeGreaterThan(-1)
-    expect(secondGroup).toBeGreaterThan(firstGroup)
-    expect(html.indexOf('visible-intermediate-text')).toBeGreaterThan(firstGroup)
-    expect(html.indexOf('visible-intermediate-text')).toBeLessThan(secondGroup)
-    expect(html.match(/aria-expanded="false"/g)).toHaveLength(2)
-    expect(html).not.toContain('메모')
+    expect(secondGroup).toBe(-1)
+    expect(html).not.toContain('visible-intermediate-text')
+    expect(html.match(/aria-expanded="false"/g)).toHaveLength(1)
+    expect(html).toContain('도구 2개 사용함 · 1 노트')
+    expect(html).toContain('introduction')
+    expect(html).toContain('conclusion')
     expect(html).not.toContain('private-tool-body')
     expect(html).not.toContain('private-second-tool')
   })

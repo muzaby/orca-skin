@@ -74,7 +74,7 @@ export const TranscriptView = memo(function TranscriptView({
   const totalSize = virtualizer.getTotalSize()
 
   const hasPending = (pendingSteer?.length ?? 0) > 0
-  const isEmpty = messages.length === 0 && !loadingSession && !inflight && !hasPending
+  const isEmpty = exchanges.length === 0 && !loadingSession && !inflight && !hasPending
 
   return (
     <div

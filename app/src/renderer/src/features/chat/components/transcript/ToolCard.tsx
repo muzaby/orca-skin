@@ -78,14 +78,18 @@ function ToolBody({
 export const ToolCard = memo(function ToolCard({
   call,
   inGroup = false,
-  transcriptPolicy
+  transcriptPolicy,
+  presentation = 'row'
 }: {
   call: ToolCall
   inGroup?: boolean
   transcriptPolicy: AgentTranscriptPresentation
+  /** A surrounding detail surface can reuse the registered body without a second status/title row. */
+  presentation?: 'row' | 'detail-body'
 }): React.JSX.Element {
   const { tr } = useI18n()
-  const [open, setOpen] = useState(false)
+  const detailBody = presentation === 'detail-body'
+  const [open, setOpen] = useState(detailBody)
   // 최초 오픈 후엔 본문을 계속 마운트 유지 → 닫힘도 grid-rows 전환으로 애니메이션.
   // 한 번도 안 연 카드는 본문 미마운트(shiki 등 선렌더 비용 회피).
   const [wasOpened, setWasOpened] = useState(false)
@@ -93,7 +97,8 @@ export const ToolCard = memo(function ToolCard({
   // 우측 백그라운드 패널)을 갖되 라벨을 참고 양식(에이전트 실행 중 …)으로 구성하고, child
   // 메타(모델·도구·경과)를 store 에서 파생한다. 인라인 펼침 본문은 없다(사용자 결정).
   const isAgentTask = toolRendererRegistry.resolve(call).kind === 'agent_task'
-  if (isAgentTask)
+  const renderAgentTaskRow = isAgentTask && !detailBody
+  if (renderAgentTaskRow)
     return <AgentTaskRow call={call} inGroup={inGroup} transcriptPolicy={transcriptPolicy} />
 
   const toggle = (): void => {
@@ -113,57 +118,56 @@ export const ToolCard = memo(function ToolCard({
   return (
     <div className="flex w-full flex-col">
       {/* 행: [동사] [서술] (+N-M) [chevron] — chevron 은 마지막 (전략 5.4) */}
-      <div
-        role="button"
-        tabIndex={0}
-        aria-expanded={isAgentTask ? undefined : open}
-        onClick={onActivate}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            onActivate()
-          }
-        }}
-        className="group/tool flex max-w-full cursor-pointer items-center gap-g2 self-start text-left text-body text-t6 outline-none hide-focus-ring ring-focus"
-      >
-        <span
-          className={`shrink-0 ${
-            aborted
-              ? 'text-ink3'
-              : isError
-                ? 'text-bad'
-                : done
-                  ? 'group-hover/tool:text-t9'
-                  : 'epitaxy-text-shine'
-          }`}
+      {!detailBody && (
+        <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={open}
+          onClick={onActivate}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              onActivate()
+            }
+          }}
+          className="group/tool flex max-w-full cursor-pointer items-center gap-g2 self-start text-left text-body text-t6 outline-none hide-focus-ring ring-focus"
         >
-          {verb}
-        </span>
-        {!done && <span className="sr-only">{tr('common.running')}</span>}
-        <span className="min-w-0 truncate group-hover/tool:text-t9">{description}</span>
-        {stat && (stat.added > 0 || stat.removed > 0) && (
-          <span className="shrink-0 font-mono text-caption tabular-nums">
-            {stat.added > 0 && <span className="text-extended-green">+{stat.added}</span>}
-            {stat.removed > 0 && <span className="ml-1 text-extended-pink">-{stat.removed}</span>}
+          <span
+            className={`shrink-0 ${
+              aborted
+                ? 'text-ink3'
+                : isError
+                  ? 'text-bad'
+                  : done
+                    ? 'group-hover/tool:text-t9'
+                    : 'epitaxy-text-shine'
+            }`}
+          >
+            {verb}
           </span>
-        )}
-        <span
-          aria-hidden
-          className={`shrink-0 transition-transform ${!isAgentTask && open ? 'rotate-90' : ''}`}
-        >
-          <Icon name="chevR" size={12} />
-        </span>
-      </div>
+          {!done && <span className="sr-only">{tr('common.running')}</span>}
+          <span className="min-w-0 truncate group-hover/tool:text-t9">{description}</span>
+          {stat && (stat.added > 0 || stat.removed > 0) && (
+            <span className="shrink-0 font-mono text-caption tabular-nums">
+              {stat.added > 0 && <span className="text-extended-green">+{stat.added}</span>}
+              {stat.removed > 0 && <span className="ml-1 text-extended-pink">-{stat.removed}</span>}
+            </span>
+          )}
+          <span aria-hidden className={`shrink-0 transition-transform ${open ? 'rotate-90' : ''}`}>
+            <Icon name="chevR" size={12} />
+          </span>
+        </div>
+      )}
       {/* 펼침 본문 — grid-rows 0fr↔1fr 전환(JS scrollHeight 불요). Task 는 인라인 본문 없이
           우측 패널을 열므로 본문 자체를 렌더하지 않는다. */}
-      {!isAgentTask && (
+      {!renderAgentTaskRow && (
         <div
           className={`grid transition-[grid-template-rows,opacity] duration-200 ease-[cubic-bezier(0.215,0.61,0.355,1)] motion-reduce:transition-none ${
             open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
           }`}
         >
           <div className="min-h-0 overflow-hidden">
-            {(open || wasOpened) && (
+            {(detailBody || open || wasOpened) && (
               <div
                 className={`group/toolbody mt-g2 overflow-hidden rounded-r4 border border-t5 font-mono text-footnote text-t9 ${
                   inGroup ? '' : 'bg-bg'

@@ -26,7 +26,7 @@ describe('Work response projection', () => {
     expect(result.filter((node) => node.kind === 'activity')).toEqual([])
     expect(result.filter((node) => node.kind === 'segment')).toHaveLength(1)
   })
-  it('keeps intermediate text outside separate consecutive tool groups in original order', () => {
+  it('keeps intermediate notes inside one tool timeline in original order', () => {
     const result = createWorkProjector()([
       message(
         begin('r'),
@@ -43,18 +43,18 @@ describe('Work response projection', () => {
       'segment',
       'activity',
       'segment',
-      'activity',
-      'segment',
       'segment',
       'status'
     ])
     const activities = result.filter((node) => node.kind === 'activity')
-    expect(activities.map((node) => node.toolCount)).toEqual([1, 1])
+    expect(activities.map((node) => node.toolCount)).toEqual([2])
+    expect(activities.map((node) => node.noteCount)).toEqual([1])
     expect(activities.flatMap((node) => node.items.map((item) => item.segment.kind))).toEqual([
       'tools',
+      'text',
       'tools'
     ])
-    expect(result[2]).toMatchObject({ segment: { kind: 'text', text: 'note' } })
+    expect(activities[0].items[1]).toMatchObject({ segment: { kind: 'text', text: 'note' } })
     expect(result.at(-1)).toMatchObject({ outcome: 'ended' })
   })
   it.each(['failed', 'aborted', 'unknown'] as const)(
@@ -69,6 +69,82 @@ describe('Work response projection', () => {
       expect(result.at(-1)).toMatchObject({ outcome })
     }
   )
+  it('counts separate notes across messages in the same response without changing their original parts', () => {
+    const notes = [message(text('note one')), message(text('note two'))]
+    const originalParts = notes.map((note) => note.parts)
+    const result = createWorkProjector()([
+      message(begin('r'), text('intro'), tool),
+      ...notes,
+      message({ ...tool, toolRunId: 't2' }, text('final'), end('r'))
+    ])!
+    const activity = result.find((node) => node.kind === 'activity')!
+    expect(activity).toMatchObject({ toolCount: 2, noteCount: 2 })
+    expect(activity.items.map((item) => item.segment.kind)).toEqual([
+      'tools',
+      'text',
+      'text',
+      'tools'
+    ])
+    expect(notes.map((note) => note.parts)).toEqual(originalParts)
+    expect(notes[0].parts).toBe(originalParts[0])
+  })
+  it.each<AppMessagePart>([
+    { type: 'reasoning', text: 'thought' },
+    { ...tool, toolRunId: 'q', toolName: 'AskUserQuestion' },
+    { type: 'error', error: 'problem' },
+    { type: 'structured_output', value: { safe: true } },
+    { type: 'compact_boundary', trigger: 'manual', preTokens: 1 },
+    { type: 'fork_boundary' }
+  ])('keeps text outside a group when protected $type separates the next tool', (protectedPart) => {
+    const result = createWorkProjector()([
+      message(
+        begin('r'),
+        tool,
+        text('before protection'),
+        protectedPart,
+        text('after protection'),
+        { ...tool, toolRunId: 't2' },
+        text('final'),
+        end('r')
+      )
+    ])!
+    const activities = result.filter((node) => node.kind === 'activity')
+    expect(activities.map((node) => node.noteCount)).toEqual([0, 0])
+    expect(
+      result.filter((node) => node.kind === 'segment' && node.segment.kind === 'text')
+    ).toMatchObject([
+      { segment: { text: 'before protection' } },
+      { segment: { text: 'after protection' } },
+      { segment: { text: 'final' } }
+    ])
+  })
+  it('keeps activity keys and note identity through a live next tool and a late result', () => {
+    const project = createWorkProjector()
+    const first = message(begin('r'), tool, text('becomes a note'))
+    const before = project([first])!
+    const beforeActivity = before.find((node) => node.kind === 'activity')!
+    expect(beforeActivity.noteCount).toBe(0)
+    const next = message({ ...tool, toolRunId: 't2' }, text('final'), end('r'))
+    const after = project([first, next])!
+    const activity = after.find((node) => node.kind === 'activity')!
+    expect(activity.key).toBe(beforeActivity.key)
+    expect(activity.items[0].segment).toBe(beforeActivity.items[0].segment)
+    expect(activity.noteCount).toBe(1)
+    const late = project([
+      first,
+      next,
+      message({ type: 'tool_result', toolRunId: 't', result: 'late result', isError: false })
+    ])!
+    const lateActivity = late.find((node) => node.kind === 'activity')!
+    expect(lateActivity.key).toBe(activity.key)
+    expect(lateActivity.items[1]).toBe(activity.items[1])
+    expect(lateActivity.items[0].segment).toMatchObject({
+      calls: [{ result: { output: 'late result' } }]
+    })
+    expect(late.find((node) => node.kind === 'segment')).toBe(
+      after.find((node) => node.kind === 'segment')
+    )
+  })
   it('preserves prior conclusion when background response and late original tool result arrive', () => {
     const first = message(begin('first'), tool, text('final'), end('first'))
     const project = createWorkProjector()
