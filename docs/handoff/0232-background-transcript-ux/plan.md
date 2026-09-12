@@ -362,6 +362,8 @@ AS-IS: canonical이 task 전체와 failed call을 목록에 올리고, Agent 대
 
 공개 호출은 `promoteBackgroundTask({sessionId,generation,toolUseId})` → 새 단건 IPC → BackgroundController → 기존 runtime.backgroundTask(toolUseId)다. controller는 현재 세대·연결·실제 실행 중 셸 call을 확인하고 중복을 막으며 SDK 응답 대기를 제한한다. true만 확인된 전환으로 기록하고, 응답 뒤 세대 교체/폐기를 다시 확인한다. 반환된 tool_result/task/snapshot이 원래 호출과 작업을 연결하며 stopTask는 실제 taskId를 계속 사용한다.
 
+전환 가능 여부는 공개 `task_started`의 같은 generation/toolUseId·local_bash·isBackgrounded:false·실행 중 상태로 확인한다. 등록 전 버튼은 비활성이고 임의 2초 타이머로 활성화하지 않는다. SDK의 true는 단건 전환 확인이며 임의 task를 만들지 않는다. PowerShell도 실제 반환의 backgroundTaskId를 Bash와 같은 방식으로 연결한다.
+
 모델은 child assistant의 parent_tool_use_id에 해당하는 canonical call에 실제 message.model을 저장한다. 기존 legacy 이력은 subagentMeta.model을 사용한다. JSON journal의 선택 필드와 reducer 파생만 추가하므로 SQL migration은 없다. 렌더에서 모델 도착 전에도 다른 카드 필드를 읽을 수 있으며 모델 표시를 위해 추가 SDK 호출을 하지 않는다.
 
 ### V nodes / pairs / 운영 gate
