@@ -1,10 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { NormalizedEvent } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
 import { stopSubagentTask, STOP_SETTLE_TIMEOUT_MS, type StopSubagentTracker } from './stop-subagent'
 
 type W = string
-type SubagentEvent = Extract<NormalizedEvent, { type: 'subagent.task' }>
 
 interface LiveStub {
   backgroundTask: ReturnType<typeof vi.fn>
@@ -132,21 +130,19 @@ describe('stopSubagentTask — 요청 실패 (AC14)', () => {
 })
 
 describe('stopSubagentTask — watchdog (AC15)', () => {
-  it('확정이 없으면 합성 정착으로 마감한다 — 중단 중 고착 없음', async () => {
+  it('확정이 없으면 확인 불가를 반환하고 실행 결과를 합성하지 않는다', async () => {
     const { turn } = turnWith({ taskId: 'task-9' })
     const tracker = trackerStub({ waitForTask: vi.fn(async () => 'timeout' as const) })
     const settle = vi.fn()
     const onWatchdog = vi.fn()
 
-    await stopSubagentTask(turn, req, { tracker, settle, onWatchdog, timeoutMs: 5 })
+    await expect(
+      stopSubagentTask(turn, req, { tracker, settle, onWatchdog, timeoutMs: 5 })
+    ).rejects.toThrow('termination unconfirmed')
 
     expect(onWatchdog).toHaveBeenCalledWith({ sessionId: 'sess-1', toolUseId: 'a1', timeoutMs: 5 })
-    expect(tracker.settled).toHaveBeenCalledWith('sess-1', 'a1')
-    expect(settle).toHaveBeenCalledTimes(1)
-    const ev = settle.mock.calls[0][1] as SubagentEvent
-    expect(ev).toMatchObject({ type: 'subagent.task', phase: 'settled', status: 'stopped' })
-    // 사용자 자기 행위의 통지는 소음(0143) — background 플래그를 싣지 않는다.
-    expect(ev.background).toBeUndefined()
+    expect(tracker.settled).not.toHaveBeenCalled()
+    expect(settle).not.toHaveBeenCalled()
   })
 
   it('확정이 오면 watchdog 은 발화하지 않는다', async () => {

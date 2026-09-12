@@ -67,7 +67,7 @@ describe('createSubagentSettlementEvents', () => {
     ])
   })
 
-  it('사용자 중단 후 늦게 도착한 부모/child 완료 결과를 aborted 로 강제한다', () => {
+  it('중단 요청 이후에도 부모/child의 실제 완료 결과를 보존한다', () => {
     const stopped = new Set(['agent-1'])
 
     expect(
@@ -80,8 +80,8 @@ describe('createSubagentSettlementEvents', () => {
       })
     ).toMatchObject({
       toolRunId: 'agent-1',
-      result: { reason: 'aborted' },
-      isError: true
+      result: 'completed anyway',
+      isError: false
     })
 
     expect(
@@ -96,8 +96,8 @@ describe('createSubagentSettlementEvents', () => {
     ).toMatchObject({
       toolRunId: 'child-1',
       parentToolRunId: 'agent-1',
-      result: { reason: 'aborted' },
-      isError: true
+      result: 'child completed anyway',
+      isError: false
     })
   })
 })

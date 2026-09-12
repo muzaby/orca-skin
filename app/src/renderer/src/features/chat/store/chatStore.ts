@@ -50,6 +50,11 @@ import type { BranchSnapshot } from '../components/composer/branchChipState'
 import { wireDiffRequirementAnchor } from '../components/rightpanel/diffRequirements'
 import type { DiffComparison } from '../components/rightpanel/diffComparison'
 import { forgetArtifacts, refreshArtifactList } from './artifactStore'
+import {
+  ingestBackgroundEvent,
+  forgetBackgroundState,
+  refreshBackgroundState
+} from './backgroundStore'
 
 // Zustand 단일 chat store — arch/frontend/state.md §1.4 채택안의 멀티세션 외피(handoff 0013).
 //
@@ -399,6 +404,8 @@ function receiveDeltaBatch(events: readonly DeltaEvent[]): void {
   setState((state) => {
     let sessions = state.sessions
     for (const event of events) {
+      // Child partials never belong to the main composer; completed child blocks own their transcript.
+      if (event.parentToolRunId) continue
       // 라우팅·턴 시작 판정은 receive 와 같은 술어를 쓴다(0149) — 두 경로가 갈라지지 않는다.
       const { key } = resolveSessionKey(sessions, state.pendingNewChatKey, event.sessionId)
       if (!key) continue
@@ -476,6 +483,7 @@ function promotePendingNewChat(sessionId: string): void {
 
 // 엔트리 제거. 활성 엔트리였다면 깨끗한 새 채팅으로 전환한다.
 function dropSession(sessionId: string, fallbackProjectId: string | null = null): void {
+  forgetBackgroundState(sessionId)
   permissionUpdates.delete(sessionId)
   forgetArtifacts(sessionId)
   setState((s) => {
@@ -1377,6 +1385,7 @@ async function loadSession(sessionId: string, title: string | null = null): Prom
       return
     }
     dispatchTo(sessionId, { type: 'LOAD_SESSION', session })
+    void refreshBackgroundState(sessionId)
     void settingsApi.set({ lastSessionId: session.id })
   } catch {
     dropSession(sessionId)
@@ -1720,6 +1729,7 @@ export function bootstrapChat(): () => void {
   })
 
   const unsubEvents = chatApi.onEvent(ingestChatEvent)
+  const unsubBackground = chatApi.onBackgroundEvent(ingestBackgroundEvent)
   const unsubTitle = sessionApi.onTitle((ev) => {
     renameSession(ev.sessionId, ev.title)
   })
@@ -1730,6 +1740,7 @@ export function bootstrapChat(): () => void {
   })
   return () => {
     unsubEvents()
+    unsubBackground()
     unsubTitle()
     unsubConcurrency()
     coalescer.dispose()

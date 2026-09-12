@@ -35,7 +35,7 @@ export function createApprovalRequester(
 ): (action: PermissionAction, sdkSignal?: AbortSignal) => Promise<ApprovalResolution> {
   const { wc, approvals, permissionModes, persistence } = deps
 
-  return async (action, sdkSignal) => {
+  return async (action: PermissionAction, sdkSignal?: AbortSignal): Promise<ApprovalResolution> => {
     const turn = deps.getActiveTurn()
     const controller = turn.controller
     // 세션 자동 허용된 위험 도구는 카드 미surface — 즉시 통과.
@@ -52,8 +52,8 @@ export function createApprovalRequester(
       action.kind === 'tool_approval'
         ? action
         : action.kind === 'ask_question'
-          ? { kind: 'ask_question', request: { ...action.request, requestId: approvalId } }
-          : { kind: 'plan_review', request: { ...action.request, requestId: approvalId } }
+          ? { ...action, request: { ...action.request, requestId: approvalId } }
+          : { ...action, request: { ...action.request, requestId: approvalId } }
     // permission.requested 에 소유 세션을 실어 renderer 가 activeKey 폴백 없이 정확한
     // 세션 엔트리로 라우팅하게 한다. 불변식: 권한 요청은 session.updated(turn.dbSessionId
     // set, persist.ts) 이후라 dbSessionId 가 채워져 있다. 깨지면(provider/adapter 변경 등)
@@ -67,13 +67,15 @@ export function createApprovalRequester(
     }
     sendChatEvent(wc, agentPermissionRequest(approvalId, outbound, turn.dbSessionId ?? undefined))
     // 승인 보류 동안 stall 타이머를 멈춘다 — 사용자 판단 시간이 stall 로 오판돼 턴이 abort 되지
-    // 않게. release 로 재개(동시 N건은 refcount). broker 는 턴 signal + (있으면) SDK 권한요청
-    // 취소 signal 양쪽으로 해소된다 — SDK 가 control_cancel_request 로 취소하면 sdkSignal abort
-    // → broker deny → 무한 await 방지. 턴 abort 도 그대로 동작.
+    // 않게. main 요청은 턴+SDK 신호를 함께 따르고, 독립 수명의 child 요청은 SDK 권한요청 신호만
+    // 따른다. SDK control_cancel_request가 해당 signal을 abort하면 broker deny로 해소된다.
     const releaseIdle = deps.beginApprovalPause()
-    const regSignal = sdkSignal
-      ? AbortSignal.any([controller.signal, sdkSignal])
-      : controller.signal
+    const childRequest = action.providerRequest?.agentId !== undefined
+    const regSignal = childRequest
+      ? (sdkSignal ?? controller.signal)
+      : sdkSignal
+        ? AbortSignal.any([controller.signal, sdkSignal])
+        : controller.signal
     let resolution: ApprovalResolution
     try {
       resolution = await approvals.register(approvalId, turn, regSignal)
@@ -93,11 +95,15 @@ export function createApprovalRequester(
         answers?: Record<string, string | string[]>
         response?: unknown
       }
-      turn.pendingAskAnswers.push({
-        answers: ui.answers ?? {},
-        ...(typeof ui.response === 'string' ? { response: ui.response } : {})
-      })
-      persistence.flushAskAnswers(turn, wc)
+      const toolUseId = action.providerRequest?.toolUseId
+      if (toolUseId) {
+        turn.pendingAskAnswers.push({
+          toolUseId,
+          answers: ui.answers ?? {},
+          ...(typeof ui.response === 'string' ? { response: ui.response } : {})
+        })
+        persistence.flushAskAnswers(turn, wc)
+      }
     }
     // 계획 승인 후처리 — SDK 세션은 어댑터가 allow 응답의 updatedPermissions 로 이미 전환했다
     // (adapters/claude.ts). 여기서는 main 세션 SSOT 를 같은 값으로 맞춰, 다음 턴 send 페이로드가

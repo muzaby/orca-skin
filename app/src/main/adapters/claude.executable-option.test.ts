@@ -289,7 +289,7 @@ describe('Claude 공통 실행 옵션', () => {
       expect(conversation.hooks?.Stop).toBeDefined()
       expect(conversation).not.toHaveProperty('allowedTools')
       expect(conversation).not.toHaveProperty('tools')
-      expect(conversation.disallowedTools).toEqual(['Bash', 'WebSearch'])
+      expect(conversation.disallowedTools).toEqual(['WebSearch'])
     }
   )
 
@@ -315,7 +315,7 @@ describe('Claude 공통 실행 옵션', () => {
       const options = optionsOfFirstCall()
       expect(options).not.toHaveProperty('allowedTools')
       expect(options).not.toHaveProperty('tools')
-      expect(options.disallowedTools).toEqual(['Bash', 'WebSearch'])
+      expect(options.disallowedTools).toEqual(['WebSearch'])
       const input = { command: "Set-Content -LiteralPath 'output.txt' -Value 'fixture'" }
       const context = {
         signal: new AbortController().signal,
@@ -326,13 +326,28 @@ describe('Claude 공통 실행 옵션', () => {
         behavior: 'allow',
         updatedInput: { command: 'approved command' }
       })
-      expect(await options.canUseTool!('PowerShell', input, context)).toEqual({
+      expect(
+        await options.canUseTool!('PowerShell', input, {
+          ...context,
+          requestId: 'second-request',
+          toolUseID: 'second-call'
+        })
+      ).toEqual({
         behavior: 'deny',
         message: 'fixture deny'
       })
       expect(requestApproval).toHaveBeenCalledTimes(2)
       expect(requestApproval).toHaveBeenCalledWith(
-        { kind: 'tool_approval', toolName: 'PowerShell', input },
+        {
+          kind: 'tool_approval',
+          toolName: 'PowerShell',
+          input,
+          providerRequest: {
+            generation: expect.any(String),
+            toolUseId: 'fixture-call',
+            requestId: 'fixture-request'
+          }
+        },
         context.signal
       )
     }

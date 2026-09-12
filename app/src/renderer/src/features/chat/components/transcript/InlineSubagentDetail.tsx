@@ -22,7 +22,7 @@ export function InlineSubagentDetail({
   const [attempt, setAttempt] = useState(0)
   const messages = useChatSession((s) => s.messages)
   const task = useMemo(
-    () => subagentTasksFromMessages(messages).find((item) => item.toolUseId === toolRunId),
+    () => subagentTasksFromMessages(messages, true).find((item) => item.toolUseId === toolRunId),
     [messages, toolRunId]
   )
   const childMessage = useMemo(

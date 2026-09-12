@@ -3,6 +3,12 @@ import { makeCanUseTool } from './claude'
 import type { AskQuestion, ApprovalResolution, PermissionAction } from '../../shared/ipc'
 
 const ctx = { signal: new AbortController().signal } as never
+const identifiedCtx = {
+  signal: new AbortController().signal,
+  requestId: 'request-1',
+  toolUseID: 'tool-1',
+  agentID: 'agent-1'
+}
 
 type ReqApproval = (action: PermissionAction, signal?: AbortSignal) => Promise<ApprovalResolution>
 
@@ -19,6 +25,58 @@ const QUESTIONS: AskQuestion[] = [
 ]
 
 describe('makeCanUseTool — AskUserQuestion', () => {
+  it('reuses the exact pending and settled decision promise for SDK redelivery', async () => {
+    let resolve!: (resolution: ApprovalResolution) => void
+    const requestApproval = vi.fn<ReqApproval>(
+      () =>
+        new Promise<ApprovalResolution>((done) => {
+          resolve = done
+        })
+    )
+    const canUse = makeCanUseTool(requestApproval, { providerGeneration: 'generation-1' })
+
+    const first = canUse('AskUserQuestion', { questions: QUESTIONS }, identifiedCtx)
+    const duplicate = canUse('AskUserQuestion', { questions: QUESTIONS }, identifiedCtx)
+    expect(duplicate).toBe(first)
+    expect(requestApproval).toHaveBeenCalledTimes(1)
+
+    resolve({ behavior: 'deny' })
+    await expect(first).resolves.toMatchObject({ behavior: 'deny' })
+    expect(canUse('AskUserQuestion', { questions: QUESTIONS }, identifiedCtx)).toBe(first)
+    expect(requestApproval).toHaveBeenCalledTimes(1)
+  })
+
+  it('preserves provider request identity, generation and unknown input fields', async () => {
+    const requestApproval = vi.fn<ReqApproval>().mockResolvedValue({
+      behavior: 'allow',
+      updatedInput: { answers: { 'How should I format the output?': 'Summary' } }
+    })
+    const canUse = makeCanUseTool(requestApproval, { providerGeneration: 'generation-1' })
+    const input = { questions: QUESTIONS, unknownField: { keep: true } }
+
+    expect(await canUse('AskUserQuestion', input, identifiedCtx)).toEqual({
+      behavior: 'allow',
+      updatedInput: {
+        ...input,
+        answers: { 'How should I format the output?': 'Summary' }
+      }
+    })
+    expect(requestApproval).toHaveBeenCalledWith(
+      {
+        kind: 'ask_question',
+        request: { requestId: '', questions: QUESTIONS },
+        input,
+        providerRequest: {
+          requestId: 'request-1',
+          toolUseId: 'tool-1',
+          agentId: 'agent-1',
+          generation: 'generation-1'
+        }
+      },
+      identifiedCtx.signal
+    )
+  })
+
   it('allow → questions echo + answers (updatedInput 에서 추출)', async () => {
     const requestApproval = vi.fn<ReqApproval>().mockResolvedValue({
       behavior: 'allow',
@@ -169,6 +227,28 @@ describe('makeCanUseTool — ExitPlanMode', () => {
 })
 
 describe('makeCanUseTool — 위험 도구 게이트(tool_approval)', () => {
+  it('passes provider identity and the untouched tool input to approval', async () => {
+    const requestApproval = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'deny' })
+    const canUse = makeCanUseTool(requestApproval, { providerGeneration: 'generation-1' })
+    const input = { command: 'echo raw', unknownField: { keep: true } }
+
+    await canUse('Bash', input, identifiedCtx)
+    expect(requestApproval).toHaveBeenCalledWith(
+      {
+        kind: 'tool_approval',
+        toolName: 'Bash',
+        input,
+        providerRequest: {
+          requestId: 'request-1',
+          toolUseId: 'tool-1',
+          agentId: 'agent-1',
+          generation: 'generation-1'
+        }
+      },
+      identifiedCtx.signal
+    )
+  })
+
   it.each(['Bash', 'PowerShell'])('%s + allow → allow (input 보존)', async (toolName) => {
     const requestApproval = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'allow' })
     const canUse = makeCanUseTool(requestApproval)

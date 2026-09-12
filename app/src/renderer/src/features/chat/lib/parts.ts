@@ -25,35 +25,12 @@ function partParentToolRunId(p: AppMessagePart): string | undefined {
 }
 
 // parentToolRunId 를 제거한 파트 사본 — child 트랜스크립트 안에서 최상위 파트로 취급되게 한다.
-// 타입 안전을 위해 종류별로 재구성한다(spread + parentToolRunId:undefined 는 union 초과속성 에러).
+// 식별자 외의 모든 원본 필드와 메타데이터를 사본에 보존한다.
 function stripParentToolRunId(p: AppMessagePart): AppMessagePart {
-  switch (p.type) {
-    case 'text':
-      return { type: 'text', text: p.text }
-    case 'reasoning':
-      return {
-        type: 'reasoning',
-        text: p.text,
-        ...(p.signature !== undefined ? { signature: p.signature } : {})
-      }
-    case 'tool_call':
-      return {
-        type: 'tool_call',
-        toolRunId: p.toolRunId,
-        toolName: p.toolName,
-        args: p.args
-      }
-    case 'tool_result':
-      return {
-        type: 'tool_result',
-        toolRunId: p.toolRunId,
-        result: p.result,
-        isError: p.isError,
-        ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {})
-      }
-    default:
-      return p
-  }
+  if (!('parentToolRunId' in p)) return p
+  const rest = { ...p }
+  delete rest.parentToolRunId
+  return rest
 }
 
 // text 파트들을 순서대로 이어붙인 본문(마크다운 소스). 서브에이전트 child 텍스트는 제외
@@ -289,7 +266,10 @@ export function subagentTaskDescription(
   return undefined
 }
 
-export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSummary[] {
+export function subagentTasksFromMessages(
+  messages: Message[],
+  includeNested = false
+): SubagentTaskSummary[] {
   const allParts = messages.flatMap((m) => m.parts)
   const resultByRun = resultMap(allParts)
   // 최상위 tool_call → 그 파트가 속한 메시지의 createdAt. flatMap 은 메시지 경계를 잃으므로
@@ -297,7 +277,7 @@ export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSumm
   const createdAtByRun = new Map<string, number>()
   for (const message of messages) {
     for (const part of message.parts) {
-      if (isToolCallPart(part) && part.parentToolRunId === undefined) {
+      if (isToolCallPart(part) && (includeNested || part.parentToolRunId === undefined)) {
         createdAtByRun.set(part.toolRunId, message.createdAt)
       }
     }
@@ -315,7 +295,7 @@ export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSumm
   for (const part of allParts) {
     if (
       isToolCallPart(part) &&
-      part.parentToolRunId === undefined &&
+      (includeNested || part.parentToolRunId === undefined) &&
       isAgentTaskName(part.toolName)
     ) {
       const call = toolCallFromPart(part, resultByRun)

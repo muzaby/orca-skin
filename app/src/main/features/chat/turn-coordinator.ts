@@ -24,13 +24,7 @@ import { createStallTimer, type StallTimer } from './timers'
 import { turnPolicyFor, type TurnKind } from './turn-policy'
 import type { BackgroundTaskPort } from './background-tasks'
 import { isAsyncLaunchedPayload } from '../../../shared/subagent'
-import { coerceStoppedToolCompletion } from './subagent-settlement'
-import {
-  settleOpenToolRuns,
-  settleSubagentTask,
-  settleTaskSubset,
-  stopLiveSubagent
-} from './settle'
+import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from './settle'
 import type { TurnEventSink, TurnPersistSink } from './turn-sinks'
 import type { MainBus, TurnEmit } from '../../contracts/bus-events'
 import type { PendingMessageQueue } from './pending-message-queue'
@@ -302,9 +296,7 @@ export class TurnCoordinator<W = unknown> {
             const coerced =
               rawEv.type === 'session.updated'
                 ? { ...rawEv, patch: { ...rawEv.patch, agentKind: turn.agentKind } }
-                : rawEv.type === 'tool.call.completed'
-                  ? coerceStoppedToolCompletion(turn.stoppedSubagents, rawEv)
-                  : rawEv
+                : rawEv
             // settled background enrich(0143) — async_launched 영수증이 관측된 태스크의 권위
             // 정착에 background:true 를 실어 renderer 완료 통지·writer 영속(subagent_notice)의
             // 권위 신호로 삼는다. 트래커 해제(아래)보다 먼저 판정해야 하며, 해제 후 지각 도착한
@@ -454,26 +446,7 @@ export class TurnCoordinator<W = unknown> {
             //
             // watchdog(STOP_SETTLE_TIMEOUT_MS)을 대체하지 않는다(D-011) — 레벨은 **채널이 살아
             // 있을 때만** 오고 watchdog 은 채널이 죽는 축을 막는다. 둘은 직교한다.
-            if (ev.type === 'subagent.backgroundSet' && turn.dbSessionId) {
-              const sessionId = turn.dbSessionId
-              const stale = this.deps.backgroundTasks.applyLiveSet(sessionId, ev.toolUseIds)
-              if (stale.length > 0) {
-                void settleTaskSubset(
-                  turn,
-                  this.settleEmit,
-                  sessionId,
-                  this.deps.backgroundTasks,
-                  stale,
-                  {
-                    status: 'failed',
-                    summary: '완료 통지 없이 백그라운드 작업 목록에서 사라졌습니다.',
-                    // 이미 목록에 없다 = 멈출 대상이 없다. 여기서 stopTask 를 부르면 없는 태스크에
-                    // 제어 요청을 보낸다.
-                    stopLive: false
-                  }
-                )
-              }
-            }
+            // Live snapshots are consumed exclusively by the provider lane.
             // 서브에이전트(Task) task_id 매핑 — stopSubagent 가 toolUseId 로 찾는다. 이미 중단
             // 클릭된 서브에이전트면 도착 즉시 라이브 정지.
             if (ev.type === 'subagent.task' && ev.taskId) {
@@ -496,11 +469,7 @@ export class TurnCoordinator<W = unknown> {
             }
             // settled(foreground/background 공통 권위 종료) → 부모 Task 와 열린 child 정착.
             if (ev.type === 'subagent.task' && ev.phase === 'settled') {
-              settleSubagentTask(
-                turn,
-                this.settleEmit,
-                turn.stoppedSubagents.has(ev.toolUseId) ? { ...ev, status: 'stopped' } : ev
-              )
+              settleSubagentTask(turn, this.settleEmit, ev)
             }
             // 열린 도구 추적 — 중단/타임아웃 시 합성 결과로 정착할 대상(settleOpenToolRuns).
             if (ev.type === 'tool.call.started') {
@@ -553,7 +522,12 @@ export class TurnCoordinator<W = unknown> {
         if (runtime.timedOut === true) {
           boundaryFailed = true
           sawTerminal = true
-          settleOpenToolRuns(turn, this.settleEmit, 'aborted')
+          settleOpenToolRuns(
+            turn,
+            this.settleEmit,
+            'aborted',
+            turn.dbSessionId ? this.deps.backgroundTasks.getState?.(turn.dbSessionId) : undefined
+          )
           log.error('chat.turn.failed', undefined, { ...turnMeta(), reason: 'stall' })
           forward.forward(turn.owner, {
             type: 'error',
@@ -592,7 +566,12 @@ export class TurnCoordinator<W = unknown> {
         // 어댑터 소유 분류기(0016) — provider 는 어댑터가 자기 id 로 채운다. 표시용, 분기 미사용.
         sawTerminal = true
         boundaryFailed = true
-        settleOpenToolRuns(turn, this.settleEmit, 'failed')
+        settleOpenToolRuns(
+          turn,
+          this.settleEmit,
+          'failed',
+          turn.dbSessionId ? this.deps.backgroundTasks.getState?.(turn.dbSessionId) : undefined
+        )
         // ClassifiedError 의 category/message 만 — 원문 cause 는 serializeError 경유(redaction 통과).
         log.error('chat.turn.failed', err, { ...turnMeta(), category: error.category })
         forward.forward(turn.owner, {

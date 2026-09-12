@@ -46,7 +46,8 @@ const EXPECTED_MIGRATIONS = [
   '0023_session_agent_kind_code',
   '0024_artifact_preview_formats',
   '0025_artifact_catalog',
-  '0026_project_paths'
+  '0026_project_paths',
+  '0027_background_events'
 ]
 
 const APPLIED_SQL = [

@@ -12,7 +12,19 @@
 // background 판별 신호가 아니다 — **async_launched 런치 영수증 관측**(부모 tool_result)만이
 // "실제 백그라운드" 의 정확한 신호다. stopLiveSubagent 분기·settled background enrich 가 읽는다.
 
+import {
+  applyBackgroundEvent,
+  backgroundKey,
+  backgroundPending,
+  emptyBackgroundState,
+  isBackgroundTerminal,
+  type BackgroundEvent,
+  type BackgroundSessionState
+} from '../../../shared/background-task'
+
 export interface BackgroundTaskPort {
+  hasCanonical?(sessionId: string): boolean
+  getState?(sessionId: string): BackgroundSessionState
   started(sessionId: string, toolUseId: string): void
   settled(sessionId: string, toolUseId: string): void
   markAsyncLaunched(sessionId: string, toolUseId: string): void
@@ -28,6 +40,34 @@ interface TaskState {
 }
 
 export class BackgroundTaskTracker implements BackgroundTaskPort {
+  private readonly canonical = new Map<string, BackgroundSessionState>()
+
+  observe(event: BackgroundEvent): void {
+    const previous = this.getState(event.sessionId)
+    const next = applyBackgroundEvent(previous, event)
+    if (next === previous) return
+    this.canonical.set(event.sessionId, next)
+    this.changed(event.sessionId)
+  }
+
+  getState(sessionId: string): BackgroundSessionState {
+    return this.canonical.get(sessionId) ?? emptyBackgroundState()
+  }
+
+  hasCanonical(sessionId: string): boolean {
+    return this.canonical.has(sessionId)
+  }
+
+  hasPending(sessionId: string): boolean {
+    const state = this.canonical.get(sessionId)
+    return state ? backgroundPending(state) : this.hasAny(sessionId)
+  }
+
+  restore(sessionId: string, state: BackgroundSessionState): void {
+    if (this.canonical.has(sessionId)) return
+    this.canonical.set(sessionId, state)
+    this.changed(sessionId)
+  }
   private readonly bySession = new Map<string, Map<string, TaskState>>()
   private readonly listeners = new Set<(sessionId: string) => void>()
   // 레벨 신호(background_tasks_changed)의 기준선이 세워진 세션(0212 SD-02). 프로세스 단위
@@ -41,6 +81,7 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
   }
 
   started(sessionId: string, toolUseId: string): void {
+    if (this.canonical.has(sessionId)) return
     let map = this.bySession.get(sessionId)
     if (!map) {
       map = new Map()
@@ -54,6 +95,7 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
   }
 
   settled(sessionId: string, toolUseId: string): void {
+    if (this.canonical.has(sessionId)) return
     const map = this.bySession.get(sessionId)
     if (!map) return
     if (!map.delete(toolUseId)) return
@@ -64,6 +106,7 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
   // 부모 Task tool_result 가 async_launched 런치 영수증으로 도착 — 실제 백그라운드 실행 확정.
   // 미등록 상태(영수증이 task_started 보다 먼저 관찰되는 순서 역전)에도 등록해 기록한다.
   markAsyncLaunched(sessionId: string, toolUseId: string): void {
+    if (this.canonical.has(sessionId)) return
     let map = this.bySession.get(sessionId)
     if (!map) {
       map = new Map()
@@ -78,6 +121,18 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
   }
 
   isAsyncLaunched(sessionId: string, toolUseId: string): boolean {
+    const state = this.canonical.get(sessionId)
+    if (state?.generation) {
+      const call = state.calls[backgroundKey(state.generation, toolUseId)]
+      const task = call?.taskId
+        ? state.tasks[backgroundKey(state.generation, call.taskId)]
+        : undefined
+      return (
+        call?.mode === 'background' ||
+        task?.isBackgrounded === true ||
+        task?.liveMembership === 'included'
+      )
+    }
     return this.bySession.get(sessionId)?.get(toolUseId)?.asyncLaunched === true
   }
 
@@ -110,6 +165,18 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
   }
 
   ids(sessionId: string): ReadonlySet<string> {
+    const state = this.canonical.get(sessionId)
+    if (state)
+      return new Set(
+        Object.values(state.tasks)
+          .filter(
+            (task) =>
+              task.generation === state.generation &&
+              !isBackgroundTerminal(task.status) &&
+              task.toolUseId
+          )
+          .map((task) => task.toolUseId!)
+      )
     const map = this.bySession.get(sessionId)
     if (!map || map.size === 0) return EMPTY
     return new Set(map.keys())
@@ -117,11 +184,20 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
 
   // 존재 여부만 필요한 곳(턴-후 루프의 매 반복)이 Set 을 새로 만들지 않게 한다.
   hasAny(sessionId: string): boolean {
+    const state = this.canonical.get(sessionId)
+    if (state) return backgroundPending(state)
     const map = this.bySession.get(sessionId)
     return map !== undefined && map.size > 0
   }
 
   count(sessionId: string): number {
+    const state = this.canonical.get(sessionId)
+    if (state)
+      return state.liveKnown
+        ? state.liveTaskIds.filter(
+            (id) => !state.tasks[backgroundKey(state.generation ?? '', id)]?.ambient
+          ).length
+        : 0
     return this.bySession.get(sessionId)?.size ?? 0
   }
 
@@ -137,7 +213,15 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
     toolUseId: string,
     opts: { timeoutMs: number }
   ): Promise<'settled' | 'timeout'> {
-    if (!this.bySession.get(sessionId)?.has(toolUseId)) return Promise.resolve('settled')
+    const completed = (): boolean => {
+      const state = this.canonical.get(sessionId)
+      if (!state) return !this.bySession.get(sessionId)?.has(toolUseId)
+      const record = Object.values(state.tasks).find(
+        (task) => task.generation === state.generation && task.toolUseId === toolUseId
+      )
+      return record !== undefined && isBackgroundTerminal(record.status)
+    }
+    if (completed()) return Promise.resolve('settled')
     return new Promise((resolve) => {
       let done = false
       const finish = (outcome: 'settled' | 'timeout'): void => {
@@ -149,7 +233,7 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
       }
       const unsubscribe = this.subscribe((changed) => {
         if (changed !== sessionId) return
-        if (!this.bySession.get(sessionId)?.has(toolUseId)) finish('settled')
+        if (completed()) finish('settled')
       })
       const timer = setTimeout(() => finish('timeout'), opts.timeoutMs)
       // 타이머가 Electron main 종료를 붙잡지 않게 한다(Node 전용 API — 테스트 환경도 동일).
@@ -160,6 +244,13 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
   clear(sessionId: string): void {
     this.resetLevel(sessionId)
     if (this.bySession.delete(sessionId)) this.changed(sessionId)
+  }
+
+  dispose(sessionId: string): void {
+    this.canonical.delete(sessionId)
+    this.bySession.delete(sessionId)
+    this.levelEstablished.delete(sessionId)
+    this.changed(sessionId)
   }
 
   private changed(sessionId: string): void {

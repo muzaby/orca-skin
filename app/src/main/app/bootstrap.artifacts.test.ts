@@ -37,9 +37,15 @@ import { Bootstrap } from './bootstrap'
 describe('artifact composition wiring', () => {
   it('keeps publication entry in the explicit model tool', () => {
     const root = fileURLToPath(new URL('../', import.meta.url)).replace(/[/\\]$/, '')
-    expect(scanOffenders(root, (source) => /\.publish\s*\(/u.test(source))).toEqual([
-      'features/artifacts/tool.ts'
-    ])
+    // BackgroundController의 publish 포트는 renderer event relay이며 artifact publication이 아니다.
+    // 그 명시 예외 외에는 변수명과 관계없이 publish 우회를 계속 잡는다.
+    expect(
+      scanOffenders(
+        root,
+        (source) => /\.publish\s*\(/u.test(source),
+        new Set(['background-controller.ts'])
+      )
+    ).toEqual(['features/artifacts/tool.ts'])
     const sources = [
       '../features/artifacts/tool.ts',
       '../features/artifacts/service.ts',

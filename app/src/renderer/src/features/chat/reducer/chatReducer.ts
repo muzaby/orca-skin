@@ -6,6 +6,7 @@ import type {
   ClassifiedError,
   LoadedSession,
   PlanReviewRequest,
+  ProviderApprovalRequest,
   ProviderReportedTelemetry,
   SubagentTaskMeta,
   Backend,
@@ -362,7 +363,7 @@ export interface ChatState {
   retry?: { attempt: number; max: number; category: string }
   // Claude 가 AskUserQuestion 으로 던진 미응답 질문 묶음 큐. canUseTool 이 query 를 일시
   // 중지한 채 응답을 기다리므로 보통 길이 0~1 이지만, 안전하게 큐로 모델링해 앞에서 소비한다.
-  pendingAsks: AskQuestionRequest[]
+  pendingAsks: Array<AskQuestionRequest & { providerRequest?: ProviderApprovalRequest }>
   // Composer 모드 버튼이 정하는 이 대화의 권한 모드. send 시 IPC 페이로드로 실린다.
   // 새 대화마다 기본값 'plan' 으로 리셋(initialChatState).
   permissionMode: NormalizedPermissionMode
@@ -370,7 +371,7 @@ export interface ChatState {
   // plan 모드에서 에이전트가 제출한 계획(ExitPlanMode). canUseTool 직렬화로 동시 1개.
   // 승인/수정/거부 시 null. (백엔드 중립 — SDK 를 모름.) 우측 계획 타일의 액션바
   // (승인/수정/거부) 노출 여부 + requestId 의 소스.
-  pendingPlanReview: PlanReviewRequest | null
+  pendingPlanReview: (PlanReviewRequest & { providerRequest?: ProviderApprovalRequest }) | null
   // 우측 패널 안의 활성 타일. 열 구조(열당 최대 ROWS_PER_COL)를 직접 들고 있어 제거 시
   // 다른 열로 리플로우되지 않는다(rightPanelLayout 참고). 추가는 column-major 로 채운다.
   rightPanelTiles: RightPanelColumns
@@ -444,7 +445,12 @@ export interface ChatState {
   // 도착마다 append, 응답(허용/세션허용/거부) 시 해당 approvalId 만 제거. 서브에이전트·병렬
   // tool_use 는 canUseTool 을 동시 호출해 여러 승인이 겹칠 수 있으므로 큐로 모델링한다(단일
   // 슬롯이면 직전 카드가 덮어써져 사라지고 해당 broker 보류가 영구 inflight 로 고착).
-  pendingToolApprovals: { approvalId: string; toolName: string; input: unknown }[]
+  pendingToolApprovals: Array<{
+    approvalId: string
+    toolName: string
+    input: unknown
+    providerRequest?: ProviderApprovalRequest
+  }>
   // 0064 continuity — 이 뷰가 fork/handoff 로 파생된 세션(또는 미전송 draft)임을 표시.
   // draft 단계(sessionId=null)에선 send 페이로드(forkFrom/handoffFrom) 소스이자 라우트 싱크
   // 가드(원본 세션 재로드 방지) 마커. 발급 후에도 유지되다가 새 대화/세션 로드 시 리셋.
@@ -561,6 +567,23 @@ const TURN_END_RESET: Pick<
   retry: undefined,
   // 턴이 끝났는데 "워크트리를 만드는 중…" 이 남으면 거짓 상태다.
   worktreePrepareStep: null
+}
+
+function isChildApproval(value: { providerRequest?: ProviderApprovalRequest }): boolean {
+  return value.providerRequest?.agentId !== undefined
+}
+
+function childApprovalState(
+  state: ChatState
+): Pick<ChatState, 'pendingAsks' | 'pendingPlanReview' | 'pendingToolApprovals'> {
+  return {
+    pendingAsks: state.pendingAsks.filter(isChildApproval),
+    pendingPlanReview:
+      state.pendingPlanReview && isChildApproval(state.pendingPlanReview)
+        ? state.pendingPlanReview
+        : null,
+    pendingToolApprovals: state.pendingToolApprovals.filter(isChildApproval)
+  }
 }
 
 // 중단 요청 실패의 표시 재료. **번역하지 않은 채** 싣는다 — 카탈로그 키는 렌더에서 tr() 로
@@ -889,6 +912,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             messages: appendAssistantPart(state.messages, {
               type: 'reasoning',
               text: ev.text,
+              ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {}),
               ...(ev.signature !== undefined ? { signature: ev.signature } : {})
             })
           }
@@ -1053,7 +1077,15 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             return {
               ...state,
               retry: undefined,
-              pendingAsks: [...state.pendingAsks, ev.action.request]
+              pendingAsks: [
+                ...state.pendingAsks,
+                {
+                  ...ev.action.request,
+                  ...(ev.action.providerRequest
+                    ? { providerRequest: ev.action.providerRequest }
+                    : {})
+                }
+              ]
             }
           }
           if (ev.action.kind === 'plan_review') {
@@ -1061,7 +1093,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             return {
               ...state,
               retry: undefined,
-              pendingPlanReview: ev.action.request,
+              pendingPlanReview: {
+                ...ev.action.request,
+                ...(ev.action.providerRequest ? { providerRequest: ev.action.providerRequest } : {})
+              },
               planContent: ev.action.request.plan,
               rightPanelTiles: activateTile(state, 'plan')
             }
@@ -1076,7 +1111,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               {
                 approvalId: ev.approvalId,
                 toolName: ev.action.toolName,
-                input: ev.action.input
+                input: ev.action.input,
+                ...(ev.action.providerRequest ? { providerRequest: ev.action.providerRequest } : {})
               }
             ]
           }
@@ -1155,20 +1191,16 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return {
             ...state,
             ...TURN_END_RESET,
-            pendingAsks: [],
-            pendingPlanReview: null,
-            pendingToolApprovals: []
+            ...childApprovalState(state)
           }
 
         case 'error':
-          // 턴이 끊기면 보류 게이트(질문/계획/도구)는 main 이 broker abort 로 정리하므로 카드도 비운다.
+          // main 요청은 broker abort 와 함께 비우되 SDK signal 로 계속 살아 있는 child 요청은 남긴다.
           return {
             ...state,
             error: ev.error,
             ...TURN_END_RESET,
-            pendingAsks: [],
-            pendingPlanReview: null,
-            pendingToolApprovals: []
+            ...childApprovalState(state)
           }
       }
       return state
@@ -1261,7 +1293,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
 
     case 'CANCEL_CHAT':
-      // 턴 취소 시 main 의 broker 가 보류 게이트를 해소하므로 카드(질문/계획/도구)도 함께 비운다.
+      // main 요청은 broker abort 와 함께 비우되 SDK signal 로 계속 살아 있는 child 요청은 남긴다.
       // listening 도 즉시 내린다(0143) — main의 다음 activity snapshot이 곧 따라오지만, 중단 버튼의
       // 시각 피드백은 낙관적으로 즉각 반영한다.
       return {
@@ -1271,9 +1303,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         listening: false,
         activityTransport: 'idle',
         listenStartedAt: null,
-        pendingAsks: [],
-        pendingPlanReview: null,
-        pendingToolApprovals: []
+        ...childApprovalState(state)
       }
 
     case 'CLEAR_ERROR':

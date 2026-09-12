@@ -7,6 +7,7 @@ import type {
 import type { ClaudePermissionMode } from '../../shared/permission-mode'
 import type { InterruptReceipt, TurnContinuation, TurnRequest } from './turn'
 import type { ResolvedHarnessSettings } from './harness-config'
+import type { BackgroundEvent, ProviderMessageEvent } from '../../shared/background-task'
 
 export type { Backend, NormalizedEvent }
 
@@ -14,6 +15,7 @@ export type { Backend, NormalizedEvent }
 export interface ProviderMessageBatch {
   sequence: number
   events: NormalizedEvent[]
+  providerEvents?: (BackgroundEvent | ProviderMessageEvent)[]
 }
 
 type AdapterSubmissionOutcome =
@@ -25,6 +27,8 @@ type AdapterSubmissionOutcome =
 // 어댑터(mock)는 턴-스코프 — `events` 소비가 끝나면 핸들이 닫힌다(현행 보존). control 메서드는
 // 스트리밍 입력 모드에서만 동작하는 SDK Query 메서드에 위임된다.
 export interface LiveTurn {
+  readonly providerGeneration?: string
+  reinitialize?(): Promise<void>
   eventBatches: AsyncIterable<ProviderMessageBatch>
   // 멱등 cleanup 계약 — terminal 관측, consumer 조기 종료, abort path 에서 모두 안전해야 한다.
   close(): void

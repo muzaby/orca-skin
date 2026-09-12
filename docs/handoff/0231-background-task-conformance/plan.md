@@ -7,7 +7,7 @@
 | slug | 0231-background-task-conformance |
 | 작성자 | **Codex** — 사용자 명시 지시 |
 | 일자 | 2026-09-12 |
-| 상태 | READY |
+| 상태 | IMPL_DONE |
 | V mode / 기준 V | Baseline V / none |
 | 이번 V revision / 유효 V | V1 / V1 |
 | 매핑 | [첨부 원문](source-spec.md) 전체 대조·보완 구현, [진단](diagnosis.md) |
@@ -436,31 +436,126 @@ raw 원본은 DB에서만 읽고 일반 상태 IPC로 싣지 않는다. dedupe �
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: 구현 시작 전 기입.
-- 이견 / 현실성 문제: 미측정.
-- ACTIVE Decision과 충돌하는 설계 발견: 미측정.
+작성자: **Codex**. 구현 r1, 완료 기록일 2026-09-13. 제품 계약은 유지했다. SDK taskId·호출 identity·live 집합·종료 근거·연결을 분리하는 설계에 동의한다. 실제 SDK 출력이 앱 임시 루트 밖에 생기는 문제는 0230 V2의 별도 설계 정정 후 구현했다.
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+기술 세부 차이: retire는 이전 source/token을 먼저 캡처하고 token을 무효화한 뒤 종료 관측을 동기 전달한다. 관측 저장 실패가 CLI close와 상태 정리를 건너뛰지 못하도록 finally로 보장한다. 동일 세대 종료 기록의 의미와 raw 비노출 계약은 유지하며 observer 예외 회귀로 확인했다. 새 제품 결정·미해결 PLAN_GAP은 없다.
 
-| Pair | 계약/필드 | §10 지점 | 닫은 지점 | 재현 명령/관측 | 남긴 곳 |
-|---|---|---|---|---|---|
-| — | 구현 전 | — | — | — | 전체 |
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인
+
+| §10 | 닫은 지점 / 분모 | 실제 소비와 관측 | 남긴 곳 |
+|---|---|---|---|
+| EP-01 | 5/5 | query 옵션·세대; system; assistant/user; progress; init/retire. `claude.background`·metadata·실제 SDK 출력 검증 | 조건부 배포 실기는 아래 AC 표 |
+| EP-02 | 6/6 | shared call/task/snapshot/connection/dedupe + parts child. 순서 역전·false/0·실패 receipt·SSR 직접 값 | 없음 |
+| EP-03 | 5/5 | tracker observe/getState/count/hasPending/retire. snapshot-only와 pending launch, 새 세대 fixture | 없음 |
+| EP-04 | 3/3 | activity projector 소비·post-turn hold·continuation. 예약/취소 수신 회귀에서 기존 배선 실행 | 없음 |
+| EP-05 | 5/5 | 개별 stop·두 settlement·completion coercion·coordinator. ACK와 실제 terminal 분리, foreground만 정착 | 없음 |
+| EP-06 | 6/6 | routeBatch·retire·TurnRequest·send·continuation·입력 UUID. drain 중 callback과 새 generation 보호 | 없음 |
+| EP-07 | 6/6 | migration/등록·query·writer·복원·relay·CASCADE. 실제 SQLite 파일/세션/재로드, raw 전용 journal | 없음 |
+| EP-08 | 4/4 | SDK callback·requester·broker·Ask 대응. query 수명 Promise, child signal과 UI, 부모 ID roundtrip | 없음 |
+| EP-09 | 5/5 | shared schema·preload·handler·stop 대상·output 참조. 세대 불일치/임의 참조 거부와 정상 결과 | 없음 |
+| EP-10 | 5/5 | 실제 경로·bounded read·cursor·snapshot/hash·false/URI 정책. 실제 정션/파일 교체/한글/16MiB 상한 | 없음 |
+| EP-11 | 6/6 | ingest/load·목록·중첩·제어·출력·문구. Workflow 오류/후속 시작 충돌, URI 표시 1회 SSR | 설치본 시각 실기는 별도 |
+| EP-12 | 5/5 | usage baseline·bootstrap 종료·TaskXXX·0230 산출물·현재 문서. 누적 통계 delta와 기존 기능 회귀 | 없음 |
+
+분모 검산: `5+6+5+3+5+6+6+4+5+5+6+5=61`, 닫은 지점 61/61. 전수 확인은 `rg -n 'onProviderEvent|providerEvents|notifyChannelRetired' app/src/main`, `rg -n 'backgroundPending|liveMembership|settleOpenToolRuns' app/src`, `rg -n 'backgroundState|onBackgroundEvent|stopAllBackgroundTasks|readBackgroundOutput' app/src`, `rg -n 'outputRefs|canReadOutputFile|captureCompleted|persistProviderEvent' app/src/main`로 실제 producer/consumer를 대조했다. 0230 V2 EP-06은 별도 plan의 20개 지점에 포함한다.
+
+V-pair: VP-R1~R24는 아래 동일 번호 AC 행의 자기 상태를 따른다. VP-S1·S2·A1·A2·A3·M1·M2·REG는 SELF_PASS다. 실제 runtime 요구가 남은 R-pair를 fixture 통과만으로 SELF_PASS 처리하지 않는다. 선택 적대 증거는 다음 표와 대응한다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-| 심은 결함 | 출처 | 이전 결과 | 실패 테스트 | 결과 |
-|---|---|---|---|---|
-| callback 소거/raw relay 유출 | VP-A1 | 미실행 | 구현 후 기입 | 미측정 |
+| 심은 결함 / 진단 변형 | 출처 | RED 관측 | 복원 결과 |
+|---|---|---|---|
+| 실제 send의 onProviderEvent callback 삭제 | VP-A1 선택 증거 | chat-turn.runtime-tools VP-A1 observe 호출 0으로 실패 | 복원 후 controller와 합친 2파일 10테스트 통과 |
+| controller의 provider.message relay 차단 삭제 | VP-A1 선택 증거 | raw 비노출 테스트 publish가 1→2로 실패 | 복원 후 같은 2파일 10테스트 통과 |
+| bootstrap에 tool 밖 artifacts.publish 추가 | 기존 publication gate의 event relay 오인 수정 | bootstrap.artifacts가 bootstrap.ts와 tool.ts 두 호출자를 위반으로 보고 | 복원 후 fixture 4파일 24테스트 통과 |
+| 문서 사본에서 AGENT-DEFAULT 귀속 제거 | 수용 ID 차집합 확인 | 누락 집합에 AGENT-DEFAULT 한 개 | 실제 문서는 source69/mapped69/missing0 |
 
-## [구현자 기입] 검증 결과
+검산: 선택 증거 2 · 인용 변이 0 · 수정/추가 oracle 2 = 표 4행. 그 밖은 직접 SDK payload·파일·DB·렌더 상태 oracle이다. 임시 결함은 복원했고 제품 코드에 실험용 publication 호출은 남기지 않았다.
 
-- AC 자기보고/검산: 구현 전.
-- V-pair 자기확인: 구현 전.
-- 운영 gate: 구현 전.
-- 설계 대비 차이 / 대체물 실패 모드: 구현 전.
-- Product/UX 파생 검토: 구현 전.
-- 남은 사람 실기: AC3·19…23 실제 배포 검증.
-- 커밋: (r1 구현 — 좌표는 INDEX).
+## [구현자 기입] Product/UX 파생 검토
+
+- 시작 확인·진행·종료·live 소속·연결·stop 확인은 별도 표시된다. ACK/시간 초과를 중단 성공으로 바꾸지 않는다.
+- 원본 파일 부재·권한 거부·원격 URI·잘림·교체·snapshot 확보 실패는 출력에 표시하고 완료 결과를 보존한다.
+- 메인 중지 후 하위 승인은 유지하며 같은 SDK 요청은 중복 표시하지 않는다. 하위 Ask 답변은 재로드 후에도 같은 부모 아래 있다.
+- 실패한 Workflow receipt에 taskId가 있어도 실행을 발명하지 않는다. 실제 시작이 뒤에 오면 실패 근거와 실제 실행을 함께 표시한다. 같은 MCP URI는 출처를 보존하고 한 번만 표시한다.
+- 기존 semantic token·Button·한국어/영어 i18n을 사용했다. SSR로 상태와 안전한 텍스트 출력을 검증했으며 Windows 설치본의 시각 품질 판정은 별도다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| 발견 | 대응 / 이번 관측 |
+|---|---|
+| SDK 출력이 부모 Temp/claude에 생성 | V2 정정 후 env/settings 강제. 실제 두 셸·Agent 파일이 앱 루트에서 reader/capture 성공 |
+| ACK 응답 또는 terminal이 영원히 안 옴 | 각 15초 제한, unconfirmed·재시도. fake timer 직접 회귀 |
+| 오래된 세대 출력 확보가 새 세대를 덮음 | 현재 세대만 자동 확보. historical/current 혼합 직접 회귀 |
+| 같은 파일 다른 참조가 canRead:false 우회 | 연결 call과 같은 파일의 부정 정책 우선. false read spy 0 |
+| snapshot 생성 후 journal 기록 실패 | 고아 snapshot 삭제, terminal 보존과 확보 오류. 실패 주입 후 삭제 관측 |
+| 일반 도구까지 canonical 존재만으로 정착 제외 | 실제 background/child 집합만 보존. settle/coordinator/send 3파일 71테스트 |
+| UTF-8 페이지와 성장 중 EOF | 미완성 문자 보류. 한글 재조립·append·교체·상한 직접 파일 검사 |
+| retire observer 예외가 정리 누락/비밀 로그 유발 | observer 고정 오류 로그, token 무효화·finally close. runtime 회귀 |
+| 실제 SDK task_started에는 status가 없음 | 선언에 맞는 mapper→reducer 통합 RED 후 started→running, 다음 snapshot 전 pending을 별도 유지하고 progress가 옛 제외 상태를 소급하지 않음 |
+
+## [구현자 기입] 구현 보고
+
+코드 구현과 테스트 근거를 다음과 같이 판정한다. ✅는 SELF_PASS, ⚠️는 SELF_BLOCKED(명시된 실제 배포 증거 대기)이며 독립 검증 PASS가 아니다.
+
+| AC | 자기 상태 | 이번 실행 증거 / 남은 확인 |
+|---|---|---|
+| AC1 | ✅ | mapper 기본/foreground/강제/늦은 연결과 reducer call/task 분리 |
+| AC2 | ✅ | 구조화 Agent content·메타·재호출 보존, 카드/하위 상세 렌더 |
+| AC3 | ✅ | Windows 두 셸/한글 출력과 Bash main·foreground/background Agent의 interrupt/close/one-shot 수명 9조합 직접 관측 |
+| AC4 | ✅ | 첫 snapshot-only/전체 교체/제외와 종료 후 live 잔존 직접 값 |
+| AC5 | ✅ | 종료 역전·충돌·누락 patch·false/0 보존 |
+| AC6 | ✅ | UUID+payload dedupe, 수정 payload, malformed 뒤 정상 수신 |
+| AC7 | ✅ | runtime/post-turn main result 이후 provider event·child 승인 수신 |
+| AC8 | ✅ | 실제 Bash stopTask ACK/stopped, fake timer 무응답/실패/경합 |
+| AC9 | ✅ | main-only 보존, stop-all pending launch·fresh snapshot·잔여/미확인 |
+| AC10 | ✅ | queued 입력/UUID 배열/수정·unknown receipt 회귀 |
+| AC11 | ✅ | 같은 query Promise identity, 역순 Ask, child signal/UI/DB 부모 귀속 |
+| AC12 | ✅ | 중첩 parent와 원본 content/_meta, child 델타 main 분리 |
+| AC13 | ✅ | retry 유지 heartbeat 및 elapsed 0 직접 값 |
+| AC14 | ✅ | reinitialize snapshot 요구·새 process generation·historical replay |
+| AC15 | ✅ | 실제 SDK 파일 읽기, snapshot/current 분리·UTF-8·교체/잘림·DB 실패 |
+| AC16 | ✅ | realpath/정션/형제 경계/false/URI 차단, HTML/ANSI 텍스트 표시 |
+| AC17 | ✅ | 두 누적 result delta, 동일 UUID 수정 원본 보존, 새 query 기준 초기화 |
+| AC18 | ✅ | TaskXXX 체크리스트 기존 경로와 canonical 작업 별도 회귀 |
+| AC19 | ⚠️ | Monitor 종류/메타/진행 선언 기반 처리; 이 init에서 미노출, 실제 command/WebSocket/persistent 미검증 |
+| AC20 | ⚠️ | Workflow 오류/자식/연결·실패 후 실제 시작·동일 URI 회귀; 실제 startup 오류/one-shot 완료 확인; child/stop/resume 배포 미검증 |
+| AC21 | ⚠️ | Skill/MCP 원본·구조화 메타/리소스 및 SDK MCP 요청별 취소; 분리 Skill/외부 MCP 자동 background 실기 미검증 |
+| AC22 | ⚠️ | remote/ambient/legacy/unknown queue fixture; 원격 worker의 실제 잔여 수명 미검증 |
+| AC23 | ✅ | 설치 SDK/동봉 CLI identity, init 목록, 지속/단발 실기 범위와 미검증 구분 문서 |
+| AC24 | ✅ | 실제 SQLite upgrade/journal/reload/CASCADE, raw 미전달, 기존 일반 기능 회귀 |
+
+검산: ✅20 · ⚠️4 · ❌0 = 총24. V-pair SELF_PASS 28 · SELF_BLOCKED 4 = 총32(REQUIRED31 + REGRESSION1). 실제 배포 증거가 남은 기준은 구현 누락으로 숨기거나 지원 완료로 합산하지 않는다.
+
+### 운영 gate
+
+| Gate | 명령 / 관측 결과 |
+|---|---|
+| 최종 타입 | npm run typecheck — node/web/test 모두 exit0 |
+| 최종 린트 | npm run lint — exit0, 오류0, 기존 useTranscriptVirtualizer 경고1 |
+| 전체 회귀 실행 | vitest --maxWorkers=4 — 497파일 통과/2파일 실패/1skip, 4629통과/2실패/1skip. 실패 2건은 병렬 작성 중 읽힌 Workflow 신규 RED였다 |
+| 수정 후 회귀 | chat/app/runtime/history/output/renderer 관련 최종 231파일·1928테스트 전부 통과. 위 실패 2파일과 실제 started→progress 통합을 포함한다 |
+| 마지막 린트 정리 | 반환 타입 2곳과 부모 필드 제거의 미사용 변수 수정 후 parts 2파일·27테스트 통과 |
+| 스크립트 | node --test scripts/*.test.mjs — 116테스트, 실패0 |
+| Electron 빌드 | npm run prebuild로 Electron ABI 복원 후 electron-vite build — main/preload/renderer 모두 통과. 마지막 타입/린트 정리 이후 번들도 재생성 |
+| 문서/DB 가드 | check-doc-inventory --check, check-migrations-appendonly, check-test-budgets — 모두 exit0. 상대 링크 유효, migration append-only 유지 |
+| 실제 SDK | basic4 + 소유자 수명9 + Workflow2. SDK 출력의 production reader·snapshot와 실제 main interrupt/close/one-shot 관측은 sdk-evidence.md |
+| 저장소 위생 | git diff --check 통과. 최종 커밋 후 trailer 파싱 확인 |
+
+전체 회귀의 RED를 최종 단일 실행 PASS로 바꿔 적지 않는다. 변경 중 실패한 두 스위트와 최종 수정의 영향 범위를 재실행하여 닫았다. DB 테스트는 Node ABI에서 수행했고 종료 시 native 모듈은 Electron ABI로 복원됐다. 빌드 첫 직접 helper 호출은 npm PATH 없이 electron-builder.cmd를 찾지 못해 실패했으며, 저장소가 지정한 prebuild 경로로 실행해 해소했다.
+
+선행 개별 검증: 타입 3구성 통과, adapters 48파일 544테스트, TEMP 10파일 80테스트, 승인/history/reducer 13파일 133테스트, controller/output 2파일 15테스트, 실제 SDK basic 4건과 production reader/capture, 스크립트 116테스트 통과. 중복 범위는 합산하지 않는다. 최종 통합 결과가 위 개별 수치를 대체한다.
+
+### 전달과 남은 검증
+
+다음은 handoff 독립 verify다. 위 조건부 실제 배포 증거와 Windows 설치본 시각 품질을 별도 확인한다. 설계·구현 문서 작성자는 Codex이며 이 구현 보고가 verify.md를 대체하지 않는다.
+
+## [구현자 기입] Review Signals
+
+- 구현 r1, 공식 verify 재구현 라운드는 아직 없다. 독립 코드 검토의 지적을 같은 구현 턴에서 반영했다.
+- 반복 확인한 축은 상태 근거와 관측 수명이다. 테스트가 status가 없는 실제 SDK 시작 봉투 대신 running을 직접 넣어 놓친 사례를 mapper 통합으로 고쳤다.
+- 전체 테스트를 병렬 개발 중 실행하면 RED 작성 순간의 파일을 읽을 수 있었다. 해당 실패를 제품 회귀와 구분하고 최종 수정본의 관련 suite를 다시 실행한다.
+- 기본 worker 전체 실행은 Windows 부하가 커 bounded worker로 실행했다. DB 검증은 Node ABI, build는 Electron ABI로 순서를 구분한다.
 
 ## [검증자 기입] 파생 이슈
 

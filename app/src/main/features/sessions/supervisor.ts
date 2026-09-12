@@ -95,6 +95,14 @@ export class RuntimeSupervisor<W = unknown> {
     return this.leases.getBySession(sessionId)?.activeChild ?? this.registry.getBySession(sessionId)
   }
 
+  peekRuntime(sessionId: string): NonNullable<TurnContext<W>['live']> | undefined {
+    return (
+      this.getBySession(sessionId)?.live ??
+      this.leases.getBySession(sessionId)?.runtime ??
+      this.pool.peek(sessionId)
+    )
+  }
+
   hasSession(sessionId: string): boolean {
     return this.leases.getBySession(sessionId) !== undefined || this.registry.hasSession(sessionId)
   }

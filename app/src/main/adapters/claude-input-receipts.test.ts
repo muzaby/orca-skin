@@ -10,6 +10,29 @@ const echo = (text: string, uuid: string): Extract<NormalizedEvent, { type: 'inp
 })
 
 describe('Claude input hook correlation', () => {
+  it('uses merged and later changed response UUIDs to confirm each submitted input once', () => {
+    const receipts = new ClaudeInputReceipts()
+    receipts.submitted('first', 'u1')
+    receipts.submitted('second', 'u2')
+    receipts.prompt({ prompt: 'first\nsecond' })
+    expect(receipts.response({ user_message_uuids: ['u1', 'unknown'] }, 's1')).toEqual([
+      echo('first', 'u1')
+    ])
+    expect(
+      receipts.response({ user_message_uuid: 'u2', user_message_uuids: ['u1', 'u2'] }, 's1')
+    ).toEqual([echo('second', 'u2')])
+    expect(receipts.response({ user_message_uuids: ['u1', 'u2'] }, 's1')).toEqual([])
+  })
+
+  it('does not attribute child responses or absent UUID metadata to queued inputs', () => {
+    const receipts = new ClaudeInputReceipts()
+    receipts.submitted('queued', 'u1')
+    expect(
+      receipts.response({ parent_tool_use_id: 'child', user_message_uuid: 'u1' }, 's1')
+    ).toEqual([])
+    expect(receipts.response({}, 's1')).toEqual([])
+    expect(receipts.response({ user_message_uuid: 'u1' }, 's1')).toEqual([echo('queued', 'u1')])
+  })
   it('recognizes coalesced prelude and prompt even when SDK echoes a prelude before the hook', () => {
     const receipts = new ClaudeInputReceipts()
     receipts.submitted('prelude', 'p1')

@@ -58,6 +58,8 @@ function receivedOrigin(message: unknown): ReceivedMessageOrigin | undefined {
 export interface MapContext {
   sessionId: string
   cwd: string
+  resultUuids?: Set<string>
+  cumulativeUsage?: Pick<ProviderReportedTelemetry, 'costUsd' | 'modelUsage'>
   // 장수명 채널 안의 기계 입력 재전송 방지. 텍스트는 반복 예약의 정상 입력일 수 있어 키로 쓰지 않는다.
   receivedInputUuids?: Set<string>
   sessionSchedules?: SessionSchedule[]
@@ -102,6 +104,7 @@ export interface MapContext {
   // 구조화 패치를 실을 편집 도구 tool_use id 집합(0228). 위와 같은 이유로 이름을 기억한다 —
   // tool_result 는 도구 이름을 싣지 않는다. Task 집합과 배타라 한 결과에 두 의미가 섞이지 않는다.
   fileEditToolRunIds?: Set<string>
+  toolNames?: Map<string, string>
 }
 
 // ctx.subagentMeta 에 정의된 필드만 병합(누락은 기존값 보존). 부모 Task tool_result 영속용 누산.
@@ -261,8 +264,8 @@ function asStringList(value: unknown): string[] | undefined {
 //                     "끝까지 못 갔다". 새 표시 상태를 늘리면 두 타일의 라벨이 함께 갈라진다.
 //   running·paused  → 정착이 아니라 **라이브 상태**(phase:'updated'). `paused` 를 정착으로 읽으면
 //                     재개된 태스크가 화면에서 돌아오지 않는다(§10 EP-09).
-//   completed·failed·pending → **여기서 정착시키지 않는다.** 그 셋의 권위는 `task_notification`
-//                     이고, 둘 다 정착시키면 같은 태스크가 두 번 마감돼 통지가 중복된다.
+//   completed·failed → 권위 terminal patch를 기존 서브에이전트 이력에도 투영한다.
+//   pending          → 완료 근거가 아니므로 기존 이력에는 투영하지 않는다.
 //
 // 이 메시지에는 `tool_use_id` 필드가 **없다**(SDK 타입) — 앞선 task_* 가 남긴 매핑이 유일한
 // 좌표원이고, 매핑이 없으면 표시·중단 키를 만들 수 없어 드롭한다.
@@ -276,7 +279,7 @@ function mapTaskUpdated(msg: Record<string, unknown>, ctx: MapContext): Normaliz
   const errorMessage = typeof p.error === 'string' && p.error !== '' ? p.error : undefined
   const isBackgrounded = typeof p.is_backgrounded === 'boolean' ? p.is_backgrounded : undefined
 
-  if (status === 'killed') {
+  if (status === 'killed' || status === 'completed' || status === 'failed') {
     return [
       {
         type: 'subagent.task',
@@ -284,7 +287,7 @@ function mapTaskUpdated(msg: Record<string, unknown>, ctx: MapContext): Normaliz
         toolUseId,
         phase: 'settled',
         ...(taskId !== undefined ? { taskId } : {}),
-        status: 'stopped',
+        status: status === 'killed' ? 'stopped' : status,
         // 사유 문구를 정착에 싣는다 — 중단 행이 원인을 말하는 유일한 경로다(AT-21).
         ...(errorMessage !== undefined ? { summary: errorMessage } : {})
       }
@@ -306,27 +309,6 @@ function mapTaskUpdated(msg: Record<string, unknown>, ctx: MapContext): Normaliz
       ...(isBackgrounded !== undefined ? { isBackgrounded } : {})
     }
   ]
-}
-
-// SDK background_tasks_changed → subagent.backgroundSet. payload 는 `task_id` 만 싣고 Orca 의
-// 표시·중단 키는 `tool_use_id` 라 **매핑된 것만** 실어 보낸다(§10 EP-06) — 매핑 없는 항목은
-// 애초에 추적 대상이 아니므로 오정착 위험이 없다. `tasks` 가 배열이 아니면 레벨을 만들 수
-// 없으므로 드롭한다(빈 배열은 "살아 있는 것이 없다" 라는 유효한 레벨이다).
-function mapBackgroundTasksChanged(
-  msg: Record<string, unknown>,
-  ctx: MapContext
-): NormalizedEvent[] {
-  const tasks = msg.tasks
-  if (!Array.isArray(tasks)) return []
-  const toolUseIds: string[] = []
-  for (const entry of tasks) {
-    if (typeof entry !== 'object' || entry === null) continue
-    const taskId = (entry as Record<string, unknown>).task_id
-    if (typeof taskId !== 'string') continue
-    const toolUseId = ctx.taskToolUseById?.get(taskId)
-    if (toolUseId && !toolUseIds.includes(toolUseId)) toolUseIds.push(toolUseId)
-  }
-  return [{ type: 'subagent.backgroundSet', sessionId: ctx.sessionId, toolUseIds }]
 }
 
 export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
@@ -378,7 +360,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     }
     // SDK background_tasks_changed — 살아 있는 background 태스크 전량의 **레벨 신호**(0212 AR-02).
     if (subtype === 'background_tasks_changed') {
-      return mapBackgroundTasksChanged(msg as unknown as Record<string, unknown>, ctx)
+      return [] // canonical provider lane owns task-id membership independently of transcript.
     }
     // SDKCompactBoundaryMessage → session.compacted (0064 handoff). SDK 네이티브 /compact
     // 압축 완료 경계 — 도착 세션 transcript 의 압축 표시를 구동한다(구 Phase 3 드롭 해제).
@@ -411,6 +393,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
 
   // SDKPartialAssistantMessage → message.delta(text_delta) / message.reasoning.delta(thinking_delta)
   if (msg.type === 'stream_event') {
+    const parentToolRunId = readParentToolRunId(msg)
     const ev = (
       msg as unknown as {
         event?: { delta?: { type?: string; text?: string; thinking?: string } }
@@ -421,6 +404,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         {
           type: 'message.delta',
           sessionId: ctx.sessionId,
+          ...(parentToolRunId ? { parentToolRunId } : {}),
           delta: { text: ev.delta.text }
         }
       ]
@@ -430,6 +414,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         {
           type: 'message.reasoning.delta',
           sessionId: ctx.sessionId,
+          ...(parentToolRunId ? { parentToolRunId } : {}),
           delta: { text: ev.delta.thinking }
         }
       ]
@@ -447,7 +432,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         message?: { content?: unknown[]; usage?: Record<string, unknown>; model?: unknown }
       }
     ).message
-    const content = m?.content ?? []
+    const content = Array.isArray(m?.content) ? m.content : []
     const parentToolRunId = readParentToolRunId(msg)
     // 서브에이전트 child assistant 면 실제 모델(message.model)을 캡처 → subagent.task 로 표시,
     // ctx 누산으로 부모 tool_result 에 영속. 'Explore'(subagent_type) 대신 모델명을 보이게 한다.
@@ -468,7 +453,12 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     // 핸드오프 도착 턴(0127)은 압축 경계 전의 usage 가 승계 컨텍스트(원본 전체 이력)라 스냅샷을
     // 잡지 않는다 — 경계 통과 후의 assistant usage 는 압축 후 실측이므로 기존대로 캡처.
     const u = m?.usage
-    if (u && typeof u === 'object' && !(ctx.handoffArrival && ctx.compacted !== true)) {
+    if (
+      parentToolRunId === undefined &&
+      u &&
+      typeof u === 'object' &&
+      !(ctx.handoffArrival && ctx.compacted !== true)
+    ) {
       const snapshot: NonNullable<MapContext['lastAssistantUsage']> = {}
       assignNums(snapshot, {
         inputTokens: u.input_tokens,
@@ -502,6 +492,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
             type: 'message.reasoning',
             sessionId: ctx.sessionId,
             text: p.thinking,
+            ...(parentToolRunId !== undefined ? { parentToolRunId } : {}),
             ...(typeof p.signature === 'string' ? { signature: p.signature } : {})
           })
         }
@@ -509,6 +500,8 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         const toolRunId = typeof p.id === 'string' ? p.id : ''
         const toolName = typeof p.name === 'string' ? p.name : ''
         if (toolRunId && toolName) {
+          ctx.toolNames ??= new Map()
+          ctx.toolNames.set(toolRunId, toolName)
           // TaskXXX 결과에 구조화 출력을 실으려면 tool_result 시점에 이름이 필요하다(0204).
           // 그 도구만 기억해 맵이 턴 길이에 비례해 자라지 않게 한다.
           if (isTaskToolName(toolName)) {
@@ -580,16 +573,21 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
           ? readFileEditStructuredPatch(toolUseResult)
           : null
         const structuredOutput =
-          ctx.taskToolRunIds?.has(toolRunId) === true || scheduleCall !== undefined
-            ? toolUseResult
-            : fileEditPatch
-              ? { structuredPatch: fileEditPatch }
-              : undefined
+          ctx.toolNames?.get(toolRunId) === 'Write' || ctx.toolNames?.get(toolRunId) === 'MultiEdit'
+            ? undefined
+            : ctx.fileEditToolRunIds?.has(toolRunId)
+              ? fileEditPatch
+                ? { structuredPatch: fileEditPatch }
+                : undefined
+              : toolUseResult
         events.push({
           type: 'tool.call.completed',
           sessionId: ctx.sessionId,
           toolRunId,
-          result: launchReceipt ?? p.content,
+          result:
+            ctx.toolNames?.get(toolRunId) === 'Agent' || ctx.toolNames?.get(toolRunId) === 'Task'
+              ? (launchReceipt ?? p.content)
+              : p.content,
           isError: p.is_error === true,
           ...(parentToolRunId !== undefined ? { parentToolRunId } : {}),
           ...(meta && Object.keys(meta).length > 0 ? { subagentMeta: meta } : {}),
@@ -649,10 +647,20 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
   // SDK 타입 직접 의존을 피해 좁히기로 읽는다. total_cost_usd/modelUsage 는 추정값(cost-tracking.md),
   // 각 필드 optional 가드 — 런타임 미제공 시 그냥 빠진다(graceful, 현행 빈 telemetry 동작 보존).
   if (msg.type === 'result') {
+    // 수정 봉투는 provider journal에서 보존한다. 한 result UUID는 메인 턴을 한 번만 닫는다.
+    const uuid = (msg as { uuid?: unknown }).uuid
+    if (typeof uuid === 'string' && uuid !== '') {
+      const seen = (ctx.resultUuids ??= new Set())
+      if (seen.has(uuid)) return []
+      seen.add(uuid)
+    }
     // 턴 경계 — 계획 폴백 본문을 비운다(0215 EP-03). 남겨두면 다음 턴의 `ExitPlanMode` 가
     // **이전 턴의 서술**을 계획으로 싣는다.
     ctx.lastAssistantText = undefined
     const r = msg as unknown as {
+      user_message_uuid?: unknown
+      user_message_uuids?: unknown
+      queued_turn_count?: unknown
       total_cost_usd?: number
       duration_ms?: number
       num_turns?: number
@@ -679,9 +687,10 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       >
     }
     const telemetry = normalizeResultTelemetry(r)
+    if (telemetry) applyCumulativeUsageDelta(telemetry, ctx)
     // 컨텍스트 점유 입력 3종(input·cache_read·cache_creation)을 마지막 assistant 스냅샷으로 대체
     // — /context 상단 % 와 같은 정의(모델이 마지막으로 본 입력)로 근사. costUsd·durationMs·
-    // numTurns·modelUsage·model 은 턴 누적이 맞아 result 값 유지(사용자 결정).
+    // numTurns·model 은 result 값을 유지하고 query 누적 비용/modelUsage는 위에서 차분한다.
     // 스냅샷에 있는 필드만 덮는다 — 없는 필드는 result.usage 값을 보존한다. (스냅샷이 input 만
     // 담고 cache_read 를 안 줄 때 delete 하면 contextTokens 가 input(≈1) 으로 붕괴 → 도넛 0~1%.)
     if (telemetry && ctx.lastAssistantUsage) {
@@ -724,6 +733,17 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       {
         type: 'telemetry',
         sessionId: ctx.sessionId,
+        ...(typeof r.user_message_uuid === 'string'
+          ? { userMessageUuid: r.user_message_uuid }
+          : {}),
+        ...(asStringList(r.user_message_uuids)
+          ? { userMessageUuids: asStringList(r.user_message_uuids) }
+          : {}),
+        ...(typeof r.queued_turn_count === 'number' &&
+        Number.isInteger(r.queued_turn_count) &&
+        r.queued_turn_count >= 0
+          ? { queuedTurnCount: r.queued_turn_count }
+          : {}),
         ...(telemetry ? { usage: telemetry } : {})
       }
     ]
@@ -823,4 +843,41 @@ function normalizeResultTelemetry(r: {
   }
 
   return Object.keys(out).length > 0 ? out : undefined
+}
+
+// SDK 0.3.267: usage는 메인 턴 값, cost/modelUsage는 query 전체 스냅샷이다.
+// 누적값 감소(/clear 등)는 새 기준선이다. 빠진 필드는 기준선을 덮어쓰지 않는다.
+function applyCumulativeUsageDelta(usage: ProviderReportedTelemetry, ctx: MapContext): void {
+  const previous = ctx.cumulativeUsage ?? {}
+  const reset =
+    usage.costUsd !== undefined &&
+    previous.costUsd !== undefined &&
+    usage.costUsd < previous.costUsd
+  const baseline = reset ? {} : previous
+  const next: NonNullable<MapContext['cumulativeUsage']> = { ...baseline }
+  const delta = (current: number, prior?: number): number =>
+    prior === undefined || current < prior ? current : current - prior
+  if (usage.costUsd !== undefined) {
+    next.costUsd = usage.costUsd
+    usage.costUsd = delta(usage.costUsd, baseline.costUsd)
+  }
+  if (usage.modelUsage) {
+    const counters = [
+      'costUsd',
+      'inputTokens',
+      'outputTokens',
+      'cacheReadTokens',
+      'cacheCreationTokens'
+    ] as const
+    next.modelUsage = { ...baseline.modelUsage }
+    for (const [model, entry] of Object.entries(usage.modelUsage)) {
+      const prior = baseline.modelUsage?.[model]
+      next.modelUsage[model] = { ...prior, ...entry }
+      for (const field of counters) {
+        const current = entry[field]
+        if (current !== undefined) entry[field] = delta(current, prior?.[field])
+      }
+    }
+  }
+  ctx.cumulativeUsage = next
 }

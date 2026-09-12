@@ -6,6 +6,7 @@
 import type { WebContents } from 'electron'
 import type { ArtifactRef } from '../../../shared/artifacts'
 import type { AgentKind } from '../../../shared/agent-kind'
+import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'
 import type { ReceivedMessageOrigin } from '../../../shared/session-schedules'
 import type { AttachmentView, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
 import { subagentNoticePart } from '../../../shared/ipc'
@@ -73,6 +74,38 @@ function artifactReceiptId(result: unknown): string | null {
 // 턴 영속(history) — 사용량 집계(UsageTracker)·제목 생성(TitleGenerator)은 별개 버스 구독자로
 // 분리됐다(0062). 여기 telemetry 처리는 assistant 메시지 마감 + 다음 턴 대비 reset 만 담당한다.
 export class HistoryWriter {
+  private readonly disposedProviderSessions = new Set<string>()
+  private readonly pendingProviderEvents = new Map<
+    string,
+    Array<{
+      event: BackgroundEvent | ProviderMessageEvent
+      committed: () => void
+    }>
+  >()
+
+  /** The journal is committed before a canonical fact is exposed to consumers. */
+  persistProviderEvent(event: BackgroundEvent | ProviderMessageEvent, committed: () => void): void {
+    if (this.disposedProviderSessions.has(event.sessionId)) return
+    if (!this.db.getSessionById(event.sessionId)) {
+      const pending = this.pendingProviderEvents.get(event.sessionId) ?? []
+      pending.push({ event, committed })
+      this.pendingProviderEvents.set(event.sessionId, pending)
+      return
+    }
+    if (this.db.background.append(event)) committed()
+  }
+
+  forgetProviderSession(sessionId: string): void {
+    this.disposedProviderSessions.add(sessionId)
+    this.pendingProviderEvents.delete(sessionId)
+  }
+
+  private flushProviderEvents(sessionId: string): void {
+    const pending = this.pendingProviderEvents.get(sessionId)
+    this.pendingProviderEvents.delete(sessionId)
+    for (const item of pending ?? []) this.persistProviderEvent(item.event, item.committed)
+  }
+
   constructor(
     private readonly db: DbQueries,
     private readonly shouldPersistResponseBoundary: ResponseBoundaryPolicy,
@@ -185,18 +218,26 @@ export class HistoryWriter {
     return turn.currentAssistantMessageId
   }
 
-  // AskUserQuestion 답변과 tool_use id 를 페어링해 tool_result 를 합성한다(SDK 가 answers 를
-  // 안 돌려주므로). 페어가 생길 때마다 DB 저장 + renderer 로 tool_result ChatEvent 전송 →
+  // AskUserQuestion 답변과 tool_use id 를 명시 ID로 페어링해 tool_result 를 합성한다(SDK 가
+  // answers 를 안 돌려주므로). 페어가 생길 때마다 DB 저장 + renderer 로 tool_result ChatEvent 전송 →
   // 카드가 결과를 받아 '질문 중'→'요청됨' 으로 전이하고 AskExchange 가 답변 버블을 렌더한다.
   flushAskAnswers(turn: TurnContext, wc: WebContents): void {
-    while (turn.pendingAskAnswers.length > 0 && turn.askPendingIds.length > 0) {
-      const toolUseId = turn.askPendingIds.shift()!
-      const a = turn.pendingAskAnswers.shift()!
+    for (let answerIndex = 0; answerIndex < turn.pendingAskAnswers.length;) {
+      const a = turn.pendingAskAnswers[answerIndex]
+      const pendingIndex = turn.askPendingIds.indexOf(a.toolUseId)
+      if (pendingIndex < 0) {
+        answerIndex += 1
+        continue
+      }
+      const toolUseId = a.toolUseId
+      turn.pendingAskAnswers.splice(answerIndex, 1)
+      turn.askPendingIds.splice(pendingIndex, 1)
       const output = {
         answers: a.answers,
         ...(a.response !== undefined ? { response: a.response } : {})
       }
       turn.askResolved.set(toolUseId, a)
+      const parentToolRunId = turn.openToolRuns.get(toolUseId)?.parentToolRunId
       // 답변이 채워진 Ask 는 더 이상 "열린 실행"이 아니다 — 중단 시 settleOpenToolRuns 가 abort
       // 결과로 답변을 덮어쓰지 않도록 추적에서 제거한다(실제 tool_result 는 늦게 올 수도 있음).
       turn.openToolRuns.delete(toolUseId)
@@ -206,7 +247,11 @@ export class HistoryWriter {
         this.db.upsertToolResultPart(
           turn.currentAssistantMessageId,
           toolUseId,
-          JSON.stringify({ result: output, isError: false })
+          JSON.stringify({
+            result: output,
+            isError: false,
+            ...(parentToolRunId ? { parentToolRunId } : {})
+          })
         )
       }
       sendChatEvent(wc, {
@@ -214,7 +259,8 @@ export class HistoryWriter {
         sessionId: turn.dbSessionId ?? '',
         toolRunId: toolUseId,
         result: output,
-        isError: false
+        isError: false,
+        ...(parentToolRunId ? { parentToolRunId } : {})
       })
     }
   }
@@ -270,6 +316,7 @@ export class HistoryWriter {
           baselineOid: turn.sessionBaseline,
           baselineRef: turn.sessionBaselineRef
         })
+        this.flushProviderEvents(sessionId)
         // 세션 생성 경계(0124 카탈로그) — sessionId 발급 시점(system/init)이 생성의 진실.
         if (turn.isNewSession) {
           getLogger()
@@ -306,6 +353,7 @@ export class HistoryWriter {
           toolRunId: null,
           payloadJson: JSON.stringify({
             text: ev.text,
+            ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {}),
             ...(ev.signature !== undefined ? { signature: ev.signature } : {})
           })
         })

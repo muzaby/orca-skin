@@ -9,6 +9,7 @@ import type { TurnContext } from '../../contracts/turn'
 import type { TurnEmit } from '../../contracts/bus-events'
 import { createSubagentSettlementEvents } from './subagent-settlement'
 import type { GovernedLiveTurn } from '../../contracts/ports'
+import { isBackgroundTerminal, type BackgroundSessionState } from '../../../shared/background-task'
 
 // 턴 중단/실패 시 아직 열린 도구 실행을 abort/failed 마커 tool_result 로 정착시킨다.
 // AskUserQuestion tool_result 합성(flushAskAnswers)과 동형의 보정 — toolRunId 멱등(upsert).
@@ -17,14 +18,51 @@ import type { GovernedLiveTurn } from '../../contracts/ports'
 export function settleOpenToolRuns<W>(
   turn: TurnContext<W>,
   emit: TurnEmit<W>,
-  kind: 'aborted' | 'failed'
+  kind: 'aborted' | 'failed',
+  background?: BackgroundSessionState
 ): void {
   if (turn.openToolRuns.size === 0) return
+  const preserved = new Set<string>()
+  if (background) {
+    for (const call of Object.values(background.calls)) {
+      if (
+        call.generation === background.generation &&
+        !isBackgroundTerminal(call.status) &&
+        (call.awaitingTask || call.mode === 'background' || call.mode === 'remote')
+      )
+        preserved.add(call.toolUseId)
+    }
+    for (const task of Object.values(background.tasks)) {
+      if (
+        task.generation === background.generation &&
+        !isBackgroundTerminal(task.status) &&
+        task.toolUseId &&
+        (task.liveMembership === 'included' || task.isBackgrounded === true)
+      )
+        preserved.add(task.toolUseId)
+    }
+    let changed = true
+    while (changed) {
+      changed = false
+      const links = [...turn.openToolRuns.entries()].map(
+        ([id, info]) => [id, info.parentToolRunId] as const
+      )
+      for (const call of Object.values(background.calls))
+        if (call.generation === background.generation)
+          links.push([call.toolUseId, call.parentToolUseId])
+      for (const [id, parent] of links)
+        if (parent && preserved.has(parent) && !preserved.has(id)) {
+          preserved.add(id)
+          changed = true
+        }
+    }
+  }
   const result =
     kind === 'aborted'
       ? { reason: 'aborted', message: '사용자가 중단했습니다' }
       : { reason: 'failed', message: '오류로 중단되었습니다' }
   for (const [toolRunId, info] of turn.openToolRuns) {
+    if (preserved.has(toolRunId)) continue
     const ev = {
       type: 'tool.call.completed',
       sessionId: turn.dbSessionId ?? '',
@@ -34,8 +72,8 @@ export function settleOpenToolRuns<W>(
       ...(info.parentToolRunId !== undefined ? { parentToolRunId: info.parentToolRunId } : {})
     } as const
     emit(turn, ev)
+    turn.openToolRuns.delete(toolRunId)
   }
-  turn.openToolRuns.clear()
 }
 
 // subagent.task settled(stopped/failed/completed) 수신 또는 사용자 중단 클릭 시 부모 Task 와
@@ -72,6 +110,8 @@ export async function settleTrackedTasks<W>(
   tracker: BackgroundTaskSettleSource,
   opts: { status: 'failed' | 'stopped'; summary: string; stopLive: boolean }
 ): Promise<void> {
+  // Canonical tasks retain their last observed outcome when a channel disappears.
+  if (tracker.hasCanonical?.(sessionId)) return
   const ids = [...tracker.ids(sessionId)]
   if (ids.length === 0) return
   await settleTaskSubset(turn, emit, sessionId, tracker, ids, opts)
@@ -125,6 +165,7 @@ interface SubsetSettleSource {
 
 // 전량 정착이 요구하는 표면(구현은 BackgroundTaskTracker).
 interface BackgroundTaskSettleSource extends SubsetSettleSource {
+  hasCanonical?(sessionId: string): boolean
   ids(sessionId: string): ReadonlySet<string>
   clear(sessionId: string): void
 }

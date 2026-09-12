@@ -19,6 +19,11 @@ export const CHANNELS = {
   // 0067 AC5: 구 chat:steer 는 chat:send 로 흡수(main 이 busy=예약/idle=즉시를 판정).
   chatSteerCancel: 'orca:chat:steerCancel',
   chatEvent: 'orca:chat:event',
+  chatBackgroundState: 'orca:chat:backgroundState',
+  chatBackgroundEvent: 'orca:chat:backgroundEvent',
+  chatStopBackgroundTask: 'orca:chat:stopBackgroundTask',
+  chatStopAllBackgroundTasks: 'orca:chat:stopAllBackgroundTasks',
+  chatReadBackgroundOutput: 'orca:chat:readBackgroundOutput',
   chatCancel: 'orca:chat:cancel',
   chatStopSubagent: 'orca:chat:stopSubagent',
   // 서브에이전트(Task) 단위 foreground → background 전환(0212 R-07). 중단과 다른 축이다 —
@@ -389,11 +394,26 @@ export type ProviderId = 'claude' | 'opencode'
 // app = 앱이 합성한 명령(slash command 등 — AppCommandPolicy 가 분류).
 export type PermissionOrigin = 'agent' | 'app'
 
+// provider가 권한 callback에 부여한 요청 좌표. approvalId는 앱 UI 응답 좌표이고, 이 값들은
+// provider 재전달 멱등성과 child 귀속에 사용한다. generation은 provider 프로세스 실행 세대다.
+export interface ProviderApprovalRequest {
+  requestId: string
+  toolUseId: string
+  agentId?: string
+  generation?: string
+}
+
+export interface ApprovalRequestMetadata {
+  providerRequest?: ProviderApprovalRequest
+}
+
 // provider 중립 권한 액션. claude 의 AskUserQuestion/ExitPlanMode/일반도구를 이 3종으로 합성한다.
-export type PermissionAction =
-  | { kind: 'ask_question'; request: AskQuestionRequest }
-  | { kind: 'plan_review'; request: PlanReviewRequest }
-  | { kind: 'tool_approval'; toolName: string; input: unknown }
+export type PermissionAction = ApprovalRequestMetadata &
+  (
+    | { kind: 'ask_question'; request: AskQuestionRequest; input?: unknown }
+    | { kind: 'plan_review'; request: PlanReviewRequest; input?: unknown }
+    | { kind: 'tool_approval'; toolName: string; input: unknown }
+  )
 
 // 세션 범위 권한 부여(provider-runtime.md §3 updatedPermissions). "세션 동안 허용" 선택 시
 // allow.updatedPermissions 에 실려, router 가 sessionAllowedTools(Map<sessionId, Set<toolName>>)
@@ -496,7 +516,7 @@ export type NormalizedEvent =
   // renderer 는 `message.queued` 와 같은 규칙으로 `pendingNewChatKey` 에 라우팅한다.
   // 미영속 UI 신호다(버스 미경유 — history/usage 미소비).
   | { type: 'worktree.preparing'; step: WorktreePrepareStep }
-  | { type: 'message.delta'; sessionId: string; delta: { text: string } }
+  | { type: 'message.delta'; sessionId: string; delta: { text: string }; parentToolRunId?: string }
   // pending message queue 간접 관찰 3종(0067 — 구 steer.* 일반화). 모든 사용자 프롬프트가
   // queued(pending 버블) → committed(echo 커밋, 정식 버블 승격) 로 흐르고, cancelled 는 held
   // 취소(단건 hover / 중단 버튼 전량 — renderer 가 잔존 항목 텍스트를 draft 로 복원).
@@ -572,6 +592,7 @@ export type NormalizedEvent =
       sessionId: string
       text: string
       signature?: string
+      parentToolRunId?: string
     }
   // 확장사고 라이브 델타(transient — message.delta 와 동형, DB 미저장). 영속은 완성 블록의
   // message.reasoning 이 담당. 런타임이 thinking_delta 를 안 흘리면 발생 안 함(graceful).
@@ -579,6 +600,7 @@ export type NormalizedEvent =
       type: 'message.reasoning.delta'
       sessionId: string
       delta: { text: string }
+      parentToolRunId?: string
     }
   | {
       type: 'tool.call.started'
@@ -676,6 +698,9 @@ export type NormalizedEvent =
       type: 'telemetry'
       sessionId: string
       usage?: ProviderReportedTelemetry
+      userMessageUuid?: string
+      userMessageUuids?: string[]
+      queuedTurnCount?: number
     }
   | {
       type: 'error'

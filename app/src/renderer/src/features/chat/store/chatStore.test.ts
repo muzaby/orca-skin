@@ -66,6 +66,22 @@ const entry = (
   useChatStore.getState().sessions[key]
 
 describe('chatStore — 델타/커밋 라우팅', () => {
+  it('child text and reasoning partials never enter main live buffers', () => {
+    ingestChatEvent({
+      type: 'message.delta',
+      sessionId: 's',
+      parentToolRunId: 'child',
+      delta: { text: 'child text' }
+    })
+    ingestChatEvent({
+      type: 'message.reasoning.delta',
+      sessionId: 's',
+      parentToolRunId: 'child',
+      delta: { text: 'child reasoning' }
+    })
+    flushRaf()
+    expect(entry().live).toEqual({ text: '', reasoning: '' })
+  })
   it('message.delta 는 live.text 에만 누적되고 session 슬라이스 identity 는 불변', () => {
     const before = entry().session
     ingestChatEvent(delta('hel'))
@@ -1262,7 +1278,13 @@ describe('chatStore — continuityLang 스냅샷 (0127)', () => {
   const seedLanguage = async (language: string): Promise<void> => {
     vi.stubGlobal('window', {
       orca: {
-        chat: { send: chatSend, cancel: vi.fn(), cancelSteer: vi.fn(), onEvent: vi.fn() },
+        chat: {
+          send: chatSend,
+          cancel: vi.fn(),
+          cancelSteer: vi.fn(),
+          onEvent: vi.fn(),
+          onBackgroundEvent: vi.fn(() => () => {})
+        },
         settings: { get: vi.fn().mockResolvedValue({ language }), set: settingsSet },
         permission: { respond: permissionRespond, setMode: vi.fn() },
         session: { cwd: vi.fn().mockResolvedValue('/w'), onTitle: vi.fn() },

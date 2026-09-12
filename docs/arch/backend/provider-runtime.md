@@ -18,6 +18,8 @@
 
 제품 에이전트의 응답 경계 정책은 `features/agents/profiles.ts`가 명시한다. app의 send와 bootstrap이 같은 `persistResponseBoundaries` 값을 각각 TurnCoordinator와 HistoryWriter의 포트로 전달한다. 이벤트 생성과 저장은 이 정책을 사용하며 서로 다른 feature의 프로필을 직접 import하지 않는다.
 
+백그라운드 작업은 일반 턴 이벤트와 별도 journal·상태·출력 경로를 갖는다. 현재 계약은 [백그라운드 작업](./background-tasks.md)을 따른다.
+
 ## 1. 왜 — 현재 결합의 3가지 괴리
 
 Phase 3++ 구현은 claude-code SDK 에 강하게 결합돼 있어, 범용(OpenCode + Claude) 런타임 모델과 어긋난다. 핵심 명제: **이 앱은 "툴 이름 매핑" 앱이 아니라, 서로 다른 SDK 런타임을 공통 이벤트·세션·권한·직접 호출 모델로 정규화하는 앱이다.**

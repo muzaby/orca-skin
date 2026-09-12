@@ -272,3 +272,14 @@ describe('RuntimeSupervisor resource governance (0055)', () => {
     expect(turn.controller.signal.aborted).toBe(true)
   })
 })
+
+it('0231 idle runtime lookup does not acquire or remove the pooled channel', () => {
+  const supervisor = new RuntimeSupervisor<object>()
+  const runtime = fakeManaged()
+  supervisor.releaseRuntime('s1', runtime)
+  expect(supervisor.peekRuntime?.('s1')).toBe(runtime)
+  expect(supervisor.peekRuntime?.('missing')).toBeUndefined()
+  const factory = vi.fn(() => fakeManaged())
+  expect(supervisor.acquireRuntime('s1', factory)).toBe(runtime)
+  expect(factory).not.toHaveBeenCalled()
+})

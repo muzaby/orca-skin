@@ -1,4 +1,6 @@
 import { useMemo } from 'react'
+import { CanonicalBackgroundContent } from './CanonicalBackgroundContent'
+import { useBackgroundStore } from '../../store/backgroundStore'
 import { Button } from '../../../../shared/ui/Button'
 import { StatusLine } from '../StatusLine'
 import { AssistantMessage } from '../transcript/AssistantMessage'
@@ -62,6 +64,14 @@ function answerTextFromCall(call: ToolCall): string | null {
   if (typeof output === 'string') return output.trim() !== '' ? output : null
   if (typeof output === 'object') {
     const rec = output as Record<string, unknown>
+    if (Array.isArray(rec.content)) {
+      const text = rec.content
+        .flatMap((block) =>
+          block && typeof block === 'object' && typeof block.text === 'string' ? [block.text] : []
+        )
+        .join('\n')
+      if (text) return text
+    }
     for (const key of ['summary', 'message', 'text']) {
       const v = rec[key]
       if (typeof v === 'string' && v.trim() !== '') return v
@@ -109,6 +119,8 @@ export function SubAgentTileHeader(): React.JSX.Element {
 }
 
 export function SubAgentTileContent(): React.JSX.Element {
+  const sessionId = useChatSession((s) => s.sessionId)
+  const canonical = useBackgroundStore((s) => (sessionId ? s.sessions[sessionId] : undefined))
   const messages = useChatSession((s) => s.messages)
   const transcriptPolicy = agentUiPolicy(useChatSession((s) => s.agentKind)).transcript
   const selectedId = useChatSession((s) => s.selectedSubagentTaskId)
@@ -129,6 +141,14 @@ export function SubAgentTileContent(): React.JSX.Element {
   // 진행 중 서브에이전트 상세에서 메인 transcript 와 동일한 프로세싱 표시(StatusLine)를 버블
   // 아래에 띄우기 위한 경과 앵커 — 라이브 메타의 startedAtMs(첫 task 이벤트 수신 시각).
   const selectedMeta = useSubagentMeta(selectedId ?? '')
+
+  if (
+    canonical &&
+    (canonical.state.generation ||
+      Object.keys(canonical.state.tasks).length ||
+      Object.keys(canonical.state.calls).length)
+  )
+    return <CanonicalBackgroundContent />
 
   if (selected) {
     return (

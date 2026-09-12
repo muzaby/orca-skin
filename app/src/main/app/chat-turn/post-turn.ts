@@ -108,7 +108,7 @@ export async function runTurnWithContinuations(
       const hasBacklog = runtime.hasUnframedBacklog
       const step = decidePostTurnStep({
         havePending: pendingMessageCount > 0,
-        haveTasks: taskCount > 0,
+        haveTasks: backgroundTasks.hasPending(sessionId),
         haveSchedules: runtime.hasSchedules,
         channelAlive: runtime.channelAlive,
         channelBusy,

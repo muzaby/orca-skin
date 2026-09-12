@@ -80,10 +80,15 @@ describe('ClaudeAdapter — provider 메시지 원자 배치 (AC5)', () => {
     expect((await collectBatches()).map((batch) => batch.sequence)).toEqual([0, 1])
   })
 
-  it('이벤트를 만들지 않는 SDK 메시지는 빈 배치를 내지 않는다', async () => {
+  it('미지 메시지는 transcript 없는 원본 전용 배치로 보존한다', async () => {
     messages.length = 0
     messages.push({ type: 'system', subtype: 'unknown_kind', session_id: 's1' })
     // `every` 는 빈 배열에서도 참이라 아무것도 검사하지 못한다 — 배치 자체가 없어야 한다.
-    expect(await collectBatches()).toEqual([])
+    const batches = await collectBatches()
+    expect(batches).toHaveLength(1)
+    expect(batches[0].events).toEqual([])
+    expect(batches[0].providerEvents).toContainEqual(
+      expect.objectContaining({ type: 'provider.message', raw: messages[0] })
+    )
   })
 })

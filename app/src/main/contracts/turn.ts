@@ -37,7 +37,11 @@ export interface TurnContext<W = unknown> {
   // 대상 메시지를 보존하며, 새/연속 턴에는 상속하지 않는다.
   responseBoundary?: { id: string; messageId: number }
   assistantText: string
-  pendingAskAnswers: Array<{ answers: Record<string, string | string[]>; response?: string }>
+  pendingAskAnswers: Array<{
+    toolUseId: string
+    answers: Record<string, string | string[]>
+    response?: string
+  }>
   askPendingIds: string[]
   askResolved: Map<string, { answers: Record<string, string | string[]>; response?: string }>
   subagentTaskIds: Map<string, string>

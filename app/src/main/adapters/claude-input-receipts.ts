@@ -25,9 +25,33 @@ export class ClaudeInputReceipts {
   private pending: Receipt[] = []
   private emitted: Receipt[] = []
   private closed = false
+  private submittedUuids = new Map<string, TurnInputContent>()
 
   submitted(content: TurnInputContent, uuid?: string): void {
-    if (!this.closed) this.own.push({ content, uuid, echoed: false })
+    if (!this.closed) {
+      this.own.push({ content, uuid, echoed: false })
+      if (uuid) this.submittedUuids.set(uuid, content)
+    }
+  }
+
+  response(message: unknown, sessionId: string): NormalizedEvent[] {
+    if (this.closed || !isRecord(message) || message.parent_tool_use_id != null || !sessionId)
+      return []
+    const ids = new Set<string>()
+    if (Array.isArray(message.user_message_uuids)) {
+      for (const id of message.user_message_uuids) if (typeof id === 'string') ids.add(id)
+    }
+    if (typeof message.user_message_uuid === 'string') ids.add(message.user_message_uuid)
+    const events: NormalizedEvent[] = []
+    for (const uuid of ids) {
+      const content = this.submittedUuids.get(uuid)
+      if (content === undefined) continue
+      this.submittedUuids.delete(uuid)
+      const own = this.own.find((entry) => entry.uuid === uuid)
+      if (own) own.echoed = true
+      events.push({ type: 'input.echo', sessionId, uuid, text: hookText([content]) })
+    }
+    return events
   }
 
   prompt(input: unknown): void {
@@ -46,6 +70,7 @@ export class ClaudeInputReceipts {
     if (event.type === 'input.echo') {
       const own = this.own.find((entry) => event.uuid !== undefined && entry.uuid === event.uuid)
       if (own) own.echoed = true
+      if (event.uuid) this.submittedUuids.delete(event.uuid)
     }
     const pending = this.pending.findIndex((entry) => entry.text === event.text)
     if (pending !== -1) {
@@ -95,5 +120,6 @@ export class ClaudeInputReceipts {
     this.own = []
     this.pending = []
     this.emitted = []
+    this.submittedUuids.clear()
   }
 }

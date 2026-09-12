@@ -929,7 +929,7 @@ export class Bootstrap {
     }))
     // dev 분기는 여기 한 곳에서만 준다 — `paths.ts` 는 순수 함수로 남아 두 값을 다 단위 테스트한다.
     const worktrees = new WorktreeService(ctx.db, managedWorktreesDir(import.meta.env.DEV))
-    registerChatHandlers({
+    const background = registerChatHandlers({
       ctx,
       supervisor,
       bus,
@@ -956,11 +956,13 @@ export class Bootstrap {
     registerSessionHandlers(ctx, {
       isSessionBusy: (sessionId) => supervisor.hasSession(sessionId),
       onSessionDisposed: (sessionId) => {
+        background.dispose(sessionId)
+        persistence.forgetProviderSession(sessionId)
         // DB 행을 지우기 전에 호출되는 hook에서 active/idle provider 수명도 함께 끊는다. lease가
         // child 교체 중이어도 runtime을 직접 소유하므로 삭제된 세션이 뒤늦게 영속화를 재개하지 않는다.
         supervisor.discardRuntime(sessionId)
         pendingMessages.dispose(sessionId)
-        backgroundTasks.clear(sessionId)
+        backgroundTasks.dispose(sessionId)
         activity.clear(sessionId)
       },
       getActivity: (sessionId) => activity.current(sessionId),
