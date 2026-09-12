@@ -8,7 +8,7 @@
 | 일자 | 2026-09-13 |
 | 상태 | READY |
 | V mode / 기준 / revision | Baseline V / none / V1 |
-| 유효 V | V1 — 사용자 후속 UI 요구. 0230·0231 런타임 계약은 유지한다. |
+| 유효 V | V1 + ΔV1 — 패널 상단 일괄 제어·중복 도구 제목 제거를 포함한다. 0230·0231 런타임 계약은 유지한다. |
 
 # Part I — Product & UX Contract
 
@@ -37,6 +37,8 @@
 | D-04 | 실제 taskId/generation에 연결된 중단 버튼, 실행 시간 표시 | 사용자; 미확인·실패는 기존 재시도 상태 유지 | ACTIVE | — |
 | D-05 | Spark 배경 작업 수는 제품 파랑·hover/focus 버튼이며 패널 열기 | 사용자; 다른 대기 사실·경과 시간 유지 | ACTIVE | — |
 | D-06 | Temp `orcinus-orca`, Bash+PowerShell, 문서 작성자 Codex, PR 생성 | 앞선 사용자 결정 | ACTIVE | 변경 없음 |
+| D-07 | 패널에 새로고침·모든 실행 중단 버튼을 배치하지 않음 | 미리보기 확인 후 사용자 추가 피드백 | ACTIVE | 기존 패널의 두 제어 표시 대체 |
+| D-08 | 선택 상세의 도구 호출 제목 행을 렌더하지 않음. 패널 제목/뒤로가기·도구 본문은 유지 | 사용자 예시 `실행 중실행 중로그 파서 조사 >` | ACTIVE | D-03의 상세 표시 보완 |
 
 ### 갱신 메모
 
@@ -187,3 +189,25 @@ SDK→normalize→history/reducer는 그대로 두고 transcript 투영만 바�
 - [x] AS-IS/TO-BE, 기존 소비처, 오류/세션 경계, 직접 검증 수단을 명시했다.
 - [x] 원본 이력/실행 권한을 바꾸지 않고 renderer 책임에 한정한다.
 - [x] subtree ABI·게이트와 계획/구현 별도 커밋 규약을 적용한다.
+
+## ΔV1 — 패널 제어와 반복 제목 제거
+
+작성자 Codex. READY. 기준 V1은 `39d2439f`; 현재 브라우저 화면을 본 사용자가 D-07·D-08을 명시했다. 기존 실행 API와 개별 카드 중단은 유지한다.
+
+| R / AT / AC | provenance | 추가 동작 / production 경로 / 직접 oracle |
+|---|---|---|
+| R-05 / AT-09 / AC9 | NEW | canonical 패널 목록에 새로고침·일괄 중단이 없고 각 실행 카드의 개별 중단은 있다. 렌더·클릭 테스트. |
+| R-06 / AT-10 / AC10 | NEW | 카드→선택 상세에서 호출 제목/상태 확장 행이 없고 도구 본문/child·상단 back는 남는다. 기본 transcript ToolCard 제목은 유지된다. 렌더·interaction 테스트. |
+| MD-02 / UT-02 | NEW | ToolCard의 제목 없는 본문 표현은 opt-in이며 기본 사용처의 확장 UX를 바꾸지 않음. 두 경우 DOM 직접 비교. |
+| AR-01 / IT-01 | CHANGED | canonical 선택 상세→ToolCard 본문 표현의 배선을 추가하고 기존 VP-06의 세션/식별자 경계를 유지. |
+
+| Pair | left ↔ right | requiredness | 경로 / oracle | §10 추가 지점 / 적대 증거 |
+|---|---|---|---|---|
+| VP-Δ01 | R-05 ↔ AT-09 | REQUIRED | canonical 목록→개별 stop; 버튼 집합과 실제 개별 payload | EP-Δ01 목록 toolbar (1); not selected — 직접 DOM |
+| VP-Δ02 | R-06 ↔ AT-10 | REQUIRED | 선택 상세→도구 본문; 제목 부재와 본문·back 양성 단언 | EP-Δ02 상세/ToolCard (2); not selected — 직접 DOM/클릭 |
+| VP-Δ03 | MD-02 ↔ UT-02 | REQUIRED | ToolCard opt-in/default; body/header 슬롯의 실제 렌더 | EP-Δ02 (2); not selected — 자리 직접 관측 |
+| VP-Δ04 | AR-01 ↔ IT-01 | REQUIRED | 선택 카드→상세/back/stop; 기존 VP-06 경로와 제목 옵션 전달 | EP-03,04,Δ02 (6); not selected — interaction |
+
+AS-IS: canonical 목록 toolbar에 refresh/stopAll, 상세 ToolCard에 status/title 확장 행. TO-BE: toolbar 제거, 기존 stopAll API는 남고 선택 상세만 제목 없는 본문으로 표시한다. 파일: `CanonicalBackgroundContent`, `ToolCard`, 관련 render/interaction 테스트. 기본 ToolCard 및 개별 중단은 회귀 대상으로 기존 VP-03/06을 재실행한다.
+
+§10 유효 강제 지점은 기존 8지점 + EP-Δ01(1) + EP-Δ02(2)다. 운영 gate는 §19를 유지한다. 기존 AC1~8 + AC9~10 = 총 10개이며 ACTIVE↔AC 대조는 D-07=AC9, D-08=AC10으로 충돌 없다.
