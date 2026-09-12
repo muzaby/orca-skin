@@ -3,6 +3,7 @@ import type {
   BackgroundEvent,
   BackgroundSessionState,
   BackgroundTaskRequest,
+  PromoteBackgroundTaskRequest,
   ReadBackgroundOutputRequest,
   ReadBackgroundOutputResponse,
   StopAllBackgroundTasksResult
@@ -99,6 +100,8 @@ export const chatApi = {
     window.orca.chat.onBackgroundEvent(handler),
   stopBackgroundTask: (req: BackgroundTaskRequest): Promise<void> =>
     window.orca.chat.stopBackgroundTask(req),
+  promoteBackgroundTask: (req: PromoteBackgroundTaskRequest): Promise<void> =>
+    window.orca.chat.promoteBackgroundTask(req),
   stopAllBackgroundTasks: (req: {
     sessionId: string
     generation: string

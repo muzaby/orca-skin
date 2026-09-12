@@ -22,6 +22,10 @@ SDK 요청 응답과 ACK 이후 종료 확인은 각각 제한 시간을 가지�
 
 승인·질문은 SDK의 requestId·toolUseId·agentId·generation을 보존한다. 같은 query의 요청 재전달은 같은 Promise를 재사용한다. 메인 중지 후에도 SDK signal이 살아 있는 하위 승인 UI는 유지하며, Ask 답변의 부모 연결은 DB 재로드에서 복원한다. host MCP 도구는 개별 요청 signal과 채널 수명을 함께 따르고 형제 호출의 취소로 중단되지 않는다.
 
+Code의 foreground 셸 단건 전환은 `BackgroundController.promote`가 현재 세대·연결·등록된 실행 중 local_bash와 toolUseId를 검증한 뒤 runtime의 `backgroundTask`로 전달한다. Bash와 PowerShell은 같은 SDK 단건 전환 경로를 사용한다. 빈 ID·중복 요청은 거부하고 SDK false/예외·응답 제한을 오류로 전달한다. 성공 응답 뒤에도 runtime identity와 generation을 확인하며 기존 호출의 phase를 유지한 채 background mode만 기록한다. 명령을 다시 실행하거나 임의 taskId를 만들지 않는다.
+
+공유 상태의 `backgroundObserved`는 snapshot 포함·isBackgrounded:true·확인된 background/remote mode에서 누적하고 완료나 snapshot 제외로 지우지 않는다. 명시적 background 요청 인자는 표시 근거와 관측 사실을 구분한다. Explorer 호출 모델은 실제 child assistant의 message.model에서 기록하고 journal replay로 복원한다.
+
 ## 출력
 
 Renderer는 경로 대신 기록된 outputId를 요청한다. main이 세션 cwd·명시적인 추가 디렉토리·앱 전용 임시 디렉토리 아래의 실제 파일 경로를 검증한다. `canReadOutputFile:false`는 직접 읽기를 거부하고 URI는 자동으로 가져오지 않는다. 심볼릭 링크·정션으로 허용 루트를 벗어나거나 디렉토리를 파일로 읽는 요청도 거부한다.
@@ -32,4 +36,4 @@ Claude query의 `CLAUDE_CODE_TMPDIR`는 앱 임시 루트로 고정하며 `optio
 
 UTF-8 문자가 페이지 끝이나 성장 중인 파일 끝에서 잘리면 남은 바이트가 도착할 때까지 보류한다. 파일을 확보한 뒤 DB 참조 기록에 실패하면 그 보존 파일만 정리하고 확보 실패를 표시한다.
 
-우측 작업 패널은 task 종류·연결·live 포함 여부·실행 상태·중단 상태·출력 확보 결과를 별도로 표시한다. 출력은 텍스트로 표시하며 실행하지 않는다. 원본 형식과 상세 계약은 [`shared/background-task.ts`](../../../app/src/shared/background-task.ts)와 [`IPC 계약`](../../IPC_CONTRACT.md)을 따른다.
+우측 패널의 카드·선택 상세와 원본 출력 보존은 분리한다. Code 카드에는 실행 결과를 붙이지 않고 셸 상세는 ToolCard 본문만 표시한다. 원본 출력은 읽기 API와 보존 상태에 남으며 표시한 텍스트를 실행하지 않는다. 원본 형식과 상세 계약은 [`shared/background-task.ts`](../../../app/src/shared/background-task.ts)와 [`IPC 계약`](../../IPC_CONTRACT.md)을 따른다.

@@ -222,6 +222,13 @@ export const StopAllBackgroundTasksSchema = BackgroundStateSchema.extend({
 export const StopBackgroundTaskSchema = StopAllBackgroundTasksSchema.extend({
   taskId: z.string().min(1)
 })
+export const PromoteBackgroundTaskSchema = StopAllBackgroundTasksSchema.extend({
+  // Empty targets mean "all foreground tasks" to the SDK. Reject instead of trimming.
+  toolUseId: z
+    .string()
+    .min(1)
+    .refine((value) => value.trim().length > 0)
+})
 export const ReadBackgroundOutputSchema = StopBackgroundTaskSchema.extend({
   outputId: z.string().min(1),
   offset: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),

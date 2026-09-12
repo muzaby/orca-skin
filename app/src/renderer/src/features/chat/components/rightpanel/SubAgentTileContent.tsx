@@ -1,7 +1,19 @@
 import { useMemo } from 'react'
 import { CanonicalBackgroundContent } from './CanonicalBackgroundContent'
-import { backgroundCallTitle, hasCanonicalBackground } from '../../lib/canonicalBackground'
-import { selectBackgroundItem, useBackgroundStore } from '../../store/backgroundStore'
+import {
+  backgroundCallTitle,
+  hasCanonicalBackground,
+  projectBackgroundPanel,
+  projectLegacyBackgroundPanel
+} from '../../lib/canonicalBackground'
+import { BackgroundModelLabel } from './BackgroundModelLabel'
+import { BackgroundTaskGroup } from './BackgroundTaskGroup'
+import {
+  dismissCompletedBackgroundItems,
+  selectBackgroundItem,
+  toggleBackgroundGroup,
+  useBackgroundStore
+} from '../../store/backgroundStore'
 import { Button } from '../../../../shared/ui/Button'
 import { StatusLine } from '../StatusLine'
 import { AssistantMessage } from '../transcript/AssistantMessage'
@@ -27,6 +39,7 @@ import {
   chatActions,
   useBackgroundedTasks,
   useChatSession,
+  useChatStore,
   usePausedTasks,
   useStoppingTasks,
   useSubagentMeta
@@ -49,9 +62,6 @@ const STATUS_KEY: Record<SubagentTaskStatus, MessageKey> = {
   failed: 'chat.subagentTile.status.failed',
   aborted: 'chat.subagentTile.status.aborted'
 }
-
-// 목록은 상태별 그룹(진행 중 → 완료 → 중단됨 → 실패)으로 묶는다. 빈 그룹은 렌더하지 않는다.
-const GROUP_ORDER: SubagentTaskStatus[] = ['running', 'completed', 'aborted', 'failed']
 
 // 0204 D-016a — 이 타일은 `72766d2` 의 표시(그룹·카드·상세)를 복구하되 **중단 수명주기는
 // D-005/D-006 을 유지한다**: 클릭은 요청이고 확정은 SDK 정착이 준다. 그래서 `running` 이지만
@@ -86,6 +96,8 @@ function answerTextFromCall(call: ToolCall): string | null {
 export function SubAgentTileHeader(): React.JSX.Element {
   const { tr } = useI18n()
   const sessionId = useChatSession((s) => s.sessionId)
+  const activeKey = useChatStore((s) => s.activeKey)
+  const panel = useBackgroundStore((s) => s.panels[sessionId ?? activeKey])
   const canonical = useBackgroundStore((s) => (sessionId ? s.sessions[sessionId] : undefined))
   const messages = useChatSession((s) => s.messages)
   const selectedId = useChatSession((s) => s.selectedSubagentTaskId)
@@ -93,20 +105,19 @@ export function SubAgentTileHeader(): React.JSX.Element {
   const selected = useMemo(
     () =>
       selectedId
-        ? subagentTasksFromMessages(messages).find((task) => task.toolUseId === selectedId)
+        ? projectLegacyBackgroundPanel(subagentTasksFromMessages(messages), panel).find(
+            (task) => task.toolUseId === selectedId
+          )
         : undefined,
-    [messages, selectedId]
+    [messages, selectedId, panel]
   )
 
   if (canonical && hasCanonicalBackground(canonical.state)) {
-    const canonicalTask =
-      canonical.selection?.kind === 'task'
-        ? canonical.state.tasks[canonical.selection.key]
-        : undefined
-    const canonicalCall =
-      canonical.selection?.kind === 'call'
-        ? canonical.state.calls[canonical.selection.key]
-        : undefined
+    const { selectedTask: canonicalTask, selectedCall: canonicalCall } = projectBackgroundPanel(
+      canonical.state,
+      canonical.selection,
+      panel
+    )
     if (canonicalTask || canonicalCall) {
       const title = canonicalTask
         ? canonicalTask.description || canonicalTask.taskType || canonicalTask.taskId
@@ -158,6 +169,8 @@ export function SubAgentTileHeader(): React.JSX.Element {
 
 export function SubAgentTileContent(): React.JSX.Element {
   const sessionId = useChatSession((s) => s.sessionId)
+  const activeKey = useChatStore((s) => s.activeKey)
+  const panel = useBackgroundStore((s) => s.panels[sessionId ?? activeKey])
   const canonical = useBackgroundStore((s) => (sessionId ? s.sessions[sessionId] : undefined))
   const messages = useChatSession((s) => s.messages)
   const transcriptPolicy = agentUiPolicy(useChatSession((s) => s.agentKind)).transcript
@@ -173,7 +186,10 @@ export function SubAgentTileContent(): React.JSX.Element {
   // 화면에서 "아무 일도 안 일어남" 으로 보인다.
   const stopErrors = useChatSession((s) => s.taskStopErrors)
   // O(전체 parts) 파생이라 메모 — StatusLine 1s 틱 등 무관 재렌더마다 재계산하지 않는다.
-  const tasks = useMemo(() => subagentTasksFromMessages(messages), [messages])
+  const tasks = useMemo(
+    () => projectLegacyBackgroundPanel(subagentTasksFromMessages(messages), panel),
+    [messages, panel]
+  )
   const selected = selectedId ? tasks.find((task) => task.toolUseId === selectedId) : undefined
   const childMessage = selectedId ? childMessageForParentToolRunId(messages, selectedId) : null
   // 진행 중 서브에이전트 상세에서 메인 transcript 와 동일한 프로세싱 표시(StatusLine)를 버블
@@ -261,7 +277,7 @@ export function SubAgentTaskDetail({
 // 목록 — 백그라운드 작업을 상태 그룹으로 묶어 카드로 표시한다(`72766d2` 복구, D-016).
 // **props 만 읽는 순수 View** — 위와 같은 이유.
 export function SubAgentTaskList({
-  tasks,
+  tasks: allTasks,
   stoppingIds: stopping,
   pausedIds: paused = EMPTY_IDS,
   backgroundedIds: backgrounded = EMPTY_IDS,
@@ -278,6 +294,17 @@ export function SubAgentTaskList({
   stopErrors: Record<string, TaskStopError>
 }): React.JSX.Element {
   const { tr, locale } = useI18n()
+  const sessionId = useChatSession((s) => s.sessionId)
+  const activeKey = useChatStore((s) => s.activeKey)
+  const panelKey = sessionId ?? activeKey
+  const panel = useBackgroundStore((s) => s.panels[panelKey])
+  const selectedId = useChatSession((s) => s.selectedSubagentTaskId)
+  const tasks = projectLegacyBackgroundPanel(allTasks, panel)
+  const clearCompleted = (): void => {
+    dismissCompletedBackgroundItems(panelKey, tasks)
+    if (tasks.some((task) => task.toolUseId === selectedId && task.status !== 'running'))
+      chatActions.selectSubagentTask(null)
+  }
   if (tasks.length === 0) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
@@ -289,20 +316,24 @@ export function SubAgentTaskList({
     )
   }
 
-  const groups = GROUP_ORDER.map((status) => ({
-    status,
-    items: tasks.filter((task) => task.status === status)
-  })).filter((group) => group.items.length > 0)
+  const groups = (['running', 'completed'] as const)
+    .map((status) => ({
+      status,
+      items: tasks.filter((task) => (task.status === 'running') === (status === 'running'))
+    }))
+    .filter((group) => group.items.length > 0)
 
   return (
     <div className="min-h-0 flex-1 overflow-auto px-p4 py-p4">
       {groups.map((group, gi) => (
         <div key={group.status} className={gi > 0 ? 'mt-5' : ''}>
-          {/* 상태 그룹 헤더 — 상하 여백 확보(원본 이미지). */}
-          <div className="mb-g3 mt-g1 flex items-center px-p2 text-footnote text-t6">
-            <span>{tr(STATUS_KEY[group.status])}</span>
-          </div>
-          <div className="flex flex-col gap-g3">
+          <BackgroundTaskGroup
+            group={group.status}
+            count={group.items.length}
+            collapsed={panel?.collapsed?.[group.status] ?? false}
+            onToggle={() => toggleBackgroundGroup(panelKey, group.status)}
+            onClear={clearCompleted}
+          >
             {group.items.map((task) => {
               const open = (): void => chatActions.selectSubagentTask(task.toolUseId)
               // 중단 대기 → 표시 상태의 규칙은 `taskBoard` 가 소유한다(plan §3 갱신메모) —
@@ -339,7 +370,11 @@ export function SubAgentTaskList({
                     </span>
                   </div>
                   <div className="mt-g1 pl-5 text-footnote text-ink3">
-                    {`${tr('chat.toolMeta.agentFallback')}${META_GAP}${
+                    <BackgroundModelLabel
+                      toolUseId={task.toolUseId}
+                      persistedModel={task.call.result?.subagentMeta?.model}
+                    />
+                    {`${META_GAP}${
                       boardStatus === 'stopping'
                         ? tr('chat.subagentTile.status.stopping')
                         : boardStatus === 'paused'
@@ -349,16 +384,6 @@ export function SubAgentTaskList({
                     {formatDurationLabel(tr, task.durationMs)
                       ? `${META_GAP}${formatDurationLabel(tr, task.durationMs)}`
                       : ''}
-                    {/* 정착 사유 — 생산자가 실은 사람용 문장을 그대로 쓴다(0204 D-024). 0215
-                        이전에는 `작업` 타일이 유일 렌더 지점이었고, 그 타일에서 서브에이전트가
-                        빠지면서 소비자가 0곳이 됐다(D-017 과 같은 축). */}
-                    {task.settlementMessage
-                      ? `${META_GAP}${task.settlementMessage}`
-                      : task.status === 'aborted'
-                        ? `${META_GAP}${tr('chat.taskTile.stoppedReason')}`
-                        : task.status === 'failed'
-                          ? `${META_GAP}${tr('chat.taskTile.failedReason')}`
-                          : ''}
                     <span title={formatTimeFull(task.createdAtMs, locale)}>
                       {`${META_GAP}${formatTimeShort(task.createdAtMs, locale)}`}
                     </span>
@@ -424,7 +449,7 @@ export function SubAgentTaskList({
                 </div>
               )
             })}
-          </div>
+          </BackgroundTaskGroup>
         </div>
       ))}
     </div>

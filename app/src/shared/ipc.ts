@@ -22,6 +22,7 @@ export const CHANNELS = {
   chatBackgroundState: 'orca:chat:backgroundState',
   chatBackgroundEvent: 'orca:chat:backgroundEvent',
   chatStopBackgroundTask: 'orca:chat:stopBackgroundTask',
+  chatPromoteBackgroundTask: 'orca:chat:promoteBackgroundTask',
   chatStopAllBackgroundTasks: 'orca:chat:stopAllBackgroundTasks',
   chatReadBackgroundOutput: 'orca:chat:readBackgroundOutput',
   chatCancel: 'orca:chat:cancel',

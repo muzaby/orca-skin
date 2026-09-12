@@ -44,6 +44,7 @@ export interface BackgroundTaskPatch {
   parentAgentId?: string
 }
 export interface BackgroundCallPatch {
+  model?: string
   agentId?: string
   taskId?: string
   runId?: string
@@ -122,6 +123,8 @@ export interface BackgroundTerminalEvidence {
   error?: string
 }
 export interface BackgroundTaskRecord extends BackgroundTaskIdentity, BackgroundTaskPatch {
+  /** A historical observation, independent of the current live snapshot. */
+  backgroundObserved?: boolean
   generation: string
   toolUseId?: string
   firstSeenAt: number
@@ -138,6 +141,7 @@ export interface BackgroundTaskRecord extends BackgroundTaskIdentity, Background
   outputErrors: Record<string, string>
 }
 export interface BackgroundCallRecord extends BackgroundCallPatch {
+  backgroundObserved?: boolean
   launchFailure?: { source: BackgroundEventSource; receipt: unknown }
   generation: string
   toolUseId: string
@@ -171,6 +175,11 @@ export interface BackgroundTaskRequest {
   sessionId: string
   generation: string
   taskId: string
+}
+export interface PromoteBackgroundTaskRequest {
+  sessionId: string
+  generation: string
+  toolUseId: string
 }
 export interface BackgroundOutputCursor {
   identity: string
@@ -218,6 +227,38 @@ export function isBackgroundTerminal(status: string | undefined): boolean {
     status === 'completed' || status === 'failed' || status === 'killed' || status === 'stopped'
   )
 }
+export function isShellBackgroundTool(name: string | undefined): boolean {
+  return name === 'Bash' || name === 'PowerShell'
+}
+
+/** The SDK registers an eligible shell with task_started; elapsed time is not evidence. */
+export function canPromoteBackgroundCall(
+  state: BackgroundSessionState,
+  call: BackgroundCallRecord | undefined
+): boolean {
+  if (
+    !call ||
+    !call.toolUseId.trim() ||
+    state.connection !== 'connected' ||
+    call.generation !== state.generation ||
+    !isShellBackgroundTool(call.toolName) ||
+    call.phase === 'returned' ||
+    isBackgroundTerminal(call.status) ||
+    call.backgroundObserved ||
+    call.mode === 'background' ||
+    call.mode === 'remote'
+  )
+    return false
+  const task = call.taskId ? state.tasks[backgroundKey(call.generation, call.taskId)] : undefined
+  return Boolean(
+    task &&
+    task.toolUseId === call.toolUseId &&
+    task.taskType === 'local_bash' &&
+    task.status === 'running' &&
+    task.isBackgrounded === false &&
+    !task.backgroundObserved
+  )
+}
 function defined<T extends object>(value: T): Partial<T> {
   return Object.fromEntries(
     Object.entries(value).filter(([, v]) => v !== undefined && v !== null)
@@ -255,6 +296,7 @@ function mergeTask(
     ...defined(patch),
     lastSeenAt: Math.max(old.lastSeenAt, source.receivedAt)
   }
+  if (patch.isBackgrounded === true) next.backgroundObserved = true
   if (patch.outputRefs) next.outputRefs = refs(old.outputRefs, patch.outputRefs)
   if (isBackgroundTerminal(patch.status)) {
     next.terminalEvidence = [
@@ -347,7 +389,14 @@ export function applyBackgroundEvent(
         ...freshTask(identity.taskId, source),
         ...next.tasks[key],
         ...defined(identity),
+        backgroundObserved: true,
         ...(current ? { liveMembership: 'included' as const } : {})
+      }
+      const task = next.tasks[key]
+      if (task.toolUseId) {
+        const callKey = backgroundKey(source.generation, task.toolUseId)
+        const call = next.calls[callKey]
+        if (call) next.calls[callKey] = { ...call, backgroundObserved: true }
       }
     }
     return next
@@ -404,6 +453,8 @@ export function applyBackgroundEvent(
           (t) => t.generation === source.generation && t.toolUseId === event.toolUseId
         )
     if (linked) call = { ...call, taskId: linked.taskId }
+    if (linked?.backgroundObserved || call.mode === 'background' || call.mode === 'remote')
+      call.backgroundObserved = true
     call.awaitingTask =
       !call.taskId &&
       (call.status === 'async_launched' ||
@@ -423,6 +474,7 @@ export function applyBackgroundEvent(
       const previous = next.tasks[taskKey] ?? freshTask(call.taskId, source)
       next.tasks[taskKey] = {
         ...previous,
+        ...(call.backgroundObserved ? { backgroundObserved: true } : {}),
         toolUseId: event.toolUseId,
         ...defined({ agentId: call.agentId, parentToolUseId: call.parentToolUseId }),
         outputRefs: refs(previous.outputRefs, call.outputRefs)
@@ -453,9 +505,15 @@ export function applyBackgroundEvent(
       const callKey = backgroundKey(source.generation, record.toolUseId)
       const call = next.calls[callKey]
       if (call) {
-        next.calls[callKey] = { ...call, taskId: event.taskId, awaitingTask: false }
+        next.calls[callKey] = {
+          ...call,
+          taskId: event.taskId,
+          awaitingTask: false,
+          ...(record.backgroundObserved ? { backgroundObserved: true } : {})
+        }
         record = {
           ...record,
+          ...(call.backgroundObserved ? { backgroundObserved: true } : {}),
           ...defined({
             agentId: record.agentId ?? call.agentId,
             parentToolUseId: record.parentToolUseId ?? call.parentToolUseId

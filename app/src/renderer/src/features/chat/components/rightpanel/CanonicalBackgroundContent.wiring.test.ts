@@ -2,8 +2,8 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CanonicalBackgroundContent } from './CanonicalBackgroundContent'
-import { SubAgentTileHeader } from './SubAgentTileContent'
-import { useBackgroundStore } from '../../store/backgroundStore'
+import { SubAgentTileContent, SubAgentTileHeader } from './SubAgentTileContent'
+import { selectBackgroundItem, useBackgroundStore } from '../../store/backgroundStore'
 import { useChatStore } from '../../store/chatStore'
 import { chatApi } from '../../../../shared/api/ipc'
 import {
@@ -46,6 +46,7 @@ const chatInitial = useChatStore.getInitialState()
 const backgroundInitial = useBackgroundStore.getInitialState()
 const savedChat = { sessions: chatInitial.sessions, activeKey: chatInitial.activeKey }
 const savedBackgrounds = backgroundInitial.sessions
+const savedPanels = backgroundInitial.panels
 const sessionId = 'canonical-session'
 const generation = 'canonical-generation'
 const taskId = 'actual-task-id'
@@ -74,15 +75,21 @@ function seed(state: BackgroundSessionState): void {
   useChatStore.setState({ activeKey: sessionId, sessions })
   const backgrounds = { [sessionId]: { state, loading: false } }
   backgroundInitial.sessions = backgrounds
-  useBackgroundStore.setState({ sessions: backgrounds })
+  backgroundInitial.panels = {}
+  useBackgroundStore.setState({ sessions: backgrounds, panels: {} })
 }
 
-function render(header = false): string {
+function render(header = false, legacy = false): string {
   harness.nodes = []
   // React SSR reads the store's initial snapshot; synchronize it between interactions.
   backgroundInitial.sessions = useBackgroundStore.getState().sessions
+  backgroundInitial.panels = useBackgroundStore.getState().panels
+  chatInitial.sessions = useChatStore.getState().sessions
+  chatInitial.activeKey = useChatStore.getState().activeKey
   return renderToStaticMarkup(
-    createElement(header ? SubAgentTileHeader : CanonicalBackgroundContent)
+    createElement(
+      header ? SubAgentTileHeader : legacy ? SubAgentTileContent : CanonicalBackgroundContent
+    )
   )
 }
 
@@ -127,11 +134,149 @@ afterEach(() => {
   Object.assign(chatInitial, savedChat)
   useChatStore.setState(savedChat)
   backgroundInitial.sessions = savedBackgrounds
-  useBackgroundStore.setState({ sessions: savedBackgrounds })
+  backgroundInitial.panels = savedPanels
+  useBackgroundStore.setState({ sessions: savedBackgrounds, panels: savedPanels })
   vi.restoreAllMocks()
 })
 
 describe('canonical background production callbacks', () => {
+  it('preserves dismissal and collapsed groups through remount and session round trips without leaking the selected header', () => {
+    const state = applyBackgroundEvent(withTask(), {
+      type: 'background.call',
+      sessionId,
+      toolUseId: 'done-call',
+      toolName: 'Agent',
+      phase: 'returned',
+      source: source(3),
+      patch: { status: 'completed' }
+    })
+    seed(state)
+    render()
+    ;(node('button', 'data-background-group-toggle', 'running').onClick as () => void)()
+    ;(node('button', 'data-background-clear', 'completed').onClick as () => void)()
+    const original = useChatStore.getState().sessions[sessionId]
+    useChatStore.setState((store) => ({
+      activeKey: 'other-session',
+      sessions: {
+        ...store.sessions,
+        'other-session': {
+          ...original,
+          session: { ...original.session, sessionId: 'other-session' }
+        }
+      }
+    }))
+    useBackgroundStore.setState((store) => ({
+      sessions: { ...store.sessions, 'other-session': { state, loading: false } }
+    }))
+    expect(render()).toContain('data-background-call="done-call"')
+    expect(render()).toContain(`data-background-task="${taskId}"`)
+    useChatStore.setState({ activeKey: sessionId })
+    expect(render()).not.toContain('data-background-call="done-call"')
+    expect(node('button', 'data-background-group-toggle', 'running')['aria-expanded']).toBe(false)
+    selectBackgroundItem(sessionId, { kind: 'call', key: backgroundKey(generation, 'done-call') })
+    expect(render()).not.toContain('data-background-call-detail=')
+    expect(render(true)).not.toContain('aria-label="목록으로"')
+  })
+  it('uses the same group controls and dismissal projection for legacy list, selection, and header', () => {
+    seed(emptyBackgroundState())
+    const session = useChatStore.getState().sessions[sessionId].session
+    session.messages = [
+      {
+        role: 'assistant',
+        createdAt: 1,
+        parts: [
+          {
+            type: 'tool_call',
+            toolRunId: 'legacy-running',
+            toolName: 'Agent',
+            args: { description: 'still running' }
+          },
+          {
+            type: 'tool_call',
+            toolRunId: 'legacy-done',
+            toolName: 'Agent',
+            args: { description: 'finished legacy' }
+          },
+          {
+            type: 'tool_result',
+            toolRunId: 'legacy-done',
+            result: 'keep original result',
+            isError: false
+          }
+        ]
+      }
+    ]
+    const original = JSON.stringify(session.messages)
+    render(false, true)
+    expect(node('button', 'data-background-group-toggle', 'running')['aria-expanded']).toBe(true)
+    ;(node('button', 'data-background-group-toggle', 'completed').onClick as () => void)()
+    expect(render(false, true)).not.toContain('finished legacy')
+    ;(node('button', 'data-background-clear', 'completed').onClick as () => void)()
+    expect(render(false, true)).toContain('still running')
+    expect(render(false, true)).not.toContain('data-background-group="completed"')
+    // A stale direct selection cannot reopen the dismissed card or its header.
+    useChatStore.getState().sessions[sessionId].session.selectedSubagentTaskId = 'legacy-done'
+    expect(render(false, true)).not.toContain('keep original result')
+    expect(render(true, true)).not.toContain('aria-label="목록으로"')
+    expect(JSON.stringify(useChatStore.getState().sessions[sessionId].session.messages)).toBe(
+      original
+    )
+  })
+  it('independently collapses the two groups and clears only terminal cards through the real controls', () => {
+    const state = applyBackgroundEvent(withTask(), {
+      type: 'background.call',
+      sessionId,
+      toolUseId: 'done-call',
+      toolName: 'Agent',
+      phase: 'returned',
+      source: source(3),
+      patch: { status: 'completed' }
+    })
+    seed(state)
+    const original = JSON.stringify(state)
+    expect(render()).toContain('data-background-call="done-call"')
+    const running = node('button', 'data-background-group-toggle', 'running')
+    expect(running['aria-expanded']).toBe(true)
+    ;(running.onClick as () => void)()
+    expect(render()).not.toContain(`data-background-task="${taskId}"`)
+    expect(render()).toContain('data-background-call="done-call"')
+    const completed = node('button', 'data-background-group-toggle', 'completed')
+    ;(completed.onClick as () => void)()
+    expect(render()).not.toContain('data-background-call="done-call"')
+    expect(node('button', 'data-background-group-toggle', 'running')['aria-expanded']).toBe(false)
+    ;(node('button', 'data-background-clear', 'completed').onClick as () => void)()
+    expect(render()).not.toContain('data-background-group="completed"')
+    ;(node('button', 'data-background-group-toggle', 'running').onClick as () => void)()
+    expect(render()).toContain(`data-background-task="${taskId}"`)
+    expect(JSON.stringify(useBackgroundStore.getState().sessions[sessionId].state)).toBe(original)
+  })
+  it('keeps a new completion visible after clearing the previous completed group', () => {
+    const done = applyBackgroundEvent(callState(), {
+      type: 'background.call',
+      sessionId,
+      toolUseId,
+      phase: 'returned',
+      source: source(2),
+      patch: { status: 'completed' }
+    })
+    seed(done)
+    render()
+    ;(node('button', 'data-background-clear', 'completed').onClick as () => void)()
+    const next = applyBackgroundEvent(done, {
+      type: 'background.call',
+      sessionId,
+      toolUseId: 'new-completion',
+      toolName: 'Agent',
+      phase: 'returned',
+      source: source(3),
+      patch: { status: 'failed' }
+    })
+    useBackgroundStore.setState((store) => ({
+      sessions: { ...store.sessions, [sessionId]: { ...store.sessions[sessionId], state: next } }
+    }))
+    expect(render()).toContain('data-background-call="new-completion"')
+    expect(render()).not.toContain(`data-background-call="${toolUseId}"`)
+  })
   it('opens the clicked task and returns through the real header back callback', () => {
     seed(withTask())
     render()
@@ -212,7 +357,7 @@ describe('canonical background production callbacks', () => {
     ).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'output-1' })]))
   })
 
-  it('exposes outputs when an opened shell call later gains a task', () => {
+  it('keeps an opened shell call body-only after it gains a task', () => {
     const state = callState('Bash')
     seed(state)
     render()
@@ -223,6 +368,6 @@ describe('canonical background production callbacks', () => {
         [sessionId]: { ...store.sessions[sessionId], state: withTask(state) }
       }
     }))
-    expect(render()).toContain('data-background-output="output-1"')
+    expect(render()).not.toContain('data-background-output="output-1"')
   })
 })

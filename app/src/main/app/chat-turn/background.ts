@@ -4,6 +4,7 @@ import { CHANNELS } from '../../../shared/ipc'
 import {
   BackgroundStateSchema,
   StopBackgroundTaskSchema,
+  PromoteBackgroundTaskSchema,
   StopAllBackgroundTasksSchema,
   ReadBackgroundOutputSchema
 } from '../../../shared/protocol'
@@ -25,7 +26,12 @@ export function registerBackgroundHandlers(deps: ChatDeps): BackgroundController
     runtime: (sessionId) => {
       const live = deps.supervisor.peekRuntime(sessionId)
       return live
-        ? { generation: live.providerGeneration, stopTask: (taskId) => live.stopTask(taskId) }
+        ? {
+            identity: live,
+            generation: live.providerGeneration,
+            stopTask: (taskId) => live.stopTask(taskId),
+            backgroundTask: (toolUseId) => live.backgroundTask(toolUseId)
+          }
         : undefined
     },
     roots: (sessionId) => {
@@ -52,6 +58,9 @@ export function registerBackgroundHandlers(deps: ChatDeps): BackgroundController
   )
   handle(CHANNELS.chatStopBackgroundTask, StopBackgroundTaskSchema, 'reject', (req) =>
     controller.stop(req)
+  )
+  handle(CHANNELS.chatPromoteBackgroundTask, PromoteBackgroundTaskSchema, 'reject', (req) =>
+    controller.promote(req)
   )
   handle(CHANNELS.chatStopAllBackgroundTasks, StopAllBackgroundTasksSchema, 'reject', (req) =>
     controller.stopAll(req)

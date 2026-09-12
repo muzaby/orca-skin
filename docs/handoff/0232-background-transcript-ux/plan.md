@@ -6,9 +6,9 @@
 |---|---|
 | 작성자 | Codex |
 | 일자 | 2026-09-13 |
-| 상태 | READY — ΔV2 사용자 추가 피드백 구현 대기 |
+| 상태 | IMPL_DONE — r2 구현자 자기확인 완료, 독립 verify 대기 |
 | V mode / 기준 / revision | Baseline V / none / V1 |
-| 유효 V | V1 + ΔV1 + ΔV2 — 실제 모델·간결한 카드/상세·foreground 셸 전환과 표시 범위. 0230·0231의 원본/수명/출력 보존 계약은 유지한다. |
+| 유효 V | V1 + ΔV1 + ΔV2 — 실제 모델·간결한 카드/상세·foreground 셸 전환과 표시 범위·Work 내부 출처 제외·Code 그룹과 완료 지우기. 0230·0231의 원본/수명/출력 보존 계약은 유지한다. |
 
 # Part I — Product & UX Contract
 
@@ -402,3 +402,84 @@ R-03·R-06은 위 기준선의 CHANGED, R-07·SD-02(전환 수명)·AR-02(단건
 추가 노드 R-08(Work 내부 출처 제외)·MD-04(경로 분류)·SD-03(패널 표시 상태)·AT-17~19·UT-04·ST-03은 NEW다. D-17=AC17, D-18=AC18, D-19=AC19이며 앞선 ACTIVE 결정과 충돌하지 않는다.
 
 READY self-review: D-12~19와 AC11~19·pair10개·25책임 지점 연결을 확인했다. 요청한 기존 실행의 전환은 공개 SDK와 동봉 CLI에 존재한다. 추가 제품 결정이나 신규 의존성은 없다.
+
+## [구현자 기입] 설계 리뷰 — r2
+
+작성자 **Codex**. V1 + ΔV1 + ΔV2를 적용한다. D-12~19는 구현 전 별도 설계 커밋으로 보존했다. 실제 모델과 background 관측은 원본 이벤트에서 유도하고, 숨김/접힘/출처 제외는 renderer 표시 상태에 둔다. SDK 단건 전환은 기존 실행을 유지하며 새 명령이나 임의 작업을 만들지 않는다. 미해결 PLAN_GAP은 없다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — r2
+
+| §10 | 닫은 지점 / 분모 | 직접 소비 경로 |
+|---|---|---|
+| EP-Δ2-01 | 4/4 | child message.model→mapper→call/replay→canonical·legacy 모델 라벨 |
+| EP-Δ2-02 | 4/4 | 공통 투영→목록/선택/header; 카드 결과와 nonExplorer 형제 출력 부재 |
+| EP-Δ2-03 | 8/8 | 요청 스키마·preload/API→등록 handler/controller→runtime SDK; ToolCard→실제 클릭 액션 |
+| EP-Δ2-04 | 2/2 | reducer의 누적 관측→foreground 판별과 전환 후보 |
+| EP-Δ2-05 | 2/2 | 내부 경로 selector의 Read/첨부 분기→실제 Work context 렌더 |
+| EP-Δ2-06 | 5/5 | canonical/legacy/header 투영→세션 표시 상태→접기/완료 지우기 |
+
+분모는 `4+4+8+2+2+5=25`다. 기존 EP-01~04·Δ01~02의 12지점은 통합 회귀이며 중복 책임이 있으므로 합산하지 않는다. 새 pair VP-Δ2-01~10은 각각 위 production 경로의 모델·DOM·이벤트·IPC와 세션 상태를 직접 관측한다. 전체 renderer 회귀는 기존 VP-01~07·Δ01~04의 보호 동작을 포함한다. 최종 자기 상태와 gate는 아래 구현 보고에 기록한다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r2
+
+선택 적대 증거0·인용 변이0·구조적 proxy0 = 잠금 행0. 새 기능은 직접 oracle로 닫는다. 모델/관측/promotion 판별 8건 RED, 패널 표시 13건 RED, Work 출처 9건 RED를 실제 기존 동작에서 확인했다. 전환 API/컴포넌트 미존재 실패도 확인 후 실제 callback→API와 등록 handler→runtime 테스트로 보완했다. 기존 정상 셸 출력·Explorer 자식 대화·개별 중단을 양성 회귀로 남긴다.
+
+## [구현자 기입] Product/UX 파생 검토 — r2
+
+| 경계 | 판단 / 구현 |
+|---|---|
+| 모델 미도착 | 실제 모델이 오기 전 알 수 없음. 요청한 모델·부모 모델로 추정하지 않음 |
+| 전환 등록 대기 | 임의 시간 기준 대신 공개 task_started로 활성화. SDK false/예외/제한 시간은 재시도 가능한 실패 |
+| 전환 중 세션 변경 | activeKey/sessionId/generation과 main runtime identity를 각각 확인 |
+| 목록 지우기 | 클릭 시 terminal만 제거. provider 상태/출력/원본 대화 보존, unknown·paused는 실행 중 그룹 |
+| 접기/지우기 수명 | 세션 UI 상태에 두어 패널 remount·세션 왕복에서 유지. 앱 재시작 영속 저장은 추가하지 않음 |
+| Work 출처 | 지정한 내부 경로의 표시만 제외. cwd/extraDirs·일반 첨부·웹·형제 이름 보존 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r2
+
+| 문제 | 대응 / 직접 증거 |
+|---|---|
+| 실행이 SDK 응답 전에 끝남 | 성공 ACK 뒤 현재 call.phase를 보존한다. terminal/result를 오래된 running phase로 덮지 않는 controller 회귀 |
+| runtime lookup이 매번 새 wrapper 반환 | 안정된 live 객체 identity로 응답 전후 연결 비교 |
+| foreground snapshot 제외 후 이력 노출 | backgroundObserved만 단조 보존. 관측 없는 foreground는 terminal/replay에서도 제외 |
+| 지운 call에 task가 늦게 연결됨 | generation별 call/task 두 식별자를 공통 projection에서 확인. 원본 state는 변경하지 않음 |
+| 파일명 prefix가 내부 경로처럼 보임 | 디렉터리 경계로 판별하고 claude-other·claude.md·상위로 나간 점 경로는 보존 |
+
+## [구현자 기입] 구현 보고 — r2
+
+SDK 실기는 Windows 설치 SDK 0.3.267과 loopback Anthropic 응답 fixture를 사용했다. Bash와 PowerShell 모두 foreground 등록→정확한 toolUseId 단건 전환→ACK true→동일 taskId의 background/완료를 관측했다. 각 도구 호출은 1회, PID는 각각 `3351→3351`, `11796→11796`으로 동일하다. 실제 production reader와 완료 출력 확보, PowerShell 한글도 통과했다. [정리된 SDK 실행 증거](promotion-sdk-evidence.json)는 사용자 절대 경로를 제외했다. 외부 모델을 호출하지 않은 실제 SDK/셸 실기이며 설치본 전체 UI 검증과 구별한다.
+
+| AC | 자기 상태 | 직접 관측 |
+|---|---|---|
+| AC1~10 | ✅ SELF_PASS (10개) | 전체 renderer의 기존 노트·자동 수신·상태 줄·프레임/도구 상세 회귀와 최종 패널 회귀 |
+| AC11 | ✅ SELF_PASS | canonical/legacy 실제 child 모델과 미관측 라벨·완료/replay 보존 |
+| AC12 | ✅ SELF_PASS | 카드 결과 본문 부재, 원본 reason/message/cause 및 상태 양성 유지 |
+| AC13 | ✅ SELF_PASS | 비Explorer ToolCard 입력/결과만 표시하고 추가 refs/요약/읽기 controls 없음 |
+| AC14 | ✅ SELF_PASS | 실제 버튼 payload와 production handler, 실제 SDK 두 셸의 동일 task/PID 전환 |
+| AC15 | ✅ SELF_PASS | foreground terminal/replay/직접 선택 제외, 요청/관측된 background 보존 |
+| AC16 | ✅ SELF_PASS | stale/중복/지연/SDK false/오류·세션 이동 및 terminal 통지 선도 시 버튼 부재 |
+| AC17 | ✅ SELF_PASS | Read/첨부/late result/replay 내부 경로 제외·일반 출처와 원본 보존·실제 context DOM |
+| AC18 | ✅ SELF_PASS | 두 그룹·개수·독립 접기, 성공/실패/중단 및 unknown/paused 분류 |
+| AC19 | ✅ SELF_PASS | 실제 휴지통→세션 표시 상태, 재열기/세션 왕복·late 연결·새 generation·실제 실행 중 작업 보존 |
+
+검산: ✅19 · ⚠️0 · ❌0 = 총19. 새 REQUIRED pair VP-Δ2-01~10 SELF_PASS10, 기존 REGRESSION VP-01~07·Δ01~04 SELF_PASS11 = 총21. SELF_BLOCKED0. ΔV2 강제 지점25/25이며 baseline12지점과는 중복을 합산하지 않는다. 독립 handoff verify 판정은 아직 아니다.
+
+| 운영 gate | 실행 / 관측 |
+|---|---|
+| 최종 영향 범위 | Vitest canonical render/wiring·legacy/rightpanel·model·panel store·foreground action·context·preload 11파일, 130테스트 PASS |
+| 광역 renderer | `vitest run src/renderer --maxWorkers=2` — 231파일·1691테스트 실행. 1688 PASS, 이전 모델 접두/결과 본문 기대3건 실패. 최신 D-12/13과 충돌하는 세 oracle을 원본 보존·상태 양성으로 갱신한 후 해당21건 및 위130건 PASS. 전체를 다시 실행했다고 표기하지 않음 |
+| main/shared/bridge | mapper·reducer·controller·등록 handler·preload 관련7파일73테스트 PASS |
+| 스크립트 | `node --test scripts/*.test.mjs` — 116 PASS |
+| SDK | `node scripts/smoke-background-sdk.mjs --mode=promotion` — Bash/PowerShell 실제 단건 전환·PID/작업 ID 동일·완료·출력 보존 PASS |
+| 문서/운영 | inventory·현재 문서 숫자·상대 링크, migration append-only, test-budgets PASS |
+| 시각 | production 컴포넌트와 실제 store를 seed한 브라우저 fixture. light/dark 파랑·하단 우측 전환, 그룹 접기·완료 휴지통·실행 중 보존, 모델 라벨·결과 본문 부재, Work 내부 출처 제외 확인. 실제 SDK 실행과는 별도 증거 |
+
+초기 타입 검사에서 optional state와 넓은 이벤트 union을 보완했다. preload의 renderer API 통합 테스트는 `index.ts`와 이름이 같은 `index.d.ts`가 wildcard에서 제외되어 전역 Window 계약을 읽지 못했다. `tsconfig.test.json`의 files에 정본 선언을 명시하여 테스트 환경의 타입 의존성을 고정한다. 임시 Vite fixture/config와 직접 시작한 서버는 정리했다.
+
+최종 `npm run lint`는 exit0·오류0·기존 `useTranscriptVirtualizer` 경고1이다. `npm run build`는 exit0이며 node/web/test 타입 검사와 Electron main/preload/renderer 빌드가 모두 통과했다. 최종 구현 좌표는 `(r2 구현 — 좌표는 INDEX)`다. 운영 gate와 변경 파일은 실제 명령 결과와 구현 diff를 따른다.
+
+## [구현자 기입] Review Signals — r2
+
+독립 backend/shared/context 코드 검토에서 신규 차단 문제는 발견하지 못했다. 후속 UI 리뷰의 P2 두 건은 직접 재현하고 수정했다. 실패 호출을 지운 뒤 실제 running/paused task가 도착하면 표시를 복원하며, 단순 unknown 연결/late completed는 계속 숨긴다. 셸 terminal 알림이 tool_result보다 먼저 도착해도 전환 버튼은 숨긴다. 각각 정확한 raw mapper 경로 RED2→GREEN, 실제 렌더 RED4→GREEN9를 확인했으며 독립 재검토에서 두 finding을 닫았다.
+
+이전 표시를 기대하던 legacy oracle3건은 원본 데이터와 상태의 양성을 유지하면서 명시적인 사용자 결정으로 교체했다. broad 회귀의 실패와 최종 영향 범위 통과를 구분했다. 이번 보고는 구현자 자기확인이며 정식 handoff verify PASS가 아니다. 0231의 조건부 실제 배포 증거 대기 상태는 변경하지 않는다.

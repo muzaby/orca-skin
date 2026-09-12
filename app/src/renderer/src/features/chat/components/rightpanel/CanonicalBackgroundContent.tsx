@@ -1,35 +1,33 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '../../../../shared/ui/Button'
 import { formatElapsed, useElapsed } from '../../../../shared/ui/elapsed'
 import { useI18n } from '../../../../shared/i18n'
-import { chatApi } from '../../../../shared/api/ipc'
 import {
   backgroundKey,
   isBackgroundTerminal,
   type BackgroundCallRecord,
-  type BackgroundOutputRef,
   type BackgroundSessionState,
-  type BackgroundTaskRecord,
-  type ReadBackgroundOutputResponse
+  type BackgroundTaskRecord
 } from '../../../../../../shared/background-task'
-import {
-  backgroundResultText,
-  backgroundOutputRefsForDisplay,
-  backgroundTaskStatus,
-  canStopBackgroundTask,
-  hasTerminalConflict,
-  safeOutputText
-} from '../../lib/backgroundPresentation'
+import { backgroundTaskStatus, canStopBackgroundTask } from '../../lib/backgroundPresentation'
+import { BackgroundModelLabel } from './BackgroundModelLabel'
+import { BackgroundTaskGroup } from './BackgroundTaskGroup'
 import { InlineSubagentDetail } from '../transcript/InlineSubagentDetail'
 import { ToolCard } from '../transcript/ToolCard'
 import { agentUiPolicy } from '../../lib/agentPresentation'
 import { useChatSession } from '../../store/chatStore'
 import {
   refreshBackgroundState,
+  dismissCompletedBackgroundItems,
+  toggleBackgroundGroup,
   selectBackgroundItem,
   useBackgroundStore
 } from '../../store/backgroundStore'
 import {
+  callForBackgroundTask,
+  isCompletedBackgroundCall,
+  projectBackgroundPanel,
+  persistedBackgroundModels,
   backgroundCallTitle,
   backgroundCallToToolCall,
   backgroundElapsedSeconds,
@@ -47,23 +45,13 @@ function callStatus(
   return 'running'
 }
 
-function callForTask(
-  state: BackgroundSessionState,
-  task: BackgroundTaskRecord
-): BackgroundCallRecord | undefined {
-  if (task.toolUseId) {
-    const direct = state.calls[backgroundKey(task.generation, task.toolUseId)]
-    if (direct) return direct
-  }
-  return Object.values(state.calls).find(
-    (call) => call.generation === task.generation && call.taskId === task.taskId
-  )
-}
-
 export function CanonicalBackgroundContent(): React.JSX.Element {
   const sessionId = useChatSession((s) => s.sessionId)
   const kind = useChatSession((s) => s.agentKind)
+  const messages = useChatSession((s) => s.messages)
+  const persistedModels = useMemo(() => persistedBackgroundModels(messages), [messages])
   const view = useBackgroundStore((s) => (sessionId ? s.sessions[sessionId] : undefined))
+  const panel = useBackgroundStore((s) => (sessionId ? s.panels[sessionId] : undefined))
   const { tr } = useI18n()
   useEffect(() => {
     if (sessionId && !view) void refreshBackgroundState(sessionId)
@@ -72,32 +60,14 @@ export function CanonicalBackgroundContent(): React.JSX.Element {
     return <p className="p-4 text-footnote text-t6">{tr('background.loading')}</p>
   const state = view.state
   const selection = view.selection
-  const tasks = Object.values(state.tasks).sort((a, b) => b.firstSeenAt - a.firstSeenAt)
-  const calls = Object.values(state.calls).filter(
-    (call) =>
-      (!call.taskId || !state.tasks[backgroundKey(call.generation, call.taskId)]) &&
-      (call.awaitingTask ||
-        call.launchFailure ||
-        call.status === 'failed' ||
-        call.toolName === 'Agent' ||
-        call.toolName === 'Task')
+  const { tasks, calls, selectedTask, selectedCall } = projectBackgroundPanel(
+    state,
+    selection,
+    panel
   )
-  const directlySelectedTask = selection?.kind === 'task' ? state.tasks[selection.key] : undefined
-  const selectedCall =
-    selection?.kind === 'call'
-      ? state.calls[selection.key]
-      : directlySelectedTask
-        ? callForTask(state, directlySelectedTask)
-        : undefined
-  const selectedTask =
-    directlySelectedTask ??
-    (selectedCall?.taskId
-      ? state.tasks[backgroundKey(selectedCall.generation, selectedCall.taskId)]
-      : undefined)
   if (selectedTask || selectedCall) {
     return (
       <CanonicalBackgroundDetail
-        sessionId={sessionId}
         task={selectedTask}
         call={selectedCall}
         transcriptPolicy={agentUiPolicy(kind).transcript}
@@ -120,33 +90,56 @@ export function CanonicalBackgroundContent(): React.JSX.Element {
       {!tasks.length && !calls.length && (
         <p className="text-footnote text-t6">{tr('background.empty')}</p>
       )}
-      {tasks.map((task) => (
-        <BackgroundTaskCard
-          key={backgroundKey(task.generation, task.taskId)}
-          sessionId={sessionId}
-          state={state}
-          task={task}
-          call={callForTask(state, task)}
-          onOpen={() =>
-            selectBackgroundItem(sessionId, {
-              kind: 'task',
-              key: backgroundKey(task.generation, task.taskId)
-            })
-          }
-        />
-      ))}
-      {calls.map((call) => (
-        <BackgroundCallCard
-          key={backgroundKey(call.generation, call.toolUseId)}
-          call={call}
-          onOpen={() =>
-            selectBackgroundItem(sessionId, {
-              kind: 'call',
-              key: backgroundKey(call.generation, call.toolUseId)
-            })
-          }
-        />
-      ))}
+      {(['running', 'completed'] as const).map((group) => {
+        const groupedTasks = tasks.filter(
+          (task) => isBackgroundTerminal(task.status) === (group === 'completed')
+        )
+        const groupedCalls = calls.filter(
+          (call) => isCompletedBackgroundCall(call) === (group === 'completed')
+        )
+        return (
+          <BackgroundTaskGroup
+            key={group}
+            group={group}
+            count={groupedTasks.length + groupedCalls.length}
+            collapsed={panel?.collapsed?.[group] ?? false}
+            onToggle={() => toggleBackgroundGroup(sessionId, group)}
+            onClear={() => dismissCompletedBackgroundItems(sessionId)}
+          >
+            {groupedTasks.map((task) => (
+              <BackgroundTaskCard
+                key={backgroundKey(task.generation, task.taskId)}
+                sessionId={sessionId}
+                state={state}
+                task={task}
+                call={callForBackgroundTask(state, task)}
+                persistedModel={persistedModels.get(
+                  task.toolUseId ?? callForBackgroundTask(state, task)?.toolUseId ?? ''
+                )}
+                onOpen={() =>
+                  selectBackgroundItem(sessionId, {
+                    kind: 'task',
+                    key: backgroundKey(task.generation, task.taskId)
+                  })
+                }
+              />
+            ))}
+            {groupedCalls.map((call) => (
+              <BackgroundCallCard
+                key={backgroundKey(call.generation, call.toolUseId)}
+                call={call}
+                persistedModel={persistedModels.get(call.toolUseId)}
+                onOpen={() =>
+                  selectBackgroundItem(sessionId, {
+                    kind: 'call',
+                    key: backgroundKey(call.generation, call.toolUseId)
+                  })
+                }
+              />
+            ))}
+          </BackgroundTaskGroup>
+        )
+      })}
     </div>
   )
 }
@@ -156,12 +149,14 @@ export function BackgroundTaskCard({
   state,
   task,
   call,
+  persistedModel,
   onOpen
 }: {
   sessionId: string
   state: BackgroundSessionState
   task: BackgroundTaskRecord
   call?: BackgroundCallRecord
+  persistedModel?: string
   onOpen?: () => void
 }): React.JSX.Element {
   const { tr } = useI18n()
@@ -213,7 +208,15 @@ export function BackgroundTaskCard({
         </span>
       </div>
       <div className="mt-g1 pl-5 text-footnote text-ink3">
-        {call?.toolName || task.taskType || tr('chat.toolMeta.agentFallback')}
+        {call?.toolName === 'Agent' || call?.toolName === 'Task' || task.subagentType ? (
+          <BackgroundModelLabel
+            toolUseId={call?.toolUseId ?? task.toolUseId}
+            model={call?.model}
+            persistedModel={persistedModel}
+          />
+        ) : (
+          call?.toolName || task.taskType || tr('common.unknown')
+        )}
         {' · '}
         {tr(
           task.stop && !terminal
@@ -258,23 +261,6 @@ export function BackgroundTaskCard({
           />
         )}
       </div>
-      {task.summary !== undefined && (
-        <p className="mt-2 whitespace-pre-wrap break-words pl-5 text-footnote">
-          {safeOutputText(task.summary)}
-        </p>
-      )}
-      {task.error && (
-        <p role="alert" className="pl-5 text-footnote text-bad">
-          {safeOutputText(task.error)}
-        </p>
-      )}
-      {(hasTerminalConflict(task) || call?.launchFailure) && (
-        <p role="alert" className="pl-5 text-footnote text-bad">
-          {call?.launchFailure
-            ? backgroundResultText(call.launchFailure.receipt)
-            : tr('background.conflict')}
-        </p>
-      )}
       {(task.stop?.error || error) && (
         <p role="alert" className="mt-0.5 break-words pl-5 text-footnote text-bad">
           {task.stop?.error || error}
@@ -286,9 +272,11 @@ export function BackgroundTaskCard({
 
 function BackgroundCallCard({
   call,
+  persistedModel,
   onOpen
 }: {
   call: BackgroundCallRecord
+  persistedModel?: string
   onOpen: () => void
 }): React.JSX.Element {
   const { tr } = useI18n()
@@ -317,7 +305,16 @@ function BackgroundCallCard({
         </span>
       </div>
       <div className="mt-g1 pl-5 text-footnote text-ink3">
-        {call.toolName || tr('common.unknown')} · {tr(`background.${callStatus(call)}`)}
+        {call.toolName === 'Agent' || call.toolName === 'Task' ? (
+          <BackgroundModelLabel
+            toolUseId={call.toolUseId}
+            model={call.model}
+            persistedModel={persistedModel}
+          />
+        ) : (
+          call.toolName || tr('common.unknown')
+        )}{' '}
+        · {tr(`background.${callStatus(call)}`)}
       </div>
       <div className="mt-g1 pl-5 text-footnote text-ink3">
         {call.awaitingTask && `${tr('background.noTaskId')} · `}
@@ -325,205 +322,45 @@ function BackgroundCallCard({
           {tr('chat.subagentTile.viewTranscript')}
         </span>
       </div>
-      {call.launchFailure && (
-        <p
-          role="alert"
-          className="mt-1 whitespace-pre-wrap break-words pl-5 text-footnote text-bad"
-        >
-          {backgroundResultText(call.launchFailure.receipt)}
-        </p>
-      )}
     </div>
   )
 }
 
 function CanonicalBackgroundDetail({
-  sessionId,
   task,
   call,
   transcriptPolicy
 }: {
-  sessionId: string
   task?: BackgroundTaskRecord
   call?: BackgroundCallRecord
   transcriptPolicy: import('../../lib/agentPresentation').AgentTranscriptPresentation
 }): React.JSX.Element {
   const { tr } = useI18n()
-  const toolPolicy = { ...transcriptPolicy, showTaskAgentLabel: false }
-  if (call && (call.toolName === 'Agent' || call.toolName === 'Task')) {
-    return (
-      <div
-        className="flex min-h-0 flex-1 flex-col overflow-auto px-p5 py-p4"
-        data-background-detail={task?.taskId}
-        data-background-call-detail={call.toolUseId}
-      >
-        <InlineSubagentDetail
-          toolRunId={call.toolUseId}
-          transcriptPolicy={transcriptPolicy}
-          framed={false}
-        />
-      </div>
-    )
-  }
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col gap-[var(--chat-turn-gap)] overflow-auto px-p5 py-p4"
+      className="flex min-h-0 flex-1 flex-col overflow-auto px-p5 py-p4"
       data-background-detail={task?.taskId}
       data-background-call-detail={call?.toolUseId}
     >
-      {call && (
-        <div data-background-tool-call={call.toolUseId}>
-          <ToolCard
-            call={backgroundCallToToolCall(call)}
-            transcriptPolicy={toolPolicy}
-            presentation="detail-body"
+      {call ? (
+        call.toolName === 'Agent' || call.toolName === 'Task' ? (
+          <InlineSubagentDetail
+            toolRunId={call.toolUseId}
+            transcriptPolicy={transcriptPolicy}
+            framed={false}
           />
-        </div>
+        ) : (
+          <div data-background-tool-call={call.toolUseId}>
+            <ToolCard
+              call={backgroundCallToToolCall(call)}
+              transcriptPolicy={{ ...transcriptPolicy, showTaskAgentLabel: false }}
+              presentation="detail-body"
+            />
+          </div>
+        )
+      ) : (
+        <p className="text-footnote text-ink3">{tr('background.noTaskId')}</p>
       )}
-      {task && !call && (
-        <details open className="text-footnote">
-          <summary>{tr('background.details')}</summary>
-          <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all">
-            {backgroundResultText(task)}
-          </pre>
-        </details>
-      )}
-      {task?.summary !== undefined && (
-        <p className="whitespace-pre-wrap break-words text-footnote">
-          {safeOutputText(task.summary)}
-        </p>
-      )}
-      {task?.error && (
-        <p role="alert" className="text-footnote text-bad">
-          {safeOutputText(task.error)}
-        </p>
-      )}
-      {task && (hasTerminalConflict(task) || call?.launchFailure) && (
-        <p role="alert" className="text-footnote text-bad">
-          {tr('background.conflict')}
-        </p>
-      )}
-      {task &&
-        backgroundOutputRefsForDisplay(task.outputRefs).map((ref) => (
-          <BackgroundOutput key={ref.id} sessionId={sessionId} task={task} output={ref} />
-        ))}
     </div>
-  )
-}
-function BackgroundOutput({
-  sessionId,
-  task,
-  output
-}: {
-  sessionId: string
-  task: BackgroundTaskRecord
-  output: BackgroundOutputRef
-}): React.JSX.Element {
-  const { tr } = useI18n()
-  const [value, setValue] = useState<ReadBackgroundOutputResponse>()
-  const [text, setText] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string>()
-  const [view, setView] = useState<'current' | 'snapshot'>('current')
-  const version = useRef(0)
-  useEffect(
-    () => () => {
-      version.current++
-    },
-    []
-  )
-  const read = async (reset = false): Promise<void> => {
-    const current = ++version.current
-    setBusy(true)
-    setError(undefined)
-    try {
-      const result = await chatApi.readBackgroundOutput({
-        sessionId,
-        generation: task.generation,
-        taskId: task.taskId,
-        outputId: output.id,
-        offset: reset ? 0 : (value?.nextOffset ?? 0),
-        maxBytes: 65_536,
-        view,
-        ...(!reset && value?.cursor ? { cursor: value.cursor } : {})
-      })
-      if (current !== version.current) return
-      setValue(result)
-      setText(
-        (old) =>
-          (reset ||
-          result.status === 'changed' ||
-          result.status === 'truncated' ||
-          result.offset === 0
-            ? ''
-            : old) + safeOutputText(result.text ?? '')
-      )
-    } catch (err) {
-      if (current === version.current) setError(String(err))
-    } finally {
-      if (current === version.current) setBusy(false)
-    }
-  }
-  const selectView = (next: 'current' | 'snapshot'): void => {
-    version.current++
-    setView(next)
-    setValue(undefined)
-    setText('')
-    setBusy(false)
-    setError(undefined)
-  }
-  const unavailable = output.canRead === false || output.kind !== 'file'
-  return (
-    <section
-      className="mt-3 rounded-r5 border border-border p-2"
-      data-background-output={output.id}
-    >
-      <p className="break-all text-footnote">
-        {output.field}: {output.value}
-      </p>
-      <div className="my-2 flex flex-wrap gap-2">
-        {task.outputSnapshots[output.id] && (
-          <>
-            <Button size="small" onClick={() => selectView('current')}>
-              {tr('background.current')}
-            </Button>
-            <Button size="small" onClick={() => selectView('snapshot')}>
-              {tr('background.snapshot')}
-            </Button>
-          </>
-        )}
-        <Button size="small" disabled={busy || unavailable} onClick={() => void read(false)}>
-          {tr(value ? 'background.more' : 'background.read')}
-        </Button>
-        {value && (
-          <Button size="small" disabled={busy || unavailable} onClick={() => void read(true)}>
-            {tr('background.refresh')}
-          </Button>
-        )}
-      </div>
-      {unavailable && (
-        <p className="text-footnote text-t6">
-          {tr(output.kind === 'uri' ? 'background.remoteOutput' : 'background.denied')}
-        </p>
-      )}
-      {value && (
-        <p role="status" className="text-footnote text-t6">
-          {tr(value.status === 'remote' ? 'background.remoteOutput' : `background.${value.status}`)}{' '}
-          · {value.nextOffset}/{value.size ?? '?'} ·{' '}
-          {tr(view === 'current' ? 'background.current' : 'background.snapshot')}
-        </p>
-      )}
-      {(error || value?.error || task.outputErrors[output.id]) && (
-        <p role="alert" className="text-footnote text-bad">
-          {error || value?.error || task.outputErrors[output.id]}
-        </p>
-      )}
-      {text && (
-        <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all text-footnote">
-          {text}
-        </pre>
-      )}
-      <p className="text-footnote text-t6">{tr('background.outputHelp')}</p>
-    </section>
   )
 }

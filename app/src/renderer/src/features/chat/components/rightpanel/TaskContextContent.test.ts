@@ -72,6 +72,45 @@ describe('Work context directory controls', () => {
     const $ = load(renderToStaticMarkup(createElement(TaskContextContent)))
     expect($('[data-surface="context-directory"]').is('[disabled]')).toBe(true)
   })
+  it('omits internal Claude sources while retaining ordinary files and configured directories', () => {
+    const internal = 'C:/Users/Tester/AppData/Local/Temp/orcinus-orca/claude/tasks/task.output'
+    const visible = 'C:/Work/input.md'
+    session = {
+      ...session,
+      messages: [
+        {
+          role: 'assistant',
+          createdAt: 1,
+          parts: [
+            {
+              type: 'tool_call',
+              toolRunId: 'internal',
+              toolName: 'Read',
+              args: { file_path: internal }
+            },
+            {
+              type: 'tool_result',
+              toolRunId: 'internal',
+              result: 'internal result',
+              isError: false
+            },
+            {
+              type: 'tool_call',
+              toolRunId: 'visible',
+              toolName: 'Read',
+              args: { file_path: visible }
+            },
+            { type: 'tool_result', toolRunId: 'visible', result: 'input', isError: false }
+          ]
+        }
+      ]
+    }
+    const $ = load(renderToStaticMarkup(createElement(TaskContextContent)))
+    expect($.html()).not.toContain('task.output')
+    expect($.text()).toContain('input.md')
+    expect($('[data-surface="context-directory"]').length).toBe(2)
+    expect(session.messages[0].parts).toHaveLength(4)
+  })
   it('allows opening an existing folder while work is active without allowing scope changes', () => {
     busy = true
     const $ = load(renderToStaticMarkup(createElement(TaskContextContent)))

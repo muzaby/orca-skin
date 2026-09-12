@@ -17,6 +17,7 @@ import { toolRendererRegistry } from './registry'
 import type { ToolCall } from '../../reducer/chatReducer'
 import { AgentTaskRow } from './AgentTaskRow'
 import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
+import { ForegroundShellActions } from './ForegroundShellActions'
 
 // result.output 을 문자열로.
 function resultOutput(call: ToolCall): string {
@@ -187,6 +188,7 @@ export const ToolCard = memo(function ToolCard({
                     </div>
                   </div>
                   <ToolBody call={call} transcriptPolicy={transcriptPolicy} />
+                  {!detailBody && <ForegroundShellActions call={call} />}
                 </div>
               </div>
             )}

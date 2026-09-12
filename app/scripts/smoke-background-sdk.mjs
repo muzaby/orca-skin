@@ -9,8 +9,8 @@ import { setTimeout as delay } from 'node:timers/promises'
 
 const mode = process.argv.find((arg) => arg.startsWith('--mode='))?.slice(7) ?? 'basic'
 const selectedCase = process.argv.find((arg) => arg.startsWith('--case='))?.slice(7)
-if (!['basic', 'lifetime', 'workflow', 'extended'].includes(mode)) {
-  throw new Error('Expected --mode=basic|lifetime|workflow|extended')
+if (!['basic', 'lifetime', 'workflow', 'extended', 'promotion'].includes(mode)) {
+  throw new Error('Expected --mode=basic|lifetime|workflow|extended|promotion')
 }
 
 const root = join(tmpdir(), 'orcinus-orca')
@@ -69,6 +69,16 @@ async function run(tool, stop, scenario) {
   let startupError
   let shellTaskId
   let shellTerminal = false
+  const promotion =
+    scenario?.action === 'promotion'
+      ? {
+          toolUseId: `fixture_main_${tool}`,
+          toolCalls: 0,
+          receivedToolCalls: 0,
+          updatedTaskIds: [],
+          returnedTaskIds: []
+        }
+      : undefined
   const server = createServer(async (req, res) => {
     const chunks = []
     for await (const chunk of req) chunks.push(chunk)
@@ -110,14 +120,18 @@ async function run(tool, stop, scenario) {
     const callKey = `${childRequest ? 'child' : 'main'}:${selectedTool}`
     const use = !called.has(callKey) && available.includes(selectedTool)
     if (use) called.add(callKey)
+    if (use && promotion) promotion.toolCalls++
     // Keep the main model turn in flight while its background Agent starts the shell.
     if (scenario?.name === 'background-agent-interrupt' && !childRequest && !use) {
       observations.push({ at: Date.now(), kind: 'main-response-held' })
       await delay(15_000)
       if (res.destroyed) return
     }
-    const command =
-      scenario && selectedTool === 'Bash'
+    const command = promotion
+      ? tool === 'Bash'
+        ? `printf '%s' "$$" > '${scenario.name}.started'; sleep 8; printf '%s' "$$" > '${scenario.name}.done'; printf 'orca-promotion-finished\\n'`
+        : `$PID | Set-Content -LiteralPath '${scenario.name}.started'; Start-Sleep -Seconds 8; $PID | Set-Content -LiteralPath '${scenario.name}.done'; Write-Output 'orca-promotion-finished 한글'`
+      : scenario && selectedTool === 'Bash'
         ? `printf '%s' "$$" > '${scenario.name}.started'; sleep 8; printf 'finished' > '${scenario.name}.done'; printf 'orca-lifetime-finished\\n'`
         : tool === 'Bash'
           ? `sleep ${stop ? 20 : 3}; printf 'orca-sdk-smoke-bash\\n'`
@@ -140,7 +154,7 @@ async function run(tool, stop, scenario) {
                 : 'Return a brief local smoke result.',
               ...(scenario ? { run_in_background: scenario.owner === 'background-agent' } : {})
             }
-          : { command, run_in_background: true, description: 'Orca SDK local smoke' }
+          : { command, run_in_background: !promotion, description: 'Orca SDK local smoke' }
     const content = use
       ? [
           {
@@ -262,12 +276,65 @@ async function run(tool, stop, scenario) {
         output_file: event.output_file,
         tool_use_id: event.tool_use_id,
         task_type: event.task_type,
+        is_backgrounded: event.is_backgrounded,
         parent_tool_use_id: event.parent_tool_use_id,
         message: event.type === 'user' ? event.message : undefined,
         tools: event.type === 'system' && event.subtype === 'init' ? event.tools : undefined,
         tool_use_result: event.tool_use_result
       })
       if (event.type === 'result') mainResult = true
+      if (promotion) {
+        if (event.type === 'assistant')
+          promotion.receivedToolCalls += (event.message?.content ?? []).filter(
+            (part) => part.type === 'tool_use' && part.id === promotion.toolUseId
+          ).length
+        if (
+          !actionApplied &&
+          event.type === 'system' &&
+          event.subtype === 'task_started' &&
+          event.task_type === 'local_bash' &&
+          event.tool_use_id === promotion.toolUseId &&
+          event.is_backgrounded === false
+        ) {
+          promotion.foregroundTaskId = event.task_id
+          promotion.pidBefore = (await waitForMarker(startedFile, 5000))?.trim()
+          if (!promotion.pidBefore || (await readMarker(doneFile)) !== undefined)
+            throw new Error('Foreground shell was not still running at promotion dispatch')
+          shellStarted = true
+          actionApplied = true
+          observations.push({
+            at: Date.now(),
+            kind: 'promotion-dispatched',
+            toolUseId: promotion.toolUseId,
+            taskId: event.task_id,
+            pid: promotion.pidBefore
+          })
+          promotion.acknowledged = await live.backgroundTasks(promotion.toolUseId)
+          observations.push({
+            at: Date.now(),
+            kind: 'promotion-ack',
+            acknowledged: promotion.acknowledged
+          })
+        }
+        if (
+          event.type === 'system' &&
+          event.subtype === 'task_updated' &&
+          event.patch?.is_backgrounded === true
+        )
+          promotion.updatedTaskIds.push(event.task_id)
+        if (event.tool_use_result?.backgroundTaskId) {
+          promotion.returnedTaskIds.push(event.tool_use_result.backgroundTaskId)
+          promotion.backgroundedByUser = event.tool_use_result.backgroundedByUser
+        }
+        if (
+          event.type === 'system' &&
+          event.subtype === 'task_notification' &&
+          event.task_id === promotion.foregroundTaskId
+        ) {
+          promotion.completedTaskId = event.task_id
+          promotion.terminalStatus = event.status
+        }
+      }
       if (event.type === 'system' && event.subtype === 'task_started') taskId = event.task_id
       if (
         event.type === 'system' &&
@@ -285,7 +352,7 @@ async function run(tool, stop, scenario) {
         const output = event.tool_use_result
         if (output && typeof output === 'object' && output.error) startupError = output
       }
-      if (scenario && tool === 'Bash' && !actionApplied && !shellStarted) {
+      if (scenario && !promotion && tool === 'Bash' && !actionApplied && !shellStarted) {
         const marker =
           event.type === 'system' &&
           event.subtype === 'task_started' &&
@@ -321,12 +388,32 @@ async function run(tool, stop, scenario) {
       if (event.type === 'system' && event.subtype === 'task_notification') terminal = true
       if (scenario?.action === 'workflow' && mainResult) break
       if (!scenario && mainResult && (terminal || !available.includes(tool))) break
+      if (promotion && mainResult && promotion.completedTaskId) break
       if (scenario?.action === 'interrupt' && actionApplied && shellTerminal) break
       if (scenario?.action === 'oneshot' && event.type === 'result') {
         observations.push({ at: Date.now(), kind: 'one-shot-main-result' })
       }
     }
-    if (scenario && tool === 'Bash') {
+    if (promotion) {
+      promotion.pidAfter = (await waitForMarker(doneFile, 1000))?.trim()
+      shellFinished = promotion.pidAfter !== undefined
+      const id = promotion.foregroundTaskId
+      if (
+        !id ||
+        promotion.acknowledged !== true ||
+        promotion.toolCalls !== 1 ||
+        promotion.receivedToolCalls !== 1 ||
+        !promotion.updatedTaskIds.includes(id) ||
+        promotion.returnedTaskIds.length !== 1 ||
+        promotion.returnedTaskIds[0] !== id ||
+        promotion.completedTaskId !== id ||
+        promotion.terminalStatus !== 'completed' ||
+        !promotion.pidBefore ||
+        promotion.pidBefore !== promotion.pidAfter
+      )
+        throw new Error('Same-execution promotion evidence was incomplete or inconsistent')
+    }
+    if (scenario && !promotion && tool === 'Bash') {
       // Each command self-terminates after eight seconds. Observe only this case's markers.
       shellStarted ||= (await readMarker(startedFile)) !== undefined
       shellFinished = (await waitForMarker(doneFile, 10_000)) !== undefined
@@ -399,6 +486,7 @@ async function run(tool, stop, scenario) {
       shellFinished,
       actionApplied,
       startupError,
+      promotion,
       canonical: {
         pending: backgroundPending(canonical),
         tasks: canonical.tasks,
@@ -423,6 +511,7 @@ async function run(tool, stop, scenario) {
       shellFinished,
       actionApplied,
       startupError,
+      promotion,
       canonical: {
         pending: backgroundPending(canonical),
         tasks: canonical.tasks,
@@ -455,6 +544,14 @@ if (mode === 'lifetime' || mode === 'extended') {
 if (mode === 'workflow' || mode === 'extended') {
   cases.push(['Workflow', false, { name: 'workflow-start-error', action: 'workflow' }])
   cases.push(['Workflow', false, { name: 'workflow-oneshot', action: 'oneshot' }])
+}
+if (mode === 'promotion') {
+  for (const tool of ['Bash', 'PowerShell'])
+    cases.push([
+      tool,
+      false,
+      { name: `${tool.toLowerCase()}-promotion`, action: 'promotion', owner: 'main' }
+    ])
 }
 for (const [tool, stop, scenario] of cases) {
   if (selectedCase && scenario?.name !== selectedCase) continue

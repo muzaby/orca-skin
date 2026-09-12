@@ -7,6 +7,9 @@ import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../../../shared/produc
 export const ko = {
   background: {
     title: '백그라운드 작업',
+    groupRunning: '실행 중',
+    groupCompleted: '완료',
+    clearCompleted: '완료된 작업 지우기',
     empty: '백그라운드 작업이 없습니다.',
     loading: '작업 상태를 불러오는 중…',
     refresh: '새로고침',
@@ -743,7 +746,9 @@ export const ko = {
       },
       subagentHeading: '서브에이전트',
       subagentTypeLine: '유형: {{type}}',
-      openSubagentPanel: '서브에이전트 패널 열기'
+      openSubagentPanel: '서브에이전트 패널 열기',
+      promoteBackground: '백그라운드 전환',
+      promoteBackgroundFailed: '백그라운드로 전환하지 못했습니다.'
     },
     subagentNotice: {
       completed: '백그라운드 작업 완료',
