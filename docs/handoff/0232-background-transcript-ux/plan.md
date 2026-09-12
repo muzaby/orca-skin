@@ -39,6 +39,7 @@
 | D-06 | Temp `orcinus-orca`, Bash+PowerShell, 문서 작성자 Codex, PR 생성 | 앞선 사용자 결정 | ACTIVE | 변경 없음 |
 | D-07 | 패널에 새로고침·모든 실행 중단 버튼을 배치하지 않음 | 미리보기 확인 후 사용자 추가 피드백 | ACTIVE | 기존 패널의 두 제어 표시 대체 |
 | D-08 | 선택 상세의 도구 호출 제목 행을 렌더하지 않음. 패널 제목/뒤로가기·도구 본문은 유지 | 사용자 예시 `실행 중실행 중로그 파서 조사 >` | ACTIVE | D-03의 상세 표시 보완 |
+| D-09 | 상세의 결과 기다리기·대기 취소 UI를 제거 | 사용자 추가 피드백; 실제 작업 중단은 유지 | ACTIVE | 기존 대기 전용 UI 대체 |
 
 ### 갱신 메모
 
@@ -196,7 +197,7 @@ SDK→normalize→history/reducer는 그대로 두고 transcript 투영만 바�
 
 | R / AT / AC | provenance | 추가 동작 / production 경로 / 직접 oracle |
 |---|---|---|
-| R-05 / AT-09 / AC9 | NEW | canonical 패널 목록에 새로고침·일괄 중단이 없고 각 실행 카드의 개별 중단은 있다. 렌더·클릭 테스트. |
+| R-05 / AT-09 / AC9 | NEW | canonical 패널에 새로고침·일괄 중단·결과 기다리기·대기 취소 UI가 없고 각 실행 카드의 개별 중단은 있다. 렌더·클릭 테스트. |
 | R-06 / AT-10 / AC10 | NEW | 카드→선택 상세에서 호출 제목/상태 확장 행이 없고 도구 본문/child·상단 back는 남는다. 기본 transcript ToolCard 제목은 유지된다. 렌더·interaction 테스트. |
 | MD-02 / UT-02 | NEW | ToolCard의 제목 없는 본문 표현은 opt-in이며 기본 사용처의 확장 UX를 바꾸지 않음. 두 경우 DOM 직접 비교. |
 | AR-01 / IT-01 | CHANGED | canonical 선택 상세→ToolCard 본문 표현의 배선을 추가하고 기존 VP-06의 세션/식별자 경계를 유지. |
@@ -208,6 +209,6 @@ SDK→normalize→history/reducer는 그대로 두고 transcript 투영만 바�
 | VP-Δ03 | MD-02 ↔ UT-02 | REQUIRED | ToolCard opt-in/default; body/header 슬롯의 실제 렌더 | EP-Δ02 (2); not selected — 자리 직접 관측 |
 | VP-Δ04 | AR-01 ↔ IT-01 | REQUIRED | 선택 카드→상세/back/stop; 기존 VP-06 경로와 제목 옵션 전달 | EP-03,04,Δ02 (6); not selected — interaction |
 
-AS-IS: canonical 목록 toolbar에 refresh/stopAll, 상세 ToolCard에 status/title 확장 행. TO-BE: toolbar 제거, 기존 stopAll API는 남고 선택 상세만 제목 없는 본문으로 표시한다. 파일: `CanonicalBackgroundContent`, `ToolCard`, 관련 render/interaction 테스트. 기본 ToolCard 및 개별 중단은 회귀 대상으로 기존 VP-03/06을 재실행한다.
+AS-IS: canonical 목록 toolbar에 refresh/stopAll, 상세 ToolCard에 status/title 확장 행과 결과 대기 UI. TO-BE: toolbar·대기 전용 UI 제거, 기존 stopAll API는 남고 선택 상세만 제목 없는 본문으로 표시한다. 파일: `CanonicalBackgroundContent`, `ToolCard`, 관련 render/interaction 테스트. 기본 ToolCard 및 개별 중단은 회귀 대상으로 기존 VP-03/06을 재실행한다.
 
-§10 유효 강제 지점은 기존 8지점 + EP-Δ01(1) + EP-Δ02(2)다. 운영 gate는 §19를 유지한다. 기존 AC1~8 + AC9~10 = 총 10개이며 ACTIVE↔AC 대조는 D-07=AC9, D-08=AC10으로 충돌 없다.
+§10 유효 강제 지점은 기존 8지점 + EP-Δ01(1) + EP-Δ02(2)다. EP-Δ01은 canonical 패널 목록과 상세의 제어 집합을 함께 검사한다. 운영 gate는 §19를 유지한다. 기존 AC1~8 + AC9~10 = 총 10개이며 ACTIVE↔AC 대조는 D-07·D-09=AC9, D-08=AC10으로 충돌 없다.
