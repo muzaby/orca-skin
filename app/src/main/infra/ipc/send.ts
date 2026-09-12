@@ -15,6 +15,12 @@ import {
 } from '../../../shared/ipc'
 
 import { wireLog } from './wire-log'
+import type { BackgroundEvent } from '../../../shared/background-task'
+
+// Canonical task facts use a separate channel; provider raw messages never enter wire logging.
+export function broadcastBackgroundEvent(event: BackgroundEvent): void {
+  broadcast(CHANNELS.chatBackgroundEvent, event)
+}
 
 // wire 플래그 정본은 wire-log.ts(electron 비의존, 0068) — 기존 import 경로 무회귀 re-export.
 export { setWireLog } from './wire-log'

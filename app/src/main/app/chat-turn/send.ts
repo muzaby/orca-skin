@@ -39,6 +39,7 @@ import { createApprovalRequester } from './approval'
 import { runTurnWithContinuations } from './post-turn'
 import type { ChatRuntimeDeps, NormalizedAttachments } from './deps'
 import { makeClassifiedError } from '../../infra/errors'
+import { prepareTemporaryFilesPath } from '../../infra/config/temp-path'
 import { prepareTurnExecution } from './prepare-worktree'
 import { resolveAgentKind, resolveAgentProfile } from '../../features/agents/profiles'
 import { bindStartingProject } from './project-binding'
@@ -73,6 +74,18 @@ export async function handleChatSend(
     return
   }
   const payload = admission.data
+  if (payload.sessionId && deps.background?.isStoppingAll(payload.sessionId)) {
+    sendChatEvent(event.sender, {
+      type: 'error',
+      sessionId: payload.sessionId,
+      error: makeClassifiedError(
+        'capability_unsupported',
+        '백그라운드 작업 전체 중단을 확인하고 있습니다. 잠시 후 다시 보내세요.',
+        { retryable: true }
+      )
+    })
+    return
+  }
   // admitChatSend 가 hasActiveAdapter 를 이미 통과시켰다.
   const activeAdapter = adapter!
 
@@ -129,7 +142,7 @@ export async function handleChatSend(
       ? {
           ...extensions,
           outputFiles,
-          systemPromptAppend: `${extensions.systemPromptAppend ?? ''}\nFinal ordinary output directory: ${outputFiles.directory} (the OS user temporary directory). Use this exact absolute path in file operations and final Markdown links.`
+          systemPromptAppend: `${extensions.systemPromptAppend ?? ''}\nFinal ordinary output directory: ${outputFiles.directory} (the Orca-specific orcinus-orca folder under the OS user temporary directory). Use this exact absolute path in file operations and final Markdown links.`
         }
       : extensions
   const acquired = supervisor.acquireChain({
@@ -315,6 +328,7 @@ export async function handleChatSend(
         // start* 로 등록한 즉시 cleanup 핸들을 공개한다. 이 다음 await가 reject해도
         // 바깥 finally가 등록된 turn을 정확히 한 번 release해야 한다.
         leaderTurn = turn
+        await prepareTemporaryFilesPath()
         if (agentKind === 'work' && deps.prepareOutputFiles)
           outputFiles = await deps.prepareOutputFiles(turn.cwd)
         const entry = await acquireTurnRuntime(
@@ -486,6 +500,7 @@ export async function handleChatSend(
         ...ifPresent('providerSettings', resolved.prepared.providerSettings),
         ...(resolved.model !== undefined ? { model: resolved.model } : {}),
         requestApproval,
+        onProviderEvent: (event) => deps.background?.observe(event),
         permissionMode,
         planApprovalMode: planApprovedMode(agentKind),
         ...(payload.effort ? { effort: payload.effort } : {}),

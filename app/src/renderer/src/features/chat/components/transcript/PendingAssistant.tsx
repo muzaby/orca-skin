@@ -3,6 +3,7 @@ import { StreamingMarkdown } from '../markdown/StreamingMarkdown'
 import { ReasoningBlock } from './ReasoningBlock'
 import { StatusLine } from '../StatusLine'
 import {
+  chatActions,
   useChatActivity,
   useChatSession,
   useLiveReasoning,
@@ -44,6 +45,7 @@ function LiveText(): React.JSX.Element | null {
 }
 
 export function PendingAssistantStatus(): React.JSX.Element {
+  const agentKind = useChatSession((s) => s.agentKind)
   const turnStartedAt = useChatSession((s) => s.turnStartedAt)
   // 0143 listen 대기 — 개별 알림 턴 종료가 turnStartedAt 을 비워도(TURN_END_RESET) listening
   // 구간의 앵커(listenStartedAt)로 폴백해 StatusLine 애니메이션이 끊기지 않는다.
@@ -51,9 +53,7 @@ export function PendingAssistantStatus(): React.JSX.Element {
   const activity = useChatActivity()
   const prepareStep = useChatSession((s) => s.worktreePrepareStep)
   const text = useLiveText()
-  // StatusLine 은 심볼 애니메이션 때문에 200ms 마다 다시 그려진다. 여기서 매번 새 객체를 만들면
-  // 그 아래 라벨 파생·번역이 값이 그대로인데도 5회/초로 다시 돈다 — 값이 같으면 **같은 객체**를
-  // 유지해 파생을 실제 변화에만 묶는다.
+  // 활동 값이 같으면 같은 객체를 유지해 상태 줄의 파생·번역을 실제 변화에만 묶는다.
   const activityView = useMemo(
     () => ({
       foreground: activity.activityForeground,
@@ -82,6 +82,9 @@ export function PendingAssistantStatus(): React.JSX.Element {
       outputApproxFromText={text}
       activity={activityView}
       prepareStep={prepareStep}
+      onOpenBackground={() =>
+        chatActions.setRightPanelTileActive(agentKind === 'work' ? 'task' : 'subagent', true)
+      }
     />
   )
 }

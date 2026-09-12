@@ -1,6 +1,7 @@
 import { directoryIdentity } from '../../../../../shared/extra-directories'
 import { isAbsolutePath, isFilesystemRoot } from '../../../../../shared/absolute-path'
 import { isRecord } from '../../../../../shared/obj'
+import { PRODUCT_SLUG } from '../../../../../shared/product'
 import type { Message } from '../reducer/chatReducer'
 import { partsAttachments, partsToolCalls, resultMap } from './parts'
 import { workSearchResults, workToolPresentation } from './workToolPresentation'
@@ -45,6 +46,18 @@ function webUrl(value: unknown): URL | undefined {
   }
 }
 
+// Work 출처 표시 규칙이다. cwd/권한이나 원본 이력은 변경하지 않는다.
+function isInternalClaudeSource(path: string): boolean {
+  const segments: string[] = []
+  for (const segment of directoryIdentity(path).split('/')) {
+    if (segment === '.') continue
+    if (segment === '..') segments.pop()
+    else segments.push(segment)
+  }
+  const normalized = `${segments.join('/')}/`
+  return normalized.includes(`/appdata/local/temp/${PRODUCT_SLUG}/claude/`)
+}
+
 // 세션의 영속 호출/결과만 투영한다. 완료 메시지는 다시 파싱하지 않고, 별도 메시지로 온
 // 늦은 결과도 toolRunId로 합류한다. 캐시는 원문 참조를 소유할 뿐 다른 세션의 목록을 합치지 않는다.
 export function createTaskContextSourceSelector(): (
@@ -77,6 +90,7 @@ export function createTaskContextSourceSelector(): (
       for (const attachment of slice.attachments) {
         const path = attachment.path
         const localPath = path && isAbsolutePath(path) && !isFilesystemRoot(path) ? path : undefined
+        if (localPath && isInternalClaudeSource(localPath)) continue
         const key = localPath
           ? `file:${directoryIdentity(localPath)}`
           : `attachment:${attachment.id}`
@@ -111,6 +125,7 @@ export function createTaskContextSourceSelector(): (
           const path = call.input.file_path ?? call.input.path
           // 과거 호출의 상대 경로 기준을 확정할 수 없으므로 현재 cwd로 보완하지 않는다.
           if (typeof path !== 'string' || !isAbsolutePath(path) || isFilesystemRoot(path)) continue
+          if (isInternalClaudeSource(path)) continue
           const key = `file:${directoryIdentity(path)}`
           if (!sources.has(key)) sources.set(key, { kind: 'file', path })
         }

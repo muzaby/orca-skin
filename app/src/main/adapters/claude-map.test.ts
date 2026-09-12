@@ -243,6 +243,8 @@ describe('claudeToNormalized', () => {
 
   it('백그라운드 런치 영수증(tool_use_result.status=async_launched)을 result 로 싣는다 (0136)', () => {
     const receipt = { status: 'async_launched', agentId: 'a1', description: 'x', prompt: 'y' }
+    const c = ctx()
+    c.toolNames = new Map([['t1', 'Agent']])
     const out = claudeToNormalized(
       sdk({
         type: 'user',
@@ -253,7 +255,7 @@ describe('claudeToNormalized', () => {
           ]
         }
       }),
-      ctx()
+      c
     )
     expect(out).toEqual([
       {
@@ -261,6 +263,7 @@ describe('claudeToNormalized', () => {
         sessionId: 's1',
         toolRunId: 't1',
         result: receipt,
+        structuredOutput: receipt,
         isError: false
       }
     ])
@@ -304,7 +307,7 @@ describe('claudeToNormalized', () => {
     ])
   })
 
-  it('Task 도구가 아닌 결과에는 structuredOutput 을 싣지 않는다 (0204 EP-01)', () => {
+  it('일반 도구도 구조화 결과를 모델 콘텐츠와 별도로 보존한다 (0231)', () => {
     const c = ctx()
     claudeToNormalized(
       sdk({
@@ -325,7 +328,7 @@ describe('claudeToNormalized', () => {
       }),
       c
     )
-    expect(out[0]).not.toHaveProperty('structuredOutput')
+    expect(out[0]).toHaveProperty('structuredOutput', { file: { content: 'big payload' } })
   })
 
   it('tool_result 블록이 여러 개면 귀속이 모호해 structuredOutput 을 싣지 않는다 (0204)', () => {
@@ -358,7 +361,7 @@ describe('claudeToNormalized', () => {
     expect(out.every((ev) => !('structuredOutput' in ev))).toBe(true)
   })
 
-  it('완료(비-async) tool_use_result 는 매핑하지 않고 wire content 를 유지한다 (0136)', () => {
+  it('완료 구조화 출력과 wire content 를 모두 유지한다 (0231)', () => {
     const out = claudeToNormalized(
       sdk({
         type: 'user',
@@ -377,6 +380,7 @@ describe('claudeToNormalized', () => {
         sessionId: 's1',
         toolRunId: 't1',
         result: '최종 보고',
+        structuredOutput: { status: 'completed', totalTokens: 5 },
         isError: false
       }
     ])
@@ -1406,13 +1410,24 @@ describe('0212 — task_updated (AT-18·20·21 · §10 EP-09)', () => {
     }
   })
 
-  it('completed·failed·pending 은 여기서 정착시키지 않는다 — 권위는 task_notification 이다', () => {
+  it('completed·failed patch는 종료를 투영하고 pending은 종료하지 않는다 (0231)', () => {
     for (const status of ['completed', 'failed', 'pending']) {
       const out = claudeToNormalized(
         sdk({ type: 'system', subtype: 'task_updated', task_id: 't1', patch: { status } }),
         withMapping()
       )
-      expect(out).toEqual([])
+      if (status === 'pending') expect(out).toEqual([])
+      else
+        expect(out).toEqual([
+          {
+            type: 'subagent.task',
+            sessionId: 's1',
+            toolUseId: 'use1',
+            phase: 'settled',
+            taskId: 't1',
+            status
+          }
+        ])
     }
   })
 
@@ -1451,7 +1466,7 @@ describe('0212 — background_tasks_changed (AT-14·16 · §10 EP-06)', () => {
     return c
   }
 
-  it('매핑된 task_id 만 toolUseIds 로 옮긴다', () => {
+  it('매핑된 작업도 canonical lane만 live 집합을 소유한다', () => {
     const out = claudeToNormalized(
       sdk({
         type: 'system',
@@ -1463,9 +1478,7 @@ describe('0212 — background_tasks_changed (AT-14·16 · §10 EP-06)', () => {
       }),
       mapped()
     )
-    expect(out).toEqual([
-      { type: 'subagent.backgroundSet', sessionId: 's1', toolUseIds: ['use1', 'use2'] }
-    ])
+    expect(out).toEqual([])
   })
 
   it('AT-16 — 매핑 없는 task_id 는 무시한다', () => {
@@ -1477,7 +1490,7 @@ describe('0212 — background_tasks_changed (AT-14·16 · §10 EP-06)', () => {
       }),
       mapped()
     )
-    expect(out).toEqual([{ type: 'subagent.backgroundSet', sessionId: 's1', toolUseIds: [] }])
+    expect(out).toEqual([])
   })
 
   it('빈 배열은 유효한 레벨이다 — 살아 있는 것이 없다는 사실을 말한다', () => {
@@ -1485,7 +1498,7 @@ describe('0212 — background_tasks_changed (AT-14·16 · §10 EP-06)', () => {
       sdk({ type: 'system', subtype: 'background_tasks_changed', tasks: [] }),
       mapped()
     )
-    expect(out).toEqual([{ type: 'subagent.backgroundSet', sessionId: 's1', toolUseIds: [] }])
+    expect(out).toEqual([])
   })
 
   it('tasks 가 배열이 아니면 드롭한다 — 레벨을 만들 수 없다', () => {

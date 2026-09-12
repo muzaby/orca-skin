@@ -43,6 +43,29 @@ Object.defineProperty(process, 'contextIsolated', { value: true, configurable: t
 
 await import('./index')
 
+it('promotes the selected shell through the renderer API and actual preload with all identity fields', async () => {
+  const api = harness.exposed.get('orca') as OrcaApi
+  vi.stubGlobal('window', { orca: api })
+  try {
+    const { chatApi } = await import('../renderer/src/shared/api/ipc')
+    harness.invoke.mockClear()
+    for (const req of [
+      { sessionId: 'session-a', generation: 'generation-a', toolUseId: 'shell-a' },
+      { sessionId: 'session-b', generation: 'generation-b', toolUseId: 'shell-b' }
+    ]) {
+      await chatApi.promoteBackgroundTask(req)
+      expect(harness.invoke).toHaveBeenLastCalledWith('orca:chat:promoteBackgroundTask', req)
+    }
+    expect(harness.invoke).toHaveBeenCalledTimes(2)
+    harness.invoke.mockRejectedValueOnce(new Error('promotion failed'))
+    await expect(
+      api.chat.promoteBackgroundTask({ sessionId: 's', generation: 'g', toolUseId: 't' })
+    ).rejects.toThrow('promotion failed')
+  } finally {
+    vi.unstubAllGlobals()
+  }
+})
+
 it('artifact actions preserve session and publication IDs on dedicated channels', async () => {
   const api = harness.exposed.get('orca') as OrcaApi
   harness.invoke.mockClear()

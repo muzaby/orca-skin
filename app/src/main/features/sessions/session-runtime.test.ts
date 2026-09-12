@@ -8,6 +8,8 @@ import type { ClaudePermissionMode } from '../../../shared/permission-mode'
 import type { LiveTurn, ProviderMessageBatch } from '../../adapters/types'
 import { SessionRuntime, pickFrameDelegates } from './session-runtime'
 import { decideRespawn } from './respawn-policy'
+import { getLogger } from '../../infra/log/registry'
+import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'
 
 function req(): TurnRequest {
   return {
@@ -124,6 +126,7 @@ function channelLive(): {
   liveTurn: LiveTurn
   emit: (ev: NormalizedEvent) => void
   emitBatch: (events: NormalizedEvent[]) => void
+  emitProvider: (events: (BackgroundEvent | ProviderMessageEvent)[]) => void
   close: ReturnType<typeof vi.fn>
   pushed: Array<{ text: string; promptUuid?: string; requirements?: DiffRequirementAnchor[] }>
   interrupted: ReturnType<typeof vi.fn>
@@ -181,6 +184,11 @@ function channelLive(): {
     },
     emitBatch: (events) => {
       queue.push({ sequence: nextSequence++, events })
+      wake?.()
+      wake = null
+    },
+    emitProvider: (providerEvents) => {
+      queue.push({ sequence: nextSequence++, events: [], providerEvents })
       wake?.()
       wake = null
     },
@@ -392,6 +400,10 @@ describe('runtime tool channel context', () => {
       const context = captured!.runtimeToolContext!
       const signal = context.getSignal()
       let confirmed = false
+      const lifetimeSignal = (
+        context as typeof context & { getLifetimeSignal?: () => AbortSignal }
+      ).getLifetimeSignal?.()
+      expect(lifetimeSignal?.aborted).toBe(false)
       const ready = context.waitForSession(signal).then((id) => {
         confirmed = true
         return id
@@ -410,12 +422,14 @@ describe('runtime tool channel context', () => {
       runtime.markAborted('user_cancelled')
       await warm
       expect(signal.aborted).toBe(true)
+      expect(lifetimeSignal?.aborted).toBe(false)
       const nextSignal = context.getSignal()
       expect(nextSignal).not.toBe(signal)
       expect(nextSignal.aborted).toBe(false)
       await expect(context.waitForSession(nextSignal)).resolves.toBe('s1')
       runtime.close()
       expect(nextSignal.aborted).toBe(true)
+      expect(lifetimeSignal?.aborted).toBe(true)
       await expect(context.waitForSession(context.getSignal())).rejects.toThrow()
     } finally {
       runtime.close()
@@ -1753,6 +1767,13 @@ describe('SessionRuntime — live 전달 홉 (0212 §10 EP-14)', () => {
     await done()
   })
 
+  it('stopTask rejects after channel retirement instead of acknowledging no request', async () => {
+    const { runtime, done } = await runtimeWithLive()
+    runtime.close()
+    await expect(runtime.stopTask('task-1')).rejects.toThrow('No live channel')
+    await done()
+  })
+
   it('r4 permission update fails when no channel exists', async () => {
     const { turn, spy } = spiedLive(true)
     const runtime = new SessionRuntime(adapter(turn))
@@ -1821,4 +1842,152 @@ describe('SessionRuntime extra directory scope snapshot', () => {
     expect(runtime.spawnedExtraDirs).toEqual(['C:/old', 'C:/new'])
     runtime.close()
   })
+})
+
+it('0231 provider lane survives draining and is never forwarded as transcript', async () => {
+  const ch = channelLive()
+  const runtime = new SessionRuntime(adapter(ch.liveTurn))
+  const seen: (BackgroundEvent | ProviderMessageEvent)[] = []
+  const iter = runtime
+    .send({ ...req(), onProviderEvent: (event) => seen.push(event) })
+    [Symbol.asyncIterator]()
+  const first = iter.next()
+  ch.emit({ type: 'message.delta', sessionId: 's1', delta: { text: 'before' } })
+  await first
+  await iter.return?.()
+  const raw: ProviderMessageEvent = {
+    type: 'provider.message',
+    sessionId: 's1',
+    source: { generation: 'g1', sequence: 1, receivedAt: 1, replay: false },
+    raw: { secret: 'not transcript' }
+  }
+  ch.emitProvider([raw])
+  await tick()
+  expect(seen).toEqual([raw])
+  runtime.close()
+  expect(seen).toContainEqual(
+    expect.objectContaining({
+      type: 'background.connection',
+      source: expect.objectContaining({ generation: 'g1' }),
+      state: 'terminated'
+    })
+  )
+})
+
+it('0231 failed retirement observation cannot strand the live channel', async () => {
+  const log = vi.spyOn(getLogger().child('engine'), 'error')
+  const ch = channelLive()
+  const runtime = new SessionRuntime(adapter(ch.liveTurn))
+  const retired = vi.fn()
+  const running = collect(
+    runtime.send({
+      ...req(),
+      onChannelRetired: retired,
+      onProviderEvent: (event) => {
+        if (event.type === 'background.connection' && event.state === 'terminated')
+          throw new Error('raw secret disk failure')
+      }
+    })
+  )
+  ch.emitProvider([
+    {
+      type: 'background.snapshot',
+      sessionId: 's1',
+      source: { generation: 'g1', sequence: 0, receivedAt: 1, replay: false },
+      tasks: []
+    }
+  ])
+  ch.emit({ type: 'telemetry', sessionId: 's1' })
+  await running
+  expect(() => runtime.close()).not.toThrow()
+  expect(ch.close).toHaveBeenCalledTimes(1)
+  expect(runtime.channelToken).toBeNull()
+  expect(runtime.providerGeneration).toBeUndefined()
+  expect(retired).toHaveBeenCalledTimes(1)
+  expect(log).toHaveBeenCalledWith('engine.channel.retirement-observer.failed', undefined, {
+    provider: 'claude'
+  })
+  expect(JSON.stringify(log.mock.calls)).not.toContain('raw secret')
+  log.mockRestore()
+})
+
+it('0231 idle provider observation failure retires the query without logging raw error details', async () => {
+  const warning = vi.spyOn(getLogger().child('engine'), 'warn')
+  const ch = channelLive()
+  const runtime = new SessionRuntime(adapter(ch.liveTurn))
+  const running = collect(
+    runtime.send({
+      ...req(),
+      onProviderEvent: () => {
+        throw new Error('raw private payload')
+      }
+    })
+  )
+  ch.emit({ type: 'telemetry', sessionId: 's1' })
+  await running
+  ch.emitProvider([
+    {
+      type: 'provider.message',
+      sessionId: 's1',
+      source: { generation: 'g1', sequence: 0, receivedAt: 1, replay: false },
+      raw: { private: true }
+    }
+  ])
+  await tick()
+  expect(ch.close).toHaveBeenCalledTimes(1)
+  expect(runtime.channelToken).toBeNull()
+  expect(JSON.stringify(warning.mock.calls)).not.toContain('raw private payload')
+  expect(warning).toHaveBeenCalledWith(
+    'engine.channel.error',
+    expect.objectContaining({ message: 'Error: Provider event observation failed' })
+  )
+  warning.mockRestore()
+})
+
+it('0231 provider-only idle batches do not start a main response or enter the next frame', async () => {
+  const ch = channelLive()
+  const runtime = new SessionRuntime(adapter(ch.liveTurn))
+  const seen: (BackgroundEvent | ProviderMessageEvent)[] = []
+  const running = collect(runtime.send({ ...req(), onProviderEvent: (event) => seen.push(event) }))
+  ch.emit({ type: 'telemetry', sessionId: 's1' })
+  await running
+  ch.emitProvider([
+    {
+      type: 'background.snapshot',
+      sessionId: 's1',
+      source: { generation: 'g1', sequence: 1, receivedAt: 1, replay: false },
+      tasks: []
+    }
+  ])
+  await tick()
+  expect(seen).toHaveLength(1)
+  const next = collect(runtime.send({ ...req(), onProviderEvent: (event) => seen.push(event) }))
+  ch.emit({ type: 'telemetry', sessionId: 's1' })
+  expect(await next).toEqual([{ type: 'telemetry', sessionId: 's1' }])
+  expect(ch.pushed).toHaveLength(1)
+  runtime.close()
+})
+
+it('0231 main cancel preserves child frames received before the interrupt terminal', async () => {
+  const ch = channelLive()
+  const runtime = new SessionRuntime(adapter(ch.liveTurn))
+  const running = collect(runtime.send(req()))
+  ch.emit({ type: 'message.delta', sessionId: 's1', delta: { text: 'main' } })
+  await tick()
+  runtime.markAborted('user_cancelled')
+  await running
+  const child: NormalizedEvent = {
+    type: 'message.reasoning',
+    sessionId: 's1',
+    parentToolRunId: 'agent',
+    text: 'still thinking'
+  }
+  ch.emit(child)
+  ch.emit({ type: 'message.delta', sessionId: 's1', delta: { text: 'cancelled tail' } })
+  ch.emit({ type: 'telemetry', sessionId: 's1' })
+  await tick()
+  const next = collect(runtime.listen(req()))
+  ch.emit({ type: 'telemetry', sessionId: 's1' })
+  expect(await next).toEqual([child, { type: 'telemetry', sessionId: 's1' }])
+  runtime.close()
 })

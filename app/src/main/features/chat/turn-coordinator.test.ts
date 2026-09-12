@@ -1193,7 +1193,7 @@ describe('TurnCoordinator — background_tasks_changed 레벨 정착 (0212 R-04)
     expect([...tracker.ids('s1')]).toEqual(['a1'])
   })
 
-  it('둘째 payload 에서 빠진 추적 항목이 failed 로 정착한다 (AT-14 — AT-15 의 양성 짝)', async () => {
+  it('legacy snapshot에서 빠져도 종료 사유를 합성하지 않는다', async () => {
     const runtime = spiedRuntime([
       [
         subagentStarted('a1'),
@@ -1211,14 +1211,8 @@ describe('TurnCoordinator — background_tasks_changed 레벨 정착 (0212 R-04)
     await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
 
     const settled = settledForwards(deps)
-    expect(settled).toHaveLength(1)
-    expect(settled[0]).toMatchObject({
-      toolUseId: 'a1',
-      status: 'failed',
-      summary: '완료 통지 없이 백그라운드 작업 목록에서 사라졌습니다.'
-    })
-    // 집합에 남은 a2 는 건드리지 않는다.
-    expect([...tracker.ids('s1')]).toEqual(['a2'])
+    expect(settled).toHaveLength(0)
+    expect([...tracker.ids('s1')]).toEqual(['a1', 'a2'])
   })
 
   it('레벨 정착은 stopLive:false — 이미 목록에 없는 태스크에 제어 요청을 보내지 않는다', async () => {
@@ -1234,7 +1228,7 @@ describe('TurnCoordinator — background_tasks_changed 레벨 정착 (0212 R-04)
 
     await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
 
-    expect(settledForwards(deps)).toHaveLength(1)
+    expect(settledForwards(deps)).toHaveLength(0)
     expect(runtime.backgroundTask).not.toHaveBeenCalled()
     expect(runtime.stopTask).not.toHaveBeenCalled()
   })

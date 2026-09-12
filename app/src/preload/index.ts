@@ -14,6 +14,15 @@ import type {
 } from '../shared/artifacts'
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import type { NormalizedPermissionMode } from '../shared/permission-mode'
+import type {
+  BackgroundEvent,
+  BackgroundSessionState,
+  BackgroundTaskRequest,
+  PromoteBackgroundTaskRequest,
+  ReadBackgroundOutputRequest,
+  ReadBackgroundOutputResponse,
+  StopAllBackgroundTasksResult
+} from '../shared/background-task'
 import {
   CHANNELS,
   type BootReport,
@@ -111,6 +120,23 @@ const orca = {
     whenReady: (): Promise<void> => ipcRenderer.invoke(CHANNELS.bootWhenReady)
   },
   chat: {
+    backgroundState: (sessionId: string): Promise<BackgroundSessionState> =>
+      ipcRenderer.invoke(CHANNELS.chatBackgroundState, { sessionId }),
+    onBackgroundEvent: (handler: (event: BackgroundEvent) => void): (() => void) =>
+      subscribe(CHANNELS.chatBackgroundEvent, handler),
+    stopBackgroundTask: (req: BackgroundTaskRequest): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.chatStopBackgroundTask, req),
+    promoteBackgroundTask: (req: PromoteBackgroundTaskRequest): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.chatPromoteBackgroundTask, req),
+    stopAllBackgroundTasks: (req: {
+      sessionId: string
+      generation: string
+    }): Promise<StopAllBackgroundTasksResult> =>
+      ipcRenderer.invoke(CHANNELS.chatStopAllBackgroundTasks, req),
+    readBackgroundOutput: (
+      req: ReadBackgroundOutputRequest
+    ): Promise<ReadBackgroundOutputResponse> =>
+      ipcRenderer.invoke(CHANNELS.chatReadBackgroundOutput, req),
     send: (req: SendChatMessage): Promise<void> => ipcRenderer.invoke(CHANNELS.chatSend, req),
     cancelSteer: (req: CancelSteer): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.chatSteerCancel, req),

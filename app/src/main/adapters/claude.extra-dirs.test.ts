@@ -5,6 +5,8 @@
 // 여기서는 참조 동일성(`toBe`)을 단언한다.
 
 import { describe, it, expect, vi } from 'vitest'
+import { tmpdir } from 'node:os'
+import { dirname, join, resolve } from 'node:path'
 
 const { queryMock } = vi.hoisted(() => ({
   queryMock: vi.fn((req: unknown) => {
@@ -40,6 +42,7 @@ import type { TurnRequest } from './turn'
 import type { RuntimeToolContext } from './runtime-tools'
 
 const guardHookMock = vi.mocked(makeWorkspaceGuardHook)
+const AUTOMATIC_TEMP = resolve(tmpdir(), 'orcinus-orca')
 
 const baseReq = (): TurnRequest => ({
   sessionId: null,
@@ -62,14 +65,14 @@ describe('ClaudeAdapter — extraDirs 는 옵션과 가드가 같은 배열을 �
     const extraDirs = ['/tmp/refs', '/tmp/docs']
     const { option, guardArg } = capture({ ...baseReq(), extraDirs })
 
-    expect(option).toEqual(extraDirs)
+    expect(option).toEqual([...extraDirs, AUTOMATIC_TEMP])
     expect(guardArg).toBe(option)
   })
 
-  it('extraDirs 미지정이어도 같은 빈 배열을 공유한다', () => {
+  it('Code 요청도 앱 임시 루트를 공유 배열로 자동 허용한다', () => {
     const { option, guardArg } = capture(baseReq())
 
-    expect(option).toEqual([])
+    expect(option).toEqual([AUTOMATIC_TEMP])
     expect(guardArg).toBe(option)
   })
 
@@ -90,9 +93,9 @@ describe('ClaudeAdapter — extraDirs 는 옵션과 가드가 같은 배열을 �
     const request = baseReq()
     request.extraDirs = extraDirs
     request.runtimeToolContext = context
-    request.extensions.outputFiles = { directory: '/tmp/output', capture: captured }
+    request.extensions.outputFiles = { directory: AUTOMATIC_TEMP, capture: captured }
     const { option, guardArg } = capture(request)
-    expect(option).toEqual(['/tmp/refs', '/tmp/output'])
+    expect(option).toEqual(['/tmp/refs', AUTOMATIC_TEMP])
     expect(guardArg).toBe(option)
     expect(extraDirs).toEqual(['/tmp/refs'])
     const args = queryMock.mock.calls[0][0] as {
@@ -103,15 +106,41 @@ describe('ClaudeAdapter — extraDirs 는 옵션과 가드가 같은 배열을 �
       {
         hook_event_name: 'PostToolUse',
         tool_name: 'Write',
-        tool_input: { file_path: '/tmp/output/report.md' },
+        tool_input: { file_path: join(AUTOMATIC_TEMP, 'report.md') },
         tool_response: 'success'
       },
       undefined,
       {}
     )
     expect(captured).toHaveBeenCalledWith(
-      '/tmp/output/report.md',
+      join(AUTOMATIC_TEMP, 'report.md'),
       expect.objectContaining({ cwd: '/tmp/work' })
     )
+  })
+
+  it('앱 임시 루트는 통과시키고 OS Temp 부모와 형제는 자동 허용하지 않는다', async () => {
+    capture(baseReq())
+    const args = queryMock.mock.calls[0][0] as {
+      options: { hooks: Record<string, { hooks: ((...args: unknown[]) => Promise<unknown>)[] }[]> }
+    }
+    const guard = args.options.hooks.PreToolUse[0].hooks[0]
+    const check = (filePath: string): Promise<unknown> =>
+      guard(
+        {
+          hook_event_name: 'PreToolUse',
+          tool_name: 'Write',
+          tool_input: { file_path: filePath }
+        },
+        undefined,
+        {}
+      )
+
+    expect(await check(join(AUTOMATIC_TEMP, 'report.md'))).toEqual({})
+    expect(await check(join(dirname(AUTOMATIC_TEMP), 'parent-file.md'))).toMatchObject({
+      hookSpecificOutput: { permissionDecision: 'deny' }
+    })
+    expect(await check(`${AUTOMATIC_TEMP}-sibling/report.md`)).toMatchObject({
+      hookSpecificOutput: { permissionDecision: 'deny' }
+    })
   })
 })

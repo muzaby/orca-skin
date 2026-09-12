@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
 import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from './settle'
+import { applyBackgroundEvent, emptyBackgroundState } from '../../../shared/background-task'
 
 type W = string
 
@@ -14,6 +15,28 @@ function turnWith(openToolRuns: Map<string, { parentToolRunId?: string }>): Turn
 }
 
 describe('settleOpenToolRuns', () => {
+  it('settles cancelled foreground tools while preserving only explicit background descendants', () => {
+    const emit = vi.fn()
+    const turn = turnWith(
+      new Map([
+        ['main', {}],
+        ['bg', {}],
+        ['child', { parentToolRunId: 'bg' }],
+        ['grandchild', { parentToolRunId: 'child' }]
+      ])
+    )
+    const state = applyBackgroundEvent(emptyBackgroundState(), {
+      type: 'background.call',
+      sessionId: 'sess-1',
+      source: { generation: 'g', sequence: 1, receivedAt: 1, replay: false },
+      toolUseId: 'bg',
+      phase: 'returned',
+      patch: { mode: 'background', status: 'async_launched' }
+    })
+    settleOpenToolRuns(turn, emit, 'aborted', state)
+    expect(emit.mock.calls.map((call) => call[1].toolRunId)).toEqual(['main'])
+    expect([...turn.openToolRuns.keys()]).toEqual(['bg', 'child', 'grandchild'])
+  })
   it('열린 도구를 aborted tool_result 로 turn.event 방출 후 비운다', () => {
     const emit = vi.fn()
     const turn = turnWith(

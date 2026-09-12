@@ -1,6 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { load } from 'cheerio'
 import { WorkActivity } from './WorkActivity'
 import { WorkToolRow } from './WorkToolTimeline'
 import type { Message } from '../../reducer/chatReducer'
@@ -102,22 +103,36 @@ describe('Work activity disclosure lifecycle', () => {
   beforeEach(() => {
     harness.open = false
   })
-  it('keeps intermediate text visible while its surrounding tool groups open independently', () => {
+  it('opens notes and their surrounding tools together in one ordered timeline', () => {
     const closed = render()
-    expect(closed).toContain('middle-note')
+    expect(closed).not.toContain('middle-note')
+    expect(closed).toContain('final-answer')
+    expect(closed).toContain('1 노트')
     expect(closed).not.toContain('activity-first')
     expect(closed).not.toContain('activity-second')
     harness.toggle!()
     const opened = render()
     expect(opened).toContain('aria-expanded="true"')
     expect(opened.indexOf('activity-first')).toBeLessThan(opened.indexOf('middle-note'))
-    expect(opened.indexOf('middle-note')).toBeLessThan(opened.indexOf('final-answer'))
-    expect(opened).not.toContain('activity-second')
+    expect(opened.indexOf('middle-note')).toBeLessThan(opened.indexOf('activity-second'))
+    expect(opened.indexOf('activity-second')).toBeLessThan(opened.indexOf('final-answer'))
+    expect(opened).toContain('data-work-note="true"')
+    const $ = load(opened)
+    const group = $('[data-work-activity]')
+    expect(group).toHaveLength(1)
+    expect(group.find('[data-work-note]')).toHaveLength(1)
+    expect(
+      group
+        .find('[data-work-tools], [data-work-note]')
+        .map((_, node) => ($(node).attr('data-work-note') ? 'note' : 'tools'))
+        .get()
+    ).toEqual(['tools', 'note', 'tools'])
     harness.toggle!()
     const collapsed = render()
     expect(collapsed).not.toContain('activity-first')
     expect(collapsed).not.toContain('activity-second')
-    expect(collapsed).toContain('middle-note')
+    expect(collapsed).not.toContain('middle-note')
+    expect(collapsed).toContain('final-answer')
   })
   it('opens a tool through its actual row callback and hides its request and response when closed', () => {
     const renderTool = (): string => {

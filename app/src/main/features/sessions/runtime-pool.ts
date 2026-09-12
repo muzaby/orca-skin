@@ -27,6 +27,11 @@ export class RuntimePool<RT extends ManagedRuntime = ManagedRuntime> {
     return runtime
   }
 
+  peek(sessionId: string): RT | undefined {
+    const runtime = this.idle.get(sessionId)
+    return runtime?.state === 'closed' ? undefined : runtime
+  }
+
   // 턴 종료 후 idle 보존 — sessionId 가 없으면 보존 불가(false → 호출측이 close). 같은 키에
   // 이전 핸들이 남아 있으면 정리. 회수는 LRU eviction(evictToCapacity)과 closeAll 뿐(0067).
   keepIdle(sessionId: string | null, runtime: RT): boolean {

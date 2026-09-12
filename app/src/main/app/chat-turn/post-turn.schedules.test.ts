@@ -27,7 +27,10 @@ vi.mock('electron', () => ({
       ipc.handlers.set(key, handler)
   }
 }))
-vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
+vi.mock('../../infra/ipc/send', () => ({
+  sendChatEvent: vi.fn(),
+  broadcastBackgroundEvent: vi.fn()
+}))
 import { registerChatHandlers } from './index'
 import { runTurnWithContinuations } from './post-turn'
 

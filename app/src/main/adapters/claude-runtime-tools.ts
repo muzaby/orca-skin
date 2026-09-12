@@ -1,4 +1,5 @@
 import { createSdkMcpServer, type Options } from '@anthropic-ai/claude-agent-sdk'
+import { isRecord } from '../../shared/obj'
 import type {
   RuntimeToolImplementation,
   RuntimeToolContext,
@@ -38,13 +39,30 @@ function adaptHandler(
   implementation: RuntimeToolImplementation,
   serverId: string,
   context?: RuntimeToolContext
-): (args: Record<string, unknown>) => Promise<RuntimeToolResult> {
-  return async (args) =>
-    assertRuntimeToolResult(
-      await implementation.handler(args, context),
+): (args: Record<string, unknown>, extra: unknown) => Promise<RuntimeToolResult> {
+  return async (args, extra) => {
+    // MCP request cancellation belongs to this call, including background children.
+    // The channel lifetime still invalidates it on query retirement. Do not infer an
+    // agent from JSON-RPC requestId or arbitrary request metadata.
+    let invocationContext = context
+    if (context && isRecord(extra) && extra.signal instanceof AbortSignal) {
+      const signal = AbortSignal.any([
+        extra.signal,
+        context.getLifetimeSignal?.() ?? context.getSignal()
+      ])
+      invocationContext = {
+        cwd: context.cwd,
+        extraDirs: context.extraDirs,
+        getSignal: () => signal,
+        waitForSession: (signal) => context.waitForSession(signal)
+      }
+    }
+    return assertRuntimeToolResult(
+      await implementation.handler(args, invocationContext),
       serverId,
       implementation.name
     )
+  }
 }
 
 function adaptServer(

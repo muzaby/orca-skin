@@ -18,6 +18,7 @@ import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
 import type { RouterContext } from '../context'
 import type { WorktreeService } from '../../features/worktrees/service'
 import type { TurnExtensions } from '../../adapters/turn'
+import type { BackgroundController } from '../../features/chat/background-controller'
 
 export interface ChatDeps {
   ctx: RouterContext
@@ -37,6 +38,7 @@ export interface ChatDeps {
 export type NormalizedAttachments = Awaited<ReturnType<typeof normalizeAttachments>>
 
 export interface ChatRuntimeDeps extends ChatDeps {
+  background?: BackgroundController
   /** 채널 사망으로 소멸한 백그라운드 태스크를 합성 settled(failed)로 정착한다 (0136). */
   settleDeadBackgroundTasks: (turn: TurnContext<WebContents>, sessionId: string) => Promise<void>
   /** listen 대기 중 사용자 중단 — 실행 중 태스크도 stopTask + 합성 stopped 로 정착 (0143). */

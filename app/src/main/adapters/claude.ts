@@ -3,6 +3,8 @@
 // 내부 매핑은 architecture.md §5.4, SDK API 명세는 docs/spec/claude/agent-sdk/typescript.md 참조.
 
 import { createRequire } from 'node:module'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import {
   query,
   type CanUseTool,
@@ -24,6 +26,7 @@ import {
   type NormalizedPermissionMode
 } from '../../shared/permission-mode'
 import { claudeToNormalized, type MapContext } from './claude-map'
+import { ClaudeBackgroundMapper } from './claude-background'
 import { readClaudeSessionSchedules } from './claude-schedules'
 import { makeOutputFilesHook } from './claude-output-files'
 import { ClaudeInputReceipts } from './claude-input-receipts'
@@ -56,8 +59,9 @@ import {
 import { CLAUDE_DESCRIPTOR } from './descriptor'
 import { makeWorkspaceGuardHook, resolveGuardRoots } from './workspace-guard'
 import { buildEditPreview, nodeEditPreviewReader } from './edit-preview'
-import { resolveClaudeExecutable } from './claude-executable'
+import { resolveClaudeExecutable, resolveClaudeExecutableIdentity } from './claude-executable'
 import type { ProviderDescriptor } from '../../shared/ipc'
+import { getTemporaryFilesPath } from '../infra/config/temp-path'
 
 const requireFn = createRequire(import.meta.url)
 
@@ -105,6 +109,7 @@ const SUBAGENT_BLOCKED_MESSAGE =
   '사용자가 이 작업을 취소했습니다. 해당 서브에이전트를 다시 호출하지 말고 다른 방식으로 진행하세요.'
 
 interface CanUseToolOptions {
+  providerGeneration?: string
   planApprovalMode?: NormalizedPermissionMode
   // 중단된 서브에이전트 타입이면 재호출을 deny(가이드 §6-A). 미주입이면 차단 없음.
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
@@ -120,10 +125,25 @@ export function makeCanUseTool(
   requestApproval?: (action: PermissionAction, signal?: AbortSignal) => Promise<ApprovalResolution>,
   opts: CanUseToolOptions = {}
 ): CanUseTool {
+  type CanUseToolArgs = Parameters<CanUseTool>
+  const decisions = new Map<string, Promise<PermissionResult>>()
   // options.signal: SDK 가 이 권한요청을 취소하면(control_cancel_request) abort 된다. requestApproval
   // 로 전달해 broker 가 그 신호로도 해소되게 한다 — 무시하면 canUseTool 이 영영 await 에 걸린다.
-  return async (toolName, input, options): Promise<PermissionResult> => {
+  const decide = async (
+    toolName: CanUseToolArgs[0],
+    input: CanUseToolArgs[1],
+    options: CanUseToolArgs[2]
+  ): Promise<PermissionResult> => {
     const signal = options?.signal
+    const providerRequest =
+      typeof options?.requestId === 'string' && typeof options.toolUseID === 'string'
+        ? {
+            requestId: options.requestId,
+            toolUseId: options.toolUseID,
+            ...(typeof options.agentID === 'string' ? { agentId: options.agentID } : {}),
+            ...(opts.providerGeneration ? { generation: opts.providerGeneration } : {})
+          }
+        : undefined
     // 서브에이전트 호출 — 재호출 차단(deny)만 판정하고 입력은 passthrough(0143). CLI 2.1.198+
     // 기본 = 백그라운드이며 Orca 런타임(listen 턴)이 이를 기본 경로로 소화한다. run_in_background
     // 는 주입하지 않는다 — 모델이 명시한 값(동기 실행 opt-out 포함)을 그대로 존중한다.
@@ -141,7 +161,8 @@ export function makeCanUseTool(
       const res = await requestApproval(
         {
           kind: 'ask_question',
-          request: { requestId: '', questions }
+          request: { requestId: '', questions },
+          ...(providerRequest ? { input, providerRequest } : {})
         },
         signal
       )
@@ -155,7 +176,7 @@ export function makeCanUseTool(
       return {
         behavior: 'allow',
         updatedInput: {
-          questions,
+          ...input,
           answers: ui.answers ?? {},
           ...(typeof ui.response === 'string' ? { response: ui.response } : {})
         }
@@ -166,7 +187,11 @@ export function makeCanUseTool(
       // 계획 파일을 썼을 때만 `plan` 을 싣고, 그 여부는 모델마다 다르다(plan-text.ts 주석).
       const plan = resolvePlanText(input, opts.getPlanNarrative?.())
       const res = await requestApproval(
-        { kind: 'plan_review', request: { requestId: '', plan } },
+        {
+          kind: 'plan_review',
+          request: { requestId: '', plan },
+          ...(providerRequest ? { input, providerRequest } : {})
+        },
         signal
       )
       if (res.behavior === 'allow') {
@@ -200,7 +225,15 @@ export function makeCanUseTool(
       requestApproval &&
       (isRiskyTool(toolName) || opts.runtimeApprovalToolNames?.has(toolName))
     ) {
-      const res = await requestApproval({ kind: 'tool_approval', toolName, input }, signal)
+      const res = await requestApproval(
+        {
+          kind: 'tool_approval',
+          toolName,
+          input,
+          ...(providerRequest ? { providerRequest } : {})
+        },
+        signal
+      )
       if (res.behavior === 'allow') {
         return {
           behavior: 'allow',
@@ -214,6 +247,19 @@ export function makeCanUseTool(
       }
     }
     return { behavior: 'allow', updatedInput: input }
+  }
+
+  // SDK Query 하나의 수명 동안 requestId+generation을 보존한다. 재전달이 pending/settled 어느
+  // 상태에서 와도 같은 Promise를 돌려 UI와 control response의 중복을 막고, Query 퇴역 시
+  // 클로저와 함께 전체 세대 캐시가 회수된다.
+  return (toolName, input, options) => {
+    if (typeof options?.requestId !== 'string') return decide(toolName, input, options)
+    const key = JSON.stringify([opts.providerGeneration ?? '', options.requestId])
+    const existing = decisions.get(key)
+    if (existing) return existing
+    const decision = decide(toolName, input, options)
+    decisions.set(key, decision)
+    return decision
   }
 }
 
@@ -274,7 +320,7 @@ export class ClaudeAdapter implements SessionAdapter {
       // plugin 로딩은 chat sendMessage 경로에만 적용한다.
       persistSession: false,
       ...claudeExecutableOption,
-      ...adaptExecutionConfig(req.providerSettings?.settings, req.env),
+      ...adaptExecutionConfig(req.providerSettings?.settings, req.env, getTemporaryFilesPath()),
       ...(req.cwd ? { cwd: req.cwd } : {}),
       ...(req.model ? { model: req.model } : {})
     }
@@ -320,6 +366,17 @@ export class ClaudeAdapter implements SessionAdapter {
       cwd,
       ...(req.handoff === true ? { handoffArrival: true } : {})
     }
+    const packageInfo = JSON.parse(
+      readFileSync(
+        join(dirname(requireFn.resolve('@anthropic-ai/claude-agent-sdk')), 'package.json'),
+        'utf8'
+      )
+    ) as { version: string }
+    const cliIdentity = claudeExecutable ?? resolveClaudeExecutableIdentity()
+    const backgroundMapper = new ClaudeBackgroundMapper({
+      sdkVersion: packageInfo.version,
+      ...(cliIdentity ? { cliPath: cliIdentity } : {})
+    })
 
     const abortController = new AbortController()
     const onAbort = (): void => abortController.abort()
@@ -384,9 +441,13 @@ export class ClaudeAdapter implements SessionAdapter {
     // Workspace 격리(0075) — 작업 폴더(cwd) 밖 r/w 를 PreToolUse 가드 훅으로 막는다. additionalDirectories
     // 는 옵션과 훅이 **같은 배열**을 공유해 드리프트를 막는다(가이드 §5). 값은 컴포저 참조 경로
     // 신규 칩 또는 유휴 Work의 명시 폴더 추가가 DB를 거쳐 턴 요청에 실린다.
-    const additionalDirectories: string[] = extensions.outputFiles
-      ? [...new Set([...(req.extraDirs ?? []), extensions.outputFiles.directory])]
-      : (req.extraDirs ?? [])
+    const additionalDirectories: string[] = [
+      ...new Set([
+        ...(req.extraDirs ?? []),
+        getTemporaryFilesPath(),
+        ...(extensions.outputFiles ? [extensions.outputFiles.directory] : [])
+      ])
+    ]
     const runtimeToolApprovalNames = runtimeApprovalToolNames(extensions.runtimeTools)
     // 실행 전 편집 미리보기(0229) — 가드 훅과 **같은 입력**으로 루트를 턴당 1회 푼다. 편집이 쓸 수
     // 없는 경로는 미리보기로도 읽지 않는다.
@@ -401,6 +462,8 @@ export class ClaudeAdapter implements SessionAdapter {
         resume: req.forkFrom ?? sessionId ?? undefined,
         ...(req.forkFrom !== undefined ? { forkSession: true } : {}),
         includePartialMessages: true,
+        agentProgressSummaries: true,
+        perTaskStopAffordance: true,
         // steer echo 의 전제 조건(0060 D5). CLI 는 mid-turn drain 한 큐 커맨드(steer)를
         // `--replay-user-messages` 일 때만 user(isReplay: content=원문, uuid=source_uuid=orca
         // batch uuid) 메시지로 output 스트림에 되돌린다 — 기본 off 라 echo 가 아예 안 와서
@@ -428,8 +491,8 @@ export class ClaudeAdapter implements SessionAdapter {
         // 0028 의 "생략=기본 소스 상속" supersede). provider settings 가 사용자 전역
         // ~/.claude/settings.json 개입 없이 적용된다.
         // options.env(adaptEnv)에는 시스템(턴) env 만 — orca.json 앱 env.
-        ...adaptExecutionConfig(req.providerSettings?.settings, env),
-        disallowedTools: ['Bash', 'WebSearch'],
+        ...adaptExecutionConfig(req.providerSettings?.settings, env, getTemporaryFilesPath()),
+        disallowedTools: ['WebSearch'],
         ...adaptRuntimeTools(extensions.runtimeTools, req.runtimeToolContext),
         // hooks = 중립 정규화 훅 + steer 게이트(PostToolBatch, 메인 루프 한정 flush) 병합 위에
         // 어댑터 내부 PostCompact(압축 요약 수집, manual 만·0064) 를 덧씌운다.
@@ -488,6 +551,7 @@ export class ClaudeAdapter implements SessionAdapter {
         ...(requestApproval
           ? {
               canUseTool: makeCanUseTool(requestApproval, {
+                providerGeneration: backgroundMapper.generation,
                 runtimeApprovalToolNames: runtimeToolApprovalNames,
                 ...(req.planApprovalMode ? { planApprovalMode: req.planApprovalMode } : {}),
                 // 매퍼가 쓰는 **같은 ctx** 를 읽는다(0215 EP-01) — 이 인자를 빼면 계획을
@@ -504,10 +568,14 @@ export class ClaudeAdapter implements SessionAdapter {
       }
     })
 
+    let closed = false
     const close = (): void => {
+      if (closed) return
+      closed = true
       capturedOutputs.length = 0
       input.close()
       receipts.close()
+      handle.close?.()
     }
 
     // 대기 중인 압축 요약을 assistant 메시지 이벤트로 비운다 — persist(text 파트)와 렌더
@@ -554,6 +622,16 @@ export class ClaudeAdapter implements SessionAdapter {
       let sequence = 0
       try {
         for await (const msg of handle) {
+          const provider = backgroundMapper.map(msg, ctx.sessionId)
+          if (!provider) continue
+          if (
+            msg.type === 'result' &&
+            (provider.source.replay ||
+              (typeof msg.uuid === 'string' && ctx.resultUuids?.has(msg.uuid)))
+          ) {
+            yield { sequence: sequence++, events: [], providerEvents: provider.events }
+            continue
+          }
           const mainMessage = !('parent_tool_use_id' in msg) || msg.parent_tool_use_id == null
           if (
             !responseOpen &&
@@ -578,6 +656,7 @@ export class ClaudeAdapter implements SessionAdapter {
             return reconciled ? [reconciled] : []
           })
           if (msg.type === 'assistant' || msg.type === 'stream_event' || msg.type === 'result') {
+            events.unshift(...receipts.response(msg, ctx.sessionId))
             events.unshift(...receipts.drain(ctx.sessionId))
           }
           if (msg.type === 'result') receipts.finishResponse()
@@ -607,7 +686,7 @@ export class ClaudeAdapter implements SessionAdapter {
           // 드레인이 [구분선 → 요약] 순서를 만든다.
           events.push(...drainCompactSummaries())
           events.push(...drainTurnEnded())
-          if (events.length > 0) yield { sequence: sequence++, events }
+          yield { sequence: sequence++, events, providerEvents: provider.events }
         }
         const summaries = [
           ...receipts.drain(ctx.sessionId),
@@ -640,6 +719,10 @@ export class ClaudeAdapter implements SessionAdapter {
     }
 
     return {
+      providerGeneration: backgroundMapper.generation,
+      reinitialize: async () => {
+        await handle.reinitialize()
+      },
       eventBatches: eventBatches(),
       close,
       // 장수명 채널(0067) — 후속 턴을 같은 서브프로세스에 이어붙인다. 라이브 setter 적용 후

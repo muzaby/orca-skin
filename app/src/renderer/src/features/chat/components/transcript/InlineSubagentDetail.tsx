@@ -11,10 +11,12 @@ type DetailComponent = typeof import('../rightpanel/SubAgentTileContent').SubAge
 // 정적 모듈 초기화 순환과 접힌 행의 불필요한 상세 구독을 함께 피한다.
 export function InlineSubagentDetail({
   toolRunId,
-  transcriptPolicy
+  transcriptPolicy,
+  framed = true
 }: {
   toolRunId: string
   transcriptPolicy: AgentTranscriptPresentation
+  framed?: boolean
 }): React.JSX.Element {
   const { tr } = useI18n()
   const [Detail, setDetail] = useState<DetailComponent | null>(null)
@@ -22,7 +24,7 @@ export function InlineSubagentDetail({
   const [attempt, setAttempt] = useState(0)
   const messages = useChatSession((s) => s.messages)
   const task = useMemo(
-    () => subagentTasksFromMessages(messages).find((item) => item.toolUseId === toolRunId),
+    () => subagentTasksFromMessages(messages, true).find((item) => item.toolUseId === toolRunId),
     [messages, toolRunId]
   )
   const childMessage = useMemo(
@@ -47,7 +49,7 @@ export function InlineSubagentDetail({
 
   return (
     <div
-      className="my-2 min-h-0 rounded-r5 border border-border bg-panel"
+      className={`my-2 min-h-0${framed ? ' rounded-r5 border border-border bg-panel' : ''}`}
       data-subagent-inline={toolRunId}
     >
       {Detail && task ? (
