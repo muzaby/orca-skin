@@ -49,12 +49,19 @@ export const SubagentNoticeRow = memo(function SubagentNoticeRow({
   const inlineDetail = hasDetail && transcriptPolicy.inlineSubagentDetail
   const durationLabel = formatDurationLabel(tr, durationMs)
   const notice = NOTICE[status]
+  // 종류 라벨(0231 D-106 · §10 EP-207) — 어포던스와 **같은 `joined.kind` 하나**가 가른다. 고정
+  // `Agent "…"` 문구는 셸 명령을 `Agent "npx vitest run" finished` 로 불렀다(0230 verify r2 D6).
+  const lineKey =
+    joined?.kind === 'shell'
+      ? 'chat.subagentNotice.shellLine'
+      : ('chat.subagentNotice.agentLine' as const)
   const detail = [
-    ...(description
-      ? [tr('chat.subagentNotice.agentLine', { title: description, verb: notice.verb })]
-      : []),
+    ...(description ? [tr(lineKey, { title: description, verb: notice.verb })] : []),
     ...(durationLabel ? [tr('chat.subagentNotice.took', { duration: durationLabel })] : [])
   ].join(' · ')
+  // 갈 곳이 없는 행은 hover 에도 반응하지 않는다 — 행 셸이 role·포인터·꺾쇠를 이미 막는데
+  // (`TranscriptActionRow`) 자식의 hover 틴트만 남으면 누를 수 없는 줄이 눌릴 것처럼 밝아진다.
+  const hoverTint = hasDetail ? 'group-hover/notice:text-t9' : ''
   return (
     <div className="flex flex-col gap-1">
       <TranscriptActionRow
@@ -69,14 +76,10 @@ export const SubagentNoticeRow = memo(function SubagentNoticeRow({
             : undefined
         }
       >
-        <span
-          className={`shrink-0 ${status === 'failed' ? 'text-bad' : ''} group-hover/notice:text-t9`}
-        >
+        <span className={`shrink-0 ${status === 'failed' ? 'text-bad' : ''} ${hoverTint}`}>
           {tr(notice.key)}
         </span>
-        {detail !== '' && (
-          <span className="min-w-0 truncate group-hover/notice:text-t9">{detail}</span>
-        )}
+        {detail !== '' && <span className={`min-w-0 truncate ${hoverTint}`}>{detail}</span>}
       </TranscriptActionRow>
       {inlineDetail && expanded && (
         <InlineSubagentDetail toolRunId={toolRunId} transcriptPolicy={transcriptPolicy} />

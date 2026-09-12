@@ -213,7 +213,9 @@ export class SessionActivityProjector {
     const attempts = this.residualAttempts.get(sessionId) ?? new Set<string>()
     const residualCount = this.deps.queue.messageCountForAttempts(sessionId, attempts)
     if (attempts.size > 0 && residualCount === 0) this.residualAttempts.delete(sessionId)
-    const backgroundTaskCount = this.deps.backgroundTasks.count(sessionId)
+    // 0231 D-104 — 배지는 **런치 영수증 관측분**만 센다. 턴-후 루프가 쓰는 `count()`(전량)와
+    // 의미가 다르므로 같은 메서드를 공유하지 않는다(§10 EP-203).
+    const backgroundTaskCount = this.deps.backgroundTasks.launchedCount(sessionId)
     return {
       type: 'chat.activity',
       sessionId,

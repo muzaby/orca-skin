@@ -665,6 +665,19 @@ export type NormalizedEvent =
       // 백그라운드로 돈) 태스크의 정착에만 true. renderer 완료 통지(subagent_notice 파트 커밋)와
       // history writer 영속의 유일한 신호 — renderer 는 스스로 background 를 추론하지 않는다.
       background?: boolean
+      // 0231 — SDK **최상위** `tool_progress` 정규화(AR-101). `task_*`(system subtype)과 달리
+      // 도구 실행 중 초 단위로 오므로 **transient 다**: 파트를 만들지 않고 store 의 라이브 맵만
+      // 교체한다(§10 EP-201). 진행률(%)은 싣지 않는다 — SDK 가 주지 않는다(D-103).
+      //
+      //   elapsedSeconds SDK `elapsed_time_seconds`. 도구가 스스로 재는 값이라 화면의 경과
+      //                  앵커(`listenStartedAt`)와 별개 축이다.
+      //   heartbeat      연결 생존 신호. **진척을 주장하지 않는다** — 이것만 반복되면 경과는
+      //                  흐르되 상태 문구는 그대로여야 한다.
+      //   retry          `subagent_retry`. `heartbeat` 로 해제되지 않고 **정착 또는 새 attempt**
+      //                  로만 바뀐다(AT-102). 부재 = 무변경이지 해제가 아니다.
+      elapsedSeconds?: number
+      heartbeat?: boolean
+      retry?: { attempt: number; maxRetries: number; errorCategory: string }
     }
   // SDK `background_tasks_changed` 정규화(0212 AR-02) — **레벨 신호**다. edge(started/settled)
   // 와 짝지어 읽지 않고 **매 payload 로 집합을 교체**한다: 놓친 bookend 가 "실행 중" 표시를

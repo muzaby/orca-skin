@@ -355,3 +355,163 @@ SDK tool_progress / task_progress
 
 - `docs/IPC_CONTRACT.md` 의 `subagent.task` 행에 새 필드를 적는다.
 - `docs/claude-taskxxx-spec.md` 의 `tool_progress`·`agentProgressSummaries` 채택 표기를 ❌ → ✅ 로 바꾼다.
+
+---
+
+> **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은
+> [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
+
+## [구현자 기입] 설계 리뷰
+
+- **동의 / 그대로 진행**: Part I 전부. §9 TO-BE 의 세 파생 분리와 §10 EP-203(두 세기는 다른 질문)이
+  구현에서 그대로 성립했다 — EP-203 이 없었으면 `count()` 를 좁혀 0136 회귀를 심었을 것이다.
+- **이견 / 현실성 문제**: §9 TO-BE 가 `sessionSpeaking = foreground !== 'idle'` 을 새 파생처럼 적었으나
+  `sessionForeground` 가 이미 `transport !== 'ready'` 를 접어(`session-activity-projector.ts:16`)
+  기존 `sessionResponding` 과 같은 값이다. 새 파생을 만들지 않고 `sessionAwaitingBackground` 가
+  `sessionResponding` 을 직접 부르게 했다 — 두 술어가 각자 조건을 세면 곧 갈린다.
+- **ACTIVE Decision 과 충돌하는 설계 발견**: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-201·202 | `tool_progress` transient | 매핑 1 | 1/1 | `rg "type === 'tool_progress'" src/main` → 1건(`claude-map.ts:466`). 영속 미발생은 `writer.ts:445` `phase !== 'settled' → break` | — |
+| VP-203·204·205 | usage·summary 교체 | 어댑터 1 + store 1 = 2 | 2/2 | `accrueSubagentMeta`(`claude-map.ts:130-138`) 대입 · `patchSubagentMeta`(`chatStore.ts:328-355`) 대입. 케이스 `AT-104 — 두 번째 usage 스냅샷이…` | — |
+| VP-206·207 | 두 세기는 다른 질문 | 배지 1 + 루프 1 = 2 | 2/2 | `rg "backgroundTasks\.count\(\|launchedCount\(" src/main --glob '!*.test.ts'` → 배지 `session-activity-projector.ts:218` = `launchedCount`, 루프 `post-turn.ts:106` = `count`. 케이스 `**두 값이 갈린다**` | — |
+| VP-208 | 클릭은 목록 | 핸들러 1 | 1/1 | `BackgroundRunRow.tsx` `onActivate` → `openBackgroundTaskList`. 케이스 `AT-107 — 타일을 활성화하고 선택을 비운다` | — |
+| VP-209·210·212 | admission 과 답변 표면이 같은 `ready` 판정 | 판정 1 + 호출부 1 = 2 | 2/2 | `sendAdmission.ts:35` 술어 · `chatStore.ts:910` 이 `activityTransport === 'ready'` 를 넘긴다. `rg "shouldQueueAsPending\(" src --glob '!*.test.ts'` → 호출부 1건 | — |
+| VP-211·213·215·219 | 실행 줄·스피너 배타 | 파생 1 + 렌더 1 = 2 | 2/2 | `sessionAwaitingBackground` 가 `sessionResponding(s)` 를 직접 부른다(`chatStore.ts:1812`) · `Exchange.tsx:77`. `rg "from '.*SparkSpinner'\|<SparkSpinner" src/renderer --glob '!*.test.*'` → **2건, 둘 다 `StatusLine.tsx`**(실행 줄은 스피너를 쓰지 않는다) | — |
+| VP-216·217·220 | 라벨·어포던스를 `joined.kind` 하나가 가른다 | 라벨 1 | 1/1 | `SubagentNoticeRow.tsx` 의 `joined?.kind === 'shell'` 이 `lineKey`·`hoverTint`·`hasDetail` 셋을 모두 낸다. 케이스 `AT-114` · `0230 D8` | — |
+
+- **합계**: `1+2+2+1+2+2+1 = 11/11`.
+- §10 에 없는데 같은 불변식이 필요했던 지점: 없음.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-201 | REQUIRED | SELF_PASS | `AT-101`·`AT-102` 케이스 | required — M1 red |
+| VP-202 | REQUIRED | SELF_PASS | 정규화 반환값 | required — M1 red(5건) |
+| VP-203 | REQUIRED | SELF_PASS | `AT-103` 케이스 | not selected — 값 단언 |
+| VP-204 | REQUIRED | SELF_PASS | 흡수 결과 객체 | required — M9 red(3건) |
+| VP-205 | REGRESSION | SELF_PASS | `AT-104` 케이스 | required — M9 와 같은 지점 |
+| VP-206 | REQUIRED | SELF_PASS | 배지 입력값 0/1 | not selected — 값 단언 |
+| VP-207 | REQUIRED | SELF_PASS | 두 소비자의 다른 값 | required — M2·M3 red(각 2건) |
+| VP-208 | REQUIRED | SELF_PASS | 타일 활성·선택 해제 | not selected |
+| VP-209 | REQUIRED | SELF_PASS | 말풍선 렌더 상태 | not selected — VP-210 이 술어를 본다 |
+| VP-210 | REQUIRED | SELF_PASS | 판정 결과 | required — M4·M5 red(각 2건) |
+| VP-211 | REGRESSION | SELF_PASS | `sessionResponding` false | not selected — 현행 동작 |
+| VP-212 | REGRESSION | SELF_PASS | 예약 2건 유지 | required — M5 red |
+| VP-213 | REQUIRED | SELF_PASS | DOM 위치·문자열 | required — M7 red |
+| VP-214 | REQUIRED | SELF_PASS | 컨테이너 렌더 출력 | required — M6 red(3건) |
+| VP-215 | REQUIRED | SELF_PASS | 파생 반환값 | required — M7 과 같은 지점 |
+| VP-216 | REQUIRED | SELF_PASS | 렌더 문자열 | required — M8 red(2건) |
+| VP-217 | REQUIRED | SELF_PASS | 라벨 키 선택 | not selected — VP-216 이 렌더까지 본다 |
+| VP-218 | REQUIRED | **SELF_BLOCKED** | 전 구간 상태 전이를 한 실행으로 관측하지 못했다 | 해당 없음 — §10 `0` |
+| VP-219 | REGRESSION | SELF_PASS | `SparkSpinner` 소비처 2건 모두 `StatusLine.tsx` — 실행 줄은 아니다 | not selected |
+| VP-220 | REGRESSION | SELF_PASS | 셸 행 `role="button"` 부재 | not selected — 0230 이 잠갔다 |
+
+- VP-218(SD↔ST)은 **SELF_BLOCKED** 다. 턴 종료 → listen → 정착 → 자동 턴을 한 실행으로 도는 장치가
+  이 환경에 없다(electron 수집 실패 6파일이 그 계열이다). 하위 pair 가 각 구간을 직접 보지만 구간
+  **이음매**는 이번 라운드에 관측되지 않았다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `claude-map.ts:466` — 최상위 분기를 `false` 로 | `VP-202 선택 증거` | 최초 | 5 | 잠김 |
+| `session-activity-projector.ts:218` — 배지를 `count()` 로 (형제 맞바꿈) | `VP-207 선택 증거` | 최초 | 2 | 잠김 |
+| `background-tasks.ts` — `count()` 를 `launchedCount()` 로 (반대 방향) | `VP-207 선택 증거` | 최초 | 2 | 잠김 |
+| `sendAdmission.ts:35` — `ready` 탈출구 제거(0153 원형) | `VP-210 선택 증거` | 최초 | 2 | 잠김 |
+| `sendAdmission.ts:35` — 탈출구가 `pendingCount` 를 삼킴 | `VP-210·212 선택 증거` | 최초 | 2 | 잠김 |
+| `Exchange.tsx:77` — transcript 배선 제거 | `VP-214 선택 증거` | 최초 | 3 | 잠김 |
+| `chatStore.ts:1812` — 배타 조건 제거(스피너와 동시) | `VP-213·215 선택 증거` | 최초 | 1 | 잠김 |
+| `SubagentNoticeRow.tsx` — 두 라벨 맞바꿈 (형제 맞바꿈) | `VP-216 선택 증거` | 최초 | 2 | 잠김 |
+| `chatStore.ts:343` — `summary` 흡수 제거(F-05 회귀) | `VP-204 선택 증거` | 최초 | 3 | 잠김 |
+
+- **분모 검산**: `선택 증거 9 · 인용 변이 0 · 새 oracle 0 = 표 행 9`. `SELF_PASS` 19개 중 적대 증거를
+  등록한 pair 는 `VP-201·202·204·205·207·210·212·213·214·215·216` 11개이고 9개 변이가 그 11개를
+  덮는다(VP-205↔M9 · VP-215↔M7 이 같은 지점을 공유). 나머지 8개는 `not selected — 직접 oracle` 이다.
+- **덮개 회귀**: 0건. 이전 라운드가 없다(r1).
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | ✅ | `backgroundRun.*` 3키 전부 `BackgroundRunRow` 가 쓴다. `shellLine` 은 `SubagentNoticeRow` 가 쓴다. **`summary` 는 producer 가 없어서 비어 있었다** — `agentProgressSummaries: true` 를 켰다 |
+| seam 을 만들려고 production 을 재배치했는가 | 재배치 없음 | 새 파일 2개(`backgroundRun.ts`·`BackgroundRunRow.tsx`)는 추가지 이동이 아니다 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | ✅ 전부 있다 | `ready`+잔여 · `subagent_retry` · `heartbeat` · `summary` · 두 전송 경로. §5 에 `listening` 행을 한 줄 더했다 |
+| 실패가 화면에서 "아무 일도 안 일어남" 으로 보이지 않는가 | ⚠️ **한 곳 남는다** | 실행 줄을 눌렀는데 우측 패널이 접혀 있으면 타일이 활성화돼도 사용자가 그것을 못 볼 수 있다 — 아래 #3 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | ✅ | 진행 신호는 전부 라이브 스냅샷 교체다. 정착이 `retry` 를 지우므로 끝난 작업이 "재시도 대기 중" 으로 남지 않는다 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | `tool_progress` 는 **최상위 일반 도구**(`Read`·`Grep`)에도 온다. 그대로 실으면 `subagentMeta` 에 아무도 조회하지 않는 항목이 쌓인다 — `useSubagentMeta` 는 키 조회 전용이라 소비자가 없다 | ✅ 선조치 — 부모·`task_id` 매핑·경계 도구 중 하나로 귀속되지 않으면 드롭한다(`claude-map.ts`). AT-101 의 "해당 도구 카드" 는 Task 카드(`AgentTaskRow`)다 | `rg "useSubagentMeta" src/renderer --glob '!*.test.*'` → 3소비처 전부 키 조회 |
+| 2 | `tool_progress` 가 경계 도구 자신의 진행이면 `tool_name` 이 `Task`·`PowerShell` 이라 "현재 도구: Task" 라는 거짓 라벨이 된다 | ✅ 선조치 — 부모를 통해 귀속했을 때만 `lastToolName` 을 싣는다 | 케이스 `경계 도구 자신의 진행은…` |
+| 3 | 실행 줄 클릭이 타일을 활성화해도 **우측 패널 자체가 접혀 있으면** 사용자에게 아무 일도 일어나지 않는다 | ⚠️ 보고만 — `revealRightPanelTile` 은 `panelReveal` 만 세우고 패널 열림 자체는 다른 축이다. 0235(제어·수명) 또는 별도 handoff 범위 | `chatStore.ts:259-266` `revealRightPanelTile` 은 `rightPanelTiles` 에 그 타일이 이미 있을 때만 동작한다 |
+| 4 | 낙관 커밋 경로가 `BEGIN_TURN` 을 함께 친다. `ready` 전송 직후 `inflight:true` 가 되어 실행 줄이 사라지고 스피너가 선다 | ✅ 의도대로다 — 사용자가 답을 기다리기 시작한 상태이고, main 은 `havePending` → `flush` 로 즉시 그 턴을 연다 | `post-turn.ts` `decidePostTurnStep` `havePending && !channelBusy && !hasBacklog → 'flush'` |
+| 5 | 실행 줄의 요약 선택 규칙을 plan 이 정하지 않았다(§9 데이터 표는 출처만 적는다) | ✅ 선조치 — 미정착 엔트리 중 가장 늦게 시작한 것. 순회는 O(태스크)라 파트 fold(O(전체 파트))를 피한다 | `backgroundRun.ts` 헤더 + 케이스 4건 |
+
+### 설계 대비 명시적 차이
+
+- plan §9 의 `sessionSpeaking` 을 **새 파생으로 만들지 않았다**. `sessionForeground` 가 이미 `ready` 를
+  접고 있어 기존 `sessionResponding` 과 같은 값이고, 이름만 다른 두 번째 술어를 만들면 갈라진다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 두 술어 모두 상태 스냅샷 파생이라 TTL 이 없다 | — |
+| 공유 | `sessionResponding` 은 스피너·transcript `pending`·컴포저가 함께 읽는다. `sessionAwaitingBackground` 가 그것을 직접 부르므로 **그 셋 중 하나가 바뀌면 실행 줄도 함께 바뀐다** | AT-113 재확인 — `listening`+streaming 에서 실행 줄 부재(케이스 `AT-113 — 어시스턴트가 실제 스트리밍 중…`). EP-206 2/2 |
+| 재진입 | 해당 없음 — 순수 파생이고 부수효과가 없다 | — |
+| 다른 무효화 | `activityBackgroundTaskCount` 가 D-104 로 의미가 바뀌었다. 실행 줄은 이제 **영수증 관측분**이 0이면 서지 않는다(추적 중이어도) | AT-105·AT-112 재확인 — 케이스 `AT-113 — 잔여가 없으면 서지 않는다` · 배지 0/1 케이스 |
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 값 |
+|---|---|
+| 라운드 | r1 |
+| 대상 커밋 | (r1 구현 — 좌표는 INDEX) |
+| 변경 파일 | production 10 · test 7(신규 5 · 수정 2) · docs 2 |
+
+**관측한 게이트 산출**
+
+| 게이트 | 산출 |
+|---|---|
+| `./node_modules/.bin/vitest run` | 498파일 · 4622케이스 — **4619 passed · 3 skipped · 0 failed**. 6파일 수집 실패 |
+| 수집 실패 6파일 | `Electron failed to install correctly` — **변경 전 트리에서 동일 재현**(`git stash` 후 6/6 동일). 환경 기인, 변경 무관 |
+| `npm run lint` | **0 error · 1 warning**. warning = `useTranscriptVirtualizer.ts:22` TanStack Virtual(기존 베이스라인) |
+| `npm run typecheck` | 3구성 전부 **0 error**(node·web·test) |
+| `electron-vite build` | `✓ built in 8.30s` — main·preload·renderer 3번들. `prebuild`(Electron ABI)는 egress 차단이라 우회 |
+| `check-doc-inventory.mjs --check` | generated ok(9 items, 92 channels) · prose ok · links ok |
+
+**AC 자기보고**
+
+| AC | 상태 | 재현 명령 / 관측 |
+|---|---|---|
+| AT-101 | ✅ | `claude-map.toolProgress.test.ts` `AT-101 — 부모 Task 에 귀속되고…` |
+| AT-102 | ✅ | 같은 파일 `AT-102 — subagent_retry 를 싣고…` + `subagentProgress.test.ts` `AT-102 — retry 는 이후 heartbeat…` |
+| AT-103 | ✅ | `subagentProgress.test.ts` `AT-103 — summary 를 흡수한다` |
+| AT-104 | ✅ | 같은 파일 `AT-104 — 두 번째 usage 스냅샷이…` |
+| AT-105 | ✅ | `background-badge-count.test.ts` `AT-105 — foreground 만 추적 중이면 배지는 0이다` |
+| AT-106 | ✅ | 같은 파일 `AT-106 — 같은 상태에서 턴-후 루프는 여전히 기다린다` |
+| AT-107 | ✅ | `backgroundTaskList.test.ts` `AT-107 — 타일을 활성화하고 선택을 비운다` |
+| AT-108 | ✅ | `chatStore.listen.test.ts` `ready 의 전송은 정식 사용자 말풍선…` 내 `sessionResponding` false |
+| AT-109 | ✅ | 같은 케이스 — `pendingSteer` 0 · `messages` 1 |
+| AT-110 | ✅ | 같은 파일 `CLI 가 실제로 진행 중이면(listening) 전송은 여전히 예약이다` |
+| AT-111 | ⚠️ | **IT 미수행.** 순수 대체로만 닫았다 — `ready` 구간에 잔여가 있으면 탈출구를 쓰지 않는다(`ready 구간에 미확정 예약이…`). 자동 턴이 끼어드는 DB `idx` 시나리오는 electron 수집 실패 계열이라 이 환경에서 못 돌린다 |
+| AT-112 | ✅ | `backgroundRunRow.render.test.ts` `AT-112 — ready + 백그라운드 잔여면…` |
+| AT-113 | ✅ | 같은 파일 2케이스(잔여 0 · listening) |
+| AT-114 | ✅ | `shellNoticeRow.render.test.ts` `AT-114 — 셸 통지 행은…` |
+
+- **합계 검산**: `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14`.
+
+## [구현자 기입] Review Signals
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **아니다** — r1 이다. 다만 M6(배선 제거)은 0230 D1 과
+  같은 축이고, plan 이 VP-214 에 그 축을 선택 증거로 미리 등록해 이번엔 컨테이너 마운트로 잠겼다.
+- 그것을 막았어야 할 plan 지침·AC 가 있었는가: #1·#2·#5 는 없었다 — `tool_progress` 의 **귀속 규칙**과
+  요약 선택 규칙이 §9·§10 어디에도 없다. 구현 세부로 판단해 선조치했다.
+- 반복해서 부딪히는 환경 한계: electron 바이너리 미설치로 6파일 수집 실패(0230 과 동일 계열).
+  그 때문에 VP-218(SD↔ST)과 AT-111 의 IT 를 이 환경에서 닫지 못한다.
+- 현재 라운드 수: **1**.

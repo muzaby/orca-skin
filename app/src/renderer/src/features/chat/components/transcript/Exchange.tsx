@@ -6,6 +6,7 @@ import { useI18n } from '../../../../shared/i18n'
 import { errorCategoryKey } from '../../lib/errorLabels'
 import { exchangeEquals, type Exchange as ExchangeGroup } from '../../lib/turns'
 import { PendingSteerTurn } from './PendingSteerTurn'
+import { BackgroundRunRow } from './BackgroundRunRow'
 import type { ClassifiedError } from '../../../../../../shared/ipc'
 import type { PendingSteerState } from '../../store/chatStore'
 import type { WorkToolResults } from '../../lib/workToolResults'
@@ -27,6 +28,9 @@ interface ExchangeProps {
   forkable?: boolean
   // 라이브 턴 에러 배너 — 예약공간 아래로 밀리지 않도록 마지막 교환 *내부* 끝에 렌더.
   error?: ClassifiedError
+  // 0231 — 이 교환이 transcript 의 **마지막**인가. 백그라운드 실행 줄은 라이브 상태 한 줄이라
+  // 교환마다 서면 안 된다: 줄 자신은 세션 상태만 보므로 "어디에 한 번 놓을지" 는 여기서 정한다.
+  last?: boolean
   pendingSteer?: PendingSteerState[]
   onRestoreSteerDraft?: (text: string) => void
 }
@@ -40,6 +44,7 @@ export const Exchange = memo(
     pending,
     forkable = false,
     error,
+    last = false,
     pendingSteer = [],
     onRestoreSteerDraft
   }: ExchangeProps): React.JSX.Element {
@@ -66,6 +71,10 @@ export const Exchange = memo(
           )
         )}
         {pending && lastTurn?.role !== 'assistant' && <PendingAssistant />}
+        {/* 백그라운드 실행 줄(0231 D-101) — 마지막 어시스턴트 턴 **아래**, 다음 사용자 말풍선
+            **위**다. 스스로 표시 조건을 보고(`sessionAwaitingBackground`) 아니면 null 이라
+            여기서 다시 게이트하지 않는다 — 두 술어가 갈리는 것이 제보 ②의 원인이었다. */}
+        {last && <BackgroundRunRow />}
         {pendingSteer.length > 0 && (
           <PendingSteerTurn items={pendingSteer} onRestoreDraft={onRestoreSteerDraft} />
         )}
@@ -80,6 +89,7 @@ export const Exchange = memo(
     prev.pending === next.pending &&
     prev.forkable === next.forkable &&
     prev.error === next.error &&
+    prev.last === next.last &&
     prev.pendingSteer === next.pendingSteer &&
     exchangeEquals(prev.exchange, next.exchange)
 )

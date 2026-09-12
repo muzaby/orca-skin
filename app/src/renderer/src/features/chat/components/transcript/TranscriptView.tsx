@@ -138,6 +138,8 @@ export const TranscriptView = memo(function TranscriptView({
             pending={inflight}
             // 분기(fork) 아이콘은 transcript 의 마지막 어시스턴트 턴에서만(r2 피드백).
             forkable
+            // 0231 — 백그라운드 실행 줄을 여기 한 번만 세운다(가상화된 head 교환에는 세우지 않는다).
+            last
             error={error}
             // pending-first(0067) — 유휴 중에도 미커밋(pending) 메시지는 계속 보인다.
             pendingSteer={pendingSteer}

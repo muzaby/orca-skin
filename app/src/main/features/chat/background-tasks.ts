@@ -24,6 +24,8 @@ export interface BackgroundTaskPort {
   settled(sessionId: string, toolUseId: string): void
   markAsyncLaunched(sessionId: string, toolUseId: string): void
   isAsyncLaunched(sessionId: string, toolUseId: string): boolean
+  // 0231 — 배지 전용 세기. `count()` 와 의미가 다르다(§10 EP-203).
+  launchedCount(sessionId: string): number
   kindOf(sessionId: string, toolUseId: string): TaskKind | undefined
   // 레벨 신호 적용 → 정착시켜야 할 id(0212). 판정만 하고 방출은 호출부가 한다.
   applyLiveSet(sessionId: string, liveIds: readonly string[]): string[]
@@ -146,6 +148,25 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
 
   count(sessionId: string): number {
     return this.bySession.get(sessionId)?.size ?? 0
+  }
+
+  /**
+   * 배지용 세기(0231 D-104 · §10 EP-203) — **런치 영수증이 관측된 것만** 센다.
+   *
+   * `count()` 와 **다른 질문에 답한다.** `count()` 는 "세션이 계속 기다려야 하는가" 이고 그 답은
+   * foreground 태스크를 포함해야 한다(턴-후 루프가 유일한 소비자다 · `post-turn.ts`). 이것은
+   * "사용자에게 백그라운드 N건이라고 말할 수 있는가" 이고 그 답은 영수증을 본 것뿐이다 —
+   * 동기 서브에이전트를 백그라운드로 세면 배지가 실행 줄·목록과 갈린다.
+   *
+   * **`count()` 를 이 의미로 좁히지 않는다.** 좁히면 foreground 태스크가 도는 중에 턴-후 루프가
+   * `haveTasks:false` 로 대기를 끊는다(0136 회귀).
+   */
+  launchedCount(sessionId: string): number {
+    const map = this.bySession.get(sessionId)
+    if (!map) return 0
+    let n = 0
+    for (const state of map.values()) if (state.asyncLaunched) n += 1
+    return n
   }
 
   // 특정 태스크가 **정착할 때까지** 기다린다(0204 D-011). 종료 신호는 SDK stream 이 이미 나르는

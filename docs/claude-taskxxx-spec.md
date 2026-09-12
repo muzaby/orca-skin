@@ -166,7 +166,21 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 | `description` | 무엇을 하는 서브에이전트인가 (필수) | ✅ |
 | `subagent_type?` | Task 도구 서브에이전트의 종류 | ✅ |
 | `usage.{total_tokens,tool_uses,duration_ms}` | 누적 실행 메타 | ✅ |
-| `last_tool_name?` · `summary?` | 현재 작업 표시 | ✅ |
+| `last_tool_name?` · `summary?` | 현재 작업 표시 | ✅ 0231 — 어댑터가 싣고 renderer 가 흡수한다. `summary` 는 `agentProgressSummaries: true` 를 켜야 온다 |
+
+### 4.2-a `tool_progress` (최상위 type · 반복)
+
+`system` subtype 이 아니라 자기 `type` 을 갖는다 — `task_*` 분기로는 받을 수 없다.
+
+| 필드 | 의미 | Orca |
+|---|---|---|
+| `tool_use_id` · `parent_tool_use_id` | 진행 중인 도구와 그 부모 | ✅ 0231 — **부모가 1순위** 키다. 실행 태스크에 귀속되지 않는 최상위 일반 도구의 진행은 드롭한다(소비자 없음) |
+| `elapsed_time_seconds` | 도구가 스스로 잰 경과 | ✅ 0231 |
+| `heartbeat?` | 연결 생존 — **진척을 주장하지 않는다** | ✅ 0231 |
+| `subagent_retry?` | 재시도 대기(attempt·max_retries·error_category) | ✅ 0231 — `heartbeat` 로 해제되지 않고 정착·새 attempt 로만 바뀐다 |
+| `task_id?` · `subagent_type?` | 좌표·종류 | ✅ 0231 |
+
+`tool_progress` 는 **transient** 다 — 초 단위로 오므로 파트를 만들지 않고 라이브 맵만 교체한다.
 
 ### 4.3 `task_notification` (edge — 종단)
 
@@ -322,6 +336,8 @@ SDK 는 `TodoWriteInput`/`TodoWriteOutput` 을 **여전히 정의한다**. 한 �
 | 목록 파생(fold) | transcript parts 의 순수 fold — main 에 스토어 없음 | `app/src/renderer/src/features/chat/lib/taskBoard.ts` |
 | 구조화 출력 동행 | `tool_result` 블록이 정확히 1개일 때만 귀속 | `app/src/main/adapters/claude-map.ts` |
 | background 이벤트 | `task_started`/`task_progress`/`task_notification` → `subagent.task` | 같은 파일 |
+| 진행 신호 | 최상위 `tool_progress` → `subagent.task` `phase:'progress'`(transient, 0231) | 같은 파일 |
+| 진행 요약 | `agentProgressSummaries: true` 로 `task_progress.summary` 를 켠다(0231) | `app/src/main/adapters/claude.ts` |
 | 중단 수명주기 | `중단 중` → SDK 확정 → 정착 (watchdog 병행) | `app/src/main/features/chat/` |
 
 세부 결정의 근거는 [`handoff/0204-taskxxx-right-panel/plan.md`](handoff/0204-taskxxx-right-panel/plan.md)

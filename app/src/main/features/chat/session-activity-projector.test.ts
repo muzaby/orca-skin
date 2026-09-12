@@ -116,6 +116,9 @@ describe('SessionActivityProjector', () => {
     f.notifyLease('session:s')
     f.projector.setTransport('s', 'listening')
     f.background.started('s', 'task-1')
+    // 0231 D-104 — 배지는 **런치 영수증 관측분**만 센다. 추적 등록만으로는 아직 foreground 일
+    // 수 있어(0143) 그 단계에서 "백그라운드 1건" 이라고 말하면 동기 서브에이전트를 센다.
+    f.background.markAsyncLaunched('s', 'task-1')
     await flush()
 
     expect(f.emitted.at(-1)).toMatchObject({
@@ -123,6 +126,16 @@ describe('SessionActivityProjector', () => {
       transport: 'listening',
       backgroundTaskCount: 1
     })
+  })
+
+  it('0231 D-104 — 영수증을 못 본 태스크는 배지에 오르지 않는다', async () => {
+    const f = fixture()
+    f.projector.setTransport('s', 'listening')
+    f.background.started('s', 'fg-1')
+    await flush()
+    expect(f.emitted.at(-1)).toMatchObject({ backgroundTaskCount: 0 })
+    // 같은 상태에서 턴-후 루프의 입력은 여전히 1이다 — 두 세기는 다른 질문이다(§10 EP-203).
+    expect(f.background.count('s')).toBe(1)
   })
 
   it('interrupt 생존 attempt만 residual로 세고 같은 메시지 id는 중복 계산하지 않는다', async () => {

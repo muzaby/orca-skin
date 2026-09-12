@@ -206,6 +206,70 @@ function mapTaskSystem(
   ]
 }
 
+// SDK **최상위** `tool_progress` 한 건을 `subagent.task` `phase:'progress'` 로 정규화한다(0231
+// AR-101). `task_*` 과 달리 system subtype 이 아니라 최상위 `type` 이라 `mapTaskSystem` 이 못 받고,
+// 분기가 없으면 `claudeToNormalized` 꼬리의 미지 메시지 드롭으로 간다.
+//
+// **transient 다** — 초 단위로 오므로 파트를 만들지 않는다(§10 EP-201). 소비자는 store 의
+// toolUseId 키 라이브 맵 하나뿐이고, `writer` 는 `phase:'progress'` 를 영속하지 않는다.
+//
+// 키는 `parent_tool_use_id`(부모 Agent 도구) 가 1순위다. SDK 는 서브에이전트 **안의** 도구 실행에
+// 대해 `tool_use_id` = 그 안쪽 도구, `parent_tool_use_id` = 부모 Task 로 채운다 — Orca 의 표시·중단
+// 키는 후자다. 부모가 없으면 `task_id` 매핑, 그것도 없으면 **경계 도구일 때만** 자기 id 로 떨어진다.
+//
+// **실행 태스크에 귀속되지 않는 진행은 드롭한다.** 최상위 일반 도구(`Read`·`Grep` …)의 진행에는
+// 소비자가 없다 — `subagentMeta` 는 키 조회 전용이고 그 id 를 찾는 카드가 없다. 실으면 라이브
+// 맵에 아무도 읽지 않는 항목만 쌓인다(소비처 없는 필드 금지 · `task-tool.ts` 헤더 규칙).
+function mapToolProgress(msg: Record<string, unknown>, ctx: MapContext): NormalizedEvent[] {
+  const parentToolUseId =
+    typeof msg.parent_tool_use_id === 'string' ? msg.parent_tool_use_id : undefined
+  const ownToolUseId = typeof msg.tool_use_id === 'string' ? msg.tool_use_id : undefined
+  const taskId = typeof msg.task_id === 'string' ? msg.task_id : undefined
+  const remembered = taskId ? ctx.taskToolUseById?.get(taskId) : undefined
+  const ownIsTaskBoundary =
+    ownToolUseId !== undefined && ctx.taskBoundaryToolNames?.has(ownToolUseId) === true
+  const toolUseId = parentToolUseId || remembered || (ownIsTaskBoundary ? ownToolUseId : '') || ''
+  if (!toolUseId) return []
+  const elapsedSeconds = num(msg.elapsed_time_seconds)
+  const heartbeat = msg.heartbeat === true
+  const subagentType = typeof msg.subagent_type === 'string' ? msg.subagent_type : undefined
+  // `tool_name` 은 **진행 중인 그 도구**다. 부모를 통해 귀속했을 때만 "현재 도구" 의미가 성립한다 —
+  // 경계 도구 자신의 진행이면 이름이 `Task`·`Bash` 라 카드가 "현재 도구: Task" 를 말하게 된다.
+  const lastToolName =
+    parentToolUseId !== undefined && typeof msg.tool_name === 'string' ? msg.tool_name : undefined
+  const rawRetry =
+    typeof msg.subagent_retry === 'object' && msg.subagent_retry !== null
+      ? (msg.subagent_retry as Record<string, unknown>)
+      : undefined
+  const attempt = num(rawRetry?.attempt)
+  const maxRetries = num(rawRetry?.max_retries)
+  // 재시도는 **셋이 다 있어야** 표시가 성립한다 — 부분값을 실으면 화면이 "재시도 0/0" 을 말한다.
+  const retry =
+    rawRetry && attempt !== undefined && maxRetries !== undefined
+      ? {
+          attempt,
+          maxRetries,
+          errorCategory:
+            typeof rawRetry.error_category === 'string' ? rawRetry.error_category : 'unknown'
+        }
+      : undefined
+  return [
+    {
+      type: 'subagent.task',
+      sessionId: ctx.sessionId,
+      toolUseId,
+      phase: 'progress',
+      ...(taskId !== undefined ? { taskId } : {}),
+      ...(subagentType !== undefined ? { subagentType } : {}),
+      ...(lastToolName !== undefined ? { lastToolName } : {}),
+      ...(elapsedSeconds !== undefined ? { elapsedSeconds } : {}),
+      // `heartbeat` 는 참일 때만 싣는다 — 부재와 `false` 를 구분할 소비자가 없다.
+      ...(heartbeat ? { heartbeat: true } : {}),
+      ...(retry !== undefined ? { retry } : {})
+    }
+  ]
+}
+
 // 어댑터 예외 → error 분류/이벤트는 runtime-errors/claude-classifier.ts 로 이전됐다
 // (ErrorClassifier, provider-runtime.md §6). 본 파일은 SDKMessage→정규화만 담당한다.
 
@@ -396,6 +460,11 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         }
       }
     ]
+  }
+
+  // SDK 최상위 `tool_progress`(0231 AR-101) — `system` 이 아니라 자기 `type` 을 갖는다.
+  if ((msg as { type?: string }).type === 'tool_progress') {
+    return mapToolProgress(msg as unknown as Record<string, unknown>, ctx)
   }
 
   // SDK system task_* (서브에이전트 라이브 메타) → subagent.task. forwardSubagentText 와 무관하게

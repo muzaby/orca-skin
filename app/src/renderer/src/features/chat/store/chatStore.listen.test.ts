@@ -23,36 +23,68 @@ beforeEach(() => {
 })
 
 describe('chatStore — chat.activity 라우팅', () => {
-  it('ready는 세션 점유만 유지하고 일반 전송을 예약한 뒤 main 커밋 순서를 따른다', () => {
+  // 0231 MD-102 — 0153 의 `listening → 예약` 이 **`ready` 가 아닐 때로 좁혀졌다.** `ready` 는
+  // "CLI 유휴 + 백로그 없음 + held 없음"(flush 스텝은 `receiving=false` 라 `ready` 를 내지
+  // 않는다)이라 main 이 이 메시지를 곧바로 턴 프롬프트로 쓴다 — 낙관 커밋의 전제가 참이다.
+  it('ready 의 전송은 정식 사용자 말풍선이고 echo 커밋과 멱등 합류한다 (0231 AT-109)', () => {
     ingestChatEvent(activity(1, 'ready', { backgroundTaskCount: 1 }))
     flushRaf()
     expect(sessionBusy(session())).toBe(true)
+    // 답변 표면은 이 구간을 유휴로 그린다 — 어시스턴트 턴이 종료로 보인다(AT-108 회귀).
     expect(sessionResponding(session())).toBe(false)
     expect(session().listenStartedAt).toBeNull()
     expect(chatActions.send('바로 재개')).toBe(true)
     expect(chatSend).toHaveBeenCalledTimes(1)
-    const pendingId = useChatStore.getState().sessions.s.pendingSteer![0].id
-    expect(session().messages).toHaveLength(0)
-    expect(sessionResponding(session())).toBe(false)
-    ingestChatEvent(activity(2, 'listening', { foreground: 'streaming' }))
+    // **예약이 아니다** — 정식 버블이 즉시 선다.
+    expect(useChatStore.getState().sessions.s.pendingSteer ?? []).toHaveLength(0)
+    expect(session().messages).toHaveLength(1)
+    expect(session().messages[0].role).toBe('user')
+    const clientId = session().messages[0].clientId!
+    // main 의 echo 커밋은 같은 clientId 로 합류만 한다 — 버블이 둘로 늘지 않는다(0068).
     ingestChatEvent({
       type: 'message.committed',
       sessionId: 's',
-      ids: [pendingId],
+      ids: [clientId],
       text: '바로 재개',
       messageId: 1,
       createdAt: 1
     })
     flushRaf()
+    expect(session().messages).toHaveLength(1)
+  })
+
+  it('CLI 가 실제로 진행 중이면(listening) 전송은 여전히 예약이다 (0231 AT-110)', () => {
+    ingestChatEvent(activity(1, 'listening', { foreground: 'streaming', backgroundTaskCount: 1 }))
+    flushRaf()
     expect(sessionResponding(session())).toBe(true)
+    expect(chatActions.send('끼어들기')).toBe(true)
+    const pending = useChatStore.getState().sessions.s.pendingSteer!
+    expect(pending).toHaveLength(1)
+    expect(session().messages).toHaveLength(0)
+    ingestChatEvent({
+      type: 'message.committed',
+      sessionId: 's',
+      ids: [pending[0].id],
+      text: '끼어들기',
+      messageId: 1,
+      createdAt: 1
+    })
+    flushRaf()
     expect(session().messages).toHaveLength(1)
     expect(useChatStore.getState().sessions.s.pendingSteer).toHaveLength(0)
-    ingestChatEvent(activity(3, 'ready'))
+  })
+
+  it('ready 구간에 미확정 예약이 남아 있으면 탈출구를 쓰지 않는다 (0231 AT-111)', () => {
+    // `ready` 는 main 의 held 없음을 함의하지만 renderer 측 잔여는 다른 축이다 — 이 메시지는
+    // 무슨 일이 있어도 그 잔여 뒤에 커밋되므로 낙관 커밋이 틀린다(0153 원 증상).
+    ingestChatEvent(activity(1, 'listening', { foreground: 'streaming' }))
     flushRaf()
-    expect(sessionResponding(session())).toBe(false)
-    ingestChatEvent(activity(2, 'listening'))
+    expect(chatActions.send('먼저')).toBe(true)
+    ingestChatEvent(activity(2, 'ready', { backgroundTaskCount: 1 }))
     flushRaf()
-    expect(sessionResponding(session())).toBe(false)
+    expect(chatActions.send('나중')).toBe(true)
+    expect(useChatStore.getState().sessions.s.pendingSteer).toHaveLength(2)
+    expect(session().messages).toHaveLength(0)
   })
 
   it('transport 스냅샷이 listening 상태를 굴린다', () => {

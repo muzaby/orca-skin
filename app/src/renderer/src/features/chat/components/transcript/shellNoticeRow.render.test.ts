@@ -103,4 +103,27 @@ describe('0230 r2 D3 — 셸 통지 행은 상세로 들어가지 않는다', ()
     const html = renderNotice({ messages: [], toolRunId: 'zz', agentKind: 'code' })
     expect(html).toContain('role="button"')
   })
+
+  // 0231 D-106 · §10 EP-207 — 같은 `joined.kind` 가 **라벨과 hover 까지** 가른다. 어포던스만
+  // 막고 라벨·틴트를 두면 셸이 에이전트처럼 보이고, 누를 수 없는 줄이 밝아진다.
+  it('AT-114 — 셸 통지 행은 `Agent "…"` 가 아니라 셸 라벨을 쓴다', () => {
+    const html = renderNotice({ messages: shellMessages(), toolRunId: 'sh1', agentKind: 'code' })
+    expect(html).not.toContain('Agent &quot;')
+    expect(html).toContain('셸 &quot;')
+    expect(html).toContain(CMD)
+  })
+
+  it('형제 계약: 에이전트 통지 행은 `Agent "…"` 를 유지한다', () => {
+    const html = renderNotice({ messages: agentMessages(), toolRunId: 'ag1', agentKind: 'code' })
+    expect(html).toContain('Agent &quot;')
+    expect(html).not.toContain('셸 &quot;')
+  })
+
+  it('0230 D8 — 비대화형이 된 셸 행은 hover 틴트도 갖지 않는다', () => {
+    const shell = renderNotice({ messages: shellMessages(), toolRunId: 'sh1', agentKind: 'code' })
+    expect(shell).not.toContain('group-hover/notice:text-t9')
+    // 양성 짝 — 에이전트 행은 그대로 반응한다.
+    const agent = renderNotice({ messages: agentMessages(), toolRunId: 'ag1', agentKind: 'code' })
+    expect(agent).toContain('group-hover/notice:text-t9')
+  })
 })

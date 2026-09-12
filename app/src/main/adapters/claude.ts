@@ -412,6 +412,11 @@ export class ClaudeAdapter implements SessionAdapter {
         // 서브에이전트(Task) child 의 text/thinking 블록도 forward 받는다 — 기본은 tool_use/
         // tool_result 만 와서 서브에이전트 답변이 우측 패널에 안 보였다(handoff 0044 피드백 2).
         forwardSubagentText: true,
+        // 0231 F-05 — 서브에이전트가 "지금 무엇을 하는 중인지" 한 줄 현재형 요약을 내도록 한다
+        // (`task_progress.summary`). 기본 false 이고, 켜면 서브에이전트의 모델·프롬프트 캐시를
+        // 재사용하는 fork 라 SDK 문서가 비용을 "typically minimal" 로 적는다(`sdk.d.ts`).
+        // 이 값이 없으면 실행 줄의 요약 자리가 영원히 비어 소비자만 있고 producer 가 없다.
+        agentProgressSummaries: true,
         cwd,
         // 작업 폴더 밖 파일툴 write 스코프를 넓히지 않도록 SDK 내장 스코프에도 동일 배열을 반영(가드 훅과 짝).
         additionalDirectories,

@@ -690,11 +690,17 @@ export const ko = {
       subagentTypeLine: '유형: {{type}}',
       openSubagentPanel: '서브에이전트 패널 열기'
     },
+    backgroundRun: {
+      count: '백그라운드 작업 {{count}}건',
+      retrying: '재시도 대기 중 {{attempt}}/{{max}}',
+      openHint: '작업 목록 열기'
+    },
     subagentNotice: {
       completed: '백그라운드 작업 완료',
       failed: '백그라운드 작업 실패',
       stopped: '백그라운드 작업 중단됨',
       agentLine: 'Agent "{{title}}" {{verb}}',
+      shellLine: '셸 "{{title}}" {{verb}}',
       took: '{{duration}} 소요됨'
     },
     subagentTile: {
