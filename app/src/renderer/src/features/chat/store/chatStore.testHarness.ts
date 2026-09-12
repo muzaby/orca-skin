@@ -53,6 +53,7 @@ export function installChatStoreHarness(
         cancel: vi.fn(),
         cancelSteer: vi.fn().mockResolvedValue(undefined),
         onEvent: vi.fn(),
+        onBackgroundEvent: vi.fn(() => () => {}),
         stopSubagent,
         backgroundSubagent
       },

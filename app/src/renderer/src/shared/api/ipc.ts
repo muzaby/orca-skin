@@ -1,5 +1,13 @@
 import type { NormalizedPermissionMode } from '../../../../shared/permission-mode'
 import type {
+  BackgroundEvent,
+  BackgroundSessionState,
+  BackgroundTaskRequest,
+  ReadBackgroundOutputRequest,
+  ReadBackgroundOutputResponse,
+  StopAllBackgroundTasksResult
+} from '../../../../shared/background-task'
+import type {
   ArtifactRef,
   ArtifactCatalogItem,
   ArtifactSetPinnedRequest,
@@ -85,6 +93,18 @@ import type { UsageDelta, UsageLimitsView } from '../../../../shared/usage/limit
 // IPC 계약이 바뀌면 이 파일 한 곳만 갱신.
 
 export const chatApi = {
+  backgroundState: (sessionId: string): Promise<BackgroundSessionState> =>
+    window.orca.chat.backgroundState(sessionId),
+  onBackgroundEvent: (handler: (event: BackgroundEvent) => void): (() => void) =>
+    window.orca.chat.onBackgroundEvent(handler),
+  stopBackgroundTask: (req: BackgroundTaskRequest): Promise<void> =>
+    window.orca.chat.stopBackgroundTask(req),
+  stopAllBackgroundTasks: (req: {
+    sessionId: string
+    generation: string
+  }): Promise<StopAllBackgroundTasksResult> => window.orca.chat.stopAllBackgroundTasks(req),
+  readBackgroundOutput: (req: ReadBackgroundOutputRequest): Promise<ReadBackgroundOutputResponse> =>
+    window.orca.chat.readBackgroundOutput(req),
   send: (req: SendChatMessage): Promise<void> => window.orca.chat.send(req),
   cancelSteer: (req: CancelSteer): Promise<void> => window.orca.chat.cancelSteer(req),
   cancel: (sessionId: string): Promise<void> => window.orca.chat.cancel(sessionId),

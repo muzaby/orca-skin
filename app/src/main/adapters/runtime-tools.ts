@@ -54,6 +54,8 @@ export interface RuntimeToolContext {
   readonly extraDirs: readonly string[]
   // 호출 진입 시 한 번 캡처한다. interrupt 이후 새 호출은 새 신호를 받는다.
   getSignal(): AbortSignal
+  // SDK 호출별 취소가 있는 도구는 메인 interrupt 대신 채널 종료와 결합한다.
+  getLifetimeSignal?(): AbortSignal
   waitForSession(signal: AbortSignal): Promise<string>
 }
 

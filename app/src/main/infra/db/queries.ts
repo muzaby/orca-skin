@@ -24,12 +24,14 @@ import type {
 } from './types'
 import { UsageQueries } from './usage-queries'
 import { ArtifactQueries } from './artifact-queries'
+import { BackgroundTaskQueries } from './background-task-queries'
 import { isWithinDir } from '../config/paths'
 import { getLogger } from '../log/registry'
 
 export class DbQueries {
   readonly usage: UsageQueries
   readonly artifacts: ArtifactQueries
+  readonly background: BackgroundTaskQueries
   private readonly db: Database.Database
   private readonly insertSessionStmt: Database.Statement
   private readonly listSessionsStmt: Database.Statement
@@ -262,6 +264,7 @@ export class DbQueries {
     `)
     this.usage = new UsageQueries(db)
     this.artifacts = new ArtifactQueries(db)
+    this.background = new BackgroundTaskQueries(db)
     this.renameSessionStmt = db.prepare(`
       UPDATE sessions
       SET title = @title, title_source = 'user', updated_at = @updatedAt

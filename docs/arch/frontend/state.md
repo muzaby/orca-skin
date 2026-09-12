@@ -6,6 +6,10 @@
 
 ## 1. 상태 관리
 
+### 백그라운드 작업 상태
+
+`features/chat/store/backgroundStore.ts`는 sessionId별 작업 상태를 별도 보관한다. Main의 sanitized 이벤트와 journal 재로드를 공통 `shared/background-task.ts` reducer로 적용한다. taskId·toolUseId·generation을 구분하며, 재로드된 live 목록은 현재 실행 근거가 아니다. 기존 TaskXXX 체크리스트와 main 스트리밍 버퍼는 별도 상태로 유지한다. 메인 중지 후 살아 있는 child 승인에는 provider 요청 식별자가 남는다. 수명과 영속 계약은 [백그라운드 작업](../backend/background-tasks.md)을 따른다.
+
 ### 제품 에이전트 종류
 
 `ChatState.agentKind`는 `code|work`, `agentKindLocked`는 초안의 첫 전송 이후 변경 방지 상태다. 새 대화는 Code로 시작하며 첫 전송 전 토글은 종류와 허용 권한 모드를 함께 정착시킨다. 입력·첨부·cwd·추가 폴더·Git 선택은 유지한다. 준비 실패 후 같은 초안을 다시 보내도 잠금은 유지한다. Main은 별도로 DB와 live lease의 출생값을 검사한다.

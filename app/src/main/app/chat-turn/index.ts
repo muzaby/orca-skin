@@ -34,11 +34,14 @@ import { getLogger, runWithLogContext } from '../../infra/log'
 import type { ChatDeps, ChatRuntimeDeps } from './deps'
 import { handleChatSend } from './send'
 import { sendSubmitted } from './enqueue'
+import { registerBackgroundHandlers } from './background'
+import type { BackgroundController } from '../../features/chat/background-controller'
 
 export type { ChatDeps } from './deps'
 
-export function registerChatHandlers(deps: ChatDeps): void {
+export function registerChatHandlers(deps: ChatDeps): BackgroundController {
   const { supervisor, bus, persistence, pendingMessages, backgroundTasks, activity } = deps
+  const background = registerBackgroundHandlers(deps)
 
   // settle(취소·서브에이전트 중단) 정착 이벤트를 turn.event 버스로 방출 — 스트리밍과 동일
   // 파이프라인. fault-isolated: 정리 중 구독자 throw 가 핸들러를 깨지 않게 격리한다.
@@ -63,11 +66,13 @@ export function registerChatHandlers(deps: ChatDeps): void {
     turn: TurnContext<WebContents>,
     sessionId: string
   ): Promise<void> =>
-    settleTrackedTasks(turn, emitTurn, sessionId, backgroundTasks, {
-      status: 'failed',
-      summary: '채널이 종료되어 서브에이전트가 중단되었습니다.',
-      stopLive: false
-    })
+    backgroundTasks.hasCanonical(sessionId)
+      ? Promise.resolve()
+      : settleTrackedTasks(turn, emitTurn, sessionId, backgroundTasks, {
+          status: 'failed',
+          summary: '채널이 종료되어 서브에이전트가 중단되었습니다.',
+          stopLive: false
+        })
 
   // listen 대기 중 사용자 중단(0143, 사용자 확정) — 대기만 끊지 않고 실행 중 백그라운드 태스크도
   // 함께 중단한다(stopTask + 합성 stopped 정착). 대안(태스크 유지)은 다음 send 의 draining
@@ -76,14 +81,17 @@ export function registerChatHandlers(deps: ChatDeps): void {
     turn: TurnContext<WebContents>,
     sessionId: string
   ): Promise<void> =>
-    settleTrackedTasks(turn, emitTurn, sessionId, backgroundTasks, {
-      status: 'stopped',
-      summary: '사용자가 대기를 중단해 백그라운드 서브에이전트를 중지했습니다.',
-      stopLive: true
-    })
+    backgroundTasks.hasCanonical(sessionId)
+      ? Promise.resolve()
+      : settleTrackedTasks(turn, emitTurn, sessionId, backgroundTasks, {
+          status: 'stopped',
+          summary: '사용자가 대기를 중단해 백그라운드 서브에이전트를 중지했습니다.',
+          stopLive: true
+        })
 
   const runtimeDeps: ChatRuntimeDeps = {
     ...deps,
+    background,
     settleDeadBackgroundTasks,
     stopAndSettleAbortedTasks,
     listenRelease
@@ -157,7 +165,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
     const keepScheduledReception =
       chain?.kind === 'active' &&
       !chain.controller.signal.aborted &&
-      ((scheduleActivity.sessionSchedules?.length ?? 0) > 0 ||
+      (backgroundTasks.hasPending(req.sessionId) ||
+        (scheduleActivity.sessionSchedules?.length ?? 0) > 0 ||
         scheduleActivity.pendingSessionWakeup === true)
     if (!keepScheduledReception) supervisor.cancelChain(req.sessionId)
     if (!turn) return
@@ -165,7 +174,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
     abortTurn(turn, 'user_cancelled')
     // 진행 중이던 도구(최상위 + 서브에이전트 child)를 중단 결과로 정착 — 안 하면 결과가
     // 영영 안 와 "실행 중"으로 무한 렌더되고 부모 Task 가 "진행 중"으로 남는다. turn.aborted 전에.
-    settleOpenToolRuns(turn, emitTurn, 'aborted')
+    settleOpenToolRuns(turn, emitTurn, 'aborted', backgroundTasks.getState?.(req.sessionId))
     // 중단 턴은 버스 telemetry 없이 끝난다 — 진행 중 assistant 메시지의 content(FTS 캐시)를
     // 여기서 마감 기록한다(0107). settle 의 합성 tool_result 영속 뒤에 와야 한다.
     persistence.finalizeTurn(turn)
@@ -211,4 +220,5 @@ export function registerChatHandlers(deps: ChatDeps): void {
       if (!moved) throw new Error('subagent-background: no foreground task for this tool use')
     }
   )
+  return background
 }

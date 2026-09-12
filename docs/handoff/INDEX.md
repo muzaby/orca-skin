@@ -21,7 +21,7 @@
 
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [`0231-background-task-conformance`](0231-background-task-conformance/plan.md) | plan | **READY** (V1) | **Codex** (구현) | — | 1 | 작성자 Codex. 첨부 스펙 대비 진단과 수용 기준 매핑 완료. SDK 0.3.267·두 셸·작업 상태/수명·중단/승인·출력/이력 보완. |
+| [`0231-background-task-conformance`](0231-background-task-conformance/plan.md) | impl | **IMPL_DONE** (V1) | **Claude** (검증) | (r1 구현 — 검증자 기입) | 1 | 작성자 Codex. 첨부 69기준 대조·상태/수명/중단/승인/출력/이력 보완. AC 20/24 자기확인; 조건부 배포 실기 AC19~22 별도. Windows SDK 실기와 독립 코드 검토 결과는 plan·진단서 참조. |
 | [`0230-temp-scope`](0230-temp-scope/plan.md) | impl | **IMPL_DONE** (V2) | **Claude** (검증) | (r1 구현 — 검증자 기입) | 1 | 작성자 Codex. 앱 Temp 공통 rw·첨부/출력·SDK 내부 tmp 경로 구현. AC 6/6 자기확인, 실제 두 셸·Agent 출력 읽기/보존 확인. |
 | [`0229-edit-preview-while-running`](0229-edit-preview-while-running/plan.md) | verify | **PASS** (ΔV1 r2) | **사람** (실기 1건) | `f7afca5`(설계) · `97773c0`(r1) · `665dfab`(r2) | 2 | **r2 검증 = PASS** — 판정 원문은 [`verify.md`](0229-edit-preview-while-running/verify.md). r1 의 root `PAIR_FAIL`(VP-Δ4) 닫힘, 이전 라운드 red 변이 8건 전건 재현(덮개 회귀 0). REQUIRED 8 · REGRESSION 2 PASS · AC 10/10 · 운영 gate 4종 PASS. 남은 사람 몫: 승인 대기 화면 실기 1건. |
 | [`0228-landing-mode-memory-and-edit-diff-rendering`](0228-landing-mode-memory-and-edit-diff-rendering/plan.md) | verify | **PASS** (V1 r1) | **사람** (실기 1건 · D2 결정) | `9bb59e8`(설계) · `5259ede`(r1) | 1 | **r1 검증 = PASS** — 판정 원문은 [`verify.md`](0228-landing-mode-memory-and-edit-diff-rendering/verify.md). REQUIRED pair 11/11 · AC 13/13 · 강제 지점 10/10 · 운영 gate 4종 PASS. 남은 사람 몫: 실제 `Edit` 실행에서 카드 줄번호 시각 확인 1건, 헤더 `+N -M` 기준(D2) 제품 결정. |

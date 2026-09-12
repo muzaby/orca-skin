@@ -1,6 +1,6 @@
 # 진단 — SDK background 작업 스펙 대조
 
-작성자: **Codex**. 일자: 2026-09-12. 변경 전 조사 결과이며 구현 지원 완료 보고가 아니다.
+작성자: **Codex**. 일자: 2026-09-12. 변경 전 감사와 보완 구현을 함께 기록한다. 기존 구현은 snapshot·종료 판정·승인 수명·출력·영속에서 첨부와 차이가 있었다. 아래 최초 감사는 그대로 보존하며 보완 결과와 실제 실행 범위는 문서 후반에 구분한다.
 
 대상은 사용자 첨부 `C:/Users/rlaeo/Downloads/claude-agent-sdk-background-task-spec.md`다. SHA256은 [plan §2](plan.md)에 고정했고, 현재 보완 계약은 [plan.md](plan.md)가 정본이다.
 
@@ -27,7 +27,7 @@
 
 필수 구현은 모두 아래 AC에 귀속한다. 조건부는 실제 도구 제공 시 적용하며, 제공되지 않는 증거와 단지 실기를 하지 않은 상태를 구분한다.
 
-| AC | 기준 ID 전수 | 변경 전 판정 | 검증 상태 |
+| AC | 기준 ID 전수 | 변경 전 판정 | 변경 전 검증 상태 |
 |---|---|---|---|
 | AC1 실행 모드와 ID | AGENT-DEFAULT, AGENT-FOREGROUND, AGENT-FORCED, AGENT-LAUNCH | 누락 또는 부정확 | 직접 oracle 신설/수정 필요 |
 | AC2 완료·재호출 결과 | AGENT-COMPLETE, AGENT-PARTIAL, AGENT-RESUMED | 누락 또는 부정확 | 직접 oracle 신설/수정 필요 |
@@ -75,3 +75,22 @@ REPLAY-HISTORY·DUPLICATE-EVENT·OUTPUT-MODIFIED는 상태/영속 또는 출력/
 
 원본 보존만으로 기능의 완전한 지원을 선언하지 않는다. 필수 구현이 남으면 부분 완료이며 실기만 남아도 배포 지원 완료라고 표현하지 않는다.
 
+## 보완 구현 결과
+
+| 감사 항목 | 적용한 변경 | 실행 근거 |
+|---|---|---|
+| F-01·F-04 | generation/taskId 정본, 첫 snapshot 전체 교체, 모든 종류와 시작 확인 중 호출의 카드 | shared reducer·backgroundPresentation·카드 SSR 테스트 |
+| F-02·F-10 | 종료 근거와 live/stop/연결 분리, ACK 무응답과 종료 미확인을 별도 표시, 전경 도구만 정착 | controller·settle·coordinator·session-runtime 테스트 |
+| F-03 | 원본/정규화 event journal, 세션 삭제 CASCADE, 과거 재생과 현재 세대 분리 | 실제 SQLite migration/query/writer/reload 통합 |
+| F-05·F-06 | 하위 부모 링크와 구조화 결과·메타·content 보존 | mapper metadata·parts·InlineSubagentDetail·writer Ask roundtrip |
+| F-07 | main 소유 출력 참조, 실제 경로 검사, 증분 UTF-8 읽기, 파일 교체/잘림, 완료 snapshot/해시 | 실제 파일·정션·16MiB 상한·DB 기록 실패 회귀 및 실제 SDK 출력 reader |
+| F-08 | SDK 요청 identity와 query 수명 중복 처리, child 승인 수명 유지, 질문 toolUseId 귀속 | canUseTool·approval identity·child 승인 reducer·SQLite 재로드 |
+| F-09 | pump가 provider 이벤트를 frame/draining 전에 독점 관측, retire 정리 보장 | runtime·post-turn·실제 send 배선 및 선택된 삭제 변이 |
+| F-11 | 기존 체크리스트·일반 산출물·수신/입력/usage 회귀 유지 | 기존 기능 suite와 전체 회귀 gate |
+| F-12 | Bash 제한 해제, PowerShell 함께 사용, SDK 임시 출력도 앱 루트로 고정 | query 옵션·guard 및 Windows native CLI 두 셸 실기 |
+
+개별 중단 ACK의 무응답, UTF-8의 성장 중 EOF, 이전 세대 출력 확보, 같은 파일의 읽기 거부 별칭, snapshot 저장 후 DB 실패, 하위 승인 UI 소실도 구현 중 발견하여 같은 계약 안에서 보완했다. Workflow 시작 오류와 MCP 동일 URI 중복은 별도 검토에서 재현하여 상태/표시 회귀로 잠근다.
+
+첨부의 수용 ID 집합과 매핑 집합의 실제 차집합은 0이었다(69 대 69). 문서 복사본에서 AGENT-DEFAULT를 제거하는 진단 검사는 누락 ID 한 개를 검출했다. 이 숫자는 기준의 귀속 확인이며 실제 실행 통과 개수가 아니다.
+
+구현·V-pair·최종 운영 gate는 [plan의 구현자 보고](plan.md), Windows SDK/CLI의 실행 범위와 출력 증거는 [SDK 실행 증거](sdk-evidence.md)를 따른다. 원격·Monitor·Workflow·Skill/MCP의 선언 기반 처리와 외부 배포 수명 검증을 합산하여 완전 지원으로 보고하지 않는다.

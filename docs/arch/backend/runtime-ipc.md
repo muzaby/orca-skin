@@ -7,6 +7,8 @@
 
 ## 1. 동시성 모델
 
+작업의 source/canonical 이벤트는 `SessionRuntime`이 일반 턴 frame·draining보다 먼저 `onProviderEvent`로 전달한다. Main의 `BackgroundController`가 journal·tracker·전용 IPC를 연결한다. 실제 작업의 완료는 메인 result·취소와 독립이며 자세한 제어/출력 계약은 [백그라운드 작업](background-tasks.md)을 따른다.
+
 > 구 "단일 inflight" 모델은 **폐기**됐다. 멀티세션(세션별 SessionRuntime) + 세션별 pending message queue + 장수명 세션 채널로 대체(handoff 0011·0013·0051·0066·0067·0068·0069). 정본 코드: `features/sessions/{session-runtime,supervisor,runtime-pool}.ts` · `features/chat/{pending-message-queue,turn-coordinator}.ts`.
 
 ### 1.1 계층 개관 (턴이 흐르는 축)

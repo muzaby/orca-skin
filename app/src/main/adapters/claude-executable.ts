@@ -59,3 +59,19 @@ export function resolveBundledExecutable(
 export function resolveClaudeExecutable(): string | undefined {
   return resolveBundledExecutable()
 }
+
+/** Actual bundled file for the execution record, including SDK-default dev launches. */
+export function resolveClaudeExecutableIdentity(
+  requireFn: NodeRequire = createRequire(import.meta.url),
+  platform: NodeJS.Platform = process.platform,
+  arch: string = process.arch
+): string | undefined {
+  for (const spec of bundledCandidates(platform, arch)) {
+    try {
+      return toUnpackedPath(requireFn.resolve(spec))
+    } catch {
+      /* unavailable variant */
+    }
+  }
+  return undefined
+}

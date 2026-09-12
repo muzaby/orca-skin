@@ -5,6 +5,7 @@ import { harnessEnvFingerprint, type ResolvedHarnessSettings } from '../../adapt
 import type { TurnRequest } from '../../adapters/turn'
 import type { RuntimeToolContext } from '../../adapters/runtime-tools'
 import type { LiveTurn, ProviderMessageBatch } from '../../adapters/types'
+import type { BackgroundEventSource } from '../../../shared/background-task'
 import type { ManagedRuntime, RuntimeSessionAdapter } from '../../contracts/ports'
 import { getLogger } from '../../infra/log/registry'
 import {
@@ -23,7 +24,8 @@ const FRAME_DELEGATE_KEYS = [
   'rollbackSteerFlush',
   'captureInterruptReceipt',
   'onChannelRetired',
-  'onSessionSchedules'
+  'onSessionSchedules',
+  'onProviderEvent'
 ] as const
 
 type FrameDelegateKey = (typeof FRAME_DELEGATE_KEYS)[number]
@@ -58,6 +60,7 @@ class ChannelToolContext implements RuntimeToolContext {
   readonly cwd: string
   readonly extraDirs: readonly string[]
   private controller = new AbortController()
+  private readonly lifetimeController = new AbortController()
   private closed = false
   private confirmedSession: string | null = null
   private readonly ready: Promise<string | null>
@@ -73,6 +76,10 @@ class ChannelToolContext implements RuntimeToolContext {
 
   getSignal(): AbortSignal {
     return this.controller.signal
+  }
+
+  getLifetimeSignal(): AbortSignal {
+    return this.lifetimeController.signal
   }
 
   waitForSession(signal: AbortSignal): Promise<string> {
@@ -112,6 +119,7 @@ class ChannelToolContext implements RuntimeToolContext {
   close(): void {
     this.closed = true
     this.controller.abort()
+    this.lifetimeController.abort()
     this.resolveReady(null)
   }
 }
@@ -249,6 +257,8 @@ export class SessionRuntime implements ManagedRuntime {
   // 목록으로 골라내야 한다(`pickFrameDelegates`). 절반만 넘기면 "take 는 현재 체인 · commit 은
   // 옛 체인" 이 되어 확정 fence 가 항상 어긋나고 배치가 `submitting` 에 갇힌다(0166 D7/D8).
   private delegate: FrameDelegate = {}
+  private providerSource: BackgroundEventSource | undefined
+  private providerSessionId: string | undefined
   // 0125: 채널 spawn 시 어댑터에 주입된 providerSettings 의 불투명 기록 — 내용 해석·비교는
   // 호출자(chat-turn + features/harnesses 판정) 소관이고 여기선 기록/해제만 한다(0016 중립).
   // spawn 성공 시 갱신, teardown/채널 사망 시 해제 — channelAlive 인 동안만 유효.
@@ -326,6 +336,29 @@ export class SessionRuntime implements ManagedRuntime {
   /** 현재 provider 채널 화신. 제출마다가 아니라 spawn/respawn에서만 바뀐다. */
   get channelToken(): number | null {
     return this.channelTokenValue
+  }
+
+  get providerGeneration(): string | undefined {
+    return this.live?.providerGeneration ?? this.providerSource?.generation
+  }
+
+  async reinitialize(): Promise<void> {
+    const live = this.live
+    if (!live?.reinitialize) throw new Error('Session does not support reinitialization')
+    const source = this.providerSource
+    if (source && this.providerSessionId)
+      this.delegate.onProviderEvent?.({
+        type: 'background.connection',
+        sessionId: this.providerSessionId,
+        source: {
+          ...source,
+          receivedAt: Date.now(),
+          uuid: `host:reinitialize:${source.generation}:${Date.now()}`,
+          replay: false
+        },
+        state: 'resynchronizing'
+      })
+    await live.reinitialize()
   }
 
   get state(): SessionRuntimeState {
@@ -451,6 +484,15 @@ export class SessionRuntime implements ManagedRuntime {
     this.live = spawned
     const channelToken = ++this.nextChannelToken
     this.channelTokenValue = channelToken
+    this.providerSource = spawned.providerGeneration
+      ? {
+          generation: spawned.providerGeneration,
+          sequence: -1,
+          receivedAt: Date.now(),
+          replay: false
+        }
+      : undefined
+    this.providerSessionId = req.sessionId ?? undefined
     this.spawnedSettings = req.providerSettings
     // 조립부가 이미 계산한 값을 그대로 쓴다 — 같은 env 를 두 번 접지 않는다(0190).
     // 부재 시에만 계산한다(주입 경로 밖에서 만든 요청).
@@ -470,8 +512,11 @@ export class SessionRuntime implements ManagedRuntime {
   // 턴-스코프 소비(0067 이전 동작 보존) — terminal 에서 핸들을 닫는다(mock/oneshot).
   private async *consumeTurnScoped(live: LiveTurn): AsyncIterable<NormalizedEvent> {
     let terminal = false
+    const channelToken = this.channelTokenValue
     try {
       for await (const batch of live.eventBatches) {
+        if (this.live !== live || this.channelTokenValue !== channelToken) return
+        this.routeProviderEvents(batch)
         for (const ev of batch.events) yield ev
         terminal = batch.events.some(isTerminal)
         if (terminal) {
@@ -555,6 +600,8 @@ export class SessionRuntime implements ManagedRuntime {
 
   private routeBatch(channelToken: number, batch: ProviderMessageBatch): void {
     if (this.channelTokenValue !== channelToken) return
+    this.routeProviderEvents(batch)
+    if (batch.events.length === 0) return
     for (const event of batch.events) {
       if (event.type === 'session.schedules') {
         this.schedules = event.schedules
@@ -569,6 +616,16 @@ export class SessionRuntime implements ManagedRuntime {
     if (terminal) this.cliBusy = false
     else if (batch.events.some((ev) => !isBackgroundScoped(ev))) this.cliBusy = true
     if (this.draining) {
+      // interrupt는 메인 응답만 버린다. 독립 작업의 자식 본문/생각/도구 결과는 다음
+      // 수신 프레임으로 넘기며, provider lane은 위에서 이미 정확히 한 번 처리했다.
+      const background = batch.events.filter(isBackgroundScoped)
+      if (background.length > 0) {
+        if (this.frame) {
+          for (const event of background) this.frame.push(event)
+        } else {
+          this.unframed.push({ sequence: batch.sequence, events: background })
+        }
+      }
       // 조기 이탈한 턴의 잔여 — terminal 에서 드레인 종료, 채널 유휴 복귀.
       if (terminal) {
         this.draining = false
@@ -596,6 +653,22 @@ export class SessionRuntime implements ManagedRuntime {
     }
     // 프레임 밖 — CLI 가 자기 큐 잔존분을 자동 픽업해 시작한 턴(0067 W3 에서 자동 프레임 오픈).
     this.unframed.push(batch)
+  }
+
+  private routeProviderEvents(batch: ProviderMessageBatch): void {
+    for (const event of batch.providerEvents ?? []) {
+      if (!event.source.replay) {
+        this.providerSource = event.source
+        if (event.sessionId) this.providerSessionId = event.sessionId
+      }
+      try {
+        this.delegate.onProviderEvent?.(event)
+      } catch {
+        // Persistence/observer exceptions can contain the original provider payload.
+        // Terminate this failed channel with a safe error, never propagate that detail.
+        throw new Error('Provider event observation failed')
+      }
+    }
   }
 
   // 채널 스트림 종료(정상=입력 close/서브프로세스 종료, 예외=스트림 에러) — 활성 프레임을 마감
@@ -676,26 +749,63 @@ export class SessionRuntime implements ManagedRuntime {
     if (live !== this.live) return
     this.runtimeToolContext?.close()
     this.runtimeToolContext = null
-    this.notifyChannelRetired()
-    live?.close()
-    this.live = null
-    this.spawnedSettings = undefined
-    this.spawnedFingerprint = undefined
-    this.spawnedModelValue = undefined
-    this.spawnedRuntimeToolsRevisionValue = undefined
-    this.spawnedAgentProfileKeyValue = undefined
-    this.notifyChannelActivity()
+    try {
+      this.notifyChannelRetired()
+    } finally {
+      try {
+        live?.close()
+      } finally {
+        this.live = null
+        this.spawnedSettings = undefined
+        this.spawnedFingerprint = undefined
+        this.spawnedModelValue = undefined
+        this.spawnedRuntimeToolsRevisionValue = undefined
+        this.spawnedAgentProfileKeyValue = undefined
+        this.notifyChannelActivity()
+      }
+    }
   }
 
   private notifyChannelRetired(): void {
     const token = this.channelTokenValue
     if (token == null) return
+    const source = this.providerSource
+    const sessionId = this.providerSessionId
+    const scheduleSessionId = this.scheduleSessionId
+    this.providerSource = undefined
+    this.providerSessionId = undefined
     this.channelTokenValue = null
     this.schedules = []
     this.pendingWakeup = false
-    if (this.scheduleSessionId) this.delegate.onSessionSchedules?.(this.scheduleSessionId, [])
     this.scheduleSessionId = null
-    this.delegate.onChannelRetired?.(token)
+    const observe = (callback: () => void): void => {
+      try {
+        callback()
+      } catch {
+        // Observer errors may include raw DB payloads. Report the failed boundary only.
+        getLogger().child('engine').error('engine.channel.retirement-observer.failed', undefined, {
+          provider: this.adapter.id
+        })
+      }
+    }
+    if (source && sessionId) {
+      observe(() =>
+        this.delegate.onProviderEvent?.({
+          type: 'background.connection',
+          sessionId,
+          source: {
+            ...source,
+            sequence: source.sequence + 1,
+            receivedAt: Date.now(),
+            replay: false,
+            uuid: `host:retire:${source.generation}`
+          },
+          state: 'terminated'
+        })
+      )
+    }
+    if (scheduleSessionId) observe(() => this.delegate.onSessionSchedules?.(scheduleSessionId, []))
+    observe(() => this.delegate.onChannelRetired?.(token))
   }
 
   // 어댑터에 넘기는 요청 — 신호는 채널 신호로 치환(턴 신호와 분리), 콜백은 delegate 래퍼로 치환.
@@ -785,7 +895,10 @@ export class SessionRuntime implements ManagedRuntime {
   }
 
   async stopTask(taskId: string): Promise<void> {
-    await this.live?.stopTask(taskId)
+    const live = this.live
+    if (!live) throw new Error('No live channel for task stop')
+    await live.stopTask(taskId)
+    if (this.live !== live) throw new Error('Live channel changed during task stop')
   }
 
   async backgroundTask(toolUseId: string): Promise<boolean> {

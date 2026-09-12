@@ -90,13 +90,5 @@ export async function stopSubagentTask<W>(
   if (outcome === 'settled') return
 
   deps.onWatchdog?.({ sessionId, toolUseId, timeoutMs })
-  deps.tracker.settled(sessionId, toolUseId)
-  // 사용자 자기 행위의 통지는 소음(0143) — background 플래그를 싣지 않아 subagent_notice 미생성.
-  deps.settle(turn, {
-    type: 'subagent.task',
-    sessionId,
-    toolUseId,
-    phase: 'settled',
-    status: 'stopped'
-  })
+  throw new Error('subagent-stop: termination unconfirmed')
 }

@@ -17,6 +17,73 @@ import type {
 // 통과했다. `createSdkMcpServer` 는 실제 `McpServer` 인스턴스를 주므로 CLI 서브프로세스 없이
 // in-memory transport 로 왕복시켜 그 지점을 고정한다.
 describe('runtime tool 결과가 실제 MCP 경계를 지난 뒤', () => {
+  it('preserves sibling calls through main interrupt and honors per-call MCP cancellation', async () => {
+    const main = new AbortController()
+    const lifetime = new AbortController()
+    const context = {
+      cwd: '/work',
+      extraDirs: [],
+      getSignal: () => main.signal,
+      getLifetimeSignal: () => lifetime.signal,
+      waitForSession: async () => 's1'
+    }
+    const signals: AbortSignal[] = []
+    const finish: (() => void)[] = []
+    let started!: () => void
+    const ready = new Promise<void>((resolve) => {
+      started = resolve
+    })
+    const handler: RuntimeToolImplementation['handler'] = async (_input, callContext) => {
+      signals.push(callContext!.getSignal())
+      await new Promise<void>((resolve) => {
+        finish.push(resolve)
+        if (signals.length === 2) started()
+      })
+      return { content: [] }
+    }
+    const adapted = adaptRuntimeTools(
+      {
+        revision: 1,
+        servers: new Map([
+          [
+            'records',
+            {
+              descriptor: {
+                id: 'records',
+                connectorId: 'records',
+                tools: [{ name: 'read', description: 'Read' }]
+              },
+              implementations: [{ name: 'read', inputSchema: {}, handler }]
+            }
+          ]
+        ])
+      },
+      context
+    ) as { mcpServers: Record<string, { instance: { connect(t: unknown): Promise<void> } }> }
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
+    await adapted.mcpServers.records.instance.connect(serverTransport)
+    const client = new Client({ name: 'test', version: '1.0.0' })
+    await client.connect(clientTransport)
+    const cancelFirst = new AbortController()
+    const first = client
+      .callTool({ name: 'read', arguments: {} }, undefined, { signal: cancelFirst.signal })
+      .catch(() => undefined)
+    const second = client.callTool({ name: 'read', arguments: {} }).catch(() => undefined)
+    try {
+      await ready
+      main.abort()
+      expect(signals.map((signal) => signal.aborted)).toEqual([false, false])
+      cancelFirst.abort()
+      await first
+      expect(signals.map((signal) => signal.aborted)).toEqual([true, false])
+      lifetime.abort()
+      expect(signals.map((signal) => signal.aborted)).toEqual([true, true])
+    } finally {
+      finish.forEach((resolve) => resolve())
+      await Promise.all([first, second])
+      await client.close()
+    }
+  })
   async function callTool(
     handler: RuntimeToolImplementation['handler'],
     context?: RuntimeToolContext

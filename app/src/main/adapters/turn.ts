@@ -20,6 +20,7 @@ import type {
 } from '../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../shared/permission-mode'
 import type { NormalizedHookSet } from './hooks'
+import type { BackgroundEvent, ProviderMessageEvent } from '../../shared/background-task'
 
 // pending message flush 배치 계약 — 어댑터가 게이트 훅에서 회수(takeSteerFlush)하거나 턴
 // 프롬프트/프렐류드(0067)로 받아 자기 입력 채널로 주입한다. 구조 페이로드(0067 AC5): 첨부
@@ -133,6 +134,7 @@ export interface TurnContinuation {
 
 // 한 턴 실행 요청. sendMessage 의 인자 증식(7개)을 단일 객체로 통합한다 (설계검토 §9 1단계).
 export interface TurnRequest {
+  onProviderEvent?: (event: BackgroundEvent | ProviderMessageEvent) => void
   // Runtime이 cold spawn에만 주입하는 채널 소유 문맥. frame delegate가 아니다.
   runtimeToolContext?: RuntimeToolContext
   sessionId: string | null

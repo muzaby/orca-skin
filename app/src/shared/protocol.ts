@@ -215,6 +215,23 @@ export const CancelSteerSchema = z.object({
 
 export const CancelChatSchema = z.object({ sessionId: z.string() })
 
+export const BackgroundStateSchema = z.object({ sessionId: z.string().min(1) })
+export const StopAllBackgroundTasksSchema = BackgroundStateSchema.extend({
+  generation: z.string().min(1)
+})
+export const StopBackgroundTaskSchema = StopAllBackgroundTasksSchema.extend({
+  taskId: z.string().min(1)
+})
+export const ReadBackgroundOutputSchema = StopBackgroundTaskSchema.extend({
+  outputId: z.string().min(1),
+  offset: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  maxBytes: z.number().int().min(1).max(65_536),
+  view: z.enum(['current', 'snapshot']).optional(),
+  cursor: z
+    .object({ identity: z.string(), size: z.number().min(0), mtimeMs: z.number() })
+    .optional()
+})
+
 // 세션 전체 중단 (orca:chat:discardSession, 0151 r2) — 런타임 폐기로 CLI 큐 잔여를 소멸시킨다.
 export const DiscardSessionSchema = z.object({ sessionId: z.string().min(1) })
 

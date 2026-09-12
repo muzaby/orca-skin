@@ -2,14 +2,24 @@ import { describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../shared/ipc'
 import { PermissionModeController } from '../features/approvals/permission-mode-controller'
 import { resolveAgentProfile } from '../features/agents/profiles'
+import { BackgroundController } from '../features/chat/background-controller'
+import type { BackgroundEvent } from '../../shared/background-task'
 
 const harness = vi.hoisted(() => ({
   handlers: new Map<string, (event: unknown, raw: unknown) => Promise<unknown>>(),
-  requests: [] as Array<{ request: { model?: string; extensions: unknown }; kind?: string }>,
+  requests: [] as Array<{
+    request: {
+      model?: string
+      extensions: unknown
+      onProviderEvent?: (event: BackgroundEvent) => void
+    }
+    kind?: string
+  }>,
   errors: [] as unknown[],
   steps: [] as Array<'listen' | 'flush' | 'break'>,
   coordinatorRuns: 0
 }))
+const tempPath = vi.hoisted(() => ({ prepare: vi.fn(async () => '/tmp/orcinus-orca') }))
 
 vi.mock('electron', () => ({
   ipcMain: {
@@ -26,7 +36,11 @@ vi.mock('../features/chat/attachments', () => ({
 }))
 
 vi.mock('../features/chat/recovery', () => ({ recoverSessionHistory: vi.fn() }))
+vi.mock('../infra/config/temp-path', () => ({
+  prepareTemporaryFilesPath: tempPath.prepare
+}))
 vi.mock('../infra/ipc/send', () => ({
+  broadcastBackgroundEvent: vi.fn(),
   sendChatEvent: vi.fn((_owner: unknown, event: { type: string; error?: unknown }) => {
     if (event.type === 'error') harness.errors.push(event.error)
   })
@@ -106,11 +120,15 @@ function installHarness(options: {
   harness.errors.length = 0
   harness.steps = [...options.steps]
   harness.coordinatorRuns = 0
+  tempPath.prepare.mockClear()
 
   const selected = { alias: 'high', model: options.selectedModel, isDefault: false }
   const fallback = { alias: 'standard', model: options.defaultModel, isDefault: true }
   const built: unknown[] = []
-  const prepareOutputFiles = vi.fn(async () => ({ directory: '/tmp', capture: vi.fn() }))
+  const prepareOutputFiles = vi.fn(async () => ({
+    directory: '/tmp/orcinus-orca',
+    capture: vi.fn()
+  }))
   const turnRuntime = runtime(options.runtimeRevision, options.selectedModel)
   const extensions = {
     build: vi.fn(
@@ -242,6 +260,8 @@ function installHarness(options: {
     permissionModes: new PermissionModeController(),
     pendingMessages,
     backgroundTasks: {
+      hasCanonical: vi.fn(() => false),
+      hasPending: vi.fn(() => false),
       hasAny: vi.fn(() => false),
       count: vi.fn(() => 0),
       ids: vi.fn(() => new Set<string>()),
@@ -268,6 +288,29 @@ async function send(modelFamily = 'high', agentKind?: 'code' | 'work'): Promise<
 }
 
 describe('registerChatHandlers runtime-tool continuation wiring (0158)', () => {
+  it('VP-A1 routes the actual send request provider callback to the background controller', async () => {
+    installHarness({
+      runtimeRevision: 2,
+      extensionRevisions: [2],
+      defaultModel: 'sonnet',
+      selectedModel: 'opus',
+      steps: ['break']
+    })
+    const observe = vi.spyOn(BackgroundController.prototype, 'observe').mockImplementation(() => {})
+    try {
+      await send()
+      const event: BackgroundEvent = {
+        type: 'background.snapshot',
+        sessionId: 'session-1',
+        source: { generation: 'query-1', sequence: 1, receivedAt: 1, replay: false },
+        tasks: [{ taskId: 'background-bash', taskType: 'local_bash' }]
+      }
+      harness.requests[0].request.onProviderEvent?.(event)
+      expect(observe).toHaveBeenCalledWith(event)
+    } finally {
+      observe.mockRestore()
+    }
+  })
   it.each(['listen', 'flush'] as const)(
     'carries Work profile through the initial and automatic %s extension builds',
     async (step) => {
@@ -305,13 +348,16 @@ describe('registerChatHandlers runtime-tool continuation wiring (0158)', () => {
       })
       Object.assign(runtime, { spawnedAgentProfileKey: resolveAgentProfile(kind).key })
       await send('high', kind)
+      expect(tempPath.prepare).toHaveBeenCalledTimes(1)
       expect(prepareOutputFiles).toHaveBeenCalledTimes(kind === 'work' ? 1 : 0)
       expect(harness.requests).toHaveLength(2)
       for (const { request } of harness.requests) {
         if (kind === 'work')
           expect(request.extensions).toMatchObject({
-            outputFiles: { directory: '/tmp', capture: expect.any(Function) },
-            systemPromptAppend: expect.stringContaining('Final ordinary output directory: /tmp')
+            outputFiles: { directory: '/tmp/orcinus-orca', capture: expect.any(Function) },
+            systemPromptAppend: expect.stringContaining(
+              'Final ordinary output directory: /tmp/orcinus-orca'
+            )
           })
         else expect(request.extensions).not.toHaveProperty('outputFiles')
       }
