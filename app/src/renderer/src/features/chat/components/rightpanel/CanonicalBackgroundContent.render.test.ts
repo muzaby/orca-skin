@@ -62,6 +62,153 @@ afterEach(() => {
 })
 
 describe('canonical background task cards', () => {
+  it('shows the observed child model instead of Agent or its requested model', () => {
+    const state = applyBackgroundEvent(emptyBackgroundState(), {
+      type: 'background.call',
+      sessionId: 's',
+      toolUseId: 'model-call',
+      toolName: 'Agent',
+      phase: 'progress',
+      source: { generation: 'g', sequence: 1, receivedAt: 1, replay: false },
+      input: { description: 'Explorer title', model: 'opus', subagent_type: 'Explore' },
+      patch: { model: 'claude-haiku-4-5-20251001' }
+    })
+    expect(renderState(state)).toContain('Haiku 4.5')
+    expect(renderState(state)).not.toContain('Opus')
+  })
+  it.each(['running', 'completed', 'failed', 'stopped'])(
+    'hides foreground shells with %s state from list and direct selection/header',
+    (status) => {
+      let state = applyBackgroundEvent(emptyBackgroundState(), {
+        type: 'background.call',
+        sessionId: 's',
+        toolUseId: 'foreground-call',
+        toolName: 'Bash',
+        phase: status === 'running' ? 'started' : 'returned',
+        source: { generation: 'g', sequence: 1, receivedAt: 1, replay: false },
+        input: { command: 'foreground-command' },
+        patch: { status, mode: 'foreground', taskId: 'foreground-task' }
+      })
+      state = applyBackgroundEvent(state, {
+        type: 'background.task',
+        sessionId: 's',
+        taskId: 'foreground-task',
+        toolUseId: 'foreground-call',
+        phase: 'updated',
+        source: { generation: 'g', sequence: 2, receivedAt: 2, replay: false },
+        patch: { status, taskType: 'local_bash', isBackgrounded: false }
+      })
+      for (const selection of [
+        undefined,
+        { kind: 'task' as const, key: backgroundKey('g', 'foreground-task') },
+        { kind: 'call' as const, key: backgroundKey('g', 'foreground-call') }
+      ]) {
+        const html = renderState(state, selection)
+        expect(html).not.toContain('data-background-task=')
+        expect(html).not.toContain('data-background-call=')
+        expect(html).not.toContain('data-background-detail=')
+        expect(renderHeader(state, selection)).not.toContain('<button')
+      }
+    }
+  )
+  it('shows only a short missing-call notice instead of raw task fields', () => {
+    const state = applyBackgroundEvent(emptyBackgroundState(), {
+      type: 'background.snapshot',
+      sessionId: 's',
+      source: { generation: 'g', sequence: 1, receivedAt: 1, replay: false },
+      tasks: [{ taskId: 'no-call', description: 'raw-task-description' }]
+    })
+    const detail = renderState(state, { kind: 'task', key: backgroundKey('g', 'no-call') })
+    expect(detail).not.toContain('<pre')
+    expect(detail).not.toContain('raw-task-description')
+  })
+  it.each(['Bash', 'PowerShell'])(
+    'keeps an explicitly requested background %s visible before a task ID arrives',
+    (toolName) => {
+      const state = applyBackgroundEvent(emptyBackgroundState(), {
+        type: 'background.call',
+        sessionId: 's',
+        toolUseId: 'requested',
+        toolName,
+        phase: 'started',
+        source: { generation: 'g', sequence: 1, receivedAt: 1, replay: false },
+        input: { command: 'echo pending', run_in_background: true }
+      })
+      expect(state.calls[backgroundKey('g', 'requested')].backgroundObserved).not.toBe(true)
+      expect(renderState(state)).toContain('data-background-call="requested"')
+      const selection: BackgroundSelection = { kind: 'call', key: backgroundKey('g', 'requested') }
+      expect(renderState(state, selection)).toContain('data-background-tool-call="requested"')
+      expect(renderHeader(state, selection)).toContain('aria-label="목록으로"')
+    }
+  )
+  it.each([false, true])(
+    'keeps a formerly background shell visible after terminal foreground output and snapshot exclusion (replay=%s)',
+    (replay) => {
+      let state = applyBackgroundEvent(emptyBackgroundState(), {
+        type: 'background.call',
+        sessionId: 's',
+        toolUseId: 'was-background',
+        toolName: 'Bash',
+        phase: 'started',
+        source: { generation: 'g', sequence: 1, receivedAt: 1, replay },
+        input: { command: 'echo done' },
+        patch: { taskId: 'historical-shell', mode: 'background' }
+      })
+      state = applyBackgroundEvent(state, {
+        type: 'background.call',
+        sessionId: 's',
+        toolUseId: 'was-background',
+        toolName: 'Bash',
+        phase: 'returned',
+        source: { generation: 'g', sequence: 2, receivedAt: 2, replay },
+        patch: { taskId: 'historical-shell', mode: 'foreground', status: 'completed' }
+      })
+      state = applyBackgroundEvent(state, {
+        type: 'background.snapshot',
+        sessionId: 's',
+        tasks: [],
+        source: { generation: 'g', sequence: 3, receivedAt: 3, replay }
+      })
+      expect(renderState(state)).toContain('data-background-task="historical-shell"')
+      const selection: BackgroundSelection = {
+        kind: 'task',
+        key: backgroundKey('g', 'historical-shell')
+      }
+      expect(renderState(state, selection)).toContain('data-background-tool-call="was-background"')
+      expect(renderHeader(state, selection)).toContain('aria-label="목록으로"')
+    }
+  )
+  it('hides a shell task without background evidence even when no invocation was retained', () => {
+    const state = applyBackgroundEvent(emptyBackgroundState(), {
+      type: 'background.task',
+      sessionId: 's',
+      taskId: 'unobserved',
+      phase: 'updated',
+      source: { generation: 'g', sequence: 1, receivedAt: 1, replay: true },
+      patch: { taskType: 'local_bash', status: 'completed' }
+    })
+    expect(renderState(state)).not.toContain('data-background-task="unobserved"')
+    const selection: BackgroundSelection = { kind: 'task', key: backgroundKey('g', 'unobserved') }
+    expect(renderState(state, selection)).not.toContain('data-background-detail=')
+    expect(renderHeader(state, selection)).not.toContain('<button')
+  })
+  it.each(['completed', 'failed', 'stopped'])(
+    'keeps %s result and error data out of the task card',
+    (status) => {
+      const state = applyBackgroundEvent(emptyBackgroundState(), {
+        type: 'background.task',
+        sessionId: 's',
+        taskId: 'terminal',
+        phase: 'notification',
+        source: { generation: 'g', sequence: 1, receivedAt: 1, replay: false },
+        patch: { status, summary: 'private-result-summary', error: 'private-execution-error' }
+      })
+      const html = renderState(state)
+      expect(html).toContain('data-background-task="terminal"')
+      expect(html).not.toContain('private-result-summary')
+      expect(html).not.toContain('private-execution-error')
+    }
+  )
   it('shows a failed Workflow call without task controls, then preserves failure alongside an actual later start', () => {
     let state = applyBackgroundEvent(emptyBackgroundState(), {
       type: 'background.call',
@@ -80,7 +227,7 @@ describe('canonical background task cards', () => {
     })
     const failed = renderState(state)
     expect(failed).toContain('data-background-call="workflow"')
-    expect(failed).toContain('syntax error')
+    expect(failed).not.toContain('syntax error')
     expect(failed).toContain('실패')
     expect(failed).not.toContain('data-background-task=')
     state = applyBackgroundEvent(state, {
@@ -93,10 +240,9 @@ describe('canonical background task cards', () => {
     })
     const started = renderState(state)
     expect(started).toContain('data-background-task="never-started"')
-    expect(started).toContain('syntax error')
-    expect(started).toContain('role="alert"')
+    expect(started).not.toContain('syntax error')
   })
-  it('shows one resource URI in selected detail while keeping the three-line list card clean', () => {
+  it('preserves resource references in state while hiding them from the card and non-Explorer detail', () => {
     let state = applyBackgroundEvent(emptyBackgroundState(), {
       type: 'background.call',
       sessionId: 's',
@@ -146,7 +292,7 @@ describe('canonical background task cards', () => {
     const list = renderState(state)
     expect(list).not.toContain('data-background-output=')
     const detail = renderState(state, { kind: 'task', key: backgroundKey('g', 't') })
-    expect(detail.match(/data-background-output=/g)).toHaveLength(1)
+    expect(detail).not.toContain('data-background-output=')
   })
   it('renders snapshot-only tasks without a tool call and never injects output markup', () => {
     const state = applyBackgroundEvent(emptyBackgroundState(), {
@@ -307,7 +453,7 @@ describe('canonical background task cards', () => {
     expect(detail).toContain('data-subagent-inline="agent-without-task"')
   })
 
-  it('joins a later task to an already-selected call so preserved outputs remain available', () => {
+  it('joins a later task to an already-selected shell call without adding output controls', () => {
     let state = applyBackgroundEvent(emptyBackgroundState(), {
       type: 'background.call',
       sessionId: 's',
@@ -339,7 +485,7 @@ describe('canonical background task cards', () => {
     })
 
     expect(detail).toContain('data-background-call-detail="call-first"')
-    expect(detail).toContain('data-background-output="later-output"')
+    expect(detail).not.toContain('data-background-output="later-output"')
   })
 
   it('maps returned canonical calls to the existing ToolCall result contract', () => {

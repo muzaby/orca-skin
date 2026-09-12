@@ -218,12 +218,14 @@ describe('0212 R-05 — paused 라벨과 중단 가용성 (AT-18·19 · §10 EP-
     const html = renderSubagentList(messages(backgroundTask('bg1', '로그 조사')), {
       pausedIds: ['bg1']
     })
-    // 카드 메타 라인이 일시정지를 말한다. 상태 **그룹 헤더**는 SDK 종단 상태(running) 기준이라
-    // '진행 중' 으로 남는다 — 일시정지는 정착이 아니므로 그룹을 옮기지 않는다.
-    expect(html).toContain(`에이전트${META_GAP}일시정지`)
+    // 0232 D-12/D-18 — 미관측 모델은 추정하지 않는다. paused는 실행 중 그룹에 남고
+    // 카드 메타의 일시정지 상태와 실제 중단 버튼은 유지한다.
+    expect(html).toContain(`알 수 없음${META_GAP}일시정지`)
+    expect(load(html)('[data-background-group="running"]').text()).toContain('로그 조사')
+    expect(html).not.toContain('data-background-group="completed"')
     expect(html).toContain('aria-label="중단"')
     // 음성 짝 — 메타 라인이 진행 중으로 남지 않는다(같은 자리의 다른 값).
-    expect(html).not.toContain(`에이전트${META_GAP}진행 중`)
+    expect(html).not.toContain(`알 수 없음${META_GAP}진행 중`)
   })
 
   it('중단 요청 중에는 버튼을 감춘다 — 중복 요청 차단은 그대로다', () => {
@@ -286,11 +288,11 @@ describe('0212 R-07 — 전환 버튼 (AT-23·24 · §10 EP-12)', () => {
 
 // ── AT-21 정착 사유 ──────────────────────────────────────────────────────────
 
-describe('0212 — killed 의 patch.error 가 행에서 보인다 (AT-21)', () => {
+describe('0232 D-13 — 중단 사유는 원본에 보존하고 카드에는 상태만 표시한다 (기존 AT-21 보완)', () => {
   // `killed` → claude-map 이 `status:'stopped'` + `summary: patch.error` 로 정착시키고, settle 이
   // 그것을 `{ reason:'aborted', message, cause }` tool_result 로 굳힌다. **`cause` 가 사유**이고
-  // `message` 는 transcript 용 기본 문장이다 — 사용자 중단 행의 표시 문구를 UI 가 소유하기
-  // 때문이다(0204 AT-31). 그 `cause` 가 행에 닿는지가 이 단언의 대상이다.
+  // `message` 는 transcript 용 기본 문장이다. D-13은 카드 본문만 숨기므로 두 원본 필드가
+  // 파생 호출에 보존되는 양성과 실제 중단 카드/완료 그룹의 양성을 함께 확인한다.
   const settled = (cause: string): AppMessagePart[] => [
     { type: 'tool_call', toolRunId: 'bg1', toolName: 'Task', args: { description: '로그 조사' } },
     {
@@ -301,32 +303,44 @@ describe('0212 — killed 의 patch.error 가 행에서 보인다 (AT-21)', () =
     }
   ]
 
-  it('중단 행이 생산자가 실은 사유를 말한다 — 고정 문구가 아니다', () => {
-    const html = renderSubagentList(messages(settled('한도를 초과했습니다')))
-    expect(html).toContain('한도를 초과했습니다')
-    // 음성 짝 — 고정 문구로 덮이지 않는다.
+  it('생산자 사유는 원본 호출에 남고 중단 카드의 결과 본문에는 나타나지 않는다', () => {
+    const msgs = messages(settled('한도를 초과했습니다'))
+    const html = renderSubagentList(msgs)
+    expect(subagentTasksFromMessages(msgs)[0].call.result?.output).toEqual({
+      reason: 'aborted',
+      message: '서브에이전트가 중단되었습니다.',
+      cause: '한도를 초과했습니다'
+    })
+    expect(html).not.toContain('한도를 초과했습니다')
+    expect(load(html)('[data-background-group="completed"]').text()).toContain('로그 조사')
+    expect(html).toContain(`${META_GAP}중단됨`)
     expect(html).not.toContain('사용자에 의해 중단됨')
   })
 
-  it('사유가 없으면 UI 문구로 떨어진다 — 양성 짝 (0204 AT-31 유지)', () => {
-    const html = renderSubagentList(
-      messages([
-        {
-          type: 'tool_call',
-          toolRunId: 'bg1',
-          toolName: 'Task',
-          args: { description: '로그 조사' }
-        },
-        {
-          type: 'tool_result',
-          toolRunId: 'bg1',
-          // 사용자 중단 — `message` 는 있고 `cause` 는 없다. 행은 UI 문구를 말한다.
-          result: { reason: 'aborted', message: '서브에이전트가 중단되었습니다.' },
-          isError: true
-        }
-      ])
-    )
-    expect(html).toContain('사용자에 의해 중단됨')
+  it('사유 없는 원본도 보존하고 대체 결과 문구 없이 중단 상태를 표시한다', () => {
+    const msgs = messages([
+      {
+        type: 'tool_call',
+        toolRunId: 'bg1',
+        toolName: 'Task',
+        args: { description: '로그 조사' }
+      },
+      {
+        type: 'tool_result',
+        toolRunId: 'bg1',
+        // 사용자 중단 — 원본 message는 보존하고 카드 결과 문구는 만들지 않는다.
+        result: { reason: 'aborted', message: '서브에이전트가 중단되었습니다.' },
+        isError: true
+      }
+    ])
+    const html = renderSubagentList(msgs)
+    expect(subagentTasksFromMessages(msgs)[0].call.result?.output).toEqual({
+      reason: 'aborted',
+      message: '서브에이전트가 중단되었습니다.'
+    })
+    expect(load(html)('[data-background-group="completed"]').text()).toContain('로그 조사')
+    expect(html).toContain(`${META_GAP}중단됨`)
+    expect(html).not.toContain('사용자에 의해 중단됨')
     expect(html).not.toContain('서브에이전트가 중단되었습니다.')
   })
 })

@@ -1,0 +1,88 @@
+{
+  "author": "Codex",
+  "date": "2026-09-13",
+  "platform": "Windows",
+  "sdkVersion": "0.3.267",
+  "command": "node scripts/smoke-background-sdk.mjs --mode=promotion",
+  "transport": "loopback HTTP fixture; no external model",
+  "results": [
+    {
+      "tool": "Bash",
+      "available": true,
+      "mainResult": true,
+      "terminal": true,
+      "timedOut": false,
+      "promotion": {
+        "toolUseId": "fixture_main_Bash",
+        "toolCalls": 1,
+        "receivedToolCalls": 1,
+        "updatedTaskIds": [
+          "bmt8gp4g7"
+        ],
+        "returnedTaskIds": [
+          "bmt8gp4g7"
+        ],
+        "foregroundTaskId": "bmt8gp4g7",
+        "pidBefore": "3351",
+        "acknowledged": true,
+        "backgroundedByUser": true,
+        "completedTaskId": "bmt8gp4g7",
+        "terminalStatus": "completed",
+        "pidAfter": "3351"
+      },
+      "outputs": [
+        {
+          "insideAppTemp": true,
+          "bytes": 46,
+          "korean": false,
+          "mainReadStatus": "available",
+          "mainReadKorean": false,
+          "snapshot": {
+            "size": 46,
+            "sha256": "c2b134a7b103c8b7f6ca5c41dae34630f8d9b34473b60ed4b01e92e5379cc169",
+            "partial": false
+          }
+        }
+      ]
+    },
+    {
+      "tool": "PowerShell",
+      "available": true,
+      "mainResult": true,
+      "terminal": true,
+      "timedOut": false,
+      "promotion": {
+        "toolUseId": "fixture_main_PowerShell",
+        "toolCalls": 1,
+        "receivedToolCalls": 1,
+        "updatedTaskIds": [
+          "bmxnxv9oq"
+        ],
+        "returnedTaskIds": [
+          "bmxnxv9oq"
+        ],
+        "foregroundTaskId": "bmxnxv9oq",
+        "pidBefore": "11796",
+        "acknowledged": true,
+        "backgroundedByUser": true,
+        "completedTaskId": "bmxnxv9oq",
+        "terminalStatus": "completed",
+        "pidAfter": "11796"
+      },
+      "outputs": [
+        {
+          "insideAppTemp": true,
+          "bytes": 54,
+          "korean": true,
+          "mainReadStatus": "available",
+          "mainReadKorean": true,
+          "snapshot": {
+            "size": 54,
+            "sha256": "9f32c8f8333d9213bd25f60c68cb61955c96f36d75243c5ee01bf8c14ece1bf5",
+            "partial": false
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -288,7 +288,7 @@ describe('두 타일의 파생이 다르다 (AT-09a)', () => {
 // 0204 ΔV1 §4 — 새로 만든 사용자 대면 문구에 **소비자가 있는지**를 화면 출력으로 본다.
 // producer(파생)만 만들고 consumer(렌더)가 없으면 그 문구는 아무도 보지 못한다.
 describe('새 문구의 소비자 (AT-31 · D-016a)', () => {
-  it('0215 — 정착 사유는 `백그라운드 작업` 타일이 보인다 (문구의 소비자가 옮겨졌다)', () => {
+  it('0232 — 실패/중단 카드에는 실행 결과 본문 없이 상태를 표시한다', () => {
     const html = renderSubagentList(
       messages(
         backgroundTask('bg1', '실패한 작업', {
@@ -297,7 +297,8 @@ describe('새 문구의 소비자 (AT-31 · D-016a)', () => {
         })
       )
     )
-    expect(html).toContain('채널이 종료되어 서브에이전트가 중단되었습니다.')
+    expect(html).not.toContain('채널이 종료되어 서브에이전트가 중단되었습니다.')
+    expect(html).toContain('실패')
     // 음성 짝 — `작업` 타일에는 그 행 자체가 없다.
     const board = renderProgress(
       messages(
@@ -308,7 +309,7 @@ describe('새 문구의 소비자 (AT-31 · D-016a)', () => {
       )
     )
     expect(board).not.toContain('실패한 작업')
-    // 양성 짝 — 중단 행의 기존 사유도 계속 나온다(대칭이지 대체가 아니다).
+    // 중단 상태는 유지하되 실행 결과 본문은 숨긴다.
     const aborted = renderSubagentList(
       messages(
         backgroundTask('bg2', '중단한 작업', {
@@ -317,7 +318,8 @@ describe('새 문구의 소비자 (AT-31 · D-016a)', () => {
         })
       )
     )
-    expect(aborted).toContain('사용자에 의해 중단됨')
+    expect(aborted).toContain('중단됨')
+    expect(aborted).not.toContain('서브에이전트가 중단되었습니다.')
   })
 
   it('백그라운드 작업 타일이 중단 확정 대기를 중단 중으로 보인다', () => {

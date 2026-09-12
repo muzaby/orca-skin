@@ -3,12 +3,14 @@ import { resolve } from 'node:path'
 import {
   applyBackgroundEvent,
   backgroundKey,
+  canPromoteBackgroundCall,
   emptyBackgroundState,
   isBackgroundTerminal,
   sanitizedBackgroundState,
   type BackgroundEvent,
   type ProviderMessageEvent,
   type BackgroundTaskRequest,
+  type PromoteBackgroundTaskRequest,
   type BackgroundSessionState,
   type ReadBackgroundOutputRequest,
   type ReadBackgroundOutputResponse,
@@ -21,8 +23,10 @@ import type { BackgroundOutputStore } from '../../infra/background-output'
 import type { BackgroundTaskTracker } from './background-tasks'
 
 interface BackgroundRuntime {
+  identity?: object
   generation?: string
   stopTask(taskId: string): Promise<void>
+  backgroundTask?(toolUseId: string): Promise<boolean>
 }
 interface Dependencies {
   tracker: BackgroundTaskTracker
@@ -40,6 +44,7 @@ export class BackgroundController {
   private readonly stoppingAll = new Set<string>()
   private readonly captures = new Set<string>()
   private readonly disposed = new Set<string>()
+  private readonly promoting = new Set<string>()
   private readonly stopTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private readonly snapshotVersions = new Map<string, number>()
   constructor(private readonly deps: Dependencies) {}
@@ -165,6 +170,67 @@ export class BackgroundController {
       throw error
     } finally {
       clearTimeout(requestTimer)
+    }
+  }
+
+  async promote(req: PromoteBackgroundTaskRequest): Promise<void> {
+    if (!req.toolUseId?.trim()) throw new Error('전환할 실행을 확인하지 못했습니다.')
+    const key = JSON.stringify([req.sessionId, req.generation, req.toolUseId])
+    if (this.promoting.has(key)) throw new Error('이미 백그라운드 전환을 요청했습니다.')
+    const state = this.state(req.sessionId)
+    const call = state.calls[backgroundKey(req.generation, req.toolUseId)]
+    const runtime = this.deps.runtime(req.sessionId)
+    if (
+      this.disposed.has(req.sessionId) ||
+      state.generation !== req.generation ||
+      state.connection !== 'connected' ||
+      !runtime?.backgroundTask ||
+      runtime.generation !== req.generation ||
+      !call ||
+      !canPromoteBackgroundCall(state, call)
+    )
+      throw new Error('현재 실행을 백그라운드로 전환할 수 없습니다.')
+
+    this.promoting.add(key)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      const backgrounded = await Promise.race([
+        runtime.backgroundTask(req.toolUseId),
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () =>
+              reject(new Error('백그라운드 전환 응답을 확인하지 못했습니다. 다시 시도해 주세요.')),
+            15_000
+          )
+          timer.unref?.()
+        })
+      ])
+      const currentRuntime = this.deps.runtime(req.sessionId)
+      const current = this.state(req.sessionId)
+      if (
+        this.disposed.has(req.sessionId) ||
+        !currentRuntime ||
+        (currentRuntime.identity ?? currentRuntime) !== (runtime.identity ?? runtime) ||
+        currentRuntime.generation !== req.generation ||
+        current.generation !== req.generation ||
+        current.connection !== 'connected'
+      )
+        throw new Error('실행 연결이 변경되어 전환 결과를 적용하지 않았습니다.')
+      if (!backgrounded)
+        throw new Error('실행을 전환하지 못했습니다. 상태를 확인하고 다시 시도해 주세요.')
+      const currentCall = current.calls[backgroundKey(req.generation, req.toolUseId)]
+      if (!currentCall) throw new Error('전환한 실행을 확인하지 못했습니다.')
+      this.observe({
+        type: 'background.call',
+        sessionId: req.sessionId,
+        source: this.source(req.generation),
+        toolUseId: req.toolUseId,
+        phase: currentCall.phase,
+        patch: { mode: 'background' }
+      })
+    } finally {
+      clearTimeout(timer)
+      this.promoting.delete(key)
     }
   }
 

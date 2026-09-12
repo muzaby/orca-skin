@@ -285,6 +285,16 @@ export class ClaudeBackgroundMapper {
       (p) => isRecord(p) && p.type === 'tool_result'
     ).length
     const out: BackgroundEvent[] = []
+    const model = text(message.model)
+    if (msg.type === 'assistant' && parentToolUseId && model) {
+      out.push({
+        type: 'background.call',
+        ...common,
+        toolUseId: parentToolUseId,
+        phase: 'progress',
+        patch: { model }
+      })
+    }
     for (const part of message.content) {
       if (!isRecord(part)) {
         errors.push('message.content[] must be an object')
@@ -366,7 +376,7 @@ export class ClaudeBackgroundMapper {
         })
       )
       fields = ['outputFile']
-    } else if (toolName === 'Bash') {
+    } else if (toolName === 'Bash' || toolName === 'PowerShell') {
       Object.assign(
         patch,
         present({

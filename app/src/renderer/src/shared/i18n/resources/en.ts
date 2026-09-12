@@ -7,6 +7,9 @@ import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../../../shared/produc
 export const en: typeof ko = {
   background: {
     title: 'Background tasks',
+    groupRunning: 'Running',
+    groupCompleted: 'Completed',
+    clearCompleted: 'Clear completed tasks',
     empty: 'No background tasks.',
     loading: 'Loading task state…',
     refresh: 'Refresh',
@@ -735,7 +738,9 @@ export const en: typeof ko = {
       },
       subagentHeading: 'Subagent',
       subagentTypeLine: 'Type: {{type}}',
-      openSubagentPanel: 'Open subagent panel'
+      openSubagentPanel: 'Open subagent panel',
+      promoteBackground: 'Move to background',
+      promoteBackgroundFailed: 'Could not move this task to the background.'
     },
     subagentNotice: {
       completed: 'Background task finished',

@@ -18,6 +18,7 @@ import type {
   BackgroundEvent,
   BackgroundSessionState,
   BackgroundTaskRequest,
+  PromoteBackgroundTaskRequest,
   ReadBackgroundOutputRequest,
   ReadBackgroundOutputResponse,
   StopAllBackgroundTasksResult
@@ -125,6 +126,8 @@ const orca = {
       subscribe(CHANNELS.chatBackgroundEvent, handler),
     stopBackgroundTask: (req: BackgroundTaskRequest): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.chatStopBackgroundTask, req),
+    promoteBackgroundTask: (req: PromoteBackgroundTaskRequest): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.chatPromoteBackgroundTask, req),
     stopAllBackgroundTasks: (req: {
       sessionId: string
       generation: string

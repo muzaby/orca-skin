@@ -55,6 +55,7 @@ Composer의 `dialog`·`drag_drop`·`clipboard` 첨부는 `chat:send` 정규화 �
 | `orca:chat:backgroundState` | renderer → main | `{sessionId}` → `BackgroundSessionState` | 원본 journal·내부 중복 인덱스 제외. 재로드된 이력은 현재 live로 보지 않는다. |
 | `orca:chat:backgroundEvent` | main → renderer | `BackgroundEvent` | DB 커밋 뒤 전달하는 task/call/snapshot/connection/control/output 이벤트. `provider.message`는 전달하지 않는다. |
 | `orca:chat:stopBackgroundTask` | renderer → main | `{sessionId,generation,taskId}` → void | 현재 세대의 기록된 대상만 제어. ACK는 실제 종료와 다르다. |
+| `orca:chat:promoteBackgroundTask` | renderer → main | `{sessionId,generation,toolUseId}` → void | 현재 연결의 등록된 foreground Bash/PowerShell을 동일 실행 그대로 단건 전환한다. 빈 ID·이전 세대·중복·비대상은 거부한다. SDK false/예외·15초 응답 제한도 reject하며 늦은 응답은 다른 runtime에 반영하지 않는다. |
 | `orca:chat:stopAllBackgroundTasks` | renderer → main | `{sessionId,generation}` → `{residualTaskIds,unknown}` | 새 입력을 잠시 차단하고 live를 제한적으로 다시 확인한다. 잔여와 연결 미확인을 숨기지 않는다. |
 | `orca:chat:readBackgroundOutput` | renderer → main | `{sessionId,generation,taskId,outputId,offset,maxBytes,view?,cursor?}` → `ReadBackgroundOutputResponse` | 경로 입력 금지. maxBytes는 1…65536, view는 current/snapshot. 상태는 available/partial/missing/denied/remote/changed/truncated다. |
 
