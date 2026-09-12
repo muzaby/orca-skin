@@ -7,7 +7,7 @@
 | 작성자 | Codex |
 | 일자 | 2026-09-12 |
 | 상태 | READY |
-| V mode / 기준 / revision | Baseline V / none / V1 |
+| V mode / 기준 / revision | Baseline V / none / V2 |
 | 관련 작업 | 백그라운드 SDK 보완은 별도 `0231-background-task-conformance` |
 
 # Part I — Product & UX Contract
@@ -34,6 +34,7 @@
 | D-03 | 첨부·일반 출력·artifact 임시 입력도 D-01을 사용 | 권한과 실제 파일 위치 일치 | 사용자 요구의 구현 해석 | ACTIVE |
 | D-04 | 기존 사용자 선택 cwd·extraDirs와 별개인 자동 허용 경로만 좁힘 | 명시적으로 선택한 작업 경로를 삭제할 근거 없음 | 기존 계약 유지 | ACTIVE |
 | D-05 | 작성 주체는 Codex | 사용자 지시 | 사용자 | ACTIVE |
+| D-06 | Claude query의 `CLAUDE_CODE_TMPDIR`를 D-01로 고정 | SDK 실제 task 출력도 자동 허용 루트 안에 생성해야 함. OS TEMP/TMP/TMPDIR는 유지 | 실제 SDK 0.3.267·CLI 2.1.267 loopback 실기 | ACTIVE |
 
 갱신 메모: 요청의 `orckinus-orca`는 명시 응답으로 `orcinus-orca`가 되었다. ACTIVE 결정 ↔ AC 대조: D-01~04는 AC1~5, D-05는 AC6에 연결한다.
 
@@ -68,7 +69,7 @@
 | R / AT / AC | 동작 기준 | 직접 검증 | production path |
 |---|---|---|---|
 | R-01 / AT-01 / AC1 | 공통 루트가 OS 임시 폴더 아래 정확히 `orcinus-orca` | 실제 함수 반환과 override fixture | temp-path → 입력/출력 소비처 |
-| R-02 / AT-02 / AC2 | Code·Work 모두 해당 루트 rw, 부모·형제는 자동 허용 안 됨 | 두 프로필 query 옵션 및 실제 guardToolAccess 결과 | Claude query 준비 → additionalDirectories·PreToolUse |
+| R-02 / AT-02 / AC2 | Code·Work 모두 해당 루트 rw, 부모·형제는 자동 허용 안 됨 | 두 프로필 query 옵션·SDK 임시 env 및 실제 guardToolAccess 결과 | Claude query 준비 → additionalDirectories·PreToolUse·CLAUDE_CODE_TMPDIR |
 | R-03 / AT-03 / AC3 | 첨부와 완성 파일이 새 루트에서 읽기·저장·수집됨 | 임시 fixture의 실제 파일 I/O | attachments·output collector → artifact service |
 | R-04 / AT-04 / AC4 | artifact 임시 입력은 앱 루트만 자동 허용 | 앱 루트 성공·형제 경로 거부·링크 거부 | readArtifactInput → stable reader |
 | R-05 / AT-05 / AC5 | 사용자 cwd·extraDirs와 기존 파일 무결성 검증 유지 | 기존 workspace 및 출력 파일 회귀 테스트 | turn extraDirs → guard·output reader |
@@ -83,6 +84,7 @@
 | VP-01~06 | R-01~06 ↔ AT-01~06 (동일 번호) | REQUIRED | §7 각 행의 경로·직접 행동 단언 | EP-01~05 | not selected — 파일 I/O·옵션·가드 직접 결과 |
 | VP-07 | SD-01 ↔ ST-01 | REQUIRED | 턴 준비 → 파일 생성 → 수집·읽기 통합 결과 | EP-02~04 | not selected — 실제 파일 결과 |
 | VP-08 | AR-01 ↔ IT-01 | REQUIRED | query 옵션과 가드에 같은 루트를 전달한 두 프로필 실행 | EP-02 | not selected — 주입된 query/hook 행동 |
+| VP-10 | AR-02 ↔ IT-02 | REQUIRED | query/설정 env의 옛 tmp override → 앱 tmp로 고정 → 실제 SDK 출력 파일의 허용 read | EP-06 | not selected — 실제 query 옵션과 파일 내용 |
 | VP-09 | MD-01 ↔ UT-01 | REQUIRED | 루트 해석 → 앱 폴더/형제/링크 입력 판정 | EP-01·03·04 | not selected — 직접 경로 판정 |
 
 운영 gate: 관련 비 DB Vitest, `npm run typecheck`, `npm run lint`, 문서 링크·inventory 검사, `git diff --check`, 커밋 trailer 재독. 현재 변경으로 유발된 실패를 판정한다.
@@ -116,6 +118,10 @@
 | EP-03 | 첨부 기본 저장·일반 출력 준비·일반 출력 재읽기 (3) | `attachment-files.ts`, `artifacts/files.ts` / I/O | 새 위치 불일치 또는 검증 약화 |
 | EP-04 | artifact 임시 입력 fallback (1) | `artifacts/files.ts:readArtifactInput` / 읽기 | 부모/형제 파일 무단 허용 |
 | EP-05 | Work profile·턴 출력 경로 설명·artifact instructions/description·현재 persistence·권한 가이드·plan·INDEX (8) | 각 현재 문서/프롬프트 / 배선·보고 | 설명과 실행 불일치 |
+
+| EP-06 | SDK 내부 tmp env와 명시 설정 override 우선순위 (2) | `claude.ts` query options/env/settings / spawn | SDK task 출력이 부모 Temp에 생성되어 새 reader가 거부 |
+
+AR-02/IT-02는 D-06의 SDK 내부 출력 생성 경로 계약과 실기·옵션 oracle이다. V2 변경은 이 노드·pair·EP와 AC2/AC3 경로를 보강하며 기존 V1 행을 유지한다.
 
 ## 11. 구현 설계
 
@@ -159,3 +165,7 @@ temp-path → Claude additionalDirectories/guard 및 attachments/artifacts → �
 ## READY self-review
 
 READY: 독립 감사가 찾은 Code 폴더 생성 누락과 artifact 도구 설명을 EP-01·EP-05에 반영했다. `tmpdir()` 직접 소비 검색에서 도구 경로 밖 SQLite warm-up을 분리했고, ACTIVE D-01~05와 AC1~6의 충돌은 없다. 테스트는 `temp-directory`, `attachments`, `claude.extra-dirs`, `input-files`, `profiles`, `tool`의 직접 행동 결과를 사용한다.
+
+## 설계 정정 — SDK 내부 임시 출력 (Codex, 2026-09-12)
+
+실제 SDK 실행에서 Bash·PowerShell·Agent의 output_file이 `Temp/claude/.../tasks`로 생성되어 좁힌 자동 허용 범위 밖이었다. 공식 `CLAUDE_CODE_TMPDIR`를 앱 전용 루트로 고정한다. 이는 Claude 내부 임시 파일의 위치만 바꾸며 OS TEMP/TMP/TMPDIR·파일 ACL·기존 파일은 변경하지 않는다. 공식 근거: https://code.claude.com/docs/en/env-vars . 일반 환경/설정이 이 host 경로를 넓히지 못하도록 최종 query 입력에서 우선한다.

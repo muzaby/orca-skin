@@ -10,7 +10,7 @@
 | 상태 | READY |
 | V mode / 기준 V | Baseline V / none |
 | 이번 V revision / 유효 V | V1 / V1 |
-| 매핑 | 첨부 전체 대조·보완 구현, [진단](diagnosis.md) |
+| 매핑 | [첨부 원문](source-spec.md) 전체 대조·보완 구현, [진단](diagnosis.md) |
 | 분리 작업 | 일반 출력 TEMP 정책은 0230; 이 문서는 SDK background 작업 수명·출력만 소유 |
 
 # Part I — Product & UX Contract
@@ -465,3 +465,7 @@ raw 원본은 DB에서만 읽고 일반 상태 IPC로 싣지 않는다. dedupe �
 ## [검증자 기입] 파생 이슈
 
 아직 독립 검증 전이다.
+
+## 설계 정정 — 실제 SDK 출력 경로 (Codex, 2026-09-12)
+
+0230 V2의 D-06·VP-10·EP-06을 출력 생성 경로의 선행 계약으로 적용한다. AC15·AC16의 허용 read/snapshot은 query `CLAUDE_CODE_TMPDIR`로 앱 임시 루트 아래 생성한 SDK 파일을 소비한다. 부모 Temp를 추가 허용하는 fallback은 없다. EP-01(query 옵션)과 EP-10(출력 policy)의 기존 강제 지점에서 실제 Bash·PowerShell·Agent output_file과 그 내용으로 함께 검증한다.
