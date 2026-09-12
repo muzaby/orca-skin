@@ -41,6 +41,7 @@
 | D-08 | 선택 상세의 도구 호출 제목 행을 렌더하지 않음. 패널 제목/뒤로가기·도구 본문은 유지 | 사용자 예시 `실행 중실행 중로그 파서 조사 >` | ACTIVE | D-03의 상세 표시 보완 |
 | D-09 | 상세의 결과 기다리기·대기 취소 UI를 제거 | 사용자 추가 피드백; 실제 작업 중단은 유지 | ACTIVE | 기존 대기 전용 UI 대체 |
 | D-10 | Explorer/Agent 상세는 부모 Agent 카드를 제거하고 대화록만 표시 | 사용자 추가 피드백; 셸 작업의 도구 본문은 유지 | ACTIVE | D-03·D-08의 Agent 상세 표현 대체 |
+| D-11 | Explorer 상세 대화록을 감싼 외곽 테두리를 제거 | 사용자 추가 피드백; 다른 인라인 사용처의 기본 프레임은 유지 | ACTIVE | D-10의 대화록 표현 보완 |
 
 ### 갱신 메모
 
@@ -199,17 +200,17 @@ SDK→normalize→history/reducer는 그대로 두고 transcript 투영만 바�
 | R / AT / AC | provenance | 추가 동작 / production 경로 / 직접 oracle |
 |---|---|---|
 | R-05 / AT-09 / AC9 | NEW | canonical 패널에 새로고침·일괄 중단·결과 기다리기·대기 취소 UI가 없고 각 실행 카드의 개별 중단은 있다. 렌더·클릭 테스트. |
-| R-06 / AT-10 / AC10 | NEW | 카드→선택 상세에서 호출 제목/상태 확장 행이 없다. Explorer/Agent는 부모 카드 없이 대화록만, 셸은 도구 본문을 표시하며 상단 back는 유지한다. 기본 transcript ToolCard 제목은 유지된다. 렌더·interaction 테스트. |
-| MD-02 / UT-02 | NEW | ToolCard의 제목 없는 본문 표현은 opt-in이며 기본 사용처의 확장 UX를 바꾸지 않음. 두 경우 DOM 직접 비교. |
+| R-06 / AT-10 / AC10 | NEW | 카드→선택 상세에서 호출 제목/상태 확장 행이 없다. Explorer/Agent는 부모 카드와 외곽 테두리 없이 대화록만, 셸은 도구 본문을 표시하며 상단 back는 유지한다. 기본 transcript ToolCard 제목은 유지된다. 렌더·interaction·실제 화면 확인. |
+| MD-02 / UT-02 | NEW | ToolCard의 제목 없는 본문과 InlineSubagentDetail의 프레임 없는 표현은 opt-in이며 기본 사용처의 확장 UX를 바꾸지 않음. 렌더 테스트와 두 표현의 DOM 직접 비교. |
 | AR-01 / IT-01 | CHANGED | canonical 선택 상세→ToolCard 본문 표현의 배선을 추가하고 기존 VP-06의 세션/식별자 경계를 유지. |
 
 | Pair | left ↔ right | requiredness | 경로 / oracle | §10 추가 지점 / 적대 증거 |
 |---|---|---|---|---|
 | VP-Δ01 | R-05 ↔ AT-09 | REQUIRED | canonical 목록→개별 stop; 버튼 집합과 실제 개별 payload | EP-Δ01 목록 toolbar (1); not selected — 직접 DOM |
-| VP-Δ02 | R-06 ↔ AT-10 | REQUIRED | 선택 상세→도구 본문; 제목 부재와 본문·back 양성 단언 | EP-Δ02 상세/ToolCard (2); not selected — 직접 DOM/클릭 |
-| VP-Δ03 | MD-02 ↔ UT-02 | REQUIRED | ToolCard opt-in/default; body/header 슬롯의 실제 렌더 | EP-Δ02 (2); not selected — 자리 직접 관측 |
-| VP-Δ04 | AR-01 ↔ IT-01 | REQUIRED | 선택 카드→상세/back/stop; 기존 VP-06 경로와 제목 옵션 전달 | EP-03,04,Δ02 (6); not selected — interaction |
+| VP-Δ02 | R-06 ↔ AT-10 | REQUIRED | 선택 상세→도구 본문; 제목·외곽 테두리 부재와 본문·back 양성 단언 | EP-Δ02 상세/ToolCard/InlineSubagentDetail (3); not selected — 직접 DOM/클릭 |
+| VP-Δ03 | MD-02 ↔ UT-02 | REQUIRED | ToolCard와 InlineSubagentDetail opt-in/default; body/header/frame 슬롯의 실제 렌더 | EP-Δ02 (3); not selected — 자리 직접 관측 |
+| VP-Δ04 | AR-01 ↔ IT-01 | REQUIRED | 선택 카드→상세/back/stop; 기존 VP-06 경로와 제목·프레임 옵션 전달 | EP-03,04,Δ02 (7); not selected — interaction |
 
-AS-IS: canonical 목록 toolbar에 refresh/stopAll, 상세 ToolCard에 status/title 확장 행과 결과 대기 UI. TO-BE: toolbar·대기 전용 UI 제거, 기존 stopAll API는 남고 셸 선택 상세만 제목 없는 도구 본문을 표시한다. Explorer/Agent 상세는 부모 ToolCard 없이 InlineSubagentDetail 대화록을 표시한다. 파일: `CanonicalBackgroundContent`, `ToolCard`, 관련 render/interaction 테스트. 기본 ToolCard 및 개별 중단은 회귀 대상으로 기존 VP-03/06을 재실행한다.
+AS-IS: canonical 목록 toolbar에 refresh/stopAll, 상세 ToolCard에 status/title 확장 행과 결과 대기 UI. TO-BE: toolbar·대기 전용 UI 제거, 기존 stopAll API는 남고 셸 선택 상세만 제목 없는 도구 본문을 표시한다. Explorer/Agent 상세는 부모 ToolCard와 외곽 프레임 없이 InlineSubagentDetail 대화록을 표시한다. 파일: `CanonicalBackgroundContent`, `ToolCard`, `InlineSubagentDetail`, 관련 render/interaction 테스트. 기본 ToolCard·인라인 프레임 및 개별 중단은 회귀 대상으로 확인한다.
 
-§10 유효 강제 지점은 기존 8지점 + EP-Δ01(1) + EP-Δ02(2)다. EP-Δ01은 canonical 패널 목록과 상세의 제어 집합을 함께 검사한다. 운영 gate는 §19를 유지한다. 기존 AC1~8 + AC9~10 = 총 10개이며 ACTIVE↔AC 대조는 D-07·D-09=AC9, D-08·D-10=AC10으로 충돌 없다.
+§10 유효 강제 지점은 기존 8지점 + EP-Δ01(1) + EP-Δ02(3)다. EP-Δ01은 canonical 패널 목록과 상세의 제어 집합을 함께 검사한다. 운영 gate는 §19를 유지한다. 기존 AC1~8 + AC9~10 = 총 10개이며 ACTIVE↔AC 대조는 D-07·D-09=AC9, D-08·D-10·D-11=AC10으로 충돌 없다.
