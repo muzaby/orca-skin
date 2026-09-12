@@ -12,6 +12,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 import { homedir, tmpdir } from 'node:os'
 import { afterEach, describe, expect, it } from 'vitest'
+import { PRODUCT_SLUG } from '../../../shared/product'
 import { MAX_FILE_CONTEXT_CHARS, bufferToBase64Chunked, normalizeAttachments } from './attachments'
 import { MAX_ATTACHMENT_BYTES, nativeAttachmentDirectory } from './attachment-files'
 
@@ -39,10 +40,10 @@ afterEach(async () => {
 })
 
 describe('attachment files and text normalization', () => {
-  it('stores attachments in the OS user temporary directory by default', () => {
-    expect(nativeAttachmentDirectory()).toBe(resolve(tmpdir()))
+  it('stores attachments in the product child of the OS temporary directory by default', () => {
+    expect(nativeAttachmentDirectory()).toBe(resolve(tmpdir(), PRODUCT_SLUG))
   })
-  it('copies file and clipboard input into the actual OS Temp root without touching the source', async () => {
+  it('copies file and clipboard input into the product Temp child without touching the source', async () => {
     const source = join(await makeHomeTempDir(), 'reference.md')
     await writeFile(source, '# Source')
     const normalized = await normalizeAttachments(
@@ -66,7 +67,7 @@ describe('attachment files and text normalization', () => {
     )
     for (const view of normalized.attachmentViews ?? []) {
       copiedFiles.push(view.path!)
-      expect(dirname(view.path!)).toBe(await realpath(tmpdir()))
+      expect(dirname(view.path!)).toBe(await realpath(join(tmpdir(), PRODUCT_SLUG)))
     }
     expect(normalized.attachmentViews).toHaveLength(2)
     expect(await readFile(normalized.attachmentViews![0].path!, 'utf8')).toBe('# Source')

@@ -110,7 +110,8 @@ export function adaptEnv(base?: Record<string, string>): Pick<Options, 'env'> {
 // 단발 completion과 대화가 공유하는 실행 설정만 조립한다. 도구·plugin·hook 정책은 각 호출부 소유.
 export function adaptExecutionConfig(
   settings?: HarnessNativeSettings,
-  env?: Record<string, string>
+  env?: Record<string, string>,
+  temporaryFilesRoot?: string
 ): Pick<Options, 'settings' | 'settingSources' | 'env'> {
   // prepareHarnessConfig가 env를 조립한 경우 settings.env는 이미 hoist됐다.
   // 기본값도 같은 채널에만 넣어 custom/runtime/provider/app/process 우선순위를 유지한다.
@@ -121,7 +122,7 @@ export function adaptExecutionConfig(
   const settingsPowerShell = isRecord(settings?.env)
     ? settings.env.CLAUDE_CODE_USE_POWERSHELL_TOOL
     : undefined
-  return {
+  const options: Pick<Options, 'settings' | 'settingSources' | 'env'> = {
     ...adaptSettingSources(),
     ...adaptSettings(configuredSettings),
     ...adaptEnv(
@@ -129,6 +130,35 @@ export function adaptExecutionConfig(
         ? { ...(typeof settingsPowerShell === 'string' ? {} : CLAUDE_DEFAULT_ENV), ...env }
         : undefined
     )
+  }
+  if (temporaryFilesRoot === undefined) return options
+  // SDK env is a replacement, not an overlay. Preserve inherited process variables
+  // when this direct-call path did not supply a prepared environment. The same host
+  // path also wins in --settings, which the CLI applies after its initial env.
+  return {
+    ...options,
+    env: withHostTemporaryRoot(options.env ?? process.env, temporaryFilesRoot),
+    ...adaptSettings({
+      ...configuredSettings,
+      env: withHostTemporaryRoot(
+        isRecord(configuredSettings.env) ? configuredSettings.env : {},
+        temporaryFilesRoot
+      )
+    })
+  }
+}
+
+function withHostTemporaryRoot<T>(
+  env: Record<string, T>,
+  root: string
+): Record<string, T | string> {
+  // Windows treats env names case-insensitively. Remove aliases before writing one
+  // authoritative spelling; retain every unrelated key and never mutate the source.
+  return {
+    ...Object.fromEntries(
+      Object.entries(env).filter(([key]) => key.toUpperCase() !== 'CLAUDE_CODE_TMPDIR')
+    ),
+    CLAUDE_CODE_TMPDIR: root
   }
 }
 

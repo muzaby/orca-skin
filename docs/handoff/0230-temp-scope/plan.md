@@ -6,7 +6,7 @@
 |---|---|
 | 작성자 | Codex |
 | 일자 | 2026-09-12 |
-| 상태 | READY |
+| 상태 | IMPL_DONE |
 | V mode / 기준 / revision | Baseline V / none / V2 |
 | 관련 작업 | 백그라운드 SDK 보완은 별도 `0231-background-task-conformance` |
 
@@ -118,7 +118,6 @@
 | EP-03 | 첨부 기본 저장·일반 출력 준비·일반 출력 재읽기 (3) | `attachment-files.ts`, `artifacts/files.ts` / I/O | 새 위치 불일치 또는 검증 약화 |
 | EP-04 | artifact 임시 입력 fallback (1) | `artifacts/files.ts:readArtifactInput` / 읽기 | 부모/형제 파일 무단 허용 |
 | EP-05 | Work profile·턴 출력 경로 설명·artifact instructions/description·현재 persistence·권한 가이드·plan·INDEX (8) | 각 현재 문서/프롬프트 / 배선·보고 | 설명과 실행 불일치 |
-
 | EP-06 | SDK 내부 tmp env와 명시 설정 override 우선순위 (2) | `claude.ts` query options/env/settings / spawn | SDK task 출력이 부모 Temp에 생성되어 새 reader가 거부 |
 
 AR-02/IT-02는 D-06의 SDK 내부 출력 생성 경로 계약과 실기·옵션 oracle이다. V2 변경은 이 노드·pair·EP와 AC2/AC3 경로를 보강하며 기존 V1 행을 유지한다.
@@ -169,3 +168,135 @@ READY: 독립 감사가 찾은 Code 폴더 생성 누락과 artifact 도구 설�
 ## 설계 정정 — SDK 내부 임시 출력 (Codex, 2026-09-12)
 
 실제 SDK 실행에서 Bash·PowerShell·Agent의 output_file이 `Temp/claude/.../tasks`로 생성되어 좁힌 자동 허용 범위 밖이었다. 공식 `CLAUDE_CODE_TMPDIR`를 앱 전용 루트로 고정한다. 이는 Claude 내부 임시 파일의 위치만 바꾸며 OS TEMP/TMP/TMPDIR·파일 ACL·기존 파일은 변경하지 않는다. 공식 근거: https://code.claude.com/docs/en/env-vars . 일반 환경/설정이 이 host 경로를 넓히지 못하도록 최종 query 입력에서 우선한다.
+
+---
+
+## [구현자 기입] 설계 리뷰
+
+- 동의 / 그대로 진행: V2의 D-01~D-06과 §11 구현 순서를 적용했다. SDK 내부 출력 경로는 query의 `options.env`와 `settings.env`에서 앱 임시 루트가 최종 우선한다.
+- 이견 / 현실성 문제: 없음. 실제 SDK·CLI 실기에서 V1의 additionalDirectories만으로는 `Temp/claude` 출력 생성 위치가 바뀌지 않았고, 별도 설계 V2가 D-06·VP-10·EP-06으로 이 경계를 보완했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. `adaptExecutionConfig` 테스트가 `TEMP`·`TMP`·`TMPDIR`와 입력 객체·`process.env`의 불변을 직접 비교한다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+| Pair | 계약/필드 | §10 지점 | 닫은 지점 | 재현 명령/관측 | 남긴 곳 |
+|---|---|---:|---:|---|---|
+| VP-01·07·09 | 공통 루트 반환·안전 준비 | EP-01 (2) | 2/2 | `rg "getTemporaryFilesPath|prepareTemporaryFilesPath" app/src/main/infra/config/temp-path.ts` → 공개 진입점 2개; 실제 폴더·링크 거부 fixture 통과 | — |
+| VP-02·08 | Code·Work의 SDK/가드 공통 루트 | EP-02 (4) | 4/4 | `claude.extra-dirs.test.ts`가 Code·Work × `additionalDirectories`·`makeWorkspaceGuardHook`을 검사하고 같은 배열 참조를 단언 | — |
+| VP-03·07 | 첨부 저장·출력 준비·출력 재읽기 | EP-03 (3) | 3/3 | `rg "getTemporaryFilesPath"` → `attachment-files.ts:7`, `files.ts:167`, `files.ts:207`; 파일 I/O fixture 통과 | — |
+| VP-04·09 | artifact 임시 입력 fallback | EP-04 (1) | 1/1 | `files.ts:131`의 앱 루트 fallback 1개; 부모·형제·junction·root redirect 거부 fixture 통과 | — |
+| VP-06 | 사용자/운영 설명과 상태 사본 | EP-05 (8) | 8/8 | 8-anchor 검색 probe: Work profile 1·turn prompt 1·artifact 필드 2·persistence 1·권한 가이드 1·plan 1·INDEX 1 → `total=8 missing=0` | — |
+| VP-02·03·10 | SDK tmp env·settings 우선순위 | EP-06 (2) | 2/2 | `adaptExecutionConfig`의 `options.env`·직렬화 `settings.env`가 같은 루트; complete/send 두 호출부와 대소문자 alias 제거 검사 | — |
+
+- 전수 합계: **20/20** — `2 + 4 + 3 + 1 + 8 + 2 = 20`. production `getTemporaryFilesPath` 소비 검색 결과를 EP-01~04·06에 분류했고, EP-05의 문구·상태 사본 차집합은 0이다.
+- §10에 없는데 같은 불변식이 필요했던 지점: **0건**. V1 실기에서 찾은 SDK env 경계는 V2의 D-06·VP-10·EP-06으로 설계에 먼저 반영됐다.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `resolve(tmpdir(), PRODUCT_SLUG)` 반환과 OS override fixture | not selected — 실제 반환값 |
+| VP-02 | REQUIRED | SELF_PASS | Code·Work의 SDK 경로·가드와 SDK tmp env가 앱 루트 | not selected — 실제 options/hook 값 |
+| VP-03 | REQUIRED | SELF_PASS | 첨부·일반 출력 I/O와 SDK output 네 종류의 main reader 상태 `available` | not selected — 실제 파일 내용 |
+| VP-04 | REQUIRED | SELF_PASS | 앱 루트 입력 성공, 부모·형제·junction·file/root alias 거부 | not selected — 실제 파일 판정 |
+| VP-05 | REQUIRED | SELF_PASS | 관련 TEMP 10파일 80케이스와 adapter 회귀 48파일 544케이스 통과 | not selected — 기존 직접 oracle |
+| VP-06 | REQUIRED | SELF_PASS | profile·turn·artifact·현재 문서에서 `orcinus-orca`; 작성자 Codex | not selected — 산출 실값 |
+| VP-07 | REQUIRED | SELF_PASS | Code·Work 턴 준비 후 파일 생성·수집·읽기 경로 80케이스 통과 | not selected — 통합 결과 |
+| VP-08 | REQUIRED | SELF_PASS | query 옵션과 guard가 동일 `additionalDirectories` 객체를 받음 | not selected — 참조 동일성 |
+| VP-10 | REQUIRED | SELF_PASS | SDK 0.3.267/CLI 2.1.267 네 실기 모두 앱 tmp 아래 생성·reader/snapshot 일치 | not selected — [실기 증거](../0231-background-task-conformance/sdk-evidence.md) |
+| VP-09 | REQUIRED | SELF_PASS | 폴더·형제·링크 경계의 직접 경로 판정 | not selected — 실제 경로 판정 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+| RED→GREEN oracle | 출처 | 구현 전 결과 | 구현 후 결과 | 잠근 계약 |
+|---|---|---|---|---|
+| Code query의 SDK tmp 옵션 | V2 VP-10 | `pins SDK internal temp for code...` 실패 | 통과 | 대화·direct completion의 앱 tmp 고정 |
+| Work query의 SDK tmp 옵션 | V2 VP-10 | `pins SDK internal temp for work...` 실패 | 통과 | Work additionalDirectories와 SDK tmp 일치 |
+| settings/process env 권위와 OS temp 불변 | D-06·EP-06 | `pins the host temp root in both channels...` 실패 | 통과 | 설정·process 원본과 TEMP/TMP/TMPDIR 불변 |
+| 대소문자 alias 제거 | D-06·EP-06 | `overrides explicit temp aliases...` 실패 | 통과 | Windows env 키 단일 권위 |
+
+- 분모 검산: `선택 증거 0 · 인용 변이 0 · 새 oracle 4 = 표 행 4`.
+- 덮개 회귀: 이전 라운드 없음. 실제 SDK 실기는 직접 oracle이며 적대 변이로 선택하지 않았다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 모든 도구가 같은 앱 임시 루트를 쓰는가 | Code·Work 파일 권한과 Claude 내부 output_file이 `Temp/orcinus-orca` 아래로 모인다 | 없음 |
+| OS 임시 설정이나 사용자 경로를 바꾸는가 | `TEMP`·`TMP`·`TMPDIR`, cwd, extraDirs, 입력 설정 객체는 바뀌지 않는다 | 없음 |
+| 폴더 생성 실패가 무음인가 | 턴 query 전 안전 준비가 실패하면 기존 턴 오류 경로로 전달된다 | 없음 |
+| 이전 Temp 출력이 자동 이동되는가 | 이동·스캔하지 않으며 현재 문서가 새 출력만 앱 루트에 둔다고 설명한다 | 없음 |
+| 사용자 대면 문구의 소비자가 있는가 | Work profile·turn prompt·artifact 도구 설명을 모델이 직접 소비한다 | 없음 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | V1은 접근 허용 루트만 좁혀 SDK 자체 output_file은 `Temp/claude`에 남았다 | ✅ 선조치 — V2 설계 뒤 `CLAUDE_CODE_TMPDIR`를 env/settings 두 채널에서 앱 루트로 고정 | [SDK 실기](../0231-background-task-conformance/sdk-evidence.md) |
+| 2 | Windows의 대소문자 다른 env alias가 host 값을 우회할 수 있다 | ✅ 선조치 — case-insensitive 제거 후 정본 키 하나를 기록 | `claude-adapt.test.ts` alias 케이스 |
+| 3 | 앱 임시 루트는 세션별 격리 폴더가 아니다 | ⚠️ 보고만 — 기존 D-01·D-04 범위이며 모델에 서로 다른 파일명을 쓰도록 안내 | `persistence.md` 일반 출력 절 |
+
+### 설계 대비 명시적 차이
+
+- plan이 지정한 메커니즘과 다르게 구현한 것: 없음. V1 이후 발견한 SDK 생성 경로는 별도 설계 V2에 먼저 반영한 뒤 구현했다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — tmp root는 query마다 현재 `os.tmpdir()`에서 계산한다 | AC1 · EP-01 |
+| 공유 | 앱 루트는 Code·Work가 공유하지만 자동 허용은 부모·형제로 확장되지 않는다 | AC2·5 · EP-02·04 |
+| 재진입 | direct completion과 conversation이 같은 순수 설정 helper를 매번 호출한다 | AC2·3 · EP-06 |
+| 다른 무효화 축 | OS tmp override 변경은 다음 호출부터 반영되며 process env 객체는 수정하지 않는다 | AC1·5 · EP-01·06 |
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 작성자 | **Codex** |
+| 변경 파일 | `temp-path.ts`, `claude-adapt.ts`, `claude.ts`, `send.ts`, `profiles.ts`, artifact/attachment 경로와 관련 테스트, `persistence.md`, 권한 가이드, 본 plan |
+| TDD | V1 관련 7파일 40케이스에서 기대 실패 12건 확인 후 수정; V2 신규 4케이스 RED→GREEN |
+| 관련 검증 | TEMP/attachment/artifact/guard/output 10파일 **80케이스 통과**; adapter 관련 48파일 **544케이스 통과** |
+| 실제 SDK/CLI | SDK 0.3.267·CLI 2.1.267: Bash 완료·Bash stop·PowerShell 한글·Agent 기본 output 네 경우가 `Temp/orcinus-orca/claude` 아래 |
+| production reader | 네 output 모두 `available`, snapshot `partial=false`; PowerShell 한글 보존. [증거](../0231-background-task-conformance/sdk-evidence.md) |
+| AC 자기보고 | AC1~AC6 **SELF_PASS 6 / SELF_BLOCKED 0** |
+| V-pair 자기확인 | REQUIRED **SELF_PASS 10 / SELF_BLOCKED 0** |
+| 전역 운영 gate | 아래 최종 통합 관측 참조 |
+| 커밋 | INDEX의 구현 좌표와 trailer는 검증자가 재확인 |
+
+### 최종 통합 관측
+
+| Gate | 명령 / 관측 결과 |
+|---|---|
+| 최종 타입 | npm run typecheck — node/web/test 모두 exit0 |
+| 최종 린트 | npm run lint — exit0, 오류0, 기존 useTranscriptVirtualizer 경고1 |
+| 전체 회귀 실행 | vitest --maxWorkers=4 — 497파일 통과/2파일 실패/1skip, 4629통과/2실패/1skip. 실패 2건은 병렬 작성 중 읽힌 Workflow 신규 RED였다 |
+| 수정 후 회귀 | chat/app/runtime/history/output/renderer 관련 최종 231파일·1928테스트 전부 통과. 위 실패 2파일과 실제 started→progress 통합을 포함한다 |
+| 마지막 린트 정리 | 반환 타입 2곳과 부모 필드 제거의 미사용 변수 수정 후 parts 2파일·27테스트 통과 |
+| 스크립트 | node --test scripts/*.test.mjs — 116테스트, 실패0 |
+| Electron 빌드 | npm run prebuild로 Electron ABI 복원 후 electron-vite build — main/preload/renderer 모두 통과. 마지막 타입/린트 정리 이후 번들도 재생성 |
+| 문서/DB 가드 | check-doc-inventory --check, check-migrations-appendonly, check-test-budgets — 모두 exit0. 상대 링크 유효, migration append-only 유지 |
+| 실제 SDK | basic4 + 소유자 수명9 + Workflow2. SDK 출력의 production reader·snapshot와 실제 main interrupt/close/one-shot 관측은 sdk-evidence.md |
+| 저장소 위생 | git diff --check 통과. 최종 커밋 후 trailer 파싱 확인 |
+
+전체 회귀의 RED를 최종 단일 실행 PASS로 바꿔 적지 않는다. 변경 중 실패한 두 스위트와 최종 수정의 영향 범위를 재실행하여 닫았다. DB 테스트는 Node ABI에서 수행했고 종료 시 native 모듈은 Electron ABI로 복원됐다. 빌드 첫 직접 helper 호출은 npm PATH 없이 electron-builder.cmd를 찾지 못해 실패했으며, 저장소가 지정한 prebuild 경로로 실행해 해소했다.
+
+**AC 자기확인**
+
+| AC | 자기 상태 | 관측 |
+|---|---|---|
+| AC1 | SELF_PASS | 함수 반환·OS override·안전 생성 fixture 통과 |
+| AC2 | SELF_PASS | Code·Work SDK/guard와 env/settings tmp root 일치 |
+| AC3 | SELF_PASS | 첨부·완성 파일 I/O 및 SDK 네 output의 production reader/snapshot 통과 |
+| AC4 | SELF_PASS | 앱 tmp 성공, 부모·형제·junction·redirect 거부 |
+| AC5 | SELF_PASS | cwd·extraDirs 불변과 관련 회귀 48파일 544케이스 통과 |
+| AC6 | SELF_PASS | 문구·현재 문서·작성자 Codex 실값 확인 |
+
+- AC 검산: `SELF_PASS 6 · SELF_BLOCKED 0 = 총 6`.
+
+## [구현자 기입] Review Signals
+
+| 신호 | 관측 |
+|---|---|
+| 이전 라운드와 같은 축인가 | 첫 구현 라운드 안에서 V1 경로 허용과 V2 SDK 생성 경로를 같은 temp scope로 닫았다 |
+| plan이 막았어야 했는가 | V1은 SDK 내부 생성 경로를 열거하지 않았다; 실제 실기 후 별도 설계 V2가 D-06·VP-10·EP-06을 추가했다 |
+| 반복 환경 한계 | loopback은 실제 SDK/CLI와 production reader를 쓰지만 외부 모델·원격 Worker 동작은 측정하지 않는다 |
+| 현재 라운드 수 | r1, 유효 설계 V2 |

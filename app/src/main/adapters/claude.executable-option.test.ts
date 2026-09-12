@@ -43,6 +43,7 @@ vi.mock('./claude-executable', () => ({ resolveClaudeExecutable: () => SENTINEL 
 
 import { ClaudeAdapter } from './claude'
 import type { TurnRequest } from './turn'
+import { getTemporaryFilesPath } from '../infra/config/temp-path'
 
 function optionsOfFirstCall(): Options {
   return (
@@ -74,6 +75,48 @@ describe('claudeExecutableOption 배선', () => {
 })
 
 describe('Claude 공통 실행 옵션', () => {
+  it.each(['work', 'code'])(
+    'pins SDK internal temp for %s and completion despite broad env/settings overrides',
+    async (kind) => {
+      const root = getTemporaryFilesPath()
+      const env = { PATH: '/fixture/bin', CLAUDE_CODE_TMPDIR: 'C:/wide-env', TMP: 'C:/os-temp' }
+      const providerSettings: ResolvedHarnessSettings = {
+        providerKey: 'fixture',
+        provider: 'claude',
+        sourceRevision: '1',
+        settings: { env: { claude_code_tmpdir: 'C:/wide-settings', OTHER: 'preserve' } }
+      }
+      const adapter = new ClaudeAdapter()
+      queryMock.mockClear()
+      adapter.sendMessage({
+        sessionId: null,
+        text: 'fixture',
+        cwd: '/ws/project',
+        env,
+        providerSettings,
+        extensions: {
+          ...(kind === 'work' ? { agentProfileKey: 'work:fixture' } : {}),
+          skills: [],
+          hooks: { normalized: {} }
+        }
+      })
+      const conversation = optionsOfFirstCall()
+      queryMock.mockClear()
+      await adapter.complete({ prompt: 'title', env, providerSettings })
+      for (const options of [conversation, optionsOfFirstCall()]) {
+        expect(options.env).toMatchObject({
+          CLAUDE_CODE_TMPDIR: root,
+          PATH: '/fixture/bin',
+          TMP: 'C:/os-temp'
+        })
+        expect(JSON.parse(options.settings as string).env).toEqual({
+          CLAUDE_CODE_TMPDIR: root,
+          OTHER: 'preserve'
+        })
+      }
+      expect(conversation.additionalDirectories).toContain(root)
+    }
+  )
   it('the query SDK server receives the channel context and returns its receipt', async () => {
     queryMock.mockClear()
     const channelSignal = new AbortController().signal
@@ -203,22 +246,35 @@ describe('Claude 공통 실행 옵션', () => {
       const conversation = optionsOfFirstCall()
       for (const options of [completion, conversation]) {
         expect(options.settingSources).toEqual(['project', 'local'])
-        expect(options.env).toEqual(
-          env ? { CLAUDE_CODE_USE_POWERSHELL_TOOL: '1', ...env } : undefined
-        )
+        const root = getTemporaryFilesPath()
+        if (env)
+          expect(options.env).toEqual({
+            CLAUDE_CODE_USE_POWERSHELL_TOOL: '1',
+            ...env,
+            CLAUDE_CODE_TMPDIR: root
+          })
+        else {
+          expect(options.env?.CLAUDE_CODE_TMPDIR).toBe(root)
+          expect(
+            Object.entries(process.env).every(
+              ([key, value]) =>
+                key.toUpperCase() === 'CLAUDE_CODE_TMPDIR' || options.env?.[key] === value
+            )
+          ).toBe(true)
+        }
         expect(JSON.parse(options.settings as string)).toEqual({
           skipWebFetchPreflight: true,
           ...settings,
-          ...(!env
-            ? {
-                env: {
+          env: {
+            ...(env
+              ? settings?.env
+              : {
                   CLAUDE_CODE_USE_POWERSHELL_TOOL:
                     process.env.CLAUDE_CODE_USE_POWERSHELL_TOOL ?? '1'
-                }
-              }
-            : {})
+                }),
+            CLAUDE_CODE_TMPDIR: root
+          }
         })
-        if (!env) expect(options).not.toHaveProperty('env')
       }
       expect(completion.tools).toEqual([])
       expect(completion.allowedTools).toEqual([])
@@ -316,7 +372,10 @@ describe('Claude 공통 실행 옵션', () => {
       })
       const options = optionsOfFirstCall()
       expect(options.env?.CLAUDE_CODE_USE_POWERSHELL_TOOL).toBe('0')
-      expect(JSON.parse(options.settings as string)).toEqual({ skipWebFetchPreflight: false })
+      expect(JSON.parse(options.settings as string)).toEqual({
+        skipWebFetchPreflight: false,
+        env: { CLAUDE_CODE_TMPDIR: getTemporaryFilesPath() }
+      })
       expect(settings.env).toBe(values[2])
     }
   )

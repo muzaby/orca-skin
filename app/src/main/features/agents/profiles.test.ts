@@ -20,6 +20,8 @@ describe('product agent profiles', () => {
     const work = resolveAgentProfile('work')
     expect(work).toBe(resolveAgentProfile('work'))
     expect(work.instructions).toContain('deliverable')
+    expect(work.instructions).toContain('orcinus-orca')
+    expect(work.instructions).not.toContain('user OS temporary folder')
     expect(Buffer.byteLength(work.instructions!)).toBeLessThanOrEqual(4096)
     expect(work.key).toBeTruthy()
     expect(work.persistResponseBoundaries).toBe(true)

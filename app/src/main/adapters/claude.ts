@@ -58,6 +58,7 @@ import { makeWorkspaceGuardHook, resolveGuardRoots } from './workspace-guard'
 import { buildEditPreview, nodeEditPreviewReader } from './edit-preview'
 import { resolveClaudeExecutable } from './claude-executable'
 import type { ProviderDescriptor } from '../../shared/ipc'
+import { getTemporaryFilesPath } from '../infra/config/temp-path'
 
 const requireFn = createRequire(import.meta.url)
 
@@ -274,7 +275,7 @@ export class ClaudeAdapter implements SessionAdapter {
       // plugin 로딩은 chat sendMessage 경로에만 적용한다.
       persistSession: false,
       ...claudeExecutableOption,
-      ...adaptExecutionConfig(req.providerSettings?.settings, req.env),
+      ...adaptExecutionConfig(req.providerSettings?.settings, req.env, getTemporaryFilesPath()),
       ...(req.cwd ? { cwd: req.cwd } : {}),
       ...(req.model ? { model: req.model } : {})
     }
@@ -384,9 +385,13 @@ export class ClaudeAdapter implements SessionAdapter {
     // Workspace 격리(0075) — 작업 폴더(cwd) 밖 r/w 를 PreToolUse 가드 훅으로 막는다. additionalDirectories
     // 는 옵션과 훅이 **같은 배열**을 공유해 드리프트를 막는다(가이드 §5). 값은 컴포저 참조 경로
     // 신규 칩 또는 유휴 Work의 명시 폴더 추가가 DB를 거쳐 턴 요청에 실린다.
-    const additionalDirectories: string[] = extensions.outputFiles
-      ? [...new Set([...(req.extraDirs ?? []), extensions.outputFiles.directory])]
-      : (req.extraDirs ?? [])
+    const additionalDirectories: string[] = [
+      ...new Set([
+        ...(req.extraDirs ?? []),
+        getTemporaryFilesPath(),
+        ...(extensions.outputFiles ? [extensions.outputFiles.directory] : [])
+      ])
+    ]
     const runtimeToolApprovalNames = runtimeApprovalToolNames(extensions.runtimeTools)
     // 실행 전 편집 미리보기(0229) — 가드 훅과 **같은 입력**으로 루트를 턴당 1회 푼다. 편집이 쓸 수
     // 없는 경로는 미리보기로도 읽지 않는다.
@@ -428,7 +433,7 @@ export class ClaudeAdapter implements SessionAdapter {
         // 0028 의 "생략=기본 소스 상속" supersede). provider settings 가 사용자 전역
         // ~/.claude/settings.json 개입 없이 적용된다.
         // options.env(adaptEnv)에는 시스템(턴) env 만 — orca.json 앱 env.
-        ...adaptExecutionConfig(req.providerSettings?.settings, env),
+        ...adaptExecutionConfig(req.providerSettings?.settings, env, getTemporaryFilesPath()),
         disallowedTools: ['Bash', 'WebSearch'],
         ...adaptRuntimeTools(extensions.runtimeTools, req.runtimeToolContext),
         // hooks = 중립 정규화 훅 + steer 게이트(PostToolBatch, 메인 루프 한정 flush) 병합 위에
