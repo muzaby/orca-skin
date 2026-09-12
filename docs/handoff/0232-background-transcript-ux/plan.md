@@ -47,6 +47,9 @@
 | D-14 | 비Explorer 상세는 도구 호출 UI만 표시. 별도 결과·출력 경로·읽기 controls 제거 | 사용자 첨부2; 내부 출력 보존과 모델 도구 능력은 유지 | ACTIVE | D-08·D-10 셸 상세 표현 대체 |
 | D-15 | Code 실행 중 foreground Bash/PowerShell 카드 하단 우측에 파란 백그라운드 전환 버튼 | 사용자 요청; 같은 실행을 단건 전환하며 재실행하지 않음 | ACTIVE | 신규 |
 | D-16 | 시작부터 종료까지 foreground인 셸은 Code 백그라운드 패널에서 제외 | 사용자 요청; 전환된 작업은 종료 후에도 카드 유지 | ACTIVE | D-03 목록 범위 보완 |
+| D-17 | Work context 출처에서 Windows AppData/Local/Temp/orcinus-orca/claude 및 하위 경로 제외 | 사용자 추가 피드백; 출처 목록 투영만 변경 | ACTIVE | 신규 |
+| D-18 | Code 백그라운드 목록을 실행 중/완료 두 접기 그룹으로 표시. 완료 그룹 오른쪽에만 휴지통 | 사용자 첨부 `codex-clipboard-d650bec3-16b7-4687-abd3-eecf39283791.png`; 실패·중단도 완료 그룹 | ACTIVE | D-03 목록 구성 보완 |
+| D-19 | 휴지통은 현재 완료 카드만 목록에서 지우고 원본 대화·작업·출력은 보존 | 완료된 작업 지우기 요청의 표시 범위 해석; 실행 중 작업은 유지 | ACTIVE | 신규 |
 
 ### 갱신 메모
 
@@ -342,6 +345,9 @@ SELF_PASS 11 · SELF_BLOCKED 0 = 총11(REQUIRED11). 선택 적대 증거는 각 
 | R-07 / AT-14 / AC14 | NEW | Code 실행 중 foreground Bash/PowerShell ToolCard 본문 하단 우측 파란 전환 버튼. 클릭한 동일 toolUseId만 SDK 전환하고 원래 프로세스·출력/종료를 유지하며 패널에 표시 |
 | R-07 / AT-15 / AC15 | NEW | foreground 셸은 실행/성공/실패/중단·reload와 직접 선택 모두에서 패널 제외. 명시 background 요청/실제 전환/관측된 background는 표시하고 종료·snapshot 제외 후에도 유지 |
 | R-07 / AT-16 / AC16 | NEW | 완료·이미 background·Work에는 전환 버튼 없음. 빈 ID/이전 세대/연결 종료/중복 요청 거부. SDK false·예외·응답 지연은 짧은 오류와 재시도, 세션 이동 뒤 다른 패널을 열지 않음 |
+| R-08 / AT-17 / AC17 | NEW | Work 출처는 내부 Claude 임시 경로의 Read·첨부를 제외한다. 대소문자/슬래시/점 세그먼트 변형과 late result/reload에도 동일. 일반 파일·웹·경로 없는 첨부·claude-other 형제는 유지 |
+| R-03 / AT-18 / AC18 | CHANGED | Code canonical·legacy 목록은 실행 중/완료 두 그룹이다. 왼쪽 라벨·개수·chevron 버튼으로 독립 접고 펼친다. 완료는 성공·실패·중단, 미확정은 실행 중. 빈 그룹은 숨김 |
+| R-03 / AT-19 / AC19 | CHANGED | 완료 그룹 오른쪽 휴지통만 현재 완료 항목을 지운다. 실행 중 항목·상태·원본 이력은 보존하고 새 완료 항목은 다시 나타난다. 패널 재열기/세션 왕복에서 제거 유지, 다른 세션 및 새 generation 같은 ID에 영향 없음 |
 
 대화록의 실제 결과는 유지한다. 제거 범위는 카드 아래 결과와 nonExplorer 상세의 ToolCard 형제 블록이다. SDK raw/journal·snapshot 및 읽기 API 자체는 유지하고 새 자동 읽기를 만들지 않는다. 기존 foreground Explorer의 패널 표시는 유지하며 foreground **셸**의 표시 범위를 바꾼다.
 
@@ -357,14 +363,20 @@ AS-IS: canonical이 task 전체와 failed call을 목록에 올리고, Agent 대
 | EP-Δ2-02 표시 | canonical 카드와 상세, 공통 패널 선택 투영, SubAgentTileHeader의 같은 선택 필터 = 4 |
 | EP-Δ2-03 전환 | 요청 타입/스키마·preload·renderer API(3), main 등록·controller 검증(2), 기존 Runtime→SDK 단건 포트(1), ToolCard·전환 액션 컴포넌트(2) = 8 |
 | EP-Δ2-04 판별 | shared reducer의 단조 backgroundObserved, 공통 셸/표시/전환 후보 predicate = 2 |
+| EP-Δ2-05 출처 | taskContext 경로 판별·Read/첨부 selector(1), 실제 TaskContextContent 소비(1) = 2 |
+| EP-Δ2-06 그룹 | canonical·legacy 목록과 선택 헤더의 동일 제거 투영(3), 세션별 표시 상태·그룹 접기/지우기 액션(2) = 5 |
 
-ΔV2 분모는 18이며 기존 12지점 회귀와 중복되므로 합산하지 않는다. backgroundObserved는 snapshot 포함, isBackgrounded:true, 확인된 background/remote mode에서만 누적한다. 명시적 run_in_background 요청은 pending 표시 근거일 뿐 관측 사실로 승격하지 않는다. 과거 포함 기록은 snapshot 제외·완료로 지우지 않으며 replay로 복원하되 live 연결 권한과 분리한다.
+ΔV2 분모는 25이며 기존 12지점 회귀와 중복되므로 합산하지 않는다. backgroundObserved는 snapshot 포함, isBackgrounded:true, 확인된 background/remote mode에서만 누적한다. 명시적 run_in_background 요청은 pending 표시 근거일 뿐 관측 사실로 승격하지 않는다. 과거 포함 기록은 snapshot 제외·완료로 지우지 않으며 replay로 복원하되 live 연결 권한과 분리한다.
 
 공개 호출은 `promoteBackgroundTask({sessionId,generation,toolUseId})` → 새 단건 IPC → BackgroundController → 기존 runtime.backgroundTask(toolUseId)다. controller는 현재 세대·연결·실제 실행 중 셸 call을 확인하고 중복을 막으며 SDK 응답 대기를 제한한다. true만 확인된 전환으로 기록하고, 응답 뒤 세대 교체/폐기를 다시 확인한다. 반환된 tool_result/task/snapshot이 원래 호출과 작업을 연결하며 stopTask는 실제 taskId를 계속 사용한다.
 
 전환 가능 여부는 공개 `task_started`의 같은 generation/toolUseId·local_bash·isBackgrounded:false·실행 중 상태로 확인한다. 등록 전 버튼은 비활성이고 임의 2초 타이머로 활성화하지 않는다. SDK의 true는 단건 전환 확인이며 임의 task를 만들지 않는다. PowerShell도 실제 반환의 backgroundTaskId를 Bash와 같은 방식으로 연결한다.
 
 모델은 child assistant의 parent_tool_use_id에 해당하는 canonical call에 실제 message.model을 저장한다. 기존 legacy 이력은 subagentMeta.model을 사용한다. JSON journal의 선택 필드와 reducer 파생만 추가하므로 SQL migration은 없다. 렌더에서 모델 도착 전에도 다른 카드 필드를 읽을 수 있으며 모델 표시를 위해 추가 SDK 호출을 하지 않는다.
+
+Work context 제외는 사용자가 지정한 Windows `AppData/Local/Temp/orcinus-orca/claude` 경로 세그먼트를 정규화해 정확한 디렉터리 경계로 판별한다. 파일 접근 권한이나 cwd/extraDirs, 원본 메시지에 영향을 주지 않는 표시 규칙이다. Read와 첨부 두 진입점에서 같은 판별을 사용한다. 이 규칙을 모든 `claude` 이름의 폴더나 Temp 전체로 확대하지 않는다.
+
+그룹 기본값은 펼침이며 상태 확인 전/unknown은 지울 수 없는 실행 중 그룹이다. 완료 지우기는 클릭 당시 terminal인 항목의 세대별 식별자를 세션 UI 상태에 보존한다. 목록·선택 상세·헤더가 같은 표시 필터를 사용하고, 지운 call에 task가 늦게 연결되어도 재등장하지 않는다. 패널 remount/세션 왕복은 유지하되 앱 재시작 영속 저장과 DB 삭제는 추가하지 않는다. 원본 canonical journal/state와 transcript는 그대로 두어 실행·출력·개별 중단 능력을 바꾸지 않는다.
 
 ### V nodes / pairs / 운영 gate
 
@@ -378,9 +390,15 @@ R-03·R-06은 위 기준선의 CHANGED, R-07·SD-02(전환 수명)·AR-02(단건
 | VP-Δ2-04 | MD-03 ↔ UT-03 | REQUIRED | raw/snapshot→순수 reducer/predicate; foreground/관측/요청 구분·완료/replay·모델 보존 | EP-Δ2-01,04 |
 | VP-Δ2-05 | AR-02 ↔ IT-02 | REQUIRED | preload 요청→실제 등록 handler→controller→live port; 두 ID·이전 세대·중복·false·예외 | EP-Δ2-03 |
 | VP-Δ2-06 | SD-02 ↔ ST-02 | REQUIRED | foreground start→control→launch receipt→terminal/reload; 같은 작업의 전환과 foreground 종료 제외 | EP-Δ2-03,04 |
+| VP-Δ2-07 | R-08 ↔ AT-17 | REQUIRED | 영속 Read/첨부→TaskContextContent; 내부 경로 부재와 일반 출처·원본 양성 | EP-Δ2-05 |
+| VP-Δ2-08 | MD-04 ↔ UT-04 | REQUIRED | 경로 정규화→selector; 대소문자/슬래시/경계/점 세그먼트·late result/reload | EP-Δ2-05 |
+| VP-Δ2-09 | R-03 ↔ AT-18,19 | REQUIRED | 실제 그룹/휴지통 클릭→세션 표시 상태→목록/헤더; 접기 독립·terminal만 제거·새 완료 유지 | EP-Δ2-06 |
+| VP-Δ2-10 | SD-03 ↔ ST-03 | REQUIRED | 제거→late task 연결/refresh/remount/세션 이동; 원본·새 세대 보존과 선택 해제 | EP-Δ2-06 |
 
 기존 VP-03·06·07·Δ01~04는 REGRESSION으로 재실행하며 나머지 기존 pair는 관련 renderer 통합 회귀로 유지한다. 모든 새 oracle은 실제 상태·DOM·IPC/SDK 결과를 직접 관측하므로 별도 구조적 mutation은 선택하지 않는다. 기존 코드 테스트를 유지하면서 새 전환·관측 동작은 RED→GREEN으로 검증한다.
 
 운영 gate: 관련 shared/mapper/controller/preload/renderer Vitest 직접 실행, lint/typecheck/build, inventory 생성·상대 링크·IPC 문서, diff/trailer 검사. 실제 SDK 단건 전환은 로컬 loopback 증거를 확보하며 설치본/외부 배포 한계는 별도로 적는다. 사용자 요청에 따라 기존 PR #452를 갱신한다.
 
-READY self-review: D-12~16과 AC11~16·pair6개·18책임 지점 연결을 확인했다. 요청한 기존 실행의 전환은 공개 SDK와 동봉 CLI에 존재한다. 추가 제품 결정이나 신규 의존성은 없다.
+추가 노드 R-08(Work 내부 출처 제외)·MD-04(경로 분류)·SD-03(패널 표시 상태)·AT-17~19·UT-04·ST-03은 NEW다. D-17=AC17, D-18=AC18, D-19=AC19이며 앞선 ACTIVE 결정과 충돌하지 않는다.
+
+READY self-review: D-12~19와 AC11~19·pair10개·25책임 지점 연결을 확인했다. 요청한 기존 실행의 전환은 공개 SDK와 동봉 CLI에 존재한다. 추가 제품 결정이나 신규 의존성은 없다.
