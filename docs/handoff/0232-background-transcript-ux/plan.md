@@ -6,9 +6,9 @@
 |---|---|
 | 작성자 | Codex |
 | 일자 | 2026-09-13 |
-| 상태 | IMPL_DONE — Codex 구현 자기확인 완료, 독립 verify 대기 |
+| 상태 | READY — ΔV2 사용자 추가 피드백 구현 대기 |
 | V mode / 기준 / revision | Baseline V / none / V1 |
-| 유효 V | V1 + ΔV1 — 패널 상단 일괄 제어·중복 도구 제목 제거를 포함한다. 0230·0231 런타임 계약은 유지한다. |
+| 유효 V | V1 + ΔV1 + ΔV2 — 실제 모델·간결한 카드/상세·foreground 셸 전환과 표시 범위. 0230·0231의 원본/수명/출력 보존 계약은 유지한다. |
 
 # Part I — Product & UX Contract
 
@@ -42,6 +42,11 @@
 | D-09 | 상세의 결과 기다리기·대기 취소 UI를 제거 | 사용자 추가 피드백; 실제 작업 중단은 유지 | ACTIVE | 기존 대기 전용 UI 대체 |
 | D-10 | Explorer/Agent 상세는 부모 Agent 카드를 제거하고 대화록만 표시 | 사용자 추가 피드백; 셸 작업의 도구 본문은 유지 | ACTIVE | D-03·D-08의 Agent 상세 표현 대체 |
 | D-11 | Explorer 상세 대화록을 감싼 외곽 테두리를 제거 | 사용자 추가 피드백; 다른 인라인 사용처의 기본 프레임은 유지 | ACTIVE | D-10의 대화록 표현 보완 |
+| D-12 | Explorer 카드에는 실제 실행 모델을 표시하고 미관측 모델은 추정하지 않음 | 사용자 첨부1·추가 요청; canonical와 legacy 목록 | ACTIVE | D-03 모델 표시 보완 |
+| D-13 | 완료/실패/중단 카드 아래 결과·요약 본문을 표시하지 않음 | 사용자 첨부1; 중단 요청 실패의 짧은 안내·재시도는 유지 | ACTIVE | D-03 카드 표현 보완 |
+| D-14 | 비Explorer 상세는 도구 호출 UI만 표시. 별도 결과·출력 경로·읽기 controls 제거 | 사용자 첨부2; 내부 출력 보존과 모델 도구 능력은 유지 | ACTIVE | D-08·D-10 셸 상세 표현 대체 |
+| D-15 | Code 실행 중 foreground Bash/PowerShell 카드 하단 우측에 파란 백그라운드 전환 버튼 | 사용자 요청; 같은 실행을 단건 전환하며 재실행하지 않음 | ACTIVE | 신규 |
+| D-16 | 시작부터 종료까지 foreground인 셸은 Code 백그라운드 패널에서 제외 | 사용자 요청; 전환된 작업은 종료 후에도 카드 유지 | ACTIVE | D-03 목록 범위 보완 |
 
 ### 갱신 메모
 
@@ -322,3 +327,58 @@ SELF_PASS 11 · SELF_BLOCKED 0 = 총11(REQUIRED11). 선택 적대 증거는 각 
 - 전체 회귀를 병렬 개발 중 실행하면 작성 중인 RED 테스트를 읽을 수 있었다. 모두 소유권을 해제한 뒤 전체 renderer 회귀를 다시 실행했다.
 - Windows 부하 때문에 최종 전체 회귀는 worker 2개로 제한했고, 비DB 테스트는 Vitest 직접 실행하여 Electron ABI를 유지했다.
 - 독립 코드 리뷰와 브라우저 컴포넌트 fixture 확인을 수행했다. 설치된 Electron 전체 UI·외부 모델/원격 worker 실기 및 handoff verify를 대체하지 않는다. 0231 AC19~22의 조건부 배포 검증 상태는 바꾸지 않았다.
+
+## ΔV2 — 실제 모델과 셸 백그라운드 전환
+
+작성자 **Codex**. 설계 READY, 기준 `4ae1cfaa`의 V1 + ΔV1. 위 구현 r1 보고는 당시의 증거이고 이번 추가 동작의 완료 판정이 아니다. 사용자 첨부 `codex-clipboard-3c27d868-ada8-468e-8f04-0e69d91cd373.png`와 `codex-clipboard-d2b50326-b0b2-4b16-b785-e325d524e186.png`는 표시 제거 범위의 근거다.
+
+### Product / 흐름과 AC
+
+| R / AT / AC | provenance | 관측 가능한 동작 / 직접 검증 |
+|---|---|---|
+| R-03 / AT-11 / AC11 | CHANGED | canonical·legacy Explorer 목록에서 실제 child message.model을 친근한 모델명으로 표시. live·완료·reload 보존, 미관측은 모델 확인 중/알 수 없음. 모델 요청값·부모 현재 모델로 추정하지 않음 |
+| R-03 / AT-12 / AC12 | CHANGED | 완료/실패/중단 카드의 결과·summary·실패 receipt 본문 없음. 제목/상태/시간/도구 수·개별 중단 유지 |
+| R-06 / AT-13 / AC13 | CHANGED | nonExplorer 선택 상세에는 ToolCard 본문만 있음. 별도 summary/error/output refs·파일 읽기 controls 없음. 호출 미연결은 짧은 안내만, raw task JSON을 대신 표시하지 않음 |
+| R-07 / AT-14 / AC14 | NEW | Code 실행 중 foreground Bash/PowerShell ToolCard 본문 하단 우측 파란 전환 버튼. 클릭한 동일 toolUseId만 SDK 전환하고 원래 프로세스·출력/종료를 유지하며 패널에 표시 |
+| R-07 / AT-15 / AC15 | NEW | foreground 셸은 실행/성공/실패/중단·reload와 직접 선택 모두에서 패널 제외. 명시 background 요청/실제 전환/관측된 background는 표시하고 종료·snapshot 제외 후에도 유지 |
+| R-07 / AT-16 / AC16 | NEW | 완료·이미 background·Work에는 전환 버튼 없음. 빈 ID/이전 세대/연결 종료/중복 요청 거부. SDK false·예외·응답 지연은 짧은 오류와 재시도, 세션 이동 뒤 다른 패널을 열지 않음 |
+
+대화록의 실제 결과는 유지한다. 제거 범위는 카드 아래 결과와 nonExplorer 상세의 ToolCard 형제 블록이다. SDK raw/journal·snapshot 및 읽기 API 자체는 유지하고 새 자동 읽기를 만들지 않는다. 기존 foreground Explorer의 패널 표시는 유지하며 foreground **셸**의 표시 범위를 바꾼다.
+
+### Research / Technical Delta
+
+설치 SDK `sdk.d.ts`의 `Query.backgroundTasks(toolUseId)`는 진행 중 실행을 단건 전환한다. 실제 `sdk.mjs`는 `background_tasks` control 요청에 ID를 전달하며, 동봉 CLI의 Bash·PowerShell은 동일 local_bash registry의 기존 shellCommand.background를 사용한다. CLI registry 등록 이전에는 false가 가능하므로 실패를 성공으로 표시하거나 명령을 다시 실행하지 않는다.
+
+AS-IS: canonical이 task 전체와 failed call을 목록에 올리고, Agent 대신 toolName을 표시한다. nonExplorer ToolCard 밖에 결과와 출력 읽기 UI를 추가하며, 기존 전환 IPC는 Agent 사용자 경로만 있다. TO-BE는 아래 경계에 책임을 둔다.
+
+| 경계 / §10 지점 | 구현 책임 / 전수 분모 |
+|---|---|
+| EP-Δ2-01 모델 | 공유 call.model 계약·mapper child model 정규화(2), canonical·legacy 모델 소비(2) = 4 |
+| EP-Δ2-02 표시 | canonical 카드와 상세, 공통 패널 선택 투영, SubAgentTileHeader의 같은 선택 필터 = 4 |
+| EP-Δ2-03 전환 | 요청 타입/스키마·preload·renderer API(3), main 등록·controller 검증(2), 기존 Runtime→SDK 단건 포트(1), ToolCard·전환 액션 컴포넌트(2) = 8 |
+| EP-Δ2-04 판별 | shared reducer의 단조 backgroundObserved, 공통 셸/표시/전환 후보 predicate = 2 |
+
+ΔV2 분모는 18이며 기존 12지점 회귀와 중복되므로 합산하지 않는다. backgroundObserved는 snapshot 포함, isBackgrounded:true, 확인된 background/remote mode에서만 누적한다. 명시적 run_in_background 요청은 pending 표시 근거일 뿐 관측 사실로 승격하지 않는다. 과거 포함 기록은 snapshot 제외·완료로 지우지 않으며 replay로 복원하되 live 연결 권한과 분리한다.
+
+공개 호출은 `promoteBackgroundTask({sessionId,generation,toolUseId})` → 새 단건 IPC → BackgroundController → 기존 runtime.backgroundTask(toolUseId)다. controller는 현재 세대·연결·실제 실행 중 셸 call을 확인하고 중복을 막으며 SDK 응답 대기를 제한한다. true만 확인된 전환으로 기록하고, 응답 뒤 세대 교체/폐기를 다시 확인한다. 반환된 tool_result/task/snapshot이 원래 호출과 작업을 연결하며 stopTask는 실제 taskId를 계속 사용한다.
+
+모델은 child assistant의 parent_tool_use_id에 해당하는 canonical call에 실제 message.model을 저장한다. 기존 legacy 이력은 subagentMeta.model을 사용한다. JSON journal의 선택 필드와 reducer 파생만 추가하므로 SQL migration은 없다. 렌더에서 모델 도착 전에도 다른 카드 필드를 읽을 수 있으며 모델 표시를 위해 추가 SDK 호출을 하지 않는다.
+
+### V nodes / pairs / 운영 gate
+
+R-03·R-06은 위 기준선의 CHANGED, R-07·SD-02(전환 수명)·AR-02(단건 요청 경계)·MD-03(관측/모델 판별)와 AT-11~16·ST-02·IT-02·UT-03은 NEW다. 기존 D-01~11과 AC1~10의 이번 델타 외 동작은 유지한다.
+
+| Pair | left ↔ right | requiredness | production 경로 / 직접 oracle | §10 |
+|---|---|---|---|---|
+| VP-Δ2-01 | R-03 ↔ AT-11,12 | REQUIRED | child model→mapper→journal/state→목록; 실제 모델 값·결과 본문 부재와 상태 양성 | EP-Δ2-01,02 |
+| VP-Δ2-02 | R-06 ↔ AT-13 | REQUIRED | 카드 선택→상세; ToolCard 입력/결과 보존 및 형제 출력 블록 부재 | EP-Δ2-02 |
+| VP-Δ2-03 | R-07 ↔ AT-14~16 | REQUIRED | 실제 버튼→IPC→runtime.backgroundTask→확인 이벤트→패널; 정확한 ID·같은 실행·실패/비대상 상태 | EP-Δ2-02~04 |
+| VP-Δ2-04 | MD-03 ↔ UT-03 | REQUIRED | raw/snapshot→순수 reducer/predicate; foreground/관측/요청 구분·완료/replay·모델 보존 | EP-Δ2-01,04 |
+| VP-Δ2-05 | AR-02 ↔ IT-02 | REQUIRED | preload 요청→실제 등록 handler→controller→live port; 두 ID·이전 세대·중복·false·예외 | EP-Δ2-03 |
+| VP-Δ2-06 | SD-02 ↔ ST-02 | REQUIRED | foreground start→control→launch receipt→terminal/reload; 같은 작업의 전환과 foreground 종료 제외 | EP-Δ2-03,04 |
+
+기존 VP-03·06·07·Δ01~04는 REGRESSION으로 재실행하며 나머지 기존 pair는 관련 renderer 통합 회귀로 유지한다. 모든 새 oracle은 실제 상태·DOM·IPC/SDK 결과를 직접 관측하므로 별도 구조적 mutation은 선택하지 않는다. 기존 코드 테스트를 유지하면서 새 전환·관측 동작은 RED→GREEN으로 검증한다.
+
+운영 gate: 관련 shared/mapper/controller/preload/renderer Vitest 직접 실행, lint/typecheck/build, inventory 생성·상대 링크·IPC 문서, diff/trailer 검사. 실제 SDK 단건 전환은 로컬 loopback 증거를 확보하며 설치본/외부 배포 한계는 별도로 적는다. 사용자 요청에 따라 기존 PR #452를 갱신한다.
+
+READY self-review: D-12~16과 AC11~16·pair6개·18책임 지점 연결을 확인했다. 요청한 기존 실행의 전환은 공개 SDK와 동봉 CLI에 존재한다. 추가 제품 결정이나 신규 의존성은 없다.
