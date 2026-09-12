@@ -6,7 +6,7 @@
 |---|---|
 | 작성자 | Codex |
 | 일자 | 2026-09-13 |
-| 상태 | IMPL_DONE — r2 구현자 자기확인 완료, 독립 verify 대기 |
+| 상태 | verify/PASS (r2) — 설치본 시각 실기 1건 남음 |
 | V mode / 기준 / revision | Baseline V / none / V1 |
 | 유효 V | V1 + ΔV1 + ΔV2 — 실제 모델·간결한 카드/상세·foreground 셸 전환과 표시 범위·Work 내부 출처 제외·Code 그룹과 완료 지우기. 0230·0231의 원본/수명/출력 보존 계약은 유지한다. |
 
@@ -483,3 +483,16 @@ SDK 실기는 Windows 설치 SDK 0.3.267과 loopback Anthropic 응답 fixture를
 독립 backend/shared/context 코드 검토에서 신규 차단 문제는 발견하지 못했다. 후속 UI 리뷰의 P2 두 건은 직접 재현하고 수정했다. 실패 호출을 지운 뒤 실제 running/paused task가 도착하면 표시를 복원하며, 단순 unknown 연결/late completed는 계속 숨긴다. 셸 terminal 알림이 tool_result보다 먼저 도착해도 전환 버튼은 숨긴다. 각각 정확한 raw mapper 경로 RED2→GREEN, 실제 렌더 RED4→GREEN9를 확인했으며 독립 재검토에서 두 finding을 닫았다.
 
 이전 표시를 기대하던 legacy oracle3건은 원본 데이터와 상태의 양성을 유지하면서 명시적인 사용자 결정으로 교체했다. broad 회귀의 실패와 최종 영향 범위 통과를 구분했다. 이번 보고는 구현자 자기확인이며 정식 handoff verify PASS가 아니다. 0231의 조건부 실제 배포 증거 대기 상태는 변경하지 않는다.
+
+## [검증자 기입] 파생 이슈
+
+r2 독립 검증 = **PASS**. 판정 원문은 [`verify.md`](verify.md).
+
+| # | 이슈 | 출처 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| D1 | `backgroundPresentation.ts` 4함수와 `parts.ts:316 settlementMessage`가 프로덕션 소비처 0이 됐다 | D-13·D-14 의도의 잔여 | NON_BLOCKING | 제거 또는 보존 사유 명시 |
+| D2 | `canPromoteBackgroundCall`의 `phase==='returned'`·terminal 가드를 제거해도 promotion 3스위트가 green. 프로덕션 동작은 정상 | AC16 / VP-Δ2-04 | NON_BLOCKING | tool_result가 먼저 온 실행 중 셸 케이스 추가 |
+| D3 | `isInternalClaudeSource`가 Windows 경로 형태만 본다. 다른 OS 개발 빌드에서는 같은 내부 파일이 Work 출처에 남는다 | D-17이 Windows로 범위 명시 | NON_BLOCKING | 범위 확대는 새 결정 |
+| D4 | `chatStopAllBackgroundTasks`·`chatReadBackgroundOutput`이 renderer 소비처 0이 됐다 | D-07·D-14 의도 | NON_BLOCKING | 현재 아키텍처 문서에 진입점 상태 반영 |
+
+남은 사람 몫: 설치본에서 전환 버튼 위치·그룹 접기·휴지통의 두 테마 시각 확인 1건.
