@@ -1,0 +1,242 @@
+{
+  "author": "Codex",
+  "date": "2026-09-14",
+  "kind": "declared-fixture-mutation-checks",
+  "mutations": [
+    {
+      "id": "M-5",
+      "path": "src/main/app/chat-turn/send.ts",
+      "tests": [
+        "src/main/app/chat-turn.runtime-tools.test.ts"
+      ],
+      "before": "        onProviderEvent: (event) => deps.background?.observe(event),\n",
+      "after": "",
+      "exitCode": 1,
+      "failedTests": 1,
+      "assertionFailures": [
+        {
+          "test": "registerChatHandlers runtime-tool continuation wiring (0158) VP-A1 routes the actual send request provider callback to the background controller",
+          "message": "AssertionError: expected \"observe\" to be called with arguments: [ { …(4) } ]"
+        }
+      ],
+      "restored": true
+    },
+    {
+      "id": "M-6",
+      "path": "src/main/features/chat/background-controller.ts",
+      "tests": [
+        "src/main/features/chat/background-controller.test.ts"
+      ],
+      "before": "      if (event.type === 'provider.message') return\n",
+      "after": "",
+      "exitCode": 1,
+      "failedTests": 1,
+      "assertionFailures": [
+        {
+          "test": "keeps stop ACK distinct from terminal, rejects unknown tasks and never relays raw",
+          "message": "AssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times"
+        }
+      ],
+      "restored": true
+    },
+    {
+      "id": "M-12",
+      "path": "src/main/features/chat/background-controller.ts",
+      "tests": [
+        "src/main/features/chat/background-controller.test.ts"
+      ],
+      "before": "    if (\n      state.generation !== req.generation ||\n      state.connection !== 'connected' ||\n      !runtime ||\n      runtime.generation !== req.generation\n    )\n      throw new Error('background-task: current connection is unavailable')\n",
+      "after": "",
+      "exitCode": 1,
+      "failedTests": 6,
+      "assertionFailures": [
+        {
+          "test": "rejects stop for a recorded task: historical task with a current runtime",
+          "message": "Error: promise resolved \"undefined\" instead of rejecting"
+        },
+        {
+          "test": "rejects stop for a recorded task: historical task with an equally stale runtime",
+          "message": "Error: promise resolved \"undefined\" instead of rejecting"
+        },
+        {
+          "test": "rejects stop for a recorded task: runtime generation mismatch",
+          "message": "Error: promise resolved \"undefined\" instead of rejecting"
+        },
+        {
+          "test": "rejects stop for a recorded task: disconnected current generation",
+          "message": "Error: promise resolved \"undefined\" instead of rejecting"
+        },
+        {
+          "test": "rejects stop for a recorded task: resynchronizing current generation",
+          "message": "Error: promise resolved \"undefined\" instead of rejecting"
+        },
+        {
+          "test": "rejects stop for a recorded task: terminated current generation",
+          "message": "Error: promise resolved \"undefined\" instead of rejecting"
+        }
+      ],
+      "restored": true
+    },
+    {
+      "id": "M-23",
+      "path": "src/main/adapters/claude-background.ts",
+      "tests": [
+        "src/main/app/chat-turn/background.monitor.test.ts"
+      ],
+      "before": "toolName === 'Monitor'",
+      "after": "toolName === '__disabled_Monitor__'",
+      "exitCode": 1,
+      "failedTests": 2,
+      "assertionFailures": [
+        {
+          "test": "links Monitor receipt before task edges and preserves the original kind and metadata: 'Watch command stdout'",
+          "message": "AssertionError: expected { …(10) } to match object { toolName: 'Monitor', …(4) }"
+        },
+        {
+          "test": "links Monitor receipt before task edges and preserves the original kind and metadata: 'Watch WebSocket text frames'",
+          "message": "AssertionError: expected { …(10) } to match object { toolName: 'Monitor', …(4) }"
+        }
+      ],
+      "restored": true
+    },
+    {
+      "id": "M-24",
+      "path": "src/main/adapters/claude-background.ts",
+      "tests": [
+        "src/main/app/chat-turn/background.workflow-remote.test.ts"
+      ],
+      "before": "          mode:\n            typeof value.error === 'string'\n              ? undefined\n              : value.status === 'remote_launched'\n                ? 'remote'\n                : value.status === 'async_launched'\n                  ? 'background'\n                  : undefined,",
+      "after": "          mode: undefined,",
+      "exitCode": 1,
+      "failedTests": 4,
+      "assertionFailures": [
+        {
+          "test": "0231 VP-R20/R22 declared Workflow and Agent remote lifecycles maps Workflow async_launched to its exact mode and task identity without conflating run IDs",
+          "message": "AssertionError: expected { …(13) } to match object { taskId: 'workflow-task', …(3) }"
+        },
+        {
+          "test": "0231 VP-R20/R22 declared Workflow and Agent remote lifecycles maps Workflow remote_launched to its exact mode and task identity without conflating run IDs",
+          "message": "AssertionError: expected { …(12) } to match object { taskId: 'workflow-task', …(3) }"
+        },
+        {
+          "test": "0231 VP-R20/R22 declared Workflow and Agent remote lifecycles preserves Workflow resume input and distinct invocations even when a run ID is reused; unknown blocked details remain raw",
+          "message": "AssertionError: expected { …(13) } to match object { input: { …(2) }, …(3) }"
+        },
+        {
+          "test": "0231 VP-R20/R22 declared Workflow and Agent remote lifecycles retains Workflow remote history and ambient records through local termination without confirming remote completion",
+          "message": "AssertionError: expected { …(13) } to match object { mode: 'remote', …(1) }"
+        }
+      ],
+      "restored": true
+    },
+    {
+      "id": "M-25",
+      "path": "src/main/adapters/claude-background.ts",
+      "tests": [
+        "src/main/app/chat-turn/background.skill.test.ts"
+      ],
+      "before": "toolName === 'Skill' && value.background === true",
+      "after": "toolName === '__disabled_Skill__' && value.background === true",
+      "exitCode": 1,
+      "failedTests": 4,
+      "assertionFailures": [
+        {
+          "test": "0231 VP-R21 detached Skill and MCP envelopes uses the explicit Skill background flag (true) without inventing task IDs",
+          "message": "AssertionError: expected { …(10) } to match object { phase: 'returned', …(2) }"
+        },
+        {
+          "test": "0231 VP-R21 detached Skill and MCP envelopes links a detached Skill only after an explicit SDK task event and preserves that link through replay",
+          "message": "AssertionError: expected { …(12) } to match object { mode: 'background', …(3) }"
+        },
+        {
+          "test": "0231 VP-R21 detached Skill and MCP envelopes retains MCP resources and nested metadata without transferring them to a Skill (null)",
+          "message": "AssertionError: expected undefined to be 'background' // Object.is equality"
+        },
+        {
+          "test": "0231 VP-R21 detached Skill and MCP envelopes retains MCP resources and nested metadata without transferring them to a Skill (outer-agent)",
+          "message": "AssertionError: expected undefined to be 'background' // Object.is equality"
+        }
+      ],
+      "restored": true
+    },
+    {
+      "id": "M-26",
+      "path": "src/main/adapters/claude-background.ts",
+      "tests": [
+        "src/main/app/chat-turn/background.workflow-remote.test.ts"
+      ],
+      "before": "              : value.status === 'remote_launched'\n                ? 'remote'\n                : value.status === 'completed'\n                  ? 'foreground'\n                  : undefined,\n          taskId: value.status === 'remote_launched' ? text(value.taskId) : undefined,",
+      "after": "              : value.status === 'completed'\n                ? 'foreground'\n                : undefined,\n          taskId: undefined,",
+      "exitCode": 1,
+      "failedTests": 3,
+      "assertionFailures": [
+        {
+          "test": "0231 VP-R20/R22 declared Workflow and Agent remote lifecycles maps Agent remote receipt to remote and creates only its declared task ID",
+          "message": "AssertionError: expected { …(13) } to match object { mode: 'remote', …(4) }"
+        },
+        {
+          "test": "0231 VP-R20/R22 declared Workflow and Agent remote lifecycles maps Task remote receipt to remote and creates only its declared task ID",
+          "message": "AssertionError: expected { …(13) } to match object { mode: 'remote', …(4) }"
+        },
+        {
+          "test": "0231 VP-R20/R22 declared Workflow and Agent remote lifecycles retains Agent remote history and ambient records through local termination without confirming remote completion",
+          "message": "AssertionError: expected { …(15) } to match object { mode: 'remote', …(1) }"
+        }
+      ],
+      "restored": true
+    }
+  ],
+  "regression": {
+    "broad": {
+      "files": 508,
+      "passedTests": 4737,
+      "failedTests": 0,
+      "pendingTests": 1,
+      "exitCode": 1,
+      "limitation": "Worker termination timeout in chat-turn-continuation.test.ts; 6 undispatched files"
+    },
+    "final": {
+      "files": [
+        "src/main/adapters/build-turn-content.test.ts",
+        "src/main/app/chat-turn-continuation.test.ts",
+        "src/main/app/chat-turn.runtime-tools.test.ts",
+        "src/main/app/chat-turn/background.monitor.test.ts",
+        "src/main/app/chat-turn/background.skill.test.ts",
+        "src/main/app/chat-turn/background.workflow-remote.test.ts",
+        "src/main/features/chat/background-controller.test.ts",
+        "src/main/features/sessions/runtime-pool.test.ts",
+        "src/main/features/sessions/session-registry.test.ts",
+        "src/renderer/src/features/chat/store/chatStore.gitTriggers.test.ts",
+        "src/renderer/src/features/engine/lib/providerCatalog.test.ts",
+        "src/renderer/src/features/chat/components/composer/gitSnapshotQuery.test.ts"
+      ],
+      "passedTests": 101,
+      "failedTests": 0,
+      "pendingTests": 0,
+      "exitCode": 0,
+      "fileCount": 12
+    },
+    "combined": {
+      "expectedFiles": 514,
+      "reportedFiles": 514,
+      "missingFiles": [],
+      "assertionStatuses": {
+        "passed": 4780,
+        "skipped": 1
+      }
+    },
+    "coverageOracle": {
+      "omittedReport": "src/main/app/chat-turn/background.monitor.test.ts",
+      "detectedMissing": [
+        "src/main/app/chat-turn/background.monitor.test.ts"
+      ],
+      "restoredMissing": []
+    },
+    "afterMutationRestore": {
+      "fileCount": 5,
+      "passedTests": 49,
+      "failedTests": 0,
+      "exitCode": 0
+    }
+  }
+}

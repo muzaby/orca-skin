@@ -7,7 +7,7 @@
 | slug | 0231-background-task-conformance |
 | 작성자 | **Codex** — 사용자 명시 지시 |
 | 일자 | 2026-09-12 |
-| 상태 | verify/FAIL (r1) |
+| 상태 | impl/IMPL_DONE (r2) |
 | V mode / 기준 V | Baseline V / none |
 | 이번 V revision / 유효 V | V1 / V1 |
 | 매핑 | [첨부 원문](source-spec.md) 전체 대조·보완 구현, [진단](diagnosis.md) |
@@ -577,3 +577,140 @@ D1~D3이 root `PAIR_FAIL`이며 다음 주체는 구현자다. D7도 같은 라�
 ## 설계 정정 — 실제 SDK 출력 경로 (Codex, 2026-09-12)
 
 0230 V2의 D-06·VP-10·EP-06을 출력 생성 경로의 선행 계약으로 적용한다. AC15·AC16의 허용 read/snapshot은 query `CLAUDE_CODE_TMPDIR`로 앱 임시 루트 아래 생성한 SDK 파일을 소비한다. 부모 Temp를 추가 허용하는 fallback은 없다. EP-01(query 옵션)과 EP-10(출력 policy)의 기존 강제 지점에서 실제 Bash·PowerShell·Agent output_file과 그 내용으로 함께 검증한다.
+
+## [구현자 기입] 설계 리뷰 — r2
+
+유지. 작성자 **Codex**, 2026-09-14, r1 verify/FAIL의 D1·D2·D3 및 권고 D7을 보완했다. 규범 기준은 `06c320b:V1`이며 Decision·AC·V-pair·§10을 변경하지 않았다.
+
+원인은 조건부 기능의 선언 fixture와 실제 배포 실기를 같은 미검증 사유로 묶은 것이다. 이번에는 실제 `ClaudeBackgroundMapper`를 거쳐 controller/tracker/shared 상태를 검사하고, 인용된 분기를 제거했을 때 단언이 실패하는지 별도로 관측했다. 제품 실행 코드의 추가 결함은 발견하지 않아 테스트와 현재 계약 설명만 수정했다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — r2
+
+검증 대상은 REQUIRED 31 + REGRESSION 1이다. VP-R19~R22의 **선언/해석 oracle은 통과**했지만 실제 배포 실기는 여전히 미검증이므로 이 네 pair의 전체 자기 상태는 SELF_BLOCKED로 유지한다. 독립 r1 판정을 덮어쓰지 않으며 새 구현 좌표는 `(r2 구현 — 좌표는 INDEX)`다.
+
+| pair | 자기 상태 | 이번 직접 경로와 증거 |
+|---|---|---|
+| VP-R1~R18 | SELF_PASS | 기존 mapper/reducer·runtime·controller·승인/입력·output·renderer 테스트를 전체 회귀에서 재실행. AC별 대응은 아래 표 |
+| VP-R19 | SELF_BLOCKED — 배포 실기 | `background.monitor.test.ts`: MonitorInput/Output → 실제 mapper → controller/tracker → 상태·stop/read 포트. 종류·진행·timeout·persistent·출력·중단 fixture 통과 |
+| VP-R20 | SELF_BLOCKED — 배포 실기 | `background.workflow-remote.test.ts`: WorkflowOutput → mapper → tracker; async/remote·시작 오류·자식 종료·run 재사용·잔여 관측 |
+| VP-R21 | SELF_BLOCKED — 배포 실기 | `background.skill.test.ts`: 실제 user/tool_result → controller → 명시 task 연결·메타/참조·직렬화 재생. 없는 ID 생성 없음 |
+| VP-R22 | SELF_BLOCKED — 배포 실기 | Workflow와 Agent/Task 생산자별 remote mode/taskId; 로컬 종료 뒤 원격 terminal 미확인, ambient 기록과 count 분리 |
+| VP-R23·R24 | SELF_PASS | 설치 SDK/CLI identity와 실기 범위 구분, SQLite journal/reload/CASCADE·raw 비노출·기존 세션 회귀 |
+| VP-S1·S2 | SELF_PASS | runtime/post-turn·background integration·controller/promotion의 수명·ACK·오류·재로드 회귀 |
+| VP-A1 | SELF_PASS | 실제 send callback 및 raw relay 차단. M-5·M-6 단언 실패 확인 |
+| VP-A2·A3 | SELF_PASS | 실제 SQLite journal/writer/CASCADE·IPC/출력 경계·승인 identity·UUID/사용량 테스트 |
+| VP-M1·M2 | SELF_PASS | shared reducer 및 실제 파일 output reader의 상태·멱등·경로/상한 회귀 |
+| VP-REG | SELF_PASS | 기존 parts/TaskBoard/artifacts·0230 Temp·0232 panel/promotion/context 회귀 |
+
+| §10 | 원계획 책임 수 | 현재 적용 및 관측 |
+|---|---:|---|
+| EP-01 | 5 | 5/5: query 옵션/세대, mapper system·assistant/user·progress, init/retire. 새 조건부 fixture 및 claude 관련 회귀 |
+| EP-02 | 6 | 6/6: call/task/snapshot/connection/dedupe, parts child. shared/parts 테스트 |
+| EP-03 | 5 | 5/5: tracker observe/getState/count/hasPending/retire. 조건부 fixture·background-tasks 테스트 |
+| EP-04 | 3 | 3/3: activity projector, post-turn, continuation. runtime/chat-turn 회귀 |
+| EP-05 | 5 | 5/5: stop-subagent, 두 settlement, coercion, coordinator. canonical 합성 정착 차단의 유지 여부 포함 |
+| EP-06 | 6 | 6/6: pump route/retire, request/send/continuation callback, UUID. M-5 및 runtime 회귀 |
+| EP-07 | 6 | 6/6: migration/query, writer.persistProviderEvent, restore/relay/CASCADE. DB 통합과 M-6 |
+| EP-08 | 4 | 4/4: SDK permission callback, requester, broker, Ask 대응. 승인 회귀 |
+| EP-09 | 5 | 5/5: schema/preload/handler, stop/ref lookup. M-12·controller·IPC 회귀 |
+| EP-10 | 5 | 5/5: realpath, bounded read, cursor, snapshot/hash, false/URI. 실제 파일 검사 |
+| EP-11 | 6 | 현재 5/5 + 대체 1: ingest/load·목록·상세·문구 유지, 제어는 개별 stop만 적용. output viewer는 0232 D-14 대체 |
+| EP-12 | 5 | 5/5: usage, bootstrap, TaskXXX, 일반 산출물/0230, 문서. 전체 회귀와 inventory |
+
+원계획 61개 책임을 대조해 현재 적용 60개와 0232가 대체한 viewer 1개를 구분했다. 적용 60개에는 부분 대체된 제어 슬롯과 합성 정착 제거 불변식도 포함하므로 활성 함수 개수로 주장하지 않는다. EP-11 wait·전체 중단 UI는 각각 0232 D-09·D-07로 대체되어 이번에 복구하지 않았다.
+
+전수 대조는 `rg -n 'onProviderEvent|providerEvents|notifyChannelRetired' app/src/main`, `rg -n 'backgroundPending|liveMembership|settleOpenToolRuns' app/src`, `rg -n 'stopAllBackgroundTasks|readBackgroundOutput|stopBackgroundTask' app/src`, `rg -n 'outputRefs|canReadOutputFile|captureCompleted|persistProviderEvent' app/src/main`의 생산/소비와 각 책임 파일을 직접 확인했다. 출력 API 보존을 현재 viewer 존재로 계산하지 않는다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r2
+
+프로덕션 변이 검출 7/7. 아래 RED는 모두 테스트 단언 실패이며 구문/타입 오류가 아니다. 각 변이 후 production 원본 바이트를 복원했고, 재현용 치환문·스위트·실패 테스트명은 [r2-evidence.json](r2-evidence.json)에 남겼다.
+
+| 변이 | 출처 | RED 관측 | 복원 |
+|---|---|---|---|
+| M-5: send의 onProviderEvent 제거 | VP-A1 선택 | 실제 send 배선 검사 1개 실패 | 원본 복원 |
+| M-6: provider.message relay 차단 제거 | VP-A1 선택 | publish 호출 수 단언 1개 실패 | 원본 복원 |
+| M-12: runtimeFor 세대·연결 가드 제거 | D7 인용 | 실재하는 작업의 stale/연결 거부 6개가 resolve되어 실패 | 원본 복원 |
+| M-23: Monitor 분기 비활성화 | D1 인용 | task 이벤트 이전 receipt의 taskId/mode 단언 2개 실패 | 원본 복원 |
+| M-24: Workflow async/remote mode 제거 | D2 인용 | 생산자 mode·재실행/원격 기록 단언 4개 실패 | 원본 복원 |
+| M-25: Skill background 분기 비활성화 | D3 인용 | mode·pending·호출 격리 단언 4개 실패 | 원본 복원 |
+| M-26: Agent/Task remote mode/taskId 제거 | D2 인용 | 두 이름의 remote receipt·원격 기록 단언 3개 실패 | 원본 복원 |
+| 회귀 보고에서 Monitor 파일 하나 제외 | 실행 파일 차집합의 새 oracle | 누락 집합에 해당 파일 1개가 나타남 | 전체 보고 복원 후 누락 0 |
+
+분모 검산: 선택 증거 2 + closed 이슈의 인용 변이 5 + 실행 파일 차집합 oracle 1 = 표 8행. M-12의 최초 실행도 행동 RED였으나 임시 집계기가 Vitest의 `promise resolved ... instead of rejecting` 오류를 인식하지 못해 중단했다. 집계기를 수정한 뒤 7개를 처음부터 재실행했고 최종 결과만 증거 파일에 담았다.
+
+## [구현자 기입] Product/UX 파생 검토 — r2
+
+유지. 테스트는 controller의 명시적 read/stop 요청과 현재 상태를 관측하며 자동 읽기나 새 UI를 추가하지 않는다. 0232의 대화록 전용 Explorer·결과 본문 제거·실행 중/완료 그룹·foreground 전환 동작은 기존 renderer 회귀로 확인한다.
+
+Monitor의 입력 종류와 persistent/timeout은 원래 input/structuredOutput에 보존된다. 선언된 시간이 지났다는 이유로 종료를 만들지 않고, CLI 연결 종료 후 persistent 서비스나 원격 worker의 존속/성공을 추정하지 않는다. Skill의 문자열이나 MCP `_meta`에서 작업 ID를 발명하지 않는다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r2
+
+| finding | 대응 / 직접 관측 |
+|---|---|
+| D1·D2·D3 | closed — 해당 실제 mapper 분기를 제거한 M-23~M-26 전부 행동 RED. 배포 실기 한계와 분리 |
+| D7 | closed — old/new 세대에 같은 ID를 실제 등록, 현재 runtime 및 함께 오래된 runtime을 구분. disconnected/resynchronizing/terminated 거부와 현재 세대 양성도 검사 |
+| D5 | 문서 반영 — `background-tasks.md` 제어 절에 현재 renderer는 개별 중단만 제공하고 전체 중단/원본 read는 main/preload API만 남음을 명시 |
+| D4·D6 | 보고 유지 — 제거된 UI의 파생 helper 및 항등 coercion 정리는 비차단 후속. 화면/종료 정책 변경 없음 |
+| D8 | 보고 유지 — 실제 writer 이름은 `persistProviderEvent`; §10 규범 이름 정정은 다음 설계 갱신 소유 |
+| 교차 리뷰: Monitor snapshot 입력 | SDKBackgroundTasksChangedMessage의 필수 description과 satisfies를 추가, 선언과 fixture의 불일치 해소 |
+| 교차 리뷰: 세대 조건 독립성 | 과거 작업과 과거 runtime이 함께 남은 행을 추가해 state.generation 검사도 별도 관측 |
+| Workflow fixture의 UUID 형식 | test typecheck가 SDK의 UUID 타입과 다른 예시 문자열 3곳을 검출. randomUUID로 변경하고 test 타입 검사와 해당 suite를 다시 실행 |
+| Skill 출력 선언 범위 | 설치 SDK는 tool_use_result를 unknown으로 노출한다. background:true는 첨부 SKILL-DETACHED 계약 fixture이며 존재하지 않는 exported SkillOutput 타입이나 실제 capture로 주장하지 않음 |
+
+## [구현자 기입] 구현 보고 — r2
+
+AC 합계는 ✅20 · ⚠️4 · ❌0 = 24다. ✅는 SELF_PASS, ⚠️는 SELF_BLOCKED이며 **조건부 네 기능의 합성 fixture는 이번에 통과했고 실제 배포 증거만 남았다**. r1의 잘못된 사유를 그대로 승계하지 않는다.
+
+| AC | 자기 상태 | 이번 회귀 / 남은 확인 |
+|---|---|---|
+| AC1 | ✅ | Claude mapper·shared call/task ID·promotion fixture |
+| AC2 | ✅ | 구조화 Agent 결과·parts 하위 대화/메타 |
+| AC3 | ✅ | 셸 매핑/promotion 회귀; 실제 Windows 수명 증거는 기존 sdk-evidence.md 범위 승계 |
+| AC4 | ✅ | shared snapshot·tracker live 개수와 pending |
+| AC5 | ✅ | terminalEvidence·누락/false/0·settlement |
+| AC6 | ✅ | UUID/payload dedupe·unknown/malformed 원본 |
+| AC7 | ✅ | runtime provider lane·post-turn 수신 |
+| AC8 | ✅ | 새 실재 작업 stale stop 및 ACK/실패/무응답 회귀 |
+| AC9 | ✅ | stop-all 잔여/미확인·main 취소; 패널의 일괄 버튼 제거는 0232 계약 |
+| AC10 | ✅ | pending-message-queue·interrupt-reconcile·SDK receipt |
+| AC11 | ✅ | approval identity·permission bridge·Ask 부모 재생 |
+| AC12 | ✅ | parts/stale-async·Skill/MCP 부모별 결과/메타 |
+| AC13 | ✅ | tool progress의 retry/heartbeat·elapsed 유지 |
+| AC14 | ✅ | runtime reinitialize·새 세대·journal replay·remote 로컬 종료 |
+| AC15 | ✅ | 실제 파일 output reader/snapshot·writer; 사용자 viewer 제거는 0232 계약 |
+| AC16 | ✅ | output realpath/URI/false read/상한과 controller 참조 검증 |
+| AC17 | ✅ | claude-map background metadata·usage 누적 delta |
+| AC18 | ✅ | TaskBoard·TaskXXX와 canonical 상태 분리 |
+| AC19 | ⚠️ | Monitor 선언 fixture 통과; 실제 command/WebSocket/persistent 배포 미검증 |
+| AC20 | ⚠️ | Workflow 시작 오류·mode·자식·run/잔여 fixture 통과; 실제 child/stop/resume 미검증 |
+| AC21 | ⚠️ | Skill background·명시 연결·MCP resources/_meta·재생 통과; 실제 분리 Skill/외부 MCP 자동 background 미검증 |
+| AC22 | ⚠️ | Workflow/Agent/Task remote·ambient 기록 통과; 실제 원격 worker 수명 미검증 |
+| AC23 | ✅ | SDK 0.3.267 exported 타입 검사와 source/실기 구분; 실제 CLI 증거는 기존 로그 범위 승계 |
+| AC24 | ✅ | SQLite migration/query/writer/CASCADE·raw 비노출·기존 대화 회귀 |
+
+V 합계는 SELF_PASS 28 + SELF_BLOCKED 4 = 32(REQUIRED 31 + REGRESSION 1)다. 실제 SDK 배포를 이번 라운드에서 재실행하지 않았으며 [기존 실기 범위](sdk-evidence.md) 밖의 지원 완료를 선언하지 않는다.
+
+### r2 운영 gate
+
+| gate | 실행 결과와 범위 |
+|---|---|
+| 타입 | node/web 통과. 신규 Workflow fixture의 UUID 오류를 수정하고 test 타입 검사 재실행 통과; SkillFixture 반환 타입 추가 후에도 test 타입 검사 통과 |
+| 린트 | 전체 ESLint가 신규 Skill helper의 반환 타입 1건을 검출. 수정 후 변경 테스트 4파일의 ESLint 통과. 전체 검사의 기존 가상화 라이브러리 경고 1건은 유지 |
+| 전체 회귀 | 첫 실행은 508파일·4737통과/1skip·단언 실패 0이나 chat-turn-continuation 워커 종료 timeout으로 exit1. 전체 실행 PASS로 기록하지 않음 |
+| 누락/종료 복구 | 누락 6파일 + 종료 문제 스위트 + 변경/필수 배선 검사를 합친 12파일·101테스트가 exit0으로 정상 종료. 기존 보고와 합친 결과는 4780통과·1skip |
+| 변이 최종 복원 | 최종 코드에서 7개 변이를 다시 검출하고 복원한 뒤 관련 5파일·49테스트 exit0 |
+| 실행 범위 차집합 | vitest include(`src/**/*.test.ts`)와 같은 rg 목록 514파일, 두 보고의 파일 합집합 514, 누락 0. 보고 1파일 제외 probe도 검출; r2-evidence.json에 기록 |
+| 스크립트 | node --test scripts/*.test.mjs: 116통과·실패0 |
+| 문서·DB 가드 | check-doc-inventory --check(상대 링크 포함), check-migrations-appendonly, check-test-budgets 모두 exit0 |
+| 배포 | 실제 CLI 재실행 없음. 기존 실기 증거 범위와 AC19~22 미검증 유지. 제품 코드·DB·공개 IPC 변경 없음 |
+| 환경 복원 | DB 회귀를 위해 npm rebuild better-sqlite3로 Node ABI를 맞췄으며 검사 후 npm run prebuild로 Electron ABI 복원 완료. 번들 재빌드는 tests/docs 변경이라 추가 실행하지 않음 |
+| 메시지 버스 | r2 plan/INDEX를 impl/IMPL_DONE·다음 Claude로 맞추고 verify.md는 r1 이력으로 보존. 커밋 trailer는 커밋 직후 파싱 확인 |
+
+증거는 [r2-evidence.json](r2-evidence.json)이다. 전체 실행 종료 오류를 숨기지 않고 누락 집합 및 해당 스위트를 재실행한 결과로 보완했다. 새 테스트는 33개이며 기존 controller 테스트의 잘못된 stale 설명도 바로잡았다.
+
+## [구현자 기입] Review Signals — r2
+
+- 첫 공식 FAIL 뒤 재구현 r2다. 기존 plan의 선언 fixture oracle은 충분했고 누락은 구현 보고와 테스트 산출에 있었다.
+- SDK 선언으로 검증할 수 있는 payload와 실제 배포에서만 확인할 수 있는 수명을 별도 축으로 기록했다. Skill처럼 공개 결과 타입이 unknown인 항목은 첨부 계약 출처를 별도로 명시했다.
+- 서로 다른 담당자가 테스트를 교차 검토했고 Monitor snapshot 필수 필드와 세대 조건 단독 관측을 보강했다. 독립 verify 문서는 수정하지 않았다.
