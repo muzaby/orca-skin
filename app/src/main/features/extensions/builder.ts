@@ -14,6 +14,12 @@ import type { TurnExtensions } from '../../adapters/turn'
 import type { RuntimeToolSource } from '../../adapters/runtime-tools'
 import { buildSystemHeader } from './system-header'
 
+export interface ExtensionProfile {
+  agentInstructions?: string
+  agentProfileKey?: string
+  pluginRoots?: readonly string[]
+}
+
 export class ExtensionBuilder {
   constructor(
     private readonly db: DbQueries,
@@ -29,7 +35,7 @@ export class ExtensionBuilder {
   build(
     sessionId: string | null,
     projectId: string | null,
-    profile?: { agentInstructions?: string; agentProfileKey?: string }
+    profile?: ExtensionProfile
   ): TurnExtensions {
     // 프로젝트 name+instructions는 매 턴 재조회한다. SDK 시스템 지침 적용은 채널 spawn 시점이며
     // warm 채널에 즉시 갱신하는 계약은 아니다. resume은 세션 바인딩, 새 채팅은 projectId를 쓴다.
@@ -63,7 +69,7 @@ export class ExtensionBuilder {
     })
 
     // 후보 경로만 나열한다 — 존재/매니페스트 검증은 어댑터(adaptPlugins)가 root 별로 수행(0117).
-    const pluginRoots = this.pluginRoots?.() ?? []
+    const pluginRoots = [...(this.pluginRoots?.() ?? []), ...(profile?.pluginRoots ?? [])]
 
     return {
       ...(profile?.agentProfileKey ? { agentProfileKey: profile.agentProfileKey } : {}),

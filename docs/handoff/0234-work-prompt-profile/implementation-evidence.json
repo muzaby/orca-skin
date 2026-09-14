@@ -1,0 +1,1095 @@
+{
+  "handoff": "0234-work-prompt-profile",
+  "revision": "V1",
+  "implementationRound": 1,
+  "scope": "Implementer observations, not independent handoff-verify. No external model or full app UI certification.",
+  "commands": [
+    {
+      "cwd": "app",
+      "command": "node_modules/.bin/vitest run src/main/features/agents/profiles.test.ts src/main/app/builtin-resources.test.ts src/main/features/extensions/builder.test.ts src/main/features/extensions/system-header.agent.test.ts src/main/features/sessions/respawn-policy.test.ts src/main/app/work-profile.integration.test.ts src/main/app/work-profile.runtime.test.ts src/main/app/agent-extension-profile.test.ts src/main/app/chat-turn/send.agent-profile.test.ts src/main/app/chat-turn/send.worktree.test.ts src/main/app/chat-turn-continuation.test.ts src/main/app/chat-turn/runtime-entry.test.ts src/main/app/chat-turn/resolve-turn.agent.test.ts src/main/features/sessions/session-runtime.test.ts src/main/adapters/claude.canusetool.test.ts src/main/adapters/claude.live-control.test.ts src/main/adapters/claude-runtime-tools.test.ts src/main/adapters/claude-runtime-tools.boundary.test.ts src/main/adapters/claude-output-files.test.ts src/main/adapters/claude.background.test.ts",
+      "result": {
+        "filesPassed": 20,
+        "testsPassed": 230
+      }
+    },
+    {
+      "cwd": "app",
+      "command": "node_modules/.bin/vitest run src/main/app/chat-turn/post-turn.schedules.test.ts src/main/app/chat-turn/continuation.test.ts",
+      "result": {
+        "filesPassed": 2,
+        "testsPassed": 18
+      }
+    },
+    {
+      "cwd": "app",
+      "command": "node --test scripts/*.test.mjs",
+      "result": {
+        "testsPassed": 119,
+        "failed": 0
+      }
+    },
+    {
+      "cwd": "app",
+      "command": "npm run lint",
+      "result": {
+        "errors": 0,
+        "warnings": 1,
+        "warning": "Existing react-hooks/incompatible-library in useTranscriptVirtualizer.ts"
+      }
+    },
+    {
+      "cwd": "app",
+      "command": "npm run build",
+      "result": {
+        "typecheckConfigurations": 3,
+        "typeErrors": 0,
+        "outputs": [
+          "out/main/index.js",
+          "out/preload/index.js",
+          "out/renderer/index.html"
+        ],
+        "warning": "Existing static/dynamic import overlap for SubAgentTileContent.tsx",
+        "sqliteAbi": "Electron rebuild succeeded after Node-ABI test run"
+      }
+    },
+    {
+      "cwd": "app",
+      "command": "node_modules/.bin/electron-builder --win --dir --publish never --config.directories.output=<packageRoot>/good",
+      "result": {
+        "exitCode": 0,
+        "pluginEntriesInsideAsar": []
+      }
+    },
+    {
+      "cwd": "repository root",
+      "command": "node app/scripts/smoke-work-profile.mjs --workflow",
+      "result": "development below"
+    },
+    {
+      "cwd": "repository root",
+      "command": "node app/scripts/smoke-work-profile.mjs --resources-path=<packageRoot>/good/win-unpacked/resources --workflow",
+      "result": "packaged below"
+    },
+    {
+      "cwd": "app",
+      "command": "node scripts/check-doc-inventory.mjs --check",
+      "result": "generated/prose/relative links pass"
+    },
+    {
+      "cwd": "repository root",
+      "command": "git diff --check",
+      "result": "no diagnostics"
+    }
+  ],
+  "packageRoot": "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orca-work-package-c269d2e667b74acb9633af1e8f223d3a",
+  "development": {
+    "date": "2026-09-14T14:00:27.220Z",
+    "mode": "development",
+    "status": "pass",
+    "scope": "Production resolver/profile/builder/adapt helpers + actual CLI; no external model. Does not certify send/runtime/UI, output collection, or natural-language compliance.",
+    "rawResultPath": "C:/Users/rlaeo/AppData/Local/Temp/orcinus-orca/work-profile-smoke-Vy50mQ/result.json",
+    "native": {
+      "executable": "C:\\workspace\\github\\codex\\orca-skin\\app\\node_modules\\@anthropic-ai\\claude-agent-sdk-win32-x64\\claude.exe",
+      "pluginPath": "C:\\workspace\\github\\codex\\orca-skin\\app\\resources\\claude-plugins\\work-profile",
+      "cli": "2.1.267 (Claude Code)",
+      "sdk": "0.3.267",
+      "binarySha256": "23dde2a47cf1d7d9c4a2d96d21fa80ea9bfc872dfde0ee06e9982d2908603350",
+      "approvedSha256": "cbae65eed412069d37a2a51e64ec6ff4d205943a2e6579daafe53f893c0c9b91",
+      "approvedBytes": 15527
+    },
+    "observations": [
+      {
+        "fixture": "empty",
+        "kind": "code",
+        "phase": "new",
+        "sessionId": "c1b95d59-21f2-4786-94a6-2723c1d0bc15",
+        "result": "success",
+        "agentProfileKey": null,
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-Vy50mQ\\base-plugin"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 0,
+            "styleOccurrences": 0,
+            "appendOccurrences": 1,
+            "codingInstructions": true,
+            "systemSha256": "cccc43d4c99d79d57a98481979227899441e4725f0f8869e79c85470ff470ec1",
+            "systemBytes": 29207,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [],
+        "workflowCompleted": false
+      },
+      {
+        "fixture": "empty",
+        "kind": "work",
+        "phase": "new",
+        "sessionId": "74fdb552-facb-4c6e-9262-ec5bedf516ef",
+        "result": "success",
+        "agentProfileKey": "work:4",
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-Vy50mQ\\base-plugin",
+          "C:\\workspace\\github\\codex\\orca-skin\\app\\resources\\claude-plugins\\work-profile"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "c9ace4019edab1a57ed67e4672994668e245b536a70a3b7bd58c37acf64c3520",
+            "systemBytes": 41715,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [],
+        "workflowCompleted": false
+      },
+      {
+        "fixture": "empty",
+        "kind": "code",
+        "phase": "resume",
+        "sessionId": "c1b95d59-21f2-4786-94a6-2723c1d0bc15",
+        "result": "success",
+        "agentProfileKey": null,
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-Vy50mQ\\base-plugin"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 0,
+            "styleOccurrences": 0,
+            "appendOccurrences": 1,
+            "codingInstructions": true,
+            "systemSha256": "cccc43d4c99d79d57a98481979227899441e4725f0f8869e79c85470ff470ec1",
+            "systemBytes": 29207,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [],
+        "workflowCompleted": false
+      },
+      {
+        "fixture": "empty",
+        "kind": "work",
+        "phase": "resume",
+        "sessionId": "74fdb552-facb-4c6e-9262-ec5bedf516ef",
+        "result": "success",
+        "agentProfileKey": "work:4",
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-Vy50mQ\\base-plugin",
+          "C:\\workspace\\github\\codex\\orca-skin\\app\\resources\\claude-plugins\\work-profile"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "c9ace4019edab1a57ed67e4672994668e245b536a70a3b7bd58c37acf64c3520",
+            "systemBytes": 41715,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [],
+        "workflowCompleted": false
+      },
+      {
+        "fixture": "sentinel",
+        "kind": "code",
+        "phase": "new",
+        "sessionId": "661e1bc8-ed22-4c01-9d0b-d8439078d646",
+        "result": "success",
+        "agentProfileKey": null,
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-Vy50mQ\\base-plugin"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 0,
+            "styleOccurrences": 0,
+            "appendOccurrences": 1,
+            "codingInstructions": true,
+            "systemSha256": "016db4a62837e2cc79db8c602782ff30ccd8321a0a193bffd8a6ea8bdf076eba",
+            "systemBytes": 29213,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [],
+        "workflowCompleted": false
+      },
+      {
+        "fixture": "sentinel",
+        "kind": "work",
+        "phase": "new",
+        "sessionId": "436a3872-2df4-44d5-bb65-3f8ef4b9970c",
+        "result": "success",
+        "agentProfileKey": "work:4",
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-Vy50mQ\\base-plugin",
+          "C:\\workspace\\github\\codex\\orca-skin\\app\\resources\\claude-plugins\\work-profile"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "72d1704436d79ff9105241b8195e64fa4b5f0d44cf220f381266b7065c244a6a",
+            "systemBytes": 41721,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [],
+        "workflowCompleted": false
+      },
+      {
+        "fixture": "sentinel",
+        "kind": "code",
+        "phase": "resume",
+        "sessionId": "661e1bc8-ed22-4c01-9d0b-d8439078d646",
+        "result": "success",
+        "agentProfileKey": null,
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-Vy50mQ\\base-plugin"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 0,
+            "styleOccurrences": 0,
+            "appendOccurrences": 1,
+            "codingInstructions": true,
+            "systemSha256": "016db4a62837e2cc79db8c602782ff30ccd8321a0a193bffd8a6ea8bdf076eba",
+            "systemBytes": 29213,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [],
+        "workflowCompleted": false
+      },
+      {
+        "fixture": "sentinel",
+        "kind": "work",
+        "phase": "resume",
+        "sessionId": "436a3872-2df4-44d5-bb65-3f8ef4b9970c",
+        "result": "success",
+        "agentProfileKey": "work:4",
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-Vy50mQ\\base-plugin",
+          "C:\\workspace\\github\\codex\\orca-skin\\app\\resources\\claude-plugins\\work-profile"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "72d1704436d79ff9105241b8195e64fa4b5f0d44cf220f381266b7065c244a6a",
+            "systemBytes": 41721,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [],
+        "workflowCompleted": false
+      },
+      {
+        "fixture": "workflow",
+        "kind": "work",
+        "phase": "new",
+        "sessionId": "cd74620b-0077-4ce1-8adf-93e58cdcbcfe",
+        "result": "success",
+        "agentProfileKey": "work:4",
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-Vy50mQ\\base-plugin",
+          "C:\\workspace\\github\\codex\\orca-skin\\app\\resources\\claude-plugins\\work-profile"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "ef0798c25f25e7128ce0a6f6954d06bada2d04be407e5c2f972f6c01f05c12b6",
+            "systemBytes": 41721,
+            "toolCount": 31
+          },
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "ef0798c25f25e7128ce0a6f6954d06bada2d04be407e5c2f972f6c01f05c12b6",
+            "systemBytes": 41721,
+            "toolCount": 31
+          },
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "ef0798c25f25e7128ce0a6f6954d06bada2d04be407e5c2f972f6c01f05c12b6",
+            "systemBytes": 41721,
+            "toolCount": 31
+          },
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "ef0798c25f25e7128ce0a6f6954d06bada2d04be407e5c2f972f6c01f05c12b6",
+            "systemBytes": 41721,
+            "toolCount": 31
+          },
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "ef0798c25f25e7128ce0a6f6954d06bada2d04be407e5c2f972f6c01f05c12b6",
+            "systemBytes": 41721,
+            "toolCount": 31
+          },
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "ef0798c25f25e7128ce0a6f6954d06bada2d04be407e5c2f972f6c01f05c12b6",
+            "systemBytes": 41721,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [
+          {
+            "tool": "Write",
+            "decision": "deny"
+          }
+        ],
+        "workflowCompleted": true
+      }
+    ],
+    "workspaces": [
+      {
+        "fixture": "empty",
+        "cwd": "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-Vy50mQ\\empty",
+        "before": [],
+        "phases": [
+          {
+            "phase": "new",
+            "after": [],
+            "difference": {
+              "removed": [],
+              "added": []
+            }
+          },
+          {
+            "phase": "resume",
+            "after": [],
+            "difference": {
+              "removed": [],
+              "added": []
+            }
+          }
+        ]
+      },
+      {
+        "fixture": "sentinel",
+        "cwd": "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-Vy50mQ\\sentinel",
+        "before": [
+          {
+            "path": "",
+            "type": "directory"
+          },
+          {
+            "path": "CLAUDE.md",
+            "type": "file",
+            "sha256": "9ff58bdda4fb8206b064b5c185ddc16cffe31ebf6de9417ff51f2a9e0a5514e3"
+          },
+          {
+            "path": "settings.json",
+            "type": "file",
+            "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+          }
+        ],
+        "phases": [
+          {
+            "phase": "new",
+            "after": [
+              {
+                "path": "",
+                "type": "directory"
+              },
+              {
+                "path": "CLAUDE.md",
+                "type": "file",
+                "sha256": "9ff58bdda4fb8206b064b5c185ddc16cffe31ebf6de9417ff51f2a9e0a5514e3"
+              },
+              {
+                "path": "settings.json",
+                "type": "file",
+                "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+              }
+            ],
+            "difference": {
+              "removed": [],
+              "added": []
+            }
+          },
+          {
+            "phase": "resume",
+            "after": [
+              {
+                "path": "",
+                "type": "directory"
+              },
+              {
+                "path": "CLAUDE.md",
+                "type": "file",
+                "sha256": "9ff58bdda4fb8206b064b5c185ddc16cffe31ebf6de9417ff51f2a9e0a5514e3"
+              },
+              {
+                "path": "settings.json",
+                "type": "file",
+                "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+              }
+            ],
+            "difference": {
+              "removed": [],
+              "added": []
+            }
+          }
+        ]
+      }
+    ],
+    "failures": []
+  },
+  "packaged": {
+    "date": "2026-09-14T21:21:22.591Z",
+    "mode": "packaged",
+    "status": "pass",
+    "scope": "Production resolver/profile/builder/adapt helpers + actual CLI; no external model. Does not certify send/runtime/UI, output collection, or natural-language compliance.",
+    "rawResultPath": "C:/Users/rlaeo/AppData/Local/Temp/orcinus-orca/work-profile-smoke-CKHddk/result.json",
+    "native": {
+      "executable": "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orca-work-package-c269d2e667b74acb9633af1e8f223d3a\\good\\win-unpacked\\resources\\app.asar.unpacked\\node_modules\\@anthropic-ai\\claude-agent-sdk-win32-x64\\claude.exe",
+      "pluginPath": "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orca-work-package-c269d2e667b74acb9633af1e8f223d3a\\good\\win-unpacked\\resources\\claude-plugins\\work-profile",
+      "cli": "2.1.267 (Claude Code)",
+      "sdk": "0.3.267",
+      "binarySha256": "23dde2a47cf1d7d9c4a2d96d21fa80ea9bfc872dfde0ee06e9982d2908603350",
+      "approvedSha256": "cbae65eed412069d37a2a51e64ec6ff4d205943a2e6579daafe53f893c0c9b91",
+      "approvedBytes": 15527
+    },
+    "observations": [
+      {
+        "fixture": "empty",
+        "kind": "work",
+        "phase": "new",
+        "sessionId": "b218ea2a-b8d7-447a-8671-7150cc822814",
+        "result": "success",
+        "agentProfileKey": "work:4",
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-CKHddk\\base-plugin",
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orca-work-package-c269d2e667b74acb9633af1e8f223d3a\\good\\win-unpacked\\resources\\claude-plugins\\work-profile"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "7de17dfe7f5f61312c50966ebbfad0358d32079a154f33112e8f2025ba0a3739",
+            "systemBytes": 41715,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [],
+        "workflowCompleted": false
+      },
+      {
+        "fixture": "empty",
+        "kind": "code",
+        "phase": "new",
+        "sessionId": "f36ff976-b83d-4321-af9a-90d1722f04ea",
+        "result": "success",
+        "agentProfileKey": null,
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-CKHddk\\base-plugin"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 0,
+            "styleOccurrences": 0,
+            "appendOccurrences": 1,
+            "codingInstructions": true,
+            "systemSha256": "fa34489432094639bc073eb9ac9e143cc61f19700c6f91871a662aa6aecd16ed",
+            "systemBytes": 29207,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [],
+        "workflowCompleted": false
+      },
+      {
+        "fixture": "empty",
+        "kind": "code",
+        "phase": "resume",
+        "sessionId": "f36ff976-b83d-4321-af9a-90d1722f04ea",
+        "result": "success",
+        "agentProfileKey": null,
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-CKHddk\\base-plugin"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 0,
+            "styleOccurrences": 0,
+            "appendOccurrences": 1,
+            "codingInstructions": true,
+            "systemSha256": "fa34489432094639bc073eb9ac9e143cc61f19700c6f91871a662aa6aecd16ed",
+            "systemBytes": 29207,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [],
+        "workflowCompleted": false
+      },
+      {
+        "fixture": "empty",
+        "kind": "work",
+        "phase": "resume",
+        "sessionId": "b218ea2a-b8d7-447a-8671-7150cc822814",
+        "result": "success",
+        "agentProfileKey": "work:4",
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-CKHddk\\base-plugin",
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orca-work-package-c269d2e667b74acb9633af1e8f223d3a\\good\\win-unpacked\\resources\\claude-plugins\\work-profile"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "7de17dfe7f5f61312c50966ebbfad0358d32079a154f33112e8f2025ba0a3739",
+            "systemBytes": 41715,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [],
+        "workflowCompleted": false
+      },
+      {
+        "fixture": "sentinel",
+        "kind": "code",
+        "phase": "new",
+        "sessionId": "e1cdf546-811e-40a6-b076-a4ba7f85eac3",
+        "result": "success",
+        "agentProfileKey": null,
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-CKHddk\\base-plugin"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 0,
+            "styleOccurrences": 0,
+            "appendOccurrences": 1,
+            "codingInstructions": true,
+            "systemSha256": "be13824809db8ae71ae1c0a2dad8b7e2acb12d3f02a512690668fa023f4a31a1",
+            "systemBytes": 29213,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [],
+        "workflowCompleted": false
+      },
+      {
+        "fixture": "sentinel",
+        "kind": "work",
+        "phase": "new",
+        "sessionId": "2fea45e4-4db3-4554-b351-d5f3fb257730",
+        "result": "success",
+        "agentProfileKey": "work:4",
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-CKHddk\\base-plugin",
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orca-work-package-c269d2e667b74acb9633af1e8f223d3a\\good\\win-unpacked\\resources\\claude-plugins\\work-profile"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "0b623197129c3e4758715f7f4c93ad13d7a6eb82caa0f009d47bbd4d28770de0",
+            "systemBytes": 41721,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [],
+        "workflowCompleted": false
+      },
+      {
+        "fixture": "sentinel",
+        "kind": "work",
+        "phase": "resume",
+        "sessionId": "2fea45e4-4db3-4554-b351-d5f3fb257730",
+        "result": "success",
+        "agentProfileKey": "work:4",
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-CKHddk\\base-plugin",
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orca-work-package-c269d2e667b74acb9633af1e8f223d3a\\good\\win-unpacked\\resources\\claude-plugins\\work-profile"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "0b623197129c3e4758715f7f4c93ad13d7a6eb82caa0f009d47bbd4d28770de0",
+            "systemBytes": 41721,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [],
+        "workflowCompleted": false
+      },
+      {
+        "fixture": "sentinel",
+        "kind": "code",
+        "phase": "resume",
+        "sessionId": "e1cdf546-811e-40a6-b076-a4ba7f85eac3",
+        "result": "success",
+        "agentProfileKey": null,
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-CKHddk\\base-plugin"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 0,
+            "styleOccurrences": 0,
+            "appendOccurrences": 1,
+            "codingInstructions": true,
+            "systemSha256": "be13824809db8ae71ae1c0a2dad8b7e2acb12d3f02a512690668fa023f4a31a1",
+            "systemBytes": 29213,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [],
+        "workflowCompleted": false
+      },
+      {
+        "fixture": "workflow",
+        "kind": "work",
+        "phase": "new",
+        "sessionId": "91731bf4-15c5-44a4-aca9-42158386af23",
+        "result": "success",
+        "agentProfileKey": "work:4",
+        "pluginRoots": [
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-CKHddk\\base-plugin",
+          "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orca-work-package-c269d2e667b74acb9633af1e8f223d3a\\good\\win-unpacked\\resources\\claude-plugins\\work-profile"
+        ],
+        "requests": [
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "5165d61eb3ac02e8a92674e2ce6c0abcf52df3750b7c679c62e07020403d1fe9",
+            "systemBytes": 41721,
+            "toolCount": 31
+          },
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "5165d61eb3ac02e8a92674e2ce6c0abcf52df3750b7c679c62e07020403d1fe9",
+            "systemBytes": 41721,
+            "toolCount": 31
+          },
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "5165d61eb3ac02e8a92674e2ce6c0abcf52df3750b7c679c62e07020403d1fe9",
+            "systemBytes": 41721,
+            "toolCount": 31
+          },
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "5165d61eb3ac02e8a92674e2ce6c0abcf52df3750b7c679c62e07020403d1fe9",
+            "systemBytes": 41721,
+            "toolCount": 31
+          },
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "5165d61eb3ac02e8a92674e2ce6c0abcf52df3750b7c679c62e07020403d1fe9",
+            "systemBytes": 41721,
+            "toolCount": 31
+          },
+          {
+            "approvedOccurrences": 1,
+            "styleOccurrences": 1,
+            "appendOccurrences": 1,
+            "codingInstructions": false,
+            "systemSha256": "5165d61eb3ac02e8a92674e2ce6c0abcf52df3750b7c679c62e07020403d1fe9",
+            "systemBytes": 41721,
+            "toolCount": 31
+          }
+        ],
+        "permissions": [
+          {
+            "tool": "Write",
+            "decision": "deny"
+          }
+        ],
+        "workflowCompleted": true
+      }
+    ],
+    "workspaces": [
+      {
+        "fixture": "empty",
+        "cwd": "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-CKHddk\\empty",
+        "before": [],
+        "phases": [
+          {
+            "phase": "new",
+            "after": [],
+            "difference": {
+              "removed": [],
+              "added": []
+            }
+          },
+          {
+            "phase": "resume",
+            "after": [],
+            "difference": {
+              "removed": [],
+              "added": []
+            }
+          }
+        ]
+      },
+      {
+        "fixture": "sentinel",
+        "cwd": "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-CKHddk\\sentinel",
+        "before": [
+          {
+            "path": "",
+            "type": "directory"
+          },
+          {
+            "path": "CLAUDE.md",
+            "type": "file",
+            "sha256": "9ff58bdda4fb8206b064b5c185ddc16cffe31ebf6de9417ff51f2a9e0a5514e3"
+          },
+          {
+            "path": "settings.json",
+            "type": "file",
+            "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+          }
+        ],
+        "phases": [
+          {
+            "phase": "new",
+            "after": [
+              {
+                "path": "",
+                "type": "directory"
+              },
+              {
+                "path": "CLAUDE.md",
+                "type": "file",
+                "sha256": "9ff58bdda4fb8206b064b5c185ddc16cffe31ebf6de9417ff51f2a9e0a5514e3"
+              },
+              {
+                "path": "settings.json",
+                "type": "file",
+                "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+              }
+            ],
+            "difference": {
+              "removed": [],
+              "added": []
+            }
+          },
+          {
+            "phase": "resume",
+            "after": [
+              {
+                "path": "",
+                "type": "directory"
+              },
+              {
+                "path": "CLAUDE.md",
+                "type": "file",
+                "sha256": "9ff58bdda4fb8206b064b5c185ddc16cffe31ebf6de9417ff51f2a9e0a5514e3"
+              },
+              {
+                "path": "settings.json",
+                "type": "file",
+                "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+              }
+            ],
+            "difference": {
+              "removed": [],
+              "added": []
+            }
+          }
+        ]
+      }
+    ],
+    "failures": []
+  },
+  "mutations": {
+    "selectedIds": [
+      "M1",
+      "M2",
+      "M3",
+      "M4",
+      "M5",
+      "M6"
+    ],
+    "selectedSubvariantCount": 13,
+    "newWiringOracleSubvariantCount": 4,
+    "unit": [
+      {
+        "id": "M1a",
+        "exitCode": 1,
+        "tests": "4 failed | 2 passed (6)"
+      },
+      {
+        "id": "M1b",
+        "exitCode": 1,
+        "tests": "4 failed | 2 passed (6)",
+        "failureSummary": "AssertionError: expected false to be true // Object.is equality"
+      },
+      {
+        "id": "M1c",
+        "exitCode": 1,
+        "tests": "4 failed | 2 passed (6)"
+      },
+      {
+        "id": "M1d",
+        "exitCode": 1,
+        "tests": "4 failed | 2 passed (6)",
+        "failureSummary": "AssertionError: expected false to be true // Object.is equality"
+      },
+      {
+        "id": "M2a",
+        "exitCode": 1,
+        "tests": "15 failed (15)"
+      },
+      {
+        "id": "M2b",
+        "exitCode": 1,
+        "tests": "5 failed | 10 passed (15)",
+        "failureSummary": "AssertionError: expected undefined to be 'work:4' // Object.is equality"
+      },
+      {
+        "id": "M3a",
+        "exitCode": 1,
+        "tests": "5 failed | 3 passed (8)",
+        "failureSummary": "AssertionError: expected 'work:3' to be 'work:4' // Object.is equality"
+      },
+      {
+        "id": "M3b",
+        "exitCode": 1,
+        "tests": "5 failed | 10 passed (15)",
+        "failureSummary": "AssertionError: expected [ { …(6) }, { …(6) } ] to have a length of 3 but got 2"
+      },
+      {
+        "id": "M6a",
+        "exitCode": 1,
+        "tests": "1 failed | 3 passed (4)",
+        "failureSummary": "AssertionError: expected '\\installed\\resources\\app.asar\\resourc…' to be '\\installed\\resources\\claude-plugins\\w…' // Object.is equality"
+      },
+      {
+        "id": "N1a",
+        "exitCode": 1,
+        "tests": "1 failed | 4 passed (5)"
+      },
+      {
+        "id": "N1b",
+        "exitCode": 1,
+        "tests": "1 failed | 4 passed (5)"
+      },
+      {
+        "id": "N1c",
+        "exitCode": 1,
+        "tests": "1 failed | 4 passed (5)"
+      },
+      {
+        "id": "N1d",
+        "exitCode": 1,
+        "tests": "1 failed | 4 passed (5)"
+      }
+    ],
+    "native": [
+      {
+        "id": "M4a",
+        "status": "fail",
+        "rawResultPath": "C:/Users/rlaeo/AppData/Local/Temp/orcinus-orca/work-profile-smoke-GCuyu1/result.json",
+        "failures": [
+          {
+            "stage": "empty",
+            "reason": "loopback request validation failed: coding instructions mismatch"
+          }
+        ],
+        "workspaces": [
+          {
+            "fixture": "empty",
+            "cwd": "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-GCuyu1\\empty",
+            "before": [],
+            "phases": [
+              {
+                "phase": "new",
+                "after": [],
+                "difference": {
+                  "removed": [],
+                  "added": []
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "M4b",
+        "status": "fail",
+        "rawResultPath": "C:/Users/rlaeo/AppData/Local/Temp/orcinus-orca/work-profile-smoke-Ylj9le/result.json",
+        "failures": [
+          {
+            "stage": "empty",
+            "reason": "loopback request validation failed: output style count mismatch"
+          }
+        ],
+        "workspaces": [
+          {
+            "fixture": "empty",
+            "cwd": "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-Ylj9le\\empty",
+            "before": [],
+            "phases": [
+              {
+                "phase": "new",
+                "after": [],
+                "difference": {
+                  "removed": [],
+                  "added": []
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "M5",
+        "status": "fail",
+        "rawResultPath": "C:/Users/rlaeo/AppData/Local/Temp/orcinus-orca/work-profile-smoke-FmtBDG/result.json",
+        "failures": [
+          {
+            "stage": "empty",
+            "reason": "fixture setup, composition, or native assertion failed"
+          }
+        ],
+        "workspaces": [
+          {
+            "fixture": "empty",
+            "cwd": "C:\\Users\\rlaeo\\AppData\\Local\\Temp\\orcinus-orca\\work-profile-smoke-FmtBDG\\empty",
+            "before": [],
+            "phases": [
+              {
+                "phase": "new",
+                "after": [
+                  {
+                    "path": "",
+                    "type": "directory"
+                  },
+                  {
+                    "path": "settings.json",
+                    "type": "file",
+                    "sha256": "88750d0d2e746bf135fafecd87d046019a1ada26932191a9dec76a30e10892e1"
+                  }
+                ],
+                "difference": {
+                  "removed": [],
+                  "added": [
+                    "{\"path\":\"\",\"type\":\"directory\"}",
+                    "{\"path\":\"settings.json\",\"type\":\"file\",\"sha256\":\"88750d0d2e746bf135fafecd87d046019a1ada26932191a9dec76a30e10892e1\"}"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "packaging": {
+      "id": "M6b",
+      "status": "fail",
+      "rawResultPath": "C:/Users/rlaeo/AppData/Local/Temp/orcinus-orca/work-profile-smoke-pLpAkN/result.json",
+      "failures": [
+        {
+          "stage": "initialization",
+          "reason": "fixture setup, composition, or native assertion failed"
+        }
+      ],
+      "observations": 0,
+      "cliExists": true,
+      "manifestExists": false,
+      "styleExists": false,
+      "packageCommandSucceeded": true
+    }
+  },
+  "finalDocumentAudit": {
+    "ac": {
+      "expected": 9,
+      "reported": 9,
+      "missing": [],
+      "extra": [],
+      "duplicates": 0
+    },
+    "ep": {
+      "expected": 14,
+      "reported": 14,
+      "missing": [],
+      "extra": [],
+      "duplicates": 0
+    },
+    "vp": {
+      "expected": 16,
+      "reported": 16,
+      "missing": [],
+      "extra": [],
+      "duplicates": 0
+    },
+    "mutations": {
+      "expected": 17,
+      "reported": 17,
+      "missing": [],
+      "extra": [],
+      "duplicates": 0
+    },
+    "metadata": [
+      "| 상태 | impl/IMPL_DONE (V1 r1) — 구현 자기검증 완료, 독립 검증 대기 |",
+      "| 다음 주체 | Claude — handoff-verify |"
+    ]
+  },
+  "restoredSourceCheck": {
+    "command": "node_modules/.bin/vitest run src/main/features/agents/profiles.test.ts src/main/app/builtin-resources.test.ts src/main/app/agent-extension-profile.test.ts src/main/app/chat-turn/send.agent-profile.test.ts src/main/app/chat-turn-continuation.test.ts",
+    "filesPassed": 5,
+    "testsPassed": 31,
+    "note": "Overlaps the main regression set; not added to its 248 total."
+  },
+  "review": {
+    "status": "not_completed",
+    "reason": "Read-only reviewer subagent terminated with usage limit; independent handoff-verify remains pending."
+  }
+}

@@ -2,7 +2,7 @@ import { expect, it, vi } from 'vitest'
 import Database from 'better-sqlite3'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import type { Options } from '@anthropic-ai/claude-agent-sdk'
 import type { Settings } from '../../shared/ipc'
 import type { RuntimeToolSnapshot } from '../adapters/runtime-tools'
@@ -27,6 +27,7 @@ import { resolveAgentProfile } from '../features/agents/profiles'
 import { ExtensionBuilder } from '../features/extensions/builder'
 import { applyMigrations } from '../infra/db/migrate'
 import { DbQueries } from '../infra/db/queries'
+import { prepareAgentExtensionProfile } from './agent-extension-profile'
 
 it('composes Work only into the SDK header while retaining Code execution, tools, plugins and approval', async () => {
   const root = mkdtempSync(join(tmpdir(), 'orca-profile-query-'))
@@ -74,11 +75,11 @@ it('composes Work only into the SDK header while retaining Code execution, tools
     const options: Options[] = []
     queryMock.mockClear()
     for (const kind of ['code', 'work'] as const) {
-      const profile = resolveAgentProfile(kind)
-      const extensions = builder.build(null, null, {
-        agentInstructions: profile.instructions,
-        agentProfileKey: profile.key
-      })
+      const profile = await prepareAgentExtensionProfile(
+        kind,
+        resolve('resources/claude-plugins/work-profile')
+      )
+      const extensions = builder.build(null, null, profile)
       const live = adapter.sendMessage({
         sessionId: null,
         text: 'same user prompt',
@@ -111,13 +112,16 @@ it('composes Work only into the SDK header while retaining Code execution, tools
       'model',
       'permissionMode',
       'settingSources',
-      'plugins',
       'extraArgs',
       'pathToClaudeCodeExecutable'
     ] as const) {
       expect(work[field]).toEqual(code[field])
     }
-    expect(work.plugins).toEqual([{ type: 'local', path: root }])
+    expect(code.plugins).toEqual([{ type: 'local', path: root }])
+    expect(work.plugins).toEqual([
+      { type: 'local', path: root },
+      { type: 'local', path: resolve('resources/claude-plugins/work-profile') }
+    ])
     expect(work.mcpServers?.fixture).toMatchObject({ type: 'sdk', name: 'fixture' })
     expect(code.mcpServers?.fixture).toMatchObject({ type: 'sdk', name: 'fixture' })
     expect(work.hooks?.PreToolUse).toHaveLength(code.hooks!.PreToolUse!.length)

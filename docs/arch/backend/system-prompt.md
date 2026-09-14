@@ -20,7 +20,7 @@
 | 세션 스코프 `query()` + 입력 스트림 | spawn에서 query를 만들고 후속 입력은 같은 LiveTurn으로 전달한다. 재생성이 필요하면 `resume`한다 | `app/src/main/adapters/claude.ts` · `features/sessions/session-runtime.ts` |
 | 제품 에이전트 프로필 | Work만 `# Agent` 지침을 추가한다. Code는 기존 append와 동일하다 | `features/agents/profiles.ts` · `system-header.ts` |
 | `excludeDynamicSections` 생략(=false) | 미사용 → cwd/플랫폼/메모리 경로 동적섹션을 시스템 프롬프트에 유지 | grep 0건 |
-| 출력 스타일 미사용 | 정책은 전부 `append` 로 주입 | — |
+| Work 전용 출력 스타일 | 앱 소유 local plugin의 `keep-coding-instructions: false`·`force-for-plugin: true`로 기본 코딩 지침을 제외한다. Work 행동은 `append`가 소유한다 | `resources/claude-plugins/work-profile/output-styles/work.md` |
 
 > 즉 **주입 메커니즘은 변경 대상이 아니다** (preset+append 그대로). append 의 내용은
 > `구조화 헤더` 하나이고 프로젝트 지침은 `# Project` 섹션 안에 포맷화되어 편입된다 (§2A).
@@ -63,7 +63,7 @@ Project instructions:
 | 섹션 | 필드 | 소스 | 조건 |
 |---|---|---|---|
 | `# Orca` | 정체성 framing + version | 상수 + `app.getVersion()`(bootstrap 주입) | 항상 |
-| `# Agent` | 문서·자료 정리·분석 역할과 완성 산출물 게시 지침 | `features/agents/profiles.ts`를 app에서 해석해 builder에 전달 | Work만 |
+| `# Agent` | 문서·조사·정리·분석, 검증·파일 전달, 실제 환경·승인 경계를 따르는 Work 지침 | `features/agents/profiles.ts`·`work-system-prompt.ts`를 app에서 해석해 builder에 전달 | Work만 |
 | `# Tools` | 도구-사용 정책(전용툴 우선 + workspace 스코프) | 상수 `TOOLS_SECTION`(opencode `anthropic.txt` 적용, handoff 0075 r3) | 항상 |
 | `# User` | Preferred language | `settings.language`(default `한국어`) | 값 있을 때 |
 | `# User` | Account instructions | `settings.accountInstructions` | trim 후 비지 않을 때 |
@@ -105,6 +105,16 @@ Decision rationale: [ADR-002 feature slice boundaries](../../decisions/002-featu
 | VOLATILE | 날짜·메모리 스냅샷 | **현재 없음** (§4 참조) |
 
 append는 Orca→Agent(Work만)→Tools→User→Project 순서의 단일 문자열이다. 같은 입력이면 동일한 문자열을 만든다. 공급자의 실제 캐시 적중은 별도 관측이 필요하다.
+
+Work plugin 경로는 `app/builtin-resources.ts`가 dev의 앱 resources 또는 패키지의
+`process.resourcesPath/claude-plugins/work-profile`에서 해석하고 bootstrap이 주입한다.
+`app/agent-extension-profile.ts`는 Work에서만 필수 리소스를 읽어 검증하며, 최초 전송과 자동 연속
+전송이 이 준비 함수를 공유한다. 후보는 기존 base plugin roots 뒤에 새 배열로 추가되어
+`adaptPlugins()`로 전달되며 Code의 후보와 workspace `.claude` 설정은 변경하지 않는다.
+
+필수 Work 리소스가 누락되면 기존 준비 오류·정리 경로로 실패한다. Work 프로필의 적용 여부는
+SDK `init.output_style` 표시값이 아닌 실제 모델 요청의 style 본문·append·코딩 지침 제외 여부로
+검증한다(`app/scripts/smoke-work-profile.mjs`).
 
 **조립과 실행 적용은 다르다.** 빌더가 최신 지침을 읽어도 살아 있는 query의 시스템 프롬프트가 교체되지는 않는다. SDK 옵션은 spawn/respawn에서 적용된다. 프로필 key는 최초 전송·자동 연속 전송 모두 기존 respawn 판정에 포함되어, 같은 key는 warm 재사용하고 변경된 key는 다음 실행에 반영한다. 계정·프로젝트 지침 편집 자체의 즉시 반영 정책은 별도로 확장하지 않는다.
 
