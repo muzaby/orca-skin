@@ -13,6 +13,7 @@ interface CwdButtonProps {
   inflight?: boolean
   // 타이틀바(flat)와 컴포저 상단 작업 컨텍스트 행(outlined)이 같은 버튼을 다른 외형으로 쓴다.
   variant?: ChipVariant
+  iconOnly?: boolean
   className?: string
   // 0211 — 격리 세션의 표시 정본. 라벨만 이 값을 쓰고 **클릭은 `cwd`(실행 경로)** 다.
   worktree?: WorktreeDisplay | null
@@ -23,6 +24,7 @@ export function CwdButton({
   sessionStarted,
   inflight = false,
   variant = 'flat',
+  iconOnly = false,
   className = '',
   worktree = null
 }: CwdButtonProps): React.JSX.Element {
@@ -58,14 +60,14 @@ export function CwdButton({
         sessionStarted ? tr('chat.composer.cwdOpenAria') : tr('chat.composer.cwdSelectAria')
       }
       title={title}
-      className={`${chipSurface(variant)} focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+      className={`${chipSurface(variant, iconOnly)} focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
     >
       <Icon
         name="folder"
         size={variant === 'outlined' ? OUTLINED_ICON_SIZE : 14}
         className="shrink-0"
       />
-      <span className="min-w-0 truncate">{label}</span>
+      {!iconOnly && <span className="min-w-0 truncate">{label}</span>}
     </button>
   )
 }

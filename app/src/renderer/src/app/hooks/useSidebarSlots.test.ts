@@ -57,7 +57,10 @@ let handlers: SessionHandlers
 function Probe({ observe }: { observe: (handlers: SessionHandlers) => void }): React.JSX.Element {
   const current = useSessionHandlers()
   observe(current)
-  return createElement(Sidebar, useSidebarSlots(current))
+  return createElement(
+    Sidebar,
+    useSidebarSlots(current, () => {})
+  )
 }
 const snapshot = useSessionsStore.getInitialState()
 const original = { ...snapshot }

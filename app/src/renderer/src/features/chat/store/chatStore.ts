@@ -158,6 +158,23 @@ let cwdCache: string | null = null
 // 시드 전 기본값은 첫 실행 고정값이라, 시드가 늦거나 실패해도 랜딩이 `code` 로 번쩍이지 않는다.
 let landingAgentKind: AgentKind = DEFAULT_LANDING_AGENT_KIND
 
+// 삭제된 프로젝트 ID는 현재 renderer 수명 동안 기억한다. 지각 조회/이벤트의 본문과
+// 실행 정보는 수용하되, DB가 해제한 프로젝트 연결만 다시 붙지 않게 한다.
+const deletedProjectIds = new Set<string>()
+
+function withoutDeletedProject(session: ChatState): ChatState {
+  const projectDeleted = session.projectId != null && deletedProjectIds.has(session.projectId)
+  const pendingDeleted =
+    session.pendingProjectId != null && deletedProjectIds.has(session.pendingProjectId)
+  return projectDeleted || pendingDeleted
+    ? {
+        ...session,
+        projectId: projectDeleted ? null : session.projectId,
+        pendingProjectId: pendingDeleted ? null : session.pendingProjectId
+      }
+    : session
+}
+
 // 권한 모드 강등 규칙을 복사하지 않고 리듀서를 그대로 태운다 — 종류를 바꾸는 규칙은
 // `SET_AGENT_KIND` 한 곳이 갖는다.
 function withLandingAgentKind(session: ChatState, kind: AgentKind): ChatState {
@@ -181,11 +198,11 @@ export function seedLandingAgentKind(kind: AgentKind): void {
 
 function freshEntry(projectId: string | null = null, cwd?: string | null): SessionEntry {
   return {
-    session: {
+    session: withoutDeletedProject({
       ...withLandingAgentKind(initialChatState, landingAgentKind),
       cwd: cwd ?? cwdCache,
       pendingProjectId: projectId
-    },
+    }),
     projectCwdInitialized: cwd !== undefined || projectId === null,
     live: EMPTY_LIVE,
     subagentMeta: EMPTY_SUBAGENT_META,
@@ -252,7 +269,7 @@ function dispatchTo(key: string, action: ChatAction): void {
     })
   }
   patchEntry(key, (entry) => {
-    const session = chatReducer(entry.session, action)
+    const session = withoutDeletedProject(chatReducer(entry.session, action))
     return session === entry.session ? entry : { ...entry, session }
   })
 }
@@ -1411,6 +1428,22 @@ function handleSessionDeleted(sessionId: string, fallbackProjectId?: string | nu
   dropSession(sessionId, fallbackProjectId ?? null)
 }
 
+// 프로젝트 삭제는 대화 삭제와 다르다. 활성 선택·본문·live·작업 경로를 유지하고
+// 활성/비활성 세션 및 미확정 초안의 프로젝트 연결만 해제한다.
+function detachProject(projectId: string): void {
+  deletedProjectIds.add(projectId)
+  setState((state) => {
+    let sessions = state.sessions
+    for (const [key, entry] of Object.entries(sessions)) {
+      const session = withoutDeletedProject(entry.session)
+      if (session === entry.session) continue
+      if (sessions === state.sessions) sessions = { ...sessions }
+      sessions[key] = { ...entry, session }
+    }
+    return sessions === state.sessions ? state : { sessions }
+  })
+}
+
 // requestId === approvalId (router 가 두 값을 동일하게 발급). 권한 응답은 단일
 // permissionApi.respond 로 통일하고, 각 도메인 후처리는 ApprovalResolution 으로 표현한다.
 // 카드는 활성 엔트리에서만 상호작용 가능하므로 로컬 RESOLVE_* 는 활성으로 보낸다.
@@ -1604,6 +1637,7 @@ export const chatActions = {
   renameSession,
   invalidateSessionCache,
   handleSessionDeleted,
+  detachProject,
   answerAsk,
   skipAsk,
   setPermissionMode,

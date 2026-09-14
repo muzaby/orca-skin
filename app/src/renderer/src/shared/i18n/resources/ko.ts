@@ -326,6 +326,9 @@ export const ko = {
     }
   },
   projects: {
+    deleteDialogTitle: '프로젝트 삭제',
+    deleteDialogMessage: '“{{name}}” 프로젝트를 삭제하시겠습니까? 대화와 파일은 유지됩니다.',
+    deleteFailed: '프로젝트를 삭제하지 못했습니다. 다시 시도해 주세요.',
     search: '프로젝트 검색',
     searchPlaceholder: '프로젝트 이름 또는 경로 검색…',
     itemMenu: '{{title}} 메뉴',

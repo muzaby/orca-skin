@@ -322,6 +322,9 @@ export const en: typeof ko = {
     }
   },
   projects: {
+    deleteDialogTitle: 'Delete project',
+    deleteDialogMessage: 'Delete “{{name}}”? Conversations and files will be kept.',
+    deleteFailed: 'Could not delete the project. Please try again.',
     search: 'Search projects',
     searchPlaceholder: 'Search project name or path…',
     itemMenu: '{{title}} menu',

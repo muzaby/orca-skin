@@ -26,6 +26,7 @@ export interface PinnedProjectsSectionViewProps {
   currentSessionId: string | null
   onOpenProject: (projectId: string) => void
   onTogglePinProject: (projectId: string, pinned: boolean) => void
+  onDeleteProject: (projectId: string) => void
   onSelectSession: (sessionId: string) => void
   onTogglePinSession: (sessionId: string, pinned: boolean) => void
   onDeleteSession: (sessionId: string) => void
@@ -83,6 +84,7 @@ function PinnedProjectRow({
   currentSessionId,
   onOpenProject,
   onTogglePinProject,
+  onDeleteProject,
   onSelectSession,
   onTogglePinSession,
   onDeleteSession,
@@ -156,6 +158,20 @@ function PinnedProjectRow({
               }}
             >
               <span>{tr(project.pinnedAt == null ? 'common.pin' : 'common.unpin')}</span>
+            </MenuItem>
+            <MenuItem
+              role="menuitem"
+              danger
+              icon="trash"
+              iconSize={12}
+              data-project-delete={project.id}
+              onClick={(event) => {
+                event.stopPropagation()
+                setMenuOpen(false)
+                onDeleteProject(project.id)
+              }}
+            >
+              <span>{tr('common.delete')}</span>
             </MenuItem>
           </div>
         </Popover>

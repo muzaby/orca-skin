@@ -9,9 +9,6 @@ interface ChatViewProps {
   usageLimits?: UsageLimitsView | null
   // providerKey = 도넛에서 현재 선택된 provider(있으면 그 서브탭으로, 없으면 전역 사용량 탭).
   onOpenUsageSettings?: (providerKey?: string) => void
-  projectId?: string | null
-  projectName?: string | null
-  onOpenProject?: (projectId: string) => void
   onDeleteSession?: (sessionId: string) => void
   onRenameSession?: (sessionId: string, title: string) => void
   sessionPinned?: boolean
@@ -25,9 +22,6 @@ export function ChatView({
   canAbort,
   usageLimits,
   onOpenUsageSettings,
-  projectId,
-  projectName,
-  onOpenProject,
   onDeleteSession,
   onRenameSession,
   sessionPinned,
@@ -39,9 +33,6 @@ export function ChatView({
       canAbort={canAbort}
       usageLimits={usageLimits}
       onOpenUsageSettings={onOpenUsageSettings}
-      projectId={projectId}
-      projectName={projectName}
-      onOpenProject={onOpenProject}
       onDeleteSession={onDeleteSession}
       onRenameSession={onRenameSession}
       sessionPinned={sessionPinned}

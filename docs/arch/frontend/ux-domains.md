@@ -45,7 +45,8 @@
 
 | UX | 동작 | 위치 |
 | --- | --- | --- |
-| Transcript titlebar | `<프로젝트> / <제목>` 표기 + 폴더 아이콘 + **인라인 rename**(`RenameInput`) | `features/chat/components/ChatTitleBar.tsx` (0083) |
+| Transcript titlebar | 실제 cwd를 여는 **폴더 아이콘 전용 버튼 → 제목** 배치 + **인라인 rename**(`RenameInput`) | `features/chat/components/ChatTitleBar.tsx` |
+| 프로젝트 삭제 | Nav 프로젝트 행·개별 프로젝트 페이지의 kebab에서 공용 확인을 거쳐 삭제. 대화·파일은 유지하고 세션의 프로젝트 연결만 해제 | `app/hooks/useProjectDeletion.ts` + `features/{projects,sessions,chat}` store |
 | 대화 삭제 확인 | 전역 확인 다이얼로그 — `confirm()` 호출 → `#app-frame-modal` 슬롯에 렌더 | `shared/ui/ConfirmDialogHost.tsx` + `confirmDialogStore.ts` (0083) |
 | 헤더 버전 모달 | 햄버거 메뉴 `버전` 항목 → 앱 버전/메타 모달 | `app/Header.tsx` 의 `HeaderVersionModal` (0083) |
 | 인앱 업데이트 | 업데이트 가용 시 헤더 버튼 + 파란 뱃지 → `UpdateDialog`(다운로드/재시작 사용자 게이트). dev 는 디버그 패널 더미 토글 | `features/update/` (0085/0086) |

@@ -16,7 +16,11 @@ import { ReadingColumn } from '../shared/ui/ReadingColumn'
 // hook 호출 없이 순수 조립.
 //
 // 새 대화와 같은 좌우 경계의 단일 컬럼: 제목 → Composer → 대화 목록.
-export function ProjectLandingPage(): React.JSX.Element {
+export function ProjectLandingPage({
+  onDeleteProject
+}: {
+  onDeleteProject: (projectId: string) => void
+}): React.JSX.Element {
   const { projectId = '' } = useParams<{ projectId: string }>()
   const { tr } = useI18n()
   const navigate = useNavigate()
@@ -68,8 +72,6 @@ export function ProjectLandingPage(): React.JSX.Element {
         canAbort={canAbort}
         usageLimits={usageLimits}
         onOpenUsageSettings={onOpenUsageSettings}
-        projectId={projectId}
-        projectName={projectName}
         {...sessionActions}
       />
     )
@@ -81,7 +83,11 @@ export function ProjectLandingPage(): React.JSX.Element {
         <div className="mx-auto w-full max-w-[720px] min-w-0 pb-10 pt-10">
           <ReadingColumn>
             <main className="flex min-w-0 flex-col gap-6">
-              <ProjectInfoHero key={projectId} projectId={projectId} />
+              <ProjectInfoHero
+                key={projectId}
+                projectId={projectId}
+                onDeleteProject={onDeleteProject}
+              />
               <AgentModeToggle />
               <Composer
                 backendLabel={backendLabel}

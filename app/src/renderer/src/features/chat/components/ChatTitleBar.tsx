@@ -36,9 +36,6 @@ function selectTitle(s: ChatState): string {
 // 채팅 타일 titlebar — 제목 + 우측 액션. selector 가 primitive 를 반환하므로
 // 스트리밍 커밋(messages 교체)에도 제목 문자열이 같으면 재렌더되지 않는다.
 interface ChatTitleBarProps {
-  projectId?: string | null
-  projectName?: string | null
-  onOpenProject?: (projectId: string) => void
   onDeleteSession?: (sessionId: string) => void
   onRenameSession?: (sessionId: string, title: string) => void
   // 0129 고정 — 현재 세션 고정 상태 + 토글. 상단 컨트롤 아이콘 + kebab 메뉴에 배선.
@@ -47,9 +44,6 @@ interface ChatTitleBarProps {
 }
 
 export const ChatTitleBar = memo(function ChatTitleBar({
-  projectId,
-  projectName,
-  onOpenProject,
   onDeleteSession,
   onRenameSession,
   sessionPinned = false,
@@ -129,19 +123,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   return (
     <div className="app-frame-titlebar flex items-center gap-3 px-6 pb-2 pt-3">
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        {projectId && projectName && onOpenProject && (
-          <>
-            <button
-              type="button"
-              className="min-w-0 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap rounded-r4 border-0 bg-transparent px-p5 py-1 text-footnote font-medium text-t7 transition-colors hover:bg-fill-uncontained-hover hover:text-t9"
-              onClick={() => onOpenProject(projectId)}
-              title={projectName}
-            >
-              {projectName}
-            </button>
-            <span className="shrink-0 text-t5">/</span>
-          </>
-        )}
+        <CwdButton cwd={cwd} sessionStarted iconOnly worktree={worktree} className="shrink-0" />
         {renaming ? (
           <RenameInput
             initial={title}
@@ -165,7 +147,6 @@ export const ChatTitleBar = memo(function ChatTitleBar({
             {title}
           </div>
         )}
-        <CwdButton cwd={cwd} sessionStarted worktree={worktree} className="shrink-0" />
       </div>
       <div className="ml-auto flex gap-1">
         {canPinSession && (
