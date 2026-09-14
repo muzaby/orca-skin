@@ -11,16 +11,15 @@ import { useProjectsState } from '../../features/projects'
 // 방향 1 — URL → State
 //   - `/new`                  : dirty (sessionId / pendingProjectId / messages) → newChat()
 //   - `/chat/:sessionId`      : sessionId 가 url 과 다르면 loadSession(id, metaTitle)
-//   - `/projects/:projectId`  : pendingProjectId 가 url 과 다르거나 sessionId 가 남아 있으면
-//                               newChat(projectId). 단, messages.length 는 검사하지 않음 —
-//                               사용자가 랜딩에서 입력 중일 때 wipe 되지 않도록.
+//   - `/projects/:projectId`  : 실제 경로 진입 때만 상태를 맞추고 newChat(projectId).
+//                               같은 경로의 카탈로그 갱신은 지각 cwd 초기화만 시도한다.
 //   상태는 effect 안에서 getState() 로 *imperative* 하게 읽는다 — 상태 변화(첫 전송 등)가
 //   이 effect 를 재실행해 대화를 wipe 하지 않도록 트리거는 URL/sessions 변화로 한정.
 //
-// 방향 2 — State → URL (armed-ref 로 stale state race 차단)
+// 방향 2 — State → URL (경로에 묶인 armed-ref 로 stale state race 차단)
 //   - `/new` 또는 `/projects/:projectId` 에서 sessionId 가 null 인 상태를 한 번
 //     본 뒤(=arm), 이어서 null → non-null 로 바뀌면 한 번만 `/chat/<id>` replace.
-//   - 라우트 전이 직후의 stale sessionId 는 armed=false 라서 navigate 되지 않음.
+//   - URL → State 적용 후의 실제 활성 세션을 다시 읽고, 같은 경로에서만 승격한다.
 //
 // AppLayout 은 Routes 위에 있으므로 `useParams` 가 비어 있다 — `matchPath` 로 직접
 // 추출. cross-feature wiring(chat + sessions) 이라 셸이 호스트.
@@ -44,14 +43,12 @@ export function useChatRouteSync(): void {
 
   // 방향 1 — URL → State (URL/sessions 변화만 트리거, 상태는 imperative read)
   //
-  // `/new` 리셋은 *전이*(다른 경로 → /new 진입)일 때만 발사한다. `sessions` dep 은
-  // metaTitle/세션목록 갱신으로 자주 바뀌는데, 첫 전송 직후 promote(recentsEpoch++ →
-  // sessionsActions.refresh)로 이 effect 가 `/new` 에 머문 채 재실행되면 막 승격된 세션을
-  // dirty 로 보고 newChat() 으로 wipe → 랜딩 플리커가 난다. 전이 가드로 그 우발적 재실행을
-  // 무시하고 방향 2(armed-ref)의 `/chat/<id>` navigate 에 맡긴다.
+  // 랜딩 리셋은 실제 경로 진입일 때만 수행한다. 확정 직후의 카탈로그 재조회도 이 effect를
+  // 깨우므로 같은 경로에서 sessionId가 생겼다는 이유로 reset하면 방금 보낸 본문이 사라진다.
   const prevPathnameRef = useRef<string | null>(null)
+  const armedRef = useRef<string | null>(null)
   useEffect(() => {
-    const enteredNew = onNew && prevPathnameRef.current !== pathname
+    const entered = prevPathnameRef.current !== pathname
     prevPathnameRef.current = pathname
     const cur = getActiveChatSession()
     if (onNew) {
@@ -59,7 +56,7 @@ export function useChatRouteSync(): void {
       // 묶여 있던 경우도 함께 해제한다. 단 `/new` 로 진입한 순간에만 — 머무는 중의
       // sessions 갱신/승격 재실행에서는 wipe 하지 않는다.
       const dirty = cur.sessionId != null || cur.pendingProjectId != null || cur.messages.length > 0
-      if (enteredNew && dirty) chatActions.newChat()
+      if (entered && dirty) chatActions.newChat()
       return
     }
     if (urlSessionId != null) {
@@ -68,7 +65,11 @@ export function useChatRouteSync(): void {
       // **URL 이 draft 의 소스 세션을 가리킬 때만** 재로드를 막는다(승격 시 방향 2 가
       // /chat/<새 id> 로 이동). 다른 세션으로의 이동(urlSessionId ≠ 소스)은 정상 로드 —
       // r1 의 무조건 가드가 사이드바 세션 전환까지 차단하던 버그 수정(r2).
-      if (cur.sessionId == null && urlSessionId === (cur.forkFrom ?? cur.handoffFrom)) return
+      if (
+        urlSessionId === (cur.forkFrom ?? cur.handoffFrom) &&
+        (cur.sessionId == null || armedRef.current === pathname)
+      )
+        return
       const metaTitle = urlSessionMeta?.title?.trim() || urlSessionMeta?.preview?.trim() || null
       void chatActions.loadSession(urlSessionId, metaTitle)
       return
@@ -77,7 +78,7 @@ export function useChatRouteSync(): void {
       // 프로젝트 랜딩으로 진입 / 다른 프로젝트로 전이 시에만 reset. 이미 같은
       // 프로젝트에 묶여 있고(sessionId 도 없음) 사용자가 입력 중인 상태는 보존.
       const wrongState = cur.pendingProjectId !== urlProjectId || cur.sessionId != null
-      if (wrongState) chatActions.newChat(urlProjectId, urlProject?.cwd)
+      if (entered && wrongState) chatActions.newChat(urlProjectId, urlProject?.cwd)
       if (urlProject) chatActions.initializeProjectCwd(urlProjectId, urlProject.cwd)
       return
     }
@@ -90,22 +91,29 @@ export function useChatRouteSync(): void {
   // 새 id 승격(null → non-null) 시 /chat/<새 id> 로 이동한다(/chat/<원본> 경로에서도).
   // 마커는 승격 후에도 state 에 남아 이 effect 의 upgradable 이 전이 프레임까지 유지된다.
   const continuityMarker = useChatSession((s) => s.forkFrom != null || s.handoffFrom != null)
-  const armedRef = useRef(false)
   useEffect(() => {
-    const upgradable = onNew || urlProjectId != null || continuityMarker
+    // 앞 effect가 새 landing이나 다른 대화로 전환했을 수 있다. render 시 캡처한 이전
+    // 세션으로 이동하지 않으며 continuity도 실제 원본 URL에 머물러 있을 때만 승격한다.
+    const cur = getActiveChatSession()
+    const upgradable =
+      onNew ||
+      urlProjectId != null ||
+      (urlSessionId != null && urlSessionId === (cur.forkFrom ?? cur.handoffFrom))
     if (!upgradable) {
-      armedRef.current = false
+      armedRef.current = null
       return
     }
-    if (sessionId == null) {
+    if (cur.sessionId == null) {
       // newChat 적용된 뒤 — 다음 sessionId 발급을 기다리는 상태.
-      armedRef.current = true
+      armedRef.current = pathname
       return
     }
-    if (armedRef.current) {
+    // render 이후 다른 활성 상태가 들어왔다면 다음 render의 일치한 snapshot을 기다린다.
+    if (cur.sessionId !== sessionId) return
+    if (armedRef.current === pathname) {
       // null → non-null 전이를 한 번만 발사.
-      armedRef.current = false
+      armedRef.current = null
       navigate(`/chat/${sessionId}`, { replace: true })
     }
-  }, [onNew, urlProjectId, continuityMarker, sessionId, navigate])
+  }, [onNew, urlProjectId, urlSessionId, continuityMarker, sessionId, navigate, pathname])
 }

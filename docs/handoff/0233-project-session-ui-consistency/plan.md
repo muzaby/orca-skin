@@ -310,31 +310,103 @@ producer는 기존 main session.updated와 목록 IPC를 유지한다. 소비자
 
 ## [구현자 기입] 설계 리뷰
 
-구현 전 기입 대기.
+작성자 **Codex**, 구현 r1. 유효 V1의 Decision·AC·V-pair·§10을 변경하지 않고 구현했다. 진단 결과 이름 없는 세션이 삭제된 것이 아니라, 프로젝트 catalog 객체 갱신이 같은 pathname의 URL→state effect를 다시 실행하여 막 승격된 세션에 `newChat(projectId)`를 호출한 것이 본문 소실과 뒤로가기처럼 보이는 전환의 원인이었다.
+
+구현은 네 책임으로 나뉜다. `ChatTitleBar`는 `CwdButton.iconOnly`의 기본 false 계약을 유지하면서 제목 앞에서만 아이콘 전용으로 사용한다. 삭제는 app hook이 확인·IPC·feature별 소속 해제·최신 URL 이동을 조합한다. `sessionsStore`는 recent 수신과 이미 조회한 프로젝트 membership을 한 transaction에서 재조정한다. route sync는 pathname 실제 진입과 같은 경로의 catalog hydration을 구분한다. 신규 IPC·DB·의존성과 미해결 PLAN_GAP은 없다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
-구현 전 기입 대기. V-pair 자기 상태와 직접 증거를 함께 기록한다.
+| §10 | 닫은 지점 / 분모 | 이번 직접 관측 | 남긴 곳 |
+|---|---:|---|---|
+| EP-01 | 2/2 | `ChatTitleBar.layout`이 폴더 아이콘 전용 버튼→제목 순서·실제 cwd open과 Composer 기본 라벨을 함께 확인 | 없음 |
+| EP-02 | 3/3 | `projectDeletionWiring`의 Nav 일반·고정·Hero 실제 메뉴 callback이 확인창과 `projectApi.delete(id)`까지 도달 | 없음 |
+| EP-03 | 4/4 | projects catalog, sessions entity/membership, chat 활성·비활성·초안, projectNav 펼침/announce 상태의 삭제 후 값 확인 | 없음 |
+| EP-04 | 5/5 | projects list, sessions recent/project, chat load/event의 지각 입력에서 삭제 projectId가 복귀하지 않음을 deferred 시험으로 확인 | 없음 |
+| EP-05 | 1/1 | 삭제 완료 때 `window.location.pathname`을 다시 읽어 삭제 대상 페이지에서만 `/projects` replace; 다른 4개 최신 경로는 이동 0 | 없음 |
+| EP-06 | 2/2 | `initSessions`와 `loadProject` 수신 양방향에서 신규·이동·지각·빈·미조회·참조 보존 확인 | 없음 |
+| EP-07 | 2/2 | 실제 route hook의 URL→state·state→URL effect에서 같은 프로젝트 재조회, 실제 A→B·`/new`, continuity, 이탈 뒤 늦은 승격 확인 | 없음 |
+| OP-01 | 2/2 | plan 메타 `작성자 Codex`·상태 V1과 INDEX `impl/IMPL_DONE`·다음 주체 Claude를 최종 문서 검사에서 재확인 | 없음 |
+
+제품 강제 지점은 **19/19**, 상태 사본은 **2/2**다. 다음 자기 상태는 구현자 보고이며 독립 verify 판정을 선점하지 않는다.
+
+| V pair | 자기 상태 | 이번 production path oracle |
+|---|---|---|
+| VP-01 | SELF_PASS | 실제 `ChatTitleBar`·`CwdButton` 렌더와 openPath callback |
+| VP-02·11·12 | SELF_PASS | 세 요청 표면의 실제 JSX callback→공용 확인→API, 취소·성공·실패 조합 |
+| VP-03·04·05·16 | SELF_PASS | 네 store의 연결 해제·다섯 지각 경계·중복/실패·최신 URL 시험 |
+| VP-06·07·13·14 | SELF_PASS | 순수 reconcile과 실제 store subscriber·Nav selector·양방향 deferred 응답 |
+| VP-08·09·15 | SELF_PASS | 실제 hook multi-render에서 본문·cwd·landing·continuity·navigate 순서 |
+| VP-10 | SELF_PASS | 프로젝트 첫 `send`→`session.updated`→catalog/recent→프로젝트/Nav→`/chat/new` 연속 시나리오 |
+
+검산: **SELF_PASS 16 · SELF_BLOCKED 0 = 총16(REQUIRED16)**.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-구현 전 기입 대기. VP-01의 제거/순서 교환, VP-02의 callback 제거를 실행한다.
+| 심은 결함 | 출처 | RED 관측 | 복원 결과 |
+|---|---|---|---|
+| 제목 행의 `CwdButton` 제거 | VP-01 선택 증거 — 아이콘 제거 | `ChatTitleBar.layout`에서 folder index `-1`로 1건 실패 | 복원 후 관련 20파일·133테스트 통과 |
+| 폴더 버튼을 제목 뒤로 이동 | VP-01 선택 증거 — 형제 순서 교환 | title index 351이 folder index 388보다 뒤라는 단언에서 1건 실패 | 복원 후 같은 관련 회귀 통과 |
+| Nav 공유 프로젝트 행과 Hero의 `onDeleteProject` 호출 제거 | VP-02 선택 증거 — callback 제거 | Nav·고정·Hero 3건 모두 confirm request `null`로 실패 | 복원 후 세 표면 포함 관련 회귀 통과 |
+
+선택 증거 **3** · 인용 변이 **0** · 새 구조적 proxy/전수/배선 존재 oracle **0** = 잠금 표 행 **3**. VP-02의 실제 배선 시험은 plan에 등록한 선택 증거로만 한 번 센다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
-구현 전 기입 대기.
+| 질문 | 판정 / 관측 | 후속 |
+|---|---|---|
+| 새 표시·문구에 실제 소비자가 있는가 | 있음. 폴더 버튼은 접근 이름·cwd tooltip과 클릭을 유지하고, 한국어 삭제 확인/실패 문구는 공용 hook에서 소비 | 없음 |
+| 삭제 실패가 무반응처럼 보이는가 | 아님. 실패 alert를 표시하고 네 상태 미러와 현재 route를 유지하며 재시도를 허용 | 없음 |
+| 삭제가 대화·파일까지 지우는가 | 아님. project delete 외 session/file delete 호출은 없고 chat 본문·cwd·live와 sessions 표시 상태를 보존 | 없음 |
+| 승격 중 뒤로가기처럼 보이는 프레임이 남는가 | 같은 pathname catalog 갱신은 초안을 reset하지 않고 확정 ID로 replace 1회. 본문 배열 동일 참조와 navigate 1회를 관측 | 없음 |
+| 시각·키보드 결과가 맞는가 | 화이트·다크 브라우저 fixture에서 아이콘→제목, Nav/Hero 메뉴와 보존 문구 확인. 버튼 ARIA/tooltip 자동 시험 통과 | 실제 Electron backend 첫 전송은 자동 hook/store 통합으로 대체하고 아래 gate에 구분 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
-구현 전 기입 대기. 설계 대비 명시적 차이와 대체물의 만료·공유·재진입·다른 무효화 축을 기록한다.
+초기 구현은 완료 시 최신 route를 읽기 위해 render 중 ref를 갱신했으나 React hooks lint가 이를 금지했다. 계획의 “완료 시 현재 URL 재확인” 계약은 유지하고, 대체 메커니즘으로 renderer의 `window.location.pathname`을 완료 continuation에서 직접 읽는다.
+
+| 대체물 축 | 확인한 실패 모드 / 대응 AC·§10 |
+|---|---|
+| 만료 | snapshot/cache가 없어 완료 순간의 BrowserRouter URL을 읽는다. AC5·EP-05의 네 이탈 경로에서 navigate 0 |
+| 공유 | BrowserRouter와 삭제 hook이 같은 renderer window history를 사용한다. AppRouter/MemoryRouter 배선과 hook 시험을 분리해 확인 |
+| 재진입 | 같은 프로젝트 확인 중 중복 확정은 pending set으로 1회, 실패 뒤 재시도는 2번째 API 호출 허용. AC4 |
+| 다른 무효화 | 언어·프로젝트 목록 변경은 새 callback에 반영하고, 비동기 완료의 route만 live URL에서 읽는다. 현재 이름 변경·프로젝트 부재 시험 통과 |
+
+삭제 tombstone은 계획대로 renderer 모듈 수명 동안 projects/sessions/chat/projectNav 각 소유자가 보관한다. renderer 재시작 뒤에는 DB의 `ON DELETE SET NULL` 결과가 정본이고, 같은 삭제 ID의 늦은 응답은 차단하며 다른 신규 UUID는 정상 조회한다. 범위 밖에서 이미 확인한 세션 삭제의 선행 캐시 정리는 별도 후보로 남기며 이번 프로젝트 삭제 계약에는 영향이 없다.
 
 ## [구현자 기입] 구현 보고
 
-구현 전 기입 대기. 관측한 gate·V-pair·강제 지점·AC 합계·블로커·대상 커밋 좌표(INDEX)를 기록한다.
+| AC | 자기 상태 | 이번 직접 증거 |
+|---|---|---|
+| AC1 | ✅ SELF_PASS | 실제 title tree에서 폴더 버튼→제목, 프로젝트/폴더 라벨 부재, openPath cwd와 Composer 라벨 유지 |
+| AC2 | ✅ SELF_PASS | Nav 일반·고정·Hero 3개 메뉴의 stopPropagation→확인→정확 ID API 및 취소 시 쓰기 0 |
+| AC3 | ✅ SELF_PASS | 프로젝트만 제거하고 sessions/chat의 project 필드만 null; 본문·cwd·live·완료 표시·활성 선택 동일 |
+| AC4 | ✅ SELF_PASS | API reject 보존/alert/재시도, 중복 coalesce, projects·sessions·chat의 지각 응답 복귀 차단 |
+| AC5 | ✅ SELF_PASS | 삭제 대상 페이지만 `/projects` replace, `/chat/s1`·다른 프로젝트·`/new`·목록 route 유지 |
+| AC6 | ✅ SELF_PASS | recent notification 1회에 recentIds와 조회된 프로젝트 버킷이 신규 세션을 함께 포함하고 Nav 소비도 같은 entity 참조 |
+| AC7 | ✅ SELF_PASS | project/recent 완료 순서 양방향, 최근 창 밖 과거·이동·빈/미조회·무변경 참조 보존 |
+| AC8 | ✅ SELF_PASS | 같은 프로젝트 catalog 교체와 승격이 겹쳐도 메시지 1개·동일 session 상태를 보존하고 `/chat/new` 1회 replace |
+| AC9 | ✅ SELF_PASS | A→B·`/new` 실제 진입, 지각 cwd 뒤 사용자 cwd, 이탈 뒤 늦은 승격, fork/handoff 원본 전환 회귀 |
+
+검산: **✅9 · ⚠️0 · ❌0 = 총9**. 대상 커밋은 `(r1 구현 — 좌표는 INDEX)`다.
+
+### 운영 gate
+
+| Gate | 실행 명령 / 최종 관측 |
+|---|---|
+| 타입 | `npm run typecheck` — node/web/test 모두 exit 0 |
+| 린트 | `npm run lint` — exit 0, 오류 0, 기존 `useTranscriptVirtualizer` 호환 경고 1 |
+| 관련 회귀 | route/deletion/membership과 기존 sessions/Nav/title/chat 회귀 20파일·133테스트 통과 |
+| 전체 회귀 | ABI 전환 없는 직접 `vitest run` — 522파일 통과·1파일 skip, 4823테스트 통과·1테스트 skip |
+| 스크립트 | `node --test scripts/*.test.mjs` — 116테스트 통과, 실패 0 |
+| 문서 | `check-doc-inventory --check` — 생성물·prose·상대 링크 통과; `git diff --check` 공백 오류 0 |
+| 시각 | 로컬 브라우저 fixture 화이트·다크에서 제목 배치와 Nav/Hero 삭제 메뉴·확인 문구 관측. 실제 backend Composer 첫 전송은 VP-10 실제 hook/store 통합 시험으로 확인 |
+| 변이 복원 | 선택 증거 3종 RED 뒤 복원, 최종 관련 20파일·133테스트 GREEN |
 
 ## [구현자 기입] Review Signals — 사실만
 
-최초 설계. 재구현 라운드 없음.
+r1 최초 구현이며 verify 전이다. 같은 불변식의 이전 구현/검증 실패 라운드는 0회다. 구현 중 lint가 render ref 갱신을 차단해 live URL 판정으로 교체했고, 변경한 테스트 가정 두 건을 실제 callback identity·Icon DOM 계약에 맞췄다. 제품 계약 변경과 신규 의존성은 0건이다.
+
+전체 회귀는 단언 실패 없이 종료했다. 기존 React Compiler 경고 1건은 이번 변경 밖의 TanStack Virtual 호환 경고다. 브라우저 fixture는 자동 테스트가 재현하지 않는 두 테마와 메뉴 표시를 보조 확인했으며 Electron backend 수명·프레임 측정으로 확대 주장하지 않는다.
 
 ## [검증자 기입] 파생 이슈
 

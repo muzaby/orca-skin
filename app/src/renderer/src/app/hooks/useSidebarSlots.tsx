@@ -14,7 +14,10 @@ export interface SidebarSlots {
 // Sidebar 의 React.memo() 가 효과를 내려면 slot ReactNode 들이 referentially stable
 // 해야 한다. AppLayout 이 chat.state.inflight 토글 등으로 리렌더돼도 slot identity 가
 // 유지되어 Sidebar 가 skip 된다.
-export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
+export function useSidebarSlots(
+  handlers: SessionHandlers,
+  onDeleteProject: (projectId: string) => void
+): SidebarSlots {
   // footer = 사용자 버튼(이메일/developer + 팝오버 메뉴 + 설정 모달). 안정 identity 로
   // 두어 Sidebar memo 를 유지한다(자체 상태는 컴포넌트 내부 useState 로 격리).
   const footerSlot = useMemo(() => <SidebarUserButton />, [])
@@ -27,6 +30,7 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
         currentSessionId={handlers.currentSessionId}
         onOpenProject={handlers.handleOpenProject}
         onTogglePinProject={handlers.handleTogglePinProject}
+        onDeleteProject={onDeleteProject}
         onSelectSession={handlers.handleSelectSession}
         onTogglePinSession={handlers.handleTogglePinSession}
         onDeleteSession={handlers.handleDeleteSession}
@@ -39,6 +43,7 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
       handlers.currentSessionId,
       handlers.handleOpenProject,
       handlers.handleTogglePinProject,
+      onDeleteProject,
       handlers.handleSelectSession,
       handlers.handleTogglePinSession,
       handlers.handleDeleteSession,
@@ -65,6 +70,7 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
           currentSessionId={handlers.currentSessionId}
           onOpenProject={handlers.handleOpenProject}
           onTogglePinProject={handlers.handleTogglePinProject}
+          onDeleteProject={onDeleteProject}
           onSelectSession={handlers.handleSelectSession}
           onTogglePinSession={handlers.handleTogglePinSession}
           onDeleteSession={handlers.handleDeleteSession}
@@ -78,6 +84,7 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
       handlers.currentSessionId,
       handlers.handleOpenProject,
       handlers.handleTogglePinProject,
+      onDeleteProject,
       handlers.handleSelectSession,
       handlers.handleTogglePinSession,
       handlers.handleDeleteSession,

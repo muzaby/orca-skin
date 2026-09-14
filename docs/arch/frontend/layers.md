@@ -35,8 +35,9 @@ src/renderer/
     │   ├── router.tsx               # `<Routes>` — URL path → Page (which). `/`=BootRedirector · `/new`=NewChatLandingPage · `/chat`→/new · `/chat/:sessionId`=ChatPage · `/projects` · `/projects/:projectId` · `/artifacts` · `/plugins` · `/agent` · `/captures` · `*`→/new
     │   ├── BootRedirector.tsx       # `/` 라우트 element — settings.lastSessionId → `/chat/<id>` 또는 `/new` replace
     │   └── hooks/                   # cross-feature wiring (셸 내부 전용)
-    │       ├── useChatRouteSync.ts      # URL ↔ ChatState 동기화 (방향 1: `/new` · `/chat/:id` · `/projects/:id` 모두 처리, 방향 2: armed-ref 패턴 — sessionId null→non-null 전이 시 `/chat/<id>` replace)
+    │       ├── useChatRouteSync.ts      # URL ↔ ChatState 동기화. 새 랜딩의 실제 pathname 진입만 초안을 준비하고, 같은 경로의 sessionId null→non-null 승격을 `/chat/<id>`로 replace
     │       ├── useChatSessionsSync.ts   # inflight: true→false 전환 감지 → sessionsCtx.refresh(). 폴링·pub-sub 없음. AppLayout 에서 호출 (cross-feature wiring 권한 보유).
+    │       ├── useProjectDeletion.ts    # Nav·개별 프로젝트 페이지의 확인→DB 삭제→feature별 소속 해제·현재 URL 이동 조합
     │       ├── useSessionHandlers.ts    # navigate(`/chat/<id>`)/chat/sessions 핸들러 합성 + projectNameById. currentSessionId = URL matchPath('/chat/:sessionId') 로 도출 (ChatContext.state 아님 — 활성 하이라이트 SSOT = URL).
     │       └── useSidebarSlots.tsx      # Sidebar React.memo 효과 위한 slot ReactNode 안정화
     │
@@ -53,7 +54,7 @@ src/renderer/
     │                                #   (목록은 디렉토리가 진실, 개수는 ../../generated/inventory.md)
     │   ├── backend/                 # BackendProvider, useBackend, BackendStatus, InstallerDialog, AuthExpiredModal
     │   ├── chat/                    # ChatProvider, chat store(Zustand)+chatReducer, useSkillAutocomplete, useFileAutocomplete,
-    │   │                            #   ChatTile, ChatTitleBar(프로젝트/제목+인라인 rename, 0083), Composer, ChatView, PlanTile,
+    │   │                            #   ChatTile, ChatTitleBar(폴더 아이콘→제목+인라인 rename), Composer, ChatView, PlanTile,
     │   │                            #   ApprovalCard, AskUserQuestionCard, StatusLine(0093 에서 shared/ui 로부터 이동),
     │   │                            #   UsagePanel(사용량 도넛 팝오버, 0079~0082), UserBubbleText(0083),
     │   │                            #   composer/, transcript/, markdown/(StreamingMarkdown), rightpanel/, format.ts

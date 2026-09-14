@@ -8,10 +8,14 @@ import { EditInstructionsModal } from './EditInstructionsModal'
 
 interface ProjectInfoHeroProps {
   projectId: string
+  onDeleteProject: (projectId: string) => void
 }
 
 // 프로젝트 제목과 고정·지침 편집 메뉴. 지침 본문은 편집 대화상자에서 표시한다.
-export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.Element {
+export function ProjectInfoHero({
+  projectId,
+  onDeleteProject
+}: ProjectInfoHeroProps): React.JSX.Element {
   const list = useProjectsState((s) => s.list)
   const project = list.find((p) => p.id === projectId) ?? null
   const [menuOpen, setMenuOpen] = useState(false)
@@ -81,7 +85,12 @@ export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.
                 danger
                 icon="trash"
                 iconSize={13}
-                onClick={() => setMenuOpen(false)}
+                data-project-delete={project.id}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  setMenuOpen(false)
+                  onDeleteProject(project.id)
+                }}
               >
                 <span>{tr('common.delete')}</span>
               </MenuItem>

@@ -25,9 +25,6 @@ interface ChatTileProps {
   onOpenUsageSettings?: (providerKey?: string) => void
   // 컴포저 초기 입력 시드(Skills "채팅에서 사용해보기"). page 가 nav state 로 주입.
   initialDraft?: string
-  projectId?: string | null
-  projectName?: string | null
-  onOpenProject?: (projectId: string) => void
   onDeleteSession?: (sessionId: string) => void
   onRenameSession?: (sessionId: string, title: string) => void
   sessionPinned?: boolean
@@ -44,9 +41,6 @@ export function ChatTile({
   usageLimits,
   onOpenUsageSettings,
   initialDraft,
-  projectId,
-  projectName,
-  onOpenProject,
   onDeleteSession,
   onRenameSession,
   sessionPinned,
@@ -95,9 +89,6 @@ export function ChatTile({
           data-behavior="resizable"
         >
           <ChatTitleBar
-            projectId={projectId}
-            projectName={projectName}
-            onOpenProject={onOpenProject}
             onDeleteSession={onDeleteSession}
             onRenameSession={onRenameSession}
             sessionPinned={sessionPinned}

@@ -19,9 +19,11 @@ import { BootRedirector } from './BootRedirector'
 // - `/projects/:projectId` : ProjectLandingPage
 // - 그 외       : `/new` 로 fallback
 export function AppRouter({
-  artifactCatalog
+  artifactCatalog,
+  onDeleteProject
 }: {
   artifactCatalog: ArtifactsViewProps
+  onDeleteProject: (projectId: string) => void
 }): React.JSX.Element {
   return (
     <Routes>
@@ -32,7 +34,10 @@ export function AppRouter({
       <Route path="/projects" element={<ProjectsPage />} />
       <Route path="/artifacts" element={<ArtifactsPage {...artifactCatalog} />} />
       <Route path="/plugins" element={<PluginsPage />} />
-      <Route path="/projects/:projectId" element={<ProjectLandingPage />} />
+      <Route
+        path="/projects/:projectId"
+        element={<ProjectLandingPage onDeleteProject={onDeleteProject} />}
+      />
       <Route path="/agent" element={<AgentPage />} />
       <Route path="/captures" element={<CapturesPage />} />
       <Route path="*" element={<Navigate to="/new" replace />} />

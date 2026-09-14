@@ -6,6 +6,7 @@
 import { create } from 'zustand'
 import type { SessionListItem } from '../../../../../shared/ipc'
 import { projectApi, sessionApi } from '../../../shared/api/ipc'
+import { reconcileProjectMembership } from '../lib/projectMembership'
 
 interface SessionsStoreState {
   // 세션 엔티티의 renderer 단일 정본. recent/project 조회는 ID membership 만 따로 가진다.
@@ -29,6 +30,17 @@ export const useSessionsStore = create<SessionsStoreState>()(() => ({
 }))
 
 const { setState } = useSessionsStore
+// DB 삭제 완료 뒤 같은 renderer의 지각 조회가 소속을 재부착하지 못하게 한다.
+const deletedProjectIds = new Set<string>()
+let recentRevision = 0
+
+function withoutDeletedProjects(items: SessionListItem[]): SessionListItem[] {
+  return items.map((item) =>
+    item.projectId != null && deletedProjectIds.has(item.projectId)
+      ? { ...item, projectId: null }
+      : item
+  )
+}
 
 function sameItem(a: SessionListItem, b: SessionListItem): boolean {
   const keys = Object.keys(a) as (keyof SessionListItem)[]
@@ -87,26 +99,36 @@ function patchSession(sessionId: string, patch: Partial<SessionListItem>): void 
 
 export async function initSessions(): Promise<void> {
   try {
-    const items = await sessionApi.list()
+    const items = withoutDeletedProjects(await sessionApi.list())
+    recentRevision += 1
     setState((state) => {
       // GC 루트 = 새 recents ∪ 모든 projectSessionIds 버킷. listSessions 에는 LIMIT 이
       // 걸려 있어 최근 창 밖으로 밀려난 엔티티가 byId 에 남는다 — 어떤 membership 도
       // 참조하지 않는 것만 버린다. **새 membership 목록을 추가하면 여기 루트에도
       // 넣어야 한다** (안 넣으면 턴 종료마다 도는 이 refresh 에 조용히 쓸려나간다).
       const ids = items.map((item) => item.id)
+      const merged = mergeItems(state.byId, items)
+      const projectSessionIds = reconcileProjectMembership(state.projectSessionIds, merged, ids)
       const retainedIds = new Set<string>()
-      for (const projectIds of Object.values(state.projectSessionIds)) {
+      for (const projectIds of Object.values(projectSessionIds)) {
         for (const id of projectIds) {
-          if (state.byId[id]) retainedIds.add(id)
+          if (merged[id]) retainedIds.add(id)
         }
       }
       for (const id of ids) retainedIds.add(id)
-      const byId = mergeItems(state.byId, items, retainedIds)
+      const byId = mergeItems(merged, [], retainedIds)
       const recentIds = sameIds(state.recentIds, ids) ? state.recentIds : ids
-      if (byId === state.byId && recentIds === state.recentIds && !state.loading) return state
+      if (
+        byId === state.byId &&
+        recentIds === state.recentIds &&
+        projectSessionIds === state.projectSessionIds &&
+        !state.loading
+      )
+        return state
       return {
         byId,
         recentIds,
+        projectSessionIds,
         loading: false
       }
     })
@@ -159,15 +181,29 @@ async function setPinned(sessionId: string, pinned: boolean): Promise<void> {
 // 이미 조회한 프로젝트를 다시 부르면 재검증만 하고(목록은 계속 보임) 내용이 같으면
 // 참조를 보존해 아무도 리렌더되지 않는다.
 async function loadProject(projectId: string): Promise<void> {
+  if (deletedProjectIds.has(projectId)) return
+  const requestedRecentRevision = recentRevision
   try {
-    const items = await projectApi.listSessions(projectId)
+    const items = withoutDeletedProjects(await projectApi.listSessions(projectId))
+    if (deletedProjectIds.has(projectId)) return
     setState((state) => {
       const ids = items.map((item) => item.id)
       const prev = state.projectSessionIds[projectId]
-      const byId = mergeItems(state.byId, items)
-      const projectSessionIds = sameIds(prev, ids)
+      // 요청 뒤 도착한 recent는 이 응답보다 최신이다. 같은 ID의 제목·소속도 함께 보존한다.
+      const protectedIds =
+        requestedRecentRevision === recentRevision ? new Set<string>() : new Set(state.recentIds)
+      const byId = mergeItems(
+        state.byId,
+        items.filter((item) => !protectedIds.has(item.id))
+      )
+      const queriedMembership = sameIds(prev, ids)
         ? state.projectSessionIds
         : { ...state.projectSessionIds, [projectId]: ids }
+      const reconciled = reconcileProjectMembership(queriedMembership, byId, state.recentIds)
+      // 응답 자체는 달라도 합류 결과가 같으면 기존 배열/record를 재사용한다.
+      const projectSessionIds = sameIds(prev, reconciled[projectId])
+        ? reconcileProjectMembership(state.projectSessionIds, byId, state.recentIds)
+        : reconciled
       if (byId === state.byId && projectSessionIds === state.projectSessionIds) return state
       return {
         byId,
@@ -178,12 +214,27 @@ async function loadProject(projectId: string): Promise<void> {
     // 첫 조회가 실패하면 빈 membership 으로 확정한다 — 안 그러면 "아직 조회 안 함" 상태가
     // 남아 로딩 표시가 영원히 걸린다. 이미 받아둔 목록이 있으면 그대로 둔다(재검증 실패).
     setState((state) =>
-      state.projectSessionIds[projectId] == null
+      !deletedProjectIds.has(projectId) && state.projectSessionIds[projectId] == null
         ? { projectSessionIds: { ...state.projectSessionIds, [projectId]: [] } }
         : state
     )
     throw error
   }
+}
+
+function detachProject(projectId: string): void {
+  deletedProjectIds.add(projectId)
+  setState((state) => {
+    const byId = mergeItems(state.byId, withoutDeletedProjects(Object.values(state.byId)))
+    let projectSessionIds = state.projectSessionIds
+    if (Object.hasOwn(projectSessionIds, projectId)) {
+      projectSessionIds = { ...projectSessionIds }
+      delete projectSessionIds[projectId]
+    }
+    return byId === state.byId && projectSessionIds === state.projectSessionIds
+      ? state
+      : { byId, projectSessionIds }
+  })
 }
 
 function markCompleted(sessionId: string): void {
@@ -211,6 +262,7 @@ function setViewedSession(sessionId: string | null): void {
 export const sessionsActions = {
   refresh: initSessions,
   loadProject,
+  detachProject,
   remove,
   rename,
   setPinned,

@@ -68,7 +68,9 @@ vi.mock('../features/sessions', () => ({
 vi.mock('./useSessionActions', () => ({ useSessionActions: () => ({}) }))
 
 const { NewChatLandingPage } = await import('./NewChatLandingPage')
-const { ProjectLandingPage } = await import('./ProjectLandingPage')
+const { ProjectLandingPage: ProjectLandingPageComponent } = await import('./ProjectLandingPage')
+const ProjectLandingPage = (): React.JSX.Element =>
+  createElement(ProjectLandingPageComponent, { onDeleteProject: vi.fn() })
 
 beforeEach(() => {
   fixture.projectsAvailable = true

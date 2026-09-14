@@ -1,6 +1,6 @@
 // Zustand projects store — 구 ProjectsProvider(Context)의 전환(handoff 0013).
 // 프로젝트 카탈로그. main 의 projects 테이블이 SSOT — 부팅 1회 list 후 모든 mutation
-// 직후 refresh 로 동기화(sessionsStore 와 동형).
+// 직후 refresh 로 동기화. 삭제는 DB 성공 직후 로컬 목록에서 제거한다.
 
 import { create } from 'zustand'
 import type { Project } from '../../../../../shared/ipc'
@@ -17,11 +17,12 @@ export const useProjectsStore = create<ProjectsStoreState>()(() => ({
 }))
 
 const { setState } = useProjectsStore
+const deletedProjectIds = new Set<string>()
 
 export async function initProjects(): Promise<void> {
   try {
     const items = await projectApi.list()
-    setState({ list: items, loading: false })
+    setState({ list: items.filter((item) => !deletedProjectIds.has(item.id)), loading: false })
   } catch (error) {
     setState({ loading: false })
     throw error
@@ -41,7 +42,8 @@ async function update(id: string, patch: { name?: string; instructions?: string 
 
 async function remove(id: string): Promise<void> {
   await projectApi.delete(id)
-  await initProjects()
+  deletedProjectIds.add(id)
+  setState((state) => ({ list: state.list.filter((project) => project.id !== id) }))
 }
 
 // 0129 고정 토글 — main 이 pinned_at 을 시각/null 로 기록. 이후 refresh 로 목록 갱신.

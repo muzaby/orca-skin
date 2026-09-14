@@ -54,6 +54,7 @@ const resolveAppearance: AgentAppearanceResolver = (kind) =>
 const noop = (): void => {}
 const rowHandlers = {
   currentSessionId: null,
+  onDeleteProject: noop,
   onSelectSession: noop,
   onTogglePinSession: noop,
   onDeleteSession: noop,
