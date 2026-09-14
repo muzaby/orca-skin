@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { resolveAgentKind, resolveAgentProfile } from './profiles'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 describe('product agent profiles', () => {
   it('defaults only a new birth and inherits authoritative kinds', () => {
@@ -12,18 +14,21 @@ describe('product agent profiles', () => {
     expect(resolveAgentKind(undefined, 'invalid')).toEqual({ ok: false, reason: 'invalid' })
     expect(resolveAgentKind('invalid', undefined)).toEqual({ ok: false, reason: 'invalid' })
   })
-  it('defines both execution profiles and returns a stable bounded work instruction', () => {
+  it('preserves Code and applies the complete approved Work prompt with a fresh spawn key', () => {
     expect(resolveAgentProfile('code')).toEqual({
       kind: 'code',
       persistResponseBoundaries: false
     })
     const work = resolveAgentProfile('work')
     expect(work).toBe(resolveAgentProfile('work'))
-    expect(work.instructions).toContain('deliverable')
-    expect(work.instructions).toContain('orcinus-orca')
-    expect(work.instructions).not.toContain('user OS temporary folder')
-    expect(Buffer.byteLength(work.instructions!)).toBeLessThanOrEqual(4096)
-    expect(work.key).toBeTruthy()
+    const approved = readFileSync(
+      resolve('../docs/handoff/0234-work-prompt-profile/work-system-prompt.md'),
+      'utf8'
+    )
+      .trim()
+      .replace(/\r\n/g, '\n')
+    expect(work.instructions).toBe(approved)
+    expect(work.key).toBe('work:4')
     expect(work.persistResponseBoundaries).toBe(true)
   })
 })

@@ -24,6 +24,7 @@ export interface RouterContext {
   registry: AdapterRegistry
   cost: UsageTracker
   extensions: ExtensionBuilder
+  readonly workProfilePluginPath: string
   // Harness settings 해석 서비스 (0014 → 0188) — 열거(sources/settings 트리) + 해석 캐시.
   harnessSettings: HarnessSettingsService
   // 부팅 1회 스캔 캐시 — 턴 실행 시점에 최신 값을 읽도록 getter 로 노출.

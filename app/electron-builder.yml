@@ -10,6 +10,7 @@ files:
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
   - '!resources/builtin/**'
+  - '!resources/claude-plugins/**'
 asarUnpack:
   - resources/**
   # SDK 번들 native binary(claude[.exe])는 asar 내부에선 spawn 불가 → 실디스크로 언팩.
@@ -21,6 +22,8 @@ asarUnpack:
 extraResources:
   - from: resources/builtin
     to: builtin
+  - from: resources/claude-plugins
+    to: claude-plugins
 win:
   executableName: orcinus-orca
   # build/ 에 icon.ico 가 없으므로 경로를 명시한다 — electron-builder 가 png 에서

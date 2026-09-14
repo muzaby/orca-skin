@@ -7,11 +7,11 @@
 | slug | `0234-work-prompt-profile` |
 | 작성자 | Codex — 사용자의 신규 핸드오프 착수 요청에 따라 설계 수행 |
 | 일자 | 2026-09-14 |
-| 상태 | READY — 설계 완료, 앱 구현 전 |
+| 상태 | impl/IMPL_DONE (V1 r1) — 구현 자기검증 완료, 독립 검증 대기 |
 | V mode / 기준 V | Baseline V / none |
 | 이번 revision / 유효 V | V1 / V1 |
 | 조사 기준 | `9de8dd3c` — 시작 시 작업 트리 clean, `git pull --ff-only` 결과 Already up to date |
-| 다음 주체 | 사람 — 설계 확인. 사용자 후속 지시 전 handoff-impl 착수 금지 |
+| 다음 주체 | Claude — handoff-verify |
 
 # Part I — Product & UX Contract
 
@@ -367,31 +367,152 @@ AC6은 현재 bundled fixture의 도구 목록 equality만으로 닫지 않는�
 
 ## [구현자 기입] 설계 리뷰
 
-미착수. [handoff-impl 스킬](../../../.agents/skills/handoff-impl/SKILL.md)과 [plan template의 구현 보고 필드](../../../.agents/skills/handoff-plan/plan.template.md)를 따라 구현 시 채운다.
+r1 구현(2026-09-14~15). 사용자 후속 “핸드오프 impl”로 D-011의 확인 조건이 충족됐다. 설계 당시의 app 변경 0 조건은 설계 턴에 대한 기록이며, 이번 구현은 별도로 승인됐다.
+
+- 동의 / 그대로 진행: Work prompt·작은 output-style plugin·기존 runtime의 책임 분리를 유지했다.
+- 이견 / 현실성 문제: 없음. V1 REQUIRED VP-01~VP-16, EP1~EP14, AC1~AC9를 기준으로 수행했다. REGRESSION으로 선언된 pair는 없다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. Part I·Decision·AC·V·§10 규범 행은 변경하지 않았다.
+- 검증 범위: 앱 조립/제어 경로는 실제 모듈을 호출하는 테스트로, SDK 의미는 loopback에 도착한 실제 CLI 요청으로 확인했다. 외부 모델의 자유형 작업 품질이나 전체 앱 UI 실기는 수행하지 않았다.
+
+재현 명령·native 관측·변이 결과는 [implementation-evidence.json](implementation-evidence.json)에 보존한다. 임시 디렉터리의 raw 로그는 보조 자료이며, 공유 가능한 요약과 실행 스크립트가 저장소에 남는다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
-미착수 — EP14개, V-pair16개. SELF_PASS 없음.
+| Pair | 계약/필드 | §10 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-01/04/15 | 원문·spawn key | EP1 | 1/1 | profiles 테스트: 원문 전체 equality, Code 객체 불변, work:4; native approvedOccurrences=1/0 | — |
+| VP-01/02/13/15 | 단일 append·roots 비변이 | EP2 | 1/1 | agent-extension-profile + integration: frozen base 유지, Work Agent 제거 후 Code append와 동일 | — |
+| VP-03/04/09/10/13/14 | 최초 준비 배선 | EP3 | 1/1 | 실제 handleChatSend의 new/resume/forkFrom/handoffFrom에서 Work/Code roots·key·append 확인; M1a/b RED | — |
+| VP-04/09/10/13/14 | 자동 연속 준비 배선 | EP4 | 1/1 | 같은 send 테스트의 자동 준비 2회, continuation의 listen/flush 회귀; M1c/d RED | — |
+| VP-03/05/08/12/13/16 | host 절대경로 | EP5 | 1/1 | builtin-resources dev/package 및 Bootstrap 입력 단언; N1a~d RED; 실제 package pluginPath 확인 | — |
+| VP-01/02/03/06/07/11/12 | preset·append·plugins | EP6 | 1/1 | integration 실제 ClaudeAdapter의 query options, native 요청의 원문·style 각 1회 | — |
+| VP-04/10 | 최초 key 비교 | EP7 | 1/1 | runtime-entry의 동일/다른/없는 profile key에 대한 teardown 단언; respawn-policy 회귀 | — |
+| VP-04/10 | 자동 key 비교 | EP8 | 1/1 | chat-turn-continuation의 fresh profile key 비교; M3b RED, 복원 후 통과 | — |
+| VP-06/11 | 질문·승인·취소 | EP9 | 1/1 | Work 조건의 AskUserQuestion allow, PowerShell deny, interrupt 영수증, stopTask 전달 확인 | — |
+| VP-06/11 | 출력 생성·수집 | EP10 | 1/1 | native Write 실제 바이트 확인; Work PostToolUse→capture→output.captured 및 기존 최종 링크 회귀 | — |
+| VP-06/11 | Task/background | EP11 | 1/1 | native TaskCreate/TaskUpdate 완료; Work background.snapshot/task 정규화·추가 승인 0회 | — |
+| VP-07/08/12 | 실제 style 의미 | EP12 | 1/1 | dev/package 실제 CLI의 Work codingInstructions=false, Code=true; M4a/b RED | — |
+| VP-08/12 | extraResources 복사 | EP13 | 1/1 | Windows dir package의 manifest/style, app.asar 내 Work plugin 목록 []; 누락 package M6b RED | — |
+| VP-09/14/16 | 필수 리소스 읽기 | EP14 | 1/1 | 잘못된 경로·누락·손상 fixture 거절; 최초/자동 준비 오류와 supervisor/lease 정리 확인 | — |
+
+강제 지점 14/14. `rg -n 'agentProfileKey|spawnedAgentProfileKey|extensionProfile|workProfilePluginPath' app/src/main -g '!*.test.ts' -g '!*.testfixture.ts'`로 최초/자동 준비·양쪽 key 비교·spawn 기록/해제를 재확인했다. §10에 없는데 현재 계약상 추가가 필요했던 지점은 발견하지 않았다. EP5의 Bootstrap 배선은 별도 구조 단언과 입력/소비 슬롯 변이로 보강했다.
+
+**V-pair 자기확인** — 독립 검증의 PASS가 아니다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | 원문 equality·native 횟수 | M1·M2 RED |
+| VP-02 | REQUIRED | SELF_PASS | 공통 append equality·출력 디렉터리 실값 | M2 RED |
+| VP-03 | REQUIRED | SELF_PASS | 같은 cwd의 Work/Code roots, 실제 동시 query | M1·M2 RED |
+| VP-04 | REQUIRED | SELF_PASS | 출생 종류 상속·warm/key·native resume ID 유지 | M3 RED |
+| VP-05 | REQUIRED | SELF_PASS | dev/package 빈/sentinel의 설정 트리 양방향 차집합 [] | M5 RED |
+| VP-06 | REQUIRED | SELF_PASS | Work 질문/거절/취소/output/background 및 native Task 실행 | 미선택 — 직접 행동 oracle |
+| VP-07 | REQUIRED | SELF_PASS | 번들 CLI 요청의 style/코딩 지침 분리 | M4 RED |
+| VP-08 | REQUIRED | SELF_PASS | 실제 packaged CLI의 절대경로 plugin 로드 | M4·M6 RED |
+| VP-09 | REQUIRED | SELF_PASS | 누락/손상 리소스 실패, query 전 정리·Code 비영향 | 미선택 — 직접 실패 입력 |
+| VP-10 | REQUIRED | SELF_PASS | send/continuation/runtime 회귀 + 동시 native 신규/재개 | M2·M3·M5 RED |
+| VP-11 | REQUIRED | SELF_PASS | Work adapter 제어/출력/provider 이벤트 결과 | 미선택 — 직접 행동 oracle |
+| VP-12 | REQUIRED | SELF_PASS | dev/package 요청 내용·동일 bundled binary hash | M4·M6 RED |
+| VP-13 | REQUIRED | SELF_PASS | 실제 최초/연속 조립부·Bootstrap 입력 단언 | M1·M2 RED, N1a~d RED |
+| VP-14 | REQUIRED | SELF_PASS | 처음/자동 준비 실패의 오류 이벤트·정리 | 미선택 — 직접 실패 입력 |
+| VP-15 | REQUIRED | SELF_PASS | 원문·Code 객체·key·새 roots 배열 | M1·M2·M3 RED |
+| VP-16 | REQUIRED | SELF_PASS | dev/package 경로, 잘못된 파일 fixture 거절 | 미선택 — 직접 입출력; N1은 EP5 보조 배선 검사 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-미착수 — M1~M6 및 각 세부 변이의 실제 관측을 기록한다.
+각 변이는 격리해 실행 후 복원했다. 이전 구현 라운드는 없으므로 이전 결과는 모두 최초다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M1a: send 최초 build의 profile.pluginRoots 제거 | VP-01/03/13/15 M1 | 최초 | send.agent-profile: 4 failed | 잠김 |
+| M1b: send 최초 build의 agentInstructions 제거 | 같은 M1 | 최초 | send.agent-profile: 4 failed | 잠김 |
+| M1c: 자동 build의 profile.pluginRoots 제거 | 같은 M1 | 최초 | send.agent-profile: 4 failed | 잠김 |
+| M1d: 자동 build의 agentInstructions 제거 | 같은 M1 | 최초 | send.agent-profile: 4 failed | 잠김 |
+| M2a: helper의 Work-only plugin 분기를 Code-only로 맞바꿈 | VP-01/02/03/10/13/15 M2 | 최초 | profile + send: 15 failed | 잠김 |
+| M2b: helper가 읽는 Work/Code 행동 profile 맞바꿈 | 같은 M2 | 최초 | profile + send: 5 failed | 잠김 |
+| M3a: work:4를 work:3으로 복귀 | VP-04/10/15 M3 | 최초 | profiles + send: 5 failed | 잠김 |
+| M3b: 자동 respawn 입력의 agentProfileKey 제거 | 같은 M3 | 최초 | continuation + send: 5 failed | 잠김 |
+| M4a: keep-coding-instructions=true | VP-07/08/12 M4 | 최초 | 실제 CLI: coding instructions mismatch | 잠김 |
+| M4b: force-for-plugin=false | 같은 M4 | 최초 | 실제 CLI: output style count mismatch | 잠김 |
+| M5: native fixture cwd에 .claude/settings.json 쓰기 | VP-05/10 M5 | 최초 | no-write oracle 실패, added에 directory/settings.json 2항목 | 잠김 |
+| M6a: packaged resolver가 app.asar 내부 경로 반환 | VP-08/12 M6 | 최초 | builtin-resources: 1 failed | 잠김 |
+| M6b: 별도 package config에서 Work extraResources 제외 | 같은 M6 | 최초 | 실제 누락 package: 필수 manifest 부재로 native smoke 실패 | 잠김 |
+| N1a: Bootstrap의 소비 슬롯 이름을 바꿔 Work 경로 전달 폐기 | 새 EP5 배선 oracle | 최초 | builtin-resources: 1 failed | 잠김 |
+| N1b: Bootstrap의 isPackaged를 false로 고정 | 같은 oracle | 최초 | builtin-resources: 1 failed | 잠김 |
+| N1c: Bootstrap의 resourcesPath를 cwd로 대체 | 같은 oracle | 최초 | builtin-resources: 1 failed | 잠김 |
+| N1d: Bootstrap의 appPath를 cwd로 대체 | 같은 oracle | 최초 | builtin-resources: 1 failed | 잠김 |
+
+- 분모 검산: 선택 증거 **13 세부 변이**(M1~M6) · 인용 변이 0 · 새 oracle 4 = **표 행 17**. 새 send/native oracle의 민감도는 선택 M1~M6와 중복되므로 다시 더하지 않았다.
+- 덮개 회귀: 해당 없음 — r1이며 이전 구현의 적대 증거를 교체하지 않았다. 원문 변경으로 폐기한 4KB 상한은 D-009의 명시 변경이다.
+- 복원 관측: 마지막 소스 복원 후 5파일/31케이스를 재실행해 통과했다(아래 회귀 집합과 중복, 합산하지 않음). 관련 Vitest 20파일/230케이스, 추가 연속 턴 2파일/18케이스, node scripts 119케이스 통과. dev/package native 정상 조건 각각 9관측 통과.
+- EP/VP/AC 및 잠금 행의 누락 여부는 최종 문서 검사에서 ID 집합의 차집합으로 대조했다. 이 문서 행 대조는 production 범위를 추출하는 별도 oracle이 아니다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
-미착수.
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 대면 문구·상태에 소비자가 있는가 | Work 리소스 오류가 기존 classified error→sendChatEvent로 전달됨; send 테스트에서 문구 관측 | UI 문자열/새 IPC 추가 없음 |
+| 준비 함수 분리 후 정리 스코프는 유지되는가 | leaderTurn 등록 뒤 보호 구간에서 읽음; 최초 실패 시 release/releaseChain, 자동 실패 시 releaseRuntime도 호출 | 정리 책임은 기존 send에 유지 |
+| 새 실패 경로가 어느 상태 행인가 | Part I §5의 “필수 Work plugin 누락” | 신규 상태 전이 없음 |
+| 실패가 아무 일도 안 일어남으로 보이는가 | error 이벤트 발신과 runtime 미획득을 직접 단언 | 실제 화면 시각 실기는 별도 |
+| 늦은 응답·취소가 화면을 되돌리는가 | 새 응답 비동기 경로는 없음; 기존 interrupt/stop/background 경로의 회귀 통과 | 기존 runtime 수명 정책 유지 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
-미착수. 설계 대비 차이와 만료·공유·재진입·다른 무효화 축은 구현 시 기록한다.
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 순수 resolver만 검사하면 Bootstrap의 잘못된 입력을 놓침 | 선조치 — 실제 파일의 한정된 배선 단언 추가 | N1a~d가 각각 RED |
+| 2 | native fixture가 CLI 초기 HEAD /api/hello를 거절 | 선조치 — loopback의 해당 초기 요청 처리 | 재실행 dev/package 9관측씩 통과 |
+| 3 | 여러 forced output style이 있다면 앞선 plugin이 우선할 수 있음 | 보고만 — 이번 base app/user wrapper에는 해당 style이 없고 기존 순서 유지 | §17의 알려진 범위; 일반 plugin 우선순위 정책 미도입 |
+| 4 | 공통 header의 workspace-only 문구와 동적 출력 경로 예외 사이 긴장 | 보고만 — 공통 정책 수정은 비범위 | 실제 출력 디렉터리 전달·수집 회귀는 통과 |
+| 5 | 별도 코드 리뷰 subagent가 사용량 제한으로 종료 | 미완료로 기록; 독립 검증 대기 유지 | 리뷰 결과나 PASS로 집계하지 않음 |
+
+### 설계 대비 명시적 차이
+
+선택적 `work-profile-resource.ts` 대신 `agent-extension-profile.ts` 한 함수에서 종류 선택과 필수 리소스 읽기를 묶었다. §11이 허용한 구현 세부이며 새 cache·runtime·정책은 없다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — cache/TTL 미도입 | 매 Work 준비에서 파일 읽기 |
+| 공유 | 추가 공유 상태 없음; base roots가 공유되는 기존 조건은 유지 | AC3·EP2: frozen base 비변이·두 snapshot 분리 |
+| 재진입 | 최초/자동 준비가 같은 helper를 재호출 | AC4/9·EP3/4/14: 종류 유지, 제거된 경로 재검증·정리 |
+| 다른 무효화 축 | 별도 무효화 정책 없음; 파일 부재·손상은 읽기 실패, prompt 변경은 기존 key 비교 | AC4/9·EP7/8/14: key 변경·누락 fixture 결과 |
 
 ## [구현자 기입] 구현 보고
 
-미착수 — AC 0/9를 구현 실패로 뜻하지 않으며, 구현 검증 자체를 아직 수행하지 않았다.
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | agents 원문/key, app profile helper·경로 주입·send, extensions builder, plugin 리소스·패키지 설정, 회귀/native 테스트, system-prompt 문서. 상세는 diff |
+| 실행 명령 | §19 실행 집합 및 추가 continuation 2파일; 명령 원문은 implementation-evidence.json |
+| 관측한 게이트 산출 | Vitest **22파일/248케이스**(20/230 + 2/18), node scripts **119통과**. typecheck 3구성 0오류, lint 0오류/기존 경고1, build main/preload/renderer 생성 |
+| native / package | CLI 2.1.267·SDK 0.3.267, dev/package 각각 9관측. 실제 packaged 바이너리 hash는 dev와 같고 Work plugin은 asar 밖에서 로드 |
+| 환경 기인 실패 | ABI 오류 없음: DB 회귀를 Node ABI에서 마친 뒤 build/package에서 Electron ABI로 전환. 초기 test fixture 오류는 수정·재실행. 별도 리뷰만 사용량 제한 |
+| V-pair 자기확인 | SELF_PASS 16 / SELF_BLOCKED 0 — 독립 검증 아님 |
+| 강제 지점 전수 | 14/14 — 각 행의 직접 관측은 위 표 |
+| AC 자기보고(Criteria-Met) | 9/9 — 아래 AC별 관측 |
+| 합계 검산 | ✅ 9 · ⚠️ 0 · ❌ 0 = 총 9. AC 분모 변경 없음 |
+| 블로커 / 역질문 | 없음. 독립 handoff-verify와 자유형 모델 품질 표본/전체 UI 실기는 아직 수행하지 않음 |
+| 대상 커밋 | (r1 구현 — 좌표는 INDEX) |
+
+| AC | 자기보고 | 이번 턴의 직접 관측 |
+|---|---|---|
+| AC1 | ✅ | 원문 전체 equality; 실제 Work 요청 approvedOccurrences=1, Code=0 |
+| AC2 | ✅ | 실제 adapter options의 preset·공통 append·기존 옵션 유지, send의 동적 출력 절대경로 확인 |
+| AC3 | ✅ | native 같은 cwd 동시 Work/Code, 독립 session ID; Work만 절대경로 plugin, base frozen roots 유지 |
+| AC4 | ✅ | 신규/재개/fork/handoff send 배선, warm/key 변경·자동 준비 회귀; native resume ID 유지 |
+| AC5 | ✅ | dev/package 빈/sentinel의 경로·바이트 해시 전후 양방향 차집합 []; M5가 쓰기 검출 |
+| AC6 | ✅ | Work 질문·승인 거절·취소·output.captured·background 정규화; native TaskCreate/Update/Write 실행 및 거절 파일 부재 |
+| AC7 | ✅ | 실제 번들의 Work style 1회·coding marker 없음, Code 반대; M4 두 설정 변이 검출 |
+| AC8 | ✅ | electron-builder Windows dir 산출을 실제 bundled CLI로 실행; asar 밖 리소스 로드·누락 package 실패 |
+| AC9 | ✅ | 경로/manifest/style 실패 입력에서 Work 오류, Code 비영향; 최초/자동 준비의 오류 이벤트·lease/runtime 해제 |
 
 ## [구현자 기입] Review Signals — 사실만
 
-구현 라운드 0. native 조사 script 최초 실행의 fixture 디렉터리 생성 경쟁은 recursive mkdir로 고친 뒤 재실행했다.
+- 이전 라운드와 같은 불변식 축인가: 해당 없음 — 첫 구현 라운드.
+- 막았어야 할 plan 지침·AC가 있었는가: §10 EP5는 있었고, resolver 단위 검사만으로는 호출 입력이 잠기지 않아 Bootstrap 단언을 추가했다.
+- 반복 환경 한계: 두 subagent가 사용량 제한으로 종료했다. native harness 산출물은 주 구현자가 읽고 실행·수정했으며, 별도 코드 리뷰는 완료하지 못했다.
+- 현재 라운드 수: 1. handoff 지침·실패 corpus를 변경하지 않았다.
+- 상태 사본: 최종 검사에서 이 plan 메타와 INDEX의 impl/IMPL_DONE·다음 Claude를 대조한다. 구현 커밋의 trailer 파싱은 커밋 직후 확인한다.
 
 ## [검증자 기입] 파생 이슈
 

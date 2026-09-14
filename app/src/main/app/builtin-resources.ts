@@ -11,3 +11,9 @@ export function resolveBuiltinSkillsDir(input: BuiltinResourcePathInput): string
     ? join(input.resourcesPath, 'builtin', 'skills')
     : join(input.appPath, 'resources', 'builtin', 'skills')
 }
+
+export function resolveWorkProfilePluginDir(input: BuiltinResourcePathInput): string {
+  return input.isPackaged
+    ? join(input.resourcesPath, 'claude-plugins', 'work-profile')
+    : join(input.appPath, 'resources', 'claude-plugins', 'work-profile')
+}

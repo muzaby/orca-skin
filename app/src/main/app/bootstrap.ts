@@ -135,7 +135,7 @@ import {
   sendChatEvent
 } from '../infra/ipc/send'
 import { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
-import { resolveBuiltinSkillsDir } from './builtin-resources'
+import { resolveBuiltinSkillsDir, resolveWorkProfilePluginDir } from './builtin-resources'
 import { BackgroundTaskTracker } from '../features/chat/background-tasks'
 import {
   SessionActivityProjector,
@@ -733,6 +733,11 @@ export class Bootstrap {
       registry: this.registry,
       cost,
       extensions,
+      workProfilePluginPath: resolveWorkProfilePluginDir({
+        isPackaged: app.isPackaged,
+        resourcesPath: process.resourcesPath,
+        appPath: app.getAppPath()
+      }),
       harnessSettings,
       getSkills: () => this.skillsCache,
       refreshSkills: () => this.refreshSkills(),

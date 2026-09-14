@@ -43,6 +43,7 @@ import { prepareTemporaryFilesPath } from '../../infra/config/temp-path'
 import { prepareTurnExecution } from './prepare-worktree'
 import { resolveAgentKind, resolveAgentProfile } from '../../features/agents/profiles'
 import { bindStartingProject } from './project-binding'
+import { prepareAgentExtensionProfile } from '../agent-extension-profile'
 
 export async function handleChatSend(
   deps: ChatRuntimeDeps,
@@ -134,8 +135,6 @@ export async function handleChatSend(
     return
   }
   const agentKind = identity.kind
-  const profile = resolveAgentProfile(agentKind)
-  const extensionProfile = { agentInstructions: profile.instructions, agentProfileKey: profile.key }
   let outputFiles: TurnExtensions['outputFiles']
   const withOutputs = (extensions: TurnExtensions): TurnExtensions =>
     outputFiles
@@ -331,6 +330,10 @@ export async function handleChatSend(
         await prepareTemporaryFilesPath()
         if (agentKind === 'work' && deps.prepareOutputFiles)
           outputFiles = await deps.prepareOutputFiles(turn.cwd)
+        const extensionProfile = await prepareAgentExtensionProfile(
+          agentKind,
+          ctx.workProfilePluginPath
+        )
         const entry = await acquireTurnRuntime(
           {
             supervisor,
@@ -542,6 +545,10 @@ export async function handleChatSend(
           backgroundTasks,
           listenRelease: deps.listenRelease,
           prepareContinuation: async (sessionId) => {
+            const extensionProfile = await prepareAgentExtensionProfile(
+              agentKind,
+              ctx.workProfilePluginPath
+            )
             const prepared = await prepareAutomaticContinuation({
               runtime,
               providerKey: getActiveTurn().providerKey,
