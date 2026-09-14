@@ -24,6 +24,7 @@
 | DB · 영속성 · FTS5 | [`arch/backend/persistence.md`](arch/backend/persistence.md) |
 | 확장 배포 (MCP · SKILL.md · AGENTS.md 표준) | [`arch/backend/standardization.md`](arch/backend/standardization.md) |
 | 시스템 프롬프트 · 정책 append | [`arch/backend/system-prompt.md`](arch/backend/system-prompt.md) |
+| **Work 프롬프트·전용 output style 구현** | [`handoff/0234-work-prompt-profile/plan.md`](handoff/0234-work-prompt-profile/plan.md) — 계약·구현 설계·번들 CLI 실증 |
 | 로깅 | [`arch/backend/observability.md`](arch/backend/observability.md) |
 | Preload·Renderer 구조·성능 진단 및 경량화 결과 | [`etc/study/preload-renderer-structure/diagnosis.md`](etc/study/preload-renderer-structure/diagnosis.md) |
 | renderer 범위 · 스택 · 구현 상태 | [`arch/frontend/overview.md`](arch/frontend/overview.md) |
