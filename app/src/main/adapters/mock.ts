@@ -10,11 +10,18 @@ import { CLAUDE_DESCRIPTOR } from './descriptor'
 import { claudeErrorClassifier } from './error-classifier'
 import type { LiveTurn, SessionAdapter } from './types'
 import { runScenario, SCENARIOS } from './mock-scenarios'
+import type { AgentKind } from '../../shared/agent-kind'
+import type { AdapterSpawnEnvPatch } from './harness-config'
+import { claudeAgentKindEnv } from './claude-agent-kind-env'
 
 export class MockAdapter implements SessionAdapter {
   readonly id = 'claude' as const
 
   constructor(private readonly getState: () => DebugMockState) {}
+
+  agentSpawnEnv(agentKind: AgentKind): AdapterSpawnEnvPatch {
+    return claudeAgentKindEnv(agentKind)
+  }
 
   describe(): ProviderDescriptor {
     return CLAUDE_DESCRIPTOR

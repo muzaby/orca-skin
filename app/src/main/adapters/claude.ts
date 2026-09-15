@@ -61,6 +61,9 @@ import { makeWorkspaceGuardHook, resolveGuardRoots } from './workspace-guard'
 import { buildEditPreview, nodeEditPreviewReader } from './edit-preview'
 import { resolveClaudeExecutable, resolveClaudeExecutableIdentity } from './claude-executable'
 import type { ProviderDescriptor } from '../../shared/ipc'
+import type { AgentKind } from '../../shared/agent-kind'
+import type { AdapterSpawnEnvPatch } from './harness-config'
+import { claudeAgentKindEnv } from './claude-agent-kind-env'
 import { getTemporaryFilesPath } from '../infra/config/temp-path'
 
 const requireFn = createRequire(import.meta.url)
@@ -265,6 +268,10 @@ export function makeCanUseTool(
 
 export class ClaudeAdapter implements SessionAdapter {
   readonly id = 'claude' as const
+
+  agentSpawnEnv(agentKind: AgentKind): AdapterSpawnEnvPatch {
+    return claudeAgentKindEnv(agentKind)
+  }
 
   // 정적 능력 서술자 (claude-probe.ts 의 단일 출처를 반환 — drift 없음).
   describe(): ProviderDescriptor {

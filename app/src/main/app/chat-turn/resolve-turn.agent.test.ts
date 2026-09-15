@@ -9,6 +9,7 @@ afterEach(() => vi.clearAllMocks())
 it.each(['sessionId', 'forkFrom', 'handoffFrom'] as const)(
   'rejects source deletion during asynchronous provider preparation (%s)',
   async (sourceField) => {
+    const agentSpawnEnv = vi.fn(() => ({ SESSION_KIND: 'work' }))
     let source: Record<string, unknown> | undefined = {
       agent_kind: 'work',
       backend: 'claude',
@@ -25,7 +26,7 @@ it.each(['sessionId', 'forkFrom', 'handoffFrom'] as const)(
     const pending = resolveTurn(
       ctx as never,
       { hasSession: () => false } as never,
-      { id: 'claude' } as never,
+      { id: 'claude', agentSpawnEnv } as never,
       {
         sessionId: null,
         projectId: null,
@@ -40,12 +41,15 @@ it.each(['sessionId', 'forkFrom', 'handoffFrom'] as const)(
       error: { category: 'schema_validation_error' }
     })
     expect(recoverSessionHistory).not.toHaveBeenCalled()
+    expect(agentSpawnEnv).toHaveBeenCalledOnce()
+    expect(agentSpawnEnv).toHaveBeenCalledWith('work')
   }
 )
 
 it.each(['code', 'corrupt'])(
   'rejects source kind changes during preparation (%s)',
   async (agentKind) => {
+    const agentSpawnEnv = vi.fn(() => ({}))
     let source = { agent_kind: 'work', backend: 'claude', project_id: null, cwd: '/workspace' }
     const ctx = {
       db: { getSessionById: () => source },
@@ -55,7 +59,7 @@ it.each(['code', 'corrupt'])(
     const pending = resolveTurn(
       ctx as never,
       { hasSession: () => false } as never,
-      { id: 'claude' } as never,
+      { id: 'claude', agentSpawnEnv } as never,
       { sessionId: 'source', projectId: null, text: 'continue', agentKind: 'work' } as never
     )
     source = { ...source, agent_kind: agentKind }
@@ -64,5 +68,6 @@ it.each(['code', 'corrupt'])(
       error: { category: 'schema_validation_error' }
     })
     expect(recoverSessionHistory).not.toHaveBeenCalled()
+    expect(agentSpawnEnv).toHaveBeenCalledWith('work')
   }
 )

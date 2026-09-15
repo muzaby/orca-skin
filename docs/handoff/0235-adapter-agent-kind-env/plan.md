@@ -8,14 +8,14 @@
 | 작성자 | Codex — 사용자의 신규 handoff-plan 요청에 따라 설계 수행 |
 | 일자 | 2026-09-15 |
 | 매핑 | 0234 Work 프로필 후속이지만 독립 제품 계약 |
-| 상태 | plan/READY — 구현 미착수 |
+| 상태 | impl/IMPL_DONE — r1 구현·게이트 완료, 독립 검증 대기 |
 | V mode | Baseline V |
 | 기준 V | none |
 | 이번 V revision | V1 |
 | 유효 V | V1 |
 | 조사 기준 | `d8cc4054` — `git pull --ff-only` 결과 Already up to date, 시작 시 변경 파일 0 |
-| 다음 주체 | Codex — 별도 handoff-impl 턴 |
-| 이번 턴 경계 | plan 문서와 INDEX만 작성; app 코드·테스트 구현은 하지 않음 |
+| 다음 주체 | Claude — handoff-verify r1 |
+| 이번 턴 경계 | V1의 제품 코드·테스트·현재 문서 구현과 운영 게이트 수행 |
 
 # Part I — Product & UX Contract
 
@@ -441,78 +441,127 @@ DB/lease AgentKind
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: 구현 턴에서 작성.
-- 이견 / 현실성 문제: 구현 턴에서 작성.
-- ACTIVE Decision과 충돌하는 설계 발견: 구현 턴에서 작성.
+- 동의 / 그대로 진행: ✅ D-001~D-009의 adapter 소유 정책·generic patch·수명주기 배선을 V1 그대로 구현했다.
+- 이견 / 현실성 문제: ✅ 제품 설계 이견 0. full suite가 숨은 구조적 test adapter fixture 3곳을 드러내 같은 필수 port로 보완했다.
+- ACTIVE Decision과 충돌하는 설계 발견: ✅ 0건. D-010은 plan-only 턴 경계였고 후속 사용자 impl 지시로 r1에 진입했다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| 구현 턴에서 작성 | — | — | — | — | — |
+| EP-01 / VP-03·10 | 필수 adapter port | `adapters/types.ts` | `types.ts:75`; 구현체 2/2 | `npm run typecheck` 3구성 통과 | 없음 |
+| EP-02 / VP-03·10 | 좁은 준비 port | `resolve-turn.ts` | `resolve-turn.ts:39`; runtime port diff 0 | `git diff --numstat -- contracts/ports.ts` 0줄 | 없음 |
+| EP-03 / VP-01·02·12 | Claude 정책표 | 정책 SSOT | `claude-agent-kind-env.ts:4-18` | 정책·동결 literal 2종 테스트 통과 | 없음 |
+| EP-04 / VP-01·02·03·10 | Claude delegate | `claude.ts` | `claude.ts:272-274` | 실제 ClaudeAdapter delegate 케이스 통과 | 없음 |
+| EP-05 / VP-03·10 | Mock delegate | `mock.ts` | `mock.ts:22-24` | 실제 MockAdapter delegate 케이스 통과 | 없음 |
+| EP-06 / VP-01·02·04·08·10 | 최초/재개 kind | `resolve-turn.ts` | `resolve-turn.ts:89-95` | resolve-turn agent 5/5; M1 5 red | 없음 |
+| EP-07 / VP-04·08·10 | 자동 연속 kind | `send.ts` | `send.ts:559-565` | send agent-profile 6/6; M2 4 red | 없음 |
+| EP-08 / VP-04·08·10 | 필수 request kind | resolver request type | `resolve-turn.ts:168-174` | production 호출 2/2 배선; typecheck 통과 | 없음 |
+| EP-09 / VP-01…05·10·11 | adapter snapshot 1회 | resolver 공통부 | `resolve-turn.ts:176` | resolved/unresolved 각 호출 1회 테스트 2/2 | 없음 |
+| EP-10 / VP-01·02·05·11·13 | string/null patch | `harness-config.ts` | 타입 `:176`; 적용 `:379-382` | harness 신규 5/5; null 값 잔여 0 | 없음 |
+| EP-11 / VP-04·08·11 | unresolved 전달 | unresolved helper | `resolve-turn.ts:242-251` | branch 대조 2/2; unresolved fingerprint undefined | 없음 |
+| EP-12 / VP-01·02·05·06·08·09·11 | 최종 set/delete | harness finalizer | `harness-config.ts:338-382` | 5층 충돌·삭제·empty·host flag 5/5 | 없음 |
+| EP-13 / VP-05·06·09 | 최종 fingerprint 공유 | prepared snapshot | 생산 `:386`; 기존 소비 경로 3곳 | continuation/respawn 포함 관련 91/91 | 없음 |
+| EP-14 / VP-07 | 운영 문서 | auth + closed-network | `auth.md:544-574`; guide `:457-463` | doc inventory 9항목·98채널 통과 | 없음 |
+
+- 전수 검산: ✅ EP 14/14. adapter 구현체↔정책 구현 차집합 0, kind 전달 호출 2/2, patch 조립 갈래 2/2, 남긴 곳 0.
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| 구현 턴에서 작성 | — | — | — | — |
+| VP-01 | REQUIRED | SELF_PASS | 5층 충돌에서도 세 강제값 `1` | M3 1 red |
+| VP-02 | REQUIRED | SELF_PASS | 하위 5층의 세 키 제거·SDK null 0 | M4 3 red 중 삭제 케이스 포함 |
+| VP-03 | REQUIRED | SELF_PASS | 필수 port + Claude/Mock 2/2 + resolver 소비 | M5 7 red |
+| VP-04 | REQUIRED | SELF_PASS | 최초/저장 Work와 continuation Code/Work 전달 | M1 5 red; M2 4 red |
+| VP-05 | REQUIRED | SELF_PASS | patch 후 stable·kind-sensitive fingerprint | M3 1 red; M4 3 red |
+| VP-06 | REQUIRED | SELF_PASS | legacy ladder·snapshot 포함 관련 91/91 | 해당 없음 — 직접 행동 oracle |
+| VP-07 | REQUIRED | SELF_PASS | lint·typecheck·diff·dependency 경계 통과 | 해당 없음 — repository gate |
+| VP-08 | REQUIRED | SELF_PASS | new/resume/fork/handoff/continuation 종단 대조 | M1 5 red; M2 4 red |
+| VP-09 | REGRESSION | SELF_PASS | continuation/respawn snapshot 회귀 포함 91/91 | 해당 없음 — 기존 종단 oracle |
+| VP-10 | REQUIRED | SELF_PASS | 구현체 2/2·호출 2/2·branch 2/2 | M1 5 red; M2 4 red; M5 7 red |
+| VP-11 | REQUIRED | SELF_PASS | resolved/unresolved 동일 patch 결과 2/2 | M3 1 red; M4 3 red |
+| VP-12 | REQUIRED | SELF_PASS | literal Work/Code + 실제 delegate 4/4 | 해당 없음 — 순수 직접 oracle |
+| VP-13 | REQUIRED | SELF_PASS | set/delete/empty/host-managed 5/5 | M3 1 red; M4 3 red |
+
+- pair 검산: ✅ SELF_PASS 13 · SELF_BLOCKED 0 = 유효 pair 13.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| 구현 턴에서 작성 | — | — | — | — |
+| M1 — 최초 `agentKind` 전달 제거 | VP-04·08·10 | 해당 없음 — r1 최초 | resolve-turn.agent 1파일·5케이스 red | 검출 후 원복·green |
+| M2 — continuation `agentKind` 전달 제거 | VP-04·08·10 | 해당 없음 — r1 최초 | send.agent-profile 1파일·4케이스 red | 검출 후 원복·green |
+| M3 — custom을 adapter patch 위로 재적용 | VP-01·05·11·13 | 해당 없음 — r1 최초 | harness-config 1파일·1케이스 red | 검출 후 원복·green |
+| M4 — null 제거를 no-op 처리 | VP-02·05·11·13 | 해당 없음 — r1 최초 | harness-config 1파일·3케이스 red | 검출 후 원복·green |
+| M5 — resolver가 adapter method 대신 빈 patch 사용 | VP-03·10 | 해당 없음 — r1 최초 | resolver 2파일·7케이스 red | 검출 후 원복·green |
 
-- 분모 검산: 구현 턴에서 작성.
-- 덮개 회귀: 구현 턴에서 작성.
+- 분모 검산: 선택 증거 5 · 인용 변이 0 · 새 oracle 0 = 표 행 5.
+- 덮개 회귀: ✅ M1~M5 원복 뒤 관련 7파일·91테스트, 확장 10파일·130테스트 통과.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 구현 턴에서 작성 | — |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 구현 턴에서 작성 | — |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 구현 턴에서 작성 | — |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 구현 턴에서 작성 | — |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 구현 턴에서 작성 | — |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — UI/IPC 문구 0 | 사용자 노출은 subprocess 동작뿐 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 해당 없음 — 동기 정책 모듈 추가, 기존 정리 스코프 이동 0 | diff로 send try/finally 불변 확인 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 해당 없음 — 새 await/throw/resource 0 | 기존 턴 준비 오류 경로 유지 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 해당 없음 — 새 실패 분기 0 | 기존 prepare 예외 relay 불변 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 — 정책 계산 동기·순수 | 새 비동기 결과 0 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 구현 턴에서 작성 | — | — | — |
+| D1 | real resolver를 타는 구조적 test adapter 3곳이 필수 port를 생략 | 선조치: fixture에 빈 정책 추가 | 최초 full test `agentSpawnEnv is not a function`; 보완 suite 39/39 |
+| D2 | sandbox가 사용자 temp/config 경로를 막아 I/O suite 114건 연쇄 실패 | 환경 분리: 같은 명령을 로컬 권한으로 재실행 | EPERM 서명 뒤 full Vitest 4,855통과·1스킵 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: 구현 턴에서 작성.
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: 제품 설계 차이 0. 계획 목록 밖 test fixture 3파일은 full gate가 드러낸 필수 port 누락을 보완했다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | 구현 턴에서 작성 | — |
-| 공유 | 구현 턴에서 작성 | — |
-| 재진입 | 구현 턴에서 작성 | — |
-| 다른 무효화 축 | 구현 턴에서 작성 | — |
+| 만료 | 해당 없음 — 대체 메커니즘·cache 없음 | AC4·EP-09 branch 2/2 |
+| 공유 | 해당 없음 — 동결 정책 객체는 읽기 전용 | AC1·2 정책/delegate 4/4 |
+| 재진입 | 해당 없음 — 턴마다 동기 snapshot 1회 | AC4·EP-09 호출 1회 단언 |
+| 다른 무효화 축 | 해당 없음 — kind는 출생 속성 | AC4·EP-06/07 배선 2/2 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | 구현 턴에서 작성 |
-| 실행 명령 | 구현 턴에서 작성 |
-| 관측한 게이트 산출 | 구현 턴에서 작성 |
-| V-pair 자기확인 | 구현 턴에서 작성 |
-| 강제 지점 전수 | 구현 턴에서 작성 |
-| AC 자기보고 | 구현 턴에서 작성 |
-| 합계 검산 | 구현 턴에서 작성 |
-| 블로커 / 역질문 | 구현 턴에서 작성 |
+| 변경 파일 | production 7, tests 8, current docs 2, handoff 2 = 19파일 |
+| 실행 명령 | lint; typecheck; 관련 Vitest; M1~M5; `npm test`; doc inventory; diff check |
+| 관측한 게이트 산출 | lint 0 error·기존 warning 1; typecheck 3구성; 관련 10파일·130테스트 |
+| 전체 게이트 | Vitest 526파일 통과·1스킵, 4,855통과·1스킵; scripts 119/119 |
+| V-pair 자기확인 | SELF_PASS 13 · SELF_BLOCKED 0 |
+| 강제 지점 전수 | EP 14/14; adapter 차집합 0, kind 호출 2/2, branch 2/2 |
+| AC 자기보고 | ✅ 7/7; 아래 행별 관측 |
+| 합계 검산 | ✅ 7 · ⚠️ 0 · ❌ 0 = 총 7 |
+| 블로커 / 역질문 | 없음. 첫 full run sandbox EPERM은 권한 재실행으로 분리 확인 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+**AC 자기보고**
+
+| AC | 상태 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | 5층 충돌 세 키 `1`; M3 1 red |
+| AC2 | ✅ | Code null 3키 제거·null 잔여 0; M4 3 red |
+| AC3 | ✅ | 필수 port, Claude/Mock 2/2, RuntimeSessionAdapter diff 0 |
+| AC4 | ✅ | initial/resume/fork/handoff·continuation kind 배선; M1/M2 red |
+| AC5 | ✅ | post-patch fingerprint 안정/차이와 respawn 회귀 통과 |
+| AC6 | ✅ | legacy env·title/listen/flush 포함 full Vitest 4,855통과·1스킵 |
+| AC7 | ✅ | UI/DB/IPC/workspace/dependency diff 0; lint·typecheck·docs 통과 |
+
+- AC 검산: ✅ 7 · ⚠️ 0 · ❌ 0 = 총 7.
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 구현 턴에서 작성.
-- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: 구현 턴에서 작성.
-- 반복해서 부딪히는 환경 한계: 구현 턴에서 작성.
-- 현재 라운드 수: 구현 턴에서 작성.
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음 — r1 최초 구현이다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: EP-01이 필수 port를 규정했지만 `as never` 구조 fixture 3곳은 typecheck가 못 잡았고 full gate가 잡았다.
+- 반복해서 부딪히는 환경 한계: sandbox의 `C:\Users\rlaeo` temp/config 접근 EPERM; 권한 재실행은 통과했다.
+- 현재 라운드 수: r1.
 
 ---
 
