@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { resolve } from 'node:path'
+
+const workProfilePluginPath = resolve('resources/claude-plugins/work-profile')
 
 const mocks = vi.hoisted(() => ({
   acquireTurnRuntime: vi.fn(),
@@ -154,6 +157,7 @@ function makeHarness(sessionId?: string) {
       },
       getCwd: () => '/source/repo',
       ensureExtensionsDeployedForTurn: vi.fn(async () => undefined),
+      workProfilePluginPath,
       extensions: { build: vi.fn(() => ({ skills: [], hooks: { normalized: {} } })) }
     },
     supervisor,

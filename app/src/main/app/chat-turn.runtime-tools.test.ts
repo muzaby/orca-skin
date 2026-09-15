@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { resolve } from 'node:path'
 import { CHANNELS } from '../../shared/ipc'
 import { PermissionModeController } from '../features/approvals/permission-mode-controller'
 import { resolveAgentProfile } from '../features/agents/profiles'
@@ -20,6 +21,7 @@ const harness = vi.hoisted(() => ({
   coordinatorRuns: 0
 }))
 const tempPath = vi.hoisted(() => ({ prepare: vi.fn(async () => '/tmp/orcinus-orca') }))
+const workProfilePluginPath = resolve('resources/claude-plugins/work-profile')
 
 vi.mock('electron', () => ({
   ipcMain: {
@@ -250,6 +252,7 @@ function installHarness(options: {
       settings: { getAll: () => ({}) },
       mcp: { resolver: () => () => undefined },
       extensions,
+      workProfilePluginPath,
       ensureExtensionsDeployedForTurn: async () => {},
       getCwd: () => '/workspace'
     },

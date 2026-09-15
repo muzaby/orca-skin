@@ -7,7 +7,7 @@
 | slug | `0234-work-prompt-profile` |
 | 작성자 | Codex — 사용자의 신규 핸드오프 착수 요청에 따라 설계 수행 |
 | 일자 | 2026-09-14 |
-| 상태 | impl/IMPL_DONE (V1 r1) — 구현 자기검증 완료, 독립 검증 대기 |
+| 상태 | impl/IMPL_DONE (V1 r2) — 전체 테스트 red gate 보완, 독립 검증 대기 |
 | V mode / 기준 V | Baseline V / none |
 | 이번 revision / 유효 V | V1 / V1 |
 | 조사 기준 | `9de8dd3c` — 시작 시 작업 트리 clean, `git pull --ff-only` 결과 Already up to date |
@@ -513,6 +513,67 @@ r1 구현(2026-09-14~15). 사용자 후속 “핸드오프 impl”로 D-011의 �
 - 반복 환경 한계: 두 subagent가 사용량 제한으로 종료했다. native harness 산출물은 주 구현자가 읽고 실행·수정했으며, 별도 코드 리뷰는 완료하지 못했다.
 - 현재 라운드 수: 1. handoff 지침·실패 corpus를 변경하지 않았다.
 - 상태 사본: 최종 검사에서 이 plan 메타와 INDEX의 impl/IMPL_DONE·다음 Claude를 대조한다. 구현 커밋의 trailer 파싱은 커밋 직후 확인한다.
+
+## [구현자 기입] 설계 리뷰 — r2
+
+- 판정: 명백한 테스트 fixture 누락이며 PLAN_GAP은 아니다. `RouterContext.workProfilePluginPath`를 요구하는 기존 Work send 경로에 두 하네스가 값을 주지 않아 전체 gate가 red였다.
+- 불변식: Work 프로필 준비까지 도달하는 테스트 하네스는 실제 앱 번들 리소스의 절대경로를 공급한다. 운영 검증을 optional로 낮추거나 프로덕션 fallback을 추가하지 않는다.
+- 범위: `chat-turn.runtime-tools.test.ts`와 `chat-turn/send.permission-mode.test.ts`의 fixture만 보완했다. ACTIVE Decision·AC·V·§10과 프로덕션 코드는 바꾸지 않았다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 — r2
+
+| 범위 | 판정 | 관측 | 남긴 곳 |
+|---|---|---|---|
+| red를 만든 Work send 하네스 | 2/2 보완 | 두 fixture의 `ctx`에서 `resolve('resources/claude-plugins/work-profile')` 절대경로 공급 | — |
+| EP3·EP4·EP5 | SELF_PASS 유지 | 최초/listen/flush와 권한-mode Work 경로 14/14 통과 | — |
+| VP-03·04·06·10·11·13 | SELF_PASS 유지 | 전체 Vitest 525파일에서 신규 red 0 | — |
+
+기존 V1 pair 16개와 EP 14개 분모는 변경하지 않았다. 이번 수정은 r1의 프로덕션 동작을 바꾸지 않고 현재 변경 산출물의 전체 테스트 gate를 복구한다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r2
+
+| 심은/재현한 결함 | 출처 | 수정 전 | 수정 후 | 결과 |
+|---|---|---|---|---|
+| Work send fixture에서 필수 plugin 경로 누락 | 현재 산출물 `npm test` gate | 대상 2파일 6실패·8통과 | 대상 2파일 14/14 통과 | 잠김 |
+
+- 분모 검산: 선택 증거 0 · 인용 변이 0 · 새 oracle 0 = 표 행 0. 위 행은 기존 직접 행동 oracle의 red→green 재현이며 새 mutation 주장이 아니다.
+- 덮개 회귀: 테스트 장치를 교체·삭제하지 않았다. 기존 Work/Code 양성·음성 단언은 그대로 실행됐다.
+
+## [구현자 기입] Product/UX 파생 검토 — r2
+
+| 질문 | 판정 | 관측 |
+|---|---|---|
+| 사용자 동작이 바뀌는가 | 아니오 | 프로덕션 diff 0; 테스트 fixture만 실제 Bootstrap 계약과 맞춤 |
+| 실패 표시·정리 경로를 약화했는가 | 아니오 | 필수 경로 검증을 유지했고 기존 missing-resource 테스트를 수정하지 않음 |
+| Code 세션에 Work 경로가 새는가 | 아니오 | 대상 실행의 Code continuation 및 Code permission 양성 짝 통과 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r2
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 두 테스트의 `as never`가 필수 컨텍스트 누락을 typecheck에서 숨김 | 보고만 — 해당 하네스의 광범위 partial mock 타입 정리는 별도 리팩터링 범위 | 수정 전 `npm run typecheck:test` 통과와 runtime 6실패가 동시에 재현됨 |
+| 2 | 저장소 루트에서 직접 Vitest를 호출하면 cwd 기준 resource 경로가 달라짐 | 선조치 — 정본 `npm test`와 대상 Vitest를 app cwd에서 실행 | app cwd에서 대상 14/14·전체 gate 통과 |
+
+설계 대비 명시적 차이는 없다. 신규 cache·공유 상태·재진입·무효화 축을 만들지 않았다.
+
+## [구현자 기입] 구현 보고 — r2
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 테스트 fixture 2개와 이 구현 기록·INDEX |
+| 관측한 게이트 산출 | 대상 Vitest 2파일 14/14; 전체 Vitest 525파일·4,844통과·1스킵; node scripts 119/119 |
+| static | lint 0 error·기존 warning 1; typecheck node/web/test 3구성 통과 |
+| V-pair/강제 지점 | V1 SELF_PASS 16·EP 14/14 유지 — 독립 검증 아님 |
+| AC 자기보고 | 9/9 유지; ✅ 9 · ⚠️ 0 · ❌ 0 = 총 9 |
+| 블로커 | 없음. 독립 handoff-verify는 여전히 대기 |
+| 대상 커밋 | (r2 구현 — 좌표는 INDEX) |
+
+## [구현자 기입] Review Signals — r2
+
+- 이전 라운드와 같은 축인가: r1이 추가한 필수 Work resource context의 테스트 소비자 누락이다.
+- 막았어야 할 지침·AC: 현재 변경의 전체 PR/CI test gate가 막았으며, 국소 §19 집합만 실행한 r1 자기검증에서는 두 기존 하네스가 빠졌다.
+- 환경 한계: 없음. Node ABI는 이미 정상이고 전체 스위트가 종료 코드 0으로 끝났다.
+- 현재 라운드 수: 2. handoff 지침·failure corpus는 변경하지 않았다.
 
 ## [검증자 기입] 파생 이슈
 
