@@ -36,4 +36,32 @@ describe('runtimeApprovalToolNames', () => {
   it('snapshot 미주입은 빈 승인 대상이다', () => {
     expect(runtimeApprovalToolNames()).toEqual(new Set())
   })
+
+  it('stdio server도 descriptor annotation으로 승인 대상을 계산한다', () => {
+    const stdio: RuntimeToolSnapshot = {
+      revision: 1,
+      servers: new Map([
+        [
+          'jira-tools',
+          {
+            transport: 'stdio',
+            descriptor: {
+              id: 'jira-tools',
+              connectorId: 'jira',
+              tools: [
+                { name: 'jira_searchIssues', description: '', annotations: { readOnlyHint: true } },
+                { name: 'jira_createIssue', description: '', annotations: { readOnlyHint: false } }
+              ]
+            },
+            command: 'electron.exe',
+            args: ['jira.js'],
+            env: {},
+            credentialRevision: 1
+          }
+        ]
+      ])
+    }
+
+    expect(runtimeApprovalToolNames(stdio)).toEqual(new Set(['mcp__jira-tools__jira_createIssue']))
+  })
 })

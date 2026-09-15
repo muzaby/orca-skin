@@ -70,6 +70,9 @@ function adaptServer(
   serverId: string,
   context?: RuntimeToolContext
 ): ReturnType<typeof createSdkMcpServer> {
+  if (server.transport === 'stdio') {
+    throw new Error(`Runtime tool server is not an SDK server: ${serverId}`)
+  }
   const implementations = new Map(
     server.implementations.map((implementation) => [implementation.name, implementation])
   )
@@ -105,7 +108,16 @@ export function adaptRuntimeTools(
 
   const mcpServers: NonNullable<Options['mcpServers']> = {}
   for (const [serverId, server] of snapshot.servers) {
-    mcpServers[serverId] = adaptServer(server, serverId, context)
+    mcpServers[serverId] =
+      server.transport === 'stdio'
+        ? {
+            type: 'stdio',
+            command: server.command,
+            ...(server.args ? { args: [...server.args] } : {}),
+            ...(server.env ? { env: { ...server.env } } : {}),
+            ...(server.descriptor.alwaysLoad ? { alwaysLoad: true } : {})
+          }
+        : adaptServer(server, serverId, context)
   }
   return { mcpServers }
 }

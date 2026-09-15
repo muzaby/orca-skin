@@ -43,10 +43,15 @@ import { connectionState } from '../connection-views'
 import type { ConnectionViewSource } from '../connection-views'
 import {
   createPluginBinding,
+  createSecretBackedPluginBinding,
   createPluginBindings as productionPluginBindings,
+  PLUGIN_SECRET_AUTH_IDS,
   type PluginBinding,
   type PluginDeploymentDeps
 } from './plugins'
+import { resolveJiraEntrypoint } from '../../features/plugins/jira/entrypoint'
+import { createJiraRuntimeServer } from '../../features/plugins/jira/server'
+import { JIRA_TOOL_DESCRIPTOR } from '../../features/plugins/jira/tools'
 import {
   createConnectionSources as productionConnectionSources,
   gateRows,
@@ -95,6 +100,14 @@ const CONFLUENCE_AUTH = {
   methods: [patSpec({ label: 'PAT', fieldLabel: 'PAT', present: BEARER })]
 } satisfies AuthDefinition
 
+const JIRA_AUTH = {
+  id: 'jira',
+  label: 'Jira',
+  origin: 'https://jira.example.corp',
+  probe: { path: '/jira/rest/api/2/myself' },
+  methods: [patSpec({ label: 'PAT', fieldLabel: 'PAT', present: BEARER })]
+} satisfies AuthDefinition
+
 const CORP_USAGE_AUTH = {
   id: 'corp-usage',
   label: '사내 사용량',
@@ -107,6 +120,7 @@ const AUTH_DEFINITIONS: readonly AuthDefinition[] = [
   CORP_SSO_AUTH,
   CORP_LLM_AUTH,
   CONFLUENCE_AUTH,
+  JIRA_AUTH,
   CORP_USAGE_AUTH
 ]
 const GATE_AUTH_DEFINITIONS: readonly GateAuthDefinition[] = [CORP_SSO_AUTH]
@@ -180,35 +194,67 @@ function confluenceServer(authId: string): RuntimeToolServer {
 // 줄면 여기서 컴파일이 깨져야 한다.
 const createPluginBindings = (deps: PluginDeploymentDeps): PluginBinding[] => {
   const confluenceAuth = deps.auth.bind(CONFLUENCE_AUTH.id)
+  const jiraAuth = deps.auth.bind(JIRA_AUTH.id)
+  const jiraSecret = deps.secrets[JIRA_AUTH.id]
+  if (!jiraSecret) throw new Error('virtual Jira secret closure is missing')
   return [
     createPluginBinding({
       auth: confluenceAuth,
       server: confluenceServer(confluenceAuth.authId),
       registry: deps.registry
+    }),
+    createSecretBackedPluginBinding({
+      auth: jiraAuth,
+      descriptor: JIRA_TOOL_DESCRIPTOR,
+      registry: deps.registry,
+      readSecret: jiraSecret,
+      materialize: (token, credentialRevision) =>
+        createJiraRuntimeServer({
+          authId: jiraAuth.authId,
+          origin: JIRA_AUTH.origin,
+          apiContextPath: '/jira',
+          token,
+          credentialRevision,
+          electronExecutable: process.execPath,
+          packageEntrypoint: resolveJiraEntrypoint()
+        }),
+      catalog: {
+        copy: {
+          ko: { title: 'Jira', body: '사내 Jira 이슈를 조회하고 변경합니다.' },
+          en: { title: 'Jira', body: 'Search and manage corporate Jira issues.' }
+        }
+      }
     })
   ]
 }
 
+function pluginSecrets(
+  secretFor: (authId: AuthId) => () => string | null
+): Readonly<Record<AuthId, () => string | null>> {
+  return { [JIRA_AUTH.id]: secretFor(JIRA_AUTH.id) }
+}
+
 describe('가상 배포 — Plugin 경계', () => {
   it('주입 인자만으로 조립되고 도구가 registry 에 등록된다', () => {
-    const { auth, registry } = deployment()
+    const { auth, registry, secretFor } = deployment()
 
-    const plugins = createPluginBindings({ auth, registry })
+    const plugins = createPluginBindings({ auth, registry, secrets: pluginSecrets(secretFor) })
     for (const plugin of plugins) plugin.sync()
 
-    expect(registry.snapshot().servers.size).toBe(1)
+    expect(registry.snapshot().servers.size).toBe(2)
     expect(plugins[0]?.toolNames()).toEqual(['mcp__confluence-tools__confluence_search'])
+    expect(plugins[1]?.toolNames()).toHaveLength(14)
   })
 
   it('해제하면 도구가 회수되고 카탈로그 이름은 남는다', () => {
-    const { auth, registry } = deployment()
-    const plugins = createPluginBindings({ auth, registry })
+    const { auth, registry, secretFor } = deployment()
+    const plugins = createPluginBindings({ auth, registry, secrets: pluginSecrets(secretFor) })
     for (const plugin of plugins) plugin.sync()
 
     auth.revoke(CONFLUENCE_AUTH.id)
     for (const plugin of plugins) plugin.sync()
 
-    expect(registry.snapshot().servers.size).toBe(0)
+    expect(registry.snapshot().servers.size).toBe(1)
     expect(plugins[0]?.toolNames()).toHaveLength(1)
   })
 })
@@ -349,9 +395,9 @@ const createConnectionSources = (
 
 describe('가상 배포 — 카탈로그 row', () => {
   it('gate·harness·plugin·usage 네 category 가 모두 행으로 나온다', () => {
-    const { auth, registry } = deployment()
+    const { auth, registry, secretFor } = deployment()
     const gateSelection = selectGateMembers(GATE_AUTH_DEFINITIONS, (id) => auth.tryBind(id))
-    const plugins = createPluginBindings({ auth, registry })
+    const plugins = createPluginBindings({ auth, registry, secrets: pluginSecrets(secretFor) })
     const gate = createGate({ members: gateSelection.members, bypass: () => false })
 
     const connections = createConnectionSources({
@@ -368,12 +414,23 @@ describe('가상 배포 — 카탈로그 row', () => {
       'corp-sso',
       'corp-llm',
       'confluence',
+      'jira',
       'corp-usage'
     ])
     // wire compat 매핑이 유지된다.
-    expect(state.providers.map((row) => row.kind)).toEqual(['gate', 'llm', 'service', 'service'])
+    expect(state.providers.map((row) => row.kind)).toEqual([
+      'gate',
+      'llm',
+      'service',
+      'service',
+      'service'
+    ])
     // Plugin row 만 도구 이름을 싣는다.
-    expect(state.providers.map((row) => row.tools.length)).toEqual([0, 0, 1, 0])
+    expect(state.providers.map((row) => row.tools.length)).toEqual([0, 0, 1, 14, 0])
+    expect(state.providers.find((row) => row.id === 'jira')?.plugin).toMatchObject({
+      icon: 'electricalServices',
+      copy: { ko: { title: 'Jira' } }
+    })
   })
 })
 
@@ -389,16 +446,17 @@ describe('production 배포 factory — 기본 배포 계약', () => {
   it('createPluginBindings 는 기본 배포에서 비어 있다', () => {
     const { auth, registry } = deployment()
 
-    const bindings = productionPluginBindings({ auth, registry })
+    const bindings = productionPluginBindings({ auth, registry, secrets: {} })
 
     expect(bindings).toEqual([])
+    expect(PLUGIN_SECRET_AUTH_IDS).toEqual([])
     expect(registry.snapshot().servers.size).toBe(0)
   })
 
   it('createConnectionSources 는 gate·plugin row 만 만든다', () => {
     const { auth, registry } = deployment()
     const gateSelection = selectGateMembers(GATE_AUTH_DEFINITIONS, (id) => auth.tryBind(id))
-    const plugins = productionPluginBindings({ auth, registry })
+    const plugins = productionPluginBindings({ auth, registry, secrets: {} })
 
     const rows = productionConnectionSources({
       auth,

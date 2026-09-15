@@ -19,6 +19,7 @@ const snapshot: RuntimeToolSnapshot = {
     [
       'records',
       {
+        transport: 'sdk',
         descriptor: {
           id: 'records',
           pluginId: 'plugin-a',
@@ -70,6 +71,43 @@ describe('adaptRuntimeTools', () => {
   it('빈 스냅샷은 빈 옵션을 반환한다', () => {
     expect(adaptRuntimeTools()).toEqual({})
     expect(adaptRuntimeTools({ revision: 0, servers: new Map() })).toEqual({})
+    expect(createSdkMcpServer).not.toHaveBeenCalled()
+  })
+
+  it('stdio server는 SDK in-process server로 바꾸지 않고 process config를 전달한다', () => {
+    const stdio: RuntimeToolSnapshot = {
+      revision: 2,
+      servers: new Map([
+        [
+          'jira-tools',
+          {
+            transport: 'stdio',
+            descriptor: {
+              id: 'jira-tools',
+              connectorId: 'jira',
+              alwaysLoad: true,
+              tools: []
+            },
+            command: 'electron.exe',
+            args: ['jira.js'],
+            env: { JIRA_API_TOKEN: 'secret' },
+            credentialRevision: 7
+          }
+        ]
+      ])
+    }
+
+    expect(adaptRuntimeTools(stdio)).toEqual({
+      mcpServers: {
+        'jira-tools': {
+          type: 'stdio',
+          command: 'electron.exe',
+          args: ['jira.js'],
+          env: { JIRA_API_TOKEN: 'secret' },
+          alwaysLoad: true
+        }
+      }
+    })
     expect(createSdkMcpServer).not.toHaveBeenCalled()
   })
 })

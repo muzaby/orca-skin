@@ -185,7 +185,7 @@ export const en: typeof ko = {
   },
   skills: {
     pageTitle: 'Plugins',
-    rail: { skills: 'Skills', mcp: 'MCP', providers: 'Connections' },
+    rail: { plugins: 'Plugins', skills: 'Skills', mcp: 'MCP' },
     list: {
       addAria: 'Add'
     },

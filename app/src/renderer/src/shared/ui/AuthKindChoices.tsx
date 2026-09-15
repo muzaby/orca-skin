@@ -1,6 +1,6 @@
 import type { ProviderAuthKind, ProviderAuthSpecInfo } from '../../../../shared/ipc'
 
-// 인증 방식 선택 칩 열 (0181). 게이트 화면(`features/providers`)과 카탈로그 연결 탭
+// 인증 방식 선택 칩 열 (0181). 게이트 화면(`features/providers`)과 카탈로그 플러그인 탭
 // (`features/skills`)이 **같은 컨트롤**을 쓴다 — 판정 규칙은 이미 `shared/config/providerAuth`
 // 가 한 벌로 갖고 있는데 생김새만 두 벌이면 다음 디자인 수정에서 두 화면이 갈린다.
 //

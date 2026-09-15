@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { McpServer, ProviderInfo, SkillInfo } from '../../../../../../shared/ipc'
 import type { CatalogTab } from '../../lib/catalogSelection'
 import { CustomizeList } from './CustomizeList'
+import { ProviderDetail } from './ProviderDetail'
 
 const skill = (sourceId: string, sourceLabel: string): SkillInfo => ({
   name: 'review',
@@ -40,7 +41,15 @@ const provider = (id: string, kind: ProviderInfo['kind']): ProviderInfo => ({
   status: 'valid',
   principal: null,
   expiresAt: null,
-  tools: []
+  tools: [],
+  ...(id === 'service'
+    ? {
+        plugin: {
+          icon: 'bolt' as const,
+          copy: { ko: { title: '지라 플러그인', body: '이슈를 조회하고 변경합니다.' } }
+        }
+      }
+    : {})
 })
 const render = (patch: Partial<ComponentProps<typeof CustomizeList>>): string =>
   renderToStaticMarkup(
@@ -60,7 +69,7 @@ describe('plugin catalog list', () => {
   it.each<[CatalogTab, string[]]>([
     ['skills', ['a/review', 'z/review']],
     ['mcp', ['active', 'inactive']],
-    ['providers', ['gate', 'service']]
+    ['plugins', ['gate', 'service']]
   ])('%s uses flat catalog buttons with selection and preserves its previous order', (tab, ids) => {
     const markup = render({ tab, selectedId: ids[1] })
     expect(rows(markup)).toEqual(ids)
@@ -81,12 +90,15 @@ describe('plugin catalog list', () => {
     expect(mcp).toContain('>http<')
     expect(mcp).toContain('>활성<')
     expect(mcp).toContain('>비활성<')
-    const providers = render({ tab: 'providers' })
-    expect(providers).toContain('앱 로그인 · API 키')
-    expect(providers).toContain('>연결됨<')
+    const plugins = render({ tab: 'plugins' })
+    expect(plugins).toContain('앱 로그인 · API 키')
+    expect(plugins).toContain('지라 플러그인')
+    expect(plugins).toContain('이슈를 조회하고 변경합니다.')
+    expect(plugins).toContain('data-icon="bolt"')
+    expect(plugins).toContain('>연결됨<')
   })
 
-  it.each<CatalogTab>(['skills', 'mcp', 'providers'])(
+  it.each<CatalogTab>(['plugins', 'skills', 'mcp'])(
     '%s exposes an empty state without a table',
     (tab) => {
       const markup = render({ tab, skills: [], mcpServers: [], providers: [] })
@@ -95,4 +107,20 @@ describe('plugin catalog list', () => {
       expect(markup).not.toContain('<table')
     }
   )
+
+  it('상세도 목록과 같은 localized title/body/icon을 사용한다', () => {
+    const markup = renderToStaticMarkup(
+      createElement(ProviderDetail, {
+        provider: provider('service', 'service'),
+        step: null,
+        onLogin: vi.fn(),
+        onSubmit: vi.fn(),
+        onReauth: vi.fn(),
+        onRevoke: vi.fn()
+      })
+    )
+    expect(markup).toContain('지라 플러그인')
+    expect(markup).toContain('이슈를 조회하고 변경합니다.')
+    expect(markup).toContain('data-icon="bolt"')
+  })
 })

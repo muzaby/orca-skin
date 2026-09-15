@@ -7,7 +7,7 @@
 //     올라 다음 턴이 런타임을 재spawn 한다.
 
 import { describe, expect, it, vi } from 'vitest'
-import type { RuntimeToolServer } from '../../adapters/runtime-tools'
+import type { RuntimeSdkToolServer, RuntimeToolServer } from '../../adapters/runtime-tools'
 import type {
   AuthenticatedRequest,
   AuthSnapshot,
@@ -16,9 +16,9 @@ import type {
 } from '../../contracts/auth'
 import { RuntimeToolRegistry } from '../../features/extensions/runtime-tool-registry'
 import { authToolServerId } from '../../adapters/runtime-tool-policy'
-import { createPluginBinding } from './plugins'
+import { createPluginBinding, createSecretBackedPluginBinding } from './plugins'
 
-function server(authId: string): RuntimeToolServer {
+function server(authId: string): RuntimeSdkToolServer {
   const handler = vi.fn(async () => ({ content: [{ type: 'text' as const, text: 'ok' }] }))
   return {
     descriptor: {
@@ -27,11 +27,11 @@ function server(authId: string): RuntimeToolServer {
       tools: [{ name: 'confluence_search', annotations: { readOnlyHint: true } }]
     },
     implementations: [{ name: 'confluence_search', inputSchema: {}, handler }]
-  } as unknown as RuntimeToolServer
+  } as unknown as RuntimeSdkToolServer
 }
 
 // 실제 Plugin 이 하는 것과 같은 배선 — handler 가 닫힌 `request` 만 부른다.
-function toolServerBoundTo(bound: BoundAuth): RuntimeToolServer {
+function toolServerBoundTo(bound: BoundAuth): RuntimeSdkToolServer {
   const request = (req: AuthenticatedRequest): Promise<unknown> => bound.request(req)
   return {
     descriptor: {
@@ -49,7 +49,7 @@ function toolServerBoundTo(bound: BoundAuth): RuntimeToolServer {
         }
       }
     ]
-  } as unknown as RuntimeToolServer
+  } as unknown as RuntimeSdkToolServer
 }
 
 function auth(authId: string, status: () => AuthStatus): BoundAuth {
@@ -140,15 +140,90 @@ describe('Plugin 도구 호출이 자기 Auth 로 나간다 (unknown_provider �
     }
     // Plugin 은 `BoundAuth.request` 를 그대로 닫는다 — AuthId 를 다시 적을 자리가 없다.
     const server = toolServerBoundTo(confluenceAuth)
-    const binding = createPluginBinding({
+    createPluginBinding({
       auth: confluenceAuth,
       server,
       registry: new RuntimeToolRegistry()
     })
 
-    await binding.server.implementations[0]?.handler({})
+    await server.implementations[0]?.handler({})
 
     expect(seen).toEqual(['confluence:/rest/api/user/current'])
+  })
+})
+
+describe('createSecretBackedPluginBinding — stdio credential lifecycle', () => {
+  it('valid+secret만 materialize하고 같은 revision은 멱등, rotate는 교체, invalid/null은 회수한다', () => {
+    let status: AuthStatus = 'none'
+    let credentialRevision = 0
+    let secret: string | null = null
+    const logger = vi.fn()
+    const materialize = vi.fn((token: string, revision: number): RuntimeToolServer => ({
+      transport: 'stdio',
+      descriptor: {
+        id: 'jira-tools',
+        connectorId: 'jira',
+        tools: [
+          { name: 'jira_searchIssues', description: 'Search', annotations: { readOnlyHint: true } }
+        ]
+      },
+      command: 'electron.exe',
+      args: ['jira.js'],
+      env: { JIRA_API_TOKEN: token },
+      credentialRevision: revision
+    }))
+    const registry = new RuntimeToolRegistry()
+    const bound: BoundAuth = {
+      authId: 'jira',
+      snapshot: () => ({
+        authId: 'jira',
+        status,
+        verified: status === 'valid',
+        credentialRevision
+      }),
+      request: () => Promise.reject(new Error('not used'))
+    }
+    const binding = createSecretBackedPluginBinding({
+      auth: bound,
+      descriptor: {
+        id: 'jira-tools',
+        connectorId: 'jira',
+        tools: [
+          { name: 'jira_searchIssues', description: 'Search', annotations: { readOnlyHint: true } }
+        ]
+      },
+      registry,
+      readSecret: () => secret,
+      materialize,
+      logger
+    })
+
+    binding.sync()
+    expect(materialize).not.toHaveBeenCalled()
+    expect(registry.snapshot().servers.size).toBe(0)
+
+    status = 'valid'
+    secret = 'first-secret'
+    credentialRevision = 1
+    binding.sync()
+    const registeredRevision = registry.snapshot().revision
+    binding.sync()
+    expect(materialize).toHaveBeenCalledTimes(1)
+    expect(registry.snapshot().revision).toBe(registeredRevision)
+
+    secret = 'second-secret'
+    credentialRevision = 2
+    binding.sync()
+    expect(materialize).toHaveBeenLastCalledWith('second-secret', 2)
+    expect(registry.snapshot().revision).toBe(registeredRevision + 1)
+
+    secret = null
+    credentialRevision = 3
+    binding.sync()
+    expect(registry.snapshot().servers.size).toBe(0)
+
+    expect(JSON.stringify(logger.mock.calls)).not.toContain('first-secret')
+    expect(JSON.stringify(logger.mock.calls)).not.toContain('second-secret')
   })
 })
 

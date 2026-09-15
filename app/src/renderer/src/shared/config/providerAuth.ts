@@ -1,5 +1,5 @@
 // `ProviderInfo` 위의 순수 판정 (0181). **shared 에 있는 이유**: 게이트 화면
-// (`features/providers`)과 카탈로그 연결 탭(`features/skills`)이 **같은 규칙**을 써야 하는데,
+// (`features/providers`)과 카탈로그 플러그인 탭(`features/skills`)이 **같은 규칙**을 써야 하는데,
 // feature 끼리는 교차 import 가 금지돼 있다. 규칙 자체가 특정 feature 의 것이 아니라 공유 DTO
 // (`ProviderInfo`)의 것이므로 여기가 제자리다 — 두 벌로 두면 한쪽만 고쳐져 갈린다.
 

@@ -184,7 +184,7 @@ export const ko = {
   },
   skills: {
     pageTitle: '플러그인',
-    rail: { skills: '스킬', mcp: 'MCP', providers: '연결' },
+    rail: { plugins: '플러그인', skills: '스킬', mcp: 'MCP' },
     list: {
       addAria: '추가'
     },

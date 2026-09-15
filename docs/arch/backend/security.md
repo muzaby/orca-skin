@@ -55,15 +55,16 @@ new BrowserWindow({
 비대칭이다. 그 강등은 유지하되(키체인 잠김 하나로 앱이 죽지 않도록) grant 상태를 `unknown` 으로
 남겨 **조용한 미인증 진행**을 막는다.
 
-#### raw secret 이 프로세스 밖으로 나가는 문서화된 예외 — **3곳** (표 밖 신규 노출 금지)
+#### raw secret 이 프로세스 밖으로 나가는 문서화된 예외 — **4곳** (표 밖 신규 노출 금지)
 
 | # | 경로 | 왜 불가피한가 | 완화 |
 |---|---|---|---|
 | 1 | **MCP `.mcp.json`** — `dist/plugins/orcinus-orca/.mcp.json` 에 해석된 값이 평문으로 렌더된다 | claude CLI 가 그 파일을 읽어 MCP 서버를 spawn 한다 — Orca 가 요청 주체가 아니다 | 미해결 참조는 그 **서버를 통째로 드롭**(fail-closed). 소유권이 provider 하나로 일원화돼 회전·해제가 한 곳 |
 | 2 | **LLM `--settings` argv** — provider `settings.json` 의 `env` 블록 | 사용자가 `~/.claude/settings.json` 과 같은 방식으로 직접 적는 값(0028) | Orca 는 이 파일에 **쓰지 않는다**. 확장·주입도 하지 않고 verbatim 으로 읽는다 |
 | 3 | **LLM `Options.env`** (0181 신규) — 인증된 provider 의 자격증명을 subprocess 환경변수로 병합 | SDK 가 subprocess 를 띄우므로 자격증명은 프로세스 경계를 넘어야 한다 | **디스크에 남지 않는다**(subprocess 수명). 미인증이면 그 키를 **드롭**(빈 문자열 치환 금지). 0028 이 없앤 "설정 파일에 토큰 기록" 은 되살리지 않는다 |
+| 4 | **trusted stdio Plugin `Options.mcpServers.*.env`** — Jira PAT가 SDK `--mcp-config` argv를 거쳐 package child env로 전달 | `@atlassian-dc-mcp/jira`가 독립 stdio MCP process라 자격증명이 프로세스 경계를 넘어야 한다 | `PLUGIN_SECRET_AUTH_IDS`의 닫힌 closure만 허용하고 IPC·renderer·로그·파일에는 싣지 않는다. attachment upload/download를 명시적으로 끄며 Auth revision 변경 시 다음 턴에 재spawn한다 |
 
-> 세 경로 모두 **값의 소유권은 vault** 이고, 나가는 시점이 다를 뿐이다. 새 노출 경로를 추가하려면
+> 네 경로 모두 **값의 소유권은 vault** 이고, 나가는 시점이 다를 뿐이다. 새 노출 경로를 추가하려면
 > 이 표에 행을 더하는 것이 선행 조건이다.
 
 ### 1.4 채택된 자격증명 모델 (Phase 3+ 도입 결정)
@@ -140,6 +141,10 @@ font-src 'self' https://fonts.gstatic.com
 ### 1.8 원격 전송 스택 단일화 — main 은 Node `fetch` 를 쓰지 않는다 (0173 / 0174)
 
 main 프로세스의 모든 원격 요청은 **Chromium 네트워크 스택**으로 나간다. Node(undici) 스택은 **OS 프록시·PAC 와 OS 인증서 저장소를 보지 않아**, 사내 프록시 뒤의 사설 CA 서버로 나가지 못한다 — *브라우저로는 열리는데 앱만 안 되는* 증상이 여기서 나온다.
+
+trusted stdio Plugin child는 main이 아니며 예외적으로 package의 Node 네트워크 스택을 사용한다.
+현재 Jira child가 이 경계에 해당한다. proxy·사설 CA 호환은 main의 Chromium 보장을 상속하지 않으므로
+패키징 smoke와 실제 Jira DC 실기를 별도로 수행한다.
 
 | 규칙 | 구현 | 강제 |
 |---|---|---|
