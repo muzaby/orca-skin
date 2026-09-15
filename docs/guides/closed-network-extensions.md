@@ -75,7 +75,7 @@ app/src/main/app/deployment/
 
 | 파일 | factory | 받는 것 |
 |---|---|---|
-| `plugins.ts` | `createPluginBindings(deps)` | `auth: AuthBinder` · `registry: RuntimeToolSink` · `logger?` |
+| `plugins.ts` | `createPluginBindings(deps)` | `auth: AuthBinder` · `registry: RuntimeToolSink` · `secrets: Record<AuthId, () => string \| null>`(선언한 id만) · `logger?` |
 | `harness-runtime.ts` | `createConfigApiAugmenters(deps)` | `auth: AuthBinder` **만** |
 | `harness-runtime.ts` | `createDirectCredentialAugmenters(deps)` | `secrets: Record<AuthId, () => string \| null>` **만** (선언한 id 만) |
 | `connections.ts` | `createConnectionSources(deps)` | `auth` · `gateMembers` · `plugins` |
@@ -142,7 +142,7 @@ vault 네임스페이스(`provider:<id>:<authKind>@<세대>` — **prefix 는 �
 케밥 소문자는 **권고가 아니라 검사다**(§1.3). 범위 밖 문자를 쓰면 등록·로그인·vault 저장은 전부
 통과하는데 도구 노출과 `${BINDING:}` 치환만 조용히 깨지기 때문이다.
 
-> 지금 어떤 id 로 등록돼 있고 그 도구가 모델에게 어떤 이름으로 보이는지는 **GUI 연결 탭의 상세
+> 지금 어떤 id 로 등록돼 있고 그 도구가 모델에게 어떤 이름으로 보이는지는 **GUI 플러그인 탭의 상세
 > 패널**이 그대로 보여 준다(식별자 · 노출 도구). 선언과 화면이 어긋나면 거기서 잡힌다.
 
 ### 1.4-b `probe` — 인증됐는지 한 번 물어보는 곳
@@ -415,7 +415,7 @@ grant 의 요청은 두 가지로 만료를 판정한다:
 1. 응답이 **401/403** 이다.
 2. 리다이렉트 체인이 **`origin` 밖에서 끝났다** — 로그인 폼에 머물렀다는 뜻이다.
 
-둘 중 하나면 grant 가 `expired` 로 강등되고 연결 탭에 재인증 지점이 뜬다. 부팅 복원은 그 상태를
+둘 중 하나면 grant 가 `expired` 로 강등되고 플러그인 탭에 재인증 지점이 뜬다. 부팅 복원은 그 상태를
 보고 같은 방식으로 다시 로그인한다(SSO 쿠키가 살아 있으면 창이 곧바로 닫히는 무마찰 왕복이다).
 
 > ⚠️ **`allowedOrigins` 에 API 종점 origin 을 넣지 않는다.** 그 목록은 **로그인 창이 오가는**
@@ -442,10 +442,10 @@ subprocess env가 아니라 runtime catalog에 전달된다.
 | 3 | 인증 방식을 고른다 — 입력 수집형(§3-a) · OAuth(§3-b) · 또는 **둘 다 `methods` 배열에** | 같은 파일 |
 | 4 | 1단계 key 에 augmenter 를 붙인다. **config API 방식과 direct credential 방식은 서로 다른 factory 다**(§3-c) | `app/deployment/harness-runtime.ts` |
 | 5 | 그 Auth 가 바뀌면 무효화할 key 를 `AUTH_INVALIDATED_HARNESS_KEYS` 에 적는다 | 같은 파일. 안 적으면 재인증 뒤에도 옛 token 이 warm cache 로 남는다 |
-| 6 | **카탈로그 row 를 추가한다** — `{category:'harness', auth, harnessModelProviderKey}` | `app/deployment/connections.ts`. **안 하면 연결 탭에 행이 없어 인증 자체가 불가능하다** |
+| 6 | **카탈로그 row 를 추가한다** — `{category:'harness', auth, harnessModelProviderKey}` | `app/deployment/connections.ts`. **안 하면 플러그인 탭에 행이 없어 인증 자체가 불가능하다** |
 | 6-a | 모델 API 응답을 `availableModels`에 넣고 `{authId,key,harnessId,modelProviderId}` contribution을 선언한다 | Gate 로그인당 1회 fetch·프로세스 cache. 새 세션/턴 fetch 금지; 설정 배포로 cache가 무효화되면 자동 항목도 미노출 |
 | 7 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/harnesses src/main/features/auth src/main/app/deployment` | 형상·cache·fence·배선 회귀 |
-| 8 | 실기: 연결 탭에서 인증 → 새 채팅 전송 → 게이트웨이 로그에 요청이 도달하는지 | 사람 실기 |
+| 8 | 실기: 플러그인 탭에서 인증 → 새 채팅 전송 → 게이트웨이 로그에 요청이 도달하는지 | 사람 실기 |
 
 **주입 규칙 4가지** (어기면 진단이 어려워진다):
 
@@ -710,7 +710,7 @@ export const SPAWN_ENV_INJECTOR: SpawnEnvInjector | undefined = ({ target, hostE
 | 4 | **`probe` 를 선언한다** (§1.4-b). 없으면 값 입력만으로 "연결됨" 이 되고 회수된 PAT 를 못 걸러낸다 | 같은 파일 |
 | 5 | `createPluginBindings()` 에서 tool server 를 **한 번** 만들고 binding 을 돌려준다 | `app/deployment/plugins.ts` |
 | 6 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/plugins src/main/app/deployment` | |
-| 7 | 실기: 연결 탭에서 인증 → 상세 패널의 **식별자·노출 도구**가 선언과 같은지 → **새 채팅**에서 도구가 보이는지(등록은 다음 spawn 부터 반영된다) | 사람 실기 |
+| 7 | 실기: 플러그인 탭에서 인증 → 상세 패널의 **식별자·노출 도구**가 선언과 같은지 → **새 채팅**에서 도구가 보이는지(등록은 다음 spawn 부터 반영된다) | 사람 실기 |
 
 ```ts
 // app/deployment/auth-definitions.ts
@@ -734,6 +734,7 @@ export const CONFLUENCE_AUTH = {
 export function createPluginBindings(deps: {
   auth: AuthBinder
   registry: RuntimeToolSink
+  secrets: Readonly<Record<AuthId, () => string | null>>
 }): PluginBinding[] {
   const confluenceAuth = deps.auth.bind(CONFLUENCE_AUTH.id)
   const server = confluenceTools(
@@ -760,6 +761,68 @@ export function createPluginBindings(deps: {
 > ⚠️ **GUI 도구 목록은 Auth 가 invalid 여도 비지 않는다.** cached descriptor 에서 이름을 만들고
 > `status` 로 비활성을 안내한다 — active registry 로 목록을 만들면 미인증에서 도구가 사라진다.
 
+### 4.1 Jira Data Center package Plugin
+
+Jira는 인프로세스 Confluence와 달리 `@atlassian-dc-mcp/jira@0.34.0`을 trusted stdio child로
+실행한다. 기본 배포의 Auth·Plugin·`PLUGIN_SECRET_AUTH_IDS`는 비어 있으므로 아래 선언을 폐쇄망
+배포에 함께 추가해야 활성화된다.
+
+```ts
+// auth-definitions.ts
+export const JIRA_AUTH = {
+  id: 'jira',
+  label: 'Jira',
+  origin: 'https://jira.example.corp',
+  probe: { path: '/jira/rest/api/2/myself' },
+  methods: [patSpec({
+    label: 'PAT',
+    fieldLabel: 'PAT',
+    present: { location: 'header', name: 'Authorization', scheme: 'bearer' }
+  })]
+} satisfies AuthDefinition
+```
+
+```ts
+// plugins.ts
+export const PLUGIN_SECRET_AUTH_IDS: readonly AuthId[] = [JIRA_AUTH.id]
+
+export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[] {
+  const auth = deps.auth.bind(JIRA_AUTH.id)
+  const readSecret = deps.secrets[JIRA_AUTH.id]
+  if (!readSecret) throw new Error('Jira secret closure is missing')
+  return [createSecretBackedPluginBinding({
+    auth,
+    descriptor: JIRA_TOOL_DESCRIPTOR,
+    registry: deps.registry,
+    readSecret,
+    materialize: (token, credentialRevision) => createJiraRuntimeServer({
+      authId: auth.authId,
+      origin: JIRA_AUTH.origin,
+      apiContextPath: '/jira',
+      token,
+      credentialRevision,
+      electronExecutable: process.execPath,
+      packageEntrypoint: resolveJiraEntrypoint()
+    }),
+    catalog: {
+      icon: 'electricalServices',
+      copy: {
+        ko: { title: 'Jira', body: '사내 Jira 이슈를 조회하고 변경합니다.' },
+        en: { title: 'Jira', body: 'Search and manage corporate Jira issues.' }
+      }
+    }
+  })]
+}
+```
+
+- `apiContextPath`에는 `/rest`를 넣지 않는다. factory가 `origin + context + '/rest'`를 만든다.
+- upload/download filesystem gateway는 항상 `false`다. 이 배선에서는 attachment 저장·업로드를
+  켜지 않는다.
+- PAT는 main runtime snapshot과 SDK `--mcp-config` argv를 거쳐 child env에만 전달된다. IPC·로그·
+  파일·catalog copy에 넣지 않는다.
+- package child는 Node 네트워크 스택을 사용한다. 사내 proxy/CA/PAT와 검색·변경 승인·회전·해제는
+  실제 Jira DC에서 별도 실기한다.
+
 ### `BoundAuth.request` 가 강제하는 것 (어기면 요청 자체가 나가지 않는다)
 
 - **절대 URL·프로토콜 상대 경로 금지** — `path` 는 origin 기준 상대 경로다.
@@ -780,7 +843,7 @@ export function createPluginBindings(deps: {
 | # | 하는 일 |
 |---|---|
 | 1 | 토큰을 줄 Auth 를 먼저 준비한다(레시피 B 또는 C — `${BINDING:}` 은 **선언된 AuthId** 를 참조한다) |
-| 2 | 그 Auth 를 연결 탭에서 인증한다 |
+| 2 | 그 Auth 를 플러그인 탭에서 인증한다 |
 | 3 | `mcp.json` 에 서버를 추가하고 헤더/env 에 `${BINDING:<id>}` 를 쓴다 |
 | 4 | 새 채팅에서 서버가 붙었는지 확인한다 |
 
@@ -1034,10 +1097,10 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 | 표면 | 어디 | 비고 |
 |---|---|---|
 | **로그인 게이트 화면** | 앱 진입 시 (`GateFrame`) | 창 컨트롤(닫기)은 항상 살아 있다 — 재시도 루프에 갇히지 않게 |
-| **연결 탭** | 설정 카탈로그의 세 번째 탭 | 앱 로그인·모델·사내 서비스가 `kind` 별 그룹으로 한 화면에 |
-| **방식 선택** | 연결 탭 · 게이트 화면 | `auth` 배열의 **선언 순서**가 선택지 순서. 길이 1이면 단계를 건너뛴다 |
-| **재인증** | 연결 탭 | 기존 자격증명을 **유지한 채** 새 인증을 시도하고 **성공해야 교체**된다 |
-| **해제** | 연결 탭 | grant + vault 값·metadata·index 를 함께 지운다 |
+| **플러그인 탭** | 설정 카탈로그의 첫 번째 탭 | 앱 로그인·모델·사내 서비스 row를 유지하고 Plugin은 icon·locale title/body를 함께 표시 |
+| **방식 선택** | 플러그인 탭 · 게이트 화면 | `auth` 배열의 **선언 순서**가 선택지 순서. 길이 1이면 단계를 건너뛴다 |
+| **재인증** | 플러그인 탭 | 기존 자격증명을 **유지한 채** 새 인증을 시도하고 **성공해야 교체**된다 |
+| **해제** | 플러그인 탭 | grant + vault 값·metadata·index 를 함께 지운다 |
 | **추가 버튼** | **없음** | provider 는 빌드타임 선언이라 UI 로 추가할 수 없다(§0) |
 | **우회 토글** | 디버그 패널 "로그인" 그룹 (**DEV 전용**) | §6.2 |
 
@@ -1094,7 +1157,7 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 4. `origin` 에 경로·후행 슬래시가 없는지 확인한다(있으면 그 선언이 거부된다).
 5. `allowedOrigins` 에 로그인 왕복이 지나는 origin 을 **전부** 넣는다.
 6. `npm run build:win` 으로 배포본을 만든다(릴리스 절차는 [`release-operations.md`](./release-operations.md)).
-7. 실기: 로그인 화면 → 사내 로그인 → 메인 UI 진입 → 연결 탭에서 상태·재인증·해제 확인.
+7. 실기: 로그인 화면 → 사내 로그인 → 메인 UI 진입 → 플러그인 탭에서 상태·재인증·해제 확인.
 8. 로그(`~/.config/orcinus-orca/logs/`)에서 `providers.*` 이벤트로 거부·실패 사유를 확인한다.
 
 ---
@@ -1118,7 +1181,7 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 | 사이드바 이름이 **`developer` 로 남는다** | ⓐ `whoami` 미선언 ⓑ `valuePath` 오타·응답 구조 상이 ⓒ 우회 토글 ON ⓓ 신원을 안 주는 방식(`api-key`·`pat`) | ⓑ는 로그 `providers.session.whoami.failed` 가 `valuePath` 를 찍는다. ⓒⓓ는 **정상**이다 (§6.3) |
 | 사이드바에 **엉뚱한 계정**이 뜬다 | 게이트가 여럿이고 앞선 선언이 principal 을 갖고 있다 | 선언 순서 = 표시 우선순위 (§6.3) |
 | **재시작하면** 세션 provider 호출이 죽는다 (`등록되지 않은 session group`) | 부팅 등록이 빠졌다 — 0182 이전 동작 | `bootstrap.createProviderPlatform` 의 `registerDeclaredSessions` (§1.6) |
-| 도구가 **모델에 안 보인다** | grant 가 `valid` 가 아니거나 아직 재spawn 전이다 | 연결 탭 상태 → **새 채팅**에서 재확인 |
+| 도구가 **모델에 안 보인다** | grant 가 `valid` 가 아니거나 아직 재spawn 전이다 | 플러그인 탭 상태 → **새 채팅**에서 재확인 |
 | MCP 서버가 **통째로 빠진다** | `${BINDING:}` 미해결(fail-closed) | 해당 provider 인증 상태 · 세션 grant 는 `null` 이다 |
 | LLM 요청이 **인증 없이** 나간다 | `sources/settings/<adapter>/<provider>/settings.json` 의 env 키 오타 또는 `llm.{adapter,provider}` 조인 실패 | `sources/settings/<adapter>/<provider>/` 디렉토리 존재 여부 |
 | 업데이트 후 **저장된 로그인이 사라졌다** | `AuthId` 를 바꿨다 | vault 네임스페이스가 `AuthId` 로 갈린다 (§1.4) |

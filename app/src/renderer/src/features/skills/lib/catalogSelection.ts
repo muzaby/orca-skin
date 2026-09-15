@@ -1,19 +1,18 @@
 import type { MessageKey } from '../../../shared/i18n'
 import type { IconName } from '../../../shared/ui/Icon'
 
-// 0181 — 구 `plugins` 탭 자리에 `providers` 가 들어온다(사용자 결정: 새 페이지가 아니라 이
-// 카탈로그를 유지). 앱 로그인·모델 자격증명·사내 서비스 연결이 **한 탭**이다 — 셋의 차이는
-// `ProviderInfo.kind` 뿐이라 화면을 나눌 이유가 없다.
-export type CatalogTab = 'skills' | 'mcp' | 'providers'
+// plugins 탭은 wire 호환 이름인 providers.list 전체를 계속 보여 준다. gate·harness·usage의
+// 로그인 도달성을 보존하면서 사용자 대면 탭 이름만 Plugin 중심으로 정리한다.
+export type CatalogTab = 'plugins' | 'skills' | 'mcp'
 export interface CatalogSelection {
   tab: CatalogTab
   selectedId: string | null
 }
 
 export const CATALOG_TABS = [
+  { tab: 'plugins', icon: 'electricalServices', labelKey: 'skills.rail.plugins' },
   { tab: 'skills', icon: 'doc', labelKey: 'skills.rail.skills' },
-  { tab: 'mcp', icon: 'link', labelKey: 'skills.rail.mcp' },
-  { tab: 'providers', icon: 'power', labelKey: 'skills.rail.providers' }
+  { tab: 'mcp', icon: 'link', labelKey: 'skills.rail.mcp' }
 ] as const satisfies readonly { tab: CatalogTab; icon: IconName; labelKey: MessageKey }[]
 
 export const selectTab = (_state: CatalogSelection, tab: CatalogTab): CatalogSelection => ({

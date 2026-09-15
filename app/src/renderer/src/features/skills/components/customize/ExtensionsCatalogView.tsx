@@ -24,7 +24,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
   const { tr } = useI18n()
   const navigate = useNavigate()
   const id = useId()
-  const [selection, setSelection] = useState<CatalogSelection>({ tab: 'skills', selectedId: null })
+  const [selection, setSelection] = useState<CatalogSelection>({ tab: 'plugins', selectedId: null })
   const [panelWidth, setPanelWidth] = useState(640)
   const [expanded, setExpanded] = useState(false)
   const originRef = useRef<HTMLButtonElement | null>(null)
@@ -48,7 +48,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
     selection.tab === 'mcp' ? mcp.list.find((item) => item.id === selection.selectedId) : undefined
   const editingMcp = mcp.list.find((item) => item.id === mcpEditId)
   const selectedProvider =
-    selection.tab === 'providers'
+    selection.tab === 'plugins'
       ? providers.list.find((item) => item.id === selection.selectedId)
       : undefined
   const detail = selectedSkill ?? selectedMcp ?? selectedProvider
@@ -57,7 +57,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
       ? 'skills.rail.skills'
       : selection.tab === 'mcp'
         ? 'skills.rail.mcp'
-        : 'skills.rail.providers'
+        : 'skills.rail.plugins'
   )
   const closeDetail = (): void => {
     selectionEpoch.current += 1
@@ -109,8 +109,8 @@ export function ExtensionsCatalogView(): React.JSX.Element {
               }}
             />
             {/* skills 는 메뉴, mcp 는 모달. */}
-            {/* provider 는 빌드타임 선언이라 UI 추가 경로가 없다 — 버튼 자체를 내지 않는다. */}
-            {selection.tab !== 'providers' && (
+            {/* plugin은 빌드타임 선언이라 UI 추가 경로가 없다 — 버튼 자체를 내지 않는다. */}
+            {selection.tab !== 'plugins' && (
               <Button
                 ref={addRef}
                 className="ml-auto"

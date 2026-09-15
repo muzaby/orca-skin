@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { RuntimeToolRegistry } from './runtime-tool-registry'
-import type { RuntimeToolServer } from '../../adapters/runtime-tools'
+import type { RuntimeSdkToolServer, RuntimeToolServer } from '../../adapters/runtime-tools'
 
-const server = (id: string): RuntimeToolServer => ({
+const server = (id: string): RuntimeSdkToolServer => ({
+  transport: 'sdk',
   descriptor: {
     id,
     connectorId: 'connector-a',
@@ -18,7 +19,8 @@ const server = (id: string): RuntimeToolServer => ({
   ]
 })
 
-const mutableServer = (id: string): RuntimeToolServer => ({
+const mutableServer = (id: string): RuntimeSdkToolServer => ({
+  transport: 'sdk',
   descriptor: {
     id,
     connectorId: 'connector-a',
@@ -104,6 +106,7 @@ describe('RuntimeToolRegistry', () => {
     input.implementations[0].name = 'mutated'
 
     const stored = registry.snapshot().servers.get('records')!
+    if (stored.transport === 'stdio') throw new Error('expected sdk server')
     expect(stored.descriptor.tools[0]).toEqual({
       name: 'change',
       description: 'Change a record',
@@ -119,11 +122,13 @@ describe('RuntimeToolRegistry', () => {
     registry.add(mutableServer('records'))
 
     const exposed = registry.snapshot().servers.get('records')!
+    if (exposed.transport === 'stdio') throw new Error('expected sdk server')
     exposed.descriptor.tools[0].description = 'Mutated description'
     exposed.descriptor.tools[0].annotations = { readOnlyHint: true }
     exposed.implementations[0].name = 'mutated'
 
     const later = registry.snapshot().servers.get('records')!
+    if (later.transport === 'stdio') throw new Error('expected sdk server')
     expect(later.descriptor.tools[0]).toEqual({
       name: 'change',
       description: 'Change a record',
@@ -131,5 +136,42 @@ describe('RuntimeToolRegistry', () => {
     })
     expect(later.implementations[0].name).toBe('change')
     expect(registry.snapshot().revision).toBe(1)
+  })
+
+  it('stdio config를 깊게 복사하고 env 변경 때만 revision을 올린다', () => {
+    const registry = new RuntimeToolRegistry()
+    const args = ['jira.js']
+    const env = { JIRA_API_TOKEN: 'first' }
+    const first: RuntimeToolServer = {
+      transport: 'stdio',
+      descriptor: { id: 'jira-tools', connectorId: 'jira', tools: [] },
+      command: 'electron.exe',
+      args,
+      env,
+      credentialRevision: 1
+    }
+
+    registry.add(first)
+    registry.add(first)
+    expect(registry.snapshot().revision).toBe(1)
+
+    args.push('--mutated')
+    env.JIRA_API_TOKEN = 'mutated'
+    expect(registry.snapshot().servers.get('jira-tools')).toMatchObject({
+      transport: 'stdio',
+      args: ['jira.js'],
+      env: { JIRA_API_TOKEN: 'first' },
+      credentialRevision: 1
+    })
+
+    registry.add({
+      transport: 'stdio',
+      descriptor: { id: 'jira-tools', connectorId: 'jira', tools: [] },
+      command: 'electron.exe',
+      args: ['jira.js'],
+      env: { JIRA_API_TOKEN: 'second' },
+      credentialRevision: 2
+    })
+    expect(registry.snapshot().revision).toBe(2)
   })
 })

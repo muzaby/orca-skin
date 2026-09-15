@@ -9,6 +9,7 @@ import type { ArtifactRef } from './artifacts'
 import type { AgentKind } from './agent-kind'
 import type { ResponseBoundary, ResponseBoundaryPart } from './response-boundary'
 import type { ReceivedMessageOrigin, SessionSchedule } from './session-schedules'
+import type { PluginCatalogPresentation } from './plugin-catalog'
 
 export type { AgentKind } from './agent-kind'
 export type { ResponseBoundary } from './response-boundary'
@@ -1745,6 +1746,8 @@ export interface ProviderInfo {
   // GUI 가 이것을 보여주는 이유: 이름은 `Provider.id` 에서 파생되는데(`<id>-tools`) 화면에
   // id 도 도구 이름도 없어서, 선언과 어긋난 호출이 나도 사용자가 대조할 근거가 없었다.
   tools: string[]
+  // build-time Plugin 표시 설정. gate/harness/usage row에는 field 자체가 없다.
+  plugin?: PluginCatalogPresentation
 }
 
 // 로그인 진행 단계. 대화형 단계는 `orca:provider:continue` 로 이어진다.

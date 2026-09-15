@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 import type { ProviderInfo } from '../../shared/ipc'
 import type { AuthDescriptor, AuthRuntime, AuthSnapshot, BoundAuth } from '../contracts/auth'
 import type { Gate } from '../features/gate'
+import type { PluginCatalogPresentation } from '../../shared/plugin-catalog'
 import {
   connectionInfo,
   connectionList,
@@ -63,6 +64,11 @@ const DESCRIPTOR: AuthDescriptor = {
   ]
 }
 
+const PRESENTATION: PluginCatalogPresentation = {
+  icon: 'bolt',
+  copy: { ko: { title: 'Confluence 검색', body: '사내 문서를 검색합니다.' } }
+}
+
 describe('connectionInfo — ProviderInfo 전 필드 (AC22)', () => {
   it('descriptor·snapshot·도구 이름을 기존 DTO 형상으로 접는다', () => {
     const auth = runtime({ confluence: DESCRIPTOR })
@@ -73,6 +79,7 @@ describe('connectionInfo — ProviderInfo 전 필드 (AC22)', () => {
         principalId: 'me@example.corp',
         expiresAt: 1_700_000_000_000
       }),
+      presentation: PRESENTATION,
       toolNames: () => ['mcp__confluence-tools__confluence_search']
     }
 
@@ -94,7 +101,8 @@ describe('connectionInfo — ProviderInfo 전 필드 (AC22)', () => {
       activeAuthKind: 'pat',
       principal: 'me@example.corp',
       expiresAt: 1_700_000_000_000,
-      tools: ['mcp__confluence-tools__confluence_search']
+      tools: ['mcp__confluence-tools__confluence_search'],
+      plugin: PRESENTATION
     }
     expect(info).toEqual(expected)
   })
@@ -104,6 +112,7 @@ describe('connectionInfo — ProviderInfo 전 필드 (AC22)', () => {
     const info = connectionInfo(auth, {
       category: 'plugin',
       auth: bound('confluence', { status: 'none', verified: false }),
+      presentation: PRESENTATION,
       toolNames: () => []
     })
 
@@ -122,7 +131,7 @@ describe('compat kind 매핑 (AC22)', () => {
     const sources: ConnectionViewSource[] = [
       { category: 'gate', auth: bound('a') },
       { category: 'harness', auth: bound('b'), harnessModelProviderKey: 'claude-corp' },
-      { category: 'plugin', auth: bound('c'), toolNames: () => [] },
+      { category: 'plugin', auth: bound('c'), presentation: PRESENTATION, toolNames: () => [] },
       { category: 'usage', auth: bound('d') }
     ]
 
@@ -141,7 +150,7 @@ describe('compat kind 매핑 (AC22)', () => {
     const auth = runtime(descriptors)
     const sources: ConnectionViewSource[] = [
       { category: 'gate', auth: bound('a') },
-      { category: 'plugin', auth: bound('b'), toolNames: () => [] }
+      { category: 'plugin', auth: bound('b'), presentation: PRESENTATION, toolNames: () => [] }
     ]
 
     expect(connectionList(auth, sources).map((info) => info.id)).toEqual(['a', 'b'])
@@ -155,6 +164,7 @@ describe('compat kind 매핑 (AC22)', () => {
       harnessModelProviderKey: 'claude-corp'
     })
     expect(info.tools).toEqual([])
+    expect(info).not.toHaveProperty('plugin')
   })
 })
 

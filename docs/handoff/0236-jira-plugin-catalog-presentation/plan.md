@@ -731,58 +731,114 @@ Windows sandbox/egress 때문에 dependency install이나 package build가 막�
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행:
-- 이견 / PLAN_GAP:
-- 구현 전 재측정한 전수 수치:
+- 동의 / 그대로 진행: V1의 16개 AC, VP-01~19, EP-01~24와 trusted stdio·closed secret·catalog presentation 경계를 그대로 구현했다.
+- 이견 / PLAN_GAP: 없음. 설계가 요구한 flat stdio server 계약과 packaged handshake가 현재 Claude SDK/Electron 39에서 그대로 성립했다.
+- 구현 전 재측정한 전수 수치: Jira 기본 도구 14개(읽기 7/변경 7), 탭 3개, plugin wire 소비자 2곳(목록/상세), runtime server 소비 경로 3곳(registry/policy/Claude adapter), 강제 지점 24개를 재확인했다.
 
 ## [구현자 기입] 구현 체크리스트
 
 ### Task A — trusted stdio runtime foundation
 
-- [ ] RED tests/변이 등록
-- [ ] sdk/stdio union·registry·adapter·policy 구현
-- [ ] Confluence regression 확인
+- [x] RED tests/변이 등록
+- [x] sdk/stdio union·registry·adapter·policy 구현
+- [x] Confluence regression 확인
 
 ### Task B — Jira package/plugin
 
-- [ ] exact dependency 설치
-- [ ] entrypoint/tools/server + live listTools 구현
-- [ ] closed secret lifecycle/deployment fixture 구현
+- [x] exact dependency 설치
+- [x] entrypoint/tools/server + live listTools 구현
+- [x] closed secret lifecycle/deployment fixture 구현
 
 ### Task C — catalog presentation/tabs
 
-- [ ] shared wire/icon normalizer 구현
-- [ ] locale helper + list/detail 구현
-- [ ] tab order/name/default + legacy row 회귀 구현
+- [x] shared wire/icon normalizer 구현
+- [x] locale helper + list/detail 구현
+- [x] tab order/name/default + legacy row 회귀 구현
 
 ### Task D — docs/packaging/gates
 
-- [ ] current docs 동기화
-- [ ] full gates
-- [ ] unpacked packaged smoke
-- [ ] AC/pair/EP/변이 증거 기록
+- [x] current docs 동기화
+- [x] full gates
+- [x] unpacked packaged smoke
+- [x] AC/pair/EP/변이 증거 기록
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인
+
+| Pair | 자기확인 | 직접 증거 | 강제 지점 |
+|---|---|---|---|
+| VP-01 | SELF_PASS | exact dependency·resolver·env exact-set·package contract | EP-01/03/05/06/07/09/22 |
+| VP-02 | SELF_PASS | invalid/valid/same revision/rotate/null lifecycle test | EP-08/09/10/11/12 |
+| VP-03 | SELF_PASS | 실제 `tools/list` 14개와 변경 7개 approval exact-set | EP-05/07/13/14/22 |
+| VP-04 | SELF_PASS | sdk adapter result/context/cancel 및 Confluence 전 회귀 | EP-01/02/03/04/08 |
+| VP-05 | SELF_PASS | nondefault/default/invalid icon normalizer와 목록·상세 SSR | EP-08/15/16/18/19 |
+| VP-06 | SELF_PASS | exact/base/ko/en/first/legacy locale matrix와 목록·상세 SSR | EP-08/15/17/18/19 |
+| VP-07 | SELF_PASS | `plugins, skills, mcp` exact order·ko/en label·초기 plugins | EP-20/21 |
+| VP-08 | SELF_PASS | gate/harness/Confluence/Jira/usage 5행 유지와 Add 부재 | EP-15/18/19/21 |
+| VP-09 | SELF_PASS | 닫힌 secret closure·logger 비노출·기본 factory/allowlist 0 | EP-09/10/12/15/23 |
+| VP-10 | SELF_PASS | `win-unpacked` Electron child initialize/14-tool list/cleanup 통과. AC16 실제 DC 실기만 계획대로 사람 대기 | EP-06/07/22/24 |
+| VP-11 | SELF_PASS | invalid→valid→멱등→rotate→null/revoke registry 전이 | EP-08~14 |
+| VP-12 | SELF_PASS | plugins route/list/detail/copy/icon/auth action component 경로 | EP-15~21 |
+| VP-13 | SELF_PASS | 전체 4,888 tests에서 legacy connection/skills/MCP 회귀 통과 | EP-02/03/08/15/18/19/21 |
+| VP-14 | SELF_PASS | sdk/stdio union→deep-copy registry→Claude Options 양 branch | EP-01/02/03/04/13 |
+| VP-15 | SELF_PASS | PluginBinding presentation→row source→wire→두 renderer 소비자 | EP-08/15/16/17/18/19 |
+| VP-16 | SELF_PASS | `PLUGIN_SECRET_AUTH_IDS` closure와 credential revision 교체 | EP-09/10/11/12 |
+| VP-17 | SELF_PASS | origin/context/token/env/tool truth table | EP-05/06/07 |
+| VP-18 | SELF_PASS | icon allowlist/default + locale normalization/fallback UT | EP-16/17 |
+| VP-19 | SELF_PASS | transport별 copy/equality/revision과 mutating approval UT | EP-01/02/04/13/14 |
+
+EP-01~24는 모두 프로덕션 경로의 직접 테스트 또는 운영 gate로 닫았다. EP-23은 보안·Auth·frontend·IPC·폐쇄망 확장 문서를 동기화했고, EP-24는 ASAR 내부 package entry를 추가 unpack 없이 실행하는 packaged smoke로 확인했다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+| 변이 | 잠금 oracle | 결과 |
+|---|---|---|
+| M1 stdio를 sdk로 adapt | transport 양 branch adapter·registry test | 차단 |
+| M2 변경 도구를 read-only로 분류 | mutating 7개 full-name approval exact-set | 차단 |
+| M3 전체 secret selector 전달 | deps shape·기본 allowlist 0·가상 Jira closure | 차단 |
+| M4 invalid/revoke 후 server 유지 | secret-backed binding 전이표 | 차단 |
+| M5 기본 icon fallback 제거 | undefined/invalid normalizer + SSR | 차단 |
+| M6 locale base/fallback 제거 | 7-case locale resolver 표 | 차단 |
+| M7 탭 순서 복귀 | tab id/order/label/초기 선택 oracle | 차단 |
+| M8 non-plugin row 필터 | 5행 virtual deployment + renderer legacy fixture | 차단 |
+| M9 package/tool drift | exact lock version + 실제 child `tools/list` equality | 차단 |
+
+선택 적대 증거 9 + 인용 파생 변이 0 + 신규 구조 proxy 0 = 잠금 표 9행이다. 실제 package process와 packaged artifact를 직접 기동하므로 mock-only 통과로 tool/entry drift를 숨길 수 없다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+- locale과 테마: 제목·본문은 한 helper에서 exact→base→ko→en→첫 항목으로 결정되고 목록/상세가 같은 값을 쓴다. 아이콘은 local SVG와 `currentColor`를 사용해 다크/라이트 테마에서 외부 이미지 없이 동작한다.
+- 기존 행/행동: plugins 탭은 wire의 전체 `providers.list`를 유지하므로 gate·harness·usage 로그인, 재인증, 해제 경로를 보존한다. 빌드타임 구성 탭에는 Add 버튼을 계속 내지 않는다.
+- 실패/복구: invalid·빈 secret은 row와 cached tool names를 남기되 runtime server만 회수한다. credential revision이 바뀔 때만 다음 턴용 server를 교체한다.
+- fallback: presentation이 없는 기존 행은 `power`/auth label/kind·auth detail을 그대로 쓰고 빈 body node를 렌더하지 않는다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 놓친 문제 / PLAN_GAP | 대응 | 근거 |
 |---|---|---|---|
-| 1 | — | — | — |
+| 1 | 로컬 Node 22.15에서 package 전이 의존성 `undici@8.9.0`의 `>=22.19` engine warning | target Electron 39.8.10 산출물에서 package child handshake를 직접 실행해 런타임 적합성을 확인. 로컬 경고는 비차단 운영 신호로 남김 | `build:unpack` + `smoke:jira:packaged` PASS |
+| 2 | 실제 사내 Jira의 proxy/사설 CA/PAT 권한은 저장소 환경에서 검증 불가 | AC16 사람 실기를 명시적으로 대기하고 폐쇄망 가이드에 probe/search/write 승인/rotate/revoke 절차를 기록 | AC16 / visual-human gate |
+| 3 | stdio secret은 child env만이 아니라 SDK `--mcp-config` argv에도 직렬화됨 | 닫힌 AuthId closure만 허용하고 IPC·renderer·log·disk 확산을 막는 예외로 보안 문서에 정직하게 명시 | D-008 / EP-23 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | — |
-| AC | — |
-| V pair | — |
-| 강제 지점 | — |
-| 등록 변이 | — |
-| 실행 명령/결과 | — |
-| packaged smoke | — |
-| 사람 실기 대기 | AC16 |
-| 신규 의존성 | `@atlassian-dc-mcp/jira@0.34.0` 예정 |
-| 블로커/역질문 | — |
-| 대상 커밋 | — |
+| 변경 파일 | 52개(신규 11, 수정 41): runtime stdio/Jira/deployment/catalog renderer/tests/current docs/handoff |
+| AC | ✅ 15 / ⚠️ 1(AC16 실제 Jira DC) / ❌ 0 = 16 |
+| V pair | VP-01~19 전부 SELF_PASS. VP-10의 기계 범위는 PASS, 포함된 AC16 사람 실기만 별도 대기 |
+| 강제 지점 | EP-01~24 전부 구현·직접 증거 연결 |
+| 등록 변이 | M1~M9 전부 잠금 oracle 보유(9/9) |
+| 실행 명령/결과 | `npm run lint` 0 error(기존 warning 1), `npm run typecheck` 3/3, 표적 25 files·322 tests, `npm test` Vitest 4,888 pass/1 skip + Node 119/119, doc inventory PASS, `git diff --check` PASS |
+| packaged smoke | `npm run build:unpack` PASS; `npm run smoke:jira:packaged` PASS(14 tools, initialize/list/cleanup) |
+| 사람 실기 대기 | AC16 실제 Jira DC + ko/en 두 테마 육안 확인 |
+| 신규 의존성 | `@atlassian-dc-mcp/jira@0.34.0` exact 1건 |
+| 블로커/역질문 | 없음 |
+| 대상 커밋 | (r1 구현 커밋 — 커밋 후 INDEX/로그로 추적) |
+
+## [구현자 기입] Review Signals
+
+- 최초 handoff 구현 라운드이며 같은 invariant의 반복 실패는 0회다.
+- PLAN_GAP, review escalation, handoff 지침 자체의 변경은 없다.
 
 ---
 

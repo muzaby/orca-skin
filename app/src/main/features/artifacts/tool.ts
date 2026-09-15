@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { ArtifactRef } from '../../../shared/artifacts'
-import type { RuntimeToolServer } from '../../adapters/runtime-tools'
+import type { RuntimeSdkToolServer } from '../../adapters/runtime-tools'
 import type { ArtifactService } from './service'
 import { artifactError } from './validation'
 
@@ -22,9 +22,10 @@ The UI provides a preview, source view for text, and file actions for published 
 export function createArtifactToolServer(
   service: Pick<ArtifactService, 'publish' | 'getRef'>,
   onPublished?: (sessionId: string, artifact: ArtifactRef) => void
-): RuntimeToolServer {
+): RuntimeSdkToolServer {
   const name = 'publish_artifact'
   return {
+    transport: 'sdk',
     descriptor: {
       id: 'orca_artifacts',
       connectorId: 'orca_artifacts',

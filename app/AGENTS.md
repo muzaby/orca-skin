@@ -73,7 +73,7 @@ new BrowserWindow({
 
 - **CSP** (`src/renderer/index.html`): Google Fonts 만 허용 — `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com`.
 - **외부 URL 로드 금지** — `webContents.setWindowOpenHandler` 로 차단 + OS 기본 브라우저 위임. DevTools 자동 오픈은 dev 빌드 한정.
-- 비밀은 `safeStorage` 로만 봉인한다 — MCP 인증값 + provider vault(`infra/vault.ts`, 0181). raw secret 이 **나가는** 예외 **3곳**(MCP `.mcp.json` · LLM `--settings` argv · **LLM `Options.env`**, 0181)은 `../docs/arch/backend/security.md §1.4-b` 의 경계표에 고정돼 있다 — 표 밖의 신규 노출 금지.
+- 비밀은 `safeStorage` 로만 봉인한다 — MCP 인증값 + provider vault(`infra/vault.ts`, 0181). raw secret 이 **나가는** 예외 **4곳**(MCP `.mcp.json` · LLM `--settings` argv · **LLM `Options.env`** · trusted stdio Plugin `Options.mcpServers.*.env`)은 `../docs/arch/backend/security.md §1.4-b` 의 경계표에 고정돼 있다 — 표 밖의 신규 노출 금지.
 - **main 에서 Node 전역 `fetch` 를 쓰지 않는다** (0173/0174). 전역 `fetch(` 를 부를 수 있는 파일은 `infra/net/net-fetch.ts` 하나뿐이고, 소비자는 `typeof fetch` 포트로 **주입받는다**(기본값 금지 — 기본값은 곧 조용한 Node 스택 복귀). 위반은 `infra/net/no-node-fetch.test.ts` 가 잡는다. Chromium 스택을 무는 파일은 `net-fetch`·`net-request`·`browser-session` 셋뿐이다 — 근거·`redirect:'manual'` 의미차 → `../docs/arch/backend/security.md` §1.8·§1.9.
 - 근거 · credential 모델 상세 → [`../docs/arch/backend/security.md`](../docs/arch/backend/security.md).
 

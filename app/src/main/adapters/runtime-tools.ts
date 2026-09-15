@@ -59,12 +59,25 @@ export interface RuntimeToolContext {
   waitForSession(signal: AbortSignal): Promise<string>
 }
 
-// 실행형 server는 정적 descriptor(정책 SSOT)와 connection별 factory 구현을 합친다.
-// descriptor.id가 registry와 Claude SDK의 안정적인 server identity다.
-export interface RuntimeToolServer {
+// 실행형 server는 정적 descriptor(정책 SSOT)와 transport별 실행 구성을 합친다.
+// descriptor.id가 registry와 Claude SDK의 안정적인 server identity다. stdio env는
+// Claude SDK가 child 구성으로 직렬화하므로 main 경계를 벗어나 renderer/IPC로 보내지 않는다.
+export interface RuntimeSdkToolServer {
+  readonly transport?: 'sdk'
   readonly descriptor: RuntimeToolDescriptor
   readonly implementations: readonly RuntimeToolImplementation[]
 }
+
+export interface RuntimeStdioToolServer {
+  readonly transport: 'stdio'
+  readonly descriptor: RuntimeToolDescriptor
+  readonly command: string
+  readonly args?: readonly string[]
+  readonly env?: Readonly<Record<string, string>>
+  readonly credentialRevision: number
+}
+
+export type RuntimeToolServer = RuntimeSdkToolServer | RuntimeStdioToolServer
 
 export interface RuntimeToolSnapshot {
   readonly revision: number

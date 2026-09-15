@@ -614,13 +614,16 @@ snapshot을 읽는다.
 
 ## 7. Plugin
 
-Plugin 은 GUI 카탈로그에 표시되는 제품 기능 단위다. Plugin 모듈은 `BoundAuth.request` 와 자기
-옵션만 받고, **raw credential 을 보지 않는다.**
+Plugin 은 GUI 카탈로그에 표시되는 제품 기능 단위다. 인프로세스 Plugin은 `BoundAuth.request`와
+자기 옵션만 받는다. 외부 stdio package Plugin은 `PLUGIN_SECRET_AUTH_IDS`에 선언한 AuthId의 닫힌
+secret closure만 받고, raw credential을 child env로 materialize한다.
 
 - Runtime Tool 서버는 부팅에서 **한 번만** 만들고 이후 sync 는 add/remove 만 한다.
   `RuntimeToolRegistry` 의 동등성 검사가 handler identity 까지 보기 때문이다 — 매번 새로 만들면
   형상이 같아도 revision 이 올라 다음 턴이 런타임을 재spawn 한다.
 - sync 는 **`credentialChanged:true` 인 자기 Auth 의 change 에서만** 일어난다.
+- runtime server는 `sdk | stdio` union이다. stdio server의 env 또는 `credentialRevision`이 바뀌면
+  registry revision이 올라 다음 턴에서 child를 새 자격증명으로 다시 띄운다.
 - GUI `tools` 는 **cached descriptor** 에서 나온다. Auth 가 invalid 여도 목록을 비우지 않고 `status`
   로 비활성을 안내한다 — active registry 로 목록을 만들면 미인증 상태에서 도구가 통째로 사라진다.
 
@@ -670,6 +673,10 @@ renderer 는 여전히 한 DTO 에서 `gate | llm | service` 분류·인증 상�
   않는다 — 이 표가 유일한 접점이다.
 - 연결 버튼은 `login`/`reauth`/`revoke` 만 부른다. Plugin fetch·Usage refresh·Harness config resolve 를
   호출하지 않는다.
+- plugin row만 `ProviderInfo.plugin`에 local icon key와 locale별 `title`/`body`를 싣는다. icon
+  미지정·무효 값은 `electricalServices`, copy 미지정은 기존 auth label/detail로 fallback한다.
+- 설정 카탈로그 탭은 **플러그인 → 스킬 → MCP** 순서이며 첫 탭은 기존 connection row 전체를
+  유지한다. gate·harness·usage row도 여기 남아 로그인 도달성을 보존한다.
 
 배열 조립은 **`app/deployment/connections.ts`** 가 소유한다(`createConnectionSources(deps)`).
 Bootstrap 은 gate 멤버와 plugin binding 을 넘기고 결과를 그대로 IPC 에 태울 뿐이다. 조립을
@@ -723,7 +730,8 @@ Bootstrap 은 endpoint path·response body·Confluence CQL·UsageSnapshot mappin
 | raw cookie 목록을 일반 포트로 내보내지 않는다 | 같은 partition 의 bound request 로 충분하다 |
 | main 원격 요청은 Chromium 스택(`net.fetch`)만 쓴다 | Node 스택은 OS 프록시·사설 CA 를 보지 못한다 |
 | generation fence 없는 수동 cache 무효화를 만들지 않는다 | 무효화 전 in-flight 결과가 낡은 token 을 되살린다 |
-| Plugin tool server 를 sync 마다 재생성하지 않는다 | handler identity 가 달라져 respawn 이 늘어난다 |
+| sdk Plugin tool server 를 sync 마다 재생성하지 않는다 | handler identity 가 달라져 respawn 이 늘어난다 |
+| stdio Plugin secret selector를 일반 feature에 넘기지 않는다 | 선언하지 않은 Auth의 raw secret을 선택할 수 있게 된다 |
 | 런타임 동적 TypeScript/JavaScript 로딩을 추가하지 않는다 | 배포 모듈은 build-time code 다 |
 
 ---

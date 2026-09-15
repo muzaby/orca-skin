@@ -17,6 +17,7 @@
 // 읽어 **중복 선언하지 않는다**.
 
 import type { ProviderInfo, ProviderKind, ProviderPlatformState } from '../../shared/ipc'
+import type { PluginCatalogPresentation } from '../../shared/plugin-catalog'
 import type { AuthRuntime, BoundAuth } from '../contracts/auth'
 import type { Gate } from '../features/gate'
 import type { HarnessModelProviderKey } from '../features/harnesses/runtime-config'
@@ -36,6 +37,7 @@ export type ConnectionViewSource =
   | {
       category: 'plugin'
       auth: BoundAuth
+      presentation: PluginCatalogPresentation
       // **cached descriptor 에서 나온 완전 도구 이름**이다. Auth 가 invalid 여도 비우지 않는다 —
       // 현재 화면은 연결이 끊겨도 도구 이름을 보여 주고 `status` 로 비활성을 안내한다.
       // active registry 목록으로 이 값을 만들면 그 UX 가 깨진다(0188 D-024).
@@ -73,7 +75,20 @@ export function connectionInfo(auth: AuthDescriber, source: ConnectionViewSource
     activeAuthKind: snapshot.activeMethod ?? null,
     principal: snapshot.principalId ?? null,
     expiresAt: snapshot.expiresAt ?? null,
-    tools: toolsOf(source)
+    tools: toolsOf(source),
+    ...(source.category === 'plugin'
+      ? {
+          plugin: {
+            icon: source.presentation.icon,
+            copy: Object.fromEntries(
+              Object.entries(source.presentation.copy).map(([locale, value]) => [
+                locale,
+                { ...value }
+              ])
+            )
+          }
+        }
+      : {})
   }
 }
 

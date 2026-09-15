@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { createArtifactToolServer } from './tool'
-import type { RuntimeToolServer, RuntimeToolContext } from '../../adapters/runtime-tools'
+import type { RuntimeSdkToolServer, RuntimeToolContext } from '../../adapters/runtime-tools'
 import type { ArtifactReceipt } from './service'
 
 const artifact = {
@@ -21,7 +21,7 @@ function fixture(): {
   context: RuntimeToolContext & { waitForSession: ReturnType<typeof vi.fn<() => Promise<string>>> }
   controller: AbortController
   published: ReturnType<typeof vi.fn>
-  server: RuntimeToolServer
+  server: RuntimeSdkToolServer
 } {
   const controller = new AbortController()
   const context = {

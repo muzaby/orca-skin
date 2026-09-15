@@ -15,7 +15,7 @@ import { z } from 'zod'
 import type {
   RuntimeToolImplementation,
   RuntimeToolResult,
-  RuntimeToolServer
+  RuntimeSdkToolServer
 } from '../../../adapters/runtime-tools'
 import { authToolServerId } from '../../../adapters/runtime-tool-policy'
 import type { AuthenticatedRequest, AuthenticatedResponse } from '../../../contracts/auth'
@@ -86,7 +86,7 @@ export interface ConfluenceToolOptions {
 export function confluenceTools(
   ctx: ConfluencePluginContext,
   opts: ConfluenceToolOptions = {}
-): RuntimeToolServer {
+): RuntimeSdkToolServer {
   return createConfluenceToolServer(
     ctx,
     createConfluenceRuntime({
@@ -102,7 +102,7 @@ export function confluenceTools(
 export function createConfluenceToolServer(
   ctx: ConfluencePluginContext,
   runtime: ConfluenceRuntime
-): RuntimeToolServer {
+): RuntimeSdkToolServer {
   const providerId = ctx.authId
   const connectorLabel = ctx.label
   // 서버 이름 규칙의 SSOT 는 `adapters/runtime-tool-policy.ts` 하나다 — Plugin 마다 조립하면
@@ -116,6 +116,7 @@ export function createConfluenceToolServer(
     runtime.invoke(request, { operation, ...(params ? { params } : {}) })
 
   return {
+    transport: 'sdk',
     descriptor: {
       id: serverId,
       connectorId: providerId,

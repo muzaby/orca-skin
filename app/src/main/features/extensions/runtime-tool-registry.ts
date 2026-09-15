@@ -32,7 +32,18 @@ function copyImplementation(implementation: RuntimeToolImplementation): RuntimeT
 }
 
 function copyServer(server: RuntimeToolServer): RuntimeToolServer {
+  if (server.transport === 'stdio') {
+    return {
+      transport: 'stdio',
+      descriptor: copyDescriptor(server.descriptor),
+      command: server.command,
+      ...(server.args ? { args: [...server.args] } : {}),
+      ...(server.env ? { env: { ...server.env } } : {}),
+      credentialRevision: server.credentialRevision
+    }
+  }
   return {
+    ...(server.transport ? { transport: 'sdk' as const } : {}),
     descriptor: copyDescriptor(server.descriptor),
     implementations: server.implementations.map(copyImplementation)
   }
@@ -67,8 +78,18 @@ function sameDescriptor(left: RuntimeToolDescriptor, right: RuntimeToolDescripto
 }
 
 function sameServer(left: RuntimeToolServer, right: RuntimeToolServer): boolean {
+  if ((left.transport === 'stdio') !== (right.transport === 'stdio')) return false
+  if (!sameDescriptor(left.descriptor, right.descriptor)) return false
+  if (left.transport === 'stdio' && right.transport === 'stdio') {
+    return (
+      left.command === right.command &&
+      sameStringArray(left.args, right.args) &&
+      sameStringRecord(left.env, right.env) &&
+      left.credentialRevision === right.credentialRevision
+    )
+  }
+  if (left.transport === 'stdio' || right.transport === 'stdio') return false
   return (
-    sameDescriptor(left.descriptor, right.descriptor) &&
     left.implementations.length === right.implementations.length &&
     left.implementations.every(
       (implementation, index) =>
@@ -76,6 +97,26 @@ function sameServer(left: RuntimeToolServer, right: RuntimeToolServer): boolean 
         implementation.inputSchema === right.implementations[index]?.inputSchema &&
         implementation.handler === right.implementations[index]?.handler
     )
+  )
+}
+
+function sameStringArray(left?: readonly string[], right?: readonly string[]): boolean {
+  if (left === right) return true
+  if (!left || !right || left.length !== right.length) return false
+  return left.every((value, index) => value === right[index])
+}
+
+function sameStringRecord(
+  left?: Readonly<Record<string, string>>,
+  right?: Readonly<Record<string, string>>
+): boolean {
+  if (left === right) return true
+  if (!left || !right) return false
+  const leftEntries = Object.entries(left)
+  const rightEntries = Object.entries(right)
+  return (
+    leftEntries.length === rightEntries.length &&
+    leftEntries.every(([key, value]) => right[key] === value)
   )
 }
 

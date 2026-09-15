@@ -5,6 +5,7 @@ import { Icon } from '../../../../shared/ui/Icon'
 import type { CatalogTab } from '../../lib/catalogSelection'
 import { mcpRowMeta, skillRowMeta } from '../../lib/catalogRows'
 import { providerRowMeta } from '../../lib/providerRows'
+import { pluginPresentation } from '../../lib/pluginPresentation'
 import { orderMcpServers, orderProviders, orderSkills } from '../../lib/catalogOrder'
 
 export function CustomizeList({
@@ -105,20 +106,22 @@ export function CustomizeList({
             />
           )
         })}
-      {tab === 'providers' &&
+      {tab === 'plugins' &&
         orderProviders(providers).map((provider) => {
           const meta = providerRowMeta(provider)
-          const detail = `${tr(meta.kindKey)} · ${meta.activeLabel ?? tr('common.unknown')}`
+          const presentation = pluginPresentation(provider, locale)
+          const detail =
+            presentation.body ?? `${tr(meta.kindKey)} · ${meta.activeLabel ?? tr('common.unknown')}`
           return (
             <CatalogListRow
               key={provider.id}
               data-extensions-row={provider.id}
               selected={selectedId === provider.id}
               openProps={{ onClick: (event) => onSelect(provider.id, event.currentTarget) }}
-              icon={<Icon name="power" size={20} className="shrink-0 text-ink3" />}
+              icon={<Icon name={presentation.icon} size={20} className="shrink-0 text-ink3" />}
               title={
-                <span className="truncate" title={provider.label}>
-                  {provider.label}
+                <span className="truncate" title={presentation.title}>
+                  {presentation.title}
                 </span>
               }
               detail={

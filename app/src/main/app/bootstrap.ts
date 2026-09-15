@@ -101,7 +101,7 @@ import {
   DIRECT_CREDENTIAL_AUTH_IDS,
   RUNTIME_MODEL_CONTRIBUTIONS
 } from './deployment/harness-runtime'
-import { createPluginBindings } from './deployment/plugins'
+import { createPluginBindings, PLUGIN_SECRET_AUTH_IDS } from './deployment/plugins'
 import { createConnectionSources } from './deployment/connections'
 import { createUsageFetcher } from './deployment/usage-fetcher'
 import { connectionState, duplicateConnectionAuthIds } from './connection-views'
@@ -402,6 +402,9 @@ export class Bootstrap {
     const plugins = createPluginBindings({
       auth,
       registry: runtimeTools,
+      secrets: Object.fromEntries(
+        PLUGIN_SECRET_AUTH_IDS.map((authId) => [authId, () => secretReader.read(authId)])
+      ),
       logger: (event, data) => getLogger().child('plugin').info(event, data)
     })
     for (const plugin of plugins) plugin.sync()
