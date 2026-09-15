@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { createHarnessRuntimeConfigService } from '../../features/harnesses/runtime-config'
 import { createRuntimeModelCatalog } from '../../features/harnesses/runtime-catalog'
 import { resolveTurnProvider } from './resolve-turn'
+import type { AgentKind } from '../../../shared/agent-kind'
+import type { AdapterSpawnEnvPatch } from '../../adapters/harness-config'
 
 vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 vi.mock('../../infra/log', () => ({
@@ -14,6 +16,12 @@ const contribution = {
   key: 'claude-corp',
   harnessId: 'claude',
   modelProviderId: 'corp'
+}
+
+function adapter(
+  agentSpawnEnv: (agentKind: AgentKind) => AdapterSpawnEnvPatch = vi.fn(() => ({}))
+): { id: 'claude'; agentSpawnEnv: (agentKind: AgentKind) => AdapterSpawnEnvPatch } {
+  return { id: 'claude' as const, agentSpawnEnv }
 }
 
 describe('turn setup with the runtime model catalog', () => {
@@ -51,7 +59,8 @@ describe('turn setup with the runtime model catalog', () => {
         mcp: { resolver: () => () => undefined }
       } as never,
       {
-        adapter: { id: 'claude' } as never,
+        adapter: adapter(),
+        agentKind: 'code',
         sessionId: null,
         providerKey: contribution.key,
         modelFamily: 'claude-sonnet-corp'
@@ -74,7 +83,8 @@ describe('turn setup with the runtime model catalog', () => {
         mcp: { resolver: () => () => undefined }
       } as never,
       {
-        adapter: { id: 'claude' } as never,
+        adapter: adapter(),
+        agentKind: 'code',
         sessionId: null,
         providerKey: contribution.key,
         modelFamily: 'claude-sonnet-corp'
@@ -131,7 +141,8 @@ describe('turn setup with the runtime model catalog', () => {
         mcp: { resolver: () => () => undefined }
       } as never,
       {
-        adapter: { id: 'claude' } as never,
+        adapter: adapter(),
+        agentKind: 'code',
         sessionId: null,
         providerKey: contribution.key,
         modelFamily: 'runtime-model'
@@ -171,7 +182,8 @@ describe('turn setup with the runtime model catalog', () => {
         mcp: { resolver: () => () => undefined }
       } as never,
       {
-        adapter: { id: 'claude' } as never,
+        adapter: adapter(),
+        agentKind: 'code',
         sessionId: null,
         providerKey: contribution.key,
         modelFamily: null
@@ -179,5 +191,43 @@ describe('turn setup with the runtime model catalog', () => {
     )
 
     expect(resolved.providerKey).toBeNull()
+  })
+
+  it.each([
+    ['resolved', true],
+    ['unresolved', false]
+  ] as const)('applies one adapter policy snapshot to the %s branch', async (_branch, resolved) => {
+    const agentSpawnEnv = vi.fn((agentKind: 'code' | 'work') => ({ SESSION_KIND: agentKind }))
+    const result = await resolveTurnProvider(
+      {
+        harnessSettings: {
+          list: () =>
+            resolved
+              ? [
+                  {
+                    key: 'claude-local',
+                    harnessId: 'claude',
+                    modelProviderId: 'local',
+                    models: []
+                  }
+                ]
+              : []
+        },
+        db: { getSessionById: () => undefined },
+        mcp: { resolver: () => () => undefined }
+      } as never,
+      {
+        adapter: adapter(agentSpawnEnv),
+        agentKind: 'work',
+        sessionId: null,
+        providerKey: null,
+        modelFamily: null
+      }
+    )
+
+    expect(agentSpawnEnv).toHaveBeenCalledOnce()
+    expect(agentSpawnEnv).toHaveBeenCalledWith('work')
+    expect(result.prepared.env?.SESSION_KIND).toBe('work')
+    expect(result.prepared.runtimeEnvFingerprint === undefined).toBe(!resolved)
   })
 })

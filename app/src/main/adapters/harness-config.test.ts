@@ -169,6 +169,86 @@ describe('env 우선순위 (AC15)', () => {
   })
 })
 
+describe('adapter agent-kind env patch (0235)', () => {
+  const TODO_KEYS = [
+    'CLAUDE_CODE_ENABLE_TODO_TOOLS',
+    'CLAUDE_CODE_ENABLE_TASKS',
+    'CLAUDE_CODE_DISABLE_BACKGROUND_TASKS'
+  ] as const
+
+  it('applies forced values after process, app, settings, runtime, and custom env', () => {
+    const lower = Object.fromEntries(TODO_KEYS.map((key) => [key, '0']))
+    const forced = Object.fromEntries(TODO_KEYS.map((key) => [key, '1']))
+    const prepared = prepareHarnessConfig({
+      config: config({ settings: settings(lower), runtimeEnv: lower }),
+      appEnv: lower,
+      baseEnv: () => ({ ...lower, INHERITED: 'kept' }),
+      customEnv: () => lower,
+      adapterEnvPatch: forced
+    })
+
+    expect(prepared.env).toMatchObject({ ...forced, INHERITED: 'kept' })
+  })
+
+  it('removes forced-null keys from every lower layer without leaking null to SDK env', () => {
+    const lower = Object.fromEntries(TODO_KEYS.map((key) => [key, '1']))
+    const removals = Object.fromEntries(TODO_KEYS.map((key) => [key, null]))
+    const prepared = prepareHarnessConfig({
+      config: config({ settings: settings(lower), runtimeEnv: lower }),
+      appEnv: lower,
+      baseEnv: () => ({ ...lower, INHERITED: 'kept' }),
+      customEnv: () => lower,
+      adapterEnvPatch: removals
+    })
+
+    expect(prepared.env).toEqual({ INHERITED: 'kept' })
+    expect(Object.values(prepared.env ?? {}).every((value) => typeof value === 'string')).toBe(true)
+  })
+
+  it('keeps lazy env omission and the settings reference for an empty patch', () => {
+    const source = settings({ SETTINGS_ONLY: 'kept' })
+    const prepared = prepareHarnessConfig({
+      config: config({ settings: source }),
+      baseEnv: BASE,
+      adapterEnvPatch: {}
+    })
+
+    expect(prepared.env).toBeUndefined()
+    expect(prepared.providerSettings).toBe(source)
+  })
+
+  it('uses the post-patch env for stable and kind-sensitive fingerprints', () => {
+    const build = (value: string | null): ReturnType<typeof prepareHarnessConfig> =>
+      prepareHarnessConfig({
+        config: config(),
+        baseEnv: () => ({ CLAUDE_CODE_ENABLE_TASKS: '1' }),
+        adapterEnvPatch: { CLAUDE_CODE_ENABLE_TASKS: value }
+      })
+
+    expect(build('1').envFingerprint).toBe(build('1').envFingerprint)
+    expect(build('1').envFingerprint).not.toBe(build(null).envFingerprint)
+  })
+
+  it('uses adapter set/remove directives for the effective host-managed flag', () => {
+    const managed = 'CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST'
+    const source = settings({ [managed]: '0', PROVIDER_TOKEN: 'settings-token' })
+    const enabled = prepareHarnessConfig({
+      config: config({ settings: source }),
+      baseEnv: () => ({}),
+      adapterEnvPatch: { [managed]: '1' }
+    })
+    const removed = prepareHarnessConfig({
+      config: config({ settings: source }),
+      baseEnv: () => ({ [managed]: '1' }),
+      adapterEnvPatch: { [managed]: null }
+    })
+
+    expect(enabled.env).toMatchObject({ [managed]: '1', PROVIDER_TOKEN: 'settings-token' })
+    expect(enabled.providerSettings?.settings).not.toHaveProperty('env')
+    expect(removed.env).toEqual({ PROVIDER_TOKEN: 'settings-token' })
+  })
+})
+
 describe('host-managed provider spawn env (0200)', () => {
   const MANAGED = 'CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST'
 

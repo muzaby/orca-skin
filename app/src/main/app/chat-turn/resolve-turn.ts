@@ -6,8 +6,9 @@
 
 import type { WebContents } from 'electron'
 import type { ClassifiedError } from '../../../shared/ipc'
+import type { AgentKind } from '../../../shared/agent-kind'
 import { continuityLangFor, type ContinuityLang } from '../../../shared/continuity-lang'
-import type { RuntimeSessionAdapter } from '../../contracts/ports'
+import type { SessionAdapter } from '../../adapters/types'
 import { buildHandoffMessage } from '../../features/orchestration/handoff'
 import { recoverSessionHistory } from '../../features/chat/recovery'
 import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
@@ -17,6 +18,7 @@ import { expandEnvRecord, processEnvRecord } from '../../features/harnesses/env'
 import {
   prepareHarnessConfig,
   prepareUnresolvedHarnessConfig,
+  type AdapterSpawnEnvPatch,
   type PreparedHarnessConfig
 } from '../../adapters/harness-config'
 import {
@@ -33,6 +35,8 @@ import { resolveAgentKind } from '../../features/agents/profiles'
 import type { SendChatPayload } from './admission'
 import type { RouterContext } from '../context'
 import type { ContinuitySourceMeta } from './turn-context'
+
+type TurnPreparationAdapter = Pick<SessionAdapter, 'id' | 'agentSpawnEnv'>
 
 interface ResolvedTurn {
   continuitySource: string | undefined
@@ -55,7 +59,7 @@ interface ResolvedTurn {
 export async function resolveTurn(
   ctx: RouterContext,
   supervisor: RuntimeSupervisor<WebContents>,
-  adapter: RuntimeSessionAdapter,
+  adapter: TurnPreparationAdapter,
   payload: SendChatPayload
 ): Promise<{ ok: true; value: ResolvedTurn } | { ok: false; error: ClassifiedError }> {
   const continuitySource = payload.forkFrom ?? payload.handoffFrom
@@ -84,6 +88,7 @@ export async function resolveTurn(
 
   const resolved = await resolveTurnProvider(ctx, {
     adapter,
+    agentKind: identity.kind,
     sessionId: payload.sessionId,
     // fork/handoff 는 출발 세션의 마지막 provider 를 계승한다(명시 선택이 우선).
     providerKey: payload.providerKey ?? continuityMeta?.provider_key ?? null,
@@ -161,12 +166,14 @@ export interface ResolvedTurnProvider {
 export async function resolveTurnProvider(
   ctx: RouterContext,
   req: {
-    adapter: RuntimeSessionAdapter
+    adapter: TurnPreparationAdapter
+    agentKind: AgentKind
     sessionId: string | null
     providerKey: string | null
     modelFamily: string | null
   }
 ): Promise<ResolvedTurnProvider> {
+  const adapterEnvPatch = req.adapter.agentSpawnEnv(req.agentKind)
   const settings = toAgentEnvironments(ctx.harnessSettings.list(req.adapter.id), [req.adapter.id])
   const entries = (ctx.runtimeModelCatalog?.merge(settings, req.adapter.id) ?? settings).map(
     (entry) => ({
@@ -190,7 +197,9 @@ export async function resolveTurnProvider(
   }
   if (req.sessionId && !selected) selected = byKey(meta?.provider_key)
   if (!selected) selected = defaultProvider(entries)
-  if (!selected) return { providerKey: null, prepared: unresolvedPrepared(ctx) }
+  if (!selected) {
+    return { providerKey: null, prepared: unresolvedPrepared(ctx, adapterEnvPatch) }
+  }
 
   // ── 실행 구성 해석은 **턴당 1회** (0188 D-019) ────────────────────────────────
   // settings 해석과 동적 보강(있으면)을 한 번에 끝내고, 그 결과로 spawn 입력을 조립한다.
@@ -211,7 +220,8 @@ export async function resolveTurnProvider(
     config,
     appEnv: turnAppEnv(ctx),
     baseEnv: processEnvRecord,
-    customEnv: SPAWN_ENV_INJECTOR
+    customEnv: SPAWN_ENV_INJECTOR,
+    adapterEnvPatch
   })
 
   const modelFamily = req.modelFamily ?? defaultModelFamily(selected.models)
@@ -229,11 +239,15 @@ export async function resolveTurnProvider(
 
 // Harness+ModelProvider entry 를 **못 고른** 턴의 spawn 입력.
 // 조립 규칙은 `prepareUnresolvedHarnessConfig` 가 소유한다.
-function unresolvedPrepared(ctx: RouterContext): PreparedHarnessConfig {
+function unresolvedPrepared(
+  ctx: RouterContext,
+  adapterEnvPatch: AdapterSpawnEnvPatch
+): PreparedHarnessConfig {
   return prepareUnresolvedHarnessConfig({
     appEnv: turnAppEnv(ctx),
     baseEnv: processEnvRecord,
-    customEnv: SPAWN_ENV_INJECTOR
+    customEnv: SPAWN_ENV_INJECTOR,
+    adapterEnvPatch
   })
 }
 

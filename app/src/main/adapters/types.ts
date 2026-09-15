@@ -5,8 +5,9 @@ import type {
   ProviderDescriptor
 } from '../../shared/ipc'
 import type { ClaudePermissionMode } from '../../shared/permission-mode'
+import type { AgentKind } from '../../shared/agent-kind'
 import type { InterruptReceipt, TurnContinuation, TurnRequest } from './turn'
-import type { ResolvedHarnessSettings } from './harness-config'
+import type { AdapterSpawnEnvPatch, ResolvedHarnessSettings } from './harness-config'
 import type { BackgroundEvent, ProviderMessageEvent } from '../../shared/background-task'
 
 export type { Backend, NormalizedEvent }
@@ -69,6 +70,9 @@ export interface CompleteRequest {
 
 export interface SessionAdapter {
   readonly id: Backend
+  // Adapter-native subprocess policy selected by the session's immutable Code/Work kind.
+  // Reserved values are finalized after generic env layers; null explicitly removes a key.
+  agentSpawnEnv(agentKind: AgentKind): AdapterSpawnEnvPatch
   // 이 백엔드가 *지원하는* 능력 서술자 (capabilities/types.ts). UI 의 사전 게이팅·지표 소비자가
   // 읽는다. computed-on-the-fly — DB 영속 없이 매 backend:list 응답에 부착된다(§4/§15).
   describe(): ProviderDescriptor

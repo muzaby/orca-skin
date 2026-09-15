@@ -454,10 +454,12 @@ subprocess env가 아니라 runtime catalog에 전달된다.
   [`arch/backend/security.md`](../arch/backend/security.md)).
 - **미인증이면 실패시킨다** — 빈 문자열로 치환하지 않는다. 인증된 것처럼 보이는 요청이 나가면
   서버가 401 대신 이상한 오류를 준다.
-- 우선순위는 `spawn env injector > augmenter env > settings env > app env > process env` 다.
+- legacy 우선순위는 `spawn env injector > augmenter env > settings env > app env > process env` 다.
   **settings env 가 app env 를 이긴다** — `orcinus-orca.json` 의 app env 는 전역 폴백이고 ModelProvider
   settings 는 그 ModelProvider 전용 설정이다. 폴백이 전용을 이기면 게이트웨이를 바꿔도 URL·모델
-  변수가 따라오지 않는다. 최상위 injector 는 §3-d 다 — **그것이 여기 augmenter 값을 덮는다.**
+  변수가 따라오지 않는다. injector 는 §3-d 다 — **그것이 여기 augmenter 값을 덮는다.** 활성
+  adapter가 `AgentKind`별로 예약한 강제 patch는 이 legacy 순서보다 나중에 적용되므로, custom env로
+  그 예약값을 되돌릴 수 없다. 문자열은 최종 설정, null은 process를 포함한 하위 키 제거다.
 - `options.env` 를 만드는 턴에는 settings 의 **`env` 블록이 통째로** in-memory 사본에서 빠지고 그
   값이 `options.env` 로 hoist 된다 — 같은 키가 두 채널에 동시에 남지 않으므로 SDK 가 어느 채널을
   우선하든 결과가 하나다. 디스크 `settings.json` 은 그대로다.

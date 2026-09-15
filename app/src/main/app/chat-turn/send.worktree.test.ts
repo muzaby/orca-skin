@@ -160,6 +160,7 @@ function makeHarness(sessionId?: string) {
       registry: {
         getActive: () => ({
           id: 'adapter',
+          agentSpawnEnv: vi.fn(() => ({})),
           complete: vi.fn(),
           classifyError: vi.fn((error) => error)
         })

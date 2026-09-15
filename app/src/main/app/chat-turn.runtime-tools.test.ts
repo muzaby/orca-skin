@@ -185,6 +185,7 @@ function installHarness(options: {
   }
   const adapter = {
     id: 'claude',
+    agentSpawnEnv: vi.fn(() => ({})),
     complete: async () => '',
     sendMessage: vi.fn(),
     classifyError: vi.fn((error: unknown) => error)

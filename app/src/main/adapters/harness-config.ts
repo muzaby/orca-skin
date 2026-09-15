@@ -118,16 +118,17 @@ export interface HarnessRuntimeConfig {
 // 적용 우선순위는 다음으로 **고정**한다:
 //
 // ```text
-// 배포 spawn env injector (app/deployment/spawn-env.ts)
+// adapter agent-kind 강제 patch (string=set, null=delete)
+//   > 배포 spawn env injector (app/deployment/spawn-env.ts)
 //   > runtime config augmenter env
 //   > 선택된 Harness + ModelProvider settings 의 env
 //   > app env
 //   > 상속된 process env
 // ```
 //
-// injector 가 최상위인 것은 사용자 결정이다(0207 D-003) — 폐쇄망 배포가 사내 프록시·인증서를
-// **하네스에 전달되기 직전에** 얹는 자리라서 config API 응답까지 덮는다. 대상 좁히기는 조립부가
-// 아니라 injector 안에서 식별자로 한다(D-002).
+// injector 는 legacy 구성의 최상위다(0207 D-003) — 폐쇄망 배포가 사내 프록시·인증서를
+// **하네스에 전달되기 직전에** 얹는 자리라서 config API 응답까지 덮는다. 그 위의 adapter patch는
+// adapter가 예약한 종류별 키만 최종 강제한다(0235). 대상 좁히기는 각 owner가 수행한다.
 //
 // settings env 가 app env 를 이기는 것이 계약의 핵심이다 — `orca.json` 의 app env 는 **전역
 // 폴백**이고 ModelProvider settings 는 **그 ModelProvider 전용 설정**이다. 폴백이 전용을 이기면
@@ -169,6 +170,10 @@ export interface PreparedHarnessConfig {
   // 값을 나를 자리가 없었기 때문이다.
   envFingerprint: string
 }
+
+// Adapter-owned, agent-kind-specific subprocess policy. Strings force a final value; null
+// explicitly removes a key inherited from any lower env layer before the SDK boundary.
+export type AdapterSpawnEnvPatch = Readonly<Record<string, string | null>>
 
 // settings blob 에서 `env` 블록을 통째로 걷어낸 **사본**을 만든다.
 //
@@ -225,6 +230,7 @@ const HOST_MANAGED_PROVIDER_ENV = 'CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST'
 
 // injector 미등록 턴이 매 턴 빈 리터럴을 만들지 않도록 공유한다. 읽기 전용으로만 쓴다.
 const EMPTY_ENV: Readonly<Record<string, string>> = Object.freeze({})
+const EMPTY_ADAPTER_ENV_PATCH: AdapterSpawnEnvPatch = Object.freeze({})
 
 // ── 배포 spawn env 주입점 (0207) ─────────────────────────────────────────────
 //
@@ -291,6 +297,9 @@ export interface PrepareHarnessConfigInput {
   configResolved?: boolean
   // 배포 spawn env 주입점(0207). 미지정 = 주입 없음 — 기본 배포의 동작·성능은 지금과 같다.
   customEnv?: SpawnEnvInjector
+  // 활성 adapter가 AgentKind별로 소유하는 최종 강제 정책. 문자열은 설정, null은 명시 제거다.
+  // 기존 모든 env 레이어 뒤에 적용되며 생략/빈 객체는 기존 lazy 경로를 보존한다(0235).
+  adapterEnvPatch?: AdapterSpawnEnvPatch
 }
 
 export function prepareHarnessConfig(input: PrepareHarnessConfigInput): PreparedHarnessConfig {
@@ -306,8 +315,8 @@ export function prepareHarnessConfig(input: PrepareHarnessConfigInput): Prepared
   // `CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST` 는 settings 가 병합되는 시점보다 앞서 Claude Code
   // 프로세스 시작 환경에서 판정된다. 따라서 모든 레이어를 접은 **최종값**이 `1`이면 settings env
   // 도 실제 spawn env 로 올려야 한다. 판정 우선순위는 최종 env 조립과 같은
-  // custom > runtime > settings > app > process 다. 상위 레이어의 명시적 `0`을 `??`로 보존해야
-  // 하위 `1`이 모드를 되살리지 않는다.
+  // adapter patch > custom > runtime > settings > app > process 다. adapter의 null directive와
+  // 상위 레이어의 명시적 `0`을 보존해야 하위 `1`이 모드를 되살리지 않는다.
   //
   // process 레이어를 봐야 하는 settings-only 경로에서는 base snapshot 을 한 번만 만들고 아래
   // 조립에서 재사용한다. 서로 다른 process.env 순간을 판정과 실행에 쓰면 같은 턴 안에서도
@@ -326,24 +335,36 @@ export function prepareHarnessConfig(input: PrepareHarnessConfigInput): Prepared
     : EMPTY_ENV
   const hasCustomEnv = Object.keys(customEnv).length > 0
 
-  const explicitHostManaged =
+  const adapterEnvPatch = input.adapterEnvPatch ?? EMPTY_ADAPTER_ENV_PATCH
+  const hasAdapterEnvPatch = Object.keys(adapterEnvPatch).length > 0
+
+  const lowerExplicitHostManaged =
     customEnv[HOST_MANAGED_PROVIDER_ENV] ??
     runtimeEnv[HOST_MANAGED_PROVIDER_ENV] ??
     settingsEnv[HOST_MANAGED_PROVIDER_ENV] ??
     appEnv[HOST_MANAGED_PROVIDER_ENV]
+  const hasAdapterHostManagedDirective = Object.prototype.hasOwnProperty.call(
+    adapterEnvPatch,
+    HOST_MANAGED_PROVIDER_ENV
+  )
   const inheritedHostManaged =
-    explicitHostManaged === undefined && Object.keys(settingsEnv).length > 0
+    !hasAdapterHostManagedDirective &&
+    lowerExplicitHostManaged === undefined &&
+    Object.keys(settingsEnv).length > 0
       ? baseEnv()[HOST_MANAGED_PROVIDER_ENV]
       : undefined
-  const hostManaged = (explicitHostManaged ?? inheritedHostManaged) === '1'
+  const effectiveHostManaged = hasAdapterHostManagedDirective
+    ? adapterEnvPatch[HOST_MANAGED_PROVIDER_ENV]
+    : (lowerExplicitHostManaged ?? inheritedHostManaged)
+  const hostManaged = effectiveHostManaged === '1'
 
   // 동적 값이 없고 앱 env 도 없으면 **옵션 자체를 생략**한다 — SDK 기본 env(process.env 상속)
   // 동작과 settings 채널을 그대로 둔다. 단 host-managed 모드는 settings env 가 너무 늦게
   // 적용되므로 정적 배포여도 완전한 subprocess env 를 만든다(0200).
-  const buildsEnv = hasRuntimeEnv || hasAppEnv || hasCustomEnv || hostManaged
+  const buildsEnv = hasRuntimeEnv || hasAppEnv || hasCustomEnv || hasAdapterEnvPatch || hostManaged
   const adjusted = settings && buildsEnv ? withEnvBlockHoisted(settings) : settings
 
-  // 나중 spread 가 이기므로 순서가 곧 우선순위다.
+  // legacy 레이어는 나중 spread가 이긴다. adapter patch는 spread 뒤 set/delete로 최종화한다.
   const env: Record<string, string> | undefined = buildsEnv
     ? {
         ...baseEnv(),
@@ -353,6 +374,13 @@ export function prepareHarnessConfig(input: PrepareHarnessConfigInput): Prepared
         ...customEnv
       }
     : undefined
+
+  if (env) {
+    for (const [key, value] of Object.entries(adapterEnvPatch)) {
+      if (value === null) delete env[key]
+      else env[key] = value
+    }
+  }
 
   // **한 번만 계산한다.** 아래 두 필드가 이 값을 나눠 쓴다.
   const envFingerprint = harnessEnvFingerprint(env)
@@ -386,12 +414,14 @@ export function prepareUnresolvedHarnessConfig(input: {
   // **injector 는 이 경로에서도 불린다** (0207 D-007). 사내 프록시·인증서가 빠진 채 spawn 하면
   // 증상이 원인에서 멀어진다 — entry 를 못 골랐다는 사실은 `resolved:false` 로 알린다.
   customEnv?: SpawnEnvInjector
+  adapterEnvPatch?: AdapterSpawnEnvPatch
 }): PreparedHarnessConfig {
   return prepareHarnessConfig({
     config: { key: '', harnessId: '', modelProviderId: '', runtimeEnv: {} },
     ...ifPresent('appEnv', input.appEnv),
     baseEnv: input.baseEnv,
     ...ifPresent('customEnv', input.customEnv),
+    ...ifPresent('adapterEnvPatch', input.adapterEnvPatch),
     configResolved: false
   })
 }

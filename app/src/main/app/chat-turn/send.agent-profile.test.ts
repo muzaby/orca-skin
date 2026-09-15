@@ -12,6 +12,12 @@ const mocks = vi.hoisted(() => ({
   sendChatEvent: vi.fn(),
   acquire: vi.fn(),
   run: vi.fn(),
+  resolveTurnProvider: vi.fn<
+    (
+      ctx: unknown,
+      request: { agentKind?: AgentKind }
+    ) => Promise<{ providerKey: null; prepared: object; model: string }>
+  >(async () => ({ providerKey: null, prepared: {}, model: 'fixture' })),
   sourceKind: undefined as AgentKind | undefined
 }))
 vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: mocks.sendChatEvent }))
@@ -25,7 +31,7 @@ vi.mock('./admission', () => ({
   leaseKeyFor: () => ({ provisionalKey: 'new:fixture', logicalKey: 'fixture' })
 }))
 vi.mock('./resolve-turn', () => ({
-  resolveTurnProvider: vi.fn(async () => ({ providerKey: null, prepared: {}, model: 'fixture' })),
+  resolveTurnProvider: mocks.resolveTurnProvider,
   resolveTurn: vi.fn(async (_ctx, _supervisor, _adapter, payload) => ({
     ok: true,
     value: {
@@ -165,6 +171,7 @@ describe('Work profile production send wiring', () => {
         const runs = [harness(cwd), harness(cwd)]
         for (const [index, kind] of (['work', 'code'] as const).entries()) {
           const current = runs[index]
+          const continuationCallStart = mocks.resolveTurnProvider.mock.calls.length
           mocks.sourceKind = kind
           mocks.acquire.mockImplementation(async (input) => {
             const extensions = input.buildExtensions()
@@ -190,6 +197,12 @@ describe('Work profile production send wiring', () => {
             ...(['forkFrom', 'handoffFrom'].includes(arrival) ? { [arrival]: 'source' } : {})
           })
           expect(current.extensions).toHaveLength(3)
+          const continuationCalls =
+            mocks.resolveTurnProvider.mock.calls.slice(continuationCallStart)
+          expect(continuationCalls).toHaveLength(2)
+          for (const [, request] of continuationCalls) {
+            expect(request).toMatchObject({ agentKind: kind })
+          }
           for (const ext of current.extensions) {
             expect(ext.pluginRoots).toEqual(
               kind === 'work' ? [...current.roots, plugin] : current.roots

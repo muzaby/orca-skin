@@ -558,6 +558,7 @@ export async function handleChatSend(
               resolveProvider: ({ providerKey, modelFamily }) =>
                 resolveTurnProvider(ctx, {
                   adapter: activeAdapter,
+                  agentKind,
                   sessionId,
                   providerKey,
                   modelFamily
