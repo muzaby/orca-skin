@@ -7,11 +7,11 @@
 | slug | `0234-work-prompt-profile` |
 | 작성자 | Codex — 사용자의 신규 핸드오프 착수 요청에 따라 설계 수행 |
 | 일자 | 2026-09-14 |
-| 상태 | impl/IMPL_DONE (V1 r2) — 전체 테스트 red gate 보완, 독립 검증 대기 |
+| 상태 | verify/PASS (V1 r2) — 판정 원문은 [verify.md](verify.md) |
 | V mode / 기준 V | Baseline V / none |
 | 이번 revision / 유효 V | V1 / V1 |
 | 조사 기준 | `9de8dd3c` — 시작 시 작업 트리 clean, `git pull --ff-only` 결과 Already up to date |
-| 다음 주체 | Claude — handoff-verify |
+| 다음 주체 | — (종료) |
 
 # Part I — Product & UX Contract
 
@@ -577,4 +577,15 @@ r1 구현(2026-09-14~15). 사용자 후속 “핸드오프 impl”로 D-011의 �
 
 ## [검증자 기입] 파생 이슈
 
-아직 독립 검증하지 않았다.
+r2 = **PASS**. 판정·증거 원문은 [verify.md](verify.md)이며 여기서 재서술하지 않는다.
+BLOCKING 0 · PLAN_GAP 0 · REQUIRED pair 16/16 PASS · AC 9/9 · 강제 지점 14/14.
+
+| # | finding | disposition | 후속 |
+|---|---|---|---|
+| D1 | INDEX의 설계 좌표 `90ee11e9`가 실재하지 않음 (실제 `89297c8`) | NON_BLOCKING | 검증 커밋에서 교정 |
+| D2 | `agent-extension-profile.ts`의 `isAbsolute` 가드가 committed 스위트로 잠기지 않음 — 제거해도 46케이스 전건 green | NON_BLOCKING | 프로덕션 동작은 정상. 절대경로 전용 케이스 보강은 다음 작업 후보 |
+| D3 | packaged native smoke가 Windows 전용이라 Linux에서 AC8의 요청 본문 절을 재측정 불가 | NON_BLOCKING | Linux package 산출·asar 배제·resolver 통과로 대체 관측 |
+| D4 | 두 fixture가 `resolve()`로 process cwd에 의존 | NON_BLOCKING | app cwd 실행 전제 유지 |
+| D5 | `as never` partial mock이 필수 `RouterContext` 필드 누락을 typecheck에서 숨김 | NEXT_HANDOFF | 하네스 타입 정리는 별도 작업 |
+| D6 | base plugin root가 장차 forced style을 가지면 Work root가 우선순위를 잃음 | NEXT_HANDOFF | 현재 프로덕션 output-styles 참조는 Work 리소스 1건뿐 |
+| D7 | M6b를 검증자가 재실행하지 않음 | NON_BLOCKING | 양성 대조와 EP14 거절 경로가 같은 실패를 잡는다 |
