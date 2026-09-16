@@ -7,7 +7,7 @@
 | slug | 0231-background-task-conformance |
 | 작성자 | **Codex** — 사용자 명시 지시 |
 | 일자 | 2026-09-12 |
-| 상태 | impl/IMPL_DONE (r2) |
+| 상태 | verify/PASS (r2) |
 | V mode / 기준 V | Baseline V / none |
 | 이번 V revision / 유효 V | V1 / V1 |
 | 매핑 | [첨부 원문](source-spec.md) 전체 대조·보완 구현, [진단](diagnosis.md) |
@@ -573,6 +573,23 @@ r1 독립 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md).
 | D8 | §10 EP-07의 `HistoryWriter.recordProviderEvent`가 실제 이름 `persistProviderEvent`와 다름. 계약 의미는 일치 | 문서 | NON_BLOCKING | 다음 plan 갱신 때 이름 정정 |
 
 D1~D3이 root `PAIR_FAIL`이며 다음 주체는 구현자다. D7도 같은 라운드에서 닫기를 권한다.
+
+### r2 (2026-09-16)
+
+r2 독립 검증 = **PASS**. 판정 원문은 [`verify.md` §r2](verify.md).
+
+| # | 이슈 | 출처 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| D1·D2·D3 | r1 root `PAIR_FAIL` 3건 | AC19~AC22 / VP-R19~R22 | **CLOSED** | 인용 변이 M-23~M-26 + 검증자 신설 N-1~N-5 전건 red |
+| D7 | stale stop이 `unknown task` 분기로 통과 | AC8 / VP-R8 | **CLOSED** | 양쪽 세대에 같은 taskId를 실재시킨 6케이스 + M-12 red |
+| D4 | `backgroundPresentation.ts` 6 export 중 4가 소비처 0 | 0232 D-13·D-14 결과 | NON_BLOCKING | 기록. r1 대비 2 export가 배선됨 |
+| D5 | 전체 중단·출력 read의 renderer 호출 0 | 0232 D-07·D-14 결과 | NON_BLOCKING | 문서 반영 완료(`docs/arch/backend/background-tasks.md`). 코드 정리는 후속 |
+| D6 | `coerceStoppedToolCompletion` 항등 함수 잔여 | D-06 의도 | NON_BLOCKING | 기록 |
+| D8 | §10 EP-07의 `recordProviderEvent` ↔ 구현 `persistProviderEvent` | 문서 | NON_BLOCKING | 설계 — 다음 plan 갱신 |
+| D9 | INDEX·r1 verify의 커밋 좌표가 저장소에 없다(보드 전 행) | 메시지 버스 | NON_BLOCKING | 0231 행만 실제 좌표로 교정. 원인은 상류 rebase |
+| D10 | `loopback-callback.test.ts` timeout 케이스가 병렬 17회 중 2회 red, 단독은 green | 비귀속 | NEXT_HANDOFF | 실타이머 의존 — fake timer 전환 후보 |
+
+남은 사람 몫은 조건부 SDK 기능 4종의 **배포 실기**이며 archive 이동은 그 뒤다.
 
 ## 설계 정정 — 실제 SDK 출력 경로 (Codex, 2026-09-12)
 
