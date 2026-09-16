@@ -20,6 +20,7 @@ import type { ProviderInfo, ProviderKind, ProviderPlatformState } from '../../sh
 import type { AuthRuntime, BoundAuth } from '../contracts/auth'
 import type { Gate } from '../features/gate'
 import type { HarnessModelProviderKey } from '../features/harnesses/runtime-config'
+import type { PluginCatalogPresentation } from '../../shared/plugin-catalog'
 
 // 이 모듈은 **읽기만** 한다 — 선언 설명과 현재 단계. `AuthRuntime` 전체를 받으면 view 조립이
 // 인증을 시작하거나 해제할 수 있게 된다(0190).
@@ -40,6 +41,7 @@ export type ConnectionViewSource =
       // 현재 화면은 연결이 끊겨도 도구 이름을 보여 주고 `status` 로 비활성을 안내한다.
       // active registry 목록으로 이 값을 만들면 그 UX 가 깨진다(0188 D-024).
       toolNames(): readonly string[]
+      catalog: PluginCatalogPresentation
     }
   | { category: 'usage'; auth: BoundAuth }
 
@@ -73,7 +75,8 @@ export function connectionInfo(auth: AuthDescriber, source: ConnectionViewSource
     activeAuthKind: snapshot.activeMethod ?? null,
     principal: snapshot.principalId ?? null,
     expiresAt: snapshot.expiresAt ?? null,
-    tools: toolsOf(source)
+    tools: toolsOf(source),
+    ...(source.category === 'plugin' ? { catalog: source.catalog } : {})
   }
 }
 

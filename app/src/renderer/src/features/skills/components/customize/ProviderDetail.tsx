@@ -11,6 +11,7 @@ import {
   needsAuthChoice
 } from '../../../../shared/config/providerAuth'
 import { canManageAuth, providerRowMeta } from '../../lib/providerRows'
+import { pluginPresentation } from '../../lib/pluginPresentation'
 
 const TONE = { valid: 'green', expired: 'amber', unknown: 'amber', none: 'slate' } as const
 
@@ -34,6 +35,7 @@ export function ProviderDetail({
 }): React.JSX.Element {
   const { tr, locale } = useI18n()
   const meta = providerRowMeta(provider)
+  const presentation = pluginPresentation(provider, locale)
   const choices = authChoices(provider)
   const [authKind, setAuthKind] = useState<ProviderAuthKind | null>(() => initialAuthKind(provider))
   const [values, setValues] = useState<Record<string, string>>({})
@@ -48,10 +50,10 @@ export function ProviderDetail({
     <div className="min-w-0 py-6">
       <div className="flex flex-wrap items-center gap-g6">
         <span className="grid h-9 w-9 flex-none place-items-center rounded-r4 bg-bg2 text-ink2">
-          <Icon name="power" size={18} />
+          <Icon name={presentation.icon} size={18} />
         </span>
         <div className="min-w-0">
-          <h2 className="m-0 break-words text-heading text-ink">{provider.label}</h2>
+          <h2 className="m-0 break-words text-heading text-ink">{presentation.title}</h2>
           <div className="mt-g1 flex flex-wrap items-center gap-g3 text-footnote text-ink3">
             <span>{tr(meta.kindKey)}</span>
             <span>·</span>
@@ -82,6 +84,27 @@ export function ProviderDetail({
           )}
         </div>
       </div>
+
+      {presentation.body && (
+        <p className="mt-p7 mb-0 text-footnote text-ink2">{presentation.body}</p>
+      )}
+
+      {presentation.attribution && (
+        <dl className="mt-p7 grid grid-cols-[auto_minmax(0,1fr)] gap-x-g6 gap-y-g3 text-footnote">
+          <dt className="text-ink3">{tr('skills.provider.source')}</dt>
+          <dd className="m-0 truncate text-ink2">{presentation.attribution.source}</dd>
+          <dt className="text-ink3">{tr('skills.provider.version')}</dt>
+          <dd className="m-0 truncate text-ink2">{presentation.attribution.version}</dd>
+          <dt className="text-ink3">GitHub</dt>
+          <dd className="m-0 truncate font-mono text-ink2">{presentation.attribution.githubUrl}</dd>
+          {presentation.attribution.license && (
+            <>
+              <dt className="text-ink3">{tr('skills.provider.license')}</dt>
+              <dd className="m-0 truncate text-ink2">{presentation.attribution.license}</dd>
+            </>
+          )}
+        </dl>
+      )}
 
       <dl className="mt-p8 grid grid-cols-[auto_minmax(0,1fr)] gap-x-g6 gap-y-g3 text-footnote">
         {/* id 는 vault 네임스페이스이자 도구 서버 이름(`<id>-tools`)의 뿌리다 — 선언과 어긋난

@@ -153,6 +153,32 @@ describe('Plugin 도구 호출이 자기 Auth 로 나간다 (unknown_provider �
 })
 
 describe('createPluginBinding — 카탈로그 도구 이름 (AC21)', () => {
+  it('catalog 미설정은 기본 icon으로 정규화하고 명시 presentation은 보존한다', () => {
+    const registry = new RuntimeToolRegistry()
+    const legacy = createPluginBinding({
+      auth: auth('legacy', () => 'none'),
+      server: server('legacy'),
+      registry
+    })
+    const localized = createPluginBinding({
+      auth: auth('jira', () => 'none'),
+      server: server('jira'),
+      registry,
+      catalog: {
+        icon: 'language',
+        title: { ko: '지라', en: 'Jira' },
+        body: { ko: '이슈', en: 'Issues' }
+      }
+    })
+
+    expect(legacy.catalog).toEqual({ icon: 'electrical_services' })
+    expect(localized.catalog).toEqual({
+      icon: 'language',
+      title: { ko: '지라', en: 'Jira' },
+      body: { ko: '이슈', en: 'Issues' }
+    })
+  })
+
   it('Auth 가 invalid 여도 완전 도구 이름을 계속 돌려준다', () => {
     let status: AuthStatus = 'valid'
     const registry = new RuntimeToolRegistry()

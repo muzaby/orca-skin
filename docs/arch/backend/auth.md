@@ -617,12 +617,18 @@ snapshot을 읽는다.
 Plugin 은 GUI 카탈로그에 표시되는 제품 기능 단위다. Plugin 모듈은 `BoundAuth.request` 와 자기
 옵션만 받고, **raw credential 을 보지 않는다.**
 
+- 배포의 선택적 `catalog` 설정은 binding 생성 시 정규화한다. icon을 생략하거나 설정 자체가 없으면
+  `electrical_services`, title이 없으면 Auth label, body가 없으면 본문 없음이 된다. locale text와
+  source·version·GitHub·license attribution은 plugin 행에만 wire로 전달한다.
 - Runtime Tool 서버는 부팅에서 **한 번만** 만들고 이후 sync 는 add/remove 만 한다.
   `RuntimeToolRegistry` 의 동등성 검사가 handler identity 까지 보기 때문이다 — 매번 새로 만들면
   형상이 같아도 revision 이 올라 다음 턴이 런타임을 재spawn 한다.
 - sync 는 **`credentialChanged:true` 인 자기 Auth 의 change 에서만** 일어난다.
 - GUI `tools` 는 **cached descriptor** 에서 나온다. Auth 가 invalid 여도 목록을 비우지 않고 `status`
   로 비활성을 안내한다 — active registry 로 목록을 만들면 미인증 상태에서 도구가 통째로 사라진다.
+- Jira Data Center 내장 도구는 `features/plugins/jira/`가 REST mapping·결과 envelope·첨부 staging을
+  소유한다. 모든 요청은 주입받은 `BoundAuth.request`로만 보내며 배포가 `origin`과 `apiBasePath`를
+  분리한다. 기본 OSS 배포의 Auth/Plugin 배열은 계속 비어 있고, 폐쇄망 배포가 typed recipe로 opt-in한다.
 
 ### 7.1 Plugin 과 HarnessPlugin 은 다른 것이다
 
@@ -666,6 +672,8 @@ renderer 는 여전히 한 DTO 에서 `gate | llm | service` 분류·인증 상�
   써도 `BoundAuth` 만 재사용하고 GUI row 를 복제하지 않는다.
 - label·origin·인증 방식 입력 필드는 `auth.describe()` 에서, 상태는 `auth.snapshot()` 에서 읽는다 —
   view source 에 다시 적지 않는다.
+- `catalog`는 plugin category에서만 `ProviderInfo`로 투영한다. gate·harness·usage 행은 이 필드가 없고
+  기존 Auth label과 power icon 표시를 유지한다.
 - **renderer 에 새 kind 를 추가하지 않는다.** 신규 도메인 코드 안쪽에서는 `ProviderKind` 를 쓰지
   않는다 — 이 표가 유일한 접점이다.
 - 연결 버튼은 `login`/`reauth`/`revoke` 만 부른다. Plugin fetch·Usage refresh·Harness config resolve 를

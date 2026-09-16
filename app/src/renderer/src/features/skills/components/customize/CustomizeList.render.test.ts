@@ -86,6 +86,22 @@ describe('plugin catalog list', () => {
     expect(providers).toContain('>연결됨<')
   })
 
+  it('plugin catalog title을 locale에 맞게 목록에 표시한다', () => {
+    const jira = {
+      ...provider('jira-auth', 'service'),
+      catalog: {
+        icon: 'electrical_services' as const,
+        title: { ko: '지라 데이터 센터', en: 'Jira Data Center' },
+        body: { ko: '이슈 도구', en: 'Issue tools' }
+      }
+    }
+    const markup = render({ tab: 'providers', providers: [jira] })
+
+    expect(markup).toContain('지라 데이터 센터')
+    expect(markup).not.toContain('>jira-auth<')
+    expect(markup).toContain('M720-360v-80h80')
+  })
+
   it.each<CatalogTab>(['skills', 'mcp', 'providers'])(
     '%s exposes an empty state without a table',
     (tab) => {

@@ -151,6 +151,13 @@ main 프로세스의 모든 원격 요청은 **Chromium 네트워크 스택**으
 
 > 이 규칙은 보안 경계이자 *동작* 경계다. 위반해도 로컬·개방망에서는 통과하고 **사내망에서만 실패**하므로, 리뷰가 아니라 테스트로 잡는다.
 
+Jira Data Center Plugin도 이 경계를 우회하지 않는다. 도구는 `BoundAuth.request`에 origin 상대 REST
+path만 넘기고 `Authorization`·cookie를 직접 만들지 않는다. 첨부의 metadata URL도 설정 origin과
+정확히 같은 origin만 허용한다. JSON 요청·응답, 첨부 파일, 호출당 파일 수, inline data, 최종 tool
+output에 각각 상한을 적용한다. 저장 요청은 경로 segment와 파일명을 정규화하고 symlink/junction을
+거부한 숨은 stage에 쓴 다음, 전 파일과 최종 output preflight가 성공한 경우에만 batch를 원자적으로
+공개한다. 오류 메시지의 인증 헤더와 쿠키 값은 반환 전에 마스킹한다.
+
 ### 1.9 전송·세션 인프라 인벤토리
 
 0180 이 인증 인프라 6모듈을 삭제하면서, **인증이 아니었던** 원격 전송 스택 3모듈을

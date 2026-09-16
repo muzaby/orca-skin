@@ -6,6 +6,7 @@ import type { CatalogTab } from '../../lib/catalogSelection'
 import { mcpRowMeta, skillRowMeta } from '../../lib/catalogRows'
 import { providerRowMeta } from '../../lib/providerRows'
 import { orderMcpServers, orderProviders, orderSkills } from '../../lib/catalogOrder'
+import { pluginPresentation } from '../../lib/pluginPresentation'
 
 export function CustomizeList({
   tab,
@@ -108,6 +109,7 @@ export function CustomizeList({
       {tab === 'providers' &&
         orderProviders(providers).map((provider) => {
           const meta = providerRowMeta(provider)
+          const presentation = pluginPresentation(provider, locale)
           const detail = `${tr(meta.kindKey)} · ${meta.activeLabel ?? tr('common.unknown')}`
           return (
             <CatalogListRow
@@ -115,10 +117,10 @@ export function CustomizeList({
               data-extensions-row={provider.id}
               selected={selectedId === provider.id}
               openProps={{ onClick: (event) => onSelect(provider.id, event.currentTarget) }}
-              icon={<Icon name="power" size={20} className="shrink-0 text-ink3" />}
+              icon={<Icon name={presentation.icon} size={20} className="shrink-0 text-ink3" />}
               title={
-                <span className="truncate" title={provider.label}>
-                  {provider.label}
+                <span className="truncate" title={presentation.title}>
+                  {presentation.title}
                 </span>
               }
               detail={
