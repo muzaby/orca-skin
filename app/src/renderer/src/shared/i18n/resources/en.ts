@@ -185,7 +185,7 @@ export const en: typeof ko = {
   },
   skills: {
     pageTitle: 'Plugins',
-    rail: { skills: 'Skills', mcp: 'MCP', providers: 'Connections' },
+    rail: { skills: 'Skills', mcp: 'MCP', providers: 'Plugins' },
     list: {
       addAria: 'Add'
     },
@@ -235,7 +235,10 @@ export const en: typeof ko = {
       origin: 'Address',
       id: 'Identifier',
       tools: 'Exposed tools',
-      toolsInactive: 'Exposed to the model once connected.'
+      toolsInactive: 'Exposed to the model once connected.',
+      source: 'Source',
+      version: 'Version',
+      license: 'License'
     },
     view: { selectItem: 'Select an item.', backAria: 'Back to {{section}} list' },
     detail: {

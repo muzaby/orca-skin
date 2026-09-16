@@ -760,6 +760,63 @@ export function createPluginBindings(deps: {
 > ⚠️ **GUI 도구 목록은 Auth 가 invalid 여도 비지 않는다.** cached descriptor 에서 이름을 만들고
 > `status` 로 비활성을 안내한다 — active registry 로 목록을 만들면 미인증에서 도구가 사라진다.
 
+### Jira Data Center 내장 도구
+
+Jira도 같은 lifecycle로 조립한다. `origin`은 scheme+host(+port)만 두고, Jira가 context path 아래에
+배포됐다면 그 경로를 `apiBasePath`에 합친다. 기본값은 `/rest`다. 아래 코드는 폐쇄망 배포가 채우는
+typed recipe이며 기본 OSS 배포의 Auth/Plugin 배열은 계속 비어 있다.
+
+```ts
+// app/deployment/auth-definitions.ts
+export const JIRA_AUTH = {
+  id: 'jira-dc',
+  label: 'Jira Data Center',
+  origin: 'https://jira.example.corp', // /jira 같은 context path를 넣지 않는다
+  probe: { path: '/rest/api/2/myself' },
+  methods: [
+    patSpec({
+      label: '개인 액세스 토큰(PAT)',
+      fieldLabel: '개인 액세스 토큰',
+      present: { location: 'header', name: 'Authorization', scheme: 'bearer' }
+    })
+  ]
+} satisfies AuthDefinition
+```
+
+```ts
+// app/deployment/plugins.ts
+const jiraAuth = deps.auth.bind(JIRA_AUTH.id)
+const server = jiraTools(
+  {
+    authId: jiraAuth.authId,
+    label: JIRA_AUTH.label,
+    origin: JIRA_AUTH.origin,
+    request: (request, signal) => jiraAuth.request(request, signal)
+  },
+  { apiBasePath: '/rest' } // context path가 있으면 예: '/jira/rest'
+)
+
+return createPluginBinding({
+  auth: jiraAuth,
+  server,
+  registry: deps.registry,
+  catalog: JIRA_CATALOG_PRESENTATION_INPUT
+})
+```
+
+- 도구 inventory 정본은 `features/plugins/jira/tools.ts`의 `JIRA_TOOL_NAMES`다. 변경 도구는 기존
+  approval 정책을 따르고 조회 도구만 자동 실행된다.
+- `jira_downloadAttachment`의 `save:true` 결과는 공통 Temp root의
+  `jira/<auth>/<selector>/<batch>/`에 저장된다. Windows 기본 경로는
+  `%LOCALAPPDATA%\Temp\orcinus-orca\jira\...`이며, 전 파일과 최종 tool output 검증이 끝나야 batch가
+  한 번에 보인다. 실패한 호출은 부분 결과를 공개하지 않는다.
+- upload 도구는 의도적으로 제공하지 않는다. 현재 `BoundAuth.request`의 문자열 body 계약에는
+  multipart streaming과 input-root 정책이 없으므로, 이를 우회해 별도 전송 스택을 만들지 않는다.
+- catalog attribution은 community package `@atlassian-dc-mcp/jira` 0.34.0(MIT)을 분석한 출처와
+  [고정 GitHub revision](https://github.com/b1ff/atlassian-dc-mcp/tree/ab2b534bafefa4666feca463e79824dadb797ff3/packages/jira)을 표시한다. Atlassian 공식 제품이나 공식
+  통합으로 오인하지 않는다. 제품 코드는 이 package를 dependency로 설치하거나 import하지 않고
+  현재 Runtime Tool·BoundAuth 계약으로 이식한 구현만 사용한다.
+
 ### `BoundAuth.request` 가 강제하는 것 (어기면 요청 자체가 나가지 않는다)
 
 - **절대 URL·프로토콜 상대 경로 금지** — `path` 는 origin 기준 상대 경로다.

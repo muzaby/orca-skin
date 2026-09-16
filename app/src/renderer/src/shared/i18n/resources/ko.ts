@@ -184,7 +184,7 @@ export const ko = {
   },
   skills: {
     pageTitle: '플러그인',
-    rail: { skills: '스킬', mcp: 'MCP', providers: '연결' },
+    rail: { skills: '스킬', mcp: 'MCP', providers: '플러그인' },
     list: {
       addAria: '추가'
     },
@@ -237,7 +237,10 @@ export const ko = {
       // 선언과 어긋난 호출이 나도 사용자가 대조할 근거가 없다.
       id: '식별자',
       tools: '노출 도구',
-      toolsInactive: '연결되면 모델에게 노출됩니다.'
+      toolsInactive: '연결되면 모델에게 노출됩니다.',
+      source: '출처',
+      version: '버전',
+      license: '라이선스'
     },
     view: { selectItem: '항목을 선택하세요.', backAria: '{{section}} 목록으로 돌아가기' },
     // 부팅 등록 거부 (0164 r2). 등록은 패키지 단위 all-or-nothing 이라 주소 하나가 잘못되면

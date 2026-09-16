@@ -46,6 +46,7 @@ export function pluginRows(plugins: readonly PluginBinding[]): ConnectionViewSou
   return plugins.map((plugin) => ({
     category: 'plugin',
     auth: plugin.auth,
-    toolNames: () => plugin.toolNames()
+    toolNames: () => plugin.toolNames(),
+    catalog: plugin.catalog
   }))
 }

@@ -5,7 +5,13 @@ import { useI18n } from '../../../../shared/i18n'
 import { useCustomizeSkills } from '../../hooks/useCustomizeSkills'
 import { useMcpServers } from '../../hooks/useMcpServers'
 import { useProviders } from '../../hooks/useProviders'
-import { back, openDetail, selectTab, type CatalogSelection } from '../../lib/catalogSelection'
+import {
+  back,
+  INITIAL_CATALOG_SELECTION,
+  openDetail,
+  selectTab,
+  type CatalogSelection
+} from '../../lib/catalogSelection'
 import { ExtensionDetailPane } from './ExtensionDetailPane'
 import { CustomizeTabs } from './CustomizeTabs'
 import { CustomizeList } from './CustomizeList'
@@ -24,7 +30,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
   const { tr } = useI18n()
   const navigate = useNavigate()
   const id = useId()
-  const [selection, setSelection] = useState<CatalogSelection>({ tab: 'skills', selectedId: null })
+  const [selection, setSelection] = useState<CatalogSelection>(INITIAL_CATALOG_SELECTION)
   const [panelWidth, setPanelWidth] = useState(640)
   const [expanded, setExpanded] = useState(false)
   const originRef = useRef<HTMLButtonElement | null>(null)

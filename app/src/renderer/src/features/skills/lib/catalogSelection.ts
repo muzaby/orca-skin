@@ -11,10 +11,15 @@ export interface CatalogSelection {
 }
 
 export const CATALOG_TABS = [
+  { tab: 'providers', icon: 'power', labelKey: 'skills.rail.providers' },
   { tab: 'skills', icon: 'doc', labelKey: 'skills.rail.skills' },
-  { tab: 'mcp', icon: 'link', labelKey: 'skills.rail.mcp' },
-  { tab: 'providers', icon: 'power', labelKey: 'skills.rail.providers' }
+  { tab: 'mcp', icon: 'link', labelKey: 'skills.rail.mcp' }
 ] as const satisfies readonly { tab: CatalogTab; icon: IconName; labelKey: MessageKey }[]
+
+export const INITIAL_CATALOG_SELECTION: CatalogSelection = {
+  tab: 'providers',
+  selectedId: null
+}
 
 export const selectTab = (_state: CatalogSelection, tab: CatalogTab): CatalogSelection => ({
   tab,

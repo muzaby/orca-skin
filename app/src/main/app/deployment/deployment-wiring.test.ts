@@ -66,11 +66,13 @@ import {
   type UsageDeploymentDeps
 } from './usage-fetcher'
 import type { RuntimeConfigAugmenters } from '../../features/harnesses/runtime-config'
+import { jiraTools } from '../../features/plugins/jira/tools'
+import { JIRA_CATALOG_PRESENTATION_INPUT } from '../../features/plugins/jira/source'
 
 const BEARER = { location: 'header', name: 'Authorization', scheme: 'bearer' } as const
 const CLAUDE_CORP_KEY = 'claude-corp'
 
-// ── 가상 배포 선언 4종 (auth-definitions.ts 를 채운 모습) ──────────────────────
+// ── 가상 배포 선언 (auth-definitions.ts 를 채운 모습) ─────────────────────────
 const CORP_SSO_AUTH = {
   id: 'corp-sso',
   label: '사내 로그인',
@@ -95,6 +97,15 @@ const CONFLUENCE_AUTH = {
   methods: [patSpec({ label: 'PAT', fieldLabel: 'PAT', present: BEARER })]
 } satisfies AuthDefinition
 
+// 가이드 §4-b Jira recipe. 실제 배포는 origin/context path만 자기 환경 값으로 바꾼다.
+const JIRA_AUTH = {
+  id: 'jira-dc',
+  label: 'Jira Data Center',
+  origin: 'https://jira.example.corp',
+  probe: { path: '/rest/api/2/myself' },
+  methods: [patSpec({ label: 'PAT', fieldLabel: 'PAT', present: BEARER })]
+} satisfies AuthDefinition
+
 const CORP_USAGE_AUTH = {
   id: 'corp-usage',
   label: '사내 사용량',
@@ -107,6 +118,7 @@ const AUTH_DEFINITIONS: readonly AuthDefinition[] = [
   CORP_SSO_AUTH,
   CORP_LLM_AUTH,
   CONFLUENCE_AUTH,
+  JIRA_AUTH,
   CORP_USAGE_AUTH
 ]
 const GATE_AUTH_DEFINITIONS: readonly GateAuthDefinition[] = [CORP_SSO_AUTH]
@@ -120,7 +132,7 @@ function fakeSecretStore(): SecretStorePort {
   }
 }
 
-// Bootstrap 이 만드는 것과 같은 스택. 네 Auth 모두 인증된 상태로 seed 한다.
+// Bootstrap 이 만드는 것과 같은 스택. 선언한 Auth를 모두 인증된 상태로 seed 한다.
 function deployment(): {
   auth: AuthRuntime
   secretFor: (authId: AuthId) => () => string | null
@@ -189,6 +201,25 @@ const createPluginBindings = (deps: PluginDeploymentDeps): PluginBinding[] => {
   ]
 }
 
+const createJiraPluginBinding = (deps: PluginDeploymentDeps): PluginBinding => {
+  const jiraAuth = deps.auth.bind(JIRA_AUTH.id)
+  const server = jiraTools(
+    {
+      authId: jiraAuth.authId,
+      label: JIRA_AUTH.label,
+      origin: JIRA_AUTH.origin,
+      request: (request, signal) => jiraAuth.request(request, signal)
+    },
+    { apiBasePath: '/rest' }
+  )
+  return createPluginBinding({
+    auth: jiraAuth,
+    server,
+    registry: deps.registry,
+    catalog: JIRA_CATALOG_PRESENTATION_INPUT
+  })
+}
+
 describe('가상 배포 — Plugin 경계', () => {
   it('주입 인자만으로 조립되고 도구가 registry 에 등록된다', () => {
     const { auth, registry } = deployment()
@@ -198,6 +229,27 @@ describe('가상 배포 — Plugin 경계', () => {
 
     expect(registry.snapshot().servers.size).toBe(1)
     expect(plugins[0]?.toolNames()).toEqual(['mcp__confluence-tools__confluence_search'])
+  })
+
+  it('Jira PAT recipe는 probe, catalog, 14 tools와 BoundAuth request를 끝까지 잇는다', async () => {
+    const { auth, registry, requests } = deployment()
+    const binding = createJiraPluginBinding({ auth, registry })
+    binding.sync()
+
+    expect(JIRA_AUTH.probe.path).toBe('/rest/api/2/myself')
+    expect(binding.catalog).toMatchObject({
+      icon: 'electrical_services',
+      attribution: { source: '@atlassian-dc-mcp/jira', version: '0.34.0' }
+    })
+    expect(binding.server.descriptor.tools).toHaveLength(14)
+    expect(registry.snapshot().servers.get('jira-dc-tools')?.implementations[0]?.handler).toBe(
+      binding.server.implementations[0]?.handler
+    )
+
+    const search = binding.server.implementations.find((tool) => tool.name === 'jira_searchIssues')!
+    const result = await search.handler({ jql: 'project = QA' })
+    expect(result.structuredContent).toMatchObject({ ok: true, tool: 'jira_searchIssues' })
+    expect(requests.some((url) => url.includes('/rest/api/2/search'))).toBe(true)
   })
 
   it('해제하면 도구가 회수되고 카탈로그 이름은 남는다', () => {

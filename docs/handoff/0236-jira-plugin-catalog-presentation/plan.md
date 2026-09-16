@@ -758,79 +758,161 @@ npx vitest run src/main/features/plugins/jira src/main/app/deployment/plugins.te
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: Plugin 표시 계약을 binding에서 정규화하고 기존 provider IPC에 additive field로
+  전달하는 경계, Jira를 신규 dependency 없이 repository-owned Runtime Tool로 이식하는 경계, 첨부
+  stage→bounded result→atomic commit 순서, 기본 OSS 배포 0개를 그대로 구현했다.
+- 이견 / 현실성 문제: 제품 전체 소스 가드는 `.publish()` 호출을 artifact model tool 하나에만 허용한다.
+  Jira batch의 개념적 publish는 유지하되 내부 메서드 이름을 `commit()`으로 좁혀 기존 경계를 보존했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 실제 Jira 자격증명과 사람 UI 세션이 없어 AC15만 구현
+  턴에서 관측하지 못했다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | … | EP-… (N) | N/N | … | — |
+| VP-01 | catalog E2E 전달 | EP-01…06 (6) | **6/6** | `plugins.test`·`connection-views.test`·list/detail render | — |
+| VP-02 | 기본/선택 icon | EP-02/05/06/07 (4) | **4/4** | `plugin-catalog.test`·`CustomizeList.render.test`·`ProviderDetail.render.test` | — |
+| VP-03 | locale 보존/fallback | EP-04/05/06/08 (4) | **4/4** | `pluginPresentation.test` exact/base/ko/en 표 | — |
+| VP-04 | Jira attribution | EP-06/11/12 (3) | **3/3** | `source.test`·`ProviderDetail.render.test` | — |
+| VP-05 | 탭 순서/초기값 | EP-09/10 (2) | **2/2** | `catalogSelection.test` | — |
+| VP-06 | 기존 네 category | EP-03/04/05/06 (4) | **4/4** | `connection-views.test` + 전체 renderer 회귀 | — |
+| VP-07 | Jira inventory | EP-11/13/22 (3) | **3/3** | `tools.test` exact name/set/implementation | — |
+| VP-08 | schema/REST 의미 | EP-14/15/16/17/21 (5) | **5/5** | `tools.test` field inventory/XOR + `rest.test` route table | — |
+| VP-09 | 결과 envelope | EP-18 (1) | **1/1** | `result.test` text/structured/isError | — |
+| VP-10 | PAT/probe/base path | EP-16/17 (2) | **2/2** | `deployment-wiring.test`·`rest.test` | — |
+| VP-11 | bounds/redaction | EP-14/15/18/20/21 (5) | **5/5** | `result.test`·`service.test`·`tools.test` | — |
+| VP-12 | 안전한 첨부 commit | EP-18/19/20/21 (4) | **4/4** | `attachment-store.test`·`service.test`·`rest.test` | — |
+| VP-13 | approval 정책 | EP-13/22 (2) | **2/2** | `tools.test` 6 read-only/8 approval exact set | — |
+| VP-14 | auth sync/default 0 | EP-16/22/23 (3) | **3/3** | `plugins.test`·`deployment-wiring.test` | — |
+| VP-15 | 실제 Jira/UI | EP-04/05/06/09/10/12/13/16/17/18/20/22 (12) | **11/12 코드 경계** | 기계 경계 green, 실제 Jira/UI 실기 미수행 | AC15 |
+| VP-16 | 표시 system 경로 | EP-01…10 (10) | **10/10** | binding/wire/pure/render 조합 + 전체 suite | — |
+| VP-17 | Jira lifecycle 경로 | EP-13…22 (10) | **10/10** | wiring/service/result/store/approval/sync 조합 | — |
+| VP-18 | presentation 통합 | EP-01…06 (6) | **6/6** | producer/bridge/DTO/consumer fixture | — |
+| VP-19 | Jira 호출 통합 | EP-13…18 (6) | **6/6** | fake `BoundAuth.request` + handler envelope | — |
+| VP-20 | 첨부 통합 | EP-18…21 (4) | **4/4** | 중간 실패/output cap/commit 전 비가시성 | — |
+| VP-21 | 기존 목록/sync 회귀 | EP-03/04/22 (3) | **3/3** | 기존 app/renderer suite + 전체 Vitest | — |
+| VP-22 | locale/icon 단위 | EP-07/08 (2) | **2/2** | pure resolver + SVG path render | — |
+| VP-23 | schema/route 단위 | EP-13…17 (5) | **5/5** | exact fields + route/body/query 표 | — |
+| VP-24 | result 단위 | EP-18 (1) | **1/1** | success/error/size/redaction 표 | — |
+| VP-25 | file safety 단위 | EP-19…21 (3) | **3/3** | traversal/junction/collision/stale/atomic fixture | — |
+| VP-26 | native dependency 경계 | EP-24 (1) | **1/1** | `native-boundary.test` + manifest/lock diff/import sweep + build | — |
 
-- §10에 없는데 같은 불변식이 필요했던 지점: 없음 / …
+- §10에 없는데 같은 불변식이 필요했던 지점: 제품 전체의 artifact `.publish()` 유일성 가드 1곳.
+  Jira batch API를 `commit()`으로 바꿔 `bootstrap.artifacts.test.ts`의 기존 단일 진입점 계약을 닫았다.
+- 고유 강제 지점 합계: **24/24**. VP-15의 외부 실기만 구현자 관측에서 남았고, 해당 코드 강제
+  지점은 모두 닫혔다.
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED / REGRESSION | SELF_PASS / SELF_BLOCKED | … | … |
+| VP-01 | REQUIRED | `SELF_PASS` | catalog 값이 binding→DTO→두 UI에 동일 | M1 red 1 |
+| VP-02 | REQUIRED | `SELF_PASS` | 기본 SVG와 custom map | M2 red 2 |
+| VP-03 | REQUIRED | `SELF_PASS` | exact→base→ko→en 표 | M3 red 1 |
+| VP-04 | REQUIRED | `SELF_PASS` | source/version/pinned URL/license | M4 red 2 |
+| VP-05 | REQUIRED | `SELF_PASS` | order와 initial 독립 단언 | M5 red 1 |
+| VP-06 | REGRESSION | `SELF_PASS` | 네 category DTO/전체 suite | 직접 회귀 oracle |
+| VP-07 | REQUIRED | `SELF_PASS` | name/descriptor/implementation exact set | M6 red 3 |
+| VP-08 | REQUIRED | `SELF_PASS` | field inventory·14 route·XOR/cap | M7 red 1 |
+| VP-09 | REQUIRED | `SELF_PASS` | JSON parity·204 null·isError | M8 red 6 |
+| VP-10 | REQUIRED | `SELF_PASS` | typed PAT recipe·probe·base path | M9 red 14 |
+| VP-11 | REQUIRED | `SELF_PASS` | request/response/output cap·details redaction | M10 red 2 |
+| VP-12 | REQUIRED | `SELF_PASS` | same-origin·junction·collision·atomic stage | M11 red 1 |
+| VP-13 | REQUIRED | `SELF_PASS` | 6/8 approval exact set | M12 red 1 |
+| VP-14 | REQUIRED | `SELF_PASS` | same server add/remove·default empty | M13 red 2 |
+| VP-15 | REQUIRED | `SELF_BLOCKED` | 기계 경계만 관측 | 실제 Jira DC/UI 환경 없음 |
+| VP-16 | REQUIRED | `SELF_PASS` | boot config→wire→locale render | M1/M3/M5 red |
+| VP-17 | REQUIRED | `SELF_PASS` | Auth recipe→server→handler→revoke | M6/M8/M13 red |
+| VP-18 | REQUIRED | `SELF_PASS` | producer/consumer contract fixture | M1 red 1 |
+| VP-19 | REQUIRED | `SELF_PASS` | handler→fake request→envelope | M7/M8/M10 red |
+| VP-20 | REQUIRED | `SELF_PASS` | metadata→binary→stage→preflight→commit | M11 red 1 |
+| VP-21 | REGRESSION | `SELF_PASS` | category/sync 전체 회귀 | M13 red 2 |
+| VP-22 | REQUIRED | `SELF_PASS` | pure locale/icon 표 | M2/M3 red |
+| VP-23 | REQUIRED | `SELF_PASS` | exact tool fields/routes | M6/M7 red |
+| VP-24 | REQUIRED | `SELF_PASS` | error/result/secret/output budget | M8/M10 red |
+| VP-25 | REQUIRED | `SELF_PASS` | untrusted path/URL/store fixtures | M11 red 1 |
+| VP-26 | REQUIRED | `SELF_PASS` | dependency/import/upload 0 + production build | M14 red 1 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | VP-… | 최초 | … | 잠김 / 잠금 없음 |
+| M1 — `connectionInfo` catalog 전달 제거 | VP-01·16·18 | 최초 | `connection-views.test` 1 | **잠김** |
+| M2 — 기본 icon을 `power_settings_new`로 복귀 | VP-02·22 | 최초 | `plugin-catalog`+`plugins` 2 | **잠김** |
+| M3 — ko/en fallback 순서 교환 | VP-03·16·22 | 최초 | `pluginPresentation.test` 1 | **잠김** |
+| M4 — source version을 `0.34.1`로 drift | VP-04 | 최초 | `source.test` 2 | **잠김** |
+| M5 — 탭 선두를 skills로 복귀 | VP-05·16 | 최초 | `catalogSelection.test` 1 | **잠김** |
+| M6 — `jira_unlinkIssues` inventory 제거 | VP-07·17·23 | 최초 | `tools.test` 3 | **잠김** |
+| M7 — search REST path 변경 | VP-08·19·23 | 최초 | `rest.test` 1 | **잠김** |
+| M8 — error `isError` 제거 | VP-09·17·19·24 | 최초 | `result.test` 6 | **잠김** |
+| M9 — 기본 API base에 `/jira` 중복 | VP-10 | 최초 | `rest.test` 14 | **잠김** |
+| M10 — secret header redaction 제거 | VP-11·19·24 | 최초 | `result.test` 2 | **잠김** |
+| M11 — attachment same-origin 검사 제거 | VP-12·20·25 | 최초 | `rest.test` 1 | **잠김** |
+| M12 — create를 read-only로 변경 | VP-13 | 최초 | `tools.test` 1 | **잠김** |
+| M13 — invalid auth registry remove 제거 | VP-14·17·21 | 최초 | `plugins.test` 2 | **잠김** |
+| M14 — Jira upstream devDependency 추가 | VP-26 | 최초 | `native-boundary.test` 1 | **잠김** |
+| N1 — 120자 절단 뒤 trailing dot 정리 누락 | 구현 중 신규 oracle | 최초 | `attachment-store.test` 1 red 후 수정 | **잠김** |
+| N2 — known error/details의 cookie·proxy secret 노출 | 구현 중 신규 oracle | 최초 | `result.test` 단계별 2 red 후 수정 | **잠김** |
+| N3 — Jira `.publish()`가 artifact 유일 진입점 가드를 침범 | 전체 suite 신규 oracle | 최초 | `bootstrap.artifacts.test` 1 red 후 `commit()`으로 수정 | **잠김** |
 
-- 분모 검산: 선택 증거 N · 인용 변이 M · 새 oracle K = 표 행 T.
-- 덮개 회귀: 이전 라운드 red 중 이번 green 0건 / …
+- 분모 검산: 선택 증거 **14** · 인용 변이 **0** · 새 oracle **3** = 표 행 **17**.
+- 추가 직접 oracle: 14개 input field inventory, final batch collision 보존, lockfile entry 부재를
+  상시 테스트로 추가했다.
+- 덮개 회귀: 이전 라운드 없음. 심은 변이 원복 후 관련 **16파일/123케이스 green**.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| production seam 재배치가 cleanup scope를 깨뜨리지 않는가 | … | … |
-| 새 실패 경로가 §5 상태표에 있는가 | … | … |
-| 실패가 “아무 일 없음”으로 보이지 않는가 | … | … |
-| 늦은 응답이 화면/registry를 되돌리지 않는가 | … | … |
+| 새 사용자 대면 문구·상태에 소비자가 있는가 | 있음 | ko/en 탭·source/version/license는 list/detail과 i18n resource가 함께 소비한다 |
+| production seam 재배치가 cleanup scope를 깨뜨리지 않는가 | 보존 | Jira stage만 abort/cleanup하고 기존 artifact publication·DB를 건드리지 않는다 |
+| 새 실패 경로가 §5 상태표에 있는가 | 있음 | invalid input·HTTP·size·filesystem·cancel은 `isError:true` envelope, save 실패는 stage abort다 |
+| 실패가 “아무 일 없음”으로 보이지 않는가 | 통과 | 모든 handler 오류가 stable code/message를 가진 agent result로 반환된다 |
+| 늦은 응답이 화면/registry를 되돌리지 않는가 | 통과 | 원격 호출은 turn signal을 전달하고 registry는 기존 Auth sync/동일 server identity를 유지한다 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 선조치 / 📝 plan 수정 제안 / ⚠️ 보고 | … |
+| 1 | 파일명 120자 절단이 끝의 `.`을 새로 만들 수 있었다 | ✅ 절단 뒤 Windows trailing 문자 제거로 순서 수정 | N1 red→green |
+| 2 | `JiraToolError.details`가 message와 달리 secret redaction을 우회했다 | ✅ 최종 result mapper에서 key/value까지 bounded redaction | N2 red→green |
+| 3 | write 성공 뒤 file handle close 실패를 무시했다 | ✅ close 오류도 batch 실패로 올리고 상위가 stage abort | `attachment-store.ts` write 경계 |
+| 4 | Jira의 `.publish()` 이름이 기존 artifact publication 유일성 가드와 충돌했다 | ✅ 내부 API를 `commit()`으로 변경 | 전체 suite N3 red→green |
+| 5 | 실제 Jira DC 권한·dev-status·binary와 최종 UI는 로컬 fixture로 대체할 수 없다 | ⚠️ AC15 사람 실기로 이관 | §19 체크리스트 |
 
 ### 설계 대비 명시적 차이
 
-- plan과 다르게 구현한 것과 이유: 없음 / …
+- plan과 다르게 구현한 것과 이유: stage의 원자 확정 메서드만 `publish()` 대신 `commit()`으로
+  명명했다. 제품 전체에서 `.publish()`는 artifact model tool의 명시적 진입점이라는 기존 가드를
+  보존하기 위한 이름 차이이며, result preflight 뒤 directory rename이라는 동작 순서는 같다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 대체물 없음 — 401/403 강등과 invalid remove는 기존 BoundAuth/Plugin sync 소유 | AC10·AC14 / M13 |
+| 공유 | Jira server는 부팅 1회 인스턴스, 첨부 batch는 UUID별 독립 stage | AC12·AC14 / EP-20·22 |
+| 재진입 | batch 상태가 open→published/aborted 단방향이고 중복 확정을 거부 | AC12 / store state fixture |
+| 다른 무효화 축 | catalog는 build config, registry는 credentialChanged sync만 사용 | AC1·AC14 / EP-01·22 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| 관측한 게이트 산출 | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | N/M |
-| AC 자기보고 | N/16 |
-| 합계 검산 | ✅ N · ⚠️ M · ❌ K = 16 |
-| 블로커 / 역질문 | … |
+| 변경 파일 | shared catalog/IPC, main Plugin wiring, renderer list/detail/tab/i18n/icon, `features/plugins/jira/` native module·tests, IPC/auth/persistence/security/rendering/폐쇄망 guide, INDEX |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · 대상 `npx vitest run …` · 전체 `npx vitest run` · `node --test scripts/*.test.mjs` · `npm run build` · `node scripts/check-doc-inventory.mjs --check` · dependency/import/upload/power sweeps · `git diff --check` |
+| 관측한 게이트 산출 | lint **0 error/1 기존 warning** · typecheck 3구성 pass · 대상 **16파일/123케이스 pass** · 전체 Vitest **536파일/4,932케이스 pass, 1파일/1케이스 skip** · script **119/119 pass** · production build pass(기존 dynamic-import warning 1) · doc inventory/link pass |
+| V-pair 자기확인 | `SELF_PASS` **25/26**, `SELF_BLOCKED` **1/26**(VP-15 실제 Jira/UI 실기) |
+| 강제 지점 전수 | **24/24** |
+| AC 자기보고 | **15/16** — AC15 사람 실기 대기 |
+| 합계 검산 | ✅ **15** · ⚠️ **1** · ❌ **0** = **16** |
+| 블로커 / 역질문 | 코드 블로커 없음. 검증자가 §19 AC15를 실제 Jira DC/ko·en UI에서 확인해야 한다 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음 / …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복 환경 한계: 없음 / …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 이전 구현 라운드 없음.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: catalog/Jira/attachment/dependency 축은 AC와
+  EP가 있었다. artifact `.publish()` 이름 충돌은 기존 전역 회귀 가드가 추가로 발견했다.
+- 반복 환경 한계: 실제 Jira DC endpoint/PAT와 사람 UI 세션이 없어 AC15는 반복 관측 불가.
 - 현재 라운드 수: 1
 
 ---

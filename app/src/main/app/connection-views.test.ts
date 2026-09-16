@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 import type { ProviderInfo } from '../../shared/ipc'
 import type { AuthDescriptor, AuthRuntime, AuthSnapshot, BoundAuth } from '../contracts/auth'
 import type { Gate } from '../features/gate'
+import { DEFAULT_PLUGIN_CATALOG_ICON } from '../../shared/plugin-catalog'
 import {
   connectionInfo,
   connectionList,
@@ -63,6 +64,8 @@ const DESCRIPTOR: AuthDescriptor = {
   ]
 }
 
+const DEFAULT_CATALOG = { icon: DEFAULT_PLUGIN_CATALOG_ICON } as const
+
 describe('connectionInfo — ProviderInfo 전 필드 (AC22)', () => {
   it('descriptor·snapshot·도구 이름을 기존 DTO 형상으로 접는다', () => {
     const auth = runtime({ confluence: DESCRIPTOR })
@@ -73,7 +76,12 @@ describe('connectionInfo — ProviderInfo 전 필드 (AC22)', () => {
         principalId: 'me@example.corp',
         expiresAt: 1_700_000_000_000
       }),
-      toolNames: () => ['mcp__confluence-tools__confluence_search']
+      toolNames: () => ['mcp__confluence-tools__confluence_search'],
+      catalog: {
+        icon: 'description',
+        title: { ko: '컨플루언스', en: 'Confluence' },
+        body: { ko: '문서', en: 'Documents' }
+      }
     }
 
     const info = connectionInfo(auth, source)
@@ -94,7 +102,12 @@ describe('connectionInfo — ProviderInfo 전 필드 (AC22)', () => {
       activeAuthKind: 'pat',
       principal: 'me@example.corp',
       expiresAt: 1_700_000_000_000,
-      tools: ['mcp__confluence-tools__confluence_search']
+      tools: ['mcp__confluence-tools__confluence_search'],
+      catalog: {
+        icon: 'description',
+        title: { ko: '컨플루언스', en: 'Confluence' },
+        body: { ko: '문서', en: 'Documents' }
+      }
     }
     expect(info).toEqual(expected)
   })
@@ -104,7 +117,8 @@ describe('connectionInfo — ProviderInfo 전 필드 (AC22)', () => {
     const info = connectionInfo(auth, {
       category: 'plugin',
       auth: bound('confluence', { status: 'none', verified: false }),
-      toolNames: () => []
+      toolNames: () => [],
+      catalog: DEFAULT_CATALOG
     })
 
     expect(info.principal).toBeNull()
@@ -122,7 +136,7 @@ describe('compat kind 매핑 (AC22)', () => {
     const sources: ConnectionViewSource[] = [
       { category: 'gate', auth: bound('a') },
       { category: 'harness', auth: bound('b'), harnessModelProviderKey: 'claude-corp' },
-      { category: 'plugin', auth: bound('c'), toolNames: () => [] },
+      { category: 'plugin', auth: bound('c'), toolNames: () => [], catalog: DEFAULT_CATALOG },
       { category: 'usage', auth: bound('d') }
     ]
 
@@ -141,7 +155,7 @@ describe('compat kind 매핑 (AC22)', () => {
     const auth = runtime(descriptors)
     const sources: ConnectionViewSource[] = [
       { category: 'gate', auth: bound('a') },
-      { category: 'plugin', auth: bound('b'), toolNames: () => [] }
+      { category: 'plugin', auth: bound('b'), toolNames: () => [], catalog: DEFAULT_CATALOG }
     ]
 
     expect(connectionList(auth, sources).map((info) => info.id)).toEqual(['a', 'b'])
@@ -155,6 +169,7 @@ describe('compat kind 매핑 (AC22)', () => {
       harnessModelProviderKey: 'claude-corp'
     })
     expect(info.tools).toEqual([])
+    expect(info.catalog).toBeUndefined()
   })
 })
 

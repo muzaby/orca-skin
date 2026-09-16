@@ -129,6 +129,11 @@ Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저�
 - fork는 기존 메시지 복사 transaction 안에서 자식 publication과 part ID를 복제하고 같은 artifactFileId를 참조한다. 대화 삭제는 해당 참조만 제거하며 마지막 참조가 없어도 파일을 자동 삭제하지 않는다.
 - 사용자 삭제는 OS 휴지통 이동이다. 게시 기록은 보존하며 `lastTrashedAt`는 과거 행위일 뿐 현재 파일 없음의 원인을 단정하지 않는다. 이동 후 DB 기록 실패는 별도로 보고한다.
 - 새 요청이 만든 임시/실패 파일만 정리한다. 전역 orphan scan·자동 GC는 없다. 종료는 신규 commit을 차단하며 강제 프로세스 종료 때 미등록 파일이 남을 수 있다.
+- Jira 첨부 저장은 DB나 세션 publication을 만들지 않는 Plugin 임시 산출물이다. 공통
+  `orcinus-orca` Temp 아래 `jira/<auth>/<selector>/<batch>/`에만 공개하고, 먼저 숨은 `.staging`
+  디렉터리에 배타적으로 쓴 뒤 전체 결과의 출력 예산까지 통과한 batch만 디렉터리 rename으로 한 번에
+  공개한다. 요청 실패·취소·예산 초과는 그 stage만 지우며, 충돌 파일을 덮어쓰지 않는다. 비정상 종료로
+  남은 오래된 stage는 다음 Jira store 준비 때 정리하고 이미 공개된 batch는 자동 삭제하지 않는다.
 
 공개 계약은 [IPC_CONTRACT.md](../../IPC_CONTRACT.md#26-a-산출물-게시-파일), 설계 근거와 검증 기준은 [게시 도구 계획](../../handoff/0223-artifact-publisher/plan.md)에 있다.
 
