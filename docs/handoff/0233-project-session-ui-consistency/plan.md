@@ -410,4 +410,15 @@ r1 최초 구현이며 verify 전이다. 같은 불변식의 이전 구현/검�
 
 ## [검증자 기입] 파생 이슈
 
-검증 전 기입 대기.
+r1 검증 = **PASS**(기계 범위). 판정 원문과 증거는 [`verify.md`](verify.md)다. REQUIRED 16 pair 전건 PASS · AC ✅9/9 · §10 독립 재열거 19/19·2/2 일치 · PLAN_GAP 0. 아래는 전부 비차단이며 현재 PASS를 막지 않는다.
+
+| # | finding | 귀속 | disposition | 대응 방향 |
+|---|---|---|---|---|
+| D1 | `useSessionActions.onOpenProject`(`useSessionActions.ts:13·36`)가 D-001 breadcrumb 제거 뒤 소비처 0 | 비귀속 | NON_BLOCKING | 다음 렌더러 정리에서 제거 |
+| D2 | INDEX 설계 좌표 `b33ebf1d` 미실재 — 실제 `e837976` | OP-01 문서 사본 | NON_BLOCKING | 검증 턴에 교정 완료 |
+| D3 | `chatStore.freshEntry`의 삭제 소속 차단을 지워도 전 스위트 green(M12) | 비귀속 — EP-03·04의 9지점 밖 | NON_BLOCKING | 기록만 |
+| D4 | `useChatRouteSync` 방향 2 armed 게이트를 세 방향으로 지워도 renderer 240파일 green(M20~M22) | 비귀속 — EP-07 ② 계약은 M23으로 잠김 | NON_BLOCKING | 단순화 후보 |
+| D5 | `docs/arch/frontend/state.md:175` 오타 “멱든하게” | 문서 gate 밖 | NON_BLOCKING | 다음 문서 수정 때 정정 |
+| D6 | `docs/arch/frontend/layers.md:41`의 `projectNameById`가 코드에 없음(이번 diff 미변경) | 이번 변경 밖 | NON_BLOCKING | 별도 문서 정리 후보 |
+
+남은 사람 몫은 §19 시각 gate 1건이다 — Electron 실제 첫 전송의 '뒤로가기' 프레임 부재와 두 테마의 제목 행·삭제 메뉴 시각. archive 이동은 그 실기 뒤다.
