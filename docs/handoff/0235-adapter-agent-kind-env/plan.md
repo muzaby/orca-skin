@@ -8,13 +8,13 @@
 | 작성자 | Codex — 사용자의 신규 handoff-plan 요청에 따라 설계 수행 |
 | 일자 | 2026-09-15 |
 | 매핑 | 0234 Work 프로필 후속이지만 독립 제품 계약 |
-| 상태 | impl/IMPL_DONE — r1 구현·게이트 완료, 독립 검증 대기 |
+| 상태 | verify/PASS — r1 독립 검증 PASS([`verify.md`](verify.md)) |
 | V mode | Baseline V |
 | 기준 V | none |
 | 이번 V revision | V1 |
 | 유효 V | V1 |
 | 조사 기준 | `d8cc4054` — `git pull --ff-only` 결과 Already up to date, 시작 시 변경 파일 0 |
-| 다음 주체 | Claude — handoff-verify r1 |
+| 다음 주체 | — (종료). 남은 사람 몫은 PR merge 승인 |
 | 이번 턴 경계 | V1의 제품 코드·테스트·현재 문서 구현과 운영 게이트 수행 |
 
 # Part I — Product & UX Contract
@@ -569,4 +569,7 @@ DB/lease AgentKind
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| 검증 턴에서 작성 | — | — | — | — | — |
+| D1 | production에서 `buildsEnv`가 항상 true가 돼 lazy env 생략·settings 채널 경로가 Claude/Mock에 대해 죽었다 | 비귀속 — §17이 명시 수용, AC2가 요구 | 미래 adapter의 빈 정책에서 되살아나는 generic 계약이라 유지 | NON_BLOCKING | closed |
+| D2 | `settingSources: ['project','local']`(`claude-adapt.ts:99`)로 workspace `.claude/settings.json`의 `env`가 Code 세션에서 세 키를 되살릴 수 있다 | 비귀속 — AC2는 spawn env 기준, 0234 D-005 유지 | 예약 키를 project/local settings보다 늦게 강제할지는 제품 결정 | NEXT_HANDOFF | open |
+| D3 | 검증 환경에서 `npm rebuild better-sqlite3`로 Node ABI를 맞췄다 — 같은 컨테이너의 `dev`/`build`는 Electron ABI 재빌드가 필요하다 | 검증 환경 | 기록만; 추적 파일 변경 0 | NON_BLOCKING | closed |
+| D4 | `auth.md:557`이 generic 조립기 기준으로는 정확하나 현재 두 adapter 모두 비지 않은 patch를 반환한다는 사실은 적지 않았다 | 비귀속 — EP-14는 우선순위·책임 일치만 요구 | 다음 문서 turn에서 한 줄 보강 | NON_BLOCKING | open |
