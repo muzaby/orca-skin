@@ -47,9 +47,15 @@ describe('Jira REST 0.34.0 mapping', () => {
     ],
     ['jira_unlinkIssues', { linkId: '99' }, 'DELETE', '/rest/api/2/issueLink/99'],
     ['jira_downloadAttachment', { attachmentId: '42' }, 'GET', '/rest/api/2/attachment/42']
-  ] as const)('%s → %s %s', (tool, input, method, path) => {
-    expect(buildJiraRequest(tool, input).method).toBe(method)
-    expect(buildJiraRequest(tool, input).path).toBe(path)
+  ] as const)('%s → %s %s와 Jira transport policy', (tool, input, method, path) => {
+    const request = buildJiraRequest(tool, input)
+    expect(request.method).toBe(method)
+    expect(request.path).toBe(path)
+    expect(request.headers).toMatchObject({
+      'User-Agent': 'Orcinus-Orca-Jira/0.34.0',
+      'X-Atlassian-Token': 'no-check'
+    })
+    expect(request.authFailureStatuses).toEqual([401])
   })
 
   it('search defaults와 create/update/transition/link payload 의미를 보존한다', () => {
@@ -106,7 +112,12 @@ describe('Jira REST 0.34.0 mapping', () => {
     const req = buildDevelopmentInfoRequest('123', 'branch', 'github', '/company/jira/rest')
     expect(req).toMatchObject({
       path: '/company/jira/rest/dev-status/1.0/issue/detail',
-      query: { issueId: '123', dataType: 'branch', applicationType: 'github' }
+      query: { issueId: '123', dataType: 'branch', applicationType: 'github' },
+      headers: {
+        'User-Agent': 'Orcinus-Orca-Jira/0.34.0',
+        'X-Atlassian-Token': 'no-check'
+      },
+      authFailureStatuses: [401]
     })
   })
 
@@ -121,7 +132,12 @@ describe('Jira REST 0.34.0 mapping', () => {
       path: '/secure/attachment/1/a.txt',
       query: { download: '1' },
       responseType: 'binary',
-      maxBytes: 1024
+      maxBytes: 1024,
+      headers: {
+        'User-Agent': 'Orcinus-Orca-Jira/0.34.0',
+        'X-Atlassian-Token': 'no-check'
+      },
+      authFailureStatuses: [401]
     })
     expect(() =>
       attachmentContentRequest('https://jira.example.com', 'https://evil.example/steal', 1024)

@@ -1,5 +1,5 @@
 import { mkdtemp, mkdir, readFile, stat, symlink, utimes, writeFile } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createJiraAttachmentStore, sanitizeAttachmentFilename } from './attachment-store'
@@ -45,7 +45,14 @@ describe('Jira attachment store', () => {
     await batch.commit()
     await expect(readFile(first.savedPath, 'utf8')).resolves.toBe('one')
     await expect(readFile(second.savedPath, 'utf8')).resolves.toBe('two')
-    expect(resolve(first.savedPath).startsWith(resolve(directory, 'jira') + '\\')).toBe(true)
+    expect(relative(resolve(directory, 'jira'), resolve(first.savedPath)).split(sep)).toEqual([
+      'jira-corp',
+      'issue-QA-1',
+      expect.stringMatching(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+      ),
+      'report.txt'
+    ])
   })
 
   it('abort는 현재 stage 전체를 지우고 final을 만들지 않는다', async () => {

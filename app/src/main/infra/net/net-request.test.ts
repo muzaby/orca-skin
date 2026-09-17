@@ -152,7 +152,11 @@ describe('Chromium single request boundaries', () => {
     async (responseType) => {
       const sender = createSender(netFetch)
       const result = sender.send(
-        { url: 'https://corp.invalid/file', method: 'GET', headers: {} },
+        {
+          url: 'https://corp.invalid/file',
+          method: 'GET',
+          headers: { 'User-Agent': 'Orcinus-Test/1.0' }
+        },
         undefined,
         { responseType, maxBytes: 3 }
       )
@@ -166,6 +170,7 @@ describe('Chromium single request boundaries', () => {
       expect(network.request).toHaveBeenCalledWith(
         expect.objectContaining({ credentials: 'omit', redirect: 'manual' })
       )
+      expect(request.setHeader).toHaveBeenCalledWith('User-Agent', 'Orcinus-Test/1.0')
       expect(network.fetch).not.toHaveBeenCalled()
     }
   )

@@ -1,5 +1,5 @@
 // 인증된 요청 (0181 `api.ts` → 0188 분리) — 정책 통과 → 자격증명 주입 → 전송 →
-// (redirect 재검사) → 401/403·origin 미복귀 강등.
+// (redirect 재검사) → 요청별 인증 실패 status(기본 401/403)·origin 미복귀 강등.
 //
 // **0188 이 여기서 뺀 두 표면**:
 //   `materialize()` — env/header 물질화. 환경변수 이름·ModelProvider URL·서비스별 header 조립은
@@ -81,8 +81,8 @@ export interface AuthenticatedRequesterDeps {
   // 세션 grant 의 전송 경로. 미주입이면 세션 Auth 의 요청은 거부된다.
   sessions?: BrowserSessionPort
   logger?: (event: string, data: Record<string, unknown>) => void
-  // 요청 실패 관측 시의 강등 통지 (0188) — 401/403, 그리고 세션 grant 의 **origin 미복귀**
-  // (0195 D-004). 구 `onChange` 는 "무언가 바뀌었다" 였고 소비자가
+  // 요청 실패 관측 시의 강등 통지 (0188) — 요청별 인증 실패 status(기본 401/403), 그리고 세션
+  // grant 의 **origin 미복귀** (0195 D-004). 구 `onChange` 는 "무언가 바뀌었다" 였고 소비자가
   // 무엇이 바뀌었는지 몰랐다 — 여기서는 **어느 Auth 가** 강등됐는지까지 말한다.
   //
   // `credentialChanged` 는 이 관측이 **실제 만료 전이를 만들었는가** 다 (r4). 동시에 떠 있던 두
@@ -157,16 +157,18 @@ export class AuthenticatedRequester {
       candidate
     )
 
-    // 401 은 "자격증명이 더 이상 유효하지 않다" 는 **서버의 판정**이다. 여기서 강등해야
-    // 사용자가 GUI 에서 재인증 지점을 본다 — 조용히 실패만 반복하지 않는다.
+    // 요청별 인증 실패 status는 "자격증명이 더 이상 유효하지 않다"는 **서버의 판정**이다.
+    // 여기서 강등해야 사용자가 GUI에서 재인증 지점을 본다 — 조용히 실패만 반복하지 않는다.
     //
     // **판정을 두 가지로 본다** (0195 D-004): status 와, 세션 grant 의 **origin 복귀 여부**.
     // SSO 는 그 판정을 status 로 말하지 않는다(아래 `readsAsAuthenticated`).
     //
-    // **후보는 강등하지 않는다** (r5) — 커밋된 것이 없으므로 내릴 상태가 없다. 후보의 401 은
+    // **후보는 강등하지 않는다** (r5) — 커밋된 것이 없으므로 내릴 상태가 없다. 후보의 실패는
     // 그냥 "이 값이 거부됐다" 이고, 그 해석은 로그인 흐름이 자기 실패 모양으로 만든다.
     const returnedToOrigin = this.readsAsAuthenticated(definition, carrier, finalUrl)
-    if (!candidate && (result.status === 401 || result.status === 403 || !returnedToOrigin)) {
+    const authFailureStatuses = req.authFailureStatuses ?? [401, 403]
+    const credentialRejected = authFailureStatuses.some((status) => status === result.status)
+    if (!candidate && (credentialRejected || !returnedToOrigin)) {
       const changed = this.deps.store.markExpired(authId, revisionAtSend)
       this.deps.logger?.('auth.request.unauthorized', {
         authId,
