@@ -261,7 +261,8 @@ request: (req, signal) => api.request('confluence', req, signal)
 예약 헤더(`authorization`·`cookie`·`proxy-authorization`) 금지 · grant 가 `valid` 가 아니면 차단 ·
 컨텍스트 경로는 호출자가 prefix(`normalizeBasePath()` 재사용) · `query` 는 `path` 와 분리 ·
 바이트가 필요하면 `responseType:'binary'` + `maxBytes` · redirect 는 홉마다 재검사 ·
-401/403 은 자동 `expired` 강등(세션 grant 는 **체인이 origin 밖에서 끝나도** 같다 — §2-c) ·
+요청별 인증 실패 status는 자동 `expired` 강등(미지정 기본값은 401/403, 세션 grant 는 **체인이
+origin 밖에서 끝나도** 같다 — §2-c) ·
 `signal` 전파.
 
 ---
@@ -812,6 +813,12 @@ return createPluginBinding({
   한 번에 보인다. 실패한 호출은 부분 결과를 공개하지 않는다.
 - upload 도구는 의도적으로 제공하지 않는다. 현재 `BoundAuth.request`의 문자열 body 계약에는
   multipart streaming과 input-root 정책이 없으므로, 이를 우회해 별도 전송 스택을 만들지 않는다.
+- 모든 Jira 요청은 `User-Agent: Orcinus-Orca-Jira/0.34.0`과
+  `X-Atlassian-Token: no-check`를 보낸다. UA는 제품 통합과 이식 기준 버전을 식별하는 고정 product
+  token이며, Chromium 기본 UA나 다른 요청의 UA를 전역 변경하지 않는다.
+- Jira의 403은 권한 부족으로 보고 tool 결과를 `forbidden`으로 유지한다. Jira 요청만 인증 실패
+  status를 `[401]`로 좁히므로 403으로 grant나 plugin registry가 만료되지 않는다. 다른 소비자가
+  값을 생략하면 기존 기본값 `[401, 403]`이 유지된다.
 - catalog attribution은 community package `@atlassian-dc-mcp/jira` 0.34.0(MIT)을 분석한 출처와
   [고정 GitHub revision](https://github.com/b1ff/atlassian-dc-mcp/tree/ab2b534bafefa4666feca463e79824dadb797ff3/packages/jira)을 표시한다. Atlassian 공식 제품이나 공식
   통합으로 오인하지 않는다. 제품 코드는 이 package를 dependency로 설치하거나 import하지 않고
@@ -823,7 +830,8 @@ return createPluginBinding({
 - **예약 헤더 금지** — `authorization` · `cookie` · `proxy-authorization` 을 덮어쓸 수 없다.
 - **미인증 차단** — grant 가 `valid` 가 아니면 전송하지 않는다.
 - **redirect 는 홉마다 재검사** — allowlist 밖 `Location` 은 따라가지 않는다.
-- **401/403 → grant 를 `expired` 로 강등** — 화면에 재인증 지점이 생긴다. 세션 grant 는
+- **요청별 인증 실패 status → grant 를 `expired` 로 강등** — 미지정 기본값은 401/403이다. Jira처럼
+  403이 권한 부족인 소비자는 요청 계약을 `[401]`로 좁힌다. 세션 grant 는
   **리다이렉트 체인이 `origin` 밖에서 끝난 경우**도 같다(미인증 SSO 는 로그인 폼을 200 으로
   준다 — §2-c).
 

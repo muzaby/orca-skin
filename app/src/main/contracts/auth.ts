@@ -238,8 +238,8 @@ interface GrantBase {
   authKind: AuthMethodKind
   principalId?: string
   createdAt: number
-  // 만료 시각. 토큰이 실제로 만료를 선언한 경우와, **요청 실패 관측으로 강등된 경우**(401/403,
-  // 세션 grant 의 origin 미복귀)가 같은 필드를
+  // 만료 시각. 토큰이 실제로 만료를 선언한 경우와, **요청 실패 관측으로 강등된 경우**(요청별
+  // 인증 실패 status, 세션 grant 의 origin 미복귀)가 같은 필드를
   // 쓴다 — UI 와 게이트가 "지금 못 쓴다" 를 한 가지 방식으로 읽게 하기 위함이다.
   expiresAt?: number
 }
@@ -314,6 +314,9 @@ export interface AuthenticatedRequest {
   path: string
   method?: string
   headers?: Record<string, string>
+  // 응답 status 중 자격증명이 거부됐다고 해석할 집합. 미지정은 기존 401/403 정책이다.
+  // Jira처럼 403이 권한 부족인 소비자는 [401]로 좁힐 수 있다.
+  authFailureStatuses?: readonly [401] | readonly [401, 403]
   // 경로와 분리해 받는다 — 호출자가 직접 이으면 인코딩 규칙이 호출부마다 갈린다.
   query?: Record<string, string>
   body?: string
@@ -371,7 +374,7 @@ export type AuthSnapshotChangeCause =
 // |---|---|---|---|---|
 // | 입력 form·OAuth 대기·resuming·오류 message  | O | O | X | X |
 // | 기존 Grant probe 성공으로 `verified` 만 변경 | O | O | X | X |
-// | credential commit·revoke·expiry·401/403     | O | O | O | 영향 key 만 O |
+// | credential commit·revoke·expiry·인증 실패   | O | O | O | 영향 key 만 O |
 export type AuthChange =
   | {
       kind: 'snapshot'
@@ -430,8 +433,9 @@ export interface AuthRuntime {
   // Auth 하나의 복원된 Grant 를 probe 한다. **순서·병렬성·step 노출 여부는 app composition 이
   // 정한다** — Auth 코어는 gate 가 먼저인지 모른다.
   //
-  // `emitVerifiedChange:false` 는 부팅 batch 의 **성공 알림만** 지연한다. expiry·401/403 강등은
-  // 항상 즉시 emit 한다(만료된 연결의 도구가 남은 probe 의 타임아웃만큼 화면에 남지 않도록).
+  // `emitVerifiedChange:false` 는 부팅 batch 의 **성공 알림만** 지연한다. expiry·요청별 인증 실패
+  // status 강등은 항상 즉시 emit 한다(만료된 연결의 도구가 남은 probe 의 타임아웃만큼 화면에
+  // 남지 않도록).
   resume(
     authId: AuthId,
     options?: { exposeStep?: boolean; emitVerifiedChange?: boolean }

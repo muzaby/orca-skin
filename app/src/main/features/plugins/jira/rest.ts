@@ -1,5 +1,6 @@
 import type { AuthenticatedRequest } from '../../../contracts/auth'
 import { JiraToolError } from './result'
+import { JIRA_SOURCE } from './source'
 import type { JiraToolName } from './tools'
 
 export const JIRA_JSON_MAX_BYTES = 2 * 1024 * 1024
@@ -7,6 +8,7 @@ export const JIRA_REQUEST_MAX_BYTES = 1024 * 1024
 export const JIRA_ATTACHMENT_HARD_MAX_BYTES = 25 * 1024 * 1024
 export const JIRA_DEFAULT_PAGE_SIZE = 25
 export const JIRA_MAX_PAGE_SIZE = 100
+export const JIRA_USER_AGENT = `Orcinus-Orca-Jira/${JIRA_SOURCE.version}`
 export const JIRA_DEFAULT_SEARCH_FIELDS = [
   'summary',
   'description',
@@ -23,6 +25,18 @@ export const JIRA_DEFAULT_ISSUE_FIELDS = [...JIRA_DEFAULT_SEARCH_FIELDS, 'parent
 type Input = Readonly<Record<string, unknown>>
 
 const segment = (value: unknown): string => encodeURIComponent(String(value))
+
+function jiraRequest(request: AuthenticatedRequest): AuthenticatedRequest {
+  return {
+    ...request,
+    headers: {
+      ...request.headers,
+      'User-Agent': JIRA_USER_AGENT,
+      'X-Atlassian-Token': 'no-check'
+    },
+    authFailureStatuses: [401]
+  }
+}
 
 export function normalizeJiraApiBasePath(path = '/rest'): string {
   const normalized = path.trim().replace(/\/+$/, '') || '/rest'
@@ -46,24 +60,23 @@ function jsonRequest(
   if (Buffer.byteLength(serialized, 'utf8') > JIRA_REQUEST_MAX_BYTES) {
     throw new JiraToolError('request_too_large', 'request_too_large')
   }
-  return {
+  return jiraRequest({
     path,
     method,
-    headers: { 'Content-Type': 'application/json', 'X-Atlassian-Token': 'no-check' },
+    headers: { 'Content-Type': 'application/json' },
     ...(query ? { query } : {}),
     body: serialized,
     maxBytes: JIRA_JSON_MAX_BYTES
-  }
+  })
 }
 
 function readRequest(path: string, query?: Record<string, string>): AuthenticatedRequest {
-  return {
+  return jiraRequest({
     path,
     method: 'GET',
-    headers: { 'X-Atlassian-Token': 'no-check' },
     ...(query ? { query } : {}),
     maxBytes: JIRA_JSON_MAX_BYTES
-  }
+  })
 }
 
 function optionalQuery(
@@ -162,12 +175,11 @@ export function buildJiraRequest(
         ...(input.comment ? { comment: { body: input.comment } } : {})
       })
     case 'jira_unlinkIssues':
-      return {
+      return jiraRequest({
         path: `${base}/api/2/issueLink/${segment(input.linkId)}`,
         method: 'DELETE',
-        headers: { 'X-Atlassian-Token': 'no-check' },
         maxBytes: JIRA_JSON_MAX_BYTES
-      }
+      })
     case 'jira_downloadAttachment':
       return input.attachmentId
         ? readRequest(`${base}/api/2/attachment/${segment(input.attachmentId)}`)
@@ -205,12 +217,11 @@ export function attachmentContentRequest(
     throw new JiraToolError('unsafe_attachment_url', 'unsafe_attachment_url')
   }
   const query = Object.fromEntries(target.searchParams.entries())
-  return {
+  return jiraRequest({
     path: target.pathname,
     method: 'GET',
-    headers: { 'X-Atlassian-Token': 'no-check' },
     ...(Object.keys(query).length ? { query } : {}),
     responseType: 'binary',
     maxBytes
-  }
+  })
 }

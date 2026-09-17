@@ -389,14 +389,20 @@ function tokenGrantHarness(): {
 }
 
 describe('AuthenticatedRequester — browser-session token grant (0195)', () => {
-  it('선언한 present 대로 Authorization: Bearer 가 실린다', async () => {
+  it('호출자 User-Agent 와 선언한 Authorization을 함께 보존한다', async () => {
     const { api, headers } = tokenGrantHarness()
 
-    const res = await api.request('sso', { path: '/api/thing' })
+    const res = await api.request('sso', {
+      path: '/api/thing',
+      headers: { 'User-Agent': 'Orcinus-Orca-Jira/0.34.0' }
+    })
 
     expect(res.ok).toBe(true)
     expect(headers).toHaveLength(1)
-    expect(headers[0]?.['Authorization']).toBe('Bearer tok-abc')
+    expect(headers[0]).toMatchObject({
+      Authorization: 'Bearer tok-abc',
+      'User-Agent': 'Orcinus-Orca-Jira/0.34.0'
+    })
   })
 
   it('present 를 선언하지 않은 방식은 여전히 실을 방법이 없다 — kind 로 추론하지 않는다', async () => {
@@ -476,18 +482,35 @@ function sessionDemotionHarness(respond: (sent: string[]) => SendResult | Promis
 }
 
 describe('AuthenticatedRequester — 세션 grant 의 강등 (0195 D-004)', () => {
-  it('401 이면 expired 로 강등된다', async () => {
+  it.each([401, 403])('기본 정책은 HTTP %s를 expired로 강등한다', async (status) => {
     const { api, store, unauthorized } = sessionDemotionHarness(() => ({
-      status: 401,
+      status,
       headers: {},
       body: ''
     }))
 
     const res = await api.request('wiki', { path: '/rest/api/content' })
 
-    expect(res.status).toBe(401)
+    expect(res.status).toBe(status)
     expect(store.status('wiki')).toBe('expired')
     expect(unauthorized).toEqual([{ authId: 'wiki', credentialChanged: true }])
+  })
+
+  it('요청별 인증 실패 status가 401이면 403 권한 오류는 grant를 강등하지 않는다', async () => {
+    const { api, store, unauthorized } = sessionDemotionHarness(() => ({
+      status: 403,
+      headers: {},
+      body: '{"errorMessages":["forbidden"]}'
+    }))
+
+    const res = await api.request('wiki', {
+      path: '/rest/api/content',
+      authFailureStatuses: [401]
+    })
+
+    expect(res.status).toBe(403)
+    expect(store.status('wiki')).toBe('valid')
+    expect(unauthorized).toEqual([])
   })
 
   it('200 이어도 체인이 origin 밖에서 끝나면 expired 이고 통지는 1회다', async () => {

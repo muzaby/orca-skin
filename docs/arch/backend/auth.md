@@ -71,7 +71,7 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 | `features/auth/runtime.ts` | `createAuthRuntime()` — registry·store·요청·로그인을 묶고 `{ runtime, secretReader }` 반환 |
 | `features/auth/registry.ts` | 빌드타임 선언 검사 (중복 id · bare origin). **gate probe 검사는 여기 없다** |
 | `features/auth/store.ts` | `authId → Grant` 단일 맵 + `verified` + `credentialRevision` + 만료 정착 집합 |
-| `features/auth/authenticated-request.ts` | 정책 → credential 주입 → 전송 → redirect 재검사 → 강등(401/403 · 세션의 origin 미복귀) |
+| `features/auth/authenticated-request.ts` | 정책 → credential 주입 → 전송 → redirect 재검사 → 강등(요청별 인증 실패 status, 기본 401/403 · 세션의 origin 미복귀) |
 | `features/auth/secret-access.ts` | trusted-main raw 조회 (동기) |
 | `features/auth/login.ts` | `AuthMethod` 분기 실행 · 후보 probe → 성공 시 1회 커밋 · 단일 Auth `resume` |
 | `features/auth/browser-session/runner.ts` | 브라우저 세션 로그인 흐름 (창 → final URL 의 인가 코드 → 토큰 교환 · whoami) |
@@ -129,7 +129,7 @@ key 를 보강하면 합류점이 **throw** 한다. 인자 없는 factory 로 �
 |---|---:|---:|---:|---:|
 | 입력 form · OAuth code 대기 · `resuming` · 오류 message | O | O | **X** | **X** |
 | 기존 Grant 의 probe 성공으로 `verified` 만 변경 | O | O | **X** | **X** |
-| credential commit · revoke · expiry · 401/403 강등 | O | O | O | **영향 key 만** O |
+| credential commit · revoke · expiry · 인증 실패 강등 | O | O | O | **영향 key 만** O |
 
 `kind:'step'` 은 화면 단계, `kind:'snapshot'` 은 인증 상태다. snapshot 은 `cause` 와
 **`credentialChanged`** 를 함께 싣고, 소비자는 그 boolean 하나만 본다 — `cause → boolean` 기본
@@ -294,11 +294,13 @@ change 가 나간다 — Harness cache 가 그 change 를 무시한다. 정착 �
 
 | 관측 지점 | 전이를 만들었을 때 | 전이가 없을 때 |
 |---|---|---|
-| 요청 경로 (401/403 · 세션 grant 의 origin 미복귀) | `cause:'unauthorized'` · `credentialChanged:true` | `snapshotChanged` 면 `credentialChanged:false` 로 통지, **둘 다 false 면 방송하지 않는다** |
+| 요청 경로 (요청별 인증 실패 status · 세션 grant 의 origin 미복귀) | `cause:'unauthorized'` · `credentialChanged:true` | `snapshotChanged` 면 `credentialChanged:false` 로 통지, **둘 다 false 면 방송하지 않는다** |
 | `resume()` probe 실패 | `cause:'expired'` · `credentialChanged:true` | **통지하지 않는다** (요청 경로가 이미 냈다) |
 
-**요청 경로가 강등하는 조건은 둘이다.** 401/403 은 서버가 자격증명을 명시적으로 거부한 것이고,
-**세션 grant 의 origin 미복귀**는 SSO 가 미인증을 200 으로 말하는 형태다 — 세션이 죽으면 IdP
+**요청 경로가 강등하는 조건은 둘이다.** `AuthenticatedRequest.authFailureStatuses`에 든 status는
+서버가 자격증명을 거부한 것으로 해석한다. 미지정 기본값은 기존 계약인 `[401, 403]`이고, Jira는
+403을 인증 만료가 아닌 권한 부족으로 돌려주므로 `[401]`로 좁힌다. **세션 grant 의 origin 미복귀**는
+SSO 가 미인증을 200 으로 말하는 형태다 — 세션이 죽으면 IdP
 로그인 폼이 200 으로 오므로 status 만 보면 그 200 을 성공으로 읽고, 세션 Auth 가 영원히 `valid` 인
 채 모든 요청이 로그인 폼을 받는다(§4.6). 판정은 `probeOk` 와 **같은 구현**(`isAllowedOrigin`)을
 쓴다 — 두 벌이면 하필 "인증됐는가" 가 갈린다. 값형 grant 에는 적용하지 않는다: 그쪽 체인은
@@ -319,8 +321,8 @@ change 가 나간다 — Harness cache 가 그 change 를 무시한다. 정착 �
 
 | `config.exchange` | grant | 자격증명을 나르는 것 | 만료를 관측하는 방법 |
 |---|---|---|---|
-| 미선언 | `kind:'session'` | cookie jar (partition) | 401/403 **또는 origin 미복귀**(§4.5) |
-| 선언 | `kind:'token'` (`authKind:'browser-session'`) | `exchange.present` 로 실린 토큰 | 401/403 · 토큰이 선언한 시계 만료 |
+| 미선언 | `kind:'session'` | cookie jar (partition) | 요청별 인증 실패 status(기본 401/403) **또는 origin 미복귀**(§4.5) |
+| 선언 | `kind:'token'` (`authKind:'browser-session'`) | `exchange.present` 로 실린 토큰 | 요청별 인증 실패 status(기본 401/403) · 토큰이 선언한 시계 만료 |
 
 **토큰의 출처는 교환 응답 JSON 하나다.** 로그인 창이 `doneUrlPrefix` 에 도달하면 그 final URL 에서
 인가 코드를 꺼내(`exchange.code.urlParam`, 미지정이면 `'code'`) 같은 세션으로 교환한다 — 쿠키를 읽어
@@ -628,7 +630,9 @@ Plugin 은 GUI 카탈로그에 표시되는 제품 기능 단위다. Plugin 모�
   로 비활성을 안내한다 — active registry 로 목록을 만들면 미인증 상태에서 도구가 통째로 사라진다.
 - Jira Data Center 내장 도구는 `features/plugins/jira/`가 REST mapping·결과 envelope·첨부 staging을
   소유한다. 모든 요청은 주입받은 `BoundAuth.request`로만 보내며 배포가 `origin`과 `apiBasePath`를
-  분리한다. 기본 OSS 배포의 Auth/Plugin 배열은 계속 비어 있고, 폐쇄망 배포가 typed recipe로 opt-in한다.
+  분리한다. Jira 요청은 403을 권한 부족으로 보존하도록 인증 실패 status를 401로 좁히고,
+  `User-Agent: Orcinus-Orca-Jira/0.34.0`과 `X-Atlassian-Token: no-check`를 공통 적용한다. 기본 OSS
+  배포의 Auth/Plugin 배열은 계속 비어 있고, 폐쇄망 배포가 typed recipe로 opt-in한다.
 
 ### 7.1 Plugin 과 HarnessPlugin 은 다른 것이다
 
