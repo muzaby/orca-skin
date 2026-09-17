@@ -144,7 +144,7 @@ function fakeSecretStore(): SecretStorePort {
 }
 
 // Bootstrap 이 만드는 것과 같은 스택. 선언한 Auth를 모두 인증된 상태로 seed 한다.
-function deployment(options: { jiraProbeStatus?: number } = {}): {
+function deployment(options: { jiraProbeStatus?: number; jiraApiBasePath?: string } = {}): {
   auth: AuthRuntime
   secretFor: (authId: AuthId) => () => string | null
   registry: RuntimeToolRegistry
@@ -155,7 +155,11 @@ function deployment(options: { jiraProbeStatus?: number } = {}): {
   const requestHeaders: Headers[] = []
   const vault = createVault(fakeSecretStore())
   const grants: Record<string, never> = {} as Record<string, never>
-  for (const definition of AUTH_DEFINITIONS) {
+  const jiraAuth = jiraAuthDefinition(options.jiraApiBasePath ?? JIRA_API_BASE_PATH)
+  const definitions = AUTH_DEFINITIONS.map((definition) =>
+    definition.id === JIRA_AUTH.id ? jiraAuth : definition
+  )
+  for (const definition of definitions) {
     vault.set(`${definition.id}:pat`, `secret-${definition.id}`, {
       kind: 'pat',
       createdAt: 0
@@ -170,14 +174,14 @@ function deployment(options: { jiraProbeStatus?: number } = {}): {
     })
   }
   const created = createAuthRuntime({
-    definitions: AUTH_DEFINITIONS,
+    definitions,
     persistence: createMemoryGrantPersistence(grants),
     vault,
     fetchImpl: (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       requests.push(url)
       requestHeaders.push(new Headers(init?.headers))
-      const status = url.endsWith(JIRA_AUTH.probe?.path ?? '')
+      const status = url.endsWith(jiraAuth.probe?.path ?? '')
         ? (options.jiraProbeStatus ?? 200)
         : 200
       return new Response(JSON.stringify({ token: 'llm-token' }), { status })
@@ -220,7 +224,10 @@ const createPluginBindings = (deps: PluginDeploymentDeps): PluginBinding[] => {
   ]
 }
 
-const createJiraPluginBinding = (deps: PluginDeploymentDeps): PluginBinding => {
+const createJiraPluginBinding = (
+  deps: PluginDeploymentDeps,
+  apiBasePath = JIRA_API_BASE_PATH
+): PluginBinding => {
   const jiraAuth = deps.auth.bind(JIRA_AUTH.id)
   const server = jiraTools(
     {
@@ -229,7 +236,7 @@ const createJiraPluginBinding = (deps: PluginDeploymentDeps): PluginBinding => {
       origin: JIRA_AUTH.origin,
       request: (request, signal) => jiraAuth.request(request, signal)
     },
-    { apiBasePath: JIRA_API_BASE_PATH }
+    { apiBasePath }
   )
   return createPluginBinding({
     auth: jiraAuth,
@@ -305,9 +312,18 @@ describe('가상 배포 — Plugin 경계', () => {
     expect(registry.snapshot().servers.has('jira-dc-tools')).toBe(false)
   })
 
-  it('Jira context path는 같은 API base에서 probe와 tools path를 파생한다', () => {
-    const contextual = jiraAuthDefinition('/company/jira/rest/')
-    expect(contextual.probe?.path).toBe('/company/jira/rest/api/2/myself')
+  it('Jira context path는 같은 API base에서 probe와 tools request path를 파생한다', async () => {
+    const apiBasePath = normalizeJiraApiBasePath('/company/jira/rest/')
+    const { auth, registry, requests } = deployment({ jiraApiBasePath: apiBasePath })
+    const binding = createJiraPluginBinding({ auth, registry }, apiBasePath)
+    binding.sync()
+
+    await auth.resume(JIRA_AUTH.id)
+    const search = binding.server.implementations.find((tool) => tool.name === 'jira_searchIssues')!
+    await search.handler({ jql: 'project = QA' })
+
+    expect(requests).toContain('https://jira.example.corp/company/jira/rest/api/2/myself')
+    expect(requests).toContain('https://jira.example.corp/company/jira/rest/api/2/search')
   })
 
   it('해제하면 도구가 회수되고 카탈로그 이름은 남는다', () => {

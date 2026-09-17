@@ -1013,9 +1013,10 @@ npx vitest run src/main/features/plugins/jira src/main/app/deployment/plugins.te
 | M16 — Jira 공통 User-Agent 제거 | VP-28·30·31 | r2 재현 | `rest.test` 16 + `deployment-wiring.test` 1 | **잠김** |
 | M17 — Chromium abort를 이름 없는 일반 Error로 복귀 | cancellation 회귀 | 독립 리뷰 결함 재현 | `net-request.test` 1 | **잠김** |
 | M18 — mapper가 DOMException만 cancelled로 인정 | cancellation 회귀 | 독립 리뷰 결함 재현 | `result.test` 1 + `tools.test` 1 | **잠김** |
+| M19 — tool binding만 context API base를 무시하고 `/rest`로 복귀 | VP-09·10·30 | 재리뷰 Minor 재현 | `deployment-wiring.test` 1 | **잠김** |
 
-- r2 분모 검산: plan 선택 evidence family **2**(M15·M16) + 독립 리뷰 파생 회귀 변이 **3** =
-  실행 표 행 **5**. M15는 tool/probe policy와 resume outcome 두 강제 지점을 각각 공격했다.
+- r2 분모 검산: plan 선택 evidence family **2**(M15·M16) + 독립 리뷰 파생 회귀 변이 **4** =
+  실행 표 행 **6**. M15는 tool/probe policy와 resume outcome 두 강제 지점을 각각 공격했다.
 - 모든 변이를 각각 원복한 뒤 reviewer target **5파일/59케이스**, 최종 affected target
   **10파일/210케이스**, 전체 Vitest와 build를 다시 관측했다.
 
@@ -1070,6 +1071,8 @@ npx vitest run src/main/features/plugins/jira src/main/app/deployment/plugins.te
   먼저 보강한 다음 후속 구현했다.
 - 독립 리뷰에서 실제로 찾은 구현 누락: Auth probe policy 전달, resume 보존 실패, cancellation
   error shape, context-path probe, ProviderDetail 줄바꿈/긴 URL 처리.
+- 후속 재리뷰 판정은 Critical/Important 0, merge ready였다. 남은 Minor인 context-path oracle의
+  tools 미단언도 실제 tool invocation URL을 확인하도록 보강하고 M19 red 1로 잠갔다.
 - 반복 환경 한계: 실제 Jira DC endpoint/PAT와 사람 UI 세션이 없어 AC15는 계속 반복 관측 불가.
 - 현재 라운드 수: 2
 
