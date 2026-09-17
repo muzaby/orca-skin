@@ -1080,16 +1080,17 @@ npx vitest run src/main/features/plugins/jira src/main/app/deployment/plugins.te
 
 ## [검증자 기입] 파생 이슈
 
-> r1 검증 판정과 근거 정본은 [`verify.md`](verify.md)다. 아래는 이관된 이슈 행만 갖는다.
+> 검증 판정과 근거 정본은 [`verify.md`](verify.md)다. 아래는 이관된 이슈 행만 갖는다. 상태는 최신 검증 라운드(r2) 기준이다.
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | 14개 도구 중 7개의 REST query/body가 어떤 테스트로도 잠기지 않는다. 8변이(linkIssues inward↔outward 맞바꿈 포함) 전부 green | VP-08 / AC8 / EP-15 | `jira_getIssue`·`getIssueComments`·`updateIssue`·`postIssueComment`·`updateIssueComment`·`linkIssues`·`downloadAttachment(issueKey)`의 query/body를 단언하고 같은 8변이로 red 확인 | BLOCKING | open |
-| D2 | `JiraAttachmentBatch`의 `state !== 'open'` 재진입 가드를 write/commit 양쪽에서 제거해도 8스위트 84케이스 전건 green | r1 `설계 대비 차이` 표 `재진입` 행이 인용한 `store state fixture` | 중복 `commit()`과 commit 후 `write()`가 `filesystem_error`임을 단언 | NON_BLOCKING | open |
+| D1 | 14개 도구 중 7개의 REST query/body가 어떤 테스트로도 잠기지 않는다. 8변이(linkIssues inward↔outward 맞바꿈 포함) 전부 green | VP-08 / AC8 / EP-15 | `jira_getIssue`·`getIssueComments`·`updateIssue`·`postIssueComment`·`updateIssueComment`·`linkIssues`·`downloadAttachment(issueKey)`의 query/body를 단언하고 같은 8변이로 red 확인 | BLOCKING | **closed** (r2 재측정 — 인용 9변이 전건 red, EP-15 5/5) |
+| D2 | `JiraAttachmentBatch`의 `state !== 'open'` 재진입 가드를 write/commit 양쪽에서 제거해도 8스위트 84케이스 전건 green | r1 `설계 대비 차이` 표 `재진입` 행이 인용한 `store state fixture` | 중복 `commit()`과 commit 후 `write()`가 `filesystem_error`임을 단언 | NON_BLOCKING | **부분 closed** (r2 — write 가드는 red, commit 가드 단독 제거는 green: `rename` ENOTEMPTY가 가린다) |
 | D3 | Jira `AuthenticatedRequest` 생성이 `jiraRequest()`를 지나는지 보장하는 구조 가드가 없다. 현재 5지점은 전부 준수 | EP-26 seam | 기록 — 새 요청 지점 추가 시 header 누락이 조용히 통과할 수 있다 | NON_BLOCKING | open |
 | D4 | 설계 커밋 `52487f1c`·`914081b2`·`d0880910`이 `Agent: codex` + `Status: designed` | root `AGENTS.md` 커밋 프로토콜 | 기록 — 허용값이고 구현 커밋과 분리됐다 | NON_BLOCKING | 기록 |
 | D5 | `jiraTools`·`createPluginBinding`·catalog 경로의 프로덕션 호출자 0 — `createPluginBindings()`가 `[]`다 | D-014 | 기록 — 의도된 기본 배포. AC7·13·14의 production path는 배포 fixture에서만 실행된다 | NON_BLOCKING | 기록 |
 | D6 | AC15(실제 Jira DC·ko/en UI 실기) 관측 불가 | VP-15 | 사람 실기 — `verify.md §8` 체크리스트 | NON_BLOCKING | open |
+| D7 | caller가 준 optional 입력 필드가 outbound에 도달하는지 잠그는 oracle이 없다. 9변이(`searchIssues.startAt/expand/fields/maxResults`·`getIssue.fields/expand`·`getIssueComments.startAt/expand`·dev-status `dataType`↔`applicationType` 맞바꿈·`download.filename`)가 전체 537파일에서 green | AC8 "입력 필드" / EP-15 | 각 optional 입력을 명시 값으로 준 outbound 단언 추가 | NON_BLOCKING | open |
 
 ---
 
