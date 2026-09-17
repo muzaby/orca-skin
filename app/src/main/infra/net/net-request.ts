@@ -71,7 +71,7 @@ export function sendOnce(opts: SendOnceOptions): Promise<SendOnceResult> {
     const onAbort = (): void => {
       finish(() => {
         request.abort()
-        reject(new Error('요청이 취소되었습니다'))
+        reject(new DOMException('요청이 취소되었습니다', 'AbortError'))
       })
     }
     // Register before cancellation: even an already-aborted signal can trigger a late error.

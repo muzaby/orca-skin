@@ -9,6 +9,11 @@ export const JIRA_ATTACHMENT_HARD_MAX_BYTES = 25 * 1024 * 1024
 export const JIRA_DEFAULT_PAGE_SIZE = 25
 export const JIRA_MAX_PAGE_SIZE = 100
 export const JIRA_USER_AGENT = `Orcinus-Orca-Jira/${JIRA_SOURCE.version}`
+export const JIRA_REQUEST_HEADERS = {
+  'User-Agent': JIRA_USER_AGENT,
+  'X-Atlassian-Token': 'no-check'
+} as const
+export const JIRA_AUTH_FAILURE_STATUSES = [401] as const
 export const JIRA_DEFAULT_SEARCH_FIELDS = [
   'summary',
   'description',
@@ -31,10 +36,9 @@ function jiraRequest(request: AuthenticatedRequest): AuthenticatedRequest {
     ...request,
     headers: {
       ...request.headers,
-      'User-Agent': JIRA_USER_AGENT,
-      'X-Atlassian-Token': 'no-check'
+      ...JIRA_REQUEST_HEADERS
     },
-    authFailureStatuses: [401]
+    authFailureStatuses: JIRA_AUTH_FAILURE_STATUSES
   }
 }
 

@@ -49,6 +49,8 @@ describe('ProviderDetail plugin presentation', () => {
     expect(markup).toContain('jira-dc')
     expect(markup).toContain('https://jira.example.com')
     expect(markup).toContain('mcp__jira-dc-tools__jira_searchIssues')
+    expect(markup).toContain('whitespace-pre-wrap')
+    expect(markup).toContain('break-all')
   })
 
   it('plugin catalog가 없으면 기존 Auth label과 power icon 동작을 유지한다', () => {

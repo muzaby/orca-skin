@@ -172,7 +172,7 @@ function safeDetails(details: JiraErrorDetails | undefined): JiraErrorDetails | 
 
 function inferredCode(error: unknown): JiraErrorCode {
   if (error instanceof JiraToolError) return error.code
-  if (error instanceof DOMException && error.name === 'AbortError') return 'cancelled'
+  if (error instanceof Error && error.name === 'AbortError') return 'cancelled'
   if (error instanceof Error && error.name === 'ResponseTooLargeError') return 'response_too_large'
   return 'transport_error'
 }

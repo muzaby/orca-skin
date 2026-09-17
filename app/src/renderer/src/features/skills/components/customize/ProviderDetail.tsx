@@ -86,7 +86,9 @@ export function ProviderDetail({
       </div>
 
       {presentation.body && (
-        <p className="mt-p7 mb-0 text-footnote text-ink2">{presentation.body}</p>
+        <p className="mt-p7 mb-0 whitespace-pre-wrap text-footnote text-ink2">
+          {presentation.body}
+        </p>
       )}
 
       {presentation.attribution && (
@@ -96,7 +98,9 @@ export function ProviderDetail({
           <dt className="text-ink3">{tr('skills.provider.version')}</dt>
           <dd className="m-0 truncate text-ink2">{presentation.attribution.version}</dd>
           <dt className="text-ink3">GitHub</dt>
-          <dd className="m-0 truncate font-mono text-ink2">{presentation.attribution.githubUrl}</dd>
+          <dd className="m-0 break-all font-mono text-ink2">
+            {presentation.attribution.githubUrl}
+          </dd>
           {presentation.attribution.license && (
             <>
               <dt className="text-ink3">{tr('skills.provider.license')}</dt>

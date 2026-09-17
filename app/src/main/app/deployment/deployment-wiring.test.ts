@@ -68,6 +68,11 @@ import {
 import type { RuntimeConfigAugmenters } from '../../features/harnesses/runtime-config'
 import { jiraTools } from '../../features/plugins/jira/tools'
 import { JIRA_CATALOG_PRESENTATION_INPUT } from '../../features/plugins/jira/source'
+import {
+  JIRA_AUTH_FAILURE_STATUSES,
+  JIRA_REQUEST_HEADERS,
+  normalizeJiraApiBasePath
+} from '../../features/plugins/jira/rest'
 
 const BEARER = { location: 'header', name: 'Authorization', scheme: 'bearer' } as const
 const CLAUDE_CORP_KEY = 'claude-corp'
@@ -98,13 +103,19 @@ const CONFLUENCE_AUTH = {
 } satisfies AuthDefinition
 
 // 가이드 §4-b Jira recipe. 실제 배포는 origin/context path만 자기 환경 값으로 바꾼다.
-const JIRA_AUTH = {
+const JIRA_API_BASE_PATH = normalizeJiraApiBasePath('/rest')
+const jiraAuthDefinition = (apiBasePath: string): AuthDefinition => ({
   id: 'jira-dc',
   label: 'Jira Data Center',
   origin: 'https://jira.example.corp',
-  probe: { path: '/rest/api/2/myself' },
+  probe: {
+    path: `${normalizeJiraApiBasePath(apiBasePath)}/api/2/myself`,
+    headers: JIRA_REQUEST_HEADERS,
+    authFailureStatuses: JIRA_AUTH_FAILURE_STATUSES
+  },
   methods: [patSpec({ label: 'PAT', fieldLabel: 'PAT', present: BEARER })]
-} satisfies AuthDefinition
+})
+const JIRA_AUTH = jiraAuthDefinition(JIRA_API_BASE_PATH)
 
 const CORP_USAGE_AUTH = {
   id: 'corp-usage',
@@ -133,13 +144,15 @@ function fakeSecretStore(): SecretStorePort {
 }
 
 // Bootstrap 이 만드는 것과 같은 스택. 선언한 Auth를 모두 인증된 상태로 seed 한다.
-function deployment(): {
+function deployment(options: { jiraProbeStatus?: number } = {}): {
   auth: AuthRuntime
   secretFor: (authId: AuthId) => () => string | null
   registry: RuntimeToolRegistry
   requests: string[]
+  requestHeaders: Headers[]
 } {
   const requests: string[] = []
+  const requestHeaders: Headers[] = []
   const vault = createVault(fakeSecretStore())
   const grants: Record<string, never> = {} as Record<string, never>
   for (const definition of AUTH_DEFINITIONS) {
@@ -160,16 +173,22 @@ function deployment(): {
     definitions: AUTH_DEFINITIONS,
     persistence: createMemoryGrantPersistence(grants),
     vault,
-    fetchImpl: (async (input: RequestInfo | URL) => {
-      requests.push(String(input))
-      return new Response(JSON.stringify({ token: 'llm-token' }), { status: 200 })
+    fetchImpl: (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      requests.push(url)
+      requestHeaders.push(new Headers(init?.headers))
+      const status = url.endsWith(JIRA_AUTH.probe?.path ?? '')
+        ? (options.jiraProbeStatus ?? 200)
+        : 200
+      return new Response(JSON.stringify({ token: 'llm-token' }), { status })
     }) as unknown as typeof fetch
   })
   return {
     auth: created.runtime,
     secretFor: (authId) => () => created.secretReader.read(authId),
     registry: new RuntimeToolRegistry(),
-    requests
+    requests,
+    requestHeaders
   }
 }
 
@@ -210,7 +229,7 @@ const createJiraPluginBinding = (deps: PluginDeploymentDeps): PluginBinding => {
       origin: JIRA_AUTH.origin,
       request: (request, signal) => jiraAuth.request(request, signal)
     },
-    { apiBasePath: '/rest' }
+    { apiBasePath: JIRA_API_BASE_PATH }
   )
   return createPluginBinding({
     auth: jiraAuth,
@@ -236,7 +255,7 @@ describe('가상 배포 — Plugin 경계', () => {
     const binding = createJiraPluginBinding({ auth, registry })
     binding.sync()
 
-    expect(JIRA_AUTH.probe.path).toBe('/rest/api/2/myself')
+    expect(JIRA_AUTH.probe?.path).toBe('/rest/api/2/myself')
     expect(binding.catalog).toMatchObject({
       icon: 'electrical_services',
       attribution: { source: '@atlassian-dc-mcp/jira', version: '0.34.0' }
@@ -250,6 +269,45 @@ describe('가상 배포 — Plugin 경계', () => {
     const result = await search.handler({ jql: 'project = QA' })
     expect(result.structuredContent).toMatchObject({ ok: true, tool: 'jira_searchIssues' })
     expect(requests.some((url) => url.includes('/rest/api/2/search'))).toBe(true)
+  })
+
+  it('Jira probe 403은 공통 headers로 전송하고 grant와 tool registry를 유지한다', async () => {
+    const { auth, registry, requests, requestHeaders } = deployment({ jiraProbeStatus: 403 })
+    const binding = createJiraPluginBinding({ auth, registry })
+    binding.sync()
+    const unsubscribe = auth.subscribe((change) => {
+      if (change.kind === 'snapshot' && change.authId === JIRA_AUTH.id) binding.sync()
+    })
+
+    await auth.resume(JIRA_AUTH.id)
+    unsubscribe()
+
+    const probeIndex = requests.findIndex((url) => url.endsWith('/rest/api/2/myself'))
+    expect(probeIndex).toBeGreaterThanOrEqual(0)
+    expect(requestHeaders[probeIndex]?.get('User-Agent')).toBe('Orcinus-Orca-Jira/0.34.0')
+    expect(requestHeaders[probeIndex]?.get('X-Atlassian-Token')).toBe('no-check')
+    expect(auth.bind(JIRA_AUTH.id).snapshot()).toMatchObject({ status: 'valid', verified: false })
+    expect(registry.snapshot().servers.has('jira-dc-tools')).toBe(true)
+  })
+
+  it('Jira probe 401은 grant를 만료시키고 tool registry에서 회수한다', async () => {
+    const { auth, registry } = deployment({ jiraProbeStatus: 401 })
+    const binding = createJiraPluginBinding({ auth, registry })
+    binding.sync()
+    const unsubscribe = auth.subscribe((change) => {
+      if (change.kind === 'snapshot' && change.authId === JIRA_AUTH.id) binding.sync()
+    })
+
+    await auth.resume(JIRA_AUTH.id)
+    unsubscribe()
+
+    expect(auth.bind(JIRA_AUTH.id).snapshot()).toMatchObject({ status: 'expired', verified: false })
+    expect(registry.snapshot().servers.has('jira-dc-tools')).toBe(false)
+  })
+
+  it('Jira context path는 같은 API base에서 probe와 tools path를 파생한다', () => {
+    const contextual = jiraAuthDefinition('/company/jira/rest/')
+    expect(contextual.probe?.path).toBe('/company/jira/rest/api/2/myself')
   })
 
   it('해제하면 도구가 회수되고 카탈로그 이름은 남는다', () => {
