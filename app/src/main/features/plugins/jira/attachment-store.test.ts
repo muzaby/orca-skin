@@ -1,6 +1,7 @@
 import {
   mkdtemp,
   mkdir,
+  readdir,
   readFile,
   realpath,
   stat,
@@ -90,6 +91,23 @@ describe('Jira attachment store', () => {
 
     await expect(batch.commit()).rejects.toThrow('filesystem_error')
     await expect(readFile(written.savedPath, 'utf8')).resolves.toBe('existing')
+  })
+
+  it('publish 후 batch 재진입은 commit과 write 모두 filesystem_error로 거부한다', async () => {
+    const directory = await root()
+    const batch = await createJiraAttachmentStore({ root: directory }).begin(
+      'jira-corp',
+      'attachment-42'
+    )
+    await batch.write('a.txt', Buffer.from('a'))
+    const staging = join(directory, 'jira', 'jira-corp', 'attachment-42', '.staging')
+    const [stageName] = await readdir(staging)
+    await batch.commit()
+
+    await mkdir(join(staging, stageName))
+
+    await expect(batch.write('b.txt', Buffer.from('b'))).rejects.toThrow('filesystem_error')
+    await expect(batch.commit()).rejects.toThrow('filesystem_error')
   })
 
   it('selector ancestor가 junction이면 root 탈출 전에 거부한다', async () => {
