@@ -1,4 +1,13 @@
-import { mkdtemp, mkdir, readFile, stat, symlink, utimes, writeFile } from 'node:fs/promises'
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  realpath,
+  stat,
+  symlink,
+  utimes,
+  writeFile
+} from 'node:fs/promises'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -45,7 +54,10 @@ describe('Jira attachment store', () => {
     await batch.commit()
     await expect(readFile(first.savedPath, 'utf8')).resolves.toBe('one')
     await expect(readFile(second.savedPath, 'utf8')).resolves.toBe('two')
-    expect(relative(resolve(directory, 'jira'), resolve(first.savedPath)).split(sep)).toEqual([
+    const canonicalDirectory = await realpath(directory)
+    expect(
+      relative(resolve(canonicalDirectory, 'jira'), resolve(first.savedPath)).split(sep)
+    ).toEqual([
       'jira-corp',
       'issue-QA-1',
       expect.stringMatching(
