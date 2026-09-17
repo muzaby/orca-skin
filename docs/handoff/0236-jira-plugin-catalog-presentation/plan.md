@@ -599,7 +599,8 @@ export interface JiraDownloadData {
 - link 도구 설명과 payload는 upstream의 inward/outward 방향을 그대로 보존한다.
 - 0.34.0 호환 fixture는 tool 이름·입력 필드·기본값·method/path/query/body를 고정한다. package보다 엄격한 selector XOR, page 100, attachment 10, byte/output cap, fixed save field, Orca envelope는 D-016의 의도한 delta로 별도 케이스를 둔다.
 - 204/empty successful response는 parse error가 아니라 `data:null`이다.
-- non-2xx는 status와 bounded Jira error object를 safe error code로 바꾼다. 401/403 상태 강등은 기존 `BoundAuth.request`가 소유한다.
+- non-2xx는 status와 bounded Jira error object를 safe error code로 바꾼다. Jira의 401 상태 강등과
+  요청별 인증 실패 판정은 기존 `BoundAuth.request`가 소유하고, 403은 `forbidden` 결과로 보존한다.
 - status mapping은 401=`unauthenticated`, 403=`forbidden`, 404=`not_found`, 409=`conflict`, 429=`rate_limited`, 나머지 non-2xx=`jira_error`다. transport/abort/parse/size/filesystem은 각 전용 code를 쓴다.
 - attachment `bean.content` absolute URL은 파싱 후 Auth origin과 origin equality를 확인하고 path+query만 request에 넘긴다.
 - store는 `prepareTemporaryFilesPath()`로 공통 root를 준비하고 `jira/<auth-segment>/<selector-segment>` 각 ancestor를 `lstat`/`realpath`로 확인한다. symlink·junction·root 이탈은 거부한다.
