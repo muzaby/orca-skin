@@ -68,6 +68,103 @@ describe('Jira service', () => {
     ])
   })
 
+  it('7개 도구는 BoundAuth outbound request의 query/body 의미를 보존한다', async () => {
+    const fake = context((req) => {
+      if (req.responseType === 'binary') return response('', 200, Buffer.from('file'))
+      if (req.path === '/rest/api/2/issue/QA-1' && req.query?.fields === 'attachment') {
+        return response({
+          fields: {
+            attachment: [
+              { id: '42', filename: 'a.txt', content: 'https://jira.example.com/files/a.txt' }
+            ]
+          }
+        })
+      }
+      return response({})
+    })
+    const service = createJiraService(fake.ctx)
+
+    await service.invoke('jira_getIssue', { issueKey: 'QA-1' })
+    await service.invoke('jira_getIssueComments', { issueKey: 'QA-1' })
+    await service.invoke('jira_updateIssue', {
+      issueKey: 'QA-1',
+      summary: 'summary',
+      description: 'description',
+      issueTypeId: '3',
+      customFields: { labels: ['urgent'] }
+    })
+    await service.invoke('jira_postIssueComment', { issueKey: 'QA-1', comment: 'hello' })
+    await service.invoke('jira_updateIssueComment', {
+      issueKey: 'QA-1',
+      commentId: '7',
+      comment: 'hello'
+    })
+    await service.invoke('jira_linkIssues', {
+      inwardIssueKey: 'QA-1',
+      outwardIssueKey: 'QA-2',
+      linkType: 'Blocks',
+      comment: 'rel'
+    })
+    await service.invoke('jira_downloadAttachment', {
+      issueKey: 'QA-1',
+      save: false,
+      returnContent: 'none'
+    })
+
+    const requestAt = (index: number): AuthenticatedRequest =>
+      fake.request.mock.calls[index][0] as AuthenticatedRequest
+    expect(requestAt(0)).toMatchObject({
+      method: 'GET',
+      path: '/rest/api/2/issue/QA-1',
+      query: {
+        fields:
+          'summary,description,status,assignee,reporter,priority,issuetype,labels,updated,parent,subtasks'
+      }
+    })
+    expect(requestAt(0).body).toBeUndefined()
+    expect(requestAt(1)).toMatchObject({
+      method: 'GET',
+      path: '/rest/api/2/issue/QA-1/comment',
+      query: { maxResults: '25' }
+    })
+    expect(requestAt(1).body).toBeUndefined()
+    expect(requestAt(2)).toMatchObject({
+      method: 'PUT',
+      path: '/rest/api/2/issue/QA-1',
+      query: { notifyUsers: 'true' }
+    })
+    expect(JSON.parse(requestAt(2).body ?? '')).toEqual({
+      fields: {
+        summary: 'summary',
+        description: 'description',
+        issuetype: { id: '3' },
+        labels: ['urgent']
+      }
+    })
+    expect(requestAt(3)).toMatchObject({
+      method: 'POST',
+      path: '/rest/api/2/issue/QA-1/comment'
+    })
+    expect(JSON.parse(requestAt(3).body ?? '')).toEqual({ body: 'hello' })
+    expect(requestAt(4)).toMatchObject({
+      method: 'PUT',
+      path: '/rest/api/2/issue/QA-1/comment/7'
+    })
+    expect(JSON.parse(requestAt(4).body ?? '')).toEqual({ body: 'hello' })
+    expect(requestAt(5)).toMatchObject({ method: 'POST', path: '/rest/api/2/issueLink' })
+    expect(JSON.parse(requestAt(5).body ?? '')).toEqual({
+      type: { name: 'Blocks' },
+      inwardIssue: { key: 'QA-1' },
+      outwardIssue: { key: 'QA-2' },
+      comment: { body: 'rel' }
+    })
+    expect(requestAt(6)).toMatchObject({
+      method: 'GET',
+      path: '/rest/api/2/issue/QA-1',
+      query: { fields: 'attachment' }
+    })
+  })
+
   it('non-2xx는 bounded Jira details와 status code로 실패한다', async () => {
     const fake = context(() =>
       response(

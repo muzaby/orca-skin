@@ -1090,3 +1090,84 @@ npx vitest run src/main/features/plugins/jira src/main/app/deployment/plugins.te
 | D4 | 설계 커밋 `52487f1c`·`914081b2`·`d0880910`이 `Agent: codex` + `Status: designed` | root `AGENTS.md` 커밋 프로토콜 | 기록 — 허용값이고 구현 커밋과 분리됐다 | NON_BLOCKING | 기록 |
 | D5 | `jiraTools`·`createPluginBinding`·catalog 경로의 프로덕션 호출자 0 — `createPluginBindings()`가 `[]`다 | D-014 | 기록 — 의도된 기본 배포. AC7·13·14의 production path는 배포 fixture에서만 실행된다 | NON_BLOCKING | 기록 |
 | D6 | AC15(실제 Jira DC·ko/en UI 실기) 관측 불가 | VP-15 | 사람 실기 — `verify.md §8` 체크리스트 | NON_BLOCKING | open |
+
+---
+
+## [구현자 기입] 설계 리뷰 (r3)
+
+- 판정: D1과 D2는 기존 계약을 구현하지 못한 것이 아니라, 이미 존재하는 동작 계약을 실제 production path의 oracle로 잠그지 못한 구현·검증 누락이다.
+- 유효 V: V1 `41c07e9c`에 ΔV1 `d0880910`을 합성한 기준을 유지하고, 이번 라운드는 REQUIRED VP-08과 VP-25의 파생 이슈만 재구현한다.
+- 계약 변경: Decision·AC·V node/pair·§10 강제 지점을 바꾸지 않았다. 신규 의존성·공개 메시지·UI 동작 변경도 없다.
+- D1 불변식: 각 Jira 도구 호출은 schema를 통과한 뒤 실제 `BoundAuth.request`에 upstream 0.34.0의 method/path/query/body를 전달해야 한다.
+- D2 불변식: publish 이후 batch 상태는 재진입할 수 없으며, stage 경로가 다시 존재해도 `write`와 `commit`은 `filesystem_error`를 반환해야 한다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 (r3)
+
+| Pair | §10 강제 지점 | 전수 결과 | 자기 상태 | 직접 관측 |
+|---|---|---:|---|---|
+| VP-08 | EP-14/15/16/17/21 | **5/5** | `SELF_PASS` | `service.test.ts`가 7개 도구의 실제 request fake 호출에서 query/body와 method/path를 확인하고, 기존 `rest.test.ts`가 나머지 7개 route를 유지한다 |
+| VP-25 | EP-19/20/21 | **3/3** | `SELF_PASS` | `attachment-store.test.ts`가 publish 후 stage 재생성 시 `write`·`commit` 재진입을 확인한다. EP-20의 상태 가드 두 subpoint(write/commit)도 **2/2**다 |
+
+- VP-15는 실제 Jira DC endpoint와 사람 UI 세션이 없어 `SELF_BLOCKED`로 유지한다.
+- 기존 pair는 변경 경로가 없으므로 이전 자기확인 결과를 상속하고, 이번 라운드의 독립 검증을 선점하지 않는다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r3)
+
+| 심은 결함 또는 새 oracle | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| 신규 outbound oracle — 7개 도구의 실제 service→BoundAuth request query/body | D1 / AC8 / EP-15 | 해당 oracle 없음 | 기본 GREEN 1 · 인용 변이 red 9 | **잠김** |
+| 신규 재진입 oracle — publish 후 stage 재생성 | D2 / AC12 / EP-20 | 해당 oracle 없음 | 기본 GREEN 1 · P-i red 1 | **잠김** |
+| S1 — linkIssues inward↔outward 맞바꿈 | D1 / VP-08 | green | `service.test.ts` 1 | **잠김** |
+| P-a — updateIssue summary↔description | D1 / VP-08 | green | `service.test.ts` 1 | **잠김** |
+| P-b — updateIssue `notifyUsers` 변경 | D1 / VP-08 | green | `service.test.ts` 1 | **잠김** |
+| P-c — linkIssues `type.name`→`type.id` | D1 / VP-08 | green | `service.test.ts` 1 | **잠김** |
+| P-d — postIssueComment body key 변경 | D1 / VP-08 | green | `service.test.ts` 1 | **잠김** |
+| P-e — getIssue 기본 fields 축소 | D1 / VP-08 | green | `service.test.ts` 1 | **잠김** |
+| P-f — download issueKey query fields 변경 | D1 / VP-08 | green | `service.test.ts` 1 | **잠김** |
+| P-g — updateIssueComment body key 변경 | D1 / VP-08 | green | `service.test.ts` 1 | **잠김** |
+| P-h — getIssueComments 기본 maxResults 제거 | D1 / VP-08 | green | `service.test.ts` 1 | **잠김** |
+| P-i — batch write/commit 상태 가드 제거 | D2 / VP-25 | green | `attachment-store.test.ts` 1 | **잠김** |
+
+- r3 분모 검산: 선택 evidence **0** + 검증자가 열거한 인용 변이 **10**(S1·P-a…P-i) + 신규 oracle **2** = 표 행 **12**.
+- 각 변이는 주입 후 해당 테스트가 RED임을 확인하고 즉시 원복했다. P-f는 잘못된 metadata 응답으로 `invalid_response`가 발생했으며, 나머지는 기대 payload/query 단언에서 실패했다.
+- 직접 oracle은 구현된 service와 store를 호출하므로 동명 builder만 검사하는 구조적 proxy가 아니다.
+
+## [구현자 기입] Product/UX 파생 검토 (r3)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| outbound 요청 oracle 추가가 agent 메시지 포맷을 바꾸는가 | 없음 | 기존 Jira success/error envelope와 tool name을 유지 |
+| publish 후 재진입 오류가 사용자에게 무음으로 보이는가 | 없음 | handler의 기존 `filesystem_error` 매핑을 사용하며 새 오류를 삼키지 않음 |
+| stage 재생성 적대 fixture가 실제 Temp 경로를 벗어나는가 | 없음 | 테스트 root 아래 `jira/auth/selector/.staging`만 재생성하고 afterEach에서 제거 |
+| 이번 라운드에 UI·제품 문자열 소비자가 새로 생기는가 | 없음 | 코드·렌더·i18n 변경 없이 테스트/문서만 갱신 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r3)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 기존 route table만으로는 payload 의미가 drift해도 통과할 수 있었다 | 실제 `createJiraService(...).invoke()`와 fake request를 연결해 7개 미잠금 도구를 한 케이스에서 관측 | `service.test.ts` outbound oracle |
+| 2 | 기존 재진입 테스트는 stage가 사라져 가드가 없어도 filesystem 오류로 보일 수 있었다 | publish 후 원래 stage 이름을 재생성한 뒤 write를 호출해 상태 가드 자체를 적대적으로 관측 | `attachment-store.test.ts` P-i red |
+| 3 | D3(공통 `jiraRequest` 구조 guard), D4(설계 trailer), D5(기본 배포 호출자 0), D6(사람 실기)는 이번 계약의 BLOCKING이 아니다 | 변경하지 않고 verifier 파생 이슈로 유지 | `verify.md §13` |
+| 4 | 실제 Jira DC와 ko/en UI 실기는 로컬에서 재현할 수 없다 | AC15/VP-15를 `SELF_BLOCKED`로 남기고 Claude/사람 검증으로 이관 | `verify.md §8` |
+
+## [구현자 기입] 구현 보고 (r3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/src/main/features/plugins/jira/service.test.ts`, `app/src/main/features/plugins/jira/attachment-store.test.ts`, `docs/handoff/INDEX.md`, 본 plan의 r3 보고 |
+| production diff | 없음. Jira REST 동작과 attachment store guard는 기존 구현을 유지하고 oracle만 추가 |
+| 실행 명령 | `npx.cmd vitest run src/main/features/plugins/jira` · `npx.cmd vitest run` · `node --test scripts/*.test.mjs` · `npm.cmd run lint` · `npm.cmd run typecheck:node` · `npm.cmd run typecheck:web` · `npm.cmd run typecheck:test` · `node scripts/check-doc-inventory.mjs --check` · `git diff --check` |
+| 관측한 게이트 산출 | Jira **7파일/64케이스 pass** · 전체 Vitest **536파일 pass/1 skip, 4,941 pass/1 skip** · scripts **119 pass/0 fail** · lint **0 error/기존 warning 1** · typecheck **3/3 pass** · doc inventory **9 items/98 channels, prose/link pass** · diff check pass |
+| V-pair 자기확인 | VP-08 `SELF_PASS`(EP 5/5), VP-25 `SELF_PASS`(EP 3/3); VP-15 `SELF_BLOCKED` |
+| AC 자기보고 | **17/18** — AC15 실제 Jira DC·ko/en UI 실기 대기 |
+| 합계 검산 | ✅ **17** · ⚠️ **1** · ❌ **0** = **18** |
+| 블로커 / 역질문 | 코드 블로커 없음. AC15는 실제 Jira DC 자격증명과 사람 UI 세션이 필요하다 |
+| 대상 커밋 | `(r3 구현 — 검증자 기입)` — 좌표는 INDEX에서 Claude가 기입 |
+
+## [구현자 기입] Review Signals — 사실만 (r3)
+
+- 이번에 닫은 불변식은 이전 라운드의 Jira REST/attachment 축과 같고, 검증 FAIL이 지목한 oracle 누락을 production path에서 보완했다.
+- 이를 막았어야 할 plan 지침과 AC는 이미 있었다. AC8·EP-15가 각 도구의 outbound query/body를 요구했지만 r2 보고는 route/field inventory만 관측했다.
+- D2에서는 기존 테스트가 가드 제거를 검출하지 못하는 이유를 stage 경로 재생성으로 확인했고, 그 fixture가 가드가 태어난 지점을 직접 본다.
+- 반복 환경 한계는 실제 Jira DC endpoint/PAT와 사람 UI 세션 부재다. 전체 기계 gate는 이번 라운드에서 모두 통과했다.
+- 현재 라운드 수는 **3**이며, 다음 주체는 Claude 독립 검증자다.
