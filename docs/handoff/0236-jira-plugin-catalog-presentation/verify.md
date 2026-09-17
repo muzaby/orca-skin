@@ -1,5 +1,281 @@
 # Verify — 0236-jira-plugin-catalog-presentation
 
+# r2 — PASS
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 일자 | 2026-09-17 |
+| 대상 커밋/range | `cdf6ebc4..2f919935` (r3 구현 `2f919935` 단일) |
+| 구현 전 plan 기준 | `d0880910` (마지막 설계 커밋 — r1과 동일, 이후 규범 행 변경 0) |
+| V mode / 유효 V | `Delta V` / `V1@41c07e9c + ΔV1@d0880910` |
+| 라운드 | 2 (검증) · 구현 라운드 3 |
+| 상태 | **PASS** |
+| 자기 검증 여부 | 구현자 = Codex, 검증자 = Claude — 동일 에이전트 아님. 보고가 이름을 대지 않은 적대 축 **12건**을 추가로 실행했고 **10건이 green**이었다(D7·D2) |
+| 실행 범위 | root 실패 pair(VP-08)·이번 변경이 닿은 pair(VP-25·VP-12·VP-19·VP-20·VP-23)·운영 gate 7종 전건. 영향받지 않은 이전 `PASS`는 [r1](#r1--fail-보존) 증거 좌표를 참조한다 |
+
+## 0. 기준선 / plan 변경 확인
+
+- 구현 커밋이 `plan.md`를 변경했는가: 예, **추가 81줄 · 삭제 0줄**(`git show 2f91993 -- …/plan.md`). 규범 행(Decision·AC·V node/pair·§10)의 변경 0건.
+- **기준선이 diff로 성립하는가**: **예**. r3는 `[구현자 기입] … (r3)` 절만 덧붙였고 채점 기준 `d0880910`은 r1과 동일하다.
+- production 코드 변경: **0**. `git diff --stat cdf6ebc4..2f919935 -- app/src`는 `service.test.ts`(+97)·`attachment-store.test.ts`(+18) 두 테스트 파일뿐이다.
+- 채점에 사용할 원 기준: r1과 같은 `d0880910`의 plan 상단(V1 + ΔV1).
+
+### Plan validity
+
+- r1 [Plan validity](#plan-validity) 6행 전건 유효 판정을 승계한다 — 이번 range가 규범 행을 바꾸지 않았다.
+- root `PLAN_GAP`: **없음**. 이번 라운드가 새로 만든 gap도 없다(§13 D7은 plan이 선언한 oracle 안쪽의 잔여 축이다).
+
+## 1. Product & UX / ACTIVE Decision 요약
+
+- production diff 0이므로 D-001…D-020의 실제 경로는 r1 [§1 표](#1-product--ux--active-decision-요약)와 동일하다 — 재서술하지 않는다.
+- 이번 라운드가 바꾼 것은 **증거뿐**이다. Decision·AC·UI 문자열·wire·approval 정책에 닿은 변경 0건.
+
+## 2. 구현 결과 비판적 검토 — AC 전에
+
+| 질문 | 판정 | 근거/후속 |
+|---|---|---|
+| 새 실패 모드가 생겼는가 | ✅ 없음 | production diff 0 — 런타임 경로가 r2 트리와 byte 동일 |
+| 신규 oracle이 production symbol을 부르는가 | ✅ 예 | `createJiraService(fake.ctx).invoke(...)`가 실제 service·`buildJiraRequest`를 지난다(`service.test.ts:71`) |
+| 동명 로컬 재구현으로 잠갔는가 | ✅ 아니오 | fake는 `ctx.request` 포트 하나뿐이고 route/payload는 production이 만든다 |
+| 신규 oracle이 Zod seam 위/아래 중 어디인가 | ⚠️ 아래 | `invoke` 진입이라 schema 기본값은 테스트가 손으로 준다(`save:false`·`returnContent:'none'`). schema 층은 EP-14(`tools.test`)가 별도로 닫는다 |
+| 구조적 proxy·0건/전수 게이트를 새로 만들었는가 | ✅ 아니오 | 두 신규 oracle 모두 직접 행동 단언이다 — 엄격화 재측정 대상 없음 |
+| 적대 fixture가 실제 Temp를 벗어나는가 | ✅ 아니오 | `mkdtemp` root 아래 `.staging/<uuid>`만 재생성하고 `afterEach`가 제거(`attachment-store.test.ts:96`) |
+
+## 3. 역방향 탐색
+
+```bash
+bash .agents/skills/handoff-verify/scripts/scan-surface.sh cdf6ebc4..2f919935
+# → 변경된 소스 파일이 없습니다 (범위: cdf6ebc4..2f919935, 루트: app/src)
+```
+
+- 신규 export·테스트 전용 symbol·형제 정책 비대칭·producer/consumer 파생 불일치: 이번 range에 **후보 0건**.
+- r1이 남긴 표면 판정(D3 header seam, D5 프로덕션 호출자 0)은 그대로다 — 이번 변경이 건드리지 않았다.
+
+## 4. 기존 테스트 / semantic 검증 확인
+
+- **인용 변이 재측정**: D1·D2가 인용한 **10변이 전건 red**. 분모는 Jira suite `7파일 / 64케이스`이며 각 변이가 정확히 1케이스를 깨뜨렸다.
+- **이전 라운드 대조**: r1이 red로 관측한 변이 중 이번 변경이 닿은 7건을 재실행해 **전건 red** — `red → green` 덮개 회귀 **0건**.
+- **자기검증 분모**: 구현자 ≠ 검증자. 보고가 이름을 대지 않은 축 **12건**을 신설해 **green 10 · red 2**였다.
+
+| 변이 | 범위 | r1 결과 | 이번 결과 | 귀속 |
+|---|---|---|---|---|
+| S1 linkIssues inward↔outward 맞바꿈 | rest.ts | green | **red 1** | D1 인용 — 닫힘 |
+| P-a updateIssue summary↔description | rest.ts | green | **red 1** | D1 인용 — 닫힘 |
+| P-b updateIssue `notifyUsers` `true→false` | rest.ts | green | **red 1** | D1 인용 — 닫힘 |
+| P-c linkIssues `type.name`→`type.id` | rest.ts | green | **red 1** | D1 인용 — 닫힘 |
+| P-d postIssueComment body key `body`→`comment` | rest.ts | green | **red 1** | D1 인용 — 닫힘 |
+| P-e `JIRA_DEFAULT_ISSUE_FIELDS`에서 `parent,subtasks` 제거 | rest.ts | green | **red 1** | D1 인용 — 닫힘 |
+| P-f download issueKey query `attachment`→`attachments` | rest.ts | green | **red 1** | D1 인용 — 닫힘 |
+| P-g updateIssueComment body key `body`→`comment` | rest.ts | green | **red 1** | D1 인용 — 닫힘 |
+| P-h getIssueComments 기본 `maxResults` 제거 | rest.ts | green | **red 1** | D1 인용 — 닫힘 |
+| P-i batch write+commit 상태 가드 동시 제거 | attachment-store.ts | green | **red 1** | D2 인용 — 부분 닫힘(아래) |
+| M6 `jira_unlinkIssues` inventory 제거 | tools.ts | red | **red 3** | 덮개 회귀 없음 |
+| M7 search path `/search`→`/search/jql` | rest.ts | red | **red 1** | 덮개 회귀 없음 |
+| M8 error `isError` 제거 | result.ts | red | **red 11** | 덮개 회귀 없음 |
+| M10 secret redaction 제거 | result.ts | red | **red 3** | 덮개 회귀 없음 |
+| M11 attachment same-origin 검사 제거 | rest.ts | red | **red 1** | 덮개 회귀 없음 |
+| M12 `jira_createIssue`를 read-only로 | tools.ts | red | **red 1** | 덮개 회귀 없음 |
+| P-j inline budget 역순 배분 | result.ts | red | **red 1** | 덮개 회귀 없음 |
+| **N1 getIssue가 caller `fields`를 무시** | rest.ts | — | **green** | 검증자 신설 → **D7** |
+| **N2 getIssueComments `startAt` 전달 제거** | rest.ts | — | **green** | **D7** |
+| **N3 searchIssues `startAt` 전달 제거** | rest.ts | — | **green** | **D7** |
+| **N6 searchIssues가 caller `maxResults`를 무시** | rest.ts | — | **green** | **D7** |
+| **N7 getIssue `expand` 전달 제거** | rest.ts | — | **green** | **D7** |
+| **N8 dev-status `dataType`↔`applicationType` 맞바꿈** | service.ts | — | **green** | **D7**(형제 슬롯) |
+| **N9 getIssueComments `expand` 전달 제거** | rest.ts | — | **green** | **D7** |
+| **N10 searchIssues가 caller `fields`를 무시** | rest.ts | — | **green** | **D7** |
+| **N11 download `filename` 필터 제거** | service.ts | — | **green** | **D7** |
+| **N12 commit() 재진입 가드만 제거** | attachment-store.ts | — | **green** | **D2 부분** |
+| N4 `buildDevelopmentInfoRequest` 인자 2개 맞바꿈 | rest.ts | — | red 2 | 검증자 신설 |
+| N5 updateIssue `issuetype.id`→`issuetype.name` | rest.ts | — | red 1 | 검증자 신설 |
+
+- N1·N2·N3·N6·N7·N8·N9·N10·N11의 green은 Jira suite가 아니라 **전체 537파일 / 4,942케이스**에서 확인했다 — 저장소 어디에서도 검출되지 않는다.
+- **N12 — 구현 보고의 `2/2`를 재측정하면 `1/2`다.** commit 가드만 지우면 재생성된 stage를 비어 있지 않은 final directory 위로 `rename`하다 `ENOTEMPTY`로 실패해 같은 `filesystem_error`가 나온다. 테스트는 침묵한다. write 가드만 지우면 red 1이다.
+- **소거 변이 잔여물 수렴(P-i)**: 1단계(가드 2줄 제거) red → 2단계에서 남은 `state` 선언·대입·`abort` 판독까지 제거해 **typecheck error 0 · eslint 출력 0**으로 만든 뒤에도 같은 1케이스가 red였다. 잔여물 부산물이 아니라 실제 잠금이다.
+- 동작 보존 추출 라운드인가: 아니오 — 증거 추가 라운드이며 hunk 되돌림 분모를 쓰지 않았다.
+
+## 5. V-pair closeout — `UT → IT → ST → AT`
+
+| Pair | left ↔ right / 레벨 | requiredness | 결과 | 직접 검증 증거 | production path / §10 전수 |
+|---|---|---|---|---|---|
+| VP-25 | MD-04 ↔ UT-04 / UT | REQUIRED | PASS | `attachment-store.test` 6케이스 · P-i red(잔여물 수렴 후에도 red) | untrusted name/URL→stage/publish / 3/3 |
+| VP-23 | MD-02 ↔ UT-02 / UT | REQUIRED | PASS | `rest.test` 14행 route table · M7 red | tool input→route / 5/5 |
+| VP-24 | MD-03 ↔ UT-03 / UT | REQUIRED | PASS | `result.test` · M8·M10·P-j red | HTTP/error→envelope / 1/1 |
+| VP-19 | AR-02 ↔ IT-02 / IT | REQUIRED | PASS | `service.test` 7케이스 — 신규 outbound oracle 포함 · S1·P-a…P-h red | handler→service→envelope / 6/6 |
+| VP-20 | AR-03 ↔ IT-03 / IT | REQUIRED | PASS | `service.test` 중간 실패·prepared/commit · M11 red | URL→binary→stage→publish / 4/4 |
+| VP-12 | R-12 ↔ AT-12 / AT | REQUIRED | PASS | `attachment-store.test` 6 + `service.test` 2 · M11·P-i red | selector→publish / 4/4 |
+| **VP-08** | **R-08 ↔ AT-08 / AT** | **REQUIRED** | **PASS**(r1 `PAIR_FAIL` 해소) | route 14/14 + **query/body 11/11**(해당 도구 전수) · 인용 9변이 전건 red | handler→service→BoundAuth / **5/5**(EP-15 닫힘) |
+| VP-15 | R-15 ↔ AT-15 / AT | REQUIRED | **BLOCKED_BY: 외부 환경** | 코드 경계 11/12 관측, 실제 Jira DC·ko/en UI 미수행 | packaged app→real Jira / 11/12 |
+| 그 외 25 pair | — | REQUIRED/REGRESSION | PASS(승계) | 이번 range가 닿지 않음 — 증거 좌표는 r1 [§5](#5-v-pair-closeout--ut--it--st--at) | — |
+
+- root `PAIR_FAIL`: **없음**. r1의 유일한 root였던 VP-08이 닫혔다.
+- 종속 `BLOCKED_BY`: VP-15 → 외부 Jira DC/UI 환경(사람 실기). 코드 경계는 기계 검증했다.
+- 이전 라운드 산문을 복사해 PASS 수에 더하지 않았다 — 이번 라운드가 직접 실행한 pair는 8개이고 나머지 25는 좌표 참조다.
+
+### AT / AC 세부와 합계
+
+| AT / AC | 결과 | 이번 라운드 증거 |
+|---|---|---|
+| **AC8** | ✅ (r1 ❌ → 해소) | 14개 도구 전부 outbound route 단언, query/body를 갖는 11개 전부 payload 단언. 인용 9변이 red |
+| AC12 | ✅ | publish 후 write 재진입이 `filesystem_error`(신규 케이스). commit 재진입 잠금은 D2로 잔존 |
+| AC15 | ⚠️ | 실제 Jira DC·ko/en UI 실기 미수행 — §8 |
+| AC1…7·9·10·11·13·14·16·17·18 | ✅(승계) | production diff 0 · 전체 스위트 green · r1 증거 좌표 유지 |
+
+- **합계 재측정**: `✅ 17 · ⚠️ 1 · ❌ 0 = 총 18`.
+- **합계 사본 대조**: 본문 `17/18` ↔ commit trailer `Criteria-Met: 17/18`(`2f919935`) ↔ 이번 검증 재측정 `17/18` — **세 사본 일치**. INDEX 비고는 r3 수치를 적지 않아 충돌 없음.
+
+### pair별 plan §10 강제 지점 분모
+
+| Pair | 계약/필드 | plan이 적은 강제 지점 | 검증자 재열거 | 결과 |
+|---|---|---|---|---|
+| VP-08 | schema/REST 의미 | EP-14/15/16/17/21 (5) | EP-14 `tools.test` XOR/bounds · **EP-15 닫힘** · EP-16·17 `deployment-wiring.test` · EP-21 cap → **5/5** | PASS |
+| VP-25 | 안전한 stage/publish | EP-19/20/21 (3) | `rest.ts:205` same-origin · `attachment-store.ts` sanitize/exclusive/atomic/cleanup · schema+service cap → **3/3** | PASS |
+| VP-12 | 안전한 첨부 commit | EP-18/19/20/21 (4) | r1 재열거 유지 + 이번 재진입 케이스 → **4/4** | PASS |
+
+- **EP-15 독립 재열거**: `buildJiraRequest`의 14 case 중 query/body를 갖는 **11개**(search·getIssue·getIssueComments·create·update·postComment·updateComment·devInfo·transition·link·download)가 전부 단언된다. 나머지 3개(`jira_getTransitions`·`jira_getIssueLinkTypes`·`jira_unlinkIssues`)는 path 외 payload가 없다 — `rest.ts:158`·`:170`·`:172`.
+- **EP-20 하위 지점 재측정**: 구현 보고가 `write/commit 2/2`라 적었으나 검증자 재측정은 **1/2**다(N12). 표의 EP 단위 판정은 바뀌지 않는다.
+- `실패 의미`가 "다른 게이트가 막는다"고 적은 행: 표에는 없으나 **N12가 실제로 그 형태**다 — `rename` ENOTEMPTY가 가드 부재를 가린다.
+
+### 현재 변경의 운영 gate
+
+| Gate | 결과 | 증거 / 범위 판정 |
+|---|---|---|
+| plan/INDEX 정합성 | ⚠️→수정 | 대상 커밋이 자리표시자였다 — 검증자가 `2f919935`로 기입(§11) |
+| renderer/main/shared | PASS | `npm run lint` **0 error / 1 기존 warning**(`useTranscriptVirtualizer.ts:22`) · `npm run typecheck` 3구성 error 0 |
+| 관련 비-DB 테스트 | PASS | §19 대상 **16파일 / 142케이스 pass**; Jira 단독 **7파일 / 64케이스 pass** |
+| 문서/인벤토리 | PASS | `check-doc-inventory.mjs --check` generated ok(9 items, 98 channels)·prose ok·links ok; `git diff --check` clean |
+| dependency | PASS | `git diff 41c07e9c^..2f919935 -- app/package.json app/package-lock.json` **빈 diff**; `(from\|require\() '@atlassian-dc-mcp` import **0건** |
+| message bus | PASS | 이번 range 1커밋 trailer 7키 전건 파싱; 설계/구현 분리 유지(§11) |
+| CI portability | PASS | 신규 fixture가 `join()`·`readdir()`만 쓰고 OS 구분자를 문자열로 조립하지 않는다(`attachment-store.test.ts:101`) |
+
+## 6. 외부 포트 / 문서 계약
+
+- upstream `@atlassian-dc-mcp/jira@0.34.0` 대조: 이번 range가 `rest.ts`를 바꾸지 않아 r1의 **14/14 tarball 실측**이 그대로 유효하다.
+- r1이 "❌ 잠금(D1)"으로 적었던 칸은 이번 라운드에 **✅ 잠금**으로 바뀐다 — 신규 outbound oracle이 7개 도구의 payload를 production에서 관측한다.
+- `docs/guides/closed-network-extensions.md` Jira recipe: 변경 0건, `deployment-wiring.test` green.
+
+## 7. 숫자 / 음성 기준 / 상한 재측정
+
+- **신규 oracle 케이스 수 재측정**: `service.test.ts` +1 케이스(7 도구 · 7 request index 단언), `attachment-store.test.ts` +1 케이스. Jira suite 총계 `64`는 r2의 `62`에 2를 더한 값과 일치한다.
+- **인용 변이 분모 재측정**: plan r3 표 12행 = 신규 oracle 2 + 인용 변이 10(S1·P-a…P-i). 검증자 재측정 결과 인용 변이 **10/10 red**, 표 행 수 일치.
+- **전체 스위트 재측정**: `537파일 / 4,942케이스` — **536 pass · 1 skip · 0 fail**, 케이스 **4,939 pass · 3 skip · 0 fail**.
+- **자기보고 스위트 수치 대조**: 보고는 `4,941 pass / 1 skip`(Windows), 검증은 `4,939 pass / 3 skip`(Linux). 차이 2건은 `it.runIf(process.platform === 'win32')` 2케이스다(`features/artifacts/files.test.ts:25`·`input-files.test.ts:103`) — 총계 4,942와 fail 0은 양쪽 동일.
+- 상한·승인 분모·0건 게이트: production diff 0이라 r1 [§7](#7-숫자--음성-기준--상한-재측정) 재계산이 그대로 유효하다.
+
+## 8. 테스트 가능한 핸들 탐색 후 남은 사람 실기
+
+- 남은 사람 실기는 **AC15 5항목**으로 r1 [§8](#8-테스트-가능한-핸들-탐색-후-남은-사람-실기)과 동일하다 — 이번 라운드가 줄이지도 늘리지도 않았다.
+- "UI/SDK/electron이라 불가"로 새로 넘긴 항목: **0건**.
+
+## 9. 게이트 재실행
+
+- 실제 실행 명령:
+  - `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` → `npm rebuild better-sqlite3`(Node ABI) → `node node_modules/electron/install.js`
+  - `npm run typecheck` · `npm run lint`
+  - `./node_modules/.bin/vitest run src`(전체) · `./node_modules/.bin/vitest run src/main/features/plugins/jira` · §19 대상 스위트
+  - `node --test "scripts/*.test.mjs"` · `node scripts/check-doc-inventory.mjs --check` · `git diff --check`
+- **관측한 실행 산출**(exit code 아님):
+  - typecheck 3구성(`node`/`web`/`test`) — `error TS` **0건**.
+  - lint — **0 error · 1 warning**(기존 `react-hooks/incompatible-library`).
+  - 전체 Vitest — **536파일 pass · 1 skip**, **4,939 pass · 3 skip · 0 fail**.
+  - Jira suite — **7파일 / 64 pass**. §19 대상 — **16파일 / 142 pass**.
+  - scripts — **119 pass / 0 fail**(16 suite).
+  - doc inventory — generated ok(9 items, 98 channels) · prose ok · links ok.
+- `npm test`를 썼는가: 아니오 — `pretest` ABI flip을 피해 `./node_modules/.bin/vitest run`을 직접 썼다(`app/AGENTS.md`).
+- `npm run build`: **실행하지 않았다.** 이번 range의 production·manifest diff가 0이라 AC16의 build 증거는 r1(`cdf6ebc4` 동일 트리)이 관측한 좌표를 승계한다. 못 본 것으로 적는다.
+- ABI/egress 환경 실패 분리: 최초 실행에서 **37파일 / 178케이스** red였고 서명은 `Electron failed to install correctly`와 `NODE_MODULE_VERSION 140 … requires 127` 두 종뿐이었다 — `app/AGENTS.md`의 알려진 환경 서명. rebuild·재설치 후 전건 green. **변경 기인 red 0건**.
+- **게이트가 작업 트리를 바꿨는가**: 아니오. `npm run lint`(`eslint --fix`) 실행 후 `git status --short` 빈 출력.
+- **검증 중 실행한 명령이 남긴 잔여물**: `app/node_modules`(`.gitignore`). 저장소 추적 파일 잔여물 0건 — 29회 변이 실행 뒤 `git status` 클린 확인.
+
+## 10. 검증 책임 분리 — 사람 vs 에이전트
+
+| 항목 | 에이전트 | 사람 | 결과 |
+|---|---|---|---|
+| lint/typecheck/자동 테스트 | 실행·산출 관측 | — | 전건 수행(§9) |
+| AC ↔ production path | 18 AC 대조 + 29 변이 | — | ✅17 · ⚠️1 · ❌0 |
+| §10 강제 지점 전수 | 독립 재열거(EP-15·EP-20) | — | EP-15 5/5, EP-20 하위 1/2(D2) |
+| 레이어/문서 형식·링크 | doc-inventory·boundaries lint | — | PASS |
+| AGENTS 위생 | 해당 변경 없음 | — | 해당 없음 |
+| 제품 의도 / Open Question | 보조 | **결정** | 신규 없음 |
+| UI/UX 시각 품질 · 실제 Jira DC | 로직·markup 기계 검증 | **시각/실기 확인** | AC15 |
+| 신규 의존성 / PR merge | dependency diff 0 확인 | **승인** | 신규 의존성 없음 |
+
+## 11. Repository operation checks
+
+### AGENTS.md 위생 / 정합성
+
+- 이번 range에 `AGENTS.md` 변경 **0건** → 해당 없음.
+
+### INDEX 보드 정합성
+
+- 착수 시 상태 / 다음 주체: `impl` / `IMPL_DONE (r3 D1·D2 보완)` / `Claude (재검증)` — 실제 상태와 일치했다.
+- 「다음 주체」 칸이 주체 하나만 담는가: ✅ `Claude (재검증)` 단일.
+- **대상 커밋 좌표 기입(검증자 몫)**: 자리표시자 `(r3 구현 — 검증자 기입)`을 `2f919935`로 채웠다. `git cat-file -t 2f919935` = `commit`.
+- 비고 5줄 이내: 착수 시점 r3 비고는 3줄이었고, 이번 턴 갱신본도 5줄 이내로 썼다.
+- PASS 시 archive 이동: **보류**. AC15 사람 실기가 남아 다음 주체가 사람이다(0231·0232·0233과 같은 처리).
+
+### Commit / reference 정합성
+
+- trailer 허용값: `2f919935`가 `Agent: codex` · `Status: implemented` · `Criteria-Met: 17/18` · `Verified-By: pending` · `Refs: #460`. ✅
+- trailer 실제 파싱: `git log -1 --format='%(trailers:only=true)' 2f919935`가 **7키 그대로 반환**(0건 없음). range 전체 11커밋도 같은 방식으로 전건 파싱 확인. ✅
+- 인용 해시 실재: plan·INDEX가 인용한 10개 + 이번 기입 1개 전부 `git cat-file -t` = `commit`. ✅
+- 재구현 라운드 `[구현자 기입]` 7필드: r3 절에 설계 리뷰·강제 지점 전수와 V-pair 자기확인·이번 라운드 수정의 잠금·Product/UX 파생 검토·놓친 잠재 문제·구현 보고·Review Signals **7/7 존재**, 산문으로 접힌 필드 0. ✅
+- 설계/구현 커밋 분리: 이번 range는 구현 커밋 1개뿐이고 규범 행 diff 0이라 §0 기준선이 성립한다. ✅
+- 이동/삭제한 reference·script: 없음.
+
+## 12. 구현자 코멘트 / 선조치 경계
+
+| 구현자 코멘트 | 검증자 판단 | 반영 |
+|---|---|---|
+| "직접 oracle은 구현된 service와 store를 호출하므로 구조적 proxy가 아니다" | 타당 — `createJiraService(...).invoke()`가 production `buildJiraRequest`를 지난다 | 유지 |
+| "P-f는 `invalid_response`로, 나머지는 기대 payload/query 단언에서 실패" | 타당 — 재측정에서 동일 재현 | 유지 |
+| `VP-25 SELF_PASS`, `EP-20 write/commit 2/2` | **부분 불일치** — commit 가드 단독 제거가 green이다(N12) | `1/2`로 재측정, D2를 open 유지 |
+| `Criteria-Met: 17/18` | 일치 — 검증자 재측정도 `17/18` | 유지 |
+
+## 13. Finding disposition / 파생 이슈
+
+| # | finding | 귀속 | disposition | root / 영향 pair | 후속 |
+|---|---|---|---|---|---|
+| D1 | 7개 도구 REST query/body 미잠금 | AC8 / EP-15 / VP-08 | — | — | **closed** — 인용 9변이 전건 red, EP-15 5/5 |
+| D2 | batch 재진입 가드 미잠금 | AC12 / EP-20 | NON_BLOCKING | 인접 | **부분 closed** — write 가드는 잠겼고 **commit 가드는 여전히 green**(N12). `rename` ENOTEMPTY가 가려서 같은 케이스로는 관측되지 않는다 |
+| D3 | Jira `AuthenticatedRequest` 생성의 `jiraRequest()` 구조 가드 없음 | EP-26 seam | NON_BLOCKING | — | 기록 — 변경 없음 |
+| D4 | 설계 커밋 3건이 `Agent: codex` | 커밋 프로토콜 | NON_BLOCKING | — | 기록 — 허용값 |
+| D5 | Jira/plugin catalog 경로의 프로덕션 호출자 0 | D-014 | NON_BLOCKING | — | 기록 — 의도된 기본 배포 |
+| D6 | AC15 관측 불가 | VP-15 | NON_BLOCKING(사람 실기) | — | 사람 — §8 체크리스트 |
+| **D7** | **caller가 준 optional 입력 필드가 outbound에 도달하는지 잠그는 oracle이 없다.** 9변이(N1·N2·N3·N6·N7·N8·N9·N10·N11)가 **전체 537파일에서 green** | AC8 "입력 필드" / EP-15 | NON_BLOCKING | 인접 — VP-08이 선언한 oracle은 "각 도구의 outbound request/body"이고 그것은 닫혔다 | 구현(권장) — `searchIssues.startAt/expand/fields/maxResults` · `getIssue.fields/expand` · `getIssueComments.startAt/expand` · `devInfo.dataType↔applicationType` · `download.filename`을 명시 입력으로 단언 |
+
+- `BLOCKING` 0건 · `PLAN_GAP` 0건.
+- D7을 BLOCKING으로 올리지 않은 근거: `docs/handoff/AGENTS.md §판정 범위`의 "mutation은 현재 pair가 선택한 적대 증거 또는 닫는 이슈가 인용한 변이일 때만 blocking 증거가 된다". VP-08의 선택 변이 M7과 D1의 인용 9변이는 전건 red이고, production 동작 자체는 r1의 upstream 14/14 대조로 정상이다.
+
+## 14. Review Signals — 사실만
+
+- **이전 라운드와 동일/유사 증상**: 있다. D7은 D1과 같은 축(AC8 "입력 필드·기본값" / EP-15)이며 한 단계 아래 granularity다 — r1은 "도구 단위 payload 미잠금", r2는 "도구 안 optional 필드 미잠금"을 관측했다.
+- **관련 plan 지침/AC의 존재 여부**: 있었다. AC8이 "이름·**입력 필드**·기본값·REST method/path/query/body"를 열거하지만 VP-08의 oracle 칸은 "14 route/payload"까지만 적어 필드 단위 분모를 만들지 않았다.
+- **동일 증상 2회**: D2도 두 라운드 연속 부분 미잠금이다 — r1은 가드 자체 미관측, r2는 commit 절반이 다른 실패(`rename` ENOTEMPTY)에 가려 미관측이다.
+- **사용자 결정 변경 근거**: 이번 라운드에 Decision 변경 0건.
+- **반복된 검증 환경 한계**: 실제 Jira DC endpoint/PAT와 사람 UI 세션 부재(구현 r1·r2·r3, 검증 r1·r2 — 5회 연속). better-sqlite3 ABI·electron 바이너리는 이 환경에서 rebuild·재설치로 해소됐다.
+
+## 15. 결론
+
+- 상태: **PASS**
+- pair 결과: REQUIRED/REGRESSION **PASS 32** · root `PAIR_FAIL` **0** · `BLOCKED_BY` **1**(VP-15, 외부 환경). r1의 root였던 VP-08이 닫혔다.
+- PLAN_GAP: **없음**.
+- Product/UX 및 ACTIVE Decision 충족: D-001…D-020 **20/20**. production diff 0이라 r1 판정을 승계한다.
+- AC 충족: **✅ 17 · ⚠️ 1(AC15) · ❌ 0 = 18**.
+- 현재 변경 운영 gate: **7종 전건 PASS**(lint 0 error · typecheck 3구성 · Vitest 537파일 4,939 pass · scripts 119 · doc inventory · dependency diff 0 · trailer 파싱).
+- 못 본 것: `npm run build`(이번 range production diff 0이라 r1 좌표 승계) · AC15 실제 Jira DC·ko/en UI · commit 재진입 가드의 독립 관측(D2).
+- NON_BLOCKING: D2(부분)·D3·D4·D5·D6·**D7**. NEXT_HANDOFF 후보 없음.
+- repository operation checks: trailer 7/7 파싱 · 인용 해시 11/11 실재 · `[구현자 기입]` 7/7 필드. 대상 커밋 `2f919935`를 검증자가 INDEX에 기입했다.
+- 남은 사람 확인: **AC15 (§8 5항목)**. 이것이 끝나야 INDEX 행을 archive로 옮긴다.
+- 다음 단계: **사람** — AC15 실기. 실기 전 코드 변경은 필요하지 않다.
+
+---
+
+# r1 — FAIL (보존)
+
 ## 메타
 
 | 항목 | 값 |
