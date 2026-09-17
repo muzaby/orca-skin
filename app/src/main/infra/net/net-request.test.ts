@@ -124,7 +124,9 @@ describe('Chromium single request boundaries', () => {
     controller.abort()
     const result = sendOnce({ url: 'https://corp.invalid/file', signal: controller.signal })
     const error = await result.catch((reason: unknown) => reason)
-    expect(error).toEqual(expect.objectContaining({ message: expect.stringContaining('취소') }))
+    expect(error).toEqual(
+      expect.objectContaining({ name: 'AbortError', message: expect.stringContaining('취소') })
+    )
     expect(() => request.emit('error', new Error('late cancellation error'))).not.toThrow()
     expect(request.end).not.toHaveBeenCalled()
   })

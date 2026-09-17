@@ -299,10 +299,13 @@ change 가 나간다 — Harness cache 가 그 change 를 무시한다. 정착 �
 
 **요청 경로가 강등하는 조건은 둘이다.** `AuthenticatedRequest.authFailureStatuses`에 든 status는
 서버가 자격증명을 거부한 것으로 해석한다. 미지정 기본값은 기존 계약인 `[401, 403]`이고, Jira는
-403을 인증 만료가 아닌 권한 부족으로 돌려주므로 `[401]`로 좁힌다. **세션 grant 의 origin 미복귀**는
+403을 인증 만료가 아닌 권한 부족으로 돌려주므로 `[401]`로 좁힌다. `AuthProbe`도 path/method뿐
+아니라 headers와 이 요청별 정책을 같은 전송 경로에 전달한다. 복원 probe가 정책에서 제외된
+403을 받으면 성공 확인은 하지 않되 기존 grant와 Plugin registry도 만료시키지 않는다. 후보
+로그인의 같은 응답은 커밋하지 않고 기존 grant를 그대로 둔다. **세션 grant 의 origin 미복귀**는
 SSO 가 미인증을 200 으로 말하는 형태다 — 세션이 죽으면 IdP
 로그인 폼이 200 으로 오므로 status 만 보면 그 200 을 성공으로 읽고, 세션 Auth 가 영원히 `valid` 인
-채 모든 요청이 로그인 폼을 받는다(§4.6). 판정은 `probeOk` 와 **같은 구현**(`isAllowedOrigin`)을
+채 모든 요청이 로그인 폼을 받는다(§4.6). 판정은 LoginService probe와 **같은 구현**(`isAllowedOrigin`)을
 쓴다 — 두 벌이면 하필 "인증됐는가" 가 갈린다. 값형 grant 에는 적용하지 않는다: 그쪽 체인은
 `definition.origin` 하나로 묶여 있어 밖에서 끝날 수 없다.
 
@@ -630,7 +633,8 @@ Plugin 은 GUI 카탈로그에 표시되는 제품 기능 단위다. Plugin 모�
   로 비활성을 안내한다 — active registry 로 목록을 만들면 미인증 상태에서 도구가 통째로 사라진다.
 - Jira Data Center 내장 도구는 `features/plugins/jira/`가 REST mapping·결과 envelope·첨부 staging을
   소유한다. 모든 요청은 주입받은 `BoundAuth.request`로만 보내며 배포가 `origin`과 `apiBasePath`를
-  분리한다. Jira 요청은 403을 권한 부족으로 보존하도록 인증 실패 status를 401로 좁히고,
+  분리하고 하나의 정규화된 API base에서 probe와 도구 경로를 함께 파생한다. Jira 요청은 403을
+  권한 부족으로 보존하도록 인증 실패 status를 401로 좁히고, probe를 포함해
   `User-Agent: Orcinus-Orca-Jira/0.34.0`과 `X-Atlassian-Token: no-check`를 공통 적용한다. 기본 OSS
   배포의 Auth/Plugin 배열은 계속 비어 있고, 폐쇄망 배포가 typed recipe로 opt-in한다.
 

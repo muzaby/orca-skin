@@ -118,6 +118,13 @@ type SettleOutcome =
   // 사용자가 그 사이 다른 시도를 시작했거나 해제했다 — **아무것도 하지 않는다.**
   | { kind: 'superseded' }
 
+interface ProbeOutcome {
+  ok: boolean
+  // 요청별 인증 실패 정책에서 명시적으로 제외한 401/403은 권한·정책 실패다. 복원 확인에는
+  // 성공으로 쓰지 않되, 살아 있는 기존 grant까지 만료시키지는 않는다.
+  preserveGrant: boolean
+}
+
 // 세대 토큰의 기본 공급자. 키 이름에만 쓰이고 비밀이 아니지만, 예측 가능한 이름이 여러 설치에서
 // 겹치지 않도록 난수를 쓴다.
 function defaultVaultKeyVersion(): string {
@@ -133,7 +140,7 @@ export class LoginService {
   private readonly pending = new Map<string, Pending>()
   // ── attempt fence (r6) ──────────────────────────────────────────────────────
   //
-  // 후보 커밋은 `await probeOk()` **뒤에** 일어난다. 그 사이 같은 Auth 에 다른 일이 벌어질 수
+  // 후보 커밋은 `await probe()` **뒤에** 일어난다. 그 사이 같은 Auth 에 다른 일이 벌어질 수
   // 있다 — 사용자가 폼을 다시 제출하거나(`continue` 두 건), [연결 해제] 를 누르거나. r5 는
   // probe 성공만 보고 무조건 커밋해서 ① 늦게 끝난 옛 후보가 새 후보를 덮고 ② probe 중 해제한
   // Auth 가 커밋으로 되살아났다.
@@ -326,23 +333,24 @@ export class LoginService {
     // 동안 사용자가 [연결]·[연결 해제] 를 눌렀으면(둘 다 세대를 올린다) **결과를 버린다** —
     // 옛 자격증명의 probe 결과로 새 자격증명을 `verified` 로 만들지 않는다.
     const attempt = this.currentAttempt(definition.id)
-    const ok = await this.probeOk(definition)
+    const probe = await this.probe(definition)
     if (!this.isCurrentAttempt(definition.id, attempt)) {
       this.deps.logger?.('auth.resume.attempt-superseded', { authId: definition.id })
       return
     }
-    // **전이를 만든 호출만 통지한다** (r4). probe 가 401/403 을 받았거나 세션 체인이 origin 밖에서
+    // **전이를 만든 호출만 통지한다** (r4). probe 가 인증 실패 status를 받았거나 세션 체인이 origin 밖에서
     // 끝난 경우 요청 경로가 이미
     // 강등하고 `onUnauthorized` 로 통지했다 — 여기서 다시 내면 같은 사실이 두 번 나가고,
     // 두 번째는 revision 이 그대로라 `credentialChanged:true` 와 어긋난다. 그 유령 이벤트가
     // 부팅 방송 상한(0187 D2)의 강등 항 K 를 2K 로 늘리고 Harness cache 를 한 번 더 비웠다.
     //
-    // 요청 경로가 강등하는 경우는 둘이다 — 401/403, 그리고 **세션 grant 의 origin 미복귀**
+    // 요청 경로가 강등하는 경우는 둘이다 — 요청별 인증 실패 status, 그리고 **세션 grant 의 origin 미복귀**
     // (0195 D-004). 그 밖의 실패(비-2xx·전송 오류·정책 위반)에서는 여기가 유일한 전이 지점이고,
     // 어느 쪽이든 `markExpired` 가 "이번 호출이 전이를 만들었는가" 를 보고하므로 통지는 한 번만
     // 나간다 — 요청 경로가 이미 정착시켰으면 여기서는 `credentialChanged:false` 다.
-    const demoted = ok ? null : this.deps.store.markExpired(definition.id)
-    if (ok) this.deps.store.markVerified(definition.id)
+    const demoted =
+      probe.ok || probe.preserveGrant ? null : this.deps.store.markExpired(definition.id)
+    if (probe.ok) this.deps.store.markVerified(definition.id)
 
     if (exposeStep) {
       this.clearResumingStep(definition.id)
@@ -350,7 +358,7 @@ export class LoginService {
     }
     // 실패 강등은 credential-effective 다(도구 회수·cache 무효화가 걸린다) — 전이가 있었으면
     // 즉시 낸다. 성공은 `verified` 만 바뀐 것이라 batch 가 마지막에 한 번 모아 낼 수 있다.
-    if (!ok) {
+    if (!probe.ok) {
       if (demoted?.credentialChanged) this.deps.onSnapshot?.(definition.id, 'expired')
     } else if (options?.emitVerifiedChange ?? true) {
       this.deps.onSnapshot?.(definition.id, 'verified')
@@ -483,16 +491,16 @@ export class LoginService {
   // **status 만 보지 않는다** (0174 실기): SSO 배포는 미인증일 때 IdP 로그인 폼을 **200** 으로
   // 준다. 체인이 definition origin 으로 돌아왔는지까지 봐야 그 200 을 인증됨으로 오독하지 않는다.
   // allowlist 밖으로 튄 홉은 `api.request` 가 던지고, 그 자체가 미인증 판정이다.
-  private async probeOk(
+  private async probe(
     definition: AuthDefinition,
     candidate?: CandidateCredential
-  ): Promise<boolean> {
+  ): Promise<ProbeOutcome> {
     const probe = definition.probe
-    if (!probe || !this.deps.request) return true
+    if (!probe || !this.deps.request) return { ok: true, preserveGrant: false }
     try {
       const res = await this.deps.request(
         definition.id,
-        { path: probe.path, ...ifPresent('method', probe.method) },
+        probe,
         AbortSignal.timeout(PROBE_TIMEOUT_MS),
         candidate
       )
@@ -501,21 +509,30 @@ export class LoginService {
       // bare origin 임이 강제되므로(`registry.isBareOrigin`) allowlist 원소로 그대로 쓴다.
       const returnedToOrigin = isAllowedOrigin(res.finalUrl, [definition.origin])
       const ok = res.ok && returnedToOrigin
+      const authFailureStatuses = probe.authFailureStatuses ?? [401, 403]
+      const credentialStatus = res.status === 401 || res.status === 403
+      const preserveGrant =
+        !ok &&
+        returnedToOrigin &&
+        credentialStatus &&
+        !authFailureStatuses.some((status) => status === res.status)
       // 성공·실패 **양쪽 다** 남긴다 — 쿠키·키가 재시작을 넘어왔는지를 이 한 줄이 말해 준다.
       this.deps.logger?.('auth.probe.result', {
         authId: definition.id,
         ok,
         status: res.status,
-        returnedToOrigin
+        returnedToOrigin,
+        preserveGrant
       })
-      return ok
+      return { ok, preserveGrant }
     } catch (error) {
-      // 네트워크 미연결(VPN 전)·정책 위반(allowlist 밖 redirect)·타임아웃. 전부 미인증이다.
+      // 네트워크 미연결(VPN 전)·정책 위반(allowlist 밖 redirect)·타임아웃. 기존 계약대로
+      // 복원 grant를 만료시킨다. 보존 예외는 응답 status를 실제로 관측한 경우에만 적용한다.
       this.deps.logger?.('auth.probe.failed', {
         authId: definition.id,
         reason: errorMessage(error)
       })
-      return false
+      return { ok: false, preserveGrant: false }
     }
   }
 
@@ -547,7 +564,7 @@ export class LoginService {
     candidate: CandidateCredential,
     writeVault?: () => void
   ): Promise<SettleOutcome> {
-    const probeOk = await this.probeOk(definition, candidate)
+    const probe = await this.probe(definition, candidate)
     // **세대 확인이 결과 해석보다 먼저다** (r8). r7 은 실패 분기를 먼저 처리해서, 늦게 끝난 옛
     // 시도의 401 이 이미 성공한 새 로그인 위에 거부 폼을 다시 열었다 — 해제 직후에도 열렸다
     // (`status=none` 인데 `input-required`). superseded 는 성공이든 실패든 **아무것도 하지 않는다.**
@@ -555,7 +572,7 @@ export class LoginService {
       this.deps.logger?.('auth.login.attempt-superseded', { authId: definition.id })
       return { kind: 'superseded' }
     }
-    if (!probeOk) {
+    if (!probe.ok) {
       // 아무것도 쓰지 않았다 — 이전 자격증명은 손대지 않은 채 그대로 살아 있다.
       // 통지는 호출자의 `emit`(폼 재표시 또는 `failed`)이 한다 — 두 번 쏘지 않는다.
       return { kind: 'rejected' }

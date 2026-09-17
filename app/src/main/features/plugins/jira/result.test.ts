@@ -47,6 +47,13 @@ describe('Jira agent result envelope', () => {
     expect(result.content[0].text).toContain('[redacted]')
   })
 
+  it('Error 형상의 AbortError도 cancelled로 분류한다', () => {
+    const aborted = new Error('요청이 취소되었습니다')
+    aborted.name = 'AbortError'
+    const result = toJiraErrorResult('jira_getIssue', aborted)
+    expect(result.structuredContent).toMatchObject({ error: { code: 'cancelled' } })
+  })
+
   it('known Jira 오류에서도 cookie와 proxy authorization 값을 마스킹한다', () => {
     const result = toJiraErrorResult(
       'jira_getIssue',

@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-16 |
 | 매핑 | 사용자 라이브 요구 · `0160-confluence-connector-plugin` 절차 참조 |
-| 상태 | **READY** |
+| 상태 | **IMPL_DONE** |
 | V mode | `Delta V` |
 | 기준 V | `V1@41c07e9c` — 최초 Jira catalog/native tool 설계 |
 | 이번 V revision | `ΔV1` — Jira 403 분류·전용 User-Agent·CI 경로 oracle 정정 |
@@ -968,30 +968,35 @@ npx vitest run src/main/features/plugins/jira src/main/app/deployment/plugins.te
 - 구현 중 발견한 PLAN_GAP: D-019와 달리 §11 결과 절에 이전 “401/403 강등” 문장이 한 줄 남아
   있었다. 구현 산출과 섞지 않고 설계 정합성 커밋 `914081b2`에서 401 강등·403 `forbidden`으로
   바로잡았다.
+- 최초 r2 구현 뒤 독립 리뷰가 Auth probe가 path/method만 전달하고 `resume()`이 모든 비성공
+  probe를 다시 만료시키는 PLAN_GAP을 발견했다. 규범 행은 `d0880910`에서 probe header/status
+  policy, 보존 실패, 공통 API base까지 먼저 보강했고 이번 후속 구현은 그 READY 상태를 따랐다.
+- 같은 리뷰의 cancellation error shape와 ProviderDetail 줄바꿈/긴 URL 누락은 기존 계약의 구현
+  누락으로 판정해 회귀 oracle과 함께 닫았다.
 - ACTIVE Decision과 충돌하는 구현: 없음. 실제 Jira DC와 사람 UI가 필요한 AC15는 계속 외부 실기다.
 
 ## [구현자 기입] 강제 지점 전수 (r2 · §10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-27 | Jira 401/403 의미 분리 | EP-25 (2) | **2/2** | requester default/override 상태표 + Jira request policy + `result.test` | — |
-| VP-28 | Jira UA/XSRF 전 요청 | EP-26 (3) | **3/3** | 14개 기본·dev-status·attachment content header 표 | — |
-| VP-29 | 403→grant/registry 유지→forbidden | EP-18/22/25 (3) | **3/3** | 403에서 store valid·unauthorized callback 0 + mapper `forbidden` | — |
-| VP-30 | request policy/header 전송 경계 | EP-17/25/26 (3) | **3/3** | caller UA와 Auth `Authorization` 동시 보존 + builder integration | — |
-| VP-31 | default/override·header 단위 규칙 | EP-25/26 (2) | **2/2** | 401/403 default, `[401]` override, Jira common headers | — |
+| VP-27 | Jira 401/403 의미 분리 | EP-25 (3) | **3/3** | requester default/override + AuthProbe policy 전달 + resume 보존 상태표 | — |
+| VP-28 | Jira UA/XSRF 전 요청 | EP-26 (4) | **4/4** | probe·14개 기본·dev-status·attachment content header 표 | — |
+| VP-29 | 403→grant/registry 유지→forbidden | EP-18/22/25 (3) | **3/3** | tool 403 mapper + probe 403에서 valid/unverified·registry 유지 | — |
+| VP-30 | request policy/header 전송 경계 | EP-17/25/26 (3) | **3/3** | Auth presentation과 Jira headers가 tool/probe transport 입력에 도달 | — |
+| VP-31 | default/override·header 단위 규칙 | EP-25/26 (2) | **2/2** | 기본 `[401,403]`, Jira `[401]`, probe/tool 공통 headers | — |
 | VP-32 | OS 중립 attachment 경로 oracle | EP-20 (1) | **1/1** | `relative(...).split(sep)`로 auth/selector/UUID/file 단언 | — |
 | VP-33 | non-Jira 403 기본 강등 | EP-22/25 (2) | **2/2** | 공용 requester 401·403 parameterized regression | — |
 
-- ΔV1 고유 강제 지점: **5/5**(EP-25 2곳 + EP-26 3경로). 이번 pair가 다시 참조한 기존
+- ΔV1 고유 강제 지점: **7/7**(EP-25 3곳 + EP-26 4경로). 이번 pair가 다시 참조한 기존
   강제 지점 EP-17·18·20·22도 **4/4** 재관측했다.
 
 **V-pair 자기확인 (r2)**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-27 | REQUIRED | `SELF_PASS` | 401 강등·403 유지·forbidden 분리 | M15 red 16 |
-| VP-28 | REQUIRED | `SELF_PASS` | 기본 14 + dev-status + attachment header | M16 red 16 |
-| VP-29 | REQUIRED | `SELF_PASS` | 403에서 grant valid·통지 0·forbidden | M15 red 16 + 직접 mapper oracle |
+| VP-27 | REQUIRED | `SELF_PASS` | tool/probe 401 강등·403 보존·forbidden 분리 | M15a red 17 + M15b red 1 |
+| VP-28 | REQUIRED | `SELF_PASS` | probe + 기본 14 + dev-status + attachment header | M16 red 17 |
+| VP-29 | REQUIRED | `SELF_PASS` | 403에서 grant valid·verified false·registry 유지·forbidden | M15a red 17 + M15b red 1 |
 | VP-30 | REQUIRED | `SELF_PASS` | caller UA와 Auth presentation이 함께 transport 입력에 도달 | M15/M16 red |
 | VP-31 | REQUIRED | `SELF_PASS` | 기본/override와 공통 header 표 | M15/M16 red |
 | VP-32 | REGRESSION | `SELF_PASS` | Windows·POSIX 구분자 독립 path segment 비교 | CI 원 red + 수정 후 green |
@@ -1003,12 +1008,16 @@ npx vitest run src/main/features/plugins/jira src/main/app/deployment/plugins.te
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| M15 — Jira policy에 403을 다시 auth failure로 포함 | VP-27·29·30·31·33 | 신규 | `rest.test` 16 | **잠김** |
-| M16 — Jira 공통 User-Agent 제거 | VP-28·30·31 | 신규 | `rest.test` 16 | **잠김** |
+| M15a — Jira policy에 403을 다시 auth failure로 포함 | VP-27·29·30·31·33 | r2 재현 | `rest.test` 16 + `deployment-wiring.test` 1 | **잠김** |
+| M15b — resume가 보존 실패도 무조건 만료 | VP-27·29·31 | 독립 리뷰 결함 재현 | `deployment-wiring.test` 1 | **잠김** |
+| M16 — Jira 공통 User-Agent 제거 | VP-28·30·31 | r2 재현 | `rest.test` 16 + `deployment-wiring.test` 1 | **잠김** |
+| M17 — Chromium abort를 이름 없는 일반 Error로 복귀 | cancellation 회귀 | 독립 리뷰 결함 재현 | `net-request.test` 1 | **잠김** |
+| M18 — mapper가 DOMException만 cancelled로 인정 | cancellation 회귀 | 독립 리뷰 결함 재현 | `result.test` 1 + `tools.test` 1 | **잠김** |
 
-- r2 분모 검산: 선택 증거 **2** · 인용 변이 **0** · 새 oracle **0** = 표 행 **2**.
-- 두 변이를 각각 원복한 뒤 Chromium manual transport까지 포함한 ΔV1 대상
-  **5파일/69케이스 green**을 다시 관측했다.
+- r2 분모 검산: plan 선택 evidence family **2**(M15·M16) + 독립 리뷰 파생 회귀 변이 **3** =
+  실행 표 행 **5**. M15는 tool/probe policy와 resume outcome 두 강제 지점을 각각 공격했다.
+- 모든 변이를 각각 원복한 뒤 reviewer target **5파일/59케이스**, 최종 affected target
+  **10파일/210케이스**, 전체 Vitest와 build를 다시 관측했다.
 
 ## [구현자 기입] Product/UX 파생 검토 (r2)
 
@@ -1018,6 +1027,9 @@ npx vitest run src/main/features/plugins/jira src/main/app/deployment/plugins.te
 | UA 변경이 다른 네트워크 요청에 번지는가 | 없음 | Jira request builder의 caller header만 지정하며 전역 Chromium UA는 바꾸지 않는다 |
 | 서버 로그에서 제품/호환 버전을 구분할 수 있는가 | 가능 | source version SSOT로 `Orcinus-Orca-Jira/0.34.0`을 만든다 |
 | CI 수정이 제품 저장 경로 의미를 느슨하게 하는가 | 없음 | root·auth·selector·UUID batch·filename을 segment별로 계속 단언한다 |
+| Jira가 context path 아래 배포되면 probe만 `/rest`로 새는가 | 해소 | 정규화한 `JIRA_API_BASE_PATH` 한 값에서 probe와 tools 경로를 함께 파생한다 |
+| 사용자가 요청을 취소하면 transport 오류로 보이는가 | 해소 | Chromium producer와 Jira mapper가 `AbortError` 이름 계약으로 `cancelled`를 보존한다 |
+| 현지화 본문의 개행과 긴 GitHub 주소가 잘리는가 | 해소 | 본문은 `whitespace-pre-wrap`, GitHub는 `break-all`로 렌더한다 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
 
@@ -1026,6 +1038,10 @@ npx vitest run src/main/features/plugins/jira src/main/app/deployment/plugins.te
 | 1 | UA의 버전 literal이 catalog source 버전과 따로 drift할 수 있었다 | ✅ `JIRA_SOURCE.version`에서 UA를 파생 | `source.ts`→`rest.ts` |
 | 2 | 일부 비표준 Jira 배포가 만료된 credential에도 403을 쓸 수 있다 | ⚠️ 이번 사용자 서버 의미를 우선해 `forbidden`으로 보존; 해당 배포는 명시 재인증 필요 | D-019 |
 | 3 | 미래 소비자가 401/403 외 status를 인증 실패로 분류할 수 있다 | ⚠️ 현재 tuple을 의도적으로 좁힘; 새 status는 계약·상태표와 함께 확장 | `AuthenticatedRequest` |
+| 4 | Auth probe가 도구 공통 header/status policy를 전달하지 않았다 | ✅ `AuthProbe`를 request 계약의 부분집합으로 만들고 그대로 requester에 전달 | `contracts/auth.ts`·`login.ts` |
+| 5 | probe의 403을 requester가 보존해도 `resume()`이 다시 만료시켰다 | ✅ probe outcome에 `preserveGrant`를 분리하고 verified 성공과도 구분 | `login.ts`·deployment integration |
+| 6 | 실제 net 취소가 일반 Error라 Jira mapper의 DOMException 분기와 만나지 않았다 | ✅ producer는 DOMException AbortError, mapper는 Error 이름 계약도 수용 | `net-request.ts`·`result.ts` |
+| 7 | 상세 패널 본문 개행과 긴 GitHub 주소 계약이 구현에서 빠졌다 | ✅ 렌더 클래스와 static markup oracle 추가 | `ProviderDetail.tsx` |
 
 ### 설계 대비 명시적 차이 (r2)
 
@@ -1035,22 +1051,25 @@ npx vitest run src/main/features/plugins/jira src/main/app/deployment/plugins.te
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | Auth request contract/requester·회귀 테스트, Jira REST common policy·header tests, attachment store OS 중립 test, auth/폐쇄망 current-state docs, plan/INDEX |
+| 변경 파일 | AuthProbe/requester/resume 상태 계약과 integration test, Jira REST 공통 policy/header, Chromium 취소 shape와 Jira result mapper, attachment store OS 중립 test, ProviderDetail 렌더, auth/폐쇄망 current-state docs, plan/INDEX |
 | 실행 명령 | `npm run lint` · `npm run typecheck` · ΔV1 대상 `npx vitest run …` · 전체 `npx vitest run` · `node --test scripts/*.test.mjs` · `npm run build` · `node scripts/check-doc-inventory.mjs --check` · dependency/import/tool-name sweep · `git diff --check` |
-| 관측한 게이트 산출 | lint **0 error/1 기존 warning** · typecheck 3구성 pass · ΔV1 대상 **5파일/69케이스 pass** · 전체 Vitest **536파일/4,934케이스 pass, 1파일/1케이스 skip** · script **119/119 pass** · production build pass(기존 dynamic-import warning 1) · doc inventory/link pass · dependency/lock delta 0 |
+| 관측한 게이트 산출 | lint **0 error/1 기존 warning** · typecheck 3구성 pass · affected target **10파일/210케이스 pass** · 전체 Vitest **536파일/4,939케이스 pass, 1파일/1케이스 skip** · script **119/119 pass** · production build pass(기존 dynamic-import warning 1) · doc inventory/link pass · dependency/lock delta 0 |
 | V-pair 자기확인 | `SELF_PASS` **32/33**, `SELF_BLOCKED` **1/33**(VP-15 실제 Jira/UI 실기) |
-| 강제 지점 전수 | ΔV1 **5/5**, 재참조 기존 지점 **4/4** |
+| 강제 지점 전수 | ΔV1 **7/7**, 재참조 기존 지점 **4/4** |
 | AC 자기보고 | **17/18** — AC15 사람 실기 대기 |
 | 합계 검산 | ✅ **17** · ⚠️ **1** · ❌ **0** = **18** |
 | 블로커 / 역질문 | 코드 블로커 없음. 검증자가 §19 AC15를 실제 Jira DC/ko·en UI에서 확인해야 한다 |
-| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+| 대상 커밋 | `748372f1`(최초 r2) + `(r2 독립 리뷰 후속 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만 (r2)
 
 - 이번에 닫은 불변식이 이전 라운드와 같은 축인가: Jira Auth lifecycle·REST transport·attachment
   filesystem oracle라는 기존 축이지만, 403 의미와 UA-XSRF 요구는 사용자 실기에서 새로 드러난 Delta다.
 - 그것을 막았어야 할 plan 지침·AC가 있었는가: r1 V에는 없었고 ΔV1의 D-019·D-020·AC17·AC18과
-  VP-27…33이 추가된 뒤 구현했다.
+  VP-27…33이 추가된 뒤 구현했다. 최초 ΔV1은 probe 강제 지점을 빠뜨렸고 독립 리뷰 후 규범 행을
+  먼저 보강한 다음 후속 구현했다.
+- 독립 리뷰에서 실제로 찾은 구현 누락: Auth probe policy 전달, resume 보존 실패, cancellation
+  error shape, context-path probe, ProviderDetail 줄바꿈/긴 URL 처리.
 - 반복 환경 한계: 실제 Jira DC endpoint/PAT와 사람 UI 세션이 없어 AC15는 계속 반복 관측 불가.
 - 현재 라운드 수: 2
 

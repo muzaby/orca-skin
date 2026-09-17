@@ -769,11 +769,23 @@ typed recipe이며 기본 OSS 배포의 Auth/Plugin 배열은 계속 비어 있�
 
 ```ts
 // app/deployment/auth-definitions.ts
+import {
+  JIRA_AUTH_FAILURE_STATUSES,
+  JIRA_REQUEST_HEADERS,
+  normalizeJiraApiBasePath
+} from '../../features/plugins/jira/rest'
+
+export const JIRA_API_BASE_PATH = normalizeJiraApiBasePath('/rest')
+
 export const JIRA_AUTH = {
   id: 'jira-dc',
   label: 'Jira Data Center',
   origin: 'https://jira.example.corp', // /jira 같은 context path를 넣지 않는다
-  probe: { path: '/rest/api/2/myself' },
+  probe: {
+    path: `${JIRA_API_BASE_PATH}/api/2/myself`,
+    headers: JIRA_REQUEST_HEADERS,
+    authFailureStatuses: JIRA_AUTH_FAILURE_STATUSES
+  },
   methods: [
     patSpec({
       label: '개인 액세스 토큰(PAT)',
@@ -794,7 +806,7 @@ const server = jiraTools(
     origin: JIRA_AUTH.origin,
     request: (request, signal) => jiraAuth.request(request, signal)
   },
-  { apiBasePath: '/rest' } // context path가 있으면 예: '/jira/rest'
+  { apiBasePath: JIRA_API_BASE_PATH } // context path가 있으면 상수 입력을 '/jira/rest'로 바꾼다
 )
 
 return createPluginBinding({
@@ -813,12 +825,13 @@ return createPluginBinding({
   한 번에 보인다. 실패한 호출은 부분 결과를 공개하지 않는다.
 - upload 도구는 의도적으로 제공하지 않는다. 현재 `BoundAuth.request`의 문자열 body 계약에는
   multipart streaming과 input-root 정책이 없으므로, 이를 우회해 별도 전송 스택을 만들지 않는다.
-- 모든 Jira 요청은 `User-Agent: Orcinus-Orca-Jira/0.34.0`과
+- 도구와 Auth probe를 포함한 모든 Jira 요청은 `User-Agent: Orcinus-Orca-Jira/0.34.0`과
   `X-Atlassian-Token: no-check`를 보낸다. UA는 제품 통합과 이식 기준 버전을 식별하는 고정 product
   token이며, Chromium 기본 UA나 다른 요청의 UA를 전역 변경하지 않는다.
 - Jira의 403은 권한 부족으로 보고 tool 결과를 `forbidden`으로 유지한다. Jira 요청만 인증 실패
-  status를 `[401]`로 좁히므로 403으로 grant나 plugin registry가 만료되지 않는다. 다른 소비자가
-  값을 생략하면 기존 기본값 `[401, 403]`이 유지된다.
+  status를 `[401]`로 좁히므로 403으로 grant나 plugin registry가 만료되지 않는다. 복원 probe의
+  403은 인증 성공으로 확인하지도 않아서 `verified:false`로 남는다. 다른 소비자가 값을 생략하면
+  기존 기본값 `[401, 403]`이 유지된다.
 - catalog attribution은 community package `@atlassian-dc-mcp/jira` 0.34.0(MIT)을 분석한 출처와
   [고정 GitHub revision](https://github.com/b1ff/atlassian-dc-mcp/tree/ab2b534bafefa4666feca463e79824dadb797ff3/packages/jira)을 표시한다. Atlassian 공식 제품이나 공식
   통합으로 오인하지 않는다. 제품 코드는 이 package를 dependency로 설치하거나 import하지 않고

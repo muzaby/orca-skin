@@ -273,13 +273,12 @@ export type ValueGrant = Exclude<Grant, { kind: 'session' }>
 // 없이 "연결됨" 이 되던 것과, 같은 판정이 로그인·부팅 두 곳에 다르게 구현돼 있던 것이 같은
 // 뿌리였다.
 //
-// 실행은 인증된 요청 한 줄이다. grant 를 **먼저 커밋한 뒤** 부르므로 세션이면 cookie jar 로,
-// 값형이면 `present` 로 실려 나가는 것을 전송 계층이 이미 갈라 준다.
-export interface AuthProbe {
-  // `AuthDefinition.origin` 기준 상대 경로. 절대 URL 은 거부된다(`whoami`·`exchange` 와 같은 규칙).
-  path: string
-  method?: string
-}
+// 실행은 인증된 요청 한 줄이다. 복원 확인은 커밋된 grant를, 로그인 확인은 candidate carrier를
+// 사용하므로 세션 cookie jar와 값형 `present`의 분기는 전송 계층 한 곳에만 남는다.
+export type AuthProbe = Pick<
+  AuthenticatedRequest,
+  'path' | 'method' | 'headers' | 'authFailureStatuses'
+>
 
 // ── AuthDefinition — 배포가 채우는 유일한 인증 선언 ───────────────────────────
 //

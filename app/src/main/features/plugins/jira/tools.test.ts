@@ -6,6 +6,7 @@ import {
   createJiraToolServer,
   JIRA_TOOL_NAMES,
   type JiraPluginContext,
+  type JiraToolName,
   type JiraServicePort
 } from './tools'
 
@@ -16,7 +17,9 @@ const ctx: JiraPluginContext = {
   request: vi.fn()
 }
 
-const service = (invoke = vi.fn(async () => ({ key: 'QA-1' }))): JiraServicePort => ({ invoke })
+const service = (
+  invoke: JiraServicePort['invoke'] = vi.fn(async () => ({ key: 'QA-1' }))
+): JiraServicePort => ({ invoke })
 
 describe('Jira Runtime Tool descriptor', () => {
   const server = createJiraToolServer(ctx, service())
@@ -120,6 +123,31 @@ describe('Jira Runtime Tool descriptor', () => {
     )
     expect(invoke).toHaveBeenCalledWith('jira_getIssue', { issueKey: 'QA-1' }, signal)
     expect(result.structuredContent).toMatchObject({ ok: true, tool: 'jira_getIssue' })
+  })
+
+  it('AbortController 취소를 agent cancelled envelope로 반환한다', async () => {
+    const controller = new AbortController()
+    const invoke = vi.fn(
+      (_name: JiraToolName, _input: Readonly<Record<string, unknown>>, signal?: AbortSignal) =>
+        new Promise<never>((_resolve, reject) => {
+          signal?.addEventListener('abort', () => {
+            const error = new Error('요청이 취소되었습니다')
+            error.name = 'AbortError'
+            reject(error)
+          })
+        })
+    )
+    const serverWithFake = createJiraToolServer(ctx, service(invoke))
+    const pending = serverWithFake.implementations[1].handler(
+      { issueKey: 'QA-1' },
+      { cwd: '', extraDirs: [], getSignal: () => controller.signal, waitForSession: vi.fn() }
+    )
+    controller.abort()
+
+    await expect(pending).resolves.toMatchObject({
+      isError: true,
+      structuredContent: { error: { code: 'cancelled' } }
+    })
   })
 
   it('prepared download는 result preflight 뒤에만 publish하고 preflight 실패는 abort한다', async () => {
