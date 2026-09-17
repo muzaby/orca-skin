@@ -53,7 +53,7 @@
 | D-007 | Jira 기준 소스는 `@atlassian-dc-mcp/jira@0.34.0`, gitHead `ab2b534…`, MIT, GitHub의 pinned `packages/jira` 경로다 | 조사 시점의 재현 가능한 버전을 고정한다 | npm package metadata·배포 tarball | ACTIVE | — |
 | D-008 | Jira는 새 runtime dependency나 별도 MCP process 없이 Orca native 모듈로 옮긴다 | Chromium `net.fetch`, vault, 승인, 취소 계약을 한 경로로 유지한다 | 0160 패턴 + main 정책 | ACTIVE | — |
 | D-009 | upstream 기본 등록 표면 14개를 옮긴다. 환경 opt-in `jira_uploadAttachment` 1개는 이번 범위에서 제외한다 | upstream도 upload root를 켠 경우에만 등록하며, 현 `BoundAuth.request`에는 multipart outbound body가 없다 | package `src/index.ts`·`jira-service.ts` | ACTIVE | — |
-| D-010 | PAT는 `Authorization: Bearer`로 제시하고 probe는 기본 `/rest/api/2/myself`다. origin은 배포가 정하고 API base path 기본값은 `/rest`다 | package의 실제 생성 client와 현재 Auth 계약을 맞춘다 | package source + `BoundAuth` | ACTIVE | — |
+| D-010 | PAT는 `Authorization: Bearer`로 제시하고 probe는 기본 `/rest/api/2/myself`다. origin은 배포가 정하고 정규화한 API base path 하나에서 probe와 tools path를 함께 파생한다 | context path 배포에서 probe와 도구 URL이 갈라지지 않게 한다 | package source + `BoundAuth` | ACTIVE | — |
 | D-011 | 도구 결과는 성공/실패 판별 가능한 JSON envelope를 `content[0].text`와 `structuredContent`에 동일하게 싣고, 실패는 `isError:true`다 | 에이전트가 결과·실패를 기계적으로 구분해야 한다 | 사용자 요구 + `RuntimeToolResult` | ACTIVE | — |
 | D-012 | 첨부 저장 root의 유일한 정본은 `getTemporaryFilesPath()`이고 그 아래 `jira/<auth-segment>/<selector-segment>/<batch-id>/`만 publish한다. Windows의 통상 예시는 `%LOCALAPPDATA%/Temp/orcinus-orca/…`지만 경로 문자열 자체는 계약이 아니다 | `~/<APPDATA>` 문자열 조립·환경별 Temp 추측·두 번째 오탈자 제품 루트를 만들지 않는다 | 사용자 요구 + 0225 제품명 결정 | ACTIVE | — |
 | D-013 | 원격·로컬 상태를 바꾸지 않는 6개 도구만 `readOnlyHint:true`; 원격 변경 7개와 저장 가능 download 1개는 승인 대상이다 | 정책은 명시적 true만 자동 허용한다 | `runtime-tool-policy.ts` | ACTIVE | — |
@@ -62,8 +62,8 @@
 | D-016 | 0.34.0 migration 호환 범위는 tool 이름·입력 필드·기본값·REST method/path/query/body 의미다. selector XOR, page 최대 100, 호출당 첨부 최대 10, request/response/output/byte 상한, fixed safe save field, Orca envelope는 의도한 안전·host 통합 delta다 | “똑같은 절차”를 무제한/모호 입력까지 복사한다는 뜻으로 오해하지 않는다 | package source 대조 + Orca 보안 경계 | ACTIVE | — |
 | D-017 | 한 번의 download 호출에서 저장할 첨부 배치는 all-or-nothing이다. 같은 canonical root의 숨은 staging 디렉터리에 전부 쓴 뒤 디렉터리 rename으로 한 번에 publish하고, 실패·취소 시 stage 전체를 지운다 | 최대 10개 저장에서 일부 파일만 성공 결과처럼 남는 모호한 상태를 막는다 | AC12 역방향 검토 | ACTIVE | — |
 | D-018 | download 결과는 publish 전에 최종 경로를 예측해 직렬화 예산을 확정한다. optional inline content는 source 순서대로 예산 안에서만 싣고 초과분은 `tool_output_limit`으로 생략하며, 필수 metadata조차 2 MiB를 넘으면 stage를 제거하고 실패한다 | publish 뒤 output-cap error가 완성된 batch를 고아로 남기는 교차 실패를 막는다 | AC9·AC11·AC12 역방향 검토 | ACTIVE | — |
-| D-019 | Jira 도구 요청은 401만 자격증명 실패로 강등하고 403은 grant/registry를 유지한 채 `forbidden` 결과로 반환한다. 다른 Auth 소비자의 기존 401/403 강등 기본값은 유지한다 | Jira 403은 유효 PAT의 프로젝트·동작 권한 부족일 수 있어 재인증으로 해결되지 않는다 | 사용자 라이브 세션 2026-09-17 + `AuthenticatedRequester` 실측 | ACTIVE | V1 §5·§13의 Jira `401/403` 강등 문구를 대체 |
-| D-020 | 모든 Jira REST·dev-status·attachment content 요청의 User-Agent는 `Orcinus-Orca-Jira/0.34.0`이다 | 비브라우저 제품 토큰으로 UA-XSRF guard를 피하고 서버 로그에서 이식 기준 버전을 식별한다 | 사용자 라이브 세션 2026-09-17 | ACTIVE | — |
+| D-019 | Jira 도구와 Auth probe 요청은 401만 자격증명 실패로 강등한다. 403 tool 결과는 grant/registry를 유지한 채 `forbidden`으로 반환하고, 복원 probe의 403도 기존 grant/registry를 유지하되 verified 성공으로 위장하지 않는다. 다른 Auth 소비자의 기존 401/403 강등 기본값은 유지한다 | Jira 403은 유효 PAT의 프로젝트·동작 권한 부족일 수 있어 재인증으로 해결되지 않는다 | 사용자 라이브 세션 2026-09-17 + `AuthenticatedRequester`·`LoginService.resume` 실측 | ACTIVE | V1 §5·§13의 Jira `401/403` 강등 문구를 대체 |
+| D-020 | Jira Auth probe·기본 REST·dev-status·attachment content 요청의 User-Agent는 모두 `Orcinus-Orca-Jira/0.34.0`이다 | 비브라우저 제품 토큰으로 UA-XSRF guard를 피하고 서버 로그에서 이식 기준 버전을 식별한다 | 사용자 라이브 세션 2026-09-17 | ACTIVE | — |
 
 ### 갱신 메모
 
@@ -161,15 +161,15 @@
 | R-07 | AT-07 / AC7 | Jira descriptor는 upstream 기본 14개 이름을 정확히 한 번씩 가지며 upload는 없다 | literal inventory와 descriptor set equality | `jiraTools`→RuntimeToolRegistry snapshot→agent extension |
 | R-08 | AT-08 / AC8 | 14개 이름·입력 필드·기본값·REST method/path/query/body가 0.34.0 의미를 보존하고, D-016의 명시적 안전 delta만 적용한다 | request fake가 각 도구의 outbound request/body와 selector XOR·상한 delta를 함께 단언 | handler→Jira service→`BoundAuth.request` |
 | R-09 | AT-09 / AC9 | 성공·204·실패가 안정된 JSON envelope로 text/structuredContent에 같게 실리고 실패는 `isError:true`다 | parse round-trip, 204 null, error mapping fixture | Jira result mapper→RuntimeToolResult→agent |
-| R-10 | AT-10 / AC10 | PAT Bearer와 `/rest/api/2/myself` probe로 연결하며 context path를 origin과 분리한다 | AuthDefinition compile fixture + probe/request path contract | deployment Auth→AuthRuntime→Jira tools |
+| R-10 | AT-10 / AC10 | PAT Bearer와 `/rest/api/2/myself` probe로 연결하며 context path를 origin과 분리하고, 같은 normalized API base가 probe와 tools를 함께 움직인다 | default/non-default base의 AuthDefinition compile fixture + probe/request path contract | deployment Auth→AuthRuntime→Jira tools |
 | R-11 | AT-11 / AC11 | pagination·request·response 상한 초과는 명시 오류다. tool-output은 publish 전에 2 MiB 이하로 확정하고 optional inline만 결정적으로 생략하며, secret/raw header는 결과·로그에 없다 | 경계값/초과값·multi-inline omission·metadata-only overflow·redaction fixture | schema/service/error mapper→pre-publish result budget |
 | R-12 | AT-12 / AC12 | attachmentId 또는 issueKey로 다운로드하고 save 시 canonical Temp 하위만 쓴다. 선택 batch 전부와 bounded success envelope가 준비돼야 stage→atomic publish 후 경로를 반환하며 traversal/symlink/overwrite/cross-origin·부분 publish·publish 후 output 실패를 거부한다 | temp fixture·same-origin URL·exclusive-create·다중 성공/중간 실패/취소/output-cap/stale-stage cleanup 테스트 | download tool→metadata→binary request→stage→result preflight→batch publish |
 | R-13 | AT-13 / AC13 | 6개 순수 조회만 자동 허용되고 원격 변경 7개와 download 1개는 승인 대상이다 | descriptor annotation과 `runtimeApprovalToolNames` exact set | registry snapshot→approval policy |
 | R-14 | AT-14 / AC14 | grant valid/invalid 전이에 따라 동일 server가 등록/제거되고 기본 OSS 배포는 계속 0 Plugin이다 | binding sync/identity/default deployment 회귀 + guide fixture typecheck | boot→binding sync→registry |
 | R-15 | AT-15 / AC15 | 실제 Jira DC에서 조회·변경·첨부 저장과 두 locale UI가 요구대로 동작한다 | 사람 실기 체크리스트와 파일 위치/화면 관측 | packaged/dev app→real Jira→agent/UI |
 | R-16 | AT-16 / AC16 | 제품 manifest/lockfile에 어떤 신규 npm dependency도 추가하지 않고, 제품 source의 `@atlassian-dc-mcp/*` import도 0이다. Jira는 repository-owned native module로만 bundle된다 | dependencies/devDependencies/optionalDependencies/peerDependencies와 lock entry 추가 0, product import sweep, production typecheck/build | app package build→native Jira module→bundled app |
-| R-17 | AT-17 / AC17 | Jira 도구의 401은 기존처럼 grant를 만료시키지만 403은 grant·registry를 유지하고 `forbidden` envelope로 끝난다 | 공용 requester의 기본 403 강등 회귀 + Jira 요청의 403 비강등 + Jira result code를 각각 단언 | Jira request builder→`AuthenticatedRequester`→Auth store/binding sync→Jira result mapper |
-| R-18 | AT-18 / AC18 | Jira가 만드는 모든 원격 요청은 `User-Agent: Orcinus-Orca-Jira/0.34.0`과 기존 `X-Atlassian-Token: no-check`를 함께 보낸다 | 기본 14개 request와 dev-status 후속 요청·attachment content 요청의 header table | Jira request builders→`BoundAuth.request`→Chromium transport→Jira DC |
+| R-17 | AT-17 / AC17 | Jira의 401은 기존처럼 grant를 만료시키지만 403 tool 결과와 복원 probe는 grant·registry를 유지한다. tool은 `forbidden`, probe는 verified 성공이 아닌 보존 실패로 끝난다 | 공용 requester 기본 403 강등 회귀 + Jira tool 403 비강등/result code + probe→resume→registry 상태표 | Jira request/probe policy→`AuthenticatedRequester`→`LoginService`→Auth store/binding sync→Jira result mapper |
+| R-18 | AT-18 / AC18 | Jira가 만드는 Auth probe·기본 REST·dev-status·attachment content 요청은 모두 `User-Agent: Orcinus-Orca-Jira/0.34.0`과 기존 `X-Atlassian-Token: no-check`를 함께 보낸다 | probe + 기본 14개 request + dev-status 후속 요청 + attachment content 요청의 header table과 Chromium manual transport | Jira probe/request builders→`BoundAuth.request`→Chromium transport→Jira DC |
 
 ### AC 검증 주의사항
 
@@ -249,16 +249,16 @@
 
 | Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §10 강제 지점 전수 |
 |---|---|---|---|---|---|---|
-| VP-27 | R-17 ↔ AT-17 | REQUIRED | Jira request policy→requester status 판정→store/registry→error mapper | 401 강등·403 비강등·`forbidden` envelope 상태표 | M15 Jira policy에서 403을 다시 auth failure로 포함 | EP-25 (2) |
-| VP-28 | R-18 ↔ AT-18 | REQUIRED | Jira builders→headers→Auth presentation→Chromium transport | 14 기본 + dev-status + attachment content 요청 header 표 | M16 공통 Jira UA 제거 또는 한 특수 요청에서 누락 | EP-26 (3) |
-| VP-29 | SD-03 ↔ ST-03 | REQUIRED | 403 response→grant 유지→server 유지→agent forbidden | 공용 requester와 Jira mapper 결합 evidence | M15 | EP-18/22/25 (3) |
+| VP-27 | R-17 ↔ AT-17 | REQUIRED | Jira request/probe policy→requester·resume status 판정→store/registry→error mapper | 401 강등·tool/probe 403 비강등·`forbidden` envelope 상태표 | M15 Jira policy에서 403을 다시 auth failure로 포함하거나 resume에서 모든 probe 실패를 강등 | EP-25 (3) |
+| VP-28 | R-18 ↔ AT-18 | REQUIRED | Jira probe/builders→headers→Auth presentation→Chromium transport | probe + 14 기본 + dev-status + attachment content 요청 header 표 | M16 공통 Jira UA 제거 또는 probe/특수 요청에서 누락 | EP-26 (4) |
+| VP-29 | SD-03 ↔ ST-03 | REQUIRED | tool/probe 403 response→grant 유지→server 유지→agent forbidden 또는 보존 실패 | 공용 requester·resume·binding registry·Jira mapper 결합 evidence | M15 | EP-18/22/25 (3) |
 | VP-30 | AR-05 ↔ IT-05 | REQUIRED | request policy/header→AuthenticatedRequest→requester/transport | contract + request-builder integration | M15/M16 | EP-17/25/26 (3) |
-| VP-31 | MD-05 ↔ UT-05 | REQUIRED | status/header input→demotion/header output | pure/default/override table | M15/M16 | EP-25/26 (2) |
+| VP-31 | MD-05 ↔ UT-05 | REQUIRED | status/header input→requester/resume demotion·header output | pure/default/override/probe table | M15/M16 | EP-25/26 (2) |
 | VP-32 | MD-04 ↔ UT-04 | REGRESSION | published savedPath→canonical Jira root·batch directory | `relative`/`dirname` 기반 Windows·POSIX 독립 assertion | not selected — 기존 직접 filesystem oracle의 플랫폼 표현만 수정 | EP-20 (1) |
 | VP-33 | R-14 ↔ AT-14 | REGRESSION | non-Jira 403→기존 Auth 강등·sync | 기본 policy 403 회귀 | M15 override를 전역 기본값으로 오적용 | EP-22/25 (2) |
 
 M1=`pluginRows` 또는 `connectionInfo`에서 catalog 제거. M2=미설정 icon을 `power_settings_new`로 복귀. M3=ko/en 선택 또는 pure locale fallback 순서 교환. M4=Jira attribution field 제거. M5=탭 순서 또는 초기 탭 복귀. M6=14-name inventory drift. M7=REST method/path/query/body 또는 D-016 안전 delta drift. M8=실패의 `isError` 제거. M9=origin과 API base path 중복. M10=size/redaction/pre-publish output budget guard 제거. M11=cross-origin·traversal·overwrite·부분 또는 orphan publish guard 제거. M12=mutation annotation을 read-only로 변경. M13=invalid auth의 registry remove 제거. M14=임의 npm dependency를 추가하거나 `@atlassian-dc-mcp/*`를 제품 source에서 import.
-M15=Jira 요청에서 403을 auth failure로 되돌리거나 요청별 override를 전역 기본값으로 적용. M16=Jira 공통 User-Agent를 제거하거나 dev-status/attachment content 경로에서만 누락.
+M15=Jira 요청에서 403을 auth failure로 되돌리거나 resume이 Jira probe 403을 재강등하거나 요청별 override를 전역 기본값으로 적용. M16=Jira 공통 User-Agent를 제거하거나 probe/dev-status/attachment content 경로에서만 누락.
 
 ### 현재 변경의 운영 gate
 
@@ -541,8 +541,8 @@ export interface JiraDownloadData {
 | EP-22 | server 1회 생성·valid add/invalid remove | existing binding + Jira factory | boot/auth change | stale tool/respawn churn |
 | EP-23 | default empty + docs/current-state sync | deployment test/docs | build/release | 가짜 endpoint/계약 drift |
 | EP-24 | 모든 manifest/lock 신규 dependency 0 + upstream product import 0 | `app/package.json`·lockfile·product source | dependency gate/build 시 | 신규 package 또는 reference package runtime 결합 |
-| EP-25 | 요청별 인증 실패 status | `AuthenticatedRequest.authFailureStatuses` + requester 기본값 | Jira common request policy와 `AuthenticatedRequester`가 요청 생성·응답 수신 시 강제 | Jira 403을 만료로 오독하거나 기존 소비자의 403 강등 회귀 |
-| EP-26 | Jira User-Agent/XSRF header | `JIRA_USER_AGENT` + Jira common headers | 기본/개발정보/첨부 request builder가 모든 Jira 원격 요청 생성 시 강제 | Chromium Mozilla UA가 서버에 도달하거나 특수 요청만 header 누락 |
+| EP-25 | 요청별 인증 실패 status | `AuthenticatedRequest`/`AuthProbe.authFailureStatuses` + requester 기본값 + probe outcome | Jira common request policy, `AuthenticatedRequester`, `LoginService.resume`가 요청 생성·응답 수신·복원 실패 시 강제 | Jira tool/probe 403을 만료로 오독하거나 기존 소비자의 403 강등 회귀 |
+| EP-26 | Jira User-Agent/XSRF header | `JIRA_USER_AGENT` + Jira common headers | Auth probe·기본·개발정보·첨부 request 생성 시 강제 | Chromium Mozilla UA가 서버에 도달하거나 probe/특수 요청만 header 누락 |
 
 - 같은 규칙의 SSOT: default icon은 shared constant 하나, locale fallback은 renderer pure function 하나, Jira name inventory는 `JIRA_TOOL_NAMES` 하나, source metadata는 `JIRA_SOURCE` 하나다.
 - 선택적 필드 의미: config input의 `catalog===undefined`는 legacy Plugin default 생성, wire의 `catalog===undefined`는 non-Plugin 연결이다. `title/body===undefined`는 각각 Auth label fallback/본문 없음, `license===undefined`는 license 행 숨김이다.
@@ -564,7 +564,7 @@ export interface JiraDownloadData {
 | ko/en resources | visible label/attribution headings | 플러그인, source/version/GitHub/license | key typecheck/render |
 | `features/plugins/jira/source.ts` (신규) | provenance/catalog SSOT | 0.34.0/gitHead/MIT/pinned URL/ko-en copy; icon은 생략해 shared default 사용 | exact constant test |
 | `features/plugins/jira/rest.ts` (신규) | Jira HTTP mapping | path/query/body/default fields/same-origin | request table |
-| `contracts/auth.ts`·`features/auth/authenticated-request.ts` | 요청별 인증 실패 의미 | 기본 401/403 유지, Jira의 `[401]` override 강제 | default/override status table |
+| `contracts/auth.ts`·`features/auth/{authenticated-request,login}.ts` | 요청별 인증 실패 의미 | `AuthProbe`가 request header/status policy를 재사용, 기본 401/403 유지, Jira `[401]`, resume 403 grant 보존 | default/override/probe/resume status table |
 | `features/plugins/jira/service.ts` (신규) | operation orchestration | 14 tool behavior, pagination, download selection | fake request integration |
 | `features/plugins/jira/result.ts` (신규) | agent message | envelope, 204, error codes, pre-publish output budget/inline omission/redaction | unit table |
 | `features/plugins/jira/attachment-store.ts` (신규) | file safety | canonical root, sanitize, begin/stage/publish/abort transaction, atomic directory publish, stale-stage cleanup | temp fixture |
@@ -590,8 +590,8 @@ export interface JiraDownloadData {
 - default search fields: `summary,description,status,assignee,reporter,priority,issuetype,labels,updated`.
 - default get issue fields: search defaults + `parent,subtasks`.
 - Jira requests set `X-Atlassian-Token: no-check`; `Authorization` is never supplied by Jira code and remains `BoundAuth` presentation responsibility.
-- Jira requests set `User-Agent: Orcinus-Orca-Jira/0.34.0`; 공통 header builder가 기본 14개·dev-status·attachment content 경로에 같은 값을 적용한다.
-- `AuthenticatedRequest.authFailureStatuses`는 요청별 401/403 좁은 집합이며 미지정 기본값은 `[401, 403]`이다. Jira builders는 `[401]`을 지정해 403 권한 오류가 Auth 상태를 바꾸지 않게 한다.
+- Jira requests set `User-Agent: Orcinus-Orca-Jira/0.34.0`; 공통 header 상수가 Auth probe·기본 14개·dev-status·attachment content 경로에 같은 값을 적용한다.
+- `AuthenticatedRequest.authFailureStatuses`는 요청별 401/403 좁은 집합이며 미지정 기본값은 `[401, 403]`이다. `AuthProbe`도 같은 header/status policy를 전달한다. Jira는 `[401]`을 지정해 403 권한 오류가 Auth 상태를 바꾸지 않게 하고, `resume`은 이 비인증 403을 verified로 만들지 않으면서 기존 grant를 보존한다.
 - issue/comment/link/attachment 식별자는 path segment마다 percent-encode하고 query는 `AuthenticatedRequest.query`로 분리한다. raw string concatenation으로 query를 만들지 않는다.
 - create에서 customFields는 upstream처럼 standard fields 뒤에 merge해 명시 override를 허용한다.
 - transition은 `{transition:{id}, fields?}`를 만들고 customFields를 top-level에 merge한다.
@@ -663,7 +663,7 @@ download save:true
 - 인증 성공: 기존 Auth subscription이 binding `sync()`를 불러 같은 server object를 add한다.
 - 취소/중단: context signal을 모든 remote request와 binary read에 전달한다. abort는 `cancelled` error envelope로 끝낸다.
 - revoke/401: Auth change가 sync를 일으켜 server id를 remove한다. 임의 재로그인이나 token refresh를 Jira module이 수행하지 않는다.
-- Jira 403: 요청 결과는 `forbidden`으로 매핑하지만 grant revision/status를 바꾸거나 binding sync를 일으키지 않는다. 공용 Auth 요청의 미지정 기본 403 강등은 유지한다.
+- Jira 403: tool 요청 결과는 `forbidden`으로 매핑하지만 grant revision/status를 바꾸거나 binding sync를 일으키지 않는다. Auth 복원 probe의 403도 verified 성공은 아니지만 grant/registry를 보존한다. 공용 Auth 요청의 미지정 기본 403 강등은 유지한다.
 - download 실패: destination을 먼저 공개하지 않는다. 한 호출의 모든 save 대상은 숨은 stage에 모으고, 중간 fetch/write/close/abort 실패 시 stage 전체를 제거한다. bytes·필수 metadata·예정 path와 2 MiB 이하 success envelope를 모두 확정한 경우에만 directory rename으로 batch를 publish한다. publish 뒤에는 output-cap 판정을 다시 하지 않는다.
 - retry: API 호출은 자동 재시도하지 않는다. mutation 중복을 피하고 에이전트가 status/error를 보고 결정한다.
 - restart: Jira catalog/binding은 build config에서 다시 구성된다. Temp attachment는 OS temp 파일이며 앱 DB에 영속 참조를 만들지 않는다. crash로 남은 `.staging` 중 24시간 초과분은 다음 store 준비가 정리한다.
