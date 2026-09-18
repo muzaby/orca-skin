@@ -81,6 +81,8 @@
 | D-032 | Mail Auth는 **`probe`를 선언하지 않는 것이 정상 경로**다. 자격증명 검증은 **첫 `mail_sync`**가 한다 | `probe`는 gate에서만 필수이고(`GateAuthDefinition` 타입 강제) Plugin Auth는 `probe?` optional이다. POP3-only 서버에는 probe가 칠 HTTP endpoint가 아예 없다. 미선언이면 `login.ts:499`가 확인 없이 통과시킨다(실측) | 설계자 | ACTIVE | — |
 | D-033 | `iso-2022-kr` 메일은 **미지원으로 남긴다.** `mailparser` 폴백을 두지 않는다 | 사용자 결정 — "mailparser 폴백 필요없음. iso-2022-kr 은 미지원으로 남겨두겠음" | 사용자 턴 | ACTIVE | — |
 | D-034 | Mail Auth를 **`GATE_AUTH_DEFINITIONS`에 넣지 않는다.** 앱 로그인 게이트와 무관하다 | 사용자 결정 — "pop3 메일서버는 앱 로그인시 체인으로 안해도 된다. Sso 인증이 아니기때문. 토큰 계열도 안해도 된다". Confluence·Jira도 게이트 멤버가 아니다(F-21) | 사용자 턴 | ACTIVE | — |
+| D-035 | POP3 인증 거부를 **Auth 강등으로 되먹인다** — `createAuthRuntime` 결과에 좁은 reporter를 더하고 컴포지션 루트가 `authId`를 닫아 Mail Plugin에 준다 | 강등 경로가 HTTP status·probe 둘뿐이라 POP3는 어느 쪽도 안 탄다(F-24). 되먹임이 없으면 비밀번호 회전 후 Auth가 영구 `valid`로 남고 도구가 등록된 채 매번 실패한다 | 설계자 | ACTIVE | — |
+| D-036 | Mail Auth는 **`sessionGroup`을 공유하지 않는다.** ADFS SSO로 메일이 자동 인증되지 않고 사용자가 비밀번호를 따로 입력한다 | POP3에는 쿠키가 없어 cookie jar 공유가 성립하지 않는다. `methods[0]`이 입력형이라 자동 재로그인 대상에서도 제외된다(F-23) — 규칙과 일치한다 | 설계자 | ACTIVE | — |
 
 ### 갱신 메모
 
@@ -157,6 +159,7 @@
 | Auth `valid` 로 전이 | `sync()`가 tool server를 registry에 add | **다음 spawn부터** 도구 3종이 모델에 보인다 |
 | 메일 인증 실패·미인증 | 도구만 사라진다 | **앱 진입은 막히지 않는다** — Mail Auth는 게이트 멤버가 아니다(D-034) |
 | Auth `invalid`·해제·401 강등 | `sync()`가 registry에서 remove | 다음 턴에 도구가 사라진다. 연결 탭 목록은 cached descriptor로 유지되고 `status`가 비활성을 안내한다 |
+| POP3가 `PASS`에 `-ERR`로 답함 (비밀번호 회전 등) | reporter가 Auth를 강등 → `sync()`가 도구 회수 | 연결 탭이 **재인증 필요**로 바뀐다. 자동 재로그인은 돌지 않고(입력형, F-23) 사용자가 비밀번호를 다시 넣는다 (D-035·D-036) |
 | `mail_sync` — 캐시 fresh | POP3 미연결 | `{ synced:false, fresh:true, lastSyncAt }` |
 | `mail_sync` — 캐시 stale | 만료 정리 → POP3 증분 | `{ synced:true, newMails, expired, lastSyncAt }` |
 | `mail_sync` 진행 중 동일 계정 재호출 | single-flight — 진행 중 Promise를 공유 | 두 호출이 **같은 결과 객체**를 받는다 (D-016) |
@@ -221,6 +224,7 @@
 | MD-01 | UT-01 / AC25 | 원격 UIDL이 임계 비율 이상 사라지면 삭제하지 않고 보호 상태를 반환한다 | ledger 100건 중 원격에 10건만 남은 케이스에서 삭제 **0건** ∧ `protection:'bulk_loss_suspected'` | `sync-manager` → `reconcile.ts` |
 | MD-07 | UT-07 / AC26 | `DELE`는 어떤 경로로도 전송되지 않는다 | 음성: 명령 화이트리스트에 `DELE` **부재**. 양성: 화이트리스트의 `UIDL`·`TOP`·`RETR`·`STAT`·`CAPA`·`QUIT` **6개가 실제로 전송된다**는 fake 서버 수신 로그 | `pop3/session.ts` 명령 게이트 |
 | R-05 | AT-18 / AC27 | `probe` 미선언 배포에서 비밀번호가 틀리면 첫 `mail_sync`가 `auth_failed`를 돌려준다 | fake 서버가 `PASS`에 `-ERR`로 답하는 케이스에서 `{ synced:false, error:'auth_failed' }` ∧ 연결 오류(`ECONNREFUSED`)·타임아웃과 **다른 코드**임을 3케이스로 대조 | `mail_sync` handler → `pop3/errors.ts` 매핑 |
+| AR-05 | IT-05 / AC28 | POP3가 `PASS`에 `-ERR`로 답하면 Auth가 강등되고 **다음 sync에서 도구 서버가 registry에서 제거**된다 | fake 서버가 `-ERR`을 준 뒤 주입된 reporter 호출 **1회** ∧ `binding.sync()` 후 `registry.remove` 1회·`add` 0회. 같은 실패 3연속에서 reporter 호출은 **1회**(전이 1회성, `auth.md §4.5`) | `mail_sync` → `pop3/errors.ts` → 주입된 reporter → `markExpired` → change → `binding.sync()` |
 
 ### AC 검증 주의사항
 
@@ -229,7 +233,7 @@
 - N회/총량 기준: AC23의 "소켓 팩토리 1회"의 sink는 `Pop3SocketFactory` 단일 함수다. 프로덕션 호출부 전수 = `pop3/session.ts`의 연결 진입 1곳(`rg 'socketFactory\(' src/main/features/plugins/mail --include=*.ts` → 구현 후 1건이어야 한다). `mail_search`·`mail_getAttachment` handler는 그 팩토리를 **받지 않으므로** 식의 항이 아니다(AC4·§10 EP-02).
 - 총량/0건 기준: AC20의 음성 스윕은 `infra/net/pop3-socket.ts` 1개를 허용 목록으로 뺀다. **음성만으로는 배선 삭제를 못 잡으므로** 양성 단언(실제 `tls.connect` 진입)을 짝지었다. AC21·AC26도 같은 음성+양성 구조다.
 - 형제 자리 변이: AC22(annotations 3자리)·AC8(3저장소)은 값을 맞바꾸거나 한 자리만 지우는 변이에서 red여야 한다.
-- **AC 27건 — 분할 검토 결과 분할하지 않는다.** 전송 경계(AC20·AC21)만 떼면 소비자 없는 소켓 모듈이 남아 프로덕션 도달 경로가 없고, 캐시·검색만 떼면 연결 수단이 없어 어느 쪽도 사용자 결과에 닿지 못한다. 27건 중 9건(AC18~AC26)은 경계·가드 단언이라 구현 표면이 아니라 **배선 1회**에 붙는다.
+- **AC 28건 — 분할 검토 결과 분할하지 않는다.** 전송 경계(AC20·AC21)만 떼면 소비자 없는 소켓 모듈이 남아 프로덕션 도달 경로가 없고, 캐시·검색만 떼면 연결 수단이 없어 어느 쪽도 사용자 결과에 닿지 못한다. 28건 중 11건(AC18~AC28)은 경계·가드 단언이라 구현 표면이 아니라 **배선 1회**에 붙는다.
 
 ## 7-A. V / Trace Matrix
 
@@ -258,10 +262,12 @@
 | AR-02 | AR | §10 자격증명 경계 — 세 번째 secret 소비자 | NEW | — |
 | AR-03 | AR | §10·§11 mail DB 소유·마이그레이션·가드 | NEW | — |
 | AR-04 | AR | §10·§12 Plugin 등록 · 도구 descriptor 계약 | NEW | — |
+| AR-05 | AR | §10·§13 자격증명 실패 되먹임 경계 (Plugin → Auth 강등) | NEW | — |
 | IT-01 | IT | §7 AC20 | NEW | — |
 | IT-02 | IT | §7 AC21 | NEW | — |
 | IT-03a·IT-03b | IT | §7 AC18·AC19 | NEW | — |
 | IT-04 | IT | §7 AC22 | NEW | — |
+| IT-05 | IT | §7 AC28 | NEW | — |
 | MD-01 | MD | §11 UIDL reconcile (신규/기존/소실 3분류 + 보호) | NEW | — |
 | MD-02 | MD | §11 14일 경계 판정 · cleanup 대상 산출 | NEW | — |
 | MD-03 | MD | §11 FTS 질의 빌더 (trigram · 길이 분기) | NEW | — |
@@ -294,11 +300,12 @@
 | VP-17 | MD-04 ↔ UT-04 | REQUIRED | 순수 MIME 정규화 | From/To/Cc/Subject/Body 5필드 + 인코딩 3종 | required — 5필드 중 하나를 빼는 변이 5종 (D-010 전수) | EP-14 (1) |
 | VP-18 | MD-05 ↔ UT-05 | REQUIRED | 순수 freshness 함수 | 5분 ±1초 경계 3케이스 | not selected — 경계값 직접 단언 | EP-06 (2) |
 | VP-19 | MD-06 ↔ UT-06 | REQUIRED | 순수 파일명 정규화 | 경로 이탈·Windows 예약어·중복 이름 | not selected — 반환값 직접 단언 | EP-01 (4) |
+| VP-21 | AR-05 ↔ IT-05 | REQUIRED | `pop3/errors.ts` → 주입된 reporter → `markExpired` → `AuthChange` → `binding.sync()` | reporter 호출 횟수 + `registry.remove`/`add` 횟수 (AC28) | required — reporter를 no-op으로 두는 변이(도구가 등록된 채 남는다) | EP-16 (2) |
 | VP-20 | MD-07 ↔ UT-07 | REQUIRED | `session.ts` 명령 게이트 → fake 서버 수신 로그 | 양성: 허용 6명령이 실제로 수신된다. 음성: `DELE` 부재 (AC26) | required — 화이트리스트에 `DELE`를 더하는 변이가 게이트를 red로 만드는지 | EP-15 (1) |
 
 `NOT_REQUIRED` 행 없음 — Baseline V라 상속한 pair가 없다.
 
-**합계 검산**: 설계 node `R 6 · SD 3 · AR 4 · MD 7 = 20` ↔ 검증 node `AT 18 · ST 3 · IT 5 · UT 7 = 33`(AT-01~18 · ST-01~03 · IT-01·02·03a·03b·04 · UT-01~07). pair `VP-01~VP-20 = 20`, 전부 `REQUIRED`. §10 강제 지점 군 `EP-01~EP-15 = 15`, 지점 합 `4+2+3+2+3+2+3+1+2+2+2+3+1+1+1 = 32`.
+**합계 검산**: 설계 node `R 6 · SD 3 · AR 5 · MD 7 = 21` ↔ 검증 node `AT 18 · ST 3 · IT 6 · UT 7 = 34`(AT-01~18 · ST-01~03 · IT-01·02·03a·03b·04·05 · UT-01~07). pair `VP-01~VP-21 = 21`, 전부 `REQUIRED`. §10 강제 지점 군 `EP-01~EP-16 = 16`, 지점 합 `4+2+3+2+3+2+3+1+2+2+2+3+1+1+1+2 = 34`.
 
 ### 현재 변경의 운영 gate
 
@@ -330,7 +337,10 @@
 | F-06b | `AuthProbe`도 HTTP 전용이고, **미선언이면 검증 없이 `valid`가 된다** | `contracts/auth.ts` `AuthProbe = Pick<AuthenticatedRequest, 'path'\|'method'\|'headers'\|'authFailureStatuses'>` · `features/auth/login.ts:499` `if (!probe \|\| !this.deps.request) return { ok: true, ... }` |
 | F-06c | `BoundAuth`에는 Auth를 강등시키는 표면이 없다 — `authId`·`snapshot()`·`request()` 3개뿐 | `contracts/auth.ts:407-411`. 401 강등은 `authenticated-request.ts`가 HTTP status로만 한다 |
 | F-21 | **게이트 멤버십과 Plugin 은 별개 경로다.** 기본 배포의 게이트 멤버는 빈 배열이고 Confluence·Jira도 들어 있지 않다 | `app/deployment/gate-auth.ts` `GATE_AUTH_DEFINITIONS: readonly GateAuthDefinition[] = []`. `bootstrap.ts:402` `createPluginBindings(...)`는 `gateSelection`과 다른 인자를 받고, `:413` `createConnectionSources`가 `gateMembers`와 `plugins`를 따로 조립한다 |
-| F-22 | 게이트가 **있는** 배포에서는 나머지 Auth 복원이 게이트 통과 뒤로 밀린다 | `docs/arch/backend/auth.md §5.2` — `gate Auth 순차 확인 → 나머지 Auth 병렬 확인`. 게이트가 비어 있으면 이 지연이 없다 |
+| F-22 | **대상 폐쇄망은 ADFS 게이트를 운영 중이다**(사용자 진술). 그래서 나머지 Auth 복원은 게이트 통과 뒤로 밀린다 | `docs/arch/backend/auth.md §5.2` — `gate Auth 순차 확인 → 나머지 Auth 병렬 확인`. Mail은 probe 미선언(D-032)이라 probe 후보가 아니고 왕복 0이다 |
+| F-23 | 자동 재로그인 대상은 `methods[0]`이 `browser-session`·`oauth`인 것뿐이다 — **입력형은 제외**된다 | `auth.md §5.2` 재로그인 대상 행 — "입력형은 입력 없이 부르면 네트워크를 타지 않고 전역 `input-required` step 만 남긴다" |
+| F-24 | **Auth 강등 경로는 둘뿐이고 POP3는 어느 쪽도 타지 않는다** | `auth.md §4.5` 관측 지점 표 — ① 요청 경로의 `authFailureStatuses`(HTTP status) ② `resume()` probe 실패. `AuthRuntime` 표면(`contracts/auth.ts`)에 강등 보고 메서드가 없다(F-06c) |
+| F-25 | `SPAWN_ENV_INJECTOR`의 `NODE_EXTRA_CA_CERTS`는 **Harness subprocess** env다 — Orca 자기 프로세스의 `node:tls`에는 적용되지 않는다 | `app/deployment/spawn-env.ts` 헤더 "모든 Harness+ModelProvider 의 subprocess env 에 그 반환값이 실린다" · 예제는 `deployment-wiring.test.ts:619` |
 | F-07 | FTS5 tokenizer 선택이 한국어 결과를 가른다 | 실측 (아래 §수치 검산) |
 | F-08 | `readOnlyHint !== true`면 승인 대상이다 (fail-closed) | `src/main/adapters/runtime-tool-policy.ts:19-28` |
 | F-09 | `descriptor.instructions`가 SDK MCP 서버로 전달된다 | `src/main/adapters/claude-runtime-tools.ts:92` |
@@ -485,6 +495,7 @@
 | EP-12 | AR-04 / VP-13 | 도구 3종의 `readOnlyHint`는 `[false, true, false]`다 | `tools.ts` descriptor | mail 슬라이스 | **3지점** — 세 도구 각각의 annotations | 원격 I/O·디스크 쓰기가 승인 없이 통과한다. D-028 위반 |
 | EP-13 | MD-01 / VP-14 | 대량 소실은 삭제하지 않는다 | `reconcile.ts` 임계 | mail 슬라이스 | **1지점** — reconcile 반환의 `protection` | 서버 교체 한 번이 14일 캐시를 통째로 지운다. D-018 위반 |
 | EP-14 | MD-04 / VP-17 | 검색 문서는 From·To·Cc·Subject·Body 5필드다 | `normalize.ts` | mail 슬라이스 | **1지점** — `MailDocument` 조립 | 선언한 검색 대상 중 일부가 실제로는 안 걸린다. D-010 위반 |
+| EP-16 | AR-05 / VP-21 | 자격증명 거부는 Auth 강등으로 되먹여진다 | `pop3/errors.ts` 거부 판정 + 컴포지션 루트 주입 | mail 슬라이스 + 컴포지션 루트 | **2지점** — `-ERR` 인증 거부 판정 · `bootstrap.ts` reporter 주입부 | 비밀번호가 바뀌어도 Auth가 `valid`로 남아 도구가 등록된 채 매번 실패하고, 사용자는 재인증 신호를 못 받는다 |
 | EP-15 | MD-07 / VP-20 | `DELE`를 보내지 않는다 | `pop3/session.ts` 명령 화이트리스트 | mail 슬라이스 | **1지점** — 명령 게이트 | 서버 메일함이 지워진다. 되돌릴 수 없다. D-031 위반 |
 
 - 같은 규칙의 SSOT: "내부 경로 은닉"은 **결과 조립기 한 곳**이 소유한다. 각 handler가 각자 마스킹하면 네 번째 도구가 생길 때 새 누출 지점이 된다.
@@ -506,7 +517,8 @@
 | `.../mail/store/index.ts` · `migrate.ts` · `migrations/0001_mail.sql` | **신규** — mail.db | 연결·PRAGMA·마이그레이션·질의 | DB 스위트 (ABI 필요, 환경 한계 분리) |
 | `.../mail/attachment-export.ts` | **신규** — Temp 공개 (MD-06) | Jira store와 **같은 구조**를 새로 작성 (교차 import 금지, F-18) | 순수 — 루트 주입 |
 | `app/src/main/app/deployment/plugins.ts` | **수정** — 조립 예제 | `createMailPlugin` 사용 예제를 주석으로 추가. 기본 반환은 `[]` 유지 (D-030) | 기존 `plugins.test.ts` 확장 |
-| `app/src/main/app/bootstrap.ts` | **수정** — 자격증명·소켓 주입 | Plugin 배포 deps에 `secret(authId)` closure와 소켓 팩토리를 추가 | `deployment-wiring.test.ts` 확장 |
+| `app/src/main/app/bootstrap.ts` | **수정** — 자격증명·소켓·강등 주입 | Plugin 배포 deps에 `secret(authId)` closure · 소켓 팩토리 · `reportCredentialRejected(authId)` closure를 추가 | `deployment-wiring.test.ts` 확장 |
+| `app/src/main/features/auth/runtime.ts` | **수정** — reporter 노출 | `createAuthRuntime` 결과에 `credentialRejectionReporter`를 더한다. `AuthRuntime` 인터페이스와 `RouterContext`는 건드리지 않는다 (AR-05) | `runtime.test.ts` 확장 |
 | `app/scripts/check-migrations-appendonly.mjs` | **수정** — 가드 일반화 | 단일 상수 2개 → `{dir, source}` 목록. mail 쌍 등재 | 동반 `*.test.mjs` 확장 |
 | `app/package.json` | **수정** — 의존성 | `node-pop3` · `postal-mime` 추가 (D-023) | — |
 | `docs/arch/backend/security.md` | **수정** — §1.8 표 | POP3 예외 1행 추가 + 강제 수단 명시 | `check-doc-inventory.mjs` |
@@ -623,6 +635,8 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 | "feature 끼리 직접 import 금지" | `app/src/main/AGENTS.md` | §11 `attachment-export.ts` "Jira store와 같은 구조를 새로 작성" | **유지** — eslint가 `plugins`를 한 요소로 보아 잡아주지 못하므로(F-18) 설계로 금지한다 |
 | "도구 결과는 MCP 표준 형상(`content` 필수)" | `adapters/runtime-tools.ts:22` 주석 | §11 `tools.ts` | **유지** — 세 도구 모두 `content` + `structuredContent` |
 | "기본 OSS 배포의 Auth/Plugin 배열은 비어 있다" | `auth.md §7` | D-030 | **유지** |
+| "강등 경로는 요청 경로(HTTP status)와 `resume()` probe 둘뿐" | `auth.md §4.5` 관측 지점 표 | D-035 · §10 EP-16 | **변경** — 세 번째 관측 지점(POP3 `-ERR`)을 더한다. 전이 1회성·통지 규칙은 기존 `markExpired` 를 그대로 쓴다 |
+| "`AuthSecretReader` 를 RouterContext·renderer·일반 feature 에 넣지 않는다" 와 같은 좁힘 원칙 | `auth.md §11` | D-035 | **유지** — reporter 도 `createAuthRuntime` 결과에만 싣고 컴포지션 루트가 `authId` 를 닫아 넘긴다. `AuthRuntime`·`RouterContext` 표면은 안 넓힌다 |
 | "Auth 는 자신이 gate 에 쓰이는지 모른다 — 그 지식은 `gate-auth.ts` 하나에 있다" | `auth.md` D-007 · `gate-auth.ts` 헤더 | D-034 | **유지** — Mail Auth 를 `GATE_AUTH_DEFINITIONS` 에 넣지 않는다. Auth 선언 자체는 gate 여부를 모른다 |
 | `messages_fts`의 `unicode61` | `0003_messages_fts.sql` | D-024 | **유지** — 기존 메시지 검색은 안 건드린다. mail은 별도 DB·별도 tokenizer다 |
 
@@ -630,7 +644,8 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 
 | 리스크 | 완화/결정 |
 |---|---|
-| POP3가 Chromium 스택 밖이라 **OS 프록시·PAC를 안 탄다** | 사내 POP3는 보통 프록시 없이 직접 닿는다. 닿지 않는 배포는 이 Plugin을 못 쓴다 — §15 가이드에 명시하고 실기로 확인한다 |
+| POP3가 Chromium 스택 밖이라 **OS 프록시·PAC를 안 탄다** | **실기 1순위**(§19). 대상 배포가 ADFS 게이트를 운영 중이라 HTTP는 프록시를 탈 가능성이 높다(F-22). POP3가 프록시 경유로만 닿으면 이 Plugin은 성립하지 않는다 — 다른 설계 전에 이것부터 확인한다 |
+| `node:tls`가 사설 CA를 못 본다. **`SPAWN_ENV_INJECTOR`의 `NODE_EXTRA_CA_CERTS`로는 해결되지 않는다**(F-25 — 그건 subprocess env다) | 배포가 `tlsOptions.ca`에 PEM을 넣는다(§15). ADFS 환경이면 사설 CA가 사실상 확실하므로 실기 2순위다 |
 | `node:tls`가 **OS 인증서 저장소를 안 본다** | `tlsOptions.ca`로 배포가 사설 CA를 주입한다. `rejectUnauthorized:false`는 조립에서 거부한다(§15) |
 | `postal-mime`이 `iso-2022-kr`을 못 읽는다 (F-13 실측) | **수용한다 — 완화하지 않는다**(D-033). 그 메일은 `windows-1252`로 폴백해 제목·본문이 깨진 채 색인되고 검색에 걸리지 않는다. 동작은 멈추지 않으며 sync·다른 메일에 영향이 없다 |
 | `probe` 미선언 배포에서 틀린 비밀번호가 "연결됨"으로 보인다 (F-06b) | 검증을 첫 `mail_sync`로 옮겼다(D-032). `auth_failed`를 다른 오류와 구분해 돌려주고 모델이 재인증을 안내한다(AC27). Plugin은 Auth를 강등시킬 수 없다(F-06c) |
@@ -662,7 +677,7 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 - 기본 정적 게이트: `cd app && npm run lint && npm run typecheck`
 - 관련 테스트: `cd app && ./node_modules/.bin/vitest run src/main/features/plugins/mail src/main/infra/net src/main/app/deployment` · `node --test scripts/check-migrations-appendonly.test.mjs`
 - 문서 게이트: `cd app && node scripts/check-doc-inventory.mjs --check`
-- 사람 실기: 폐쇄망 배포에서 실 POP3 서버 1회 — TLS 핸드셰이크(사설 CA 포함) · 실제 한국어 메일 인코딩 · 최초 sync 소요 시간 측정.
+- 사람 실기: 폐쇄망 배포에서 **순서대로** — ① POP3 포트가 프록시 없이 닿는가(안 닿으면 이후가 무의미) ② 사설 CA로 TLS 핸드셰이크 ③ 실제 한국어 메일 인코딩 ④ 최초 sync 소요 시간 ⑤ 비밀번호를 일부러 틀려 도구 회수·재인증 안내 확인(AC28).
 
 ## READY self-review
 
