@@ -23,6 +23,13 @@ test('parseImportedMigrations extracts names in order', () => {
   assert.deepEqual(parseImportedMigrations(MIGRATE_SNIPPET), ['0001_initial', '0002_projects'])
 })
 
+test('parseImportedMigrations accepts feature-owned relative migration imports', () => {
+  assert.deepEqual(
+    parseImportedMigrations(`import migration0001 from '../migrations/0001_mail.sql?raw'`),
+    ['0001_mail']
+  )
+})
+
 test('checkSync passes when dir and imports match', () => {
   const result = checkSync(
     ['0001_initial.sql', '0002_projects.sql'],

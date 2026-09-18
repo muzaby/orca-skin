@@ -135,6 +135,14 @@ Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저�
   공개한다. 요청 실패·취소·예산 초과는 그 stage만 지우며, 충돌 파일을 덮어쓰지 않는다. 비정상 종료로
   남은 오래된 stage는 다음 Jira store 준비 때 정리하고 이미 공개된 batch는 자동 삭제하지 않는다.
 
+#### Mail Plugin 캐시
+
+POP3 Mail Plugin은 Core `orcinus-orca.db`와 분리된 계정별 `mail.db`를 `<userData>/plugins/mail/<accountId>/`
+아래에 소유한다. DB는 WAL·foreign key를 켜고 자체 `migrations/` runner를 사용하며, UIDL ledger·메일 본문
+및 FTS5 색인·첨부 metadata·동기화 상태를 함께 기록한다. 원격 UIDL 소실은 ledger를 `missing`으로 표시할
+뿐이고 본문·색인·첨부는 retention 정리 시점까지 남긴다. 첨부 바이트는 같은 계정 디렉터리의 내부 파일로
+저장하고, 모델에는 불투명 attachment id만 돌려주며 요청 시 Temp로 복사한다.
+
 공개 계약은 [IPC_CONTRACT.md](../../IPC_CONTRACT.md#26-a-산출물-게시-파일), 설계 근거와 검증 기준은 [게시 도구 계획](../../handoff/0223-artifact-publisher/plan.md)에 있다.
 
 #### 어댑터 외부 저장과의 관계
