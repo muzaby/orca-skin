@@ -35,7 +35,7 @@ import type {
 import { AuthenticatedRequester } from './authenticated-request'
 import type { AuthenticatedRequesterDeps } from './authenticated-request'
 import { LoginService } from './login'
-import type { LoginDeps, OAuthAuthenticator, SessionAuthenticator } from './login'
+import type { OAuthAuthenticator, SessionAuthenticator } from './login'
 import { AuthRegistry } from './registry'
 import type { AuthRejection } from './registry'
 import { AuthStore } from './store'
@@ -71,7 +71,6 @@ export interface CreateAuthRuntimeDeps {
   sessions?: BrowserSessionPort
   oauth?: OAuthAuthenticator
   session?: SessionAuthenticator
-  verify?: LoginDeps['verify']
   clock?: () => number
   logger?: (event: string, data: Record<string, unknown>) => void
   onOrphan?: (authId: AuthId) => void
@@ -85,7 +84,6 @@ export interface CreatedAuthRuntime {
   secretReader: AuthSecretReader
   // 등록에서 떨어진 선언. 부팅 진단이 로그로 남긴다.
   rejected: readonly AuthRejection[]
-  credentialRejectionReporter: (authId: AuthId) => void
 }
 
 export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRuntime {
@@ -190,7 +188,6 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     ...(deps.sessions ? { sessions: deps.sessions } : {}),
     // 후보(`candidate`)는 확인이 끝날 때까지 store·vault 를 거치지 않는다 (r5).
     request: (authId, req, signal, candidate) => requester.request(authId, req, signal, candidate),
-    ...(deps.verify ? { verify: deps.verify } : {}),
     onStep: (step) => publish({ kind: 'step', authId: step?.providerId ?? '', step }),
     onSnapshot: emitSnapshot,
     ...(deps.logger ? { logger: deps.logger } : {})
@@ -233,17 +230,5 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     refresh: (authId) => login.refresh(authId)
   }
 
-  const credentialRejectionReporter = (authId: AuthId): void => {
-    const changed = store.markExpired(authId)
-    if (changed.snapshotChanged) {
-      emitSnapshot(authId, 'unauthorized', changed.credentialChanged)
-    }
-  }
-
-  return {
-    runtime,
-    secretReader: createAuthSecretReader(store),
-    rejected: registry.rejected(),
-    credentialRejectionReporter
-  }
+  return { runtime, secretReader: createAuthSecretReader(store), rejected: registry.rejected() }
 }

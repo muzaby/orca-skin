@@ -761,29 +761,13 @@ export function createPluginBindings(deps: {
 > ⚠️ **GUI 도구 목록은 Auth 가 invalid 여도 비지 않는다.** cached descriptor 에서 이름을 만들고
 > `status` 로 비활성을 안내한다 — active registry 로 목록을 만들면 미인증에서 도구가 사라진다.
 
-### POP3 Mail Plugin 레시피
+### POP3 Mail Plugin의 현재 상태
 
-POP3는 HTTP `BoundAuth.request`를 사용할 수 없는 예외이므로 폐쇄망 배포가 `MailPluginDeployment`를
-명시적으로 주입한다. `options`에는 host·port·TLS·사설 CA·계정 id를 넣고, `password`는 AuthId를 닫은
-`AuthSecretReader.read` closure로 만든다. `socketFactory`는 `infra/net/pop3-socket.ts`의
-`createPop3Socket`만 사용하며, 기본 OSS 배포는 `mail` 인자를 생략해 Plugin binding을 만들지 않는다.
-
-```ts
-const mail = {
-  authId: MAIL_AUTH.id,
-  options: { accountId: MAIL_AUTH.id, host: 'pop.example.corp', port: 995, tls: true },
-  password: () => secretReader.read(MAIL_AUTH.id),
-  root: app.getPath('userData'),
-  socketFactory: createPop3Socket,
-  reportCredentialRejected: created.credentialRejectionReporter
-}
-createPluginBindings({ auth, registry, mail })
-```
-
-`mail_sync`는 freshness 확인 뒤에만 POP3에 연결하며, `mail_search`는 로컬 DB만 읽는다. 인증 거부만
-Auth를 만료시키고 세 도구를 함께 회수한다. 연결·TLS·타임아웃·파싱·DB 장애는 캐시와 Auth를 유지한 채
-`stale` 결과를 돌려준다. 첨부는 `mail_search`의 `attachmentId`를 사용해 `mail_getAttachment`를 건별로
-호출하며, 내부 `mail.db` 경로는 출력하지 않는다.
+POP3 Mail은 `BoundAuth.request`가 제공하는 HTTP 요청 capability만으로는 구현할 수 없다. raw TCP/TLS
+소켓과 자격증명 접근이 별도 capability로 필요하므로, 현재 폐쇄망 배포 계약에는 Mail 전용 인자를
+추가하지 않는다. `PluginDeploymentDeps`에 `mail`, secret reader, socket factory 또는 인증 reporter를
+넣지 말아야 하며, POP3 Mail 배포는 별도 capability contract를 설계하고 승인한 뒤 다시 이 문서에
+레시피를 추가한다.
 
 ### Jira Data Center 내장 도구
 

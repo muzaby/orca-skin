@@ -97,8 +97,12 @@
 | D-045 | **D-019의 "Sync 실패"는 비인증 장애로 한정한다** — 연결·TLS·타임아웃·파싱·DB 오류 5종이다. 이때 Auth는 `valid`로 남고 캐시 검색이 계속된다. **자격증명 거부는 Auth 강등이며 도구 3종이 전부 회수되어 캐시 검색도 불가능해진다** | 사용자가 "3도구 전부 회수"를 선택. `createPluginBinding.sync()`가 서버를 통째로 add/remove하고(`plugins.ts:57-68`) `plugins.test.ts:69-71`이 "valid 만 등록 이 곧 나머지 셋은 전부 회수"를 주석으로 적고 `none`·`expired`·`unknown` 3케이스로 잠갔다. 서버를 둘로 쪼개는 우회는 `duplicateConnectionAuthIds`(0188 D-029)가 한 authId 두 row로 진단한다 | 사용자 턴 | ACTIVE | D-019 대체 |
 | D-046 | **일반 UIDL 소실은 본문을 삭제하지 않는다.** ledger state를 `missing`으로 표시만 하고 행·FTS·첨부는 retention이 지울 때까지 남는다 — **서버에서 지운 메일이 최대 14일간 검색에 계속 뜬다** | D-004("삭제 기준은 14일 Retention**뿐**")의 직접 귀결이다. r1 G3이 "일반 UIDL 소실의 본문 삭제 여부"를 물었고, ACTIVE 결정이 답을 강제한다 — 재해석하지 않는다 | 설계자 (D-004 귀결) | ACTIVE | — |
 | D-047 | **보호 상태가 막는 것은 삭제가 아니라 대량 재수집이다.** D-046 아래 `removed:0`은 모든 경로에서 참이라 판별자가 아니다. 보호 중에는 신규 UIDL을 **수집하지 않는다**(RETR 0회). 임계 `retainedRatio < 0.5` · 최소 표본 `활성 ledger >= 20` · 해제는 ①비율 회복 또는 ②같은 `remoteFingerprint` **2회 연속** 관측 시 채택이다 | r1 G3 — D-018은 "대량 삭제하지 않는다"만 말해 D-004 아래 공허했다. 임계·표본·해제는 정책 파라미터라 설계자가 확정한다. 해제를 사용자 조작에 맡기면 renderer 화면이 비범위(§6)여서 탈출구가 없다. **D-018을 대체하지 않고 그 위에 메커니즘을 얹는다** — D-018은 ACTIVE로 남는다 | 설계자 | ACTIVE | — |
+| D-048 | **`PluginDeploymentDeps` 공개 계약은 `auth`, `registry`, 선택적 `logger`만 유지한다.** `mail`, raw secret reader, POP3 socket, credential rejection reporter 같은 Mail 전용 필드를 추가하지 않는다 | 사용자 정정 — 폐쇄망 배포자는 `features/plugins` 구현을 바탕으로 `app/deployment`에 플러그인을 추가하며, Confluence/Jira가 사용하는 기존 factory 포맷이 배포 계약이다. r2가 이 타입을 확장해 계약을 깨뜨렸다 | 사용자 턴 | ACTIVE | D-030·r2 배선 대체 |
+| D-049 | **현재 폐쇄망 factory 계약에는 POP3 Mail을 억지로 배선하지 않는다.** `BoundAuth.request`는 HTTP 요청 capability이고 POP3는 raw TCP/TLS와 별도 자격증명 capability가 필요하므로, Mail 전용 배포는 새 공개 계약을 별도 설계·승인한 뒤 진행한다 | 사용자 정정과 현재 auth 경계의 결합 — 일반 plugin dependency에 raw secret을 넣거나 Auth core를 POP3에 결합하지 않는다. 이번 라운드는 기존 배포 계약 복구와 Mail 레시피의 보류 상태 명시까지로 한정한다 | 사용자 턴 + 현재 계약 검토 | ACTIVE | D-021·D-022·D-035·D-040의 r2 배선 범위 대체 |
 
 ### 갱신 메모
+
+- **ΔV2 (사용자 정정 r3)**: r2 구현이 `PluginDeploymentDeps`에 `mail`·`credentialRejectionReporter`를 추가하고 bootstrap에서 raw secret/POP3 capability를 주입해 폐쇄망 배포 계약을 변경한 사실을 확인했다. D-048로 기존 factory 포맷을 복구하고, D-049에 따라 POP3 Mail은 별도 capability contract가 설계될 때까지 현재 `createPluginBindings` 경로에 배선하지 않는다. 이번 구현의 필수 회귀는 `deployment-wiring` 계약 테스트·정적 타입 검사·가이드 레시피와의 일치다.
 
 - **ΔV1 (이번 턴) — r1 PLAN_GAP 3건 정정**: G1 → D-043·D-044(사용자) · G2 → D-045(사용자, D-019 대체) · G3 → D-046·D-047(설계자, D-004 귀결 + 정책 파라미터).
 - **G3를 사용자에게 올리지 않은 이유**: D-004("삭제 기준은 14일 Retention**뿐**")가 ACTIVE라 "일반 UIDL 소실의 본문 삭제 여부"의 답이 하나로 강제된다 — 두 해석이 서지 않으므로 질의 대상이 아니다. 임계·표본·해제는 정책 파라미터(스킬 §6)라 설계자 몫이다.
@@ -607,15 +611,15 @@
 | `.../mail/reconcile.ts` · `retention.ts` · `freshness.ts` · `query-builder.ts` · `normalize.ts` · **`protection.ts`** | **신규** — 순수 로직 | MD-01·MD-02·MD-03·MD-04·MD-05·**MD-08** | 순수 단위 |
 | `.../mail/store/index.ts` · `migrate.ts` · `migrations/0001_mail.sql` | **신규** — mail.db | 연결·PRAGMA·마이그레이션·질의 | DB 스위트 (ABI 필요, 환경 한계 분리) |
 | `.../mail/attachment-export.ts` | **신규** — Temp 공개 (MD-06) | Jira store와 **같은 구조**를 새로 작성 (교차 import 금지, F-18) | 순수 — 루트 주입 |
-| `app/src/main/app/deployment/plugins.ts` | **수정** — 조립 예제 | `createMailPlugin` 사용 예제를 주석으로 추가. 기본 반환은 `[]` 유지 (D-030) | 기존 `plugins.test.ts` 확장 |
-| `app/src/main/app/bootstrap.ts` | **수정** — 자격증명·소켓·강등 주입 | Plugin 배포 deps에 `secret(authId)` closure · 소켓 팩토리 · `reportCredentialRejected(authId)` closure를 추가 | `deployment-wiring.test.ts` 확장 |
-| `app/src/main/features/auth/runtime.ts` | **수정** — reporter 노출 | `createAuthRuntime` 결과에 `credentialRejectionReporter`를 더한다. `AuthRuntime` 인터페이스와 `RouterContext`는 건드리지 않는다 (AR-05) | `runtime.test.ts` 확장 |
-| `app/src/main/features/auth/login.ts` | **수정** — verifier 분기 + 거부 문구 | ① `LoginDeps.verify?: (authId, candidate, signal) => Promise<{ok, rejected}>`를 더하고 `probe()`에서 **`candidate`가 있을 때만** 우선한다(D-042) ② `:716`의 고정 거부 문구를 outcome에 따라 갈라 싣는다(D-041). 타임아웃은 기존 `PROBE_TIMEOUT_MS`(15s) (AR-06) | `login.test.ts` 확장 |
+| `app/src/main/app/deployment/plugins.ts` | **복구** — 기존 배포 계약 유지 | `PluginDeploymentDeps`는 `auth`, `registry`, `logger?`만 받는다. Mail 전용 raw capability를 이 factory에 추가하지 않으며 `createPluginBindings`의 기본 반환은 `[]`다. POP3 배포는 별도 capability contract 설계 후 별도 라운드에서 다룬다(D-048·D-049) | `deployment-wiring.test.ts`, 기존 `plugins.test.ts` |
+| `app/src/main/app/bootstrap.ts` | **복구** — 범용 컴포지션 루트 유지 | Mail secret/socket/reporter를 bootstrap과 deployment deps에 주입하지 않는다. 폐쇄망 배포자가 수정하는 파일 경계를 `app/deployment/`에 유지한다 | `typecheck:node`, `deployment-wiring.test.ts` |
+| `app/src/main/features/auth/runtime.ts` | **변경 없음** — Auth 공개 표면 보존 | `credentialRejectionReporter`를 일반 Auth runtime 결과로 노출하지 않는다. POP3 전용 강등 경로는 별도 capability contract가 승인된 뒤 설계한다 | `runtime.test.ts` 기존 스위트 |
+| `app/src/main/features/auth/login.ts` | **변경 없음** — HTTP Auth 계약 보존 | POP3 verifier를 `LoginDeps`에 추가하지 않는다. 기존 HTTP probe와 인증 문구 계약을 유지한다 | `login.test.ts` 기존 스위트 |
 | `app/scripts/check-migrations-appendonly.mjs` | **수정** — 가드 일반화 | 단일 상수 2개 → `{dir, source}` 목록. mail 쌍 등재 | 동반 `*.test.mjs` 확장 |
 | `app/package.json` | **수정** — 의존성 | `node-pop3` · `postal-mime` 추가 (D-023) | — |
 | `docs/arch/backend/security.md` | **수정** — §1.8 표 | POP3 예외 1행 추가 + 강제 수단 명시 | `check-doc-inventory.mjs` |
-| `docs/arch/backend/auth.md` | **수정** — §7 | Plugin이 비-HTTP 전송을 쓰는 경우와 자격증명 주입 경로 서술 | 같은 가드 |
-| `docs/guides/closed-network-extensions.md` | **수정** — §4 | Mail Plugin 레시피 (POP3 host/port/TLS 옵션·CA 주입) | 같은 가드 |
+| `docs/arch/backend/auth.md` | **복구** — §7 | Plugin은 `BoundAuth.request`와 자기 옵션만 받으며 raw credential을 보지 않는다는 기존 경계를 유지 | 같은 가드 |
+| `docs/guides/closed-network-extensions.md` | **정정** — §4 | 현재 `PluginDeploymentDeps` 계약을 유지하고 POP3 Mail은 별도 capability contract 설계 대기 상태로 명시 | 같은 가드 |
 | `docs/arch/backend/persistence.md` | **수정** — §1 | 두 번째 DB(`mail.db`)의 소유·경로·마이그레이션 서술 | 같은 가드 |
 | `docs/TRD.md` | **수정** — §2 Stack | `node-pop3`·`postal-mime` 등재 (의존성 정책) | 같은 가드 |
 

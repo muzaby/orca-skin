@@ -96,13 +96,6 @@ export interface LoginDeps {
     signal?: AbortSignal,
     candidate?: CandidateCredential
   ) => Promise<AuthenticatedResponse>
-  // 비-HTTP 인증(예: POP3)은 AuthDefinition.probe 대신 후보 자격증명을 직접 검증한다.
-  // verifier가 없는 Auth는 기존 probe/무검증 동작을 그대로 유지한다.
-  verify?: (
-    authId: AuthId,
-    candidate: CandidateCredential,
-    signal?: AbortSignal
-  ) => Promise<{ ok: boolean; rejected: boolean }>
   // ── 두 갈래 통지 (0188 D-008) ───────────────────────────────────────────────
   //
   // 0181 은 `onChange()` 하나였다. 그래서 입력 폼을 연 것과 credential 을 커밋한 것이 소비자에게
@@ -121,7 +114,7 @@ export interface LoginDeps {
 type SettleOutcome =
   | { kind: 'settled'; step: AuthStep }
   // 서버가 후보를 거부했다 — 호출자가 자기 실패 모양(폼 재표시 또는 `failed`)을 만든다.
-  | { kind: 'rejected'; credentialRejected: boolean }
+  | { kind: 'rejected' }
   // 사용자가 그 사이 다른 시도를 시작했거나 해제했다 — **아무것도 하지 않는다.**
   | { kind: 'superseded' }
 
@@ -130,7 +123,6 @@ interface ProbeOutcome {
   // 요청별 인증 실패 정책에서 명시적으로 제외한 401/403은 권한·정책 실패다. 복원 확인에는
   // 성공으로 쓰지 않되, 살아 있는 기존 grant까지 만료시키지는 않는다.
   preserveGrant: boolean
-  credentialRejected?: boolean
 }
 
 // 세대 토큰의 기본 공급자. 키 이름에만 쓰이고 비밀이 아니지만, 예측 가능한 이름이 여러 설치에서
@@ -503,22 +495,6 @@ export class LoginService {
     definition: AuthDefinition,
     candidate?: CandidateCredential
   ): Promise<ProbeOutcome> {
-    if (candidate && this.deps.verify) {
-      try {
-        const result = await this.deps.verify(
-          definition.id,
-          candidate,
-          AbortSignal.timeout(PROBE_TIMEOUT_MS)
-        )
-        return { ok: result.ok, preserveGrant: false, credentialRejected: result.rejected }
-      } catch (error) {
-        this.deps.logger?.('auth.verify.failed', {
-          authId: definition.id,
-          reason: errorMessage(error)
-        })
-        return { ok: false, preserveGrant: false, credentialRejected: false }
-      }
-    }
     const probe = definition.probe
     if (!probe || !this.deps.request) return { ok: true, preserveGrant: false }
     try {
@@ -548,7 +524,7 @@ export class LoginService {
         returnedToOrigin,
         preserveGrant
       })
-      return { ok, preserveGrant, credentialRejected: !ok }
+      return { ok, preserveGrant }
     } catch (error) {
       // 네트워크 미연결(VPN 전)·정책 위반(allowlist 밖 redirect)·타임아웃. 기존 계약대로
       // 복원 grant를 만료시킨다. 보존 예외는 응답 status를 실제로 관측한 경우에만 적용한다.
@@ -556,7 +532,7 @@ export class LoginService {
         authId: definition.id,
         reason: errorMessage(error)
       })
-      return { ok: false, preserveGrant: false, credentialRejected: true }
+      return { ok: false, preserveGrant: false }
     }
   }
 
@@ -599,7 +575,7 @@ export class LoginService {
     if (!probe.ok) {
       // 아무것도 쓰지 않았다 — 이전 자격증명은 손대지 않은 채 그대로 살아 있다.
       // 통지는 호출자의 `emit`(폼 재표시 또는 `failed`)이 한다 — 두 번 쏘지 않는다.
-      return { kind: 'rejected', credentialRejected: probe.credentialRejected ?? false }
+      return { kind: 'rejected' }
     }
     // 확인된 값을 **아무도 가리키지 않는 새 키**에 쓴다. 여기서 실패하면 옛 키는 그대로다.
     if (writeVault) {
@@ -611,7 +587,7 @@ export class LoginService {
           authId: definition.id,
           reason: errorMessage(error)
         })
-        return { kind: 'rejected', credentialRejected: false }
+        return { kind: 'rejected' }
       }
     }
     // 옛 키는 커밋이 **내구 저장으로** 성립한 뒤에만 지운다.
@@ -626,7 +602,7 @@ export class LoginService {
         authId: definition.id,
         reason: errorMessage(error)
       })
-      return { kind: 'rejected', credentialRejected: false }
+      return { kind: 'rejected' }
     }
     if (durable) this.discardKeys(previous, candidate.grant)
     else {
@@ -737,9 +713,7 @@ export class LoginService {
       providerId: definition.id,
       authKind: spec.kind,
       fields: [...spec.fields],
-      message: settled.credentialRejected
-        ? '자격증명이 거부되었습니다. 값을 확인해 주세요.'
-        : '메일 서버에 닿지 못했습니다. 서버 주소와 네트워크를 확인해 주세요.'
+      message: '자격증명이 거부되었습니다. 값을 확인해 주세요.'
     })
   }
 
