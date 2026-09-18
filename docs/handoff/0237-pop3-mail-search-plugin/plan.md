@@ -712,18 +712,18 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 - [x] AS-IS → TO-BE Delta의 각 변경이 구현 파일/모듈 또는 AC에 추적 가능하다 — Delta 9행 모두 오른쪽 끝에 V node + 파일.
 - [x] AS-IS에서 사라진 책임은 삭제/이동/대체 중 무엇인지 명시했다 — 사라진 책임 없음(§9 "제거하는 메커니즘: 없음").
 - [x] 수치·전칭 표현·외부 규약·문서 앵커·기존 테스트 인용을 실측했다 — §8 전수 조사 7행 + 수치 검산 5항목. 인용한 기존 테스트 케이스 0건(전부 신규라 검증 대상 없음).
-- [x] 각 AC가 행동 단언, 검증 수단, 프로덕션 도달 경로를 가진다 — §7 표 28행이 모두 네 칸을 채웠다. 25건 초과라 분할을 검토했고 결론은 §7 주의사항 마지막 항목에 적었다.
+- [x] 각 AC가 행동 단언, 검증 수단, 프로덕션 도달 경로를 가진다 — §7 표 30행이 모두 네 칸을 채웠다. 25건 초과라 분할을 검토했고 결론은 §7 주의사항 마지막 항목에 적었다.
 - [x] 상속 기준이 없으면 Baseline V를 썼고 유효 V를 재구성할 수 있다 — `V1` 단독.
-- [x] 변경 효과에 필요한 레벨을 선택했고 모든 NEW node에 같은 레벨 REQUIRED pair가 있다 — 설계 node `R 6 · SD 3 · AR 5 · MD 7 = 21` ↔ `VP-01~VP-21` 전부 REQUIRED. 검산 줄은 §7-A Pair registry 아래에 있다.
+- [x] 변경 효과에 필요한 레벨을 선택했고 모든 NEW node에 같은 레벨 REQUIRED pair가 있다 — 설계 node `R 6 · SD 3 · AR 6 · MD 7 = 22` ↔ `VP-01~VP-23` 전부 REQUIRED. 검산 줄은 §7-A Pair registry 아래에 있다.
 - [x] 영향받은 INHERITED node는 REGRESSION, 비영향 node만 NOT_REQUIRED다 — 상속 node 0건이라 해당 없음.
-- [x] 각 pair의 경로·§10 전수 분모·직접 oracle이 있고 적대 증거가 필요한 pair만 선택 이유·변이를 갖는다 — 21 pair 중 13개가 적대 증거를 선택했고 각각 이유를 적었다. not selected 8개는 직접 관측 근거를 적었다. §10 EP-01~EP-16의 지점 합 34가 pair registry 분모와 일치한다.
+- [x] 각 pair의 경로·§10 전수 분모·직접 oracle이 있고 적대 증거가 필요한 pair만 선택 이유·변이를 갖는다 — 23 pair 중 15개가 적대 증거를 선택했고 각각 이유를 적었다. not selected 8개는 직접 관측 근거를 적었다. §10 EP-01~EP-17의 지점 합 36이 pair registry 분모와 일치한다.
 - [x] 현재 변경 산출물의 운영 gate가 열거됐고 관련 없는 기존 실패를 새 blocking 범위로 만들지 않는다 — §7-A gate 표 8행, ABI/사람 실기는 비-blocking으로 분리.
 - [x] 사람 실기로 미룬 순수 로직이 없다 — 실기는 실 서버 TLS·실 인코딩 1건뿐이고 프로토콜 판정·TTL·FTS·경로 은닉은 전부 순수 테스트다.
 - [x] semantic 목표가 structural proxy만으로 검증되지 않는다 — AC20·AC21·AC26의 음성 스윕에 각각 양성 단언을 짝지었다.
 - [x] "X가 쓰인다" 불변식의 검사 장치가 X를 지웠을 때 실패한다 — AC20은 `pop3-socket.ts`를 no-op으로 만드는 변이(VP-10), AC26은 허용 6명령의 실제 전송 단언(VP-20). **자리를 말하는 불변식**(AC22 annotations 3자리 · AC8 3저장소)은 형제 맞바꿈 변이를 등록했다.
 - [x] 정책 파라미터의 단위/범위가 명확하고 상호배타 상태의 불가능 조합을 타입이 허용하지 않는다 — `retentionDays`(일)·`freshnessMs`(ms)·`timeouts`(ms) 단위 명시. `mail_sync` 결과의 `fresh` / `synced` / `error` / `protection`은 discriminated union으로 표현해 "fresh이면서 synced"를 타입이 막는다.
 - [x] 참조 구현 사용 시 계약 union/enum 전수 대비 coverage가 있다 — D-010의 검색 대상 5필드를 VP-17이 5종 변이로 전수 덮는다.
-- [x] 신규 계약의 SSOT·강제 지점·테스트 seam이 있다 — §10 표 16행(EP-01~EP-16) 전부 SSOT·지점 수를 가지며 seam은 §11 표에 있다.
+- [x] 신규 계약의 SSOT·강제 지점·테스트 seam이 있다 — §10 표 17행(EP-01~EP-17) 전부 SSOT·지점 수를 가지며 seam은 §11 표에 있다.
 - [x] 부팅/등록 변경의 기존 소비처를 전수 확인했다 — §12 표 6행.
 - [x] producer/consumer 양쪽 의미를 확인했다 — §12 `effectiveDate` 단일 정본 · `hasAttachments` 파생 · `stale` 동봉.
 - [x] 상한·총량·one-way door를 필요한 곳에서 계산했다 — §14 출력 14 KB · 최초 sync 요청 수 · 디스크 800 MB · one-way door 4건.
