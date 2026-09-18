@@ -78,18 +78,21 @@
 | D-029 | Timeout 기본값을 plan이 확정한다 — 연결 15s · 명령 30s · sync 전체 예산 120s | 제안서 §12는 "실제 서버 환경 측정 후 결정"이라 구현자가 정할 수 없다 (§4 진단 ⑪). 값은 설정으로 덮을 수 있다 | 설계자 | ACTIVE | — |
 | D-030 | 기본 OSS 배포의 `createPluginBindings()`는 계속 `[]`를 돌려준다. Mail Plugin은 폐쇄망 배포가 typed recipe로 opt-in한다 | Jira·Confluence와 같은 처리 (`docs/arch/backend/auth.md §7`) | 설계자 | ACTIVE | — |
 | D-031 | POP3 `DELE`를 **절대 보내지 않는다.** 서버 메일함은 읽기 전용으로 다룬다 | 설계자 결정. 제안서에 없는 축이며 되돌릴 수 없는 파괴적 부작용이다 | 설계자 | ACTIVE | — |
-| D-032 | Mail Auth는 **`probe`를 선언하지 않는 것이 정상 경로**다. 자격증명 검증은 **첫 `mail_sync`**가 한다 | `probe`는 gate에서만 필수이고(`GateAuthDefinition` 타입 강제) Plugin Auth는 `probe?` optional이다. POP3-only 서버에는 probe가 칠 HTTP endpoint가 아예 없다. 미선언이면 `login.ts:499`가 확인 없이 통과시킨다(실측) | 설계자 | ACTIVE | — |
+| D-032 | Mail Auth는 **`probe`를 선언하지 않는 것이 정상 경로**다. 자격증명 검증은 **첫 `mail_sync`**가 한다 | `probe`는 gate에서만 필수이고(`GateAuthDefinition` 타입 강제) Plugin Auth는 `probe?` optional이다. POP3-only 서버에는 probe가 칠 HTTP endpoint가 아예 없다. **D-037(lazy 전이 정책)이 이 선택의 근거다** — 선제 검증을 두지 않는 것이 정책이다 | 설계자 | ACTIVE | — |
 | D-033 | `iso-2022-kr` 메일은 **미지원으로 남긴다.** `mailparser` 폴백을 두지 않는다 | 사용자 결정 — "mailparser 폴백 필요없음. iso-2022-kr 은 미지원으로 남겨두겠음" | 사용자 턴 | ACTIVE | — |
 | D-034 | Mail Auth를 **`GATE_AUTH_DEFINITIONS`에 넣지 않는다.** 앱 로그인 게이트와 무관하다 | 사용자 결정 — "pop3 메일서버는 앱 로그인시 체인으로 안해도 된다. Sso 인증이 아니기때문. 토큰 계열도 안해도 된다". Confluence·Jira도 게이트 멤버가 아니다(F-21) | 사용자 턴 | ACTIVE | — |
-| D-035 | POP3 인증 거부를 **Auth 강등으로 되먹인다** — `createAuthRuntime` 결과에 좁은 reporter를 더하고 컴포지션 루트가 `authId`를 닫아 Mail Plugin에 준다 | 강등 경로가 HTTP status·probe 둘뿐이라 POP3는 어느 쪽도 안 탄다(F-24). 되먹임이 없으면 비밀번호 회전 후 Auth가 영구 `valid`로 남고 도구가 등록된 채 매번 실패한다 | 설계자 | ACTIVE | — |
+| D-035 | POP3 인증 거부를 **Auth 강등으로 되먹인다** — `createAuthRuntime` 결과에 좁은 reporter를 더하고 컴포지션 루트가 `authId`를 닫아 Mail Plugin에 준다 | 강등 경로가 HTTP status·probe 둘뿐이라 POP3는 어느 쪽도 안 탄다(F-24). **D-037의 lazy 전이를 POP3에서 성립시키는 유일한 지점**이다 — 관측 자리가 없으면 lazy 전이도 일어나지 않는다. reporter는 이름·시그니처를 Plugin 일반으로 두되 지금 배선하는 소비자는 mail 하나다(rule of three) | 설계자 | ACTIVE | — |
 | D-036 | Mail Auth는 **`sessionGroup`을 공유하지 않는다.** ADFS SSO로 메일이 자동 인증되지 않고 사용자가 비밀번호를 따로 입력한다 | POP3에는 쿠키가 없어 cookie jar 공유가 성립하지 않는다. `methods[0]`이 입력형이라 자동 재로그인 대상에서도 제외된다(F-23) — 규칙과 일치한다 | 설계자 | ACTIVE | — |
+| D-037 | **모든 Plugin의 인증 상태는 사용 시점 lazy 전이다.** 도구 호출·(있다면) 주기 실행이 실패를 관측한 자리에서 만료·미인증으로 내린다. 선제 검증이나 polling을 새로 만들지 않는다 | 사용자 결정 — "모든 플러그인은 내부동작(주기적 실행 등), 도구 호출 등이 이루어질때, 실패시 만료, 미인증, 인증 해제 등으로 lazy하게 바뀌어도 된다". `auth.md §4.4`의 "`settleExpiry()` 가 snapshot·request·resume 이 이미 지나는 자리에서 그 전이를 한 번 확정하고 **polling 을 새로 만들지 않는다**"와 같은 방향이다 | 사용자 턴 | ACTIVE | — |
+| D-038 | lazy 전이는 **강등(`expired`·`unauthorized`)까지만** 한다. 실패가 `revoke`(자격증명 삭제)를 부르지 않는다 | `auth.md §11` "해제는 fail-closed, 추가·교체는 degrade-open" — 방향이 다르다. 오타·일시 장애 한 번이 보관된 비밀번호를 지우면 사용자가 되돌릴 수 없다. 해제는 사용자가 연결 탭에서 직접 한다 | 설계자 | ACTIVE | — |
 
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-014(사용자) · D-021·D-022·D-023(사용자 승인) · D-024~D-031(설계자).
+- 후속 턴 추가: D-032(설계자) · D-033·D-034·D-037(사용자) · D-035·D-036·D-038(설계자).
 - 변경된 결정: **D-013 → D-014** — 제안서의 "공개 도구 2개"를 사용자가 3개로 변경했다. 제안서 §19 첨부 흐름이 도구 없이는 도달 불가라는 진단에 대한 응답이다.
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: D-001·D-003~D-012·D-015~D-020 (제안서 §1 요구사항 표 전부). 최신 턴이 다시 말하지 않았다는 이유로 지우지 않는다.
-- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. 대조한 쌍 — D-004("삭제 기준은 14일 Retention뿐") ↔ AC8(만료 3저장소 동시 제거) → 일치, 10,000통 상한 AC 없음. D-009("Background Scheduler 사용 안 함") ↔ AC9(`mail_sync` 진입에서만 cleanup · `scheduler` 등록 0건) → 일치, `features/scheduler` 등록 AC 없음. D-011("`orcinus-orca.db`에 Mail 테이블 추가 안 함") ↔ AC18(Core 마이그레이션 27건 불변) → 일치. D-012("원본은 이동·수정하지 않는다") ↔ AC12(`mail_getAttachment` 후 내부 원본 mtime·크기 불변) → 일치. D-015("`mail_search`는 통신 안 함") ↔ AC4(소켓 팩토리 호출 0회) → 일치. D-031("`DELE` 금지") ↔ AC26(명령 화이트리스트에 `DELE` 부재 + 허용 6명령 양성 단언) → 일치.
+- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. 대조한 쌍 — D-004("삭제 기준은 14일 Retention뿐") ↔ AC8(만료 3저장소 동시 제거) → 일치, 10,000통 상한 AC 없음. D-009("Background Scheduler 사용 안 함") ↔ AC9(`mail_sync` 진입에서만 cleanup · `scheduler` 등록 0건) → 일치, `features/scheduler` 등록 AC 없음. D-011("`orcinus-orca.db`에 Mail 테이블 추가 안 함") ↔ AC18(Core 마이그레이션 27건 불변) → 일치. D-012("원본은 이동·수정하지 않는다") ↔ AC12(`mail_getAttachment` 후 내부 원본 mtime·크기 불변) → 일치. D-015("`mail_search`는 통신 안 함") ↔ AC4(소켓 팩토리 호출 0회) → 일치. D-031("`DELE` 금지") ↔ AC26(명령 화이트리스트에 `DELE` 부재 + 허용 6명령 양성 단언) → 일치. D-037("lazy하게 바뀌어도 된다") ↔ AC28(도구 호출이 실패를 관측한 자리에서 강등) → 일치, 주기 검증 AC 없음(AC9의 슬라이스 전수 스윕이 부재를 잠근다). D-038("`revoke` 하지 않는다") ↔ AC28(단언은 `registry.remove`·reporter 호출이며 `revoke` 호출을 요구하지 않는다) → 일치.
 
 ## 4. 요구 비판적 검토
 
@@ -584,6 +587,7 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 - 생성/시작: Plugin은 부팅에서 **1회** 만든다. mail.db 연결은 첫 도구 호출에서 lazy로 연다.
 - 취소/중단: `RuntimeToolContext.getSignal()` → 소켓 `destroy()` → 진행 중 트랜잭션 롤백 → staging 디렉터리 제거.
 - 종료/quit/crash: `QUIT` 미전송 상태로 프로세스가 죽으면 서버가 세션을 타임아웃으로 정리한다. `DELE`를 안 보내므로(D-031) 서버 상태는 변하지 않는다. mail.db는 WAL이라 크래시에 무손실이다.
+- 자격증명 상태 전이: **lazy** — 도구 호출이 인증 거부를 관측한 자리에서만 강등한다(D-037). 주기 검증·`features/scheduler` 등록을 만들지 않으며 그 부재는 AC9의 슬라이스 전수 스윕이 함께 잠근다. 강등까지만 하고 `revoke`는 부르지 않는다(D-038).
 - retry/timeout/partial failure: 자동 재시도 **없음**. 타임아웃은 D-029(연결 15s·명령 30s·전체 120s). 전체 예산 초과는 **부분 성공**으로 커밋하고 `partial:true`를 반환한다 — 커밋된 메일은 ledger에 있으므로 다음 sync가 이어받는다.
 - cleanup/rollback: 메일 1건의 영속은 `mail` + `attachment` + `uidl_ledger` + FTS 트리거를 **한 트랜잭션**으로 묶는다.
 
@@ -635,6 +639,7 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 | "feature 끼리 직접 import 금지" | `app/src/main/AGENTS.md` | §11 `attachment-export.ts` "Jira store와 같은 구조를 새로 작성" | **유지** — eslint가 `plugins`를 한 요소로 보아 잡아주지 못하므로(F-18) 설계로 금지한다 |
 | "도구 결과는 MCP 표준 형상(`content` 필수)" | `adapters/runtime-tools.ts:22` 주석 | §11 `tools.ts` | **유지** — 세 도구 모두 `content` + `structuredContent` |
 | "기본 OSS 배포의 Auth/Plugin 배열은 비어 있다" | `auth.md §7` | D-030 | **유지** |
+| "`settleExpiry()` 는 이미 지나는 자리에서 전이를 확정하고 **polling 을 새로 만들지 않는다**" | `auth.md §4.4` | D-037 · §13 | **유지** — 이번 작업도 주기 검증을 만들지 않는다. 사용자 정책이 같은 방향을 Plugin 전반으로 확장한다 |
 | "강등 경로는 요청 경로(HTTP status)와 `resume()` probe 둘뿐" | `auth.md §4.5` 관측 지점 표 | D-035 · §10 EP-16 | **변경** — 세 번째 관측 지점(POP3 `-ERR`)을 더한다. 전이 1회성·통지 규칙은 기존 `markExpired` 를 그대로 쓴다 |
 | "`AuthSecretReader` 를 RouterContext·renderer·일반 feature 에 넣지 않는다" 와 같은 좁힘 원칙 | `auth.md §11` | D-035 | **유지** — reporter 도 `createAuthRuntime` 결과에만 싣고 컴포지션 루트가 `authId` 를 닫아 넘긴다. `AuthRuntime`·`RouterContext` 표면은 안 넓힌다 |
 | "Auth 는 자신이 gate 에 쓰이는지 모른다 — 그 지식은 `gate-auth.ts` 하나에 있다" | `auth.md` D-007 · `gate-auth.ts` 헤더 | D-034 | **유지** — Mail Auth 를 `GATE_AUTH_DEFINITIONS` 에 넣지 않는다. Auth 선언 자체는 gate 여부를 모른다 |
@@ -648,7 +653,7 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 | `node:tls`가 사설 CA를 못 본다. **`SPAWN_ENV_INJECTOR`의 `NODE_EXTRA_CA_CERTS`로는 해결되지 않는다**(F-25 — 그건 subprocess env다) | 배포가 `tlsOptions.ca`에 PEM을 넣는다(§15). ADFS 환경이면 사설 CA가 사실상 확실하므로 실기 2순위다 |
 | `node:tls`가 **OS 인증서 저장소를 안 본다** | `tlsOptions.ca`로 배포가 사설 CA를 주입한다. `rejectUnauthorized:false`는 조립에서 거부한다(§15) |
 | `postal-mime`이 `iso-2022-kr`을 못 읽는다 (F-13 실측) | **수용한다 — 완화하지 않는다**(D-033). 그 메일은 `windows-1252`로 폴백해 제목·본문이 깨진 채 색인되고 검색에 걸리지 않는다. 동작은 멈추지 않으며 sync·다른 메일에 영향이 없다 |
-| `probe` 미선언 배포에서 틀린 비밀번호가 "연결됨"으로 보인다 (F-06b) | 검증을 첫 `mail_sync`로 옮겼다(D-032). `auth_failed`를 다른 오류와 구분해 돌려주고 모델이 재인증을 안내한다(AC27). Plugin은 Auth를 강등시킬 수 없다(F-06c) |
+| 첫 사용 전까지는 틀린 비밀번호가 "연결됨"으로 보인다 (F-06b) | **수용한다 — 사용자 정책이다**(D-037: lazy 전이). 창은 "입력 시점 ~ 첫 `mail_sync`"로 한정되고, 그 호출이 `auth_failed`를 돌려주며(AC27) 동시에 Auth를 강등시켜 도구를 회수한다(AC28, D-035) |
 | `trigram` 인덱스가 크다 (§14) | 14일 TTL이 상한을 잡는다. 10,000통 기준 최대 800 MB를 §14에 계산해 두었고 성능시험 항목이다(D-005) |
 | 최초 sync가 느리다 | D-026 역순 스캔 + `partial` 재개. 10,000통 중 14일분 1,000통 기준 TOP 200 s → 21 s |
 | 두 번째 SQLite 연결이 main 스레드를 점유한다 | better-sqlite3는 동기 API다. 대량 insert를 **건당 트랜잭션이 아니라 배치 트랜잭션**으로 묶고, 배치 사이에 이벤트 루프를 양보한다 |
