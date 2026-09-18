@@ -22,8 +22,6 @@ import {
   type PluginCatalogPresentation,
   type PluginCatalogPresentationInput
 } from '../../../shared/plugin-catalog'
-import { mailTools } from '../../features/plugins/mail/tools'
-import type { MailPluginOptions, Pop3SocketFactory } from '../../features/plugins/mail/types'
 
 // 부팅이 만든 Plugin 한 벌. `toolNames()` 는 **cached descriptor** 에서 나온다 — Auth 가
 // invalid 여도 카탈로그는 이 이름들을 계속 보여 준다(0188 D-024).
@@ -78,46 +76,13 @@ export interface PluginDeploymentDeps {
   auth: AuthBinder
   registry: RuntimeToolSink
   logger?: (event: string, data: Record<string, unknown>) => void
-  /** 폐쇄망 배포가 명시적으로 켜는 Mail Plugin. 기본 OSS 배포는 생략한다. */
-  mail?: MailPluginDeployment
-  credentialRejectionReporter?: (authId: string) => void
-}
-
-export interface MailPluginDeployment {
-  readonly authId: string
-  readonly options: MailPluginOptions
-  readonly password: () => string | null
-  readonly root: string
-  readonly socketFactory: Pop3SocketFactory
-  readonly reportCredentialRejected?: (authId: string) => void
 }
 
 // 배포가 채우는 자리. 기본 배포는 Plugin 이 없다.
 // 조립 예제는 `docs/guides/closed-network-extensions.md` §4 (레시피 C) 다.
 export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[] {
-  // 기본 배포는 Mail 설정 자체를 주입하지 않으므로 빈 배열이다(D-030).
-  // 폐쇄망 레시피가 `mail` 한 벌을 주입하면 서버는 기존 PluginBinding 계약으로 조립된다.
-  if (!deps.mail) return []
-  let auth: BoundAuth
-  try {
-    auth = deps.auth.bind(deps.mail.authId)
-  } catch {
-    return []
-  }
-  const server = mailTools(
-    {
-      authId: auth.authId,
-      password: deps.mail.password,
-      root: deps.mail.root,
-      socketFactory: deps.mail.socketFactory,
-      ...(deps.mail.reportCredentialRejected || deps.credentialRejectionReporter
-        ? {
-            reportCredentialRejected:
-              deps.mail.reportCredentialRejected ?? deps.credentialRejectionReporter
-          }
-        : {})
-    },
-    { plugin: deps.mail.options }
-  )
-  return [createPluginBinding({ auth, server, registry: deps.registry, logger: deps.logger })]
+  // 인자는 배포가 가이드의 레시피대로 조립할 때 쓴다 — **시그니처가 비어 있으면 배포가
+  // bootstrap 을 고쳐야 한다**(r3 결함).
+  void deps
+  return []
 }
