@@ -133,6 +133,7 @@ export async function createMailSyncManager(
         )
         const abortSession = (): void => session.destroy()
         signal?.addEventListener('abort', abortSession, { once: true })
+        let destroySession = false
         try {
           await withTimeout(session.login(), options.options.timeouts?.connectMs ?? 15_000, signal)
           onStage?.({ stage: 'uidl' })
@@ -210,9 +211,13 @@ export async function createMailSyncManager(
             protection: { kind: 'none' }
           })
           return { synced: true, newMails: processed, expired, lastSyncAt: timestamp }
+        } catch (error) {
+          const normalized = normalizePop3Error(error)
+          destroySession = normalized.code === 'timeout' || normalized.code === 'cancelled'
+          throw error
         } finally {
           signal?.removeEventListener('abort', abortSession)
-          if (signal?.aborted) session.destroy()
+          if (signal?.aborted || destroySession) session.destroy()
           else await session.quit().catch(() => session.destroy())
         }
       } catch (error) {
