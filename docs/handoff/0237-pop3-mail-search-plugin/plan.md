@@ -11,11 +11,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-18 |
 | 매핑 | 없음 (신규 제품 기능) |
-| 상태 | READY — r1 PLAN_GAP(G1·G2·G3) 3건을 규범 행으로 정정 완료 |
-| V mode | `Delta V` (기준 `V1`) |
-| 기준 V | `V1` — 본 plan의 Baseline, commit `07ec3a6`~`e252c6b` |
-| 이번 V revision | `ΔV1` |
-| 유효 V | `V1 + ΔV1` |
+| 상태 | READY — 외부 리뷰 지적 3건을 Plugin 조립 계약 정규화(ΔV2)로 흡수 완료 |
+| V mode | `Delta V` (기준 `V1 + ΔV1`) |
+| 기준 V | `V1` — 본 plan의 Baseline, commit `07ec3a6`~`e252c6b`. `ΔV1` — r1 PLAN_GAP 정정, commit `21fe98d` |
+| 이번 V revision | `ΔV2` |
+| 유효 V | `V1 + ΔV1 + ΔV2` |
 
 입력 제안서: 사용자 업로드 `orcinus-orca-pop3-mail-search-plugin-proposal.md` (22절). 본 plan은 그 제안서를 **진단하고 보완한 결과**이며, 제안서 문장과 어긋나는 곳은 §3 Decision Ledger와 §4에 판정과 근거를 남겼다.
 
@@ -97,10 +97,25 @@
 | D-045 | **D-019의 "Sync 실패"는 비인증 장애로 한정한다** — 연결·TLS·타임아웃·파싱·DB 오류 5종이다. 이때 Auth는 `valid`로 남고 캐시 검색이 계속된다. **자격증명 거부는 Auth 강등이며 도구 3종이 전부 회수되어 캐시 검색도 불가능해진다** | 사용자가 "3도구 전부 회수"를 선택. `createPluginBinding.sync()`가 서버를 통째로 add/remove하고(`plugins.ts:57-68`) `plugins.test.ts:69-71`이 "valid 만 등록 이 곧 나머지 셋은 전부 회수"를 주석으로 적고 `none`·`expired`·`unknown` 3케이스로 잠갔다. 서버를 둘로 쪼개는 우회는 `duplicateConnectionAuthIds`(0188 D-029)가 한 authId 두 row로 진단한다 | 사용자 턴 | ACTIVE | D-019 대체 |
 | D-046 | **일반 UIDL 소실은 본문을 삭제하지 않는다.** ledger state를 `missing`으로 표시만 하고 행·FTS·첨부는 retention이 지울 때까지 남는다 — **서버에서 지운 메일이 최대 14일간 검색에 계속 뜬다** | D-004("삭제 기준은 14일 Retention**뿐**")의 직접 귀결이다. r1 G3이 "일반 UIDL 소실의 본문 삭제 여부"를 물었고, ACTIVE 결정이 답을 강제한다 — 재해석하지 않는다 | 설계자 (D-004 귀결) | ACTIVE | — |
 | D-047 | **보호 상태가 막는 것은 삭제가 아니라 대량 재수집이다.** D-046 아래 `removed:0`은 모든 경로에서 참이라 판별자가 아니다. 보호 중에는 신규 UIDL을 **수집하지 않는다**(RETR 0회). 임계 `retainedRatio < 0.5` · 최소 표본 `활성 ledger >= 20` · 해제는 ①비율 회복 또는 ②같은 `remoteFingerprint` **2회 연속** 관측 시 채택이다 | r1 G3 — D-018은 "대량 삭제하지 않는다"만 말해 D-004 아래 공허했다. 임계·표본·해제는 정책 파라미터라 설계자가 확정한다. 해제를 사용자 조작에 맡기면 renderer 화면이 비범위(§6)여서 탈출구가 없다. **D-018을 대체하지 않고 그 위에 메커니즘을 얹는다** — D-018은 ACTIVE로 남는다 | 설계자 | ACTIVE | — |
+| D-048 | **Plugin 조립의 auth 포트는 `PluginAuth`다** — `BoundAuth` + `readonly label` + `readonly origin`. `BoundAuth` 자체를 넓히지 않는다. 생산은 `AuthRuntime.bindForPlugin(authId)` 하나이고 미등록 id에서 **throw**한다(`describe()`와 같은 판정) | 사용자 결정 — "BoundAuth 만으로 조립이 되지 않음"을 닫는다. `BoundAuth`를 직접 넓히면 `bind()`가 registry 조회 없는 **총함수**인 현재 계약이 깨진다 — `runtime-model-startup.ts:65`가 임의 authId로 `bind().snapshot()`을 부르고(카탈로그 재조정 축) 미등록 id에서도 동작해야 한다. `plugins.ts:101-105`의 기존 try/catch는 이 throw를 이미 기다리고 있다 | 사용자 턴 + 설계자(기전) | ACTIVE | — |
+| D-049 | **HTTP Plugin tool server factory는 `(auth: PluginAuth, opts) => RuntimeToolServer` 한 형상이다.** `ConfluencePluginContext`·`JiraPluginContext`를 제거하고 `PluginAuth`로 대체한다 | 두 타입의 4필드(`authId`·`label`·`origin`·`request`)가 `PluginAuth`와 정확히 같다. 배포가 `CONFLUENCE_AUTH.label`·`.origin`을 손으로 다시 전달하던 레시피(`closed-network-extensions.md:739-749`)가 사라진다 — 같은 문서가 바로 아래에서 경고하는 "AuthId 를 손으로 다시 적지 마라"와 같은 축이다 | 사용자 턴 | ACTIVE | — |
+| D-050 | **비-HTTP Plugin은 전송 의존을 이름 있는 두 번째 인자로 받는다** — `mailTools(auth: PluginAuth, transport: MailTransport, options: MailPluginOptions)`. `MailTransport = { password, root, socketFactory, reportCredentialRejected? }`. `MailPluginContext`·`MailToolOptions` union·`createMailPlugin` 별칭을 **제거한다** | "auth로 되는 것"과 "배포가 추가로 줘야 하는 것"이 타입에서 갈린다. 현재는 `authId`가 전송 deps와 한 객체에 섞여 `BoundAuth`와의 관계가 시그니처에 안 보인다. `MailToolOptions`의 2형상 union(`{plugin}` \| `MailPluginOptions`, `tools.ts:22`)은 호출부가 1곳이라 갈래를 둘 이유가 없다 | 사용자 턴 + 설계자(형상) | ACTIVE | — |
+| D-051 | **`PluginDeploymentDeps`는 plugin-agnostic 능력만 갖는다** — `auth`·`registry`·`logger?`·`secretFor(authId)`·`userDataRoot`·`credentialRejectionReporter?`. `mail?: MailPluginDeployment`을 제거한다. mail 실값(host·port·TLS·사설 CA)과 `createPop3Socket` import는 `app/deployment/plugins.ts`가 소유한다 | `plugins.ts:74-76`이 "**배포가 이 시그니처를 바꾸면 안 된다** — 바꾸는 순간 배포가 범용 `bootstrap.ts` 까지 고쳐야 한다(r3 에서 실제로 그랬다)"를 잠갔는데 `dc2af38`이 정확히 그 방식으로 깼다. 게다가 **`index.ts:268`은 `Bootstrap`을 2인자로 만들어 `mailDeployment`를 프로덕션에서 아예 넘기지 않는다** — 지금 mail을 켜려면 배포가 `bootstrap.ts`와 `index.ts` 둘 다 고쳐야 한다. `app` → `infra` import는 eslint boundaries가 허용한다(`eslint.config.mjs` `from:{type:'app'}`) | 사용자 턴 + 설계자(경계) | ACTIVE | — |
+| D-052 | **`LoginDeps.verify`는 authId별로 스코프된다** — `verifiers: Readonly<Record<AuthId, Verifier>>`로 바꾸고 `login.ts`가 `verifiers[definition.id]`를 고른다. 해당 authId에 verifier가 없으면 기존 `probe` 경로를 그대로 탄다. 주입은 `app/deployment/`의 factory가 만든 map 하나다 | **현재 코드가 틀렸다.** `login.ts:506`은 `if (candidate && this.deps.verify)`로만 분기하고 authId를 보지 않으며, 그 분기는 `return { ok: result.ok, ... }`로 **무조건 반환**해 HTTP probe에 도달하지 못한다. `verify` 시그니처에 "내 대상이 아니다"를 말할 자리도 없다. 따라서 mail + Confluence를 함께 켠 폐쇄망 배포에서 **Confluence PAT 로그인이 POP3 verifier를 탄다**. AC30이 이것을 못 잡은 이유는 oracle이 "verifier **미주입** Auth 2종"만 보기 때문이다 | 설계자 (코드 조사) | ACTIVE | D-040·D-042 보완 |
+| D-053 | **`plugins.ts` 헤더 주석 2곳과 `closed-network-extensions.md §1` factory 표를 이번 계약에 맞춘다.** 헤더(`:3-4`)의 "Plugin 모듈은 `BoundAuth.request` 와 자기 옵션만 받고"는 "HTTP Plugin 모듈은" 으로 한정하고, 불변식 주석(`:74-76`)은 "능력만 늘리고 **plugin 고유 어휘는 넣지 않는다**"로 재진술한다 | `dc2af38`이 `auth.md §7`만 고치고 코드 주석은 그대로 둬 **같은 파일의 헤더와 본문이 모순**한다. 가이드 표(`:78`)는 아직 `auth · registry · logger?`라 레시피 정본이 stale이다 | 설계자 | ACTIVE | — |
 
 ### 갱신 메모
 
-- **ΔV1 (이번 턴) — r1 PLAN_GAP 3건 정정**: G1 → D-043·D-044(사용자) · G2 → D-045(사용자, D-019 대체) · G3 → D-046·D-047(설계자, D-004 귀결 + 정책 파라미터).
+- **ΔV2 (이번 턴) — 외부 리뷰 지적 3건 흡수**: 지적 ①"plugins.ts 인터페이스 계약 위반" → D-051·D-053 · 지적 ②"`BoundAuth` 만으로 조립이 되지 않음" → D-048·D-049·D-050 · 지적 ③"`features/plugins/confluence` 표면 미준수" → D-049·D-050. 사용자가 3지선다에서 **"B를 0237 안에서 지금 한다"** 를 선택했다.
+- **지적 ①의 절반은 위반이 아니다**: raw credential 수령 자체는 D-022(사용자 승인 ②)와 §16이 명시 변경했고 `auth.md §7`도 `dc2af38`에서 갱신됐다. 위반으로 남은 것은 **정리되지 않은 3곳**이다 — `plugins.ts:3-4` 헤더 모순 · `plugins.ts:74-76` 불변식 파기 · `closed-network-extensions.md:78` stale 표.
+- **지적 ②는 mail 고유 문제가 아니다**: `ConfluencePluginContext`·`JiraPluginContext`도 `label`·`origin`을 요구해 **세 Plugin 전부** `BoundAuth` 하나로 조립되지 않는다. 구멍은 `BoundAuth` 계약 쪽이고 mail이 만든 것이 아니다 — D-048이 `PluginAuth`로 닫는다.
+- **지적 ③의 경로는 지키고 있다**: mail은 `features/plugins/mail/`에 있고 레이어 위반 0건이다. 어긋난 것은 **모듈 표면 형상**이다 — ctx 타입 불일치 · `MailToolOptions` 2형상 union · `createMailPlugin` 중복 별칭 · confluence/jira에 있는 하위 seam(`createXxxToolServer(ctx, runtime)`) 부재. D-049·D-050이 닫는다.
+- **`BoundAuth`를 직접 넓히지 않은 이유(D-048)**: 조사 중 `runtime-model-startup.ts:65`가 임의 authId로 `auth.bind(authId).snapshot()`을 부르는 것을 확인했다. `bind`가 registry를 조회해 `label`을 채우면 미등록 id에서 throw해야 하고 그 축이 깨진다. 사용자가 승인한 **목표**(조립이 auth 포트 하나로 닫힌다)는 `PluginAuth` + `bindForPlugin`으로 그대로 성립하며, 기존 `bind` 의미는 한 글자도 바뀌지 않는다.
+- **조사가 새로 연 결함(D-052)**: `login.ts:506`의 verifier 분기에 **authId 조건이 없다.** verifier가 주입되면 후보가 있는 **모든** Auth가 그 verifier를 타고 HTTP probe에 도달하지 못한다 — mail + Confluence 동시 배포에서 Confluence PAT 로그인이 POP3 verifier를 탄다. `verify` 시그니처에 "내 대상이 아니다"를 말할 자리도 없어 배포 closure로 우회할 수 없다. AC30의 oracle이 "미주입 Auth"만 봐서 놓친 축이다 — **PLAN_GAP이며 이번 턴에서 규범 행으로 닫는다**.
+- **조사가 새로 연 사실(D-051 근거)**: `index.ts:268`의 `new Bootstrap(...)`은 **2인자**다. `mailDeployment`는 프로덕션에서 아예 넘어가지 않으므로 지금 mail을 켜려면 배포가 `bootstrap.ts`와 `index.ts` **둘 다** 고쳐야 한다 — "배포가 고치는 파일은 `app/deployment/` 묶음뿐"이 두 파일에서 깨져 있다.
+- **ΔV2가 바꾸지 않는 것**: 사용자 관측 동작(§5)·도구 3종의 이름과 descriptor·DB 스키마·tokenizer·retention·보호 정책은 전부 그대로다. D-052만 사용자 관측을 바꾸며 그 방향은 **회복**이다(함께 켠 다른 Plugin의 로그인이 원래대로 동작한다).
+- **`ACTIVE 결정 ↔ AC` 대조 (ΔV2)**: 충돌 0. 대조한 쌍 — D-048("`bind` 의미 불변") ↔ AC34(`bind`는 미등록 id에서 총함수 유지, `bindForPlugin`만 throw) → 일치, `bind` throw를 요구하는 AC 없음. D-049·D-050("factory 첫 인자는 `PluginAuth` 하나") ↔ AC35(양성: 세 factory 조립 성공 / 음성: `label`·`origin`을 별도 인자로 받는 시그니처 0건) → 일치. D-051("bootstrap은 plugin 고유 어휘를 모른다") ↔ AC36(음성 0건 + 양성: `app/deployment/`만 바꾼 가상 배포가 도구 3종을 등록) → 일치, `index.ts` 수정을 요구하는 AC 없음. D-052("authId별 스코프") ↔ AC37(verifier **주입된** 배포에서 다른 authId가 probe 경로를 탄다) ∧ AC30(미주입 축, 유지) → 일치. D-053("주석·표 정합") ↔ AC38(가이드 표 예제가 실제 타입에 대입된다) → 일치. **기존 D-028("`readOnlyHint` 3자리")·D-045("서버 단위 회수")·D-022("`AuthSecretReader` 미전달")와의 충돌 0** — 셋 다 회귀 pair로 재실행한다(VP-13·VP-05·VP-11).
+- **ΔV1 (이전 턴) — r1 PLAN_GAP 3건 정정**: G1 → D-043·D-044(사용자) · G2 → D-045(사용자, D-019 대체) · G3 → D-046·D-047(설계자, D-004 귀결 + 정책 파라미터).
 - **G3를 사용자에게 올리지 않은 이유**: D-004("삭제 기준은 14일 Retention**뿐**")가 ACTIVE라 "일반 UIDL 소실의 본문 삭제 여부"의 답이 하나로 강제된다 — 두 해석이 서지 않으므로 질의 대상이 아니다. 임계·표본·해제는 정책 파라미터(스킬 §6)라 설계자 몫이다.
 - **D-046이 만드는 사용자 관측**: 서버에서 지운 메일이 최대 14일간 검색에 남는다. D-004의 직접 귀결이며 재해석하지 않았다 — §5 상태 전이표에 행으로 노출했다.
 - 이번 턴에서 새로 추가된 결정: D-014(사용자) · D-021·D-022·D-023(사용자 승인) · D-024~D-031(설계자).
@@ -264,6 +279,12 @@
 | R-07 | AT-20 / AC31 | `mail_search`가 돌려준 `attachmentId`로 `mail_getAttachment`를 부르면 그 첨부가 나온다 | 첨부 3건 메일을 색인 → `attachments[]` 길이 **3** ∧ `attachmentCount === 3` → 세 `attachmentId`로 각각 호출해 `filename`·`bytes`가 매니페스트와 일치. **매니페스트를 지우는 변이가 red**다(producer 소멸) | `mail_search` → 모델 → `mail_getAttachment` ×3 |
 | R-07 | AT-21 / AC32 | `mail_getAttachment`는 `mailId`·`attachmentId`를 **둘 다** 요구한다 | 3케이스 — 둘 다 주면 성공 / `mailId`만 스키마 거부 / `attachmentId`만 스키마 거부. 음성: 입력 스키마 키 집합이 정확히 `{mailId, attachmentId}`(합집합 selector·`filename` 필터 부재, D-044) | `mail_getAttachment` inputSchema |
 | MD-08 | UT-08 / AC33 | 보호는 ①비율 회복 또는 ②같은 `remoteFingerprint` **2회 연속**에서 풀리고, 다른 fingerprint는 카운트를 리셋한다 | 순수 `decideProtection()` 4케이스 — 회복 `{ingest:true}` / 같은 fp 2회째 `{ingest:true}` / 다른 fp `{ingest:false, observations:1}` / 같은 fp 1회째 `{ingest:false, observations:1}`. 채택 케이스에서 기존 `mail` 행 삭제 **0건**(D-046) | `sync-manager` → `protection.ts` → `sync_state.protection_state` |
+| AR-07 | IT-07 / AC34 | `bindForPlugin(authId)`는 등록된 Auth에서 `authId`·`label`·`origin`·`request`를 채우고 **미등록 id에서는 throw**한다. `bind(authId)`는 **미등록 id에서도 그대로 총함수**다 | 3케이스 — 등록 id에서 `label`·`origin`이 `AuthDefinition`과 문자열 일치 / 미등록 id에서 `bindForPlugin` throw / 같은 미등록 id에서 `bind().snapshot()`이 throw 없이 `status:'none'`을 돌려준다(`runtime-model-startup.ts:65` 회귀). **`bind`를 throw로 바꾸는 변이가 세 번째 케이스에서 red**다 | `createAuthRuntime()` → `bindForPlugin` · `createRuntimeModelSnapshotReader` |
+| AR-08 | IT-08 / AC35 | Plugin tool server factory 3종은 **첫 인자로 auth 포트 하나만** 받는다 | 양성: `confluenceTools(pluginAuth, opts)`·`jiraTools(pluginAuth, opts)`·`mailTools(pluginAuth, transport, options)`가 `bindForPlugin` 결과를 **그대로** 받아 조립되고 각 descriptor의 `connectorId`가 그 `authId`와 같다. 음성: `rg 'label:\s*\w+_AUTH\.label\|origin:\s*\w+_AUTH\.origin' src/main/app/deployment` **0건** — 배포가 `label`·`origin`을 손으로 다시 적는 자리가 없다. **factory 시그니처를 `{authId,label,origin,request}` 객체로 되돌리는 변이가 양성에서 red**다 | `createPluginBindings` → 각 factory → `RuntimeToolSink` |
+| AR-09 | IT-09 / AC36 | `bootstrap.ts`·`index.ts`는 **plugin 고유 어휘를 모른다** | 음성: `rg 'mail\|Mail\|Pop3\|POP3' src/main/app/bootstrap.ts src/main/index.ts` **0건**. 양성: `app/deployment/` 파일만 채운 가상 폐쇄망 배포가 Bootstrap을 통과해 mail 도구 **3종이 registry에 등록**되고 `secretFor`가 돌려준 값이 `PASS`로 나간다. **음성 스윕 단독은 배선 삭제에 침묵**하므로 양성을 짝짓는다 | `index.ts` → `Bootstrap` → `createPluginBindings`(deployment 소유) → registry |
+| AR-06 | IT-06b / AC37 | **verifier가 주입된 배포에서도 다른 authId의 로그인은 기존 probe 경로를 탄다** | mail verifier를 주입한 상태에서 `probe` 선언형 Auth(Confluence 형상)의 PAT 로그인을 돌려 `deps.request` 호출 **1회**(HTTP probe 도달) ∧ mail verifier 호출 **0회** ∧ 커밋 성립. **현재 코드(`login.ts:506`의 무조건 분기)에서 이 케이스는 red다** — 그것이 이 AC의 존재 이유다 | `app/deployment/` verifier map → `createAuthStack` → `login.ts` `verifiers[definition.id]` 조회 |
+| MD-09 | UT-09 / AC38 | mail tool server는 **manager를 주입받는 하위 seam**을 갖는다 — confluence(`createConfluenceToolServer(ctx, runtime)`)·jira(`createJiraToolServer(ctx, service)`)와 같은 형상 | `createMailToolServer(auth, fakeManager)`가 DB·소켓 없이 descriptor 3종과 handler를 만들고, `mail_search` handler가 주입된 fake manager의 반환을 그대로 싣는다. 상위 `mailTools(auth, transport, options)`는 그 seam을 부르는 얇은 조립부임을 **`createMailSyncManager` 호출이 상위에만 1곳**이라는 전수 grep이 보인다 | `mailTools` → `createMailToolServer` → handler |
+| AR-08 | IT-08b / AC39 | 레시피 정본 문서의 조립 예제가 **실제 타입에 대입된다** | `closed-network-extensions.md §1` factory 표의 인자 목록이 `PluginDeploymentDeps`의 키 집합과 일치하고, §4 레시피 C·Mail 레시피의 조립 코드가 현재 시그니처로 typecheck된다(예제를 그대로 옮긴 타입 대입 테스트). `plugins.ts:3-4` 헤더에 "HTTP Plugin" 한정어가 있고 `:74-76` 불변식이 "plugin 고유 어휘 금지"를 말한다 | 배포자가 읽는 진입 경로 — 문서 → `app/deployment/` |
 
 ### AC 검증 주의사항
 
@@ -275,6 +296,10 @@
 - **공허한 단언을 판별자로 쓰지 않는다 (ΔV1)**: D-046 아래 `removed:0`은 보호 발동 여부와 무관하게 항상 참이다. AC25의 판별자는 **RETR 호출 횟수**이고 `removed:0`은 D-004 회귀로만 남긴다 — r1 G3이 지적한 축이다.
 - **음성 방향을 짝지은 쌍 (ΔV1)**: AC28(인증 거부 → 회수)에 AC28b(비인증 5종 → 유지)를, AC25(보호 발동)에 AC25b(일반 소실 → 본문 유지)를 붙였다. 한쪽만 두면 "전부 강등"·"전부 보호"로 뭉개는 구현이 통과한다.
 - **producer 소멸 변이 (ΔV1)**: AC31은 `mail_search` 매니페스트를 지우면 red여야 한다 — `attachmentId`의 producer가 그 한 곳뿐이라(§12) 지우면 `mail_getAttachment`가 도달 불가가 된다. r1 G1이 실제로 그 상태였다.
+- **음성+양성을 짝지은 쌍 (ΔV2)**: AC35·AC36은 "손으로 다시 적는 자리 0건"·"mail 어휘 0건"이라는 **부재 주장**이라 단독으로는 배선을 통째로 지워도 초록이다. 각각 양성 단언(세 factory 실제 조립 / 가상 배포가 도구 3종 등록 + secret 도달)을 붙였다.
+- **현재 코드가 red인 AC (ΔV2)**: AC37은 `login.ts:506`의 무조건 분기에서 **반드시 실패한다**. 이것은 결함 재현이지 통과 기준의 오류가 아니다 — 구현 전 red를 먼저 확인하고 고친 뒤 green을 보인다.
+- **회귀로 재실행하는 기존 축 (ΔV2)**: AC22(descriptor 3자리, D-028) · AC21(`AuthSecretReader` 부재, D-022) · AC14·AC15·AC27(서버 단위 add/remove, D-045) · AC30(verifier 미주입 축, D-042). 조립 시그니처가 바뀌어도 이 넷의 단언은 **글자 그대로** 유지되어야 한다.
+- **AC 41건 — 분할 검토 결과 분할하지 않는다 (ΔV2 재실행).** ΔV2가 더한 6건(AC34~AC39)은 전부 **조립 경계 1회**에 붙는 배선 단언이라 새 구현 표면을 만들지 않는다. 떼어내면 mail 도구가 등록되는 경로 자체가 그 handoff에 없어 프로덕션 도달 경로가 끊긴다.
 - **AC 35건 — 분할 검토 결과 분할하지 않는다.** 전송 경계(AC20·AC21)만 떼면 소비자 없는 소켓 모듈이 남아 프로덕션 도달 경로가 없고, 캐시·검색만 떼면 연결 수단이 없어 어느 쪽도 사용자 결과에 닿지 못한다. 35건 중 16건(AC18~AC30 · AC28b · AC31 · AC32)은 경계·가드 단언이라 구현 표면이 아니라 **배선 1회**에 붙는다.
 
 ## 7-A. V / Trace Matrix
@@ -386,13 +411,45 @@
 **ΔV1 합계 검산**: 변경·신규 설계 node `R 3(R-02·R-04·R-07) · AR 1 · MD 2 = 6` ↔ 변경·신규 검증 node `AT 4 · IT 2 · UT 3 = 9`. `ΔV1` pair `6 REQUIRED + 1 REGRESSION = 7`.
 **유효 V(`V1 + ΔV1`) 합계**: 설계 node `R 7 · SD 3 · AR 6 · MD 8 = 24` ↔ 검증 node `AT 21 · ST 3 · IT 8 · UT 9 = 41`. pair `VP-01~VP-25 = 25`. §10 강제 지점 군 `EP-01~EP-19 = 19`, 지점 합 `4+2+4+2+3+2+3+1+2+2+2+3+2+1+1+3+3+1+3 = 44`.
 
+### ΔV2 — 외부 리뷰 지적 3건(Plugin 조립 계약 정규화)
+
+> `V1 + ΔV1`을 상속하되 아래 행만 덮는다. 여기 없는 node·pair는 `INHERITED` + `REQUIRED`로 그대로 유효하다.
+> **변경이 시작되는 수준은 `AR`이다** — 조립 경계·배포 경계·verifier 경계가 바뀐다. 사용자 관측(`R`)에 닿는 것은 D-052 하나뿐이고 그 방향은 회복이라 `R-08`로 신설한다.
+
+| Node | 레벨 | provenance | 무엇이 바뀌었나 | 기준선 출처 / 대체 |
+|---|---|---|---|---|
+| R-08 | R | **NEW** | mail과 다른 Plugin Auth를 함께 켠 배포에서 각 연결 버튼이 **자기 방식으로** 인증된다 (D-052) | — |
+| AR-06 | AR | **CHANGED** | verifier 경계가 **authId 스코프**가 된다 — 전역 1개 → `Record<AuthId, Verifier>` (D-052) | `V1` AR-06 |
+| AR-07 | AR | **NEW** | Plugin auth 포트 — `PluginAuth` 생산 경계(`bindForPlugin`), `bind` 총함수 유지 (D-048) | — |
+| AR-08 | AR | **NEW** | Plugin factory 조립 표면 — 첫 인자는 auth 포트 하나 (D-049·D-050) | — |
+| AR-09 | AR | **NEW** | 배포 경계 — `bootstrap.ts`·`index.ts`는 plugin 고유 어휘를 모른다 (D-051) | — |
+| MD-09 | MD | **NEW** | mail tool server의 manager 주입 seam (D-050) | — |
+| AT-22 | AT | **NEW** | AC37 | — |
+| IT-06b · IT-07 · IT-08 · IT-08b · IT-09 | IT | **NEW** | AC37 · AC34 · AC35 · AC39 · AC36 | — |
+| UT-09 | UT | **NEW** | AC38 | — |
+
+| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §10 강제 지점 전수 |
+|---|---|---|---|---|---|---|
+| VP-26 | R-08 ↔ AT-22 | REQUIRED (NEW) | 연결 탭 → `login()` → `verifiers[authId]` 조회 → HTTP probe 또는 POP3 verifier | verifier 주입 상태에서 다른 authId의 `deps.request` 호출 1회 ∧ mail verifier 호출 0회 ∧ 커밋 성립 (AC37) | required — **현재 코드가 이 pair에서 red다**. 추가로 `verifiers[id]` 조회를 전역 fallback으로 되돌리는 변이 | EP-17 (4) |
+| VP-27 | AR-07 ↔ IT-07 | REQUIRED (NEW) | `createAuthRuntime()` → `bindForPlugin` → `registry.get` → throw 또는 `PluginAuth` | 등록/미등록 3케이스의 반환·throw (AC34) | required — `bind`를 registry 조회형으로 바꿔 미등록에서 throw하게 만드는 변이(세 번째 케이스가 red여야 한다) | EP-20 (2) |
+| VP-28 | AR-08 ↔ IT-08·IT-08b | REQUIRED (NEW) | `createPluginBindings` → `bindForPlugin` → factory 3종 → `createPluginBinding` → registry | 양성: 세 factory 조립 + `connectorId` 일치. 음성: 배포가 `label`·`origin`을 다시 적는 자리 0건 (AC35) + 문서 예제 타입 대입 (AC39) | required — factory를 `{authId,label,origin,request}` 객체 인자로 되돌리는 변이 · 문서 예제만 남기고 시그니처를 바꾸는 변이(AC39가 red여야 한다) | EP-21 (3) |
+| VP-29 | AR-09 ↔ IT-09 | REQUIRED (NEW) | `index.ts` → `Bootstrap` → `createPluginBindings`(deployment 소유 실값) → registry → `PASS` | 음성: 두 파일의 mail 어휘 0건. 양성: `app/deployment/`만 채운 가상 배포가 도구 3종 등록 + secret 도달 (AC36) | required — **음성 스윕 단독은 배선 삭제에 침묵**하므로 양성을 짝지었고, mail 조립을 통째로 지우는 변이를 심는다 | EP-22 (3) |
+| VP-30 | MD-09 ↔ UT-09 | REQUIRED (NEW) | `mailTools` → `createMailToolServer(auth, manager)` → handler | fake manager 주입만으로 descriptor 3종·handler 반환 (AC38) + `createMailSyncManager` 호출부 전수 1곳 | not selected — 주입값이 결과에 그대로 나오는 것을 직접 관측한다 | EP-23 (2) |
+| VP-23 | AR-06 ↔ IT-06 | **REGRESSION** | `app/deployment/` verifier map → `createAuthStack` → `login.ts` 분기 → 기존 HTTP 경로 | verifier **미주입** Auth 2종의 호출 횟수·커밋 여부 불변 (AC30) + 부팅 `resume()`에서 verifier 호출 0회 (D-042) | required — D-052가 분기를 고치므로 미주입 축이 그대로인지 다시 닫는다 | EP-17 (4) |
+| VP-13 | AR-04 ↔ IT-04 | **REGRESSION** | `createPluginBindings` → `createPluginBinding` → registry → `runtimeApprovalToolNames` | factory 시그니처가 바뀌어도 descriptor id·도구 3종 이름·annotations 3자리가 **동일** (AC22) | required — annotations 형제 자리 맞바꿈 변이 (D-028) | EP-12 (3) |
+| VP-11 | AR-02 ↔ IT-02 | **REGRESSION** | `app/deployment/` → `secretFor(authId)` closure → `mailTools` transport → `PASS` | 주입 closure 값이 `PASS`로 나간다(양성) + mail 슬라이스에 `AuthSecretReader` 식별자 0건(음성) (AC21) | required — closure 대신 `AuthSecretReader`를 통째로 넘기는 변이 (D-022) | EP-10 (2) |
+| VP-05 | R-05 ↔ AT-14·15·18 | **REGRESSION** | Auth change → `binding.sync()` → `RuntimeToolSink` | 서버 단위 add/remove가 그대로인지 (AC14·AC15·AC27) | required — 도구별 게이팅을 도입하는 변이 (D-045) | EP-05 (3) |
+
+**ΔV2 합계 검산**: 변경·신규 설계 node `R 1(R-08) · AR 4(AR-06 CHANGED · AR-07 · AR-08 · AR-09) · MD 1 = 6` ↔ 신규 검증 node `AT 1 · IT 5 · UT 1 = 7`. `ΔV2` pair `5 REQUIRED + 4 REGRESSION = 9`.
+**유효 V(`V1 + ΔV1 + ΔV2`) 합계**: 설계 node `R 8 · SD 3 · AR 9 · MD 9 = 29` ↔ 검증 node `AT 22 · ST 3 · IT 13 · UT 10 = 48`. pair `VP-01~VP-30 = 30`. §10 강제 지점 군 `EP-01~EP-23 = 23`, 지점 합 `4+2+4+2+3+2+3+1+2+2+2+3+2+1+1+3+4+1+3+2+3+3+2 = 55`.
+
 ### 현재 변경의 운영 gate
 
 | Gate | 이번 변경 산출물에 적용되는 이유 | 증거 / 명령 | 실패 범위 |
 |---|---|---|---|
 | subtree — lint | `app/**`를 수정한다 | `cd app && npm run lint` | 이번 변경이 만든 error만 blocking. 기존 warning 1건은 기준선 |
 | subtree — typecheck | 신규 타입·계약이 3구성에 걸린다 | `cd app && npm run typecheck` | 이번 변경 유발분만 |
-| subtree — 순수 테스트 | 신규 스위트가 전부 비-DB 순수다 | `cd app && ./node_modules/.bin/vitest run src/main/features/plugins/mail src/main/infra/net src/main/app/deployment` | 이번 변경 유발분만 |
+| subtree — 순수 테스트 | 신규 스위트가 전부 비-DB 순수다. **ΔV2가 `contracts/auth.ts`·`login.ts`·confluence·jira까지 범위를 넓혔다** | `cd app && ./node_modules/.bin/vitest run src/main/features/plugins src/main/features/auth src/main/infra/net src/main/app/deployment src/main/app/runtime-model-startup.test.ts` | 이번 변경 유발분만 |
 | subtree — 마이그레이션 가드 | mail 마이그레이션을 신설하고 가드를 일반화한다 | `cd app && node scripts/check-migrations-appendonly.mjs` + `node --test scripts/check-migrations-appendonly.test.mjs` | 이번 변경 유발분만 |
 | repository — 문서 인벤토리 | `docs/` 문서를 갱신한다 | `cd app && node scripts/check-doc-inventory.mjs --check` | 수치 재서술·깨진 상대링크만 |
 | message-bus — 커밋 trailer | 설계 커밋에 trailer를 단다 | `git log -1 --format='%(trailers:only=true)'` | 파싱 0건이면 blocking |
@@ -577,16 +634,20 @@
 | EP-07 | SD-02 / VP-08 | 실패·취소는 `lastSyncAt`을 갱신하지 않는다 | `sync-manager.ts` | mail 슬라이스 | **3지점** — 연결 실패 · 명령 실패 · abort | stale이 fresh로 보여 다음 5분간 재시도가 막힌다. D-045 위반 |
 | EP-08 | SD-03 / VP-09 | 동일 `authId`의 동시 sync는 하나다 | `sync-manager.ts` in-flight 맵 | mail 슬라이스 | **1지점** — handler 진입 | 중복 POP3 접속·중복 insert. D-016 위반 |
 | EP-09 | AR-01 / VP-10 | 소켓 생성은 `pop3-socket.ts` 하나다 | `infra/net/pop3-socket.ts` | infra + 가드 | **2지점** — 음성 스윕(import 0건) · 양성 단언(실제 `tls.connect` 진입) | 두 번째 소켓 지점이 생겨 §1.8 경계가 문서와 갈린다 |
-| EP-10 | AR-02 / VP-11 | Plugin은 `AuthSecretReader`를 받지 않는다 | `createMailPlugin` 시그니처 | 컴포지션 루트 | **2지점** — factory 시그니처가 `() => string \| null` closure만 받음(타입) · `bootstrap.ts` 주입부 | secret 표면이 feature로 넓어진다. `auth.md §11` 위반 |
+| EP-10 | AR-02 / VP-11 | Plugin은 `AuthSecretReader`를 받지 않는다 | `MailTransport.password` 타입 (ΔV2 — 구 `createMailPlugin` 시그니처) | 배포 (`app/deployment/plugins.ts`) | **2지점** — `MailTransport.password`가 `() => string \| null`만 받음(타입) · `app/deployment/plugins.ts`의 `deps.secretFor(authId)` 주입부(ΔV2 — 구 `bootstrap.ts` 주입부) | secret 표면이 feature로 넓어진다. `auth.md §11` 위반 |
 | EP-11 | AR-03 / VP-12 | mail 마이그레이션도 append-only다 | `check-migrations-appendonly.mjs` | CI 가드 | **2지점** — 가드의 디렉터리 목록 · mail `migrate.ts`의 `?raw` 집합 일치 | 머지된 마이그레이션이 조용히 수정돼 기존 설치가 깨진다 |
 | EP-12 | AR-04 / VP-13 | 도구 3종의 `readOnlyHint`는 `[false, true, false]`다 | `tools.ts` descriptor | mail 슬라이스 | **3지점** — 세 도구 각각의 annotations | 원격 I/O·디스크 쓰기가 승인 없이 통과한다. D-028 위반 |
 | EP-13 | MD-01 / VP-14 | 대량 소실은 **신규 UIDL 수집을 멈춘다**(삭제가 아니다 — D-046 아래 삭제는 애초에 0이다) | `reconcile.ts` 잔존 비율 + `protection.ts` 임계 | mail 슬라이스 | **2지점** — 잔존 비율·표본 계산(`reconcile.ts`) · 임계 `<0.5` ∧ 표본 `>=20` 비교(`protection.ts` 진입 분기) | 서버 교체 한 번이 10,000통을 다시 끌어와 14일 캐시와 중복시킨다. D-018·D-047 위반 |
 | EP-14 | MD-04 / VP-17 | 검색 문서는 From·To·Cc·Subject·Body 5필드다 | `normalize.ts` | mail 슬라이스 | **1지점** — `MailDocument` 조립 | 선언한 검색 대상 중 일부가 실제로는 안 걸린다. D-010 위반 |
-| EP-17 | AR-06 / VP-22·VP-23 | 연결은 실제 왕복으로 증명되고, 실패 사유가 구분되며, verifier 미주입 Auth는 불변이다 | `login.ts` probe 분기·거부 문구 + 컴포지션 루트 주입부 | auth 슬라이스 + 컴포지션 루트 | **3지점** — `login.ts`의 `candidate` 조건 verifier 분기 · `:716` 거부 문구 분기 · `bootstrap.ts`가 mail authId에만 주입 | 값만 넣어도 연결됨이 되거나, 도달 실패가 비밀번호 오류로 보이거나, 다른 Auth의 로그인 경로가 바뀐다 |
+| EP-17 | R-08·AR-06 / VP-22·VP-23·VP-26 | 연결은 실제 왕복으로 증명되고, 실패 사유가 구분되며, **verifier는 자기 authId에만 작용한다** | `login.ts` verifier 조회·거부 문구 + 배포의 verifier map | auth 슬라이스 + 배포 | **4지점** (ΔV2 — 구 3지점) — `login.ts`의 `candidate` 조건 · **`verifiers[definition.id]` 조회(없으면 기존 `probe` 경로로 낙하)** · `:716` 거부 문구 분기 · `app/deployment/`가 만든 map에 mail authId 키 하나만 존재 | 값만 넣어도 연결됨이 되거나, 도달 실패가 비밀번호 오류로 보이거나, **함께 켠 다른 Plugin의 로그인이 POP3 verifier를 탄다**(D-052 — 현재 코드가 이 상태다) |
 | EP-16 | AR-05 / VP-02·VP-21 | 자격증명 거부**만** Auth 강등으로 되먹여진다 | `pop3/errors.ts` 거부 판정 + 컴포지션 루트 주입 | mail 슬라이스 + 컴포지션 루트 | **3지점** — `-ERR` 인증 거부 판정 · **비인증 5종(연결·TLS·타임아웃·파싱·DB)의 `authFailure:false` 판정** · `bootstrap.ts` reporter 주입부 | 강등이 좁으면 비밀번호가 바뀌어도 도구가 남아 매번 실패한다. **넓으면 네트워크 한 번 끊긴 것이 도구 3종을 회수해 캐시 검색까지 끊는다** — D-045가 막는 쪽이다 |
 | EP-15 | MD-07 / VP-20 | `DELE`를 보내지 않는다 | `pop3/session.ts` 명령 화이트리스트 | mail 슬라이스 | **1지점** — 명령 게이트 | 서버 메일함이 지워진다. 되돌릴 수 없다. D-031 위반 |
 | EP-18 | R-07 / VP-24 | `mail_getAttachment`는 `mailId`·`attachmentId`를 둘 다 요구한다 | `tools.ts` 입력 스키마 | mail 슬라이스 | **1지점** — `mail_getAttachment` zod 스키마(둘 다 required, 추가 selector 키 없음) | 합집합 selector가 생겨 승인 1회로 전량 다운로드가 가능해진다. D-044 위반 |
 | EP-19 | MD-08 / VP-25 | 보호는 비율 회복 또는 같은 fingerprint 2회 연속에서만 풀린다 | `protection.ts` 전이 함수 | mail 슬라이스 | **3지점** — 해제 2경로(회복·`CONFIRM_OBSERVATIONS` 도달) · 다른 fingerprint의 카운트 리셋 · `sync-manager`의 `ingest` 분기(RETR 호출 여부) | 안 풀리면 서버 교체 뒤 메일이 영구히 갱신되지 않는다(비범위인 renderer 화면이 없어 탈출구가 없다). 너무 쉽게 풀리면 일시 장애가 대량 재수집을 부른다 |
+| EP-20 | AR-07 / VP-27 | `PluginAuth`는 `bindForPlugin` 하나에서만 만들어지고, `bind`는 registry를 조회하지 않는 **총함수**로 남는다 | `contracts/auth.ts`의 `PluginAuth`·`AuthRuntime.bindForPlugin` | auth 슬라이스 | **2지점** — `bindForPlugin`의 `registry.get` throw 분기 · `bind` 본문에 registry 조회 **부재**(전수 grep) | `bind`가 partial이 되면 `runtime-model-startup.ts:65`의 카탈로그 재조정이 미등록 authId에서 죽는다. 반대로 `PluginAuth`를 아무 데서나 만들면 `label`·`origin`이 선언과 갈린다 |
+| EP-21 | AR-08 / VP-28 | Plugin tool server factory의 **첫 인자는 auth 포트 하나**이고, 배포는 `label`·`origin`을 다시 적지 않는다 | 세 factory의 시그니처 | mail·confluence·jira 슬라이스 + 배포 | **3지점** — `confluenceTools`·`jiraTools`·`mailTools` 각각의 첫 인자 타입이 `PluginAuth` · `ConfluencePluginContext`·`JiraPluginContext`·`MailPluginContext` 정의 **부재**(전수 grep) · `app/deployment/`에 `label:`·`origin:` 재기입 **0건** | 배포가 `AuthId`·`label`·`origin`을 손으로 다시 적고, 어긋나면 **도구는 모델에 보이는데 호출은 인증 대상을 못 찾는다** — 컴파일러도 등록 검사도 못 잡는 실패다 |
+| EP-22 | AR-09 / VP-29 | `bootstrap.ts`·`index.ts`는 plugin 고유 어휘를 모른다. 넘기는 것은 **능력**뿐이다 | `PluginDeploymentDeps` 키 집합 | 컴포지션 루트 | **3지점** — `PluginDeploymentDeps`에 plugin 이름 키 **부재**(타입) · 두 파일의 mail·POP3 식별자 **0건**(전수 grep) · `app/deployment/plugins.ts`가 `createPop3Socket`과 mail 실값을 소유(양성) | 배포가 범용 파일 2개를 고쳐야 하고, `plugins.ts:74-76`이 잠근 "배포가 고치는 파일은 `app/deployment/` 묶음뿐" 경계가 깨진다. **`dc2af38`이 실제로 그랬다** |
+| EP-23 | MD-09 / VP-30 | mail tool server는 manager를 **주입**받는다 — DB·소켓 없이 도구 계층만 검증할 수 있다 | `createMailToolServer(auth, manager)` | mail 슬라이스 | **2지점** — `createMailToolServer`가 manager를 인자로 받음(타입) · `createMailSyncManager` 호출부가 상위 `mailTools` **1곳뿐**(전수 grep) | 도구 계층 테스트가 better-sqlite3 네이티브와 소켓을 끌고 와 ABI 제약 환경에서 함께 죽는다. confluence·jira에는 있는 seam이 mail에만 없다 |
 
 - 같은 규칙의 SSOT: "내부 경로 은닉"은 **결과 조립기 한 곳**이 소유한다. 각 handler가 각자 마스킹하면 네 번째 도구가 생길 때 새 누출 지점이 된다.
 - `실패 의미`에 "다른 게이트가 막는다"를 적은 행: **없음.** 모든 행이 자기 지점의 관측으로 판정된다.
@@ -641,6 +702,80 @@ sync_state     (account_id PK, last_sync_at, last_error_code,
 - `uidl_ledger.state`가 `active` | `missing` 두 값을 갖는다 — `missing`은 원격에서 사라졌다는 표시일 뿐 삭제 트리거가 아니다(D-046).
 - `protection_*` 4열은 `{ kind:'none' }` | `{ kind:'suspected', firstObservedAt, observations, fingerprint }` discriminated union의 평탄화다. `kind='none'`이면 나머지 3열은 `NULL` — 타입 경계에서 union으로 되살려 "none인데 observations가 있다"를 불가능하게 만든다(§10 선택적 필드 규칙).
 - `account_id`를 모든 테이블에 둔다 — 다중 계정은 비범위지만 스키마 축은 지금 잡는다(§6).
+
+### ΔV2 — Plugin 조립 계약 정규화
+
+**계약 (`contracts/auth.ts`)**
+
+```ts
+// 기존 — 한 글자도 바뀌지 않는다.
+export interface BoundAuth {
+  readonly authId: AuthId
+  snapshot(): AuthSnapshot
+  request(request: AuthenticatedRequest, signal?: AbortSignal): Promise<AuthenticatedResponse>
+}
+
+// 신규 — Plugin 이 조립에 쓰는 포트. 더해지는 둘은 `AuthDescriptor` 가 이미 공개하는 값이다.
+export interface PluginAuth extends BoundAuth {
+  readonly label: string
+  readonly origin: string
+}
+
+export type AuthBinder = Pick<AuthRuntime, 'bind' | 'bindForPlugin'>
+
+export interface AuthRuntime {
+  bind(authId: AuthId): BoundAuth                 // 총함수 — registry 를 조회하지 않는다
+  bindForPlugin(authId: AuthId): PluginAuth       // 미등록 id 에서 throw (`describe()` 와 같은 판정)
+  // …
+}
+```
+
+**`features/auth/runtime.ts`** — `bindForPlugin` 은 `bind(authId)` 결과에 `registry.get(authId)` 의
+`label`·`origin` 을 얹는다. 없으면 `describe()` 와 **같은 문구로 throw** 한다. `bind` 본문은 건드리지
+않는다(EP-20 음성 지점).
+
+**`features/auth/login.ts`** — `LoginDeps.verify?: Verifier` 를 `verifiers?: Readonly<Record<AuthId,
+Verifier>>` 로 바꾸고 `probe()` 의 분기를 고친다:
+
+```ts
+const verifier = candidate ? this.deps.verifiers?.[definition.id] : undefined
+if (verifier) { /* 기존 본문 */ }
+// verifier 가 없으면 아래 기존 probe 경로로 그대로 낙하한다 — 현재는 여기 도달하지 못한다.
+```
+
+**Plugin factory 3종** — ctx 타입을 지우고 `PluginAuth` 를 받는다. 전송 의존은 이름 있는 두 번째
+인자다.
+
+```ts
+export function confluenceTools(auth: PluginAuth, opts?: ConfluenceToolOptions): RuntimeToolServer
+export function jiraTools(auth: PluginAuth, opts?: JiraToolOptions): RuntimeToolServer
+export function mailTools(auth: PluginAuth, transport: MailTransport, options: MailPluginOptions): RuntimeToolServer
+export function createMailToolServer(auth: PluginAuth, manager: () => Promise<MailSyncManager>): RuntimeToolServer
+
+export interface MailTransport {
+  readonly password: () => string | null
+  readonly root: string
+  readonly socketFactory: Pop3SocketFactory
+  readonly reportCredentialRejected?: (authId: string) => void
+}
+```
+
+`MailToolOptions` union 과 `createMailPlugin` 별칭은 삭제한다 — 호출부가 1곳이라 갈래를 둘 이유가
+없고, 한 factory 에 이름이 둘이면 전수 grep 의 분모가 갈린다.
+
+**배포 경계 (`app/deployment/plugins.ts` · `bootstrap.ts` · `index.ts`)**
+
+| 무엇 | 지금 | ΔV2 후 |
+|---|---|---|
+| `PluginDeploymentDeps` | `auth` · `registry` · `logger?` · **`mail?`** · `credentialRejectionReporter?` | `auth` · `registry` · `logger?` · **`secretFor(authId): () => string \| null`** · **`userDataRoot: string`** · `credentialRejectionReporter?` |
+| mail 실값(host·port·TLS·CA) | `BootstrapMailDeployment` → `index.ts` 3번째 인자(**프로덕션 미전달**) | `app/deployment/plugins.ts` 안의 상수 |
+| `createPop3Socket` import | `bootstrap.ts` | `app/deployment/plugins.ts` (`app` → `infra` 허용) |
+| verifier | `BootstrapMailDeployment.verify` → `createAuthStack` | `app/deployment/auth-verifiers.ts` 의 `createAuthVerifiers(deps)` → `Record<AuthId, Verifier>`. `harness-runtime.ts` 의 augmenter factory 2종과 **같은 형상**이다 |
+| `createPluginBindings` 조기 반환 | `if (!deps.mail) return []` — Confluence 를 함께 켜면 **그것까지 죽는다** | plugin 별로 조립하고 각자의 조립 실패만 그 항목을 뺀다 |
+
+`bootstrap.ts` 는 `secretFor`·`userDataRoot`·`credentialRejectionReporter`·`verifiers` 를 **능력으로만**
+넘긴다. `BootstrapMailDeployment` 와 `Bootstrap` 의 3번째 생성자 인자는 제거한다 — 프로덕션에서
+넘어간 적이 없고(`index.ts:268` 2인자), 남겨 두면 "배포가 범용 파일을 고친다" 경로가 그대로 남는다.
 
 ### 테스트 가능성
 
@@ -718,7 +853,9 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 폐쇄망 배포가 채우는 typed recipe가 이번 작업의 외부 진입점이다.
 
 - 외부/배포가 구현할 config: `MailPluginOptions = { host: string; port?: number; tls?: boolean; tlsOptions?: TlsOptions; accountId: string; retentionDays?: number; freshnessMs?: number; timeouts?: {...} }`.
-- 구현 문서: `docs/guides/closed-network-extensions.md §4`에 Mail 레시피를 추가한다 — `AuthDefinition`(계정 식별용 HTTPS origin + `passwordSpec`) → `createMailPlugin` 조립 → 사설 CA 주입.
+- 구현 문서: `docs/guides/closed-network-extensions.md §4`에 Mail 레시피를 추가한다 — `AuthDefinition`(계정 식별용 HTTPS origin + `passwordSpec`) → `mailTools(auth, transport, options)` 조립 → 사설 CA 주입 (ΔV2 — 구 `createMailPlugin`).
+- **ΔV2가 문서 계약을 넓힌다**: 같은 문서 `§1`의 factory 인자 표(`:78`)와 `§4` 레시피 C 예제(`:739-749`)도 이번 계약의 진입 경로다. 표는 `PluginDeploymentDeps`의 새 키 집합으로, 예제는 `confluenceTools(confluenceAuth, {apiBasePath})`로 갱신한다. `app/deployment/auth-verifiers.ts`(신규)도 배포가 채우는 자리이므로 같은 표에 행을 더한다(AC39).
+- **시그니처가 안 바뀌어도 의미가 바뀌는 항목**: `LoginDeps.verify`는 이름과 함께 의미가 바뀐다(전역 1개 → authId 키). 배포가 이미 쓰고 있었다면 map으로 옮겨야 하므로 `§4` Mail 레시피에 그 문장을 명시한다.
 - **shape 검증**: 가이드의 예제 코드를 `app/src/main/app/deployment/plugins.ts` 주석이 아니라 **타입 체크되는 fixture**로 둔다 — `deployment-wiring.test.ts`가 예제와 같은 형상을 조립해 `npm run typecheck`가 본다. 문서 예제만 두면 시그니처가 바뀌어도 아무도 모른다.
 - **semantics 검증**: `tlsOptions`의 `rejectUnauthorized`가 `false`면 조립이 거부된다는 계약 테스트를 둔다. 사설 CA는 `ca`로 주고 검증을 끄지 않는다.
 
@@ -747,6 +884,13 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 | "`valid` 만 등록 이 곧 나머지 셋은 전부 회수" — Plugin 도구는 **서버 단위**로 add/remove 한다 | `app/deployment/plugins.ts:57-68` · `plugins.test.ts:71` (0188 D-024) | D-045 · §10 EP-05 | **유지** — 도구별 게이팅을 만들지 않는다. mail이 첫 예외가 되면 Confluence·Jira가 함께 쓰는 공유 계약이 넓어진다 |
 | "GUI row 를 feature 수만큼 복제하지 않는다 — `authId` 는 중복되지 않는다" | `app/connection-views.ts:110` `duplicateConnectionAuthIds` (0188 D-029) | D-045 | **유지** — mail 도구를 두 서버로 쪼개 하나만 무조건 등록하는 우회를 쓰지 않는다. 한 authId에 두 row가 생겨 부팅 진단에 걸린다 |
 | Jira 첨부는 `issueKey` XOR `attachmentId` 합집합 selector이고 `slice(0,10)`·`filename` 필터를 갖는다 | `jira/tools.ts:118-138` · `jira/service.ts:144-160` | D-044 | **선례 미채택** — mail은 단건 전용이다. 승인 3회·staging 3배치 비용을 제시한 뒤 사용자가 좁은 표면을 골랐다. 첨부 store의 staging→rename 형상(F-15)은 그대로 따른다 |
+| "**배포가 이 시그니처를 바꾸면 안 된다** — 바꾸는 순간 배포가 범용 `bootstrap.ts` 까지 고쳐야 하고 … (r3 에서 실제로 그랬다)" | `app/deployment/plugins.ts:74-76` | D-051 · §10 EP-22 | **복원 + 재진술** — `dc2af38`이 `mail?`·`credentialRejectionReporter?` 추가와 `bootstrap.ts` 수정으로 정확히 그 방식으로 깼다. 불변식을 "능력만 늘리고 **plugin 고유 어휘는 넣지 않는다**"로 재진술하고 `mail?`을 제거해 경계를 되돌린다 |
+| "Plugin 모듈은 `BoundAuth.request` 와 자기 옵션만 받고" (파일 헤더) | `app/deployment/plugins.ts:3-4` | D-053 | **정정** — `dc2af38`이 `auth.md §7`만 고치고 이 주석을 남겨 **같은 파일의 헤더와 본문이 모순**한다. "HTTP Plugin 모듈은" 으로 한정한다. 의미 변경이 아니라 이미 내려진 D-022를 코드 주석에 반영하는 것이다 |
+| `createPluginBindings(deps)`가 받는 것 = `auth · registry · logger?` | `closed-network-extensions.md:78` factory 표 | D-051·D-053 · §10 EP-22 | **변경** — `secretFor`·`userDataRoot`·`credentialRejectionReporter?`를 더한 현재 키 집합으로 갱신한다. 레시피 정본이 stale이면 배포자가 읽는 진입 경로가 틀린다 |
+| 레시피 C 예제가 `label: CONFLUENCE_AUTH.label`·`origin: CONFLUENCE_AUTH.origin`을 손으로 전달한다 | `closed-network-extensions.md:739-749` | D-049 · §10 EP-21 | **변경** — `confluenceTools(confluenceAuth, {apiBasePath})`로 줄인다. 같은 문서가 바로 아래에서 "**AuthId 를 손으로 다시 적지 마라**"를 경고하는데 예제가 그 패턴을 시연하고 있었다 |
+| "소비 feature 는 `AuthRuntime` 전체가 아니라 **자기 Auth 에 묶인 좁은 포트**를 받는다" | `contracts/auth.ts:403-411` | D-048 · §10 EP-20 | **유지 + 확장** — `PluginAuth`도 자기 Auth에 묶인 좁은 포트다. `login`·`revoke`·`resume`·`subscribe`에 도달하지 못하는 성질은 그대로이고, 더해지는 것은 `AuthDescriptor`가 이미 공개하는 `label`·`origin` 둘뿐이다(비밀 아님) |
+| `AuthBinder = Pick<AuthRuntime,'bind'>` — 배포는 `bind` 하나만 받는다 | `contracts/auth.ts:423` · `closed-network-extensions.md:84-86` | D-048 | **확장** — `Pick<AuthRuntime,'bind'\|'bindForPlugin'>`이 된다. 넓어지는 능력은 "같은 Auth를 descriptor까지 붙여 묶는다" 하나이고 lifecycle 표면(`login`·`revoke`·`resume`·`subscribe`)은 여전히 도달 불가다 |
+| "비-HTTP 인증(예: POP3)은 `AuthDefinition.probe` 대신 후보 자격증명을 직접 검증한다. **verifier가 없는 Auth는 기존 probe/무검증 동작을 그대로 유지한다**" | `features/auth/login.ts:99-100` 주석 | D-052 · §10 EP-17 | **주석은 유지, 코드가 그것을 안 지킨다** — `:506`은 authId를 보지 않아 verifier가 **하나라도** 주입되면 후보가 있는 모든 Auth가 그 verifier를 탄다. 주석이 선언한 계약대로 코드를 고친다 |
 
 ## 17. 리스크 / 트레이드오프
 
@@ -770,6 +914,11 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 | 인증이 거부되면 **로컬 캐시 검색까지 끊긴다** | **수용한다**(D-045) — 사용자가 "3도구 전부 회수"를 골랐다. 복구는 연결 탭 재인증 1회이고, 그 순간 세 도구가 함께 돌아온다. 공유 계약(`createPluginBinding`)을 건드리지 않는 대가다 |
 | 보호 발동 중에는 새 메일이 색인되지 않는다 | 최대 **sync 2회** 동안이다(D-047). freshness가 5분이라 사용자가 다시 물으면 두 번째 관측이 곧 일어나 회복 또는 채택으로 풀린다. 기존 캐시 검색은 그동안에도 계속된다 |
 | **서버에서 지운 메일이 최대 14일간 검색에 뜬다** | **수용한다**(D-046) — D-004("삭제 기준은 14일 Retention뿐")의 직접 귀결이다. 재해석하지 않았고 §5 상태 전이표에 행으로 노출했다. 바꾸려면 D-004를 바꾸는 새 사용자 결정이 필요하다 |
+| **ΔV2가 `contracts/auth.ts`를 건드린다** — `BoundAuth` 참조는 `src` 전수 **53건**, `BoundAuth` 형상 test double은 **5파일**(`auth-resume` · `plugins` · `deployment-wiring` · `connection-views` · `gate`) | `BoundAuth`는 **한 글자도 바꾸지 않는다**(D-048). 기존 double 5개는 그대로 컴파일되고, `PluginAuth`가 필요한 곳(`plugins.test.ts`·`deployment-wiring.test.ts`)만 두 필드를 더한다. `AuthBinder` 확장은 `Pick` 멤버 추가라 기존 구현체가 넓어질 뿐 좁아지지 않는다 |
+| `login.ts` verifier 분기를 고쳐 **다른 Auth의 로그인이 바뀐다** | 그 위험이 이미 현실이다(D-052) — 지금은 verifier 주입 시 모든 Auth가 그것을 탄다. AC30(미주입 축, 회귀)과 AC37(주입+타 authId, 신규)이 양쪽을 동시에 잠근다. **AC37은 수정 전 red여야 한다** — 결함 재현이 먼저다 |
+| ctx 타입 3종 제거가 confluence·jira 테스트를 깬다 | `ConfluencePluginContext`·`JiraPluginContext` 소비는 prod 4곳·test 3곳으로 전수 확인됐다(`jira/service.ts:19·62·115` · `jira/tools.ts:33·171·216` · `confluence/tools.ts:26·87·103` · 각 `*.test.ts`). 타입 별칭을 `PluginAuth`로 바꾸는 기계적 치환이고 필드 4개가 정확히 같다 |
+| `Bootstrap` 생성자 3번째 인자 제거가 외부 호출부를 깬다 | 프로덕션 호출부는 `index.ts:268` **1곳이고 2인자로 부른다** — 3번째 인자를 넘기는 코드가 애초에 없다. 테스트 호출부만 확인하면 된다 |
+| 조립 계약을 바꾸는 동안 **mail 기능 자체가 회귀한다** | ΔV2는 도구 이름·descriptor·DB·프로토콜을 건드리지 않는다. VP-13(descriptor 3자리)·VP-11(secret 경계)·VP-05(서버 단위 회수)를 **REGRESSION pair**로 등록해 조립만 바뀌었음을 증명한다 |
 
 - 되돌리기 어려운 결정: §14 마지막 항목 참조 (도구 이름 · DB 경로 · 스키마 · tokenizer).
 - 신규 의존성: `node-pop3@^0.15.3` · `postal-mime@^3.0.0` → **사용자 승인 완료**(D-023). TRD §2 Stack 표에 등재한다.
@@ -779,6 +928,12 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 - `app/src/main/infra/net/pop3-socket.ts` · `pop3-socket.guard.test.ts` (신규)
 - `app/src/main/features/plugins/mail/**` (신규 — §11 표)
 - `app/src/main/app/deployment/plugins.ts` · `app/src/main/app/bootstrap.ts` (수정)
+- `app/src/main/contracts/auth.ts` — `PluginAuth`·`AuthRuntime.bindForPlugin`·`AuthBinder` 확장 (수정, ΔV2)
+- `app/src/main/features/auth/runtime.ts` — `bindForPlugin` 구현 (수정, ΔV2)
+- `app/src/main/features/auth/login.ts` — `verify` → `verifiers: Record<AuthId, Verifier>` (수정, ΔV2)
+- `app/src/main/features/plugins/confluence/tools.ts` · `jira/tools.ts` · `jira/service.ts` — ctx 타입 제거, `PluginAuth` 수용 (수정, ΔV2)
+- `app/src/main/features/plugins/mail/tools.ts` — `mailTools(auth, transport, options)` + `createMailToolServer` seam (수정, ΔV2)
+- `app/src/main/index.ts` — mail 어휘 제거 확인 (검사 대상, ΔV2)
 - `app/scripts/check-migrations-appendonly.mjs` + 동반 `*.test.mjs` (수정)
 - `app/package.json` · `package-lock.json` (수정)
 - `docs/arch/backend/security.md` §1.8 · `auth.md` §7 · `persistence.md` §1 · `docs/TRD.md` §2 (수정)
@@ -790,13 +945,25 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 - 적용할 하위 가이드: `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드` · `app/src/main/AGENTS.md §레이어 DAG`
 - ABI/네트워크 등 환경 제약: mail DB 스위트는 better-sqlite3 네이티브를 로드한다. egress 차단 환경에서는 알려진 5파일과 함께 실패할 수 있고 **코드 회귀가 아니다** — 기준선으로 분리 보고한다.
 - 기본 정적 게이트: `cd app && npm run lint && npm run typecheck`
-- 관련 테스트: `cd app && ./node_modules/.bin/vitest run src/main/features/plugins/mail src/main/infra/net src/main/app/deployment` · `node --test scripts/check-migrations-appendonly.test.mjs`
+- 관련 테스트: `cd app && ./node_modules/.bin/vitest run src/main/features/plugins src/main/features/auth src/main/infra/net src/main/app/deployment src/main/app/runtime-model-startup.test.ts` · `node --test scripts/check-migrations-appendonly.test.mjs` (ΔV2 — `contracts/auth.ts`·`login.ts`·confluence·jira 까지 범위가 넓어졌다)
 - 문서 게이트: `cd app && node scripts/check-doc-inventory.mjs --check`
 - 사람 실기: 폐쇄망 배포에서 **순서대로** — ① POP3 포트가 프록시 없이 닿는가 + 서버가 `USER`/`PASS`를 받는가(둘 중 하나라도 아니면 이후가 무의미) ② 사설 CA로 TLS 핸드셰이크 ③ 실제 한국어 메일 인코딩 ④ 최초 sync 소요 시간 ⑤ 연결 탭에서 아이디·비밀번호 2필드 폼이 실제로 뜨고 저장되는가(F-30 — 첫 사용자) ⑥ 비밀번호를 일부러 틀려 연결 거부 문구와 도달 실패 문구가 다른지(AC29) ⑦ 연결 후 비밀번호를 서버에서 바꿔 **도구 3종이 모두 사라지고** 재인증으로 함께 돌아오는지 확인(AC28·D-045) ⑧ 첨부 3건 메일에서 매니페스트가 3건 뜨고 각각 승인 후 받아지는지(AC31·D-044).
 
 ## READY self-review
 
-> **ΔV1 재실행**. 정정한 행(D-043~D-047 · AC5·AC11·AC25·AC28 · 신규 AC25b·AC28b·AC31·AC32·AC33 · EP-01·EP-03·EP-13·EP-16 · 신규 EP-18·EP-19)은 §5 AC 게이트를 **다시** 통과시켰다 — 최초 작성만 게이트를 받고 정정은 안 받으면 다음 라운드가 틀린 기준으로 채점된다.
+> **ΔV2 재실행 (이번 턴)**. 신설·정정한 행(D-048~D-053 · 신규 AC34~AC39 · AR-06 CHANGED · 신규 R-08·AR-07·AR-08·AR-09·MD-09 · 신규 VP-26~VP-30 + REGRESSION 4 · EP-10·EP-17 정정 + 신규 EP-20~EP-23)은 §5 AC 게이트를 **다시** 통과시켰다.
+>
+> - [x] **외부 리뷰 지적 3건이 규범 행으로 닫혔다** — ① → D-051·D-053 + EP-22 + AC36·AC39. ② → D-048·D-049·D-050 + AR-07/AR-08 + VP-27·VP-28 + AC34·AC35. ③ → D-049·D-050 + MD-09/VP-30/EP-23 + AC38. 구현자에게 되넘긴 미정 항목 **0건**.
+> - [x] **조사가 새로 연 PLAN_GAP 1건을 같은 턴에 닫았다** — D-052(`login.ts:506` 전역 verifier) + AR-06 CHANGED + R-08/AT-22/VP-26 + EP-17 4지점 + AC37. AC30은 미주입 축의 **REGRESSION**으로 남긴다.
+> - [x] `BoundAuth`를 넓히지 않은 근거를 코드로 닫았다 — `runtime-model-startup.ts:65`가 임의 authId로 `bind().snapshot()`을 부른다. AC34의 세 번째 케이스가 그 축을 회귀로 잠근다.
+> - [x] AC **41행**(35 + 6)이 모두 네 칸을 채웠다. 25건 초과 분할 재검토 결론은 §7 주의사항에 적었다 — ΔV2 6건은 조립 경계 1회에 붙는 배선 단언이라 새 구현 표면을 만들지 않는다.
+> - [x] 유효 V 실측 — 설계 node **29** ↔ 검증 node **48**, pair `VP-01~VP-30 = 30`, §10 `EP-01~EP-23 = 23`군·지점 합 **55**. ΔV2 pair 9건(REQUIRED 5 + REGRESSION 4) 전부 경로·전수 분모·직접 oracle을 갖는다.
+> - [x] 부재 주장에 양성을 짝지었다 — AC35(재기입 0건 ↔ 세 factory 실제 조립) · AC36(mail 어휘 0건 ↔ 가상 배포가 도구 3종 등록 + secret 도달).
+> - [x] `ACTIVE 결정 ↔ AC` 대조를 §3 갱신 메모에 관측으로 적었다 — 충돌 **0**, 대조 쌍 5건 + 기존 D-022·D-028·D-045 회귀 3건.
+> - [x] Decision Ledger 실측 **53행**: ACTIVE **51** · SUPERSEDED **2** · OPEN **0**.
+> - [x] ΔV2가 사용자 관측을 바꾸는 곳은 D-052 하나이고 방향은 회복이다 — §5 흐름·도구 이름·descriptor·DB 스키마는 불변이며 VP-13·VP-11·VP-05가 그것을 회귀로 증명한다.
+
+> **ΔV1 (이전 턴) 재실행**. 정정한 행(D-043~D-047 · AC5·AC11·AC25·AC28 · 신규 AC25b·AC28b·AC31·AC32·AC33 · EP-01·EP-03·EP-13·EP-16 · 신규 EP-18·EP-19)은 §5 AC 게이트를 **다시** 통과시켰다 — 최초 작성만 게이트를 받고 정정은 안 받으면 다음 라운드가 틀린 기준으로 채점된다.
 
 - [x] **r1 PLAN_GAP 3건이 규범 행으로 닫혔다** — G1 → D-043·D-044 + R-07/AT-20·21/VP-24/EP-18 + AC31·AC32. G2 → D-045(D-019 대체) + AC5·AC28 정정 + AC28b + EP-16 3지점 + VP-05 REGRESSION. G3 → D-046·D-047 + MD-08/UT-08/VP-25/EP-19 + AC25 재작성 + AC25b·AC33 + EP-03 4지점. 구현자에게 되넘긴 미정 항목 **0건**.
 - [x] Decision Ledger의 ACTIVE/SUPERSEDED/OPEN이 여러 턴의 결정을 보존한다 — 실측 47행: ACTIVE **45** · SUPERSEDED **2**(D-013→D-014 · D-019→D-045) · OPEN 0.
