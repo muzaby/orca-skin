@@ -15,7 +15,7 @@
 // `bootstrap.ts` 자체는 electron 을 물어 vitest 대상이 아니다. 그래서 **Bootstrap 이 넘기는
 // 의존성 형태**(`AuthRuntime`·`RuntimeToolSink`·AuthId 를 닫은 secret closure)를 그대로 재현한다.
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type {
@@ -66,6 +66,7 @@ import {
   type UsageDeploymentDeps
 } from './usage-fetcher'
 import type { RuntimeConfigAugmenters } from '../../features/harnesses/runtime-config'
+import { mailTools } from '../../features/plugins/mail/tools'
 import { jiraTools } from '../../features/plugins/jira/tools'
 import { JIRA_CATALOG_PRESENTATION_INPUT } from '../../features/plugins/jira/source'
 import {
@@ -125,11 +126,21 @@ const CORP_USAGE_AUTH = {
   methods: [patSpec({ label: 'PAT', fieldLabel: 'PAT', present: BEARER })]
 } satisfies AuthDefinition
 
+// POP3 전용 — 칠 HTTP endpoint 가 없어 `probe` 를 선언하지 않는다(0237 D-032). 계정 식별용
+// origin 만 두고, 자격증명 증명은 연결 시점의 verifier 가 한다(D-040).
+const MAIL_AUTH = {
+  id: 'mail-corp',
+  label: '사내 메일',
+  origin: 'https://mail.example.corp',
+  methods: [patSpec({ label: '비밀번호', fieldLabel: '비밀번호', present: BEARER })]
+} satisfies AuthDefinition
+
 const AUTH_DEFINITIONS: readonly AuthDefinition[] = [
   CORP_SSO_AUTH,
   CORP_LLM_AUTH,
   CONFLUENCE_AUTH,
   JIRA_AUTH,
+  MAIL_AUTH,
   CORP_USAGE_AUTH
 ]
 const GATE_AUTH_DEFINITIONS: readonly GateAuthDefinition[] = [CORP_SSO_AUTH]
@@ -214,7 +225,7 @@ function confluenceServer(authId: string): RuntimeToolServer {
 // — **Bootstrap 이 주입하는 능력만으로 배포가 조립된다** — 을 놓친다. 배포 factory 의 능력이
 // 줄면 여기서 컴파일이 깨져야 한다.
 const createPluginBindings = (deps: PluginDeploymentDeps): PluginBinding[] => {
-  const confluenceAuth = deps.auth.bind(CONFLUENCE_AUTH.id)
+  const confluenceAuth = deps.auth.bindForPlugin(CONFLUENCE_AUTH.id)
   return [
     createPluginBinding({
       auth: confluenceAuth,
@@ -224,20 +235,24 @@ const createPluginBindings = (deps: PluginDeploymentDeps): PluginBinding[] => {
   ]
 }
 
+// Bootstrap 이 넘기는 **능력** 한 벌. 배포는 이것만으로 조립해야 한다 — 여기 없는 것을 쓰면
+// 범용 `bootstrap.ts` 를 고쳐야 한다는 뜻이고, 그것이 0188 r3·0237 r2 가 깬 경계다.
+const pluginDeps = (
+  base: Pick<PluginDeploymentDeps, 'auth' | 'registry'>,
+  overrides: Partial<PluginDeploymentDeps> = {}
+): PluginDeploymentDeps => ({
+  ...base,
+  secretFor: () => () => null,
+  userDataRoot: 'C:/Users/tester/AppData/Roaming/orca',
+  ...overrides
+})
+
 const createJiraPluginBinding = (
   deps: PluginDeploymentDeps,
   apiBasePath = JIRA_API_BASE_PATH
 ): PluginBinding => {
-  const jiraAuth = deps.auth.bind(JIRA_AUTH.id)
-  const server = jiraTools(
-    {
-      authId: jiraAuth.authId,
-      label: JIRA_AUTH.label,
-      origin: JIRA_AUTH.origin,
-      request: (request, signal) => jiraAuth.request(request, signal)
-    },
-    { apiBasePath }
-  )
+  const jiraAuth = deps.auth.bindForPlugin(JIRA_AUTH.id)
+  const server = jiraTools(jiraAuth, { apiBasePath })
   return createPluginBinding({
     auth: jiraAuth,
     server,
@@ -250,7 +265,7 @@ describe('가상 배포 — Plugin 경계', () => {
   it('주입 인자만으로 조립되고 도구가 registry 에 등록된다', () => {
     const { auth, registry } = deployment()
 
-    const plugins = createPluginBindings({ auth, registry })
+    const plugins = createPluginBindings(pluginDeps({ auth, registry }))
     for (const plugin of plugins) plugin.sync()
 
     expect(registry.snapshot().servers.size).toBe(1)
@@ -259,7 +274,7 @@ describe('가상 배포 — Plugin 경계', () => {
 
   it('Jira PAT recipe는 probe, catalog, 14 tools와 BoundAuth request를 끝까지 잇는다', async () => {
     const { auth, registry, requests } = deployment()
-    const binding = createJiraPluginBinding({ auth, registry })
+    const binding = createJiraPluginBinding(pluginDeps({ auth, registry }))
     binding.sync()
 
     expect(JIRA_AUTH.probe?.path).toBe('/rest/api/2/myself')
@@ -280,7 +295,7 @@ describe('가상 배포 — Plugin 경계', () => {
 
   it('Jira probe 403은 공통 headers로 전송하고 grant와 tool registry를 유지한다', async () => {
     const { auth, registry, requests, requestHeaders } = deployment({ jiraProbeStatus: 403 })
-    const binding = createJiraPluginBinding({ auth, registry })
+    const binding = createJiraPluginBinding(pluginDeps({ auth, registry }))
     binding.sync()
     const unsubscribe = auth.subscribe((change) => {
       if (change.kind === 'snapshot' && change.authId === JIRA_AUTH.id) binding.sync()
@@ -299,7 +314,7 @@ describe('가상 배포 — Plugin 경계', () => {
 
   it('Jira probe 401은 grant를 만료시키고 tool registry에서 회수한다', async () => {
     const { auth, registry } = deployment({ jiraProbeStatus: 401 })
-    const binding = createJiraPluginBinding({ auth, registry })
+    const binding = createJiraPluginBinding(pluginDeps({ auth, registry }))
     binding.sync()
     const unsubscribe = auth.subscribe((change) => {
       if (change.kind === 'snapshot' && change.authId === JIRA_AUTH.id) binding.sync()
@@ -315,7 +330,7 @@ describe('가상 배포 — Plugin 경계', () => {
   it('Jira context path는 같은 API base에서 probe와 tools request path를 파생한다', async () => {
     const apiBasePath = normalizeJiraApiBasePath('/company/jira/rest/')
     const { auth, registry, requests } = deployment({ jiraApiBasePath: apiBasePath })
-    const binding = createJiraPluginBinding({ auth, registry }, apiBasePath)
+    const binding = createJiraPluginBinding(pluginDeps({ auth, registry }), apiBasePath)
     binding.sync()
 
     await auth.resume(JIRA_AUTH.id)
@@ -328,7 +343,7 @@ describe('가상 배포 — Plugin 경계', () => {
 
   it('해제하면 도구가 회수되고 카탈로그 이름은 남는다', () => {
     const { auth, registry } = deployment()
-    const plugins = createPluginBindings({ auth, registry })
+    const plugins = createPluginBindings(pluginDeps({ auth, registry }))
     for (const plugin of plugins) plugin.sync()
 
     auth.revoke(CONFLUENCE_AUTH.id)
@@ -477,7 +492,7 @@ describe('가상 배포 — 카탈로그 row', () => {
   it('gate·harness·plugin·usage 네 category 가 모두 행으로 나온다', () => {
     const { auth, registry } = deployment()
     const gateSelection = selectGateMembers(GATE_AUTH_DEFINITIONS, (id) => auth.tryBind(id))
-    const plugins = createPluginBindings({ auth, registry })
+    const plugins = createPluginBindings(pluginDeps({ auth, registry }))
     const gate = createGate({ members: gateSelection.members, bypass: () => false })
 
     const connections = createConnectionSources({
@@ -515,7 +530,7 @@ describe('production 배포 factory — 기본 배포 계약', () => {
   it('createPluginBindings 는 기본 배포에서 비어 있다', () => {
     const { auth, registry } = deployment()
 
-    const bindings = productionPluginBindings({ auth, registry })
+    const bindings = productionPluginBindings(pluginDeps({ auth, registry }))
 
     expect(bindings).toEqual([])
     expect(registry.snapshot().servers.size).toBe(0)
@@ -524,7 +539,7 @@ describe('production 배포 factory — 기본 배포 계약', () => {
   it('createConnectionSources 는 gate·plugin row 만 만든다', () => {
     const { auth, registry } = deployment()
     const gateSelection = selectGateMembers(GATE_AUTH_DEFINITIONS, (id) => auth.tryBind(id))
-    const plugins = productionPluginBindings({ auth, registry })
+    const plugins = productionPluginBindings(pluginDeps({ auth, registry }))
 
     const rows = productionConnectionSources({
       auth,
@@ -580,7 +595,12 @@ describe('배포 factory 의 능력 경계 (0190)', () => {
       snapshot: () => ({ authId: 'corp', status: 'valid', verified: true, credentialRevision: 1 }),
       request: () => Promise.reject(new Error('not used'))
     }
-    const deps: HarnessConfigApiDeps = { auth: { bind: () => stub } }
+    const deps: HarnessConfigApiDeps = {
+      auth: {
+        bind: () => stub,
+        bindForPlugin: () => ({ ...stub, label: 'Corp', origin: 'https://corp.example' })
+      }
+    }
 
     // 허용된 능력.
     expect(deps.auth.bind('corp').authId).toBe('corp')
@@ -708,5 +728,161 @@ describe('resolve-turn 이 배포 injector 를 두 조립 경로에 넘긴다 (0
     expect(
       countOf("import { SPAWN_ENV_INJECTOR } from '../deployment/spawn-env'", INJECTOR_ARG)
     ).toBe(0)
+  })
+})
+
+// ── 배포 경계: bootstrap 은 plugin 고유 어휘를 모른다 (0237 ΔV2 — D-051) ────────
+//
+// `plugins.ts:74-76` 이 잠근 불변식이다: "배포가 이 시그니처를 바꾸면 안 된다 — 바꾸는 순간
+// 배포가 범용 `bootstrap.ts` 까지 고쳐야 하고, '배포가 고치는 파일은 `app/deployment/` 묶음뿐'
+// 이라는 경계가 깨진다". 0188 r3 과 0237 r2 가 실제로 그렇게 깼다.
+//
+// **음성 스윕 단독은 배선 삭제에 침묵한다.** 그래서 같은 describe 안에 양성 케이스를 짝지어,
+// `app/deployment/` 형상만으로 mail 이 끝까지 조립되는지 함께 본다.
+describe('배포 경계 — 컴포지션 루트는 plugin 고유 어휘를 모른다 (0237 D-051)', () => {
+  const GENERIC_ROOT = join(__dirname, '..')
+  const PLUGIN_VOCABULARY = /\b(mail|Mail|MAIL|pop3|Pop3|POP3)\b/
+
+  it.each([
+    ['bootstrap.ts', join(GENERIC_ROOT, 'bootstrap.ts')],
+    ['index.ts', join(GENERIC_ROOT, '..', 'index.ts')]
+  ])('%s 에 plugin 고유 어휘가 0건이다', (_name, path) => {
+    const source = readFileSync(path, 'utf8')
+
+    const hits = source.split('\n').filter((line) => PLUGIN_VOCABULARY.test(line))
+
+    expect(hits).toEqual([])
+  })
+
+  // 가드 자신이 도는지 — 어휘가 들어 있는 소스를 실제로 잡는지 본다. 이게 없으면 정규식이
+  // 아무것도 못 잡는 상태로 "0건" 이 될 수 있다.
+  it('가드는 plugin 고유 어휘를 실제로 잡는다', () => {
+    const reintroduced = "import { createPop3Socket } from '../infra/net/pop3-socket'"
+
+    expect(PLUGIN_VOCABULARY.test(reintroduced)).toBe(true)
+  })
+
+  // 양성 — Bootstrap 이 넘기는 **능력만으로** 비-HTTP Plugin 이 조립된다. 여기서 쓰는 것이
+  // `PluginDeploymentDeps` 에 없으면 컴파일이 깨진다.
+  it('app/deployment 형상만으로 mail Plugin 이 조립되고 secret 이 전송까지 닿는다', () => {
+    const { auth, registry } = deployment()
+    const secrets: Record<string, string> = { [MAIL_AUTH.id]: 'pop3-password' }
+    const deps = pluginDeps(
+      { auth, registry },
+      { secretFor: (authId) => () => secrets[authId] ?? null }
+    )
+
+    // 폐쇄망 배포가 `app/deployment/plugins.ts` 안에 적는 것과 같은 코드다.
+    const mailAuth = deps.auth.bindForPlugin(MAIL_AUTH.id)
+    const transport = {
+      password: deps.secretFor(MAIL_AUTH.id),
+      root: deps.userDataRoot,
+      socketFactory: vi.fn()
+    }
+    const binding = createPluginBinding({
+      auth: mailAuth,
+      server: mailTools(mailAuth, transport, {
+        accountId: MAIL_AUTH.id,
+        host: 'pop.example.corp',
+        port: 995,
+        tls: true
+      }),
+      registry: deps.registry
+    })
+    binding.sync()
+
+    expect(binding.server.descriptor.connectorId).toBe(MAIL_AUTH.id)
+    expect(binding.toolNames()).toEqual([
+      'mcp__mail-corp-tools__mail_sync',
+      'mcp__mail-corp-tools__mail_search',
+      'mcp__mail-corp-tools__mail_getAttachment'
+    ])
+    expect(registry.snapshot().servers.size).toBe(1)
+    // AuthId 를 닫은 closure 가 실제 값을 돌려준다 — 배포가 `AuthSecretReader` 를 만지지 않는다.
+    expect(transport.password()).toBe('pop3-password')
+    expect(transport.root).toBe(deps.userDataRoot)
+    // 조립만으로는 소켓이 열리지 않는다(부팅 단계를 바꾸지 않는다 — D-030·§10 EP-06).
+    expect(transport.socketFactory).not.toHaveBeenCalled()
+  })
+
+  it('bindForPlugin 은 선언되지 않은 Plugin Auth 를 조립 시점에 거부한다', () => {
+    const { auth, registry } = deployment()
+    const deps = pluginDeps({ auth, registry })
+
+    expect(() => deps.auth.bindForPlugin('never-declared')).toThrow('unknown auth: never-declared')
+  })
+})
+
+// ── 조립 표면: 세 Plugin 이 같은 형상이다 (0237 ΔV2 — D-049·D-050 / AC35 / EP-21) ──
+describe('Plugin factory 조립 표면 (0237 D-049)', () => {
+  it('confluence·jira 는 auth 포트 하나로 조립된다 — label·origin 재기입이 없다', () => {
+    const { auth, registry } = deployment()
+    const deps = pluginDeps({ auth, registry })
+
+    const confluenceAuth = deps.auth.bindForPlugin(CONFLUENCE_AUTH.id)
+    const jiraAuth = deps.auth.bindForPlugin(JIRA_AUTH.id)
+
+    // 선언이 곧 포트다 — 배포가 옮겨 적을 자리가 없다.
+    expect(confluenceAuth.label).toBe(CONFLUENCE_AUTH.label)
+    expect(confluenceAuth.origin).toBe(CONFLUENCE_AUTH.origin)
+    expect(jiraTools(jiraAuth).descriptor.connectorId).toBe(JIRA_AUTH.id)
+    expect(jiraTools(jiraAuth).descriptor.tools[0]?.description).toContain(JIRA_AUTH.label)
+  })
+
+  // 음성 — 배포 소스 어디에도 `label:`·`origin:` 을 손으로 옮겨 적는 자리가 없다. 어긋나면
+  // 도구는 모델에 보이는데 호출은 인증 대상을 못 찾고, 컴파일러도 등록 검사도 잡지 못한다.
+  it('배포 소스가 label·origin 을 다시 적지 않는다', () => {
+    const source = stripCommentsAndStrings(readFileSync(join(__dirname, 'plugins.ts'), 'utf8'))
+
+    expect(source).not.toMatch(/\blabel\s*:/)
+    expect(source).not.toMatch(/\borigin\s*:/)
+  })
+})
+
+// ── 문서 계약: 레시피 정본이 실제 시그니처와 갈리지 않는다 (0237 AC39) ─────────
+//
+// `closed-network-extensions.md` 는 배포자가 읽는 **유일한 진입 경로**다(가이드 §1 "레시피 정본은
+// 이 문서다"). 표가 낡으면 배포자는 없는 능력으로 조립을 시도하거나, 있는 능력을 모른 채
+// `bootstrap.ts` 를 연다 — 0237 r2 가 정확히 그 상태였다(`mail`·`credentialRejectionReporter` 를
+// 추가하고 표는 `auth · registry · logger?` 로 남겨 뒀다).
+describe('문서 계약 — 가이드 factory 표가 실제 능력을 전부 적는다 (0237 D-053)', () => {
+  const GUIDE = join(__dirname, '../../../../../docs/guides/closed-network-extensions.md')
+
+  // `PluginDeploymentDeps` 의 키를 타입이 아니라 **값**으로 고정한다. 키를 늘리면 여기가 먼저
+  // 깨지므로 표를 고치지 않고 지나갈 수 없다.
+  const CAPABILITIES: Record<keyof PluginDeploymentDeps, true> = {
+    auth: true,
+    registry: true,
+    logger: true,
+    secretFor: true,
+    userDataRoot: true,
+    credentialRejectionReporter: true
+  }
+
+  it('createPluginBindings 행이 모든 능력을 명시한다', () => {
+    const row = readFileSync(GUIDE, 'utf8')
+      .split('\n')
+      .find((line) => line.includes('`createPluginBindings(deps)`'))
+
+    expect(row).toBeDefined()
+    const missing = Object.keys(CAPABILITIES).filter((key) => !row!.includes(key))
+    expect(missing).toEqual([])
+  })
+
+  it('레시피가 구 조립 형상을 더 이상 시연하지 않는다', () => {
+    const guide = readFileSync(GUIDE, 'utf8')
+
+    // 구 형상: 배포가 label·origin 을 손으로 옮겨 적던 ctx 객체.
+    expect(guide).not.toContain('label: CONFLUENCE_AUTH.label')
+    expect(guide).not.toContain('label: JIRA_AUTH.label')
+    // 구 형상: bootstrap 이 알던 mail 슬롯.
+    expect(guide).not.toContain('createPluginBindings({ auth, registry, mail })')
+  })
+
+  it('plugins.ts 헤더가 HTTP Plugin 한정을 말하고 불변식이 어휘 금지를 말한다', () => {
+    const source = readFileSync(join(__dirname, 'plugins.ts'), 'utf8')
+
+    expect(source).toContain('HTTP 가 아닌')
+    expect(source).toContain('plugin 고유 어휘는 넣지')
   })
 })

@@ -1167,6 +1167,114 @@ G1 재현 검색: `rg -n 'attachmentId|hasAttachments|mail_getAttachment' docs/h
 - 이전 라운드와 같은 축의 잠금은 서버 단위 binding, Auth verifier 미주입 불변, migration append-only이며 기존 회귀 스위트로 재실행했다.
 - 현재 라운드 수: 2. 다음 주체는 Claude 검증자이며, 이 보고는 구현자의 증거로만 사용한다.
 
+## [구현자 기입] 설계 리뷰 (r3 — ΔV2)
+
+- **READY 확인 후 구현 진행.** 유효 V `V1 + ΔV1 + ΔV2`의 D-048~D-053, AC34~AC39와 §10 EP-20~EP-23·정정된 EP-10·EP-17을 기준으로 구현했다. 구현 주체는 사용자 지시로 Claude다(0160·0162·0163·0176 선례).
+- 동의 / 그대로 진행: `PluginAuth` 포트 신설, `BoundAuth` 불변 유지, factory 첫 인자 단일화, 전송 deps 분리, `PluginDeploymentDeps`의 plugin-agnostic 화, verifier map 을 전부 설계대로 구현했다.
+- **D-052가 기술한 결함을 코드로 재현했다.** 구 형상(`Object.values(verifiers)[0]`)을 심자 신규 AC37 첫 케이스가 red 였고, 수정 후 green 이다 — 설계가 주장한 오적용이 실재했다.
+- ΔV2는 r2 구현 산출의 **조립 경계만** 바꾼다. 도구 이름·descriptor·DB 스키마·POP3 프로토콜·retention·보호 정책은 한 줄도 건드리지 않았고, 그 사실을 REGRESSION pair 4건으로 증명했다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조, r3)
+
+| EP | 지점 | 재현 명령 | 관측값 | 상태 |
+|---|---|---|---|---|
+| EP-20 ① | `bindForPlugin` 의 `registry.get` throw 분기 | `sed -n '208,212p' src/main/features/auth/runtime.ts` | `if (!definition) throw new Error(\`unknown auth: ${authId}\`)` 존재 | ✅ |
+| EP-20 ② | `bind` 본문에 registry 조회 **부재** | `sed -n '/const bind = (authId: AuthId): BoundAuth/,/^  })/p' … \| grep -c registry` | **0** | ✅ |
+| EP-21 ① | 세 factory 첫 인자가 `PluginAuth` | `grep -rn "auth: PluginAuth" src/main/features/plugins/*/tools.ts` | confluence 2 · jira 2 · mail 2 = **6선언**(상·하위 표면 각 1쌍) | ✅ |
+| EP-21 ② | 구 ctx 타입 정의 **부재** | `grep -rn "interface (Confluence\|Jira\|Mail)PluginContext" src/main` | **0** | ✅ |
+| EP-21 ③ | 배포가 `label:`·`origin:` 재기입 **0건** | `grep -cE "^\s*(label\|origin):" src/main/app/deployment/plugins.ts` | **0** | ✅ |
+| EP-22 ① | `PluginDeploymentDeps` 에 plugin 이름 키 **부재** | 타입 본문 grep `^\s+(mail\|confluence\|jira)\??:` | **0** (+ `CAPABILITIES: Record<keyof PluginDeploymentDeps, true>` 가 typecheck 로 강제) | ✅ |
+| EP-22 ② | `bootstrap.ts`·`index.ts` 의 mail·POP3 어휘 **0건** | `grep -cE "\b(mail\|Mail\|MAIL\|pop3\|Pop3\|POP3)\b" …` | 두 파일 **0 / 0** | ✅ |
+| EP-22 ③ | 배포 레이어가 `createPop3Socket`·mail 실값을 소유 | `grep -rn "createPop3Socket" src/main --glob '!*.test.ts'` | 프로덕션 **import 0건** — 아래 §설계 대비 차이 D1 | ⚠️ |
+| EP-23 ① | `createMailToolServer` 가 manager 를 인자로 받음 | `grep -n "export function createMailToolServer" -A 3 …` | `manager: () => Promise<MailToolManagerPort>` | ✅ |
+| EP-23 ② | `createMailSyncManager` 호출부가 상위 1곳 | `grep -rn "createMailSyncManager(" src/main --glob '!*.test.ts'` | 정의 1 + 호출 **1**(`tools.ts:54`) | ✅ |
+| EP-10 ① | `MailTransport.password` 가 closure 만 받음 | `grep -n "readonly password" src/main/features/plugins/mail/transport.ts` | `() => string \| null` | ✅ |
+| EP-10 ② | 배포 주입부가 `secretFor` 를 쓴다 | `grep -rn "secretFor" src/main/app/bootstrap.ts` | `:421 secretFor: (authId) => () => secretReader.read(authId)` | ✅ |
+| EP-17 ① | `candidate` 조건 | `sed -n '523p' src/main/features/auth/login.ts` | `candidate ? … : undefined` | ✅ |
+| EP-17 ② | `verifiers[definition.id]` 조회 + 기존 probe 낙하 | 같은 줄 + `:524` | `this.deps.verifiers?.[definition.id]` · 미매치 시 아래 probe 경로 | ✅ |
+| EP-17 ③ | `:716` 거부 문구 분기 | r2 산출 유지(변경 없음) | 회귀 스위트 green | ✅ |
+| EP-17 ④ | 배포가 만든 map 에 자기 authId 키만 | `grep -n "createAuthVerifiers" src/main/app/bootstrap.ts …` | bootstrap 이 map 을 받고 배포가 채운다. 기본 배포 `{}` | ✅ |
+
+**분모 검산**: ΔV2가 만지는 EP **6군**(EP-10·17·20·21·22·23) · **16지점** 중 닫은 지점 **15/16**, ⚠️ 1(EP-22 ③ — D1). ΔV2가 만지지 않은 EP-01~09·11~16·18·19의 r2 산출은 전체 스위트 green 으로 유지를 확인했다.
+
+- **음성 스윕 단독으로 두지 않았다**: EP-22 ②(어휘 0건)에 양성(가상 폐쇄망 배포가 도구 3종 등록 + secret 도달)을, EP-21 ③(재기입 0건)에 양성(세 factory 실제 조립)을 짝지었다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r3)
+
+| 심은 결함 | 출처 | 실패한 테스트 / 케이스 | 결과 |
+|---|---|---|---|
+| `verifiers` 조회를 `Object.values(...)[0]` 전역 분기로 되돌림 | VP-26 선택 증거 (D-052) | `login.test.ts > verifier 는 authId 로 스코프된다 > mail verifier 를 주입해도 wiki 는 HTTP probe 를 그대로 탄다` | **red** (1 failed / 62 passed) |
+| `bind` 를 registry 조회형으로 바꿔 미등록 id 에서 throw | VP-27 선택 증거 (D-048) | `runtime.test.ts > bind 는 미등록 id 에서도 총함수로 남는다` | **red** (1 failed / 48 passed) |
+| `bootstrap.ts` 에 `createPop3Socket` import 재도입 | VP-29 선택 증거 (D-051) | `deployment-wiring.test.ts > bootstrap.ts 에 plugin 고유 어휘가 0건이다` | **red** (1 failed / 28 passed) |
+| `plugins.ts` 에 `label:`·`origin:` 재기입 | VP-28 선택 증거 (D-049) | `deployment-wiring.test.ts > 배포 소스가 label·origin 을 다시 적지 않는다` | **red** (1 failed / 28 passed) |
+| 가이드 factory 표에서 `secretFor` 제거 | AC39 (새 oracle) | `deployment-wiring.test.ts > createPluginBindings 행이 모든 능력을 명시한다` | **red** (1 failed / 31 passed) |
+| `PluginDeploymentDeps` 에 `mail?` 슬롯 재도입 | AC39 (새 oracle, typecheck 축) | `TS2741: Property 'mail' is missing in type … Record<keyof PluginDeploymentDeps, true>` | **red** (typecheck exit 2) |
+
+**표 행 검산**: 선택 증거 **4**(VP-26·27·28·29) · 인용 변이 **0**(이번 라운드에 `closed` 로 적은 파생 이슈 없음) · 이번 턴에 만든 구조적/0건/배선 oracle **2**(AC39의 문서 드리프트 가드 · 능력 exhaustive map) = 표 행 **6**. VP-30(AC38)은 주입값이 결과에 그대로 나오는 것을 직접 관측하므로 plan 이 `not selected` 로 두었고 변이를 발명하지 않았다.
+
+- **덮개 회귀 확인**: r2가 세운 장치를 지우거나 약화하지 않았다 — `plugins.test.ts`·`deployment-wiring.test.ts`의 서버 단위 add/remove, `login.test.ts`의 verifier 미주입 경로, migration append-only 가드를 전부 그대로 실행했다. `mail/tools.test.ts`는 케이스를 **늘렸다**(2 → 5): 기존 두 단언(도구 3종·annotations 3자리 / 단건 스키마)을 글자 그대로 유지한 채 seam·오류 은닉·조립 케이스를 더했다.
+
+## [구현자 기입] Product/UX 파생 검토 (r3)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 사용자가 관측하는 동작이 바뀌는가 | ✅ 한 곳만 — mail 과 다른 Plugin Auth 를 함께 켠 배포에서 각 연결 버튼이 자기 방식으로 인증된다(R-08). 방향은 **회복**이다 | AC37 독립 확인 |
+| 새로 만든 문자열·상태에 소비자가 있는가 | ✅ `unknown auth: <id>` 는 조립 시점 throw 라 **부팅 진단 로그**로 간다 — renderer 문구가 아니다. 새 사용자 대면 문구 0건 | 해당 없음 |
+| 실패가 "아무 일도 안 일어남" 으로 보이는가 | ✅ 아니다. 미등록 authId 로 조립하면 부팅이 그 자리에서 throw 하고 `boot-report` 가 사유를 싣는다. 조용히 빈 도구 목록이 되지 않는다 | 사람 실기에서 로그 확인 |
+| 도구 이름·승인 카드가 바뀌는가 | ✅ 아니다 — descriptor 3자리·도구 3종 이름·`connectorId` 전부 불변. VP-13 회귀가 잠근다 | AC22 독립 확인 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r3)
+
+| # | 문제 | 대응 | 분류 |
+|---|---|---|---|
+| P4 | `plugins.ts`·`auth-verifiers.ts` 의 조립 레시피가 **주석**이라 typecheck 를 받지 않는다. 시그니처가 또 바뀌면 주석만 낡을 수 있다 | 실행되는 대응물을 `deployment-wiring.test.ts` 의 가상 배포에 두고 인자 타입을 실제 `PluginDeploymentDeps` 로 못 박았다. 추가로 AC39 가 가이드의 구 형상 3종 부재를 단언한다. 주석 자체를 컴파일 대상으로 만들지는 못했다 | NON_BLOCKING |
+| P5 | `AuthBinder` 가 `bind`·`bindForPlugin` 둘을 갖는다. 배포가 Plugin 조립에 `bind` 를 써도 컴파일이 통과한다(단 `label` 이 없어 factory 대입에서 깨진다) | factory 3종이 `PluginAuth` 를 요구하므로 **조립 시점에 타입으로 막힌다**. `bind` 를 남긴 이유는 `runtime-model-startup.ts` 축이며 EP-20 ②가 그것을 잠근다 | NON_BLOCKING |
+| P6 | 기본 배포가 `[]` 라 mail Plugin 의 **프로덕션 도달 경로가 여전히 없다** — 폐쇄망 배포가 `app/deployment/` 를 채워야 한다 | D-030 이 그렇게 정했고 ΔV2 가 바꾸지 않는다. ΔV2 가 고친 것은 "채우려면 범용 파일 2개를 고쳐야 했다" 쪽이다 | 설계대로 |
+
+### 설계 대비 명시적 차이 (r3)
+
+**D1 — EP-22 ③의 지점을 프로덕션 import 가 아니라 타입 고정 + 가상 배포로 닫았다.**
+
+plan §10 EP-22 ③은 "`app/deployment/plugins.ts` 가 `createPop3Socket` 과 mail 실값을 소유(양성)" 이라고 적었다. 그대로 구현하면 **기본 OSS 배포가 mail 을 켜게 되어 D-030("기본 배포의 `createPluginBindings()` 는 계속 `[]` 를 돌려준다")과 정면 충돌**한다. `deployment-wiring.test.ts` 의 기존 계약 테스트(`createPluginBindings 는 기본 배포에서 비어 있다`)도 그것을 잠그고 있다. ACTIVE Decision 이 이기므로 프로덕션 파일은 비운 채, 소유권을 **① 타입**(`PluginDeploymentDeps` 가 `secretFor`·`userDataRoot` 를 주고 plugin 키를 막는다) **② 주석 레시피** **③ 가상 배포의 실행 증명**으로 나눠 닫았다.
+
+대체물이 갖고 원본이 갖지 않던 실패 모드를 축마다 재확인했다:
+
+| 축 | 대체물의 실패 모드 | 다시 확인한 행 |
+|---|---|---|
+| 만료 | **해당 없음** — 상수·import 는 시간에 따라 변하지 않는다 | — |
+| 공유 | 가상 배포는 테스트 파일이 소유한다 → 프로덕션 시그니처가 바뀌어도 함께 바뀌지 않을 수 있다 | 가상 factory 의 인자를 실제 `PluginDeploymentDeps` 로 못 박아 **능력이 줄면 컴파일이 깨진다**(변이 6에서 실측: `TS2741`) |
+| 재진입 | **해당 없음** — 조립은 부팅 1회다 | EP-06(freshness) 은 r2 산출이고 ΔV2 가 건드리지 않았다 |
+| 다른 무효화 축 | **주석 레시피는 typecheck 를 받지 않는다** — 구 형상이 주석에 남아도 컴파일이 깨지지 않는다 | AC39 두·세 번째 케이스가 가이드의 구 형상 3종 부재와 `plugins.ts` 헤더 문구를 단언한다. 주석 본문 전체를 잠그지는 못하므로 P4 로 남겼다 |
+
+**D2 — `mailTools` 에 네 번째 선택 인자 `toolOptions?: { now? }` 를 두었다.**
+plan 은 `mailTools(auth, transport, options)` 3인자로 적었다. 주입 시계(`now`)는 전송도 plugin 옵션도 아니라 둘 중 어디에 넣어도 의미가 어긋나, **선택 인자로 분리**했다. 배포는 이 인자를 넘기지 않는다(기본값 `{}`).
+
+**D3 — `MailToolManagerPort` 를 신설했다.**
+plan 은 `createMailToolServer(auth, manager)` 만 적고 manager 의 타입을 정하지 않았다. `MailSyncManager` 전체를 요구하면 seam 이 DB 를 다시 끌고 오므로, 도구 계층이 실제로 부르는 3메서드만 포트로 좁혔다. `MailSyncManager` 가 구조적으로 만족한다.
+
+## [구현자 기입] 구현 보고 (r3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `contracts/auth.ts` · `features/auth/{runtime,login}.ts` · `features/plugins/{confluence,jira,mail}/tools.ts` · `jira/service.ts` · `mail/transport.ts`(신규) · `app/deployment/{plugins,auth-verifiers}.ts` · `app/bootstrap.ts` · 테스트 7파일 · `docs/guides/closed-network-extensions.md` · `docs/arch/backend/auth.md` |
+| 실행 명령 | `cd app && npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run`(전체) · `node scripts/check-migrations-appendonly.mjs` · `node --test scripts/check-migrations-appendonly.test.mjs` · `node scripts/check-doc-inventory.mjs --check` |
+| 관측한 게이트 산출 | lint **0 error / 1 warning**(기존 renderer `react-hooks/incompatible-library`) · typecheck 3구성 **0 error** · Vitest **540파일 1skip / 4970 pass 3 skip** · migration guard 27+1 sync ok · migration test **19케이스 fail 0** · docs inventory **9 items / 98 channels ok**, prose ok, links ok |
+| 환경 한계 | 초기 `npm ci` 후 better-sqlite3 가 **Electron ABI** 라 DB 로드 스위트 2케이스가 `Module did not self-register` 로 red 였다. `app/AGENTS.md` 가 허용한 `npm rebuild better-sqlite3`(Node ABI)로 재빌드하니 **동일 스위트 620/620 green** — 코드 무관을 실측으로 분리했다 |
+| V-pair 자기확인 | `VP-26·27·28·29·30` **SELF_PASS**(각각 선택 증거 또는 직접 oracle 로 red 를 확인). REGRESSION `VP-13·VP-11·VP-05·VP-23` **SELF_PASS**(기존 스위트 재실행) |
+| 강제 지점 전수 | ΔV2 대상 **6군 16지점 중 15 ✅ · 1 ⚠️**(EP-22 ③ → D1). 나머지 EP 는 r2 산출 유지 |
+| **AC 자기보고**(`Criteria-Met`) | **18/41** — r2의 11건(AC11·16·18·19·20·22·25·25b·31·32·33, 전체 스위트 green 으로 유지 확인) + ΔV2 신규 6건(AC34~AC39) + AC30(verifier 미주입 축을 신규 스위트 3번째 케이스가 직접 단언) |
+| **Criteria-Pending** | AC1~10·AC12~15·AC17·AC21·AC23·AC24·AC26~29 — fake POP3 왕복·실서버 TLS/MIME 이 필요한 축으로 r2와 동일하다. **분모가 35 → 41 로 바뀌었으므로 r2의 11/35 와 직접 비교하지 않는다** |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r3 구현 — 검증자 기입)` |
+
+## [구현자 기입] Review Signals — 사실만 (r3)
+
+- 이번 라운드가 닫은 불변식은 **"조립 계약은 auth 포트 하나로 닫힌다"** 와 **"컴포지션 루트는 plugin 고유 어휘를 모른다"** 다. 후자는 `plugins.ts:74-76` 이 주석으로 잠갔던 것이고, r2 가 그 주석을 남긴 채 깼다 — **주석만으로 세운 불변식은 강제되지 않는다**는 축이 반복됐다(0188 r3 에 이어 두 번째).
+- 이번에 세운 장치는 그 축을 기계로 옮겼다: `PluginDeploymentDeps` 의 능력 exhaustive map(typecheck) + 두 범용 파일의 어휘 0건 스윕(vitest) + 가이드 표 드리프트 가드.
+- 막았어야 할 plan 지침은 있었다 — §16 "기존 결정·규칙과의 관계" 표다. r2 의 plan 은 `auth.md §7`·§11 은 표에 올렸지만 **`plugins.ts:74-76` 의 시그니처 불변식은 표에 올리지 않았다.** 코드 주석이 잠근 결정을 §16 후보로 훑는 단계가 없어서 걸리지 않았다.
+- D-052 는 plan 턴의 조사에서 나왔다(구현 전). AC30 의 oracle 이 "verifier **미주입** Auth" 만 봐서 r2 의 게이트로는 잡히지 않는 구조였다.
+- 현재 라운드 수: 3. 다음 주체는 검증자이며 이 보고는 구현자의 증거로만 사용한다.
+
 ---
 
 ## [검증자 기입] 파생 이슈

@@ -16,7 +16,8 @@ import {
   type JiraPreparedInvocation
 } from './result'
 import { createJiraAttachmentStore, type JiraAttachmentStore } from './attachment-store'
-import type { JiraPluginContext, JiraServicePort, JiraToolName, JiraToolOptions } from './tools'
+import type { JiraServicePort, JiraToolName, JiraToolOptions } from './tools'
+import type { PluginAuth } from '../../../contracts/auth'
 
 type Input = Readonly<Record<string, unknown>>
 type JsonObject = Record<string, unknown>
@@ -59,11 +60,11 @@ function parseJson(response: AuthenticatedResponse): unknown {
 }
 
 async function requestJson(
-  ctx: JiraPluginContext,
+  auth: PluginAuth,
   request: AuthenticatedRequest,
   signal?: AbortSignal
 ): Promise<unknown> {
-  const response = await ctx.request(request, signal)
+  const response = await auth.request(request, signal)
   if (!response.ok) {
     let parsed: unknown
     try {
@@ -112,7 +113,7 @@ function selectorOf(input: Input): { key: string; single: boolean } {
 }
 
 export function createJiraService(
-  ctx: JiraPluginContext,
+  auth: PluginAuth,
   options: JiraToolOptions = {},
   store: JiraAttachmentStore = createJiraAttachmentStore()
 ): JiraServicePort {
@@ -136,7 +137,7 @@ export function createJiraService(
   ): Promise<JiraDownloadData | JiraPreparedInvocation> {
     const selector = selectorOf(input)
     const metadata = await requestJson(
-      ctx,
+      auth,
       buildJiraRequest('jira_downloadAttachment', input, basePath, pageSize),
       signal
     )
@@ -161,7 +162,7 @@ export function createJiraService(
       reason: 'call_limit' as const
     }))
     const save = input.save === true
-    const batch = save ? await store.begin(ctx.authId, selector.key) : undefined
+    const batch = save ? await store.begin(auth.authId, selector.key) : undefined
     const output: JiraDownloadedAttachment[] = []
     try {
       for (const item of selected) {
@@ -170,8 +171,8 @@ export function createJiraService(
         if (item.size !== undefined && item.size > attachmentMax) {
           throw new JiraToolError('attachment_too_large', 'attachment_too_large')
         }
-        const response = await ctx.request(
-          attachmentContentRequest(ctx.origin, item.content, attachmentMax),
+        const response = await auth.request(
+          attachmentContentRequest(auth.origin, item.content, attachmentMax),
           signal
         )
         if (!response.ok) {
@@ -235,13 +236,13 @@ export function createJiraService(
       if (tool === 'jira_downloadAttachment') return download(input, signal)
       if (tool === 'jira_getIssueDevelopmentInfo') {
         const issue = object(
-          await requestJson(ctx, buildJiraRequest(tool, input, basePath, pageSize), signal)
+          await requestJson(auth, buildJiraRequest(tool, input, basePath, pageSize), signal)
         )
         if (!issue || issue.id === undefined) {
           throw new JiraToolError('invalid_response', 'Could not resolve numeric Jira issue id')
         }
         return requestJson(
-          ctx,
+          auth,
           buildDevelopmentInfoRequest(
             String(issue.id),
             typeof input.dataType === 'string' ? input.dataType : undefined,
@@ -251,7 +252,7 @@ export function createJiraService(
           signal
         )
       }
-      return requestJson(ctx, buildJiraRequest(tool, input, basePath, pageSize), signal)
+      return requestJson(auth, buildJiraRequest(tool, input, basePath, pageSize), signal)
     }
   }
 }

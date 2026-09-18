@@ -74,7 +74,7 @@ import { registerLogHandlers } from './handlers/log'
 import { registerConnectionHandlers } from './handlers/providers'
 import { WorktreeService } from '../features/worktrees/service'
 import { createAuthRuntime } from '../features/auth/runtime'
-import type { LoginDeps } from '../features/auth/login'
+import type { AuthCandidateVerifier } from '../features/auth/login'
 import { createGrantPersistence, createOAuthStatePersistence } from '../features/auth/store-file'
 import { OAuthStateStore } from '../features/auth/oauth'
 import { OAuthRunner } from '../features/auth/oauth-runner'
@@ -103,14 +103,12 @@ import {
   RUNTIME_MODEL_CONTRIBUTIONS
 } from './deployment/harness-runtime'
 import { createPluginBindings } from './deployment/plugins'
-import { createPop3Socket } from '../infra/net/pop3-socket'
-import type { MailPluginOptions, Pop3SocketFactory } from '../features/plugins/mail/types'
-import type { MailPluginDeployment } from './deployment/plugins'
+import { createAuthVerifiers } from './deployment/auth-verifiers'
 import { createConnectionSources } from './deployment/connections'
 import { createUsageFetcher } from './deployment/usage-fetcher'
 import { connectionState, duplicateConnectionAuthIds } from './connection-views'
 import type { ConnectionViewSource } from './connection-views'
-import type { AuthRuntime, AuthSecretReader } from '../contracts/auth'
+import type { AuthId, AuthRuntime, AuthSecretReader } from '../contracts/auth'
 import { errorMessage } from '../infra/errors'
 import { createVault } from '../infra/vault'
 import { BrowserSessionStore } from '../infra/browser-session'
@@ -147,14 +145,6 @@ import {
 } from '../features/chat/session-activity-projector'
 import { clientLeaseKey } from '../features/sessions/session-chain-lease'
 import { deriveLeaseGateState } from '../features/sessions/restart-gate'
-
-export interface BootstrapMailDeployment {
-  readonly authId: string
-  readonly options: MailPluginOptions
-  readonly root?: string
-  readonly socketFactory?: Pop3SocketFactory
-  readonly verify?: LoginDeps['verify']
-}
 
 export class Bootstrap {
   private readonly bootReport = createBootReportRecorder()
@@ -196,8 +186,7 @@ export class Bootstrap {
       conflicts: [],
       failed: [],
       configRoots: { legacy: '', current: '' }
-    },
-    private readonly mailDeployment?: BootstrapMailDeployment
+    }
   ) {}
 
   private builtinSkillsDir(): string {
@@ -278,7 +267,7 @@ export class Bootstrap {
   // Harness direct-credential augmenter 에만 AuthId 를 닫은 closure 로 전달한다(0188 D-010).
   private createAuthStack(
     secretStore: SecretStore,
-    mail?: BootstrapMailDeployment
+    verifiers: Readonly<Record<AuthId, AuthCandidateVerifier>>
   ): {
     auth: AuthRuntime
     secretReader: AuthSecretReader
@@ -334,7 +323,7 @@ export class Bootstrap {
         sessions,
         logger: (event, data) => log.info(event, data)
       }),
-      ...(mail?.verify ? { verify: mail.verify } : {}),
+      ...(Object.keys(verifiers).length > 0 ? { verifiers } : {}),
       logger: (event, data) => log.warn(event, data),
       // 선언에서 사라진 Auth 의 grant 는 **지우지 않는다** — 선언이 일시적으로 빠진 빌드에서
       // 재로그인을 강요하지 않기 위함이다.
@@ -388,6 +377,8 @@ export class Bootstrap {
       }
     )
     const secretStore = new SecretStore()
+    // 캐시 DB·staging 의 루트. **경로 계산은 여기 한 곳**이고 배포는 그 값을 받아 쓴다.
+    const userDataRoot = app.getPath('userData')
     // 0181 — 런타임 도구 기여자는 `Provider{kind:'service'}.tools` 다.
     const runtimeTools = new RuntimeToolRegistry()
 
@@ -400,7 +391,7 @@ export class Bootstrap {
     const { auth, secretReader, credentialRejectionReporter } = this.bootReport.stepSync(
       'provider-platform',
       { critical: true, label: '인증 스택' },
-      () => this.createAuthStack(secretStore, this.mailDeployment)
+      () => this.createAuthStack(secretStore, createAuthVerifiers({ userDataRoot }))
     )
     // MCP `${BINDING:<대상>}` 의 토큰 소스 — **전체 reader 가 아니라 좁은 closure** 만 넘긴다.
     // 주입 전에 배포된 설정에는 인증이 필요한 서버가 빠진다(fail-closed).
@@ -425,18 +416,10 @@ export class Bootstrap {
       auth,
       registry: runtimeTools,
       credentialRejectionReporter,
-      ...(this.mailDeployment
-        ? {
-            mail: {
-              authId: this.mailDeployment.authId,
-              options: this.mailDeployment.options,
-              password: () => secretReader.read(this.mailDeployment!.authId),
-              root: this.mailDeployment.root ?? app.getPath('userData'),
-              socketFactory: this.mailDeployment.socketFactory ?? createPop3Socket,
-              reportCredentialRejected: credentialRejectionReporter
-            } satisfies MailPluginDeployment
-          }
-        : {}),
+      // **AuthId 를 닫은 closure 만** 넘긴다 — `secretReader` 자체는 컴포지션 루트를 벗어나지
+      // 않는다(0188 D-010). 어떤 Plugin 이 이것을 쓰는지는 배포가 알고 여기는 모른다.
+      secretFor: (authId) => () => secretReader.read(authId),
+      userDataRoot,
       logger: (event, data) => getLogger().child('plugin').info(event, data)
     })
     for (const plugin of plugins) plugin.sync()

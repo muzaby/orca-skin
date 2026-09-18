@@ -410,6 +410,22 @@ export interface BoundAuth {
   request(request: AuthenticatedRequest, signal?: AbortSignal): Promise<AuthenticatedResponse>
 }
 
+// Plugin 이 조립에 쓰는 포트 (0237 ΔV2 — D-048).
+//
+// `BoundAuth` 에 **선언이 이미 공개하는 두 값**만 얹는다. 비밀이 아니다 — `AuthDescriptor` 가
+// 같은 둘을 renderer 까지 내보낸다. 이것이 있어야 Plugin tool server factory 가 인자 하나로
+// 조립된다: 도구 설명에 서비스 이름을 싣고(`label`), 첨부 출처를 절대 URL 로 남긴다(`origin`).
+//
+// **`BoundAuth` 자체를 넓히지 않는 이유**: `bind()` 는 registry 를 조회하지 않는 **총함수**다.
+// `runtime-model-startup.ts` 의 카탈로그 재조정이 임의 authId 로 `bind(id).snapshot()` 을 부르고
+// 미등록 id 에서도 동작해야 한다. `label` 을 채우려면 조회가 필요하고, 조회는 미등록 id 에서
+// 판정을 요구한다 — 그 판정을 `bind` 에 넣으면 그 축이 죽는다. 그래서 **조회가 필요한 쪽만**
+// 별도 능력으로 분리한다.
+export interface PluginAuth extends BoundAuth {
+  readonly label: string
+  readonly origin: string
+}
+
 // 자기 Auth 를 고르기만 하는 소비자의 표면 (0190).
 //
 // 위 원칙("소비는 `AuthRuntime` 전체가 아니라 좁은 포트")을 **타입으로** 세운다. 0188 의 배포
@@ -420,10 +436,16 @@ export interface BoundAuth {
 //
 // **인증 lifecycle 을 도는 것은 배포의 일이 아니다** — 그것은 IPC 핸들러(`app/handlers/
 // providers.ts`)와 부팅 복원(`app/auth-resume.ts`)이 소유한다.
-export type AuthBinder = Pick<AuthRuntime, 'bind'>
+export type AuthBinder = Pick<AuthRuntime, 'bind' | 'bindForPlugin'>
 
 export interface AuthRuntime {
+  // **총함수다 — registry 를 조회하지 않는다.** 미등록 authId 도 묶이고 `snapshot()` 은
+  // `status:'none'` 을 돌려준다. 이 성질에 기대는 소비자가 있다(`runtime-model-startup.ts`).
   bind(authId: AuthId): BoundAuth
+  // Plugin 조립용 — `bind` 에 선언의 `label`·`origin` 을 얹는다. **미등록 authId 는
+  // `describe()` 와 같은 판정으로 throw 한다**: 이름 없이 조립된 도구는 모델에게 보이면서
+  // 어느 서비스인지 말하지 못한다.
+  bindForPlugin(authId: AuthId): PluginAuth
   tryBind(authId: AuthId): BoundAuth | null
   describe(authId: AuthId): AuthDescriptor
   currentStep(): AuthStep | null

@@ -5,15 +5,21 @@ import { authToolServerId } from '../../../adapters/runtime-tool-policy'
 import {
   createJiraToolServer,
   JIRA_TOOL_NAMES,
-  type JiraPluginContext,
   type JiraToolName,
   type JiraServicePort
 } from './tools'
+import type { PluginAuth } from '../../../contracts/auth'
 
-const ctx: JiraPluginContext = {
+const ctx: PluginAuth = {
   authId: 'jira-dc',
   label: 'Jira Corp',
   origin: 'https://jira.example.com',
+  snapshot: () => ({
+    authId: 'jira-dc',
+    status: 'valid',
+    verified: true,
+    credentialRevision: 1
+  }),
   request: vi.fn()
 }
 

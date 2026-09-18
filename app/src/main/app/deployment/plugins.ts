@@ -1,7 +1,9 @@
 // Plugin 배선 (0188 — 구 `features/providers/declarations/service.ts` + `service/index.ts`).
 //
 // Confluence 는 Auth 의 service contribution 이 아니라 **독립 Plugin** 이다. Plugin 모듈은
-// `BoundAuth.request` 와 자기 옵션만 받고, Runtime Tool 서버를 **한 번만** 만든다.
+// `PluginAuth` 하나로 조립되고, Runtime Tool 서버를 **한 번만** 만든다. 전송이 HTTP 가 아닌
+// Plugin(POP3 mail)만 전송 한 벌을 **이름 있는 두 번째 인자**로 더 받는다 — 그 갈래는 시그니처
+// 에서 보이고, 배포가 무엇을 더 줘야 하는지도 거기서 읽힌다(0237 D-050).
 //
 // ── 왜 범용 registrar 를 만들지 않는가 ───────────────────────────────────────
 // 0181 의 `ServiceToolRegistrar` 는 `Provider[]` 를 받아 `provider.tools` 를 훑는 일반화된
@@ -16,14 +18,12 @@
 
 import type { RuntimeToolServer, RuntimeToolSink } from '../../adapters/runtime-tools'
 import { runtimeToolFullName } from '../../adapters/runtime-tool-policy'
-import type { AuthBinder, BoundAuth } from '../../contracts/auth'
+import type { AuthBinder, AuthId, BoundAuth } from '../../contracts/auth'
 import {
   normalizePluginCatalogPresentation,
   type PluginCatalogPresentation,
   type PluginCatalogPresentationInput
 } from '../../../shared/plugin-catalog'
-import { mailTools } from '../../features/plugins/mail/tools'
-import type { MailPluginOptions, Pop3SocketFactory } from '../../features/plugins/mail/types'
 
 // 부팅이 만든 Plugin 한 벌. `toolNames()` 는 **cached descriptor** 에서 나온다 — Auth 가
 // invalid 여도 카탈로그는 이 이름들을 계속 보여 준다(0188 D-024).
@@ -71,53 +71,64 @@ export function createPluginBinding(deps: CreatePluginBindingDeps): PluginBindin
   }
 }
 
-// Bootstrap 이 주입하는 능력. **배포가 이 시그니처를 바꾸면 안 된다** — 바꾸는 순간 배포가
-// 범용 `bootstrap.ts` 까지 고쳐야 하고, "배포가 고치는 파일은 `app/deployment/` 묶음뿐" 이라는
-// 경계가 깨진다(r3 에서 실제로 그랬다).
+// Bootstrap 이 주입하는 **능력**. 배포는 이 목록을 늘릴 수 있지만 **plugin 고유 어휘는 넣지
+// 않는다** (0237 D-051) — `mail?: MailPluginDeployment` 같은 키를 두면 범용 `bootstrap.ts` 가
+// 그 Plugin 의 옵션 형상·소켓 팩토리·실값 전달 경로를 알아야 하고, "배포가 고치는 파일은
+// `app/deployment/` 묶음뿐" 이라는 경계가 거기서 깨진다(0188 r3 과 0237 r2 에서 실제로 그랬다).
+//
+// 판별 기준은 하나다: **다른 Plugin 이 생겨도 같은 이름으로 쓰이는가.** `secretFor`·
+// `userDataRoot` 는 그렇고 `mail` 은 아니다.
 export interface PluginDeploymentDeps {
   auth: AuthBinder
   registry: RuntimeToolSink
   logger?: (event: string, data: Record<string, unknown>) => void
-  /** 폐쇄망 배포가 명시적으로 켜는 Mail Plugin. 기본 OSS 배포는 생략한다. */
-  mail?: MailPluginDeployment
+  /**
+   * AuthId 를 닫은 secret closure 를 만든다. **`AuthSecretReader` 자체는 넘어오지 않는다**
+   * (0188 D-010) — Plugin 은 자기 것 말고는 읽을 수 없다. HTTP Plugin 은 이것을 쓰지 않는다
+   * (자격증명 주입은 `PluginAuth.request` 안에서 끝난다).
+   */
+  secretFor: (authId: AuthId) => () => string | null
+  /** 캐시 DB·staging 이 살 루트(`app.getPath('userData')`). 경로 계산을 배포가 다시 하지 않는다. */
+  userDataRoot: string
+  /** 비-HTTP 전송이 자격증명 **거부**를 관측했을 때 Auth 를 강등시키는 되먹임 (0237 D-035). */
   credentialRejectionReporter?: (authId: string) => void
 }
 
-export interface MailPluginDeployment {
-  readonly authId: string
-  readonly options: MailPluginOptions
-  readonly password: () => string | null
-  readonly root: string
-  readonly socketFactory: Pop3SocketFactory
-  readonly reportCredentialRejected?: (authId: string) => void
-}
-
-// 배포가 채우는 자리. 기본 배포는 Plugin 이 없다.
-// 조립 예제는 `docs/guides/closed-network-extensions.md` §4 (레시피 C) 다.
+// 배포가 채우는 자리. **기본 배포는 Plugin 이 없다** (D-030) — 그래서 기본 빌드는 도구 0·network 0 이다.
+//
+// 조립 예제는 `docs/guides/closed-network-extensions.md` §4 (레시피 C) 다. 폐쇄망 배포는 이
+// 파일만 고친다:
+//
+// ```ts
+// const confluenceAuth = deps.auth.bindForPlugin(CONFLUENCE_AUTH.id)
+// const mailAuth = deps.auth.bindForPlugin(MAIL_AUTH.id)
+// return [
+//   createPluginBinding({
+//     auth: confluenceAuth,
+//     server: confluenceTools(confluenceAuth, { apiBasePath: '/confluence' }),
+//     registry: deps.registry,
+//     logger: deps.logger
+//   }),
+//   createPluginBinding({
+//     auth: mailAuth,
+//     server: mailTools(
+//       mailAuth,
+//       {
+//         password: deps.secretFor(MAIL_AUTH.id),
+//         root: deps.userDataRoot,
+//         socketFactory: createPop3Socket,
+//         ...(deps.credentialRejectionReporter
+//           ? { reportCredentialRejected: deps.credentialRejectionReporter }
+//           : {})
+//       },
+//       MAIL_PLUGIN_OPTIONS
+//     ),
+//     registry: deps.registry,
+//     logger: deps.logger
+//   })
+// ]
+// ```
 export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[] {
-  // 기본 배포는 Mail 설정 자체를 주입하지 않으므로 빈 배열이다(D-030).
-  // 폐쇄망 레시피가 `mail` 한 벌을 주입하면 서버는 기존 PluginBinding 계약으로 조립된다.
-  if (!deps.mail) return []
-  let auth: BoundAuth
-  try {
-    auth = deps.auth.bind(deps.mail.authId)
-  } catch {
-    return []
-  }
-  const server = mailTools(
-    {
-      authId: auth.authId,
-      password: deps.mail.password,
-      root: deps.mail.root,
-      socketFactory: deps.mail.socketFactory,
-      ...(deps.mail.reportCredentialRejected || deps.credentialRejectionReporter
-        ? {
-            reportCredentialRejected:
-              deps.mail.reportCredentialRejected ?? deps.credentialRejectionReporter
-          }
-        : {})
-    },
-    { plugin: deps.mail.options }
-  )
-  return [createPluginBinding({ auth, server, registry: deps.registry, logger: deps.logger })]
+  void deps
+  return []
 }

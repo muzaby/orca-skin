@@ -2,10 +2,13 @@ import { mkdtemp } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { AuthenticatedRequest, AuthenticatedResponse } from '../../../contracts/auth'
+import type {
+  AuthenticatedRequest,
+  AuthenticatedResponse,
+  PluginAuth
+} from '../../../contracts/auth'
 import { createJiraAttachmentStore } from './attachment-store'
 import { createJiraService } from './service'
-import type { JiraPluginContext } from './tools'
 import { isJiraPreparedInvocation, JiraToolError } from './result'
 
 const roots: string[] = []
@@ -26,12 +29,23 @@ const response = (body: unknown, status = 200, bodyBytes?: Uint8Array): Authenti
 })
 
 function context(handler: (request: AuthenticatedRequest) => AuthenticatedResponse): {
-  ctx: JiraPluginContext
+  ctx: PluginAuth
   request: ReturnType<typeof vi.fn>
 } {
   const request = vi.fn(async (req: AuthenticatedRequest) => handler(req))
   return {
-    ctx: { authId: 'jira-corp', label: 'Jira', origin: 'https://jira.example.com', request },
+    ctx: {
+      authId: 'jira-corp',
+      label: 'Jira',
+      origin: 'https://jira.example.com',
+      snapshot: () => ({
+        authId: 'jira-corp',
+        status: 'valid',
+        verified: true,
+        credentialRevision: 1
+      }),
+      request
+    },
     request
   }
 }

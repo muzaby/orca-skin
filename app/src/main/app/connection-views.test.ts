@@ -34,6 +34,11 @@ function bound(authId: string, snapshot: Partial<AuthSnapshot> = {}): BoundAuth 
 function runtime(descriptors: Record<string, AuthDescriptor>): AuthRuntime {
   return {
     bind: (authId) => bound(authId),
+    bindForPlugin: (authId) => {
+      const descriptor = descriptors[authId]
+      if (!descriptor) throw new Error(`unknown auth: ${authId}`)
+      return { ...bound(authId), label: descriptor.label, origin: descriptor.origin }
+    },
     tryBind: (authId) => bound(authId),
     describe: (authId) => {
       const descriptor = descriptors[authId]

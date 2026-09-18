@@ -1530,3 +1530,120 @@ describe('LoginService — 세션 grant 의 origin 미복귀 강등 (0195 D-004)
     expect(h.snapshots).toEqual([{ authId: 'sso', cause: 'verified' }])
   })
 })
+
+// ── verifier 는 자기 authId 에만 작용한다 (0237 ΔV2 — D-052 / AC37 / VP-26) ──────
+//
+// 구 형상은 `LoginDeps.verify` **함수 하나**였고 `probe()` 가 `candidate && this.deps.verify` 로만
+// 분기했다. authId 를 보지 않았으므로 verifier 를 하나라도 주입하면 후보가 있는 *모든* Auth 가
+// 그것을 타고 HTTP probe 에 **도달하지 못했다** — mail 과 Confluence 를 함께 켠 폐쇄망 배포에서
+// Confluence PAT 로그인이 POP3 verifier 를 탄다는 뜻이다.
+//
+// 아래 두 케이스는 그 결함을 양방향으로 잠근다: verifier 를 주입한 상태에서 **다른** authId 가
+// probe 를 그대로 타는가(양성), 그리고 **자기** authId 만 verifier 를 타는가(음성 대조).
+describe('LoginService — verifier 는 authId 로 스코프된다 (0237 D-052)', () => {
+  const BEARER_PRESENT = { location: 'header', name: 'Authorization', scheme: 'bearer' } as const
+
+  function definitions(): AuthDefinition[] {
+    return [
+      {
+        id: 'wiki',
+        label: 'Wiki',
+        origin: 'https://wiki.example.corp',
+        probe: { path: '/rest/api/user/current' },
+        methods: [
+          patSpec({ label: 'PAT', fieldLabel: '개인 액세스 토큰', present: BEARER_PRESENT })
+        ]
+      },
+      {
+        // POP3 전용 — 칠 HTTP endpoint 가 없어 `probe` 를 선언하지 않는다(D-032).
+        id: 'mail',
+        label: '사내 메일',
+        origin: 'https://mail.example.corp',
+        methods: [patSpec({ label: '비밀번호', fieldLabel: '비밀번호', present: BEARER_PRESENT })]
+      }
+    ]
+  }
+
+  function build(verifiers: LoginDeps['verifiers']): {
+    login: LoginService
+    store: AuthStore
+    probed: string[]
+    verified: string[]
+  } {
+    const vault = createVault(fakeSecretStore())
+    const registry = new AuthRegistry(definitions())
+    const store = new AuthStore({
+      persistence: createMemoryGrantPersistence(),
+      vault,
+      clock: () => 1_000
+    })
+    store.restore(registry.list().map((p) => p.id))
+    const probed: string[] = []
+    const verified: string[] = []
+    const login = new LoginService({
+      registry,
+      store,
+      vault,
+      clock: () => 1_000,
+      request: probeApi(true, probed, {
+        wiki: 'https://wiki.example.corp',
+        mail: 'https://mail.example.corp'
+      }),
+      ...(verifiers
+        ? {
+            verifiers: Object.fromEntries(
+              Object.entries(verifiers).map(([authId, verifier]) => [
+                authId,
+                async (
+                  id: string,
+                  candidate: Parameters<typeof verifier>[1],
+                  signal?: AbortSignal
+                ) => {
+                  verified.push(id)
+                  return verifier(id, candidate, signal)
+                }
+              ])
+            )
+          }
+        : {})
+    })
+    return { login, store, probed, verified }
+  }
+
+  it('mail verifier 를 주입해도 wiki 는 HTTP probe 를 그대로 탄다', async () => {
+    const h = build({ mail: async () => ({ ok: false, rejected: true }) })
+
+    const step = await h.login.begin('wiki', 'pat', { [FIELD_SECRET]: 'good' })
+
+    // 양성: probe 가 실제로 돌았고 커밋됐다.
+    expect(h.probed).toEqual(['wiki'])
+    expect(step).toMatchObject({ kind: 'done' })
+    expect(h.store.status('wiki')).toBe('valid')
+    // 음성: 남의 verifier 는 불리지 않았다. 구 형상에서는 `['wiki']` 가 나오고 커밋도 막혔다.
+    expect(h.verified).toEqual([])
+  })
+
+  it('자기 authId 의 verifier 는 탄다 — 거부는 커밋되지 않는다', async () => {
+    const h = build({ mail: async () => ({ ok: false, rejected: true }) })
+
+    await h.login.begin('mail', 'pat', { [FIELD_SECRET]: 'wrong' })
+
+    expect(h.verified).toEqual(['mail'])
+    // verifier 를 탄 Auth 는 HTTP probe 로 내려가지 않는다.
+    expect(h.probed).toEqual([])
+    expect(h.store.status('mail')).not.toBe('valid')
+  })
+
+  it('verifier 를 아무것도 주입하지 않으면 두 Auth 다 기존 경로다 (AC30 회귀)', async () => {
+    const h = build(undefined)
+
+    await h.login.begin('wiki', 'pat', { [FIELD_SECRET]: 'good' })
+    await h.login.begin('mail', 'pat', { [FIELD_SECRET]: 'good' })
+
+    // wiki 는 probe 선언형이라 1회, mail 은 미선언이라 0회 — 변경 전과 같다.
+    expect(h.probed).toEqual(['wiki'])
+    expect(h.verified).toEqual([])
+    expect(h.store.status('wiki')).toBe('valid')
+    expect(h.store.status('mail')).toBe('valid')
+  })
+})
