@@ -619,8 +619,11 @@ snapshot을 읽는다.
 
 ## 7. Plugin
 
-Plugin 은 GUI 카탈로그에 표시되는 제품 기능 단위다. Plugin 모듈은 `BoundAuth.request` 와 자기
-옵션만 받고, **raw credential 을 보지 않는다.**
+Plugin 은 GUI 카탈로그에 표시되는 제품 기능 단위다. HTTP Plugin 모듈은 `BoundAuth.request` 와 자기
+옵션만 받고 raw credential 을 보지 않는다. 비-HTTP 전송이 필요한 opt-in Plugin은 컴포지션 루트가
+AuthId를 닫은 `() => string | null` closure와 전송 factory를 별도로 주입하며 `AuthSecretReader` 전체,
+vault, renderer에는 접근하지 않는다. POP3 Mail Plugin이 이 예외를 사용하고, 서버 단위 binding의
+add/remove lifecycle은 다른 Plugin과 공유한다.
 
 - 배포의 선택적 `catalog` 설정은 binding 생성 시 정규화한다. icon을 생략하거나 설정 자체가 없으면
   `electrical_services`, title이 없으면 Auth label, body가 없으면 본문 없음이 된다. locale text와

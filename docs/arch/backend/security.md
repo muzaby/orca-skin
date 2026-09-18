@@ -158,6 +158,12 @@ output에 각각 상한을 적용한다. 저장 요청은 경로 segment와 파�
 거부한 숨은 stage에 쓴 다음, 전 파일과 최종 output preflight가 성공한 경우에만 batch를 원자적으로
 공개한다. 오류 메시지의 인증 헤더와 쿠키 값은 반환 전에 마스킹한다.
 
+POP3 Mail Plugin은 HTTP가 아닌 메일 전송 예외다. `node:net`·`node:tls` import와 소켓 생성은
+`infra/net/pop3-socket.ts` 한 곳에 격리하고, `USER`·`PASS`·`UIDL`·`TOP`·`RETR`·`STAT`·`CAPA`·
+`QUIT` 외 명령을 전송하지 않는다. TLS는 OS 신뢰 저장소를 기본으로 사용하며 `rejectUnauthorized:false`
+를 허용하지 않는다. 비밀번호는 Auth vault에서 닫힌 함수로만 주입하고 도구 출력·오류에는 저장 경로와
+자격증명을 포함하지 않는다.
+
 ### 1.9 전송·세션 인프라 인벤토리
 
 0180 이 인증 인프라 6모듈을 삭제하면서, **인증이 아니었던** 원격 전송 스택 3모듈을

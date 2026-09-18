@@ -17,8 +17,16 @@ import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import process from 'node:process'
 
-const MIGRATIONS_DIR = join('src', 'main', 'infra', 'db', 'migrations')
-const MIGRATE_SOURCE = join('src', 'main', 'infra', 'db', 'migrate.ts')
+export const MIGRATION_PAIRS = [
+  {
+    dir: join('src', 'main', 'infra', 'db', 'migrations'),
+    source: join('src', 'main', 'infra', 'db', 'migrate.ts')
+  },
+  {
+    dir: join('src', 'main', 'features', 'plugins', 'mail', 'migrations'),
+    source: join('src', 'main', 'features', 'plugins', 'mail', 'store', 'migrate.ts')
+  }
+]
 const MIGRATION_FILE_PATTERN = /^(\d{4})_[a-z0-9_]+\.sql$/
 
 // 사본 스캔 대상 — 앱 소스 전체. 마이그레이션 목록을 들 수 있는 확장자만 본다.
@@ -30,6 +38,7 @@ const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts']
 const LIST_OWNERS = new Set([
   // 정본.
   'src/main/infra/db/migrate.ts',
+  'src/main/features/plugins/mail/store/migrate.ts',
   // 골든 목록(명세) + 마이그레이션 SQL 자체의 동작 테스트. 둘 다 "그 시점" 에 고정된
   // 부분집합이라 정본을 통해 만들 수 없다.
   'src/main/infra/db/migrate.test.ts'
@@ -86,7 +95,7 @@ export function checkNoListCopies(copies) {
 
 export function parseImportedMigrations(migrateSource) {
   const names = []
-  const importPattern = /from\s+'\.\/migrations\/([^']+)\.sql\?raw'/g
+  const importPattern = /from\s+['"][^'"]*migrations\/([0-9]{4}_[a-z0-9_]+)\.sql\?raw['"]/g
   let match
   while ((match = importPattern.exec(migrateSource)) !== null) {
     names.push(match[1])
@@ -164,16 +173,18 @@ export function findPreviousTag({ currentTag, listTags }) {
 export function runCli(argv = process.argv.slice(2), cwd = process.cwd()) {
   const currentTag = argv.find((arg) => arg.length > 0) ?? ''
 
-  const files = readdirSync(join(cwd, MIGRATIONS_DIR)).filter((file) => file.endsWith('.sql'))
-  const imported = parseImportedMigrations(readFileSync(join(cwd, MIGRATE_SOURCE), 'utf8'))
-  const sync = checkSync(files, imported)
-  if (!sync.ok) {
-    for (const error of sync.errors) {
-      console.error(`[migrations] ${error}`)
+  for (const pair of MIGRATION_PAIRS) {
+    const files = readdirSync(join(cwd, pair.dir)).filter((file) => file.endsWith('.sql'))
+    const imported = parseImportedMigrations(readFileSync(join(cwd, pair.source), 'utf8'))
+    const sync = checkSync(files, imported)
+    if (!sync.ok) {
+      for (const error of sync.errors) {
+        console.error(`[migrations] ${pair.dir}: ${error}`)
+      }
+      return 1
     }
-    return 1
+    console.log(`[migrations] sync ok: ${pair.dir} — ${imported.length} migrations`)
   }
-  console.log(`[migrations] sync ok: ${imported.length} migrations, dir == migrate.ts imports`)
 
   const sources = collectSourceFiles(cwd).map((path) => ({
     path,
@@ -201,7 +212,13 @@ export function runCli(argv = process.argv.slice(2), cwd = process.cwd()) {
   }
 
   const diff = git(
-    ['diff', '--name-status', `${previousTag}..HEAD`, '--', MIGRATIONS_DIR],
+    [
+      'diff',
+      '--name-status',
+      `${previousTag}..HEAD`,
+      '--',
+      ...MIGRATION_PAIRS.map((pair) => pair.dir)
+    ],
     cwd
   ).split('\n')
   const appendOnly = checkAppendOnly(diff)

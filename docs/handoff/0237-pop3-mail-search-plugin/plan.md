@@ -929,6 +929,77 @@ G1 재현 검색: `rg -n 'attachmentId|hasAttachments|mail_getAttachment' docs/h
 - 반복해서 부딪히는 환경 한계: 없음. 최초 pull은 `.git/FETCH_HEAD` 쓰기 제한으로 실패했으며 권한 상승 재시도는 성공했다.
 - 현재 라운드 수: 1 (구현 진입에서 PLAN_GAP 보고).
 
+## [구현자 기입] 설계 리뷰 (r2)
+
+- **READY 확인 후 구현 진행.** `V1 + ΔV1`의 D-043~D-047, AC5·AC11·AC25·AC25b·AC28·AC28b·AC31~AC33과 §10 EP-01~EP-19를 기준으로 구현했다.
+- 동의 / 그대로 진행: 첨부 매니페스트→단건 수신, 비인증 장애의 캐시 유지, UIDL `missing` 보존, 대량 소실 시 신규 수집 중단, 기본 배포 opt-in 결정을 유지했다.
+- 구현 중 확인한 차이: `node-pop3`의 자체 socket 생성을 사용하면 fake socket seam과 POP3 명령 whitelist를 동시에 보장할 수 없어, 동일한 POP3 line protocol을 `pop3/session.ts`에서 주입 socket으로 구현했다. 의존성은 plan의 배포 목록에 유지하고, 실제 전송 경계는 `infra/net/pop3-socket.ts` 하나로 닫았다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조, r2)
+
+| EP 묶음 | 구현으로 닫은 지점 | 직접 관측 | 상태 |
+|---|---|---|---|
+| EP-01·02·04·06·07·08 | 결과 은닉, 검색의 비-소켓 경로, 질의/TTL/동시성/실패 수명주기 | `tools.ts`, `sync-manager.ts`, 순수 모듈·store 테스트 | 구현 완료, 독립 AT 대기 |
+| EP-03·13·19 | retention 3저장소 정리, UIDL `missing`, `<0.5 ∧ >=20` 보호와 해제 전이 | `store/index.ts`, `reconcile.ts`, `protection.ts` 테스트 | 구현 완료, RETR fake 서버 대기 |
+| EP-05·10·16·17 | 서버 단위 binding, secret closure, 인증 거부만 reporter, verifier/문구 분기 | `plugins.ts`, `bootstrap.ts`, `login.ts`, 기존 auth 회귀 | 구현 완료, mail Auth IT 대기 |
+| EP-09·11·12·14·15·18 | native 경계, mail migration pair, annotations, 5필드 정규화, 명령 whitelist, 단건 schema | guard·migration·mail 스위트 | 구현 완료, POP3 AT 대기 |
+
+- **분모 검산:** §10 EP 19군·44지점 중 코드 경로를 배치한 지점 44/44. 테스트로 직접 닫은 지점은 아래 V-pair 표에 적은 11 AC와 migration/guard 결과이며, 나머지는 독립 검증자에게 남긴다.
+- `mail_search`와 `mail_getAttachment`는 모두 하나의 `MailStore` 결과 조립기를 통과한다. `stored_name`·내부 DB 경로는 매니페스트와 오류 결과에 포함하지 않는다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+| 심은 결함 | 출처 | 실패한 테스트 / 케이스 | 결과 |
+|---|---|---|---|
+| native import를 mail feature가 직접 소유 | EP-09·AR-01 | `pop3/native-boundary.test.ts` 2케이스 | 해당 변이 red, 경계 유지 |
+| 대량 소실 보호의 비교 부호·fingerprint 카운트 | D-047·EP-19 | `pure.test.ts` 경계/표본/회복/리셋 4경로 | 해당 변이 red |
+| 첨부 producer를 제거해 consumer를 끊음 | D-043·EP-01 | `store/index.test.ts` 매니페스트→findAttachment 왕복 | 해당 변이 red |
+| mail migration을 가드 목록에서 누락 | AR-03·EP-11 | `check-migrations-appendonly` 19케이스 + CLI pair 출력 | 해당 변이 red |
+
+- **덮개 회귀:** 기존 `plugins.test.ts`, `deployment-wiring.test.ts`, `login.test.ts`, `runtime.test.ts`를 함께 실행해 서버 단위 add/remove와 verifier 미주입 경로를 유지했다.
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 문구·상태에 소비자가 있는가 | ✅ `mail_sync` 오류/`stale`·`cacheAsOf`, 첨부 매니페스트와 단건 schema가 각각 모델 경로에 연결된다 | 독립 AT에서 문구 대비 |
+| 실패가 화면에서 구분되는가 | ✅ verifier의 credential rejection과 도달 실패가 다른 입력 문구로 내려간다 | 사람 실기에서 한국어 문구 확인 |
+| 서버 UIDL 소실이 사용자 데이터 삭제로 오해되지 않는가 | ✅ ledger만 `missing`으로 바꾸고 retention 전까지 검색/첨부를 유지한다 | AC25b 독립 확인 |
+| 보호 상태가 탈출 가능한가 | ✅ 비율 회복 또는 같은 fingerprint 2회 관측에서만 수집을 재개한다 | AC33 독립 확인 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+| # | 문제 | 대응 | 분류 |
+|---|---|---|---|
+| P1 | 실제 POP3 서버별 multiline·TLS handshake 차이는 fake socket만으로 완전히 닫히지 않는다 | socket factory와 명령 로그 seam을 남기고 사설 CA/실서버 AT를 다음 검증으로 넘긴다 | NEXT_HANDOFF |
+| P2 | `node-pop3` 고수준 API는 주입 socket을 제공하지 않아 raw session을 사용했다 | `DELE`를 포함하지 않는 allowlist와 `node:net`/`node:tls` 단일 경계를 함께 강제했다 | NON_BLOCKING |
+| P3 | mail DB native ABI와 Electron ABI는 환경에 따라 다르다 | plain Node mail store 스위트는 실행했고, Electron ABI gate는 저장소 운영 절차에 따른다 | NON_BLOCKING |
+
+### 설계 대비 명시적 차이 (r2)
+
+- `node-pop3` 객체를 직접 호출하지 않고 `pop3/session.ts`가 명령·multiline framing을 소유한다. 이유는 POP3 socket factory 주입, `DELE` 금지, 취소 시 `destroy()`를 한 경계에서 동시에 보장하기 위해서다.
+- 별도 `search.ts` 파일 대신 `tools.ts` → `MailSyncManager.search()` → `MailStore.search()` 경로를 사용했다. 검색 handler는 sync manager의 POP3 factory를 받지 않아 EP-02의 음성 경계를 유지한다.
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/src/main/features/plugins/mail/**`, `app/src/main/infra/net/pop3-socket.ts`, auth/bootstrap/plugin 배선, migration guard, TRD·security·auth·persistence·closed-network 문서 |
+| 실행 명령 | `cd app; npm.cmd run lint` · `npm.cmd run typecheck:node` · `npm.cmd run typecheck:test` · `npx.cmd vitest run src/main/features/plugins/mail src/main/infra/net src/main/app/deployment src/main/features/auth/login.test.ts src/main/features/auth/runtime.test.ts` · `node --test scripts/check-migrations-appendonly.test.mjs` · `node scripts/check-migrations-appendonly.mjs` · `node scripts/check-doc-inventory.mjs --check` · `git diff --check` |
+| 관측한 게이트 산출 | lint 0 error(기존 renderer warning 1건) · node/test typecheck 통과 · Vitest 11파일 176케이스 통과 · migration test 19케이스 통과 · 두 migration pair sync/append-only/no-copies 통과 · docs inventory 9 items/98 channels ok · diff 공백 오류 0 |
+| V-pair 자기확인 | `MD-02/03/04/05/06/08`, `AR-01/03/04/05/06`의 순수·경계 테스트는 PASS. 전체 V-pair의 독립 판정은 pending이며 `verify.md`에서 닫는다. |
+| 강제 지점 전수 | §10 19군·44지점 코드 배치 44/44; 테스트 직접 관측은 11 AC + migration/guard, 나머지 AT/IT/ST pending |
+| **AC 자기보고**(`Criteria-Met`) | 11/35 — AC11·AC16·AC18·AC19·AC20·AC22·AC25·AC25b·AC31·AC32·AC33에 직접 증거가 있다 |
+| **Criteria-Pending** | AC1~10·AC12~15·AC17·AC21·AC23·AC24·AC26~30·AT/IT/ST fake POP3 왕복과 실서버 TLS/MIME 확인 |
+| 블로커 / 역질문 | 없음. 구현 산출은 완료했고 독립 검증자에게 넘긴다. |
+| 대상 커밋 | `(r2 구현 — 이 커밋)` |
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 이번 라운드에서 r1 PLAN_GAP 3건은 ΔV1의 규범 행(D-043~D-047)과 코드 경로로 반영됐다. 새 PLAN_GAP은 발견하지 않았다.
+- 이전 라운드와 같은 축의 잠금은 서버 단위 binding, Auth verifier 미주입 불변, migration append-only이며 기존 회귀 스위트로 재실행했다.
+- 현재 라운드 수: 2. 다음 주체는 Claude 검증자이며, 이 보고는 구현자의 증거로만 사용한다.
+
 ---
 
 ## [검증자 기입] 파생 이슈
