@@ -87,11 +87,14 @@
 | D-038 | lazy 전이는 **강등(`expired`·`unauthorized`)까지만** 한다. 실패가 `revoke`(자격증명 삭제)를 부르지 않는다 | `auth.md §11` "해제는 fail-closed, 추가·교체는 degrade-open" — 방향이 다르다. 오타·일시 장애 한 번이 보관된 비밀번호를 지우면 사용자가 되돌릴 수 없다. 해제는 사용자가 연결 탭에서 직접 한다 | 설계자 | ACTIVE | — |
 | D-039 | POP3 인증은 **`USER`/`PASS`(ID·비밀번호)만 지원한다.** SASL 토큰 인증(`AUTH XOAUTH2` 등)은 **한계로 기록하고 홀드**한다 | 사용자 결정 — "id passwd만 지원하고 나머지 인증 방식에 대해서는 한계점으로 남겨두고 홀드하라". `node-pop3@0.15.3`이 `_connect()`에 `USER`/`PASS`를 하드코딩해 SASL 경로가 없다(F-26) — 채택 라이브러리와 범위가 일치한다 | 사용자 턴 | ACTIVE | — |
 | D-040 | **연결 버튼은 실제 POP3 로그인 왕복으로 증명한다.** `LoginDeps`에 authId별 optional verifier를 더하고 컴포지션 루트가 mail에만 주입한다. 검증은 **candidate**(커밋 전 자격증명)로 하고 실패하면 커밋하지 않는다 | `login.ts:499`가 `probe` 미선언을 무조건 통과시켜 값 입력만으로 `valid`가 된다(F-06b). seam은 이미 있다 — `LoginDeps.request`가 authId별 주입 함수이고 `candidate`를 받으며 커밋은 probe 뒤다(`login.ts:143`) | 설계자 | ACTIVE | — |
+| D-041 | 입력형의 **거부 메시지를 파라미터화**한다. verifier가 `rejected`(거부)와 `unreachable`(도달 실패)을 구분해 돌려주고 `input-required` step이 그에 맞는 문구를 싣는다 | `login.ts:716`이 `'자격증명이 거부되었습니다. 값을 확인해 주세요.'` **고정 문자열**이라 두 경우가 같은 화면이 된다(F-27). 서버에 못 닿은 것을 비밀번호 탓으로 읽으면 사용자가 맞는 값을 계속 다시 넣는다 | 설계자 | ACTIVE | — |
+| D-042 | verifier는 **`candidate`가 있을 때만** 돈다 — 즉 `login`/`reauth`에서만 돌고 **부팅 `resume()`에서는 돌지 않는다** | `probe()` 호출부는 2곳뿐이고 `resume()`은 candidate 없이(`login.ts:336`), login settle은 candidate와 함께(`:567`) 부른다 — 유무가 그대로 판별자다(F-28). 부팅마다 POP3를 여는 것은 D-037이 금지한 선제 검증이다 | 설계자 | ACTIVE | — |
 
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-014(사용자) · D-021·D-022·D-023(사용자 승인) · D-024~D-031(설계자).
-- 후속 턴 추가: D-032(설계자) · D-033·D-034·D-037·D-039(사용자) · D-035·D-036·D-038·D-040(설계자).
+- 후속 턴 추가: D-032(설계자) · D-033·D-034·D-037·D-039(사용자) · D-035·D-036·D-038·D-040·D-041·D-042(설계자).
+- 인프라 재감사(이번 턴): F-27~F-32로 6가지 가정을 다시 쳤다 — 성립 3(F-28·F-29·F-30 렌더러·seam·spec) · 코드 변경 필요 2(F-27 고정 문구 · F-31 context 부재) · 주장 정정 1(F-32 `structuredContent` 소비처 0).
 - 변경된 결정: **D-013 → D-014** — 제안서의 "공개 도구 2개"를 사용자가 3개로 변경했다. 제안서 §19 첨부 흐름이 도구 없이는 도달 불가라는 진단에 대한 응답이다.
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: D-001·D-003~D-012·D-015~D-020 (제안서 §1 요구사항 표 전부). 최신 턴이 다시 말하지 않았다는 이유로 지우지 않는다.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. 대조한 쌍 — D-004("삭제 기준은 14일 Retention뿐") ↔ AC8(만료 3저장소 동시 제거) → 일치, 10,000통 상한 AC 없음. D-009("Background Scheduler 사용 안 함") ↔ AC9(`mail_sync` 진입에서만 cleanup · `scheduler` 등록 0건) → 일치, `features/scheduler` 등록 AC 없음. D-011("`orcinus-orca.db`에 Mail 테이블 추가 안 함") ↔ AC18(Core 마이그레이션 27건 불변) → 일치. D-012("원본은 이동·수정하지 않는다") ↔ AC12(`mail_getAttachment` 후 내부 원본 mtime·크기 불변) → 일치. D-015("`mail_search`는 통신 안 함") ↔ AC4(소켓 팩토리 호출 0회) → 일치. D-031("`DELE` 금지") ↔ AC26(명령 화이트리스트에 `DELE` 부재 + 허용 6명령 양성 단언) → 일치. D-037("lazy하게 바뀌어도 된다") ↔ AC28(도구 호출이 실패를 관측한 자리에서 강등) → 일치, 주기 검증 AC 없음(AC9의 슬라이스 전수 스윕이 부재를 잠근다). D-038("`revoke` 하지 않는다") ↔ AC28(단언은 `registry.remove`·reporter 호출이며 `revoke` 호출을 요구하지 않는다) → 일치.
@@ -227,12 +230,12 @@
 | AR-02 | IT-02 / AC21 | Mail Plugin factory는 `AuthSecretReader`를 받지 않고 `() => string \| null` closure만 받는다 | 음성: mail 슬라이스 전체에 `AuthSecretReader` 식별자 **0건**. 양성: 주입된 closure가 실제 자격증명을 돌려주고 그 값으로 `PASS`가 전송된다 | `bootstrap.ts` → `createMailPlugin` → `pop3/session.ts` |
 | AR-04 | IT-04 / AC22 | `readOnlyHint`는 `mail_search`만 `true`다 | descriptor 3행의 `annotations.readOnlyHint`가 `[false, true, false]`이고, **형제 자리를 맞바꾼 변이가 red**다 | `createPluginBinding` → registry → `runtimeApprovalToolNames` |
 | SD-03 | ST-03 / AC23 | 동일 계정의 동시 `mail_sync` 3건이 POP3 연결을 1회만 만든다 | 3개 handler를 동시에 await → 소켓 팩토리 호출 **1회** ∧ 세 결과가 같은 값 | `mail_sync` handler → single-flight 맵 |
-| SD-02 | ST-02 / AC24 | 취소 신호가 오면 소켓이 파괴되고 부분 커밋이 남지 않는다 | `RETR` 도중 abort → 소켓 `destroy` 1회 ∧ mail 행 증가 **0** ∧ staging 디렉터리 잔여 **0** | `RuntimeToolContext.getSignal()` → `sync-manager` 정리 |
+| SD-02 | ST-02 / AC24 | 취소 신호가 오면 소켓이 파괴되고 부분 커밋이 남지 않는다. **`context`가 없으면 취소는 불가하되 호출은 정상 동작한다** | `RETR` 도중 abort → 소켓 `destroy` 1회 ∧ mail 행 증가 **0** ∧ staging 잔여 **0**. 별도로 `context === undefined` 케이스에서 3도구가 throw 없이 결과를 돌려준다(F-31) | `RuntimeToolContext.getSignal()` → `sync-manager` 정리 |
 | MD-01 | UT-01 / AC25 | 원격 UIDL이 임계 비율 이상 사라지면 삭제하지 않고 보호 상태를 반환한다 | ledger 100건 중 원격에 10건만 남은 케이스에서 삭제 **0건** ∧ `protection:'bulk_loss_suspected'` | `sync-manager` → `reconcile.ts` |
 | MD-07 | UT-07 / AC26 | `DELE`는 어떤 경로로도 전송되지 않는다 | 음성: 명령 화이트리스트에 `DELE` **부재**. 양성: 화이트리스트의 `UIDL`·`TOP`·`RETR`·`STAT`·`CAPA`·`QUIT` **6개가 실제로 전송된다**는 fake 서버 수신 로그 | `pop3/session.ts` 명령 게이트 |
 | R-05 | AT-18 / AC27 | `probe` 미선언 배포에서 비밀번호가 틀리면 첫 `mail_sync`가 `auth_failed`를 돌려준다 | fake 서버가 `PASS`에 `-ERR`로 답하는 케이스에서 `{ synced:false, error:'auth_failed' }` ∧ 연결 오류(`ECONNREFUSED`)·타임아웃과 **다른 코드**임을 3케이스로 대조 | `mail_sync` handler → `pop3/errors.ts` 매핑 |
 | AR-05 | IT-05 / AC28 | POP3가 `PASS`에 `-ERR`로 답하면 Auth가 강등되고 **다음 sync에서 도구 서버가 registry에서 제거**된다 | fake 서버가 `-ERR`을 준 뒤 주입된 reporter 호출 **1회** ∧ `binding.sync()` 후 `registry.remove` 1회·`add` 0회. 같은 실패 3연속에서 reporter 호출은 **1회**(전이 1회성, `auth.md §4.5`) | `mail_sync` → `pop3/errors.ts` → 주입된 reporter → `markExpired` → change → `binding.sync()` |
-| R-05 | AT-19 / AC29 | 연결 버튼에 틀린 비밀번호를 넣으면 **연결됨이 되지 않고** 자격증명이 저장되지 않는다 | fake 서버가 `PASS`에 `-ERR` → 로그인 결과가 실패 step ∧ vault 쓰기 **0회** ∧ `snapshot().status !== 'valid'`. 서버 도달 실패(`ECONNREFUSED`)는 **다른 사유**로 구분된다(2케이스) | 연결 탭 → `AuthRuntime.login()` → verifier → `pop3/session.ts` |
+| R-05 | AT-19 / AC29 | 연결 버튼에 틀린 비밀번호를 넣으면 **연결됨이 되지 않고** 자격증명이 저장되지 않는다 | fake 서버가 `PASS`에 `-ERR` → `input-required` 복귀 ∧ vault 쓰기 **0회** ∧ `snapshot().status !== 'valid'`. 도달 실패(`ECONNREFUSED`)는 **같은 형상의 다른 문구**임을 두 케이스가 대조한다(D-041 — 현재 고정 문자열이라 이 단언이 코드 변경을 요구한다) | 연결 탭 → `AuthRuntime.login()` → verifier → `pop3/session.ts` |
 | AR-06 | IT-06 / AC30 | verifier를 주입하지 않은 Auth는 로그인 동작이 **바뀌지 않는다** | verifier 미주입 authId 2종(`probe` 선언형·미선언형)에서 `deps.request` 호출 횟수와 커밋 여부가 변경 전과 동일. mail authId에서만 verifier 호출 1회 | `bootstrap.ts` 주입부 → `login.ts` probe 분기 |
 
 ### AC 검증 주의사항
@@ -311,14 +314,14 @@
 | VP-17 | MD-04 ↔ UT-04 | REQUIRED | 순수 MIME 정규화 | From/To/Cc/Subject/Body 5필드 + 인코딩 3종 | required — 5필드 중 하나를 빼는 변이 5종 (D-010 전수) | EP-14 (1) |
 | VP-18 | MD-05 ↔ UT-05 | REQUIRED | 순수 freshness 함수 | 5분 ±1초 경계 3케이스 | not selected — 경계값 직접 단언 | EP-06 (2) |
 | VP-19 | MD-06 ↔ UT-06 | REQUIRED | 순수 파일명 정규화 | 경로 이탈·Windows 예약어·중복 이름 | not selected — 반환값 직접 단언 | EP-01 (4) |
-| VP-22 | R-05 ↔ AT-19 | REQUIRED | 연결 탭 → `login()` → verifier → `pop3/session.ts` → 커밋 여부 | 실패 step + vault 쓰기 0회 + status (AC29) | required — verifier 결과를 무시하고 항상 커밋하는 변이 | EP-17 (2) |
-| VP-23 | AR-06 ↔ IT-06 | REQUIRED | `bootstrap.ts` 주입부 → `login.ts` probe 분기 → 기존 HTTP 경로 | 미주입 Auth 2종의 `deps.request` 호출 횟수·커밋 여부 불변 (AC30) | required — 분기를 뒤집어 모든 Auth가 verifier를 타게 하는 변이 | EP-17 (2) |
+| VP-22 | R-05 ↔ AT-19 | REQUIRED | 연결 탭 → `login()` → verifier → `pop3/session.ts` → 커밋 여부 | 실패 step + vault 쓰기 0회 + status + 두 문구 대조 (AC29) | required — verifier 결과를 무시하고 항상 커밋하는 변이 · 두 실패 문구를 맞바꾸는 형제 변이 | EP-17 (3) |
+| VP-23 | AR-06 ↔ IT-06 | REQUIRED | `bootstrap.ts` 주입부 → `login.ts` probe 분기 → 기존 HTTP 경로 | 미주입 Auth 2종의 `deps.request` 호출 횟수·커밋 여부 불변 (AC30) + 부팅 `resume()`에서 verifier 호출 **0회**(D-042) | required — 분기를 뒤집어 모든 Auth가 verifier를 타게 하는 변이 · `candidate` 조건을 지워 resume도 타게 하는 변이 | EP-17 (3) |
 | VP-21 | AR-05 ↔ IT-05 | REQUIRED | `pop3/errors.ts` → 주입된 reporter → `markExpired` → `AuthChange` → `binding.sync()` | reporter 호출 횟수 + `registry.remove`/`add` 횟수 (AC28) | required — reporter를 no-op으로 두는 변이(도구가 등록된 채 남는다) | EP-16 (2) |
 | VP-20 | MD-07 ↔ UT-07 | REQUIRED | `session.ts` 명령 게이트 → fake 서버 수신 로그 | 양성: 허용 6명령이 실제로 수신된다. 음성: `DELE` 부재 (AC26) | required — 화이트리스트에 `DELE`를 더하는 변이가 게이트를 red로 만드는지 | EP-15 (1) |
 
 `NOT_REQUIRED` 행 없음 — Baseline V라 상속한 pair가 없다.
 
-**합계 검산**: 설계 node `R 6 · SD 3 · AR 6 · MD 7 = 22` ↔ 검증 node `AT 19 · ST 3 · IT 7 · UT 7 = 36`(AT-01~19 · ST-01~03 · IT-01·02·03a·03b·04·05·06 · UT-01~07). pair `VP-01~VP-23 = 23`, 전부 `REQUIRED`. §10 강제 지점 군 `EP-01~EP-17 = 17`, 지점 합 `4+2+3+2+3+2+3+1+2+2+2+3+1+1+1+2+2 = 36`.
+**합계 검산**: 설계 node `R 6 · SD 3 · AR 6 · MD 7 = 22` ↔ 검증 node `AT 19 · ST 3 · IT 7 · UT 7 = 36`(AT-01~19 · ST-01~03 · IT-01·02·03a·03b·04·05·06 · UT-01~07). pair `VP-01~VP-23 = 23`, 전부 `REQUIRED`. §10 강제 지점 군 `EP-01~EP-17 = 17`, 지점 합 `4+2+3+2+3+2+3+1+2+2+2+3+1+1+1+2+3 = 37`.
 
 ### 현재 변경의 운영 gate
 
@@ -353,6 +356,12 @@
 | F-22 | **대상 폐쇄망은 ADFS 게이트를 운영 중이다**(사용자 진술). 그래서 나머지 Auth 복원은 게이트 통과 뒤로 밀린다 | `docs/arch/backend/auth.md §5.2` — `gate Auth 순차 확인 → 나머지 Auth 병렬 확인`. Mail은 probe 미선언(D-032)이라 probe 후보가 아니고 왕복 0이다 |
 | F-23 | 자동 재로그인 대상은 `methods[0]`이 `browser-session`·`oauth`인 것뿐이다 — **입력형은 제외**된다 | `auth.md §5.2` 재로그인 대상 행 — "입력형은 입력 없이 부르면 네트워크를 타지 않고 전역 `input-required` step 만 남긴다" |
 | F-24 | **Auth 강등 경로는 둘뿐이고 POP3는 어느 쪽도 타지 않는다** | `auth.md §4.5` 관측 지점 표 — ① 요청 경로의 `authFailureStatuses`(HTTP status) ② `resume()` probe 실패. `AuthRuntime` 표면(`contracts/auth.ts`)에 강등 보고 메서드가 없다(F-06c) |
+| F-27 | 입력형 Auth의 probe 실패는 `probe_failed`가 아니라 **`input-required` + 고정 메시지**로 돌아간다 | `login.ts:712-716` — `message: '자격증명이 거부되었습니다. 값을 확인해 주세요.'`. `shared/ipc.ts` `ProviderFailureReason.probe_failed` 주석도 "입력 폼이 있는 방식은 이 대신 `input-required` 로 되돌아간다" |
+| F-28 | `probe()` 호출부는 **2곳**이고 `candidate` 유무가 login과 resume을 가른다 | `login.ts:336` `await this.probe(definition)`(resume) · `:567` `await this.probe(definition, candidate)`(login settle) |
+| F-29 | 렌더러는 **다중 자격증명 필드를 이미 렌더한다** | `ProviderDetail.tsx:178` `fields.map(...)` · `:182` `type === 'password' ? 'password' : 'text'` · `GateLogin.tsx:140`·`:148`(`autoComplete` 분기까지) |
+| F-30 | `passwordSpec`은 `user:pass`로 합성하고 `principalId`에 아이디를 싣는다. 아이디의 `:`를 거부한다. **프로덕션 사용처는 0건** | `features/auth/specs/credential.ts` `passwordSpec` · `rg 'passwordSpec' src/main --glob '!*.test.ts'` → 정의부 외 0건 |
+| F-31 | `RuntimeToolContext`는 **없을 수 있다** | `adapters/claude.ts:503`·`:511`이 `req.runtimeToolContext`를 넘기지만 `features/sessions/session-runtime.ts:832`가 `runtimeToolContext: this.runtimeToolContext ?? undefined`다. 계약도 `handler(input, context?)`로 optional이다 |
+| F-32 | `structuredContent`의 **앱 내 소비처는 0건**이다 — MCP passthrough로 모델에만 간다 | `rg structuredContent src --glob '!*.test.*'` → 생산 `features/plugins/jira/result.ts:91`, 타입 선언 `adapters/runtime-tools.ts:39`. renderer 소비 0건 |
 | F-26 | `node-pop3@0.15.3`은 `USER`/`PASS`를 하드코딩하고 **SASL·`AUTH` 경로가 없다.** `CAPA`조차 `_connect()`로 먼저 로그인한 뒤 능력을 읽는다 | 패키지 소스 `src/Command.js:90-91`(`super.command('USER'…)` → `super.command('PASS'…)`) · `:99` `CAPA()` 첫 줄이 `await this._connect()` |
 | F-25 | `SPAWN_ENV_INJECTOR`의 `NODE_EXTRA_CA_CERTS`는 **Harness subprocess** env다 — Orca 자기 프로세스의 `node:tls`에는 적용되지 않는다 | `app/deployment/spawn-env.ts` 헤더 "모든 Harness+ModelProvider 의 subprocess env 에 그 반환값이 실린다" · 예제는 `deployment-wiring.test.ts:619` |
 | F-07 | FTS5 tokenizer 선택이 한국어 결과를 가른다 | 실측 (아래 §수치 검산) |
@@ -509,7 +518,7 @@
 | EP-12 | AR-04 / VP-13 | 도구 3종의 `readOnlyHint`는 `[false, true, false]`다 | `tools.ts` descriptor | mail 슬라이스 | **3지점** — 세 도구 각각의 annotations | 원격 I/O·디스크 쓰기가 승인 없이 통과한다. D-028 위반 |
 | EP-13 | MD-01 / VP-14 | 대량 소실은 삭제하지 않는다 | `reconcile.ts` 임계 | mail 슬라이스 | **1지점** — reconcile 반환의 `protection` | 서버 교체 한 번이 14일 캐시를 통째로 지운다. D-018 위반 |
 | EP-14 | MD-04 / VP-17 | 검색 문서는 From·To·Cc·Subject·Body 5필드다 | `normalize.ts` | mail 슬라이스 | **1지점** — `MailDocument` 조립 | 선언한 검색 대상 중 일부가 실제로는 안 걸린다. D-010 위반 |
-| EP-17 | AR-06 / VP-22·VP-23 | 연결은 실제 왕복으로 증명되고, verifier 미주입 Auth는 불변이다 | `login.ts` probe 분기 + 컴포지션 루트 주입부 | auth 슬라이스 + 컴포지션 루트 | **2지점** — `login.ts`의 verifier 우선 분기 · `bootstrap.ts`가 mail authId에만 주입 | 값만 넣어도 연결됨이 되거나, 반대로 다른 Auth의 로그인 경로가 바뀐다 |
+| EP-17 | AR-06 / VP-22·VP-23 | 연결은 실제 왕복으로 증명되고, 실패 사유가 구분되며, verifier 미주입 Auth는 불변이다 | `login.ts` probe 분기·거부 문구 + 컴포지션 루트 주입부 | auth 슬라이스 + 컴포지션 루트 | **3지점** — `login.ts`의 `candidate` 조건 verifier 분기 · `:716` 거부 문구 분기 · `bootstrap.ts`가 mail authId에만 주입 | 값만 넣어도 연결됨이 되거나, 도달 실패가 비밀번호 오류로 보이거나, 다른 Auth의 로그인 경로가 바뀐다 |
 | EP-16 | AR-05 / VP-21 | 자격증명 거부는 Auth 강등으로 되먹여진다 | `pop3/errors.ts` 거부 판정 + 컴포지션 루트 주입 | mail 슬라이스 + 컴포지션 루트 | **2지점** — `-ERR` 인증 거부 판정 · `bootstrap.ts` reporter 주입부 | 비밀번호가 바뀌어도 Auth가 `valid`로 남아 도구가 등록된 채 매번 실패하고, 사용자는 재인증 신호를 못 받는다 |
 | EP-15 | MD-07 / VP-20 | `DELE`를 보내지 않는다 | `pop3/session.ts` 명령 화이트리스트 | mail 슬라이스 | **1지점** — 명령 게이트 | 서버 메일함이 지워진다. 되돌릴 수 없다. D-031 위반 |
 
@@ -534,7 +543,7 @@
 | `app/src/main/app/deployment/plugins.ts` | **수정** — 조립 예제 | `createMailPlugin` 사용 예제를 주석으로 추가. 기본 반환은 `[]` 유지 (D-030) | 기존 `plugins.test.ts` 확장 |
 | `app/src/main/app/bootstrap.ts` | **수정** — 자격증명·소켓·강등 주입 | Plugin 배포 deps에 `secret(authId)` closure · 소켓 팩토리 · `reportCredentialRejected(authId)` closure를 추가 | `deployment-wiring.test.ts` 확장 |
 | `app/src/main/features/auth/runtime.ts` | **수정** — reporter 노출 | `createAuthRuntime` 결과에 `credentialRejectionReporter`를 더한다. `AuthRuntime` 인터페이스와 `RouterContext`는 건드리지 않는다 (AR-05) | `runtime.test.ts` 확장 |
-| `app/src/main/features/auth/login.ts` | **수정** — verifier 분기 | `LoginDeps`에 optional `verify?: (authId, candidate, signal) => Promise<{ok, rejected}>`를 더하고 `probe()` 첫 분기에서 우선한다. 타임아웃은 기존 `PROBE_TIMEOUT_MS`(15s)를 그대로 쓴다 (AR-06) | `login.test.ts` 확장 |
+| `app/src/main/features/auth/login.ts` | **수정** — verifier 분기 + 거부 문구 | ① `LoginDeps.verify?: (authId, candidate, signal) => Promise<{ok, rejected}>`를 더하고 `probe()`에서 **`candidate`가 있을 때만** 우선한다(D-042) ② `:716`의 고정 거부 문구를 outcome에 따라 갈라 싣는다(D-041). 타임아웃은 기존 `PROBE_TIMEOUT_MS`(15s) (AR-06) | `login.test.ts` 확장 |
 | `app/scripts/check-migrations-appendonly.mjs` | **수정** — 가드 일반화 | 단일 상수 2개 → `{dir, source}` 목록. mail 쌍 등재 | 동반 `*.test.mjs` 확장 |
 | `app/package.json` | **수정** — 의존성 | `node-pop3` · `postal-mime` 추가 (D-023) | — |
 | `docs/arch/backend/security.md` | **수정** — §1.8 표 | POP3 예외 1행 추가 + 강제 수단 명시 | `check-doc-inventory.mjs` |
@@ -582,6 +591,7 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 
 - producer 기준: `normalize.ts`가 `MailDocument`를 만든다. `headerDate`가 파싱 불가·미래·1970 이전이면 `firstSeenAt`으로 대체한다(D-017).
 - consumer 파생 규칙: `mail_search` 결과의 `date`는 **`MailDocument.effectiveDate` 한 필드에서만** 나온다. `headerDate`와 `firstSeenAt`을 둘 다 내보내면 소비자가 자기 규칙으로 고를 수 있어 정본이 둘이 된다.
+- `structuredContent`의 소비자는 **모델뿐이다** — 앱 내 소비처가 0건이고 MCP passthrough로만 나간다(F-32). 화면에 보여야 하는 것은 `content`에 싣는다.
 - 파생 가능한 합성값이 정본을 우회하지 않는가: `hasAttachments`는 `attachment` 행 수에서 파생하고 별도 boolean 컬럼을 두지 않는다. `stale`은 `cacheAsOf`와 `now`에서 파생하되 **결과에 함께 싣는다** — 모델이 계산하게 두면 진단 ⑬의 순서 문제가 재발한다.
 
 ### 부팅/등록/초기화 변경 시 기존 소비처
@@ -600,7 +610,8 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 - 생성/시작: Plugin은 부팅에서 **1회** 만든다. mail.db 연결은 첫 도구 호출에서 lazy로 연다.
 - 취소/중단: `RuntimeToolContext.getSignal()` → 소켓 `destroy()` → 진행 중 트랜잭션 롤백 → staging 디렉터리 제거.
 - 종료/quit/crash: `QUIT` 미전송 상태로 프로세스가 죽으면 서버가 세션을 타임아웃으로 정리한다. `DELE`를 안 보내므로(D-031) 서버 상태는 변하지 않는다. mail.db는 WAL이라 크래시에 무손실이다.
-- 연결 시점 증명: verifier가 candidate로 POP3 1왕복(`USER`/`PASS`/`QUIT`)을 돌고 **성공해야 커밋**한다(D-040). 실패는 커밋하지 않으므로 vault·grant에 잔여가 없다 — 부분 상태가 생기지 않는다.
+- 취소 신호 부재: `RuntimeToolContext`는 `undefined`일 수 있다(F-31). 세 handler는 `context?.getSignal()`로 받고 없으면 **취소 없이 정상 수행**한다 — 없다고 throw 하지 않는다.
+- 연결 시점 증명: verifier가 candidate로 POP3 1왕복(`USER`/`PASS`/`QUIT`)을 돌고 **성공해야 커밋**한다(D-040). 부팅 `resume()`은 candidate가 없어 타지 않는다(D-042). 실패는 커밋하지 않으므로 vault·grant에 잔여가 없다 — 부분 상태가 생기지 않는다.
 - 자격증명 상태 전이: **lazy** — 도구 호출이 인증 거부를 관측한 자리에서만 강등한다(D-037). 주기 검증·`features/scheduler` 등록을 만들지 않으며 그 부재는 AC9의 슬라이스 전수 스윕이 함께 잠근다. 강등까지만 하고 `revoke`는 부르지 않는다(D-038).
 - retry/timeout/partial failure: 자동 재시도 **없음**. 타임아웃은 D-029(연결 15s·명령 30s·전체 120s). 전체 예산 초과는 **부분 성공**으로 커밋하고 `partial:true`를 반환한다 — 커밋된 메일은 ledger에 있으므로 다음 sync가 이어받는다.
 - cleanup/rollback: 메일 1건의 영속은 `mail` + `attachment` + `uidl_ledger` + FTS 트리거를 **한 트랜잭션**으로 묶는다.
@@ -670,6 +681,7 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 | `node:tls`가 **OS 인증서 저장소를 안 본다** | `tlsOptions.ca`로 배포가 사설 CA를 주입한다. `rejectUnauthorized:false`는 조립에서 거부한다(§15) |
 | `postal-mime`이 `iso-2022-kr`을 못 읽는다 (F-13 실측) | **수용한다 — 완화하지 않는다**(D-033). 그 메일은 `windows-1252`로 폴백해 제목·본문이 깨진 채 색인되고 검색에 걸리지 않는다. 동작은 멈추지 않으며 sync·다른 메일에 영향이 없다 |
 | 값만 넣어도 "연결됨"이 될 수 있다 (F-06b) | **닫았다**(D-040) — 연결 버튼이 실제 POP3 왕복으로 증명하고 실패는 커밋하지 않는다(AC29). 이후 운영 중 변화는 lazy 강등이 받는다(D-037·AC28) |
+| `passwordSpec`의 **프로덕션 첫 사용자**다 (F-30) | 렌더러 다중 필드 경로는 코드로 확인했다(F-29). 남은 미지는 실제 폼 동작이라 실기 ⑤에 넣었다 |
 | `login.ts` 분기를 고쳐 다른 Auth의 로그인이 바뀐다 | verifier 미주입 Auth 2종의 호출 횟수·커밋 여부 불변을 AC30이 잠그고, 분기를 뒤집는 변이를 등록했다(VP-23) |
 | `trigram` 인덱스가 크다 (§14) | 14일 TTL이 상한을 잡는다. 10,000통 기준 최대 800 MB를 §14에 계산해 두었고 성능시험 항목이다(D-005) |
 | 최초 sync가 느리다 | D-026 역순 스캔 + `partial` 재개. 10,000통 중 14일분 1,000통 기준 TOP 200 s → 21 s |
@@ -700,7 +712,7 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 - 기본 정적 게이트: `cd app && npm run lint && npm run typecheck`
 - 관련 테스트: `cd app && ./node_modules/.bin/vitest run src/main/features/plugins/mail src/main/infra/net src/main/app/deployment` · `node --test scripts/check-migrations-appendonly.test.mjs`
 - 문서 게이트: `cd app && node scripts/check-doc-inventory.mjs --check`
-- 사람 실기: 폐쇄망 배포에서 **순서대로** — ① POP3 포트가 프록시 없이 닿는가 + 서버가 `USER`/`PASS`를 받는가(둘 중 하나라도 아니면 이후가 무의미) ② 사설 CA로 TLS 핸드셰이크 ③ 실제 한국어 메일 인코딩 ④ 최초 sync 소요 시간 ⑤ 비밀번호를 일부러 틀려 도구 회수·재인증 안내 확인(AC28).
+- 사람 실기: 폐쇄망 배포에서 **순서대로** — ① POP3 포트가 프록시 없이 닿는가 + 서버가 `USER`/`PASS`를 받는가(둘 중 하나라도 아니면 이후가 무의미) ② 사설 CA로 TLS 핸드셰이크 ③ 실제 한국어 메일 인코딩 ④ 최초 sync 소요 시간 ⑤ 연결 탭에서 아이디·비밀번호 2필드 폼이 실제로 뜨고 저장되는가(F-30 — 첫 사용자) ⑥ 비밀번호를 일부러 틀려 연결 거부 문구와 도달 실패 문구가 다른지(AC29) ⑦ 연결 후 비밀번호를 서버에서 바꿔 도구 회수·재인증 안내 확인(AC28).
 
 ## READY self-review
 
@@ -716,7 +728,7 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 - [x] 상속 기준이 없으면 Baseline V를 썼고 유효 V를 재구성할 수 있다 — `V1` 단독.
 - [x] 변경 효과에 필요한 레벨을 선택했고 모든 NEW node에 같은 레벨 REQUIRED pair가 있다 — 설계 node `R 6 · SD 3 · AR 6 · MD 7 = 22` ↔ `VP-01~VP-23` 전부 REQUIRED. 검산 줄은 §7-A Pair registry 아래에 있다.
 - [x] 영향받은 INHERITED node는 REGRESSION, 비영향 node만 NOT_REQUIRED다 — 상속 node 0건이라 해당 없음.
-- [x] 각 pair의 경로·§10 전수 분모·직접 oracle이 있고 적대 증거가 필요한 pair만 선택 이유·변이를 갖는다 — 23 pair 중 15개가 적대 증거를 선택했고 각각 이유를 적었다. not selected 8개는 직접 관측 근거를 적었다. §10 EP-01~EP-17의 지점 합 36이 pair registry 분모와 일치한다.
+- [x] 각 pair의 경로·§10 전수 분모·직접 oracle이 있고 적대 증거가 필요한 pair만 선택 이유·변이를 갖는다 — 23 pair 중 15개가 적대 증거를 선택했고 각각 이유를 적었다. not selected 8개는 직접 관측 근거를 적었다. §10 EP-01~EP-17의 지점 합 37이 pair registry 분모와 일치한다.
 - [x] 현재 변경 산출물의 운영 gate가 열거됐고 관련 없는 기존 실패를 새 blocking 범위로 만들지 않는다 — §7-A gate 표 8행, ABI/사람 실기는 비-blocking으로 분리.
 - [x] 사람 실기로 미룬 순수 로직이 없다 — 실기는 실 서버 TLS·실 인코딩 1건뿐이고 프로토콜 판정·TTL·FTS·경로 은닉은 전부 순수 테스트다.
 - [x] semantic 목표가 structural proxy만으로 검증되지 않는다 — AC20·AC21·AC26의 음성 스윕에 각각 양성 단언을 짝지었다.
