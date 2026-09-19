@@ -76,7 +76,7 @@ app/src/main/app/deployment/
 
 | 파일 | factory | 받는 것 |
 |---|---|---|
-| `plugins.ts` | `createPluginBindings(deps)` | `auth: AuthBinder` · `registry: RuntimeToolSink` · `logger?` · `secretFor` · `userDataRoot` · `credentialRejectionReporter?` |
+| `plugins.ts` | `createPluginBindings(deps)` | `auth: AuthBinder` · `registry: RuntimeToolSink` · `logger?` · `credentialFor` · `userDataRoot` · `credentialRejectionReporter?` |
 | `auth-verifiers.ts` | `createAuthVerifiers(deps)` | `userDataRoot: string` **만** |
 | `harness-runtime.ts` | `createConfigApiAugmenters(deps)` | `auth: AuthBinder` **만** |
 | `harness-runtime.ts` | `createDirectCredentialAugmenters(deps)` | `secrets: Record<AuthId, () => string \| null>` **만** (선언한 id 만) |
@@ -786,7 +786,7 @@ export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[
   const server = mailTools(
     mailAuth,
     {
-      password: deps.secretFor(MAIL_AUTH.id),
+      credential: deps.credentialFor(MAIL_AUTH.id),
       root: deps.userDataRoot,
       socketFactory: createPop3Socket,
       ...(deps.credentialRejectionReporter
@@ -813,11 +813,31 @@ export function createAuthVerifiers(
   deps: AuthVerifierDeploymentDeps
 ): Readonly<Record<AuthId, AuthCandidateVerifier>> {
   return {
-    [MAIL_AUTH.id]: async (_authId, candidate, signal) =>
-      verifyPop3Credential(MAIL_PLUGIN_OPTIONS, createPop3Socket, candidate, signal)
+    [MAIL_AUTH.id]: createPop3CandidateVerifier({
+      connection: { host: MAIL_PLUGIN_OPTIONS.host, port: 995, tls: true },
+      socketFactory: createPop3Socket
+    })
   }
 }
 ```
+
+`createPop3CandidateVerifier`는 **read 경로와 같은 세션 factory**를 탄다 — 검증 전용 로그인 코드를
+따로 두면 그 순간 두 경로가 갈린다(D-040). 자격증명 거부는 `rejected:true`, 도달 실패는
+`rejected:false`로 구분해 돌려주므로 입력 폼이 다른 문구를 싣는다(D-041).
+
+**자격증명은 `CredentialMaterial`로 온다** (0237 D-054). `passwordSpec`이 vault에 넣는 값은
+`user:pass` 한 문자열이지만 POP3는 `USER`/`PASS` 두 인자를 요구한다 — 그 언폴딩은
+`features/auth/specs/credential.ts`가 소유하고 Plugin은 편 형태만 받는다. Plugin이 `:`를 직접
+쪼개면 규칙이 두 곳에 생기고 한쪽만 고쳐진다.
+
+| material 갈래 | 나오는 AuthMethod | POP3 메커니즘 |
+|---|---|---|
+| `password{username,password}` | `passwordSpec` | `USERPASS` (`USER`/`PASS`) |
+| `token{username,accessToken}` | `oauth` | `XOAUTH2` — **미구현, 홀드** (D-039) |
+| `opaque{value}` | `patSpec`·`apiKeySpec` | 없음 — 조립 실패 |
+
+메커니즘 선택은 서버 `CAPA` 응답 ∩ material 갈래다. **광고되지 않은 메커니즘으로 폴백하지
+않는다** — token을 `PASS`로 흘려보내면 액세스 토큰이 평문 비밀번호로 전송된다.
 
 `mail_sync`는 freshness 확인 뒤에만 POP3에 연결하며, `mail_search`는 로컬 DB만 읽는다. 인증 거부만
 Auth를 만료시키고 세 도구를 함께 회수한다. 연결·TLS·타임아웃·파싱·DB 장애는 캐시와 Auth를 유지한 채

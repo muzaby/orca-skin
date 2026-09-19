@@ -24,8 +24,8 @@ describe('mail store', () => {
     })
     opened.push(store)
     await store.saveMessage({
-      uidl: 'u1',
-      messageNumber: 1,
+      remoteUid: 'u1',
+      ordinal: 1,
       headerDate: 1000,
       firstSeenAt: 1000,
       effectiveDate: 1000,
@@ -69,8 +69,8 @@ describe('mail store', () => {
     })
     opened.push(store)
     await store.saveMessage({
-      uidl: 'gone',
-      messageNumber: 1,
+      remoteUid: 'gone',
+      ordinal: 1,
       headerDate: 1000,
       firstSeenAt: 1000,
       effectiveDate: 1000,

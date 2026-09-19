@@ -1,12 +1,13 @@
 import { createHash } from 'node:crypto'
 import { isFresh } from './freshness'
 import { buildMailQuery } from './query-builder'
-import { reconcileUidls } from './reconcile'
+import { reconcileRemoteUids } from './reconcile'
 import { decideProtection } from './protection'
 import { parseMail } from './mime'
-import { Pop3Error, normalizePop3Error } from './pop3/errors'
-import { createPop3Session, type Pop3Session } from './pop3/session'
+import { MailError, normalizeMailError } from './errors'
 import { createMailStore, type MailStore } from './store'
+import type { MailMessageRef, MailReadSession, MailReadSessionFactory } from './transport'
+import type { CredentialMaterial } from '../../../contracts/auth'
 import type {
   MailPluginOptions,
   MailSearchResult,
@@ -15,10 +16,15 @@ import type {
   Pop3SocketFactory
 } from './types'
 
+// **프로토콜 모듈을 import 하지 않는다** (0237 D-056 · §10 EP-25). 세션은 주입된 factory 가
+// 만들고, 이 파일은 `MailReadSession` 4메서드만 안다 — 두 번째 프로토콜이 여기를 고치지 않고
+// 들어올 수 있는 이유가 그것이다.
 export interface MailSyncManagerOptions {
   readonly authId: string
-  readonly password: () => string | null
+  // **선언이 편 형태**로 받는다 (D-054). 문자열을 받아 `:` 로 쪼개던 것이 0237 G4 다.
+  readonly credential: () => CredentialMaterial | null
   readonly options: MailPluginOptions
+  readonly sessionFactory: MailReadSessionFactory
   readonly socketFactory: Pop3SocketFactory
   readonly root: string
   readonly now?: () => number
@@ -36,9 +42,9 @@ export interface MailSyncManager {
   close(): void
 }
 
-function fingerprint(uidls: readonly { messageNumber: number; uidl: string }[]): string {
+function fingerprint(refs: readonly MailMessageRef[]): string {
   return createHash('sha256')
-    .update(uidls.map((item) => `${item.messageNumber}:${item.uidl}`).join('\n'))
+    .update(refs.map((item) => `${item.ordinal}:${item.uid}`).join('\n'))
     .digest('hex')
 }
 
@@ -58,16 +64,16 @@ async function withTimeout<T>(
   timeoutMs: number,
   signal?: AbortSignal
 ): Promise<T> {
-  if (signal?.aborted) throw new Pop3Error('cancelled')
+  if (signal?.aborted) throw new MailError('cancelled')
   let timer: ReturnType<typeof setTimeout> | undefined
   let abortHandler: (() => void) | undefined
   const abort = new Promise<never>((_, reject) => {
     if (!signal) return
-    abortHandler = () => reject(new Pop3Error('cancelled'))
+    abortHandler = () => reject(new MailError('cancelled'))
     signal.addEventListener('abort', abortHandler, { once: true })
   })
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Pop3Error('timeout')), timeoutMs)
+    timer = setTimeout(() => reject(new MailError('timeout')), timeoutMs)
   })
   try {
     return await Promise.race([promise, abort, timeout])
@@ -113,39 +119,38 @@ export async function createMailSyncManager(
         ) {
           return { synced: false, fresh: true, lastSyncAt: current.lastSyncAt }
         }
-        const password = options.password()
-        if (!password) throw new Pop3Error('auth_failed')
+        const credential = options.credential()
+        if (!credential) throw new MailError('auth_failed')
         onStage?.({ stage: 'connect' })
-        const session: Pop3Session = createPop3Session(
-          {
+        const session: MailReadSession = options.sessionFactory({
+          connection: {
             host: options.options.host,
             port: options.options.port ?? (options.options.tls === false ? 110 : 995),
             tls: options.options.tls !== false,
             ...(options.options.tlsOptions ? { tlsOptions: options.options.tlsOptions } : {}),
             ...(options.options.timeouts?.commandMs
               ? { timeoutMs: options.options.timeouts.commandMs }
-              : {}),
-            user: options.options.user ?? options.authId,
-            password,
-            signal: signalOrUndefined(signal)
+              : {})
           },
-          options.socketFactory
-        )
-        const abortSession = (): void => session.destroy()
+          credential,
+          socketFactory: options.socketFactory,
+          ...(signalOrUndefined(signal) ? { signal } : {})
+        })
+        const abortSession = (): void => void session.close('abort')
         signal?.addEventListener('abort', abortSession, { once: true })
         let destroySession = false
         try {
           await withTimeout(session.login(), options.options.timeouts?.connectMs ?? 15_000, signal)
-          onStage?.({ stage: 'uidl' })
+          onStage?.({ stage: 'list' })
           const remote = await withTimeout(
-            session.uidls(),
+            session.list(),
             options.options.timeouts?.commandMs ?? 30_000,
             signal
           )
           const local = store.ledger()
-          const reconciled = reconcileUidls(
+          const reconciled = reconcileRemoteUids(
             local,
-            remote.map((item) => item.uidl)
+            remote.map((item) => item.uid)
           )
           const protection = decideProtection({
             retainedRatio: reconciled.retainedRatio,
@@ -169,15 +174,15 @@ export async function createMailSyncManager(
             }
           }
           let processed = 0
-          const newest = [...remote].sort((a, b) => b.messageNumber - a.messageNumber)
+          const newest = [...remote].sort((a, b) => b.ordinal - a.ordinal)
           let oldHeaders = 0
           const grace = 50
           for (const item of newest) {
-            if (signal?.aborted) throw new Pop3Error('cancelled')
-            if (!reconciled.fresh.includes(item.uidl)) continue
-            onStage?.({ stage: 'top' })
+            if (signal?.aborted) throw new MailError('cancelled')
+            if (!reconciled.fresh.includes(item.uid)) continue
+            onStage?.({ stage: 'header' })
             const top = await withTimeout(
-              session.top(item.messageNumber),
+              session.header(item),
               options.options.timeouts?.commandMs ?? 30_000,
               signal
             )
@@ -190,15 +195,15 @@ export async function createMailSyncManager(
               if (oldHeaders >= grace) break
               continue
             }
-            onStage?.({ stage: 'retr' })
+            onStage?.({ stage: 'body' })
             const raw = await withTimeout(
-              session.retr(item.messageNumber),
+              session.body(item),
               options.options.timeouts?.commandMs ?? 30_000,
               signal
             )
             const document = await parseMail(raw, {
-              uidl: item.uidl,
-              messageNumber: item.messageNumber,
+              remoteUid: item.uid,
+              ordinal: item.ordinal,
               firstSeenAt: timestamp
             })
             onStage?.({ stage: 'persist' })
@@ -212,16 +217,17 @@ export async function createMailSyncManager(
           })
           return { synced: true, newMails: processed, expired, lastSyncAt: timestamp }
         } catch (error) {
-          const normalized = normalizePop3Error(error)
+          const normalized = normalizeMailError(error)
           destroySession = normalized.code === 'timeout' || normalized.code === 'cancelled'
           throw error
         } finally {
           signal?.removeEventListener('abort', abortSession)
-          if (signal?.aborted || destroySession) session.destroy()
-          else await session.quit().catch(() => session.destroy())
+          await session
+            .close(signal?.aborted || destroySession ? 'abort' : 'graceful')
+            .catch(() => session.close('abort'))
         }
       } catch (error) {
-        const normalized = normalizePop3Error(error)
+        const normalized = normalizeMailError(error)
         store.saveState({ lastErrorCode: normalized.code })
         if (normalized.authFailure) options.reportCredentialRejected?.(options.authId)
         return {

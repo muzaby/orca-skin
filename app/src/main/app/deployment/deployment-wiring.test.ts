@@ -242,7 +242,7 @@ const pluginDeps = (
   overrides: Partial<PluginDeploymentDeps> = {}
 ): PluginDeploymentDeps => ({
   ...base,
-  secretFor: () => () => null,
+  credentialFor: () => () => null,
   userDataRoot: 'C:/Users/tester/AppData/Roaming/orca',
   ...overrides
 })
@@ -769,13 +769,18 @@ describe('배포 경계 — 컴포지션 루트는 plugin 고유 어휘를 모�
     const secrets: Record<string, string> = { [MAIL_AUTH.id]: 'pop3-password' }
     const deps = pluginDeps(
       { auth, registry },
-      { secretFor: (authId) => () => secrets[authId] ?? null }
+      {
+        credentialFor: (authId) => () =>
+          secrets[authId]
+            ? { kind: 'password' as const, username: 'alice@corp', password: secrets[authId] }
+            : null
+      }
     )
 
     // 폐쇄망 배포가 `app/deployment/plugins.ts` 안에 적는 것과 같은 코드다.
     const mailAuth = deps.auth.bindForPlugin(MAIL_AUTH.id)
     const transport = {
-      password: deps.secretFor(MAIL_AUTH.id),
+      credential: deps.credentialFor(MAIL_AUTH.id),
       root: deps.userDataRoot,
       socketFactory: vi.fn()
     }
@@ -799,7 +804,11 @@ describe('배포 경계 — 컴포지션 루트는 plugin 고유 어휘를 모�
     ])
     expect(registry.snapshot().servers.size).toBe(1)
     // AuthId 를 닫은 closure 가 실제 값을 돌려준다 — 배포가 `AuthSecretReader` 를 만지지 않는다.
-    expect(transport.password()).toBe('pop3-password')
+    expect(transport.credential()).toEqual({
+      kind: 'password',
+      username: 'alice@corp',
+      password: 'pop3-password'
+    })
     expect(transport.root).toBe(deps.userDataRoot)
     // 조립만으로는 소켓이 열리지 않는다(부팅 단계를 바꾸지 않는다 — D-030·§10 EP-06).
     expect(transport.socketFactory).not.toHaveBeenCalled()
@@ -854,7 +863,7 @@ describe('문서 계약 — 가이드 factory 표가 실제 능력을 전부 적
     auth: true,
     registry: true,
     logger: true,
-    secretFor: true,
+    credentialFor: true,
     userDataRoot: true,
     credentialRejectionReporter: true
   }

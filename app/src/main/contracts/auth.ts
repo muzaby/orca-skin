@@ -482,6 +482,30 @@ export interface AuthRuntime {
 //   failed      — 시도했으나 실패했다(선언이 던짐 · 새 토큰이 probe 를 통과하지 못함).
 export type AuthRefreshResult = 'refreshed' | 'unsupported' | 'failed'
 
+// ── 자격증명의 구조화 표현 (0237 ΔV3 — D-054) ────────────────────────────────
+//
+// `compose` 는 입력 레코드를 vault 에 넣을 **한 문자열**로 접는다(`specs/credential.ts`). 이것은
+// 그 **역방향**이다 — 접은 것을 선언이 다시 편다.
+//
+// **왜 필요한가**: `Presentation` 은 HTTP 전용이라(`location:'header'|'query'|'cookie'`) 값을
+// 헤더에 붙이는 것으로 끝난다. POP3·IMAP·SMTP 는 자격증명을 **프로토콜 인자 둘**로 요구한다
+// (`USER`/`PASS`, SASL 의 user·token). 문자열 하나를 건네면 소비자가 `:` 규칙을 다시 구현하게
+// 되고, 실제로 그렇게 됐다 — 0237 G4 에서 아이디는 정적 설정값에서 오고 `user:pass` 합성형이
+// 통째로 `PASS` 로 나가 ID/비밀번호 로그인이 동작하지 않았다.
+//
+// **HTTP 소비자는 이것을 쓰지 않는다.** `BoundAuth.request` 가 계속 `Presentation` 으로 붙인다.
+export type CredentialMaterial =
+  // 입력형 2값 (`passwordSpec`). `username` 은 첫 `:` 앞이고 그 규칙은 compose 와 같은 파일에 있다.
+  | { kind: 'password'; username: string; password: string }
+  // OAuth access token. SASL XOAUTH2 는 계정 식별자도 함께 요구하므로 `username` 을 싣는다.
+  | { kind: 'token'; username: string; accessToken: string }
+  // 단일 opaque (`patSpec`·`apiKeySpec`) 또는 갈래를 알 수 없는 경우.
+  | { kind: 'opaque'; value: string }
+
+// 비-HTTP Plugin 이 받는 자격증명 포트. **AuthId 를 닫은 closure 로만 전달된다** — 소비자는
+// 자기 것 말고 읽을 수 없고 vault 도 renderer 도 모른다(0188 D-010 승계).
+export type CredentialMaterialReader = (authId: AuthId) => () => CredentialMaterial | null
+
 // ── trusted-main 전용 raw credential 포트 ─────────────────────────────────────
 //
 // **`createAuthRuntime` 의 app composition 결과에만 둔다.** `RouterContext`·renderer IPC·일반
@@ -496,4 +520,7 @@ export type AuthRefreshResult = 'refreshed' | 'unsupported' | 'failed'
 // Bootstrap 은 전체 reader 가 아니라 **AuthId 를 닫은 closure** 만 전달한다.
 export interface AuthSecretReader {
   read(authId: AuthId): string | null
+  // 같은 값을 **선언이 편 형태**로 돌려준다 (0237 D-054). `read` 를 지우지 않는 이유는 소비자가
+  // 다르기 때문이다 — MCP `${BINDING:}` 와 Harness env 는 문자열 그대로를 원한다.
+  material(authId: AuthId): CredentialMaterial | null
 }

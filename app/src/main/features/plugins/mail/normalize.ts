@@ -19,7 +19,7 @@ function asBytes(value: ArrayBuffer | Uint8Array | string): Uint8Array {
 
 export function normalizeMail(
   email: Email,
-  input: { uidl: string; messageNumber: number; firstSeenAt: number; sizeBytes?: number }
+  input: { remoteUid: string; ordinal: number; firstSeenAt: number; sizeBytes?: number }
 ): MailDocument {
   const parsedDate = email.date ? Date.parse(email.date) : Number.NaN
   const headerDate = Number.isFinite(parsedDate) && parsedDate >= 0 ? parsedDate : null
@@ -33,8 +33,8 @@ export function normalizeMail(
     }
   })
   return {
-    uidl: input.uidl,
-    messageNumber: input.messageNumber,
+    remoteUid: input.remoteUid,
+    ordinal: input.ordinal,
     headerDate,
     firstSeenAt: input.firstSeenAt,
     effectiveDate: headerDate ?? input.firstSeenAt,

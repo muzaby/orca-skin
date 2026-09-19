@@ -18,7 +18,7 @@
 
 import type { RuntimeToolServer, RuntimeToolSink } from '../../adapters/runtime-tools'
 import { runtimeToolFullName } from '../../adapters/runtime-tool-policy'
-import type { AuthBinder, AuthId, BoundAuth } from '../../contracts/auth'
+import type { AuthBinder, AuthId, BoundAuth, CredentialMaterial } from '../../contracts/auth'
 import {
   normalizePluginCatalogPresentation,
   type PluginCatalogPresentation,
@@ -83,11 +83,14 @@ export interface PluginDeploymentDeps {
   registry: RuntimeToolSink
   logger?: (event: string, data: Record<string, unknown>) => void
   /**
-   * AuthId 를 닫은 secret closure 를 만든다. **`AuthSecretReader` 자체는 넘어오지 않는다**
+   * AuthId 를 닫은 자격증명 closure 를 만든다. **`AuthSecretReader` 자체는 넘어오지 않는다**
    * (0188 D-010) — Plugin 은 자기 것 말고는 읽을 수 없다. HTTP Plugin 은 이것을 쓰지 않는다
    * (자격증명 주입은 `PluginAuth.request` 안에서 끝난다).
+   *
+   * 값은 **선언이 편 형태**다 (0237 D-054) — 소비자가 `user:pass` 의 `:` 규칙을 다시 구현하지
+   * 않는다. 그 규칙이 두 곳에 생겨 한쪽만 고쳐진 것이 0237 G4 다.
    */
-  secretFor: (authId: AuthId) => () => string | null
+  credentialFor: (authId: AuthId) => () => CredentialMaterial | null
   /** 캐시 DB·staging 이 살 루트(`app.getPath('userData')`). 경로 계산을 배포가 다시 하지 않는다. */
   userDataRoot: string
   /** 비-HTTP 전송이 자격증명 **거부**를 관측했을 때 Auth 를 강등시키는 되먹임 (0237 D-035). */
@@ -114,7 +117,7 @@ export interface PluginDeploymentDeps {
 //     server: mailTools(
 //       mailAuth,
 //       {
-//         password: deps.secretFor(MAIL_AUTH.id),
+//         credential: deps.credentialFor(MAIL_AUTH.id),
 //         root: deps.userDataRoot,
 //         socketFactory: createPop3Socket,
 //         ...(deps.credentialRejectionReporter

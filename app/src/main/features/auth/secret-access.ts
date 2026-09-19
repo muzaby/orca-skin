@@ -18,12 +18,24 @@
 // 미인증이면 **`null`** 이다 — 빈 문자열 치환 금지(조용한 미인증 진행 방지, 0181 결정 유지).
 
 import type { AuthId, AuthSecretReader } from '../../contracts/auth'
+import { unfoldCredential } from './specs/credential'
 import type { AuthStore } from './store'
 
 export function createAuthSecretReader(store: AuthStore): AuthSecretReader {
   return {
     read(authId: AuthId): string | null {
       return store.secret(authId)
+    },
+    // 같은 값을 **선언이 편 형태**로 (0237 D-054). 갈래 판정은 커밋된 grant 의 `authKind` 가
+    // 하고, 파싱 규칙은 `specs/credential.ts` 가 소유한다 — 여기서 `:` 를 다시 쪼개지 않는다.
+    material(authId: AuthId) {
+      const secret = store.secret(authId)
+      if (secret === null) return null
+      return unfoldCredential(
+        store.authKind(authId) ?? undefined,
+        secret,
+        store.get(authId)?.principalId
+      )
     }
   }
 }

@@ -1366,6 +1366,108 @@ plan 은 `createMailToolServer(auth, manager)` 만 적고 manager 의 타입을 
 - D-052 는 plan 턴의 조사에서 나왔다(구현 전). AC30 의 oracle 이 "verifier **미주입** Auth" 만 봐서 r2 의 게이트로는 잡히지 않는 구조였다.
 - 현재 라운드 수: 3. 다음 주체는 검증자이며 이 보고는 구현자의 증거로만 사용한다.
 
+## [구현자 기입] 설계 리뷰 (r4 — ΔV3)
+
+- **READY 확인 후 구현 진행.** 유효 V `V1+ΔV1+ΔV2+ΔV3` 의 D-054~D-059, AC21′·AC29′·AC40~AC45, §10 EP-24~EP-26·정정된 EP-10·EP-15·EP-17 을 기준으로 구현했다. 구현 주체는 사용자 지시로 Claude 다.
+- **G4 를 코드로 재현한 뒤 고쳤다.** fake POP3 서버를 먼저 만들고 구 경로를 태우자 `PASS alice@corp:hunter2` 가 실제로 전송됐다(수신 로그 관측). 설계가 주장한 결함이 실재했다.
+- 동의 / 그대로 진행: `CredentialMaterial`·`MailAuthenticator`·`MailReadSession`·`MailError`·스키마 중립화·`READ_ONLY_COMMANDS` 를 설계대로 구현했다. **구현체는 POP3 1종·`USERPASS` 1종**이고 `XOAUTH2` 는 만들지 않았다(D-039 유지).
+
+## [구현자 기입] 강제 지점 전수 (§10 대조, r4)
+
+| EP | 지점 | 재현 명령 | 관측값 | 상태 |
+|---|---|---|---|---|
+| EP-24 ① | compose↔unfold 가 같은 파일 | `grep -c "compose:\|export function unfoldCredential" …/specs/credential.ts` | **3**(compose 2 + unfold 1) | ✅ |
+| EP-24 ② | 선택이 capability 를 본다 | `grep -n "supportedBy(capabilities)" …/pop3/auth.ts` | **1** (`selectAuthenticator`) | ✅ |
+| EP-24 ③ | 미광고 메커니즘 폴백 부재 | `grep -n "accepts: 'token'" …/pop3/auth.ts` | **0** — token 을 받는 구현체가 없어 `no_mechanism_for_token` 으로 실패한다 | ✅ |
+| EP-25 ① | `sync-manager` import 에 `pop3/` | `grep -cE "^\s*import.*pop3" …/sync-manager.ts` | **0** | ✅ |
+| EP-25 ② | factory 가 옵션 인자 | `grep -c "sessionFactory: MailReadSessionFactory" …/sync-manager.ts` | **1** | ✅ |
+| EP-25 ③ | 비-POP3 세션 전 루프 완주(양성) | `protocol-boundary.test.ts` | sync `{synced:true,newMails:1}` + 검색 1건 + `close('graceful')` | ✅ |
+| EP-26 ① | 중립 식별자 존재 | `grep -c "message_ledger\|remote_uid" …/0001_mail.sql` | **6** | ✅ |
+| EP-26 ② | POP3 어휘 전수 0건 | `grep -rcE "\buidl\b\|uidl_ledger\|message_number" …/mail --include=*.ts --include=*.sql` (prod) | **0파일** | ✅ |
+| EP-10 ① | `credential` 타입 | `grep -c "credential: () => CredentialMaterial \| null" …/transport.ts` | **1** | ✅ |
+| EP-10 ② | 배포 주입부 | `grep -c credentialFor src/main/app/bootstrap.ts` | **1** (`secretReader.material(authId)`) | ✅ |
+| EP-10 ③ | mail 슬라이스에 `:` 분리 로직 부재 | `grep -rn "indexOf(':')\|split(':')" …/mail --glob '!*.test.ts'` | **0** — **lint boundaries 가 강제한다**(mail→auth 교차 import error) | ✅ |
+| EP-15 ① | `DELE` 부재 | `grep -c "'DELE'" …/pop3/session.ts` | **0** | ✅ |
+| EP-15 ② | `ALLOWED_COMMANDS` 식별자 0건 | `stripCommentsAndStrings` 후 스캔 (AC45 케이스) | 코드 **0**, 주석 1(구 이름 근거) | ✅ |
+| EP-17 ⑤ | verifier 가 read 경로와 같은 세션 | `grep -c createPop3ReadSession …/auth-verifiers.ts` | **3** (import·기본값·사용) | ✅ |
+| EP-17 ①~④ | 기존 4지점 | ΔV2 산출 유지 | `login.test.ts` 63케이스 green | ✅ |
+
+**분모 검산**: ΔV3 가 만지는 EP **6군**(EP-10·15·17·24·25·26) · **18지점**(3+2+5+3+3+2) 중 닫은 지점 **18/18**. ΔV2 의 ⚠️ 1건(EP-22 ③)은 이번 라운드가 건드리지 않아 그대로 남는다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r4)
+
+| 심은 결함 | 출처 | 실패한 테스트 / 케이스 | 결과 |
+|---|---|---|---|
+| 언폴딩을 구 동작으로 되돌림(아이디 고정 + 합성값을 `PASS` 로) | VP-31 선택 증거 (G4) | `auth.test.ts` — 아이디/비밀번호 분리 · 9명령 전송 | **red** (2 failed / 9 passed) |
+| `accepts === credential.kind` 조건 제거(폴백 허용) | VP-31 선택 증거 (D-055) | token 실패 · opaque 실패 · token→`PASS` 부재 | **red** (3 failed / 8 passed) |
+| 게이트에 `DELE` 추가 | VP-34 선택 증거 (D-031) | `DELE 는 집합에 없다` | **red** (1 failed / 10 passed) |
+| `READ_ONLY_COMMANDS` → 구 이름으로 되돌림 | AC45 (새 oracle) | `개명이 끝났다 — 식별자 0건` | **red** (1 failed / 8 passed) |
+| `sync-manager` 가 `pop3/` 를 직접 import | VP-32 선택 증거 (D-056) | `음성 — 소스에 pop3/ import 가 0건` | **red** (1 failed / 5 passed) |
+| 스키마를 POP3 이름으로 되돌림 | VP-33 (새 oracle) | 중립 식별자 + **비-POP3 완주 양성까지** | **red** (2 failed / 4 passed) |
+| `ordinal` 을 `NOT NULL` 로 | VP-33 (새 oracle) | 중립 식별자 케이스 | **red** (1 failed / 5 passed) |
+
+**표 행 검산**: 선택 증거 **4**(VP-31 2종 · VP-32 · VP-34) · 인용 변이 **0** · 이번 턴에 만든 구조적/0건/배선 oracle **3**(AC45 개명 가드 · AC44 스키마 스캔 2변이) = 표 행 **7**. VP-35(AC29′)는 수신 명령을 직접 관측하므로 변이를 발명하지 않았다.
+
+- **덮개 회귀**: r2·r3 의 장치를 하나도 지우지 않았다. `mail/tools.test.ts`(5케이스)·`plugins.test.ts`·`deployment-wiring.test.ts`·`login.test.ts`·`runtime.test.ts`·`store/index.test.ts`·`pure.test.ts` 를 그대로 실행했고 단언 문장은 이름 변경분 외 불변이다.
+
+## [구현자 기입] Product/UX 파생 검토 (r4)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 사용자가 받는 결과가 바뀌는가 | ✅ **ID/비밀번호 로그인이 이제 동작한다.** G4 이전에는 맞는 값을 넣어도 연결되지 않았다 | AC29′·AC40 독립 확인 |
+| 실패가 구분되는가 | ✅ 거부(`rejected:true`)와 도달 실패(`rejected:false`)가 갈리고 입력 폼이 다른 문구를 싣는다(D-041) | 사람 실기에서 한국어 문구 |
+| 새 실패 모드가 생겼는가 | ✅ 하나 — material 갈래가 메커니즘과 안 맞으면 **조립이 실패한다**(`no_mechanism_for_*`). 이것은 의도다: 조용한 평문 폴백보다 낫다. `mail_sync` 가 `auth_failed` 로 접어 모델에게 보인다 | AC41 독립 확인 |
+| 기존 화면이 바뀌는가 | ✅ 아니다 — 도구 3종 이름·descriptor·검색 결과 형상 불변 | VP-13 회귀 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r4)
+
+| # | 문제 | 대응 | 분류 |
+|---|---|---|---|
+| **P7** | **`attachLineParser` 가 줄을 버리던 잠재 결함을 발견했다.** 한 `data` 청크에 여러 줄이 실려 오면 대기자가 없는 줄을 `waiters.shift()?.()` 로 **조용히 폐기**했다. multiline 응답(`CAPA`·`UIDL`·`TOP`·`RETR`)이 한 번에 도착하면 첫 줄만 남고 본문이 사라진다 — `readMultiline` 이 첫 줄 resolve **후**(마이크로태스크)에야 대기자를 등록하기 때문이다 | 완성된 줄을 **큐에 쌓도록** 고쳤다(`LineState.lines`). r2 구현 이래 있던 결함이고 fake 서버가 없어 드러나지 않았다 — 실 소켓은 줄이 나뉘어 도착하는 일이 잦다 | **선조치 후 보고** |
+| P8 | `CAPA` 를 광고하지 않는 서버(RFC 2449 미지원)에서 협상이 실패할 수 있다 | `capabilities()` 가 `CAPA` 실패를 삼키고 빈 배열로 접는다. `USER`/`PASS` 는 RFC 1939 필수라 광고를 요구하지 않는다(`supportedBy: () => true`) | NON_BLOCKING |
+| P9 | `MailPluginOptions.user` 필드가 이제 쓰이지 않는다(아이디는 자격증명에서 온다) | 남겨 두면 배포가 채우고 무시되는 자리가 된다. **이번 라운드에서 제거하지 않았다** — `MailPluginOptions` 는 배포 문서 계약이라 §15 와 함께 다뤄야 한다 | NEXT_HANDOFF |
+| P10 | ΔV2 의 EP-22 ③ ⚠️ 가 그대로 남는다 | 이번 라운드 범위 밖이다. D-030(기본 배포 `[]`)과의 충돌은 r3 §설계 대비 차이 D1 에 기록돼 있다 | 기록 유지 |
+
+### 설계 대비 명시적 차이 (r4)
+
+**D4 — AC40 의 왕복 단언을 두 레이어로 나눴다.**
+
+plan AC40 은 "`passwordSpec` 으로 커밋한 뒤 sync 를 돌리면 수신 로그가 `USER`·`PASS` 다" 로 한 곳을 말했다. 구현에서 `features/plugins/mail` → `features/auth` 교차 import 가 **lint error** 임을 확인했다(`boundaries/dependencies`). 그래서:
+
+- **언폴딩 왕복**(compose → unfold)은 `features/auth/specs/credential.test.ts` 가,
+- **편 값 → 프로토콜 인자**는 `features/plugins/mail/pop3/auth.test.ts` 가,
+- **vault 문자열 → `USER`/`PASS` 종단**은 `app/deployment/auth-verifiers.test.ts` 가 닫는다(app 은 양쪽을 import 할 수 있다).
+
+이 분할은 **의도치 않은 이득**이 있다: EP-10 ③("mail 슬라이스에 `:` 분리 로직 부재")이 grep 이 아니라 **lint 로 강제**된다. 대체물의 실패 모드를 축마다 확인했다 — 만료: 해당 없음(정적 구조). **공유**: 세 테스트가 갈라져 한 곳만 고쳐질 수 있다 → 종단 케이스(`auth-verifiers.test.ts`)가 vault 문자열에서 출발하므로 중간이 끊기면 그것이 red 다. 재진입: 해당 없음. 다른 무효화 축: 세 파일 중 하나를 지우면 나머지가 침묵할 수 있다 → 남은 위험이며 verify 가 볼 지점으로 남긴다.
+
+**D5 — `MailError.message` 타입을 `string` 으로 넓혔다.** 구 `Pop3Error` 는 `message = code` 라 TS 가 `MailErrorCode` 로 추론했고, `no_mechanism_for_token` 같은 진단 문자열을 실을 수 없었다. 코드 집합·의미는 불변이다.
+
+**D6 — `MailSyncStageEvent.stage` 이름을 프로토콜 중립으로 바꿨다**(`uidl`→`list`, `top`→`header`, `retr`→`body`). plan 이 명시하지 않았으나 D-056 의 귀결이다 — 포트가 중립인데 단계 이름이 POP3 어휘면 두 번째 프로토콜에서 거짓말이 된다. 소비자는 `onStage` 콜백 하나이고 프로덕션 구독자는 0건이다.
+
+## [구현자 기입] 구현 보고 (r4)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `contracts/auth.ts` · `features/auth/{secret-access,specs/credential}.ts` · `features/plugins/mail/{transport,errors,sync-manager,reconcile,types,normalize,mime,tools}.ts` · `mail/pop3/{auth,session,fake-server.testfixture}.ts` · `mail/store/index.ts` · `mail/migrations/0001_mail.sql` · `app/deployment/{plugins,auth-verifiers}.ts` · `app/bootstrap.ts` · 테스트 8파일 · 가이드·auth.md |
+| 신규 파일 | `mail/errors.ts` · `mail/pop3/auth.ts` · `mail/pop3/fake-server.testfixture.ts` · `mail/pop3/auth.test.ts` · `mail/protocol-boundary.test.ts` · `auth/specs/credential.test.ts` · `app/deployment/auth-verifiers.test.ts` (삭제: `mail/pop3/errors.ts`) |
+| 실행 명령 | `cd app && npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run`(전체) · `node scripts/check-migrations-appendonly.mjs` · `node --test scripts/check-migrations-appendonly.test.mjs` · `node scripts/check-doc-inventory.mjs --check` |
+| 관측한 게이트 산출 | lint **0 error / 1 warning**(기존 renderer) · typecheck 3구성 **0 error** · Vitest **544파일 1skip / 4996 pass 3 skip** · migration sync 27+**1**(개수 불변 — 새 파일이 아니라 `0001` 수정) · migration test **19 pass / 0 fail** · docs inventory **9 items / 98 channels**, prose·links ok |
+| 환경 한계 | better-sqlite3 는 Node ABI 로 재빌드된 상태다(r3 에서). DB 로드 스위트 포함 전건 green |
+| V-pair 자기확인 | `VP-31·32·33·34·35` **SELF_PASS**(전부 변이로 red 확인 또는 직접 관측). REGRESSION `VP-11·13·28·03·06` **SELF_PASS**(기존 스위트 재실행) |
+| 강제 지점 전수 | ΔV3 대상 **6군 18지점 중 18 ✅**. ΔV2 의 EP-22 ③ ⚠️ 는 범위 밖으로 유지 |
+| **AC 자기보고**(`Criteria-Met`) | **26/47** — r3 의 18건 + ΔV3 신규 6건(AC40~AC45) + **AC21′·AC29′**(정정본을 직접 단언) — 계 26. AC29′ 는 성공·거부·도달실패 3축을 모두 닫았다 |
+| **Criteria-Pending** | AC1~10·AC12~15·AC17·AC23·AC24·AC26~28 — 실 POP3 서버 TLS/사설 CA/실 인코딩과 fake 왕복 통합이 필요한 축. **분모가 41 → 47 로 바뀌었으므로 r3 의 18/41 과 직접 비교하지 않는다** |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r4 구현 — 검증자 기입)` |
+
+## [구현자 기입] Review Signals — 사실만 (r4)
+
+- 이번 라운드가 닫은 불변식은 **"접은 값은 접은 쪽이 편다"** 와 **"프로토콜은 포트 뒤에 있다"** 다. 전자는 §10 에 행이 아예 없었고(G4), 후자는 설계가 직결로 그렸다.
+- **oracle 이 결함을 서술하고 통과시킨 사례가 나왔다** — 구 AC21 의 "주입된 closure 가 돌려준 값으로 `PASS` 가 전송된다". 이것은 "검사 장치가 없다" 와 다른 축이다: 장치는 있었고 **방향이 반대**였다.
+- 같은 축의 반복: r3 Review Signals 가 "주석만으로 세운 불변식은 강제되지 않는다" 를 적었다. 이번에는 **lint boundaries 가 EP-10 ③ 을 대신 강제**해 주는 것을 확인했다 — 기계가 이미 강제하는 축을 §10 에 적을 때는 그 기계를 인용하는 편이 grep 보다 낫다.
+- 구현 중 발견한 r2 잠재 결함 1건(P7 `attachLineParser` 줄 폐기)은 fake 서버가 없어 드러나지 않던 것이다. **인수 기준이 실 왕복을 요구하지 않으면 프로토콜 코드의 결함은 남는다.**
+- 현재 라운드 수: 4. 다음 주체는 검증자다.
+
 ---
 
 ## [검증자 기입] 파생 이슈

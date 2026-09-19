@@ -90,7 +90,11 @@ describe('mail tool surface', () => {
     const socketFactory = vi.fn()
     const server = mailTools(
       auth('mail-corp'),
-      { password: () => 'secret', root: 'C:/mail-root', socketFactory },
+      {
+        credential: () => ({ kind: 'password' as const, username: 'u', password: 'secret' }),
+        root: 'C:/mail-root',
+        socketFactory
+      },
       { accountId: 'account', host: 'pop.example.test' }
     )
 

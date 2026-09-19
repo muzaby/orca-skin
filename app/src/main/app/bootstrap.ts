@@ -418,7 +418,8 @@ export class Bootstrap {
       credentialRejectionReporter,
       // **AuthId 를 닫은 closure 만** 넘긴다 — `secretReader` 자체는 컴포지션 루트를 벗어나지
       // 않는다(0188 D-010). 어떤 Plugin 이 이것을 쓰는지는 배포가 알고 여기는 모른다.
-      secretFor: (authId) => () => secretReader.read(authId),
+      // 값은 선언이 편 형태다(0237 D-054) — 파싱 규칙은 `specs/credential.ts` 가 소유한다.
+      credentialFor: (authId) => () => secretReader.material(authId),
       userDataRoot,
       logger: (event, data) => getLogger().child('plugin').info(event, data)
     })

@@ -5,7 +5,8 @@ import { exportMailAttachment } from './attachment-export'
 import { createMailSyncManager, type MailSyncManager } from './sync-manager'
 import type { MailPluginOptions } from './types'
 import type { MailTransport } from './transport'
-import { publicMailError } from './pop3/errors'
+import { publicMailError } from './errors'
+import { createPop3ReadSession } from './pop3/session'
 import type { PluginAuth } from '../../../contracts/auth'
 
 export const MAIL_TOOL_NAMES = ['mail_sync', 'mail_search', 'mail_getAttachment'] as const
@@ -53,8 +54,11 @@ export function mailTools(
   const manager = (): Promise<MailSyncManager> => {
     managerPromise ??= createMailSyncManager({
       authId: auth.authId,
-      password: transport.password,
+      credential: transport.credential,
       options,
+      // **프로토콜 구현체를 고르는 유일한 자리다** (0237 D-056). 이번 구현은 POP3 1종이고,
+      // 두 번째가 오면 여기서 고른다 — `sync-manager` 는 계속 포트만 안다.
+      sessionFactory: createPop3ReadSession,
       socketFactory: transport.socketFactory,
       root: transport.root,
       ...(toolOptions.now ? { now: toolOptions.now } : {}),
