@@ -1415,6 +1415,46 @@ describe('describe / tryBind', () => {
   })
 })
 
+// ── Plugin 조립 포트 (0237 ΔV2 — D-048 / AC34 / VP-27 / EP-20) ─────────────────
+//
+// `bindForPlugin` 은 선언의 `label`·`origin` 을 얹어 돌려준다. 그래서 **선언을 요구**하고,
+// 미등록 id 는 `describe()` 와 같은 판정으로 throw 한다 — 이름 없이 조립된 도구는 모델에게
+// 보이면서 어느 서비스인지 말하지 못한다.
+//
+// **`bind` 는 그 판정을 물려받지 않는다.** 총함수로 남아야 `app/runtime-model-startup.ts` 의
+// 카탈로그 재조정이 임의 authId 로 `bind(id).snapshot()` 을 부를 수 있다. 세 번째 케이스가
+// 그 축이고, `bind` 를 registry 조회형으로 바꾸는 변이에서 red 가 된다.
+describe('bindForPlugin — Plugin 조립 포트 (0237 D-048)', () => {
+  it('등록된 Auth 는 선언의 label·origin 을 그대로 싣는다', () => {
+    const { runtime } = build(() => true)
+
+    const auth = runtime.bindForPlugin('wiki')
+
+    expect(auth.authId).toBe('wiki')
+    expect(auth.label).toBe(WIKI.label)
+    expect(auth.origin).toBe(WIKI.origin)
+    // `BoundAuth` 의 능력은 그대로다 — 새 표면을 만들지 않았다.
+    expect(auth.snapshot().authId).toBe('wiki')
+    expect(typeof auth.request).toBe('function')
+  })
+
+  it('미등록 id 는 describe 와 같은 문구로 throw 한다', () => {
+    const { runtime } = build(() => true)
+
+    expect(() => runtime.bindForPlugin('nope')).toThrow('unknown auth: nope')
+    expect(() => runtime.describe('nope')).toThrow('unknown auth: nope')
+  })
+
+  it('bind 는 미등록 id 에서도 총함수로 남는다 (runtime-model-startup 회귀)', () => {
+    const { runtime } = build(() => true)
+
+    const bound = runtime.bind('nope')
+
+    expect(bound.authId).toBe('nope')
+    expect(bound.snapshot()).toMatchObject({ authId: 'nope', status: 'none', verified: false })
+  })
+})
+
 // `app/connection-views.ts` 가 이 보장 위에 서 있다 — view 조립이 descriptor 를 다시 깊은
 // 복사하지 않는 이유가 여기다(0190). 이 계약이 깨지면 renderer 로 나가는 DTO 가 registry 내부
 // 객체를 공유하게 되므로, view 쪽이 아니라 **여기서** 잠근다.

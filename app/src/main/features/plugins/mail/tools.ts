@@ -3,22 +3,28 @@ import type { RuntimeToolResult, RuntimeToolServer } from '../../../adapters/run
 import { authToolServerId } from '../../../adapters/runtime-tool-policy'
 import { exportMailAttachment } from './attachment-export'
 import { createMailSyncManager, type MailSyncManager } from './sync-manager'
-import type { MailPluginOptions, Pop3SocketFactory } from './types'
-import { publicMailError } from './pop3/errors'
+import type { MailPluginOptions } from './types'
+import type { MailTransport } from './transport'
+import { publicMailError } from './errors'
+import { createPop3ReadSession } from './pop3/session'
+import type { PluginAuth } from '../../../contracts/auth'
 
 export const MAIL_TOOL_NAMES = ['mail_sync', 'mail_search', 'mail_getAttachment'] as const
 
-export interface MailPluginContext {
-  readonly authId: string
-  readonly password: () => string | null
-  readonly root: string
-  readonly socketFactory: Pop3SocketFactory
-  readonly reportCredentialRejected?: (authId: string) => void
+// 도구 계층이 sync manager 에게 요구하는 전부. **`createMailToolServer` 의 주입 지점**이라
+// 여기 없는 것은 도구 계층의 관심사가 아니다 — DB 도 소켓도 이 인터페이스 뒤에 있다.
+export interface MailToolManagerPort {
+  sync(signal?: AbortSignal): Promise<unknown>
+  search(query: string, limit: number): unknown
+  getAttachment(
+    mailId: string,
+    attachmentId: string
+  ): Promise<{ filename: string; bytes: Uint8Array } | null | undefined>
 }
 
-export type MailToolOptions =
-  | { readonly plugin: MailPluginOptions; readonly now?: () => number }
-  | (MailPluginOptions & { readonly now?: () => number })
+export interface MailToolOptions {
+  readonly now?: () => number
+}
 
 function result(value: Record<string, unknown>, isError = false): RuntimeToolResult {
   return {
@@ -33,28 +39,49 @@ function errorResult(error: unknown): RuntimeToolResult {
   return result({ error: normalized.code, message: normalized.message }, true)
 }
 
-export function mailTools(ctx: MailPluginContext, options: MailToolOptions): RuntimeToolServer {
-  const plugin = 'plugin' in options ? options.plugin : options
+// 조립 표면 (0237 ΔV2 — D-050). **auth 포트와 전송 의존이 인자로 갈린다** — POP3 는 HTTP 가
+// 아니라 `PluginAuth.request` 를 쓸 수 없고(그것이 이 Plugin 이 예외인 이유다), 그래서 배포가
+// 전송 한 벌을 따로 준다. 구 `MailPluginContext` 는 둘을 한 객체에 섞어 `authId` 와 `password`
+// 가 같은 자리에 있었고, 그래서 "auth 로 되는 것" 과 "배포가 더 줘야 하는 것" 이 시그니처에서
+// 구분되지 않았다.
+export function mailTools(
+  auth: PluginAuth,
+  transport: MailTransport,
+  options: MailPluginOptions,
+  toolOptions: MailToolOptions = {}
+): RuntimeToolServer {
   let managerPromise: Promise<MailSyncManager> | undefined
   const manager = (): Promise<MailSyncManager> => {
     managerPromise ??= createMailSyncManager({
-      authId: ctx.authId,
-      password: ctx.password,
-      options: plugin,
-      socketFactory: ctx.socketFactory,
-      root: ctx.root,
-      ...(options.now ? { now: options.now } : {}),
-      ...(ctx.reportCredentialRejected
-        ? { reportCredentialRejected: ctx.reportCredentialRejected }
+      authId: auth.authId,
+      credential: transport.credential,
+      options,
+      // **프로토콜 구현체를 고르는 유일한 자리다** (0237 D-056). 이번 구현은 POP3 1종이고,
+      // 두 번째가 오면 여기서 고른다 — `sync-manager` 는 계속 포트만 안다.
+      sessionFactory: createPop3ReadSession,
+      socketFactory: transport.socketFactory,
+      root: transport.root,
+      ...(toolOptions.now ? { now: toolOptions.now } : {}),
+      ...(transport.reportCredentialRejected
+        ? { reportCredentialRejected: transport.reportCredentialRejected }
         : {})
     })
     return managerPromise
   }
+  return createMailToolServer(auth, manager)
+}
 
+// 런타임을 주입받는 하위 표면 — confluence(`createConfluenceToolServer(auth, runtime)`)·
+// jira(`createJiraToolServer(auth, service)`)와 같은 형상이다. 도구 계층(descriptor·handler)만
+// 검증할 때 쓴다: DB 도 소켓도 열지 않는다.
+export function createMailToolServer(
+  auth: PluginAuth,
+  manager: () => Promise<MailToolManagerPort>
+): RuntimeToolServer {
   return {
     descriptor: {
-      id: authToolServerId(ctx.authId),
-      connectorId: ctx.authId,
+      id: authToolServerId(auth.authId),
+      connectorId: auth.authId,
       instructions:
         'Call mail_sync before mail_search when the cache may be stale. Use attachmentId values from mail_search and call mail_getAttachment one attachment at a time; each attachment requires its own approval.',
       tools: [
@@ -83,8 +110,11 @@ export function mailTools(ctx: MailPluginContext, options: MailToolOptions): Run
         inputSchema: {},
         handler: async (_input, context) => {
           try {
-            const value = await (await manager()).sync(context?.getSignal())
-            return result(value as unknown as Record<string, unknown>, 'error' in value)
+            const value = (await (await manager()).sync(context?.getSignal())) as Record<
+              string,
+              unknown
+            >
+            return result(value, 'error' in value)
           } catch (error) {
             return errorResult(error)
           }
@@ -129,7 +159,7 @@ export function mailTools(ctx: MailPluginContext, options: MailToolOptions): Run
               )
             const exported = await exportMailAttachment(
               { root: undefined },
-              ctx.authId,
+              auth.authId,
               attachment.filename,
               attachment.bytes
             )
@@ -146,5 +176,3 @@ export function mailTools(ctx: MailPluginContext, options: MailToolOptions): Run
     ]
   }
 }
-
-export const createMailPlugin = mailTools

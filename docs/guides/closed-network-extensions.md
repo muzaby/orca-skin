@@ -61,6 +61,7 @@ app/src/main/app/deployment/
 ├── harness-runtime.ts   ← Harness 실행 구성 augmenter        → 레시피 B
 ├── spawn-env.ts         ← spawn env 주입점 (기본값: undefined) → 레시피 B-2 (§3-d)
 ├── plugins.ts           ← Plugin 도구 조립·가시성            → 레시피 C
+├── auth-verifiers.ts    ← 비-HTTP 인증의 후보 검증 (기본값: {}) → 레시피 C (Mail)
 ├── connections.ts       ← 카탈로그 row 조립(gate·harness·plugin·usage)
 └── usage-fetcher.ts     ← 원격 사용량 concrete               → 레시피 E
 ```
@@ -71,22 +72,33 @@ app/src/main/app/deployment/
 > **레시피 정본은 이 문서다** (0190). `app/deployment/*.ts` 주석은 *틀리면 조용히 실패하는*
 > 불변식만 남기고 여기를 가리킨다 — 같은 예제를 두 곳에 두었더니 실제로 세 군데가 갈렸다.
 
-**factory 는 Bootstrap 이 넘긴 인자만으로 조립한다.** 네 factory 의 시그니처는 이렇다:
+**factory 는 Bootstrap 이 넘긴 인자만으로 조립한다.** 다섯 factory 의 시그니처는 이렇다:
 
 | 파일 | factory | 받는 것 |
 |---|---|---|
-| `plugins.ts` | `createPluginBindings(deps)` | `auth: AuthBinder` · `registry: RuntimeToolSink` · `logger?` |
+| `plugins.ts` | `createPluginBindings(deps)` | `auth: AuthBinder` · `registry: RuntimeToolSink` · `logger?` · `credentialFor` · `userDataRoot` · `credentialRejectionReporter?` |
+| `auth-verifiers.ts` | `createAuthVerifiers(deps)` | `userDataRoot: string` **만** |
 | `harness-runtime.ts` | `createConfigApiAugmenters(deps)` | `auth: AuthBinder` **만** |
 | `harness-runtime.ts` | `createDirectCredentialAugmenters(deps)` | `secrets: Record<AuthId, () => string \| null>` **만** (선언한 id 만) |
 | `connections.ts` | `createConnectionSources(deps)` | `auth` · `gateMembers` · `plugins` |
 | `usage-fetcher.ts` | `createUsageFetcher(deps)` | `auth: AuthBinder` |
 
-`AuthBinder` 는 `Pick<AuthRuntime,'bind'>` 다 (0190) — 배포는 자기 AuthId 를 골라
-`BoundAuth.request` 를 쓸 뿐이고 `login`·`revoke`·`resume`·`subscribe` 에는 **도달하지 못한다**
-(컴파일 강제). 인증 lifecycle 은 IPC 핸들러와 부팅 복원이 소유한다.
+`AuthBinder` 는 `Pick<AuthRuntime,'bind'|'bindForPlugin'>` 다 (0190 → 0237) — 배포는 자기 AuthId 를
+골라 `PluginAuth.request` 를 쓸 뿐이고 `login`·`revoke`·`resume`·`subscribe` 에는 **도달하지
+못한다**(컴파일 강제). 인증 lifecycle 은 IPC 핸들러와 부팅 복원이 소유한다.
+
+| bind 갈래 | 돌려주는 것 | 미등록 authId |
+|---|---|---|
+| `bind(id)` | `BoundAuth` — `authId`·`snapshot()`·`request()` | **묶인다**(총함수). `snapshot()` 이 `status:'none'` |
+| `bindForPlugin(id)` | `PluginAuth` — 위 + 선언의 `label`·`origin` | **throw** (`unknown auth: <id>`) |
+
+Plugin 조립은 **`bindForPlugin` 하나**를 쓴다(0237 D-048). 그래야 도구 설명의 서비스 이름과 첨부
+출처 URL 이 선언에서 바로 오고, 배포가 `label`·`origin` 을 옮겨 적다 어긋날 자리가 없다.
 
 **`bootstrap.ts` 는 열지 않는다.** 필요한 능력이 인자에 없으면 그것부터 이 표에 추가한다 —
-부팅 파일을 배포마다 고치기 시작하면 이 디렉토리를 둔 이유가 없어진다.
+부팅 파일을 배포마다 고치기 시작하면 이 디렉토리를 둔 이유가 없어진다. 더하는 것은 **능력**이지
+plugin 이름이 아니다(0237 D-051): `secretFor`·`userDataRoot` 는 다른 Plugin 이 생겨도 같은 이름으로
+쓰이지만 `mail` 은 아니다. 판별 기준이 그것이다.
 
 **Harness 인증과 Usage 인증도 카탈로그에 행이 있어야 로그인할 수 있다.** `connections.ts` 가
 `gateRows()`·`pluginRows()` 를 조각으로 노출하므로, 배포는 그 사이에 `{category:'harness', …}`·
@@ -732,23 +744,15 @@ export const CONFLUENCE_AUTH = {
 
 ```ts
 // app/deployment/plugins.ts — 서버는 **부팅에서 1회** 만들고 sync 는 add/remove 만 한다.
-export function createPluginBindings(deps: {
-  auth: AuthBinder
-  registry: RuntimeToolSink
-}): PluginBinding[] {
-  const confluenceAuth = deps.auth.bind(CONFLUENCE_AUTH.id)
-  const server = confluenceTools(
-    {
-      authId: confluenceAuth.authId,
-      label: CONFLUENCE_AUTH.label,
-      origin: CONFLUENCE_AUTH.origin,
-      request: (req, signal) => confluenceAuth.request(req, signal)
-    },
-    { apiBasePath: '/confluence' }
-  )
+export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[] {
+  const confluenceAuth = deps.auth.bindForPlugin(CONFLUENCE_AUTH.id)
+  const server = confluenceTools(confluenceAuth, { apiBasePath: '/confluence' })
   return [createPluginBinding({ auth: confluenceAuth, server, registry: deps.registry })]
 }
 ```
+
+> `label`·`origin` 을 넘기는 자리가 없다 (0237 D-049). `bindForPlugin` 이 선언에서 그대로 싣는다 —
+> 구 레시피는 같은 문자열을 배포가 옮겨 적게 했고, 그래서 아래 ⚠️ 를 스스로 어기고 있었다.
 
 > ⚠️ **tool server 를 sync 마다 다시 만들지 마라.** `RuntimeToolRegistry` 의 동등성 검사는 handler
 > identity 까지 본다 — 매번 새로 만들면 형상이 같아도 revision 이 올라 다음 턴이 런타임을
@@ -763,22 +767,77 @@ export function createPluginBindings(deps: {
 
 ### POP3 Mail Plugin 레시피
 
-POP3는 HTTP `BoundAuth.request`를 사용할 수 없는 예외이므로 폐쇄망 배포가 `MailPluginDeployment`를
-명시적으로 주입한다. `options`에는 host·port·TLS·사설 CA·계정 id를 넣고, `password`는 AuthId를 닫은
-`AuthSecretReader.read` closure로 만든다. `socketFactory`는 `infra/net/pop3-socket.ts`의
-`createPop3Socket`만 사용하며, 기본 OSS 배포는 `mail` 인자를 생략해 Plugin binding을 만들지 않는다.
+POP3는 HTTP `PluginAuth.request`를 사용할 수 없는 예외다. 그래서 mail factory만 **전송 한 벌을
+이름 있는 두 번째 인자**로 더 받는다 — `mailTools(auth, transport, options)` (0237 D-050). 조립은
+`app/deployment/plugins.ts` 안에서 끝난다: `bootstrap.ts`도 `index.ts`도 mail을 모른다(D-051).
 
 ```ts
-const mail = {
-  authId: MAIL_AUTH.id,
-  options: { accountId: MAIL_AUTH.id, host: 'pop.example.corp', port: 995, tls: true },
-  password: () => secretReader.read(MAIL_AUTH.id),
-  root: app.getPath('userData'),
-  socketFactory: createPop3Socket,
-  reportCredentialRejected: created.credentialRejectionReporter
+// app/deployment/plugins.ts
+const MAIL_PLUGIN_OPTIONS = {
+  accountId: MAIL_AUTH.id,
+  host: 'pop.example.corp',
+  port: 995,
+  tls: true
+  // 사설 CA 는 tlsOptions.ca 로 준다. rejectUnauthorized 를 false 로 두지 않는다.
+} satisfies MailPluginOptions
+
+export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[] {
+  const mailAuth = deps.auth.bindForPlugin(MAIL_AUTH.id)
+  const server = mailTools(
+    mailAuth,
+    {
+      credential: deps.credentialFor(MAIL_AUTH.id),
+      root: deps.userDataRoot,
+      socketFactory: createPop3Socket,
+      ...(deps.credentialRejectionReporter
+        ? { reportCredentialRejected: deps.credentialRejectionReporter }
+        : {})
+    },
+    MAIL_PLUGIN_OPTIONS
+  )
+  return [createPluginBinding({ auth: mailAuth, server, registry: deps.registry })]
 }
-createPluginBindings({ auth, registry, mail })
 ```
+
+`socketFactory`는 `infra/net/pop3-socket.ts`의 `createPop3Socket`만 사용한다. 기본 OSS 배포는 이
+함수가 `[]`를 돌려주므로 Plugin binding이 생기지 않는다.
+
+**연결 버튼이 실제 왕복으로 증명하게 하려면 verifier를 함께 선언한다** (D-040). `LoginDeps`는
+**authId로 열쇠를 건 map**을 받는다 (0237 D-052) — 구 형상은 verifier 함수 하나였고 `login.ts`가
+authId를 보지 않아, verifier를 하나라도 주입하면 Confluence·Jira의 PAT 로그인까지 그것을 탔다.
+여기 없는 authId는 기존 `probe`/무검증 경로를 그대로 탄다.
+
+```ts
+// app/deployment/auth-verifiers.ts
+export function createAuthVerifiers(
+  deps: AuthVerifierDeploymentDeps
+): Readonly<Record<AuthId, AuthCandidateVerifier>> {
+  return {
+    [MAIL_AUTH.id]: createPop3CandidateVerifier({
+      connection: { host: MAIL_PLUGIN_OPTIONS.host, port: 995, tls: true },
+      socketFactory: createPop3Socket
+    })
+  }
+}
+```
+
+`createPop3CandidateVerifier`는 **read 경로와 같은 세션 factory**를 탄다 — 검증 전용 로그인 코드를
+따로 두면 그 순간 두 경로가 갈린다(D-040). 자격증명 거부는 `rejected:true`, 도달 실패는
+`rejected:false`로 구분해 돌려주므로 입력 폼이 다른 문구를 싣는다(D-041).
+
+**자격증명은 `CredentialMaterial`로 온다** (0237 D-054). `passwordSpec`이 vault에 넣는 값은
+`user:pass` 한 문자열이지만 POP3는 `USER`/`PASS` 두 인자를 요구한다 — 그 언폴딩은
+`features/auth/specs/credential.ts`가 소유하고 Plugin은 편 형태만 받는다. Plugin이 `:`를 직접
+쪼개면 규칙이 두 곳에 생기고 한쪽만 고쳐진다.
+
+| material 갈래 | 나오는 AuthMethod | POP3 메커니즘 |
+|---|---|---|
+| `password{username,password}` | `passwordSpec` | `USERPASS` (`USER`/`PASS`) |
+| `token{username,accessToken}` | `oauth` | `XOAUTH2` — **미구현, 홀드** (D-039) |
+| `opaque{value}` | `patSpec`·`apiKeySpec` | 없음 — 조립 실패 |
+
+메커니즘 선택은 서버 `CAPA` 응답 ∩ material 갈래다. **광고되지 않은 메커니즘으로 폴백하지
+않는다** — token을 `PASS`로 흘려보내면 액세스 토큰이 평문 비밀번호로 전송된다.
 
 `mail_sync`는 freshness 확인 뒤에만 POP3에 연결하며, `mail_search`는 로컬 DB만 읽는다. 인증 거부만
 Auth를 만료시키고 세 도구를 함께 회수한다. 연결·TLS·타임아웃·파싱·DB 장애는 캐시와 Auth를 유지한 채
@@ -822,16 +881,9 @@ export const JIRA_AUTH = {
 
 ```ts
 // app/deployment/plugins.ts
-const jiraAuth = deps.auth.bind(JIRA_AUTH.id)
-const server = jiraTools(
-  {
-    authId: jiraAuth.authId,
-    label: JIRA_AUTH.label,
-    origin: JIRA_AUTH.origin,
-    request: (request, signal) => jiraAuth.request(request, signal)
-  },
-  { apiBasePath: JIRA_API_BASE_PATH } // context path가 있으면 상수 입력을 '/jira/rest'로 바꾼다
-)
+const jiraAuth = deps.auth.bindForPlugin(JIRA_AUTH.id)
+// context path가 있으면 상수 입력을 '/jira/rest'로 바꾼다
+const server = jiraTools(jiraAuth, { apiBasePath: JIRA_API_BASE_PATH })
 
 return createPluginBinding({
   auth: jiraAuth,
@@ -847,7 +899,7 @@ return createPluginBinding({
   `jira/<auth>/<selector>/<batch>/`에 저장된다. Windows 기본 경로는
   `%LOCALAPPDATA%\Temp\orcinus-orca\jira\...`이며, 전 파일과 최종 tool output 검증이 끝나야 batch가
   한 번에 보인다. 실패한 호출은 부분 결과를 공개하지 않는다.
-- upload 도구는 의도적으로 제공하지 않는다. 현재 `BoundAuth.request`의 문자열 body 계약에는
+- upload 도구는 의도적으로 제공하지 않는다. 현재 `PluginAuth.request`의 문자열 body 계약에는
   multipart streaming과 input-root 정책이 없으므로, 이를 우회해 별도 전송 스택을 만들지 않는다.
 - 도구와 Auth probe를 포함한 모든 Jira 요청은 `User-Agent: Orcinus-Orca-Jira/0.34.0`과
   `X-Atlassian-Token: no-check`를 보낸다. UA는 제품 통합과 이식 기준 버전을 식별하는 고정 product

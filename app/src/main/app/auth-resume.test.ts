@@ -145,6 +145,7 @@ function fakeRuntime(
 
   const auth: AuthRuntime = {
     bind,
+    bindForPlugin: (authId) => ({ ...bind(authId), label: authId, origin: '' }),
     tryBind: (authId) => (states.has(authId) ? bind(authId) : null),
     describe: (authId) => ({ authId, label: authId, origin: '', methods: [] }),
     currentStep: () => null,

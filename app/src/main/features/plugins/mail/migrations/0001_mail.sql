@@ -7,19 +7,23 @@ CREATE TABLE IF NOT EXISTS account (
   created_at INTEGER NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS uidl_ledger (
+-- 원격 메시지 식별자 ledger. **프로토콜 중립이다** (0237 D-058):
+--   remote_uid — POP3 UIDL | IMAP `UIDVALIDITY:UID`. 계정 안에서 안정적인 식별자.
+--   ordinal    — POP3 message number | IMAP sequence number. **세션 안에서만 유효**하므로
+--                nullable 이다. 다음 세션에 같은 값이라는 보장이 없다.
+CREATE TABLE IF NOT EXISTS message_ledger (
   account_id TEXT NOT NULL REFERENCES account(id) ON DELETE CASCADE,
-  uidl TEXT NOT NULL,
-  message_number INTEGER NOT NULL,
+  remote_uid TEXT NOT NULL,
+  ordinal INTEGER,
   first_seen_at INTEGER NOT NULL,
   state TEXT NOT NULL CHECK (state IN ('active', 'missing')),
-  PRIMARY KEY (account_id, uidl)
+  PRIMARY KEY (account_id, remote_uid)
 );
 
 CREATE TABLE IF NOT EXISTS mail (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   account_id TEXT NOT NULL REFERENCES account(id) ON DELETE CASCADE,
-  uidl TEXT NOT NULL,
+  remote_uid TEXT NOT NULL,
   header_date INTEGER,
   first_seen_at INTEGER NOT NULL,
   from_addr TEXT NOT NULL,
@@ -28,7 +32,7 @@ CREATE TABLE IF NOT EXISTS mail (
   subject TEXT NOT NULL,
   body_text TEXT NOT NULL,
   size_bytes INTEGER NOT NULL DEFAULT 0,
-  UNIQUE (account_id, uidl)
+  UNIQUE (account_id, remote_uid)
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS mail_fts USING fts5(

@@ -40,8 +40,8 @@ export interface MailStore {
     lastErrorCode?: string | null
     protection?: ProtectionState
   }): void
-  ledger(): { uidl: string; messageNumber: number; state: 'active' | 'missing' }[]
-  markMissing(uidls: readonly string[]): void
+  ledger(): { remoteUid: string; ordinal: number | null; state: 'active' | 'missing' }[]
+  markMissing(remoteUids: readonly string[]): void
   saveMessage(document: MailDocument): Promise<void>
   cleanupExpired(now: number, retentionDays?: number): Promise<number>
   search(query: string, limit: number, mode?: 'match' | 'like'): MailSearchHit[]
@@ -150,20 +150,20 @@ export async function createMailStore(options: MailStoreOptions): Promise<MailSt
     ledger: () =>
       db
         .prepare(
-          'SELECT uidl, message_number AS messageNumber, state FROM uidl_ledger WHERE account_id = ?'
+          'SELECT remote_uid AS remoteUid, ordinal, state FROM message_ledger WHERE account_id = ?'
         )
         .all(options.accountId) as {
-        uidl: string
-        messageNumber: number
+        remoteUid: string
+        ordinal: number
         state: 'active' | 'missing'
       }[],
-    markMissing: (uidls) => {
-      if (uidls.length === 0) return
+    markMissing: (remoteUids) => {
+      if (remoteUids.length === 0) return
       const update = db.prepare(
-        `UPDATE uidl_ledger SET state='missing' WHERE account_id=? AND uidl=?`
+        `UPDATE message_ledger SET state='missing' WHERE account_id=? AND remote_uid=?`
       )
       const transaction = db.transaction(() =>
-        uidls.forEach((uidl) => update.run(options.accountId, uidl))
+        remoteUids.forEach((remoteUid) => update.run(options.accountId, remoteUid))
       )
       transaction()
     },
@@ -183,19 +183,19 @@ export async function createMailStore(options: MailStoreOptions): Promise<MailSt
         }
         const previous = db
           .prepare(
-            'SELECT a.stored_name AS storedName FROM attachment a JOIN mail m ON m.id=a.mail_id WHERE m.account_id=? AND m.uidl=?'
+            'SELECT a.stored_name AS storedName FROM attachment a JOIN mail m ON m.id=a.mail_id WHERE m.account_id=? AND m.remote_uid=?'
           )
-          .all(options.accountId, document.uidl) as { storedName: string }[]
+          .all(options.accountId, document.remoteUid) as { storedName: string }[]
         const transaction = db.transaction(() => {
           const result = db
             .prepare(
-              `INSERT INTO mail (account_id, uidl, header_date, first_seen_at, from_addr, to_addrs, cc_addrs, subject, body_text, size_bytes)
+              `INSERT INTO mail (account_id, remote_uid, header_date, first_seen_at, from_addr, to_addrs, cc_addrs, subject, body_text, size_bytes)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(account_id, uidl) DO UPDATE SET header_date=excluded.header_date, from_addr=excluded.from_addr, to_addrs=excluded.to_addrs, cc_addrs=excluded.cc_addrs, subject=excluded.subject, body_text=excluded.body_text, size_bytes=excluded.size_bytes`
+             ON CONFLICT(account_id, remote_uid) DO UPDATE SET header_date=excluded.header_date, from_addr=excluded.from_addr, to_addrs=excluded.to_addrs, cc_addrs=excluded.cc_addrs, subject=excluded.subject, body_text=excluded.body_text, size_bytes=excluded.size_bytes`
             )
             .run(
               options.accountId,
-              document.uidl,
+              document.remoteUid,
               document.headerDate,
               document.firstSeenAt,
               document.fromAddr,
@@ -206,11 +206,11 @@ export async function createMailStore(options: MailStoreOptions): Promise<MailSt
               document.sizeBytes ?? 0
             )
           const row = db
-            .prepare('SELECT id FROM mail WHERE account_id=? AND uidl=?')
-            .get(options.accountId, document.uidl) as { id: number }
+            .prepare('SELECT id FROM mail WHERE account_id=? AND remote_uid=?')
+            .get(options.accountId, document.remoteUid) as { id: number }
           db.prepare(
-            `INSERT INTO uidl_ledger (account_id, uidl, message_number, first_seen_at, state) VALUES (?, ?, ?, ?, 'active') ON CONFLICT(account_id, uidl) DO UPDATE SET message_number=excluded.message_number, state='active'`
-          ).run(options.accountId, document.uidl, document.messageNumber, document.firstSeenAt)
+            `INSERT INTO message_ledger (account_id, remote_uid, ordinal, first_seen_at, state) VALUES (?, ?, ?, ?, 'active') ON CONFLICT(account_id, remote_uid) DO UPDATE SET ordinal=excluded.ordinal, state='active'`
+          ).run(options.accountId, document.remoteUid, document.ordinal, document.firstSeenAt)
           if (result.changes > 0) db.prepare('DELETE FROM attachment WHERE mail_id=?').run(row.id)
           const insertAttachment = db.prepare(
             'INSERT INTO attachment (mail_id, filename, mime_type, size_bytes, stored_name) VALUES (?, ?, ?, ?, ?)'

@@ -410,6 +410,22 @@ export interface BoundAuth {
   request(request: AuthenticatedRequest, signal?: AbortSignal): Promise<AuthenticatedResponse>
 }
 
+// Plugin 이 조립에 쓰는 포트 (0237 ΔV2 — D-048).
+//
+// `BoundAuth` 에 **선언이 이미 공개하는 두 값**만 얹는다. 비밀이 아니다 — `AuthDescriptor` 가
+// 같은 둘을 renderer 까지 내보낸다. 이것이 있어야 Plugin tool server factory 가 인자 하나로
+// 조립된다: 도구 설명에 서비스 이름을 싣고(`label`), 첨부 출처를 절대 URL 로 남긴다(`origin`).
+//
+// **`BoundAuth` 자체를 넓히지 않는 이유**: `bind()` 는 registry 를 조회하지 않는 **총함수**다.
+// `runtime-model-startup.ts` 의 카탈로그 재조정이 임의 authId 로 `bind(id).snapshot()` 을 부르고
+// 미등록 id 에서도 동작해야 한다. `label` 을 채우려면 조회가 필요하고, 조회는 미등록 id 에서
+// 판정을 요구한다 — 그 판정을 `bind` 에 넣으면 그 축이 죽는다. 그래서 **조회가 필요한 쪽만**
+// 별도 능력으로 분리한다.
+export interface PluginAuth extends BoundAuth {
+  readonly label: string
+  readonly origin: string
+}
+
 // 자기 Auth 를 고르기만 하는 소비자의 표면 (0190).
 //
 // 위 원칙("소비는 `AuthRuntime` 전체가 아니라 좁은 포트")을 **타입으로** 세운다. 0188 의 배포
@@ -420,10 +436,16 @@ export interface BoundAuth {
 //
 // **인증 lifecycle 을 도는 것은 배포의 일이 아니다** — 그것은 IPC 핸들러(`app/handlers/
 // providers.ts`)와 부팅 복원(`app/auth-resume.ts`)이 소유한다.
-export type AuthBinder = Pick<AuthRuntime, 'bind'>
+export type AuthBinder = Pick<AuthRuntime, 'bind' | 'bindForPlugin'>
 
 export interface AuthRuntime {
+  // **총함수다 — registry 를 조회하지 않는다.** 미등록 authId 도 묶이고 `snapshot()` 은
+  // `status:'none'` 을 돌려준다. 이 성질에 기대는 소비자가 있다(`runtime-model-startup.ts`).
   bind(authId: AuthId): BoundAuth
+  // Plugin 조립용 — `bind` 에 선언의 `label`·`origin` 을 얹는다. **미등록 authId 는
+  // `describe()` 와 같은 판정으로 throw 한다**: 이름 없이 조립된 도구는 모델에게 보이면서
+  // 어느 서비스인지 말하지 못한다.
+  bindForPlugin(authId: AuthId): PluginAuth
   tryBind(authId: AuthId): BoundAuth | null
   describe(authId: AuthId): AuthDescriptor
   currentStep(): AuthStep | null
@@ -460,6 +482,30 @@ export interface AuthRuntime {
 //   failed      — 시도했으나 실패했다(선언이 던짐 · 새 토큰이 probe 를 통과하지 못함).
 export type AuthRefreshResult = 'refreshed' | 'unsupported' | 'failed'
 
+// ── 자격증명의 구조화 표현 (0237 ΔV3 — D-054) ────────────────────────────────
+//
+// `compose` 는 입력 레코드를 vault 에 넣을 **한 문자열**로 접는다(`specs/credential.ts`). 이것은
+// 그 **역방향**이다 — 접은 것을 선언이 다시 편다.
+//
+// **왜 필요한가**: `Presentation` 은 HTTP 전용이라(`location:'header'|'query'|'cookie'`) 값을
+// 헤더에 붙이는 것으로 끝난다. POP3·IMAP·SMTP 는 자격증명을 **프로토콜 인자 둘**로 요구한다
+// (`USER`/`PASS`, SASL 의 user·token). 문자열 하나를 건네면 소비자가 `:` 규칙을 다시 구현하게
+// 되고, 실제로 그렇게 됐다 — 0237 G4 에서 아이디는 정적 설정값에서 오고 `user:pass` 합성형이
+// 통째로 `PASS` 로 나가 ID/비밀번호 로그인이 동작하지 않았다.
+//
+// **HTTP 소비자는 이것을 쓰지 않는다.** `BoundAuth.request` 가 계속 `Presentation` 으로 붙인다.
+export type CredentialMaterial =
+  // 입력형 2값 (`passwordSpec`). `username` 은 첫 `:` 앞이고 그 규칙은 compose 와 같은 파일에 있다.
+  | { kind: 'password'; username: string; password: string }
+  // OAuth access token. SASL XOAUTH2 는 계정 식별자도 함께 요구하므로 `username` 을 싣는다.
+  | { kind: 'token'; username: string; accessToken: string }
+  // 단일 opaque (`patSpec`·`apiKeySpec`) 또는 갈래를 알 수 없는 경우.
+  | { kind: 'opaque'; value: string }
+
+// 비-HTTP Plugin 이 받는 자격증명 포트. **AuthId 를 닫은 closure 로만 전달된다** — 소비자는
+// 자기 것 말고 읽을 수 없고 vault 도 renderer 도 모른다(0188 D-010 승계).
+export type CredentialMaterialReader = (authId: AuthId) => () => CredentialMaterial | null
+
 // ── trusted-main 전용 raw credential 포트 ─────────────────────────────────────
 //
 // **`createAuthRuntime` 의 app composition 결과에만 둔다.** `RouterContext`·renderer IPC·일반
@@ -474,4 +520,7 @@ export type AuthRefreshResult = 'refreshed' | 'unsupported' | 'failed'
 // Bootstrap 은 전체 reader 가 아니라 **AuthId 를 닫은 closure** 만 전달한다.
 export interface AuthSecretReader {
   read(authId: AuthId): string | null
+  // 같은 값을 **선언이 편 형태**로 돌려준다 (0237 D-054). `read` 를 지우지 않는 이유는 소비자가
+  // 다르기 때문이다 — MCP `${BINDING:}` 와 Harness env 는 문자열 그대로를 원한다.
+  material(authId: AuthId): CredentialMaterial | null
 }

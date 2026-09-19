@@ -75,6 +75,18 @@ export interface SessionAuthenticator {
 // 보인다(부팅 복원에서는 게이트가 영영 안 열린다).
 const PROBE_TIMEOUT_MS = 15_000
 
+// 후보 자격증명을 비-HTTP 왕복으로 검증하는 함수. **배포가 구현하고 authId 로 열쇠를 건
+// map 에 담아 주입한다** (0237 D-052) — `LoginDeps.verifiers`.
+//
+//   ok       — 왕복이 성립했고 자격증명이 받아들여졌다.
+//   rejected — 서버가 자격증명을 **거부**했다. 도달 실패(연결·TLS·타임아웃)와 구분된다 —
+//              전자는 사용자가 값을 고쳐야 하고 후자는 환경을 고쳐야 한다.
+export type AuthCandidateVerifier = (
+  authId: AuthId,
+  candidate: CandidateCredential,
+  signal?: AbortSignal
+) => Promise<{ ok: boolean; rejected: boolean }>
+
 export interface LoginDeps {
   registry: AuthRegistry
   store: AuthStore
@@ -96,13 +108,17 @@ export interface LoginDeps {
     signal?: AbortSignal,
     candidate?: CandidateCredential
   ) => Promise<AuthenticatedResponse>
-  // 비-HTTP 인증(예: POP3)은 AuthDefinition.probe 대신 후보 자격증명을 직접 검증한다.
-  // verifier가 없는 Auth는 기존 probe/무검증 동작을 그대로 유지한다.
-  verify?: (
-    authId: AuthId,
-    candidate: CandidateCredential,
-    signal?: AbortSignal
-  ) => Promise<{ ok: boolean; rejected: boolean }>
+  // 비-HTTP 인증(예: POP3)은 `AuthDefinition.probe` 대신 후보 자격증명을 직접 검증한다.
+  //
+  // **`AuthId` 로 열쇠를 건 map 이다** (0237 D-052). 구 형상은 verifier 함수 **하나**였고
+  // `probe()` 가 `candidate && this.deps.verify` 로만 분기해 **authId 를 보지 않았다** — 그래서
+  // verifier 를 하나라도 주입하면 후보가 있는 *모든* Auth 가 그것을 타고 HTTP probe 에 도달하지
+  // 못했다. mail 과 Confluence 를 함께 켠 배포에서 Confluence PAT 로그인이 POP3 verifier 를
+  // 탔다는 뜻이다. 함수 시그니처에 "내 대상이 아니다" 를 말할 자리가 없어 배포 closure 로도
+  // 우회할 수 없었다.
+  //
+  // 자기 authId 에 항목이 없는 Auth 는 기존 probe/무검증 동작을 **그대로** 유지한다.
+  verifiers?: Readonly<Record<AuthId, AuthCandidateVerifier>>
   // ── 두 갈래 통지 (0188 D-008) ───────────────────────────────────────────────
   //
   // 0181 은 `onChange()` 하나였다. 그래서 입력 폼을 연 것과 credential 을 커밋한 것이 소비자에게
@@ -503,9 +519,11 @@ export class LoginService {
     definition: AuthDefinition,
     candidate?: CandidateCredential
   ): Promise<ProbeOutcome> {
-    if (candidate && this.deps.verify) {
+    // 자기 authId 의 verifier 만 고른다. 없으면 아래 기존 probe 경로로 그대로 낙하한다.
+    const verifier = candidate ? this.deps.verifiers?.[definition.id] : undefined
+    if (candidate && verifier) {
       try {
-        const result = await this.deps.verify(
+        const result = await verifier(
           definition.id,
           candidate,
           AbortSignal.timeout(PROBE_TIMEOUT_MS)

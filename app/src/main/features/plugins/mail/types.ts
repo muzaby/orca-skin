@@ -31,8 +31,8 @@ export interface MailAttachment {
 }
 
 export interface MailDocument {
-  readonly uidl: string
-  readonly messageNumber: number
+  readonly remoteUid: string
+  readonly ordinal: number
   readonly headerDate: number | null
   readonly firstSeenAt: number
   readonly effectiveDate: number
@@ -98,5 +98,5 @@ export type MailSyncResult =
 export type Pop3SocketFactory = (options: Pop3SocketOptions) => Pop3Socket
 
 export interface MailSyncStageEvent {
-  readonly stage: 'freshness' | 'cleanup' | 'connect' | 'uidl' | 'top' | 'retr' | 'persist'
+  readonly stage: 'freshness' | 'cleanup' | 'connect' | 'list' | 'header' | 'body' | 'persist'
 }

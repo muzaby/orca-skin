@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { isFresh } from './freshness'
 import { isExpired } from './retention'
 import { buildMailQuery } from './query-builder'
-import { reconcileUidls } from './reconcile'
+import { reconcileRemoteUids } from './reconcile'
 import {
   CONFIRM_OBSERVATIONS,
   PROTECTION_MIN_SAMPLE,
@@ -36,11 +36,11 @@ describe('mail pure policy modules', () => {
   })
 
   it('reconciles fresh, known and missing UIDLs without deleting mail rows', () => {
-    const result = reconcileUidls(
+    const result = reconcileRemoteUids(
       [
-        { uidl: 'old', state: 'active' },
-        { uidl: 'gone', state: 'active' },
-        { uidl: 'retained-missing', state: 'missing' }
+        { remoteUid: 'old', state: 'active' },
+        { remoteUid: 'gone', state: 'active' },
+        { remoteUid: 'retained-missing', state: 'missing' }
       ],
       ['old', 'new']
     )
@@ -102,7 +102,7 @@ describe('mail pure policy modules', () => {
           { filename: '../a.txt', mimeType: 'text/plain', content: new Uint8Array([1, 2]) }
         ]
       } as never,
-      { uidl: 'u1', messageNumber: 1, firstSeenAt: 0, sizeBytes: 123 }
+      { remoteUid: 'u1', ordinal: 1, firstSeenAt: 0, sizeBytes: 123 }
     )
     expect(document.fromAddr).toBe('a@example.com')
     expect(document.toAddrs).toBe('b@example.com')

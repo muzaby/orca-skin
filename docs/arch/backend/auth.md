@@ -619,11 +619,28 @@ snapshot을 읽는다.
 
 ## 7. Plugin
 
-Plugin 은 GUI 카탈로그에 표시되는 제품 기능 단위다. HTTP Plugin 모듈은 `BoundAuth.request` 와 자기
-옵션만 받고 raw credential 을 보지 않는다. 비-HTTP 전송이 필요한 opt-in Plugin은 컴포지션 루트가
-AuthId를 닫은 `() => string | null` closure와 전송 factory를 별도로 주입하며 `AuthSecretReader` 전체,
-vault, renderer에는 접근하지 않는다. POP3 Mail Plugin이 이 예외를 사용하고, 서버 단위 binding의
-add/remove lifecycle은 다른 Plugin과 공유한다.
+Plugin 은 GUI 카탈로그에 표시되는 제품 기능 단위다. tool server factory 는 **auth 포트 하나**를 첫
+인자로 받는다 — `PluginAuth` = `BoundAuth` + 선언의 `label`·`origin`. 생산은 `bindForPlugin` 하나이고
+미등록 authId 는 throw 한다. `bind` 는 registry 를 조회하지 않는 총함수로 남는다.
+
+HTTP Plugin 모듈은 `PluginAuth.request` 와 자기 옵션만 받고 raw credential 을 보지 않는다. 비-HTTP
+전송이 필요한 opt-in Plugin은 **전송 한 벌을 이름 있는 두 번째 인자**로 더 받는다 — AuthId를 닫은
+`() => CredentialMaterial | null` closure·전송 factory·저장 루트이며 `AuthSecretReader` 전체, vault,
+renderer에는 접근하지 않는다. POP3 Mail Plugin이 이 예외를 사용하고, 서버 단위 binding의 add/remove
+lifecycle은 다른 Plugin과 공유한다.
+
+자격증명은 **선언이 편 형태**로 전달된다. `compose` 가 입력 레코드를 vault 의 한 문자열로 접고,
+같은 파일의 `unfoldCredential` 이 그것을 `password{username,password}`·`token{username,accessToken}`·
+`opaque{value}` 세 갈래로 편다 — 프로토콜이 인자 둘을 요구할 때 소비자가 `:` 규칙을 다시 구현하지
+않게 하기 위함이다. 비-HTTP Plugin 은 프로토콜 세션을 **주입받은 factory** 로 만들고 그 포트
+(`capabilities`·`login`·`list`·`header`·`body`·`close`)만 안다. 인증 메커니즘 선택은 서버 capability ∩
+material 갈래이며 **광고되지 않은 메커니즘으로 폴백하지 않는다**. 현재 구현체는 POP3 1종과
+`USERPASS` 1종이다.
+
+배포 factory `createPluginBindings(deps)` 가 받는 것은 **plugin-agnostic 능력**뿐이다 —
+`auth`·`registry`·`logger?`·`secretFor`·`userDataRoot`·`credentialRejectionReporter?`. plugin 이름을
+키로 둔 슬롯은 두지 않는다: 그러면 범용 `bootstrap.ts` 가 그 Plugin 의 옵션 형상과 전달 경로를 알아야
+하고 "배포가 고치는 파일은 `app/deployment/` 묶음뿐" 이라는 경계가 거기서 깨진다.
 
 - 배포의 선택적 `catalog` 설정은 binding 생성 시 정규화한다. icon을 생략하거나 설정 자체가 없으면
   `electrical_services`, title이 없으면 Auth label, body가 없으면 본문 없음이 된다. locale text와

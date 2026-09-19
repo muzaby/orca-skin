@@ -5,11 +5,8 @@
 // 뒤집힌다(0158 verify r1 D5).
 
 import { describe, expect, it } from 'vitest'
-import {
-  CONFLUENCE_TOOL_NAMES,
-  createConfluenceToolServer,
-  type ConfluencePluginContext
-} from './tools'
+import { CONFLUENCE_TOOL_NAMES, createConfluenceToolServer } from './tools'
+import type { PluginAuth } from '../../../contracts/auth'
 import { authToolServerId } from '../../../adapters/runtime-tool-policy'
 import { CONFLUENCE_OPERATIONS, type ConfluenceResult, type ConfluenceRuntime } from './connector'
 
@@ -24,10 +21,16 @@ function server(
     invoke: async (_ctx, request) => invoke(request.operation, request.params),
     stop: async () => undefined
   }
-  const ctx: ConfluencePluginContext = {
+  const auth: PluginAuth = {
     authId: providerId,
     label,
     origin: 'https://wiki.example.corp',
+    snapshot: () => ({
+      authId: providerId,
+      status: 'valid',
+      verified: true,
+      credentialRevision: 1
+    }),
     request: async () => ({
       ok: true,
       status: 200,
@@ -36,7 +39,7 @@ function server(
       body: ''
     })
   }
-  return createConfluenceToolServer(ctx, runtime)
+  return createConfluenceToolServer(auth, runtime)
 }
 
 const contribution = server(async () => ({ ok: true, data: null }))

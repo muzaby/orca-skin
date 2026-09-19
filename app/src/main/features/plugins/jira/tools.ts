@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { AuthenticatedRequest, AuthenticatedResponse } from '../../../contracts/auth'
+import type { PluginAuth } from '../../../contracts/auth'
 import type { RuntimeToolImplementation, RuntimeToolServer } from '../../../adapters/runtime-tools'
 import { authToolServerId } from '../../../adapters/runtime-tool-policy'
 import {
@@ -30,12 +30,8 @@ export const JIRA_TOOL_NAMES = [
 
 export type JiraToolName = (typeof JIRA_TOOL_NAMES)[number]
 
-export interface JiraPluginContext {
-  readonly authId: string
-  readonly label: string
-  readonly origin: string
-  request(req: AuthenticatedRequest, signal?: AbortSignal): Promise<AuthenticatedResponse>
-}
+// 조립 인자는 **`PluginAuth` 하나**다 (0237 ΔV2 — D-049). 구 `JiraPluginContext` 는 같은 4필드를
+// 자기 이름으로 다시 선언했다.
 
 export interface JiraToolOptions {
   readonly apiBasePath?: string
@@ -168,12 +164,12 @@ const DESCRIPTIONS: Record<JiraToolName, string> = {
 }
 
 export function createJiraToolServer(
-  ctx: JiraPluginContext,
+  auth: PluginAuth,
   service: JiraServicePort
 ): RuntimeToolServer {
   const descriptorTools = JIRA_TOOL_NAMES.map((name) => ({
     name,
-    description: `${DESCRIPTIONS[name]} (${ctx.label})`,
+    description: `${DESCRIPTIONS[name]} (${auth.label})`,
     annotations: READ_ONLY.has(name)
       ? { readOnlyHint: true, idempotentHint: true, openWorldHint: true }
       : { readOnlyHint: false, destructiveHint: false, openWorldHint: true }
@@ -205,14 +201,14 @@ export function createJiraToolServer(
 
   return {
     descriptor: {
-      id: authToolServerId(ctx.authId),
-      connectorId: ctx.authId,
+      id: authToolServerId(auth.authId),
+      connectorId: auth.authId,
       tools: descriptorTools
     },
     implementations
   }
 }
 
-export function jiraTools(ctx: JiraPluginContext, opts: JiraToolOptions = {}): RuntimeToolServer {
-  return createJiraToolServer(ctx, createJiraService(ctx, opts))
+export function jiraTools(auth: PluginAuth, opts: JiraToolOptions = {}): RuntimeToolServer {
+  return createJiraToolServer(auth, createJiraService(auth, opts))
 }

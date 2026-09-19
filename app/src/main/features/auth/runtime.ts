@@ -30,7 +30,8 @@ import type {
   AuthSnapshot,
   AuthSnapshotChangeCause,
   AuthStep,
-  BoundAuth
+  BoundAuth,
+  PluginAuth
 } from '../../contracts/auth'
 import { AuthenticatedRequester } from './authenticated-request'
 import type { AuthenticatedRequesterDeps } from './authenticated-request'
@@ -71,7 +72,7 @@ export interface CreateAuthRuntimeDeps {
   sessions?: BrowserSessionPort
   oauth?: OAuthAuthenticator
   session?: SessionAuthenticator
-  verify?: LoginDeps['verify']
+  verifiers?: LoginDeps['verifiers']
   clock?: () => number
   logger?: (event: string, data: Record<string, unknown>) => void
   onOrphan?: (authId: AuthId) => void
@@ -190,20 +191,29 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     ...(deps.sessions ? { sessions: deps.sessions } : {}),
     // 후보(`candidate`)는 확인이 끝날 때까지 store·vault 를 거치지 않는다 (r5).
     request: (authId, req, signal, candidate) => requester.request(authId, req, signal, candidate),
-    ...(deps.verify ? { verify: deps.verify } : {}),
+    ...(deps.verifiers ? { verifiers: deps.verifiers } : {}),
     onStep: (step) => publish({ kind: 'step', authId: step?.providerId ?? '', step }),
     onSnapshot: emitSnapshot,
     ...(deps.logger ? { logger: deps.logger } : {})
   })
 
+  // **registry 를 조회하지 않는다** — 미등록 authId 도 묶인다(`contracts/auth.ts` 의 총함수 계약).
   const bind = (authId: AuthId): BoundAuth => ({
     authId,
     snapshot: () => snapshot(authId),
     request: (req, signal) => requester.request(authId, req, signal)
   })
 
+  // 선언을 요구하는 유일한 bind — 없으면 `describe()` 와 **같은 문구로** throw 한다(0237 D-048).
+  const bindForPlugin = (authId: AuthId): PluginAuth => {
+    const definition = registry.get(authId)
+    if (!definition) throw new Error(`unknown auth: ${authId}`)
+    return { ...bind(authId), label: definition.label, origin: definition.origin }
+  }
+
   const runtime: AuthRuntime = {
     bind,
+    bindForPlugin,
     tryBind: (authId) => (registry.get(authId) ? bind(authId) : null),
     describe(authId) {
       const definition = registry.get(authId)
