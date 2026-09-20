@@ -145,6 +145,10 @@ POP3 Mail Plugin은 Core `orcinus-orca.db`와 분리된 계정별 `mail.db`를 `
 
 공개 계약은 [IPC_CONTRACT.md](../../IPC_CONTRACT.md#26-a-산출물-게시-파일), 설계 근거와 검증 기준은 [게시 도구 계획](../../handoff/0223-artifact-publisher/plan.md)에 있다.
 
+파일 SQLite 연결은 `infra/db/file-database.ts`가 열고 초기화 실패 시 닫는다. 스키마와 SQL은
+메일 플러그인 소유다. 도구 작업마다 연결을 열고 `finally`에서 닫으며, 동시 sync는 Promise만
+공유한다. 메시지 저장 취소 시 미완성 첨부를 정리하고 이미 완료된 메시지는 보존한다.
+
 #### 어댑터 외부 저장과의 관계
 
 - 어댑터별 외부 저장 (claude-code 의 `~/.claude/projects/<cwd>/<sessionId>.jsonl` 등) 은 **단방향 동기화 소스** 로만 취급.

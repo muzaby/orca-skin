@@ -40,7 +40,16 @@ export interface RegistryResult {
 export function isBareOrigin(raw: string): boolean {
   try {
     const url = new URL(raw)
-    return url.origin === raw && url.origin !== 'null'
+    if (url.origin !== 'null') return url.origin === raw
+    return (
+      url.hostname.length > 0 &&
+      !url.username &&
+      !url.password &&
+      !url.pathname &&
+      !url.search &&
+      !url.hash &&
+      raw === `${url.protocol}//${url.host}`
+    )
   } catch {
     return false
   }

@@ -181,7 +181,9 @@ function deployment(options: { jiraProbeStatus?: number; jiraApiBasePath?: strin
       const url = String(input)
       requests.push(url)
       requestHeaders.push(new Headers(init?.headers))
-      const status = url.endsWith(jiraAuth.probe?.path ?? '')
+      const status = url.endsWith(
+        jiraAuth.probe && 'path' in jiraAuth.probe ? jiraAuth.probe.path : ''
+      )
         ? (options.jiraProbeStatus ?? 200)
         : 200
       return new Response(JSON.stringify({ token: 'llm-token' }), { status })
@@ -214,7 +216,7 @@ function confluenceServer(authId: string): RuntimeToolServer {
 // — **Bootstrap 이 주입하는 능력만으로 배포가 조립된다** — 을 놓친다. 배포 factory 의 능력이
 // 줄면 여기서 컴파일이 깨져야 한다.
 const createPluginBindings = (deps: PluginDeploymentDeps): PluginBinding[] => {
-  const confluenceAuth = deps.auth.bind(CONFLUENCE_AUTH.id)
+  const confluenceAuth = deps.auth.bindForPlugin(CONFLUENCE_AUTH.id)
   return [
     createPluginBinding({
       auth: confluenceAuth,
@@ -228,7 +230,7 @@ const createJiraPluginBinding = (
   deps: PluginDeploymentDeps,
   apiBasePath = JIRA_API_BASE_PATH
 ): PluginBinding => {
-  const jiraAuth = deps.auth.bind(JIRA_AUTH.id)
+  const jiraAuth = deps.auth.bindForPlugin(JIRA_AUTH.id)
   const server = jiraTools(
     {
       authId: jiraAuth.authId,
@@ -262,7 +264,7 @@ describe('가상 배포 — Plugin 경계', () => {
     const binding = createJiraPluginBinding({ auth, registry })
     binding.sync()
 
-    expect(JIRA_AUTH.probe?.path).toBe('/rest/api/2/myself')
+    expect(JIRA_AUTH.probe).toMatchObject({ path: '/rest/api/2/myself' })
     expect(binding.catalog).toMatchObject({
       icon: 'electrical_services',
       attribution: { source: '@atlassian-dc-mcp/jira', version: '0.34.0' }

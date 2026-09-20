@@ -167,6 +167,31 @@ function bound(id: string, snapshot: Partial<AuthSnapshot> = {}): BoundAuth {
 }
 
 describe('selectGateMembers (AC4)', () => {
+  it('gate requires executable probes to verify on resume, including method overrides', () => {
+    const execute = async (): Promise<{ ok: boolean; rejected: boolean }> => ({
+      ok: true,
+      rejected: false
+    })
+    for (const onResume of [undefined, false, true]) {
+      const def = { ...definition('sso'), probe: { execute, onResume } }
+      expect(selectGateMembers([def], (id) => bound(id)).members).toHaveLength(onResume ? 1 : 0)
+    }
+    const def: GateAuthDefinition = {
+      ...definition('sso'),
+      methods: [
+        {
+          kind: 'password',
+          label: 'password',
+          fields: [],
+          compose: () => ({ value: 'test' }),
+          probe: { execute }
+        }
+      ]
+    }
+    expect(selectGateMembers([def], (id) => bound(id)).blocked).toEqual([
+      { authId: 'sso', reason: 'missing_probe' }
+    ])
+  })
   it('probe 가 있고 등록된 정의만 멤버가 된다', () => {
     const selection = selectGateMembers([definition('sso')], (id) => bound(id))
     expect(selection.members.map((member) => member.authId)).toEqual(['sso'])

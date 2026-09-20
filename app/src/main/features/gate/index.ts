@@ -155,7 +155,9 @@ export function selectGateMembers(
   const blocked: GateMemberSelection['blocked'] = []
   for (const definition of definitions) {
     // 런타임 값으로도 확인한다 — 타입은 `as` 로 뚫린다.
-    if (!(definition as AuthDefinition).probe) {
+    const probe = (definition as AuthDefinition).probe
+    const probes = [probe, ...definition.methods.map((method) => method.probe ?? probe)]
+    if (probes.some((entry) => !entry || ('execute' in entry && entry.onResume !== true))) {
       blocked.push({ authId: definition.id, reason: 'missing_probe' })
       continue
     }

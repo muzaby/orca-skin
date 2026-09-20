@@ -48,7 +48,7 @@ export type FieldSpec = ProviderFieldInfo
 interface CredentialSpecBase {
   label: string
   fields: readonly FieldSpec[]
-  present: Presentation
+  present?: Presentation
   compose(input: Record<string, string>): ComposeResult
 }
 
@@ -200,14 +200,14 @@ export interface SessionTokenExchange {
 //
 // 구 이름은 `AuthSpec` 이었다(0181). `AuthDefinition.methods` 의 원소라는 것이 이름에서 바로
 // 읽히도록 0188 에서 바꿨다 — 형상은 그대로다.
-export type AuthMethod =
+export type AuthMethod = (
   | ({ kind: 'api-key' } & CredentialSpecBase)
   | ({ kind: 'password' } & CredentialSpecBase)
   | ({ kind: 'pat' } & CredentialSpecBase)
   | {
       kind: 'oauth'
       label: string
-      present: Presentation
+      present?: Presentation
       authorize(ctx: AuthCtx): Promise<OAuthStart>
       // RFC 6749 §6 refresh_token grant (0194). **선언하지 않으면 만료 시 재로그인만 남는다** —
       // 조용히 성공시키지 않고 `unsupported` 로 접는다.
@@ -222,6 +222,7 @@ export type AuthMethod =
       refresh?(refreshToken: string): Promise<TokenValue>
     }
   | { kind: 'browser-session'; label: string; config: BrowserSessionConfig }
+) & { probe?: AuthProbe }
 
 // GUI·로그가 쓰는 방식 식별자. wire 호환 타입을 그대로 승계한다(0188 D-005).
 export type AuthMethodKind = ProviderAuthKind
@@ -275,10 +276,28 @@ export type ValueGrant = Exclude<Grant, { kind: 'session' }>
 //
 // 실행은 인증된 요청 한 줄이다. 복원 확인은 커밋된 grant를, 로그인 확인은 candidate carrier를
 // 사용하므로 세션 cookie jar와 값형 `present`의 분기는 전송 계층 한 곳에만 남는다.
-export type AuthProbe = Pick<
+export type HttpAuthProbe = Pick<
   AuthenticatedRequest,
   'path' | 'method' | 'headers' | 'authFailureStatuses'
 >
+
+// trusted built-in 코드에만 전달한다. 값의 해석·프로토콜 인증은 소비자가 소유한다.
+export interface AuthCredential {
+  readonly value: string
+  readonly authKind: AuthMethodKind
+  readonly principalId?: string
+}
+
+export interface ExecutableAuthProbe {
+  execute(
+    credential: AuthCredential,
+    signal: AbortSignal
+  ): Promise<{ ok: boolean; rejected: boolean }>
+  // 생략하면 연결/재인증 후보만 확인한다. 부팅 시 네트워크를 열지는 선언이 정한다.
+  onResume?: boolean
+}
+
+export type AuthProbe = HttpAuthProbe | ExecutableAuthProbe
 
 // ── AuthDefinition — 배포가 채우는 유일한 인증 선언 ───────────────────────────
 //
@@ -410,6 +429,15 @@ export interface BoundAuth {
   request(request: AuthenticatedRequest, signal?: AbortSignal): Promise<AuthenticatedResponse>
 }
 
+export interface PluginAuth extends BoundAuth {
+  readonly label: string
+  readonly origin: string
+  // DB·전송은 제공하지 않는다. 거부 통지는 이 호출에서 읽은 credential 세대에만 적용된다.
+  withCredential<T>(
+    operation: (credential: AuthCredential, reject: () => void) => Promise<T>
+  ): Promise<T>
+}
+
 // 자기 Auth 를 고르기만 하는 소비자의 표면 (0190).
 //
 // 위 원칙("소비는 `AuthRuntime` 전체가 아니라 좁은 포트")을 **타입으로** 세운다. 0188 의 배포
@@ -424,6 +452,7 @@ export type AuthBinder = Pick<AuthRuntime, 'bind'>
 
 export interface AuthRuntime {
   bind(authId: AuthId): BoundAuth
+  bindForPlugin(authId: AuthId): PluginAuth
   tryBind(authId: AuthId): BoundAuth | null
   describe(authId: AuthId): AuthDescriptor
   currentStep(): AuthStep | null

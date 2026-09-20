@@ -11,7 +11,7 @@
 | 작성자 | Claude Code (V1·ΔV1), **Codex (ΔV2 설계·r3 구현)** |
 | 일자 | 2026-09-20 |
 | 매핑 | 없음 (신규 제품 기능) |
-| 상태 | READY — 사용자 요청에 따른 ΔV2 플러그인 구조 보완 |
+| 상태 | READY — ΔV2 규범 확정, r3 구현 완료·독립 검증 대기 |
 | V mode | `Delta V` (기준 `V1`) |
 | 기준 V | `V1` — 본 plan의 Baseline, commit `07ec3a6`~`e252c6b` |
 | 이번 V revision | `ΔV2` |
@@ -1003,6 +1003,10 @@ G1 재현 검색: `rg -n 'attachmentId|hasAttachments|mail_getAttachment' docs/h
 - 현재 라운드 수: 2. 다음 주체는 Claude 검증자이며, 이 보고는 구현자의 증거로만 사용한다.
 
 ---
+
+## [구현자 기입] r3 — Codex
+
+**ΔV2 설계 보완과 구현 완료.** 사용자 지시로 Codex가 두 단계를 수행했다. 일곱 보고 섹션, 유효 V·강제 지점, AC 자기보고 및 실제 사내 서버 실기 대기는 [r3 구현 보고](implementation-r3.md)에 기록한다. 다음 단계는 독립 검증이며 상태 정본은 INDEX다.
 
 ## [검증자 기입] 파생 이슈
 
