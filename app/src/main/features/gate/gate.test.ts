@@ -155,6 +155,7 @@ function definition(id: string, withProbe = true): GateAuthDefinition {
 function bound(id: string, snapshot: Partial<AuthSnapshot> = {}): BoundAuth {
   return {
     authId: id,
+    origin: `https://${id}.example.corp`,
     snapshot: () => ({
       authId: id,
       status: 'valid',

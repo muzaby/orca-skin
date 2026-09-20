@@ -1,4 +1,5 @@
 import { Pop3Error } from './errors'
+import { createPop3Socket } from '../../../../infra/net/pop3-socket'
 import type { Pop3Socket, Pop3SocketFactory, Pop3SocketOptions } from '../types'
 
 const ALLOWED_COMMANDS = new Set(['USER', 'PASS', 'UIDL', 'TOP', 'RETR', 'STAT', 'CAPA', 'QUIT'])
@@ -74,9 +75,17 @@ async function readMultiline(
   }
 }
 
+// **소켓은 infra 에서 직접 가져온다** (0237 ΔV2 — D-058). 0237 r2 는 `bootstrap.ts` 가
+// `createPop3Socket` 을 import 해 배포 파라미터로 흘려보냈다 — 컴포지션 루트가 특정 플러그인의
+// 전송 프리미티브를 아는 배선이었다. `features → infra` 는 허용 방향이고, `pop3-socket.ts` 는
+// electron 을 물지 않아(F-40) 테스트가 이 파일을 import 해도 죽지 않는다.
+//
+// **`net-fetch` 의 "기본값을 두지 않는다" 규칙(0173)과 다른 이유**: 그 규칙은 기본값이 곧
+// *조용한 Node 스택 복귀* 라서였다. POP3 에는 돌아갈 다른 구현이 없다 — 대안이 없으면 기본값이
+// 숨길 것도 없다. 인자 override 는 fake 소켓 seam 으로 남긴다.
 export function createPop3Session(
   options: Pop3SessionOptions,
-  socketFactory: Pop3SocketFactory
+  socketFactory: Pop3SocketFactory = createPop3Socket
 ): Pop3Session {
   let stream: StreamLike | undefined
   const state = { buffer: '', waiters: [] as ((line: string) => void)[] }

@@ -214,7 +214,7 @@ function confluenceServer(authId: string): RuntimeToolServer {
 // — **Bootstrap 이 주입하는 능력만으로 배포가 조립된다** — 을 놓친다. 배포 factory 의 능력이
 // 줄면 여기서 컴파일이 깨져야 한다.
 const createPluginBindings = (deps: PluginDeploymentDeps): PluginBinding[] => {
-  const confluenceAuth = deps.auth.bind(CONFLUENCE_AUTH.id)
+  const confluenceAuth = deps.auth.bindForPlugin(CONFLUENCE_AUTH.id)
   return [
     createPluginBinding({
       auth: confluenceAuth,
@@ -228,7 +228,7 @@ const createJiraPluginBinding = (
   deps: PluginDeploymentDeps,
   apiBasePath = JIRA_API_BASE_PATH
 ): PluginBinding => {
-  const jiraAuth = deps.auth.bind(JIRA_AUTH.id)
+  const jiraAuth = deps.auth.bindForPlugin(JIRA_AUTH.id)
   const server = jiraTools(
     {
       authId: jiraAuth.authId,
@@ -577,6 +577,7 @@ describe('배포 factory 의 능력 경계 (0190)', () => {
   it('config API deps 로는 login/revoke/resume/subscribe 에 도달할 수 없다', () => {
     const stub: BoundAuth = {
       authId: 'corp',
+      origin: 'https://corp.example.corp',
       snapshot: () => ({ authId: 'corp', status: 'valid', verified: true, credentialRevision: 1 }),
       request: () => Promise.reject(new Error('not used'))
     }

@@ -6,7 +6,9 @@ import { decideProtection } from './protection'
 import { parseMail } from './mime'
 import { Pop3Error, normalizePop3Error } from './pop3/errors'
 import { createPop3Session, type Pop3Session } from './pop3/session'
+import { splitMailCredential } from './auth'
 import { createMailStore, type MailStore } from './store'
+import type { MailEndpoint } from './endpoint'
 import type {
   MailPluginOptions,
   MailSearchResult,
@@ -17,12 +19,18 @@ import type {
 
 export interface MailSyncManagerOptions {
   readonly authId: string
-  readonly password: () => string | null
+  /** `PluginAuth.origin` 에서 파생한 연결 좌표 (0237 ΔV2 — D-054). 두 번째 사본이 없다. */
+  readonly endpoint: MailEndpoint
+  /** `PluginAuth.secret()` — authId 가 닫힌 closure 다 (D-055). */
+  readonly secret: () => string | null
   readonly options: MailPluginOptions
-  readonly socketFactory: Pop3SocketFactory
-  readonly root: string
+  /** `PluginAuth.reportAuthFailure()` — 인자가 없다. 자격증명 거부만 여기로 온다 (D-055). */
+  readonly reportAuthFailure?: () => void
+  /** 테스트 seam. 프로덕션은 `pop3/session.ts` 의 기본값(infra)을 쓴다 (D-058). */
+  readonly socketFactory?: Pop3SocketFactory
+  /** 테스트 seam. 프로덕션은 `pluginDataDir()` 이 해석한다 (D-057). */
+  readonly dataDir?: string
   readonly now?: () => number
-  readonly reportCredentialRejected?: (authId: string) => void
 }
 
 export interface MailSyncManager {
@@ -81,12 +89,12 @@ export async function createMailSyncManager(
   options: MailSyncManagerOptions
 ): Promise<MailSyncManager> {
   const store = await createMailStore({
-    root: options.root,
+    ...(options.dataDir ? { dataDir: options.dataDir } : {}),
     accountId: options.options.accountId,
     authId: options.authId,
-    host: options.options.host,
-    port: options.options.port ?? (options.options.tls === false ? 110 : 995),
-    tls: options.options.tls !== false,
+    host: options.endpoint.host,
+    port: options.endpoint.port,
+    tls: options.endpoint.tls,
     now: options.now
   })
   let inFlight: Promise<MailSyncResult> | undefined
@@ -113,19 +121,22 @@ export async function createMailSyncManager(
         ) {
           return { synced: false, fresh: true, lastSyncAt: current.lastSyncAt }
         }
-        const password = options.password()
-        if (!password) throw new Pop3Error('auth_failed')
+        // `PluginAuth.secret()` 는 `passwordSpec` 이 접은 `user:pass` 한 문자열이다 — 아이디를
+        // 따로 받지 않는다(두 번째 사본 금지). 값이 없으면 커밋된 자격증명이 없다는 뜻이다.
+        const credential = options.secret()
+        if (!credential) throw new Pop3Error('auth_failed')
+        const { user, password } = splitMailCredential(credential)
         onStage?.({ stage: 'connect' })
         const session: Pop3Session = createPop3Session(
           {
-            host: options.options.host,
-            port: options.options.port ?? (options.options.tls === false ? 110 : 995),
-            tls: options.options.tls !== false,
+            host: options.endpoint.host,
+            port: options.endpoint.port,
+            tls: options.endpoint.tls,
             ...(options.options.tlsOptions ? { tlsOptions: options.options.tlsOptions } : {}),
             ...(options.options.timeouts?.commandMs
               ? { timeoutMs: options.options.timeouts.commandMs }
               : {}),
-            user: options.options.user ?? options.authId,
+            user,
             password,
             signal: signalOrUndefined(signal)
           },
@@ -223,7 +234,7 @@ export async function createMailSyncManager(
       } catch (error) {
         const normalized = normalizePop3Error(error)
         store.saveState({ lastErrorCode: normalized.code })
-        if (normalized.authFailure) options.reportCredentialRejected?.(options.authId)
+        if (normalized.authFailure) options.reportAuthFailure?.()
         return {
           synced: false,
           error: normalized.code,

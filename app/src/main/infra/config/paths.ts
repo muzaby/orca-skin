@@ -89,6 +89,44 @@ export function downloadsDir(): string {
   return join(orcaConfigDir(), 'downloads')
 }
 
+// ── 플러그인 데이터 루트 (0237 ΔV2 — D-057) ───────────────────────────────────
+//
+// **배포가 정하는 값이 아니라서 여기 있다.** 0237 r2 까지 이 경로는 `bootstrap.ts` 가
+// `app.getPath('userData')` 를 읽어 배포 파라미터 → 도구 ctx → sync manager → store 로
+// **5단 체인**으로 흘렀다. 배포가 고를 것이 없는 값은 배포 계약에 두지 않는다.
+//
+// **왜 슬롯인가**: `userData` 는 `app.getPath` 로만 알 수 있고(dev 는 `index.ts` 가 sibling 로
+// 리디렉션한다), 이 파일이 electron 을 import 하면 여기를 쓰는 feature 가 전부 vitest 에서
+// 죽는다(P29). 그래서 **부팅이 값을 한 번 알려주고** 이후 소비자는 electron 없이 읽는다 —
+// `initLog()`·`initDb()` 와 같은 infra 싱글턴 형상이다.
+let configuredUserDataDir: string | null = null
+
+/** 부팅이 1회 호출한다 (`src/main/index.ts`, userData 리디렉트 **직후**). 테스트는 임시 폴더를 준다. */
+export function configureUserDataDir(dir: string): void {
+  configuredUserDataDir = dir
+}
+
+/** 배선 전에 부르면 던진다 — 조용히 `cwd` 같은 엉뚱한 곳에 데이터를 만들지 않는다. */
+export function userDataDir(): string {
+  if (configuredUserDataDir === null) {
+    throw new Error('userData 루트가 아직 배선되지 않았습니다 (configureUserDataDir 미호출)')
+  }
+  return configuredUserDataDir
+}
+
+// `userData` 하위인 것이 중요하다 — DB·secret-store 와 같은 계층이고 `orcaConfigDir()`(사람이
+// 편집하는 설정 소스)이 아니다. 플러그인 데이터는 사람이 편집하는 것이 아니다.
+//
+// `pluginId`·`accountId` 는 경로 조각이 되므로 문자를 접는다 — 계정 식별자가 사용자 입력에서 온다.
+export function pluginDataDir(pluginId: string, accountId: string): string {
+  return join(userDataDir(), 'plugins', safePathSegment(pluginId), safePathSegment(accountId))
+}
+
+// 경로 한 조각으로 쓸 수 있게 접는다. 빈 문자열이 되면 `_` — 이름 없는 디렉터리를 만들지 않는다.
+export function safePathSegment(raw: string): string {
+  return raw.replace(/[^A-Za-z0-9._-]/g, '_') || '_'
+}
+
 // child 가 parent 내부(또는 동일)인지 — 정규화 후 상대경로가 '..' 로 빠져나가거나
 // 다른 절대경로면 false. files:openPath 경로 화이트리스트 등에 쓰는 순수 술어.
 export function isWithinDir(child: string, parent: string): boolean {

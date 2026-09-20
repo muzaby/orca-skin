@@ -14,7 +14,7 @@ describe('mail store', () => {
   it('persists FTS rows, attachment manifests and opaque attachment ids', async () => {
     const root = await mkdtemp(join(tmpdir(), 'orca-mail-'))
     const store = await createMailStore({
-      root,
+      dataDir: root,
       accountId: 'account',
       authId: 'mail',
       host: 'pop.example.test',
@@ -59,7 +59,7 @@ describe('mail store', () => {
   it('marks missing UIDLs without removing cached mail until retention cleanup', async () => {
     const root = await mkdtemp(join(tmpdir(), 'orca-mail-'))
     const store = await createMailStore({
-      root,
+      dataDir: root,
       accountId: 'account',
       authId: 'mail',
       host: 'pop.example.test',

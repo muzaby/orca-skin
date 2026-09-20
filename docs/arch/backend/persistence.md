@@ -138,7 +138,10 @@ Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저�
 #### Mail Plugin 캐시
 
 POP3 Mail Plugin은 Core `orcinus-orca.db`와 분리된 계정별 `mail.db`를 `<userData>/plugins/mail/<accountId>/`
-아래에 소유한다. DB는 WAL·foreign key를 켜고 자체 `migrations/` runner를 사용하며, UIDL ledger·메일 본문
+아래에 소유한다. **연결·PRAGMA·마이그레이션 적용 절차는 `infra/db/open.ts` 가 소유하고 Core DB 도 같은
+함수를 통과한다** — 플러그인 슬라이스는 마이그레이션 **목록**만 갖는다(append-only 가드의 앵커). 경로는
+`infra/config/paths.ts` 의 `pluginDataDir('mail', accountId)` 가 해석하며 배포 파라미터로 흐르지 않는다.
+DB는 WAL·`synchronous=NORMAL`·foreign key를 켜고, UIDL ledger·메일 본문
 및 FTS5 색인·첨부 metadata·동기화 상태를 함께 기록한다. 원격 UIDL 소실은 ledger를 `missing`으로 표시할
 뿐이고 본문·색인·첨부는 retention 정리 시점까지 남긴다. 첨부 바이트는 같은 계정 디렉터리의 내부 파일로
 저장하고, 모델에는 불투명 attachment id만 돌려주며 요청 시 Temp로 복사한다.

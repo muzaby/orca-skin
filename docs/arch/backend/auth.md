@@ -69,7 +69,7 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 | `contracts/auth.ts` | 타입 계약 — `AuthDefinition`·`AuthMethod`·`AuthProbe`·`Grant`·`AuthenticatedRequest/Response`·`AuthSnapshot`·`AuthChange`·`BoundAuth`·`AuthRuntime`·`AuthSecretReader` |
 | `adapters/harness-config.ts` | 실행 구성 계약 + spawn 입력 조립 — `options.settings` / `options.env` 두 채널과 env fingerprint(`PreparedHarnessConfig`). feature 가 아니라 어댑터 포트다 |
 | `features/auth/runtime.ts` | `createAuthRuntime()` — registry·store·요청·로그인을 묶고 `{ runtime, secretReader }` 반환 |
-| `features/auth/registry.ts` | 빌드타임 선언 검사 (중복 id · bare origin). **gate probe 검사는 여기 없다** |
+| `features/auth/registry.ts` | 빌드타임 선언 검사 (중복 id · bare endpoint — scheme 중립). **gate probe 검사는 여기 없다** |
 | `features/auth/store.ts` | `authId → Grant` 단일 맵 + `verified` + `credentialRevision` + 만료 정착 집합 |
 | `features/auth/authenticated-request.ts` | 정책 → credential 주입 → 전송 → redirect 재검사 → 강등(요청별 인증 실패 status, 기본 401/403 · 세션의 origin 미복귀) |
 | `features/auth/secret-access.ts` | trusted-main raw 조회 (동기) |
@@ -619,11 +619,31 @@ snapshot을 읽는다.
 
 ## 7. Plugin
 
-Plugin 은 GUI 카탈로그에 표시되는 제품 기능 단위다. HTTP Plugin 모듈은 `BoundAuth.request` 와 자기
-옵션만 받고 raw credential 을 보지 않는다. 비-HTTP 전송이 필요한 opt-in Plugin은 컴포지션 루트가
-AuthId를 닫은 `() => string | null` closure와 전송 factory를 별도로 주입하며 `AuthSecretReader` 전체,
-vault, renderer에는 접근하지 않는다. POP3 Mail Plugin이 이 예외를 사용하고, 서버 단위 binding의
-add/remove lifecycle은 다른 Plugin과 공유한다.
+Plugin 은 GUI 카탈로그에 표시되는 제품 기능 단위다. **Plugin 은 `PluginAuth` 와 자기 옵션만으로
+조립된다** — 컴포지션 루트가 플러그인별로 자원을 엮지 않는다(0237 ΔV2).
+
+```text
+AuthRuntime.bindForPlugin(authId) → PluginAuth
+  ├─ authId · origin            선언이 말하는 식별자와 연결 대상
+  ├─ snapshot() · request()     BoundAuth 그대로 (HTTP Plugin 이 쓴다)
+  ├─ secret()                   비-HTTP 전송이 자격증명을 직접 실을 때. authId 가 닫혀 있다
+  └─ reportAuthFailure()        전송이 관측한 자격증명 거부를 강등으로 되먹인다. 인자 없음
+```
+
+- **좁힘은 binder 타입이 한다.** Plugin 배포 factory 만 `PluginAuthBinder`(= `bindForPlugin` 하나)를
+  받고, Harness·Usage·Connections 는 기존 `AuthBinder`(= `bind` 하나)를 받아 `secret()` 에 도달하지
+  못한다. `AuthSecretReader` 전체·vault·renderer 는 어느 쪽에도 가지 않는다.
+- **연결 대상은 `origin` 한 곳에 산다.** 배포가 ctx 로 다시 적지 않는다 — 두 사본이 갈리면 도구는
+  모델에 보이는데 호출할 때마다 엉뚱한 곳으로 붙는다. 비-HTTP Plugin 은 `origin` 에서 host·port·TLS 를
+  파생한다(`features/plugins/mail/endpoint.ts`).
+- **`createPluginBindings` 의 deps 는 `{auth, registry, logger}` 셋으로 고정이다.** 플러그인은
+  파라미터가 아니라 **배열의 행**으로 들어온다 — 플러그인당 슬롯 하나는 확장마다 배포 계약이
+  자란다는 뜻이고, 그러면 배포가 범용 `bootstrap.ts` 까지 고쳐야 한다.
+- **전송·영속 프리미티브는 infra 가 준다.** POP3 소켓은 `infra/net/pop3-socket.ts`, 두 번째 SQLite 는
+  `infra/db/open.ts`, 데이터 루트는 `infra/config/paths.ts` 의 `pluginDataDir` 다. 컴포지션 루트를
+  거치지 않는다(`features → infra` 는 허용 방향).
+- **서버가 자원을 들면 `dispose()` 를 선언한다.** 앱 종료에서 1회 불린다. **Auth 강등에서는 부르지
+  않는다** — 강등은 registry 회수뿐이고, 회복은 재인증 1회다.
 
 - 배포의 선택적 `catalog` 설정은 binding 생성 시 정규화한다. icon을 생략하거나 설정 자체가 없으면
   `electrical_services`, title이 없으면 Auth label, body가 없으면 본문 없음이 된다. locale text와
@@ -744,6 +764,10 @@ Bootstrap 은 endpoint path·response body·Confluence CQL·UsageSnapshot mappin
 | generation fence 없는 수동 cache 무효화를 만들지 않는다 | 무효화 전 in-flight 결과가 낡은 token 을 되살린다 |
 | Plugin tool server 를 sync 마다 재생성하지 않는다 | handler identity 가 달라져 respawn 이 늘어난다 |
 | 런타임 동적 TypeScript/JavaScript 로딩을 추가하지 않는다 | 배포 모듈은 build-time code 다 |
+| **배포 factory 의 deps 에 플러그인별 슬롯을 만들지 않는다** | 확장 1건마다 배포 계약이 자라고, 그러면 배포가 범용 `bootstrap.ts` 까지 고쳐야 한다 — `app/deployment/` 의 존재 이유가 무너진다 |
+| **프로토콜을 늘리려고 core 를 고치지 않는다** — 확인 방법은 `AuthMethod.verify` 가 들고 온다 | 갈래를 코어에 더하면 IMAP·XOAUTH2 마다 `login.ts` 분기가 늘고, 그 분기는 되돌릴 수 없다 |
+| **`present` 를 생략한 값형으로 HTTP 요청을 내보내지 않는다** | optional 화가 만드는 유일한 새 위험이다 — 자격증명 없는 요청이 조용히 나간다 |
+| **두 번째 SQLite 를 feature 가 직접 열지 않는다** | PRAGMA·마이그레이션 규칙이 사본마다 갈린다. `infra/db/open.ts` 를 Core 도 통과한다 |
 
 ---
 

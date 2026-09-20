@@ -1280,31 +1280,97 @@ G1 재현 검색: `rg -n 'attachmentId|hasAttachments|mail_getAttachment' docs/h
 
 ## [구현자 기입] 설계 리뷰 (r3 — ΔV2)
 
-- (구현자 기입)
+- **READY 확인 후 구현 진행.** `V1 + ΔV1 + ΔV2`의 D-048~D-061, AC34~AC45, §10 EP-20~EP-27(21지점)과 REGRESSION 7 pair를 기준으로 구현했다. 새 `PLAN_GAP`은 발견하지 않았다.
+- 동의 / 그대로 진행: 기능 결정 43건을 하나도 건드리지 않았다. 도구 3종의 이름·스키마·결과 형상, mail.db 스키마·tokenizer, 14일/5분 정책, `DELE` 금지, 보호 전이, D-045의 서버 단위 회수 전부 불변이다.
+- **설계가 예상하지 못한 경계 1건**: `features/plugins/mail` → `features/auth`는 **교차 슬라이스라 eslint boundaries가 막는다**(`plugins`가 한 요소, F-18). 그래서 `pop3PasswordSpec`(= `passwordSpec` + `verify`)을 mail 슬라이스에 둘 수 없다. 역할을 갈랐다 — 슬라이스는 `pop3Verifier`(`AuthVerifier`)만 내보내고, 방식 선언 조립(`passwordSpec({ verify })`)은 컴포지션 루트가 한다. 계약(§15 포트)은 그대로이고 소유권만 정확해졌다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조, r3)
 
-- (구현자 기입) — ΔV2 신규 EP-20~EP-27 (21지점) + REGRESSION pair가 닿는 기존 EP를 함께 대조한다.
+| EP | 지점 분모 | 닫은 지점 | 직접 관측 |
+|---|---|---|---|
+| EP-20 | 3 | 3/3 | `PluginDeploymentDeps` 키 3개(`plugin-contract.test.ts` 음성) · `bootstrap.ts` 호출부 인자 3개 · 배포 fixture가 서버 2개 등록(양성) |
+| EP-21 | 2 | 2/2 | `isBareEndpoint` 두 갈래(HTTP 7 + 메일 3 + 거부 6) · `checkOutboundRequest`의 `origin_not_allowed`(fetch 0회) |
+| EP-22 | 3 | 3/3 | `AuthMethod.verify` 선언 · `login.ts:probe()` 단일 분기 · `preserveGrant` 전달(AC38 ③) |
+| EP-23 | 2 | 2/2 | `CredentialSpecBase.present?` · carrier 조립 fail-closed(`자격증명 표현` throw, fetch 0회) |
+| EP-24 | 4 | 4/4 | `runtime.ts:bindForPlugin` · `PluginAuthBinder` 타입 · `BoundAuth.origin` · 배포 factory 3종이 `AuthBinder`만 받음(음성) |
+| EP-25 | 3 | 3/3 | `openSqlite` 단일 소유(Core도 통과) · `pluginDataDir` 단일 소유 · mail 슬라이스 `better-sqlite3`·`_migrations` 0건 |
+| EP-26 | 2 | 2/2 | `Bootstrap.shutdown()` dispose 루프(조기 반환 **앞**) · `sync()`가 dispose를 부르지 않음(음성) |
+| EP-27 | 2 | 2/2 | IMAP·XOAUTH2 타입 fixture가 typecheck 통과 · core 7파일에 프로토콜 이름 0건 |
+
+- **분모 검산**: ΔV2 신설 8군 **21지점 중 21/21**. 분모는 §10 표가 아니라 이번 턴에 전수 검색으로 다시 셌다 — `grep -c` 관측값은 위 표의 각 칸에 있다.
+- **REGRESSION 7 pair**: VP-05·VP-08·VP-10·VP-13·VP-19·VP-20·VP-22 모두 기존 스위트를 새 배선에서 재실행해 통과했다(`plugins.test.ts`·`login.test.ts`·`native-boundary.test.ts`·mail 스위트).
 
 ## [구현자 기입] 이번 라운드 수정의 잠금 (r3)
 
-- (구현자 기입)
+| # | 심은 결함 | 출처 | 결과 |
+|---|---|---|---|
+| 1 | `isBareEndpoint`의 `pathname === ''` 제거 (넓어지는 방향) | EP-21 선택 증거 | **red** 1케이스 |
+| 2 | presentation fail-closed 가드 무력화 | EP-23 선택 증거 | **red** 1케이스 |
+| 3 | probe의 `candidate` 조건 제거 (verifier 미진입) | EP-22 · D-042 | **red** 2케이스 |
+| 4 | `PluginDeploymentDeps`에 `mail?` 슬롯 추가 | EP-20 선택 증거 | **red** 1케이스 |
+| 5 | `dispose` 배선 삭제 (`server.dispose?.()`) | EP-26 선택 증거 | **red** 1케이스 |
+| 6 | 강등(`sync`)에서도 dispose 호출 (반대 방향) | EP-26 양방향 | **red** 1케이스 |
+| 7 | core에 프로토콜별 타입 추가(`Pop3Verifier`) | EP-27 선택 증거 | **red** 1케이스 |
+| 8 | mail store가 `better-sqlite3` 직접 import | EP-25 선택 증거 | **최초 green → 장치 수정 후 red** |
+| 9 | mail 슬라이스에 `_migrations` SQL 재등장 | EP-25 선택 증거 | **red** 1케이스 |
+| 10 | `bootstrap.ts`에 mail 타입 재등장 | EP-20 선택 증거 | **red** 1케이스 |
+| 11 | `Bootstrap.shutdown()`의 dispose 루프 삭제 | EP-26 배선 축 | **red** 2케이스 |
+
+- **검산**: 선택 증거 8군 · 인용 변이 0(파생 이슈 없음) · 이번 턴에 만든 구조적/0건 oracle 3(AC34·AC35·AC42 스윕) = **표 행 11**.
+- **#8은 최초 측정에서 green이었다 — 장치에 눈이 없었다.** AC42의 음성 스윕이 `stripCommentsAndStrings`를 썼는데 그 헬퍼는 **문자열 리터럴까지 지운다**. 찾으려던 것(`from 'better-sqlite3'`)이 바로 문자열 리터럴이라, 스윕이 자기가 검사한다고 말한 대상을 한 번도 보지 못했다. 주석만 걷는 로컬 헬퍼로 교체한 뒤 red를 확인했다. **적대 검사를 돌리지 않았으면 `0건`이 전수의 증거로 보고됐을 것이다.**
+- **덮개 회귀 확인**: 이번 라운드가 교체·삭제한 장치는 `registry.test.ts`의 `isBareOrigin` 7케이스뿐이고, 같은 7케이스를 `isBareEndpoint`로 이름만 바꿔 유지한 뒤 AC36이 그것을 다시 단언한다(구 장치가 잡던 자리가 새 장치의 하한).
 
 ## [구현자 기입] Product/UX 파생 검토 (r3)
 
-- (구현자 기입)
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 사용자가 관측하는 것이 달라졌는가 | ❌ 달라지지 않는다 — 도구 3종의 이름·스키마·결과, 실패 문구, 연결 탭 동작이 전부 불변이다. ΔV2는 조립 축만 바꾼다 | 독립 검증에서 AC29·AC30 재확인 |
+| 새 실패 경로가 상태 전이표의 어느 행인가 | ⚠️ **두 개가 새로 생겼다** — ① `origin` 형식 오류(`MailEndpointError`)는 **부팅 조립에서** 던진다 ② `userDataDir` 미배선은 `pluginDataDir()`에서 던진다. 둘 다 배포자가 보는 것이지 사용자가 보는 것이 아니다 | §5 상태 전이표에 행이 없다 — 배포 오류라 Product 계약 밖으로 판정했다. 이견이 있으면 검증자가 `PLAN_GAP`으로 올린다 |
+| 실패가 "아무 일도 안 일어남"으로 보이는가 | ❌ — 조립 실패는 부팅에서 던지므로 조용하지 않다. 도구 호출 실패는 기존 `errorResult` 경로 그대로다 | — |
+| 정리 시점이 사용자에게 보이는가 | ❌ — dispose는 종료 시점이고 강등에서는 부르지 않는다. 재인증 1회로 같은 store가 돌아온다(AC45 두 번째 케이스가 그것을 단언) | — |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (r3)
 
-- (구현자 기입)
+| # | 문제 | 대응 | 분류 |
+|---|---|---|---|
+| P4 | `configureUserDataDir` 슬롯은 **전역 가변 상태**다. 배선 전에 `pluginDataDir()`을 부르면 던진다 | 조용한 잘못된 경로 대신 **던지는 쪽**을 골랐다. `index.ts`가 userData 리디렉트 **직후** 1회 호출하고, 순서가 뒤집히면 dev가 실제 설치본 폴더를 쓴다 — 그 순서는 주석으로만 잠겨 있고 테스트가 없다 | NON_BLOCKING |
+| P5 | `RuntimeToolRegistry.copyServer`가 `dispose`를 복사하지 않는다 | **의도대로다** — registry snapshot은 어댑터로 가고 lifecycle 핸들은 컴포지션 루트 것이다. `PluginBinding.dispose()`는 원본 서버를 부른다. AC45가 그 경로를 관측한다 | NON_BLOCKING |
+| P6 | `bindForPlugin`은 미등록 authId에서 던진다(`bind`가 `registry.get`을 요구) | 기본 배포(`AUTH_DEFINITIONS = []`)에서 배포가 행을 남겨 두면 부팅이 죽는다. 현재 기본 배포는 행이 0이라 도달하지 않지만, **폐쇄망 배포가 선언을 지우고 행을 남기면** 그렇게 된다 | NEXT_HANDOFF — `tryBindForPlugin` 또는 부팅 진단으로 접는 선택지 |
+| P7 | AC35의 **부팅 경로 양성**을 닫지 못했다 | `Bootstrap.start()`가 electron을 물어 vitest에서 돌지 않는다(P29). 음성(식별자 0건) + `createPluginBindings` 단위 양성 + `shutdown()` 배선 양성으로 나눠 닫았고, "부팅이 실제로 mail을 등록한다"는 **사람 실기 몫**으로 남는다 | NON_BLOCKING (남긴 곳을 명시) |
+
+### 설계 대비 명시적 차이 (r3)
+
+- **`pop3PasswordSpec` → `pop3Verifier`로 좁혔다.** 이유는 §설계 리뷰의 boundaries 제약이다. 대체물이 갖고 원본이 갖지 않던 실패 모드를 축마다 확인했다:
+  - *만료* — 해당 없음. `verify`는 호출 시점에 돌고 캐시하지 않는다(`parseMailEndpoint`만 선언 시점 1회, 값이 불변이다).
+  - *공유* — 해당 없음. verifier closure는 선언당 하나이고 상태를 갖지 않는다. 비우는 주체가 없으므로 비워질 수 없다.
+  - *재진입* — 동시 로그인 2건은 각각 새 `createPop3Session`을 연다. 공유 소켓이 없어 서로를 덮지 않는다. 기존 attempt fence(`login.ts`)가 커밋 경쟁을 그대로 막는다.
+  - *다른 무효화 축* — 해당 없음. 선언은 build-time 상수다.
+  - 이 차이에 기댄 AC: AC38(①verify만 호출 ③preserveGrant 전달)·AC44(①타입 수용)를 대체물로 다시 유도해 통과했다.
+- **`root` → `dataDir`(store 내부 test seam)으로 이름과 소유가 바뀌었다.** 배포 계약·도구 ctx에는 어느 이름도 없다(AC43 음성이 두 이름을 모두 센다).
+- **`PluginBinding.dispose`가 `RuntimeToolServer.dispose?`를 경유한다.** plan §11은 "`dispose`를 반환 경로에 잇는다"만 적었다 — `mailTools`가 `RuntimeToolServer`를 돌려주므로 그 타입에 optional 필드를 더하는 것이 유일한 배선이었다. 플러그인 무관한 구조적 추가다.
 
 ## [구현자 기입] 구현 보고 (r3)
 
-- (구현자 기입)
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `contracts/auth.ts` · `adapters/runtime-tools.ts` · `features/auth/{registry,login,runtime,authenticated-request,specs/credential}.ts` · `features/plugins/mail/{auth,endpoint,tools,sync-manager,types,pop3/session,store/index,store/migrate}.ts` · `infra/db/{open,index,migrate}.ts` · `infra/config/paths.ts` · `app/{bootstrap,index}.ts` · `app/deployment/plugins.ts` · 테스트 9파일(신규 4) · 문서 4종 |
+| 실행 명령 | `npm ci` · `npm rebuild better-sqlite3 --build-from-source` · `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run src/main` · `node --test scripts/check-migrations-appendonly.test.mjs` · `node scripts/check-migrations-appendonly.mjs` · `node scripts/check-doc-inventory.mjs --check` · `git diff --check` |
+| 관측한 게이트 산출 | lint **0 error · warning 1**(기존 renderer `react-hooks/incompatible-library`) · typecheck **3구성 통과**(node·web·test) · Vitest **270파일 / 2881 pass · 0 fail · 3 skip** · migration test **19 pass** · 가드 `sync ok: 27 migrations` + `sync ok: 1 migrations` + `no-copies ok: 1263 files, 3 list owners` · docs inventory **9 items / 98 channels ok** · diff 공백 오류 0 |
+| **기준선 대비** | 착수 전 실측 **266파일 / 2849 pass · 0 fail**(better-sqlite3를 Node ABI로 재빌드한 뒤). 이번 증가분은 **+4파일 / +32 케이스**이고 신규 red는 0이다. 재빌드 전에는 30파일/181 케이스가 `NODE_MODULE_VERSION 140 vs 127`로 red였다 — 코드 무관한 ABI 기준선이다 |
+| V-pair 자기확인 | ΔV2 `REQUIRED` 12(VP-26~VP-35·VP-12·VP-21) + `REGRESSION` 7 = **19 pair 전부 `SELF_PASS`**. 독립 판정은 `verify.md`에서 닫는다 |
+| 강제 지점 전수 | ΔV2 8군 **21/21**. 유효 V 누적 27군 65지점 중 ΔV1 이전 분은 r2 보고 승계 |
+| **AC 자기보고**(`Criteria-Met`) | **23/47** — ΔV2 신규 12건 중 **11 ✅ · 1 ⚠️**(AC35: 부팅 경로 양성 미달, P7) + r2가 보고한 11건(AC11·AC16·AC18·AC19·AC20·AC22·AC25·AC25b·AC31·AC32·AC33) 유지. 검산: `✅ 23 · ⚠️ 1 · 미측정 23 = 총 47` |
+| **Criteria-Pending** | AC1~AC10·AC12~AC15·AC17·AC21·AC23·AC24·AC26~AC30 — fake POP3 왕복과 실서버 TLS/MIME 확인(r2에서 이월, ΔV2가 건드리지 않음) + AC35의 부팅 경로 양성 |
+| 블로커 / 역질문 | 없음. P6(`bindForPlugin` 미등록 throw)은 `NEXT_HANDOFF` 후보로 남긴다 |
+| 대상 커밋 | `(r3 구현 — 검증자 기입)` |
 
 ## [구현자 기입] Review Signals — 사실만 (r3)
 
-- (구현자 기입)
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **아니다.** r1·r2는 mail 기능 축(첨부 producer·보호 전이·강등 범위)이었고 r3는 조립 축(계약 표면·자원 소유)이다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: **ΔV2 이전에는 없었다.** r2가 계약 4종을 늘린 것을 잡는 AC가 V1·ΔV1에 0건이었다 — 사용자 지적으로 들어왔고 ΔV2가 AC34·AC35·AC44로 규범화했다.
+- 이번 턴에 장치가 침묵한 사례: **1건**(#8, `stripCommentsAndStrings`가 문자열 리터럴을 지워 import 스윕이 눈을 잃음). 적대 검사에서 드러났고 장치를 고쳤다.
+- 반복해서 부딪히는 환경 한계: better-sqlite3 ABI. `npm ci`가 Electron ABI로 빌드해 plain-node vitest가 30파일 red가 된다 — `npm rebuild better-sqlite3`로 Node ABI로 돌려 전체 스위트를 실측했다(`app/AGENTS.md §제약 환경 게이트 가이드`의 DO 경로).
+- 현재 라운드 수: **3**. 다음 주체는 Claude 검증자이며, 이 보고는 구현자의 증거로만 사용한다.
 
 ---
 

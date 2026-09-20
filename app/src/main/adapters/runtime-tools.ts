@@ -64,6 +64,13 @@ export interface RuntimeToolContext {
 export interface RuntimeToolServer {
   readonly descriptor: RuntimeToolDescriptor
   readonly implementations: readonly RuntimeToolImplementation[]
+  // 서버가 **자원을 들고 있으면** 종료 시 놓는다 (0237 ΔV2 — D-060). HTTP 서버는 요청마다
+  // 끝나므로 선언하지 않는다. 0237 r2 의 mail 은 `close()` 를 구현해 놓고 부르는 곳이 없어
+  // mail.db 핸들이 앱 종료까지 남았다.
+  //
+  // **Auth 강등에서는 부르지 않는다.** 강등은 도구를 registry 에서 회수할 뿐이고, 재인증마다
+  // DB 를 다시 여는 비용만 늘린다(D-045 의 회복은 재인증 1회다).
+  dispose?(): void
 }
 
 export interface RuntimeToolSnapshot {

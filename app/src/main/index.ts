@@ -8,7 +8,7 @@ import { Bootstrap } from './app/bootstrap'
 import { createArtifactSenderCheck } from './app/artifact-sender'
 import { closeDb } from './infra/db'
 import { closeLog, flushLogSync, getLogger, initLog } from './infra/log'
-import { devUserDataDir } from './infra/config/paths'
+import { configureUserDataDir, devUserDataDir } from './infra/config/paths'
 import { migrateLegacyRoots } from './infra/config/migrate-legacy'
 import { runStartupSequence } from './infra/config/startup-sequence'
 import { CHANNELS } from '../shared/ipc'
@@ -24,6 +24,10 @@ import type { SettingsStore } from './infra/settings-store'
 if (import.meta.env.DEV) {
   app.setPath('userData', devUserDataDir(app.getPath('appData')))
 }
+
+// userData 루트를 infra 에 알린다 (0237 ΔV2 — D-057). **리디렉트 직후**여야 한다 — 그 전에
+// 알리면 dev 가 실제 설치본 폴더를 쓴다. 이후 `pluginDataDir()` 소비자는 electron 없이 읽는다.
+configureUserDataDir(app.getPath('userData'))
 
 // 0225 이관 → 로깅 싱글턴 초기화 (0123). **순서가 계약이다**(§10 EP-07) — `initLog()` 가 먼저
 // 돌면 새 설정 루트가 생겨 이관의 "target 없으면 이동" 가드가 거짓이 된다. userData 리다이렉트

@@ -30,12 +30,13 @@ import type {
   AuthSnapshot,
   AuthSnapshotChangeCause,
   AuthStep,
+  PluginAuth,
   BoundAuth
 } from '../../contracts/auth'
 import { AuthenticatedRequester } from './authenticated-request'
 import type { AuthenticatedRequesterDeps } from './authenticated-request'
 import { LoginService } from './login'
-import type { LoginDeps, OAuthAuthenticator, SessionAuthenticator } from './login'
+import type { OAuthAuthenticator, SessionAuthenticator } from './login'
 import { AuthRegistry } from './registry'
 import type { AuthRejection } from './registry'
 import { AuthStore } from './store'
@@ -71,7 +72,6 @@ export interface CreateAuthRuntimeDeps {
   sessions?: BrowserSessionPort
   oauth?: OAuthAuthenticator
   session?: SessionAuthenticator
-  verify?: LoginDeps['verify']
   clock?: () => number
   logger?: (event: string, data: Record<string, unknown>) => void
   onOrphan?: (authId: AuthId) => void
@@ -85,7 +85,6 @@ export interface CreatedAuthRuntime {
   secretReader: AuthSecretReader
   // 등록에서 떨어진 선언. 부팅 진단이 로그로 남긴다.
   rejected: readonly AuthRejection[]
-  credentialRejectionReporter: (authId: AuthId) => void
 }
 
 export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRuntime {
@@ -190,20 +189,45 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     ...(deps.sessions ? { sessions: deps.sessions } : {}),
     // 후보(`candidate`)는 확인이 끝날 때까지 store·vault 를 거치지 않는다 (r5).
     request: (authId, req, signal, candidate) => requester.request(authId, req, signal, candidate),
-    ...(deps.verify ? { verify: deps.verify } : {}),
     onStep: (step) => publish({ kind: 'step', authId: step?.providerId ?? '', step }),
     onSnapshot: emitSnapshot,
     ...(deps.logger ? { logger: deps.logger } : {})
   })
 
-  const bind = (authId: AuthId): BoundAuth => ({
-    authId,
-    snapshot: () => snapshot(authId),
-    request: (req, signal) => requester.request(authId, req, signal)
+  // 자격증명 거부 관측을 강등으로 정착시킨다. HTTP 는 `authenticated-request.ts` 가 status 로
+  // 같은 일을 하고, 비-HTTP 전송은 `PluginAuth.reportAuthFailure()` 로 여기 도달한다.
+  const reportAuthFailure = (authId: AuthId): void => {
+    const changed = store.markExpired(authId)
+    if (changed.snapshotChanged) {
+      emitSnapshot(authId, 'unauthorized', changed.credentialChanged)
+    }
+  }
+
+  // **`origin` 은 선언에서 온다** (0237 ΔV2 — D-054). 미등록 Auth 는 `bind` 자체가 의미 없으므로
+  // 여기서 던진다 — `tryBind` 가 그 판정을 미리 해 주는 표면이다.
+  const bind = (authId: AuthId): BoundAuth => {
+    const definition = registry.get(authId)
+    if (!definition) throw new Error(`unknown auth: ${authId}`)
+    return {
+      authId,
+      origin: definition.origin,
+      snapshot: () => snapshot(authId),
+      request: (req, signal) => requester.request(authId, req, signal)
+    }
+  }
+
+  // Plugin 전용 표면 (0237 ΔV2 — D-055). `bind` 에 두 능력만 더한다 — authId 는 이미 닫혀
+  // 있어 다른 Auth 의 값에는 도달하지 못한다.
+  const secretReader = createAuthSecretReader(store)
+  const bindForPlugin = (authId: AuthId): PluginAuth => ({
+    ...bind(authId),
+    secret: () => secretReader.read(authId),
+    reportAuthFailure: () => reportAuthFailure(authId)
   })
 
   const runtime: AuthRuntime = {
     bind,
+    bindForPlugin,
     tryBind: (authId) => (registry.get(authId) ? bind(authId) : null),
     describe(authId) {
       const definition = registry.get(authId)
@@ -233,17 +257,9 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     refresh: (authId) => login.refresh(authId)
   }
 
-  const credentialRejectionReporter = (authId: AuthId): void => {
-    const changed = store.markExpired(authId)
-    if (changed.snapshotChanged) {
-      emitSnapshot(authId, 'unauthorized', changed.credentialChanged)
-    }
-  }
-
   return {
     runtime,
-    secretReader: createAuthSecretReader(store),
-    rejected: registry.rejected(),
-    credentialRejectionReporter
+    secretReader,
+    rejected: registry.rejected()
   }
 }

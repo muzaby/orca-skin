@@ -139,12 +139,18 @@ function fakeRuntime(
 
   const bind = (authId: AuthId): BoundAuth => ({
     authId,
+    origin: `https://${authId}.example.corp`,
     snapshot: () => snapshotOf(authId),
     request: () => Promise.reject(new Error('not used'))
   })
 
   const auth: AuthRuntime = {
     bind,
+    bindForPlugin: (authId) => ({
+      ...bind(authId),
+      secret: () => null,
+      reportAuthFailure: () => undefined
+    }),
     tryBind: (authId) => (states.has(authId) ? bind(authId) : null),
     describe: (authId) => ({ authId, label: authId, origin: '', methods: [] }),
     currentStep: () => null,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AuthDefinition } from '../../contracts/auth'
-import { isBareOrigin, AuthRegistry, registerAuthDefinitions } from './registry'
+import { isBareEndpoint, AuthRegistry, registerAuthDefinitions } from './registry'
 
 function provider(id: string, origin: string): AuthDefinition {
   return { id, label: id, origin, methods: [] }
@@ -27,13 +27,13 @@ describe('AuthRegistry (AC1)', () => {
   })
 
   it('origin 판정은 후행 슬래시·쿼리·해시를 전부 거부한다', () => {
-    expect(isBareOrigin('https://wiki.example.corp')).toBe(true)
-    expect(isBareOrigin('http://localhost:3000')).toBe(true)
-    expect(isBareOrigin('https://wiki.example.corp/')).toBe(false)
-    expect(isBareOrigin('https://wiki.example.corp?a=1')).toBe(false)
-    expect(isBareOrigin('https://wiki.example.corp#x')).toBe(false)
-    expect(isBareOrigin('wiki.example.corp')).toBe(false)
-    expect(isBareOrigin('')).toBe(false)
+    expect(isBareEndpoint('https://wiki.example.corp')).toBe(true)
+    expect(isBareEndpoint('http://localhost:3000')).toBe(true)
+    expect(isBareEndpoint('https://wiki.example.corp/')).toBe(false)
+    expect(isBareEndpoint('https://wiki.example.corp?a=1')).toBe(false)
+    expect(isBareEndpoint('https://wiki.example.corp#x')).toBe(false)
+    expect(isBareEndpoint('wiki.example.corp')).toBe(false)
+    expect(isBareEndpoint('')).toBe(false)
   })
 
   // id 는 SDK MCP 서버 이름(`<id>-tools`)과 `${BINDING:<id>}` 파서로 흘러간다. 범위 밖 문자는

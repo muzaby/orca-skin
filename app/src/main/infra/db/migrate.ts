@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, statSync, statfsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type Database from 'better-sqlite3'
 import { getLogger } from '../log/registry'
+import { applySqliteMigrations } from './open'
 import { PRODUCT_SLUG } from '../../../shared/product'
 import migration0001 from './migrations/0001_initial.sql?raw'
 import migration0002 from './migrations/0002_projects.sql?raw'
@@ -94,13 +95,6 @@ export interface ApplyMigrationsOptions {
   onBackupEnd?: () => void
 }
 
-const META_TABLE = `
-  CREATE TABLE IF NOT EXISTS _migrations (
-    name TEXT PRIMARY KEY,
-    applied_at INTEGER NOT NULL
-  )
-`
-
 function timestampForFilename(date: Date): string {
   return date.toISOString().replace(/[:.]/g, '-')
 }
@@ -153,50 +147,40 @@ export function createMigrationBackup(
   return backupPath
 }
 
+// 적용 **절차** 는 `infra/db/open.ts` 가 소유한다 (0237 ΔV2 — D-056). 여기 남는 것은 Core DB
+// 고유의 두 가지다 — 마이그레이션 **목록**(위 `?raw` import, append-only 가드의 앵커)과
+// 백업·로깅 정책. 두 번째 DB 도 같은 절차를 타므로 PRAGMA·트랜잭션·미지 마이그레이션 판정이
+// 사본으로 갈리지 않는다.
 export function applyMigrations(db: Database.Database, options: ApplyMigrationsOptions = {}): void {
-  db.exec(META_TABLE)
-  const applied = new Set(
-    (db.prepare('SELECT name FROM _migrations').all() as { name: string }[]).map((r) => r.name)
-  )
-  const known = new Set(MIGRATION_NAMES)
-  const unknown = [...applied].filter((name) => !known.has(name)).sort()
-  if (unknown.length > 0) throw new DbSchemaTooNewError(unknown)
-
-  const pending = MIGRATIONS.filter((m) => !applied.has(m.name))
-  if (pending.length === 0) return
-  // DB 마이그레이션 경계(0124 카탈로그) — 이름·개수·소요만 기록(값/데이터 금지).
   const log = getLogger().child('db')
-  const startedAt = Date.now()
-  log.info('db.migration.started', {
-    pending: pending.length,
-    from: [...applied].sort().at(-1) ?? null,
-    to: pending[pending.length - 1].name
-  })
-  if (options.backup) {
-    options.onBackupStart?.()
-    try {
-      createMigrationBackup(db, options.backup)
-    } finally {
-      options.onBackupEnd?.()
+  let startedAt = 0
+  applySqliteMigrations(db, {
+    migrations: MIGRATIONS,
+    onUnknown: (unknown) => {
+      throw new DbSchemaTooNewError([...unknown])
+    },
+    beforeMigrate: (pending) => {
+      // DB 마이그레이션 경계(0124 카탈로그) — 이름·개수·소요만 기록(값/데이터 금지).
+      startedAt = Date.now()
+      log.info('db.migration.started', {
+        pending: pending.length,
+        to: pending[pending.length - 1].name
+      })
+      if (options.backup) {
+        options.onBackupStart?.()
+        try {
+          createMigrationBackup(db, options.backup)
+        } finally {
+          options.onBackupEnd?.()
+        }
+      }
+    },
+    afterMigrate: (applied) => {
+      log.info('db.migration.completed', {
+        applied: applied.length,
+        to: applied[applied.length - 1].name,
+        durationMs: Date.now() - startedAt
+      })
     }
-  }
-
-  const record = db.prepare('INSERT INTO _migrations (name, applied_at) VALUES (?, ?)')
-  for (const m of pending) {
-    const apply = db.transaction(() => {
-      db.exec(m.sql)
-      record.run(m.name, Date.now())
-    })
-    try {
-      apply()
-    } catch (err) {
-      log.error('db.migration.failed', err, { migration: m.name })
-      throw err
-    }
-  }
-  log.info('db.migration.completed', {
-    applied: pending.length,
-    to: pending[pending.length - 1].name,
-    durationMs: Date.now() - startedAt
   })
 }
