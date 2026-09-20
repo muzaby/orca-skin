@@ -83,3 +83,9 @@ VP-01~10·12~20·24~25는 REGRESSION으로 실행하며 이전에 선택한 적�
 게이트: app의 lint·typecheck(node/web/test)·Vitest 전체·scripts 테스트·core migration append-only·문서 inventory. 실제 사내 서버 접속은 계정/환경이 없으면 미실행으로 명시한다. 운영 gate와 pair 증거는 서로 대신하지 않는다.
 
 READY self-review: 사용자 요구 D-048~055가 AC21·29·30·34~38 및 VP-11·21~23·26~30에 연결된다. 폐기된 전역 주입은 변경 ledger와 경로 대체에 명시했다. 이번 문서는 Codex가 작성했으며 구현 산출과 분리해 커밋한다.
+
+### Codex 구현 전파 조사 — gate 회귀 경계 보완
+
+실행형 probe의 `onResume` 기본 생략을 gate가 그대로 받아들이면 저장된 자격증명만으로 gate가 열릴 수 있다. Mail은 gate 비대상이지만 공통 Auth 타입의 소비자라 AR-06/IT-06·VP-23의 회귀 범위에 `selectGateMembers`를 포함한다. gate는 정의의 probe와 모든 방식별 유효 probe가 복원 검증 가능한 경우만 선택한다(HTTP 또는 `execute` + `onResume:true`). 누락/복원 생략은 기존 `missing_probe`로 fail-closed한다.
+
+EP-17에 gate 선택 지점을 추가한다. oracle은 HTTP gate 허용, 실행형 `onResume:true` 허용, 생략/false 및 method override로 생략한 gate 차단이다. 적대 증거는 선택 조건 삭제이며 기존 VP-23에 포함한다. 이는 신규 gate 기능 요구가 아니라 공통 probe 확장에 따른 기존 접근 정책 보존이다.
