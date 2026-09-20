@@ -11,13 +11,13 @@
 | 작성자 | Claude Code (V1·ΔV1), **Codex (ΔV2 설계·r3 구현)** |
 | 일자 | 2026-09-20 |
 | 매핑 | 없음 (신규 제품 기능) |
-| 상태 | READY — ΔV2 규범 확정, r3 구현 완료·독립 검증 대기 |
+| 상태 | READY — ΔV2 규범 확정(D-056·D-057 보완 포함), r3 구현 완료·외부 리뷰 흡수 완료·독립 검증 대기 |
 | V mode | `Delta V` (기준 `V1`) |
 | 기준 V | `V1` — 본 plan의 Baseline, commit `07ec3a6`~`e252c6b` |
 | 이번 V revision | `ΔV2` |
 | 유효 V | `V1 + ΔV1 + ΔV2` |
 
-**현재 규범 증분: [ΔV2](delta-v2.md).** D-022·032·035·039·040과 관련 AC·V·§10·기술 경로의 대체는 이 부속이 정본이다. 과거 구현 보고는 당시 증거로 보존한다.
+**현재 규범 증분: ΔV2** — §3·§7·§7-A·§10·§11의 `ΔV2` 절이 정본이다. D-022·032·035·039·040과 관련 AC·V·§10·기술 경로의 대체는 이 부속이 정본이다. 과거 구현 보고는 당시 증거로 보존한다.
 
 입력 제안서: 사용자 업로드 `orcinus-orca-pop3-mail-search-plugin-proposal.md` (22절). 본 plan은 그 제안서를 **진단하고 보완한 결과**이며, 제안서 문장과 어긋나는 곳은 §3 Decision Ledger와 §4에 판정과 근거를 남겼다.
 
@@ -113,6 +113,28 @@
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: D-001·D-003~D-012·D-015~D-020 (제안서 §1 요구사항 표 전부). 최신 턴이 다시 말하지 않았다는 이유로 지우지 않는다.
 - **`ACTIVE 결정 ↔ AC` 대조 (ΔV1 재실행)**: 충돌 0. 신규·변경 결정에 대해 대조한 쌍 — D-043("매니페스트를 싣는다") ↔ AC11(정정본: `attachments[]` 양성 단언 + 내부 루트·`stored_name` 부재) → 일치. D-044("단건 전용") ↔ AC32(`mailId`·`attachmentId` 중 하나만 주면 스키마가 거부) → 일치, 합집합 selector AC 없음. D-045("인증 거부 시 3도구 전부 회수") ↔ AC28(정정본: registry snapshot에 mail 서버 0개) ∧ AC5(정정본: 비인증 5종에 한정) → 일치, "인증 거부 후에도 검색된다"를 요구하는 AC 없음. D-046("본문 삭제 없음") ↔ AC25(정정본: `missing` 표시 후 mail 행 수 불변) → 일치. D-047("보호는 재수집을 막는다") ↔ AC25·AC33(RETR 호출 횟수가 판별자, `removed:0`은 D-004 회귀로만 유지) → 일치.
 - **`ACTIVE 결정 ↔ AC` 대조 (V1)**: 충돌 0. 대조한 쌍 — D-004("삭제 기준은 14일 Retention뿐") ↔ AC8(만료 3저장소 동시 제거) → 일치, 10,000통 상한 AC 없음. D-009("Background Scheduler 사용 안 함") ↔ AC9(`mail_sync` 진입에서만 cleanup · `scheduler` 등록 0건) → 일치, `features/scheduler` 등록 AC 없음. D-011("`orcinus-orca.db`에 Mail 테이블 추가 안 함") ↔ AC18(Core 마이그레이션 27건 불변) → 일치. D-012("원본은 이동·수정하지 않는다") ↔ AC12(`mail_getAttachment` 후 내부 원본 mtime·크기 불변) → 일치. D-015("`mail_search`는 통신 안 함") ↔ AC4(소켓 팩토리 호출 0회) → 일치. D-031("`DELE` 금지") ↔ AC26(명령 화이트리스트에 `DELE` 부재 + 허용 6명령 양성 단언) → 일치. D-037("lazy하게 바뀌어도 된다") ↔ AC28(도구 호출이 실패를 관측한 자리에서 강등) → 일치, 주기 검증 AC 없음(AC9의 슬라이스 전수 스윕이 부재를 잠근다). D-038("`revoke` 하지 않는다") ↔ AC28(단언은 `registry.remove`·reporter 호출이며 `revoke` 호출을 요구하지 않는다) → 일치.
+
+### ΔV2 증분 — D-048~D-055 (Codex, 2026-09-20)
+
+| ID | 결정 | 근거/조건 | 상태·대체 |
+|---|---|---|---|
+| D-048 | `PluginAuth extends BoundAuth`는 label/origin과 자기 credential을 사용하는 `withCredential`만 추가한다. `PluginDeploymentDeps`는 auth/registry/logger뿐이다 | 사용자: auth만 받는 서버, 계약 슬롯 증식 금지. 신뢰하는 built-in 코드의 권한 경계이며 sandbox가 아니다 | ACTIVE; D-022·D-035 대체 |
+| D-049 | HTTP probe 선언을 보존하고 실행형 probe를 추가한다. AuthMethod의 probe가 있으면 정의의 probe보다 우선하며 실행형은 기본적으로 login candidate에만 실행된다 | 사용자: 통신/인증별 probe는 플러그인 소유, core 분기 금지 | ACTIVE; D-032·D-040 대체 |
+| D-050 | core는 vault 문자열과 authKind/principalId만 전달한다. 프로토콜에서 쓰는 password/app-password/XOAUTH2 형상과 POP3/IMAP 연결 형상은 mail 인터페이스에 둔다. 현재 factory는 POP3 password만 제공한다 | 사용자: 이번 범위 외 인터페이스만. 중복 인증 레지스트리·프로토콜별 core switch 불필요 | ACTIVE; D-039 대체 |
+| D-051 | `present`는 HTTP 전용으로 선택적이다. non-HTTP authority URI를 등록할 수 있으나 `request()`는 HTTP(S)만 허용한다 | 사용자: HTTP 외 프로토콜 지원; HTTP 송신 정책 보존 | ACTIVE |
+| D-052 | `withCredential`에서 읽은 revision을 닫은 rejection callback만 해당 grant를 만료시킨다. 옛 요청의 거부는 새 로그인에 영향을 주지 않는다 | 기존 store.markExpired의 observedRevision 보존 | ACTIVE |
+| D-053 | infra는 파일 SQLite 열기와 앱 데이터 경로, POP3 세션/소켓을 제공한다. mail은 스키마·MIME·검색·보관 정책을 소유한다 | 사용자: 연결되지 않는 자원은 infra 확장. 도구 작업 finally에서 DB close, sync Promise만 공유 | ACTIVE |
+| D-054 | probe와 sync가 같은 POP3 세션 구현을 사용한다. 응답 bytes를 보존하고 coalesced/fragmented 데이터·EOF·error·abort·timeout을 모두 종결한다 | 기존 parser가 waiter 없는 줄을 버리는 재현 확인. MIME 원문 손상은 AC17 위반 | ACTIVE |
+| D-055 | 완료된 메시지는 유지하되 취소된 메시지는 저장하지 않는다. sync 전체 예산을 넘으면 stale로 두어 다음 호출에 증분 재개한다 | D-006·D-029·AC24의 구현 명확화; 전체 트랜잭션/롤백 신규 정책 없음 | ACTIVE |
+
+### ΔV2 보완 — D-056·D-057 (외부 리뷰 흡수, 라운드 증가 아님)
+
+| ID | 결정 | 근거/조건 | 상태·대체 |
+|---|---|---|---|
+| D-056 | 실행형 probe도 **grant 보존 축**을 갖는다. `execute`가 `preserveGrant`를 돌려주면 그 실패는 복원된 grant를 만료시키지 않는다. 생략하면 기존대로 만료한다 | HTTP probe는 `authFailureStatuses`로 "권한·정책 실패지 자격증명 거부는 아님"을 말할 수 있는데 실행형에는 그 통로가 없어, `onResume` 선언이 서버 점검·도달 실패로 살아 있는 연결을 잃었다. D-049의 "선언 소유 probe"와 같은 축이므로 같은 모양으로 맞춘다. 기본값이 기존 동작이라 다른 선언은 바뀌지 않는다 | ACTIVE; D-049 보완 |
+| D-057 | 연결 좌표(host·port·tls)의 사본은 **`AuthDefinition.origin` 하나다.** 배포는 좌표를 선언 입력에만 적고, 런타임 옵션은 좌표를 담지 않으며, 소비자는 `origin`에서 되읽는다 | ΔV2는 좌표 출처를 정하지 않아 옵션과 origin 두 사본을 부팅에서 대조하는 구현이 나왔다. 사본이 하나면 대조가 필요 없고 어긋날 수도 없다. 부수로 포트·TLS 기본값 식이 3벌에서 1벌이 된다 | ACTIVE; D-053 보완 |
+
+기존 D-023의 라이브러리 도입 승인은 유지하되 이미 사용 중인 작은 POP3 세션을 보완한다. `node-pop3`의 USER/PASS 하드코딩을 미래 인터페이스의 제약으로 삼지 않는다. 신규 의존성은 없다. D-041·D-042의 verifier는 실행형 probe를 뜻하며 전역 `LoginDeps.verify` 주입은 제거한다.
 
 ## 4. 요구 비판적 검토
 
@@ -279,6 +301,20 @@
 - **producer 소멸 변이 (ΔV1)**: AC31은 `mail_search` 매니페스트를 지우면 red여야 한다 — `attachmentId`의 producer가 그 한 곳뿐이라(§12) 지우면 `mail_getAttachment`가 도달 불가가 된다. r1 G1이 실제로 그 상태였다.
 - **AC 35건 — 분할 검토 결과 분할하지 않는다.** 전송 경계(AC20·AC21)만 떼면 소비자 없는 소켓 모듈이 남아 프로덕션 도달 경로가 없고, 캐시·검색만 떼면 연결 수단이 없어 어느 쪽도 사용자 결과에 닿지 못한다. 35건 중 16건(AC18~AC30 · AC28b · AC31 · AC32)은 경계·가드 단언이라 구현 표면이 아니라 **배선 1회**에 붙는다.
 
+### ΔV2 — AC 대체와 추가
+
+| AC | 행동 단언 | 검증 |
+|---|---|---|
+| AC21 (대체) | HTTP와 POP3를 `bindForPlugin` 결과와 서버 옵션만으로 조립한다. 같은 deps 타입으로 서버를 추가하며 Bootstrap에 mail 인자가 없다 | 타입 검사 + 실제 runtime/binding/tool 통합; 잘못된 auth id는 즉시 거부 |
+| AC29·30 (경로 대체) | 해당 인증 방식의 probe만 후보 값으로 실행되고 성공만 commit한다. 거부/도달 실패 문구가 다르며 HTTP 기존 요청 및 POP3 resume 무통신을 보존한다 | 메모리 vault·fake POP3·기존 Auth 회귀 |
+| AC34 | 비인증 오류는 상태를 유지하고 현재 credential의 거부만 만료한다. 이전 revision의 거부는 재로그인 상태를 유지한다 | runtime + binding 통합, 동시 credential 교체 |
+| AC35 | 합쳐진 UIDL/RETR와 나뉜 CRLF를 처리하고 RETR의 비 UTF-8 bytes가 동일하다. USER/PASS -ERR, EOF·abort·timeout 뒤 Promise와 소켓이 끝난다 | 실제 세션 + fake socket; 성공/실패 양쪽 |
+| AC36 | 도구 성공/실패·초기화 실패·동시 sync 후 DB가 닫히고 다음 호출이 재시도된다. 검색은 소켓을 만들지 않는다 | 파일 DB·mock infra 자원 + 도구 호출 |
+| AC37 | POP3 기본 TLS 검증을 약화시키는 옵션을 거부하고 명령 입력의 CR/LF를 차단한다. 허용 명령 외 송신은 없다 | socket/session 테스트 및 기존 AC20·26 |
+| AC38 | POP3 password factory가 연결 검증과 sync에 동일한 username/password를 사용한다. 다른 인증/프로토콜은 타입만 제공하고 미지원 실행 성공을 만들지 않는다 | probe → runtime commit → tool 왕복 + typecheck |
+
+AC1~33(AC25b·28b 포함)은 위 대체 외 승계한다. 이전 r2의 미검증 항목을 통과로 간주하지 않는다. 실서버 계정이 없는 환경에서는 실제 사내 TLS·EUC-KR 서버 실기는 미실행으로 보고하며 fake/server fixture 검증과 구분한다.
+
 ## 7-A. V / Trace Matrix
 
 - V mode 판정: **Delta V** (`ΔV1`). 기준은 본 plan의 Baseline `V1`이고 유효 V는 `V1 + ΔV1`이다.
@@ -387,6 +423,24 @@
 
 **ΔV1 합계 검산**: 변경·신규 설계 node `R 3(R-02·R-04·R-07) · AR 1 · MD 2 = 6` ↔ 변경·신규 검증 node `AT 4 · IT 2 · UT 3 = 9`. `ΔV1` pair `6 REQUIRED + 1 REGRESSION = 7`.
 **유효 V(`V1 + ΔV1`) 합계**: 설계 node `R 7 · SD 3 · AR 6 · MD 8 = 24` ↔ 검증 node `AT 21 · ST 3 · IT 8 · UT 9 = 41`. pair `VP-01~VP-25 = 25`. §10 강제 지점 군 `EP-01~EP-19 = 19`, 지점 합 `4+2+4+2+3+2+3+1+2+2+2+3+2+1+1+3+3+1+3 = 44`.
+
+### ΔV2 — Delta V 노드·pair
+
+AR-02/IT-02, AR-05/IT-05·05b, AR-06/IT-06, R-05/AT-19는 CHANGED다. 나머지 V1+ΔV1 노드는 INHERITED이며 해당 테스트를 회귀한다. 다음 신규 노드는 NEW다: R-08/AT-22(공통 배포), SD-04/ST-04(인증→도구), AR-07/IT-08(자원 수명), MD-09/UT-09(POP3 byte stream), MD-10/UT-10(범용 credential scope).
+
+| Pair | 노드 | 성격·production path | oracle·적대 증거 | 강제 지점 |
+|---|---|---|---|---|
+| VP-11 (대체) | AR-02 ↔ IT-02 | REQUIRED; deployment → bindForPlugin → mailTools | 사용자 입력 USER/PASS 실제 송신, AuthSecretReader·mail 전용 deps 없음. 옛 raw-reader 변이는 계약 폐기되어 superseded | EP-10 |
+| VP-21 (대체) | AR-05 ↔ IT-05·05b | REQUIRED; session → bound callback → markExpired → binding.sync | 거부 시 서버 0, 비인증 5종 시 서버 1. callback no-op 변이 선택 | EP-16 |
+| VP-22 (대체) | R-05 ↔ AT-19 | REQUIRED; auth method probe → candidate → commit | 실패 vault 쓰기 0·성공 저장, 두 메시지. 결과 무시 변이 선택 | EP-17 |
+| VP-23 (대체) | AR-06 ↔ IT-06 | REQUIRED; login/resume → 선언 probe | HTTP 요청 수/커밋 회귀, POP3 resume 접속 0. resume 조건 삭제 변이 선택 | EP-17 |
+| VP-26 | R-08 ↔ AT-22 | REQUIRED; auth definitions → deployment → tools | 공통 deps로 HTTP/POP3 서버 조립. 타입 회귀가 primary oracle, mutation not selected | EP-20 |
+| VP-27 | SD-04 ↔ ST-04 | REQUIRED; 후보 로그인 → sync → 거부 → 도구 회수 | 실제 세션 왕복·3도구 제거·재인증 회복. VP-21/22 변이 재사용 | EP-16·17 |
+| VP-28 | AR-07 ↔ IT-08 | REQUIRED; tool → infra DB → finally | 동시 sync 하나, 성공/예외/초기화 실패 후 close/재시도, 검색 접속 0. close 삭제 변이 선택 | EP-21 |
+| VP-29 | MD-09 ↔ UT-09 | REQUIRED; socket → parser → RETR bytes | coalesced/fragmented/EOF/abort/timeout, 인코딩 bytes 동등. 줄 버리기 변이 선택 | EP-22 |
+| VP-30 | MD-10 ↔ UT-10 | REQUIRED; bound credential → revision callback | 다른 authId 접근 불가, expired 접근 거부, stale revision의 거부 무효. revision 인자 삭제 변이 선택 | EP-23 |
+
+VP-01~10·12~20·24~25는 REGRESSION으로 실행하며 이전에 선택한 적대 증거는 승계한다. 미실행 pair·변이는 구현 보고에서 이름으로 남긴다. 증거 없는 SELF_PASS를 금지한다.
 
 ### 현재 변경의 운영 gate
 
@@ -596,6 +650,30 @@
 - 선택적 필드의 `true/false/undefined`: `annotations.readOnlyHint`는 `undefined`가 **승인 대상**으로 접힌다(F-08, fail-closed) — 그래도 세 도구 모두 명시한다. `protection`은 `undefined`가 "보호 미발동"이고 `mail_sync` 결과에서 생략한다. `tlsOptions.ca`는 `undefined`가 "OS 기본 신뢰 저장소"이지 "검증 안 함"이 아니다 — `rejectUnauthorized`는 절대 `false`로 두지 않는다.
 - 외부 SDK 경계의 실제 요구 타입: `node-pop3`의 `Connection`은 `{host, port, tls, tlsOptions, servername}`를 받고 `RETR`/`TOP`은 `Readable`을 돌려준다. `postal-mime`의 `PostalMime.parse()`는 `ArrayBuffer|Uint8Array|string`을 받는다. 두 패키지 모두 `type: "module"`이지만 CJS `require` export가 있어 electron-vite main 번들에서 쓸 수 있다.
 
+### ΔV2 — 강제 지점 증분
+
+| EP | 불변식·SSOT | 강제하는 자리 | 실패 의미 |
+|---|---|---|---|
+| EP-10 (대체) | auth만으로 서버 생성 / contracts/auth.ts | bindForPlugin; mailTools 공개 인자 | Bootstrap 서비스 슬롯 복귀 |
+| EP-16 (대체) | 확실한 현재 credential 거부만 강등 | USER/PASS -ERR; mail 오류 분류; withCredential revision callback | 네트워크 장애/오래된 응답으로 새 인증 회수 |
+| EP-17 (대체) | 선언 소유 probe / login.ts | method 우선 선택; candidate 검증·commit; resume 정책; 거부/도달 실패 문구 | 다른 Auth 가로채기·미확인 저장·부팅 접속 |
+| EP-20 | 배포 deps 불변 / plugins.ts | deps 타입; 기본 [] recipe; Bootstrap 호출 | 새 프로토콜마다 조립 계약 추가 |
+| EP-21 | 작업 범위 자원 정리 / infra DB + mail tools | SQLite open 실패; manager 작업 finally; shared sync finally | DB 누수·실패 Promise 영구 캐시 |
+| EP-22 | bytes/종결 보장 / infra POP3 | chunk 큐; multiline; EOF/error; abort; command timeout; login timeout; QUIT; TLS 검증; 명령 CRLF | 데이터 유실·hang·인증 우회·명령 삽입 |
+| EP-23 | bound auth scope / runtime.ts | unknown bind 거부; valid credential 읽기; revision 캡처; markExpired 인자 | 타 인증 노출·expired 사용·신규 credential 강등 |
+
+**보완 패스 증분 (D-056·D-057).**
+
+| EP | 불변식·SSOT | 강제하는 자리 | 실패 의미 |
+|---|---|---|---|
+| EP-17 (증분) | 자격증명 거부로 **관측된** 실패만 복원 grant를 만료시킨다 / login.ts | 실행형 probe 결과의 `preserveGrant` 전달; mail 선언의 `authFailure` 분류 | 서버 점검·권한 부족·도달 실패로 살아 있는 연결 회수 |
+| EP-24 | 연결 좌표는 `AuthDefinition.origin` 한 사본 / mail types.ts | 런타임 옵션 타입에 좌표 필드 없음; `resolveMailEndpoint`(authoring 1곳)·`parseMailOrigin`(reading 1곳); 기본값 식 1곳 | 두 사본이 갈려 선언과 실제 접속처가 달라짐 |
+| EP-25 | 봉쇄 검사의 parent는 **스스로 정규화한다** / 첨부 저장 경로 | mail `exportMailAttachment`; jira `createJiraAttachmentStore` — 기본 경로 제공자의 반환을 그대로 parent로 쓰지 않는다 | 8.3 별칭·symlink 조상에서 정상 경로가 `unsafe`로 거부됨 |
+
+전수 술어는 **불변식의 주어**로 쓴다 — EP-25는 `realpath 한 자식과 비교되는 parent`이지 `ensureDirectory(null, …)`(해법 이름)이 아니다. 해법 이름으로 세면 이미 고친 지점만 분모에 오른다.
+
+구현자는 credential 소비·probe 호출·DB 열기·소켓 생성과 종결을 술어로 전수 검색해 위 목록의 누락을 확인한다. 기존 EP-01~09·11~15·18~19는 승계한다.
+
 ## 11. 구현 설계
 
 | 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
@@ -650,6 +728,39 @@ sync_state     (account_id PK, last_sync_at, last_error_code,
 - 기존 메커니즘 재사용 적합성: `createPluginBinding`은 그대로 쓴다 — mail도 `auth: BoundAuth`를 갖는다(계정 식별·GUI 행·상태 gating 용도). POP3 전송만 그 밖으로 나간다.
 - 순서 관측: `sync-manager`는 단계 훅(`onStage: (stage) => void`)을 받아 `freshness → cleanup → connect → uidl → top → retr → persist` 순서를 테스트가 배열로 단언한다. 순서를 요구하는 AC(AC7·AC9)가 이 훅을 쓴다.
 - `postal-mime`·`node-pop3`는 **직접 import하지 않고** 얇은 어댑터 파일 1개씩을 둔다 — 순수 로직이 라이브러리 타입에 묶이지 않아야 fixture로 단위 테스트할 수 있다. 교체 대비가 아니라 **테스트 seam**이 이유다(D-033으로 폴백 경로는 없다).
+
+### ΔV2 — 사용자 결과와 범위
+
+기존 HTTP 플러그인과 POP3 플러그인은 같은 `deps.auth.bindForPlugin(id)`로 자기 인증만 받아 생성한다. 새 서버 때문에 Bootstrap 인자나 `PluginDeploymentDeps`에 서비스별 슬롯을 추가하지 않는다. DB와 전송 구현은 infra에서 확장하며 Auth에 DB·소켓 서비스 컨테이너를 넣지 않는다.
+
+이번 실행 구현은 POP3 USER/PASS다. IMAP·앱 비밀번호·XOAUTH2는 명시적인 인터페이스만 남기고 지원되지 않는 로그인 선택지를 UI에 노출하지 않는다. 연결 버튼은 실제 인증을 확인한 후에만 저장하며 부팅 시 POP3 선제 probe는 하지 않는다. 사용 중 확실한 인증 거부만 해당 인증을 만료시키고 도구 전체를 회수한다.
+
+소규모 정적 배포를 유지한다. 동적 로더·DI 컨테이너·capability registry·공통 전송 프로토콜 enum·플러그인 lifecycle 플랫폼은 만들지 않는다. DB 연결은 도구 작업 범위에서 닫아 공통 dispose 계약을 추가하지 않는다.
+
+### ΔV2 — 구현 지침·게이트
+
+1. `contracts/auth.ts`: HTTP probe와 실행형 probe union, PluginAuth, 선택적 presentation. 실행형 callback에는 `{value, authKind, principalId?}`와 AbortSignal만 제공한다. AuthMethod에도 probe 선언을 허용한다. 프로토콜 enum은 Auth core에 두지 않는다.
+2. `features/auth`: registry는 authority URI를 검증한다. request는 HTTP(S)로 제한한다. login은 선언 probe를 후보 값으로 호출하고 timeout/오류를 안전하게 처리한다. runtime은 scoped credential과 revision callback을 제공하고 전역 verifier/reporter를 제거한다.
+3. `infra/net`: raw socket과 POP3 상태 기계를 소유한다. 메일 auth helper와 sync가 같은 세션을 쓴다. 비밀이나 서버 응답을 오류 문자열에 넣지 않는다.
+4. `infra/db`·앱 경로 helper: 파일 DB open/close만 제공한다. mail store의 스키마·SQL·보관 정책은 mail에 둔다. 공개 `mailTools(auth, options)`는 내부 infra 기본값을 사용한다. 단위 테스트 주입은 하위 manager/session seam으로 제한한다.
+5. `app/deployment/plugins.ts`·Bootstrap: mail 인자/전역 verify/reporter를 제거하고 기존 binding 동기화 흐름을 보존한다. 문서 레시피를 실제 타입으로 검사한다.
+6. `auth.md`·`security.md`·`persistence.md`·폐쇄망 가이드의 현재 구조를 갱신한다. 사용자 요청에 따라 설계 및 구현 커밋의 `Agent`는 모두 `codex`다.
+
+게이트: app의 lint·typecheck(node/web/test)·Vitest 전체·scripts 테스트·core migration append-only·문서 inventory. 실제 사내 서버 접속은 계정/환경이 없으면 미실행으로 명시한다. 운영 gate와 pair 증거는 서로 대신하지 않는다.
+
+READY self-review: 사용자 요구 D-048~055가 AC21·29·30·34~38 및 VP-11·21~23·26~30에 연결된다. 폐기된 전역 주입은 변경 ledger와 경로 대체에 명시했다. 이번 문서는 Codex가 작성했으며 구현 산출과 분리해 커밋한다.
+
+### Codex 구현 전파 조사 — gate 회귀 경계 보완
+
+실행형 probe의 `onResume` 기본 생략을 gate가 그대로 받아들이면 저장된 자격증명만으로 gate가 열릴 수 있다. Mail은 gate 비대상이지만 공통 Auth 타입의 소비자라 AR-06/IT-06·VP-23의 회귀 범위에 `selectGateMembers`를 포함한다. gate는 정의의 probe와 모든 방식별 유효 probe가 복원 검증 가능한 경우만 선택한다(HTTP 또는 `execute` + `onResume:true`). 누락/복원 생략은 기존 `missing_probe`로 fail-closed한다.
+
+EP-17에 gate 선택 지점을 추가한다. oracle은 HTTP gate 허용, 실행형 `onResume:true` 허용, 생략/false 및 method override로 생략한 gate 차단이다. 적대 증거는 선택 조건 삭제이며 기존 VP-23에 포함한다. 이는 신규 gate 기능 요구가 아니라 공통 probe 확장에 따른 기존 접근 정책 보존이다.
+
+#### gate 회귀 경계 보완 (구현 전파 조사)
+
+실행형 probe의 `onResume` 기본 생략을 gate가 그대로 받아들이면 저장된 자격증명만으로 gate가 열릴 수 있다. Mail은 gate 비대상이지만 공통 Auth 타입의 소비자라 AR-06/IT-06·VP-23의 회귀 범위에 `selectGateMembers`를 포함한다. gate는 정의의 probe와 모든 방식별 유효 probe가 복원 검증 가능한 경우만 선택한다(HTTP 또는 `execute` + `onResume:true`). 누락/복원 생략은 기존 `missing_probe`로 fail-closed한다.
+
+EP-17에 gate 선택 지점을 추가한다. oracle은 HTTP gate 허용, 실행형 `onResume:true` 허용, 생략/false 및 method override로 생략한 gate 차단이다. 적대 증거는 선택 조건 삭제이며 기존 VP-23에 포함한다. 이는 신규 gate 기능 요구가 아니라 공통 probe 확장에 따른 기존 접근 정책 보존이다.
 
 ## 12. End-to-end 영향
 
