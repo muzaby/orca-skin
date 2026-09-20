@@ -1359,6 +1359,19 @@ AC 자기보고 **40/40 유지**. 보완 패스는 AC를 추가하거나 분할�
 
 ## [검증자 기입] 파생 이슈
 
+> r3 검증 = **FAIL**. 판정 원문은 [`verify.md`](verify.md) — 여기 표는 이관 목록이다.
+> 닫힘은 대응 방향의 수행이 아니라 `출처` 계약의 성립이다.
+
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | … | … | … | … | … |
+| D1 | AC20 음성 스윕이 어떤 파일도 매치할 수 없다 — `scanOffenders` 가 술어 적용 전에 문자열 리터럴을 비워 `/from ['\"]node:(net|tls)['\"]/` 가 항상 0건이다 | VP-10 / EP-09 1번 지점 / AC20 | 술어를 원문에 적용하거나 `import type` 예외를 명시한다. 허용목록 밖 프로덕션 파일에 런타임 `node:net` import 를 심은 변이가 red 여야 한다 | **BLOCKING** | open |
+| D2 | `retention.ts::isExpired` 프로덕션 호출 0 — `store.cleanupExpired` SQL 이 14일 규칙을 재구현한다 | VP-15 선언 경로 / EP-03 SSOT 칸 | 배선하거나 §11·EP-03 의 SSOT 표기를 `store` 로 정정한다 | NON_BLOCKING | open |
+| D3 | 검색 결과 투영의 형제 슬롯 맞바꿈(`from_addr`↔`to_addrs`)을 아무 테스트도 잡지 않는다 | 비귀속 — §1 "발신자·날짜·제목·발췌로 답한다" | hit 의 `from`·`to`·`subject` 값을 단언하는 케이스 1건 | NON_BLOCKING | open |
+| D4 | cleanup 의 `headerDate` 우선(D-017)에 잠금이 없다 — fixture 가 `headerDate`·`firstSeenAt` 를 같은 값으로 묶는다 | D-017 / AC7 의 기술된 oracle | `headerDate ≠ firstSeenAt` fixture 1건 | NON_BLOCKING | open |
+| D5 | EP-25 의 jira 지점에 oracle 이 없다 — 되돌림 변이가 green | EP-25 2번 지점 | jira 첨부 store 에 별칭 root 케이스 추가 | NON_BLOCKING | open |
+| D6 | 매니페스트 총량 상한 미구현 — 최악 500항목 ≈167 KB vs §14 의 ≈17 KB | plan §14 출력 상한 | 결과 전체 합산 50항목에서 절단하고 `attachmentsTruncated` 로 알린다 | NON_BLOCKING | open |
+| D7 | 죽은 export 2건 — `MAIL_TOOL_NAMES`(참조 0) · `createMailPlugin`(코드 참조 0) | 비귀속 | 제거하거나 소비처를 만든다 | NON_BLOCKING | open |
+| D8 | D-023 이 ACTIVE 로 `node-pop3` 를 지시하나 의존성이 제거됐다 | Decision Ledger | 설계자가 해당 절반을 SUPERSEDED 로 표기한다 | NON_BLOCKING | open(설계자) |
+| D9 | §15 의 `MailPluginOptions` 가 `host` 를 포함 — D-057 이후의 `types.ts` 와 갈린다 | plan §15 | 설계자가 §15 형상을 갱신한다 | NON_BLOCKING | open(설계자) |
+| D10 | `manager.search()` 가 같은 질의를 2회 실행하고 `total` 이 `limit` 으로 잘린다 | 비귀속 | 1회 실행 후 재사용하고 `total` 의미를 확정한다 | NON_BLOCKING | open |
+| D11 | 메타의 기준 V 좌표 `e252c6b` 가 실재하지 않는다 — 실제는 `e3ea535` | plan 메타 | 설계자가 좌표를 정정한다 | NON_BLOCKING | open(설계자) |
