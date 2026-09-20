@@ -14,7 +14,7 @@ const auth: PluginAuth = {
   request: vi.fn(),
   withCredential: vi.fn()
 }
-const options = { accountId: 'account', host: 'mail.test' }
+const options = { accountId: 'account' }
 
 describe('mail tool resource lifetime', () => {
   beforeEach(() => vi.clearAllMocks())

@@ -11,6 +11,7 @@ import { createMailStore, type MailStore } from './store'
 import type {
   MailPluginOptions,
   MailSearchResult,
+  MailSessionConfig,
   MailSyncResult,
   MailSyncStageEvent,
   Pop3SocketFactory
@@ -19,6 +20,8 @@ import type {
 export interface MailSyncManagerOptions {
   readonly auth: PluginAuth
   readonly options: MailPluginOptions
+  // 좌표는 호출자가 `auth.origin` 에서 되읽어 넘긴다 (`mailSessionConfig`).
+  readonly session: MailSessionConfig
   readonly socketFactory: Pop3SocketFactory
   readonly root: string
   readonly now?: () => number
@@ -55,9 +58,9 @@ export async function createMailSyncManager(
     root: options.root,
     accountId: options.options.accountId,
     authId: options.auth.authId,
-    host: options.options.host,
-    port: options.options.port ?? (options.options.tls === false ? 110 : 995),
-    tls: options.options.tls !== false,
+    host: options.session.host,
+    port: options.session.port,
+    tls: options.session.tls,
     now: options.now
   })
   let inFlight: Promise<MailSyncResult> | undefined
@@ -93,7 +96,7 @@ export async function createMailSyncManager(
             onStage?.({ stage: 'connect' })
             const result = await withMailSession<MailSyncResult>(
               credential,
-              options.options,
+              options.session,
               options.socketFactory,
               operationSignal,
               async (session) => {

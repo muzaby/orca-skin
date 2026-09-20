@@ -18,10 +18,13 @@ async function path(): Promise<string> {
 }
 
 describe('openFileDatabase', () => {
-  it('enables WAL and foreign keys before running the caller schema initializer', async () => {
+  // 이 세 값이 코어 DB(`infra/db/index.ts`)와 plugin 파일 DB 의 **공통 사본**이다. 0107 의
+  // `synchronous = NORMAL` 이 여기서 빠지면 plugin DB 만 기본 FULL 로 돌아간다.
+  it('enables WAL, NORMAL sync and foreign keys before running the caller schema initializer', async () => {
     const db = openFileDatabase(await path(), {
       initialize(connection) {
         expect(connection.pragma('journal_mode', { simple: true })).toBe('wal')
+        expect(connection.pragma('synchronous', { simple: true })).toBe(1)
         expect(connection.pragma('foreign_keys', { simple: true })).toBe(1)
         connection.exec('CREATE TABLE owned_by_caller (id INTEGER PRIMARY KEY)')
       }

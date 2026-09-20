@@ -102,9 +102,11 @@ export function createJiraAttachmentStore(
   return {
     async begin(authId, selector): Promise<JiraAttachmentBatch> {
       try {
-        const root = options.root
-          ? await ensurePlainDirectory(null, resolve(options.root))
-          : await prepareTemporaryFilesPath()
+        // 봉쇄 검사의 parent 는 스스로 정규화한다 — mail attachment-export 와 같은 불변식.
+        const root = await ensurePlainDirectory(
+          null,
+          options.root ? resolve(options.root) : await prepareTemporaryFilesPath()
+        )
         const jira = await ensurePlainDirectory(root, join(root, 'jira'))
         const auth = await ensurePlainDirectory(jira, join(jira, safeSegment(authId)))
         const selection = await ensurePlainDirectory(auth, join(auth, safeSegment(selector)))

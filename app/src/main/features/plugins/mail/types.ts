@@ -3,19 +3,49 @@ import type { Pop3Socket, Pop3SocketOptions } from '../../../infra/net/pop3-sock
 
 export type { Pop3Socket, Pop3SocketOptions }
 
-export interface MailPluginOptions {
-  readonly accountId: string
+export interface MailTimeouts {
+  readonly connectMs?: number
+  readonly commandMs?: number
+  readonly syncMs?: number
+}
+
+// ── 연결 좌표 ─────────────────────────────────────────────────────────────────
+//
+// **사본은 하나다.** 배포는 `MailEndpointInput` 으로 한 번 적고, 그 값은 곧바로
+// `AuthDefinition.origin` 이 된다. 런타임은 좌표를 옵션에서 다시 받지 않고 `origin` 에서
+// `parseMailOrigin` 으로 되읽는다 — 두 사본이 없으니 어긋남을 대조할 일도 없다.
+export interface MailEndpointInput {
   readonly host: string
   readonly port?: number
   readonly tls?: boolean
+}
+
+// 기본값이 적용된 좌표. 이 형태를 만드는 곳은 `resolveMailEndpoint` 하나다.
+export interface MailEndpoint {
+  readonly host: string
+  readonly port: number
+  readonly tls: boolean
+}
+
+// 선언(`createMailAuth`)이 받는 입력 — 좌표 + 전송 설정.
+export interface MailAuthOptions extends MailEndpointInput {
+  readonly tlsOptions?: TlsOptions
+  readonly timeouts?: MailTimeouts
+}
+
+// 한 세션을 열기 위한 완결 설정.
+export interface MailSessionConfig extends MailEndpoint {
+  readonly tlsOptions?: TlsOptions
+  readonly timeouts?: MailTimeouts
+}
+
+// 도구 런타임 옵션. **연결 좌표를 담지 않는다** — 담으면 두 번째 사본이 된다.
+export interface MailPluginOptions {
+  readonly accountId: string
   readonly tlsOptions?: TlsOptions
   readonly retentionDays?: number
   readonly freshnessMs?: number
-  readonly timeouts?: {
-    readonly connectMs?: number
-    readonly commandMs?: number
-    readonly syncMs?: number
-  }
+  readonly timeouts?: MailTimeouts
 }
 
 export interface MailAttachment {

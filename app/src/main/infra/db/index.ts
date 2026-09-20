@@ -1,6 +1,7 @@
-import Database from 'better-sqlite3'
+import type Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
+import { openFileDatabase } from './file-database'
 import { applyMigrations, type ApplyMigrationsOptions } from './migrate'
 import { DbQueries } from './queries'
 import { PRODUCT_SLUG } from '../../../shared/product'
@@ -14,20 +15,20 @@ export function initDb(
   if (queries) return queries
   const userData = app.getPath('userData')
   const databasePath = join(userData, `${PRODUCT_SLUG}.db`)
-  connection = new Database(databasePath)
-  connection.pragma('journal_mode = WAL')
-  // WAL 권장 조합(0107) — FULL(기본)은 커밋마다 fsync 해 스트리밍 persist 가 이벤트 루프를
-  // 점유한다. NORMAL 은 앱 크래시 무손실, 정전 시에만 최근 커밋 롤백(DB 무결성 보존).
-  connection.pragma('synchronous = NORMAL')
-  connection.pragma('foreign_keys = ON')
-  applyMigrations(connection, {
-    backup: {
-      databasePath,
-      backupDir: userData,
-      appVersion: app.getVersion()
-    },
-    onBackupStart: options.onBackupStart,
-    onBackupEnd: options.onBackupEnd
+  // PRAGMA 한 벌(WAL · synchronous=NORMAL(0107) · foreign_keys)은 `openFileDatabase` 가 갖는다 —
+  // 코어와 plugin 파일 DB 가 같은 내구성 설정을 쓰게 하는 단일 사본이다. 마이그레이션이 던지면
+  // 연결은 열린 채 남지 않고 닫힌다.
+  connection = openFileDatabase(databasePath, {
+    initialize: (db) =>
+      applyMigrations(db, {
+        backup: {
+          databasePath,
+          backupDir: userData,
+          appVersion: app.getVersion()
+        },
+        onBackupStart: options.onBackupStart,
+        onBackupEnd: options.onBackupEnd
+      })
   })
   queries = new DbQueries(connection)
   return queries
