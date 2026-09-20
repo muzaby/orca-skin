@@ -10,8 +10,40 @@ import {
   decideProtection
 } from './protection'
 import { normalizeMail } from './normalize'
+import { Pop3Error, publicMailError } from './pop3/errors'
 
 describe('mail pure policy modules', () => {
+  it.each([
+    'connection_failed',
+    'auth_failed',
+    'tls_failed',
+    'timeout',
+    'parse_failed',
+    'db_failed'
+  ] as const)('%s public errors never expose exception text', (code) => {
+    const error = new Pop3Error(code)
+    error.message = 'private-password C:/private/mail.db'
+    const output = JSON.stringify(publicMailError(error))
+    expect(output).not.toContain('private-password')
+    expect(output).not.toContain('C:/private')
+    expect(publicMailError(error).code).toBe(code)
+  })
+  it.each([
+    [19, 0.49, true],
+    [20, 0.49, false],
+    [100, 0.5, true],
+    [100, 0.49, false]
+  ] as const)('protection count %i ratio %f permits ingestion %s', (count, ratio, ingest) => {
+    expect(
+      decideProtection({
+        activeLedgerCount: count,
+        retainedRatio: ratio,
+        now: 1,
+        remoteFingerprint: 'x',
+        previous: { kind: 'none' }
+      }).ingest
+    ).toBe(ingest)
+  })
   it('freshness is bounded at five minutes and requires a prior sync', () => {
     expect(isFresh({ now: 1000, lastSyncAt: null })).toBe(false)
     expect(isFresh({ now: 1000 + 5 * 60 * 1000, lastSyncAt: 1000 })).toBe(true)
@@ -95,7 +127,7 @@ describe('mail pure policy modules', () => {
         date: '2026-01-02T03:04:05Z',
         from: { name: 'A', address: 'a@example.com' },
         to: [{ name: 'B', address: 'b@example.com' }],
-        cc: [],
+        cc: [{ address: 'c@example.com' }],
         subject: '제목',
         text: '본문',
         attachments: [
@@ -106,6 +138,9 @@ describe('mail pure policy modules', () => {
     )
     expect(document.fromAddr).toBe('a@example.com')
     expect(document.toAddrs).toBe('b@example.com')
+    expect(document.ccAddrs).toBe('c@example.com')
+    expect(document.subject).toBe('제목')
+    expect(document.bodyText).toBe('본문')
     expect(document.sizeBytes).toBe(123)
     expect(document.attachments[0]).toMatchObject({ filename: '../a.txt', sizeBytes: 2 })
   })

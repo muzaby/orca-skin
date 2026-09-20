@@ -3,22 +3,14 @@ import type { RuntimeToolResult, RuntimeToolServer } from '../../../adapters/run
 import { authToolServerId } from '../../../adapters/runtime-tool-policy'
 import { exportMailAttachment } from './attachment-export'
 import { createMailSyncManager, type MailSyncManager } from './sync-manager'
-import type { MailPluginOptions, Pop3SocketFactory } from './types'
+import type { MailPluginOptions, MailSyncResult } from './types'
+import type { PluginAuth } from '../../../contracts/auth'
+import { userDataPath } from '../../../infra/config/user-data-path'
+import { createPop3Socket } from '../../../infra/net/pop3-socket'
+import { mailOrigin } from './auth'
 import { publicMailError } from './pop3/errors'
 
 export const MAIL_TOOL_NAMES = ['mail_sync', 'mail_search', 'mail_getAttachment'] as const
-
-export interface MailPluginContext {
-  readonly authId: string
-  readonly password: () => string | null
-  readonly root: string
-  readonly socketFactory: Pop3SocketFactory
-  readonly reportCredentialRejected?: (authId: string) => void
-}
-
-export type MailToolOptions =
-  | { readonly plugin: MailPluginOptions; readonly now?: () => number }
-  | (MailPluginOptions & { readonly now?: () => number })
 
 function result(value: Record<string, unknown>, isError = false): RuntimeToolResult {
   return {
@@ -33,28 +25,37 @@ function errorResult(error: unknown): RuntimeToolResult {
   return result({ error: normalized.code, message: normalized.message }, true)
 }
 
-export function mailTools(ctx: MailPluginContext, options: MailToolOptions): RuntimeToolServer {
-  const plugin = 'plugin' in options ? options.plugin : options
-  let managerPromise: Promise<MailSyncManager> | undefined
-  const manager = (): Promise<MailSyncManager> => {
-    managerPromise ??= createMailSyncManager({
-      authId: ctx.authId,
-      password: ctx.password,
-      options: plugin,
-      socketFactory: ctx.socketFactory,
-      root: ctx.root,
-      ...(options.now ? { now: options.now } : {}),
-      ...(ctx.reportCredentialRejected
-        ? { reportCredentialRejected: ctx.reportCredentialRejected }
-        : {})
+export function mailTools(auth: PluginAuth, options: MailPluginOptions): RuntimeToolServer {
+  if (auth.origin !== mailOrigin(options)) throw new Error('mail auth endpoint mismatch')
+  let inFlight: Promise<MailSyncResult> | undefined
+  const withManager = async <T>(
+    operation: (manager: MailSyncManager) => Promise<T>
+  ): Promise<T> => {
+    const manager = await createMailSyncManager({
+      auth,
+      options,
+      socketFactory: createPop3Socket,
+      root: await userDataPath()
     })
-    return managerPromise
+    try {
+      return await operation(manager)
+    } finally {
+      manager.close()
+    }
+  }
+  const sync = (signal?: AbortSignal): Promise<MailSyncResult> => {
+    if (!inFlight) {
+      inFlight = withManager((manager) => manager.sync(signal)).finally(() => {
+        inFlight = undefined
+      })
+    }
+    return inFlight
   }
 
   return {
     descriptor: {
-      id: authToolServerId(ctx.authId),
-      connectorId: ctx.authId,
+      id: authToolServerId(auth.authId),
+      connectorId: auth.authId,
       instructions:
         'Call mail_sync before mail_search when the cache may be stale. Use attachmentId values from mail_search and call mail_getAttachment one attachment at a time; each attachment requires its own approval.',
       tools: [
@@ -83,7 +84,7 @@ export function mailTools(ctx: MailPluginContext, options: MailToolOptions): Run
         inputSchema: {},
         handler: async (_input, context) => {
           try {
-            const value = await (await manager()).sync(context?.getSignal())
+            const value = await sync(context?.getSignal())
             return result(value as unknown as Record<string, unknown>, 'error' in value)
           } catch (error) {
             return errorResult(error)
@@ -101,7 +102,9 @@ export function mailTools(ctx: MailPluginContext, options: MailToolOptions): Run
             const query = typeof input.query === 'string' ? input.query : ''
             const limit = typeof input.limit === 'number' ? input.limit : 20
             return result(
-              (await manager()).search(query, limit) as unknown as Record<string, unknown>
+              (await withManager(async (manager) =>
+                manager.search(query, limit)
+              )) as unknown as Record<string, unknown>
             )
           } catch (error) {
             return errorResult(error)
@@ -120,8 +123,9 @@ export function mailTools(ctx: MailPluginContext, options: MailToolOptions): Run
                 { error: 'invalid_input', message: 'mailId와 attachmentId가 필요합니다.' },
                 true
               )
-            const managerValue = await manager()
-            const attachment = await managerValue.getAttachment(mailId, attachmentId)
+            const attachment = await withManager((manager) =>
+              manager.getAttachment(mailId, attachmentId)
+            )
             if (!attachment)
               return result(
                 { error: 'attachment_not_found', message: '첨부파일을 찾을 수 없습니다.' },
@@ -129,7 +133,7 @@ export function mailTools(ctx: MailPluginContext, options: MailToolOptions): Run
               )
             const exported = await exportMailAttachment(
               { root: undefined },
-              ctx.authId,
+              auth.authId,
               attachment.filename,
               attachment.bytes
             )

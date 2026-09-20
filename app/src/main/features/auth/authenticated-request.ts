@@ -112,6 +112,8 @@ export class AuthenticatedRequester {
   ): Promise<AuthenticatedResponse> {
     const definition = this.deps.registry.get(authId)
     if (!definition) throw new AuthPolicyError('unknown_auth', authId)
+    if (!/^https?:\/\//.test(definition.origin))
+      throw new Error('HTTP request requires an HTTP origin')
 
     // 정책 판정 **전에** 시계 만료를 정착시킨다 — `status()` 는 순수 조회라 `expired` 를
     // 돌려주기만 하고 전이를 남기지 않는다. 여기서 못 박아야 거부와 downstream 무효화가
@@ -361,5 +363,7 @@ function presentationFor(
 // 나가지 못했고(`grant_not_valid`), `probe` 를 선언한 배포는 **로그인 자체가** `probe_failed` 로
 // 끝났다 — 교환 경로가 양방향으로 죽어 있었다.
 function presentationOf(spec: AuthMethod): Presentation | null {
-  return spec.kind === 'browser-session' ? (spec.config.exchange?.present ?? null) : spec.present
+  return spec.kind === 'browser-session'
+    ? (spec.config.exchange?.present ?? null)
+    : (spec.present ?? null)
 }

@@ -33,6 +33,9 @@ function bound(authId: string, snapshot: Partial<AuthSnapshot> = {}): BoundAuth 
 
 function runtime(descriptors: Record<string, AuthDescriptor>): AuthRuntime {
   return {
+    bindForPlugin: () => {
+      throw new Error('unused plugin binding')
+    },
     bind: (authId) => bound(authId),
     tryBind: (authId) => bound(authId),
     describe: (authId) => {

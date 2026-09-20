@@ -71,6 +71,7 @@ test('checkAppendOnly passes on additions only and empty diff', () => {
 test('checkAppendOnly rejects modify/delete/rename of existing migrations', () => {
   for (const line of [
     'M\tapp/src/main/infra/db/migrations/0003_messages_fts.sql',
+    'M\tapp/src/main/features/plugins/mail/migrations/0001_mail.sql',
     'D\tapp/src/main/infra/db/migrations/0002_projects.sql',
     'R100\tapp/src/main/infra/db/migrations/0001_initial.sql\tapp/src/main/infra/db/migrations/0001_renamed.sql'
   ]) {

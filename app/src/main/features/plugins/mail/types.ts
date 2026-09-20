@@ -6,11 +6,9 @@ export type { Pop3Socket, Pop3SocketOptions }
 export interface MailPluginOptions {
   readonly accountId: string
   readonly host: string
-  readonly user?: string
   readonly port?: number
   readonly tls?: boolean
   readonly tlsOptions?: TlsOptions
-  readonly root?: string
   readonly retentionDays?: number
   readonly freshnessMs?: number
   readonly timeouts?: {

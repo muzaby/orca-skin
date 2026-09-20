@@ -37,7 +37,7 @@ function singleValueSpec(kind: 'api-key' | 'pat', opts: SingleValueOptions): Aut
     kind,
     label: opts.label,
     fields: singleValueFields(opts.fieldLabel),
-    present: opts.present,
+    ...(opts.present ? { present: opts.present } : {}),
     compose: composeSingle
   }
 }
@@ -55,7 +55,7 @@ export function patSpec(opts: SingleValueOptions): AuthMethod {
 
 // ID + 비밀번호. 값이 둘이고 서버가 받는 형식이 `base64(user:pass)` 라 단일 필드로 뭉갤 수 없다 —
 // 필드가 하나면 사용자가 직접 `user:pass` 를 조립해야 하고 형식 책임이 사람에게 넘어간다.
-export function passwordSpec(opts: { label: string; present: Presentation }): AuthMethod {
+export function passwordSpec(opts: { label: string; present?: Presentation }): AuthMethod {
   return {
     kind: 'password',
     label: opts.label,
@@ -63,7 +63,7 @@ export function passwordSpec(opts: { label: string; present: Presentation }): Au
       { name: FIELD_USERNAME, label: '아이디', type: 'text', required: true },
       { name: FIELD_PASSWORD, label: '비밀번호', type: 'password', required: true }
     ],
-    present: opts.present,
+    ...(opts.present ? { present: opts.present } : {}),
     compose: (input) => {
       const username = (input[FIELD_USERNAME] ?? '').trim()
       // 비밀번호는 trim 하지 않는다 — 앞뒤 공백이 유효한 비밀번호일 수 있다.

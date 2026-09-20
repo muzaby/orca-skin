@@ -96,13 +96,6 @@ export interface LoginDeps {
     signal?: AbortSignal,
     candidate?: CandidateCredential
   ) => Promise<AuthenticatedResponse>
-  // 비-HTTP 인증(예: POP3)은 AuthDefinition.probe 대신 후보 자격증명을 직접 검증한다.
-  // verifier가 없는 Auth는 기존 probe/무검증 동작을 그대로 유지한다.
-  verify?: (
-    authId: AuthId,
-    candidate: CandidateCredential,
-    signal?: AbortSignal
-  ) => Promise<{ ok: boolean; rejected: boolean }>
   // ── 두 갈래 통지 (0188 D-008) ───────────────────────────────────────────────
   //
   // 0181 은 `onChange()` 하나였다. 그래서 입력 폼을 연 것과 credential 을 커밋한 것이 소비자에게
@@ -503,23 +496,45 @@ export class LoginService {
     definition: AuthDefinition,
     candidate?: CandidateCredential
   ): Promise<ProbeOutcome> {
-    if (candidate && this.deps.verify) {
-      try {
-        const result = await this.deps.verify(
-          definition.id,
-          candidate,
-          AbortSignal.timeout(PROBE_TIMEOUT_MS)
-        )
-        return { ok: result.ok, preserveGrant: false, credentialRejected: result.rejected }
-      } catch (error) {
-        this.deps.logger?.('auth.verify.failed', {
-          authId: definition.id,
-          reason: errorMessage(error)
-        })
+    const grant = candidate?.grant ?? this.deps.store.get(definition.id)
+    const method = definition.methods.find((entry) => entry.kind === grant?.authKind)
+    const probe = method?.probe ?? definition.probe
+    if (probe && 'execute' in probe) {
+      if (!candidate && !probe.onResume) return { ok: true, preserveGrant: false }
+      const value = candidate ? candidate.secret : this.deps.store.secret(definition.id)
+      if (!grant || value === undefined || value === null) {
         return { ok: false, preserveGrant: false, credentialRejected: false }
       }
+      const controller = new AbortController()
+      let timer: ReturnType<typeof setTimeout> | undefined
+      try {
+        const timeout = new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            controller.abort()
+            reject(new Error('probe timeout'))
+          }, PROBE_TIMEOUT_MS)
+        })
+        const result = await Promise.race([
+          probe.execute(
+            {
+              value,
+              authKind: grant.authKind,
+              ...(grant.principalId !== undefined ? { principalId: grant.principalId } : {})
+            },
+            controller.signal
+          ),
+          timeout
+        ])
+        return { ok: result.ok, preserveGrant: false, credentialRejected: result.rejected }
+      } catch {
+        // 외부 구현의 예외에 credential이 포함될 수 있어 원문은 로그에 싣지 않는다.
+        this.deps.logger?.('auth.probe.failed', { authId: definition.id, reason: 'unreachable' })
+        return { ok: false, preserveGrant: false, credentialRejected: false }
+      } finally {
+        if (timer) clearTimeout(timer)
+        controller.abort()
+      }
     }
-    const probe = definition.probe
     if (!probe || !this.deps.request) return { ok: true, preserveGrant: false }
     try {
       const res = await this.deps.request(
@@ -739,7 +754,7 @@ export class LoginService {
       fields: [...spec.fields],
       message: settled.credentialRejected
         ? '자격증명이 거부되었습니다. 값을 확인해 주세요.'
-        : '메일 서버에 닿지 못했습니다. 서버 주소와 네트워크를 확인해 주세요.'
+        : '서버에 닿지 못했습니다. 서버 주소와 네트워크를 확인해 주세요.'
     })
   }
 

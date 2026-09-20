@@ -619,11 +619,17 @@ snapshot을 읽는다.
 
 ## 7. Plugin
 
-Plugin 은 GUI 카탈로그에 표시되는 제품 기능 단위다. HTTP Plugin 모듈은 `BoundAuth.request` 와 자기
-옵션만 받고 raw credential 을 보지 않는다. 비-HTTP 전송이 필요한 opt-in Plugin은 컴포지션 루트가
-AuthId를 닫은 `() => string | null` closure와 전송 factory를 별도로 주입하며 `AuthSecretReader` 전체,
-vault, renderer에는 접근하지 않는다. POP3 Mail Plugin이 이 예외를 사용하고, 서버 단위 binding의
-add/remove lifecycle은 다른 Plugin과 공유한다.
+Plugin은 GUI 카탈로그에 표시되는 제품 기능 단위다. 배포는 `bindForPlugin(id)`로 `PluginAuth`를
+얻고 서버에 자기 옵션과 함께 넘긴다. HTTP는 `request()`를 사용하며 비-HTTP built-in은
+`withCredential()`의 자기 credential과 거부 callback을 사용한다. callback은 읽은 revision에만
+작용하므로 이전 요청의 거부가 새 로그인을 만료시키지 않는다. 이는 신뢰하는 앱 코드의 좁은
+표면이며 외부 코드 sandbox가 아니다. DB·소켓·파일 경로는 Auth가 제공하지 않고 infra가 맡는다.
+
+`AuthDefinition.probe`는 HTTP 요청 선언 또는 실행형 callback이다. 방식별 `AuthMethod.probe`가
+있으면 우선한다. 실행형은 candidate를 저장 전에 받아 확인하고, `onResume`을 명시하지 않으면
+복원 때 접속하지 않는다. core는 특정 프로토콜이나 인증 방식을 판정하지 않는다. HTTP
+`present`는 선택적이며 `request()`는 HTTP(S) origin과 presentation을 요구한다. POP3 auth 선언은
+플러그인의 probe와 sync가 같은 infra 세션을 사용하게 한다.
 
 - 배포의 선택적 `catalog` 설정은 binding 생성 시 정규화한다. icon을 생략하거나 설정 자체가 없으면
   `electrical_services`, title이 없으면 Auth label, body가 없으면 본문 없음이 된다. locale text와

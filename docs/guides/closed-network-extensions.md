@@ -732,21 +732,14 @@ export const CONFLUENCE_AUTH = {
 
 ```ts
 // app/deployment/plugins.ts — 서버는 **부팅에서 1회** 만들고 sync 는 add/remove 만 한다.
-export function createPluginBindings(deps: {
-  auth: AuthBinder
-  registry: RuntimeToolSink
-}): PluginBinding[] {
-  const confluenceAuth = deps.auth.bind(CONFLUENCE_AUTH.id)
-  const server = confluenceTools(
-    {
-      authId: confluenceAuth.authId,
-      label: CONFLUENCE_AUTH.label,
-      origin: CONFLUENCE_AUTH.origin,
-      request: (req, signal) => confluenceAuth.request(req, signal)
-    },
-    { apiBasePath: '/confluence' }
-  )
-  return [createPluginBinding({ auth: confluenceAuth, server, registry: deps.registry })]
+export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[] {
+  const confluenceAuth = deps.auth.bindForPlugin(CONFLUENCE_AUTH.id)
+  return [createPluginBinding({
+    auth: confluenceAuth,
+    server: confluenceTools(confluenceAuth, { apiBasePath: '/confluence' }),
+    registry: deps.registry,
+    logger: deps.logger
+  })]
 }
 ```
 
@@ -763,22 +756,42 @@ export function createPluginBindings(deps: {
 
 ### POP3 Mail Plugin 레시피
 
-POP3는 HTTP `BoundAuth.request`를 사용할 수 없는 예외이므로 폐쇄망 배포가 `MailPluginDeployment`를
-명시적으로 주입한다. `options`에는 host·port·TLS·사설 CA·계정 id를 넣고, `password`는 AuthId를 닫은
-`AuthSecretReader.read` closure로 만든다. `socketFactory`는 `infra/net/pop3-socket.ts`의
-`createPop3Socket`만 사용하며, 기본 OSS 배포는 `mail` 인자를 생략해 Plugin binding을 만들지 않는다.
+메일 인증 선언과 도구가 같은 서버 옵션을 사용하도록 배포 파일에서 조립한다. Bootstrap과
+`PluginDeploymentDeps`는 수정하지 않는다. DB 경로와 소켓은 플러그인이 infra를 통해 구성한다.
 
 ```ts
-const mail = {
-  authId: MAIL_AUTH.id,
-  options: { accountId: MAIL_AUTH.id, host: 'pop.example.corp', port: 995, tls: true },
-  password: () => secretReader.read(MAIL_AUTH.id),
-  root: app.getPath('userData'),
-  socketFactory: createPop3Socket,
-  reportCredentialRejected: created.credentialRejectionReporter
-}
-createPluginBindings({ auth, registry, mail })
+// app/deployment/auth-definitions.ts
+import { createMailAuth } from '../../features/plugins/mail/auth'
+
+export const MAIL_OPTIONS = { accountId: 'corp-mail', host: 'pop.example.corp', port: 995, tls: true }
+export const MAIL_AUTH = createMailAuth('corp-mail', '사내 메일', MAIL_OPTIONS)
+// AUTH_DEFINITIONS에 MAIL_AUTH를 포함한다. GATE_AUTH_DEFINITIONS에는 넣지 않는다.
 ```
+
+```ts
+// app/deployment/plugins.ts
+import { mailTools } from '../../features/plugins/mail/tools'
+import { MAIL_AUTH, MAIL_OPTIONS } from './auth-definitions'
+
+export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[] {
+  const mailAuth = deps.auth.bindForPlugin(MAIL_AUTH.id)
+  return [createPluginBinding({
+    auth: mailAuth,
+    server: mailTools(mailAuth, MAIL_OPTIONS),
+    registry: deps.registry,
+    logger: deps.logger
+  })]
+}
+```
+
+연결 버튼은 선언된 POP3 probe로 USER/PASS를 검증한 후 저장한다. 기본 TLS에서 사설 CA가
+필요하면 `MAIL_OPTIONS.tlsOptions.ca`에 신뢰할 인증서를 지정한다. 인증서 검증을 끄거나 검증
+함수를 바꾸는 옵션은 허용하지 않는다. `tls: false`는 명시적인 평문 배포만을 위한 설정이다.
+계정 id는 안전한 단일 디렉터리 이름으로 정하고 유지한다.
+
+현재 실행 지원은 POP3 ID/비밀번호다. `MailConnection`과 `MailCredential`은 IMAP·앱 비밀번호·
+XOAUTH2 확장 형상을 정의하며 해당 방식의 실행·로그인 UI는 제공하지 않는다. 새 방식의 probe와
+연결 구현은 플러그인에서 제공한다. 기본 OSS 배포는 계속 빈 배열을 반환한다.
 
 `mail_sync`는 freshness 확인 뒤에만 POP3에 연결하며, `mail_search`는 로컬 DB만 읽는다. 인증 거부만
 Auth를 만료시키고 세 도구를 함께 회수한다. 연결·TLS·타임아웃·파싱·DB 장애는 캐시와 Auth를 유지한 채
@@ -822,14 +835,9 @@ export const JIRA_AUTH = {
 
 ```ts
 // app/deployment/plugins.ts
-const jiraAuth = deps.auth.bind(JIRA_AUTH.id)
+const jiraAuth = deps.auth.bindForPlugin(JIRA_AUTH.id)
 const server = jiraTools(
-  {
-    authId: jiraAuth.authId,
-    label: JIRA_AUTH.label,
-    origin: JIRA_AUTH.origin,
-    request: (request, signal) => jiraAuth.request(request, signal)
-  },
+  jiraAuth,
   { apiBasePath: JIRA_API_BASE_PATH } // context path가 있으면 상수 입력을 '/jira/rest'로 바꾼다
 )
 

@@ -18,4 +18,11 @@ describe('POP3 native boundary', () => {
     expect(source).toMatch(/node:net/)
     expect(source).toMatch(/node:tls/)
   })
+
+  it('the protocol allowlist never admits DELE', () => {
+    const source = readFileSync(join(MAIN_ROOT, 'infra/net/pop3-session.ts'), 'utf8')
+    const declaration = source.match(/const ALLOWED_COMMANDS = new Set\(\[([^\]]+)\]\)/)?.[1]
+    expect(declaration).toBeDefined()
+    expect(declaration).not.toMatch(/['"]DELE['"]/)
+  })
 })

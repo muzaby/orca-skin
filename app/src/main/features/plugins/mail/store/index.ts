@@ -1,7 +1,7 @@
-import Database from 'better-sqlite3'
 import { randomUUID } from 'node:crypto'
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
+import { openFileDatabase } from '../../../../infra/db/file-database'
 import { applyMailMigrations } from './migrate'
 import { sanitizeAttachmentFilename } from '../attachment-export'
 import type { MailDocument, MailSearchHit } from '../types'
@@ -42,7 +42,7 @@ export interface MailStore {
   }): void
   ledger(): { uidl: string; messageNumber: number; state: 'active' | 'missing' }[]
   markMissing(uidls: readonly string[]): void
-  saveMessage(document: MailDocument): Promise<void>
+  saveMessage(document: MailDocument, signal?: AbortSignal): Promise<void>
   cleanupExpired(now: number, retentionDays?: number): Promise<number>
   search(query: string, limit: number, mode?: 'match' | 'like'): MailSearchHit[]
   findAttachment(
@@ -71,8 +71,13 @@ function protectionFromRow(row: {
 }
 
 function safeRoot(root: string, accountId: string): string {
-  const safeAccountId = accountId.replace(/[^A-Za-z0-9._-]/g, '_') || '_'
-  return join(root, 'plugins', 'mail', safeAccountId)
+  if (
+    !/^[A-Za-z0-9_-][A-Za-z0-9._-]*$/.test(accountId) ||
+    accountId.endsWith('.') ||
+    /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(accountId)
+  )
+    throw new Error('invalid_account_id')
+  return join(root, 'plugins', 'mail', accountId)
 }
 
 export async function createMailStore(options: MailStoreOptions): Promise<MailStore> {
@@ -80,25 +85,30 @@ export async function createMailStore(options: MailStoreOptions): Promise<MailSt
   const attachmentRoot = join(accountRoot, 'attachments')
   await mkdir(attachmentRoot, { recursive: true })
   const dbPath = join(accountRoot, 'mail.db')
-  const db = new Database(dbPath)
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
-  applyMailMigrations(db)
-  db.prepare(
-    `INSERT INTO account (id, auth_id, host, port, tls, created_at) VALUES (?, ?, ?, ?, ?, ?)
+  const db = openFileDatabase(dbPath, {
+    initialize(db) {
+      applyMailMigrations(db)
+      // Windows path aliases and old sanitized names must not merge account caches.
+      if (db.prepare('SELECT id FROM account WHERE id <> ? LIMIT 1').get(options.accountId)) {
+        throw new Error('account_id_conflict')
+      }
+      db.prepare(
+        `INSERT INTO account (id, auth_id, host, port, tls, created_at) VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET auth_id=excluded.auth_id, host=excluded.host, port=excluded.port, tls=excluded.tls`
-  ).run(
-    options.accountId,
-    options.authId,
-    options.host,
-    options.port,
-    options.tls ? 1 : 0,
-    (options.now ?? Date.now)()
-  )
-  db.prepare(
-    `INSERT INTO sync_state (account_id, last_sync_at, last_error_code, protection_kind)
+      ).run(
+        options.accountId,
+        options.authId,
+        options.host,
+        options.port,
+        options.tls ? 1 : 0,
+        (options.now ?? Date.now)()
+      )
+      db.prepare(
+        `INSERT INTO sync_state (account_id, last_sync_at, last_error_code, protection_kind)
      VALUES (?, NULL, NULL, 'none') ON CONFLICT(account_id) DO NOTHING`
-  ).run(options.accountId)
+      ).run(options.accountId)
+    }
+  })
 
   const getStateRow = (): {
     last_sync_at: number | null
@@ -167,26 +177,38 @@ export async function createMailStore(options: MailStoreOptions): Promise<MailSt
       )
       transaction()
     },
-    saveMessage: async (document) => {
+    saveMessage: async (document, signal) => {
       const written: string[] = []
       try {
+        signal?.throwIfAborted()
         const storedNames = new Map<number, string>()
         for (const [index, attachment] of document.attachments.entries()) {
+          signal?.throwIfAborted()
           if (!attachment.bytes) continue
           const storedName = `${randomUUID()}-${sanitizeAttachmentFilename(attachment.filename)}`
-          await writeFile(join(attachmentRoot, storedName), attachment.bytes, {
-            flag: 'wx',
-            mode: 0o600
-          })
+          // writeFile may fail after creating a partial file; register before awaiting it.
           written.push(storedName)
+          try {
+            await writeFile(join(attachmentRoot, storedName), attachment.bytes, {
+              flag: 'wx',
+              mode: 0o600,
+              signal
+            })
+          } catch (error) {
+            // Exclusive-open failure means this invocation never owned that file.
+            if ((error as NodeJS.ErrnoException).code === 'EEXIST') written.pop()
+            throw error
+          }
           storedNames.set(index, storedName)
         }
+        signal?.throwIfAborted()
         const previous = db
           .prepare(
             'SELECT a.stored_name AS storedName FROM attachment a JOIN mail m ON m.id=a.mail_id WHERE m.account_id=? AND m.uidl=?'
           )
           .all(options.accountId, document.uidl) as { storedName: string }[]
         const transaction = db.transaction(() => {
+          signal?.throwIfAborted()
           const result = db
             .prepare(
               `INSERT INTO mail (account_id, uidl, header_date, first_seen_at, from_addr, to_addrs, cc_addrs, subject, body_text, size_bytes)
@@ -247,17 +269,23 @@ export async function createMailStore(options: MailStoreOptions): Promise<MailSt
           `SELECT m.id, a.stored_name AS storedName FROM mail m LEFT JOIN attachment a ON a.mail_id=m.id WHERE m.account_id=? AND COALESCE(m.header_date,m.first_seen_at) < ?`
         )
         .all(options.accountId, cutoff) as { id: number; storedName: string | null }[]
-      if (rows.length === 0) return 0
       const transaction = db.transaction(() =>
         rows.forEach((row) => db.prepare('DELETE FROM mail WHERE id=?').run(row.id))
       )
       transaction()
+      // DB deletion commits first. The same sweep recovers interrupted writes/deletions.
+      const referenced = new Set(
+        (
+          db.prepare('SELECT stored_name AS storedName FROM attachment').all() as {
+            storedName: string
+          }[]
+        ).map((row) => row.storedName)
+      )
+      const files = await readdir(attachmentRoot, { withFileTypes: true })
       await Promise.all(
-        rows
-          .filter((row) => row.storedName)
-          .map((row) =>
-            unlink(join(attachmentRoot, row.storedName as string)).catch(() => undefined)
-          )
+        files
+          .filter((file) => !file.isDirectory() && !referenced.has(file.name))
+          .map((file) => unlink(join(attachmentRoot, file.name)).catch(() => undefined))
       )
       return new Set(rows.map((row) => row.id)).size
     },

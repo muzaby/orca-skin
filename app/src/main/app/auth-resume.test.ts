@@ -144,6 +144,9 @@ function fakeRuntime(
   })
 
   const auth: AuthRuntime = {
+    bindForPlugin: () => {
+      throw new Error('unused plugin binding')
+    },
     bind,
     tryBind: (authId) => (states.has(authId) ? bind(authId) : null),
     describe: (authId) => ({ authId, label: authId, origin: '', methods: [] }),
