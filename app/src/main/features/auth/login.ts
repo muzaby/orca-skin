@@ -525,7 +525,11 @@ export class LoginService {
           ),
           timeout
         ])
-        return { ok: result.ok, preserveGrant: false, credentialRejected: result.rejected }
+        return {
+          ok: result.ok,
+          preserveGrant: result.preserveGrant ?? false,
+          credentialRejected: result.rejected
+        }
       } catch {
         // 외부 구현의 예외에 credential이 포함될 수 있어 원문은 로그에 싣지 않는다.
         this.deps.logger?.('auth.probe.failed', { authId: definition.id, reason: 'unreachable' })

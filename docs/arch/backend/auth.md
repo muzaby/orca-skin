@@ -631,6 +631,15 @@ Plugin은 GUI 카탈로그에 표시되는 제품 기능 단위다. 배포는 `b
 `present`는 선택적이며 `request()`는 HTTP(S) origin과 presentation을 요구한다. POP3 auth 선언은
 플러그인의 probe와 sync가 같은 infra 세션을 사용하게 한다.
 
+**실패의 두 축을 선언이 가른다.** `rejected`는 서버가 이 자격증명을 거부했다고 관측한 것이고,
+`preserveGrant`는 실패했으나 자격증명 탓이 아니어서(권한 부족·서버 점검·도달 실패) 복원된
+grant를 살려 두라는 뜻이다. HTTP probe의 `authFailureStatuses` 예외와 같은 축이며, 생략하면
+기존대로 만료한다 — 기본값이 곧 계약이므로 선언이 말하지 않은 것을 core가 추측하지 않는다.
+
+플러그인의 **연결 좌표는 `AuthDefinition.origin` 한 사본**이다. 배포는 좌표를 선언 입력에만
+적고 런타임 옵션에는 담지 않으며, 소비자는 `origin`에서 되읽는다. 두 사본을 부팅에서 대조하는
+구조가 아니라 사본이 하나라 어긋날 수 없다.
+
 - 배포의 선택적 `catalog` 설정은 binding 생성 시 정규화한다. icon을 생략하거나 설정 자체가 없으면
   `electrical_services`, title이 없으면 Auth label, body가 없으면 본문 없음이 된다. locale text와
   source·version·GitHub·license attribution은 plugin 행에만 wire로 전달한다.

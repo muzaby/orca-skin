@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, statSync, statfsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type Database from 'better-sqlite3'
 import { getLogger } from '../log/registry'
+import { migrationRecorder, readAppliedMigrations } from './migration-meta'
 import { PRODUCT_SLUG } from '../../../shared/product'
 import migration0001 from './migrations/0001_initial.sql?raw'
 import migration0002 from './migrations/0002_projects.sql?raw'
@@ -94,13 +95,6 @@ export interface ApplyMigrationsOptions {
   onBackupEnd?: () => void
 }
 
-const META_TABLE = `
-  CREATE TABLE IF NOT EXISTS _migrations (
-    name TEXT PRIMARY KEY,
-    applied_at INTEGER NOT NULL
-  )
-`
-
 function timestampForFilename(date: Date): string {
   return date.toISOString().replace(/[:.]/g, '-')
 }
@@ -154,10 +148,7 @@ export function createMigrationBackup(
 }
 
 export function applyMigrations(db: Database.Database, options: ApplyMigrationsOptions = {}): void {
-  db.exec(META_TABLE)
-  const applied = new Set(
-    (db.prepare('SELECT name FROM _migrations').all() as { name: string }[]).map((r) => r.name)
-  )
+  const applied = readAppliedMigrations(db)
   const known = new Set(MIGRATION_NAMES)
   const unknown = [...applied].filter((name) => !known.has(name)).sort()
   if (unknown.length > 0) throw new DbSchemaTooNewError(unknown)
@@ -181,11 +172,11 @@ export function applyMigrations(db: Database.Database, options: ApplyMigrationsO
     }
   }
 
-  const record = db.prepare('INSERT INTO _migrations (name, applied_at) VALUES (?, ?)')
+  const record = migrationRecorder(db)
   for (const m of pending) {
     const apply = db.transaction(() => {
       db.exec(m.sql)
-      record.run(m.name, Date.now())
+      record(m.name)
     })
     try {
       apply()

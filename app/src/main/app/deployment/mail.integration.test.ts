@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { mkdtemp, rm, readFile, stat, readdir } from 'node:fs/promises'
+import { mkdtemp, realpath, rm, readFile, stat, readdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -9,7 +9,7 @@ import { createVault } from '../../infra/vault'
 import { warmFileSqlite } from '../../infra/db/warm-file-sqlite'
 import { createPop3Socket } from '../../infra/net/pop3-socket'
 import { userDataPath } from '../../infra/config/user-data-path'
-import { createMailAuth } from '../../features/plugins/mail/auth'
+import { createMailAuth, mailSessionConfig } from '../../features/plugins/mail/auth'
 import { mailTools } from '../../features/plugins/mail/tools'
 import { createMailSyncManager } from '../../features/plugins/mail/sync-manager'
 import { RuntimeToolRegistry } from '../../features/extensions/runtime-tool-registry'
@@ -56,7 +56,8 @@ class ServerSocket extends EventEmitter {
 async function setup(withProbe = true): Promise<{
   root: string
   temp: string
-  options: { accountId: string; host: string; timeouts: { commandMs: number; connectMs: number } }
+  options: { accountId: string; timeouts: { commandMs: number; connectMs: number } }
+  session: ReturnType<typeof mailSessionConfig>
   runtime: ReturnType<typeof createAuthRuntime>['runtime']
   auth: ReturnType<ReturnType<typeof createAuthRuntime>['runtime']['bindForPlugin']>
   server: ReturnType<typeof mailTools>
@@ -71,15 +72,15 @@ async function setup(withProbe = true): Promise<{
   const root = await mkdtemp(join(tmpdir(), 'orca-mail-integration-'))
   roots.push(root)
   vi.mocked(userDataPath).mockResolvedValue(root)
-  const temp = await mkdtemp(join(tmpdir(), 'orca-mail-export-'))
+  // 프로덕션 `prepareTemporaryFilesPath` 는 realpath 를 돌려준다. mkdtemp 원본은 Windows
+  // 러너에서 `C:\\Users\\RUNNER~1\\...` 8.3 별칭이라 그대로 쓰면 mock 이 프로덕션과 다른
+  // 값을 준다 — fixture 를 실제 계약에 맞춘다.
+  const temp = await realpath(await mkdtemp(join(tmpdir(), 'orca-mail-export-')))
   roots.push(temp)
   vi.mocked(prepareTemporaryFilesPath).mockResolvedValue(temp)
-  const options = {
-    accountId: 'account',
-    host: 'mail.test',
-    timeouts: { commandMs: 100, connectMs: 100 }
-  }
-  const mail = createMailAuth('mail', '메일', options)
+  // 좌표는 선언 입력에만 있고 런타임 옵션에는 없다 — 사본이 하나임을 fixture 도 따른다.
+  const options = { accountId: 'account', timeouts: { commandMs: 100, connectMs: 100 } }
+  const mail = createMailAuth('mail', '메일', { host: 'mail.test', ...options })
   if (!withProbe) delete mail.methods[0].probe
   const secrets = new Map<string, string>()
   const vault = createVault({
@@ -125,6 +126,7 @@ async function setup(withProbe = true): Promise<{
     return socket
   })
   const auth = runtime.bindForPlugin('mail')
+  const session = mailSessionConfig(auth.origin, options)
   const server = mailTools(auth, options)
   const registry = new RuntimeToolRegistry()
   const binding = createPluginBinding({ auth, server, registry })
@@ -137,6 +139,7 @@ async function setup(withProbe = true): Promise<{
     root,
     temp,
     options,
+    session,
     runtime,
     auth,
     server,
@@ -190,6 +193,7 @@ describe('mail declaration → auth → plugin → infra', () => {
       const manager = await createMailSyncManager({
         auth: f.auth,
         options: f.options,
+        session: f.session,
         root: f.root,
         socketFactory: createPop3Socket
       })
@@ -236,6 +240,7 @@ describe('mail declaration → auth → plugin → infra', () => {
     const manager = await createMailSyncManager({
       auth: f.auth,
       options: f.options,
+      session: f.session,
       root: f.root,
       socketFactory: createPop3Socket
     })
@@ -259,6 +264,7 @@ describe('mail declaration → auth → plugin → infra', () => {
     const manager = await createMailSyncManager({
       auth: f.auth,
       options: f.options,
+      session: f.session,
       root: f.root,
       socketFactory: createPop3Socket
     })
@@ -278,6 +284,7 @@ describe('mail declaration → auth → plugin → infra', () => {
     const manager = await createMailSyncManager({
       auth: f.auth,
       options: f.options,
+      session: f.session,
       root: f.root,
       socketFactory: createPop3Socket,
       now: () => now
@@ -328,6 +335,7 @@ describe('mail declaration → auth → plugin → infra', () => {
       const manager = await createMailSyncManager({
         auth: f.auth,
         options: { ...f.options, timeouts: { syncMs: 30, commandMs: 1000, connectMs: 1000 } },
+        session: { ...f.session, timeouts: { syncMs: 30, commandMs: 1000, connectMs: 1000 } },
         root: f.root,
         socketFactory: createPop3Socket
       })
@@ -348,6 +356,7 @@ describe('mail declaration → auth → plugin → infra', () => {
     const manager = await createMailSyncManager({
       auth: f.auth,
       options: f.options,
+      session: f.session,
       root: f.root,
       socketFactory: createPop3Socket
     })
@@ -448,6 +457,7 @@ describe('mail declaration → auth → plugin → infra', () => {
     const manager = await createMailSyncManager({
       auth: f.auth,
       options: f.options,
+      session: f.session,
       root: f.root,
       socketFactory: createPop3Socket,
       now: () => now
@@ -500,6 +510,7 @@ describe('mail declaration → auth → plugin → infra', () => {
       const manager = await createMailSyncManager({
         auth: f.auth,
         options: f.options,
+        session: f.session,
         root: f.root,
         socketFactory: createPop3Socket,
         now: () => now

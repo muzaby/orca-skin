@@ -292,7 +292,15 @@ export interface ExecutableAuthProbe {
   execute(
     credential: AuthCredential,
     signal: AbortSignal
-  ): Promise<{ ok: boolean; rejected: boolean }>
+  ): Promise<{
+    ok: boolean
+    // 서버가 **이 자격증명을 거부했다**고 관측했는가. 도달 실패·프로토콜 오류는 거부가 아니다.
+    rejected: boolean
+    // 실패했지만 **자격증명 탓이 아닌** 경우(권한 부족·서버 점검·도달 실패) 복원된 grant 를
+    // 살려 둔다. HTTP probe 의 `authFailureStatuses` 예외와 같은 축이며, 판정은 선언이 갖는다
+    // (D-049). 생략하면 기존대로 만료시킨다 — 기본값이 곧 계약이므로 조용히 바뀌지 않는다.
+    preserveGrant?: boolean
+  }>
   // 생략하면 연결/재인증 후보만 확인한다. 부팅 시 네트워크를 열지는 선언이 정한다.
   onResume?: boolean
 }

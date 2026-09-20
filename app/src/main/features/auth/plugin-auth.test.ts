@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { AuthDefinition, AuthProbe, PluginAuth } from '../../contracts/auth'
+import type {
+  AuthDefinition,
+  AuthProbe,
+  ExecutableAuthProbe,
+  PluginAuth
+} from '../../contracts/auth'
+
+type ProbeResult = Awaited<ReturnType<ExecutableAuthProbe['execute']>>
 import { createVault } from '../../infra/vault'
 import { createMemoryGrantPersistence } from './store'
 import { createAuthRuntime } from './runtime'
@@ -96,6 +103,40 @@ describe('plugin auth scope and declaration probe', () => {
     expect(execute).not.toHaveBeenCalled()
     expect(methodExecute).toHaveBeenCalledTimes(1)
     expect(runtime.bind('mail').snapshot().status).toBe('valid')
+  })
+
+  it('resume keeps a restored grant when the declaration says the failure is not a rejection', async () => {
+    const execute = vi.fn(async (): Promise<ProbeResult> => ({ ok: true, rejected: false }))
+    const probe: AuthProbe = { execute, onResume: true }
+    const { runtime, restore } = setup(probe)
+    await runtime.login('mail', 'password', { username: 'alice', password: 'pw' })
+
+    // 권한 부족·서버 점검·도달 실패 — 서버가 이 자격증명을 거부한 적이 없다.
+    execute.mockResolvedValue({ ok: false, rejected: false, preserveGrant: true })
+    const resumed = restore()
+    await resumed.resume('mail')
+
+    expect(execute).toHaveBeenCalledTimes(2)
+    expect(resumed.bind('mail').snapshot().status).toBe('valid')
+  })
+
+  it('resume expires a restored grant on a declared rejection and on an unexplained failure', async () => {
+    const outcomes: ProbeResult[] = [
+      { ok: false, rejected: true },
+      { ok: false, rejected: false }
+    ]
+    for (const outcome of outcomes) {
+      const execute = vi.fn(async (): Promise<ProbeResult> => ({ ok: true, rejected: false }))
+      const probe: AuthProbe = { execute, onResume: true }
+      const { runtime, restore } = setup(probe)
+      await runtime.login('mail', 'password', { username: 'alice', password: 'pw' })
+
+      execute.mockResolvedValue(outcome)
+      const resumed = restore()
+      await resumed.resume('mail')
+
+      expect(resumed.bind('mail').snapshot().status).toBe('expired')
+    }
   })
 
   it('old rejection cannot expire new credentials; current rejection is idempotent', async () => {

@@ -79,9 +79,12 @@ export async function exportMailAttachment(
   filename: string,
   bytes: Uint8Array
 ): Promise<ExportedMailAttachment> {
-  const root = options.root
-    ? await ensureDirectory(null, resolve(options.root))
-    : await prepareTemporaryFilesPath()
+  // 봉쇄 검사의 parent 는 스스로 정규화한다. 기본 경로 제공자가 8.3 별칭이나 symlink 를
+  // 돌려줘도 realpath 한 자식과 비교가 성립해야 한다 (Windows `RUNNER~1` 형태).
+  const root = await ensureDirectory(
+    null,
+    options.root ? resolve(options.root) : await prepareTemporaryFilesPath()
+  )
   const mailRoot = await ensureDirectory(root, join(root, 'mail'))
   const accountRoot = await ensureDirectory(mailRoot, join(mailRoot, safeSegment(accountId)))
   const staging = await ensureDirectory(accountRoot, join(accountRoot, '.staging'))

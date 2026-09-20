@@ -14,7 +14,7 @@ const auth: PluginAuth = {
 
 describe('mail tool surface', () => {
   it('exposes exactly three tools with search as the only read-only operation', () => {
-    const server = mailTools(auth, { accountId: 'account', host: 'pop.example.test' })
+    const server = mailTools(auth, { accountId: 'account' })
     expect(server.descriptor.tools.map((tool) => tool.name)).toEqual([
       'mail_sync',
       'mail_search',
@@ -29,7 +29,7 @@ describe('mail tool surface', () => {
   })
 
   it('requires both attachment identifiers in the public schema', () => {
-    const server = mailTools(auth, { accountId: 'account', host: 'pop.example.test' })
+    const server = mailTools(auth, { accountId: 'account' })
     const tool = server.implementations.find((item) => item.name === 'mail_getAttachment')
     expect(tool?.inputSchema).toEqual({
       mailId: expect.anything(),

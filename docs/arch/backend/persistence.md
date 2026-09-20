@@ -108,7 +108,9 @@ Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저�
 
 #### PRAGMA · content 기록 시점 (0107 — 스트리밍 영속 핫패스)
 
-- **`synchronous = NORMAL`** (WAL 공식 권장 조합, `infra/db/index.ts`). 기본 FULL 은 커밋마다 fsync 해 스트리밍 persist(동기 better-sqlite3, 버스 critical 구독자)가 이벤트 루프를 점유했다. **트레이드오프**: 앱 크래시는 무손실, 정전/OS 크래시 시에만 최근 커밋 롤백 가능(DB 무결성은 보존 — WAL 특성).
+- **`synchronous = NORMAL`** (WAL 공식 권장 조합). PRAGMA 한 벌(WAL · `synchronous=NORMAL` ·
+  `foreign_keys`)은 `infra/db/file-database.ts` 가 소유하고 Core DB(`infra/db/index.ts`)와 plugin
+  파일 DB가 같은 사본을 쓴다 — 갈리면 한쪽만 기본 FULL 로 돌아간다. 기본 FULL 은 커밋마다 fsync 해 스트리밍 persist(동기 better-sqlite3, 버스 critical 구독자)가 이벤트 루프를 점유했다. **트레이드오프**: 앱 크래시는 무손실, 정전/OS 크래시 시에만 최근 커밋 롤백 가능(DB 무결성은 보존 — WAL 특성).
 - **`messages.content`(FTS5 text-cache) 는 메시지 마감 시 1회 기록** — 스트리밍 중 블록마다 누적 전체를 재기록하면 `messages_au` 트리거가 매번 전체 재색인(응답 길이에 초선형). 마감 경계 = telemetry persist · `commitUserMessage` · chatCancel(`finalizeTurn`). 트랜스크립트 복원은 `message_parts` 만 쓰므로(loadParts) 화면 영향 없음.
 - **finalize 이전 비정상 종료(크래시·adapter error·stall timeout)의 FTS 공백**은 `rebuildIncompleteMessageContent`(features/chat/recovery)가 복구 — 부팅(chat-recovery 스텝) + 해당 세션 다음 `chat:send` 초입, 둘 다 `recoverDanglingToolCalls` **이전** 실행(complete=0 이 대상 식별자).
 
@@ -138,7 +140,8 @@ Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저�
 #### Mail Plugin 캐시
 
 POP3 Mail Plugin은 Core `orcinus-orca.db`와 분리된 계정별 `mail.db`를 `<userData>/plugins/mail/<accountId>/`
-아래에 소유한다. DB는 WAL·foreign key를 켜고 자체 `migrations/` runner를 사용하며, UIDL ledger·메일 본문
+아래에 소유한다. DB는 Core와 같은 PRAGMA 한 벌을 쓰고 `_migrations` 메타도 Core와 같은 사본
+(`infra/db/migration-meta.ts`)을 쓰며, 적용할 SQL 목록만 플러그인이 갖는다. UIDL ledger·메일 본문
 및 FTS5 색인·첨부 metadata·동기화 상태를 함께 기록한다. 원격 UIDL 소실은 ledger를 `missing`으로 표시할
 뿐이고 본문·색인·첨부는 retention 정리 시점까지 남긴다. 첨부 바이트는 같은 계정 디렉터리의 내부 파일로
 저장하고, 모델에는 불투명 attachment id만 돌려주며 요청 시 Temp로 복사한다.

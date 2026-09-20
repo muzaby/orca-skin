@@ -7,7 +7,7 @@ import type { MailPluginOptions, MailSyncResult } from './types'
 import type { PluginAuth } from '../../../contracts/auth'
 import { userDataPath } from '../../../infra/config/user-data-path'
 import { createPop3Socket } from '../../../infra/net/pop3-socket'
-import { mailOrigin } from './auth'
+import { mailSessionConfig } from './auth'
 import { publicMailError } from './pop3/errors'
 
 export const MAIL_TOOL_NAMES = ['mail_sync', 'mail_search', 'mail_getAttachment'] as const
@@ -26,7 +26,9 @@ function errorResult(error: unknown): RuntimeToolResult {
 }
 
 export function mailTools(auth: PluginAuth, options: MailPluginOptions): RuntimeToolServer {
-  if (auth.origin !== mailOrigin(options)) throw new Error('mail auth endpoint mismatch')
+  // 좌표는 `auth.origin` 한 사본에서만 온다 — 옵션에 두 번째 사본이 없으므로 대조하지 않는다.
+  // 형식이 깨진 origin 은 여기서 즉시 던져 서버 조립을 막는다.
+  const session = mailSessionConfig(auth.origin, options)
   let inFlight: Promise<MailSyncResult> | undefined
   const withManager = async <T>(
     operation: (manager: MailSyncManager) => Promise<T>
@@ -34,6 +36,7 @@ export function mailTools(auth: PluginAuth, options: MailPluginOptions): Runtime
     const manager = await createMailSyncManager({
       auth,
       options,
+      session,
       socketFactory: createPop3Socket,
       root: await userDataPath()
     })
