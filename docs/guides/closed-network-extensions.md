@@ -732,21 +732,30 @@ export const CONFLUENCE_AUTH = {
 
 ```ts
 // app/deployment/plugins.ts — 서버는 **부팅에서 1회** 만들고 sync 는 add/remove 만 한다.
-export function createPluginBindings(deps: {
-  auth: AuthBinder
-  registry: RuntimeToolSink
-}): PluginBinding[] {
-  const confluenceAuth = deps.auth.bind(CONFLUENCE_AUTH.id)
+//
+// ⚠️ `PluginDeploymentDeps` 는 `{auth, registry, logger}` **3키로 고정이다**(0237 ΔV2 — D-048).
+//    플러그인은 파라미터가 아니라 **아래 배열의 행**으로 들어온다. 시그니처를 늘리면
+//    `plugin-contract.test.ts` 가 red 가 된다.
+export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[] {
+  const confluenceAuth = deps.auth.bindForPlugin(CONFLUENCE_AUTH.id)
   const server = confluenceTools(
     {
       authId: confluenceAuth.authId,
       label: CONFLUENCE_AUTH.label,
-      origin: CONFLUENCE_AUTH.origin,
+      // `origin` 은 `PluginAuth` 가 들고 온다 — 선언에서 손으로 복사하지 않는다(D-054).
+      origin: confluenceAuth.origin,
       request: (req, signal) => confluenceAuth.request(req, signal)
     },
     { apiBasePath: '/confluence' }
   )
-  return [createPluginBinding({ auth: confluenceAuth, server, registry: deps.registry })]
+  return [
+    createPluginBinding({
+      auth: confluenceAuth,
+      server,
+      registry: deps.registry,
+      logger: deps.logger
+    })
+  ]
 }
 ```
 
@@ -763,22 +772,71 @@ export function createPluginBindings(deps: {
 
 ### POP3 Mail Plugin 레시피
 
-POP3는 HTTP `BoundAuth.request`를 사용할 수 없는 예외이므로 폐쇄망 배포가 `MailPluginDeployment`를
-명시적으로 주입한다. `options`에는 host·port·TLS·사설 CA·계정 id를 넣고, `password`는 AuthId를 닫은
-`AuthSecretReader.read` closure로 만든다. `socketFactory`는 `infra/net/pop3-socket.ts`의
-`createPop3Socket`만 사용하며, 기본 OSS 배포는 `mail` 인자를 생략해 Plugin binding을 만들지 않는다.
+POP3는 HTTP `BoundAuth.request`를 쓸 수 없지만 **배포 계약은 Confluence와 똑같다**(0237 ΔV2).
+자격증명·강등 보고는 `PluginAuth`가, 소켓·DB·데이터 루트는 infra가 주므로 배포가 엮을 것이 없다.
+
+1. **선언** — `origin`에 메일 endpoint를 그대로 적는다. 등록 검사가 scheme 중립이라 `pop3s://`가
+   통과하고, 계정 식별용 가짜 HTTPS origin을 만들지 않는다.
 
 ```ts
-const mail = {
-  authId: MAIL_AUTH.id,
-  options: { accountId: MAIL_AUTH.id, host: 'pop.example.corp', port: 995, tls: true },
-  password: () => secretReader.read(MAIL_AUTH.id),
-  root: app.getPath('userData'),
-  socketFactory: createPop3Socket,
-  reportCredentialRejected: created.credentialRejectionReporter
-}
-createPluginBindings({ auth, registry, mail })
+// app/deployment/auth-definitions.ts
+import { passwordSpec } from '../../features/auth/specs/credential'
+import { pop3Verifier } from '../../features/plugins/mail/auth'
+
+const MAIL_ORIGIN = 'pop3s://pop.example.corp:995' // 평문은 `pop3://…:110` (기본값 아님)
+
+export const MAIL_AUTH = {
+  id: 'mail',
+  label: '사내 메일',
+  origin: MAIL_ORIGIN,
+  // `probe`를 선언하지 않는다 — POP3에는 칠 HTTP endpoint가 없다. 확인은 아래 `verify`가 한다.
+  methods: [
+    passwordSpec({
+      label: '메일 ID/비밀번호',
+      // `present`도 없다 — 자격증명은 헤더가 아니라 `USER`/`PASS` 명령으로 실린다.
+      verify: pop3Verifier({ endpoint: MAIL_ORIGIN, tlsOptions: { ca: CORP_CA_PEM } })
+    })
+  ]
+} satisfies AuthDefinition
 ```
+
+2. **조립** — `createPluginBindings`에 **행 하나**를 더한다. 파라미터는 늘지 않는다.
+
+```ts
+// app/deployment/plugins.ts
+const mailAuth = deps.auth.bindForPlugin(MAIL_AUTH.id)
+bindings.push(
+  createPluginBinding({
+    auth: mailAuth,
+    server: mailTools(mailAuth, { plugin: { accountId: MAIL_AUTH.id, tlsOptions } }),
+    registry: deps.registry,
+    logger: deps.logger
+  })
+)
+```
+
+`host`·`port`·`tls`는 `mailAuth.origin`에서 파생되고, `mail.db`는 `pluginDataDir('mail', accountId)`
+아래에 `infra/db/open.ts`가 연다. 기본 OSS 배포는 `AUTH_DEFINITIONS`가 비어 있어 `bindForPlugin`이
+던지므로 binding이 만들어지지 않는다.
+
+`mail_sync`는 freshness 확인 뒤에만 POP3에 연결하며, `mail_search`는 로컬 DB만 읽는다. 인증 거부만
+Auth를 만료시키고 세 도구를 함께 회수한다. 연결·TLS·타임아웃·파싱·DB 장애는 캐시와 Auth를 유지한 채
+`stale` 결과를 돌려준다.
+
+### 새 프로토콜 Auth 추가 (IMAP 등)
+
+**고치는 파일은 `app/deployment/` 묶음과 그 플러그인 슬라이스뿐이다.** `contracts/auth.ts`·
+`features/auth/**`·`bootstrap.ts`는 건드리지 않는다 — `extension-cost.test.ts`가 그것을 센다.
+
+| # | 하는 일 | 고치는 파일 |
+|---|---|---|
+| 1 | `AUTH_DEFINITIONS`에 scheme 중립 `origin`으로 선언한다 | `app/deployment/auth-definitions.ts` |
+| 2 | 그 방식에 `verify`를 붙인다. 전송 구현은 **플러그인 슬라이스**가 소유한다 | `features/plugins/<name>/auth.ts` |
+| 3 | `createPluginBindings`에 행을 더한다 | `app/deployment/plugins.ts` |
+
+`AuthMethodKind`에 갈래를 더하지 않는다 — `xoauth2`는 기존 `oauth` 갈래가 `verify`를 구현한 것이고,
+app password는 `password` 갈래다. 갈래를 늘리면 wire 타입(`ProviderAuthKind`)·renderer·i18n이 따라와야
+한다. **현재 IMAP·XOAUTH2·app password는 타입 수용성만 검증돼 있고 런타임 구현은 없다.**
 
 `mail_sync`는 freshness 확인 뒤에만 POP3에 연결하며, `mail_search`는 로컬 DB만 읽는다. 인증 거부만
 Auth를 만료시키고 세 도구를 함께 회수한다. 연결·TLS·타임아웃·파싱·DB 장애는 캐시와 Auth를 유지한 채

@@ -9,7 +9,13 @@
 // **자격증명 실검증은 여기서 하지 않는다.** 이 모듈은 대상의 origin 을 모른다. 검증은 실제
 // 요청 경로(`api.ts`)가 401 을 관측할 때 일어난다 — 검증 경로와 사용 경로가 같아진다.
 
-import type { AuthMethod, ComposeResult, FieldSpec, Presentation } from '../../../contracts/auth'
+import type {
+  AuthMethod,
+  AuthVerifier,
+  ComposeResult,
+  FieldSpec,
+  Presentation
+} from '../../../contracts/auth'
 
 export const FIELD_SECRET = 'secret'
 export const FIELD_USERNAME = 'username'
@@ -55,10 +61,18 @@ export function patSpec(opts: SingleValueOptions): AuthMethod {
 
 // ID + 비밀번호. 값이 둘이고 서버가 받는 형식이 `base64(user:pass)` 라 단일 필드로 뭉갤 수 없다 —
 // 필드가 하나면 사용자가 직접 `user:pass` 를 조립해야 하고 형식 책임이 사람에게 넘어간다.
-export function passwordSpec(opts: { label: string; present: Presentation }): AuthMethod {
+// `present` 는 optional 이다 (0237 ΔV2 — D-053) — POP3 처럼 자격증명을 HTTP 헤더가 아니라
+// 프로토콜 명령으로 싣는 방식은 생략하고 `verify` 로 확인한다. `apiKeySpec`·`patSpec` 은
+// HTTP 전용이라 필수를 유지한다.
+export function passwordSpec(opts: {
+  label: string
+  present?: Presentation
+  verify?: AuthVerifier
+}): AuthMethod {
   return {
     kind: 'password',
     label: opts.label,
+    ...(opts.verify ? { verify: opts.verify } : {}),
     fields: [
       { name: FIELD_USERNAME, label: '아이디', type: 'text', required: true },
       { name: FIELD_PASSWORD, label: '비밀번호', type: 'password', required: true }

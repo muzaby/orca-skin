@@ -1,14 +1,19 @@
-import Database from 'better-sqlite3'
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
-import { applyMailMigrations } from './migrate'
+import { MAIL_MIGRATIONS } from './migrate'
+import { openSqlite } from '../../../../infra/db/open'
+import { pluginDataDir } from '../../../../infra/config/paths'
 import { sanitizeAttachmentFilename } from '../attachment-export'
 import type { MailDocument, MailSearchHit } from '../types'
 import type { ProtectionState } from '../protection'
 
 export interface MailStoreOptions {
-  readonly root: string
+  /**
+   * 데이터 루트 **override — 테스트 seam 전용**. 프로덕션은 비우고 `pluginDataDir()` 이
+   * infra 에서 해석한다 (0237 ΔV2 — D-057). 배포 계약·도구 ctx 에는 이 키가 없다.
+   */
+  readonly dataDir?: string
   readonly accountId: string
   readonly authId: string
   readonly host: string
@@ -70,20 +75,22 @@ function protectionFromRow(row: {
     : { kind: 'none' }
 }
 
-function safeRoot(root: string, accountId: string): string {
-  const safeAccountId = accountId.replace(/[^A-Za-z0-9._-]/g, '_') || '_'
-  return join(root, 'plugins', 'mail', safeAccountId)
+// 경로 조립은 infra 가 소유한다 (0237 ΔV2 — D-057). 여기 있던 `join(root,'plugins','mail',…)`
+// 사본은 `pluginDataDir('mail', accountId)` 로 접혔다 — D-011 이 확정한 경로 문자열은 그대로다.
+function accountRootOf(options: MailStoreOptions): string {
+  return options.dataDir ?? pluginDataDir(MAIL_PLUGIN_ID, options.accountId)
 }
 
+export const MAIL_PLUGIN_ID = 'mail'
+
 export async function createMailStore(options: MailStoreOptions): Promise<MailStore> {
-  const accountRoot = safeRoot(options.root, options.accountId)
+  const accountRoot = accountRootOf(options)
   const attachmentRoot = join(accountRoot, 'attachments')
   await mkdir(attachmentRoot, { recursive: true })
+  // 연결·PRAGMA·마이그레이션 절차는 infra 가 소유한다 (0237 ΔV2 — D-056). 이 슬라이스는
+  // **목록**(`./migrate`)만 갖는다 — append-only 가드가 그 파일에 앵커돼 있다.
   const dbPath = join(accountRoot, 'mail.db')
-  const db = new Database(dbPath)
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
-  applyMailMigrations(db)
+  const db = openSqlite({ path: dbPath, migrations: MAIL_MIGRATIONS })
   db.prepare(
     `INSERT INTO account (id, auth_id, host, port, tls, created_at) VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET auth_id=excluded.auth_id, host=excluded.host, port=excluded.port, tls=excluded.tls`

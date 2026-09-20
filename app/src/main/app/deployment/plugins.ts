@@ -1,13 +1,19 @@
 // Plugin 배선 (0188 — 구 `features/providers/declarations/service.ts` + `service/index.ts`).
 //
-// Confluence 는 Auth 의 service contribution 이 아니라 **독립 Plugin** 이다. Plugin 모듈은
-// `BoundAuth.request` 와 자기 옵션만 받고, Runtime Tool 서버를 **한 번만** 만든다.
+// Plugin 은 Auth 의 service contribution 이 아니라 **독립 모듈**이다. Plugin 모듈은
+// `PluginAuth` 와 자기 옵션만 받고, Runtime Tool 서버를 **한 번만** 만든다.
 //
 // ── 왜 범용 registrar 를 만들지 않는가 ───────────────────────────────────────
 // 0181 의 `ServiceToolRegistrar` 는 `Provider[]` 를 받아 `provider.tools` 를 훑는 일반화된
 // 등록자였다. 그 일반화는 `Provider` 계약에 `tools` 슬롯이 있어야만 성립한다 — 슬롯을 없앤
 // 지금은 배포가 자기 Plugin 을 직접 조립하는 것이 더 짧고, 형상도 타입으로 잡힌다.
 // **PluginHost·ConnectorRegistry·ContributionRegistry 를 다시 만들지 않는다.**
+//
+// ── deps 는 3키로 고정이다 (0237 ΔV2 — D-048) ────────────────────────────────
+// r2 는 mail 하나 때문에 `mail?: MailPluginDeployment` 와 `credentialRejectionReporter?` 를
+// 더했다. 플러그인당 슬롯 하나는 **확장마다 계약이 자란다**는 뜻이고, 그러면 배포가 범용
+// `bootstrap.ts` 까지 고쳐야 해서 "배포가 고치는 파일은 `app/deployment/` 묶음뿐" 이라는 이
+// 디렉토리의 존재 이유가 무너진다. 플러그인은 **파라미터가 아니라 아래 배열의 행**으로 들어온다.
 //
 // ── 같은 인스턴스를 재사용해야 하는 이유 ─────────────────────────────────────
 // `RuntimeToolRegistry` 의 동등성 검사는 **handler identity** 까지 본다(실행 값이라 복사하지
@@ -16,27 +22,27 @@
 
 import type { RuntimeToolServer, RuntimeToolSink } from '../../adapters/runtime-tools'
 import { runtimeToolFullName } from '../../adapters/runtime-tool-policy'
-import type { AuthBinder, BoundAuth } from '../../contracts/auth'
+import type { PluginAuth, PluginAuthBinder } from '../../contracts/auth'
 import {
   normalizePluginCatalogPresentation,
   type PluginCatalogPresentation,
   type PluginCatalogPresentationInput
 } from '../../../shared/plugin-catalog'
-import { mailTools } from '../../features/plugins/mail/tools'
-import type { MailPluginOptions, Pop3SocketFactory } from '../../features/plugins/mail/types'
 
 // 부팅이 만든 Plugin 한 벌. `toolNames()` 는 **cached descriptor** 에서 나온다 — Auth 가
 // invalid 여도 카탈로그는 이 이름들을 계속 보여 준다(0188 D-024).
 export interface PluginBinding {
-  auth: BoundAuth
+  auth: PluginAuth
   server: RuntimeToolServer
   catalog: PluginCatalogPresentation
   toolNames(): readonly string[]
   sync(): void
+  // 앱 종료에서 1회 (0237 ΔV2 — D-060). Auth 강등에서는 부르지 않는다.
+  dispose(): void
 }
 
 export interface CreatePluginBindingDeps {
-  auth: BoundAuth
+  auth: PluginAuth
   server: RuntimeToolServer
   registry: RuntimeToolSink
   catalog?: PluginCatalogPresentationInput
@@ -66,7 +72,13 @@ export function createPluginBinding(deps: CreatePluginBindingDeps): PluginBindin
         })
         return
       }
+      // **회수는 registry 에서만** — 서버가 든 자원은 그대로 둔다(D-060). 재인증 1회로
+      // 돌아오는 것이 D-045 가 약속한 회복이고, 그때 DB 를 다시 열 이유가 없다.
       deps.registry.remove(deps.server.descriptor.id)
+    },
+    dispose(): void {
+      deps.registry.remove(deps.server.descriptor.id)
+      deps.server.dispose?.()
     }
   }
 }
@@ -74,50 +86,32 @@ export function createPluginBinding(deps: CreatePluginBindingDeps): PluginBindin
 // Bootstrap 이 주입하는 능력. **배포가 이 시그니처를 바꾸면 안 된다** — 바꾸는 순간 배포가
 // 범용 `bootstrap.ts` 까지 고쳐야 하고, "배포가 고치는 파일은 `app/deployment/` 묶음뿐" 이라는
 // 경계가 깨진다(r3 에서 실제로 그랬다).
+//
+// **키는 셋이고 플러그인 이름은 없다** (0237 ΔV2 — D-048). `auth` 가 `PluginAuthBinder` 인 것이
+// 좁힘 장치다 — Harness·Usage·Connections 배포 factory 는 `AuthBinder` 를 받아 `secret()` 에
+// 도달하지 못한다.
 export interface PluginDeploymentDeps {
-  auth: AuthBinder
+  auth: PluginAuthBinder
   registry: RuntimeToolSink
   logger?: (event: string, data: Record<string, unknown>) => void
-  /** 폐쇄망 배포가 명시적으로 켜는 Mail Plugin. 기본 OSS 배포는 생략한다. */
-  mail?: MailPluginDeployment
-  credentialRejectionReporter?: (authId: string) => void
 }
 
-export interface MailPluginDeployment {
-  readonly authId: string
-  readonly options: MailPluginOptions
-  readonly password: () => string | null
-  readonly root: string
-  readonly socketFactory: Pop3SocketFactory
-  readonly reportCredentialRejected?: (authId: string) => void
-}
-
-// 배포가 채우는 자리. 기본 배포는 Plugin 이 없다.
-// 조립 예제는 `docs/guides/closed-network-extensions.md` §4 (레시피 C) 다.
+// 배포가 채우는 자리. **기본 배포는 Plugin 이 없다** — `AUTH_DEFINITIONS` 가 비어 있어
+// `bindForPlugin` 이 던지므로, 선언을 채우지 않은 배포에서는 아래 행이 있어도 빈 배열이다.
+//
+// 조립 예제는 `docs/guides/closed-network-extensions.md` §4 (레시피 C) 다. 폐쇄망 배포는
+// **여기에 행을 더한다** — 파라미터를 늘리지 않는다:
+//
+//   const mailAuth = deps.auth.bindForPlugin(MAIL_AUTH.id)
+//   bindings.push(
+//     createPluginBinding({
+//       auth: mailAuth,
+//       server: mailTools(mailAuth, { plugin: { accountId: MAIL_AUTH.id } }),
+//       registry: deps.registry,
+//       logger: deps.logger
+//     })
+//   )
 export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[] {
-  // 기본 배포는 Mail 설정 자체를 주입하지 않으므로 빈 배열이다(D-030).
-  // 폐쇄망 레시피가 `mail` 한 벌을 주입하면 서버는 기존 PluginBinding 계약으로 조립된다.
-  if (!deps.mail) return []
-  let auth: BoundAuth
-  try {
-    auth = deps.auth.bind(deps.mail.authId)
-  } catch {
-    return []
-  }
-  const server = mailTools(
-    {
-      authId: auth.authId,
-      password: deps.mail.password,
-      root: deps.mail.root,
-      socketFactory: deps.mail.socketFactory,
-      ...(deps.mail.reportCredentialRejected || deps.credentialRejectionReporter
-        ? {
-            reportCredentialRejected:
-              deps.mail.reportCredentialRejected ?? deps.credentialRejectionReporter
-          }
-        : {})
-    },
-    { plugin: deps.mail.options }
-  )
-  return [createPluginBinding({ auth, server, registry: deps.registry, logger: deps.logger })]
+  void deps
+  return []
 }

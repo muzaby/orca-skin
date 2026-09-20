@@ -161,8 +161,13 @@ output에 각각 상한을 적용한다. 저장 요청은 경로 segment와 파�
 POP3 Mail Plugin은 HTTP가 아닌 메일 전송 예외다. `node:net`·`node:tls` import와 소켓 생성은
 `infra/net/pop3-socket.ts` 한 곳에 격리하고, `USER`·`PASS`·`UIDL`·`TOP`·`RETR`·`STAT`·`CAPA`·
 `QUIT` 외 명령을 전송하지 않는다. TLS는 OS 신뢰 저장소를 기본으로 사용하며 `rejectUnauthorized:false`
-를 허용하지 않는다. 비밀번호는 Auth vault에서 닫힌 함수로만 주입하고 도구 출력·오류에는 저장 경로와
-자격증명을 포함하지 않는다.
+를 허용하지 않는다. 비밀번호는 Auth vault에서 닫힌 함수(`PluginAuth.secret()`)로만 읽고 도구 출력·
+오류에는 저장 경로와 자격증명을 포함하지 않는다.
+
+소켓 모듈의 소비자는 **플러그인 슬라이스 자신**이다(`features/plugins/mail/pop3/session.ts` 가
+`infra/net/pop3-socket.ts` 를 기본값으로 import). 컴포지션 루트는 이 프리미티브를 알지 않으며,
+인자 override 는 fake 소켓 테스트 seam 으로만 남는다. `net-fetch` 의 "기본값을 두지 않는다"(0173)
+규칙과 갈리는 이유는 대안 구현의 유무다 — Node 스택으로 조용히 되돌아갈 경로가 POP3 에는 없다.
 
 ### 1.9 전송·세션 인프라 인벤토리
 

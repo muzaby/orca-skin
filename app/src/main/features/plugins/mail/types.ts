@@ -3,14 +3,15 @@ import type { Pop3Socket, Pop3SocketOptions } from '../../../infra/net/pop3-sock
 
 export type { Pop3Socket, Pop3SocketOptions }
 
+// 배포가 채우는 Plugin 옵션 (0237 ΔV2 — D-054·D-057).
+//
+// **연결 좌표(`host`·`port`·`tls`)가 없다.** 그 값은 `AuthDefinition.origin` 에서 나오고
+// `PluginAuth.origin` 으로 도착한다 — 두 사본을 만들면 갈린다. **`root` 도 없다** — 데이터
+// 루트는 배포가 고를 값이 아니라 infra 가 해석한다(`pluginDataDir`).
 export interface MailPluginOptions {
   readonly accountId: string
-  readonly host: string
-  readonly user?: string
-  readonly port?: number
-  readonly tls?: boolean
+  /** 사설 CA 등. `rejectUnauthorized:false` 는 조립에서 거부한다. */
   readonly tlsOptions?: TlsOptions
-  readonly root?: string
   readonly retentionDays?: number
   readonly freshnessMs?: number
   readonly timeouts?: {

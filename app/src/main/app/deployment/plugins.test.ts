@@ -12,7 +12,8 @@ import type {
   AuthenticatedRequest,
   AuthSnapshot,
   AuthStatus,
-  BoundAuth
+  BoundAuth,
+  PluginAuth
 } from '../../contracts/auth'
 import { RuntimeToolRegistry } from '../../features/extensions/runtime-tool-registry'
 import { authToolServerId } from '../../adapters/runtime-tool-policy'
@@ -52,16 +53,19 @@ function toolServerBoundTo(bound: BoundAuth): RuntimeToolServer {
   } as unknown as RuntimeToolServer
 }
 
-function auth(authId: string, status: () => AuthStatus): BoundAuth {
+function auth(authId: string, status: () => AuthStatus): PluginAuth {
   return {
     authId,
+    origin: `https://${authId}.example.corp`,
     snapshot: (): AuthSnapshot => ({
       authId,
       status: status(),
       verified: status() === 'valid',
       credentialRevision: 0
     }),
-    request: () => Promise.reject(new Error('not used'))
+    request: () => Promise.reject(new Error('not used')),
+    secret: () => null,
+    reportAuthFailure: () => undefined
   }
 }
 
@@ -125,8 +129,11 @@ describe('createPluginBinding — 도구 가시성 (AC20)', () => {
 describe('Plugin 도구 호출이 자기 Auth 로 나간다 (unknown_provider 회귀)', () => {
   it('tool handler 의 요청이 binding 의 BoundAuth 로 전달된다', async () => {
     const seen: string[] = []
-    const confluenceAuth: BoundAuth = {
+    const confluenceAuth: PluginAuth = {
       authId: 'confluence',
+      origin: 'https://wiki.example.corp',
+      secret: () => null,
+      reportAuthFailure: () => undefined,
       snapshot: () => ({
         authId: 'confluence',
         status: 'valid',

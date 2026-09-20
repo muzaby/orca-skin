@@ -48,7 +48,11 @@ export type FieldSpec = ProviderFieldInfo
 interface CredentialSpecBase {
   label: string
   fields: readonly FieldSpec[]
-  present: Presentation
+  // **`verify` 를 가진 방식은 생략한다** (0237 ΔV2 — D-053). POP3 에는 header·query·cookie 가
+  // 없고, 자리를 채우라고 요구하면 선언이 "이 Auth 는 HTTP 다" 라고 거짓말한다. 생략한 값형
+  // grant 로 HTTP 요청을 내려 하면 `authenticated-request.ts` 가 **거부**한다(fail-closed) —
+  // optional 화가 만드는 유일한 새 위험이 그것이라 가드를 같이 둔다.
+  present?: Presentation
   compose(input: Record<string, string>): ComposeResult
 }
 
@@ -200,7 +204,50 @@ export interface SessionTokenExchange {
 //
 // 구 이름은 `AuthSpec` 이었다(0181). `AuthDefinition.methods` 의 원소라는 것이 이름에서 바로
 // 읽히도록 0188 에서 바꿨다 — 형상은 그대로다.
-export type AuthMethod =
+// ── 인증 확인의 프로토콜별 구현 (0237 ΔV2 — D-052) ───────────────────────────
+//
+// `AuthDefinition.probe` 는 HTTP 요청 하나다(`AuthProbe = Pick<AuthenticatedRequest, …>`).
+// POP3·IMAP 에는 그것이 칠 endpoint 가 없다. **지나친 일반화 대신 선언에 맡긴다** — 방식이
+// 자기 확인 방법을 들고 오고, 코어는 그것을 부를 자리 **한 곳**만 갖는다(`login.ts:probe()`).
+//
+// 그래서 새 프로토콜·새 인증 방식은 **선언 추가**다. `xoauth2` 는 기존 `oauth` 갈래가 이
+// `verify` 를 구현한 것이고, app password 는 `password` 갈래다 — `AuthMethodKind` 에 갈래를
+// 더하지 않는다(더하면 wire 타입·renderer·i18n 이 따라와야 한다).
+export type AuthVerifyResult =
+  | { ok: true; principalId?: string }
+  | {
+      ok: false
+      // **서버가 이 값을 거부했는가.** 도달 실패(연결·타임아웃)는 `false` 다 — 두 경우가
+      // 같은 화면이 되면 사용자가 맞는 비밀번호를 계속 다시 넣는다.
+      rejected: boolean
+      // 권한 부족처럼 "자격증명은 살아 있다" 인 실패. 복원 확인에서 기존 grant 를 만료시키지
+      // 않는다. 0237 r2 의 `LoginDeps.verify` 는 이 항이 없어 상수 `false` 로 접혔다.
+      preserveGrant?: boolean
+    }
+
+// 후보 자격증명 — `compose` 가 접은 **vault 에 아직 없는 한 문자열**이다. 확인 전용이라
+// 이 객체는 store 를 거치지 않는다.
+export interface AuthVerifyInput {
+  authId: AuthId
+  // `compose()` 산출. 값형 방식은 항상 있고, 세션형은 cookie jar 가 나르므로 없다.
+  secret?: string
+  principalId?: string
+}
+
+// 방식이 자기 확인을 구현할 때의 서명. **선언하지 않으면 기존 `definition.probe` 경로가 그대로
+// 돈다** — HTTP Auth 는 한 글자도 바뀌지 않는다.
+export type AuthVerifier = (
+  input: AuthVerifyInput,
+  signal?: AbortSignal
+) => Promise<AuthVerifyResult>
+
+export type AuthMethod = AuthMethodShape & {
+  // **모든 방식이 가질 수 있다** — 코어는 갈래별로 다르게 다루지 않는다. 선언되면
+  // `login.ts:probe()` 가 `definition.probe` 대신 이것을 부른다(분기 한 곳).
+  verify?: AuthVerifier
+}
+
+type AuthMethodShape =
   | ({ kind: 'api-key' } & CredentialSpecBase)
   | ({ kind: 'password' } & CredentialSpecBase)
   | ({ kind: 'pat' } & CredentialSpecBase)
@@ -406,8 +453,36 @@ export type AuthMethodDescriptor = ProviderAuthSpecInfo
 // (컴파일러도 등록 검사도 못 잡는다). 여기서는 적을 자리가 없다.
 export interface BoundAuth {
   readonly authId: AuthId
+  // **연결 대상은 선언 한 곳에만 산다** (0237 ΔV2 — D-054). 0188~r2 는 배포 레시피가
+  // `origin: CONFLUENCE_AUTH.origin` 을 손으로 ctx 에 복사했고, mail 은 host·port 를 선언과
+  // Plugin 옵션 **두 사본**으로 들고 있었다. 두 사본이 갈리면 도구는 보이는데 못 붙는다.
+  readonly origin: string
   snapshot(): AuthSnapshot
   request(request: AuthenticatedRequest, signal?: AbortSignal): Promise<AuthenticatedResponse>
+}
+
+// ── Plugin 자원 표면 (0237 ΔV2 — D-055) ──────────────────────────────────────
+//
+// Plugin 은 **auth 자원과 자기 옵션만으로** 조립된다. 0237 r2 는 mail 하나 때문에
+// `password`·`root`·`socketFactory`·`reportCredentialRejected` 4개를 컴포지션 루트가 손으로
+// 엮어 넘겼고, 그래서 플러그인이 늘 때마다 배포 계약과 `bootstrap.ts` 가 함께 자랐다.
+//
+// **`secret()` 이 raw 를 주는데 왜 괜찮은가**: `AuthSecretReader` 자체를 넘기지 않는다 —
+// authId 가 이미 닫혀 있어 다른 Auth 의 값에는 도달할 수 없다. `bootstrap.ts` 가 MCP·Harness
+// 에 쓰던 closure 와 **같은 형상**이고, 다른 점은 그 조립을 배포마다 손으로 하지 않는다는 것뿐이다.
+//
+// 대안(=auth 가 인증된 연결을 직접 내준다)은 `BoundAuth` 에 제네릭 자원 표면을 만들어야 해서
+// 채택하지 않았다 — 프로토콜마다 반환 타입이 다르면 소비자가 캐스팅으로 받는다.
+export interface PluginAuth extends BoundAuth {
+  // 비-HTTP 전송이 자격증명을 **직접** 실어야 할 때. HTTP Plugin 은 `request()` 를 쓰고
+  // 이것을 부르지 않는다.
+  secret(): string | null
+  // 전송이 자격증명 거부를 관측했을 때 (POP3 `-ERR` 등). **인자가 없다** — authId 를 다시
+  // 적을 자리가 없어야 선언과 어긋날 수 없다(`BoundAuth` 도입 근거와 같은 논리).
+  //
+  // 강등만 한다. `revoke`(자격증명 삭제)는 부르지 않는다 — 일시 장애 한 번이 보관된
+  // 비밀번호를 지우면 사용자가 되돌릴 수 없다(0237 D-038).
+  reportAuthFailure(): void
 }
 
 // 자기 Auth 를 고르기만 하는 소비자의 표면 (0190).
@@ -422,8 +497,16 @@ export interface BoundAuth {
 // providers.ts`)와 부팅 복원(`app/auth-resume.ts`)이 소유한다.
 export type AuthBinder = Pick<AuthRuntime, 'bind'>
 
+// Plugin 배포 factory 가 받는 유일한 능력 (0237 ΔV2 — D-055).
+//
+// **`AuthBinder` 와 갈라 둔 것이 좁힘 장치다.** Harness·Usage·Connections 배포 factory 는
+// `AuthBinder` 를 그대로 받아 `secret()` 에 도달하지 못한다 — 컴파일이 막는다.
+export type PluginAuthBinder = Pick<AuthRuntime, 'bindForPlugin'>
+
 export interface AuthRuntime {
   bind(authId: AuthId): BoundAuth
+  // Plugin 전용 — `bind` 에 raw 조회와 강등 보고를 더해 돌려준다 (0237 ΔV2 — D-055).
+  bindForPlugin(authId: AuthId): PluginAuth
   tryBind(authId: AuthId): BoundAuth | null
   describe(authId: AuthId): AuthDescriptor
   currentStep(): AuthStep | null

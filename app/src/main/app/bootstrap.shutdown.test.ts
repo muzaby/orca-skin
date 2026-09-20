@@ -111,6 +111,44 @@ describe('Bootstrap title ownership', () => {
     expect(order).toEqual(['freeze', 'titles', 'queue', 'activity'])
   })
 
+  // ΔV2 AC45 — **배선 축**. `createPluginBinding` 단위는 `plugin-contract.test.ts` 가 잠그지만,
+  // 그것을 **부르는** `shutdown()` 의 루프를 지우면 그 단위 테스트는 그대로 초록이다.
+  it('disposes plugin bindings during shutdown, before the early return path', () => {
+    const order: string[] = []
+    const disposeA = vi.fn(() => order.push('plugin-a'))
+    const disposeB = vi.fn(() => order.push('plugin-b'))
+    const bootstrap: Bootstrap = Object.assign(Object.create(Bootstrap.prototype), {
+      titles: { dispose: () => order.push('titles') },
+      pendingMessages: { freeze: () => order.push('freeze'), disposeAll: () => undefined },
+      activity: { dispose: () => undefined },
+      // supervisor·bus 가 없는 **조기 반환 경로**다 — Plugin 조립은 그보다 앞에서 끝나므로
+      // 여기서도 자원이 놓여야 한다.
+      pluginBindings: [{ dispose: disposeA }, { dispose: disposeB }]
+    })
+    bootstrap.shutdown()
+    expect(disposeA).toHaveBeenCalledOnce()
+    expect(disposeB).toHaveBeenCalledOnce()
+    expect(order).toEqual(['freeze', 'titles', 'plugin-a', 'plugin-b'])
+  })
+
+  it('한 plugin 의 dispose 실패가 나머지를 막지 않는다', () => {
+    const disposed = vi.fn()
+    const bootstrap: Bootstrap = Object.assign(Object.create(Bootstrap.prototype), {
+      pendingMessages: { freeze: () => undefined, disposeAll: () => undefined },
+      activity: { dispose: () => undefined },
+      pluginBindings: [
+        {
+          dispose: () => {
+            throw new Error('boom')
+          }
+        },
+        { dispose: disposed }
+      ]
+    })
+    expect(() => bootstrap.shutdown()).not.toThrow()
+    expect(disposed).toHaveBeenCalledOnce()
+  })
+
   it('retains the event subscriber title generator on the bootstrap owner', () => {
     const source = stripCommentsAndStrings(
       readFileSync(new URL('./bootstrap.ts', import.meta.url), 'utf8')

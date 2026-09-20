@@ -308,11 +308,18 @@ export class AuthenticatedRequester {
       candidate ? candidate.grant.authKind : this.deps.store.authKind(definition.id)
     )
     // `grant` 가 없으면 `secret()` 도 null 이라 아래에서 걸린다 — 값형 grant 임이 여기서 확정된다.
-    if (grant === undefined || secret === null || presentation === null) {
+    if (grant === undefined || secret === null) {
       throw new AuthPolicyError(
         'grant_not_valid',
         candidate ? 'candidate' : this.deps.store.status(definition.id)
       )
+    }
+    // **presentation 없는 값형은 HTTP 로 나가지 않는다** (0237 ΔV2 — D-053). `present` 를
+    // optional 로 푼 것이 만드는 유일한 새 위험이 여기다 — 없다고 그냥 보내면 자격증명이
+    // 빠진 요청이 조용히 나간다. 비-HTTP 방식(`verify` 로 확인하는 POP3 등)은 애초에 이
+    // 경로로 오지 않고, 와도 `checkOutboundRequest` 의 origin 검사가 먼저 막는다(D-051).
+    if (presentation === null) {
+      throw new AuthPolicyError('unsupported', 'HTTP 전송에 쓸 자격증명 표현이 선언되지 않았습니다')
     }
     return { kind: 'value', grant, presentation, secret }
   }
@@ -361,5 +368,9 @@ function presentationFor(
 // 나가지 못했고(`grant_not_valid`), `probe` 를 선언한 배포는 **로그인 자체가** `probe_failed` 로
 // 끝났다 — 교환 경로가 양방향으로 죽어 있었다.
 function presentationOf(spec: AuthMethod): Presentation | null {
-  return spec.kind === 'browser-session' ? (spec.config.exchange?.present ?? null) : spec.present
+  // `present` 는 optional 이다 (0237 ΔV2 — D-053) — 비-HTTP 방식은 선언하지 않는다.
+  // `undefined` 를 그대로 흘리지 않고 `null` 로 접어 호출부의 단일 판정에 넣는다.
+  return spec.kind === 'browser-session'
+    ? (spec.config.exchange?.present ?? null)
+    : (spec.present ?? null)
 }

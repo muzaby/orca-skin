@@ -20,6 +20,7 @@ import type {
   AuthMethodKind,
   AuthRefreshResult,
   AuthSnapshotChangeCause,
+  AuthVerifier,
   AuthStep,
   Grant,
   SecretGrant,
@@ -96,13 +97,6 @@ export interface LoginDeps {
     signal?: AbortSignal,
     candidate?: CandidateCredential
   ) => Promise<AuthenticatedResponse>
-  // 비-HTTP 인증(예: POP3)은 AuthDefinition.probe 대신 후보 자격증명을 직접 검증한다.
-  // verifier가 없는 Auth는 기존 probe/무검증 동작을 그대로 유지한다.
-  verify?: (
-    authId: AuthId,
-    candidate: CandidateCredential,
-    signal?: AbortSignal
-  ) => Promise<{ ok: boolean; rejected: boolean }>
   // ── 두 갈래 통지 (0188 D-008) ───────────────────────────────────────────────
   //
   // 0181 은 `onChange()` 하나였다. 그래서 입력 폼을 연 것과 credential 을 커밋한 것이 소비자에게
@@ -499,19 +493,48 @@ export class LoginService {
   // **status 만 보지 않는다** (0174 실기): SSO 배포는 미인증일 때 IdP 로그인 폼을 **200** 으로
   // 준다. 체인이 definition origin 으로 돌아왔는지까지 봐야 그 200 을 인증됨으로 오독하지 않는다.
   // allowlist 밖으로 튄 홉은 `api.request` 가 던지고, 그 자체가 미인증 판정이다.
+  // 후보가 쓰는 방식의 `verify` 를 찾는다. 방식 식별은 후보 grant 의 `authKind` 다 —
+  // 같은 Auth 가 여러 방식을 선언할 수 있고, 지금 확인하는 것은 그중 하나다.
+  private verifierFor(
+    definition: AuthDefinition,
+    candidate: CandidateCredential
+  ): { verify: AuthVerifier } | null {
+    const method = definition.methods.find((spec) => spec.kind === candidate.grant.authKind)
+    return method?.verify ? { verify: method.verify } : null
+  }
+
   private async probe(
     definition: AuthDefinition,
     candidate?: CandidateCredential
   ): Promise<ProbeOutcome> {
-    if (candidate && this.deps.verify) {
+    // ── 방식이 자기 확인을 들고 있으면 그것을 쓴다 (0237 ΔV2 — D-052) ────────
+    //
+    // **분기는 이 한 곳이다.** 새 프로토콜·새 인증 방식은 선언에 `verify` 를 구현해 들어오고
+    // 코어는 바뀌지 않는다. 0237 r2 는 같은 일을 `LoginDeps.verify` 로 했는데, 그것은 배포
+    // 배선에 달려 있어 **Auth 당 하나**였고 `preserveGrant` 를 실을 자리가 없었다.
+    //
+    // `candidate` 가 있을 때만 돈다 — 즉 `login`/`reauth` 에서만이고 부팅 `resume()` 에서는
+    // 돌지 않는다(D-042). 부팅마다 POP3 를 여는 것은 lazy 전이 정책이 금지한 선제 검증이다.
+    const verifier = candidate ? this.verifierFor(definition, candidate) : null
+    if (verifier) {
       try {
-        const result = await this.deps.verify(
-          definition.id,
-          candidate,
+        const result = await verifier.verify(
+          {
+            authId: definition.id,
+            ...ifPresent('secret', candidate?.secret),
+            ...ifPresent('principalId', candidate?.grant.principalId)
+          },
           AbortSignal.timeout(PROBE_TIMEOUT_MS)
         )
-        return { ok: result.ok, preserveGrant: false, credentialRejected: result.rejected }
+        this.deps.logger?.('auth.verify.result', { authId: definition.id, ok: result.ok })
+        if (result.ok) return { ok: true, preserveGrant: false, credentialRejected: false }
+        return {
+          ok: false,
+          preserveGrant: result.preserveGrant ?? false,
+          credentialRejected: result.rejected
+        }
       } catch (error) {
+        // 선언이 던진 것은 **도달 실패**로 읽는다 — 자격증명 거부는 `rejected:true` 로 온다.
         this.deps.logger?.('auth.verify.failed', {
           authId: definition.id,
           reason: errorMessage(error)
@@ -530,7 +553,7 @@ export class LoginService {
       )
       // origin 비교는 브라우저 세션·홉별 검사와 **같은 구현**을 쓴다 — 두 벌이면 규칙이
       // 갈리는데, 하필 이 한 줄이 "인증됐는가" 의 판정이다. `definition.origin` 은 등록에서
-      // bare origin 임이 강제되므로(`registry.isBareOrigin`) allowlist 원소로 그대로 쓴다.
+      // bare origin 임이 강제되므로(`registry.isBareEndpoint`) allowlist 원소로 그대로 쓴다.
       const returnedToOrigin = isAllowedOrigin(res.finalUrl, [definition.origin])
       const ok = res.ok && returnedToOrigin
       const authFailureStatuses = probe.authFailureStatuses ?? [401, 403]

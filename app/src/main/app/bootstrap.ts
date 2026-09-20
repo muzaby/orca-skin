@@ -74,7 +74,6 @@ import { registerLogHandlers } from './handlers/log'
 import { registerConnectionHandlers } from './handlers/providers'
 import { WorktreeService } from '../features/worktrees/service'
 import { createAuthRuntime } from '../features/auth/runtime'
-import type { LoginDeps } from '../features/auth/login'
 import { createGrantPersistence, createOAuthStatePersistence } from '../features/auth/store-file'
 import { OAuthStateStore } from '../features/auth/oauth'
 import { OAuthRunner } from '../features/auth/oauth-runner'
@@ -102,10 +101,7 @@ import {
   DIRECT_CREDENTIAL_AUTH_IDS,
   RUNTIME_MODEL_CONTRIBUTIONS
 } from './deployment/harness-runtime'
-import { createPluginBindings } from './deployment/plugins'
-import { createPop3Socket } from '../infra/net/pop3-socket'
-import type { MailPluginOptions, Pop3SocketFactory } from '../features/plugins/mail/types'
-import type { MailPluginDeployment } from './deployment/plugins'
+import { createPluginBindings, type PluginBinding } from './deployment/plugins'
 import { createConnectionSources } from './deployment/connections'
 import { createUsageFetcher } from './deployment/usage-fetcher'
 import { connectionState, duplicateConnectionAuthIds } from './connection-views'
@@ -148,16 +144,11 @@ import {
 import { clientLeaseKey } from '../features/sessions/session-chain-lease'
 import { deriveLeaseGateState } from '../features/sessions/restart-gate'
 
-export interface BootstrapMailDeployment {
-  readonly authId: string
-  readonly options: MailPluginOptions
-  readonly root?: string
-  readonly socketFactory?: Pop3SocketFactory
-  readonly verify?: LoginDeps['verify']
-}
-
 export class Bootstrap {
   private readonly bootReport = createBootReportRecorder()
+  // 종료에서 자원을 놓기 위해 보관한다 (0237 ΔV2 — D-060). `start()` 가 채우고 `shutdown()` 이
+  // 비운다. 플러그인이 없는 배포에서는 빈 배열이라 no-op 다.
+  private pluginBindings: readonly PluginBinding[] = []
   readonly settings = new SettingsStore(app.getVersion())
   readonly mcp = new McpStore(this.settings)
   private readonly registry = new AdapterRegistry()
@@ -196,8 +187,7 @@ export class Bootstrap {
       conflicts: [],
       failed: [],
       configRoots: { legacy: '', current: '' }
-    },
-    private readonly mailDeployment?: BootstrapMailDeployment
+    }
   ) {}
 
   private builtinSkillsDir(): string {
@@ -276,13 +266,9 @@ export class Bootstrap {
   //
   // 결과에 `secretReader` 가 함께 온다. **컴포지션 루트 밖으로 내보내지 않는다** — MCP 와
   // Harness direct-credential augmenter 에만 AuthId 를 닫은 closure 로 전달한다(0188 D-010).
-  private createAuthStack(
-    secretStore: SecretStore,
-    mail?: BootstrapMailDeployment
-  ): {
+  private createAuthStack(secretStore: SecretStore): {
     auth: AuthRuntime
     secretReader: AuthSecretReader
-    credentialRejectionReporter: (authId: string) => void
   } {
     const log = getLogger().child('auth')
 
@@ -334,7 +320,6 @@ export class Bootstrap {
         sessions,
         logger: (event, data) => log.info(event, data)
       }),
-      ...(mail?.verify ? { verify: mail.verify } : {}),
       logger: (event, data) => log.warn(event, data),
       // 선언에서 사라진 Auth 의 grant 는 **지우지 않는다** — 선언이 일시적으로 빠진 빌드에서
       // 재로그인을 강요하지 않기 위함이다.
@@ -349,11 +334,7 @@ export class Bootstrap {
       })
     }
 
-    return {
-      auth: created.runtime,
-      secretReader: created.secretReader,
-      credentialRejectionReporter: created.credentialRejectionReporter
-    }
+    return { auth: created.runtime, secretReader: created.secretReader }
   }
 
   // gate membership 해석 — 판정 규칙은 순수 모듈(`features/gate`)이 갖고 여기서는 진단만
@@ -397,10 +378,10 @@ export class Bootstrap {
     // 멈춘다. **게이트 판정에는 DB 가 필요 없다** — grant 는 파일+vault 에만 산다.
     // critical=true 다 — 게이트를 판정할 수 없으면 로그인 강제 빌드가 무인증으로 열린다.
     // 영속 실패 같은 회복 가능한 사고는 팩토리 안에서 메모리 폴백으로 흡수한다.
-    const { auth, secretReader, credentialRejectionReporter } = this.bootReport.stepSync(
+    const { auth, secretReader } = this.bootReport.stepSync(
       'provider-platform',
       { critical: true, label: '인증 스택' },
-      () => this.createAuthStack(secretStore, this.mailDeployment)
+      () => this.createAuthStack(secretStore)
     )
     // MCP `${BINDING:<대상>}` 의 토큰 소스 — **전체 reader 가 아니라 좁은 closure** 만 넘긴다.
     // 주입 전에 배포된 설정에는 인증이 필요한 서버가 빠진다(fail-closed).
@@ -421,24 +402,16 @@ export class Bootstrap {
     // ── Plugin 도구: **resume 보다 먼저** 만들고 한 번 sync 한다 ────────────────
     // 복원된 Auth 의 도구 이름과 초기 가시성이 renderer 의 첫 snapshot 과 첫 턴에 필요하다.
     // 서버는 여기서 1회 생성되고 이후 sync 는 add/remove 만 한다(handler identity 유지).
+    //
+    // **여기에 플러그인 이름이 없다** (0237 ΔV2 — D-048·D-049). 배포는 `deployment/plugins.ts`
+    // 의 배열에 행을 더하고, 이 파일은 `bindForPlugin` 이라는 능력 하나만 건넨다 — POP3 소켓도
+    // 데이터 루트도 자격증명 closure 도 여기서 조립하지 않는다.
     const plugins = createPluginBindings({
       auth,
       registry: runtimeTools,
-      credentialRejectionReporter,
-      ...(this.mailDeployment
-        ? {
-            mail: {
-              authId: this.mailDeployment.authId,
-              options: this.mailDeployment.options,
-              password: () => secretReader.read(this.mailDeployment!.authId),
-              root: this.mailDeployment.root ?? app.getPath('userData'),
-              socketFactory: this.mailDeployment.socketFactory ?? createPop3Socket,
-              reportCredentialRejected: credentialRejectionReporter
-            } satisfies MailPluginDeployment
-          }
-        : {}),
       logger: (event, data) => getLogger().child('plugin').info(event, data)
     })
+    this.pluginBindings = plugins
     for (const plugin of plugins) plugin.sync()
 
     // **row 조립은 배포가 소유한다** (r3) — Harness·Usage row 를 만들려고 배포가 이 파일을
@@ -843,6 +816,22 @@ export class Bootstrap {
     void this.artifacts?.close()
     this.titles?.dispose()
     this.scheduler?.stopAll()
+    // **조기 반환보다 앞이다** (0237 ΔV2 — D-060). 아래 `supervisor` 미배선 분기는 `start()` 가
+    // 도중에 실패한 경로인데, Plugin 조립은 그보다 앞에서 끝나므로 그 경우에도 열린 DB 핸들이
+    // 있을 수 있다. 뒤에 두면 그 경로에서만 조용히 새어 나간다.
+    // `?? []` 는 방어가 아니라 **계약이다** — 이 클래스의 수명주기 테스트는 생성자를 돌리지
+    // 않고 `Object.create(Bootstrap.prototype)` 로 필요한 필드만 심는다(`bootstrap.shutdown.test.ts`).
+    // 필드 초기화가 없는 그 인스턴스에서도 `shutdown()` 은 끝까지 가야 한다.
+    for (const plugin of this.pluginBindings ?? []) {
+      try {
+        plugin.dispose()
+      } catch (error) {
+        getLogger()
+          .child('plugin')
+          .warn('plugin.dispose.failed', { message: String(error) })
+      }
+    }
+    this.pluginBindings = []
     if (!this.supervisor || !this.bus) {
       // 조기 반환 경로에서도 미커밋 payload 는 반드시 스크럽한다.
       this.pendingMessages?.disposeAll()

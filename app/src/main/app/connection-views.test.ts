@@ -20,6 +20,7 @@ import {
 function bound(authId: string, snapshot: Partial<AuthSnapshot> = {}): BoundAuth {
   return {
     authId,
+    origin: `https://${authId}.example.corp`,
     snapshot: () => ({
       authId,
       status: 'valid',
@@ -34,6 +35,11 @@ function bound(authId: string, snapshot: Partial<AuthSnapshot> = {}): BoundAuth 
 function runtime(descriptors: Record<string, AuthDescriptor>): AuthRuntime {
   return {
     bind: (authId) => bound(authId),
+    bindForPlugin: (authId) => ({
+      ...bound(authId),
+      secret: () => null,
+      reportAuthFailure: () => undefined
+    }),
     tryBind: (authId) => bound(authId),
     describe: (authId) => {
       const descriptor = descriptors[authId]
