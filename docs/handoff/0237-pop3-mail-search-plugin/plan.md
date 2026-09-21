@@ -583,7 +583,7 @@ VP-01~10·12~20·24~25는 REGRESSION으로 실행하며 이전에 선택한 적�
   → [features/plugins/mail/tools.ts]
   → [sync-manager.ts  ── single-flight(authId)]
       ├─ freshness.ts (순수)      5분 판정
-      ├─ retention.ts (순수)      14일 경계 → cleanup 대상
+      ├─ store.cleanupExpired    14일 경계 → cleanup 대상
       ├─ store/ (mail.db)         ledger·본문·FTS·첨부 메타
       └─ pop3/session.ts
            → [infra/net/pop3-socket.ts]   ← 유일한 tls.connect 지점
@@ -628,7 +628,7 @@ VP-01~10·12~20·24~25는 REGRESSION으로 실행하며 이전에 선택한 적�
 | `features/plugins/mail/normalize.ts` | MIME → 검색 문서 (순수) | `postal-mime` 결과 → `MailDocument` | `sync-manager.ts` |
 | `features/plugins/mail/reconcile.ts` | UIDL 3분류 + 잔존 비율·fingerprint 계산 (순수) | `{local[], remote[]}` → `{new[], known[], missing[], retainedRatio, sampleSize, remoteFingerprint}` | `sync-manager.ts` |
 | `features/plugins/mail/protection.ts` | 보호 상태 전이 — 진입·유지·해제·리셋 (순수, MD-08) | `{previous, retainedRatio, sampleSize, remoteFingerprint, now}` → `{protection, ingest}` | `sync-manager.ts` |
-| `features/plugins/mail/retention.ts` | 14일 경계 판정 (순수) | `{now, headerDate, firstSeenAt}` → `boolean` | `sync-manager.ts` |
+| `features/plugins/mail/store/index.ts` | 14일 경계·headerDate 우선·만료 정리 SSOT | `cleanupExpired(now, retentionDays)` → 삭제 건수 | `sync-manager.ts` |
 | `features/plugins/mail/freshness.ts` | 5분 판정 (순수) | `{now, lastSyncAt}` → `boolean` | `sync-manager.ts` |
 | `features/plugins/mail/query-builder.ts` | FTS 질의 생성 · 길이 분기 (순수) | 질의 문자열 → `{mode:'match'\|'like', sql}` | `search.ts` |
 | `features/plugins/mail/attachment-export.ts` | Temp staging→rename · 경로 은닉 | `{mailId, attachmentId}` → `{savedPath}` | `tools.ts` |
@@ -640,7 +640,7 @@ VP-01~10·12~20·24~25는 REGRESSION으로 실행하며 이전에 선택한 적�
 |---|---|---|---|---|---|---|
 | EP-01 | R-04·R-07 / VP-04·VP-19·VP-24 | 내부 경로와 `stored_name`은 어떤 출력에도 없다. 첨부는 **불투명 `attachmentId`로만** 지칭한다 | `tools.ts` 결과 조립기 | mail 슬라이스 | **4지점** — `mail_search` 결과(매니페스트 포함) · `mail_getAttachment` 결과 · 오류 매핑 · `structuredContent` | 사용자·모델이 플러그인 내부 저장 구조를 본다. D-012·D-043 위반 |
 | EP-02 | R-02 / VP-02 | `mail_search`는 소켓을 열지 않는다 | `search.ts` 시그니처 | mail 슬라이스 | **2지점** — `search.ts`가 소켓 팩토리를 인자로 받지 않음(타입) · 도구 조립에서 `mail_search` handler에 팩토리 미전달(배선) | D-015 위반. 검색이 네트워크 지연·실패를 탄다 |
-| EP-03 | R-03 / VP-03·VP-14·VP-15 | 14일 초과 데이터는 검색 대상이 아니고, **삭제 기준은 retention 하나뿐이다** | `retention.ts` | mail 슬라이스 | **4지점** — `mail` 행 삭제 · `mail_fts` 행 삭제 · 첨부 파일 삭제 · **삭제 호출부가 retention 경로 하나뿐**(전수 grep — UIDL 소실 경로에 삭제 0건, D-046) | 만료 메일이 검색되거나 디스크에 남는다. 또는 UIDL 소실이 두 번째 삭제 기준이 된다 — 둘 다 D-004 위반 |
+| EP-03 | R-03 / VP-03·VP-14·VP-15 | 14일 초과 데이터는 검색 대상이 아니고, **삭제 기준은 retention 하나뿐이다** | `store.cleanupExpired` SQL | mail 슬라이스 | **4지점** — `mail` 행 삭제 · `mail_fts` 행 삭제 · 첨부 파일 삭제 · **삭제 호출부가 retention 경로 하나뿐**(전수 grep — UIDL 소실 경로에 삭제 0건, D-046) | 만료 메일이 검색되거나 디스크에 남는다. 또는 UIDL 소실이 두 번째 삭제 기준이 된다 — 둘 다 D-004 위반 |
 | EP-04 | R-06 / VP-06·VP-16 | 질의는 길이에 따라 MATCH/LIKE로 갈린다 | `query-builder.ts` | mail 슬라이스 | **2지점** — 스키마의 `tokenize='trigram'` · 질의 빌더의 길이 분기 | 한국어 2글자 질의가 0건이 된다. D-024 위반 |
 | EP-05 | R-05 / VP-05 | Auth가 `valid`일 때만 도구가 등록되고, 자격증명 거부는 고유 코드로 구분된다 | `createPluginBinding.sync` (기존) + `pop3/errors.ts` | 컴포지션 루트 + mail 슬라이스 | **3지점** — 부팅 초기 sync · Auth change 리스너 · `PASS` 응답 `-ERR` 매핑 | 미인증에서 도구가 보이거나, 틀린 비밀번호가 네트워크 오류로 보여 사용자가 재인증하지 않는다 |
 | EP-06 | R-01 / VP-01·VP-07·VP-18 | 5분 이내면 POP3에 연결하지 않는다 | `freshness.ts` | mail 슬라이스 | **2지점** — `sync-manager` 진입 판정 · single-flight 캐시 히트 경로 | 연속 검색이 POP3를 반복 호출해 서버 부하를 만든다. D-008 위반 |
@@ -698,7 +698,7 @@ VP-01~10·12~20·24~25는 REGRESSION으로 실행하며 이전에 선택한 적�
 | `.../mail/sync-manager.ts` | **신규** — 오케스트레이션 + single-flight | `Map<authId, Promise<SyncResult>>` | 순수 — 소켓 팩토리·시계 주입 |
 | `.../mail/pop3/session.ts` | **신규** — 명령 시퀀스 + 화이트리스트 (MD-07) | `node-pop3` `Command`를 감싸고 허용 6명령만 통과. `DELE`는 화이트리스트 밖이다 | 순수 — 소켓 팩토리 주입 |
 | `.../mail/pop3/errors.ts` | **신규** — 오류 정규화 | POP3 `-ERR`·소켓 오류 → `{code, authFailure}` + 마스킹 | 순수 |
-| `.../mail/reconcile.ts` · `retention.ts` · `freshness.ts` · `query-builder.ts` · `normalize.ts` · **`protection.ts`** | **신규** — 순수 로직 | MD-01·MD-02·MD-03·MD-04·MD-05·**MD-08** | 순수 단위 |
+| `.../mail/reconcile.ts` · `freshness.ts` · `query-builder.ts` · `normalize.ts` · **`protection.ts`** | **신규** — 순수 로직 | MD-01·MD-03·MD-04·MD-05·**MD-08**. MD-02는 store 실제 SQLite 경로 | 순수 단위·store 경계 테스트 |
 | `.../mail/store/index.ts` · `migrate.ts` · `migrations/0001_mail.sql` | **신규** — mail.db | 연결·PRAGMA·마이그레이션·질의 | DB 스위트 (ABI 필요, 환경 한계 분리) |
 | `.../mail/attachment-export.ts` | **신규** — Temp 공개 (MD-06) | Jira store와 **같은 구조**를 새로 작성 (교차 import 금지, F-18) | 순수 — 루트 주입 |
 | `app/src/main/app/deployment/plugins.ts` | **수정** — 조립 예제 | `createMailPlugin` 사용 예제를 주석으로 추가. 기본 반환은 `[]` 유지 (D-030) | 기존 `plugins.test.ts` 확장 |
@@ -706,12 +706,12 @@ VP-01~10·12~20·24~25는 REGRESSION으로 실행하며 이전에 선택한 적�
 | `app/src/main/features/auth/runtime.ts` | **수정** — reporter 노출 | `createAuthRuntime` 결과에 `credentialRejectionReporter`를 더한다. `AuthRuntime` 인터페이스와 `RouterContext`는 건드리지 않는다 (AR-05) | `runtime.test.ts` 확장 |
 | `app/src/main/features/auth/login.ts` | **수정** — verifier 분기 + 거부 문구 | ① `LoginDeps.verify?: (authId, candidate, signal) => Promise<{ok, rejected}>`를 더하고 `probe()`에서 **`candidate`가 있을 때만** 우선한다(D-042) ② `:716`의 고정 거부 문구를 outcome에 따라 갈라 싣는다(D-041). 타임아웃은 기존 `PROBE_TIMEOUT_MS`(15s) (AR-06) | `login.test.ts` 확장 |
 | `app/scripts/check-migrations-appendonly.mjs` | **수정** — 가드 일반화 | 단일 상수 2개 → `{dir, source}` 목록. mail 쌍 등재 | 동반 `*.test.mjs` 확장 |
-| `app/package.json` | **수정** — 의존성 | `node-pop3` · `postal-mime` 추가 (D-023) | — |
+| `app/package.json` | **수정** — 의존성 | `postal-mime` 유지, 미사용 `node-pop3` 제거 (D-023·D-053·054) | — |
 | `docs/arch/backend/security.md` | **수정** — §1.8 표 | POP3 예외 1행 추가 + 강제 수단 명시 | `check-doc-inventory.mjs` |
 | `docs/arch/backend/auth.md` | **수정** — §7 | Plugin이 비-HTTP 전송을 쓰는 경우와 자격증명 주입 경로 서술 | 같은 가드 |
 | `docs/guides/closed-network-extensions.md` | **수정** — §4 | Mail Plugin 레시피 (POP3 host/port/TLS 옵션·CA 주입) | 같은 가드 |
 | `docs/arch/backend/persistence.md` | **수정** — §1 | 두 번째 DB(`mail.db`)의 소유·경로·마이그레이션 서술 | 같은 가드 |
-| `docs/TRD.md` | **수정** — §2 Stack | `node-pop3`·`postal-mime` 등재 (의존성 정책) | 같은 가드 |
+| `docs/TRD.md` | **수정** — §2 Stack | 내부 POP3 세션·`postal-mime` 등재 | 같은 가드 |
 
 ### mail.db 스키마 (`0001_mail.sql`)
 
@@ -899,7 +899,7 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 | **서버에서 지운 메일이 최대 14일간 검색에 뜬다** | **수용한다**(D-046) — D-004("삭제 기준은 14일 Retention뿐")의 직접 귀결이다. 재해석하지 않았고 §5 상태 전이표에 행으로 노출했다. 바꾸려면 D-004를 바꾸는 새 사용자 결정이 필요하다 |
 
 - 되돌리기 어려운 결정: §14 마지막 항목 참조 (도구 이름 · DB 경로 · 스키마 · tokenizer).
-- 신규 의존성: `node-pop3@^0.15.3` · `postal-mime@^3.0.0` → **사용자 승인 완료**(D-023). TRD §2 Stack 표에 등재한다.
+- 의존성: `postal-mime@^3.0.0`은 사용자 승인(D-023)으로 유지한다. POP3는 D-053·054에 따라 내부 세션을 사용하고 `node-pop3`는 제거한다.
 
 ## 18. 영향 받는 파일 / 문서
 
