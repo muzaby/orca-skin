@@ -11,7 +11,7 @@
 | 작성자 | Claude Code (V1·ΔV1·ΔV4), **Codex (ΔV2·ΔV3 설계·구현)** |
 | 일자 | 2026-09-21 |
 | 매핑 | 없음 (신규 제품 기능) |
-| 상태 | READY — ΔV4로 r5 verify의 `PLAN_GAP: G1`을 닫았다. 다음은 구현 턴(r6) |
+| 상태 | IMPL_DONE — ΔV4 r6 구현 완료, 독립 verify 대기 |
 | V mode | `Delta V` (기준 `V1`) |
 | 기준 V | `V1` — 본 plan의 Baseline, commit `07ec3a6`~`e3ea535` |
 | 이번 V revision | `ΔV4` (r5 verify `PLAN_GAP: G1` 정정) |
@@ -1753,3 +1753,95 @@ AC 총계: 기존 **41** + AC41 = **42**. 철회된 AC39는 세지 않는다.
 - 순수 seam: `retention-window.ts`는 import graph가 `store`/better-sqlite3와 끊긴 별도 파일이다. 사람 실기로 미룬 순수 로직 없음.
 - 음성/양성 방향: AC41 ①은 **양성**(최근 메일이 수집된다)이고 ②가 음성(중단 지점)이다. 두 pair 모두 선택 적대 증거를 갖는다 — r5 verify가 이 축의 무감도를 실측했으므로 `not selected`를 쓰지 않았다.
 - 수치 실측: 프로덕션 `oldHeaders` 3줄·테스트 0줄, 변이 14→30에서 149건 전건 통과, `partial` 프로덕션 설정 0건 — 전부 이번 세션 재측정이다.
+
+## [구현자 기입] 설계 리뷰 (r6)
+
+**ΔV4 구현 완료, 독립 검증 대기.** 보드는 다음 주체를 `Codex`로 적고 있었으나 ΔV4의 작업은 버그수정(누적→연속)과 리팩토링(순수 seam 추출·SSOT 통합)이다 — root [`AGENTS.md`](../../../AGENTS.md) §협업 워크플로우의 "리팩토링·버그수정 등 비기능 작업은 Claude가 직접 구현까지 수행"에 해당한다. 사용자 지시로 이 턴을 수행했고 보드의 주체 표기를 함께 정정했다.
+
+**라운드 6으로 3을 넘지만 `handoff-review`를 실행하지 않았다.** 이 handoff는 r5에서 사용자 지시로 같은 면제를 기록했고 이번 턴에 그 지시를 뒤집는 새 지시는 없었다. 면제 사실을 숨기지 않고 여기 적는다 — 판단은 검증자와 사용자 몫이다.
+
+ACTIVE Decision 충돌: 없다. D-062("연속 카운트, fetch에서 리셋")를 그대로 구현했고 D-007·D-026의 문장을 재해석하지 않았다. §14의 "연속"을 구현이 따라가게 한 것이지 §14를 고치지 않았다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 (r6)
+
+**EP-28 = 3/3.** 분모는 설계자가 적은 수가 아니라 **불변식의 주어**로 다시 셌다.
+
+| 지점 | 닫음 | 재현 명령 / 관측 |
+|---|---|---|
+| ① `decideIngest`가 `fetch`에서 리셋 | ✅ | `retention-window.ts:39` `consecutiveOld: 0`. 리셋 제거 변이 → 4 red |
+| ② `sync-manager`가 지역 누적을 두지 않음 | ✅ | `rg -nE '\+= 1\|\+\+' sync-manager.ts` → `processed += 1` 한 줄(RETR 수, 다른 축). `oldHeaders`·`grace` 리터럴 **0건** |
+| ③ 수집·정리가 같은 경계 사본 | ✅ | 주어 술어 `rg -nE '24 \* 60 \* 60 \* 1000\|86400000\|retentionDays' mail --include=*.ts`(테스트 제외) → 경계를 **계산하는** 자리 1곳(`retention-window.ts:13`), 부르는 자리 2곳(`sync-manager.ts:137` · `store/index.ts:268`) |
+
+③ 분모의 차집합: 같은 술어에 `attachment-export.ts:15`(`STALE_STAGE_MS`)가 걸리지만 **첨부 staging 24시간 창**이라 retention 경계가 아니다 — 이름으로 제외했지 누락이 아니다. `sync-manager.ts:85`·`store/index.ts:47`·`types.ts:46`은 `retentionDays` 옵션의 통과 지점이고 계산 지점이 아니다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 |
+|---|---|---|---|
+| VP-34 / R-10 ↔ AT-24 | REQUIRED | SELF_PASS | 흩어진 옛 메일 54건 사이의 최근 7건을 `RETR` 목록으로 전건 확인 · 연속 50건에서 `RETR` 0건 · `retentionDays` 30이 수집·정리 경계를 함께 이동 |
+| VP-35 / MD-13 ↔ UT-13 | REQUIRED | SELF_PASS | 경계 ±1ms 3케이스 · `headerDate null` fetch · 리셋 · grace 도달 · 교차 사서함 200회에서 `stop` 0회 |
+| VP-03 · VP-14 · VP-15 | REGRESSION | SELF_PASS | `plugins/mail`+`app/deployment` **160 pass**(변경 전 149 + 신규 11) |
+
+자기확인 **SELF_PASS 3 / SELF_BLOCKED 0**. 독립 검증의 `PASS`를 선점하지 않는다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r6)
+
+| 대상 claim | 심은 결함 | 관측 |
+|---|---|---|
+| VP-34 선택 증거 ① | `decideIngest`의 리셋 제거(누적 복귀) | **4 red** — 흩어진 사서함 AT·순수 교차 UT 포함 |
+| VP-34 선택 증거 ② | `INGEST_GRACE` 50 → 1 | **4 red** |
+| VP-35 선택 증거 | `RETENTION_DAYS` 14 → 30 | **7 red** |
+
+검산: 선택 증거 **3** · 인용 변이 **0** · 새 구조적/0건/배선 oracle **0** = 표 **3행**. 이번에 만든 oracle은 전부 **직접 행동 관측**(`RETR` 호출 목록·순수 반환값)이라 §3이 mutation을 의무화하지 않는다.
+
+**r5 verify D12(경계 상수 두 사본)의 닫힘 관측값**: 그 이슈가 인용한 변이는 "`sync-manager`의 14를 30으로 → 149건 전건 통과"였다. 같은 변이가 이제 **7 red**다. 위 VP-35 행과 같은 관측이므로 분모에 중복 계상하지 않았다.
+
+**덮개 회귀**: 제거한 장치가 없다. `oldHeaders` 지역 누적은 oracle이 아니라 프로덕션 코드였고, 이전 verify가 red로 관측한 변이를 green으로 되돌린 자리는 없다.
+
+## [구현자 기입] Product/UX 파생 검토 (r6)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 사용자 관측이 달라지는가 | **달라진다 — 개선.** 옛 날짜 메일이 섞인 사서함에서 그 아래 최근 메일이 더 이상 유실되지 않는다 | AC41 ①이 그 결과를 단언 |
+| 새 실패 경로가 Part I 상태표의 어느 행인가 | 새 행 없음. 예산 초과는 기존 `error:'timeout'` + `stale:true` 행이다 | 단 아래 §놓친 잠재 문제 참조 |
+| 실패가 "아무 일도 안 일어남"으로 보이는가 | 아니다. 중단해도 그때까지 수집한 메일은 저장되고 검색된다 | AC41 ② |
+| 새 문구·상태의 소비자 | 신규 형상 0. 공개 도구 반환 형상 불변 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r6)
+
+| 발견 | 대응 / 상태 |
+|---|---|
+| **이 수정은 예산 초과 확률을 올린다.** 누적 카운트는 최대 `grace`건만 훑고 멈췄지만 연속 카운트는 날짜가 뒤섞이면 사서함 전체를 훑을 수 있다. 상한은 이제 `syncMs`(기본 120s) 하나뿐이다 | **D-063(OPEN)이 바로 이 경로의 반환 형상이다.** 예산 초과 시 현재는 `error:'timeout'`이고 §14가 약속한 `partial:true`+커서는 미구현이다 — 이 수정이 그 결정의 중요도를 올린다. 설계 결정이므로 단독으로 정하지 않았다 |
+| §14의 수렴 논증("스캔량이 최근 14일 건수 + GRACE로 수렴")은 **날짜 순서 ≈ 메시지 번호 순서**를 전제한다. 그 전제가 깨진 사서함에서는 수렴하지 않는다 | 연속 카운트가 D-007의 정확성을 지키는 대신 치르는 비용이다. §14 문장 자체는 이미 "연속"이라 정정 대상이 아니다 |
+| `store.cleanupExpired`의 인라인 기본값 `= 14`를 제거했다 — 기본값이 `retentionCutoff` 한 곳에만 남는다 | 동작 동일. `retentionDays: undefined` 통과 경로를 UT가 단언하고(`retentionCutoff(NOW, undefined)`), 14→30 변이가 **양쪽 호출부에서** red다 |
+| 통합 fixture에 `headerDates` 훅을 더했다 | 기본값은 기존과 같은 `Date.now()`다. 훅 추가 직후 기존 23케이스 전건 통과를 먼저 확인한 뒤 신규 4케이스를 얹었다 |
+
+### 설계 대비 명시적 차이 (r6)
+
+**없다.** ΔV4가 지정한 파일명(`retention-window.ts`)·export 3종(`retentionCutoff`·`decideIngest`·`IngestDecision`)·강제 지점 3곳을 그대로 구현했다. 상수 2개(`RETENTION_DAYS`·`INGEST_GRACE`)를 추가 export한 것은 테스트가 리터럴을 재타이핑하지 않게 하려는 구현 세부다 — 계약을 바꾸지 않는다.
+
+## [구현자 기입] 구현 보고 (r6)
+
+| 항목 | 관측 |
+|---|---|
+| 구현 주체 | Claude Code — 버그수정·리팩토링 lane(root AGENTS §협업 워크플로우) |
+| 변경 파일 | 신규 `retention-window.ts`·`retention-window.test.ts` / 수정 `sync-manager.ts`·`store/index.ts`·`mail.integration.test.ts` |
+| lint | `0 error, 1 warning` — 기존 React Compiler/TanStack(`useTranscriptVirtualizer.ts:22`). 실행 후 작업 트리에 도구 변경분 **0** |
+| typecheck | exit 0 (node/web/test 3구성) |
+| 영향 회귀 | `plugins/mail` + `app/deployment` **160 pass** (변경 전 149) |
+| 전체 회귀 | **545파일 pass · 8 fail · 1 skip (554)** / **5,099 pass · 3 skip** |
+| 전체의 8 fail | 환경 기인 — `Electron failed to install correctly`. `app/AGENTS.md §제약 환경 게이트 가이드`의 알려진 서명이며 이 세션에서 원본 트리 재측정으로 변경 무관 확인 완료 |
+| scripts | `# tests 120 · # pass 120 · # fail 0` |
+| migration | `mail 1 migrations` · `no-copies ok: 1275 files, 3 list owners` · `append-only ok since v0.3.1` |
+| doc inventory | `9 items, 98 channels` · prose ok · links ok |
+| 대상 커밋 | `(r6 구현 — 좌표는 INDEX)` |
+
+AC 자기보고: **AC41 ✅** — 이번 턴의 직접 판정이다. AC1~40은 계약 보존과 영향 회귀로 승계하며 **전체를 개별 재검증했다고 주장하지 않는다**(r5와 같은 승계 규약).
+
+검산: ✅ **42** · ⚠️ **0** · ❌ **0** = 총 **42**. 분모는 ΔV3의 41에서 AC41 추가로 **42**가 됐다 — 이전 라운드 합계(41/41)와 직접 비교하지 않는다.
+
+## [구현자 기입] Review Signals — 사실만 (r6)
+
+- 현재 라운드 **6**. 다음 주체는 검증자다.
+- 이번에 닫은 불변식은 이전 라운드와 **다른 축**이다 — r3~r5는 "게이트가 있는데 아무것도 재지 못한다"(공허한 스윕·오라클 부재)였고, r6은 그 오라클 부재가 가리고 있던 **실제 동작 결함**(누적 vs 연속)이다.
+- 막았어야 할 지침: plan §14가 이미 "연속"을 적고 있었다. 그러나 §14는 Part II 산문이고 그것을 강제하는 AC·pair·§10 행이 없었다 — 구현이 §14를 안 따라도 게이트가 말하지 않았다. ΔV4가 그 행을 세웠다.
+- 반복 환경 한계: `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 설치라 electron 의존 8파일 미실행. better-sqlite3는 `npm rebuild`로 Node ABI 정렬 후 DB 스위트 실행.
+- **D-063은 OPEN으로 남는다.** 이 구현이 그 경로의 도달 확률을 올렸으므로 검증자·사용자가 우선순위를 다시 볼 만하다.

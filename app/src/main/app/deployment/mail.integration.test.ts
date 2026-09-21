@@ -68,6 +68,7 @@ async function setup(withProbe = true): Promise<{
   reject: () => void
   accept: () => void
   remote: (next: string[]) => void
+  dates: (next: Record<number, number>) => void
 }> {
   const root = await mkdtemp(join(tmpdir(), 'orca-mail-integration-'))
   roots.push(root)
@@ -109,13 +110,16 @@ async function setup(withProbe = true): Promise<{
   const sockets: ServerSocket[] = []
   let rejected = false
   let remote = ['u1']
+  // TOP 헤더 날짜는 기본이 현재 시각이다. 수집 경계 테스트만 메시지 번호별로 덮어쓴다.
+  let headerDates: Record<number, number> = {}
   const reply = (line: string): string => {
     const [command, index] = line.split(' ')
     if (command === 'USER' || command === 'PASS')
       return rejected ? '-ERR bad credentials\r\n' : '+OK\r\n'
     if (command === 'UIDL')
       return `+OK\r\n${remote.map((uidl, i) => `${i + 1} ${uidl}\r\n`).join('')}.\r\n`
-    if (command === 'TOP') return `+OK\r\nDate: ${new Date().toUTCString()}\r\n.\r\n`
+    if (command === 'TOP')
+      return `+OK\r\nDate: ${new Date(headerDates[Number(index)] ?? Date.now()).toUTCString()}\r\n.\r\n`
     if (command === 'RETR')
       return `+OK\r\nFrom: alice@example.test\r\nTo: bob@example.test\r\nCc: carol@example.test\r\nSubject: 회의일정 ${index}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n회의실 예약 ${index}\r\n.\r\n`
     return '+OK\r\n'
@@ -155,6 +159,9 @@ async function setup(withProbe = true): Promise<{
     },
     remote: (next: string[]) => {
       remote = next
+    },
+    dates: (next: Record<number, number>) => {
+      headerDates = next
     }
   }
 }
@@ -553,3 +560,103 @@ describe('mail declaration → auth → plugin → infra', () => {
     }
   )
 })
+
+// ── ΔV4 · VP-34 — TOP 수집 경계 (D-007 · D-026 · D-062) ───────────────────────
+//
+// 스캔은 messageNumber 역순이다. scanPos p → messageNumber = total + 1 - p.
+const DAY_MS = 24 * 60 * 60 * 1000
+
+function syncManager(
+  f: Awaited<ReturnType<typeof setup>>,
+  retentionDays?: number
+): ReturnType<typeof createMailSyncManager> {
+  return createMailSyncManager({
+    auth: f.auth,
+    options: retentionDays === undefined ? f.options : { ...f.options, retentionDays },
+    session: f.session,
+    root: f.root,
+    socketFactory: createPop3Socket
+  })
+}
+
+const retrNumbers = (f: Awaited<ReturnType<typeof setup>>): number[] =>
+  f.sockets
+    .flatMap((socket) => socket.commands)
+    .filter((command) => command.startsWith('RETR'))
+    .map((command) => Number(command.split(' ')[1]))
+    .sort((a, b) => a - b)
+
+it('collects every recent mail when old-dated mail is scattered among it', async () => {
+  const f = await setup()
+  await f.login()
+  // 9건씩 6블록의 옛 메일(54건)을 최근 메일 1건씩으로 끊고, 마지막에 최근 메일 1건을 둔다.
+  // 연속 최대 9라 중단하지 않는다. 누적이면 50번째 옛 메일에서 끊겨 뒤의 최근 2건을 잃는다.
+  const total = 61
+  const old = new Set<number>()
+  for (let block = 0; block < 6; block += 1)
+    for (let i = 1; i <= 9; i += 1) old.add(total + 1 - (block * 10 + i))
+  const now = Date.now()
+  f.remote(Array.from({ length: total }, (_, i) => `u${i + 1}`))
+  f.dates(
+    Object.fromEntries(
+      Array.from({ length: total }, (_, i) => [
+        i + 1,
+        old.has(i + 1) ? now - 20 * DAY_MS : now - 60_000
+      ])
+    )
+  )
+  const recent = Array.from({ length: total }, (_, i) => i + 1).filter((n) => !old.has(n))
+  expect(recent).toHaveLength(7)
+
+  const manager = await syncManager(f)
+  close.push(() => manager.close())
+  await manager.sync()
+
+  expect(retrNumbers(f)).toEqual(recent)
+})
+
+it('stops scanning after grace consecutive out-of-window headers', async () => {
+  const f = await setup()
+  await f.login()
+  // 최신 쪽 50건이 연속으로 경계 밖이면 그 지점에서 멈춘다 — 뒤의 최근 3건은 받지 않는다(D-026).
+  const total = 53
+  const now = Date.now()
+  f.remote(Array.from({ length: total }, (_, i) => `u${i + 1}`))
+  f.dates(
+    Object.fromEntries(
+      Array.from({ length: total }, (_, i) => {
+        const scanPos = total - i
+        return [i + 1, scanPos <= 50 ? now - 20 * DAY_MS : now - 60_000]
+      })
+    )
+  )
+
+  const manager = await syncManager(f)
+  close.push(() => manager.close())
+  await manager.sync()
+
+  expect(retrNumbers(f)).toEqual([])
+})
+
+it.each([
+  [undefined, []],
+  [30, [1]]
+] as const)(
+  'retentionDays %s moves the ingest boundary with the cleanup boundary',
+  async (retentionDays, expected) => {
+    const f = await setup()
+    await f.login()
+    const now = Date.now()
+    f.remote(['u1'])
+    f.dates({ 1: now - 20 * DAY_MS })
+
+    const manager = await syncManager(f, retentionDays)
+    close.push(() => manager.close())
+    await manager.sync()
+
+    expect(retrNumbers(f)).toEqual(expected)
+    // 같은 retentionDays가 정리 경계도 움직인다 — 수집된 메일이 곧바로 만료되지 않는다.
+    expect(await manager.store.cleanupExpired(now, retentionDays)).toBe(0)
+    expect(manager.search('회의', 10).results).toHaveLength(expected.length)
+  }
+)

@@ -3,6 +3,7 @@ import { isFresh } from './freshness'
 import { buildMailQuery } from './query-builder'
 import { reconcileUidls } from './reconcile'
 import { decideProtection } from './protection'
+import { decideIngest, retentionCutoff } from './retention-window'
 import { parseMail } from './mime'
 import { Pop3Error, normalizePop3Error } from './pop3/errors'
 import { withMailSession } from './auth'
@@ -131,23 +132,23 @@ export async function createMailSyncManager(
                 store.markMissing(reconciled.missing)
                 let processed = 0
                 const newest = [...remote].sort((a, b) => b.messageNumber - a.messageNumber)
-                let oldHeaders = 0
-                const grace = 50
+                // 연속 카운트는 `decideIngest`가 돌려주는 값만 쓴다 (D-062 · EP-28 ②).
+                let consecutiveOld = 0
+                const cutoff = retentionCutoff(timestamp, options.options.retentionDays)
                 for (const item of newest) {
                   if (operationSignal.aborted)
                     throw new Pop3Error(budget.signal.aborted ? 'timeout' : 'cancelled')
                   if (!reconciled.fresh.includes(item.uidl)) continue
                   onStage?.({ stage: 'top' })
                   const top = await session.top(item.messageNumber)
-                  const date = dateFromHeaders(top)
-                  if (
-                    date !== null &&
-                    date < timestamp - (options.options.retentionDays ?? 14) * 24 * 60 * 60 * 1000
-                  ) {
-                    oldHeaders += 1
-                    if (oldHeaders >= grace) break
-                    continue
-                  }
+                  const decision = decideIngest({
+                    headerDate: dateFromHeaders(top),
+                    cutoff,
+                    consecutiveOld
+                  })
+                  consecutiveOld = decision.consecutiveOld
+                  if (decision.action === 'stop') break
+                  if (decision.action === 'skip') continue
                   onStage?.({ stage: 'retr' })
                   const raw = await session.retr(item.messageNumber)
                   const document = await parseMail(raw, {
