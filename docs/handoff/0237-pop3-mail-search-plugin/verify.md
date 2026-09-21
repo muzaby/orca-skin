@@ -585,3 +585,192 @@ r3의 비차단 D2~D11은 r4가 처리했다고 보고했다. 이번 턴은 D5(j
 - 막았어야 할 지침: plan의 pair 등록부는 `NEW`·`CHANGED` node에 pair를 요구하지만, **V1 시점부터 ACTIVE인 Decision에 pair가 없는 경우**를 걸러내는 규칙이 없다. D-007·D-026이 그 틈으로 통과했다.
 - 반복 환경 한계: `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 설치라 electron 의존 8파일 미실행. better-sqlite3는 `npm rebuild`로 Node ABI 정렬 후 DB 스위트 실행.
 - 사람 실기 대기는 r3과 동일하다 — 사내 POP3 TLS·사설 CA·실 인코딩·최초 수집 성능.
+
+---
+
+# r6 검증 (3회차 verify 턴) — ΔV4
+
+## 메타 (r6)
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 일자 | 2026-09-21 |
+| 대상 커밋/range | `c443e453..8266e795` — ΔV4 설계 `c443e453`(`Status: designed`) · r6 구현 `8266e795`(`Status: implemented`) |
+| 구현 전 plan 기준 | `c443e453` — 설계 커밋이 구현 커밋보다 앞선다 |
+| V mode / 유효 V | `Delta V` / `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
+| 라운드 | 6 |
+| 상태 | **FAIL** — root `PAIR_FAIL: VP-34`(AC41 ③). ①·②와 VP-35·REGRESSION은 PASS다 |
+| 자기 검증 여부 | **그렇다** — r6 구현자도 Claude Code다. 분모에 구현 보고가 이름을 대지 않은 적대 축 **6건**을 넣었고 §10 분모를 독립 재열거했다 |
+
+r3·r5 판정 원문은 위 본문에 보존한다. 여기서는 재서술하지 않고 변경분만 적는다.
+
+## 0. 기준선 (r6)
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| 설계/구현 커밋 분리 | **성립** | `c443e453`(designed) → `8266e795`(implemented). §0 자기 증명 방지 장치가 작동한다 |
+| 규범 행 변경 여부 | **없음** | `git show 8266e795 -- plan.md`의 삭제 줄은 메타 `상태` 1줄뿐이고 나머지는 `[구현자 기입] (r6)` 추가다. Decision·AC·V·§10 행 변경 0 |
+| AC 합계 | **42 = AC1~38 + AC25b·28b + AC40 + AC41** | AC39 철회는 세지 않는다. 자기보고 `Criteria-Met: 42/42`와 일치 |
+| handoff-review | **미실행 — 승계된 사용자 면제** | 라운드 6으로 3을 넘는다. r5의 면제 지시를 r6이 승계했고 plan `설계 리뷰 (r6)`에 기록돼 있다. 이번 턴에 뒤집는 지시 없음 |
+| `[구현자 기입]` 필드 | **7/7** | 설계 리뷰·강제 지점 전수·이번 라운드 수정의 잠금·Product/UX 파생 검토·놓친 잠재 문제·구현 보고·Review Signals. 산문으로 접힌 필드 없음 |
+
+### Plan validity (ΔV4)
+
+| 검사 | 판정 |
+|---|---|
+| Delta V 재구성 가능 | 성립 — 기준 `V1`, 적용 순서 `ΔV1→ΔV2→ΔV3→ΔV4`가 메타에 있고 각 좌표가 실재한다 |
+| 레벨 선택 | 성립 — 사용자가 찾는 메일 집합이 달라지므로 `R↔AT`(VP-34)와 모듈 seam `MD↔UT`(VP-35) 둘 다 있다 |
+| `NEW` 노드의 `REQUIRED` pair | 성립 — R-10·MD-13 각각 REQUIRED |
+| `INHERITED` 회귀 | 성립 — VP-03·14·15를 REGRESSION으로 지정 |
+| 적대 증거 선택 | 성립 — 두 pair 모두 `required`이고 변이를 지명한다 |
+
+## 1. 구현 비판적 검토 — AC 전에
+
+판정: **프로덕션 코드는 D-062를 정확히 따른다.** 결함은 동작이 아니라 ③의 oracle이다.
+
+- 경계 등가성: 구 코드는 메시지마다 `timestamp - (retentionDays ?? 14) * 86400000`을, 새 코드는 루프 밖 `retentionCutoff(timestamp, retentionDays)`를 쓴다. 같은 `timestamp`라 값이 같다(`sync-manager.ts:137`).
+- 중단 임계 등가성: 구 `oldHeaders += 1; if (oldHeaders >= 50) break`와 신 `consecutiveOld + 1 >= grace ? 'stop'`이 같은 지점에서 끊는다 — 50번째 옛 헤더에서 중단하고 그 메일은 RETR하지 않는다.
+- `headerDate === null` 경로: 구 코드의 `date !== null && …` 단락과 신 `action:'fetch'`가 같다. 유실을 만들지 않는다(`retention-window.ts:38`).
+- false success 축: `stop`으로 끊어도 그때까지 저장한 메일은 남고 `synced:true`가 나간다 — 구 동작과 같다.
+- **새 실패 모드**: 연속 카운트는 날짜가 뒤섞인 사서함에서 사서함 전체를 훑을 수 있다. 상한이 `syncMs`(120s) 하나다. 구현자가 같은 관측을 `놓친 잠재 문제 (r6)`에 적었고 이것이 D-063(OPEN)의 경로다.
+
+## 2. 역방향 탐색 (r6)
+
+`scan-surface.sh c443e453..8266e795` 후보를 직접 대조했다.
+
+| 후보 | 판정 |
+|---|---|
+| `INGEST_GRACE`·`RETENTION_DAYS` "프로덕션 0" | **오탐** — 정의 파일 내부에서 쓴다(`retention-window.ts:37`·`:12`). 스크립트가 자기 파일 참조를 세지 않는다 |
+| `IngestAction` 타입 전용 export | 정상 — `IngestDecision.action`의 시그니처용이다 |
+| 형제 파일 정책 비대칭 | 0건 |
+| 미사용 값 export | 0건 |
+
+§10 분모 독립 재열거 — 술어를 해법 이름이 아니라 **불변식의 주어**("일→ms로 경계를 계산하는 자리")로 뒀다.
+
+- `rg -E '24 \* 60 \* 60 \* 1000|86400000' plugins/mail --include=*.ts`(테스트 제외) → **2건**: `retention-window.ts:13`(retention 경계) · `attachment-export.ts:15`(`STALE_STAGE_MS`, 첨부 staging 24시간 — 다른 불변식).
+- `retentionCutoff` 프로덕션 호출부 **2건**: `sync-manager.ts:137` · `store/index.ts:268`.
+- `oldHeaders` 프로덕션 잔존 **0건**, `grace` 리터럴은 `retention-window.ts` 안에만.
+
+구현자 보고 `EP-28 3/3`의 **코드 축은 재측정으로 일치**한다. 잠금 축은 §4가 가른다.
+
+## 3. 등록된 적대 증거 재측정 (구현 보고와 무관하게 재실행)
+
+전건 재현. 명령은 `./node_modules/.bin/vitest run src/main/features/plugins/mail src/main/app/deployment`(변경 전 기준선 **14파일 160 pass**).
+
+| 변이 | 출처 | 구현자 보고 | **재측정** |
+|---|---|---|---|
+| `decideIngest`의 `fetch` 리셋 제거(누적 복귀) | VP-34 선택 증거 ① | 4 red | **4 red** — AT `collects every recent mail` 1 + UT 3 |
+| `INGEST_GRACE` 50 → 1 | VP-34 선택 증거 ② | 4 red | **4 red** — AT 1 + UT 3 |
+| `RETENTION_DAYS` 14 → 30 | VP-35 선택 증거 | 7 red | **7 red** — AT 4 + `retention-window` UT 1 + `store` UT 2 |
+
+## 4. 검증자 신설 적대 축 (구현 보고가 이름을 대지 않은 지점)
+
+자기 검증 라운드라 보고 목록의 재실행만으로는 분모가 되지 않는다. 같은 계약을 **다른 지점**에서 깨는 변이와 **형제 지점**을 새로 심었다.
+
+| # | 변이 | 무엇을 묻는가 | 결과 |
+|---|---|---|---|
+| N1 | `headerDate === null` 보호 제거(`!== null &&`) | 날짜 미상 메일 유실 금지 | **3 red** |
+| N3 | `sync-manager`가 `retentionDays`를 버림(`retentionCutoff(timestamp)`) | 수집 경계의 옵션 추종 | **1 red** |
+| N4 | stop 임계 `>= grace` → `> grace` | 중단 지점 off-by-one | **3 red** |
+| N5 | 경계 `>= cutoff` → `> cutoff` | 경계 ±1ms | **1 red** |
+| N6 | `stop`을 `skip`으로(영영 중단 안 함) | 중단 자체의 관측 | **3 red** — AT `stops scanning`이 잡는다 |
+| **N2** | **`store.cleanupExpired`가 `retentionDays`를 버림(`retentionCutoff(now)`)** | **정리 경계의 옵션 추종** | **green — 160 전건 통과** |
+| **N2b** | **정리 경계를 1일로 고정(`retentionCutoff(now, 1)`)** | 같은 축을 더 세게 밈 | **green — 27 전건 통과** |
+
+### G2 — AC41 ③의 정리 쪽 oracle이 공허하다 (root)
+
+판정: **`PAIR_FAIL: VP-34`.** ①·②는 프로덕션 경로에서 잠겨 있고 ③은 절반만 잠겼다.
+
+- 계약: **AC41 ③** "`retentionDays`를 바꾸면 수집 경계와 `cleanupExpired` 경계가 **함께** 움직인다" · **EP-28 ③** 실패 의미 "경계 상수 두 사본이 다시 갈림".
+- 단언 위치: `mail.integration.test.ts:659` `expect(await manager.store.cleanupExpired(now, retentionDays)).toBe(0)`.
+- **왜 공허한가**: 같은 파일의 `RETR` fixture(`:123`)에 `Date:` 헤더가 없다. `TOP`만 `headerDates`를 싣고 본문은 싣지 않으므로 저장된 `header_date`는 `null`이고, `cleanupExpired`의 `COALESCE(header_date, first_seen_at)`가 **동기화 시각**을 본다. 경계를 1일로 좁혀도(N2b) 삭제 대상이 0이다.
+- 관측: N2 green(160/160) · N2b green(27/27). 수집 쪽 같은 변이(N3)는 red다 — 두 사본 중 한쪽만 잠겨 있다.
+- **구현 보고와의 차이**: `강제 지점 전수와 V-pair 자기확인 (r6)`의 VP-34 직접 관측은 "`retentionDays` 30이 수집·정리 경계를 **함께** 이동"이다. 정리 쪽 이동은 재현되지 않았다.
+- **왜 `PLAN_GAP`이 아닌가**: ΔV4가 oracle을 이미 지명했다. 새 계약을 발명하지 않고 fixture로 닫을 수 있다.
+- **왜 `NON_BLOCKING`이 아닌가**: VP-34는 이번 라운드의 `REQUIRED` pair이고 AC41 ③은 그 pair가 닫는 행이다.
+- **프로덕션 코드는 정정 대상이 아니다.** `sync-manager.ts:85`와 `:137`이 같은 `options.options.retentionDays`를 넘기고 `store/index.ts:268`이 그것을 `retentionCutoff`에 넘긴다 — 동작은 맞다. 빠진 것은 그 동작이 깨졌을 때 우는 장치다.
+- 대응 방향(제안): `RETR` 응답에도 `headerDates`의 `Date:`를 싣고, `retentionDays: 30`으로 20일 된 메일을 수집한 뒤 `cleanupExpired(now, 14)`가 **1**을, `cleanupExpired(now, 30)`이 **0**을 돌려주는 대조를 둔다. 프로덕션 경로로 닫으려면 두 번째 `sync()`의 `expired`를 관측한다.
+
+## 5. 덮개 회귀 — 이전 라운드 red 변이 재실행
+
+판정: **덮개 회귀 0.**
+
+| 변이 | 이전 관측 | 이번 관측 |
+|---|---|---|
+| `freshness.ts`에 런타임 `import { connect } from 'node:net'` (VP-10) | r5 red | **red** (1 failed) |
+| `preserveGrant` threading 제거 (`login.ts:353`) | r5 red (1) | **red** (2 failed) |
+| jira 첨부 root 자기정규화 제거 (EP-25) | r5 red | **red** (2 failed) |
+| mail 첨부 root 자기정규화 제거 (EP-25) | r5 red | **red** (2 failed) |
+| retention 경계 14 → 30 (VP-15/EP-03) | r5 3 red (`store.cleanupExpired` 인라인 리터럴) | **7 red** — 장치가 `RETENTION_DAYS`로 이설됐고 구 장치가 잡던 `store/index.test.ts:99`·`:231` 두 자리가 그대로 red다 |
+
+r5 D12(경계 상수 두 사본)가 인용한 변이 "`sync-manager`의 14→30 → 149 전건 통과"는 이제 **7 red**다 — 닫혔다.
+
+## 6. V-pair closeout (r6) — `UT → IT → ST → AT`
+
+| Pair | 레벨 | requiredness | 판정 | 증거 |
+|---|---|---|---|---|
+| VP-35 / MD-13 ↔ UT-13 | MD↔UT | REQUIRED (NEW) | **PASS** | 순수 호출 직접 단언. 선택 증거 1 + 신설 4축(N1·N4·N5·N6) 전건 red |
+| VP-34 / R-10 ↔ AT-24 | R↔AT | REQUIRED (NEW) | **PAIR_FAIL** | ① AT red(M1) · ② AT red(M2·N6) · **③ 정리 쪽 oracle 공허(N2·N2b green)** |
+| VP-03 (R-03 ↔ AT-07·08·09) | R↔AT | REGRESSION | **PASS** | `cleanupExpired`가 `retentionCutoff` 경유. 14→30이 `store/index.test.ts` 2케이스 red |
+| VP-14 (MD-01 ↔ UT-01·01b) | MD↔UT | REGRESSION | **PASS** | 보호 분기·RETR 횟수 관측 160 pass 유지, 회귀 0 |
+| VP-15 (MD-02 ↔ UT-02) | MD↔UT | REGRESSION | **PASS** | SSOT 이설 후에도 경계 우선순위·±1초 단언 red 유지 |
+| VP-01~33 그 밖 | — | NOT_REQUIRED | — | 수집 루프·retention 경계 비접촉. 증거 좌표는 r3·r5 본문 |
+
+직접 판정 **PASS 4 · PAIR_FAIL 1 · PLAN_GAP 0**. `BLOCKED_BY`는 없다 — VP-34의 ①·②는 ③과 독립으로 관측했다.
+
+## 7. 운영 gate (r6) — 관측한 산출
+
+| Gate | 관측 |
+|---|---|
+| lint | `✖ 1 problem (0 errors, 1 warning)` — 기존 `useTranscriptVirtualizer.ts:22`. **실행 후 `git status --short` 0줄** |
+| typecheck | exit 0 — node/web/test 3구성 |
+| 영향 회귀 | `plugins/mail` + `app/deployment` **14파일 160 pass** |
+| 전체 vitest | **545파일 pass · 8 fail · 1 skip (554)** / **5,099 pass · 3 skip** |
+| 전체의 8 fail | 환경 기인 — 8건 전부 `Electron failed to install correctly` import 실패. `app/AGENTS.md §제약 환경 게이트 가이드`의 알려진 서명이며 변경 무관 |
+| scripts | `# tests 120 · # pass 120 · # fail 0` |
+| migration | `core 27 · mail 1` · `no-copies ok: 1275 files, 3 list owners` · `append-only ok since v0.3.1` |
+| doc inventory | `9 items, 98 channels` · prose ok · links ok |
+
+검증 중 실행한 명령이 남긴 미추적 산출물 **0** — 모든 변이는 `git checkout --`로 되돌렸고 매 단계 `git status --short`가 빈 출력이다.
+
+## 8. Repository operation checks (r6)
+
+| 검사 | 판정 |
+|---|---|
+| trailer 파싱 | `8266e795` 7키 · `c443e453` 5키 전건 파싱. `Agent: claude` · `Status: implemented|designed`는 허용값 |
+| 설계/구현 분리 | 성립 (§0) |
+| INDEX 인용 좌표 실재 | **20/20** — `git cat-file -t`로 전수 확인 |
+| INDEX 대상 커밋 | `(r6 구현 — 검증자 기입)` 자리표시자 → 이번 턴에 `8266e79` 기입 |
+| INDEX 비고 길이 | 4줄 (상한 5) |
+| `AGENTS.md` 변경 | 이번 range에 없음 — 해당 없음 |
+
+## 9. 못 본 것
+
+- r5 D13(`referencedContentIds` 원문 미포함)·D14(`normalize.ts` 도달 불가 폴백)는 **재측정하지 않았다**. 이번 range가 닿지 않는다.
+- 사람 실기 대기는 r3·r5와 같다 — 사내 POP3 TLS·사설 CA·실 인코딩·최초 수집 성능.
+- D-063(OPEN, 예산 초과 시 반환 형상)은 사용자 결정이라 판정하지 않았다. 이번 변경이 그 경로의 도달 확률을 올린다는 구현자 관측은 §1에서 재확인했다.
+
+## 10. Finding disposition (r6)
+
+| # | 이슈 | 출처 계약 | 분류 | 대응 방향 |
+|---|---|---|---|---|
+| G2 | AC41 ③의 정리 쪽 단언이 공허하다 — `RETR` fixture에 `Date:`가 없어 저장 메일의 실효 날짜가 `first_seen_at`이다. 정리 경계를 1일로 고정해도 green | AC41 ③ · EP-28 ③ · VP-34 | **BLOCKING (root `PAIR_FAIL`)** | `RETR`에도 `Date:` 탑재 후 `cleanupExpired(now,14)=1` ↔ `(now,30)=0` 대조. 프로덕션 경로면 두 번째 `sync()`의 `expired` |
+| D15 | `store/index.test.ts`의 `cleanupExpired` 호출 3곳이 전부 `retentionDays`를 생략한다 — 옵션 추종이 store UT에도 없다 | 비귀속 (G2와 같은 뿌리) | NON_BLOCKING | G2를 닫을 때 store UT에 명시 인자 케이스 1건 |
+
+## 11. 결론 (r6)
+
+**FAIL.** root `PAIR_FAIL: VP-34`(AC41 ③). 다음 주체는 구현자이고 라운드는 7이 된다.
+
+- 프로덕션 코드 결함은 **0건**이다. D-062의 연속 카운트 전환과 경계 SSOT 통합은 정확하고, ①·②는 프로덕션 경로에서 잠겼다.
+- 막힌 것은 ③의 장치 하나다 — fixture 한 줄이 원인이고 계약은 이미 ΔV4에 있다. `RETURN_TO_PLAN`이 아니다.
+- `PLAN_GAP` 0건. ΔV4는 유효하다.
+
+## 12. Review Signals — 사실만 (r6)
+
+- **같은 증상의 3연속이다** — r3 D1(공허한 스윕) · r5 G1(oracle 부재) · r6 G2(공허한 단언). 셋 다 "게이트가 적혀 있으나 그 자리를 재지 못한다"이고, 지점만 좁아졌다.
+- 이번 G2는 **ΔV4가 신설한 oracle 자체**에서 났다. 직전 라운드가 oracle 부재를 고치며 만든 장치가 다시 절반만 쟀다.
+- 관련 plan 지침은 있었다 — AC41 ③이 검증 수단을 문장으로 지명했다. 구현자 보고도 그 문장을 인용했으나 관측으로 되돌려 재지 않았다.
+- **자기 검증 라운드였다.** 등록된 3변이는 보고대로 전건 재현했고, G2는 보고가 이름을 대지 않은 **형제 지점**(N2)에서만 나왔다. 보고 목록의 재실행만 했다면 이 라운드는 PASS로 올라갔다.
+- 사용자 결정 변경 근거: 없음. D-063은 OPEN 그대로다.
+- 반복 환경 한계: `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 설치라 electron 의존 8파일 미실행.

@@ -11,7 +11,7 @@
 | 작성자 | Claude Code (V1·ΔV1·ΔV4), **Codex (ΔV2·ΔV3 설계·구현)** |
 | 일자 | 2026-09-21 |
 | 매핑 | 없음 (신규 제품 기능) |
-| 상태 | IMPL_DONE — ΔV4 r6 구현 완료, 독립 verify 대기 |
+| 상태 | verify/FAIL — r6 검증 결과 root `PAIR_FAIL: VP-34`(AC41 ③). 다음은 재구현 턴(r7) |
 | V mode | `Delta V` (기준 `V1`) |
 | 기준 V | `V1` — 본 plan의 Baseline, commit `07ec3a6`~`e3ea535` |
 | 이번 V revision | `ΔV4` (r5 verify `PLAN_GAP: G1` 정정) |
@@ -1389,6 +1389,18 @@ AC 자기보고 **40/40 유지**. 보완 패스는 AC를 추가하거나 분할�
 | D9 | §15 의 `MailPluginOptions` 가 `host` 를 포함 — D-057 이후의 `types.ts` 와 갈린다 | plan §15 | 설계자가 §15 형상을 갱신한다 | NON_BLOCKING | closed (r4 자기확인 — §15 좌표 제거) |
 | D10 | `manager.search()` 가 같은 질의를 2회 실행하고 `total` 이 `limit` 으로 잘린다 | 비귀속 | 1회 실행 후 재사용하고 `total` 의미를 확정한다 | NON_BLOCKING | closed (r4 자기확인 — 조회 1회·기존 반환 건수 유지) |
 | D11 | 메타의 기준 V 좌표 `e252c6b` 가 실재하지 않는다 — 실제는 `e3ea535` | plan 메타 | 설계자가 좌표를 정정한다 | NON_BLOCKING | closed (r4 자기확인 — 실재 기준 좌표 정정) |
+
+## [검증자 기입] 파생 이슈 (r6)
+
+> r6 검증 = **FAIL**. 판정 원문은 [`verify.md` r6](verify.md) — 여기 표는 이관 목록이다.
+> 닫힘은 대응 방향의 수행이 아니라 `출처` 계약의 성립이다.
+
+| # | 이슈 | 출처 pair / 계약 | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| G2 | AC41 ③의 정리 쪽 단언이 공허하다 — `RETR` fixture에 `Date:`가 없어 저장 메일의 실효 날짜가 `first_seen_at`이다. `cleanupExpired` 경계를 1일로 고정해도 27건 전건 green | VP-34 / AC41 ③ / EP-28 ③ | `RETR` 응답에도 `headerDates`의 `Date:`를 싣고 `cleanupExpired(now,14)=1` ↔ `(now,30)=0` 대조를 둔다. 프로덕션 경로로 닫으려면 두 번째 `sync()`의 `expired`를 관측한다 | **BLOCKING (root `PAIR_FAIL`)** | open |
+| D15 | `store/index.test.ts`의 `cleanupExpired` 호출 3곳이 전부 `retentionDays`를 생략한다 — 옵션 추종이 store UT에도 없다 | 비귀속 (G2와 같은 뿌리) | G2를 닫을 때 store UT에 명시 인자 케이스 1건 | NON_BLOCKING | open |
+
+**수집 쪽은 잠겨 있다** — `sync-manager`가 `retentionDays`를 버리는 변이는 red다. 프로덕션 코드 결함 0건이며 고칠 대상은 oracle 하나다.
 
 ## [구현자 기입] 설계 리뷰 (r4)
 
