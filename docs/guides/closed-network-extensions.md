@@ -798,6 +798,12 @@ Auth를 만료시키고 세 도구를 함께 회수한다. 연결·TLS·타임�
 `stale` 결과를 돌려준다. 첨부는 `mail_search`의 `attachmentId`를 사용해 `mail_getAttachment`를 건별로
 호출하며, 내부 `mail.db` 경로는 출력하지 않는다.
 
+새로 수집한 메일의 첨부 목록에서 본문 임베드 이미지는 제외된다. MIME의 `image/*` part 중
+`related`, `inline`, HTML `cid:` 참조에 해당하는 이미지는 파일로 저장하거나 모델에 첨부로
+노출하지 않는다. 파일명 유무로 분류하지 않으므로 일반 이미지 파일 첨부와 파일명 없는 일반
+첨부는 유지한다. 기존 캐시는 다시 받거나 추측 삭제하지 않으며 기존 보존 기간을 따른다.
+POP3는 메시지 전체를 받으므로 이 정책이 원문 다운로드량까지 줄이지는 않는다.
+
 ### Jira Data Center 내장 도구
 
 Jira도 같은 lifecycle로 조립한다. `origin`은 scheme+host(+port)만 두고, Jira가 context path 아래에
