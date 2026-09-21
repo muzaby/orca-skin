@@ -433,3 +433,155 @@ node --test scripts/*.test.mjs
 - repository operation checks: trailer 7/7 파싱 · `[구현자 기입]` 7필드 전수 · 죽은 좌표 1건(D11)
 - 남은 사람 확인: 사내 POP3 TLS·실 인코딩·10,000통 성능·연결 탭 문구 시각 확인 4건
 - **다음 단계**: r4 재구현 전에 `handoff-review` 를 수행한다(라운드 3 초과). 그 뒤 구현자가 **D1 한 건**을 닫는다 — 허용목록 밖 프로덕션 파일에 런타임 `node:net` import 를 심은 상태에서 `pop3/native-boundary.test.ts` 가 red 여야 한다. D2~D11 은 같은 push 에 실을 수 있으나 blocking 이 아니다
+
+---
+---
+
+# r5 검증 (2회차 verify 턴) — ΔV3
+
+## 메타 (r5)
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 일자 | 2026-09-21 |
+| 대상 커밋/range | `7d3e72ff..78827db0` — r4 `958a5f9e`(D1~D11 보완) · ΔV3 설계 `d674b472`·`be68a0ce`·`5ae4db6c` · r5 `78827db0`(본문 임베드 이미지 제외) |
+| 구현 전 plan 기준 | r4는 `58f7b679`, r5는 `5ae4db6c` — 둘 다 `Status: designed` 커밋이 구현 커밋보다 앞선다 |
+| V mode / 유효 V | `Delta V` / `V1 + ΔV1 + ΔV2 + ΔV3` |
+| 라운드 | 5 |
+| 상태 | **RETURN_TO_PLAN** — root `PLAN_GAP: G1`. 이번 라운드 선언 범위는 전건 PASS다 |
+| 자기 검증 여부 | **아니다** — r4·r5 구현은 Codex. 다만 REGRESSION 범위에 검증자 본인의 r3 보완(`6522bdc`)이 포함되므로 해당 축(C1~C3)을 별도로 재측정했다 |
+
+r3 판정 원문은 위 본문에 보존한다. 여기서는 재서술하지 않고 변경분만 적는다.
+
+## 0. 기준선 (r5)
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| 설계/구현 커밋 분리 | **성립** | `Status: designed` 5건과 `Status: implemented` 2건이 서로 다른 커밋이다. §0 자기 증명 방지 장치가 작동한다 |
+| AC·Decision 완화 여부 | **없음** | AC39·VP-31은 사용자 지시(D-061)로 철회됐고 코드 diff 0으로 확인했다 — 구현 편의가 아니라 사용자 결정이다 |
+| D-061 철회의 실측 | **확인** | `git diff 958a5f9e..HEAD -- pop3-session.ts pop3/session.ts pop3-session.test.ts` → 출력 0줄. UIDL 70자 제한 `pop3-session.ts:235` 원형 유지 |
+| AC 합계 | **41 = 40 + AC40** | AC39 철회를 활성 기준에 세지 않는다. pair `30 + VP-32·33 = 32`. 두 축 모두 자기보고와 일치 |
+| handoff-review | **미실행 — 사용자 지시** | 라운드 5로 3을 넘지만 plan ΔV3 서두와 INDEX에 사유가 기록돼 있다. 절차 이탈이 아니라 기록된 면제다 |
+
+## 1. root `PAIR_FAIL: VP-10` 의 닫힘 — 재측정
+
+판정: **닫혔다.** r3이 green으로 관측한 결정적 변이가 이번에는 red다.
+
+- r3 결정적 변이 재현: `features/plugins/mail/freshness.ts`에 런타임 `import { connect } from 'node:net'` → `1 failed | 13 passed`, 실패 메시지가 `features/plugins/mail/freshness.ts`를 이름으로 지목한다. r3에서는 `3 tests passed (green)`이었다.
+- 구조 교체 확인: 가드가 `stripCommentsAndStrings` 기반 정규식에서 **TypeScript AST 순회**로 바뀌었다. 문자열 리터럴을 비우는 단계가 경로에서 사라졌다.
+- **구현 보고가 이름을 대지 않은 회피 축 4건을 추가로 심었다** — 전건 red:
+
+| 심은 형태 | 결과 |
+|---|---|
+| `const s = await import('node:tls')` | red |
+| `const n = require('node:net')` | red |
+| `export { Socket } from 'node:net'` | red |
+| `import net = require('node:net')` | red |
+
+- 거짓 양성 대조: `import type { Socket } from 'node:net'` → **green 유지**. 타입 전용 예외가 설계대로 동작한다.
+- 스윕 전수성: `sourceFiles`는 `src/main` 하위 `.ts` 전체에서 `.test.ts`만 제외한다(재귀). 프로덕션 `.ts` **291개**가 분모다. 허용은 `infra/net/pop3-socket.ts` 경로 1건이며 basename이 아니라 경로로 비교한다.
+
+## 2. ΔV3 — VP-32 · VP-33 재측정
+
+판정: **PASS.** 선택 증거 1건을 재현하고, 분류기의 각 조건을 독립적으로 5축 더 심었다.
+
+- oracle 실재성: `mime.test.ts`가 실제 `createMailStore`(SQLite) · `readdir(store.attachmentRoot)`(디스크 파일 수) · `store.search`(공개 매니페스트) · `readAttachment`(bytes 왕복)를 지난다. 동명 로컬 재구현이 아니다.
+- fixture 정합: HTML이 `cid:signature` · `CID:encoded%40example` · `cid:prefix-long` · `cid:bad%ZZ` 4건을 참조하고, 12개 분류 케이스가 이 참조와 하나씩 대응한다.
+
+| 심은 결함 | 출처 | 결과 |
+|---|---|---|
+| 필터 전체 우회 (`return true`) | VP-32 선택 증거 | **red** — `8 failed | 7 passed`. 구현자 보고 "분류 6 + 저장소 2 = 8"과 정확히 일치 |
+| `related` 항 제거 | 검증자 신설 | **red** (2 케이스) |
+| `disposition === 'inline'` 항 제거 | 검증자 신설 | **red** (1 케이스) |
+| cid 참조 항 제거 | 검증자 신설 | **red** (5 케이스) |
+| 완전 ID 일치 → 접두사 일치 | 검증자 신설 | **red** (1 케이스 — `cid:prefix-long` ↛ `prefix`) |
+| `image/*` 제한 제거 | 검증자 신설 | **red** (1 케이스 — inline 비이미지 보존) |
+
+검산: 선택 증거 **1** · 인용 변이 **0** · 검증자 신설 **5** = **6행**. 세 조건이 각각 독립으로 잠겨 있고, 정밀도 축(완전 ID·이미지 한정)도 잠겨 있다.
+
+- 외부 SDK 계약 대조: postal-mime 3.0.0 `Attachment`는 `mimeType: string`(nullable 아님) · `related?: boolean` · `disposition: 'attachment'|'inline'|null` · `contentId?: string`이다. 필터의 필드 사용이 실제 타입과 일치하며 `mimeType.toLowerCase()`는 안전하다.
+
+## 3. 덮개 회귀 — 이전 라운드 red 변이 재실행
+
+판정: **덮개 회귀 0.**
+
+| 변이 | r3 verify 관측 | 이번 관측 |
+|---|---|---|
+| mail 첨부 root 정규화 되돌림 | red | **red** (1 failed) |
+| `preserveGrant` threading 제거 | red | **red** (1 failed) |
+| jira 첨부 root 정규화 되돌림 | **green (D5 finding)** | **red** (1 failed) — r4가 닫았다 |
+
+jira 축은 r3 보완 당시 검증자 본인이 코드만 고치고 잠금을 빠뜨린 자리다. r4의 `attachment-store.test.ts`가 `explicit`·`default` 두 모드로 매개변수화해 닫았다.
+
+## 4. root `PLAN_GAP: G1` — TOP 수집 경계에 검증 노드가 없다
+
+판정: **`PLAN_GAP`.** ACTIVE Decision이 요구하는 강제 지점이 V 등록부·§10 어디에도 없고 oracle도 0이다.
+
+- 계약: **D-007**("TOP으로 헤더를 먼저 보고 14일 밖 메일의 RETR을 생략한다") · **D-026**("최신 메시지 번호부터 역순 TOP, 14일 경계 + 유예창을 넘으면 중단"). 둘 다 ACTIVE다.
+- 구현 위치: `sync-manager.ts:134-149` — `grace = 50`, `date < timestamp - (retentionDays ?? 14) * 24*60*60*1000`, `oldHeaders >= grace` break.
+- **결정적 변이**: 그 14를 30으로 바꿨다 → `149 passed`, **전건 통과**. 같은 변이를 `store.cleanupExpired`의 14에 가하면 `3 failed`다. 두 사본 중 하나만 잠겨 있다.
+- 미도달 근거: 통합 fixture의 TOP 응답이 `Date: ${new Date().toUTCString()}`로 **항상 현재 시각**이라(`mail.integration.test.ts:118`) `date < cutoff` 분기와 `grace` break가 어떤 테스트에서도 실행되지 않는다.
+- 전수 검색: `rg 'oldHeaders|grace' app/src/main --include=*.ts` → 프로덕션 3줄, 테스트 **0줄**.
+- pair 귀속: VP-01~33 중 이 경로를 production path로 적은 pair가 **없다**. `TOP`·`역순`·`유예`로 pair 등록부를 훑어 0건이다.
+- SSOT 표기와의 어긋남: plan §8(`146행`)과 §18(`631행`)은 retention 규칙의 SSOT를 `store.cleanupExpired`로 선언한다. 그런데 같은 경계 상수와 식이 `sync-manager`에 한 벌 더 있다. r4가 D2를 "표기를 store로 정정"으로 닫았을 때 이 두 번째 사본은 분모에 없었다.
+- **왜 `PAIR_FAIL`이 아닌가**: 현재 코드는 D-007·D-026을 위반하지 않는다. 빠진 것은 동작이 아니라 **V node/pair·§10 행·oracle**이다.
+- **왜 `NON_BLOCKING`이 아닌가**: D-026은 최초 sync 비용 상한(§14)을 위해 존재하는 결정이다. 이 경계가 잠기지 않으면 10,000통 전건 RETR로 조용히 되돌아가도 게이트가 말하지 않는다.
+- **왜 `RETURN_TO_PLAN`인가**: 닫으려면 V node/pair·requiredness·§10 EP 행·oracle 선택을 새로 적어야 한다. impl 스킬이 그것을 구현 세부가 아니라 `PLAN_GAP`으로 규정한다. 동작 계약(D-007·D-026)은 이미 있으므로 **설계 작업은 행 추가 1건, 구현 작업은 테스트 1건** 규모다 — 재구현이 아니다.
+
+## 5. V-pair closeout (r5)
+
+이번 턴 직접 판정 대상만 적는다. 영향받지 않은 이전 `PASS`는 r3 본문의 좌표를 참조하며 다시 합산하지 않는다.
+
+| Pair | requiredness | 판정 | 증거 |
+|---|---|---|---|
+| VP-10 | REQUIRED (root 재검증) | **PASS** | 음성 5변이 red · 타입 전용 green · 분모 291파일 |
+| VP-32 | REQUIRED (NEW) | **PASS** | 실제 SQLite·디스크·검색 왕복, 필터 우회 8 red |
+| VP-33 | REQUIRED (NEW) | **PASS** | 12 분류 케이스, 조건별 독립 변이 5 red |
+| VP-15 / EP-03 | REGRESSION | **PASS** | `retention.ts` 삭제 후 SSOT는 `store.cleanupExpired`. 14→30 변이 3 red |
+| VP-11·21·22·23·26·27·30 | REGRESSION | **PASS** | auth/plugin 55파일 765 pass. C2·C3 변이 red 유지 |
+| EP-25 (mail·jira) | REGRESSION | **PASS** | 코드 2/2 · **잠금 2/2** — r3의 `1/2`에서 회복 |
+
+r5 직접 판정 **3 PASS** · REGRESSION **PASS** · `PAIR_FAIL` **0** · root `PLAN_GAP` **1**.
+
+## 6. 운영 gate (r5) — 관측한 산출
+
+| Gate | 관측 |
+|---|---|
+| lint | `0 error, 1 warning` — 기존 React Compiler/TanStack(`useTranscriptVirtualizer.ts:22`). 실행 후 작업 트리 변화 **0** |
+| typecheck | exit 0 (node/web/test 3구성) |
+| 전체 vitest | **544파일 pass · 8 fail · 1 skip (553)** / **5,088 pass · 3 skip** |
+| 전체의 8 fail | 환경 기인 — `Electron failed to install correctly`. 이 세션에서 원본 트리 재측정으로 동일 8파일 동일 서명 확인 완료(변경 무관) |
+| 영향 영역 | `plugins`·`auth`·`app/deployment`·`infra/net`·`infra/db` **55파일 765 pass** |
+| scripts | `# tests 120 · # pass 120 · # fail 0` |
+| migration | `core 27 · mail 1` 동기화 · `no-copies ok: 1273 files, 3 list owners` · `append-only ok since v0.3.1` |
+| doc inventory | `9 items, 98 channels` · prose ok · **links ok** |
+
+## 7. Repository operation checks (r5)
+
+| 검사 | 판정 |
+|---|---|
+| trailer 파싱 | 7커밋 전건 파싱. `Agent: codex` · `Status: designed|implemented` 허용값 |
+| 설계/구현 분리 | 성립 (§0) |
+| `[구현자 기입]` 7필드 | r4 **7/7** · r5 **7/7** — 산문으로 접힌 필드 없음 |
+| INDEX 대상 커밋 | `(r5 구현 — 검증자 기입)` 자리표시자 → 이번 턴에 좌표 기입 |
+| INDEX 비고 길이 | 5줄 이내 |
+
+## 8. Finding disposition (r5)
+
+| # | 이슈 | 출처 계약 | 분류 | 대응 방향 |
+|---|---|---|---|---|
+| G1 | TOP 수집 경계(14일·유예 50)에 V node/pair·§10 행·oracle이 없다. 14→30 변이가 149 전건 통과 | D-007 · D-026 (ACTIVE) | **PLAN_GAP (root)** | 설계자: 수집 경계 node/pair + EP 행 신설. 구현자: 옛 `Date` 헤더 fixture로 RETR 생략과 grace break를 단언 |
+| D12 | retention 경계 상수·식이 `store.cleanupExpired`와 `sync-manager`에 두 벌. plan은 SSOT를 store로 선언 | plan §8·§18 SSOT 표기 | NON_BLOCKING | G1과 같은 뿌리다. 경계 계산을 한 곳에서 파생 |
+| D13 | `referencedContentIds`는 디코드 성공 시 **원문 형태를 집합에 넣지 않는다**. Content-ID 헤더 자체가 percent 문자를 담으면 참조가 어긋난다 | 비귀속 (ΔV3 분류 근거) | NON_BLOCKING | 디코드본과 원문을 함께 넣는다 |
+| D14 | `normalize.ts` map의 `attachment.mimeType || 'application/octet-stream'` 폴백은 SDK 타입상 도달 불가다 — 바로 위 필터가 이미 무조건 역참조한다 | 비귀속 | NON_BLOCKING | 폴백 제거 또는 필터와 표기 통일 |
+
+r3의 비차단 D2~D11은 r4가 처리했다고 보고했다. 이번 턴은 D5(jira 잠금)만 재측정해 닫힘을 확인했고, 나머지는 재측정하지 않았다 — **못 본 것으로 적는다.**
+
+## 9. Review Signals — 사실만 (r5)
+
+- root `PAIR_FAIL: VP-10`은 닫혔다. 구 장치가 잡던 자리를 새 장치가 전부 잡고, 회피 4형태까지 넓혔다.
+- G1은 **이전 라운드와 같은 증상의 다른 지점**이다 — r3의 D1(공허한 스윕)과 이번 G1(오라클 부재)은 둘 다 "게이트가 있다고 적혀 있으나 아무것도 잴 수 없다"이다. r3 verify는 29 pair를 PASS로 적으며 이 경로를 분모에 넣지 않았다.
+- 막았어야 할 지침: plan의 pair 등록부는 `NEW`·`CHANGED` node에 pair를 요구하지만, **V1 시점부터 ACTIVE인 Decision에 pair가 없는 경우**를 걸러내는 규칙이 없다. D-007·D-026이 그 틈으로 통과했다.
+- 반복 환경 한계: `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 설치라 electron 의존 8파일 미실행. better-sqlite3는 `npm rebuild`로 Node ABI 정렬 후 DB 스위트 실행.
+- 사람 실기 대기는 r3과 동일하다 — 사내 POP3 TLS·사설 CA·실 인코딩·최초 수집 성능.
