@@ -160,6 +160,30 @@ async function setup(withProbe = true): Promise<{
 }
 
 describe('mail declaration → auth → plugin → infra', () => {
+  it('reads search results once and reports the number returned after the limit', async () => {
+    const f = await setup()
+    const manager = await createMailSyncManager({
+      auth: f.auth,
+      options: f.options,
+      session: f.session,
+      root: f.root,
+      socketFactory: createPop3Socket
+    })
+    close.push(() => manager.close())
+    for (let i = 0; i < 3; i++)
+      await manager.store.saveMessage(
+        await parseMail(Buffer.from('Subject: cached\r\n\r\nbody'), {
+          uidl: `count-${i}`,
+          messageNumber: i + 1,
+          firstSeenAt: Date.now()
+        })
+      )
+    const read = vi.spyOn(manager.store, 'search')
+    const result = manager.search('', 2)
+    expect(read).toHaveBeenCalledTimes(1)
+    expect(result.total).toBe(2)
+    expect(result.results).toHaveLength(2)
+  })
   it('search stays local and stale without a prior sync for every input shape', async () => {
     const f = await setup()
     vi.mocked(createPop3Socket).mockImplementation(() => {

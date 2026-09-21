@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { isFresh } from './freshness'
-import { isExpired } from './retention'
 import { buildMailQuery } from './query-builder'
 import { reconcileUidls } from './reconcile'
 import {
@@ -48,13 +47,6 @@ describe('mail pure policy modules', () => {
     expect(isFresh({ now: 1000, lastSyncAt: null })).toBe(false)
     expect(isFresh({ now: 1000 + 5 * 60 * 1000, lastSyncAt: 1000 })).toBe(true)
     expect(isFresh({ now: 1000 + 5 * 60 * 1000 + 1, lastSyncAt: 1000 })).toBe(false)
-  })
-
-  it('retention uses header date when present and firstSeenAt otherwise', () => {
-    const day = 24 * 60 * 60 * 1000
-    expect(isExpired({ now: 14 * day, headerDate: 0, firstSeenAt: 10 * day })).toBe(false)
-    expect(isExpired({ now: 14 * day + 1, headerDate: 0, firstSeenAt: 10 * day })).toBe(true)
-    expect(isExpired({ now: 14 * day + 1, headerDate: null, firstSeenAt: 0 })).toBe(true)
   })
 
   it('uses LIKE for short fragments and escaped MATCH tokens for longer text', () => {

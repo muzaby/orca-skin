@@ -63,6 +63,80 @@ function document(uidl: string, date = 1000): MailDocument {
 }
 
 describe('mail store', () => {
+  it.each(['match', 'like', 'empty'] as const)(
+    'keeps sender and recipients distinct in %s results',
+    async (mode) => {
+      const store = await fixture()
+      await store.saveMessage({
+        ...document('projection'),
+        fromAddr: 'sender@example.test',
+        toAddrs: 'recipient@example.test',
+        subject: 'distinctsubject'
+      })
+      const query =
+        mode === 'empty' ? '' : mode === 'like' ? '%distinctsubject%' : 'distinctsubject'
+      expect(store.search(query, 10, mode === 'empty' ? 'match' : mode)[0]).toMatchObject({
+        from: 'sender@example.test',
+        to: 'recipient@example.test',
+        subject: 'distinctsubject'
+      })
+    }
+  )
+
+  it('uses headerDate before firstSeenAt, falls back only for null, and keeps the exact cutoff', async () => {
+    const store = await fixture()
+    const now = 20 * 86_400_000
+    const cutoff = now - 14 * 86_400_000
+    for (const [uidl, headerDate, firstSeenAt] of [
+      ['old-header', cutoff - 1000, now],
+      ['new-header', now, cutoff - 1000],
+      ['boundary', cutoff, now],
+      ['inside', cutoff + 1000, now],
+      ['old-fallback', null, cutoff - 1000],
+      ['new-fallback', null, now]
+    ] as const)
+      await store.saveMessage({ ...document(uidl), headerDate, firstSeenAt })
+    expect(await store.cleanupExpired(now)).toBe(2)
+    expect(store.ledger()).toHaveLength(6)
+    const remaining = store.search('', 10).map((hit) => hit.mailId)
+    expect(remaining).toHaveLength(4)
+    expect(store.countMail()).toBe(4)
+    const db = new Database(store.dbPath)
+    try {
+      expect(db.prepare('SELECT uidl FROM mail ORDER BY uidl').all()).toEqual([
+        { uidl: 'boundary' },
+        { uidl: 'inside' },
+        { uidl: 'new-fallback' },
+        { uidl: 'new-header' }
+      ])
+    } finally {
+      db.close()
+    }
+  })
+
+  it('caps the whole response manifest at 50 while preserving counts and truncation flags', async () => {
+    const store = await fixture()
+    for (let i = 0; i < 7; i++)
+      await store.saveMessage({
+        ...document(`many-${i}`, 1000 + i),
+        attachments: Array.from({ length: 12 }, (_, n) => ({
+          filename: `${n}.txt`,
+          mimeType: 'text/plain',
+          sizeBytes: 1,
+          bytes: new Uint8Array([n])
+        }))
+      })
+    const hits = store.search('', 50)
+    expect(hits).toHaveLength(7)
+    expect(hits.map((hit) => hit.attachments.length)).toEqual([10, 10, 10, 10, 10, 0, 0])
+    expect(
+      hits.every((hit) => hit.attachmentCount === 12 && hit.attachmentsTruncated === true)
+    ).toBe(true)
+    const first = hits[0]
+    expect(
+      await store.findAttachment(first.mailId, first.attachments[0].attachmentId)
+    ).not.toBeNull()
+  })
   it('persists FTS rows, attachment manifests and opaque attachment ids', async () => {
     const root = await mkdtemp(join(tmpdir(), 'orca-mail-'))
     roots.push(root)

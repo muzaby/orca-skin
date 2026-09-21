@@ -11,7 +11,7 @@
 | 작성자 | Claude Code (V1·ΔV1), **Codex (ΔV2 설계·r3 구현)** |
 | 일자 | 2026-09-21 |
 | 매핑 | 없음 (신규 제품 기능) |
-| 상태 | READY — r3 FAIL 후 r4 기술·증거 정정, Codex 재구현 |
+| 상태 | IMPL_DONE — r4 Codex 보완 완료, 독립 verify 대기 |
 | V mode | `Delta V` (기준 `V1`) |
 | 기준 V | `V1` — 본 plan의 Baseline, commit `07ec3a6`~`e3ea535` |
 | 이번 V revision | `ΔV2` (r4 기술·증거 정정) |
@@ -1378,14 +1378,156 @@ AC 자기보고 **40/40 유지**. 보완 패스는 AC를 추가하거나 분할�
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | AC20 음성 스윕이 어떤 파일도 매치할 수 없다 — `scanOffenders` 가 술어 적용 전에 문자열 리터럴을 비워 `/from ['\"]node:(net|tls)['\"]/` 가 항상 0건이다 | VP-10 / EP-09 1번 지점 / AC20 | 술어를 원문에 적용하거나 `import type` 예외를 명시한다. 허용목록 밖 프로덕션 파일에 런타임 `node:net` import 를 심은 변이가 red 여야 한다 | **BLOCKING** | open |
-| D2 | `retention.ts::isExpired` 프로덕션 호출 0 — `store.cleanupExpired` SQL 이 14일 규칙을 재구현한다 | VP-15 선언 경로 / EP-03 SSOT 칸 | 배선하거나 §11·EP-03 의 SSOT 표기를 `store` 로 정정한다 | NON_BLOCKING | open |
-| D3 | 검색 결과 투영의 형제 슬롯 맞바꿈(`from_addr`↔`to_addrs`)을 아무 테스트도 잡지 않는다 | 비귀속 — §1 "발신자·날짜·제목·발췌로 답한다" | hit 의 `from`·`to`·`subject` 값을 단언하는 케이스 1건 | NON_BLOCKING | open |
-| D4 | cleanup 의 `headerDate` 우선(D-017)에 잠금이 없다 — fixture 가 `headerDate`·`firstSeenAt` 를 같은 값으로 묶는다 | D-017 / AC7 의 기술된 oracle | `headerDate ≠ firstSeenAt` fixture 1건 | NON_BLOCKING | open |
-| D5 | EP-25 의 jira 지점에 oracle 이 없다 — 되돌림 변이가 green | EP-25 2번 지점 | jira 첨부 store 에 별칭 root 케이스 추가 | NON_BLOCKING | open |
-| D6 | 매니페스트 총량 상한 미구현 — 최악 500항목 ≈167 KB vs §14 의 ≈17 KB | plan §14 출력 상한 | 결과 전체 합산 50항목에서 절단하고 `attachmentsTruncated` 로 알린다 | NON_BLOCKING | open |
-| D7 | 죽은 export 2건 — `MAIL_TOOL_NAMES`(참조 0) · `createMailPlugin`(코드 참조 0) | 비귀속 | 제거하거나 소비처를 만든다 | NON_BLOCKING | open |
-| D8 | D-023 이 ACTIVE 로 `node-pop3` 를 지시하나 의존성이 제거됐다 | Decision Ledger | 설계자가 해당 절반을 SUPERSEDED 로 표기한다 | NON_BLOCKING | open(설계자) |
-| D9 | §15 의 `MailPluginOptions` 가 `host` 를 포함 — D-057 이후의 `types.ts` 와 갈린다 | plan §15 | 설계자가 §15 형상을 갱신한다 | NON_BLOCKING | open(설계자) |
-| D10 | `manager.search()` 가 같은 질의를 2회 실행하고 `total` 이 `limit` 으로 잘린다 | 비귀속 | 1회 실행 후 재사용하고 `total` 의미를 확정한다 | NON_BLOCKING | open |
-| D11 | 메타의 기준 V 좌표 `e252c6b` 가 실재하지 않는다 — 실제는 `e3ea535` | plan 메타 | 설계자가 좌표를 정정한다 | NON_BLOCKING | open(설계자) |
+| D1 | AC20 음성 스윕이 어떤 파일도 매치할 수 없다 — `scanOffenders` 가 술어 적용 전에 문자열 리터럴을 비워 `/from ['\"]node:(net|tls)['\"]/` 가 항상 0건이다 | VP-10 / EP-09 1번 지점 / AC20 | 술어를 원문에 적용하거나 `import type` 예외를 명시한다. 허용목록 밖 프로덕션 파일에 런타임 `node:net` import 를 심은 변이가 red 여야 한다 | **BLOCKING** | closed (r4 자기확인 — 실제 net/tls import 변이 red) |
+| D2 | `retention.ts::isExpired` 프로덕션 호출 0 — `store.cleanupExpired` SQL 이 14일 규칙을 재구현한다 | VP-15 선언 경로 / EP-03 SSOT 칸 | 배선하거나 §11·EP-03 의 SSOT 표기를 `store` 로 정정한다 | NON_BLOCKING | closed (r4 자기확인 — SQL SSOT 정정·경계 단언) |
+| D3 | 검색 결과 투영의 형제 슬롯 맞바꿈(`from_addr`↔`to_addrs`)을 아무 테스트도 잡지 않는다 | 비귀속 — §1 "발신자·날짜·제목·발췌로 답한다" | hit 의 `from`·`to`·`subject` 값을 단언하는 케이스 1건 | NON_BLOCKING | closed (r4 자기확인 — projection 3분기 맞바꿈 red) |
+| D4 | cleanup 의 `headerDate` 우선(D-017)에 잠금이 없다 — fixture 가 `headerDate`·`firstSeenAt` 를 같은 값으로 묶는다 | D-017 / AC7 의 기술된 oracle | `headerDate ≠ firstSeenAt` fixture 1건 | NON_BLOCKING | closed (r4 자기확인 — header 우선 변이 red) |
+| D5 | EP-25 의 jira 지점에 oracle 이 없다 — 되돌림 변이가 green | EP-25 2번 지점 | jira 첨부 store 에 별칭 root 케이스 추가 | NON_BLOCKING | closed (r4 자기확인 — Jira 기본·명시 root 되돌림 red) |
+| D6 | 매니페스트 총량 상한 미구현 — 최악 500항목 ≈167 KB vs §14 의 ≈17 KB | plan §14 출력 상한 | 결과 전체 합산 50항목에서 절단하고 `attachmentsTruncated` 로 알린다 | NON_BLOCKING | closed (r4 자기확인 — 총량 50·truncated 단언) |
+| D7 | 죽은 export 2건 — `MAIL_TOOL_NAMES`(참조 0) · `createMailPlugin`(코드 참조 0) | 비귀속 | 제거하거나 소비처를 만든다 | NON_BLOCKING | closed (r4 자기확인 — 참조 0 export 제거) |
+| D8 | D-023 이 ACTIVE 로 `node-pop3` 를 지시하나 의존성이 제거됐다 | Decision Ledger | 설계자가 해당 절반을 SUPERSEDED 로 표기한다 | NON_BLOCKING | closed (r4 자기확인 — D-023 POP3 절반 SUPERSEDED) |
+| D9 | §15 의 `MailPluginOptions` 가 `host` 를 포함 — D-057 이후의 `types.ts` 와 갈린다 | plan §15 | 설계자가 §15 형상을 갱신한다 | NON_BLOCKING | closed (r4 자기확인 — §15 좌표 제거) |
+| D10 | `manager.search()` 가 같은 질의를 2회 실행하고 `total` 이 `limit` 으로 잘린다 | 비귀속 | 1회 실행 후 재사용하고 `total` 의미를 확정한다 | NON_BLOCKING | closed (r4 자기확인 — 조회 1회·기존 반환 건수 유지) |
+| D11 | 메타의 기준 V 좌표 `e252c6b` 가 실재하지 않는다 — 실제는 `e3ea535` | plan 메타 | 설계자가 좌표를 정정한다 | NON_BLOCKING | closed (r4 자기확인 — 실재 기준 좌표 정정) |
+
+## [구현자 기입] 설계 리뷰 (r4)
+
+- **동의 / 그대로 진행:** 사용자 지시에 따라 Codex가 원격 verify를 rebase로 동기화하고 r4 설계·구현을 수행했다. auth만으로 서버를 조립하고 DB·소켓을 infra에서 사용하는 ΔV2 책임 분리는 유지한다.
+- **이견 / 현실성 문제:** r3의 AC20 자기보고는 틀렸다. 문자열을 제거한 뒤 import 문자열을 찾는 음성 검사는 금지 import에도 0건이었다. 실제 production 파일에 결함을 심어 원인을 재현했다.
+- **ACTIVE Decision과 충돌:** D-023의 POP3 의존성 절반, §15 옵션 사본, MD-02/EP-03의 미사용 retention 소유 표기를 설계 역할에서 먼저 정정하고 별도 설계 커밋으로 분리했다. D-017의 날짜 우선순위·공개 계약은 유지한다.
+- **handoff-review:** r4 진입 전 지침 자체는 DIAGNOSE_ONLY로 진단했다. 사용자 요청은 FAIL 구현 보완이며 지침 개편 요청은 아니다. 원인은 B(명시된 적대 검사를 수행하지 않음)·F(검사 코드의 결함)이다. impl §2·3·8에 충분한 규칙이 있어 중복 규칙·corpus·별도 review 자료는 추가하지 않았다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 (r4)
+
+r4의 직접 변경 범위는 §3 r4 정정의 VP-10 REQUIRED, VP-03·04·15·19·24 REGRESSION과 EP-25다. 다른 pair의 계약·등록 변이는 변경하지 않았으며 r3 독립 판정을 승계한다. 전체 스위트 실행과 이번 턴에 다시 심은 변이는 구분한다.
+
+| Pair / 계약 | §10 지점 | 닫은 지점 | 재현 명령 / 직접 관측 | 남긴 곳 |
+|---|---|---|---|---|
+| VP-10 / EP-09 | 금지 runtime import·실제 TLS 연결 | 2/2 | `native-boundary.test.ts`: main 전수 차집합 `[]`, freshness에 net/tls import를 각각 삽입하면 파일명이 offender로 나타남. `pop3-tls.test.ts`: 실제 서버 왕복·전송 no-op 검출 | — |
+| VP-03·15 / EP-03 | 본문·FTS·첨부 정리·단일 만료 진입점 | 4/4 | `rg 'cleanupExpired|DELETE FROM mail|DELETE FROM mail_fts' .../mail -g '*.ts' -g '!*.test.ts'`: 삭제는 store, 호출은 sync 1곳. store 테스트에서 세 저장소 잔여와 날짜 경계 단언 | — |
+| VP-04·19·24 / EP-01 | 검색·첨부·오류·structuredContent | 4/4 | integration의 공개 결과에 내부 root 부재, 첨부 3건 id 왕복·원본 유지. 검색 매니페스트 실제 총량 `[10,10,10,10,10,0,0]`, 실제 개수 12와 절단 표시 유지 | — |
+| VP-24 / EP-18 | 두 id 필수 스키마 | 1/1 | `tools.test.ts`: mailId만/attachmentId만 거부, 둘 다 입력은 허용 | — |
+| EP-25 | mail·Jira 부모 경로 정규화 | 2/2 | mail 기본·명시 root, Jira 기본·명시 root 별칭 테스트. Jira 반환 경로는 canonical 부모 아래이고 파일 bytes `[1,2]` 일치 | — |
+
+검색 projection은 MATCH·LIKE·빈 질의 **3/3**에서 서로 다른 sender/recipient/subject를 단언했다. 보존 규칙은 header 우선·null fallback·cutoff 전/동일/후를 실제 SQLite에서 확인했다. `rg 'MAIL_TOOL_NAMES|createMailPlugin|isExpired' .../mail -g '*.ts'`의 잔여는 0건이다. 삭제한 함수와 export는 호출을 만드는 대신 제거했다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 적대 증거 |
+|---|---|---|---|---|
+| VP-10 | REQUIRED | SELF_PASS | 음성 검사와 실제 TLS 서버 양성 검사 | 금지 import 2종·전송 제거 red |
+| VP-03·15 | REGRESSION | SELF_PASS | 만료 2건 삭제·4건 보존, ledger 6건 유지; 기존 세 저장소 정리 | DB·FTS·파일 정리 제거, 날짜 우선/비교 변경 red |
+| VP-04·19 | REGRESSION | SELF_PASS | 공개 경로·파일명·원본 보존·매니페스트 예산 | 내부 경로 4종·stored_name·총량/표시 변경 red |
+| VP-24 | REGRESSION | SELF_PASS | 검색 id로 첨부 3건 왕복, id 입력 스키마 | producer 삭제·두 id optional 변경 red |
+
+r4 직접 판정은 **SELF_PASS 6 / SELF_BLOCKED 0**이다. 비영향 VP-01·02·05~09·11~14·16~18·20~23·25~30의 등록 변이를 이번 턴에 전부 다시 실행했다고 주장하지 않는다. 이 24 pair는 r3 verify 판정과 아래 전체 회귀를 근거로 보존하며 새 SELF_PASS 수에 합산하지 않는다. §10에 없는 신규 계약 지점 및 미해결 PLAN_GAP은 없다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r4)
+
+| 심은 결함 | 출처 | 이전 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| freshness.ts에 node:net runtime import | 인용 D1 | green | `features/plugins/mail/pop3/native-boundary.test.ts` / 1 | red·잠김 |
+| freshness.ts에 node:tls runtime import | 새 oracle | 최초 | `features/plugins/mail/pop3/native-boundary.test.ts` / 1 | red·잠김 |
+| LIKE의 from/to 맞바꿈 | 인용 D3 | green | `features/plugins/mail/store/index.test.ts` / 1 | red·잠김 |
+| MATCH의 from/to 맞바꿈 | 인용 D3 | green | `features/plugins/mail/store/index.test.ts` / 1 | red·잠김 |
+| 빈 질의의 from/to 맞바꿈 | 인용 D3 | green | `features/plugins/mail/store/index.test.ts` / 1 | red·잠김 |
+| cleanup COALESCE를 first_seen_at로 대체 | 인용 D4 | green | `features/plugins/mail/store/index.test.ts` / 1 | red·잠김 |
+| cleanup 비교 <를 >로 변경 | 새 oracle | 최초 | `features/plugins/mail/store/index.test.ts` / 3 | red·잠김 |
+| Jira parent 정규화 제거 | 인용 D5 | green | `features/plugins/jira/attachment-store.test.ts` / 2 | red·잠김 |
+| hit마다 첨부 예산 50으로 재설정 | 새 oracle | 최초 | `features/plugins/mail/store/index.test.ts` / 1 | red·잠김 |
+| truncated를 false로 변경 | 새 oracle | 최초 | `features/plugins/mail/store/index.test.ts` / 1 | red·잠김 |
+| store.search 중복 호출 복귀 | 새 oracle | 최초 | `app/deployment/mail.integration.test.ts` / 1 | red·잠김 |
+| trigram을 unicode61로 변경 | 선택 VP-06 회귀 | red | `features/plugins/mail/store/index.test.ts` / 2 | red·잠김 |
+| 검색 attachments를 빈 배열로 대체 | 선택 VP-24 | red | `app/deployment/mail.integration.test.ts` / 3 | red·잠김 |
+| 첨부 정리 filter를 false로 변경 | 선택 VP-03 | red | `features/plugins/mail/store/index.test.ts` / 2 | red·잠김 |
+| cleanup transaction 실행 제거 | 선택 VP-03 | red | `features/plugins/mail/store/index.test.ts` / 2 | red·잠김 |
+| native socket factory를 throw로 대체 | 선택 VP-10 | red | `infra/net/pop3-tls.test.ts` / 1 | red·잠김 |
+| mail 삭제 FTS trigger 제거 | 선택 VP-03 | red | `features/plugins/mail/store/index.test.ts` / 1 | red·잠김 |
+| sync에 내부 userDataPath 추가 | 선택 VP-04 | red | `app/deployment/mail.integration.test.ts` / 1 | red·잠김 |
+| search에 내부 userDataPath 추가 | 선택 VP-04 | red | `app/deployment/mail.integration.test.ts` / 2 | red·잠김 |
+| 첨부 savedPath를 내부 경로로 변경 | 선택 VP-04 | red | `app/deployment/mail.integration.test.ts` / 1 | red·잠김 |
+| 오류 메시지를 raw exception으로 대체 | 선택 VP-04 | red | `features/plugins/mail/pure.test.ts` / 6 | red·잠김 |
+| 매니페스트에 stored_name 추가 | 선택 VP-04 | red | `features/plugins/mail/store/index.test.ts` / 1 | red·잠김 |
+| mailId를 optional로 변경 | 선택 VP-24 | red | `features/plugins/mail/tools.test.ts` / 1 | red·잠김 |
+| attachmentId를 optional로 변경 | 선택 VP-24 | red | `features/plugins/mail/tools.test.ts` / 1 | red·잠김 |
+| mail parent 정규화 제거 | 선택 EP-25 회귀 | red | `features/plugins/mail/attachment-export.test.ts` / 2 | red·잠김 |
+
+분모 검산: 선택 증거 **14** · 인용 변이 **6** · 새 oracle 민감도 **5** = **25행**. 실제 실행 이름 집합과 표의 차집합 0. 같은 검사가 두 범주에 해당하면 위 출처로 한 번만 셌다. VP-06·mail EP-25는 기존 장치의 덮개 회귀 대조이며 신규 pair 판정에 합산하지 않았다.
+
+덮개 회귀: 위 표의 이전 red → 이번 green은 **0건**. 미사용 retention helper 삭제 뒤 실제 SQL 비교 변경을 red로 잡는다. 파일·DB·FTS 정리, 매니페스트와 trigram의 기존 red도 보존했다. 문서 정정·죽은 export 제거는 해당 없음 — 직접 참조 검색 및 타입 검사.
+
+모든 변이는 원본 bytes를 보관하고 한 건씩 실행한 뒤 `finally`에서 복원했다. 임시 스크립트·로그는 OS 임시 디렉터리에만 두었다. 저장소에 별도 round 보고서나 mutation 로그를 추가하지 않았다.
+
+## [구현자 기입] Product/UX 파생 검토 (r4)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 문구·상태에 소비자가 있는가 | 기존 `attachmentsTruncated`가 해당 hit의 생략을 알리고 `attachmentCount`는 원래 개수를 유지한다 | 전체 예산 소진 뒤 hit도 표시 확인 |
+| seam 재배치와 정리 스코프 | production 재배치 없음. 검색 결과 배열은 호출 내부 값이고 DB 수명은 기존 withManager finally가 소유한다 | — |
+| 새 실패 경로와 상태 전이 | 신규 실패 경로 없음. 인증 거부·비인증 실패·캐시 검색은 기존 상태 전이 유지 | — |
+| 실패가 무반응으로 보이는가 | 기존 오류 결과를 보존한다. 절단은 무표시 누락 없이 flag로 전달한다 | — |
+| 늦은 응답이 화면을 되돌리는가 | 비동기 경로 추가 없음. 동기식 store 조회를 한 번으로 줄였다 | — |
+| `total` 의미 | 기존의 limit 적용 후 반환 건수를 유지한다. 3건 저장·limit 2에서 total/result length 모두 2, store 조회 1회 | 전체 일치 건수로의 변경은 이번에 하지 않음 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r4)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | basename 허용목록은 다른 디렉터리의 pop3-socket.ts도 면제한다 | ✅ 정확한 상대경로 1곳만 허용 | 같은 이름의 금지 fixture도 offender로 검출 |
+| 2 | runtime import와 type-only import를 정규식만으로 혼동할 수 있다 | ✅ 이미 설치된 TypeScript parser를 테스트에서만 사용 | 런타임 로딩 9형식 거부, type-only·주석·문자열 허용 |
+| 3 | 매니페스트 전체 예산이 소진되면 뒤 hit의 첨부가 0개일 수 있다 | ✅ 실제 attachmentCount와 truncated 유지 | 7 hit 각각 12개에서 마지막 둘은 배열 0·count 12·flag true |
+| 4 | 사용되지 않는 retention 함수가 구현 규칙처럼 보인다 | ✅ 함수·테스트를 제거하고 설계 SSOT를 SQLite cleanup으로 정정 | 호출 0 재확인, 날짜 우선·null·경계값 실제 DB 단언 |
+
+### 설계 대비 명시적 차이 (r4)
+
+r4 설계 정정 이후 제품 계약 차이는 없다. 검사 AST는 테스트 전용이며 런타임 추상화·의존성은 추가하지 않았다.
+
+| 축 | 대체물의 실패 가능성 | 재확인 |
+|---|---|---|
+| 만료 | SQL을 유일한 규칙으로 두면 날짜 우선순위 실수를 직접 잡아야 함 | AC7·EP-03 실제 SQLite 6입력, 2삭제·4보존 |
+| 공유 | 응답 전체 첨부 예산이 서로 다른 hit에 공유됨 | 각 검색 호출의 지역 변수, 합산 50·메일당 10 |
+| 재진입 | 이전 호출 예산이 다음 검색에 남을 가능성 | store.search마다 50으로 초기화, 전역 캐시 없음 |
+| 다른 무효화 축 | 중복 조회 제거가 두 번의 상태 확인을 줄이는지 | 조회 사이 await·쓰기가 없었음. 상태 조회와 결과 한 번으로 같은 응답 조립 |
+
+## [구현자 기입] 구현 보고 (r4)
+
+| 항목 | 관측 |
+|---|---|
+| 작성/구현 주체 | Codex — 사용자 명시 지시 |
+| 변경 파일 | mail native 경계 테스트·store/manager·죽은 export 정리, mail/Jira 회귀 테스트. handoff 산출은 plan.md·INDEX.md만 |
+| 실행 명령 | app에서 `node node_modules/vitest/vitest.mjs run --maxWorkers=4`, `npm run typecheck`, `node node_modules/eslint/bin/eslint.js src scripts --cache`, `node --test scripts/*.test.mjs`, migration/doc-inventory/test-budgets CLI |
+| 관측한 게이트 산출 | 전체 **552파일·5,110 pass**, 1파일·1케이스 skip. 변이 복원 후 영향 스위트 **12파일·117 pass**. scripts **120 pass**. typecheck node/web/test 3구성 통과. lint **0 error·기존 warning 1**. migration append-only·doc inventory/prose/links·real-git budget 통과 |
+| V-pair 자기확인 | r4 직접 판정 6 SELF_PASS / 0 SELF_BLOCKED. 비영향 24 pair의 r3 독립 판정 보존 |
+| 강제 지점 | 이번 영향 범위 EP-09 2/2·EP-03 4/4·EP-01 4/4·EP-18 1/1·EP-25 2/2 |
+| 블로커 / 역질문 | 없음. 사내 POP3 서버·설치본 UI·초기 10,000통 성능 실기는 미실행 |
+| 대상 커밋 | `(r4 구현 — 좌표는 INDEX)` |
+
+AC 자기보고는 r3 독립 검증의 39개 충족 결과에 AC20의 직접 음성·양성 증거를 보완하고, 현재 전체 회귀에서 아래 동작을 다시 확인한 것이다. 독립 verify의 PASS를 뜻하지 않는다.
+
+| AC | 자기 결과 | 이번 턴의 실행 근거 |
+|---|---|---|
+| 1·2·3 | ✅ | mail integration의 299/301초 연결 횟수·기존 UIDL RETR 제외 |
+| 4·5·6·28b | ✅ | integration 검색 무접속·비인증 5종 캐시/valid/registry 유지 |
+| 7·8·9 | ✅ | store/integration header 우선·14일 경계·세 저장소 정리·검색만 할 때 보존 |
+| 10·11·12·13 | ✅ | 공개 결과·첨부 3건 원본 보존, pure 오류 6종·경로 노출 변이 red |
+| 14·15 | ✅ | tools/binding invalid registry 부재·toolNames 유지 |
+| 16·17 | ✅ | store/pure 2·3글자 검색·EUC-KR 색인, tokenizer 변이 red |
+| 18·19 | ✅ | migration CLI core/mail 동기화·append-only 및 scripts 테스트 |
+| 20 | ✅ | main 실제 금지 import 검출 2종·실제 로컬 TLS 연결·전송 제거 red |
+| 21 | ✅ | integration 공통 bound auth 조립·USER/PASS 왕복 |
+| 22·23·24 | ✅ | tools annotations, integration single-flight·abort·context 없는 handler |
+| 25·25b·33 | ✅ | pure/integration 보호 경계·표본·일반 소실 보존·fingerprint 전이 |
+| 26·27·28 | ✅ | POP3 명령/거부 테스트·integration 현재 인증 거부 뒤 서버 회수 |
+| 29·30 | ✅ | auth/plugin-auth와 integration 후보 실패 무저장·HTTP·resume 회귀 |
+| 31·32 | ✅ | integration 첨부 id 3건 왕복, tools 두 id 필수·optional 변이 red |
+| 34·35 | ✅ | plugin-auth revision, infra POP3 bytes/EOF/abort/timeout |
+| 36·37·38 | ✅ | DB 초기화/작업 close·재시도, TLS/명령 검증·확장 인터페이스 컴파일 |
+
+검산: 위 행의 AC 집합은 **1~38 + 25b·28b = 40**, 유효 AC 집합과 차집합 0. **✅40 · ⚠️0 · ❌0 = 총40**. 설치본·사내 환경 실기는 이 기계 기준 합계에 포함하지 않았다.
+
+
+## [구현자 기입] Review Signals — 사실만 (r4)
+
+- 현재 라운드 **r4**. r3의 소켓 경계 음성 검사와 같은 불변식을 다시 열었다. 원인은 문자열 제거로 판단 대상이 사라진 것이다.
+- 막았어야 할 지침은 AC20·EP-09와 impl §3의 production 결함 주입이다. TLS 양성 검사만 통과한 사실을 음성 스윕 감도까지 확장해 해석했다. 이번에는 허용 밖 실제 파일을 각각 net/tls import로 바꾸어 offender 경로를 확인했다.
+- 지침 진단은 위 설계 리뷰의 B·F 판단으로 종결했다. 새로운 일반 규칙·과거 사례·별도 보고서 파일은 만들지 않았다.
+- 현재 환경에서 Electron 의존 파일을 포함한 전체 스위트가 통과했다. r3의 Electron 설치 실패 8파일을 이번 환경의 미실행 사유로 재사용하지 않았다. 설치본 UI·사내 서버·대량 수집 실기는 여전히 별도다.
+- 다음 단계는 Claude의 독립 verify다. 이전 verify.md의 FAIL 판정은 이 구현 보고로 덮어쓰지 않는다.

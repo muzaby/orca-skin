@@ -11,8 +11,11 @@ import {
 } from 'node:fs/promises'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { tmpdir } from 'node:os'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createJiraAttachmentStore, sanitizeAttachmentFilename } from './attachment-store'
+import { prepareTemporaryFilesPath } from '../../../infra/config/temp-path'
+
+vi.mock('../../../infra/config/temp-path', () => ({ prepareTemporaryFilesPath: vi.fn() }))
 
 const roots: string[] = []
 const root = async (): Promise<string> => {
@@ -22,6 +25,7 @@ const root = async (): Promise<string> => {
 }
 
 afterEach(async () => {
+  vi.mocked(prepareTemporaryFilesPath).mockReset()
   const { rm } = await import('node:fs/promises')
   await Promise.all(
     roots.splice(0).map((directory) => rm(directory, { recursive: true, force: true }))
@@ -29,6 +33,23 @@ afterEach(async () => {
 })
 
 describe('Jira attachment store', () => {
+  it.each(['explicit', 'default'] as const)(
+    'normalizes an aliased %s root before comparing child paths',
+    async (mode) => {
+      const directory = await realpath(await root())
+      const holder = await root()
+      await symlink(directory, join(holder, 'link'), 'junction')
+      const alias = join(holder, 'link', 'exports')
+      await mkdir(alias)
+      vi.mocked(prepareTemporaryFilesPath).mockResolvedValue(alias)
+      const store = createJiraAttachmentStore(mode === 'explicit' ? { root: alias } : {})
+      const batch = await store.begin('corp', 'issue-1')
+      const file = await batch.write('data.bin', Buffer.from([1, 2]))
+      await batch.commit()
+      expect(file.savedPath.startsWith(join(directory, 'exports'))).toBe(true)
+      expect(await readFile(file.savedPath)).toEqual(Buffer.from([1, 2]))
+    }
+  )
   it.each([
     ['../secret.txt', 'secret.txt'],
     ['CON', '_CON'],

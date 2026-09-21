@@ -307,6 +307,7 @@ export async function createMailStore(options: MailStoreOptions): Promise<MailSt
               `SELECT m.id, COALESCE(m.header_date,m.first_seen_at) AS date, m.from_addr AS fromAddr, m.to_addrs AS toAddrs, m.subject, m.body_text AS bodyText, 0 AS rank FROM mail m WHERE m.account_id=? ORDER BY date DESC LIMIT ?`
             )
             .all(options.accountId, limit)
+      let remainingAttachments = 50
       return (
         rows as {
           id: number
@@ -323,12 +324,15 @@ export async function createMailStore(options: MailStoreOptions): Promise<MailSt
             'SELECT id, filename, mime_type AS mimeType, size_bytes AS sizeBytes FROM attachment WHERE mail_id=? ORDER BY id'
           )
           .all(row.id) as { id: number; filename: string; mimeType: string; sizeBytes: number }[]
-        const visible = attachments.slice(0, 10).map((attachment) => ({
-          attachmentId: String(attachment.id),
-          filename: attachment.filename,
-          mimeType: attachment.mimeType,
-          sizeBytes: attachment.sizeBytes
-        }))
+        const visible = attachments
+          .slice(0, Math.min(10, remainingAttachments))
+          .map((attachment) => ({
+            attachmentId: String(attachment.id),
+            filename: attachment.filename,
+            mimeType: attachment.mimeType,
+            sizeBytes: attachment.sizeBytes
+          }))
+        remainingAttachments -= visible.length
         return {
           mailId: String(row.id),
           date: row.date,
