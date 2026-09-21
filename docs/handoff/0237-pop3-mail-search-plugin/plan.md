@@ -8,16 +8,16 @@
 | 항목 | 값 |
 |---|---|
 | slug | `0237-pop3-mail-search-plugin` |
-| 작성자 | Claude Code (V1·ΔV1), **Codex (ΔV2·ΔV3 설계·구현)** |
+| 작성자 | Claude Code (V1·ΔV1·ΔV4), **Codex (ΔV2·ΔV3 설계·구현)** |
 | 일자 | 2026-09-21 |
 | 매핑 | 없음 (신규 제품 기능) |
-| 상태 | IMPL_DONE — ΔV3 본문 임베드 이미지 제외, 독립 verify 대기 |
+| 상태 | READY — ΔV4로 r5 verify의 `PLAN_GAP: G1`을 닫았다. 다음은 구현 턴(r6) |
 | V mode | `Delta V` (기준 `V1`) |
 | 기준 V | `V1` — 본 plan의 Baseline, commit `07ec3a6`~`e3ea535` |
-| 이번 V revision | `ΔV3` (r5 운영 요구 증분) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
+| 이번 V revision | `ΔV4` (r5 verify `PLAN_GAP: G1` 정정) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
 
-**현재 규범 증분: ΔV3** — 문서 뒤의 `ΔV3 — 본문 임베드 이미지 제외 (r5)`가 이번 요구의 정본이다. **기존 ΔV2** — §3·§7·§7-A·§10·§11의 `ΔV2` 절이 정본이다. D-022·032·035·039·040과 관련 AC·V·§10·기술 경로의 대체는 이 부속이 정본이다. 과거 구현 보고는 당시 증거로 보존한다.
+**현재 규범 증분: ΔV4** — 문서 끝의 `ΔV4 — TOP 수집 경계의 검증 노드`가 이번 정정의 정본이다(D-062·AC41·VP-34·35·EP-28). **기존 ΔV3** — 문서 뒤의 `ΔV3 — 본문 임베드 이미지 제외 (r5)`가 이번 요구의 정본이다. **기존 ΔV2** — §3·§7·§7-A·§10·§11의 `ΔV2` 절이 정본이다. D-022·032·035·039·040과 관련 AC·V·§10·기술 경로의 대체는 이 부속이 정본이다. 과거 구현 보고는 당시 증거로 보존한다.
 
 입력 제안서: 사용자 업로드 `orcinus-orca-pop3-mail-search-plugin-proposal.md` (22절). 본 plan은 그 제안서를 **진단하고 보완한 결과**이며, 제안서 문장과 어긋나는 곳은 §3 Decision Ledger와 §4에 판정과 근거를 남겼다.
 
@@ -1650,3 +1650,106 @@ AC 자기보고는 r3 독립 검증의 39개 충족 결과에 AC20의 직접 음
 - MIME parser가 이미 제공하는 메타데이터를 소모하는 작은 필터로 해결했다. 새 플랫폼 계약은 없다.
 - 최초 테스트에서 일반 첨부를 읽을 때 store 반환 메타데이터를 bytes로 오인한 단언을 고쳤다. 실제 readAttachment 결과를 검증한다.
 - 최종 구현의 독립 verify는 다음 주체에게 남긴다. 임시 로그·스크립트는 OS 임시 경로에만 둔다.
+
+---
+
+## ΔV4 — TOP 수집 경계의 검증 노드 (r5 verify `PLAN_GAP: G1` 정정)
+
+작성: Claude Code, 2026-09-21. r5 verify가 낸 root `PLAN_GAP: G1`을 구현 전에 여기서 닫는다. **구 행을 덮어쓰지 않고 supersede한다.** 판정 원문은 [`verify.md` r5 §4](verify.md).
+
+### 왜 gap인가 — 관측
+
+| 사실 | 관측 |
+|---|---|
+| 계약은 있다 | D-007(ACTIVE) "TOP으로 헤더를 먼저 보고 14일 밖 메일의 RETR을 생략한다" · D-026(ACTIVE) "역순 TOP, 14일 경계 + 유예창을 넘으면 중단" |
+| 검증 노드가 없다 | VP-01~33 중 이 경로를 production path로 적은 pair **0건**. §10에 해당 EP **0건** |
+| oracle이 없다 | `rg 'oldHeaders|grace' app/src/main --include=*.ts` → 프로덕션 3줄, 테스트 **0줄** |
+| 경계가 풀려 있다 | `sync-manager`의 `14`를 `30`으로 바꾸면 **149건 전건 통과**. 같은 변이를 `store.cleanupExpired`에 가하면 3 red |
+| 도달한 적이 없다 | 통합 fixture의 TOP 응답이 `Date: ${new Date().toUTCString()}`(`mail.integration.test.ts:118`) — 항상 현재 시각이라 `date < cutoff` 분기와 grace break가 실행된 적이 없다 |
+
+### gap이 가리고 있던 구현 결함
+
+**판정: §14와 구현이 어긋난다.** plan §14(837행)는 "**연속** `GRACE`건(기본 50)이 14일 경계보다 오래되면 중단한다"이고, 수렴 논증("스캔량이 `최근 14일 건수 + GRACE`로 수렴")이 그 *연속*을 전제한다.
+
+구현은 누적이다 — `sync-manager.ts:134` `let oldHeaders = 0`이 루프 **밖**에서 한 번 초기화되고 `:147`에서만 증가하며, 신선한 메일을 RETR한 뒤 **리셋하지 않는다**(`rg 'oldHeaders'` → 134·147·148 세 줄이 전부).
+
+사용자 관측: 날짜가 뒤섞인 사서함(지연 배달·전달 메일의 옛 `Date`·시계 오차)에서 옛 날짜 메일이 누적 50건에 닿으면 스캔이 끊기고, **그 아래의 최근 메일을 영영 가져오지 않는다.** 사용자는 존재하는 최근 메일을 찾지 못한다. D-007의 목적("최근 14일 메일을 찾는다")이 그 자리에서 깨진다.
+
+### Decision Ledger 증분
+
+| ID | 결정 | 근거/조건 | 상태·대체 |
+|---|---|---|---|
+| D-062 | 수집 중단 판정은 **연속** old-header 카운트다. 신선한 메일을 수집하면 카운터를 0으로 리셋한다. 누적 카운트를 쓰지 않는다 | §14의 수렴 논증이 연속을 전제한다. 누적은 날짜가 뒤섞인 사서함에서 최근 메일을 조용히 건너뛴다 — D-007의 목적을 그 자리에서 깬다. 이 결정은 §14를 바꾸지 않고 **Decision 층으로 올려 강제 가능하게** 한다 | ACTIVE; §14 문장을 규범화 |
+| D-063 | 예산(`syncMs`) 초과 시의 반환 형상 — §14가 약속한 `partial:true` + 재개 커서를 구현할지, 아니면 현재 `error:'timeout'` + `stale:true`로 §14를 정정할지 | §14는 "예산을 그래도 넘기면 `partial:true` + 재개 커서(마지막 처리 메시지 번호)를 남긴다"고 적었으나 **구현에 없다** — `types.ts:111`의 `partial?: boolean`은 프로덕션에서 한 번도 설정되지 않고(`rg 'partial' --include=*.ts` 프로덕션 0건), 커서도 없다. 모델이 사용자에게 "일부만 동기화됐다"와 "시간 초과됐다" 중 무엇을 말하는지가 갈린다 | **OPEN — 사용자 결정 필요.** ΔV4의 REQUIRED pair는 이 결정에 의존하지 않는다 |
+
+기존 D-007·D-026은 ACTIVE로 남는다. ΔV4는 그 둘을 대체하지 않고 **검증 가능하게** 만든다.
+
+### Technical Design 증분 — 순수 seam 추출
+
+`sync-manager.ts`의 수집 루프는 `store`(better-sqlite3)를 import하는 파일 안의 큰 클로저라 판정만 따로 부를 수 없다. **같은 파일 함수가 아니라 import graph가 끊긴 별도 파일**로 뺀다 — `protection.ts`·`freshness.ts`·`reconcile.ts`·`query-builder.ts`가 이미 같은 패턴이다.
+
+신규 `app/src/main/features/plugins/mail/retention-window.ts` (순수, 런타임 의존 0):
+
+```ts
+// 14일 경계의 SSOT. store.cleanupExpired 와 수집 루프가 같은 값을 쓴다.
+export function retentionCutoff(now: number, retentionDays?: number): number
+
+// 수집 중단 판정. 연속 카운트를 호출자가 보관하지 않고 결과로 돌려받는다.
+export function decideIngest(input: {
+  readonly headerDate: number | null
+  readonly cutoff: number
+  readonly consecutiveOld: number
+  readonly grace?: number            // 기본 50 (§14)
+}): { readonly action: 'fetch' | 'skip' | 'stop'; readonly consecutiveOld: number }
+```
+
+- `headerDate === null`이면 `fetch`이고 카운터를 리셋한다 — 날짜를 못 읽은 메일을 건너뛰면 D-007이 의도하지 않은 유실이 된다.
+- `headerDate >= cutoff`이면 `fetch` + 리셋. `headerDate < cutoff`이면 `skip` + 증가, 증가 후 `grace`에 닿으면 `stop`.
+- `sync-manager`는 `oldHeaders` 지역 누적을 버리고 `decideIngest`의 반환 카운터만 쓴다.
+- `store.cleanupExpired`의 `now - retentionDays * 24*60*60*1000`도 `retentionCutoff`로 바꾼다 — **r5 verify D12(경계 상수 두 사본)를 같은 추출로 닫는다.** plan §8·§18의 "retention SSOT = `store.cleanupExpired`" 표기는 "**경계 계산은 `retention-window.retentionCutoff`, 삭제 SQL은 `store.cleanupExpired`**"로 정정한다.
+
+레이어: `features/plugins/mail` 내부 상대 import. 신규 의존성·DB 마이그레이션·설정·공개 도구 형상 변경은 없다.
+
+### AC 증분
+
+| AC | 행동 단언 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|
+| AC41 | 옛 날짜 메일이 최근 메일 사이에 섞여 있어도 최근 메일을 **전부** 수집한다. 연속 `grace`건이 경계 밖일 때만 중단하고, 그 뒤의 최근 메일은 중단 이후이므로 수집하지 않는다. 경계는 `retentionDays`에서 파생되며 수집과 정리가 같은 값을 쓴다 | fake POP3 서버가 메시지별로 다른 `Date` 헤더를 준다. ① 옛 메일 60건이 최근 메일 사이에 흩어진 사서함 → 최근 메일 전건이 검색된다(누적 카운트면 red) ② 연속 50건이 경계 밖 → 그 지점에서 `RETR` 중단(`RETR` 호출 목록으로 관측) ③ `retentionDays`를 바꾸면 수집 경계와 `cleanupExpired` 경계가 **함께** 움직인다 | `mail_sync` → `session.top` → `retention-window.decideIngest` → `session.retr` → `store.saveMessage` → `mail_search` |
+
+AC 총계: 기존 **41** + AC41 = **42**. 철회된 AC39는 세지 않는다.
+
+### V 노드 · pair 증분
+
+기준: `V1 + ΔV1 + ΔV2 + ΔV3`. 변경이 시작되는 수준은 **R** — 사용자가 찾을 수 있는 메일의 집합이 달라진다.
+
+| Pair / node | requiredness | 성격 | production path | oracle | 선택 적대 증거 |
+|---|---|---|---|---|---|
+| VP-34 / R-10 ↔ AT-24 | REQUIRED (NEW) | 최근 메일이 옛 메일에 가려지지 않는다 | `mail_sync` → TOP 루프 → RETR → store → `mail_search` | fake 서버의 `Date` 헤더별 `RETR` 호출 목록 + 검색 결과 집합 | **required** — ① 카운터 리셋 제거(누적 복귀) ② `grace` 임계를 1로 낮춤. 둘 다 red여야 한다 |
+| VP-35 / MD-13 ↔ UT-13 | REQUIRED (NEW) | 중단 판정 자체 | `decideIngest` 순수 호출 | `action`·`consecutiveOld` 직접 단언 — 경계 ±1ms, `headerDate === null`, 리셋, `grace` 도달 | **required** — `retentionCutoff`의 `14` 상수를 바꾸는 변이가 red여야 한다(r5 verify가 이 축에서 149건 전건 통과를 관측했다) |
+
+| Pair | requiredness | 사유 |
+|---|---|---|
+| VP-03 (R-03 ↔ AT-07·08·09) | REGRESSION | `cleanupExpired`가 `retentionCutoff`를 쓰도록 바뀐다 |
+| VP-14 (MD-01 ↔ UT-01·01b) | REGRESSION | 같은 루프의 보호 분기와 `RETR` 횟수 관측을 공유한다 |
+| VP-15 (MD-02 ↔ UT-02) | REGRESSION | 14일 경계의 SSOT 위치가 바뀐다 |
+| 그 밖 VP-01~33 | NOT_REQUIRED | 수집 루프·retention 경계에 닿지 않는다. 증거 좌표는 r3·r5 verify 본문 |
+
+### §10 강제 지점 증분
+
+| EP | 불변식 / SSOT | 강제 지점 | 실패 의미 |
+|---|---|---|---|
+| EP-28 | 중단 판정은 **연속** 카운트이고 14일 경계는 한 사본이다 / `retention-window.ts` | ① `decideIngest`가 `fetch`에서 카운터를 리셋한다 ② `sync-manager`가 지역 누적 변수를 두지 않고 반환 카운터만 쓴다 ③ `store.cleanupExpired`와 수집 루프가 **둘 다** `retentionCutoff`를 부른다 | ① 누적 복귀 → 최근 메일 유실 ② 두 카운터가 갈림 ③ 경계 상수 두 사본이 다시 갈림 |
+
+지점 수 **3**. 구현자는 `rg 'retentionCutoff|decideIngest|consecutiveOld'`로 전수 확인하고, 술어를 **해법 이름이 아니라 불변식의 주어**("14일 경계를 계산하는 자리")로도 한 번 더 센다.
+
+### 적용 gate
+
+`app/AGENTS.md §제약 환경 게이트 가이드`를 따른다 — lint(읽기 전용 확인) · typecheck 3구성 · 영향 회귀(`plugins/mail`·`app/deployment`, 실제 SQLite 포함) · scripts · migration append-only · doc inventory. electron 미설치 8파일은 환경 기인으로 분리 보고한다. 새 gate는 만들지 않는다.
+
+### READY self-review (ΔV4)
+
+- **`ACTIVE 결정 ↔ AC` 대조: 충돌 0.** D-062("연속 카운트, fetch에서 리셋") ↔ AC41 ①(흩어진 옛 메일에서 최근 메일 전건 수집) → 일치. D-007("14일 밖 RETR 생략") ↔ AC41 ②(연속 50건에서 중단) → 일치, "옛 메일도 받는다"를 요구하는 AC 없음. D-026("역순 TOP + 유예창") ↔ VP-34 oracle(`RETR` 호출 목록) → 일치. D-004("삭제 기준은 14일 Retention뿐") ↔ AC41 ③(수집·정리가 같은 경계) → 일치, 수집 경계를 별도 값으로 두자는 AC 없음.
+- **D-063은 OPEN이며 ΔV4의 REQUIRED pair가 의존하지 않는다** — VP-34·35는 예산 초과 경로를 단언하지 않는다.
+- 순수 seam: `retention-window.ts`는 import graph가 `store`/better-sqlite3와 끊긴 별도 파일이다. 사람 실기로 미룬 순수 로직 없음.
+- 음성/양성 방향: AC41 ①은 **양성**(최근 메일이 수집된다)이고 ②가 음성(중단 지점)이다. 두 pair 모두 선택 적대 증거를 갖는다 — r5 verify가 이 축의 무감도를 실측했으므로 `not selected`를 쓰지 않았다.
+- 수치 실측: 프로덕션 `oldHeaders` 3줄·테스트 0줄, 변이 14→30에서 149건 전건 통과, `partial` 프로덕션 설정 0건 — 전부 이번 세션 재측정이다.
