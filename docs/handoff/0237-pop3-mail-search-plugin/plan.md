@@ -9,12 +9,12 @@
 |---|---|
 | slug | `0237-pop3-mail-search-plugin` |
 | 작성자 | Claude Code (V1·ΔV1), **Codex (ΔV2 설계·r3 구현)** |
-| 일자 | 2026-09-20 |
+| 일자 | 2026-09-21 |
 | 매핑 | 없음 (신규 제품 기능) |
-| 상태 | READY — ΔV2 규범 확정(D-056·D-057 보완 포함), r3 구현 완료·외부 리뷰 흡수 완료·독립 검증 대기 |
+| 상태 | READY — r3 FAIL 후 r4 기술·증거 정정, Codex 재구현 |
 | V mode | `Delta V` (기준 `V1`) |
-| 기준 V | `V1` — 본 plan의 Baseline, commit `07ec3a6`~`e252c6b` |
-| 이번 V revision | `ΔV2` |
+| 기준 V | `V1` — 본 plan의 Baseline, commit `07ec3a6`~`e3ea535` |
+| 이번 V revision | `ΔV2` (r4 기술·증거 정정) |
 | 유효 V | `V1 + ΔV1 + ΔV2` |
 
 **현재 규범 증분: ΔV2** — §3·§7·§7-A·§10·§11의 `ΔV2` 절이 정본이다. D-022·032·035·039·040과 관련 AC·V·§10·기술 경로의 대체는 이 부속이 정본이다. 과거 구현 보고는 당시 증거로 보존한다.
@@ -74,7 +74,7 @@
 | D-020 | 첨부 내용은 FTS 인덱스의 기본 검색 대상이 아니다 | 제안서 §19 | 제안서 | ACTIVE | — |
 | D-021 | POP3 소켓 전송을 **명시적 경계 확장**으로 도입한다 — `infra/net/`에 전용 모듈을 신설하고 `security.md §1.8` 표에 예외로 등재한다 | 사용자가 "경계를 명시적으로 확장"을 선택. 근거: §8 조사 F-02·F-03 | 사용자 턴 | ACTIVE | — |
 | D-022 | Mail Plugin은 raw credential을 읽는 **세 번째 소비자**가 된다. 주입은 컴포지션 루트가 하고 `AuthSecretReader` 자체는 feature에 넘기지 않는다 | D-021의 귀결. 현재 소비자는 `bootstrap.ts:385`·`:526` 2곳뿐 (§8 F-05) | 설계자 + 사용자 승인(②) | **SUPERSEDED** | D-048 (ΔV2) |
-| D-023 | POP3·MIME 라이브러리를 도입한다 — `node-pop3`(POP3) + `postal-mime`(MIME) | 사용자가 "라이브러리 도입 승인"을 선택. 후보 비교는 §8 F-10 | 사용자 턴 | ACTIVE | — |
+| D-023 | MIME은 `postal-mime`을 사용한다. POP3의 `node-pop3` 도입 부분은 내부 세션 구현으로 대체했다 | 사용자 라이브러리 승인과 D-053·054의 infra 세션 경계. 불필요한 의존성 제거 | 사용자 승인·ΔV2 | MIME ACTIVE / POP3 SUPERSEDED | D-053·D-054 |
 | D-024 | 메일 FTS5 tokenizer는 `trigram`이다. `messages_fts`의 `unicode61`을 따르지 않는다 | 설계자 결정. 근거: `unicode61`은 한국어 어절 중간 매치가 **0건**, `trigram`은 3글자 이상 MATCH·2글자 LIKE로 매치 (§8 F-07 실측) | 설계자 | ACTIVE | — |
 | D-025 | 연결은 **implicit TLS(기본 995)** 를 요구한다. STARTTLS(`STLS`) 승격은 이번 범위가 아니다 | `node-pop3@0.15.3` 소스에 `STLS` 문자열 0건 (§8 F-11). 평문 110 포트는 선언으로만 허용하고 기본값이 아니다 | 설계자 | ACTIVE | — |
 | D-026 | 최초 sync는 **최신 메시지 번호부터 역순**으로 TOP을 돌고 14일 경계 + 유예창을 넘으면 중단한다. 전체 메일에 TOP을 돌지 않는다 | 설계자 결정. 제안서 §9는 "최초 Sync → 신규 UIDL → TOP"이라고만 적어 10,000통 전건 TOP을 함의한다 (§4 진단 ⑨) | 설계자 | ACTIVE | — |
@@ -134,7 +134,21 @@
 | D-056 | 실행형 probe도 **grant 보존 축**을 갖는다. `execute`가 `preserveGrant`를 돌려주면 그 실패는 복원된 grant를 만료시키지 않는다. 생략하면 기존대로 만료한다 | HTTP probe는 `authFailureStatuses`로 "권한·정책 실패지 자격증명 거부는 아님"을 말할 수 있는데 실행형에는 그 통로가 없어, `onResume` 선언이 서버 점검·도달 실패로 살아 있는 연결을 잃었다. D-049의 "선언 소유 probe"와 같은 축이므로 같은 모양으로 맞춘다. 기본값이 기존 동작이라 다른 선언은 바뀌지 않는다 | ACTIVE; D-049 보완 |
 | D-057 | 연결 좌표(host·port·tls)의 사본은 **`AuthDefinition.origin` 하나다.** 배포는 좌표를 선언 입력에만 적고, 런타임 옵션은 좌표를 담지 않으며, 소비자는 `origin`에서 되읽는다 | ΔV2는 좌표 출처를 정하지 않아 옵션과 origin 두 사본을 부팅에서 대조하는 구현이 나왔다. 사본이 하나면 대조가 필요 없고 어긋날 수도 없다. 부수로 포트·TLS 기본값 식이 3벌에서 1벌이 된다 | ACTIVE; D-053 보완 |
 
-기존 D-023의 라이브러리 도입 승인은 유지하되 이미 사용 중인 작은 POP3 세션을 보완한다. `node-pop3`의 USER/PASS 하드코딩을 미래 인터페이스의 제약으로 삼지 않는다. 신규 의존성은 없다. D-041·D-042의 verifier는 실행형 probe를 뜻하며 전역 `LoginDeps.verify` 주입은 제거한다.
+D-023의 MIME 도입은 유지하고 POP3 라이브러리 도입은 D-053·054의 작은 infra 세션으로 대체한다. `node-pop3`의 USER/PASS 하드코딩을 미래 인터페이스의 제약으로 삼지 않는다. 신규 의존성은 없다. D-041·D-042의 verifier는 실행형 probe를 뜻하며 전역 `LoginDeps.verify` 주입은 제거한다.
+
+### ΔV2 r4 — verify 지적에 따른 기술·증거 정정 (Codex, 2026-09-21)
+
+제품 계약·AC 개수는 유지한다. 아래 행은 같은 ID의 이전 기술 경로를 대체하며, 나머지 유효 V는 승계한다.
+
+| 귀속 | 정정 | 확인할 증거 |
+|---|---|---|
+| AC20·VP-10·EP-09 | 소켓 경계는 실행되는 net/tls 모듈 참조를 검사한다. 타입 전용 import/export는 예외이고, 허용 경로는 정확히 `infra/net/pop3-socket.ts`다. 문자열 제거용 helper를 이 검사에 쓰지 않는다 | 허용목록 밖 runtime import를 실제 파일에 심으면 가드 red. 같은 basename의 다른 디렉터리도 거부, 타입 전용·주석·문자열은 허용. 실제 TLS 양성 축 유지 |
+| MD-02·VP-15·EP-03·§11 | retention SSOT는 `store.cleanupExpired` SQL이다. 미배선 `retention.isExpired` 사본은 제거하고 실제 SQLite에서 14일 ±1초·headerDate 우선·null fallback을 검증한다 | 기존 N1의 미배선 정책 사본 없음, N5의 날짜 우선순위 변이 red; 삭제 지점 4개 유지 |
+| VP-04·EP-01·§14 | 기존 매니페스트 상한(메일당 10·응답 전체 50)을 store 결과 조립에서 적용한다. 줄어든 각 hit에 `attachmentsTruncated:true`를 싣고 실제 `attachmentCount`는 보존한다 | 50메일×다중 첨부 검색에서도 매니페스트 합산 ≤50, 생략 표시·id 왕복 유지 |
+| EP-25 | mail/jira 두 정규화 지점에 별칭 root의 실제 파일 왕복 증거를 둔다 | M23 jira 정규화 되돌림 red, mail 회귀 유지 |
+| D8·D9·D11 | D-023의 POP3 부분 상태·§15 옵션 형상·기준 V 좌표를 실제 코드/커밋과 맞춘다 | `node-pop3` 의존성 0, options 좌표 필드 0, `e3ea535` commit 실재 |
+
+READY 대조: D-017의 날짜 우선순위와 AC7은 유지하고, AC20의 타입 예외는 실행 소켓 경계라는 원래 목적을 명시한다. D-048~057의 auth/infra 책임과 서버별 계약 슬롯 금지에는 변경이 없다. r4는 VP-10 REQUIRED, VP-03·04·15·19·24 및 EP-25를 영향 회귀로 확인하고 다른 pair는 기존 의미를 보존한다.
 
 ## 4. 요구 비판적 검토
 
@@ -318,7 +332,7 @@ AC1~33(AC25b·28b 포함)은 위 대체 외 승계한다. 이전 r2의 미검증
 ## 7-A. V / Trace Matrix
 
 - V mode 판정: **Delta V** (`ΔV1`). 기준은 본 plan의 Baseline `V1`이고 유효 V는 `V1 + ΔV1`이다.
-- 기준 V 상속 근거: `V1`은 commit `07ec3a6`(Baseline 설계) ~ `e252c6b`(r1 PLAN_GAP 보고)에 확정돼 있다. **구현은 착수되지 않았다**(AC 자기보고 0/30) — 따라서 `ΔV1`이 건드리지 않은 V1 pair는 전부 `REQUIRED`로 그대로 상속되며, 이 절은 그것을 복사하지 않는다.
+- 기준 V 상속 근거: `V1`은 commit `07ec3a6`(Baseline 설계) ~ `e3ea535`(r1 PLAN_GAP 보고)에 확정돼 있다. **구현은 착수되지 않았다**(AC 자기보고 0/30) — 따라서 `ΔV1`이 건드리지 않은 V1 pair는 전부 `REQUIRED`로 그대로 상속되며, 이 절은 그것을 복사하지 않는다.
 - 변경이 시작되는 수준: **R** — r1 G1(첨부 식별 producer 부재)·G2(인증 거부 후 캐시 검색)가 사용자 관측 결과를 바꾸고, G3(보호 정책)는 MD에서 시작해 R-03의 삭제 기준에 닿는다.
 - V1 Baseline 등록부는 아래 두 표에 그대로 둔다. `ΔV1`의 변경·신규·회귀 행은 그 뒤 **ΔV1 절**에 모았다.
 
@@ -830,8 +844,8 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 
 폐쇄망 배포가 채우는 typed recipe가 이번 작업의 외부 진입점이다.
 
-- 외부/배포가 구현할 config: `MailPluginOptions = { host: string; port?: number; tls?: boolean; tlsOptions?: TlsOptions; accountId: string; retentionDays?: number; freshnessMs?: number; timeouts?: {...} }`.
-- 구현 문서: `docs/guides/closed-network-extensions.md §4`에 Mail 레시피를 추가한다 — `AuthDefinition`(계정 식별용 HTTPS origin + `passwordSpec`) → `createMailPlugin` 조립 → 사설 CA 주입.
+- 외부/배포가 구현할 config: `MailPluginOptions = { tlsOptions?: TlsOptions; accountId: string; retentionDays?: number; freshnessMs?: number; timeouts?: {...} }`.
+- 구현 문서: `docs/guides/closed-network-extensions.md §4`에 Mail 레시피를 추가한다 — `createMailAuth(id, label, endpoint)`로 POP3 origin 선언 → `bindForPlugin(id)` → `mailTools(auth, options)` 조립. 사설 CA는 options에 주입한다(D-057).
 - **shape 검증**: 가이드의 예제 코드를 `app/src/main/app/deployment/plugins.ts` 주석이 아니라 **타입 체크되는 fixture**로 둔다 — `deployment-wiring.test.ts`가 예제와 같은 형상을 조립해 `npm run typecheck`가 본다. 문서 예제만 두면 시그니처가 바뀌어도 아무도 모른다.
 - **semantics 검증**: `tlsOptions`의 `rejectUnauthorized`가 `false`면 조립이 거부된다는 계약 테스트를 둔다. 사설 CA는 `ca`로 주고 검증을 끄지 않는다.
 
@@ -921,7 +935,7 @@ POP3 서버 → pop3-socket(전송) → session(명령) → postal-mime(파싱)
 - [x] AS-IS에서 사라진 책임은 삭제/이동/대체 중 무엇인지 명시했다 — 사라진 책임 없음(§9 "제거하는 메커니즘: 없음").
 - [x] 수치·전칭 표현·외부 규약·문서 앵커·기존 테스트 인용을 실측했다 — §8 전수 조사 7행 + 수치 검산 5항목. 인용한 기존 테스트 케이스 0건(전부 신규라 검증 대상 없음).
 - [x] 각 AC가 행동 단언, 검증 수단, 프로덕션 도달 경로를 가진다 — §7 표 실측 **35행**이 모두 네 칸을 채웠다. 25건 초과라 분할을 재검토했고 결론은 §7 주의사항 마지막 항목에 적었다.
-- [x] 명시적인 기존 V를 일부 바꿀 때만 Delta V를 썼고 유효 V를 재구성할 수 있다 — 기준 `V1`(commit `07ec3a6`~`e252c6b`, 구현 미착수) + `ΔV1`. ΔV1이 건드리지 않은 V1 pair는 복사하지 않고 `INHERITED`+`REQUIRED`로 유효하다고 §7-A ΔV1 절 머리에 명시했다.
+- [x] 명시적인 기존 V를 일부 바꿀 때만 Delta V를 썼고 유효 V를 재구성할 수 있다 — 기준 `V1`(commit `07ec3a6`~`e3ea535`, 구현 미착수) + `ΔV1`. ΔV1이 건드리지 않은 V1 pair는 복사하지 않고 `INHERITED`+`REQUIRED`로 유효하다고 §7-A ΔV1 절 머리에 명시했다.
 - [x] 변경 효과에 필요한 레벨을 선택했고 모든 NEW·CHANGED node에 같은 레벨 REQUIRED pair가 있다 — ΔV1의 CHANGED·NEW 설계 node 6개(R-02·R-04·R-07·AR-05·MD-01·MD-08)가 각각 VP-02·VP-04·VP-24·VP-21·VP-14·VP-25를 갖는다. 유효 V 실측 `VP-01~VP-25 = 25`.
 - [x] 영향받은 INHERITED 상위 node는 REGRESSION, 비영향 node만 NOT_REQUIRED다 — D-045가 도구 회수 경로의 의미를 확정하므로 R-05를 **VP-05 REGRESSION**으로 다시 닫았다. `NOT_REQUIRED` 0건 — 구현 미착수라 비영향 판정을 쓸 자리가 없고, 그 이유를 ΔV1 절에 적었다.
 - [x] 각 pair의 경로·§10 전수 분모·직접 oracle이 있고 적대 증거가 필요한 pair만 선택 이유·변이를 갖는다 — ΔV1 7 pair 전부 적대 증거를 선택했고 심을 결함을 적었다. §10 실측 `EP-01~EP-19 = 19`군·지점 합 **44**가 pair registry 분모와 일치한다.
