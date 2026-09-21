@@ -3,6 +3,7 @@ import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { openFileDatabase } from '../../../../infra/db/file-database'
 import { applyMailMigrations } from './migrate'
+import { retentionCutoff } from '../retention-window'
 import { sanitizeAttachmentFilename } from '../attachment-export'
 import type { MailDocument, MailSearchHit } from '../types'
 import type { ProtectionState } from '../protection'
@@ -262,8 +263,9 @@ export async function createMailStore(options: MailStoreOptions): Promise<MailSt
         throw error
       }
     },
-    cleanupExpired: async (now, retentionDays = 14) => {
-      const cutoff = now - retentionDays * 24 * 60 * 60 * 1000
+    cleanupExpired: async (now, retentionDays) => {
+      // 수집 경계와 같은 사본을 쓴다 (EP-28 ③).
+      const cutoff = retentionCutoff(now, retentionDays)
       const rows = db
         .prepare(
           `SELECT m.id, a.stored_name AS storedName FROM mail m LEFT JOIN attachment a ON a.mail_id=m.id WHERE m.account_id=? AND COALESCE(m.header_date,m.first_seen_at) < ?`
