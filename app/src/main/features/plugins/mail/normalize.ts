@@ -17,21 +17,43 @@ function asBytes(value: ArrayBuffer | Uint8Array | string): Uint8Array {
   return value instanceof Uint8Array ? value : new Uint8Array(value)
 }
 
+function referencedContentIds(html: string | undefined): Set<string> {
+  const ids = new Set<string>()
+  for (const match of (html ?? '').matchAll(/\bcid:([^\s"'<>()]+)/gi)) {
+    try {
+      ids.add(decodeURIComponent(match[1]))
+    } catch {
+      ids.add(match[1])
+    }
+  }
+  return ids
+}
+
 export function normalizeMail(
   email: Email,
   input: { uidl: string; messageNumber: number; firstSeenAt: number; sizeBytes?: number }
 ): MailDocument {
   const parsedDate = email.date ? Date.parse(email.date) : Number.NaN
   const headerDate = Number.isFinite(parsedDate) && parsedDate >= 0 ? parsedDate : null
-  const attachments: MailAttachment[] = (email.attachments ?? []).map((attachment) => {
-    const bytes = asBytes(attachment.content)
-    return {
-      filename: attachment.filename || 'attachment',
-      mimeType: attachment.mimeType || 'application/octet-stream',
-      sizeBytes: bytes.byteLength,
-      bytes
-    }
-  })
+  const referencedIds = referencedContentIds(email.html)
+  const attachments: MailAttachment[] = (email.attachments ?? [])
+    .filter((attachment) => {
+      const contentId = attachment.contentId?.replace(/^<|>$/g, '')
+      const embedded =
+        attachment.related ||
+        attachment.disposition === 'inline' ||
+        (contentId !== undefined && referencedIds.has(contentId))
+      return !(attachment.mimeType.toLowerCase().startsWith('image/') && embedded)
+    })
+    .map((attachment) => {
+      const bytes = asBytes(attachment.content)
+      return {
+        filename: attachment.filename || 'attachment',
+        mimeType: attachment.mimeType || 'application/octet-stream',
+        sizeBytes: bytes.byteLength,
+        bytes
+      }
+    })
   return {
     uidl: input.uidl,
     messageNumber: input.messageNumber,

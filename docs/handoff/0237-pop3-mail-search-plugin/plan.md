@@ -11,7 +11,7 @@
 | 작성자 | Claude Code (V1·ΔV1), **Codex (ΔV2·ΔV3 설계·구현)** |
 | 일자 | 2026-09-21 |
 | 매핑 | 없음 (신규 제품 기능) |
-| 상태 | READY — ΔV3 본문 임베드 이미지 분류, Codex 구현 |
+| 상태 | IMPL_DONE — ΔV3 본문 임베드 이미지 제외, 독립 verify 대기 |
 | V mode | `Delta V` (기준 `V1`) |
 | 기준 V | `V1` — 본 plan의 Baseline, commit `07ec3a6`~`e3ea535` |
 | 이번 V revision | `ΔV3` (r5 운영 요구 증분) |
@@ -1577,3 +1577,76 @@ AC 자기보고는 r3 독립 검증의 39개 충족 결과에 AC20의 직접 음
 수정 예정: normalize.ts, MIME/저장소 테스트, 현재 메일 가이드. handoff 산출은 기존 plan.md·INDEX.md만. 테스트 fixture는 app 테스트 코드에 둔다.
 
 게이트: 영향 mail·infra/net·deployment 회귀(실제 DB 포함), typecheck node/web/test, 읽기 전용 lint, 문서 inventory/link·migration·test-budget 검사. 필터 우회 변이 1종은 원복을 보장하며 실행한다. READY: 공개 도구 형상·인증·retention·기존 캐시 계약과 충돌 없음. 운영 서버 원문 없이도 MIME 메타데이터별 실제 파서 결과와 저장 결과를 판정 가능하다.
+
+
+## [구현자 기입] 설계 리뷰 (r5)
+
+- 동의 / 그대로 진행: 사용자 최종 지시에 따라 MIME 분류만 수행했다. UIDL 코드·테스트는 HEAD와 차이 0이며 D-058은 D-061로 철회했다. handoff-review는 실행하지 않았다.
+- 이견 / 현실성 문제: POP3 RETR과 postal-mime 파싱은 전체 메시지를 받는다. 이번 개선은 이미지 파일 영속과 모델 첨부 노출을 줄이며 원문 다운로드 자체는 줄이지 않는다.
+- ACTIVE Decision 충돌: 없음. 파일명 없는 part를 일괄 제거하지 않고 image/*와 MIME 관계 신호로 분류한다. 기존 캐시는 메타데이터가 없어 추측 삭제하지 않는다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 (r5)
+
+| Pair | §10 지점 | 닫은 지점 | 직접 관측 | 남긴 곳 |
+|---|---|---|---|---|
+| VP-32·33 / EP-27 | 정규화 필터 → 파일·첨부 행 → 검색 count/manifest | 3/3 | parseMail로 실제 raw MIME 파싱 후 store.saveMessage/search/readAttachment. 이미지와 파일 혼합은 2개, 임베드만 있으면 0개; 디스크 파일 개수도 각각 2/0, 일반 첨부 bytes `[1,2,3]` 유지 | 기존 캐시 재분류는 범위 밖 |
+
+`rg 'parseMail\(|saveMessage\(' app/src/main/features/plugins/mail/sync-manager.ts`에서 수집 → 파싱 → 저장 경로를 확인했다. 필터는 normalizeMail 한 곳이고 store/도구에 다른 분류 규칙을 추가하지 않았다. 새 §10 지점은 없다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택 증거 |
+|---|---|---|---|---|
+| VP-32 | REQUIRED | SELF_PASS | 실제 MIME → SQLite·파일 → 검색 첨부 manifest 및 일반 첨부 read 왕복 | 필터 우회 시 저장소 2케이스 포함 8실패 |
+| VP-33 | REQUIRED | SELF_PASS | MIME 분류 12케이스: related/inline/CID 제외, 일반 이미지·비이미지·무파일명 첨부 유지, encoded CID·ID prefix 구별 | not selected — 실제 파서 반환값 직접 단언 |
+
+이번 직접 판정은 **SELF_PASS 2 / SELF_BLOCKED 0**. VP-31·AC39는 사용자 철회로 제외한다. 기존 pair 30개의 과거 판정과 이번 영향 회귀 실행은 신규 pair 판정에 합산하지 않는다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r5)
+
+| 심은 결함 | 출처 | 이전 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| normalizeMail 이미지 필터를 `return true`로 우회 | VP-32 선택 증거 | 최초 | mime.test.ts 분류 6·실제 저장소 2 = 8 | red·잠김 |
+
+검산: 선택 증거 **1** · 인용 변이 **0** · 새 구조적 oracle **0** = **1행**. 직접 분류 대조에는 별도 변이를 추가하지 않았다. 변이 원본은 finally에서 bytes 그대로 복원했다. UIDL 변이는 철회된 범위라 최종 근거에 합산하지 않는다.
+
+덮개 회귀: 기존 EUC-KR bytes·sizeBytes 테스트를 유지하고 재실행했다. 관련 없는 기존 검사 장치는 교체하지 않았다. 신규 MIME 테스트를 처음 작성하면서 빠졌던 기존 EUC-KR 케이스는 diff 대조에서 복원한 뒤 최종 회귀에 포함했다.
+
+## [구현자 기입] Product/UX 파생 검토 (r5)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 문구·상태 소비자가 있는가 | 신규 형상 없음. 기존 attachmentCount/attachments가 실제 파일만 표시 | 모두 제외되면 0/[] |
+| 재배치와 정리 스코프 | 재배치 없음. 저장 전에 part를 걸러 기존 store/finally를 그대로 사용 | — |
+| 새 실패 경로가 상태표에 있는가 | CID percent decoding 실패는 원문 비교로 접어 MIME 수집을 중단하지 않음 | malformed CID 테스트 |
+| 실패가 무반응으로 보이는가 | 정상 수집으로 완료되고 본문은 검색 가능. 기존 오류·stale 경로 불변 | 혼합·임베드 전용 모두 본문 hit 확인 |
+| 늦은 응답이 화면을 되돌리는가 | 순수 동기 정규화만 변경, 비동기 상태 추가 없음 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r5)
+
+| 문제 | 대응 | 근거 |
+|---|---|---|
+| CID prefix만 비교하면 일반 첨부를 잘못 제외함 | URI에서 추출한 전체 ID Set으로 비교 | prefix / prefix-long 구별 |
+| related 이미지에 attachment disposition이 붙을 수 있음 | related 신호로 제외, 파일명·disposition attachment는 면제 조건이 아님 | HTML에서 참조하지 않는 related-only part 포함 테스트 |
+| 기존 파일에는 MIME 관계 정보가 없음 | 기존 캐시 보존, 신규 수집부터 적용 | DB 저장 필드에 related/disposition/contentId 없음 |
+
+설계 대비 명시적 차이: 없음. 만료는 기존 retention, 공유는 호출 내부 CID Set, 재진입은 normalizeMail마다 새 Set, 인증 등 다른 무효화 축은 변경하지 않았다. 신규 의존성·DB 포맷·플러그인 계약은 추가하지 않았다.
+
+## [구현자 기입] 구현 보고 (r5)
+
+| 항목 | 관측 |
+|---|---|
+| 주체 / 변경 파일 | Codex. normalize.ts·mime.test.ts·메일 가이드, 필수 handoff plan·INDEX |
+| 실행 명령 | app에서 vitest `src/main/features/plugins/mail src/main/infra/net src/main/app/deployment --maxWorkers=3`; npm run typecheck; eslint src scripts --cache; migration/doc-inventory/test-budget CLI |
+| 관측한 게이트 산출 | 영향 회귀 **19파일·230 pass**, MIME 15케이스 포함. typecheck node/web/test 3구성 통과. 최종 lint **0 error·기존 warning 1**. migration append-only·doc inventory/prose/links·test-budget 통과. 필터 우회 변이 8실패로 검출·복원 후 회귀 green |
+| V / 강제 지점 | 신규 2 SELF_PASS·0 SELF_BLOCKED / EP-27 3/3 |
+| AC 자기보고 | AC40 ✅ — 임베드 이미지는 파일·첨부 목록 0, 일반 첨부 2개 bytes 왕복. 기존 40개 기준은 계약 보존·영향 회귀로 승계하며 이번에 전체 스위트를 재실행했다고 주장하지 않음 |
+| 합계 | 기존 ✅40 + 신규 ✅1 = **✅41·⚠️0·❌0 / 41**. 철회된 AC39 미포함 |
+| 블로커 / 한계 | 없음. 실제 운영 메일 원문 실기·기존 캐시 재분류 미실행 |
+| 대상 커밋 | `(r5 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r5)
+
+- r5는 FAIL 재구현이 아니라 사용자 운영 요구의 추가다. 후속 지시로 UIDL 변경은 철회됐다.
+- 사용자 명시 지시대로 handoff-review를 실행하지 않았으며 SKILL·AGENTS·corpus를 변경하지 않았다.
+- MIME parser가 이미 제공하는 메타데이터를 소모하는 작은 필터로 해결했다. 새 플랫폼 계약은 없다.
+- 최초 테스트에서 일반 첨부를 읽을 때 store 반환 메타데이터를 bytes로 오인한 단언을 고쳤다. 실제 readAttachment 결과를 검증한다.
+- 최종 구현의 독립 verify는 다음 주체에게 남긴다. 임시 로그·스크립트는 OS 임시 경로에만 둔다.
