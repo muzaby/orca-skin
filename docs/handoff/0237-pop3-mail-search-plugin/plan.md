@@ -11,7 +11,7 @@
 | 작성자 | Claude Code (V1·ΔV1), **Codex (ΔV2 설계·r3 구현)** |
 | 일자 | 2026-09-21 |
 | 매핑 | 없음 (신규 제품 기능) |
-| 상태 | IMPL_DONE — r4 Codex 보완 완료, 독립 verify 대기 |
+| 상태 | READY — ΔV3 운영 UIDL·본문 임베드 이미지 분류, Codex 구현 |
 | V mode | `Delta V` (기준 `V1`) |
 | 기준 V | `V1` — 본 plan의 Baseline, commit `07ec3a6`~`e3ea535` |
 | 이번 V revision | `ΔV2` (r4 기술·증거 정정) |
@@ -1531,3 +1531,50 @@ AC 자기보고는 r3 독립 검증의 39개 충족 결과에 AC20의 직접 음
 - 지침 진단은 위 설계 리뷰의 B·F 판단으로 종결했다. 새로운 일반 규칙·과거 사례·별도 보고서 파일은 만들지 않았다.
 - 현재 환경에서 Electron 의존 파일을 포함한 전체 스위트가 통과했다. r3의 Electron 설치 실패 8파일을 이번 환경의 미실행 사유로 재사용하지 않았다. 설치본 UI·사내 서버·대량 수집 실기는 여전히 별도다.
 - 다음 단계는 Claude의 독립 verify다. 이전 verify.md의 FAIL 판정은 이 구현 보고로 덮어쓰지 않는다.
+
+
+## ΔV3 — 운영 UIDL 호환과 본문 임베드 이미지 제외 (r5)
+
+작성: Codex. 사용자 추가 요구에 따른 설계 증분이다. **사용자 명시 지시로 handoff-review는 실행하지 않는다.** 기존 r4의 구현·검증 기록은 보존한다.
+
+### Decision Ledger / Product & UX Contract
+
+| 결정 | 상태 | 출처·내용 |
+|---|---|---|
+| D-058 | ACTIVE | 사용자: 운영 서버의 70자 초과 UIDL도 처리한다. 식별자 길이 제한만 제거하고 ASCII printable 비공백·양의 메시지 번호·중복 검사 및 명령 제한은 유지한다 |
+| D-059 | ACTIVE | 사용자: MIME part 메타데이터로 파일 첨부와 본문 임베드 이미지를 구분한다. image/* 중 related 또는 inline 또는 HTML cid 참조에 해당하는 part는 저장·첨부 개수·매니페스트에서 제외한다. 파일명 유무·확장자로 분류하지 않는다 |
+| D-060 | ACTIVE | 구현 범위 해석: 새 수집에 적용한다. 기존 캐시에는 disposition/related/contentId가 없으므로 파일명으로 추측 삭제하지 않는다. 기존 원문 재수집·이관은 별도 사용자 요청이 있을 때 수행한다 |
+
+**원문 사실 확인:** RFC 1939 §7에는 UIDL 1~70옥텟 제한이 있다. D-058은 표준에 제한이 없다는 판단이 아니라 운영 호환을 위한 수용 범위 완화다. 근거: https://www.rfc-editor.org/rfc/rfc1939.html . RFC 2387 §4에서 related compound는 Content-Disposition보다 관계 의미가 우선한다: https://www.rfc-editor.org/rfc/rfc2387.html . 관련 이미지라면 attachment disposition이어도 제외한다.
+
+**사용자 결과:** mail_sync → UIDL 비교 → RETR → MIME 정규화에서 임베드 이미지 제외 → 본문·실제 파일 첨부만 DB/디스크 저장 → mail_search의 attachmentCount/manifest도 실제 파일만 노출. 모든 첨부가 임베드 이미지면 count 0·배열 []이며 본문 검색은 유지한다. 일반 첨부 image/*, 파일명 없는 일반 첨부, inline 비이미지는 보존한다. CID만 있고 HTML 참조/related/inline이 없는 이미지는 일반 첨부로 보존한다.
+
+실패·취소·재시도·정리 및 auth-only 조립은 기존 계약을 유지한다. POP3 RETR은 메시지 전체를 받으므로 네트워크 다운로드와 MIME 파싱 순간의 메모리까지 없애지는 않는다. 이미지 영속 저장과 모델의 첨부 노출을 줄인다. 신규 설정·플랫폼 계약·의존성·DB 마이그레이션은 없다.
+
+### Technical Design / 코드 근거
+
+- `infra/net/pop3-session.ts::uidls`의 `{1,70}`을 `+`로 변경한다. 나머지 행 문법·중복 검사는 보존한다.
+- `mail/mime.ts`는 이미 PostalMime.parse → normalizeMail 한 경로다. postal-mime 3.0.0 타입/실제 구현은 Attachment의 mimeType/disposition/related/contentId를 제공한다. 별도 MIME parser나 모델 분류기를 만들지 않는다.
+- `mail/normalize.ts`에서 bytes 변환·MailAttachment 생성 전에 image/*와 위 메타데이터를 조합해 필터한다. HTML cid URI는 완전한 ID 단위로 비교하고 percent encoding을 해제한다. 깨진 encoding은 예외 없이 원문으로 비교한다. 관련성 신호를 갖지 않는 일반 첨부는 기존 이름 fallback을 유지한다.
+- 기존 store는 정규화된 attachments만 저장하고 그 행으로 count/manifest를 생성한다. 이 경로를 실제 SQLite·파일·공개 검색 결과 테스트로 검증한다. sizeBytes는 수신한 원문 크기이며 필터 후 첨부 합계로 바꾸지 않는다.
+
+### V / Acceptance / §10 강제 지점 증분
+
+기준: V1 + ΔV1 + ΔV2(r4), 이번 ΔV3. 기존 AC 40개와 pair 30개를 유지한다. 새 AC39·40을 더해 총 42개, 새 pair VP-31~33을 더해 총 33개다. 이번 턴 직접 판정은 아래 REQUIRED 3개이고 기존 mail/infra 회귀 테스트를 함께 실행한다. 비영향 pair에 새 SELF_PASS나 전 변이 재실행을 주장하지 않는다.
+
+| Pair / node | requiredness | 계약·AC | production path / oracle | 선택 적대 증거 |
+|---|---|---|---|---|
+| VP-31 / MD-11 ↔ UT-11 | REQUIRED | AC39: 70자 초과 UIDL을 자르지 않고 수용, 서로 다른 긴 suffix를 구별, 공백·제어문자·중복은 거부 | 실제 POP3 세션 fake socket에 70·71·256·2048자 및 불량 UIDL 응답 | 과거 70자 제한 복귀 → long UIDL 테스트 red |
+| VP-32 / R-09 ↔ AT-23 | REQUIRED | AC40: raw MIME에서 임베드 이미지 제외 후 DB·파일·검색 첨부 개수 일치, 실제 첨부는 bytes/id 유지, 본문 유지 | parseMail → store.saveMessage → store.search/findAttachment 및 파일 열거 | 필터 우회 → 실제 저장소 단언 red |
+| VP-33 / MD-12 ↔ UT-12 | REQUIRED | MIME 분류는 filename과 독립. related/inline/cid 이미지 제외, 일반 image·비이미지·무파일명 일반 part 유지 | raw MIME fixtures → PostalMime → normalizeMail, 각 결과 filename/mime/bytes 및 본문 단언 | not selected — 분류별 직접 결과 대조 |
+
+| EP | 불변식 / SSOT | 강제 지점 | 실패 의미 |
+|---|---|---|---|
+| EP-26 / VP-31 | 긴 UIDL 원문 보존 / uidls parser | 단일 UIDL 행 정규식·기존 메시지 번호/식별자 중복 검사 | 정상 운영 서버 동기화 실패 또는 UIDL 잘림으로 메일 충돌 |
+| EP-27 / VP-32·33 | 본문 임베드 이미지 영속·모델 노출 제외 / normalizeMail | 정규화 필터 1곳 → store의 파일·첨부 행 → search count/manifest | 무확장자 attachment·서명 이미지가 디스크와 모델 문맥에 계속 남음 |
+
+### 구현·검증 범위와 READY 확인
+
+수정 예정: pop3-session.ts/test, normalize.ts, MIME/저장소 테스트, 현재 메일 가이드. handoff 산출은 기존 plan.md·INDEX.md만. 테스트 fixture는 app 테스트 코드에 둔다.
+
+게이트: 영향 mail·infra/net·deployment 회귀(실제 DB 포함), typecheck node/web/test, 읽기 전용 lint, 문서 inventory/link·migration·test-budget 검사. 변이 2종은 한 번씩 원복을 보장하며 실행한다. READY: 공개 도구 형상·인증·retention·기존 캐시 계약과 충돌 없음. 운영 서버 원문 없이도 MIME 메타데이터별 실제 파서 결과와 저장 결과를 판정 가능하다.
