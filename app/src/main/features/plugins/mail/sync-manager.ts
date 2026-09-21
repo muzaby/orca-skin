@@ -205,6 +205,7 @@ export async function createMailSyncManager(
     search: (query, limit = 20, at = now()) => {
       const built = buildMailQuery(query)
       const state = store.state()
+      const results = store.search(built.parameter, Math.min(Math.max(limit, 1), 50), built.mode)
       return {
         cacheAsOf: state.lastSyncAt,
         stale: !isFresh({
@@ -212,8 +213,8 @@ export async function createMailSyncManager(
           lastSyncAt: state.lastSyncAt,
           freshnessMs: options.options.freshnessMs
         }),
-        total: store.search(built.parameter, Math.min(Math.max(limit, 1), 50), built.mode).length,
-        results: store.search(built.parameter, Math.min(Math.max(limit, 1), 50), built.mode)
+        total: results.length,
+        results
       }
     },
     getAttachment: async (mailId, attachmentId) => {

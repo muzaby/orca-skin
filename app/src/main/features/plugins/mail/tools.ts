@@ -10,8 +10,6 @@ import { createPop3Socket } from '../../../infra/net/pop3-socket'
 import { mailSessionConfig } from './auth'
 import { publicMailError } from './pop3/errors'
 
-export const MAIL_TOOL_NAMES = ['mail_sync', 'mail_search', 'mail_getAttachment'] as const
-
 function result(value: Record<string, unknown>, isError = false): RuntimeToolResult {
   return {
     content: [{ type: 'text', text: JSON.stringify(value) }],
@@ -153,5 +151,3 @@ export function mailTools(auth: PluginAuth, options: MailPluginOptions): Runtime
     ]
   }
 }
-
-export const createMailPlugin = mailTools
