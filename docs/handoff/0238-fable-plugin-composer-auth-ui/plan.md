@@ -7,12 +7,12 @@
 | slug | `0238-fable-plugin-composer-auth-ui` |
 | 작성자 | Codex — 사용자 지시로 설계 턴 수행 |
 | 일자 | 2026-09-22 |
-| 매핑 | 신규 기능 요청 3건 |
-| 상태 | **IMPL_DONE** |
-| V mode | `Baseline V` |
-| 기준 V | `none` — 0224의 Fable 결정은 제품 선행 결정으로 대조하되 V는 상속하지 않는다 |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 매핑 | 최초 기능 요청 3건 + 사용자 변경·보완 4건 |
+| 상태 | **READY (ΔV1)** — V1 구현은 미검증이며 ΔV1 구현 전 기준선으로만 보존 |
+| V mode | `Delta V` |
+| 기준 V | `V1@651d9080` — 0238 최초 READY 설계; r1 구현 `6030afae`·`e96a2494`·`2c7dad51`은 독립 검증 전 |
+| 이번 V revision | `ΔV1` — Composer 그룹 순서·token 재진입·전 category catalog presentation 입력 |
+| 유효 V | `V1 + ΔV1` |
 
 # Part I — Product & UX Contract
 
@@ -45,7 +45,7 @@
 | `availableModels` 인식 | `model-parser.ts`의 `availableModelsOf`·`parseRuntimeModels`, `runtime-config.ts` | runtime/settings discovery에서 Fable family 유지 |
 | 기존 `@` 경로 팝업 | `useFileAutocomplete.ts`, `FileAutocomplete.tsx`, `ComposerInputController.tsx` | 그룹형 mention 상태·키보드·선택 로직의 기준선 |
 | 기존 `@` 경로 강조 | `ComposerInputSurface.tsx`, `ComposerDecorationLayer.tsx`, `composerDecoration.ts` | Plugin 식별자도 검증된 mention chip으로 표시 |
-| Plugin 식별자·내장 MCP 도구 | `ProviderInfo.id/catalog/tools`, `connection-views.ts`의 `connectionInfo()` | `catalog`가 있고 `tools`가 비지 않은 row를 후보로 투영 |
+| Plugin 식별자·내장 MCP 도구 | `ProviderInfo.id/catalog/tools`, `connection-views.ts`의 `connectionInfo()` | V1은 `catalog && tools`로 투영했다. ΔV1은 `§Δ2 D-017`의 plugin-only tools producer로 대체한다. |
 | 본문 타이틀 우측 인증 버튼 | `features/skills/components/customize/ProviderDetail.tsx:49-85` | 헤더 우측 액션 영역을 재구성 |
 | 검정 추가 버튼 | `ExtensionsCatalogView.tsx:118-136`의 `Button variant="primary"` | 미인증 `인증` 버튼의 정확한 primitive/variant |
 | 스킬 탭 추가 dropdown | 같은 버튼의 `dropdown`·`expanded` + `SkillAddMenu.tsx` | 인증 후 `재인증﹀` trigger·Popover 패턴 |
@@ -59,9 +59,9 @@
 | D-002 | `ANTHROPIC_DEFAULT_FABLE_MODEL`은 다른 family env 키와 같은 정규화·중복 제거·default 규칙을 사용한다. | 별도 Fable 분기를 만들면 1M·명시 모델 우선순위가 갈린다. | 사용자 요청 1 | ACTIVE | — |
 | D-003 | 기존 default 우선순위 `sonnet → haiku → opus`는 유지하고 Fable은 마지막 fallback이다. | Fable 추가가 기존 provider의 기본 모델을 바꾸지 않게 한다. | 기존 TRD §6.8 + 최소 변경 | ACTIVE | — |
 | D-004 | `availableModels`의 Fable은 shared family 분류와 `(모델명, 1M)` identity를 그대로 사용한다. | 현재 shared 분류는 이미 Fable을 알며 이를 우회할 이유가 없다. | 사용자 요청 1 + `model-identity.ts:37` | ACTIVE | — |
-| D-005 | Composer Plugin 후보는 `ProviderInfo.catalog`가 있고 `tools.length > 0`인 내장 Plugin row다. | gate/harness/usage 연결과 도구 없는 행을 Plugin mention으로 오인하지 않는다. | 사용자 요청 2 + `auth.md §7·§9` | ACTIVE | — |
+| D-005 | Composer Plugin 후보는 `ProviderInfo.catalog`가 있고 `tools.length > 0`인 내장 Plugin row다. | V1에서는 `catalog`가 Plugin category에만 존재했다. ΔV1에서 다른 category도 presentation을 가지므로 더는 분류자로 쓸 수 없다. | 사용자 요청 2 + `auth.md §7·§9` | SUPERSEDED | D-017 |
 | D-006 | Plugin 참조 토큰은 `@${ProviderInfo.id}`이고 선택 시 뒤에 공백을 붙인다. 전송 text는 변환하지 않는다. | Auth registry가 id를 kebab 소문자로 강제하므로 plain token이 손실 없이 성립한다. | 사용자 요청 2 + `auth/registry.ts:47-78` | ACTIVE | — |
-| D-007 | root plain `@partial` 팝업은 `플러그인` 그룹 뒤에 `경로` 그룹을 보여 준다. quoted 또는 `/` 포함 partial은 경로 탐색만 보여 준다. | Plugin id는 단일 토큰이고 경로 계층 진입과 충돌하지 않게 한다. | 사용자 요청 2 + 기존 경로 UX | ACTIVE | — |
+| D-007 | root plain `@partial` 팝업은 `플러그인` 그룹 뒤에 `경로` 그룹을 보여 준다. quoted 또는 `/` 포함 partial은 경로 탐색만 보여 준다. | 최초 구현의 순서이며 사용자가 Plugin을 하단으로 바꾸었다. | 사용자 요청 2 + 기존 경로 UX | SUPERSEDED | D-014 |
 | D-008 | Plugin 인증 상태와 무관하게 후보를 유지하며, provider state를 못 읽으면 경로 자동완성만 계속 동작한다. | `tools`는 invalid Auth에서도 cached descriptor를 유지하는 현재 계약이다. | `auth.md §7`, `plugins.ts:28-36` | ACTIVE | — |
 | D-009 | 미인증 상세 헤더에는 `인증` 검정 primary 버튼 하나를 둔다. | 사용자가 제품 추가 버튼 스타일을 직접 지정했다. | 사용자 요청 3 | ACTIVE | — |
 | D-010 | 인증 이력이 있으면 `재인증﹀` 검정 primary dropdown을 두고 메뉴에 `재인증`, `연결 해제`를 둔다. | 기존 재인증 능력을 보존하면서 파괴적 해제를 dropdown으로 내린다. | 사용자 요청 3 + 보존 원칙 | ACTIVE | — |
@@ -71,10 +71,10 @@
 
 ### 갱신 메모
 
-- 이번 턴에서 새로 추가된 결정: D-001~D-012.
-- 변경된 결정: 0224 D-046의 “기본 alias/env 추가는 아님”을 D-001·D-002가 대체한다. family 분류·자동 승인 부분은 D-013으로 유지한다.
-- 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: 모델 identity의 `[1m]` 축, Plugin tools의 invalid-auth 정적 표시, provider row의 기존 인증 lifecycle.
-- **ACTIVE 결정 ↔ AC 대조: 충돌 0.** D-001~D-004↔AC1~AC5, D-005~D-008↔AC6~AC12, D-009~D-011↔AC13~AC16, D-012~D-013↔AC17~AC18.
+- 이 절은 V1 설계 당시 기록이다. D-001~D-012를 추가했고 0224 D-046의 alias/env 제한을 D-001·D-002가 대체했다.
+- ΔV1에서 D-005는 D-017, D-007은 D-014가 대체했다. 현재 결정·AC 대조 정본은 `§Δ2`다.
+- 유지 결정: 모델 identity의 `[1m]` 축, Plugin tools의 invalid-auth 정적 표시, provider row의 기존 인증 lifecycle.
+- **V1 당시 ACTIVE 결정 ↔ AC 대조: 충돌 0.** 현재 유효 V의 대조는 `§Δ2`에서 충돌 0으로 재확인했다.
 
 ## 4. 요구 비판적 검토
 
@@ -87,7 +87,7 @@
 | ACTIVE 결정·기존 채택 결정과 충돌하는가 | 사용자 요청이 0224의 제한을 명시적으로 확장한다. 기존 default 우선순위·1M identity·Auth lifecycle은 보존한다. | D-001~D-004, D-013 |
 
 - 사용자에게 올릴 결정: 없음. `재인증﹀`의 메뉴는 기능 보존을 위해 `재인증`·`연결 해제` 두 행으로 해석했다.
-- 코드 조사로 닫은 사실: Plugin 식별자는 `ProviderInfo.id`, Plugin 판별자는 `catalog`, 내장 도구 존재는 `tools`, UI 스타일 선례는 공용 `Button primary/dropdown`·`MenuItem danger`다.
+- V1 코드 조사로 닫은 사실: Plugin 식별자는 `ProviderInfo.id`, 당시 판별자는 `catalog`, 내장 도구 존재는 `tools`였다. 현재 판별 계약은 `§Δ2 D-017`이다.
 
 ## 5. 동작 / 사용자 흐름
 
@@ -153,7 +153,7 @@
 | R-01 | AT-04 / AC4 | Composer 모델 메뉴에서 Fable 행을 선택하면 exact identity와 alias가 선택·실행 경로로 전달된다. | ModelMenu/modelSelection render·unit test가 라벨, active row, callback 4필드를 단언한다. | `orca:agent:list` → agentStore → ModelMenu → `setModel` |
 | R-01 | AT-05 / AC5 | 엔진 카드가 Fable alias·실제 모델명·1M·default 배지를 함께 렌더한다. | 신규 EngineModelList render test가 각 위치와 sibling 맞바꿈을 구분한다. | agent list → AgentEnvironmentView → EngineCard → EngineModelList |
 | R-02 | AT-06 / AC6 | root `@partial`은 Plugin과 경로를 별도 group header 아래 동시에 보여 준다. | 순수 후보/flatten 테스트와 popup render test가 그룹 순서·행 귀속을 단언한다. | Composer text/caret → mention hook → MentionAutocomplete |
-| R-02 | AT-07 / AC7 | Plugin 후보는 `catalog`가 있고 `tools`가 비지 않은 row만 포함하며 status와 무관하다. | 네 status × catalog/tools matrix가 포함/제외와 id를 단언한다. | provider state → candidate projector → Plugin group |
+| R-02 | AT-07 / AC7 | **V1 기준 — ΔV1 AC23이 대체.** Plugin 후보는 `catalog`가 있고 `tools`가 비지 않은 row만 포함하며 status와 무관하다. | V1 네 status × catalog/tools matrix. 현재 oracle은 source category × catalog × tools matrix다. | provider state → candidate projector → Plugin group |
 | R-02 | AT-08 / AC8 | Plugin을 선택하면 현재 token range만 `@id `로 바뀌고 caret이 공백 뒤로 이동한다. | 순수 replacement 테스트가 앞/뒤 text·caret·identity를 단언한다. | option pick → draft range replacement → textarea |
 | R-02 | AT-09 / AC9 | quoted·slash path는 Plugin을 숨기고 기존 directory/quote/hidden-file/8-path 규칙을 유지한다. | 기존 hook 케이스를 rename 후 재사용하고 Plugin 후보가 있어도 path 결과가 동일함을 단언한다. | text/caret/cwd → fileApi.list → Path group |
 | R-02 | AT-10 / AC10 | cwd가 없어도 Plugin 후보가 있으면 popup이 열리고, provider 실패 시 cwd 경로는 계속 동작한다. | hook lifecycle 테스트가 두 fail-soft 방향과 IPC 호출 횟수를 단언한다. | active Composer → providerApi/fileApi → popup |
@@ -352,7 +352,7 @@ ProviderDetail status → ProviderAuthActions
 |---|---|---|---|---|---|
 | MD-01 / VP-11 | family=`sonnet|opus|haiku|fable`, env key, fallback priority | `model-parser.ts` + shared family const | parser | settings/runtime parse | **EP-01 4곳** 중 하나가 빠지면 source별 목록·default가 갈린다. |
 | AR-01 / VP-08 | ParsedModel identity가 두 UI까지 보존 | `modelIdentity`·`toAgentEnvironment` | main + renderer | list/selection/render | **EP-02 3곳**: wire 1 + Composer 1 + Engine 1. |
-| AR-02 / VP-09 | Plugin candidate=`catalog present ∧ tools.length>0`, token=`@id` | `ProviderInfo` + `pluginMention.ts` | connection view + chat | state snapshot/push | **EP-03 2곳**: DTO producer + candidate projector. |
+| AR-02 / VP-09 | **V1 기준 — ΔV1 AR-04/VP-20·23이 대체.** Plugin candidate=`catalog present ∧ tools.length>0`, token=`@id` | `ProviderInfo` + `pluginMention.ts` | connection view + chat | state snapshot/push | V1 EP-03 2곳. 현재 강제 지점은 EP-10·12다. |
 | MD-02 / VP-12 | suggestion union과 flattened index; headers non-option | `mentionAutocomplete.ts` | hook/controller/popup | parse/filter/key/pick | **EP-04 6곳**: parse, group, flatten, replace, keyboard, decoration. |
 | MD-03 / VP-13 | Plugin id와 path는 서로 다른 validity set | `composerDecoration.ts` | decoration layer | deferred render | path set으로 Plugin을 검증하거나 그 반대면 잘못된 chip이 생긴다. |
 | AR-03 / VP-10 | none=`login`; non-none menu=`reauth`,`revoke` | `ProviderAuthActions` action model | ProviderDetail | render/click | **EP-05 5곳**: predicate, direct trigger, dropdown, reauth item, danger revoke item. |
@@ -360,7 +360,7 @@ ProviderDetail status → ProviderAuthActions
 
 - 같은/동일 규칙이 여러 레이어에 있다면 SSOT와 공유 방법: family/identity는 `shared/model-identity.ts`, settings env table은 parser 한 곳, Plugin 후보 술어는 chat 순수 projector 한 곳, danger tone은 공용 `MenuItem`을 쓴다.
 - `실패 의미`에 “다른 게이트가 막는다”를 적었다면 그 범위를 이 턴에 측정한 근거: 해당 없음.
-- 선택적 필드의 `true/false/undefined` 의미: `catalog===undefined`는 Plugin 아님, `tools=[]`는 mention 대상 아님, cwd `null`은 path group 없음이지 popup 전체 닫힘이 아니다.
+- V1 선택적 필드 의미: `catalog===undefined`는 Plugin 아님이었다. ΔV1에서는 `§Δ8`의 category/fallback 의미가 대체하며 `tools=[]`, cwd `null` 의미는 유지한다.
 - 외부 SDK 경계의 실제 요구 타입/의미: SDK model은 `modelIdentity` 문자열 그대로다. Plugin `@id`는 user text이며 SDK option·MCP config를 바꾸지 않는다.
 
 ## 11. 구현 설계
@@ -411,7 +411,7 @@ ConnectionViewSource(plugin)
 ```
 
 - producer 기준: model source는 parser가 family/identity/default를 확정한다. Plugin producer는 `connectionInfo()`가 plugin category에만 catalog와 cached tool names를 싣는다.
-- consumer 파생 규칙: Composer는 Plugin 여부를 `catalog && tools.length`로만 파생하고 status를 후보 존재 조건으로 사용하지 않는다.
+- V1 consumer 파생 규칙은 `catalog && tools.length`였다. ΔV1은 main의 plugin-only `toolsOf()`와 renderer의 `tools.length>0`으로 대체하고 status 비의존은 유지한다.
 - 파생 가능한 합성값이 정본을 우회하지 않는가: popup label이나 localized title에서 id를 재구성하지 않는다. `ProviderInfo.id`를 직접 삽입한다.
 
 ### 부팅/등록/초기화 변경 시 기존 소비처
@@ -443,7 +443,7 @@ ConnectionViewSource(plugin)
 
 ## 15. 외부 구현 포트 / 문서 계약
 
-- 외부/배포가 구현할 port/schema/config: 기존 `AuthDefinition`·`PluginBinding.catalog`·cached `toolNames()`·runtime `availableModels` 형상만 쓴다. 새 필드는 없다.
+- V1 외부/배포 계약은 기존 형상만 썼다. ΔV1은 `ProviderCatalogPresentationInput`을 일반화하고 Plugin compatibility alias와 기존 ProviderInfo field shape를 유지한다.
 - 구현 문서: `docs/guides/closed-network-extensions.md`와 `docs/arch/backend/auth.md`.
 - **shape 검증**: 기존 deployment fixtures가 `ProviderInfo{id,catalog,tools}`와 runtime `availableModels:string[]`에 typecheck된다.
 - **semantics 검증**: invalid Auth에서도 tools가 남고 status만 바뀌는 connection-view contract test를 candidate matrix와 함께 실행한다.
@@ -541,13 +541,292 @@ npx.cmd vitest run \
 
 ---
 
-## [구현자 기입] 설계 리뷰
+# ΔV1 — Composer 재진입과 전 category catalog presentation
+
+> 2026-09-22 사용자 변경·보완 4건의 설계다. V1의 Fable·Plugin 인증 UI 계약은 유지하며,
+> V1 r1 구현은 독립 검증 전에 이 Delta 구현으로 이어진다. 이 절은 구현 산출물이 아니다.
+
+## Δ1. 사용자 의도 / 요구 출처와 레퍼런스 전수
+
+| 구분 | 내용 | 출처 |
+|---|---|---|
+| 명시 요구 | “Composer에서 @ 입력시, 팝업메뉴에서 플러그인이 상단에 배치됨. 하단으로 배치할 것” | 2026-09-22 사용자 변경 1 |
+| 명시 요구 | “입력을 모두 지우고 다시 @ 입력시 팝업메뉴가 발생하지 않고 있음”을 고친다. | 2026-09-22 사용자 보완 2 |
+| 명시 요구 | “카탈로그의 프레젠테이션 input을 gate, harness에도 지원”한다. | 2026-09-22 사용자 보완 3 |
+| 명시 요구 | 같은 presentation input을 “usage-fetcher에도 지원”한다. | 2026-09-22 사용자 보완 4 |
+| 해석 | `usage-fetcher` 지원은 `category:'usage'` 연결 행의 표시 입력을 뜻한다. `UsageFetcher` 도메인 포트에는 표시 책임을 넣지 않는다. | `usage-fetcher.ts`, `features/usage/fetcher.ts`, `connections.ts`의 현재 책임 경계 |
+
+| 사용자 표현 | 현재 레퍼런스 | ΔV1에서의 사용 |
+|---|---|---|
+| Plugin을 하단 배치 | `mentionAutocomplete.ts:62-82`, `mentionAutocomplete.test.ts:45-57`, `MentionAutocomplete.tsx:35-70` | path group을 먼저, Plugin group을 마지막에 투영·렌더하고 flat keyboard index도 같은 순서를 따른다. |
+| 모두 지운 뒤 `@` 재입력 | `useTokenAutocompleteState.ts:14-28`, `useMentionAutocomplete.ts:117-124`, `ComposerInputController.tsx:297-318` | token 부재를 occurrence 종료로 처리하고 새 `@` occurrence에서 dismissal/index를 초기화한다. |
+| 기존 파일/skill 재오픈 선례 | `useFileAutocomplete.test.ts:151-201`, `useSkillAutocomplete.ts:42-47` | 공유 상태 머신 변경이 파일 `@`와 `/` skill 자동완성을 회귀시키지 않는 증거다. |
+| catalog presentation input | `shared/plugin-catalog.ts`, `deployment/plugins.ts:20-55`, `0236-jira-plugin-catalog-presentation/plan.md` D-001~D-005·EP-01~08 | icon·localized title/body·attribution·fallback 의미를 일반 연결 행으로 확장한다. |
+| gate | `deployment/gate-auth.ts`, `deployment/connections.ts:41-43`, `closed-network-extensions.md §2` | gate connection source도 선택적 presentation input을 받는다. |
+| harness | `deployment/harness-runtime.ts`, `connection-views.ts:32-37`, `closed-network-extensions.md §3` | harness connection source도 같은 input을 받고 `harnessModelProviderKey`는 유지한다. |
+| usage-fetcher | `deployment/usage-fetcher.ts`, `connection-views.ts:46`, `closed-network-extensions.md §5-b` | usage 연결 행에 같은 input을 허용하되 fetcher의 `supports/fetchUsage` 계약은 불변이다. |
+| wire/renderer 표시 | `shared/ipc.ts:1725-1750`, `connection-views.ts:61-81`, `pluginPresentation.ts:33-43`, `CustomizeList.tsx:108-132`, `ProviderDetail.tsx:39-102` | category·presentation을 producer에서 list/detail consumer까지 보존한다. |
+| 현재 문서 계약 | `IPC_CONTRACT.md §2.13-c`, `auth.md §7~§9`, `ux-domains.md §1.2`, `TRD.md §6.8.1` | Plugin-only catalog·Plugin-first 문구를 새 계약으로 갱신한다. |
+
+## Δ2. Decision Ledger
+
+| ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
+|---|---|---|---|---|---|
+| D-014 | root plain `@partial`에서 path group을 먼저, Plugin group을 마지막에 표시한다. slash/quoted 입력은 계속 path group만 표시한다. | 사용자가 Plugin의 하단 배치를 명시했다. | 사용자 변경 1 | ACTIVE | D-007 대체 |
+| D-015 | 자동완성 token이 사라지면 그 occurrence의 dismissal과 active index를 끝낸다. 같은 문자열의 새 `@` token은 새 occurrence로 열려야 한다. | partial 문자열만 dismissal identity로 쓰면 `'' → null → ''` 재진입을 구분하지 못한다. | 사용자 보완 2 + 코드 조사 | ACTIVE | — |
+| D-016 | catalog presentation input은 `gate · harness · plugin · usage` 네 connection category 모두에서 선택적으로 받는다. | 동일 카탈로그 list/detail에서 category별 표시를 구성할 수 있어야 한다. | 사용자 보완 3·4 | ACTIVE | 0236 D-004의 non-Plugin 제한 대체 |
+| D-017 | main은 계속 Plugin source에만 `tools`를 싣고, Composer Plugin mention은 `tools.length>0`으로 판별한다. `catalog` 존재 여부는 분류자가 아니다. | presentation 확장 후 `catalog`로 Plugin을 추론하면 gate/harness/usage가 `@` 후보에 섞인다. | D-016 역방향 검토 + `toolsOf()` | ACTIVE | D-005 대체 |
+| D-018 | presentation input이 없는 gate/harness/usage는 기존 power icon·Auth label을 유지한다. Plugin은 input이 없어도 기존 `electrical_services` 기본값을 유지한다. | 선택적 입력 확장이 기존 배포의 표시를 바꾸면 안 된다. | 0236 D-002·D-004 + 호환성 | ACTIVE | — |
+| D-019 | 일반 계약의 정본 이름은 `ProviderCatalog*`로 옮기되 기존 `PluginCatalog*`·`LocalizedPluginText` type·constant·normalizer export는 호환 alias로 보존한다. wire 필드명 `catalog`도 유지한다. | 비Plugin에 Plugin 이름을 강요하지 않으면서 기존 배포 소스와 JSON shape를 깨지 않는다. | 타입/배포 공개 경계 검토 | ACTIVE | — |
+| D-020 | usage presentation은 `category:'usage'` connection source의 표시 입력이다. `UsageFetcher`의 `supports/fetchUsage` 포트와 snapshot에는 표시 필드를 추가하지 않는다. | usage 실행 책임과 카탈로그 표시 책임을 다시 결합하지 않는다. | 사용자 보완 4 + 0183/0188 경계 | ACTIVE | — |
+| D-021 | 새 IPC 채널·ProviderInfo 필드·DB·마이그레이션·패키지 의존성은 추가하지 않는다. 기존 `catalog` 필드의 허용 producer만 넓힌다. | 기존 provider state 채널과 build-time deployment 입력으로 닫힌다. | 코드 조사 | ACTIVE | D-012 유지·구체화 |
+
+### Δ1 갱신 메모
+
+- 새 결정: D-014~D-021.
+- 변경 결정: D-007→D-014, D-005→D-017, 0236 D-004의 “non-Plugin catalog undefined”→D-016·D-018.
+- 유지 결정: D-006의 `@id` raw text, D-008의 status 무관 후보, D-009~D-011의 인증 액션, Fable D-001~D-004·D-013.
+- **ACTIVE 결정 ↔ AC 대조: 충돌 0.** D-014↔AC19, D-015↔AC20, D-016·D-018·D-020↔AC21~AC22, D-017↔AC23, D-019·D-021↔AC24, 유지 결정↔AC25.
+
+## Δ3. 요구 비판적 검토
+
+| 질문 | 판단 | 근거 |
+|---|---|---|
+| Plugin 하단 배치가 작은 변경으로 닫히는가 | 예. group 배열 순서가 렌더 순서와 flattened keyboard 순서를 함께 결정한다. | `groupMentionSuggestions`·`flattenMentionGroups`·`MentionAutocomplete` |
+| 재입력 증상이 원인을 지목하는가 | 증상은 맞고 원인은 shared lifecycle이다. 상태가 dismissed partial 문자열만 기억해 token occurrence 경계를 잃는다. | `useTokenAutocompleteState.ts:20-27` |
+| presentation을 `catalog` producer만 넓히면 되는가 | 아니오. V1 Plugin projector가 `catalog` 존재를 category 신호로 쓰므로 mention 오염 회귀가 생긴다. | `pluginMention.ts:20`, `connection-views.ts:57-59` |
+| usage port에 표시 입력을 넣어야 하는가 | 아니오. 표시 입력은 connection source, 원격 사용량 동작은 `UsageFetcher`가 소유한다. | `usage-fetcher.ts`, `features/usage/fetcher.ts` |
+| 사용자에게 올릴 제품 결정이 남는가 | 없음. 순서·지원 category·재입력 결과는 명시됐고, 책임 배치는 기존 아키텍처로 닫힌다. | D-014~D-021 |
+
+## Δ4. 동작 / 상태 전이
+
+```text
+[Composer root plain @]
+  → [path 후보 계산 + Plugin 후보 계산]
+  → [경로 group]
+  → [Plugin group — 항상 마지막]
+
+[@ token이 열림]
+  → [전체 입력 삭제: token=null, occurrence 종료]
+  → [다시 @ 입력: 새 occurrence]
+  → [dismissal/index 초기화, popup 재오픈]
+
+[gate/harness/plugin/usage connection source + optional catalog input]
+  → [한 번 정규화 + plugin-only tools producer 유지]
+  → [ProviderInfo.catalog? + tools]
+  → [카탈로그 목록/상세 표시]
+  ↘ [input 없음: category별 기존 fallback]
+```
+
+| 시작 상태/이벤트 | 시스템 동작 | 사용자/소비자에게 보이는 결과 |
+|---|---|---|
+| root `@`에서 path와 Plugin 후보가 모두 있음 | path group을 먼저 flatten하고 Plugin group을 뒤에 붙인다. | 경로가 상단, Plugin이 하단이며 ↑/↓ 순서도 화면과 같다. |
+| slash/quoted path | Plugin 후보를 조립하지 않는다. | 기존 path-only 팝업이 유지된다. |
+| popup이 열린 뒤 draft를 전부 지움 | token 부재 전이에서 dismissal과 active index를 초기화한다. | popup이 닫히고 남은 stale selection이 없다. |
+| 같은 Composer에 다시 `@` 입력 | 새 token occurrence로 후보를 다시 계산한다. | 이전 close/select 이력과 무관하게 popup이 다시 열린다. |
+| non-Plugin category에 presentation input 있음 | 공용 normalizer가 icon/title/body/attribution을 보존한다. | Plugin과 같은 locale/fallback 규칙으로 목록·상세가 표시된다. |
+| gate/harness/usage에 input 없음 | `catalog`를 싣지 않는다. | power icon과 Auth label이 그대로다. |
+| Plugin에 input 없음 | Plugin binding의 기존 default normalization을 유지한다. | `electrical_services`와 Auth label이 그대로다. |
+| presentation이 있는 non-Plugin row | main이 tools를 빈 배열로 싣고 renderer는 tools만 후보 자격으로 본다. | Composer Plugin group에는 나타나지 않는다. |
+
+### Δ1 범위 / 비범위
+
+- **범위**: mention group 순서, token occurrence 재진입, 네 connection category의 optional presentation input, generic shared naming·호환 alias, ProviderInfo `catalog` 의미 확장, list/detail resolver, 문서·테스트.
+- **비범위**: `UsageFetcher` 응답·스케줄·네트워크 변경, ProviderKind 교체, catalog runtime 편집/저장, 새 아이콘/locale 정책, Plugin token backend semantic expansion.
+
+## Δ5. Requirements / Acceptance — `R ↔ AT`
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-05 | AT-05 / AC19 | root plain `@`의 두 group은 path→Plugin 순서이고 keyboard flatten 순서도 같다. | 순수 group/flatten test와 popup render test가 header·첫/마지막 option·형제 맞바꿈을 구분한다. | Composer token → groups → popup/controller |
+| R-06 | AT-06 / AC20 | 입력 전체 삭제로 token이 사라진 뒤 같은 Composer에서 다시 `@`를 입력하면 popup이 열린다. | shared hook fixture가 `@ → close 또는 open → '' → @`와 active index reset을 단언한다. | draft revision → token parser → shared autocomplete state → open |
+| R-07 | AT-07 / AC21 | gate/harness/plugin/usage source에 지정한 presentation input이 list/detail의 icon·locale title/body·attribution까지 보존된다. | 네 category integration table이 같은 입력의 producer→wire→두 consumer 값을 단언한다. | deployment input → source → ProviderInfo → resolver → UI |
+| R-07 | AT-08 / AC22 | input이 없는 gate/harness/usage는 power/Auth label, Plugin은 electrical_services/Auth label fallback을 유지한다. | category × input 유무 table과 기존 Plugin normalization test가 정확한 fallback을 단언한다. | source normalization → wire optional catalog → resolver |
+| R-07 | AT-09 / AC23 | catalog가 있는 gate/harness/usage는 Plugin `@` 후보가 아니며, Plugin source가 싣는 tools가 있는 행만 후보가 된다. | source category × catalog × tools × status integration과 projector matrix가 포함/제외·id를 단언한다. | ConnectionViewSource → ProviderInfo.tools → plugin projector → Composer group |
+| R-07 | AT-10 / AC24 | generic presentation type·normalizer가 정본이고 기존 Plugin type/function import는 호환되며 현재 문서·배포 예제가 네 category를 설명한다. | type fixture·normalizer unit·문서 anchor/inventory gate가 alias와 예제 shape를 단언한다. | deployment author → shared contract → build/current docs |
+| R-08 | AT-11 / AC25 | 기존 slash/quoted file mention, `/` skill dismissal, Plugin raw `@id`, auth action, usage fetch 동작은 회귀하지 않는다. | 기존 focused suites와 usage fetcher fixture가 기존 결과를 재단언한다. | 기존 V1 production path + UsageFetcher port |
+
+### AC 검증 주의사항
+
+- AC20은 partial 문자열 변화만 보지 않는다. **token 존재→부재→새 존재** 전이를 같은 hook instance에서 재현한다.
+- AC19는 group 문자열 존재가 아니라 path/Plugin 형제 위치를 맞바꿨을 때 실패하는 순서 oracle을 둔다.
+- AC23은 source category별 `toolsOf()` 결과와 catalog 유무를 분리해 표시 입력을 Plugin 자격으로 오인하지 않는다.
+- 사람 실기: 두 테마에서 path 상단/Plugin 하단과 gate/harness/usage의 custom icon·본문을 확인한다. 재입력·분류·locale fallback은 기계 테스트로 닫는다.
+
+## Δ6. V / Trace Matrix
+
+- V mode 판정: `V1@651d9080`의 R-02·SD-02·AR-02·MD-02를 일부 변경하고 connection presentation 경계를 확장하므로 `Delta V`다.
+- 변경 시작 수준: 사용자 관측 순서·재진입·category별 표시가 바뀌므로 R부터 시작한다.
+- 영향 없는 Fable R-01/SD-01/AR-01/MD-01과 모델 UI는 복사하지 않는다. 기존 증거는 V1 VP-01·05·08·11에 남는다.
+
+### ΔV1 node registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| R-05 / AT-05 | R / AT | AC19 group 위치 | NEW | D-014; V1 D-007 대체 |
+| R-06 / AT-06 | R / AT | AC20 token 재진입 | NEW | D-015 |
+| R-07 / AT-07~10 | R / AT | AC21~24 전 category presentation | NEW | 0236 Plugin-only 계약 확장 |
+| R-08 / AT-11 | R / AT | AC25 기존 동작 회귀 | INHERITED | V1 R-02~04 + usage port |
+| V1 R-02 / AT-02 | R / AT | V1 grouped Plugin mention 묶음 | SUPERSEDED | R-05·R-06·R-07·R-08로 분해 |
+| SD-04 / ST-04 | SD / ST | group order·token occurrence 종단 | CHANGED | V1 SD-02 / ST-02 일부 대체 |
+| SD-05 / ST-05 | SD / ST | presentation input→list/detail 종단 | NEW | 0236 Plugin path 일반화 |
+| V1 SD-02 / ST-02 | SD / ST | V1 mention source·caret·dismiss 종단 | SUPERSEDED | SD-04·SD-05로 분해 |
+| AR-04 / IT-04 | AR / IT | category+catalog producer/wire/consumer | CHANGED | V1 AR-02 / IT-02와 0236 presentation 경계 확장 |
+| V1 AR-02 / IT-02 | AR / IT | V1 ProviderInfo→mention 경계 | SUPERSEDED | AR-04 / IT-04 |
+| MD-05 / UT-05 | MD / UT | path-first group/flatten invariant | CHANGED | V1 MD-02 / UT-02의 순서 대체 |
+| MD-06 / UT-06 | MD / UT | token occurrence dismissal/index lifecycle | NEW | shared hook의 누락 계약 |
+| MD-07 / UT-07 | MD / UT | generic normalization·plugin-only tools projection | CHANGED | V1 Plugin projector + 0236 normalizer |
+| V1 MD-02 / UT-02 | MD / UT | V1 token·group·replacement 묶음 | SUPERSEDED | MD-05·MD-06·MD-07로 분해 |
+
+### ΔV1 pair registry
+
+| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §Δ8 강제 지점 전수 |
+|---|---|---|---|---|---|---|
+| VP-15 | R-05 ↔ AT-05 | REQUIRED | root `@` → grouped options → popup/keyboard | AC19 순수+render 순서 table | required — path/Plugin 형제 group 맞바꿈 | EP-07 (2) |
+| VP-16 | R-06 ↔ AT-06 | REQUIRED | draft clear → token null → new `@` → open | AC20 동일 hook sequence | required — token-null reset 제거 | EP-08 (2) |
+| VP-17 | R-07 ↔ AT-07~10 | REQUIRED | four category inputs → wire → list/detail | AC21~24 category matrix | required — 한 category의 catalog 전달 제거 | EP-09~11 (9) |
+| VP-18 | SD-04 ↔ ST-04 | REQUIRED | parser → occurrence state → groups/index → popup | lifecycle/controller integration | required — stale dismissed partial 유지 | EP-07~08 (4) |
+| VP-19 | SD-05 ↔ ST-05 | REQUIRED | deployment config → normalized source → state push → two UI consumers | producer-consumer integration fixture | required — input category 하나를 undefined로 소실 | EP-09~11 (9) |
+| VP-20 | AR-04 ↔ IT-04 | REQUIRED | ConnectionViewSource → ProviderInfo → resolver/projector | four-category wire test | required — catalog edge 또는 plugin-only tools guard 제거 | EP-10~12 (6) |
+| VP-21 | MD-05 ↔ UT-05 | REQUIRED | group projection → flatten index | exact ordered arrays | required — sibling swap | EP-07 (2) |
+| VP-22 | MD-06 ↔ UT-06 | REQUIRED | partial/token occurrence → dismissal/index | state transition table | required — occurrence reset 제거 | EP-08 (2) |
+| VP-23 | MD-07 ↔ UT-07 | REQUIRED | input normalize + tools filter → render/mention models | normalizer + projector matrices | required — catalog를 다시 Plugin 판별자로 사용 | EP-09·12 (6) |
+| VP-24 | R-08 ↔ AT-11 | REGRESSION | file/skill/plugin/auth/usage 기존 entry → 기존 sink | AC25 기존 focused suites | required — non-Plugin category를 plugin으로 변경 | EP-08·11·12 (7) |
+| VP-25 | V1 R-03 ↔ AT-03 | REGRESSION | provider detail presentation → auth actions | ProviderDetail/auth action render suites | not selected — 직접 callback/status oracle | EP-11 하위 (2) |
+
+### ΔV1 현재 변경의 운영 gate
+
+| Gate | 이번 변경 산출물에 적용되는 이유 | 증거 / 명령 | 실패 범위 |
+|---|---|---|---|
+| renderer/main/shared Vitest | occurrence·projection·wire·normalizer 변경 | direct `vitest run`의 §Δ10 suites | 변경 suite·명시 regression 실패 blocking |
+| typecheck | shared wire field 타입·호환 alias·네 category input | `npm.cmd run typecheck` | 신규 타입 오류 blocking |
+| lint/boundaries | shared→main→renderer 방향과 feature 격리 | `npm.cmd run lint` | 현재 변경 error blocking |
+| current docs/inventory | IPC·Auth·frontend·폐쇄망 계약 갱신 | `node scripts/check-doc-inventory.mjs --check` | 변경 문서 실패 blocking |
+| repository/message-bus | plan/INDEX/trailer 두 사본 정합 | `git diff --check`, trailer parse | 현재 handoff 불일치 blocking |
+
+## Δ7. Architecture / Data & Control Flow — AS-IS → TO-BE
+
+### AS-IS
+
+```text
+root @ → Plugin group → path group
+dismissedAt=partial string → token null → same partial string → stale dismissed
+
+PluginBinding.catalog → plugin ConnectionViewSource → ProviderInfo.catalog
+gate/harness/usage → no catalog → power/Auth label
+Plugin mention = catalog present && tools nonempty
+```
+
+- group 배열이 UI와 keyboard 순서의 정본이며 현재 Plugin을 먼저 push한다.
+- shared autocomplete state는 token occurrence가 아니라 partial 문자열만 dismissal identity로 가진다.
+- `catalog`는 presentation과 Plugin category 표식 두 역할을 동시에 하며 non-Plugin source는 입력 자리가 없다.
+
+### TO-BE
+
+```text
+root @ → path group → Plugin group
+token occurrence end(null) → reset dismissal/index → new occurrence opens
+
+ProviderCatalogPresentationInput
+  → normalize once at connection source boundary
+  → ConnectionViewSource{category,catalog?}
+  → ProviderInfo{catalog?,tools}
+  ├→ providerPresentation → list/detail
+  └→ pluginMention(tools>0; main producer is plugin-only)
+```
+
+- 표시 계약은 generic shared type이 소유하고 기존 Plugin type export는 alias다.
+- connection source factory가 optional input을 정규화한다. input 부재 non-Plugin은 catalog를 만들지 않는다.
+- `UsageFetcher`는 presentation을 모르며 deployment connections가 usage row의 표시 입력을 소유한다.
+
+### AS-IS → TO-BE Delta
+
+| 비교 축 | AS-IS | TO-BE | 변경 이유 | V / 구현 연결 |
+|---|---|---|---|---|
+| group 위치 | Plugin→path | path→Plugin | 사용자 변경 | VP-15·21 / `mentionAutocomplete.ts` |
+| dismissal identity | partial 문자열 | token occurrence 경계 | delete/retype bug | VP-16·18·22 / shared hook |
+| presentation 범위 | Plugin만 | 네 category optional | 사용자 보완 | VP-17·19 / shared+connections |
+| Plugin 판별 | catalog+tools | plugin-only tools producer + tools filter | catalog 의미 일반화 | VP-20·23·24 / wire+projector |
+| usage 책임 | fetcher와 row가 별도이나 row presentation 없음 | row만 presentation 입력, fetcher 불변 | 레이어 보존 | VP-17·24 / deployment guide |
+| consumer naming | pluginPresentation | providerPresentation | 비Plugin 표시 지원 | VP-19·25 / skills renderer |
+
+## Δ8. 계약 / 타입 / 강제 지점
+
+| EP | 계약/필드 | SSOT | 누가/언제 강제 | 실패 의미 |
+|---|---|---|---|---|
+| EP-07 | root group order=`path → plugin`; header는 option 아님 | `groupMentionSuggestions`·flatten model | token projection/render 시 2곳 | 화면/keyboard 순서 불일치 |
+| EP-08 | token null은 occurrence 종료·dismissal/index reset | `useTokenAutocompleteState` | shared hook state + mention open 계산 2곳 | 같은 `@` 재입력 미오픈 또는 stale index |
+| EP-09 | generic input shape·icon/locale validation·Plugin compatibility alias | shared catalog module | typecheck/normalization 3곳 | category별 config drift·source break |
+| EP-10 | 네 category optional catalog + Plugin-only tools | connection source factory·`toolsOf`·`connectionInfo` | boot source 조립/list/state 3곳 | presentation 유실·non-Plugin tool 오염 |
+| EP-11 | list/detail가 같은 provider presentation resolver 사용 | provider resolver·CustomizeList·ProviderDetail | render 3곳 | 목록/상세 불일치 |
+| EP-12 | Plugin candidate=`tools.length>0`; catalog/status 비의존 | `toolsOf` + `pluginMentionCandidates` | producer·후보·valid id projection 3곳 | non-Plugin mention 오염·chip drift |
+| EP-13 | current docs가 path-first·네 category·usage 분리를 설명 | IPC·TRD·backend Auth·frontend UX·폐쇄망 guide | 문서 gate 5곳 | 배포 입력·현재 동작 drift |
+
+- `catalog===undefined`: gate/harness/usage는 기존 fallback, Plugin source에는 binding default가 있으므로 정상 조립에서 undefined가 아니다.
+- 기존 `ProviderInfo.kind`와 JSON field shape는 유지한다. internal source category는 `toolsOf()`와 catalog normalization의 producer 분기에만 사용한다.
+- `ProviderCatalogPresentationInput`은 icon만 optional이고 title/body가 있으면 ko/en은 계속 필수다. locale fallback·attribution shape는 0236 계약을 바꾸지 않는다.
+- 강제 지점 분모는 불변식 주어로 재검색한다: category union/constructor, catalog producer/consumer, Plugin candidate/valid-id 두 경로, group/flatten/open state를 각각 센다.
+
+## Δ9. 구현 설계 / 영향 파일
+
+| 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
+|---|---|---|---|
+| `shared/{provider-catalog.ts,plugin-catalog.ts,ipc.ts}` | generic presentation·wire | canonical generic type/normalizer, Plugin alias, 기존 `catalog` field type 일반화 | pure/type fixture |
+| `main/app/deployment/connections.ts` | connection input normalization | 네 category source factory와 기존 helpers의 호환 경로 | deployment wiring |
+| `main/app/connection-views.ts` | source→wire | category와 optional catalog를 모든 variant에서 투영, tools는 plugin-only 유지 | category matrix |
+| `chat/lib/mentionAutocomplete.ts` | group/flat order | path 먼저, Plugin 마지막 | ordered pure unit |
+| `chat/hooks/useTokenAutocompleteState.ts` | occurrence lifecycle | token 부재 reset과 active index 초기화 | deterministic hook fixture |
+| `chat/hooks/useMentionAutocomplete.ts` | open integration | 새 occurrence state를 mention token과 연결 | integration fixture |
+| `chat/lib/pluginMention.ts` | Plugin projection | tools predicate, status/catalog 비의존 | exhaustive matrix |
+| `skills/lib/providerPresentation.ts` | 공용 render model | 기존 locale/icon/title/body/attribution fallback 일반화 | pure table |
+| `CustomizeList.tsx`, `ProviderDetail.tsx` | list/detail consumer | 공용 resolver 사용, auth action 유지 | render regression |
+| 관련 tests | direct evidence | group swap·clear/retype·four category·compat alias·legacy regressions | Vitest |
+| `IPC_CONTRACT.md`, `TRD.md`, `auth.md`, `ux-domains.md`, `closed-network-extensions.md` | current/deployment 계약 | Plugin-only/Plugin-first 문구 교체와 category별 입력 예제 | doc gate |
+
+### End-to-end·lifecycle
+
+- provider state invoke와 push는 같은 `connectionInfo()`를 쓰므로 optional catalog와 plugin-only tools를 한 mapper에서 싣는다.
+- token occurrence reset은 renderer-local state이며 저장·IPC·네트워크 요청을 만들지 않는다. token이 없어진 순간 active index도 0으로 돌아간다.
+- presentation normalizer는 source 조립 시 한 번 호출한다. state push마다 localized text를 다시 복사/검증하지 않는다.
+- 다중 저장소 쓰기: 제품 쓰기 없음. plan 상태와 INDEX 보드는 같은 설계 커밋에서 함께 갱신한다.
+
+### 성능 / 상한
+
+- popup option 상한은 V1의 `P + min(F,8)`로 불변이며 group 순서만 바뀐다. keystroke당 provider IPC 0도 유지한다.
+- `ProviderInfo`에는 새 필드가 없고 기존 optional catalog payload의 producer만 넓어진다. 입력이 없는 non-Plugin row의 catalog payload는 0이다.
+- 새 네트워크·DB·scheduler 호출은 0이다. usage fetch 주기와 요청 수는 불변이다.
+
+## Δ10. 게이트
+
+- 관련 순수 테스트: `mentionAutocomplete.test.ts`, 신규 shared autocomplete state test, `pluginMention.test.ts`, `plugin-catalog/provider-catalog.test.ts`, `connection-views.test.ts`, `deployment-wiring.test.ts`, `pluginPresentation/providerPresentation.test.ts`, `CustomizeList.render.test.ts`, `ProviderDetail.render.test.ts`.
+- 회귀 테스트: `useFileAutocomplete.test.ts`, skill autocomplete tests, Provider auth action tests, deployment usage fixture.
+- 정적/문서: `npm.cmd run typecheck`, `npm.cmd run lint`, `node scripts/check-doc-inventory.mjs --check`, `git diff --check`.
+- 선택 mutation: ① path/Plugin 형제 group 맞바꿈, ② token-null reset 제거, ③ gate/harness/usage 중 한 category catalog edge 제거, ④ `toolsOf()`의 plugin-only guard 제거, ⑤ projector를 catalog 기반으로 되돌림.
+- 사람 실기: Composer path-first/Plugin-last와 clear/retype, 두 테마의 gate/harness/usage custom presentation. 기계 oracle이 있는 재입력·분류를 사람 실기만으로 판정하지 않는다.
+
+## ΔV1 READY self-review
+
+- [x] D-007·D-005와 0236 D-004를 SUPERSEDED 관계로 보존하고 D-014~D-021을 추가했다.
+- [x] 사용자 요구 4건과 요구가 가리킨 코드·문서 레퍼런스를 §Δ1에 전수 기록했다.
+- [x] group 위치·token occurrence·presentation category가 AC19~AC24와 Technical Design에 연결된다.
+- [x] 기존 file/skill mention·Plugin id·auth action·usage 동작은 AC25 REGRESSION으로 남겼다.
+- [x] `V1@651d9080 + ΔV1` 기준과 변경 시작 R, NEW/CHANGED node의 REQUIRED pair를 기록했다.
+- [x] V1 R-02/SD-02/AR-02/MD-02는 새 node로 분해·대체했고, 유지 동작 R-08과 V1 R-03은 VP-24·VP-25 REGRESSION으로 다시 닫는다.
+- [x] pair마다 production path·직접 oracle·EP 분모가 있고 순서/재진입/분류 축만 mutation을 선택했다.
+- [x] category presentation이 Plugin mention 판별을 오염시키는 역방향 회귀를 D-017·AC23·VP-23/24로 차단했다.
+- [x] usage 표시와 UsageFetcher 동작을 D-020으로 분리하고 신규 네트워크/DB/의존성 0을 확인했다.
+- [x] renderer/main/shared/docs의 현재 가이드와 ABI-중립 gate를 반영했다.
+- [x] **ACTIVE 결정 ↔ AC 대조 결과 충돌 0**이며 plan과 INDEX 두 상태 사본을 함께 갱신한다.
+
+---
+
+## [구현자 기입] 설계 리뷰 (r1 — V1)
 
 - 동의 / 그대로 진행: Fable family/env 확장, 기존 파일 자동완성의 grouped mention 투영, ProviderDetail auth action 분리 설계에 동의한다. 구현 중 실제 컴포넌트 경계·ProviderInfo 타입이 plan의 가정과 다르면 명시적으로 기록한다.
 - 이견 / 현실성 문제: `FileAutocomplete`와 `useFileAutocomplete`의 기존 공개 표면은 다른 회귀 테스트와도 연결되어 있어 삭제하지 않고, 새 `mentionAutocomplete` 순수 규칙을 위임하는 호환 껍데기로 남겼다. Composer controller의 실제 경로는 새 grouped mention hook/popup이다.
 - ACTIVE Decision과 충돌하는 설계 발견: 없음. 계획에 없던 `providerAuthActionModel.ts` 순수 seam과 `EngineModelList.render.test.ts`는 fast-refresh/lint 및 1M sibling 행 오라클을 위해 추가한 구현·검증 파일이며 제품 계약을 바꾸지 않는다.
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+## [구현자 기입] 강제 지점 전수 (§10 대조, r1 — V1)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
@@ -576,7 +855,7 @@ npx.cmd vitest run \
 | VP-13 | REQUIRED | SELF_PASS | plugin/file validity sets → chip segments | decoration test + targeted Composer suite green |
 | VP-14 | REQUIRED | SELF_PASS | action model → trigger/menu/tone | danger=false mutation 1 fail |
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1 — V1)
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
@@ -591,7 +870,7 @@ npx.cmd vitest run \
 - 분모 검산: 선택 적대 증거 **7행 / 7행 실행**, 모두 red; EP-01·03·04·05의 방향 민감한 oracle을 포함한다. VP-04의 stale 문구 변이는 문서 gate로 측정하지 않고, 현재 gate green 사실만 기록했다.
 - 덮개 회귀: 각 mutation 원복 뒤 §19 대상 **50 files / 368 tests**와 legacy `useFileAutocomplete.test.ts` **4/4**가 green이었다. mutation 실행 중 원본 회귀가 추가로 생기지 않았다.
 
-## [구현자 기입] Product/UX 파생 검토
+## [구현자 기입] Product/UX 파생 검토 (r1 — V1)
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
@@ -601,7 +880,7 @@ npx.cmd vitest run \
 | 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | **예** — provider 조회 실패에도 cwd가 있으면 path 후보를 유지하고, file 실패는 empty group, 비동기 조회는 loading, auth는 직접 인증/메뉴 trigger를 남긴다. | 사람 실기에서 문구·clipping 확인 |
 | 늦게 도착한 응답이 화면을 되돌리지 않는가 | **예** — provider/file 요청에 cancel flag, draft 적용에 deferred revision fence, 메뉴 callback은 close 후 실행이다. | 실제 Electron 재진입은 검증자/사람 실기에서 확인 |
 
-## [구현자 기입] 놓친 잠재 문제 + 대응
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1 — V1)
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
@@ -621,7 +900,7 @@ npx.cmd vitest run \
 | 재진입 | provider/file cancel flag, draft revision fence, popover close-before-callback으로 늦은 결과와 열린 메뉴를 차단한다. | VP-06·07·12, §19 targeted suites |
 | 다른 무효화 축 | cwd가 바뀌면 file cache/valid path set을 비우고, provider push는 id/catalog/tools를 다시 투영한다. | VP-02·06·13, Composer decoration/mention tests |
 
-## [구현자 기입] 구현 보고
+## [구현자 기입] 구현 보고 (r1 — V1)
 
 | 항목 | 내용 |
 |---|---|
@@ -635,12 +914,87 @@ npx.cmd vitest run \
 | 블로커 / 역질문 | 코드 블로커 없음. Electron/SDK 실제 실행 및 두 테마 시각 확인은 환경상 수행하지 않았으므로 다음 주체가 확인한다. |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
-## [구현자 기입] Review Signals — 사실만
+## [구현자 기입] Review Signals — 사실만 (r1 — V1)
 
 - 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **아니오** — 이전 구현 라운드가 없는 Baseline V1 신규 축이다.
 - 그것을 막았어야 할 plan 지침·AC가 있었는가: **예** — §10 EP 분모, VP-01~14 pair, §19 mutation/사람 실기, AC1~18이 모두 선행 기재되어 있었다.
 - 반복해서 부딪히는 환경 한계: Electron/SDK/native 실행과 두 테마 시각은 이 환경에서 수행하지 못해 direct Vitest와 정적 gate로 대체했다.
 - 현재 라운드 수: **1**.
+
+## [구현자 기입] 설계 리뷰 (r2 — ΔV1)
+
+- 동의 / 그대로 진행: 미기입.
+- 이견 / 현실성 문제: 미기입.
+- ACTIVE Decision과 충돌하는 설계 발견: 미기입.
+
+## [구현자 기입] 강제 지점 전수 (§Δ8 대조, r2 — ΔV1)
+
+| Pair | 계약/필드 | §Δ8이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-15~25 | EP-07~13 | 구현자가 전수 재검색해 기입 | 미기입 | 미기입 | 미기입 |
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-15~25 | REQUIRED / REGRESSION | 미기입 | 미기입 | 미기입 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2 — ΔV1)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| §Δ10 선택 mutation과 구현 중 신설 oracle을 행별 기입 | VP/EP | r1 해당 축 없음 또는 V1 결과 | 미기입 | 미기입 |
+
+- 분모 검산: 미기입.
+- 덮개 회귀: r1 red mutation 7종 중 이번 변경이 닿는 projector/group oracle을 재실행하고 결과를 기입한다.
+
+## [구현자 기입] Product/UX 파생 검토 (r2 — ΔV1)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 미기입 | 미기입 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 미기입 | 미기입 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 미기입 | 미기입 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 미기입 | 미기입 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 미기입 | 미기입 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2 — ΔV1)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 미기입 | 미기입 | 미기입 |
+
+### 설계 대비 명시적 차이 (r2 — ΔV1)
+
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: 미기입.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§Δ8 행 / 관측 |
+|---|---|---|
+| 만료 | 미기입 | 미기입 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 미기입 | 미기입 |
+| 재진입 | 미기입 | 미기입 |
+| 다른 무효화 축 | 미기입 | 미기입 |
+
+## [구현자 기입] 구현 보고 (r2 — ΔV1)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 미기입 |
+| 실행 명령 | 미기입 |
+| 관측한 게이트 산출 | 미기입 |
+| V-pair 자기확인 | 미기입 |
+| 강제 지점 전수 | 미기입 |
+| AC 자기보고 | 미기입 |
+| 합계 검산 | 미기입 |
+| 블로커 / 역질문 | 미기입 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r2 — ΔV1)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 미기입.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: 미기입.
+- 반복해서 부딪히는 환경 한계: 미기입.
+- 현재 라운드 수: **2**.
 
 ## [검증자 기입] 파생 이슈
 
