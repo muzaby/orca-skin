@@ -774,3 +774,183 @@ r5 D12(경계 상수 두 사본)가 인용한 변이 "`sync-manager`의 14→30 
 - **자기 검증 라운드였다.** 등록된 3변이는 보고대로 전건 재현했고, G2는 보고가 이름을 대지 않은 **형제 지점**(N2)에서만 나왔다. 보고 목록의 재실행만 했다면 이 라운드는 PASS로 올라갔다.
 - 사용자 결정 변경 근거: 없음. D-063은 OPEN 그대로다.
 - 반복 환경 한계: `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 설치라 electron 의존 8파일 미실행.
+
+# r7 검증 (4회차 verify 턴) — ΔV4
+
+## 메타 (r7)
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 일자 | 2026-09-22 |
+| 대상 커밋/range | `c758718`(r7 구현, `Status: implemented`) — 부모 `569d2c8`. r6 verify(`203713c`) 이후 mail 경로를 건드린 다른 커밋 **0** (`git log 203713c..c758718^ -- plugins/mail mail.integration.test.ts` 빈 출력) |
+| 구현 전 plan 기준 | `e59a8e7`(ΔV4 설계) + `203713c`(r6 파생 이슈 G2·D15) |
+| V mode / 유효 V | `Delta V` / `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
+| 라운드 | 7 |
+| 상태 | **PASS** — root `PAIR_FAIL: VP-34`(G2) 닫힘. REQUIRED 2 · REGRESSION 3 PASS · PLAN_GAP 0 |
+| 자기 검증 여부 | **그렇다** — r7 구현자도 Claude Code(같은 세션)다. 분모에 구현 보고가 이름을 대지 않은 적대 축 **6건**(A1~A6)을 넣었다 |
+
+r3·r5·r6 판정 원문은 위 본문에 보존한다.
+
+## 0. 기준선 (r7)
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| 설계/구현 커밋 분리 | **해당 없음 — 규범 변경 없는 라운드** | ΔV4 설계 `e59a8e7`이 r6부터 유효하고 r7은 새 설계 커밋 없이 oracle만 고쳤다 |
+| 규범 행 변경 여부 | **없음** | `git show c758718 -- plan.md` 삭제 줄 3줄 = 메타 `상태` 1 · 파생 이슈 G2·D15 `상태` 칸 2. Decision·AC·V·§10 변경 0 |
+| AC 합계 | **42** — r6 재계수와 같다 | 규범 행 변경 0이라 분모 불변. 본문 `42/42` = trailer `Criteria-Met: 42/42` 일치 |
+| handoff-review | **미실행 — 승계된 사용자 면제** | r5 면제 지시. plan `설계 리뷰 (r7)`에 기록. 뒤집는 지시 없음 |
+| `[구현자 기입]` 필드 | **7/7** | 설계 리뷰·강제 지점 전수·이번 라운드 수정의 잠금·Product/UX·놓친 잠재 문제·구현 보고·Review Signals |
+| Plan validity | **유효** | r6 판정(§Plan validity (ΔV4)) 그대로 — 이번 라운드가 규범을 건드리지 않았다 |
+
+## 1. 구현 비판적 검토 — AC 전에
+
+판정: **프로덕션 변경 0, 테스트 변경은 G2를 정확히 겨눈다.** `scan-surface.sh c758718^..c758718` → "변경된 소스 파일이 없습니다".
+
+- fixture: `RETR`는 날짜를 **지정한** 메시지에만 `Date:`를 싣는다(`mail.integration.test.ts:126-127`). 미지정 메시지는 기존대로라 다른 케이스의 실효 날짜가 바뀌지 않는다. `f.dates(` 호출 4곳 전부 VP-34 케이스다.
+- 새 통합 케이스(`:671`)는 프로덕션 `sync()`의 반환 `expired`와 `mail_search` 결과를 관측한다 — store 직접 호출이 아니다.
+- 정밀도: `toUTCString()`이 초 단위로 절단하지만 20일 메일은 14·30일 경계에서 6·10일 떨어져 있다. 경계 근접 flake 없음.
+- 같은 캐시 파일을 두 manager로 차례로 연다. 앞 manager를 닫은 뒤 열고 실패 시 `afterEach`도 닫는다.
+- 신규 store UT(`store/index.test.ts:117`)는 D15 대응이며 `(now,30)=0` → `(now,14)=1` 순서라 첫 호출이 두 번째의 입력을 지우지 않는다.
+
+## 2. G2의 닫힘 — 인용 변이 재측정
+
+명령: `./node_modules/.bin/vitest run src/main/features/plugins src/main/app/deployment src/main/features/auth` (기준 **633 pass**). 구현 보고의 좁은 스위트(165)보다 넓게 잡았다.
+
+| 변이 | r6 관측 | 구현 보고 | **재측정** |
+|---|---|---|---|
+| N2 `cleanupExpired`가 `retentionDays` 버림 | green (160/160) | 3 red | **3 red** |
+| N2b 정리 경계 1일 고정 | green (27/27, 통합 파일) | 5 red | **5 red** |
+
+G2 **닫힘** — 인용 변이 2종 전건 red. D15 **닫힘** — N2에서 신규 store UT가 red.
+
+## 3. 등록된 적대 증거 재측정
+
+| 변이 | 출처 | 구현 보고 | **재측정** |
+|---|---|---|---|
+| `decideIngest` 리셋 제거 | VP-34 ① | 4 red | **4 red** |
+| `INGEST_GRACE` 50 → 1 | VP-34 ② | 4 red | **4 red** |
+| `RETENTION_DAYS` 14 → 30 | VP-35 | 8 red | **8 red** |
+| N7 `sync-manager`가 `cleanupExpired(timestamp)` | 구현자 신설(형제 지점) | 1 red | **1 red** |
+
+## 4. 검증자 신설 적대 축 (구현 보고가 이름을 대지 않은 지점)
+
+같은 에이전트의 자기 검증이라 보고 목록 재실행만으로는 분모가 되지 않는다. 같은 계약을 **다른 지점**에서 깨는 변이를 심었다.
+
+| # | 변이 | 무엇을 묻는가 | 결과 · 잡은 테스트 |
+|---|---|---|---|
+| A1 | 정리 SQL이 `header_date`를 무시(`m.first_seen_at < ?`) | 정리가 메일 날짜를 본다(D-017) | **2 red** — 새 통합 케이스 + store UT `uses headerDate before…` |
+| A2 | `sync()`가 `expired: 0` 고정 반환 | 정리 결과 보고의 false success | **1 red** — 새 통합 케이스 |
+| A3 | `normalize.ts`가 본문 `Date`를 무시(`headerDate = null`) | 본문 날짜 → 저장 → 정리 연쇄 | **1 red** — 새 통합 케이스(유일 잠금) |
+| A4 | 정리 경계 `<` → `<=` | 경계 ±0 | **2 red** — store UT 2 |
+| A5 | 정리 옵션을 `freshnessMs`로 오배선 | 형제 옵션 맞바꿈 | **1 red** — 새 통합 케이스 |
+| **A6** | **정리 호출을 신선도 판정 뒤로 이동(fresh면 정리 생략)** | fresh 호출에서의 lazy cleanup | **green — 633 전건 통과** → D16 |
+
+A6 판정: **NON_BLOCKING.** plan §5 흐름은 "5분 초과 → 만료 정리 → 증분 sync"로 정리를 non-fresh 가지에 두고, Part I 236행은 "다음 `mail_sync` 진입에서 lazy cleanup"이다. 현재 코드(`sync-manager.ts:85`, 신선도 판정 앞)는 두 해석을 모두 만족한다. AC7 oracle은 non-fresh sync를 쓰므로 VP-03 계약 위반이 아니고, fresh 경로 정리를 요구하는 AC가 없다.
+
+## 5. 덮개 회귀 — 이전 라운드 red 변이 재실행
+
+판정: **덮개 회귀 0.** r6 §4·§5의 red 변이 전건을 다시 실행했다.
+
+| 변이 | 이전 관측 | 이번 관측 |
+|---|---|---|
+| N1 `headerDate === null` 보호 제거 | r6 3 red | **3 red** |
+| N3 수집이 `retentionDays` 버림 | r6 1 red | **2 red** — 새 통합 케이스도 잡는다 |
+| N4 stop `>=` → `>` | r6 3 red | **3 red** |
+| N5 경계 `>=` → `>` | r6 1 red | **1 red** |
+| N6 `stop` → `skip` | r6 3 red | **3 red** |
+| `freshness.ts` 런타임 `node:net` import (VP-10) | r6 red | **1 red** |
+| `preserveGrant` 제거 (`login.ts:353`) | r6 2 red | **2 red** |
+| mail 첨부 root 자기정규화 제거 (EP-25) | r6 2 red | **2 red** |
+| jira 첨부 root 자기정규화 제거 (EP-25) | r6 2 red | **2 red** |
+
+모든 변이는 되돌렸고 매 단계 `git status --short` 빈 출력이다.
+
+## 6. §10 분모 독립 재열거 — EP-28 ③
+
+술어를 "정리·수집 경계가 **옵션을 받아 넘기는** 자리"로 뒀다. `rg -n 'retentionDays' app/src/main/features/plugins/mail --glob '!*.test.ts'` → **8줄**.
+
+| 줄 | 성격 | 잠금 |
+|---|---|---|
+| `sync-manager.ts:85` | 정리로 전달 | N7·A5 red |
+| `sync-manager.ts:137` | 수집으로 전달 | N3 red |
+| `store/index.ts:268` | 경계 계산으로 전달 | N2 red |
+| `store/index.ts:47` · `:266` | 시그니처·파라미터 선언 | 해당 없음 |
+| `types.ts:46` | 옵션 선언 | 해당 없음 |
+| `retention-window.ts:12` · `:13` | 기본값 선언 · 경계 계산(SSOT) | 14→30 8 red (VP-35) |
+
+전달 지점 **3/3** 잠김. 구현 보고의 ③-a·b·c와 일치한다. 단 보고의 분모 검색 결과 목록은 5줄로 `retention-window.ts:12-13`을 빠뜨렸다 — 계산 SSOT 자체라 전달 지점 수(3)는 바뀌지 않는다(D18). r6 보고의 "부르는 자리 2곳"은 `sync-manager.ts:85`를 세지 않았다 — 이번 라운드가 그 차집합 1을 닫았다.
+
+## 7. V-pair closeout (r7) — `UT → IT → ST → AT`
+
+| Pair | 레벨 | requiredness | 판정 | 증거 |
+|---|---|---|---|---|
+| VP-35 / MD-13 ↔ UT-13 | MD↔UT | REQUIRED | **PASS** | 선택 증거 8 red · N1·N4·N5·N6 red. r7 변경 비접촉 |
+| VP-34 / R-10 ↔ AT-24 | R↔AT | REQUIRED | **PASS** | ① 4 red · ② 4 red · **③ 정리 쪽 N2 3 red · N7 1 red · A2·A3·A5 red** |
+| VP-03 (R-03 ↔ AT-07·08·09) | R↔AT | REGRESSION | **PASS** | 정리 경로 A1·A4 red. A6 green은 D16(비귀속) |
+| VP-14 (MD-01 ↔ UT-01·01b) | MD↔UT | REGRESSION | **PASS** | 633 pass 유지 |
+| VP-15 (MD-02 ↔ UT-02) | MD↔UT | REGRESSION | **PASS** | 14→30 8 red · A4 red |
+| VP-01~33 그 밖 | — | NOT_REQUIRED | — | 증거 좌표는 r3·r5 본문 |
+
+직접 판정 **PASS 5 · PAIR_FAIL 0 · PLAN_GAP 0**.
+
+## 8. 운영 gate (r7) — 관측한 산출
+
+`git diff HEAD -- app` 빈 출력 — 아래 app gate는 커밋된 트리와 같은 내용에서 실행했다.
+
+| Gate | 관측 |
+|---|---|
+| lint | `✖ 1 problem (0 errors, 1 warning)` — 기존 `useTranscriptVirtualizer.ts`. 실행 전후 `git diff --stat` 동일 |
+| typecheck | exit 0 · `error TS` 0건 (node/web/test) |
+| 영향 회귀 | `plugins`+`app/deployment`+`auth` **633 pass** · 좁은 범위 `plugins/mail`+`app/deployment` **15파일 165 pass** |
+| 전체 vitest | **550파일 pass · 8 fail · 1 skip (559)** / **5,128 pass · 3 skip** |
+| 전체의 8 fail | 환경 기인 — 8건 전부 `Electron failed to install correctly`(`app/bootstrap.*` 2 · `app/chat-turn*` 6). r6과 같은 서명·같은 수 |
+| scripts | `# tests 120 · # pass 120 · # fail 0` |
+| migration | `mail — 1 migrations` · `no-copies ok: 1288 files, 3 list owners` · `append-only ok since v0.3.1` |
+| doc inventory | 이 문서·INDEX 갱신 후 재실행 — §9 |
+
+설치: `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` + `npm rebuild better-sqlite3`. 미추적 산출물 0.
+
+## 9. Repository operation checks (r7)
+
+| 검사 | 판정 |
+|---|---|
+| trailer 파싱 | `c758718` 7키 전건 파싱 — `Agent: claude` · `Status: implemented` · `Criteria-Met: 42/42` · `Verified-By: pending` |
+| INDEX 대상 커밋 | `(r7 구현 — 검증자 기입)` → `c758718` 기입 |
+| **INDEX 인용 좌표 실재** | **main 기준 5/21 → 정정 후 21/21**(+ `c758718` = 22). 16개(`c8eb202`~`fed496d`)가 main 조상이 아니었다 — 리베이스 전 해시로 `origin/codex-plugin-auth-pop3`에만 있다. main의 같은 제목 커밋과 **patch-id 16/16 일치**를 확인하고 main 해시로 교체했다(D17) |
+| INDEX 비고 길이 | 4줄 (상한 5) |
+| plan 구현 보고 좌표 | 자리표시자 `(r7 구현 — 좌표는 INDEX)` 유지 |
+| `AGENTS.md` 변경 | 없음 |
+
+## 10. 못 본 것
+
+- 사람 실기 대기는 r3~r6과 같다 — 사내 POP3 TLS·사설 CA·실 인코딩·최초 수집 성능.
+- D-063(OPEN, 예산 초과 시 반환 형상)은 사용자 결정이라 판정하지 않았다.
+- r5 D13·D14는 재측정하지 않았다 — 이번 range가 닿지 않는다.
+- electron 의존 8파일은 실행하지 못했다(환경).
+
+## 11. Finding disposition (r7)
+
+| # | 이슈 | 출처 계약 | 분류 | 대응 방향 |
+|---|---|---|---|---|
+| G2 | AC41 ③ 정리 쪽 단언 공허 | VP-34 | **closed** | §2 — 인용 변이 2종 red |
+| D15 | store UT에 `retentionDays` 명시 인자 없음 | 비귀속 | **closed** | §2 |
+| D16 | fresh `mail_sync` 호출의 정리(현재 동작)를 잠그는 oracle이 없다 — 정리를 신선도 판정 뒤로 옮겨도 633 green. plan §5(정리는 non-fresh 가지)와 Part I 236행("다음 `mail_sync` 진입에서")이 서로 다른 순서를 적는다 | 비귀속 — 현재 코드는 두 해석 모두 만족 | NON_BLOCKING | 설계자가 §5와 Part I 중 하나로 문장을 맞추고, 현재 동작을 유지하면 fresh 호출 뒤 만료 메일 부재를 단언하는 케이스 1건 |
+| D17 | INDEX 0237 행 좌표 16/21이 main에서 죽어 있었다 — 리베이스 병합으로 해시가 바뀐 뒤 좌표를 갱신하지 않았다 | 운영(INDEX 좌표) | NON_BLOCKING — 이번 턴 정정 | 병합 방식이 해시를 바꾸면 병합 뒤 좌표를 다시 기입한다 |
+| D18 | r7 구현 보고의 ③ 분모 검색 결과 목록이 실제 8줄 중 5줄만 적었다(`retention-window.ts:12-13` 누락) | 보고 정확성 | NON_BLOCKING | 전달 지점 판정(3/3)은 불변. 보고 목록은 검색 출력을 그대로 옮긴다 |
+
+## 12. 결론 (r7)
+
+**PASS.** REQUIRED 2(VP-34·35) · REGRESSION 3(VP-03·14·15) 전건 PASS, 운영 gate 전건 통과, PLAN_GAP 0.
+
+- 프로덕션 코드는 r6과 같다. 이번 라운드는 AC41 ③을 재는 장치를 세웠고, 그 장치가 보고에 없던 형제 지점(`sync-manager.ts:85`)과 본문 날짜 연쇄(A3)까지 잡는다.
+- 남은 것은 사람 몫이다 — 실기 4항목과 D-063 사용자 결정. archive 이동은 그 뒤다.
+
+## 13. Review Signals — 사실만 (r7)
+
+- G2는 r6과 **같은 증상의 닫힘**이다. "적힌 oracle이 그 자리를 재지 못함" 계열(r3 D1 · r5 G1 · r6 G2)의 네 번째 라운드에서 닫혔다.
+- 관련 plan 지침: VP-34 선택 증거가 ①·②만 지명하고 ③에는 변이가 없었다. r6·r7 모두 ③의 민감도는 검증자·구현자가 신설한 변이로만 재졌다.
+- **자기 검증 라운드였다.** 보고된 변이 6종은 전건 재현했고, 보고에 없던 6축 중 5축 red · 1축(A6) green이었다. A6는 현재 계약에 귀속되지 않는다.
+- 좌표 사본 문제가 반복됐다 — r6 `afdaa66`이 좌표를 정정했으나 그 값도 리베이스 전 해시였다(D17).
+- 사용자 결정 변경 근거: 없음. D-063은 OPEN 그대로다.
+- 반복 환경 한계: `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 설치라 electron 의존 8파일 미실행.
