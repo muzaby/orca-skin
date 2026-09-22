@@ -11,7 +11,7 @@
 | 작성자 | Claude Code (V1·ΔV1·ΔV4), **Codex (ΔV2·ΔV3 설계·구현)** |
 | 일자 | 2026-09-21 |
 | 매핑 | 없음 (신규 제품 기능) |
-| 상태 | verify/FAIL — r6 검증 결과 root `PAIR_FAIL: VP-34`(AC41 ③). 다음은 재구현 턴(r7) |
+| 상태 | impl/IMPL_DONE — r7 구현(G2 oracle 수정). 다음은 검증 턴 |
 | V mode | `Delta V` (기준 `V1`) |
 | 기준 V | `V1` — 본 plan의 Baseline, commit `07ec3a6`~`e3ea535` |
 | 이번 V revision | `ΔV4` (r5 verify `PLAN_GAP: G1` 정정) |
@@ -1397,8 +1397,8 @@ AC 자기보고 **40/40 유지**. 보완 패스는 AC를 추가하거나 분할�
 
 | # | 이슈 | 출처 pair / 계약 | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| G2 | AC41 ③의 정리 쪽 단언이 공허하다 — `RETR` fixture에 `Date:`가 없어 저장 메일의 실효 날짜가 `first_seen_at`이다. `cleanupExpired` 경계를 1일로 고정해도 27건 전건 green | VP-34 / AC41 ③ / EP-28 ③ | `RETR` 응답에도 `headerDates`의 `Date:`를 싣고 `cleanupExpired(now,14)=1` ↔ `(now,30)=0` 대조를 둔다. 프로덕션 경로로 닫으려면 두 번째 `sync()`의 `expired`를 관측한다 | **BLOCKING (root `PAIR_FAIL`)** | open |
-| D15 | `store/index.test.ts`의 `cleanupExpired` 호출 3곳이 전부 `retentionDays`를 생략한다 — 옵션 추종이 store UT에도 없다 | 비귀속 (G2와 같은 뿌리) | G2를 닫을 때 store UT에 명시 인자 케이스 1건 | NON_BLOCKING | open |
+| G2 | AC41 ③의 정리 쪽 단언이 공허하다 — `RETR` fixture에 `Date:`가 없어 저장 메일의 실효 날짜가 `first_seen_at`이다. `cleanupExpired` 경계를 1일로 고정해도 27건 전건 green | VP-34 / AC41 ③ / EP-28 ③ | `RETR` 응답에도 `headerDates`의 `Date:`를 싣고 `cleanupExpired(now,14)=1` ↔ `(now,30)=0` 대조를 둔다. 프로덕션 경로로 닫으려면 두 번째 `sync()`의 `expired`를 관측한다 | **BLOCKING (root `PAIR_FAIL`)** | closed (r7 자기확인 — 인용 변이 N2 3 red · N2b 5 red) |
+| D15 | `store/index.test.ts`의 `cleanupExpired` 호출 3곳이 전부 `retentionDays`를 생략한다 — 옵션 추종이 store UT에도 없다 | 비귀속 (G2와 같은 뿌리) | G2를 닫을 때 store UT에 명시 인자 케이스 1건 | NON_BLOCKING | closed (r7 자기확인 — `(now,30)=0`↔`(now,14)=1`, N2 red) |
 
 **수집 쪽은 잠겨 있다** — `sync-manager`가 `retentionDays`를 버리는 변이는 red다. 프로덕션 코드 결함 0건이며 고칠 대상은 oracle 하나다.
 
@@ -1857,3 +1857,96 @@ AC 자기보고: **AC41 ✅** — 이번 턴의 직접 판정이다. AC1~40은 �
 - 막았어야 할 지침: plan §14가 이미 "연속"을 적고 있었다. 그러나 §14는 Part II 산문이고 그것을 강제하는 AC·pair·§10 행이 없었다 — 구현이 §14를 안 따라도 게이트가 말하지 않았다. ΔV4가 그 행을 세웠다.
 - 반복 환경 한계: `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 설치라 electron 의존 8파일 미실행. better-sqlite3는 `npm rebuild`로 Node ABI 정렬 후 DB 스위트 실행.
 - **D-063은 OPEN으로 남는다.** 이 구현이 그 경로의 도달 확률을 올렸으므로 검증자·사용자가 우선순위를 다시 볼 만하다.
+
+## [구현자 기입] 설계 리뷰 (r7)
+
+**r6 verify root `PAIR_FAIL: VP-34`(G2)를 oracle 수정으로 닫았다. 프로덕션 코드 변경 0.** 버그수정 lane이라 Claude가 직접 구현했다(root [`AGENTS.md`](../../../AGENTS.md) §협업 워크플로우). 사용자 지시로 이 턴을 수행했다.
+
+**라운드 7로 3을 넘지만 `handoff-review`를 실행하지 않았다** — r5 사용자 면제가 승계됐고 이번 턴에 뒤집는 지시가 없다. 판단은 검증자와 사용자 몫이다.
+
+ACTIVE Decision·AC·V·§10 변경 0. G2는 ΔV4가 이미 지명한 oracle(AC41 ③)을 재는 장치의 결함이라 `PLAN_GAP`이 아니다 — r6 verify 판정과 같다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 (r7)
+
+**EP-28 ③ = 불변식 "정리 경계가 `retentionDays`를 따른다"의 성립 지점 2/2.** r6 보고는 ③을 "`retentionCutoff`를 **부르는** 자리 2곳"으로 셌다 — 부르는지가 아니라 **옵션을 넘기는지**가 주어다. 그 주어로 다시 세면 정리 쪽은 두 지점을 지난다.
+
+| 지점 | 닫음 | 재현 명령 / 관측 |
+|---|---|---|
+| ③-a `store.cleanupExpired`가 인자를 `retentionCutoff`로 넘김 (`store/index.ts:268`) | ✅ | 인자 버림 변이(N2) → **3 red**. r6은 0 red |
+| ③-b `sync-manager`가 옵션을 `cleanupExpired`로 넘김 (`sync-manager.ts:85`) | ✅ | 인자 버림 변이(N7, r6 보고·verify 어디에도 없던 형제 지점) → **1 red**. 수정 전 0 red |
+| ③-c 수집 루프가 옵션을 `retentionCutoff`로 넘김 (`sync-manager.ts:137`) | ✅ (r6부터) | r6 verify N3 → 1 red. 이번 턴 재측정은 검증 절에 |
+
+분모 검색: `rg -n 'retentionDays' app/src/main/features/plugins/mail --glob '!*.test.ts'` → 통과 지점 `sync-manager.ts:85`·`:137`·`store/index.ts:47`(시그니처)·`:266`(파라미터)·`types.ts:46`(옵션 선언). 값을 **다음 단계로 넘기는** 자리는 85·137·268 세 곳이고 위 표가 그 셋이다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 |
+|---|---|---|---|
+| VP-34 / R-10 ↔ AT-24 | REQUIRED | SELF_PASS | ①·② r6과 같음 · **③ 정리 쪽**: `retentionDays 30`으로 20일 된 메일 수집 → 두 번째 `sync()`가 `expired: 0` · 같은 캐시를 기본 창으로 연 `sync()`가 `expired: 1`·검색 0건 |
+| VP-35 / MD-13 ↔ UT-13 | REQUIRED | SELF_PASS | 이번 턴 변경 없음. 선택 증거 재측정 red 유지 |
+| VP-03 · VP-14 · VP-15 | REGRESSION | SELF_PASS | `plugins/mail`+`app/deployment` **15파일 165 pass**(변경 전 163 + 신규 2) |
+
+자기확인 **SELF_PASS 3 / SELF_BLOCKED 0**. 독립 검증의 `PASS`를 선점하지 않는다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r7)
+
+명령: `./node_modules/.bin/vitest run src/main/features/plugins/mail src/main/app/deployment` (기준 165 pass). 각 변이는 되돌린 뒤 `git status`로 원복 확인.
+
+| 대상 claim | 심은 결함 | 관측 |
+|---|---|---|
+| G2 인용 변이 | `cleanupExpired`가 `retentionDays`를 버림(`retentionCutoff(now)`) | **3 red** — 통합 2(`retentionDays 30 moves the ingest…`·`…cleanup boundary that sync applies…`) + store UT 1 |
+| G2 인용 변이 | 정리 경계 1일 고정(`retentionCutoff(now, 1)`) | **5 red** |
+| 새 oracle(형제 지점) | `sync-manager`가 `cleanupExpired(timestamp)`로 옵션을 버림 | **1 red** — `…cleanup boundary that sync applies…` |
+| VP-34 선택 증거 ① | `decideIngest` 리셋 제거 | **4 red** |
+| VP-34 선택 증거 ② | `INGEST_GRACE` 50 → 1 | **4 red** |
+| VP-35 선택 증거 | `RETENTION_DAYS` 14 → 30 | **8 red** |
+
+검산: 선택 증거 **3** · 인용 변이 **2** · 새 oracle **1** = 표 **6행**. 새 통합 케이스는 직접 행동 관측(`sync()` 반환 `expired`·검색 건수)이지만 G2가 "배선 단언이 공허"를 인용했으므로 형제 지점 변이로 민감도를 확인했다.
+
+**덮개 회귀**: 제거·교체한 단언 없음. r6 it.each의 `cleanupExpired(now, retentionDays)` 단언은 유지했고 fixture 변경으로 `30` 케이스에서 비로소 민감해졌다(N2에서 red).
+
+## [구현자 기입] Product/UX 파생 검토 (r7)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 사용자 관측이 달라지는가 | 아니다 — 테스트·fixture만 바뀌었다 | — |
+| 새 실패 경로 | 없음 | — |
+| 새 문구·상태의 소비자 | 신규 형상 0 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r7)
+
+| 발견 | 대응 / 상태 |
+|---|---|
+| **r6 ③ 분모는 "부르는 자리"로 세어 `sync-manager.ts:85`의 옵션 전달을 빠뜨렸다.** 그 줄의 인자를 지워도 수정 전 163 전건 green이었다 | 이번 턴 통합 케이스가 red로 잡는다(N7). 위 전수표 ③-b |
+| fixture의 `RETR`는 날짜를 지정한 메시지에만 `Date:`를 싣는다. 미지정 메시지는 기존대로 `Date:` 없음(→ `first_seen_at`) | 의도적이다 — 날짜를 지정하지 않는 기존 케이스의 실효 날짜를 바꾸지 않는다. `f.dates(` 호출은 VP-34 4곳뿐이다(`rg -c` 4) |
+| 새 통합 케이스는 같은 캐시 파일을 두 manager로 차례로 연다 | 앞 manager를 닫은 뒤 연다. 단언 실패 시에도 `afterEach`가 닫도록 `close`에 등록(better-sqlite3 `close` 중복 호출 허용) |
+
+### 설계 대비 명시적 차이 (r7)
+
+**없다.** r6 verify 대응 방향 중 "프로덕션 경로로 닫으려면 두 번째 `sync()`의 `expired`를 관측한다"를 택했고, store 직접 대조(`(now,30)=0` ↔ `(now,14)=1`)는 D15의 store UT로 뒀다.
+
+## [구현자 기입] 구현 보고 (r7)
+
+| 항목 | 관측 |
+|---|---|
+| 구현 주체 | Claude Code — 버그수정 lane |
+| 변경 파일 | `app/deployment/mail.integration.test.ts`(fixture `RETR` `Date:` · helper `now` 주입 · 신규 1케이스) · `features/plugins/mail/store/index.test.ts`(신규 1케이스) |
+| 프로덕션 변경 | **0** |
+| lint | `0 errors, 1 warning` — 기존 `useTranscriptVirtualizer.ts`. 실행 전후 `git diff --stat` 동일 |
+| typecheck | exit 0, `error TS` 0건 (node/web/test) |
+| 영향 회귀 | **15파일 165 pass** (변경 전 163) |
+| 전체 vitest | **550파일 pass · 8 fail · 1 skip (559)** / **5,128 pass · 3 skip** |
+| 전체의 8 fail | 환경 기인 — 8건 전부 `Electron failed to install correctly` import 실패(`app/bootstrap.*` 2 · `app/chat-turn*` 6). mail 무관 |
+| scripts | `# tests 120 · # pass 120 · # fail 0` |
+| migration | `mail — 1 migrations` · `no-copies ok: 1288 files, 3 list owners` · `append-only ok since v0.3.1` |
+| doc inventory | `9 items, 98 channels` · prose ok · links ok |
+| 대상 커밋 | `(r7 구현 — 좌표는 INDEX)` |
+
+AC 자기보고: **AC41 ✅** — ③까지 이번 턴 직접 판정. AC1~40은 계약 보존과 영향 회귀로 승계하며 개별 재검증을 주장하지 않는다.
+
+검산: ✅ **42** · ⚠️ **0** · ❌ **0** = 총 **42**. 분모는 r6과 같다.
+
+## [구현자 기입] Review Signals — 사실만 (r7)
+
+- 현재 라운드 **7**. 다음 주체는 검증자다.
+- 닫은 불변식은 r6과 **같은 축**이다 — "수집·정리가 같은 경계를 쓴다"의 정리 쪽 절반. r3 D1 · r5 G1 · r6 G2에 이은 "적힌 oracle이 그 자리를 재지 못함"의 네 번째 수정이다.
+- 막았어야 할 지침: AC41 ③이 검증 수단을 지명했고 impl §3 "선택된 적대 증거가 프로덕션 지점을 실제로 보는가"가 있었다. r6은 ③에 선택 증거가 없어(VP-34 선택 증거는 ①·②만) 변이를 심지 않았다.
+- 반복 환경 한계: `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 설치라 electron 의존 8파일 미실행. better-sqlite3는 `npm rebuild`로 Node ABI 정렬 후 DB 스위트 실행.

@@ -120,8 +120,13 @@ async function setup(withProbe = true): Promise<{
       return `+OK\r\n${remote.map((uidl, i) => `${i + 1} ${uidl}\r\n`).join('')}.\r\n`
     if (command === 'TOP')
       return `+OK\r\nDate: ${new Date(headerDates[Number(index)] ?? Date.now()).toUTCString()}\r\n.\r\n`
-    if (command === 'RETR')
-      return `+OK\r\nFrom: alice@example.test\r\nTo: bob@example.test\r\nCc: carol@example.test\r\nSubject: 회의일정 ${index}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n회의실 예약 ${index}\r\n.\r\n`
+    if (command === 'RETR') {
+      // 날짜를 지정한 메시지는 본문 헤더에도 같은 `Date:`를 싣는다 — 저장 메일의 실효 날짜가
+      // 동기화 시각(first_seen_at)으로 떨어지면 정리 경계를 잴 수 없다 (r6 G2).
+      const date = headerDates[Number(index)]
+      const dateLine = date === undefined ? '' : `Date: ${new Date(date).toUTCString()}\r\n`
+      return `+OK\r\n${dateLine}From: alice@example.test\r\nTo: bob@example.test\r\nCc: carol@example.test\r\nSubject: 회의일정 ${index}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n회의실 예약 ${index}\r\n.\r\n`
+    }
     return '+OK\r\n'
   }
   vi.mocked(createPop3Socket).mockImplementation(() => {
@@ -568,14 +573,16 @@ const DAY_MS = 24 * 60 * 60 * 1000
 
 function syncManager(
   f: Awaited<ReturnType<typeof setup>>,
-  retentionDays?: number
+  retentionDays?: number,
+  now?: () => number
 ): ReturnType<typeof createMailSyncManager> {
   return createMailSyncManager({
     auth: f.auth,
     options: retentionDays === undefined ? f.options : { ...f.options, retentionDays },
     session: f.session,
     root: f.root,
-    socketFactory: createPop3Socket
+    socketFactory: createPop3Socket,
+    now
   })
 }
 
@@ -660,3 +667,30 @@ it.each([
     expect(manager.search('회의', 10).results).toHaveLength(expected.length)
   }
 )
+
+it('retentionDays moves the cleanup boundary that sync applies to stored mail', async () => {
+  const f = await setup()
+  await f.login()
+  let now = Date.now()
+  f.remote(['u1'])
+  f.dates({ 1: now - 20 * DAY_MS })
+
+  // 30일 창: 20일 된 메일을 받고, 다음 동기화의 정리도 같은 30일 창이라 남긴다.
+  const wide = await syncManager(f, 30, () => now)
+  // 단언이 먼저 실패해도 afterEach 가 닫는다. better-sqlite3 close 는 두 번 불러도 된다.
+  close.push(() => wide.close())
+  await wide.sync()
+  expect(retrNumbers(f)).toEqual([1])
+  now += 301_000
+  expect(await wide.sync()).toMatchObject({ synced: true, expired: 0 })
+  expect(wide.search('회의', 10).results).toHaveLength(1)
+  // 같은 캐시 파일을 다른 창으로 다시 연다 — 먼저 닫아 쓰기 연결을 하나로 둔다.
+  wide.close()
+
+  // 같은 캐시를 기본(14일) 창으로 열면 동기화의 정리가 그 메일을 만료시킨다.
+  now += 301_000
+  const narrow = await syncManager(f, undefined, () => now)
+  close.push(() => narrow.close())
+  expect(await narrow.sync()).toMatchObject({ synced: true, expired: 1 })
+  expect(narrow.search('회의', 10).results).toHaveLength(0)
+})
