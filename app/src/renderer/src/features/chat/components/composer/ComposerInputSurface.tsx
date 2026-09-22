@@ -24,6 +24,7 @@ interface ComposerInputSurfaceProps {
   onKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void
   knownSkillNames: ReadonlySet<string>
   validFilePaths: ReadonlySet<string>
+  validPluginIds?: ReadonlySet<string>
   placeholder?: string
   ariaLabel?: string
 }
@@ -35,6 +36,7 @@ export interface ComposerInputSurfaceHandle {
 
 const TYPOGRAPHY =
   'block w-full px-1 py-1.5 text-[13px] leading-[1.6] font-sans whitespace-pre-wrap break-words [scrollbar-gutter:stable]'
+const EMPTY_PLUGIN_IDS = new Set<string>()
 
 export const ComposerInputSurface = forwardRef<
   ComposerInputSurfaceHandle,
@@ -48,6 +50,7 @@ export const ComposerInputSurface = forwardRef<
     onKeyDown,
     knownSkillNames,
     validFilePaths,
+    validPluginIds,
     placeholder,
     ariaLabel
   },
@@ -95,6 +98,7 @@ export const ComposerInputSurface = forwardRef<
         snapshot={snapshot}
         knownSkillNames={knownSkillNames}
         validFilePaths={validFilePaths}
+        validPluginIds={validPluginIds ?? EMPTY_PLUGIN_IDS}
         typographyClassName={TYPOGRAPHY}
       />
       <textarea

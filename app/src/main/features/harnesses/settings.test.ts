@@ -53,26 +53,28 @@ describe('listProviders / listAdapters', () => {
         isDefault: true
       }
     ])
-    // 빈 settings → 3개 alias, sonnet default.
-    expect(entries[1].models.map((m) => m.alias)).toEqual(['sonnet', 'opus', 'haiku'])
+    // 빈 settings → 4개 alias, sonnet default.
+    expect(entries[1].models.map((m) => m.alias)).toEqual(['sonnet', 'opus', 'haiku', 'fable'])
     expect(entries[1].models.filter((m) => m.isDefault)).toHaveLength(1)
     expect(listAdapters(root)).toEqual(['claude'])
   })
 
-  it('settings.json 부재/손상은 기본 모델(3 alias)로 열거 — 디렉토리=열거 SSOT', () => {
+  it('settings.json 부재/손상은 기본 모델(4 alias)로 열거 — 디렉토리=열거 SSOT', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     mkdirSync(join(settingsDir(), 'anthropic'), { recursive: true })
     expect(listProviders('claude', root)[0].models.map((m) => m.alias)).toEqual([
       'sonnet',
       'opus',
-      'haiku'
+      'haiku',
+      'fable'
     ])
 
     writeFile(join(settingsDir(), 'anthropic', 'settings.json'), '{broken')
     expect(listProviders('claude', root)[0].models.map((m) => m.alias)).toEqual([
       'sonnet',
       'opus',
-      'haiku'
+      'haiku',
+      'fable'
     ])
   })
 

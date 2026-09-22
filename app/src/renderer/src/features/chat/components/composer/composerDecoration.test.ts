@@ -17,4 +17,18 @@ describe('tokenizeComposerDecoration', () => {
       'run /build with @"src/a b.ts" and /missing'
     )
   })
+
+  it('검증된 Plugin id는 label이 아닌 @id 토큰으로 별도 장식한다', () => {
+    const segments = tokenizeComposerDecoration(
+      '@jira-dc @unknown',
+      new Set(),
+      new Set(),
+      new Set(['jira-dc'])
+    )
+
+    expect(segments).toEqual([
+      { kind: 'chip', chip: 'plugin', text: '@jira-dc' },
+      { kind: 'text', text: ' @unknown' }
+    ])
+  })
 })

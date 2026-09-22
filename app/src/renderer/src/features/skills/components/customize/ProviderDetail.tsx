@@ -10,8 +10,9 @@ import {
   initialAuthKind,
   needsAuthChoice
 } from '../../../../shared/config/providerAuth'
-import { canManageAuth, providerRowMeta } from '../../lib/providerRows'
+import { providerRowMeta } from '../../lib/providerRows'
 import { pluginPresentation } from '../../lib/pluginPresentation'
+import { ProviderAuthActions } from './ProviderAuthActions'
 
 const TONE = { valid: 'green', expired: 'amber', unknown: 'amber', none: 'slate' } as const
 
@@ -68,20 +69,13 @@ export function ProviderDetail({
           </div>
         </div>
         <div className="ml-auto flex flex-none items-center gap-g3">
-          {canManageAuth(provider) ? (
-            <Button size="small" onClick={() => onReauth(authKind ?? undefined)}>
-              {tr('skills.provider.reauth')}
-            </Button>
-          ) : (
-            <Button size="small" variant="contained" onClick={() => onLogin(authKind ?? undefined)}>
-              {tr('skills.provider.connect')}
-            </Button>
-          )}
-          {canManageAuth(provider) && (
-            <Button size="small" onClick={onRevoke}>
-              {tr('skills.provider.revoke')}
-            </Button>
-          )}
+          <ProviderAuthActions
+            provider={provider}
+            authKind={authKind}
+            onLogin={onLogin}
+            onReauth={onReauth}
+            onRevoke={onRevoke}
+          />
         </div>
       </div>
 

@@ -2,10 +2,13 @@ import { forwardRef, useDeferredValue, useMemo } from 'react'
 import { tokenizeComposerDecoration } from './composerDecoration'
 import type { DraftSnapshot } from './draftSnapshot'
 
+const EMPTY_PLUGIN_IDS = new Set<string>()
+
 interface ComposerDecorationLayerProps {
   snapshot: DraftSnapshot
   knownSkillNames: ReadonlySet<string>
   validFilePaths: ReadonlySet<string>
+  validPluginIds?: ReadonlySet<string>
   typographyClassName: string
 }
 
@@ -13,7 +16,13 @@ interface ComposerDecorationLayerProps {
 // 소유하므로 장식 계산이 늦거나 실패해도 입력 피드백은 지연되지 않는다.
 export const ComposerDecorationLayer = forwardRef<HTMLDivElement, ComposerDecorationLayerProps>(
   function ComposerDecorationLayer(
-    { snapshot, knownSkillNames, validFilePaths, typographyClassName },
+    {
+      snapshot,
+      knownSkillNames,
+      validFilePaths,
+      validPluginIds = EMPTY_PLUGIN_IDS,
+      typographyClassName
+    },
     ref
   ): React.JSX.Element {
     const deferredSnapshot = useDeferredValue(snapshot)
@@ -21,8 +30,14 @@ export const ComposerDecorationLayer = forwardRef<HTMLDivElement, ComposerDecora
     // 뒤따른다. revision이나 IME composition마다 layer를 숨기면 chip이 사라지므로 마지막으로
     // 완료된 장식을 유지하고 deferred 결과가 준비되면 원자적으로 교체한다.
     const segments = useMemo(
-      () => tokenizeComposerDecoration(deferredSnapshot.text, knownSkillNames, validFilePaths),
-      [deferredSnapshot.text, knownSkillNames, validFilePaths]
+      () =>
+        tokenizeComposerDecoration(
+          deferredSnapshot.text,
+          knownSkillNames,
+          validFilePaths,
+          validPluginIds
+        ),
+      [deferredSnapshot.text, knownSkillNames, validFilePaths, validPluginIds]
     )
 
     // viewport는 textarea와 같은 wrap width/gutter를 유지하고 clip만 담당한다. 실제 scroll
@@ -41,7 +56,9 @@ export const ComposerDecorationLayer = forwardRef<HTMLDivElement, ComposerDecora
                 className={
                   segment.chip === 'skill'
                     ? 'rounded bg-blue-500/15 text-transparent'
-                    : 'rounded bg-emerald-500/15 text-transparent'
+                    : segment.chip === 'plugin'
+                      ? 'rounded bg-violet-500/15 text-transparent'
+                      : 'rounded bg-emerald-500/15 text-transparent'
                 }
               >
                 {segment.text}

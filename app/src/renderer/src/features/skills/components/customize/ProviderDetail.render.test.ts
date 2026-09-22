@@ -49,8 +49,26 @@ describe('ProviderDetail plugin presentation', () => {
     expect(markup).toContain('jira-dc')
     expect(markup).toContain('https://jira.example.com')
     expect(markup).toContain('mcp__jira-dc-tools__jira_searchIssues')
+    expect(markup).toContain('data-action="provider-authenticate"')
+    expect(markup).toContain('>인증<')
     expect(markup).toContain('whitespace-pre-wrap')
     expect(markup).toContain('break-all')
+  })
+
+  it('인증 이력이 있으면 본문 상단에 재인증 dropdown trigger를 둔다', () => {
+    const markup = renderToStaticMarkup(
+      createElement(ProviderDetail, {
+        provider: { ...provider, status: 'valid', activeAuthKind: 'pat' },
+        step: null,
+        onLogin: vi.fn(),
+        onSubmit: vi.fn(),
+        onReauth: vi.fn(),
+        onRevoke: vi.fn()
+      })
+    )
+    expect(markup).toContain('data-action="provider-reauth-menu"')
+    expect(markup).toContain('aria-expanded="false"')
+    expect(markup).toContain('>재인증<')
   })
 
   it('plugin catalog가 없으면 기존 Auth label과 power icon 동작을 유지한다', () => {

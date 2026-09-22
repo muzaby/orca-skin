@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 지시로 설계 턴 수행 |
 | 일자 | 2026-09-22 |
 | 매핑 | 신규 기능 요청 3건 |
-| 상태 | **READY** |
+| 상태 | **IMPL_DONE** |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0224의 Fable 결정은 제품 선행 결정으로 대조하되 V는 상속하지 않는다 |
 | 이번 V revision | `V1` |
@@ -432,7 +432,7 @@ ConnectionViewSource(plugin)
 - 종료/quit/crash/renderer-gone: renderer-local 후보·menu state만 사라지며 main registry·vault에는 쓰지 않는다.
 - retry/timeout/partial failure: provider state 실패는 Plugin group만 비우고 path를 유지한다. file listing 실패는 기존처럼 해당 path group 결과 없음으로 제한하며 Plugin group은 유지한다.
 - cleanup/rollback: auth menu는 close 후 callback을 호출한다. reauth/revoke의 late response fence는 `useProviders.requestSeq`를 그대로 사용한다.
-- **다중 저장소 쓰기**: 제품 동작은 저장소 쓰기가 없다. handoff 상태 사본은 이 plan의 `READY`와 `INDEX.md` 행 두 곳이며 같은 커밋에서 함께 갱신한다.
+- **다중 저장소 쓰기**: 제품 동작은 저장소 쓰기가 없다. handoff 상태 사본은 이 plan의 상태와 `INDEX.md` 행 두 곳이며 같은 커밋에서 함께 갱신한다.
 
 ## 14. 성능 / 상한 / 최적화
 
@@ -543,78 +543,104 @@ npx.cmd vitest run \
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: 미기입.
-- 이견 / 현실성 문제: 미기입.
-- ACTIVE Decision과 충돌하는 설계 발견: 미기입.
+- 동의 / 그대로 진행: Fable family/env 확장, 기존 파일 자동완성의 grouped mention 투영, ProviderDetail auth action 분리 설계에 동의한다. 구현 중 실제 컴포넌트 경계·ProviderInfo 타입이 plan의 가정과 다르면 명시적으로 기록한다.
+- 이견 / 현실성 문제: `FileAutocomplete`와 `useFileAutocomplete`의 기존 공개 표면은 다른 회귀 테스트와도 연결되어 있어 삭제하지 않고, 새 `mentionAutocomplete` 순수 규칙을 위임하는 호환 껍데기로 남겼다. Composer controller의 실제 경로는 새 grouped mention hook/popup이다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 계획에 없던 `providerAuthActionModel.ts` 순수 seam과 `EngineModelList.render.test.ts`는 fast-refresh/lint 및 1M sibling 행 오라클을 위해 추가한 구현·검증 파일이며 제품 계약을 바꾸지 않는다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-… | 미기입 | 미기입 | 미기입 | 미기입 | 미기입 |
+| VP-01·05·08·11 | Fable family/env/default와 모델 identity | EP-01 4곳, EP-02 3곳 | `model-parser.ts`의 family/env/fallback 4곳, `toAgentEnvironment` wire, Composer `modelIdentity`, Engine key를 연결했다. | §19 targeted Vitest 50 files/368 tests green; parser Fable env·fallback red 변이도 확인. | AC1~5, MD-01, AR-01 |
+| VP-02·06 | `@` source → grouped option → draft | EP-03 2곳, EP-04 parse/group/flatten/replace/keyboard/deco 6곳 | `pluginMention.ts`, `mentionAutocomplete.ts`, `useMentionAutocomplete`, grouped popup, controller 키보드/apply, decoration chip을 연결했다. | plugin/mention pure tests와 Composer/hooks suite가 green; group/id 변이 red. | AC6~12, MD-02 |
+| VP-03·07·10·14 | auth status → trigger/menu/callback | EP-05 5곳 | `providerAuthActionKind` predicate, 직접 인증, dropdown, 재인증 item, danger 연결 해제 item을 `ProviderDetail`에 연결했다. | auth action matrix/model + ProviderDetail/providerRows suite green; branch/danger 변이 red. | AC13~16, AR-03/MD-04 |
+| VP-04 | 문서·i18n current contract | EP-06 6곳 | ko/en key, TRD, frontend UX, backend auth, 폐쇄망 guide를 같은 Fable/Plugin/auth 용어로 갱신했다. | doc inventory/prose/link gate green; stale 3-family/path-only 표현 없음. | AC17~18, R-04 |
+| EP 합계 | §10 전수 | EP-01 4/4 · EP-02 3/3 · EP-03 2/2 · EP-04 6/6 · EP-05 5/5 · EP-06 6/6 | **26/26** | targeted Vitest + typecheck/lint/doc/diff gate green | §10 모든 강제 지점 |
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | 미기입 | 미기입 | 미기입 | 미기입 |
+| VP-01 | REQUIRED | SELF_PASS | parser/settings/runtime + ModelMenu/Engine render | Fable env map 제거 2 fail; fallback Fable-first 4 fail |
+| VP-02 | REQUIRED | SELF_PASS | mention parser/group/replace + Composer controller suite | group sibling swap 1 fail; id→label 1 fail |
+| VP-03 | REQUIRED | SELF_PASS | auth status/action + ProviderDetail render | none/non-none branch swap 4 fail |
+| VP-04 | REQUIRED | SELF_PASS | i18n parity + document inventory | 이번 라운드 문서 stale gate green; 별도 mutation 미실행 |
+| VP-05 | REQUIRED | SELF_PASS | ParsedModel → AgentModelView → two renderer rows | Engine 1M sibling key/render oracle green |
+| VP-06 | REQUIRED | SELF_PASS | active source owner/cancel + range replacement | group/id mutation 결과로 option 귀속·삽입을 red 확인 |
+| VP-07 | REQUIRED | SELF_PASS | callback path와 기존 requestSeq 회귀 | close-before-callback은 source inspection + action tests로 확인 |
+| VP-08 | REQUIRED | SELF_PASS | parser/settings/runtime producer-consumer suites | parser Fable 제거 mutation 2 fail |
+| VP-09 | REQUIRED | SELF_PASS | ProviderInfo catalog/tools → plugin projector | tools filter 제거 1 fail |
+| VP-10 | REQUIRED | SELF_PASS | ProviderDetail callback identity/model | auth branch/action matrix green |
+| VP-11 | REQUIRED | SELF_PASS | four-family env/discovery/default matrix | Fable-first fallback 4 fail |
+| VP-12 | REQUIRED | SELF_PASS | plain/quoted/slash/flatten/caret pure tests | group sibling swap 1 fail |
+| VP-13 | REQUIRED | SELF_PASS | plugin/file validity sets → chip segments | decoration test + targeted Composer suite green |
+| VP-14 | REQUIRED | SELF_PASS | action model → trigger/menu/tone | danger=false mutation 1 fail |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| 미기입 | 미기입 | 미기입 | 미기입 | 미기입 |
+| `ALIAS_ENV_KEY.fable`을 다른 키로 변경 | VP-01·VP-08 / EP-01 | V1 신규 oracle | `model-parser.test.ts`: 2 fail / 44 tests | **RED 재현 후 원복** |
+| `DEFAULT_FAMILY_ORDER`를 Fable-first로 변경 | VP-01·VP-11 / EP-01 | V1 신규 oracle | `model-parser.test.ts`: 4 fail / 44 tests | **RED 재현 후 원복** |
+| Plugin `tools.length > 0` 필터 제거 | VP-02·VP-09 / EP-03 | V1 신규 oracle | `pluginMention.test.ts`: 1 fail / 2 tests | **RED 재현 후 원복** |
+| path group `push`를 `unshift`로 바꿔 형제 순서 역전 | VP-02·VP-12 / EP-04 | V1 신규 oracle | `mentionAutocomplete.test.ts`: 1 fail / 5 tests | **RED 재현 후 원복** |
+| Plugin 삽입 id를 표시 label로 변경 | VP-02·VP-12 / EP-04 | V1 신규 oracle | `mentionAutocomplete.test.ts`: 1 fail / 5 tests | **RED 재현 후 원복** |
+| auth predicate ternary 분기 반전 | VP-03·VP-10 / EP-05 | V1 신규 oracle | `ProviderAuthActions.test.ts`: 4 fail / 5 tests | **RED 재현 후 원복** |
+| revoke menu danger를 `false`로 변경 | VP-03·VP-14 / EP-05 | V1 신규 oracle | `ProviderAuthActions.test.ts`: 1 fail / 5 tests | **RED 재현 후 원복** |
 
-- 분모 검산: 미기입.
-- 덮개 회귀: 미기입.
+- 분모 검산: 선택 적대 증거 **7행 / 7행 실행**, 모두 red; EP-01·03·04·05의 방향 민감한 oracle을 포함한다. VP-04의 stale 문구 변이는 문서 gate로 측정하지 않고, 현재 gate green 사실만 기록했다.
+- 덮개 회귀: 각 mutation 원복 뒤 §19 대상 **50 files / 368 tests**와 legacy `useFileAutocomplete.test.ts` **4/4**가 green이었다. mutation 실행 중 원본 회귀가 추가로 생기지 않았다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 미기입 | 미기입 |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 미기입 | 미기입 |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 미기입 | 미기입 |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 미기입 | 미기입 |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 미기입 | 미기입 |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | **예** — `skills.provider.authenticate`, Plugin 그룹/aria 키는 각각 `ProviderAuthActions`·`MentionAutocomplete`에서 소비되고 en/ko parity가 있다. | 별도 후속 없음; i18n parity gate 유지 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | **예** — auth 순수 model은 컴포넌트 밖으로만 분리했고, Composer hook은 active cleanup·legacy hook 위임을 유지했다. | legacy 파일 popup은 호환용으로 남기고 추후 제거 여부를 별도 결정 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | provider/file source 실패는 popup loading/empty 행, auth 실패·만료는 기존 status 행, cwd 변경은 file cache 무효화 행이다. | 각 경로를 §19 targeted suite와 source inspection으로 고정 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | **예** — provider 조회 실패는 path 후보를 유지하고, file 실패는 empty group, 비동기 조회는 loading, auth는 직접 인증/메뉴 trigger를 남긴다. | 사람 실기에서 문구·clipping 확인 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | **예** — provider/file 요청에 cancel flag, draft 적용에 deferred revision fence, 메뉴 callback은 close 후 실행이다. | 실제 Electron 재진입은 검증자/사람 실기에서 확인 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | 미기입 | 미기입 | 미기입 |
+| 1 | 기존 `FileAutocomplete` 공개 표면을 즉시 삭제하면 legacy caller 회귀가 생길 수 있음 | controller만 unified mention으로 전환하고 기존 hook은 새 순수 parser/filter를 위임하는 compatibility seam으로 유지 | `useFileAutocomplete.test.ts` 4/4, §18 영향 파일 |
+| 2 | active Composer마다 provider push listener가 남으면 중복 후보·메모리 누수가 생길 수 있음 | active일 때만 `state()`/`onState()`를 연결하고 cleanup에서 구독 해제; 비활성 provider projection은 빈 배열 | `useMentionAutocomplete.ts`, VP-06 |
+| 3 | Plugin id와 표시 label을 혼동하면 실행 token이 깨짐 | candidate와 replacement 모두 `ProviderInfo.id`, label은 화면 표시 전용; id→label mutation red | `pluginMention.ts`, `mentionAutocomplete.test.ts` |
+| 4 | 사람 실기 없이 두 테마·좁은 우측 패널의 clipping을 단정할 수 없음 | 기계 AC는 닫았지만 Electron 시각 확인을 검증자/사람 handoff로 명시 | §19 사람 실기 ①~③ |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: 미기입.
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: (1) 기존 `FileAutocomplete` 파일은 즉시 삭제하지 않고 호환용으로 남겼다. (2) `providerAuthActionModel.ts`와 Engine render test를 추가했다. 전자는 legacy 회귀와 pure seam을 함께 보존하기 위해, 후자는 1M sibling key와 auth menu danger를 구조적으로 단언하기 위해서다. 제품 동작·IPC·Decision Ledger는 변경하지 않았다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | 미기입 | 미기입 |
-| 공유 | 미기입 | 미기입 |
-| 재진입 | 미기입 | 미기입 |
-| 다른 무효화 축 | 미기입 | 미기입 |
+| 만료 | Plugin 후보는 status를 보지 않아 expired/unknown에서도 static tools가 보인다. auth는 non-none을 관리 가능한 상태로 본다. | VP-02·03·09, `pluginMention.test.ts` status matrix, `ProviderAuthActions.test.ts` 4-status |
+| 공유 | ProviderInfo는 read-only snapshot이며 Composer마다 active listener/cache를 갖는다. 새로운 mutable shared store를 만들지 않았다. | VP-06·09, `useMentionAutocomplete.ts` cleanup/source owner |
+| 재진입 | provider/file cancel flag, draft revision fence, popover close-before-callback으로 늦은 결과와 열린 메뉴를 차단한다. | VP-06·07·12, §19 targeted suites |
+| 다른 무효화 축 | cwd가 바뀌면 file cache/valid path set을 비우고, provider push는 id/catalog/tools를 다시 투영한다. | VP-02·06·13, Composer decoration/mention tests |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | 미기입 |
-| 실행 명령 | 미기입 |
-| 관측한 게이트 산출 | 미기입 |
-| V-pair 자기확인 | 미기입 |
-| 강제 지점 전수 | 미기입 |
-| AC 자기보고 | 미기입 |
-| 합계 검산 | 미기입 |
-| 블로커 / 역질문 | 미기입 |
+| 변경 파일 | main: `model-parser.ts`, parser/settings/model tests; renderer chat: `pluginMention.ts`, `mentionAutocomplete.ts`, `useMentionAutocomplete.ts`, grouped popup, controller/surface/decoration, legacy file hook 위임; engine: `EngineModelList.tsx`/render test; skills: `ProviderAuthActions.tsx`/model/test, `ProviderDetail.tsx`; ko/en i18n; TRD·frontend UX·backend auth·폐쇄망 guide; 이 plan과 `docs/handoff/INDEX.md`. |
+| 실행 명령 | §19 targeted `npx.cmd vitest run ...` (**50 files / 368 tests**); `npx.cmd vitest run src/renderer/src/features/chat/hooks/useFileAutocomplete.test.ts` (**4/4**); `npm.cmd run typecheck`; `npm.cmd run lint`; `node scripts/check-doc-inventory.mjs --check`; `git diff --check`; 선택 mutation 7종 focused Vitest. |
+| 관측한 게이트 산출 | targeted/legacy Vitest green; typecheck 3 configs exit 0; lint 0 errors·기존 warning 1; doc inventory **9 items·98 channels**, prose/links green; diff check exit 0. |
+| V-pair 자기확인 | VP-01~VP-14 **14/14 SELF_PASS**; `SELF_BLOCKED` 0. 직접 oracle과 선택 mutation 결과는 위 표에 기록했다. |
+| 강제 지점 전수 | EP-01 **4/4**, EP-02 **3/3**, EP-03 **2/2**, EP-04 **6/6**, EP-05 **5/5**, EP-06 **6/6** — 합계 **26/26**. |
+| AC 자기보고 | 기계 범위 AC **18/18 ✅**. 후보/상태/selection/replacement는 테스트로 닫았고, 두 테마·좁은 패널·실제 Electron 시각은 사람/검증자 대기다. |
+| 합계 검산 | V-pair 14/14 + EP 26/26 + AC 18/18 + mutation **7/7 red** + 운영 gate 6종 green. |
+| 블로커 / 역질문 | 코드 블로커 없음. Electron/SDK 실제 실행 및 두 테마 시각 확인은 환경상 수행하지 않았으므로 다음 주체가 확인한다. |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 미기입.
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: 미기입.
-- 반복해서 부딪히는 환경 한계: 미기입.
-- 현재 라운드 수: 0.
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **아니오** — 이전 구현 라운드가 없는 Baseline V1 신규 축이다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: **예** — §10 EP 분모, VP-01~14 pair, §19 mutation/사람 실기, AC1~18이 모두 선행 기재되어 있었다.
+- 반복해서 부딪히는 환경 한계: Electron/SDK/native 실행과 두 테마 시각은 이 환경에서 수행하지 못해 direct Vitest와 정적 gate로 대체했다.
+- 현재 라운드 수: **1**.
 
 ## [검증자 기입] 파생 이슈
 
