@@ -72,16 +72,18 @@ export function ProviderAuthActions({
         placement="bottom"
         align="end"
       >
-        <MenuItem icon="refresh" onClick={() => closeThen(() => onReauth(authKind ?? undefined))}>
-          {tr('skills.provider.reauth')}
-        </MenuItem>
-        <MenuItem
-          danger={providerAuthMenuItems[1].danger}
-          icon="power"
-          onClick={() => closeThen(onRevoke)}
-        >
-          {tr('skills.provider.revoke')}
-        </MenuItem>
+        {providerAuthMenuItems.map((item) => (
+          <MenuItem
+            key={item.kind}
+            danger={item.danger}
+            icon={item.kind === 'reauth' ? 'refresh' : 'power'}
+            onClick={() =>
+              closeThen(item.kind === 'reauth' ? () => onReauth(authKind ?? undefined) : onRevoke)
+            }
+          >
+            {tr(item.kind === 'reauth' ? 'skills.provider.reauth' : 'skills.provider.revoke')}
+          </MenuItem>
+        ))}
       </Popover>
     </>
   )

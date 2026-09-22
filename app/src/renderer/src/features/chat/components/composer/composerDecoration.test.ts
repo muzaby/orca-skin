@@ -31,4 +31,18 @@ describe('tokenizeComposerDecoration', () => {
       { kind: 'text', text: ' @unknown' }
     ])
   })
+
+  it('경로 토큰의 앞부분이 Plugin id와 같아도 Plugin chip으로 칠하지 않는다', () => {
+    expect(
+      tokenizeComposerDecoration(
+        '@jira-dc/notes.md @jira-dc/missing',
+        new Set(),
+        new Set(['jira-dc/notes.md']),
+        new Set(['jira-dc'])
+      )
+    ).toEqual([
+      { kind: 'chip', chip: 'file', text: '@jira-dc/notes.md' },
+      { kind: 'text', text: ' @jira-dc/missing' }
+    ])
+  })
 })

@@ -92,7 +92,7 @@ export function MentionAutocomplete({
             <span>{tr('chat.composer.loadingShort')}</span>
           </div>
         )}
-        {!loading && groups.length === 0 && (
+        {!loading && suggestions.length === 0 && (
           <div className="px-2 py-2 text-[12.5px] text-ink3">{tr('chat.composer.noMatches')}</div>
         )}
       </div>

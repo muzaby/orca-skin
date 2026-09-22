@@ -65,7 +65,7 @@ footer 는 두지 않음 — Orca 는 정보 분산 배치 (모델/사용량 →
 
 > 추가로 sidebar `sessions` 슬롯 내부의 각 행은 `.app-frame-session-row` + `data-context="session"` + `data-state="active|inactive"` + `data-behavior="interactive selectable"` (rename 모드에서는 `interactive renaming`) 를 부여한다. `data-session-id` 가 함께 부착되어 외부 도구가 행을 식별할 수 있다.
 >
-> `body` 외부에 **portal 로 떠 있는 floating UI** (Popover · SkillAutocomplete · FileAutocomplete) 는 `document.body` 자식으로 mount 되며, 자기 element 에 `.app-frame-floating` + `data-context="floating"` + `data-behavior="dismissible"` 를 부여한다. 별도의 z-stack 슬롯은 사용하지 않으며 `z-50` Tailwind 유틸로 어디서나 상위에 뜨도록 한다. 마운트 위치가 body 직속인 이유는 (a) 부모 grid cell 의 overflow clip 회피, (b) modal/debug 슬롯 z 와 무관하게 anchor 기준 절대 위치가 보장되기 때문.
+> `body` 외부에 **portal 로 떠 있는 floating UI** (Popover · SkillAutocomplete · MentionAutocomplete) 는 `document.body` 자식으로 mount 되며, 자기 element 에 `.app-frame-floating` + `data-context="floating"` + `data-behavior="dismissible"` 를 부여한다. 별도의 z-stack 슬롯은 사용하지 않으며 `z-50` Tailwind 유틸로 어디서나 상위에 뜨도록 한다. 마운트 위치가 body 직속인 이유는 (a) 부모 grid cell 의 overflow clip 회피, (b) modal/debug 슬롯 z 와 무관하게 anchor 기준 절대 위치가 보장되기 때문.
 
 ### 1.3 Drag 2-layer 패턴
 
@@ -134,7 +134,7 @@ resize-handle 은 `aside` 형제가 아니라 **자식**으로 둔다.
 | 스크롤 하단 버튼 (있을 때)                                             | `data-behavior`                                               | `action:scroll-bottom`                                                          |
 | composer send/cancel 버튼                                              | `data-behavior`                                               | `action:send` / `action:cancel-turn`                                            |
 | `.app-frame-session-row`                                               | `data-context` / `data-state` / `data-behavior`               | `session` / `active\|inactive` / `interactive selectable\|interactive renaming` |
-| `.app-frame-floating` (Popover / SkillAutocomplete / FileAutocomplete) | `data-context` / `data-behavior`                              | `floating` / `dismissible`                                                      |
+| `.app-frame-floating` (Popover / SkillAutocomplete / MentionAutocomplete) | `data-context` / `data-behavior`                              | `floating` / `dismissible`                                                      |
 | `.app-frame-search-modal` (SearchModal 패널)                           | `data-context` / `data-behavior`                              | `modal` / `focus-trap`                                                          |
 | `#app-frame-overlay`                                                   | `data-state` / `data-context`                                 | `visible\|hidden` / `overlay`                                                   |
 | `#app-frame-modal`                                                     | `data-behavior` / `data-state` / `data-context`               | `focus-trap blocks-interaction` / `visible\|hidden` / `modal`                   |

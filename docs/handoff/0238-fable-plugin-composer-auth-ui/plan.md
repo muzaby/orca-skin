@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 지시로 설계 턴 수행 |
 | 일자 | 2026-09-22 |
 | 매핑 | 최초 기능 요청 3건 + 사용자 변경·보완 4건 |
-| 상태 | **verify/FAIL (V1+ΔV1 r2)** — 판정은 [`verify.md`](verify.md), 다음은 r3 재구현 |
+| 상태 | **IMPL_DONE (V1+ΔV1 r3)** — r2 판정은 [`verify.md`](verify.md), r3 검증 대기 |
 | V mode | `Delta V` |
 | 기준 V | `V1@651d9080` — 0238 최초 READY 설계; r1 구현 `6030afae`·`e96a2494`·`2c7dad51`은 독립 검증 전 |
 | 이번 V revision | `ΔV1` — Composer 그룹 순서·token 재진입·전 category catalog presentation 입력 |
@@ -1023,20 +1023,138 @@ ProviderCatalogPresentationInput
 - 반복해서 부딪히는 환경 한계: Electron/SDK/native 실행과 두 테마 시각은 이 환경에서 수행하지 못해 direct Vitest·정적 gate로 대체했다. lint warning 1건은 기존 TanStack Virtual 경고다.
 - 현재 라운드 수: **2**.
 
+## [구현자 기입] 설계 리뷰 (r3 — verify/FAIL D1~D12)
+
+- 동의 / 그대로 진행: ✅ D1~D8 BLOCKING과 D9~D12 NON_BLOCKING을 V1+ΔV1 규범 행 변경 없이 닫았다. Decision·AC·V pair·§10은 수정하지 않았다.
+- 이견 / 현실성 문제: 없음. D13(plan 메타 죽은 좌표)은 설계자 소유 행이라 손대지 않았다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. D2의 빈 그룹 제거는 V1 §5 “한 그룹만 비면 빈 그룹 header는 렌더하지 않는다”를 그대로 따른다.
+- 구현 주체: 보드의 다음 주체는 Codex였으나 사용자가 `/handoff-impl`을 명시 호출해 Claude가 구현했다(`docs/handoff/AGENTS.md §역할 분담`).
+
+## [구현자 기입] 강제 지점 전수 (r3 — 파생 이슈 불변식)
+
+| 파생 이슈 → 불변식 | 지점 전수 (검색) | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|
+| D1 → **dismissal을 쓰는 것은 `close` 하나뿐이다** | `rg 'dismiss' app/src/renderer/src/features/chat/hooks` → 쓰기 지점: `useTokenAutocompleteState` close·setActiveIndex·occurrence 경계 3 | `setActiveIndex`는 `activeIndex`만, 경계는 `dismissedAt:null` (`useTokenAutocompleteState.ts:41-58`) — 소비자 2(`useSkillAutocomplete`·`useMentionAutocomplete`) 모두 이 상태 머신 | `useMentionAutocomplete.test` “keeps a popup reopened…”, `useSkillAutocomplete.test` “does not re-dismiss…” green; D1-revert red 2 | 없음 |
+| D2 → **빈 그룹은 만들지 않고, 옵션 0건이면 noMatches** | group 생성 2(`groupMentionSuggestions` path·plugin) + popup empty 판정 1 | path는 `pathSuggestions.length>0`일 때만(`mentionAutocomplete.ts:75`), popup은 `suggestions.length===0`(`MentionAutocomplete.tsx`) | `MentionAutocomplete.render.test` root/slash 0건 noMatches, D2-revert red 4 | 없음 |
+| D3 → **Plugin chip은 토큰 전체가 id일 때만** | chip regex 3(`SKILL`·`PLUGIN`·`FILE`) 중 Plugin/file 충돌 가능 1 | `PLUGIN_TOKEN_RE` 끝 경계 `(?=\s|$)` (`composerDecoration.ts:3`) | `composerDecoration.test` 경로 충돌 case, D3-revert red 1 | 없음 |
+| D4 → **배지는 자기 행에 붙는다** | EP-02 Engine 1 | 행 분할 후 행별 `[1M, default]` 단언 | M3 red 1 | 없음 |
+| D5 → **메뉴 순서·danger는 model이 SSOT, 렌더 트리가 그것을 소비한다** | EP-05 5(predicate·직접 trigger·dropdown·reauth·revoke) | JSX가 `providerAuthMenuItems.map`으로 렌더(`ProviderAuthActions.tsx:73-85`), 렌더 트리 test 3케이스 | M9 red 3·M10 red 4·M10b red 5·M11 red 1·M13 red 1 | 없음 |
+| D6 → **render 순서 = flatten 순서** | EP-07 2(group 투영·render) | `MentionAutocomplete.render.test` 순서·flat index 선택 | N1b red 1, N1 red 3 | 없음 |
+| D7 → **production hook이 AC10·AC20·dismissal을 직접 단언** | `useMentionAutocomplete` 1 (죽은 `useFileAutocomplete`·`FileAutocomplete` 삭제, 테스트 4케이스 이전) | `useMentionAutocomplete.test.ts` 13케이스 | N6 red 3·M7 red 1·N2b red 1·N2 red 4 | 없음 |
+| D8 → **Plugin 판별은 tools 한 술어 — valid id 지점 포함** | EP-12 3(`toolsOf`·후보·valid id) | valid id matrix(catalog∧no-tools 제외·no-catalog∧tools 포함) | EP12 red 2 | 없음 |
+| D9 → **row 조각은 입력을 반드시 정규화·검증한다** | row 조각 3(`gateRows`·`harnessRows`·`usageRows`) | icon 기본값·빈 locale 거부 test | N9b red 2·N9c red 2 | 없음 |
+| D10 | current `docs/arch/frontend` 인용 5파일 | `rg 'FileAutocomplete|useFileAutocomplete' docs app/src --glob '!docs/{archive,handoff,etc}/**'` → **0줄** | 위 명령 출력 0 | `docs/etc/study/**`는 evidence라 유지 |
+| D11 | 미사용 export 4(`useFileAutocomplete`·`FileAutocomplete`·`mentionGroupOptions`·`projectPluginMentions`) + i18n `fileAutocompleteAria` | 삭제, `splitDirAndPrefix` 비export | `rg 'mentionGroupOptions|projectPluginMentions|fileAutocompleteAria' app/src` → 0줄 | 없음 |
+| D12 | bootstrap이 넘기지 않는 deps 3 | `ConnectionDeploymentDeps`에서 제거, guide 표·예제 2곳 정정 | `rg 'gateCatalog' app docs` → 0줄 | 없음 |
+
+**V-pair 자기확인 (r2 verify의 root·BLOCKED pair)**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | Engine 행별 배지 | M3 red 1 |
+| VP-03 | REQUIRED | SELF_PASS | 분기 + 렌더 danger | M8 red 11·M8b red 7·M9 red 3 |
+| VP-07 | REQUIRED | SELF_PASS | close→callback 로그 | M11 red 1 |
+| VP-10 | REQUIRED | SELF_PASS | 항목별 callback 1회 | M13 red 1 |
+| VP-13 | REQUIRED | SELF_PASS | 경로/Plugin 충돌 chip | M14 red 1·D3-revert red 1 |
+| VP-14 | REQUIRED | SELF_PASS | 렌더 순서·danger | M9 red 3·M10 red 4·M10b red 5 |
+| VP-15 | REQUIRED | SELF_PASS | 순수+render+hook 순서 | N1 red 3·N1b red 1 |
+| VP-18 | REQUIRED | SELF_PASS | production hook lifecycle | N6 red 3·M7 red 1 |
+| VP-22 | REQUIRED | SELF_PASS | occurrence·dismissal | N2 red 4·N2b red 1·D1-revert red 2 |
+| VP-23 | REQUIRED | SELF_PASS | 후보·valid id tools 술어 | N5 red 6·N5b red 5·EP12 red 2 |
+| VP-24 | REGRESSION | SELF_PASS | skill·file dismissal·empty | D1-revert red 2·D2-revert red 4·N7 red 4 |
+| VP-25 | REGRESSION | SELF_PASS | ProviderDetail + 렌더 트리 callback | M13 red 1·M8b red 7 |
+
+- r2 verify PASS 9 pair(VP-04·05·08·11·16·17·19·20·21)는 아래 이전 red 19건 재실행으로 덮개 회귀 0을 확인했다. VP-19의 N9(factory `gateCatalog` 누락)는 D12로 대상 필드가 삭제돼 해당 없음.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r3)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M3 Engine 1M↔default 조건 맞바꿈 | D4 인용 | green | `EngineModelList.render.test` 1 | RED → 복원 |
+| M9 JSX `danger={false}` | D5 인용 | green | `ProviderAuthActions.render.test` 3 | RED → 복원 |
+| M10 렌더 순서 역전 | D5 인용 | green | `ProviderAuthActions.render.test` 4 | RED → 복원 |
+| M11 callback 후 close | D5 인용 | green | `ProviderAuthActions.render.test` 1 | RED → 복원 |
+| M13 재인증↔연결 해제 onClick 맞바꿈 | D5 인용 | green | `ProviderAuthActions.render.test` 1 | RED → 복원 |
+| N1b popup render groups 역순 | D6 인용 | green | `MentionAutocomplete.render.test` 1 | RED → 복원 |
+| N6 dismissal의 partial 비교 제거 | D7 인용 | green | mention 2 + skill 1 | RED → 복원 |
+| M7 cwd-null Plugin-only open 제거 | D7 인용 | green | `useMentionAutocomplete.test` 1 | RED → 복원 |
+| N2b 새 occurrence 분기 제거 | D7 인용 | green | `useMentionAutocomplete.test` 1 | RED → 복원 |
+| EP12 valid id를 catalog 판별로 | D8 인용 | green | `useMentionAutocomplete.test` 2 | RED → 복원 |
+| D1-revert `setActiveIndex`가 dismissedAt을 현재 partial로 | 새 oracle | 없음 | mention 1 + skill 1 | RED → 복원 |
+| D2-revert 빈 path 그룹 push | 새 oracle | 없음 | render 2 + hook 1 + lib 1 | RED → 복원 |
+| D3-revert Plugin regex 끝 경계 제거 | 새 oracle | 없음 | `composerDecoration.test` 1 | RED → 복원 |
+| N9b harness row 정규화 생략 | D9 인용 / 새 oracle | green | `connections.test` 2 | RED → 복원 |
+| N9c usage row 정규화 생략 | 새 oracle (D9 형제) | 없음 | `connections.test` 2 | RED → 복원 |
+
+- 분모 검산: 선택 증거·인용 변이 **11**(D4 1·D5 4·D6 1·D7 3·D8 1·D9 1) · 새 oracle **4**(D1·D2·D3 되돌림, N9c) = 표 행 **15**, 15/15 RED.
+- 덮개 회귀: r2 verify가 red로 관측한 19건(M1·M2·M12·M8·M8b·M9b·M14·N1·M5·N2·N5·N5b·N4·N8·N3a·N3b·N3d·N7 + M10b 신규)을 재실행해 전부 red — red→green 0. 명령: `/tmp` 러너가 아래 스위트를 대상으로 변이 1건씩 적용·복원.
+- 스위트: model-parser·settings·runtime-catalog·chat/{components/composer,hooks,lib}·engine/components·skills·i18n resources·shared/plugin-catalog·main/app/{connection-views,deployment/{connections,plugins,deployment-wiring}} — baseline **108파일/808케이스** green.
+
+## [구현자 기입] Product/UX 파생 검토 (r3)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 예 — 새 문구 없음. `noMatches`는 `MentionAutocomplete`가 소비, 삭제한 `fileAutocompleteAria`는 소비자 0 | 없음 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 해당 없음 — seam 재배치 없음. 메뉴 JSX map 전환은 `closeThen`·`authKind` 스코프 그대로 | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 0건 = V1 §5 empty 행, Esc 재개 = V1 §5 cancel 행 | 없음 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 예 — 0건이면 `일치하는 항목 없음`, 재개된 popup은 ↓/hover에도 유지 | slash 0건에서 `./dir/` header가 사라진다(빈 그룹 미렌더). 사람 실기에서 문구 확인 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 — 비동기 경로 불변, 기존 owner 테스트 4케이스를 production hook으로 이전해 유지 | 없음 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r3)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | AC11 controller keyboard(↑/↓·Tab/Enter·Esc dispatch) 직접 test가 여전히 없다 | hook `setActiveIndex`·render flat index로 대신 관측, controller 조립 test는 남김 — 보고만 | `ComposerInputController.test.ts`에 mention case 0 |
+| 2 | 같은 partial로 되돌아오면(`@a` Esc → `@ab` → `@a`) 다시 닫힌다 | base `6200cf1`의 `dismissedAt` 의미를 보존한 것 — 변경 없음 | `useTokenAutocompleteState.ts` dismissedAt 비교 |
+| 3 | 빈 그룹 미렌더로 slash 0건에서 현재 디렉터리 header가 없다 | V1 §5 계약 그대로. 제품 판단이 다르면 설계자 결정 | Product/UX 표 4행 |
+
+### 설계 대비 명시적 차이 (r3)
+
+- 없음. D12의 deps 제거는 r2가 추가했던 미배선 표면을 되돌린 것이며 D-016 경로(row 조각 인자)는 유지된다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 대체 메커니즘 없음 | — |
+| 공유 | 해당 없음 | — |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 해당 없음 | — |
+
+## [구현자 기입] 구현 보고 (r3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | chat: `useTokenAutocompleteState.ts`·`mentionAutocomplete.ts`·`pluginMention.ts`·`MentionAutocomplete.tsx`·`composerDecoration.ts`, 삭제 `useFileAutocomplete.ts`·`FileAutocomplete.tsx`; skills: `ProviderAuthActions.tsx`; main: `deployment/connections.ts`; i18n ko/en; tests 신규 4·갱신 5; docs `arch/frontend` 5파일·폐쇄망 guide |
+| 실행 명령 | `npm run typecheck`; `npm run lint`; `./node_modules/.bin/vitest run <위 스위트>`; `node scripts/check-doc-inventory.mjs --check`; `git diff --cached --check`; 변이 34건 1건씩 |
+| 관측한 게이트 산출 | typecheck 3 config `error TS` 0; lint 0 error·1 warning(기존 TanStack Virtual); vitest **108파일/808케이스** pass; doc inventory `9 items, 98 channels`·prose ok·links ok; diff check 출력 0 |
+| V-pair 자기확인 | r2 root·BLOCKED 12 pair **12/12 SELF_PASS**, SELF_BLOCKED 0 |
+| 강제 지점 전수 | 파생 이슈 불변식 12행 전부 닫음, 남긴 곳 0(D10의 `docs/etc` evidence 제외) |
+| AC 자기보고 | ✅ 23 · ⚠️ 1(AC11 controller oracle) · ❌ 0 = **24** (AC7은 AC23이 대체) |
+| 합계 검산 | pair 12/12 + 잠금 15/15 + 덮개 19/19 red + AC 23/24 + gate 5종 |
+| 블로커 / 역질문 | 없음. 두 테마·clipping·SDK bare `fable`은 사람 실기 |
+| 대상 커밋 | `(r3 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r3)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **예** — D1은 r2가 바꾼 occurrence 상태 머신(D-015)의 같은 축, D4~D8은 r1·r2가 등록 변이를 실행하지 않은 oracle 축.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: **예** — V1 §5(dismissal·empty), 각 pair의 등록 적대 증거, AC6·10·15·16·19의 검증 수단.
+- 반복해서 부딪히는 환경 한계: Electron/SDK 실기 불가, DB 스위트 ABI.
+- 구현·다음 검증 주체가 같은 에이전트(Claude)다 — 다음 verify는 자기 검증 분모 규칙 대상.
+- 현재 라운드 수: **3**.
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | Esc 후 partial 변경으로 재오픈된 팝업에서 `setActiveIndex`(↓/↑·hover)가 남은 `dismissed:true`를 되살려 팝업을 닫는다. `/` skill도 회귀(base `6200cf1` green) | VP-22 root · VP-24 / D-015·V1 §5·AC11·AC25 | `partial` 변경 시 dismissal을 해제하거나 `setActiveIndex`가 dismissal을 복원하지 않게 한다. production hook으로 Esc→입력→↓ 회귀 test | BLOCKING | open |
-| D2 | 결과 0건이면 빈 path 그룹 header만 남고 `일치하는 항목 없음`이 사라진다(root plain·slash 모두) | VP-24 root / V1 §5 empty 행·AC25 | 빈 그룹 미렌더 + 전 그룹 0건이면 noMatches. popup render test | BLOCKING | open |
-| D3 | `@jira-dc/notes.md` 앞부분이 Plugin chip이 되어 유효 path chip을 가린다(`PLUGIN_TOKEN_RE` 끝 경계 없음) | VP-13 / MD-03·AC12 | token 끝 경계 요구 + 충돌 case test | BLOCKING | open |
-| D4 | Engine `1M`↔`default` 배지 조건 맞바꿈(M3) 미검출 | VP-01 / 등록 변이·AC5 | 행별 배지 귀속을 단언 | BLOCKING | open |
-| D5 | `ProviderAuthActions` 렌더 트리 oracle 부재 — JSX danger 제거·메뉴 순서·close 순서·callback 맞바꿈(M9·M10·M11·M13) 미검출. model 상수는 JSX가 순서를 읽지 않는다 | VP-14·10·07 root · VP-03·25 / 등록 변이·AC15·16 | 컴포넌트 트리의 MenuItem 순서·danger·onClick→callback·close 선행 단언(verify §4 probe 형태) | BLOCKING | open |
-| D6 | popup render 순서 oracle 부재 — render에서 groups 역순(N1b) 미검출 | VP-15 / 등록 변이·AC6·AC19 | `MentionAutocomplete` render test로 header·첫/마지막 option 순서 단언 | BLOCKING | open |
-| D7 | production `useMentionAutocomplete` hook test 0 — stale dismissal(N6)·cwd-null Plugin-only open(M7) 미검출, AC20 oracle은 죽은 `useFileAutocomplete` 위에만 있다 | VP-18 / 등록 변이·AC10·AC20 | production hook fixture test | BLOCKING | open |
-| D8 | `validPluginIds`를 catalog 판별로 되돌려도 미검출 — EP-12 세 번째 지점 | VP-23 / 등록 변이·EP-12 | valid id 경로에 catalog∧no-tools·no-catalog∧tools matrix | BLOCKING | open |
-| D9 | harness/usage row catalog 정규화 생략(N9b) 미검출 | VP-19 비등록 축 | icon 없는 input fixture 추가 | NON_BLOCKING | open |
-| D10 | `docs/arch/frontend/{state,layers,overview}.md`가 `useFileAutocomplete`를 현재 Composer 자동완성으로 서술 | R-04 EP 목록 밖 | 현재 hook 이름으로 정정 | NON_BLOCKING | open |
-| D11 | `useFileAutocomplete.ts`·`FileAutocomplete.tsx` production 참조 0, `mentionGroupOptions`·`projectPluginMentions` 미사용 | plan §18 | D7 oracle 이전 후 제거 | NON_BLOCKING | open |
-| D12 | `createConnectionSources` optional deps를 bootstrap이 넘기지 않음, guide gate 예제의 자기 import·스코프 밖 변수 | D-016 비귀속 | deps 제거 또는 guide 정정 | NON_BLOCKING | open |
+| D1 | Esc 후 partial 변경으로 재오픈된 팝업에서 `setActiveIndex`(↓/↑·hover)가 남은 `dismissed:true`를 되살려 팝업을 닫는다. `/` skill도 회귀(base `6200cf1` green) | VP-22 root · VP-24 / D-015·V1 §5·AC11·AC25 | `partial` 변경 시 dismissal을 해제하거나 `setActiveIndex`가 dismissal을 복원하지 않게 한다. production hook으로 Esc→입력→↓ 회귀 test | BLOCKING | closed (r3) |
+| D2 | 결과 0건이면 빈 path 그룹 header만 남고 `일치하는 항목 없음`이 사라진다(root plain·slash 모두) | VP-24 root / V1 §5 empty 행·AC25 | 빈 그룹 미렌더 + 전 그룹 0건이면 noMatches. popup render test | BLOCKING | closed (r3) |
+| D3 | `@jira-dc/notes.md` 앞부분이 Plugin chip이 되어 유효 path chip을 가린다(`PLUGIN_TOKEN_RE` 끝 경계 없음) | VP-13 / MD-03·AC12 | token 끝 경계 요구 + 충돌 case test | BLOCKING | closed (r3) |
+| D4 | Engine `1M`↔`default` 배지 조건 맞바꿈(M3) 미검출 | VP-01 / 등록 변이·AC5 | 행별 배지 귀속을 단언 | BLOCKING | closed (r3) |
+| D5 | `ProviderAuthActions` 렌더 트리 oracle 부재 — JSX danger 제거·메뉴 순서·close 순서·callback 맞바꿈(M9·M10·M11·M13) 미검출. model 상수는 JSX가 순서를 읽지 않는다 | VP-14·10·07 root · VP-03·25 / 등록 변이·AC15·16 | 컴포넌트 트리의 MenuItem 순서·danger·onClick→callback·close 선행 단언(verify §4 probe 형태) | BLOCKING | closed (r3) |
+| D6 | popup render 순서 oracle 부재 — render에서 groups 역순(N1b) 미검출 | VP-15 / 등록 변이·AC6·AC19 | `MentionAutocomplete` render test로 header·첫/마지막 option 순서 단언 | BLOCKING | closed (r3) |
+| D7 | production `useMentionAutocomplete` hook test 0 — stale dismissal(N6)·cwd-null Plugin-only open(M7) 미검출, AC20 oracle은 죽은 `useFileAutocomplete` 위에만 있다 | VP-18 / 등록 변이·AC10·AC20 | production hook fixture test | BLOCKING | closed (r3) |
+| D8 | `validPluginIds`를 catalog 판별로 되돌려도 미검출 — EP-12 세 번째 지점 | VP-23 / 등록 변이·EP-12 | valid id 경로에 catalog∧no-tools·no-catalog∧tools matrix | BLOCKING | closed (r3) |
+| D9 | harness/usage row catalog 정규화 생략(N9b) 미검출 | VP-19 비등록 축 | icon 없는 input fixture 추가 | NON_BLOCKING | closed (r3) |
+| D10 | `docs/arch/frontend/{state,layers,overview}.md`가 `useFileAutocomplete`를 현재 Composer 자동완성으로 서술 | R-04 EP 목록 밖 | 현재 hook 이름으로 정정 | NON_BLOCKING | closed (r3) |
+| D11 | `useFileAutocomplete.ts`·`FileAutocomplete.tsx` production 참조 0, `mentionGroupOptions`·`projectPluginMentions` 미사용 | plan §18 | D7 oracle 이전 후 제거 | NON_BLOCKING | closed (r3) |
+| D12 | `createConnectionSources` optional deps를 bootstrap이 넘기지 않음, guide gate 예제의 자기 import·스코프 밖 변수 | D-016 비귀속 | deps 제거 또는 guide 정정 | NON_BLOCKING | closed (r3) |
 | D13 | plan 메타 `V1@651d9080`·r1 `6030afae`·`e96a2494`·`2c7dad51` 죽은 좌표. r2는 메타 상태를 `READY`로 남겼다(이번 verify가 갱신) | message-bus | 설계자가 `6200cf1`·`6f40c8b`~`f31c068`로 교정 | NON_BLOCKING | open |
