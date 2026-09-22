@@ -313,3 +313,230 @@ production 심볼을 직접 호출하는 fixture로 동작을 따로 관측했�
 - AC: ✅ 14 · ⚠️ 7 · ❌ 3 / 24
 - 운영 gate: typecheck·lint·vitest·doc·diff check PASS
 - 다음 단계: 구현자 r3 — D1~D8 수정·oracle 추가. NON_BLOCKING D9~D12는 같은 라운드 정리 권장, D13은 설계자 몫.
+
+---
+
+# r3 검증 (2회차 verify 턴)
+
+## 메타 (r3)
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 일자 | 2026-09-22 |
+| 대상 커밋/range | `a4f3b17..6b6c04f` — r3 구현 `6b6c04f` (기준: r2 verify `a4f3b17`, r2 구현 `569d2c8`) |
+| 유효 V | `V1@6200cf1 + ΔV1@ee15ca9` — 변경 없음 |
+| 라운드 | 3 |
+| 상태 | **FAIL** |
+| 자기 검증 여부 | **예** — r3 구현 trailer `Agent: claude`, 같은 세션. 보고가 이름을 대지 않은 적대 축 15건을 분모에 넣었다(§3) |
+
+## 0. 기준선 (r3)
+
+- **기준선 성립: 예.** `git diff a4f3b17 6b6c04f -- plan.md` hunk 2개 = 메타 상태 1행 + `[구현자 기입]` r3 절(1026행 이후)뿐.
+- Decision·Product/UX·AC·V node/pair·§10 변경: **없음**. 채점 기준은 r2와 같은 24 AC(AC7은 AC23이 대체)·21 pair.
+- Plan validity: r2 판정 그대로 유효, root PLAN_GAP 없음. 단 EP-05 분모가 `ProviderDetail → ProviderAuthActions` 결합 지점을 세지 않는다 — pair 경로가 이미 그 edge를 명시하므로 gap이 아니라 D14의 review signal로 둔다.
+
+## 1. 구현 비판적 검토 — AC 전에
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| D1 수정이 dismissal을 다시 쓰는가 | 아니오 | `setActiveIndex`는 `activeIndex`만 바꾼다(`useTokenAutocompleteState.ts:52`). base `6200cf1`의 `dismissedAt` 의미와 같다 |
+| D2 수정의 false success | 없음 | 빈 그룹 미생성 + popup `suggestions.length===0`. 경로 lib가 빈 그룹을 안 만들어 `groups`/`suggestions` 0 조건이 동치다. probe P4 `@zz`(cwd·Plugin 불일치) → open·groups 0·noMatches |
+| D3 수정이 만든 새 표면 | 잠금 일부 없음 | 끝 경계 `(?=\s|$)`의 `$` 가지(draft 끝 `@id`)는 테스트가 없다 — S6 green (D17) |
+| 0건 Enter/↓ | 기존 동작 | `length>0` 가드·`pick` undefined면 무동작 — r2와 동일 |
+| 비동기·상한 | 불변 | provider `state` 1 + `onState` 1, option `P + min(F,8)` |
+
+## 2. 역방향 탐색 (r3)
+
+`bash .agents/skills/handoff-verify/scripts/scan-surface.sh 569d2c8..6b6c04f` — 9파일.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| `filterFileSuggestions` export | 미사용 export | 같은 파일 내부 호출뿐. D11이 형제 `splitDirAndPrefix`만 비export로 돌렸다 (D20) |
+| `harnessRows`·`usageRows` 테스트 전용 | 의도 | D12로 deps 제거 — 배포가 `createConnectionSources` 본문에 끼워 넣는 row 조각이며 guide §3·§5-b 예제가 그 형태다. r2 D12 판단과 같다 |
+| `gateRows`·`pluginRows`·`ConnectionDeploymentDeps` | 오탐 | 같은 파일 `createConnectionSources`·bootstrap 타입 |
+| `MentionToken`·`ProviderAuthActionsProps` 타입 | 정상 | 시그니처 타입 |
+| 죽은 이름 잔존 | 0 | `rg 'FileAutocomplete|useFileAutocomplete|fileAutocompleteAria' docs app/src --glob '!docs/{archive,handoff,etc}/**'` → 0줄. `mentionGroupOptions|projectPluginMentions|gateCatalog` → 0줄 |
+| 형제 정책 비대칭 | 없음 | 스크립트 0 |
+
+## 3. 적대 증거 재측정
+
+러너: 변이 1건씩 적용 → 아래 스위트 전체 → 복원. 스위트 baseline **108파일 / 808케이스** green.
+
+```text
+cd app && ./node_modules/.bin/vitest run model-parser·settings·runtime-catalog · chat/{components/composer,hooks,lib} · engine/components · skills · i18n resources · shared/plugin-catalog · main/app/{connection-views,deployment/{connections,plugins,deployment-wiring}}
+```
+
+### 3-1. r3 잠금 표 15행 — 15/15 red
+
+| 변이 | r2 | r3 | 실패 파일 |
+|---|---|---|---|
+| M3 Engine 1M↔default 조건 | green | red 1 | EngineModelList.render |
+| M9 JSX `danger={false}` | green | red 3 | ProviderAuthActions.render |
+| M10 렌더 순서 역전 | green | red 4 | ProviderAuthActions.render |
+| M11 callback 후 close | green | red 1 | ProviderAuthActions.render |
+| M13 onClick 맞바꿈(컴포넌트 내부) | green | red 1 | ProviderAuthActions.render |
+| N1b popup groups 역순 | green | red 1 | MentionAutocomplete.render |
+| N6 partial 비교 제거 | green | red 3 | useMention·useSkill |
+| M7 cwd-null Plugin-only open 제거 | green | red 1 | useMention |
+| N2b 새 occurrence 분기 제거 | green | red 1 | useMention |
+| EP12 valid id를 catalog로 | green | red 2 | useMention |
+| D1 되돌림 | — | red 2 | useMention·useSkill |
+| D2 되돌림(빈 path 그룹 push) | — | red 4 | render·lib·hook |
+| D3 되돌림(끝 경계 제거) | — | red 1 | composerDecoration |
+| N9b harness 정규화 생략 | green | red 2 | connections |
+| N9c usage 정규화 생략 | — | red 2 | connections |
+
+### 3-2. 덮개 회귀 — r2 red 19건 재실행, red→green 0
+
+M1 red 2 · M2 red 4 · M12 red 12 · M8(model) red 11 · M8(component) red 7 · M9b red 4 · M10b red 5 · M14 red 1 · N1 red 3 · M5 red 1 · N2 red 4 · N5 red 6 · N5b red 5 · N4 red 3 · N8 red 1 · N3a red 3 · N3b red 3 · N3d red 2 · N7 red 2. N9(factory `gateCatalog`)는 D12로 대상 필드가 사라져 해당 없음.
+
+### 3-3. 검증자 신설 축 — 보고가 이름을 대지 않은 지점 15건: red 8 · **green 7**
+
+| 축 | 변이 | 결과 | 귀속 |
+|---|---|---|---|
+| **S1** | `ProviderDetail`이 `onReauth={onRevoke}`·`onRevoke={onReauth}`로 넘김 | **green** | VP-10 등록 “reauth/revoke callback 맞바꿈”의 pair 경로 edge → **D14** |
+| **S1b** | `ProviderDetail`이 `authKind={null}`로 넘김(선택 방식 소실) | **green** | 같은 edge → D14 |
+| S2 | `ExtensionsCatalogView` 바인딩 `onReauth`→`providers.revoke` | green | 0238 미변경 기존 바인딩 → D15 |
+| S3 | valid id를 `visibleProviders` 대신 `providers`로 | red 1 | EP-12 형제 |
+| S4 | `pluginOpen`의 `!token.quoted` 제거 | green | 비등록, P3 동작은 정상 → D18 |
+| S5a | controller ↑/↓ 모듈로에 header 1칸 포함 | green | AC11 → D16 |
+| S5b | controller Enter/Tab이 `suggestions[0]` 선택 | green | AC11 → D16 |
+| S5c | controller Esc가 `close()` 안 부름 | green | AC11 → D16 |
+| S6 | Plugin chip 끝 경계에서 `$` 제거 | green | D3 수정의 새 표면 → D17 |
+| S7 | 메뉴 라벨 매핑 맞바꿈 | red 3 | VP-14 형제 |
+| S8 | gate row 정규화 생략 | red 2 | D9 형제(gate) |
+| S9 | occurrence 경계에서 `dismissedAt` 유지 | red 3 | VP-22 다른 지점 |
+| S10 | occurrence 경계에서 `activeIndex` 유지 | red 2 | VP-22 다른 지점 |
+| S11 | noMatches에서 `!loading` 제거 | red 1 | D2 형제 |
+| S12 | Plugin 그룹 조건을 `!quoted`만으로(slash 허용) | red 2 | AC9 |
+
+- 인용 변이 미검출: **0** — r2 D1~D9가 인용한 변이는 전부 red. D5는 인용 변이 기준으로 닫혔으나 같은 계약(VP-10)이 컴포넌트 밖 edge에서 열려 있다 — D14로 새로 연다.
+- 동작 보존 추출 라운드 아님. 소거 변이 잔여물 수렴: 해당 없음(각 변이가 typecheck 비대상 런타임 값 교체).
+
+### 3-4. 동작 probe (임시 테스트, 커밋하지 않음)
+
+production `useMentionAutocomplete`를 기존 hook fixture로 구동했다.
+
+| probe | 결과 | 판정 |
+|---|---|---|
+| P1 `@a x @a`: caret 2에서 Esc → caret 7(두 번째 `@a`)로 직접 이동 | `open:false`, `tokenStart:5` | occurrence 경계가 null뿐이라 다른 token이 dismissal을 상속 → D19 |
+| P2 `@a` Esc → `@ab` → `@a` | `open:false` | base `6200cf1` 의미 그대로(구현 보고 #2와 일치) |
+| P3 `@"j`, cwd null, Plugin 있음 | `open:false` | 정상 (S4는 잠금만 없음) |
+| P4 `@zz`, cwd 있음·경로/Plugin 불일치 | open·groups 0·suggestions 0 | D2 ✅ |
+| P5 `@src/` listing 대기 | open·loading·groups 0 | spinner만, header 없음 — 구현 보고 Product/UX 4행과 일치 |
+
+## 4. V-pair closeout (r3) — `UT → IT → ST → AT`
+
+| Pair | 레벨 | requiredness | r2 | r3 | 직접 증거 (이번 라운드) |
+|---|---|---|---|---|---|
+| VP-11 | UT | REQUIRED | PASS | PASS | M2 red 4 |
+| VP-13 | UT | REQUIRED | PAIR_FAIL | **PASS** | D3 case + D3 되돌림 red, M14 red. S6 green은 D17 |
+| VP-14 | UT | REQUIRED | PAIR_FAIL | **PASS** | M9·M10·M9b·M10b·S7 red |
+| VP-21 | UT | REQUIRED | PASS | PASS | N1 red 3 |
+| VP-22 | UT | REQUIRED | PAIR_FAIL | **PASS** | N2·N2b·D1 되돌림·S9·S10 red |
+| VP-23 | UT | REQUIRED | PAIR_FAIL | **PASS** | N5·N5b·EP12 red |
+| VP-08 | IT | REQUIRED | PASS | PASS | M12 red 12 |
+| VP-10 | IT | REQUIRED | PAIR_FAIL | **PAIR_FAIL** (root D14) | M13 red이나 S1·S1b green — `ProviderDetail props → auth actions` edge 미잠금 |
+| VP-20 | IT | REQUIRED | PASS | PASS | N4·N8 red |
+| VP-05 | ST | REQUIRED | PASS | PASS | parser/settings/ModelMenu/Engine suites green |
+| VP-07 | ST | REQUIRED | PAIR_FAIL | **PASS** | 등록 축 close/callback 순서 M11 red. callback 식별 축은 VP-10 판정 범위 |
+| VP-18 | ST | REQUIRED | PAIR_FAIL | **PASS** | production hook test 13케이스, N6·M7·N2b red |
+| VP-19 | ST | REQUIRED | PASS | PASS | N3a/b/d·N9b/c·S8 red |
+| VP-01 | AT | REQUIRED | PAIR_FAIL | **PASS** | M1·M3 red |
+| VP-03 | AT | REQUIRED | BLOCKED_BY:VP-14 | **BLOCKED_BY:VP-10** | M8 red, 분기·danger 잠김. AC15의 `재인증→reauth` 결과가 D14 edge를 지난다 |
+| VP-04 | AT | REQUIRED | PASS | PASS | stale 이름 0줄, doc gate ok |
+| VP-15 | AT | REQUIRED | PAIR_FAIL | **PASS** | N1·N1b red |
+| VP-16 | AT | REQUIRED | PASS | PASS | N2 red, production hook clear/retype |
+| VP-17 | AT | REQUIRED | PASS | PASS | N3·N8 red |
+| VP-24 | AT | REGRESSION | PAIR_FAIL | **PASS** | D1(skill) · D2 fixed, N7 red. AC11 controller glue는 D16 |
+| VP-25 | AT | REGRESSION | BLOCKED_BY:VP-10 | **BLOCKED_BY:VP-10** | ProviderDetail render suite는 static markup이라 callback을 보지 않는다 |
+
+- **합계: PASS 18 · root PAIR_FAIL 1 (VP-10) · BLOCKED_BY 2 (VP-03·VP-25) = 21.** 구현 자기보고 “r2 root·BLOCKED 12/12 SELF_PASS” ↔ 재측정 10/12 PASS.
+- 실행 범위: 재검증이지만 21 pair 전부 변이를 재실행했다(r3가 connections·lib·docs까지 건드려 이전 PASS pair도 영향 범위).
+
+### AT / AC (r3)
+
+| AC | r2 | r3 | 근거 |
+|---|---|---|---|
+| AC1·2·3·4 | ✅ | ✅ | M1·M2·M12 red, modelMenu0215 Fable |
+| AC5 | ⚠️ | ✅ | M3 red |
+| AC6 | ⚠️ | ✅ | render test + N1b red |
+| AC8·9 | ✅ | ✅ | M5·S12 red. S4 green은 동작 무관(D18) |
+| AC10 | ⚠️ | ✅ | production hook test, M7 red |
+| AC11 | ❌ | ⚠️ | D1 fixed. controller keyboard 직접 oracle 없음 — S5a/b/c green (D16) |
+| AC12 | ❌ | ✅ | D3 fixed. draft 끝 `$` 가지 미잠금은 D17 |
+| AC13·14 | ✅ | ✅ | M8 red |
+| AC15 | ⚠️ | ⚠️ | 컴포넌트 내부 M13 red, `ProviderDetail` edge S1 green (D14) |
+| AC16 | ⚠️ | ✅ | M11 red |
+| AC17·18 | ✅ | ✅ | doc gate, stale 0줄, 회귀 suites green |
+| AC19·20 | ⚠️·✅ | ✅ | N1b·N2 red |
+| AC21·22·24 | ✅ | ✅ | N3·S8·N9 red, typecheck |
+| AC23 | ⚠️ | ✅ | EP12 red |
+| AC25 | ❌ | ✅ | D1·D2 fixed, N7 red |
+
+- **합계 재측정: ✅ 22 · ⚠️ 2 · ❌ 0 = 24.** 자기보고 `Criteria-Met: 23/24`(⚠️ AC11 하나) ↔ 재측정 22/24 — **불일치**, 차이는 AC15(D14). trailer ↔ plan 구현 보고 `✅23·⚠️1`은 서로 일치, INDEX 비고는 수치 없음.
+
+### 강제 지점 분모 (r3 독립 재열거)
+
+| EP | 코드에서 센 지점 | 결과 |
+|---|---|---|
+| EP-05 (5) | `providerAuthActionModel.ts:12` predicate · `ProviderAuthActions.tsx:36` 직접 trigger · `:56-66` dropdown · `:75` map의 reauth·revoke 항목 | 5/5 코드, 잠금 5/5 |
+| EP-05 밖 같은 계약 | `ProviderDetail.tsx:72-78` props 전달 1 · `ExtensionsCatalogView.tsx:215-218` sink 바인딩 1 | 잠금 0/2 (D14·D15) |
+| EP-07 (2) | `mentionAutocomplete.ts:76·79` · `MentionAutocomplete.tsx:40` | 2/2, 잠금 2/2 |
+| EP-08 (2) | `useTokenAutocompleteState.ts:41-43` · `useMentionAutocomplete.ts:118-124` | 2/2, 잠금 2/2 |
+| EP-12 (3) | `connection-views.ts:59` · `pluginMention.ts:21` · `useMentionAutocomplete.ts:126-129` | 3/3, 잠금 3/3 |
+| EP-10 row 조각 (3) | `gateRows`·`harnessRows`·`usageRows` 정규화 | 3/3, 잠금 3/3 (S8·N9b·N9c) |
+
+- 구현 보고의 D1 “dismissal 쓰기 지점 3” 라벨 표본 확인: `close`(dismissedAt←partial)·경계(null)·`setActiveIndex`(activeIndex만) — 참.
+
+### 운영 gate (r3) — 관측한 산출
+
+| Gate | 결과 | 관측 |
+|---|---|---|
+| typecheck | PASS | node·web·test 3 config, `error TS` 0 |
+| lint | PASS | 0 error · 1 warning(기존 TanStack Virtual). 실행 후 `git status` 변화 0 |
+| 관련 vitest | PASS | **108파일 / 808케이스** pass (구현 보고와 같은 값) |
+| doc inventory | PASS | `9 items, 98 channels` · prose ok · links ok |
+| `git diff --check 569d2c8 6b6c04f` | PASS | 출력 0 |
+| message-bus | PASS | `6b6c04f` trailer 8키 파싱, `Agent: claude`·`Status: implemented`·`Verified-By: pending` 허용값 |
+
+- `npm test` 미사용 — DB 동작 검증 대상 없음. 임시 probe 1파일은 실행 후 삭제, 변이는 매건 복원 — 최종 `git status` 변화 0.
+
+## 5. Repository operation checks (r3)
+
+- INDEX: 상태 `IMPL_DONE`·다음 주체 Claude — 실제와 일치. 대상 커밋 자리표시자 `(r3 구현 — 검증자 기입)` → `6b6c04f`(`git cat-file -t` = commit)로 기입.
+- `[구현자 기입]` r3 7필드: 설계 리뷰·강제 지점 전수·수정의 잠금·Product/UX·놓친 문제·구현 보고·Review Signals — **7/7**, 산문으로 접힌 필드 0.
+- plan 메타 상태는 이번 커밋에서 INDEX와 함께 `verify/FAIL (r3)`로 갱신. D13(메타 죽은 좌표)은 설계자 몫으로 open 유지.
+- 라운드: FAIL로 **4**가 되어 3을 초과한다 → `docs/handoff/AGENTS.md §handoff-review 트리거`에 따라 r4 재구현 전 `handoff-review` 수행.
+
+## 6. Finding disposition (r3)
+
+| # | finding | 귀속 | disposition | root / 영향 pair |
+|---|---|---|---|---|
+| D14 | `ProviderDetail → ProviderAuthActions` callback·`authKind` 전달 edge에 oracle이 없다. props를 맞바꾸면(S1) `재인증` 메뉴가 연결 해제를 실행하고, `authKind={null}`(S1b)이면 선택 방식이 사라진다 — 둘 다 808케이스 green. `ProviderDetail.render.test`는 static markup만 본다 | VP-10 등록 변이 “reauth/revoke callback 맞바꿈”의 pair 경로 edge · AC15 | BLOCKING | VP-10 root · VP-03·25 BLOCKED_BY |
+| D15 | `ExtensionsCatalogView`의 `providers.reauth/revoke` 바인딩 맞바꿈(S2) green | 0238 미변경 기존 sink | NON_BLOCKING | — |
+| D16 | AC11 controller keyboard glue 미잠금 — header 포함 모듈로(S5a)·Enter 첫 항목 고정(S5b)·Esc 무시(S5c) green. ΔV1이 V1 VP-06·12(“header index”) 적대 축을 대체 pair로 옮기지 않았다 | AC11 · 비등록 축 | NON_BLOCKING | r4에서 함께 닫기 권장 |
+| D17 | D3 수정의 끝 경계 `$` 가지 미잠금 — draft 끝 `@jira-dc` chip 소실(S6) green | VP-13 새 표면 | NON_BLOCKING | — |
+| D18 | `pluginOpen`의 `!token.quoted` 가드 제거(S4) green — 동작은 P3로 정상 확인 | AC9 비등록 축 | NON_BLOCKING | — |
+| D19 | 같은 partial의 다른 `@` token으로 caret만 옮기면 dismissal이 이어진다(P1). occurrence 경계가 token null 하나뿐(EP-08)이고 base도 같다 | D-015 문언 “같은 문자열의 새 @ token” vs EP-08 null 경계 | NEXT_HANDOFF | 설계자 판단 — `tokenStart`를 occurrence identity에 넣을지 |
+| D20 | `filterFileSuggestions` export 외부 참조 0 — D11이 형제 `splitDirAndPrefix`만 비export | D11 형제 | NON_BLOCKING | — |
+
+- r2 D1~D12: 인용 변이 전부 red로 **closed 확인**. D13 open 유지.
+
+## 7. Review Signals — 사실만 (r3)
+
+- 이전 라운드와 유사 증상: 예 — D14는 r2 D5와 같은 계약(VP-10)이 **다른 지점**에서 열린 것. r3는 D5가 인용한 컴포넌트 내부 변이만 닫았다.
+- 관련 plan 지침: VP-10 production path가 `ProviderDetail props`를 명시하나 §10 EP-05 분모 5곳은 컴포넌트 내부만 센다.
+- D16: V1 VP-06·12의 header-index 적대 축이 ΔV1 분해(SUPERSEDED) 뒤 어느 pair에도 없다.
+- 자기 검증: 보고된 변이 재실행 15/15 red만으로는 완결로 보였고, 보고에 없는 축 15건 중 7건이 green이었다.
+- 반복 환경 한계: Electron/SDK 실기 불가.
+
+## 8. 결론 (r3)
+
+- 상태: **FAIL**
+- pair: PASS 18 · root PAIR_FAIL 1 (VP-10) · BLOCKED_BY 2 · PLAN_GAP 0
+- AC: ✅ 22 · ⚠️ 2 · ❌ 0 / 24
+- Product/UX: r2 동작 결함 D1~D3 해소. 현재 production 동작 결함 0 — 남은 것은 D14 oracle 결함.
+- 운영 gate: typecheck·lint·vitest 808·doc·diff check PASS
+- 다음 단계: 라운드 4 > 3 → `handoff-review` 먼저, 그 뒤 r4 재구현(D14 필수, D16·D17 같은 라운드 권장). D19는 설계자 판단.
