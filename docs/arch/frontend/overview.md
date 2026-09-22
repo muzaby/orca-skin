@@ -52,7 +52,7 @@
 | ChatTile 메시지 리스트 + 스트리밍 표시 | Phase 2 | ✅ 완료 | 16ms throttle. 메시지 컴포넌트는 `features/chat/components/transcript/` |
 | Composer 3-chip + Skill picker | Phase 2++ | ✅ 완료 | Popover + `openSkillPicker`(`composer/ComposerInputController.tsx`) |
 | Composer `/skill` 인라인 자동완성 | Phase 2++ | ✅ 완료 | `SkillAutocomplete` + `useSkillAutocomplete` |
-| Composer `@file` 자동완성 | Phase 2++ | ✅ 완료 | `FileAutocomplete` + `useFileAutocomplete` |
+| Composer `@` 경로·Plugin 자동완성 | Phase 2++ | ✅ 완료 | `MentionAutocomplete` + `useMentionAutocomplete` |
 | Markdown 렌더링 (react-markdown + GFM) | Phase 2 | ✅ 완료 | `shared/ui/markdown/Markdown.tsx` (features/chat 에는 StreamingMarkdown 만 잔류) |
 | Shiki 코드 블록 (shiki 3테마 + 11언어) | Phase 2 | ✅ 완료 | `shared/ui/markdown/CodeBlock.tsx` |
 | ToolCard 렌더링 (input/output 토글) | Phase 2 | ✅ 완료 | `features/chat/components/transcript/ToolCard.tsx` |

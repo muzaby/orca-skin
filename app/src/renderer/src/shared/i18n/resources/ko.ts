@@ -950,7 +950,6 @@ export const ko = {
       contextUsageAria: '컨텍스트 사용량: {{pct}}%',
       attach: '첨부',
       attachRemoveAria: '{{name}} 첨부 제거',
-      fileAutocompleteAria: '파일 경로 자동완성',
       mentionAutocompleteAria: '플러그인 및 파일 경로 자동완성',
       mentionPlugins: '플러그인',
       loadingShort: '로딩 중…',

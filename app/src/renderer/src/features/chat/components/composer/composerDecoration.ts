@@ -1,5 +1,6 @@
 const SKILL_TOKEN_RE = /(?<=^|\s)\/[a-z][a-z0-9:-]*\b/g
-const PLUGIN_TOKEN_RE = /(?<=^|\s)@([^\s"/]+)/g
+// 토큰 전체가 id여야 한다 — `@jira-dc/notes.md` 같은 경로의 앞부분을 Plugin으로 칠하지 않는다.
+const PLUGIN_TOKEN_RE = /(?<=^|\s)@([^\s"/]+)(?=\s|$)/g
 const FILE_TOKEN_RE = /(?<=^|\s)@(?:"([^"\n]*)"|([^\s"]+))/g
 
 export type ComposerDecorationSegment =

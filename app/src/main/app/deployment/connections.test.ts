@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AuthSnapshot, BoundAuth } from '../../contracts/auth'
+import { DEFAULT_PROVIDER_CATALOG_ICON } from '../../../shared/provider-catalog'
 import { createConnectionSources, gateRows, harnessRows, usageRows } from './connections'
 
 function auth(authId: string): BoundAuth {
@@ -43,20 +44,36 @@ describe('connection deployment presentation input', () => {
     expect(usageRows([{ auth: auth('usage') }])[0]).not.toHaveProperty('catalog')
   })
 
-  it('factory도 네 category row를 선택적으로 조립한다', () => {
-    const gate = auth('gate')
-    const harness = auth('harness')
-    const usage = auth('usage')
+  it('icon 없는 input도 공용 normalizer의 기본 icon으로 정규화한다', () => {
+    const titleOnly = { title: { ko: '제목', en: 'Title' } }
+    const [gate] = gateRows([auth('gate')], titleOnly)
+    const [harness] = harnessRows([
+      { auth: auth('harness'), harnessModelProviderKey: 'claude-corp', catalog: titleOnly }
+    ])
+    const [usage] = usageRows([{ auth: auth('usage'), catalog: titleOnly }])
+    for (const row of [gate, harness, usage]) {
+      expect(row.catalog).toEqual({ icon: DEFAULT_PROVIDER_CATALOG_ICON, ...titleOnly })
+    }
+  })
+
+  it('정규화 검증을 건너뛰지 않는다 — 빈 locale 입력은 row 조립에서 거부된다', () => {
+    const invalid = { title: { ko: ' ', en: 'Title' } }
+    expect(() => gateRows([auth('gate')], invalid)).toThrow('title.ko')
+    expect(() =>
+      harnessRows([
+        { auth: auth('harness'), harnessModelProviderKey: 'claude-corp', catalog: invalid }
+      ])
+    ).toThrow('title.ko')
+    expect(() => usageRows([{ auth: auth('usage'), catalog: invalid }])).toThrow('title.ko')
+  })
+
+  it('기본 factory는 gate·plugin row만 만든다', () => {
     const sources = createConnectionSources({
       auth: { bind: (id) => auth(id) },
-      gateMembers: [gate],
-      plugins: [],
-      gateCatalog: catalog,
-      harness: [{ auth: harness, harnessModelProviderKey: 'claude-corp', catalog }],
-      usage: [{ auth: usage, catalog }]
+      gateMembers: [auth('gate')],
+      plugins: []
     })
-
-    expect(sources.map((source) => source.category)).toEqual(['gate', 'harness', 'usage'])
-    expect(sources.every((source) => source.catalog?.icon === 'language')).toBe(true)
+    expect(sources.map((source) => source.category)).toEqual(['gate'])
+    expect(sources[0]).not.toHaveProperty('catalog')
   })
 })

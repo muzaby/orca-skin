@@ -943,7 +943,6 @@ export const en: typeof ko = {
       contextUsageAria: 'Context usage: {{pct}}%',
       attach: 'Attach',
       attachRemoveAria: 'Remove attachment {{name}}',
-      fileAutocompleteAria: 'File path autocomplete',
       mentionAutocompleteAria: 'Plugin and file path autocomplete',
       mentionPlugins: 'Plugins',
       loadingShort: 'Loading…',

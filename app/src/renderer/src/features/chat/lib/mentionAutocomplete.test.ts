@@ -58,10 +58,22 @@ describe('mention autocomplete parsing and projection', () => {
   })
 
   it('slash/quoted path는 Plugin 그룹 없이 현재 디렉터리 후보만 낸다', () => {
-    const groups = groupMentionSuggestions(token('@src/zzz'), plugins, entries)
-    expect(groups).toHaveLength(1)
-    expect(groups[0].kind).toBe('path')
-    expect(groups[0].suggestions).toEqual([])
+    const slash = groupMentionSuggestions(token('@src/RE'), plugins, entries)
+    expect(slash.map((group) => group.kind)).toEqual(['path'])
+    expect(slash[0].suggestions.map((item) => item.kind === 'file' && item.path)).toEqual([
+      'src/README.md'
+    ])
+    expect(groupMentionSuggestions(token('@"RE'), plugins, entries).map((g) => g.kind)).toEqual([
+      'path'
+    ])
+  })
+
+  it('빈 그룹은 만들지 않는다 — 두 그룹이 모두 비면 groups도 비어 있다', () => {
+    expect(groupMentionSuggestions(token('@src/zzz'), plugins, entries)).toEqual([])
+    expect(groupMentionSuggestions(token('@zzz'), [], entries)).toEqual([])
+    expect(groupMentionSuggestions(token('@zzz'), plugins, entries).map((g) => g.kind)).toEqual([
+      'plugin'
+    ])
   })
 
   it('Plugin 선택은 표시 label이 아닌 id를 삽입하고 caret와 주변 문자를 보존한다', () => {

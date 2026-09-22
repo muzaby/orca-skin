@@ -22,5 +22,3 @@ export function pluginMentionCandidates(
     .filter((provider) => provider.id.toLowerCase().startsWith(query))
     .map((provider) => ({ kind: 'plugin' as const, id: provider.id, label: provider.label }))
 }
-
-export const projectPluginMentions = pluginMentionCandidates

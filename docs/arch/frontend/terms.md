@@ -49,7 +49,7 @@
 | **Transcript** | 메시지들이 위로 쌓이는 목록 영역. | [rendering.md §1](./rendering.md) |
 | **ToolCard** | 어시스턴트가 부른 도구 1회를 카드로 표시 (입력/결과 토글). | [rendering.md §1](./rendering.md) |
 | **Markdown / CodeBlock** | 답변 마크다운 렌더링 + 코드 블록 문법 하이라이팅(shiki). | [rendering.md §1](./rendering.md) |
-| **SkillAutocomplete / FileAutocomplete** | 입력창에서 `/`(스킬) · `@`(파일) 칠 때 뜨는 자동완성. | [ux-domains.md §1](./ux-domains.md) |
+| **SkillAutocomplete / MentionAutocomplete** | 입력창에서 `/`(스킬) · `@`(경로·Plugin) 칠 때 뜨는 자동완성. | [ux-domains.md §1](./ux-domains.md) |
 
 ## 5. 상태 (데이터가 흐르는 방식)
 

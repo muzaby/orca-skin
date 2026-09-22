@@ -78,7 +78,7 @@ app/src/main/app/deployment/
 | `plugins.ts` | `createPluginBindings(deps)` | `auth: AuthBinder` · `registry: RuntimeToolSink` · `logger?` |
 | `harness-runtime.ts` | `createConfigApiAugmenters(deps)` | `auth: AuthBinder` **만** |
 | `harness-runtime.ts` | `createDirectCredentialAugmenters(deps)` | `secrets: Record<AuthId, () => string \| null>` **만** (선언한 id 만) |
-| `connections.ts` | `createConnectionSources(deps)` | `auth` · `gateMembers` · `plugins` · optional `gateCatalog`/`harness`/`usage` rows |
+| `connections.ts` | `createConnectionSources(deps)` | `auth` · `gateMembers` · `plugins` (표시 입력은 함수 본문의 row 조각 인자로 넣는다) |
 | `usage-fetcher.ts` | `createUsageFetcher(deps)` | `auth: AuthBinder` |
 
 `AuthBinder` 는 `Pick<AuthRuntime,'bind'>` 다 (0190) — 배포는 자기 AuthId 를 골라
@@ -320,15 +320,15 @@ export const GATE_AUTH_DEFINITIONS: readonly GateAuthDefinition[] = [CORP_SSO_AU
 
 ```ts
 // app/deployment/connections.ts — 선택적 gate 표시 입력
-import { gateRows } from './connections'
-
 const CORP_GATE_PRESENTATION = {
   icon: 'power_settings_new',
   title: { ko: '사내 로그인', en: 'Corporate sign-in' },
   body: { ko: '앱 접근을 위한 인증입니다.', en: 'Authentication required to access the app.' }
 } as const
 
-const rows = gateRows(gateMembers, CORP_GATE_PRESENTATION)
+export function createConnectionSources(deps: ConnectionDeploymentDeps) {
+  return [...gateRows(deps.gateMembers, CORP_GATE_PRESENTATION), ...pluginRows(deps.plugins)]
+}
 ```
 
 > ⚠️ **`origin` 은 로그인 시작 주소(IdP)가 아니다.** `loginUrl` 은 절대 URL 이라 어디를 가리켜도
@@ -463,18 +463,20 @@ subprocess env가 아니라 runtime catalog에 전달된다.
 | 8 | 실기: 연결 탭에서 인증 → 새 채팅 전송 → 게이트웨이 로그에 요청이 도달하는지 | 사람 실기 |
 
 ```ts
-// app/deployment/connections.ts — Harness 행의 선택적 표시 입력
-import { harnessRows } from './connections'
-
-const rows = harnessRows([{
-  auth: deps.auth.bind(CORP_LLM_AUTH.id),
-  harnessModelProviderKey: CLAUDE_CORP_KEY,
-  catalog: {
-    icon: 'memory',
-    title: { ko: '사내 Claude', en: 'Corporate Claude' },
-    body: { ko: '사내 모델 게이트웨이', en: 'Corporate model gateway' }
-  }
-}])
+// app/deployment/connections.ts — Harness 행의 선택적 표시 입력 (createConnectionSources 본문)
+return [
+  ...gateRows(deps.gateMembers),
+  ...harnessRows([{
+    auth: deps.auth.bind(CORP_LLM_AUTH.id),
+    harnessModelProviderKey: CLAUDE_CORP_KEY,
+    catalog: {
+      icon: 'memory',
+      title: { ko: '사내 Claude', en: 'Corporate Claude' },
+      body: { ko: '사내 모델 게이트웨이', en: 'Corporate model gateway' }
+    }
+  }]),
+  ...pluginRows(deps.plugins)
+]
 ```
 
 **주입 규칙 4가지** (어기면 진단이 어려워진다):

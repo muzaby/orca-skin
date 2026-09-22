@@ -42,7 +42,7 @@ export function parseMentionToken(text: string, caret: number): MentionToken | n
   }
 }
 
-export function splitDirAndPrefix(partial: string): { dirPath: string; prefix: string } {
+function splitDirAndPrefix(partial: string): { dirPath: string; prefix: string } {
   const lastSlash = partial.lastIndexOf('/')
   if (lastSlash === -1) return { dirPath: '', prefix: partial }
   return { dirPath: partial.slice(0, lastSlash), prefix: partial.slice(lastSlash + 1) }
@@ -72,9 +72,8 @@ export function groupMentionSuggestions(
       entry,
       path: token.dirPath === '' ? entry.name : `${token.dirPath}/${entry.name}`
     }))
-    if (pathSuggestions.length > 0 || !rootPlain || plugins.length === 0) {
-      groups.push({ kind: 'path', suggestions: pathSuggestions })
-    }
+    // 빈 그룹은 만들지 않는다 — header만 남은 popup은 결과 0건을 알리지 못한다(V1 §5).
+    if (pathSuggestions.length > 0) groups.push({ kind: 'path', suggestions: pathSuggestions })
   }
   if (rootPlain && plugins.length > 0) {
     groups.push({ kind: 'plugin', suggestions: [...plugins] })
@@ -114,8 +113,4 @@ export function applyMentionSuggestion(
     ? `@${wrapped}`
     : `@${wrapped}${followingWhitespace ? '' : ' '}`
   return { text: `${before}${replacement}${after}`, caret: before.length + replacement.length }
-}
-
-export function mentionGroupOptions(groups: readonly MentionGroup[]): MentionSuggestion[] {
-  return flattenMentionGroups(groups)
 }

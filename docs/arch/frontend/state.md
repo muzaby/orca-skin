@@ -37,7 +37,7 @@
 | 설정 모달 상태 | `features/settings/store/settingsModalStore`(Zustand, 0079~0081) | — | open, tab(`'general' \| 'usage' \| 'provider:<key>'` — 도넛 `>` → provider 탭 라우팅) |
 | Skills 카탈로그 | `shared/hooks/useSkills` useState 캐시 | — | SkillInfo[] (부팅 1회 스캔) |
 | Agents/provider 목록 | `shared/stores/agentStore`(Zustand, 0021) | — | agents, refresh — EngineCard·Composer/ModelMenu 싱크 |
-| 자동완성 상태 | `ComposerInputController`의 deferred snapshot + `useSkillAutocomplete / useFileAutocomplete` | — | open, query, activeIndex, expected revision |
+| 자동완성 상태 | `ComposerInputController`의 deferred snapshot + `useSkillAutocomplete / useMentionAutocomplete` | — | open, query, activeIndex, expected revision |
 | 입력창 상태 | 항상 mount되는 `ComposerInputController` 로컬 `DraftSnapshot` | — | revision, text, selectionStart/End, composing |
 | UI 인터랙션 (hover/focus/모달) | 컴포넌트 로컬 `useState` | — | DebugPanel 펼침 여부 |
 
