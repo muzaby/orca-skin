@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 지시로 설계 턴 수행 |
 | 일자 | 2026-09-22 |
 | 매핑 | 최초 기능 요청 3건 + 사용자 변경·보완 4건 |
-| 상태 | **READY (ΔV1)** — V1 구현은 미검증이며 ΔV1 구현 전 기준선으로만 보존 |
+| 상태 | **verify/FAIL (V1+ΔV1 r2)** — 판정은 [`verify.md`](verify.md), 다음은 r3 재구현 |
 | V mode | `Delta V` |
 | 기준 V | `V1@651d9080` — 0238 최초 READY 설계; r1 구현 `6030afae`·`e96a2494`·`2c7dad51`은 독립 검증 전 |
 | 이번 V revision | `ΔV1` — Composer 그룹 순서·token 재진입·전 category catalog presentation 입력 |
@@ -1027,4 +1027,16 @@ ProviderCatalogPresentationInput
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | 미기입 | 미기입 | 미기입 | 미기입 | 미기입 |
+| D1 | Esc 후 partial 변경으로 재오픈된 팝업에서 `setActiveIndex`(↓/↑·hover)가 남은 `dismissed:true`를 되살려 팝업을 닫는다. `/` skill도 회귀(base `6200cf1` green) | VP-22 root · VP-24 / D-015·V1 §5·AC11·AC25 | `partial` 변경 시 dismissal을 해제하거나 `setActiveIndex`가 dismissal을 복원하지 않게 한다. production hook으로 Esc→입력→↓ 회귀 test | BLOCKING | open |
+| D2 | 결과 0건이면 빈 path 그룹 header만 남고 `일치하는 항목 없음`이 사라진다(root plain·slash 모두) | VP-24 root / V1 §5 empty 행·AC25 | 빈 그룹 미렌더 + 전 그룹 0건이면 noMatches. popup render test | BLOCKING | open |
+| D3 | `@jira-dc/notes.md` 앞부분이 Plugin chip이 되어 유효 path chip을 가린다(`PLUGIN_TOKEN_RE` 끝 경계 없음) | VP-13 / MD-03·AC12 | token 끝 경계 요구 + 충돌 case test | BLOCKING | open |
+| D4 | Engine `1M`↔`default` 배지 조건 맞바꿈(M3) 미검출 | VP-01 / 등록 변이·AC5 | 행별 배지 귀속을 단언 | BLOCKING | open |
+| D5 | `ProviderAuthActions` 렌더 트리 oracle 부재 — JSX danger 제거·메뉴 순서·close 순서·callback 맞바꿈(M9·M10·M11·M13) 미검출. model 상수는 JSX가 순서를 읽지 않는다 | VP-14·10·07 root · VP-03·25 / 등록 변이·AC15·16 | 컴포넌트 트리의 MenuItem 순서·danger·onClick→callback·close 선행 단언(verify §4 probe 형태) | BLOCKING | open |
+| D6 | popup render 순서 oracle 부재 — render에서 groups 역순(N1b) 미검출 | VP-15 / 등록 변이·AC6·AC19 | `MentionAutocomplete` render test로 header·첫/마지막 option 순서 단언 | BLOCKING | open |
+| D7 | production `useMentionAutocomplete` hook test 0 — stale dismissal(N6)·cwd-null Plugin-only open(M7) 미검출, AC20 oracle은 죽은 `useFileAutocomplete` 위에만 있다 | VP-18 / 등록 변이·AC10·AC20 | production hook fixture test | BLOCKING | open |
+| D8 | `validPluginIds`를 catalog 판별로 되돌려도 미검출 — EP-12 세 번째 지점 | VP-23 / 등록 변이·EP-12 | valid id 경로에 catalog∧no-tools·no-catalog∧tools matrix | BLOCKING | open |
+| D9 | harness/usage row catalog 정규화 생략(N9b) 미검출 | VP-19 비등록 축 | icon 없는 input fixture 추가 | NON_BLOCKING | open |
+| D10 | `docs/arch/frontend/{state,layers,overview}.md`가 `useFileAutocomplete`를 현재 Composer 자동완성으로 서술 | R-04 EP 목록 밖 | 현재 hook 이름으로 정정 | NON_BLOCKING | open |
+| D11 | `useFileAutocomplete.ts`·`FileAutocomplete.tsx` production 참조 0, `mentionGroupOptions`·`projectPluginMentions` 미사용 | plan §18 | D7 oracle 이전 후 제거 | NON_BLOCKING | open |
+| D12 | `createConnectionSources` optional deps를 bootstrap이 넘기지 않음, guide gate 예제의 자기 import·스코프 밖 변수 | D-016 비귀속 | deps 제거 또는 guide 정정 | NON_BLOCKING | open |
+| D13 | plan 메타 `V1@651d9080`·r1 `6030afae`·`e96a2494`·`2c7dad51` 죽은 좌표. r2는 메타 상태를 `READY`로 남겼다(이번 verify가 갱신) | message-bus | 설계자가 `6200cf1`·`6f40c8b`~`f31c068`로 교정 | NON_BLOCKING | open |
