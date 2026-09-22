@@ -551,10 +551,10 @@ npx.cmd vitest run \
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-01·05·08·11 | Fable family/env/default와 모델 identity | EP-01 4곳, EP-02 3곳 | `model-parser.ts`의 family/env/fallback 4곳, `toAgentEnvironment` wire, Composer `modelIdentity`, Engine key를 연결했다. | §19 targeted Vitest 50 files/368 tests green; parser Fable env·fallback red 변이도 확인. | AC1~5, MD-01, AR-01 |
-| VP-02·06 | `@` source → grouped option → draft | EP-03 2곳, EP-04 parse/group/flatten/replace/keyboard/deco 6곳 | `pluginMention.ts`, `mentionAutocomplete.ts`, `useMentionAutocomplete`, grouped popup, controller 키보드/apply, decoration chip을 연결했다. | plugin/mention pure tests와 Composer/hooks suite가 green; group/id 변이 red. | AC6~12, MD-02 |
-| VP-03·07·10·14 | auth status → trigger/menu/callback | EP-05 5곳 | `providerAuthActionKind` predicate, 직접 인증, dropdown, 재인증 item, danger 연결 해제 item을 `ProviderDetail`에 연결했다. | auth action matrix/model + ProviderDetail/providerRows suite green; branch/danger 변이 red. | AC13~16, AR-03/MD-04 |
-| VP-04 | 문서·i18n current contract | EP-06 6곳 | ko/en key, TRD, frontend UX, backend auth, 폐쇄망 guide를 같은 Fable/Plugin/auth 용어로 갱신했다. | doc inventory/prose/link gate green; stale 3-family/path-only 표현 없음. | AC17~18, R-04 |
+| VP-01·05·08·11 | Fable family/env/default와 모델 identity | EP-01 4곳, EP-02 3곳 | EP-01=`FAMILY_ORDER`·`ALIAS_ENV_KEY`·`DEFAULT_FAMILY_ORDER`·shared `CLAUDE_MODEL_FAMILIES`; EP-02=`toAgentEnvironment`·Composer `modelIdentity`·Engine `key`. | §19 targeted Vitest 50 files/368 tests green; parser Fable env·fallback red 변이도 확인. | AC1~5, MD-01, AR-01 |
+| VP-02·06 | `@` source → grouped option → draft | EP-03 2곳, EP-04 parse/group/flatten/replace/keyboard/deco 6곳 | EP-03=`connectionInfo()`·`pluginMentionCandidates`; EP-04=`parseMentionToken`·`groupMentionSuggestions`·`flattenMentionGroups`·`applyMentionSuggestion`·controller 키보드/apply·decoration surface/layer. | plugin/mention pure tests와 Composer/hooks suite가 green; group/id 변이 red. | AC6~12, MD-02 |
+| VP-03·07·10·14 | auth status → trigger/menu/callback | EP-05 5곳 | EP-05=`providerAuthActionKind`·직접 Button·dropdown Button/Popover·재인증 MenuItem·`danger` revoke MenuItem을 `ProviderDetail`에 연결했다. | auth action matrix/model + ProviderDetail/providerRows suite green; branch/danger 변이 red. | AC13~16, AR-03/MD-04 |
+| VP-04 | 문서·i18n current contract | EP-06 6곳 | EP-06=`ko.ts`·`en.ts`·TRD·frontend UX·backend auth·폐쇄망 guide를 같은 Fable/Plugin/auth 용어로 갱신했다. | doc inventory/prose/link gate green; stale 3-family/path-only 표현 없음. | AC17~18, R-04 |
 | EP 합계 | §10 전수 | EP-01 4/4 · EP-02 3/3 · EP-03 2/2 · EP-04 6/6 · EP-05 5/5 · EP-06 6/6 | **26/26** | targeted Vitest + typecheck/lint/doc/diff gate green | §10 모든 강제 지점 |
 
 **V-pair 자기확인**
@@ -598,7 +598,7 @@ npx.cmd vitest run \
 | 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | **예** — `skills.provider.authenticate`, Plugin 그룹/aria 키는 각각 `ProviderAuthActions`·`MentionAutocomplete`에서 소비되고 en/ko parity가 있다. | 별도 후속 없음; i18n parity gate 유지 |
 | seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | **예** — auth 순수 model은 컴포넌트 밖으로만 분리했고, Composer hook은 active cleanup·legacy hook 위임을 유지했다. | legacy 파일 popup은 호환용으로 남기고 추후 제거 여부를 별도 결정 |
 | 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | provider/file source 실패는 popup loading/empty 행, auth 실패·만료는 기존 status 행, cwd 변경은 file cache 무효화 행이다. | 각 경로를 §19 targeted suite와 source inspection으로 고정 |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | **예** — provider 조회 실패는 path 후보를 유지하고, file 실패는 empty group, 비동기 조회는 loading, auth는 직접 인증/메뉴 trigger를 남긴다. | 사람 실기에서 문구·clipping 확인 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | **예** — provider 조회 실패에도 cwd가 있으면 path 후보를 유지하고, file 실패는 empty group, 비동기 조회는 loading, auth는 직접 인증/메뉴 trigger를 남긴다. | 사람 실기에서 문구·clipping 확인 |
 | 늦게 도착한 응답이 화면을 되돌리지 않는가 | **예** — provider/file 요청에 cancel flag, draft 적용에 deferred revision fence, 메뉴 callback은 close 후 실행이다. | 실제 Electron 재진입은 검증자/사람 실기에서 확인 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
@@ -631,7 +631,7 @@ npx.cmd vitest run \
 | V-pair 자기확인 | VP-01~VP-14 **14/14 SELF_PASS**; `SELF_BLOCKED` 0. 직접 oracle과 선택 mutation 결과는 위 표에 기록했다. |
 | 강제 지점 전수 | EP-01 **4/4**, EP-02 **3/3**, EP-03 **2/2**, EP-04 **6/6**, EP-05 **5/5**, EP-06 **6/6** — 합계 **26/26**. |
 | AC 자기보고 | 기계 범위 AC **18/18 ✅**. 후보/상태/selection/replacement는 테스트로 닫았고, 두 테마·좁은 패널·실제 Electron 시각은 사람/검증자 대기다. |
-| 합계 검산 | V-pair 14/14 + EP 26/26 + AC 18/18 + mutation **7/7 red** + 운영 gate 6종 green. |
+| 합계 검산 | V-pair 14/14 + EP 26/26 + AC 18/18 + mutation **7/7 red** + 운영 gate 5종 green. |
 | 블로커 / 역질문 | 코드 블로커 없음. Electron/SDK 실제 실행 및 두 테마 시각 확인은 환경상 수행하지 않았으므로 다음 주체가 확인한다. |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
