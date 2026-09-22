@@ -17,8 +17,24 @@
 // - 이 배열을 AuthId 기반 feature join registry 로 쓰지 않는다 — 표시용 view source 다.
 
 import type { AuthBinder, BoundAuth } from '../../contracts/auth'
+import type { HarnessModelProviderKey } from '../../features/harnesses/runtime-config'
 import type { ConnectionViewSource } from '../connection-views'
 import type { PluginBinding } from './plugins'
+import {
+  normalizeProviderCatalogPresentation,
+  type ProviderCatalogPresentationInput
+} from '../../../shared/provider-catalog'
+
+export interface HarnessConnectionDeployment {
+  auth: BoundAuth
+  harnessModelProviderKey: HarnessModelProviderKey
+  catalog?: ProviderCatalogPresentationInput
+}
+
+export interface UsageConnectionDeployment {
+  auth: BoundAuth
+  catalog?: ProviderCatalogPresentationInput
+}
 
 export interface ConnectionDeploymentDeps {
   auth: AuthBinder
@@ -26,6 +42,10 @@ export interface ConnectionDeploymentDeps {
   gateMembers: readonly BoundAuth[]
   // 부팅에서 1회 만든 Plugin binding. `toolNames()` 는 cached descriptor 에서 나온다.
   plugins: readonly PluginBinding[]
+  // 선택적 표시 입력은 connection source 경계에서 한 번 정규화한다.
+  gateCatalog?: ProviderCatalogPresentationInput
+  harness?: readonly HarnessConnectionDeployment[]
+  usage?: readonly UsageConnectionDeployment[]
 }
 
 // 기본 배포는 gate 와 plugin row 만 만든다(둘 다 선언이 비어 있어 실제로는 0행).
@@ -34,12 +54,35 @@ export interface ConnectionDeploymentDeps {
 export function createConnectionSources(
   deps: ConnectionDeploymentDeps
 ): readonly ConnectionViewSource[] {
-  return [...gateRows(deps.gateMembers), ...pluginRows(deps.plugins)]
+  return [
+    ...gateRows(deps.gateMembers, deps.gateCatalog),
+    ...harnessRows(deps.harness ?? []),
+    ...pluginRows(deps.plugins),
+    ...usageRows(deps.usage ?? [])
+  ]
 }
 
 // 배포가 순서를 바꿔 조립할 수 있도록 조각으로 노출한다 — 가이드 §3 예제가 그것을 쓴다.
-export function gateRows(members: readonly BoundAuth[]): ConnectionViewSource[] {
-  return members.map((auth) => ({ category: 'gate', auth }))
+export function gateRows(
+  members: readonly BoundAuth[],
+  catalog?: ProviderCatalogPresentationInput
+): ConnectionViewSource[] {
+  const normalized =
+    catalog === undefined ? undefined : normalizeProviderCatalogPresentation(catalog)
+  return members.map((auth) => ({
+    category: 'gate',
+    auth,
+    ...(normalized ? { catalog: normalized } : {})
+  }))
+}
+
+export function harnessRows(rows: readonly HarnessConnectionDeployment[]): ConnectionViewSource[] {
+  return rows.map((row) => ({
+    category: 'harness',
+    auth: row.auth,
+    harnessModelProviderKey: row.harnessModelProviderKey,
+    ...(row.catalog ? { catalog: normalizeProviderCatalogPresentation(row.catalog) } : {})
+  }))
 }
 
 export function pluginRows(plugins: readonly PluginBinding[]): ConnectionViewSource[] {
@@ -48,5 +91,13 @@ export function pluginRows(plugins: readonly PluginBinding[]): ConnectionViewSou
     auth: plugin.auth,
     toolNames: () => plugin.toolNames(),
     catalog: plugin.catalog
+  }))
+}
+
+export function usageRows(rows: readonly UsageConnectionDeployment[]): ConnectionViewSource[] {
+  return rows.map((row) => ({
+    category: 'usage',
+    auth: row.auth,
+    ...(row.catalog ? { catalog: normalizeProviderCatalogPresentation(row.catalog) } : {})
   }))
 }

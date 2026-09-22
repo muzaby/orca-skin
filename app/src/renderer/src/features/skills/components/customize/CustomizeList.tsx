@@ -6,7 +6,7 @@ import type { CatalogTab } from '../../lib/catalogSelection'
 import { mcpRowMeta, skillRowMeta } from '../../lib/catalogRows'
 import { providerRowMeta } from '../../lib/providerRows'
 import { orderMcpServers, orderProviders, orderSkills } from '../../lib/catalogOrder'
-import { pluginPresentation } from '../../lib/pluginPresentation'
+import { providerPresentation } from '../../lib/providerPresentation'
 
 export function CustomizeList({
   tab,
@@ -109,7 +109,7 @@ export function CustomizeList({
       {tab === 'providers' &&
         orderProviders(providers).map((provider) => {
           const meta = providerRowMeta(provider)
-          const presentation = pluginPresentation(provider, locale)
+          const presentation = providerPresentation(provider, locale)
           const detail = `${tr(meta.kindKey)} · ${meta.activeLabel ?? tr('common.unknown')}`
           return (
             <CatalogListRow

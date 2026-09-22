@@ -702,11 +702,13 @@ renderer 는 여전히 한 DTO 에서 `gate | llm | service` 분류·인증 상�
   써도 `BoundAuth` 만 재사용하고 GUI row 를 복제하지 않는다.
 - label·origin·인증 방식 입력 필드는 `auth.describe()` 에서, 상태는 `auth.snapshot()` 에서 읽는다 —
   view source 에 다시 적지 않는다.
-- `catalog`는 plugin category에서만 `ProviderInfo`로 투영한다. gate·harness·usage 행은 이 필드가 없고
-  기존 Auth label과 power icon 표시를 유지한다.
-- renderer Composer의 Plugin `@` 후보는 `catalog !== undefined && tools.length > 0`인 행에서
-  `ProviderInfo.id`만 투영한다. `status`는 후보를 숨기는 필터가 아니며, root plain 입력에서는
-  Plugin 그룹을 path 그룹보다 먼저 표시하고 slash/quoted 입력은 path 그룹으로 남긴다.
+- `catalog`는 gate·harness·plugin·usage connection source가 선택적으로 `ProviderInfo`로 투영한다.
+  입력이 없는 gate·harness·usage 행은 기존 Auth label과 power icon 표시를, Plugin은
+  `electrical_services` 기본값을 유지한다.
+- renderer Composer의 Plugin `@` 후보는 main이 Plugin source에만 싣는 `tools.length > 0`인 행에서
+  `ProviderInfo.id`만 투영한다. `catalog`와 `status`는 후보 자격을 결정하지 않으며, root plain 입력에서는
+  경로 그룹을 Plugin 그룹보다 먼저 표시하고 slash/quoted 입력은 path 그룹으로 남긴다. token이 null이
+  되는 입력 삭제 전이는 dismissal과 active index를 끝내므로 새 `@` occurrence가 다시 열린다.
 - 인증 상세의 액션은 `status === 'none'`이면 `인증` 단일 버튼, 그 외에는 `재인증` dropdown과
   메뉴의 위험 색상 `연결 해제`로 구성한다. 모두 기존 `login`·`reauth`·`revoke` 경로를 호출한다.
 - **renderer 에 새 kind 를 추가하지 않는다.** 신규 도메인 코드 안쪽에서는 `ProviderKind` 를 쓰지

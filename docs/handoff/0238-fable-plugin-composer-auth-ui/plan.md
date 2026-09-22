@@ -923,77 +923,104 @@ ProviderCatalogPresentationInput
 
 ## [구현자 기입] 설계 리뷰 (r2 — ΔV1)
 
-- 동의 / 그대로 진행: 미기입.
-- 이견 / 현실성 문제: 미기입.
-- ACTIVE Decision과 충돌하는 설계 발견: 미기입.
+- 동의 / 그대로 진행: ✅ D-014~D-021, AC19~AC25, VP-15~25의 Delta V1 설계를 그대로 적용했다.
+- 이견 / 현실성 문제: 없음. `ProviderCatalog*` 정본과 기존 Plugin facade, row helper로 계획 범위 안의 API 표면 차이를 닫았다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. UsageFetcher 포트·ProviderInfo 외부 field·IPC·DB·migration은 변경하지 않았다.
 
 ## [구현자 기입] 강제 지점 전수 (§Δ8 대조, r2 — ΔV1)
 
 | Pair | 계약/필드 | §Δ8이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
-| VP-15~25 | EP-07~13 | 구현자가 전수 재검색해 기입 | 미기입 | 미기입 | 미기입 |
+| VP-15 | R-05↔AT-05 | EP-07: path group first / Plugin group last | `mentionAutocomplete.ts` push 순서와 flatten test | `mentionAutocomplete.test.ts` 5/5 | SELF_PASS |
+| VP-16 | R-06↔AT-06 | EP-08: token-null occurrence 종료 | `useTokenAutocompleteState` + clear/retype fixture | `useFileAutocomplete.test.ts` 4/4 | SELF_PASS |
+| VP-17 | R-07↔AT-07~10 | EP-09~11: 네 category catalog 입력·wire·consumer | `connections.test.ts`, `connection-views.test.ts` | category matrix 및 focused suite | SELF_PASS |
+| VP-18 | SD-04↔ST-04 | EP-08: parser/state/open lifecycle | shared hook과 `useMentionAutocomplete` 경계 | clear 후 재입력에서 index 0/open | SELF_PASS |
+| VP-19 | SD-05↔ST-05 | EP-09~11: deployment producer→normalized source | `gateRows`·`harnessRows`·`usageRows`·`pluginRows` | 4-category source factory | SELF_PASS |
+| VP-20 | AR-04↔IT-04 | EP-10~12: source→ProviderInfo→projector | `connectionInfo`, `toolsOf`, `pluginMentionCandidates` | catalog 보존 + Plugin-only tools | SELF_PASS |
+| VP-21 | MD-05↔UT-05 | EP-07: ordered group/flat index | sibling swap mutation | path→Plugin 배열 oracle | SELF_PASS |
+| VP-22 | MD-06↔UT-06 | EP-08: occurrence/dismissal/index state | token-null reset mutation | close→clear→retype reopen | SELF_PASS |
+| VP-23 | MD-07↔UT-07 | EP-09·12: normalize + tools predicate | catalog discriminator mutation | canonical alias와 tools matrix | SELF_PASS |
+| VP-24 | R-08↔AT-11 | EP-08·11·12: file/skill/plugin/auth/usage regression | 12-file focused regression suite | 85/85 tests pass | SELF_PASS |
+| VP-25 | V1 R-03↔AT-03 | EP-11: detail presentation/auth actions | ProviderDetail/AuthActions suite | 기존 callback/status oracle 유지 | SELF_PASS |
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-15~25 | REQUIRED / REGRESSION | 미기입 | 미기입 | 미기입 |
+| VP-15 | REQUIRED | SELF_PASS | group order + flatten | group sibling swap: 1 failure, restored |
+| VP-16 | REQUIRED | SELF_PASS | token occurrence reset | token-null reset 제거: 1 failure, restored |
+| VP-17 | REQUIRED | SELF_PASS | four-category catalog matrix | category catalog edge 제거: 1 failure, restored |
+| VP-18 | REQUIRED | SELF_PASS | shared state/open lifecycle | clear/retype fixture: 1 failure when reset removed |
+| VP-19 | REQUIRED | SELF_PASS | deployment source factory | gate/harness/usage row tests pass |
+| VP-20 | REQUIRED | SELF_PASS | source wire/projector | non-Plugin catalog edge 제거: 1 failure, restored |
+| VP-21 | REQUIRED | SELF_PASS | exact ordered arrays | path/Plugin sibling swap: 1 failure, restored |
+| VP-22 | REQUIRED | SELF_PASS | state transition table | token-null reset 제거: 1 failure, restored |
+| VP-23 | REQUIRED | SELF_PASS | normalizer + candidate predicate | catalog-based projector: 1 failure, restored |
+| VP-24 | REGRESSION | SELF_PASS | existing V1 entry/sink suite | focused 12 files / 85 tests pass |
+| VP-25 | REGRESSION | SELF_PASS | ProviderDetail/AuthActions | focused auth/detail tests pass |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금 (r2 — ΔV1)
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| §Δ10 선택 mutation과 구현 중 신설 oracle을 행별 기입 | VP/EP | r1 해당 축 없음 또는 V1 결과 | 미기입 | 미기입 |
+| group sibling swap (`path`↔`plugin`) | VP-15·21 / EP-07 | path-first contract | `mentionAutocomplete.test.ts`: 1 failure | RED → 복원 |
+| token-null reset branch 제거 | VP-16·22 / EP-08 | clear/retype occurrence oracle | `useFileAutocomplete.test.ts`: 1 failure | RED → 복원 |
+| non-Plugin catalog spread 제거 | VP-17·20 / EP-10 | four-category catalog preservation | `connection-views.test.ts`: 1 failure | RED → 복원 |
+| `toolsOf()` Plugin-only guard 제거 | VP-20·23 / EP-10·12 | non-Plugin tools must stay empty | `connection-views.test.ts`: 1 failure | RED → 복원 |
+| projector를 catalog discriminator로 회귀 | VP-23·24 / EP-12 | no-catalog Plugin with tools remains candidate | `pluginMention.test.ts`: 1 failure | RED → 복원 |
 
-- 분모 검산: 미기입.
-- 덮개 회귀: r1 red mutation 7종 중 이번 변경이 닿는 projector/group oracle을 재실행하고 결과를 기입한다.
+- 분모 검산: 선택 mutation **5/5 RED**, 복원 후 focused suite **12 files / 85 tests PASS**.
+- 덮개 회귀: r1의 Composer projector/group 축은 VP-15·20·21·23·24에서 재실행했고, 기존 auth/detail/usage 진입점은 VP-24·25에서 재확인했다.
 
 ## [구현자 기입] Product/UX 파생 검토 (r2 — ΔV1)
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 미기입 | 미기입 |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 미기입 | 미기입 |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 미기입 | 미기입 |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 미기입 | 미기입 |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 미기입 | 미기입 |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 예 | 새 label은 없고 provider catalog가 list/detail의 공통 표시 모델로 소비된다. |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 예 | `providerPresentation` wrapper와 connection row helper는 기존 consumer/import scope를 유지한다. |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 예 | `@` 전체 삭제는 token occurrence 종료 행, catalog 부재는 category fallback 행이다. |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 예 | clear 후 재입력은 popup을 다시 열고, catalog 부재는 기존 power/Auth 표시를 유지한다. |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | 새 비동기 요청/구독을 만들지 않았고 occurrence state는 renderer local이다. |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (r2 — ΔV1)
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | 미기입 | 미기입 | 미기입 |
+| 1 | 직접 `ConnectionViewSource`를 만드는 호출자가 raw catalog input을 넣을 수 있음 | deployment row helper에서만 input을 normalize하고 source type은 normalized presentation을 요구한다. | `connections.ts`, `connection-views.ts` |
+| 2 | UsageFetcher에 표시 책임이 섞일 위험 | presentation은 `category:'usage'` row가 소유하고 `supports/fetchUsage`·snapshot은 변경하지 않았다. | D-020, usageRows test |
+| 3 | 기존 Plugin import 경로와 새 Provider 명칭의 drift | `plugin-catalog.ts`와 `pluginPresentation.ts`를 compatibility facade로 남겼다. | D-019, alias test |
+| 4 | Electron 두 테마와 custom gate/harness/usage 시각 차이 | 자동화 가능한 contract/render gate를 닫고 사람 검증 대상으로 남겼다. | §10 사람 실기 항목 |
 
 ### 설계 대비 명시적 차이 (r2 — ΔV1)
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: 미기입.
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: `provider-catalog.ts`와 `providerPresentation.ts`를 새 정본으로 두고 기존 Plugin 파일은 facade로 남겼다. D-019의 canonical naming과 기존 import/배포 호환을 동시에 보장하기 위한 구현 차이다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§Δ8 행 / 관측 |
 |---|---|---|
-| 만료 | 미기입 | 미기입 |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 미기입 | 미기입 |
-| 재진입 | 미기입 | 미기입 |
-| 다른 무효화 축 | 미기입 | 미기입 |
+| 만료 | 새 만료 경로 없음; 기존 auth status는 읽기 전용 | VP-24·25 focused auth/detail suite pass |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 새 shared mutable store 없음; occurrence state는 hook instance가 소유 | VP-16·18·22 clear/retype oracle |
+| 재진입 | partial 문자열이 아니라 null 경계로 occurrence를 나누고 index/dismissal을 초기화 | VP-16·22, token-null mutation RED |
+| 다른 무효화 축 | catalog 부재는 fallback일 뿐 Plugin 후보 판별 축이 아니며, tools만 projector 입력이다 | VP-20·23·24, catalog mutation RED |
 
 ## [구현자 기입] 구현 보고 (r2 — ΔV1)
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | 미기입 |
-| 실행 명령 | 미기입 |
-| 관측한 게이트 산출 | 미기입 |
-| V-pair 자기확인 | 미기입 |
-| 강제 지점 전수 | 미기입 |
-| AC 자기보고 | 미기입 |
-| 합계 검산 | 미기입 |
-| 블로커 / 역질문 | 미기입 |
+| 변경 파일 | shared provider catalog/IPC facade, main connection source/wire, renderer mention lifecycle/projector/presentation consumer, focused tests, current contract docs/guide |
+| 실행 명령 | `npx.cmd vitest run` focused 12 files; `npm.cmd run typecheck`; `npm.cmd run lint`; `node scripts/check-doc-inventory.mjs --check`; `git diff --check`; 선택 mutation 5종 |
+| 관측한 게이트 산출 | Vitest **12 files / 85 tests PASS**; typecheck 3 config exit 0; lint 0 errors·기존 warning 1; doc inventory **9 items / 98 channels**; diff check pass |
+| V-pair 자기확인 | VP-15~25 **11/11 SELF_PASS**, SELF_BLOCKED 0 |
+| 강제 지점 전수 | EP-07 **2/2**, EP-08 **2/2**, EP-09 **3/3**, EP-10 **3/3**, EP-11 **3/3**, EP-12 **3/3**, EP-13 **5/5** — 합계 **21/21** |
+| AC 자기보고 | 기계 검증 AC **7/7**(AC19~25); 사람 검증은 두 테마·path-first/Plugin-last·custom catalog 시각 확인 pending |
+| 합계 검산 | VP 11/11 + EP 21/21 + AC 7/7 + mutation 5/5 RED→복원 + 운영 gate 5종 pass |
+| 블로커 / 역질문 | 코드 blocker 없음. Electron 시각 검증만 다음 Claude verify에서 수행한다. |
 | 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만 (r2 — ΔV1)
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 미기입.
-- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: 미기입.
-- 반복해서 부딪히는 환경 한계: 미기입.
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **아니오** — ΔV1의 group order, token occurrence, category catalog 범위가 새 축이고 V1 회귀는 별도 재확인했다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: **예** — D-014~D-021, AC19~25, VP-15~25, EP-07~13이 이번 라운드에 선행 기재되어 있었다.
+- 반복해서 부딪히는 환경 한계: Electron/SDK/native 실행과 두 테마 시각은 이 환경에서 수행하지 못해 direct Vitest·정적 gate로 대체했다. lint warning 1건은 기존 TanStack Virtual 경고다.
 - 현재 라운드 수: **2**.
 
 ## [검증자 기입] 파생 이슈

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ProviderInfo } from '../../../../../shared/ipc'
 import { pluginPresentation, resolveLocalizedPluginText } from './pluginPresentation'
+import { providerPresentation, resolveLocalizedProviderText } from './providerPresentation'
 
 const provider = (catalog?: ProviderInfo['catalog']): ProviderInfo => ({
   id: 'jira',
@@ -26,6 +27,13 @@ describe('plugin presentation locale fallback', () => {
     ['en-US', 'English']
   ])('%s는 exact → base → ko → en 순서다', (locale, expected) => {
     expect(resolveLocalizedPluginText(text, locale)).toBe(expected)
+  })
+
+  it('canonical provider resolver와 기존 Plugin alias가 같은 결과를 낸다', () => {
+    expect(resolveLocalizedProviderText(text, 'pt-PT')).toBe(
+      resolveLocalizedPluginText(text, 'pt-PT')
+    )
+    expect(providerPresentation(provider(), 'ko')).toEqual(pluginPresentation(provider(), 'ko'))
   })
 
   it('catalog가 없으면 non-Plugin 표시를 유지한다', () => {

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_PLUGIN_CATALOG_ICON, normalizePluginCatalogPresentation } from './plugin-catalog'
+import {
+  DEFAULT_PLUGIN_CATALOG_ICON,
+  DEFAULT_PROVIDER_CATALOG_ICON,
+  normalizePluginCatalogPresentation,
+  normalizeProviderCatalogPresentation
+} from './plugin-catalog'
 
 describe('plugin catalog presentation', () => {
   it('미설정 icon을 electrical_services로 한 번 정규화한다', () => {
@@ -33,6 +38,14 @@ describe('plugin catalog presentation', () => {
         license: 'MIT'
       }
     })
+  })
+
+  it('Provider 이름이 정본이고 기존 Plugin 이름은 같은 normalizer를 가리킨다', () => {
+    expect(DEFAULT_PROVIDER_CATALOG_ICON).toBe(DEFAULT_PLUGIN_CATALOG_ICON)
+    const input = { icon: 'language' as const, title: { ko: '제목', en: 'Title' } }
+    expect(normalizeProviderCatalogPresentation(input)).toEqual(
+      normalizePluginCatalogPresentation(input)
+    )
   })
 
   it.each([

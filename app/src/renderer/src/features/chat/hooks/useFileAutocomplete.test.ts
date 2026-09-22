@@ -194,6 +194,8 @@ describe('file autocomplete listing ownership', () => {
     expect(render(text, '/repo', text.length - 1).activeIndex).toBe(7)
     current.close()
     expect(render(text, '/repo', text.length - 1).open).toBe(false)
+    render('plain')
+    expect(render(text, '/repo', text.length - 1)).toMatchObject({ open: true, activeIndex: 0 })
     expect(render('@"some dir/fi').open).toBe(true)
   })
 })
