@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 지시로 설계 턴 수행 |
 | 일자 | 2026-09-22 |
 | 매핑 | 최초 기능 요청 3건 + 사용자 변경·보완 4건 |
-| 상태 | **IMPL_DONE (V1+ΔV1 r3)** — r2 판정은 [`verify.md`](verify.md), r3 검증 대기 |
+| 상태 | **verify/FAIL (V1+ΔV1 r3)** — 판정은 [`verify.md`](verify.md) `# r3 검증`, 다음은 `handoff-review`(라운드 4 > 3) 후 r4 재구현 |
 | V mode | `Delta V` |
 | 기준 V | `V1@651d9080` — 0238 최초 READY 설계; r1 구현 `6030afae`·`e96a2494`·`2c7dad51`은 독립 검증 전 |
 | 이번 V revision | `ΔV1` — Composer 그룹 순서·token 재진입·전 category catalog presentation 입력 |
@@ -1158,3 +1158,10 @@ ProviderCatalogPresentationInput
 | D11 | `useFileAutocomplete.ts`·`FileAutocomplete.tsx` production 참조 0, `mentionGroupOptions`·`projectPluginMentions` 미사용 | plan §18 | D7 oracle 이전 후 제거 | NON_BLOCKING | closed (r3) |
 | D12 | `createConnectionSources` optional deps를 bootstrap이 넘기지 않음, guide gate 예제의 자기 import·스코프 밖 변수 | D-016 비귀속 | deps 제거 또는 guide 정정 | NON_BLOCKING | closed (r3) |
 | D13 | plan 메타 `V1@651d9080`·r1 `6030afae`·`e96a2494`·`2c7dad51` 죽은 좌표. r2는 메타 상태를 `READY`로 남겼다(이번 verify가 갱신) | message-bus | 설계자가 `6200cf1`·`6f40c8b`~`f31c068`로 교정 | NON_BLOCKING | open |
+| D14 | `ProviderDetail → ProviderAuthActions`의 `onReauth`/`onRevoke`/`authKind` 전달 edge에 oracle이 없다 — props 맞바꿈(S1)·`authKind={null}`(S1b)이 808케이스 green. `ProviderDetail.render.test`는 static markup만 본다 | VP-10 root · VP-03·25 / 등록 변이 “reauth/revoke callback 맞바꿈”·AC15 | `ProviderDetail` 반환 트리에서 `ProviderAuthActions` props가 받은 callback·현재 `authKind`와 동일한지 단언(`ProviderAuthActions.render.test` 방식) | BLOCKING | open |
+| D15 | `ExtensionsCatalogView`의 `providers.reauth/revoke` 바인딩 맞바꿈(S2) green | 0238 미변경 기존 sink | D14와 함께 sink 바인딩 단언 권장 | NON_BLOCKING | open |
+| D16 | AC11 controller keyboard glue 미잠금 — header 포함 모듈로·Enter 첫 항목 고정·Esc 무시(S5a/b/c) green. ΔV1 분해 뒤 V1 VP-06·12 header-index 축이 어느 pair에도 없다 | AC11 · 비등록 축 | controller keyboard 분기를 순수 함수로 빼거나 fixture로 dispatch 단언 | NON_BLOCKING | open |
+| D17 | Plugin chip 끝 경계의 `$` 가지(draft 끝 `@id`) 미잠금(S6) | VP-13 · D3 수정의 새 표면 | 끝 위치 `@jira-dc` case 추가 | NON_BLOCKING | open |
+| D18 | `pluginOpen`의 `!token.quoted` 가드 제거(S4) green — 동작은 정상(probe P3) | AC9 비등록 축 | quoted·cwd-null case 추가 | NON_BLOCKING | open |
+| D19 | 같은 partial의 다른 `@` token으로 caret만 옮기면 dismissal이 이어진다(probe P1). occurrence 경계가 token null뿐이며 base도 같다 | D-015 문언 ↔ EP-08 | `tokenStart`를 occurrence identity에 넣을지 설계자 판단 | NEXT_HANDOFF | open |
+| D20 | `filterFileSuggestions` export 외부 참조 0 — D11이 형제 `splitDirAndPrefix`만 비export | D11 형제 | 비export | NON_BLOCKING | open |
