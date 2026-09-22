@@ -1,26 +1,33 @@
 const SKILL_TOKEN_RE = /(?<=^|\s)\/[a-z][a-z0-9:-]*\b/g
+const PLUGIN_TOKEN_RE = /(?<=^|\s)@([^\s"/]+)/g
 const FILE_TOKEN_RE = /(?<=^|\s)@(?:"([^"\n]*)"|([^\s"]+))/g
 
 export type ComposerDecorationSegment =
-  { kind: 'text'; text: string } | { kind: 'chip'; chip: 'skill' | 'file'; text: string }
+  { kind: 'text'; text: string } | { kind: 'chip'; chip: 'skill' | 'plugin' | 'file'; text: string }
 
 export function tokenizeComposerDecoration(
   value: string,
   knownSkillNames: ReadonlySet<string>,
-  validFilePaths: ReadonlySet<string>
+  validFilePaths: ReadonlySet<string>,
+  validPluginIds: ReadonlySet<string> = new Set()
 ): ComposerDecorationSegment[] {
   if (value === '') return []
   const hits: Array<{
     start: number
     end: number
     text: string
-    chip: 'skill' | 'file'
+    chip: 'skill' | 'plugin' | 'file'
   }> = []
 
   for (const match of value.matchAll(SKILL_TOKEN_RE)) {
     if (!knownSkillNames.has(match[0].slice(1))) continue
     const start = match.index ?? 0
     hits.push({ start, end: start + match[0].length, text: match[0], chip: 'skill' })
+  }
+  for (const match of value.matchAll(PLUGIN_TOKEN_RE)) {
+    if (!validPluginIds.has(match[1])) continue
+    const start = match.index ?? 0
+    hits.push({ start, end: start + match[0].length, text: match[0], chip: 'plugin' })
   }
   for (const match of value.matchAll(FILE_TOKEN_RE)) {
     const raw = match[1] ?? match[2]

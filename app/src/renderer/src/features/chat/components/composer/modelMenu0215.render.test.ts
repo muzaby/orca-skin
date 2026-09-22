@@ -89,6 +89,31 @@ describe('ModelMenu — [1m] 변형이 각각의 행이다 (AT-10)', () => {
   })
 })
 
+describe('ModelMenu — Fable family', () => {
+  it('keeps the Fable alias and exact 1M identity through the active row', () => {
+    const models = [
+      model('fable', 'claude-fable-4-6', false, true),
+      model('fable', 'claude-fable-4-6', true)
+    ]
+    const html = renderMenu(models, selection('claude-fable-4-6[1m]', 'fable'))
+    expect(html.match(/claude-fable-4-6/g)).toHaveLength(2)
+    expect(html.match(/aria-checked="true"/g)).toHaveLength(1)
+    expect(selectedModelShape([agent(models)], selection('claude-fable-4-6[1m]', 'fable'))).toEqual(
+      {
+        alias: 'fable',
+        model: 'claude-fable-4-6',
+        isCustom: false
+      }
+    )
+    expect(
+      html
+        .split('role="menuitemradio"')
+        .slice(1)
+        .find((row) => row.startsWith(' aria-checked="true"'))
+    ).toContain('>1M<')
+  })
+})
+
 describe('ModeMenu — haiku 선택 시 자동 제외 (AT-11)', () => {
   const renderModes = (models: AgentEnvironment['models'], sel: ModelSelection): string =>
     renderToStaticMarkup(

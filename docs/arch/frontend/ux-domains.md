@@ -11,7 +11,7 @@
 | 단축키        | 동작                                         | 구현 위치                                        |
 | ------------- | -------------------------------------------- | ------------------------------------------------ |
 | `/`           | Composer 에서 Skill 자동완성 dropdown 트리거 | `SkillAutocomplete.tsx`                          |
-| `@`           | Composer 에서 파일 경로 자동완성 트리거      | `FileAutocomplete.tsx`                           |
+| `@`           | Composer 에서 Plugin 식별자와 파일 경로 자동완성 트리거 — 루트 plain 입력은 Plugin 그룹을 먼저, 경로 입력은 기존 path 그룹으로 표시 | `MentionAutocomplete.tsx`·`useMentionAutocomplete.ts` |
 | ↑ / ↓         | 자동완성 dropdown 내 navigate                | 동일                                             |
 | Tab / Enter   | 자동완성 항목 선택                           | 동일                                             |
 | Esc           | 자동완성 dismiss / 스트리밍 취소             | TBD (스트리밍 취소는 명시적 키 미정)             |
@@ -28,6 +28,8 @@
 - 3-chip 행: 첨부 / 현재 프레임 / Skill 선택 (`Popover` 기반 picker)
 - `/skillname` 토큰을 **활성 스킬일 때만** 파란 chip 으로 mirror overlay 강조 (`composer/ComposerDecorationLayer.tsx` + `composer/composerDecoration.ts`, `knownSkillNames: ReadonlySet<string>`)
 - `@filepath` 자동완성: 디렉토리 단계별 진입, quoted/plain 자동 감지, 공백 시 자동 wrapping
+- `@plugin-id` 자동완성: `ProviderInfo.catalog`와 cached `tools`가 모두 있는 내장 Plugin을 인증 상태와 무관하게 식별자 토큰으로 노출한다. 팝업은 Plugin/path 그룹을 분리하고 선택 시 label이 아닌 id를 Composer에 삽입하며, 검증된 Plugin id는 violet chip으로 mirror overlay 강조한다 (`pluginMention.ts`·`mentionAutocomplete.ts`).
+- 플러그인 상세 상단 인증 액션은 미인증이면 검정 `인증`, 인증 이력이 있으면 `재인증` dropdown으로 표시하고 메뉴 안에 재인증과 빨간 `연결 해제`를 둔다 (`ProviderAuthActions.tsx`).
 - 전송 후 입력창 비우기, 포커스 유지
 
 ### 1.3 로딩 / 에러 / 네트워크 상태
@@ -157,4 +159,5 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 
 - Composer 모델 칩은 `orca:agent:list` 의 supported agent × model family 를 보여준다. 세션 생성 전에는 전체 supported agent 를, 세션 생성 후에는 같은 adapter 의 provider/model 만 노출한다.
 - `availableModels`의 custom 항목은 실제 모델명을 Composer에 그대로 표시하고 선택값도 같은 이름을 쓴다. 1M 변형은 선택값에 `[1m]` 이 붙어 기본 변형과 구분된다(`shared/model-identity.ts`).
+- Claude 모델 계열은 `sonnet`·`opus`·`haiku`·`fable`을 인식한다. `ANTHROPIC_DEFAULT_FABLE_MODEL`과 `availableModels`의 Fable 항목도 동일한 모델 identity 축(모델명 + `[1m]`)으로 Composer와 Engine 카드에 투영하며, alias 폴백 우선순위는 기존 호환 순서를 유지한 뒤 Fable을 마지막에 둔다.
 - Engine 화면의 runtime-derived Orca Harness는 `readOnly:true` 배지를 표시하며 편집·삭제 액션을 노출하지 않는다. Main IPC도 같은 provenance로 mutation을 거부한다.

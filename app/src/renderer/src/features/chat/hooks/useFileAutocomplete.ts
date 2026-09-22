@@ -1,14 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FileEntry } from '../../../../../shared/ipc'
 import { fileApi } from '../../../shared/api/ipc'
+import { filterFileSuggestions, parseMentionToken } from '../lib/mentionAutocomplete'
 import { useTokenAutocompleteState } from './useTokenAutocompleteState'
-
-// caret 직전의 `@<partial>` 매칭. 두 형태 모두 지원:
-// - quoted (미닫힘 포함): `@"foo bar/` — 공백 포함 경로 진행 중
-// - plain: `@foo` — 공백/따옴표 없는 일반 경로
-// quoted 우선 매치하여 미닫힘 quote 안에서도 디렉토리 진입 가능하게 한다.
-const FILE_PARTIAL_QUOTED_RE = /(?:^|\s)@"([^"\n]*)$/
-const FILE_PARTIAL_PLAIN_RE = /(?:^|\s)@([^\s"]*)$/
 
 export interface UseFileAutocomplete {
   open: boolean
@@ -36,36 +30,12 @@ export interface UseFileAutocomplete {
   close: () => void
 }
 
-function splitDirAndPrefix(partial: string): { dirPath: string; prefix: string } {
-  const lastSlash = partial.lastIndexOf('/')
-  if (lastSlash === -1) return { dirPath: '', prefix: partial }
-  return { dirPath: partial.slice(0, lastSlash), prefix: partial.slice(lastSlash + 1) }
-}
-
 export function useFileAutocomplete(
   text: string,
   caret: number,
   cwd: string | null
 ): UseFileAutocomplete {
-  const match = useMemo(() => {
-    const before = text.slice(0, caret)
-    // quoted 우선 — `@"abc def` 까지 입력된 경우 plain 매치가 `@` 빈 부분만 잡지
-    // 못하게 막는다 (plain RE 가 `"` 를 제외하므로 자연스럽게 quoted 만 매치).
-    const q = before.match(FILE_PARTIAL_QUOTED_RE)
-    if (q) {
-      const partial = q[1]
-      // `@"` 가 두 문자 — partial 길이 + 2 만큼 앞이 token 시작점.
-      const tokenStart = caret - partial.length - 2
-      const { dirPath, prefix } = splitDirAndPrefix(partial)
-      return { partial, tokenStart, dirPath, prefix, quoted: true }
-    }
-    const p = before.match(FILE_PARTIAL_PLAIN_RE)
-    if (!p) return null
-    const partial = p[1]
-    const tokenStart = caret - partial.length - 1
-    const { dirPath, prefix } = splitDirAndPrefix(partial)
-    return { partial, tokenStart, dirPath, prefix, quoted: false }
-  }, [text, caret])
+  const match = useMemo(() => parseMentionToken(text, caret), [text, caret])
 
   // dirPath 별 캐시 — 같은 디렉토리는 1회만 listing.
   const [entriesByDir, setEntriesByDir] = useState<Map<string, FileEntry[]>>(new Map())
@@ -121,14 +91,7 @@ export function useFileAutocomplete(
     if (!match) return []
     const entries = entriesByDir.get(match.dirPath)
     if (!entries) return []
-    const prefix = match.prefix.toLowerCase()
-    const showHidden = match.prefix.startsWith('.')
-    return entries
-      .filter((e) => {
-        if (!showHidden && e.name.startsWith('.')) return false
-        return e.name.toLowerCase().startsWith(prefix)
-      })
-      .slice(0, 8)
+    return filterFileSuggestions(entries, match.prefix)
   }, [entriesByDir, match])
 
   const partial = match?.partial ?? null

@@ -222,6 +222,7 @@ export const ko = {
         llm: '모델',
         service: '사내 서비스'
       },
+      authenticate: '인증',
       connect: '연결',
       reauth: '재인증',
       revoke: '연결 해제',
@@ -950,6 +951,8 @@ export const ko = {
       attach: '첨부',
       attachRemoveAria: '{{name}} 첨부 제거',
       fileAutocompleteAria: '파일 경로 자동완성',
+      mentionAutocompleteAria: '플러그인 및 파일 경로 자동완성',
+      mentionPlugins: '플러그인',
       loadingShort: '로딩 중…',
       noMatches: '일치하는 항목 없음',
       skillAutocompleteAria: '스킬 자동완성',

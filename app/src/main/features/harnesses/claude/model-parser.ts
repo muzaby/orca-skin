@@ -2,12 +2,12 @@
 // settings.json 단독에서 모델 선택 UI 용 리스트를 추출한다. Claude Code 런타임의 전체 모델
 // resolve 우선순위를 재현하지 않는다 — OS env·CLI --model·런타임 /model 은 범위 밖.
 //
-// 스펙 §0~§8 을 따르되, "항상 3개 alias" 는 프로젝트 결정으로 재정의했다(아래 2단계 필터링):
-//   커스텀(ANTHROPIC_DEFAULT_*_MODEL)이 하나라도 있으면 그 커스텀만 노출, 전무할 때만 3개 alias.
+// 스펙 §0~§8 을 따르되, "항상 4개 alias" 는 프로젝트 결정으로 재정의했다(아래 2단계 필터링):
+//   커스텀(ANTHROPIC_DEFAULT_*_MODEL)이 하나라도 있으면 그 커스텀만 노출, 전무할 때만 4개 alias.
 // 명시 모델 중 `env.ANTHROPIC_MODEL` 은 **노출 목록에도 더한다**(0215 D-005·D-006) — 사용자가
 // 실제로 쓰라고 지정한 모델이 선택지에 없던 자리다. top-level `model` 은 종전대로 default
 // 선정에만 쓴다(사용자 결정으로 목록 편입 대상에서 제외).
-// 3개 alias 폴백은 **노출할 모델이 하나도 없을 때만** 쓴다(0215 D-023) — `ANTHROPIC_MODEL` 만
+// 4개 alias 폴백은 **노출할 모델이 하나도 없을 때만** 쓴다(0215 D-023) — `ANTHROPIC_MODEL` 만
 // 있어도 그것이 목록을 채우므로 폴백하지 않는다. 목록에 들어가지 않는 top-level `model` 은
 // 폴백을 막지 못한다.
 //
@@ -21,8 +21,8 @@ import {
 } from '../../../../shared/model-identity'
 
 // settings의 기본 alias 노출 순서. Discovery 계열 분류는 shared 목록을 사용한다.
-const FAMILY_ORDER = ['sonnet', 'opus', 'haiku'] as const
-const DEFAULT_FAMILY_ORDER = ['sonnet', 'haiku', 'opus'] as const
+const FAMILY_ORDER = ['sonnet', 'opus', 'haiku', 'fable'] as const
+const DEFAULT_FAMILY_ORDER = ['sonnet', 'haiku', 'opus', 'fable'] as const
 
 // family 분류·노출 순서와 default 우선순위는 이 파서 안에서 함께 관리한다.
 type ModelAlias = (typeof FAMILY_ORDER)[number]
@@ -30,7 +30,8 @@ type ModelAlias = (typeof FAMILY_ORDER)[number]
 const ALIAS_ENV_KEY: Record<ModelAlias, string> = {
   sonnet: 'ANTHROPIC_DEFAULT_SONNET_MODEL',
   opus: 'ANTHROPIC_DEFAULT_OPUS_MODEL',
-  haiku: 'ANTHROPIC_DEFAULT_HAIKU_MODEL'
+  haiku: 'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+  fable: 'ANTHROPIC_DEFAULT_FABLE_MODEL'
 }
 
 // 모델 선택 UI 1행. meta.json 의 구 OrcaModelConfig({name,family,default}) 를 대체한다.
@@ -93,7 +94,7 @@ export function parseClaudeModels(settings: {
   const anthropicModel = explicitModelOf(env.ANTHROPIC_MODEL)
   const explicit = anthropicModel ?? explicitModelOf(settings.model)
 
-  // 폴백 억제(0215 D-023) — 3개 alias 는 **노출 목록이 끝내 비는 경우에만** 쓴다. `anthropicModel`
+  // 폴백 억제(0215 D-023) — 4개 alias 는 **노출 목록이 끝내 비는 경우에만** 쓴다. `anthropicModel`
   // 은 아래 `withExplicitModel` 이 목록을 채우므로 여기서 이미 "노출할 모델이 있다"로 센다.
   // 조건을 `explicit` 로 넓히면 목록에 들어가지 않는 top-level `model`(D-006) 이 폴백을 막아
   // provider 가 모델 0개로 열거된다 — `../settings.ts` 의 파일 부재/손상 폴백이 그 자리다.

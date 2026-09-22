@@ -16,22 +16,22 @@ import { agentPresentation } from '../../lib/agentPresentation'
 import type { ComposerDraftUpdate } from '../../lib/composerDraft'
 import { useSkills } from '../../../../shared/hooks/useSkills'
 import { useAttachments } from '../../hooks/useAttachments'
-import { useFileAutocomplete } from '../../hooks/useFileAutocomplete'
+import { useMentionAutocomplete } from '../../hooks/useMentionAutocomplete'
 import { useSkillAutocomplete } from '../../hooks/useSkillAutocomplete'
-import type {
-  AttachmentView,
-  ComposerAttachment,
-  FileEntry,
-  SkillInfo
-} from '../../../../../../shared/ipc'
+import type { AttachmentView, ComposerAttachment, SkillInfo } from '../../../../../../shared/ipc'
 import type { DiffRequirementSubmitSnapshot } from '../../store/chatStore'
 import { AttachMenu } from './AttachMenu'
 import { AttachmentTray } from './AttachmentTray'
 import { ComposerChip } from './ComposerChip'
 import { ComposerInputSurface, type ComposerInputSurfaceHandle } from './ComposerInputSurface'
-import { FileAutocomplete } from './FileAutocomplete'
+import { MentionAutocomplete } from './MentionAutocomplete'
 import { SkillAutocomplete } from './SkillAutocomplete'
 import { submitComposerInput } from './composerSubmit'
+import {
+  applyMentionSuggestion,
+  parseMentionToken,
+  type MentionSuggestion
+} from '../../lib/mentionAutocomplete'
 import {
   createDraftSnapshot,
   applyDraftUpdate,
@@ -177,9 +177,14 @@ export function ComposerInputController({
   const derivedText = active ? deferredSnapshot.text : ''
   const derivedCaret = active ? deferredSnapshot.selectionStart : 0
   const autocomplete = useSkillAutocomplete(derivedText, derivedCaret, skills)
-  const fileAutocomplete = useFileAutocomplete(derivedText, derivedCaret, active ? cwd : null)
+  const mentionAutocomplete = useMentionAutocomplete(
+    derivedText,
+    derivedCaret,
+    active ? cwd : null,
+    active
+  )
   const skillOpen = active && derivedCurrent && autocomplete.open
-  const fileOpen = active && derivedCurrent && fileAutocomplete.open
+  const mentionOpen = active && derivedCurrent && mentionAutocomplete.open
 
   const openSkillPicker = (): void => {
     if (compositionActive()) return
@@ -213,37 +218,32 @@ export function ComposerInputController({
     focus(nextCaret)
   }
 
-  const applyFileAutocomplete = (entry: FileEntry): void => {
+  const applyMentionAutocomplete = (suggestion: MentionSuggestion): void => {
     if (compositionActive()) return
     if (!derivedSnapshotIsCurrent(snapshotRef.current, deferredSnapshot)) return
-    const start = fileAutocomplete.tokenStart
-    if (start < 0) return
-    const dir = fileAutocomplete.dirPath
-    const full = dir === '' ? entry.name : `${dir}/${entry.name}`
-    const body = entry.isDirectory ? `${full}/` : full
-    let replacement: string
-    let nextCaret: number
-
-    if (fileAutocomplete.quoted && fileAutocomplete.hasClosingQuote) {
-      replacement = `@"${body}`
-      nextCaret = start + replacement.length + (entry.isDirectory ? 0 : 1)
-    } else {
-      const wrapped = /\s/.test(body) ? `"${body}"` : body
-      replacement = entry.isDirectory ? `@${wrapped}` : `@${wrapped} `
-      nextCaret = start + replacement.length
-    }
+    const token = parseMentionToken(deferredSnapshot.text, deferredSnapshot.selectionStart)
+    if (!token) return
+    const applied = applyMentionSuggestion(
+      deferredSnapshot.text,
+      deferredSnapshot.selectionStart,
+      token,
+      suggestion
+    )
+    const after = deferredSnapshot.text.slice(deferredSnapshot.selectionStart)
+    const replacement = applied.text.slice(token.tokenStart, applied.text.length - after.length)
+    const nextCaret = applied.caret
 
     updateSnapshot((current) => {
       const replaced = replaceDraftRange(
         current,
         deferredSnapshot.revision,
-        start,
+        token.tokenStart,
         deferredSnapshot.selectionStart,
         replacement
       )
       return replaced === current ? current : updateDraftSelection(replaced, nextCaret, nextCaret)
     })
-    if (!entry.isDirectory) fileAutocomplete.close()
+    if (suggestion.kind === 'plugin' || !suggestion.entry.isDirectory) mentionAutocomplete.close()
     focus(nextCaret)
   }
 
@@ -294,25 +294,27 @@ export function ComposerInputController({
       }
     }
 
-    if (fileOpen) {
-      const length = fileAutocomplete.suggestions.length
+    if (mentionOpen) {
+      const length = mentionAutocomplete.suggestions.length
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault()
         if (length > 0) {
           const offset = event.key === 'ArrowDown' ? 1 : -1
-          fileAutocomplete.setActiveIndex((fileAutocomplete.activeIndex + offset + length) % length)
+          mentionAutocomplete.setActiveIndex(
+            (mentionAutocomplete.activeIndex + offset + length) % length
+          )
         }
         return
       }
       if (event.key === 'Enter' || event.key === 'Tab') {
         event.preventDefault()
-        const pick = fileAutocomplete.suggestions[fileAutocomplete.activeIndex]
-        if (pick) applyFileAutocomplete(pick)
+        const pick = mentionAutocomplete.suggestions[mentionAutocomplete.activeIndex]
+        if (pick) applyMentionAutocomplete(pick)
         return
       }
       if (event.key === 'Escape') {
         event.preventDefault()
-        fileAutocomplete.close()
+        mentionAutocomplete.close()
         return
       }
     }
@@ -380,7 +382,8 @@ export function ComposerInputController({
                   }
                   onKeyDown={onKeyDown}
                   knownSkillNames={knownSkillNames}
-                  validFilePaths={fileAutocomplete.validPaths}
+                  validFilePaths={mentionAutocomplete.validFilePaths}
+                  validPluginIds={mentionAutocomplete.validPluginIds}
                   placeholder={
                     inflight
                       ? steerBlocked
@@ -464,15 +467,16 @@ export function ComposerInputController({
         onHover={autocomplete.setActiveIndex}
         onPick={applyAutocomplete}
       />
-      <FileAutocomplete
-        open={fileOpen}
-        loading={fileAutocomplete.loading}
+      <MentionAutocomplete
+        open={mentionOpen}
+        loading={mentionAutocomplete.loading}
         anchorRef={surfaceWrapRef}
-        dirPath={fileAutocomplete.dirPath}
-        suggestions={fileAutocomplete.suggestions}
-        activeIndex={fileAutocomplete.activeIndex}
-        onHover={fileAutocomplete.setActiveIndex}
-        onPick={applyFileAutocomplete}
+        dirPath={mentionAutocomplete.dirPath}
+        groups={mentionAutocomplete.groups}
+        suggestions={mentionAutocomplete.suggestions}
+        activeIndex={mentionAutocomplete.activeIndex}
+        onHover={mentionAutocomplete.setActiveIndex}
+        onPick={applyMentionAutocomplete}
       />
     </>
   )

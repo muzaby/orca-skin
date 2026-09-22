@@ -1,4 +1,5 @@
 import type { AgentModelView } from '../../../../../shared/ipc'
+import { modelIdentity } from '../../../../../shared/model-identity'
 import { useI18n } from '../../../shared/i18n'
 
 interface EngineModelListProps {
@@ -11,7 +12,7 @@ export function EngineModelList({ models }: EngineModelListProps): React.JSX.Ele
     <div className="relative mt-3 flex flex-col gap-1.5">
       {models.map((model) => (
         <div
-          key={model.model ?? model.alias}
+          key={modelIdentity(model)}
           className="flex items-center gap-2 rounded-lg bg-bg2 px-2.5 py-2"
         >
           <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink3 ring-1 ring-border">

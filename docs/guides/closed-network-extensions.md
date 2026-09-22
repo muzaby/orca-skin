@@ -611,7 +611,8 @@ export function createConfigApiAugmenters(deps: HarnessConfigApiDeps): RuntimeCo
             ANTHROPIC_BASE_URL: config.url,
             ANTHROPIC_DEFAULT_OPUS_MODEL: config.models.opus,
             ANTHROPIC_DEFAULT_SONNET_MODEL: config.models.sonnet,
-            ANTHROPIC_DEFAULT_HAIKU_MODEL: config.models.haiku
+            ANTHROPIC_DEFAULT_HAIKU_MODEL: config.models.haiku,
+            ANTHROPIC_DEFAULT_FABLE_MODEL: config.models.fable
           },
           validUntil: config.expiresAt
         }
@@ -711,7 +712,7 @@ export const SPAWN_ENV_INJECTOR: SpawnEnvInjector | undefined = ({ target, hostE
 | 4 | **`probe` 를 선언한다** (§1.4-b). 없으면 값 입력만으로 "연결됨" 이 되고 회수된 PAT 를 못 걸러낸다 | 같은 파일 |
 | 5 | `createPluginBindings()` 에서 tool server 를 **한 번** 만들고 binding 을 돌려준다 | `app/deployment/plugins.ts` |
 | 6 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/plugins src/main/app/deployment` | |
-| 7 | 실기: 연결 탭에서 인증 → 상세 패널의 **식별자·노출 도구**가 선언과 같은지 → **새 채팅**에서 도구가 보이는지(등록은 다음 spawn 부터 반영된다) | 사람 실기 |
+| 7 | 실기: 연결 탭에서 인증 → 상세 패널의 **식별자·노출 도구**가 선언과 같은지 → **새 채팅**에서 도구가 보이는지(등록은 다음 spawn 부터 반영된다). Composer에서 `@<provider id>`를 입력하면 해당 내장 Plugin이 Plugin 그룹에 나타나는지도 확인한다 | 사람 실기 |
 
 ```ts
 // app/deployment/auth-definitions.ts
@@ -753,6 +754,13 @@ export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[
 >
 > ⚠️ **GUI 도구 목록은 Auth 가 invalid 여도 비지 않는다.** cached descriptor 에서 이름을 만들고
 > `status` 로 비활성을 안내한다 — active registry 로 목록을 만들면 미인증에서 도구가 사라진다.
+
+**Composer 참조와 인증 UI**: `ProviderInfo.catalog`가 있고 cached `tools`가 있는 Plugin은
+`status`가 `none`·`valid`·`expired`·`unknown` 중 무엇이든 Composer `@` 후보가 된다. 후보의
+토큰은 표시 label이 아니라 고정 `provider id`이며, root plain 입력에서는 Plugin 그룹을 파일 경로
+그룹과 분리해 먼저 표시한다. 상세 패널의 미인증 액션은 `인증`, 인증 이력이 있으면
+`재인증` dropdown과 위험 색상의 `연결 해제`를 사용한다. 이 표면은 기존 provider IPC의
+`login`·`reauth`·`revoke`를 그대로 호출하므로 폐쇄망 배포가 별도 채널을 추가할 필요는 없다.
 
 ### POP3 Mail Plugin 레시피
 

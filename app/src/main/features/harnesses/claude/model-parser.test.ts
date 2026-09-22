@@ -17,7 +17,12 @@ function defaults(models: ParsedModel[]): string[] {
 
 describe('parseClaudeModels — 노출 + default 불변식', () => {
   it('빈 settings는 alias로 폴백하지만 빈 runtime은 모델 행을 만들지 않는다', () => {
-    expect(parseClaudeModels({}).map((model) => model.alias)).toEqual(['sonnet', 'opus', 'haiku'])
+    expect(parseClaudeModels({}).map((model) => model.alias)).toEqual([
+      'sonnet',
+      'opus',
+      'haiku',
+      'fable'
+    ])
     expect(parseRuntimeModels({ runtimeEnv: {} })).toEqual([])
     expect(parseRuntimeModels({ availableModels: 'invalid', runtimeEnv: {} })).toEqual([])
   })
@@ -68,22 +73,33 @@ describe('parseClaudeModels — 노출 + default 불변식', () => {
     ])
     expect(models.find((model) => model.isDefault)?.model).toBe('claude-sonnet-env')
   })
-  it('빈 설정 → 3개 alias 노출, model null, sonnet default', () => {
+  it('빈 설정 → 4개 alias 노출, model null, sonnet default', () => {
     const models = parseClaudeModels({})
-    expect(models.map((m) => m.alias)).toEqual(['sonnet', 'opus', 'haiku'])
+    expect(models.map((m) => m.alias)).toEqual(['sonnet', 'opus', 'haiku', 'fable'])
     expect(models.every((m) => m.model === null && !m.isCustom && !m.oneMillionContext)).toBe(true)
     expect(defaults(models)).toEqual(['sonnet'])
   })
 
-  it('env 블록만 있고 모델 키 전무 → 3개 alias 노출, sonnet default', () => {
+  it('env 블록만 있고 모델 키 전무 → 4개 alias 노출, sonnet default', () => {
     const models = parseClaudeModels({ env: { OTHER: 'x' } })
-    expect(models.map((m) => m.alias)).toEqual(['sonnet', 'opus', 'haiku'])
+    expect(models.map((m) => m.alias)).toEqual(['sonnet', 'opus', 'haiku', 'fable'])
     expect(defaults(models)).toEqual(['sonnet'])
   })
 
-  it('명시 model 만(opus, DEFAULT 키 전무) → "설정 없음" 3개 노출, opus default', () => {
+  it('opus와 Fable이 함께 구성되면 기존 우선순위로 opus가 default다', () => {
+    const models = parseClaudeModels({
+      env: {
+        ANTHROPIC_DEFAULT_FABLE_MODEL: 'claude-fable-4-6',
+        ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-4-6'
+      }
+    })
+    expect(models.map((model) => model.alias)).toEqual(['opus', 'fable'])
+    expect(defaults(models)).toEqual(['opus'])
+  })
+
+  it('명시 model 만(opus, DEFAULT 키 전무) → "설정 없음" 4개 노출, opus default', () => {
     const models = parseClaudeModels({ model: 'opus' })
-    expect(models.map((m) => m.alias)).toEqual(['sonnet', 'opus', 'haiku'])
+    expect(models.map((m) => m.alias)).toEqual(['sonnet', 'opus', 'haiku', 'fable'])
     expect(defaults(models)).toEqual(['opus'])
   })
 
@@ -154,7 +170,7 @@ describe('parseClaudeModels — 노출 + default 불변식', () => {
     expect(defaults(models)).toEqual(['sonnet'])
   })
 
-  it('다중 커스텀 + 명시 없음 → sonnet→haiku→opus 폴백 순서로 default', () => {
+  it('다중 커스텀 + 명시 없음 → sonnet→haiku→opus→fable 폴백 순서로 default', () => {
     const models = parseClaudeModels({
       env: {
         ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-4-5',
@@ -180,7 +196,7 @@ describe('parseClaudeModels — 노출 + default 불변식', () => {
     expect(chosen).toMatchObject({ model: 'claude-opus-4-6', oneMillionContext: true })
   })
 
-  it('불변식 — env-only 노출 length 1~3, isDefault 정확히 1, family 설정은 model을 보존', () => {
+  it('불변식 — env-only 노출 length 1~4, isDefault 정확히 1, family 설정은 model을 보존', () => {
     for (const settings of [
       {},
       { model: 'haiku' },
@@ -189,7 +205,7 @@ describe('parseClaudeModels — 노출 + default 불변식', () => {
     ]) {
       const models = parseClaudeModels(settings)
       expect(models.length).toBeGreaterThanOrEqual(1)
-      expect(models.length).toBeLessThanOrEqual(3)
+      expect(models.length).toBeLessThanOrEqual(4)
       expect(models.filter((m) => m.isDefault)).toHaveLength(1)
       expect(models.every((m) => m.alias !== 'custom')).toBe(true)
     }
@@ -223,7 +239,7 @@ describe('parseClaudeModels — ANTHROPIC_MODEL 편입 (AT-05·AT-06 · D-005·D
 
   it('AT-29 — D-006: top-level `model` 은 목록에 넣지 않고 폴백도 억제하지 않는다', () => {
     const models = parseClaudeModels({ model: 'corp-y' })
-    expect(models.map((m) => m.model)).toEqual([null, null, null])
+    expect(models.map((m) => m.model)).toEqual([null, null, null, null])
     // 목록 안에서 매칭되지 않으므로 alias 폴백이 default 를 잡는다.
     expect(defaults(models)).toEqual(['sonnet'])
   })
@@ -239,7 +255,7 @@ describe('parseClaudeModels — ANTHROPIC_MODEL 편입 (AT-05·AT-06 · D-005·D
   })
 })
 
-// 0215 VP-23·VP-24 — SDK 기본 3-alias 폴백은 노출할 모델이 하나도 없을 때만 쓴다(D-023).
+// 0215 VP-23·VP-24 — SDK 기본 4-alias 폴백은 노출할 모델이 하나도 없을 때만 쓴다(D-023).
 // 음성(AT-27)·양성(AT-28)·회귀(AT-29, 위 describe) 셋이 한 술어의 세 방향이다.
 describe('parseClaudeModels — 기본 alias 폴백 억제 (AT-27·AT-28 · D-023)', () => {
   it('AT-27 — ANTHROPIC_MODEL 단독이면 model=null 인 기본 행이 0건이다', () => {
@@ -247,10 +263,10 @@ describe('parseClaudeModels — 기본 alias 폴백 억제 (AT-27·AT-28 · D-02
     expect(models.filter((m) => m.model === null)).toEqual([])
   })
 
-  it('AT-28 — 어떤 설정도 모델을 노출하지 않으면 3-alias 가 그대로 나온다', () => {
+  it('AT-28 — 어떤 설정도 모델을 노출하지 않으면 4-alias 가 그대로 나온다', () => {
     for (const settings of [{}, { env: { OTHER: 'x' } }]) {
       const models = parseClaudeModels(settings)
-      expect(models.map((m) => m.alias)).toEqual(['sonnet', 'opus', 'haiku'])
+      expect(models.map((m) => m.alias)).toEqual(['sonnet', 'opus', 'haiku', 'fable'])
       expect(models.every((m) => m.model === null)).toBe(true)
       expect(models.filter((m) => m.isDefault)).toHaveLength(1)
     }
@@ -386,15 +402,44 @@ describe('withExplicitModel — 명시 모델 편입 (AT-05·AT-06 · D-005)', (
     expect(withExplicitModel(base, explicitModelOf('   '))).toBe(base)
   })
 })
-describe('r6 Fable discovery classification', () => {
+describe('Fable family classification', () => {
   it.each(['claude-fable-4.6', 'claude-fable-4-6'])(
-    'classifies %s without inventing a default alias',
+    'classifies %s as Fable and keeps the bare fallback available',
     (model) => {
       const rows = parseClaudeModels({ env: { ANTHROPIC_MODEL: model } })
       expect(rows).toEqual([
         expect.objectContaining({ alias: 'fable', model, isCustom: false, isDefault: true })
       ])
-      expect(parseClaudeModels({}).map((row) => row.alias)).not.toContain('fable')
+      expect(parseClaudeModels({}).map((row) => row.alias)).toContain('fable')
     }
   )
+
+  it('supports the Fable default env key and preserves the 1M identity', () => {
+    const rows = parseClaudeModels({
+      env: { ANTHROPIC_DEFAULT_FABLE_MODEL: 'claude-fable-4-6[1m]' }
+    })
+    expect(rows).toEqual([
+      expect.objectContaining({
+        alias: 'fable',
+        model: 'claude-fable-4-6',
+        oneMillionContext: true,
+        isCustom: false,
+        isDefault: true
+      })
+    ])
+  })
+
+  it('availableModels의 점/하이픈 Fable과 1M sibling을 같은 family로 유지한다', () => {
+    const availableModels = ['claude-fable-4.6', 'claude-fable-4-6[1m]']
+    const settings = parseClaudeModels({ availableModels })
+    const runtime = parseRuntimeModels({ availableModels, runtimeEnv: {} })
+
+    for (const rows of [settings, runtime]) {
+      expect(rows).toHaveLength(2)
+      expect(rows.map((row) => row.alias)).toEqual(['fable', 'fable'])
+      expect(rows.every((row) => !row.isCustom)).toBe(true)
+      expect(rows.map((row) => row.oneMillionContext)).toEqual([false, true])
+      expect(rows.find((row) => row.isDefault)?.model).toBe('claude-fable-4.6')
+    }
+  })
 })

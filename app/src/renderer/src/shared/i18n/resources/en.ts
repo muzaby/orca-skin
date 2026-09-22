@@ -222,6 +222,7 @@ export const en: typeof ko = {
         llm: 'Model',
         service: 'Internal service'
       },
+      authenticate: 'Authenticate',
       connect: 'Connect',
       reauth: 'Re-authenticate',
       revoke: 'Disconnect',
@@ -943,6 +944,8 @@ export const en: typeof ko = {
       attach: 'Attach',
       attachRemoveAria: 'Remove attachment {{name}}',
       fileAutocompleteAria: 'File path autocomplete',
+      mentionAutocompleteAria: 'Plugin and file path autocomplete',
+      mentionPlugins: 'Plugins',
       loadingShort: 'Loading…',
       noMatches: 'No matching items',
       skillAutocompleteAria: 'Skill autocomplete',
