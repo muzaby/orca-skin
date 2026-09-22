@@ -114,6 +114,18 @@ describe('mail store', () => {
     }
   })
 
+  it('moves the cleanup cutoff with an explicit retentionDays', async () => {
+    const store = await fixture()
+    const day = 86_400_000
+    const now = 40 * day
+    // 20일 된 메일은 30일 창 안이고 14일 창 밖이다 — 인자를 버리면 어느 한쪽이 갈린다.
+    await store.saveMessage(document('twenty-days', now - 20 * day))
+    expect(await store.cleanupExpired(now, 30)).toBe(0)
+    expect(store.countMail()).toBe(1)
+    expect(await store.cleanupExpired(now, 14)).toBe(1)
+    expect(store.countMail()).toBe(0)
+  })
+
   it('caps the whole response manifest at 50 while preserving counts and truncation flags', async () => {
     const store = await fixture()
     for (let i = 0; i < 7; i++)
