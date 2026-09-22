@@ -11,7 +11,7 @@
 | 작성자 | Claude Code (V1·ΔV1·ΔV4), **Codex (ΔV2·ΔV3 설계·구현)** |
 | 일자 | 2026-09-21 |
 | 매핑 | 없음 (신규 제품 기능) |
-| 상태 | impl/IMPL_DONE — r7 구현(G2 oracle 수정). 다음은 검증 턴 |
+| 상태 | verify/PASS — r7 검증 PASS(기계 범위). 남은 것은 사람 실기 4항목·D-063 사용자 결정 |
 | V mode | `Delta V` (기준 `V1`) |
 | 기준 V | `V1` — 본 plan의 Baseline, commit `07ec3a6`~`e3ea535` |
 | 이번 V revision | `ΔV4` (r5 verify `PLAN_GAP: G1` 정정) |
@@ -1950,3 +1950,13 @@ AC 자기보고: **AC41 ✅** — ③까지 이번 턴 직접 판정. AC1~40은 
 - 닫은 불변식은 r6과 **같은 축**이다 — "수집·정리가 같은 경계를 쓴다"의 정리 쪽 절반. r3 D1 · r5 G1 · r6 G2에 이은 "적힌 oracle이 그 자리를 재지 못함"의 네 번째 수정이다.
 - 막았어야 할 지침: AC41 ③이 검증 수단을 지명했고 impl §3 "선택된 적대 증거가 프로덕션 지점을 실제로 보는가"가 있었다. r6은 ③에 선택 증거가 없어(VP-34 선택 증거는 ①·②만) 변이를 심지 않았다.
 - 반복 환경 한계: `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 설치라 electron 의존 8파일 미실행. better-sqlite3는 `npm rebuild`로 Node ABI 정렬 후 DB 스위트 실행.
+
+## [검증자 기입] 파생 이슈 (r7)
+
+> r7 검증 = **PASS**. 판정 원문은 [`verify.md` r7](verify.md) — 여기 표는 이관 목록이다. 셋 다 PASS를 막지 않는다.
+
+| # | 이슈 | 출처 pair / 계약 | 대응 방향 | 분류 | 상태 |
+|---|---|---|---|---|---|
+| D16 | fresh `mail_sync` 호출의 정리(현재 동작)를 잠그는 oracle이 없다 — 정리를 신선도 판정 뒤로 옮겨도 633 green. §5 흐름(정리는 non-fresh 가지)과 Part I 236행("다음 `mail_sync` 진입에서")이 서로 다른 순서를 적는다 | 비귀속 — 현재 코드는 두 해석 모두 만족 | 설계자가 문장을 하나로 맞추고, 현재 동작을 유지하면 fresh 호출 뒤 만료 메일 부재 단언 1건 | NON_BLOCKING | open |
+| D17 | INDEX 0237 행 좌표 16/21이 main에서 죽어 있었다(리베이스 병합) | 운영 | r7 verify가 patch-id 대조 후 정정 | NON_BLOCKING | closed (r7 verify 정정) |
+| D18 | r7 구현 보고의 ③ 분모 검색 목록이 8줄 중 5줄만 적었다 | 보고 정확성 | 전달 지점 판정 3/3 불변 | NON_BLOCKING | open |
