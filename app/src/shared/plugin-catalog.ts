@@ -1,67 +1,24 @@
-export const PLUGIN_CATALOG_ICON_NAMES = [
-  'electrical_services',
-  'power_settings_new',
-  'link',
-  'description',
-  'memory',
-  'language'
-] as const
+// Provider catalog가 정본으로 승격된 뒤에도 기존 Plugin 배포 소스·외부 import를 보존한다.
+export * from './provider-catalog'
 
-export type PluginCatalogIconName = (typeof PLUGIN_CATALOG_ICON_NAMES)[number]
+import {
+  DEFAULT_PROVIDER_CATALOG_ICON,
+  PROVIDER_CATALOG_ICON_NAMES,
+  normalizeProviderCatalogPresentation
+} from './provider-catalog'
+import type {
+  LocalizedProviderText,
+  ProviderCatalogAttribution,
+  ProviderCatalogIconName,
+  ProviderCatalogPresentation,
+  ProviderCatalogPresentationInput
+} from './provider-catalog'
 
-export const DEFAULT_PLUGIN_CATALOG_ICON: PluginCatalogIconName = 'electrical_services'
-
-export type LocalizedPluginText = Readonly<{
-  ko: string
-  en: string
-  [locale: string]: string
-}>
-
-export interface PluginCatalogAttribution {
-  readonly source: string
-  readonly version: string
-  readonly githubUrl: string
-  readonly license?: string
-}
-
-export interface PluginCatalogPresentation {
-  readonly icon: PluginCatalogIconName
-  readonly title?: LocalizedPluginText
-  readonly body?: LocalizedPluginText
-  readonly attribution?: PluginCatalogAttribution
-}
-
-export type PluginCatalogPresentationInput = Omit<PluginCatalogPresentation, 'icon'> & {
-  readonly icon?: PluginCatalogIconName
-}
-
-const ICON_NAMES = new Set<string>(PLUGIN_CATALOG_ICON_NAMES)
-
-function assertText(name: 'title' | 'body', text: LocalizedPluginText | undefined): void {
-  if (!text) return
-  for (const locale of ['ko', 'en'] as const) {
-    if (typeof text[locale] !== 'string' || text[locale].trim().length === 0) {
-      throw new Error(`plugin catalog ${name}.${locale} must be a non-empty string`)
-    }
-  }
-  for (const [locale, value] of Object.entries(text)) {
-    if (locale.trim().length === 0 || typeof value !== 'string' || value.trim().length === 0) {
-      throw new Error(`plugin catalog ${name}.${locale || '<empty>'} must be a non-empty string`)
-    }
-  }
-}
-
-export function normalizePluginCatalogPresentation(
-  input: PluginCatalogPresentationInput = {}
-): PluginCatalogPresentation {
-  const icon = input.icon ?? DEFAULT_PLUGIN_CATALOG_ICON
-  if (!ICON_NAMES.has(icon)) throw new Error(`plugin catalog icon is not supported: ${icon}`)
-  assertText('title', input.title)
-  assertText('body', input.body)
-  return {
-    icon,
-    ...(input.title ? { title: { ...input.title } } : {}),
-    ...(input.body ? { body: { ...input.body } } : {}),
-    ...(input.attribution ? { attribution: { ...input.attribution } } : {})
-  }
-}
+export type PluginCatalogIconName = ProviderCatalogIconName
+export const PLUGIN_CATALOG_ICON_NAMES = PROVIDER_CATALOG_ICON_NAMES
+export const DEFAULT_PLUGIN_CATALOG_ICON = DEFAULT_PROVIDER_CATALOG_ICON
+export type LocalizedPluginText = LocalizedProviderText
+export type PluginCatalogAttribution = ProviderCatalogAttribution
+export type PluginCatalogPresentation = ProviderCatalogPresentation
+export type PluginCatalogPresentationInput = ProviderCatalogPresentationInput
+export const normalizePluginCatalogPresentation = normalizeProviderCatalogPresentation

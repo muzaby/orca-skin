@@ -42,16 +42,16 @@ describe('mention autocomplete parsing and projection', () => {
     })
   })
 
-  it('root plain은 Plugin 그룹을 먼저, 경로 그룹을 뒤에 둔다', () => {
+  it('root plain은 경로 그룹을 먼저, Plugin 그룹을 뒤에 둔다', () => {
     const groups = groupMentionSuggestions(token('@'), plugins, entries)
-    expect(groups.map((group) => group.kind)).toEqual(['plugin', 'path'])
+    expect(groups.map((group) => group.kind)).toEqual(['path', 'plugin'])
     expect(flattenMentionGroups(groups).map((item) => item.kind)).toEqual([
-      'plugin',
-      'plugin',
       'file',
-      'file'
+      'file',
+      'plugin',
+      'plugin'
     ])
-    expect(groups[0].suggestions.map((item) => item.kind === 'plugin' && item.id)).toEqual([
+    expect(groups[1].suggestions.map((item) => item.kind === 'plugin' && item.id)).toEqual([
       'jira-dc',
       'linear'
     ])

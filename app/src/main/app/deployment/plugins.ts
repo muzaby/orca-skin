@@ -18,17 +18,17 @@ import type { RuntimeToolServer, RuntimeToolSink } from '../../adapters/runtime-
 import { runtimeToolFullName } from '../../adapters/runtime-tool-policy'
 import type { AuthRuntime, BoundAuth } from '../../contracts/auth'
 import {
-  normalizePluginCatalogPresentation,
-  type PluginCatalogPresentation,
-  type PluginCatalogPresentationInput
-} from '../../../shared/plugin-catalog'
+  normalizeProviderCatalogPresentation,
+  type ProviderCatalogPresentation,
+  type ProviderCatalogPresentationInput
+} from '../../../shared/provider-catalog'
 
 // 부팅이 만든 Plugin 한 벌. `toolNames()` 는 **cached descriptor** 에서 나온다 — Auth 가
 // invalid 여도 카탈로그는 이 이름들을 계속 보여 준다(0188 D-024).
 export interface PluginBinding {
   auth: BoundAuth
   server: RuntimeToolServer
-  catalog: PluginCatalogPresentation
+  catalog: ProviderCatalogPresentation
   toolNames(): readonly string[]
   sync(): void
 }
@@ -37,7 +37,7 @@ export interface CreatePluginBindingDeps {
   auth: BoundAuth
   server: RuntimeToolServer
   registry: RuntimeToolSink
-  catalog?: PluginCatalogPresentationInput
+  catalog?: ProviderCatalogPresentationInput
   logger?: (event: string, data: Record<string, unknown>) => void
 }
 
@@ -51,7 +51,7 @@ export function createPluginBinding(deps: CreatePluginBindingDeps): PluginBindin
   return {
     auth: deps.auth,
     server: deps.server,
-    catalog: normalizePluginCatalogPresentation(deps.catalog),
+    catalog: normalizeProviderCatalogPresentation(deps.catalog),
     // 정적 목록이다 — registry 등록 여부와 무관하게 같은 값을 돌려준다.
     toolNames: () => names,
     sync(): void {

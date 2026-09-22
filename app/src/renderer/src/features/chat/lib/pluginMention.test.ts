@@ -41,8 +41,23 @@ describe('pluginMentionCandidates', () => {
     expect(candidates).toEqual([
       { kind: 'plugin', id: 'jira-dc', label: 'Jira Data Center' },
       { kind: 'plugin', id: 'expired-plugin', label: 'Jira Data Center' },
-      { kind: 'plugin', id: 'unknown-plugin', label: 'Jira Data Center' }
+      { kind: 'plugin', id: 'unknown-plugin', label: 'Jira Data Center' },
+      { kind: 'plugin', id: 'no-catalog', label: 'Jira Data Center' }
     ])
+  })
+
+  it('catalog가 있어도 main이 도구를 싣지 않은 non-Plugin row는 후보가 아니다', () => {
+    expect(
+      pluginMentionCandidates([
+        provider({
+          id: 'gate-with-presentation',
+          kind: 'gate',
+          tools: [],
+          catalog: { icon: 'language', title: { ko: '게이트', en: 'Gate' } }
+        }),
+        provider({ id: 'harness-with-presentation', kind: 'llm', tools: [] })
+      ])
+    ).toEqual([])
   })
 
   it('검색은 표시 label이 아니라 provider id와 대소문자 무시 prefix를 사용한다', () => {

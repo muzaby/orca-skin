@@ -78,7 +78,7 @@ app/src/main/app/deployment/
 | `plugins.ts` | `createPluginBindings(deps)` | `auth: AuthBinder` · `registry: RuntimeToolSink` · `logger?` |
 | `harness-runtime.ts` | `createConfigApiAugmenters(deps)` | `auth: AuthBinder` **만** |
 | `harness-runtime.ts` | `createDirectCredentialAugmenters(deps)` | `secrets: Record<AuthId, () => string \| null>` **만** (선언한 id 만) |
-| `connections.ts` | `createConnectionSources(deps)` | `auth` · `gateMembers` · `plugins` |
+| `connections.ts` | `createConnectionSources(deps)` | `auth` · `gateMembers` · `plugins` · optional `gateCatalog`/`harness`/`usage` rows |
 | `usage-fetcher.ts` | `createUsageFetcher(deps)` | `auth: AuthBinder` |
 
 `AuthBinder` 는 `Pick<AuthRuntime,'bind'>` 다 (0190) — 배포는 자기 AuthId 를 골라
@@ -282,7 +282,8 @@ origin 밖에서 끝나도** 같다 — §2-c) ·
 | 4 | **그 상수를 `GATE_AUTH_DEFINITIONS` 에 객체 참조로 담는다** — 이 단계를 빼면 인증 대상일 뿐 게이트가 아니다 | `app/src/main/app/deployment/gate-auth.ts`. 타입이 `GateAuthDefinition` 이라 `probe` 를 빠뜨리면 **컴파일이 안 된다** |
 | 5 | 토큰까지 필요하면 `config.exchange` 를 더한다 — `code`·`present` 가 **필수**다. SP 가 인가 코드를 돌려주지 않으면 이 단계를 건너뛴다(세션 grant 로 끝난다) | §2-b |
 | 6 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/auth src/main/features/gate` | 형상·회귀 |
-| 7 | `npm run dev` 로 로그인 왕복을 실기한다 | **§6** (dev 게이트 동작이 prod 와 다르다) |
+| 7 | 필요하면 gate row에 공용 `ProviderCatalogPresentationInput`을 넣는다 | `connections.ts`의 `gateRows(members, catalog)` — 입력이 없으면 power/Auth fallback |
+| 8 | `npm run dev` 로 로그인 왕복을 실기한다 | **§6** (dev 게이트 동작이 prod 와 다르다) |
 
 ### 선언 예제
 
@@ -315,6 +316,19 @@ export const AUTH_DEFINITIONS: readonly AuthDefinition[] = [CORP_SSO_AUTH]
 import { CORP_SSO_AUTH } from './auth-definitions'
 
 export const GATE_AUTH_DEFINITIONS: readonly GateAuthDefinition[] = [CORP_SSO_AUTH]
+```
+
+```ts
+// app/deployment/connections.ts — 선택적 gate 표시 입력
+import { gateRows } from './connections'
+
+const CORP_GATE_PRESENTATION = {
+  icon: 'power_settings_new',
+  title: { ko: '사내 로그인', en: 'Corporate sign-in' },
+  body: { ko: '앱 접근을 위한 인증입니다.', en: 'Authentication required to access the app.' }
+} as const
+
+const rows = gateRows(gateMembers, CORP_GATE_PRESENTATION)
 ```
 
 > ⚠️ **`origin` 은 로그인 시작 주소(IdP)가 아니다.** `loginUrl` 은 절대 URL 이라 어디를 가리켜도
@@ -443,10 +457,25 @@ subprocess env가 아니라 runtime catalog에 전달된다.
 | 3 | 인증 방식을 고른다 — 입력 수집형(§3-a) · OAuth(§3-b) · 또는 **둘 다 `methods` 배열에** | 같은 파일 |
 | 4 | 1단계 key 에 augmenter 를 붙인다. **config API 방식과 direct credential 방식은 서로 다른 factory 다**(§3-c) | `app/deployment/harness-runtime.ts` |
 | 5 | 그 Auth 가 바뀌면 무효화할 key 를 `AUTH_INVALIDATED_HARNESS_KEYS` 에 적는다 | 같은 파일. 안 적으면 재인증 뒤에도 옛 token 이 warm cache 로 남는다 |
-| 6 | **카탈로그 row 를 추가한다** — `{category:'harness', auth, harnessModelProviderKey}` | `app/deployment/connections.ts`. **안 하면 연결 탭에 행이 없어 인증 자체가 불가능하다** |
+| 6 | **카탈로그 row 를 추가한다** — `{category:'harness', auth, harnessModelProviderKey}`. 필요하면 `catalog` presentation input도 함께 넣는다 | `app/deployment/connections.ts`의 `harnessRows()`. **안 하면 연결 탭에 행이 없어 인증 자체가 불가능하다** |
 | 6-a | 모델 API 응답을 `availableModels`에 넣고 `{authId,key,harnessId,modelProviderId}` contribution을 선언한다 | Gate 로그인당 1회 fetch·프로세스 cache. 새 세션/턴 fetch 금지; 설정 배포로 cache가 무효화되면 자동 항목도 미노출 |
 | 7 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/harnesses src/main/features/auth src/main/app/deployment` | 형상·cache·fence·배선 회귀 |
 | 8 | 실기: 연결 탭에서 인증 → 새 채팅 전송 → 게이트웨이 로그에 요청이 도달하는지 | 사람 실기 |
+
+```ts
+// app/deployment/connections.ts — Harness 행의 선택적 표시 입력
+import { harnessRows } from './connections'
+
+const rows = harnessRows([{
+  auth: deps.auth.bind(CORP_LLM_AUTH.id),
+  harnessModelProviderKey: CLAUDE_CORP_KEY,
+  catalog: {
+    icon: 'memory',
+    title: { ko: '사내 Claude', en: 'Corporate Claude' },
+    body: { ko: '사내 모델 게이트웨이', en: 'Corporate model gateway' }
+  }
+}])
+```
 
 **주입 규칙 4가지** (어기면 진단이 어려워진다):
 
@@ -755,10 +784,11 @@ export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[
 > ⚠️ **GUI 도구 목록은 Auth 가 invalid 여도 비지 않는다.** cached descriptor 에서 이름을 만들고
 > `status` 로 비활성을 안내한다 — active registry 로 목록을 만들면 미인증에서 도구가 사라진다.
 
-**Composer 참조와 인증 UI**: `ProviderInfo.catalog`가 있고 cached `tools`가 있는 Plugin은
+**Composer 참조와 인증 UI**: main이 Plugin source에만 싣는 cached `tools`가 있는 Plugin은
 `status`가 `none`·`valid`·`expired`·`unknown` 중 무엇이든 Composer `@` 후보가 된다. 후보의
-토큰은 표시 label이 아니라 고정 `provider id`이며, root plain 입력에서는 Plugin 그룹을 파일 경로
-그룹과 분리해 먼저 표시한다. 상세 패널의 미인증 액션은 `인증`, 인증 이력이 있으면
+토큰은 표시 label이 아니라 고정 `provider id`이며, root plain 입력에서는 경로 그룹을 Plugin 그룹
+보다 먼저 표시한다. 입력 전체 삭제 뒤 같은 Composer에서 `@`를 다시 입력하면 token occurrence를
+새로 시작해 팝업이 다시 열린다. 상세 패널의 미인증 액션은 `인증`, 인증 이력이 있으면
 `재인증` dropdown과 위험 색상의 `연결 해제`를 사용한다. 이 표면은 기존 provider IPC의
 `login`·`reauth`·`revoke`를 그대로 호출하므로 폐쇄망 배포가 별도 채널을 추가할 필요는 없다.
 
@@ -1056,7 +1086,9 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 ```
 
 인증받을 수 있으려면 이 Auth 도 **카탈로그에 행이 있어야 한다** — `app/deployment/connections.ts`
-에 `{category:'usage', auth: deps.auth.bind('corp-usage')}` 를 더한다.
+에 `{category:'usage', auth: deps.auth.bind('corp-usage')}` 를 더한다. 목록/상세에 표시 입력이 필요하면
+`usageRows([{ auth: deps.auth.bind('corp-usage'), catalog: USAGE_PRESENTATION_INPUT }])` 를 사용한다.
+이 입력은 `UsageFetcher`의 `supports`·`fetchUsage` 포트나 `UsageSnapshot`에 들어가지 않는다.
 
 **두 멤버는 서로 다른 것을 표현한다 — 섞으면 조용히 틀린다.** `supports` 는 *능력*, 반환값은
 *이번 호출의 결과*다. 계약의 정본은 `features/usage/fetcher.ts` 와 `features/usage/tracker.ts` 다:

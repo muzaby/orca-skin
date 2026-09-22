@@ -66,9 +66,6 @@ export function groupMentionSuggestions(
 ): MentionGroup[] {
   const rootPlain = !token.quoted && token.dirPath === ''
   const groups: MentionGroup[] = []
-  if (rootPlain && plugins.length > 0) {
-    groups.push({ kind: 'plugin', suggestions: [...plugins] })
-  }
   if (entries) {
     const pathSuggestions = filterFileSuggestions(entries, token.prefix).map((entry) => ({
       kind: 'file' as const,
@@ -78,6 +75,9 @@ export function groupMentionSuggestions(
     if (pathSuggestions.length > 0 || !rootPlain || plugins.length === 0) {
       groups.push({ kind: 'path', suggestions: pathSuggestions })
     }
+  }
+  if (rootPlain && plugins.length > 0) {
+    groups.push({ kind: 'plugin', suggestions: [...plugins] })
   }
   return groups
 }

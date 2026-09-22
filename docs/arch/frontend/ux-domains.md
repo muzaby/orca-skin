@@ -11,7 +11,7 @@
 | 단축키        | 동작                                         | 구현 위치                                        |
 | ------------- | -------------------------------------------- | ------------------------------------------------ |
 | `/`           | Composer 에서 Skill 자동완성 dropdown 트리거 | `SkillAutocomplete.tsx`                          |
-| `@`           | Composer 에서 Plugin 식별자와 파일 경로 자동완성 트리거 — 루트 plain 입력은 Plugin 그룹을 먼저, 경로 입력은 기존 path 그룹으로 표시 | `MentionAutocomplete.tsx`·`useMentionAutocomplete.ts` |
+| `@`           | Composer 에서 Plugin 식별자와 파일 경로 자동완성 트리거 — 루트 plain 입력은 경로 그룹을 먼저, Plugin 그룹을 마지막에 표시 | `MentionAutocomplete.tsx`·`useMentionAutocomplete.ts` |
 | ↑ / ↓         | 자동완성 dropdown 내 navigate                | 동일                                             |
 | Tab / Enter   | 자동완성 항목 선택                           | 동일                                             |
 | Esc           | 자동완성 dismiss / 스트리밍 취소             | TBD (스트리밍 취소는 명시적 키 미정)             |
@@ -28,7 +28,8 @@
 - 3-chip 행: 첨부 / 현재 프레임 / Skill 선택 (`Popover` 기반 picker)
 - `/skillname` 토큰을 **활성 스킬일 때만** 파란 chip 으로 mirror overlay 강조 (`composer/ComposerDecorationLayer.tsx` + `composer/composerDecoration.ts`, `knownSkillNames: ReadonlySet<string>`)
 - `@filepath` 자동완성: 디렉토리 단계별 진입, quoted/plain 자동 감지, 공백 시 자동 wrapping
-- `@plugin-id` 자동완성: `ProviderInfo.catalog`와 cached `tools`가 모두 있는 내장 Plugin을 인증 상태와 무관하게 식별자 토큰으로 노출한다. 팝업은 Plugin/path 그룹을 분리하고 선택 시 label이 아닌 id를 Composer에 삽입하며, 검증된 Plugin id는 violet chip으로 mirror overlay 강조한다 (`pluginMention.ts`·`mentionAutocomplete.ts`).
+- `@plugin-id` 자동완성: main이 Plugin source에만 싣는 cached `tools`가 있는 내장 Plugin을 인증 상태와 무관하게 식별자 토큰으로 노출한다. `catalog`는 gate·harness·plugin·usage 공용 표시 입력이며 후보 판별과 분리한다. 팝업은 path/Plugin 그룹을 분리해 path를 먼저 보이고, 선택 시 label이 아닌 id를 Composer에 삽입하며, 검증된 Plugin id는 violet chip으로 mirror overlay 강조한다 (`pluginMention.ts`·`mentionAutocomplete.ts`).
+- 입력을 모두 지워 token이 사라지면 해당 occurrence의 dismissal과 active index를 끝낸다. 같은 Composer에서 다시 `@`를 입력하면 팝업이 다시 열린다 (`useTokenAutocompleteState.ts`).
 - 플러그인 상세 상단 인증 액션은 미인증이면 검정 `인증`, 인증 이력이 있으면 `재인증` dropdown으로 표시하고 메뉴 안에 재인증과 빨간 `연결 해제`를 둔다 (`ProviderAuthActions.tsx`).
 - 전송 후 입력창 비우기, 포커스 유지
 

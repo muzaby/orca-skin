@@ -174,6 +174,61 @@ describe('compat kind 매핑 (AC22)', () => {
     expect(info.tools).toEqual([])
     expect(info.catalog).toBeUndefined()
   })
+
+  it('네 category의 presentation을 같은 ProviderInfo catalog로 보존하고 도구는 Plugin만 싣는다', () => {
+    const descriptors = Object.fromEntries(
+      ['gate', 'harness', 'plugin', 'usage'].map((id) => [id, { ...DESCRIPTOR, authId: id }])
+    )
+    const auth = runtime(descriptors)
+    const catalog = {
+      icon: 'language' as const,
+      title: { ko: '표시 제목', en: 'Presentation' },
+      body: { ko: '표시 본문', en: 'Presentation body' },
+      attribution: {
+        source: 'fixture',
+        version: '1.0.0',
+        githubUrl: 'https://example.com/catalog'
+      }
+    }
+    const sources: ConnectionViewSource[] = [
+      { category: 'gate', auth: bound('gate'), catalog },
+      {
+        category: 'harness',
+        auth: bound('harness'),
+        harnessModelProviderKey: 'claude-corp',
+        catalog
+      },
+      {
+        category: 'plugin',
+        auth: bound('plugin'),
+        toolNames: () => ['mcp__plugin-tools__search'],
+        catalog
+      },
+      { category: 'usage', auth: bound('usage'), catalog }
+    ]
+
+    const providers = connectionList(auth, sources)
+    expect(providers.map((provider) => provider.catalog?.title?.ko)).toEqual([
+      '표시 제목',
+      '표시 제목',
+      '표시 제목',
+      '표시 제목'
+    ])
+    expect(providers.map((provider) => provider.tools.length)).toEqual([0, 0, 1, 0])
+  })
+
+  it('presentation이 없는 non-Plugin row는 catalog를 만들지 않는다', () => {
+    const descriptors = Object.fromEntries(
+      ['gate', 'harness', 'usage'].map((id) => [id, { ...DESCRIPTOR, authId: id }])
+    )
+    const auth = runtime(descriptors)
+    const providers = connectionList(auth, [
+      { category: 'gate', auth: bound('gate') },
+      { category: 'harness', auth: bound('harness'), harnessModelProviderKey: 'claude-corp' },
+      { category: 'usage', auth: bound('usage') }
+    ])
+    expect(providers.map((provider) => provider.catalog)).toEqual([undefined, undefined, undefined])
+  })
 })
 
 describe('connectionState', () => {

@@ -9,7 +9,8 @@ export interface PluginMention {
 
 /**
  * ProviderInfo의 표시용 label이나 인증 상태를 token으로 재구성하지 않는다.
- * `catalog`와 cached `tools`가 동시에 있는 행만 내장 Plugin으로 투영한다.
+ * catalog는 네 connection category의 표시 입력이므로 Plugin 자격을 판별하지 않는다.
+ * main이 Plugin source에만 싣는 cached `tools`가 있는 행만 내장 Plugin으로 투영한다.
  */
 export function pluginMentionCandidates(
   providers: readonly ProviderInfo[],
@@ -17,7 +18,7 @@ export function pluginMentionCandidates(
 ): PluginMention[] {
   const query = partial.toLowerCase()
   return providers
-    .filter((provider) => provider.catalog !== undefined && provider.tools.length > 0)
+    .filter((provider) => provider.tools.length > 0)
     .filter((provider) => provider.id.toLowerCase().startsWith(query))
     .map((provider) => ({ kind: 'plugin' as const, id: provider.id, label: provider.label }))
 }

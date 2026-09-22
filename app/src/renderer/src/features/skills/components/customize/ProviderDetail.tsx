@@ -11,7 +11,7 @@ import {
   needsAuthChoice
 } from '../../../../shared/config/providerAuth'
 import { providerRowMeta } from '../../lib/providerRows'
-import { pluginPresentation } from '../../lib/pluginPresentation'
+import { providerPresentation } from '../../lib/providerPresentation'
 import { ProviderAuthActions } from './ProviderAuthActions'
 
 const TONE = { valid: 'green', expired: 'amber', unknown: 'amber', none: 'slate' } as const
@@ -36,7 +36,7 @@ export function ProviderDetail({
 }): React.JSX.Element {
   const { tr, locale } = useI18n()
   const meta = providerRowMeta(provider)
-  const presentation = pluginPresentation(provider, locale)
+  const presentation = providerPresentation(provider, locale)
   const choices = authChoices(provider)
   const [authKind, setAuthKind] = useState<ProviderAuthKind | null>(() => initialAuthKind(provider))
   const [values, setValues] = useState<Record<string, string>>({})

@@ -1,4 +1,4 @@
-import type { PluginCatalogPresentationInput } from '../../../../shared/plugin-catalog'
+import type { ProviderCatalogPresentationInput } from '../../../../shared/provider-catalog'
 
 export const JIRA_SOURCE = {
   packageName: '@atlassian-dc-mcp/jira',
@@ -21,4 +21,4 @@ export const JIRA_CATALOG_PRESENTATION_INPUT = {
     githubUrl: JIRA_SOURCE.githubUrl,
     license: JIRA_SOURCE.license
   }
-} as const satisfies PluginCatalogPresentationInput
+} as const satisfies ProviderCatalogPresentationInput
