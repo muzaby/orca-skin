@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 지시로 설계 턴 수행 |
 | 일자 | 2026-09-22 |
 | 매핑 | 최초 기능 요청 3건 + 사용자 변경·보완 4건 |
-| 상태 | **IMPL_DONE (V1+ΔV1 라운드 3 · r4)** — r3 판정은 [`verify.md`](verify.md) `# r3 검증`, r4 검증 대기 |
+| 상태 | **verify/PASS (V1+ΔV1 라운드 3 · r4 검증)** — 판정은 [`verify.md`](verify.md) `# r4 검증`. 사람 실기 4항목 후 archive |
 | V mode | `Delta V` |
 | 기준 V | `V1@651d9080` — 0238 최초 READY 설계; r1 구현 `6030afae`·`e96a2494`·`2c7dad51`은 독립 검증 전 |
 | 이번 V revision | `ΔV1` — Composer 그룹 순서·token 재진입·전 category catalog presentation 입력 |
@@ -1259,3 +1259,5 @@ ProviderCatalogPresentationInput
 | D18 | `pluginOpen`의 `!token.quoted` 가드 제거(S4) green — 동작은 정상(probe P3) | AC9 비등록 축 | quoted·cwd-null case 추가 | NON_BLOCKING | closed (r4) |
 | D19 | 같은 partial의 다른 `@` token으로 caret만 옮기면 dismissal이 이어진다(probe P1). occurrence 경계가 token null뿐이며 base도 같다 | D-015 문언 ↔ EP-08 | `tokenStart`를 occurrence identity에 넣을지 설계자 판단 | NEXT_HANDOFF | open |
 | D20 | `filterFileSuggestions` export 외부 참조 0 — D11이 형제 `splitDirAndPrefix`만 비export | D11 형제 | 비export | NON_BLOCKING | closed (r4) |
+| D21 | `ProviderDetail`의 인증 방식 선택 → `ProviderAuthActions` `authKind` 경로 oracle이 초깃값뿐 — `authKind={initialAuthKind(provider)}`(X1)·`AuthKindChoices` `onChange` no-op(X8) green. production 정상, base부터 테스트 0 | D14 불변식의 비인용 지점 | stateful `useState` fixture로 선택 → `authKind` props 단언 | NON_BLOCKING | open |
+| D22 | controller `event.preventDefault()` 두 자리(skill·mention) 제거(X3·X5) green — W 케이스 source 정규식이 이 줄을 보지 않는다. production 정상 | AC11 비등록 축 · D16 형제 | source 단언에 `preventDefault` 포함 또는 keydown fixture | NON_BLOCKING | open |
