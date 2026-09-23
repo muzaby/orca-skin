@@ -324,7 +324,7 @@ production 심볼을 직접 호출하는 fixture로 동작을 따로 관측했�
 |---|---|
 | 검증자 | Claude Code |
 | 일자 | 2026-09-22 |
-| 대상 커밋/range | `a4f3b17..6b6c04f` — r3 구현 `6b6c04f` (기준: r2 verify `a4f3b17`, r2 구현 `569d2c8`) |
+| 대상 커밋/range | `4a6b91b..60466c3` — r3 구현 `60466c3` (기준: r2 verify `4a6b91b`, r2 구현 `569d2c8`) |
 | 유효 V | `V1@6200cf1 + ΔV1@ee15ca9` — 변경 없음 |
 | 라운드 | 3 |
 | 상태 | **FAIL** |
@@ -332,7 +332,7 @@ production 심볼을 직접 호출하는 fixture로 동작을 따로 관측했�
 
 ## 0. 기준선 (r3)
 
-- **기준선 성립: 예.** `git diff a4f3b17 6b6c04f -- plan.md` hunk 2개 = 메타 상태 1행 + `[구현자 기입]` r3 절(1026행 이후)뿐.
+- **기준선 성립: 예.** `git diff 4a6b91b 60466c3 -- plan.md` hunk 2개 = 메타 상태 1행 + `[구현자 기입]` r3 절(1026행 이후)뿐.
 - Decision·Product/UX·AC·V node/pair·§10 변경: **없음**. 채점 기준은 r2와 같은 24 AC(AC7은 AC23이 대체)·21 pair.
 - Plan validity: r2 판정 그대로 유효, root PLAN_GAP 없음. 단 EP-05 분모가 `ProviderDetail → ProviderAuthActions` 결합 지점을 세지 않는다 — pair 경로가 이미 그 edge를 명시하므로 gap이 아니라 D14의 review signal로 둔다.
 
@@ -348,7 +348,7 @@ production 심볼을 직접 호출하는 fixture로 동작을 따로 관측했�
 
 ## 2. 역방향 탐색 (r3)
 
-`bash .agents/skills/handoff-verify/scripts/scan-surface.sh 569d2c8..6b6c04f` — 9파일.
+`bash .agents/skills/handoff-verify/scripts/scan-surface.sh 569d2c8..60466c3` — 9파일.
 
 | 후보 | 판정 | 근거 |
 |---|---|---|
@@ -498,14 +498,14 @@ production `useMentionAutocomplete`를 기존 hook fixture로 구동했다.
 | lint | PASS | 0 error · 1 warning(기존 TanStack Virtual). 실행 후 `git status` 변화 0 |
 | 관련 vitest | PASS | **108파일 / 808케이스** pass (구현 보고와 같은 값) |
 | doc inventory | PASS | `9 items, 98 channels` · prose ok · links ok |
-| `git diff --check 569d2c8 6b6c04f` | PASS | 출력 0 |
-| message-bus | PASS | `6b6c04f` trailer 8키 파싱, `Agent: claude`·`Status: implemented`·`Verified-By: pending` 허용값 |
+| `git diff --check 569d2c8 60466c3` | PASS | 출력 0 |
+| message-bus | PASS | `60466c3` trailer 8키 파싱, `Agent: claude`·`Status: implemented`·`Verified-By: pending` 허용값 |
 
 - `npm test` 미사용 — DB 동작 검증 대상 없음. 임시 probe 1파일은 실행 후 삭제, 변이는 매건 복원 — 최종 `git status` 변화 0.
 
 ## 5. Repository operation checks (r3)
 
-- INDEX: 상태 `IMPL_DONE`·다음 주체 Claude — 실제와 일치. 대상 커밋 자리표시자 `(r3 구현 — 검증자 기입)` → `6b6c04f`(`git cat-file -t` = commit)로 기입.
+- INDEX: 상태 `IMPL_DONE`·다음 주체 Claude — 실제와 일치. 대상 커밋 자리표시자 `(r3 구현 — 검증자 기입)` → `60466c3`(`git cat-file -t` = commit)로 기입.
 - `[구현자 기입]` r3 7필드: 설계 리뷰·강제 지점 전수·수정의 잠금·Product/UX·놓친 문제·구현 보고·Review Signals — **7/7**, 산문으로 접힌 필드 0.
 - plan 메타 상태는 이번 커밋에서 INDEX와 함께 `verify/FAIL (r3)`로 갱신. D13(메타 죽은 좌표)은 설계자 몫으로 open 유지.
 - 라운드: FAIL로 **4**가 되어 3을 초과한다 → `docs/handoff/AGENTS.md §handoff-review 트리거`에 따라 r4 재구현 전 `handoff-review` 수행.
@@ -551,7 +551,7 @@ production `useMentionAutocomplete`를 기존 hook fixture로 구동했다.
 |---|---|
 | 검증자 | Claude Code |
 | 일자 | 2026-09-23 |
-| 대상 커밋/range | `0817d96..a13c35f` — r4 구현 `a13c35f` (기준: r3 verify `7d82955`; 사이 3커밋 `c501c03`·`3981a7d`·`0817d96`은 handoff 지침 메타 수정) |
+| 대상 커밋/range | `86d12ab..ca00094` — r4 구현 `ca00094` (기준: r3 verify `efa5073`; 사이 3커밋 `f64a4cc`·`0422eef`·`86d12ab`은 handoff 지침 메타 수정) |
 | 유효 V | `V1@6200cf1 + ΔV1@ee15ca9` — 변경 없음 |
 | 라운드 | 3 (`docs/handoff/AGENTS.md §라운드` 재정의 기준 — 끝난 FAIL verify 2회 + 1) |
 | 상태 | **PASS** |
@@ -559,8 +559,8 @@ production `useMentionAutocomplete`를 기존 hook fixture로 구동했다.
 
 ## 0. 기준선 (r4)
 
-- **기준선 성립: 예.** `git diff 0817d96 a13c35f -- plan.md` hunk 3개 = 메타 상태 1행 · `[구현자 기입]` r4 절(1144행 이후) · `[검증자 기입]` 상태 칸(D14~D18·D20 `closed (r4)`).
-- 사이 메타 커밋의 0238 변경: `3981a7d`가 메타 상태 1행·INDEX 라운드 칸(4→3)만 바꿨다. Decision·Product/UX·AC·V node/pair·§10 변경 **없음** — 채점 기준은 r3와 같은 24 AC·21 pair.
+- **기준선 성립: 예.** `git diff 86d12ab ca00094 -- plan.md` hunk 3개 = 메타 상태 1행 · `[구현자 기입]` r4 절(1144행 이후) · `[검증자 기입]` 상태 칸(D14~D18·D20 `closed (r4)`).
+- 사이 메타 커밋의 0238 변경: `0422eef`가 메타 상태 1행·INDEX 라운드 칸(4→3)만 바꿨다. Decision·Product/UX·AC·V node/pair·§10 변경 **없음** — 채점 기준은 r3와 같은 24 AC·21 pair.
 - Plan validity: 유효, root PLAN_GAP 없음. review round 28의 SUPERSEDED 이관 규칙은 ΔV1(`ee15ca9`) 이후 도입이라 읽기 전용으로 합성한다 — V1 VP-06·12의 header-index 적대 축 → VP-21(flatten index)·VP-18(keyboard index lifecycle). 이번 라운드 S5a가 그 축을 red로 잡으므로(§3-1) 현재 판정에 빠진 증거가 없다.
 
 ## 1. 구현 비판적 검토 — AC 전에
@@ -576,7 +576,7 @@ production `useMentionAutocomplete`를 기존 hook fixture로 구동했다.
 
 ## 2. 역방향 탐색 (r4)
 
-`bash .agents/skills/handoff-verify/scripts/scan-surface.sh 7d82955..a13c35f` — 3파일.
+`bash .agents/skills/handoff-verify/scripts/scan-surface.sh efa5073..ca00094` — 3파일.
 
 | 후보 | 판정 | 근거 |
 |---|---|---|
@@ -705,14 +705,14 @@ cd app && ./node_modules/.bin/vitest run model-parser·settings·runtime-catalog
 | lint | PASS | 0 error · 1 warning(기존 TanStack Virtual `react-hooks/incompatible-library`). 실행 전후 `git status --short` 둘 다 빈 출력 |
 | 관련 vitest | PASS | **110파일 / 819케이스** pass (구현 보고와 같은 값) |
 | doc inventory | PASS | `9 items, 98 channels` · prose ok · links ok |
-| `git diff --check 7d82955 a13c35f` | PASS | 출력 0 |
-| message-bus | PASS | `a13c35f` trailer 8키 파싱, `Agent: claude`·`Status: implemented`·`Verified-By: pending` 허용값 |
+| `git diff --check efa5073 ca00094` | PASS | 출력 0 |
+| message-bus | PASS | `ca00094` trailer 8키 파싱, `Agent: claude`·`Status: implemented`·`Verified-By: pending` 허용값 |
 
 - `npm test` 미사용 — DB 동작 검증 대상 없음. 변이 러너·결과 JSON은 scratchpad에만 남겼다.
 
 ## 5. Repository operation checks (r4)
 
-- INDEX: 상태 `IMPL_DONE`·다음 주체 Claude — 실제와 일치. 자리표시자 `(r4 구현 — 검증자 기입)` → `a13c35f`(`git cat-file -t` = commit)로 기입. 비고 3줄(≤5).
+- INDEX: 상태 `IMPL_DONE`·다음 주체 Claude — 실제와 일치. 자리표시자 `(r4 구현 — 검증자 기입)` → `ca00094`(`git cat-file -t` = commit)로 기입. 비고 3줄(≤5).
 - `[구현자 기입]` r4 7필드: 설계 리뷰·강제 지점 전수·수정의 잠금·Product/UX·놓친 문제·구현 보고·Review Signals — **7/7**, 설계 대비 차이 축 4행 포함. 구현 보고 대상 커밋은 `(r4 구현 — 좌표는 INDEX)` 자리표시자.
 - 라운드 3 · 라벨 `r4`: `§라운드`(verify 없이 반복된 턴은 같은 라운드, 기존 라벨과 겹치면 순번 유지)와 일치.
 - 사람 실기가 남아 archive 이동은 실기 뒤로 둔다(0233·0236 선례).
