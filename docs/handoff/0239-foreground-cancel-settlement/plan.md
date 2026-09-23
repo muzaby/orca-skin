@@ -10,11 +10,11 @@
 | slug | `0239-foreground-cancel-settlement` |
 | 작성자 | Claude Code |
 | 일자 | 2026-09-23 |
-| 매핑 | 사용자 검토 요청 1건 + 설계 질의 응답 3건 |
+| 매핑 | 사용자 검토 요청 1건 + 설계 질의 응답 3건 + 관찰 보완 1건(V1 rev.2) |
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `V1` |
+| 이번 V revision | `V1` rev.2 — 구현 전 사용자 관찰 보완(G5·D-012·D-013·AC18). rev.1은 `72c5979` |
 | 유효 V | `V1` |
 | 기준 코드 | `cb5d828` (브랜치 `claude/foreground-task-cancel-state-qmcm4c` 착수 시점) |
 
@@ -22,7 +22,8 @@
 
 ## 1. Context / 목표
 
-- 해결하려는 문제: 도구·포그라운드 작업이 **정상 실행 전에** 폐기·취소·거부되면 종료 통지가 오지 않거나 무시되어, transcript와 작업 패널에 실행 중 표시가 남고 턴이 끝난 뒤에도 세션이 대기(listen) 상태에 머문다.
+- 해결하려는 문제: 도구·포그라운드 작업이 **정상 실행 전에** 폐기·취소·거부되면 종료 통지가 오지 않거나 무시되어, transcript와 작업 패널에 실행 중 표시가 남고 main이 턴 후 대기(listen)를 붙든다.
+- 문제의 성격: **실행 차단이 아니라 표시·내부 상태의 gap**이다 — CLI는 유휴라서 새 메시지에는 즉시 답한다(사용자 관찰, D-013).
 - 완료 후 달라지는 것: 결과 없이 끝난 도구는 턴 종료나 SDK 철회 시점에 `실행되지 않음`으로 정착한다. 결과가 온 비실행 도구는 `거부됨/취소됨/중단됨`으로 실패와 구분되고, 포그라운드 작업은 턴 후 대기와 Stop을 붙잡지 않는다.
 - 성공을 사용자 관점에서 한 문장으로: 실행되지 않은 도구·작업이 끝없이 도는 표시 없이 사유와 함께 정착하고, 응답이 끝나면 불필요한 대기 없이 세션이 풀린다.
 
@@ -35,8 +36,10 @@
 | 명시 결정 | Q1 “SDK가 실행 전에 폐기해 결과가 오지 않는 도구 카드” → **“'실행되지 않음' 상태”** | 2026-09-23 설계 질의 응답 |
 | 명시 결정 | Q2 “결과는 왔지만 실행되지 않은 도구(권한 거부·중단·취소)” → **“포함”** | 2026-09-23 설계 질의 응답 |
 | 명시 결정 | Q3 “포그라운드 태스크가 종료 알림 없이 부모 호출만 끝난 경우” → **“호출 결과로 표시”** | 2026-09-23 설계 질의 응답 |
+| 명시 관찰 | “참고로 해당 사례에 대해 ui 상태가 반영이 안되어있을뿐 메시지를 보내면 메시지에 대한 답변을 바로 한다. Ui 및 내부 상태의 gap 이 있는상황이다” | 2026-09-23 사용자 보완 |
+| 명시 요구 | “완료하라” — 위 관찰과 G5를 plan에 반영해 완성 | 2026-09-23 사용자 요청 |
 | 추론 의도 | “포그라운드 작업”은 부모 도구 호출이 결과를 기다리는 실행이다 — SDK `is_backgrounded:false`와 저장소 명세 `claude-taskxxx-spec.md §5.2`의 정의를 따른다. | `sdk.d.ts:5300`, `docs/claude-taskxxx-spec.md` §5.2 |
-| 추론 의도 | 사용자가 “추측”이라 적은 원인은 단일 경로로 확정하지 않는다. 계획은 누락 구간 전부(§4 검토 결과 G1~G4)를 닫는다. | 사용자 문장의 “(추측)” |
+| 추론 의도 | 사용자가 “추측”이라 적은 원인은 단일 경로로 확정하지 않는다. 계획은 누락 구간 전부(§4 검토 결과 G1~G5)를 닫는다. | 사용자 문장의 “(추측)” |
 
 ## 3. Decision Ledger
 
@@ -53,19 +56,21 @@
 | D-009 | 표시 파생 SSOT는 shared `nonExecutionOutcome`(분류)과 renderer `toolRunOutcome`(transcript) 하나씩이다. 표면별 라벨은 `Record<…>` 전수 맵으로 강제한다. | 상태가 늘 때 누락 표면이 typecheck에서 실패하게 한다. | 설계 | ACTIVE | — |
 | D-010 | 작업 패널의 **정본 반환이 없는 호출 카드**는 transcript 결과(SDK·host 정착)를 표시 입력으로 조인한다. 정본 journal에 host 합성 반환을 쓰지 않는다. | 0231 D-10(상태 lane 분리)과 D-06(종료 합성 금지)을 지킨다. | 설계 · 0231 | ACTIVE | — |
 | D-011 | post-turn 로그는 판정 입력(`hasPending`)과 표시 수(`count`)를 **분리해** 기록한다. | 현재 로그 `haveTasks`는 판정과 다른 값을 적는다. | 코드 조사 | ACTIVE | — |
+| D-012 | 연결이 `terminated`이거나 현재 세대가 아닌 **비원격** 태스크는 종료 증거가 없어도 실행 중으로 표시하지 않는다 — `종료 확인 불가`·`프로세스 종료`, 경과 정지, 완료 그룹, 지우기 가능. | 소유 프로세스가 사라진 in-process 작업은 실행될 수 없다. 원격(`mode:'remote'`)은 프로세스와 독립이라 제외. 종료 증거는 합성하지 않는다(0231 D-06). | 사용자 관찰 · 코드 조사 | ACTIVE | — |
+| D-013 | 이번 작업의 완료 기준은 **표시·main 보유 상태가 CLI의 실제 상태와 일치**하는 것이다. CLI 입력 경로(새 메시지 즉시 처리)는 바꾸지 않는다. | 사용자 관찰상 입력 처리는 이미 정상이다. | 사용자 관찰 | ACTIVE | — |
 
 ### 갱신 메모
 
-- 이번 턴에서 새로 추가된 결정: D-001~D-011 (최초 plan).
+- 이번 턴에서 새로 추가된 결정: rev.1 D-001~D-011, rev.2 D-012·D-013(사용자 관찰 보완 — 구현 전 개정이라 라운드 불변).
 - 변경된 결정: 없음.
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: 0231 D-06(종료 합성 금지)·D-10(lane 분리), 0143(백그라운드 대기 중 Stop), 0231 source-spec “`ambient` 작업도 무조건 무시하지 않음”.
-- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-003 ↔ AC14·AC16(표시만 파생·terminalEvidence 불변) 일치, D-006 ↔ AC4(열린 것만) 일치, D-007 ↔ §6 비범위·AC 부재 일치, D-008 ↔ AC9 분류표 일치, D-010 ↔ AC15(journal 무기록) 일치.
+- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-003 ↔ AC14·AC16(표시만 파생·terminalEvidence 불변) 일치, D-006 ↔ AC4(열린 것만) 일치, D-007 ↔ §6 비범위·AC 부재 일치, D-008 ↔ AC9 분류표 일치, D-010 ↔ AC15(journal 무기록) 일치, D-012 ↔ AC18(비원격·표시 파생) 일치, D-013 ↔ AC12(새 입력 즉시 처리 유지 단언) 일치.
 
 ## 4. 요구 비판적 검토
 
 | 질문 | 판단 | 근거 |
 |---|---|---|
-| 요구가 증상이 아니라 원인을 겨냥하는가 | 타당 — 증상(spinner·대기)의 원인은 한 곳이 아니라 **네 누락 구간(G1~G4)**이다. | 아래 검토 결과 표 |
+| 요구가 증상이 아니라 원인을 겨냥하는가 | 타당 — 증상(spinner·대기)의 원인은 한 곳이 아니라 **다섯 누락 구간(G1~G5)**이다. 모두 표시·main 상태 gap이고 CLI 입력은 정상이다(D-013). | 아래 검토 결과 표 |
 | 이미 기존 코드가 충족하는가 | 부분 — 사용자 Stop·stall·throw 경로만 열린 도구를 정착한다. 정상 terminal은 정착하지 않는다. | `turn-coordinator.ts:501-515` vs `:525`·`:569` · `chat-turn/index.ts:177` |
 | 더 작은 해법이 있는가 | 없음 — G1(턴 종료 정착)만 고치면 패널·대기(G2·G3)가 남고, G2만 고치면 transcript 카드가 남는다. | 각 구간의 소비자가 다르다(§8 전수 조사) |
 | 선행 자료의 주장을 코드와 대조했는가 | 정정 필요 — `provider-runtime.md:90`은 합성 정착이 “실행 중 고착을 막는다”고 적지만 정본 모드에서는 no-op이다. | `settle.ts:114` · `chat-turn/index.ts:69`·`:84` |
@@ -77,7 +82,8 @@
 |---|---|---|---|---|
 | G1 | SDK+코드 | 스트리밍 폴백·거부 폴백 시 CLI가 이미 보낸 `tool_use`의 실행을 폐기한다. | `tool_result`가 **영영 오지 않는다**. Orca는 철회 신호도, 턴 종료 대사도 없다. | transcript 카드 spinner 영구, 재로드 후에도 유지 |
 | G2 | SDK+코드 | 포그라운드 태스크의 종료 bookend가 없거나 `result` 뒤에 늦게 온다. | level 신호가 포그라운드를 담지 않는다. 정본 lane은 부모 호출 반환을 종료로 쓰지 않는다. | 작업 패널 카드 `포그라운드 · 실행 중` 영구, 경과 계속 증가 |
-| G3 | 코드 | `backgroundPending`이 포그라운드 태스크(`unknown`+`running`)를 대기로 센다. | 턴 후 루프가 listen을 연다. listen은 pending 해소로 끝나지 않고, Stop은 다시 listen에 든다. | 응답 뒤 대기 애니메이션 지속(배경 작업 수 0), Stop 무력 |
+| G3 | 코드 | `backgroundPending`이 포그라운드 태스크(`unknown`+`running`)를 대기로 센다. | 턴 후 루프가 listen을 연다. listen은 pending 해소로 끝나지 않고, Stop은 다시 listen에 든다. | CLI 유휴면 transport `ready`라 대기 줄은 숨지만 busy 파생(완료 알림·세션 목록 갱신·폴더 추가)이 풀리지 않는다. CLI 진행 중엔 대기 줄 지속, Stop 무력 |
+| G5 | 코드 | Stop 직후(`draining` 중) 새 메시지를 보내면 `runAttempt`가 채널을 teardown·respawn한다. | 취소된 작업의 종료 bookend가 오기 전에 프로세스가 사라진다. 정본은 옛 세대 태스크를 `running`으로 남긴다. | 새 프로세스가 즉시 답하는데 패널 카드는 `실행 중 · 포그라운드 · 프로세스 종료`로 경과 증가 |
 | G4 | SDK+코드 | 권한 거부·중단·취소로 실행되지 않은 도구의 `tool_result`에 SDK가 사유를 싣는다. | Orca는 사유(`tool_result_meta[].non_execution_kind`)를 읽지 않는다. | 취소·거부가 빨간 `실패`로 보인다 |
 
 - 사용자에게 올릴 결정: 없음 — Q1~Q3를 이번 턴에 확정했다(D-001~D-003).
@@ -108,6 +114,7 @@
 | 포그라운드 태스크 알림 누락, 부모 호출 반환 | 정본 기록 불변, 패널 표시만 파생 | 카드가 완료 그룹으로, 호출 결과 라벨, 경과 정지, 중단 버튼 숨김 |
 | 턴 종료 시 포그라운드 태스크만 미정착 | post-turn `break` | 대기 애니메이션 없음 |
 | 포그라운드 태스크만 미정착 상태에서 Stop | 체인 종료(수신 유지 안 함) | 대기가 끝난다 |
+| Stop 직후 새 메시지 → 채널 교체로 옛 세대 태스크 미정착(G5) | 정본 기록 불변, 패널 표시만 파생 | 새 답변은 즉시, 옛 카드는 `종료 확인 불가 · 프로세스 종료`로 완료 그룹·경과 정지 |
 
 ### 파생 UX / 엣지케이스
 
@@ -119,13 +126,14 @@
 
 ## 6. 범위 / 비범위
 
-- **범위**: G1(턴 종료 정착 + 공개 철회 신호), G2(패널 표시 파생), G3(포그라운드 pending 제외 + 로그 정정), G4(비실행 사유 운반·영속·표시), 관련 문서·인벤토리.
+- **범위**: G1(턴 종료 정착 + 공개 철회 신호), G2(패널 표시 파생), G5(죽은 세대 표시 파생), G3(포그라운드 pending 제외 + 로그 정정), G4(비실행 사유 운반·영속·표시), 관련 문서·인벤토리.
 - **비범위**: 텍스트·사고·이미 결과 있는 도구의 철회 evict(A1) · `tombstone`/`set_in_progress_tool_use_ids` 소비(D-007) · listen이 pending 해소만으로 끝나지 않는 일반 문제(A3) · `ambient` 작업의 pending 포함(0231 결정 유지) · 과거 세션의 complete 메시지에 남은 고아 도구 재로드 보정(A4).
 
 | 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
 |---|---|---|
 | A1 거부 폴백의 철회 텍스트 evict | 아니오 — 표시 전용이며 데이터 형식 변경 없음 | NEXT_HANDOFF 후보 |
 | A3 listen 해제 일반화(백그라운드 사용자 중지 등) | 아니오 — post-turn 판정 확장 | NEXT_HANDOFF 후보 |
+| A5 draining 중 새 입력의 teardown 자체 회피 | 아니오 — 0067/0143 안전 열화 결정 변경이 필요 | 비범위(D-013: 입력 경로 불변) |
 | A4 과거 고아 도구 재로드 보정 | 아니오 — 로드 시점에 진행 중 턴과 구분하는 규칙이 별도 설계 | NEXT_HANDOFF 후보 |
 | `nonExecution` 필드 이름·형상 | **예 — 영속 payload와 IPC 계약** | 이번에 D-002·§10 EP-01로 확정 |
 
@@ -144,10 +152,11 @@
 | R-02 | AT-02 / AC9 | 분류 전수: 결과 없음→running, SDK 거부 5종→rejected, `interrupted`→aborted, `cancelled`→cancelled, 미지 SDK 값·host 2종→not_executed, 기존 abort 사유→aborted, 그 밖 오류→failed, 성공→completed. | 표 기반 단위 테스트 — 입력 10형 각각의 출력 | `toolRunOutcome` / `nonExecutionOutcome` |
 | R-02 | AT-02 / AC10 | 9개 표시 자리(§10 EP-04)가 분류를 경유해 `거부됨/취소됨/중단됨/실행되지 않음`을 중립 톤으로 보이고 `failed`만 빨강이다. | 표면별 렌더/순수 테스트 + `Record` 전수 맵 typecheck | chatReducer → 각 컴포넌트 |
 | R-03 | AT-03 / AC11 | `backgroundPending`은 포그라운드 태스크를 세지 않는다. `task_updated is_backgrounded:true`나 live 포함으로 승격되면 다시 센다. 백그라운드 `unknown`+`running`은 계속 센다. | 공유 reducer 테스트 4건(포그라운드·승격·live 포함·백그라운드 unknown) | provider lane → tracker → `hasPending` |
-| R-03 | AT-03 / AC12 | 포그라운드 태스크만 미정착이고 다른 대기 사유(예약·미확정 입력·CLI 진행)가 없으면 턴 후 단계는 `break`(listen 없음, transport `idle`)이고, Stop은 체인을 끝낸다(`keepScheduledReception=false`). | `post-turn.schedules.test.ts` 하네스: 정본 이벤트 observe 후 telemetry → listen 미개시 · chatCancel → 재대기 없음 | `runTurnWithContinuations` · `chatCancel` 핸들러 |
+| R-03 | AT-03 / AC12 | 포그라운드 태스크만 미정착이고 다른 대기 사유(예약·미확정 입력·CLI 진행)가 없으면 턴 후 단계는 `break`(listen 없음, transport `idle`)이고, Stop은 체인을 끝낸다(`keepScheduledReception=false`). 이후 새 메시지는 즉시 전송된다(현행 유지, D-013). | `post-turn.schedules.test.ts` 하네스: 정본 이벤트 observe 후 telemetry → listen 미개시 · chatCancel → 재대기 없음 | `runTurnWithContinuations` · `chatCancel` 핸들러 |
 | R-05 | AT-05 / AC13 | `chat.postturn.step` 로그의 `haveTasks`는 판정 입력(`hasPending`)과 같고 `taskCount`는 별도 필드다. | 로그 레지스트리 스파이로 필드 단언(포그라운드 unknown 1건: hasPending·count 값 각각) | `post-turn.ts:104-129` |
 | R-04 | AT-04 / AC14 | 포그라운드 태스크(종료 증거 없음)의 부모 호출이 정본에서 반환되면 카드는 호출 결과 상태로 완료 그룹에 들고, 경과는 호출 반환 시각에 멈추며, 중단 버튼이 숨고, 지우기 대상이 된다. 종료 증거가 오면 그것이 이긴다. | canonicalBackground 순수 테스트 + 패널 렌더 테스트(그룹·라벨·경과·버튼·지우기) | provider lane → backgroundStore → `CanonicalBackgroundContent` |
 | R-04 | AT-04 / AC15 | 정본 반환이 없는 호출 카드(Agent/Task·요청된 셸 등)는 transcript 결과가 있으면 그 결과로 표시되고 실행 중이 아니다. | 패널 렌더 테스트: 정본 call(started) + transcript host 정착 → `실행되지 않음`·완료 그룹 | chatStore messages + backgroundStore → 패널 |
+| R-04 | AT-04 / AC18 | 종료 증거 없는 비원격 태스크가 `connection==='terminated'`이거나 현재 세대가 아니면 카드는 `종료 확인 불가`(+기존 `프로세스 종료` 접미)로 완료 그룹에 들고, 경과는 `lastSeenAt`에 멈추며, 지우기 대상이다. 원격 호출·태스크는 기존 표시를 유지한다. | canonicalBackground 순수 테스트 4형(옛 세대·같은 세대 terminated·원격·현재 connected) + 패널 렌더 | teardown → `notifyChannelRetired`/새 세대 → reducer → 패널 |
 | R-04 | AT-04 / AC16 | 정본 태스크 기록에 합성 `terminalEvidence`가 생기지 않는다 — `status`·`terminalEvidence`는 표시 파생 전후 동일하다. | 공유 reducer/패널 테스트: 표시 파생 후 상태 객체 불변 단언 | 표시 파생 함수 |
 | R-05 | AT-05 / AC17 | 계약·아키텍처 문서가 새 동작을 서술하고 인벤토리가 재생성된다. | `node scripts/check-doc-inventory.mjs --check` 통과 · 문서 4곳 grep | `docs/IPC_CONTRACT.md` 외 3곳 |
 
@@ -172,7 +181,7 @@
 | R-01 | R | §5·§7 AC1~AC6 — 결과 없는 도구의 `실행되지 않음` 정착 | NEW | — |
 | R-02 | R | §7 AC7~AC10 — 비실행 사유 구분 표시 | NEW | — |
 | R-03 | R | §7 AC11·AC12 — 포그라운드가 대기·Stop을 붙잡지 않음 | NEW | — |
-| R-04 | R | §7 AC14~AC16 — 패널 카드의 호출 결과 표시 | NEW | — |
+| R-04 | R | §7 AC14~AC16·AC18 — 패널 카드의 호출 결과·죽은 세대 표시 | NEW | — |
 | R-05 | R | §7 AC13·AC17 — 관측성·문서 | NEW | — |
 | AT-01~AT-05 | AT | §7 검증 수단 열 | NEW | — |
 | SD-01 | SD | §9 TO-BE ① — terminal 경계 정착 순서 | NEW | — |
@@ -197,7 +206,7 @@
 | VP-01 | R-01 ↔ AT-01 | REQUIRED | SDK `assistant(tool_use)` → claude-map → coordinator → bus → chatReducer → ToolCard | AC1~AC6 단언 | not selected — 라벨·순서 직접 관측 | EP-01(8)·EP-02(3)·EP-03(4) |
 | VP-02 | R-02 ↔ AT-02 | REQUIRED | SDK `user(tool_result, tool_result_meta)` → claude-map → writer/relay → renderer 9자리 | AC7~AC10 단언 | required — 형제 라벨 맞바꿈(rejected↔cancelled) 1종, 자리: EP-04 ①·⑥·⑧ | EP-01(8)·EP-04(9) |
 | VP-03 | R-03 ↔ AT-03 | REQUIRED | provider `task_started(is_backgrounded:false)` → tracker → post-turn step / chatCancel | AC11·AC12 단언 | required — 제외 술어 제거 변이, 자리: EP-05 ① | EP-05(4) |
-| VP-04 | R-04 ↔ AT-04 | REQUIRED | provider lane + chat messages → backgroundStore/패널 파생 → 카드 | AC14~AC16 단언 | required — 호출 반환 규칙 제거 변이, 자리: EP-06 ①·②·⑤ | EP-06(6) |
+| VP-04 | R-04 ↔ AT-04 | REQUIRED | provider lane + chat messages → backgroundStore/패널 파생 → 카드 | AC14~AC16·AC18 단언 | required — 호출 반환 규칙 제거 변이, 자리: EP-06 ①·②·⑤ | EP-06(6) |
 | VP-05 | R-05 ↔ AT-05 | REQUIRED | post-turn 로그 · 문서 생성기 | AC13·AC17 | not selected — 값·생성기 직접 관측 | EP-08(4)·EP-09(1) |
 | VP-06 | SD-01 ↔ ST-01 | REQUIRED | frame terminal → coordinator 정착 → bus(history finalize 전) → relay | 버스 순서 로그 `[…completed, terminal]` · history part가 같은 메시지 | required — 정착을 `emit(terminal)` 뒤로 이동 / error 경로 삭제 / 합성 경로 삭제 3변이, 자리: EP-02 ①②③ | EP-02(3) |
 | VP-07 | SD-02 ↔ ST-02 | REQUIRED | SDK `model_refusal_fallback`/`supersedes` → claude-map `tool.call.retracted` → coordinator | 열린 A 정착·완료 B 불변·relay 부재 | required — 완료된 id에도 적용하는 변이, 자리: EP-03 ④ | EP-03(4) |
@@ -210,7 +219,7 @@
 | VP-14 | MD-02 ↔ UT-02 | REQUIRED | `openToolRuns` + 정본 상태 → 정착 대상 집합 | AC3 fixture 5형 | required — 보존 검사 제거 / 부모 규칙 반전 2변이 | 0 — 순수 선별 |
 | VP-15 | MD-03 ↔ UT-03 | REQUIRED | `BackgroundSessionState` → `backgroundPending` | AC11 4형 | required — 포그라운드 제외 ↔ 전 `unknown` 제외 맞바꿈(형제 자리) | 0 — 순수 술어 |
 | VP-16 | MD-04 ↔ UT-04 | REQUIRED | `ToolCall.result` → `toolRunOutcome` → 표면 Record | 분류표 + Record 전수(typecheck) | required — Record 키 삭제 시 typecheck red 확인 | 0 — 순수 분류 |
-| VP-17 | MD-05 ↔ UT-05 | REQUIRED | 정본 task/call + transcript 결과 → `BackgroundDisplay` | AC14·AC15·AC16 순수 단언 | required — 경과 종점을 `firstSeenAt`로 맞바꾸는 변이 | 0 — 순수 파생 |
+| VP-17 | MD-05 ↔ UT-05 | REQUIRED | 정본 task/call + transcript 결과 → `BackgroundDisplay` | AC14·AC15·AC16·AC18 순수 단언 | required — 경과 종점을 `firstSeenAt`로 맞바꾸는 변이 · 원격 제외 조건 제거 변이 | 0 — 순수 파생 |
 | VP-18 | MD-06 ↔ UT-06 | REQUIRED | SDK assistant/system → `toolRunIdsByMessageUuid` → `tool.call.retracted` | 매핑·상한·빈 목록 | not selected — 출력 이벤트 직접 관측 | 0 — 순수 매핑 |
 
 ### 현재 변경의 운영 gate
@@ -276,6 +285,9 @@ python3 -c "d=open('package/claude','rb').read();print(d.find(b'*getCompletedRes
 | 부모 호출 반환(`background.call` returned)은 태스크를 연결만 하고 종료로 쓰지 않는다. | `background-task.ts:404-483` |
 | 정본 모드에서 합성 정착 3경로는 no-op이다. legacy 트래커 `started/settled`도 정본이 있으면 반환한다. | `settle.ts:114` · `chat-turn/index.ts:69`·`:84` · `background-tasks.ts:84`·`:98` |
 | listen 프레임은 terminal·busy send 밸브·취소·채널 사망으로만 끝난다 — pending 해소는 종료 조건이 아니다. | `session-runtime.ts:709-716` · `post-turn.ts:176` |
+| draining 중 새 전송은 채널을 teardown한다 — 퇴역 시 옛 세대에 `terminated`를 기록하고 새 세대가 옛 태스크를 `unknown`으로 돌린다. 종료 상태는 바꾸지 않는다. | `session-runtime.ts:418`·`:769-803` · `background-task.ts:333-346` |
+| 패널은 옛 세대 태스크에 `프로세스 종료` 접미만 붙이고 상태는 `running`, 경과는 계속 흐른다. | `CanonicalBackgroundContent.tsx:165-170`·`:232` |
+| busy(`inflight\|\|listening`)는 완료 알림·세션 목록 갱신·폴더 추가를 보류한다. 대기 줄은 `sessionResponding`(ready 제외)만 본다. | `chatStore.ts:1802-1811` · `useCompletionNotifier.ts:18` · `useChatSessionsSync.ts:13` · `useDirectoryPicker.ts:23` |
 | post-turn 로그 `haveTasks`는 `count>0`, 판정은 `hasPending`이다 — `count`는 live 집합(포그라운드 제외) 기준. | `post-turn.ts:106`·`:111`·`:124` · `background-tasks.ts:193-202` |
 | 패널: 호출 카드 기본값 `running`, 포그라운드 라벨, 태스크 라벨 `running`. | `CanonicalBackgroundContent.tsx:38-46`·`:184` · `backgroundPresentation.ts:12` |
 | 대기 라벨: listening + 사실 0개면 `waiting`, 30초 뒤 `finishingSlow`. | `renderer/.../lib/activityLabel.ts:75-89`(`:87-88`) |
@@ -324,6 +336,7 @@ provider task_started(fg) ──► 정본(unknown,running) ──► background
 - ① terminal 대사: 프레임에서 `telemetry`/`error`(또는 합성 telemetry)를 처리할 때 **방출 직전** `settleOrphanToolRuns(…,'no_result')`.
 - ② 철회: claude-map이 wire uuid→tool_use id를 기억하고, 철회 신호에서 main 내부 `tool.call.retracted`를 낸다. coordinator는 열린 id만 `retracted`로 정착하고 이벤트를 흡수한다.
 - ③ 대기: `backgroundPending`이 `isForegroundTask`를 제외 → post-turn·Stop 판정이 자동으로 맞춰진다.
+- ⑤ 죽은 세대: `backgroundTaskDisplay`가 `connection==='terminated'` 또는 `task.generation!==state.generation`인 비원격·무종료 태스크를 `unconfirmed`(settled)로 파생한다.
 - ④ 표시: 결과 payload 옆에 `nonExecution`을 운반·영속하고, renderer는 `toolRunOutcome`·`BackgroundDisplay`로만 상태를 파생한다.
 - 유지하는 기존 메커니즘: Stop·stall·throw `settleOpenToolRuns`, `settleSubagentTask`, 정본 reducer의 “첫 종료 증거 우선”, 0231 host 이벤트(control·connection) 외 journal 무기록.
 
@@ -344,6 +357,7 @@ renderer: ToolCall.result(nonExecution) ──► toolRunOutcome ──► 표�
 | data/control flow | 철회 신호 버림 | `tool.call.retracted`(내부) 경유 | G1 | AR-01 / VP-09 · `claude-map.ts` |
 | state/contract | `tool.call.completed`에 사유 없음 | `nonExecution?` 운반·영속 | G4·D-001 | AR-01·AR-02 / VP-09·10 · `ipc.ts`·`writer.ts` |
 | error/lifecycle | 정본 pending이 포그라운드를 셈 | 포그라운드 제외, 승격 시 복귀 | G3 | SD-03·AR-03 / VP-08·11 · `background-task.ts` |
+| state 표시(G5) | 죽은 세대 태스크를 `running`으로 표시 | 비원격이면 `종료 확인 불가`로 파생 | G5·D-012 | R-04·MD-05 / VP-04·17 · `canonicalBackground.ts` |
 | test seam/관측점 | 표시가 표면마다 인라인 판정 | `toolRunOutcome`·`BackgroundDisplay` 순수 파생 | G2·G4 | MD-04·MD-05 / VP-16·17 |
 
 AS-IS에서 사라지는 책임: 없음. `callStatus`(패널 인라인)는 `backgroundCallDisplay`로 **이동**한다.
@@ -394,7 +408,7 @@ AS-IS에서 사라지는 책임: 없음. `callStatus`(패널 인라인)는 `back
 | `app/src/renderer/src/features/chat/reducer/chatReducer.ts` | 라이브 | `ToolCall.result.nonExecution?` · `tool.call.completed` append 복사 | reducer 단위 |
 | `app/src/renderer/src/features/chat/lib/parts.ts` | 분류 | `resultMap` 복사 · `ToolRunOutcome`·`toolRunOutcome` · `SubagentTaskStatus = ToolRunOutcome` · `deriveSubagentTaskStatus` 위임 | 순수 단위 (UT-04) |
 | `ToolCard.tsx` · `AgentTaskRow.tsx` · `SubAgentTileContent.tsx` · `taskBoard.ts` · `TaskStatusIcon.tsx` · `workToolPresentation.ts` · `WorkToolTimeline.tsx` | 표시 | EP-04 9자리를 `toolRunOutcome` 경유 + `Record<ToolRunOutcome,…>` 전수 맵. 새 3상태는 중단과 같은 중립 톤·`stop` 아이콘, 라벨로 구분 | 렌더/순수 |
-| `app/src/renderer/src/features/chat/lib/canonicalBackground.ts` | 패널 파생 | `transcriptResultsByToolUseId(messages)` · `backgroundCallDisplay(call, transcriptResult?)` · `backgroundTaskDisplay(state, task)` → `{status, settled, endedAt?}` · dismiss 가드가 `settled`를 본다 | 순수 단위 (UT-05) |
+| `app/src/renderer/src/features/chat/lib/canonicalBackground.ts` | 패널 파생 | `transcriptResultsByToolUseId(messages)` · `backgroundCallDisplay(call, transcriptResult?)` · `backgroundTaskDisplay(state, task)` → `{status, settled, endedAt?}`(판정 순서: 종료 증거 → 포그라운드 호출 반환 → 죽은 세대·비원격 → 현행) · dismiss 가드가 `settled`를 본다 | 순수 단위 (UT-05) |
 | `CanonicalBackgroundContent.tsx` · `backgroundStore.ts` · `backgroundPresentation.ts` | 패널 소비 | EP-06 6자리를 `BackgroundDisplay`로 교체 · `dismissCompletedBackgroundItems`에 transcript 결과 인자 | 렌더 (IT-04) |
 | `app/src/renderer/src/shared/i18n/resources/{ko,en}.ts` | 문구 | EP-07 15키 × 2 | typecheck(키 타입) |
 
@@ -455,6 +469,7 @@ provider call + chat messages ─► BackgroundDisplay ─► 패널·지우기
 | “상태 이벤트는 pump 독점, transcript는 기존 버스” | 0231 D-10 | §3 D-010 · AC15 | 유지 — journal 무기록, renderer 조인 |
 | “hasPending은 live/미확인 런치/승인/stop/재동기화 보류를 포함” | 0231 plan:301 | §3 D-005 · AC11 | 유지 — 포그라운드는 다섯 중 무엇도 아니므로 제외가 원 의도와 일치 |
 | “`ambient` 작업도 무조건 무시하지 않음” | 0231 source-spec:568 | §6 비범위 | 유지 |
+| draining 중 새 턴은 채널을 respawn한다(안전 열화) | 0067 · `session-runtime.ts:417` 주석 | §6 A5 · D-013 | 유지 — 결과 표시만 파생(D-012) |
 | 백그라운드 대기 중 Stop은 태스크를 보존하며 수신을 잇는다 | 0143 · `index.ts:158-172` | AC12 | 유지 — 포그라운드만 남은 경우에만 수신을 잇지 않는다 |
 | “foreground/background는 턴이 기다리는가다” | `claude-taskxxx-spec.md` §5.2 | D-005 | 유지 — 근거로 사용 |
 | 합성 정착이 “실행 중 고착을 막는다” | `provider-runtime.md:90` | §10 EP-08 | **변경(문서 정정)** — 정본 모드 no-op 사실과 신규 규칙으로 고친다 |
@@ -469,6 +484,7 @@ provider call + chat messages ─► BackgroundDisplay ─► 패널·지우기
 | 지연 도구(`tool_deferred`)가 host 정착 후 재개되면 라이브 표시는 이전 메시지에 정착으로 남을 수 있다 | DB upsert는 전역 last-wins라 재로드에서 교정된다(AC5). Orca 자체는 defer 훅을 쓰지 않는다 |
 | 폴백 재시도 중 스트리밍 폴백은 공개 철회 신호가 없어 정착이 재시도 `result`까지 늦다 | D-007 — 원인 무관 terminal 정착으로 영구 고착만 제거한다 |
 | `interrupted`를 `중단됨`에 합치면 사용자 Stop과 CLI 중단이 구분되지 않는다 | 의도된 결정(D-008) — 두 lane 라벨 일치가 우선 |
+| 죽은 세대 규칙이 원격 태스크를 잘못 종료로 보일 수 있다 | `call.mode==='remote'`·`backgroundObserved` 원격 호출을 제외(AC18 원격 형) |
 | ExitPlanMode 수정 요청이 `거부됨`으로 보인다 | 현행(빨간 `계획 제안함`)보다 의미가 가깝다 — 사람 실기에서 확인 |
 
 - 되돌리기 어려운 결정: `nonExecution` 필드 이름·형상(영속 payload) — D-002·EP-01로 확정.
