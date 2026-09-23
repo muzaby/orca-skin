@@ -17,6 +17,9 @@ import { TurnCoordinator } from '../../features/chat/turn-coordinator'
 import { TypedBus } from '../../infra/bus'
 import type { OrcaBusEvents } from '../../contracts/bus-events'
 import { makeClassifiedError } from '../../infra/errors'
+import { setRootLogger } from '../../infra/log/registry'
+import type { AppLogger } from '../../infra/log/log-manager'
+import type { BackgroundEvent } from '../../../shared/background-task'
 
 const ipc = vi.hoisted(() => ({
   handlers: new Map<string, (event: unknown, raw: unknown) => Promise<void>>()
@@ -576,6 +579,98 @@ describe('scheduled reception after Stop', () => {
       f.lease.controller.abort()
       await running
       expect(f.active()).toBe(child)
+    } finally {
+      f.cleanup()
+      await running
+    }
+  })
+})
+
+// 0239 AC12·AC13 · SD-03 · §10 EP-05 ③④ · EP-09 — 포그라운드 태스크는 턴 후 대기와 Stop 을 붙잡지 않는다.
+describe('0239 — 포그라운드 태스크와 턴 후 판정', () => {
+  let sequence = 0
+  const taskStarted = (taskId: string, isBackgrounded: boolean): BackgroundEvent => ({
+    type: 'background.task',
+    sessionId: 's1',
+    source: { generation: 'g1', sequence: ++sequence, receivedAt: sequence, replay: false },
+    taskId,
+    toolUseId: `tool-${taskId}`,
+    phase: 'started',
+    patch: { status: 'running', taskType: 'local_agent', isBackgrounded }
+  })
+  const spyLogger = (): { logger: AppLogger; steps: Array<Record<string, unknown>> } => {
+    const steps: Array<Record<string, unknown>> = []
+    const logger: AppLogger = {
+      debug: () => {},
+      warn: () => {},
+      error: () => {},
+      info: (event: string, fields?: Record<string, unknown>) => {
+        if (event === 'chat.postturn.step') steps.push(fields ?? {})
+      },
+      child: () => logger
+    } as unknown as AppLogger
+    return { logger, steps }
+  }
+
+  it('AC12·AC13 — 포그라운드 태스크만 남으면 break 하고 로그 haveTasks 는 판정 값과 같다', async () => {
+    const { logger, steps } = spyLogger()
+    setRootLogger(logger)
+    const f = fixture()
+    f.backgroundTasks.observe(taskStarted('fg', false))
+    const running = f.run()
+    try {
+      f.emit({ type: 'telemetry', sessionId: 's1' })
+      await running
+      expect(f.activity.current('s1').transport).toBe('idle')
+      expect(f.lease.controller.signal.aborted).toBe(false)
+      expect(steps.at(-1)).toMatchObject({ step: 'break', haveTasks: false })
+      // 표시 수(`count`)는 판정과 별개 필드다 — live 집합 기준이라 포그라운드는 0 이다.
+      expect(steps.at(-1)).toMatchObject({ taskCount: f.backgroundTasks.count('s1') })
+    } finally {
+      setRootLogger(null)
+      f.cleanup()
+      await running
+    }
+  })
+
+  it('대조 — 백그라운드 태스크가 남으면 수신을 연다(ready)', async () => {
+    const f = fixture()
+    f.backgroundTasks.observe(taskStarted('bg', true))
+    const running = f.run()
+    try {
+      f.emit({ type: 'telemetry', sessionId: 's1' })
+      await tick()
+      expect(f.activity.current('s1').transport).toBe('ready')
+    } finally {
+      f.cleanup()
+      await running
+    }
+  })
+
+  it('AC12 — 포그라운드 태스크만 남은 Stop 은 체인을 끝낸다', async () => {
+    const f = fixture()
+    f.backgroundTasks.observe(taskStarted('fg', false))
+    const running = f.run()
+    try {
+      await tick()
+      await f.stop()
+      await running
+      expect(f.lease.controller.signal.aborted).toBe(true)
+    } finally {
+      f.cleanup()
+      await running
+    }
+  })
+
+  it('대조 — 백그라운드 태스크가 남은 Stop 은 수신을 잇는다(0143)', async () => {
+    const f = fixture()
+    f.backgroundTasks.observe(taskStarted('bg', true))
+    const running = f.run()
+    try {
+      await tick()
+      await f.stop()
+      await tick()
+      expect(f.lease.controller.signal.aborted).toBe(false)
     } finally {
       f.cleanup()
       await running

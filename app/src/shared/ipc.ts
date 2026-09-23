@@ -10,6 +10,7 @@ import type { AgentKind } from './agent-kind'
 import type { ResponseBoundary, ResponseBoundaryPart } from './response-boundary'
 import type { ReceivedMessageOrigin, SessionSchedule } from './session-schedules'
 import type { ProviderCatalogPresentation } from './provider-catalog'
+import type { NonExecution } from './tool-outcome'
 
 export type { AgentKind } from './agent-kind'
 export type { ResponseBoundary } from './response-boundary'
@@ -633,9 +634,17 @@ export type NormalizedEvent =
       // **`Edit`**(0228) 둘뿐이고, 후자는 SDK 원본이 아니라 `{ structuredPatch }` 투영만 싣는다 —
       // `FileEditOutput.originalFile` 은 편집 전 파일 전체라 영속 비용이 파일 크기에 비례한다.
       structuredOutput?: unknown
+      // 비실행 사유(0239) — 거부·중단·취소(SDK `tool_result_meta`) 또는 결과 없이 끝난 도구의 host
+      // 정착(`no_result`·`retracted`). **부재 = 끝까지 실행됐거나 사유 미상**이라 현행 표시다(D-002).
+      // 형상·분류 정본은 `shared/tool-outcome.ts`.
+      nonExecution?: NonExecution
       // HistoryWriter만 원래 publisher 호출·게시 소유권 확인 후 보강한다.
       artifact?: ArtifactRef
     }
+  // main 내부 철회 신호(0239 — renderer 미전달·미영속). SDK 공개 철회(`model_refusal_fallback.
+  // retracted_message_uuids`·`assistant.supersedes`)가 지목한 wire 메시지의 tool_use id 다.
+  // TurnCoordinator 가 **아직 열린 id 만** `retracted` 로 정착하고 이 이벤트는 흡수한다(D-006).
+  | { type: 'tool.call.retracted'; sessionId: string; toolRunIds: string[] }
   | { type: 'artifact.published'; sessionId: string; artifact: ArtifactRef }
   | {
       type: 'output.captured'
@@ -1463,6 +1472,8 @@ export type AppMessagePart =
       // `{ structuredPatch }` 투영(0228). 재로드 후에도 같은 파생이 서게 영속한다.
       // 과거 렌더러는 미인식 필드를 무시하므로 전방 호환.
       structuredOutput?: unknown
+      // 비실행 사유(0239) — `tool.call.completed.nonExecution` 의 영속본. 재로드 후 같은 분류가 선다.
+      nonExecution?: NonExecution
     }
   | { type: 'file'; path: string; readType?: 'raw' | 'patch'; content?: string }
   | { type: 'diff'; patch: string }

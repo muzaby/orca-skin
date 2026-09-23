@@ -554,6 +554,17 @@ export function sanitizedBackgroundState(state: BackgroundSessionState): Backgro
   delete view.seenEvents
   return view
 }
+// 포그라운드 태스크(0239 D-005) — 부모 도구 호출이 결과를 기다리는 실행이다(SDK
+// `task_started.is_backgrounded:false`). level 신호(`background_tasks_changed`)는 백그라운드 전량만
+// 담으므로 포그라운드는 시작 뒤 snapshot 이 오지 않는 한 `unknown` 에 머문다. live 포함이나
+// `is_backgrounded:true` 관측으로 승격된 태스크는 더 이상 포그라운드가 아니다.
+// `isBackgrounded` 부재(태스크 종류상 미설정)는 포그라운드가 **아니다** — 판정 불가를 대기에서
+// 빼지 않는다.
+export function isForegroundTask(task: BackgroundTaskRecord): boolean {
+  return (
+    task.isBackgrounded === false && task.liveMembership !== 'included' && !task.backgroundObserved
+  )
+}
 export function backgroundPending(state: BackgroundSessionState): boolean {
   if (!state.generation || state.connection === 'terminated') return false
   if (state.connection === 'resynchronizing') return true
@@ -575,6 +586,9 @@ export function backgroundPending(state: BackgroundSessionState): boolean {
       (task) =>
         task.generation === state.generation &&
         !isBackgroundTerminal(task.status) &&
+        // 포그라운드는 턴 후 대기 사유가 아니다(0239 EP-05 ①) — 실행 중이든 중단 ACK 대기든
+        // 결과는 부모 호출로 턴 안에서 돌아오고, 턴 뒤에 기다리면 listen 이 풀리지 않는다.
+        !isForegroundTask(task) &&
         (task.liveMembership === 'included' ||
           (task.liveMembership === 'unknown' && task.status === 'running') ||
           task.stop?.state === 'requested' ||

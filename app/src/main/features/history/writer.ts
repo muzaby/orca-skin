@@ -440,7 +440,9 @@ export class HistoryWriter {
             // 구조화 출력 영속(0204 §10 EP-07) — 작업 타일(TaskXXX)과 편집 diff 카드(`Edit`
             // 의 `structuredPatch`, 0228)가 재로드 후에도 같은 파생을 세우려면 라이브 이벤트와
             // 이 파트가 같은 필드를 실어야 한다.
-            ...(ev.structuredOutput !== undefined ? { structuredOutput: ev.structuredOutput } : {})
+            ...(ev.structuredOutput !== undefined ? { structuredOutput: ev.structuredOutput } : {}),
+            // 비실행 사유(0239 EP-01 ⑤) — 재로드 후에도 거부·취소·실행되지 않음 분류가 같게 선다.
+            ...(ev.nonExecution !== undefined ? { nonExecution: ev.nonExecution } : {})
           })
         )
         if (!ev.isError && ev.sessionId === turn.dbSessionId && this.artifacts) {

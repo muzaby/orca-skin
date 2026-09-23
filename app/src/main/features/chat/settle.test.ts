@@ -1,7 +1,13 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
-import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from './settle'
+import {
+  orphanToolRunIds,
+  settleOpenToolRuns,
+  settleOrphanToolRuns,
+  settleSubagentTask,
+  stopLiveSubagent
+} from './settle'
 import { applyBackgroundEvent, emptyBackgroundState } from '../../../shared/background-task'
 
 type W = string
@@ -126,5 +132,91 @@ describe('stopLiveSubagent', () => {
 
   it('live 가 없으면 no-op', async () => {
     await expect(stopLiveSubagent(null, 'tool-1', 'task-1', false)).resolves.toBeUndefined()
+  })
+})
+
+// 0239 AC3(ΔV1 rev.2) · UT-02 — 결과 없이 끝난 실행의 host 정착 선별.
+describe('settleOrphanToolRuns', () => {
+  const source = { generation: 'g', sequence: 1, receivedAt: 1, replay: false }
+  // bg = 백그라운드로 런치된 Agent(런치 영수증으로 이미 닫힘), 그 child 는 계속 실행된다.
+  const canonical = applyBackgroundEvent(emptyBackgroundState(), {
+    type: 'background.call',
+    sessionId: 'sess-1',
+    source,
+    toolUseId: 'bg',
+    phase: 'returned',
+    patch: { mode: 'background', status: 'async_launched' }
+  })
+  const fixture = (): Map<string, { parentToolRunId?: string }> =>
+    new Map([
+      ['main', {}],
+      ['bg-child', { parentToolRunId: 'bg' }],
+      ['open-parent', {}],
+      ['open-parent-child', { parentToolRunId: 'open-parent' }],
+      ['closed-parent-child', { parentToolRunId: 'closed-parent' }]
+    ])
+
+  it('정본이 있으면 보존 집합 밖의 열린 실행을 부모 상태와 관계없이 정착한다', () => {
+    const emit = vi.fn()
+    const turn = turnWith(fixture())
+    settleOrphanToolRuns(turn, emit, 'no_result', canonical)
+    expect(emit.mock.calls.map((call) => call[1].toolRunId)).toEqual([
+      'main',
+      'open-parent',
+      'open-parent-child',
+      'closed-parent-child'
+    ])
+    expect([...turn.openToolRuns.keys()]).toEqual(['bg-child'])
+  })
+
+  it('정본이 없으면 부모 있는 실행은 둔다 — 백그라운드 여부를 알 수 없다', () => {
+    const emit = vi.fn()
+    const turn = turnWith(fixture())
+    settleOrphanToolRuns(turn, emit, 'no_result', undefined)
+    expect(emit.mock.calls.map((call) => call[1].toolRunId)).toEqual(['main', 'open-parent'])
+    expect([...turn.openToolRuns.keys()]).toEqual([
+      'bg-child',
+      'open-parent-child',
+      'closed-parent-child'
+    ])
+  })
+
+  it('정착 결과는 실행되지 않음 본문과 host 사유를 싣고 부모 id 를 보존한다', () => {
+    const emit = vi.fn()
+    const turn = turnWith(new Map([['child', { parentToolRunId: 'gone' }]]))
+    settleOrphanToolRuns(turn, emit, 'no_result', canonical)
+    expect(emit.mock.calls[0][1]).toEqual({
+      type: 'tool.call.completed',
+      sessionId: 'sess-1',
+      toolRunId: 'child',
+      result: { reason: 'not_executed', message: '실행되지 않았습니다' },
+      isError: true,
+      parentToolRunId: 'gone',
+      nonExecution: { source: 'host', kind: 'no_result' }
+    })
+  })
+
+  it('retracted 는 지목된 id 중 열린 것만 정착하고 보존 판정을 거치지 않는다', () => {
+    const emit = vi.fn()
+    const turn = turnWith(
+      new Map([
+        ['a', {}],
+        ['b', {}]
+      ])
+    )
+    settleOrphanToolRuns(turn, emit, 'retracted', undefined, ['a', 'done'])
+    expect(emit.mock.calls.map((call) => [call[1].toolRunId, call[1].nonExecution])).toEqual([
+      ['a', { source: 'host', kind: 'retracted' }]
+    ])
+    expect([...turn.openToolRuns.keys()]).toEqual(['b'])
+  })
+
+  it('열린 실행이 없으면 no-op 이고, 선별은 순수하다', () => {
+    const emit = vi.fn()
+    settleOrphanToolRuns(turnWith(new Map()), emit, 'no_result', canonical)
+    expect(emit).not.toHaveBeenCalled()
+    const turn = turnWith(fixture())
+    expect(orphanToolRunIds(turn, 'no_result', canonical)).toHaveLength(4)
+    expect(turn.openToolRuns.size).toBe(5)
   })
 })
