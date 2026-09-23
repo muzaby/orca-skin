@@ -366,7 +366,7 @@ producer → contract/normalize → state/store → consumer/UI/tool
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은
 > [`handoff-impl/SKILL.md`](../handoff-impl/SKILL.md).
-> **재구현 라운드도 같은 이름의 필드를 다시 채운다** — 라운드 표제(`… (r2)`)만 바꾸고 필드를 줄이지 않는다.
+> **재구현 턴도 같은 이름의 필드를 다시 채운다** — 표제(`… (r2)`, 같은 라운드 추가 턴이면 `… (r2.2)`)만 바꾸고 필드를 줄이지 않는다.
 > 해당 없는 필드는 지우지 말고 `해당 없음`으로 남긴다: 빠진 필드는 조사하지 않은 것과 구분되지 않는다(impl §8).
 
 ## [구현자 기입] 설계 리뷰
@@ -470,7 +470,7 @@ producer → contract/normalize → state/store → consumer/UI/tool
 - 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음 / …
 - 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: …
 - 반복해서 부딪히는 환경 한계: 없음 / …
-- 현재 라운드 수: N (3 초과면 다음 재구현 전에 `handoff-review`)
+- 현재 라운드·impl 턴: `rN` / `rN.k` (라운드 3 초과 또는 verify 없는 impl 턴 3 초과면 — 사용자 요구 변경 턴 제외 — 다음 재구현 전에 `handoff-review`)
 
 ---
 

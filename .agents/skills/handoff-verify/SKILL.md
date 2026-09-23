@@ -202,7 +202,7 @@ plan §10은 pair 안에서 **별도 분모**로 계속 걷는다. `언제 강�
 - `AGENTS.md` 변경 시: 비밀/토큰/이메일/IP 등 위생, 일회성·변동성 정보 혼입, 부모↔자식 규칙 충돌을 확인한다. 새 `AGENTS.md`를 만들었다면 `CLAUDE.md` stub/루트 표 필요 여부도 본다.
 - `docs/handoff/INDEX.md`: 상태·다음 주체·대상 커밋·PASS archive 이동이 실제 상태와 맞는지 확인한다. **이번 턴에 갱신된 비고가 5줄을 넘으면 그것도 미스매치다** — 상세의 정본은 `plan.md`/`verify.md`다(`docs/handoff/AGENTS.md §산출물 문장 규칙 3`). 다른 행의 옛 비고는 대상이 아니다.
 - **대상 커밋 좌표는 검증자가 기입한다** — 구현자가 남긴 `(rN 구현 — 검증자 기입)`을 공유 브랜치의 실제 커밋으로 채운다. 구현자가 해시를 적어 놓았으면 그것도 자기 환경의 좌표이므로 `git cat-file -t <hash>`로 확인하고 교정한다. **좌표 정본은 INDEX 한 곳이다** — plan 구현 보고 행은 자리표시자로 둔다(사본이 둘이면 갈린다, P40).
-- **재구현 라운드의 `[구현자 기입]`이 impl §8의 7개 필드를 모두 갖는지 센다** — 설계 리뷰·강제 지점 전수·이번 라운드 수정의 잠금·Product/UX 파생 검토·놓친 잠재 문제·구현 보고·Review Signals다. 산문으로 접힌 필드는 그 필드가 요구한 증거가 없는 것이다(0198 r6: `이번 라운드 수정의 잠금`이 표 대신 한 줄이 되며 5 hunk 중 3만 실렸다).
+- **재구현 턴의 `[구현자 기입]`이 impl §8의 7개 필드를 모두 갖는지 센다** — 설계 리뷰·강제 지점 전수·이번 라운드 수정의 잠금·Product/UX 파생 검토·놓친 잠재 문제·구현 보고·Review Signals다. 산문으로 접힌 필드는 그 필드가 요구한 증거가 없는 것이다(0198 r6: `이번 라운드 수정의 잠금`이 표 대신 한 줄이 되며 5 hunk 중 3만 실렸다).
 - commit trailer: root `AGENTS.md` / `docs/git-template.md` 허용값을 따르고 **실제로 파싱된다**. 허용되지 않은 `Agent` 값 등을 통과시키지 않고, `git log -1 --format='%(trailers:only=true)' <커밋>`이 적힌 키를 그대로 돌려주는지 본다 — 값이 맞아도 파싱이 0건이면 메시지 버스가 끊긴 것이다(0198 r7: 본문이 리터럴 `\n`으로 한 줄이라 6키가 0건). 인용된 커밋 해시가 실재하는지 확인한다 — 죽은 좌표는 다음 라운드의 기준선을 깬다(0190 D3: `55cdbfe`, 실제는 `8bbd595`).
 - reference/script: 이동·삭제 후 살아 있는 소비처 또는 의도적 archive 근거가 있는지 확인한다.
 
@@ -242,7 +242,7 @@ A~F 분류와 skill 변경은 `handoff-review`가 한다.
 ## 마무리
 
 - PASS: INDEX `verify/PASS`, 완료 행 archive 이동.
-- FAIL: INDEX `verify/FAIL`, 라운드 +1, 다음 주체는 구현자다.
-- RETURN_TO_PLAN 또는 FAIL과 함께 있는 PLAN_GAP: INDEX `verify/RETURN_TO_PLAN`, 다음 주체는 설계자다. 설계자는 Decision·AC·V node/pair·§10·oracle 중 영향받은 규범 행을 새 Delta V revision으로 고치고 별도 커밋으로 `plan/READY`에 돌린다.
-- 라운드가 3을 초과하면 다음 재구현 전에 `handoff-review`를 수행한다.
+- FAIL: INDEX `verify/FAIL`, 라운드 +1, 다음 주체는 구현자다. 라운드는 plan → impl → verify 한 주기이고 verify 없이 반복된 plan·impl 턴은 세지 않는다(`docs/handoff/AGENTS.md §라운드`).
+- RETURN_TO_PLAN 또는 FAIL과 함께 있는 PLAN_GAP: INDEX `verify/RETURN_TO_PLAN`, 라운드 +1, 다음 주체는 설계자다. 설계자는 Decision·AC·V node/pair·§10·oracle 중 영향받은 규범 행을 새 Delta V revision으로 고치고 별도 커밋으로 `plan/READY`에 돌린다.
+- 라운드가 3을 초과하거나 같은 라운드의 verify 없는 impl 턴이 3을 초과하면(사용자 요구 변경 턴 제외) 다음 재구현 전에 `handoff-review`를 수행한다.
 - 커밋 형식은 root `AGENTS.md`와 `docs/git-template.md`를 따른다.

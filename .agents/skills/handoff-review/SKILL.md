@@ -28,7 +28,8 @@ description: handoff-plan·handoff-impl·handoff-verify의 지침 **자체**를 
 - 여러 handoff에서 동일 설계/검증 실수가 재발한다.
 - 긴 대화의 확정 결정이 plan에서 소실·변형되는 decision drift가 관찰된다.
 - verify가 같은 한계를 반복해서 사람 실기/환경 제약으로 넘긴다.
-- impl 라운드가 3을 초과한다.
+- 라운드(plan → impl → verify 한 주기)가 3을 초과한다.
+- 같은 라운드에서 verify 없이 impl 턴이 3을 초과한다 — 사용자 요구 변경에 따른 턴은 세지 않는다(`docs/handoff/AGENTS.md §라운드`).
 
 정상 단일 PASS마다 자동 실행하지 않는다.
 

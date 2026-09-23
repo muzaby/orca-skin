@@ -278,6 +278,7 @@ FAIL/RETURN_TO_PLAN의 미해결 항목은 `[검증자 기입] 파생 이슈`에
 - **`PLAN_GAP`은 재구현 전에 여기서 닫는다.** 구현 전 Baseline V가 이미 확정돼 있으므로 필요한 Decision·AC·V node/pair·경로·§10·oracle을 새 Delta V revision으로 정정하고 구 행을 덮어쓰지 말고 supersede한다. `RETURN_TO_PLAN`을 구현자에게 그대로 넘기지 않는다.
 - 설계 계약이 틀렸다는 증거가 생기면 관련 Decision/AC/Technical Design만 명시적으로 수정하고 변경 이유를 남긴다. **고쳐 쓴 AC 행은 §5 AC 게이트와 READY self-review의 AC 항목을 다시 통과시킨다** — 최초 작성만 게이트를 받고 정정은 안 받으면 세 라운드째 틀린 기준으로 채점한다(0194 AC18: 대리 기준 → 정정한 닫힌 식이 조건부 항을 빼먹어 저장소의 테스트가 그것을 반증했다).
 - 사용자 결정 변경이면 기존 Decision을 `SUPERSEDED` 처리한다. 실패로 위장하지 않는다.
+- 사용자 요구 변경으로 plan을 다시 쓰는 것은 같은 라운드 안의 턴이다 — 라운드를 올리지 않는다(`docs/handoff/AGENTS.md §라운드`).
 - 반복 라운드에서 같은 종류가 다시 나오면 `handoff-review` 대상 신호로 올린다. **여기서 failure-patterns를 직접 갱신하지 않는다.**
 
 ## 마무리

@@ -2315,3 +2315,66 @@ r6 구현은 프로덕션을 한 줄도 바꾸지 않고 렌더 테스트로만 
 
 - **자리 열거도 열거다.** 규칙은 자리 후보를 pair path의 edge로 넓힐 뿐 path 자체에 없는 edge는 잡지 못한다 — 그것은 plan의 path 서술 품질에 달려 있다.
 - 0238 검증 환경: Electron/SDK 실기 불가(두 테마·bare `fable` alias)는 사람 몫이며 지침으로 해결되지 않는다.
+
+---
+
+# review round 29 — 라운드 정의를 plan → impl → verify 한 주기로 바꾼다
+
+**발동/모드**: 사용자 지시 "라운드의 개념을 plan->impl->verify 를 1라운드로 변경하라. 사용자 요구사항 변경으로 Plan이나 impl만 여러턴을 진행하는 경우 라운드를 증가시키지 않도록". **APPLY**. 실패 교정이 아니라 사용자 결정 변경(**D**)이라 corpus에 새 P를 넣지 않는다.
+
+## 변경
+
+| 축 | 이전 | 이후 |
+|---|---|---|
+| 라운드 +1 | verify/FAIL · 외부 피드백 재구현 · red gate 수정(impl 턴마다) | verify가 FAIL·RETURN_TO_PLAN으로 끝날 때만 |
+| verify 없는 plan·impl 반복 | 라운드 증가 | 같은 라운드의 턴 — impl은 `rN.k` |
+| review 트리거 | impl 라운드 > 3 | 라운드 > 3 **또는** 같은 라운드의 verify 없는 impl 턴 > 3(사용자 요구 변경 턴 제외) |
+| 진행 중 handoff | — | 다음 INDEX 갱신 때 라운드 칸만 다시 센다. 기존 `rN` 라벨은 고치지 않고 겹치면 순번을 잇는다 |
+
+정본은 `docs/handoff/AGENTS.md §라운드`이고, INDEX 범례 · impl §0·Review Signals·마무리 · verify 마무리 · review SKILL 트리거 · plan SKILL · plan.template이 그 절을 참조한다.
+
+## Tier
+
+**Tier 1.** lifecycle의 카운트 의미와 review 트리거가 바뀐다. 6-A + 6-B + 6-C 수행.
+
+## 6-A Operational Instruction Delta
+
+삭제 줄 **23**(`git diff -U0`). 설명 없이 사라진 항목 **0**.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| review 트리거 "impl 라운드 > 3" (AGENTS · review SKILL · impl §0 · verify 마무리 · template) | **REPLACE** | `라운드 > 3` + `verify 없는 impl 턴 > 3`으로 분할. 구 트리거가 잡던 0188형(verify 없이 impl 반복)은 턴 트리거가 같은 시점(4번째)에 잡는다 |
+| "외부 피드백 재구현이면 라운드는 올라가고" · "red gate 수정도 라운드는 올리되" | **REPLACE** | 라운드 유지 + impl 턴 +1. 상태(`impl/IMPL_DONE`)·다음 주체(검증자)는 그대로 |
+| verify 마무리 "FAIL: 라운드 +1" | **KEEP + 확장** | 정의 참조 추가, RETURN_TO_PLAN에도 +1 명시(이전엔 누락) |
+| "재구현 라운드" 9곳(impl §5 제목·본문·§8 · AGENTS · verify §9 · verify.template) | **REPLACE** | `재구현 턴`. verify 없이 같은 라운드에서 도는 재구현도 불변식 전수·7필드 규칙의 대상임을 유지(P38 보강의 "모든 재구현" 의미 보존) |
+| impl Review Signals "현재 라운드 수" · template 라운드 줄 | **REPLACE** | 라운드 + impl 턴 라벨 |
+| 0188 사례 문구 "impl 라운드 10회" | **REPLACE** | "impl 턴 10회" — 사실 불변, 새 용어로 표기 |
+| 명령·gate·reference 삭제·이동 | **없음** | impl §5 heading 문구가 바뀌었으나 inbound는 번호(`impl §5`)로만 인용 — `rg '재구현 라운드 —'` 활성 문서 0건 |
+
+## 6-B Historical Failure Regression
+
+- **53 P 전수** · 변경 후 **COVERED 53 / PARTIAL 0 / GAP 0 / OBSOLETE 0**. 라운드 카운트에 기대는 방어는 P38(0188)·P45·P46이다.
+- **P38**: 발동 조건 "지적으로 도는 모든 재구현"은 `재구현 턴`으로 넓어졌다(같은 라운드의 외부 피드백 재구현 포함). 0188의 verify 기아는 턴 트리거가 4번째 턴에 review를 부른다 — 이전과 같은 시점.
+- **P45**(PLAN_GAP 소멸): RETURN_TO_PLAN을 설계자에게 돌리는 경로 불변. 라운드 +1만 명시됐다.
+- **P46**(보드 칸 두 주체): 다음 주체 규칙 불변.
+
+### lifecycle replay — 거짓 PASS·FAIL inflation
+
+| anchor | 이전 카운트 | 새 카운트 | review 트리거 |
+|---|---|---|---|
+| 0188 | impl 라운드 10 | 라운드 1 · impl 턴 10(외부 리뷰) | 턴 4번째에 발동 — 이전과 같음 |
+| 0238 | 4 (V1 r1 → ΔV1 사용자 변경 r2 → FAIL → r3 → FAIL) | 3 (FAIL verify 2회) — 사용자 변경 턴 r2는 라운드 1 안 | 라운드 3 ≤ 3, 턴 ≤ 3 → 미발동. round 28 review는 이미 수행 |
+| 0237 등 진행 중 | 보드 기재값 | 다음 INDEX 갱신 때 재계산 | 사용자가 준 review 면제 기록은 그대로 |
+
+- PASS 판정은 라운드 수와 무관하다 → 거짓 PASS 0. 카운트는 줄거나 같고, verify 없는 비사용자 반복은 턴 트리거가 잡는다 → 트리거 소실 0.
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 라운드 정의 **1 정본**(AGENTS §라운드) + 참조 **7사이트**(INDEX 범례 · AGENTS 트리거 목록·외부 리뷰 절 · impl §0 · verify 마무리 · review SKILL 트리거 · plan SKILL). 트리거 문면 5사이트(AGENTS 2 · review SKILL · impl §0 · verify 마무리 · template) 모두 "라운드 > 3 또는 verify 없는 impl 턴 > 3, 사용자 요구 변경 턴 제외"로 같다.
+- `rN.k` 표기: AGENTS §라운드 · impl §0·마무리 · plan.template 두 곳 — 충돌 0. 대상 커밋 좌표 규칙(검증자 기입)과 겹치지 않는다.
+- root `AGENTS.md`·`docs/git-template.md`에 라운드 규칙 없음 → 변경 불필요. trailer 키 불변.
+- `cd app && node scripts/check-doc-inventory.mjs --check` links ok · `git diff --check` 출력 0.
+
+## 남은 한계
+
+- "사용자 요구 변경에 따른 턴"인지는 plan Decision Ledger의 `SUPERSEDED`·사용자 출처로 판정한다. 출처가 모호한 턴은 세는 쪽(트리거 쪽)으로 둔다 — 규칙 문면에는 넣지 않았다.
