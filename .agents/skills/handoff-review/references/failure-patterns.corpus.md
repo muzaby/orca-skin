@@ -1228,6 +1228,12 @@ AC5·AC7·AC11 · §10 두 행)과 구현을 **한 커밋**에 담았다. 설계
 현재 방어: `docs/handoff/AGENTS.md §INDEX.md 운영` · impl §8 · impl 마무리 · `plan.template.md` 구현 보고 ·
 verify §9(`git cat-file -t` 로 확인 후 기입) · `verify.template.md §11`.
 
+**보강 (0238, review round 28). 규칙의 주어가 구현자뿐이었다.** 0238 ΔV1 설계 커밋은 INDEX 와 plan 메타에
+V1 설계 `651d9080` · r1 `6030afae`~`2c7dad51` · 기준 V `V1@651d9080` 을 적었고 전부 공유 브랜치에 없었다(실제
+`6200cf1` · `6f40c8b`~`f31c068`). plan §5-A 는 Delta V 에 "commit 을 고정" 하라고 요구해 설계자가 자기 환경 해시를
+쓰게 만들었다. → 설계자·구현자 모두 공유 브랜치에서 `git cat-file -t` 로 확인하지 못한 해시를 좌표로 적지 않는다.
+추가 방어: `docs/handoff/AGENTS.md §INDEX.md 운영`·§단계별 절차 1 · plan §5-A · `plan.template.md` 기준 V 상속 근거.
+
 ---
 
 ## P48 — **부재에 반응하는 장치를 존재의 잠금으로 썼다**
@@ -1388,3 +1394,38 @@ red 였던 변이를 다시 실행해 결과를 나란히 적고, `red → green
 현재 방어: verify §책임(태도 문장에 §4 연결) · verify §4(자기검증 분모 규칙) · verify §6(라벨 분모
 표본 확인) · impl §2(주어를 라벨로 대신했으면 라벨부터 확인) · `verify.template.md` 메타 + §4
 `자기검증 분모` 항 · `docs/handoff/AGENTS.md §검증 최소 계약`.
+
+## P52 — **분모를 §10 항목으로 세어, 같은 pair 경로의 다른 자리가 남았다**
+
+*출처: 0211 (라운드 6) — review round 27(진단만) · 0238 (라운드 2~3) — review round 28.*
+
+0211 r6 은 `EP-71 (4)` 를 항목 4개로 세어 `4/4` 를 보고했고 그 항목 안의 자리 2곳이 blocking 으로 남았다(round 27 은
+규칙 변경 없이 진단만 했다). 0238 은 같은 멈춤이 **pair 경로 쪽**에서 났다. VP-10 의 path 는
+`ProviderDetail props → auth actions → useProviders methods` 인데 §10 EP-05 는 `ProviderAuthActions` 안의 5곳만
+셌고, 등록 변이 `reauth/revoke callback 맞바꿈` 에는 심을 자리가 없었다. r2 독립 검증자와 r3 구현자가 둘 다
+컴포넌트 안 onClick 한 자리만 골라 red 를 봤고, `ProviderDetail` 이 props 를 맞바꿔 넘기는 변이는 808케이스
+green 이었다. r3 verify 는 P51 의 자기검증 축으로만 그것을 찾았다 — 독립 검증 규칙으로는 걸리지 않았다.
+
+→ **규칙.** **강제 지점 분모는 §10 항목이 아니라 자리로 세고, pair production path 에서 그 계약 값을 운반하는
+edge 는 모두 자리다. 자리가 적히지 않은 등록 변이는 이번 변경이 닿은 자리마다 심는다.** 모든 전수표 행은 자리 수와
+그 수를 낸 검색 명령을 싣는다(round 27 이 제안한 "신설 행 → 모든 행" 확장을 흡수).
+
+현재 방어: `docs/handoff/AGENTS.md §공통 V 추적 프로토콜`·§단계별 절차 2·3 · plan §5-A · `plan.template.md`
+pair registry·`[구현자 기입] 강제 지점 전수` · impl §2·§3 · verify §0·§4 · `verify.template.md §4`.
+P51(자기검증 다른 지점)은 유지한다 — 이 규칙은 그 축 중 "같은 결함의 다른 자리" 를 독립 검증에도 걸리게 한다.
+
+## P53 — **pair 를 SUPERSEDED 로 분해하며 그 pair 가 들던 적대 증거를 옮기지 않았다**
+
+*출처: 0238 (ΔV1 · 라운드 3) — review round 28.*
+
+V1 은 VP-06·VP-12 에 `header 를 option 으로 계산` 결함 변이를 등록해 AC11(↑/↓·Enter·Esc 가 header 를 뺀 옵션만
+대상)을 잠그게 했다. ΔV1 은 V1 R-02·SD-02·MD-02 를 `SUPERSEDED` 로 분해하고 대체 node 를 정확히 가리켰지만,
+**pair 가 들던 AC 와 변이가 어느 대체 pair 로 가는지는 적지 않았다.** AC11 은 `R-08 INHERITED` 의 REGRESSION 으로만
+남았고 그 pair 의 oracle 은 "기존 focused suites" 였다. r3 verify 에서 controller 의 header 포함 모듈로·Enter 첫 항목
+고정·Esc 무시 변이가 전부 green 이었다. 규칙은 node provenance 만 요구했다.
+
+→ **규칙.** **pair 의 왼쪽 노드를 `SUPERSEDED` 로 분해하면 그 pair 의 AC 와 선택 적대 증거가 어느 대체 pair 로
+가는지 적고, 어디로도 가지 않으면 폐기 근거를 적는다. 이관도 근거도 없으면 verify 는 `PLAN_GAP` 이다.**
+
+현재 방어: `docs/handoff/AGENTS.md §공통 V 추적 프로토콜` · plan §5-A · `plan.template.md` V 절 · verify §0 ·
+`verify.template.md` Plan validity.
