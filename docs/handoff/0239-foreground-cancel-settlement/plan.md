@@ -11,10 +11,10 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-23 |
 | 매핑 | 사용자 검토 요청 1건 + 설계 질의 응답 3건 + 관찰 보완 1건(V1 rev.2) + r1 PLAN_GAP PG-01 보완(ΔV1) |
-| 상태 | READY — ΔV1로 PG-01(결과 reconcile 경계) 보완, rev.2로 AC3 child 규칙 정정 |
+| 상태 | READY — ΔV1로 PG-01(결과 reconcile 경계) 보완, rev.2로 AC3 child 규칙 정정, rev.3으로 표시·패널 자리 재집계 |
 | V mode | `Delta V` |
 | 기준 V | `V1` rev.2 `@d47f88b` — 구현 전 사용자 관찰 보완(G5·D-012·D-013·AC18). rev.1은 `72c5979` |
-| 이번 V revision | `ΔV1` rev.2 — PG-01 결과 reconcile 경계(D-014·AC5 대체·EP-10·VP-19·VP-20) + AC3 child 규칙(D-015·VP-14 대체). rev.1은 `4c6bcab` |
+| 이번 V revision | `ΔV1` rev.3 — PG-01 결과 reconcile 경계(D-014·AC5 대체·EP-10·VP-19·VP-20) + AC3 child 규칙(D-015·VP-14 대체, rev.2) + 표시·패널 자리 재집계(D-016·AC10·AC18 대체, rev.3). rev.1은 `4c6bcab` |
 | 유효 V | `V1 + ΔV1` |
 | 기준 코드 | `cb5d828` (브랜치 `claude/foreground-task-cancel-state-qmcm4c` 착수 시점) |
 
@@ -150,13 +150,13 @@
 | R-02 | AT-02 / AC7 | claude-map은 SDK `tool_result_meta[]`에서 해당 `tool_use_id`의 `non_execution_kind`(+`user_feedback`)를 `nonExecution:{source:'sdk',…}`로 싣는다. 부재·형식 오류면 싣지 않는다. | claude-map 테스트 4건: 일치 id·불일치 id·배열 아님·빈 문자열 | SDK user 메시지 → claude-map |
 | R-02 | AT-02 / AC8 | `nonExecution`은 writer payload에 영속되고 reader→part→`resultMap`→`ToolCall.result`로 복원된다. 라이브와 재로드 결과가 같다. | writer 테스트(payload 필드) · parts 테스트(`resultMap` 복사) · 라이브/재로드 동치 테스트 | bus → writer → DB → reader → renderer |
 | R-02 | AT-02 / AC9 | 분류 전수: 결과 없음→running, SDK 거부 5종→rejected, `interrupted`→aborted, `cancelled`→cancelled, 미지 SDK 값·host 2종→not_executed, 기존 abort 사유→aborted, 그 밖 오류→failed, 성공→completed. | 표 기반 단위 테스트 — 입력 10형 각각의 출력 | `toolRunOutcome` / `nonExecutionOutcome` |
-| R-02 | AT-02 / AC10 | 9개 표시 자리(§10 EP-04)가 분류를 경유해 `거부됨/취소됨/중단됨/실행되지 않음`을 중립 톤으로 보이고 `failed`만 빨강이다. | 표면별 렌더/순수 테스트 + `Record` 전수 맵 typecheck | chatReducer → 각 컴포넌트 |
+| R-02 | AT-02 / AC10 **→ ΔV1 rev.3 대체** | 9개 표시 자리(§10 EP-04)가 분류를 경유해 `거부됨/취소됨/중단됨/실행되지 않음`을 중립 톤으로 보이고 `failed`만 빨강이다. | 표면별 렌더/순수 테스트 + `Record` 전수 맵 typecheck | chatReducer → 각 컴포넌트 |
 | R-03 | AT-03 / AC11 | `backgroundPending`은 포그라운드 태스크를 세지 않는다. `task_updated is_backgrounded:true`나 live 포함으로 승격되면 다시 센다. 백그라운드 `unknown`+`running`은 계속 센다. | 공유 reducer 테스트 4건(포그라운드·승격·live 포함·백그라운드 unknown) | provider lane → tracker → `hasPending` |
 | R-03 | AT-03 / AC12 | 포그라운드 태스크만 미정착이고 다른 대기 사유(예약·미확정 입력·CLI 진행)가 없으면 턴 후 단계는 `break`(listen 없음, transport `idle`)이고, Stop은 체인을 끝낸다(`keepScheduledReception=false`). 이후 새 메시지는 즉시 전송된다(현행 유지, D-013). | `post-turn.schedules.test.ts` 하네스: 정본 이벤트 observe 후 telemetry → listen 미개시 · chatCancel → 재대기 없음 | `runTurnWithContinuations` · `chatCancel` 핸들러 |
 | R-05 | AT-05 / AC13 | `chat.postturn.step` 로그의 `haveTasks`는 판정 입력(`hasPending`)과 같고 `taskCount`는 별도 필드다. | 로그 레지스트리 스파이로 필드 단언(포그라운드 unknown 1건: hasPending·count 값 각각) | `post-turn.ts:104-129` |
 | R-04 | AT-04 / AC14 | 포그라운드 태스크(종료 증거 없음)의 부모 호출이 정본에서 반환되면 카드는 호출 결과 상태로 완료 그룹에 들고, 경과는 호출 반환 시각에 멈추며, 중단 버튼이 숨고, 지우기 대상이 된다. 종료 증거가 오면 그것이 이긴다. | canonicalBackground 순수 테스트 + 패널 렌더 테스트(그룹·라벨·경과·버튼·지우기) | provider lane → backgroundStore → `CanonicalBackgroundContent` |
 | R-04 | AT-04 / AC15 | 정본 반환이 없는 호출 카드(Agent/Task·요청된 셸 등)는 transcript 결과가 있으면 그 결과로 표시되고 실행 중이 아니다. | 패널 렌더 테스트: 정본 call(started) + transcript host 정착 → `실행되지 않음`·완료 그룹 | chatStore messages + backgroundStore → 패널 |
-| R-04 | AT-04 / AC18 | 종료 증거 없는 비원격 태스크가 `connection==='terminated'`이거나 현재 세대가 아니면 카드는 `종료 확인 불가`(+기존 `프로세스 종료` 접미)로 완료 그룹에 들고, 경과는 `lastSeenAt`에 멈추며, 지우기 대상이다. 원격 호출·태스크는 기존 표시를 유지한다. | canonicalBackground 순수 테스트 4형(옛 세대·같은 세대 terminated·원격·현재 connected) + 패널 렌더 | teardown → `notifyChannelRetired`/새 세대 → reducer → 패널 |
+| R-04 | AT-04 / AC18 **→ ΔV1 rev.3 대체** | 종료 증거 없는 비원격 태스크가 `connection==='terminated'`이거나 현재 세대가 아니면 카드는 `종료 확인 불가`(+기존 `프로세스 종료` 접미)로 완료 그룹에 들고, 경과는 `lastSeenAt`에 멈추며, 지우기 대상이다. 원격 호출·태스크는 기존 표시를 유지한다. | canonicalBackground 순수 테스트 4형(옛 세대·같은 세대 terminated·원격·현재 connected) + 패널 렌더 | teardown → `notifyChannelRetired`/새 세대 → reducer → 패널 |
 | R-04 | AT-04 / AC16 | 정본 태스크 기록에 합성 `terminalEvidence`가 생기지 않는다 — `status`·`terminalEvidence`는 표시 파생 전후 동일하다. | 공유 reducer/패널 테스트: 표시 파생 후 상태 객체 불변 단언 | 표시 파생 함수 |
 | R-05 | AT-05 / AC17 | 계약·아키텍처 문서가 새 동작을 서술하고 인벤토리가 재생성된다. | `node scripts/check-doc-inventory.mjs --check` 통과 · 문서 4곳 grep | `docs/IPC_CONTRACT.md` 외 3곳 |
 
@@ -206,20 +206,20 @@
 | VP-01 **→ ΔV1 대체** | R-01 ↔ AT-01 | REQUIRED | SDK `assistant(tool_use)` → claude-map → coordinator → bus → chatReducer → ToolCard | AC1~AC6 단언 | not selected — 라벨·순서 직접 관측 | EP-01(8)·EP-02(3)·EP-03(4) |
 | VP-02 **→ ΔV1 대체** | R-02 ↔ AT-02 | REQUIRED | SDK `user(tool_result, tool_result_meta)` → claude-map → writer/relay → renderer 9자리 | AC7~AC10 단언 | required — 형제 라벨 맞바꿈(rejected↔cancelled) 1종, 자리: EP-04 ①·⑥·⑧ | EP-01(8)·EP-04(9) |
 | VP-03 | R-03 ↔ AT-03 | REQUIRED | provider `task_started(is_backgrounded:false)` → tracker → post-turn step / chatCancel | AC11·AC12 단언 | required — 제외 술어 제거 변이, 자리: EP-05 ① | EP-05(4) |
-| VP-04 | R-04 ↔ AT-04 | REQUIRED | provider lane + chat messages → backgroundStore/패널 파생 → 카드 | AC14~AC16·AC18 단언 | required — 호출 반환 규칙 제거 변이, 자리: EP-06 ①·②·⑤ | EP-06(6) |
-| VP-05 | R-05 ↔ AT-05 | REQUIRED | post-turn 로그 · 문서 생성기 | AC13·AC17 | not selected — 값·생성기 직접 관측 | EP-08(4)·EP-09(1) |
-| VP-06 | SD-01 ↔ ST-01 | REQUIRED | frame terminal → coordinator 정착 → bus(history finalize 전) → relay | 버스 순서 로그 `[…completed, terminal]` · history part가 같은 메시지 | required — 정착을 `emit(terminal)` 뒤로 이동 / error 경로 삭제 / 합성 경로 삭제 3변이, 자리: EP-02 ①②③ | EP-02(3) |
+| VP-04 **→ ΔV1 rev.3 대체** | R-04 ↔ AT-04 | REQUIRED | provider lane + chat messages → backgroundStore/패널 파생 → 카드 | AC14~AC16·AC18 단언 | required — 호출 반환 규칙 제거 변이, 자리: EP-06 ①·②·⑤ | EP-06(6) |
+| VP-05 **→ ΔV1 rev.3 대체** | R-05 ↔ AT-05 | REQUIRED | post-turn 로그 · 문서 생성기 | AC13·AC17 | not selected — 값·생성기 직접 관측 | EP-08(4)·EP-09(1) |
+| VP-06 **→ ΔV1 rev.3 대체** | SD-01 ↔ ST-01 | REQUIRED | frame terminal → coordinator 정착 → bus(history finalize 전) → relay | 버스 순서 로그 `[…completed, terminal]` · history part가 같은 메시지 | required — 정착을 `emit(terminal)` 뒤로 이동 / error 경로 삭제 / 합성 경로 삭제 3변이, 자리: EP-02 ①②③ | EP-02(3) |
 | VP-07 | SD-02 ↔ ST-02 | REQUIRED | SDK `model_refusal_fallback`/`supersedes` → claude-map `tool.call.retracted` → coordinator | 열린 A 정착·완료 B 불변·relay 부재 | required — 완료된 id에도 적용하는 변이, 자리: EP-03 ④ | EP-03(4) |
 | VP-08 | SD-03 ↔ ST-03 | REQUIRED | canonical 상태 → `hasPending` → `decidePostTurnStep`·`keepScheduledReception` | 하네스의 transport·push·chain 관측 | not selected — VP-03 변이가 같은 자리를 잠근다 | EP-05(4) |
 | VP-09 | AR-01 ↔ IT-01 | REQUIRED | 생산자(claude-map·settle) → `NormalizedEvent` → 소비자(coordinator·writer·reducer) | 타입 + 필드 왕복 테스트 | not selected — typecheck·왕복 직접 관측 | EP-01(8)·EP-03(4) |
 | VP-10 | AR-02 ↔ IT-02 | REQUIRED | bus → writer payload → DB → reader → LOAD_SESSION → ToolCall | 라이브·재로드 동치 | required — writer에서 필드 누락 변이, 자리: EP-01 ⑤ | EP-01 ⑤~⑧(4) |
 | VP-11 | AR-03 ↔ IT-03 | REQUIRED | `backgroundPending` → tracker `hasPending` → 2 소비자 | 소비자별 값 관측 | not selected — VP-03과 같은 변이 | EP-05(4) |
-| VP-12 | AR-04 ↔ IT-04 | REQUIRED | chatStore messages → `transcriptResultsByToolUseId` → 패널·지우기 | AC15 렌더·지우기 관측 | required — 조인 입력 제거 변이, 자리: EP-06 ④·⑤ | EP-06(6) |
+| VP-12 **→ ΔV1 rev.3 대체** | AR-04 ↔ IT-04 | REQUIRED | chatStore messages → `transcriptResultsByToolUseId` → 패널·지우기 | AC15 렌더·지우기 관측 | required — 조인 입력 제거 변이, 자리: EP-06 ④·⑤ | EP-06(6) |
 | VP-13 | MD-01 ↔ UT-01 | REQUIRED | `readToolResultMeta` → `nonExecutionOutcome` | 표 기반 입력 10형 | required — `interrupted`↔`cancelled` 맞바꿈 변이 | 0 — 순수 모듈 |
 | VP-14 **→ ΔV1 rev.2 대체** | MD-02 ↔ UT-02 | REQUIRED | `openToolRuns` + 정본 상태 → 정착 대상 집합 | AC3 fixture 5형 | required — 보존 검사 제거 / 부모 규칙 반전 2변이 | 0 — 순수 선별 |
 | VP-15 | MD-03 ↔ UT-03 | REQUIRED | `BackgroundSessionState` → `backgroundPending` | AC11 4형 | required — 포그라운드 제외 ↔ 전 `unknown` 제외 맞바꿈(형제 자리) | 0 — 순수 술어 |
-| VP-16 | MD-04 ↔ UT-04 | REQUIRED | `ToolCall.result` → `toolRunOutcome` → 표면 Record | 분류표 + Record 전수(typecheck) | required — Record 키 삭제 시 typecheck red 확인 | 0 — 순수 분류 |
-| VP-17 | MD-05 ↔ UT-05 | REQUIRED | 정본 task/call + transcript 결과 → `BackgroundDisplay` | AC14·AC15·AC16·AC18 순수 단언 | required — 경과 종점을 `firstSeenAt`로 맞바꾸는 변이 · 원격 제외 조건 제거 변이 | 0 — 순수 파생 |
+| VP-16 **→ ΔV1 rev.3 대체** | MD-04 ↔ UT-04 | REQUIRED | `ToolCall.result` → `toolRunOutcome` → 표면 Record | 분류표 + Record 전수(typecheck) | required — Record 키 삭제 시 typecheck red 확인 | 0 — 순수 분류 |
+| VP-17 **→ ΔV1 rev.3 대체** | MD-05 ↔ UT-05 | REQUIRED | 정본 task/call + transcript 결과 → `BackgroundDisplay` | AC14·AC15·AC16·AC18 순수 단언 | required — 경과 종점을 `firstSeenAt`로 맞바꾸는 변이 · 원격 제외 조건 제거 변이 | 0 — 순수 파생 |
 | VP-18 | MD-06 ↔ UT-06 | REQUIRED | SDK assistant/system → `toolRunIdsByMessageUuid` → `tool.call.retracted` | 매핑·상한·빈 목록 | not selected — 출력 이벤트 직접 관측 | 0 — 순수 매핑 |
 
 ### 현재 변경의 운영 gate
@@ -379,13 +379,13 @@ AS-IS에서 사라지는 책임: 없음. `callStatus`(패널 인라인)는 `back
 | V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 | 실패 의미 |
 |---|---|---|---|---|---|
 | AR-01 / VP-09·10 | **EP-01** `nonExecution?: NonExecution` 운반 8자리 | `shared/tool-outcome.ts` 타입 | ① claude-map tool_result(`claude-map.ts:583-595`) ② settle host 정착 ③ `ipc.ts:621` 이벤트 타입 ④ `ipc.ts:1454` part 타입 ⑤ writer payload(`writer.ts:430-445`) ⑥ reducer append(`chatReducer.ts:976-990`) ⑦ `ToolCall.result`(`chatReducer.ts:76-86`) ⑧ `resultMap`(`parts.ts:208-221`) | 매핑·영속·로드·페어링 | 한 자리라도 빠지면 라이브/재로드 표시가 갈린다 |
-| SD-01 / VP-06 | **EP-02** terminal 직전 정착 3자리 | coordinator | ① SDK `telemetry` 방출 전(`turn-coordinator.ts:413` 직전) ② `error` 방출 전(같은 자리) ③ 합성 `telemetry` 전(`:502-507`) | 프레임 terminal | 뒤로 밀리면 history가 정착 전 finalize하고 renderer가 reset 후 결과를 받는다 |
+| SD-01 / VP-06 | **EP-02** (**→ ΔV1 rev.3 대체**) terminal 직전 정착 3자리 | coordinator | ① SDK `telemetry` 방출 전(`turn-coordinator.ts:413` 직전) ② `error` 방출 전(같은 자리) ③ 합성 `telemetry` 전(`:502-507`) | 프레임 terminal | 뒤로 밀리면 history가 정착 전 finalize하고 renderer가 reset 후 결과를 받는다 |
 | SD-02 / VP-07 | **EP-03** 철회 4자리 | claude-map + coordinator | ① assistant uuid 기록(`claude-map.ts:429-537`) ② `model_refusal_fallback` 분기(`:767` 앞 신설) ③ `assistant.supersedes`(assistant 분기 선두) ④ coordinator 흡수(`turn-coordinator.ts:325` 뒤) | SDK 메시지 수신 | 열린 id 외 적용 시 실행된 도구의 결과를 덮는다 |
-| R-02 / VP-02·16 | **EP-04** 분류 소비 9자리 | `toolRunOutcome`·`nonExecutionOutcome` | ① ToolCard(`ToolCard.tsx:110-141`) ② AgentTaskRow(`:17-22`·`:51`) ③ SubAgentTileContent(`:59-64`) ④ taskBoard `TaskBoardStatus`·`backgroundBoardStatus`(`taskBoard.ts:34-35`·`:229-239`) ⑤ TaskStatusIcon(`:4`·`:37-41`) ⑥ `workToolPresentation.status`(`:14`·`:57-60`) ⑦ WorkToolTimeline(`:23`·`:49-62`) ⑧ 패널 호출 라벨(`CanonicalBackgroundContent.tsx:38-46`·`:317`) ⑨ 패널 태스크 라벨(`:226`) | 렌더 | 인라인 판정이 남으면 한 표면만 `실패`로 보인다 |
-| SD-03 / VP-03·08·11 | **EP-05** 포그라운드 pending 제외 4자리 | `isForegroundTask`(shared) | ① `backgroundPending`(`background-task.ts:557-584`) ② `tracker.hasPending`(`background-tasks.ts:61-64`) ③ post-turn step(`post-turn.ts:111`) ④ Stop 유지(`index.ts:165-170`) | 턴 후 판정·Stop | ①만 바꾸고 ②~④가 다른 술어를 쓰면 대기·Stop이 갈린다 |
-| AR-04 / VP-04·12·17 | **EP-06** 패널 `settled` 판정 6자리 | `BackgroundDisplay` | ① 그룹(`CanonicalBackgroundContent.tsx:95`·`:98`) ② 카드 terminal·경과(`:165-170`) ③ 중단 버튼(`:166` · `backgroundPresentation.ts:22-33`) ④ 라벨(`:226`·`:317`) ⑤ 지우기(`backgroundStore.ts:63`·`:68`) ⑥ dismiss 가드(`canonicalBackground.ts:32`) | 렌더·지우기 클릭 | 그룹은 완료인데 지우기·버튼이 실행 중으로 보는 불일치 |
-| R-05 | **EP-07** i18n 5키군 × ko·en | `resources/{ko,en}.ts` | toolMeta 3 · agentStatus 3 · subagentTile.status 3 · taskTile.status 3 · background 3 | 렌더 | 키 누락 시 원문 키 노출 |
-| R-05 / VP-05 | **EP-08** 문서 4자리 | 각 정본 문서 | `IPC_CONTRACT.md`(2행) · `provider-runtime.md:90` · `background-tasks.md` · `inventory.md` 재생성 | CI `--check` | 인벤토리 불일치는 CI red |
+| R-02 / VP-02·16 | **EP-04** (**→ ΔV1 rev.3 대체**) 분류 소비 9자리 | `toolRunOutcome`·`nonExecutionOutcome` | ① ToolCard(`ToolCard.tsx:110-141`) ② AgentTaskRow(`:17-22`·`:51`) ③ SubAgentTileContent(`:59-64`) ④ taskBoard `TaskBoardStatus`·`backgroundBoardStatus`(`taskBoard.ts:34-35`·`:229-239`) ⑤ TaskStatusIcon(`:4`·`:37-41`) ⑥ `workToolPresentation.status`(`:14`·`:57-60`) ⑦ WorkToolTimeline(`:23`·`:49-62`) ⑧ 패널 호출 라벨(`CanonicalBackgroundContent.tsx:38-46`·`:317`) ⑨ 패널 태스크 라벨(`:226`) | 렌더 | 인라인 판정이 남으면 한 표면만 `실패`로 보인다 |
+| SD-03 / VP-03·08·11 | **EP-05** 포그라운드 pending 제외 4자리 (① 범위는 **ΔV1 rev.3** 정밀화) | `isForegroundTask`(shared) | ① `backgroundPending`(`background-task.ts:557-584`) ② `tracker.hasPending`(`background-tasks.ts:61-64`) ③ post-turn step(`post-turn.ts:111`) ④ Stop 유지(`index.ts:165-170`) | 턴 후 판정·Stop | ①만 바꾸고 ②~④가 다른 술어를 쓰면 대기·Stop이 갈린다 |
+| AR-04 / VP-04·12·17 | **EP-06** (**→ ΔV1 rev.3 대체**) 패널 `settled` 판정 6자리 | `BackgroundDisplay` | ① 그룹(`CanonicalBackgroundContent.tsx:95`·`:98`) ② 카드 terminal·경과(`:165-170`) ③ 중단 버튼(`:166` · `backgroundPresentation.ts:22-33`) ④ 라벨(`:226`·`:317`) ⑤ 지우기(`backgroundStore.ts:63`·`:68`) ⑥ dismiss 가드(`canonicalBackground.ts:32`) | 렌더·지우기 클릭 | 그룹은 완료인데 지우기·버튼이 실행 중으로 보는 불일치 |
+| R-05 | **EP-07** (**→ ΔV1 rev.3 대체**) i18n 5키군 × ko·en | `resources/{ko,en}.ts` | toolMeta 3 · agentStatus 3 · subagentTile.status 3 · taskTile.status 3 · background 3 | 렌더 | 키 누락 시 원문 키 노출 |
+| R-05 / VP-05 | **EP-08** (**→ ΔV1 rev.3 대체**) 문서 4자리 | 각 정본 문서 | `IPC_CONTRACT.md`(2행) · `provider-runtime.md:90` · `background-tasks.md` · `inventory.md` 재생성 | CI `--check` | 인벤토리 불일치는 CI red |
 | R-05 / VP-05 | **EP-09** 로그 필드 1자리 | `post-turn.ts:118-129` | `haveTasks`=판정 값, `taskCount` 별도 | 매 반복 | 로그가 판정을 반증하지 못한다 |
 
 - 같은 규칙이 여러 레이어에 있다면 SSOT와 공유 방법: 분류는 `shared/tool-outcome.ts` 하나 — main(settle은 host kind 생성만)과 renderer(parts·패널)가 import한다. 포그라운드 판정은 `shared/background-task.ts`의 `isForegroundTask` 하나 — pending과 패널 표시가 함께 쓴다.
@@ -542,6 +542,7 @@ provider call + chat messages ─► BackgroundDisplay ─► 패널·지우기
 > r1 구현 조사가 올린 PLAN_GAP PG-01의 설계 보완이다. 사용자 결정(D-001~D-013)과 Part I의 결과는 바꾸지 않는다.
 > V1 rev.2(`d47f88b`)에서 AC5 한 행과 VP-01·VP-02 두 pair 행을 대체하고, 결과 비교 경계(EP-10)와 pair 2개를 더한다.
 > rev.2(구현 착수 전 설계 정정)는 AC3의 child 규칙과 VP-14 행을 대체한다 — 근거는 Δ3-b.
+> rev.3은 표시·패널 자리를 불변식 주어로 다시 세어 AC10·AC18과 EP-02·04·05①·06·07·08, pair 7행을 대체한다 — 근거는 Δ11.
 
 ## Δ1. 요구 출처와 재측정
 
@@ -619,7 +620,7 @@ provider call + chat messages ─► BackgroundDisplay ─► 패널·지우기
 | Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §10·ΔEP 강제 지점 전수 |
 |---|---|---|---|---|---|---|
 | VP-01 (ΔV1) | R-01 ↔ AT-01 | REQUIRED | SDK `assistant(tool_use)` → claude-map → coordinator → bus → chatReducer → `messageSegments` → `reconcileSegments` → `AssistantMessage` → ToolCard | AC1~AC6(AC5는 ΔV1) 단언 | not selected — 라벨·순서 직접 관측. EP-10 자리는 VP-19·VP-20의 M1이 잠근다 | EP-01(8)·EP-02(3)·EP-03(4)·EP-10(3) |
-| VP-02 (ΔV1) | R-02 ↔ AT-02 | REQUIRED | SDK `user(tool_result, tool_result_meta)` → claude-map → writer/relay → chatReducer → `reconcileSegments`(transcript·Work) → renderer 9자리 | AC7~AC10 단언 | required — 형제 라벨 맞바꿈(rejected↔cancelled) 1종, 자리: EP-04 ①·⑥·⑧ | EP-01(8)·EP-04(9)·EP-10(3) |
+| VP-02 (ΔV1) **→ rev.3 대체** | R-02 ↔ AT-02 | REQUIRED | SDK `user(tool_result, tool_result_meta)` → claude-map → writer/relay → chatReducer → `reconcileSegments`(transcript·Work) → renderer 9자리 | AC7~AC10 단언 | required — 형제 라벨 맞바꿈(rejected↔cancelled) 1종, 자리: EP-04 ①·⑥·⑧ | EP-01(8)·EP-04(9)·EP-10(3) |
 | VP-19 | AR-05 ↔ IT-05 | REQUIRED | RECV_EVENT → `messages` → `messageSegments`(`resultMap`) → `reconcileSegments`(`resultEquals`) → `AssistantMessage` 세그먼트 ∥ `createWorkProjector`(reconcile + join) 노드 | 두 소비자의 최종 call.result가 최신 — `nonExecution` 3형, 본문·`isError`·`durationMs` 동일 | required — **M1** `resultEquals`에서 `nonExecution` 비교 제거, 자리 EP-10 ①. red는 transcript 합성식 oracle에서 관측한다. Work oracle은 join이 결과를 다시 끼워 M1을 관측하지 못한다(Δ1 측정) — 직접 행동 oracle로만 둔다 | EP-10(3) |
 | VP-14 (ΔV1 rev.2) | MD-02 ↔ UT-02 | REQUIRED | `openToolRuns` + 정본 상태 → 보존 집합 → 정착 대상 집합 | AC3(rev.2) fixture 5형 + 기존 `settle.test.ts` 보존 케이스(`:18`) 통과 | required — ① 보존 검사 제거 → 백그라운드 child red ② 정본 없음 규칙 제거(child 정착) → 정본 없음 child red ③ V1 규칙 복귀(열린 부모 child 보존) → 열린 부모 child red | 0 — 순수 선별 |
 | VP-20 | MD-07 ↔ UT-07 | REQUIRED | `nonExecutionEquals` → `resultEquals` → `toolCallEquals` → `reconcileSegment`(`tools`·`ask`) | 3형 최신 view · 같은 값(다른 객체) → 이전 call·배열 `toBe` · 형제 call identity 유지 · `ask` 세그먼트 1형 · 기존 `parts.reconcile.test.ts` 4케이스 통과 | required — M1(같은 자리) | 0 — 순수 모듈 |
@@ -659,6 +660,100 @@ provider call + chat messages ─► BackgroundDisplay ─► 패널·지우기
 - [x] r1 제안 중 채택하지 않은 부분(AC8)의 근거를 코드 경로로 적었다 — Δ 갱신 메모·Δ1.
 - [x] rev.2: 고친 AC3 행이 AC 게이트를 다시 통과한다 — 5형 fixture별 기대 방출(행동 단언)·순수 선별 테스트·coordinator terminal 경로, 사람 실기 없음.
 - [x] rev.2: 바뀐 MD-02에 REQUIRED pair(VP-14 rev.2)가 있고, V1 변이 2종의 이관(① 유지, ②③ 분할)을 적었다.
+
+## Δ11. rev.3 — 표시·패널 자리 재집계와 정밀화
+
+> 판정: V1 EP-04(9자리)·EP-06(6자리)은 해법 이름(`isAbortedResult(`·`callStatus(` 등)으로 센 분모라 표시 자리 4곳과 패널 경로 4곳이 빠졌다(V1 EP-06은 6항목으로 셌고 자리로는 9다).
+> 불변식 주어(도구 결과 → 상태 표시, 카드 정착 여부)로 다시 세어 대체하고, main 쪽 구현 착수로 드러난 위치·술어 모호점 3건을 정밀화한다. 사용자 결정 D-001~D-013은 바꾸지 않는다.
+
+### Δ11-1. 재집계 관측
+
+| 대상 | 검색 | N | 의미 |
+|---|---|---:|---|
+| 결과 → 상태 표시(불변식 주어) | `git grep -n "isError" -- app/src/renderer/src ':!*.test.*' ':!app/src/renderer/src/shared/i18n/*'` | 22줄 | 표시 8줄(ToolCard `:112`·`:140`·`:182` · toolMeta `:232` · workToolPresentation `:60`·`:68` · TaskToolBody `:38` · canonicalBackground `:166`) · 분류 SSOT 3줄(parts `:339`·`:346`·`:357`) · 비표시 11줄 |
+| 비표시 11줄의 근거 | 같은 검색 결과를 줄별 판독 | 11 | reducer 타입·복사·artifact·TaskXXX 통지(`chatReducer.ts:78`·`:981`·`:989`·`:1913`·`:1920`) · 합성 aborted 생성(`parts.ts:107`·`:137`) · 복사·비교(`:214`·`:568`) · 렌더되지 않는 `settlementMessage`(`:386`, 소비처 0) · TaskXXX 목록 fold(`taskBoard.ts:181`) |
+| 상태 Record 키 소비 | `git grep -n "Record<SubagentTaskStatus\|Record<TaskBoardStatus" -- app/src/renderer/src` | 4 | AgentTaskRow `:17` · SubAgentTileContent `:59` · TaskStatusIcon `:4` · **TaskProgressList `:15`**(V1 누락) |
+| 패널 정착 판정 소비 | `git grep -n "isBackgroundTerminal(\|isCompletedBackgroundCall(\|canStopBackgroundTask(\|backgroundElapsedSeconds(\|projectBackgroundPanel(" -- app/src/renderer/src ':!*.test.*'` | 21 | 정의 4 · 정의 내부 3 · 소비 14. 소비 = V1 EP-06 6항목 + 경과 계산(`canonicalBackground.ts:177-184`) · 지우기 projection 2곳(`backgroundStore.ts:61`·`:85`) · 패널 projection(`CanonicalBackgroundContent.tsx:63`) · 헤더(`SubAgentTileContent.tsx:116`) · ForegroundShellActions(`:55`·`:57`, V1 제외 근거 유지) |
+| 헤더 projection | `SubAgentTileContent.tsx:116` | 1 | 자리 아님 — 지우기가 선택된 항목을 함께 해제한다(`backgroundStore.ts:84-90`) |
+| 원격 태스크 종류 | CLI 2.1.267 task type 집합 | 1 | `remote_agent`(오프셋 `183722851` 부근 `new Set(["local_agent","remote_agent",…])`) — 호출 `mode`가 없는 원격 태스크도 있다 |
+
+### Δ11-2. Decision Ledger
+
+| ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
+|---|---|---|---|---|---|
+| D-016 | D-012의 “실행 중으로 표시하지 않음” 규칙을 **태스크 없는 호출 카드**에도 적용한다. 원격 판별은 호출 `mode==='remote'` 또는 태스크 종류 `remote_*`다. | 소유 프로세스가 사라진 비원격 호출(예: 태스크 id를 받기 전 세대가 바뀐 `awaitingTask` 호출)도 실행될 수 없다. 원격 태스크는 호출 없이 snapshot으로만 올 수 있다. | rev.3 설계(D-012 이유 확장) | ACTIVE | D-012 적용 범위 보완 |
+
+- 갱신 메모: D-016 추가, 기존 결정 변경 없음. **`ACTIVE 결정 ↔ AC` 대조**: D-016 ↔ AC18(rev.3) 일치(호출 카드·원격 종류), D-012 ↔ AC18(rev.3) 일치(태스크 규칙 유지), D-009 ↔ AC10(rev.3) 일치(13자리 모두 분류 경유), D-002 ↔ AC10(rev.3) 일치(사유 부재 = 현행). 충돌 0.
+
+### Δ11-3. Acceptance — 대체 행
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-02 | AT-02 / AC10 (rev.3) | 13개 표시 자리(Δ11-4 EP-04)가 분류를 경유해 `거부됨/취소됨/중단됨/실행되지 않음`을 중립 톤으로 보이고 `failed`만 빨강·`실패` 문구다. | 표면별 렌더/순수 테스트 — 자리마다 `rejected`·`cancelled`·`not_executed` 입력의 라벨·톤과 `failed` 대조 · `Record<…>` 전수 맵 typecheck | chatReducer·backgroundStore → 각 컴포넌트 |
+| R-04 | AT-04 / AC18 (rev.3) | 종료 증거 없는 **비원격 태스크와 태스크 없는 비원격 호출 카드**가 `connection==='terminated'`이거나 현재 세대가 아니면 `종료 확인 불가`(+태스크는 `프로세스 종료` 접미)로 완료 그룹에 들고, 경과는 `lastSeenAt`에 멈추며 지우기 대상이다. 호출 `mode==='remote'`·태스크 종류 `remote_*`는 기존 표시를 유지한다. transcript 결과가 있는 호출 카드는 AC15가 먼저 적용된다. | canonicalBackground 순수 테스트 6형(옛 세대 태스크·같은 세대 terminated 태스크·원격 호출 태스크·`remote_agent` 태스크·현재 connected·옛 세대 `awaitingTask` 호출) + 패널 렌더 | teardown → `notifyChannelRetired`/새 세대 → reducer → 패널 |
+
+- V1 §7의 AC10·AC18 행은 위 행으로 대체한다(행 표지 `→ ΔV1 rev.3 대체`). AC 총수는 18 그대로다.
+- AC 게이트 재통과: 두 행 모두 자리·형별 입력과 기대 라벨을 적은 행동 단언이고, 사람 실기는 두 테마 시각만 남는다.
+
+### Δ11-4. 계약 / 강제 지점 — 대체 행
+
+| V node / pair | 계약/필드 | SSOT | 누가 / 자리 | 언제 강제 | 실패 의미 |
+|---|---|---|---|---|---|
+| SD-01 / VP-06 | **EP-02 (rev.3)** terminal 직전 정착 3자리 — 위치 정밀화 | coordinator | ①② `telemetry`·`error`는 **`commitConsumed` 앞**(`turn-coordinator.ts`의 `if (ev.type !== 'telemetry') this.commitConsumed(...)` 직전) ③ 합성 `telemetry` 방출 전. 보존 판정 입력은 `hasCanonical`일 때만 정본 상태, 아니면 `undefined`(D-015) | 프레임 terminal | steer 커밋 뒤에 정착하면 결과가 새 assistant 메시지에 들어가 Code 카드(메시지 단위 페어링, `AssistantTurn.tsx:51`·`chatReducer.ts:723-731`)가 계속 돈다. `getState`는 정본이 없어도 빈 상태를 돌려줘 정본 없음 규칙이 무력해진다 |
+| SD-03 / VP-03·08·11·15 | **EP-05 ① (rev.3)** 제외 범위 | `isForegroundTask` | `backgroundPending` **태스크 절 전체**(실행 중 `unknown`·중단 요청/ACK 대기)에서 포그라운드를 뺀다 | 턴 후 판정·Stop | 포그라운드 중단 ACK는 부모 호출 결과로 턴 안에서 돌아온다 — 턴 후에 기다리면 listen이 풀리지 않는다(listen은 pending 해소로 끝나지 않음, §8.3) |
+| R-02 / VP-02·16 | **EP-04 (rev.3)** 분류 소비 13자리 | `toolRunOutcome`·`nonExecutionOutcome` | ① ToolCard 행 동사·톤(`:110-141`)·본문 헤더 톤(`:182`) ② AgentTaskRow 접두 Record(`:17-22`)·폴백 상태(`:51`) ③ SubAgentTileContent 상태 Record(`:59-64`) ④ taskBoard `TaskBoardStatus`(`:34-35`)·`backgroundBoardStatus`(`:229-239`) ⑤ TaskStatusIcon Record·아이콘(`:4-12`·`:37-41`) ⑥ `workToolPresentation.status`(`:14`·`:57-80`) ⑦ WorkToolTimeline 라벨·톤(`:23`·`:59-62`) ⑧ 패널 호출 라벨(`CanonicalBackgroundContent.tsx:38-46`·`:317`) ⑨ 패널 태스크 라벨(`:222-226`) ⑩ ToolGroup 요약 톤(`toolMeta.ts:232` → `ToolGroup.tsx:69-71`) ⑪ TaskToolBody 실패 문구(`:33-49`) ⑫ 패널 상세 카드 입력(`canonicalBackground.ts:153-175`) ⑬ TaskProgressList 상태 Record(`:15-23`) | 렌더 | 인라인 판정이 남으면 한 표면만 `실패`·빨강으로 보인다. 변경 없이 새 상태를 올바로 흘리는 edge 3곳(`WorkToolBody.tsx:38` · `taskContext.ts:109` · `SubAgentTileContent.tsx:322`)은 자리 테스트가 함께 단언한다 |
+| AR-04 / VP-04·12·17 | **EP-06 (rev.3)** 패널 정착 판정 13자리 | `BackgroundDisplay` | ①a 태스크 그룹(`:95`) ①b 호출 그룹(`:98`) ②a 카드 terminal·경과(`:165-170`) ②b 경과 종점(`canonicalBackground.ts:177-184`) ③ 중단 버튼(`:166` → `backgroundPresentation.ts:22-33`) ④a 태스크 라벨·중단 문구 분기(`:222-226`) ④b 호출 라벨(`:317`) ⑤a 지우기 태스크 표식(`backgroundStore.ts:63`) ⑤b 호출 표식(`:68`) ⑥a dismiss 가드(`canonicalBackground.ts:32`) ⑥b-1~3 가드에 transcript 결과를 넘기는 projection 3곳(`CanonicalBackgroundContent.tsx:63` · `backgroundStore.ts:61` · `:85`) | 렌더·지우기 클릭 | 그룹은 완료인데 지우기·가드·버튼이 실행 중으로 보면 지운 카드가 되살아나거나 중단 버튼이 남는다 |
+| R-05 | **EP-07 (rev.3)** i18n 15키 × ko·en | `resources/{ko,en}.ts` | `chat.toolMeta.{rejected,cancelled,notExecuted}` · `chat.toolMeta.agentStatus.{rejected,cancelled,not_executed}` · `chat.subagentTile.status.{…}` · `chat.taskTile.status.{…}` · `background.{rejected,cancelled,not_executed}` | 렌더 | 키 누락 시 원문 키 노출 |
+| R-05 / VP-05 | **EP-08 (rev.3)** 문서 5자리 | 각 정본 문서 | V1 4자리 + `rendering.md:13`(“실행 상태가 불명확한 작업은 지우지 않는다”를 현재 세대·원격으로 한정) | CI `--check` | 패널 문서가 새 지우기 규칙과 반대를 말한다 |
+
+- 패널 호출의 비실행 사유 출처(EP-04 ⑧·⑫): 정본 `call.meta`의 같은 id 항목(`readToolResultMeta`) → 없으면 transcript 결과의 `nonExecution`. 정본이 `completed`로 반환한 호출에는 적용하지 않는다 — 두 lane은 같은 SDK 메시지를 읽고(`claude-background.ts:338-339`는 결과 1개인 메시지에만 `meta`를 싣는다), 결과 여러 개 메시지의 사유는 transcript에만 남는다.
+- `BackgroundDisplay` 판정 순서: 태스크 = 종료 증거 → 포그라운드 부모 호출의 정본 반환(D-003, 종점 = 호출 `lastSeenAt`) → 죽은 세대·비원격(D-012) → 현행. 호출 = `launchFailure` → 비실행 사유 → 정본 종료 상태 → 정본 반환 없음 + transcript 결과(D-010) → 죽은 세대·비원격(D-016) → `awaitingTask`(launch) → 실행 중.
+- 패널 라벨 키: `ToolRunOutcome`의 `aborted`는 기존 `background.stopped`(“중단”)를 쓰고 새 3상태는 새 키를 쓴다 — `Record<BackgroundDisplayStatus, …>` 전수 맵.
+
+### Δ11-5. V / pair — 대체·보완 행
+
+| Pair | left ↔ right | requiredness | production path | 직접 evidence oracle | 선택적 적대 증거 | 강제 지점 전수 |
+|---|---|---|---|---|---|---|
+| VP-02 (rev.3) | R-02 ↔ AT-02 | REQUIRED | SDK `user(tool_result, tool_result_meta)` → claude-map → writer/relay → chatReducer → `reconcileSegments` → 13자리 | AC7~AC10(AC10은 rev.3) | required — V1 형제 라벨 맞바꿈(①·⑥·⑧) 유지 + ⑩ “`failed` 외 결과를 오류 톤으로” · ⑪ 라벨 맞바꿈 · ⑫ `meta` 판독 제거 | EP-01(8)·EP-04(13)·EP-10(3) |
+| VP-16 (rev.3) | MD-04 ↔ UT-04 | REQUIRED | `ToolCall.result` → `toolRunOutcome` → 표면 Record 5종(②·③·⑤·⑬·ToolCard) | 분류표 + Record 전수(typecheck) | required — Record 키 삭제 시 typecheck red, Record 5곳 각각 | 0 — 순수 분류 |
+| VP-04 (rev.3) | R-04 ↔ AT-04 | REQUIRED | provider lane + chat messages → `BackgroundDisplay` → 그룹·라벨·경과·버튼·지우기 | AC14~AC16·AC18(rev.3) | required — 호출 반환 규칙 제거, 자리 EP-06 ①a·②a·⑤a | EP-06(13) |
+| VP-12 (rev.3) | AR-04 ↔ IT-04 | REQUIRED | chatStore messages → `transcriptResultsByToolUseId` → projection 3곳·지우기 | AC15 렌더·지우기·가드 관측 | required — 조인 입력 제거, 자리 EP-06 ⑥b-1~3 각각 | EP-06(13) |
+| VP-17 (rev.3) | MD-05 ↔ UT-05 | REQUIRED | 정본 task/call + transcript 결과 → `BackgroundDisplay` | AC14·AC15·AC16·AC18(rev.3) 순수 단언 | required — V1 2종(경과 종점 `firstSeenAt` 맞바꿈 · 원격 제외 제거) + D-016 호출 규칙 제거 · `remote_*` 판별 제거 | 0 — 순수 파생 |
+| VP-06 (rev.3) | SD-01 ↔ ST-01 | REQUIRED | frame terminal → coordinator 정착 → bus → history·relay | 버스 순서 `[…completed, terminal]` + steer 커밋이 있는 `error` terminal에서 `completed`가 `message.committed`보다 앞 | required — V1 3변이 + ④ `error` 경로 정착을 `commitConsumed` 뒤로 이동 | EP-02(3) |
+| VP-05 (rev.3) | R-05 ↔ AT-05 | REQUIRED | post-turn 로그 · 문서 생성기 | AC13·AC17 | not selected — V1과 같음 | EP-08(5)·EP-09(1) |
+
+- 노드: AT-02·AT-04 **CHANGED**(AC10·AC18 대체), MD-04·MD-05·AR-04 **CHANGED**(자리·판정 순서), SD-01 **CHANGED**(위치). 각 CHANGED 왼쪽 노드는 위 REQUIRED pair가 닫는다.
+- SUPERSEDED 이관: V1 VP-04·VP-05·VP-06·VP-12·VP-16·VP-17과 ΔV1 VP-02 행의 AC·적대 증거는 위 rev.3 행으로 전부 간다. 버린 증거는 없다.
+
+### Δ11-6. 기존 결정·규칙 / 비범위
+
+| 기존 규칙 | 출처 | 결과 |
+|---|---|---|
+| “실행 상태가 불명확한 작업과 새로 완료된 작업은 지우지 않는다” | `rendering.md:13` · `canonicalBackground.ts:32` 가드 | **변경(범위 한정)** — 부모 호출이 끝난 포그라운드 작업(D-003)과 소유 프로세스가 사라진 비원격 작업(D-012·D-016)은 완료 그룹에서 지운다. 현재 세대의 불명확 작업과 클릭 뒤 완료분은 계속 지우지 않는다 |
+
+- **비범위 A7**: 결과가 원래 tool_call과 다른 assistant 메시지에 들어가면 Code 카드가 짝을 찾지 못한다(메시지 단위 페어링). steer 커밋 뒤 도착한 실제 결과에도 있는 기존 한계이고, 이번 정착은 EP-02 위치로 피한다. NEXT_HANDOFF 후보.
+- **비범위 A8**: 정본이 없는 legacy 추적 모드에서는 host 정착이 legacy 태스크 추적을 풀지 않는다. claude 세션은 모든 provider 이벤트가 `BackgroundController.observe`를 거치고(`send.ts:506` → `background-controller.ts:67-77`) 모든 tool_use가 `background.call`을 내므로(`claude-background.ts:303-316`) 도구를 쓴 세션은 정본이 있다.
+
+### Δ11-7. 구현 설계 보완
+
+| 변경 파일 | 변경 내용 | 테스트 seam |
+|---|---|---|
+| `renderer/.../lib/parts.ts` | `ToolRunOutcome`·`toolRunOutcome(result)`(사유 → abort 마커 → isError) · `SubagentTaskStatus = ToolRunOutcome` · `resultMap`은 `parseNonExecution`으로 검증 복사 | 순수 단위 |
+| `renderer/.../lib/toolMeta.ts` | `toolGroupSegments`의 `hasError` = `toolRunOutcome === 'failed'` | 순수 단위 |
+| `tool-bodies/TaskToolBody.tsx` | 관측 없음 + 비실행 사유면 `실패` 대신 분류 라벨 | 렌더 |
+| `lib/canonicalBackground.ts` | `transcriptResultsByToolUseId` · `backgroundCallDisplay(state, call, transcript?)` · `backgroundTaskDisplay(state, task, call?, transcript?)` · `backgroundElapsedSeconds(task, now, endedAt?)` · `projectBackgroundPanel(…, transcriptResults?)` · `backgroundCallToToolCall`에 사유 | 순수 단위 |
+| `store/backgroundStore.ts` · `CanonicalBackgroundContent.tsx` | 지우기·projection 3곳에 transcript 결과 전달, EP-06 판정 자리를 `BackgroundDisplay`로 교체 | 렌더·순수 |
+| `components/rightpanel/TaskProgressList.tsx` | 상태 Record에 새 3키 | typecheck |
+
+### Δ11-8. READY self-review (rev.3)
+
+- [x] 분모를 불변식 주어로 다시 셌고 검색 명령·N·분류를 Δ11-1에 적었다 — `isError` 22줄 = 표시 8 + SSOT 3 + 비표시 11.
+- [x] 고친 AC10·AC18 행이 AC 게이트를 다시 통과한다 — 자리·형별 입력과 기대 라벨, 사람 실기는 시각만.
+- [x] CHANGED 노드 5개(AT-02·AT-04·MD-04·MD-05·AR-04)와 SD-01에 REQUIRED pair가 있고 대체 행의 증거 이관을 적었다 — 버린 증거 0.
+- [x] 새 자리의 적대 증거를 자리마다 등록했다 — ⑩·⑪·⑫, ⑥b-1~3, D-016·`remote_*`, EP-02 ④.
+- [x] EP-06 13자리 = ①a·①b·②a·②b·③·④a·④b·⑤a·⑤b·⑥a·⑥b-1~3. V1 자리 9 대비 새 자리 4(②b·⑥b-1~3)를 Δ11-1 소비 14줄과 대조했다.
+- [x] 기존 규칙 변경(`rendering.md:13`)을 §16 성격의 표에 적고 결정 근거(D-003·D-012·D-016)를 연결했다.
+- [x] `ACTIVE 결정 ↔ AC` 대조를 Δ11-2 갱신 메모에 적었다 — 충돌 0.
 
 ---
 
