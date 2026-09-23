@@ -1,0 +1,56 @@
+// 재현 위치·명령·관측값은 r1-reconcile-gap.md 참조.
+import { describe, expect, it } from 'vitest'
+import { reconcileSegments, type MessageSegment } from './parts'
+
+// 0239의 제안된 결과 형상을 reconcile 경계에 직접 넣는다.
+// 아직 없는 producer를 모형하지 않고 실제 identity 재사용 함수만 검증한다.
+type ProposedNonExecution = { source: 'sdk'; kind: string; userFeedback?: string }
+const input = { command: 'echo hello' }
+
+function segments(nonExecution?: ProposedNonExecution, output = 'not run'): MessageSegment[] {
+  const result = {
+    output,
+    isError: true,
+    ...(nonExecution ? { nonExecution } : {})
+  }
+  return [{ kind: 'tools', calls: [{ toolUseId: 't1', name: 'Bash', input, result }] }]
+}
+
+function resultOf(value: MessageSegment[]): unknown {
+  const segment = value[0]
+  if (segment.kind !== 'tools') throw new Error('expected tool segment')
+  return segment.calls[0].result
+}
+
+describe('0239 PLAN_GAP: nonExecution result reconciliation', () => {
+  it('기존 결과에 비실행 사유만 추가되어도 최신 결과를 전달한다', () => {
+    const before = segments()
+    const after = segments({ source: 'sdk', kind: 'user-rejected' })
+    expect(resultOf(reconcileSegments(before, after))).toEqual(resultOf(after))
+  })
+
+  it('동일 id·본문에서 rejected가 cancelled로 교체되면 최신 사유를 전달한다', () => {
+    const before = segments({ source: 'sdk', kind: 'user-rejected' })
+    const after = segments({ source: 'sdk', kind: 'cancelled' })
+    expect(resultOf(reconcileSegments(before, after))).toEqual(resultOf(after))
+  })
+
+  it('실제 결과가 비실행 메타데이터를 제거하면 이전 사유를 보존하지 않는다', () => {
+    const before = segments({ source: 'sdk', kind: 'cancelled' })
+    const after = segments()
+    expect(resultOf(reconcileSegments(before, after))).toEqual(resultOf(after))
+  })
+
+  it('대조군: 본문이 바뀌면 최신 결과를 전달한다', () => {
+    const before = segments({ source: 'sdk', kind: 'user-rejected' })
+    const after = segments({ source: 'sdk', kind: 'cancelled' }, 'new output')
+    expect(resultOf(reconcileSegments(before, after))).toEqual(resultOf(after))
+  })
+
+  it('대조군: 값이 동일하면 이전 세그먼트를 재사용한다', () => {
+    const before = segments({ source: 'sdk', kind: 'cancelled' })
+    expect(reconcileSegments(before, segments({ source: 'sdk', kind: 'cancelled' }))).toBe(
+      before
+    )
+  })
+})
