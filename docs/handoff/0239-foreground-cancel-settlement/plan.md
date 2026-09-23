@@ -11,10 +11,10 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-23 |
 | 매핑 | 사용자 검토 요청 1건 + 설계 질의 응답 3건 + 관찰 보완 1건(V1 rev.2) + r1 PLAN_GAP PG-01 보완(ΔV1) |
-| 상태 | READY — ΔV1로 PG-01(결과 reconcile 경계) 보완 |
+| 상태 | READY — ΔV1로 PG-01(결과 reconcile 경계) 보완, rev.2로 AC3 child 규칙 정정 |
 | V mode | `Delta V` |
 | 기준 V | `V1` rev.2 `@d47f88b` — 구현 전 사용자 관찰 보완(G5·D-012·D-013·AC18). rev.1은 `72c5979` |
-| 이번 V revision | `ΔV1` — PG-01 결과 reconcile 경계(D-014·AC5 대체·EP-10·VP-19·VP-20) |
+| 이번 V revision | `ΔV1` rev.2 — PG-01 결과 reconcile 경계(D-014·AC5 대체·EP-10·VP-19·VP-20) + AC3 child 규칙(D-015·VP-14 대체). rev.1은 `4c6bcab` |
 | 유효 V | `V1 + ΔV1` |
 | 기준 코드 | `cb5d828` (브랜치 `claude/foreground-task-cancel-state-qmcm4c` 착수 시점) |
 
@@ -143,7 +143,7 @@
 |---|---|---|---|---|
 | R-01 | AT-01 / AC1 | 턴의 `telemetry` 도착 시 결과 없는 메인 실행은 `tool.call.completed{isError:true, nonExecution:{source:'host',kind:'no_result'}}`로 정착하고, 정착 이벤트가 `telemetry`보다 먼저 버스에 방출된다. | coordinator 테스트: `started(A) → telemetry` → 버스 순서 `[started, completed(A,no_result), telemetry]`, `openToolRuns` 비움 | SDK `result` → claude-map → frame → `TurnCoordinator.run` → bus(history→relay) |
 | R-01 | AT-01 / AC2 | `error`만 오는 terminal과 terminal 없는 스트림 종료(합성 `telemetry`)도 같은 정착을 terminal 전에 수행한다. | coordinator 테스트 2건: `started → error`, `started → (스트림 종료)` 각각 completed(no_result)가 terminal 앞 | 동일 + `turn-coordinator.ts:502` 합성 경로 |
-| R-01 | AT-01 / AC3 | 보존 대상(백그라운드·원격 호출, `awaitingTask`, live 포함·`isBackgrounded:true` 태스크와 그 후손)은 정착하지 않는다. 부모가 열린 child는 두고, 부모가 닫혔고 보존되지 않은 child는 정착한다. 정본 상태가 없으면 child는 둔다. | settle 테스트: 5형 fixture(백그라운드 child·열린 부모 child·닫힌 부모 child·메인·정본 없음 child) 각각 방출 여부 | `settleOrphanToolRuns` ← coordinator terminal |
+| R-01 | AT-01 / AC3 **→ ΔV1 rev.2 대체** | 보존 대상(백그라운드·원격 호출, `awaitingTask`, live 포함·`isBackgrounded:true` 태스크와 그 후손)은 정착하지 않는다. 부모가 열린 child는 두고, 부모가 닫혔고 보존되지 않은 child는 정착한다. 정본 상태가 없으면 child는 둔다. | settle 테스트: 5형 fixture(백그라운드 child·열린 부모 child·닫힌 부모 child·메인·정본 없음 child) 각각 방출 여부 | `settleOrphanToolRuns` ← coordinator terminal |
 | R-01 | AT-01 / AC4 | `model_refusal_fallback.retracted_message_uuids` 또는 `assistant.supersedes`가 지목한 wire 메시지의 tool_use 중 **열린 것만** 즉시 `kind:'retracted'`로 정착한다. 결과가 있는 도구는 바꾸지 않는다. 내부 이벤트 `tool.call.retracted`는 버스·renderer·DB에 도달하지 않는다. | claude-map 테스트: uuid→id 매핑·supersedes·빈 목록 · coordinator 테스트: 열린 A 정착·완료된 B 불변·버스에 retracted 부재 | SDK system/assistant → claude-map → coordinator |
 | R-01 | AT-01 / AC5 **→ ΔV1 대체** | 정착된 도구에 같은 `toolRunId`의 실제 결과가 뒤늦게 오면 그것이 표시·영속을 대체한다. | writer 테스트: upsert 후 payload가 실제 결과 · renderer 테스트: 같은 메시지 두 결과 → 마지막 결과 페어링 | DB `upsertToolResultPart` · `resultMap` |
 | R-01 | AT-01 / AC6 | host 정착 카드는 `실행되지 않음` 라벨·중립 톤이며 running 표식(spinner·sr-only)이 없다. 재로드 후에도 같다. | ToolCard 렌더 테스트(라벨·클래스·sr-only 부재) · LOAD_SESSION 왕복 테스트 | relay → chatReducer → ToolCard / DB → reader → LOAD_SESSION |
@@ -216,7 +216,7 @@
 | VP-11 | AR-03 ↔ IT-03 | REQUIRED | `backgroundPending` → tracker `hasPending` → 2 소비자 | 소비자별 값 관측 | not selected — VP-03과 같은 변이 | EP-05(4) |
 | VP-12 | AR-04 ↔ IT-04 | REQUIRED | chatStore messages → `transcriptResultsByToolUseId` → 패널·지우기 | AC15 렌더·지우기 관측 | required — 조인 입력 제거 변이, 자리: EP-06 ④·⑤ | EP-06(6) |
 | VP-13 | MD-01 ↔ UT-01 | REQUIRED | `readToolResultMeta` → `nonExecutionOutcome` | 표 기반 입력 10형 | required — `interrupted`↔`cancelled` 맞바꿈 변이 | 0 — 순수 모듈 |
-| VP-14 | MD-02 ↔ UT-02 | REQUIRED | `openToolRuns` + 정본 상태 → 정착 대상 집합 | AC3 fixture 5형 | required — 보존 검사 제거 / 부모 규칙 반전 2변이 | 0 — 순수 선별 |
+| VP-14 **→ ΔV1 rev.2 대체** | MD-02 ↔ UT-02 | REQUIRED | `openToolRuns` + 정본 상태 → 정착 대상 집합 | AC3 fixture 5형 | required — 보존 검사 제거 / 부모 규칙 반전 2변이 | 0 — 순수 선별 |
 | VP-15 | MD-03 ↔ UT-03 | REQUIRED | `BackgroundSessionState` → `backgroundPending` | AC11 4형 | required — 포그라운드 제외 ↔ 전 `unknown` 제외 맞바꿈(형제 자리) | 0 — 순수 술어 |
 | VP-16 | MD-04 ↔ UT-04 | REQUIRED | `ToolCall.result` → `toolRunOutcome` → 표면 Record | 분류표 + Record 전수(typecheck) | required — Record 키 삭제 시 typecheck red 확인 | 0 — 순수 분류 |
 | VP-17 | MD-05 ↔ UT-05 | REQUIRED | 정본 task/call + transcript 결과 → `BackgroundDisplay` | AC14·AC15·AC16·AC18 순수 단언 | required — 경과 종점을 `firstSeenAt`로 맞바꾸는 변이 · 원격 제외 조건 제거 변이 | 0 — 순수 파생 |
@@ -541,6 +541,7 @@ provider call + chat messages ─► BackgroundDisplay ─► 패널·지우기
 
 > r1 구현 조사가 올린 PLAN_GAP PG-01의 설계 보완이다. 사용자 결정(D-001~D-013)과 Part I의 결과는 바꾸지 않는다.
 > V1 rev.2(`d47f88b`)에서 AC5 한 행과 VP-01·VP-02 두 pair 행을 대체하고, 결과 비교 경계(EP-10)와 pair 2개를 더한다.
+> rev.2(구현 착수 전 설계 정정)는 AC3의 child 규칙과 VP-14 행을 대체한다 — 근거는 Δ3-b.
 
 ## Δ1. 요구 출처와 재측정
 
@@ -556,11 +557,12 @@ provider call + chat messages ─► BackgroundDisplay ─► 패널·지우기
 | ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
 |---|---|---|---|---|---|
 | D-014 | 결과 identity 재사용(0008)은 `nonExecution`을 **값**(`source`·`kind`·`userFeedback`)으로 비교한다. 값이 다르면 새 결과 view를 쓰고, 같으면 다른 객체여도 이전 view를 재사용한다. | `nonExecution`은 표시 상태를 가른다 — 비교에서 빠지면 사유만 바뀐 결과가 이전 카드로 남는다. 값 비교라 재렌더 격리(0008)는 유지된다. | PG-01 | ACTIVE | — |
+| D-015 | `no_result` 정착은 보존 집합 밖의 열린 실행을 **부모 상태와 관계없이** 정착한다. 정본 상태가 없을 때만 부모 있는 실행을 둔다. | 결과 없이 끝난 부모(예: 폴백으로 폐기된 foreground Agent)의 child를 두면 우측 패널 child spinner가 영구히 남는다. 정본이 있으면 계속 실행되는 child는 보존 집합이 이미 담는다. | rev.2 설계 정정(Δ3-b) | ACTIVE | V1 AC3의 “부모가 열린 child는 둔다” 절을 대체 |
 
 ### Δ 갱신 메모
 
-- 새 결정: D-014. 변경된 결정: 없음 — D-001~D-013은 그대로 ACTIVE다.
-- **`ACTIVE 결정 ↔ AC` 대조**: D-014 ↔ AC5(ΔV1) 일치(사유만 바뀐 3형에서 최신 결과). D-002 ↔ AC5(ΔV1) 제거 형 일치(사유 부재 = 현행 표시). D-013 ↔ ΔV1 무관(입력 경로 불변). 충돌 0.
+- 새 결정: D-014, D-015(rev.2). 변경된 결정: 없음 — D-001~D-013은 그대로 ACTIVE다. D-015는 V1 AC3 본문의 한 절을 대체하며 결정 행을 대체하지 않는다.
+- **`ACTIVE 결정 ↔ AC` 대조**: D-014 ↔ AC5(ΔV1) 일치(사유만 바뀐 3형에서 최신 결과). D-002 ↔ AC5(ΔV1) 제거 형 일치(사유 부재 = 현행 표시). D-015 ↔ AC3(ΔV1 rev.2) 일치(열린 부모 child 정착·정본 없음 child 보존). D-004 ↔ AC3(ΔV1 rev.2) 일치(terminal에서 열린 실행 정착). D-013 ↔ ΔV1 무관(입력 경로 불변). 충돌 0.
 - r1 제안 중 “AC8 증거를 최종 소비자까지 연결”은 채택하지 않는다 — 재로드는 새로 마운트되어 라이브 view와 비교되지 않는다(Δ1 경로 확인). AC8은 V1 행 그대로다.
 
 ## Δ3. 요구 비판적 검토
@@ -575,13 +577,24 @@ provider call + chat messages ─► BackgroundDisplay ─► 패널·지우기
 
 - **비범위 A6**: 기존 결과 필드 3종의 같은 비교 누락 — 라이브에서 그 필드만 바뀌는 경로가 조사되지 않았다. NEXT_HANDOFF 후보.
 
+### Δ3-b. AC3 child 규칙 재검토 (rev.2)
+
+| 질문 | 판단 | 근거 |
+|---|---|---|
+| V1 AC3 “부모가 열린 child는 둔다”가 무엇을 남기는가 | 결과 없이 끝난 부모의 child를 남긴다 — 부모는 같은 정착에서 `실행되지 않음`이 되고 child는 열린 채 남는다. 연속 턴은 새 `openToolRuns`로 시작해 이후에도 닫지 않는다. | `turn-context.ts:43` · V1 AC3 문장 |
+| 열린 부모가 정착 시점에 실제로 실행 중일 수 있는가 | 정본이 있으면 아니다 — 백그라운드·원격·`awaitingTask` 호출과 live·`isBackgrounded` 태스크는 보존 집합이 후손까지 담는다. 정본 lane은 같은 배치의 transcript 이벤트보다 먼저 반영된다. | `settle.ts:25-59` · `session-runtime.ts:602-603`(`routeProviderEvents` 뒤 frame push) |
+| 정본이 없을 때는 | 백그라운드 여부를 알 수 없다 — 부모 있는 실행은 둔다(V1 규칙 유지). | V1 AC3 “정본 상태가 없으면 child는 둔다” |
+| 더 작은 해법 | V1 규칙을 두고 부모를 child보다 먼저 정착하는 순서만 바꿔도 “열린 부모” 판정이 호출 시점 기준이라 같은 결과다 — 규칙 자체를 바꾼다. | `settle.ts` 선별이 호출 시점 `openToolRuns` 기준 |
+
 ## Δ5. Requirements / Acceptance — 대체 행
 
 | R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
 | R-01 | AT-01 / AC5 (ΔV1) | 정착된 도구에 같은 `toolRunId`의 실제 결과가 뒤늦게 오면 그것이 영속과 **최종 표시**(transcript 카드·Work 타임라인)를 대체한다. 본문·`isError`·`durationMs`가 같고 `nonExecution`만 추가·교체·제거된 결과도 같다. | writer: upsert 뒤 payload가 실제 결과 · renderer: 같은 메시지 두 결과 → `resultMap` 마지막 결과 · 두 소비자의 최종 call.result가 최신 — 3형 각각을 transcript 합성식(`prev` 유지)과 `createWorkProjector`에서 | DB `upsertToolResultPart` · RECV_EVENT → `resultMap` → `reconcileSegments` → `AssistantMessage` · Work 투영 |
 
-- V1 §7의 AC5 행은 위 행으로 대체한다(행 표지 `→ ΔV1 대체`). AC 총수는 18 그대로다.
+| R-01 | AT-01 / AC3 (ΔV1 rev.2) | 보존 대상(백그라운드·원격 호출, `awaitingTask`, live 포함·`isBackgrounded:true` 태스크와 그 후손)은 정착하지 않는다. 그 밖의 열린 실행은 **부모가 열렸든 닫혔든** 정착한다. 정본 상태가 없으면 부모 있는 실행은 둔다. | settle 테스트 5형 fixture 방출 여부: 백그라운드 child → 둠 · 열린 부모 child → 부모와 함께 정착 · 닫힌 부모 child → 정착 · 메인 → 정착 · 정본 없음 child → 둠 | `settleOrphanToolRuns` ← coordinator terminal |
+
+- V1 §7의 AC5·AC3 행은 위 행으로 대체한다(행 표지 `→ ΔV1 대체`·`→ ΔV1 rev.2 대체`). AC 총수는 18 그대로다.
 - AC 게이트 재통과: 행동 단언(최신 결과) · 검증 수단(두 소비자) · 도달 경로(RECV_EVENT)를 갖는다. 사람 실기 없음.
 
 ## Δ6. V / Trace Matrix
@@ -589,13 +602,15 @@ provider call + chat messages ─► BackgroundDisplay ─► 패널·지우기
 - V mode: `Delta V` — 기준 `V1` rev.2 `@d47f88b`. 변경 시작 수준은 AT(AC5)·AR(reconcile 경계)·MD(`resultEquals`)다. R-01·R-02 요구 문장은 바뀌지 않는다.
 - V1 pair 처리: VP-01은 AT-01 변경으로, VP-02는 경로가 reconcile 경계를 지나므로 ΔV1 행으로 대체한다. VP-03~VP-18은 바뀌지 않고 유효 V에서 V1 requiredness(REQUIRED) 그대로다.
 - REGRESSION 행을 따로 두지 않는다 — r1이 production을 바꾸지 않아 V1 pair 전부가 이번 라운드의 REQUIRED이고, 회귀 기준선이 없다.
-- SUPERSEDED 이관: V1 VP-01의 AC1~AC6 → ΔV1 VP-01(AC5는 ΔV1 행). V1 VP-02의 AC7~AC10과 형제 라벨 맞바꿈 변이 → ΔV1 VP-02 그대로.
+- SUPERSEDED 이관: V1 VP-01의 AC1~AC6 → ΔV1 VP-01(AC5는 ΔV1 행, AC3은 rev.2 행). V1 VP-02의 AC7~AC10과 형제 라벨 맞바꿈 변이 → ΔV1 VP-02 그대로.
+- rev.2 이관: V1 VP-14의 변이 2종 중 “보존 검사 제거”는 ΔV1 VP-14 ①로 그대로 간다. “부모 규칙 반전”은 규칙이 바뀌어 ②(정본 없음 규칙 제거)·③(V1 규칙 복귀)로 나눈다.
 
 ### ΔV1 node registry
 
 | Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
 |---|---|---|---|---|
-| AT-01 | AT | AC1~AC4·AC6(V1) + AC5(ΔV1) | CHANGED | V1 AT-01 |
+| AT-01 | AT | AC1·AC2·AC4·AC6(V1) + AC5(ΔV1) + AC3(ΔV1 rev.2) | CHANGED | V1 AT-01 |
+| MD-02 | MD | `settle.ts` 고아 선별 — D-015 규칙 | CHANGED | V1 MD-02(“부모 열림 child 보존” 절 대체) |
 | AR-05 / IT-05 | AR / IT | EP-10 — reducer 상태 → 결과 reconcile → 두 소비자 | NEW | PG-01. V1 AR-02의 종점(`ToolCall`) 뒤 구간 |
 | MD-07 / UT-07 | MD / UT | `resultEquals`의 `nonExecution` 값 비교(D-014) | NEW | PG-01 · 0008 identity 계약 |
 
@@ -606,6 +621,7 @@ provider call + chat messages ─► BackgroundDisplay ─► 패널·지우기
 | VP-01 (ΔV1) | R-01 ↔ AT-01 | REQUIRED | SDK `assistant(tool_use)` → claude-map → coordinator → bus → chatReducer → `messageSegments` → `reconcileSegments` → `AssistantMessage` → ToolCard | AC1~AC6(AC5는 ΔV1) 단언 | not selected — 라벨·순서 직접 관측. EP-10 자리는 VP-19·VP-20의 M1이 잠근다 | EP-01(8)·EP-02(3)·EP-03(4)·EP-10(3) |
 | VP-02 (ΔV1) | R-02 ↔ AT-02 | REQUIRED | SDK `user(tool_result, tool_result_meta)` → claude-map → writer/relay → chatReducer → `reconcileSegments`(transcript·Work) → renderer 9자리 | AC7~AC10 단언 | required — 형제 라벨 맞바꿈(rejected↔cancelled) 1종, 자리: EP-04 ①·⑥·⑧ | EP-01(8)·EP-04(9)·EP-10(3) |
 | VP-19 | AR-05 ↔ IT-05 | REQUIRED | RECV_EVENT → `messages` → `messageSegments`(`resultMap`) → `reconcileSegments`(`resultEquals`) → `AssistantMessage` 세그먼트 ∥ `createWorkProjector`(reconcile + join) 노드 | 두 소비자의 최종 call.result가 최신 — `nonExecution` 3형, 본문·`isError`·`durationMs` 동일 | required — **M1** `resultEquals`에서 `nonExecution` 비교 제거, 자리 EP-10 ①. red는 transcript 합성식 oracle에서 관측한다. Work oracle은 join이 결과를 다시 끼워 M1을 관측하지 못한다(Δ1 측정) — 직접 행동 oracle로만 둔다 | EP-10(3) |
+| VP-14 (ΔV1 rev.2) | MD-02 ↔ UT-02 | REQUIRED | `openToolRuns` + 정본 상태 → 보존 집합 → 정착 대상 집합 | AC3(rev.2) fixture 5형 + 기존 `settle.test.ts` 보존 케이스(`:18`) 통과 | required — ① 보존 검사 제거 → 백그라운드 child red ② 정본 없음 규칙 제거(child 정착) → 정본 없음 child red ③ V1 규칙 복귀(열린 부모 child 보존) → 열린 부모 child red | 0 — 순수 선별 |
 | VP-20 | MD-07 ↔ UT-07 | REQUIRED | `nonExecutionEquals` → `resultEquals` → `toolCallEquals` → `reconcileSegment`(`tools`·`ask`) | 3형 최신 view · 같은 값(다른 객체) → 이전 call·배열 `toBe` · 형제 call identity 유지 · `ask` 세그먼트 1형 · 기존 `parts.reconcile.test.ts` 4케이스 통과 | required — M1(같은 자리) | 0 — 순수 모듈 |
 
 ### ΔV1 현재 변경의 운영 gate
@@ -629,6 +645,7 @@ provider call + chat messages ─► BackgroundDisplay ─► 패널·지우기
 | `app/src/shared/tool-outcome.ts` | `nonExecutionEquals(a?, b?)` export — D-014 SSOT | 순수 단위 |
 | `app/src/renderer/src/features/chat/lib/parts.ts` | `resultEquals`가 `nonExecutionEquals(a.nonExecution, b.nonExecution)`를 함께 요구 | 순수 단위 (UT-07) |
 | 테스트 | `parts.reconcile.test.ts`에 3형·같은 값·`ask` 케이스, `workActivity.test.ts`에 3형 최종 노드 케이스 | Vitest |
+| `app/src/main/features/chat/settle.ts` (rev.2) | V1 §11의 `no_result` 선별식을 `open − 보존 − (정본 없음 ? 부모 있는 실행 : ∅)`으로 대체 | 순수 단위 (UT-02) |
 
 ## Δ10. READY self-review (ΔV1)
 
@@ -640,6 +657,8 @@ provider call + chat messages ─► BackgroundDisplay ─► 패널·지우기
 - [x] 선택 적대 증거 M1의 자리와 red를 관측할 oracle을 적었고, M1을 관측하지 못하는 oracle(Work)은 측정 근거와 함께 구분했다.
 - [x] 강제 지점을 자리로 셌다 — EP-10 3자리, 검색 명령 Δ8.
 - [x] r1 제안 중 채택하지 않은 부분(AC8)의 근거를 코드 경로로 적었다 — Δ 갱신 메모·Δ1.
+- [x] rev.2: 고친 AC3 행이 AC 게이트를 다시 통과한다 — 5형 fixture별 기대 방출(행동 단언)·순수 선별 테스트·coordinator terminal 경로, 사람 실기 없음.
+- [x] rev.2: 바뀐 MD-02에 REQUIRED pair(VP-14 rev.2)가 있고, V1 변이 2종의 이관(① 유지, ②③ 분할)을 적었다.
 
 ---
 
