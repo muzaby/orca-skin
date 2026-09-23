@@ -540,3 +540,206 @@ production `useMentionAutocomplete`를 기존 hook fixture로 구동했다.
 - Product/UX: r2 동작 결함 D1~D3 해소. 현재 production 동작 결함 0 — 남은 것은 D14 oracle 결함.
 - 운영 gate: typecheck·lint·vitest 808·doc·diff check PASS
 - 다음 단계: 라운드 4 > 3 → `handoff-review` 먼저, 그 뒤 r4 재구현(D14 필수, D16·D17 같은 라운드 권장). D19는 설계자 판단.
+
+---
+
+# r4 검증 (3회차 verify 턴)
+
+## 메타 (r4)
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 일자 | 2026-09-23 |
+| 대상 커밋/range | `0817d96..a13c35f` — r4 구현 `a13c35f` (기준: r3 verify `7d82955`; 사이 3커밋 `c501c03`·`3981a7d`·`0817d96`은 handoff 지침 메타 수정) |
+| 유효 V | `V1@6200cf1 + ΔV1@ee15ca9` — 변경 없음 |
+| 라운드 | 3 (`docs/handoff/AGENTS.md §라운드` 재정의 기준 — 끝난 FAIL verify 2회 + 1) |
+| 상태 | **PASS** |
+| 자기 검증 여부 | **예** — r4 구현 trailer `Agent: claude`. 보고가 이름을 대지 않은 적대 축 10건(X1~X10)과 D14 분모 독립 재열거를 넣었다(§3-3·§4) |
+
+## 0. 기준선 (r4)
+
+- **기준선 성립: 예.** `git diff 0817d96 a13c35f -- plan.md` hunk 3개 = 메타 상태 1행 · `[구현자 기입]` r4 절(1144행 이후) · `[검증자 기입]` 상태 칸(D14~D18·D20 `closed (r4)`).
+- 사이 메타 커밋의 0238 변경: `3981a7d`가 메타 상태 1행·INDEX 라운드 칸(4→3)만 바꿨다. Decision·Product/UX·AC·V node/pair·§10 변경 **없음** — 채점 기준은 r3와 같은 24 AC·21 pair.
+- Plan validity: 유효, root PLAN_GAP 없음. review round 28의 SUPERSEDED 이관 규칙은 ΔV1(`ee15ca9`) 이후 도입이라 읽기 전용으로 합성한다 — V1 VP-06·12의 header-index 적대 축 → VP-21(flatten index)·VP-18(keyboard index lifecycle). 이번 라운드 S5a가 그 축을 red로 잡으므로(§3-1) 현재 판정에 빠진 증거가 없다.
+
+## 1. 구현 비판적 검토 — AC 전에
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 키보드 추출이 동작을 바꿨는가 | 아니오 | skill 분기에 `length>0` 가드가 새로 생겼으나 skill popup은 `suggestions.length > 0`일 때만 열린다(`useSkillAutocomplete.ts:47`) — 도달 불가 |
+| 미처리 키의 fallthrough | 보존 | `handleAutocompleteKey`가 `false`면 두 `if`를 지나 기존 Enter 전송 분기로 간다(`ComposerInputController.tsx:277-291`) |
+| Enter가 선택 후 전송까지 가는 false success | 없음 | Enter/Tab은 항상 `true` → `preventDefault`·`return`. 반환을 `false`로 바꾼 X4는 red 3 |
+| 새 테스트가 production symbol을 부르는가 | 예 | `providerAuthWiring.render.test`는 production `ProviderDetail`·`ExtensionsCatalogView`를 호출하고 반환 트리의 `ProviderAuthActions`·`ProviderDetail` element props를 본다. `autocompleteKeys.test`는 production `handleAutocompleteKey`와 `flattenMentionGroups` 출력 사용 |
+| 배선 oracle의 성격 | 구조적 proxy | W 케이스는 controller source 정규식 — 호출 인자·조건은 잡지만 `event.preventDefault()`는 보지 않는다(X3·X5 green, D22) |
+| 비동기·상한 | 불변 | provider `state` 1 + `onState` 1, option `P + min(F,8)` — 해당 코드 diff 0 |
+
+## 2. 역방향 탐색 (r4)
+
+`bash .agents/skills/handoff-verify/scripts/scan-surface.sh 7d82955..a13c35f` — 3파일.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| `KeyboardAutocomplete` 테스트 전용 | 정상 | `handleAutocompleteKey` 시그니처 타입(`autocompleteKeys.ts:6·15`) |
+| `MentionToken` 테스트 전용 | 정상 | `groupMentionSuggestions`·`applyMentionSuggestion` 시그니처 타입 |
+| `filterFileSuggestions` | 비export 확인 | `rg -n filterFileSuggestions app/src` → 정의 1·내부 호출 1 (D20) |
+| 미사용 값 export · 형제 정책 비대칭 | 0 | 스크립트 1a·3 결과 없음 |
+
+## 3. 적대 증거 재측정
+
+러너: 변이 1건씩 적용 → 아래 스위트 → 복원(scratchpad `mutate.py`, 커밋하지 않음). baseline **110파일 / 819케이스** green.
+r2·r3 verify는 변이를 이름으로만 기록했으므로 이번 러너가 그 서술에서 patch를 다시 작성했다 — 케이스 수가 r3와 다른 행은 형태 차이다.
+
+```text
+cd app && ./node_modules/.bin/vitest run model-parser·settings·runtime-catalog · chat/{components/composer,hooks,lib} · engine/components · skills · i18n resources · shared/plugin-catalog · main/app/{connection-views,deployment/{connections,plugins,deployment-wiring}}
+```
+
+### 3-1. r4 잠금 표 11행 — 11/11 red
+
+| 변이 | r3 | r4 | 실패 파일 |
+|---|---|---|---|
+| S1 `ProviderDetail` `onReauth`↔`onRevoke` 전달 맞바꿈 | green | red 1 | providerAuthWiring.render |
+| S1b `ProviderDetail` `authKind={null}` | green | red 1 | providerAuthWiring.render |
+| S2 catalog view `onReauth`→`providers.revoke` | green | red 1 | providerAuthWiring.render |
+| S5a ↑/↓ 모듈로에 header 1칸 | green | red 1 | autocompleteKeys |
+| S5b Enter/Tab 첫 옵션 고정 | green | red 2 | autocompleteKeys |
+| S5c Esc가 `close` 안 부름 | green | red 1 | autocompleteKeys |
+| S6 Plugin chip 끝 경계 `$` 제거 | green | red 1 | composerDecoration |
+| S4 `pluginOpen`의 `!token.quoted` 제거 | green | red 1 | useMentionAutocomplete |
+| W1 controller skill 키 호출 제거 | — | red 1 | autocompleteKeys |
+| W2 mention 호출 apply를 skill apply로 | — | red 1 | autocompleteKeys |
+| W3 mention 호출 조건을 `skillOpen`으로 | — | red 1 | autocompleteKeys |
+
+- VP-10 등록 변이 “reauth/revoke callback 맞바꿈”은 자리 미지정이라 pair path의 세 자리에 심었다: 컴포넌트 안 M13 red 1 · `ProviderDetail` 전달 S1 red 1 · catalog view sink S2 red 1.
+- 동작 보존 추출 라운드(키보드 분기): hunk 되돌림은 판정 근거로 쓰지 않았다. 잠금은 S5a~c·W1~W3·X4·X6·X10으로 쟀다.
+- 소거 변이 잔여물: S5c·W1은 런타임 값 제거라 typecheck 대상 잔여물 없음 — 스위트 red가 판정이다.
+
+### 3-2. 덮개 회귀 — r3 red 41건 재실행, red→green 0
+
+| 묶음 | 변이와 이번 결과 |
+|---|---|
+| r3 잠금 15 | M3 1 · M9 3 · M10 4 · M11 1 · M13 1 · N1b 1 · N6 3 · M7 2 · N2b 1 · EP12 2 · D1 되돌림 2 · D2 되돌림 4 · D3 되돌림 1 · N9b 2 · N9c 2 — 전부 red |
+| r2 red 19 | M1 2 · M2 4 · M12 12 · M8(model) 11 · M8(component) 7 · M9b 4 · M10b 5 · M14 4 · N1 8 · M5 1 · N2 4 · N5 7 · N5b 6 · N4 8 · N8 1 · N3a 3 · N3b 3 · N3d 2 · N7 2 — 전부 red |
+| r3 신설 red 7 | S3 1 · S7 3 · S8 2 · S9 3 · S10 2 · S11 1 · S12 2 — 전부 red |
+
+### 3-3. 검증자 신설 축 — 보고가 이름을 대지 않은 지점 10건: red 6 · **green 4**
+
+| 축 | 변이 | 결과 | 귀속 |
+|---|---|---|---|
+| **X1** | `ProviderDetail`이 `authKind={initialAuthKind(provider)}`로 넘김(사용자 선택 무시) | **green** | D14 불변식의 다른 지점 — 값 소실(S1b)만 잠기고 stale은 안 잠김 → D21 |
+| X2 | `ProviderDetail` `onLogin={onReauth}` | red 1 | D14 형제 자리 |
+| **X3** | controller mention 분기의 `event.preventDefault()` 제거 | **green** | AC11 glue 다른 지점 → D22 |
+| X4 | Enter/Tab이 `false` 반환(선택 후 전송 분기로 fallthrough) | red 3 | AC11 |
+| **X5** | controller skill 분기의 `event.preventDefault()` 제거 | **green** | X3 형제 → D22 |
+| X6 | ArrowUp offset을 +1로 | red 1 | AC11 |
+| X7 | catalog view `onLogin`이 `authKind` 누락 | red 1 | D15 형제 자리 |
+| **X8** | `AuthKindChoices` `onChange` no-op(선택 쓰기 소실) | **green** | X1과 같은 선택 원천 → D21 |
+| X9 | `ProviderDetail`이 `provider` 대신 status 바꾼 사본 전달 | red 2 | D14 형제 자리 |
+| X10 | controller 두 호출의 목록·apply 맞바꿈 | red 1 | W2 형제 슬롯 맞바꿈 |
+
+- 인용 변이 미검출: **0** — D14(S1·S1b)·D15(S2)·D16(S5a~c)·D17(S6)·D18(S4) 전부 red. green 4건은 인용 변이가 아니고 production 동작은 정상이라 blocking 증거가 아니다(§6).
+- X1·X8 production 확인: `authKind={authKind}`(`ProviderDetail.tsx:74`)·`onChange={setAuthKind}`(`:157`) — 결함 없음, oracle만 없다. base `6200cf1`에도 같은 선택 경로에 테스트 0(`git grep AuthKindChoices -- '*.test.*'` → 0줄).
+- 최종 `git status --short` 비어 있음 — 변이 62건 전부 복원.
+
+## 4. V-pair closeout (r4) — `UT → IT → ST → AT`
+
+| Pair | 레벨 | requiredness | r3 | r4 | 직접 증거 (이번 라운드) |
+|---|---|---|---|---|---|
+| VP-11 | UT | REQUIRED | PASS | PASS | M2 red 4 |
+| VP-13 | UT | REQUIRED | PASS | PASS | M14·D3 되돌림·S6 red |
+| VP-14 | UT | REQUIRED | PASS | PASS | M9·M10·M9b·M10b·S7 red |
+| VP-21 | UT | REQUIRED | PASS | PASS | N1 red 8 (autocompleteKeys 포함) |
+| VP-22 | UT | REQUIRED | PASS | PASS | N2·N2b·D1 되돌림·S9·S10 red |
+| VP-23 | UT | REQUIRED | PASS | PASS | N5·N5b·EP12·S3 red |
+| VP-08 | IT | REQUIRED | PASS | PASS | M12 red 12 |
+| VP-10 | IT | REQUIRED | PAIR_FAIL | **PASS** | 등록 변이 세 자리 M13·S1·S2 red, 형제 X2·X7·X9 red |
+| VP-20 | IT | REQUIRED | PASS | PASS | N4·N8 red |
+| VP-05 | ST | REQUIRED | PASS | PASS | parser/settings/ModelMenu/Engine suites green, M1·M12 red |
+| VP-07 | ST | REQUIRED | PASS | PASS | M11 red |
+| VP-18 | ST | REQUIRED | PASS | PASS | N6·M7·N2b red, keyboard S5a~c·X4·X6 red |
+| VP-19 | ST | REQUIRED | PASS | PASS | N3a/b/d·N9b/c·S8 red |
+| VP-01 | AT | REQUIRED | PASS | PASS | M1·M3 red |
+| VP-03 | AT | REQUIRED | BLOCKED_BY:VP-10 | **PASS** | M8 red 11·7, root VP-10 해소 |
+| VP-04 | AT | REQUIRED | PASS | PASS | doc gate ok, stale 이름 0줄(r3 명령 재실행) |
+| VP-15 | AT | REQUIRED | PASS | PASS | N1·N1b red |
+| VP-16 | AT | REQUIRED | PASS | PASS | N2 red |
+| VP-17 | AT | REQUIRED | PASS | PASS | N3·N8 red |
+| VP-24 | AT | REGRESSION | PASS | PASS | D1·D2 되돌림·N7·S4·W1 red |
+| VP-25 | AT | REGRESSION | BLOCKED_BY:VP-10 | **PASS** | S1·S1b·X9 red — ProviderDetail 트리의 auth action props |
+
+- **합계: PASS 21 · PAIR_FAIL 0 · BLOCKED_BY 0 = 21.** 구현 자기보고 “r3 root·BLOCKED 3/3 SELF_PASS” ↔ 재측정 3/3 일치.
+- 실행 범위: 재검증이지만 이전 red 41건 전부 재실행해 21 pair 모두 이번 증거를 갖는다.
+
+### AT / AC (r4)
+
+| AC | r3 | r4 | 근거 |
+|---|---|---|---|
+| AC1·2·3·4·5 | ✅ | ✅ | M1·M2·M12·M3 red |
+| AC6·8·9·10 | ✅ | ✅ | N1b·M5·S12·S4·M7 red |
+| AC11 | ⚠️ | ✅ | 검증 수단 “header 제외 index와 각 kind dispatch” — S5a~c·W1~W3·X4·X6·X10 red. `preventDefault` 미잠금은 D22 |
+| AC12 | ✅ | ✅ | D3 되돌림·S6 red |
+| AC13·14 | ✅ | ✅ | M8 red |
+| AC15 | ⚠️ | ✅ | M13·S1·S2·X2·X7 red — 세 자리 모두 |
+| AC16~AC25 | ✅ | ✅ | M11·doc gate·N1b·N2·N3·S8·N9·EP12·N5·D1·D2·N7 red, typecheck |
+
+- **합계 재측정: ✅ 24 · ⚠️ 0 · ❌ 0 = 24** (AC7은 AC23이 대체). 자기보고 plan `✅24/24` ↔ trailer `Criteria-Met: 24/24` ↔ INDEX 비고(수치 없음) — **일치**.
+
+### D14 강제 지점 분모 (독립 재열거)
+
+술어: VP-10 path `ExtensionsCatalogView → ProviderDetail → ProviderAuthActions → providers.*`에서 인증 callback·선택 방식·대상 provider 값을 운반하는 자리.
+
+| 파일 | 자리 | 구현 보고 | 잠금 |
+|---|---|---|---|
+| `ExtensionsCatalogView.tsx:212-218` | `provider`·`onLogin`·`onReauth`·`onRevoke` 4 | 3 | 4/4 (S2·X7·wiring id 단언) |
+| `ProviderDetail.tsx:41·73-77·157` | state 원천·`onChange` 쓰기·`provider`·`authKind`·`onLogin`·`onReauth`·`onRevoke` 7 | 4 | 5/7 — `authKind` stale(X1)·`onChange`(X8) 미잠금 |
+| `ProviderAuthActions.tsx:41·81` | login·reauth·revoke 3 | 3 | 3/3 (M13·M8) |
+
+- **재측정 14자리 · 잠금 12/14** ↔ 보고 10/10. 차집합 4자리 중 2자리(provider 두 곳)는 잠김, 선택 원천 2자리는 D21. 필수 pair 계약(VP-10 §10: none=login, non-none=reauth·revoke)의 자리는 전부 잠겼다.
+- EP-05 5/5·EP-07 2/2·EP-08 2/2·EP-12 3/3은 r3 재열거 그대로, 해당 코드 r4 diff 0.
+
+### 운영 gate (r4) — 관측한 산출
+
+| Gate | 결과 | 관측 |
+|---|---|---|
+| typecheck | PASS | node·web·test 3 config, `error TS` 0 |
+| lint | PASS | 0 error · 1 warning(기존 TanStack Virtual `react-hooks/incompatible-library`). 실행 전후 `git status --short` 둘 다 빈 출력 |
+| 관련 vitest | PASS | **110파일 / 819케이스** pass (구현 보고와 같은 값) |
+| doc inventory | PASS | `9 items, 98 channels` · prose ok · links ok |
+| `git diff --check 7d82955 a13c35f` | PASS | 출력 0 |
+| message-bus | PASS | `a13c35f` trailer 8키 파싱, `Agent: claude`·`Status: implemented`·`Verified-By: pending` 허용값 |
+
+- `npm test` 미사용 — DB 동작 검증 대상 없음. 변이 러너·결과 JSON은 scratchpad에만 남겼다.
+
+## 5. Repository operation checks (r4)
+
+- INDEX: 상태 `IMPL_DONE`·다음 주체 Claude — 실제와 일치. 자리표시자 `(r4 구현 — 검증자 기입)` → `a13c35f`(`git cat-file -t` = commit)로 기입. 비고 3줄(≤5).
+- `[구현자 기입]` r4 7필드: 설계 리뷰·강제 지점 전수·수정의 잠금·Product/UX·놓친 문제·구현 보고·Review Signals — **7/7**, 설계 대비 차이 축 4행 포함. 구현 보고 대상 커밋은 `(r4 구현 — 좌표는 INDEX)` 자리표시자.
+- 라운드 3 · 라벨 `r4`: `§라운드`(verify 없이 반복된 턴은 같은 라운드, 기존 라벨과 겹치면 순번 유지)와 일치.
+- 사람 실기가 남아 archive 이동은 실기 뒤로 둔다(0233·0236 선례).
+
+## 6. Finding disposition (r4)
+
+| # | finding | 귀속 | disposition | root / 영향 pair |
+|---|---|---|---|---|
+| D21 | `ProviderDetail`의 인증 방식 선택이 `ProviderAuthActions`까지 가는 경로에 oracle이 초깃값뿐이다 — `authKind={initialAuthKind(provider)}`(X1)·`onChange` no-op(X8) green. wiring test의 `useState` mock이 setter를 버려 선택 후 상태를 만들지 못한다. production은 정상 | D14 불변식의 비인용 지점 · base부터 테스트 0 | NON_BLOCKING | — (stateful `useState` fixture로 선택→`authKind` props 단언 권장) |
+| D22 | controller의 `event.preventDefault()` 두 자리 미잠금 — 제거(X3·X5) green. 제거하면 popup Enter가 줄바꿈을, Tab이 포커스 이동을 함께 일으킨다. W 케이스 source 정규식이 이 줄을 보지 않는다. production은 정상 | AC11 비등록 축 · D16 형제 | NON_BLOCKING | — (source 단언에 `preventDefault` 포함 또는 controller keydown fixture) |
+
+- r3 D14~D18·D20: 인용 변이 전부 red로 **closed 확인**. D13(plan 메타 죽은 좌표)은 설계자 몫으로 open, D19는 NEXT_HANDOFF로 open 유지.
+
+## 7. Review Signals — 사실만 (r4)
+
+- 이전 라운드와 유사 증상: 예 — D21은 D14와 같은 edge의 **다른 값 축**(소실 vs stale)이다. r4는 D14 인용 변이(S1b `null`)의 형태로만 잠갔다.
+- 관련 plan 지침: VP-10 §10은 callback 분기만 세고 선택 방식(`authKind`)은 AC·EP에 없다. D22의 `preventDefault`도 AC11 검증 수단 문구 밖이다.
+- 자기 검증: 보고 변이 11/11·이전 red 41/41은 전부 red였고, 보고에 없는 축 10건 중 4건이 green이었다.
+- 반복 환경 한계: Electron/SDK 실기 불가.
+
+## 8. 결론 (r4)
+
+- 상태: **PASS**
+- pair: PASS 21 · PAIR_FAIL 0 · BLOCKED_BY 0 · PLAN_GAP 0
+- AC: ✅ 24 · ⚠️ 0 · ❌ 0 / 24
+- Product/UX·ACTIVE Decision: 충족. production 동작 결함 0.
+- 운영 gate: typecheck·lint·vitest 110/819·doc·diff check·trailer PASS
+- NON_BLOCKING D21·D22(신규)·D13 open, NEXT_HANDOFF D19
+- 남은 사람 확인: ① 두 테마 path 상단/Plugin 하단·popup clipping ② 인증 dropdown 배치(좁은 우측 패널) ③ 실제 SDK에서 bare `fable` alias 해석 ④ gate/harness/usage custom presentation 시각
+- 다음 단계: 사람 실기 → archive 이동
