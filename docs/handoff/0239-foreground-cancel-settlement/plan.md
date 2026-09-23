@@ -11,10 +11,10 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-23 |
 | 매핑 | 사용자 검토 요청 1건 + 설계 질의 응답 3건 + 관찰 보완 1건(V1 rev.2) + r1 PLAN_GAP PG-01 보완(ΔV1) |
-| 상태 | READY — ΔV1로 PG-01(결과 reconcile 경계) 보완, rev.2로 AC3 child 규칙 정정, rev.3으로 표시·패널 자리 재집계 |
+| 상태 | READY — ΔV1 rev.4로 PG-02(호출 시각 생산 지점) 보완. 구현 재개 |
 | V mode | `Delta V` |
 | 기준 V | `V1` rev.2 `@d47f88b` — 구현 전 사용자 관찰 보완(G5·D-012·D-013·AC18). rev.1은 `72c5979` |
-| 이번 V revision | `ΔV1` rev.3 — PG-01 결과 reconcile 경계(D-014·AC5 대체·EP-10·VP-19·VP-20) + AC3 child 규칙(D-015·VP-14 대체, rev.2) + 표시·패널 자리 재집계(D-016·AC10·AC18 대체, rev.3). rev.1은 `4c6bcab` |
+| 이번 V revision | `ΔV1` rev.4 — rev.1~3 상속 + PG-02 호출 시각 생산 지점(Δ12·EP-06 ②c·VP-21). rev.1은 `4c6bcab` |
 | 유효 V | `V1 + ΔV1` |
 | 기준 코드 | `cb5d828` (브랜치 `claude/foreground-task-cancel-state-qmcm4c` 착수 시점) |
 
@@ -754,6 +754,32 @@ provider call + chat messages ─► BackgroundDisplay ─► 패널·지우기
 - [x] EP-06 13자리 = ①a·①b·②a·②b·③·④a·④b·⑤a·⑤b·⑥a·⑥b-1~3. V1 자리 9 대비 새 자리 4(②b·⑥b-1~3)를 Δ11-1 소비 14줄과 대조했다.
 - [x] 기존 규칙 변경(`rendering.md:13`)을 §16 성격의 표에 적고 결정 근거(D-003·D-012·D-016)를 연결했다.
 - [x] `ACTIVE 결정 ↔ AC` 대조를 Δ11-2 갱신 메모에 적었다 — 충돌 0.
+
+---
+
+## Δ12. rev.4 — 호출 시각 생산 지점 (PG-02)
+
+보완 — AC14가 요구한 반환 시각은 기존 `BackgroundCallRecord.lastSeenAt`에서 오지만 생산자가 이를 갱신하지 않는다. r1.3의 실제 `applyBackgroundEvent` 테스트는 시작 1000·반환 7000에서 `endedAt:1000`을 관측했다. 사용자 결과·D-001~D-016·AC 총수는 바꾸지 않는다.
+
+| 조사 대상 | 관측 | 판정 |
+|---|---|---|
+| `background.call` 조립 | `lastSeenAt:source.receivedAt` 뒤의 `...old`가 시작 시각을 복원한다 | 호출 반환·progress 모두 기존 값에 고정 |
+| 태스크 시간 생산자 | `mergeTask`는 `Math.max(old.lastSeenAt, source.receivedAt)`를 쓴다 | 호출도 같은 단조 증가 의미를 적용 |
+| 종점 소비자 | AC14·AC18 / EP-06 ②b가 `call.lastSeenAt`을 읽는다 | 소비자만 수정하면 0초 경과로 정착 |
+
+### 계약 / Technical Design
+
+- AS-IS: provider call source → reducer의 old spread → 최초 시각 → 패널 경과. TO-BE: spread 뒤 `lastSeenAt = Math.max(old?.lastSeenAt ?? source.receivedAt, source.receivedAt)` → 패널 경과. `firstSeenAt`과 journal 원문은 유지한다.
+- **EP-06 ②c 신설**: `shared/background-task.ts`의 `background.call` 조립이 매 호출 이벤트에서 최신 관측 시각을 보존한다. `started(1000) → returned(7000) → progress(6000)`에서 `firstSeenAt=1000`, `lastSeenAt=7000`; 패널 종료 경과는 6초다.
+- EP-06 전수는 **14자리**다(기존 13자리 + ②c). rev.3 VP-04·VP-12·VP-17의 경로 앞에 이 생산자를 연결하고 분모를 14로 대체한다. 기존 AC·등록 변이는 모두 승계한다.
+- `MD-08` NEW: 호출 관측 시각 단조 증가. `AR-04`·`MD-05`는 rev.3 계약에 입력 생산 지점만 보완한다. AC14·AC18 및 기존 pair의 requiredness는 REQUIRED 그대로다(미완료 r1).
+
+| Pair | left ↔ right | requiredness | production path | 직접 evidence oracle | 선택적 적대 증거 | 강제 지점 |
+|---|---|---|---|---|---|---|
+| VP-21 | MD-08 ↔ UT-08 | REQUIRED | provider source → `applyBackgroundEvent(background.call)` → `lastSeenAt` → `backgroundTaskDisplay` → `backgroundElapsedSeconds` | 시작·반환·늦은 progress의 시각 3단언 + 실제 reducer 경유 6초 표시 | not selected — 입력 시각과 출력 경과 직접 관측 | EP-06 ②c(1) |
+
+- 기존 결정 대조: D-003(호출 반환 시각)·D-012/016(lastSeenAt) ↔ AC14·18 일치. 필드·저장 형상·제품 정책 변경 없음. 같은 버그의 태스크 producer는 이미 `Math.max`를 사용하므로 변경하지 않는다.
+- READY 재검토: `git grep -n 'lastSeenAt' -- app/src/shared/background-task.ts`로 생산자 및 소비자를 대조했다. 새로운 순수 알고리즘은 VP-21, 기존 패널 경로는 VP-04·12·17이 닫는다. 수정 파일은 shared reducer·관련 테스트이며 운영 gate는 기존과 같다.
 
 ---
 
