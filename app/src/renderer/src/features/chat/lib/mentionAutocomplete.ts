@@ -48,7 +48,7 @@ function splitDirAndPrefix(partial: string): { dirPath: string; prefix: string }
   return { dirPath: partial.slice(0, lastSlash), prefix: partial.slice(lastSlash + 1) }
 }
 
-export function filterFileSuggestions(entries: readonly FileEntry[], prefix: string): FileEntry[] {
+function filterFileSuggestions(entries: readonly FileEntry[], prefix: string): FileEntry[] {
   const query = prefix.toLowerCase()
   const showHidden = prefix.startsWith('.')
   return entries

@@ -305,6 +305,17 @@ describe('mention autocomplete provider sources (AC10 · AC19 · AC23)', () => {
     expect(result.groups.map((group) => group.kind)).toEqual(['plugin'])
   })
 
+  it('keeps a quoted token closed without cwd even when Plugin ids match its prefix (AC9)', async () => {
+    h.providerState.mockResolvedValue({ providers: [provider('jira-dc')] })
+    render('@"j', null)
+    await flush()
+    const result = render('@"j', null)
+    expect(h.list).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ open: false, quoted: true, groups: [] })
+    // 같은 prefix의 plain token은 Plugin-only popup으로 열린다 — 닫힘은 quoted 때문이다.
+    expect(render('@j', null)).toMatchObject({ open: true })
+  })
+
   it('keeps path results when provider state fails, with one invoke and one subscription', async () => {
     h.providerState.mockRejectedValue(new Error('down'))
     h.list.mockResolvedValue([file('README.md')])

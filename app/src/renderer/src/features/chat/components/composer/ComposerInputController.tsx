@@ -25,6 +25,7 @@ import { AttachmentTray } from './AttachmentTray'
 import { ComposerChip } from './ComposerChip'
 import { ComposerInputSurface, type ComposerInputSurfaceHandle } from './ComposerInputSurface'
 import { MentionAutocomplete } from './MentionAutocomplete'
+import { handleAutocompleteKey } from './autocompleteKeys'
 import { SkillAutocomplete } from './SkillAutocomplete'
 import { submitComposerInput } from './composerSubmit'
 import {
@@ -273,50 +274,16 @@ export function ComposerInputController({
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
     const composing = compositionActive(event.nativeEvent.isComposing)
     if (composing) return
-    if (skillOpen) {
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        event.preventDefault()
-        const offset = event.key === 'ArrowDown' ? 1 : -1
-        const length = autocomplete.suggestions.length
-        autocomplete.setActiveIndex((autocomplete.activeIndex + offset + length) % length)
-        return
-      }
-      if (event.key === 'Enter' || event.key === 'Tab') {
-        event.preventDefault()
-        const pick = autocomplete.suggestions[autocomplete.activeIndex]
-        if (pick) applyAutocomplete(pick)
-        return
-      }
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        autocomplete.close()
-        return
-      }
+    if (skillOpen && handleAutocompleteKey(event.key, autocomplete, applyAutocomplete)) {
+      event.preventDefault()
+      return
     }
-
-    if (mentionOpen) {
-      const length = mentionAutocomplete.suggestions.length
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        event.preventDefault()
-        if (length > 0) {
-          const offset = event.key === 'ArrowDown' ? 1 : -1
-          mentionAutocomplete.setActiveIndex(
-            (mentionAutocomplete.activeIndex + offset + length) % length
-          )
-        }
-        return
-      }
-      if (event.key === 'Enter' || event.key === 'Tab') {
-        event.preventDefault()
-        const pick = mentionAutocomplete.suggestions[mentionAutocomplete.activeIndex]
-        if (pick) applyMentionAutocomplete(pick)
-        return
-      }
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        mentionAutocomplete.close()
-        return
-      }
+    if (
+      mentionOpen &&
+      handleAutocompleteKey(event.key, mentionAutocomplete, applyMentionAutocomplete)
+    ) {
+      event.preventDefault()
+      return
     }
 
     if (event.key === 'Enter' && !event.shiftKey) {
