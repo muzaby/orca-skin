@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 지시로 설계 턴 수행 |
 | 일자 | 2026-09-22 |
 | 매핑 | 최초 기능 요청 3건 + 사용자 변경·보완 4건 |
-| 상태 | **verify/FAIL (V1+ΔV1 r3)** — 판정은 [`verify.md`](verify.md) `# r3 검증`, 다음은 `handoff-review`(라운드 4 > 3) 후 r4 재구현 |
+| 상태 | **verify/FAIL (V1+ΔV1 r3)** — 판정은 [`verify.md`](verify.md) `# r3 검증`. `handoff-review` round 28 완료, 다음은 r4 재구현 |
 | V mode | `Delta V` |
 | 기준 V | `V1@651d9080` — 0238 최초 READY 설계; r1 구현 `6030afae`·`e96a2494`·`2c7dad51`은 독립 검증 전 |
 | 이번 V revision | `ΔV1` — Composer 그룹 순서·token 재진입·전 category catalog presentation 입력 |

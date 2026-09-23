@@ -168,14 +168,14 @@ UI 작업만을 뜻하지 않는다. renderer가 없어도 CLI/API/저장/운영
 
 `docs/handoff/AGENTS.md §공통 V 추적 프로토콜`의 vocabulary와 requiredness를 그대로 쓴다.
 
-- 상속할 V가 없으면 이번 작업에 필요한 수준으로 **Baseline V**를 만든다. 기존 handoff의 V를 상속한다면 handoff·plan revision·commit을 고정하고, 변경이 시작되는 수준부터 아래쪽과 영향받은 상위 회귀만 **Delta V**로 기록한다.
+- 상속할 V가 없으면 이번 작업에 필요한 수준으로 **Baseline V**를 만든다. 기존 handoff의 V를 상속한다면 handoff·plan revision·commit을 고정하고(commit은 공유 브랜치에서 `git cat-file -t`로 확인한 해시만 — 확인할 수 없으면 `검증자 기입` 자리표시자), 변경이 시작되는 수준부터 아래쪽과 영향받은 상위 회귀만 **Delta V**로 기록한다.
 - Product/UX 결과가 바뀌면 `R↔AT`, end-to-end 상태·수명주기가 바뀌면 `SD↔ST`, production 경계·producer/consumer·이벤트·저장소가 바뀌면 `AR↔IT`, 모듈 불변식·알고리즘·seam이 바뀌면 `MD↔UT`를 포함한다.
-- 노드마다 `NEW`·`CHANGED`·`INHERITED`·`SUPERSEDED`와 기준선 출처/대체 노드를 적는다. Delta V는 영향 없는 기준 V 전체를 복사하지 않고, 명시적으로 비영향을 판정할 필요가 있는 inherited pair만 `NOT_REQUIRED`로 기록한다.
+- 노드마다 `NEW`·`CHANGED`·`INHERITED`·`SUPERSEDED`와 기준선 출처/대체 노드를 적는다. Delta V는 영향 없는 기준 V 전체를 복사하지 않고, 명시적으로 비영향을 판정할 필요가 있는 inherited pair만 `NOT_REQUIRED`로 기록한다. **pair의 왼쪽 노드를 `SUPERSEDED`로 분해하면 그 pair의 AC와 선택 적대 증거가 어느 대체 pair로 가는지 적고, 어디로도 가지 않으면 폐기 근거를 적는다.**
 - 모든 `NEW`·`CHANGED` 왼쪽 노드에 같은 레벨 `REQUIRED` pair를 둔다. 변경 경로가 기존 상위 동작에 닿으면 해당 `INHERITED` 노드를 `REGRESSION`으로 선택한다.
-- pair에는 `start → edges → end` 경로, §10 강제 지점 전수, 직접 oracle을 둔다. 음성 대조/결함 변이는 oracle이 구조적 proxy·0건/전수 주장·배선 존재처럼 방향이나 민감도를 별도로 입증해야 할 때만 선택하고, 선택 이유와 심을 결함을 적는다.
+- pair에는 `start → edges → end` 경로, §10 강제 지점 전수, 직접 oracle을 둔다. 음성 대조/결함 변이는 oracle이 구조적 proxy·0건/전수 주장·배선 존재처럼 방향이나 민감도를 별도로 입증해야 할 때만 선택하고, 선택 이유와 심을 결함을 적는다. **§10 강제 지점은 항목이 아니라 자리로 센다** — path의 edge 중 그 계약 값을 운반하는 edge는 모두 자리이고, 선택한 결함은 심을 자리를 적으며 같은 결함이 여러 자리에서 가능하면 자리마다 등록한다.
 - 보안·데이터 무결성처럼 이번 요구에 필요한 제약은 V node·Decision·AC·§10에 귀속시킨다. 수정 subtree gate와 repository/message-bus 검사는 현재 변경 산출물의 운영 완료 조건으로 별도 열거하며 새 제품 범위를 만들지 않는다.
 
-READY 전 V mode·상속 기준, 변경 효과에 필요한 레벨, `NEW`·`CHANGED` node의 pair, 영향받은 상위 회귀, 경로·전수 분모·직접 oracle, 선택한 적대 증거의 이유, 현재 변경에 적용할 gate를 확인한다. 필요한 항목이 없으면 plan은 READY가 아니다.
+READY 전 V mode·상속 기준, 변경 효과에 필요한 레벨, `NEW`·`CHANGED` node의 pair, 영향받은 상위 회귀, `SUPERSEDED` pair 증거의 이관, 경로·자리 단위 전수 분모·직접 oracle, 선택한 적대 증거의 이유와 자리, 현재 변경에 적용할 gate를 확인한다. 필요한 항목이 없으면 plan은 READY가 아니다.
 
 ---
 
@@ -282,6 +282,6 @@ FAIL/RETURN_TO_PLAN의 미해결 항목은 `[검증자 기입] 파생 이슈`에
 
 ## 마무리
 
-`docs/handoff/INDEX.md`를 `plan/READY`와 다음 주체로 갱신하고 커밋 형식은 `docs/git-template.md`를 따른다.
+`docs/handoff/INDEX.md`를 `plan/READY`와 다음 주체로 갱신하고 커밋 형식은 `docs/git-template.md`를 따른다. 대상 커밋 칸과 plan 메타에는 공유 브랜치에서 `git cat-file -t`로 확인한 해시만 적고, 확인할 수 없으면 `(… — 검증자 기입)` 자리표시자를 남긴다(`docs/handoff/AGENTS.md §INDEX.md 운영`).
 
 **plan의 규범 행을 바꾸는 커밋은 구현 산출과 같은 커밋에 담지 않는다** — Decision·AC·V node/pair·§10 강제 지점이 규범 행이고, `plan/READY` 커밋도 verify/FAIL·RETURN_TO_PLAN 후 정정도 같다. 설계자와 구현자가 같은 에이전트여도 마찬가지다 — verify §0의 기준선 잠금은 "구현 전 plan"을 diff로 꺼낼 수 있을 때만 작동하고, 한 커밋에 섞이면 구현자가 자기 산출에 맞춰 기준을 고쳤는지 아무도 확인할 수 없다(0189 r1 · 0194 r3 실측).

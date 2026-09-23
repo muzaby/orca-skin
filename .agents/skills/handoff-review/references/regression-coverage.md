@@ -2240,3 +2240,78 @@ r6 구현은 프로덕션을 한 줄도 바꾸지 않고 렌더 테스트로만 
   까지만 할 수 있고 열거의 완결성 자체를 보장하지 못한다.
 - 검증 환경: DOM 없음(jsdom 미설치)은 r5 의 react 대역 하네스로 우회됐고, 고정 포트 충돌(D54)은
   테스트 코드 문제라 지침 밖이다.
+
+---
+
+# review round 28 — 0238 (라운드 3→4): 등록 변이에 자리가 없고, SUPERSEDED가 증거를 떨궜다
+
+**발동/모드**: 0238 r3 verify FAIL로 라운드 4 > 3(`docs/handoff/AGENTS.md §handoff-review 트리거`). 사용자가 `/handoff-review 238` 후 진단 보고에 **APPLY** 를 선택했다. 제품 코드 변경 0.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 등록 변이에 심을 자리가 없고 분모를 §10 **항목**으로 세어, 같은 pair 경로의 다른 edge가 남는다 | VP-10 `callback 맞바꿈` — r2 독립 검증자·r3 구현자 모두 컴포넌트 안 onClick만 심음. `ProviderDetail` props 맞바꿈은 808케이스 green(D14). round 27 발견 1(0211 r6 `EP-71 (4)`)과 같은 원인의 재발 | **A** — round 27 미적용 패치 흡수. AGENTS §공통 V·절차 2·3 · plan §5-A · plan.template · impl §2·§3 · verify §0·§4 · verify.template · corpus **P52** |
+| 2 | pair를 `SUPERSEDED`로 분해할 때 그 pair가 들던 AC·적대 증거의 행방을 요구하지 않는다 | ΔV1이 V1 VP-06·12의 `header를 option으로 계산` 변이를 어디에도 옮기지 않아 AC11 controller 키보드가 미잠금(D16, S5a~c green) | **A** — 신규 causal class. AGENTS §공통 V · plan §5-A · plan.template · verify §0 · verify.template · corpus **P53** |
+| 3 | 좌표 규칙의 주어가 구현자뿐이다 | ΔV1 설계가 INDEX·plan 메타에 `651d9080`·`6030afae`~`2c7dad51`(전부 공유 브랜치에 없음)을 적었다(D13) | **A**(P47 범위 확장) — AGENTS §INDEX.md 운영·절차 1 · plan §5-A·마무리 · plan.template · corpus P47 보강 |
+| 4 | r1·r2가 등록 변이를 production 자리에 심지 않았고(JSX가 안 읽는 상수만 잠금), 죽은 hook에 oracle을 뒀다 | r2 verify D4~D8 | **B** — impl §3·§8, P37·P44·P50이 이미 요구. 문장 추가 없음 |
+| 5 | D1 `/` skill 회귀 · D2 빈 그룹 · D3 chip 경계 | 계약(V1 §5·AC12·AC25)은 명시돼 있었다 | **F** |
+| 6 | ΔV1 사용자 변경 4건 | D-014~D-021 | **D** — supersede 보존 확인, 학습 대상 아님. Decision drift 0 |
+| 7 | 자기검증 축이 blocking의 유일한 원천(0211 r5·r6, 0238 r3 연속) | 0238 r3 신설 축 15 중 green 7, D14는 그 축에서만 나왔다 | **유지**. 발견 1이 그 축의 "같은 결함의 다른 자리"를 독립 검증에도 걸리게 한다 |
+
+## Tier
+
+**Tier 1.** 분모 단위·변이 적용 자리·plan validity의 `PLAN_GAP` 조건·좌표 owner가 바뀐다. 6-A + 6-B + 6-C 전부 수행.
+
+## 6-A Operational Instruction Delta
+
+삭제 줄 **15**(`git diff -U0`), 그중 원문이 새 파일에 그대로 남은 줄 9, 문장이 바뀐 줄 6 — 전부 상위집합으로 교체.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| impl §2 "plan 정정으로 §10 행이 신설되면 … 검색 명령" | **REPLACE** | 발동 조건 `신설 행` → `모든 행`, 단위 `항목` → `자리`. 구 규칙이 막던 0194 r3 사례를 그대로 막고 문장·사례 보존 |
+| AGENTS 구현 최소 계약 "네가 행을 신설하면 …" | **REPLACE** | 위와 같은 상위집합 |
+| AGENTS §INDEX 운영 "구현자는 자리표시자" | **REPLACE** | 주어 `구현자` → `설계자·구현자`, 확인 수단 `git cat-file -t` 명시. 0198 r4·r5 긍정 사례 문구는 P47 본문에 남아 있어 여기서만 줄였다 |
+| plan §5-A 기준 V `commit을 고정` | **KEEP + 확장** | 고정 요구 유지, 확인 수단·자리표시자 추가 |
+| plan §5-A READY 확인 문장 | **REPLACE** | 기존 항목 전부 유지 + `SUPERSEDED 이관`·`자리` 추가 |
+| plan.template pair registry 예시 행 | **REPLACE** | 열 유지, `심을 자리`·`N자리` 표기 추가 |
+| 그 밖 9줄(impl §3·verify §0·§4·AGENTS §공통 V·절차 1·3·템플릿) | **KEEP + 확장** | 원문 substring 잔존(기계 확인) |
+| 명령·gate·reference 삭제·이동 | **없음** | 이동한 reference 0 → inbound `N`/semantic `M/M` 대상 없음 |
+
+## 6-B Historical Failure Regression
+
+- **53 P 전수**(P1~P51 + 신규 P52·P53) · 변경 후 **COVERED 53 / PARTIAL 0 / GAP 0 / OBSOLETE 0**.
+- 편집 사이트를 `현재 방어`로 인용하는 P **15건**(P39~P53, 기계 추출). 인용된 방어 문장은 전부 잔존하거나 상위집합으로 교체돼, 나머지 38건의 mapping은 구성상 보존된다.
+- **P38·P41 개별 확인**: 자리 단위 분모는 "지적 지점만 닫기"(P38)와 "도구가 정의한 전수"(P41)를 더 넓게 막는 방향이다. 검색 명령 요구가 모든 행으로 넓어져 P41의 재열거 가능성이 늘었다.
+- **P44·P49·P51 개별 확인**: P44(배선 미잠금)의 `ProviderDetail` 형태를 등록 변이 자리 규칙이 잡는다. P49(형제 슬롯 맞바꿈)·P51(자기검증 축)은 문장 변경 없이 유지된다.
+- **P45 개별 확인**: 새 `PLAN_GAP` 조건(SUPERSEDED 이관 누락)은 기존 RETURN_TO_PLAN 경로를 그대로 탄다 — 구현자에게 넘기지 않는다.
+
+### V/lifecycle replay — 거짓 PASS·FAIL inflation
+
+| anchor | 라운드 | 변경 전 판정 | 새 규칙 적용 | 방향 |
+|---|---|---|---|---|
+| 0238 | r2 verify | VP-10 PAIR_FAIL(root D5, M13만) | 같은 변이를 `ProviderDetail` 자리에도 심어 D14가 r2에서 나옴 → 같은 VP-10 PAIR_FAIL | 조기 검출, 판정 수 불변 |
+| 0238 | r3 verify | VP-10 PAIR_FAIL(D14) · D16 NON_BLOCKING | D14 동일. D16은 AC11 문면이 controller oracle을 이미 지정해 구현자가 닫을 수 있음 → 경계 문장에 따라 gap 아님, NON_BLOCKING 유지 | inflation 0 |
+| 0238 | ΔV1 plan READY | 통과 | READY 확인에 `SUPERSEDED 이관`이 걸려 VP-06·12 이관 행 없이는 READY가 아님 | 설계 턴에서 차단 |
+| 0211 | r6 impl | `EP-71 4/4` | 자리 단위 + 검색 명령으로 cleanup 8자리를 셈 → D49·D50을 구현 중 발견 | 거짓 SELF_PASS 차단 |
+| 0223·0232·0214·0216 등 진행 중 | 다음 verify | SUPERSEDED 행 보유 | verify §0 경계: 이 요구 전 revision은 읽기 전용 매핑 합성, 현재 판정에 필요할 때만 gap | 형식만으로 RETURN_TO_PLAN 0 |
+
+- 자리 규칙의 범위는 **등록 변이 × 이번 변경이 닿은 자리**로 묶었다. 0238의 `ExtensionsCatalogView` 바인딩(미변경)은 대상 밖이라 D15가 NON_BLOCKING으로 남는다 — 인접 기존 코드로 blocking이 번지지 않는다.
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 등록 변이 자리 규칙 **6사이트**(AGENTS §공통 V·검증 최소 계약 · impl §3 · verify §4 · verify.template §4 · corpus P52) · 분모 자리 단위 **6사이트**(AGENTS §공통 V·구현 최소 계약 · plan §5-A · impl §2 · plan.template 두 곳) · SUPERSEDED 이관 **6사이트**(AGENTS · plan §5-A · plan.template · verify §0 · verify.template · P53) · 좌표 **6사이트**(AGENTS §INDEX 운영·절차 1 · plan §5-A·마무리 · plan.template · P47 보강).
+- **owner 충돌 0**: 설계자가 자리·이관을 적고(plan), 구현자가 자리로 세고 심으며(impl), 검증자가 다시 센다(verify). 좌표는 여전히 검증자가 기입하고 설계자·구현자는 자리표시자를 남긴다.
+- **disposition 정합**: 분모에서 빠진 edge라도 path가 명시하면 `PLAN_GAP`이 아니라 pair 재측정이다(verify §0). AGENTS "명시된 계약 위반은 PAIR_FAIL" 문장과 같은 방향이다.
+- **scope 충돌 0**: 새 게이트·명령 없음. `app/AGENTS.md` ABI·egress 규칙과 겹치지 않는다. root `AGENTS.md`는 skill·owner 표가 불변이라 변경 없음.
+- `cd app && node scripts/check-doc-inventory.mjs --check` — generated · prose · **links ok**. `git diff --check` 출력 0.
+- AGENTS 위생: 추가분에 비밀·개인정보·변동성 운영정보 없음. 새 `AGENTS.md`·`CLAUDE.md` stub 없음.
+
+## review 기록 정책
+
+`round28-review.md`를 만들지 않았다 — 압축으로 잃는 rationale이 없고 사용자 보존 요구도 없다. `round2-review.md` 1개 유지. 신규 P **2**(P52: round 27 발견 1과 0238 D14를 묶은 자리 단위 · P53: SUPERSEDED 증거 이관). P47은 사례 추가 없이 보강 문단만 붙였다.
+
+## 남은 한계
+
+- **자리 열거도 열거다.** 규칙은 자리 후보를 pair path의 edge로 넓힐 뿐 path 자체에 없는 edge는 잡지 못한다 — 그것은 plan의 path 서술 품질에 달려 있다.
+- 0238 검증 환경: Electron/SDK 실기 불가(두 테마·bare `fable` alias)는 사람 몫이며 지침으로 해결되지 않는다.

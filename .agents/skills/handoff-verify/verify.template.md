@@ -39,6 +39,7 @@
 | 영향받은 INHERITED ↔ REGRESSION pair | 유효 / PLAN_GAP | … |
 | pair별 path·§10 전수·직접 oracle | 유효 / PLAN_GAP | … |
 | 필요한 pair의 선택적 적대 증거·선택 이유 | 유효 / PLAN_GAP | … |
+| `SUPERSEDED` pair의 AC·적대 증거 이관 | 유효 / 해당 없음 / PLAN_GAP | … |
 | 현재 변경 산출물의 운영 gate·범위 | 유효 / PLAN_GAP | … |
 
 - V 도입 전 plan이면 읽기 전용 합성 매핑: 해당 없음 / `AC·§10·path → VP-L…`; 형식만을 이유로 migration하지 않음
@@ -95,6 +96,7 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 - 핵심 입력/분기가 실제 실행됨: …
 - structural proxy만으로 semantic 목표를 통과시킨 AC: 없음 / …
 - **선택된 적대 증거 재측정** — pair가 등록한 변이 / 닫는 이슈의 인용 변이 / 새 구조·전수·배선 oracle 민감도: N건 중 검출 M · 미검출 K · 일반 hunk 자동 확장 0
+- **자리 미지정 등록 변이** — 해당 없음 / 변이 X → pair path 자리 N곳 전부 심음(자리별 red/green)
 - **이전 라운드 대조** — 지난 라운드에 red였던 변이 중 이번에 green: 0건 / N건 → 덮개 회귀 finding
 - **자기검증 분모** — 구현자 ≠ 검증자: 해당 없음 / 구현자 = 검증자: 보고에 없던 축 N건(어떤 축인지와 결과)
 

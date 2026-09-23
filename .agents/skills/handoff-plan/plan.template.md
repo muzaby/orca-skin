@@ -120,7 +120,8 @@
 > 공통 vocabulary·requiredness·결과 상태는 [`docs/handoff/AGENTS.md §공통 V 추적 프로토콜`](../../../docs/handoff/AGENTS.md)을 따른다. 상속할 V가 없으면 Baseline V를 만들고, 명시적인 기준 V를 일부 변경할 때만 변경 경로와 영향받은 회귀를 Delta V로 적는다.
 
 - V mode 판정: …
-- 기준 V 상속 근거: 없음 / `<handoff>:<plan revision>@<commit>`
+- 기준 V 상속 근거: 없음 / `<handoff>:<plan revision>@<commit>` — commit은 공유 브랜치에서 `git cat-file -t`로 확인한 해시, 확인 불가면 `(검증자 기입)`
+- `SUPERSEDED`로 분해한 pair의 AC·선택 적대 증거 이관: 해당 없음 / `VP-a(AC…, 변이 …) → VP-b` · 폐기면 근거
 - 변경이 시작되는 수준: R / SD / AR / MD / Baseline이라 해당 없음
 
 ### Node registry
@@ -137,8 +138,10 @@
 
 | Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §10 강제 지점 전수 |
 |---|---|---|---|---|---|---|
-| VP-01 | R-01 ↔ AT-01 | REQUIRED / REGRESSION / NOT_REQUIRED | … | … | required — 이유·변이 / not selected — 직접 oracle 근거 | EP-… (N) / 0 + 이유 |
+| VP-01 | R-01 ↔ AT-01 | REQUIRED / REGRESSION / NOT_REQUIRED | … | … | required — 이유·변이·심을 자리 / not selected — 직접 oracle 근거 | EP-… (N자리) / 0 + 이유 |
 | VP-02 | SD-01 ↔ ST-01 | … | … | … | … | EP-… (N) |
+
+`§10 강제 지점 전수`의 N은 §10 항목 수가 아니라 **자리 수**다 — production path의 edge 중 그 계약 값을 운반하는 edge는 모두 자리이고, 같은 결함 변이가 여러 자리에서 가능하면 자리마다 적는다.
 
 `NOT_REQUIRED`는 Delta V에서 명시적으로 비영향을 판정한 inherited pair에만 쓰고 requiredness 칸에 비영향 근거, evidence 칸에 기존 증거 좌표를 적는다. 영향 없는 기준 V 전체를 복사하지 않으며 필요한 변경·회귀 행을 생략해 암묵적으로 처리하지 않는다.
 
@@ -382,6 +385,7 @@ producer → contract/normalize → state/store → consumer/UI/tool
 > 등록된 결함을 심어 실패하는지 먼저 확인한다** — 눈이 없는 장치의 `0건`은 전수의 증거가 아니다.
 > 직접 행동 결과를 관측하는 oracle에는 mutation을 자동 요구하지 않는다(impl §3).
 > **`전건`·`미분류 0`·`잔여 0` 행의 관측은 차집합이다** — 총계·합계는 그 주장을 반증할 수 없다(impl §8).
+> **`닫은 지점`은 §10 항목이 아니라 자리로 세고 그 수를 낸 검색 명령을 적는다** — pair production path의 계약 운반 edge를 자리 후보에 넣는다(impl §2).
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
 |---|---|---|---|---|---|
