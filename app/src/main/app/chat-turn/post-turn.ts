@@ -104,11 +104,14 @@ export async function runTurnWithContinuations(
       const haveUnconfirmed = pendingMessages.hasSubmitted(sessionId)
       const pendingMessageCount = pendingMessages.pending(sessionId).length
       const taskCount = backgroundTasks.count(sessionId)
+      // 판정 입력과 로그가 같은 값을 쓴다(0239 D-011) — `count` 는 표시용 live 집합이라 판정
+      // (`hasPending`)과 다를 수 있다. 둘을 따로 적어 로그가 판정을 반증할 수 있게 한다.
+      const haveTasks = backgroundTasks.hasPending(sessionId)
       const channelBusy = runtime.channelBusy
       const hasBacklog = runtime.hasUnframedBacklog
       const step = decidePostTurnStep({
         havePending: pendingMessageCount > 0,
-        haveTasks: backgroundTasks.hasPending(sessionId),
+        haveTasks,
         haveSchedules: runtime.hasSchedules,
         channelAlive: runtime.channelAlive,
         channelBusy,
@@ -121,7 +124,7 @@ export async function runTurnWithContinuations(
           sessionId,
           step,
           havePending: pendingMessageCount > 0,
-          haveTasks: taskCount > 0,
+          haveTasks,
           haveUnconfirmed,
           channelBusy,
           hasBacklog,

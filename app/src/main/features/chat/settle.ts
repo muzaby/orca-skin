@@ -10,6 +10,51 @@ import type { TurnEmit } from '../../contracts/bus-events'
 import { createSubagentSettlementEvents } from './subagent-settlement'
 import type { GovernedLiveTurn } from '../../contracts/ports'
 import { isBackgroundTerminal, type BackgroundSessionState } from '../../../shared/background-task'
+import type { HostNonExecutionKind } from '../../../shared/tool-outcome'
+
+// 정착에서 제외할 열린 실행 — 현재 세대의 백그라운드·원격 호출, 태스크를 기다리는 호출,
+// live 포함·`isBackgrounded:true` 태스크의 부모 호출과 그 후손(0231). 이들은 턴이 끝나도 계속
+// 실행되므로 합성 결과로 덮지 않는다. 정본 상태가 없으면 아무것도 알 수 없어 빈 집합이다.
+function preservedToolRuns<W>(
+  turn: TurnContext<W>,
+  background: BackgroundSessionState | undefined
+): Set<string> {
+  const preserved = new Set<string>()
+  if (!background) return preserved
+  for (const call of Object.values(background.calls)) {
+    if (
+      call.generation === background.generation &&
+      !isBackgroundTerminal(call.status) &&
+      (call.awaitingTask || call.mode === 'background' || call.mode === 'remote')
+    )
+      preserved.add(call.toolUseId)
+  }
+  for (const task of Object.values(background.tasks)) {
+    if (
+      task.generation === background.generation &&
+      !isBackgroundTerminal(task.status) &&
+      task.toolUseId &&
+      (task.liveMembership === 'included' || task.isBackgrounded === true)
+    )
+      preserved.add(task.toolUseId)
+  }
+  let changed = true
+  while (changed) {
+    changed = false
+    const links = [...turn.openToolRuns.entries()].map(
+      ([id, info]) => [id, info.parentToolRunId] as const
+    )
+    for (const call of Object.values(background.calls))
+      if (call.generation === background.generation)
+        links.push([call.toolUseId, call.parentToolUseId])
+    for (const [id, parent] of links)
+      if (parent && preserved.has(parent) && !preserved.has(id)) {
+        preserved.add(id)
+        changed = true
+      }
+  }
+  return preserved
+}
 
 // 턴 중단/실패 시 아직 열린 도구 실행을 abort/failed 마커 tool_result 로 정착시킨다.
 // AskUserQuestion tool_result 합성(flushAskAnswers)과 동형의 보정 — toolRunId 멱등(upsert).
@@ -22,41 +67,7 @@ export function settleOpenToolRuns<W>(
   background?: BackgroundSessionState
 ): void {
   if (turn.openToolRuns.size === 0) return
-  const preserved = new Set<string>()
-  if (background) {
-    for (const call of Object.values(background.calls)) {
-      if (
-        call.generation === background.generation &&
-        !isBackgroundTerminal(call.status) &&
-        (call.awaitingTask || call.mode === 'background' || call.mode === 'remote')
-      )
-        preserved.add(call.toolUseId)
-    }
-    for (const task of Object.values(background.tasks)) {
-      if (
-        task.generation === background.generation &&
-        !isBackgroundTerminal(task.status) &&
-        task.toolUseId &&
-        (task.liveMembership === 'included' || task.isBackgrounded === true)
-      )
-        preserved.add(task.toolUseId)
-    }
-    let changed = true
-    while (changed) {
-      changed = false
-      const links = [...turn.openToolRuns.entries()].map(
-        ([id, info]) => [id, info.parentToolRunId] as const
-      )
-      for (const call of Object.values(background.calls))
-        if (call.generation === background.generation)
-          links.push([call.toolUseId, call.parentToolUseId])
-      for (const [id, parent] of links)
-        if (parent && preserved.has(parent) && !preserved.has(id)) {
-          preserved.add(id)
-          changed = true
-        }
-    }
-  }
+  const preserved = preservedToolRuns(turn, background)
   const result =
     kind === 'aborted'
       ? { reason: 'aborted', message: '사용자가 중단했습니다' }
@@ -72,6 +83,57 @@ export function settleOpenToolRuns<W>(
       ...(info.parentToolRunId !== undefined ? { parentToolRunId: info.parentToolRunId } : {})
     } as const
     emit(turn, ev)
+    turn.openToolRuns.delete(toolRunId)
+  }
+}
+
+// 결과 없이 끝난 도구의 host 정착(0239 D-004·D-006·D-015) — 이벤트 종류만 고르는 순수 선별.
+//   no_result  턴 terminal 직전. 보존 집합 밖의 열린 실행을 **부모 상태와 관계없이** 고른다.
+//              정본 상태가 없으면 백그라운드 여부를 알 수 없어 부모 있는 실행은 남긴다.
+//   retracted  SDK 공개 철회 신호가 지목한 id 중 **아직 열린 것만** 고른다. 결과가 이미 온 도구의
+//              실행 사실은 지우지 않는다(D-006).
+export function orphanToolRunIds<W>(
+  turn: TurnContext<W>,
+  cause: HostNonExecutionKind,
+  background: BackgroundSessionState | undefined,
+  only?: readonly string[]
+): string[] {
+  if (cause === 'retracted') {
+    const wanted = new Set(only ?? [])
+    return [...turn.openToolRuns.keys()].filter((id) => wanted.has(id))
+  }
+  const preserved = preservedToolRuns(turn, background)
+  const out: string[] = []
+  for (const [toolRunId, info] of turn.openToolRuns) {
+    if (preserved.has(toolRunId)) continue
+    if (!background && info.parentToolRunId !== undefined) continue
+    out.push(toolRunId)
+  }
+  return out
+}
+
+// 고른 실행을 `실행되지 않음` 결과로 정착한다. 결과 본문은 고정 문구 1개이고 사유는
+// `nonExecution:{source:'host'}` 가 싣는다 — 표시 분류는 사유만 본다(D-009).
+export function settleOrphanToolRuns<W>(
+  turn: TurnContext<W>,
+  emit: TurnEmit<W>,
+  cause: HostNonExecutionKind,
+  background: BackgroundSessionState | undefined,
+  only?: readonly string[]
+): void {
+  if (turn.openToolRuns.size === 0) return
+  for (const toolRunId of orphanToolRunIds(turn, cause, background, only)) {
+    const info = turn.openToolRuns.get(toolRunId)
+    if (!info) continue
+    emit(turn, {
+      type: 'tool.call.completed',
+      sessionId: turn.dbSessionId ?? '',
+      toolRunId,
+      result: { reason: 'not_executed', message: '실행되지 않았습니다' },
+      isError: true,
+      ...(info.parentToolRunId !== undefined ? { parentToolRunId: info.parentToolRunId } : {}),
+      nonExecution: { source: 'host', kind: cause }
+    })
     turn.openToolRuns.delete(toolRunId)
   }
 }

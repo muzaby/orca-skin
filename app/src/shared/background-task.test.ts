@@ -4,8 +4,10 @@ import {
   backgroundPending,
   backgroundKey,
   emptyBackgroundState,
+  isForegroundTask,
   type BackgroundEvent,
-  type BackgroundEventSource
+  type BackgroundEventSource,
+  type BackgroundTaskRecord
 } from './background-task'
 
 let sequence = 0
@@ -244,5 +246,102 @@ describe('canonical background state', () => {
       retry: { attempt: 1 },
       elapsedTimeSeconds: 0
     })
+  })
+})
+
+// 0239 AC11 · UT-03 — 포그라운드 태스크는 턴 후 대기(backgroundPending)에 세지 않는다(D-005).
+describe('backgroundPending — 포그라운드 제외', () => {
+  const started = (taskId: string, isBackgrounded?: boolean): BackgroundEvent => ({
+    type: 'background.task',
+    sessionId: 's',
+    source: source(),
+    taskId,
+    toolUseId: `tool-${taskId}`,
+    phase: 'started',
+    patch: {
+      status: 'running',
+      taskType: 'local_agent',
+      ...(isBackgrounded !== undefined ? { isBackgrounded } : {})
+    }
+  })
+  const backgrounded = (taskId: string): BackgroundEvent => ({
+    type: 'background.task',
+    sessionId: 's',
+    source: source(),
+    taskId,
+    phase: 'updated',
+    patch: { isBackgrounded: true }
+  })
+  const record = (
+    state: ReturnType<typeof emptyBackgroundState>,
+    taskId: string
+  ): BackgroundTaskRecord => state.tasks[backgroundKey('g1', taskId)]
+
+  it('is_backgrounded:false 로 시작해 unknown·running 인 태스크는 대기가 아니다', () => {
+    const state = applyBackgroundEvent(emptyBackgroundState(), started('fg', false))
+    expect(record(state, 'fg')).toMatchObject({ liveMembership: 'unknown', status: 'running' })
+    expect(isForegroundTask(record(state, 'fg'))).toBe(true)
+    expect(backgroundPending(state)).toBe(false)
+  })
+  it('task_updated is_backgrounded:true 로 승격되면 다시 센다(되돌아가도 관측 이력이 남는다)', () => {
+    let state = applyBackgroundEvent(emptyBackgroundState(), started('fg', false))
+    state = applyBackgroundEvent(state, backgrounded('fg'))
+    expect(backgroundPending(state)).toBe(true)
+    state = applyBackgroundEvent(state, {
+      type: 'background.task',
+      sessionId: 's',
+      source: source(),
+      taskId: 'fg',
+      phase: 'updated',
+      patch: { isBackgrounded: false }
+    })
+    expect(isForegroundTask(record(state, 'fg'))).toBe(false)
+    expect(backgroundPending(state)).toBe(true)
+  })
+  it('live 포함으로 승격되면 다시 센다', () => {
+    let state = applyBackgroundEvent(emptyBackgroundState(), started('fg', false))
+    state = applyBackgroundEvent(state, snapshot(['fg']))
+    expect(record(state, 'fg').liveMembership).toBe('included')
+    expect(isForegroundTask(record(state, 'fg'))).toBe(false)
+    expect(backgroundPending(state)).toBe(true)
+  })
+  it('백그라운드·미설정 unknown·running 은 계속 센다', () => {
+    expect(
+      backgroundPending(applyBackgroundEvent(emptyBackgroundState(), started('bg', true)))
+    ).toBe(true)
+    const unset = applyBackgroundEvent(emptyBackgroundState(), started('unset'))
+    expect(isForegroundTask(record(unset, 'unset'))).toBe(false)
+    expect(backgroundPending(unset)).toBe(true)
+  })
+  it('포그라운드의 중단 요청·ACK 대기도 대기가 아니다 — 결과는 부모 호출로 돌아온다(rev.3)', () => {
+    const base = applyBackgroundEvent(emptyBackgroundState(), started('fg', false))
+    const key = backgroundKey('g1', 'fg')
+    for (const state of ['requested', 'acknowledged'] as const) {
+      const stopping = {
+        ...base,
+        tasks: { ...base.tasks, [key]: { ...base.tasks[key], stop: { state, updatedAt: 1 } } }
+      }
+      expect(backgroundPending(stopping)).toBe(false)
+    }
+    const bg = applyBackgroundEvent(emptyBackgroundState(), started('bg', true))
+    const bgKey = backgroundKey('g1', 'bg')
+    expect(
+      backgroundPending({
+        ...bg,
+        tasks: {
+          ...bg.tasks,
+          [bgKey]: {
+            ...bg.tasks[bgKey],
+            liveMembership: 'excluded',
+            stop: { state: 'requested', updatedAt: 1 }
+          }
+        }
+      })
+    ).toBe(true)
+  })
+  it('포그라운드와 백그라운드가 함께 있으면 백그라운드 때문에 대기한다', () => {
+    let state = applyBackgroundEvent(emptyBackgroundState(), started('fg', false))
+    state = applyBackgroundEvent(state, started('bg', true))
+    expect(backgroundPending(state)).toBe(true)
   })
 })

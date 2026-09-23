@@ -20,6 +20,7 @@ import { isAsyncLaunchedPayload } from '../../shared/subagent'
 import { carriesFileEditPatch, readFileEditStructuredPatch } from '../../shared/file-edit-tool'
 import { isTaskToolName } from '../../shared/task-tool'
 import { pickPrimaryModel } from '../../shared/usage/primary-model'
+import { readToolResultMeta } from '../../shared/tool-outcome'
 import { makeClassifiedError } from '../infra/errors'
 import { errorEvent } from './error-classifier'
 import { applyClaudeScheduleReceipt, type ClaudeScheduleCall } from './claude-schedules'
@@ -105,6 +106,37 @@ export interface MapContext {
   // tool_result 는 도구 이름을 싣지 않는다. Task 집합과 배타라 한 결과에 두 의미가 섞이지 않는다.
   fileEditToolRunIds?: Set<string>
   toolNames?: Map<string, string>
+  // wire uuid → 그 assistant 메시지가 낸 tool_use id(0239 EP-03 ①). SDK 공개 철회 신호
+  // (`model_refusal_fallback.retracted_message_uuids`·`assistant.supersedes`)는 wire uuid 만 싣는다 —
+  // 어느 도구 카드가 철회됐는지는 여기서 복원한다. tool_use 를 담은 메시지만 기록하고, 오래 열린
+  // 채널에서 무한히 자라지 않게 `receivedInputUuids` 와 같은 상한으로 가장 오래된 것부터 버린다.
+  toolRunIdsByMessageUuid?: Map<string, string[]>
+}
+
+const RETRACTION_MEMORY_LIMIT = 2048
+
+// 철회 신호가 지목한 wire uuid 들을 tool_use id 로 바꾼다. 모르는 uuid(텍스트·tool_result 프레임·
+// 이미 잊은 항목)는 조용히 건너뛴다 — SDK 도 "unknown or already-removed uuids are a no-op" 이다.
+function retractedToolRuns(ctx: MapContext, uuids: unknown): NormalizedEvent[] {
+  const list = asStringList(uuids)
+  if (!list || !ctx.toolRunIdsByMessageUuid) return []
+  const toolRunIds: string[] = []
+  for (const uuid of list) {
+    const ids = ctx.toolRunIdsByMessageUuid.get(uuid)
+    if (!ids) continue
+    ctx.toolRunIdsByMessageUuid.delete(uuid)
+    toolRunIds.push(...ids)
+  }
+  return toolRunIds.length > 0
+    ? [{ type: 'tool.call.retracted', sessionId: ctx.sessionId, toolRunIds }]
+    : []
+}
+
+function rememberToolRuns(ctx: MapContext, uuid: unknown, toolRunIds: string[]): void {
+  if (typeof uuid !== 'string' || uuid === '' || toolRunIds.length === 0) return
+  const memory = (ctx.toolRunIdsByMessageUuid ??= new Map())
+  memory.set(uuid, toolRunIds)
+  if (memory.size > RETRACTION_MEMORY_LIMIT) memory.delete(memory.keys().next().value!)
 }
 
 // ctx.subagentMeta 에 정의된 필드만 병합(누락은 기존값 보존). 부모 Task tool_result 영속용 누산.
@@ -362,6 +394,15 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     if (subtype === 'background_tasks_changed') {
       return [] // canonical provider lane owns task-id membership independently of transcript.
     }
+    // 거부 폴백 재시도(0239 EP-03 ②) — 거부된 부분 응답과 그 tool_result 를 철회한다. 철회된
+    // tool_use 는 실행 결과가 오지 않으므로 열린 카드를 즉시 `실행되지 않음` 으로 정착할 근거다.
+    // 텍스트 evict 는 비범위(A1)라 도구 id 만 낸다.
+    if (subtype === 'model_refusal_fallback') {
+      return retractedToolRuns(
+        ctx,
+        (msg as { retracted_message_uuids?: unknown }).retracted_message_uuids
+      )
+    }
     // SDKCompactBoundaryMessage → session.compacted (0064 handoff). SDK 네이티브 /compact
     // 압축 완료 경계 — 도착 세션 transcript 의 압축 표시를 구동한다(구 Phase 3 드롭 해제).
     if (subtype === 'compact_boundary') {
@@ -468,7 +509,13 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       })
       if (Object.keys(snapshot).length > 0) ctx.lastAssistantUsage = snapshot
     }
-    const events: NormalizedEvent[] = [...childEvents]
+    // 이 프레임이 대체하는 기존 wire 메시지(0239 EP-03 ③) — 대체된 메시지의 tool_use 는 실행되지
+    // 않는다. 새 프레임의 내용보다 먼저 내보내 철회된 카드가 새 카드보다 앞서 정착되게 한다.
+    const events: NormalizedEvent[] = [
+      ...retractedToolRuns(ctx, (msg as { supersedes?: unknown }).supersedes),
+      ...childEvents
+    ]
+    const toolRunIds: string[] = []
     for (const part of content) {
       if (typeof part !== 'object' || part === null) continue
       const p = part as Record<string, unknown>
@@ -530,9 +577,11 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
             args: p.input,
             ...(parentToolRunId !== undefined ? { parentToolRunId } : {})
           })
+          toolRunIds.push(toolRunId)
         }
       }
     }
+    rememberToolRuns(ctx, (msg as { uuid?: unknown }).uuid, toolRunIds)
     return events
   }
 
@@ -572,6 +621,12 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         const fileEditPatch = ctx.fileEditToolRunIds?.has(toolRunId)
           ? readFileEditStructuredPatch(toolUseResult)
           : null
+        // 비실행 사유(0239 EP-01 ①) — CLI 가 wrapper 에 tool_use_id 별로 찍는다. 검증을 통과한
+        // 값만 싣고, 부재·형식 오류는 싣지 않는다(현행 표시, D-002).
+        const nonExecution = readToolResultMeta(
+          (msg as { tool_result_meta?: unknown }).tool_result_meta,
+          toolRunId
+        )
         const structuredOutput =
           ctx.toolNames?.get(toolRunId) === 'Write' || ctx.toolNames?.get(toolRunId) === 'MultiEdit'
             ? undefined
@@ -591,7 +646,8 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
           isError: p.is_error === true,
           ...(parentToolRunId !== undefined ? { parentToolRunId } : {}),
           ...(meta && Object.keys(meta).length > 0 ? { subagentMeta: meta } : {}),
-          ...(structuredOutput !== undefined ? { structuredOutput } : {})
+          ...(structuredOutput !== undefined ? { structuredOutput } : {}),
+          ...(nonExecution ? { nonExecution } : {})
         })
         if (scheduleCall) {
           ctx.pendingScheduleCalls?.delete(toolRunId)

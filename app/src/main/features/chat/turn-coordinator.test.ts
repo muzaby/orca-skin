@@ -1255,3 +1255,145 @@ describe('TurnCoordinator — listen 턴 stall 미무장 (0136)', () => {
     expect(turn.controller.signal.aborted).toBe(false)
   })
 })
+
+// 0239 — 결과 없이 끝난 도구의 terminal·철회 정착(AC1·AC2·AC4 · SD-01·SD-02 · §10 EP-02·EP-03 ④).
+describe('0239 — 결과 없이 끝난 도구 정착', () => {
+  const started = (id: string, parent?: string): NormalizedEvent => ({
+    type: 'tool.call.started',
+    sessionId: 's1',
+    toolRunId: id,
+    toolName: 'Bash',
+    args: {},
+    ...(parent ? { parentToolRunId: parent } : {})
+  })
+  const completed = (id: string): NormalizedEvent => ({
+    type: 'tool.call.completed',
+    sessionId: 's1',
+    toolRunId: id,
+    result: 'ok',
+    isError: false
+  })
+  const error: NormalizedEvent = {
+    type: 'error',
+    sessionId: 's1',
+    error: { category: 'stream_error', message: 'failed', retryable: false }
+  } as NormalizedEvent
+  const forwarded = (deps: CoordDeps): NormalizedEvent[] =>
+    vi.mocked(deps.forward.forward).mock.calls.map((call) => call[1])
+  const persisted = (deps: CoordDeps): NormalizedEvent[] =>
+    vi.mocked(deps.persist.persist).mock.calls.map((call) => call[1])
+  const shape = (ev: NormalizedEvent): string =>
+    ev.type === 'tool.call.completed'
+      ? `completed:${ev.toolRunId}:${ev.nonExecution?.source === 'host' ? ev.nonExecution.kind : 'real'}`
+      : ev.type === 'tool.call.started'
+        ? `started:${ev.toolRunId}`
+        : ev.type
+  const run = async (events: NormalizedEvent[], deps?: CoordDeps): Promise<CoordDeps> => {
+    const d = deps ?? makeDeps(fakeRuntime([events]))
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    await new TurnCoordinator(d).run(turn, REQUEST, { boundProjectId: null })
+    return d
+  }
+
+  it('AC1 — telemetry 직전에 결과 없는 실행을 no_result 로 정착한다(버스 순서)', async () => {
+    const deps = await run([started('a'), started('b'), completed('b'), telemetry])
+    expect(forwarded(deps).map(shape)).toEqual([
+      'started:a',
+      'started:b',
+      'completed:b:real',
+      'completed:a:no_result',
+      'telemetry'
+    ])
+    // history 도 같은 순서로 받는다 — finalize(telemetry) 전에 결과가 영속된다.
+    expect(persisted(deps).map(shape)).toEqual(forwarded(deps).map(shape))
+    expect(forwarded(deps)[3]).toMatchObject({
+      isError: true,
+      result: { reason: 'not_executed' },
+      nonExecution: { source: 'host', kind: 'no_result' }
+    })
+  })
+
+  it('AC2 — error terminal 도 방출 전에 정착하고, 뒤따른 terminal 에서 다시 정착하지 않는다', async () => {
+    const deps = await run([started('a'), telemetry, error])
+    expect(forwarded(deps).map(shape)).toEqual([
+      'started:a',
+      'completed:a:no_result',
+      'telemetry',
+      'error'
+    ])
+    const onlyError = await run([started('a'), error])
+    expect(forwarded(onlyError).map(shape)).toEqual(['started:a', 'completed:a:no_result', 'error'])
+  })
+
+  it('AC2 — terminal 없이 끝난 스트림은 합성 telemetry 전에 정착한다', async () => {
+    const deps = await run([started('a')])
+    expect(forwarded(deps).map(shape)).toEqual(['started:a', 'completed:a:no_result', 'telemetry'])
+  })
+
+  it('AC3 경로 — coordinator 는 정본 상태로 보존 집합을 판정한다', async () => {
+    const tracker = new BackgroundTaskTracker()
+    tracker.observe({
+      type: 'background.call',
+      sessionId: 's1',
+      source: { generation: 'g', sequence: 1, receivedAt: 1, replay: false },
+      toolUseId: 'bg',
+      phase: 'returned',
+      patch: { mode: 'background', status: 'async_launched' }
+    })
+    const deps = makeDeps(
+      fakeRuntime([[started('bg-child', 'bg'), started('orphan-child', 'gone'), telemetry]]),
+      { backgroundTasks: tracker }
+    )
+    await run([], deps)
+    expect(forwarded(deps).map(shape)).toEqual([
+      'started:bg-child',
+      'started:orphan-child',
+      'completed:orphan-child:no_result',
+      'telemetry'
+    ])
+  })
+
+  it('AC3 경로 — 정본이 없으면 부모 있는 실행은 두고 부모 없는 실행만 정착한다', async () => {
+    const deps = await run([started('p'), started('child', 'p'), telemetry])
+    expect(forwarded(deps).map(shape)).toEqual([
+      'started:p',
+      'started:child',
+      'completed:p:no_result',
+      'telemetry'
+    ])
+  })
+
+  it('AC4 — 철회는 열린 id 만 즉시 정착하고 내부 이벤트는 버스에 닿지 않는다', async () => {
+    const deps = await run([
+      started('a'),
+      started('b'),
+      completed('b'),
+      { type: 'tool.call.retracted', sessionId: 's1', toolRunIds: ['a', 'b'] },
+      started('c'),
+      telemetry
+    ])
+    expect(forwarded(deps).map(shape)).toEqual([
+      'started:a',
+      'started:b',
+      'completed:b:real',
+      'completed:a:retracted',
+      'started:c',
+      'completed:c:no_result',
+      'telemetry'
+    ])
+    expect(persisted(deps).some((ev) => ev.type === 'tool.call.retracted')).toBe(false)
+    expect(forwarded(deps).some((ev) => ev.type === 'tool.call.retracted')).toBe(false)
+  })
+
+  it('사용자 중단(abort)으로 끝난 턴은 host 정착을 하지 않는다 — Stop 은 aborted 정착이 소유한다', async () => {
+    const runtime = fakeRuntime([[started('a')]])
+    const deps = makeDeps(runtime)
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    turn.controller.abort()
+    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    expect(forwarded(deps).some((ev) => ev.type === 'tool.call.completed')).toBe(false)
+    expect([...turn.openToolRuns.keys()]).toEqual(['a'])
+  })
+})

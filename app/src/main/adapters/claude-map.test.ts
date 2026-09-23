@@ -1546,3 +1546,136 @@ describe('lastAssistantText — 계획 폴백 본문 (AT-04)', () => {
     expect(c.lastAssistantText).toBe('계획')
   })
 })
+
+// 0239 — 비실행 사유 운반(AC7)과 공개 철회 신호 매핑(UT-06 · AC4 · §10 EP-01 ① · EP-03 ①~③).
+describe('0239 — tool_result_meta 비실행 사유 (AC7)', () => {
+  const toolResult = (meta: unknown, id = 't1'): SDKMessage =>
+    sdk({
+      type: 'user',
+      message: {
+        content: [{ type: 'tool_result', tool_use_id: id, content: 'not run', is_error: true }]
+      },
+      ...(meta !== undefined ? { tool_result_meta: meta } : {})
+    })
+  const completed = (out: unknown[]): Record<string, unknown> =>
+    out.find((ev) => (ev as { type: string }).type === 'tool.call.completed') as Record<
+      string,
+      unknown
+    >
+
+  it('일치하는 id 의 사유를 nonExecution{source:sdk} 로 싣는다', () => {
+    const out = claudeToNormalized(
+      toolResult([{ id: 't1', non_execution_kind: 'user-rejected', user_feedback: '안 돼' }]),
+      ctx()
+    )
+    expect(completed(out).nonExecution).toEqual({
+      source: 'sdk',
+      kind: 'user-rejected',
+      userFeedback: '안 돼'
+    })
+  })
+  it('다른 id 의 사유는 싣지 않는다', () => {
+    const out = claudeToNormalized(
+      toolResult([{ id: 'other', non_execution_kind: 'cancelled' }]),
+      ctx()
+    )
+    expect('nonExecution' in completed(out)).toBe(false)
+  })
+  it('배열이 아니면 싣지 않는다', () => {
+    const out = claudeToNormalized(toolResult({ id: 't1', non_execution_kind: 'cancelled' }), ctx())
+    expect('nonExecution' in completed(out)).toBe(false)
+  })
+  it('kind 가 빈 문자열이면 싣지 않는다', () => {
+    const out = claudeToNormalized(toolResult([{ id: 't1', non_execution_kind: '' }]), ctx())
+    expect('nonExecution' in completed(out)).toBe(false)
+  })
+  it('한 메시지의 여러 tool_result 는 자기 id 의 사유만 받는다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        message: {
+          content: [
+            { type: 'tool_result', tool_use_id: 'a', content: 'x', is_error: true },
+            { type: 'tool_result', tool_use_id: 'b', content: 'y', is_error: false }
+          ]
+        },
+        tool_result_meta: [{ id: 'a', non_execution_kind: 'interrupted' }]
+      }),
+      ctx()
+    ) as Array<Record<string, unknown>>
+    expect(out.map((ev) => ev.nonExecution)).toEqual([
+      { source: 'sdk', kind: 'interrupted' },
+      undefined
+    ])
+  })
+})
+
+describe('0239 — 공개 철회 신호 → tool.call.retracted (UT-06)', () => {
+  const assistant = (
+    uuid: string,
+    ids: string[],
+    extra: Record<string, unknown> = {}
+  ): SDKMessage =>
+    sdk({
+      type: 'assistant',
+      uuid,
+      message: {
+        content: ids.map((id) => ({ type: 'tool_use', id, name: 'Bash', input: {} }))
+      },
+      ...extra
+    })
+  const refusal = (uuids: unknown): SDKMessage =>
+    sdk({
+      type: 'system',
+      subtype: 'model_refusal_fallback',
+      uuid: 'sys-1',
+      session_id: 's1',
+      retracted_message_uuids: uuids
+    })
+
+  it('model_refusal_fallback 이 지목한 wire uuid 의 tool_use id 를 낸다', () => {
+    const c = ctx()
+    claudeToNormalized(assistant('u1', ['a', 'b']), c)
+    claudeToNormalized(assistant('u2', ['c']), c)
+    expect(claudeToNormalized(refusal(['u1', 'text-only', 'u2']), c)).toEqual([
+      { type: 'tool.call.retracted', sessionId: 's1', toolRunIds: ['a', 'b', 'c'] }
+    ])
+  })
+  it('모르는 uuid·빈 목록·배열 아님은 아무것도 내지 않는다', () => {
+    const c = ctx()
+    claudeToNormalized(assistant('u1', ['a']), c)
+    expect(claudeToNormalized(refusal(['zzz']), c)).toEqual([])
+    expect(claudeToNormalized(refusal([]), c)).toEqual([])
+    expect(claudeToNormalized(refusal('u1'), c)).toEqual([])
+    expect(claudeToNormalized(refusal(undefined), c)).toEqual([])
+  })
+  it('한 번 철회한 uuid 는 다시 내지 않는다 — supersedes 뒤 audit notice 가 와도 1회', () => {
+    const c = ctx()
+    claudeToNormalized(assistant('u1', ['a']), c)
+    const replaced = claudeToNormalized(assistant('u9', ['z'], { supersedes: ['u1'] }), c)
+    expect(replaced[0]).toEqual({
+      type: 'tool.call.retracted',
+      sessionId: 's1',
+      toolRunIds: ['a']
+    })
+    expect(replaced.map((ev) => ev.type)).toEqual(['tool.call.retracted', 'tool.call.started'])
+    expect(claudeToNormalized(refusal(['u1']), c)).toEqual([])
+  })
+  it('tool_use 없는 assistant 는 기억하지 않는다', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({ type: 'assistant', uuid: 'txt', message: { content: [{ type: 'text', text: 'hi' }] } }),
+      c
+    )
+    expect(c.toolRunIdsByMessageUuid?.has('txt') ?? false).toBe(false)
+  })
+  it('기억은 상한 2048 에서 가장 오래된 것부터 버린다', () => {
+    const c = ctx()
+    for (let i = 0; i <= 2048; i++) claudeToNormalized(assistant(`u${i}`, [`t${i}`]), c)
+    expect(c.toolRunIdsByMessageUuid?.size).toBe(2048)
+    expect(claudeToNormalized(refusal(['u0']), c)).toEqual([])
+    expect(claudeToNormalized(refusal(['u2048']), c)).toEqual([
+      { type: 'tool.call.retracted', sessionId: 's1', toolRunIds: ['t2048'] }
+    ])
+  })
+})

@@ -24,7 +24,13 @@ import { createStallTimer, type StallTimer } from './timers'
 import { turnPolicyFor, type TurnKind } from './turn-policy'
 import type { BackgroundTaskPort } from './background-tasks'
 import { isAsyncLaunchedPayload } from '../../../shared/subagent'
-import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from './settle'
+import type { BackgroundSessionState } from '../../../shared/background-task'
+import {
+  settleOpenToolRuns,
+  settleOrphanToolRuns,
+  settleSubagentTask,
+  stopLiveSubagent
+} from './settle'
 import type { TurnEventSink, TurnPersistSink } from './turn-sinks'
 import type { MainBus, TurnEmit } from '../../contracts/bus-events'
 import type { PendingMessageQueue } from './pending-message-queue'
@@ -140,6 +146,18 @@ export class TurnCoordinator<W = unknown> {
           message: String(err)
         })
     }
+  }
+
+  // 결과 없이 끝난 도구 정착(0239)은 스트리밍 이벤트와 같은 실패 의미를 갖는다 — 버스 critical
+  // 구독자(history) throw 는 턴 실패로 전파되고 catch 경로가 남은 실행을 `failed` 로 정착한다.
+  private readonly streamEmit: TurnEmit<W> = (turn, ev) => this.emit(turn, ev)
+
+  // 보존 판정에 쓸 정본 상태 — 정본이 없는 세션(legacy 추적)은 `undefined` 로 넘겨 백그라운드
+  // 여부를 모른다는 사실을 선별이 알게 한다(D-015). `getState` 는 정본이 없어도 빈 상태를 돌려준다.
+  private canonicalBackground(turn: TurnContext<W>): BackgroundSessionState | undefined {
+    const sessionId = turn.dbSessionId
+    if (!sessionId || !this.deps.backgroundTasks.hasCanonical?.(sessionId)) return undefined
+    return this.deps.backgroundTasks.getState?.(sessionId)
   }
 
   cancelSteer(sessionId: string, id: string): boolean {
@@ -329,6 +347,12 @@ export class TurnCoordinator<W = unknown> {
               this.markSteerConsumed(turn, ev)
               continue
             }
+            // tool.call.retracted — main 내부 철회 신호(0239 EP-03 ④, renderer 미전달·미영속).
+            // 지목된 id 중 아직 열린 것만 즉시 정착한다 — 폴백 재시도 동안 spinner 를 남기지 않는다.
+            if (ev.type === 'tool.call.retracted') {
+              settleOrphanToolRuns(turn, this.streamEmit, 'retracted', undefined, ev.toolRunIds)
+              continue
+            }
             // 공급자가 받은 예약/채널 프롬프트는 앱의 전송 큐와 별개다. 응답 앞에 같은
             // user 커밋 경로로 기록하고, origin을 원문과 함께 보존한다.
             if (ev.type === 'input.received') {
@@ -367,6 +391,18 @@ export class TurnCoordinator<W = unknown> {
             // [응답-전][steer user][응답-후] 를 보존한다(persistSteerUserMessage 가 진행 중
             // assistant 를 마감·리셋). telemetry 만 예외로 persist 후 flush — usage messageId
             // 링크·assistant 마감이 끝난 뒤여야 한다(0060).
+            // 턴 terminal 직전 정착(0239 EP-02 ①②) — SDK 는 턴의 assistant·user 메시지를 모두 보낸
+            // 뒤 result 를 보내므로, 이 시점에 결과가 없는 실행은 폐기된 것이다(D-004). history 가
+            // assistant 를 마감하고 renderer 가 턴을 닫기 **전에**, steer 커밋이 새 메시지를 열기
+            // **전에** 방출해야 결과가 원래 도구 카드와 같은 메시지에 짝지어진다.
+            if (ev.type === 'telemetry' || ev.type === 'error') {
+              settleOrphanToolRuns(
+                turn,
+                this.streamEmit,
+                'no_result',
+                this.canonicalBackground(turn)
+              )
+            }
             if (ev.type !== 'telemetry') this.commitConsumed(turn, closeBeforeUser)
             if (
               this.deps.persistResponseBoundaries(turn.agentKind) &&
@@ -504,6 +540,8 @@ export class TurnCoordinator<W = unknown> {
             type: 'telemetry',
             sessionId: turn.dbSessionId ?? request.sessionId ?? ''
           } as const
+          // terminal 없이 끝난 스트림도 같은 정착을 거친다(0239 EP-02 ③).
+          settleOrphanToolRuns(turn, this.streamEmit, 'no_result', this.canonicalBackground(turn))
           this.emit(turn, ev)
           // 스트림이 경계 없이 끝났어도 *소비 확정분* 은 flush 한다. 미소비 pending 은 큐에
           // 남긴다 — 모델이 못 본 텍스트를 committed 로 굳히지 않고 다음 chat:send 로 이월(D2).

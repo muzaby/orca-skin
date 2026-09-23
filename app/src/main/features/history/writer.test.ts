@@ -556,3 +556,108 @@ describe('HistoryWriter — TaskXXX 구조화 출력 영속 (0204)', () => {
     expect('structuredOutput' in payload).toBe(false)
   })
 })
+
+// 0239 AC5·AC8 · IT-02 · §10 EP-01 ⑤ — 비실행 사유 영속과 last-wins.
+describe('HistoryWriter — 비실행 사유 영속 (0239)', () => {
+  const started = (id: string): NormalizedEvent => ({
+    type: 'tool.call.started',
+    sessionId: 's1',
+    toolRunId: id,
+    toolName: 'Bash',
+    args: {}
+  })
+  function withDb(
+    check: (queries: DbQueries, writer: HistoryWriter, turn: TurnContext) => void
+  ): void {
+    const db = new Database(':memory:')
+    try {
+      applyMigrations(db)
+      db.prepare(
+        "INSERT INTO sessions (id, backend, created_at, updated_at) VALUES ('s1', 'claude', 1, 1)"
+      ).run()
+      const queries = new DbQueries(db)
+      const writer = new HistoryWriter(queries, () => false)
+      const turn = {
+        dbSessionId: 's1',
+        currentAssistantMessageId: null,
+        assistantText: '',
+        providerKey: null,
+        askResolved: new Map()
+      } as unknown as TurnContext
+      check(queries, writer, turn)
+    } finally {
+      db.close()
+    }
+  }
+  const toolResults = (queries: DbQueries): unknown[] =>
+    queries
+      .loadParts('s1')
+      .map(partFromRow)
+      .filter((part) => part.type === 'tool_result')
+
+  it('AC8 — nonExecution 을 payload 에 싣고 reader 가 같은 값으로 복원한다', () => {
+    withDb((queries, writer, turn) => {
+      writer.persist(turn, started('t1'))
+      writer.persist(turn, {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 't1',
+        result: 'The user rejected this tool use',
+        isError: true,
+        nonExecution: { source: 'sdk', kind: 'user-rejected', userFeedback: '다음에' }
+      })
+      expect(toolResults(queries)).toEqual([
+        {
+          type: 'tool_result',
+          toolRunId: 't1',
+          result: 'The user rejected this tool use',
+          isError: true,
+          nonExecution: { source: 'sdk', kind: 'user-rejected', userFeedback: '다음에' }
+        }
+      ])
+      const session = loadSession(queries, 's1', () => '/w')
+      const loaded = session?.messages.flatMap((message) => message.parts)
+      expect(loaded?.find((part) => part.type === 'tool_result')).toMatchObject({
+        nonExecution: { source: 'sdk', kind: 'user-rejected', userFeedback: '다음에' }
+      })
+    })
+  })
+
+  it('사유가 없으면 키를 만들지 않는다 — 끝까지 실행된 결과는 그대로다', () => {
+    withDb((queries, writer, turn) => {
+      writer.persist(turn, started('t1'))
+      writer.persist(turn, {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 't1',
+        result: 'ok',
+        isError: false
+      })
+      expect('nonExecution' in (toolResults(queries)[0] as object)).toBe(false)
+    })
+  })
+
+  it('AC5 — host 정착 뒤 같은 id 의 실제 결과가 오면 한 행을 덮어쓴다(last-wins)', () => {
+    withDb((queries, writer, turn) => {
+      writer.persist(turn, started('t1'))
+      writer.persist(turn, {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 't1',
+        result: { reason: 'not_executed', message: '실행되지 않았습니다' },
+        isError: true,
+        nonExecution: { source: 'host', kind: 'no_result' }
+      })
+      writer.persist(turn, {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 't1',
+        result: 'late real output',
+        isError: false
+      })
+      expect(toolResults(queries)).toEqual([
+        { type: 'tool_result', toolRunId: 't1', result: 'late real output', isError: false }
+      ])
+    })
+  })
+})
