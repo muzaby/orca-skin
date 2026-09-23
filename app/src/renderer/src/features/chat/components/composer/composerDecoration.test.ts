@@ -32,6 +32,15 @@ describe('tokenizeComposerDecoration', () => {
     ])
   })
 
+  it('draft 끝의 Plugin id도 chip으로 칠한다 — 끝 경계는 공백과 문자열 끝 둘 다다', () => {
+    expect(
+      tokenizeComposerDecoration('확인 @jira-dc', new Set(), new Set(), new Set(['jira-dc']))
+    ).toEqual([
+      { kind: 'text', text: '확인 ' },
+      { kind: 'chip', chip: 'plugin', text: '@jira-dc' }
+    ])
+  })
+
   it('경로 토큰의 앞부분이 Plugin id와 같아도 Plugin chip으로 칠하지 않는다', () => {
     expect(
       tokenizeComposerDecoration(

@@ -8,7 +8,7 @@
 | 작성자 | Codex — 사용자 지시로 설계 턴 수행 |
 | 일자 | 2026-09-22 |
 | 매핑 | 최초 기능 요청 3건 + 사용자 변경·보완 4건 |
-| 상태 | **verify/FAIL (V1+ΔV1 r3)** — 판정은 [`verify.md`](verify.md) `# r3 검증`. `handoff-review` round 28 완료, 다음은 r4 재구현 |
+| 상태 | **IMPL_DONE (V1+ΔV1 라운드 3 · r4)** — r3 판정은 [`verify.md`](verify.md) `# r3 검증`, r4 검증 대기 |
 | V mode | `Delta V` |
 | 기준 V | `V1@651d9080` — 0238 최초 READY 설계; r1 구현 `6030afae`·`e96a2494`·`2c7dad51`은 독립 검증 전 |
 | 이번 V revision | `ΔV1` — Composer 그룹 순서·token 재진입·전 category catalog presentation 입력 |
@@ -1141,6 +1141,100 @@ ProviderCatalogPresentationInput
 - 구현·다음 검증 주체가 같은 에이전트(Claude)다 — 다음 verify는 자기 검증 분모 규칙 대상.
 - 현재 라운드 수: **3**.
 
+## [구현자 기입] 설계 리뷰 (r4 — 라운드 3, verify/FAIL D14~D20)
+
+- 동의 / 그대로 진행: ✅ r3 verify D14(BLOCKING)와 권장 D15~D18·D20을 V1+ΔV1 규범 행 변경 없이 닫았다. Decision·AC·V pair·§10은 수정하지 않았다.
+- 이견 / 현실성 문제: 없음. D19(occurrence identity에 `tokenStart` 포함 여부)는 NEXT_HANDOFF·설계자 판단이라 손대지 않았다. D13도 설계자 몫이다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. D16의 키보드 분기 추출은 동작 보존 — skill·mention 두 분기가 같은 모양이라 한 순수 함수로 합쳤다.
+- 구현 주체: 보드 다음 주체는 Codex였으나 사용자가 `/handoff-impl`을 명시 호출해 Claude가 구현했다. 라운드 3의 첫 impl 턴이며 기존 `r3` 라벨과 겹치지 않게 `r4`로 적는다(`docs/handoff/AGENTS.md §라운드`).
+
+## [구현자 기입] 강제 지점 전수 (r4 — 파생 이슈 불변식, 자리 단위)
+
+| 파생 이슈 → 불변식 | 자리 전수 (검색) | 닫은 자리 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|
+| D14·D15 → **인증 callback과 선택 방식은 부모가 받은 그대로 자식에 전달된다** | `rg -n "onLogin\|onReauth\|onRevoke\|authKind=" {ExtensionsCatalogView,ProviderDetail,ProviderAuthActions}.tsx`(구조분해 제외) → 10자리: catalog view 3(`:215·217·218`) · ProviderDetail 4(`:74~77`) · ProviderAuthActions 3(`:41` login · `:81` reauth·revoke) | 10/10 | `providerAuthWiring.render.test` 2케이스 — S1 red 1·S1b red 1·S2 red 1. ProviderAuthActions 3자리는 기존 render test(M13·M8) | 없음 |
+| D16 → **키보드는 flatten된 옵션만 순환하고 활성 옵션을 자기 apply로 넘긴다** | 분기 3(↑/↓·Enter/Tab·Esc, `autocompleteKeys.ts`) + controller 호출 2(skill·mention) = 5자리 | 5/5 | `autocompleteKeys.test` 7케이스 — S5a·S5b·S5c red, 배선 W1(skill 호출 제거)·W2(mention apply 맞바꿈)·W3(mention 조건을 skillOpen으로) red | 없음 |
+| D17 → **Plugin chip 끝 경계는 공백과 문자열 끝 둘 다다** | `PLUGIN_TOKEN_RE` 끝 lookahead 가지 2(`\s`·`$`) | 2/2 | `composerDecoration.test` draft 끝 case — S6 red 1. `\s` 가지는 기존 `@jira-dc @unknown` | 없음 |
+| D18 → **quoted token은 Plugin popup을 열지 않는다** | `pluginOpen` 가드 1 + group 조건 1(`rootPlain`, S12 기존 red) | 2/2 | `useMentionAutocomplete.test` quoted·cwd-null case — S4 red 1 | 없음 |
+| D20 | `rg -n "filterFileSuggestions" app/src` → 정의 1·내부 호출 1 | 비export | 외부 참조 0줄 | 없음 |
+
+**V-pair 자기확인 (r3 verify의 root·BLOCKED pair)**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-10 | REQUIRED | SELF_PASS | ProviderDetail·catalog view 전달 props 식별·호출 인자 | 등록 `callback 맞바꿈` — 자리 3곳(M13·S1·S2) 전부 red |
+| VP-03 | REQUIRED | SELF_PASS | root VP-10 해소, 분기·danger | M8 red 11·7, M9 red 3 |
+| VP-25 | REGRESSION | SELF_PASS | ProviderDetail 트리의 auth action props | S1·S1b red |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r4)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| S1 ProviderDetail `onReauth`↔`onRevoke` 전달 맞바꿈 | D14 인용 | green | `providerAuthWiring.render` 1 | RED → 복원 |
+| S1b ProviderDetail `authKind={null}` | D14 인용 | green | `providerAuthWiring.render` 1 | RED → 복원 |
+| S2 catalog view `onReauth`→`providers.revoke` | D15 인용 | green | `providerAuthWiring.render` 1 | RED → 복원 |
+| S5a ↑/↓ 모듈로에 header 1칸 포함 | D16 인용 | green | `autocompleteKeys` 1 | RED → 복원 |
+| S5b Enter/Tab이 첫 옵션 고정 | D16 인용 | green | `autocompleteKeys` 2 | RED → 복원 |
+| S5c Esc가 close 안 부름 | D16 인용 | green | `autocompleteKeys` 1 | RED → 복원 |
+| S6 Plugin chip 끝 경계 `$` 제거 | D17 인용 | green | `composerDecoration` 1 | RED → 복원 |
+| S4 `pluginOpen`의 `!token.quoted` 제거 | D18 인용 | green | `useMentionAutocomplete` 1 | RED → 복원 |
+| W1 controller skill 키 처리 호출 제거 | 새 oracle(배선 source 단언) | 없음 | `autocompleteKeys` 1 | RED → 복원 |
+| W2 mention 호출의 apply를 skill apply로 | 새 oracle | 없음 | `autocompleteKeys` 1 | RED → 복원 |
+| W3 mention 호출 조건을 `skillOpen`으로 | 새 oracle | 없음 | `autocompleteKeys` 1 | RED → 복원 |
+
+- 분모 검산: 선택 증거 0(VP-10 등록 변이는 인용 변이 S1·S2와 같은 결함이라 중복 계상 안 함) · 인용 변이 8(D14 2·D15 1·D16 3·D17 1·D18 1) · 새 oracle 3(W1~W3) = 표 행 **11**, 11/11 RED.
+- 덮개 회귀: r3 verify가 red로 관측한 41건(r3 잠금 15 · r2 red 19 · 신설 red S3·S7~S12 7)을 재실행해 전부 red — red→green 0. 러너가 변이를 1건씩 적용·복원했고, 스위트는 아래 구현 보고와 같다.
+
+## [구현자 기입] Product/UX 파생 검토 (r4)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — 새 문구 없음 | 없음 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 예 — 키보드 분기만 순수 함수로 옮겼고 `event.preventDefault()`·조기 `return`은 controller에 남았다. 비동기·정리 코드 없음 | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 해당 없음 — 새 실패 경로 없음. 0건일 때 ↑/↓·Enter는 키만 소비(V1 §5 empty 행, r3과 동일) | 없음 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 예 — 동작 불변 | 없음 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 — 비동기 경로 불변 | 없음 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r4)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 키보드 배선 잠금(W1~W3)이 controller source 문자열 단언이다 — 호출 형태를 바꾸는 리팩터링에 깨질 수 있다 | 저장소 선례(`ComposerInputController.test` submit 위임 단언)와 같은 수준으로 두고 보고만 | controller는 hook 20+개를 조립해 node fixture로 구동하기 비싸다 |
+| 2 | D19 — caret만 같은 partial의 다른 token으로 옮기면 dismissal이 이어진다 | 변경 없음 — 설계자 판단 대상 | r3 verify probe P1 |
+
+### 설계 대비 명시적 차이 (r4)
+
+- `autocompleteKeys.ts` 순수 함수 신설 — plan §11은 controller keyboard test를 요구했고, controller를 직접 구동하는 대신 분기를 추출해 단언했다. 동작 보존 추출이라 hunk 되돌림 초록은 판정 근거가 아니며, 잠금은 인용 변이 S5a~c와 배선 변이 W1~W3로 쟀다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 상태 없는 순수 함수 | — |
+| 공유 | skill·mention이 한 함수를 공유 — 한쪽을 위한 변경이 다른 쪽에 번진다 | AC11·AC25: `useSkillAutocomplete` 소비 경로는 W1, mention은 W2·W3과 7케이스가 잠근다 |
+| 재진입 | 해당 없음 — 호출마다 인자로 받은 상태만 읽는다 | — |
+| 다른 무효화 축 | skill 분기에 없던 `length>0` 가드가 생겼다 | skill popup은 `suggestions.length>0`일 때만 열려 도달 불가 — 동작 차이 0 |
+
+## [구현자 기입] 구현 보고 (r4)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | chat: 신규 `composer/autocompleteKeys.ts`, `ComposerInputController.tsx`(키보드 분기 위임), `lib/mentionAutocomplete.ts`(`filterFileSuggestions` 비export). tests: 신규 `autocompleteKeys.test.ts`·`skills/.../providerAuthWiring.render.test.ts`, 갱신 `composerDecoration.test.ts`·`useMentionAutocomplete.test.ts` |
+| 실행 명령 | `npm run typecheck`; `npm run lint`; `./node_modules/.bin/vitest run <r3 verify 스위트>`; `node scripts/check-doc-inventory.mjs --check`; `git diff --check`; 변이 52건 1건씩 적용·복원 |
+| 관측한 게이트 산출 | typecheck 3 config `error TS` 0; lint 0 error·1 warning(기존 TanStack Virtual); vitest **110파일/819케이스** pass(r3 108/808 + 2파일·11케이스); doc inventory `9 items, 98 channels`·links ok; diff check 출력 0 |
+| V-pair 자기확인 | r3 verify root·BLOCKED 3 pair **3/3 SELF_PASS**, SELF_BLOCKED 0 |
+| 강제 지점 전수 | 파생 이슈 불변식 5행 — 자리 10/10 · 5/5 · 2/2 · 2/2 · D20 비export, 남긴 곳 0 |
+| AC 자기보고 | ✅ 24 · ⚠️ 0 · ❌ 0 = **24** (AC7은 AC23이 대체). r3 verify ⚠️였던 AC11(D16)·AC15(D14)가 ✅ |
+| 합계 검산 | pair 3/3 + 잠금 11/11 + 덮개 41/41 red + AC 24/24 + gate 5종 |
+| 블로커 / 역질문 | 없음. 두 테마·clipping·SDK bare `fable`은 사람 실기 |
+| 대상 커밋 | `(r4 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r4)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: **예** — D14는 r2 D5와 같은 계약(VP-10)의 다른 자리, D16은 ΔV1 분해에서 빠진 V1 header-index 축.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: **예** — VP-10 path가 `ProviderDetail props`를, AC11 검증 수단이 controller keyboard test를 명시했다. review round 28이 자리 단위 분모·SUPERSEDED 이관 규칙을 추가했다.
+- 반복해서 부딪히는 환경 한계: Electron/SDK 실기 불가.
+- 구현·다음 검증 주체가 같은 에이전트(Claude)다 — 다음 verify는 자기 검증 분모 규칙 대상.
+- 현재 라운드와 impl 턴 라벨: **라운드 3 · `r4`**(기존 `r3` 라벨과 겹치지 않게 순번 유지).
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
@@ -1158,10 +1252,10 @@ ProviderCatalogPresentationInput
 | D11 | `useFileAutocomplete.ts`·`FileAutocomplete.tsx` production 참조 0, `mentionGroupOptions`·`projectPluginMentions` 미사용 | plan §18 | D7 oracle 이전 후 제거 | NON_BLOCKING | closed (r3) |
 | D12 | `createConnectionSources` optional deps를 bootstrap이 넘기지 않음, guide gate 예제의 자기 import·스코프 밖 변수 | D-016 비귀속 | deps 제거 또는 guide 정정 | NON_BLOCKING | closed (r3) |
 | D13 | plan 메타 `V1@651d9080`·r1 `6030afae`·`e96a2494`·`2c7dad51` 죽은 좌표. r2는 메타 상태를 `READY`로 남겼다(이번 verify가 갱신) | message-bus | 설계자가 `6200cf1`·`6f40c8b`~`f31c068`로 교정 | NON_BLOCKING | open |
-| D14 | `ProviderDetail → ProviderAuthActions`의 `onReauth`/`onRevoke`/`authKind` 전달 edge에 oracle이 없다 — props 맞바꿈(S1)·`authKind={null}`(S1b)이 808케이스 green. `ProviderDetail.render.test`는 static markup만 본다 | VP-10 root · VP-03·25 / 등록 변이 “reauth/revoke callback 맞바꿈”·AC15 | `ProviderDetail` 반환 트리에서 `ProviderAuthActions` props가 받은 callback·현재 `authKind`와 동일한지 단언(`ProviderAuthActions.render.test` 방식) | BLOCKING | open |
-| D15 | `ExtensionsCatalogView`의 `providers.reauth/revoke` 바인딩 맞바꿈(S2) green | 0238 미변경 기존 sink | D14와 함께 sink 바인딩 단언 권장 | NON_BLOCKING | open |
-| D16 | AC11 controller keyboard glue 미잠금 — header 포함 모듈로·Enter 첫 항목 고정·Esc 무시(S5a/b/c) green. ΔV1 분해 뒤 V1 VP-06·12 header-index 축이 어느 pair에도 없다 | AC11 · 비등록 축 | controller keyboard 분기를 순수 함수로 빼거나 fixture로 dispatch 단언 | NON_BLOCKING | open |
-| D17 | Plugin chip 끝 경계의 `$` 가지(draft 끝 `@id`) 미잠금(S6) | VP-13 · D3 수정의 새 표면 | 끝 위치 `@jira-dc` case 추가 | NON_BLOCKING | open |
-| D18 | `pluginOpen`의 `!token.quoted` 가드 제거(S4) green — 동작은 정상(probe P3) | AC9 비등록 축 | quoted·cwd-null case 추가 | NON_BLOCKING | open |
+| D14 | `ProviderDetail → ProviderAuthActions`의 `onReauth`/`onRevoke`/`authKind` 전달 edge에 oracle이 없다 — props 맞바꿈(S1)·`authKind={null}`(S1b)이 808케이스 green. `ProviderDetail.render.test`는 static markup만 본다 | VP-10 root · VP-03·25 / 등록 변이 “reauth/revoke callback 맞바꿈”·AC15 | `ProviderDetail` 반환 트리에서 `ProviderAuthActions` props가 받은 callback·현재 `authKind`와 동일한지 단언(`ProviderAuthActions.render.test` 방식) | BLOCKING | closed (r4) |
+| D15 | `ExtensionsCatalogView`의 `providers.reauth/revoke` 바인딩 맞바꿈(S2) green | 0238 미변경 기존 sink | D14와 함께 sink 바인딩 단언 권장 | NON_BLOCKING | closed (r4) |
+| D16 | AC11 controller keyboard glue 미잠금 — header 포함 모듈로·Enter 첫 항목 고정·Esc 무시(S5a/b/c) green. ΔV1 분해 뒤 V1 VP-06·12 header-index 축이 어느 pair에도 없다 | AC11 · 비등록 축 | controller keyboard 분기를 순수 함수로 빼거나 fixture로 dispatch 단언 | NON_BLOCKING | closed (r4) |
+| D17 | Plugin chip 끝 경계의 `$` 가지(draft 끝 `@id`) 미잠금(S6) | VP-13 · D3 수정의 새 표면 | 끝 위치 `@jira-dc` case 추가 | NON_BLOCKING | closed (r4) |
+| D18 | `pluginOpen`의 `!token.quoted` 가드 제거(S4) green — 동작은 정상(probe P3) | AC9 비등록 축 | quoted·cwd-null case 추가 | NON_BLOCKING | closed (r4) |
 | D19 | 같은 partial의 다른 `@` token으로 caret만 옮기면 dismissal이 이어진다(probe P1). occurrence 경계가 token null뿐이며 base도 같다 | D-015 문언 ↔ EP-08 | `tokenStart`를 occurrence identity에 넣을지 설계자 판단 | NEXT_HANDOFF | open |
-| D20 | `filterFileSuggestions` export 외부 참조 0 — D11이 형제 `splitDirAndPrefix`만 비export | D11 형제 | 비export | NON_BLOCKING | open |
+| D20 | `filterFileSuggestions` export 외부 참조 0 — D11이 형제 `splitDirAndPrefix`만 비export | D11 형제 | 비export | NON_BLOCKING | closed (r4) |
