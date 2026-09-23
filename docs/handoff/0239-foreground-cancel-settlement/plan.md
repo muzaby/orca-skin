@@ -10,12 +10,12 @@
 | slug | `0239-foreground-cancel-settlement` |
 | 작성자 | Claude Code |
 | 일자 | 2026-09-23 |
-| 매핑 | 사용자 검토 요청 1건 + 설계 질의 응답 3건 + 관찰 보완 1건(V1 rev.2) |
-| 상태 | DRAFT — r1 구현 조사에서 PG-01 발견, 설계 보완 필요 |
-| V mode | `Baseline V` |
-| 기준 V | `none` |
-| 이번 V revision | `V1` rev.2 — 구현 전 사용자 관찰 보완(G5·D-012·D-013·AC18). rev.1은 `72c5979` |
-| 유효 V | `V1` |
+| 매핑 | 사용자 검토 요청 1건 + 설계 질의 응답 3건 + 관찰 보완 1건(V1 rev.2) + r1 PLAN_GAP PG-01 보완(ΔV1) |
+| 상태 | READY — ΔV1로 PG-01(결과 reconcile 경계) 보완 |
+| V mode | `Delta V` |
+| 기준 V | `V1` rev.2 `@d47f88b` — 구현 전 사용자 관찰 보완(G5·D-012·D-013·AC18). rev.1은 `72c5979` |
+| 이번 V revision | `ΔV1` — PG-01 결과 reconcile 경계(D-014·AC5 대체·EP-10·VP-19·VP-20) |
+| 유효 V | `V1 + ΔV1` |
 | 기준 코드 | `cb5d828` (브랜치 `claude/foreground-task-cancel-state-qmcm4c` 착수 시점) |
 
 # Part I — Product & UX Contract
@@ -145,7 +145,7 @@
 | R-01 | AT-01 / AC2 | `error`만 오는 terminal과 terminal 없는 스트림 종료(합성 `telemetry`)도 같은 정착을 terminal 전에 수행한다. | coordinator 테스트 2건: `started → error`, `started → (스트림 종료)` 각각 completed(no_result)가 terminal 앞 | 동일 + `turn-coordinator.ts:502` 합성 경로 |
 | R-01 | AT-01 / AC3 | 보존 대상(백그라운드·원격 호출, `awaitingTask`, live 포함·`isBackgrounded:true` 태스크와 그 후손)은 정착하지 않는다. 부모가 열린 child는 두고, 부모가 닫혔고 보존되지 않은 child는 정착한다. 정본 상태가 없으면 child는 둔다. | settle 테스트: 5형 fixture(백그라운드 child·열린 부모 child·닫힌 부모 child·메인·정본 없음 child) 각각 방출 여부 | `settleOrphanToolRuns` ← coordinator terminal |
 | R-01 | AT-01 / AC4 | `model_refusal_fallback.retracted_message_uuids` 또는 `assistant.supersedes`가 지목한 wire 메시지의 tool_use 중 **열린 것만** 즉시 `kind:'retracted'`로 정착한다. 결과가 있는 도구는 바꾸지 않는다. 내부 이벤트 `tool.call.retracted`는 버스·renderer·DB에 도달하지 않는다. | claude-map 테스트: uuid→id 매핑·supersedes·빈 목록 · coordinator 테스트: 열린 A 정착·완료된 B 불변·버스에 retracted 부재 | SDK system/assistant → claude-map → coordinator |
-| R-01 | AT-01 / AC5 | 정착된 도구에 같은 `toolRunId`의 실제 결과가 뒤늦게 오면 그것이 표시·영속을 대체한다. | writer 테스트: upsert 후 payload가 실제 결과 · renderer 테스트: 같은 메시지 두 결과 → 마지막 결과 페어링 | DB `upsertToolResultPart` · `resultMap` |
+| R-01 | AT-01 / AC5 **→ ΔV1 대체** | 정착된 도구에 같은 `toolRunId`의 실제 결과가 뒤늦게 오면 그것이 표시·영속을 대체한다. | writer 테스트: upsert 후 payload가 실제 결과 · renderer 테스트: 같은 메시지 두 결과 → 마지막 결과 페어링 | DB `upsertToolResultPart` · `resultMap` |
 | R-01 | AT-01 / AC6 | host 정착 카드는 `실행되지 않음` 라벨·중립 톤이며 running 표식(spinner·sr-only)이 없다. 재로드 후에도 같다. | ToolCard 렌더 테스트(라벨·클래스·sr-only 부재) · LOAD_SESSION 왕복 테스트 | relay → chatReducer → ToolCard / DB → reader → LOAD_SESSION |
 | R-02 | AT-02 / AC7 | claude-map은 SDK `tool_result_meta[]`에서 해당 `tool_use_id`의 `non_execution_kind`(+`user_feedback`)를 `nonExecution:{source:'sdk',…}`로 싣는다. 부재·형식 오류면 싣지 않는다. | claude-map 테스트 4건: 일치 id·불일치 id·배열 아님·빈 문자열 | SDK user 메시지 → claude-map |
 | R-02 | AT-02 / AC8 | `nonExecution`은 writer payload에 영속되고 reader→part→`resultMap`→`ToolCall.result`로 복원된다. 라이브와 재로드 결과가 같다. | writer 테스트(payload 필드) · parts 테스트(`resultMap` 복사) · 라이브/재로드 동치 테스트 | bus → writer → DB → reader → renderer |
@@ -203,8 +203,8 @@
 
 | Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §10 강제 지점 전수 |
 |---|---|---|---|---|---|---|
-| VP-01 | R-01 ↔ AT-01 | REQUIRED | SDK `assistant(tool_use)` → claude-map → coordinator → bus → chatReducer → ToolCard | AC1~AC6 단언 | not selected — 라벨·순서 직접 관측 | EP-01(8)·EP-02(3)·EP-03(4) |
-| VP-02 | R-02 ↔ AT-02 | REQUIRED | SDK `user(tool_result, tool_result_meta)` → claude-map → writer/relay → renderer 9자리 | AC7~AC10 단언 | required — 형제 라벨 맞바꿈(rejected↔cancelled) 1종, 자리: EP-04 ①·⑥·⑧ | EP-01(8)·EP-04(9) |
+| VP-01 **→ ΔV1 대체** | R-01 ↔ AT-01 | REQUIRED | SDK `assistant(tool_use)` → claude-map → coordinator → bus → chatReducer → ToolCard | AC1~AC6 단언 | not selected — 라벨·순서 직접 관측 | EP-01(8)·EP-02(3)·EP-03(4) |
+| VP-02 **→ ΔV1 대체** | R-02 ↔ AT-02 | REQUIRED | SDK `user(tool_result, tool_result_meta)` → claude-map → writer/relay → renderer 9자리 | AC7~AC10 단언 | required — 형제 라벨 맞바꿈(rejected↔cancelled) 1종, 자리: EP-04 ①·⑥·⑧ | EP-01(8)·EP-04(9) |
 | VP-03 | R-03 ↔ AT-03 | REQUIRED | provider `task_started(is_backgrounded:false)` → tracker → post-turn step / chatCancel | AC11·AC12 단언 | required — 제외 술어 제거 변이, 자리: EP-05 ① | EP-05(4) |
 | VP-04 | R-04 ↔ AT-04 | REQUIRED | provider lane + chat messages → backgroundStore/패널 파생 → 카드 | AC14~AC16·AC18 단언 | required — 호출 반환 규칙 제거 변이, 자리: EP-06 ①·②·⑤ | EP-06(6) |
 | VP-05 | R-05 ↔ AT-05 | REQUIRED | post-turn 로그 · 문서 생성기 | AC13·AC17 | not selected — 값·생성기 직접 관측 | EP-08(4)·EP-09(1) |
@@ -534,6 +534,112 @@ provider call + chat messages ─► BackgroundDisplay ─► 패널·지우기
 - [x] 게이트 명령이 대상 subtree의 현재 `AGENTS.md`와 충돌하지 않는다.
 - [x] 본문 완성 후 Decision Ledger와 기존 결정을 전체 교차검증했고, `ACTIVE 결정 ↔ AC` 대조 결과를 §3 갱신 메모에 적었다.
 - [x] 산출물 문장 규칙을 지켰다.
+
+---
+
+# ΔV1 — 결과 reconcile 경계 (PG-01)
+
+> r1 구현 조사가 올린 PLAN_GAP PG-01의 설계 보완이다. 사용자 결정(D-001~D-013)과 Part I의 결과는 바꾸지 않는다.
+> V1 rev.2(`d47f88b`)에서 AC5 한 행과 VP-01·VP-02 두 pair 행을 대체하고, 결과 비교 경계(EP-10)와 pair 2개를 더한다.
+
+## Δ1. 요구 출처와 재측정
+
+| 구분 | 내용 | 출처 / 관측 |
+|---|---|---|
+| PLAN_GAP | “`nonExecution` 변경을 버리는 결과 비교 경계가 EP-01에 누락” — `resultEquals`는 `output`·`isError`·`durationMs`만 비교한다. | r1 `[구현자 기입]` · [r1 증거](evidence/r1-reconcile-gap.md) · `parts.ts:565-569` |
+| 재현(이번 턴) | r1 probe를 그대로 실행하면 추가·교체·제거 3형이 실패하고 대조군 2개와 기존 4개는 통과한다. | `vitest run` 임시 probe + `parts.reconcile.test.ts`: `Tests 3 failed \| 6 passed (9)` — 실행 후 probe 제거 |
+| 측정(이번 턴) | 비교하지 않는 기존 결과 필드(`subagentMeta`)로 같은 구조를 재면, transcript 합성식은 이전 값 `A`를 보이고 Work 투영은 최신 값 `B`를 보인다. | 임시 probe 2케이스 `1 failed \| 1 passed` — `reconcileSegments(prev, messageSegments(parts))` ↔ `createWorkProjector()` |
+| 경로 확인 | 재로드는 `START_LOAD_SESSION`이 메시지를 비운 뒤 `LOAD_SESSION`이 채운다 — 재로드 결과는 라이브 view와 reconcile되지 않고 새로 마운트된다. | `chatStore.ts:1385-1404` · `chatReducer.ts:1316-1323` |
+
+## Δ2. Decision Ledger
+
+| ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
+|---|---|---|---|---|---|
+| D-014 | 결과 identity 재사용(0008)은 `nonExecution`을 **값**(`source`·`kind`·`userFeedback`)으로 비교한다. 값이 다르면 새 결과 view를 쓰고, 같으면 다른 객체여도 이전 view를 재사용한다. | `nonExecution`은 표시 상태를 가른다 — 비교에서 빠지면 사유만 바뀐 결과가 이전 카드로 남는다. 값 비교라 재렌더 격리(0008)는 유지된다. | PG-01 | ACTIVE | — |
+
+### Δ 갱신 메모
+
+- 새 결정: D-014. 변경된 결정: 없음 — D-001~D-013은 그대로 ACTIVE다.
+- **`ACTIVE 결정 ↔ AC` 대조**: D-014 ↔ AC5(ΔV1) 일치(사유만 바뀐 3형에서 최신 결과). D-002 ↔ AC5(ΔV1) 제거 형 일치(사유 부재 = 현행 표시). D-013 ↔ ΔV1 무관(입력 경로 불변). 충돌 0.
+- r1 제안 중 “AC8 증거를 최종 소비자까지 연결”은 채택하지 않는다 — 재로드는 새로 마운트되어 라이브 view와 비교되지 않는다(Δ1 경로 확인). AC8은 V1 행 그대로다.
+
+## Δ3. 요구 비판적 검토
+
+| 질문 | 판단 | 근거 |
+|---|---|---|
+| 결함이 닿는 소비자는 어디인가 | transcript 경로 — 같은 `AssistantMessage` 인스턴스가 이전 세그먼트를 들고 있는 동안 같은 id 결과의 사유만 달라지면 이전 view가 남는다. | `AssistantMessage.tsx:39-41` · Δ1 재현 |
+| Work 투영도 같은가 | 아니다 — join이 결과 객체 identity로 최신 결과를 다시 끼운다. 결함은 가려지지만 경계 자체는 같은 비교를 거친다. | `workActivity.ts:98-117`(`:107`) · Δ1 측정 |
+| 라이브에서 실제로 생기는가 | 드물다 — host 정착 결과는 매번 새 `output` 객체라 이미 다르다. 본문 문자열이 같고 사유만 다른 SDK 결과가 해당한다. | `parts.ts:568`(`output` `===` 비교) · `settle.ts` 결과 객체 생성 |
+| 더 작은 해법 | `resultEquals` 한 곳이 두 소비자의 공통 경계다 — 소비자별 우회를 만들지 않는다. | `git grep -n "reconcileSegments(" -- app/src/renderer/src` 호출 2(테스트 제외) |
+| 다른 필드에도 같은 누락이 있는가 | 있다 — `subagentMeta`·`structuredOutput`·`parentToolRunId`도 비교하지 않는다. 0239 계약 값이 아니므로 비범위 A6로 둔다. | Δ1 측정 · `parts.ts:208-221` 복사 필드 |
+
+- **비범위 A6**: 기존 결과 필드 3종의 같은 비교 누락 — 라이브에서 그 필드만 바뀌는 경로가 조사되지 않았다. NEXT_HANDOFF 후보.
+
+## Δ5. Requirements / Acceptance — 대체 행
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-01 | AT-01 / AC5 (ΔV1) | 정착된 도구에 같은 `toolRunId`의 실제 결과가 뒤늦게 오면 그것이 영속과 **최종 표시**(transcript 카드·Work 타임라인)를 대체한다. 본문·`isError`·`durationMs`가 같고 `nonExecution`만 추가·교체·제거된 결과도 같다. | writer: upsert 뒤 payload가 실제 결과 · renderer: 같은 메시지 두 결과 → `resultMap` 마지막 결과 · 두 소비자의 최종 call.result가 최신 — 3형 각각을 transcript 합성식(`prev` 유지)과 `createWorkProjector`에서 | DB `upsertToolResultPart` · RECV_EVENT → `resultMap` → `reconcileSegments` → `AssistantMessage` · Work 투영 |
+
+- V1 §7의 AC5 행은 위 행으로 대체한다(행 표지 `→ ΔV1 대체`). AC 총수는 18 그대로다.
+- AC 게이트 재통과: 행동 단언(최신 결과) · 검증 수단(두 소비자) · 도달 경로(RECV_EVENT)를 갖는다. 사람 실기 없음.
+
+## Δ6. V / Trace Matrix
+
+- V mode: `Delta V` — 기준 `V1` rev.2 `@d47f88b`. 변경 시작 수준은 AT(AC5)·AR(reconcile 경계)·MD(`resultEquals`)다. R-01·R-02 요구 문장은 바뀌지 않는다.
+- V1 pair 처리: VP-01은 AT-01 변경으로, VP-02는 경로가 reconcile 경계를 지나므로 ΔV1 행으로 대체한다. VP-03~VP-18은 바뀌지 않고 유효 V에서 V1 requiredness(REQUIRED) 그대로다.
+- REGRESSION 행을 따로 두지 않는다 — r1이 production을 바꾸지 않아 V1 pair 전부가 이번 라운드의 REQUIRED이고, 회귀 기준선이 없다.
+- SUPERSEDED 이관: V1 VP-01의 AC1~AC6 → ΔV1 VP-01(AC5는 ΔV1 행). V1 VP-02의 AC7~AC10과 형제 라벨 맞바꿈 변이 → ΔV1 VP-02 그대로.
+
+### ΔV1 node registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| AT-01 | AT | AC1~AC4·AC6(V1) + AC5(ΔV1) | CHANGED | V1 AT-01 |
+| AR-05 / IT-05 | AR / IT | EP-10 — reducer 상태 → 결과 reconcile → 두 소비자 | NEW | PG-01. V1 AR-02의 종점(`ToolCall`) 뒤 구간 |
+| MD-07 / UT-07 | MD / UT | `resultEquals`의 `nonExecution` 값 비교(D-014) | NEW | PG-01 · 0008 identity 계약 |
+
+### ΔV1 pair registry
+
+| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle | 선택적 적대 증거 | §10·ΔEP 강제 지점 전수 |
+|---|---|---|---|---|---|---|
+| VP-01 (ΔV1) | R-01 ↔ AT-01 | REQUIRED | SDK `assistant(tool_use)` → claude-map → coordinator → bus → chatReducer → `messageSegments` → `reconcileSegments` → `AssistantMessage` → ToolCard | AC1~AC6(AC5는 ΔV1) 단언 | not selected — 라벨·순서 직접 관측. EP-10 자리는 VP-19·VP-20의 M1이 잠근다 | EP-01(8)·EP-02(3)·EP-03(4)·EP-10(3) |
+| VP-02 (ΔV1) | R-02 ↔ AT-02 | REQUIRED | SDK `user(tool_result, tool_result_meta)` → claude-map → writer/relay → chatReducer → `reconcileSegments`(transcript·Work) → renderer 9자리 | AC7~AC10 단언 | required — 형제 라벨 맞바꿈(rejected↔cancelled) 1종, 자리: EP-04 ①·⑥·⑧ | EP-01(8)·EP-04(9)·EP-10(3) |
+| VP-19 | AR-05 ↔ IT-05 | REQUIRED | RECV_EVENT → `messages` → `messageSegments`(`resultMap`) → `reconcileSegments`(`resultEquals`) → `AssistantMessage` 세그먼트 ∥ `createWorkProjector`(reconcile + join) 노드 | 두 소비자의 최종 call.result가 최신 — `nonExecution` 3형, 본문·`isError`·`durationMs` 동일 | required — **M1** `resultEquals`에서 `nonExecution` 비교 제거, 자리 EP-10 ①. red는 transcript 합성식 oracle에서 관측한다. Work oracle은 join이 결과를 다시 끼워 M1을 관측하지 못한다(Δ1 측정) — 직접 행동 oracle로만 둔다 | EP-10(3) |
+| VP-20 | MD-07 ↔ UT-07 | REQUIRED | `nonExecutionEquals` → `resultEquals` → `toolCallEquals` → `reconcileSegment`(`tools`·`ask`) | 3형 최신 view · 같은 값(다른 객체) → 이전 call·배열 `toBe` · 형제 call identity 유지 · `ask` 세그먼트 1형 · 기존 `parts.reconcile.test.ts` 4케이스 통과 | required — M1(같은 자리) | 0 — 순수 모듈 |
+
+### ΔV1 현재 변경의 운영 gate
+
+- V1 §7-A 운영 gate 그대로다. 관련 테스트는 V1 §19의 `src/renderer/src/features/chat` 인자가 `parts.reconcile.test.ts`·`workActivity.test.ts`를 이미 포함한다.
+
+## Δ8. 계약 / 타입 / 강제 지점
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 | 실패 의미 |
+|---|---|---|---|---|---|
+| AR-05·MD-07 / VP-19·20 (VP-01·02 경로) | **EP-10** 결과 reconcile 경계 3자리 | `nonExecutionEquals`(D-014, `shared/tool-outcome.ts`) | ① `resultEquals`(`parts.ts:565-569`) — `nonExecution` 값 비교 ② transcript 소비자(`AssistantMessage.tsx:40`) — reconcile 결과가 렌더 입력 ③ Work 소비자(`workActivity.ts:59` reconcile · `:98-117` join) | 렌더(마지막 메시지 교체) | ①이 빠지면 transcript 카드가 이전 사유를 보인다. ②③은 ①을 거치는 edge — ③은 join이 결과 identity로 교체해 ①의 결함을 가린다(측정) |
+
+- EP-01(V1, 8자리)은 그대로다 — 운반 경로의 마지막 자리 ⑧ `resultMap` 뒤에 EP-10이 이어진다.
+- 값 비교 규칙: 둘 다 부재면 같다, 한쪽만 있으면 다르다, 둘 다 있으면 `source`·`kind`·`userFeedback`을 `===`로 비교한다. 직렬화 문자열 비교는 키 순서에 기대므로 쓰지 않는다.
+- 자리 전수 검색: `git grep -n "reconcileSegments(\|function resultEquals" -- app/src/renderer/src ':!*.test.ts'` → 정의·비교 2줄 + 호출 2곳. 비교 자리 1 + 소비자 2 = 3.
+
+## Δ9. 구현 설계
+
+| 변경 파일 | 변경 내용 | 테스트 seam |
+|---|---|---|
+| `app/src/shared/tool-outcome.ts` | `nonExecutionEquals(a?, b?)` export — D-014 SSOT | 순수 단위 |
+| `app/src/renderer/src/features/chat/lib/parts.ts` | `resultEquals`가 `nonExecutionEquals(a.nonExecution, b.nonExecution)`를 함께 요구 | 순수 단위 (UT-07) |
+| 테스트 | `parts.reconcile.test.ts`에 3형·같은 값·`ask` 케이스, `workActivity.test.ts`에 3형 최종 노드 케이스 | Vitest |
+
+## Δ10. READY self-review (ΔV1)
+
+- [x] PG-01을 이번 턴에 재현하고 소비자별 영향을 측정했다 — Δ1(`3 failed | 6 passed`, `1 failed | 1 passed`).
+- [x] `ACTIVE 결정 ↔ AC` 대조를 Δ 갱신 메모에 관측으로 적었다 — 충돌 0.
+- [x] 고친 AC5 행이 AC 게이트를 다시 통과한다 — 행동 단언·두 소비자 검증 수단·RECV_EVENT 경로, 사람 실기 없음.
+- [x] 변경 node(AT-01 CHANGED, AR-05·MD-07 NEW)마다 같은 레벨 REQUIRED pair가 있다 — VP-01(ΔV1)·VP-19·VP-20.
+- [x] 대체한 V1 pair 행의 AC와 적대 증거가 어디로 가는지 적었다 — Δ6 SUPERSEDED 이관.
+- [x] 선택 적대 증거 M1의 자리와 red를 관측할 oracle을 적었고, M1을 관측하지 못하는 oracle(Work)은 측정 근거와 함께 구분했다.
+- [x] 강제 지점을 자리로 셌다 — EP-10 3자리, 검색 명령 Δ8.
+- [x] r1 제안 중 채택하지 않은 부분(AC8)의 근거를 코드 경로로 적었다 — Δ 갱신 메모·Δ1.
 
 ---
 
