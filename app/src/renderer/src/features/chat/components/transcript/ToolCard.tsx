@@ -1,7 +1,7 @@
 import { memo, useState } from 'react'
 import { Icon } from '../../../../shared/ui/Icon'
 import { CopyIconButton } from '../../../../shared/ui/CopyIconButton'
-import { useI18n } from '../../../../shared/i18n'
+import { useI18n, type MessageKey } from '../../../../shared/i18n'
 import {
   FILE_TOOLS,
   VERB_KEY,
@@ -11,13 +11,23 @@ import {
   toolDiffStat,
   toolVerbCategory
 } from '../../lib/toolMeta'
-import { isAbortedResult } from '../../lib/parts'
+import { toolRunOutcome, type ToolRunOutcome } from '../../lib/parts'
 import { stringify } from '../../format'
 import { toolRendererRegistry } from './registry'
 import type { ToolCall } from '../../reducer/chatReducer'
 import { AgentTaskRow } from './AgentTaskRow'
 import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
 import { ForegroundShellActions } from './ForegroundShellActions'
+
+const OUTCOME_VERB: Record<ToolRunOutcome, MessageKey | null> = {
+  running: null,
+  completed: null,
+  failed: 'chat.taskTile.status.failed',
+  aborted: VERB_KEY_ABORTED,
+  rejected: 'chat.toolMeta.rejected',
+  cancelled: 'chat.toolMeta.cancelled',
+  not_executed: 'chat.toolMeta.notExecuted'
+}
 
 // result.output 을 문자열로.
 function resultOutput(call: ToolCall): string {
@@ -107,13 +117,14 @@ export const ToolCard = memo(function ToolCard({
     setWasOpened(true)
   }
   const onActivate = toggle
-  const done = call.result != null
-  const aborted = isAbortedResult(call.result)
-  const isError = call.result?.isError === true
+  const outcome = toolRunOutcome(call.result)
+  const done = outcome !== 'running'
+  const neutral = done && outcome !== 'completed' && outcome !== 'failed'
+  const isError = outcome === 'failed'
   const cat = toolVerbCategory(call.name)
   // 중단됨(턴 취소/타임아웃 정착) → 완료/진행 어느 시제도 아닌 "중단됨". 그 외엔 진행 중이면
   // 진행 시제(읽는 중…), 완료되면 완료 시제(읽음).
-  const verb = tr(aborted ? VERB_KEY_ABORTED : done ? VERB_KEY[cat] : VERB_KEY_ACTIVE[cat])
+  const verb = tr(OUTCOME_VERB[outcome] ?? (done ? VERB_KEY[cat] : VERB_KEY_ACTIVE[cat]))
   const description = toolDescription(call, tr('chat.toolMeta.planDescription'))
   const stat = toolDiffStat(call)
   return (
@@ -135,7 +146,7 @@ export const ToolCard = memo(function ToolCard({
         >
           <span
             className={`shrink-0 ${
-              aborted
+              neutral
                 ? 'text-ink3'
                 : isError
                   ? 'text-bad'

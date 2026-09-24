@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { load } from 'cheerio'
+import type { Message } from '../../reducer/chatReducer'
+import type { BackgroundPanelState } from '../../store/backgroundStore'
 import { BackgroundTaskCard, CanonicalBackgroundContent } from './CanonicalBackgroundContent'
 import {
   backgroundCallToToolCall,
@@ -24,19 +27,30 @@ import {
   type BackgroundTaskRecord
 } from '../../../../../../shared/background-task'
 
-function renderState(state: BackgroundSessionState, selection?: BackgroundSelection): string {
+function renderState(
+  state: BackgroundSessionState,
+  selection?: BackgroundSelection,
+  messages: Message[] = [],
+  panel?: BackgroundPanelState
+): string {
   const initial = useChatStore.getInitialState()
   const session = initial.sessions[initial.activeKey].session
   const priorId = session.sessionId
   const backgrounds = useBackgroundStore.getInitialState()
   const priorViews = backgrounds.sessions
+  const priorMessages = session.messages
+  const priorPanels = backgrounds.panels
   session.sessionId = 's'
+  session.messages = messages
+  backgrounds.panels = panel ? { s: panel } : {}
   backgrounds.sessions = { s: { state, loading: false, ...(selection ? { selection } : {}) } }
   try {
     return renderToStaticMarkup(createElement(CanonicalBackgroundContent))
   } finally {
     session.sessionId = priorId
     backgrounds.sessions = priorViews
+    session.messages = priorMessages
+    backgrounds.panels = priorPanels
   }
 }
 
@@ -62,6 +76,120 @@ afterEach(() => {
 })
 
 describe('canonical background task cards', () => {
+  function settlementState(): BackgroundSessionState {
+    const source = { generation: 'g', sequence: 1, receivedAt: 1000, replay: false }
+    let state = applyBackgroundEvent(emptyBackgroundState(), {
+      type: 'background.call',
+      sessionId: 's',
+      source,
+      phase: 'started',
+      toolUseId: 'c',
+      toolName: 'Agent',
+      input: {}
+    })
+    state = applyBackgroundEvent(state, {
+      type: 'background.task',
+      sessionId: 's',
+      source: { ...source, sequence: 2 },
+      phase: 'started',
+      taskId: 't',
+      toolUseId: 'c',
+      patch: { status: 'running', isBackgrounded: false, taskType: 'local_agent' }
+    })
+    return applyBackgroundEvent(state, {
+      type: 'background.call',
+      sessionId: 's',
+      source: { ...source, sequence: 3, receivedAt: 7000 },
+      phase: 'returned',
+      toolUseId: 'c',
+      result: 'ok',
+      patch: { status: 'completed' }
+    })
+  }
+  it('renders returned foreground work in completed with frozen elapsed and no stop control', () => {
+    const state = settlementState()
+    const before = JSON.stringify(state)
+    const $ = load(renderState(state))
+    expect($('[data-background-group="completed"] [data-background-task="t"]').text()).toContain(
+      '완료 · 6s'
+    )
+    expect($('[data-background-task="t"] button')).toHaveLength(0)
+    expect($('[data-background-group="running"]')).toHaveLength(0)
+    expect(JSON.stringify(state)).toBe(before)
+  })
+  it.each(['old-generation', 'terminated'] as const)(
+    'renders dead %s work as unconfirmed with last observation elapsed',
+    (kind) => {
+      const state = settlementState()
+      state.calls = {}
+      state.tasks[backgroundKey('g', 't')].lastSeenAt = 5000
+      if (kind === 'old-generation') state.generation = 'next'
+      else state.connection = 'terminated'
+      const $ = load(renderState(state))
+      const task = $('[data-background-group="completed"] [data-background-task="t"]')
+      expect(task.text()).toContain('종료 확인 불가 · 4s')
+      expect(task.text()).toContain('프로세스 종료')
+      expect(task.find('button')).toHaveLength(0)
+      expect(task.find('.text-bad')).toHaveLength(0)
+    }
+  )
+  it.each([
+    ['user-rejected', '거부됨'],
+    ['cancelled', '취소됨'],
+    ['future-kind', '실행되지 않음']
+  ])('renders %s consistently in canonical call/task labels and detail', (kind, label) => {
+    const state = settlementState()
+    state.calls[backgroundKey('g', 'c')] = {
+      ...state.calls[backgroundKey('g', 'c')],
+      status: 'failed',
+      meta: [{ id: 'c', non_execution_kind: kind }]
+    }
+    let $ = load(renderState(state))
+    expect($('[data-background-task="t"]').text()).toContain(label)
+    expect($('[data-background-task="t"] .text-bad')).toHaveLength(0)
+    state.tasks = {}
+    state.calls[backgroundKey('g', 'c')].toolName = 'Workflow'
+    $ = load(renderState(state))
+    expect($('[data-background-group="completed"] [data-background-call="c"]').text()).toContain(
+      label
+    )
+    expect($('[data-background-call="c"] .text-bad')).toHaveLength(0)
+    const detail = load(renderState(state, { kind: 'call', key: backgroundKey('g', 'c') }))
+    expect(detail('.text-bad')).toHaveLength(0)
+  })
+  it('joins host settlement into taskless calls and honors a cleared transcript result in projection', () => {
+    const state = settlementState()
+    state.tasks = {}
+    const call = state.calls[backgroundKey('g', 'c')]
+    call.phase = 'started'
+    call.status = undefined
+    call.taskId = undefined
+    const messages: Message[] = [
+      {
+        role: 'assistant',
+        createdAt: 1,
+        parts: [
+          {
+            type: 'tool_result',
+            toolRunId: 'c',
+            result: 'not run',
+            isError: true,
+            nonExecution: { source: 'host', kind: 'no_result' }
+          }
+        ]
+      }
+    ]
+    const $ = load(renderState(state, undefined, messages))
+    expect($('[data-background-group="completed"] [data-background-call="c"]').text()).toContain(
+      '실행되지 않음'
+    )
+    const cleared = load(
+      renderState(state, { kind: 'call', key: backgroundKey('g', 'c') }, messages, {
+        dismissedCalls: [backgroundKey('g', 'c')]
+      })
+    )
+    expect(cleared('[data-background-call], [data-background-call-detail]')).toHaveLength(0)
+  })
   it('shows the observed child model instead of Agent or its requested model', () => {
     const state = applyBackgroundEvent(emptyBackgroundState(), {
       type: 'background.call',

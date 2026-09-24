@@ -251,6 +251,25 @@ describe('canonical background state', () => {
 
 // 0239 AC11 · UT-03 — 포그라운드 태스크는 턴 후 대기(backgroundPending)에 세지 않는다(D-005).
 describe('backgroundPending — 포그라운드 제외', () => {
+  it('keeps firstSeenAt and advances call lastSeenAt through returns and late progress', () => {
+    let state = emptyBackgroundState()
+    for (const [phase, time] of [
+      ['started', 1000],
+      ['returned', 7000],
+      ['progress', 6000]
+    ] as const) {
+      state = applyBackgroundEvent(state, {
+        type: 'background.call',
+        sessionId: 's',
+        toolUseId: 'clock',
+        phase,
+        source: { ...source(), receivedAt: time }
+      })
+      const call = state.calls[backgroundKey('g1', 'clock')]
+      expect(call.firstSeenAt).toBe(1000)
+      expect(call.lastSeenAt).toBe(phase === 'started' ? 1000 : 7000)
+    }
+  })
   const started = (taskId: string, isBackgrounded?: boolean): BackgroundEvent => ({
     type: 'background.task',
     sessionId: 's',

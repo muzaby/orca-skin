@@ -19,6 +19,7 @@ import type {
   GitDiffPatch
 } from '../../../../../shared/ipc'
 import { subagentNoticePart } from '../../../../../shared/ipc'
+import type { NonExecution } from '../../../../../shared/tool-outcome'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
 import { directoryIdentity } from '../../../../../shared/extra-directories'
 import {
@@ -77,6 +78,7 @@ export interface ToolCall {
     output: unknown
     isError: boolean
     durationMs?: number
+    nonExecution?: NonExecution
     parentToolRunId?: string
     // 부모 Task tool_result 면 서브에이전트 영속 메타(모델·시간·도구수) — 재로드 후 카드/행 복원.
     subagentMeta?: SubagentTaskMeta
@@ -979,6 +981,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             toolRunId: ev.toolRunId,
             result: ev.result,
             isError: ev.isError,
+            ...(ev.nonExecution ? { nonExecution: ev.nonExecution } : {}),
             ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
             ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {}),
             // TaskXXX 구조화 출력(0204) — 라이브 파트가 이것을 빠뜨리면 작업 타일이 재로드

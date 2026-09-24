@@ -409,10 +409,10 @@ export function applyBackgroundEvent(
       generation: source.generation,
       toolUseId: event.toolUseId,
       firstSeenAt: source.receivedAt,
-      lastSeenAt: source.receivedAt,
       awaitingTask: false,
       ...old,
       ...patch,
+      lastSeenAt: Math.max(old?.lastSeenAt ?? source.receivedAt, source.receivedAt),
       ...defined({
         toolName: event.toolName,
         parentToolUseId: event.parentToolUseId,

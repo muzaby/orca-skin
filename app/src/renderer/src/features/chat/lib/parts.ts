@@ -7,6 +7,12 @@ import type {
   DiffRequirementAnchor
 } from '../../../../../shared/ipc'
 import { isAsyncLaunchedPayload } from '../../../../../shared/subagent'
+import {
+  nonExecutionEquals,
+  nonExecutionOutcome,
+  parseNonExecution,
+  type NonExecutionOutcome
+} from '../../../../../shared/tool-outcome'
 import type { Message, ToolCall } from '../reducer/chatReducer'
 import type { ArtifactRef } from '../../../../../shared/artifacts'
 
@@ -140,7 +146,8 @@ export function settleStaleAsyncLaunchParts(parts: AppMessagePart[]): AppMessage
   return synthesized.length === 0 ? parts : [...parts, ...synthesized]
 }
 
-export type SubagentTaskStatus = 'running' | 'completed' | 'failed' | 'aborted'
+export type ToolRunOutcome = 'running' | 'completed' | 'failed' | NonExecutionOutcome
+export type SubagentTaskStatus = ToolRunOutcome
 
 export interface SubagentTaskSummary {
   toolUseId: string
@@ -209,9 +216,11 @@ export function resultMap(parts: AppMessagePart[]): Map<string, NonNullable<Tool
   const resultByRun = new Map<string, NonNullable<ToolCall['result']>>()
   for (const p of parts) {
     if (isToolResultPart(p)) {
+      const nonExecution = parseNonExecution(p.nonExecution)
       resultByRun.set(p.toolRunId, {
         output: p.result,
         isError: p.isError,
+        ...(nonExecution ? { nonExecution } : {}),
         ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {}),
         ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {}),
         ...(p.subagentMeta !== undefined ? { subagentMeta: p.subagentMeta } : {}),
@@ -351,11 +360,16 @@ export function isAbortedResult(result: ToolCall['result']): boolean {
 }
 
 export function deriveSubagentTaskStatus(call: ToolCall): SubagentTaskStatus {
-  if (!call.result) return 'running'
+  return toolRunOutcome(call.result)
+}
+
+export function toolRunOutcome(result: ToolCall['result']): ToolRunOutcome {
+  if (!result) return 'running'
+  if (result.nonExecution) return nonExecutionOutcome(result.nonExecution)
   // 백그라운드로 막 시작된 임시 결과는 진행 중 — settled 알림이 권위 결과로 덮어쓰기 전까지.
-  if (isAsyncLaunchedResult(call.result)) return 'running'
-  if (!call.result.isError) return 'completed'
-  return isAbortedResult(call.result) ? 'aborted' : 'failed'
+  if (isAsyncLaunchedResult(result)) return 'running'
+  if (!result.isError) return 'completed'
+  return isAbortedResult(result) ? 'aborted' : 'failed'
 }
 
 function valueString(input: unknown, key: string): string | null {
@@ -565,7 +579,12 @@ export function messageSegments(
 function resultEquals(a: ToolCall['result'], b: ToolCall['result']): boolean {
   if (a === b) return true
   if (!a || !b) return false
-  return a.output === b.output && a.isError === b.isError && a.durationMs === b.durationMs
+  return (
+    a.output === b.output &&
+    a.isError === b.isError &&
+    a.durationMs === b.durationMs &&
+    nonExecutionEquals(a.nonExecution, b.nonExecution)
+  )
 }
 
 // `editPreview` 는 비교 축이 아니다(0229) — started 파트가 만들어질 때 한 번 실리고 이후 바뀌지

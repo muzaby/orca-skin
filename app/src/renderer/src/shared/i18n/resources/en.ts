@@ -6,6 +6,9 @@ import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../../../shared/produc
 
 export const en: typeof ko = {
   background: {
+    rejected: 'Rejected',
+    cancelled: 'Cancelled',
+    not_executed: 'Not executed',
     title: 'Background tasks',
     groupRunning: 'Running',
     groupCompleted: 'Completed',
@@ -694,6 +697,9 @@ export const en: typeof ko = {
       forkHere: 'Fork from here'
     },
     toolMeta: {
+      rejected: 'Rejected',
+      cancelled: 'Cancelled',
+      notExecuted: 'Not executed',
       verb: {
         ran: 'Ran',
         created: 'Updated',
@@ -738,6 +744,9 @@ export const en: typeof ko = {
       tokensK: '{{n}}k tokens',
       agentFallback: 'Agent',
       agentStatus: {
+        rejected: 'Agent: Rejected',
+        cancelled: 'Agent: Cancelled',
+        not_executed: 'Agent: Not executed',
         running: 'Agent running',
         completed: 'Agent completed',
         aborted: 'Agent aborted',
@@ -761,6 +770,9 @@ export const en: typeof ko = {
       loadDetailFailed: 'Could not load the child conversation.',
       retryDetail: 'Try again',
       status: {
+        rejected: 'Rejected',
+        cancelled: 'Cancelled',
+        not_executed: 'Not executed',
         running: 'In progress',
         stopping: 'Stopping…',
         paused: 'Paused',
@@ -793,6 +805,9 @@ export const en: typeof ko = {
       directoryInvalid: 'Check that this is an accessible folder.',
       directoryLimit: 'The folder limit has been reached.',
       status: {
+        rejected: 'Rejected',
+        cancelled: 'Cancelled',
+        not_executed: 'Not executed',
         in_progress: 'In progress',
         stopping: 'Stopping…',
         paused: 'Paused',

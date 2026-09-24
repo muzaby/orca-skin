@@ -3,6 +3,7 @@ import { formatElapsed, useElapsed } from '../../../../shared/ui/elapsed'
 import { useI18n, type MessageKey } from '../../../../shared/i18n'
 import {
   modelDisplayLabel,
+  deriveSubagentTaskStatus,
   subagentTasksFromMessages,
   type SubagentTaskStatus
 } from '../../lib/parts'
@@ -18,6 +19,9 @@ const PREFIX_KEY: Record<SubagentTaskStatus, MessageKey> = {
   running: 'chat.toolMeta.agentStatus.running',
   completed: 'chat.toolMeta.agentStatus.completed',
   aborted: 'chat.toolMeta.agentStatus.aborted',
+  rejected: 'chat.toolMeta.agentStatus.rejected',
+  cancelled: 'chat.toolMeta.agentStatus.cancelled',
+  not_executed: 'chat.toolMeta.agentStatus.not_executed',
   failed: 'chat.toolMeta.agentStatus.failed'
 }
 
@@ -48,7 +52,7 @@ export function AgentTaskRow({
   // 라이브 메타(진행 중 모델·시간·현재도구·도구수) — SDK task_*/child model 에서 누적.
   const live = useSubagentMeta(call.toolUseId)
 
-  const status: SubagentTaskStatus = summary?.status ?? (call.result ? 'completed' : 'running')
+  const status: SubagentTaskStatus = summary?.status ?? deriveSubagentTaskStatus(call)
   const running = status === 'running'
   // 진행 중 경과시간 앵커 — 라이브 메타의 startedAtMs(첫 task 이벤트 수신 시각)를 우선 사용해
   // 매 초 로컬 틱한다. 라이브 메타가 없으면(예: 세션 복원 직후) durationLabel 로 폴백.

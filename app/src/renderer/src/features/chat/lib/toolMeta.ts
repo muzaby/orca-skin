@@ -11,7 +11,15 @@ import { diffLines as jsDiffLines } from 'diff'
 import { basenameForDisplay } from '../../../../../shared/path-basename'
 import { FILE_EDIT_TOOL_NAME_SET } from '../../../../../shared/file-edit-tool'
 import type { MessageKey } from '../../../shared/i18n'
-import { isAgentTaskName } from './parts'
+import { isAgentTaskName, toolRunOutcome } from './parts'
+import type { NonExecutionOutcome } from '../../../../../shared/tool-outcome'
+
+export const NON_EXECUTION_LABEL: Record<NonExecutionOutcome, MessageKey> = {
+  aborted: 'chat.toolMeta.aborted',
+  rejected: 'chat.toolMeta.rejected',
+  cancelled: 'chat.toolMeta.cancelled',
+  not_executed: 'chat.toolMeta.notExecuted'
+}
 
 // 파일 도구 이름 집합 — 편집(diff 렌더 대상)과 읽기 포함(파일경로 헤더 대상).
 // 편집 도구 이름의 정본은 `shared/file-edit-tool.ts` 다 — main 어댑터가 같은 이름으로 구조화
@@ -229,7 +237,7 @@ export function toolGroupSegments(calls: ToolCall[]): ToolGroupSegment[] {
   for (const call of calls) {
     const cat = toolVerbCategory(call.name)
     counts.set(cat, (counts.get(cat) ?? 0) + 1)
-    if (call.result?.isError === true) errors.set(cat, true)
+    if (toolRunOutcome(call.result) === 'failed') errors.set(cat, true)
   }
 
   const segments: ToolGroupSegment[] = []
