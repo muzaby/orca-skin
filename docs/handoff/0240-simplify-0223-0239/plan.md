@@ -237,3 +237,15 @@
 - 커밋 좌표: (r1 구현 — 좌표는 INDEX)
 - AC 검산: ✅3 / AC 총 3 (AC1 vitest · AC2 정적 게이트 · AC3 `rg` 0건).
 - 게이트: typecheck PASS · eslint(변경 파일) 0 · doc-inventory ok · `node --test scripts` 120/120.
+
+---
+
+## [검증자 기입] 파생 이슈 (r1 verify — PASS)
+
+판정 원문은 [`verify.md`](verify.md) §13.
+
+| # | disposition | 요지 |
+|---|---|---|
+| D1 | NEXT_HANDOFF | 변경 hunk 7곳이 기존 테스트에 잠기지 않음(첨부 봉쇄·`linkOutput` boundary 등) — 테스트 보강 후보 |
+| D2 | NON_BLOCKING | 파일 내부 전용 함수 2개의 불필요 export |
+| D3 | NON_BLOCKING | `[구현자 기입]` 7필드 중 4필드 누락 |
