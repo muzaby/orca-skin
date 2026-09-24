@@ -1,20 +1,14 @@
 import { randomUUID } from 'node:crypto'
-import {
-  lstat,
-  mkdir,
-  open,
-  readdir,
-  realpath,
-  rename,
-  rm,
-  type FileHandle
-} from 'node:fs/promises'
-import { basename, isAbsolute, join, relative, resolve } from 'node:path'
+import { mkdir, open, rename, rm, type FileHandle } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
 import { prepareTemporaryFilesPath } from '../../../infra/config/temp-path'
+import {
+  cleanupStaleStages,
+  ensurePlainDirectory,
+  safeSegment,
+  sanitizeAttachmentFilename
+} from '../attachment-fs'
 import { JiraToolError } from './result'
-
-const STALE_STAGE_MS = 24 * 60 * 60 * 1000
-const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i
 
 export interface JiraAttachmentStoreOptions {
   readonly root?: string
@@ -40,60 +34,12 @@ function filesystemError(): JiraToolError {
   return new JiraToolError('filesystem_error', 'filesystem_error')
 }
 
-function inside(parent: string, child: string): boolean {
-  const path = relative(parent, child)
-  return path === '' || (!path.startsWith('..') && !isAbsolute(path))
-}
-
-async function ensurePlainDirectory(parentReal: string | null, directory: string): Promise<string> {
-  try {
-    await mkdir(directory)
-  } catch (error) {
-    if (!(error && typeof error === 'object' && 'code' in error && error.code === 'EEXIST'))
-      throw error
-  }
-  const info = await lstat(directory)
-  if (!info.isDirectory() || info.isSymbolicLink()) throw filesystemError()
-  const resolved = await realpath(directory)
-  if (parentReal !== null && !inside(parentReal, resolved)) throw filesystemError()
-  return resolved
-}
-
-function safeSegment(value: string): string {
-  const withoutControls = Array.from(value, (character) =>
-    character.charCodeAt(0) <= 0x1f ? '_' : character
-  ).join('')
-  const sanitized = withoutControls
-    .replace(/[<>:"/\\|?*]/g, '_')
-    .slice(0, 120)
-    .replace(/[. ]+$/g, '')
-  if (!sanitized || sanitized === '.' || sanitized === '..') return '_'
-  return WINDOWS_RESERVED.test(sanitized) ? `_${sanitized}` : sanitized
-}
-
-export function sanitizeAttachmentFilename(value: string): string {
-  const leaf = basename(value.replace(/\\/g, '/'))
-  return safeSegment(leaf || 'attachment')
-}
-
 function suffixed(filename: string, number: number): string {
   if (number === 1) return filename
   const dot = filename.lastIndexOf('.')
   return dot > 0
     ? `${filename.slice(0, dot)} (${number})${filename.slice(dot)}`
     : `${filename} (${number})`
-}
-
-async function cleanupStaleStages(staging: string, now: number): Promise<void> {
-  for (const entry of await readdir(staging, { withFileTypes: true })) {
-    if (!entry.isDirectory() || entry.isSymbolicLink()) continue
-    const target = join(staging, entry.name)
-    const info = await lstat(target)
-    if (now - info.mtimeMs <= STALE_STAGE_MS) continue
-    const resolved = await realpath(target)
-    if (!inside(staging, resolved)) continue
-    await rm(resolved, { recursive: true, force: true })
-  }
 }
 
 export function createJiraAttachmentStore(
@@ -105,12 +51,25 @@ export function createJiraAttachmentStore(
         // 봉쇄 검사의 parent 는 스스로 정규화한다 — mail attachment-export 와 같은 불변식.
         const root = await ensurePlainDirectory(
           null,
-          options.root ? resolve(options.root) : await prepareTemporaryFilesPath()
+          options.root ? resolve(options.root) : await prepareTemporaryFilesPath(),
+          filesystemError
         )
-        const jira = await ensurePlainDirectory(root, join(root, 'jira'))
-        const auth = await ensurePlainDirectory(jira, join(jira, safeSegment(authId)))
-        const selection = await ensurePlainDirectory(auth, join(auth, safeSegment(selector)))
-        const staging = await ensurePlainDirectory(selection, join(selection, '.staging'))
+        const jira = await ensurePlainDirectory(root, join(root, 'jira'), filesystemError)
+        const auth = await ensurePlainDirectory(
+          jira,
+          join(jira, safeSegment(authId)),
+          filesystemError
+        )
+        const selection = await ensurePlainDirectory(
+          auth,
+          join(auth, safeSegment(selector)),
+          filesystemError
+        )
+        const staging = await ensurePlainDirectory(
+          selection,
+          join(selection, '.staging'),
+          filesystemError
+        )
         await cleanupStaleStages(staging, (options.now ?? Date.now)())
 
         const requestId = randomUUID()

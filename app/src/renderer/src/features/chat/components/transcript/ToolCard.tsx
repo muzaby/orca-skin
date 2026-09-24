@@ -11,7 +11,7 @@ import {
   toolDiffStat,
   toolVerbCategory
 } from '../../lib/toolMeta'
-import { toolRunOutcome, type ToolRunOutcome } from '../../lib/parts'
+import { isNonExecutionOutcome, toolRunOutcome, type ToolRunOutcome } from '../../lib/parts'
 import { stringify } from '../../format'
 import { toolRendererRegistry } from './registry'
 import type { ToolCall } from '../../reducer/chatReducer'
@@ -119,7 +119,7 @@ export const ToolCard = memo(function ToolCard({
   const onActivate = toggle
   const outcome = toolRunOutcome(call.result)
   const done = outcome !== 'running'
-  const neutral = done && outcome !== 'completed' && outcome !== 'failed'
+  const neutral = isNonExecutionOutcome(outcome)
   const isError = outcome === 'failed'
   const cat = toolVerbCategory(call.name)
   // 중단됨(턴 취소/타임아웃 정착) → 완료/진행 어느 시제도 아닌 "중단됨". 그 외엔 진행 중이면

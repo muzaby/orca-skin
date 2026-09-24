@@ -1,7 +1,7 @@
 import { memo, useId, useState } from 'react'
 import { useI18n } from '../../../../shared/i18n'
 import { Icon } from '../../../../shared/ui/Icon'
-import { isAgentTaskName } from '../../lib/parts'
+import { isAgentTaskName, isNonExecutionOutcome } from '../../lib/parts'
 import { workToolPresentation } from '../../lib/workToolPresentation'
 import { NON_EXECUTION_LABEL } from '../../lib/toolMeta'
 import type { AgentTranscriptPresentation } from '../../lib/agentPresentation'
@@ -57,7 +57,7 @@ export const WorkToolRow = memo(function WorkToolRow({
           className={`shrink-0 transition-transform ${open ? 'rotate-90' : ''}`}
         />
         {view.status === 'running' && <span className="sr-only">{tr('common.running')}</span>}
-        {view.status !== 'running' && view.status !== 'completed' && view.status !== 'failed' && (
+        {isNonExecutionOutcome(view.status) && (
           <span className="shrink-0 text-caption">{tr(NON_EXECUTION_LABEL[view.status])}</span>
         )}
         {failed && <span className="sr-only">{tr('chat.workTool.error')}</span>}

@@ -4,7 +4,7 @@ import { basename, join } from 'node:path'
 import { openFileDatabase } from '../../../../infra/db/file-database'
 import { applyMailMigrations } from './migrate'
 import { retentionCutoff } from '../retention-window'
-import { sanitizeAttachmentFilename } from '../attachment-export'
+import { sanitizeAttachmentFilename } from '../../attachment-fs'
 import type { MailDocument, MailSearchHit } from '../types'
 import type { ProtectionState } from '../protection'
 

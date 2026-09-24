@@ -71,25 +71,31 @@ export class ArtifactService {
   }
   private track<T>(operation: Promise<T>): Promise<T> {
     this.active.add(operation)
-    void operation.then(
-      () => this.active.delete(operation),
-      () => this.active.delete(operation)
-    )
+    const drop = (): boolean => this.active.delete(operation)
+    void operation.then(drop, drop)
     return operation
   }
   private withFile<T>(fileId: string, operation: () => Promise<T>): Promise<T> {
     const previous = this.fileQueues.get(fileId) ?? Promise.resolve()
     const next = previous.catch(() => undefined).then(operation)
     this.fileQueues.set(fileId, next)
-    void next.then(
-      () => {
-        if (this.fileQueues.get(fileId) === next) this.fileQueues.delete(fileId)
-      },
-      () => {
-        if (this.fileQueues.get(fileId) === next) this.fileQueues.delete(fileId)
-      }
-    )
+    const drop = (): void => {
+      if (this.fileQueues.get(fileId) === next) this.fileQueues.delete(fileId)
+    }
+    void next.then(drop, drop)
     return next
+  }
+  private cancellation(context: ArtifactPublishContext): {
+    signal: AbortSignal
+    check: () => void
+  } {
+    const signal = AbortSignal.any([context.signal, this.lifetime.signal])
+    return {
+      signal,
+      check: () => {
+        if (signal.aborted || !context.isCurrent()) throw new Error('cancelled')
+      }
+    }
   }
 
   publish(input: unknown, context: ArtifactPublishContext): Promise<ArtifactReceipt> {
@@ -105,10 +111,7 @@ export class ArtifactService {
     return this.track(
       this.withFile(`output:${context.sessionId}:${directory}`, async () => {
         this.assertOpen()
-        const signal = AbortSignal.any([context.signal, this.lifetime.signal])
-        const check = (): void => {
-          if (signal.aborted || !context.isCurrent()) throw new Error('cancelled')
-        }
+        const { signal, check } = this.cancellation(context)
         check()
         const temporaryRoot = await prepareOutputDirectory(context.cwd)
         // The injected path must still resolve to the app's OS Temp policy.
@@ -150,7 +153,6 @@ export class ArtifactService {
         }
         const artifactFileId = randomUUID()
         const publicationId = randomUUID()
-        check()
         this.options.queries.createPublication({
           publicationId,
           artifactFileId,
@@ -189,10 +191,7 @@ export class ArtifactService {
   ): Promise<ArtifactReceipt> {
     this.assertOpen()
     if (this.publishing >= 2) throw new Error('busy')
-    const signal = AbortSignal.any([context.signal, this.lifetime.signal])
-    const check = (): void => {
-      if (signal.aborted || !context.isCurrent()) throw new Error('cancelled')
-    }
+    const { signal, check } = this.cancellation(context)
     check()
     const parsed = artifactInput(input)
     this.publishing++

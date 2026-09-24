@@ -215,3 +215,25 @@
 - 정적: `npm run typecheck` · `npx eslint <변경 파일>`.
 - 테스트: `./node_modules/.bin/vitest run` — electron 바이너리 미설치 환경의 `bootstrap.*`·`chat-turn*` 8파일은 베이스라인 red 로 분리 보고.
 - 사람 실기: 없음.
+
+---
+
+## [구현자 기입] 설계 리뷰 (r1)
+
+- 동의 / 그대로 진행: §11 전부.
+- 이견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+해당 없음 — §10 계약 없음.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 관측 |
+|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `vitest run` 5273 passed · 3 skipped · 실패 파일 8 = electron 설치 실패(`git stash` 베이스라인 동일 red) |
+| VP-02 | REQUIRED | SELF_PASS | §8 전수 조사 5패턴 재실행 → 표의 N 과 일치 |
+
+- 커밋 좌표: (r1 구현 — 좌표는 INDEX)
+- AC 검산: ✅3 / AC 총 3 (AC1 vitest · AC2 정적 게이트 · AC3 `rg` 0건).
+- 게이트: typecheck PASS · eslint(변경 파일) 0 · doc-inventory ok · `node --test scripts` 120/120.

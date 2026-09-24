@@ -42,6 +42,15 @@ export interface RuntimeToolResult {
   [key: string]: unknown
 }
 
+// 구조화 결과를 텍스트(JSON)와 structuredContent 양쪽에 같은 값으로 싣는다.
+export function jsonToolResult(value: Record<string, unknown>, isError = false): RuntimeToolResult {
+  return {
+    content: [{ type: 'text', text: JSON.stringify(value) }],
+    ...(isError ? { isError: true } : {}),
+    structuredContent: value
+  }
+}
+
 export interface RuntimeToolImplementation {
   name: string
   inputSchema: z.ZodRawShape

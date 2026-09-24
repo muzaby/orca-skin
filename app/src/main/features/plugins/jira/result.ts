@@ -1,4 +1,4 @@
-import type { RuntimeToolResult } from '../../../adapters/runtime-tools'
+import { jsonToolResult, type RuntimeToolResult } from '../../../adapters/runtime-tools'
 
 export const JIRA_TOOL_OUTPUT_MAX_BYTES = 2 * 1024 * 1024
 
@@ -85,11 +85,7 @@ function byteLength(value: unknown): number {
 }
 
 function resultOf(envelope: JiraToolEnvelope, isError = false): RuntimeToolResult {
-  return {
-    content: [{ type: 'text', text: JSON.stringify(envelope) }],
-    ...(isError ? { isError: true } : {}),
-    structuredContent: envelope as unknown as Record<string, unknown>
-  }
+  return jsonToolResult(envelope as unknown as Record<string, unknown>, isError)
 }
 
 function boundedDownload(tool: string, data: JiraDownloadData, maxBytes: number): JiraDownloadData {

@@ -1,20 +1,17 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { Stats } from 'node:fs'
 import { lstat, mkdir, open, realpath, rename, unlink, type FileHandle } from 'node:fs/promises'
-import { isAbsolute, join, relative, resolve } from 'node:path'
+import { isAbsolute, join, resolve } from 'node:path'
 import type {
   BackgroundOutputCursor,
   BackgroundOutputRef,
   BackgroundOutputSnapshot,
   ReadBackgroundOutputResponse
 } from '../../shared/background-task'
+import { isWithinDir } from './config/paths'
 
 type ReadOptions = { offset: number; maxBytes: number; cursor?: BackgroundOutputCursor }
 const SNAPSHOT_LIMIT = 16 * 1024 * 1024
-function within(root: string, path: string): boolean {
-  const rel = relative(resolve(root), resolve(path))
-  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))
-}
 function errorStatus(error: unknown): 'missing' | 'denied' {
   return (error as NodeJS.ErrnoException).code === 'ENOENT' ? 'missing' : 'denied'
 }
@@ -37,11 +34,11 @@ export class BackgroundOutputStore {
     if (ref.canRead === false || ref.kind !== 'file' || !isAbsolute(ref.value))
       throw new Error('output denied')
     const lexical = resolve(ref.value)
-    const candidates = roots.filter((root) => within(root, lexical))
+    const candidates = roots.filter((root) => isWithinDir(lexical, root))
     if (!candidates.length) throw new Error('output outside allowed roots')
     const target = await realpath(lexical)
     const canonicalRoots = await Promise.all(candidates.map((root) => realpath(root)))
-    if (!canonicalRoots.some((root) => within(root, target)))
+    if (!canonicalRoots.some((root) => isWithinDir(target, root)))
       throw new Error('output resolved outside allowed roots')
     const before = await lstat(target)
     if (!before.isFile() || before.isSymbolicLink()) throw new Error('output is not a regular file')

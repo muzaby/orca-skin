@@ -10,7 +10,13 @@ import {
 } from '../../../../../shared/background-task'
 import type { Message, ToolCall } from '../reducer/chatReducer'
 import type { BackgroundPanelState, BackgroundSelection } from '../store/backgroundStore'
-import { resultMap, toolRunOutcome, type SubagentTaskSummary, type ToolRunOutcome } from './parts'
+import {
+  isAgentTaskName,
+  resultMap,
+  toolRunOutcome,
+  type SubagentTaskSummary,
+  type ToolRunOutcome
+} from './parts'
 import {
   nonExecutionOutcome,
   readToolResultMeta,
@@ -211,8 +217,7 @@ export function projectBackgroundPanel(
         call.awaitingTask ||
         call.launchFailure ||
         call.status === 'failed' ||
-        call.toolName === 'Agent' ||
-        call.toolName === 'Task')
+        isAgentTaskName(call.toolName ?? ''))
   )
   let selectedTask =
     selection?.kind === 'task'

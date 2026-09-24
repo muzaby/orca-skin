@@ -1804,10 +1804,8 @@ export function sessionBusy(s: Pick<ChatState, 'inflight' | 'listening'>): boole
 }
 
 /** 답변 표면 전용. 채널을 유지하며 다음 예약을 기다리는 ready는 응답 중이 아니다. */
-export function sessionResponding(
-  s: Pick<ChatState, 'inflight' | 'listening' | 'activityTransport'>
-): boolean {
-  return s.inflight || (s.listening && s.activityTransport !== 'ready')
+export function sessionResponding(s: Pick<ChatState, 'inflight' | 'activityTransport'>): boolean {
+  return s.inflight || s.activityTransport === 'listening'
 }
 
 export function useChatResponding(): boolean {
