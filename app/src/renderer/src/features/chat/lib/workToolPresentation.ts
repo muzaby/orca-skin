@@ -4,14 +4,14 @@ import type { ToolCall } from '../reducer/chatReducer'
 import { basenameForDisplay } from '../../../../../shared/path-basename'
 import { isRecord } from '../../../../../shared/obj'
 import { isTaskListToolName, readTaskToolObservation } from '../../../../../shared/task-tool'
-import { isAbortedResult } from './parts'
+import { toolRunOutcome, type ToolRunOutcome } from './parts'
 
 export interface WorkToolPresentation {
   icon: IconName | null
   description?: string
   labelKey?: MessageKey
   target?: string
-  status: 'running' | 'completed' | 'failed' | 'aborted'
+  status: ToolRunOutcome
 }
 
 export interface WorkToolPayload {
@@ -55,9 +55,8 @@ function resultObject(call: ToolCall): Record<string, unknown> | undefined {
 }
 
 function status(call: ToolCall): WorkToolPresentation['status'] {
-  if (!call.result) return 'running'
-  if (isAbortedResult(call.result)) return 'aborted'
-  if (call.result.isError) return 'failed'
+  const outcome = toolRunOutcome(call.result)
+  if (outcome !== 'completed' || !call.result) return outcome
   // 목록과 기존 TaskToolBody가 쓰는 구조화 관측을 공유한다. wire receipt가 성공이어도
   // TaskUpdate의 success:false·형상 불일치·구조화 결과 부재는 성공으로 승격하지 않는다.
   if (isTaskListToolName(call.name))

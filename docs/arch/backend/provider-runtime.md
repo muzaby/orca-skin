@@ -72,13 +72,17 @@ type ProviderEventMapper = { provider: ProviderId; map(raw: unknown): Normalized
 | `assistant`(text block) | `message.completed` | 완성본. **블록 단위로 emit** — 한 assistant 메시지의 여러 text 블록을 말미에 합치지 않고 만나는 위치에서 각각 emit(메시지 내부 "텍스트 → 도구 → 텍스트" 순서 보존). 빈 text 블록은 스킵 |
 | `assistant`(thinking block) | `message.reasoning` | 확장사고 — `text`+opaque `signature`. `display:'omitted'` 면 미발생 |
 | `tool_use` | `tool.call.started` | `toolUseId` → `toolRunId`. content 배열 순서 그대로(text/tool 인터리브 보존) |
-| `tool_result` | `tool.call.completed` | `isError`/`durationMs` 보존 |
+| `tool_result` | `tool.call.completed` | `isError`/`durationMs` 보존. `tool_result_meta`를 도구 ID로 대조해 SDK 비실행 사유를 `nonExecution`에 보존 |
 | `result` | `telemetry` | `usage` → `ProviderReportedTelemetry` (§8) |
 | `error` | `error` | `ErrorCode` → `ClassifiedError` (§6) |
 | `ask_question` | `permission.requested`(`origin:'agent'`) | Claude `AskUserQuestion` 의 합성 — §3 |
 | `plan_review` | `permission.requested`(`origin:'agent'`) | Claude `ExitPlanMode` 의 합성 — §3 |
 
 > OpenCode raw 이벤트 계약은 [SDK 해설](../../opencode-sdk-spec.md), Orca 투영 권고는 [migration 연구](../../etc/study/opencode/orca-migration-guide.md)에 있다. 이 절의 도식보다 [shared/ipc.ts](../../../app/src/shared/ipc.ts)의 현행 `NormalizedEvent`가 우선한다; OpenCode mapper는 미구현이다.
+
+SDK assistant UUID와 도구 ID 연결은 제한된 크기로 보관한다. 공개 철회 신호(`model_refusal_fallback`·`assistant.supersedes`)는 main 내부 `tool.call.retracted`로 변환하고 coordinator가 아직 열린 도구만 `nonExecution:{source:'host',kind:'retracted'}`로 정착한다. 이 내부 신호는 renderer나 DB로 전달하지 않는다.
+
+coordinator는 `telemetry`·`error`와 합성 terminal 전에 결과 없는 열린 실행을 `no_result`로 정착한다. 사용자 입력 커밋보다 앞서 방출해 기존 응답에 결과가 붙도록 한다. 정본 상태가 있으면 백그라운드·원격 실행과 그 후손을 보존하고 나머지는 부모의 열림 여부와 무관하게 정착한다. 정본이 없으면 부모 있는 실행은 보존한다. 명시적인 사용자 중단 경로는 기존 aborted 정착을 사용한다.
 
 **서브에이전트(Agent/Task) 백그라운드 라이프사이클** (CLI 2.1.198+ / SDK 0.3.215, handoff 0136·**0143 기본화** — 0135 foreground 주입·0138 기본 배제는 0143 에서 폐기):
 
@@ -87,9 +91,9 @@ type ProviderEventMapper = { provider: ProviderId; map(raw: unknown): Normalized
 - **listen 턴(0136, 0143 상시화)**: 백그라운드 태스크의 진짜 종료(`task_notification`)·진행·완료 알림 턴은 메인 턴 종료(터미널) 후 도착해 `SessionRuntime` 의 `unframed` 버퍼에 적체된다. chat-turn 의 턴-후 루프가 순수 판정 `decidePostTurnStep`(`features/chat/post-turn.ts`)으로 **listen 턴**(`TurnRequest.listen` — 입력 push 없이 프레임만 소비)을 열어 라이브 배달한다. stall 타이머는 무장하지 않는다(백그라운드 침묵 정상).
 - **pushTurn 유휴 보장(0143·0165)**: `SessionRuntime` 이 CLI 메인 루프 mid-turn 상태와 `hasUnframedBacklog` 를 추적한다. 소속이 확인된 backlog는 listen 프레임만 인수한다. 프레임 밖 provider 턴이 이미 시작된 상태에서 사용자 입력이 오면 과거 이벤트를 새 사용자 프레임에 합치지 않고 **채널을 격리·재스폰**한다. provider 원본 메시지는 `ProviderMessageBatch`로 원자 라우팅해 `[telemetry,error]` 같은 꼬리가 다음 턴으로 새지 않는다.
 - **활동 스냅샷**: 턴-후 루프는 채널 활동 변경을 구독하고 `channelBusy`·미소비 backlog가 없는 유휴 수신을 `ready`, 실제 응답·배출·held 입력 전송을 `listening`으로 projector에 전달한다. `SessionActivityProjector`는 lease·pending queue·background tracker와 합쳐 revision을 가진 `chat.activity`를 broadcast하며, 활성 child가 있어도 ready의 foreground는 idle이다. Renderer는 ready에서도 세션 점유·입력 예약 순서를 유지하고, 별도 응답 selector로 Composer의 일반 전송과 Transcript의 대기 표시 제거를 적용한다. 실제 자동 응답이 시작하면 응답 중 표시가 돌아오며, 폴더 변경·handoff·전체 체인 완료 알림에는 기존 점유 가드를 유지한다.
-- **추적·정착**: `BackgroundTaskTracker`(`features/chat/background-tasks.ts`)가 세션별 미정착 태스크를 `subagent.task` started/settled 로 갱신하고, per-task **async_launched 영수증 관측**(`markAsyncLaunched` — foreground 도 task_started 를 왕복하므로 membership 은 background 신호가 아니다)을 기록한다. 콜드 spawn(채널 사망) 시 합성 settled(`failed`)·listen 중 사용자 중단 시 전 태스크 stop + 합성 settled(`stopped`) 로 정착해 '실행 중' 고착을 막는다. `stopLiveSubagent` 의 backgroundTask-선행 분기도 이 per-task 관측을 쓴다.
+- **추적·정착**: `BackgroundTaskTracker`는 provider의 정본 호출·작업 상태와 legacy 추적을 구분한다. 정본이 있으면 프로세스 종료나 snapshot 제외로 terminal 증거를 합성하지 않는다. 포그라운드 작업은 턴 후 pending에서 제외하고 승격·live 포함 관측 후 다시 포함한다. 종료 증거 없는 작업의 패널 표시 파생은 [백그라운드 작업 상태](background-tasks.md)를 따른다. legacy 상태만 있는 세션은 기존 중단·실패 정착을 유지한다.
 - **완료 통지(0143)**: 영수증 관측 태스크의 settled 는 coordinator 가 `background:true` 로 enrich — history writer 가 `subagent_notice` 파트(status/durationMs/summary, toolRunId 멱등)로 영속하고 renderer 가 동형 커밋해 transcript 에 "백그라운드 작업 완료 · Agent "…" · 소요시간" 블록을 라이브·재로드 동일하게 렌더한다(사용자 직접 stop 은 통지 미표시). 세션 로드 시 settled 미도착 영수증은 aborted 로 강제(재시작 = in-process 태스크 소멸).
-- **비범위**: `SDKBackgroundTasksChangedMessage`(레벨 신호)·`remote_launched`(CCR).
+- **원격 작업**: 원격 호출·작업은 로컬 프로세스 종료만으로 표시상 정착시키지 않는다.
 
 ### 세션 예약 수신
 

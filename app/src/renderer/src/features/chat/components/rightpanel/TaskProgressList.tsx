@@ -19,6 +19,9 @@ const STATUS_KEY: Record<TaskBoardStatus, MessageKey> = {
   pending: 'chat.taskTile.status.pending',
   completed: 'chat.taskTile.status.completed',
   aborted: 'chat.taskTile.status.aborted',
+  rejected: 'chat.taskTile.status.rejected',
+  cancelled: 'chat.taskTile.status.cancelled',
+  not_executed: 'chat.taskTile.status.not_executed',
   failed: 'chat.taskTile.status.failed'
 }
 function blockedByText(tr: TFunction, ids: string[]): string {

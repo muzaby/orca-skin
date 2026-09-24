@@ -213,8 +213,8 @@ function fixture() {
     pendingMessages,
     listenRelease,
     run,
-    warm: async () => {
-      for await (const event of runtime.send(request)) {
+    warm: async (text = request.text) => {
+      for await (const event of runtime.send({ ...request, text })) {
         void event
       }
     },
@@ -620,8 +620,9 @@ describe('0239 — 포그라운드 태스크와 턴 후 판정', () => {
     const running = f.run()
     try {
       f.emit({ type: 'telemetry', sessionId: 's1' })
-      await running
+      await tick()
       expect(f.activity.current('s1').transport).toBe('idle')
+      await running
       expect(f.lease.controller.signal.aborted).toBe(false)
       expect(steps.at(-1)).toMatchObject({ step: 'break', haveTasks: false })
       // 표시 수(`count`)는 판정과 별개 필드다 — live 집합 기준이라 포그라운드는 0 이다.
@@ -647,15 +648,33 @@ describe('0239 — 포그라운드 태스크와 턴 후 판정', () => {
     }
   })
 
-  it('AC12 — 포그라운드 태스크만 남은 Stop 은 체인을 끝낸다', async () => {
+  it('AC12 — 포그라운드 태스크만 남은 Stop은 끝나고 다음 입력을 즉시 전달한다', async () => {
     const f = fixture()
     f.backgroundTasks.observe(taskStarted('fg', false))
     const running = f.run()
     try {
       await tick()
       await f.stop()
-      await running
       expect(f.lease.controller.signal.aborted).toBe(true)
+      await running
+      expect(f.activity.current('s1').transport).toBe('idle')
+      // send.ts의 finally 경계: post-turn이 끝나야 lease 회수가 실행된다.
+      f.supervisor.releaseChain(f.lease.leaseId)
+      const next = f.supervisor.acquireChain({
+        logicalKey: sessionLeaseKey('s1'),
+        sessionId: 's1',
+        owner: f.turn.owner,
+        requestedProviderKey: null
+      })
+      expect(next.acquired).toBe(true)
+      f.emit({ type: 'telemetry', sessionId: 's1' })
+      await tick()
+      const sent = f.warm('after stop')
+      await tick()
+      expect(f.pushed).toEqual(['after stop'])
+      f.emit({ type: 'telemetry', sessionId: 's1' })
+      await sent
+      f.supervisor.releaseChain(next.lease.leaseId)
     } finally {
       f.cleanup()
       await running

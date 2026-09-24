@@ -1,0 +1,598 @@
+﻿[
+    {
+        "id":  "02-10-group-tone",
+        "pair":  "VP-02",
+        "file":  "src/renderer/src/features/chat/lib/toolMeta.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  4,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/transcript/nonExecution.render.test.ts"
+                  ],
+        "names":  [
+                      "0239 result status surfaces shows SDK user-rejected neutrally on Code, Work and task surfaces",
+                      "0239 result status surfaces shows SDK cancelled neutrally on Code, Work and task surfaces",
+                      "0239 result status surfaces shows SDK unknown neutrally on Code, Work and task surfaces",
+                      "0239 result status surfaces shows SDK interrupted neutrally on Code, Work and task surfaces"
+                  ]
+    },
+    {
+        "id":  "02-11-taskbody-label",
+        "pair":  "VP-02",
+        "file":  "src/renderer/src/features/chat/components/transcript/tool-bodies/TaskToolBody.tsx",
+        "detected":  true,
+        "exit":  1,
+        "failed":  2,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/transcript/nonExecution.render.test.ts"
+                  ],
+        "names":  [
+                      "0239 result status surfaces shows SDK user-rejected neutrally on Code, Work and task surfaces",
+                      "0239 result status surfaces shows SDK cancelled neutrally on Code, Work and task surfaces"
+                  ]
+    },
+    {
+        "id":  "02-12-detail-meta",
+        "pair":  "VP-02",
+        "file":  "src/renderer/src/features/chat/lib/canonicalBackground.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  6,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.render.test.ts",
+                      "src/renderer/src/features/chat/lib/canonicalBackground.settlement.test.ts"
+                  ],
+        "names":  [
+                      "0239 canonical display settlement carries canonical user-rejected metadata into detail ToolCall",
+                      "0239 canonical display settlement carries canonical cancelled metadata into detail ToolCall",
+                      "0239 canonical display settlement carries canonical future-kind metadata into detail ToolCall",
+                      "canonical background task cards renders user-rejected consistently in canonical call/task labels and detail",
+                      "canonical background task cards renders cancelled consistently in canonical call/task labels and detail",
+                      "canonical background task cards renders future-kind consistently in canonical call/task labels and detail"
+                  ]
+    },
+    {
+        "id":  "02-1-toolcard-label",
+        "pair":  "VP-02",
+        "file":  "src/renderer/src/features/chat/components/transcript/ToolCard.tsx",
+        "detected":  true,
+        "exit":  1,
+        "failed":  2,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/transcript/nonExecution.render.test.ts"
+                  ],
+        "names":  [
+                      "0239 result status surfaces shows SDK user-rejected neutrally on Code, Work and task surfaces",
+                      "0239 result status surfaces shows SDK cancelled neutrally on Code, Work and task surfaces"
+                  ]
+    },
+    {
+        "id":  "02-6-work-status",
+        "pair":  "VP-02",
+        "file":  "src/renderer/src/features/chat/lib/workToolPresentation.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  2,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/transcript/nonExecution.render.test.ts"
+                  ],
+        "names":  [
+                      "0239 result status surfaces shows SDK user-rejected neutrally on Code, Work and task surfaces",
+                      "0239 result status surfaces shows SDK cancelled neutrally on Code, Work and task surfaces"
+                  ]
+    },
+    {
+        "id":  "02-8-call-label",
+        "pair":  "VP-02",
+        "file":  "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.tsx",
+        "detected":  true,
+        "exit":  1,
+        "failed":  2,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.render.test.ts",
+                      "src/renderer/src/features/chat/lib/canonicalBackground.settlement.test.ts"
+                  ],
+        "names":  [
+                      "canonical background task cards renders user-rejected consistently in canonical call/task labels and detail",
+                      "canonical background task cards renders cancelled consistently in canonical call/task labels and detail"
+                  ]
+    },
+    {
+        "id":  "03-pending-foreground",
+        "pair":  "VP-03/08/11",
+        "file":  "src/shared/background-task.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  4,
+        "tests":  [
+                      "src/shared/background-task.test.ts",
+                      "src/main/app/chat-turn/post-turn.schedules.test.ts"
+                  ],
+        "names":  [
+                      "backgroundPending — 포그라운드 제외 is_backgrounded:false 로 시작해 unknown·running 인 태스크는 대기가 아니다",
+                      "backgroundPending — 포그라운드 제외 포그라운드의 중단 요청·ACK 대기도 대기가 아니다 — 결과는 부모 호출로 돌아온다(rev.3)",
+                      "0239 — 포그라운드 태스크와 턴 후 판정 AC12·AC13 — 포그라운드 태스크만 남으면 break 하고 로그 haveTasks 는 판정 값과 같다",
+                      "0239 — 포그라운드 태스크와 턴 후 판정 AC12 — 포그라운드 태스크만 남은 Stop은 끝나고 다음 입력을 즉시 전달한다"
+                  ]
+    },
+    {
+        "id":  "04-1-task-group",
+        "pair":  "VP-04",
+        "file":  "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.tsx",
+        "detected":  true,
+        "exit":  1,
+        "failed":  1,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.render.test.ts",
+                      "src/renderer/src/features/chat/lib/canonicalBackground.settlement.test.ts"
+                  ],
+        "names":  [
+                      "canonical background task cards renders returned foreground work in completed with frozen elapsed and no stop control"
+                  ]
+    },
+    {
+        "id":  "04-2-task-card",
+        "pair":  "VP-04",
+        "file":  "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.tsx",
+        "detected":  true,
+        "exit":  1,
+        "failed":  4,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.render.test.ts",
+                      "src/renderer/src/features/chat/lib/canonicalBackground.settlement.test.ts"
+                  ],
+        "names":  [
+                      "canonical background task cards renders returned foreground work in completed with frozen elapsed and no stop control",
+                      "canonical background task cards renders user-rejected consistently in canonical call/task labels and detail",
+                      "canonical background task cards renders cancelled consistently in canonical call/task labels and detail",
+                      "canonical background task cards renders future-kind consistently in canonical call/task labels and detail"
+                  ]
+    },
+    {
+        "id":  "04-5-task-clear",
+        "pair":  "VP-04",
+        "file":  "src/renderer/src/features/chat/store/backgroundStore.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  1,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.render.test.ts",
+                      "src/renderer/src/features/chat/lib/canonicalBackground.settlement.test.ts"
+                  ],
+        "names":  [
+                      "0239 canonical display settlement clears returned foreground tasks with no terminal evidence"
+                  ]
+    },
+    {
+        "id":  "06-1-telemetry-after-emit",
+        "pair":  "VP-06",
+        "file":  "src/main/features/chat/turn-coordinator.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  5,
+        "tests":  [
+                      "src/main/features/chat/turn-coordinator.test.ts"
+                  ],
+        "names":  [
+                      "0239 — 결과 없이 끝난 도구 정착 AC1 — telemetry 직전에 결과 없는 실행을 no_result 로 정착한다(버스 순서)",
+                      "0239 — 결과 없이 끝난 도구 정착 AC2 — error terminal 도 방출 전에 정착하고, 뒤따른 terminal 에서 다시 정착하지 않는다",
+                      "0239 — 결과 없이 끝난 도구 정착 AC3 경로 — coordinator 는 정본 상태로 보존 집합을 판정한다",
+                      "0239 — 결과 없이 끝난 도구 정착 AC3 경로 — 정본이 없으면 부모 있는 실행은 두고 부모 없는 실행만 정착한다",
+                      "0239 — 결과 없이 끝난 도구 정착 AC4 — 철회는 열린 id 만 즉시 정착하고 내부 이벤트는 버스에 닿지 않는다"
+                  ]
+    },
+    {
+        "id":  "06-2-remove-error",
+        "pair":  "VP-06",
+        "file":  "src/main/features/chat/turn-coordinator.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  2,
+        "tests":  [
+                      "src/main/features/chat/turn-coordinator.test.ts"
+                  ],
+        "names":  [
+                      "0239 — 결과 없이 끝난 도구 정착 AC2 — error terminal 도 방출 전에 정착하고, 뒤따른 terminal 에서 다시 정착하지 않는다",
+                      "0239 — 결과 없이 끝난 도구 정착 AC2 — error 정착은 소비된 steer의 message.committed보다 먼저 이전 응답을 닫는다"
+                  ]
+    },
+    {
+        "id":  "06-3-remove-synthetic",
+        "pair":  "VP-06",
+        "file":  "src/main/features/chat/turn-coordinator.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  1,
+        "tests":  [
+                      "src/main/features/chat/turn-coordinator.test.ts"
+                  ],
+        "names":  [
+                      "0239 — 결과 없이 끝난 도구 정착 AC2 — terminal 없이 끝난 스트림은 합성 telemetry 전에 정착한다"
+                  ]
+    },
+    {
+        "id":  "06-4-error-after-steer",
+        "pair":  "VP-06",
+        "file":  "src/main/features/chat/turn-coordinator.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  1,
+        "tests":  [
+                      "src/main/features/chat/turn-coordinator.test.ts"
+                  ],
+        "names":  [
+                      "0239 — 결과 없이 끝난 도구 정착 AC2 — error 정착은 소비된 steer의 message.committed보다 먼저 이전 응답을 닫는다"
+                  ]
+    },
+    {
+        "id":  "07-retract-closed-id",
+        "pair":  "VP-07",
+        "file":  "src/main/features/chat/settle.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  1,
+        "tests":  [
+                      "src/main/features/chat/turn-coordinator.test.ts"
+                  ],
+        "names":  [
+                      "0239 — 결과 없이 끝난 도구 정착 AC4 — 철회는 열린 id 만 즉시 정착하고 내부 이벤트는 버스에 닿지 않는다"
+                  ]
+    },
+    {
+        "id":  "10-writer-omit-meta",
+        "pair":  "VP-10",
+        "file":  "src/main/features/history/writer.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  1,
+        "tests":  [
+                      "src/main/features/history/writer.test.ts"
+                  ],
+        "names":  [
+                      "HistoryWriter — 비실행 사유 영속 (0239) AC8 — nonExecution 을 payload 에 싣고 reader 가 같은 값으로 복원한다"
+                  ]
+    },
+    {
+        "id":  "12-1-render-projection",
+        "pair":  "VP-12",
+        "file":  "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.tsx",
+        "detected":  true,
+        "exit":  1,
+        "failed":  1,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.render.test.ts",
+                      "src/renderer/src/features/chat/lib/canonicalBackground.settlement.test.ts"
+                  ],
+        "names":  [
+                      "canonical background task cards joins host settlement into taskless calls and honors a cleared transcript result in projection"
+                  ]
+    },
+    {
+        "id":  "12-2-preclear-projection",
+        "pair":  "VP-12",
+        "file":  "src/renderer/src/features/chat/store/backgroundStore.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  1,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.render.test.ts",
+                      "src/renderer/src/features/chat/lib/canonicalBackground.settlement.test.ts"
+                  ],
+        "names":  [
+                      "0239 canonical display settlement joins transcript results into missing returns and removes cleared selections"
+                  ]
+    },
+    {
+        "id":  "12-3-postclear-projection",
+        "pair":  "VP-12",
+        "file":  "src/renderer/src/features/chat/store/backgroundStore.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  1,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.render.test.ts",
+                      "src/renderer/src/features/chat/lib/canonicalBackground.settlement.test.ts"
+                  ],
+        "names":  [
+                      "0239 canonical display settlement joins transcript results into missing returns and removes cleared selections"
+                  ]
+    },
+    {
+        "id":  "13-interrupted-cancelled",
+        "pair":  "VP-13",
+        "file":  "src/shared/tool-outcome.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  2,
+        "tests":  [
+                      "src/shared/tool-outcome.test.ts"
+                  ],
+        "names":  [
+                      "nonExecutionOutcome (D-008) {\"source\":\"sdk\",\"kind\":\"interrupted\"} → aborted",
+                      "nonExecutionOutcome (D-008) {\"source\":\"sdk\",\"kind\":\"cancelled\"} → cancelled"
+                  ]
+    },
+    {
+        "id":  "14-1-preserved-set",
+        "pair":  "VP-14",
+        "file":  "src/main/features/chat/settle.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  2,
+        "tests":  [
+                      "src/main/features/chat/settle.test.ts"
+                  ],
+        "names":  [
+                      "settleOrphanToolRuns 정본이 있으면 보존 집합 밖의 열린 실행을 부모 상태와 관계없이 정착한다",
+                      "settleOrphanToolRuns 열린 실행이 없으면 no-op 이고, 선별은 순수하다"
+                  ]
+    },
+    {
+        "id":  "14-2-no-canonical-child",
+        "pair":  "VP-14",
+        "file":  "src/main/features/chat/settle.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  1,
+        "tests":  [
+                      "src/main/features/chat/settle.test.ts"
+                  ],
+        "names":  [
+                      "settleOrphanToolRuns 정본이 없으면 부모 있는 실행은 둔다 — 백그라운드 여부를 알 수 없다"
+                  ]
+    },
+    {
+        "id":  "14-3-open-parent-rule",
+        "pair":  "VP-14",
+        "file":  "src/main/features/chat/settle.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  2,
+        "tests":  [
+                      "src/main/features/chat/settle.test.ts"
+                  ],
+        "names":  [
+                      "settleOrphanToolRuns 정본이 있으면 보존 집합 밖의 열린 실행을 부모 상태와 관계없이 정착한다",
+                      "settleOrphanToolRuns 열린 실행이 없으면 no-op 이고, 선별은 순수하다"
+                  ]
+    },
+    {
+        "id":  "15-exclude-all-unknown",
+        "pair":  "VP-15",
+        "file":  "src/shared/background-task.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  5,
+        "tests":  [
+                      "src/shared/background-task.test.ts",
+                      "src/main/app/chat-turn/post-turn.schedules.test.ts"
+                  ],
+        "names":  [
+                      "backgroundPending — 포그라운드 제외 task_updated is_backgrounded:true 로 승격되면 다시 센다(되돌아가도 관측 이력이 남는다)",
+                      "backgroundPending — 포그라운드 제외 백그라운드·미설정 unknown·running 은 계속 센다",
+                      "backgroundPending — 포그라운드 제외 포그라운드와 백그라운드가 함께 있으면 백그라운드 때문에 대기한다",
+                      "0239 — 포그라운드 태스크와 턴 후 판정 대조 — 백그라운드 태스크가 남으면 수신을 연다(ready)",
+                      "0239 — 포그라운드 태스크와 턴 후 판정 대조 — 백그라운드 태스크가 남은 Stop 은 수신을 잇는다(0143)"
+                  ]
+    },
+    {
+        "id":  "16-record-agent-row",
+        "pair":  "VP-16",
+        "file":  "src/renderer/src/features/chat/components/transcript/AgentTaskRow.tsx",
+        "detected":  true,
+        "exit":  2,
+        "failed":  1,
+        "tests":  [
+
+                  ],
+        "names":  [
+                      "src/renderer/src/features/chat/components/transcript/AgentTaskRow.tsx(18,7): error TS2741: Property \u0027rejected\u0027 is missing in type \u0027{ running: \"chat.toolMeta.agentStatus.running\"; completed: \"chat.toolMeta.agentStatus.completed\"; aborted: \"chat.toolMeta.agentStatus.aborted\"; cancelled: \"chat.toolMeta.agentStatus.cancelled\"; not_executed: \"chat.toolMeta.agentStatus.not_executed\"; failed: \"chat.toolMeta.agentStatus.failed\"; }\u0027 but required in type \u0027Record\u003cToolRunOutcome, \"time.justNow\" | \"time.minutesAgo_one\" | \"time.minutesAgo_other\" | \"time.hoursAgo_one\" | \"time.hoursAgo_other\" | \"time.daysAgo_one\" | ... 1036 more ... | \"usage.openUsageSettingsAria\"\u003e\u0027."
+                  ]
+    },
+    {
+        "id":  "16-record-progress-list",
+        "pair":  "VP-16",
+        "file":  "src/renderer/src/features/chat/components/rightpanel/TaskProgressList.tsx",
+        "detected":  true,
+        "exit":  2,
+        "failed":  1,
+        "tests":  [
+
+                  ],
+        "names":  [
+                      "src/renderer/src/features/chat/components/rightpanel/TaskProgressList.tsx(15,7): error TS2741: Property \u0027rejected\u0027 is missing in type \u0027{ in_progress: \"chat.taskTile.status.in_progress\"; stopping: \"chat.taskTile.status.stopping\"; paused: \"chat.taskTile.status.paused\"; pending: \"chat.taskTile.status.pending\"; completed: \"chat.taskTile.status.completed\"; aborted: \"chat.taskTile.status.aborted\"; cancelled: \"chat.taskTile.status.cancelled\"; not_executed...\u0027 but required in type \u0027Record\u003cTaskBoardStatus, \"search.placeholder\" | \"search.inputAria\" | \"search.typeToSearch\" | \"search.noMatches\" | \"search.noTitle\" | \"chat.status.lengthLabel\" | ... 1036 more ... | \"time.daysAgo\"\u003e\u0027."
+                  ]
+    },
+    {
+        "id":  "16-record-status-icon",
+        "pair":  "VP-16",
+        "file":  "src/renderer/src/features/chat/components/rightpanel/TaskStatusIcon.tsx",
+        "detected":  true,
+        "exit":  2,
+        "failed":  1,
+        "tests":  [
+
+                  ],
+        "names":  [
+                      "src/renderer/src/features/chat/components/rightpanel/TaskStatusIcon.tsx(4,7): error TS2741: Property \u0027rejected\u0027 is missing in type \u0027{ in_progress: string; completed: string; pending: string; stopping: string; paused: string; aborted: string; cancelled: string; not_executed: string; failed: string; }\u0027 but required in type \u0027Record\u003cTaskBoardStatus, string\u003e\u0027."
+                  ]
+    },
+    {
+        "id":  "16-record-subagent-tile",
+        "pair":  "VP-16",
+        "file":  "src/renderer/src/features/chat/components/rightpanel/SubAgentTileContent.tsx",
+        "detected":  true,
+        "exit":  2,
+        "failed":  1,
+        "tests":  [
+
+                  ],
+        "names":  [
+                      "src/renderer/src/features/chat/components/rightpanel/SubAgentTileContent.tsx(59,7): error TS2741: Property \u0027rejected\u0027 is missing in type \u0027{ running: \"chat.subagentTile.status.running\"; completed: \"chat.subagentTile.status.completed\"; failed: \"chat.subagentTile.status.failed\"; cancelled: \"chat.subagentTile.status.cancelled\"; not_executed: \"chat.subagentTile.status.not_executed\"; aborted: \"chat.subagentTile.status.aborted\"; }\u0027 but required in type \u0027Record\u003cToolRunOutcome, \"background.running\" | \"background.completed\" | \"background.failed\" | \"background.rejected\" | \"background.cancelled\" | \"background.not_executed\" | ... 1036 more ... | \"time.daysAgo\"\u003e\u0027."
+                  ]
+    },
+    {
+        "id":  "16-record-toolcard",
+        "pair":  "VP-16",
+        "file":  "src/renderer/src/features/chat/components/transcript/ToolCard.tsx",
+        "detected":  true,
+        "exit":  2,
+        "failed":  1,
+        "tests":  [
+
+                  ],
+        "names":  [
+                      "src/renderer/src/features/chat/components/transcript/ToolCard.tsx(22,7): error TS2741: Property \u0027rejected\u0027 is missing in type \u0027{ running: null; completed: null; failed: \"chat.taskTile.status.failed\"; aborted: \"background.pending\" | \"background.completed\" | \"background.failed\" | \"background.rejected\" | \"background.cancelled\" | ... 1037 more ... | \"time.daysAgo\"; cancelled: \"chat.toolMeta.cancelled\"; not_executed: \"chat.toolMeta.notExecuted\"; }\u0027 but required in type \u0027Record\u003cToolRunOutcome, \"background.pending\" | \"background.completed\" | \"background.failed\" | \"background.rejected\" | \"background.cancelled\" | \"background.not_executed\" | ... 1037 more ... | null\u003e\u0027."
+                  ]
+    },
+    {
+        "id":  "17-dead-call-rule",
+        "pair":  "VP-17",
+        "file":  "src/renderer/src/features/chat/lib/canonicalBackground.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  1,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.render.test.ts",
+                      "src/renderer/src/features/chat/lib/canonicalBackground.settlement.test.ts"
+                  ],
+        "names":  [
+                      "0239 canonical display settlement settles dead awaitingTask calls but preserves remote calls"
+                  ]
+    },
+    {
+        "id":  "17-remote-call",
+        "pair":  "VP-17",
+        "file":  "src/renderer/src/features/chat/lib/canonicalBackground.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  1,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.render.test.ts",
+                      "src/renderer/src/features/chat/lib/canonicalBackground.settlement.test.ts"
+                  ],
+        "names":  [
+                      "0239 canonical display settlement settles dead awaitingTask calls but preserves remote calls"
+                  ]
+    },
+    {
+        "id":  "17-remote-task-mode",
+        "pair":  "VP-17",
+        "file":  "src/renderer/src/features/chat/lib/canonicalBackground.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  2,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.render.test.ts",
+                      "src/renderer/src/features/chat/lib/canonicalBackground.settlement.test.ts"
+                  ],
+        "names":  [
+                      "0239 canonical display settlement settles a nonremote old-generation task at lastSeenAt",
+                      "0239 canonical display settlement settles a nonremote terminated task at lastSeenAt"
+                  ]
+    },
+    {
+        "id":  "17-remote-task-type",
+        "pair":  "VP-17",
+        "file":  "src/renderer/src/features/chat/lib/canonicalBackground.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  2,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.render.test.ts",
+                      "src/renderer/src/features/chat/lib/canonicalBackground.settlement.test.ts"
+                  ],
+        "names":  [
+                      "0239 canonical display settlement settles a nonremote old-generation task at lastSeenAt",
+                      "0239 canonical display settlement settles a nonremote terminated task at lastSeenAt"
+                  ]
+    },
+    {
+        "id":  "17-time-call",
+        "pair":  "VP-17",
+        "file":  "src/renderer/src/features/chat/lib/canonicalBackground.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  1,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.render.test.ts",
+                      "src/renderer/src/features/chat/lib/canonicalBackground.settlement.test.ts"
+                  ],
+        "names":  [
+                      "0239 canonical display settlement settles dead awaitingTask calls but preserves remote calls"
+                  ]
+    },
+    {
+        "id":  "17-time-dead-task",
+        "pair":  "VP-17",
+        "file":  "src/renderer/src/features/chat/lib/canonicalBackground.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  4,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.render.test.ts",
+                      "src/renderer/src/features/chat/lib/canonicalBackground.settlement.test.ts"
+                  ],
+        "names":  [
+                      "0239 canonical display settlement settles a nonremote old-generation task at lastSeenAt",
+                      "0239 canonical display settlement settles a nonremote terminated task at lastSeenAt",
+                      "canonical background task cards renders dead old-generation work as unconfirmed with last observation elapsed",
+                      "canonical background task cards renders dead terminated work as unconfirmed with last observation elapsed"
+                  ]
+    },
+    {
+        "id":  "17-time-elapsed",
+        "pair":  "VP-17",
+        "file":  "src/renderer/src/features/chat/lib/canonicalBackground.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  6,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.render.test.ts",
+                      "src/renderer/src/features/chat/lib/canonicalBackground.settlement.test.ts"
+                  ],
+        "names":  [
+                      "0239 canonical display settlement settles a foreground task from the parent return without changing canonical evidence",
+                      "0239 canonical display settlement settles a nonremote old-generation task at lastSeenAt",
+                      "0239 canonical display settlement settles a nonremote terminated task at lastSeenAt",
+                      "canonical background task cards renders returned foreground work in completed with frozen elapsed and no stop control",
+                      "canonical background task cards renders dead old-generation work as unconfirmed with last observation elapsed",
+                      "canonical background task cards renders dead terminated work as unconfirmed with last observation elapsed"
+                  ]
+    },
+    {
+        "id":  "17-time-foreground",
+        "pair":  "VP-17",
+        "file":  "src/renderer/src/features/chat/lib/canonicalBackground.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  2,
+        "tests":  [
+                      "src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.render.test.ts",
+                      "src/renderer/src/features/chat/lib/canonicalBackground.settlement.test.ts"
+                  ],
+        "names":  [
+                      "0239 canonical display settlement settles a foreground task from the parent return without changing canonical evidence",
+                      "canonical background task cards renders returned foreground work in completed with frozen elapsed and no stop control"
+                  ]
+    },
+    {
+        "id":  "19-20-result-equality",
+        "pair":  "VP-19/20",
+        "file":  "src/renderer/src/features/chat/lib/parts.ts",
+        "detected":  true,
+        "exit":  1,
+        "failed":  5,
+        "tests":  [
+                      "src/renderer/src/features/chat/lib/nonExecution.test.ts",
+                      "src/renderer/src/features/chat/lib/parts.reconcile.test.ts"
+                  ],
+        "names":  [
+                      "0239 nonExecution renderer contract reconciles addition in transcript and Work without changing the body",
+                      "0239 nonExecution renderer contract reconciles replacement in transcript and Work without changing the body",
+                      "0239 nonExecution renderer contract reconciles removal in transcript and Work without changing the body",
+                      "0239 nonExecution renderer contract reuses equal values and unchanged siblings but replaces changed feedback",
+                      "0239 nonExecution renderer contract reconciles the ask segment through the same result equality"
+                  ]
+    }
+]

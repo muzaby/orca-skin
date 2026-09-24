@@ -8,6 +8,9 @@ const STATUS_CIRCLE: Record<TaskBoardStatus, string> = {
   stopping: 'border border-indigo bg-selected-soft text-selected',
   paused: 'bg-bg2 text-ink2',
   aborted: 'bg-bg2 text-ink3',
+  rejected: 'bg-bg2 text-ink3',
+  cancelled: 'bg-bg2 text-ink3',
+  not_executed: 'bg-bg2 text-ink3',
   failed: 'bg-bg2 text-bad'
 }
 
@@ -36,7 +39,10 @@ export function TaskStatusIcon({
         <Icon name="pause" size={16} />
       ) : status === 'failed' ? (
         <Icon name="alert" size={16} />
-      ) : status === 'aborted' ? (
+      ) : status === 'aborted' ||
+        status === 'rejected' ||
+        status === 'cancelled' ||
+        status === 'not_executed' ? (
         <Icon name="stop" size={16} />
       ) : (
         position

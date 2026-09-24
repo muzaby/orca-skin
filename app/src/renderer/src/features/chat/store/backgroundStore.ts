@@ -4,11 +4,16 @@ import {
   applyBackgroundEvent,
   backgroundKey,
   emptyBackgroundState,
-  isBackgroundTerminal,
   type BackgroundEvent,
   type BackgroundSessionState
 } from '../../../../../shared/background-task'
-import { isCompletedBackgroundCall, projectBackgroundPanel } from '../lib/canonicalBackground'
+import {
+  backgroundCallDisplay,
+  backgroundTaskDisplay,
+  callForBackgroundTask,
+  projectBackgroundPanel,
+  type TranscriptResults
+} from '../lib/canonicalBackground'
 import type { SubagentTaskSummary } from '../lib/parts'
 
 export type BackgroundSelection = { kind: 'task'; key: string } | { kind: 'call'; key: string }
@@ -50,7 +55,8 @@ export function toggleBackgroundGroup(sessionId: string, group: BackgroundGroup)
 /** Dismiss only terminal identities observed at this click; provider state and transcript stay intact. */
 export function dismissCompletedBackgroundItems(
   sessionId: string,
-  legacyTasks: readonly SubagentTaskSummary[] = []
+  legacyTasks: readonly SubagentTaskSummary[] = [],
+  transcriptResults?: TranscriptResults
 ): void {
   useBackgroundStore.setState((store) => {
     const view = store.sessions[sessionId]
@@ -58,14 +64,25 @@ export function dismissCompletedBackgroundItems(
     const dismissedTasks = new Set(panel.dismissedTasks)
     const dismissedCalls = new Set(panel.dismissedCalls)
     if (view) {
-      const projected = projectBackgroundPanel(view.state, undefined, panel)
+      const projected = projectBackgroundPanel(view.state, undefined, panel, transcriptResults)
       for (const task of projected.tasks)
-        if (isBackgroundTerminal(task.status)) {
+        if (
+          backgroundTaskDisplay(
+            view.state,
+            task,
+            callForBackgroundTask(view.state, task),
+            transcriptResults?.get(
+              task.toolUseId ?? callForBackgroundTask(view.state, task)?.toolUseId ?? ''
+            )
+          ).settled
+        ) {
           dismissedTasks.add(backgroundKey(task.generation, task.taskId))
           if (task.toolUseId) dismissedCalls.add(backgroundKey(task.generation, task.toolUseId))
         }
       for (const call of projected.calls)
-        if (isCompletedBackgroundCall(call)) {
+        if (
+          backgroundCallDisplay(view.state, call, transcriptResults?.get(call.toolUseId)).settled
+        ) {
           dismissedCalls.add(backgroundKey(call.generation, call.toolUseId))
           if (call.taskId) dismissedTasks.add(backgroundKey(call.generation, call.taskId))
         }
@@ -82,7 +99,7 @@ export function dismissCompletedBackgroundItems(
       ]
     }
     const nextSelection = view
-      ? projectBackgroundPanel(view.state, view.selection, nextPanel)
+      ? projectBackgroundPanel(view.state, view.selection, nextPanel, transcriptResults)
       : undefined
     return {
       panels: { ...store.panels, [sessionId]: nextPanel },

@@ -1,6 +1,8 @@
 import { readTaskToolObservation } from '../../../../../../../shared/task-tool'
 import { useI18n, type MessageKey } from '../../../../../shared/i18n'
 import type { ToolCall } from '../../../reducer/chatReducer'
+import { toolRunOutcome } from '../../../lib/parts'
+import { NON_EXECUTION_LABEL } from '../../../lib/toolMeta'
 
 // 세션 할 일 목록 도구(TaskCreate/TaskGet/TaskUpdate/TaskList) 전용 본문 — 0212 R-06.
 //
@@ -39,10 +41,14 @@ export function TaskToolBody({ call }: { call: ToolCall }): React.JSX.Element {
       })
     : null
   const error = errorText(call)
+  const outcome = toolRunOutcome(call.result)
+  const nonExecution = outcome !== 'running' && outcome !== 'completed' && outcome !== 'failed'
 
   return (
     <div className="flex flex-col gap-1 whitespace-pre-wrap break-words text-t9">
-      {observation === null ? (
+      {nonExecution ? (
+        <div className="text-ink3">{tr(NON_EXECUTION_LABEL[outcome])}</div>
+      ) : observation === null ? (
         // 결과 미도착이거나 실패 — 어느 쪽이든 목록은 바뀌지 않았다. 사유가 있으면 그것을 말한다.
         <div>
           <span className="text-t6">{tr('chat.taskTool.failed')}: </span>

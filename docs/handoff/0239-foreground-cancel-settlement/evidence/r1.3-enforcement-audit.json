@@ -1,0 +1,1117 @@
+{
+  "queries": [
+    [
+      "isError|SubagentTaskStatus|TaskBoardStatus|isBackgroundTerminal\\(|projectBackgroundPanel\\(|canStopBackgroundTask\\(|backgroundElapsedSeconds\\(",
+      "app/src/renderer/src",
+      ":!*.test.*",
+      ":!app/src/renderer/src/shared/i18n/*"
+    ],
+    [
+      "hasPending|backgroundPending|haveTasks|lastSeenAt",
+      "app/src/main/app/chat-turn",
+      "app/src/main/features/chat/background-tasks.ts",
+      "app/src/shared/background-task.ts",
+      ":!*.test.*"
+    ],
+    [
+      "reconcileSegments|toolCallEquals|resultEquals",
+      "app/src/renderer/src",
+      ":!*.test.*"
+    ],
+    [
+      "settleOrphanToolRuns|tool.call.retracted|commitConsumed",
+      "app/src/main/features/chat/turn-coordinator.ts",
+      "app/src/main/adapters/claude-map.ts"
+    ],
+    [
+      "tool_result|tool.call.completed|nonExecution",
+      "app/src/main/adapters/claude-map.ts",
+      "app/src/main/features/history/writer.ts",
+      "app/src/shared/ipc.ts",
+      "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "app/src/renderer/src/features/chat/lib/parts.ts"
+    ]
+  ],
+  "candidateCount": 179,
+  "missing": [],
+  "omittedClassification": "app/src/renderer/src/features/chat/store/backgroundStore.ts:67",
+  "mutationDifference": [
+    "app/src/renderer/src/features/chat/store/backgroundStore.ts:67"
+  ],
+  "rows": [
+    {
+      "file": "app/src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.tsx",
+      "line": 74,
+      "source": "  const { tasks, calls, selectedTask, selectedCall } = projectBackgroundPanel(",
+      "reason": "EP-06 projection / Stop / elapsed"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.tsx",
+      "line": 198,
+      "source": "  const canStop = !terminal && canStopBackgroundTask(task, state.generation, state.connection)",
+      "reason": "EP-06 projection / Stop / elapsed"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.tsx",
+      "line": 201,
+      "source": "    ? backgroundElapsedSeconds(task, task.lastSeenAt, display.endedAt)",
+      "reason": "EP-06 projection / Stop / elapsed"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/rightpanel/CanonicalBackgroundContent.tsx",
+      "line": 202,
+      "source": "    : Math.max(elapsedTick, backgroundElapsedSeconds(task))",
+      "reason": "EP-06 projection / Stop / elapsed"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/rightpanel/SubAgentTileContent.tsx",
+      "line": 26,
+      "source": "  type SubagentTaskStatus,",
+      "reason": "EP-04 status type and label map"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/rightpanel/SubAgentTileContent.tsx",
+      "line": 59,
+      "source": "const STATUS_KEY: Record<SubagentTaskStatus, MessageKey> = {",
+      "reason": "EP-04 status type and label map"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/rightpanel/SubAgentTileContent.tsx",
+      "line": 119,
+      "source": "    const { selectedTask: canonicalTask, selectedCall: canonicalCall } = projectBackgroundPanel(",
+      "reason": "rev.3 excluded header projection: clear also clears selection"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/rightpanel/TaskProgressList.tsx",
+      "line": 10,
+      "source": "  type TaskBoardStatus,",
+      "reason": "EP-04 progress labels"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/rightpanel/TaskProgressList.tsx",
+      "line": 15,
+      "source": "const STATUS_KEY: Record<TaskBoardStatus, MessageKey> = {",
+      "reason": "EP-04 progress labels"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/rightpanel/TaskStatusIcon.tsx",
+      "line": 2,
+      "source": "import type { TaskBoardStatus } from '../../lib/taskBoard'",
+      "reason": "EP-04 status icon and tone"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/rightpanel/TaskStatusIcon.tsx",
+      "line": 4,
+      "source": "const STATUS_CIRCLE: Record<TaskBoardStatus, string> = {",
+      "reason": "EP-04 status icon and tone"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/rightpanel/TaskStatusIcon.tsx",
+      "line": 22,
+      "source": "  status: TaskBoardStatus",
+      "reason": "EP-04 status icon and tone"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/transcript/AgentTaskRow.tsx",
+      "line": 6,
+      "source": "  deriveSubagentTaskStatus,",
+      "reason": "EP-04 agent status and fallback"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/transcript/AgentTaskRow.tsx",
+      "line": 8,
+      "source": "  type SubagentTaskStatus",
+      "reason": "EP-04 agent status and fallback"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/transcript/AgentTaskRow.tsx",
+      "line": 18,
+      "source": "const PREFIX_KEY: Record<SubagentTaskStatus, MessageKey> = {",
+      "reason": "EP-04 agent status and fallback"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/transcript/AgentTaskRow.tsx",
+      "line": 55,
+      "source": "  const status: SubagentTaskStatus = summary?.status ?? deriveSubagentTaskStatus(call)",
+      "reason": "EP-04 agent status and fallback"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/transcript/ForegroundShellActions.tsx",
+      "line": 55,
+      "source": "    (isBackgroundTerminal(task?.status) ||",
+      "reason": "existing call.result / returned guards already hide actions after settlement"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/transcript/ForegroundShellActions.tsx",
+      "line": 57,
+      "source": "      isBackgroundTerminal(canonicalCall.status) ||",
+      "reason": "existing call.result / returned guards already hide actions after settlement"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/transcript/ToolCard.tsx",
+      "line": 123,
+      "source": "  const isError = outcome === 'failed'",
+      "reason": "EP-04 result outcome drives header/body tone"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/transcript/ToolCard.tsx",
+      "line": 151,
+      "source": "                : isError",
+      "reason": "EP-04 result outcome drives header/body tone"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/transcript/ToolCard.tsx",
+      "line": 193,
+      "source": "                      className={`min-w-0 truncate font-semibold ${isError ? 'text-bad' : 'text-t7'}`}",
+      "reason": "EP-04 result outcome drives header/body tone"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/transcript/tool-bodies/TaskToolBody.tsx",
+      "line": 40,
+      "source": "        isError: call.result.isError",
+      "reason": "EP-04 observation parser after non-execution guard"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/backgroundPresentation.ts",
+      "line": 22,
+      "source": "export function canStopBackgroundTask(",
+      "reason": "EP-06 Stop helper; caller additionally requires unsettled display"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/backgroundPresentation.ts",
+      "line": 30,
+      "source": "    !isBackgroundTerminal(task.status) &&",
+      "reason": "EP-06 Stop helper; caller additionally requires unsettled display"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/canonicalBackground.ts",
+      "line": 63,
+      "source": "  if (isBackgroundTerminal(call.status)) return done(terminalStatus(call.status))",
+      "reason": "EP-04/06 canonical status / detail transport / projection / elapsed"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/canonicalBackground.ts",
+      "line": 79,
+      "source": "  if (isBackgroundTerminal(task.status))",
+      "reason": "EP-04/06 canonical status / detail transport / projection / elapsed"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/canonicalBackground.ts",
+      "line": 92,
+      "source": "        : isBackgroundTerminal(call.status)",
+      "reason": "EP-04/06 canonical status / detail transport / projection / elapsed"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/canonicalBackground.ts",
+      "line": 173,
+      "source": "export function projectBackgroundPanel(",
+      "reason": "EP-04/06 canonical status / detail transport / projection / elapsed"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/canonicalBackground.ts",
+      "line": 283,
+      "source": "            isError: inherited ? inherited.isError : failed,",
+      "reason": "EP-04/06 canonical status / detail transport / projection / elapsed"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/canonicalBackground.ts",
+      "line": 295,
+      "source": "export function backgroundElapsedSeconds(",
+      "reason": "EP-04/06 canonical status / detail transport / projection / elapsed"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/canonicalBackground.ts",
+      "line": 300,
+      "source": "  if (isBackgroundTerminal(task.status)) {",
+      "reason": "EP-04/06 canonical status / detail transport / projection / elapsed"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 97,
+      "source": "// \"실행 중\" 무한 렌더를 끝낸다. 기존 isAbortedResult/deriveSubagentTaskStatus 가 abort 마커를",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 113,
+      "source": "      isError: true,",
+      "reason": "existing reload aborted synthesis, no non-execution producer or new status decision"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 143,
+      "source": "      isError: true",
+      "reason": "existing reload aborted synthesis, no non-execution producer or new status decision"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 150,
+      "source": "export type SubagentTaskStatus = ToolRunOutcome",
+      "reason": "EP-04 shared result classification and agent summary"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 155,
+      "source": "  status: SubagentTaskStatus",
+      "reason": "EP-04 shared result classification and agent summary"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 222,
+      "source": "        isError: p.isError,",
+      "reason": "EP-01 pairing and metadata validation"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 317,
+      "source": "        status: deriveSubagentTaskStatus(call),",
+      "reason": "EP-04 shared result classification and agent summary"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 348,
+      "source": "// 서브에이전트 'aborted' 분류). 일반 도구 에러(isError 이나 abort 마커 없음)는 false.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 355,
+      "source": "  if (!result?.isError) return false",
+      "reason": "EP-04 shared result classification and agent summary"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 362,
+      "source": "export function deriveSubagentTaskStatus(call: ToolCall): SubagentTaskStatus {",
+      "reason": "EP-04 shared result classification and agent summary"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 371,
+      "source": "  if (!result.isError) return 'completed'",
+      "reason": "EP-04 shared result classification and agent summary"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 400,
+      "source": "  if (!call.result?.isError) return null",
+      "reason": "settlementMessageFromCall text extraction, no rendered status consumer"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 584,
+      "source": "    a.isError === b.isError &&",
+      "reason": "EP-10 result equality and tool/ask reconciliation"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/taskBoard.ts",
+      "line": 34,
+      "source": "export type TaskBoardStatus =",
+      "reason": "EP-04 board status transport and existing actions"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/taskBoard.ts",
+      "line": 58,
+      "source": "  status: TaskBoardStatus",
+      "reason": "EP-04 board status transport and existing actions"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/taskBoard.ts",
+      "line": 190,
+      "source": "        isError: paired.isError",
+      "reason": "TaskXXX list fold parser, not tool execution outcome"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/taskBoard.ts",
+      "line": 243,
+      "source": "): TaskBoardStatus {",
+      "reason": "EP-04 board status transport and existing actions"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/taskBoard.ts",
+      "line": 263,
+      "source": "  | { kind: 'statusLabel'; status: TaskBoardStatus }",
+      "reason": "EP-04 board status transport and existing actions"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/taskBoard.ts",
+      "line": 297,
+      "source": "export function canStopBackgroundStatus(status: TaskBoardStatus): boolean {",
+      "reason": "EP-04 board status transport and existing actions"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/taskBoard.ts",
+      "line": 313,
+      "source": "export function canBackgroundStatus(status: TaskBoardStatus, asyncLaunched: boolean): boolean {",
+      "reason": "EP-04 board status transport and existing actions"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/workToolPresentation.ts",
+      "line": 67,
+      "source": "      isError: call.result.isError",
+      "reason": "EP-04 structured TaskXXX parser after non-execution guard"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "line": 79,
+      "source": "    isError: boolean",
+      "reason": "EP-01 live result type and append"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "line": 983,
+      "source": "            isError: ev.isError,",
+      "reason": "EP-01 live result type and append"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "line": 992,
+      "source": "          const artifact = ev.isError ? undefined : ev.artifact",
+      "reason": "artifact success gate; non-execution carries no artifact"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "line": 1916,
+      "source": "  if (ev.structuredOutput === undefined || ev.isError) return state.unseenSettledTaskKeys",
+      "reason": "TaskXXX settled-list notification, not tool execution outcome"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "line": 1923,
+      "source": "    isError: false",
+      "reason": "TaskXXX settled-list notification, not tool execution outcome"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/store/backgroundStore.ts",
+      "line": 67,
+      "source": "      const projected = projectBackgroundPanel(view.state, undefined, panel, transcriptResults)",
+      "reason": "EP-06 transcript binding before and after clear"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/store/backgroundStore.ts",
+      "line": 102,
+      "source": "      ? projectBackgroundPanel(view.state, view.selection, nextPanel, transcriptResults)",
+      "reason": "EP-06 transcript binding before and after clear"
+    },
+    {
+      "file": "app/src/main/app/chat-turn/index.ts",
+      "line": 168,
+      "source": "      (backgroundTasks.hasPending(req.sessionId) ||",
+      "reason": "EP-05 Stop retention uses same pending predicate"
+    },
+    {
+      "file": "app/src/main/app/chat-turn/post-turn.ts",
+      "line": 108,
+      "source": "      // (`hasPending`)과 다를 수 있다. 둘을 따로 적어 로그가 판정을 반증할 수 있게 한다.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/app/chat-turn/post-turn.ts",
+      "line": 109,
+      "source": "      const haveTasks = backgroundTasks.hasPending(sessionId)",
+      "reason": "EP-05/09 single pending value for decision and log"
+    },
+    {
+      "file": "app/src/main/app/chat-turn/post-turn.ts",
+      "line": 114,
+      "source": "        haveTasks,",
+      "reason": "EP-05/09 single pending value for decision and log"
+    },
+    {
+      "file": "app/src/main/app/chat-turn/post-turn.ts",
+      "line": 127,
+      "source": "          haveTasks,",
+      "reason": "EP-05/09 single pending value for decision and log"
+    },
+    {
+      "file": "app/src/main/features/chat/background-tasks.ts",
+      "line": 18,
+      "source": "  backgroundPending,",
+      "reason": "EP-05 tracker delegates canonical pending"
+    },
+    {
+      "file": "app/src/main/features/chat/background-tasks.ts",
+      "line": 61,
+      "source": "  hasPending(sessionId: string): boolean {",
+      "reason": "EP-05 tracker delegates canonical pending"
+    },
+    {
+      "file": "app/src/main/features/chat/background-tasks.ts",
+      "line": 63,
+      "source": "    return state ? backgroundPending(state) : this.hasAny(sessionId)",
+      "reason": "EP-05 tracker delegates canonical pending"
+    },
+    {
+      "file": "app/src/main/features/chat/background-tasks.ts",
+      "line": 188,
+      "source": "    if (state) return backgroundPending(state)",
+      "reason": "legacy hasAny canonical alias delegates same predicate; no independent rule"
+    },
+    {
+      "file": "app/src/shared/background-task.ts",
+      "line": 131,
+      "source": "  lastSeenAt: number",
+      "reason": "EP-06 time types / initial task / monotonic task and call producers"
+    },
+    {
+      "file": "app/src/shared/background-task.ts",
+      "line": 156,
+      "source": "  lastSeenAt: number",
+      "reason": "EP-06 time types / initial task / monotonic task and call producers"
+    },
+    {
+      "file": "app/src/shared/background-task.ts",
+      "line": 278,
+      "source": "    lastSeenAt: source.receivedAt,",
+      "reason": "EP-06 time types / initial task / monotonic task and call producers"
+    },
+    {
+      "file": "app/src/shared/background-task.ts",
+      "line": 297,
+      "source": "    lastSeenAt: Math.max(old.lastSeenAt, source.receivedAt)",
+      "reason": "EP-06 time types / initial task / monotonic task and call producers"
+    },
+    {
+      "file": "app/src/shared/background-task.ts",
+      "line": 415,
+      "source": "      lastSeenAt: Math.max(old?.lastSeenAt ?? source.receivedAt, source.receivedAt),",
+      "reason": "EP-06 time types / initial task / monotonic task and call producers"
+    },
+    {
+      "file": "app/src/shared/background-task.ts",
+      "line": 568,
+      "source": "export function backgroundPending(state: BackgroundSessionState): boolean {",
+      "reason": "EP-05 pending predicate"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/transcript/AskExchange.tsx",
+      "line": 9,
+      "source": "// memo(shallow): reconcileSegments 가 call identity 를 보존한다 (0008).",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/transcript/AssistantMessage.tsx",
+      "line": 13,
+      "source": "import { messageSegments, reconcileSegments, type MessageSegment } from '../../lib/parts'",
+      "reason": "EP-10 transcript production reconciliation"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/transcript/AssistantMessage.tsx",
+      "line": 30,
+      "source": "//   · reconcileSegments: 마지막 메시지가 교체돼 이 컴포넌트가 재실행돼도, 직전 렌더와",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/transcript/AssistantMessage.tsx",
+      "line": 40,
+      "source": "  const segments = reconcileSegments(prevRef.current, messageSegments(message.parts))",
+      "reason": "EP-10 transcript production reconciliation"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/transcript/ReasoningBlock.tsx",
+      "line": 18,
+      "source": "// memo(shallow): 커밋 경로에선 reconcileSegments 가 items identity 를 보존해 bail 하고,",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/transcript/ToolCard.tsx",
+      "line": 86,
+      "source": "// memo(shallow): reconcileSegments 가 결과 미변경 ToolCall 의 identity 를 보존하므로,",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/transcript/ToolGroup.tsx",
+      "line": 19,
+      "source": "// memo(shallow): reconcileSegments 가 변하지 않은 세그먼트의 calls 배열 identity 를",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 579,
+      "source": "function resultEquals(a: ToolCall['result'], b: ToolCall['result']): boolean {",
+      "reason": "EP-10 result equality and tool/ask reconciliation"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 591,
+      "source": "// 않으므로 `input` identity 가 그것까지 대표한다. 결과 도착은 `resultEquals` 가 잡는다.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 592,
+      "source": "function toolCallEquals(a: ToolCall, b: ToolCall): boolean {",
+      "reason": "EP-10 result equality and tool/ask reconciliation"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 597,
+      "source": "    resultEquals(a.result, b.result)",
+      "reason": "EP-10 result equality and tool/ask reconciliation"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 623,
+      "source": "        if (pc && toolCallEquals(pc, next.calls[i])) {",
+      "reason": "EP-10 result equality and tool/ask reconciliation"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 633,
+      "source": "      return prev.kind === 'ask' && toolCallEquals(prev.call, next.call) ? prev : next",
+      "reason": "EP-10 result equality and tool/ask reconciliation"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 661,
+      "source": "export function reconcileSegments(",
+      "reason": "EP-10 result equality and tool/ask reconciliation"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/workActivity.ts",
+      "line": 4,
+      "source": "import { messageSegments, reconcileSegments, resultMap, type MessageSegment } from './parts'",
+      "reason": "EP-10 Work production reconciliation"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/workActivity.ts",
+      "line": 59,
+      "source": "      const segments = reconcileSegments(",
+      "reason": "EP-10 Work production reconciliation"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 131,
+      "source": "    ? [{ type: 'tool.call.retracted', sessionId: ctx.sessionId, toolRunIds }]",
+      "reason": "EP-03 retraction event factory"
+    },
+    {
+      "file": "app/src/main/features/chat/turn-coordinator.ts",
+      "line": 30,
+      "source": "  settleOrphanToolRuns,",
+      "reason": "EP-02 terminal settlement before commit / emit"
+    },
+    {
+      "file": "app/src/main/features/chat/turn-coordinator.ts",
+      "line": 43,
+      "source": "// persist 직전(commitConsumed)에 돈다. 서브에이전트 child 출력은 부모 tool.call.started",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/features/chat/turn-coordinator.ts",
+      "line": 190,
+      "source": "  private commitConsumed(turn: TurnContext<W>, beforeCommit?: () => void): void {",
+      "reason": "existing input commit helper and received-input branch"
+    },
+    {
+      "file": "app/src/main/features/chat/turn-coordinator.ts",
+      "line": 350,
+      "source": "            // tool.call.retracted — main 내부 철회 신호(0239 EP-03 ④, renderer 미전달·미영속).",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/features/chat/turn-coordinator.ts",
+      "line": 352,
+      "source": "            if (ev.type === 'tool.call.retracted') {",
+      "reason": "EP-03 absorbs internal retraction"
+    },
+    {
+      "file": "app/src/main/features/chat/turn-coordinator.ts",
+      "line": 353,
+      "source": "              settleOrphanToolRuns(turn, this.streamEmit, 'retracted', undefined, ev.toolRunIds)",
+      "reason": "EP-03 absorbs internal retraction"
+    },
+    {
+      "file": "app/src/main/features/chat/turn-coordinator.ts",
+      "line": 360,
+      "source": "              this.commitConsumed(turn, closeBeforeUser)",
+      "reason": "existing input commit helper and received-input branch"
+    },
+    {
+      "file": "app/src/main/features/chat/turn-coordinator.ts",
+      "line": 382,
+      "source": "            // 소비 표시한다. 바로 아래 commitConsumed 가 같은 이벤트의 persist 전에 커밋한다.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/features/chat/turn-coordinator.ts",
+      "line": 399,
+      "source": "              settleOrphanToolRuns(",
+      "reason": "EP-02 terminal settlement before commit / emit"
+    },
+    {
+      "file": "app/src/main/features/chat/turn-coordinator.ts",
+      "line": 406,
+      "source": "            if (ev.type !== 'telemetry') this.commitConsumed(turn, closeBeforeUser)",
+      "reason": "EP-02 terminal settlement before commit / emit"
+    },
+    {
+      "file": "app/src/main/features/chat/turn-coordinator.ts",
+      "line": 532,
+      "source": "            if (ev.type === 'telemetry') this.commitConsumed(turn, closeBeforeUser)",
+      "reason": "EP-02 terminal settlement before commit / emit"
+    },
+    {
+      "file": "app/src/main/features/chat/turn-coordinator.ts",
+      "line": 544,
+      "source": "          settleOrphanToolRuns(turn, this.streamEmit, 'no_result', this.canonicalBackground(turn))",
+      "reason": "EP-02 terminal settlement before commit / emit"
+    },
+    {
+      "file": "app/src/main/features/chat/turn-coordinator.ts",
+      "line": 548,
+      "source": "          this.commitConsumed(turn, closeBeforeUser)",
+      "reason": "EP-02 terminal settlement before commit / emit"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 7,
+      "source": "// user(tool_result) → tool.call.completed, result → telemetry.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 92,
+      "source": "  // tool_result(tool.call.completed) emit 시 실어 영속한다. toolUseId(= Agent tool_use id) 키.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 101,
+      "source": "  // 구조화 출력을 실을 tool_use id 집합(0204). tool_result 는 도구 이름을 싣지 않는데 실을지는",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 106,
+      "source": "  // tool_result 는 도구 이름을 싣지 않는다. Task 집합과 배타라 한 결과에 두 의미가 섞이지 않는다.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 118,
+      "source": "// 철회 신호가 지목한 wire uuid 들을 tool_use id 로 바꾼다. 모르는 uuid(텍스트·tool_result 프레임·",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 142,
+      "source": "// ctx.subagentMeta 에 정의된 필드만 병합(누락은 기존값 보존). 부모 Task tool_result 영속용 누산.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 234,
+      "source": "// tool_use_result 는 메시지당 1개다 — tool_result 블록이 정확히 1개일 때만 그 구조화 출력을",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 240,
+      "source": "    if (isRecord(part) && part.type === 'tool_result') toolResults += 1",
+      "reason": "result multiplicity guard for structured output"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 378,
+      "source": "  // tool_use/tool_result 외 진행상황(시간·도구수·current tool·task_id)을 여기서만 얻는다.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 397,
+      "source": "    // 거부 폴백 재시도(0239 EP-03 ②) — 거부된 부분 응답과 그 tool_result 를 철회한다. 철회된",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 479,
+      "source": "    // ctx 누산으로 부모 tool_result 에 영속. 'Explore'(subagent_type) 대신 모델명을 보이게 한다.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 552,
+      "source": "          // TaskXXX 결과에 구조화 출력을 실으려면 tool_result 시점에 이름이 필요하다(0204).",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 558,
+      "source": "          // 편집 결과의 줄번호 정본도 tool_result 시점에 이름이 필요하다(0228 D-006).",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 588,
+      "source": "  // SDKUserMessage / SDKUserMessageReplay → tool.call.completed | input.echo | input.received",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 594,
+      "source": "    // Agent/Task tool_result 를 즉시 반환한다. wire content 는 모델용 텍스트라 renderer 의",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 607,
+      "source": "      if (p.type === 'tool_result') {",
+      "reason": "EP-01 SDK result metadata extraction and event transport"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 611,
+      "source": "        // 부모 Task tool_result 면 누산한 서브에이전트 메타(모델·시간·도구수)를 실어 영속.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 615,
+      "source": "        // 메시지당 1개라 tool_result 블록이 정확히 1개일 때만 귀속이 명확하다(영수증과 동일 규칙).",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 626,
+      "source": "        const nonExecution = readToolResultMeta(",
+      "reason": "EP-01 SDK result metadata extraction and event transport"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 627,
+      "source": "          (msg as { tool_result_meta?: unknown }).tool_result_meta,",
+      "reason": "EP-01 SDK result metadata extraction and event transport"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 639,
+      "source": "          type: 'tool.call.completed',",
+      "reason": "EP-01 SDK result metadata extraction and event transport"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 650,
+      "source": "          ...(nonExecution ? { nonExecution } : {})",
+      "reason": "EP-01 SDK result metadata extraction and event transport"
+    },
+    {
+      "file": "app/src/main/adapters/claude-map.ts",
+      "line": 664,
+      "source": "    // tool_result 동반 메시지는 제외한다. 매칭·커밋 판단은 turn-coordinator 소유.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/features/history/writer.ts",
+      "line": 3,
+      "source": "// telemetry(턴 종료)에서 reset 한다. AskUserQuestion tool_result 합성(flushAskAnswers)도",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/features/history/writer.ts",
+      "line": 48,
+      "source": "// 실제 tool_result의 text 영수증만 읽는다. 도구명·세션·원래 메시지 검증은 DB linker가 소유한다.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/features/history/writer.ts",
+      "line": 221,
+      "source": "  // AskUserQuestion 답변과 tool_use id 를 명시 ID로 페어링해 tool_result 를 합성한다(SDK 가",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/features/history/writer.ts",
+      "line": 222,
+      "source": "  // answers 를 안 돌려주므로). 페어가 생길 때마다 DB 저장 + renderer 로 tool_result ChatEvent 전송 →",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/features/history/writer.ts",
+      "line": 242,
+      "source": "      // 결과로 답변을 덮어쓰지 않도록 추적에서 제거한다(실제 tool_result 는 늦게 올 수도 있음).",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/features/history/writer.ts",
+      "line": 244,
+      "source": "      // AskUserQuestion 은 SDK tool_result 가 안 오므로 합성 — 현재 assistant 메시지에",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/features/history/writer.ts",
+      "line": 245,
+      "source": "      // tool_result 파트를 upsert(실제 tool_result 가 늦게 와도 같은 toolRunId 로 덮어쓴다).",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/features/history/writer.ts",
+      "line": 258,
+      "source": "        type: 'tool.call.completed',",
+      "reason": "existing answered Ask synthesis; not an unexecuted tool"
+    },
+    {
+      "file": "app/src/main/features/history/writer.ts",
+      "line": 416,
+      "source": "      case 'tool.call.completed': {",
+      "reason": "EP-01 persisted non-execution result"
+    },
+    {
+      "file": "app/src/main/features/history/writer.ts",
+      "line": 420,
+      "source": "        // 합성으로 이미 답변을 채운 AskUserQuestion id 에 실제 tool_result 가 뒤늦게 오면",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/features/history/writer.ts",
+      "line": 445,
+      "source": "            ...(ev.nonExecution !== undefined ? { nonExecution: ev.nonExecution } : {})",
+      "reason": "EP-01 persisted non-execution result"
+    },
+    {
+      "file": "app/src/main/features/history/writer.ts",
+      "line": 490,
+      "source": "        // 라이브 메타는 transient(영속은 부모 Task tool_result 의 subagentMeta) — 단, 백그라운드",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/main/features/history/writer.ts",
+      "line": 517,
+      "source": "      // 부모 Task tool_result 의 subagentMeta(위 tool.call.completed)가 담당한다. activity 투영은",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 2,
+      "source": "// view 로 투영한다(순수). text/reasoning 추출, tool_call↔tool_result 페어링, error 추출.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 11,
+      "source": "  nonExecutionEquals,",
+      "reason": "EP-04 shared result classification and agent summary"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 12,
+      "source": "  nonExecutionOutcome,",
+      "reason": "EP-04 shared result classification and agent summary"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 82,
+      "source": "// tool_call 을 같은 toolRunId 의 tool_result 와 페어링해 ToolCall view 로. 결과 미도착이면",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 96,
+      "source": "// tool_result 가 없는 tool_call 마다 합성 aborted tool_result 를 붙여, 결과 미도착으로 인한",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 105,
+      "source": "  for (const p of parts) if (p.type === 'tool_result') haveResult.add(p.toolRunId)",
+      "reason": "existing reload aborted synthesis, no non-execution producer or new status decision"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 110,
+      "source": "      type: 'tool_result',",
+      "reason": "existing reload aborted synthesis, no non-execution producer or new status decision"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 122,
+      "source": "// 로드 시 전 메시지에 적용해 해당 부모 Task 를 합성 aborted 로 정착시킨다(마지막 tool_result",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 128,
+      "source": "  const lastResult = new Map<string, Extract<AppMessagePart, { type: 'tool_result' }>>()",
+      "reason": "existing reload aborted synthesis, no non-execution producer or new status decision"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 137,
+      "source": "      type: 'tool_result',",
+      "reason": "existing reload aborted synthesis, no non-execution producer or new status decision"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 186,
+      "source": "): p is Extract<AppMessagePart, { type: 'tool_result' }> {",
+      "reason": "EP-01 pairing and metadata validation"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 187,
+      "source": "  return p.type === 'tool_result'",
+      "reason": "EP-01 pairing and metadata validation"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 211,
+      "source": "// tool_result 파트 → toolRunId 별 ToolCall.result. 0204 이전에는 같은 본문이 세 곳",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 219,
+      "source": "      const nonExecution = parseNonExecution(p.nonExecution)",
+      "reason": "EP-01 pairing and metadata validation"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 223,
+      "source": "        ...(nonExecution ? { nonExecution } : {}),",
+      "reason": "EP-01 pairing and metadata validation"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 241,
+      "source": "      // tool_call/tool_result 뿐 아니라 child 의 text/reasoning(서브에이전트 답변·사고)도 모은다 —",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 339,
+      "source": "// 서브에이전트의 Agent tool_result 는 즉시 { status:'async_launched', agentId, … } 성공을",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 368,
+      "source": "  if (result.nonExecution) return nonExecutionOutcome(result.nonExecution)",
+      "reason": "EP-04 shared result classification and agent summary"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 502,
+      "source": "// parts 를 순회하며 순서 보존 세그먼트 배열로 투영한다(순수). tool_result 는 toolRunId 로",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 513,
+      "source": "    if (p.type === 'tool_result') continue // 맵으로 흡수",
+      "reason": "EP-01 pairing and metadata validation"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "line": 586,
+      "source": "    nonExecutionEquals(a.nonExecution, b.nonExecution)",
+      "reason": "EP-10 result equality and tool/ask reconciliation"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "line": 71,
+      "source": "// transcript 렌더가 쓰는 도구 호출 view — parts 의 tool_call+tool_result 를 toolRunId 로",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "line": 81,
+      "source": "    nonExecution?: NonExecution",
+      "reason": "EP-01 live result type and append"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "line": 83,
+      "source": "    // 부모 Task tool_result 면 서브에이전트 영속 메타(모델·시간·도구수) — 재로드 후 카드/행 복원.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "line": 221,
+      "source": "// tool_call/tool_result 는 toolRunId 로 페어링해 렌더한다.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "line": 978,
+      "source": "        case 'tool.call.completed': {",
+      "reason": "EP-01 live result type and append"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "line": 980,
+      "source": "            type: 'tool_result',",
+      "reason": "EP-01 live result type and append"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "line": 984,
+      "source": "            ...(ev.nonExecution ? { nonExecution: ev.nonExecution } : {}),",
+      "reason": "EP-01 live result type and append"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "line": 1914,
+      "source": "  ev: Extract<NormalizedEvent, { type: 'tool.call.completed' }>",
+      "reason": "TaskXXX settled-list notification, not tool execution outcome"
+    },
+    {
+      "file": "app/src/shared/ipc.ts",
+      "line": 622,
+      "source": "      type: 'tool.call.completed'",
+      "reason": "EP-01 normalized and persisted result type"
+    },
+    {
+      "file": "app/src/shared/ipc.ts",
+      "line": 629,
+      "source": "      // 부모 Task(서브에이전트) tool_result 면 SDK task_* 누산 메타(모델·시간·도구수)를 실어",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/shared/ipc.ts",
+      "line": 637,
+      "source": "      // 비실행 사유(0239) — 거부·중단·취소(SDK `tool_result_meta`) 또는 결과 없이 끝난 도구의 host",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/shared/ipc.ts",
+      "line": 640,
+      "source": "      nonExecution?: NonExecution",
+      "reason": "EP-01 normalized and persisted result type"
+    },
+    {
+      "file": "app/src/shared/ipc.ts",
+      "line": 1434,
+      "source": "// 서브에이전트(Task) 영속 메타 — 부모 Task tool_result 에 실려 세션 재로드 후에도 모델·소요시간·",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/shared/ipc.ts",
+      "line": 1443,
+      "source": "// claude 가 실제로 채우는 종류: text / reasoning / tool_call / tool_result / error.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/shared/ipc.ts",
+      "line": 1463,
+      "source": "      type: 'tool_result'",
+      "reason": "EP-01 normalized and persisted result type"
+    },
+    {
+      "file": "app/src/shared/ipc.ts",
+      "line": 1469,
+      "source": "      // 부모 Task tool_result 면 서브에이전트 영속 메타(모델·시간·도구수).",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/shared/ipc.ts",
+      "line": 1475,
+      "source": "      // 비실행 사유(0239) — `tool.call.completed.nonExecution` 의 영속본. 재로드 후 같은 분류가 선다.",
+      "reason": "comment, not executable edge"
+    },
+    {
+      "file": "app/src/shared/ipc.ts",
+      "line": 1476,
+      "source": "      nonExecution?: NonExecution",
+      "reason": "EP-01 normalized and persisted result type"
+    }
+  ]
+}

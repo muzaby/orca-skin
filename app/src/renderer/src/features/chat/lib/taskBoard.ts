@@ -32,7 +32,16 @@ import { resultMap, type SubagentTaskSummary } from './parts'
 // 아니므로 완료 그룹으로 내려가지 않고, SDK 에 resume API 가 없어 여기서 나갈 사용자 경로는
 // 중단뿐이다(D-022 — 그래서 중단 버튼을 유지한다).
 export type TaskBoardStatus =
-  'in_progress' | 'stopping' | 'paused' | 'pending' | 'completed' | 'aborted' | 'failed'
+  | 'in_progress'
+  | 'stopping'
+  | 'paused'
+  | 'pending'
+  | 'completed'
+  | 'aborted'
+  | 'failed'
+  | 'rejected'
+  | 'cancelled'
+  | 'not_executed'
 
 export interface TaskBoardItem {
   // 목록/선택 키. `agent:` 접두사를 유지한다 — `taskStopErrors` 등 다른 상태가 여전히

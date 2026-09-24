@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-23 |
 | 매핑 | 사용자 검토 요청 1건 + 설계 질의 응답 3건 + 관찰 보완 1건(V1 rev.2) + r1 PLAN_GAP PG-01 보완(ΔV1) |
-| 상태 | READY — ΔV1 rev.4로 PG-02(호출 시각 생산 지점) 보완. 구현 재개 |
+| 상태 | IMPL_DONE — ΔV1 rev.4 기준 r1.3 구현 자기확인 18/18, VP-01~21 SELF_PASS. 다음은 Claude 독립 검증 |
 | V mode | `Delta V` |
 | 기준 V | `V1` rev.2 `@d47f88b` — 구현 전 사용자 관찰 보완(G5·D-012·D-013·AC18). rev.1은 `72c5979` |
 | 이번 V revision | `ΔV1` rev.4 — rev.1~3 상속 + PG-02 호출 시각 생산 지점(Δ12·EP-06 ②c·VP-21). rev.1은 `4c6bcab` |
@@ -915,6 +915,145 @@ provider call + chat messages ─► BackgroundDisplay ─► 패널·지우기
 - 그것을 막았어야 할 plan 지침·AC가 있었는가: AC5·AC8은 결과 교체·라이브 동치를 요구하지만, EP-01은 결과 pairing까지만 열거한다. 실제 소비자가 거치는 결과 비교가 빠졌다.
 - 반복해서 부딪히는 환경 한계: 테스트 환경 오류 없음. `rg` 미설치로 `git grep`을 사용했고, git 사용자 ignore 파일 접근 경고는 작업 결과와 분리했다.
 - 현재 라운드·impl 턴: `r1`
+
+---
+
+# r1.3 구현 — 보완 plan·부분 구현 검토 후 인계
+
+## [구현자 기입] 설계 리뷰
+
+- 동의 / 그대로 진행: [선행 검토](evidence/r1.3-review.md)에서 ΔV1 rev.3의 결과 비교·child 보존·표시 자리 보완과 Claude의 main/shared 부분 구현을 확인했다. baseline 7파일·236케이스가 통과했다. D-001~D-016을 유지했다.
+- 이견 / 현실성 문제: 부모 반환 경과의 입력인 `call.lastSeenAt`이 old spread에 덮여 시작 시각에 머물렀다(PG-02). 실제 reducer의 시작 1000·반환 7000에서 이를 재현하고, handoff-plan으로 전환해 Δ12·VP-21을 별도 설계 커밋으로 보완했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. PG-01은 기존 ΔV1로, PG-02는 rev.4로 경로·oracle을 정정한 후 구현했다. 이번 구현 커밋에는 규범 행 변경을 섞지 않는다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+[검색 명령·행별 분류·차집합](evidence/r1.3-enforcement-audit.json), [재현 방법과 gate](evidence/r1.3-validation.md)를 함께 남긴다. 주어 기반 검색 후보 179행에서 분류 집합을 뺀 결과는 `[]`; 분류 한 행 누락 변이는 해당 행을 돌려준다. 각 행의 분모는 유효 대체 행과 실제 producer/consumer를 대조한 자리 수다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-01·02·09·10 | EP-01 결과 운반 | 8 | 8/8 | mapper·host settle·이벤트/part 타입·writer·live append·ToolCall·resultMap. 실제 DB 왕복 통합 5케이스 및 writer meta 제거 red | 없음 |
+| VP-06 | EP-02 terminal 정착 | 3 | 3/3 | telemetry/error는 commitConsumed 전, 합성 telemetry는 emit 전. 순서 변이 4개 red | 없음 |
+| VP-07·09 | EP-03 철회 | 4 | 4/4 | assistant UUID 기록·refusal·supersedes·coordinator 흡수. 열린 id만 정착, 닫힌 id 덮기 변이 red | 없음 |
+| VP-02·16 | EP-04 표시 | 13 | 13/13 | ToolCard·AgentTaskRow·SubAgentTileContent·taskBoard·TaskStatusIcon·Work 상태/행·패널 호출/태스크·ToolGroup·TaskToolBody·상세 입력·TaskProgressList. 렌더 7케이스·패널 37케이스 | 없음 |
+| VP-03·08·11 | EP-05 pending | 4 | 4/4 | predicate·tracker·post-turn·Stop. foreground 제거 변이 4실패, Stop 후 입력 `after stop` 전달 | 없음 |
+| VP-04·12·17·21 | EP-06 패널/시각 | 14 | 14/14 | 태스크/호출 그룹·terminal/경과·시각 생산자·Stop·두 라벨·두 지우기·dismiss·projection 3곳. 반환 6초, clear 후 부재, 원격 보존 | 없음 |
+| VP-02·16 | EP-07 번역 | 30키 | 30/30 | ko/en 각 15키 diff, MessageKey typecheck, 실제 한국어 라벨 렌더 | 없음 |
+| VP-05 | EP-08 문서 | 5문서 | 5/5 | IPC·provider-runtime·background-tasks·rendering 갱신. inventory 생성 후 변경 없음, --check 통과 | 없음 |
+| VP-05 | EP-09 로그 | 1 | 1/1 | post-turn의 haveTasks가 실제 판정과 같음. schedule 테스트에서 false·break 직접 관측 | 없음 |
+| VP-19·20 | EP-10 identity | 3 | 3/3 | resultEquals·AssistantMessage reconciliation·Work projector. 사유 추가/교체/제거 반영, 같은 값/형제 보존; M1 5실패 | 없음 |
+
+EP-04 전달 edge `WorkToolBody`·`taskContext`·`SubAgentTileContent`의 목록 전달은 기존 배선을 유지하고 같은 렌더 테스트에서 확인했다. 제외 후보와 이유는 [조사 기록](evidence/r1.3-validation.md)에 적었다. 표 밖 신규 강제 지점 PG-02는 Δ12에 승계했으며 미해결 PLAN_GAP은 없다.
+
+**V-pair 자기확인** — 전부 REQUIRED, 별도 REGRESSION 없음. 아래 판정은 독립 verify를 대신하지 않는다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | SDK/host → DB → live/load 렌더, 늦은 결과 단일 row 교체 | not selected |
+| VP-02 | REQUIRED | SELF_PASS | 4분류·13표면의 라벨/중립 톤, failed 대조 | 6변이 red |
+| VP-03 | REQUIRED | SELF_PASS | foreground만 남으면 idle·break, Stop 뒤 새 입력 전달 | VP-03/08/11 공유 변이 red |
+| VP-04 | REQUIRED | SELF_PASS | 실제 reducer의 부모 반환 → 완료 그룹·6초·Stop 없음·clear | 3자리 변이 red |
+| VP-05 | REQUIRED | SELF_PASS | 로그 일치, 5문서 대조, inventory·링크 검사 | not selected |
+| VP-06 | REQUIRED | SELF_PASS | SDK telemetry/error·합성 terminal 전에 completed, error는 steer commit보다 앞 | 4변이 red |
+| VP-07 | REQUIRED | SELF_PASS | 두 철회 신호, 열린 id만 적용·내부 신호 미전달 | 닫힌 id 덮기 red |
+| VP-08 | REQUIRED | SELF_PASS | post-turn 실측 idle·break, 승격/진짜 background 대조 | VP-03 공유 red |
+| VP-09 | REQUIRED | SELF_PASS | mapper의 meta 파싱·철회 및 host 이벤트 형상 | not selected |
+| VP-10 | REQUIRED | SELF_PASS | writer/reader DB 왕복·live/load 결과 동치 | writer 누락 red |
+| VP-11 | REQUIRED | SELF_PASS | tracker가 같은 pending 사용, Stop 유지/종료 대조 | VP-03 공유 red |
+| VP-12 | REQUIRED | SELF_PASS | transcript 기반 taskless clear, 선택 해제·재등장 없음, projection 3곳 전달 | 3자리 제거 red |
+| VP-13 | REQUIRED | SELF_PASS | SDK 5거부·interrupted·cancelled·미지값·host 두 사유 | interrupted/cancelled 맞바꿈 red |
+| VP-14 | REQUIRED | SELF_PASS | 정본 유무·열린 부모·후손·백그라운드 보존 대조 | 3변이 red |
+| VP-15 | REQUIRED | SELF_PASS | fg ACK 제외, background unknown/승격/live 포함 유지 | unknown 일괄 제외 red |
+| VP-16 | REQUIRED | SELF_PASS | 분류표와 Record 5종 타입 검사 | 각 rejected 키 제거 TS2741 |
+| VP-17 | REQUIRED | SELF_PASS | 우선순위·dead task/call·remote mode/type·고정 시각·정본 불변 | 8변이 red |
+| VP-18 | REQUIRED | SELF_PASS | post-turn 로그 haveTasks와 실제 판정 일치 | not selected |
+| VP-19 | REQUIRED | SELF_PASS | RECV_EVENT 뒤 3형 결과 변경, ask 비교, 같은 값/형제 identity 보존 | M1 5실패 |
+| VP-20 | REQUIRED | SELF_PASS | 실제 Work projector의 결과 사유 추가/교체/제거 | VP-19 공유 M1, Work 자체 검출력으로 과장하지 않음 |
+| VP-21 | REQUIRED | SELF_PASS | 시작 1000·반환 7000·늦은 progress 6000 뒤 first=1000/last=7000, 패널 6초 | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+심은 결함·출처·이전 결과·실패 케이스 수·판정의 **39행 표**는 [잠금 기록](evidence/r1.3-validation.md#등록-변이와-감도-검사)에 있다. [재현 스크립트](evidence/r1.3-mutations.cjs)와 [실패 테스트 이름](evidence/r1.3-mutations.json)을 보존했다.
+
+- 분모 검산: 선택 증거 38 · 인용 변이 추가분 0 · 새 조사 oracle 1 = 표 39행. PG-01 M1과 preclear 입력 spy는 기존 등록 변이와 겹치므로 한 번만 센다.
+- 관측: 프로덕션 변이 38/38 검출, 조사 분류 누락 1/1 검출. 직접 oracle pair의 추가 mutation은 해당 없음.
+- 덮개 회귀: 검사/production 장치를 교체·삭제하지 않았다. PG-01에서 실패했던 추가·교체·제거 3축을 실제 reducer/reconciliation에서 재확인했고, M1 복원 시 다시 red다. 변이 복구 후 전체 운영 gate를 수행했다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 문구·상태에 소비자가 있는가 | 30개 번역 키를 실제 상태 맵이 사용. 거부/취소/실행되지 않음은 중립, 실패만 빨강 | 두 테마 사람 시각 확인은 검증 단계에 남김 |
+| seam을 위해 옮긴 production의 정리 스코프가 유효한가 | 새 factory·수명주기 이동 없음. coordinator 기존 시점 유지 | 없음 |
+| 새 실패 경로가 Part I 전이에 대응하는가 | host no_result/retracted·SDK 사유·부모 반환·dead generation이 기존 계약 행에 대응 | 신규 제품 결정 없음 |
+| 실패가 무반응으로 보이지 않는가 | 실제 렌더에 사유 라벨, spinner 없음. fg pending은 idle·Stop 체인 종료 | 독립 verify |
+| 늦은 응답이 옛 상태를 되살리는가 | 실제 결과가 합성을 한 row로 교체, 메타 제거가 비교기에 반영. clear 후 projection 유지 | A7의 다른 assistant 메시지 결과는 기존 비범위 유지 |
+| 로딩·빈 상태·clear·원격 대조는 일관적인가 | 현재 세대/remote 실행 유지, fg/dead 비원격은 완료 그룹·clear 대상. 선택된 항목도 해제 | 기존 패널 회귀 30케이스 유지 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| PG-01 | 사유만 바뀌면 이전 ToolCall identity가 남음 | CLOSED — ΔV1 계약에 따라 값 비교 | addition/replacement/removal 현재 통과, M1 5실패 |
+| PG-02 | call.lastSeenAt이 old spread에 덮임 | CLOSED — Δ12 별도 설계 후 단조 증가 구현 | 시작/반환/늦은 progress 3케이스, 실제 6초 렌더 |
+| I-01 | 상세 카드에서 transcript spread가 launchFailure/completed의 사유 우선순위를 우회할 수 있음 | 선조치 — 정본 우선 시 transcript 상속도 차단 | canonicalBackground.settlement의 launchFailure/completed 대조 통과 |
+| A7·A8 | 다른 메시지에 붙은 실제 결과 페어링·legacy 정본 부재 | 기존 비범위 유지, 새 완료 주장에 포함하지 않음 | Δ11-6 근거 유지 |
+
+### 설계 대비 명시적 차이
+
+- 규범 대체 없음. `BackgroundDisplay`는 순수 파생이며 정본 status·terminalEvidence·journal을 쓰지 않는다. launchFailure/completed 때 transcript 상속 차단은 rev.3 우선순위를 실제 object spread까지 적용한 구현 세부다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 새 저장소/TTL 없음 | AC14·18: lastSeenAt 종점 직접 관측 |
+| 공유 | transcript 결과가 화면과 clear projection에서 공유됨 | AC15·EP-06: 3곳 입력 전달 제거 각각 red |
+| 재진입 | clear 이후 같은 snapshot 재투영 | AC15·16: 카드 부재·선택 해제, 실제 신규 running은 기존 가드로 보존 |
+| 다른 무효화 축 | 본문 불변·사유만 추가/교체/제거 | AC5·8·EP-10: 실제 reducer와 reconcile 값/참조 대조 |
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | renderer 운반·분류·표면·패널·store·ko/en, shared 호출 시각, main 순서/Stop 테스트, current-state 문서, 이 plan·INDEX·증거 |
+| 실행 명령 | [실행 명령·상세 관측](evidence/r1.3-validation.md), [행별 검색](evidence/r1.3-enforcement-audit.json) |
+| 관측한 게이트 산출 | lint 0error/기존1warning; typecheck 3구성 오류 없음; Node 120통과; 전체 Vitest 568파일·5305통과·1skip; 추가/강화 2파일·27통과 |
+| 문서·작업 트리 재확인 | inventory 생성/--check 통과, diff --check 공백 오류 없음. 상태 사본은 plan IMPL_DONE·INDEX impl/IMPL_DONE/Claude로 함께 갱신 |
+| V-pair 자기확인 | SELF_PASS 21 · SELF_BLOCKED 0. 독립 verify 미수행 |
+| 강제 지점 전수 | EP-01~10 각각 8/3/4/13/4/14/30키/5문서/1/3. 검색 후보−분류 `[]`, 누락 감도 1행 |
+| AC 자기보고 (`Criteria-Met`) | 18/18 — 아래 행동 증거. 사람의 두 테마 시각 검사는 별도 미수행 |
+| 합계 검산 | ✅ 18 · ⚠️ 0 · ❌ 0 = 총 18. 기준 AC 분모 변경 없음 |
+| 블로커 / 역질문 | 없음. 다음 주체 Claude(handoff-verify), 실제 화면 시각 확인 포함 |
+| 대상 커밋 | `(r1.3 구현 — 좌표는 INDEX)` |
+
+| AC | 자기보고 | 근거 / 남은 작업 |
+|---|---|---|
+| AC1 | ✅ | 정상 terminal 전 고아 completed, coordinator·종단 테스트 |
+| AC2 | ✅ | error/합성 terminal 정착, steer commit 전 순서 |
+| AC3 | ✅ | 백그라운드·원격·awaiting·live·후손 보존 및 정본 유무 대조 |
+| AC4 | ✅ | refusal/supersedes 열린 id만 정착, 내부 이벤트 흡수 |
+| AC5 | ✅ | 늦은 실제 결과 DB 단일 row 교체·메타 제거·reconcile 반영 |
+| AC6 | ✅ | host no_result/retracted live/load 중립 라벨·spinner 부재 |
+| AC7 | ✅ | SDK meta ID 대조, 잘못된 형상 무시, 미지 kind fallback |
+| AC8 | ✅ | 실제 SQLite writer/reader와 live/load 렌더 동치 |
+| AC9 | ✅ | 거부 5형·interrupted·cancelled·unknown·host 분류 |
+| AC10 | ✅ | 13표면 라벨/톤·Record 5개 타입 검사, 등록 6표시 변이 red |
+| AC11 | ✅ | foreground pending/ACK 제외, 승격·live·background unknown 유지 |
+| AC12 | ✅ | idle/break·Stop 종료 후 lease 재획득·새 입력 전달 |
+| AC13 | ✅ | haveTasks 실제 판정과 일치, count 별도 유지 |
+| AC14 | ✅ | 부모 정본 반환 후 완료 그룹·6초·Stop 부재·clear |
+| AC15 | ✅ | transcript taskless 정착·clear·선택 해제·projection 입력 |
+| AC16 | ✅ | 표시 계산 전후 정본 객체·status·terminalEvidence 불변 |
+| AC17 | ✅ | 5문서 대조 및 inventory/문서 링크 검사 |
+| AC18 | ✅ | dead task/taskless call 정착·고정 경과·clear, remote mode/type 대조 |
+
+✅ 18 · ⚠️ 0 · ❌ 0 = 총 18 (`Criteria-Met: 18/18`).
+
+## [구현자 기입] Review Signals — 사실만
+
+- 같은 축 여부: PG-01은 이전 결과 identity 조사에서 이어진 축이다. PG-02는 AC14·18의 시간 소비자가 요구하는 생산자 누락이다.
+- 막았어야 할 계약: AC14는 반환 시각 종료를 요구했으나 rev.3 EP-06은 소비자만 셌다. 실제 reducer fixture로 시작/반환을 이어 붙이자 0초가 드러났고 rev.4에서 producer를 추가했다.
+- 환경 한계: rg 미설치로 git grep 사용. sandbox 경로 EPERM은 권한 확장 재실행으로 분리했고 전체 gate가 통과했다. 병렬 reviewer는 사용량 제한으로 결과를 주지 못했으므로 독립 리뷰 완료로 세지 않는다.
+- 현재 라운드·impl 턴: r1.3. Claude 부분 구현 이후 사용자 요청으로 인계했다. 다음은 독립 handoff-verify다.
 
 ---
 

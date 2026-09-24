@@ -1331,6 +1331,33 @@ describe('0239 — 결과 없이 끝난 도구 정착', () => {
     expect(forwarded(deps).map(shape)).toEqual(['started:a', 'completed:a:no_result', 'telemetry'])
   })
 
+  it('AC2 — error 정착은 소비된 steer의 message.committed보다 먼저 이전 응답을 닫는다', async () => {
+    const pendingMessages = new PendingMessageQueue()
+    pendingMessages.enqueue('s1', { text: 'next instruction' }, Date.now(), 'steer-1')
+    const batch = pendingMessages.reserveHeld('s1', 'steer', 'steer-1')!
+    pendingMessages.commit('s1', batch.attemptId!, batch.chainId)
+    const deps = makeDeps(
+      fakeRuntime([
+        [
+          started('a'),
+          { type: 'input.echo', sessionId: 's1', text: 'next instruction', uuid: 'steer-1' },
+          error
+        ]
+      ]),
+      { pendingMessages }
+    )
+    deps.persist.commitUserMessage = vi.fn(() => 42)
+    await run([], deps)
+    expect(forwarded(deps).map(shape)).toEqual([
+      'started:a',
+      'completed:a:no_result',
+      'message.committed',
+      'error'
+    ])
+    expect(deps.persist.commitUserMessage).toHaveBeenCalledOnce()
+    expect(pendingMessages.takeForRespawn('s1')).toEqual([])
+  })
+
   it('AC3 경로 — coordinator 는 정본 상태로 보존 집합을 판정한다', async () => {
     const tracker = new BackgroundTaskTracker()
     tracker.observe({

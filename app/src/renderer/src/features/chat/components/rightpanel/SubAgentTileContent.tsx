@@ -60,6 +60,9 @@ const STATUS_KEY: Record<SubagentTaskStatus, MessageKey> = {
   running: 'chat.subagentTile.status.running',
   completed: 'chat.subagentTile.status.completed',
   failed: 'chat.subagentTile.status.failed',
+  rejected: 'chat.subagentTile.status.rejected',
+  cancelled: 'chat.subagentTile.status.cancelled',
+  not_executed: 'chat.subagentTile.status.not_executed',
   aborted: 'chat.subagentTile.status.aborted'
 }
 

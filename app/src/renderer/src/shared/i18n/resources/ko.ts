@@ -6,6 +6,9 @@ import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../../../shared/produc
 
 export const ko = {
   background: {
+    rejected: '거부됨',
+    cancelled: '취소됨',
+    not_executed: '실행되지 않음',
     title: '백그라운드 작업',
     groupRunning: '실행 중',
     groupCompleted: '완료',
@@ -702,6 +705,9 @@ export const ko = {
       forkHere: '여기서 분기'
     },
     toolMeta: {
+      rejected: '거부됨',
+      cancelled: '취소됨',
+      notExecuted: '실행되지 않음',
       verb: {
         ran: '실행됨',
         created: '업데이트됨',
@@ -746,6 +752,9 @@ export const ko = {
       tokensK: '{{n}}k 토큰',
       agentFallback: '에이전트',
       agentStatus: {
+        rejected: '에이전트 거부됨',
+        cancelled: '에이전트 취소됨',
+        not_executed: '에이전트 실행되지 않음',
         running: '에이전트 실행 중',
         completed: '에이전트 완료',
         aborted: '에이전트 중단됨',
@@ -769,6 +778,9 @@ export const ko = {
       loadDetailFailed: '하위 대화를 불러오지 못했습니다.',
       retryDetail: '다시 불러오기',
       status: {
+        rejected: '거부됨',
+        cancelled: '취소됨',
+        not_executed: '실행되지 않음',
         running: '진행 중',
         stopping: '중단 중…',
         paused: '일시정지',
@@ -801,6 +813,9 @@ export const ko = {
       directoryInvalid: '추가할 수 있는 폴더인지 확인해 주세요.',
       directoryLimit: '추가할 수 있는 폴더 수를 초과했습니다.',
       status: {
+        rejected: '거부됨',
+        cancelled: '취소됨',
+        not_executed: '실행되지 않음',
         in_progress: '진행 중',
         stopping: '중단 중…',
         paused: '일시정지',
