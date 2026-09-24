@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-23 |
 | 매핑 | 사용자 검토 요청 1건 + 설계 질의 응답 3건 + 관찰 보완 1건(V1 rev.2) + r1 PLAN_GAP PG-01 보완(ΔV1) |
-| 상태 | IMPL_DONE — ΔV1 rev.4 기준 r1.3 구현 자기확인 18/18, VP-01~21 SELF_PASS. 다음은 Claude 독립 검증 |
+| 상태 | verify/PASS — r1 검증 pair 21/21·AC 18/18([verify.md](verify.md)). 남은 것은 두 테마 시각 실기 |
 | V mode | `Delta V` |
 | 기준 V | `V1` rev.2 `@d47f88b` — 구현 전 사용자 관찰 보완(G5·D-012·D-013·AC18). rev.1은 `72c5979` |
 | 이번 V revision | `ΔV1` rev.4 — rev.1~3 상속 + PG-02 호출 시각 생산 지점(Δ12·EP-06 ②c·VP-21). rev.1은 `4c6bcab` |
@@ -1061,4 +1061,10 @@ EP-04 전달 edge `WorkToolBody`·`taskContext`·`SubAgentTileContent`의 목록
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| D1 | 정본 반환 없는 호출 카드의 일반 transcript 결과 분기 미잠금(U13 green, 동작은 프로브로 정상) | VP-12/17 · AC15 | `backgroundCallDisplay` 일반 결과 2형 단언 추가 | NON_BLOCKING | open |
+| D2 | transcript 조인 키 순서 비대칭(패널 ↔ 지우기) | EP-06 ①a·⑤a | 한 헬퍼로 통일 | NON_BLOCKING | open |
+| D3 | `isForegroundTask` `included` 절 중복(U2 등가 변이) | VP-15 | 기록만 | NON_BLOCKING | open |
+| D4 | r1.3 VP-18 자기확인 행 오기(post-turn 로그 → claude-map 매핑) | 구현 보고 | 기록만 | NON_BLOCKING | open |
+| D5 | rev.4 설계를 구현자가 작성, r1.2 `[구현자 기입]` 부재 | 절차 | review 신호 | NON_BLOCKING | open |
+
+> r1 검증 = **PASS** — 원문은 [`verify.md`](verify.md).
