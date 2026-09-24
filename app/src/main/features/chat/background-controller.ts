@@ -22,6 +22,34 @@ import {
 import type { BackgroundOutputStore } from '../../infra/background-output'
 import type { BackgroundTaskTracker } from './background-tasks'
 
+const RUNTIME_RESPONSE_TIMEOUT_MS = 15_000
+
+class BackgroundTimeoutError extends Error {}
+
+async function withTimeout<T>(pending: Promise<T>, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      pending,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new BackgroundTimeoutError(message)),
+          RUNTIME_RESPONSE_TIMEOUT_MS
+        )
+        timer.unref?.()
+      })
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function liveResidual(state: BackgroundSessionState, generation: string): string[] {
+  return state.liveTaskIds.filter(
+    (id) => !isBackgroundTerminal(state.tasks[backgroundKey(generation, id)]?.status)
+  )
+}
+
 interface BackgroundRuntime {
   identity?: object
   generation?: string
@@ -128,19 +156,8 @@ export class BackgroundController {
         ...(error ? { error } : {})
       })
     emit('requested')
-    let requestTimer: ReturnType<typeof setTimeout> | undefined
-    let requestTimedOut = false
     try {
-      await Promise.race([
-        runtime.stopTask(req.taskId),
-        new Promise<never>((_resolve, reject) => {
-          requestTimer = setTimeout(() => {
-            requestTimedOut = true
-            reject(new Error('중단 요청의 응답을 확인하지 못했습니다.'))
-          }, 15_000)
-          requestTimer.unref?.()
-        })
-      ])
+      await withTimeout(runtime.stopTask(req.taskId), '중단 요청의 응답을 확인하지 못했습니다.')
       emit('acknowledged')
       const key = JSON.stringify([req.sessionId, req.generation, req.taskId])
       clearTimeout(this.stopTimers.get(key))
@@ -153,23 +170,17 @@ export class BackgroundController {
           !isBackgroundTerminal(task.status) &&
           task.stop?.state === 'acknowledged'
         )
-          this.observe({
-            type: 'background.control',
-            ...req,
-            source: this.source(req.generation),
-            state: 'unconfirmed'
-          })
+          emit('unconfirmed')
       }, 15_000)
       timer.unref?.()
       this.stopTimers.set(key, timer)
     } catch (error) {
+      const timedOut = error instanceof BackgroundTimeoutError
       emit(
-        requestTimedOut ? 'unconfirmed' : 'failed',
-        requestTimedOut ? '중단 요청의 응답을 확인하지 못했습니다.' : '중단 요청에 실패했습니다.'
+        timedOut ? 'unconfirmed' : 'failed',
+        timedOut ? error.message : '중단 요청에 실패했습니다.'
       )
       throw error
-    } finally {
-      clearTimeout(requestTimer)
     }
   }
 
@@ -192,19 +203,11 @@ export class BackgroundController {
       throw new Error('현재 실행을 백그라운드로 전환할 수 없습니다.')
 
     this.promoting.add(key)
-    let timer: ReturnType<typeof setTimeout> | undefined
     try {
-      const backgrounded = await Promise.race([
+      const backgrounded = await withTimeout(
         runtime.backgroundTask(req.toolUseId),
-        new Promise<never>((_resolve, reject) => {
-          timer = setTimeout(
-            () =>
-              reject(new Error('백그라운드 전환 응답을 확인하지 못했습니다. 다시 시도해 주세요.')),
-            15_000
-          )
-          timer.unref?.()
-        })
-      ])
+        '백그라운드 전환 응답을 확인하지 못했습니다. 다시 시도해 주세요.'
+      )
       const currentRuntime = this.deps.runtime(req.sessionId)
       const current = this.state(req.sessionId)
       if (
@@ -229,7 +232,6 @@ export class BackgroundController {
         patch: { mode: 'background' }
       })
     } finally {
-      clearTimeout(timer)
       this.promoting.delete(key)
     }
   }
@@ -274,9 +276,7 @@ export class BackgroundController {
           state.connection !== 'connected'
         )
           return { residualTaskIds: state.liveTaskIds, unknown: true }
-        const ids = state.liveTaskIds.filter(
-          (id) => !isBackgroundTerminal(state.tasks[backgroundKey(req.generation, id)]?.status)
-        )
+        const ids = liveResidual(state, req.generation)
         if (
           !ids.length &&
           !pendingLaunch(state) &&
@@ -310,9 +310,7 @@ export class BackgroundController {
         })
       }
       const state = this.state(req.sessionId)
-      const residualTaskIds = state.liveTaskIds.filter(
-        (id) => !isBackgroundTerminal(state.tasks[backgroundKey(req.generation, id)]?.status)
-      )
+      const residualTaskIds = liveResidual(state, req.generation)
       for (const taskId of residualTaskIds)
         this.observe({
           type: 'background.control',

@@ -66,6 +66,10 @@ export class ArtifactQueries {
     ) => ArtifactRef | null
   >
   private readonly trash: Database.Statement
+  private readonly outputCall: Database.Statement
+  private readonly outputBoundary: Database.Statement
+  private readonly artifactPart: Database.Statement
+  private readonly insertPart: Database.Statement
 
   constructor(private readonly db: Database.Database) {
     this.owned = db.prepare(`${SELECT_PUBLICATION} WHERE p.session_id = ? AND p.id = ?`)
@@ -106,10 +110,10 @@ export class ArtifactQueries {
         AND p.input_source = @inputSource AND f.hash = @hash AND p.title = @title LIMIT 1`)
     const connect = db.prepare(`UPDATE session_artifacts SET message_id = @messageId,
       tool_run_id = @toolRunId, card_attached = @cardAttached WHERE id = @publicationId`)
-    const insertPart =
+    const insertPart = (this.insertPart =
       db.prepare(`INSERT INTO message_parts (message_id, idx, type, tool_run_id, payload_json)
       VALUES (@messageId, (SELECT COALESCE(MAX(idx), -1) + 1 FROM message_parts WHERE message_id = @messageId),
-        'artifact', @toolRunId, @payload)`)
+        'artifact', @toolRunId, @payload)`))
     this.link = db.transaction((sessionId, toolRunId, publicationId, parentToolRunId) => {
       const publication = this.owned.get(sessionId, publicationId) as PublicationRow | undefined
       if (!publication || publication.category !== 'artifact') return null
@@ -155,6 +159,16 @@ export class ArtifactQueries {
       return artifact
     })
     this.trash = db.prepare('UPDATE artifact_files SET last_trashed_at = ? WHERE id = ?')
+    this.outputCall = db.prepare(`SELECT m.id AS messageId, mp.payload_json AS payload
+      FROM message_parts mp JOIN messages m ON m.id = mp.message_id
+      WHERE m.session_id = ? AND m.role = 'assistant' AND mp.type = 'tool_call'
+        AND mp.tool_run_id = ?`)
+    this.outputBoundary = db.prepare(`SELECT 1 FROM message_parts mp
+      JOIN messages m ON m.id = mp.message_id WHERE m.session_id = ? AND m.id = ?
+      AND m.role = 'assistant' AND mp.type = 'response_boundary'
+      AND json_extract(mp.payload_json, '$.boundary.id') = ?`)
+    this.artifactPart = db.prepare(`SELECT 1 FROM message_parts WHERE message_id = ?
+      AND type = 'artifact' AND json_extract(payload_json, '$.artifact.publicationId') = ?`)
   }
 
   createPublication(input: ArtifactPublicationInsert): void {
@@ -180,44 +194,25 @@ export class ArtifactQueries {
       if (!file || file.category !== 'file') return null
       let messageId = owner.messageId
       if (owner.toolRunId) {
-        const calls = this.db
-          .prepare(
-            `SELECT m.id AS messageId, mp.payload_json AS payload
-          FROM message_parts mp JOIN messages m ON m.id = mp.message_id
-          WHERE m.session_id = ? AND m.role = 'assistant' AND mp.type = 'tool_call'
-            AND mp.tool_run_id = ?`
-          )
-          .all(sessionId, owner.toolRunId) as Array<{ messageId: number; payload: string }>
+        const calls = this.outputCall.all(sessionId, owner.toolRunId) as Array<{
+          messageId: number
+          payload: string
+        }>
         if (calls.length !== 1) return null
         const call = JSON.parse(calls[0].payload) as { toolName?: string }
         if (call.toolName !== 'Write' && call.toolName !== 'Edit') return null
         messageId = calls[0].messageId
       } else {
         if (messageId === undefined || !owner.responseId) return null
-        const boundary = this.db
-          .prepare(
-            `SELECT 1 FROM message_parts mp
-          JOIN messages m ON m.id = mp.message_id WHERE m.session_id = ? AND m.id = ?
-          AND m.role = 'assistant' AND mp.type = 'response_boundary'
-          AND json_extract(mp.payload_json, '$.boundary.id') = ?`
-          )
-          .get(sessionId, messageId, owner.responseId)
-        if (!boundary) return null
+        if (!this.outputBoundary.get(sessionId, messageId, owner.responseId)) return null
       }
       const artifact = ref(file)
-      const existing = this.db
-        .prepare(
-          `SELECT 1 FROM message_parts WHERE message_id = ?
-        AND type = 'artifact' AND json_extract(payload_json, '$.artifact.publicationId') = ?`
-        )
-        .get(messageId, publicationId)
-      if (!existing)
-        this.db
-          .prepare(
-            `INSERT INTO message_parts (message_id, idx, type, tool_run_id, payload_json)
-        VALUES (?, (SELECT COALESCE(MAX(idx), -1) + 1 FROM message_parts WHERE message_id = ?), 'artifact', ?, ?)`
-          )
-          .run(messageId, messageId, owner.toolRunId ?? null, JSON.stringify({ artifact }))
+      if (!this.artifactPart.get(messageId, publicationId))
+        this.insertPart.run({
+          messageId,
+          toolRunId: owner.toolRunId ?? null,
+          payload: JSON.stringify({ artifact })
+        })
       return artifact
     })()
   }

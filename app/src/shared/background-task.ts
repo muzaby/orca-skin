@@ -264,6 +264,15 @@ function defined<T extends object>(value: T): Partial<T> {
     Object.entries(value).filter(([, v]) => v !== undefined && v !== null)
   ) as Partial<T>
 }
+// `tasks` 는 호출부가 이미 복사한 사본이다 — 제자리 갱신한다.
+function markMembershipUnknown(
+  tasks: BackgroundSessionState['tasks'],
+  generation: string | undefined
+): void {
+  for (const [key, record] of Object.entries(tasks)) {
+    if (record.generation === generation) tasks[key] = { ...record, liveMembership: 'unknown' }
+  }
+}
 function refs(
   previous: BackgroundOutputRef[] = [],
   incoming: BackgroundOutputRef[] = []
@@ -341,10 +350,7 @@ export function applyBackgroundEvent(
         ? [...state.retiredGenerations, oldGeneration]
         : state.retiredGenerations
     }
-    for (const [key, record] of Object.entries(next.tasks)) {
-      if (record.generation === oldGeneration)
-        next.tasks[key] = { ...record, liveMembership: 'unknown' }
-    }
+    markMembershipUnknown(next.tasks, oldGeneration)
   }
   const current = mayBeCurrent && next.generation === source.generation
   if (current) next.lastSource = source
@@ -362,10 +368,7 @@ export function applyBackgroundEvent(
     }
     if (event.state !== 'connected') {
       next.liveKnown = false
-      for (const [key, record] of Object.entries(next.tasks)) {
-        if (record.generation === source.generation)
-          next.tasks[key] = { ...record, liveMembership: 'unknown' }
-      }
+      markMembershipUnknown(next.tasks, source.generation)
     }
     return next
   }

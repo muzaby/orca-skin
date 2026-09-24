@@ -1,3 +1,5 @@
+import { errorMessage } from '../errors'
+
 export type Pop3ErrorCode =
   | 'auth_failed'
   | 'connection_failed'
@@ -22,7 +24,7 @@ export class Pop3Error extends Error {
 
 export function normalizePop3Error(error: unknown): Pop3Error {
   if (error instanceof Pop3Error) return error
-  const message = error instanceof Error ? error.message : String(error)
+  const message = errorMessage(error)
   const lower = message.toLowerCase()
   if (lower.includes('timeout') || lower.includes('timed out')) return new Pop3Error('timeout')
   if (lower.includes('tls') || lower.includes('certificate')) return new Pop3Error('tls_failed')

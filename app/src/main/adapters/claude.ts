@@ -68,6 +68,20 @@ import { getTemporaryFilesPath } from '../infra/config/temp-path'
 
 const requireFn = createRequire(import.meta.url)
 
+// 설치된 SDK 버전은 프로세스 수명 동안 바뀌지 않는다 — 채널마다 package.json 을 다시 읽지 않는다.
+let sdkVersion: string | undefined
+function sdkPackageVersion(): string {
+  sdkVersion ??= (
+    JSON.parse(
+      readFileSync(
+        join(dirname(requireFn.resolve('@anthropic-ai/claude-agent-sdk')), 'package.json'),
+        'utf8'
+      )
+    ) as { version: string }
+  ).version
+  return sdkVersion
+}
+
 // SDK 가 spawn 할 claude 실행 파일 경로(**앱 동봉 번들 단일 출처** — 호스트 설치본은 안 본다,
 // 0215 D-028). 부팅 1회 해석. undefined 면 옵션을 생략해 SDK 기본 해석에 위임(dev/비패키징 —
 // 같은 번들 파일에 도달한다). 근거·패키징 배경은 claude-executable.ts.
@@ -373,15 +387,9 @@ export class ClaudeAdapter implements SessionAdapter {
       cwd,
       ...(req.handoff === true ? { handoffArrival: true } : {})
     }
-    const packageInfo = JSON.parse(
-      readFileSync(
-        join(dirname(requireFn.resolve('@anthropic-ai/claude-agent-sdk')), 'package.json'),
-        'utf8'
-      )
-    ) as { version: string }
     const cliIdentity = claudeExecutable ?? resolveClaudeExecutableIdentity()
     const backgroundMapper = new ClaudeBackgroundMapper({
-      sdkVersion: packageInfo.version,
+      sdkVersion: sdkPackageVersion(),
       ...(cliIdentity ? { cliPath: cliIdentity } : {})
     })
 

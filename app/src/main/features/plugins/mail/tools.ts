@@ -1,5 +1,9 @@
 import { z } from 'zod'
-import type { RuntimeToolResult, RuntimeToolServer } from '../../../adapters/runtime-tools'
+import {
+  jsonToolResult as result,
+  type RuntimeToolResult,
+  type RuntimeToolServer
+} from '../../../adapters/runtime-tools'
 import { authToolServerId } from '../../../adapters/runtime-tool-policy'
 import { exportMailAttachment } from './attachment-export'
 import { createMailSyncManager, type MailSyncManager } from './sync-manager'
@@ -9,14 +13,6 @@ import { userDataPath } from '../../../infra/config/user-data-path'
 import { createPop3Socket } from '../../../infra/net/pop3-socket'
 import { mailSessionConfig } from './auth'
 import { publicMailError } from './pop3/errors'
-
-function result(value: Record<string, unknown>, isError = false): RuntimeToolResult {
-  return {
-    content: [{ type: 'text', text: JSON.stringify(value) }],
-    ...(isError ? { isError: true } : {}),
-    structuredContent: value
-  }
-}
 
 function errorResult(error: unknown): RuntimeToolResult {
   const normalized = publicMailError(error)

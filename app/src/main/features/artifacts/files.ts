@@ -12,6 +12,10 @@ import {
   MAX_ARTIFACT_BYTES
 } from './validation'
 
+const UUID_RE = /^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/iu
+function isMissing(error: unknown): boolean {
+  return !!error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT'
+}
 function samePath(a: string, b: string): boolean {
   return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b
 }
@@ -234,8 +238,7 @@ export class ArtifactFiles {
           await unredirectedDirectory(ancestor)
           break
         } catch (error) {
-          if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT'))
-            throw error
+          if (!isMissing(error)) throw error
           const parent = dirname(ancestor)
           if (parent === ancestor) throw new Error('unsafe-path')
           ancestor = parent
@@ -247,7 +250,7 @@ export class ArtifactFiles {
   }
 
   private async parent(fileId: string): Promise<string> {
-    if (!/^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/iu.test(fileId)) throw new Error('unsafe-path')
+    if (!UUID_RE.test(fileId)) throw new Error('unsafe-path')
     const root = await this.folder()
     const path = join(root, fileId)
     const info = await lstat(path)
@@ -277,7 +280,7 @@ export class ArtifactFiles {
     signal: AbortSignal
   ): Promise<PreparedArtifactFile> {
     assertArtifactFilename(filename)
-    if (!/^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/iu.test(fileId)) throw new Error('unsafe-path')
+    if (!UUID_RE.test(fileId)) throw new Error('unsafe-path')
     const root = await this.folder(true)
     const directory = join(root, fileId)
     await mkdir(directory)
@@ -295,8 +298,7 @@ export class ArtifactFiles {
           if (!ownedFile || !sameFile(currentFile, ownedFile)) throw new Error('unsafe-path')
           await unlink(path)
         } catch (error) {
-          if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT'))
-            throw error
+          if (!isMissing(error)) throw error
         }
       }
       await rmdir(directory)

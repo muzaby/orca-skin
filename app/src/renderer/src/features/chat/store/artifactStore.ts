@@ -173,46 +173,35 @@ export async function refreshArtifactStatuses(
   }
   for (let offset = 0; offset < unique.length; offset += 100) {
     const batch = unique.slice(offset, offset + 100)
+    // 실패한 배치는 결과 없이 io-error 로 정착한다 — 이전 lastTrashedAt 은 유지한다.
+    let results: Awaited<ReturnType<typeof artifactApi.status>> | undefined
     try {
-      const results = await artifactApi.status({
+      results = await artifactApi.status({
         sessionId,
         publicationIds: batch.map((ref) => ref.publicationId)
       })
-      if (useArtifactStore.getState().sessions[sessionId]?.lifetime !== entry.lifetime) {
-        abandon()
-        return
-      }
-      for (const ref of batch) {
-        const result = results.find(
-          (item) =>
-            item.publicationId === ref.publicationId && item.artifactFileId === ref.artifactFileId
-        )
-        updateFile(ref.artifactFileId, (file) =>
-          file.version !== versions.get(ref.artifactFileId)
-            ? file
-            : {
-                ...file,
-                checking: false,
-                availability: result?.availability ?? { state: 'unavailable', reason: 'io-error' },
-                lastTrashedAt: result?.lastTrashedAt
-              }
-        )
-      }
     } catch {
-      if (useArtifactStore.getState().sessions[sessionId]?.lifetime !== entry.lifetime) {
-        abandon()
-        return
-      }
-      for (const ref of batch)
-        updateFile(ref.artifactFileId, (file) =>
-          file.version !== versions.get(ref.artifactFileId)
-            ? file
-            : {
-                ...file,
-                checking: false,
-                availability: { state: 'unavailable', reason: 'io-error' }
-              }
-        )
+      results = undefined
+    }
+    if (useArtifactStore.getState().sessions[sessionId]?.lifetime !== entry.lifetime) {
+      abandon()
+      return
+    }
+    for (const ref of batch) {
+      const result = results?.find(
+        (item) =>
+          item.publicationId === ref.publicationId && item.artifactFileId === ref.artifactFileId
+      )
+      updateFile(ref.artifactFileId, (file) =>
+        file.version !== versions.get(ref.artifactFileId)
+          ? file
+          : {
+              ...file,
+              checking: false,
+              availability: result?.availability ?? { state: 'unavailable', reason: 'io-error' },
+              ...(results ? { lastTrashedAt: result?.lastTrashedAt } : {})
+            }
+      )
     }
   }
 }

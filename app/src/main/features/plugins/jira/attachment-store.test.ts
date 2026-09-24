@@ -12,7 +12,8 @@ import {
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createJiraAttachmentStore, sanitizeAttachmentFilename } from './attachment-store'
+import { sanitizeAttachmentFilename } from '../attachment-fs'
+import { createJiraAttachmentStore } from './attachment-store'
 import { prepareTemporaryFilesPath } from '../../../infra/config/temp-path'
 
 vi.mock('../../../infra/config/temp-path', () => ({ prepareTemporaryFilesPath: vi.fn() }))

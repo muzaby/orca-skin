@@ -147,6 +147,10 @@ export function settleStaleAsyncLaunchParts(parts: AppMessagePart[]): AppMessage
 }
 
 export type ToolRunOutcome = 'running' | 'completed' | 'failed' | NonExecutionOutcome
+
+export function isNonExecutionOutcome(outcome: ToolRunOutcome): outcome is NonExecutionOutcome {
+  return outcome !== 'running' && outcome !== 'completed' && outcome !== 'failed'
+}
 export type SubagentTaskStatus = ToolRunOutcome
 
 export interface SubagentTaskSummary {

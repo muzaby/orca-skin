@@ -11,6 +11,7 @@ import {
   type BackgroundTaskRecord
 } from '../../../../../../shared/background-task'
 import { canStopBackgroundTask } from '../../lib/backgroundPresentation'
+import { isAgentTaskName } from '../../lib/parts'
 import { BackgroundModelLabel } from './BackgroundModelLabel'
 import { BackgroundTaskGroup } from './BackgroundTaskGroup'
 import { InlineSubagentDetail } from '../transcript/InlineSubagentDetail'
@@ -242,7 +243,7 @@ export function BackgroundTaskCard({
       <div
         className={`mt-g1 pl-5 text-footnote ${display.status === 'failed' ? 'text-bad' : 'text-ink3'}`}
       >
-        {call?.toolName === 'Agent' || call?.toolName === 'Task' || task.subagentType ? (
+        {isAgentTaskName(call?.toolName ?? '') || task.subagentType ? (
           <BackgroundModelLabel
             toolUseId={call?.toolUseId ?? task.toolUseId}
             model={call?.model}
@@ -259,7 +260,7 @@ export function BackgroundTaskCard({
               : `background.${task.stop.state}`
             : DISPLAY_LABEL[display.status]
         )}
-        {elapsedSeconds !== undefined && ` · ${formatElapsed(elapsedSeconds)}`}
+        {` · ${formatElapsed(elapsedSeconds)}`}
         {mode && ` · ${tr(`background.${mode}`)}`}
         {task.ambient && ` · ${tr('background.ambient')}`}
         {terminal && task.liveMembership === 'included' && ` · ${tr('background.sync')}`}
@@ -347,7 +348,7 @@ function BackgroundCallCard({
       <div
         className={`mt-g1 pl-5 text-footnote ${display.status === 'failed' ? 'text-bad' : 'text-ink3'}`}
       >
-        {call.toolName === 'Agent' || call.toolName === 'Task' ? (
+        {isAgentTaskName(call.toolName ?? '') ? (
           <BackgroundModelLabel
             toolUseId={call.toolUseId}
             model={call.model}
@@ -387,7 +388,7 @@ function CanonicalBackgroundDetail({
       data-background-call-detail={call?.toolUseId}
     >
       {call ? (
-        call.toolName === 'Agent' || call.toolName === 'Task' ? (
+        isAgentTaskName(call.toolName ?? '') ? (
           <InlineSubagentDetail
             toolRunId={call.toolUseId}
             transcriptPolicy={transcriptPolicy}

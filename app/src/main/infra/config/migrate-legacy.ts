@@ -72,10 +72,6 @@ const DB_SUFFIXES = ['.db-wal', '.db-shm', '.db'] as const
 
 type Rename = (from: string, to: string) => void
 
-function hasCriticalFailure(report: MigrationReport): boolean {
-  return report.failed.some((failure) => failure.critical)
-}
-
 /** 실패 여부와 무관하게 항상 report 를 돌려준다 — 부팅 차단 판정은 호출자(§부팅 단계)가 한다. */
 export function migrateLegacyRoots(input: MigrateLegacyRootsInput): MigrationReport {
   const rename: Rename = input.rename ?? renameSync
@@ -99,7 +95,7 @@ export function migrateLegacyRoots(input: MigrateLegacyRootsInput): MigrationRep
 }
 
 export function migrationBlocksBoot(report: MigrationReport): boolean {
-  return hasCriticalFailure(report)
+  return report.failed.some((failure) => failure.critical)
 }
 
 // source 있고 target 없으면 이동. 그 밖은 전부 no-op 이라 재실행이 안전하다.

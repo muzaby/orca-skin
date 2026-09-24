@@ -7,10 +7,9 @@ import type {
   BackgroundTaskPatch,
   ProviderMessageEvent
 } from '../../shared/background-task'
-import { isRecord } from '../../shared/obj'
+import { asString, ifPresent, isRecord } from '../../shared/obj'
 
 type RecordValue = Record<string, unknown>
-const text = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined)
 const finite = (value: unknown): number | undefined =>
   typeof value === 'number' && Number.isFinite(value) ? value : undefined
 const bool = (value: unknown): boolean | undefined =>
@@ -45,7 +44,7 @@ export class ClaudeBackgroundMapper {
     | { source: BackgroundEventSource; events: (BackgroundEvent | ProviderMessageEvent)[] }
     | undefined {
     const msg = isRecord(raw) ? raw : {}
-    const uuid = text(msg.uuid)
+    const uuid = asString(msg.uuid)
     if (uuid) {
       const key = `${uuid}:${createHash('sha256').update(stable(raw)).digest('hex')}`
       if (this.seen.has(key)) return undefined
@@ -58,7 +57,7 @@ export class ClaudeBackgroundMapper {
       replay: msg.isReplay === true,
       ...(uuid ? { uuid } : {})
     }
-    const sessionId = text(msg.session_id) ?? fallbackSessionId
+    const sessionId = asString(msg.session_id) ?? fallbackSessionId
     const errors: string[] = []
     let events: BackgroundEvent[] = []
     try {
@@ -140,9 +139,7 @@ export class ClaudeBackgroundMapper {
             ...common,
             state: 'connected',
             ...this.identity,
-            ...(text(msg.claude_code_version) !== undefined
-              ? { cliVersion: text(msg.claude_code_version) }
-              : {})
+            ...ifPresent('cliVersion', asString(msg.claude_code_version))
           }
         ]
       if (msg.subtype === 'worker_shutting_down')
@@ -151,7 +148,7 @@ export class ClaudeBackgroundMapper {
             type: 'background.connection',
             ...common,
             state: 'disconnected',
-            ...(text(msg.reason) !== undefined ? { reason: text(msg.reason) } : {})
+            ...ifPresent('reason', asString(msg.reason))
           }
         ]
       if (msg.subtype === 'background_tasks_changed') {
@@ -167,8 +164,8 @@ export class ClaudeBackgroundMapper {
           return [
             present({
               taskId: entry.task_id,
-              taskType: text(entry.task_type),
-              description: text(entry.description),
+              taskType: asString(entry.task_type),
+              description: asString(entry.description),
               ambient: bool(entry.ambient)
             })
           ]
@@ -194,31 +191,31 @@ export class ClaudeBackgroundMapper {
           errors.push('patch must be an object')
           return []
         }
-        const id = text(msg.tool_use_id)
+        const id = asString(msg.tool_use_id)
         if (id) this.taskTools.set(msg.task_id, id)
         const toolUseId = id ?? this.taskTools.get(msg.task_id)
         const usage = isRecord(value.usage) ? value.usage : {}
         const patch: BackgroundTaskPatch = present({
-          taskType: text(value.task_type),
-          description: text(value.description),
-          status: text(value.status) ?? (phase === 'started' ? 'running' : undefined),
+          taskType: asString(value.task_type),
+          description: asString(value.description),
+          status: asString(value.status) ?? (phase === 'started' ? 'running' : undefined),
           isBackgrounded: bool(value.is_backgrounded),
           ambient: bool(value.ambient) ?? (value.skip_transcript === true ? true : undefined),
           spawnDepth: finite(value.spawn_depth),
-          subagentType: text(value.subagent_type),
+          subagentType: asString(value.subagent_type),
           endTime: finite(value.end_time),
           totalPausedMs: finite(value.total_paused_ms),
-          error: text(value.error),
-          summary: text(value.summary),
-          lastToolName: text(value.last_tool_name),
+          error: asString(value.error),
+          summary: asString(value.summary),
+          lastToolName: asString(value.last_tool_name),
           totalTokens: finite(usage.total_tokens),
           toolUses: finite(usage.tool_uses),
           durationMs: finite(usage.duration_ms),
           usage: value.usage,
-          outputFile: text(value.output_file),
+          outputFile: asString(value.output_file),
           resourceLinks: value.resource_links,
-          parentToolUseId: text(value.parent_tool_use_id),
-          parentAgentId: text(value.parent_agent_id)
+          parentToolUseId: asString(value.parent_tool_use_id),
+          parentAgentId: asString(value.parent_agent_id)
         })
         for (const [key, item] of Object.entries(value)) {
           if (
@@ -244,13 +241,13 @@ export class ClaudeBackgroundMapper {
       }
     }
     if (msg.type === 'tool_progress') {
-      const toolUseId = text(msg.tool_use_id)
+      const toolUseId = asString(msg.tool_use_id)
       if (!toolUseId) {
         errors.push('tool_use_id must be a string')
         return []
       }
       const patch: BackgroundCallPatch = present({
-        taskId: text(msg.task_id),
+        taskId: asString(msg.task_id),
         heartbeat: bool(msg.heartbeat),
         elapsedTimeSeconds: finite(msg.elapsed_time_seconds),
         ...(msg.subagent_retry !== undefined
@@ -265,8 +262,8 @@ export class ClaudeBackgroundMapper {
           ...common,
           toolUseId,
           ...present({
-            toolName: text(msg.tool_name),
-            parentToolUseId: text(msg.parent_tool_use_id)
+            toolName: asString(msg.tool_name),
+            parentToolUseId: asString(msg.parent_tool_use_id)
           }),
           phase: 'progress',
           patch
@@ -280,12 +277,12 @@ export class ClaudeBackgroundMapper {
         errors.push('message.content must be a string or array')
       return []
     }
-    const parentToolUseId = text(msg.parent_tool_use_id)
+    const parentToolUseId = asString(msg.parent_tool_use_id)
     const resultCount = message.content.filter(
       (p) => isRecord(p) && p.type === 'tool_result'
     ).length
     const out: BackgroundEvent[] = []
-    const model = text(message.model)
+    const model = asString(message.model)
     if (msg.type === 'assistant' && parentToolUseId && model) {
       out.push({
         type: 'background.call',
@@ -359,8 +356,8 @@ export class ClaudeBackgroundMapper {
       Object.assign(
         patch,
         present({
-          agentId: text(value.agentId),
-          status: text(value.status),
+          agentId: asString(value.agentId),
+          status: asString(value.status),
           mode:
             value.status === 'async_launched'
               ? 'background'
@@ -369,9 +366,9 @@ export class ClaudeBackgroundMapper {
                 : value.status === 'completed'
                   ? 'foreground'
                   : undefined,
-          taskId: value.status === 'remote_launched' ? text(value.taskId) : undefined,
+          taskId: value.status === 'remote_launched' ? asString(value.taskId) : undefined,
           canReadOutputFile: bool(value.canReadOutputFile),
-          outputFile: text(value.outputFile),
+          outputFile: asString(value.outputFile),
           usage: value.usage
         })
       )
@@ -380,7 +377,7 @@ export class ClaudeBackgroundMapper {
       Object.assign(
         patch,
         present({
-          taskId: text(value.backgroundTaskId),
+          taskId: asString(value.backgroundTaskId),
           mode: typeof value.backgroundTaskId === 'string' ? 'background' : undefined,
           status:
             value.interrupted === true
@@ -397,7 +394,7 @@ export class ClaudeBackgroundMapper {
       Object.assign(
         patch,
         present({
-          taskId: text(value.taskId),
+          taskId: asString(value.taskId),
           mode: typeof value.taskId === 'string' ? 'background' : undefined
         })
       )
@@ -405,9 +402,9 @@ export class ClaudeBackgroundMapper {
       Object.assign(
         patch,
         present({
-          taskId: text(value.taskId),
-          runId: text(value.runId),
-          status: typeof value.error === 'string' ? 'failed' : text(value.status),
+          taskId: asString(value.taskId),
+          runId: asString(value.runId),
+          status: typeof value.error === 'string' ? 'failed' : asString(value.status),
           mode:
             typeof value.error === 'string'
               ? undefined
@@ -416,7 +413,7 @@ export class ClaudeBackgroundMapper {
                 : value.status === 'async_launched'
                   ? 'background'
                   : undefined,
-          summary: text(value.summary)
+          summary: asString(value.summary)
         })
       )
       fields = ['transcriptDir']

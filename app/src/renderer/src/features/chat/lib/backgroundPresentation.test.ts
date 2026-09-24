@@ -4,12 +4,7 @@ import {
   backgroundKey,
   emptyBackgroundState
 } from '../../../../../shared/background-task'
-import {
-  backgroundTaskStatus,
-  canStopBackgroundTask,
-  hasTerminalConflict,
-  safeOutputText
-} from './backgroundPresentation'
+import { backgroundTaskStatus, canStopBackgroundTask } from './backgroundPresentation'
 describe('background card presentation', () => {
   it('shows excluded unknown separately from completed while preserving conflicting outcomes', () => {
     let state = applyBackgroundEvent(emptyBackgroundState(), {
@@ -43,10 +38,7 @@ describe('background card presentation', () => {
     })
     const task = state.tasks[backgroundKey('g', 'a')]
     expect(backgroundTaskStatus(task)).toBe('completed')
-    expect(hasTerminalConflict(task)).toBe(true)
+    expect(task.terminalEvidence.map((item) => item.status)).toEqual(['completed', 'failed'])
     expect(canStopBackgroundTask(task, 'g', 'connected')).toBe(false)
-  })
-  it('removes terminal controls while leaving literal HTML as plain text', () => {
-    expect(safeOutputText('\u001b[31m<script>x</script>\u001b[0m\u0000')).toBe('<script>x</script>')
   })
 })

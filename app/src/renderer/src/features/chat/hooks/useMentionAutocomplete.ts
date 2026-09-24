@@ -36,13 +36,11 @@ export function useMentionAutocomplete(
   const token = useMemo(() => parseMentionToken(text, caret), [text, caret])
   const [providers, setProviders] = useState<ProviderInfo[]>([])
   const [entriesByDir, setEntriesByDir] = useState<Map<string, FileEntry[]>>(new Map())
-  const [validFilePaths, setValidFilePaths] = useState<ReadonlySet<string>>(() => new Set())
   const [cachedCwd, setCachedCwd] = useState(cwd)
 
   if (cwd !== cachedCwd) {
     setCachedCwd(cwd)
     setEntriesByDir(new Map())
-    setValidFilePaths(new Set())
   }
 
   useEffect(() => {
@@ -64,6 +62,17 @@ export function useMentionAutocomplete(
     }
   }, [active])
 
+  // 탐색한 디렉토리 항목의 합집합 — 입력 하이라이트가 실재 파일 토큰만 인정하는 근거다.
+  const validFilePaths = useMemo<ReadonlySet<string>>(() => {
+    const paths = new Set<string>()
+    for (const [dir, entries] of entriesByDir)
+      for (const entry of entries) {
+        const full = dir === '' ? entry.name : `${dir}/${entry.name}`
+        paths.add(entry.isDirectory ? `${full}/` : full)
+      }
+    return paths
+  }, [entriesByDir])
+
   const queryDir = token?.dirPath ?? null
   useEffect(() => {
     if (!active || !cwd || queryDir === null || entriesByDir.has(queryDir)) return
@@ -77,18 +86,6 @@ export function useMentionAutocomplete(
           const next = new Map(previous)
           next.set(dir, entries)
           return next
-        })
-        setValidFilePaths((previous) => {
-          let next: Set<string> | null = null
-          for (const entry of entries) {
-            const full = dir === '' ? entry.name : `${dir}/${entry.name}`
-            const value = entry.isDirectory ? `${full}/` : full
-            if (!previous.has(value)) {
-              next ??= new Set(previous)
-              next.add(value)
-            }
-          }
-          return next ?? previous
         })
       })
       .catch(() => {
