@@ -49,7 +49,7 @@
 | D-011 | checkout 성공 결과에 전환 후 `status`를 싣는다. renderer는 재조회하지 않는다 | 재조회 왕복과 그 사이 경합 구간을 없앤다 | 설계 | ACTIVE | — |
 | D-012 | `GitDiffSummary.uncommitted` 필드를 삭제한다 | 항상 빈 값이고 renderer 소비처 0건이다(0211 §18 I-06) | 설계 | ACTIVE | — |
 | D-013 | `ifRevision`/`unchanged` 응답은 도입하지 않는다 | main 캐시로 실행 비용은 이미 닫힌다. renderer에 이전 요약 보존 규칙을 늘리지 않는다(D-003 유지보수) | 설계 | ACTIVE | — |
-| D-014 | 읽기용 diff·log에 `--no-ext-diff --no-textconv`를 붙인다 | 캐시 결정성 확보 + 저장소 config가 지정한 외부 프로그램의 실행 차단(D-003). textconv 사용자의 diff 표시는 원본 기준이 된다 | 설계 | ACTIVE | — |
+| D-014 | 읽기용 diff·log에 `--no-ext-diff --no-textconv`를 붙인다 | 캐시 결정성 확보 + 저장소 config가 지정한 외부 프로그램의 실행 차단(D-003). textconv 사용자의 diff 표시는 원본 기준이 된다 | 설계 → 사용자 수용(턴 4 "1. 수용함") | ACTIVE | — |
 | D-015 | 쓰기(checkout 해소 3종·checkout·worktree add/remove·branch -d·worktree repair)는 `gateway.mutate`를 거친다. 읽기 전용 env를 싣지 않고, 끝나면 세대를 +1 한다 | 지금은 해소 3종이 읽기 전용 env로 실행된다(`git-cli.ts:34`) | 설계 | ACTIVE | — |
 | D-016 | 읽기는 전역 동시 실행 상한 4를 둔다. 쓰기는 상한 밖이다 | 여러 세션이 동시에 턴을 끝낼 때의 폭주를 흡수한다. 사용자 작업(쓰기)은 지연시키지 않는다 | 설계 | ACTIVE | — |
 | D-017 | in-flight 중복 제거는 **진행 중인 실행만** 공유하고 완료 결과는 보관하지 않는다. 키에 세대를 넣는다 | 완료 결과를 보관하는 것은 D-005 위반이다 | 설계 | ACTIVE | — |
@@ -59,9 +59,9 @@
 
 ### 갱신 메모
 
-- 이번 턴에서 새로 추가된 결정: D-001~D-020 (신규 handoff).
+- 이번 턴에서 새로 추가된 결정: D-001~D-020 (신규 handoff). 턴 4: D-014 사용자 수용("1. 수용함") — 결정 내용 불변, 출처만 갱신.
 - 변경된 결정: 없음.
-- 사용자 확인 권장: D-014는 textconv를 쓰는 사용자의 diff 표시를 바꾼다. D-003에서 파생해 ACTIVE로 두었고, 사용자가 반대하면 SUPERSEDED로 처리한다.
+- 사용자 확인: D-014(textconv 표시 변경)를 턴 4에서 사용자가 수용했다.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-005↔AC1·AC3(매 요청 probe 1회 단언), D-007↔AC8, D-008↔AC11·AC12, D-014↔AC10, D-017↔AC13, D-018↔AC20·AC24(순서·사유 불변)를 대조했다.
 
 ## 4. 요구 비판적 검토
@@ -74,7 +74,7 @@
 | 선행 자료를 코드와 대조했는가 | 대조함. 턴 1 진단의 "Windows 런처 2배"는 미실측이라 D-009로 범위에서 뺐다 | — |
 | ACTIVE·기존 결정과 충돌하는가 | 0211 D-063("좌표만 캐시")과 충돌하지 않는다. TO-BE는 좌표 캐시조차 없앤다 | `git-diff.ts:188` 주석 |
 
-- 사용자에게 올릴 결정: 없음(D-014는 갱신 메모에 사용자 확인 권장으로 표기).
+- 사용자에게 올릴 결정: 없음(D-014는 턴 4에서 사용자 수용).
 - 코드 조사로 닫은 사실: §8.
 
 ## 5. 동작 / 사용자 흐름
@@ -482,7 +482,7 @@ gateway/probe → gitSnapshot → IPC GitSnapshotResult → useGitSnapshot → c
 | probe 한 호출의 출력 순서 가정 | 7케이스 실저장소 테스트(VP-14). 실패 시 좌표 재질의 폴백 |
 | 오래된 git이 인자 조합을 거부 | 거부는 실패로 나타나고 폴백 경로(좌표 4개 + symbolic-ref)가 받는다 |
 | PATH 절대 항목 제한으로 git을 못 찾는 환경 | 상대 PATH 항목에만 git이 있는 환경은 지금 cwd에 따라 다른 git을 실행하는 상태라 안전하지 않다. 못 찾으면 `unavailable`로 드러난다 |
-| textconv 표시 변경 | D-014, 사용자 확인 권장 |
+| textconv 표시 변경 | D-014, 사용자 수용(턴 4) |
 
 - 되돌리기 어려운 결정: IPC 채널 이름 `orca:git:snapshot`(D-010).
 - 신규 의존성: 없음.
