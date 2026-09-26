@@ -962,6 +962,8 @@ export function rangeArgs(range: DiffRange): { diff: [string, string]; log: stri
 | R21 | `runner.test.ts` "passes git arguments without a shell and preserves the Git environment contract" | **실행 파일 기대·seam 교체** | resolver가 돌려준 절대 경로를 `execFileImpl`의 첫 인자로 단언한다(AC11·AC12, D-008). 기존 인자·env·shell 부재 단언은 보존한다. |
 | R22 | `prepare-worktree.test.ts:33·65` 신규 비격리·resume 케이스 및 공통 mock | **seam 교체** | `resolveHead`·`resolveHeadRef` mock을 probe 하나로 바꾼다(AC20). baseline·ref·실패 시 null 결과는 보존하고, 신규 세션은 cwd별 probe 1회·resume은 0회를 단언한다. |
 | R23 | `reject-reasons.test.ts:95` "저장소 밖 하위 경로는 invalid-path 다" | **seam 교체** | root를 반환하는 `resolveRepoRoot` spy를 같은 root의 probe 응답으로 바꾼다. 기존 `invalid-path` 사유 단언을 보존한다(AC20). |
+| R24 | `git-diff.test.ts` "커밋이 하나도 없는 저장소는 base 가 none 이다" | **내부 타입 기대 갱신** | ΔV2의 판별 유니온으로 `{kind:'cumulative', base:{kind:'none'}, headOid:null}`을 정확 비교한다. 커밋이 없는 저장소의 범위 없음 동작은 그대로다(VP-21·AC6). |
+| R25 | `features/worktrees/ipc-integration.test.ts:138` 실행기 호출 술어의 양성 검사 | **양성 표본 위치 갱신** | `git-cli.ts`의 직접 `runGit` 호출이 `gateway.ts`로 이동한다(D-009). CALL_AXIS·feature 전수 음성 단언은 유지하고 실제 호출 양성 표본을 `gateway.ts`로 바꾼다(VP-12). |
 
 ### 23.7 ΔV2 READY self-review
 
@@ -982,3 +984,5 @@ export function rangeArgs(range: DiffRange): { diff: [string, string]; log: stri
 사용자 지시 "커밋&push 후 handoff-impl 시작"에 따라 비차단 self-review 문구를 정정하고 Codex가 구현을 맡는다. 유효 V는 `V1 + ΔV1 + ΔV2`이며, 규범 계약과 라운드 1은 유지한다.
 
 착수 전 테스트 seam 대조에서 AC11의 절대 경로와 `runner.test.ts`의 bare `git` 기대, AC20의 probe 통합과 기존 준비 경로 mock 사이의 변경 대상을 추가로 확인했다. 기능 계약을 바꾸지 않고 처분 표 R21~R23만 보완하며, 이 정정은 구현과 별도 설계 커밋으로 기록한다.
+
+backend 회귀 실행에서 ΔV2 내부 범위 타입의 정확 비교와 실행기 호출 술어의 양성 표본을 추가로 확인했다. R24~R25는 기존 동작·검사 강도를 유지하는 대상 갱신이며 별도 설계 커밋으로 기록한다.
