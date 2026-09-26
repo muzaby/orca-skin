@@ -959,6 +959,9 @@ export function rangeArgs(range: DiffRange): { diff: [string, string]; log: stri
 | R18 | `BranchChip.defer.test.ts:12` 모의 `checkout` 반환 | **픽스처 수정** | 반환에 `status` 추가. `:61`·`:73` 단언(호출 여부)은 불변 |
 | R19 | `queue-entry.test.ts:130` "gitCheckout" | **보존** | `result.ok`·브랜치만 단언하고, 큐 점유 중 checkout이 기다리는지 본다. `gateway.mutate`가 같은 `withRepoMutation` 키를 쓰는지의 회귀 증거다 |
 | R20 | `git-diff-commit.test.ts:49·71·80` | **보존** | VP-03R 회귀 증거. 수정되면 AC24 ① 위반 |
+| R21 | `runner.test.ts` "passes git arguments without a shell and preserves the Git environment contract" | **실행 파일 기대·seam 교체** | resolver가 돌려준 절대 경로를 `execFileImpl`의 첫 인자로 단언한다(AC11·AC12, D-008). 기존 인자·env·shell 부재 단언은 보존한다. |
+| R22 | `prepare-worktree.test.ts:33·65` 신규 비격리·resume 케이스 및 공통 mock | **seam 교체** | `resolveHead`·`resolveHeadRef` mock을 probe 하나로 바꾼다(AC20). baseline·ref·실패 시 null 결과는 보존하고, 신규 세션은 cwd별 probe 1회·resume은 0회를 단언한다. |
+| R23 | `reject-reasons.test.ts:95` "저장소 밖 하위 경로는 invalid-path 다" | **seam 교체** | root를 반환하는 `resolveRepoRoot` spy를 같은 root의 probe 응답으로 바꾼다. 기존 `invalid-path` 사유 단언을 보존한다(AC20). |
 
 ### 23.7 ΔV2 READY self-review
 
@@ -977,3 +980,5 @@ export function rangeArgs(range: DiffRange): { diff: [string, string]; log: stri
 ### 23.8 구현 착수 지시 — 2026-09-26
 
 사용자 지시 "커밋&push 후 handoff-impl 시작"에 따라 비차단 self-review 문구를 정정하고 Codex가 구현을 맡는다. 유효 V는 `V1 + ΔV1 + ΔV2`이며, 규범 계약과 라운드 1은 유지한다.
+
+착수 전 테스트 seam 대조에서 AC11의 절대 경로와 `runner.test.ts`의 bare `git` 기대, AC20의 probe 통합과 기존 준비 경로 mock 사이의 변경 대상을 추가로 확인했다. 기능 계약을 바꾸지 않고 처분 표 R21~R23만 보완하며, 이 정정은 구현과 별도 설계 커밋으로 기록한다.
