@@ -1,4 +1,5 @@
 import { execFile, type ExecFileException } from 'node:child_process'
+import { gitExecutable } from './git-executable'
 
 export interface GitRunResult {
   ok: boolean
@@ -6,6 +7,7 @@ export interface GitRunResult {
   stderr: string
   code: number | null
   aborted: boolean
+  unavailable?: true
 }
 
 export interface GitRunOptions {
@@ -14,13 +16,24 @@ export interface GitRunOptions {
   timeoutMs?: number
   maxBuffer?: number
   execFileImpl?: typeof execFile
+  resolveExecutable?: () => Promise<string | null>
 }
 
-export function runGit(
+export async function runGit(
   cwd: string,
   args: string[],
   options: GitRunOptions = {}
 ): Promise<GitRunResult> {
+  const executable = await (options.resolveExecutable ?? gitExecutable)()
+  if (!executable)
+    return {
+      ok: false,
+      stdout: '',
+      stderr: 'Git executable not found',
+      code: null,
+      aborted: false,
+      unavailable: true
+    }
   return new Promise((resolve) => {
     const env = {
       ...process.env,
@@ -29,7 +42,7 @@ export function runGit(
     }
     const exec = options.execFileImpl ?? execFile
     exec(
-      'git',
+      executable,
       args,
       {
         cwd,

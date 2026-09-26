@@ -131,10 +131,10 @@ describe('feature 는 git 명령을 직접 만들지 않는다 (EP-04)', () => {
 
   it('그 술어가 실제로 두 축을 본다 — 눈이 없는 0건은 전수의 증거가 아니다', () => {
     // 축마다 실제로 그것을 하는 파일에서 참을 본다. `runner.ts` 가 프로세스를 열고,
-    // `git-cli.ts` 는 그 실행기를 부른다. 한 축이 눈이 멀면 여기서 드러난다.
+    // `gateway.ts` 는 그 실행기를 부른다. 한 축이 눈이 멀면 여기서 드러난다.
     expect(offends(join(infraGit, 'runner.ts'))).toBe(true)
     expect(
-      CALL_AXIS.test(stripCommentsAndStrings(readFileSync(join(infraGit, 'git-cli.ts'), 'utf8')))
+      CALL_AXIS.test(stripCommentsAndStrings(readFileSync(join(infraGit, 'gateway.ts'), 'utf8')))
     ).toBe(true)
     // 주석 속 `spawn(resume)` 같은 산문은 호출이 아니다 — 그것까지 세면 분모가 오염된다.
     expect(CALL_AXIS.test(stripCommentsAndStrings('// spawn( 예정'))).toBe(false)

@@ -41,12 +41,7 @@ const summary: GitDiffSummary = {
     }
   ],
   commitsTruncated: false,
-  commitFilesUnavailable: false,
-  uncommitted: {
-    files: [entry('b.ts', 5, 0)],
-    totals: { added: 5, removed: 0 },
-    filesTruncated: false
-  }
+  commitFilesUnavailable: false
 }
 
 describe('diffSections', () => {

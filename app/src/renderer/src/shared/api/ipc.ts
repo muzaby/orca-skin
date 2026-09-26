@@ -47,8 +47,8 @@ import type {
   GitCheckoutResult,
   GitDiffPatch,
   GitDiffPatchRequest,
-  GitDiffRequest,
-  GitDiffSummary,
+  GitSnapshotRequest,
+  GitSnapshotResult,
   GitStatus,
   PickedAttachment,
   OpenPathRequest,
@@ -180,10 +180,11 @@ export const fileApi = {
 }
 
 export const gitApi = {
-  status: (cwd: string): Promise<GitStatus> => window.orca.git.status(cwd),
+  status: async (cwd: string): Promise<GitStatus> =>
+    (await window.orca.git.snapshot({ cwd, includeSummary: false })).status,
+  snapshot: (req: GitSnapshotRequest): Promise<GitSnapshotResult> => window.orca.git.snapshot(req),
   branches: (cwd: string): Promise<GitBranchList> => window.orca.git.branches(cwd),
   checkout: (req: GitCheckoutRequest): Promise<GitCheckoutResult> => window.orca.git.checkout(req),
-  diffSummary: (req: GitDiffRequest): Promise<GitDiffSummary> => window.orca.git.diffSummary(req),
   diffPatch: (req: GitDiffPatchRequest): Promise<GitDiffPatch> => window.orca.git.diffPatch(req)
 }
 

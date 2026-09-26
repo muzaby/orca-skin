@@ -3,14 +3,8 @@ import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
 import type { PrepareWorktreeResult } from '../../features/worktrees/service'
 import { prepareTurnExecution, prepareTurnWorktree } from './prepare-worktree'
 
-const { resolveHeadMock, resolveHeadRefMock } = vi.hoisted(() => ({
-  resolveHeadMock: vi.fn(),
-  resolveHeadRefMock: vi.fn()
-}))
-vi.mock('../../infra/git/repository', () => ({
-  resolveHead: resolveHeadMock,
-  resolveHeadRef: resolveHeadRefMock
-}))
+const { probeMock } = vi.hoisted(() => ({ probeMock: vi.fn() }))
+vi.mock('../../infra/git/probe', () => ({ probeRepo: probeMock }))
 
 const adapter = { complete: vi.fn() }
 const signal = new AbortController().signal
@@ -24,18 +18,23 @@ describe('prepareTurnWorktree', () => {
   }
 
   beforeEach(() => {
-    resolveHeadMock.mockReset()
-    resolveHeadMock.mockResolvedValue(null)
-    resolveHeadRefMock.mockReset()
-    resolveHeadRefMock.mockResolvedValue(null)
+    probeMock.mockReset()
+    probeMock.mockResolvedValue({ kind: 'not-repo' })
   })
 
   it('새 비격리 세션은 현재 HEAD를 birth baseline으로 한 번 읽고, Git 실패는 null로 접는다', async () => {
     const worktrees = { prepare: vi.fn(), recoverMissingWorktree: vi.fn() }
-    resolveHeadMock.mockResolvedValueOnce('b'.repeat(40)).mockResolvedValueOnce(null)
+    probeMock
+      .mockResolvedValueOnce({
+        kind: 'repo',
+        root: '/repo',
+        gitDir: '/repo/.git',
+        commonDir: '/repo/.git',
+        head: { kind: 'branch', name: 'main', oid: 'b'.repeat(40) }
+      })
+      .mockResolvedValueOnce({ kind: 'not-repo' })
     // 0211 ΔV4 — 커밋과 이름을 **같은 시점에** 읽는다(D-070). 이름만 뒤늦게 읽으면 그 사이
     // 사용자가 브랜치를 바꿨을 때 라벨이 다른 시점을 말한다.
-    resolveHeadRefMock.mockResolvedValueOnce('main').mockResolvedValueOnce(null)
     const common = {
       enabled: false,
       sourceCwd: '/repo',
@@ -58,8 +57,8 @@ describe('prepareTurnWorktree', () => {
       kind: 'passthrough',
       sessionBaseline: null
     })
-    expect(resolveHeadMock).toHaveBeenNthCalledWith(1, '/repo')
-    expect(resolveHeadMock).toHaveBeenNthCalledWith(2, '/not-a-repo')
+    expect(probeMock).toHaveBeenNthCalledWith(1, '/repo')
+    expect(probeMock).toHaveBeenNthCalledWith(2, '/not-a-repo')
   })
 
   it('resume은 baseline을 다시 읽지 않는다', async () => {
@@ -79,7 +78,7 @@ describe('prepareTurnWorktree', () => {
       })
     ).resolves.toMatchObject({ kind: 'passthrough', sessionBaseline: null })
 
-    expect(resolveHeadMock).not.toHaveBeenCalled()
+    expect(probeMock).not.toHaveBeenCalled()
   })
 
   it('격리를 끈 요청과 worktree 가 살아 있는 재개 세션은 원래 cwd를 그대로 통과시킨다 (AC19)', async () => {

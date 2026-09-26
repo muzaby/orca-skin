@@ -340,6 +340,8 @@ export const GitDiffRequestSchema = z.object({
   sessionId: z.string().min(1).optional()
 })
 
+export const GitSnapshotRequestSchema = GitDiffRequestSchema.extend({ includeSummary: z.boolean() })
+
 // 브랜치 이름·옵션·축약 SHA를 받지 않는다. 선택 목록이 제공한 완전한 커밋 OID만 허용한다.
 export const GitCommitOidSchema = z.string().regex(/^[0-9a-f]{40}$/i)
 export const GitDiffPatchRequestSchema = GitDiffRequestSchema.extend({
@@ -795,6 +797,8 @@ export type {
   GitDiffFileEntry,
   GitDiffCommit,
   GitDiffSummary,
+  GitSnapshotRequest,
+  GitSnapshotResult,
   GitDiffPatch,
   GitDiffPatchFile,
   GitDiffPatchLine,

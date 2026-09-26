@@ -4,15 +4,9 @@ import { basename, dirname, relative, resolve } from 'node:path'
 import type { WorktreeDisplay, WorktreePrepareStep } from '../../../shared/ipc'
 import type { DbQueries } from '../../infra/db'
 import { isWithinDir } from '../../infra/config/paths'
-import {
-  canonicalPath,
-  gitAvailable,
-  isClean,
-  resolveBranchOid,
-  resolveHead,
-  resolveHeadRef,
-  resolveRepoRoot
-} from '../../infra/git/repository'
+import { canonicalPath, isClean, resolveBranchOid, resolveHead } from '../../infra/git/repository'
+import { probeRepo } from '../../infra/git/probe'
+import { gitGateway, type GitGateway } from '../../infra/git/gateway'
 import { addWorktree, deleteBranch, listWorktrees, removeWorktree } from '../../infra/git/worktree'
 import { branchDirSegment, chooseBranchName, repoDirSegment } from './naming'
 
@@ -79,7 +73,8 @@ export class WorktreeService {
   constructor(
     private readonly db: DbQueries,
     private readonly rootDir: string,
-    private readonly operations: WorktreeOperations = defaultWorktreeOperations
+    private readonly operations: WorktreeOperations = defaultWorktreeOperations,
+    private readonly gateway: GitGateway = gitGateway
   ) {}
 
   async prepare(input: {
@@ -98,15 +93,16 @@ export class WorktreeService {
     const sourceCwd = await canonicalPath(input.sourceCwd).catch(() => null)
     if (!sourceCwd)
       return { kind: 'rejected', reason: 'invalid-path', message: '작업 경로를 찾을 수 없습니다.' }
-    const repoRoot = await resolveRepoRoot(sourceCwd)
-    if (!repoRoot)
-      return (await gitAvailable(sourceCwd))
+    const probe = await probeRepo(sourceCwd, this.gateway)
+    if (probe.kind !== 'repo')
+      return probe.kind === 'not-repo'
         ? { kind: 'rejected', reason: 'not-repo', message: 'Git 저장소가 아닙니다.' }
         : {
             kind: 'rejected',
             reason: 'git-unavailable',
             message: 'Git 을 실행하지 못했습니다.'
           }
+    const repoRoot = probe.root
     const subpath = relative(repoRoot, sourceCwd)
     if (subpath.startsWith('..'))
       return { kind: 'rejected', reason: 'invalid-path', message: '저장소 밖의 작업 경로입니다.' }
@@ -116,11 +112,13 @@ export class WorktreeService {
     // 0211 ΔV4 — 이름도 **같은 자리에서** 결정한다(D-072). 유예 브랜치가 있으면 그 이름이 곧
     // 기준 브랜치이고, 없으면 지금 체크아웃된 브랜치다. 이름을 나중에 다시 읽으면 그 사이
     // 사용자가 브랜치를 바꿨을 때 커밋과 이름이 서로 다른 시점을 가리킨다.
-    // 두 읽기는 서로 독립이라 나란히 돈다 — 직렬로 두면 사용자가 스피너를 보는 시간이
-    // spawn 한 번만큼 늘고, 두 값 사이의 시간차(위 D-072 가 좁히려는 그 창)도 넓어진다.
+    // 유예 브랜치가 없으면 앞서 읽은 probe의 커밋과 이름을 함께 쓴다.
     const [baseRef, baseOid] = input.baseRef
-      ? ([input.baseRef, await resolveBranchOid(sourceCwd, input.baseRef)] as const)
-      : await Promise.all([resolveHeadRef(sourceCwd), resolveHead(sourceCwd)])
+      ? ([input.baseRef, await resolveBranchOid(sourceCwd, input.baseRef, this.gateway)] as const)
+      : [
+          probe.head.kind === 'detached' ? null : probe.head.name,
+          probe.head.kind === 'unborn' ? null : probe.head.oid
+        ]
     if (!baseOid)
       return {
         kind: 'rejected',
@@ -133,6 +131,7 @@ export class WorktreeService {
     const worktreeId = randomUUID()
     const repoSegment = repoDirSegment(repoRoot)
     const branch = await chooseBranchName({
+      gateway: this.gateway,
       repoRoot,
       worktreeId,
       firstPrompt: input.firstPrompt,
@@ -144,15 +143,18 @@ export class WorktreeService {
     input.onProgress?.('worktree')
     const worktreeRoot = resolve(this.rootDir, repoSegment, branchDirSegment(branch))
     await mkdir(dirname(worktreeRoot), { recursive: true })
-    const added = await this.operations.add({
-      repoRoot,
-      path: worktreeRoot,
-      branch,
-      base: baseOid,
-      ...(input.signal ? { signal: input.signal } : {})
-    })
+    const added = await this.operations.add(
+      {
+        repoRoot,
+        path: worktreeRoot,
+        branch,
+        base: baseOid,
+        ...(input.signal ? { signal: input.signal } : {})
+      },
+      this.gateway
+    )
     if (!added.ok) {
-      const entries = await this.operations.list(repoRoot)
+      const entries = await this.operations.list(repoRoot, this.gateway)
       const canonicalParent = await realpath(dirname(worktreeRoot)).catch(() => null)
       const canonicalCandidate = canonicalParent
         ? resolve(canonicalParent, basename(worktreeRoot))
@@ -207,8 +209,14 @@ export class WorktreeService {
     removePath?: string
   }): Promise<void> {
     if (input.removePath)
-      await this.operations.remove({ repoRoot: input.repoRoot, path: input.removePath })
-    await this.operations.deleteBranch({ repoRoot: input.repoRoot, branch: input.branch })
+      await this.operations.remove(
+        { repoRoot: input.repoRoot, path: input.removePath },
+        this.gateway
+      )
+    await this.operations.deleteBranch(
+      { repoRoot: input.repoRoot, branch: input.branch },
+      this.gateway
+    )
     await rm(input.worktreeRoot, { recursive: true, force: true }).catch(() => undefined)
     await rmdir(dirname(input.worktreeRoot)).catch(() => undefined)
   }
@@ -244,7 +252,7 @@ export class WorktreeService {
   async removeForSession(sessionId: string): Promise<DeleteManagedWorktreeResult> {
     const row = this.db.getManagedWorktreeBySession(sessionId)
     if (!row) return { ok: true }
-    const clean = await isClean(row.worktree_root)
+    const clean = await isClean(row.worktree_root, this.gateway)
     if (clean == null)
       return {
         ok: false,
@@ -257,7 +265,7 @@ export class WorktreeService {
         reason: 'worktree-dirty',
         message: 'Worktree에 커밋되지 않은 변경이 있어 세션을 삭제하지 않았습니다.'
       }
-    const head = await resolveHead(row.worktree_root)
+    const head = await resolveHead(row.worktree_root, this.gateway)
     if (!head)
       return {
         ok: false,
@@ -270,17 +278,23 @@ export class WorktreeService {
         reason: 'worktree-has-commits',
         message: 'Worktree에 새 커밋이 있어 세션을 삭제하지 않았습니다.'
       }
-    const removed = await this.operations.remove({
-      repoRoot: row.repo_root,
-      path: row.worktree_root
-    })
+    const removed = await this.operations.remove(
+      {
+        repoRoot: row.repo_root,
+        path: row.worktree_root
+      },
+      this.gateway
+    )
     if (!removed.ok)
       return {
         ok: false,
         reason: 'worktree-remove-failed',
         message: 'Worktree를 안전하게 제거하지 못해 세션을 보존했습니다.'
       }
-    await this.operations.deleteBranch({ repoRoot: row.repo_root, branch: row.branch })
+    await this.operations.deleteBranch(
+      { repoRoot: row.repo_root, branch: row.branch },
+      this.gateway
+    )
     this.db.deleteManagedWorktree(row.id)
     return { ok: true }
   }

@@ -22,7 +22,7 @@ import { join, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const RENDERER_SRC = join(__dirname, '..', '..', '..', '..')
-const QUERY_CALL = /gitApi\s*\.\s*(status|diffSummary|diffPatch)\s*\(/g
+const QUERY_CALL = /gitApi\s*\.\s*(status|snapshot|diffSummary|diffPatch)\s*\(/g
 
 async function tsFiles(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true })
@@ -70,11 +70,11 @@ describe('git 조회 소유자 (EP-13 · EP-18 · EP-19)', () => {
       [...new Set(owned.filter((pair) => pair.api === api).map((pair) => pair.file))].sort()
 
     // 양성 짝 — 세 조회가 **실제로** 분모에 잡혀야 스윕이 눈을 가진 것이다.
-    expect(ownersOf('status')).toHaveLength(2)
-    expect(ownersOf('status').some((file) => file.endsWith(SUMMARY_OWNER))).toBe(true)
+    expect(ownersOf('status')).toHaveLength(1)
+    expect(ownersOf('diffSummary')).toEqual([])
     expect(ownersOf('status').some((file) => file.endsWith(IDENTITY_OWNER))).toBe(true)
-    expect(ownersOf('diffSummary')).toHaveLength(1)
-    expect(ownersOf('diffSummary')[0]).toMatch(new RegExp(`${SUMMARY_OWNER}$`))
+    expect(ownersOf('snapshot')).toHaveLength(1)
+    expect(ownersOf('snapshot')[0]).toMatch(new RegExp(`${SUMMARY_OWNER}$`))
     expect(ownersOf('diffPatch')).toHaveLength(1)
     expect(ownersOf('diffPatch')[0]).toMatch(new RegExp(`${BODY_OWNER}$`))
 

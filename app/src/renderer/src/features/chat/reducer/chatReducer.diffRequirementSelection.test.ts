@@ -53,8 +53,7 @@ const summary = (ref: string): GitDiffSummary => ({
   filesTruncated: false,
   commits: [],
   commitsTruncated: false,
-  commitFilesUnavailable: false,
-  uncommitted: { files: [], totals: { added: 0, removed: 0 }, filesTruncated: false }
+  commitFilesUnavailable: false
 })
 
 /** 코멘트 하나가 선택된 상태 — 여덟 자리의 공통 출발점이다. */

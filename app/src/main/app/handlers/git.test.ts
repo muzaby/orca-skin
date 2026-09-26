@@ -8,17 +8,21 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { handleMock, gitDiffSummaryMock, gitDiffPatchMock } = vi.hoisted(() => ({
+const { handleMock, gitSnapshotMock, gitDiffPatchMock } = vi.hoisted(() => ({
   handleMock: vi.fn(),
-  gitDiffSummaryMock: vi.fn(async () => ({ kind: 'clean' })),
+  gitSnapshotMock: vi.fn(async () => ({ kind: 'clean' })),
   gitDiffPatchMock: vi.fn(async () => ({ kind: 'empty-patch' }))
 }))
 vi.mock('../../infra/ipc/handle', () => ({ handle: handleMock }))
 vi.mock('../../infra/git/git-diff', () => ({
   EMPTY_DIFF_SUMMARY: { kind: 'clean' },
   EMPTY_DIFF_PATCH: { kind: 'empty-patch' },
-  gitDiffSummary: gitDiffSummaryMock,
   gitDiffPatch: gitDiffPatchMock
+}))
+
+vi.mock('../../infra/git/git-snapshot', () => ({
+  NOT_REPO: { isRepo: false, branch: null, detached: false, root: null, githubUrl: null },
+  gitSnapshot: gitSnapshotMock
 }))
 
 import { CHANNELS } from '../../../shared/ipc'
@@ -54,7 +58,7 @@ function documentedRows(): Map<string, string> {
 describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', () => {
   beforeEach(() => {
     handleMock.mockClear()
-    gitDiffSummaryMock.mockClear()
+    gitSnapshotMock.mockClear()
     gitDiffPatchMock.mockClear()
   })
 
@@ -66,13 +70,23 @@ describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', 
     }))
     registerGitHandlers({ getSessionBaseline })
     const summaryHandler = handleMock.mock.calls.find(
-      (call) => call[0] === CHANNELS.gitDiffSummary
-    )?.[3] as (request: { cwd: string; sessionId: string; commitSha?: string }) => Promise<unknown>
+      (call) => call[0] === CHANNELS.gitSnapshot
+    )?.[3] as (request: {
+      cwd: string
+      sessionId: string
+      commitSha?: string
+      includeSummary: boolean
+    }) => Promise<unknown>
     const patchHandler = handleMock.mock.calls.find(
       (call) => call[0] === CHANNELS.gitDiffPatch
     )?.[3] as (request: { cwd: string; sessionId: string; commitSha?: string }) => Promise<unknown>
 
-    await summaryHandler({ cwd: '/repo', sessionId: 'session-1', commitSha: 'a'.repeat(40) })
+    await summaryHandler({
+      includeSummary: true,
+      cwd: '/repo',
+      sessionId: 'session-1',
+      commitSha: 'a'.repeat(40)
+    })
     await patchHandler({ cwd: '/repo', sessionId: 'session-1', commitSha: 'a'.repeat(40) })
 
     expect(getSessionBaseline).toHaveBeenCalledTimes(2)
@@ -81,7 +95,8 @@ describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', 
     // 0211 ΔV4 — 이름(`baseRef`)이 커밋과 **함께** 간다. 한쪽만 가면 라벨이 다른 시점을 말한다.
     // 0211 ΔV4 r3 — `bornAt` 도 함께 간다. 이것이 없으면 `oid` 가 없는 세션의 기준선이
     // 질의 시점 HEAD 로 접혀 커밋할 때마다 따라 올라간다.
-    expect(gitDiffSummaryMock).toHaveBeenCalledWith({
+    expect(gitSnapshotMock).toHaveBeenCalledWith({
+      includeSummary: true,
       cwd: '/repo',
       baseOid: 'c'.repeat(40),
       baseRef: 'main',
@@ -105,9 +120,8 @@ describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', 
       [
         CHANNELS.gitBranches,
         CHANNELS.gitCheckout,
-        CHANNELS.gitStatus,
         // 0211 — 변경사항 타일의 읽기 2종(ΔV4 에서 본문 → 패치).
-        CHANNELS.gitDiffSummary,
+        CHANNELS.gitSnapshot,
         CHANNELS.gitDiffPatch
       ].sort()
     )
@@ -117,11 +131,10 @@ describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', 
   it('읽기 4종은 무해 폴백이고 전환만 reject 다', () => {
     const policies = registeredPolicies()
 
-    expect(policies.get(CHANNELS.gitStatus)).toBe('fallback')
     expect(policies.get(CHANNELS.gitBranches)).toBe('fallback')
     // 0211 — diff 읽기도 같은 규칙이다: 저장소가 아니어도 타일은 떠야 하고 그 판정이
     // 곧 "볼 것이 없음" 이라는 UI 입력이다.
-    expect(policies.get(CHANNELS.gitDiffSummary)).toBe('fallback')
+    expect(policies.get(CHANNELS.gitSnapshot)).toBe('fallback')
     expect(policies.get(CHANNELS.gitDiffPatch)).toBe('fallback')
     expect(policies.get(CHANNELS.gitCheckout)).toBe('reject')
   })
@@ -147,8 +160,11 @@ describe('git 채널 검증 실패 정책 — 코드 ↔ IPC_CONTRACT §2.6-b', 
     registeredPolicies()
     const byChannel = new Map(handleMock.mock.calls.map((call) => [call[0] as string, call[2]]))
 
-    expect(byChannel.get(CHANNELS.gitStatus)).toEqual({
-      fallback: { isRepo: false, branch: null, detached: false, root: null, githubUrl: null }
+    expect(byChannel.get(CHANNELS.gitSnapshot)).toEqual({
+      fallback: {
+        status: { isRepo: false, branch: null, detached: false, root: null, githubUrl: null },
+        summary: null
+      }
     })
     expect(byChannel.get(CHANNELS.gitBranches)).toEqual({
       fallback: { current: null, branches: [] }

@@ -1,6 +1,6 @@
 import { chatReducer, initialChatState } from '../../reducer/chatReducer'
 import { describe, expect, it, vi } from 'vitest'
-import type { GitDiffSummary } from '../../../../../../shared/ipc'
+import type { GitDiffSummary, GitSnapshotResult } from '../../../../../../shared/ipc'
 import {
   createGitSnapshotQueryOwner,
   gitSnapshotRequestKey,
@@ -16,10 +16,17 @@ const SUMMARY_A: GitDiffSummary = {
   filesTruncated: false,
   commits: [],
   commitsTruncated: false,
-  commitFilesUnavailable: false,
-  uncommitted: { files: [], totals: { added: 0, removed: 0 }, filesTruncated: false }
+  commitFilesUnavailable: false
 }
 const SUMMARY_B: GitDiffSummary = { ...SUMMARY_A, files: [] }
+const SNAPSHOT_A: GitSnapshotResult = {
+  status: { isRepo: true, branch: 'a', detached: false, root: '/repo', githubUrl: null },
+  summary: SUMMARY_A
+}
+const SNAPSHOT_B: GitSnapshotResult = {
+  status: { ...SNAPSHOT_A.status, branch: 'b' },
+  summary: SUMMARY_B
+}
 
 interface Request {
   key: string
@@ -27,11 +34,11 @@ interface Request {
 }
 
 interface QueryOwner {
-  run(
+  run<T>(
     key: string,
-    load: () => Promise<GitDiffSummary>,
+    load: () => Promise<T>,
     onStart: (request: Request) => void,
-    onResult: (request: Request, summary: GitDiffSummary) => void
+    onResult: (request: Request, summary: T) => void
   ): () => void
 }
 
@@ -49,11 +56,11 @@ describe('git snapshot query owner', () => {
   })
 
   it('같은 request key의 B가 먼저 끝나면 늦은 A 결과를 버린다', async () => {
-    let resolveA!: (summary: GitDiffSummary) => void
-    let resolveB!: (summary: GitDiffSummary) => void
-    const loadA = vi.fn(() => new Promise<GitDiffSummary>((resolve) => (resolveA = resolve)))
-    const loadB = vi.fn(() => new Promise<GitDiffSummary>((resolve) => (resolveB = resolve)))
-    const results: GitDiffSummary[] = []
+    let resolveA!: (summary: GitSnapshotResult) => void
+    let resolveB!: (summary: GitSnapshotResult) => void
+    const loadA = vi.fn(() => new Promise<GitSnapshotResult>((resolve) => (resolveA = resolve)))
+    const loadB = vi.fn(() => new Promise<GitSnapshotResult>((resolve) => (resolveB = resolve)))
+    const results: GitSnapshotResult[] = []
     const starts: Request[] = []
     const owner: QueryOwner = createGitSnapshotQueryOwner()
     const key = gitSnapshotRequestKey('/repo', 's1')
@@ -70,15 +77,16 @@ describe('git snapshot query owner', () => {
       (request) => starts.push(request),
       (_request, summary) => results.push(summary)
     )
-    resolveB(SUMMARY_B)
+    resolveB(SNAPSHOT_B)
     await Promise.resolve()
-    resolveA(SUMMARY_A)
+    resolveA(SNAPSHOT_A)
     await Promise.resolve()
 
     expect(loadA).toHaveBeenCalledTimes(1)
     expect(loadB).toHaveBeenCalledTimes(1)
     expect(starts.map((request) => request.generation)).toEqual([1, 2])
-    expect(results).toEqual([SUMMARY_B])
+    expect(results).toEqual([SNAPSHOT_B])
+    expect(results.map((result) => result.status.branch)).toEqual(['b'])
   })
 
   it('화면 재마운트의 새 owner는 저장된 패치보다 새 세대를 발급한다', () => {
@@ -111,18 +119,19 @@ describe('git snapshot query owner', () => {
   })
 
   it('owner cleanup 뒤 도착한 결과는 commit하지 않는다', async () => {
-    let resolve!: (summary: GitDiffSummary) => void
-    const results: GitDiffSummary[] = []
+    let resolve!: (summary: GitSnapshotResult) => void
+    const results: GitSnapshotResult[] = []
     const cancel = createGitSnapshotQueryOwner().run(
       'key',
-      () => new Promise<GitDiffSummary>((done) => (resolve = done)),
+      () => new Promise<GitSnapshotResult>((done) => (resolve = done)),
       () => undefined,
       (_request, summary) => results.push(summary)
     )
     cancel()
-    resolve(SUMMARY_A)
+    resolve(SNAPSHOT_A)
     await Promise.resolve()
 
     expect(results).toEqual([])
+    expect(results.map((result) => result.status)).toEqual([])
   })
 })

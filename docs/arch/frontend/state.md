@@ -70,6 +70,8 @@ interface SessionEntry {
 
 `gitSnapshot`과 `gitSnapshotRequest`는 세션 엔트리 안에서 현재 비교 범위와 조회 세대를 관리한다. 패치의 Git 비교 좌표와 요청 형식은 [IPC Git 계약](../../IPC_CONTRACT.md#26-b-git-컴포저-브랜치-칩)이 정본이다.
 
+`useGitSnapshot`은 하나의 effect와 query owner로 status와 summary를 받는다. 초기·cwd 변경에는 상태만 요청하고 턴 종료·수동 새로 고침에는 요약을 함께 요청한다. sessionId만 바뀌면 조회하지 않으며 cleanup이나 새 요청 뒤의 늦은 응답은 두 결과 모두 버린다. 랜딩 브랜치 칩의 전환 성공은 응답에 포함된 status로 갱신한다.
+
 | 경계 | 현재 동작 | 구현 위치 |
 |---|---|---|
 | 새 대화 브랜치·워크트리 | 현재 cwd의 Git 저장소 확인 후 브랜치와 워크트리 체크박스를 함께 표시한다. 미확인·실패·비저장소에서는 묶음 전체를 숨긴다. 체크박스와 라벨 전체를 눌러 선택하며, 다른 작업 경로를 고르면 이전 격리 선택을 해제한다. | `components/CwdPanel.tsx`·`composer/BranchChip.tsx`·`composer/WorktreeToggle.tsx`, `chatReducer.ts`의 `SET_CWD` |

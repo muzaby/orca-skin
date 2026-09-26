@@ -71,14 +71,13 @@ export const CHANNELS = {
   artifactOpenFolder: 'orca:artifact:openFolder',
   // 컴포저 브랜치 칩(작업 경로의 git 상태·브랜치 목록·전환). 작업 경로가 git 저장소가 아니면
   // status 가 `isRepo:false` 를 돌려주고 renderer 는 칩 자체를 렌더하지 않는다.
-  gitStatus: 'orca:git:status',
+  gitSnapshot: 'orca:git:snapshot',
   gitBranches: 'orca:git:branches',
   gitCheckout: 'orca:git:checkout',
   // 변경사항(diff) 타일의 읽기 2종 (0211). 요약은 cwd/세션 변경·턴 종료·새로고침에 부르고
   // 컴포저 git 행도 그 `totals` 를 읽는다 — 그래서 요약은 가볍게 둔다.
   // 패치는 **타일이 열려 있을 때 요약 세대당 1회**다(ΔV4 D-078): 파일 수와 무관하게 한 번이라
   // 파일마다 묻던 옛 `diffFile` 을 대신한다.
-  gitDiffSummary: 'orca:git:diffSummary',
   gitDiffPatch: 'orca:git:diffPatch',
   sessionCwd: 'orca:session:cwd',
   sessionList: 'orca:session:list',
@@ -1315,12 +1314,17 @@ export interface GitDiffSummary {
   commits: GitDiffCommit[]
   commitsTruncated: boolean
   commitFilesUnavailable: boolean
-  // HEAD 대비 현재 추적 변경. 세션 전체 목록과 독립적으로 잘린다.
-  uncommitted: {
-    files: GitDiffFileEntry[]
-    totals: GitDiffTotals
-    filesTruncated: boolean
-  }
+}
+
+export interface GitSnapshotRequest {
+  cwd: string
+  sessionId?: string
+  includeSummary: boolean
+}
+
+export interface GitSnapshotResult {
+  status: GitStatus
+  summary: GitDiffSummary | null
 }
 
 // ── git diff 패치 (변경사항 타일 본문, 0211 ΔV4) ─────────────────────────────
@@ -1388,7 +1392,7 @@ export interface GitCheckoutRequest {
 // 적용됐는지 값으로 실어야 화면이 "변경은 스태시됐고 브랜치는 그대로"를 말할 수 있다 —
 // `discard` 는 되돌릴 수 없으므로 이것이 안 보이면 데이터 유실로 읽힌다.
 export type GitCheckoutResult =
-  | { ok: true; branch: string }
+  | { ok: true; branch: string; status: GitStatus }
   | { ok: false; reason: 'dirty'; from: string | null; stat: GitDirtyStat }
   | { ok: false; reason: 'not-repo' | 'error'; message: string; applied?: GitDirtyResolution }
 

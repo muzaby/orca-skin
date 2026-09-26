@@ -63,12 +63,7 @@ const summary: GitDiffSummary = {
     }
   ],
   commitsTruncated: false,
-  commitFilesUnavailable: false,
-  uncommitted: {
-    files: [{ path: 'src/b.ts', status: 'modified', added: 1, removed: 0, binary: false }],
-    totals: { added: 1, removed: 0 },
-    filesTruncated: false
-  }
+  commitFilesUnavailable: false
 }
 
 function render(props: Partial<Parameters<typeof DiffReview>[0]> = {}): string {

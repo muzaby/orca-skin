@@ -181,6 +181,14 @@ POP3 Mail Plugin은 HTTP가 아닌 메일 전송을 사용한다. `node:net`·`n
 | `loopback-callback.ts` (0181) | OAuth 루프백 콜백 1회성 리스너(127.0.0.1, RFC 8252). node `http` 만 쓴다 | — |
 | `vault.ts` | safeStorage 위 네임스페이스 뷰. 값·metadata·index (§1.4-b) | — |
 
+### 1.10 Git 실행 경계
+
+Git 명령은 `infra/git/gateway.ts`를 거쳐 `runner.ts`의 `execFile`로 실행한다. 실행 파일은 절대 PATH 항목에서 찾은 절대 경로이며 cwd에 의존하는 빈·상대 항목은 제외한다. 성공한 실행 파일 경로만 메모하고 실패한 탐색은 다음 요청에서 다시 시도한다.
+
+읽기는 `--no-optional-locks`와 `GIT_OPTIONAL_LOCKS=0`을 적용하며 전역 동시 실행을 제한한다. 같은 세대의 동일한 진행 중 요청만 공유하고 완료 결과는 저장하지 않는다. 쓰기는 저장소별 mutation queue를 사용하며 성공·실패 모두 세대를 전진시킨다. diff/log는 외부 diff·textconv 실행을 차단한다. 실행기 직접 import와 `child_process` import는 ESLint 경계가 제한한다.
+
+저장소 probe는 요청마다 좌표와 HEAD를 읽는다. snapshot의 status와 summary는 그 probe를 공유하며 누적 범위와 재시도의 끝점을 고정한다. 원격 URL은 매 요청 Git 설정 해석을 거쳐 읽으므로 전역 include·insteadOf 변경도 반영한다. 결과 계약은 [IPC Git 계약](../../IPC_CONTRACT.md#26-b-git-컴포저-브랜치-칩)을 따른다.
+
 ---
 
 

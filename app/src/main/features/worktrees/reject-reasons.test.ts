@@ -10,7 +10,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { execGit as exec, removeTempRoots } from '../../infra/git/temp-repo.testfixture'
 import type { DbQueries } from '../../infra/db'
-import * as repository from '../../infra/git/repository'
+import * as probe from '../../infra/git/probe'
 import { WorktreeService } from './service'
 
 // **파일 예산 117s** — 최악 케이스(거부 뒤 재시도)는 실제 git 을 직렬로 13회 띄운다
@@ -70,8 +70,7 @@ describe('준비 거부 이유는 send 단위다 (AC14 · VP-02)', () => {
     const dir = await repo()
     const { svc, rows } = await service()
     // runner ENOENT·권한 거부 등으로 git 실행 자체가 실패하는 상태.
-    vi.spyOn(repository, 'resolveRepoRoot').mockResolvedValue(null)
-    vi.spyOn(repository, 'gitAvailable').mockResolvedValue(false)
+    vi.spyOn(probe, 'probeRepo').mockResolvedValue({ kind: 'unavailable' })
 
     expect(await svc.prepare({ sourceCwd: dir, firstPrompt: 'work' })).toMatchObject({
       kind: 'rejected',
@@ -84,7 +83,7 @@ describe('준비 거부 이유는 send 단위다 (AC14 · VP-02)', () => {
     const plain = await mkdtemp(join(tmpdir(), 'orca-not-a-repo-'))
     roots.push(plain)
     const { svc } = await service()
-    vi.spyOn(repository, 'gitAvailable').mockResolvedValue(true)
+    vi.spyOn(probe, 'probeRepo').mockResolvedValue({ kind: 'not-repo' })
 
     expect(await svc.prepare({ sourceCwd: plain, firstPrompt: 'work' })).toMatchObject({
       kind: 'rejected',
@@ -96,7 +95,13 @@ describe('준비 거부 이유는 send 단위다 (AC14 · VP-02)', () => {
     const outside = await mkdtemp(join(tmpdir(), 'orca-outside-'))
     roots.push(outside)
     const { svc } = await service()
-    vi.spyOn(repository, 'resolveRepoRoot').mockResolvedValue(join(outside, 'elsewhere'))
+    vi.spyOn(probe, 'probeRepo').mockResolvedValue({
+      kind: 'repo',
+      root: join(outside, 'elsewhere'),
+      gitDir: '',
+      commonDir: '',
+      head: { kind: 'unborn', name: 'main' }
+    })
 
     expect(await svc.prepare({ sourceCwd: outside, firstPrompt: 'work' })).toMatchObject({
       kind: 'rejected',

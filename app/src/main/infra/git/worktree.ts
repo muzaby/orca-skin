@@ -1,5 +1,4 @@
-import { runGit, type GitRunResult } from './runner'
-import { withRepoMutation } from './mutation-queue'
+import { gitGateway, type GitGateway, type GitRunResult } from './gateway'
 
 export interface WorktreeEntry {
   path: string
@@ -7,36 +6,45 @@ export interface WorktreeEntry {
   head: string | null
 }
 
-export async function addWorktree(input: {
-  repoRoot: string
-  path: string
-  branch: string
-  base: string
-  signal?: AbortSignal
-}): Promise<GitRunResult> {
-  return withRepoMutation(input.repoRoot, () =>
-    runGit(input.repoRoot, ['worktree', 'add', '-b', input.branch, input.path, input.base], {
+export async function addWorktree(
+  input: {
+    repoRoot: string
+    path: string
+    branch: string
+    base: string
+    signal?: AbortSignal
+  },
+  gateway: GitGateway = gitGateway
+): Promise<GitRunResult> {
+  return gateway.mutate(input.repoRoot, (write) =>
+    write(input.repoRoot, ['worktree', 'add', '-b', input.branch, input.path, input.base], {
       timeoutMs: 30_000,
       ...(input.signal ? { signal: input.signal } : {})
     })
   )
 }
 
-export async function removeWorktree(input: {
-  repoRoot: string
-  path: string
-}): Promise<GitRunResult> {
-  return withRepoMutation(input.repoRoot, () =>
-    runGit(input.repoRoot, ['worktree', 'remove', input.path], { timeoutMs: 30_000 })
+export async function removeWorktree(
+  input: {
+    repoRoot: string
+    path: string
+  },
+  gateway: GitGateway = gitGateway
+): Promise<GitRunResult> {
+  return gateway.mutate(input.repoRoot, (write) =>
+    write(input.repoRoot, ['worktree', 'remove', input.path], { timeoutMs: 30_000 })
   )
 }
 
-export async function deleteBranch(input: {
-  repoRoot: string
-  branch: string
-}): Promise<GitRunResult> {
-  return withRepoMutation(input.repoRoot, () =>
-    runGit(input.repoRoot, ['branch', '-d', input.branch])
+export async function deleteBranch(
+  input: {
+    repoRoot: string
+    branch: string
+  },
+  gateway: GitGateway = gitGateway
+): Promise<GitRunResult> {
+  return gateway.mutate(input.repoRoot, (write) =>
+    write(input.repoRoot, ['branch', '-d', input.branch])
   )
 }
 
@@ -59,7 +67,18 @@ export function parseWorktreeList(stdout: string): WorktreeEntry[] {
     .filter((entry) => entry.path.length > 0)
 }
 
-export async function listWorktrees(repoRoot: string): Promise<WorktreeEntry[] | null> {
-  const result = await runGit(repoRoot, ['worktree', 'list', '--porcelain'], { readOnly: true })
+export async function listWorktrees(
+  repoRoot: string,
+  gateway: GitGateway = gitGateway
+): Promise<WorktreeEntry[] | null> {
+  const result = await gateway.read(repoRoot, ['worktree', 'list', '--porcelain'])
   return result.ok ? parseWorktreeList(result.stdout) : null
+}
+
+export async function repairWorktree(
+  repoRoot: string,
+  worktreeRoot: string,
+  gateway: GitGateway = gitGateway
+): Promise<GitRunResult> {
+  return gateway.mutate(repoRoot, (write) => write(repoRoot, ['worktree', 'repair', worktreeRoot]))
 }

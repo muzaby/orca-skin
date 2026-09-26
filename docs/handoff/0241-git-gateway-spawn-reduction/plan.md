@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-09-25 |
 | 매핑 | — (브랜치 `claude/git-infrastructure-performance-4f58s3`) |
-| 상태 | **READY** (ΔV2 — §22 G6~G8 닫음) |
+| 상태 | **IMPL_DONE** — r1 구현·자기검사 완료, Claude 독립 검증 대기 (§24) |
 | 보완 검토 | Codex r1(§20) → Claude ΔV1(§21) → Codex 재검토(§22) → Claude ΔV2(§23) · 2026-09-26 |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | V1 = `0241:V1@f682cc2` · ΔV1 = `0241:ΔV1@2ce833e` (ΔV2의 상속 기준) |
@@ -986,3 +986,172 @@ export function rangeArgs(range: DiffRange): { diff: [string, string]; log: stri
 착수 전 테스트 seam 대조에서 AC11의 절대 경로와 `runner.test.ts`의 bare `git` 기대, AC20의 probe 통합과 기존 준비 경로 mock 사이의 변경 대상을 추가로 확인했다. 기능 계약을 바꾸지 않고 처분 표 R21~R23만 보완하며, 이 정정은 구현과 별도 설계 커밋으로 기록한다.
 
 backend 회귀 실행에서 ΔV2 내부 범위 타입의 정확 비교와 실행기 호출 술어의 양성 표본을 추가로 확인했다. R24~R25는 기존 동작·검사 강도를 유지하는 대상 갱신이며 별도 설계 커밋으로 기록한다.
+
+## 24. [구현자 기입] r1 — 2026-09-27
+
+### 설계 리뷰
+
+- 동의 / 그대로 진행: 유효 `V1 + ΔV1 + ΔV2`의 D-021·D-022(완료 결과·origin 캐시 없음), D-027·D-028(누적 H / 선택 C 구분)을 구현했다.
+- 이견 / 현실성 문제: §7의 기존 테스트 수는 실제 케이스 수와 달랐다. 예를 들어 선택 커밋은 26건이 아닌 3건, legacy-paths는 16건이 아닌 6건이다. 파일·행의 행동 단언을 기준으로 검증했으며 AC를 줄이지 않았다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 착수 전 seam·양성 표본 차이는 §23.6 R21~R25로 별도 설계 커밋에 반영한 뒤 구현했다.
+
+### 강제 지점 전수 (§10 대조)
+
+재현 명령·후보 분류·차집합은 [r1 증거](evidence/r1-evidence.md)의 「강제 지점 검색과 분류」에 있다. 아래 분모는 계약별 자리 수다. 같은 호출이 서로 다른 계약에 속하면 각 행에서 센다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-06·12 | EP-01 읽기 정책 | 실행 직전 1 | 1/1 | gateway.read sink 1; safety/execution의 정책 위반 기록 `[]` | — |
+| VP-06 | EP-02 외부 diff/textconv 차단 | diff/log 6 | 6/6 | summary·normal/fallback history·full/limited patch·shortstat; M04~M09 모두 red | — |
+| VP-05·17 | EP-04 절대 실행 파일 | exec 1 | 1/1 | runner exec(executable) 1; fake executable 양성 마커 후 실제 요청 마커 없음 | — |
+| VP-04·08·16 | EP-05 쓰기·세대 | 쓰기 8 + 세대 1 | 9/9 | stash/commit/reset/checkout/add/remove/delete/repair; execution·gateway·queue-entry 통과 | — |
+| VP-04·07·11 | EP-07 checkout status | DTO 반환 1 | 1/1 | 새 branch의 정확한 status, 다음 snapshot과 동일; M10 red | — |
+| VP-07·13 | EP-08 renderer 조회 | 소유자 3 | 3/3 | status 래퍼 2 + snapshot 1; owner 스윕 차집합 `[]`; M20 red | — |
+| VP-02·04 | EP-09 현재 origin | status 생산 2 | 2/2 | snapshot·checkout의 buildStatus; local/global URL 변경 반영, M01 red | — |
+| VP-09·12 | EP-10 실행 경계 | 설정 1 | 1/1 | lint 0 error; 내부/외부 import·re-export·dynamic·child_process 7변이 거절 | — |
+| VP-01·03·20 | EP-11a 누적 H | 끝점 6 | 6/6 | diff·history 2·bornAt·patch 2; M11~M16 각 red, 금지 HEAD 인자 `[]` | — |
+| VP-03·03R·20 | EP-11b 선택 C | 끝점 3 | 3/3 | cat-file·patch 2; M17~M19 각 red, 기존 선택 커밋 3케이스 무수정 통과 | — |
+
+합계 **33/33**(계약별 중복 포함). EP-03·EP-06·구 EP-11은 SUPERSEDED라 제외했다. 모집단에서 미분류로 남은 실행 edge는 없다(증거 문서의 집합별 차집합 `[]`). §10 밖에 새 규범 행이 필요한 지점은 발견하지 않았다.
+
+**V-pair 자기확인** — 독립 검증의 PASS가 아니다. 아래 파일은 `app/src` 안의 유일한 동명 테스트를 뜻한다.
+
+| Pair | requiredness | 자기 상태 | 직접 관측 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | git-snapshot: 반복 2/4회, legacy 반복 3/5회 | not selected — 정확한 실행 기록 |
+| VP-02 | REQUIRED | SELF_PASS | git-snapshot/probe/git-cli: 상태·unborn·detached·remote 변경 | M01 red |
+| VP-03 | REQUIRED | SELF_PASS | 반복 patch 2/3/1회, cumulative/selected fallback 같은 끝점 | M16 red |
+| VP-03R | REGRESSION | SELF_PASS | git-diff-commit 3케이스, 파일 diff 0줄 | not selected — 기존 직접 oracle |
+| VP-04 | REQUIRED | SELF_PASS | git-execution: clean 5·dirty 2·해소별 6, 정확한 status | not selected — 실저장소 결과 |
+| VP-05 | REQUIRED | SELF_PASS | git-executable·git-safety·git-execution: cwd fake 미실행·unavailable 0회·재탐색 | M02 red |
+| VP-06 | REQUIRED | SELF_PASS | safety의 외부 프로그램 마커 부재·read/write 위반 차집합 `[]` | M03~M09 red |
+| VP-07 | REQUIRED | SELF_PASS | 계획 6계기·owner 세대·checkout 칩 갱신/추가 조회 0 | M10 red |
+| VP-08 | REQUIRED | SELF_PASS | git-execution prepare 4회, prepare-worktree 신규 probe/resume 0회, legacy-paths 6케이스 | not selected — 직접 결과 |
+| VP-09 | REQUIRED | SELF_PASS | lint 0 error, AC24 처분 밖 기존 테스트 변경 0 | lint 7변이 red |
+| VP-10 | REQUIRED | SELF_PASS | git-snapshot의 동일 gateway 커밋 전후·반복 2→4→4 | not selected — 실저장소 결과 |
+| VP-11 | REQUIRED | SELF_PASS | checkout 반환 status = 이후 snapshot status | not selected — 실저장소 결과 |
+| VP-12 | REQUIRED | SELF_PASS | production 경계 lint·feature 스윕·읽기/쓰기 기록 차집합 | VP-09의 7변이 공유 |
+| VP-13 | REQUIRED | SELF_PASS | handler·schema·ipc-documentation·gitIdentityRemoteWiring 통과 | not selected — 계약 거절/배선 oracle |
+| VP-14 | REQUIRED | SELF_PASS | probe 3케이스에 정상·하위·worktree·unborn·detached·비저장소·없는 경로 7상태 | not selected — 실제 저장소 |
+| VP-16 | REQUIRED | SELF_PASS | in-flight 공유·완료 제거·세대·동시 4·read 포화 중 write 진행 | not selected — 지연 runner |
+| VP-17 | REQUIRED | SELF_PASS | posix/win32 PATH 규칙 3케이스 | M02 공유 |
+| VP-18 | REQUIRED | SELF_PASS | 계획 표·status/summary 늦은 응답 폐기·lifecycle 4케이스 | not selected — 요청/결과 직접 관측 |
+| VP-20 | REQUIRED | SELF_PASS | probe 완료 뒤 커밋 경합 5종 + fallback 2종, 결과 H/C 고정 | M11~M19 red |
+| VP-21 | REQUIRED | SELF_PASS | rangeArgs cumulative 동등/상이·commit P=C 포함 반환 표 | not selected — 순수 함수 직접 oracle |
+
+유효 pair 집합에서 위 행을 뺀 결과 `[]`: **REQUIRED 19 + REGRESSION 1 = 20 SELF_PASS**, SELF_BLOCKED 0. VP-15·VP-19는 ΔV1에서 폐기됐다.
+
+### 이번 라운드 수정의 잠금
+
+구체적인 변이 코드·실패 수는 [재현 스크립트](evidence/r1-mutations.cjs)와 [실행 결과](evidence/r1-mutations.json)에 보존했다. 각 변이 후 원문 복구, 전체 스위트 green을 확인했다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M01 buildStatus: local config 동일하면 URL 재사용 | VP-02 | 최초 | consistency/global insteadOf 1 | 잠김 |
+| M02 executable: 상대 PATH 필터 제거 | VP-05·17 | 최초 | executable/posix·win32 2 | 잠김 |
+| M03 gateway: 읽기 prefix 제거 | VP-06 | 최초 | gateway/applies read flags 1 | 잠김 |
+| M04 summary diff 안전 플래그 제거 | VP-06 | 최초 | consistency/summary pins 1 | 잠김 |
+| M05 normal history 안전 플래그 제거 | VP-06 | 최초 | consistency/summary pins 1 | 잠김 |
+| M06 fallback history 안전 플래그 제거 | VP-06 | 최초 | consistency/history-fallback pins 1 | 잠김 |
+| M07 full patch 안전 플래그 제거 | VP-06 | 최초 | consistency/patch pins 1 | 잠김 |
+| M08 limited patch 안전 플래그 제거 | VP-06 | 최초 | consistency/cumulative fallback 1 | 잠김 |
+| M09 checkout shortstat 안전 플래그 제거 | VP-06 | 최초 | execution/checkout returns 1 | 잠김 |
+| M10 checkoutOutcome status 폐기 | VP-07 | 최초 | branchChipState/성공 1 | 잠김 |
+| M11 summary 끝점 H→HEAD | VP-20 | 최초 | consistency/summary pins 1 | 잠김 |
+| M12 normal history H→HEAD | VP-20 | 최초 | consistency/summary pins 1 | 잠김 |
+| M13 fallback history H→HEAD | VP-20 | 최초 | consistency/history-fallback pins 1 | 잠김 |
+| M14 bornAt H→HEAD | VP-20 | 최초 | consistency/bornAt pins 1 | 잠김 |
+| M15 cumulative full H→HEAD | VP-20 | 최초 | consistency/patch pins 1 | 잠김 |
+| M16 cumulative limited H→HEAD 재조립 | VP-03·20 | 최초 | consistency/cumulative fallback 1 | 잠김 |
+| M17 cat-file C→HEAD | VP-20 | 최초 | consistency/selected pins 1 | 잠김 |
+| M18 selected full C→HEAD | VP-20 | 최초 | consistency/selected pins 1 | 잠김 |
+| M19 selected limited C→HEAD | VP-20 | 최초 | consistency/selected fallback 1 | 잠김 |
+| L01 feature에서 상대 runner import | VP-09·12 | 최초 | git-boundary/external relative runner 1 | 잠김 |
+| L02 infra에서 상대 runner import | VP-09·12 | 최초 | git-boundary/internal relative runner 1 | 잠김 |
+| L03 runner re-export | VP-09·12 | 최초 | git-boundary/runner re-export 1 | 잠김 |
+| L04 runner 동적 import | VP-09·12 | 최초 | git-boundary/dynamic runner 1 | 잠김 |
+| L05 child_process import | VP-09·12 | 최초 | git-boundary/child_process 1 | 잠김 |
+| L06 node:child_process import | VP-09·12 | 최초 | git-boundary/node:child_process 1 | 잠김 |
+| L07 child_process 동적 import | VP-09·12 | 최초 | git-boundary/dynamic child_process 1 | 잠김 |
+| M20 identity owner에 snapshot 호출 추가 | 새 소유자 스윕 oracle | 최초 | gitQueryOwner 1 | 잠김 |
+| M21 effect deps에서 tick 제거 | 새 effect 배선 oracle | 최초 | gitQueryReason 1 | 잠김 |
+| M22 feature에 직접 runGit 호출 추가 | R25 양성 표본 갱신한 기존 스윕 | 최초 | ipc-integration/features 직접 실행 금지 1 | 잠김 |
+
+분모 검산: **선택 증거 26 · 인용 변이 0 · 신설/갱신 oracle 3 = 표 행 29**. VP-03/M16·VP-12/lint·VP-17/M02는 공유 행을 중복 계산하지 않았다. 이전 구현 라운드의 red 증거를 대체한 것은 없다. 삭제한 캐시 oracle은 D-021의 폐기 처분이며 동작을 보존해야 하는 R19·R20은 무수정이다. 그 밖은 해당 없음 — 직접 행동 oracle이다.
+
+### Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 대면 문구·상태의 소비자 | 새 문구 없음. checkout.status→checkoutOutcome→칩의 실제 setter를 테스트했다. | 없음 |
+| seam 재배치와 정리 스코프 | gateway 주입은 기존 호출에 전달한다. 세대·read slot·in-flight 정리는 각각 finally가 소유한다. | 포화 읽기 중 쓰기·throw 후 세대 테스트 통과 |
+| 새 실패 경로와 Part I 전이 | 실행 파일 없음은 기존 unavailable/준비 거절, summary null은 기존 실패 action으로 연결된다. | handler fallback·reducer 기존 테스트 통과 |
+| 실패가 무반응으로 보이는가 | 리뷰 P2에서 초기 응답 유실을 재현했다. 같은 cwd의 진행 중 status 요청을 이어받도록 고쳤다. | lifecycle RED 2→GREEN 4 |
+| 늦은 응답이 화면을 되돌리는가 | 새 요청 세대·cwd 변경·unmount·summary 세션 변경 뒤 응답을 폐기한다. | owner·lifecycle 테스트 통과 |
+
+### 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| I1 | effect 통합 뒤 동일 cwd 세션 전환/StrictMode가 초기 status 응답을 잃음 | ✅ 선조치 — 진행 중 status-only Promise를 새 owner가 이어받음 | 실제 hook lifecycle 수정 전 2 fail, 수정 후 4 pass; 별도 리뷰 재확인 |
+| I2 | plan의 기존 스위트 케이스 수가 실제 수와 다름 | ⚠️ 보고만 — 규범 동작은 유지하고 실제 케이스 수로 보고 | 선택 커밋 3·legacy-paths 6; 모든 해당 기존 케이스 통과 |
+| I3 | dirty 검사와 mutation queue 획득 사이 외부 변경 가능 | ⚠️ 기존 한계 보고 — 이 턴에서 새로운 원자성 계약을 만들지 않음 | 기존 gitCheckout도 검사 후 큐 진입; §23.4 실제 HEAD 예외 유지 |
+| I4 | EMPTY_TREE_OID가 SHA-1 고정이라 SHA-256 저장소의 root 비교 미지원 | ⚠️ 기존 한계 보고 | 기존 empty-tree 상수·40자리 IPC commit schema 유지 |
+
+**설계 대비 명시적 차이**: Part I의 차이는 없다. §23.5의 개념적 DiffRange를 기존 GitDiffBase와 합친 판별 유니온으로 표현했고, 패치 full/limited가 `runPatch`를 공유한다. 입력 분기와 반환 표는 VP-21로 확인했다. I1의 진행 중 요청 재사용은 결과 캐시를 만들지 않는다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 진행 중 status가 완료 뒤 남을 가능성 | finally에서 해당 Promise만 해제; 완료 결과 캐시 없음, AC16 lifecycle |
+| 공유 | 다른 cwd/summary가 status-only 요청을 이어받을 가능성 | 같은 cwd·status-only만 재사용, lifecycle 격리 2케이스 |
+| 재진입 | effect cleanup 뒤 응답 소유자가 없어질 가능성 | session 전환·StrictMode 2케이스 1 API·1 status 반영 |
+| 다른 무효화 축 | 새 tick이 옛 요청을 다시 수용할 가능성 | 새 query 시작 시 pending 참조 교체, owner의 세대 폐기 단언 |
+
+### 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | infra/git의 executable·gateway·probe·snapshot 및 diff/checkout/worktree; app 준비·이관·IPC; shared/preload/renderer 소비처; lint·테스트·현재 상태 문서 |
+| 실행 명령 | [증거 문서](evidence/r1-evidence.md)의 gate·검색·변이 재현 명령 |
+| 관측한 게이트 산출 | vitest 579파일/5,344 통과·기존 1 skip; scripts 128 통과; typecheck 3구성; lint 0 error/기존 warning 1; 문서 검사 정상 |
+| V-pair 자기확인 | SELF_PASS 20 / SELF_BLOCKED 0 |
+| 강제 지점 전수 | 33/33 계약별 자리, 후보 차집합 `[]` |
+| AC 자기보고 | **25/25** — 아래 개별 관측 |
+| 합계 검산 | **✅ 25 · ⚠️ 0 · ❌ 0 = 총 25**. 활성 AC1~22·24~26, 폐기 AC23 제외 |
+| 블로커 / 역질문 | 없음. I3·I4는 기존 한계이며 이번 필수 계약의 실패가 아니다. |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+| AC | 자기결과 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | git-snapshot: B=H 요청 두 번 모두 probe·remote 2회 |
+| AC2 | ✅ | git-snapshot: 커밋 전후 2→4→4, 파일·커밋 새 OID 반영 |
+| AC3 | ✅ | snapshot 매번 2회, set-url 및 global insteadOf 변경 즉시 반영 |
+| AC4 | ✅ | git-snapshot: 비저장소 2회·없는 경로 0회, NOT_REPO |
+| AC5 | ✅ | unborn snapshot 4회, main·detached false·base none |
+| AC6 | ✅ | git-cli/probe의 detached HEAD 결과 통과 |
+| AC7 | ✅ | 반복 cumulative patch 2·selected patch 3·B=H 1회; 선택 커밋 3케이스 무수정 |
+| AC8 | ✅ | full 실패 때 커밋을 끼워도 limited의 인자는 context만 다름; 두 범위 각각 통과 |
+| AC9 | ✅ | safety/execution의 읽기·쓰기 정책 위반 집합 `[]` |
+| AC10 | ✅ | 실행 가능한 external diff/textconv 양성 마커 확인 후 실제 읽기 마커 없음; diff/log 누락 플래그 `[]` |
+| AC11 | ✅ | Windows의 실제 fake 실행 파일 마커 미생성, posix/win32 PATH 규칙·M02 검출 |
+| AC12 | ✅ | unavailable spawn 0·prepare git-unavailable·다음 요청 real Git 2회 |
+| AC13 | ✅ | gateway: 동시 동일 요청 1회 공유, mutation 후 같은 요청 새 실행, 완료 결과 제거 |
+| AC14 | ✅ | 10개 읽기의 최대 in-flight 4 |
+| AC15 | ✅ | clean 5·dirty 2·해소 3종 각 6회, 정확한 전환 후 status |
+| AC16 | ✅ | 계획 6계기·owner 응답 폐기·실제 hook lifecycle 4케이스 |
+| AC17 | ✅ | BranchChip.snapshot: 성공 status가 setter에 도착, status/snapshot 추가 호출 0 |
+| AC18 | ✅ | gitIdentityRemoteWiring 기존 파일 무수정 통과; status 래퍼→snapshot(false) |
+| AC19 | ✅ | schema 잘못된 요청 4종 거절; 구 IPC 채널/DTO 필드 제거; 문서 inventory 일치 |
+| AC20 | ✅ | prepare baseRef 없음 4회; passthrough 신규 probe·resume 0; service 회귀 통과 |
+| AC21 | ✅ | legacy-paths 기존 6케이스 통과; execution의 실제 repair→remove→delete 세대 진행 |
+| AC22 | ✅ | import 경계 7변이 severity 2, production lint 0 error |
+| AC24 | ✅ | 기존 수정 테스트 24파일, 처분 표 밖 차집합 0; 각 hunk 처분 대조 및 전체 green |
+| AC25 | ✅ | legacy bornAt B=H 3·B≠H 5회 반복, rev-list 끝점 probe OID |
+| AC26 | ✅ | probe 완료 후 커밋 경합 5종 결과·끝점 차집합 `[]`, 9자리 변이 각각 red |
+
+### Review Signals — 사실만
+
+- 이전 라운드와 같은 축: 첫 구현 r1이며 독립 verify 전이다. §20·§22는 구현 전 설계 검토였고 코드 재구현 라운드는 아니다.
+- 막았어야 할 계약: AC16의 초기 조회·늦은 응답 폐기는 단독 계획/owner 테스트만으로 hook cleanup의 응답 유실을 잡지 못했다. 실제 hook lifecycle 테스트가 I1을 재현했다.
+- 환경 한계: Windows 샌드박스의 임시 경로 Node helper 실행 제한. 권한 확장 재실행으로 환경 실패를 분리했다. 테스트 assertion은 완화하지 않았다.
+- 현재 라운드·impl 턴: **r1**. 최종 코드 리뷰는 I1 수정 후 잔여 Important 없음을 보고했다. 독립 handoff-verify를 대신하지 않으며 다음 주체는 Claude다.

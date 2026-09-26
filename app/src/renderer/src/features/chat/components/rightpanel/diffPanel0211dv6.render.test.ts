@@ -45,8 +45,7 @@ const SUMMARY: GitDiffSummary = {
     }
   ],
   commitsTruncated: false,
-  commitFilesUnavailable: false,
-  uncommitted: { files: [], totals: { added: 0, removed: 0 }, filesTruncated: false }
+  commitFilesUnavailable: false
 }
 
 const EMPTY_PATCH: GitDiffPatch = {
